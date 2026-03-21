@@ -1,0 +1,51 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+# Project-local Codex config
+# SSoT: CLAUDE.md（共通ルール）→ 本ファイル（Codex固有設定）
+
+# --- Core settings ---
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+# プロジェクトドキュメントのフォールバック順序
+# Codex は instructions.md を優先読み込み。見つからない場合は CLAUDE.md にフォールバック
+project_doc_fallback_filenames = ["CLAUDE.md"]
+
+# --- Features ---
+[features]
+multi_agent = true
+
+# --- Agent orchestration ---
+[agents]
+max_threads = 4
+# 意図的な制限: オーケストレーターから1段階のみ委譲可能（再帰的な多段委譲は不要）
+max_depth = 1
+
+# -- 計画・調整 --
+
+[agents.orchestrator]
+config_file = "agents/orchestrator.toml"
+
+[agents.project_planner]
+config_file = "agents/project_planner.toml"
+
+[agents.workflow_conductor]
+config_file = "agents/workflow_conductor.toml"
+
+# -- コンテンツ作成 --
+
+[agents.documentation_writer]
+config_file = "agents/documentation_writer.toml"
+
+[agents.skill_designer]
+config_file = "agents/skill_designer.toml"
+
+# -- 調査 --
+
+[agents.explorer_agent]
+config_file = "agents/explorer_agent.toml"
+
+# --- Shell environment ---
+[shell_environment_policy]
+# Minimal env vars for basic shell operation. Secrets are excluded intentionally.
+include_only = ["PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL"]

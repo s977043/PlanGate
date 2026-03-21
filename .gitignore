@@ -11,6 +11,17 @@ node_modules/
 
 # Claude Code
 .claude/settings.local.json
+.claude/settings.json
+
+# Codex runtime (auto-generated)
+.codex/logs*.sqlite
+.codex/state*.sqlite*
+.codex/sessions/
+.codex/memories/
+.codex/shell_snapshots/
+.codex/tmp/
+.codex/skills/.system/
+.codex/version.json
 
 # IDE
 .idea/
