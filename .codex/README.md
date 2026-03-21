@@ -23,4 +23,4 @@ Codex で使うスキルはここに記録する。
 - `brainstorming` - `.claude/skills/brainstorming/SKILL.md`
 - `systematic-debugging` - `.claude/skills/systematic-debugging/SKILL.md`
 - `subagent-driven-development` - `.claude/skills/subagent-driven-development/SKILL.md`
-- `engineer-skill-creator` - `.claude/skills/engineer-skill-creator/SKILL.md`
+- `skill-creator` - `.claude/skills/skill-creator/SKILL.md`
