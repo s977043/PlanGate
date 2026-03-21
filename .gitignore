@@ -11,6 +11,10 @@ node_modules/
 
 # Claude Code
 .claude/settings.local.json
+.claude/settings.json
+
+# Codex auto-generated files
+.codex/version.json
 
 # IDE
 .idea/
