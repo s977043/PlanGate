@@ -181,4 +181,4 @@ Step 6でWARN/FAILが出た場合:
 ## 関連スキル
 
 - **ai-dev-workflow**: brainstorming完了後、実装計画の生成に使用
-- **engineer-skill-creator**: 新しいスキルの設計にbrainstormingを適用可能
+- **skill-creator**: 新しいスキルの設計にbrainstormingを適用可能

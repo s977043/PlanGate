@@ -56,13 +56,15 @@ obra/superpowersの思想（Iron Law、合理化テーブル、2-5分粒度、TD
 | ルール | `.claude/rules/` | 作業コンテキスト管理、レビュー原則 |
 | コマンド | `.claude/commands/` | `/working-context`, `/ai-dev-workflow` |
 | エージェント | `.claude/agents/` | `workflow-conductor`（exec管理の司令塔） |
-| スキル | `.claude/skills/` | 5スキル（下表参照） |
+| スキル | `.claude/skills/` | 7スキル（下表参照） |
 
 ### スキル一覧
 
 | スキル | 説明 |
 |--------|------|
-| `engineer-skill-creator` | 新しいClaude Codeスキルを対話的に設計・生成 |
+| `skill-creator` | 新しいClaude Codeスキルを対話的に設計・生成 |
+| `skill-optimizer` | 既存スキルの評価・改善 |
+| `skill-ops-planner` | スキルポートフォリオの運用計画・ロードマップ作成 |
 | `self-review` | 変更内容の12フェーズ体系的セルフレビュー |
 | `brainstorming` | アイデアから設計書（PBI INPUT PACKAGE）への昇華 |
 | `subagent-driven-development` | サブエージェント駆動の2段階レビュー開発 |
