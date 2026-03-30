@@ -1,6 +1,7 @@
 # Codex CLI プロジェクト指示
 
 > 本ファイルは Codex CLI 向けの薄いラッパー。プロジェクトルールの正本は `CLAUDE.md` にある。
+> ワークフロー: PlanGate v5（`docs/plangate.md`）
 
 ## 読み込み順序
 

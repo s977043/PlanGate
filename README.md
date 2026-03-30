@@ -18,12 +18,12 @@ AI駆動開発（AI-Driven Development）の実践知識・サンプル・ノウ
   /skills                - カスタムスキル
 ```
 
-## AI駆動開発ワークフロー v3
+## PlanGate v5
 
-PBI（プロダクトバックログアイテム）からPlan生成、レビュー、Agent実行までを体系化したワークフローを搭載しています。
-obra/superpowersの思想（Iron Law、合理化テーブル、2-5分粒度、TDD先行）を取り込んだv3。
+「計画を承認しないとAIは1行もコードを書けない」ゲート型ワークフロー。
+PBI（プロダクトバックログアイテム）からPlan生成、レビュー、Agent実行までを体系化し、obra/superpowersの思想（Iron Law、合理化テーブル、2-5分粒度、TDD先行）を取り込んだv5。
 
-詳細: [docs/ai-driven-development.md](docs/ai-driven-development.md)
+詳細: [docs/plangate.md](docs/plangate.md)
 
 ### クイックスタート（コマンド3つで完了）
 
@@ -34,7 +34,7 @@ obra/superpowersの思想（Iron Law、合理化テーブル、2-5分粒度、TD
 # 2. Plan + ToDo + Test Cases生成 → セルフレビュー → 外部AIレビュー（一括自動実行）
 /ai-dev-workflow TASK-XXXX plan
 
-# 3. 人間レビュー（C-3ゲート）後、Agent実行
+# 3. 人間レビュー（PlanGateゲート）後、Agent実行
 /ai-dev-workflow TASK-XXXX exec
 ```
 
@@ -55,7 +55,7 @@ obra/superpowersの思想（Iron Law、合理化テーブル、2-5分粒度、TD
 |---------|------|------|
 | ルール | `.claude/rules/` | 作業コンテキスト管理、レビュー原則 |
 | コマンド | `.claude/commands/` | `/working-context`, `/ai-dev-workflow` |
-| エージェント | `.claude/agents/` | `workflow-conductor`（exec管理の司令塔） |
+| エージェント | `.claude/agents/` | `workflow-conductor`（exec管理の司令塔、8役割: フェーズ遷移・品質ゲート・スキル委譲・status.md管理・fix loop管理・モード分岐制御・L-0管理・チェックポイント管理） |
 | スキル | `.claude/skills/` | 7スキル（下表参照） |
 
 ### スキル一覧
@@ -65,7 +65,7 @@ obra/superpowersの思想（Iron Law、合理化テーブル、2-5分粒度、TD
 | `skill-creator` | 新しいClaude Codeスキルを対話的に設計・生成 |
 | `skill-optimizer` | 既存スキルの評価・改善 |
 | `skill-ops-planner` | スキルポートフォリオの運用計画・ロードマップ作成 |
-| `self-review` | 変更内容の12フェーズ体系的セルフレビュー |
+| `self-review` | 変更内容の15項目体系的セルフレビュー |
 | `brainstorming` | アイデアから設計書（PBI INPUT PACKAGE）への昇華 |
 | `subagent-driven-development` | サブエージェント駆動の2段階レビュー開発 |
 | `systematic-debugging` | エビデンスベースの体系的デバッグ |
