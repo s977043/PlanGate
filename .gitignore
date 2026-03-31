@@ -23,6 +23,9 @@ node_modules/
 .codex/skills/.system/
 .codex/version.json
 
+# Agents (deprecated - use .claude/skills/ as canonical source)
+.agents/
+
 # IDE
 .idea/
 .vscode/
