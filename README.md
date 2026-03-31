@@ -2,6 +2,11 @@
 
 「計画を承認しないとAIは1行もコードを書けない」ゲート型AI駆動開発ワークフロー。
 
+## 解説記事
+
+<!-- TODO: note公開後にURLを差し替え -->
+- [AIコーディングの暴走を「仕組み」で止める — PlanGateという開発フロー](https://note.com/xxx)（note）
+
 ## 概要
 
 PlanGateは、PBI（プロダクトバックログアイテム）からPlan生成、レビュー、Agent実行までを体系化したゲート型ワークフローです。obra/superpowersの思想（Iron Law、合理化テーブル、2-5分粒度、TDD先行）を取り込み、Claude CodeやCodex CLIと組み合わせてAI駆動開発を実践するためのフレームワークを提供しています。
