@@ -1,10 +1,10 @@
-# ai-dev-lab
+# PlanGate
 
-AI駆動開発（AI-Driven Development）の実践知識・サンプル・ノウハウをまとめたリポジトリです。
+「計画を承認しないとAIは1行もコードを書けない」ゲート型AI駆動開発ワークフロー。
 
 ## 概要
 
-このリポジトリは、AIをフル活用した開発スタイル（AI-Driven Development）を探求・記録することを目的としています。Claude Codeの活用、AIエージェントの構築、効果的なプロンプト設計など、AI時代の開発手法を実践ベースでまとめています。
+PlanGateは、PBI（プロダクトバックログアイテム）からPlan生成、レビュー、Agent実行までを体系化したゲート型ワークフローです。obra/superpowersの思想（Iron Law、合理化テーブル、2-5分粒度、TDD先行）を取り込み、Claude CodeやCodex CLIと組み合わせてAI駆動開発を実践するためのフレームワークを提供しています。
 
 ## リポジトリ構成
 
