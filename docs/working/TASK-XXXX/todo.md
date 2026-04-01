@@ -85,11 +85,11 @@
   - files: [docs/working/TASK-XXXX/todo.md]
   - depends_on: [T-18]
 
-> 注: L-0〜V-4, PR作成, C-4はworkflow-conductorが自動制御するため、todo.mdには含めない。
+> 注: L-0〜V-4, PR作成はworkflow-conductorが自動制御するため、todo.mdには含めない。
 
 ## 👤 Humanタスク
 
-- [ ] {タスク内容} [Owner: human]
+- [ ] C-3: Plan/ToDo/Test Casesの人間レビュー（exec前ゲート） [Owner: human]
 - [ ] C-4: PRレビュー・承認（GitHub上） [Owner: human]
 
 ## ⚠️ 依存関係

@@ -42,7 +42,7 @@ Ready
   → Done
 ```
 
-> C-3がゲート（通過するまでAgent実行禁止）。L-0〜V-4, PR作成, C-4はworkflow-conductorが自動制御。
+> C-3/C-4がゲート（通過するまでAgent実行禁止）。L-0〜V-4, PR作成はworkflow-conductorが自動制御。
 
 ## ディレクトリ構造
 

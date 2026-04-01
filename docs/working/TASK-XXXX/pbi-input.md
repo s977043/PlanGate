@@ -8,17 +8,17 @@
 
 ## Context / Why
 
-なぜやるか
+{なぜやるかを記述}
 
 ## What（Scope）
 
 ### In scope
 
-やること
+{やることを記述}
 
 ### Out of scope
 
-やらないこと
+{やらないことを記述}
 
 ---
 
@@ -31,7 +31,7 @@
 
 ## Notes from Refinement
 
-議論で決まったこと
+{議論で決まったことを記述}
 
 ---
 

@@ -356,7 +356,7 @@ Work Breakdownを「2-5分粒度の実行可能なタスクリスト」に変換
 - [ ] 🚩 T-N+2: コミット作成 [Owner: agent] [depends_on: T-N+1] [files: -]
 - [ ] 🚩 T-N+3: status.md最終更新 [Owner: agent] [depends_on: T-N+2] [files: status.md]
 
-> 注: L-0〜V-4, PR作成, C-4 はworkflow-conductorが自動制御するため、todo.mdには含めない。
+> 注: L-0〜V-4, PR作成はworkflow-conductorが自動制御するため、todo.mdには含めない。
 
 ### 👤 Humanタスク（人間が実行）
 - [ ] C-3: Plan/ToDo/Test Casesの人間レビュー（exec前ゲート） [Owner: human]

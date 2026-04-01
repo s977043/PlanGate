@@ -35,5 +35,5 @@ Ready → In Progress
 
 詳細定義: .claude/agents/workflow-conductor.md を参照。
 ワークフロー詳細: docs/plangate.md を参照。
-プロジェクト指示は CLAUDE.md を参照。日本語でやり取りする。
+プロジェクト指示は AGENTS.md → docs/ai/project-rules.md（正本）を参照。日本語でやり取りする。
 """

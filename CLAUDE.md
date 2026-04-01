@@ -19,7 +19,7 @@
 
 ## 迷ったらの判断基準
 
-**優先順位**: CLAUDE.md > `docs/ai/project-rules.md` > `.claude/rules/` > `.claude/skills/`
+**優先順位**: `docs/ai/project-rules.md`（正本） > CLAUDE.md（ツール固有設定） > `.claude/rules/` > `.claude/skills/`
 
 - 既存コードを`Grep`/`Glob`で探索し、既存パターンに従う。一般論で上書きしない
 - 不明点はユーザーに確認する（AI運用原則第1原則に従う）

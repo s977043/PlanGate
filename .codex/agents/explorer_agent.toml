@@ -19,5 +19,5 @@ developer_instructions = """
 - .claude/ 配下の設定ファイル（agents, skills, rules, commands）
 - .codex/ 配下のCodex設定
 
-プロジェクト指示は CLAUDE.md を参照。日本語でやり取りする。
+プロジェクト指示は AGENTS.md → docs/ai/project-rules.md（正本）を参照。日本語でやり取りする。
 """
