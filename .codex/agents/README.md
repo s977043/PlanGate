@@ -1,6 +1,6 @@
 # Agent Definitions (Codex)
 
-> プロジェクト共通制約は `CLAUDE.md` を参照。Codex固有の登録一覧は `.codex/README.md` を参照。
+> プロジェクト共通制約は `AGENTS.md` → `docs/ai/project-rules.md`（正本）を参照。Codex固有の登録一覧は `.codex/README.md` を参照。
 
 このディレクトリには、Codex CLI向けのエージェント定義（`.toml`）が含まれています。
 ペルソナ詳細定義の正本は `.claude/agents/*.md` にあり、本ディレクトリの `.toml` は Codex固有設定（sandbox_mode, model_reasoning_effort）と要約版の指示を保持します。
@@ -30,7 +30,7 @@ Codex から利用するローカルスキルの正本は `.claude/skills/*/SKIL
 
 ## 関連ドキュメント
 
-- **[CLAUDE.md](../../CLAUDE.md)** - プロジェクトの憲法（最優先）
+- **[docs/ai/project-rules.md](../../docs/ai/project-rules.md)** - プロジェクトルール正本
 - **[.codex/README.md](../README.md)** - Codex固有の設定と登録一覧
 - **[.codex/config.toml](../config.toml)** - Codex CLI設定（エージェント登録・スレッド数等）
 - **[.claude/agents/](../../.claude/agents/)** - ペルソナ詳細定義の正本（Markdown）
