@@ -140,12 +140,13 @@ ai_dev_get_markdown_section() {
   section_title=$2
 
   awk -v target="## $section_title" '
+    { sub(/\r$/, "") }
+    found && /^## / {
+      exit
+    }
     $0 == target {
       found = 1
       next
-    }
-    found && /^## / {
-      exit
     }
     found {
       print
