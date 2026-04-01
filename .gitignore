@@ -24,8 +24,6 @@ node_modules/
 .codex/models_cache.json
 .codex/skills/.system/
 .codex/version.json
-.codex/auth.json
-.codex/models_cache.json
 
 # Agents skills (Codex CLI repo-owned skills)
 # .agents/skills/ は tracked（Codex CLI の project-scoped skill 正本）
