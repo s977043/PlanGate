@@ -93,8 +93,8 @@ docs/working/
 フェーズC-1（Prompt 2）で生成。以下を含める:
 
 - Planチェック（7項目）: 受入基準網羅性、Unknowns処理、スコープ制御、テスト戦略、Work Breakdown Output、依存関係、動作検証自動化
-- ToDoチェック（5項目）: Owner明確性、Agent/Human分離、実行順序、チェックポイント設定、動作検証タスクの具体性
-- TestCasesチェック（3項目）: 受入基準→テストケースの網羅性、テストケースの具体性、エッジケースの考慮
+- ToDoチェック（5項目）: タスク粒度、depends_on設定、チェックポイント設定、Iron Law遵守、完了条件
+- TestCasesチェック（3項目）: 受入基準との紐付き、Edge case網羅、自動化可否
 - 判定: PASS / WARN / FAIL + 指摘事項
 
 ### review-external.md（外部AIレビュー結果）
