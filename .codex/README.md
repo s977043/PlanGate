@@ -4,7 +4,7 @@ Codex 固有の設定はこのディレクトリに集約する。
 
 ## 起動方法
 
-このリポジトリの設定を使うには、`./scripts/codex-local.sh ...` を使う。ラッパーが repo 内の runtime home を使い、`.codex/` の設定と `~/.codex` の認証を合成して起動する。
+このリポジトリの設定を使うには、`./scripts/codex-local.sh ...` を使う。ラッパーが repo 内の runtime home を使い、必要なら `~/.codex/auth.json` を `.codex/auth.json` に symlink して、`.codex/` の設定と既存認証を合成して起動する。
 
 ```bash
 ./scripts/codex-local.sh exec --json "確認のみ。1行で返答。"
@@ -20,32 +20,33 @@ Codex 固有の設定はこのディレクトリに集約する。
 ## Auth
 
 - Codex CLI の認証は `~/.codex/auth.json` または `OPENAI_API_KEY` 系の環境変数を使う
+- `./scripts/codex-local.sh` は project-local auth が無い場合のみ `~/.codex/auth.json` を参照する
 - repo 内の `.codex/` には認証情報をコミットしない
 
 ## AI-Dev Workflow
 
-- `./scripts/ai-dev-workflow STRATEGY-XXXX brainstorm` - PBI INPUT PACKAGE を対話的に整える
-- `./scripts/ai-dev-workflow STRATEGY-XXXX plan` - plan / todo / test-cases / self-review / external-review / handoff draft を半自動生成
-- `./scripts/ai-dev-workflow STRATEGY-XXXX gate` - C-1 / C-2 / C-3 の gate を確認する
-- `./scripts/ai-dev-workflow STRATEGY-XXXX prepare-cloud` - Cloud task 用 packet をローカル ticket 情報から再生成
-- `./scripts/ai-dev-workflow STRATEGY-XXXX exec` - workflow_conductor 前提で exec を進める
-- `./scripts/ai-dev-workflow STRATEGY-XXXX status` - 現在フェーズと次アクションを要約する
-- `./scripts/ai-dev-workflow STRATEGY-XXXX sync-cloud` - Cloud task の結果を local status/todo に同期
+- `./scripts/ai-dev-workflow TASK-XXXX brainstorm` - PBI INPUT PACKAGE を対話的に整える
+- `./scripts/ai-dev-workflow TASK-XXXX plan` - plan / todo / test-cases / self-review / external-review / handoff draft を半自動生成
+- `./scripts/ai-dev-workflow TASK-XXXX gate` - C-1 / C-2 / C-3 の gate を確認する
+- `./scripts/ai-dev-workflow TASK-XXXX prepare-cloud` - Cloud task 用 packet をローカル ticket 情報から再生成
+- `./scripts/ai-dev-workflow TASK-XXXX exec` - workflow_conductor 前提で exec を進める
+- `./scripts/ai-dev-workflow TASK-XXXX status` - 現在フェーズと次アクションを要約する
+- `./scripts/ai-dev-workflow TASK-XXXX sync-cloud` - Cloud task の結果を local status/todo に同期
 
 ## Claude Code / Codex 対比
 
 | Claude Code | Codex |
 |---|---|
-| `/ai-dev-workflow STRATEGY-XXXX brainstorm` | `./scripts/ai-dev-workflow STRATEGY-XXXX brainstorm` |
-| `/ai-dev-workflow STRATEGY-XXXX plan` | `./scripts/ai-dev-workflow STRATEGY-XXXX plan` |
-| `/ai-dev-workflow STRATEGY-XXXX exec` | `./scripts/ai-dev-workflow STRATEGY-XXXX exec` |
-| `/ai-dev-workflow STRATEGY-XXXX status` | `./scripts/ai-dev-workflow STRATEGY-XXXX status` |
+| `/ai-dev-workflow TASK-XXXX brainstorm` | `./scripts/ai-dev-workflow TASK-XXXX brainstorm` |
+| `/ai-dev-workflow TASK-XXXX plan` | `./scripts/ai-dev-workflow TASK-XXXX plan` |
+| `/ai-dev-workflow TASK-XXXX exec` | `./scripts/ai-dev-workflow TASK-XXXX exec` |
+| `/ai-dev-workflow TASK-XXXX status` | `./scripts/ai-dev-workflow TASK-XXXX status` |
 
 Codex only:
 
-- `./scripts/ai-dev-workflow STRATEGY-XXXX gate`
-- `./scripts/ai-dev-workflow STRATEGY-XXXX prepare-cloud`
-- `./scripts/ai-dev-workflow STRATEGY-XXXX sync-cloud`
+- `./scripts/ai-dev-workflow TASK-XXXX gate`
+- `./scripts/ai-dev-workflow TASK-XXXX prepare-cloud`
+- `./scripts/ai-dev-workflow TASK-XXXX sync-cloud`
 
 ## Project-Scoped Skills
 
@@ -71,7 +72,7 @@ Codex Cloud / Codex CLI で使う repo-owned skill の正本は `.agents/skills/
 ## Cloud Handoff
 
 - `manual-cloud-task.md` は、Cloud task に渡す tracked handoff packet の正本
-- `manual-cloud-task.md` は `./scripts/ai-dev-workflow STRATEGY-XXXX prepare-cloud` で再生成できる
+- `manual-cloud-task.md` は `./scripts/ai-dev-workflow TASK-XXXX prepare-cloud` で再生成できる
 
 ## Agents
 

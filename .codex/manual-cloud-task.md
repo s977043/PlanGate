@@ -2,18 +2,18 @@
 
 このファイルは、Codex Cloud の手動 task 起動時に使う tracked handoff packet です。
 実作業チケット分の `docs/working/` 配下ファイルは `.gitignore` 対象で PR に含まれないため、Cloud task から直接読める前提にしません。
-初期状態の `TODO` / `pending` はテンプレート値です。`./scripts/ai-dev-workflow STRATEGY-XXXX prepare-cloud` を実行すると、承認済みの ticket 情報で置き換わります。
+初期状態の `TODO` / `pending` はテンプレート値です。`./scripts/ai-dev-workflow TASK-XXXX prepare-cloud` を実行すると、承認済みの ticket 情報で置き換わります。
 
 ## 使い方
 
 1. 人間がローカルの ticket コンテキストから、承認済みの内容をこのファイルに転記する
-2. `./scripts/ai-dev-workflow STRATEGY-XXXX prepare-cloud` を使う場合は、このテンプレートが承認済み内容で上書きされる
+2. `./scripts/ai-dev-workflow TASK-XXXX prepare-cloud` を使う場合は、このテンプレートが承認済み内容で上書きされる
 3. Cloud task 起動時は、このファイルを最初に読む
 4. Cloud task はこのファイルに書かれた内容だけを作業指示として扱う
 
-## Strategy
+## Task
 
-- Strategy ID: TODO
+- Task ID: TODO
 - C-3 approval: pending
 
 ## 追記する内容

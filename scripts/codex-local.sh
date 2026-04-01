@@ -19,5 +19,15 @@ if [ "${1:-}" = "--" ]; then
 fi
 
 cd "$repo_root"
+
+# Keep project-local config/runtime under .codex while reusing the existing
+# user-level auth file when no project-local auth has been provisioned.
+auth_dst="$repo_root/.codex/auth.json"
+auth_src="${CODEX_AUTH_SOURCE:-$HOME/.codex/auth.json}"
+
+if [ ! -e "$auth_dst" ] && [ -f "$auth_src" ]; then
+  ln -s "$auth_src" "$auth_dst"
+fi
+
 export CODEX_HOME="$repo_root/.codex"
 exec codex "$@"
