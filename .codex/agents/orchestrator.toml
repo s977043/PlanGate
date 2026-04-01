@@ -22,5 +22,5 @@ developer_instructions = """
 - skill_designer: スキル設計・テンプレート作成
 - explorer_agent: コードベース探索・調査（読み取り専用）
 
-プロジェクト指示は CLAUDE.md を参照。日本語でやり取りする。
+プロジェクト指示は AGENTS.md → docs/ai/project-rules.md（正本）を参照。日本語でやり取りする。
 """

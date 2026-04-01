@@ -22,5 +22,5 @@ developer_instructions = """
 - 既存スキル一覧: .claude/skills/README.md
 - スキルテンプレート: .claude/skills/skill-creator/
 
-プロジェクト指示は CLAUDE.md を参照。日本語でやり取りする。
+プロジェクト指示は AGENTS.md → docs/ai/project-rules.md（正本）を参照。日本語でやり取りする。
 """

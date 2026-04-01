@@ -75,21 +75,21 @@
 - [ ] 🚩 T-16: コミット作成 [Owner: agent]
   - files: []
   - depends_on: [T-15]
-- [ ] 🚩 T-17: PR作成 [Owner: agent]
+- [ ] 🚩 T-17: 未解決Unknownsが0か確認 [Owner: agent]
   - files: []
   - depends_on: [T-16]
-- [ ] 🚩 T-18: 未解決Unknownsが0か確認 [Owner: agent]
-  - files: []
-  - depends_on: [T-17]
-- [ ] 🚩 T-19: status.mdを最終更新 [Owner: agent]
+- [ ] 🚩 T-18: status.mdを最終更新 [Owner: agent]
   - files: [docs/working/TASK-XXXX/status.md]
-  - depends_on: [T-18]
-- [ ] 🚩 T-20: todo.mdの全タスクが完了していること [Owner: agent]
+  - depends_on: [T-17]
+- [ ] 🚩 T-19: todo.mdの全タスクが完了していること [Owner: agent]
   - files: [docs/working/TASK-XXXX/todo.md]
-  - depends_on: [T-19]
+  - depends_on: [T-18]
+
+> 注: L-0〜V-4, PR作成はworkflow-conductorが自動制御するため、todo.mdには含めない。
 
 ## 👤 Humanタスク
 
-- [ ] {タスク内容} [Owner: human]
+- [ ] C-3: Plan/ToDo/Test Casesの人間レビュー（exec前ゲート） [Owner: human]
+- [ ] C-4: PRレビュー・承認（GitHub上） [Owner: human]
 
 ## ⚠️ 依存関係
