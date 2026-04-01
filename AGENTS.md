@@ -25,6 +25,13 @@
 - `Grep`/`Glob` ツール名への言及は Claude Code 固有。Codex は独自のファイル探索手段を使用
 - Codex 詳細設定と読み替え表: `.codex/instructions.md` を参照
 
+## 迷ったらの判断基準
+
+**優先順位**: `docs/ai/project-rules.md`（正本）> `AGENTS.md`（ツール固有設定）> `.codex/instructions.md` > `.codex/config.toml`
+
+- 既存コードを探索し、既存パターンに従う。一般論で上書きしない
+- 不明点はユーザーに確認する（AI運用原則第1原則に従う）
+
 ## 言語
 
 日本語で出力・コミットメッセージ・PR文面を記述する。
