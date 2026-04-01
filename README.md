@@ -4,8 +4,7 @@
 
 ## 解説記事
 
-<!-- TODO: note公開後にURLを差し替え -->
-- [AIコーディングの暴走を「仕組み」で止める — PlanGateという開発フロー](https://note.com/xxx)（note）
+- [AIコーディングの暴走を「仕組み」で止める — PlanGateという開発フロー](https://note.com/mine_unilabo/n/n3aae6b5467b9)（note）
 
 ## 概要
 
