@@ -1,7 +1,7 @@
 #:schema https://developers.openai.com/codex/config-schema.json
 
 # Project-local Codex config
-# SSoT: CLAUDE.md（共通ルール）→ 本ファイル（Codex固有設定）
+# SSoT: docs/ai/project-rules.md（正本） → AGENTS.md（入口） → 本ファイル（Codex固有設定）
 
 # --- Core settings ---
 approval_policy = "on-request"

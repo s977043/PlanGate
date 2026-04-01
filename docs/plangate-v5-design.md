@@ -17,7 +17,7 @@ PlanGate v4のexecフェーズとV-1の間に**L-0（Lint Auto-Fix Loop）** を
 
 ## 背景: ハーネスエンジニアリングとPlanGateの差分分析
 
-Mitchell Hashimoto（HashiCorp創業者）が2024年2月に提唱した「ハーネスエンジニアリング」は、AIモデルそのものではなく「AIが動く環境全体」を設計する思想。PlanGate v4との比較で残る主な差分は以下の3つだった。
+Mitchell Hashimoto（HashiCorp創業者）が提唱した「ハーネスエンジニアリング」は、AIモデルそのものではなく「AIが動く環境全体」を設計する思想。PlanGate v4との比較で残る主な差分は以下の3つだった。
 
 | # | 差分要素 | ハーネスエンジニアリングの概念 | PlanGate v4の状態 | v5対応 |
 | --- | --- | --- | --- | --- |
