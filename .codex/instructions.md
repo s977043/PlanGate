@@ -1,36 +1,55 @@
-# Codex CLIプロジェクト指示
+# Codex CLI プロジェクト指示
 
-> 本ファイルはCodex CLI向けの補足ガイド。
-> プロジェクトルールの正本は`docs/ai/project-rules.md`にある。
+> 本ファイルは Codex CLI 向けの薄いラッパー。プロジェクトルールの正本は `CLAUDE.md` にある。
 
 ## 読み込み順序
 
-1. **`docs/ai/project-rules.md`** — プロジェクト共通ルール（正本）
-2. **本ファイル** — Codex固有の補足
-3. **`.codex/config.toml`** — Codex実行設定
+1. **`CLAUDE.md`** — プロジェクトの憲法（セクション A〜E を必ず読むこと）
+2. **`AGENTS.md`** — エージェント共通指示・スキル一覧
+3. **本ファイル** — Codex 固有の補足
 
-## Codex固有の読み替え
+## CLAUDE.md から適用するセクション
 
-Claude Code向けドキュメント内の参照先をCodexでは以下に読み替える:
+| セクション | 内容 | Codex での適用 |
+|---|---|---|
+| A. リポジトリの目的 | スタック・構成 | そのまま適用 |
+| B. 主要ディレクトリ | ディレクトリ構造 | そのまま適用 |
+| C. 開発の最短ループ | コマンド・コミット前チェック | そのまま適用 |
+| D. 変更時のルール | ブランチ命名・PR運用 | そのまま適用 |
+| E. 禁止事項 | 編集禁止ファイル・npm禁止等 | そのまま適用 |
+| F. 迷ったらの判断基準 | `.claude/` パス参照あり | **下記の読み替え表を使用** |
 
-| Claude Codeの記載 | Codexでの対応先 |
-| --- | --- |
-| `.claude/agents/*.md` | `.codex/agents/*.toml`（要約版）+`.claude/agents/*.md`（詳細版） |
+## Codex 固有の読み替え
+
+CLAUDE.md セクション F 内の参照先を Codex では以下に読み替える:
+
+| CLAUDE.md の記載 | Codex での対応先 |
+|---|---|
+| `.claude/agents/*.md` | `.codex/agents/*.toml`（要約版）+ `.claude/agents/*.md`（詳細版） |
+| `.claude/agents/README.md` | `.codex/agents/README.md` |
 | `.claude/rules/*.md` | そのまま参照可（共通ルール） |
-| `.claude/skills/README.md` | `.codex/README.md`のSkillsセクション |
+| `AGENTS.md` | そのまま参照可（共通SSoT） |
 
-## Codex固有の設定
+## Codex 固有の設定
 
-- **エージェント定義**: `.codex/agents/*.toml` — 各エージェントの`name`, `description`, `sandbox_mode`, `model_reasoning_effort`, `developer_instructions`を保持
-- **config.toml**: `.codex/config.toml` — Codex CLIのコア設定（approval_policy, sandbox_mode, agent参照）
-- **起動ラッパー**: `sh ./scripts/codex-local.sh exec --json "..."`で`CODEX_HOME`をrepo内の`.codex/`に固定する
+- **エージェント定義**: `.codex/agents/*.toml` — 各エージェントの `name`, `description`, `sandbox_mode`, `model_reasoning_effort`, `developer_instructions` を自己完結で保持
+- **project-scoped skills**: `.agents/skills/*/SKILL.md` — Codex Cloud / CLI の repo-owned skill 正本
+- **config.toml**: `.codex/config.toml` — Codex CLI のコア設定（approval_policy, sandbox_mode, agent 参照）
+- **起動ラッパー**: `./scripts/codex-local.sh exec --json "..."` で repo 内の runtime home を使い、project-local の `.codex/` 設定と `~/.codex` の認証を両立させる
+- **半自動ワークフロー入口**: `./scripts/ai-dev-workflow STRATEGY-XXXX brainstorm|plan|gate|prepare-cloud|exec|status|sync-cloud`
+- **手動Cloud task handoff**: `.codex/manual-cloud-task.md`
+- **system/vendor skills**: `.codex/skills/.system/`
 
-## Claude Code固有の記法（Codexでは無視）
+Codex は `.claude/skills/` を bridge しない。Codex から使う skill は `.agents/skills/` に置く。
+`.agents/skills/` を正本にする理由は、repo-owned / version-controlled な skill だけを Codex の実行対象に固定し、所有者と更新経路を明確に保つため。
 
-以下はClaude Code固有であり、Codexでは無視する:
+## CLAUDE.md で無視してよい項目
 
-- `<language>`, `<character_code>`, `<law>`のXMLタグ
-- `Grep`/`Glob`ツール名への言及（Codexは独自のファイル探索手段を使用）
+以下は Claude Code 固有の記法であり、Codex では無視する:
+
+- `<language>`, `<character_code>`, `<law>`, `<every_chat>` の XML タグ
+- `Grep`/`Glob` ツール名への言及（Codex は独自のファイル探索手段を使用）
+- Figma MCP サーバーへの言及（Codex 側の MCP はこのブランチでは設定しない）
 
 ## 言語
 

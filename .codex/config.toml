@@ -40,6 +40,11 @@ config_file = "agents/documentation_writer.toml"
 [agents.skill_designer]
 config_file = "agents/skill_designer.toml"
 
+# -- レビュー --
+
+[agents.claude_code_reviewer]
+config_file = "agents/claude_code_reviewer.toml"
+
 # -- 調査 --
 
 [agents.explorer_agent]
