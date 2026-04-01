@@ -1,0 +1,278 @@
+#!/bin/sh
+
+set -eu
+
+. "$(dirname -- "$0")/ai-dev-common.sh"
+
+ai_dev_workflow_usage() {
+  printf '%s\n' \
+    'Usage:' \
+    '  ./scripts/ai-dev-workflow STRATEGY-XXXX brainstorm [--dry-run]' \
+    '  ./scripts/ai-dev-workflow STRATEGY-XXXX plan [--dry-run]' \
+    '  ./scripts/ai-dev-workflow STRATEGY-XXXX gate [--dry-run]' \
+    '  ./scripts/ai-dev-workflow STRATEGY-XXXX prepare-cloud [--dry-run]' \
+    '  ./scripts/ai-dev-workflow STRATEGY-XXXX exec [--dry-run]' \
+    '  ./scripts/ai-dev-workflow STRATEGY-XXXX status [--dry-run]' \
+    '  ./scripts/ai-dev-workflow STRATEGY-XXXX sync-cloud [--dry-run]' \
+    '' \
+    'Notes:' \
+    '  - Claude Code parity: brainstorm / plan / exec / status' \
+    '  - Codex only: gate / prepare-cloud / sync-cloud'
+}
+
+if [ $# -eq 0 ]; then
+  ai_dev_workflow_usage >&2
+  exit 1
+fi
+
+case "${1:-}" in
+  --help|-h)
+    ai_dev_workflow_usage
+    exit 0
+    ;;
+esac
+
+AI_DEV_STRATEGY=$1
+shift
+ai_dev_validate_strategy_id "$AI_DEV_STRATEGY"
+AI_DEV_WORK_DIR=$ai_dev_repo_root/docs/working/$AI_DEV_STRATEGY
+
+if [ $# -eq 0 ]; then
+  echo "Subcommand is required." >&2
+  ai_dev_workflow_usage >&2
+  exit 1
+fi
+
+subcommand=$1
+shift
+
+AI_DEV_DRY_RUN=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      AI_DEV_DRY_RUN=1
+      ;;
+    --help|-h)
+      ai_dev_workflow_usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option for $subcommand: $arg" >&2
+      exit 1
+      ;;
+  esac
+done
+
+status_file=$(ai_dev_status_file)
+todo_file=$AI_DEV_WORK_DIR/todo.md
+plan_file=$AI_DEV_WORK_DIR/plan.md
+test_cases_file=$AI_DEV_WORK_DIR/test-cases.md
+packet_file=$(ai_dev_packet_file)
+
+ai_dev_launch_codex_exec() {
+  prompt=$1
+  sandbox_mode=$2
+
+  printf '%s\n' "$prompt" | "$ai_dev_script_dir/codex-local.sh" exec --full-auto --sandbox "$sandbox_mode" -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" -
+}
+
+ai_dev_prompt_brainstorm() {
+  printf '%s\n' \
+    'あなたは AI駆動開発ワークフローの brainstorm フェーズを担当する。' \
+    "ai-dev-brainstorm skill を適用し、STRATEGY ID は $AI_DEV_STRATEGY とする。" \
+    '' \
+    '参照順序:' \
+    "1. $ai_dev_repo_root/CLAUDE.md" \
+    "2. $ai_dev_repo_root/AGENTS.md" \
+    "3. $ai_dev_repo_root/docs/ai-driven-development.md" \
+    "4. $AI_DEV_WORK_DIR/status.md（存在する場合）" \
+    '' \
+    'このセッションの目的:' \
+    "- docs/working/$AI_DEV_STRATEGY/pbi-input.md を対話的に作成または更新する" \
+    '- 1質問ずつ進める' \
+    '- まだ plan / todo / test-cases は作成しない' \
+    '- 設計が固まったら pbi-input.md に保存し、status.md へ要点を反映する' \
+    '' \
+    'Codex CLI では .claude/skills は bridge しないため、repo-owned skill を前提に進めること。'
+}
+
+ai_dev_prompt_gate() {
+  printf '%s\n' \
+    'あなたは plan-review-gate の判定担当。' \
+    "STRATEGY ID は $AI_DEV_STRATEGY。" \
+    '' \
+    '参照順序:' \
+    "1. $ai_dev_repo_root/CLAUDE.md" \
+    "2. $ai_dev_repo_root/AGENTS.md" \
+    "3. $ai_dev_repo_root/.codex/manual-cloud-task.md" \
+    "4. $AI_DEV_WORK_DIR/review-self.md" \
+    "5. $AI_DEV_WORK_DIR/review-external.md" \
+    "6. $AI_DEV_WORK_DIR/status.md" \
+    "7. $AI_DEV_WORK_DIR/plan.md" \
+    "8. $AI_DEV_WORK_DIR/todo.md" \
+    "9. $AI_DEV_WORK_DIR/test-cases.md" \
+    '' \
+    '制約:' \
+    '- ファイルは更新しない' \
+    '- 判定に必要な確認だけを行う' \
+    '' \
+    '出力形式:' \
+    'PLAN_GATE: PASS または PLAN_GATE: FAIL' \
+    'REASON: 1行' \
+    'DETAILS:' \
+    '- 箇条書きで不足点または通過理由'
+}
+
+ai_dev_prompt_exec() {
+  printf '%s\n' \
+    'あなたは workflow_conductor。' \
+    "STRATEGY ID は $AI_DEV_STRATEGY。" \
+    '' \
+    '参照順序:' \
+    "1. $ai_dev_repo_root/CLAUDE.md" \
+    "2. $ai_dev_repo_root/AGENTS.md" \
+    "3. $ai_dev_repo_root/.codex/manual-cloud-task.md" \
+    "4. $AI_DEV_WORK_DIR/status.md" \
+    "5. $AI_DEV_WORK_DIR/todo.md" \
+    "6. $AI_DEV_WORK_DIR/plan.md" \
+    "7. $AI_DEV_WORK_DIR/test-cases.md" \
+    '' \
+    '実行方針:' \
+    '- C-3 未承認なら停止する' \
+    '- 承認済みなら approved scope のみ実行する' \
+    '- tracked handoff packet を Cloud / Codex 実行の唯一の作業指示として扱う' \
+    '- 必要に応じて specialist agent に委譲する' \
+    '- 実装と検証証拠を packet および関連 status / todo に反映する' \
+    '- スコープ外変更はしない' \
+    '' \
+    '最終出力:' \
+    '- changed files' \
+    '- targeted verification results' \
+    '- concerns / approval request note'
+}
+
+ai_dev_print_status() {
+  pbi_file=$AI_DEV_WORK_DIR/pbi-input.md
+  c3_state="missing"
+  completed_tasks=0
+  total_tasks=0
+  current_phase="A: PBI INPUT PACKAGE"
+  packet_state="missing"
+  next_step="./scripts/ai-dev-workflow $AI_DEV_STRATEGY brainstorm"
+
+  if [ -f "$status_file" ]; then
+    if ai_dev_status_is_c3_approved "$status_file"; then
+      c3_state="approved"
+    elif grep -Eq '^## C-3 Gate: PENDING$' "$status_file"; then
+      c3_state="pending"
+    else
+      c3_state="unknown"
+    fi
+  fi
+
+  if [ -f "$todo_file" ]; then
+    completed_tasks=$(grep -Ec '^- \[x\]' "$todo_file" || true)
+    total_tasks=$(grep -Ec '^- \[[ x]\]' "$todo_file" || true)
+  fi
+
+  if [ -f "$packet_file" ]; then
+    packet_strategy=$(ai_dev_packet_strategy_id "$packet_file" 2>/dev/null || true)
+    if [ "$packet_strategy" = "$AI_DEV_STRATEGY" ]; then
+      packet_state="prepared"
+    elif [ -n "$packet_strategy" ]; then
+      packet_state="prepared-for-$packet_strategy"
+    else
+      packet_state="present-without-strategy"
+    fi
+  fi
+
+  if [ ! -f "$pbi_file" ]; then
+    current_phase="0/A: brainstorm or PBI input"
+    next_step="./scripts/ai-dev-workflow $AI_DEV_STRATEGY brainstorm"
+  elif [ ! -f "$plan_file" ] || [ ! -f "$todo_file" ] || [ ! -f "$test_cases_file" ]; then
+    current_phase="B-C2: plan generation pending"
+    next_step="./scripts/ai-dev-workflow $AI_DEV_STRATEGY plan"
+  elif [ "$c3_state" != "approved" ]; then
+    current_phase="C-3: human review pending"
+    next_step="Human review -> record ## C-3 Gate: APPROVED -> ./scripts/ai-dev-workflow $AI_DEV_STRATEGY gate"
+  elif [ "$packet_state" != "prepared" ]; then
+    current_phase="Cloud handoff preparation"
+    next_step="./scripts/ai-dev-workflow $AI_DEV_STRATEGY prepare-cloud"
+  elif [ "$total_tasks" -gt 0 ] && [ "$completed_tasks" -lt "$total_tasks" ]; then
+    current_phase="D: exec ready or in progress"
+    next_step="./scripts/ai-dev-workflow $AI_DEV_STRATEGY exec"
+  else
+    current_phase="Post-exec sync / human approval"
+    next_step="./scripts/ai-dev-workflow $AI_DEV_STRATEGY sync-cloud"
+  fi
+
+  printf 'Strategy: %s\n' "$AI_DEV_STRATEGY"
+  printf 'Work dir: %s\n' "$AI_DEV_WORK_DIR"
+  printf 'Current phase: %s\n' "$current_phase"
+  printf 'C-3 gate: %s\n' "$c3_state"
+  printf 'Todo progress: %s/%s\n' "$completed_tasks" "$total_tasks"
+  printf 'Packet: %s\n' "$packet_state"
+  printf 'Next step: %s\n' "$next_step"
+}
+
+case "$subcommand" in
+  brainstorm)
+    if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
+      echo "Would start interactive Codex brainstorm for: $AI_DEV_STRATEGY"
+      echo "Would create/update: $AI_DEV_WORK_DIR/pbi-input.md and $status_file"
+      exit 0
+    fi
+    ai_dev_ensure_work_dir
+    if [ ! -f "$status_file" ]; then
+      ai_dev_create_status_stub
+      echo "Created status stub: $status_file"
+    fi
+    exec "$ai_dev_script_dir/codex-local.sh" -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" "$(ai_dev_prompt_brainstorm)"
+    ;;
+  plan)
+    exec sh "$ai_dev_script_dir/ai-dev-plan.sh" "$AI_DEV_STRATEGY" "$@"
+    ;;
+  gate)
+    if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
+      echo "Would run plan-review-gate for: $AI_DEV_STRATEGY"
+      exit 0
+    fi
+    ai_dev_require_file "$status_file" "status file"
+    gate_output=$(mktemp)
+    trap 'rm -f "$gate_output"' EXIT INT TERM HUP
+    printf '%s\n' "$(ai_dev_prompt_gate)" | "$ai_dev_script_dir/codex-local.sh" exec --full-auto --sandbox read-only -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" --output-last-message "$gate_output" - >/dev/null
+    cat "$gate_output"
+    if grep -Eq '^PLAN_GATE: PASS$' "$gate_output"; then
+      exit 0
+    fi
+    exit 1
+    ;;
+  prepare-cloud)
+    exec sh "$ai_dev_script_dir/ai-dev-prepare-cloud.sh" "$AI_DEV_STRATEGY" "$@"
+    ;;
+  exec)
+    if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
+      echo "Would run workflow_conductor exec for: $AI_DEV_STRATEGY"
+      echo "Would use packet: $packet_file"
+      exit 0
+    fi
+    ai_dev_require_file "$status_file" "status file"
+    ai_dev_require_status_c3_approved "$status_file"
+    ai_dev_launch_codex_exec "$(ai_dev_prompt_exec)" workspace-write
+    ;;
+  status)
+    if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
+      echo "Would inspect: $status_file, $todo_file, $packet_file"
+      exit 0
+    fi
+    ai_dev_print_status
+    ;;
+  sync-cloud)
+    exec sh "$ai_dev_script_dir/ai-dev-sync-cloud.sh" "$AI_DEV_STRATEGY" "$@"
+    ;;
+  *)
+    echo "Unknown subcommand: $subcommand" >&2
+    ai_dev_workflow_usage >&2
+    exit 1
+    ;;
+esac

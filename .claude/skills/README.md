@@ -13,6 +13,7 @@ PlanGate ワークフロー v5 で使用するスキル群。
 | `self-review` | 変更内容に対する詳細セルフレビュー（15項目チェック） | review |
 | `systematic-debugging` | バグや障害の体系的調査・根本原因特定 | debugging |
 | `subagent-driven-development` | 実装タスクのサブエージェント委譲・品質管理 | workflow |
+| `codex-multi-agent` | マルチエージェントでタスク分解・委譲・並列実行・結果統合 | workflow |
 
 ## 配置ルール
 

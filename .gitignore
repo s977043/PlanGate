@@ -23,8 +23,11 @@ node_modules/
 .codex/skills/.system/
 .codex/version.json
 
-# Agents (deprecated - use .claude/skills/ as canonical source)
-.agents/
+# Agents skills (Codex CLI repo-owned skills)
+# .agents/skills/ は tracked（Codex CLI の project-scoped skill 正本）
+# それ以外の .agents/ 直下ファイルは除外
+.agents/*.md
+.agents/*.toml
 
 # IDE
 .idea/
