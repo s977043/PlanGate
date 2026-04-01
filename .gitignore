@@ -20,6 +20,8 @@ node_modules/
 .codex/memories/
 .codex/shell_snapshots/
 .codex/tmp/
+.codex/auth.json
+.codex/models_cache.json
 .codex/skills/.system/
 .codex/version.json
 .codex/auth.json

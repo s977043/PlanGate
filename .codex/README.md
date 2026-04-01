@@ -4,7 +4,7 @@ Codex 固有の設定はこのディレクトリに集約する。
 
 ## 起動方法
 
-このリポジトリの設定を使うには、`./scripts/codex-local.sh ...` を使う。ラッパーが repo 内の runtime home を使い、`.codex/` の設定と `~/.codex` の認証を合成して起動する。
+このリポジトリの設定を使うには、`./scripts/codex-local.sh ...` を使う。ラッパーが repo 内の runtime home を使い、必要なら `~/.codex/auth.json` を `.codex/auth.json` に symlink して、`.codex/` の設定と既存認証を合成して起動する。
 
 ```bash
 ./scripts/codex-local.sh exec --json "確認のみ。1行で返答。"
@@ -20,6 +20,7 @@ Codex 固有の設定はこのディレクトリに集約する。
 ## Auth
 
 - Codex CLI の認証は `~/.codex/auth.json` または `OPENAI_API_KEY` 系の環境変数を使う
+- `./scripts/codex-local.sh` は project-local auth が無い場合のみ `~/.codex/auth.json` を参照する
 - repo 内の `.codex/` には認証情報をコミットしない
 
 ## AI-Dev Workflow
