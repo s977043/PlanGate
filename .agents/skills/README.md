@@ -10,4 +10,4 @@
 - `manual-cloud-task` - tracked handoff packet を使って手動 Cloud task を起動する
 - `working-context` - ローカル ticket コンテキストと Cloud handoff packet の橋渡し
 
-Codex CLI の標準入口は `./scripts/ai-dev-workflow STRATEGY-XXXX brainstorm|plan|gate|prepare-cloud|exec|status|sync-cloud`。
+Codex CLI の標準入口は `./scripts/ai-dev-workflow TASK-XXXX brainstorm|plan|gate|prepare-cloud|exec|status|sync-cloud`。

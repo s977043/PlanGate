@@ -13,6 +13,7 @@
 | エージェント | `.claude/agents/workflow-conductor.md` |
 | コマンド一覧 | `.claude/commands/README.md` |
 | スキル一覧 | `.claude/skills/README.md` |
+| 共有スキル | `.agents/skills/`（Claude Code・Codex CLI共用） |
 | 運用ルール | `.claude/rules/` |
 | PlanGateワークフロー | `docs/plangate.md` |
 | 役割分担 | `docs/ai/tool-roles.md` |

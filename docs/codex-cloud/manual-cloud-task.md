@@ -9,7 +9,7 @@ Codex Cloud で `exec` 相当の実装作業を行うとき、GitHubコメント
 
 ## 前提
 
-- 対象チケットの `docs/working/STRATEGY-XXXX/` は人間の準備用ソースとして揃っている
+- 対象チケットの `docs/working/TASK-XXXX/` は人間の準備用ソースとして揃っている
 - 実行時に Codex Cloud が読む tracked handoff packet は `.codex/manual-cloud-task.md` とする
 - C-3（人間レビュー）が完了している
 - スコープ外・未解決事項が packet に明記されている
@@ -18,15 +18,15 @@ Codex Cloud で `exec` 相当の実装作業を行うとき、GitHubコメント
 
 1. `CLAUDE.md` を確認する
 2. `AGENTS.md` を確認する
-3. `./scripts/ai-dev-workflow STRATEGY-XXXX plan` で plan / review / handoff draft を最新化する
-4. `docs/working/STRATEGY-XXXX/` を人間が確認し、`status.md` に `## C-3 Gate: APPROVED` を記録する
-5. `./scripts/ai-dev-workflow STRATEGY-XXXX prepare-cloud` で `.codex/manual-cloud-task.md` を再生成する
+3. `./scripts/ai-dev-workflow TASK-XXXX plan` で plan / review / handoff draft を最新化する
+4. `docs/working/TASK-XXXX/` を人間が確認し、`status.md` に `## C-3 Gate: APPROVED` を記録する
+5. `./scripts/ai-dev-workflow TASK-XXXX prepare-cloud` で `.codex/manual-cloud-task.md` を再生成する
 6. `.codex/manual-cloud-task.md` に scope / open questions / verification expectations を書く
 7. 検証方針として「修正箇所に絞った test / lint / typecheck を優先し、task完了時は人間に承認依頼を出す」ことを packet に明記する
 
 ## Cloud task に渡す指示テンプレート
 
-以下をベースに、STRATEGY番号と packet の内容だけ差し替える。
+以下をベースに、TASK番号と packet の内容だけ差し替える。
 
 ```text
 Read this tracked packet first:
@@ -78,6 +78,6 @@ Deliverables:
 - 手動Cloud task は workflow-conductor の責務を置き換えるものではなく、起動経路だけを人間主導にする
 - `docs/codex-cloud/` は手順書とテンプレート置き場、`.codex/manual-cloud-task.md` は実行用の tracked packet
 - Cloud task 内では修正箇所の検証を優先し、本完了の判断は人間レビューに委ねる
-- `./scripts/ai-dev-workflow STRATEGY-XXXX prepare-cloud` で tracked packet を再生成できる
-- `./scripts/ai-dev-workflow STRATEGY-XXXX sync-cloud` で Cloud task 後の status / todo 同期を半自動化できる
+- `./scripts/ai-dev-workflow TASK-XXXX prepare-cloud` で tracked packet を再生成できる
+- `./scripts/ai-dev-workflow TASK-XXXX sync-cloud` で Cloud task 後の status / todo 同期を半自動化できる
 - `prepare-cloud` は `status.md` に `## C-3 Gate: APPROVED` がある場合のみ実行する

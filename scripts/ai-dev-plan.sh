@@ -13,7 +13,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   exit 0
 fi
 
-ai_dev_parse_strategy_args "$@"
+ai_dev_parse_task_args "$@"
 status_file=$(ai_dev_status_file)
 if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
   if [ ! -d "$AI_DEV_WORK_DIR" ]; then
@@ -37,12 +37,12 @@ fi
 if [ ! -f "$AI_DEV_WORK_DIR/pbi-input.md" ]; then
   ai_dev_create_pbi_stub
   echo "Created PBI input stub: $AI_DEV_WORK_DIR/pbi-input.md"
-  echo "Fill the PBI and rerun ./scripts/ai-dev-workflow $AI_DEV_STRATEGY plan" >&2
+  echo "Fill the PBI and rerun ./scripts/ai-dev-workflow $AI_DEV_TASK plan" >&2
   exit 1
 fi
 
 if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
-  echo "Would run Codex plan workflow for: $AI_DEV_STRATEGY"
+  echo "Would run Codex plan workflow for: $AI_DEV_TASK"
   echo "Would read: $ai_dev_repo_root/CLAUDE.md, $ai_dev_repo_root/AGENTS.md, $ai_dev_repo_root/docs/ai-driven-development.md, $AI_DEV_WORK_DIR/pbi-input.md, $AI_DEV_WORK_DIR/status.md"
   echo "Would update: $AI_DEV_WORK_DIR/plan.md, $AI_DEV_WORK_DIR/todo.md, $AI_DEV_WORK_DIR/test-cases.md, $AI_DEV_WORK_DIR/review-self.md, $AI_DEV_WORK_DIR/review-external.md, $AI_DEV_WORK_DIR/status.md, $ai_dev_repo_root/.codex/manual-cloud-task.md"
   exit 0
@@ -54,7 +54,7 @@ prompt=$(cat <<EOF
 少なくとも orchestrator / project_planner の役割を使い、必要に応じて documentation_writer / explorer_agent を委譲先として活用すること。
 
 対象チケット:
-- $AI_DEV_STRATEGY
+- $AI_DEV_TASK
 
 参照順序:
 1. $ai_dev_repo_root/CLAUDE.md

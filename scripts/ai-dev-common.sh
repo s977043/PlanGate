@@ -16,36 +16,36 @@ ai_dev_today() {
 ai_dev_usage() {
   command_name=$1
   printf 'Usage:\n'
-  printf '  ./scripts/ai-dev-workflow STRATEGY-XXXX %s\n' "$command_name"
-  printf '  ./scripts/ai-dev-workflow STRATEGY-XXXX %s --dry-run\n' "$command_name"
+  printf '  ./scripts/ai-dev-workflow TASK-XXXX %s\n' "$command_name"
+  printf '  ./scripts/ai-dev-workflow TASK-XXXX %s --dry-run\n' "$command_name"
 }
 
-ai_dev_validate_strategy_id() {
-  strategy_id=$1
+ai_dev_validate_task_id() {
+  task_id=$1
 
-  case "$strategy_id" in
-    STRATEGY-[A-Za-z0-9-][A-Za-z0-9-]*)
-      case "$strategy_id" in
+  case "$task_id" in
+    TASK-[A-Za-z0-9-][A-Za-z0-9-]*)
+      case "$task_id" in
         *[!A-Za-z0-9-]*)
-          echo "Strategy ID must contain only letters, numbers, and hyphens." >&2
+          echo "Task ID must contain only letters, numbers, and hyphens." >&2
           return 1
           ;;
       esac
       ;;
     *)
-      echo "Strategy ID must match STRATEGY-[A-Za-z0-9-]+." >&2
+      echo "Task ID must match TASK-[A-Za-z0-9-]+." >&2
       return 1
       ;;
   esac
 }
 
-ai_dev_parse_strategy_args() {
+ai_dev_parse_task_args() {
   if [ $# -eq 0 ]; then
-    echo "Strategy ID is required." >&2
+    echo "Task ID is required." >&2
     return 1
   fi
 
-  AI_DEV_STRATEGY=""
+  AI_DEV_TASK=""
   AI_DEV_DRY_RUN=0
 
   while [ $# -gt 0 ]; do
@@ -56,23 +56,23 @@ ai_dev_parse_strategy_args() {
         AI_DEV_DRY_RUN=1
         ;;
       *)
-        if [ -n "$AI_DEV_STRATEGY" ]; then
-          echo "Only one Strategy ID can be specified." >&2
+        if [ -n "$AI_DEV_TASK" ]; then
+          echo "Only one Task ID can be specified." >&2
           return 1
         fi
-        AI_DEV_STRATEGY=$1
+        AI_DEV_TASK=$1
         ;;
     esac
     shift
   done
 
-  if [ -z "$AI_DEV_STRATEGY" ]; then
-    echo "Strategy ID is required." >&2
+  if [ -z "$AI_DEV_TASK" ]; then
+    echo "Task ID is required." >&2
     return 1
   fi
 
-  ai_dev_validate_strategy_id "$AI_DEV_STRATEGY"
-  AI_DEV_WORK_DIR=$ai_dev_repo_root/docs/working/$AI_DEV_STRATEGY
+  ai_dev_validate_task_id "$AI_DEV_TASK"
+  AI_DEV_WORK_DIR=$ai_dev_repo_root/docs/working/$AI_DEV_TASK
 }
 
 ai_dev_ensure_work_dir() {
@@ -101,23 +101,23 @@ ai_dev_require_status_c3_approved() {
   fi
 }
 
-ai_dev_packet_strategy_id() {
+ai_dev_packet_task_id() {
   packet_file=$1
-  sed -n 's/^- Strategy ID: //p' "$packet_file" | head -n 1
+  sed -n 's/^- Task ID: //p' "$packet_file" | head -n 1
 }
 
-ai_dev_require_packet_strategy_match() {
+ai_dev_require_packet_task_match() {
   packet_file=$1
-  expected_strategy=$2
-  actual_strategy=$(ai_dev_packet_strategy_id "$packet_file")
+  expected_task=$2
+  actual_task=$(ai_dev_packet_task_id "$packet_file")
 
-  if [ -z "$actual_strategy" ]; then
-    echo "Strategy ID is missing in packet: $packet_file" >&2
+  if [ -z "$actual_task" ]; then
+    echo "Task ID is missing in packet: $packet_file" >&2
     return 1
   fi
 
-  if [ "$actual_strategy" != "$expected_strategy" ]; then
-    echo "Packet strategy mismatch: expected $expected_strategy but found $actual_strategy in $packet_file" >&2
+  if [ "$actual_task" != "$expected_task" ]; then
+    echo "Packet task mismatch: expected $expected_task but found $actual_task in $packet_file" >&2
     return 1
   fi
 }
@@ -175,7 +175,7 @@ ai_dev_get_markdown_section_or_default() {
 ai_dev_create_status_stub() {
   status_file=$(ai_dev_status_file)
   cat >"$status_file" <<EOF
-# $AI_DEV_STRATEGY 作業ステータス
+# $AI_DEV_TASK 作業ステータス
 
 > 最終更新: $(ai_dev_today)
 > PBI: TODO
@@ -222,8 +222,8 @@ ai_dev_create_status_stub() {
 
 \`\`\`
 ## コンテキスト
-- チケット: $AI_DEV_STRATEGY
-- 作業ドキュメント: docs/working/$AI_DEV_STRATEGY/status.md
+- チケット: $AI_DEV_TASK
+- 作業ドキュメント: docs/working/$AI_DEV_TASK/status.md
 
 ## 現在の状態
 PBI 未記入
@@ -238,16 +238,16 @@ PBI 未記入
 
 | 用途 | パス |
 |------|------|
-| 実行計画 | \`docs/working/$AI_DEV_STRATEGY/plan.md\` |
-| ToDo | \`docs/working/$AI_DEV_STRATEGY/todo.md\` |
-| このステータスファイル | \`docs/working/$AI_DEV_STRATEGY/status.md\` |
+| 実行計画 | \`docs/working/$AI_DEV_TASK/plan.md\` |
+| ToDo | \`docs/working/$AI_DEV_TASK/todo.md\` |
+| このステータスファイル | \`docs/working/$AI_DEV_TASK/status.md\` |
 | CLAUDE.md | \`CLAUDE.md\` |
 EOF
 }
 
 ai_dev_create_pbi_stub() {
   cat >"$AI_DEV_WORK_DIR/pbi-input.md" <<EOF
-# $AI_DEV_STRATEGY PBI INPUT PACKAGE
+# $AI_DEV_TASK PBI INPUT PACKAGE
 
 ## Why
 

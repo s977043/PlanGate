@@ -36,7 +36,7 @@ CLAUDE.md セクション F 内の参照先を Codex では以下に読み替え
 - **project-scoped skills**: `.agents/skills/*/SKILL.md` — Codex Cloud / CLI の repo-owned skill 正本
 - **config.toml**: `.codex/config.toml` — Codex CLI のコア設定（approval_policy, sandbox_mode, agent 参照）
 - **起動ラッパー**: `./scripts/codex-local.sh exec --json "..."` で repo 内の runtime home を使い、project-local の `.codex/` 設定と `~/.codex` の認証を両立させる
-- **半自動ワークフロー入口**: `./scripts/ai-dev-workflow STRATEGY-XXXX brainstorm|plan|gate|prepare-cloud|exec|status|sync-cloud`
+- **半自動ワークフロー入口**: `./scripts/ai-dev-workflow TASK-XXXX brainstorm|plan|gate|prepare-cloud|exec|status|sync-cloud`
 - **手動Cloud task handoff**: `.codex/manual-cloud-task.md`
 - **system/vendor skills**: `.codex/skills/.system/`
 

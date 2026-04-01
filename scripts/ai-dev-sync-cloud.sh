@@ -13,7 +13,7 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   exit 0
 fi
 
-ai_dev_parse_strategy_args "$@"
+ai_dev_parse_task_args "$@"
 
 status_file=$(ai_dev_status_file)
 todo_file=$AI_DEV_WORK_DIR/todo.md
@@ -34,11 +34,11 @@ if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
   if [ ! -f "$packet_file" ]; then
     missing_items="${missing_items}\n- missing manual cloud task packet: $packet_file"
   else
-    actual_strategy=$(ai_dev_packet_strategy_id "$packet_file")
-    if [ -z "$actual_strategy" ]; then
-      missing_items="${missing_items}\n- missing Strategy ID in packet: $packet_file"
-    elif [ "$actual_strategy" != "$AI_DEV_STRATEGY" ]; then
-      missing_items="${missing_items}\n- packet strategy mismatch: expected $AI_DEV_STRATEGY but found $actual_strategy in $packet_file"
+    actual_task=$(ai_dev_packet_task_id "$packet_file")
+    if [ -z "$actual_task" ]; then
+      missing_items="${missing_items}\n- missing Task ID in packet: $packet_file"
+    elif [ "$actual_task" != "$AI_DEV_TASK" ]; then
+      missing_items="${missing_items}\n- packet task mismatch: expected $AI_DEV_TASK but found $actual_task in $packet_file"
     fi
   fi
 
@@ -61,14 +61,14 @@ ai_dev_require_file "$status_file" "status file"
 ai_dev_require_file "$todo_file" "todo file"
 ai_dev_require_file "$plan_file" "plan file"
 ai_dev_require_file "$packet_file" "manual cloud task packet"
-ai_dev_require_packet_strategy_match "$packet_file" "$AI_DEV_STRATEGY"
+ai_dev_require_packet_task_match "$packet_file" "$AI_DEV_TASK"
 
 prompt=$(cat <<EOF
 あなたは AI駆動開発ワークフローの Cloud task 後処理を担当する。
 workflow_conductor の観点で、Cloud task の結果をローカル作業ドキュメントへ同期する。
 
 対象チケット:
-- $AI_DEV_STRATEGY
+- $AI_DEV_TASK
 
 参照順序:
 1. $ai_dev_repo_root/CLAUDE.md

@@ -16,6 +16,7 @@
 | Codex補足ガイド | `.codex/instructions.md` |
 | エージェント定義 | `.codex/agents/*.toml` |
 | スキル（正本） | `.claude/skills/`（Claude Code と共有） |
+| 共有スキル | `.agents/skills/`（Claude Code・Codex CLI共用） |
 | PlanGate ワークフロー | `docs/plangate.md` |
 | 役割分担 | `docs/ai/tool-roles.md` |
 

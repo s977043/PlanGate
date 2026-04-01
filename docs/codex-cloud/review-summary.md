@@ -8,7 +8,7 @@
 AI駆動開発ワークフロー v3を OpenAI Codex Cloud 版でも並行運用できるようにする計画。
 Claude Code（Codex CLI v0.115.0 / gpt-5.4）による3回のイテレーティブレビューを実施。
 最終方針として、**GitHub上の自動レビューは `@codex review` のみ採用し、Cloud task は人間が手動起動する**。
-Cloud task の実行入力は tracked な handoff packet に集約し、`docs/working/STRATEGY-XXXX/` は人間の準備用ソースとして扱う。
+Cloud task の実行入力は tracked な handoff packet に集約し、`docs/working/TASK-XXXX/` は人間の準備用ソースとして扱う。
 
 ## レビュー経緯
 
@@ -64,4 +64,4 @@ Cloud task の実行入力は tracked な handoff packet に集約し、`docs/wo
 - `gh pr view --json reviewDecision --jq .reviewDecision` に変更（より安全）
 - `self-review/SKILL.md` の中身を環境中立化
 - Cloud task 手動起動手順を `docs/ai-driven-development.md` または専用ガイドに追記
-- `./scripts/ai-dev-workflow STRATEGY-XXXX plan|prepare-cloud|sync-cloud` を入口にして半自動化を進める
+- `./scripts/ai-dev-workflow TASK-XXXX plan|prepare-cloud|sync-cloud` を入口にして半自動化を進める
