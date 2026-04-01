@@ -63,7 +63,7 @@ exec開始時:
 1. status.mdの `## C-3 Gate` セクションを確認
    - `APPROVED` → exec開始
    - `CONDITIONAL` → 指摘反映済みか確認 → 反映済みならexec開始
-   - `REJECT` → 停止、「planを再生成してください」と報告
+   - `REJECTED` → 停止、「planを再生成してください」と報告
    - セクションなし → 停止、「C-3（人間レビュー）を先に完了してください」と報告
 ```
 
