@@ -51,7 +51,7 @@ fi
 prompt=$(cat <<EOF
 あなたは AI駆動開発ワークフローの plan フェーズを担当する。
 この実行では multi-agent 機能を積極的に使い、計画・レビュー・handoff draft を半自動で整えること。
-少なくとも orchestrator / project_planner の役割を使い、必要に応じて test_engineer / documentation_writer / explorer_agent を委譲先として活用すること。
+少なくとも orchestrator / project_planner の役割を使い、必要に応じて documentation_writer / explorer_agent を委譲先として活用すること。
 
 対象チケット:
 - $AI_DEV_STRATEGY

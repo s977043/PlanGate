@@ -258,14 +258,14 @@ Codex では、役割を次のように割り当てる。
 | --- | --- |
 | planner | `project_planner` |
 | researcher | `explorer_agent` |
-| frontend-dev | `frontend_specialist` |
-| backend-dev | `backend_specialist` |
-| database | `database_architect` |
-| tester | `test_engineer` |
-| debugger | `debugger` |
-| reviewer | `security_auditor` / `performance_optimizer` / `test_engineer` |
 | docs | `documentation_writer` |
-| ops | `devops_engineer` |
+| skill-design | `skill_designer` |
+| conductor | `workflow_conductor` |
+| orchestrator | `orchestrator` |
+| reviewer (bridge) | `claude_code_reviewer` |
+
+> 上記は PlanGate フレームワークの標準構成。
+> プロジェクト固有の specialist agent（frontend, backend, tester 等）は導入先リポジトリで追加する。
 
 Codex での代表的な操作:
 
