@@ -58,16 +58,14 @@ Codex Cloud / Codex CLI で使う repo-owned skill の正本は `.agents/skills/
 - `manual-cloud-task` - tracked handoff packet を使って Codex Cloud の手動 task 実行フローを組み立てる
 - `working-context` - ローカル ticket コンテキストの更新ルール
 
-## Claude Code Skills（共有）
+## Claude Code Assets
 
-以下は `.claude/skills/` に正本があり、Codex からも参照可能なスキル。
+以下は Claude Code 側の正本であり、Codex の実行対象としては直接 bridge しない。
+必要な内容は repo-owned skill として `.agents/skills/` に移す。
 
-- `self-review` - `.claude/skills/self-review/SKILL.md`
-- `brainstorming` - `.claude/skills/brainstorming/SKILL.md`
-- `systematic-debugging` - `.claude/skills/systematic-debugging/SKILL.md`
-- `subagent-driven-development` - `.claude/skills/subagent-driven-development/SKILL.md`
-- `skill-creator` - `.claude/skills/skill-creator/SKILL.md`
-- `codex-multi-agent` - `.claude/skills/codex-multi-agent/SKILL.md`
+- `.claude/skills/README.md` - Claude Code 側のスキル一覧
+- `.claude/agents/` - Claude Code 側の agent 詳細定義
+- `.claude/rules/` - 共通ルールの補助参照
 
 ## Cloud Handoff
 
@@ -77,6 +75,12 @@ Codex Cloud / Codex CLI で使う repo-owned skill の正本は `.agents/skills/
 ## Agents
 
 - `claude_code_reviewer` - Claude Code CLI に PR レビューを委譲する bridge agent
+- `orchestrator` - マルチエージェントの調整
+- `project_planner` - タスク分解と計画策定
+- `workflow_conductor` - ai-dev-workflow のフェーズ遷移管理
+- `documentation_writer` - ドキュメント整備
+- `skill_designer` - skill 設計支援
+- `explorer_agent` - 調査専用 agent
 
 ## Review Bridge
 
@@ -101,6 +105,8 @@ Codex から Claude Code に PR レビューを委譲したい場合は、`claud
 ## System Skills
 
 - `.codex/skills/.system/` は OpenAI 提供の system / vendor skill 置き場
+- 通常は Codex 実行時に runtime 側でマウントされ、このリポジトリにはコミットしない
+- ローカル検証などで明示的にパスが必要な場合のみ、空の `.codex/skills/.system/` ディレクトリを作成してよいが、vendor 提供物はコミットしない
 - repo 固有 skill の正本には使わない
-- Codex から `.claude/skills/` は参照しない。必要なものは `.agents/skills/` に移す
+- Codex から `.claude/skills/` は直接参照しない。必要なものは `.agents/skills/` に移す
 - Claude Code 側の既存スキル一覧は `.claude/skills/README.md` を参照する
