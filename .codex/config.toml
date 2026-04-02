@@ -8,8 +8,8 @@ approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 
 # プロジェクトドキュメントのフォールバック順序
-# Codex は instructions.md を優先読み込み。見つからない場合は CLAUDE.md にフォールバック
-project_doc_fallback_filenames = ["CLAUDE.md"]
+# Codex は instructions.md を優先読み込み。見つからない場合は AGENTS.md → CLAUDE.md の順で参照する
+project_doc_fallback_filenames = ["AGENTS.md", "CLAUDE.md"]
 
 # --- Features ---
 [features]

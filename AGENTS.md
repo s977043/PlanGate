@@ -15,8 +15,8 @@
 | 実行設定 | `.codex/config.toml` |
 | Codex補足ガイド | `.codex/instructions.md` |
 | エージェント定義 | `.codex/agents/*.toml` |
-| スキル（正本） | `.claude/skills/`（Claude Code と共有） |
-| 共有スキル | `.agents/skills/`（Claude Code・Codex CLI共用） |
+| スキル（Codex正本） | `.agents/skills/`（repo-owned / Codex Cloud・Codex CLI共用） |
+| Claude Code資産 | `.claude/skills/`（必要時の参考用） |
 | PlanGate ワークフロー | `docs/plangate.md` |
 | 役割分担 | `docs/ai/tool-roles.md` |
 
