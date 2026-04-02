@@ -1,38 +1,45 @@
 # AGENTS.md
 
-> Codex CLI 向けエントリーポイント。共通ルールの正本は `docs/ai/project-rules.md` にある。
+> Codex CLI 向けの入口。共通ルールの正本は `docs/ai/project-rules.md`、再利用可能な学びは `AGENT_LEARNINGS.md` に置く。
 
-## プロジェクトルール（共通）
+## まず読むもの
 
-**必読**: `docs/ai/project-rules.md`
+1. `docs/ai/project-rules.md`
+2. 本ファイル
+3. `.codex/instructions.md`
+4. `docs/ai/tool-roles.md`
 
-開発ルール、ブランチ命名規則、禁止事項、AI運用4原則はすべて上記ファイルに定義されている。
+## このリポジトリの性質
+
+- PlanGate のワークフロー、設定、運用ドキュメントを管理するリポジトリ
+- 現時点で `package.json` などの package manager 定義はない
+- そのため、一般的な `lint` / `test` / `typecheck` コマンドもこのリポジトリには定義されていない
+- 実行可能な入口は `./scripts/ai-dev-workflow` と `./scripts/codex-local.sh`
 
 ## Codex 固有の参照先
 
 | カテゴリ | パス |
-| ------- | ---- |
+| --- | --- |
 | 実行設定 | `.codex/config.toml` |
 | Codex補足ガイド | `.codex/instructions.md` |
 | エージェント定義 | `.codex/agents/*.toml` |
-| スキル（Codex正本） | `.agents/skills/`（repo-owned / Codex Cloud・Codex CLI共用） |
-| Claude Code資産 | `.claude/skills/`（必要時の参考用） |
+| 共有スキル | `.agents/skills/` |
 | PlanGate ワークフロー | `docs/plangate.md` |
 | 役割分担 | `docs/ai/tool-roles.md` |
+| 作業コンテキスト | `docs/working/README.md` |
+| 学びの蓄積 | `AGENT_LEARNINGS.md` |
 
-## Codex 固有の注意点
+## 作業ルール
 
-- `<language>`, `<law>` 等の XML タグは Claude Code 固有の記法。Codex では無視する
-- `Grep`/`Glob` ツール名への言及は Claude Code 固有。Codex は独自のファイル探索手段を使用
-- Codex 詳細設定と読み替え表: `.codex/instructions.md` を参照
+- 既存のコマンドや構成に合わせ、存在しないコマンドは書かない
+- 変更前に既存の README、docs、scripts を確認する
+- secrets、認証情報、個人情報は残さない
+- 一時メモや進行中の検討は `AGENT_LEARNINGS.md` に書かない
+- 不明点は推測で埋めず、必要ならユーザーに確認する
 
-## 迷ったらの判断基準
+## 判断基準
 
-**優先順位**: `docs/ai/project-rules.md`（正本）> `AGENTS.md`（ツール固有設定）> `.codex/instructions.md` > `.codex/config.toml`
+**優先順位**: `docs/ai/project-rules.md` > `AGENTS.md` > `.codex/instructions.md` > `.codex/config.toml`
 
-- 既存コードを探索し、既存パターンに従う。一般論で上書きしない
-- 不明点はユーザーに確認する（AI運用原則第1原則に従う）
-
-## 言語
-
-日本語で出力・コミットメッセージ・PR文面を記述する。
+- 既存パターンを優先し、一般論で上書きしない
+- 日本語で出力、コミットメッセージ、PR文面を記述する
