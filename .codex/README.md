@@ -105,6 +105,8 @@ Codex から Claude Code に PR レビューを委譲したい場合は、`claud
 ## System Skills
 
 - `.codex/skills/.system/` は OpenAI 提供の system / vendor skill 置き場
+- 通常は Codex 実行時に runtime 側でマウントされ、このリポジトリにはコミットしない
+- ローカル検証などで明示的にパスが必要な場合のみ、空の `.codex/skills/.system/` ディレクトリを作成してよいが、vendor 提供物はコミットしない
 - repo 固有 skill の正本には使わない
 - Codex から `.claude/skills/` は直接参照しない。必要なものは `.agents/skills/` に移す
 - Claude Code 側の既存スキル一覧は `.claude/skills/README.md` を参照する

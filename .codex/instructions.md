@@ -9,20 +9,21 @@
 3. **本ファイル** — Codex 固有の補足
 4. **`CLAUDE.md`** — Claude Code 側の補助情報。必要箇所のみ読み替えて参照
 
-## CLAUDE.md から適用するセクション
+## project-rules から適用するセクション
 
 | セクション | 内容 | Codex での適用 |
 |---|---|---|
 | A. リポジトリの目的 | スタック・構成 | そのまま適用 |
 | B. 主要ディレクトリ | ディレクトリ構造 | そのまま適用 |
-| C. 開発ルール | ブランチ命名・PR運用 | `docs/ai/project-rules.md` を優先しつつ適用 |
+| C. 開発ルール | ブランチ命名・PR運用 | そのまま適用 |
 | D. 作業コンテキスト | `docs/working/` 運用 | そのまま適用 |
 | E. 禁止事項 | 編集禁止ファイル等 | そのまま適用 |
-| F. 迷ったらの判断基準 | `.claude/` パス参照あり | **下記の読み替え表を使用** |
+| F. AI運用4原則 | 承認・停止・決定権の原則 | そのまま適用 |
+| G. 参照先 | 補助ドキュメント一覧 | `CLAUDE.md` / `AGENTS.md` の入口情報と合わせて参照 |
 
 ## Codex 固有の読み替え
 
-CLAUDE.md セクション F 内の参照先を Codex では以下に読み替える:
+`CLAUDE.md` / `AGENTS.md` 内の `.claude/` 系参照は Codex では以下に読み替える:
 
 | CLAUDE.md の記載 | Codex での対応先 |
 |---|---|
@@ -39,7 +40,7 @@ CLAUDE.md セクション F 内の参照先を Codex では以下に読み替え
 - **起動ラッパー**: `./scripts/codex-local.sh exec --json "..."` で repo 内の runtime home を使い、project-local の `.codex/` 設定と `~/.codex` の認証を両立させる
 - **半自動ワークフロー入口**: `./scripts/ai-dev-workflow TASK-XXXX brainstorm|plan|gate|prepare-cloud|exec|status|sync-cloud`
 - **手動Cloud task handoff**: `.codex/manual-cloud-task.md`
-- **system/vendor skills**: `.codex/skills/.system/`
+- **system/vendor skills**: `.codex/skills/.system/`（通常は Codex 実行時に runtime 側でマウントされ、repo にはコミットしない）
 
 Codex は `.claude/skills/` を bridge しない。Codex から使う skill は `.agents/skills/` に置く。
 `.agents/skills/` を正本にする理由は、repo-owned / version-controlled な skill だけを Codex の実行対象に固定し、所有者と更新経路を明確に保つため。
