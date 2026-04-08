@@ -7,7 +7,7 @@
 
 ## PlanGateワークフローとの対応
 
-このルールはPlanGateワークフロー v5の各フェーズで生成される成果物を永続化する。
+このルールはPlanGateワークフロー v5-v6の各フェーズで生成される成果物を永続化する。
 PlanGateガイド: `docs/plangate.md`
 ワークフロー詳細: `docs/ai-driven-development.md`
 
@@ -16,7 +16,7 @@ Ready → In Progress
   → 0: Brainstorming 🤖👤（対話的な要件整理・設計書生成、任意）
   → A: PBI INPUT PACKAGE作成 👤
   → B: Plan + ToDo + Test Cases同時生成 🤖
-  → C-1: セルフレビュー 🤖（15項目チェック）
+  → C-1: セルフレビュー 🤖（17項目チェック）
   → C-2: 外部AIレビュー 🤖
   → C-3: 人間レビュー 👤（三値ゲート: APPROVE / CONDITIONAL / REJECT）
   → D: Agent実行 🤖（TDD）
@@ -39,10 +39,48 @@ docs/working/
     ├── plan.md              # B: EXECUTION PLAN（Prompt 1で生成）
     ├── todo.md              # B: EXECUTION TODO（Prompt 1で生成）
     ├── test-cases.md        # B: テストケース定義（Prompt 1で生成）
+    ├── INDEX.md             # B: チケット索引（plan完了時に自動生成）
+    ├── current-state.md     # B〜: 現在状態スナップショット（タスク完了ごとに自動更新）
     ├── review-self.md       # C-1: セルフレビュー結果（Prompt 2で生成）
     ├── review-external.md   # C-2: 外部AIレビュー結果（任意）
-    └── status.md            # D〜: 作業ステータス（随時更新）
+    ├── decision-log.jsonl   # B〜: 判断履歴（append-only、plan完了時に初期化）
+    ├── status.md            # D〜: フェーズ履歴・完了記録のアーカイブ（随時追記）
+    └── evidence/            # C-1〜: レビュー根拠・検証ログ
+        ├── c1-review/       #   C-1 の根拠（FAIL時必須）
+        ├── c2-review/       #   C-2 の根拠
+        ├── test-runs/       #   テスト実行ログ
+        ├── verification/    #   動作検証スクリーンショット・ログ
+        └── e2e/             #   E2E 検証結果
 ```
+
+## コンテキスト読み込みプロトコル（Progressive Disclosure）
+
+セッション開始時・フェーズ遷移時のファイル読み込みを段階的に行い、不要な情報の読み込みを抑制する。
+
+| Level | 対象ファイル | 読み込みタイミング |
+|-------|------------|-----------------|
+| **L0**（常に読む） | INDEX.md → current-state.md | セッション開始時に必ず最初に読む |
+| **L1**（フェーズに応じて） | plan → pbi-input.md | plan フェーズで読む |
+| | exec → plan.md, todo.md, test-cases.md | exec フェーズで読む |
+| | review → plan.md, review-self.md, review-external.md | review フェーズで読む |
+| | status → status.md, todo.md | status 確認時に読む |
+| **L2**（根拠が必要な時のみ） | evidence/{該当ディレクトリ}, decision-log.jsonl | レビュー根拠の確認・振返り時 |
+| **L3**（履歴全体が必要な時のみ） | status.md 全体, 他チケットの working context | 横断的な分析・過去参照時 |
+
+**フォールバック**: INDEX.md が存在しない場合（旧形式チケット）→ L1 から開始（status.md を直接読む = 従来動作）。
+
+### current-state.md と status.md の役割分担
+
+| ファイル | 役割 | 目安行数 | 更新タイミング |
+|---------|------|---------|--------------|
+| current-state.md | 「今どこにいて、次に何をするか」のスナップショット | ~20行 | タスク完了ごとに上書き |
+| status.md | フェーズ履歴・完了記録のアーカイブ | 制限なし | フェーズ遷移・セッション終了時に追記 |
+
+### evidence/ の保管ルール
+
+- **PASS 判定**: evidence は省略可（判定理由のみ review ファイルに記載）
+- **WARN 判定**: evidence 推奨
+- **FAIL 判定**: evidence 必須（evidence がない FAIL は無効）
 
 ## 各ファイルの役割
 
@@ -139,8 +177,10 @@ status.mdの更新タイミングと記載内容を段階で分ける:
 ### セッション開始時
 
 1. 対象チケットの `docs/working/TASK-XXXX/` が存在するか確認する
-2. 存在すれば `status.md` を読み、現在の状態を把握してから作業を開始する
-3. `plan.md` / `todo.md` も参照し、当初計画と現在の実装の差分を認識する
+2. `INDEX.md` が存在すれば読み、現在フェーズを確認する（L0）
+3. `current-state.md` を読み、中断地点・ブロッカーを把握する（L0）
+4. フェーズに応じて必要なファイルを読む（L1、Progressive Disclosure プロトコルに従う）
+5. `INDEX.md` が存在しない場合（旧形式）→ `status.md` を読み、現在の状態を把握してから作業を開始する（フォールバック）
 
 ### 作業中
 

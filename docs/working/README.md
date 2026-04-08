@@ -28,7 +28,7 @@ PlanGateの全体像・設計思想については [`docs/plangate.md`](../plang
 Ready
   → A: PBI INPUT PACKAGE 作成 👤
   → B: Plan + ToDo + TestCases 生成 🤖（/ai-dev-workflow TASK-XXXX plan）
-  → C-1: セルフレビュー（15項目）🤖
+  → C-1: セルフレビュー（17項目）🤖
   → C-2: 外部AIレビュー 🤖
   → C-3: 人間レビュー 👤（三値ゲート: APPROVE / CONDITIONAL / REJECT）
   → D: Agent実行（TDD）🤖（/ai-dev-workflow TASK-XXXX exec）

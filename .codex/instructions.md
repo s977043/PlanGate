@@ -21,6 +21,21 @@
 | F. AI運用4原則 | 承認・停止・決定権の原則 | そのまま適用 |
 | G. 参照先 | 補助ドキュメント一覧 | `CLAUDE.md` / `AGENTS.md` の入口情報と合わせて参照 |
 
+## コンテキスト読み込みプロトコル（v6）
+
+チケット作業時は Progressive Disclosure に従い段階的に読み込む。詳細は `.claude/rules/working-context.md` を参照。
+
+| Level | ファイル | タイミング |
+|-------|---------|----------|
+| L0 | `INDEX.md` → `current-state.md` | 常に最初に読む |
+| L1 | フェーズに応じて（plan→`pbi-input.md` / exec→`plan.md`,`todo.md`,`test-cases.md` / review→`plan.md`,`review-*.md`） | フェーズ確認後 |
+| L2 | `evidence/`, `decision-log.jsonl` | 根拠が必要な時のみ |
+| L3 | `status.md`全体, 他チケット | 履歴全体が必要な時のみ |
+
+> `INDEX.md` が存在しない旧形式チケットでは L1 から開始（従来動作）。
+
+**Codex Cloud task での適用**: Cloud task 実行時も上記プロトコルに従う。`.codex/manual-cloud-task.md` の handoff packet に `INDEX.md` / `current-state.md` の参照を含めること。
+
 ## Codex 固有の読み替え
 
 `CLAUDE.md` / `AGENTS.md` 内の `.claude/` 系参照は Codex では以下に読み替える:

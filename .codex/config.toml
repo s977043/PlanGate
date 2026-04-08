@@ -45,6 +45,14 @@ config_file = "agents/skill_designer.toml"
 [agents.claude_code_reviewer]
 config_file = "agents/claude_code_reviewer.toml"
 
+# -- アジャイル --
+
+[agents.scrum_master]
+config_file = "agents/scrum_master.toml"
+
+[agents.agile_coach]
+config_file = "agents/agile_coach.toml"
+
 # -- 調査 --
 
 [agents.explorer_agent]

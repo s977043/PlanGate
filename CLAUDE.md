@@ -10,7 +10,7 @@
 
 | カテゴリ | パス |
 | :--- | :--- |
-| エージェント | `.claude/agents/workflow-conductor.md` |
+| エージェント | `.claude/agents/README.md` |
 | コマンド一覧 | `.claude/commands/README.md` |
 | スキル一覧 | `.claude/skills/README.md` |
 | 共有スキル | `.agents/skills/`（Claude Code・Codex CLI共用） |
