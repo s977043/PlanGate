@@ -43,7 +43,7 @@ Ready → In Progress
   → A: PBI INPUT PACKAGE作成 👤
   → B: Plan + ToDo + Test Cases同時生成 🤖
   → C-1: セルフレビュー 🤖（17項目チェック）
-  → C-2: 外部AIレビュー 🤖（利用可能なサブエージェント経由）
+  → C-2: 外部AIレビュー 🤖（専門エージェント経由）
   → C-3: 人間レビュー 👤（三値ゲート：APPROVE / CONDITIONAL / REJECT）
   → D: Agent実行 🤖（workflow-conductor経由、TDD）
   → L-0: リンター自動修正 🤖（autofix → AI修正 → 抑制）
@@ -66,7 +66,7 @@ Ready → In Progress
 | A: PBI INPUT PACKAGE作成 | pbi-input.md | 人間 |
 | B: Plan + ToDo + Test Cases生成 | plan.md + todo.md + test-cases.md | AI（Prompt 1） |
 | C-1: セルフレビュー | review-self.md（17項目PASS/WARN/FAIL） | AI（Prompt 2） |
-| C-2: 外部AIレビュー | review-external.md（PASS/WARN/FAIL） | AI（サブエージェント経由） |
+| C-2: 外部AIレビュー | review-external.md（PASS/WARN/FAIL） | AI（専門エージェント経由） |
 | C-3: 人間レビュー（ゲート） | APPROVE / CONDITIONAL / REJECT | 人間 |
 | D: Agent実行（TDD） | 実装コード | AI（workflow-conductor） |
 | L-0: リンター自動修正 | リンター通過済みコード | AI |
@@ -219,7 +219,7 @@ C-4: 人間レビュー（GitHub上）
   APPROVE → マージ → Done / REQUEST CHANGES → execから再実行 / REJECT → planからやり直し
 ```
 
-### サブエージェントのステータスコード
+### エージェントのステータスコード
 
 | コード | 意味 | conductor対応 |
 |--------|------|-------------|
@@ -266,7 +266,7 @@ Prompt 1  Plan + ToDo + Test Cases生成
 Prompt 2  Plan + ToDo + Test Casesレビュー（セルフレビュー）
   自動レビュー → PASS/WARN/FAIL判定（17項目）
        ↓
-外部AIレビュー（利用可能なサブエージェント経由）
+外部AIレビュー（専門エージェント経由）
   複数視点での並列チェック
        ↓ 人間がC-3で三値判断 → APPROVE / CONDITIONAL / REJECT
 Prompt 3  Agent実行（workflow-conductor経由）
