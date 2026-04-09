@@ -411,16 +411,15 @@ conductor が Implementer サブエージェントに文脈を構成する際の
 | plan生成 | project-planner agent | pbi-input.md全文 |
 | C-1 | self-review skill（17項目チェック） | plan + todo + test-cases + pbi-input |
 | C-2 | 利用可能なサブエージェント | plan + todo + test-cases + review-self |
-| exec: 実装 | Implementerサブエージェント（タスクごとに新規） | タスク詳細（抽出済み）+ テストケース（抽出済み）+ 既存パターン |
-| L-0: autofix | サブエージェント | リンター/フォーマッター設定 + 違反一覧 |
-| L-0: AI修正 | サブエージェント | 違反詳細 + 該当コード |
-| V-1: 受け入れ検査 | サブエージェント | test-cases.md + 実装コード |
-| V-1: fix | サブエージェント | FAIL原因 + 該当コード + テストケース |
-| V-2: 最適化 | サブエージェント | 実装コード + テスト |
+| exec: 実装 | implementer agent（タスクごとに新規） | タスク詳細（抽出済み）+ テストケース（抽出済み）+ 既存パターン |
+| L-0: autofix/AI修正 | linter-fixer agent | リンター設定 + 違反一覧 + 該当コード |
+| V-1: 受け入れ検査 | acceptance-tester agent | test-cases.md + 実装コード |
+| V-1: fix | implementer agent | FAIL原因 + 該当コード + テストケース |
+| V-2: 最適化 | code-optimizer agent | 実装コード + テスト |
 | V-3: 外部レビュー | 外部AIサブエージェント | 実装差分 + L-0申し送りリスト |
 | V-4: リリース前チェック | サブエージェント | 全成果物サマリ |
 | PR作成 | サブエージェント | 全成果物 + レビュー結果 |
-| 振り返り | conductor自身 | タスク実行ログ（生データ） |
+| 振り返り | retrospective-analyst agent | タスク実行ログ（生データ） |
 
 ---
 

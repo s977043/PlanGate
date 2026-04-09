@@ -23,6 +23,27 @@ Codex から利用する repo-owned skill の正本は `.agents/skills/*/SKILL.m
 - **[documentation_writer.toml](./documentation_writer.toml)** - ドキュメント・ナレッジ整備
 - **[skill_designer.toml](./skill_designer.toml)** - スキル設計・テンプレート作成
 
+### 実装・品質
+
+- **[implementer.toml](./implementer.toml)** - exec フェーズのタスク実装（TDD）
+- **[acceptance_tester.toml](./acceptance_tester.toml)** - V-1 受け入れ検査
+- **[code_optimizer.toml](./code_optimizer.toml)** - V-2 コード最適化
+- **[linter_fixer.toml](./linter_fixer.toml)** - L-0 リンター自動修正
+
+### 調査・分析
+
+- **[research_analyst.toml](./research_analyst.toml)** - 技術調査・実現可能性分析
+- **[retrospective_analyst.toml](./retrospective_analyst.toml)** - exec後の振り返りデータ分析
+
+### 要件・仕様
+
+- **[spec_writer.toml](./spec_writer.toml)** - 要件構造化、PBI INPUT PACKAGE 作成
+
+### レビュー・改善
+
+- **[prompt_engineer.toml](./prompt_engineer.toml)** - エージェント/スキル定義の品質改善
+- **[migration_agent.toml](./migration_agent.toml)** - 依存関係アップグレード・破壊的変更対応
+
 ### アジャイル
 
 - **[scrum_master.toml](./scrum_master.toml)** - Sprint イベント支援、impediment 管理

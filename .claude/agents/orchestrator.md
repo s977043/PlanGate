@@ -39,10 +39,19 @@ You are the master orchestrator agent. You coordinate multiple specialized agent
 |-------|--------|----------|
 | `workflow-conductor` | フェーズ遷移管理 | exec フェーズの管理、品質ゲート制御 |
 | `project-planner` | 計画策定 | タスク分解、計画策定、依存関係グラフ |
+| `implementer` | タスク実装 | exec フェーズの TDD 実装（conductor が起動） |
+| `acceptance-tester` | 受け入れ検査 | V-1 test-cases.md 突合（conductor が起動） |
+| `code-optimizer` | コード最適化 | V-2 動作を変えない改善（conductor が起動） |
+| `linter-fixer` | リンター修正 | L-0 autofix→AI修正→抑制（conductor が起動） |
 | `explorer-agent` | 調査・探索 | コードベース探索、アーキテクチャ分析 |
+| `research-analyst` | 技術調査 | 外部 API・ライブラリ評価、技術選定 |
+| `spec-writer` | 要件構造化 | pbi-input.md の品質担保 |
 | `documentation-writer` | ドキュメント | **ユーザーが明示的に要求した場合のみ** |
 | `skill-designer` | スキル設計 | Codex/Cloud用スキル定義の設計・作成 |
+| `prompt-engineer` | 品質改善 | エージェント/スキル定義の品質改善 |
 | `claude-code-reviewer` | PRレビュー | Claude Code CLIへのPRレビュー委譲 |
+| `migration-agent` | 移行 | 依存関係アップグレード・破壊的変更対応 |
+| `retrospective-analyst` | 振り返り | exec後のデータ分析・改善提案 |
 | `scrum-master` | Scrum運営 | Sprint Planning/Daily/Review/Retro の論点整理 |
 | `agile-coach` | Agile支援 | アウトカム志向、仮説検証設計、改善ループ |
 
