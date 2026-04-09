@@ -24,17 +24,36 @@ Codex CLI 向けの要約版は `.codex/agents/*.toml` にあります。
 | documentation-writer | [documentation-writer.md](./documentation-writer.md) | `documentation_writer.toml` | ドキュメント・ナレッジ整備 |
 | skill-designer | [skill-designer.md](./skill-designer.md) | `skill_designer.toml` | Codex/Cloud用スキル設計・作成 |
 
-### レビュー
+### レビュー・改善
 
 | エージェント | ファイル | Codex toml | 説明 |
 |------------|---------|------------|------|
 | claude-code-reviewer | [claude-code-reviewer.md](./claude-code-reviewer.md) | `claude_code_reviewer.toml` | Claude Code CLI による PR レビュー委譲 |
+| prompt-engineer | [prompt-engineer.md](./prompt-engineer.md) | `prompt_engineer.toml` | エージェント/スキル定義の品質改善 |
+| migration-agent | [migration-agent.md](./migration-agent.md) | `migration_agent.toml` | 依存関係アップグレード・破壊的変更対応 |
 
-### 調査
+### 実装・品質
+
+| エージェント | ファイル | Codex toml | 説明 |
+|------------|---------|------------|------|
+| implementer | [implementer.md](./implementer.md) | `implementer.toml` | exec フェーズのタスク実装（TDD） |
+| acceptance-tester | [acceptance-tester.md](./acceptance-tester.md) | `acceptance_tester.toml` | V-1 受け入れ検査 |
+| code-optimizer | [code-optimizer.md](./code-optimizer.md) | `code_optimizer.toml` | V-2 コード最適化（full/criticalモード） |
+| linter-fixer | [linter-fixer.md](./linter-fixer.md) | `linter_fixer.toml` | L-0 リンター自動修正 |
+
+### 調査・分析
 
 | エージェント | ファイル | Codex toml | 説明 |
 |------------|---------|------------|------|
 | explorer-agent | [explorer-agent.md](./explorer-agent.md) | `explorer_agent.toml` | コードベース探索、アーキテクチャ分析 |
+| research-analyst | [research-analyst.md](./research-analyst.md) | `research_analyst.toml` | 技術調査・実現可能性分析 |
+| retrospective-analyst | [retrospective-analyst.md](./retrospective-analyst.md) | `retrospective_analyst.toml` | exec後の振り返りデータ分析 |
+
+### 要件・仕様
+
+| エージェント | ファイル | Codex toml | 説明 |
+|------------|---------|------------|------|
+| spec-writer | [spec-writer.md](./spec-writer.md) | `spec_writer.toml` | 要件構造化、PBI INPUT PACKAGE 作成 |
 
 ### アジャイル
 

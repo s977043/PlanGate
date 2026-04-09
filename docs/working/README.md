@@ -34,9 +34,9 @@ Ready
   → D: Agent実行（TDD）🤖（/ai-dev-workflow TASK-XXXX exec）
   → L-0: リンター自動修正ループ 🤖
   → V-1: 受け入れ検査 🤖
-  → V-2: コード最適化 🤖（フルモードのみ）
+  → V-2: コード最適化 🤖（full/criticalモード）
   → V-3: 外部モデルレビュー 🤖
-  → V-4: リリース前チェック 🤖（フルモードのみ）
+  → V-4: リリース前チェック 🤖（full/criticalモード）
   → PR作成 🤖
   → C-4: PRレビュー・承認 👤（GitHub上）
   → Done

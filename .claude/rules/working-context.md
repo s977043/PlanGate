@@ -22,9 +22,9 @@ Ready → In Progress
   → D: Agent実行 🤖（TDD）
   → L-0: リンター自動修正 🤖
   → V-1: 受け入れ検査 🤖
-  → V-2: コード最適化 🤖（フルモードのみ）
+  → V-2: コード最適化 🤖（full/criticalモードのみ）
   → V-3: 外部モデルレビュー 🤖
-  → V-4: リリース前チェック 🤖（フルモードのみ）
+  → V-4: リリース前チェック 🤖（criticalモードのみ）
   → PR作成 🤖
   → C-4: 人間レビュー 👤（GitHub上: APPROVE / REQUEST CHANGES / REJECT）
   → Done
@@ -106,7 +106,7 @@ docs/working/
 - Testing Strategy（Unit / Integration / E2E / Verification Automation）
 - Risks & Mitigations
 - Questions / Unknowns
-- Mode判定（ライト / フル）
+- Mode判定（ultra-light / light / standard / full / critical）
 
 ### todo.md（EXECUTION TODO）
 
@@ -148,7 +148,7 @@ docs/working/
 - **計画からの変更点**: リネーム、削除、設計変更などの差分を明記
 - **残タスク**: チェックリスト形式（`- [ ]` / `- [x]`）
 - **V系ステップ進捗**: L-0/V-1〜V-4の完了状況
-- **モード判定結果**: ライト / フル
+- **モード判定結果**: ultra-light / light / standard / full / critical
 - **Claude Codeプロンプト**: 次の作業をClaude Codeに依頼する際のプロンプト（コンテキスト・背景・タスク込み）
 - **参照ファイル一覧**: 関連ドキュメントへのパス
 
