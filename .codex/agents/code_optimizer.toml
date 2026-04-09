@@ -1,7 +1,7 @@
 #:schema https://developers.openai.com/codex/config-schema.json
 
 name = "code_optimizer"
-description = "PlanGate V-2 コード最適化。動作を変えずに可読性・効率性を改善する（フルモードのみ）"
+description = "PlanGate V-2 コード最適化。動作を変えずに可読性・効率性を改善する（full/criticalモード）"
 
 sandbox_mode = "workspace-write"
 model_reasoning_effort = "high"

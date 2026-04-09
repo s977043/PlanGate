@@ -48,9 +48,9 @@ Ready → In Progress
   → D: Agent実行 🤖（workflow-conductor経由、TDD）
   → L-0: リンター自動修正 🤖（autofix → AI修正 → 抑制）
   → V-1: 受け入れ検査 🤖（test-cases.md突合）
-  → V-2: コード最適化 🤖（フルモードのみ）
+  → V-2: コード最適化 🤖（full/criticalモード）
   → V-3: 外部モデルレビュー 🤖
-  → V-4: リリース前チェック 🤖（フルモードのみ）
+  → V-4: リリース前チェック 🤖（criticalモード）
   → PR作成 🤖
   → C-4: 人間レビュー 👤（GitHub上、APPROVE / REQUEST CHANGES / REJECT）
   → Done
@@ -203,13 +203,13 @@ V-1: 受け入れ検査
   test-cases.mdの完了条件を1つずつ機械的に突合
   FAIL → fix → L-0再実行 → V-1再実行（最大5回。超過時ABORT → 人間判断）
   ↓
-V-2: コード最適化（フルモードのみ）
+V-2: コード最適化（full/criticalモード）
   冗長コード削減・可読性向上。動作を変えない改善に限定。最適化後にテスト再実行
   ↓
 V-3: 外部モデルレビュー
   外部AI（Gemini等）が設計品質をチェック。L-0で抑制した違反の申し送りも確認
   ↓
-V-4: リリース前チェック（フルモードのみ）
+V-4: リリース前チェック（criticalモード）
   PR作成前の最終品質ゲート
   ↓
 PR作成
@@ -326,8 +326,8 @@ PBIタイトル: {{PBI_TITLE}}
 ### Questions / Unknowns
 
 ### Mode判定
-- [ ] ライトモード（バグ修正・設定変更・1ファイル以内の変更）
-- [ ] フルモード（機能追加・リファクタ・複数ファイル変更）
+**モード**: {ultra-light | light | standard | full | critical}
+> 判定基準の正本: `.claude/rules/mode-classification.md`
 
 ---
 
@@ -516,7 +516,7 @@ D: TDD実装 → L-0: リンター自動修正 → V-1: 受け入れ検査 → V
 
 1. **C-3三値化**: APPROVE / CONDITIONAL / REJECT（CONDITIONALで柔軟なゲート通過）
 2. **V-1〜V-4**: exec以降に多層防御の検証ステップ追加
-3. **ライト/フルモード**: タスク規模に応じた検証ステップの最適化
+3. **5段階モード分類**: タスク規模に応じた検証ステップの最適化（ultra-light/light/standard/full/critical）
 4. **C-4**: GitHub上での明示的なPRレビューゲート
 
 ### v5改善（ハーネスエンジニアリング知見統合）

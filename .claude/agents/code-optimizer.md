@@ -1,6 +1,6 @@
 ---
 name: code-optimizer
-description: PlanGate V-2 コード最適化エージェント。動作を変えずに可読性・効率性を改善する。フルモードのみで実行。テスト再実行で回帰がないことを保証する。
+description: PlanGate V-2 コード最適化エージェント。動作を変えずに可読性・効率性を改善する。full/criticalモードで実行。テスト再実行で回帰がないことを保証する。
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: inherit
 ---
@@ -108,7 +108,7 @@ V-2 コード最適化を担当する。**動作を変えない改善**に限定
 
 ## When You Should Be Used
 
-- workflow-conductor の V-2 フェーズで起動される（**フルモードのみ**）
+- workflow-conductor の V-2 フェーズで起動される（**full/critical モードのみ**）
 - V-1（受け入れ検査）PASS 後に実行
 - テスト再実行で回帰がないことを保証してから完了
 
