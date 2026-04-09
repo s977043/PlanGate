@@ -23,6 +23,11 @@ Codex から利用する repo-owned skill の正本は `.agents/skills/*/SKILL.m
 - **[documentation_writer.toml](./documentation_writer.toml)** - ドキュメント・ナレッジ整備
 - **[skill_designer.toml](./skill_designer.toml)** - スキル設計・テンプレート作成
 
+### アジャイル
+
+- **[scrum_master.toml](./scrum_master.toml)** - Sprint イベント支援、impediment 管理
+- **[agile_coach.toml](./agile_coach.toml)** - アウトカム志向、仮説検証設計、継続改善
+
 ### レビュー
 
 - **[claude_code_reviewer.toml](./claude_code_reviewer.toml)** - Claude Code CLI による PR レビュー委譲

@@ -16,7 +16,7 @@
 # 作業コンテキストの保存（セッション終了時）
 /working-context save
 
-# Plan生成 → セルフレビュー（15項目）→ 外部AIレビュー（一括自動実行）
+# Plan生成 → セルフレビュー（17項目）→ 外部AIレビュー（一括自動実行）
 /ai-dev-workflow TASK-1234 plan
 
 # Agent実行（C-3承認後。多層防御検証 → PR作成まで自動）

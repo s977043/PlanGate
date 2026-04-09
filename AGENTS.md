@@ -16,6 +16,19 @@
 - そのため、一般的な `lint` / `test` / `typecheck` コマンドもこのリポジトリには定義されていない
 - 実行可能な入口は `./scripts/ai-dev-workflow` と `./scripts/codex-local.sh`
 
+## コンテキスト読み込みプロトコル（v6）
+
+チケット作業時は Progressive Disclosure に従い段階的に読み込む。詳細は `.claude/rules/working-context.md` を参照。
+
+| Level | ファイル | タイミング |
+|-------|---------|----------|
+| L0 | INDEX.md → current-state.md | 常に最初に読む |
+| L1 | フェーズに応じて（plan→pbi-input / exec→plan,todo,test-cases / review→plan,review-*） | フェーズ確認後 |
+| L2 | evidence/, decision-log.jsonl | 根拠が必要な時のみ |
+| L3 | status.md全体, 他チケット | 履歴全体が必要な時のみ |
+
+> INDEX.md が存在しない旧形式チケットでは L1 から開始（従来動作）。
+
 ## Codex 固有の参照先
 
 | カテゴリ | パス |

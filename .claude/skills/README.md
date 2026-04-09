@@ -10,7 +10,7 @@ PlanGate ワークフロー v5 で使用するスキル群。
 | `skill-optimizer` | 既存スキルの評価・改善（成功基準ベースの小さな変更） | developer-tools |
 | `skill-ops-planner` | スキルポートフォリオの運用計画・ロードマップ作成 | developer-tools |
 | `brainstorming` | アイデアや要件を対話的に設計書（PBI INPUT PACKAGE）へ昇華 | workflow |
-| `self-review` | 変更内容に対する詳細セルフレビュー（15項目チェック） | review |
+| `self-review` | 変更内容に対する詳細セルフレビュー（17項目チェック） | review |
 | `systematic-debugging` | バグや障害の体系的調査・根本原因特定 | debugging |
 | `subagent-driven-development` | 実装タスクのサブエージェント委譲・品質管理 | workflow |
 | `codex-multi-agent` | マルチエージェントでタスク分解・委譲・並列実行・結果統合 | workflow |
