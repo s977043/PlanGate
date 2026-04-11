@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible problem.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Clear reproduction steps help us fix issues faster.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+      placeholder: Describe the bug in a few sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the smallest set of steps that triggers the problem.
+      placeholder: |
+        1. Go to ...
+        2. Run ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser, runtime, version, or any context that seems relevant.
+      placeholder: "Example: macOS 15, Node.js 22, Chrome 123"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste logs, screenshots, or links that help explain the issue.
+      render: shell
