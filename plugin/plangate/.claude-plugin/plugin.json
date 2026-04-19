@@ -1,0 +1,8 @@
+{
+  "name": "plangate",
+  "version": "0.1.0",
+  "description": "PlanGate workflow for Claude Code: AI-driven development with TDD, multi-phase review gates (C-1/C-2/C-3/C-4), and 5-stage mode classification (ultra-light/light/standard/full/critical).",
+  "author": {
+    "name": "PlanGate contributors"
+  }
+}
