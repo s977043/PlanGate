@@ -1,6 +1,6 @@
 # TASK-0017 作業ステータス
 
-> 最終更新: 2026-04-19
+> 最終更新: 2026-04-20
 
 ## 全体構成
 
@@ -9,15 +9,21 @@
 - **ブランチ**: `feat/plangate-plugin-skeleton`
 - **Base Commit**: `cae1ac649384cbc7ba8f85cbab1b2fc312ddf05d`
 - **モード**: light
-- **状態**: 準備フェーズ完了、実装フェーズ前（確認待ち）
+- **状態**: ✅ **完了（PR #21 マージ済み）**
 
 ## C-3 Gate: APPROVED
 
 - 判定: CONDITIONAL APPROVE（2026-04-19）
 
+## C-4 Gate: APPROVED
+
+- PR #21 マージ済み（2026-04-19）: `feat(plugin): plangate skeleton + TASK-0016〜0020 の計画一式`
+- マージコミット: `90207dc`
+- 後続の Gemini Code Assist 指摘対応コミット: `d92d551`
+
 ## 現在のフェーズ
 
-準備フェーズ完了 → 実装フェーズ前の **計画修正確認待ち**
+✅ **完了**
 
 ## 完了タスク
 
@@ -26,42 +32,39 @@
 - [x] T-2a: schema validator 特定 → `evidence/schema-validation-method.md`
 - [x] T-2b: settings.json 必須キー列挙 → `evidence/settings-defaults.md`（**settings.json 不要と判明、採用見送り**）
 - [x] T-2c: base commit SHA 記録 → `evidence/base-commit.md`
+- [x] T-4: `plugin/plangate/` と必要ディレクトリ作成、`.gitkeep` 配置
+- [x] T-5: `plugin/plangate/.claude-plugin/plugin.json` 作成（metadata のみ）
+- [x] T-6: ~~settings.json 作成~~ **スキップ済**（plugin 仕様に存在しないため）
+- [x] T-7: プレースホルダー `README.md` 作成（後続 TASK-0020 で本文化済み）
+- [x] T-8: インストール試行検証 → `evidence/install-verification.md`
+- [x] T-9: `.claude/` 非破壊確認 → `evidence/non-destructive-check.md`
 
-## 🚨 計画からの変更点（plan deviation）
+## 🚨 計画からの変更点（plan deviation）— ✅ 実装時に解消済み
 
-仕様調査で重要な発見があり、plan.md と乖離しているため、実装前に計画を更新する必要がある。
+仕様調査で plan.md と乖離する点が発覚したが、**実装時に以下の方針で解消**した（PR #21 にて反映）:
 
-| 項目 | 元の計画 | 調査結果 | 対応 |
-|------|---------|---------|------|
-| plugin.json 配置 | `plugin/plangate/plugin.json` | `plugin/plangate/.claude-plugin/plugin.json` | plan/todo/test-cases 修正必要 |
-| scripts ディレクトリ | `bin/` | `scripts/`（標準） | 全 4 TASK 影響 |
-| plugin.json エントリ | skills/agents/rules/hooks を明示列挙 | auto-discovery、manifest は metadata のみ | TC-3 削除または変更 |
-| settings.json | 作成する | **非標準、採用しない** | 関連タスク・テスト削除 |
-| rules/ | plugin 標準 | **非標準ディレクトリ**、独自配置として維持 | TASK-0019 で確認 |
+| 項目 | 元の計画 | 実装結果 | 解消方法 |
+|------|---------|---------|---------|
+| plugin.json 配置 | `plugin/plangate/plugin.json` | `plugin/plangate/.claude-plugin/plugin.json` | ✅ 正しい配置で実装 |
+| scripts ディレクトリ | `bin/` | `scripts/`（標準） | ✅ 標準慣習に合わせて実装 |
+| plugin.json エントリ | skills/agents/rules/hooks を明示列挙 | auto-discovery、manifest は metadata のみ | ✅ 仕様に合わせて metadata のみ |
+| settings.json | 作成する | **非標準、採用せず** | ✅ 作成スキップ |
+| rules/ | plugin 標準 | 非標準ディレクトリ、独自配置 | ✅ TASK-0019 で独自配置として実装 |
 
-### 推奨される最終構造
+### 最終構造（実装済み）
 
 ```text
 plugin/plangate/
 ├── .claude-plugin/
 │   └── plugin.json       # metadata のみ
-├── agents/               # TASK-0019 で実体配置
-├── skills/               # TASK-0018 で実体配置
-├── rules/                # TASK-0019 で実体配置（非標準）
-├── hooks/                # 将来拡張
-├── scripts/              # TASK-0019 で実体配置（bin/ から変更）
-└── README.md             # TASK-0020 で本文化
+├── agents/               # TASK-0019 で 6 agents 配置済
+├── skills/               # TASK-0018 で 5 skills 配置済
+├── commands/             # TASK-0018 で 2 commands 配置済
+├── rules/                # TASK-0019 で 3 rules 配置済（非標準）
+├── hooks/                # 将来拡張（.gitkeep のみ）
+├── scripts/              # .gitkeep のみ（中核scriptsは次期統合）
+└── README.md             # TASK-0020 で本文化済
 ```
-
-## 残タスク
-
-実装フェーズ（T-4 以降）は計画修正後に着手:
-
-- [ ] T-4: `plugin/plangate/` と必要ディレクトリ作成、`.gitkeep` 配置
-- [ ] T-5: `plugin/plangate/.claude-plugin/plugin.json` 作成（metadata のみ）
-- [ ] T-6: ~~settings.json 作成~~ **スキップ**
-- [ ] T-7: プレースホルダー `README.md` 作成
-- [ ] T-8〜: セルフレビュー / 検証 / E2E
 
 ## 参照ファイル
 
