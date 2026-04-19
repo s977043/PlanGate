@@ -97,14 +97,19 @@ PlanGate は「統制が強い」が、観点が `plan.md` やレビュー手順
 plangate/
 ├─ CLAUDE.md
 ├─ .claude/
-│  ├─ commands/          # 再利用手順（Skill）
+│  ├─ settings.json      # Hook 定義（決定論的制御）
+│  ├─ commands/          # 再利用手順（Skill 全10個）
+│  │  ├─ context-load.md
 │  │  ├─ requirement-gap-scan.md
 │  │  ├─ nonfunctional-check.md
+│  │  ├─ edgecase-enumeration.md
+│  │  ├─ risk-assessment.md
 │  │  ├─ acceptance-criteria-build.md
 │  │  ├─ architecture-sketch.md
+│  │  ├─ feature-implement.md
 │  │  ├─ acceptance-review.md
 │  │  └─ known-issues-log.md
-│  └─ agents/            # 専門実行主体（Agent）
+│  └─ agents/            # 専門実行主体（Agent 5体）
 │     ├─ orchestrator.md
 │     ├─ requirements-analyst.md
 │     ├─ solution-architect.md
@@ -117,6 +122,16 @@ plangate/
    ├─ 04_build_and_refine.md
    └─ 05_verify_and_handoff.md
 ```
+
+#### CLAUDE.md / Skill / Hook の境界ルール
+
+| 対象 | 役割 | 置き場所 | 例 |
+|---|---|---|---|
+| **CLAUDE.md** | 案件固有情報、常時必要な文脈 | プロジェクトルート | プロジェクトルール、技術スタック、禁止事項 |
+| **Skill** | 再利用可能な手順・観点（必要時だけ読み込む） | `.claude/commands/` or `.claude/skills/` | requirement-gap-scan, acceptance-review |
+| **Hook** | 強制力が必要な決定論的制御（100%強制） | `.claude/settings.json` の hooks | PreToolUse で plan.md 未存在なら block、Stop で evidence 未存在なら exit |
+
+この境界ルールは Rule 4 を補完する。Rule 4 は「案件固有情報は CLAUDE.md」と定めるが、**強制力の軸**ではさらに Hook が加わる。
 
 ### Out of scope
 
@@ -160,7 +175,8 @@ plangate/
 - PlanGate の4責務: GATE / STATUS / APPROVAL / ARTIFACT
 - Execution Architecture = 柔軟で拡張可能な実行基盤
 - Skill の4カテゴリ: Scan / Check / Design / Review
-- Agent 5体: Requirements / Architect / Developer / Developer / QA
+- Agent 5体（責務ベースの正規定義）: **orchestrator / requirements-analyst / solution-architect / implementation-agent / qa-reviewer**
+  - 画像上のキャラクター表記（Requirements / Architect / Developer / Developer / QA）は視覚的表現であり、実際の責務は上記5責務に対応する
 - キャッチコピー: **Governance × Modularity =「強固な運用 × 柔軟な実行」**
 
 #### 入力3: 逆輸入改善点の優先順位と詳細設計
