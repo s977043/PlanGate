@@ -9,7 +9,7 @@
 - [ ] 🚩 T-1: Scope/受入基準を再掲し、作業範囲を固定する [Owner: agent]
   - files: [docs/working/TASK-0018/pbi-input.md]
   - depends_on: []
-- [ ] 🚩 T-2: 7 skills の現行ディレクトリ構造・ファイル構成・相対参照を調査 [Owner: agent]
+- [ ] 🚩 T-2: 5 skills + 2 commands の現行ディレクトリ構造・ファイル構成・相対参照を調査 [Owner: agent]
   - files: [docs/working/TASK-0018/evidence/skills-inventory.md]
   - depends_on: [T-1]
 - [ ] 🚩 T-2a: TASK-0017 の `plugin-spec-research.md` を参照し、plugin 経由呼び出しの正式 syntax を確定、7 skills 分の具体表記を記録 [Owner: agent]
@@ -26,10 +26,13 @@
 
 > ⚠️ 実装フェーズの先頭タスク T-4 は human gate **C-3** の承認を prerequisite とする。
 
-- [ ] 🚩 T-4: 7 skills を `.claude/skills/` から `plugin/plangate/skills/` にコピー配置 [Owner: agent]
-  - files: [plugin/plangate/skills/working-context/**, plugin/plangate/skills/ai-dev-workflow/**, plugin/plangate/skills/brainstorming/**, plugin/plangate/skills/self-review/**, plugin/plangate/skills/pr-review-response/**, plugin/plangate/skills/pr-code-review/**, plugin/plangate/skills/setup-team/**]
+- [ ] 🚩 T-4: 5 skills を `.claude/skills/` から `plugin/plangate/skills/` にコピー配置 [Owner: agent]
+  - files: [plugin/plangate/skills/brainstorming/**, plugin/plangate/skills/self-review/**, plugin/plangate/skills/subagent-driven-development/**, plugin/plangate/skills/systematic-debugging/**, plugin/plangate/skills/codex-multi-agent/**]
   - depends_on: [T-3, C-3]
   - prerequisite: **C-3 Gate APPROVE**
+- [ ] 🚩 T-4a: 2 commands を `.claude/commands/` から `plugin/plangate/commands/` にコピー配置 [Owner: agent]
+  - files: [plugin/plangate/commands/working-context.md, plugin/plangate/commands/ai-dev-workflow.md]
+  - depends_on: [T-4]
 - [ ] 🚩 T-5: 各 skill 内の相対パス参照を plugin 構造に合わせて修正 [Owner: agent]
   - files: [plugin/plangate/skills/**]
   - depends_on: [T-4]
@@ -69,7 +72,7 @@
 - [ ] 🚩 T-14: 同 syntax で plugin 経由 `plangate:ai-dev-workflow` を呼び出し、plugin 側応答を確認 [Owner: agent]
   - files: [docs/working/TASK-0018/evidence/skill-invocation-test.md]
   - depends_on: [T-13]
-- [ ] 🚩 T-15: 残り 5 skills を plugin 経由で呼び出し、成功記録 [Owner: agent]
+- [ ] 🚩 T-15: 残り skills を plugin 経由で呼び出し、成功記録（brainstorming/self-review/subagent-driven-development/systematic-debugging/codex-multi-agent） [Owner: agent]
   - files: [docs/working/TASK-0018/evidence/skill-invocation-test.md]
   - depends_on: [T-14]
 - [ ] 🚩 T-15a: dual-run 検証: legacy `.claude/skills/working-context` も従来どおり呼び出せ、plugin / legacy の応答を識別できることを確認 [Owner: agent]
