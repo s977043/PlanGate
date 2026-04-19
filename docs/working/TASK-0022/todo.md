@@ -2,7 +2,7 @@
 
 > 生成日: 2026-04-20
 > PBI: [TASK-0021-A] Workflow 5 phase を定義する（WF-01〜WF-05）
-> モード: standard
+> モード: full（C-2 EX-01 対応で standard → full に再分類）
 
 ## 🤖 Agent タスク
 
