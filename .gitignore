@@ -36,3 +36,4 @@ node_modules/
 .vscode/
 *.swp
 *.swo
+.claude/scheduled_tasks.lock
