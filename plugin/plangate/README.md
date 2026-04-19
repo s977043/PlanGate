@@ -1,41 +1,140 @@
-# plangate (Claude Code plugin)
+# plangate — Claude Code plugin
 
-> ⚠️ This README is a **placeholder** created by TASK-0017 (skeleton).
-> Full documentation (install instructions, usage examples, bundled skill/agent lists, troubleshooting) will be completed in **TASK-0020**.
+PlanGate workflow for Claude Code: AI-driven development with TDD, multi-phase review gates (C-1/C-2/C-3/C-4), and 5-stage mode classification (ultra-light/light/standard/full/critical).
 
-## Status
+- **Version**: 0.1.0
+- **Source**: https://github.com/s977043/plangate
 
-- **Version**: 0.1.0 (skeleton)
-- **Parent initiative**: [#16 Claude Code plugin 化](https://github.com/s977043/plangate/issues/16)
-- **Bundle strategy**: Core (B) — 7 skills + 8 agents + 3 rules
+## インストール
 
-## Planned structure
+### 前提
+
+- Claude Code CLI（最新版推奨）
+- git
+
+### 手順
+
+```bash
+# 1. plangate リポジトリをクローン
+git clone https://github.com/s977043/plangate.git
+cd plangate
+
+# 2. plugin を Claude Code に登録（CC の公式手順に従う）
+# 例: Claude Code の plugin インストールコマンド経由
+# または .claude/settings.json で plugin path を指定
+```
+
+詳細なインストール手順は Claude Code 公式ドキュメントを参照してください。
+
+## 同梱内容
 
 ```text
 plugin/plangate/
 ├── .claude-plugin/
-│   └── plugin.json       # manifest (metadata)
-├── agents/               # populated by TASK-0019
-├── skills/               # populated by TASK-0018
-├── rules/                # populated by TASK-0019 (non-standard, referenced from agents)
-├── hooks/                # reserved for future deterministic hooks
-├── scripts/              # populated by TASK-0019 (referenced via ${CLAUDE_PLUGIN_ROOT}/scripts)
-└── README.md             # this file (to be replaced in TASK-0020)
+│   └── plugin.json       # manifest
+├── agents/               # 6 agents
+│   ├── workflow-conductor.md
+│   ├── spec-writer.md
+│   ├── implementer.md
+│   ├── linter-fixer.md
+│   ├── acceptance-tester.md
+│   └── code-optimizer.md
+├── skills/               # 5 skills
+│   ├── brainstorming/SKILL.md
+│   ├── self-review/SKILL.md
+│   ├── subagent-driven-development/SKILL.md
+│   ├── systematic-debugging/SKILL.md
+│   └── codex-multi-agent/SKILL.md
+├── commands/             # 2 commands
+│   ├── working-context.md
+│   └── ai-dev-workflow.md
+├── rules/                # 3 rules
+│   ├── working-context.md
+│   ├── review-principles.md
+│   └── mode-classification.md
+├── hooks/                # (reserved for future)
+└── scripts/              # (reserved for future)
 ```
 
-## Current state (skeleton only)
+## 基本的な使い方
 
-The plugin is **not yet functional**. Only the directory scaffolding and manifest exist. Wait for subsequent TASKs:
+### ワークフロー起動
 
-- [#18 TASK-0018] skills migration (7 items)
-- [#19 TASK-0019] agents migration (8 items) + rules + scripts
-- [#20 TASK-0020] Full README, migration note, install instructions
+```
+/working-context TASK-XXXX
+/ai-dev-workflow TASK-XXXX plan
+/ai-dev-workflow TASK-XXXX exec
+```
 
-## Reference paths (for future scripts/hooks)
+### Skills の明示呼び出し
 
-- `${CLAUDE_PLUGIN_ROOT}` — resolves to the plugin root directory at runtime
-- Example: `node "${CLAUDE_PLUGIN_ROOT}/scripts/example.mjs"`
+```
+plangate:brainstorming
+plangate:self-review
+plangate:subagent-driven-development
+plangate:systematic-debugging
+plangate:codex-multi-agent
+```
 
-## License
+### Agents の明示呼び出し（Task ツール経由）
 
-See repository root LICENSE.
+```python
+Task(subagent_type="plangate:workflow-conductor", ...)
+Task(subagent_type="plangate:spec-writer", ...)
+Task(subagent_type="plangate:implementer", ...)
+Task(subagent_type="plangate:linter-fixer", ...)
+Task(subagent_type="plangate:acceptance-tester", ...)
+Task(subagent_type="plangate:code-optimizer", ...)
+```
+
+### Rules の参照
+
+plugin 内 agents は plugin ルート相対パスで rules を参照します:
+
+```markdown
+> 判定基準の正本: `plugin/plangate/rules/mode-classification.md`
+```
+
+## トラブルシュート
+
+### Q. `plangate:<skill>` が認識されない
+
+- Plugin が正しくインストール・有効化されているか確認
+- Claude Code を再起動
+
+### Q. legacy `.claude/` と競合する
+
+- Plugin 側と legacy 側は併存可能（デュアル運用）
+- 明示的な prefix（`plangate:`）で区別可能
+- 完全分離したい場合は `.claude/` 側のファイルを一時リネーム or 削除
+
+### Q. 未同梱 agent（例: backend-specialist）を使いたい
+
+本 plugin には含まれません。以下で入手:
+
+```bash
+git clone https://github.com/s977043/plangate.git
+cp plangate/.claude/agents/backend-specialist.md <your-project>/.claude/agents/
+```
+
+詳細は [migration note](../../docs/plangate-plugin-migration.md) 参照。
+
+### Q. Hooks を使いたい
+
+現バージョンでは hooks 未実装（ディレクトリ枠のみ）。将来バージョンで対応予定。
+
+## 既知の制約
+
+- `codex-multi-agent` skill 内に `../setup-team/SKILL.md` への参照あり（legacy 側からの既存 broken reference、plugin も同じ状態）
+- plugin install 後の挙動は Claude Code の内部仕様に依存（詳細は runtime 検証結果を参照）
+- `test-engineer` / `release-manager` agent 未同梱（`.claude/` にも存在しない）
+
+## 参考
+
+- 詳細な移行ガイド: [docs/plangate-plugin-migration.md](../../docs/plangate-plugin-migration.md)
+- プロジェクト本体: https://github.com/s977043/plangate
+- 親 Issue: [#16](https://github.com/s977043/plangate/issues/16)
+
+## ライセンス
+
+本リポジトリ root の LICENSE を参照。
