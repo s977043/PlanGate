@@ -9,7 +9,7 @@
 - [ ] 🚩 T-1: Scope/受入基準を再掲し、作業範囲を固定する [Owner: agent]
   - files: [docs/working/TASK-0019/pbi-input.md]
   - depends_on: []
-- [ ] 🚩 T-2: 8 agents をスキャンし、プロジェクト固有前提（Laravel/PostgreSQL/ECS/Cloudflare 等）を抽出 [Owner: agent]
+- [ ] 🚩 T-2: 6 agents をスキャンし、プロジェクト固有前提（Laravel/PostgreSQL/ECS/Cloudflare 等）を抽出 [Owner: agent]
   - files: [docs/working/TASK-0019/evidence/agents-scan.md]
   - depends_on: [T-1]
 - [ ] 🚩 T-3: rules 3 ファイルと中核スクリプトの依存関係を `dependency-scan.md` に独立して記録 [Owner: agent]
@@ -32,8 +32,8 @@
 
 > ⚠️ 実装フェーズの先頭タスク T-5 は human gate **C-3** の承認を prerequisite とする。full モードのため、C-3 では詳細レビューを実施すること。
 
-- [ ] 🚩 T-5: 8 agents を `.claude/agents/` から `plugin/plangate/agents/` にコピー [Owner: agent]
-  - files: [plugin/plangate/agents/workflow-conductor.md, plugin/plangate/agents/spec-writer.md, plugin/plangate/agents/implementer.md, plugin/plangate/agents/test-engineer.md, plugin/plangate/agents/linter-fixer.md, plugin/plangate/agents/acceptance-tester.md, plugin/plangate/agents/code-optimizer.md, plugin/plangate/agents/release-manager.md]
+- [ ] 🚩 T-5: 6 agents を `.claude/agents/` から `plugin/plangate/agents/` にコピー [Owner: agent]
+  - files: [plugin/plangate/agents/workflow-conductor.md, plugin/plangate/agents/spec-writer.md, plugin/plangate/agents/implementer.md, plugin/plangate/agents/linter-fixer.md, plugin/plangate/agents/acceptance-tester.md, plugin/plangate/agents/code-optimizer.md]
   - depends_on: [T-4, C-3]
   - prerequisite: **C-3 Gate APPROVE**
 - [ ] 🚩 T-6: 各 agent から固有前提を除去（汎用表現に置換） [Owner: agent]

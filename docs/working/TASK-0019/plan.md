@@ -6,11 +6,11 @@
 
 ## Goal
 
-PlanGate ワークフローを完結させる中核 8 agents を `plugin/plangate/agents/` に配置し、プロジェクト固有前提を除去することで、他プロジェクトでも汎用的に使える plugin を完成させる。rules 3 ファイルと中核スクリプトも合わせて移植する。
+PlanGate ワークフローを完結させる中核 6 agents を `plugin/plangate/agents/` に配置し、プロジェクト固有前提を除去することで、他プロジェクトでも汎用的に使える plugin を完成させる。rules 3 ファイルと中核スクリプトも合わせて移植する。
 
 ## Constraints / Non-goals
 
-- 対象 agents: 8 体（`workflow-conductor`, `spec-writer`, `implementer`, `test-engineer`, `linter-fixer`, `acceptance-tester`, `code-optimizer`, `release-manager`）
+- 対象 agents: 6 体（`workflow-conductor`, `spec-writer`, `implementer`, `linter-fixer`, `acceptance-tester`, `code-optimizer`）※ `test-engineer` / `release-manager` は .claude/ に存在しないため除外
 - 対象 rules: 3 ファイル（`working-context.md`, `review-principles.md`, `mode-classification.md`）
 - プロジェクト固有前提（Laravel/PostgreSQL/ECS 等）の除去は必須
 - `.claude/agents/` は温存（デュアル運用）
@@ -18,8 +18,8 @@ PlanGate ワークフローを完結させる中核 8 agents を `plugin/plangat
 
 ## Approach Overview
 
-1. 8 agents の現行定義をスキャンし、プロジェクト固有前提を抽出
-2. `plugin/plangate/agents/` に 8 agents をコピー配置
+1. 6 agents の現行定義をスキャンし、プロジェクト固有前提を抽出
+2. `plugin/plangate/agents/` に 6 agents をコピー配置
 3. 各 agent から固有前提を除去（汎用表現へ置換）
 4. rules 3 ファイルを `plugin/plangate/rules/` に配置し、参照パスを修正
 5. plugin 中核スクリプトを `plugin/plangate/scripts/` に配置
@@ -40,7 +40,7 @@ PlanGate ワークフローを完結させる中核 8 agents を `plugin/plangat
 - **Owner**: agent
 - **Risk**: 中
 - **🚩 チェックポイント**:
-  - 8 agents 全件のスキャン完了、プロジェクト固有記述の特定
+  - 6 agents 全件のスキャン完了、プロジェクト固有記述の特定
   - rules/scripts 依存調査が `dependency-scan.md` に独立して記録されている
   - agent/rules 参照方式（prefix、解決規則）が実装前に確定
   - `scripts/` 対象スクリプト名が具体的に列挙されている
@@ -55,7 +55,7 @@ PlanGate ワークフローを完結させる中核 8 agents を `plugin/plangat
 
 ### Step 3: 固有前提除去
 
-- **Output**: 汎用化された 8 agents 定義
+- **Output**: 汎用化された 6 agents 定義
 - **Owner**: agent
 - **Risk**: 高
 - **🚩 チェックポイント**: Step 1 で特定した固有前提が全て汎用表現に置換され、かつ agent の本質的役割が維持されている
@@ -79,7 +79,7 @@ PlanGate ワークフローを完結させる中核 8 agents を `plugin/plangat
 - **Output**: agents / rules エントリ追記
 - **Owner**: agent
 - **Risk**: 低
-- **🚩 チェックポイント**: 8 agents と 3 rules が列挙、JSON valid
+- **🚩 チェックポイント**: 6 agents と 3 rules が列挙、JSON valid
 
 ### Step 7: agents 間相互参照検証
 
@@ -93,7 +93,7 @@ PlanGate ワークフローを完結させる中核 8 agents を `plugin/plangat
 - **Output**: `docs/working/TASK-0019/evidence/flow-completion-test.md`
 - **Owner**: agent
 - **Risk**: 高
-- **🚩 チェックポイント**: plan → C-1 → exec → L-0 → V-1 → PR フロー全体が plugin 内 8 agents で動作する証跡
+- **🚩 チェックポイント**: plan → C-1 → exec → L-0 → V-1 → PR フロー全体が plugin 内 6 agents で動作する証跡
 
 ### Step 9: `.claude/agents/` / `.claude/rules/` 非破壊確認
 
@@ -109,11 +109,9 @@ PlanGate ワークフローを完結させる中核 8 agents を `plugin/plangat
 | 新規 | plugin/plangate/agents/workflow-conductor.md | コピー + 汎用化 |
 | 新規 | plugin/plangate/agents/spec-writer.md | コピー + 汎用化 |
 | 新規 | plugin/plangate/agents/implementer.md | コピー + 汎用化 |
-| 新規 | plugin/plangate/agents/test-engineer.md | コピー + 汎用化 |
 | 新規 | plugin/plangate/agents/linter-fixer.md | コピー + 汎用化 |
 | 新規 | plugin/plangate/agents/acceptance-tester.md | コピー + 汎用化 |
 | 新規 | plugin/plangate/agents/code-optimizer.md | コピー + 汎用化 |
-| 新規 | plugin/plangate/agents/release-manager.md | コピー + 汎用化 |
 | 新規 | plugin/plangate/rules/working-context.md | コピー |
 | 新規 | plugin/plangate/rules/review-principles.md | コピー |
 | 新規 | plugin/plangate/rules/mode-classification.md | コピー |
@@ -127,7 +125,7 @@ PlanGate ワークフローを完結させる中核 8 agents を `plugin/plangat
 
 - **Unit**: 各 agent / rules ファイルが plugin 側に存在
 - **Integration**: plugin.json agents/rules エントリ件数、rules 参照解決
-- **E2E**: plan → C-1 → exec → L-0 → V-1 → PR フローが plugin 内 8 agents で完結
+- **E2E**: plan → C-1 → exec → L-0 → V-1 → PR フローが plugin 内 6 agents で完結
 - **Edge cases**: 固有前提除去による挙動変化、agents 間参照の prefix、rules パス破損
 - **Verification Automation**:
   - `ls plugin/plangate/agents/ | wc -l` → 8
@@ -157,7 +155,7 @@ PlanGate ワークフローを完結させる中核 8 agents を `plugin/plangat
 **モード**: `full`
 
 **判定根拠**:
-- 変更ファイル数: 14-20（8 agents + 3 rules + bin + plugin.json + evidence） → full
+- 変更ファイル数: 14-20（6 agents + 3 rules + bin + plugin.json + evidence） → full
 - 受入基準数: 9 → full
 - 変更種別: 複数 agent 定義の修正＋配置＋汎用化 → full
 - リスク: 高（固有前提除去・参照整合・フロー完結） → full

@@ -6,7 +6,7 @@
 
 | 受入基準 | テストケースID | 種別 |
 |---------|--------------|------|
-| 8 agents 全てが plugin/plangate/agents/ 配下に存在 | TC-1 | Unit |
+| 6 agents 全てが plugin/plangate/agents/ 配下に存在 | TC-1 | Unit |
 | 各 agent 定義から固有前提が除去されている | TC-2 | Integration |
 | rules 3 ファイルが plugin/plangate/rules/ 配下に存在 | TC-3 | Unit |
 | plugin.json の agents / rules エントリが正しく記載 | TC-4 | Unit |
@@ -18,11 +18,11 @@
 
 ## テストケース一覧
 
-### TC-1: 8 agents ファイル存在確認
+### TC-1: 6 agents ファイル存在確認
 
 - **前提条件**: TASK-0017, TASK-0018 完了
 - **入力**: `ls plugin/plangate/agents/*.md`
-- **期待出力**: 8 ファイル: workflow-conductor, spec-writer, implementer, test-engineer, linter-fixer, acceptance-tester, code-optimizer, release-manager
+- **期待出力**: 6 ファイル: workflow-conductor, spec-writer, implementer, linter-fixer, acceptance-tester, code-optimizer
 - **種別**: Unit
 
 ### TC-2: 固有前提除去確認
@@ -52,7 +52,7 @@
 ### TC-5: フロー完結検証
 
 - **前提条件**: TC-1〜TC-4 全てパス
-- **入力**: 小規模テストチケット（例: typo 修正）を plugin 内 8 agents のみで plan → C-1 → exec → L-0 → V-1 → PR まで実行
+- **入力**: 小規模テストチケット（例: typo 修正）を plugin 内 6 agents のみで plan → C-1 → exec → L-0 → V-1 → PR まで実行
 - **期待出力**: 全フェーズが plugin 内 agents で完結、各ステップの成果物（plan.md, review-self.md, コミット, PR）が生成される。結果は `evidence/flow-completion-test.md` に記録
 - **種別**: E2E
 

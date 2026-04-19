@@ -10,41 +10,42 @@ PlanGate の主要導線 7 skills を `plugin/plangate/skills/` に配置し、p
 
 ## Constraints / Non-goals
 
-- 対象は 7 skills（`working-context`, `ai-dev-workflow`, `brainstorming`, `self-review`, `pr-review-response`, `pr-code-review`, `setup-team`）
-- skills の挙動変更は禁止（コピーのみ）
+- 対象は 5 skills（`brainstorming`, `self-review`, `subagent-driven-development`, `systematic-debugging`, `codex-multi-agent`）+ 2 commands（`working-context`, `ai-dev-workflow`）
+- skills/commands の挙動変更は禁止（コピーのみ）
 - `.claude/skills/` 側の削除は禁止（デュアル運用）
 - **Non-goals**: 他 skill の移植、skill リファクタリング、commands → skills 変換（commands はそのまま）
 
 ## Approach Overview
 
-1. 7 skills の現行配置と相互参照を調査
-2. `plugin/plangate/skills/` に 7 skills をコピー配置
-3. skill 内の相対パス参照を plugin 構造に合わせて修正
-4. `plugin.json` の skills エントリを更新
-5. plugin 経由の呼び出し prefix を検証
-6. commands 併存の境界ルールを migration note の素材として記録
+1. 実在する skills (5) と commands (2) の現行配置・相互参照を調査
+2. `plugin/plangate/skills/` に 5 skills、`plugin/plangate/commands/` に 2 commands をコピー配置
+3. 各ファイル内の相対パス参照を plugin 構造に合わせて修正
+4. plugin 経由の呼び出し検証（dual-run 含む）
+5. commands 併存の境界ルールを evidence に記録（TASK-0020 の素材）
 
 ## Work Breakdown
 
-### Step 1: skills 調査と前提取得
+### Step 1: skills/commands 調査と前提取得
 
 - **Output**:
-  - `docs/working/TASK-0018/evidence/skills-inventory.md`（7 skills の構造、参照パス、依存関係）
-  - `docs/working/TASK-0018/evidence/invocation-syntax.md`（TASK-0017 の調査結果を引用した正式 plugin 呼び出し syntax）
-  - `docs/working/TASK-0018/evidence/base-commit.md`（本 TASK 着手時点の commit SHA、`.claude/` 非破壊確認の基準）
+  - `docs/working/TASK-0018/evidence/skills-inventory.md`（5 skills + 2 commands の構造、参照パス、依存関係）
+  - `docs/working/TASK-0018/evidence/invocation-syntax.md`（TASK-0017 の調査結果を引用した正式 plugin 呼び出し syntax。commands と skills で異なる可能性も記録）
+  - `docs/working/TASK-0018/evidence/base-commit.md`（本 TASK 着手時点の commit SHA）
 - **Owner**: agent
 - **Risk**: 中
 - **🚩 チェックポイント**:
-  - 全 7 skills のファイル一覧と相対パス参照箇所が特定されている
-  - plugin 経由呼び出しの正式 syntax（例: `plangate:working-context`）が確定し、全 7 skills について具体表記を記録
+  - 5 skills + 2 commands のファイル一覧と相対パス参照箇所が特定されている
+  - plugin 経由呼び出しの正式 syntax が skill/command それぞれ確定
   - `.claude/` 基準 SHA が記録されている
 
-### Step 2: skills コピー配置
+### Step 2: skills/commands コピー配置
 
-- **Output**: `plugin/plangate/skills/{skill名}/` × 7
+- **Output**:
+  - `plugin/plangate/skills/{skill名}/` × 5
+  - `plugin/plangate/commands/{command名}.md` × 2
 - **Owner**: agent
 - **Risk**: 低
-- **🚩 チェックポイント**: 各 skill ディレクトリが plugin 側に存在し、ファイル構造が原本と一致
+- **🚩 チェックポイント**: 5 skill ディレクトリ + 2 command ファイルが plugin 側に存在し、内容が原本と一致
 
 ### Step 3: 参照パス修正
 

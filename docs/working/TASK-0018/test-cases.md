@@ -6,30 +6,40 @@
 
 | 受入基準 | テストケースID | 種別 |
 |---------|--------------|------|
-| 7 skills 全てが plugin/plangate/skills/ 配下に存在 | TC-1 | Unit |
-| plugin.json の skills エントリに 7 件列挙 | TC-2 | Unit |
+| 5 skills + 2 commands が plugin/plangate/{skills,commands}/ 配下に存在 | TC-1 | Unit |
+| skills 5 件 + commands 2 件が配置されている | TC-2 | Unit |
 | plugin 経由で /working-context 動作 | TC-3 | E2E |
 | plugin 経由で /ai-dev-workflow 動作 | TC-4 | E2E |
-| 他 5 skills も plugin 経由呼び出し可能 | TC-5 | E2E |
+| 5 skills も plugin 経由呼び出し可能 | TC-5 | E2E |
 | skill 間相互参照パスが機能 | TC-6 | Integration |
 | 既存 .claude/skills/ 側動作が壊れていない | TC-7 | Integration |
 | ハイブリッド方針の境界ルール文書化 | TC-8 | Unit |
 
 ## テストケース一覧
 
-### TC-1: 7 skills ディレクトリ存在確認
+### TC-1: 5 skills + 2 commands 存在確認
 
-- **前提条件**: TASK-0017 完了済み、`plugin/plangate/skills/` 存在
-- **入力**: `ls plugin/plangate/skills/`
-- **期待出力**: 7 ディレクトリ: `working-context`, `ai-dev-workflow`, `brainstorming`, `self-review`, `pr-review-response`, `pr-code-review`, `setup-team`
+- **前提条件**: TASK-0017 完了済み、`plugin/plangate/skills/` と `plugin/plangate/commands/` 存在
+- **入力**:
+  ```bash
+  ls plugin/plangate/skills/ && ls plugin/plangate/commands/
+  ```
+- **期待出力**:
+  - `plugin/plangate/skills/` に 5 ディレクトリ: `brainstorming`, `self-review`, `subagent-driven-development`, `systematic-debugging`, `codex-multi-agent`
+  - `plugin/plangate/commands/` に 2 ファイル: `working-context.md`, `ai-dev-workflow.md`
 - **種別**: Unit
 
-### TC-2: plugin.json skills エントリ件数
+### TC-2: skills/commands 配置件数
 
-- **前提条件**: `plugin/plangate/.claude-plugin/plugin.json` 存在
-- **入力**: `python3 -c "import json; print(len(json.load(open('plugin/plangate/.claude-plugin/plugin.json')).get('skills', [])))"`
-- **期待出力**: `7`
+- **前提条件**: TC-1 パス
+- **入力**:
+  ```bash
+  echo "skills=$(ls plugin/plangate/skills/ | wc -l), commands=$(ls plugin/plangate/commands/*.md | wc -l)"
+  ```
+- **期待出力**: `skills=5, commands=2`
 - **種別**: Unit
+
+（注: `plugin.json` は auto-discovery 方式のため、skills/commands エントリの明示列挙は不要。TASK-0017 の evidence/plugin-spec-research.md 参照）
 
 ### TC-3: plugin 経由 working-context 呼び出し検証
 
@@ -45,10 +55,10 @@
 - **期待出力**: plugin 側 skill が起動、plugin 応答であることが識別できる
 - **種別**: E2E
 
-### TC-5: 残り 5 skills 呼び出し可否
+### TC-5: 5 skills 呼び出し可否
 
 - **前提条件**: TC-3, TC-4 パス
-- **入力**: `plangate:brainstorming`, `plangate:self-review`, `plangate:pr-review-response`, `plangate:pr-code-review`, `plangate:setup-team` を順次呼び出し
+- **入力**: T-2a で確定した syntax で `plangate:brainstorming`, `plangate:self-review`, `plangate:subagent-driven-development`, `plangate:systematic-debugging`, `plangate:codex-multi-agent` を順次呼び出し
 - **期待出力**: 全 5 件が plugin 側で起動（応答から識別）
 - **種別**: E2E
 
