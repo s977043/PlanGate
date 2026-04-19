@@ -9,7 +9,7 @@
 | `plugin/plangate/` ディレクトリが作成されている | TC-1 | Integration |
 | `plugin.json` manifest が Claude Code plugin 仕様に準拠 | TC-2, TC-3 | Unit / Integration |
 | 5 サブディレクトリが存在 | TC-4 | Unit |
-| `settings.json` にデフォルト設定が定義されている | TC-5 | Unit |
+| ~~`settings.json` にデフォルト設定が定義されている~~ | ~~TC-5~~ | **削除**（plugin 仕様に存在しないため） |
 | `README.md`（プレースホルダー）が配置されている | TC-6 | Unit |
 | Claude Code にインストール試行してエラーにならない | TC-7 | E2E |
 | `plugin.json` がスキーマ検証をパス | TC-2 | Unit |

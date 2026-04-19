@@ -36,7 +36,9 @@ print('OK')
 "
 ```
 
-✅ PASS — 出力: `OK: plugin.json passes Level 1-3 validation, name=plangate, version=0.1.0, author=PlanGate contributors`
+✅ PASS — 出力: `OK`（スクリプトは `print('OK')` のみ）
+
+補足（確認用メタデータ、別途実行）: `name=plangate, version=0.1.0, author=PlanGate contributors`
 
 ### Level 4: 既存 plugin 構造との整合性
 

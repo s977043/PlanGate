@@ -14,7 +14,7 @@
 | agents 間相互参照が plugin 内で解決 | TC-6 | Integration |
 | rules 3 ファイルが plugin 内 agents から参照可能 | TC-7 | Integration |
 | 既存 .claude/agents/ 側の動作が壊れていない | TC-8 | Integration |
-| plugin 中核スクリプトが bin/ に配置 | TC-9 | Unit |
+| plugin 中核スクリプトが scripts/ に配置 | TC-9 | Unit |
 
 ## テストケース一覧
 
