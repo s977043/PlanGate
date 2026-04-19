@@ -22,10 +22,8 @@
 
 ## 呼び出す Skill
 
-- `acceptance-review`
-- `test-matrix-check`
-- `known-issues-log`
-- `handoff-package`
+- `acceptance-review`（Review カテゴリ）
+- `known-issues-log`（Review カテゴリ）
 
 ## 主担当 Agent
 

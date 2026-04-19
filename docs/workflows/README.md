@@ -49,7 +49,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 | PlanGate フェーズ | レイヤー | 主担当 | 対応する WF / ゲート |
 | --- | --- | --- | --- |
 | **A**: PBI INPUT PACKAGE 作成 | 統制 / 人間 | 人間 | WF-01 / WF-02 への入力提供 |
-| **B**: Plan + ToDo + TestCases 生成 | 統制 / AI | `spec-writer` | WF-01〜WF-03 を横断する計画策定 |
+| **B**: Plan + ToDo + TestCases 生成 | 統制 / AI | `workflow-conductor` 経由（内部で `spec-writer` が生成） | WF-01〜WF-03 を横断する計画策定 |
 | **C-1**: セルフレビュー（17項目） | 統制 / AI | 主エージェント | 計画品質ゲート（WF 外） |
 | **C-2**: 外部AIレビュー | 統制 / AI | 外部 AI（Codex 等） | 計画独立検証ゲート（WF 外） |
 | **C-3**: 人間レビュー（三値） | 統制 / 人間 | 人間 | 計画承認ゲート（WF 外） |
@@ -59,7 +59,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 | **V-2**: コード最適化 | 実行 / AI | `code-optimizer` | WF-04 延長 / WF-05 入口（full/critical のみ） |
 | **V-3**: 外部モデルレビュー | 実行 / AI | 外部 AI | WF-05 内の独立検証 |
 | **V-4**: リリース前チェック | 実行 / AI | `release-manager` | **WF-05 Handoff 前**の最終ゲート（critical のみ） |
-| **PR 作成** | 統制 / AI | `spec-writer` / conductor | WF-05 の handoff を GitHub PR として発行 |
+| **PR 作成** | 統制 / AI | `workflow-conductor` が制御 | WF-05 の handoff を GitHub PR として発行 |
 | **C-4**: 人間レビュー（PR） | 統制 / 人間 | 人間 | 実装承認ゲート（WF 外） |
 
 **読み方**:

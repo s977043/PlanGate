@@ -22,9 +22,7 @@
 
 ## 呼び出す Skill
 
-- `context-load`
-- `constraint-extract`
-- `definition-of-done`
+- `context-load`（親 PBI 定義の Skill 10 個のうち Scan カテゴリ）
 
 ## 主担当 Agent
 

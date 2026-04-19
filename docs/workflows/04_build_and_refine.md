@@ -21,10 +21,7 @@
 
 ## 呼び出す Skill
 
-- `scaffold-generate`
-- `feature-implement`
-- `local-review`
-- `refactor-pass`
+- `feature-implement`（Build カテゴリ）
 
 ## 主担当 Agent
 
@@ -33,5 +30,9 @@
 ## 次 phase への引き継ぎ
 
 - artifact クラス: **known-issues**（形式: `known-issues.md` 相当）+ コード差分
-- 含まれる要素: 上記「完了条件」の 4 項目、特に「明示的な既知課題」
+- 必須セクション（V3-04 対応で明示化）:
+  - 動作コード差分のリンク / 範囲
+  - 自己レビュー結果（項目ごと）
+  - 明示的な既知課題（妥協点・未着手項目）
+  - 実装単位ごとのコミット履歴
 - 受け取り先: WF-05（`qa-reviewer`）

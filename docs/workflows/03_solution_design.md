@@ -23,10 +23,8 @@
 
 ## 呼び出す Skill
 
-- `architecture-sketch`
-- `domain-modeling`
-- `risk-assessment`
-- `implementation-plan`
+- `architecture-sketch`（Design カテゴリ）
+- `risk-assessment`（Check カテゴリ）
 
 ## 主担当 Agent
 

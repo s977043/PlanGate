@@ -89,11 +89,20 @@ exec 完了 → PR 作成 → L-0 / V-1 / V-2 / V-3 → C-4 待ち
 - Q2 対応表粒度: A〜V-4 全て並べる
 - Q3 artifact 種別: クラス名（context / requirements / design / known-issues / handoff）を本 TASK で固定
 
-## モード `full` 追加ゲート（C-4 前に実施予定）
+## モード `full` 追加ゲート（C-4 前）
 
-- [x] C-2 外部AIレビュー（Codex 実施済み）
-- [ ] L-0 リンター自動修正
-- [ ] V-1 受け入れ検査
-- [ ] V-2 コード最適化（docs のため README 整合確認で充足）
-- [ ] V-3 外部モデルレビュー
+- [x] C-2 外部AIレビュー（Codex / CONDITIONAL → 全対応 APPROVE 相当）
+- [x] L-0 リンター自動修正（markdown lint 0 error）
+- [x] V-1 受け入れ検査（TC-1〜TC-7 + E1〜E4 全 PASS）
+- [x] V-2 コード最適化（`evidence/v2-code-optimization.md` / PASS）
+- [x] V-3 外部モデルレビュー（Codex / CONDITIONAL → 4 件対応 APPROVE 相当）
 - V-4 リリース前チェック: **スキップ**（critical のみ）
+
+## V-3 指摘対応（2026-04-20）
+
+| ID | Severity | 対応 |
+|---|---|---|
+| V3-01 | major | 各 phase の「呼び出す Skill」を親 PBI 正規 10 Skill に限定 |
+| V3-02 | major | README の B / PR 作成の主担当を `workflow-conductor` ベースに修正 |
+| V3-03 | major | `.github/workflows/ci.yml` に `docs/workflows/**/*.md` を追加、ローカル実行ログを evidence 化 |
+| V3-04 | minor | WF-04 の `known-issues` artifact に必須セクションを明記 |
