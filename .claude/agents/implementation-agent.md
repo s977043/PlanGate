@@ -20,9 +20,9 @@ model: inherit
 
 ## 呼び出し Skill
 
-- `feature-implement` — 個別機能の実装（WF-04 主体）
-- `self-review` — 実装直後の構造化セルフレビュー
-- `known-issues-log` — 妥協点・既知課題の記録
+- `feature-implement` — 個別機能の実装（WF-04 主体 / v7 責務ベース Skill 10 個のうち Build カテゴリ）
+- `self-review`（既存 Skill、v7 の 10 Skill には含まれないが併用可）— 実装直後の構造化セルフレビュー
+- `known-issues-log` — 妥協点・既知課題の記録（WF-05 との橋渡し）
 
 ## 委譲関係
 
@@ -49,4 +49,4 @@ model: inherit
 
 - 親 PBI: #22 TASK-0021 ハイブリッドアーキテクチャ
 - Workflow: `docs/workflows/04_build_and_refine.md`
-- design.md テンプレート: `docs/working/templates/design.md`（TASK-0026 で作成予定）
+- design.md テンプレート: `docs/working/templates/design.md`

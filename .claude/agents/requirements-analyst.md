@@ -57,4 +57,4 @@ model: inherit
 
 - 親 PBI: #22 TASK-0021 ハイブリッドアーキテクチャ
 - Workflow: `docs/workflows/02_requirement_expansion.md`
-- Rule: `docs/plangate-v7-hybrid.md`（TASK-0028 で整備予定）
+- Rule: `docs/plangate-v7-hybrid.md` / `.claude/rules/hybrid-architecture.md`

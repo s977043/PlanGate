@@ -122,4 +122,4 @@ D → WF-04 → L-0 → V-1 → [ WF-05 ] → V-2 → V-3 → V-4 → PR
 - Workflow 各 phase: `docs/workflows/0N_*.md`
 - 実行シーケンス: `docs/workflows/execution-sequence.md`
 - design.md テンプレート: `docs/working/templates/design.md`
-- handoff.md テンプレート: `docs/working/templates/handoff.md`（TASK-0027 で作成予定）
+- handoff.md テンプレート: `docs/working/templates/handoff.md`

@@ -55,4 +55,4 @@ model: inherit
 
 - 親 PBI: #22 TASK-0021 ハイブリッドアーキテクチャ
 - Workflow: `docs/workflows/03_solution_design.md`
-- design.md テンプレート: `docs/working/templates/design.md`（TASK-0026 で作成予定）
+- design.md テンプレート: `docs/working/templates/design.md`
