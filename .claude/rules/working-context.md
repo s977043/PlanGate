@@ -45,6 +45,7 @@ docs/working/
     ├── review-external.md   # C-2: 外部AIレビュー結果（任意）
     ├── decision-log.jsonl   # B〜: 判断履歴（append-only、plan完了時に初期化）
     ├── status.md            # D〜: フェーズ履歴・完了記録のアーカイブ（随時追記）
+    ├── handoff.md           # WF-05: 完了時の引き継ぎパッケージ（全 PBI で必須、Rule 5）
     └── evidence/            # C-1〜: レビュー根拠・検証ログ
         ├── c1-review/       #   C-1 の根拠（FAIL時必須）
         ├── c2-review/       #   C-2 の根拠
@@ -69,12 +70,32 @@ docs/working/
 
 **フォールバック**: INDEX.md が存在しない場合（旧形式チケット）→ L1 から開始（status.md を直接読む = 従来動作）。
 
-### current-state.md と status.md の役割分担
+### current-state.md / status.md / handoff.md の役割分担
 
 | ファイル | 役割 | 目安行数 | 更新タイミング |
 |---------|------|---------|--------------|
 | current-state.md | 「今どこにいて、次に何をするか」のスナップショット | ~20行 | タスク完了ごとに上書き |
 | status.md | フェーズ履歴・完了記録のアーカイブ | 制限なし | フェーズ遷移・セッション終了時に追記 |
+| **handoff.md** | WF-05 完了時の引き継ぎパッケージ（完了資産） | 制限なし | WF-05 完了時に 1 回生成 |
+
+### handoff（WF-05 完了資産 / Rule 5）
+
+全 PBI で `handoff.md` を**必須出力**とする（Rule 5 遵守: 最終成果物は毎回 handoff に集約）。
+
+- **配置**: `docs/working/TASK-XXXX/handoff.md`（1 PBI につき 1 ファイル）
+- **テンプレート**: `docs/working/templates/handoff.md`
+- **必須 6 要素**:
+  1. 要件適合確認結果（AC ごとの PASS / FAIL / WARN）
+  2. 既知課題一覧
+  3. V2 候補
+  4. 妥協点（採用しなかった選択肢と理由）
+  5. 引き継ぎ文書（自由記述のサマリ）
+  6. テスト結果サマリ
+- **責任**: `qa-reviewer` が中核を作成し、`orchestrator` が最終統合
+- **PR マージ後も削除しない**（完了資産として保管、次の担当者・次スプリントが参照）
+- **light モード以下**で簡易版を採用する場合も、本テンプレートを踏襲し、該当しない項目は「該当なし」と明記
+
+status.md / current-state.md が「進行中の情報管理」であるのに対し、handoff.md は「完了後の資産発行」である。役割が明確に異なる。
 
 ### evidence/ の保管ルール
 
@@ -219,3 +240,38 @@ status.mdの更新タイミングと記載内容を段階で分ける:
 - **APPROVE**: マージ → Done
 - **REQUEST CHANGES**: 指摘内容に基づきexecから再実行
 - **REJECT**: planからやり直し（稀）
+
+## v7 ハイブリッドアーキテクチャ: Handoff の必須化
+
+PlanGate v7 ハイブリッドアーキテクチャ（TASK-0021 で導入）では、**全 PBI で handoff.md を必須出力**とする（Rule 5）。
+
+### handoff.md の位置付け
+
+| ファイル | 役割 | 更新タイミング | 読者 |
+|---------|------|-------------|------|
+| `status.md` | フェーズ履歴アーカイブ | フェーズ遷移毎 | 未来の担当者、監査 |
+| `current-state.md` | 今の状態スナップショット | タスク完了毎 | 現担当者、セッション復旧時 |
+| **`handoff.md`** | **完了時の引き継ぎパッケージ** | **TASK 完了時（必須）** | **次の担当者、レビュアー** |
+
+### handoff.md 必須 6 要素
+
+- 要件適合確認結果（`acceptance-review` Skill の出力）
+- 既知課題一覧（`known-issues-log` Skill の出力）
+- V2 候補（今回の scope 外）
+- 妥協点（選ばなかった選択肢と理由）
+- 引き継ぎ文書（5 分で状況把握できるサマリ）
+- テスト結果サマリ
+
+### タイミング
+
+WF-05 Verify & Handoff phase で生成。PlanGate ゲートでは V-1 PASS 後、C-4 ゲート前に発行。
+
+### テンプレート
+
+[`docs/working/templates/handoff.md`](../../docs/working/templates/handoff.md)
+
+### 関連
+
+- Workflow: [`docs/workflows/05_verify_and_handoff.md`](../../docs/workflows/05_verify_and_handoff.md)
+- Agent: `.claude/agents/qa-reviewer.md`（主担当）、`.claude/agents/orchestrator.md`（最終発行）
+- 例外: critical インシデント対応等、緊急度が極めて高い場合は事後追補で可
