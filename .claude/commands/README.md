@@ -5,7 +5,7 @@
 | コマンド | 説明 | 引数 |
 |---------|------|------|
 | `/working-context` | チケット作業コンテキストの管理（作成・読込・保存） | `TASK-XXXX` / `save` / なし |
-| `/ai-dev-workflow` | PlanGate ワークフロー v5 の各フェーズ実行 | `TASK-XXXX {brainstorm\|plan\|exec\|status}` |
+| `/ai-dev-workflow` | PlanGate ワークフロー v5 / v6 / v7 の各フェーズ実行 | `TASK-XXXX {brainstorm\|plan\|exec\|status}` |
 
 ## 使い方
 
@@ -25,6 +25,9 @@
 
 ## 関連ドキュメント
 
-- PlanGateガイド: `docs/plangate.md`
+- PlanGateガイド（v5 現行）: `docs/plangate.md`
+- **PlanGate v7 ハイブリッドアーキテクチャ**: `docs/plangate-v7-hybrid.md`
+- v7 Workflow 定義（WF-01〜WF-05）: `docs/workflows/README.md`
 - ワークフロー詳細・プロンプト集: `docs/ai-driven-development.md`
 - 作業コンテキストルール: `.claude/rules/working-context.md`
+- v7 Rule 1〜5: `.claude/rules/hybrid-architecture.md`

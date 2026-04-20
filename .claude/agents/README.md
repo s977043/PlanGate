@@ -62,6 +62,22 @@ Codex CLI 向けの要約版は `.codex/agents/*.toml` にあります。
 | scrum-master | [scrum-master.md](./scrum-master.md) | `scrum_master.toml` | Sprint イベント支援、impediment 管理 |
 | agile-coach | [agile-coach.md](./agile-coach.md) | `agile_coach.toml` | アウトカム志向、仮説検証設計、継続改善 |
 
+### v7 ハイブリッドアーキテクチャ（責務ベース 5 体）
+
+v7（`docs/plangate-v7-hybrid.md`）で導入された責務ベース Agent。WF-01〜WF-05 実行層の主担当。Rule 3 準拠（責務のみ、ツール固有/案件固有なし）。
+
+| エージェント | ファイル | 主担当 Phase | 責務 |
+|------------|---------|------------|------|
+| orchestrator | [orchestrator.md](./orchestrator.md) | WF-01〜WF-05 全体 | phase 遷移 / 委譲 / 完了判定 / handoff 発行（汎用マルチエージェント調整も兼務） |
+| requirements-analyst | [requirements-analyst.md](./requirements-analyst.md) | WF-01 / WF-02 | 初期要求 → 仕様変換、曖昧さ整理 |
+| solution-architect | [solution-architect.md](./solution-architect.md) | WF-03 | モジュール境界 / データフロー / 状態管理 / 失敗時扱い |
+| implementation-agent | [implementation-agent.md](./implementation-agent.md) | WF-04 | design artifact に基づく最小単位実装（TDD） |
+| qa-reviewer | [qa-reviewer.md](./qa-reviewer.md) | WF-02 締め / WF-05 | AC 照合・既知課題整理・handoff 中核作成 |
+
+実行シーケンス: [docs/workflows/execution-sequence.md](../../docs/workflows/execution-sequence.md)
+
+**既存 Agent との共存**: 汎用・補助系の既存 17 体は引き続き利用可能。詳細な棲み分けは [docs/working/TASK-0025/evidence/existing-agents-inventory.md](../../docs/working/TASK-0025/evidence/existing-agents-inventory.md) 参照。
+
 ---
 
 ## Allowed Context（v6）
@@ -70,6 +86,10 @@ Codex CLI 向けの要約版は `.codex/agents/*.toml` にあります。
 これは PlanGate v6 の Context Isolation 原則に基づき、各エージェントが読む情報を制限してスコープクリープを防ぐものです。
 
 詳細: `.claude/rules/working-context.md`（Progressive Disclosure プロトコル）
+
+## Rule 3 遵守（v7）
+
+v7 責務ベース 5 体は **Rule 3**（Agent は責務だけを持つ。ツール固有手順・案件固有仕様を持たせない）に準拠しています。Rule 1〜5 の統合ルールは [.claude/rules/hybrid-architecture.md](../rules/hybrid-architecture.md) 参照。
 
 ---
 

@@ -15,6 +15,22 @@
 | セッション | 対話的、自動メモリ | バッチ実行、セッションログ |
 | 適性 | 対話的思考、探索、レビュー | バッチ実行、差分生成、反復修正 |
 
+## v7 ハイブリッド対応
+
+v7（`docs/plangate-v7-hybrid.md`）では実行層が Workflow / Skill / Agent 3 層で再構築されました。本ガイドの役割分担は **統制層**（A / B / C-1〜C-4 / PR 作成）に対する方針として引き続き有効です。
+
+**実行層（WF-01〜WF-05）の Agent 分担**:
+
+| Phase | 主担当 Agent（v7） | 既存 Agent との関係 |
+|---|---|---|
+| WF-01 / WF-02 | `requirements-analyst` | `spec-writer`（PBI 構造化）と相補 |
+| WF-03 | `solution-architect` | 新規責務（既存で対応 Agent なし） |
+| WF-04 | `implementation-agent` | `implementer`（plan 直実装）と共存、呼び出し文脈で使い分け |
+| WF-05 | `qa-reviewer` | `acceptance-tester`（V-1 実行ゲート）と補完関係 |
+| 全体制御 | `orchestrator` | `workflow-conductor`（統制層司令塔）の実行層版 |
+
+v7 opt-in は PBI 単位で段階的に可能。既存 `workflow-conductor` + `implementer` の組み合わせも継続利用できます。
+
 ## 役割分担（基本方針）
 
 ### Claude Code の担当領域
