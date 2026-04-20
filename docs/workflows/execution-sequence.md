@@ -7,7 +7,7 @@
 ## 責務ベース Agent 5 体
 
 | Agent | 責務 |
-|-------|------|
+| ------- | ------ |
 | `orchestrator` | ワークフロー遷移管理 / 誰に何を渡すか決める / 完了条件判定 |
 | `requirements-analyst` | 初期要求を仕様に変換 / 曖昧さ・抜け漏れ・対象外を整理 |
 | `solution-architect` | 実装構造を設計 / 依存制約や技術的妥協点を明文化 |
@@ -42,7 +42,7 @@ sequenceDiagram
 ## Phase × Agent マッピング
 
 | Phase | 主担当 Agent | 副担当 / 協働 |
-|-------|-------------|--------------|
+| ------- | ------------- | -------------- |
 | WF-01 Context Bootstrap | `orchestrator` | `requirements-analyst` |
 | WF-02 Requirement Expansion | `requirements-analyst` | `qa-reviewer`（AC 確定） |
 | WF-03 Solution Design | `solution-architect` | — |
@@ -59,7 +59,7 @@ sequenceDiagram
 ## PlanGate 既存フェーズとの対応
 
 | Workflow | PlanGate 既存 |
-|----------|--------------|
+| ---------- | -------------- |
 | WF-01 Context Bootstrap | A（PBI INPUT PACKAGE 確認） |
 | WF-02 Requirement Expansion | A / B の一部 |
 | WF-03 Solution Design | B の一部 + C-1〜C-3 |
@@ -73,7 +73,7 @@ sequenceDiagram
 本実行シーケンスは **責務ベース 5 体** で構成されるが、既存 PlanGate 特化版 Agent（`workflow-conductor`, `spec-writer`, `implementer`, `acceptance-tester` 等）は legacy として **並立**する。
 
 | 選択基準 | 推奨 Agent |
-|---------|-----------|
+| --------- | ----------- |
 | 新プロジェクトでハイブリッドアーキテクチャを採用 | 責務ベース 5 体 |
 | 既存 PlanGate ワークフローを継続 | 既存 PlanGate Agent |
 | 両方混在 | プロジェクトの CLAUDE.md で使い分けを明示 |
