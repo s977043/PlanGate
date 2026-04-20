@@ -33,6 +33,21 @@
 
 ## 次 phase への引き継ぎ
 
-- artifact クラス: **design**（形式: `design.md` 相当）
-- 含まれる要素: 上記「完了条件」の 6 項目
+- artifact クラス: **design**（形式: `design.md`）
+- 配置先: `docs/working/TASK-XXXX/design.md`（1 PBI につき 1 ファイル）
+- テンプレート: `docs/working/templates/design.md`（7 要素構造）
+- 含まれる要素: モジュール構成 / データフロー / 状態管理 / 失敗時扱い / テスト観点 / 依存制約 / 技術的妥協点
 - 受け取り先: WF-04（`implementation-agent`）
+
+## plan.md との役割分担
+
+WF-03 で生成する `design.md` は、PlanGate 既存の `plan.md` と併存する:
+
+| 観点 | plan.md | design.md |
+|-----|---------|-----------|
+| 主目的 | やる順番・完了条件 | 実装構造の決定事項 |
+| 出力者 | `spec-writer` / `workflow-conductor` | `solution-architect` |
+| 変化頻度 | チケット毎 | チケット毎 + アーキ変更時 |
+| 対象読者 | 実装者・レビュアー・PM | 実装者・アーキテクト |
+
+PlanGate 既存フロー（A → B → C-1 〜 C-3 → D）における WF-03 の挿入位置は [`docs/workflows/plangate-insertion-map.md`](./plangate-insertion-map.md) を参照。
