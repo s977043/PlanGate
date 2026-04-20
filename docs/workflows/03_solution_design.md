@@ -44,7 +44,7 @@
 WF-03 で生成する `design.md` は、PlanGate 既存の `plan.md` と併存する:
 
 | 観点 | plan.md | design.md |
-|-----|---------|-----------|
+| ----- | --------- | ----------- |
 | 主目的 | やる順番・完了条件 | 実装構造の決定事項 |
 | 出力者 | `spec-writer` / `workflow-conductor` | `solution-architect` |
 | 変化頻度 | チケット毎 | チケット毎 + アーキ変更時 |
