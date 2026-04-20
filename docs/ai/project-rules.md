@@ -13,14 +13,18 @@ PlanGate — ゲート型AI駆動開発ワークフローのリポジトリ。
 ```
 /docs                    - ナレッジ・ガイドドキュメント
   /ai                    - 共通ルール・役割分担（本ファイルの置き場）
+  /workflows             - v7 実行層 Workflow 定義（WF-01〜WF-05）
   /working               - チケット単位の作業コンテキスト（セッション永続化用）
+    /templates           - artifact テンプレート（design.md, handoff.md 等）
 /.claude
-  /rules                 - Claude Code 運用ルール
+  /rules                 - Claude Code 運用ルール（hybrid-architecture.md 含む）
   /commands              - カスタムスラッシュコマンド
-  /agents                - エージェント定義（詳細版、正本）
-  /skills                - カスタムスキル
+  /agents                - エージェント定義（詳細版、正本 / v7 責務ベース 5 体 + 既存 17 体）
+  /skills                - カスタムスキル（v7 再利用 10 Skill + 既存 8 Skill）
 /.codex
   /agents                - Codex CLI 用エージェント定義（要約版 .toml）
+/plugin/plangate         - Claude Code plugin 配布パッケージ
+/release-notes           - リリースノート（v7.0.0〜）
 /scripts                 - 起動スクリプト
 ```
 
@@ -64,8 +68,13 @@ PlanGate — ゲート型AI駆動開発ワークフローのリポジトリ。
 
 | ドキュメント | パス |
 |---|---|
-| PlanGate ワークフロー | `docs/plangate.md` |
+| PlanGate ワークフロー（v5 現行） | `docs/plangate.md` |
+| PlanGate v6 ロードマップ | `docs/plangate-v6-roadmap.md` |
+| **PlanGate v7 ハイブリッドアーキテクチャ** | `docs/plangate-v7-hybrid.md` |
+| v7 Rule 1〜5 + 境界ルール | `.claude/rules/hybrid-architecture.md` |
+| v7 Workflow 定義（WF-01〜WF-05） | `docs/workflows/README.md` |
 | ワークフロー詳細・プロンプト集 | `docs/ai-driven-development.md` |
 | AIツール役割分担 | `docs/ai/tool-roles.md` |
 | レビュー原則 | `.claude/rules/review-principles.md` |
 | 作業コンテキスト管理 | `.claude/rules/working-context.md` |
+| モード分類 | `.claude/rules/mode-classification.md` |

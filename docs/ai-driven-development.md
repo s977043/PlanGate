@@ -1,7 +1,9 @@
-# PlanGate ワークフロー & プロンプト集（v5）
+# PlanGate ワークフロー & プロンプト集（v5 / v6 / v7）
 
 > Claude Codeコマンド: `/ai-dev-workflow`（`.claude/commands/ai-dev-workflow.md`）
 > PlanGate概要ガイド: [docs/plangate.md](plangate.md)
+>
+> **v7 ハイブリッドアーキテクチャ**: 本書の統制層を維持しつつ、実行層を Workflow/Skill/Agent 3 層で再構築したのが v7。詳細は [docs/plangate-v7-hybrid.md](./plangate-v7-hybrid.md) 参照。v5/v6 の運用を継続しつつ、段階的に v7 要素を opt-in 可能。
 
 ## 概要
 
