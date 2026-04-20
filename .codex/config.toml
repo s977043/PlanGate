@@ -93,6 +93,22 @@ config_file = "agents/agile_coach.toml"
 [agents.explorer_agent]
 config_file = "agents/explorer_agent.toml"
 
+# -- v7 ハイブリッドアーキテクチャ（責務ベース） --
+# docs/plangate-v7-hybrid.md / .claude/rules/hybrid-architecture.md 参照
+# orchestrator は汎用マルチエージェント調整と v7 実行層総責任者の両方を兼務
+
+[agents.requirements_analyst]
+config_file = "agents/requirements_analyst.toml"
+
+[agents.solution_architect]
+config_file = "agents/solution_architect.toml"
+
+[agents.implementation_agent]
+config_file = "agents/implementation_agent.toml"
+
+[agents.qa_reviewer]
+config_file = "agents/qa_reviewer.toml"
+
 # --- Shell environment ---
 [shell_environment_policy]
 # Minimal env vars for basic shell operation. Secrets are excluded intentionally.
