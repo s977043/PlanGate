@@ -1,5 +1,7 @@
 # PlanGate v6 ロードマップ -- ハーネスエンジニアリング差分解消
 
+> **v7 ハイブリッドアーキテクチャ**: 本書の方向性を踏まえ、実行層を Workflow / Skill / Agent 3 層で再構築したのが v7。詳細は [docs/plangate-v7-hybrid.md](./plangate-v7-hybrid.md) 参照。v6 は本書のロードマップとして維持される。
+
 ## 責務境界の大原則
 
 PlanGateは**スクラムのDone定義の中で「AIにコードを書かせるフェーズ」を安全に回す仕組み**である。

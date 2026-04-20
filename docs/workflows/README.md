@@ -58,7 +58,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 | **V-1**: 受け入れ検査 | 実行 / AI | `acceptance-tester` | **WF-05 Verify**（受け入れ確認部分） |
 | **V-2**: コード最適化 | 実行 / AI | `code-optimizer` | WF-04 延長 / WF-05 入口（full/critical のみ） |
 | **V-3**: 外部モデルレビュー | 実行 / AI | 外部 AI | WF-05 内の独立検証 |
-| **V-4**: リリース前チェック | 実行 / AI | `release-manager` | **WF-05 Handoff 前**の最終ゲート（critical のみ） |
+| **V-4**: リリース前チェック | 実行 / AI | `workflow-conductor`（既存 agent で代替、`release-manager` 相当） | **WF-05 Handoff 前**の最終ゲート（critical のみ） |
 | **PR 作成** | 統制 / AI | `workflow-conductor` が制御 | WF-05 の handoff を GitHub PR として発行 |
 | **C-4**: 人間レビュー（PR） | 統制 / 人間 | 人間 | 実装承認ゲート（WF 外） |
 

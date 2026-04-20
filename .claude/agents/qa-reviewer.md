@@ -39,7 +39,7 @@ model: inherit
 - 適合/不足一覧（AC ごとに PASS/FAIL/WARN）
 - 既知課題表
 - V2 候補リスト
-- handoff package 要素（TASK-0027 で仕様確定）
+- handoff package 要素（仕様: `docs/working/templates/handoff.md`）
   - 要件適合確認結果
   - 既知課題一覧
   - V2 候補
@@ -57,5 +57,5 @@ model: inherit
 
 - 親 PBI: #22 TASK-0021 ハイブリッドアーキテクチャ
 - Workflow: `docs/workflows/05_verify_and_handoff.md`
-- handoff.md テンプレート: `docs/working/templates/handoff.md`（TASK-0027 で作成予定）
+- handoff.md テンプレート: `docs/working/templates/handoff.md`
 - PlanGate V-1 受け入れ検査との関係: V-1 は実装ゲート、handoff は完了後の資産

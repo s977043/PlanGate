@@ -172,7 +172,7 @@ orchestrator (WF-01)
 - [docs/workflows/](./workflows/) — 5 phase 定義 + README + 実行シーケンス + skill-mapping + insertion-map
 - [docs/working/templates/design.md](./working/templates/design.md) — WF-03 成果物テンプレート
 - [docs/working/templates/handoff.md](./working/templates/handoff.md) — WF-05 成果物テンプレート
-- [.claude/agents/](../.claude/agents/) — 責務ベース 5 体 + 既存 14 体
+- [.claude/agents/](../.claude/agents/) — 責務ベース 5 体 + 既存 17 体
 - [.claude/skills/](../.claude/skills/) — Skill 10 個 + 既存 8 個
 - [.claude/rules/hybrid-architecture.md](../.claude/rules/hybrid-architecture.md) — Rule 1〜5 + 境界ルール（正本）
 - [.claude/rules/working-context.md](../.claude/rules/working-context.md) — handoff 必須化
