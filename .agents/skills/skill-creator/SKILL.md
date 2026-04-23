@@ -19,7 +19,7 @@ Your job is to:
 
 ## Safety constraints
 
-Write output files only to `.Codex/skills/` unless the user explicitly specifies a different path.
+Write output files only to `.agents/skills/` unless the user explicitly specifies a different path.
 Do not modify existing skills without user confirmation.
 
 Note: this skill does not set `disable-model-invocation: true` because file creation is its primary purpose, not an incidental side effect. The settings.json deny list and user confirmation prompts provide sufficient guardrails.
@@ -161,7 +161,7 @@ After the skill files are written:
 2. verify `description` is under 1024 characters and includes trigger keywords
 3. verify SKILL.md is under 500 lines
 4. verify all `${CLAUDE_SKILL_ROOT}/` references point to existing files
-5. check the repository AGENTS.md or AGENTS.md for additional registration steps
+5. check the repository AGENTS.md or CLAUDE.md for additional registration steps
 6. if the repository uses a skills index or registry, update it
 
 ### Quality Gates

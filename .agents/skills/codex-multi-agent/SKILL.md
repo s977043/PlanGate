@@ -1,6 +1,6 @@
 ---
 name: codex-multi-agent
-description: "マルチエージェントでタスク分解・委譲・並列実行・結果統合を行うための共通運用スキル。Use when: 「マルチエージェントで進めたい」「並列で進めたい」「サブエージェントに任せたい」「複数 agent で調査/実装/レビューしたい」。Codex / Codex のどちらでも使える共通原則を定義し、末尾にツール別の読み替えを置く。"
+description: "マルチエージェントでタスク分解・委譲・並列実行・結果統合を行うための共通運用スキル。Use when: 「マルチエージェントで進めたい」「並列で進めたい」「サブエージェントに任せたい」「複数 agent で調査/実装/レビューしたい」。Claude Code / Codex のどちらでも使える共通原則を定義し、末尾にツール別の読み替えを置く。"
 ---
 
 # Multi-Agent Operating Guide
@@ -274,7 +274,7 @@ Codex での代表的な操作:
 - 必要時のみ待機: `wait_agent`
 - 不要になったら終了: `close_agent`
 
-## Tool Mapping: Codex
+## Tool Mapping: Codex (Team/Task)
 
 Codex では、役割を既存の Team / Task 運用へ読み替える。
 
