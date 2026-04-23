@@ -1,0 +1,12 @@
+title: PlanGate
+description: Gate-based workflow for AI coding agents
+
+plugins:
+  - jekyll-relative-links
+
+relative_links:
+  enabled: true
+  collections: true
+
+exclude:
+  - working/
