@@ -2,6 +2,7 @@
 
 > 正本。判定基準の調整はこのファイルのみで行う。
 > 参照元: `ai-dev-workflow.md`（plan サブコマンド）、`workflow-conductor.md`（役割7）
+> 関連 Skill: `intent-classifier`（依頼文 → Intent 判定）、`skill-policy-router`（Intent + Mode → GatePolicy）
 
 ## 5段階モード定義
 
@@ -10,7 +11,7 @@
 | **超低** | `ultra-light` | typo修正、設定値変更、コメント修正、README更新 |
 | **低** | `light` | バグ修正、1ファイルの小修正、設定追加 |
 | **中** | `standard` | 小規模機能追加、数ファイルの変更、テンプレート追加 |
-| **高** | `full` | 機能追加、複数ファイル・複数レイヤーの変更 |
+| **高** | `high-risk` | 機能追加、複数ファイル・複数レイヤーの変更 |
 | **超高** | `critical` | アーキテクチャ変更、横断的リファクタリング、ワークフロー定義変更 |
 
 ## 判定基準
@@ -31,6 +32,8 @@
 | リスク | なし | 低 | 中 | 高 | 極高 |
 | 影響範囲 | 当該ファイルのみ | 当該機能のみ | 関連機能に波及 | 複数レイヤーに波及 | システム全体 |
 | ロールバック | 不要 | 容易 | 可能 | 計画的に必要 | 段階的ロールバック必須 |
+
+> **注**: 「高」のラベルは `high-risk`（旧: `full`）。`full` は非推奨となり `high-risk` を使用すること。
 
 ### 判定ロジック
 
@@ -66,6 +69,8 @@
 | **PR 作成** | ○ | ○ | ○ | ○ | ○ |
 | **C-4 PRレビュー** | ○ | ○ | ○ | ○ | ○（複数レビュアー推奨） |
 
+> 列ヘッダー（超低〜超高）は左から `ultra-light` / `light` / `standard` / `high-risk` / `critical` に対応する。
+
 ### 簡易版の定義
 
 | フェーズ | 通常版 | 簡易版 |
@@ -80,7 +85,7 @@
 ```markdown
 ## Mode判定
 
-**モード**: {ultra-light | light | standard | full | critical}
+**モード**: {ultra-light | light | standard | high-risk | critical}
 
 **判定根拠**:
 - 変更ファイル数: {N} → {モード}
@@ -100,3 +105,53 @@
    - L-0（リンター）は全モードで必須
    - PR作成・C-4 は全モードで必須
 4. **新モードの追加**: 5段階で不足する場合は中間モードを定義可能（非推奨）
+
+## GatePolicy 定義
+
+Mode ごとに必要な Skill とゲート要件（GatePolicy）を定義する。
+`skill-policy-router` Skill がこの定義に基づいて GatePolicy を返す。
+
+### GatePolicy フィールド
+
+| フィールド | 型 | 説明 |
+|-----------|---|------|
+| `requiredSkills` | string[] | 必須実行 Skill の識別子リスト |
+| `optionalSkills` | string[] | 推奨 Skill の識別子リスト |
+| `requiresUserApproval` | boolean | 人間の明示的承認が必要か |
+| `requiresEvidence` | boolean | 実行根拠（evidence）の保存が必要か |
+| `requiresFailingTestFirst` | boolean | failing test を先に書く TDD が必要か |
+| `requiresWorktree` | boolean | 独立ブランチ（worktree）での作業が必要か |
+
+### Skill 識別子
+
+| 識別子 | 対応する行動 |
+|--------|------------|
+| `think` | 設計・計画の立案（plan.md 生成） |
+| `hunt` | コードベース調査（Grep / Glob 探索） |
+| `check` | セルフレビュー（self-review Skill） |
+| `tdd` | テスト駆動開発（failing test first） |
+| `verify` | 受け入れ検査（test-cases.md 突合） |
+| `worktree` | 独立ブランチでの作業 |
+| `review` | 外部レビュー（human / external AI） |
+| `approval` | 人間の明示的承認取得 |
+
+### Mode 別 GatePolicy 一覧
+
+| Mode | requiredSkills | optionalSkills | approval | evidence | TDD | worktree |
+|------|---------------|----------------|---------|---------|-----|---------|
+| `ultra-light` | verify | check | false | false | false | false |
+| `light` | check, verify | think, hunt | false | false | false | false |
+| `standard` | think, check, verify | hunt, tdd | recommended | true | conditional | false |
+| `high-risk` | think, approval, worktree, tdd, check, review, verify | — | **true** | true | **true** | **true** |
+| `critical` | think, approval, worktree, tdd, review, verify | — | **true** | true | **true** | **true** |
+
+**`critical` の追加要件**:
+
+- ロールバック計画の策定
+- セキュリティレビューを含む多角的レビュー
+- 段階的デプロイ計画の策定
+
+### 参照
+
+- Skill: `plugin/plangate/skills/intent-classifier/SKILL.md`
+- Skill: `plugin/plangate/skills/skill-policy-router/SKILL.md`
