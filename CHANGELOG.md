@@ -4,6 +4,29 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v7.3.0 - 2026-04-26
+
+モード命名の完全統一、setup-team スキル追加、pg-check × skill-policy-router 連携明示を行ったリリース。
+
+### setup-team スキル追加（TASK-0035）
+
+- `plugin/plangate/skills/setup-team/` — タスク規模・モードに応じたマルチエージェントチーム設計スキルを追加
+- `.claude/skills/setup-team/` / `.agents/skills/setup-team/` にも同一ファイルを配置
+- `skills/codex-multi-agent/SKILL.md` の broken reference（`../setup-team/SKILL.md`）を解消
+
+### full → high-risk モード命名完全統一（TASK-0036）
+
+- `plugin/plangate/agents/workflow-conductor.md` — 5 箇所置換（フェーズ表、判定ロジック、status.md テンプレート、V-2 記述）
+- `plugin/plangate/agents/code-optimizer.md` — frontmatter description + When You Should Be Used
+- `plugin/plangate/rules/working-context.md` — V-2 記述・plan.md テンプレート・status.md テンプレート
+- `plugin/plangate/commands/ai-dev-workflow.md` — Mode判定テンプレート
+- `.claude/` 側の対応ファイル（agents/workflow-conductor.md, agents/code-optimizer.md, agents/README.md, rules/mode-classification.md, rules/working-context.md, commands/ai-dev-workflow.md）も同様に更新
+
+### pg-check × skill-policy-router 連携明示（TASK-0037）
+
+- `plugin/plangate/commands/pg-check.md` — GatePolicy との連携セクションを追加
+- `skill-policy-router` が `check` を requiredSkills に含む場合に `/pg-check` が自動要求される旨を明記
+
 ## v7.2.0 - 2026-04-26
 
 Epic [#53](https://github.com/s977043/plangate/issues/53)「PlanGate を AI コーディングの開発統制 OS へ拡張する」の Phase 1〜3 を完了したリリース。

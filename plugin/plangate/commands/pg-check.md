@@ -16,6 +16,18 @@ severity=critical の finding がある場合、fix なしに完了しない。
 
 `$ARGUMENTS` にレビュー対象（PR 番号またはブランチ名）を渡す。省略時は現在のブランチの差分。
 
+## GatePolicy との連携
+
+`skill-policy-router` が `check` を `requiredSkills` に含む場合、このコマンドが自動的に要求される。
+
+| Mode | check の扱い |
+|------|-------------|
+| ultra-light | optionalSkills（任意） |
+| light | requiredSkills（必須） |
+| standard 以上 | requiredSkills（必須） |
+
+GatePolicy が `{ "requiredSkills": ["check", ...] }` を返した場合、ワークフローは `/pg-check` の実行を求める。`/pg-check` で critical finding が出た場合は fix なしに次ステップへ進めない。
+
 ## 実行フロー
 
 1. **Diff Summary**: 変更差分の概要を把握する（`git diff --stat`）
