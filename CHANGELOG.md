@@ -4,6 +4,40 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v7.2.0 - 2026-04-26
+
+Epic [#53](https://github.com/s977043/plangate/issues/53)「PlanGate を AI コーディングの開発統制 OS へ拡張する」の Phase 1〜3 を完了したリリース。
+
+### Phase 1: 軽量スキル基盤（#54/#55/#56）
+
+- `skills/intent-classifier/` — User Request を 7 分類（feature / bug / refactor / research / review / docs / ops）
+- `skills/skill-policy-router/` — Intent + Mode → GatePolicy（requiredSkills / requiresEvidence / requiresFailingTestFirst / requiresWorktree）
+- `skills/evidence-ledger/` — EvidenceLedger スキーマ・証拠記録・Completion Gate 連携
+- `rules/evidence-ledger.md` — Completion Gate ブロック条件正本
+- `rules/mode-classification.md` — `full` → `high-risk` リネーム + GatePolicy 定義追加
+- `/pg-think` / `/pg-hunt` / `/pg-check` / `/pg-verify` コマンド追加
+
+### Phase 2: 強制ゲート基盤（#57）
+
+- `rules/design-gate.md` + `skills/design-gate/` — high-risk 以上で Design Artifact 8 項目必須
+- `commands/pg-tdd.md` — Red→Green→Refactor TDD cycle + Evidence Ledger 連携
+- `rules/review-gate.md` + `skills/review-gate/` — 6 観点レビュー、critical finding → Completion Gate ブロック
+- `rules/completion-gate.md` — 全 Gate 通過を一元管理する 5 条件チェックポイント
+- `rules/mode-classification.md` — Gate 適用マトリクス追加
+
+### Phase 3: エージェント統制基盤（#58）
+
+- `skills/context-packager/` — Allowed Context 6 要素を構造化して出力
+- `rules/subagent-roles.md` — 6 ロール定義（planner / implementer / reviewer / security-reviewer / test-reviewer / documentation-reviewer）
+- `skills/subagent-dispatch/` — 依存関係グラフ生成・並列実行可能タスク特定・dispatch
+- `rules/worktree-policy.md` — high-risk: 必須(推奨), critical: 必須(強制)。`requiresWorktree` フラグ接続
+- `skills/pr-decision/` — Evidence Ledger + Review Gate + GateStatus から APPROVE / BLOCK / CONDITIONAL 判定
+
+### ドキュメント・その他
+
+- `docs/plangate-v7-hybrid.md` — PlanGate Control OS 理想ワークフロー節を追加
+- `plugin.json` — v0.3.0 → v0.4.0
+
 ## v7.1.0 - 2026-04-23
 
 README 刷新、GitHub Pages 公開、Claude Code / Codex CLI 共用スキルの整備を行ったリリース。
