@@ -1,8 +1,8 @@
 # plangate — Claude Code plugin
 
-PlanGate workflow for Claude Code: AI-driven development with TDD, multi-phase review gates (C-1/C-2/C-3/C-4), and 5-stage mode classification (ultra-light/light/standard/full/critical).
+PlanGate — AI コーディングの開発統制 OS。Intent/Mode 分類、4 Gate システム、エージェント統制層を提供する Claude Code plugin。
 
-- **Version**: 0.1.0
+- **Version**: 0.4.0
 - **Source**: https://github.com/s977043/plangate
 
 ## インストール
@@ -31,29 +31,42 @@ cd plangate
 ```text
 plugin/plangate/
 ├── .claude-plugin/
-│   └── plugin.json       # manifest
-├── agents/               # 6 agents
-│   ├── workflow-conductor.md
-│   ├── spec-writer.md
-│   ├── implementer.md
-│   ├── linter-fixer.md
-│   ├── acceptance-tester.md
-│   └── code-optimizer.md
-├── skills/               # 5 skills
-│   ├── brainstorming/SKILL.md
-│   ├── self-review/SKILL.md
-│   ├── subagent-driven-development/SKILL.md
-│   ├── systematic-debugging/SKILL.md
-│   └── codex-multi-agent/SKILL.md
-├── commands/             # 2 commands
+│   └── plugin.json         # manifest (v0.4.0)
+├── agents/                 # 6 agents
+├── skills/                 # 11 skills
+│   ├── brainstorming/
+│   ├── self-review/
+│   ├── subagent-driven-development/
+│   ├── systematic-debugging/
+│   ├── codex-multi-agent/
+│   ├── intent-classifier/     # Phase 1 追加
+│   ├── skill-policy-router/   # Phase 1 追加
+│   ├── evidence-ledger/       # Phase 1 追加
+│   ├── design-gate/           # Phase 2 追加
+│   ├── review-gate/           # Phase 2 追加
+│   ├── context-packager/      # Phase 3 追加
+│   ├── subagent-dispatch/     # Phase 3 追加
+│   └── pr-decision/           # Phase 3 追加
+├── commands/               # 7 commands
 │   ├── working-context.md
-│   └── ai-dev-workflow.md
-├── rules/                # 3 rules
+│   ├── ai-dev-workflow.md
+│   ├── pg-think.md            # Phase 1 追加
+│   ├── pg-hunt.md             # Phase 1 追加
+│   ├── pg-check.md            # Phase 1 追加
+│   ├── pg-verify.md           # Phase 1 追加
+│   └── pg-tdd.md              # Phase 2 追加
+├── rules/                  # 8 rules
 │   ├── working-context.md
 │   ├── review-principles.md
-│   └── mode-classification.md
-├── hooks/                # (reserved for future)
-└── scripts/              # (reserved for future)
+│   ├── mode-classification.md
+│   ├── evidence-ledger.md     # Phase 1 追加
+│   ├── design-gate.md         # Phase 2 追加
+│   ├── review-gate.md         # Phase 2 追加
+│   ├── completion-gate.md     # Phase 2 追加
+│   ├── subagent-roles.md      # Phase 3 追加
+│   └── worktree-policy.md     # Phase 3 追加
+├── hooks/                  # (reserved for future)
+└── scripts/                # (reserved for future)
 ```
 
 ## 基本的な使い方

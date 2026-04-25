@@ -165,6 +165,52 @@ orchestrator (WF-01)
 
 **注**: 完全移行は必須ではありません。デュアル運用のままでも問題ありません。
 
+## PlanGate Control OS — 理想ワークフロー（Epic #53 / v7.2）
+
+Epic [#53](https://github.com/s977043/plangate/issues/53) で実装した Phase 1〜3 により、PlanGate は **AI コーディングの開発統制 OS** として機能する。
+
+### 理想フロー
+
+```text
+User Request
+  ↓
+PlanGate（エントリーポイント: /pg コマンド群）
+  ↓
+Intent Classifier（feature / bug / refactor / research / review / docs / ops）
+  ↓
+Risk / Mode Classifier（ultra-light / light / standard / high-risk / critical）
+  ↓
+Skill Policy Router（requiredSkills / requiresEvidence / requiresFailingTestFirst / requiresWorktree）
+  ↓
+Context Packager（Allowed Context: 対象ファイル / 仕様 / テスト / 制約 / コマンド / 禁止スコープ）
+  ↓
+Execution Gate（Design Gate → TDD Gate → Review Gate）
+  ↓
+Evidence Ledger（command / exitCode / outputExcerpt / type: test|review|diff|manual）
+  ↓
+Completion Gate（5 条件チェック: Design / TDD / Review / EvidenceLedger / 人間承認）
+  ↓
+PR Decision（APPROVE / BLOCK / CONDITIONAL）
+```
+
+### Phase 別実装状況
+
+| Phase | 内容 | 実装場所 | 状態 |
+|-------|------|---------|------|
+| **Phase 1** | Intent Classifier / Mode Classifier / Skill Policy Router / `/pg` コマンド群 / Evidence Ledger | `plugin/plangate/skills/intent-classifier/` `skills/skill-policy-router/` `rules/evidence-ledger.md` `commands/pg-*.md` | ✅ 完了（#54/#55/#56） |
+| **Phase 2** | Design Gate / TDD Gate / Review Gate / Completion Gate | `plugin/plangate/rules/design-gate.md` `rules/review-gate.md` `rules/completion-gate.md` `commands/pg-tdd.md` | ✅ 完了（#57） |
+| **Phase 3** | Context Packager / Subagent Roles / Subagent Dispatch / Worktree Policy / PR Decision | `plugin/plangate/skills/context-packager/` `rules/subagent-roles.md` `skills/subagent-dispatch/` `rules/worktree-policy.md` `skills/pr-decision/` | ✅ 完了（#58） |
+
+### Mode × Gate × Skill 対応表
+
+| Mode | 発火する Gate | 必須 Skill |
+|------|-------------|-----------|
+| ultra-light | なし | — |
+| light | なし | — |
+| standard | Completion Gate | context-packager |
+| high-risk | Design + TDD + Review + Completion Gate | intent-classifier, skill-policy-router, context-packager, subagent-dispatch |
+| critical | 全 Gate（人間承認 + Rollback Plan 必須） | 全 Skill + pr-decision |
+
 ## 参照
 
 ### v7 ハイブリッドアーキテクチャのドキュメント

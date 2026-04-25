@@ -1,7 +1,7 @@
 {
   "name": "plangate",
-  "version": "0.3.0",
-  "description": "PlanGate workflow for Claude Code: AI-driven development with TDD, multi-phase review gates (C-1/C-2/C-3/C-4), and 5-stage mode classification (ultra-light/light/standard/full/critical).",
+  "version": "0.4.0",
+  "description": "PlanGate — AI coding control OS for Claude Code. Intent/Mode classification, Skill Policy Router, Evidence Ledger, 4-Gate system (Design/TDD/Review/Completion), Context Packager, Subagent Dispatch, Worktree Policy, PR Decision. Commands: /pg-think /pg-hunt /pg-check /pg-verify /pg-tdd.",
   "author": {
     "name": "PlanGate contributors"
   }
