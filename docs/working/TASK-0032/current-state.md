@@ -4,27 +4,22 @@
 
 ## 現在フェーズ
 
-**Phase B: 実装中 → コミット前**
+**完了（Done）**
 
 ## 完了済み
 
-- Phase A: design-gate.md / design-gate/SKILL.md / pg-tdd.md / review-gate.md / review-gate/SKILL.md（別ブランチでコミット済み）
-- Phase B: completion-gate.md 作成
-- Phase B: mode-classification.md に Gate 適用マトリクス追加
-- Phase B: Working Context 7 ファイル作成中
+- [x] Phase A: design-gate.md / design-gate/SKILL.md / pg-tdd.md / review-gate.md / review-gate/SKILL.md
+- [x] Phase B: completion-gate.md 作成
+- [x] Phase B: mode-classification.md に Gate 適用マトリクス追加
+- [x] Working Context 7 ファイル作成
+- [x] acceptance-tester による V-1 受け入れ検査（6/6 PASS）
+- [x] PR #62 マージ済み（main / v7.2.0）
 
 ## 残タスク
 
-- [ ] todo.md の検証チェックポイント確認
-- [ ] コミット実行
-- [ ] PR 作成
-- [ ] C-4: Human によるPRレビュー
-
-## ブロッカー
-
 なし
 
-## 次のアクション
+## 参照
 
-1. コミット: `feat(gate): TASK-0032 Completion Gate + Mode マトリクス + Working Context (#57)`
-2. PR 作成して C-4 レビューを依頼
+- PR #62: https://github.com/s977043/plangate/pull/62
+- handoff.md: `docs/working/TASK-0032/handoff.md`

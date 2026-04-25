@@ -2,39 +2,30 @@
 
 ```yaml
 updated_at: 2026-04-26
-phase: Agent E 実装中
-branch: feature/task-0033-agent-control-worktree-pr
+phase: 完了（Done）
 ```
 
 ## 今どこにいるか
 
-Agent E の実装フェーズ。worktree-policy.md と pr-decision/SKILL.md を作成し、working context 一式を整備中。
+PR #63 マージ済み。v7.2.0 の一部としてリリース完了。
 
 ## 完了済みタスク
 
 - [x] 既存 Rule / Skill の参照確認
-- [x] `plugin/plangate/rules/worktree-policy.md` 作成
-- [x] `plugin/plangate/skills/pr-decision/SKILL.md` 作成
-- [x] `docs/working/TASK-0033/pbi-input.md` 作成
-- [x] `docs/working/TASK-0033/plan.md` 作成
-- [x] `docs/working/TASK-0033/todo.md` 作成
-- [x] `docs/working/TASK-0033/test-cases.md` 作成
-- [x] `docs/working/TASK-0033/INDEX.md` 作成
-- [x] `docs/working/TASK-0033/current-state.md` 作成（このファイル）
-- [ ] `docs/working/TASK-0033/handoff.md` 作成（次のタスク）
+- [x] `plugin/plangate/rules/worktree-policy.md` 作成（Agent E）
+- [x] `plugin/plangate/skills/pr-decision/SKILL.md` 作成（Agent E）
+- [x] `plugin/plangate/skills/context-packager/SKILL.md` 作成（Agent D）
+- [x] `plugin/plangate/rules/subagent-roles.md` 作成（Agent D）
+- [x] `plugin/plangate/skills/subagent-dispatch/SKILL.md` 作成（Agent D）
+- [x] Working Context 7 ファイル作成（pbi-input / plan / todo / test-cases / INDEX / current-state / handoff）
+- [x] acceptance-tester による V-1 受け入れ検査（5/5 PASS）
+- [x] PR #63 マージ済み（main / v7.2.0）
 
-## 次のアクション
-
-1. handoff.md を作成する
-2. git commit してブランチを push する
-3. PR を作成して acceptance-tester による 5 AC 突合を依頼する
-
-## ブロッカー
+## 残タスク
 
 なし
 
-## Agent D の状況
+## 参照
 
-- ブランチ: `feature/task-0033-agent-control-context-dispatch`
-- AC-1 / AC-3 / AC-4 対応コンポーネント（context-packager / subagent-roles / subagent-dispatch）を別ブランチで実装中
-- 統合 PR でマージ
+- PR #63: https://github.com/s977043/plangate/pull/63
+- handoff.md: `docs/working/TASK-0033/handoff.md`
