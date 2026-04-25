@@ -4,6 +4,14 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v7.3.1 - 2026-04-26
+
+plugin v0.5.0: setup-team を skill 一覧に追加、broken reference 制約の削除、README バージョン更新。
+
+- `plugin/plangate/README.md` — skill 数 11 → 14、setup-team 追加、既知制約から解消済み broken reference を削除
+- `plugin/plangate/.claude-plugin/plugin.json` — v0.4.0 → v0.5.0、description に Setup Team を追記
+- `docs/working/TASK-0037/handoff.md` — Rule 5 完了資産を発行
+
 ## v7.3.0 - 2026-04-26
 
 モード命名の完全統一、setup-team スキル追加、pg-check × skill-policy-router 連携明示を行ったリリース。

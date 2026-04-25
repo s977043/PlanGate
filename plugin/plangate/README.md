@@ -2,7 +2,7 @@
 
 PlanGate — AI コーディングの開発統制 OS。Intent/Mode 分類、4 Gate システム、エージェント統制層を提供する Claude Code plugin。
 
-- **Version**: 0.4.0
+- **Version**: 0.5.0
 - **Source**: https://github.com/s977043/plangate
 
 ## インストール
@@ -33,12 +33,13 @@ plugin/plangate/
 ├── .claude-plugin/
 │   └── plugin.json         # manifest (v0.4.0)
 ├── agents/                 # 6 agents
-├── skills/                 # 11 skills
+├── skills/                 # 14 skills
 │   ├── brainstorming/
 │   ├── self-review/
 │   ├── subagent-driven-development/
 │   ├── systematic-debugging/
 │   ├── codex-multi-agent/
+│   ├── setup-team/            # TASK-0035 追加
 │   ├── intent-classifier/     # Phase 1 追加
 │   ├── skill-policy-router/   # Phase 1 追加
 │   ├── evidence-ledger/       # Phase 1 追加
@@ -138,7 +139,6 @@ cp plangate/.claude/agents/backend-specialist.md <your-project>/.claude/agents/
 
 ## 既知の制約
 
-- `codex-multi-agent` skill 内に `../setup-team/SKILL.md` への参照あり（legacy 側からの既存 broken reference、plugin も同じ状態）
 - plugin install 後の挙動は Claude Code の内部仕様に依存（詳細は runtime 検証結果を参照）
 - `test-engineer` / `release-manager` agent 未同梱（`.claude/` にも存在しない）
 
