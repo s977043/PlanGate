@@ -31,7 +31,7 @@ cd plangate
 ```text
 plugin/plangate/
 ├── .claude-plugin/
-│   └── plugin.json         # manifest (v0.4.0)
+│   └── plugin.json         # manifest (v0.5.0)
 ├── agents/                 # 6 agents
 ├── skills/                 # 14 skills
 │   ├── brainstorming/

@@ -56,7 +56,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 | **D**: Agent実行（TDD） | 実行 / AI | `implementation-agent` | **WF-04 Build & Refine** |
 | **L-0**: リンター自動修正 | 実行 / AI | `linter-fixer` | WF-04 内の品質制御 |
 | **V-1**: 受け入れ検査 | 実行 / AI | `acceptance-tester` | **WF-05 Verify**（受け入れ確認部分） |
-| **V-2**: コード最適化 | 実行 / AI | `code-optimizer` | WF-04 延長 / WF-05 入口（full/critical のみ） |
+| **V-2**: コード最適化 | 実行 / AI | `code-optimizer` | WF-04 延長 / WF-05 入口（high-risk/critical のみ） |
 | **V-3**: 外部モデルレビュー | 実行 / AI | 外部 AI | WF-05 内の独立検証 |
 | **V-4**: リリース前チェック | 実行 / AI | `workflow-conductor`（既存 agent で代替、`release-manager` 相当） | **WF-05 Handoff 前**の最終ゲート（critical のみ） |
 | **PR 作成** | 統制 / AI | `workflow-conductor` が制御 | WF-05 の handoff を GitHub PR として発行 |

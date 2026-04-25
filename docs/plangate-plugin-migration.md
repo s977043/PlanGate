@@ -60,7 +60,7 @@ PlanGate は当初、`.claude/` ディレクトリを含むリポジトリ配布
 |------|------|
 | `working-context.md` | `docs/working/` 配下の作業コンテキスト管理ルール |
 | `review-principles.md` | CI/ローカル共通のレビュー判定フレーム |
-| `mode-classification.md` | 5 段階モード分類基準（ultra-light/light/standard/full/critical） |
+| `mode-classification.md` | 5 段階モード分類基準（ultra-light/light/standard/high-risk/critical） |
 
 ## 対象外の理由
 

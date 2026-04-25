@@ -14,6 +14,7 @@ PlanGate ワークフロー v5 / v6 / **v7** で使用するスキル群。
 | `systematic-debugging` | バグや障害の体系的調査・根本原因特定 | debugging |
 | `subagent-driven-development` | 実装タスクのサブエージェント委譲・品質管理 | workflow |
 | `codex-multi-agent` | マルチエージェントでタスク分解・委譲・並列実行・結果統合 | workflow |
+| `setup-team` | タスク規模・モードに応じた最適チーム設計とエージェント委譲準備 | workflow |
 
 ## v7 ハイブリッドアーキテクチャ用 Skill（10 個）
 
