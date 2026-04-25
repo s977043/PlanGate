@@ -95,6 +95,28 @@
 - **最終判定**: {モード}（{オーバーライドの場合はその理由}）
 ```
 
+## Gate 適用マトリクス
+
+各モードで適用する Gate を定義する。○ = 必須、△ = 推奨/任意、- = スキップ。
+
+| Gate | ultra-light | light | standard | high-risk | critical |
+|------|------------|-------|----------|-----------|----------|
+| **Design Gate** | - | - | - | ○ | ○ |
+| **TDD Gate** | - | - | △ | ○ | ○ |
+| **Review Gate** | - | - | △（/pg-check 推奨） | ○ | ○ |
+| **Completion Gate** | - | △ | ○ | ○ | ○ |
+
+### Gate 詳細
+
+| Gate | ルール正本 | Skill | コマンド |
+|------|-----------|-------|---------|
+| Design Gate | `plugin/plangate/rules/design-gate.md` | `design-gate` | `/pg-think`（初段） |
+| TDD Gate | `plugin/plangate/commands/pg-tdd.md` | — | `/pg-tdd` |
+| Review Gate | `plugin/plangate/rules/review-gate.md` | `review-gate` | `/pg-check` |
+| Completion Gate | `plugin/plangate/rules/completion-gate.md` | — | `/pg-verify` |
+
+> 各 Gate の詳細条件は各ルールファイルを参照。Completion Gate が全 Gate の通過を一元管理する。
+
 ## 調整ガイド
 
 このファイルの判定基準を調整する際のルール:
