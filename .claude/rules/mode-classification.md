@@ -10,7 +10,7 @@
 | **超低** | `ultra-light` | typo修正、設定値変更、コメント修正、README更新 |
 | **低** | `light` | バグ修正、1ファイルの小修正、設定追加 |
 | **中** | `standard` | 小規模機能追加、数ファイルの変更、テンプレート追加 |
-| **高** | `full` | 機能追加、複数ファイル・複数レイヤーの変更 |
+| **高** | `high-risk` | 機能追加、複数ファイル・複数レイヤーの変更 |
 | **超高** | `critical` | アーキテクチャ変更、横断的リファクタリング、ワークフロー定義変更 |
 
 ## 判定基準
@@ -80,7 +80,7 @@
 ```markdown
 ## Mode判定
 
-**モード**: {ultra-light | light | standard | full | critical}
+**モード**: {ultra-light | light | standard | high-risk | critical}
 
 **判定根拠**:
 - 変更ファイル数: {N} → {モード}

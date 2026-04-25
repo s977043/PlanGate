@@ -38,7 +38,7 @@ Codex CLI 向けの要約版は `.codex/agents/*.toml` にあります。
 |------------|---------|------------|------|
 | implementer | [implementer.md](./implementer.md) | `implementer.toml` | exec フェーズのタスク実装（TDD） |
 | acceptance-tester | [acceptance-tester.md](./acceptance-tester.md) | `acceptance_tester.toml` | V-1 受け入れ検査 |
-| code-optimizer | [code-optimizer.md](./code-optimizer.md) | `code_optimizer.toml` | V-2 コード最適化（full/criticalモード） |
+| code-optimizer | [code-optimizer.md](./code-optimizer.md) | `code_optimizer.toml` | V-2 コード最適化（high-risk/criticalモード） |
 | linter-fixer | [linter-fixer.md](./linter-fixer.md) | `linter_fixer.toml` | L-0 リンター自動修正 |
 
 ### 調査・分析
