@@ -190,7 +190,7 @@ plugin の安定性を十分確認後、以下を段階的に実施:
 - [x] Plugin の runtime 検証（統合）完了
 - [x] Plugin バージョン 0.5.0（Gate 基盤・エージェント統制スキル追加）
 - [x] plugin 利用例の collection（`examples/` に追加）
-- [x] 多言語化（英語 README、`README.ja.md` 分離）
+- [x] 多言語化（`README.md` 日本語化、英語版を `README_en.md` として分離）
 - [x] CLI テストスイート（`tests/run-tests.sh`）と CI workflow
 
 ### 短期（〜3 ヶ月）
