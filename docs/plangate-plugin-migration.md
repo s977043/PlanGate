@@ -24,9 +24,9 @@ PlanGate は当初、`.claude/` ディレクトリを含むリポジトリ配布
 
 このため、**既存利用者は急いで移行する必要はありません**。plugin の安定性を確認してから段階的に移行できます。
 
-## 同梱範囲（plugin 0.1.0）
+## 同梱範囲（plugin 0.5.0）
 
-### Skills (5)
+### Skills (14)
 
 | Skill | 役割 |
 |-------|------|
@@ -35,13 +35,27 @@ PlanGate は当初、`.claude/` ディレクトリを含むリポジトリ配布
 | `subagent-driven-development` | サブエージェント駆動の2段階レビュー開発 |
 | `systematic-debugging` | エビデンスベースの体系的デバッグ |
 | `codex-multi-agent` | Codex マルチエージェント連携 |
+| `setup-team` | タスク規模・モードに応じたマルチエージェントチーム設計 |
+| `intent-classifier` | User Request を 7 分類（feature/bug/refactor 等） |
+| `skill-policy-router` | Intent + Mode → GatePolicy（requiredSkills 等）決定 |
+| `evidence-ledger` | 証拠記録・Completion Gate 連携 |
+| `design-gate` | high-risk 以上での設計 Artifact 8 項目必須チェック |
+| `review-gate` | 6 観点レビュー・critical finding → Completion Gate ブロック |
+| `context-packager` | Allowed Context 6 要素の構造化出力 |
+| `subagent-dispatch` | 依存関係グラフ生成・並列実行可能タスク特定・dispatch |
+| `pr-decision` | Evidence Ledger + Review Gate から APPROVE/BLOCK/CONDITIONAL 判定 |
 
-### Commands (2)
+### Commands (7)
 
 | Command | 役割 |
 |---------|------|
 | `/working-context` | チケット単位の作業コンテキスト管理 |
 | `/ai-dev-workflow` | PlanGate ワークフロー起動（plan → exec 等） |
+| `/pg-check` | GatePolicy チェック・Completion Gate 確認 |
+| `/pg-hunt` | 問題調査・根本原因分析 |
+| `/pg-tdd` | Red→Green→Refactor TDD cycle + Evidence Ledger 連携 |
+| `/pg-think` | 設計・実装前の構造化思考 |
+| `/pg-verify` | 成果物検証・受入基準突合 |
 
 ### Agents (6)
 
@@ -54,13 +68,19 @@ PlanGate は当初、`.claude/` ディレクトリを含むリポジトリ配布
 | `acceptance-tester` | V-1 受入検査 |
 | `code-optimizer` | V-2 コード最適化 |
 
-### Rules (3)
+### Rules (8)
 
 | Rule | 内容 |
 |------|------|
 | `working-context.md` | `docs/working/` 配下の作業コンテキスト管理ルール |
 | `review-principles.md` | CI/ローカル共通のレビュー判定フレーム |
 | `mode-classification.md` | 5 段階モード分類基準（ultra-light/light/standard/high-risk/critical） |
+| `evidence-ledger.md` | Completion Gate ブロック条件の正本 |
+| `design-gate.md` | high-risk 以上での Design Artifact 必須定義 |
+| `review-gate.md` | 6 観点レビュー・critical finding ブロック条件 |
+| `completion-gate.md` | 全 Gate 通過を一元管理する 5 条件チェックポイント |
+| `subagent-roles.md` | 6 ロール定義（planner/implementer/reviewer 等） |
+| `worktree-policy.md` | high-risk: 必須（推奨）、critical: 必須（強制）|
 
 ## 対象外の理由
 
@@ -165,23 +185,24 @@ plugin の安定性を十分確認後、以下を段階的に実施:
 
 ## 将来計画
 
+### 完了済み（〜2026-04）
+
+- [x] Plugin の runtime 検証（統合）完了
+- [x] Plugin バージョン 0.5.0（Gate 基盤・エージェント統制スキル追加）
+- [x] plugin 利用例の collection（`examples/` に追加）
+- [x] 多言語化（英語 README、`README.ja.md` 分離）
+- [x] CLI テストスイート（`tests/run-tests.sh`）と CI workflow
+
 ### 短期（〜3 ヶ月）
 
-- [ ] Plugin の runtime 検証（統合）完了
-- [ ] Plugin バージョン 0.2.0（フィードバック反映）
-- [ ] plugin 利用例の collection を収集
-
-### 中期（3〜6 ヶ月）
-
 - [ ] Hooks の実装本体（deterministic hooks: lint 自動実行、C-1 トリガー等）
-- [ ] Test-engineer / release-manager agent の新規作成（必要性が確認されれば）
-- [ ] Critical モード向け agents の拡充
+- [ ] Workflow DSL (YAML) を実行層に接続（現在はドキュメント定義のみ）
+- [ ] Provider RFC を実装（Gemini CLI / OpenCode 統合）
 
 ### 長期（6 ヶ月〜）
 
 - [ ] Marketplace 公開の検討（Claude Code 公式 marketplace）
 - [ ] Codex CLI との統合 plugin（別 package として）
-- [ ] 多言語化（英語 README、国際化対応）
 
 ※ 上記は現時点の構想であり、確約ではありません。
 
