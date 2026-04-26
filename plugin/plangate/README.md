@@ -1,32 +1,32 @@
 # plangate — Claude Code plugin
 
-PlanGate — AI コーディングの開発統制 OS。Intent/Mode 分類、4 Gate システム、エージェント統制層を提供する Claude Code plugin。
+PlanGate — a governance OS for AI-assisted coding.
+Provides Intent/Mode classification, a 4-Gate approval system, and an agent control layer as a Claude Code plugin.
 
 - **Version**: 0.5.0
 - **Source**: https://github.com/s977043/plangate
 
-## インストール
+## Install
 
-### 前提
+### Prerequisites
 
-- Claude Code CLI（最新版推奨）
+- Claude Code CLI (latest recommended)
 - git
 
-### 手順
+### Steps
 
 ```bash
-# 1. plangate リポジトリをクローン
+# 1. Clone the plangate repository
 git clone https://github.com/s977043/plangate.git
 cd plangate
 
-# 2. plugin を Claude Code に登録（CC の公式手順に従う）
-# 例: Claude Code の plugin インストールコマンド経由
-# または .claude/settings.json で plugin path を指定
+# 2. Register the plugin with Claude Code (follow the official Claude Code instructions)
+#    e.g. via the plugin install command, or by adding the plugin path to .claude/settings.json
 ```
 
-詳細なインストール手順は Claude Code 公式ドキュメントを参照してください。
+Refer to the Claude Code official documentation for detailed plugin registration steps.
 
-## 同梱内容
+## Contents
 
 ```text
 plugin/plangate/
@@ -39,40 +39,40 @@ plugin/plangate/
 │   ├── subagent-driven-development/
 │   ├── systematic-debugging/
 │   ├── codex-multi-agent/
-│   ├── setup-team/            # TASK-0035 追加
-│   ├── intent-classifier/     # Phase 1 追加
-│   ├── skill-policy-router/   # Phase 1 追加
-│   ├── evidence-ledger/       # Phase 1 追加
-│   ├── design-gate/           # Phase 2 追加
-│   ├── review-gate/           # Phase 2 追加
-│   ├── context-packager/      # Phase 3 追加
-│   ├── subagent-dispatch/     # Phase 3 追加
-│   └── pr-decision/           # Phase 3 追加
+│   ├── setup-team/
+│   ├── intent-classifier/
+│   ├── skill-policy-router/
+│   ├── evidence-ledger/
+│   ├── design-gate/
+│   ├── review-gate/
+│   ├── context-packager/
+│   ├── subagent-dispatch/
+│   └── pr-decision/
 ├── commands/               # 7 commands
 │   ├── working-context.md
 │   ├── ai-dev-workflow.md
-│   ├── pg-think.md            # Phase 1 追加
-│   ├── pg-hunt.md             # Phase 1 追加
-│   ├── pg-check.md            # Phase 1 追加
-│   ├── pg-verify.md           # Phase 1 追加
-│   └── pg-tdd.md              # Phase 2 追加
-├── rules/                  # 8 rules
+│   ├── pg-think.md
+│   ├── pg-hunt.md
+│   ├── pg-check.md
+│   ├── pg-verify.md
+│   └── pg-tdd.md
+├── rules/                  # 9 rules
 │   ├── working-context.md
 │   ├── review-principles.md
 │   ├── mode-classification.md
-│   ├── evidence-ledger.md     # Phase 1 追加
-│   ├── design-gate.md         # Phase 2 追加
-│   ├── review-gate.md         # Phase 2 追加
-│   ├── completion-gate.md     # Phase 2 追加
-│   ├── subagent-roles.md      # Phase 3 追加
-│   └── worktree-policy.md     # Phase 3 追加
-├── hooks/                  # (reserved for future)
-└── scripts/                # (reserved for future)
+│   ├── evidence-ledger.md
+│   ├── design-gate.md
+│   ├── review-gate.md
+│   ├── completion-gate.md
+│   ├── subagent-roles.md
+│   └── worktree-policy.md
+├── hooks/                  # (reserved for future use)
+└── scripts/                # (reserved for future use)
 ```
 
-## 基本的な使い方
+## Basic Usage
 
-### ワークフロー起動
+### Start a workflow
 
 ```
 /working-context TASK-XXXX
@@ -80,7 +80,7 @@ plugin/plangate/
 /ai-dev-workflow TASK-XXXX exec
 ```
 
-### Skills の明示呼び出し
+### Invoke skills explicitly
 
 ```
 plangate:brainstorming
@@ -90,7 +90,7 @@ plangate:systematic-debugging
 plangate:codex-multi-agent
 ```
 
-### Agents の明示呼び出し（Task ツール経由）
+### Invoke agents (via the Task tool)
 
 ```python
 Task(subagent_type="plangate:workflow-conductor", ...)
@@ -101,53 +101,53 @@ Task(subagent_type="plangate:acceptance-tester", ...)
 Task(subagent_type="plangate:code-optimizer", ...)
 ```
 
-### Rules の参照
+### Rule references
 
-plugin 内 agents は plugin ルート相対パスで rules を参照します:
+Agents inside the plugin reference rules using paths relative to the plugin root:
 
 ```markdown
-> 判定基準の正本: `plugin/plangate/rules/mode-classification.md`
+> Authoritative source: `plugin/plangate/rules/mode-classification.md`
 ```
 
-## トラブルシュート
+## Troubleshooting
 
-### Q. `plangate:<skill>` が認識されない
+### `plangate:<skill>` is not recognized
 
-- Plugin が正しくインストール・有効化されているか確認
-- Claude Code を再起動
+- Verify the plugin is correctly installed and enabled
+- Restart Claude Code
 
-### Q. legacy `.claude/` と競合する
+### Conflict with a legacy `.claude/` directory
 
-- Plugin 側と legacy 側は併存可能（デュアル運用）
-- 明示的な prefix（`plangate:`）で区別可能
-- 完全分離したい場合は `.claude/` 側のファイルを一時リネーム or 削除
+- The plugin and a legacy `.claude/` setup can coexist (dual-mode operation)
+- Use the explicit `plangate:` prefix to target the plugin side
+- To fully separate, temporarily rename or remove files in `.claude/`
 
-### Q. 未同梱 agent（例: backend-specialist）を使いたい
+### Using an agent not bundled in this plugin (e.g. `backend-specialist`)
 
-本 plugin には含まれません。以下で入手:
+Project-specific agents are not included in this plugin. Obtain them directly:
 
 ```bash
 git clone https://github.com/s977043/plangate.git
 cp plangate/.claude/agents/backend-specialist.md <your-project>/.claude/agents/
 ```
 
-詳細は [migration note](../../docs/plangate-plugin-migration.md) 参照。
+See the [migration guide](../../docs/plangate-plugin-migration.md) for details.
 
-### Q. Hooks を使いたい
+### Using hooks
 
-現バージョンでは hooks 未実装（ディレクトリ枠のみ）。将来バージョンで対応予定。
+Hooks are not implemented in this version (directory structure reserved). Planned for a future release.
 
-## 既知の制約
+## Known Limitations
 
-- plugin install 後の挙動は Claude Code の内部仕様に依存（詳細は runtime 検証結果を参照）
-- `test-engineer` / `release-manager` agent 未同梱（`.claude/` にも存在しない）
+- Post-install behavior depends on Claude Code internals (refer to runtime verification results)
+- `test-engineer` and `release-manager` agents are not bundled (they do not exist in `.claude/` either)
 
-## 参考
+## References
 
-- 詳細な移行ガイド: [docs/plangate-plugin-migration.md](../../docs/plangate-plugin-migration.md)
-- プロジェクト本体: https://github.com/s977043/plangate
-- 親 Issue: [#16](https://github.com/s977043/plangate/issues/16)
+- Migration guide: [docs/plangate-plugin-migration.md](../../docs/plangate-plugin-migration.md)
+- Project repository: https://github.com/s977043/plangate
+- Parent issue: [#16](https://github.com/s977043/plangate/issues/16)
 
-## ライセンス
+## License
 
-本リポジトリ root の LICENSE を参照。
+See the LICENSE file at the repository root.
