@@ -1,0 +1,514 @@
+#!/bin/sh
+# PlanGate CLI
+# Usage: plangate <command> [args]
+
+set -eu
+
+PLANGATE_VERSION="0.1.0"
+
+plangate_bin_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+plangate_root=$(CDPATH= cd -- "$plangate_bin_dir/.." && pwd)
+plangate_working_dir="$plangate_root/docs/working"
+plangate_templates_dir="$plangate_root/docs/working/templates"
+
+# ── utilities ────────────────────────────────────────────────────────────────
+
+plangate_now() {
+  date -u '+%Y-%m-%dT%H:%M:%SZ'
+}
+
+plangate_today() {
+  date '+%Y-%m-%d'
+}
+
+plangate_sha256() {
+  file=$1
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+  else
+    shasum -a 256 "$file" | awk '{print $1}'
+  fi
+}
+
+plangate_validate_task_id() {
+  task_id=$1
+  case "$task_id" in
+    TASK-[A-Za-z0-9]*)
+      case "$task_id" in
+        *[!A-Za-z0-9-]*)
+          printf 'error: Task ID must contain only letters, numbers, and hyphens.\n' >&2
+          return 1
+          ;;
+      esac
+      ;;
+    *)
+      printf 'error: Task ID must match TASK-XXXX (e.g. TASK-0001).\n' >&2
+      return 1
+      ;;
+  esac
+}
+
+plangate_require_task_dir() {
+  task_id=$1
+  work_dir="$plangate_working_dir/$task_id"
+  if [ ! -d "$work_dir" ]; then
+    printf 'error: Task directory not found: %s\n' "$work_dir" >&2
+    printf 'Run: plangate init %s\n' "$task_id" >&2
+    return 1
+  fi
+}
+
+plangate_check() {
+  label=$1
+  shift
+  if "$@" >/dev/null 2>&1; then
+    printf '  [PASS] %s\n' "$label"
+    return 0
+  else
+    printf '  [FAIL] %s\n' "$label"
+    return 1
+  fi
+}
+
+plangate_check_file() {
+  label=$1
+  path=$2
+  if [ -f "$path" ]; then
+    printf '  [PASS] %s\n' "$label"
+    return 0
+  else
+    printf '  [FAIL] %s — not found: %s\n' "$label" "$path"
+    return 1
+  fi
+}
+
+plangate_append_ndjson() {
+  file=$1
+  json=$2
+  printf '%s\n' "$json" >> "$file"
+}
+
+# ── commands ──────────────────────────────────────────────────────────────────
+
+cmd_help() {
+  printf '%s\n' \
+    "PlanGate CLI v$PLANGATE_VERSION" \
+    "" \
+    "Usage: plangate <command> [args]" \
+    "" \
+    "Commands:" \
+    "  init <TASK-XXXX>               Create task folder and template files" \
+    "  doctor                         Check environment setup" \
+    "  status <TASK-XXXX>             Show current phase and next action" \
+    "  validate <TASK-XXXX>           Verify artifacts and plan_hash integrity" \
+    "  abort <TASK-XXXX> [--reason]   Record abort event in run.ndjson" \
+    "  timeline <TASK-XXXX>           Display run.ndjson event log" \
+    "  resume <TASK-XXXX>             Show current-state.md for session resume" \
+    "  version                        Print version"
+}
+
+cmd_version() {
+  printf 'plangate %s\n' "$PLANGATE_VERSION"
+}
+
+cmd_init() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate init <TASK-XXXX>\n' >&2
+    return 1
+  fi
+  task_id=$1
+  plangate_validate_task_id "$task_id"
+  work_dir="$plangate_working_dir/$task_id"
+
+  if [ -d "$work_dir" ]; then
+    printf 'Task directory already exists: %s\n' "$work_dir"
+    printf 'Use plangate status %s to check current state.\n' "$task_id"
+    return 0
+  fi
+
+  mkdir -p "$work_dir/approvals" "$work_dir/evidence"
+
+  cat > "$work_dir/pbi-input.md" <<EOF
+---
+task_id: $task_id
+artifact_type: pbi-input
+schema_version: 1
+status: draft
+---
+
+# PBI INPUT PACKAGE — $task_id
+
+## Context / Why
+
+TODO: なぜこの作業が必要か
+
+## What — Scope
+
+### In scope
+
+- TODO
+
+### Out of scope
+
+- TODO
+
+## Acceptance Criteria
+
+- [ ] AC-1: TODO
+
+## Notes from Refinement
+
+## Estimation Evidence
+
+**Risks**: TODO
+**Unknowns**: TODO
+**Assumptions**: TODO
+EOF
+
+  cat > "$work_dir/current-state.md" <<EOF
+# $task_id 現在状態
+
+> 更新日: $(plangate_today)
+> フェーズ: A — PBI INPUT 作成中
+
+## 中断地点
+
+pbi-input.md を記入してください。
+
+## 次のアクション
+
+1. \`docs/working/$task_id/pbi-input.md\` の Why / What / AC を埋める
+2. \`/ai-dev-workflow $task_id plan\` で plan / todo / test-cases を生成する
+EOF
+
+  cat > "$work_dir/INDEX.md" <<EOF
+# $task_id INDEX
+
+> 生成日: $(plangate_today)
+> フェーズ: A
+
+## ファイル一覧
+
+| ファイル | 状態 |
+| --- | --- |
+| pbi-input.md | draft |
+| plan.md | - |
+| todo.md | - |
+| test-cases.md | - |
+| review-self.md | - |
+| handoff.md | - |
+EOF
+
+  printf 'Initialized: %s\n' "$work_dir"
+  printf 'Next: edit %s/pbi-input.md\n' "$work_dir"
+}
+
+cmd_doctor() {
+  printf 'PlanGate Doctor — environment check\n'
+  printf '\n'
+
+  failures=0
+
+  printf '=== CLI Tools ===\n'
+  plangate_check "gh (GitHub CLI)" command -v gh || failures=$((failures + 1))
+  plangate_check "git" command -v git || failures=$((failures + 1))
+  plangate_check "codex (Codex CLI)" command -v codex || failures=$((failures + 1))
+  printf '\n'
+
+  printf '=== Claude Code Plugin / .claude/ ===\n'
+  has_plugin=0
+  has_claude_dir=0
+
+  if [ -d "$plangate_root/plugin/plangate" ]; then
+    printf '  [INFO] plugin/plangate/ exists (Option A)\n'
+    has_plugin=1
+  fi
+  if [ -d "$HOME/.claude/commands" ] || [ -d "$plangate_root/.claude/commands" ]; then
+    printf '  [INFO] .claude/commands/ exists (Option B)\n'
+    has_claude_dir=1
+  fi
+
+  if [ "$has_plugin" -eq 1 ] && [ "$has_claude_dir" -eq 1 ]; then
+    printf '  [WARN] Both plugin and .claude/ detected — may cause duplicate command loading\n'
+    printf '         See: TROUBLESHOOTING.md — Double installation\n'
+  elif [ "$has_plugin" -eq 0 ] && [ "$has_claude_dir" -eq 0 ]; then
+    printf '  [FAIL] Neither plugin/plangate/ nor .claude/commands/ found\n'
+    printf '         Install instructions: README.md — Install\n'
+    failures=$((failures + 1))
+  else
+    printf '  [PASS] Installation method detected\n'
+  fi
+  printf '\n'
+
+  printf '=== Required Workflow Files ===\n'
+  plangate_check "docs/working/ directory exists" test -d "$plangate_working_dir" || failures=$((failures + 1))
+  plangate_check_file "docs/working/templates/handoff.md" "$plangate_templates_dir/handoff.md" || failures=$((failures + 1))
+  plangate_check_file "CLAUDE.md" "$plangate_root/CLAUDE.md" || failures=$((failures + 1))
+  plangate_check "docs/working/ writable" test -w "$plangate_working_dir" || failures=$((failures + 1))
+  printf '\n'
+
+  printf '=== Rules ===\n'
+  for rule in working-context review-principles mode-classification; do
+    plangate_check_file "$rule.md" "$plangate_root/.claude/rules/$rule.md" || failures=$((failures + 1))
+  done
+  printf '\n'
+
+  if [ "$failures" -eq 0 ]; then
+    printf 'Result: PASS (all checks passed)\n'
+  else
+    printf 'Result: FAIL (%d check(s) failed)\n' "$failures"
+    return 1
+  fi
+}
+
+cmd_status() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate status <TASK-XXXX>\n' >&2
+    return 1
+  fi
+  task_id=$1
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  work_dir="$plangate_working_dir/$task_id"
+
+  printf 'Task:     %s\n' "$task_id"
+  printf 'Work dir: %s\n' "$work_dir"
+  printf '\n'
+
+  # Artifact presence
+  printf '=== Artifacts ===\n'
+  for f in pbi-input.md plan.md todo.md test-cases.md review-self.md handoff.md; do
+    if [ -f "$work_dir/$f" ]; then
+      printf '  [x] %s\n' "$f"
+    else
+      printf '  [ ] %s\n' "$f"
+    fi
+  done
+  printf '\n'
+
+  # Gate status
+  printf '=== Gates ===\n'
+  if [ -f "$work_dir/approvals/c3.json" ]; then
+    c3_status=$(grep '"c3_status"' "$work_dir/approvals/c3.json" 2>/dev/null | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "unknown")
+    printf '  C-3: %s\n' "$c3_status"
+  else
+    printf '  C-3: pending\n'
+  fi
+  if [ -f "$work_dir/approvals/c4.json" ]; then
+    c4_status=$(grep '"c4_status"' "$work_dir/approvals/c4.json" 2>/dev/null | sed 's/.*"c4_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "unknown")
+    printf '  C-4: %s\n' "$c4_status"
+  else
+    printf '  C-4: pending\n'
+  fi
+  printf '\n'
+
+  # Phase inference
+  printf '=== Phase ===\n'
+  if [ ! -f "$work_dir/pbi-input.md" ]; then
+    phase="A — PBI input required"
+    next="Edit docs/working/$task_id/pbi-input.md"
+  elif [ ! -f "$work_dir/plan.md" ]; then
+    phase="B — plan generation required"
+    next="/ai-dev-workflow $task_id plan"
+  elif [ ! -f "$work_dir/approvals/c3.json" ]; then
+    phase="C-3 — human review pending"
+    next="Review plan.md → create approvals/c3.json"
+  elif [ ! -f "$work_dir/handoff.md" ]; then
+    phase="D / V — exec or verification"
+    next="/ai-dev-workflow $task_id exec"
+  else
+    phase="Done"
+    next="Close issue and merge PR"
+  fi
+  printf '  Current: %s\n' "$phase"
+  printf '  Next:    %s\n' "$next"
+
+  # current-state.md excerpt
+  if [ -f "$work_dir/current-state.md" ]; then
+    printf '\n=== current-state.md (last 10 lines) ===\n'
+    tail -10 "$work_dir/current-state.md"
+  fi
+}
+
+cmd_validate() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate validate <TASK-XXXX>\n' >&2
+    return 1
+  fi
+  task_id=$1
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  work_dir="$plangate_working_dir/$task_id"
+  failures=0
+
+  printf 'Validating: %s\n\n' "$task_id"
+
+  printf '=== Required Artifacts ===\n'
+  for f in pbi-input.md plan.md todo.md test-cases.md review-self.md; do
+    plangate_check_file "$f" "$work_dir/$f" || failures=$((failures + 1))
+  done
+  printf '\n'
+
+  printf '=== C-3 Gate ===\n'
+  c3_file="$work_dir/approvals/c3.json"
+  if [ ! -f "$c3_file" ]; then
+    printf '  [FAIL] approvals/c3.json not found\n'
+    failures=$((failures + 1))
+  else
+    printf '  [PASS] approvals/c3.json exists\n'
+    c3_status=$(grep '"c3_status"' "$c3_file" 2>/dev/null | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
+    if [ "$c3_status" = "APPROVED" ]; then
+      printf '  [PASS] c3_status = APPROVED\n'
+    else
+      printf '  [FAIL] c3_status = %s (expected APPROVED)\n' "${c3_status:-missing}"
+      failures=$((failures + 1))
+    fi
+
+    # plan_hash check
+    plan_file="$work_dir/plan.md"
+    if [ -f "$plan_file" ]; then
+      recorded_hash=$(grep '"plan_hash"' "$c3_file" 2>/dev/null | sed 's/.*"plan_hash"[[:space:]]*:[[:space:]]*"sha256:\([^"]*\)".*/\1/' || echo "")
+      if [ -z "$recorded_hash" ]; then
+        printf '  [WARN] plan_hash not found in c3.json\n'
+      else
+        current_hash=$(plangate_sha256 "$plan_file")
+        if [ "$current_hash" = "$recorded_hash" ]; then
+          printf '  [PASS] plan.md hash matches c3.json (no post-approval modification)\n'
+        else
+          printf '  [FAIL] plan.md hash MISMATCH — plan was modified after C-3 approval\n'
+          printf '         recorded: sha256:%s\n' "$recorded_hash"
+          printf '         current:  sha256:%s\n' "$current_hash"
+          failures=$((failures + 1))
+        fi
+      fi
+    fi
+  fi
+  printf '\n'
+
+  if [ "$failures" -eq 0 ]; then
+    printf 'Result: PASS\n'
+  else
+    printf 'Result: FAIL (%d issue(s))\n' "$failures"
+    return 1
+  fi
+}
+
+cmd_abort() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate abort <TASK-XXXX> [--reason "..."]\n' >&2
+    return 1
+  fi
+  task_id=$1
+  shift
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  reason="no reason specified"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --reason)
+        shift
+        reason="${1:-}"
+        ;;
+      *)
+        reason="$1"
+        ;;
+    esac
+    shift
+  done
+
+  work_dir="$plangate_working_dir/$task_id"
+  run_log="$work_dir/run.ndjson"
+  ts=$(plangate_now)
+
+  # JSON-escape the reason: backslash and double-quote must be escaped
+  escaped_reason=$(printf '%s' "$reason" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  plangate_append_ndjson "$run_log" \
+    "{\"ts\":\"$ts\",\"task_id\":\"$task_id\",\"phase\":\"D\",\"event\":\"session_ended\",\"detail\":\"aborted: $escaped_reason\"}"
+
+  printf 'Abort recorded in: %s\n' "$run_log"
+  printf 'Reason: %s\n' "$reason"
+}
+
+cmd_timeline() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate timeline <TASK-XXXX>\n' >&2
+    return 1
+  fi
+  task_id=$1
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  work_dir="$plangate_working_dir/$task_id"
+  run_log="$work_dir/run.ndjson"
+
+  if [ ! -f "$run_log" ]; then
+    printf 'No run.ndjson found for %s\n' "$task_id"
+    printf 'Events are recorded automatically during exec.\n'
+    return 0
+  fi
+
+  printf 'Timeline: %s\n\n' "$task_id"
+  printf '%-25s %-6s %-30s %s\n' "Timestamp" "Phase" "Event" "Detail"
+  printf '%s\n' "$(printf '%.0s-' $(seq 1 80))"
+
+  while IFS= read -r line; do
+    ts=$(printf '%s' "$line" | sed 's/.*"ts"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
+    phase=$(printf '%s' "$line" | sed 's/.*"phase"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
+    event=$(printf '%s' "$line" | sed 's/.*"event"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
+    detail=$(printf '%s' "$line" | sed 's/.*"detail"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "")
+    printf '%-25s %-6s %-30s %s\n' "$ts" "$phase" "$event" "$detail"
+  done < "$run_log"
+}
+
+cmd_resume() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate resume <TASK-XXXX>\n' >&2
+    return 1
+  fi
+  task_id=$1
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  work_dir="$plangate_working_dir/$task_id"
+
+  printf '=== Resume: %s ===\n\n' "$task_id"
+
+  if [ -f "$work_dir/current-state.md" ]; then
+    cat "$work_dir/current-state.md"
+  else
+    printf 'No current-state.md found. Run plangate status %s for phase info.\n' "$task_id"
+  fi
+
+  printf '\n=== Quick Status ===\n'
+  cmd_status "$task_id" 2>/dev/null | grep -E 'Current:|Next:' || true
+}
+
+# ── dispatch ──────────────────────────────────────────────────────────────────
+
+if [ $# -eq 0 ]; then
+  cmd_help
+  exit 0
+fi
+
+command=$1
+shift
+
+case "$command" in
+  init)        cmd_init "$@" ;;
+  doctor)      cmd_doctor "$@" ;;
+  status)      cmd_status "$@" ;;
+  validate)    cmd_validate "$@" ;;
+  abort)       cmd_abort "$@" ;;
+  timeline)    cmd_timeline "$@" ;;
+  resume)      cmd_resume "$@" ;;
+  version|--version|-V) cmd_version ;;
+  help|--help|-h)       cmd_help ;;
+  *)
+    printf 'Unknown command: %s\n' "$command" >&2
+    printf 'Run: plangate help\n' >&2
+    exit 1
+    ;;
+esac
