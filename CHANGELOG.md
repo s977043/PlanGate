@@ -4,6 +4,31 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v8.0.1 - 2026-04-27
+
+docs: examples/minimal-node/ 追加 — Node.js 最小構成サンプル (#93)
+
+### Added
+
+- `examples/minimal-node/README.md` — Node.js/Express プロジェクトへの PlanGate 導入手順サンプル
+- `examples/minimal-node/CLAUDE.md` — プロジェクト向け最小 CLAUDE.md テンプレート
+
+## v8.0.0 - 2026-04-27
+
+feat: v8.0 — Workflow DSL・Provider RFC・CLI テストスイート (#81 #82 #83) (#98)
+
+### Added
+
+- `workflows/` — Workflow DSL (YAML) 5種（ultra-light / light / standard / high-risk / critical）
+  - 各フェーズの完了条件・入出力・担当エージェントを機械可読形式で定義
+- `docs/rfc/provider-gemini-cli.md` — Gemini CLI Provider RFC（外部レビュー役割）
+- `docs/rfc/provider-opencode.md` — OpenCode Provider RFC（実装エージェント役割）
+- `tests/run-tests.sh` — plangate CLI テストスイート（シェルスクリプト）
+- `tests/fixtures/` — テスト用フィクスチャ 4種（complete-task / missing-approval / stale-plan-hash / broken-pbi）
+- `.github/workflows/test.yml` — plangate CLI テスト CI workflow
+- `CONTRIBUTING.md` — 新規 Provider 追加手順（`#adding-a-new-provider`）を追加
+- `README.md` — Testing セクション・Provider Support セクションを追加
+
 ## v7.5.2 - 2026-04-27
 
 fix: python3 で JSON パースするよう timeline コマンドを修正 (#96)
