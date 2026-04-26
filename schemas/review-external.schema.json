@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/review-external.schema.json",
+  "title": "External Review Result",
+  "description": "PlanGate C-2 external review artifact (review-external.md frontmatter)",
+  "type": "object",
+  "required": ["task_id", "artifact_type", "schema_version"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "artifact_type": {
+      "type": "string",
+      "const": "review-external"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "final"],
+      "default": "draft"
+    },
+    "reviewer_tool": {
+      "type": "string",
+      "description": "External AI tool used for review, e.g. codex, gemini"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "WARN", "FAIL"]
+    },
+    "created_by": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

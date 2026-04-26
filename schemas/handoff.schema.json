@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/handoff.schema.json",
+  "title": "Handoff Package",
+  "description": "PlanGate WF-05 handoff artifact (handoff.md frontmatter)",
+  "type": "object",
+  "required": ["task_id", "artifact_type", "schema_version"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "artifact_type": {
+      "type": "string",
+      "const": "handoff"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "final"],
+      "default": "final"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 8601 date when handoff was issued"
+    },
+    "author": {
+      "type": "string",
+      "description": "Agent or person who issued the handoff"
+    },
+    "v1_release": {
+      "type": "string",
+      "description": "Commit SHA or tag of the v1 release"
+    }
+  },
+  "additionalProperties": false
+}

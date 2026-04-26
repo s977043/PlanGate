@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/plan.schema.json",
+  "title": "Execution Plan",
+  "description": "PlanGate EXECUTION PLAN artifact (plan.md frontmatter)",
+  "type": "object",
+  "required": ["task_id", "artifact_type", "schema_version"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "artifact_type": {
+      "type": "string",
+      "const": "plan"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "final"],
+      "default": "draft"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["ultra-light", "light", "standard", "high-risk", "critical"]
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "source_pbi_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "additionalProperties": false
+}

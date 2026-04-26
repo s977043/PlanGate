@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/pbi-input.schema.json",
+  "title": "PBI Input Package",
+  "description": "PlanGate PBI INPUT PACKAGE artifact (pbi-input.md frontmatter)",
+  "type": "object",
+  "required": ["task_id", "artifact_type", "schema_version"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$",
+      "description": "Task identifier, e.g. TASK-0001"
+    },
+    "artifact_type": {
+      "type": "string",
+      "const": "pbi-input"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "final"],
+      "default": "draft"
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "source_pbi_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "additionalProperties": false
+}

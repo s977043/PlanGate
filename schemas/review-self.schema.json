@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/review-self.schema.json",
+  "title": "Self Review Result",
+  "description": "PlanGate C-1 self-review artifact (review-self.md frontmatter)",
+  "type": "object",
+  "required": ["task_id", "artifact_type", "schema_version"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "artifact_type": {
+      "type": "string",
+      "const": "review-self"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "final"],
+      "default": "draft"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "WARN", "FAIL"],
+      "description": "Overall C-1 verdict"
+    },
+    "created_by": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

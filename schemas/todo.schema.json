@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/todo.schema.json",
+  "title": "Execution TODO",
+  "description": "PlanGate EXECUTION TODO artifact (todo.md frontmatter)",
+  "type": "object",
+  "required": ["task_id", "artifact_type", "schema_version"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "artifact_type": {
+      "type": "string",
+      "const": "todo"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "final"],
+      "default": "draft"
+    },
+    "created_by": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

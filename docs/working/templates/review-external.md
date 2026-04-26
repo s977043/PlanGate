@@ -1,3 +1,13 @@
+---
+task_id: TASK-XXXX
+artifact_type: review-external
+schema_version: 1
+status: draft
+verdict: PASS
+reviewer_tool: codex
+created_by: orchestrator
+---
+
 # TASK-XXXX 外部AIレビュー結果（C-2）
 
 > レビュー日: YYYY-MM-DD

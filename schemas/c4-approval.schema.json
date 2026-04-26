@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/c4-approval.schema.json",
+  "title": "C-4 Approval Record",
+  "description": "Machine-readable C-4 gate approval record (approvals/c4.json)",
+  "type": "object",
+  "required": ["task_id", "phase", "c4_status", "approved_by", "approved_at"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "phase": {
+      "type": "string",
+      "const": "C-4"
+    },
+    "c4_status": {
+      "type": "string",
+      "enum": ["APPROVED", "REQUEST_CHANGES", "REJECTED"]
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pr_number": {
+      "type": "integer",
+      "description": "GitHub PR number reviewed at C-4"
+    },
+    "pr_sha": {
+      "type": "string",
+      "description": "HEAD commit SHA of the merged PR"
+    }
+  },
+  "additionalProperties": false
+}

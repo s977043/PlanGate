@@ -1,3 +1,12 @@
+---
+task_id: TASK-XXXX
+artifact_type: review-self
+schema_version: 1
+status: draft
+verdict: PASS
+created_by: orchestrator
+---
+
 # TASK-XXXX セルフレビュー結果（C-1）
 
 > レビュー日: YYYY-MM-DD

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/status.schema.json",
+  "title": "Task Status",
+  "description": "Machine-readable task state snapshot (status.json)",
+  "type": "object",
+  "required": ["task_id", "schema_version", "phase", "mode", "updated_at"],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["A", "B", "C-1", "C-2", "C-3", "D", "L-0", "V-1", "V-2", "V-3", "V-4", "PR", "C-4", "Done"],
+      "description": "Current PlanGate workflow phase"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["ultra-light", "light", "standard", "high-risk", "critical"]
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "Presence of required artifact files",
+      "properties": {
+        "pbi_input": { "type": "boolean" },
+        "plan": { "type": "boolean" },
+        "todo": { "type": "boolean" },
+        "test_cases": { "type": "boolean" },
+        "review_self": { "type": "boolean" },
+        "review_external": { "type": "boolean" },
+        "handoff": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "gates": {
+      "type": "object",
+      "properties": {
+        "c3": {
+          "type": "string",
+          "enum": ["pending", "APPROVED", "CONDITIONAL", "REJECTED"]
+        },
+        "c4": {
+          "type": "string",
+          "enum": ["pending", "APPROVED", "REQUEST_CHANGES", "REJECTED"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/run-event.schema.json",
+  "title": "Run Event",
+  "description": "Single NDJSON event in run.ndjson execution log",
+  "type": "object",
+  "required": ["ts", "task_id", "phase", "event"],
+  "properties": {
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the event"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["A", "B", "C-1", "C-2", "C-3", "D", "L-0", "V-1", "V-2", "V-3", "V-4", "PR", "C-4"],
+      "description": "PlanGate workflow phase in which the event occurred"
+    },
+    "event": {
+      "type": "string",
+      "enum": [
+        "plan_generated",
+        "todo_generated",
+        "test_cases_generated",
+        "review_self_completed",
+        "review_external_completed",
+        "approved",
+        "conditional_approved",
+        "rejected",
+        "exec_started",
+        "task_completed",
+        "task_failed",
+        "lint_passed",
+        "lint_failed",
+        "acceptance_passed",
+        "acceptance_failed",
+        "optimization_completed",
+        "pr_created",
+        "pr_merged",
+        "session_started",
+        "session_ended"
+      ]
+    },
+    "agent": {
+      "type": "string",
+      "description": "Agent or tool that produced the event"
+    },
+    "by": {
+      "type": "string",
+      "description": "Human or agent identifier (used for gate events)"
+    },
+    "plan_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "plan.md hash at the time of a gate event"
+    },
+    "task_ref": {
+      "type": "string",
+      "description": "Task identifier from todo.md, e.g. T-01"
+    },
+    "case_id": {
+      "type": "string",
+      "description": "Acceptance criteria or test case ID, e.g. AC-003"
+    },
+    "detail": {
+      "type": "string",
+      "description": "Human-readable detail or error message"
+    },
+    "pr_number": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": false
+}

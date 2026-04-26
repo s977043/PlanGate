@@ -1,3 +1,13 @@
+---
+task_id: TASK-XXXX
+artifact_type: handoff
+schema_version: 1
+status: final
+issued_at: YYYY-MM-DD
+author: qa-reviewer
+v1_release: ""
+---
+
 # Handoff Package テンプレート
 
 > WF-05 Verify & Handoff の**毎回必須出力**。`qa-reviewer` / `orchestrator` が発行。
