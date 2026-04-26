@@ -455,10 +455,36 @@ cmd_timeline() {
   printf '%s\n' "$(printf '%.0s-' $(seq 1 80))"
 
   while IFS= read -r line; do
-    ts=$(printf '%s' "$line" | sed 's/.*"ts"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
-    phase=$(printf '%s' "$line" | sed 's/.*"phase"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
-    event=$(printf '%s' "$line" | sed 's/.*"event"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
-    detail=$(printf '%s' "$line" | sed 's/.*"detail"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "")
+    if command -v python3 >/dev/null 2>&1; then
+      # Use python3 for correct JSON decoding (handles escaped characters in detail)
+      result=$(printf '%s' "$line" | python3 -c "
+import json, sys
+try:
+    d = json.loads(sys.stdin.read().strip())
+    sep = '\x01'
+    fields = [
+        d.get('ts', '-'),
+        d.get('phase', '-'),
+        d.get('event', '-'),
+        d.get('detail', '').replace('\n', ' ').replace('\x01', ' '),
+    ]
+    print(sep.join(fields))
+except Exception:
+    print('-\x01-\x01-\x01')
+" 2>/dev/null || printf '%s\001%s\001%s\001' "-" "-" "-")
+      ts=${result%%"$(printf '\001')"*}
+      _rest=${result#*"$(printf '\001')"}
+      phase=${_rest%%"$(printf '\001')"*}
+      _rest=${_rest#*"$(printf '\001')"}
+      event=${_rest%%"$(printf '\001')"*}
+      detail=${_rest#*"$(printf '\001')"}
+    else
+      # Fallback: sed-based extraction (does not handle escaped quotes in detail)
+      ts=$(printf '%s' "$line" | sed 's/.*"ts"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
+      phase=$(printf '%s' "$line" | sed 's/.*"phase"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
+      event=$(printf '%s' "$line" | sed 's/.*"event"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
+      detail=$(printf '%s' "$line" | sed 's/.*"detail"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "")
+    fi
     printf '%-25s %-6s %-30s %s\n' "$ts" "$phase" "$event" "$detail"
   done < "$run_log"
 }
