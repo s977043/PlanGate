@@ -4,6 +4,58 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v7.5.2 - 2026-04-27
+
+fix: python3 で JSON パースするよう timeline コマンドを修正 (#96)
+
+- `bin/plangate` — `python` → `python3` に変更（macOS デフォルト環境対応）
+
+## v7.5.1 - 2026-04-27
+
+feat: bin/plangate CLI v0.1.0 追加 (#95)
+
+### Added
+
+- `bin/plangate` — plangate CLI シェルスクリプト
+  - `init TASK-XXXX` — タスクフォルダとテンプレートファイルを生成
+  - `doctor` — 環境セットアップをチェック（Claude Code plugin / Codex CLI / 必須コマンド等）
+  - `status TASK-XXXX` — 現在フェーズと次アクションを表示
+  - `validate TASK-XXXX` — 成果物・承認状態・plan_hash 整合性を検証
+  - `abort TASK-XXXX` — abort イベントを run.ndjson に記録
+  - `timeline TASK-XXXX` — run.ndjson イベントログをタイムライン表示
+  - `resume TASK-XXXX` — current-state.md を表示してセッション再開
+
+## v7.5.0 - 2026-04-27
+
+docs: v7.5 — Deferred Decisions 判断記録・Discussions 設定確認・導線追加 (#88 #89) (#94)
+
+### Added
+
+- `docs/oss-governance.md` — Deferred Decisions 判断結果を記録（Required approvals / Scorecard required check / GitHub Actions allowlist）
+- `docs/oss-governance.md` — GitHub Discussions 設定確認セクション追加（6カテゴリ・利用方針）
+- `.github/ISSUE_TEMPLATE/config.yml` — Q&A / Ideas カテゴリへの Discussions リンクを追加
+
+## v7.4.0 - 2026-04-26
+
+docs: v7.4 — CONTRIBUTING.ja・TROUBLESHOOTING・JSON schemas・gate enforcement spec (#92)
+
+### Added
+
+- `CONTRIBUTING.md` — 日本語貢献フロー・セットアップ手順・コミットメッセージ規約を追記
+- `TROUBLESHOOTING.md` — 導入・設定・ワークフロー・CI トラブル対応ガイドを新規追加
+- `schemas/` — Artifact JSON Schema 7種（pbi-input / plan / todo / test-cases / review-self / review-external / handoff）
+- `docs/working/templates/` — 全テンプレートに frontmatter 追加（task_id / artifact_type / schema_version / status）
+- `docs/working/TASK-XXXX/approvals/c3.json` — gate enforcement 仕様を新規定義
+
+## v7.3.3 - 2026-04-27
+
+docs: v7.3 governance — CI/Scorecard badges + docs/working/ public policy (#84 #87) (#91)
+
+### Added
+
+- `README.md` — CI / OpenSSF Scorecard バッジを追加
+- `docs/oss-governance.md` — docs/working/ 公開方針・AGENT_LEARNINGS.md 位置づけを明示
+
 ## v7.3.2 - 2026-04-26
 
 docs: v7.3 onboarding — English README, examples/, plugin install guide (#73 #74 #75 #76)

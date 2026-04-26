@@ -145,6 +145,7 @@ See [plugin/plangate/README.md](plugin/plangate/README.md) for plugin registrati
 /.claude                 — Claude Code configuration
 /.codex                  — Codex CLI configuration
 /plugin/plangate         — Claude Code plugin package
+/bin                     — plangate CLI (init/doctor/status/validate/abort/timeline/resume)
 /scripts                 — Helper scripts
 /examples                — Worked examples of PlanGate artifacts
 ```
