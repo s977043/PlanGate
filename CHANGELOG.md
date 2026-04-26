@@ -4,6 +4,16 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v7.3.2 - 2026-04-26
+
+docs: v7.3 onboarding — English README, examples/, plugin install guide (#73 #74 #75 #76)
+
+### Added
+
+- `README.md` — English primary README: 30s/2min/10min structure, plugin install at top, dedup warning
+- `README.ja.md` — Japanese version (restructured from previous `README.md`)
+- `examples/` — Worked example of PlanGate artifacts (Node.js user registration scenario)
+
 ## v7.3.1 - 2026-04-26
 
 plugin v0.5.0: setup-team を skill 一覧に追加、broken reference 制約の削除、README バージョン更新。

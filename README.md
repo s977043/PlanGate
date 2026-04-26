@@ -1,104 +1,181 @@
 # PlanGate
 
-PlanGate は、AI コーディングエージェントをプロダクション開発で扱うためのゲート型ワークフローです。
+> "No approval, no code." — A gate-driven workflow for AI coding agents.
 
-「計画を承認しないと AI は 1 行もコードを書けない」という関所モデルを中核に、PBI から計画、承認、実装、検証、handoff までを構造化します。
+[![GitHub release](https://img.shields.io/github/v/release/s977043/plangate)](https://github.com/s977043/plangate/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![日本語](https://img.shields.io/badge/lang-%E6%97%A5%E6%9C%AC%E8%AA%9E-blue)](README.ja.md)
 
-![Harness Engineering と PlanGate の関係](docs/assets/harness-plangate-readme-dark-v2.png)
+PlanGate is a governance-first workflow harness for AI coding agents.
+It prevents AI agents from writing production code until a human-approved plan, task list, and acceptance test set exist.
 
-## 何を目指すか
+Unlike agent frameworks that focus on autonomy, PlanGate focuses on **approval boundaries, auditability, and Scrum-friendly delivery**.
 
-PlanGate は、AI エージェントを単体の便利な実装者としてではなく、承認境界・成果物・検証手順を持つ開発ハーネスの中で動かすことを目指します。
+![PlanGate overview](docs/assets/harness-plangate-readme-dark-v2.png)
 
-一般的なハーネスエンジニアリングが「AI を安全に動かす外枠」を整えるものだとすれば、PlanGate はその外枠の中で次を具体化します。
+## Install
 
-- 計画が承認されるまで実装を始めない
-- 承認・差し戻し・再実行の境界を明確にする
-- 実装前に計画、タスク、テスト観点を成果物として残す
-- 実装後に受け入れ検査、レビュー、handoff を残す
-- 判断基準とコンテキストを個人の記憶ではなくファイルに固定する
-
-## 向き合う課題
-
-AI コーディングは速い一方で、運用の外枠が弱いと次の問題が起きやすくなります。
-
-- AI 実装が計画より先行しやすい
-- 承認や責任境界が曖昧になりやすい
-- 検証が後付けになり、品質保証が不安定になりやすい
-- コンテキストや評価基準がセッションや個人に依存しやすい
-- 完了判断の根拠が PR や会話ログに散らばりやすい
-
-PlanGate はこれらを注意力ではなく、ワークフロー、ゲート、成果物、再利用可能な Skill / Agent の分離によって抑えます。
-
-詳細な思想と問題設定は [docs/philosophy.md](docs/philosophy.md) を参照してください。
-
-## 中核アイデア
-
-| アイデア | 内容 |
-| --- | --- |
-| 計画先行 | PBI から plan / todo / test-cases を作り、承認前の実装を禁止する |
-| ゲート制御 | C-3（計画承認）と C-4（PR レビュー）で人間の判断点を固定する |
-| 検証内蔵 | L-0 / V-1〜V-4 により、実装後の検証をワークフローに組み込む |
-| 状態の永続化 | `docs/working/TASK-XXXX/` に計画、レビュー、検証、handoff を残す |
-| 実行層の分離 | v7 では Workflow / Skill / Agent を分け、再利用性と拡張性を高める |
-
-## クイックスタート
-
-詳細: [docs/plangate.md](docs/plangate.md)
+### Option A: Clone and register plugin (recommended)
 
 ```bash
-# 1. 作業コンテキスト作成
+git clone https://github.com/s977043/plangate.git
+```
+
+Then follow [Claude Code plugin registration instructions](plugin/plangate/README.md) to register the plugin.
+
+### Option B: Copy `.claude/` directly
+
+```bash
+git clone https://github.com/s977043/plangate.git
+cp -r plangate/.claude/ your-project/.claude/
+```
+
+> [!WARNING]
+> **Do not use both methods in the same project.**
+> Installing the plugin AND copying `.claude/` causes duplicate skill/command resolution.
+> Choose one method. See [plugin migration guide](docs/plangate-plugin-migration.md) for details.
+
+## How It Works
+
+PlanGate enforces two human-approval gates before and after AI implementation:
+
+| Gate | When | Decision |
+| --- | --- | --- |
+| **C-3** | After plan review, before implementation | APPROVE / CONDITIONAL / REJECT |
+| **C-4** | After AI implements, on GitHub PR | APPROVE / REQUEST CHANGES |
+
+```text
+Human writes PBI → AI generates plan → [C-3: Human approves]
+→ AI implements (TDD) → Auto-verify (L-0, V-1…V-4)
+→ PR created → [C-4: Human reviews on GitHub] → Merge
+```
+
+| Concept | Description |
+| --- | --- |
+| Plan-first | PBI → plan / todo / test-cases before any code |
+| Gate control | C-3 (plan approval) and C-4 (PR review) fix human decision points |
+| Built-in verification | L-0 lint fix, V-1 acceptance check, V-3 external review |
+| Persistent artifacts | `docs/working/TASK-XXXX/` keeps plan, review, tests, handoff |
+| Separated execution layer | v7: Workflow / Skill / Agent separated for reusability |
+
+## Quick Start
+
+```bash
+# 1. Create working context
 /working-context TASK-XXXX
 
-# 2. Plan + ToDo + Test Cases 生成、セルフレビュー、外部 AI レビュー
+# 2. Generate plan + todo + test cases + self-review
 /ai-dev-workflow TASK-XXXX plan
 
-# 3. 人間レビュー（PlanGate ゲート）後、Agent 実行
+# 3. [C-3 Gate] Human reviews plan, then execute
 /ai-dev-workflow TASK-XXXX exec
 ```
 
-## リポジトリ構成
+Details: [docs/plangate.md](docs/plangate.md)
+
+## 10-Minute Tutorial
+
+### Step 1: Create working context
+
+```bash
+/working-context TASK-0001
+```
+
+Creates `docs/working/TASK-0001/pbi-input.md` and related artifact files.
+
+### Step 2: Fill in PBI INPUT PACKAGE (human)
+
+Edit `docs/working/TASK-0001/pbi-input.md`:
+
+- **Why** — business context, problem being solved
+- **What** — scope in / out
+- **Acceptance criteria** — verifiable, testable conditions
+
+### Step 3: Generate plan
+
+```bash
+/ai-dev-workflow TASK-0001 plan
+```
+
+AI produces: `plan.md`, `todo.md`, `test-cases.md`, `review-self.md`
+
+### Step 4: C-3 Gate — Human reviews and approves (human)
+
+Read `docs/working/TASK-0001/plan.md` and decide:
+
+- **APPROVE** → proceed to exec
+- **CONDITIONAL** → note required fixes, proceed
+- **REJECT** → revise PBI and regenerate plan
+
+### Step 5: Execute
+
+```bash
+/ai-dev-workflow TASK-0001 exec
+```
+
+AI implements with TDD, runs lint fix (L-0), acceptance check (V-1), external review (V-3), and creates a PR.
+
+### Step 6: C-4 Gate — PR review on GitHub (human)
+
+Review the PR on GitHub and merge when ready. Done.
+
+See `examples/sample-task/` for a complete worked example of all artifact files.
+
+## Plugin vs `.claude/` — Which to use?
+
+| | Plugin (via plugin registration) | `.claude/` copy |
+| --- | --- | --- |
+| **Use case** | Base layer for multiple projects | Single project or full customization |
+| **Update** | Re-clone and re-register | Manual `git pull` |
+| **Customization** | Project `.claude/` overrides plugin | Edit directly |
+| **Conflict risk** | Low (namespaced skills/commands) | None |
+
+Choose **one** method per project. If you need to customize skills or commands beyond what the plugin offers, use Option B and edit `.claude/` directly.
+See [plugin/plangate/README.md](plugin/plangate/README.md) for plugin registration instructions.
+
+## Repository Layout
 
 ```text
-/docs                    - ナレッジ・ガイドドキュメント
-  /ai                    - 共通ルール・役割分担
-  /workflows             - v7 Workflow 定義
-  /working               - チケット単位の作業コンテキスト
-/.claude                 - Claude Code 固有の設定
-/.codex                  - Codex CLI 固有の設定
-/plugin/plangate         - Claude Code plugin 配布パッケージ
-/scripts                 - 起動スクリプト
+/docs                    — Knowledge and workflow documentation
+  /ai                    — Shared rules and role definitions
+  /workflows             — v7 Workflow definitions (WF-01 to WF-05)
+  /working               — Per-ticket working context (TASK-XXXX/)
+/.claude                 — Claude Code configuration
+/.codex                  — Codex CLI configuration
+/plugin/plangate         — Claude Code plugin package
+/scripts                 — Helper scripts
+/examples                — Worked examples of PlanGate artifacts
 ```
 
 ## Claude Code + Codex CLI
 
-PlanGate は Claude Code と Codex CLI の併用を前提にしています。共通ルールは [docs/ai/project-rules.md](docs/ai/project-rules.md) に一元化し、ツール固有の入口ファイルは薄く保ちます。
+PlanGate is designed for use with both Claude Code and Codex CLI. Shared rules are centralized in [docs/ai/project-rules.md](docs/ai/project-rules.md); tool-specific entry files are kept thin.
 
-| ツール | 入口ファイル | 固有設定 |
+| Tool | Entry file | Config |
 | --- | --- | --- |
 | Claude Code | [CLAUDE.md](CLAUDE.md) | `.claude/` |
 | Codex CLI | [AGENTS.md](AGENTS.md) | `.codex/` |
-| 共通 | [docs/ai/project-rules.md](docs/ai/project-rules.md) | `docs/`, `scripts/` |
+| Shared | [docs/ai/project-rules.md](docs/ai/project-rules.md) | `docs/`, `scripts/` |
 
-役割分担の詳細: [docs/ai/tool-roles.md](docs/ai/tool-roles.md)
+Role details: [docs/ai/tool-roles.md](docs/ai/tool-roles.md)
 
 ## Read Next
 
-| ドキュメント | 内容 |
+| Document | Description |
 | --- | --- |
-| [docs/philosophy.md](docs/philosophy.md) | 思想、問題設定、ハーネスエンジニアリング上の位置づけ |
-| [docs/index.md](docs/index.md) | GitHub Pages 用の公開ドキュメント入口 |
-| [docs/plangate.md](docs/plangate.md) | PlanGate ガイド、運用手順、フェーズ説明 |
-| [docs/plangate-v7-hybrid.md](docs/plangate-v7-hybrid.md) | v7 ハイブリッドアーキテクチャ |
-| [docs/workflows/README.md](docs/workflows/README.md) | WF-01〜WF-05 の Workflow 定義 |
-| [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Claude Code plugin としての利用・移行 |
-| [docs/oss-governance.md](docs/oss-governance.md) | OSS 公開設定・運用判断 |
-| [CHANGELOG.md](CHANGELOG.md) | 主要リリース履歴 |
+| [docs/philosophy.md](docs/philosophy.md) | Philosophy, problem framing, harness engineering positioning |
+| [docs/index.md](docs/index.md) | GitHub Pages documentation entry point |
+| [docs/plangate.md](docs/plangate.md) | PlanGate guide, operating procedures, phase descriptions |
+| [docs/plangate-v7-hybrid.md](docs/plangate-v7-hybrid.md) | v7 hybrid architecture |
+| [docs/workflows/README.md](docs/workflows/README.md) | WF-01 to WF-05 Workflow definitions |
+| [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Using and migrating to Claude Code plugin |
+| [docs/oss-governance.md](docs/oss-governance.md) | OSS publication settings and operational decisions |
+| [CHANGELOG.md](CHANGELOG.md) | Major release history |
 
-## 解説記事
+## Japanese README
 
-- [AIコーディングの暴走を「仕組み」で止める — PlanGateという開発フロー](https://note.com/mine_unilabo/n/n3aae6b5467b9)（note）
+[日本語版 README はこちら → README.ja.md](README.ja.md)
 
-## ライセンス
+## License
 
-[MIT](LICENSE)
+MIT — see [LICENSE](LICENSE)
