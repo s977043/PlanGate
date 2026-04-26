@@ -1,0 +1,7 @@
+{
+  "task_id": "fixture-complete",
+  "c3_status": "APPROVED",
+  "plan_hash": "sha256:720ae3fb42f0bda185e60ac5adeeaeb928305500c12a6e830ef1d1013b8122c2",
+  "reviewer": "test",
+  "reviewed_at": "2026-04-27T00:00:00Z"
+}

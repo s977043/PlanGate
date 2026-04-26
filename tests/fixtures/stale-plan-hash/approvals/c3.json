@@ -1,0 +1,7 @@
+{
+  "task_id": "fixture-stale",
+  "c3_status": "APPROVED",
+  "plan_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "reviewer": "test",
+  "reviewed_at": "2026-04-27T00:00:00Z"
+}

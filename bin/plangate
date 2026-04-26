@@ -333,17 +333,32 @@ cmd_status() {
 
 cmd_validate() {
   if [ $# -eq 0 ]; then
-    printf 'Usage: plangate validate <TASK-XXXX>\n' >&2
+    printf 'Usage: plangate validate <TASK-XXXX> | --dir <path>\n' >&2
     return 1
   fi
-  task_id=$1
-  plangate_validate_task_id "$task_id"
-  plangate_require_task_dir "$task_id"
 
-  work_dir="$plangate_working_dir/$task_id"
+  if [ "$1" = "--dir" ]; then
+    if [ $# -lt 2 ]; then
+      printf 'Usage: plangate validate --dir <path>\n' >&2
+      return 1
+    fi
+    work_dir=$2
+    label=$(basename "$work_dir")
+    if [ ! -d "$work_dir" ]; then
+      printf 'error: Directory not found: %s\n' "$work_dir" >&2
+      return 1
+    fi
+  else
+    task_id=$1
+    plangate_validate_task_id "$task_id"
+    plangate_require_task_dir "$task_id"
+    work_dir="$plangate_working_dir/$task_id"
+    label="$task_id"
+  fi
+
   failures=0
 
-  printf 'Validating: %s\n\n' "$task_id"
+  printf 'Validating: %s\n\n' "$label"
 
   printf '=== Required Artifacts ===\n'
   for f in pbi-input.md plan.md todo.md test-cases.md review-self.md; do

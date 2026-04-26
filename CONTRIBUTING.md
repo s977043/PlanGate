@@ -74,9 +74,19 @@ Conventional Commits に従います。
 
 例: `feat: add gate enforcement spec (c3.json + plan_hash)`
 
-### 新規 provider の追加
+### Adding a New Provider
 
-AI エージェントツールの新しい provider（例: Gemini CLI）を追加する場合は、Issue #82 のトラッキング issue を参照し、そこに追記してください。実装手順は決まり次第 `docs/` に追加されます。
+PlanGate separates workflow governance from AI tool implementation.
+To add support for a new provider (e.g. a new CLI tool):
+
+1. Open an issue referencing [Issue #82](https://github.com/s977043/plangate/issues/82) to discuss the provider's capabilities.
+2. Create a RFC document at `docs/rfc/provider-<name>.md` using an existing RFC as a template.
+3. Identify which role(s) the provider fills (planner / implementer / reviewer / external-reviewer).
+4. Update `workflows/*.yaml` to reference the new provider type.
+5. Submit a PR with the RFC and any required harness changes.
+
+Do not implement provider support without an approved RFC — governance compatibility
+must be verified before merging.
 
 ### CI について
 

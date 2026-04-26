@@ -161,6 +161,32 @@ PlanGate is designed for use with both Claude Code and Codex CLI. Shared rules a
 
 Role details: [docs/ai/tool-roles.md](docs/ai/tool-roles.md)
 
+## Testing
+
+Run the CLI test suite locally:
+
+```bash
+sh tests/run-tests.sh
+```
+
+Tests validate `plangate validate --dir` against four fixture scenarios: a complete task, missing approval, stale plan hash, and a missing artifact.
+CI runs the same suite on every PR via `.github/workflows/test.yml`.
+
+## Provider Support
+
+PlanGate's governance workflow is designed to be provider-agnostic.
+The gate mechanism, artifact schemas, and `run.ndjson` log format work independently of the AI tool used.
+
+| Provider | Role | Status |
+| --- | --- | --- |
+| Claude Code | Plan generation, exec orchestration | Fully supported |
+| Codex CLI | External review (C-2 / V-3), parallel exec | Fully supported |
+| Gemini CLI | External review | RFC — see [docs/rfc/provider-gemini-cli.md](docs/rfc/provider-gemini-cli.md) |
+| OpenCode | Implementation agent | RFC — see [docs/rfc/provider-opencode.md](docs/rfc/provider-opencode.md) |
+| Cursor | Implementation agent | Planned |
+
+To contribute support for a new provider, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-new-provider).
+
 ## Read Next
 
 | Document | Description |

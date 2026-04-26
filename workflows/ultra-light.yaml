@@ -1,0 +1,10 @@
+workflow: ultra-light
+description: "Ultra-light mode — typo, config, comment fixes (1 file, 0-1 ACs)"
+
+phases:
+  - id: wf04_build_and_refine
+    requires: []
+    produces: [code]
+    agent: implementation-agent
+
+gate_enforcement: {}

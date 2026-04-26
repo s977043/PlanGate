@@ -1,0 +1,59 @@
+workflow: light
+description: "Light mode — bug fixes and small changes (1-2 files, 1-2 ACs)"
+
+phases:
+  - id: wf01_context_bootstrap
+    requires: []
+    produces: [context]
+    agent: orchestrator
+
+  - id: wf02_requirement_expansion
+    requires: [context]
+    produces: [pbi_input]
+    agents: [requirements-analyst]
+    artifact_schema: pbi-input.schema.json
+
+  - id: wf03_solution_design
+    requires: [pbi_input]
+    produces: [plan, todo, test_cases, review_self]
+    agents: [solution-architect, spec-writer]
+    artifact_schema:
+      plan: plan.schema.json
+      todo: todo.schema.json
+      test_cases: test-cases.schema.json
+      review_self: review-self.schema.json
+    optional:
+      - review_self
+
+  - id: c3_gate
+    gate: c3
+    requires: [plan, todo, test_cases]
+    produces: [c3_approval]
+    approval_schema: c3-approval.schema.json
+
+  - id: wf04_build_and_refine
+    requires: [plan, todo, c3_approval]
+    produces: [code, run_log]
+    agents: [implementation-agent, linter-fixer]
+    run_log_schema: run-event.schema.json
+
+  - id: wf05_verify_and_handoff
+    requires: [code, run_log]
+    produces: [handoff]
+    agents: [qa-reviewer]
+    artifact_schema: handoff.schema.json
+
+  - id: c4_gate
+    gate: c4
+    requires: [handoff]
+    produces: [c4_approval]
+    approval_schema: c4-approval.schema.json
+
+gate_enforcement:
+  c3:
+    required_artifacts: [plan, todo, test_cases]
+    approval_file: approvals/c3.json
+    plan_hash_check: true
+  c4:
+    required_artifacts: [handoff]
+    approval_file: approvals/c4.json

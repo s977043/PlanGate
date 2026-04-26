@@ -1,0 +1,78 @@
+workflow: critical
+description: "Critical mode — architecture changes, cross-cutting refactors (16+ files, 11+ ACs)"
+
+phases:
+  - id: wf01_context_bootstrap
+    requires: []
+    produces: [context]
+    agent: orchestrator
+    require_evidence: true
+
+  - id: wf02_requirement_expansion
+    requires: [context]
+    produces: [pbi_input]
+    agents: [requirements-analyst]
+    artifact_schema: pbi-input.schema.json
+    require_evidence: true
+
+  - id: wf03_solution_design
+    requires: [pbi_input]
+    produces: [plan, todo, test_cases, review_self, review_external]
+    agents: [solution-architect, spec-writer]
+    artifact_schema:
+      plan: plan.schema.json
+      todo: todo.schema.json
+      test_cases: test-cases.schema.json
+      review_self: review-self.schema.json
+      review_external: review-external.schema.json
+    require_evidence: true
+
+  - id: c2_external_review
+    requires: [plan, review_self]
+    produces: [review_external]
+    agent: codex
+    require_evidence: true
+
+  - id: c3_gate
+    gate: c3
+    requires: [plan, todo, test_cases, review_self, review_external]
+    produces: [c3_approval]
+    approval_schema: c3-approval.schema.json
+    require_evidence: true
+
+  - id: wf04_build_and_refine
+    requires: [plan, todo, c3_approval]
+    produces: [code, run_log]
+    agents: [implementation-agent, linter-fixer]
+    run_log_schema: run-event.schema.json
+    parallel: true
+    require_evidence: true
+
+  - id: wf05_verify_and_handoff
+    requires: [code, run_log]
+    produces: [handoff]
+    agents: [qa-reviewer, acceptance-tester, security-auditor, code-optimizer]
+    artifact_schema: handoff.schema.json
+    require_evidence: true
+
+  - id: pre_release_check
+    requires: [handoff]
+    produces: [pre_release_report]
+    agents: [qa-reviewer, security-auditor]
+    require_evidence: true
+
+  - id: c4_gate
+    gate: c4
+    requires: [handoff, pre_release_report]
+    produces: [c4_approval]
+    approval_schema: c4-approval.schema.json
+    require_evidence: true
+
+gate_enforcement:
+  c3:
+    required_artifacts: [plan, todo, test_cases, review_self, review_external]
+    approval_file: approvals/c3.json
+    plan_hash_check: true
+  c4:
+    required_artifacts: [handoff, pre_release_report]
+    approval_file: approvals/c4.json
