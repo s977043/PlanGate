@@ -1,6 +1,6 @@
 # RFC: Gemini CLI Provider Support
 
-**Status**: Draft
+**Status**: Implemented (v8.1.0 — `plangate review`, `PLANGATE_EXTERNAL_REVIEWER=gemini`)
 **Created**: 2026-04-27
 **Issue**: [#82](https://github.com/s977043/plangate/issues/82)
 

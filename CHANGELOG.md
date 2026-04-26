@@ -4,6 +4,18 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v8.1.0 - 2026-04-27
+
+feat: Provider CLI 対応 — validate --mode、review（Gemini CLI）、exec（OpenCode）コマンド追加 (#107)
+
+### Added
+
+- `bin/plangate validate --mode <mode>` — `workflows/<mode>.yaml` を読み込み、`gate_enforcement.c3.required_artifacts` から artifact リストを動的決定
+- `bin/plangate review <TASK-XXXX>` — 外部 AI レビューコマンド。`PLANGATE_EXTERNAL_REVIEWER=gemini` で Gemini CLI を呼び出し、結果を `review-external.md` に書き出す
+- `bin/plangate exec <TASK-XXXX>` — 実装エージェント dispatch。C-3 gate をクリアしないとブロック。`PLANGATE_IMPL_AGENT=opencode` で OpenCode を起動
+- `bin/plangate doctor` — gemini / opencode CLI の存在を INFO として表示（次セクション参照）
+- `tests/run-tests.sh` — validate --mode、review、exec の新規テスト 6 件追加（合計 10 件）
+
 ## v8.0.2 - 2026-04-27
 
 docs: README 日本語メイン化・plugin migration guide 0.5.0 対応 (#100 #101 #102 #103)

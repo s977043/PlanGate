@@ -1,6 +1,6 @@
 # RFC: OpenCode Provider Support
 
-**Status**: Draft
+**Status**: Implemented (v8.1.0 — `plangate exec`, `PLANGATE_IMPL_AGENT=opencode`)
 **Created**: 2026-04-27
 **Issue**: [#82](https://github.com/s977043/plangate/issues/82)
 

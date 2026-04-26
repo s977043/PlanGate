@@ -182,8 +182,8 @@ The gate mechanism, artifact schemas, and `run.ndjson` log format work independe
 | --- | --- | --- |
 | Claude Code | Plan generation, exec orchestration | Fully supported |
 | Codex CLI | External review (C-2 / V-3), parallel exec | Fully supported |
-| Gemini CLI | External review | RFC — see [docs/rfc/provider-gemini-cli.md](docs/rfc/provider-gemini-cli.md) |
-| OpenCode | Implementation agent | RFC — see [docs/rfc/provider-opencode.md](docs/rfc/provider-opencode.md) |
+| Gemini CLI | External review | Supported — `PLANGATE_EXTERNAL_REVIEWER=gemini plangate review` |
+| OpenCode | Implementation agent | Supported — `PLANGATE_IMPL_AGENT=opencode plangate exec` |
 | Cursor | Implementation agent | Planned |
 
 To contribute support for a new provider, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-new-provider).

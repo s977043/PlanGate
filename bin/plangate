@@ -277,6 +277,19 @@ cmd_doctor() {
   done
   printf '\n'
 
+  printf '=== Optional Provider CLIs ===\n'
+  if command -v gemini >/dev/null 2>&1; then
+    printf '  [INFO] gemini CLI found (PLANGATE_EXTERNAL_REVIEWER=gemini supported)\n'
+  else
+    printf '  [INFO] gemini CLI not found (optional — install to enable plangate review with Gemini)\n'
+  fi
+  if command -v opencode >/dev/null 2>&1; then
+    printf '  [INFO] opencode found (PLANGATE_IMPL_AGENT=opencode supported)\n'
+  else
+    printf '  [INFO] opencode not found (optional — install to enable plangate exec with OpenCode)\n'
+  fi
+  printf '\n'
+
   if [ "$failures" -eq 0 ]; then
     printf 'Result: PASS (all checks passed)\n'
   else
