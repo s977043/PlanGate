@@ -68,17 +68,6 @@ GitHub Pages は `docs/index.md` を公開入口にする。
 
 `docs/_config.yml` では `working/` を除外する。
 
-## Discussion Policy
-
-Discussions は Issue と用途を分ける。
-
-| 用途 | 使う場所 |
-| --- | --- |
-| バグ、再現可能な問題 | Issue |
-| 機能要望、明確な改善提案 | Issue |
-| 質問、運用相談、設計議論 | Discussions |
-| セキュリティ懸念 | Private vulnerability reporting |
-
 ## docs/working/ 公開方針
 
 ### 方針：意図的に Public 公開する
@@ -116,13 +105,61 @@ PlanGate は「AIが計画と承認の証跡を残しながら開発する」こ
 - 個人情報・機密情報を含まないことを作成・更新のたびに確認する
 - GitHub Pages の主要導線からは除外する（ナビゲーションに含めない）
 
+## GitHub Discussions
+
+GitHub Discussions は有効化済みであることを確認した（2026-04-27）。
+
+### カテゴリ構成
+
+| カテゴリ | 用途 | Answerable |
+| --- | --- | --- |
+| Announcements | リリースノート・重要告知 | No |
+| General | 雑談・感想・近況 | No |
+| Ideas | 機能提案・将来構想 | No |
+| Polls | 意見募集 | No |
+| Q&A | 使い方・設定・トラブル相談 | Yes |
+| Show and tell | 活用事例・ブログ紹介 | No |
+
+現在のカテゴリは GitHub デフォルト構成で十分。変更は外部コントリビューターが増えてから検討する。
+
+### Discussion Policy（用途の使い分け）
+
+| 用途 | 使う場所 |
+| --- | --- |
+| バグ、再現可能な問題 | Issue |
+| 機能要望、明確な改善提案 | Issue |
+| 質問、運用相談、設計議論 | Discussions — Q&A |
+| 活用事例・ショーケース | Discussions — Show and tell |
+| セキュリティ懸念 | Private vulnerability reporting |
+
 ## Deferred Decisions
 
-次の設定は、運用体制が固まってから有効化を検討する。
+各項目の判断状況を記録する（2026-04-27 更新）。
 
-| 項目 | 現状 | 保留理由 |
+| 項目 | 判断 | 着手条件 |
 | --- | --- | --- |
-| Required approvals `1` | 未設定 | 単独メンテナ運用では自己マージが詰まる可能性がある |
-| CODEOWNERS review required | 未設定 | 現時点では owner が 1 名で実効性が低い |
-| Scorecard required check | 未設定 | 観測用途として先に運用する |
-| GitHub Actions allowlist | 未設定 | workflow 側で SHA pinning 済み。必要に応じて後で制限する |
+| Required approvals `1` | 条件付き着手 | 外部コントリビューターが 3 名以上になったとき |
+| CODEOWNERS review required | 条件付き着手 | owner が 2 名以上になったとき |
+| Scorecard required check | 条件付き着手 | Scorecard スコアが 5.0 以上で安定したとき |
+| GitHub Actions allowlist | 着手しない | SHA pinning で対応済み。リスクが具体化した場合のみ再検討 |
+
+### 各項目の判断根拠
+
+**Required approvals `1`**: 単独メンテナ運用では自己マージが必要なため、現状は `0` を維持する。外部コントリビューターが 3 名以上になり PR がメンテナ以外からも来るようになった段階で `1` に変更する。
+
+**CODEOWNERS review required**: 1 名体制では CODEOWNERS によるレビュー強制が実質的な意味を持たない。複数 owner 体制になってから有効化する。
+
+**Scorecard required check**: Scorecard スコアは外部依存（推奨設定の更新・ツール変更）で変動する。まず 3 ヶ月以上スコアを観測し、5.0 以上で安定することを確認してから required check に昇格させる。
+
+**GitHub Actions allowlist**: `.github/workflows/` の全 Action が SHA pinning 済みのため、現状はサプライチェーンリスクが低い。allowlist 管理はメンテナンスコストが高いため、具体的なリスクが発生した場合のみ対応する。
+
+### Branch Protection 強化ロードマップ
+
+外部コントリビューターが増えた場合の段階的な強化方針:
+
+| 段階 | 条件 | 追加設定 |
+| --- | --- | --- |
+| 現状 | 単独メンテナ | Pull Request 必須、lint チェック必須 |
+| フェーズ 2 | コントリビューター 3 名以上 | Required approvals `1` を有効化 |
+| フェーズ 3 | 複数 owner | CODEOWNERS review required を有効化 |
+| フェーズ 4 | Scorecard 5.0+ で安定 | Scorecard を required check に昇格 |

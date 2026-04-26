@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Question / Usage Help
+    url: https://github.com/s977043/plangate/discussions/categories/q-a
+    about: Ask usage questions, get help with setup, or discuss PlanGate workflows in Discussions.
+  - name: Ideas & Feature Proposals
+    url: https://github.com/s977043/plangate/discussions/categories/ideas
+    about: Share ideas and proposals before filing a feature request issue.
   - name: Security vulnerability
     url: https://github.com/s977043/plangate/security/advisories/new
     about: Please report security vulnerabilities privately instead of opening a public issue.
