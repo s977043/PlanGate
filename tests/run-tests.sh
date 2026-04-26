@@ -48,6 +48,72 @@ assert_fail "stale-plan-hash: plan.md modified after approval → FAIL" \
 assert_fail "broken-pbi: pbi-input.md missing → FAIL" \
   sh "$PLANGATE_BIN" validate --dir "$FIXTURES_DIR/broken-pbi"
 
+printf '\n=== TA-01: validate --mode ===\n'
+
+# complete-task has plan.md, todo.md, test-cases.md, review-self.md + valid c3.json
+# standard.yaml c3 requires: [plan, todo, test_cases, review_self] — no pbi-input.md
+assert_pass "validate --mode standard: complete-task passes" \
+  sh "$PLANGATE_BIN" validate --dir "$FIXTURES_DIR/complete-task" --mode standard
+
+# missing-approval has no approvals/c3.json → FAIL regardless of mode
+assert_fail "validate --mode standard: missing-approval fails" \
+  sh "$PLANGATE_BIN" validate --dir "$FIXTURES_DIR/missing-approval" --mode standard
+
+assert_fail "validate --mode unknown-xyz: non-existent mode returns error" \
+  sh "$PLANGATE_BIN" validate --dir "$FIXTURES_DIR/complete-task" --mode unknown-xyz
+
+printf '\n=== TA-02: review command ===\n'
+
+assert_fail "review: no args shows usage (exit 1)" \
+  sh "$PLANGATE_BIN" review
+
+# Verify that the usage text is emitted to stderr
+if sh "$PLANGATE_BIN" review 2>&1 | grep -q 'Usage'; then
+  printf '[PASS] review: no args emits Usage text\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] review: no args — Usage text not found\n'
+  fail=$((fail + 1))
+fi
+
+printf '\n=== TA-03: exec command gate enforcement ===\n'
+
+# Create a temporary task dir without approvals/c3.json to test gate enforcement
+TMPDIR_TASK="$(dirname "$FIXTURES_DIR")/tmp-working"
+mkdir -p "$TMPDIR_TASK"
+
+# Temporarily point plangate_working_dir at our tmp dir by creating TASK-GATETEST
+GATE_TASK_DIR="$TMPDIR_TASK/TASK-GATETEST"
+mkdir -p "$GATE_TASK_DIR"
+touch "$GATE_TASK_DIR/plan.md"
+
+# exec requires PLANGATE_WORKING_DIR override — we need to run it with modified path.
+# Since bin/plangate computes plangate_working_dir from its own location, we use a
+# wrapper that symlinks docs/working/TASK-GATETEST to our temp dir.
+REPO_WORKING="$(CDPATH= cd -- "$(dirname "$FIXTURES_DIR")/.." && pwd)/docs/working/TASK-GATETEST"
+if [ ! -e "$REPO_WORKING" ]; then
+  # Create a minimal task dir inside docs/working for this test
+  mkdir -p "$REPO_WORKING"
+  touch "$REPO_WORKING/plan.md"
+  created_gate_test=1
+else
+  created_gate_test=0
+fi
+
+if sh "$PLANGATE_BIN" exec TASK-GATETEST 2>&1 | grep -q 'C-3 gate not cleared'; then
+  printf '[PASS] exec: missing approvals/c3.json → C-3 gate not cleared\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] exec: expected "C-3 gate not cleared" error\n'
+  fail=$((fail + 1))
+fi
+
+# Cleanup
+if [ "${created_gate_test:-0}" -eq 1 ]; then
+  rm -rf "$REPO_WORKING"
+fi
+rm -rf "$TMPDIR_TASK"
+
 printf '\n'
 printf 'Results: %d passed, %d failed\n' "$pass" "$fail"
 

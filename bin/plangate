@@ -88,6 +88,28 @@ plangate_append_ndjson() {
   printf '%s\n' "$json" >> "$file"
 }
 
+# Extract c3 required_artifacts from a workflow YAML and print one filename per line.
+# Uses python3 for YAML parsing (python3 is required by the timeline command already).
+plangate_yaml_c3_artifacts() {
+  yaml_file=$1
+  python3 - "$yaml_file" <<'PYEOF'
+import sys, re
+with open(sys.argv[1]) as f:
+    content = f.read()
+# Find required_artifacts: [...] under gate_enforcement.c3
+m = re.search(r'gate_enforcement.*?c3:.*?required_artifacts:\s*\[([^\]]+)\]', content, re.DOTALL)
+if m:
+    mapping = {
+        'pbi_input': 'pbi-input.md', 'plan': 'plan.md', 'todo': 'todo.md',
+        'test_cases': 'test-cases.md', 'review_self': 'review-self.md',
+        'review_external': 'review-external.md', 'handoff': 'handoff.md',
+    }
+    for item in m.group(1).split(','):
+        key = item.strip()
+        print(mapping.get(key, key + '.md'))
+PYEOF
+}
+
 # ── commands ──────────────────────────────────────────────────────────────────
 
 cmd_help() {
@@ -100,7 +122,9 @@ cmd_help() {
     "  init <TASK-XXXX>               Create task folder and template files" \
     "  doctor                         Check environment setup" \
     "  status <TASK-XXXX>             Show current phase and next action" \
-    "  validate <TASK-XXXX>           Verify artifacts and plan_hash integrity" \
+    "  validate <TASK-XXXX> [--mode]  Verify artifacts and plan_hash integrity" \
+    "  review <TASK-XXXX> [--phase]   Run external AI review (c2/v3)" \
+    "  exec <TASK-XXXX> [--mode]      Dispatch implementation agent (after C-3)" \
     "  abort <TASK-XXXX> [--reason]   Record abort event in run.ndjson" \
     "  timeline <TASK-XXXX>           Display run.ndjson event log" \
     "  resume <TASK-XXXX>             Show current-state.md for session resume" \
@@ -333,37 +357,80 @@ cmd_status() {
 
 cmd_validate() {
   if [ $# -eq 0 ]; then
-    printf 'Usage: plangate validate <TASK-XXXX> | --dir <path>\n' >&2
+    printf 'Usage: plangate validate <TASK-XXXX> [--mode <mode>] | --dir <path> [--mode <mode>]\n' >&2
     return 1
   fi
 
-  if [ "$1" = "--dir" ]; then
-    if [ $# -lt 2 ]; then
-      printf 'Usage: plangate validate --dir <path>\n' >&2
-      return 1
-    fi
-    work_dir=$2
-    label=$(basename "$work_dir")
-    if [ ! -d "$work_dir" ]; then
-      printf 'error: Directory not found: %s\n' "$work_dir" >&2
-      return 1
-    fi
-  else
-    task_id=$1
+  # TA-01: parse all flags first, then dispatch by positional arg
+  work_dir=""
+  label=""
+  task_id=""
+  mode=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dir)
+        shift
+        if [ $# -eq 0 ]; then
+          printf 'Usage: plangate validate --dir <path>\n' >&2
+          return 1
+        fi
+        work_dir=$1
+        label=$(basename "$work_dir")
+        ;;
+      --mode)
+        shift
+        if [ $# -eq 0 ]; then
+          printf 'error: --mode requires a value\n' >&2
+          return 1
+        fi
+        mode=$1
+        ;;
+      *)
+        task_id=$1
+        ;;
+    esac
+    shift
+  done
+
+  if [ -n "$task_id" ]; then
     plangate_validate_task_id "$task_id"
     plangate_require_task_dir "$task_id"
     work_dir="$plangate_working_dir/$task_id"
     label="$task_id"
   fi
 
+  if [ -z "$work_dir" ]; then
+    printf 'Usage: plangate validate <TASK-XXXX> [--mode <mode>] | --dir <path> [--mode <mode>]\n' >&2
+    return 1
+  fi
+
+  if [ ! -d "$work_dir" ]; then
+    printf 'error: Directory not found: %s\n' "$work_dir" >&2
+    return 1
+  fi
+
   failures=0
 
   printf 'Validating: %s\n\n' "$label"
 
+  # TA-01: use YAML-derived artifact list when --mode is specified
   printf '=== Required Artifacts ===\n'
-  for f in pbi-input.md plan.md todo.md test-cases.md review-self.md; do
-    plangate_check_file "$f" "$work_dir/$f" || failures=$((failures + 1))
-  done
+  if [ -n "$mode" ]; then
+    yaml_file="$plangate_root/workflows/$mode.yaml"
+    if [ ! -f "$yaml_file" ]; then
+      printf 'error: Unknown mode: %s (no %s)\n' "$mode" "$yaml_file" >&2
+      return 1
+    fi
+    artifact_list=$(plangate_yaml_c3_artifacts "$yaml_file")
+    for f in $artifact_list; do
+      plangate_check_file "$f" "$work_dir/$f" || failures=$((failures + 1))
+    done
+  else
+    for f in pbi-input.md plan.md todo.md test-cases.md review-self.md; do
+      plangate_check_file "$f" "$work_dir/$f" || failures=$((failures + 1))
+    done
+  fi
   printf '\n'
 
   printf '=== C-3 Gate ===\n'
@@ -527,6 +594,136 @@ cmd_resume() {
   cmd_status "$task_id" 2>/dev/null | grep -E 'Current:|Next:' || true
 }
 
+cmd_review() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate review <TASK-XXXX> [--phase c2|v3] [--file <path>]\n' >&2
+    return 1
+  fi
+  task_id=$1; shift
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  phase="c2"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --phase)
+        shift
+        phase="${1:-c2}"
+        ;;
+      --file)
+        shift
+        ;;  # --file is accepted but unused in this version; kept for future use
+    esac
+    shift
+  done
+
+  work_dir="$plangate_working_dir/$task_id"
+  reviewer="${PLANGATE_EXTERNAL_REVIEWER:-codex}"
+  output_file="$work_dir/review-external.md"
+
+  printf 'External review: %s (phase=%s, reviewer=%s)\n' "$task_id" "$phase" "$reviewer"
+
+  if [ ! -f "$work_dir/plan.md" ]; then
+    printf 'error: plan.md not found — run /ai-dev-workflow plan first\n' >&2
+    return 1
+  fi
+
+  prompt="Review the following PlanGate plan and identify issues:\n$(cat "$work_dir/plan.md")"
+
+  case "$reviewer" in
+    gemini)
+      if ! command -v gemini >/dev/null 2>&1; then
+        printf 'error: gemini CLI not found. Install: https://github.com/google-gemini/gemini-cli\n' >&2
+        return 1
+      fi
+      result=$(printf '%s' "$prompt" | gemini --yolo 2>&1) || true
+      ;;
+    codex)
+      printf 'info: codex external review not yet wired — writing placeholder\n'
+      result="[codex review placeholder — configure PLANGATE_EXTERNAL_REVIEWER=gemini to use Gemini CLI]"
+      ;;
+    *)
+      printf 'error: Unknown reviewer: %s (supported: codex, gemini)\n' "$reviewer" >&2
+      return 1
+      ;;
+  esac
+
+  {
+    printf '# External Review — %s\n\n' "$task_id"
+    printf '> Phase: %s\n' "$phase"
+    printf '> Reviewer: %s\n' "$reviewer"
+    printf '> Generated: %s\n\n' "$(plangate_now)"
+    printf '%s\n' "$result"
+  } > "$output_file"
+
+  printf 'Review written to: %s\n' "$output_file"
+}
+
+cmd_exec() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate exec <TASK-XXXX> [--mode <mode>]\n' >&2
+    return 1
+  fi
+  task_id=$1; shift
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  mode=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --mode)
+        shift
+        mode="${1:-}"
+        ;;
+    esac
+    shift
+  done
+
+  work_dir="$plangate_working_dir/$task_id"
+  agent="${PLANGATE_IMPL_AGENT:-codex}"
+  run_log="$work_dir/run.ndjson"
+
+  # Gate check: c3.json must exist and be APPROVED
+  if [ ! -f "$work_dir/approvals/c3.json" ]; then
+    printf 'error: C-3 gate not cleared — approvals/c3.json not found\n' >&2
+    printf 'Run: plangate validate %s\n' "$task_id" >&2
+    return 1
+  fi
+
+  c3_status=$(grep '"c3_status"' "$work_dir/approvals/c3.json" 2>/dev/null \
+    | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
+  if [ "$c3_status" != "APPROVED" ]; then
+    printf 'error: C-3 gate not approved (status=%s)\n' "${c3_status:-missing}" >&2
+    return 1
+  fi
+
+  # Record session start
+  ts=$(plangate_now)
+  plangate_append_ndjson "$run_log" \
+    "{\"ts\":\"$ts\",\"task_id\":\"$task_id\",\"phase\":\"D\",\"event\":\"session_started\",\"detail\":\"agent=$agent\"}"
+
+  printf 'Exec: %s (agent=%s)\n' "$task_id" "$agent"
+
+  case "$agent" in
+    opencode)
+      if ! command -v opencode >/dev/null 2>&1; then
+        printf 'error: opencode not found. Install: https://opencode.ai\n' >&2
+        return 1
+      fi
+      context="Implement the plan in docs/working/$task_id/plan.md. Follow todo.md. Run tests after each step."
+      opencode run "$context"
+      ;;
+    codex)
+      printf 'info: codex exec — use /ai-dev-workflow %s exec in Claude Code\n' "$task_id"
+      printf 'Context: %s/plan.md\n' "$work_dir"
+      ;;
+    *)
+      printf 'error: Unknown impl agent: %s (supported: codex, opencode)\n' "$agent" >&2
+      return 1
+      ;;
+  esac
+}
+
 # ── dispatch ──────────────────────────────────────────────────────────────────
 
 if [ $# -eq 0 ]; then
@@ -542,6 +739,8 @@ case "$command" in
   doctor)      cmd_doctor "$@" ;;
   status)      cmd_status "$@" ;;
   validate)    cmd_validate "$@" ;;
+  review)      cmd_review "$@" ;;
+  exec)        cmd_exec "$@" ;;
   abort)       cmd_abort "$@" ;;
   timeline)    cmd_timeline "$@" ;;
   resume)      cmd_resume "$@" ;;
