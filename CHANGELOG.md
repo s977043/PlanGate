@@ -4,6 +4,17 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v8.0.2 - 2026-04-27
+
+docs: README 日本語メイン化・plugin migration guide 0.5.0 対応 (#100 #101 #102 #103)
+
+### Changed
+
+- `README.md` — 日本語版に差し替え（English README は `README_en.md` へ移動）
+- `README_en.md` — 新規作成（English primary README、旧 README.md の内容）
+- `docs/plangate-plugin-migration.md` — plugin 0.5.0 対応・手順を最新化
+- `docs/working/README.md` — `full` → `high-risk` 表記を修正
+
 ## v8.0.1 - 2026-04-27
 
 docs: examples/minimal-node/ 追加 — Node.js 最小構成サンプル (#93)
