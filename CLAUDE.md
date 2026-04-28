@@ -17,7 +17,8 @@
 | 運用ルール | `.claude/rules/` |
 | PlanGateワークフロー（v5 現行） | `docs/plangate.md` |
 | PlanGate v7 ハイブリッド | `docs/plangate-v7-hybrid.md` / `.claude/rules/hybrid-architecture.md` |
-| Workflow 定義（WF-01〜WF-05） | `docs/workflows/README.md` |
+| Orchestrator Mode（親 PBI 分解、Spec only） | `docs/orchestrator-mode.md` / `.claude/rules/orchestrator-mode.md` |
+| Workflow 定義（WF-01〜WF-05 + Orchestrator） | `docs/workflows/README.md` |
 | 役割分担 | `docs/ai/tool-roles.md` |
 
 ## 迷ったらの判断基準

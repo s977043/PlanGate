@@ -32,6 +32,8 @@ Ready → In Progress
 
 ## ディレクトリ構造
 
+### 単一 PBI（標準）
+
 ```text
 docs/working/
 └── TASK-{ticket-number}/
@@ -53,6 +55,30 @@ docs/working/
         ├── verification/    #   動作検証スクリーンショット・ログ
         └── e2e/             #   E2E 検証結果
 ```
+
+### 親 PBI（Orchestrator Mode）
+
+親 PBI を扱う場合は別ディレクトリ `docs/working/PBI-{number}/` を併用する。詳細は [`docs/orchestrator-mode.md`](../../docs/orchestrator-mode.md) を参照。
+
+```text
+docs/working/
+└── PBI-{parent-number}/
+    ├── parent-plan.md          # 親計画（テンプレート: docs/working/templates/parent-plan.md）
+    ├── dependency-graph.md     # 子 PBI 依存関係グラフ
+    ├── parallelization-plan.md # 並行実行計画
+    ├── integration-plan.md     # 統合チェック / 親完了条件
+    ├── risk-report.md          # 親 PBI レベルの集約リスク
+    ├── approvals/
+    │   ├── parent-c3.json      # 親計画ゲート承認
+    │   └── parent-integration.json  # 統合ゲート承認
+    ├── children/
+    │   ├── PBI-{n}-01.yaml     # 子 PBI 仕様（schema: docs/schemas/child-pbi.yaml）
+    │   ├── PBI-{n}-02.yaml
+    │   └── ...
+    └── handoff.md              # 親 PBI 完了時の引き継ぎ（必須）
+```
+
+子 PBI の作業コンテキストは既存の `TASK-XXXX/` 構造を再利用する想定。実装は別 PBI（[`docs/orchestrator-mode.md`](../../docs/orchestrator-mode.md) の V2 範囲）。
 
 ## コンテキスト読み込みプロトコル（Progressive Disclosure）
 

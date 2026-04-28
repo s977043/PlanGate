@@ -4,6 +4,32 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v8.2.0 - 2026-04-28
+
+feat: Parent-Child PBI Orchestrator Mode 仕様策定 + ドキュメント同期 (#111 #112 #113 #114)
+
+### Added
+
+- `docs/orchestrator-mode.md` — Parent-Child PBI Orchestrator Mode のアーキテクチャ正本（Issue #109、Spec only / 実装は別 PBI）
+- `docs/schemas/child-pbi.yaml` — 子 PBI YAML スキーマ + バリデーション規則
+- `docs/workflows/orchestrator-decomposition.md` — 親 PBI → 子 PBI 分解 Workflow（D-1〜D-7）
+- `docs/workflows/orchestrator-integration.md` — 子 PBI 統合 → 親 PBI 完了判定 Workflow（I-1〜I-4 + Gap 分岐）
+- `docs/working/templates/parent-plan.md` / `dependency-graph.md` / `parallelization-plan.md` / `integration-plan.md` — 親 PBI 用 4 種テンプレート
+- `.claude/rules/orchestrator-mode.md` — Gate 不変条件（ChildExecAllowed / ParentDone / NewChildPBIAllowed）の正本
+- `docs/rfc/plangate-decompose.md` — `plangate decompose` CLI RFC（Status: Draft）
+- `scripts/check-orchestrator-docs.sh` — Orchestrator Mode ドキュメント整合性検証スクリプト（TC-01〜TC-20）
+- README に CLI セクション追加（`bin/plangate init/status/validate/review/exec` の使用例）
+- README「中核アイデア」表に Control OS 行追加
+
+### Changed
+
+- `docs/plangate-v7-hybrid.md` — Mode×Gate×Skill 表を `skill-policy-router` 正本に同期、`critical` の rollback / security review / staged deploy を補足
+- `docs/plangate-plugin-migration.md` — Rules (8) → (9) 修正、Provider RFC と Workflow DSL 接続を「完了済み」に移動、14 skills 呼び出し例追加
+- `docs/plangate.md` — 「ライト / フル」2 分類 → 5 モード表へ置換
+- `docs/ai-driven-development.md` — `フルのみ` → `high-risk / critical のみ` に置換、5 モード表へ更新
+- `README.md` / `README_en.md` — install warning を NOTE に緩和（dual-mode 可・`plangate:` prefix 注記）、Repository Layout に `/bin` `/workflows` `/tests` を追加、Testing を v8.1.0 の 10 件テストに更新
+- `docs/index.md` — Orchestrator Mode 仕様へのリンク追加
+
 ## v8.1.0 - 2026-04-27
 
 feat: Provider CLI 対応 — validate --mode、review（Gemini CLI）、exec（OpenCode）コマンド追加 (#107)

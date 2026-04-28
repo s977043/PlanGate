@@ -142,10 +142,15 @@ Hooks are not implemented in this version (directory structure reserved). Planne
 - Post-install behavior depends on Claude Code internals (refer to runtime verification results)
 - `test-engineer` and `release-manager` agents are not bundled (they do not exist in `.claude/` either)
 
+## Future / RFC
+
+- **Parent-Child PBI Orchestrator Mode** (specification only, see [`docs/orchestrator-mode.md`](../../docs/orchestrator-mode.md) and [`docs/rfc/plangate-decompose.md`](../../docs/rfc/plangate-decompose.md)): a layer above single-PBI control that decomposes a parent PBI into multiple child PBIs and runs each through PlanGate. Implementation (Parent Supervisor / Integration Agent / `plangate decompose` CLI / Hook-based gate enforcement) is tracked in follow-up PBIs.
+
 ## References
 
 - Migration guide: [docs/plangate-plugin-migration.md](../../docs/plangate-plugin-migration.md)
-- Project repository: https://github.com/s977043/plangate
+- Orchestrator Mode spec: [docs/orchestrator-mode.md](../../docs/orchestrator-mode.md)
+- Project repository: <https://github.com/s977043/plangate>
 - Parent issue: [#16](https://github.com/s977043/plangate/issues/16)
 
 ## License
