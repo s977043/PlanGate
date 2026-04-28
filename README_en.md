@@ -21,9 +21,10 @@ Unlike agent frameworks that focus on autonomy, PlanGate focuses on **approval b
 
 ```bash
 git clone https://github.com/s977043/plangate.git
+cd plangate
 ```
 
-Then follow [Claude Code plugin registration instructions](plugin/plangate/README.md) to register the plugin.
+Then follow [Claude Code plugin registration instructions](plugin/plangate/README.md), or copy `.claude/` into your project.
 
 ### Option B: Copy `.claude/` directly
 
@@ -59,6 +60,7 @@ Human writes PBI → AI generates plan → [C-3: Human approves]
 | Built-in verification | L-0 lint fix, V-1 acceptance check, V-3 external review |
 | Persistent artifacts | `docs/working/TASK-XXXX/` keeps plan, review, tests, handoff |
 | Separated execution layer | v7: Workflow / Skill / Agent separated for reusability |
+| Control OS | v7.2+: Intent / Mode / GatePolicy / Evidence Ledger / Completion Gate |
 
 ## Quick Start
 
@@ -130,9 +132,9 @@ See `examples/sample-task/` for a complete worked example of all artifact files.
 | **Use case** | Base layer for multiple projects | Single project or full customization |
 | **Update** | Re-clone and re-register | Manual `git pull` |
 | **Customization** | Project `.claude/` overrides plugin | Edit directly |
-| **Conflict risk** | Low (namespaced skills/commands) | None |
+| **Conflict risk** | Low through namespacing, but duplicate command / skill resolution still matters | None |
 
-Choose **one** method per project. If you need to customize skills or commands beyond what the plugin offers, use Option B and edit `.claude/` directly.
+For a new installation, choose one method. During migration or advanced customization, you may run the plugin as a base layer and keep project-specific overrides in `.claude/`.
 See [plugin/plangate/README.md](plugin/plangate/README.md) for plugin registration instructions.
 
 ## Repository Layout
@@ -143,7 +145,7 @@ See [plugin/plangate/README.md](plugin/plangate/README.md) for plugin registrati
   /ai                    — Shared rules and role definitions
   /workflows             — v7 Workflow definitions (WF-01 to WF-05)
   /working               — Per-ticket working context (TASK-XXXX/)
-/workflows               — Workflow DSL (5-mode YAML: ultra-light / light / standard / high-risk / critical)
+/workflows               — v8 Workflow DSL (5-mode YAML: ultra-light / light / standard / high-risk / critical)
 /.claude                 — Claude Code configuration
 /.codex                  — Codex CLI configuration
 /plugin/plangate         — Claude Code plugin package
@@ -163,6 +165,22 @@ PlanGate is designed for use with both Claude Code and Codex CLI. Shared rules a
 | Shared | [docs/ai/project-rules.md](docs/ai/project-rules.md) | `docs/`, `scripts/` |
 
 Role details: [docs/ai/tool-roles.md](docs/ai/tool-roles.md)
+
+## CLI
+
+`bin/plangate` is a POSIX sh CLI for local PlanGate task contexts.
+
+```bash
+bin/plangate init TASK-XXXX
+bin/plangate status TASK-XXXX
+bin/plangate validate TASK-XXXX --mode high-risk
+PLANGATE_EXTERNAL_REVIEWER=gemini bin/plangate review TASK-XXXX --phase c2
+PLANGATE_IMPL_AGENT=opencode bin/plangate exec TASK-XXXX --mode standard
+```
+
+- `validate --mode <mode>` reads `gate_enforcement.c3.required_artifacts` from `workflows/<mode>.yaml`.
+- `review` dispatches an external reviewer provider and writes `review-external.md`.
+- `exec` blocks execution unless the C-3 gate is `APPROVED`.
 
 ## Testing
 
