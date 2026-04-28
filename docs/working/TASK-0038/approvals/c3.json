@@ -1,0 +1,8 @@
+{
+  "phase": "C-3",
+  "decision": "APPROVED",
+  "approver": "human",
+  "approved_at": "2026-04-28T02:10:00Z",
+  "comment": "APPROVE で進めて",
+  "plan_hash_before": "phase-a-baseline"
+}

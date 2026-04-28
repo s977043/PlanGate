@@ -222,6 +222,7 @@ To contribute support for a new provider, see [CONTRIBUTING.md](CONTRIBUTING.md#
 | [docs/index.md](docs/index.md) | GitHub Pages documentation entry point |
 | [docs/plangate.md](docs/plangate.md) | PlanGate guide, operating procedures, phase descriptions |
 | [docs/plangate-v7-hybrid.md](docs/plangate-v7-hybrid.md) | v7 hybrid architecture |
+| [docs/orchestrator-mode.md](docs/orchestrator-mode.md) | Parent-Child PBI Orchestrator Mode specification |
 | [docs/workflows/README.md](docs/workflows/README.md) | WF-01 to WF-05 Workflow definitions |
 | [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Using and migrating to Claude Code plugin |
 | [docs/oss-governance.md](docs/oss-governance.md) | OSS publication settings and operational decisions |

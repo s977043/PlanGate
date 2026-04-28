@@ -74,10 +74,20 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 - 動作形式（「〜を明文化する」「〜を実施する」）は手順であり、Workflow には書かない
 - 実装ノウハウは Skill / Agent / CLAUDE.md に委譲する
 
+## Orchestrator Mode 拡張（Parent-Child PBI、TASK-0038）
+
+Orchestrator Mode は親 PBI 配下の複数子 PBI を統制する仕様（[`docs/orchestrator-mode.md`](../orchestrator-mode.md) 参照）。本 5 phase の Workflow と並立し、親 PBI 層に Workflow を追加する:
+
+| Phase | 目的 | ファイル |
+| --- | --- | --- |
+| Decomposition | 親 PBI を子 PBI 群に分解 | [`orchestrator-decomposition.md`](./orchestrator-decomposition.md) |
+| Integration | 子 PBI 群完了後に親 PBI 完了判定 | [`orchestrator-integration.md`](./orchestrator-integration.md) |
+
 ## 関連
 
 - 親 PBI: `docs/working/TASK-0021/pbi-input.md`
 - 本 TASK 実行記録: `docs/working/TASK-0022/`
 - PlanGate 本体: `docs/plangate.md` / `docs/plangate-v6-roadmap.md`
+- Orchestrator Mode: `docs/orchestrator-mode.md` / `.claude/rules/orchestrator-mode.md`
 - モード分類: `.claude/rules/mode-classification.md`
 - レビュー原則: `.claude/rules/review-principles.md`

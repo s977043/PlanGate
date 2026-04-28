@@ -1,0 +1,273 @@
+# Child PBI YAML Schema (v1, specification only)
+
+#
+
+# 本ファイルは PlanGate Orchestrator Mode における子 PBI のスキーマ定義である
+
+# 関連: docs/orchestrator-mode.md / Issue #109
+
+#
+
+# 形式: 本書は schema を「コメント付きの代表 YAML」として記述する
+
+# JSON Schema / OpenAPI / Pydantic 等への変換は実装 PBI で行う
+
+#
+
+# バリデーション規則
+
+# - 必須キー（required）が欠落していたら error
+
+# - allowed_files / forbidden_files は glob 表現とする
+
+# - id は parent_id を含む形式でユニーク（PBI-XXX-NN）
+
+# - dependencies に列挙された ID は同じ親配下に存在すること
+
+# - parallelizable=true の場合、forbidden_files が他 child の allowed_files と
+
+# glob レベルで衝突しないこと
+
+# -------------------------------------------------------------------
+
+# Schema definition (representative example)
+
+# -------------------------------------------------------------------
+
+child_pbi:
+
+# 子 PBI 一意識別子
+
+# required: true
+
+# format: PBI-<parent-number>-<NN>（NN は 2 桁ゼロパディング推奨）
+
+  id: PBI-123-01
+
+# 親 PBI ID
+
+# required: true
+
+  parent_id: PBI-123
+
+# 子 PBI の短いタイトル（PR タイトル用）
+
+# required: true
+
+  title: 権限判定サービスを実装する
+
+# 子 PBI のゴール（1 文）
+
+# required: true
+
+  goal: API や UI から共通利用できる権限判定関数を提供する
+
+# ユーザー価値（誰の何が良くなるか）
+
+# required: false（推奨）
+
+  user_value: ロールに応じて安全に操作可否を判定できる
+
+# 含まれる作業のリスト
+
+# required: true
+
+  in_scope:
+    - permission service の実装
+    - unit test の追加
+
+# 含めない作業のリスト（明示的除外）
+
+# required: true
+
+  out_of_scope:
+    - DB schema 変更
+    - 管理画面 UI
+    - API middleware 適用
+
+# 依存先の子 PBI ID（同一親配下のもの）
+
+# required: true（空配列可）
+
+# type: list[string]
+
+  dependencies: []
+
+# 他子 PBI と並行実行可能か（false の場合は順次実行）
+
+# required: true
+
+# type: boolean
+
+  parallelizable: true
+
+# 変更を許可するファイルの glob パターン
+
+# required: true
+
+# type: list[glob string]
+
+# 例: src/domain/permission/** は permission ディレクトリ配下すべて
+
+  allowed_files:
+    - src/domain/permission/**
+    - src/lib/permission/**
+    - tests/permission/**
+
+# 変更を禁止するファイルの glob パターン
+
+# required: true
+
+# type: list[glob string]
+
+# 例: prisma/schema.prisma は schema 変更を禁止
+
+# parent PBI のスコープ境界を表現する重要フィールド
+
+  forbidden_files:
+    - prisma/schema.prisma
+    - src/app/api/**
+    - .github/workflows/**
+
+# 受入基準（テスト可能な条件）
+
+# required: true
+
+# type: list[string]
+
+  acceptance_criteria:
+    - role と action と resource から許可可否を返せる
+    - 未定義権限は deny になる
+    - unit test が主要ケースを網羅している
+
+# PR マージ前に PASS 必須のチェック
+
+# required: true
+
+# 値の例: lint / typecheck / unit-test / integration-test / acceptance-test
+
+  required_checks:
+    - lint
+    - typecheck
+    - unit-test
+
+# PR 戦略
+
+# required: true
+
+  pr_strategy:
+
+    # PR ブランチ名（推奨命名: feature/<id>-<slug>）
+    # required: true
+    branch: feature/PBI-123-01-permission-service
+
+    # PR の規模（small / medium / large）
+    # required: true
+    # ガイドライン:
+    #   small  : 50 行以下、1 ファイル中心
+    #   medium : 200 行以下、複数ファイル
+    #   large  : 500 行以下（超える場合は子 PBI 分解を推奨）
+    pr_size: small
+
+    # この PR をマージする前に完了が必須な子 PBI ID 配列
+    # required: true（空配列可）
+    # dependencies と通常一致するが、PR レベルの追加制約に使う
+    merge_after: []
+
+# 親 PBI 受入基準のうち、本子 PBI でカバーする項目（任意）
+
+# required: false（Integration Agent が自動カバレッジ確認に使う）
+
+# type: list[string]
+
+  covers_parent_ac:
+    - parent-AC-1
+    - parent-AC-3
+
+# 子 PBI モード（既存 5 mode と整合）
+
+# required: false（未指定時は親 PBI モードを継承）
+
+# values: ultra-light | light | standard | high-risk | critical
+
+  mode: standard
+
+# リスク評価（任意、Risk Gate で使用）
+
+# required: false
+
+  risk:
+    level: low                # low | medium | high | critical
+    domains: []               # 例: auth, payment, security, data-migration
+    mitigation: |-
+      影響範囲が permission ディレクトリに閉じている。
+      他 service への副作用なし。
+
+# 状態（Orchestrator Mode 状態遷移用）
+
+# required: false（実装側で管理）
+
+# values: planned | approved | executing | review | done | blocked
+
+  state: planned
+
+# -------------------------------------------------------------------
+
+# Validation rules（実装 PBI で機械チェックする想定）
+
+# -------------------------------------------------------------------
+
+#
+
+# rule-1: required keys are present
+
+# id, parent_id, title, goal, in_scope, out_of_scope, dependencies
+
+# parallelizable, allowed_files, forbidden_files, acceptance_criteria
+
+# required_checks, pr_strategy
+
+#
+
+# rule-2: id format
+
+# child PBI id MUST match ^PBI-[0-9]+-[0-9]{2,}$ (parent prefix + suffix)
+# parent_id MUST match ^PBI-[0-9]+$ (parent only, no suffix)
+
+#
+
+# rule-3: dependencies refer to siblings under the same parent
+
+# each dependency id MUST start with the same prefix as parent_id + "-"
+
+#
+
+# rule-4: scope boundary integrity
+
+# for each child A and B under the same parent
+
+# if both have parallelizable=true, then
+
+# expand_glob(A.allowed_files) ∩ expand_glob(B.allowed_files) MUST be empty
+
+# AND no path in A.allowed_files matches B.forbidden_files (and vice versa)
+
+#
+
+# rule-5: pr_size guidance
+
+# pr_size MUST be one of: small | medium | large
+
+# if pr_size == "large", reviewer SHOULD warn and suggest decomposition
+
+#
+
+# rule-6: state transitions
+
+# state transitions MUST follow
+
+# planned -> approved -> executing -> review -> done
+
+# any -> blocked (with reason recorded)
+
+# blocked -> any prior state (with re-approval if needed)
