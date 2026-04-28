@@ -203,13 +203,25 @@ PR Decision（APPROVE / BLOCK / CONDITIONAL）
 
 ### Mode × Gate × Skill 対応表
 
-| Mode | 発火する Gate | 必須 Skill |
-|------|-------------|-----------|
-| ultra-light | なし | — |
-| light | なし | — |
-| standard | Completion Gate | context-packager |
-| high-risk | Design + TDD + Review + Completion Gate | intent-classifier, skill-policy-router, context-packager, subagent-dispatch |
-| critical | 全 Gate（人間承認 + Rollback Plan 必須） | 全 Skill + pr-decision |
+正本: [`plugin/plangate/skills/skill-policy-router/SKILL.md`](../plugin/plangate/skills/skill-policy-router/SKILL.md) の Mode 別ポリシー表。本表は同 Skill が返す GatePolicy を要約したもの。
+
+| Mode | 発火する Gate | 必須 Skill | 任意 Skill |
+|------|-------------|-----------|----------|
+| ultra-light | Completion Gate（簡易） | `verify` | `check` |
+| light | Completion Gate | `check`, `verify` | `think`, `hunt` |
+| standard | Design + Completion Gate | `think`, `check`, `verify` | `hunt`, `tdd` |
+| high-risk | Design + TDD + Review + Completion Gate | `think`, `approval`, `worktree`, `tdd`, `check`, `review`, `verify` | — |
+| critical | 全 Gate（人間承認 + Rollback Plan 必須） | `think`, `approval`, `worktree`, `tdd`, `review`, `verify` | — |
+
+**Skill 識別子の凡例**: `think`（plan 立案）/ `hunt`（コード調査）/ `check`（self-review）/ `tdd`（failing test first）/ `verify`（test-cases 突合）/ `worktree`（独立ブランチ作業）/ `review`（外部レビュー）/ `approval`（人間承認）。
+
+**`critical` の追加要件**:
+
+- ロールバック計画の策定が必須
+- セキュリティレビューを含む多角的レビューを推奨
+- 段階的デプロイ計画の策定を推奨
+
+なお、Control OS 系 Skill（`intent-classifier` / `skill-policy-router` / `context-packager` / `subagent-dispatch` / `pr-decision` / `evidence-ledger` / `design-gate` / `review-gate`）は **Mode に関わらず PlanGate のエントリーフローで実行される**ため、上記表の「必須 Skill」とは別カテゴリとして扱う（[`plugin/plangate/README.md`](../plugin/plangate/README.md) 参照）。
 
 ## 参照
 

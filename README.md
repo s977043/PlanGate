@@ -33,10 +33,10 @@ git clone https://github.com/s977043/plangate.git
 cp -r plangate/.claude/ your-project/.claude/
 ```
 
-> [!WARNING]
-> **同じプロジェクトで両方の方法を使わないでください。**
-> plugin のインストールと `.claude/` のコピーを併用すると、Skill・コマンドの重複解決が起きます。
-> どちらか一方を選択してください。詳細は [plugin 移行ガイド](docs/plangate-plugin-migration.md) を参照してください。
+> [!NOTE]
+> **新規利用者は Option A または B のどちらか一方を推奨します。**
+> 既存利用者や段階的移行を行う場合、plugin と `.claude/` のデュアル運用は技術的に可能ですが、同名 Skill / コマンドの解決順に注意してください。
+> plugin 側を明示的に呼び出す場合は `plangate:<skill-or-agent>` prefix を使用します。詳細は [plugin 移行ガイド](docs/plangate-plugin-migration.md) を参照してください。
 
 ## 仕組み
 
@@ -139,15 +139,18 @@ GitHub 上で PR をレビューし、準備ができたらマージします。
 ## リポジトリ構成
 
 ```text
+/bin                     — plangate CLI（validate / review / exec / doctor）
 /docs                    — ナレッジ・ワークフロードキュメント
   /ai                    — 共通ルール・役割分担
   /workflows             — v7 Workflow 定義（WF-01〜WF-05）
   /working               — チケット単位の作業コンテキスト（TASK-XXXX/）
+/workflows               — Workflow DSL（5 mode YAML: ultra-light / light / standard / high-risk / critical）
 /.claude                 — Claude Code 設定
 /.codex                  — Codex CLI 設定
 /plugin/plangate         — Claude Code plugin パッケージ
 /scripts                 — ヘルパースクリプト
 /examples                — PlanGate 成果物の完成例
+/tests                   — CLI テストスイート（fixtures + run-tests.sh）
 ```
 
 ## Claude Code + Codex CLI
@@ -170,7 +173,13 @@ CLI テストスイートをローカルで実行:
 sh tests/run-tests.sh
 ```
 
-テストは `plangate validate --dir` を 4 種類のフィクスチャシナリオ（complete-task / missing-approval / stale-plan-hash / broken-pbi）に対して検証します。
+スイートは合計 **10 件**のテストで、以下を検証します（v8.1.0）:
+
+- `plangate validate --dir` — 4 種類のフィクスチャシナリオ（complete-task / missing-approval / stale-plan-hash / broken-pbi）
+- `plangate validate --mode <mode>` — Workflow DSL に基づく artifact 動的決定（standard 通過、未存在 mode はエラー）
+- `plangate review` — 引数欠落時の usage 表示
+- `plangate exec` — C-3 gate（`approvals/c3.json` + APPROVED）未通過時のブロック
+
 CI は同じスイートを全 PR で `.github/workflows/test.yml` を通じて実行します。
 
 ## Provider サポート

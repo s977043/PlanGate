@@ -68,7 +68,7 @@ PlanGate は当初、`.claude/` ディレクトリを含むリポジトリ配布
 | `acceptance-tester` | V-1 受入検査 |
 | `code-optimizer` | V-2 コード最適化 |
 
-### Rules (8)
+### Rules (9)
 
 | Rule | 内容 |
 |------|------|
@@ -135,11 +135,23 @@ plugin 内 agents から rules を参照する場合、plugin ルート相対パ
 ### Skills
 
 ```
+# 基盤系（5）
 plangate:brainstorming
 plangate:self-review
 plangate:subagent-driven-development
 plangate:systematic-debugging
 plangate:codex-multi-agent
+
+# Control OS / 統制系（9, plugin 0.5.0 で追加）
+plangate:setup-team
+plangate:intent-classifier
+plangate:skill-policy-router
+plangate:evidence-ledger
+plangate:design-gate
+plangate:review-gate
+plangate:context-packager
+plangate:subagent-dispatch
+plangate:pr-decision
 ```
 
 ### Agents
@@ -192,12 +204,13 @@ plugin の安定性を十分確認後、以下を段階的に実施:
 - [x] plugin 利用例の collection（`examples/` に追加）
 - [x] 多言語化（`README.md` 日本語化、英語版を `README_en.md` として分離）
 - [x] CLI テストスイート（`tests/run-tests.sh`）と CI workflow
+- [x] Workflow DSL (YAML) を `bin/plangate validate --mode` から参照（v8.0.0 / v8.1.0）
+- [x] Provider CLI 統合: Gemini review (`bin/plangate review`) / OpenCode exec (`bin/plangate exec`)（v8.1.0）
 
 ### 短期（〜3 ヶ月）
 
 - [ ] Hooks の実装本体（deterministic hooks: lint 自動実行、C-1 トリガー等）
-- [ ] Workflow DSL (YAML) を実行層に接続（現在はドキュメント定義のみ）
-- [ ] Provider RFC を実装（Gemini CLI / OpenCode 統合）
+- [ ] Workflow DSL を実行層に接続（現在は CLI 検証のみ。ランタイム実行ループ未統合）
 
 ### 長期（6 ヶ月〜）
 

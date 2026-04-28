@@ -32,10 +32,10 @@ git clone https://github.com/s977043/plangate.git
 cp -r plangate/.claude/ your-project/.claude/
 ```
 
-> [!WARNING]
-> **Do not use both methods in the same project.**
-> Installing the plugin AND copying `.claude/` causes duplicate skill/command resolution.
-> Choose one method. See [plugin migration guide](docs/plangate-plugin-migration.md) for details.
+> [!NOTE]
+> **New users should pick either Option A or Option B.**
+> For existing users or staged migrations, dual-running the plugin alongside `.claude/` is technically supported, but be aware that same-named Skills / commands may resolve in non-obvious order.
+> To explicitly invoke the plugin side, use the `plangate:<skill-or-agent>` prefix. See [plugin migration guide](docs/plangate-plugin-migration.md) for details.
 
 ## How It Works
 
@@ -138,16 +138,18 @@ See [plugin/plangate/README.md](plugin/plangate/README.md) for plugin registrati
 ## Repository Layout
 
 ```text
+/bin                     — plangate CLI (init / doctor / status / validate [--mode] / review / exec / abort / timeline / resume)
 /docs                    — Knowledge and workflow documentation
   /ai                    — Shared rules and role definitions
   /workflows             — v7 Workflow definitions (WF-01 to WF-05)
   /working               — Per-ticket working context (TASK-XXXX/)
+/workflows               — Workflow DSL (5-mode YAML: ultra-light / light / standard / high-risk / critical)
 /.claude                 — Claude Code configuration
 /.codex                  — Codex CLI configuration
 /plugin/plangate         — Claude Code plugin package
-/bin                     — plangate CLI (init/doctor/status/validate/abort/timeline/resume)
 /scripts                 — Helper scripts
 /examples                — Worked examples of PlanGate artifacts
+/tests                   — CLI test suite (fixtures + run-tests.sh)
 ```
 
 ## Claude Code + Codex CLI
@@ -170,7 +172,13 @@ Run the CLI test suite locally:
 sh tests/run-tests.sh
 ```
 
-Tests validate `plangate validate --dir` against four fixture scenarios: a complete task, missing approval, stale plan hash, and a missing artifact.
+The suite has **10 tests** total (as of v8.1.0) and validates:
+
+- `plangate validate --dir` against four fixture scenarios (complete-task / missing-approval / stale-plan-hash / broken-pbi)
+- `plangate validate --mode <mode>` — artifact list determined dynamically from Workflow DSL (standard passes, unknown mode errors)
+- `plangate review` — usage shown when arguments are missing
+- `plangate exec` — blocked when the C-3 gate (`approvals/c3.json` with APPROVED) has not cleared
+
 CI runs the same suite on every PR via `.github/workflows/test.yml`.
 
 ## Provider Support

@@ -73,18 +73,23 @@ Ready → In Progress
 | D: Agent実行（TDD） | 実装コード | AI（workflow-conductor） |
 | L-0: リンター自動修正 | リンター通過済みコード | AI |
 | V-1: 受け入れ検査 | PASS / FAIL | AI |
-| V-2: コード最適化（フルのみ） | 最適化済みコード | AI |
-| V-3: 外部モデルレビュー | レビュー結果 | AI |
-| V-4: リリース前チェック（フルのみ） | チェック結果 | AI |
+| V-2: コード最適化（high-risk / critical のみ） | 最適化済みコード | AI |
+| V-3: 外部モデルレビュー（standard 以上） | レビュー結果 | AI |
+| V-4: リリース前チェック（critical のみ） | チェック結果 | AI |
 | PR作成 | Pull Request + status.md | AI |
 | C-4: 人間レビュー（ゲート） | APPROVE / REQUEST CHANGES / REJECT | 人間 |
 
-### タスク規模によるモード分岐
+### タスク規模によるモード分岐（5 モード）
+
+判定基準の正本: [`plugin/plangate/rules/mode-classification.md`](../plugin/plangate/rules/mode-classification.md) / [`.claude/rules/mode-classification.md`](../.claude/rules/mode-classification.md)。
 
 | モード | 対象 | 検証ステップ |
 | --- | --- | --- |
-| **ライト** | バグ修正・設定変更・1ファイル以内の変更 | L-0 → V-1 → V-3 → PR → C-4 |
-| **フル** | 機能追加・リファクター・複数ファイル変更 | L-0 → V-1 → V-2 → V-3 → V-4 → PR → C-4 |
+| **ultra-light** | typo 修正・コメント修正・README 軽微更新 | L-0 → V-1（簡易確認）→ PR → C-4 |
+| **light** | バグ修正・1〜2 ファイルの小修正 | L-0 → V-1 → PR → C-4 |
+| **standard** | 小規模機能追加・3〜5 ファイル変更 | L-0 → V-1 → V-3 → PR → C-4 |
+| **high-risk** | 機能追加・複数レイヤー変更 | L-0 → V-1 → V-2 → V-3 → PR → C-4 |
+| **critical** | アーキ変更・横断リファクター・破壊的変更 | L-0 → V-1 → V-2 → V-3 → V-4 → PR → C-4 |
 
 ---
 
@@ -190,7 +195,7 @@ docs/working/
 | 4 | チェック漏れ防止 | 証拠なしにタスク完了を受理しない。V-1/V-2の結果、L-0の完了ログを証拠として記録 |
 | 5 | セッション復旧 | status.md/todo.mdから現在地を復元。V系ステップの進行状況も記録し、中断時にV-Nから再開可能 |
 | 6 | fix loop管理 | V-1 FAIL時のfix loop回数カウント。最大5回でABORT → 人間判断へエスカレーション |
-| 7 | モード分岐制御 | plan.mdのタスク規模に基づき、V-2/V-4のスキップ判定を自動実行（ライト/フル） |
+| 7 | モード分岐制御 | plan.md のタスク規模に基づき 5 モード（ultra-light / light / standard / high-risk / critical）を判定し、V-2/V-3/V-4 のスキップを自動制御 |
 | 8 | L-0管理 | exec完了後にリンター自動実行。autofix → AI修正ループ（最大3回）→ 抑制の3段階を制御 |
 
 ### exec以降の多層防御フロー
@@ -479,7 +484,7 @@ NO SCOPE CHANGE WITHOUT USER APPROVAL
 7. TDD: test-cases.mdに基づいてテスト先行（RED → GREEN → REFACTOR）
 
 ## 実装後の多層防御（workflow-conductorが自動制御）
-D: TDD実装 → L-0: リンター自動修正 → V-1: 受け入れ検査 → V-2: コード最適化(フル) → V-3: 外部モデルレビュー → V-4: リリース前チェック(フル) → PR作成 → C-4: 人間レビュー
+D: TDD実装 → L-0: リンター自動修正 → V-1: 受け入れ検査 → V-2: コード最適化（high-risk/critical）→ V-3: 外部モデルレビュー（standard 以上）→ V-4: リリース前チェック（critical）→ PR作成 → C-4: 人間レビュー
 
 ## Required Outputs
 - PR概要 / 受入基準チェック結果 / テスト結果 / 動作検証結果 / リスク・懸念 / 振り返りメトリクス
