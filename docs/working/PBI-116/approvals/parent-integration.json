@@ -1,0 +1,52 @@
+{
+  "$schema_version": "1",
+  "approval_type": "parent-integration",
+  "parent_pbi_id": "PBI-116",
+  "parent_pbi_title": "最新実行モデル対応: Outcome-first / Model Profile / Eval 基盤",
+  "issue": "https://github.com/s977043/plangate/issues/116",
+  "decision": "APPROVED",
+  "approver": "s977043 (mine_take)",
+  "approved_at": "2026-04-30",
+  "comment": "ユーザー指示「APPROVE」による Parent Integration Gate 承認。全 6 子 PBI 完了 (PBI-116-01〜06) / parent-AC × 8 全 PASS / Open Gap 0 件 / Release blocker なし / 統合チェック A〜E 全 PASS の状態で受理。docs/working/PBI-116/handoff.md を集約 handoff として確定し、parent state を done に遷移する。EPIC #116 を Close 可能。",
+  "integration_artifacts": {
+    "parent_handoff": "docs/working/PBI-116/handoff.md",
+    "parent_plan": "docs/working/PBI-116/parent-plan.md",
+    "integration_plan": "docs/working/PBI-116/integration-plan.md",
+    "child_handoffs": [
+      "docs/working/TASK-0039/handoff.md",
+      "docs/working/TASK-0040/handoff.md",
+      "docs/working/TASK-0041/handoff.md",
+      "docs/working/TASK-0042/handoff.md",
+      "docs/working/TASK-0043/handoff.md",
+      "docs/working/TASK-0044/handoff.md"
+    ],
+    "merged_prs": [
+      "#126", "#127", "#132", "#133", "#134",
+      "#137", "#138", "#139", "#141", "#142", "#143",
+      "#145", "#146", "#147",
+      "#148", "#149", "#150"
+    ]
+  },
+  "integration_check_results": {
+    "A_artifact_completeness": "PASS",
+    "B_ac_coverage": "PASS (parent-AC-1〜AC-8 全て covers_parent_ac でカバー)",
+    "C_integration_behavior": "PASS",
+    "D_no_regression": "PASS (5 mode / Rule 5 / 4原則 / Iron Law 維持)",
+    "E_doc_consistency": "PASS",
+    "open_gaps": 0,
+    "release_blockers": 0
+  },
+  "parent_ac_coverage": {
+    "parent-AC-1": "PASS (PBI-116-01)",
+    "parent-AC-2": "PASS (PBI-116-02)",
+    "parent-AC-3": "PASS (PBI-116-03)",
+    "parent-AC-4": "PASS (PBI-116-04)",
+    "parent-AC-5": "PASS (PBI-116-05)",
+    "parent-AC-6": "PASS (PBI-116-04, PBI-116-06)",
+    "parent-AC-7": "PASS (全子 PBI)",
+    "parent-AC-8": "PASS (PBI-116-01)"
+  },
+  "decision_options": ["APPROVED", "CONDITIONAL", "REJECTED"],
+  "post_approval_action": "parent state を done に遷移し、EPIC #116 を Close する。次 EPIC（v8.2 baseline 測定 / eval runner 実装 / Hook enforcement 実装 / schema validate CI 統合）の起票候補は handoff.md § 4 V2 候補を参照。",
+  "_schema_note": "本ファイルは親 PBI（Orchestrator Mode）用の Parent Integration Gate approval。.claude/rules/orchestrator-mode.md 不変条件 2 (ParentDone) の HumanOrPolicyFinalApprovalPassed に該当。schemas/parent-integration-approval.schema.json は別 PBI で形式化予定。"
+}
