@@ -4,6 +4,48 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v8.3.0 - 2026-04-30
+
+feat: 最新実行モデル対応 — Outcome-first / Model Profile / Prompt Assembly / Eval 基盤 (EPIC #116)
+
+PlanGate v8.2 milestone 中核 EPIC として、GPT-5.5 以降の outcome-first モデルに対応する基盤を整備。
+Orchestrator Mode 実運用ケース第一号として親 PBI（PBI-116）を 6 子 PBI に分解、4 phase で実行。
+17 PR（#126〜#151）をマージ、parent-AC × 8 全 PASS / Open Gap 0 / Release blocker 0 で完了。
+
+### Added
+
+- `docs/ai/core-contract.md` — Iron Law 7 項目を outcome-first 形式で正本化（PBI-116-01）
+- `docs/ai/model-profiles.yaml` — 実行モデル別 4 profile（gpt-5_5 / gpt-5_5_pro / gpt-5_mini / legacy_or_unknown）（PBI-116-02）
+- `schemas/model-profile.schema.json` — Model Profile JSON Schema（PBI-116-02）
+- `docs/ai/prompt-assembly.md` — 4 層 Prompt Assembly（base_contract / phase_contract / risk_mode_contract / model_adapter）（PBI-116-03）
+- `docs/ai/contracts/` × 7（各 phase 別 contract 定義）+ `docs/ai/adapters/` × 4（profile 別 adapter）（PBI-116-03）
+- `docs/ai/structured-outputs.md` + 4 schema（review-result / acceptance-result / mode-classification / handoff-summary）（PBI-116-04）
+- `docs/ai/responsibility-boundary.md` / `docs/ai/tool-policy.md` / `docs/ai/hook-enforcement.md`（PBI-116-04, 06）
+- `docs/ai/eval-plan.md` — model migration eval framework 8 観点 / 4 観点を release blocker（PBI-116-05）
+- `docs/ai/eval-cases/` × 8 — scope-discipline / approval-gate / verification-honesty / format-adherence（release blocker）+ ac-coverage / stop-behavior / tool-overuse / latency-cost（WARN）（PBI-116-05）
+- `docs/ai/eval-comparison-template.md` — prompt × model profile × reasoning effort 比較表（PBI-116-05）
+- `docs/working/PBI-116/` 親 PBI artifact 一式（parent-plan / dependency-graph / parallelization-plan / integration-plan / risk-report / handoff / approvals）
+
+### Changed
+
+- `CLAUDE.md` — 43 行 → 21 行に薄型化、Iron Law を `core-contract.md` に分離参照（PBI-116-01）
+- `AGENTS.md` — 61 行 → 29 行に薄型化、Codex 共有プロンプトを Core Contract 経由に統合（PBI-116-01）
+
+### Process Notes
+
+- Orchestrator Mode 実運用ケース第一号として 4 phase 構成（並行 → 順次 → 順次 → 順次）で運用検証
+- Phase 2 の 3 並行子 PBI を Codex C-2 統合レビュー 1 回で処理（呼び出しコスト 1/3 圧縮）
+- 全 6 子 PBI で `handoff.md` 必須 6 要素出力（Rule 5 遵守）
+- Parent Integration Gate 通過記録: `docs/working/PBI-116/approvals/parent-integration.json`
+- 振り返り: `docs/working/retrospective-2026-04-30.md` § PBI-116 EPIC 完了
+
+### Next EPIC 候補（V2）
+
+1. v8.2 baseline 測定 PBI（本 eval framework での初回測定）
+2. eval runner 実装 PBI（reasoning_token / latency / tool call 集計の自動化）
+3. Hook enforcement 実装 PBI（plan 未承認 block 等のハード強制）
+4. Structured Outputs 実 LLM 適用 PBI（schema validate CI 統合含む）
+
 ## v8.2.0 - 2026-04-28
 
 feat: Parent-Child PBI Orchestrator Mode 仕様策定 + ドキュメント同期 (#111 #112 #113 #114)
