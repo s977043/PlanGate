@@ -1,0 +1,103 @@
+# PlanGate Model Profiles v1
+#
+# Schema: schemas/model-profile.schema.json
+# Companion doc: docs/ai/model-profiles.md
+# Interface preflight: docs/working/PBI-116/interface-preflight.md（tool_policy / validation_bias 値域）
+#
+# Core Contract / Gate / Artifact schema はモデル別に変更しない。
+# 本ファイルは「reasoning effort / verbosity / context budget / tool policy / validation bias / adapter」
+# のモデル差分のみを表現する薄い設定層。
+
+version: 1
+
+defaults:
+  structured_outputs: true
+  require_validation_evidence: true
+
+models:
+
+  # 標準実行モデル。バランス型。
+  gpt-5_5:
+    family: gpt-5
+    role: default_reasoning
+    reasoning_effort_by_mode:
+      ultra_light: low
+      light: low
+      standard: medium
+      high_risk: high
+      critical: high
+    verbosity_by_phase:
+      classify: low
+      plan: medium
+      execute: low
+      review: medium
+      handoff: medium
+    max_context_policy: standard
+    tool_policy: allowed_tools_by_phase
+    validation_bias: normal
+    adapter: outcome_first
+
+  # 強力推論モデル。high_risk / critical で本領発揮。
+  gpt-5_5_pro:
+    family: gpt-5-pro
+    role: advanced_reasoning
+    reasoning_effort_by_mode:
+      ultra_light: low
+      light: medium
+      standard: high
+      high_risk: high
+      critical: high
+    allowed_efforts: [low, medium, high, xhigh]  # critical で xhigh も選択肢として許容
+    verbosity_by_phase:
+      classify: low
+      plan: medium
+      execute: low
+      review: high
+      handoff: medium
+    max_context_policy: expanded
+    tool_policy: expanded
+    validation_bias: strict
+    adapter: outcome_first_strict
+
+  # 高速軽量モデル。critical mode は disallow。
+  gpt-5_mini:
+    family: gpt-5-mini
+    role: fast_lightweight
+    reasoning_effort_by_mode:
+      ultra_light: low
+      light: low
+      standard: low
+      high_risk: medium
+      critical: low  # disallowed_modes で実効的に禁止
+    verbosity_by_phase:
+      classify: low
+      plan: low
+      execute: low
+      review: low
+      handoff: low
+    max_context_policy: compact
+    tool_policy: narrow
+    validation_bias: lenient
+    adapter: explicit_short
+    disallowed_modes: [critical]
+
+  # フォールバック（未知モデル / レガシー）。安全側に倒す。
+  legacy_or_unknown:
+    family: legacy
+    role: unknown
+    reasoning_effort_by_mode:
+      ultra_light: low
+      light: low
+      standard: medium
+      high_risk: high
+      critical: high
+    verbosity_by_phase:
+      classify: low
+      plan: medium
+      execute: medium
+      review: medium
+      handoff: medium
+    max_context_policy: standard
+    tool_policy: allowed_tools_by_phase
+    validation_bias: normal
+    adapter: legacy_or_unknown

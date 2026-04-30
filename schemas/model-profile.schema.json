@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/model-profile.schema.json",
+  "title": "PlanGate Model Profile",
+  "description": "実行モデル別の reasoning effort / verbosity / context budget / tool policy / validation depth を表す薄い設定層。PlanGate Core はモデル非依存で維持し、本 schema 配下のプロファイルでモデル差分を吸収する。",
+  "type": "object",
+  "required": ["version", "models"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "本 schema のバージョン。後方互換破壊的変更時にインクリメント。"
+    },
+    "defaults": {
+      "type": "object",
+      "description": "全プロファイル共通のデフォルト値。各プロファイルで上書き可能。",
+      "properties": {
+        "structured_outputs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Structured Outputs / JSON Schema 出力をデフォルトで有効化するか"
+        },
+        "require_validation_evidence": {
+          "type": "boolean",
+          "default": true,
+          "description": "完了判定時に検証 evidence を必須とするか（Iron Law #3 準拠）"
+        }
+      },
+      "additionalProperties": false
+    },
+    "models": {
+      "type": "object",
+      "description": "プロファイル ID → 設定のマップ。",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/profile" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "required": [
+        "family",
+        "role",
+        "reasoning_effort_by_mode",
+        "verbosity_by_phase",
+        "max_context_policy",
+        "tool_policy",
+        "validation_bias",
+        "adapter"
+      ],
+      "properties": {
+        "family": {
+          "type": "string",
+          "enum": ["gpt-5", "gpt-5-pro", "gpt-5-mini", "legacy"],
+          "description": "モデルファミリー識別子"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["default_reasoning", "advanced_reasoning", "fast_lightweight", "unknown"],
+          "description": "プロファイルが想定する役割"
+        },
+        "reasoning_effort_by_mode": {
+          "type": "object",
+          "description": "PlanGate 5 mode 別の推奨 reasoning effort",
+          "required": ["ultra_light", "light", "standard", "high_risk", "critical"],
+          "properties": {
+            "ultra_light": { "$ref": "#/$defs/effort_value" },
+            "light": { "$ref": "#/$defs/effort_value" },
+            "standard": { "$ref": "#/$defs/effort_value" },
+            "high_risk": { "$ref": "#/$defs/effort_value" },
+            "critical": { "$ref": "#/$defs/effort_value" }
+          },
+          "additionalProperties": false
+        },
+        "allowed_efforts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/effort_enum" },
+          "uniqueItems": true,
+          "description": "プロファイルで許容される effort 値の集合（critical mode で xhigh も許容したい場合の構造化表現）"
+        },
+        "verbosity_by_phase": {
+          "type": "object",
+          "description": "phase 別の出力 verbosity",
+          "required": ["classify", "plan", "execute", "review", "handoff"],
+          "properties": {
+            "classify": { "$ref": "#/$defs/verbosity_value" },
+            "plan": { "$ref": "#/$defs/verbosity_value" },
+            "execute": { "$ref": "#/$defs/verbosity_value" },
+            "review": { "$ref": "#/$defs/verbosity_value" },
+            "handoff": { "$ref": "#/$defs/verbosity_value" }
+          },
+          "additionalProperties": false
+        },
+        "max_context_policy": {
+          "type": "string",
+          "enum": ["compact", "standard", "expanded"],
+          "description": "context budget policy。compact=コスト優先 / standard=標準 / expanded=長文許容"
+        },
+        "tool_policy": {
+          "type": "string",
+          "enum": ["narrow", "allowed_tools_by_phase", "expanded"],
+          "description": "interface-preflight.md で合意した tool_policy 値域。実 tool セット射影は PBI-116-06 の docs/ai/tool-policy.md に従う"
+        },
+        "validation_bias": {
+          "type": "string",
+          "enum": ["lenient", "normal", "strict"],
+          "description": "interface-preflight.md で合意した validation_bias 値域。strict 時の追加 Hook 条件は PBI-116-06 の docs/ai/hook-enforcement.md に従う"
+        },
+        "structured_outputs": {
+          "type": "boolean",
+          "description": "プロファイル個別の Structured Outputs 利用設定（defaults を上書き）"
+        },
+        "adapter": {
+          "type": "string",
+          "enum": ["outcome_first", "outcome_first_strict", "explicit_short", "legacy_or_unknown"],
+          "description": "Prompt Assembly (PBI-116-03) で使用する adapter 種別"
+        },
+        "disallowed_modes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["ultra_light", "light", "standard", "high_risk", "critical"]
+          },
+          "uniqueItems": true,
+          "description": "本プロファイルで禁止する PlanGate mode（例: gpt-5_mini で critical を disallow）"
+        }
+      },
+      "additionalProperties": false
+    },
+    "effort_enum": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "xhigh"]
+    },
+    "effort_value": { "$ref": "#/$defs/effort_enum" },
+    "verbosity_value": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    }
+  }
+}
