@@ -23,7 +23,8 @@
 ## Output discipline
 
 - `evidence/verification.md` または `evidence/v1-acceptance-result.md`
-- acceptance-result.json（schema 準拠、任意）
+- `acceptance-result.json`（段階的に必須化、Issue #158）
+- JSON 出力時は [`schemas/acceptance-result.schema.json`](../../../schemas/acceptance-result.schema.json) 準拠、`schema-validate` CI で機械検証
 
 ## verbosity 継承
 

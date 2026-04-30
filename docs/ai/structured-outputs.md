@@ -106,9 +106,53 @@ PBI-116-05 (Model migration Eval cases) で以下を機械検証:
 
 統一: **2020-12**（既存 `c3-approval.schema.json` 等と整合）
 
+## 8. CI 統合・マイグレーションガイド（Issue #158 / TASK-0047）
+
+### 8.1 CI workflow
+
+[`.github/workflows/schema-validate.yml`](../../.github/workflows/schema-validate.yml) が PR の `docs/working/**/*.json` を対象に schema validate を実行する。違反時は CI FAIL（後方互換のため、対象 JSON が一切なければ skip）。
+
+実装の中核:
+
+- [`scripts/validate-schemas.py`](../../scripts/validate-schemas.py)（Python + `jsonschema`）— 単一ファイル / `--dir` / `--files-from` の 3 入力
+- `bin/plangate validate-schemas`（POSIX sh wrapper）— TASK ID / `--dir` / `--files-from` / 直接ファイル指定
+- ファイル名 → schema マッピングは `FILENAME_TO_SCHEMA`（[`scripts/validate-schemas.py`](../../scripts/validate-schemas.py)）に集約
+
+### 8.2 ローカル検証
+
+```sh
+# 単一ファイル
+sh bin/plangate validate-schemas docs/working/TASK-XXXX/approvals/c3.json
+
+# TASK ディレクトリ全体
+sh bin/plangate validate-schemas TASK-XXXX
+
+# git diff 経由
+git diff --name-only main...HEAD | grep -E '\.json$' >.changed.txt
+sh bin/plangate validate-schemas --files-from .changed.txt
+```
+
+依存: `pip install 'jsonschema>=4,<5'`（CI は workflow で自動インストール、ローカルは手動）。
+
+### 8.3 マイグレーション手順（既存 PBI → JSON 併用）
+
+1. **影響範囲の確認**: 対象成果物（review-result / acceptance-result / mode-classification / handoff-summary）の中で本 PBI で発行する JSON を特定
+2. **段階的移行**: 既存 PBI（PBI-116 配下等）は Markdown のみで継続可。新規 PBI は JSON を併発行することを推奨
+3. **新規 JSON 命名**: `docs/working/TASK-XXXX/<artifact>.json`（basename がマッピングキー）
+4. **schema 違反対応**:
+   - CI で FAIL → エラー位置（first error path）を確認 → JSON を修正 → 再 push
+   - 例外的に skip したい場合は当該 PBI の handoff.md「妥協点」に明記
+5. **eval 連携**: 準拠率 < 95% は release blocker（[`eval-plan.md`](./eval-plan.md) § 6）
+
+### 8.4 後方互換性
+
+- 既存 PBI の Markdown のみ運用は継続（CI は対象 JSON が無ければ skip）
+- 新 schema 違反を検出するのは新規 / 編集された JSON のみ
+- `schemas/` 配下の schema 自体を変更する PR は `push: branches: [main]` トリガで全 working JSON を再検証
+
 ## 関連
 
 - 親計画: [`docs/working/PBI-116/parent-plan.md`](../working/PBI-116/parent-plan.md)
-- TASK: [`docs/working/TASK-0042/`](../working/TASK-0042/)
+- TASK: [`docs/working/TASK-0042/`](../working/TASK-0042/) / [`docs/working/TASK-0047/`](../working/TASK-0047/)（CI 統合）
 - Phase 1 成果（基盤）: [`core-contract.md`](./core-contract.md)
 - 接続先: PBI-116-05 (Eval Cases) で schema 準拠率を eval 観点に

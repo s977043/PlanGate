@@ -1,0 +1,8 @@
+{
+  "task_id": "TASK-0047",
+  "phase": "C-3",
+  "c3_status": "MAYBE",
+  "approved_by": "human",
+  "approved_at": "not-a-timestamp",
+  "plan_hash": "sha256:bogus"
+}

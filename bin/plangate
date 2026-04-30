@@ -123,6 +123,7 @@ cmd_help() {
     "  doctor                         Check environment setup" \
     "  status <TASK-XXXX>             Show current phase and next action" \
     "  validate <TASK-XXXX> [--mode]  Verify artifacts and plan_hash integrity" \
+    "  validate-schemas <args>        Validate JSON artifacts against schemas/ (Issue #158)" \
     "  review <TASK-XXXX> [--phase]   Run external AI review (c2/v3)" \
     "  exec <TASK-XXXX> [--mode]      Dispatch implementation agent (after C-3)" \
     "  abort <TASK-XXXX> [--reason]   Record abort event in run.ndjson" \
@@ -490,6 +491,41 @@ cmd_validate() {
   fi
 }
 
+cmd_validate_schemas() {
+  # Validate JSON artifacts under a TASK dir / arbitrary --dir / explicit files
+  # against schemas/. Wraps scripts/validate-schemas.py.
+  # Usage:
+  #   plangate validate-schemas <TASK-XXXX>
+  #   plangate validate-schemas --dir <path>
+  #   plangate validate-schemas --files-from <list>
+  #   plangate validate-schemas <file>...
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate validate-schemas <TASK-XXXX> | --dir <path> | --files-from <list> | <file>...\n' >&2
+    return 1
+  fi
+
+  py_script="$plangate_root/scripts/validate-schemas.py"
+  if [ ! -f "$py_script" ]; then
+    printf 'error: scripts/validate-schemas.py not found\n' >&2
+    return 2
+  fi
+
+  # If first arg matches TASK-XXXX, expand to --dir <task-dir>
+  case "$1" in
+    TASK-*)
+      task_id=$1
+      shift
+      plangate_validate_task_id "$task_id"
+      plangate_require_task_dir "$task_id"
+      python3 "$py_script" --dir "$plangate_working_dir/$task_id" "$@"
+      return $?
+      ;;
+  esac
+
+  python3 "$py_script" "$@"
+  return $?
+}
+
 cmd_abort() {
   if [ $# -eq 0 ]; then
     printf 'Usage: plangate abort <TASK-XXXX> [--reason "..."]\n' >&2
@@ -752,6 +788,7 @@ case "$command" in
   doctor)      cmd_doctor "$@" ;;
   status)      cmd_status "$@" ;;
   validate)    cmd_validate "$@" ;;
+  validate-schemas) cmd_validate_schemas "$@" ;;
   review)      cmd_review "$@" ;;
   exec)        cmd_exec "$@" ;;
   abort)       cmd_abort "$@" ;;

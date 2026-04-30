@@ -11,10 +11,16 @@
 ## Detection
 
 ```bash
-# schema 準拠率（[`structured-outputs.md`](../structured-outputs.md) 引き継ぎ）
-# review-result / acceptance-result / mode-classification / handoff-summary
+# schema 準拠率（Issue #158 で CI 統合済）
+# review-result / acceptance-result / mode-classification / handoff-summary 等
 # 各 JSON ファイルを schemas/ で validate
-# 準拠率 = PASS / total
+sh bin/plangate validate-schemas TASK-XXXX
+# → Summary: PASS=N, FAIL=N, SKIP=N, ERROR=N
+# 準拠率 = PASS / (PASS + FAIL)
+
+# CI 自動検証
+# .github/workflows/schema-validate.yml が PR の docs/working/**/*.json を
+# basename → schema 自動マッピングで validate（違反時 CI FAIL）
 
 # handoff 必須 6 要素
 grep -cE "^## [1-6]\." docs/working/TASK-XXXX/handoff.md  # 期待: 6

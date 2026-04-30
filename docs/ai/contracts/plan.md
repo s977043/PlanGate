@@ -22,8 +22,10 @@ PBI INPUT PACKAGE から `plan.md` / `todo.md` / `test-cases.md` を生成する
 
 - Markdown 3 ファイル（plan / todo / test-cases）
 - frontmatter 不要（schema 化は plan-output 等で別 PBI）
+- JSON 併用時（`plan.json` 等）は [`schemas/plan.schema.json`](../../../schemas/plan.schema.json) 準拠を必須とし、`schema-validate` CI（[`.github/workflows/schema-validate.yml`](../../../.github/workflows/schema-validate.yml)）で機械検証する
 
 ## 関連
 
 - [`docs/working/templates/`](../../working/templates/) テンプレ
 - [`schemas/plan.schema.json`](../../../schemas/plan.schema.json)（既存 frontmatter schema）
+- [`structured-outputs.md`](../structured-outputs.md)（schema validate CI 統合 / Issue #158）

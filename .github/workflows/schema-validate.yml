@@ -1,0 +1,63 @@
+name: Schema Validate
+
+on:
+  pull_request:
+    paths:
+      - 'docs/working/**/*.json'
+      - 'schemas/**/*.json'
+      - 'scripts/validate-schemas.py'
+      - '.github/workflows/schema-validate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'schemas/**/*.json'
+      - 'scripts/validate-schemas.py'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install jsonschema
+        run: pip install 'jsonschema>=4,<5'
+
+      - name: Determine changed JSON files
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git diff --name-only --diff-filter=AM "$BASE_SHA" "$HEAD_SHA" \
+              | grep -E '^docs/working/.*\.json$' > .changed-json.txt || true
+          else
+            # push to main: validate all working JSON
+            find docs/working -name '*.json' -type f > .changed-json.txt 2>/dev/null || true
+          fi
+          count=$(wc -l < .changed-json.txt | tr -d ' ')
+          echo "count=$count" >>"$GITHUB_OUTPUT"
+          echo "Found $count JSON file(s) to validate:"
+          cat .changed-json.txt || true
+
+      - name: Validate schemas
+        if: steps.changed.outputs.count != '0'
+        run: |
+          set -eu
+          sh bin/plangate validate-schemas --files-from .changed-json.txt
+
+      - name: No JSON to validate
+        if: steps.changed.outputs.count == '0'
+        run: echo "No JSON artifacts in this PR — skipping schema validation."

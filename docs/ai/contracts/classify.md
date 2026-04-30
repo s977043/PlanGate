@@ -19,10 +19,12 @@ PBI の規模 / リスク / 影響範囲から **PlanGate 5 mode**（ultra-light
 
 ## Output discipline
 
-- Markdown（plan.md の Mode 判定セクション）+ JSON（mode-classification.json、任意）
+- Markdown（plan.md の Mode 判定セクション）+ JSON（`mode-classification.json`、段階的に必須化、Issue #158）
 - 根拠を簡潔に列挙（10 行以内）
+- JSON 出力時は [`schemas/mode-classification.schema.json`](../../../schemas/mode-classification.schema.json) 準拠、`schema-validate` CI で機械検証
 
 ## 関連
 
 - [`mode-classification.md`](../../../.claude/rules/mode-classification.md) — 5 mode 分類正本
 - [`schemas/mode-classification.schema.json`](../../../schemas/mode-classification.schema.json)
+- [`structured-outputs.md`](../structured-outputs.md)（schema validate CI 統合 / Issue #158）

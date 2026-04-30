@@ -21,9 +21,11 @@
 ## Output discipline
 
 - `review-self.md` / `review-external.md`（Markdown 詳細）
-- review-result.json（schema 準拠メタ、任意）
+- `review-result.json`（schema 準拠メタ、任意 → 段階的に必須化、Issue #158）
+- JSON 出力時は [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) 準拠、`schema-validate` CI で機械検証
 
 ## 関連
 
 - [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — phase: C-1 / C-2 / V-3
 - [`.claude/rules/review-principles.md`](../../../.claude/rules/review-principles.md)
+- [`structured-outputs.md`](../structured-outputs.md)（schema validate CI 統合 / Issue #158）
