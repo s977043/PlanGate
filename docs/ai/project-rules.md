@@ -96,3 +96,22 @@ PlanGate — ゲート型AI駆動開発ワークフローのリポジトリ。
 | レビュー原則 | `.claude/rules/review-principles.md` |
 | 作業コンテキスト管理 | `.claude/rules/working-context.md` |
 | モード分類 | `.claude/rules/mode-classification.md` |
+
+### v8.3 最新実行モデル対応（PBI-116 EPIC 成果物）
+
+| ドキュメント | 役割 |
+|---|---|
+| **`docs/ai/model-profiles.yaml`** | 実行モデル別 4 profile（gpt-5_5 / gpt-5_5_pro / gpt-5_mini / legacy_or_unknown）— reasoning effort / verbosity / tool policy / context policy |
+| `docs/ai/model-profiles.md` | Model Profile の解説・選定ガイド |
+| **`docs/ai/prompt-assembly.md`** | プロンプト 4 層組み立て（base_contract / phase_contract / risk_mode_contract / model_adapter） |
+| `docs/ai/contracts/` | phase 別 contract 定義 × 7（plan / classify / approve-wait / execute / review / verify / handoff） |
+| `docs/ai/adapters/` | profile 別 adapter × 4（outcome_first / outcome_first_strict / explicit_short / legacy_or_unknown） |
+| **`docs/ai/structured-outputs.md`** | Structured Outputs 適用方針（review-result / acceptance-result / mode-classification / handoff-summary） |
+| **`docs/ai/eval-plan.md`** | model migration eval framework（8 観点 / 4 観点 release blocker） |
+| `docs/ai/eval-cases/` | 観点別詳細 × 8（scope-discipline / approval-gate / verification-honesty / format-adherence / ac-coverage / stop-behavior / tool-overuse / latency-cost） |
+| `docs/ai/eval-comparison-template.md` | prompt × model profile × reasoning effort 比較表テンプレート |
+| **`docs/ai/responsibility-boundary.md`** | CLAUDE.md / Skill / Hook の責務境界（強制力の軸） |
+| **`docs/ai/tool-policy.md`** | phase 別 allowed_tools 定義 |
+| **`docs/ai/hook-enforcement.md`** | Hook で強制すべき項目（EHS-1〜EHS-3） |
+| `schemas/model-profile.schema.json` | Model Profile JSON Schema |
+| `schemas/{review-result,acceptance-result,mode-classification,handoff-summary}.schema.json` | Structured Outputs schema × 4 |

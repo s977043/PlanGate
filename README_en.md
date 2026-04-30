@@ -142,9 +142,13 @@ See [plugin/plangate/README.md](plugin/plangate/README.md) for plugin registrati
 ```text
 /bin                     — plangate CLI (init / doctor / status / validate [--mode] / review / exec / abort / timeline / resume)
 /docs                    — Knowledge and workflow documentation
-  /ai                    — Shared rules and role definitions
-  /workflows             — v7 Workflow definitions (WF-01 to WF-05)
-  /working               — Per-ticket working context (TASK-XXXX/)
+  /ai                    — Shared rules, role definitions, execution contract, Model Profile, Prompt Assembly, Eval framework (v8.3)
+    /contracts           — Phase-specific contracts × 7 (plan / classify / approve-wait / execute / review / verify / handoff)
+    /adapters            — Profile-specific adapters × 4 (outcome_first / outcome_first_strict / explicit_short / legacy_or_unknown)
+    /eval-cases          — Model migration eval observation points × 8 (v8.3)
+  /workflows             — v7 Workflow definitions (WF-01 to WF-05 + Orchestrator)
+  /working               — Per-ticket working context (TASK-XXXX/, PBI-XXX/)
+/schemas                 — JSON Schemas (plan / handoff / status / approval / model-profile / Structured Outputs × 4 etc.)
 /workflows               — v8 Workflow DSL (5-mode YAML: ultra-light / light / standard / high-risk / critical)
 /.claude                 — Claude Code configuration
 /.codex                  — Codex CLI configuration
@@ -224,6 +228,14 @@ To contribute support for a new provider, see [CONTRIBUTING.md](CONTRIBUTING.md#
 | [docs/plangate-v7-hybrid.md](docs/plangate-v7-hybrid.md) | v7 hybrid architecture |
 | [docs/orchestrator-mode.md](docs/orchestrator-mode.md) | Parent-Child PBI Orchestrator Mode specification |
 | [docs/workflows/README.md](docs/workflows/README.md) | WF-01 to WF-05 Workflow definitions |
+| [docs/ai/core-contract.md](docs/ai/core-contract.md) | Execution contract canonical (Iron Law / Stop rules / Output discipline) |
+| [docs/ai/model-profiles.yaml](docs/ai/model-profiles.yaml) | Per-execution-model 4 profiles (v8.3) |
+| [docs/ai/prompt-assembly.md](docs/ai/prompt-assembly.md) | 4-layer prompt assembly (v8.3) |
+| [docs/ai/structured-outputs.md](docs/ai/structured-outputs.md) | Structured Outputs / JSON Schema policy (v8.3) |
+| [docs/ai/eval-plan.md](docs/ai/eval-plan.md) | Model migration eval framework (8 observations, v8.3) |
+| [docs/ai/responsibility-boundary.md](docs/ai/responsibility-boundary.md) | CLAUDE.md / Skill / Hook responsibility boundary (v8.3) |
+| [docs/ai/tool-policy.md](docs/ai/tool-policy.md) | Phase-specific allowed_tools (v8.3) |
+| [docs/ai/hook-enforcement.md](docs/ai/hook-enforcement.md) | Hook-enforced items EHS-1 to EHS-3 (v8.3) |
 | [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Using and migrating to Claude Code plugin |
 | [docs/oss-governance.md](docs/oss-governance.md) | OSS publication settings and operational decisions |
 | [CHANGELOG.md](CHANGELOG.md) | Major release history |
