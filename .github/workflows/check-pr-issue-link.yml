@@ -1,0 +1,75 @@
+name: Check PR Issue Link
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, labeled, unlabeled, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Collect PR metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -eu
+          mkdir -p .pr-check
+          gh pr view "$PR_NUMBER" --json body --jq .body > .pr-check/body.txt
+          gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' > .pr-check/labels.txt
+          gh pr view "$PR_NUMBER" --json files --jq '.files[].path' > .pr-check/changed-files.txt
+
+      - name: Run check
+        id: check
+        run: |
+          set -eu
+          result=$(sh scripts/check-pr-issue-link.sh \
+            --body-file .pr-check/body.txt \
+            --labels-file .pr-check/labels.txt \
+            --changed-files .pr-check/changed-files.txt)
+          printf '%s\n' "$result"
+          # GH Actions output 用にエスケープ
+          {
+            echo "result<<EOF"
+            echo "$result"
+            echo "EOF"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Post warning comment (if WARN)
+        if: startsWith(steps.check.outputs.result, 'WARN')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RESULT: ${{ steps.check.outputs.result }}
+        run: |
+          set -eu
+          # 既存の warning コメントがあれば重複投稿しない（identifier で識別）
+          identifier='<!-- check-pr-issue-link:warning -->'
+          existing=$(gh pr view "$PR_NUMBER" --json comments --jq \
+            ".comments[] | select(.body | contains(\"$identifier\")) | .id" || true)
+          if [ -n "$existing" ]; then
+            echo "Existing warning comment found, skipping duplicate."
+            exit 0
+          fi
+          body=$(printf '%s\n\n**Check PR Issue Link**: %s\n\n- 推奨: PR 本文に `closes #N` / `fixes #N` / `resolves #N` を含めてください\n- 対象外の場合: PR に `chore` / `documentation` ラベルを付けるか、PR 本文に `<!-- skip-issue-link-check -->` を含めてください\n- 詳細: [Issue #159](https://github.com/s977043/plangate/issues/159)\n' "$identifier" "$RESULT")
+          gh pr comment "$PR_NUMBER" --body "$body"
+
+      - name: Output summary
+        env:
+          RESULT: ${{ steps.check.outputs.result }}
+        run: |
+          {
+            echo "### Check PR Issue Link"
+            echo ""
+            echo "- Result: \`$RESULT\`"
+          } >>"$GITHUB_STEP_SUMMARY"

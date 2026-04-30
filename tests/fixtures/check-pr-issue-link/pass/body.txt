@@ -1,0 +1,13 @@
+# Pull Request
+
+## Summary
+
+Add CI workflow to verify PR closing keywords.
+
+## Linked Issue
+
+closes #159
+
+## Validation
+
+- [x] Tests pass

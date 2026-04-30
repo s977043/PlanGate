@@ -222,6 +222,20 @@ child_pbi:
 
   state: planned
 
+# 関連 GitHub Issue 番号（auto-close 検証用）
+
+# required: false（推奨）
+
+# type: integer
+
+# 用途: scripts/check-pr-issue-link.sh が exec PR 本文の closing keyword
+
+#   （closes/fixes/resolves #N）と本フィールドを照合し、auto-close 漏れを検出する
+
+# 関連: Issue #159 / docs/working/TASK-0045/
+
+  related_issue: 117
+
 # -------------------------------------------------------------------
 
 # Validation rules（実装 PBI で機械チェックする想定）
