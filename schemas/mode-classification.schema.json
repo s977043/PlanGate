@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/mode-classification.schema.json",
+  "title": "PlanGate Mode Classification Result",
+  "description": "classify phase での mode 判定結果。判定根拠（指標と値）を構造化（PBI-116-04 / Issue #120）。",
+  "type": "object",
+  "required": ["taskId", "mode", "rationale", "classifiedAt"],
+  "properties": {
+    "taskId": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["ultra-light", "light", "standard", "high-risk", "critical"],
+      "description": "判定された PlanGate mode"
+    },
+    "modelProfile": {
+      "type": "string",
+      "description": "想定 Model Profile（gpt-5_5 等、model-profiles.yaml と整合、任意）"
+    },
+    "rationale": {
+      "type": "object",
+      "description": "判定根拠の指標と値",
+      "required": ["fileCountEstimate", "acceptanceCriteriaCount", "changeKind", "riskLevel", "rollbackComplexity"],
+      "properties": {
+        "fileCountEstimate": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "想定変更ファイル数"
+        },
+        "acceptanceCriteriaCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "受入基準数"
+        },
+        "changeKind": {
+          "type": "string",
+          "enum": ["typo", "config", "comment", "bug-fix", "small-feature", "feature-add", "refactor", "architecture", "cross-cutting", "breaking"],
+          "description": "変更種別"
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": ["none", "low", "medium", "high", "extreme"]
+        },
+        "rollbackComplexity": {
+          "type": "string",
+          "enum": ["none", "easy", "moderate", "planned", "staged"]
+        },
+        "scopeBreadth": {
+          "type": "string",
+          "enum": ["single-file", "single-feature", "related-features", "multi-layer", "system-wide"],
+          "description": "影響範囲（任意）"
+        }
+      },
+      "additionalProperties": false
+    },
+    "exceptionApplied": {
+      "type": "string",
+      "enum": ["security", "schema-change", "breaking-api", "none"],
+      "description": "例外ルール適用（mode-classification.md の例外）"
+    },
+    "userOverride": {
+      "type": "string",
+      "enum": ["ultra-light", "light", "standard", "high-risk", "critical"],
+      "description": "ユーザーオーバーライドがあった場合の値（任意）"
+    },
+    "classifiedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "classifier": {
+      "type": "string",
+      "description": "判定者（人間 ID / agent ID）"
+    }
+  },
+  "additionalProperties": false
+}

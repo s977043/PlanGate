@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/acceptance-result.schema.json",
+  "title": "PlanGate V-1 Acceptance Result",
+  "description": "V-1 受入検査の結果を機械判定向けに構造化。test-cases.md 突合結果を ac × tc マトリクスで記録（PBI-116-04 / Issue #120）。",
+  "type": "object",
+  "required": ["taskId", "decision", "acceptanceCriteria", "testCases", "executedAt"],
+  "properties": {
+    "taskId": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["PASS", "WARN", "FAIL"],
+      "description": "V-1 総合判定"
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "description": "受入基準ごとの判定結果",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/acItem"
+      }
+    },
+    "testCases": {
+      "type": "array",
+      "description": "test-cases.md の各 TC 実行結果",
+      "items": {
+        "$ref": "#/$defs/tcResult"
+      }
+    },
+    "fixLoopCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "V-1 fix loop の実行回数（最大 5、超過時 ABORT）"
+    },
+    "abortReason": {
+      "type": "string",
+      "description": "fix loop 上限超過 ABORT 時の理由（条件付き必須、validation_bias: strict + EHS-3 関連）"
+    },
+    "executedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "executor": {
+      "type": "string",
+      "description": "実行者（人間 ID / agent ID）"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": { "fixLoopCount": { "minimum": 5 } },
+        "required": ["fixLoopCount"]
+      },
+      "then": {
+        "required": ["abortReason"]
+      }
+    }
+  ],
+  "$defs": {
+    "acItem": {
+      "type": "object",
+      "required": ["acId", "decision"],
+      "properties": {
+        "acId": {
+          "type": "string",
+          "description": "AC 識別子（例: AC-1）"
+        },
+        "description": {
+          "type": "string",
+          "description": "AC 記述（任意）"
+        },
+        "decision": {
+          "type": "string",
+          "enum": ["PASS", "WARN", "FAIL"]
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "対応する evidence ファイルへのリンク群"
+        },
+        "linkedTestCases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "対応 TC ID の配列（例: [TC-1, TC-2]）"
+        }
+      },
+      "additionalProperties": false
+    },
+    "tcResult": {
+      "type": "object",
+      "required": ["tcId", "decision"],
+      "properties": {
+        "tcId": {
+          "type": "string",
+          "description": "TC 識別子（例: TC-1, TC-E1）"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["unit", "integration", "e2e", "doc-review", "manual", "edge"],
+          "description": "テスト種別"
+        },
+        "decision": {
+          "type": "string",
+          "enum": ["PASS", "WARN", "FAIL", "SKIP"]
+        },
+        "automated": {
+          "type": "boolean",
+          "description": "自動実行可能か"
+        },
+        "evidenceLog": {
+          "type": "string",
+          "description": "実行ログ or evidence ファイルへのリンク"
+        },
+        "failReason": {
+          "type": "string",
+          "description": "FAIL 時の理由（条件付き必須）"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "decision": { "const": "FAIL" } },
+            "required": ["decision"]
+          },
+          "then": {
+            "required": ["failReason"]
+          }
+        }
+      ]
+    }
+  }
+}

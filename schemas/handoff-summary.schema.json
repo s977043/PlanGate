@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/handoff-summary.schema.json",
+  "title": "PlanGate Handoff Summary",
+  "description": "WF-05 完了時の handoff.md 必須 6 要素のメタ情報を機械判定向けに構造化。本文 Markdown は別ファイル（handoff.md）で管理（PBI-116-04 / Issue #120）。",
+  "type": "object",
+  "required": ["taskId", "issuedAt", "requirementCompliance", "knownIssues", "v2Candidates", "compromises", "handoverNote", "testResults"],
+  "properties": {
+    "taskId": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "v1Release": {
+      "type": "string",
+      "description": "リリースタグ or PR/コミット参照（任意）"
+    },
+    "handoffMarkdownPath": {
+      "type": "string",
+      "description": "handoff.md 本文へのリンク（必須相当、本 schema はメタのみ）"
+    },
+    "requirementCompliance": {
+      "type": "object",
+      "description": "必須 6 要素 #1: 要件適合確認結果",
+      "required": ["overallDecision", "passCount", "totalCount"],
+      "properties": {
+        "overallDecision": {
+          "type": "string",
+          "enum": ["PASS", "WARN", "FAIL"]
+        },
+        "passCount": { "type": "integer", "minimum": 0 },
+        "warnCount": { "type": "integer", "minimum": 0 },
+        "failCount": { "type": "integer", "minimum": 0 },
+        "totalCount": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "knownIssues": {
+      "type": "object",
+      "description": "必須 6 要素 #2: 既知課題一覧",
+      "required": ["count"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "criticalOpen": { "type": "integer", "minimum": 0 },
+        "details": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "v2Candidates": {
+      "type": "object",
+      "description": "必須 6 要素 #3: V2 候補",
+      "required": ["count"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "highPriority": { "type": "integer", "minimum": 0 },
+        "details": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "compromises": {
+      "type": "object",
+      "description": "必須 6 要素 #4: 妥協点",
+      "required": ["count"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "details": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "handoverNote": {
+      "type": "object",
+      "description": "必須 6 要素 #5: 引き継ぎ文書（メタ）",
+      "required": ["fiveMinuteSummaryPresent"],
+      "properties": {
+        "fiveMinuteSummaryPresent": {
+          "type": "boolean",
+          "description": "5 分で状況把握できるサマリが含まれているか"
+        },
+        "doNotTouchFilesListed": { "type": "boolean" },
+        "nextStepsListed": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "testResults": {
+      "type": "object",
+      "description": "必須 6 要素 #6: テスト結果サマリ",
+      "required": ["overallDecision"],
+      "properties": {
+        "overallDecision": {
+          "type": "string",
+          "enum": ["PASS", "WARN", "FAIL"]
+        },
+        "unit": { "$ref": "#/$defs/testLayer" },
+        "integration": { "$ref": "#/$defs/testLayer" },
+        "e2e": { "$ref": "#/$defs/testLayer" }
+      },
+      "additionalProperties": false
+    },
+    "author": {
+      "type": "string",
+      "description": "handoff 発行者"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "testLayer": {
+      "type": "object",
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "pass": { "type": "integer", "minimum": 0 },
+        "fail": { "type": "integer", "minimum": 0 },
+        "skip": { "type": "integer", "minimum": 0 },
+        "coverage": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

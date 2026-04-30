@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/review-result.schema.json",
+  "title": "PlanGate Review Result",
+  "description": "C-1 / C-2 / V-1 / V-3 共通の機械判定向けレビュー結果。phase フィールドで識別。Markdown 成果物全体の構造は既存 review-self.schema.json / review-external.schema.json で扱い、本 schema は判定結果のみを構造化する（PBI-116-04 / Issue #120）。",
+  "type": "object",
+  "required": ["taskId", "phase", "decision", "findings", "gateRecommendation"],
+  "properties": {
+    "taskId": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$",
+      "description": "対象 TASK ID"
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["C-1", "C-2", "V-1", "V-3"],
+      "description": "レビュー phase。C-1=セルフ / C-2=外部 AI / V-1=受入検査 / V-3=外部モデルレビュー"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["PASS", "WARN", "FAIL"],
+      "description": "総合判定"
+    },
+    "findings": {
+      "type": "array",
+      "description": "個別の指摘事項",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "gateRecommendation": {
+      "type": "string",
+      "enum": ["APPROVE", "CONDITIONAL", "REJECT"],
+      "description": "次の Gate（C-3 / Child C-3 等）への推奨判定"
+    },
+    "summary": {
+      "type": "string",
+      "description": "1-2 行の総合サマリ（任意）"
+    },
+    "score": {
+      "type": "object",
+      "description": "phase 固有スコア（C-1 の 17 項目等、任意）",
+      "properties": {
+        "pass": { "type": "integer", "minimum": 0 },
+        "warn": { "type": "integer", "minimum": 0 },
+        "fail": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "reviewedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "レビュー実施日時 ISO 8601"
+    },
+    "reviewer": {
+      "type": "string",
+      "description": "レビュー実施者（人間 ID / モデル名 / agent ID）"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["severity", "category", "message"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "指摘 ID（例: EX-04-01）"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "major", "minor", "info"]
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "scope",
+            "acceptance_criteria",
+            "test_coverage",
+            "risk",
+            "dependency",
+            "security",
+            "performance",
+            "interface",
+            "schema",
+            "iron_law",
+            "stop_rule",
+            "doc_quality",
+            "unknown"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "description": "指摘本文"
+        },
+        "evidence": {
+          "type": "string",
+          "description": "該当ファイル:行 or evidence へのリンク（任意）"
+        },
+        "requiredAction": {
+          "type": "string",
+          "description": "推奨対応（任意）"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
