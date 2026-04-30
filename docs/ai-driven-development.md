@@ -315,7 +315,7 @@ PBIタイトル: {{PBI_TITLE}}
 ### Approach Overview
 
 ### Work Breakdown (Steps)
-各Stepに以下を必ず含めること：
+各Stepに以下を含める：
 1. Step:
    - Output:（具体的な成果物。ないStep＝Planが抽象的な証拠）
    - Owner: agent / human（曖昧にしない）
@@ -343,7 +343,7 @@ PBIタイトル: {{PBI_TITLE}}
 # 成果物② EXECUTION TODO（実行タスク）
 
 Work Breakdownを「2-5分粒度の実行可能なタスクリスト」に変換する。
-最重要ルール: 各タスクのOwner（agent / human）を必ず明記すること。
+最重要ルール: 各タスクのOwner（agent / human）を明記する。
 各タスクに `depends_on`（依存タスクID）と `files`（変更対象ファイル）を含めること。
 
 ### 🤖 Agentタスク（エージェントが実行）
@@ -476,7 +476,7 @@ EXECUTION PLAN、EXECUTION TODO、TEST CASESに従って実装してください
 ## Iron Law
 NO SCOPE CHANGE WITHOUT USER APPROVAL
 
-## 絶対ルール
+## Iron Law（不可侵ルール）
 1. TODOの「🤖 Agentタスク」だけを実行する。「👤 Humanタスク」には手を出さない
 2. スコープ外はやらない
 3. 不明点は即座に停止

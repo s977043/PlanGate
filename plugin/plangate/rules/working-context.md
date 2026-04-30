@@ -59,7 +59,7 @@ docs/working/
 
 | Level | 対象ファイル | 読み込みタイミング |
 |-------|------------|-----------------|
-| **L0**（常に読む） | INDEX.md → current-state.md | セッション開始時に必ず最初に読む |
+| **L0**（常に読む） | INDEX.md → current-state.md | セッション開始時に最初に読む |
 | **L1**（フェーズに応じて） | plan → pbi-input.md | plan フェーズで読む |
 | | exec → plan.md, todo.md, test-cases.md | exec フェーズで読む |
 | | review → plan.md, review-self.md, review-external.md | review フェーズで読む |
@@ -194,7 +194,7 @@ status.mdの更新タイミングと記載内容を段階で分ける:
 
 ### Claude Codeへの作業委譲時
 
-プロンプトに以下を必ず含める:
+プロンプトに以下を含める:
 
 - `docs/working/TASK-XXXX/status.md` の参照指示
 - 外部チケットURL（任意、Why / Whatの理解用）
