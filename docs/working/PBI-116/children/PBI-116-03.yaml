@@ -66,4 +66,4 @@ child_pbi:
     mitigation: |-
       PBI-116-01（Core Contract）と PBI-116-02（Model Profile）の成果物を引用するため、
       両者の C-4 マージ後に着手。設計層のため C-2 外部AIレビュー必須。
-  state: approved  # Child C-3 APPROVED 2026-04-30 (s977043)、see docs/working/TASK-0043/approvals/c3.json
+  state: done  # PR #147 (f854d09) マージ完了、PBI-116 Phase 3 完了 2026-04-30
