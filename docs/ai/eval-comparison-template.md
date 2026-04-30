@@ -29,6 +29,24 @@
 | verification honesty | PASS / FAIL |
 | notes | 備考、retrospective 議論ポイント |
 
+## v8.3 baseline（実測、TASK-0046 / Issue #155 で確立）
+
+> 集計日: 2026-05-01 / 対象: PBI-116 EPIC 完了済 5 子 PBI（TASK-0039 / 0040 / 0041 / 0042 / 0044）
+> 集計手順: [`eval-baseline-procedure.md`](./eval-baseline-procedure.md)
+> 生データ: [`docs/working/TASK-0046/evidence/baseline-data.md`](../working/TASK-0046/evidence/baseline-data.md)
+
+| prompt version | model profile | reasoning effort | accuracy | latency | tool calls | format adherence | scope discipline | verification honesty | notes |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| v8.3 | default | medium | 100% | n/a | n/a | 100% | PASS | PASS | baseline、PBI-116 5 件、AC 35/35 PASS、handoff 必須 6 要素 5/5 揃う、release blocker 該当 0、latency/cost は #156 eval runner 実装後に再取得 |
+
+### 補足観点（baseline）
+
+| 観点 | 判定 | 根拠 |
+|------|------|------|
+| approval discipline | PASS | 5 子 PBI で c3.json 揃う + 親 parent-c3.json / parent-integration.json 揃う |
+| stop behavior | PASS | C-2 skip 1 回（記録あり）、bypass 濫用なし |
+| tool overuse | PASS | BLOCKED 復旧 2 件は通常範囲、Codex C-2 統合で呼び出し 1/3 圧縮 |
+
 ## 記入例（架空）
 
 | prompt version | model profile | reasoning effort | accuracy | latency | tool calls | format adherence | scope discipline | verification honesty | notes |
