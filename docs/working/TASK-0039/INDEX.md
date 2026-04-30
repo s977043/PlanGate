@@ -13,14 +13,14 @@
 | Title | Outcome-first Core Contract への移行（prompt slimming） |
 | 親 PBI | [PBI-116](../PBI-116/parent-plan.md) |
 | Mode | high-risk |
-| Phase | **PREPARATORY**（Parent C-3 ゲート APPROVED 待ち） |
+| Phase | **PLAN-READY**（Parent C-3 APPROVED 2026-04-30、plan.md 作成可） |
 | 起票 | 2026-04-30 |
 
 ## 現在のフェーズ
 
-⏳ **Parent C-3 ゲート待ち**
+✅ **Parent C-3 APPROVED**（2026-04-30、s977043）
 
-`docs/working/PBI-116/approvals/parent-c3.json` の `decision` が `"APPROVED"` になるまで、本 TASK の plan / todo / test-cases 作成には進まない。
+`docs/working/PBI-116/approvals/parent-c3.json` で `decision: "APPROVED"`。本 TASK の plan / todo / test-cases 作成に進める。
 
 ## ファイル一覧（現時点）
 
@@ -50,8 +50,8 @@
 
 ## ネクストアクション
 
-1. **Parent C-3 ゲート判断** 👤
-   - 場所: `docs/working/PBI-116/approvals/parent-c3.json`
-   - 判定: APPROVED / CONDITIONAL / REJECTED
-2. APPROVED 後: 本 TASK で `plan.md` / `todo.md` / `test-cases.md` を別 PR で作成
-3. Child C-3 ゲート → exec → L-0 / V-1 / V-2 / V-3 → PR → Child C-4
+1. ✅ Parent C-3 ゲート APPROVED（2026-04-30、s977043）
+2. **本 TASK で `plan.md` / `todo.md` / `test-cases.md` を別 PR で作成**（次セッション）
+3. C-1 セルフレビュー（17 項目）→ C-2 外部AIレビュー（Codex 必須）
+4. Child C-3 ゲート判断 👤
+5. APPROVED 後 exec → L-0 → V-1 → V-2 → V-3 → PR → Child C-4

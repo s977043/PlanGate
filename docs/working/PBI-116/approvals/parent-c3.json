@@ -4,10 +4,10 @@
   "parent_pbi_id": "PBI-116",
   "parent_pbi_title": "最新実行モデル対応: Outcome-first / Model Profile / Eval 基盤",
   "issue": "https://github.com/s977043/plangate/issues/116",
-  "decision": "pending",
-  "approver": null,
-  "approved_at": null,
-  "comment": null,
+  "decision": "APPROVED",
+  "approver": "s977043 (mine_take)",
+  "approved_at": "2026-04-30",
+  "comment": "ユーザー指示「APPROVED にして」による包括承認。PR #126（親計画書）/ #127（TASK-0039 preparatory）の C-4 マージをもって、計画書 + 子 PBI 6 件 + 補助ドキュメント（dependency-graph / parallelization-plan / integration-plan / risk-report）への合意とみなす。Phase 1（PBI-116-01 / Issue #117）着手を許可する。",
   "decomposition_artifacts": {
     "parent_plan": "docs/working/PBI-116/parent-plan.md",
     "children": [
