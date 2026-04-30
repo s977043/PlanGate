@@ -1,9 +1,11 @@
-# PlanGate ワークフロー & プロンプト集（v5 / v6 / v7）
+# PlanGate ワークフロー & プロンプト集（v5〜v8）
 
 > Claude Codeコマンド: `/ai-dev-workflow`（`.claude/commands/ai-dev-workflow.md`）
 > PlanGate概要ガイド: [docs/plangate.md](plangate.md)
 >
 > **v7 ハイブリッドアーキテクチャ**: 本書の統制層を維持しつつ、実行層を Workflow/Skill/Agent 3 層で再構築したのが v7。詳細は [docs/plangate-v7-hybrid.md](./plangate-v7-hybrid.md) 参照。v5/v6 の運用を継続しつつ、段階的に v7 要素を opt-in 可能。
+>
+> **v8.2 Orchestrator Mode**: 親 PBI を子 PBI 群へ分解し、依存関係・並行実行・統合判定を統制する拡張モード（Spec only）。詳細は [docs/orchestrator-mode.md](./orchestrator-mode.md) 参照。本書の単一 PBI フローと並立する。
 
 ## 概要
 
@@ -538,6 +540,10 @@ D: TDD実装 → L-0: リンター自動修正 → V-1: 受け入れ検査 → V
 | 用途 | パス |
 | --- | --- |
 | PlanGateガイド | `docs/plangate.md` |
+| **PlanGate v7 ハイブリッドアーキテクチャ** | `docs/plangate-v7-hybrid.md` |
+| **Orchestrator Mode（親 PBI 分解、v8.2、Spec only）** | `docs/orchestrator-mode.md` |
+| Orchestrator Mode Gate 条件（正本） | `.claude/rules/orchestrator-mode.md` |
+| v7 Workflow 定義（WF-01〜WF-05 + Orchestrator） | `docs/workflows/README.md` |
 | メインコマンド | `.claude/commands/ai-dev-workflow.md` |
 | workflow-conductor | `.claude/agents/workflow-conductor.md` |
 | セルフレビュースキル | `.claude/skills/self-review/SKILL.md` |
@@ -546,4 +552,7 @@ D: TDD実装 → L-0: リンター自動修正 → V-1: 受け入れ検査 → V
 | debuggingスキル | `.claude/skills/systematic-debugging/SKILL.md` |
 | 作業コンテキストルール | `.claude/rules/working-context.md` |
 | レビュー原則 | `.claude/rules/review-principles.md` |
+| handoff テンプレート | `docs/working/templates/handoff.md` |
 | テンプレート | `docs/working/TASK-XXXX/` |
+| テストスイート | `tests/` |
+| 変更履歴 | `CHANGELOG.md` |

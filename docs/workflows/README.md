@@ -74,6 +74,14 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 - 動作形式（「〜を明文化する」「〜を実施する」）は手順であり、Workflow には書かない
 - 実装ノウハウは Skill / Agent / CLAUDE.md に委譲する
 
+## 補助ドキュメント
+
+| ファイル | 目的 |
+| --- | --- |
+| [`execution-sequence.md`](./execution-sequence.md) | WF-01〜WF-05 の標準実行シーケンス（呼び出し順・委譲関係） |
+| [`plangate-insertion-map.md`](./plangate-insertion-map.md) | PlanGate 既存フェーズと WF / Skill / Agent の対応マップ |
+| [`skill-mapping.md`](./skill-mapping.md) | Workflow phase ↔ Skill 対応マッピング |
+
 ## Orchestrator Mode 拡張（Parent-Child PBI、TASK-0038）
 
 Orchestrator Mode は親 PBI 配下の複数子 PBI を統制する仕様（[`docs/orchestrator-mode.md`](../orchestrator-mode.md) 参照）。本 5 phase の Workflow と並立し、親 PBI 層に Workflow を追加する:

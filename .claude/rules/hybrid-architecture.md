@@ -96,6 +96,28 @@ Rule 4 を補完する **強制力の軸** での境界:
 
 手動レビューと組み合わせて運用する。
 
+## 補足: 本リポジトリにおける Rule 3 / Rule 4 の適用範囲
+
+doc-audit 2026-04-28 で `.claude/agents/` 内に "PlanGate" / "WF-XX" / "TASK-XXXX" の言及が複数検出されたが、これらは **本リポジトリにおいては Rule 3 / Rule 4 違反として扱わない**。理由は以下のとおり:
+
+- 本リポジトリ自体が PlanGate（および WF / TASK アーティファクト）を提供する成果物である
+- Rule 4 の本意は「**他リポジトリへ再利用される** Agent / Skill 定義に案件固有名を埋めない」こと
+- 本リポジトリ内の Agent 定義は **このリポジトリの成果物そのもの** であり、案件固有情報を CLAUDE.md 配下（`.claude/agents/` を含む）に寄せた **正常な状態**
+
+### 他リポジトリへ export する場合の運用
+
+将来的に Agent 定義を他リポジトリへ配布・再利用する場合は、`plugin/plangate/agents/` 配下の export 版で固有名を抽象化する（または抽象化スクリプトを通す）。`.claude/agents/` 配下の正本は本リポジトリ向けに固有名を保持してよい。
+
+### 機械検出時の判断フロー
+
+```
+.claude/agents/ で "PlanGate" / "WF-XX" / "TASK-XXXX" を検出
+  ↓
+本リポジトリ向け定義か？
+  ├─ Yes → 違反扱いしない（本ルールの補足に該当）
+  └─ No  → Rule 3 / Rule 4 違反として是正対象
+```
+
 ## 参照
 
 - 親 PBI: [#22 TASK-0021](https://github.com/s977043/plangate/issues/22)
