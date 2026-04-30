@@ -65,4 +65,4 @@ child_pbi:
     mitigation: |-
       Phase 4 配置（最後）のため、他子 PBI の成果物が揃った状態で着手。
       eval cases は実装前に外部AIレビュー（C-2）で観点の妥当性を確認する。
-  state: planned
+  state: approved  # Child C-3 APPROVED 2026-04-30 (s977043)、C-2 skip（standard / doc-only）、see docs/working/TASK-0044/approvals/c3.json

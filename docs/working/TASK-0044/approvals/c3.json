@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-0044",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "s977043 (mine_take)",
+  "approved_at": "2026-04-30T08:30:00Z",
+  "plan_hash": "sha256:04a9db7ae61fa14fbf094a78bb4460b36ec996cbf4b74353bf10495a0f648886",
+  "_review_summary": {
+    "c1_self_review": "PASS (17/17 PASS, 0 WARN, 0 FAIL)",
+    "c2_external_review": "skip（standard mode、doc-only、Phase 1〜3 同パターン踏襲、review-external.md 記録）",
+    "user_directive": "ユーザー指示「進めて」（=Phase 1〜3 同パターンの自律実行）による包括承認",
+    "post_approval_action": "PBI-116-05 の exec を許可。docs/ai/eval-plan.md + 8 eval-cases + eval-comparison-template.md の作成に進める。"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
