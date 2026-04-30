@@ -1,0 +1,116 @@
+あなたは PlanGate ワークフローの外部AIレビュー（C-2）担当。
+PBI-116 Phase 2 の 3 子 PBI（PBI-116-02 / 04 / 06）の **plan ドキュメントをまとめてレビュー** してほしい。
+
+# 背景
+
+- Phase 1 (PBI-116-01) 完了後、Codex 戦略採用で Phase 2 を完全並行起動準備
+- 3 子 PBI それぞれが preparatory + plan/todo/test-cases + C-1 を 1 PR に統合（PR #137 / #138 / #139）
+- C-1 セルフレビューは全 3 PBI で 17/17 PASS
+- 全子 PBI が standard モード、各 plan 完成後の Child C-3 ゲート前
+
+# レビュー対象（3 子 PBI まとめて）
+
+## PBI-116-02 (Model Profile / Issue #118)
+
+- docs/working/TASK-0040/pbi-input.md
+- docs/working/TASK-0040/plan.md
+- docs/working/TASK-0040/todo.md
+- docs/working/TASK-0040/test-cases.md
+- docs/working/TASK-0040/review-self.md
+
+## PBI-116-04 (Structured Outputs / Issue #120)
+
+- docs/working/TASK-0042/pbi-input.md
+- docs/working/TASK-0042/plan.md
+- docs/working/TASK-0042/todo.md
+- docs/working/TASK-0042/test-cases.md
+- docs/working/TASK-0042/review-self.md
+
+## PBI-116-06 (Tool Policy / Issue #122)
+
+- docs/working/TASK-0041/pbi-input.md
+- docs/working/TASK-0041/plan.md
+- docs/working/TASK-0041/todo.md
+- docs/working/TASK-0041/test-cases.md
+- docs/working/TASK-0041/review-self.md
+
+## 共通参照
+
+- docs/working/PBI-116/parent-plan.md
+- docs/working/PBI-116/interface-preflight.md（02/06 接続点合意）
+- docs/working/PBI-116/children/PBI-116-{02,04,06}.yaml
+- docs/ai/core-contract.md（Phase 1 成果、Phase 2 の基盤）
+
+# レビュー観点（各 PBI 6 観点）
+
+1. **要件適合性**: pbi-input の AC が plan / test-cases で完全カバー
+2. **スコープ境界**: in_scope / out_of_scope と allowed_files / forbidden_files の整合
+3. **interface-preflight 準拠**: 02 と 06 の tool_policy / validation_bias 値域整合
+4. **Phase 2 並行性**: 3 PBI 並行実行時の競合・依存リスクの想定
+5. **テスト戦略**: TC が AC を網羅、自動化率、Edge case
+6. **リスク評価**: L1〜L4 の severity / mitigation が現実的
+
+# 追加観点（クロス PBI、3 PBI 関係）
+
+- 02 が定義する tool_policy / validation_bias 値域 ↔ 06 で参照
+- 04 は 02/06 と独立、Structured Outputs schema は別 schema namespace
+- 既存 schemas/ との互換性（特に 04 が 4 schema 新規追加で衝突しないか）
+- 各 PBI が PBI-116-03 (Prompt Assembly, Phase 3) の前提として機能するか
+
+# 出力形式
+
+以下の Markdown 構造で。前置き不要、本文のみ:
+
+```
+# C-2 外部AIレビュー結果 — PBI-116 Phase 2 (3 子 PBI まとめ)
+
+## サマリ（全 3 PBI 統合）
+
+| 区分 | 件数 |
+|------|------|
+| critical | <N> |
+| major | <N> |
+| minor | <N> |
+| info | <N> |
+
+総合判定: PASS / WARN / FAIL
+
+## PBI-116-02 (Model Profile)
+
+### 観点別判定（6 観点）
+- 1. 要件適合性: PASS/WARN/FAIL + 1 行コメント
+- 2. スコープ境界: ...
+- 3. interface-preflight 準拠: ...
+- 4. Phase 2 並行性: ...
+- 5. テスト戦略: ...
+- 6. リスク評価: ...
+
+### 指摘事項
+- EX-02-01 [severity] <タイトル>
+  - 該当: <ファイル:行 or セクション>
+  - 内容: <2-3 行>
+  - 推奨: <1-2 行>
+
+### Child C-3 推奨: APPROVE / CONDITIONAL / REJECT + 理由
+
+## PBI-116-04 (Structured Outputs)
+
+（同様の構造）
+
+## PBI-116-06 (Tool Policy)
+
+（同様の構造）
+
+## クロス PBI 観点
+
+- 02 ↔ 06 接続: 整合 / 乖離あり
+- 04 独立性: 確認 / 問題あり
+- 既存 schemas/ 互換性: 確認 / 衝突あり
+- Phase 3 前提機能: 機能する / 改善要
+
+## 総合 Child C-3 推奨
+
+3 PBI を一括 APPROVE するか、CONDITIONAL 対応必要か。理由を 5 行以内で。
+```
+
+各指摘は短く、根拠ベース。改善提案も併記。3 PBI 合計で 1500 語以内目安。

@@ -124,7 +124,7 @@ GPT-5.5 系の実行モデルごとの差分（reasoning effort / verbosity / co
 - Q1: schema は YAML / JSON どちらで本体定義？
   - A1: YAML（人間可読性）+ JSON Schema 併設
 - Q2: `xhigh` reasoning_effort 採用？
-  - A2: `high/xhigh` 候補表現で柔軟性
+  - A2: schema では `reasoning_effort` を単一 enum 値（low / medium / high / xhigh）として定義。critical mode で `xhigh` を許容したいプロファイルは `recommended_effort: high` + `allowed_efforts: [high, xhigh]` のように構造化（C-2 EX-02-01 対応）
 - Q3: gpt-5_mini の critical mode disallow 強制方法？
   - A3: `disallowed_modes: [critical]` フィールド追加
 
