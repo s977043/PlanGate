@@ -36,13 +36,19 @@
    | risk_mode_contract | mode 別の検証深度と Gate 要件 |
    | model_adapter | モデルごとの最小限の補正、verbosity、reasoning 方針 |
 
-3. **Phase contract の定義**（最低 7 phase）
+3. **Phase contract の定義**（**7 phase 全件**、Phase 1 Core Contract / Phase 2 schema との互換説明含む）
 
    - classify / plan / approve-wait / execute / review / verify / handoff
+   - **Core Contract v1 互換**: Phase 1 (`core-contract.md` § 3) の Success criteria 表は 6 phase で `review` に受入確認を包含。Prompt Assembly では `verify` を `review` から分離し独立 layer として明示化（C-2 EX-03-01 対応）。`prompt-assembly.md` で互換説明を記述する。
+   - **Phase 2 schema 互換（verbosity_by_phase）**: `schemas/model-profile.schema.json` の `verbosity_by_phase` は 5 phase（classify / plan / execute / review / handoff）のみ。Prompt Assembly が新設する 2 phase の verbosity 解決方針:
+     - **`approve-wait`**: ユーザー承認待ちで AI 出力なし → verbosity 不適用（解決スキップ）
+     - **`verify`**: `review` の verbosity を継承（review と verify はレビュー観点で連続するため）
+     - schema 変更は本 PBI scope 外、解決方針は `prompt-assembly.md` で明記（追加 Gemini 指摘対応）
 
-4. **Model adapter の定義**（最低 4 種、Phase 2 との整合）
+4. **Model adapter の定義**（**Phase 2 schema enum 全件 = 4 種、本 PBI 時点**）
 
    - `outcome_first` / `outcome_first_strict` / `explicit_short` / `legacy_or_unknown`
+   - **将来 enum 追加時は adapter skeleton 追加必須**（schema との完全一致を維持、C-2 EX-03-04 対応）
 
 5. **解決ロジック / 擬似コード**（Markdown / TypeScript / shell いずれか）
 
@@ -71,7 +77,7 @@
 - [ ] AC-1: prompt assembly が Core / Phase / Risk / Model Adapter の **4 層** として定義されている
 - [ ] AC-2: 各層の責務境界がドキュメント化されている
 - [ ] AC-3: plan / exec / review / handoff の **phase contract** が定義されている（最低 7 phase）
-- [ ] AC-4: outcome_first / explicit_short / legacy_or_unknown の **model adapter** が定義されている（最低 4 種）
+- [ ] AC-4: model adapter が **schema enum 全件（4 種）** で定義されている（outcome_first / outcome_first_strict / explicit_short / legacy_or_unknown）。enum 追加時は skeleton 追加必須を明記。
 - [ ] AC-5: モデル別 prompt full fork を避ける方針が明記されている
 - [ ] AC-6: 既存の `.claude/` と plugin の両方に適用できる構造になっている
 - [ ] AC-7: 解決ロジックが擬似コード or 実装で示されている

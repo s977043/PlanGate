@@ -10,7 +10,7 @@
 | Title | Prompt assembly を Core / Phase / Risk / Model Adapter に分層化する |
 | 親 PBI | [PBI-116](../PBI-116/parent-plan.md) |
 | Mode | **high-risk** |
-| Phase | **C3-WAIT**（preparatory + plan/todo/test-cases + C-1 完了） |
+| Phase | **EXEC-READY**（C-1 / C-2 完了、Child C-3 APPROVED、exec 開始可） |
 | 起票 | 2026-04-30 |
 
 ## 現在のフェーズ

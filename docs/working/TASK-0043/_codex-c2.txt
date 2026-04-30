@@ -1,0 +1,82 @@
+あなたは PlanGate ワークフローの外部AIレビュー（C-2）担当。
+PBI-116-03 (Issue #119 Prompt Assembly を 4 層化) の plan ドキュメントをレビューしてほしい。
+
+# 背景
+
+- Phase 1 (PBI-116-01 Core Contract) ✅ 完了 (PR #126〜#136)
+- Phase 2 (PBI-116-02 Model Profile / 04 Structured Outputs / 06 Tool Policy) ✅ 完了 (PR #137〜#144)
+- Phase 3 = 本 PBI、Phase 1 / 2 を統合する設計層
+- Mode: high-risk（high-risk のため C-2 必須）
+- C-1 セルフレビュー: 17/17 PASS
+
+# レビュー対象
+
+- docs/working/TASK-0043/pbi-input.md
+- docs/working/TASK-0043/plan.md
+- docs/working/TASK-0043/todo.md
+- docs/working/TASK-0043/test-cases.md
+- docs/working/TASK-0043/review-self.md
+
+# 共通参照
+
+- docs/working/PBI-116/parent-plan.md
+- docs/working/PBI-116/children/PBI-116-03.yaml
+- docs/ai/core-contract.md（Phase 1）
+- docs/ai/model-profiles.yaml / model-profiles.md（Phase 2）
+- schemas/model-profile.schema.json（adapter enum 整合先）
+- docs/ai/responsibility-boundary.md（4 layer 上位概念）
+- docs/ai/structured-outputs.md（schema 接続）
+
+# レビュー観点（6 観点）
+
+1. **要件適合性**: AC-1〜AC-7 が plan / TC で完全カバー
+2. **スコープ境界**: in_scope / out_of_scope と allowed_files / forbidden_files の整合
+3. **Phase 1 / 2 整合性**: core-contract + model-profile schema との整合（特に adapter enum）
+4. **テスト戦略**: AC 網羅、自動化率、Edge case
+5. **リスク評価**: L1〜L5 の severity / mitigation が現実的
+6. **doc-only 制約**: 「擬似コードまで、実装は別 PBI」が守られているか
+
+# 追加観点
+
+- 4 層化の責務境界が一意定義可能か
+- 7 phase contract / 4 model adapter の粒度が妥当か
+- Phase 4 (PBI-116-05 Eval) の前提として機能するか
+
+# 出力形式
+
+```
+# C-2 外部AIレビュー結果 — TASK-0043 (PBI-116-03)
+
+## サマリ
+
+| 区分 | 件数 |
+|------|------|
+| critical | <N> |
+| major | <N> |
+| minor | <N> |
+| info | <N> |
+
+総合判定: PASS / WARN / FAIL
+
+## 観点別判定（6 観点）
+
+- 1. 要件適合性: ...
+- 2. スコープ境界: ...
+- 3. Phase 1/2 整合性: ...
+- 4. テスト戦略: ...
+- 5. リスク評価: ...
+- 6. doc-only 制約: ...
+
+## 指摘事項
+
+### EX-03-01 [severity] <タイトル>
+- 該当: <ファイル:行>
+- 内容: <2-3 行>
+- 推奨: <1-2 行>
+
+## Child C-3 推奨
+
+APPROVE / CONDITIONAL / REJECT + 理由（5 行以内）
+```
+
+各指摘は短く、根拠ベース。改善提案併記。1500 語以内。

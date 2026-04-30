@@ -29,6 +29,7 @@ child_pbi:
     - docs/ai/adapters/**
     - bin/plangate-prompt-assemble
     - schemas/prompt-context.schema.json
+    - docs/working/TASK-0043/**  # workflow 管理成果物（plan/todo/test-cases/review/status/handoff/evidence、C-2 EX-03-02 対応）
   forbidden_files:
     - CLAUDE.md
     - AGENTS.md
@@ -65,4 +66,4 @@ child_pbi:
     mitigation: |-
       PBI-116-01（Core Contract）と PBI-116-02（Model Profile）の成果物を引用するため、
       両者の C-4 マージ後に着手。設計層のため C-2 外部AIレビュー必須。
-  state: planned
+  state: approved  # Child C-3 APPROVED 2026-04-30 (s977043)、see docs/working/TASK-0043/approvals/c3.json

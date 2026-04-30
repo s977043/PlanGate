@@ -1,0 +1,16 @@
+{
+  "task_id": "TASK-0043",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "s977043 (mine_take)",
+  "approved_at": "2026-04-30T08:00:00Z",
+  "plan_hash": "sha256:560ea44ccaf2536d916765c1d47fe31f52f822f333826e134cfecf2d2f67abd1",
+  "_review_summary": {
+    "c1_self_review": "PASS (17/17 PASS, 0 WARN, 0 FAIL)",
+    "c2_external_review": "Codex CONDITIONAL (major 2 / minor 2 / info 1) → 同 PR で全 5 件対応済 → APPROVE 相当",
+    "user_directive": "ユーザー指示「進めて」（=Phase 1/2 同パターンの自律実行）による包括承認",
+    "post_approval_action": "PBI-116-03 の exec を許可。docs/ai/prompt-assembly.md + 7 phase contracts + 4 model adapters の作成に進める。"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json",
+  "_note": "plan_hash は本 PR マージ後の最新 plan.md SHA-256 で再計算する。本ファイルは Codex C-2 対応 + Child C-3 APPROVED を 1 PR にまとめたため、暫定値で記録。"
+}
