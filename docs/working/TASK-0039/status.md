@@ -7,9 +7,9 @@
 - **対象 Issue**: [#117](https://github.com/s977043/plangate/issues/117)
 - **親 PBI**: [PBI-116](../PBI-116/parent-plan.md)
 - **子 PBI ID**: PBI-116-01
-- **ブランチ**: `feat/PBI-116-01-impl-step1-2`（Step 1+2 のみ）
+- **ブランチ**: `feat/PBI-116-01-impl-pr-a`（Step 5 → 3 → 4）
 - **モード**: high-risk
-- **状態**: exec 中（Step 1+2 完了、Step 3-6 は次セッション）
+- **状態**: exec 中（PR #132 で Step 1+2 完了、本 PR で Step 3-5 完了、Step 6-8 は次 PR）
 
 ## C-3 Gate: APPROVED
 
@@ -25,7 +25,31 @@
 
 ⏳ Step 3-6（既存ファイル薄型化）は次セッションで別 PR に分割
 
-## 完了タスク（本 PR スコープ）
+## PR-A 成果（Step 5 → 3 → 4）
+
+### Step 5: project-rules.md 整合
+- [x] T-15: Core Contract 参照と「正本責務の境界」セクション追加（A' セクション + G 参照表）
+
+### Step 3: CLAUDE.md 薄型化
+- [x] T-9: baseline 記録（43 行、`evidence/baseline.md`）
+- [x] T-10: 書き換え（参照テーブル → 短い箇条書き、`<law>` 全文維持）
+- [x] T-11: **21 行達成**（baseline 43 → 51% 削減、目標 22 以下 ✅）
+
+### Step 4: AGENTS.md 薄型化
+- [x] T-12: baseline 記録（61 行）
+- [x] T-13: 書き換え（表 2 つ → 短い箇条書き、Progressive Disclosure 表は working-context.md 参照に統合）
+- [x] T-14: **29 行達成**（baseline 61 → 52% 削減、目標 30 以下 ✅）
+
+### リンク到達性検証
+- [x] CLAUDE.md / AGENTS.md の全参照リンクが解決可能（手動 ls で確認）
+
+## PR-B で実施（次 PR）
+
+- T-16〜T-20: Step 6 hard-mandate 削減
+- T-21〜T-24: Step 7 検証（grep / wc / lint）→ evidence/verification.md
+- T-25〜T-28: Step 8 handoff + 子 PR
+
+## 旧: 完了タスク（PR #132 = Step 1+2）
 
 ### 準備
 - [x] T-1: Scope/受入基準の再確認

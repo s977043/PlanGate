@@ -8,6 +8,16 @@
 PlanGate — ゲート型AI駆動開発ワークフローのリポジトリ。
 「計画を承認しないとAIは1行もコードを書けない」関所モデルを採用し、PBI→Plan生成→レビュー→Agent実行までを体系化。Claude CodeおよびCodex CLIに対応。
 
+## A'. 正本責務の境界
+
+| 正本ファイル | 責務 |
+|-----------|------|
+| **`docs/ai/core-contract.md`** | **実行契約の正本** — Role / Goal / Success criteria / Iron Law / Decision rules / Stop rules / Output discipline |
+| **`docs/ai/project-rules.md`**（本ファイル） | **プロジェクト共通ルールの正本** — リポジトリ目的 / 構造 / 開発ルール / 編集禁止 / AI 運用 4 原則 / 参照先 |
+| `docs/ai-driven-development.md` | ワークフロー詳細・プロンプト集（実行契約は core-contract を参照） |
+
+**重複時の解釈**: 実行判断は Core Contract が最終根拠。プロジェクト固有のルールは本ファイルが正本。
+
 ## B. ディレクトリ構造
 
 ```
@@ -73,6 +83,7 @@ PlanGate — ゲート型AI駆動開発ワークフローのリポジトリ。
 
 | ドキュメント | パス |
 |---|---|
+| **実行契約（Core Contract）** | **`docs/ai/core-contract.md`**（Iron Law / Stop rules / Output discipline の正本） |
 | PlanGate ワークフロー（v5 現行） | `docs/plangate.md` |
 | PlanGate v6 ロードマップ | `docs/plangate-v6-roadmap.md` |
 | **PlanGate v7 ハイブリッドアーキテクチャ** | `docs/plangate-v7-hybrid.md` |
