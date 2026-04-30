@@ -1,0 +1,103 @@
+あなたは PlanGate Orchestrator Mode のシニアエンジニア。
+PBI-116（最新実行モデル対応）の **Phase 1 が完了** したため、ユーザーに代わって **Phase 2 の進め方を判断** してほしい。
+
+# Phase 1 完了状況
+
+PBI-116-01 (#117 Outcome-first Core Contract) が完了。10 PR で実装:
+- PR #126〜#135 マージ済み
+- 主成果: `docs/ai/core-contract.md` 確立、CLAUDE.md 51% 削減、AGENTS.md 52% 削減、Iron Law 7 項目正本化
+- 受入基準 6/6 PASS、Stop rule 該当なし
+
+# Phase 2 の対象
+
+3 子 PBI が並行実行可能:
+
+| 子 PBI | Issue | Title | Mode |
+|-------|-------|-------|------|
+| PBI-116-02 | #118 | Model Profile layer 追加（実行モデル別 reasoning / verbosity / context policy） | standard |
+| PBI-116-04 | #120 | Structured Outputs / JSON Schema 方針を PlanGate 成果物に適用 | standard |
+| PBI-116-06 | #122 | Tool Policy / Hook enforcement 境界整理 | standard |
+
+各子 PBI は Phase 1 (PBI-116-01) のみに依存し、相互依存なし（並行可能）。
+
+# 関連ファイル（読んで判断材料に）
+
+- docs/working/PBI-116/parent-plan.md（親計画、Status: parent:children_in_progress）
+- docs/working/PBI-116/children/PBI-116-02.yaml
+- docs/working/PBI-116/children/PBI-116-04.yaml
+- docs/working/PBI-116/children/PBI-116-06.yaml
+- docs/working/PBI-116/dependency-graph.md
+- docs/working/PBI-116/parallelization-plan.md
+- docs/working/PBI-116/risk-report.md
+- docs/ai/core-contract.md（Phase 1 成果物、Phase 2 の基盤）
+
+# 判断してほしいこと（5 点）
+
+## D1. Phase 2 着手戦略
+
+選択肢:
+- (a) 3 子 PBI を **完全並行**（worktree 3 つ、3 PR 同時進行）
+- (b) **順次**（1 つずつ、3 PR 連続）
+- (c) **2 並行 1 順次**（リスク中間）
+- (d) **最小着手から**（例: PBI-116-06 Tool Policy 境界定義のみ先に）
+
+## D2. 推奨着手順序
+
+並行実行するにせよ、3 子 PBI のうち **どれを最初に着手** すべきか:
+- PBI-116-02 (Model Profile): 設定層、PBI-116-03 が後で参照
+- PBI-116-04 (Structured Outputs): schema 設計、独立性高い
+- PBI-116-06 (Tool Policy): 境界定義のみ、実装軽量
+
+## D3. 着手準備の粒度
+
+各子 PBI の TASK ディレクトリ起票方針:
+- (a) 3 つすべてを **preparatory** で起票（pbi-input / INDEX / current-state）
+- (b) 着手予定の 1 つだけ起票
+- (c) 3 つ起票 + plan/todo/test-cases も含める（Child C-3 ゲートまで進める）
+
+## D4. リスクと対策
+
+並行実行時の想定リスク（worktree 競合 / Plugin 同期漏れ / Eval 着手前ブロッカー等）と対策。
+
+## D5. PR 戦略
+
+- 1 PR per 子 PBI が標準
+- preparatory は別 PR か、各子 PBI の plan PR に含めるか
+- マージ順序の制約
+
+# 出力形式
+
+以下の Markdown 構造で簡潔に。前置き不要、本文のみ。各回答は 5 行以内。
+
+```
+# Codex Phase 2 戦略相談結果
+
+## D1: 着手戦略
+- 推奨: (a/b/c/d)
+- 理由: <2-3 行>
+
+## D2: 着手順序
+- 推奨順: <子 PBI 順>
+- 理由: <2-3 行>
+
+## D3: 着手準備粒度
+- 推奨: (a/b/c)
+- 理由: <2-3 行>
+
+## D4: 想定リスクと対策
+
+| Risk | Severity | Mitigation |
+|------|---------|----------|
+| ... | ... | ... |
+
+## D5: PR 戦略
+
+- 推奨: <1 PR per 子 PBI / 統合 PR / etc>
+- 理由: <2-3 行>
+
+## 総合推奨（次セッションで実施すべき具体アクション）
+
+5 行以内で、本日この後の自律実行範囲を提案。
+```
+
+実装コードは不要。判断と方針のみ。
