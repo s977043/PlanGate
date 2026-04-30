@@ -13,7 +13,7 @@
 | Title | Outcome-first Core Contract への移行（prompt slimming） |
 | 親 PBI | [PBI-116](../PBI-116/parent-plan.md) |
 | Mode | high-risk |
-| Phase | **C3-WAIT**（C-1 PASS / C-2 CONDITIONAL 対応済 / Child C-3 ゲート待ち） |
+| Phase | **EXEC-READY**（Child C-3 APPROVED 2026-04-30、exec 開始可） |
 | 起票 | 2026-04-30 |
 
 ## 現在のフェーズ

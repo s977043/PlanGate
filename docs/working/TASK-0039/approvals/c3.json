@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-0039",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "s977043 (mine_take)",
+  "approved_at": "2026-04-30T05:18:23Z",
+  "plan_hash": "sha256:6632a42346089705730eaaeecaa05ab08fca1da067fb85cfe80caa3e26582b7f",
+  "_review_summary": {
+    "c1_self_review": "PASS (16/17 PASS, 1 WARN, 0 FAIL)",
+    "c2_external_review": "CONDITIONAL → resolved in same PR (#130)",
+    "user_directive": "ユーザー指示「APPROVED」による包括承認。PR #126〜#130 の C-4 マージをもって計画ドキュメント全体への合意とみなす。",
+    "post_approval_action": "PBI-116-01 の exec を許可。CLAUDE.md / AGENTS.md / Core Contract / 計 10〜15 ファイルの doc-review 編集に進める。"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
