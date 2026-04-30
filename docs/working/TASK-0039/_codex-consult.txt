@@ -1,0 +1,104 @@
+あなたは PlanGate ワークフローのシニアエンジニア。TASK-0039 (PBI-116-01 / Issue #117) の exec フェーズについて、第三者視点で実装方針を相談したい。
+
+# 状況
+
+PR #132 で **Step 1+2（棚卸し + Core Contract 新規作成）** を完了したところ。次に **Step 3-8（既存ファイル薄型化）** をどう進めるかが論点。
+
+## 完了済の成果物
+
+- `docs/ai/core-contract.md`（新規、8 セクション、Iron Law 7 項目）
+- `docs/working/TASK-0039/evidence/inventory.md`（64 ファイル棚卸し）
+- `docs/working/TASK-0039/evidence/baseline.md`（CLAUDE.md=43 行, AGENTS.md=61 行）
+
+## 残タスク（Step 3-8）
+
+- Step 3: CLAUDE.md 薄型化（baseline 43 行 → **22 行以下**目標）
+- Step 4: AGENTS.md 薄型化（baseline 61 行 → **30 行以下**目標）
+- Step 5: project-rules.md に Core Contract 参照追加
+- Step 6: hard-mandate 削減（必須 7 件 + 推奨 1 件 + 個別 4 件）
+- Step 7: 検証（grep / wc / lint）
+- Step 8: handoff + 子 PR
+
+## 関連ファイル（読んで判断材料に）
+
+- docs/ai/core-contract.md
+- CLAUDE.md（現状）
+- AGENTS.md（現状）
+- docs/working/TASK-0039/plan.md
+- docs/working/TASK-0039/evidence/inventory.md
+- docs/working/TASK-0039/evidence/baseline.md
+
+# 相談したいこと（4 点）
+
+## Q1. Core Contract（PR #132）の品質レビュー
+
+`docs/ai/core-contract.md` を独立レビューしてほしい:
+- 8 セクションは outcome-first として適切か
+- Iron Law 7 項目の表現に過不足はないか
+- AI 運用 4 原則との関係は明確か
+- 入口ファイル（CLAUDE.md / AGENTS.md）から参照する基盤として機能するか
+
+## Q2. 削減目標 50% は達成可能か（Step 3, 4）
+
+- CLAUDE.md 43 行 → 22 行以下: 達成可能か / 何を残し何を削るか
+- AGENTS.md 61 行 → 30 行以下: 達成可能か / 何を残し何を削るか
+- AI 運用 4 原則は CLAUDE.md `<law>` セクションで保持必須。これと両立する薄型化の現実解は？
+- もし達成困難なら、目標値の見直し or scope 縮小の提案
+
+## Q3. PR 分割粒度の推奨
+
+Step 3-8 を 1 PR にまとめる vs 複数 PR に分割する判断:
+- 1 PR にまとめるなら: メリット / デメリット
+- 分割するなら: どの境界で（Step 3-4 / Step 5-6 / Step 7-8 等）
+- レビュー粒度・回帰リスク・マージ順序を踏まえた推奨
+
+## Q4. 想定リスクと優先順序
+
+Step 3-8 の実行順序として現状の plan.md は順次（3 → 4 → 5 → 6 → 7 → 8）。これに対して:
+- 実行順を変える価値があるか（並列可能 / 依存関係の発見）
+- 想定外のリスク（Codex CLI 起動破壊 / Plugin 配布版との不整合 / Iron Law 弱化）
+- 各 Step で Stop rule に該当しうる状況の事前洗い出し
+
+# 出力形式
+
+以下の Markdown 構造で簡潔に。前置き不要、本文のみ。
+
+```
+# Codex 相談結果 — TASK-0039 Step 3-8
+
+## Q1: Core Contract 品質レビュー
+
+- 判定: GOOD / ACCEPTABLE / NEEDS_REVISION
+- 強み: <2-3 行>
+- 弱み・改善点: <2-3 行>
+- 重大な指摘（あれば）: ID + 内容
+
+## Q2: 削減目標達成可能性
+
+### CLAUDE.md (43 → 22 行以下)
+- 達成可能性: HIGH / MEDIUM / LOW
+- 削る要素: <列挙>
+- 残す要素: <列挙>
+- 現実的な落としどころ: 行数目安
+
+### AGENTS.md (61 → 30 行以下)
+- 同様の構造で
+
+## Q3: PR 分割粒度
+
+- 推奨: 1 PR / 2 PR / 3 PR ...
+- 境界: <どこで切るか>
+- 理由: <2-3 行>
+
+## Q4: リスクと順序
+
+- 順序見直し提案: <あれば>
+- 想定リスク: <列挙、severity 付き>
+- 各 Step の Stop rule 候補: <列挙>
+
+## 総合推奨
+
+次セッションで進めるべき内容を 5 行以内で。
+```
+
+各回答は短く、根拠ベースで。実装コードは不要、方針のみ。

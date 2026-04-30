@@ -40,6 +40,19 @@ PlanGate の中核ルール（Iron Law 7 項目）を維持したまま、**`CLA
 
 ## Work Breakdown (Steps)
 
+### PR 分割方針（Codex 相談 Q3 採用）
+
+- **PR-A**（次セッション）: Step 5 → Step 3 → Step 4（入口ファイル薄型化と参照整合）
+- **PR-B**（その次）: Step 6 → Step 7 → Step 8（hard-mandate 削減、検証、handoff）
+
+理由: 入口ファイル薄型化は起動破壊リスクが高く単独レビューしやすい。hard-mandate 削減は `.claude/` と `plugin/plangate/` の同期もあり集中レビュー要。
+
+### 実行順序（Codex 相談 Q4 採用）
+
+- **本 PR (#132)**: Step 1 → Step 2（完了済）
+- **PR-A**: Step 5（責務境界 = Core Contract 参照を project-rules に追加）→ Step 3（CLAUDE.md 21〜22 行へ）→ Step 4（AGENTS.md 24〜28 行へ）
+- **PR-B**: Step 6 → Step 7 → Step 8
+
 ### Step 1: 棚卸し（Phase 1）
 
 - **Output**: `evidence/inventory.md` — 64 ファイルの分類表、hard-mandate キーワード行番号、削減候補マーキング
@@ -102,6 +115,19 @@ PlanGate の中核ルール（Iron Law 7 項目）を維持したまま、**`CLA
 - **Owner**: agent
 - **Risk**: 低
 - 🚩 チェックポイント: handoff.md 必須 6 要素完備、status.md 更新
+
+### Stop rules（Codex 相談 Q4 採用）
+
+各 Step で以下が発生した場合は即停止し、ユーザー確認を求める:
+
+| Step | Stop trigger |
+|------|------------|
+| Step 3 | `<law>` 全文維持と 22 行以下が両立しない |
+| Step 4 | `.codex/instructions.md` と AGENTS.md の読み込み順序が矛盾 |
+| Step 5 | Core Contract と project-rules の正本責務を一意に定義できない |
+| Step 6 | Iron Law / AI 運用 4 原則以外の hard mandate か判断できない表現が出る |
+| Step 7 | grep 残存件数が説明不能、またはリンク到達性・行数目標が未達 |
+| Step 8 | handoff に未検証項目、WARN、手動確認未実施が残る |
 
 ## Files / Components to Touch
 
