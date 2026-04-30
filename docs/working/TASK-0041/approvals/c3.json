@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-0041",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "s977043 (mine_take)",
+  "approved_at": "2026-04-30T06:27:55Z",
+  "plan_hash": "sha256:990ce935d09c2fd5c4fad341c5fa16057a86c104fd76de6a120f03f8dd6b7f85",
+  "_review_summary": {
+    "c1_self_review": "PASS (17/17 PASS, 0 WARN, 0 FAIL)",
+    "c2_external_review": "Codex APPROVE + minor 1 (EX-06-01) + info 1 (EX-06-02) → 同 PR (#139) で対応済",
+    "user_directive": "ユーザー指示「a」（=3 PBI まとめて APPROVED）による包括承認",
+    "post_approval_action": "PBI-116-06 の exec を許可。docs/ai/responsibility-boundary.md / tool-policy.md / hook-enforcement.md の作成に進める（境界定義のみ）。"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

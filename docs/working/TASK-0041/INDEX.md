@@ -12,7 +12,7 @@
 | Title | Tool Policy / Hook enforcement 境界整理（最新モデル向け） |
 | 親 PBI | [PBI-116](../PBI-116/parent-plan.md) |
 | Mode | standard |
-| Phase | **C3-WAIT**（preparatory + plan/todo/test-cases + C-1 完了） |
+| Phase | **EXEC-READY**（Child C-3 APPROVED 2026-04-30、exec 開始可） |
 | 起票 | 2026-04-30 |
 
 ## 現在のフェーズ

@@ -12,7 +12,7 @@
 | Title | Model Profile layer 追加（実行モデル別 reasoning / verbosity / context policy） |
 | 親 PBI | [PBI-116](../PBI-116/parent-plan.md) |
 | Mode | standard |
-| Phase | **C3-WAIT**（preparatory + plan/todo/test-cases 完了、C-2 Codex → Child C-3 ゲート待ち） |
+| Phase | **EXEC-READY**（Child C-3 APPROVED 2026-04-30、exec 開始可） |
 | 起票 | 2026-04-30 |
 
 ## 現在のフェーズ

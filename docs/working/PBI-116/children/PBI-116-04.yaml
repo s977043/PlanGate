@@ -62,4 +62,4 @@ child_pbi:
       - structured-outputs
     mitigation: |-
       既存 schemas/ と矛盾しないよう、C-1 / C-2 で互換性確認を必須化する。
-  state: planned
+  state: approved  # Child C-3 APPROVED 2026-04-30 (s977043)、see docs/working/TASK-0042/approvals/c3.json

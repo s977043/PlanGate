@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-0040",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "s977043 (mine_take)",
+  "approved_at": "2026-04-30T06:27:55Z",
+  "plan_hash": "sha256:76269fe2fa3114cd0a0b6b8d302f7826c303003912838c4169a80243d91cabc6",
+  "_review_summary": {
+    "c1_self_review": "PASS (17/17 PASS, 0 WARN, 0 FAIL)",
+    "c2_external_review": "Codex APPROVE + minor 1 (EX-02-01) → 同 PR (#139) で対応済",
+    "user_directive": "ユーザー指示「a」（=3 PBI まとめて APPROVED）による包括承認",
+    "post_approval_action": "PBI-116-02 の exec を許可。docs/ai/model-profiles.yaml + 4 プロファイル + JSON Schema の作成に進める。"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

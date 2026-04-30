@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-0042",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "s977043 (mine_take)",
+  "approved_at": "2026-04-30T06:27:55Z",
+  "plan_hash": "sha256:493c2bd3f741cbcc00967957964e02d717b7c69d9ad00f0f18c108a92fe880a6",
+  "_review_summary": {
+    "c1_self_review": "PASS (17/17 PASS, 0 WARN, 0 FAIL)",
+    "c2_external_review": "Codex CONDITIONAL + major 1 (EX-04-01: 既存 schemas 互換性確認 5→12 件拡張) → 同 PR (#139) で対応済 → APPROVE 候補",
+    "user_directive": "ユーザー指示「a」（=3 PBI まとめて APPROVED）による包括承認",
+    "post_approval_action": "PBI-116-04 の exec を許可。docs/ai/structured-outputs.md + 4 新規 schema (review-result / acceptance-result / mode-classification / handoff-summary) の作成に進める。"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
