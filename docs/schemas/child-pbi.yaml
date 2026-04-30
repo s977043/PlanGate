@@ -109,10 +109,21 @@ child_pbi:
 
 # 例: src/domain/permission/** は permission ディレクトリ配下すべて
 
+# 推奨: workflow 管理成果物 (docs/working/TASK-XXXX/**) を必ず allowed_files に含める
+
+# 理由: plan / todo / test-cases / review-self / status / handoff / evidence
+
+# は exec 中に必ず編集される workflow 管理ファイルであり、本来の scope 外として
+
+# 扱うと誤検出する。子 PBI のスコープ判定は src / docs / schemas 等の本体成果物
+
+# に集中させ、TASK-XXXX/** はテンプレ的に許容する
+
   allowed_files:
     - src/domain/permission/**
     - src/lib/permission/**
     - tests/permission/**
+    - docs/working/TASK-XXXX/**  # workflow 管理成果物（plan/todo/test-cases/review/status/handoff/evidence）
 
 # 変更を禁止するファイルの glob パターン
 

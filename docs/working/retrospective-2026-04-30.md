@@ -182,6 +182,17 @@ PR #126 〜 #151 で Gemini が指摘した ~20 件のパターンを retrospect
 
 `~/.claude/scripts/gh-pin-account.sh` で session 起動時に active user を固定する仕組み。
 
+### T-6. PR close キーワード自動検証（CI）
+
+子 PBI の YAML（`children/PBI-XXX-NN.yaml`）から関連 issue 番号を抽出し、対応する PR 本文に `closes #N` / `fixes #N` / `resolves #N` のいずれかが含まれているかを CI で検証するスクリプトを追加する。EPIC #116 で 5 件の子 issue が PR 経由で auto-close されず手動 close を要した事象（セルフレビュー F-4）への再発防止策。
+
+実装案:
+- `.github/workflows/check-pr-issue-link.yml` を新設し、PR 本文を `gh pr view --json body` で取得
+- 子 PBI YAML（あれば）の `id` / `parent_id` から issue 候補を導出、`closes / fixes / resolves` 構文を grep
+- 違反時は warning（推奨運用、blocker までは強制しない）
+
+別 PBI として起票候補（mode: light、1 ファイル + ドキュメント追記程度）。並行して PR テンプレート（`.github/PULL_REQUEST_TEMPLATE.md`）にチェックボックスとして「closes キーワード追加」を明示する手作業の歯止めも先行導入。
+
 ## メトリクス
 
 | 指標 | 値 |
