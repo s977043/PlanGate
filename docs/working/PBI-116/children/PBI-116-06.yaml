@@ -59,4 +59,4 @@ child_pbi:
     mitigation: |-
       Hook 実装には踏み込まず境界定義のみ。
       Model Profile (PBI-116-02) の tool_policy フィールド設計と連携。
-  state: approved  # Child C-3 APPROVED 2026-04-30 (s977043)、see docs/working/TASK-0041/approvals/c3.json
+  state: done  # PR #142 (369593b) マージ完了、PBI-116 Phase 2 完了 2026-04-30

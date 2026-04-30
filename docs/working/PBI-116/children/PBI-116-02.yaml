@@ -60,4 +60,4 @@ child_pbi:
     mitigation: |-
       schema 設計を PBI-116-03 (Prompt assembly) と整合させるため、
       実装前に doc レビューで構造を確定する。
-  state: approved  # Child C-3 APPROVED 2026-04-30 (s977043)、see docs/working/TASK-0040/approvals/c3.json
+  state: done  # PR #141 (cd3609b) マージ完了、PBI-116 Phase 2 完了 2026-04-30
