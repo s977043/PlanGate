@@ -9,7 +9,7 @@
 - **ブランチ**: `feat/plangate-v7-hybrid-rules`
 - **Base Commit**: `913c433ffa802eb622ff9b966248d30cffc621f5`
 - **モード**: light
-- **状態**: C-3 APPROVED → exec 完了
+- **状態**: ✅ **完了（PR #40 マージ済み、v7.0.0 リリース）**
 
 ## C-3 Gate: APPROVED
 
