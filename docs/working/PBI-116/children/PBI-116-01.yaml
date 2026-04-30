@@ -62,4 +62,4 @@ child_pbi:
     mitigation: |-
       Iron Law 7 項目を明示維持し、削減対象は手順指定のみ。
       PR レビュー時に Core Contract 適合性を C-2 外部AIレビューで確認する。
-  state: approved  # Child C-3 APPROVED 2026-04-30 (s977043)、see docs/working/TASK-0039/approvals/c3.json
+  state: done  # PR #134 (cf4a333 → 9892b12) マージ完了、PBI-116 Phase 1 完了 2026-04-30
