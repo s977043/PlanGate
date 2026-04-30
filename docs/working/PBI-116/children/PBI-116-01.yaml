@@ -1,0 +1,64 @@
+child_pbi:
+  id: PBI-116-01
+  parent_id: PBI-116
+  title: Outcome-first Core Contract への移行（prompt slimming）
+  goal: PlanGate の中核ルールを維持したまま常時ロード指示を薄型化し、Core Contract を outcome-first 形式に再構成する
+  user_value: モデル変更時にも壊れにくい指示構造で、scope 逸脱・検証不正直のリスクを最小化する
+  in_scope:
+    - 既存プロンプト・ルールの棚卸し（CLAUDE.md / AGENTS.md / docs/ai/project-rules.md / .claude/rules / .claude/commands / .claude/agents / plugin/plangate/rules / plugin/plangate/commands / plugin/plangate/skills）
+    - Core Contract の outcome-first 形式定義（Role / Goal / Success criteria / Hard constraints / Decision rules / Available evidence / Stop rules / Output discipline）
+    - Iron Law 7 項目の明示保持
+    - CLAUDE.md / AGENTS.md の薄型化（Core Contract への導線化）
+  out_of_scope:
+    - C-3 / C-4 Gate の削除または緩和
+    - モデル別に完全に別プロンプトを作ること
+    - Hook や CLI の実装変更
+    - Structured Outputs schema の詳細設計（PBI-116-04 で対応）
+  dependencies: []
+  parallelizable: false
+  allowed_files:
+    - CLAUDE.md
+    - AGENTS.md
+    - docs/ai/project-rules.md
+    - docs/ai/core-contract.md
+    - .claude/rules/**
+    - .claude/commands/**
+    - .claude/agents/**
+    - plugin/plangate/rules/**
+    - plugin/plangate/commands/**
+    - plugin/plangate/skills/**
+  forbidden_files:
+    - bin/**
+    - schemas/**
+    - .github/workflows/**
+    - docs/orchestrator-mode.md
+    - docs/plangate.md
+    - docs/plangate-v7-hybrid.md
+  acceptance_criteria:
+    - PlanGate Core Contract が outcome-first 形式で `docs/ai/core-contract.md` 等に定義されている
+    - 常時ロードされる指示から重複した人格指定・過剰な手順指定が削減されている
+    - "必ず" / "絶対" / "ALWAYS" / "NEVER" が不変制約（Iron Law 7 項目）に限定されている
+    - 各 phase の指示に success criteria と stop rules が含まれている
+    - C-3 / C-4 / scope discipline / verification honesty の制約が維持されている
+    - 既存の plugin / .claude/ 両方の導線と矛盾していない
+  required_checks:
+    - lint
+    - markdown-lint
+  pr_strategy:
+    branch: feat/PBI-116-01-core-contract
+    pr_size: medium
+    merge_after: []
+  covers_parent_ac:
+    - parent-AC-1
+    - parent-AC-7
+    - parent-AC-8
+  mode: high-risk
+  risk:
+    level: high
+    domains:
+      - prompt-engineering
+      - workflow
+    mitigation: |-
+      Iron Law 7 項目を明示維持し、削減対象は手順指定のみ。
+      PR レビュー時に Core Contract 適合性を C-2 外部AIレビューで確認する。
+  state: planned

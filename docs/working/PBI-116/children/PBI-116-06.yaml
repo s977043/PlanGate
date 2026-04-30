@@ -1,0 +1,62 @@
+child_pbi:
+  id: PBI-116-06
+  parent_id: PBI-116
+  title: Tool Policy / Hook enforcement 境界整理（最新モデル向け）
+  goal: PlanGate でモデル判断とプログラム強制の責務境界を整理し、不変条件は Hook / CLI で決定論的にブロックできる方針を定義する
+  user_value: 最新モデル向けにプロンプトを薄くしても、不変条件は決定論で強制され安全性が維持される
+  in_scope:
+    - 責務境界の整理（Prompt / Tool Policy / Hook / CLI validate）
+    - Phase 別 allowed tools の定義（plan / approval-wait / exec / review / handoff）
+    - Hook enforcement で強制すべき不変条件の一覧化（plan.md なし production 編集禁止 / C-3 承認なし exec 禁止 / 検証ログなし PR 禁止 等）
+    - Model Profile との接続（tool_policy / validation_bias フィールド設計）
+    - プロンプトで強制するものと runtime で強制するものの区別
+  out_of_scope:
+    - すべての Hook 実装
+    - GitHub Actions 連携の実装
+    - Provider runtime の全面刷新
+    - C-3 / C-4 の人間承認フロー削除
+  dependencies:
+    - PBI-116-01
+  parallelizable: true
+  allowed_files:
+    - docs/ai/tool-policy.md
+    - docs/ai/hook-enforcement.md
+    - docs/ai/responsibility-boundary.md
+  forbidden_files:
+    - CLAUDE.md
+    - AGENTS.md
+    - .claude/settings.json
+    - .claude/settings.local.json
+    - .claude/hooks/**
+    - bin/**
+    - .github/workflows/**
+    - plugin/plangate/**
+  acceptance_criteria:
+    - Prompt / Tool Policy / Hook / CLI validate の責務境界が整理されている
+    - phase 別 allowed tools が定義されている
+    - Hook enforcement で強制すべき不変条件が一覧化されている
+    - Model Profile と tool_policy / validation_bias の関係が定義されている
+    - プロンプトで強制するものと runtime で強制するものが区別されている
+    - C-3 承認前実装禁止、scope 外編集禁止、検証証拠なし完了禁止が維持されている
+  required_checks:
+    - lint
+    - markdown-lint
+  pr_strategy:
+    branch: feat/PBI-116-06-tool-policy-boundary
+    pr_size: medium
+    merge_after:
+      - PBI-116-01
+  covers_parent_ac:
+    - parent-AC-6
+    - parent-AC-7
+  mode: standard
+  risk:
+    level: medium
+    domains:
+      - safety
+      - hook
+      - tool-policy
+    mitigation: |-
+      Hook 実装には踏み込まず境界定義のみ。
+      Model Profile (PBI-116-02) の tool_policy フィールド設計と連携。
+  state: planned

@@ -1,0 +1,68 @@
+child_pbi:
+  id: PBI-116-05
+  parent_id: PBI-116
+  title: Model migration Eval cases 追加（最新モデル移行の回帰確認）
+  goal: PlanGate のモデル移行を安全にするため、最低限の eval cases と評価観点を定義し感覚判断を排除する
+  user_value: モデル変更時に scope 逸脱・検証不正直・schema 崩れを機械検出でき、安全に移行できる
+  in_scope:
+    - Eval 観点の定義（scope discipline / approval discipline / AC coverage / verification honesty / stop behavior / tool overuse / format adherence / latency-cost）
+    - Eval cases の追加（docs/ai/eval-cases/*.md 7 件以上）
+    - 比較対象テンプレート（prompt version × model profile × reasoning effort）
+    - 合格基準の定義（Gate 違反 zero tolerance / verification honesty FAIL は release blocker）
+    - Model Profile 変更時の確認項目チェックリスト
+  out_of_scope:
+    - 本格的な自動 eval runner の実装
+    - 外部ダッシュボード構築
+    - 全モデル・全 provider の網羅比較
+    - 実運用ログの収集基盤
+  dependencies:
+    - PBI-116-01
+    - PBI-116-02
+    - PBI-116-03
+    - PBI-116-04
+    - PBI-116-06
+  parallelizable: false
+  allowed_files:
+    - docs/ai/eval-plan.md
+    - docs/ai/eval-cases/**
+    - docs/ai/eval-comparison-template.md
+  forbidden_files:
+    - CLAUDE.md
+    - AGENTS.md
+    - .claude/rules/**
+    - .claude/commands/**
+    - .claude/agents/**
+    - plugin/plangate/**
+    - docs/ai/model-profiles.yaml
+    - docs/ai/prompt-assembly.md
+  acceptance_criteria:
+    - model migration eval plan がドキュメント化されている
+    - scope discipline / approval discipline / AC coverage / verification honesty / stop behavior の eval case が存在する
+    - reasoning effort 比較表のテンプレートが存在する
+    - Gate 違反や検証不正直を release blocker とする基準が明記されている
+    - model profile 変更時に実行すべき確認項目が明記されている
+    - 最新モデル移行時の判断を感覚ではなく eval 結果で行う方針が明記されている
+  required_checks:
+    - lint
+    - markdown-lint
+  pr_strategy:
+    branch: feat/PBI-116-05-eval-cases
+    pr_size: medium
+    merge_after:
+      - PBI-116-01
+      - PBI-116-02
+      - PBI-116-03
+      - PBI-116-04
+      - PBI-116-06
+  covers_parent_ac:
+    - parent-AC-5
+  mode: standard
+  risk:
+    level: medium
+    domains:
+      - eval
+      - quality
+    mitigation: |-
+      Phase 4 配置（最後）のため、他子 PBI の成果物が揃った状態で着手。
+      eval cases は実装前に外部AIレビュー（C-2）で観点の妥当性を確認する。
+  state: planned

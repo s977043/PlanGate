@@ -1,0 +1,65 @@
+child_pbi:
+  id: PBI-116-04
+  parent_id: PBI-116
+  title: Structured Outputs / JSON Schema 方針を PlanGate 成果物に適用
+  goal: 機械判定が必要な PlanGate 成果物を Structured Outputs / JSON Schema に寄せ、モデル変更時にも壊れにくい出力契約を定義する
+  user_value: schema 準拠率がモデル変更で揺れず、機械判定の信頼性が確保される
+  in_scope:
+    - Structured Outputs 化対象成果物の整理（mode classification / C-1 / C-2 / V-1 / V-3 / handoff summary）
+    - schema 候補の定義（PlanGateReviewResult, AcceptanceResult 等の type / JSON Schema）
+    - Markdown 成果物と JSON 判定結果の境界整理
+    - frontmatter と schema の整合方針
+    - プロンプトから削減すべき出力形式指定の整理
+  out_of_scope:
+    - 全 Markdown 成果物の JSON 化
+    - 実際の API 統合実装
+    - eval runner の実装（PBI-116-05 で対応）
+    - 既存成果物の全移行
+  dependencies:
+    - PBI-116-01
+  parallelizable: true
+  allowed_files:
+    - schemas/review-result.schema.json
+    - schemas/acceptance-result.schema.json
+    - schemas/mode-classification.schema.json
+    - schemas/handoff-summary.schema.json
+    - docs/ai/structured-outputs.md
+  forbidden_files:
+    - CLAUDE.md
+    - AGENTS.md
+    - .claude/rules/**
+    - .claude/commands/**
+    - .claude/agents/**
+    - plugin/plangate/**
+    - schemas/handoff.schema.json
+    - schemas/plan.schema.json
+    - schemas/status.schema.json
+    - schemas/c3-approval.schema.json
+    - schemas/c4-approval.schema.json
+  acceptance_criteria:
+    - Structured Outputs 化する対象成果物・判定結果が一覧化されている
+    - mode classification / review result / acceptance result の schema 案が定義されている
+    - Markdown 成果物と JSON 判定結果の責務境界が明文化されている
+    - プロンプトから削るべき巨大な出力形式指定が整理されている
+    - 既存の schemas/ 方針や frontmatter 標準化と矛盾していない
+    - schema 準拠率を eval 対象に含める方針が明記されている
+  required_checks:
+    - lint
+    - markdown-lint
+    - schema-validate
+  pr_strategy:
+    branch: feat/PBI-116-04-structured-outputs
+    pr_size: medium
+    merge_after:
+      - PBI-116-01
+  covers_parent_ac:
+    - parent-AC-4
+  mode: standard
+  risk:
+    level: medium
+    domains:
+      - schema
+      - structured-outputs
+    mitigation: |-
+      既存 schemas/ と矛盾しないよう、C-1 / C-2 で互換性確認を必須化する。
+  state: planned

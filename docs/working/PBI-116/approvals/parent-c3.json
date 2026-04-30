@@ -1,0 +1,38 @@
+{
+  "$schema_version": "1",
+  "approval_type": "parent-c3",
+  "parent_pbi_id": "PBI-116",
+  "parent_pbi_title": "最新実行モデル対応: Outcome-first / Model Profile / Eval 基盤",
+  "issue": "https://github.com/s977043/plangate/issues/116",
+  "decision": "pending",
+  "approver": null,
+  "approved_at": null,
+  "comment": null,
+  "decomposition_artifacts": {
+    "parent_plan": "docs/working/PBI-116/parent-plan.md",
+    "children": [
+      "docs/working/PBI-116/children/PBI-116-01.yaml",
+      "docs/working/PBI-116/children/PBI-116-02.yaml",
+      "docs/working/PBI-116/children/PBI-116-03.yaml",
+      "docs/working/PBI-116/children/PBI-116-04.yaml",
+      "docs/working/PBI-116/children/PBI-116-05.yaml",
+      "docs/working/PBI-116/children/PBI-116-06.yaml"
+    ],
+    "dependency_graph": "docs/working/PBI-116/dependency-graph.md",
+    "parallelization_plan": "docs/working/PBI-116/parallelization-plan.md",
+    "integration_plan": "docs/working/PBI-116/integration-plan.md",
+    "risk_report": "docs/working/PBI-116/risk-report.md"
+  },
+  "review_checklist": [
+    {"item": "親 Goal / parent-AC が outcome-first で記述されている", "checked": false},
+    {"item": "子 PBI 6 件の scope 境界 (allowed_files / forbidden_files) が衝突していない", "checked": false},
+    {"item": "依存関係 DAG に循環がない", "checked": false},
+    {"item": "並行実行可能とされた子 PBI が真に並行可能 (allowed_files 重複なし)", "checked": false},
+    {"item": "Risk R1 / R4（high）の緩和策が具体的", "checked": false},
+    {"item": "Iron Law 7 項目が parent-plan.md および各子 PBI に明示されている", "checked": false},
+    {"item": "v8.2 milestone までに完了可能な scope に収まっている", "checked": false}
+  ],
+  "decision_options": ["APPROVED", "CONDITIONAL", "REJECTED"],
+  "post_approval_action": "parent state を decomposition_approved に遷移し、PBI-116-01 (Phase 1) の docs/working/TASK-XXXX/ 着手を許可する",
+  "_schema_note": "本ファイルは親 PBI（Orchestrator Mode）用の approval であり、既存の schemas/c3-approval.schema.json（子 PBI 単位の C-3 用、task_id / phase: C-3 / c3_status を必須）とは別形式。親 PBI 用 schema は本 PBI-116 配下で v1 spec として確立する（schemas/parent-c3-approval.schema.json は別 PBI で形式化予定）。"
+}

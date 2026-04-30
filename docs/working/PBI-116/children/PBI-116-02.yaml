@@ -1,0 +1,63 @@
+child_pbi:
+  id: PBI-116-02
+  parent_id: PBI-116
+  title: Model Profile layer 追加（実行モデル別 reasoning / verbosity / context policy）
+  goal: 実行モデルごとの差分を model-profiles.yaml 相当の薄い設定層に閉じ込め、PlanGate Core を共通に保つ
+  user_value: モデル変更時に Core を fork せずプロファイル切替で対応でき、保守負荷を最小化
+  in_scope:
+    - Model Profile schema の定義（reasoning_effort_by_mode / verbosity_by_phase / context_budget / tool_policy / validation_depth / structured_outputs / adapter）
+    - 4 プロファイル定義（gpt-5_5, gpt-5_5_pro, gpt-5_mini, legacy_or_unknown）
+    - PlanGate 5 モードと reasoning effort のマッピング
+    - phase 別 verbosity の定義（classify / plan / execute / review / handoff）
+    - context budget policy の定義（compact / standard / expanded）
+  out_of_scope:
+    - モデル別プロンプト全文の fork
+    - provider 実行ランタイムの大規模改修
+    - eval runner の実装（PBI-116-05 で対応）
+    - Structured Outputs schema の実装詳細（PBI-116-04 で対応）
+  dependencies:
+    - PBI-116-01
+  parallelizable: true
+  allowed_files:
+    - docs/ai/model-profiles.yaml
+    - docs/ai/model-profiles.md
+    - docs/ai/profiles/**
+    - schemas/model-profile.schema.json
+  forbidden_files:
+    - CLAUDE.md
+    - AGENTS.md
+    - .claude/rules/**
+    - .claude/commands/**
+    - .claude/agents/**
+    - plugin/plangate/**
+    - bin/**
+    - .github/workflows/**
+  acceptance_criteria:
+    - model-profiles.yaml または同等のドキュメントが追加されている
+    - GPT-5.5 / Pro / Mini / legacy_or_unknown のプロファイルが定義されている
+    - reasoning effort が PlanGate mode 別に定義されている
+    - verbosity が phase 別に定義されている
+    - context budget policy が compact / standard / expanded 等で定義されている
+    - critical mode で小型/高速モデルを disallow できる方針がある
+    - Core Contract / Gate / Artifact schema はモデル別に変えないことが明記されている
+  required_checks:
+    - lint
+    - markdown-lint
+    - schema-validate
+  pr_strategy:
+    branch: feat/PBI-116-02-model-profile
+    pr_size: medium
+    merge_after:
+      - PBI-116-01
+  covers_parent_ac:
+    - parent-AC-2
+  mode: standard
+  risk:
+    level: medium
+    domains:
+      - configuration
+      - model-profile
+    mitigation: |-
+      schema 設計を PBI-116-03 (Prompt assembly) と整合させるため、
+      実装前に doc レビューで構造を確定する。
+  state: planned
