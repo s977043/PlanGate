@@ -5,29 +5,29 @@
 
 ## 現在のフェーズ
 
-**PLAN-READY**（Parent C-3 APPROVED 2026-04-30、plan.md 作成可）
+**C3-WAIT**（C-1 PASS / C-2 CONDITIONAL → 同 PR で対応 / Child C-3 ゲート待ち）
 
 ## 完了済
 
 - [x] Parent PBI（PBI-116）親計画書マージ（PR #126 / `9203c84`）
-- [x] 子 PBI YAML（PBI-116-01.yaml）作成
-- [x] 本 TASK の `pbi-input.md` 構造化（Issue #117 から）
-- [x] `INDEX.md` / `current-state.md` 作成
-- [x] **Parent C-3 ゲート APPROVED**（s977043, 2026-04-30）
+- [x] Parent C-3 ゲート APPROVED（s977043, 2026-04-30）
+- [x] 子 PBI YAML（PBI-116-01.yaml）作成 + allowed_files に ai-driven-development.md 追加（C-2 EX-01）
+- [x] pbi-input.md 構造化（Iron Law 対応表追加 / C-2 EX-02）
+- [x] plan.md 作成（C-2 EX-01/03/04/05 反映済）
+- [x] todo.md 作成
+- [x] test-cases.md 作成（C-2 EX-04 反映済）
+- [x] **C-1 セルフレビュー**: 16 PASS / 1 WARN / 0 FAIL → 総合 PASS
+- [x] **C-2 外部AIレビュー**（Codex）: CONDITIONAL（major 3 / minor 3 / info 1） → 同 PR で対応済
 
 ## ブロッカー
 
-なし
+なし（Child C-3 ゲート判断待ち）
 
-## 次のアクション（確定パス）
+## 次のアクション
 
-1. `plan.md` を作成（テンプレート準拠、Mode: high-risk）
-2. `todo.md` を作成（2-5 分粒度、TDD: RED → GREEN → REFACTOR）
-3. `test-cases.md` を作成（受入基準 → テストケース マッピング）
-4. C-1 セルフレビュー（17 項目）
-5. C-2 外部AIレビュー（Codex 必須、high-risk のため）
-6. Child C-3 ゲート判断 👤
-7. APPROVED 後 exec 開始（TDD）→ L-0 → V-1 → V-2 → V-3 → PR → Child C-4
+1. **Child C-3 ゲート判断** 👤（本 PR / `chore/PBI-116-01-c2-response` C-4 マージ後）
+2. APPROVED 後 exec 開始
+3. L-0 → V-1 → V-2 → V-3 → 子 PR → Child C-4
 
 ## 参照
 

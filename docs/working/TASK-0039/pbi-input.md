@@ -1,6 +1,6 @@
 # PBI INPUT PACKAGE — TASK-0039 (PBI-116-01 / Issue #117)
 
-> **Status**: PREPARATORY ONLY — Parent C-3 ゲート（`docs/working/PBI-116/approvals/parent-c3.json`）APPROVED 待ち
+> **Status**: C-2 完了 / Child C-3 ゲート待ち（Parent C-3 APPROVED 2026-04-30、C-2 CONDITIONAL → 同 PR で対応済）
 > 親 PBI: [PBI-116](../PBI-116/parent-plan.md) / EPIC [#116](https://github.com/s977043/plangate/issues/116)
 > 子 PBI ID: PBI-116-01
 > Issue: [#117 Outcome-first Core Contract への移行（prompt slimming）](https://github.com/s977043/plangate/issues/117)
@@ -39,14 +39,21 @@ PlanGate には C-3 承認、C-4 レビュー、受入基準、検証証拠、ha
    Output discipline
    ```
 
-3. **Iron Law 7 項目の明示維持**（削減対象外）
-   - C-3 承認前に production code を変更しない
-   - PBI 外の scope を追加しない
-   - 検証証拠なしに完了扱いしない
-   - 失敗・未実行・残リスクを隠さない
-   - 承認済み plan と実装差分の整合性を崩さない
-   - 原因調査なしに修正しない（NO FIXES WITHOUT ROOT CAUSE INVESTIGATION）
-   - 2 段階レビューなしにマージしない（NO MERGE WITHOUT TWO-STAGE REVIEW）
+3. **Iron Law 7 項目の明示維持**（削減対象外、Core Contract が正本）
+
+   既存 `docs/ai-driven-development.md` の Iron Law 6 項目を再分類し、本 PBI で Core Contract に集約する 7 項目として整理する:
+
+   | # | Core Contract Iron Law（新 7 項目） | 既存 6 項目との対応 |
+   |---|----------------------------------|------------------|
+   | 1 | C-3 承認前に production code を変更しない | plan: NO EXECUTION WITHOUT REVIEWED PLAN FIRST（再表現） |
+   | 2 | PBI 外の scope を追加しない | exec: NO SCOPE CHANGE WITHOUT USER APPROVAL（再表現） |
+   | 3 | 検証証拠なしに完了扱いしない | self-review: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE（再表現） |
+   | 4 | 失敗・未実行・残リスクを隠さない | （新規。verification honesty として独立明記） |
+   | 5 | 承認済み plan と実装差分の整合性を崩さない | brainstorming: NO CODE WITHOUT APPROVED DESIGN FIRST + plan の延長として明示 |
+   | 6 | 原因調査なしに修正しない | systematic-debugging: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST（既存項目を独立化） |
+   | 7 | 2 段階レビューなしにマージしない | subagent-driven-development: NO MERGE WITHOUT TWO-STAGE REVIEW（既存項目を独立化） |
+
+   **重要**: 既存 6 項目から「root cause」と「two-stage review」を **新たに追加するわけではなく**、既存 ai-driven-development.md の表で別フェーズに紐付いていた 2 項目を **Core Contract レベルの一般原則として独立化** する整理。実質的な制約数は 6 → 7（#4 verification honesty を独立明記）。
 
 4. **入口ファイルの薄型化**
    - `CLAUDE.md` / `AGENTS.md` は詳細手順ではなく、Core Contract と参照先への導線に寄せる

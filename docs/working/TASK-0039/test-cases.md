@@ -55,9 +55,14 @@
 
 ### TC-7: 既存ゲート（C-3 / C-4 / Iron Law）の維持
 - 前提条件: 変更後の `CLAUDE.md` / `AGENTS.md` / `docs/ai/core-contract.md`
-- 入力: `grep -E "C-3|C-4|scope discipline|verification honesty"` を実行
-- 期待出力: 各キーワードが少なくとも 1 ファイルに残存し、削除されていない
+- 入力:
+  - `grep -E "C-3|C-4|scope discipline|verification honesty" docs/ai/core-contract.md` を実行
+  - `grep -E "core-contract.md" CLAUDE.md AGENTS.md` を実行
+- 期待出力:
+  - **Core Contract Hard constraints 内で各キーワードが MUST 相当として明示されている**（単なる存在確認ではなく、制約として機能していること）
+  - **CLAUDE.md / AGENTS.md から `docs/ai/core-contract.md` への参照リンクが存在し、到達可能**
 - 種別: 自動（grep）+ doc-review
+- C-2 EX-04 対応: 単純な存在確認ではなく、Core Contract での MUST 相当残存と入口からの到達性を確認
 
 ### TC-8: 既存リンクの到達性
 - 前提条件: 変更後の `CLAUDE.md` / `AGENTS.md` / `docs/ai/project-rules.md`

@@ -21,6 +21,7 @@ child_pbi:
     - AGENTS.md
     - docs/ai/project-rules.md
     - docs/ai/core-contract.md
+    - docs/ai-driven-development.md  # C-2 EX-01 対応: Iron Law 既存 6 項目を Core Contract 参照に切り替え
     - .claude/rules/**
     - .claude/commands/**
     - .claude/agents/**

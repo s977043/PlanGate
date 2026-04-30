@@ -1,0 +1,87 @@
+あなたは PlanGate ワークフローの外部AIレビュー（C-2）担当です。
+独立した第三者の視点で、以下の TASK-0039（PBI-116-01 / Issue #117 Outcome-first Core Contract）の計画ドキュメント群をレビューしてください。
+
+# 背景
+
+- このレビューは PlanGate の C-2 ゲート（C-1 セルフレビュー後の外部AIレビュー）に該当
+- 対象 PBI は high-risk モード（Iron Law: NO EXECUTION WITHOUT REVIEWED PLAN FIRST）
+- 親 PBI: PBI-116（最新実行モデル対応 / Orchestrator Mode 第一号）
+- Parent C-3 ゲート: APPROVED 済（2026-04-30）
+
+# レビュー対象
+
+以下 4 ファイルを読んで独立レビューしてください:
+
+1. docs/working/TASK-0039/pbi-input.md（PBI INPUT PACKAGE）
+2. docs/working/TASK-0039/plan.md（EXECUTION PLAN）
+3. docs/working/TASK-0039/todo.md（EXECUTION TODO）
+4. docs/working/TASK-0039/test-cases.md（テストケース）
+5. docs/working/TASK-0039/review-self.md（C-1 セルフレビュー結果、整合性確認用）
+
+合わせて以下も参考に:
+- docs/working/PBI-116/parent-plan.md（親 PBI 計画）
+- docs/working/PBI-116/children/PBI-116-01.yaml（子 PBI 仕様）
+- docs/working/PBI-116/notes-117-target-files.md（予備調査）
+
+# レビュー観点（最低 6 観点）
+
+1. **要件適合性**: pbi-input の AC-1〜AC-6 が plan.md / test-cases.md で完全カバーされているか
+2. **スコープ境界**: in_scope / out_of_scope と allowed_files / forbidden_files の境界が plan の作業と整合しているか
+3. **Iron Law 整合性**: Iron Law 7 項目の扱い（既存 6 項目 + 追加 2 項目）が plan / todo / test-cases で一貫しているか
+4. **削減目標の妥当性**: 「行数 50% 以下」「token 削減率 50% 以上」の数値目標は達成可能で適切か
+5. **テスト戦略**: doc-review PBI として TC-1〜TC-8 + TC-E1〜TC-E5 が AC を網羅し、自動化率も妥当か
+6. **リスク評価**: Risk L1〜L5 の severity / mitigation が現実的か。漏れている risk はないか
+
+# 追加観点（任意、見つかったら指摘）
+
+- C-1 セルフレビュー（review-self.md）の WARN 1 件（手動 E2E）の扱いは妥当か
+- PBI-116-03（Prompt Assembly）/ PBI-116-04（Structured Outputs）/ PBI-116-06（Tool Policy）との依存関係が plan 内で適切に切り分けられているか
+- 64 ファイルの棚卸しを 1 セッションで完了する見積もりは現実的か
+
+# 出力形式
+
+以下の Markdown 構造で簡潔に出力してください（前置き不要、本文のみ）:
+
+```
+# C-2 外部AIレビュー結果 — TASK-0039
+
+## サマリ
+
+| 区分 | 件数 |
+|------|------|
+| critical | <N> |
+| major | <N> |
+| minor | <N> |
+| info | <N> |
+
+総合判定: PASS / WARN / FAIL
+
+## 観点別判定
+
+### 1. 要件適合性
+- 判定: PASS / WARN / FAIL
+- コメント: <1〜2 行>
+
+### 2. スコープ境界
+...（同様に観点 6 まで）
+
+## 指摘事項
+
+### EX-01 [severity] <短いタイトル>
+- 該当箇所: <ファイル名:行番号 or セクション>
+- 指摘内容: <2〜3 行>
+- 推奨対応: <1〜2 行>
+
+### EX-02 ...
+
+## Questions（保留事項、Child C-3 で確認推奨）
+
+- Q1: <質問>
+- Q2: ...
+
+## Child C-3 ゲートへの推奨
+
+APPROVE / CONDITIONAL / REJECT のいずれか + 理由
+```
+
+各指摘は短く、根拠ベースで。改善提案も併記してください。

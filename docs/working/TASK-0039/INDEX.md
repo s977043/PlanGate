@@ -13,7 +13,7 @@
 | Title | Outcome-first Core Contract への移行（prompt slimming） |
 | 親 PBI | [PBI-116](../PBI-116/parent-plan.md) |
 | Mode | high-risk |
-| Phase | **PLAN-READY**（Parent C-3 APPROVED 2026-04-30、plan.md 作成可） |
+| Phase | **C3-WAIT**（C-1 PASS / C-2 CONDITIONAL 対応済 / Child C-3 ゲート待ち） |
 | 起票 | 2026-04-30 |
 
 ## 現在のフェーズ
@@ -26,18 +26,18 @@
 
 | ファイル | 状態 |
 |---------|------|
-| `pbi-input.md` | ✅ 作成済（Issue #117 を構造化） |
+| `pbi-input.md` | ✅ 作成済（Issue #117 を構造化、Iron Law 対応表追加 / C-2 EX-02） |
 | `INDEX.md` | ✅ 本ファイル |
-| `current-state.md` | ✅ 作成済 |
-| `plan.md` | ⏳ 未作成（Parent C-3 APPROVED 後） |
-| `todo.md` | ⏳ 未作成 |
-| `test-cases.md` | ⏳ 未作成 |
-| `review-self.md` | ⏳ 未作成（C-1 時） |
-| `review-external.md` | ⏳ 未作成（C-2 時） |
+| `current-state.md` | ✅ 更新済 |
+| `plan.md` | ✅ 作成済（C-2 EX-01/03/04/05 反映済） |
+| `todo.md` | ✅ 作成済 |
+| `test-cases.md` | ✅ 作成済（C-2 EX-04 反映済） |
+| `review-self.md` | ✅ C-1 完了（16 PASS / 1 WARN / 0 FAIL → PASS） |
+| `review-external.md` | ✅ C-2 完了（CONDITIONAL → 同 PR で対応） |
 | `status.md` | ⏳ 未作成（exec 開始時） |
-| `current-state.md` | ⏳ 未更新（タスク完了ごと） |
 | `handoff.md` | ⏳ 未作成（WF-05 時） |
-| `evidence/` | ✅ 空ディレクトリ |
+| `evidence/` | ✅ 空ディレクトリ（exec 時に inventory.md / verification.md 作成） |
+| `_codex-prompt.txt` | ✅ Codex C-2 入力プロンプト（再現性のため保持） |
 
 ## Progressive Disclosure 読み込み順
 
