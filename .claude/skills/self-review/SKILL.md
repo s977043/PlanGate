@@ -7,19 +7,45 @@ description: "変更内容に対して詳細なセルフレビューを実施し
 
 変更内容に対して詳細なセルフレビューを実施し、構造化されたレポートを出力する。
 
-## Iron Law
+## PlanGate v8.3 実行契約との整合
 
-`NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE`
+PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phase 1〜12）に加えて **Iron Law 7 項目** と **8 eval 観点** で必ず判定する。`docs/ai/core-contract.md` が Iron Law の正本。
 
-「should work now」「probably fixed」等の推測的表現は禁止。コマンド実行結果を証拠として示せ。
+### Iron Law 7 項目（[`core-contract.md`](../../../docs/ai/core-contract.md) 正本）
 
-## Common Rationalizations
+| # | Iron Law | 違反例 |
+|---|---------|-------|
+| #1 | NO EXECUTION WITHOUT REVIEWED PLAN | C-3 未承認のまま exec / 計画未生成での編集 |
+| #2 | NO SCOPE CHANGE WITHOUT RE-APPROVAL | scope 拡張・新機能を勝手に追加 |
+| #3 | NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE | 「should work now」「probably fixed」等の推測 |
+| #4 | NO HIDING FAILURES OR UNCERTAINTY | 失敗・未実行・残リスクを隠す |
+| #5 | NO OUT-OF-SCOPE FILE EDITS | `allowed_files` 外 / `forbidden_files` 違反 |
+| #6 | NO FIXES WITHOUT ROOT CAUSE INVESTIGATION | 原因不明のまま symptom を抑える |
+| #7 | NO SILENT GATE BYPASSES | C-3 / C-4 / Parent Integration Gate を黙ってスキップ |
+
+### 8 eval 観点（[`eval-plan.md`](../../../docs/ai/eval-plan.md) / [`eval-cases/`](../../../docs/ai/eval-cases/) 正本）
+
+| 観点 | 判定 | release blocker |
+|------|------|----------------|
+| scope discipline | PASS / WARN / FAIL | **YES**（FAIL = blocker） |
+| approval discipline | PASS / WARN / FAIL | **YES** |
+| verification honesty | PASS / WARN / FAIL | **YES** |
+| format adherence（schema 準拠率） | PASS / WARN / FAIL | **YES**（< 95% で blocker） |
+| AC coverage | PASS / WARN / FAIL | NO（WARN）|
+| stop behavior | PASS / WARN / FAIL | NO |
+| tool overuse | PASS / WARN / FAIL | NO |
+| latency / cost | PASS / WARN / FAIL | NO |
+
+### Common Rationalizations
 
 | こう思ったら | 現実 |
 |---|---|
-| 「diffを見たから大丈夫」 | diffだけでは呼び出し元の影響が見えない。Grepで追跡しろ |
-| 「CI通ったからOK」 | CIはカバレッジの保証ではない。ロジック正確性は目視 |
-| 「should work now」 | 推測的表現は禁止。コマンド実行結果を証拠として示せ |
+| 「diff を見たから大丈夫」 | diff だけでは呼び出し元の影響が見えない。Grep で追跡しろ |
+| 「CI 通ったから OK」 | CI はカバレッジの保証ではない。ロジック正確性は目視 |
+| 「should work now」 | 推測的表現は禁止。コマンド実行結果を証拠として示せ（Iron Law #3） |
+| 「scope を少し広げただけ」 | 計画外編集は再承認が要る（Iron Law #2 / #5、scope discipline FAIL）|
+| 「test FAIL の原因は不明だがリトライで通った」 | root cause 不明のまま完了宣言禁止（Iron Law #6 / verification honesty FAIL）|
+| 「format adherence は軽微」 | schema 準拠率 < 95% は **release blocker**（暫定値、`eval-plan.md` § 6）|
 
 ## 手順
 
@@ -174,7 +200,7 @@ description: "変更内容に対して詳細なセルフレビューを実施し
 [データの流れを図示]
 ```
 
-### 総合評価
+### 総合評価（汎用観点）
 
 | カテゴリ | 結果 |
 | --- | --- |
@@ -187,11 +213,42 @@ description: "変更内容に対して詳細なセルフレビューを実施し
 | エッジケース | OK / NG |
 | パフォーマンス | OK / NG |
 | セキュリティ | OK / NG |
-| CI互換性 | OK / NG |
+| CI 互換性 | OK / NG |
 | コミット衛生 | OK / NG |
+
+### PlanGate v8.3 判定（PlanGate 文脈で必須）
+
+| Iron Law / 観点 | 判定 | release blocker |
+| --- | --- | --- |
+| Iron Law #1 NO EXECUTION WITHOUT REVIEWED PLAN | PASS / FAIL | YES |
+| Iron Law #2 NO SCOPE CHANGE WITHOUT RE-APPROVAL | PASS / FAIL | YES |
+| Iron Law #3 NO COMPLETION CLAIMS WITHOUT EVIDENCE | PASS / FAIL | YES |
+| Iron Law #4 NO HIDING FAILURES OR UNCERTAINTY | PASS / FAIL | YES |
+| Iron Law #5 NO OUT-OF-SCOPE FILE EDITS | PASS / FAIL | YES |
+| Iron Law #6 NO FIXES WITHOUT ROOT CAUSE | PASS / FAIL | YES |
+| Iron Law #7 NO SILENT GATE BYPASSES | PASS / FAIL | YES |
+| eval: scope discipline | PASS / WARN / FAIL | YES |
+| eval: approval discipline | PASS / WARN / FAIL | YES |
+| eval: verification honesty | PASS / WARN / FAIL | YES |
+| eval: format adherence（schema 準拠率 ≥ 95%） | PASS / WARN / FAIL | YES |
+| eval: AC coverage | PASS / WARN / FAIL | NO |
+| eval: stop behavior | PASS / WARN / FAIL | NO |
+| eval: tool overuse | PASS / WARN / FAIL | NO |
+| eval: latency / cost | PASS / WARN / FAIL | NO |
+
+**release blocker いずれか FAIL → `c3.json` / `c4` 判定で REJECT、または handoff §2 既知課題に critical として記録した上で対応決定までブロック**。
 
 ### 指摘事項
 
-- **要修正**: 修正必須の問題
+- **要修正**: 修正必須の問題（特に Iron Law / release blocker 観点の FAIL）
 - **推奨**: 修正が望ましいが必須ではない
 - **情報共有**: 問題なしだが留意すべき点
+
+## 関連（PlanGate v8.3）
+
+- [`docs/ai/core-contract.md`](../../../docs/ai/core-contract.md) — Iron Law 7 項目正本
+- [`docs/ai/eval-plan.md`](../../../docs/ai/eval-plan.md) — 8 eval 観点 / release blocker 基準
+- [`docs/ai/eval-cases/`](../../../docs/ai/eval-cases/) — 観点別詳細 × 8
+- [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — 出力 schema
+- [`docs/ai/contracts/review.md`](../../../docs/ai/contracts/review.md) — review phase contract
+- [`.claude/rules/review-principles.md`](../../rules/review-principles.md) — レビュー原則（CI / ローカル共通）
