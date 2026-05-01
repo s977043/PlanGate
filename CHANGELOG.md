@@ -4,6 +4,65 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v8.4.0 - 2026-05-01
+
+feat: 自動化基盤の節目 — eval runner / schema validate CI / hook enforcement / 環境改善
+
+v8.3.0（最新実行モデル対応 + eval framework 仕様）で整備した基盤を、**実 CI / 実 CLI / 実 hook** に落とし込んだリリース。retrospective Try T-1〜T-6 のうち 6 件 + 派生 V2 候補 5 件を消化、合計 11 PBI（TASK-0045〜0054）を完走。マージ済 18 PR（#161〜#178）。
+
+### Added
+
+- `scripts/check-pr-issue-link.sh` + `.github/workflows/check-pr-issue-link.yml` — 子 PBI auto-close 漏れ防止 CI（PBI #170 / Issue #159 → TASK-0045）
+- `docs/ai/eval-comparison-template.md` の v8.3 baseline 行 + `docs/ai/eval-baseline-procedure.md` — 8 観点 baseline + 集計手順（PBI #155 → TASK-0046）
+- `scripts/validate-schemas.py` + `bin/plangate validate-schemas` + `.github/workflows/schema-validate.yml` — JSON artifact の schema 機械検証（PBI #158 → TASK-0047）
+- `docs/ai/contracts/{plan,review,verify,handoff,classify}.md` に schema reference を追加（PBI #158）
+- `scripts/hooks/check-c3-approval.sh` / `check-handoff-elements.sh` / `check-fix-loop.sh` — EH-2 / EHS-2 / EHS-3 の 3 mode 設計 hook（default warning / `PLANGATE_HOOK_STRICT=1` で block / `PLANGATE_BYPASS_HOOK=1` で escape）（PBI #157 → TASK-0048）
+- `.claude/settings.example.json` — opt-in な PreToolUse / SessionStart hook 登録例
+- `tests/hooks/run-tests.sh` + 各 fixture — hook 単体テスト 12 ケース
+- `bin/plangate eval` + `scripts/eval-runner.py` + `schemas/eval-result.schema.json` — 8 観点機械評価 CLI、baseline 比較、release blocker 違反検知（PBI #156 → TASK-0049）
+- `docs/ai/eval-runner.md` — eval CLI の正本仕様
+- `tests/extras/` ディレクトリ + `tests/extras/README.md` — 拡張テストブロック分離による衝突源根絶（PBI #170 → TASK-0050）
+- `scripts/schema_mapping.py` — `FILENAME_TO_SCHEMA` を 1 箇所集約（DRY、PBI #172 → TASK-0051）
+- `scripts/gh-pin-account.sh` + SessionStart hook — gh CLI active account 自動固定 shim（PBI #171 → TASK-0052）
+- `scripts/parsers/codex_log_parser.py` + `--session-log` option — Codex JSONL から latency / tokens を実測値化（PBI #168 → TASK-0054）
+- `tests/fixtures/codex-log/sample.jsonl` — 実 codex rollout の最小 fixture
+- `docs/working/retrospective-2026-05-01.md` + `retrospective-2026-05-01-s2.md` — 2 セッションの振り返り
+
+### Changed
+
+- `bin/plangate` v0.1.0 → **v0.2.0** — `validate-schemas` / `eval` サブコマンド追加、help 拡充
+- `scripts/eval-runner.py` v1.0.0 → **v1.2.0** — schema_mapping 共通化（v1.1）+ codex session log parser 統合（v1.2）
+- `schemas/c3-approval.schema.json` / `schemas/c4-approval.schema.json` — `patternProperties: { "^_": {} }` を追加し human-readable annotation を許容（PBI #167 → TASK-0053）
+- `docs/ai/hook-enforcement.md` — Status v1（Spec only）→ **v2 (Implementation: Done)**、§ 4 全面書換
+- `docs/ai/eval-plan.md` 引き継ぎ先を eval-runner / structured-outputs CI に明記
+- `docs/ai/structured-outputs.md` — § 8 マイグレーションガイド追記
+- `docs/ai/eval-cases/format-adherence.md` — Detection 手順を新 CI に整合
+- `docs/schemas/child-pbi.yaml` — optional `related_issue: <int>` フィールドを追記
+- `tests/run-tests.sh` — base test + extras loader 構造に再設計、合計 21 → **24 件 PASS**
+
+### Fixed
+
+- 既存 PBI（PBI-116 配下）の c3.json schema 違反問題を schema 緩和で解消（PBI #167 → TASK-0053）
+
+### DX / Process
+
+- gh CLI active account 自動固定により、plangate 作業中の auth 切戻による mutation 失敗を抑止
+- handoff.md 必須 6 要素を全 11 PBI で 100% 出力（Rule 5 遵守）
+- eval-result.json は `release_blocker_violations` 配列に違反を記録、stderr WARNING + exit 1 で CI 統合可能
+
+### Process Notes
+
+- **Auto Mode 連続実行**: 同日（2026-05-01）に 3 セッションで 11 PBI を完走、合計 12 PR マージ・10 Issue close（うち 5 件は同日中に起票・解消）
+- **マージコンフリクト**: 5 PR 連続実装の後半（#163 / #164 / #165）で `tests/run-tests.sh` 末尾領域に衝突発生 → PBI #170 で `tests/extras/` 分離に再設計し根絶
+- **3 モード Hook 設計**: critical mode の作業妨害リスクを default warning で回避、strict は環境変数で opt-in、bypass は監査ログに記録
+
+### Next EPIC 候補（V2）
+
+1. **#169 残 Hook 実装**（EH-1 / EH-3〜EH-7 / EHS-1 = 7 hook、3 セッション分割推奨）
+2. claude-cli session log parser（codex のみ実装済、対話履歴の保存場所要調査）
+3. tool_call_count 抽出（codex JSONL の response_item 解析）
+4. session log 自動検出（cwd → 最新 rollout 推測）
+
 ## v8.3.0 - 2026-04-30
 
 feat: 最新実行モデル対応 — Outcome-first / Model Profile / Prompt Assembly / Eval 基盤 (EPIC #116)

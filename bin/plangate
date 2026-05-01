@@ -4,7 +4,7 @@
 
 set -eu
 
-PLANGATE_VERSION="0.1.0"
+PLANGATE_VERSION="0.2.0"
 
 plangate_bin_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 plangate_root=$(CDPATH= cd -- "$plangate_bin_dir/.." && pwd)
