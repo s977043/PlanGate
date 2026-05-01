@@ -12,6 +12,10 @@ node_modules/
 # Claude Code
 .claude/settings.local.json
 .claude/settings.json
+.claude/worktrees/
+
+# PlanGate Hook audit log (Issue #157 — local runtime log, not part of repo)
+docs/working/_audit/hook-events.log
 
 # Codex runtime (auto-generated)
 .codex/logs*.sqlite

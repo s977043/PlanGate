@@ -1,0 +1,18 @@
+{
+  "_comment_": "PlanGate Hook enforcement (Issue #157 / TASK-0048) — opt-in 設定例",
+  "_usage_": "本ファイルは example。実 .claude/settings.json にコピーして適用する。default は warning モード（continue:true）。PLANGATE_HOOK_STRICT=1 で block モード、PLANGATE_BYPASS_HOOK=1 で常時 pass。",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "_comment_": "Hook EH-2: plan / C-3 承認なしで Edit / Write を実行しようとした場合に warning（strict 時 block）。PLANGATE_HOOK_TASK 環境変数で対象 TASK を明示する必要あり。未明示時は skip（false-positive 防止）。",
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-c3-approval.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
