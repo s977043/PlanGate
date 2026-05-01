@@ -4,6 +4,48 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v8.5.0 - 2026-05-01
+
+feat: Hook enforcement 完成 — 10/10 hooks 実装 (#169 EPIC 完走)
+
+v8.4.0 で確立した 3 mode hook 設計（default warning / strict block / bypass escape）を全 spec に適用し、**Issue #169 残 Hook EPIC を完走**。`docs/ai/hook-enforcement.md` の Status は v3 → **v5 (Implementation: 10/10 hooks Done)** に到達、`tests/hooks/run-tests.sh` は 21 → **42 件 PASS** に成長。同 release で v8.4 baseline 自動測定 + extras README 拡充も完了。
+
+### Added
+
+- `scripts/hooks/check-plan-exists.sh`（**EH-1**、PreToolUse） — plan.md なし production code 編集 block（#183 / TASK-0056）
+- `scripts/hooks/check-plan-hash.sh`（**EH-3**、PreToolUse + CLI） — c3.json plan_hash と現 plan.md sha256 突合（#183 / TASK-0056）
+- `scripts/hooks/check-test-cases.sh`（**EH-4**、CLI） — V-1 前に test-cases.md 不在を warn / block（#184 / TASK-0057）
+- `scripts/hooks/check-verification-evidence.sh`（**EH-5**、CLI） — PR 作成前に evidence/ verification 系不在を warn / block（#184 / TASK-0057）
+- `scripts/hooks/check-forbidden-files.sh`（**EH-6**、PreToolUse + CLI） — 子 PBI YAML の forbidden_files glob と編集対象 path を fnmatch で突合（#184 / TASK-0057）
+- `scripts/hooks/check-merge-approvals.sh`（**EH-7**、CLI） — マージ前に c3.json + c4-approval.json の両 APPROVED を確認（#185 / TASK-0058）
+- `scripts/hooks/check-v3-review.sh`（**EHS-1**、CLI、mode 連携） — standard / high-risk / critical で V-3 review 必須化、light / ultra-light は SKIP（#185 / TASK-0058）
+- `tests/extras/README.md` に「set -e 互換書法」セクション — command substitution の exit code 捕捉パターン（#182）
+- `docs/ai/eval-comparison-template.md` に **v8.4 baseline** 行 + v8.3→v8.4 比較テーブル（#181 / TASK-0055）
+- `docs/ai/eval-baseline-procedure.md` を v2 化（自動手順を主、v8.3 手動を後方互換）
+
+### Changed
+
+- `docs/ai/hook-enforcement.md` Status v3 → **v5**（10/10 hooks Done、§ 4 表に全 hook 完備、§ 4.5「全 10 hook 完了 (#169 完走)」）
+- `.claude/settings.example.json`: PreToolUse に EH-1 / EH-3 / EH-6 を追加（**EH-1 + EH-2 + EH-3 + EH-6** の 4 hook 構成）
+- `tests/hooks/run-tests.sh`: 12 → **42 件 PASS**（fixture 8 種追加）
+- `tests/run-tests.sh`: 24 件 PASS 維持（変動なし、loader 経由）
+
+### Process Notes
+
+- **Issue #169 EPIC を 4 セッション × 計 11 PR で完走**（#157 前段の EH-2/EHS-2/EHS-3 + #183 EH-1/EH-3 + #184 EH-4/EH-5/EH-6 + #185 EH-7/EHS-1）
+- 同日（2026-05-01）に 7 セッション連続実行で 16 PBI 完走、25 PR マージ、12 Issue close、累積 V2 候補ゼロを達成
+- 全 10 hook で **3 mode 設計**（default / strict / bypass）+ 監査ログを統一、`tests/extras/` 構造（#170）でマージ衝突源を根絶した状態を維持
+
+### Next EPIC 候補（V2）
+
+1. **EH-7 上位拡張**: GitHub branch protection / ruleset 自動適用（外部 GitHub API 操作、別 PBI）
+2. **EHS-1 phase 分離**: C-2 vs V-3 で review-external.md を分離する運用モデル
+3. **Hook subcommand 統合**: `bin/plangate hook <name>` への CLI 統合
+4. **claude-cli session log parser**（#168 v2、対話履歴 JSONL 統合）
+5. **tool_call_count 抽出**（codex JSONL の response_item 解析）
+6. **session log 自動検出**（cwd → 最新 rollout 推測）
+7. **共通 hook helper**（`scripts/hooks/_lib.sh` で emit_judgment / log_event を集約、現状は 10 ファイル × 各 50〜100 行で許容範囲）
+
 ## v8.4.0 - 2026-05-01
 
 feat: 自動化基盤の節目 — eval runner / schema validate CI / hook enforcement / 環境改善
