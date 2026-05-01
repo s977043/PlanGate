@@ -15,12 +15,32 @@
     ],
     "PreToolUse": [
       {
-        "_comment_": "Hook EH-2: plan / C-3 承認なしで Edit / Write を実行しようとした場合に warning（strict 時 block）。PLANGATE_HOOK_TASK 環境変数で対象 TASK を明示する必要あり。未明示時は skip（false-positive 防止）。default は warning モード（continue:true）、PLANGATE_HOOK_STRICT=1 で block、PLANGATE_BYPASS_HOOK=1 で常時 pass。",
+        "_comment_": "Hook EH-1 (Issue #169): plan.md なしで Edit / Write を試行した場合に warning（strict 時 block）。PLANGATE_HOOK_TASK 環境変数で対象 TASK を明示する必要あり。未明示時は skip（false-positive 防止）。",
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-exists.sh"
+          }
+        ]
+      },
+      {
+        "_comment_": "Hook EH-2: C-3 承認なしで Edit / Write を実行しようとした場合に warning（strict 時 block）。PLANGATE_HOOK_TASK 環境変数で対象 TASK を明示する必要あり。default は warning モード（continue:true）、PLANGATE_HOOK_STRICT=1 で block、PLANGATE_BYPASS_HOOK=1 で常時 pass。",
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
             "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-c3-approval.sh"
+          }
+        ]
+      },
+      {
+        "_comment_": "Hook EH-3 (Issue #169): plan_hash 改竄検知。Edit/Write 前に approvals/c3.json の plan_hash と現 plan.md の sha256 を突合。default は warning、strict 時 block。",
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh ${PLANGATE_HOOK_TASK:-}"
           }
         ]
       }
