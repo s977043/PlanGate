@@ -47,6 +47,29 @@
 | stop behavior | PASS | C-2 skip 1 回（記録あり）、bypass 濫用なし |
 | tool overuse | PASS | BLOCKED 復旧 2 件は通常範囲、Codex C-2 統合で呼び出し 1/3 圧縮 |
 
+## v8.4 baseline（自動測定、TASK-0055 / retrospective Try T-5 で確立）
+
+> 集計日: 2026-05-01 / 対象: PBI-116 EPIC 完了済 6 子 PBI（TASK-0039〜0044）
+> 集計方法: `bin/plangate eval <TASK> --no-write`（v8.4.0 ツーリング、scripts/eval-runner.py v1.2.0、自動）
+> 生データ: [`docs/working/TASK-0055/evidence/baseline-data-v8.4.md`](../working/TASK-0055/evidence/baseline-data-v8.4.md)
+
+| prompt version | model profile | reasoning effort | accuracy | latency | tool calls | format adherence | scope discipline | verification honesty | notes |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| v8.4 | default | medium | 100% | n/a | n/a | 100% | PASS | PASS | v8.3 baseline と同 PBI を v8.4 ツーリングで自動再測定。schema compliance は #167 (c3 schema 緩和) 効果で v8.3 違反が解消、release blocker 0/6。latency/tokens は session log 不在で n/a 維持（#168 の session-log option 自体は実証済） |
+
+### v8.3 → v8.4 比較
+
+| 観点 | v8.3 (手動) | v8.4 (自動) | 差分 |
+|------|---------|---------|------|
+| AC coverage | 100% | 100% | 同等 |
+| Approval discipline | PASS | PASS | 同等 |
+| Schema compliance（機械検証）| **N/A 相当**（手動では「違反だが許容」と判断）| **100%**（#167 で schema 緩和、自動 PASS）| **改善** |
+| Format adherence | 100% | 100% | 同等 |
+| Latency / tokens | n/a | n/a（session log 提供時は数値化、機構実証済）| 機構増、PBI-116 配下では未取得 |
+| 集計方法 | 手動（grep + 計算）| **CLI 1 コマンド** | **自動化** |
+
+→ v8.5 で `#169` 残 Hook 実装後、再測定で hook violation / 阻害 / 自動回復事象を差分検出する前提が揃った。
+
 ## 記入例（架空）
 
 | prompt version | model profile | reasoning effort | accuracy | latency | tool calls | format adherence | scope discipline | verification honesty | notes |

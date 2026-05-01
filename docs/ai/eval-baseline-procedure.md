@@ -1,11 +1,38 @@
 # Eval Baseline 集計手順
 
-> **Status**: v1（TASK-0046 / Issue #155 で確立）
-> 関連: [`eval-plan.md`](./eval-plan.md) / [`eval-comparison-template.md`](./eval-comparison-template.md) / [`eval-cases/`](./eval-cases/)
+> **Status**: v2（TASK-0055 / retrospective Try T-5 で v8.4 自動化版を追加）
+> 関連: [`eval-plan.md`](./eval-plan.md) / [`eval-comparison-template.md`](./eval-comparison-template.md) / [`eval-runner.md`](./eval-runner.md) / [`eval-cases/`](./eval-cases/)
 
 ## 目的
 
-PlanGate の eval framework に対し、**手動でも再現可能な集計手順**を明文化する。自動化（#156 eval runner）が完成するまでの間、本手順で baseline / 比較値を取得する。
+PlanGate の eval framework に対し、再現可能な集計手順を明文化する。**v8.4 以降は `bin/plangate eval` で自動化**（v8.3 の手動手順は後方互換維持）。
+
+## v8.4 以降の推奨手順（自動）
+
+```sh
+# 単一 PBI
+sh bin/plangate eval TASK-XXXX
+
+# 複数 PBI を一括集計
+for t in TASK-0039 TASK-0040 TASK-0041 TASK-0042 TASK-0043 TASK-0044; do
+  python3 scripts/eval-runner.py $t --no-write
+done
+
+# baseline 比較
+sh bin/plangate eval TASK-NEW --baseline TASK-OLD
+
+# session log 連携（Codex JSONL）
+sh bin/plangate eval TASK-XXXX --session-log ~/.codex/sessions/.../rollout-*.jsonl
+```
+
+得られる出力:
+- `eval-result.md`（人間可読、Markdown）
+- `eval-result.json`（schema 準拠、`schemas/eval-result.schema.json`）
+- release blocker 違反時 stderr WARNING + exit 1
+
+詳細: [`eval-runner.md`](./eval-runner.md)
+
+## v8.3 互換の手動手順（参考）
 
 ## 適用範囲
 
