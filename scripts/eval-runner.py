@@ -33,7 +33,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKING_DIR = REPO_ROOT / "docs" / "working"
-EVAL_RUNNER_VERSION = "1.0.0"
+EVAL_RUNNER_VERSION = "1.1.0"  # Issue #172: schema mapping を scripts/schema_mapping.py に集約
+
+# Issue #172: schema mapping は scripts/schema_mapping.py に集約（DRY）
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from schema_mapping import FILENAME_TO_SCHEMA, SCHEMAS_DIR  # noqa: E402
 
 AC_TABLE_LINE = re.compile(r"^\|\s*AC[-_ ]?\d+[^\|]*\|\s*(PASS|FAIL|WARN)\s*\|", re.IGNORECASE)
 SECTION_HEADER = re.compile(r"^## ([1-6])\.")
@@ -66,18 +70,6 @@ def read_c3_status(c3_path: Path) -> str | None:
         return data.get("c3_status")
     except (OSError, json.JSONDecodeError):
         return None
-
-
-SCHEMAS_DIR = REPO_ROOT / "schemas"
-FILENAME_TO_SCHEMA = {
-    "c3.json": "c3-approval.schema.json",
-    "c4-approval.json": "c4-approval.schema.json",
-    "review-result.json": "review-result.schema.json",
-    "acceptance-result.json": "acceptance-result.schema.json",
-    "handoff-summary.json": "handoff-summary.schema.json",
-    "mode-classification.json": "mode-classification.schema.json",
-    "model-profile.json": "model-profile.schema.json",
-}
 
 
 def evaluate_schema_compliance(task_dir: Path) -> dict:

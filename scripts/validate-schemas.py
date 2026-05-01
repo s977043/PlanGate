@@ -24,35 +24,10 @@ from pathlib import Path
 from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SCHEMAS_DIR = REPO_ROOT / "schemas"
 
-# basename → schema filename
-FILENAME_TO_SCHEMA: dict[str, str] = {
-    "c3.json": "c3-approval.schema.json",
-    "c4-approval.json": "c4-approval.schema.json",
-    "review-result.json": "review-result.schema.json",
-    "review-self.json": "review-self.schema.json",
-    "review-external.json": "review-external.schema.json",
-    "acceptance-result.json": "acceptance-result.schema.json",
-    "handoff-summary.json": "handoff-summary.schema.json",
-    "mode-classification.json": "mode-classification.schema.json",
-    "model-profile.json": "model-profile.schema.json",
-    "status.json": "status.schema.json",
-    "todo.json": "todo.schema.json",
-    "test-cases.json": "test-cases.schema.json",
-    "handoff.json": "handoff.schema.json",
-    "pbi-input.json": "pbi-input.schema.json",
-    "plan.json": "plan.schema.json",
-    "run-event.json": "run-event.schema.json",
-}
-
-
-def lookup_schema(json_path: Path) -> Path | None:
-    schema_name = FILENAME_TO_SCHEMA.get(json_path.name)
-    if schema_name is None:
-        return None
-    schema_path = SCHEMAS_DIR / schema_name
-    return schema_path if schema_path.is_file() else None
+# Issue #172: schema mapping は scripts/schema_mapping.py に集約（DRY）
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from schema_mapping import FILENAME_TO_SCHEMA, SCHEMAS_DIR, lookup_schema  # noqa: E402, F401
 
 
 def validate_one(json_path: Path) -> tuple[str, str]:
