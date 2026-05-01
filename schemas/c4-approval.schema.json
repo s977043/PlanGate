@@ -34,5 +34,10 @@
       "description": "HEAD commit SHA of the merged PR"
     }
   },
+  "patternProperties": {
+    "^_": {
+      "description": "Underscore-prefixed keys are reserved for human-readable annotations. Ignored by machine validation. Issue #167 / TASK-0053."
+    }
+  },
   "additionalProperties": false
 }

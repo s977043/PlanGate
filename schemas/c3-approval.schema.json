@@ -41,6 +41,11 @@
       "description": "Required when c3_status is REJECTED"
     }
   },
+  "patternProperties": {
+    "^_": {
+      "description": "Underscore-prefixed keys are reserved for human-readable annotations (e.g. _review_summary, _schema_reference, _note). They are ignored by machine validation but preserved in the file. Issue #167 / TASK-0053."
+    }
+  },
   "allOf": [
     {
       "if": {
