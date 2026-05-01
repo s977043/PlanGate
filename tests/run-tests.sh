@@ -1,11 +1,18 @@
 #!/bin/sh
 # PlanGate CLI test suite
 # Usage: sh tests/run-tests.sh
+#
+# 構成:
+#   - 本体（base tests）: 下記 TA-01 / TA-02 / TA-03 + plangate validate --dir
+#   - 拡張テスト: tests/extras/*.sh を順次 source（Issue #170 で導入）
+#     新規テストブロック追加時は tests/extras/ にファイルを置くこと。
+#     詳細は tests/extras/README.md 参照。
 
 set -eu
 
 PLANGATE_BIN="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/bin/plangate"
 FIXTURES_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/fixtures"
+EXTRAS_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/extras"
 
 pass=0
 fail=0
@@ -114,135 +121,16 @@ if [ "${created_gate_test:-0}" -eq 1 ]; then
 fi
 rm -rf "$TMPDIR_TASK"
 
-printf '\n=== TA-04: check-pr-issue-link.sh ===\n'
-
-PR_LINK_SCRIPT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/scripts/check-pr-issue-link.sh"
-PR_LINK_FIXTURES="$FIXTURES_DIR/check-pr-issue-link"
-
-run_pr_link_fixture() {
-  fixture_dir=$1
-  expected=$2
-  label=$3
-  out=$(sh "$PR_LINK_SCRIPT" \
-    --body-file "$fixture_dir/body.txt" \
-    --labels-file "$fixture_dir/labels.txt" \
-    --changed-files "$fixture_dir/changed-files.txt" 2>&1) || {
-    printf '[FAIL] %s — script exited non-zero: %s\n' "$label" "$out"
-    fail=$((fail + 1))
-    return
-  }
-  case "$out" in
-    "$expected"*)
-      printf '[PASS] %s — got %s\n' "$label" "$expected"
-      pass=$((pass + 1))
-      ;;
-    *)
-      printf '[FAIL] %s — expected prefix %s, got: %s\n' "$label" "$expected" "$out"
-      fail=$((fail + 1))
-      ;;
-  esac
-}
-
-run_pr_link_fixture "$PR_LINK_FIXTURES/pass" "PASS" "pass: closes #N present"
-run_pr_link_fixture "$PR_LINK_FIXTURES/warn" "WARN" "warn: no closing keyword"
-run_pr_link_fixture "$PR_LINK_FIXTURES/skip-label" "SKIP" "skip-label: documentation label"
-run_pr_link_fixture "$PR_LINK_FIXTURES/skip-marker" "SKIP" "skip-marker: HTML comment marker"
-
-printf '\n=== TA-05: validate-schemas (Issue #158) ===\n'
-
-if python3 -c 'import jsonschema' >/dev/null 2>&1; then
-  SCHEMA_FIXTURES="$FIXTURES_DIR/schema-validate"
-
-  if sh "$PLANGATE_BIN" validate-schemas "$SCHEMA_FIXTURES/valid/c3.json" >/dev/null 2>&1; then
-    printf '[PASS] valid/c3.json passes c3-approval schema\n'
-    pass=$((pass + 1))
-  else
-    printf '[FAIL] valid/c3.json — expected PASS\n'
-    fail=$((fail + 1))
-  fi
-
-  if ! sh "$PLANGATE_BIN" validate-schemas "$SCHEMA_FIXTURES/invalid/c3.json" >/dev/null 2>&1; then
-    printf '[PASS] invalid/c3.json fails c3-approval schema (exit non-zero)\n'
-    pass=$((pass + 1))
-  else
-    printf '[FAIL] invalid/c3.json — expected FAIL\n'
-    fail=$((fail + 1))
-  fi
-
-  if sh "$PLANGATE_BIN" validate-schemas 2>&1 | grep -q 'Usage'; then
-    printf '[PASS] validate-schemas: no args emits Usage text\n'
-    pass=$((pass + 1))
-  else
-    printf '[FAIL] validate-schemas: usage text missing\n'
-    fail=$((fail + 1))
-  fi
-else
-  printf '[SKIP] validate-schemas suite — jsonschema package not installed (CI will install it)\n'
-fi
-
-printf '\n=== TA-06: hooks (Issue #157) ===\n'
-
-HOOK_TESTS_SCRIPT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/hooks/run-tests.sh"
-if [ -f "$HOOK_TESTS_SCRIPT" ]; then
-  # 子テストの結果を取り込む（自前で pass/fail カウンタを進める）
-  if sh "$HOOK_TESTS_SCRIPT" >/dev/null 2>&1; then
-    printf '[PASS] tests/hooks/run-tests.sh — all hook unit tests\n'
-    pass=$((pass + 1))
-  else
-    printf '[FAIL] tests/hooks/run-tests.sh — see "sh tests/hooks/run-tests.sh" output\n'
-    fail=$((fail + 1))
-  fi
-else
-  printf '[SKIP] tests/hooks/run-tests.sh not found\n'
-fi
-
-printf '\n=== TA-07: eval-runner (Issue #156) ===\n'
-
-if python3 -c 'import jsonschema' >/dev/null 2>&1; then
-  EVAL_FIXTURE="$FIXTURES_DIR/eval-runner/sample-task"
-  EVAL_TASK_NAME="TASK-9990"
-  EVAL_TASK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/docs/working/$EVAL_TASK_NAME"
-
-  cleanup_eval() { rm -rf "$EVAL_TASK_DIR"; }
-  trap cleanup_eval EXIT INT TERM
-
-  cleanup_eval
-  mkdir -p "$EVAL_TASK_DIR/approvals"
-  cp "$EVAL_FIXTURE/handoff.md" "$EVAL_TASK_DIR/handoff.md"
-  cp "$EVAL_FIXTURE/approvals/c3.json" "$EVAL_TASK_DIR/approvals/c3.json"
-
-  if sh "$PLANGATE_BIN" eval "$EVAL_TASK_NAME" --no-write >/dev/null 2>&1; then
-    printf '[PASS] eval: sample task → exit 0 (no blockers)\n'
-    pass=$((pass + 1))
-  else
-    printf '[FAIL] eval: sample task — expected exit 0\n'
-    fail=$((fail + 1))
-  fi
-
-  out=$(sh "$PLANGATE_BIN" eval "$EVAL_TASK_NAME" --no-write 2>&1 || true)
-  case "$out" in
-    *"AC coverage"*)
-      printf '[PASS] eval: stdout contains AC coverage line\n'
-      pass=$((pass + 1))
-      ;;
-    *)
-      printf '[FAIL] eval: stdout missing AC coverage line\n'
-      fail=$((fail + 1))
-      ;;
-  esac
-
-  if sh "$PLANGATE_BIN" eval 2>&1 | grep -q 'Usage'; then
-    printf '[PASS] eval: no args emits Usage text\n'
-    pass=$((pass + 1))
-  else
-    printf '[FAIL] eval: usage text missing\n'
-    fail=$((fail + 1))
-  fi
-
-  cleanup_eval
-  trap - EXIT INT TERM
-else
-  printf '[SKIP] eval-runner suite — jsonschema not installed\n'
+# ── Extras: tests/extras/*.sh を順番に source（Issue #170）─────────────────────
+# 新規 TA-NN を追加するときは tests/extras/ にファイルを置くだけでよい。
+# 本体（このファイル）の編集は不要 → PBI 連続実装時の衝突を回避。
+if [ -d "$EXTRAS_DIR" ]; then
+  for extra in "$EXTRAS_DIR"/ta-*.sh; do
+    # POSIX glob: マッチ無しのときリテラル文字列が返るため存在チェック
+    [ -f "$extra" ] || continue
+    # shellcheck source=/dev/null
+    . "$extra"
+  done
 fi
 
 printf '\n'
