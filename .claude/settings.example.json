@@ -1,10 +1,21 @@
 {
-  "_comment_": "PlanGate Hook enforcement (Issue #157 / TASK-0048) — opt-in 設定例",
-  "_usage_": "本ファイルは example。実 .claude/settings.json にコピーして適用する。default は warning モード（continue:true）。PLANGATE_HOOK_STRICT=1 で block モード、PLANGATE_BYPASS_HOOK=1 で常時 pass。",
+  "_comment_": "PlanGate hooks 設定例 — opt-in",
+  "_usage_": "本ファイルは example。実 .claude/settings.json にコピーして適用する。",
   "hooks": {
+    "SessionStart": [
+      {
+        "_comment_": "Issue #171: gh CLI active account を s977043 に固定（plangate 用）。PLANGATE_GH_USER で他 user に override 可能。失敗しても session は継続（exit code は無視される）。",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/gh-pin-account.sh"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
-        "_comment_": "Hook EH-2: plan / C-3 承認なしで Edit / Write を実行しようとした場合に warning（strict 時 block）。PLANGATE_HOOK_TASK 環境変数で対象 TASK を明示する必要あり。未明示時は skip（false-positive 防止）。",
+        "_comment_": "Hook EH-2: plan / C-3 承認なしで Edit / Write を実行しようとした場合に warning（strict 時 block）。PLANGATE_HOOK_TASK 環境変数で対象 TASK を明示する必要あり。未明示時は skip（false-positive 防止）。default は warning モード（continue:true）、PLANGATE_HOOK_STRICT=1 で block、PLANGATE_BYPASS_HOOK=1 で常時 pass。",
         "matcher": "Edit|Write",
         "hooks": [
           {
