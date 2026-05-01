@@ -248,5 +248,118 @@ else
   fail=$((fail + 1))
 fi
 
+# ---- Setup fixtures for EH-4 / EH-5 / EH-6 (Issue #169 Session B) ----
+TC_OK_NAME="TASK-HOOKTEST09"
+TC_NONE_NAME="TASK-HOOKTEST10"
+EV_OK_NAME="TASK-HOOKTEST11"
+EV_NONE_NAME="TASK-HOOKTEST12"
+FF_TASK="TASK-HOOKTEST-FF"
+PARENT_PBI="PBI-9999"
+
+cleanup_extra() {
+  for n in "$TC_OK_NAME" "$TC_NONE_NAME" "$EV_OK_NAME" "$EV_NONE_NAME" "$FF_TASK"; do
+    rm -rf "$REPO_ROOT/docs/working/$n"
+  done
+  rm -rf "$REPO_ROOT/docs/working/$PARENT_PBI"
+}
+cleanup_extra
+
+mkdir -p "$REPO_ROOT/docs/working/$TC_OK_NAME" "$REPO_ROOT/docs/working/$TC_NONE_NAME"
+cp "$FIXTURES_DIR/test-cases-exists/test-cases.md" "$REPO_ROOT/docs/working/$TC_OK_NAME/test-cases.md"
+mkdir -p "$REPO_ROOT/docs/working/$EV_OK_NAME/evidence"
+mkdir -p "$REPO_ROOT/docs/working/$EV_NONE_NAME/evidence"  # exists but empty
+cp "$FIXTURES_DIR/evidence-ok/evidence/verification.md" "$REPO_ROOT/docs/working/$EV_OK_NAME/evidence/verification.md"
+
+# EH-6: 子 PBI YAML 設置（fixture）
+mkdir -p "$REPO_ROOT/docs/working/$PARENT_PBI/children"
+cp "$FIXTURES_DIR/forbidden-parent/PBI-9999/children/PBI-9999-01.yaml" "$REPO_ROOT/docs/working/$PARENT_PBI/children/PBI-9999-01.yaml"
+
+# 既存の trap に extras cleanup を追加
+trap "cleanup_dirs; cleanup_extra" EXIT INT TERM
+
+# ---- check-test-cases.sh (EH-4) ----
+note "check-test-cases.sh (EH-4)"
+
+out=$(sh "$HOOKS_DIR/check-test-cases.sh" "$TC_OK_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q PASS; then
+  printf '[PASS] EH-4: test-cases.md present → exit 0 + PASS\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-4: present (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+out=$(sh "$HOOKS_DIR/check-test-cases.sh" "$TC_NONE_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q WARNING; then
+  printf '[PASS] EH-4: missing default → exit 0 + WARNING\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-4: missing default (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+PLANGATE_HOOK_STRICT=1 sh "$HOOKS_DIR/check-test-cases.sh" "$TC_NONE_NAME" >/dev/null 2>&1 && rc=0 || rc=$?
+if [ "$rc" -eq 1 ]; then
+  printf '[PASS] EH-4: missing strict → exit 1\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-4: missing strict (rc=%d, expected 1)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# ---- check-verification-evidence.sh (EH-5) ----
+note "check-verification-evidence.sh (EH-5)"
+
+out=$(sh "$HOOKS_DIR/check-verification-evidence.sh" "$EV_OK_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q PASS; then
+  printf '[PASS] EH-5: verification present → PASS\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-5: present (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+out=$(sh "$HOOKS_DIR/check-verification-evidence.sh" "$EV_NONE_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q WARNING; then
+  printf '[PASS] EH-5: empty evidence default → exit 0 + WARNING\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-5: empty default (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+PLANGATE_HOOK_STRICT=1 sh "$HOOKS_DIR/check-verification-evidence.sh" "$EV_NONE_NAME" >/dev/null 2>&1 && rc=0 || rc=$?
+if [ "$rc" -eq 1 ]; then
+  printf '[PASS] EH-5: empty strict → exit 1\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-5: empty strict (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# ---- check-forbidden-files.sh (EH-6) ----
+note "check-forbidden-files.sh (EH-6)"
+
+# allowed file 編集 → continue:true
+out=$(PLANGATE_HOOK_TASK=$FF_TASK PLANGATE_HOOK_FILE=src/foo/bar.ts sh "$HOOKS_DIR/check-forbidden-files.sh" 2>&1 || true)
+assert_contains "EH-6: allowed file → continue:true" '"continue":true' "$out"
+
+# forbidden file 編集 default → continue:true + WARNING
+out=$(PLANGATE_HOOK_TASK=$FF_TASK PLANGATE_HOOK_FILE=src/auth/login.ts sh "$HOOKS_DIR/check-forbidden-files.sh" 2>&1 || true)
+assert_contains "EH-6: forbidden default → continue:true (warn)" '"continue":true' "$out"
+assert_contains "EH-6: forbidden default → emits WARNING" 'WARNING' "$out"
+
+# forbidden file 編集 strict → continue:false
+out=$(PLANGATE_HOOK_STRICT=1 PLANGATE_HOOK_TASK=$FF_TASK PLANGATE_HOOK_FILE=src/auth/login.ts sh "$HOOKS_DIR/check-forbidden-files.sh" 2>&1 || true)
+assert_contains "EH-6: forbidden strict → continue:false" '"continue":false' "$out"
+
+# bypass overrides strict
+out=$(PLANGATE_BYPASS_HOOK=1 PLANGATE_HOOK_STRICT=1 PLANGATE_HOOK_TASK=$FF_TASK PLANGATE_HOOK_FILE=src/auth/login.ts sh "$HOOKS_DIR/check-forbidden-files.sh" 2>&1 || true)
+assert_contains "EH-6: bypass overrides strict" '"continue":true' "$out"
+
+# task_id なし → SKIP（false-positive guard、continue:true）
+out=$(PLANGATE_HOOK_FILE=src/auth/login.ts sh "$HOOKS_DIR/check-forbidden-files.sh" 2>&1 || true)
+assert_contains "EH-6: no task → SKIP / continue:true" '"continue":true' "$out"
+
 printf '\nResults: %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -gt 0 ] && exit 1 || exit 0

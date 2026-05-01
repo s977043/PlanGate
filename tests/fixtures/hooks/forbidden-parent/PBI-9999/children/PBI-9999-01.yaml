@@ -1,0 +1,27 @@
+child_pbi:
+  id: TASK-HOOKTEST-FF
+  parent_id: PBI-9999
+  title: forbidden_files fixture
+  goal: Hook EH-6 fixture
+  in_scope:
+    - src/foo/**
+  out_of_scope:
+    - src/auth/**
+  dependencies: []
+  parallelizable: true
+  allowed_files:
+    - src/foo/**
+    - tests/foo/**
+    - docs/working/TASK-HOOKTEST-FF/**
+  forbidden_files:
+    - src/auth/**
+    - prisma/schema.prisma
+    - .github/workflows/**
+  acceptance_criteria:
+    - dummy
+  required_checks:
+    - lint
+  pr_strategy:
+    branch: feature/fixture
+    pr_size: small
+    merge_after: []
