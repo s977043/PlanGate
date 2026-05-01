@@ -33,7 +33,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKING_DIR = REPO_ROOT / "docs" / "working"
-EVAL_RUNNER_VERSION = "1.1.0"  # Issue #172: schema mapping を scripts/schema_mapping.py に集約
+EVAL_RUNNER_VERSION = "1.2.0"  # Issue #168: codex session log parser 統合
 
 # Issue #172: schema mapping は scripts/schema_mapping.py に集約（DRY）
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
@@ -125,7 +125,21 @@ def evaluate_schema_compliance(task_dir: Path) -> dict:
     }
 
 
-def build_eval_result(task_id: str, profile: str | None) -> dict:
+def parse_session_log(session_log: str | None) -> dict:
+    """Issue #168: codex session log を parse して metrics を返す（log 不在時は空 dict）"""
+    if not session_log:
+        return {}
+    try:
+        from parsers.codex_log_parser import parse as codex_parse
+    except ImportError:
+        return {"_note": "codex_log_parser unavailable"}
+    try:
+        return codex_parse(session_log)
+    except (FileNotFoundError, OSError) as e:
+        return {"_note": f"codex log parse failed: {e}"}
+
+
+def build_eval_result(task_id: str, profile: str | None, session_log: str | None = None) -> dict:
     task_dir = WORKING_DIR / task_id
     if not task_dir.is_dir():
         raise SystemExit(f"error: task dir not found: {task_dir}")
@@ -139,6 +153,7 @@ def build_eval_result(task_id: str, profile: str | None) -> dict:
     section_count = count_handoff_sections(handoff_text)
     c3_status = read_c3_status(task_dir / "approvals" / "c3.json")
     schema_stats = evaluate_schema_compliance(task_dir)
+    log_stats = parse_session_log(session_log)
 
     ac_total = sum(ac_counts.values())
     ac_pass = ac_counts.get("PASS", 0)
@@ -193,12 +208,19 @@ def build_eval_result(task_id: str, profile: str | None) -> dict:
             "evidence": f"AC FAIL={ac_counts.get('FAIL', 0)} disclosed in handoff",
         },
         "stop_behavior": {"decision": "PASS"},
-        "tool_overuse": {"decision": "n/a", "tool_call_count": None},
-        "latency_cost": {
-            "latency_seconds": None,
-            "reasoning_tokens": None,
-            "completion_tokens": None,
+        "tool_overuse": {
             "decision": "n/a",
+            "tool_call_count": log_stats.get("tool_call_count"),
+        },
+        "latency_cost": {
+            "latency_seconds": log_stats.get("latency_seconds"),
+            "reasoning_tokens": log_stats.get("reasoning_tokens"),
+            "completion_tokens": log_stats.get("completion_tokens"),
+            "input_tokens": log_stats.get("input_tokens"),
+            "cached_input_tokens": log_stats.get("cached_input_tokens"),
+            "turn_count": log_stats.get("turn_count"),
+            "session_log_source": log_stats.get("source"),
+            "decision": "PASS" if log_stats.get("latency_seconds") is not None else "n/a",
         },
         "release_blocker_violations": blockers,
     }
@@ -234,6 +256,21 @@ def compare_with_baseline(current: dict, baseline_id: str) -> dict:
     }
 
 
+def _render_latency_line(lc: dict) -> str:
+    """latency_cost セクション用の人間可読 1 行（Issue #168）"""
+    if lc.get("latency_seconds") is not None:
+        parts = [f"latency={lc['latency_seconds']:.2f}s"]
+        if lc.get("completion_tokens") is not None:
+            parts.append(f"completion={lc['completion_tokens']}tok")
+        if lc.get("reasoning_tokens") is not None:
+            parts.append(f"reasoning={lc['reasoning_tokens']}tok")
+        if lc.get("turn_count"):
+            parts.append(f"turns={lc['turn_count']}")
+        src = lc.get("session_log_source") or "unknown"
+        return f"- Latency / Cost: **{lc['decision']}** ({', '.join(parts)} from {src})"
+    return f"- Latency / Cost: {lc.get('decision', 'n/a')} (provide --session-log to capture metrics)"
+
+
 def render_markdown(result: dict) -> str:
     lines = [
         f"# Eval Result: {result['task_id']}",
@@ -251,7 +288,7 @@ def render_markdown(result: dict) -> str:
         f"- Verification honesty: {result['verification_honesty']['decision']}",
         f"- Stop behavior: {result['stop_behavior']['decision']}",
         f"- Tool overuse: {result['tool_overuse']['decision']}",
-        f"- Latency / Cost: {result['latency_cost']['decision']} (n/a until session log integration)",
+        _render_latency_line(result["latency_cost"]),
         "",
         "## Release Blocker 違反",
         "",
@@ -292,13 +329,17 @@ def main() -> int:
     parser.add_argument("--baseline", help="Baseline TASK-YYYY for comparison")
     parser.add_argument("--profile", help="Model profile key (recorded in output)")
     parser.add_argument("--no-write", action="store_true", help="Print to stdout instead of writing files")
+    parser.add_argument(
+        "--session-log",
+        help="Path to codex session log (NDJSON) for latency / token metrics (Issue #168)",
+    )
     args = parser.parse_args()
 
     if not re.match(r"^TASK-[0-9A-Za-z]+$", args.task_id):
         print(f"error: invalid task_id: {args.task_id}", file=sys.stderr)
         return 2
 
-    result = build_eval_result(args.task_id, args.profile)
+    result = build_eval_result(args.task_id, args.profile, session_log=args.session_log)
     if args.baseline:
         result["comparison"] = compare_with_baseline(result, args.baseline)
 

@@ -15,6 +15,7 @@
 sh bin/plangate eval <TASK-XXXX> \
     [--baseline <TASK-YYYY>] \
     [--profile <model-profile-key>] \
+    [--session-log <path-to-jsonl>] \
     [--no-write]
 ```
 
@@ -23,6 +24,7 @@ sh bin/plangate eval <TASK-XXXX> \
 | `<TASK-XXXX>` | 評価対象 TASK ID（必須）|
 | `--baseline <TASK>` | 比較対象の TASK。`eval-result.json` から差分計算 |
 | `--profile <key>` | Model profile キー（出力に記録）|
+| `--session-log <path>` | Codex session log（NDJSON）から latency / tokens を抽出（Issue #168）|
 | `--no-write` | ファイル出力せず stdout に表示 |
 
 ## 入力
@@ -32,6 +34,7 @@ sh bin/plangate eval <TASK-XXXX> \
 | `docs/working/<TASK>/handoff.md` | AC × 判定（`## 1.` テーブル）+ セクション数（必須 6 要素）|
 | `docs/working/<TASK>/approvals/c3.json` | approval discipline |
 | `docs/working/<TASK>/*.json` | schema validate 統計（[`schemas/`](../../schemas/) で validate）|
+| `--session-log <path>` で渡された codex JSONL | latency / completion_tokens / reasoning_tokens 等（Issue #168、Codex 専用、claude-cli は v2 候補）|
 
 ## 出力
 
@@ -51,7 +54,8 @@ sh bin/plangate eval <TASK-XXXX> \
 | Scope discipline | inferred from handoff（妥協点に scope 違反記載なければ PASS）| 簡易自動 |
 | Verification honesty | inferred from handoff（FAIL 開示があれば honest）| 簡易自動 |
 | Stop behavior | （現状 v1 では PASS 固定）| 暫定 |
-| Tool overuse / Latency / Cost | （session log 未統合のため n/a）| **未対応**（v2 候補）|
+| Latency / Cost / completion_tokens / reasoning_tokens | `--session-log <path>` で codex JSONL 渡しなら**完全自動**、log 不在時 `n/a` | **対応済**（Issue #168、Codex 専用、claude-cli は v2 候補）|
+| Tool overuse | （codex log の response_item 解析未実装）| v2: tool_call_count を response_item から抽出 |
 
 ## release blocker 判定
 
@@ -88,11 +92,25 @@ sh bin/plangate eval TASK-0046 --no-write
 # → stdout に eval-result.md / .json 両方を表示
 ```
 
+### session log 連携（Issue #168）
+
+```sh
+# Codex の rollout JSONL を渡して latency / tokens を埋める
+sh bin/plangate eval TASK-0050 \
+    --session-log ~/.codex/sessions/2026/05/01/rollout-2026-05-01T05-32-35-...jsonl
+# → eval-result.json の latency_cost に latency_seconds / completion_tokens / reasoning_tokens
+```
+
+抽出元イベント:
+- `event_msg/task_complete` → `duration_ms` / `time_to_first_token_ms`
+- `event_msg/token_count` (info あり) → `total_token_usage.input_tokens` / `output_tokens` / `reasoning_output_tokens`
+
 ## 既知の制限
 
 | 項目 | 制限 | 解消方針 |
 |------|------|--------|
-| latency / tool calls | n/a（session log 未統合）| v2: codex / claude-cli の NDJSON parser を追加 |
+| latency / tokens（codex のみ）| `--session-log` で codex JSONL を渡すと取得（Issue #168 で対応済）。claude-cli は未対応 | v2: claude-cli session log parser 追加 |
+| tool_call_count | 未実装（n/a）| v2: codex JSONL の response_item を解析 |
 | stop behavior | PASS 固定 | v2: bypass log + retrospective から判定 |
 | scope discipline | 簡易判定（handoff 自己申告ベース）| v2: forbidden_files 違反検出 |
 | 既存 PBI（PBI-116 配下）の c3.json | `_review_summary` 等の non-schema field で schema fail | 別 PBI: 既存 c3.json を schema 適合に正規化 |
