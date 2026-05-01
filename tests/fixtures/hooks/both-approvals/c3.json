@@ -1,0 +1,8 @@
+{
+  "task_id": "TASK-9999",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "fixture",
+  "approved_at": "2026-05-01T00:00:00Z",
+  "plan_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}

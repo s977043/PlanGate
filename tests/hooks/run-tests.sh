@@ -361,5 +361,129 @@ assert_contains "EH-6: bypass overrides strict" '"continue":true' "$out"
 out=$(PLANGATE_HOOK_FILE=src/auth/login.ts sh "$HOOKS_DIR/check-forbidden-files.sh" 2>&1 || true)
 assert_contains "EH-6: no task → SKIP / continue:true" '"continue":true' "$out"
 
+# ---- Setup fixtures for EH-7 / EHS-1 (Issue #169 Session C) ----
+BOTH_APPR_NAME="TASK-HOOKTEST13"   # c3 + c4 両方 APPROVED
+C3_ONLY_NAME="TASK-HOOKTEST14"     # c3 のみ APPROVED, c4 不在
+NO_APPR_NAME="TASK-HOOKTEST15"     # 両方なし
+V3_EXISTS_NAME="TASK-HOOKTEST16"   # review-external.md あり
+V3_NONE_NAME="TASK-HOOKTEST17"     # review-external.md なし
+
+cleanup_session_c() {
+  for n in "$BOTH_APPR_NAME" "$C3_ONLY_NAME" "$NO_APPR_NAME" "$V3_EXISTS_NAME" "$V3_NONE_NAME"; do
+    rm -rf "$REPO_ROOT/docs/working/$n"
+  done
+}
+cleanup_session_c
+
+mkdir -p "$REPO_ROOT/docs/working/$BOTH_APPR_NAME/approvals"
+cp "$FIXTURES_DIR/both-approvals/c3.json" "$REPO_ROOT/docs/working/$BOTH_APPR_NAME/approvals/c3.json"
+cp "$FIXTURES_DIR/both-approvals/c4-approval.json" "$REPO_ROOT/docs/working/$BOTH_APPR_NAME/approvals/c4-approval.json"
+
+mkdir -p "$REPO_ROOT/docs/working/$C3_ONLY_NAME/approvals"
+cp "$FIXTURES_DIR/both-approvals/c3.json" "$REPO_ROOT/docs/working/$C3_ONLY_NAME/approvals/c3.json"
+# c4 不在
+
+mkdir -p "$REPO_ROOT/docs/working/$NO_APPR_NAME/approvals"  # 空ディレクトリ
+
+mkdir -p "$REPO_ROOT/docs/working/$V3_EXISTS_NAME"
+cp "$FIXTURES_DIR/v3-review-exists/review-external.md" "$REPO_ROOT/docs/working/$V3_EXISTS_NAME/review-external.md"
+
+mkdir -p "$REPO_ROOT/docs/working/$V3_NONE_NAME"  # review-external.md なし
+
+# 既存 trap に session C cleanup を追加
+trap "cleanup_dirs; cleanup_extra; cleanup_session_c" EXIT INT TERM
+
+# ---- check-merge-approvals.sh (EH-7) ----
+note "check-merge-approvals.sh (EH-7)"
+
+out=$(sh "$HOOKS_DIR/check-merge-approvals.sh" "$BOTH_APPR_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "PASS"; then
+  printf '[PASS] EH-7: both APPROVED → exit 0 + PASS\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-7: both APPROVED (rc=%d, out=%s)\n' "$rc" "$out"
+  fail=$((fail + 1))
+fi
+
+out=$(sh "$HOOKS_DIR/check-merge-approvals.sh" "$C3_ONLY_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q WARNING; then
+  printf '[PASS] EH-7: c4 missing default → exit 0 + WARNING\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-7: c4 missing default (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+PLANGATE_HOOK_STRICT=1 sh "$HOOKS_DIR/check-merge-approvals.sh" "$NO_APPR_NAME" >/dev/null 2>&1 && rc=0 || rc=$?
+if [ "$rc" -eq 1 ]; then
+  printf '[PASS] EH-7: no approvals strict → exit 1\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-7: no approvals strict (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+out=$(PLANGATE_BYPASS_HOOK=1 PLANGATE_HOOK_STRICT=1 sh "$HOOKS_DIR/check-merge-approvals.sh" "$NO_APPR_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q BYPASS; then
+  printf '[PASS] EH-7: bypass overrides strict\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-7: bypass behavior (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# ---- check-v3-review.sh (EHS-1) ----
+note "check-v3-review.sh (EHS-1)"
+
+# review-external.md あり、mode=standard → PASS
+out=$(PLANGATE_HOOK_MODE=standard sh "$HOOKS_DIR/check-v3-review.sh" "$V3_EXISTS_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q PASS; then
+  printf '[PASS] EHS-1: review-external present (standard) → PASS\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EHS-1: review-external present (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# review-external.md なし、mode=standard default → exit 0 + WARNING
+out=$(PLANGATE_HOOK_MODE=standard sh "$HOOKS_DIR/check-v3-review.sh" "$V3_NONE_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q WARNING; then
+  printf '[PASS] EHS-1: missing standard default → exit 0 + WARNING\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EHS-1: missing default (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# review-external.md なし、mode=high-risk strict → exit 1
+PLANGATE_HOOK_STRICT=1 PLANGATE_HOOK_MODE=high-risk sh "$HOOKS_DIR/check-v3-review.sh" "$V3_NONE_NAME" >/dev/null 2>&1 && rc=0 || rc=$?
+if [ "$rc" -eq 1 ]; then
+  printf '[PASS] EHS-1: missing strict (high-risk) → exit 1\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EHS-1: missing strict (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# review-external.md なし、mode=light → SKIP（必須化されない）
+out=$(PLANGATE_HOOK_STRICT=1 PLANGATE_HOOK_MODE=light sh "$HOOKS_DIR/check-v3-review.sh" "$V3_NONE_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q SKIP; then
+  printf '[PASS] EHS-1: light mode → SKIP regardless of strict\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EHS-1: light mode skip (rc=%d, out=%s)\n' "$rc" "$out"
+  fail=$((fail + 1))
+fi
+
+# bypass overrides strict
+out=$(PLANGATE_BYPASS_HOOK=1 PLANGATE_HOOK_STRICT=1 PLANGATE_HOOK_MODE=critical sh "$HOOKS_DIR/check-v3-review.sh" "$V3_NONE_NAME" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q BYPASS; then
+  printf '[PASS] EHS-1: bypass overrides strict (critical mode)\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EHS-1: bypass behavior (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
 printf '\nResults: %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -gt 0 ] && exit 1 || exit 0
