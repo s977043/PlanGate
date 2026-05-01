@@ -1,6 +1,6 @@
 # eval-runner — 8 観点の機械評価 CLI
 
-> **Status**: v1（Issue #156 / TASK-0049 で初版）
+> **Status**: v1（Spec 初版 = Issue #156 / TASK-0049 / v8.4.0）— runner 実装は **v1.2.0**（v8.4.0 で v1.0.0 → v1.1.0 schema_mapping DRY 化、続けて v1.2.0 で codex log parser 統合 / Issue #168 / v8.5.0 で維持）
 > 関連: [`eval-plan.md`](./eval-plan.md) / [`eval-baseline-procedure.md`](./eval-baseline-procedure.md) / [`structured-outputs.md`](./structured-outputs.md)
 > 実装: [`scripts/eval-runner.py`](../../scripts/eval-runner.py) / [`bin/plangate eval`](../../bin/plangate)
 > Schema: [`schemas/eval-result.schema.json`](../../schemas/eval-result.schema.json)

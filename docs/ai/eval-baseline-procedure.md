@@ -1,6 +1,6 @@
 # Eval Baseline 集計手順
 
-> **Status**: v2（TASK-0055 / retrospective Try T-5 で v8.4 自動化版を追加）
+> **Status**: v2（v8.4.0 で自動化版を追加 / TASK-0055 / retrospective Try T-5、v8.5.0 で維持）
 > 関連: [`eval-plan.md`](./eval-plan.md) / [`eval-comparison-template.md`](./eval-comparison-template.md) / [`eval-runner.md`](./eval-runner.md) / [`eval-cases/`](./eval-cases/)
 
 ## 目的
@@ -146,13 +146,25 @@ grep -E "BLOCKED|retry|失敗" docs/working/retrospective-*.md | head -20
 
 ### Step 9: Latency / Cost を集計する
 
-**現状（v8.3）は手動集計困難**。session log が evidence ディレクトリに保存されていないため、定量値は **n/a**。
+**v8.4 以降は CLI 自動取得**（Issue #168 / TASK-0054 で実装、`bin/plangate eval --session-log <path>`）:
 
-集計可能になる条件:
-- 各 session log（codex / claude-cli の JSON / NDJSON）を `evidence/session-log/` に保存
-- #156 eval runner 実装後
+```sh
+sh bin/plangate eval TASK-XXXX \
+  --session-log ~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-*.jsonl
+# → eval-result.json の latency_cost に latency_seconds / completion_tokens /
+#   reasoning_tokens を実測値で記録
+```
 
-それまでは EPIC 期間 / 計画 PR 数 / Codex 呼び出し回数を **代理指標** として記録。
+抽出対象（codex JSONL）:
+- `event_msg/task_complete` → `duration_ms` / `time_to_first_token_ms`
+- `event_msg/token_count`（info あり）→ `total_token_usage` の input/output/reasoning
+
+**session log がない場合**は従来通り `n/a`（後方互換）。代理指標として EPIC 期間 / 計画 PR 数 / Codex 呼び出し回数を記録。
+
+**未対応（V2 候補）**:
+- claude-cli session log parser（保存場所は `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`）
+- `tool_call_count` 抽出（codex JSONL の `response_item` 解析）
+- session log 自動検出（cwd → 最新 rollout 推測）
 
 ### Step 10: 比較表に記入する
 
