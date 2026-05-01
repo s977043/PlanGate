@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/eval-result.schema.json",
+  "title": "PlanGate Eval Result",
+  "description": "bin/plangate eval が生成する 8 観点の機械評価結果（Issue #156 / TASK-0049）。",
+  "type": "object",
+  "required": [
+    "task_id",
+    "evaluated_at",
+    "schema_compliance",
+    "ac_coverage",
+    "approval_discipline",
+    "format_adherence",
+    "scope_discipline",
+    "verification_honesty",
+    "stop_behavior",
+    "tool_overuse",
+    "latency_cost",
+    "release_blocker_violations"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9A-Za-z-]+$"
+    },
+    "evaluated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evaluator_version": {
+      "type": "string",
+      "description": "bin/plangate eval のバージョン"
+    },
+    "schema_compliance": {
+      "type": "object",
+      "required": ["json_files_validated", "pass_count", "fail_count", "rate_percent"],
+      "properties": {
+        "json_files_validated": { "type": "integer", "minimum": 0 },
+        "pass_count": { "type": "integer", "minimum": 0 },
+        "fail_count": { "type": "integer", "minimum": 0 },
+        "rate_percent": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "ac_coverage": {
+      "type": "object",
+      "required": ["total", "pass", "rate_percent"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "pass": { "type": "integer", "minimum": 0 },
+        "fail": { "type": "integer", "minimum": 0 },
+        "warn": { "type": "integer", "minimum": 0 },
+        "rate_percent": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "approval_discipline": {
+      "type": "object",
+      "required": ["c3_exists", "decision"],
+      "properties": {
+        "c3_exists": { "type": "boolean" },
+        "c3_status": { "type": ["string", "null"] },
+        "decision": { "type": "string", "enum": ["PASS", "WARN", "FAIL"] }
+      }
+    },
+    "format_adherence": {
+      "type": "object",
+      "required": ["handoff_section_count", "decision"],
+      "properties": {
+        "handoff_section_count": { "type": "integer", "minimum": 0 },
+        "decision": { "type": "string", "enum": ["PASS", "WARN", "FAIL"] }
+      }
+    },
+    "scope_discipline": {
+      "type": "object",
+      "required": ["decision"],
+      "properties": {
+        "decision": { "type": "string", "enum": ["PASS", "WARN", "FAIL", "n/a"] },
+        "evidence": { "type": "string" }
+      }
+    },
+    "verification_honesty": {
+      "type": "object",
+      "required": ["decision"],
+      "properties": {
+        "decision": { "type": "string", "enum": ["PASS", "WARN", "FAIL", "n/a"] },
+        "evidence": { "type": "string" }
+      }
+    },
+    "stop_behavior": {
+      "type": "object",
+      "required": ["decision"],
+      "properties": {
+        "decision": { "type": "string", "enum": ["PASS", "WARN", "FAIL", "n/a"] }
+      }
+    },
+    "tool_overuse": {
+      "type": "object",
+      "required": ["decision"],
+      "properties": {
+        "decision": { "type": "string", "enum": ["PASS", "WARN", "FAIL", "n/a"] },
+        "tool_call_count": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "latency_cost": {
+      "type": "object",
+      "properties": {
+        "latency_seconds": { "type": ["number", "null"], "minimum": 0 },
+        "reasoning_tokens": { "type": ["integer", "null"], "minimum": 0 },
+        "completion_tokens": { "type": ["integer", "null"], "minimum": 0 },
+        "decision": { "type": "string", "enum": ["PASS", "WARN", "FAIL", "n/a"] }
+      },
+      "required": ["decision"]
+    },
+    "release_blocker_violations": {
+      "type": "array",
+      "description": "release blocker に該当する違反のリスト（empty なら blocker なし）",
+      "items": {
+        "type": "object",
+        "required": ["aspect", "reason"],
+        "properties": {
+          "aspect": {
+            "type": "string",
+            "enum": ["scope_discipline", "approval_discipline", "verification_honesty", "format_adherence"]
+          },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "description": "--baseline 指定時のみ。baseline からの差分。",
+      "properties": {
+        "baseline_task_id": { "type": "string" },
+        "ac_coverage_delta_percent": { "type": "number" },
+        "format_adherence_delta_percent": { "type": "number" },
+        "release_blocker_status": {
+          "type": "string",
+          "enum": ["unchanged", "improved", "regressed"]
+        }
+      }
+    }
+  }
+}

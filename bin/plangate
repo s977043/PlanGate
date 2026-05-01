@@ -124,6 +124,7 @@ cmd_help() {
     "  status <TASK-XXXX>             Show current phase and next action" \
     "  validate <TASK-XXXX> [--mode]  Verify artifacts and plan_hash integrity" \
     "  validate-schemas <args>        Validate JSON artifacts against schemas/ (Issue #158)" \
+    "  eval <TASK-XXXX> [--baseline]  Run 8-aspect eval (Issue #156)" \
     "  review <TASK-XXXX> [--phase]   Run external AI review (c2/v3)" \
     "  exec <TASK-XXXX> [--mode]      Dispatch implementation agent (after C-3)" \
     "  abort <TASK-XXXX> [--reason]   Record abort event in run.ndjson" \
@@ -526,6 +527,24 @@ cmd_validate_schemas() {
   return $?
 }
 
+cmd_eval() {
+  # Run 8-aspect eval against a task dir. Wraps scripts/eval-runner.py.
+  # Issue #156 / TASK-0049
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate eval <TASK-XXXX> [--baseline <TASK-YYYY>] [--profile <key>] [--no-write]\n' >&2
+    return 1
+  fi
+
+  py_script="$plangate_root/scripts/eval-runner.py"
+  if [ ! -f "$py_script" ]; then
+    printf 'error: scripts/eval-runner.py not found\n' >&2
+    return 2
+  fi
+
+  python3 "$py_script" "$@"
+  return $?
+}
+
 cmd_abort() {
   if [ $# -eq 0 ]; then
     printf 'Usage: plangate abort <TASK-XXXX> [--reason "..."]\n' >&2
@@ -789,6 +808,7 @@ case "$command" in
   status)      cmd_status "$@" ;;
   validate)    cmd_validate "$@" ;;
   validate-schemas) cmd_validate_schemas "$@" ;;
+  eval)        cmd_eval "$@" ;;
   review)      cmd_review "$@" ;;
   exec)        cmd_exec "$@" ;;
   abort)       cmd_abort "$@" ;;
