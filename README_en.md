@@ -18,18 +18,21 @@ Unlike agent frameworks that focus on autonomy, PlanGate focuses on **approval b
 
 ## Current Status
 
-As of v8.5.0, PlanGate is no longer just a workflow document set. It has become an executable governance harness with CLI, hooks, schemas, eval, and CI.
+As of v8.6.0, PlanGate combines Hook enforcement with **Metrics v1** and **Harness Improvement Governance**, so the improvement cycle can be judged by comparison rather than intuition.
 
 | Item | Status |
 | --- | --- |
-| Latest release | **v8.5.0** — Hook enforcement complete |
-| Hook enforcement | **10/10 hooks implemented** |
-| CLI tests | `sh tests/run-tests.sh` — **24 PASS** |
+| Latest release | **v8.6.0** — Harness Improvement Roadmap Phase 0/1 + Governance |
+| Hook enforcement | **10/10 hooks implemented** (carried over from v8.5.0) |
+| Metrics v1 | Workflow event collection and reporting via `bin/plangate metrics` (v8.6.0) |
+| Baseline | v8.5.0 baseline fixed under `docs/ai/eval-baselines/` (v8.6.0) |
+| Governance | Issue / Label / Milestone Governance + Metrics Privacy Policy (v8.6.0) |
+| CLI tests | `sh tests/run-tests.sh` — **32 PASS** |
 | Hook tests | `sh tests/hooks/run-tests.sh` — **42 PASS** |
 | Eval | 8-observation evaluation and release blocker detection via `bin/plangate eval` |
 | Schema | JSON artifact validation via `validate-schemas` + CI |
 
-v8.5.0 can check these invariants through hooks and CLI:
+v8.6.0 can check these invariants through hooks and CLI:
 
 - Detect production code edits without `plan.md`
 - Block execution without C-3 approval
@@ -225,11 +228,11 @@ sh tests/run-tests.sh
 sh tests/hooks/run-tests.sh
 ```
 
-Test status as of v8.5.0:
+Test status as of v8.6.0:
 
 | Suite | Count | Main coverage |
 | --- | ---: | --- |
-| `tests/run-tests.sh` | **24 PASS** | CLI, Workflow DSL, schema validate, eval, provider dispatch, fixture validation |
+| `tests/run-tests.sh` | **32 PASS** | CLI, Workflow DSL, schema validate, eval, metrics v1, provider dispatch, fixture validation |
 | `tests/hooks/run-tests.sh` | **42 PASS** | EH-1 to EH-7 / EHS-1 to EHS-3, default / strict / bypass mode behavior |
 
 Main coverage:
@@ -238,6 +241,7 @@ Main coverage:
 - `plangate validate --mode <mode>` — artifact list determined dynamically from Workflow DSL
 - `plangate validate-schemas` — JSON Schema compliance for task artifacts
 - `plangate eval` — 8-observation evaluation, baseline comparison, release blocker detection
+- `plangate metrics` — workflow event collection / reporting (v8.6.0)
 - `plangate review` — external reviewer provider dispatch
 - `plangate exec` — blocked execution when the C-3 gate has not cleared
 - hook enforcement — plan / approval / hash / test-cases / evidence / forbidden_files / merge approvals / V-3 review checks

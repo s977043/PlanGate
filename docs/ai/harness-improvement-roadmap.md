@@ -1,7 +1,8 @@
 # Harness Improvement Roadmap
 
-> **Status**: v0（Proposed Roadmap）
-> 関連: [`philosophy.md`](../philosophy.md) / [`eval-plan.md`](./eval-plan.md) / [`eval-runner.md`](./eval-runner.md) / [`model-profiles.md`](./model-profiles.md) / [`prompt-assembly.md`](./prompt-assembly.md) / [`tool-policy.md`](./tool-policy.md) / [`hook-enforcement.md`](./hook-enforcement.md)
+> **Status**: v1（Phase 0 / 1 + Governance Done — v8.6.0 で完走、Phase 2 以降は Proposed）
+> **Progress**: Phase 0 ✅ / Phase 1 ✅ / Governance (#201, #202) ✅ / Phase 2〜6 🔵 Open
+> 関連: [`philosophy.md`](../philosophy.md) / [`eval-plan.md`](./eval-plan.md) / [`eval-runner.md`](./eval-runner.md) / [`metrics.md`](./metrics.md) / [`metrics-privacy.md`](./metrics-privacy.md) / [`issue-governance.md`](./issue-governance.md) / [`eval-baselines/2026-05-04-baseline.md`](./eval-baselines/2026-05-04-baseline.md) / [`model-profiles.md`](./model-profiles.md) / [`prompt-assembly.md`](./prompt-assembly.md) / [`tool-policy.md`](./tool-policy.md) / [`hook-enforcement.md`](./hook-enforcement.md)
 
 ## 1. 目的
 
@@ -47,15 +48,17 @@ PlanGate にはすでに以下が存在する。
 
 ## 5. ロードマップ概要
 
-| Phase | 名称 | 目的 | 主な成果物 |
-| --- | --- | --- | --- |
-| 0 | Baseline alignment | 既存 eval / hook / profile の現在地を固定する | baseline report |
-| 1 | Metrics v1 | 実利用シグナルを保存できるようにする | event schema / metrics command |
-| 2 | Harness Eval expansion | eval-runner をハーネス変更判断に使いやすくする | comparison / release gate 拡張 |
-| 3 | Model Profile v2 | モデルごとの実行特性を表現する | edit interface / retry / capability |
-| 4 | Keep Rate | AI 成果物が残ったかを測る | code / plan / acceptance / handoff keep rate |
-| 5 | Dynamic Context Engine | 契約コンテキストと作業コンテキストを分離する | context manifest / context command |
-| 6 | Reporting & Retrospective | スプリント改善に接続する | metrics report / retrospective template |
+| Phase | 名称 | 目的 | 主な成果物 | Status |
+| --- | --- | --- | --- | --- |
+| 0 | Baseline alignment | 既存 eval / hook / profile の現在地を固定する | baseline report | ✅ Done (v8.6.0 / #194) |
+| 1 | Metrics v1 | 実利用シグナルを保存できるようにする | event schema / metrics command | ✅ Done (v8.6.0 / #195) |
+| 2 | Harness Eval expansion | eval-runner をハーネス変更判断に使いやすくする | comparison / release gate 拡張 | 🔵 Open (v8.7.0 / #196) |
+| 3 | Model Profile v2 | モデルごとの実行特性を表現する | edit interface / retry / capability | 🔵 Open (v8.7.0 / #197) |
+| 4 | Keep Rate | AI 成果物が残ったかを測る | code / plan / acceptance / handoff keep rate | 🔵 Open (v8.8.0 / #198) |
+| 5 | Dynamic Context Engine | 契約コンテキストと作業コンテキストを分離する | context manifest / context command | 🔵 Open (v8.8.0 / #199) |
+| 6 | Reporting & Retrospective | スプリント改善に接続する | metrics report / retrospective template | 🔵 Open (v8.9.0 / #200) |
+| - | Issue/Label/Milestone Governance | Issue 運用ルール固定 | issue-governance.md / Issue Form | ✅ Done (v8.6.0 / #201) |
+| - | Metrics Privacy Policy | metrics 公開・秘匿境界 | metrics-privacy.md | ✅ Done (v8.6.0 / #202) |
 
 ## 6. Phase 0: Baseline alignment
 
