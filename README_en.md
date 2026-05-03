@@ -1,6 +1,7 @@
 # PlanGate
 
-> "No approval, no code." — A gate-driven workflow for AI coding agents.
+> "No approval, no code." — A gate-driven workflow for AI coding agents.  
+> 日本語: AI コーディングエージェントのための軽量ガバナンスハーネス。
 
 [![GitHub release](https://img.shields.io/github/v/release/s977043/plangate)](https://github.com/s977043/plangate/releases)
 [![CI](https://github.com/s977043/plangate/actions/workflows/ci.yml/badge.svg)](https://github.com/s977043/plangate/actions/workflows/ci.yml)
@@ -14,6 +15,30 @@ It prevents AI agents from writing production code until a human-approved plan, 
 Unlike agent frameworks that focus on autonomy, PlanGate focuses on **approval boundaries, auditability, and Scrum-friendly delivery**.
 
 ![PlanGate overview](docs/assets/harness-plangate-readme-dark-v2.png)
+
+## Current Status
+
+As of v8.5.0, PlanGate is no longer just a workflow document set. It has become an executable governance harness with CLI, hooks, schemas, eval, and CI.
+
+| Item | Status |
+| --- | --- |
+| Latest release | **v8.5.0** — Hook enforcement complete |
+| Hook enforcement | **10/10 hooks implemented** |
+| CLI tests | `sh tests/run-tests.sh` — **24 PASS** |
+| Hook tests | `sh tests/hooks/run-tests.sh` — **42 PASS** |
+| Eval | 8-observation evaluation and release blocker detection via `bin/plangate eval` |
+| Schema | JSON artifact validation via `validate-schemas` + CI |
+
+v8.5.0 can check these invariants through hooks and CLI:
+
+- Detect production code edits without `plan.md`
+- Block execution without C-3 approval
+- Detect post-approval `plan.md` tampering through `plan_hash`
+- Detect V-1 execution without `test-cases.md`
+- Detect PR creation without verification evidence
+- Detect out-of-scope file edits through `forbidden_files`
+- Detect merges without both C-3 and C-4 approvals
+- Require V-3 external review for standard / high-risk / critical modes
 
 ## Install
 
@@ -56,7 +81,8 @@ Human writes PBI → AI generates plan → [C-3: Human approves]
 | Concept | Description |
 | --- | --- |
 | Plan-first | PBI → plan / todo / test-cases before any code |
-| Gate control | C-3 (plan approval) and C-4 (PR review) fix human decision points |
+| Gate control | C-3 plan approval and C-4 PR review fix human decision points |
+| Hook enforcement | v8.5 checks plan / approval / evidence / scope / review invariants through hooks and CLI |
 | Built-in verification | L-0 lint fix, V-1 acceptance check, V-3 external review |
 | Persistent artifacts | `docs/working/TASK-XXXX/` keeps plan, review, tests, handoff |
 | Separated execution layer | v7: Workflow / Skill / Agent separated for reusability |
@@ -140,22 +166,22 @@ See [plugin/plangate/README.md](plugin/plangate/README.md) for plugin registrati
 ## Repository Layout
 
 ```text
-/bin                     — plangate CLI (init / doctor / status / validate [--mode] / review / exec / abort / timeline / resume)
+/bin                     — plangate CLI (init / doctor / status / validate / validate-schemas / review / exec / eval / abort / timeline / resume)
 /docs                    — Knowledge and workflow documentation
-  /ai                    — Shared rules, role definitions, execution contract, Model Profile, Prompt Assembly, Eval framework (v8.3)
+  /ai                    — Shared rules, role definitions, execution contract, Model Profile, Prompt Assembly, Eval framework (v8.3+)
     /contracts           — Phase-specific contracts × 7 (plan / classify / approve-wait / execute / review / verify / handoff)
     /adapters            — Profile-specific adapters × 4 (outcome_first / outcome_first_strict / explicit_short / legacy_or_unknown)
-    /eval-cases          — Model migration eval observation points × 8 (v8.3)
+    /eval-cases          — Model migration eval observation points × 8 (v8.3+)
   /workflows             — v7 Workflow definitions (WF-01 to WF-05 + Orchestrator)
   /working               — Per-ticket working context (TASK-XXXX/, PBI-XXX/)
-/schemas                 — JSON Schemas (plan / handoff / status / approval / model-profile / Structured Outputs × 4 etc.)
+/schemas                 — JSON Schemas (plan / handoff / status / approval / model-profile / Structured Outputs / eval-result etc.)
 /workflows               — v8 Workflow DSL (5-mode YAML: ultra-light / light / standard / high-risk / critical)
 /.claude                 — Claude Code configuration
 /.codex                  — Codex CLI configuration
 /plugin/plangate         — Claude Code plugin package
-/scripts                 — Helper scripts
+/scripts                 — Helper scripts, hooks, parsers, CI helpers
 /examples                — Worked examples of PlanGate artifacts
-/tests                   — CLI test suite (fixtures + run-tests.sh)
+/tests                   — CLI / hook test suite (fixtures + hooks + extras + run-tests.sh)
 ```
 
 ## Claude Code + Codex CLI
@@ -178,30 +204,45 @@ Role details: [docs/ai/tool-roles.md](docs/ai/tool-roles.md)
 bin/plangate init TASK-XXXX
 bin/plangate status TASK-XXXX
 bin/plangate validate TASK-XXXX --mode high-risk
+bin/plangate validate-schemas TASK-XXXX
+bin/plangate eval TASK-XXXX --no-write
 PLANGATE_EXTERNAL_REVIEWER=gemini bin/plangate review TASK-XXXX --phase c2
 PLANGATE_IMPL_AGENT=opencode bin/plangate exec TASK-XXXX --mode standard
 ```
 
 - `validate --mode <mode>` reads `gate_enforcement.c3.required_artifacts` from `workflows/<mode>.yaml`.
+- `validate-schemas` validates task artifacts against JSON Schemas.
+- `eval` generates `eval-result.{md,json}` with 8-observation evaluation and release blocker detection.
 - `review` dispatches an external reviewer provider and writes `review-external.md`.
 - `exec` blocks execution unless the C-3 gate is `APPROVED`.
 
 ## Testing
 
-Run the CLI test suite locally:
+Run the CLI / hook test suites locally:
 
 ```bash
 sh tests/run-tests.sh
+sh tests/hooks/run-tests.sh
 ```
 
-The suite has **10 tests** total (as of v8.1.0) and validates:
+Test status as of v8.5.0:
 
-- `plangate validate --dir` against four fixture scenarios (complete-task / missing-approval / stale-plan-hash / broken-pbi)
-- `plangate validate --mode <mode>` — artifact list determined dynamically from Workflow DSL (standard passes, unknown mode errors)
-- `plangate review` — usage shown when arguments are missing
-- `plangate exec` — blocked when the C-3 gate (`approvals/c3.json` with APPROVED) has not cleared
+| Suite | Count | Main coverage |
+| --- | ---: | --- |
+| `tests/run-tests.sh` | **24 PASS** | CLI, Workflow DSL, schema validate, eval, provider dispatch, fixture validation |
+| `tests/hooks/run-tests.sh` | **42 PASS** | EH-1 to EH-7 / EHS-1 to EHS-3, default / strict / bypass mode behavior |
 
-CI runs the same suite on every PR via `.github/workflows/test.yml`.
+Main coverage:
+
+- `plangate validate --dir` — complete-task / missing-approval / stale-plan-hash / broken-pbi fixtures
+- `plangate validate --mode <mode>` — artifact list determined dynamically from Workflow DSL
+- `plangate validate-schemas` — JSON Schema compliance for task artifacts
+- `plangate eval` — 8-observation evaluation, baseline comparison, release blocker detection
+- `plangate review` — external reviewer provider dispatch
+- `plangate exec` — blocked execution when the C-3 gate has not cleared
+- hook enforcement — plan / approval / hash / test-cases / evidence / forbidden_files / merge approvals / V-3 review checks
+
+CI runs the same CLI / hook suites on every PR via `.github/workflows/test.yml`.
 
 ## Provider Support
 
@@ -231,11 +272,12 @@ To contribute support for a new provider, see [CONTRIBUTING.md](CONTRIBUTING.md#
 | [docs/ai/core-contract.md](docs/ai/core-contract.md) | Execution contract canonical (Iron Law / Stop rules / Output discipline) |
 | [docs/ai/model-profiles.yaml](docs/ai/model-profiles.yaml) | Per-execution-model 4 profiles (v8.3) |
 | [docs/ai/prompt-assembly.md](docs/ai/prompt-assembly.md) | 4-layer prompt assembly (v8.3) |
-| [docs/ai/structured-outputs.md](docs/ai/structured-outputs.md) | Structured Outputs / JSON Schema policy (v8.3) |
-| [docs/ai/eval-plan.md](docs/ai/eval-plan.md) | Model migration eval framework (8 observations, v8.3) |
-| [docs/ai/responsibility-boundary.md](docs/ai/responsibility-boundary.md) | CLAUDE.md / Skill / Hook responsibility boundary (v8.3) |
-| [docs/ai/tool-policy.md](docs/ai/tool-policy.md) | Phase-specific allowed_tools (v8.3) |
-| [docs/ai/hook-enforcement.md](docs/ai/hook-enforcement.md) | Hook-enforced items EHS-1 to EHS-3 (v8.3) |
+| [docs/ai/structured-outputs.md](docs/ai/structured-outputs.md) | Structured Outputs / JSON Schema policy (v8.3+) |
+| [docs/ai/eval-plan.md](docs/ai/eval-plan.md) | Model migration eval framework (8 observations) |
+| [docs/ai/eval-runner.md](docs/ai/eval-runner.md) | Machine evaluation CLI spec for `bin/plangate eval` |
+| [docs/ai/responsibility-boundary.md](docs/ai/responsibility-boundary.md) | CLAUDE.md / Skill / Hook responsibility boundary |
+| [docs/ai/tool-policy.md](docs/ai/tool-policy.md) | Phase-specific allowed_tools definition |
+| [docs/ai/hook-enforcement.md](docs/ai/hook-enforcement.md) | v8.5 Hook enforcement 10/10 implementation status |
 | [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Using and migrating to Claude Code plugin |
 | [docs/oss-governance.md](docs/oss-governance.md) | OSS publication settings and operational decisions |
 | [CHANGELOG.md](CHANGELOG.md) | Major release history |
