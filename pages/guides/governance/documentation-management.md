@@ -3,6 +3,7 @@
 > **Status**: v0
 > **Review cadence**: Monthly
 > **Reference**: River-Reviewer documentation structure
+> **Related**: [docs/ai/issue-governance.md](../../../docs/ai/issue-governance.md) — Issue / Label / Milestone Governance（本ドキュメントは Doc 配置・更新ルール側、Issue 運用側は別正本）
 
 ## 1. 目的
 

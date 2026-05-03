@@ -1,0 +1,78 @@
+name: PlanGate roadmap task (PBI)
+description: Roadmap PBI for harness improvement / governance / workflow scope.
+title: "PBI-XX-NNN: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Roadmap PBI 用テンプレートです。本テンプレートは [docs/ai/issue-governance.md](../../docs/ai/issue-governance.md) §2 の必須セクションを強制します。
+        EPIC が紐付く場合は冒頭の Parent EPIC 欄に EPIC 番号を入れてください。
+  - type: input
+    id: parent-epic
+    attributes:
+      label: Parent EPIC / Roadmap
+      description: 親 EPIC / ロードマップ doc / 関連 PR
+      placeholder: "Parent EPIC: #193 / Roadmap doc: docs/ai/harness-improvement-roadmap.md"
+    validations:
+      required: true
+  - type: input
+    id: planned-milestone
+    attributes:
+      label: Planned milestone
+      description: 紐付け予定の milestone（GitHub 上に存在しない場合は先に作成）
+      placeholder: "v8.6.0"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: この PBI が必要な背景・問題・コスト
+      placeholder: 現状なぜこれが必要か、放置した場合のコスト
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What (Scope / Out-of-scope / Suggested files)
+      description: in scope / out of scope / suggested files / suggested outputs
+      placeholder: |
+        ### Scope
+        - ...
+
+        ### Suggested files
+        ```text
+        path/to/file.md
+        ```
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: 機械的に検証可能なチェックリスト
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: 明示的にやらないこと
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: true
+  - type: input
+    id: labels
+    attributes:
+      label: Labels (kind + priority [+ area])
+      description: docs/ai/issue-governance.md §3 の taxonomy に沿う
+      placeholder: "enhancement, priority:P0, area:metrics"
+    validations:
+      required: true
