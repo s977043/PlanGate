@@ -43,3 +43,7 @@ docs/working/_audit/hook-events.log
 .claude/scheduled_tasks.lock
 scripts/__pycache__/
 scripts/parsers/__pycache__/
+
+# PlanGate Metrics v1 (Issue #195) — local artifact, never commit
+# privacy: docs/ai/metrics-privacy.md §8
+docs/working/_metrics/events.ndjson

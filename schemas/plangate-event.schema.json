@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/plangate-event.schema.json",
+  "title": "PlanGate Workflow Event (Metrics v1)",
+  "description": "Single NDJSON event emitted by metrics-collector. Privacy: docs/ai/metrics-privacy.md §3 Allowed only — file paths, stack traces, command output, raw prompts MUST NOT appear (§4 Forbidden).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ts", "task_id", "event", "schema_version"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "PlanGate event schema version"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$",
+      "description": "TASK 連番のみ。内容を含むメタデータは保存しない"
+    },
+    "event": {
+      "type": "string",
+      "enum": [
+        "task_initialized",
+        "plan_generated",
+        "c3_decided",
+        "exec_started",
+        "hook_violation",
+        "v1_completed",
+        "fix_loop_incremented",
+        "external_review_completed",
+        "pr_created",
+        "c4_decided",
+        "handoff_completed"
+      ]
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["A", "B", "C-1", "C-2", "C-3", "D", "L-0", "V-1", "V-2", "V-3", "V-4", "PR", "C-4"]
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["ultra-light", "light", "standard", "high-risk", "critical"]
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVED", "CONDITIONAL", "REJECTED", "PASS", "FAIL", "WARN", "REQUEST_CHANGES"]
+    },
+    "hook_id": {
+      "type": "string",
+      "pattern": "^(EH|EHS)-[0-9]+$",
+      "description": "EH-N or EHS-N 固定 enum パターン"
+    },
+    "hook_result": {
+      "type": "string",
+      "enum": ["pass", "block", "warn"]
+    },
+    "fix_loop_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ac_total": { "type": "integer", "minimum": 0 },
+    "ac_pass": { "type": "integer", "minimum": 0 },
+    "ac_fail": { "type": "integer", "minimum": 0 },
+    "ac_warn": { "type": "integer", "minimum": 0 },
+    "plan_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "model_profile": {
+      "type": "string",
+      "description": "固定 enum: 内部で再定義 (provider+model_family レベル、API key 等は含まない)"
+    },
+    "tool_name": {
+      "type": "string",
+      "description": "固定 enum: Edit/Bash/Read/Grep/Write 等のツール名のみ"
+    },
+    "tool_call_count": { "type": "integer", "minimum": 0 },
+    "by": {
+      "type": "string",
+      "description": "agent / human の識別子（人名・社名は不可）"
+    },
+    "pr_number": { "type": "integer", "minimum": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "event": { "const": "c3_decided" } }, "required": ["event"] },
+      "then": { "required": ["verdict"] }
+    },
+    {
+      "if": { "properties": { "event": { "const": "c4_decided" } }, "required": ["event"] },
+      "then": { "required": ["verdict"] }
+    },
+    {
+      "if": { "properties": { "event": { "const": "hook_violation" } }, "required": ["event"] },
+      "then": { "required": ["hook_id", "hook_result"] }
+    },
+    {
+      "if": { "properties": { "event": { "const": "v1_completed" } }, "required": ["event"] },
+      "then": { "required": ["verdict"] }
+    },
+    {
+      "if": { "properties": { "event": { "const": "fix_loop_incremented" } }, "required": ["event"] },
+      "then": { "required": ["fix_loop_count"] }
+    }
+  ]
+}

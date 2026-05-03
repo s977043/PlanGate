@@ -1,0 +1,2 @@
+# このディレクトリは metrics v1 (PBI-HI-001 / #195) で使用されます。
+# events.ndjson は .gitignore で除外されます (privacy policy / docs/ai/metrics-privacy.md §8)。

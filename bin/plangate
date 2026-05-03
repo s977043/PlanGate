@@ -125,6 +125,7 @@ cmd_help() {
     "  validate <TASK-XXXX> [--mode]  Verify artifacts and plan_hash integrity" \
     "  validate-schemas <args>        Validate JSON artifacts against schemas/ (Issue #158)" \
     "  eval <TASK-XXXX> [--baseline]  Run 8-aspect eval (Issue #156)" \
+    "  metrics <TASK-XXXX> [--collect|--report] Collect/report workflow metrics (Issue #195)" \
     "  review <TASK-XXXX> [--phase]   Run external AI review (c2/v3)" \
     "  exec <TASK-XXXX> [--mode]      Dispatch implementation agent (after C-3)" \
     "  abort <TASK-XXXX> [--reason]   Record abort event in run.ndjson" \
@@ -545,6 +546,69 @@ cmd_eval() {
   return $?
 }
 
+cmd_metrics() {
+  # Collect / report PlanGate workflow metrics for a TASK.
+  # Issue #195 / PBI-HI-001 (Metrics v1)
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate metrics <TASK-XXXX> [--collect|--report] [--aggregate] [--json]\n' >&2
+    printf '  --collect     Append metrics events to docs/working/_metrics/events.ndjson (default if no flag)\n' >&2
+    printf '  --report      Print summary instead of appending\n' >&2
+    printf '  --aggregate   Aggregate across all TASKs (--report only)\n' >&2
+    printf '  --json        JSON output (--report only)\n' >&2
+    return 1
+  fi
+
+  collector="$plangate_root/scripts/metrics_collector.py"
+  reporter="$plangate_root/scripts/metrics_reporter.py"
+  if [ ! -f "$collector" ] || [ ! -f "$reporter" ]; then
+    printf 'error: metrics scripts not found under scripts/\n' >&2
+    return 2
+  fi
+
+  mode="collect"
+  passthrough=""
+  task_id=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --collect) mode="collect" ;;
+      --report) mode="report" ;;
+      --aggregate) passthrough="$passthrough --aggregate" ;;
+      --json) passthrough="$passthrough --json" ;;
+      --dry-run) passthrough="$passthrough --dry-run" ;;
+      --events-log)
+        shift
+        passthrough="$passthrough --events-log $1"
+        ;;
+      TASK-*) task_id="$1" ;;
+      *)
+        printf 'Unknown metrics arg: %s\n' "$1" >&2
+        return 2
+        ;;
+    esac
+    shift
+  done
+
+  if [ "$mode" = "collect" ]; then
+    if [ -z "$task_id" ]; then
+      printf 'metrics --collect requires TASK-XXXX\n' >&2
+      return 2
+    fi
+    # shellcheck disable=SC2086
+    python3 "$collector" "$task_id" $passthrough
+    return $?
+  fi
+
+  # report
+  if [ -n "$task_id" ]; then
+    # shellcheck disable=SC2086
+    python3 "$reporter" "$task_id" $passthrough
+  else
+    # shellcheck disable=SC2086
+    python3 "$reporter" $passthrough
+  fi
+  return $?
+}
+
 cmd_abort() {
   if [ $# -eq 0 ]; then
     printf 'Usage: plangate abort <TASK-XXXX> [--reason "..."]\n' >&2
@@ -809,6 +873,7 @@ case "$command" in
   validate)    cmd_validate "$@" ;;
   validate-schemas) cmd_validate_schemas "$@" ;;
   eval)        cmd_eval "$@" ;;
+  metrics)     cmd_metrics "$@" ;;
   review)      cmd_review "$@" ;;
   exec)        cmd_exec "$@" ;;
   abort)       cmd_abort "$@" ;;
