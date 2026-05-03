@@ -4,6 +4,59 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v8.6.0 - 2026-05-04
+
+feat: Harness Improvement Roadmap Phase 0/1 + Governance — v8.6.0 milestone 完走
+
+EPIC #193 [Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) の **v8.6.0 milestone P0 4 件すべて完走**。改善前 baseline 固定（#194）と運用 governance（#201, #202）を先に置き、その上に Metrics v1（#195）を実装。これにより以後の harness 改善（#196 Eval expansion / #197 Model Profile v2 / #198 Keep Rate / #199 Dynamic Context）を **比較で判断** できる基盤が整った。
+
+### Added
+
+- **`docs/ai/issue-governance.md`**（**PBI-HI-007** / #201 / TASK-0059） — Issue 必須セクション / Label taxonomy（kind / area / priority / status の 4 軸）/ Milestone mapping policy（推測禁止条項）/ Roadmap PBI 作成 checklist（10 項目）/ Issue template policy / EPIC governance を正本化
+- **`.github/ISSUE_TEMPLATE/plangate-roadmap-task.yml`**（#201） — Roadmap PBI 用 GitHub Issue Form。Why / What / AC / Non-goals / Labels / Milestone を必須入力として強制
+- **`docs/ai/metrics-privacy.md`**（**PBI-HI-008** / #202 / TASK-0060） — Metrics v1 実装前の privacy / public data policy。保存可能 12 カテゴリ / 禁止 9 カテゴリ / file path / stack trace / command output / provider metadata の扱い / redact / sanitize / 完全除外 / retention 90日 / public-private 別運用差分
+- **`docs/ai/eval-baselines/2026-05-04-baseline.{md,json}`**（**PBI-HI-000** / #194 / TASK-0061） — v8.5.0 直後の baseline。代表 5 TASK（TASK-0050/0054/0055/0056/0057）で 8 観点 eval、機械可読 JSON snapshot、後続改善との比較ポイント
+- **`schemas/plangate-event.schema.json`**（**PBI-HI-001** / #195 / TASK-0062） — 11 events（task_initialized / plan_generated / c3_decided / exec_started / hook_violation / v1_completed / fix_loop_incremented / external_review_completed / pr_created / c4_decided / handoff_completed）。conditional required（c3 / c4 / v1 / hook / fix_loop）。privacy §3 Allowed のみ（§4 Forbidden は schema 上に存在させない）
+- **`scripts/metrics_collector.py`**（#195） — TASK ディレクトリから 6 events 自動導出 + NDJSON append。`--dry-run` / `--events-log` 対応。mode 自動検出、AC count を ✅PASS/❌FAIL/⚠️WARN マーカーから抽出
+- **`scripts/metrics_reporter.py`**（#195） — events.ndjson から TASK / aggregate summary。`--json` 対応、hook violation / C-3 / V-1 / C-4 / fix_loop_max / mode を集計
+- **`docs/ai/metrics.md`**（#195） — 9 章運用 guide（CLI 使用例 / privacy / schema 検証 / baseline 比較 / 後続改善との接続点）
+- **`tests/extras/ta-09-metrics.sh`**（#195） — 8 test cases（schema validation / c3_decided 検出 / v1_completed 検出 / aggregate report / JSON output 含む）
+- **`pages/`**（PR #205） — River-Reviewer 参考の公開ドキュメント構造（overview / pm-po-elevator-pitch / before-after / positioning / value-proposition-canvas / demo-script / FAQ / governance/documentation-management）+ `sidebars.js`
+- **`docs/ai/harness-improvement-roadmap.md`**（PR #192） — EPIC #193 の正本ドキュメント
+
+### Changed
+
+- **`bin/plangate`**: `metrics` サブコマンド追加（`--collect` / `--report` / `--aggregate` / `--json` / `--events-log`）。help text と dispatcher も更新
+- **`.gitignore`**: `docs/working/_metrics/events.ndjson` を除外（[metrics-privacy.md §8](docs/ai/metrics-privacy.md) 準拠、public repo に commit させない）
+- **`pages/guides/governance/documentation-management.md`** 冒頭に `Related: docs/ai/issue-governance.md` を追記（doc 配置側 / Issue 運用側の 2 ファイル体制を明示）
+- **README.md / README_en.md**（PR #190） — v8.5.0 状態に同期、Hook enforcement 10/10、CLI tests 24 PASS / Hook tests 42 PASS、最新状態セクション追加
+- **GitHub milestones**: `v8.6.0` / `v8.7.0` / `v8.8.0` / `v8.9.0` を新規作成。EPIC #193 配下の子 PBI 11 件 (#194〜#204) を EPIC の表通りに一括訂正（v7.x 誤紐付けからの復元）
+- **`tests/run-tests.sh`**: 24 → **32 PASS**（ta-09 で +8 件、既存 24 件は 0 件 regress）
+
+### Process Notes
+
+- **v8.6.0 milestone P0 完走**: #194 Baseline alignment / #201 Issue/Label/Milestone Governance / #202 Metrics Privacy / #195 Metrics v1 の 4 件、すべて 1 セッション内で連続実装・マージ
+- **依存順守**: governance（#201）/ privacy（#202）/ baseline（#194）を先に整備してから Metrics v1（#195）を実装。schema 設計時に privacy §3/§4 が先行参照され、§4 Forbidden は schema 上に存在しない設計を強制
+- **マージ戦略**: 全 PR を admin squash merge（branch protection 下、CI all green、thread resolve 後）
+- **PR 連動**: 8 PR（#190 / #192 / #205 / #206 / #207 / #208 / #209 + 本リリース PR）を v8.5.0 → v8.6.0 期間にマージ
+- **再発防止**: milestone 不整合（11 PBI が誤って v7.x 系列に紐付き）は本リリースで全件訂正。今後は `plangate-roadmap-task.yml` テンプレートと issue-governance.md §4「推測禁止条項」で再発防止
+
+### Next EPIC 候補（v8.7.0 / v8.8.0 / v8.9.0）
+
+- **v8.7.0 (P1, 4 件)**:
+  - #196 Eval comparison for harness changes — mode 別 release blocker 判定、metrics v1 連携
+  - #197 Model Profile v2 — edit interface preference / retry strategy / provider capability / unknown model fallback
+  - #203 Tool Error Taxonomy and Recovery Policy — tool error 分類・回復・計測
+  - #204 PlanGateBench Fixture Suite — eval fixture 固定 + regression 検知
+- **v8.8.0 (P1/P2, 2 件)**:
+  - #198 Keep Rate v1 — Code / Plan / Acceptance / Handoff Keep Rate
+  - #199 Dynamic Context Engine v1 — context manifest による契約 / 作業 context 分離
+- **v8.9.0 (P2, 1 件)**:
+  - #200 Reporting & Retrospective — sprint retrospective 統合
+- **その他**:
+  - Hook 側からの metrics 自動 emit（v8.7+ 候補、Metrics v1 完了で道筋確定）
+  - GitHub API 経由 pr_created / c4_decided 取得（metrics v1 v2 候補）
+
 ## v8.5.0 - 2026-05-01
 
 feat: Hook enforcement 完成 — 10/10 hooks 実装 (#169 EPIC 完走)
