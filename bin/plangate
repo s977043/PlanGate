@@ -231,6 +231,21 @@ EOF
 }
 
 cmd_doctor() {
+  # K-3 (v8.6.0 PR7): --json で機械可読出力（v8.6.0 セクションのみ、CI 統合用）
+  for arg in "$@"; do
+    case "$arg" in
+      --json)
+        py="$plangate_root/scripts/doctor_check.py"
+        if [ ! -f "$py" ]; then
+          printf '{"error": "scripts/doctor_check.py not found"}\n' >&2
+          return 2
+        fi
+        python3 "$py" --scope v8.6.0
+        return $?
+        ;;
+    esac
+  done
+
   printf 'PlanGate Doctor — environment check\n'
   printf '\n'
 
@@ -583,12 +598,14 @@ cmd_metrics() {
   # Collect / report / validate PlanGate workflow metrics for a TASK.
   # Issue #195 / PBI-HI-001 (Metrics v1) + v8.6.0 PR5 (--validate)
   if [ $# -eq 0 ]; then
-    printf 'Usage: plangate metrics <TASK-XXXX> [--collect|--report|--validate] [--aggregate] [--json]\n' >&2
-    printf '  --collect     Append metrics events to docs/working/_metrics/events.ndjson (default if no flag)\n' >&2
-    printf '  --report      Print summary instead of appending\n' >&2
-    printf '  --validate    Validate every line of events.ndjson against plangate-event.schema.json\n' >&2
-    printf '  --aggregate   Aggregate across all TASKs (--report only)\n' >&2
-    printf '  --json        JSON output (--report only)\n' >&2
+    printf 'Usage: plangate metrics <TASK-XXXX> [--collect|--report|--validate] [--aggregate] [--json|--markdown-section] [--since <date>]\n' >&2
+    printf '  --collect            Append metrics events to docs/working/_metrics/events.ndjson (default if no flag)\n' >&2
+    printf '  --report             Print summary instead of appending\n' >&2
+    printf '  --validate           Validate every line of events.ndjson against plangate-event.schema.json\n' >&2
+    printf '  --aggregate          Aggregate across all TASKs (--report only)\n' >&2
+    printf '  --json               JSON output (--report only)\n' >&2
+    printf '  --markdown-section   Emit handoff §7 markdown table (--report only, v8.6.0 PR7 / K-1)\n' >&2
+    printf '  --since <date>       Filter events with ts >= ISO date (v8.6.0 PR7 / K-2)\n' >&2
     return 1
   fi
 
@@ -610,6 +627,11 @@ cmd_metrics() {
       --validate) mode="validate" ;;
       --aggregate) passthrough="$passthrough --aggregate" ;;
       --json) passthrough="$passthrough --json" ;;
+      --markdown-section) passthrough="$passthrough --markdown-section" ;;
+      --since)
+        shift
+        passthrough="$passthrough --since $1"
+        ;;
       --dry-run) passthrough="$passthrough --dry-run" ;;
       --events-log)
         shift

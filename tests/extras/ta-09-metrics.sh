@@ -372,6 +372,51 @@ else
   fail=$((fail + 1))
 fi
 
+# Test (K-1, v8.6.0 PR7): --markdown-section emits handoff §7 table
+out=$(sh "$PLANGATE_BIN" metrics --report --aggregate --markdown-section --events-log "$METRICS_LOG" 2>&1)
+if printf '%s' "$out" | grep -q "## 7. Metrics summary" \
+   && printf '%s' "$out" | grep -q "| events |" \
+   && printf '%s' "$out" | grep -q "Privacy: §3 Allowed only"; then
+  printf '[PASS] metrics (K-1): --markdown-section produces handoff §7 table\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (K-1): --markdown-section missing required structure\n'
+  fail=$((fail + 1))
+fi
+
+# Test (K-2, v8.6.0 PR7): --since filters events
+total_events=$(grep -c '^{' "$METRICS_LOG" 2>/dev/null || echo 0)
+filtered=$(sh "$PLANGATE_BIN" metrics --report --aggregate --json --since 2030-01-01 --events-log "$METRICS_LOG" 2>/dev/null \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['summary']['event_count'])" 2>/dev/null)
+if [ "$filtered" = "0" ]; then
+  printf '[PASS] metrics (K-2): --since 2030 filters out all old events (was %s)\n' "$total_events"
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (K-2): --since did not filter (got %s)\n' "$filtered"
+  fail=$((fail + 1))
+fi
+
+# Test (K-2): --since accepts YYYY-MM-DD shorthand and keeps events within range
+kept=$(sh "$PLANGATE_BIN" metrics --report --aggregate --json --since 2026-01-01 --events-log "$METRICS_LOG" 2>/dev/null \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['summary']['event_count'])" 2>/dev/null)
+if [ "$kept" = "$total_events" ] && [ "$total_events" -gt 0 ]; then
+  printf '[PASS] metrics (K-2): --since 2026-01-01 keeps all in-range events (%s)\n' "$kept"
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (K-2): expected %s events, got %s\n' "$total_events" "$kept"
+  fail=$((fail + 1))
+fi
+
+# Test (K-3, v8.6.0 PR7): plangate doctor --json emits machine-readable output
+if sh "$PLANGATE_BIN" doctor --json 2>/dev/null \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['passed'] is True and d['scope'] == 'v8.6.0 Metrics & Privacy' and len(d['checks']) > 10" 2>/dev/null; then
+  printf '[PASS] metrics (K-3): doctor --json emits valid v8.6.0 JSON status\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (K-3): doctor --json output invalid or failures\n'
+  fail=$((fail + 1))
+fi
+
 # Test 18 (C-3): baseline-snapshot.py --dry-run produces schema-valid output for real TASKs
 if python3 -c 'import jsonschema' >/dev/null 2>&1; then
   snapshot_script="$METRICS_REPO_ROOT/scripts/baseline-snapshot.py"

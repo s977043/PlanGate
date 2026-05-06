@@ -107,6 +107,40 @@ git が無い / commit が見つからない場合は silent に skip。
 
 `bin/plangate metrics --validate` で `events.ndjson` 全行を `plangate-event.schema.json` で validate。違反は line:reason 形式で最大 20 件報告、exit 1。jsonschema 未導入時は SKIP（exit 0）。
 
+### 3.7 機械可読化と時刻フィルタ（v8.6.0 PR7）
+
+#### K-1: `--markdown-section`（handoff §7 用）
+
+```bash
+bin/plangate metrics TASK-XXXX --report --markdown-section
+```
+
+handoff template §7 に直接貼り付けられる markdown 表（events / modes / C-3 / V-1 / C-4 / hook violations / fix_loop_max + by_mode 表 + privacy 注記）を出力する。
+
+#### K-2: `--since <date>`
+
+```bash
+bin/plangate metrics --report --aggregate --since 2026-05-04
+bin/plangate metrics --report --aggregate --since 2026-05-04T12:00:00Z
+```
+
+ts >= 指定 ISO 日時の event のみで集計する。`YYYY-MM-DD` 略記時は `T00:00:00Z` 補完。改善前後の比較や週次レポートに利用。
+
+#### K-3: `bin/plangate doctor --json`
+
+```bash
+bin/plangate doctor --json
+# {
+#   "scope": "v8.6.0 Metrics & Privacy",
+#   "checks": [...16 件...],
+#   "failures": 0,
+#   "warnings": 0,
+#   "passed": true
+# }
+```
+
+CI 統合用。v8.6.0 metrics & privacy セクション 16 check の結果を JSON で返す。`failures > 0` で exit 1。
+
 ## 4. Privacy
 
 [`metrics-privacy.md`](./metrics-privacy.md) 準拠。`metrics_collector.py` は §3 (Allowed) のフィールドのみ emit する。

@@ -96,7 +96,7 @@ v1_release: <コミット SHA or タグ>
 
 ## 7. Metrics summary（v8.6.0+、任意）
 
-`bin/plangate metrics TASK-XXXX --collect && bin/plangate metrics TASK-XXXX --report` の結果を貼り付ける。
+`bin/plangate metrics TASK-XXXX --collect && bin/plangate metrics TASK-XXXX --report --markdown-section` の結果を貼り付ける（v8.6.0 PR7 で `--markdown-section` が追加され、本セクションを直接生成可能）。
 opt-in: 取得していない場合は「該当なし」と記載するか節ごと省略してよい。privacy: §3 Allowed のみで構成され、ファイルパス / コマンド出力 / プロンプトは含まれない（[`docs/ai/metrics-privacy.md`](../../ai/metrics-privacy.md)）。
 
 | 観点 | 値 |
