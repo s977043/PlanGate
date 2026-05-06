@@ -1,0 +1,79 @@
+name: Metrics Privacy Check
+
+# v8.6.0 PR5 (E-4): Hook EH-8 + events.ndjson push 検出を CI で物理的に強制
+# - PR で staging に events.ndjson が含まれていないか
+# - PR で commit される JSON / NDJSON に metrics-privacy.md §4 Forbidden field が無いか
+# - main に events.ndjson が誤って push されていないか
+
+on:
+  pull_request:
+    paths:
+      - '**/*.json'
+      - '**/*.ndjson'
+      - 'scripts/hooks/check-metrics-privacy.sh'
+      - 'docs/ai/metrics-privacy.md'
+      - '.github/workflows/metrics-privacy.yml'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  privacy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify events.ndjson is .gitignore-d
+        run: |
+          set -eu
+          if ! grep -q '_metrics/events.ndjson' .gitignore; then
+            echo "::error::docs/working/_metrics/events.ndjson must be in .gitignore (privacy §8)"
+            exit 1
+          fi
+          echo "[PASS] events.ndjson is gitignored"
+
+      - name: Verify events.ndjson is NOT tracked
+        run: |
+          set -eu
+          if git ls-files --error-unmatch docs/working/_metrics/events.ndjson 2>/dev/null; then
+            echo "::error::docs/working/_metrics/events.ndjson is tracked by git (privacy §8 violation)"
+            exit 1
+          fi
+          echo "[PASS] events.ndjson is not tracked"
+
+      - name: Determine files to scan
+        id: scan
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git diff --name-only --diff-filter=ACM "$BASE_SHA" "$HEAD_SHA" \
+              | grep -E '\.(json|ndjson)$' > .scan-files.txt || true
+          else
+            git ls-files '*.json' '*.ndjson' > .scan-files.txt || true
+          fi
+          count=$(wc -l < .scan-files.txt | tr -d ' ')
+          echo "count=$count" >>"$GITHUB_OUTPUT"
+          echo "Will scan $count file(s)"
+          cat .scan-files.txt || true
+
+      - name: Run Hook EH-8 (strict)
+        if: steps.scan.outputs.count != '0'
+        env:
+          PLANGATE_HOOK_STRICT: '1'
+        run: |
+          set -eu
+          # Pass space-separated file list via PLANGATE_HOOK_FILES
+          files=$(tr '\n' ' ' < .scan-files.txt)
+          PLANGATE_HOOK_FILES="$files" sh scripts/hooks/check-metrics-privacy.sh
+
+      - name: No JSON / NDJSON to scan
+        if: steps.scan.outputs.count == '0'
+        run: echo "No JSON / NDJSON in this change — skipping EH-8 strict scan."

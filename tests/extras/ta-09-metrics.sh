@@ -307,6 +307,51 @@ except jsonschema.ValidationError:
   fi
 fi
 
+# Test (H-1, v8.6.0 PR5): bin/plangate metrics --validate
+if python3 -c 'import jsonschema' >/dev/null 2>&1 && [ -s "$METRICS_LOG" ]; then
+  if sh "$PLANGATE_BIN" metrics --validate --events-log "$METRICS_LOG" 2>&1 | grep -q "all events valid"; then
+    printf '[PASS] metrics (H-1): --validate command checks events against schema\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] metrics (H-1): --validate did not pass on valid events\n'
+    fail=$((fail + 1))
+  fi
+
+  # negative: append a bad event and expect --validate to exit 1
+  bad_log="$METRICS_LOG.bad"
+  cp "$METRICS_LOG" "$bad_log"
+  echo '{"schema_version":"1.0","ts":"2026-05-06T08:00:00Z","task_id":"TASK-9999","event":"v1_completed","verdict":"PASS","file_path":"/secret"}' >> "$bad_log"
+  sh "$PLANGATE_BIN" metrics --validate --events-log "$bad_log" >/dev/null 2>&1 && rc=0 || rc=$?
+  if [ "$rc" -eq 1 ]; then
+    printf '[PASS] metrics (H-1): --validate exits 1 on schema violation (forbidden field)\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] metrics (H-1): --validate did not detect violation (rc=%d)\n' "$rc"
+    fail=$((fail + 1))
+  fi
+  rm -f "$bad_log"
+fi
+
+# Test (J-1, v8.6.0 PR5): validate-schemas integrates eval-baseline.schema.json
+if python3 -c 'import jsonschema' >/dev/null 2>&1; then
+  if grep -q "eval-baseline.schema.json" "$METRICS_REPO_ROOT/scripts/schema_mapping.py" 2>/dev/null; then
+    printf '[PASS] metrics (J-1): schema_mapping.py includes eval-baseline.schema.json\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] metrics (J-1): schema_mapping.py missing eval-baseline.schema.json\n'
+    fail=$((fail + 1))
+  fi
+fi
+
+# Test (F-3, v8.6.0 PR5): plangate doctor reports v8.6.0 metrics & privacy
+if sh "$PLANGATE_BIN" doctor 2>&1 | grep -q "v8.6.0 Metrics & Privacy"; then
+  printf '[PASS] metrics (F-3): plangate doctor includes v8.6.0 metrics health check\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (F-3): plangate doctor missing v8.6.0 section\n'
+  fail=$((fail + 1))
+fi
+
 # Test 18 (C-3): baseline-snapshot.py --dry-run produces schema-valid output for real TASKs
 if python3 -c 'import jsonschema' >/dev/null 2>&1; then
   snapshot_script="$METRICS_REPO_ROOT/scripts/baseline-snapshot.py"

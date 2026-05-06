@@ -280,6 +280,39 @@ cmd_doctor() {
   done
   printf '\n'
 
+  printf '=== v8.6.0 Metrics & Privacy ===\n'
+  # F-3 (v8.6.0 改善 PR5): metrics v1 / privacy 強制の health check
+  plangate_check_file "schemas/plangate-event.schema.json" "$plangate_root/schemas/plangate-event.schema.json" || failures=$((failures + 1))
+  plangate_check_file "schemas/eval-baseline.schema.json" "$plangate_root/schemas/eval-baseline.schema.json" || failures=$((failures + 1))
+  plangate_check_file "scripts/metrics_collector.py" "$plangate_root/scripts/metrics_collector.py" || failures=$((failures + 1))
+  plangate_check_file "scripts/metrics_reporter.py" "$plangate_root/scripts/metrics_reporter.py" || failures=$((failures + 1))
+  plangate_check_file "scripts/baseline-snapshot.py" "$plangate_root/scripts/baseline-snapshot.py" || failures=$((failures + 1))
+  plangate_check_file "scripts/hooks/check-metrics-privacy.sh (EH-8)" "$plangate_root/scripts/hooks/check-metrics-privacy.sh" || failures=$((failures + 1))
+  if [ -x "$plangate_root/scripts/hooks/check-metrics-privacy.sh" ]; then
+    printf '  [PASS] EH-8 hook is executable\n'
+  else
+    printf '  [WARN] scripts/hooks/check-metrics-privacy.sh is not executable\n'
+  fi
+  if grep -q '_metrics/events.ndjson' "$plangate_root/.gitignore" 2>/dev/null; then
+    printf '  [PASS] docs/working/_metrics/events.ndjson is .gitignore-d (privacy §8)\n'
+  else
+    printf '  [FAIL] events.ndjson missing from .gitignore — privacy §8 not enforced\n'
+    failures=$((failures + 1))
+  fi
+  if [ -f "$plangate_root/docs/working/_metrics/events.ndjson" ]; then
+    if git -C "$plangate_root" check-ignore docs/working/_metrics/events.ndjson >/dev/null 2>&1; then
+      printf '  [PASS] events.ndjson exists locally and is git-ignored\n'
+    else
+      printf '  [FAIL] events.ndjson exists but is NOT git-ignored\n'
+      failures=$((failures + 1))
+    fi
+  else
+    printf '  [INFO] events.ndjson absent (no metrics collected yet — opt-in)\n'
+  fi
+  plangate_check_file "docs/ai/metrics.md" "$plangate_root/docs/ai/metrics.md" || failures=$((failures + 1))
+  plangate_check_file "docs/ai/metrics-privacy.md" "$plangate_root/docs/ai/metrics-privacy.md" || failures=$((failures + 1))
+  printf '\n'
+
   printf '=== Optional Provider CLIs ===\n'
   if command -v gemini >/dev/null 2>&1; then
     printf '  [INFO] gemini CLI found (PLANGATE_EXTERNAL_REVIEWER=gemini supported)\n'
@@ -547,12 +580,13 @@ cmd_eval() {
 }
 
 cmd_metrics() {
-  # Collect / report PlanGate workflow metrics for a TASK.
-  # Issue #195 / PBI-HI-001 (Metrics v1)
+  # Collect / report / validate PlanGate workflow metrics for a TASK.
+  # Issue #195 / PBI-HI-001 (Metrics v1) + v8.6.0 PR5 (--validate)
   if [ $# -eq 0 ]; then
-    printf 'Usage: plangate metrics <TASK-XXXX> [--collect|--report] [--aggregate] [--json]\n' >&2
+    printf 'Usage: plangate metrics <TASK-XXXX> [--collect|--report|--validate] [--aggregate] [--json]\n' >&2
     printf '  --collect     Append metrics events to docs/working/_metrics/events.ndjson (default if no flag)\n' >&2
     printf '  --report      Print summary instead of appending\n' >&2
+    printf '  --validate    Validate every line of events.ndjson against plangate-event.schema.json\n' >&2
     printf '  --aggregate   Aggregate across all TASKs (--report only)\n' >&2
     printf '  --json        JSON output (--report only)\n' >&2
     return 1
@@ -568,15 +602,18 @@ cmd_metrics() {
   mode="collect"
   passthrough=""
   task_id=""
+  events_log_arg=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --collect) mode="collect" ;;
       --report) mode="report" ;;
+      --validate) mode="validate" ;;
       --aggregate) passthrough="$passthrough --aggregate" ;;
       --json) passthrough="$passthrough --json" ;;
       --dry-run) passthrough="$passthrough --dry-run" ;;
       --events-log)
         shift
+        events_log_arg="$1"
         passthrough="$passthrough --events-log $1"
         ;;
       TASK-*) task_id="$1" ;;
@@ -587,6 +624,56 @@ cmd_metrics() {
     esac
     shift
   done
+
+  if [ "$mode" = "validate" ]; then
+    # H-1 (v8.6.0 PR5): validate events.ndjson against plangate-event.schema.json
+    schema="$plangate_root/schemas/plangate-event.schema.json"
+    log_path=${events_log_arg:-"$plangate_root/docs/working/_metrics/events.ndjson"}
+    if [ ! -f "$schema" ]; then
+      printf '[FAIL] schema not found: %s\n' "$schema" >&2
+      return 2
+    fi
+    if [ ! -f "$log_path" ]; then
+      printf '[INFO] events.ndjson not found at %s — nothing to validate\n' "$log_path"
+      return 0
+    fi
+    python3 - "$schema" "$log_path" <<'PY' "$@"
+import json, sys
+try:
+    import jsonschema
+except ImportError:
+    print("[SKIP] jsonschema not available — install with: pip install jsonschema", file=sys.stderr)
+    sys.exit(0)
+schema_path, log_path = sys.argv[1], sys.argv[2]
+schema = json.load(open(schema_path))
+ok = 0
+errors = []
+with open(log_path) as fp:
+    for ln, raw in enumerate(fp, 1):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except json.JSONDecodeError as e:
+            errors.append(f"line {ln}: invalid JSON ({e})")
+            continue
+        try:
+            jsonschema.validate(ev, schema)
+            ok += 1
+        except jsonschema.ValidationError as e:
+            errors.append(f"line {ln}: schema violation ({e.message})")
+print(f"[INFO] validated {ok} valid event(s) against plangate-event.schema.json")
+if errors:
+    for e in errors[:20]:
+        print(f"[FAIL] {e}", file=sys.stderr)
+    if len(errors) > 20:
+        print(f"[FAIL] ... and {len(errors)-20} more", file=sys.stderr)
+    sys.exit(1)
+print("[PASS] all events valid")
+PY
+    return $?
+  fi
 
   if [ "$mode" = "collect" ]; then
     if [ -z "$task_id" ]; then

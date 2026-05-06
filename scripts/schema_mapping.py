@@ -34,6 +34,10 @@ FILENAME_TO_SCHEMA: dict[str, str] = {
     "pbi-input.json": "pbi-input.schema.json",
     "plan.json": "plan.schema.json",
     "run-event.json": "run-event.schema.json",
+    # v8.6.0 PR5 (J-1): baseline snapshot 整合性を validate-schemas に統合
+    # NDJSON である plangate-event.schema.json は本マッピングに含めない
+    # （append-only NDJSON は plangate metrics --validate で検査する設計）
+    "2026-05-04-baseline.json": "eval-baseline.schema.json",
 }
 
 
