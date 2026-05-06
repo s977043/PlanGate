@@ -24,3 +24,22 @@
 ## 計画からの乖離
 
 {なし / あれば要約。例: "T-4 で正規表現を変更（decision-log参照）"}
+
+## Metrics スナップショット（v8.6.0+、任意）
+
+> opt-in。取得していない場合は省略してよい。privacy: §3 Allowed のみ。
+
+```text
+bin/plangate metrics TASK-XXXX --report
+```
+
+直近の取得値（必要に応じてセッション開始時 / 終了時に上書き）:
+
+- events: {N}
+- mode: {ultra-light / light / standard / high-risk / critical}
+- C-3 verdict: {APPROVED / CONDITIONAL / REJECTED / 未到達}
+- V-1 verdict: {PASS / FAIL / WARN / 未実施}
+- hook violations: {N}（種別: {EH-N: block/warn ×N}）
+- 直近の events.ndjson 行数: {N}（`wc -l docs/working/_metrics/events.ndjson`）
+
+参照: [docs/ai/metrics.md](../../ai/metrics.md)

@@ -87,6 +87,26 @@ echo '{"schema_version":"1.0","ts":"2026-05-04T07:00:00Z","task_id":"TASK-0061",
 
 git が無い / commit が見つからない場合は silent に skip。
 
+### 3.5 mode 別集計（v8.6.0 PR6 / H-3）
+
+`bin/plangate metrics --report --aggregate` または `--report --json` の出力に `By mode` セクション / `by_mode` フィールドが追加される。
+
+- TASK ごとに plan_generated event の `mode` を解決して、各 mode の C-3 / V-1 / C-4 verdict と hook violation を別々に集計
+- V-1 PASS rate (%) も自動計算
+- harness 変更が mode 別にどう効いたかを比較可能（後続 PBI-HI-002 / #196 Eval expansion でフル活用予定）
+
+出力例（aggregate text）：
+
+```text
+## By mode (H-3)
+- **light**: V-1 12/14 PASS (85.71%) / C-3 APPROVED=10 / hook_violations=2
+- **standard**: V-1 5/5 PASS (100.0%) / C-3 APPROVED=5 / hook_violations=0
+```
+
+### 3.6 整合性検証（v8.6.0 PR5 / H-1）
+
+`bin/plangate metrics --validate` で `events.ndjson` 全行を `plangate-event.schema.json` で validate。違反は line:reason 形式で最大 20 件報告、exit 1。jsonschema 未導入時は SKIP（exit 0）。
+
 ## 4. Privacy
 
 [`metrics-privacy.md`](./metrics-privacy.md) 準拠。`metrics_collector.py` は §3 (Allowed) のフィールドのみ emit する。

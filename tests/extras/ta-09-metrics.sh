@@ -352,6 +352,26 @@ else
   fail=$((fail + 1))
 fi
 
+# Test (H-3, v8.6.0 PR6): aggregate report shows per-mode breakdown
+out=$(sh "$PLANGATE_BIN" metrics --report --aggregate --events-log "$METRICS_LOG" 2>&1)
+if printf '%s' "$out" | grep -q "By mode (H-3)"; then
+  printf '[PASS] metrics (H-3): aggregate report includes by-mode section\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (H-3): by-mode section missing\n'
+  fail=$((fail + 1))
+fi
+
+# Test (H-3): JSON output contains by_mode key
+if sh "$PLANGATE_BIN" metrics --report --aggregate --json --events-log "$METRICS_LOG" 2>/dev/null \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); assert "by_mode" in d["summary"]' 2>/dev/null; then
+  printf '[PASS] metrics (H-3): --json output includes by_mode\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (H-3): by_mode not in JSON\n'
+  fail=$((fail + 1))
+fi
+
 # Test 18 (C-3): baseline-snapshot.py --dry-run produces schema-valid output for real TASKs
 if python3 -c 'import jsonschema' >/dev/null 2>&1; then
   snapshot_script="$METRICS_REPO_ROOT/scripts/baseline-snapshot.py"

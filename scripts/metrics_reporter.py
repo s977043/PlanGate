@@ -45,7 +45,11 @@ def filter_task(events: list[dict], task_id: str) -> list[dict]:
 
 
 def summarize(events: list[dict]) -> dict:
-    """Compute summary counters for the given event slice."""
+    """Compute summary counters for the given event slice.
+
+    H-3 (v8.6.0 PR6): includes per-mode V-1 / C-3 PASS rates and per-mode
+    hook violation counts to make harness changes evaluable by mode.
+    """
     summary: dict = {
         "event_count": len(events),
         "events_by_type": dict(Counter(ev.get("event", "?") for ev in events)),
@@ -53,16 +57,43 @@ def summarize(events: list[dict]) -> dict:
             "total": 0,
             "by_hook_id": {},
             "by_result": {},
+            "by_mode": {},
         },
         "c3": {"APPROVED": 0, "CONDITIONAL": 0, "REJECTED": 0},
         "c4": {"APPROVED": 0, "REQUEST_CHANGES": 0, "REJECTED": 0},
         "v1": {"PASS": 0, "FAIL": 0, "WARN": 0},
         "fix_loop_max": 0,
         "modes": {},
+        # H-3: TASK ごとの mode を解決した上で gate verdict を mode 別に集計
+        "by_mode": {},
     }
+
+    # First pass: TASK ID → mode を index 化（plan_generated に mode が記録される）
+    task_to_mode: dict[str, str] = {}
+    for ev in events:
+        if ev.get("event") == "plan_generated" and ev.get("mode"):
+            task_to_mode[ev.get("task_id", "")] = ev["mode"]
+
+    def bump_mode_bucket(mode: str, key: str, sub: str) -> None:
+        if not mode:
+            return
+        bucket = summary["by_mode"].setdefault(
+            mode,
+            {
+                "c3": {"APPROVED": 0, "CONDITIONAL": 0, "REJECTED": 0},
+                "v1": {"PASS": 0, "FAIL": 0, "WARN": 0},
+                "c4": {"APPROVED": 0, "REQUEST_CHANGES": 0, "REJECTED": 0},
+                "hook_violations": 0,
+            },
+        )
+        if key == "hook_violations":
+            bucket["hook_violations"] += 1
+        elif sub in bucket.get(key, {}):
+            bucket[key][sub] += 1
 
     for ev in events:
         event_type = ev.get("event")
+        ev_mode = task_to_mode.get(ev.get("task_id", ""))
 
         if event_type == "hook_violation":
             summary["hook_violations"]["total"] += 1
@@ -74,18 +105,26 @@ def summarize(events: list[dict]) -> dict:
             summary["hook_violations"]["by_result"][hresult] = (
                 summary["hook_violations"]["by_result"].get(hresult, 0) + 1
             )
+            if ev_mode:
+                summary["hook_violations"]["by_mode"][ev_mode] = (
+                    summary["hook_violations"]["by_mode"].get(ev_mode, 0) + 1
+                )
+                bump_mode_bucket(ev_mode, "hook_violations", "")
         elif event_type == "c3_decided":
             v = ev.get("verdict", "?")
             if v in summary["c3"]:
                 summary["c3"][v] += 1
+            bump_mode_bucket(ev_mode, "c3", v)
         elif event_type == "c4_decided":
             v = ev.get("verdict", "?")
             if v in summary["c4"]:
                 summary["c4"][v] += 1
+            bump_mode_bucket(ev_mode, "c4", v)
         elif event_type == "v1_completed":
             v = ev.get("verdict", "?")
             if v in summary["v1"]:
                 summary["v1"][v] += 1
+            bump_mode_bucket(ev_mode, "v1", v)
         elif event_type == "fix_loop_incremented":
             count = ev.get("fix_loop_count", 0)
             if isinstance(count, int) and count > summary["fix_loop_max"]:
@@ -94,6 +133,13 @@ def summarize(events: list[dict]) -> dict:
             mode = ev.get("mode")
             if mode:
                 summary["modes"][mode] = summary["modes"].get(mode, 0) + 1
+
+    # H-3: per-mode pass rates (helps interpret the by_mode buckets)
+    for mode, bucket in summary["by_mode"].items():
+        v1 = bucket["v1"]
+        v1_total = sum(v1.values())
+        if v1_total > 0:
+            bucket["v1_pass_rate_pct"] = round(100.0 * v1["PASS"] / v1_total, 2)
 
     return summary
 
@@ -127,6 +173,23 @@ def render_text(task_id: str | None, summary: dict) -> str:
     lines.append(f"- C-4: {summary['c4']}")
     if summary["fix_loop_max"] > 0:
         lines.append(f"- fix_loop_max: {summary['fix_loop_max']}")
+
+    # H-3 (v8.6.0 PR6): per-mode breakdown
+    if summary.get("by_mode"):
+        lines.append("")
+        lines.append("## By mode (H-3)")
+        for mode, bucket in sorted(summary["by_mode"].items()):
+            v1 = bucket.get("v1", {})
+            c3 = bucket.get("c3", {})
+            v1_total = sum(v1.values())
+            v1_pass_rate = bucket.get("v1_pass_rate_pct")
+            line = f"- **{mode}**: V-1 {v1.get('PASS', 0)}/{v1_total} PASS"
+            if v1_pass_rate is not None:
+                line += f" ({v1_pass_rate}%)"
+            line += f" / C-3 APPROVED={c3.get('APPROVED', 0)}"
+            line += f" / hook_violations={bucket.get('hook_violations', 0)}"
+            lines.append(line)
+
     return "\n".join(lines)
 
 

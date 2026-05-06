@@ -107,12 +107,23 @@ def derive_events(task_dir: Path, task_id: str) -> list[dict]:
         ev = base_event(task_id, "plan_generated", file_mtime_iso(plan)) | {"phase": "B"}
         ev["plan_hash"] = "sha256:" + sha256_hex(plan.read_bytes())
         # mode detection from plan.md (light/standard/high-risk/critical)
+        # v8.6.0 PR6 (H-3 prerequisite): tolerate multiple plan.md formats
+        plan_text = plan.read_text(errors="ignore")
+        mode_keywords = "(ultra-light|light|standard|high-risk|critical)"
         mode_match = re.search(
-            r"\*\*モード\*\*[^\n]*?(ultra-light|light|standard|high-risk|critical)",
-            plan.read_text(errors="ignore"),
+            rf"(?:\*\*モード\*\*|\*\*Mode\*\*|モード\s*判定|##?\s*Mode|最終判定)[^\n]{{0,200}}?{mode_keywords}",
+            plan_text,
+            re.IGNORECASE | re.MULTILINE,
         )
+        if mode_match is None:
+            # Fallback: 単独行 "Mode\nlight" や "## Mode\nlight" の形式
+            mode_match = re.search(
+                rf"^##?\s*Mode[^\n]*\n[^\n]*?{mode_keywords}",
+                plan_text,
+                re.IGNORECASE | re.MULTILINE,
+            )
         if mode_match:
-            ev["mode"] = mode_match.group(1)
+            ev["mode"] = mode_match.group(1).lower()
         events.append(ev)
 
     # 3. c3_decided — from approvals/c3.json if present

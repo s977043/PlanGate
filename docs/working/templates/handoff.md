@@ -94,6 +94,24 @@ v1_release: <コミット SHA or タグ>
 
 **FAIL / SKIP の詳細**: <FAIL の理由、SKIP の根拠>
 
+## 7. Metrics summary（v8.6.0+、任意）
+
+`bin/plangate metrics TASK-XXXX --collect && bin/plangate metrics TASK-XXXX --report` の結果を貼り付ける。
+opt-in: 取得していない場合は「該当なし」と記載するか節ごと省略してよい。privacy: §3 Allowed のみで構成され、ファイルパス / コマンド出力 / プロンプトは含まれない（[`docs/ai/metrics-privacy.md`](../../ai/metrics-privacy.md)）。
+
+| 観点 | 値 |
+|------|-----|
+| events | <N> |
+| modes | <例: light×1> |
+| C-3 | APPROVED=<N> / CONDITIONAL=<N> / REJECTED=<N> |
+| V-1 | PASS=<N> / FAIL=<N> / WARN=<N> |
+| C-4 | APPROVED=<N> / REQUEST_CHANGES=<N> / REJECTED=<N> |
+| hook violations | <N>（種別: <例: EH-2 block ×1>）|
+| fix_loop_max | <N> |
+| baseline 比較（任意） | <improved / unchanged / regressed + 観点>|
+
+参照: [`docs/ai/metrics.md`](../../ai/metrics.md) / [`docs/ai/eval-baselines/`](../../ai/eval-baselines/)
+
 ---
 
 ## 使い方
