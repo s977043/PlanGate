@@ -256,3 +256,76 @@ sys.exit(0 if hv else 1)
 else
   printf '[SKIP] metrics (A-1): jsonschema not available for hook_violation validation\n'
 fi
+
+# Test 16 (D-2): existing baseline file conforms to eval-baseline.schema.json
+if python3 -c 'import jsonschema' >/dev/null 2>&1; then
+  baseline_schema="$METRICS_REPO_ROOT/schemas/eval-baseline.schema.json"
+  baseline_file="$METRICS_REPO_ROOT/docs/ai/eval-baselines/2026-05-04-baseline.json"
+  if [ -f "$baseline_schema" ] && [ -f "$baseline_file" ]; then
+    if python3 -c "
+import json, jsonschema, sys
+schema = json.load(open('$baseline_schema'))
+data = json.load(open('$baseline_file'))
+jsonschema.validate(data, schema)
+" 2>/dev/null; then
+      printf '[PASS] metrics (D-2): 2026-05-04-baseline.json conforms to eval-baseline.schema.json\n'
+      pass=$((pass + 1))
+    else
+      printf '[FAIL] metrics (D-2): baseline schema validation failed\n'
+      fail=$((fail + 1))
+    fi
+  else
+    printf '[SKIP] metrics (D-2): baseline schema or file not present\n'
+  fi
+fi
+
+# Test 17 (D-2): baseline schema rejects forbidden fields (privacy §4 also applies to baselines)
+if python3 -c 'import jsonschema' >/dev/null 2>&1; then
+  baseline_schema="$METRICS_REPO_ROOT/schemas/eval-baseline.schema.json"
+  if [ -f "$baseline_schema" ] && python3 -c "
+import json, jsonschema, sys
+schema = json.load(open('$baseline_schema'))
+bad = {
+    'baseline_id': '2026-05-06',
+    'evaluated_at': '2026-05-06T08:00:00Z',
+    'release': 'v8.6.0',
+    'evaluator_version': '1.2.0',
+    'tasks': [{'task_id': 'TASK-0001', 'ac_coverage_pct': 100, 'file_path': '/secret'}],
+    'aggregate': {'task_count': 1},
+}
+try:
+    jsonschema.validate(bad, schema)
+    sys.exit(0)
+except jsonschema.ValidationError:
+    sys.exit(1)
+" 2>/dev/null; then
+    printf '[FAIL] metrics (D-2): baseline schema accepted forbidden field — additionalProperties:false missing\n'
+    fail=$((fail + 1))
+  else
+    printf '[PASS] metrics (D-2): baseline schema rejects forbidden field at task level\n'
+    pass=$((pass + 1))
+  fi
+fi
+
+# Test 18 (C-3): baseline-snapshot.py --dry-run produces schema-valid output for real TASKs
+if python3 -c 'import jsonschema' >/dev/null 2>&1; then
+  snapshot_script="$METRICS_REPO_ROOT/scripts/baseline-snapshot.py"
+  baseline_schema="$METRICS_REPO_ROOT/schemas/eval-baseline.schema.json"
+  if [ -f "$snapshot_script" ] && python3 "$snapshot_script" \
+       --baseline-id 2026-05-06-test \
+       --release v8.6.0 \
+       --tasks TASK-0059 \
+       --dry-run 2>/dev/null \
+     | python3 -c "
+import json, jsonschema, sys
+schema = json.load(open('$baseline_schema'))
+data = json.load(sys.stdin)
+jsonschema.validate(data, schema)
+" 2>/dev/null; then
+    printf '[PASS] metrics (C-3): baseline-snapshot.py --dry-run output is schema-valid\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] metrics (C-3): baseline-snapshot.py --dry-run failed schema validation\n'
+    fail=$((fail + 1))
+  fi
+fi
