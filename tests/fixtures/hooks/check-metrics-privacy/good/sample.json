@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "ts": "2026-05-06T08:00:00Z",
+  "task_id": "TASK-9999",
+  "event": "c3_decided",
+  "phase": "C-3",
+  "mode": "light",
+  "verdict": "APPROVED"
+}

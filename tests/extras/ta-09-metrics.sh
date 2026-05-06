@@ -130,3 +130,46 @@ else
   printf '[FAIL] metrics: usage not shown on no args\n'
   fail=$((fail + 1))
 fi
+
+# Test 9 (privacy C-2): emitted events MUST NOT contain forbidden fields (privacy §4)
+if [ -s "$METRICS_LOG" ]; then
+  forbidden_re='"file_path"|"file_paths"|"stack_trace"|"command_output"|"stdout"|"stderr"|"raw_response"|"raw_request"|"api_key"|"user_prompt"|"system_prompt"|"prompt_text"|"absolute_path"'
+  if ! grep -E "$forbidden_re" "$METRICS_LOG" >/dev/null 2>&1; then
+    printf '[PASS] metrics (C-2): emitted events contain no forbidden fields (privacy §4)\n'
+    pass=$((pass + 1))
+  else
+    hit=$(grep -oE "$forbidden_re" "$METRICS_LOG" | sort -u | tr '\n' ',' | sed 's/,$//')
+    printf '[FAIL] metrics (C-2): forbidden field detected in events.ndjson — %s\n' "$hit"
+    fail=$((fail + 1))
+  fi
+fi
+
+# Test 10 (privacy D-1 negative): schema MUST reject events with forbidden fields
+if python3 -c 'import jsonschema' >/dev/null 2>&1; then
+  schema_path="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/schemas/plangate-event.schema.json"
+  if python3 -c "
+import json, jsonschema, sys
+schema = json.load(open('$schema_path'))
+bad = {
+    'schema_version': '1.0',
+    'ts': '2026-05-06T08:00:00Z',
+    'task_id': 'TASK-9999',
+    'event': 'v1_completed',
+    'verdict': 'PASS',
+    'file_path': '/secret/path/handoff.md',
+}
+try:
+    jsonschema.validate(bad, schema)
+    sys.exit(0)  # unexpectedly accepted
+except jsonschema.ValidationError:
+    sys.exit(1)  # expected rejection
+" 2>/dev/null; then
+    printf '[FAIL] metrics (D-1): schema accepted forbidden field (file_path) — privacy §4 not enforced\n'
+    fail=$((fail + 1))
+  else
+    printf '[PASS] metrics (D-1): schema rejects forbidden field (additionalProperties:false)\n'
+    pass=$((pass + 1))
+  fi
+else
+  printf '[SKIP] metrics (D-1): jsonschema not available\n'
+fi

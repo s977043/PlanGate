@@ -485,5 +485,72 @@ else
   fail=$((fail + 1))
 fi
 
+# ---- check-metrics-privacy.sh (EH-8) ----
+note "check-metrics-privacy.sh (EH-8)"
+
+PRIVACY_FIXTURE_GOOD="$FIXTURES_DIR/check-metrics-privacy/good/sample.json"
+PRIVACY_FIXTURE_BAD_FORBIDDEN="$FIXTURES_DIR/check-metrics-privacy/bad-forbidden/sample.json"
+PRIVACY_EVENTS_PATH="docs/working/_metrics/events.ndjson"
+
+# good fixture (Allowed fields only) → PASS
+out=$(PLANGATE_HOOK_FILES="$PRIVACY_FIXTURE_GOOD" sh "$HOOKS_DIR/check-metrics-privacy.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "PASS"; then
+  printf '[PASS] EH-8: good fixture (allowed fields only) → PASS\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-8: good fixture (rc=%d, out=%s)\n' "$rc" "$out"
+  fail=$((fail + 1))
+fi
+
+# bad fixture with forbidden fields → default WARNING
+out=$(PLANGATE_HOOK_FILES="$PRIVACY_FIXTURE_BAD_FORBIDDEN" sh "$HOOKS_DIR/check-metrics-privacy.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "WARNING"; then
+  printf '[PASS] EH-8: bad fixture default → exit 0 + WARNING\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-8: bad default (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# bad fixture, strict → BLOCK exit 1
+PLANGATE_HOOK_FILES="$PRIVACY_FIXTURE_BAD_FORBIDDEN" PLANGATE_HOOK_STRICT=1 sh "$HOOKS_DIR/check-metrics-privacy.sh" >/dev/null 2>&1 && rc=0 || rc=$?
+if [ "$rc" -eq 1 ]; then
+  printf '[PASS] EH-8: bad fixture strict → exit 1 (BLOCK)\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-8: bad strict (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# events.ndjson 単一引数 → BLOCK (events is forbidden in staging)
+PLANGATE_HOOK_FILES="$PRIVACY_EVENTS_PATH" PLANGATE_HOOK_STRICT=1 sh "$HOOKS_DIR/check-metrics-privacy.sh" >/dev/null 2>&1 && rc=0 || rc=$?
+if [ "$rc" -eq 1 ]; then
+  printf '[PASS] EH-8: events.ndjson staged + strict → exit 1\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-8: events.ndjson strict (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# bypass overrides strict
+out=$(PLANGATE_BYPASS_HOOK=1 PLANGATE_HOOK_STRICT=1 PLANGATE_HOOK_FILES="$PRIVACY_FIXTURE_BAD_FORBIDDEN" sh "$HOOKS_DIR/check-metrics-privacy.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q BYPASS; then
+  printf '[PASS] EH-8: bypass overrides strict\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-8: bypass (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# no files (empty staging) → PASS
+out=$(PLANGATE_HOOK_FILES="" sh "$HOOKS_DIR/check-metrics-privacy.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q PASS; then
+  printf '[PASS] EH-8: empty staging → PASS\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-8: empty staging (rc=%d)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
 printf '\nResults: %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -gt 0 ] && exit 1 || exit 0
