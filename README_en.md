@@ -248,6 +248,42 @@ Main coverage:
 
 CI runs the same CLI / hook suites on every PR via `.github/workflows/test.yml`.
 
+## Metrics v1 — 5-minute quickstart (v8.6.0)
+
+PlanGate v8.6.0 introduces structured workflow event collection and aggregation.
+It is opt-in: existing workflows are unaffected.
+
+```bash
+# 1. After a TASK completes, collect events (append-only NDJSON)
+bin/plangate metrics TASK-XXXX --collect
+
+# 2. Show summary for that TASK
+bin/plangate metrics TASK-XXXX --report
+
+# 3. Aggregate across all TASKs (hook violations / C-3 / V-1 / C-4 / by mode)
+bin/plangate metrics --report --aggregate
+
+# 4. Emit JSON (for baseline comparison or CI pipelines)
+bin/plangate metrics TASK-XXXX --report --json
+```
+
+Sample artifacts:
+
+- [`examples/sample-task/metrics-events.ndjson`](examples/sample-task/metrics-events.ndjson) — minimal 8-event example
+- [`examples/sample-task/metrics-summary.md`](examples/sample-task/metrics-summary.md) — sample `--report` output
+
+| Item | Location / Spec |
+| --- | --- |
+| Event schema | [`schemas/plangate-event.schema.json`](schemas/plangate-event.schema.json) — 11 events, `additionalProperties: false` |
+| Event log | `docs/working/_metrics/events.ndjson` — **excluded by `.gitignore`, never committed** |
+| Privacy policy | [`docs/ai/metrics-privacy.md`](docs/ai/metrics-privacy.md) — only §3 Allowed fields are emitted; §4 Forbidden is blocked at the schema level |
+| Privacy enforcement | Hook EH-8 (`scripts/hooks/check-metrics-privacy.sh`) — checks staging for events.ndjson / Forbidden fields |
+| Baseline | [`docs/ai/eval-baselines/2026-05-04-baseline.{md,json}`](docs/ai/eval-baselines/) — fixed snapshot just after v8.5.0, the comparison anchor for later improvements |
+| Operational guide | [`docs/ai/metrics.md`](docs/ai/metrics.md) — 9-chapter guide |
+
+> [!NOTE]
+> **`docs/working/_metrics/events.ndjson` is never committed to the public repo.** Privacy is enforced by three layers: `.gitignore` + Hook EH-8 + schema `additionalProperties: false`.
+
 ## Provider Support
 
 PlanGate's governance workflow is designed to be provider-agnostic.

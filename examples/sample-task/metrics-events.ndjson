@@ -1,0 +1,8 @@
+{"event": "task_initialized", "phase": "A", "schema_version": "1.0", "task_id": "TASK-9990", "ts": "2026-05-06T08:00:00Z"}
+{"event": "plan_generated", "mode": "light", "phase": "B", "plan_hash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "schema_version": "1.0", "task_id": "TASK-9990", "ts": "2026-05-06T08:05:00Z"}
+{"event": "c3_decided", "phase": "C-3", "schema_version": "1.0", "task_id": "TASK-9990", "ts": "2026-05-06T08:30:00Z", "verdict": "APPROVED"}
+{"event": "exec_started", "phase": "D", "schema_version": "1.0", "task_id": "TASK-9990", "ts": "2026-05-06T08:35:00Z"}
+{"ac_fail": 0, "ac_pass": 5, "ac_total": 5, "event": "v1_completed", "phase": "V-1", "schema_version": "1.0", "task_id": "TASK-9990", "ts": "2026-05-06T09:10:00Z", "verdict": "PASS"}
+{"event": "handoff_completed", "phase": "V-1", "schema_version": "1.0", "task_id": "TASK-9990", "ts": "2026-05-06T09:10:00Z"}
+{"event": "pr_created", "phase": "PR", "pr_number": 999, "schema_version": "1.0", "task_id": "TASK-9990", "ts": "2026-05-06T09:15:00Z"}
+{"event": "c4_decided", "phase": "C-4", "pr_number": 999, "schema_version": "1.0", "task_id": "TASK-9990", "ts": "2026-05-06T10:00:00Z", "verdict": "APPROVED"}

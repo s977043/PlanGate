@@ -248,6 +248,42 @@ v8.6.0 時点のテスト状況:
 
 CI は同じ CLI / hook スイートを全 PR で `.github/workflows/test.yml` を通じて実行します。
 
+## Metrics v1 — 5 分クイックスタート（v8.6.0）
+
+PlanGate v8.6.0 から、ワークフロー event を構造化して保存・集計できます。
+opt-in: 既存の workflow には影響しません。
+
+```bash
+# 1. TASK 完了後に event を収集（append-only NDJSON）
+bin/plangate metrics TASK-XXXX --collect
+
+# 2. その TASK の summary を表示
+bin/plangate metrics TASK-XXXX --report
+
+# 3. 全 TASK 集約（hook violation / C-3 / V-1 / C-4 / mode 別 集計）
+bin/plangate metrics --report --aggregate
+
+# 4. JSON 出力（baseline 比較や CI に流す場合）
+bin/plangate metrics TASK-XXXX --report --json
+```
+
+サンプル成果物:
+
+- [`examples/sample-task/metrics-events.ndjson`](examples/sample-task/metrics-events.ndjson) — 8 event の最小例
+- [`examples/sample-task/metrics-summary.md`](examples/sample-task/metrics-summary.md) — `--report` 出力例
+
+| 項目 | 場所 / 仕様 |
+| --- | --- |
+| Event schema | [`schemas/plangate-event.schema.json`](schemas/plangate-event.schema.json) — 11 events、`additionalProperties: false` |
+| Event log | `docs/working/_metrics/events.ndjson` — **`.gitignore` で除外、commit 禁止** |
+| Privacy policy | [`docs/ai/metrics-privacy.md`](docs/ai/metrics-privacy.md) — §3 Allowed のみ emit、§4 Forbidden は schema レベルで物理的に阻止 |
+| Privacy enforcement | Hook EH-8 (`scripts/hooks/check-metrics-privacy.sh`) — staging に events.ndjson / Forbidden field がないか検査 |
+| Baseline | [`docs/ai/eval-baselines/2026-05-04-baseline.{md,json}`](docs/ai/eval-baselines/) — v8.5.0 直後の固定 snapshot（後続改善との比較起点） |
+| Operational guide | [`docs/ai/metrics.md`](docs/ai/metrics.md) — 9 章運用 guide |
+
+> [!NOTE]
+> **`docs/working/_metrics/events.ndjson` は public repo に commit しません。** `.gitignore` + Hook EH-8 + schema `additionalProperties:false` の三層で privacy を強制しています。
+
 ## Provider サポート
 
 PlanGate のガバナンスワークフローはプロバイダに依存しない設計です。

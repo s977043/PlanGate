@@ -137,7 +137,10 @@ baseline と metrics summary を組み合わせると、改善前後の差分が
 ## 9. 関連
 
 - [Issue #195 PBI-HI-001 Metrics v1](https://github.com/s977043/plangate/issues/195)
-- [docs/ai/metrics-privacy.md](./metrics-privacy.md)
-- [docs/ai/eval-baselines/2026-05-04-baseline.md](./eval-baselines/2026-05-04-baseline.md)
-- [docs/ai/harness-improvement-roadmap.md](./harness-improvement-roadmap.md)
+- [docs/ai/metrics-privacy.md](./metrics-privacy.md) — §3 Allowed / §4 Forbidden / privacy 強制 3 層
+- [docs/ai/eval-baselines/2026-05-04-baseline.md](./eval-baselines/2026-05-04-baseline.md) — 比較起点 baseline
+- [docs/ai/harness-improvement-roadmap.md](./harness-improvement-roadmap.md) — Phase 1 (#195) を含むロードマップ
+- [docs/ai/issue-governance.md](./issue-governance.md) — Issue / Label / Milestone Governance（v8.6.0 governance trio の一角）
 - [schemas/plangate-event.schema.json](../../schemas/plangate-event.schema.json)
+- [scripts/hooks/check-metrics-privacy.sh](../../scripts/hooks/check-metrics-privacy.sh) — EH-8 privacy 強制 hook
+- [examples/sample-task/metrics-events.ndjson](../../examples/sample-task/metrics-events.ndjson) / [metrics-summary.md](../../examples/sample-task/metrics-summary.md) — 利用例

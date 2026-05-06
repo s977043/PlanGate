@@ -156,3 +156,6 @@ EPIC issue は以下を満たす。
 - [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193)
 - [pages/guides/governance/documentation-management.md](../../pages/guides/governance/documentation-management.md)（Doc 配置 / 更新ルール正本）
 - [.github/ISSUE_TEMPLATE/plangate-roadmap-task.yml](../../.github/ISSUE_TEMPLATE/plangate-roadmap-task.yml)
+- [docs/ai/metrics-privacy.md](./metrics-privacy.md) — Metrics v1 (#195) の privacy policy（v8.6.0 governance trio の一角）
+- [docs/ai/metrics.md](./metrics.md) — Metrics v1 運用 guide
+- [docs/ai/eval-baselines/2026-05-04-baseline.md](./eval-baselines/2026-05-04-baseline.md) — v8.6.0 比較起点 baseline
