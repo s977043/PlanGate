@@ -32,7 +32,7 @@ bin/plangate metrics TASK-0061 --collect
 
 実行内容: `docs/working/TASK-0061/` の以下ファイル群を読み、event を抽出して `docs/working/_metrics/events.ndjson` に append する。
 
-| 対象ファイル | 導出 event |
+| 対象ファイル / ソース | 導出 event |
 |------------|----------|
 | `pbi-input.md` | `task_initialized` |
 | `plan.md` | `plan_generated` (plan_hash 含む、mode 自動検出) |
@@ -40,6 +40,8 @@ bin/plangate metrics TASK-0061 --collect
 | `evidence/` | `exec_started` (最初の evidence 作成時刻) |
 | `handoff.md` | `v1_completed` (AC PASS/FAIL カウント) + `handoff_completed` |
 | `review-external.md` | `external_review_completed` |
+| `docs/working/_audit/hook-events.log` | `hook_violation` (v8.6.0 PR3、A-1: VIOLATION/WARNING を自動変換、PASS/BYPASS は emit せず、message column は privacy §4 のため emit せず)|
+| `git log` on `handoff.md` | `pr_created` (v8.6.0 PR3、A-2: squash-merge subject 末尾の `(#NN)` から PR 番号抽出、`pr_number` のみ emit)|
 
 **dry-run** で append 前に内容確認:
 
@@ -60,16 +62,30 @@ bin/plangate metrics --report --aggregate
 bin/plangate metrics TASK-0061 --report --json
 ```
 
-### 3.3 hook violation の手動記録
+### 3.3 hook_violation の自動取得（v8.6.0 PR3 / A-1）
 
-PBI-HI-001 では hook 側からの自動 emit は **scope 外**。手動で append する場合は schema 準拠 NDJSON を append する：
+`bin/plangate metrics --collect` 実行時、`docs/working/_audit/hook-events.log` を自動的に読み込み、対象 TASK の **VIOLATION / WARNING** ログを `hook_violation` event に変換して emit する。
+
+| audit log level | hook_result |
+|----------------|-------------|
+| `VIOLATION` / `BLOCK` | `block` |
+| `WARNING` / `WARN` | `warn` |
+| `PASS` / `BYPASS` | emit しない（success / bypass はノイズ） |
+
+hook script 名は schema 準拠の hook_id に変換される（例: `check-c3-approval` → `EH-2`、`check-merge-approvals` → `EH-7`、`check-metrics-privacy` → `EH-8`）。**audit log の message 列は metrics-privacy.md §4 違反を避けるため emit しない**。
+
+手動 append が必要な場合は schema 準拠 NDJSON を `>>` で追記可能：
 
 ```bash
 echo '{"schema_version":"1.0","ts":"2026-05-04T07:00:00Z","task_id":"TASK-0061","event":"hook_violation","hook_id":"EH-1","hook_result":"block"}' \
   >> docs/working/_metrics/events.ndjson
 ```
 
-自動 emit は v8.7+ 候補（hook 側修正が必要、scope 外）。
+### 3.4 pr_created の自動取得（v8.6.0 PR3 / A-2）
+
+`handoff.md` をタッチした最新 git commit を対象に、subject 末尾の `(#NN)` パターン（squash-merge convention）から PR 番号を抽出し、`pr_created` event を emit する。`pr_number` のみ記録され、commit ハッシュ・ブランチ名・著者・本文は emit しない（privacy §4 準拠）。
+
+git が無い / commit が見つからない場合は silent に skip。
 
 ## 4. Privacy
 

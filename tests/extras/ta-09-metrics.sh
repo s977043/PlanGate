@@ -5,12 +5,18 @@
 printf '\n=== TA-09: metrics (Issue #195) ===\n'
 
 METRICS_TASK_NAME="TASK-9991"
-METRICS_TASK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/docs/working/$METRICS_TASK_NAME"
-METRICS_LOG="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/.tmp-metrics-events.ndjson"
+METRICS_REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+METRICS_TASK_DIR="$METRICS_REPO_ROOT/docs/working/$METRICS_TASK_NAME"
+METRICS_LOG="$METRICS_REPO_ROOT/.tmp-metrics-events.ndjson"
+METRICS_AUDIT_LOG="$METRICS_REPO_ROOT/docs/working/_audit/hook-events.log"
+METRICS_AUDIT_BACKUP=""
 
 cleanup_metrics() {
   rm -rf "$METRICS_TASK_DIR"
   rm -f "$METRICS_LOG"
+  if [ -n "$METRICS_AUDIT_BACKUP" ] && [ -f "$METRICS_AUDIT_BACKUP" ]; then
+    mv "$METRICS_AUDIT_BACKUP" "$METRICS_AUDIT_LOG"
+  fi
 }
 trap cleanup_metrics EXIT INT TERM
 
@@ -146,7 +152,7 @@ fi
 
 # Test 10 (privacy D-1 negative): schema MUST reject events with forbidden fields
 if python3 -c 'import jsonschema' >/dev/null 2>&1; then
-  schema_path="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/schemas/plangate-event.schema.json"
+  schema_path="$METRICS_REPO_ROOT/schemas/plangate-event.schema.json"
   if python3 -c "
 import json, jsonschema, sys
 schema = json.load(open('$schema_path'))
@@ -172,4 +178,81 @@ except jsonschema.ValidationError:
   fi
 else
   printf '[SKIP] metrics (D-1): jsonschema not available\n'
+fi
+
+# Test 11 (A-1): hook_violation auto-derive from audit log
+# fixture: 一時 hook-events.log を作る（既存ログがあれば backup）
+if [ -f "$METRICS_AUDIT_LOG" ]; then
+  METRICS_AUDIT_BACKUP="$METRICS_AUDIT_LOG.bak.$$"
+  mv "$METRICS_AUDIT_LOG" "$METRICS_AUDIT_BACKUP"
+fi
+mkdir -p "$(dirname "$METRICS_AUDIT_LOG")"
+cat > "$METRICS_AUDIT_LOG" <<HOOKLOG
+2026-05-06T07:00:00Z	VIOLATION	check-c3-approval	$METRICS_TASK_NAME	C-3 gate not cleared
+2026-05-06T07:01:00Z	WARNING	check-plan-exists	$METRICS_TASK_NAME	plan.md not found
+2026-05-06T07:02:00Z	PASS	check-merge-approvals	$METRICS_TASK_NAME	c3=APPROVED c4=APPROVED
+2026-05-06T07:03:00Z	BYPASS	check-c3-approval	$METRICS_TASK_NAME	bypass set
+2026-05-06T07:04:00Z	VIOLATION	check-test-cases	OTHER-TASK	(unrelated)
+HOOKLOG
+
+# 既存 events.ndjson をクリアしてから再 collect
+rm -f "$METRICS_LOG"
+sh "$PLANGATE_BIN" metrics "$METRICS_TASK_NAME" --collect --events-log "$METRICS_LOG" >/dev/null 2>&1
+
+violations=$(grep -c '"event": "hook_violation"' "$METRICS_LOG" 2>/dev/null || echo 0)
+# expect: 2 hook_violations (VIOLATION + WARNING for our task), exclude PASS / BYPASS / OTHER-TASK
+if [ "$violations" = "2" ]; then
+  printf '[PASS] metrics (A-1): hook_violation auto-derived 2 events from audit log (filters PASS/BYPASS/other-task)\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (A-1): expected 2 hook_violations, got %s\n' "$violations"
+  fail=$((fail + 1))
+fi
+
+# Test 12 (A-1): hook_id mapping (check-c3-approval → EH-2)
+if grep -q '"hook_id": "EH-2"' "$METRICS_LOG" 2>/dev/null; then
+  printf '[PASS] metrics (A-1): hook_name to hook_id mapping (check-c3-approval → EH-2)\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (A-1): hook_id mapping incorrect\n'
+  fail=$((fail + 1))
+fi
+
+# Test 13 (A-1): hook_result level mapping (VIOLATION → block, WARNING → warn)
+if grep -q '"hook_result": "block"' "$METRICS_LOG" 2>/dev/null && grep -q '"hook_result": "warn"' "$METRICS_LOG" 2>/dev/null; then
+  printf '[PASS] metrics (A-1): hook_result mapping (VIOLATION→block, WARNING→warn)\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (A-1): hook_result mapping missing\n'
+  fail=$((fail + 1))
+fi
+
+# Test 14 (A-1): cumulative collect で events.ndjson が valid に保たれる
+if python3 -c "import json; [json.loads(l) for l in open('$METRICS_LOG') if l.strip()]" 2>/dev/null; then
+  printf '[PASS] metrics (A-1): events.ndjson remains valid JSON after hook events appended\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] metrics (A-1): events.ndjson invalid after hook append\n'
+  fail=$((fail + 1))
+fi
+
+# Test 15 (A-1): hook_violation events も schema 妥当
+if python3 -c 'import jsonschema' >/dev/null 2>&1; then
+  if python3 -c "
+import json, jsonschema, sys
+schema = json.load(open('$METRICS_REPO_ROOT/schemas/plangate-event.schema.json'))
+events = [json.loads(l) for l in open('$METRICS_LOG') if l.strip()]
+hv = [e for e in events if e.get('event') == 'hook_violation']
+for e in hv:
+    jsonschema.validate(e, schema)
+sys.exit(0 if hv else 1)
+" 2>/dev/null; then
+    printf '[PASS] metrics (A-1): hook_violation events conform to schema\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] metrics (A-1): hook_violation schema validation failed\n'
+    fail=$((fail + 1))
+  fi
+else
+  printf '[SKIP] metrics (A-1): jsonschema not available for hook_violation validation\n'
 fi

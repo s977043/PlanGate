@@ -28,10 +28,37 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKING_DIR = REPO_ROOT / "docs" / "working"
 METRICS_DIR = WORKING_DIR / "_metrics"
 EVENTS_LOG = METRICS_DIR / "events.ndjson"
+HOOK_AUDIT_LOG = WORKING_DIR / "_audit" / "hook-events.log"
 SCHEMA_VERSION = "1.0"
 
 TASK_ID_RE = re.compile(r"^TASK-[0-9]{4}$")
 HOOK_ID_RE = re.compile(r"\b(EH|EHS)-[0-9]+\b")
+
+# v8.6.0 PR3 (A-1): hook script name → schema-conformant hook_id
+HOOK_NAME_TO_ID = {
+    "check-plan-exists": "EH-1",
+    "check-c3-approval": "EH-2",
+    "check-plan-hash": "EH-3",
+    "check-test-cases": "EH-4",
+    "check-verification-evidence": "EH-5",
+    "check-forbidden-files": "EH-6",
+    "check-merge-approvals": "EH-7",
+    "check-metrics-privacy": "EH-8",
+    "check-v3-review": "EHS-1",
+    "check-handoff-elements": "EHS-2",
+    "check-fix-loop": "EHS-3",
+}
+
+# audit log level → schema-conformant hook_result
+HOOK_LEVEL_TO_RESULT = {
+    "VIOLATION": "block",
+    "BLOCK": "block",
+    "WARNING": "warn",
+    "WARN": "warn",
+}
+
+# v8.6.0 PR3 (A-2): match (#NN) at end of git commit subject
+GIT_COMMIT_PR_RE = re.compile(r"\(#(\d+)\)\s*$")
 
 
 def utc_now_iso() -> str:
@@ -146,7 +173,103 @@ def derive_events(task_dir: Path, task_id: str) -> list[dict]:
             | {"phase": "V-3"}
         )
 
+    # 8. hook_violation — derived from docs/working/_audit/hook-events.log (v8.6.0 PR3 / A-1)
+    events.extend(derive_hook_events(task_id))
+
+    # 9. pr_created — derived from git log on handoff.md (v8.6.0 PR3 / A-2)
+    if (task_dir / "handoff.md").is_file():
+        events.extend(derive_pr_event(task_id, task_dir / "handoff.md"))
+
     return events
+
+
+def derive_hook_events(task_id: str, audit_log: Path = HOOK_AUDIT_LOG) -> list[dict]:
+    """Read hook audit log and emit hook_violation events for the given TASK.
+
+    Audit log format (TSV): ts \t level \t hook_name \t task_id \t message
+
+    Only VIOLATION / WARNING / BLOCK / WARN levels are emitted (PASS / BYPASS skip).
+    Privacy: the message column is NOT emitted; only schema-allowed scalars
+    (hook_id, hook_result) are kept per metrics-privacy.md §3.
+    """
+    out: list[dict] = []
+    if not audit_log.is_file():
+        return out
+    try:
+        lines = audit_log.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return out
+    for line in lines:
+        parts = line.split("\t")
+        if len(parts) < 5:
+            continue
+        ts, level, hook_name, log_task = parts[0], parts[1], parts[2], parts[3]
+        if log_task != task_id:
+            continue
+        result = HOOK_LEVEL_TO_RESULT.get(level)
+        if result is None:
+            continue  # PASS / BYPASS は emit しない
+        hook_id = HOOK_NAME_TO_ID.get(hook_name)
+        if hook_id is None:
+            continue
+        out.append(
+            base_event(task_id, "hook_violation", ts)
+            | {"hook_id": hook_id, "hook_result": result}
+        )
+    return out
+
+
+def derive_pr_event(task_id: str, handoff_path: Path) -> list[dict]:
+    """Emit pr_created event by inspecting git log for the handoff commit.
+
+    Looks for the most recent commit that touched handoff.md and extracts
+    the PR number from a "(#NN)" suffix in the subject (squash-merge convention).
+    Returns empty list if no PR number can be derived (silent — privacy-safe).
+    """
+    import subprocess  # local import to keep top-level minimal
+
+    try:
+        rel = handoff_path.relative_to(REPO_ROOT)
+    except ValueError:
+        return []
+    try:
+        proc = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(REPO_ROOT),
+                "log",
+                "-1",
+                "--pretty=format:%H%x09%cI%x09%s",
+                "--",
+                str(rel),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return []
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return []
+    parts = proc.stdout.strip().split("\t", 2)
+    if len(parts) < 3:
+        return []
+    _commit, commit_iso, subject = parts
+    m = GIT_COMMIT_PR_RE.search(subject)
+    if not m:
+        return []
+    pr_number = int(m.group(1))
+    # normalize timestamp to UTC Z form
+    try:
+        dt = datetime.datetime.fromisoformat(commit_iso.replace("Z", "+00:00"))
+        ts = dt.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        ts = utc_now_iso()
+    return [
+        base_event(task_id, "pr_created", ts) | {"phase": "PR", "pr_number": pr_number}
+    ]
 
 
 def append_events(events: list[dict], events_log: Path = EVENTS_LOG) -> None:
