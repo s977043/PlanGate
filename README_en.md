@@ -16,13 +16,62 @@ Unlike agent frameworks that focus on autonomy, PlanGate focuses on **approval b
 
 ![PlanGate overview](docs/assets/harness-plangate-readme-dark-v2.png)
 
+## What PlanGate Distributes
+
+PlanGate distributes **"a safe pattern for AI-driven development"** — not a framework that lets AI do everything autonomously.
+
+| What PlanGate **does** | What PlanGate **does not do** |
+| --- | --- |
+| Provides a pattern: plan → approve → implement → verify → handoff | Let AI rewrite skills or prompts on its own |
+| Fixes human decision points at C-3 / C-4 / V-1 to V-4 | Aim for fully autonomous agents |
+| Makes failures and successes explainable after the fact (observation / reproducibility foundation) | Become a fully reproducible durable execution engine |
+| Provides staged adoption levels (Level 1 to 5) | Force all features from day one |
+| Stays Markdown-first to keep cognitive load low | Require SaaS or external stores |
+
+> **Design center**: Not the Steering Loop (observation), but **evaluation → learning → governance**.
+> The Steering Loop here means "the observation loop that records every control point into events.ndjson so the run can be replayed later." It is the *foundation* of self-evolution, not its center.
+> See [docs/philosophy.md (Japanese)](docs/philosophy.md#自己進化フレームの設計判断) and [`docs/working/discussions/`](docs/working/discussions/) for the 5-round Claude × Codex × Gemini strategy discussions.
+
+## Staged Adoption Levels
+
+You **don't need to use all features from the start**. Adopt only what you need across 5 levels (Level 1 to 5).
+
+| Level | Scope | When to use |
+| --- | --- | --- |
+| **Level 1** | Plan approval only | You want a human gate before AI implements anything |
+| **Level 2** | + handoff | You want to standardize the wrap-up of each run |
+| **Level 3** | + hooks / validate | You want hooks to enforce scope / approval / evidence invariants |
+| **Level 4** | + metrics / outcome review | You want measurement-driven improvement (**self-evolution effectively starts here**) |
+| **Level 5** | + eval / timeline | Advanced features: dogfooding eval, experimental timeline |
+
+New users should **start at Level 1**. Consider Level 4+ only after gaining operational experience.
+Detailed guide: [Issue #226 Staged adoption guide](https://github.com/s977043/plangate/issues/226) (in progress for v8.7.0).
+
+```mermaid
+flowchart LR
+    L1["Level 1<br/>plan approval"] --> L2["Level 2<br/>+ handoff"]
+    L2 --> L3["Level 3<br/>+ hooks/validate"]
+    L3 --> L4["Level 4<br/>+ metrics/outcome review<br/><b>self-evolution starts here</b>"]
+    L4 --> L5["Level 5<br/>+ eval/timeline<br/><i>experimental</i>"]
+    style L1 fill:#e1f5e1
+    style L2 fill:#d4edda
+    style L3 fill:#c3e6cb
+    style L4 fill:#ffeaa7
+    style L5 fill:#ffd6a5
+```
+
+> **About image updates**: The existing [`docs/assets/harness-plangate-readme-dark-v2.png`](docs/assets/harness-plangate-readme-dark-v2.png) is a v7-v8.6-era overview and remains valid. A new image reflecting the staged adoption levels and self-evolution frame finalized in v8.7.0 will be considered separately as a design task (outside this implementation phase).
+
 ## Current Status
 
 As of v8.6.0, PlanGate combines Hook enforcement with **Metrics v1** and **Harness Improvement Governance**, so the improvement cycle can be judged by comparison rather than intuition.
 
+v8.7.0 (in development) focuses on **OSS adoption foundations** — staged adoption guide, plugin maturity, and versioning stability policy — rather than self-evolution features. This shift came from a 5-round strategy discussion that found external users primarily struggle with "where do I start, where do I stop," not with missing features.
+
 | Item | Status |
 | --- | --- |
 | Latest release | **v8.6.0** — Harness Improvement Roadmap Phase 0/1 + Governance |
+| In development | **v8.7.0** — OSS adoption foundations + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) |
 | Hook enforcement | **10/10 hooks implemented** (carried over from v8.5.0) |
 | Metrics v1 | Workflow event collection and reporting via `bin/plangate metrics` (v8.6.0) |
 | Baseline | v8.5.0 baseline fixed under `docs/ai/eval-baselines/` (v8.6.0) |
@@ -321,6 +370,7 @@ To contribute support for a new provider, see [CONTRIBUTING.md](CONTRIBUTING.md#
 | [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Using and migrating to Claude Code plugin |
 | [docs/oss-governance.md](docs/oss-governance.md) | OSS publication settings and operational decisions |
 | [CHANGELOG.md](CHANGELOG.md) | Major release history |
+| [docs/working/discussions/](docs/working/discussions/) | Claude × Codex × Gemini strategy discussion logs (5 rounds, rationale for v8.7.0 main axis) |
 
 ## Japanese README
 
