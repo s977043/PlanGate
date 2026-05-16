@@ -479,8 +479,11 @@ PYEOF
       # Dry-run: 全修復対象を非書込で計画表示のみ。
       printf '  [PLAN] dry-run — no files will be modified\n'
       printf '  [PLAN] settings.json hooks (via doctor_fix.py --dry-run):\n'
-      python3 "$fix_py" --project-dir "$plangate_root" --dry-run \
-        | sed 's/^/         /'
+      dry_run_output=$(python3 "$fix_py" --project-dir "$plangate_root" --dry-run) || {
+        printf '  [FAIL] doctor_fix.py --dry-run failed\n' >&2
+        return 2
+      }
+      printf '%s\n' "$dry_run_output" | sed 's/^/         /'
       eh8="$plangate_root/scripts/hooks/check-metrics-privacy.sh"
       if [ -f "$eh8" ] && [ ! -x "$eh8" ]; then
         printf '  [PLAN] would: chmod +x scripts/hooks/check-metrics-privacy.sh (EH-8)\n'
@@ -545,11 +548,21 @@ PYEOF
     gitignore="$plangate_root/.gitignore"
     if grep -q '_metrics/events.ndjson' "$gitignore" 2>/dev/null; then
       printf '  [SKIP] .gitignore already excludes events.ndjson\n'
-    elif printf '%s\n' 'docs/working/_metrics/events.ndjson' >> "$gitignore"; then
-      printf '  [DONE] appended events.ndjson to .gitignore\n'
     else
-      printf '  [FAIL] could not append to .gitignore\n' >&2
-      fix_rc=1
+      if [ -f "$gitignore" ] && [ -s "$gitignore" ] && [ "$(tail -c 1 "$gitignore")" != "$(printf '\n')" ]; then
+        printf '\n' >> "$gitignore" || {
+          printf '  [FAIL] could not append newline to .gitignore\n' >&2
+          fix_rc=1
+        }
+      fi
+    fi
+    if [ "$fix_rc" -eq 0 ] && ! grep -q '_metrics/events.ndjson' "$gitignore" 2>/dev/null; then
+      if printf '%s\n' 'docs/working/_metrics/events.ndjson' >> "$gitignore"; then
+      printf '  [DONE] appended events.ndjson to .gitignore\n'
+      else
+        printf '  [FAIL] could not append to .gitignore\n' >&2
+        fix_rc=1
+      fi
     fi
 
     # 4. docs/working/ ディレクトリ

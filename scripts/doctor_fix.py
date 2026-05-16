@@ -56,10 +56,15 @@ def expected_hooks(example: dict) -> list[tuple]:
     """Extract the expected (event, matcher, type, command) set from example."""
     keys: list[tuple] = []
     for event, blocks in example.get("hooks", {}).items():
+        if not isinstance(blocks, list):
+            continue
         for block in blocks:
+            if not isinstance(block, dict):
+                continue
             matcher = block.get("matcher")
-            for h in block.get("hooks", []):
-                keys.append(_block_key(event, matcher, h.get("type"), h.get("command")))
+            for h in block.get("hooks", []) or []:
+                if isinstance(h, dict):
+                    keys.append(_block_key(event, matcher, h.get("type"), h.get("command")))
     return keys
 
 
@@ -95,11 +100,16 @@ def merge_hooks(example: dict, settings: dict) -> dict:
     have = present_hooks(result)
     result.setdefault("hooks", {})
     for event, blocks in example.get("hooks", {}).items():
+        if not isinstance(blocks, list):
+            continue
         for block in blocks:
+            if not isinstance(block, dict):
+                continue
             matcher = block.get("matcher")
             missing_inner = [
                 h
-                for h in block.get("hooks", [])
+                for h in block.get("hooks", []) or []
+                if isinstance(h, dict)
                 if _block_key(event, matcher, h.get("type"), h.get("command")) not in have
             ]
             if not missing_inner:
@@ -107,9 +117,7 @@ def merge_hooks(example: dict, settings: dict) -> dict:
             new_block: dict = {}
             if matcher is not None:
                 new_block["matcher"] = matcher
-            new_block["hooks"] = [
-                {"type": h.get("type"), "command": h.get("command")} for h in missing_inner
-            ]
+            new_block["hooks"] = missing_inner
             result["hooks"].setdefault(event, [])
             if not isinstance(result["hooks"][event], list):
                 result["hooks"][event] = []
@@ -179,7 +187,7 @@ def cmd_dry_run(claude_dir: Path) -> int:
     print(f"plan: would add {len(miss)} hook block(s) (merge-only, no files written):")
     for event, matcher, htype, command in miss:
         print(f"  + [{event}] matcher={matcher!r} {htype}: {command}")
-    print("(dry-run: no settings.json / .bak / chmod / .gitignore / mkdir changes)")
+    print("(dry-run: no settings.json or .bak changes)")
     return 0
 
 
