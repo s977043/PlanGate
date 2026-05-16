@@ -71,3 +71,26 @@ C-3 APPROVE 後: `/ai-dev-workflow TASK-0069 exec`
 | 日時 | タスク | 結果 |
 |------|--------|------|
 | 2026-05-16 | T-1, T-2（期待集合仕様確定） | DONE（conductor 調査で確定、status に記録） |
+
+## exec 完了（2026-05-16）
+
+| 項目 | 結果 |
+|------|------|
+| 実装 T-1〜T-20 | 完了（20/20）|
+| テスト | sh tests/run-tests.sh = 63 passed / 0 failed |
+| 検証 | dash -n PASS / markdownlint 0 error / E2E PASS |
+| AC-1〜AC-8 | 全 PASS（qa-reviewer 確定）|
+| T-17 レビュー | critical 0 / major 0 / minor 2 / info 3（Auto-approve）|
+| handoff.md | 生成済み |
+| スコープ外混入 | AGENTS.md / TASK-0059 を revert（commit 非対象）|
+| commit | 4193c7a |
+| PR | #240 https://github.com/s977043/PlanGate/pull/240 |
+
+## 次のアクション
+
+C-4 PR レビュー（GitHub #240）→ APPROVE でマージ → Done
+
+## 環境課題（申し送り）
+
+- `check-plan-hash.sh` hook の `PLANGATE_HOOK_TASK` 未配線で implementer の Edit/Write がブロックされ Bash 編集で回避（成果物影響なし、handoff §2 記載）
+- セッション中 claude-mem が AGENTS.md に、eval runner が TASK-0059 に副作用 → 都度 revert で対処

@@ -37,9 +37,9 @@
 - [x] 🚩 T-17: orchestrator エージェントで複数視点コードレビュー [Owner: agent] [depends_on: T-16] [files: -]
 
 ### 完了フェーズ
-- [ ] 🚩 T-18: コミット作成 [Owner: agent] [depends_on: T-17] [files: -]
-- [ ] 🚩 T-19: PR 作成 [Owner: agent] [depends_on: T-18] [files: -]
-- [ ] 🚩 T-20: status.md / handoff.md 最終更新 [Owner: agent] [depends_on: T-19] [files: status.md, handoff.md]
+- [x] 🚩 T-18: コミット作成 [Owner: agent] [depends_on: T-17] [files: -]
+- [x] 🚩 T-19: PR 作成 [Owner: agent] [depends_on: T-18] [files: -]
+- [x] 🚩 T-20: status.md / handoff.md 最終更新 [Owner: agent] [depends_on: T-19] [files: status.md, handoff.md]
 
 ## 👤 Human タスク
 - [ ] C-3: Plan/ToDo/Test Cases の人間レビュー（exec 前ゲート） [Owner: human]
