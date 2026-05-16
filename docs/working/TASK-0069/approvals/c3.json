@@ -1,9 +1,15 @@
 {
   "task_id": "TASK-0069",
-  "gate": "C-3",
-  "decision": "APPROVED",
-  "approved_by": "human",
-  "approved_at": "2026-05-16T17:40:00+09:00",
-  "basis": "C-1 x3 PASS / C-2 reflected / C-3 external review 2 rounds (Codex+Gemini): CONDITIONAL -> APPROVE, all 8 findings resolved, no residual major/critical",
-  "mode": "high-risk"
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "mine_take",
+  "approved_at": "2026-05-16T08:40:00Z",
+  "plan_hash": "sha256:ff62964630e32852843cc0ae0e615aefcc04ff4cbf5bc0d0e36cc1e3883a261f",
+  "_review_summary": {
+    "c1_self_review": "PASS x3 (15/15 初回 + 簡易再 C-1 x2 PASS)",
+    "c2_external_review": "WARN(MAJOR2/minor3) 全件反映 → C-3 追加外部レビュー Codex+Gemini 2ラウンドで CONDITIONAL→APPROVE、全8件解消",
+    "user_directive": "ユーザー指示 APPROVE（2026-05-16）",
+    "post_approval_action": "exec 開始。TDD で T-1〜T-20 実装、PR #240 作成"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
 }

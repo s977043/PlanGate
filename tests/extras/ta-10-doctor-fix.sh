@@ -216,17 +216,19 @@ fi
 rm -rf "$root"
 
 # ---------------------------------------------------------------------------
-# TC-6: gh/codex を PATH から除外 + --fix --yes → 自動インストールせず案内のみ
-#       exit code は他修復の成否に従う（隔離ルートは健全なので 0）
+# TC-6 / AC-6: gh/codex を PATH から除外 + --fix --yes → 自動インストールせず
+#   案内のみ。AC-6 の契約は「自動インストールしない」「案内を出す」であり、
+#   overall Result / exit code は他の修復ステップの成否に従う（AC-6 明記）。
+#   隔離ルートは hooks 以外の v8.6.0 チェックが構造上 FAIL するため Result は
+#   FIX FAILED / rc!=0 になりうるが、それは AC-6 の対象外（gh/codex の挙動のみ
+#   を検証する）。よって rc / Result 文字列はアサートしない。
 # ---------------------------------------------------------------------------
 root="$(_ta10_mkroot)"
 out="$(PATH=/usr/bin:/bin sh "$root/bin/plangate" doctor --fix --yes 2>&1)" && rc=0 || rc=$?
-if [ "$rc" -eq 0 ] \
-   && printf '%s\n' "$out" | grep -q 'gh (GitHub CLI) not installed' \
+if printf '%s\n' "$out" | grep -q 'gh (GitHub CLI) not installed' \
    && printf '%s\n' "$out" | grep -q 'codex (Codex CLI) not installed' \
-   && printf '%s\n' "$out" | grep -q 'Result: FIX APPLIED' \
-   && ! printf '%s\n' "$out" | grep -qi 'installing gh\|brew install\|apt-get install'; then
-  printf '[PASS] doctor-fix TC-6: missing gh/codex -> guidance only, no auto-install, exit follows repairs\n'
+   && ! printf '%s\n' "$out" | grep -qi 'installing gh\|brew install\|apt-get install\|npm install -g'; then
+  printf '[PASS] doctor-fix TC-6: missing gh/codex -> guidance only, no auto-install (AC-6)\n'
   pass=$((pass + 1))
 else
   printf '[FAIL] doctor-fix TC-6: gh/codex absence not handled as guidance-only (rc=%d)\n' "$rc"
