@@ -115,6 +115,20 @@ cp -r plangate/.claude/ your-project/.claude/
 > 既存利用者や段階的移行を行う場合、plugin と `.claude/` のデュアル運用は技術的に可能ですが、同名 Skill / コマンドの解決順に注意してください。
 > plugin 側を明示的に呼び出す場合は `plangate:<skill-or-agent>` prefix を使用します。詳細は [plugin 移行ガイド](docs/plangate-plugin-migration.md) を参照してください。
 
+### 導入後: hook 強制を有効化する
+
+clone / plugin 導入だけでは hook 強制（ゲートの不変条件検査）は配線されません。導入先で次の 1 コマンドを実行して、`.claude/settings.json` への hook 配線を確立します。
+
+```bash
+bin/plangate doctor --fix
+```
+
+- `--fix` は `.claude/settings.example.json` を正本に hooks を **merge-only**（既存キー温存）で適用し、EH-8 スクリプトに実行ビットを付与し、`.gitignore` に必要な除外を追記し、`docs/working/` を作成します。実行前に確認を求めます。
+- 事前に変更計画だけ確認したい場合は `bin/plangate doctor --fix --dry-run`（一切書き換えません）。
+- CI など非対話環境では `bin/plangate doctor --fix --yes` で確認をスキップします（`--yes` 無しの非対話実行は安全のため中断します）。
+- `bin/plangate doctor` 単体は配線状態を検査するのみで、何も書き換えません。
+- gh / codex は自動インストールしません。未導入時は案内のみ表示します。
+
 ## 仕組み
 
 PlanGate は AI 実装の前後に 2 つの人間承認ゲートを設けます。

@@ -120,7 +120,8 @@ cmd_help() {
     "" \
     "Commands:" \
     "  init <TASK-XXXX>               Create task folder and template files" \
-    "  doctor                         Check environment setup" \
+    "  doctor [--json] [--scope <v>] [--fix [--dry-run] [--yes]]" \
+    "                                 Check environment; --fix wires hooks (TASK-0069)" \
     "  status <TASK-XXXX>             Show current phase and next action" \
     "  validate <TASK-XXXX> [--mode]  Verify artifacts and plan_hash integrity" \
     "  validate-schemas <args>        Validate JSON artifacts against schemas/ (Issue #158)" \
@@ -231,20 +232,61 @@ EOF
 }
 
 cmd_doctor() {
-  # K-3 (v8.6.0 PR7): --json で機械可読出力（v8.6.0 セクションのみ、CI 統合用）
-  for arg in "$@"; do
-    case "$arg" in
-      --json)
-        py="$plangate_root/scripts/doctor_check.py"
-        if [ ! -f "$py" ]; then
-          printf '{"error": "scripts/doctor_check.py not found"}\n' >&2
+  # T-7 (TASK-0069): 引数を解析。
+  #   --json        : 機械可読出力（doctor_check.py へ委譲）
+  #   --scope <v>    : doctor_check.py へ透過転送（default v8.6.0）
+  #   --fix/--dry-run/--yes : 修復系（実体は T-8 で追加。ここでは flag 受領と
+  #                            非 tty + --yes 無し時の安全 abort 土台のみ）
+  doctor_json=0
+  doctor_scope=v8.6.0
+  doctor_fix=0
+  doctor_dry_run=0
+  doctor_yes=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json)    doctor_json=1 ;;
+      --scope)
+        if [ $# -lt 2 ]; then
+          printf 'plangate doctor: --scope requires a value\n' >&2
           return 2
         fi
-        python3 "$py" --scope v8.6.0
-        return $?
+        doctor_scope=$2
+        shift
+        ;;
+      --scope=*) doctor_scope=${1#--scope=} ;;
+      --fix)     doctor_fix=1 ;;
+      --dry-run) doctor_dry_run=1 ;;
+      --yes)     doctor_yes=1 ;;
+      *)
+        printf 'plangate doctor: unknown argument: %s\n' "$1" >&2
+        return 2
         ;;
     esac
+    shift
   done
+
+  # K-3 (v8.6.0 PR7) + T-7: --json は doctor_check.py へ委譲。--scope を透過転送
+  # （指定なし時は従来通り v8.6.0 → 出力バイト互換）。
+  if [ "$doctor_json" -eq 1 ]; then
+    py="$plangate_root/scripts/doctor_check.py"
+    if [ ! -f "$py" ]; then
+      printf '{"error": "scripts/doctor_check.py not found"}\n' >&2
+      return 2
+    fi
+    python3 "$py" --scope "$doctor_scope"
+    return $?
+  fi
+
+  # T-7: 非 tty かつ --yes 無しで --fix を要求された場合は、確認プロンプトを
+  # 出せず（set -eu 下で read が EOF を返すと中断/誤動作するため）安全に
+  # abort する。実際の修復ロジック自体は T-8 で追加する。
+  if [ "$doctor_fix" -eq 1 ] && [ "$doctor_yes" -eq 0 ] && [ "$doctor_dry_run" -eq 0 ]; then
+    if [ ! -t 0 ]; then
+      printf 'plangate doctor --fix: refusing to prompt on a non-interactive stdin.\n' >&2
+      printf '                       No changes were made. Re-run with --yes to proceed.\n' >&2
+      return 3
+    fi
+  fi
 
   printf 'PlanGate Doctor — environment check\n'
   printf '\n'
@@ -328,6 +370,85 @@ cmd_doctor() {
   plangate_check_file "docs/ai/metrics-privacy.md" "$plangate_root/docs/ai/metrics-privacy.md" || failures=$((failures + 1))
   printf '\n'
 
+  printf '=== Hook Enforcement Wiring ===\n'
+  # T-7 (TASK-0069 / AC-1): .claude/settings.json が .claude/settings.example.json
+  # の各 hook ブロック (event, matcher, type, command) を含むかを判定する。
+  # 正本は settings.example.json（scripts/hooks/ のファイル数とは独立）。
+  # command 文字列のみの集合一致は不採用（別 event/matcher に存在しても誤 PASS
+  # するため）。ブロック単位で同一 event 配下に同一 matcher/type/command を要求。
+  # privacy: presence の真偽のみ。settings 内容・パス値は出力しない。
+  doctor_example="$plangate_root/.claude/settings.example.json"
+  doctor_settings="$plangate_root/.claude/settings.json"
+  if [ ! -f "$doctor_example" ]; then
+    printf '  [WARN] .claude/settings.example.json not found — cannot evaluate hook wiring\n'
+  else
+    doctor_wiring_rc=0
+    python3 - "$doctor_example" "$doctor_settings" <<'PYEOF' || doctor_wiring_rc=$?
+import json
+import sys
+
+example_path, settings_path = sys.argv[1], sys.argv[2]
+
+
+def blocks(doc):
+    """Yield (event, matcher, type, command) tuples from a settings doc."""
+    out = set()
+    hooks = (doc or {}).get("hooks", {})
+    if not isinstance(hooks, dict):
+        return out
+    for event, entries in hooks.items():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            matcher = entry.get("matcher")
+            for h in entry.get("hooks", []) or []:
+                if not isinstance(h, dict):
+                    continue
+                out.add((event, matcher, h.get("type"), h.get("command")))
+    return out
+
+
+try:
+    with open(example_path, "r", encoding="utf-8") as f:
+        expected = blocks(json.load(f))
+except (OSError, ValueError):
+    print("  [WARN] .claude/settings.example.json is unreadable or invalid JSON")
+    sys.exit(0)
+
+if not expected:
+    print("  [WARN] .claude/settings.example.json defines no hook blocks")
+    sys.exit(0)
+
+try:
+    with open(settings_path, "r", encoding="utf-8") as f:
+        present = blocks(json.load(f))
+except FileNotFoundError:
+    present = set()
+except (OSError, ValueError):
+    print("  [FAIL] PlanGate hooks not wired"
+          " (.claude/settings.json is missing or not valid JSON)")
+    sys.exit(1)
+
+missing = expected - present
+if missing:
+    print("  [FAIL] PlanGate hooks not wired"
+          " (%d/%d expected hook block(s) missing from .claude/settings.json)"
+          % (len(missing), len(expected)))
+    print("         Run: plangate doctor --fix   (see TROUBLESHOOTING.md)")
+    sys.exit(1)
+
+print("  [PASS] PlanGate hooks wired (%d/%d hook blocks present)"
+      % (len(expected), len(expected)))
+sys.exit(0)
+PYEOF
+    if [ "$doctor_wiring_rc" -ne 0 ]; then
+      failures=$((failures + 1))
+    fi
+  fi
+  printf '\n'
+
   printf '=== Optional Provider CLIs ===\n'
   if command -v gemini >/dev/null 2>&1; then
     printf '  [INFO] gemini CLI found (PLANGATE_EXTERNAL_REVIEWER=gemini supported)\n'
@@ -340,6 +461,136 @@ cmd_doctor() {
     printf '  [INFO] opencode not found (optional — install to enable plangate exec with OpenCode)\n'
   fi
   printf '\n'
+
+  # T-8 (TASK-0069): --fix / --dry-run / --yes 修復分岐。
+  # settings.json は scripts/doctor_fix.py 経由（直接書換禁止）。
+  # 併せて EH-8 chmod / .gitignore 追記 / docs/working mkdir を修復。
+  # gh/codex 未導入は自動インストールせず案内のみ（exit code は他修復に従う）。
+  if [ "$doctor_fix" -eq 1 ]; then
+    printf '=== Fix (TASK-0069) ===\n'
+
+    fix_py="$plangate_root/scripts/doctor_fix.py"
+    if [ ! -f "$fix_py" ]; then
+      printf '  [FAIL] scripts/doctor_fix.py not found — cannot apply fixes\n' >&2
+      return 2
+    fi
+
+    if [ "$doctor_dry_run" -eq 1 ]; then
+      # Dry-run: 全修復対象を非書込で計画表示のみ。
+      printf '  [PLAN] dry-run — no files will be modified\n'
+      printf '  [PLAN] settings.json hooks (via doctor_fix.py --dry-run):\n'
+      dry_run_output=$(python3 "$fix_py" --project-dir "$plangate_root" --dry-run) || {
+        printf '  [FAIL] doctor_fix.py --dry-run failed\n' >&2
+        return 2
+      }
+      printf '%s\n' "$dry_run_output" | sed 's/^/         /'
+      eh8="$plangate_root/scripts/hooks/check-metrics-privacy.sh"
+      if [ -f "$eh8" ] && [ ! -x "$eh8" ]; then
+        printf '  [PLAN] would: chmod +x scripts/hooks/check-metrics-privacy.sh (EH-8)\n'
+      fi
+      if ! grep -q '_metrics/events.ndjson' "$plangate_root/.gitignore" 2>/dev/null; then
+        printf '  [PLAN] would: append docs/working/_metrics/events.ndjson to .gitignore\n'
+      fi
+      if [ ! -d "$plangate_working_dir" ]; then
+        printf '  [PLAN] would: mkdir -p docs/working/\n'
+      fi
+      printf '\n'
+      printf 'Result: DRY-RUN (no changes made; %d check(s) currently failing)\n' "$failures"
+      return 0
+    fi
+
+    # 確認ゲート: --yes でスキップ。非 tty かつ --yes 無しは（T-7 の土台に
+    # 加えここでも）安全に abort（プロンプトで hang させない）。
+    if [ "$doctor_yes" -eq 0 ]; then
+      if [ ! -t 0 ]; then
+        printf 'plangate doctor --fix: refusing to prompt on a non-interactive stdin.\n' >&2
+        printf '                       No changes were made. Re-run with --yes to proceed.\n' >&2
+        return 3
+      fi
+      printf '  This will modify .claude/settings.json (merge-only, backup kept),\n'
+      printf '  scripts/hooks/check-metrics-privacy.sh permissions, .gitignore and docs/working/.\n'
+      printf '  Proceed? [y/N] '
+      fix_reply=n
+      read -r fix_reply || fix_reply=n
+      case "$fix_reply" in
+        y | Y | yes | YES) ;;
+        *)
+          printf '  Aborted by user. No changes were made.\n'
+          return 4
+          ;;
+      esac
+    fi
+
+    fix_rc=0
+
+    # 1. settings.json: doctor_fix.py --apply（merge-only / backup / 冪等）
+    if python3 "$fix_py" --project-dir "$plangate_root" --apply; then
+      printf '  [DONE] settings.json hooks merged (doctor_fix.py --apply)\n'
+    else
+      printf '  [FAIL] doctor_fix.py --apply failed\n' >&2
+      fix_rc=1
+    fi
+
+    # 2. EH-8 実行ビット
+    eh8="$plangate_root/scripts/hooks/check-metrics-privacy.sh"
+    if [ -f "$eh8" ]; then
+      if [ -x "$eh8" ]; then
+        printf '  [SKIP] EH-8 hook already executable\n'
+      elif chmod +x "$eh8"; then
+        printf '  [DONE] chmod +x scripts/hooks/check-metrics-privacy.sh (EH-8)\n'
+      else
+        printf '  [FAIL] could not chmod +x EH-8 hook\n' >&2
+        fix_rc=1
+      fi
+    fi
+
+    # 3. .gitignore に events.ndjson 追記（privacy §8）
+    gitignore="$plangate_root/.gitignore"
+    if grep -q '_metrics/events.ndjson' "$gitignore" 2>/dev/null; then
+      printf '  [SKIP] .gitignore already excludes events.ndjson\n'
+    else
+      if [ -f "$gitignore" ] && [ -s "$gitignore" ] && [ "$(tail -c 1 "$gitignore")" != "$(printf '\n')" ]; then
+        printf '\n' >> "$gitignore" || {
+          printf '  [FAIL] could not append newline to .gitignore\n' >&2
+          fix_rc=1
+        }
+      fi
+    fi
+    if [ "$fix_rc" -eq 0 ] && ! grep -q '_metrics/events.ndjson' "$gitignore" 2>/dev/null; then
+      if printf '%s\n' 'docs/working/_metrics/events.ndjson' >> "$gitignore"; then
+      printf '  [DONE] appended events.ndjson to .gitignore\n'
+      else
+        printf '  [FAIL] could not append to .gitignore\n' >&2
+        fix_rc=1
+      fi
+    fi
+
+    # 4. docs/working/ ディレクトリ
+    if [ -d "$plangate_working_dir" ]; then
+      printf '  [SKIP] docs/working/ already exists\n'
+    elif mkdir -p "$plangate_working_dir"; then
+      printf '  [DONE] created docs/working/\n'
+    else
+      printf '  [FAIL] could not create docs/working/\n' >&2
+      fix_rc=1
+    fi
+
+    # 5. gh / codex 未導入は案内のみ（自動インストールしない）
+    if ! command -v gh >/dev/null 2>&1; then
+      printf '  [INFO] gh (GitHub CLI) not installed — install manually: https://cli.github.com/\n'
+    fi
+    if ! command -v codex >/dev/null 2>&1; then
+      printf '  [INFO] codex (Codex CLI) not installed — install manually per your provider docs\n'
+    fi
+
+    printf '\n'
+    if [ "$fix_rc" -ne 0 ]; then
+      printf 'Result: FIX FAILED (one or more repair steps failed)\n'
+      return 1
+    fi
+    printf 'Result: FIX APPLIED (re-run `plangate doctor` to verify)\n'
+    return 0
+  fi
 
   if [ "$failures" -eq 0 ]; then
     printf 'Result: PASS (all checks passed)\n'
