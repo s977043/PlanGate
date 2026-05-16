@@ -117,6 +117,20 @@ gh / codex は自動インストールされません。未導入時は案内の
 
 ---
 
+### 単独運用で必須レビューが回らずマージできない
+
+**症状**: PR の CI は全 PASS だが `mergeStateStatus: BLOCKED` でマージできない。`reviewDecision` が空。
+
+**原因**: ブランチ保護 ruleset（例「Protect default branch」）が PR 作者以外の承認レビューを必須にしているが、単独運用でレビュアーが不在。PR 作者は self-approve 不可。
+
+**対処（リポジトリ管理者が GitHub Web で実施。agent はバイパスしない）**:
+
+1. 即時マージ（設定変更なし）: PR 画面の **Merge without waiting for requirements to be met (administrators only)** で管理者マージ
+2. 恒久対応（推奨）: Settings → Rules → Rulesets → 該当 ruleset → **Bypass list に Repository admin を追加** → Save。以降は通常マージ / auto-merge が機能（CI 等の他ガードは維持される）
+3. 緩和: required approvals を 0 にする（CI 必須を残すなら 2 より弱いので非推奨）
+
+> agent はマージブロック時に admin override / 別アカウント承認 / ruleset 改変を**行わない**（`AGENT_LEARNINGS.md` 2026-05-16）。状況を報告し、上記をユーザーに委ねる。
+
 ## Environment
 
 ### Claude Code と Codex CLI の両方が必要なケースの確認

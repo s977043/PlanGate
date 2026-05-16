@@ -115,3 +115,12 @@ C-4 PR レビュー（GitHub #240）→ APPROVE でマージ → Done
 - 対応: doctor_fix.py の rotation を衝突回避（空きサフィックス排他探索）に修正、TC-3c 追加（決定論的検証）。commit 76ce067
 - 検証: sh tests/run-tests.sh = 64 passed/0 failed、CI 全5チェック PASS
 - 状態: Codex major 解消。C-4 再判定可能水準
+
+## C-4 Gate: APPROVED / DONE（2026-05-16）
+
+- C-4 外部レビュー（Codex+Gemini）→ Codex major 1 修正 → 再レビュー両者 APPROVE
+- PR #240 MERGED（mergeCommit d27f272 / mergedBy s977043 / 2026-05-16T11:10:46Z、review対応 e66a5e3 含む）
+- main 同期・feature ブランチ削除済み（マージ確定検証後に実施）
+- 残: Gemini info 2（bin/plangate:1016 seq、merge_hooks 細分化）→ handoff 既知課題（V2 候補・非ブロッキング）
+- インシデント: マージ確認前のブランチ削除で未マージ CLOSE → reopen 復旧（再発防止 scripts/verify-pr-merged.sh 追加）
+- **TASK-0069: DONE**
