@@ -104,3 +104,14 @@ C-4 PR レビュー（GitHub #240）→ APPROVE でマージ → Done
 | CLI tests TC-7 | set -eu 下で doctor --json 非0終了 → サイレント abort | TC-7 の \$() に `|| true` 付与 | 80d9d49 |
 
 **CI 結果: 全 5 チェック PASS（Markdown lint / check / plangate CLI tests / privacy / validate）**
+
+## C-4 外部レビュー（Codex+Gemini）+ major 修正（2026-05-16）
+
+| レビュアー | 判定 | 指摘 |
+|----|------|------|
+| Codex | REQUEST CHANGES | major 1（.bak.<epoch> 衝突上書き、再現済み） |
+| Gemini | APPROVE | info 3（うち1件は同箇所を info 評価） |
+
+- 対応: doctor_fix.py の rotation を衝突回避（空きサフィックス排他探索）に修正、TC-3c 追加（決定論的検証）。commit 76ce067
+- 検証: sh tests/run-tests.sh = 64 passed/0 failed、CI 全5チェック PASS
+- 状態: Codex major 解消。C-4 再判定可能水準
