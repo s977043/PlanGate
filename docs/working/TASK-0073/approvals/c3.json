@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-0073",
+  "phase": "C-3",
+  "c3_status": "CONDITIONAL",
+  "approved_by": "mine_take",
+  "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:868cb82f9cb8cea6fbe8e2b8fc6b51a1f7ee7d8df994ec59db4d76603b74d62a",
+  "conditions": "D-1=表現:todo.md委譲タスクのメタフィールド / 検出:PreToolUse Hook on git + exec後検証の二段。D-2=mode high-risk(§5-bis参照型最小追記・V-4スキップ)。Hook wiring は Claude 適用不可のためユーザー手動(handoff明記)。plan反映済、exec着手可。",
+  "_review_summary": {
+    "c1_self_review": "PASS(Plan7/ToDo5/TC3, 動作検証WARN=環境依存はHook+文書トレース)",
+    "c3_decision": "D-1=todo.mdメタ+Hook+事後検証二段 / D-2=high-risk（ユーザー判定 2026-05-17）",
+    "post_approval_action": "S1調査→S3〜S6→V-1/V-3"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

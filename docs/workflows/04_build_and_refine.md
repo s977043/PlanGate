@@ -19,6 +19,7 @@
 - 明示的な既知課題（妥協点・未着手項目）が一覧化されている
 - 実装単位ごとのコミット履歴が記録されている
 - 実行環境に依存せず完遂している（委譲不可環境では直接実行へ自動フォールバック。2 段委譲をハード前提にしない。[`../ai/core-contract.md`](../ai/core-contract.md) §5-bis）
+- 委譲タスクの commit/push 境界が宣言され、違反が無い（EH-9 + exec 後検証。[`../ai/contracts/execute.md`](../ai/contracts/execute.md) F2）
 
 ## 呼び出す Skill
 

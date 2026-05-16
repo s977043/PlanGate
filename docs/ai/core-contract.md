@@ -74,6 +74,7 @@
 | バージョンや事実が不明 | 推測せず最新 doc / 既存コード / git history を確認 |
 | 同じ tool call を rejected された | 同じ呼び出しを再試行しない、ユーザーに理由を確認 |
 | サブエージェント委譲（Task）が実行環境で不可 | `delegation_unavailable` として **直接実行へ自動降格**（人間介入不要・正規フロー）。[`contracts/execute.md`](./contracts/execute.md) 参照 |
+| 委譲境界 `no-commit` 下で commit/push 試行、または認証三点不整合 | exec 前プリフライトで決定論的に停止（EH-9 default=block / auth-preflight exit!=0。[`contracts/execute.md`](./contracts/execute.md) F2）。自然言語依存にしない |
 
 ## 5-bis. 実行環境不変条件（Execution Environment Invariant）
 
