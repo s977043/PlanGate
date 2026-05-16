@@ -261,9 +261,12 @@ rm -rf "$root"
 #       settings.json の内容値・絶対パス値は JSON に含まれない。
 #       読み取りのみ -> 実リポジトリの bin/plangate をそのまま使用。
 # ---------------------------------------------------------------------------
-_ta10_json_default="$(sh "$_ta10_repo/bin/plangate" doctor --json 2>&1)"
-_ta10_json_explicit="$(sh "$_ta10_repo/bin/plangate" doctor --json --scope v8.6.0 2>&1)"
-_ta10_json_hooks="$(sh "$_ta10_repo/bin/plangate" doctor --json --scope hooks 2>&1)"
+# doctor --json は v8.6.0 チェックに FAIL があると exit 1 を返す（CI 環境では
+# 構造上ありうる）。TC-7 は JSON 内容のみを比較し終了コードは評価しないため、
+# set -e による途中 abort を防ぐ目的で `|| true` を付与する。
+_ta10_json_default="$(sh "$_ta10_repo/bin/plangate" doctor --json 2>&1 || true)"
+_ta10_json_explicit="$(sh "$_ta10_repo/bin/plangate" doctor --json --scope v8.6.0 2>&1 || true)"
+_ta10_json_hooks="$(sh "$_ta10_repo/bin/plangate" doctor --json --scope hooks 2>&1 || true)"
 if [ "$_ta10_json_default" = "$_ta10_json_explicit" ] \
    && printf '%s' "$_ta10_json_hooks" | python3 -c '
 import json, sys
