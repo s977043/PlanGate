@@ -3,7 +3,7 @@
 name = "research_analyst"
 description = "技術調査・実現可能性分析。plan 前の外部 API・ライブラリ評価、技術選定を担当する"
 
-sandbox_mode = "workspace-read"
+sandbox_mode = "read-only"
 model_reasoning_effort = "high"
 
 developer_instructions = """

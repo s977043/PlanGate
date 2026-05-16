@@ -3,7 +3,7 @@
 name = "scrum_master"
 description = "Sprint Planning、Daily Scrum、Sprint Review、Retrospective の論点整理、停滞可視化、impediment管理、改善アクション追跡を担当する"
 
-sandbox_mode = "workspace-read"
+sandbox_mode = "read-only"
 model_reasoning_effort = "high"
 
 developer_instructions = """
@@ -14,7 +14,7 @@ developer_instructions = """
 - Daily Scrum: 停滞の早期発見と impediment の可視化
 - Sprint Review: フィードバック収集と次スプリントへの反映
 - Retrospective: 改善実験の設計とアクション追跡
-- `workspace-read` は repo 内のドキュメント・設定ファイル参照のために使う
+- `read-only` で repo 内のドキュメント・設定ファイルを参照する（書き込み不可）
 
 スタック: Scrum Guide 2020 / PlanGate v5-v6
 プロジェクト指示は AGENTS.md と CLAUDE.md を参照。日本語でやり取りする。

@@ -3,7 +3,7 @@
 name = "retrospective_analyst"
 description = "exec 完了後の振り返りデータ分析。計画精度・プロセス改善点を抽出し改善提案を行う"
 
-sandbox_mode = "workspace-read"
+sandbox_mode = "read-only"
 model_reasoning_effort = "high"
 
 developer_instructions = """

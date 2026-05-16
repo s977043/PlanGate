@@ -3,7 +3,7 @@
 name = "acceptance_tester"
 description = "PlanGate V-1 受け入れ検査。test-cases.md の完了条件を機械的に突合し PASS/FAIL を判定する"
 
-sandbox_mode = "workspace-read"
+sandbox_mode = "read-only"
 model_reasoning_effort = "high"
 
 developer_instructions = """
