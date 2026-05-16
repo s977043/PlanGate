@@ -1,0 +1,13 @@
+{
+  "task_id": "TASK-0077", "phase": "C-3", "c3_status": "APPROVED",
+  "approved_by": "mine_take", "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:127f3b037470828d1205af901b6c5d7aaa4c29fd1beb9b0fc1db7efe476c2cc8",
+  "_review_summary": {
+    "c1_self_review": "PASS（計画のみ先行・C-3停止条項あり）",
+    "c2_external_review": "Codex CONDITIONAL(critical0/major3) + Gemini CONDITIONAL(critical0/major1) → R-001〜006 を AC-8〜13 に確定反映",
+    "c3_decision": "APPROVE — 承認境界を opt-in で可変にする設計（Lite分岐+C-3条件付き降格）を是とする。実装は別PBIで起票（本PBIは計画完了でクローズ）",
+    "user_directive": "ユーザー C-3 APPROVE（2026-05-17・設計承認/実装は別PBI）",
+    "post_approval_action": "本PBIは計画完了。実装PBI起票は別途。本PBIで rules/scripts/bin の実変更はしない（AC-13歯止め）"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
