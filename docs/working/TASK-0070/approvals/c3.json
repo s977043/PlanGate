@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-0070",
+  "phase": "C-3",
+  "c3_status": "CONDITIONAL",
+  "approved_by": "mine_take",
+  "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:52e215d8665e162efd32facaa8788ec931c59a6fe1391f8be344604892321f85",
+  "conditions": "F-1 を F1-b で決着: PLANGATE_HOOK_FILE wiring を In scope 格上げし plan/pbi-input/AC-8 に反映。settings wiring は Claude 自己改変ガードによりユーザー手動適用（handoff §2）。exec 開始可。",
+  "_review_summary": {
+    "c1_self_review": "PASS (Plan7/ToDo5/TC3) + F-1 重大論点を C-3 へエスカレーション",
+    "user_directive": "ユーザー C-3 判定 F1-b 採用（2026-05-17）",
+    "post_approval_action": "exec 開始（TDD）。S1→TDD→wiring→V-1→V-3"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

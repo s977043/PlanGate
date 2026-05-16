@@ -248,6 +248,125 @@ else
   fail=$((fail + 1))
 fi
 
+# ---- check-plan-hash.sh P4(d): file-path-sensitive SKIP (TASK-0070) ----
+note "check-plan-hash.sh P4(d) file-path-sensitive SKIP"
+
+# TC-1: no TASK ctx + plan.md target → BLOCK (exit 2) + VIOLATION audit
+out=$(PLANGATE_HOOK_FILE=docs/working/TASK-XX/plan.md sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q "BLOCK"; then
+  printf '[PASS] EH-3 P4d TC-1: no-task plan.md → exit 2 BLOCK\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-1: no-task plan.md (rc=%d, out=%s)\n' "$rc" "$out"
+  fail=$((fail + 1))
+fi
+
+# TC-2: no TASK ctx + non-plan target → SKIP (exit 0)
+out=$(PLANGATE_HOOK_FILE=src/foo.ts sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "SKIP"; then
+  printf '[PASS] EH-3 P4d TC-2: no-task non-plan → exit 0 SKIP\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-2: no-task non-plan (rc=%d, out=%s)\n' "$rc" "$out"
+  fail=$((fail + 1))
+fi
+
+# TC-3: STRICT=1 + no TASK ctx + non-plan → BLOCK (exit 2)
+PLANGATE_HOOK_STRICT=1 PLANGATE_HOOK_FILE=src/foo.ts sh "$HOOKS_DIR/check-plan-hash.sh" >/dev/null 2>&1 && rc=0 || rc=$?
+if [ "$rc" -eq 2 ]; then
+  printf '[PASS] EH-3 P4d TC-3: strict no-task → exit 2\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-3: strict no-task (rc=%d, expected 2)\n' "$rc"
+  fail=$((fail + 1))
+fi
+
+# TC-6: target_file resolution priority — $2 used when env unset
+out=$(sh "$HOOKS_DIR/check-plan-hash.sh" "" src/bar.ts 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "SKIP"; then
+  printf '[PASS] EH-3 P4d TC-6: $2 arg resolves target → SKIP\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-6: $2 arg resolution (rc=%d, out=%s)\n' "$rc" "$out"
+  fail=$((fail + 1))
+fi
+
+# TC-6b: stdin JSON file_path fallback when env/arg unset → plan.md → BLOCK
+out=$(printf '{"tool_input":{"file_path":"docs/working/TASK-Z/plan.md"}}' | sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q "BLOCK"; then
+  printf '[PASS] EH-3 P4d TC-6b: stdin JSON file_path → plan.md BLOCK\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-6b: stdin JSON fallback (rc=%d, out=%s)\n' "$rc" "$out"
+  fail=$((fail + 1))
+fi
+
+# TC-7: bypass overrides P4d (no task + plan.md but BYPASS=1) → exit 0
+out=$(PLANGATE_BYPASS_HOOK=1 PLANGATE_HOOK_FILE=docs/working/TASK-XX/plan.md sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "BYPASS"; then
+  printf '[PASS] EH-3 P4d TC-7: bypass overrides P4d block\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-7: bypass (rc=%d, out=%s)\n' "$rc" "$out"
+  fail=$((fail + 1))
+fi
+
+# TC-8: POSIX sh syntax (dash -n) if dash available
+if command -v dash >/dev/null 2>&1; then
+  dash -n "$HOOKS_DIR/check-plan-hash.sh" 2>/dev/null && rc=0 || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    printf '[PASS] EH-3 P4d TC-8: dash -n syntax OK\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] EH-3 P4d TC-8: dash -n syntax (rc=%d)\n' "$rc"
+    fail=$((fail + 1))
+  fi
+else
+  printf '[SKIP] EH-3 P4d TC-8: dash not installed\n'
+fi
+
+# TC-9: case-insensitive plan.md (macOS case-insensitive FS bypass) → BLOCK
+out=$(PLANGATE_HOOK_FILE=docs/working/T/PLAN.md sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q BLOCK; then
+  printf '[PASS] EH-3 P4d TC-9: PLAN.md (uppercase) → BLOCK\n'; pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-9: uppercase bypass (rc=%d, out=%s)\n' "$rc" "$out"; fail=$((fail + 1))
+fi
+
+# TC-10: trailing-space path evasion → BLOCK
+out=$(PLANGATE_HOOK_FILE="docs/working/T/plan.md " sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q BLOCK; then
+  printf '[PASS] EH-3 P4d TC-10: trailing-space plan.md → BLOCK\n'; pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-10: trailing-space evasion (rc=%d, out=%s)\n' "$rc" "$out"; fail=$((fail + 1))
+fi
+
+# TC-11: sed-greedy JSON injection — real file is plan.md, decoy later → BLOCK
+inj='{"tool_input":{"file_path":"docs/working/T/plan.md"},"x":"\"file_path\": \"safe.txt\""}'
+out=$(printf '%s' "$inj" | sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q BLOCK; then
+  printf '[PASS] EH-3 P4d TC-11: JSON-injection decoy → still BLOCK\n'; pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-11: JSON injection bypass (rc=%d, out=%s)\n' "$rc" "$out"; fail=$((fail + 1))
+fi
+
+# TC-12: leading ./ normalization → BLOCK
+out=$(PLANGATE_HOOK_FILE=./plan.md sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q BLOCK; then
+  printf '[PASS] EH-3 P4d TC-12: ./plan.md → BLOCK\n'; pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-12: leading ./ (rc=%d, out=%s)\n' "$rc" "$out"; fail=$((fail + 1))
+fi
+
+# TC-13: valid JSON with canonical tool_input.file_path=plan.md + decoy file_path → BLOCK
+inj13='{"tool_input":{"file_path":"docs/working/T/plan.md"},"meta":{"file_path":"safe.txt"}}'
+out=$(printf '%s' "$inj13" | sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q BLOCK; then
+  printf '[PASS] EH-3 P4d TC-13: canonical tool_input.file_path wins over decoy → BLOCK\n'; pass=$((pass + 1))
+else
+  printf '[FAIL] EH-3 P4d TC-13: greedy decoy bypass (rc=%d, out=%s)\n' "$rc" "$out"; fail=$((fail + 1))
+fi
+
 # ---- Setup fixtures for EH-4 / EH-5 / EH-6 (Issue #169 Session B) ----
 TC_OK_NAME="TASK-HOOKTEST09"
 TC_NONE_NAME="TASK-HOOKTEST10"
