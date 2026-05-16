@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-0074",
+  "phase": "C-3",
+  "c3_status": "CONDITIONAL",
+  "approved_by": "mine_take",
+  "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:b26ac075a0b5ac3fc077e1304b30c00fc3347a4942bb163707ea38a182500baf",
+  "conditions": "D-1=UI判定は pbi-input の is_ui_task 人手宣言を基本 + 変更ファイル傾向の自動ヒント補助。plan反映済、exec着手可。Mode=standard(V-3実施/V-2,V-4スキップ)。",
+  "_review_summary": {
+    "c1_self_review": "PASS(Plan7/ToDo5/TC3)",
+    "c3_decision": "D-1=人手宣言基本+自動補助（ユーザー判定 2026-05-17）",
+    "post_approval_action": "S1→S3〜S5→V-1/V-3"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

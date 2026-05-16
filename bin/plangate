@@ -191,6 +191,51 @@ TODO: なぜこの作業が必要か
 **Risks**: TODO
 **Unknowns**: TODO
 **Assumptions**: TODO
+
+<!-- ===== Design/UI Addendum（UI/デザインタスクのみ。非UIタスクは本節を削除可） =====
+     判定: is_ui_task を人手宣言（基本）。変更がUI層中心なら自動ヒント警告（補助）。
+     真実源は環境で分岐（Figma あり→Figma正 / なし→既存パターン正 / どちらも無→参照なし明示）。
+     詳細仕様: docs/ai/design-ui-addendum.md -->
+
+## Design/UI Addendum（UI タスク時のみ・非UIは削除可）
+
+\`is_ui_task: false\`  <!-- UI/デザイン変更が主目的なら true。true 時は以下必須 -->
+
+### 1. 踏襲元の明示（★最優先・単独でも効果大）
+
+- 真似る既存実装（X）: TODO（path / component）
+- 真似てはいけない（not Y）: TODO + 理由
+- 参照なしの場合: \`[参照なし]\` と明示（曖昧進行・ゲート回避を防ぐ）
+
+### 2. 真実源（source of truth）— 環境分岐
+
+- Figma あり: ノード URL / フレーム参照 = TODO（pixel/token は Figma 由来）
+- Figma なし: 踏襲元の既存パターンを正
+- どちらも無: \`[参照なし]\`（視覚受入基準・回帰ガードは必須のまま）
+
+### 3. 配置仕様
+
+- 挿入位置（どの要素の前/後）: TODO
+- 余白/間隔（できればデザイントークン名）: TODO
+
+### 4. レスポンシブ・マトリクス
+
+| ビューポート | 期待表示 |
+|------------|---------|
+| PC | TODO |
+| SP | TODO |
+
+### 5. 視覚的受入基準
+
+- TODO（要素の有無・リンク先・崩れないこと等、検証可能な形で）
+
+### 6. 視覚的回帰ガード
+
+- 変えてはいけない既存表示: TODO
+
+### 7. 視覚証跡
+
+- 受入時スクショ: Figma vs 実装 / または before/after（PC・SP）
 EOF
 
   cat > "$work_dir/current-state.md" <<EOF
