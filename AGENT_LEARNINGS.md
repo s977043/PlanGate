@@ -56,7 +56,7 @@
   - 再利用条件: マージが BLOCKED のとき、agent はバイパス（--admin / 別アカウント承認 / ruleset 改変）を行わない。状況を報告しユーザーの GitHub Web 正規操作に委ねる
   - 根拠: ブランチ保護は意図的セーフガード。workflow 上の C-4 APPROVE は GitHub の formal approving review とは別物
 
-- [2026-05-16] workflow-conductor は top-level 起動が前提
-  - 事実: `/ai-dev-workflow exec` が conductor を subagent 起動 → Task ツール不可で implementer 委譲が破綻、メインが orchestrator 代行で完遂
-  - 再利用条件: conductor を呼ぶ時はメイン会話（top-level）から起動する。subagent コンテキストになった場合はメインが orchestrator を代行し implementer を直接派遣する
-  - 根拠: Task is not available inside subagents。conductor の Iron Law（NEVER IMPLEMENTS）と subagent 制約は両立しないため代行が必要
+- [2026-05-16] workflow-conductor は top-level 起動が前提（**TASK-0072 で恒久対処済 / 下記に更新**）
+  - 事実: `/ai-dev-workflow exec` が conductor を subagent 起動 → Task ツール不可で implementer 委譲が破綻
+  - 再利用条件（更新後）: exec router（`/ai-dev-workflow exec`）が conductor 起動**前**にサブエージェント起動（`Agent`/`Task`）可否をツール存在検査で判定する。委譲可能なら conductor 起動、不可/判定不能なら conductor を起動せず **direct-implementer-mode**（router 自身が implementer。C-3/plan_hash/allowed_files/V-gates/C-4 は不変）。「subagent 検知→停止→メイン代行」という旧手動回避は撤廃
+  - 根拠: Task is not available inside subagents。判定主体を conductor 内から router 層へ移し、フォールバックを正規フロー化（core-contract §5-bis / contracts/execute.md / #237 #238 #239 #234-E / TASK-0072）

@@ -73,6 +73,29 @@
 | テストが FAIL | Iron Law #6 により root cause 調査、症状抑制で済ませない |
 | バージョンや事実が不明 | 推測せず最新 doc / 既存コード / git history を確認 |
 | 同じ tool call を rejected された | 同じ呼び出しを再試行しない、ユーザーに理由を確認 |
+| サブエージェント委譲（Task）が実行環境で不可 | `delegation_unavailable` として **直接実行へ自動降格**（人間介入不要・正規フロー）。[`contracts/execute.md`](./contracts/execute.md) 参照 |
+
+## 5-bis. 実行環境不変条件（Execution Environment Invariant）
+
+> TASK-0072 / field feedback #237 #238 #239 #234-E。core-contract 不変条件。
+
+- **exec はどの実行環境でも完遂可能でなければならない**。特定の委譲トポロジ
+  （conductor サブエージェント → さらにサブエージェント委譲の 2 段委譲）を
+  **ハード前提とするフェーズ定義を禁止**する。
+- サブエージェント委譲（`Task`）が利用可能かは exec 開始時に判定する
+  （手段: **ツール存在検査**。判定不能時は安全側＝直接実行に倒す）。
+- 委譲可能なら conductor 委譲（並列性・責務分離の最適化）、不可なら
+  **メイン/単一エージェントによる直接 Implementer 実行が既定の正規フロー**。
+  フォールバックは例外ではなく既定経路であり、人間介入を要しない。
+- **委譲不可時の direct-implementer-mode は exec router の責務**（conductor 内で
+  判定しない。conductor は委譲可能時のみ起動）。router 自身が implementer として
+  タスク分割・依存順序・status/todo 更新・L-0〜V-4・PR を担う。
+- **direct-implementer-mode でも統制は不変**: C-3 承認 / plan_hash 検証 /
+  allowed_files / scope 外停止（Iron Law #2）/ todo・status 更新 / L-0〜V-4 /
+  C-4 はすべて適用される。直接実行は実行トポロジの変更であって統制の緩和では
+  ない（統制回避の口実にしてはならない。Codex V-3 MJ-2）。
+- 本不変条件は Iron Law を弱めない。conductor の「実装しない」原則は不変
+  （conductor は委譲可能環境でのみ起動されるため衝突しない。Codex V-3 MJ-3）。
 
 ## 6. Available evidence
 
