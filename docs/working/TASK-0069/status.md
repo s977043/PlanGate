@@ -94,3 +94,13 @@ C-4 PR レビュー（GitHub #240）→ APPROVE でマージ → Done
 
 - `check-plan-hash.sh` hook の `PLANGATE_HOOK_TASK` 未配線で implementer の Edit/Write がブロックされ Bash 編集で回避（成果物影響なし、handoff §2 記載）
 - セッション中 claude-mem が AGENTS.md に、eval runner が TASK-0059 に副作用 → 都度 revert で対処
+
+## CI Fix Loop（2026-05-16）
+
+| 失敗 | 根因 | 修正 | コミット |
+|------|------|------|---------|
+| validate | 手書き c3.json がスキーマ不適合 | c3-approval.schema.json 準拠化（plan_hash 計算） | 873dfa5 |
+| CLI tests TC-6 | `_ta10_mkroot` 最小構成で Result: FIX FAILED / runner の /usr/bin/gh で PATH 除外不能 | TC-6 を AC-6 契約準拠化 + coreutils shim bin で gh/codex 確実不在化 | 930018f |
+| CLI tests TC-7 | set -eu 下で doctor --json 非0終了 → サイレント abort | TC-7 の \$() に `|| true` 付与 | 80d9d49 |
+
+**CI 結果: 全 5 チェック PASS（Markdown lint / check / plangate CLI tests / privacy / validate）**
