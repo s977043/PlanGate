@@ -77,6 +77,44 @@ A diagnostic guide for common issues when installing and using PlanGate.
 
 将来的に `approvals/c3.json` の存在チェックが exec フック（`pre-exec`）として自動化される予定です（Issue #77）。
 
+### hook が効かない / ゲートが強制されない
+
+**症状**: plan / approval / scope などの不変条件が検査されず、hook によるブロックが一切働かない。
+
+**原因**: clone / plugin 導入直後で、`.claude/settings.json` に hook が配線されていない（PlanGate は `.claude/settings.example.json` を配るのみで、配線は手動）。
+
+**確認手順**:
+
+1. 配線状態を検査する（何も書き換えません）。
+
+   ```bash
+   bin/plangate doctor
+   ```
+
+   未配線の場合、`=== Hook Enforcement Wiring ===` セクションに `[FAIL] PlanGate hooks not wired` が出力されます。
+
+2. 適用される変更を事前に確認する（任意、`--dry-run` は一切書き換えません）。
+
+   ```bash
+   bin/plangate doctor --fix --dry-run
+   ```
+
+3. hook 配線を修復する。
+
+   ```bash
+   bin/plangate doctor --fix --yes
+   ```
+
+   `.claude/settings.example.json` を正本に hooks を merge-only（既存キー温存）で適用し、EH-8 スクリプトへの実行ビット付与、`.gitignore` 追記、`docs/working/` 作成を行います。`--yes` は確認をスキップします（非対話環境では `--yes` 無しだと安全のため中断します）。
+
+4. 再度検査して PASS を確認する。
+
+   ```bash
+   bin/plangate doctor
+   ```
+
+gh / codex は自動インストールされません。未導入時は案内のみ表示されます。
+
 ---
 
 ## Environment

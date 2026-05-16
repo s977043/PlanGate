@@ -8,11 +8,12 @@ output. Privacy: only file presence / executable bits / gitignore status are
 reported. No file contents, no paths beyond what is already public, no env vars.
 
 Usage:
-    python3 scripts/doctor_check.py [--scope v8.6.0]
+    python3 scripts/doctor_check.py [--scope v8.6.0|hooks]
 
 Exit codes:
     0 — all "fail"-level checks passed
     1 — at least one "fail"-level check failed
+    2 — unknown scope
 """
 
 from __future__ import annotations
@@ -117,6 +118,103 @@ def check_events_not_tracked() -> dict:
     }
 
 
+def _extract_hook_blocks(doc: dict) -> set:
+    """Extract (event, matcher, type, command) tuples from a settings doc.
+
+    Privacy: this returns an in-memory set used only for membership testing.
+    No element is ever emitted into the JSON result; only counts / booleans are.
+    Keys prefixed with '_' (comments) are ignored.
+    """
+    blocks: set = set()
+    hooks = doc.get("hooks")
+    if not isinstance(hooks, dict):
+        return blocks
+    for event, entries in hooks.items():
+        if event.startswith("_") or not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            matcher = entry.get("matcher")
+            for h in entry.get("hooks", []) or []:
+                if not isinstance(h, dict):
+                    continue
+                blocks.add((event, matcher, h.get("type"), h.get("command")))
+    return blocks
+
+
+def _load_json(path: Path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def check_hooks_wired() -> dict:
+    example = REPO / ".claude/settings.example.json"
+    settings = REPO / ".claude/settings.json"
+
+    if not example.is_file():
+        return {
+            "name": "PlanGate hooks wired",
+            "ok": False,
+            "level": "fail",
+            "detail": "missing: .claude/settings.example.json (cannot determine expected wiring)",
+        }
+    if not settings.is_file():
+        return {
+            "name": "PlanGate hooks wired",
+            "ok": False,
+            "level": "fail",
+            "detail": "missing: .claude/settings.json (run: plangate doctor --fix)",
+        }
+
+    example_doc = _load_json(example)
+    settings_doc = _load_json(settings)
+    if example_doc is None:
+        return {
+            "name": "PlanGate hooks wired",
+            "ok": False,
+            "level": "fail",
+            "detail": ".claude/settings.example.json is not valid JSON",
+        }
+    if settings_doc is None:
+        return {
+            "name": "PlanGate hooks wired",
+            "ok": False,
+            "level": "fail",
+            "detail": ".claude/settings.json is not valid JSON",
+        }
+
+    expected = _extract_hook_blocks(example_doc)
+    actual = _extract_hook_blocks(settings_doc)
+    missing = expected - actual
+    ok = not missing
+    return {
+        "name": "PlanGate hooks wired",
+        "ok": ok,
+        "level": "fail",
+        "detail": None
+        if ok
+        else f"{len(missing)} of {len(expected)} expected hook block(s) not wired (run: plangate doctor --fix)",
+    }
+
+
+def run_hooks_checks() -> dict:
+    checks: list[dict] = [check_hooks_wired()]
+
+    failures = sum(1 for c in checks if not c["ok"] and c["level"] == "fail")
+    warnings = sum(1 for c in checks if not c["ok"] and c["level"] == "warn")
+
+    return {
+        "scope": "hooks",
+        "checks": checks,
+        "failures": failures,
+        "warnings": warnings,
+        "passed": failures == 0,
+    }
+
+
 def run_v860_checks() -> dict:
     checks: list[dict] = []
     for path_rel, level in V860_FILE_CHECKS:
@@ -138,16 +236,23 @@ def run_v860_checks() -> dict:
     }
 
 
+SCOPES = {
+    "v8.6.0": run_v860_checks,
+    "hooks": run_hooks_checks,
+}
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--scope", default="v8.6.0", help="Check scope (currently: v8.6.0)")
+    parser.add_argument("--scope", default="v8.6.0", help="Check scope (v8.6.0 | hooks)")
     args = parser.parse_args(argv)
 
-    if args.scope != "v8.6.0":
+    runner = SCOPES.get(args.scope)
+    if runner is None:
         print(f"[error] unknown scope: {args.scope}", file=sys.stderr)
         return 2
 
-    result = run_v860_checks()
+    result = runner()
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0 if result["passed"] else 1
 

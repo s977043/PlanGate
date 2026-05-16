@@ -1,0 +1,9 @@
+{
+  "task_id": "TASK-0069",
+  "gate": "C-3",
+  "decision": "APPROVED",
+  "approved_by": "human",
+  "approved_at": "2026-05-16T17:40:00+09:00",
+  "basis": "C-1 x3 PASS / C-2 reflected / C-3 external review 2 rounds (Codex+Gemini): CONDITIONAL -> APPROVE, all 8 findings resolved, no residual major/critical",
+  "mode": "high-risk"
+}

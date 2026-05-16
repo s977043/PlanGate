@@ -1,0 +1,25 @@
+あなたは PlanGate ワークフローの外部レビュアーです。これは exec 前の C-3 計画ゲートのための追加外部レビューです。コードは書かず、計画文書のみをレビューしてください。
+
+対象リポジトリ: /Users/user/Documents/GitHub/plangate
+TASK-0069: `plangate doctor --fix` 実装（モード: high-risk）
+
+以下3ファイルを読んでレビューしてください:
+- docs/working/TASK-0069/pbi-input.md（要件・受入基準）
+- docs/working/TASK-0069/plan.md（実行計画）
+- docs/working/TASK-0069/test-cases.md（テストケース）
+
+参考: bin/plangate, scripts/doctor_check.py, .claude/settings.example.json が実装対象。
+settings.json を破壊的に書き換える計画なので冪等性・バックアップ・非破壊性に特に注意。
+
+レビュー観点（Severity: critical / major / minor / info）:
+1. 受入基準が Work Breakdown に網羅されているか
+2. settings.json 書換の安全性（冪等性 / バックアップ / 既存設定の保全 / dry-run）
+3. テストケースが受入基準を網羅し、エッジケース（非tty / 既存wiring / 部分wiring）を含むか
+4. doctor --json の既存出力との後方互換（v8.6.0 CI consumer への影響）
+5. スコープ制御・Non-goals の明確さ
+
+出力フォーマット（簡潔に）:
+## 総合判定: APPROVE / CONDITIONAL / REJECT
+## 指摘一覧
+- [Severity] 指摘内容 / 該当箇所 / 推奨対応
+## C-3 判定への一言

@@ -1,0 +1,31 @@
+あなたは PlanGate ワークフローの外部レビュアーです。これは C-3 計画ゲートの再レビュー（2回目）です。コードは書かず計画文書のみレビューしてください。
+
+対象リポジトリ: /Users/user/Documents/GitHub/plangate
+TASK-0069: `plangate doctor --fix` 実装（モード: high-risk）
+
+前回 Codex/Gemini が CONDITIONAL 判定し、以下8件の指摘を計画へ反映しました。今回はその反映が妥当か検証してください。
+
+反映済み指摘:
+- C3-MAJOR-1: cmd_doctor で --scope を解析し doctor_check.py へ透過転送（AC-7 経路）
+- C3-MAJOR-2: 配線判定を (event,matcher,type,command) ブロック単位照合へ変更
+- C3-MAJOR-3: dry-run 非書込を EH-8/.gitignore/mkdir まで検証（TC-2）
+- C3-MAJOR-4: 既存 .bak を .bak.<epoch> ローテート退避
+- minor/info: TC-3a/3b 分割、AC-6 挙動明記、二重構造保持、EH-8 を Non-goals 注記
+
+以下を読んで検証:
+- docs/working/TASK-0069/pbi-input.md
+- docs/working/TASK-0069/plan.md
+- docs/working/TASK-0069/test-cases.md
+参考実装: bin/plangate, scripts/doctor_check.py, .claude/settings.example.json
+
+検証観点:
+1. 上記8件が計画/テストケースに過不足なく反映されているか
+2. 反映により新たな矛盾・抜けが生じていないか（AC↔Step↔TC の整合）
+3. exec 着手して安全な水準か（残 major があるか）
+
+出力フォーマット（簡潔に）:
+## 総合判定: APPROVE / CONDITIONAL / REJECT
+## 残指摘（あれば。Severity: critical/major/minor/info）
+- [Severity] 内容 / 該当箇所 / 推奨対応
+## 前回指摘の解消状況（8件を解消/部分/未解消で）
+## C-3 判定への一言
