@@ -120,7 +120,7 @@ cmd_help() {
     "" \
     "Commands:" \
     "  init <TASK-XXXX>               Create task folder and template files" \
-    "  doctor [--json] [--scope <v>] [--fix [--dry-run] [--yes]]" \
+    "  doctor [--json] [--scope <v>] [--fix [--dry-run] [--yes]] [--check-settings]" \
     "                                 Check environment; --fix wires hooks (TASK-0069)" \
     "  status <TASK-XXXX>             Show current phase and next action" \
     "  validate <TASK-XXXX> [--mode]  Verify artifacts and plan_hash integrity" \
@@ -287,6 +287,7 @@ cmd_doctor() {
   doctor_fix=0
   doctor_dry_run=0
   doctor_yes=0
+  doctor_check_settings=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --json)    doctor_json=1 ;;
@@ -302,6 +303,7 @@ cmd_doctor() {
       --fix)     doctor_fix=1 ;;
       --dry-run) doctor_dry_run=1 ;;
       --yes)     doctor_yes=1 ;;
+      --check-settings) doctor_check_settings=1 ;;
       *)
         printf 'plangate doctor: unknown argument: %s\n' "$1" >&2
         return 2
@@ -309,6 +311,18 @@ cmd_doctor() {
     esac
     shift
   done
+
+  # TASK-0080 S1b: --check-settings は settings wiring 契約検証へ委譲
+  # （既存 doctor ロジック非破壊。単独フラグとして早期 return）。
+  if [ "$doctor_check_settings" -eq 1 ]; then
+    csw="$plangate_root/scripts/check-settings-wiring.sh"
+    if [ ! -f "$csw" ]; then
+      printf 'plangate doctor --check-settings: %s not found\n' "$csw" >&2
+      return 2
+    fi
+    sh "$csw" --target user
+    return $?
+  fi
 
   # K-3 (v8.6.0 PR7) + T-7: --json は doctor_check.py へ委譲。--scope を透過転送
   # （指定なし時は従来通り v8.6.0 → 出力バイト互換）。

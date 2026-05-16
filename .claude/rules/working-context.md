@@ -123,6 +123,17 @@ docs/working/
 
 status.md / current-state.md が「進行中の情報管理」であるのに対し、handoff.md は「完了後の資産発行」である。役割が明確に異なる。
 
+#### settings タスクロック（Shadow Config 防止 / TASK-0080 S1c）
+
+V-1 受け入れ検査 / handoff 完了の**前提条件**として
+`bin/plangate doctor --check-settings` が PASS していること。settings wiring
+契約（[`docs/ai/settings-wiring-contract.md`](../../docs/ai/settings-wiring-contract.md)）
+未準拠（例: EH-3 の `PLANGATE_HOOK_FILE` 未適用 / EH-9 未配線）の状態では
+**handoff/V-1 を完了扱いにできない**。AI は settings を自己改変できない
+（self-mod ガード）ため、`sh scripts/apply-claude-settings.sh` を**ユーザーが
+実行**して解消する。これにより「AI が適用済みと誤認して完了する」Shadow
+Configuration を構造的に防ぐ。
+
 ### improvement-seeds.md（WF-06 Retro / opt-in・append-only）
 
 opt-in 終端フェーズ WF-06（[`docs/workflows/06_retro.md`](../../docs/workflows/06_retro.md)）が

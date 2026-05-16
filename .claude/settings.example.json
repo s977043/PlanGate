@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh ${PLANGATE_HOOK_TASK:-}"
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}"
           }
         ]
       },
@@ -51,6 +51,16 @@
           {
             "type": "command",
             "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-forbidden-files.sh"
+          }
+        ]
+      },
+      {
+        "_comment_": "Hook EH-9 (TASK-0073 F2): 委譲 commit/push 境界検知。委譲タスクが delegation_commit_boundary: no-commit を宣言した文脈で git commit/push 相当を実行しようとした場合に default=block。PLANGATE_DELEGATION_NOCOMMIT=1 を委譲元が注入。bypass・未宣言は従来動作。",
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-delegation-commit-boundary.sh"
           }
         ]
       }

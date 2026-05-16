@@ -19,6 +19,10 @@
 - V2 候補（今回の scope 外と確認された項目）が一覧化されている
 - 妥協点（選ばなかった選択肢と理由）が明文化されている
 - 引き継ぎ文書が handoff パッケージとして統合されている
+- **`bin/plangate doctor --check-settings` が PASS している**（TASK-0080
+  S1c タスクロック: settings wiring 契約未準拠＝Shadow Configuration の
+  状態では V-1/handoff を完了扱いにできない。未適用なら
+  `sh scripts/apply-claude-settings.sh` をユーザーが実行して解消）
 
 ## 呼び出す Skill
 

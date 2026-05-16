@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0080", "phase": "C-3", "c3_status": "APPROVED",
+  "approved_by": "mine_take", "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:feb691ea4c0b8c6fa3873728577f38a41133ce7f1be902fab575ed3e4d5766b3",
+  "_review_summary": {
+    "c1_self_review": "PASS（設計=TASK-0071確定・本PBIはS1+S2実装スライス）",
+    "c3_decision": "APPROVE + D-1=doctor連動+workflow DoD併用（ユーザー判定 2026-05-17）。設計はTASK-0071 C-1/C-2確定・依存#242/#243マージ済",
+    "post_approval_action": "exec: S1調査→S2 script/正本→S3 doctor --check-settings→S4 タスクロック(DoD+doctor)→S5 CI drift→V-1/V-3/V-4"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
