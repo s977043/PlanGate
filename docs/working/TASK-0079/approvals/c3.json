@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0079", "phase": "C-3", "c3_status": "APPROVED",
+  "approved_by": "mine_take", "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:59dd1dcc707c0bf764af30e2006275405ff5bb03ef125bf19302baf217abc237",
+  "_review_summary": {
+    "c1_self_review": "PASS（設計は TASK-0077 C-3 APPROVED 確定・本C-3は実装妥当性確認・論点なし）",
+    "c3_decision": "APPROVE — ユーザー『A: #251 F5-AD 実装』明示選択 + TASK-0077 設計 C-3 APPROVED（承認境界可変化の是非は既決）。実装は AC-8〜12 継承・承認境界非撤廃・opt-in既定OFF",
+    "post_approval_action": "exec: S2 mode-classification→S3 working-context→S4 Override→V-1/V-3/V-4(critical)"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

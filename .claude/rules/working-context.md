@@ -287,6 +287,39 @@ status.mdの更新タイミングと記載内容を段階で分ける:
 - C-2（`review-external.md`）は任意。C-2をスキップする場合はC-1のみで判断可
 - FAILが出た場合は指摘事項（review-external.md の `R-NNN`）を反映してplan.md / todo.md / test-cases.mdを再生成する（反映コミットに `Refs: R-NNN`）
 
+#### C-3 条件付き降格（opt-in・既定 OFF / F5-AD）
+
+> #234-D 実装。設計正本: TASK-0077（C-3 APPROVED）。**承認境界は撤廃しない**
+> ＝C-3 を「同期（既定）/ 非同期」から選べるようにするだけ。opt-in 未指定では
+> 発火せず従来どおり C-3 同期ブロック（既存挙動不変）。
+
+- **降格条件（すべて満たす場合のみ候補）**:
+  `C-1 PASS` かつ `C-2 critical/major = 0` かつ
+  [`lite_eligible=true`](../../.claude/rules/mode-classification.md)
+- **同期（既定）**: 従来どおり C-3 APPROVED まで exec をブロック。
+- **非同期（opt-in 明示時のみ）**: C-3 を事前ブロッカー→**事後確認**に降格。
+  exec を並行開始でき、人間が事後に確認。**reject されたら巻き戻す**。
+- **AC-8 安全側**: 降格条件のいずれかが判定不能/未充足なら**必ず同期**。
+- **AC-9 reject 時の巻き戻し（具体）**: 非同期降格中に人間が reject した場合、
+  以下を決定論的に巻き戻す:
+  1. exec が作った実装ブランチを破棄（または revert）
+  2. 生成済 PR を close
+  3. 当該 run の成果物（status/handoff 等）を invalidation マーク
+  4. `decision-log.jsonl` と監査ログに reject＋巻き戻しを記録
+  5. 既に出た派生成果物（後続が参照したもの）を「無効」と明示し追従是正
+- **AC-10 Hardening Override（最上位優先）**: 対象が **Shadow Config /
+  承認境界 / 責務4分類 / Critical Infra 指定**（TASK-0071 領域）に抵触する
+  場合、`lite_eligible` と C-3 降格を**無効化し Standard・同期 C-3 を強制**。
+  Lite/降格より Hardening Override が常に優先。
+  （TASK-0071 未マージ時は概念ルールとして適用。TASK-0071 マージ後に
+  機械判定へ接続＝本 PBI handoff の follow-up）
+- **監査（AC-9）**: 降格適用 / 非同期 exec 開始 / Override 発火 / reject＋
+  巻き戻し を `decision-log.jsonl`（append-only）と status.md に記録。
+
+> 本降格は **承認境界の撤廃ではなく同期/非同期の選択**。`bin/plangate exec`
+> は引き続き APPROVED の c3.json を要求する（非同期時は exec 並行で人間確認
+> → 事後 APPROVED 発行 or reject 巻き戻し）。
+
 #### C-4ゲート（PRレビュー・三値）
 
 - GitHub上でPRをレビュー
