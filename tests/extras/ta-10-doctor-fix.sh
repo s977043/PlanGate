@@ -224,7 +224,26 @@ rm -rf "$root"
 #   を検証する）。よって rc / Result 文字列はアサートしない。
 # ---------------------------------------------------------------------------
 root="$(_ta10_mkroot)"
-out="$(PATH=/usr/bin:/bin sh "$root/bin/plangate" doctor --fix --yes 2>&1)" && rc=0 || rc=$?
+# gh/codex を確実に不在化する: coreutils を全 symlink し gh/codex のみ除外した
+# shim bin を唯一の PATH にする（CI runner は /usr/bin/gh を持つため単純な
+# PATH=/usr/bin:/bin では除外できない＝実装者が info で予告したリスクの恒久対策）。
+shimbin="$(mktemp -d 2>/dev/null || mktemp -d -t ta10shim)"
+for _d in /usr/bin /bin /usr/local/bin; do
+  [ -d "$_d" ] || continue
+  for _f in "$_d"/*; do
+    [ -e "$_f" ] || continue
+    _b="$(basename "$_f")"
+    case "$_b" in gh|codex) continue ;; esac
+    [ -e "$shimbin/$_b" ] || ln -s "$_f" "$shimbin/$_b" 2>/dev/null || true
+  done
+done
+# python3 が hostedtoolcache 等 PATH 外にある場合に備え明示 symlink
+if ! [ -e "$shimbin/python3" ]; then
+  _py="$(command -v python3 || true)"
+  [ -n "$_py" ] && ln -s "$_py" "$shimbin/python3" 2>/dev/null || true
+fi
+out="$(PATH="$shimbin" sh "$root/bin/plangate" doctor --fix --yes 2>&1)" && rc=0 || rc=$?
+rm -rf "$shimbin"
 if printf '%s\n' "$out" | grep -q 'gh (GitHub CLI) not installed' \
    && printf '%s\n' "$out" | grep -q 'codex (Codex CLI) not installed' \
    && ! printf '%s\n' "$out" | grep -qi 'installing gh\|brew install\|apt-get install\|npm install -g'; then
