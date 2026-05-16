@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-0071",
+  "phase": "C-3",
+  "c3_status": "CONDITIONAL",
+  "approved_by": "mine_take",
+  "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:6e7ba83760bd049cee191fa3331e10d62631aa06582419d00339f75ed32ac0b6",
+  "conditions": "D-1=3分割(S1+S2 / S3 / S4)。D-2=S3a設計noteを別途C-3承認後にS3b着手。exec着手は依存PR #242/#243マージ後（plan明記）。S3a設計noteは本C-3で先行作成可。",
+  "_review_summary": {
+    "c1_self_review": "PASS(Plan7/ToDo5) + TC自動化WARN1。D-1/D-2 をC-3上申",
+    "c3_decision": "D-1=3分割 / D-2=S3a別C-3（ユーザー判定 2026-05-17）",
+    "post_approval_action": "plan反映 + S3a設計note作成。S1+S2 exec は PR#242/#243 マージ後"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
