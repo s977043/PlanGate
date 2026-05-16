@@ -34,8 +34,8 @@ Minor(audit抑制)を全反映。再 V-1: hook 66/0、AC 全 PASS。
   `sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-delegation-commit-boundary.sh`
   を追加（env `PLANGATE_DELEGATION_NOCOMMIT` を委譲時に設定）。未適用でも
   exec 後検証ステップ（二段目）で検出可能。
-- core-contract §5-bis は F1（PR #245）にのみ存在。本 PBI は自己完結。
-  **#245 マージ後の統合方針（正本/削除の明示）**: 統合後の正本＝
+- **【統合完了 / TASK-0078・PR後日】** core-contract §5-bis は F1（PR #245）にのみ存在。本 PBI は自己完結。
+  **#245 マージ後の統合方針（正本/削除の明示）** → **TASK-0078 で実施済（execute.md F2 節を §5-bis-1 単一正本へ移設・重複削除・スクリプト不変）**: 統合後の正本＝
   core-contract §5-bis（capability + auth + commit境界を単一プリフライト節に
   集約）。execute.md の F2 暫定節は §5-bis へ移設し**削除**する。EH-9 /
   check-auth-preflight.sh の実装は不変（参照先のみ §5-bis に一本化）。

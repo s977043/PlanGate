@@ -73,8 +73,9 @@
 | テストが FAIL | Iron Law #6 により root cause 調査、症状抑制で済ませない |
 | バージョンや事実が不明 | 推測せず最新 doc / 既存コード / git history を確認 |
 | 同じ tool call を rejected された | 同じ呼び出しを再試行しない、ユーザーに理由を確認 |
-| サブエージェント委譲（Task）が実行環境で不可 | `delegation_unavailable` として **直接実行へ自動降格**（人間介入不要・正規フロー）。[`contracts/execute.md`](./contracts/execute.md) 参照 |
-| 委譲境界 `no-commit` 下で commit/push 試行、または認証三点不整合 | exec 前プリフライトで決定論的に停止（EH-9 default=block / auth-preflight exit!=0。[`contracts/execute.md`](./contracts/execute.md) F2）。自然言語依存にしない |
+| 委譲不可（`delegation_unavailable`）| §5-bis-1: **direct-implementer-mode へ自動降格**（人間介入不要）|
+| 委譲境界 `no-commit` 違反 | §5-bis-1: EH-9 **block**（default=block、降格しない）|
+| 認証三点不整合 | §5-bis-1: auth-preflight **exit!=0 で exec 前停止**（降格しない）|
 
 ## 5-bis. 実行環境不変条件（Execution Environment Invariant）
 
@@ -97,6 +98,47 @@
   ない（統制回避の口実にしてはならない。Codex V-3 MJ-2）。
 - 本不変条件は Iron Law を弱めない。conductor の「実装しない」原則は不変
   （conductor は委譲可能環境でのみ起動されるため衝突しない。Codex V-3 MJ-3）。
+
+### 5-bis-1. exec 前プリフライト（単一正本 / F1+F2 統合）
+
+> TASK-0072(F1)+TASK-0073(F2) を本節に一本化（TASK-0078 統合）。
+> 実装: `check-auth-preflight.sh` / `check-delegation-commit-boundary.sh`(EH-9)
+> / `check-plan-hash.sh`(EH-3)。execute.md は本節を参照する。
+
+exec 開始前に以下を**決定論的に**検証する（自然言語依存にしない）。不整合は
+exec 前に停止 or 明示降格する:
+
+1. **委譲ケイパビリティ**: サブエージェント起動（`Agent`/`Task`）可否を
+   ツール存在検査で判定。委譲可→conductor 委譲（最適化）、不可/判定不能→
+   direct-implementer-mode（上記不変条件）。
+2. **git 操作主体（委譲 commit 境界）**: 委譲タスクは todo.md メタ
+   `delegation_commit_boundary: no-commit` で commit/push 境界を宣言できる。
+   宣言時、委譲先は commit/push しない（完了フェーズは親が実施）。
+3. **委譲 commit 境界の機械検出（EH-9）**: 宣言下の git commit/push 相当
+   （`git -c`/`-C`/env 前置/`command git`/`gh pr merge`/`sh -c` 等を含む）は
+   **EH-9**（[`contracts/hook-enforcement.md` 系](./hook-enforcement.md)）が
+   PreToolUse で **default=block**（**warn は廃止＝high-risk 恒久対処**。
+   bypass・未宣言のみ従来動作）。違反は block であり direct-mode 降格は
+   しない（降格は項目1の `delegation_unavailable` に限定）。信頼境界は
+   stdin JSON `tool_input.command` を正本、env は CLI テスト専用。
+   **配線契約**: 委譲元 orchestrator が todo.md メタを読み委譲時に
+   `PLANGATE_DELEGATION_NOCOMMIT=1` を注入する責務を負う。
+4. **exec 後検証（fail-closed バックストップ）**: exec 完了時、todo.md メタの
+   委譲境界宣言を直接読み、宣言タスクで予期しない commit が無いことを検証
+   （env 注入漏れ・解決不能 git alias 等の最終防線）。
+5. **認証三点プリフライト**: `check-auth-preflight.sh`（gh active /
+   git config user.email / origin。`PLANGATE_EXPECTED_GH_ACCOUNT` 指定時は
+   厳格一致）が exec 前に決定論検証し、不整合は **exit!=0 で停止**
+   （降格はしない＝項目1の `delegation_unavailable` のみ direct-mode）。
+
+#### Error taxonomy（最小定義・将来 #203 統合）
+
+| category | 定義 | recovery policy |
+|----------|------|-----------------|
+| `delegation_unavailable` | サブエージェント起動（`Agent`/`Task`）が利用不可、**または判定不能**（両者を同一扱い＝安全側に倒す。判定不能で委譲を試みると再びデッドロックし得る） | exec router が **direct-implementer-mode** へ自動移行（人間介入不要・正規フロー）。conductor は委譲可能時のみ起動されるため Iron Law と衝突しない |
+
+> 正本 taxonomy は #203 で一元化予定。本表は field 恒常 bug（#237/#238/#239）
+> を待たせないための最小定義。
 
 ## 6. Available evidence
 

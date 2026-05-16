@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0078", "phase": "C-3", "c3_status": "APPROVED",
+  "approved_by": "mine_take", "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:dce2b03978551970c1fb71891d6a09a6d5f8cd79f89efa52ad79bfeb3ea277b6",
+  "_review_summary": {
+    "c1_self_review": "PASS（統合方針は F2/TASK-0073 handoff 確定済・挙動変更ゼロ・論点なし）",
+    "c3_decision": "APPROVE — ユーザー指示『1』(F2 §5-bis統合を最優先)＋F2 handoff 事前承認。挙動不変ドキュメント refactor",
+    "post_approval_action": "exec: S1対応表→S2 §5-bis拡張→S3 execute.md参照化→S4 handoff更新→V-1/V-3"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
