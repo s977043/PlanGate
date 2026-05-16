@@ -1,0 +1,8 @@
+{
+  "task_id": "TASK-0076", "phase": "C-3", "c3_status": "CONDITIONAL",
+  "approved_by": "mine_take", "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:db6aa84849347bfd8c5287aa1f2e476f1e48f7a3a9a9ce570d3a82a2ecc59fff",
+  "conditions": "D-1=指摘ID(review-external R-001..)+反映コミット Refs:R-001 基本。#230 events 連携は実装時 additive。plan反映済。Mode=standard(V-3実施/V-2,V-4スキップ)。",
+  "_review_summary": {"c1_self_review": "PASS(Plan7/ToDo5/TC3)", "c3_decision": "D-1=指摘ID+コミットRefs（ユーザー判定 2026-05-17）", "post_approval_action": "S1→S3〜S6→V-1/V-3"},
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

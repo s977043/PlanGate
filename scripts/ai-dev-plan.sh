@@ -83,7 +83,7 @@ prompt=$(cat <<EOF
 制約:
 - 実装コードは変更しない
 - まだ C-3 承認前なので exec しない
-- review-self と review-external に WARN / FAIL があれば plan/todo/test-cases を修正してから確定する
+- review-self / review-external の指摘は review-external.md に追記専用集約（指摘ID R-NNN）。plan/todo/test-cases への反映は exec 開始時に 1 回だけ確定（反映コミットに Refs: R-NNN）。詳細: .claude/rules/working-context.md「C-2 指摘の差分管理」
 - .codex/manual-cloud-task.md は draft とし、C-3 未承認であることを明記する
 - Codex Cloud の検証方針は「修正箇所に絞った test / lint / typecheck を優先し、最終完了は人間承認で確定する」
 - docs/working/ の内容はローカル作業コンテキストであり、Cloud task には draft packet として要点だけを転記する

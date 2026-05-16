@@ -191,9 +191,27 @@ confirmed_by）。人間 confirm 済のみ追記。#200 期間集計の入力源
 - TestCasesチェック（3項目）: 受入基準との紐付き、Edge case網羅、自動化可否
 - 判定: PASS / WARN / FAIL + 指摘事項
 
-### review-external.md（外部AIレビュー結果）
+### review-external.md（外部AIレビュー結果 / 指摘の追記専用集約）
 
 フェーズC-2で生成（任意）。外部AIツールによるレビュー結果。
+
+**C-2 指摘の差分管理（TASK-0076 F5-C / #234-C）**:
+- C-2 + 外部指摘は **review-external.md に追記専用で集約**する（計画本体へ
+  都度マージしない＝版管理困難・監査性低下・反映コスト化を防ぐ）
+- 各指摘に **指摘ID `R-NNN`** を採番。指摘ゼロでも「指摘なし」を明示記録
+  （監査連続性）
+- 計画本体（plan/todo/test-cases）への反映は **1 回だけ確定**。順序を
+  EH-3 / `approvals/c3.json` と整合させ固定する（V-3 MJ-1）:
+  **(1) review-external に R-NNN 集約 → (2) 1 回確定反映 → (3) 簡易 C-1
+  再実行 → (4) 人間が最終 `c3.json`（`c3_status=APPROVED`・確定後 plan の
+  `plan_hash`）を発行 → (5) exec**。反映コミットに `Refs: R-NNN`。
+  c3.json 発行は確定反映の **後**（先に発行すると EH-3 が後続反映を
+  mismatch 検知するため。`bin/plangate exec` は APPROVED のみ受理）
+- 監査表（追記専用・squash/rebase 耐性）: review-external.md に
+  `| R-NNN | status | reflected_in(commit) | notes |` を持たせ、
+  指摘→反映の抜けを検出可能にする（V-3 minor）
+- 将来 #230（Gate Event Normalization）/ #200 と additive に events 連携
+  （`review-finding → plan-revision` トレース）。本 PBI は ID+Refs まで
 
 ### status.md（作業ステータス）
 
@@ -264,10 +282,10 @@ status.mdの更新タイミングと記載内容を段階で分ける:
 - `review-self.md`（C-1）と`review-external.md`（C-2）のレビュー結果を人間が確認
 - 三値で判断:
   - **APPROVE**: exec開始。status.mdに`## C-3 Gate: APPROVED`を記録
-  - **CONDITIONAL**: 指摘をplan.mdに反映 + 簡易C-1再実行 → exec開始。status.mdに`## C-3 Gate: CONDITIONAL`を記録
+  - **CONDITIONAL**: review-external.md（`R-NNN`）集約済 → 1 回確定反映（`Refs: R-NNN`）→ 簡易C-1 → 人間が **APPROVED `c3.json`（確定後 plan_hash）発行** → exec開始。status.mdに`## C-3 Gate: CONDITIONAL`を記録（`bin/plangate exec` は APPROVED のみ受理）
   - **REJECT**: plan再生成。status.mdに`## C-3 Gate: REJECTED`を記録
 - C-2（`review-external.md`）は任意。C-2をスキップする場合はC-1のみで判断可
-- FAILが出た場合は指摘事項を反映してplan.md / todo.md / test-cases.mdを再生成する
+- FAILが出た場合は指摘事項（review-external.md の `R-NNN`）を反映してplan.md / todo.md / test-cases.mdを再生成する（反映コミットに `Refs: R-NNN`）
 
 #### C-4ゲート（PRレビュー・三値）
 
