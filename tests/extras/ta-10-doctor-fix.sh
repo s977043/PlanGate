@@ -69,6 +69,39 @@ fi
 rm -rf "$proj"
 
 # ---------------------------------------------------------------------------
+# TC-3c (Codex C-4 major): 既存 .bak.<epoch> を上書きしない。
+#   now-1..now+1 の rotated backup を全て事前配置し、--apply 後も
+#   いずれも sentinel 内容を保持し、新 rotated が別名で作られることを検証。
+# ---------------------------------------------------------------------------
+proj="$(_ta10_mkproj)"
+printf '{"permissions":{"allow":["Bash(ls)"]}}' > "$proj/.claude/settings.json"
+printf 'OLD-BACKUP-CONTENT' > "$proj/.claude/settings.json.bak"
+_now="$(date +%s)"
+_pre_ok=1
+for _delta in -1 0 1; do
+  _e=$((_now + _delta))
+  printf 'SENTINEL-%s' "$_e" > "$proj/.claude/settings.json.bak.$_e"
+done
+python3 "$_ta10_py" --project-dir "$proj" --apply >/dev/null 2>&1 && rc=0 || rc=$?
+for _delta in -1 0 1; do
+  _e=$((_now + _delta))
+  _f="$proj/.claude/settings.json.bak.$_e"
+  [ -f "$_f" ] && [ "$(cat "$_f")" = "SENTINEL-$_e" ] || _pre_ok=0
+done
+# OLD-BACKUP-CONTENT は衝突回避サフィックス付き等の別名へ退避されているはず
+_rot_old="$(grep -rl 'OLD-BACKUP-CONTENT' "$proj"/.claude/settings.json.bak.* 2>/dev/null | head -1)"
+if [ "$rc" -eq 0 ] && [ "$_pre_ok" -eq 1 ] && [ -n "$_rot_old" ] \
+   && [ -f "$proj/.claude/settings.json.bak" ] \
+   && python3 "$_ta10_py" --project-dir "$proj" --check >/dev/null 2>&1; then
+  printf '[PASS] doctor-fix TC-3c: pre-existing .bak.<epoch> never overwritten\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] doctor-fix TC-3c: rotated backup collision overwrote existing (rc=%d pre_ok=%d)\n' "$rc" "$_pre_ok"
+  fail=$((fail + 1))
+fi
+rm -rf "$proj"
+
+# ---------------------------------------------------------------------------
 # TC-4: 既存キー温存（merge-only）
 # ---------------------------------------------------------------------------
 proj="$(_ta10_mkproj)"

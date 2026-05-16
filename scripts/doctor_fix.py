@@ -211,9 +211,16 @@ def cmd_apply(claude_dir: Path) -> int:
         if existed:
             backup = settings_path.with_name(settings_path.name + ".bak")
             if backup.exists():
-                rotated = settings_path.with_name(
-                    f"{settings_path.name}.bak.{int(time.time())}"
-                )
+                # Rotate the existing .bak out of the way WITHOUT ever
+                # overwriting any pre-existing backup (incl. a prior
+                # .bak.<epoch> from a same-second run). Find the first
+                # free suffix deterministically.
+                base = f"{settings_path.name}.bak.{int(time.time())}"
+                rotated = settings_path.with_name(base)
+                seq = 0
+                while rotated.exists():
+                    seq += 1
+                    rotated = settings_path.with_name(f"{base}-{seq}")
                 backup.replace(rotated)
             backup.write_text(
                 settings_path.read_text(encoding="utf-8"), encoding="utf-8"

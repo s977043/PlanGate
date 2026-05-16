@@ -8,7 +8,7 @@
 |---------|--------------|------|
 | AC-1: doctor に Hook Wiring セクション + 未配線で FAIL | TC-1 | Integration |
 | AC-2: `--fix --dry-run` が非書込（TC-2）/ 非tty + `--yes`無しで安全 abort（TC-E4） | TC-2, TC-E4 | Unit |
-| AC-3: `--fix --yes` で配線 + .bak 生成 | TC-3a, TC-3b | Unit |
+| AC-3: `--fix --yes` で配線 + .bak 生成 | TC-3a, TC-3b, TC-3c | Unit |
 | AC-4: 既存キー温存（merge-only） | TC-4 | Unit |
 | AC-5: 2 回目 no-op（冪等） | TC-5 | Unit |
 | AC-6: gh/codex 未導入は案内のみ | TC-6 | Integration |
@@ -39,6 +39,12 @@
 - **前提条件**: `.claude/settings.json` が既存。さらに `.claude/settings.json.bak` も既存（過去の backup）
 - **入力**: `plangate doctor --fix --yes`
 - **期待出力**: 書込前に新規 `.claude/settings.json.bak` 生成。**既存の `.bak` は上書きされず `.claude/settings.json.bak.<epoch>` にローテート退避**される。settings.json は hook ブロック配線済みになり、再 `doctor` が hook-wiring PASS
+- **種別**: Unit
+
+### TC-3c: 既存 `.bak.<epoch>` を上書きしない（Codex C-4 major）
+- **前提条件**: `.claude/settings.json` 既存、`.claude/settings.json.bak` 既存、now-1/now/now+1 の `.bak.<epoch>` を sentinel 付きで事前配置
+- **入力**: `doctor_fix.py --apply`
+- **期待出力**: 事前配置した全 `.bak.<epoch>` が sentinel 内容を保持（上書きされない）。旧 `.bak` 内容は衝突回避サフィックス付き別名へ退避。新 `.bak` 生成、`--check` PASS
 - **種別**: Unit
 
 ### TC-4: 既存キー温存
