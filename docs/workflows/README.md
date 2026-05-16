@@ -8,7 +8,7 @@
 
 PlanGate（統制の外殻）の内側で動作する **実行層（Execution Architecture）** の骨格。本ディレクトリは「何をどの順番で / 各 phase の完了条件は何か」だけを定義する（**Rule 1**: Workflow は順序と完了条件だけ）。具体的な観点・手順は Skill / Agent / CLAUDE.md に委譲される。
 
-## 目次（5 phase）
+## 目次（5 phase + opt-in 終端 WF-06）
 
 | Phase | 目的 | ファイル |
 | --- | --- | --- |
@@ -17,6 +17,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 | **WF-03** Solution Design | 仕様を実装可能な構造へ落とす | [`03_solution_design.md`](./03_solution_design.md) |
 | **WF-04** Build & Refine | 設計に従って最小単位で実装 | [`04_build_and_refine.md`](./04_build_and_refine.md) |
 | **WF-05** Verify & Handoff | 品質確認し、次フェーズへ渡せる状態にする | [`05_verify_and_handoff.md`](./05_verify_and_handoff.md) |
+| **WF-06** Retro（opt-in・既定OFF） | run 完了時に振り返りドラフト生成・改善ネタ蓄積 | [`06_retro.md`](./06_retro.md) |
 
 ## Artifact クラス（Phase 間受け渡し）
 
@@ -29,6 +30,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 | WF-03 → WF-04 | **design** | モジュール構成 / データフロー / 状態管理 / 失敗時扱い / テスト観点 / 依存制約 |
 | WF-04 → WF-05 | **known-issues**（+ コード差分） | 動作コード / 自己レビュー / 妥協点 / コミット履歴 |
 | WF-05 → 呼び出し元 | **handoff** | 要件適合 / 既知課題 / V2候補 / 妥協点 / 引き継ぎ文書 |
+| WF-06 → #200 集計（opt-in 時のみ） | **improvement-seeds** | #228 固定5項目ドラフト（人間 confirm 済・append-only） |
 
 ## 実行シーケンス（標準）
 
@@ -40,6 +42,14 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 5. implementation-agent  が WF-04 で実装
 6. qa-reviewer           が WF-05 で要件照合
 7. orchestrator          が WF-05 handoff を出す
+```
+
+> 標準 run は **1〜7 で完結**。下記 8（WF-06）は **opt-in append**（既定 OFF・
+> C-3 承認済み pbi-input の `retro_enabled: true` 時のみ）。標準フローの一部
+> ではない。
+
+```text
+8. （opt-in のみ・標準外）retrospective-analyst が WF-06 で振り返りドラフト → 人間 confirm/skip
 ```
 
 ## PlanGate 既存フェーズとの対応表

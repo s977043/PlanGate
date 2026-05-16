@@ -1,0 +1,15 @@
+{
+  "task_id": "TASK-0075",
+  "phase": "C-3",
+  "c3_status": "CONDITIONAL",
+  "approved_by": "mine_take",
+  "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:4acfc31a6d2c4f1e24b17efb46e64f3248511f9d71a45eddb67fe84811196bae",
+  "conditions": "D-1=明示コマンド(/ai-dev-workflow TASK-X retro)+pbi-inputメタ(retro_enabled:true)併用・env不使用・既定OFF。D-2=最小seedsスキーマ{date,task_id,items(5項目),confirmed_by} append-only。D-3=mode high-risk(V-3必須/V-4スキップ)。plan反映済、exec着手可。",
+  "_review_summary": {
+    "c1_self_review": "PASS(Plan7/ToDo5/TC3, 動作検証WARN=フェーズ定義は文書トレース)",
+    "c3_decision": "D-1=明示コマンド+メタ併用 / D-2=最小スキーマ / D-3=high-risk（ユーザー判定 2026-05-17）",
+    "post_approval_action": "S1→S3〜S7→V-1/V-3"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

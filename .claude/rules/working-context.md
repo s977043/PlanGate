@@ -123,6 +123,15 @@ docs/working/
 
 status.md / current-state.md が「進行中の情報管理」であるのに対し、handoff.md は「完了後の資産発行」である。役割が明確に異なる。
 
+### improvement-seeds.md（WF-06 Retro / opt-in・append-only）
+
+opt-in 終端フェーズ WF-06（[`docs/workflows/06_retro.md`](../../docs/workflows/06_retro.md)）が
+有効な run でのみ生成。配置 `docs/working/improvement-seeds.md`、run またぎで
+**追記専用**累積（既存編集・削除しない）。1 run 1 エントリ（#228 固定5項目 +
+confirmed_by）。人間 confirm 済のみ追記。#200 期間集計の入力源。
+既定 OFF のため未 opt-in run には存在しない（既存挙動不変）。正本仕様:
+[`docs/ai/retro-phase.md`](../../docs/ai/retro-phase.md)。
+
 ### evidence/ の保管ルール
 
 - **PASS 判定**: evidence は省略可（判定理由のみ review ファイルに記載）
