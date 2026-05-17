@@ -85,6 +85,32 @@ sh bin/plangate eval TASK-0050 --baseline TASK-0046
 #   ac_coverage_delta_percent / format_adherence_delta_percent / release_blocker_status
 ```
 
+### ハーネス変更比較（#196 / PBI-HI-002）
+
+profile / prompt / workflow 変更を PBI-HI-000 baseline と比較し、release
+blocker を明示する。新 LLM judge は導入しない（既存 8 観点を再利用）。
+
+```sh
+sh bin/plangate eval --harness-compare \
+  --targets TASK-AAAA,TASK-BBBB,TASK-CCCC \
+  --baseline-file docs/ai/eval-baselines/2026-05-04-baseline.json \
+  --profile gpt-5_5_pro --prompt-rev v8.7 --workflow-rev wf-v5
+# → docs/working/TASK-AAAA/eval-comparison.{md,json} を生成
+#   harness_metadata（profile/prompt_rev/workflow_rev）を記録
+#   baseline aggregate vs target aggregate の delta + release blocker 明示
+#   per-target に latency / fix_loop / hook_violation / v1_first_pass を併記
+```
+
+- `--targets` は代表 TASK を **3 件以上**推奨（baseline と同条件）。
+- baseline は **PBI-HI-000 / #194**（`docs/ai/eval-baselines/*baseline.json`）
+  に接続。`--baseline-file` で切替可能。
+- `release_blocker_status` が `regressed` のとき exit 1（採用判断のゲート材料。
+  人間承認の代替ではない）。
+- 出力は [`schemas/eval-comparison.schema.json`](../../schemas/eval-comparison.schema.json)
+  準拠（`plangate validate-schemas` で機械検証可能）。
+- 測定不能な latency / fix_loop / v1_first_pass は `n/a`
+  （Non-goal: 全 provider session log parser 非対応）。
+
 ### dry-run（出力せず確認）
 
 ```sh

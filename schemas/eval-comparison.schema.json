@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/s977043/plangate/schemas/eval-comparison.schema.json",
+  "title": "Eval Harness Comparison Result",
+  "description": "ハーネス変更前後比較（baseline vs target TASK set）。正本: docs/ai/eval-runner.md / docs/ai/eval-comparison-template.md (#196 / PBI-HI-002)。新 LLM judge は導入しない。",
+  "type": "object",
+  "required": ["comparison_type", "evaluated_at", "harness_metadata", "baseline", "target", "delta"],
+  "additionalProperties": false,
+  "properties": {
+    "comparison_type": { "type": "string", "enum": ["harness_change"] },
+    "evaluated_at": { "type": "string" },
+    "harness_metadata": {
+      "type": "object",
+      "required": ["profile", "prompt_rev", "workflow_rev"],
+      "additionalProperties": false,
+      "properties": {
+        "profile": { "type": "string" },
+        "prompt_rev": { "type": "string" },
+        "workflow_rev": { "type": "string" }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "required": ["baseline_id", "aggregate"],
+      "additionalProperties": true,
+      "properties": {
+        "baseline_id": { "type": ["string", "null"] },
+        "release": { "type": ["string", "null"] },
+        "file": { "type": "string" },
+        "aggregate": { "type": "object" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": ["task_count", "task_ids", "ac_coverage_avg_pct", "release_blocker_total", "tasks"],
+      "additionalProperties": true,
+      "properties": {
+        "task_count": { "type": "integer", "minimum": 0 },
+        "task_ids": { "type": "array", "items": { "type": "string" } },
+        "ac_coverage_avg_pct": { "type": "number" },
+        "format_adherence_pass_rate_pct": { "type": "number" },
+        "scope_discipline_pass_rate_pct": { "type": "number" },
+        "verification_honesty_pass_rate_pct": { "type": "number" },
+        "stop_behavior_pass_rate_pct": { "type": "number" },
+        "release_blocker_total": { "type": "integer", "minimum": 0 },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["task_id", "ac_coverage_pct", "release_blocker_count"],
+            "additionalProperties": true,
+            "properties": {
+              "task_id": { "type": "string" },
+              "ac_coverage_pct": { "type": "number" },
+              "latency_cost": { "type": ["string", "number"] },
+              "fix_loop_count": { "type": ["string", "integer"] },
+              "hook_violation_count": { "type": ["string", "integer"] },
+              "v1_first_pass": { "type": "string" },
+              "release_blocker_count": { "type": "integer", "minimum": 0 },
+              "release_blocker_aspects": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "delta": {
+      "type": "object",
+      "required": ["ac_coverage_avg_pct", "release_blocker_total", "release_blocker_status"],
+      "additionalProperties": false,
+      "properties": {
+        "ac_coverage_avg_pct": { "type": "number" },
+        "release_blocker_total": { "type": "integer" },
+        "release_blocker_status": { "type": "string", "enum": ["unchanged", "improved", "regressed"] }
+      }
+    },
+    "release_blocker_summary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["task_id", "count", "aspects"],
+        "additionalProperties": false,
+        "properties": {
+          "task_id": { "type": "string" },
+          "count": { "type": "integer", "minimum": 0 },
+          "aspects": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

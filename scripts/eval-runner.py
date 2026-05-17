@@ -25,6 +25,7 @@ Exit code:
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
 import re
 import sys
@@ -324,6 +325,218 @@ def render_markdown(result: dict) -> str:
 
 
 
+def _task_summary(task_id: str) -> dict:
+    """対象 TASK の eval-result を baseline task 形状に正規化（#196）。
+
+    既存 build_eval_result を再利用。latency/cost/fix_loop/hook_violation/
+    v1_first_pass は測定不能なら "n/a"（Non-goal: 全 provider parser 非対応）。
+    """
+    res_path = WORKING_DIR / task_id / "eval-result.json"
+    if res_path.is_file():
+        r = json.loads(res_path.read_text())
+    else:
+        r = build_eval_result(task_id, profile=None)
+    rb = r.get("release_blocker_violations", [])
+    # hook violation: 監査ログから当該 TASK の VIOLATION 行数（あれば）
+    hv = "n/a"
+    hlog = WORKING_DIR / "_audit" / "hook-events.log"
+    if hlog.is_file():
+        try:
+            tok = re.compile(
+                r"(^|[^A-Za-z0-9-])" + re.escape(task_id) + r"([^A-Za-z0-9-]|$)"
+            )
+            n = sum(
+                1 for ln in hlog.read_text().splitlines()
+                if "VIOLATION" in ln and tok.search(ln)
+            )
+            hv = n
+        except OSError:
+            hv = "n/a"
+    # fix loop / v1 first pass: status.md ヒューリスティック（測定不能なら n/a）
+    fix_loop = "n/a"
+    v1_first = "n/a"
+    st = WORKING_DIR / task_id / "status.md"
+    if st.is_file():
+        txt = st.read_text()
+        m = re.findall(r"fix[ _-]?loop[^0-9]*([0-9]+)", txt, re.IGNORECASE)
+        if m:
+            fix_loop = max(int(x) for x in m)
+        if re.search(r"V-1[^\n]*(PASS|first[ _-]?pass)", txt, re.IGNORECASE):
+            v1_first = "pass"
+    return {
+        "task_id": task_id,
+        "ac_coverage_pct": r["ac_coverage"]["rate_percent"],
+        "approval_discipline": r["approval_discipline"]["decision"],
+        "format_adherence": r["format_adherence"]["decision"],
+        "scope_discipline": r["scope_discipline"]["decision"],
+        "verification_honesty": r["verification_honesty"]["decision"],
+        "stop_behavior": r["stop_behavior"]["decision"],
+        "tool_overuse": r["tool_overuse"]["decision"],
+        "latency_cost": r["latency_cost"].get("decision", "n/a"),
+        "fix_loop_count": fix_loop,
+        "hook_violation_count": hv,
+        "v1_first_pass": v1_first,
+        "release_blocker_count": len(rb),
+        "release_blocker_aspects": sorted({v["aspect"] for v in rb}),
+    }
+
+
+def harness_compare(
+    targets: list[str],
+    baseline_file: str,
+    profile: str | None,
+    prompt_rev: str | None,
+    workflow_rev: str | None,
+) -> dict:
+    """ハーネス変更前後比較（#196 / PBI-HI-002）。
+
+    baseline（PBI-HI-000 baseline JSON）の aggregate と target TASK 群の
+    aggregate を比較し、release blocker を明示する。新 LLM judge は導入しない。
+    """
+    bpath = Path(baseline_file)
+    if not bpath.is_file():
+        raise SystemExit(f"baseline file not found: {baseline_file}")
+    base = json.loads(bpath.read_text())
+    bagg = base.get("aggregate", {})
+
+    tsum = [_task_summary(t) for t in targets]
+    n = len(tsum)
+    ac_avg = round(sum(t["ac_coverage_pct"] for t in tsum) / n, 2) if n else 0.0
+
+    def _pass_rate(field: str) -> float:
+        if not n:
+            return 0.0
+        return round(
+            100.0 * sum(1 for t in tsum if t[field] == "PASS") / n, 2
+        )
+
+    tgt_blockers = sum(t["release_blocker_count"] for t in tsum)
+    base_blockers = bagg.get("release_blocker_total", 0)
+    if tgt_blockers > base_blockers:
+        rb_status = "regressed"
+    elif tgt_blockers < base_blockers:
+        rb_status = "improved"
+    else:
+        rb_status = "unchanged"
+
+    return {
+        "comparison_type": "harness_change",
+        "evaluated_at": _dt.datetime.now(_dt.timezone.utc)
+        .strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "harness_metadata": {
+            "profile": profile or "unspecified",
+            "prompt_rev": prompt_rev or "unspecified",
+            "workflow_rev": workflow_rev or "unspecified",
+        },
+        "baseline": {
+            "baseline_id": base.get("baseline_id"),
+            "release": base.get("release"),
+            "file": str(bpath),
+            "aggregate": bagg,
+        },
+        "target": {
+            "task_count": n,
+            "task_ids": targets,
+            "ac_coverage_avg_pct": ac_avg,
+            "format_adherence_pass_rate_pct": _pass_rate("format_adherence"),
+            "scope_discipline_pass_rate_pct": _pass_rate("scope_discipline"),
+            "verification_honesty_pass_rate_pct": _pass_rate(
+                "verification_honesty"
+            ),
+            "stop_behavior_pass_rate_pct": _pass_rate("stop_behavior"),
+            "release_blocker_total": tgt_blockers,
+            "tasks": tsum,
+        },
+        "delta": {
+            "ac_coverage_avg_pct": round(
+                ac_avg - bagg.get("ac_coverage_avg_pct", 0.0), 2
+            ),
+            "release_blocker_total": tgt_blockers - base_blockers,
+            "release_blocker_status": rb_status,
+        },
+        "release_blocker_summary": [
+            {
+                "task_id": t["task_id"],
+                "count": t["release_blocker_count"],
+                "aspects": t["release_blocker_aspects"],
+            }
+            for t in tsum
+            if t["release_blocker_count"] > 0
+        ],
+    }
+
+
+def render_harness_compare_md(c: dict) -> str:
+    d = c["delta"]
+    b = c["baseline"]
+    t = c["target"]
+    hm = c["harness_metadata"]
+    lines = [
+        "# Eval Harness Comparison",
+        "",
+        f"> Evaluated at: {c['evaluated_at']}  (#196 / PBI-HI-002)",
+        "",
+        "## Harness metadata",
+        "",
+        f"- profile: `{hm['profile']}`",
+        f"- prompt_rev: `{hm['prompt_rev']}`",
+        f"- workflow_rev: `{hm['workflow_rev']}`",
+        "",
+        "## 比較サマリ",
+        "",
+        f"- Baseline: `{b['baseline_id']}` ({b['release']}) — {b['file']}",
+        f"- Target: {t['task_count']} TASK ({', '.join(t['task_ids'])})",
+        f"- AC coverage avg: {b['aggregate'].get('ac_coverage_avg_pct', 0.0)}%"
+        f" → {t['ac_coverage_avg_pct']}% "
+        f"(**{d['ac_coverage_avg_pct']:+.2f}%**)",
+        f"- Release blocker total: {b['aggregate'].get('release_blocker_total', 0)}"
+        f" → {t['release_blocker_total']} "
+        f"(**{d['release_blocker_total']:+d}**, "
+        f"status: **{d['release_blocker_status']}**)",
+        "",
+        "## Release blocker（明示）",
+        "",
+    ]
+    if c["release_blocker_summary"]:
+        for r in c["release_blocker_summary"]:
+            lines.append(
+                f"- **{r['task_id']}**: {r['count']} "
+                f"({', '.join(r['aspects']) or 'n/a'})"
+            )
+    else:
+        lines.append("- なし（target に release blocker なし）")
+    lines.extend([
+        "",
+        "## 比較対象メトリクス（per target TASK）",
+        "",
+        "| TASK | AC% | format | scope | verif | stop | latency | "
+        "fix_loop | hook_viol | v1_first | blockers |",
+        "|------|-----|--------|-------|-------|------|---------|"
+        "----------|-----------|----------|----------|",
+    ])
+    for ts in t["tasks"]:
+        lines.append(
+            f"| {ts['task_id']} | {ts['ac_coverage_pct']} | "
+            f"{ts['format_adherence']} | {ts['scope_discipline']} | "
+            f"{ts['verification_honesty']} | {ts['stop_behavior']} | "
+            f"{ts['latency_cost']} | {ts['fix_loop_count']} | "
+            f"{ts['hook_violation_count']} | {ts['v1_first_pass']} | "
+            f"{ts['release_blocker_count']} |"
+        )
+    lines.extend([
+        "",
+        "## 関連",
+        "",
+        "- [`docs/ai/eval-runner.md`](../ai/eval-runner.md) §harness-compare",
+        "- [`docs/ai/eval-comparison-template.md`](../ai/eval-comparison-template.md)",
+        "- [`schemas/eval-comparison.schema.json`]"
+        "(../../schemas/eval-comparison.schema.json)",
+        "- baseline: PBI-HI-000 / #194",
+        "",
+    ])
+    return "\n".join(lines)
+
+
 def dogfood_eval(task_id: str) -> dict:
     """#231 Dogfooding Eval v1: 5 項目の決定論構造判定 + rationale.
 
@@ -453,18 +666,51 @@ def render_dogfood_md(r: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="PlanGate eval runner (Issue #156)")
-    parser.add_argument("task_id", help="Target TASK-XXXX")
+    parser.add_argument("task_id", nargs="?", help="Target TASK-XXXX (not required with --harness-compare)")
     parser.add_argument("--baseline", help="Baseline TASK-YYYY for comparison")
     parser.add_argument("--profile", help="Model profile key (recorded in output)")
     parser.add_argument("--no-write", action="store_true", help="Print to stdout instead of writing files")
     parser.add_argument("--dogfood", action="store_true", help="[#231] Dogfooding Eval v1: 5-item deterministic structural eval -> eval-dogfood.md")
+    parser.add_argument("--harness-compare", action="store_true", help="[#196] Harness change comparison (baseline vs target TASK set)")
+    parser.add_argument("--targets", help="[#196] Comma-separated target TASK ids (>=3 recommended)")
+    parser.add_argument("--baseline-file", default="docs/ai/eval-baselines/2026-05-04-baseline.json", help="[#196] PBI-HI-000 baseline JSON path")
+    parser.add_argument("--prompt-rev", help="[#196] Prompt assembly revision label (recorded)")
+    parser.add_argument("--workflow-rev", help="[#196] Workflow revision label (recorded)")
     parser.add_argument(
         "--session-log",
         help="Path to codex session log (NDJSON) for latency / token metrics (Issue #168)",
     )
     args = parser.parse_args()
 
-    if not re.match(r"^TASK-[0-9A-Za-z]+$", args.task_id):
+    if args.harness_compare:
+        if not args.targets:
+            print("error: --harness-compare requires --targets T1,T2,T3", file=sys.stderr)
+            return 2
+        targets = [x.strip() for x in args.targets.split(",") if x.strip()]
+        if not targets:
+            print("error: --targets is empty after parsing", file=sys.stderr)
+            return 2
+        for t in targets:
+            if not re.match(r"^TASK-[0-9A-Za-z]+$", t):
+                print(f"error: invalid target task_id: {t}", file=sys.stderr)
+                return 2
+        c = harness_compare(targets, args.baseline_file, args.profile, args.prompt_rev, args.workflow_rev)
+        cmd = render_harness_compare_md(c)
+        cjs = json.dumps(c, indent=2, ensure_ascii=False)
+        if args.no_write:
+            print("=== eval-comparison.md ===")
+            print(cmd)
+            print("=== eval-comparison.json ===")
+            print(cjs)
+        else:
+            outdir = WORKING_DIR / targets[0]
+            outdir.mkdir(parents=True, exist_ok=True)
+            (outdir / "eval-comparison.md").write_text(cmd + "\n")
+            (outdir / "eval-comparison.json").write_text(cjs + "\n")
+            print(f"Written: docs/working/{targets[0]}/eval-comparison.{{md,json}}")
+        return 1 if c["delta"]["release_blocker_status"] == "regressed" else 0
+
+    if not args.task_id or not re.match(r"^TASK-[0-9A-Za-z]+$", args.task_id):
         print(f"error: invalid task_id: {args.task_id}", file=sys.stderr)
         return 2
 

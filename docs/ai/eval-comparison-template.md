@@ -85,6 +85,31 @@
 - **保留 (WARN)**: latency / cost が baseline +50% 超過だが accuracy 大幅改善
 - **却下 (release blocker)**: scope discipline FAIL or verification honesty FAIL or schema 準拠率 < 95%
 
+## ハーネス変更比較（自動 / #196 PBI-HI-002）
+
+`bin/plangate eval --harness-compare` で PBI-HI-000 baseline と target TASK
+群（3 件以上）を自動比較する。出力 `eval-comparison.{md,json}` は
+[`schemas/eval-comparison.schema.json`](../../schemas/eval-comparison.schema.json)
+準拠。
+
+| 項目 | 内容 |
+|------|------|
+| harness_metadata | profile / prompt_rev / workflow_rev（変更単位の記録）|
+| baseline | PBI-HI-000（#194）の baseline JSON（baseline_id / release / aggregate）|
+| target | 代表 TASK 3 件以上の aggregate（AC% / pass rate / blocker total）|
+| delta | ac_coverage_avg / release_blocker_total / release_blocker_status |
+| release_blocker_summary | target で blocker を出した TASK と aspect の明示 |
+| per-target metrics | latency / fix_loop / hook_violation / v1_first_pass / blockers |
+
+採用判断: `release_blocker_status == "regressed"` でリリース停止（exit 1）。
+それ以外は WARN 記録 + retrospective。**AI 判定は人間承認の代替ではない**。
+
+### PBI-HI-000 baseline との接続
+
+`--baseline-file` 既定は `docs/ai/eval-baselines/2026-05-04-baseline.json`
+（PBI-HI-000 / #194 / v8.5.0）。新 baseline 確立時は同パス命名規約で追加し
+`--baseline-file` で切替える（[`eval-baseline-procedure.md`](./eval-baseline-procedure.md)）。
+
 ## eval 実行手順
 
 1. baseline 取得（変更前の同条件で 8 観点測定、最低 3 PBI）
