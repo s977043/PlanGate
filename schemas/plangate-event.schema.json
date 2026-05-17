@@ -5,12 +5,20 @@
   "description": "Single NDJSON event emitted by metrics-collector. Privacy: docs/ai/metrics-privacy.md §3 Allowed only — file paths, stack traces, command output, raw prompts MUST NOT appear (§4 Forbidden).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["ts", "task_id", "event", "schema_version"],
+  "required": [
+    "ts",
+    "task_id",
+    "event",
+    "schema_version"
+  ],
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "1.0",
-      "description": "PlanGate event schema version"
+      "enum": [
+        "1.0",
+        "1.1"
+      ],
+      "description": "PlanGate event schema version (1.0 baseline / 1.1 additive: gate_id, parent_event_id, phase WF/handoff — experimental, #229 PBI-HI-013)"
     },
     "ts": {
       "type": "string",
@@ -40,15 +48,51 @@
     },
     "phase": {
       "type": "string",
-      "enum": ["A", "B", "C-1", "C-2", "C-3", "D", "L-0", "V-1", "V-2", "V-3", "V-4", "PR", "C-4"]
+      "enum": [
+        "A",
+        "B",
+        "C-1",
+        "C-2",
+        "C-3",
+        "D",
+        "L-0",
+        "V-1",
+        "V-2",
+        "V-3",
+        "V-4",
+        "PR",
+        "C-4",
+        "WF-01",
+        "WF-02",
+        "WF-03",
+        "WF-04",
+        "WF-05",
+        "WF-06",
+        "handoff"
+      ],
+      "description": "workflow/gate phase. 1.0: A..C-4 / 1.1 additive: WF-01..WF-06, handoff (#229)"
     },
     "mode": {
       "type": "string",
-      "enum": ["ultra-light", "light", "standard", "high-risk", "critical"]
+      "enum": [
+        "ultra-light",
+        "light",
+        "standard",
+        "high-risk",
+        "critical"
+      ]
     },
     "verdict": {
       "type": "string",
-      "enum": ["APPROVED", "CONDITIONAL", "REJECTED", "PASS", "FAIL", "WARN", "REQUEST_CHANGES"]
+      "enum": [
+        "APPROVED",
+        "CONDITIONAL",
+        "REJECTED",
+        "PASS",
+        "FAIL",
+        "WARN",
+        "REQUEST_CHANGES"
+      ]
     },
     "hook_id": {
       "type": "string",
@@ -57,16 +101,32 @@
     },
     "hook_result": {
       "type": "string",
-      "enum": ["pass", "block", "warn"]
+      "enum": [
+        "pass",
+        "block",
+        "warn"
+      ]
     },
     "fix_loop_count": {
       "type": "integer",
       "minimum": 0
     },
-    "ac_total": { "type": "integer", "minimum": 0 },
-    "ac_pass": { "type": "integer", "minimum": 0 },
-    "ac_fail": { "type": "integer", "minimum": 0 },
-    "ac_warn": { "type": "integer", "minimum": 0 },
+    "ac_total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ac_pass": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ac_fail": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ac_warn": {
+      "type": "integer",
+      "minimum": 0
+    },
     "plan_hash": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
@@ -79,33 +139,117 @@
       "type": "string",
       "description": "固定 enum: Edit/Bash/Read/Grep/Write 等のツール名のみ"
     },
-    "tool_call_count": { "type": "integer", "minimum": 0 },
+    "tool_call_count": {
+      "type": "integer",
+      "minimum": 0
+    },
     "by": {
       "type": "string",
       "description": "agent / human の識別子（人名・社名は不可）"
     },
-    "pr_number": { "type": "integer", "minimum": 1 }
+    "pr_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "gate_id": {
+      "type": "string",
+      "description": "Gate event identifier (1.1 optional / experimental #229). Privacy(#202): 識別子のみ・slash/空白/自由文不可。語彙正規化は #230 v8.8.0",
+      "pattern": "^[A-Za-z0-9._:-]{1,64}$",
+      "maxLength": 64
+    },
+    "parent_event_id": {
+      "type": "string",
+      "description": "Causal link to a prior event id (1.1 optional / experimental #229). Privacy(#202): 識別子のみ・slash/空白/自由文不可",
+      "pattern": "^[A-Za-z0-9._:-]{1,64}$",
+      "maxLength": 64
+    }
   },
   "allOf": [
     {
-      "if": { "properties": { "event": { "const": "c3_decided" } }, "required": ["event"] },
-      "then": { "required": ["verdict"] }
+      "if": {
+        "properties": {
+          "event": {
+            "const": "c3_decided"
+          }
+        },
+        "required": [
+          "event"
+        ]
+      },
+      "then": {
+        "required": [
+          "verdict"
+        ]
+      }
     },
     {
-      "if": { "properties": { "event": { "const": "c4_decided" } }, "required": ["event"] },
-      "then": { "required": ["verdict"] }
+      "if": {
+        "properties": {
+          "event": {
+            "const": "c4_decided"
+          }
+        },
+        "required": [
+          "event"
+        ]
+      },
+      "then": {
+        "required": [
+          "verdict"
+        ]
+      }
     },
     {
-      "if": { "properties": { "event": { "const": "hook_violation" } }, "required": ["event"] },
-      "then": { "required": ["hook_id", "hook_result"] }
+      "if": {
+        "properties": {
+          "event": {
+            "const": "hook_violation"
+          }
+        },
+        "required": [
+          "event"
+        ]
+      },
+      "then": {
+        "required": [
+          "hook_id",
+          "hook_result"
+        ]
+      }
     },
     {
-      "if": { "properties": { "event": { "const": "v1_completed" } }, "required": ["event"] },
-      "then": { "required": ["verdict"] }
+      "if": {
+        "properties": {
+          "event": {
+            "const": "v1_completed"
+          }
+        },
+        "required": [
+          "event"
+        ]
+      },
+      "then": {
+        "required": [
+          "verdict"
+        ]
+      }
     },
     {
-      "if": { "properties": { "event": { "const": "fix_loop_incremented" } }, "required": ["event"] },
-      "then": { "required": ["fix_loop_count"] }
+      "if": {
+        "properties": {
+          "event": {
+            "const": "fix_loop_incremented"
+          }
+        },
+        "required": [
+          "event"
+        ]
+      },
+      "then": {
+        "required": [
+          "fix_loop_count"
+        ]
+      }
     }
   ]
 }

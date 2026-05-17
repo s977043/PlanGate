@@ -214,3 +214,27 @@ baseline と metrics summary を組み合わせると、改善前後の差分が
 - [schemas/plangate-event.schema.json](../../schemas/plangate-event.schema.json)
 - [scripts/hooks/check-metrics-privacy.sh](../../scripts/hooks/check-metrics-privacy.sh) — EH-8 privacy 強制 hook
 - [examples/sample-task/metrics-events.ndjson](../../examples/sample-task/metrics-events.ndjson) / [metrics-summary.md](../../examples/sample-task/metrics-summary.md) — 利用例
+
+
+## Trace Timeline v1（experimental / #229 PBI-HI-013・v8.7.0）
+
+> **experimental**: debug / audit 用途限定。quickstart / README には掲載しない。
+> 自己進化機能を OSS 利用者に押し付けない方針（v8.7.0）。
+
+events.ndjson は `schema_version` 1.0（baseline）に加え **1.1**（additive）を
+受理する。1.1 で追加される optional top-level field:
+
+- `gate_id`（Gate event 識別子。語彙正規化は #230 v8.8.0）
+- `parent_event_id`（因果リンク）
+- `phase`（1.0: A..C-4 / 1.1 additive: WF-01..WF-06, handoff）
+
+`additionalProperties: false` と Metrics Privacy Policy（#202）は維持。
+1.0 event は 1.1 schema でも後方互換で valid。
+
+```bash
+# experimental: phase / gate / ts 順に正規化した timeline JSON
+bin/plangate metrics TASK-XXXX --timeline --json
+```
+
+出力は `{task_id, schema_version:"1.1", experimental:true, count, timeline[]}`。
+Run Outcome Review v1（#228）の補助・Dogfooding Eval v1（#231 v8.8.0）の入力。
