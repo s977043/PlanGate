@@ -4,12 +4,18 @@
   "title": "PlanGate Model Profile",
   "description": "実行モデル別の reasoning effort / verbosity / context budget / tool policy / validation depth を表す薄い設定層。PlanGate Core はモデル非依存で維持し、本 schema 配下のプロファイルでモデル差分を吸収する。",
   "type": "object",
-  "required": ["version", "models"],
+  "required": [
+    "version",
+    "models"
+  ],
   "properties": {
     "version": {
       "type": "integer",
-      "const": 1,
-      "description": "本 schema のバージョン。後方互換破壊的変更時にインクリメント。"
+      "enum": [
+        1,
+        2
+      ],
+      "description": "schema バージョン。1=v1（既存・後方互換）/ 2=v2（#197: edit_interface_preference / retry_strategy / context_acquisition / provider_capabilities / telemetry_tags を追加）。1 は引き続き valid。"
     },
     "defaults": {
       "type": "object",
@@ -32,7 +38,9 @@
       "type": "object",
       "description": "プロファイル ID → 設定のマップ。",
       "minProperties": 1,
-      "additionalProperties": { "$ref": "#/$defs/profile" }
+      "additionalProperties": {
+        "$ref": "#/$defs/profile"
+      }
     }
   },
   "additionalProperties": false,
@@ -52,59 +60,115 @@
       "properties": {
         "family": {
           "type": "string",
-          "enum": ["gpt-5", "gpt-5-pro", "gpt-5-mini", "legacy"],
+          "enum": [
+            "gpt-5",
+            "gpt-5-pro",
+            "gpt-5-mini",
+            "legacy"
+          ],
           "description": "モデルファミリー識別子"
         },
         "role": {
           "type": "string",
-          "enum": ["default_reasoning", "advanced_reasoning", "fast_lightweight", "unknown"],
+          "enum": [
+            "default_reasoning",
+            "advanced_reasoning",
+            "fast_lightweight",
+            "unknown"
+          ],
           "description": "プロファイルが想定する役割"
         },
         "reasoning_effort_by_mode": {
           "type": "object",
           "description": "PlanGate 5 mode 別の推奨 reasoning effort",
-          "required": ["ultra_light", "light", "standard", "high_risk", "critical"],
+          "required": [
+            "ultra_light",
+            "light",
+            "standard",
+            "high_risk",
+            "critical"
+          ],
           "properties": {
-            "ultra_light": { "$ref": "#/$defs/effort_value" },
-            "light": { "$ref": "#/$defs/effort_value" },
-            "standard": { "$ref": "#/$defs/effort_value" },
-            "high_risk": { "$ref": "#/$defs/effort_value" },
-            "critical": { "$ref": "#/$defs/effort_value" }
+            "ultra_light": {
+              "$ref": "#/$defs/effort_value"
+            },
+            "light": {
+              "$ref": "#/$defs/effort_value"
+            },
+            "standard": {
+              "$ref": "#/$defs/effort_value"
+            },
+            "high_risk": {
+              "$ref": "#/$defs/effort_value"
+            },
+            "critical": {
+              "$ref": "#/$defs/effort_value"
+            }
           },
           "additionalProperties": false
         },
         "allowed_efforts": {
           "type": "array",
-          "items": { "$ref": "#/$defs/effort_enum" },
+          "items": {
+            "$ref": "#/$defs/effort_enum"
+          },
           "uniqueItems": true,
           "description": "プロファイルで許容される effort 値の集合（critical mode で xhigh も許容したい場合の構造化表現）"
         },
         "verbosity_by_phase": {
           "type": "object",
           "description": "phase 別の出力 verbosity",
-          "required": ["classify", "plan", "execute", "review", "handoff"],
+          "required": [
+            "classify",
+            "plan",
+            "execute",
+            "review",
+            "handoff"
+          ],
           "properties": {
-            "classify": { "$ref": "#/$defs/verbosity_value" },
-            "plan": { "$ref": "#/$defs/verbosity_value" },
-            "execute": { "$ref": "#/$defs/verbosity_value" },
-            "review": { "$ref": "#/$defs/verbosity_value" },
-            "handoff": { "$ref": "#/$defs/verbosity_value" }
+            "classify": {
+              "$ref": "#/$defs/verbosity_value"
+            },
+            "plan": {
+              "$ref": "#/$defs/verbosity_value"
+            },
+            "execute": {
+              "$ref": "#/$defs/verbosity_value"
+            },
+            "review": {
+              "$ref": "#/$defs/verbosity_value"
+            },
+            "handoff": {
+              "$ref": "#/$defs/verbosity_value"
+            }
           },
           "additionalProperties": false
         },
         "max_context_policy": {
           "type": "string",
-          "enum": ["compact", "standard", "expanded"],
+          "enum": [
+            "compact",
+            "standard",
+            "expanded"
+          ],
           "description": "context budget policy。compact=コスト優先 / standard=標準 / expanded=長文許容"
         },
         "tool_policy": {
           "type": "string",
-          "enum": ["narrow", "allowed_tools_by_phase", "expanded"],
+          "enum": [
+            "narrow",
+            "allowed_tools_by_phase",
+            "expanded"
+          ],
           "description": "interface-preflight.md で合意した tool_policy 値域。実 tool セット射影は PBI-116-06 の docs/ai/tool-policy.md に従う"
         },
         "validation_bias": {
           "type": "string",
-          "enum": ["lenient", "normal", "strict"],
+          "enum": [
+            "lenient",
+            "normal",
+            "strict"
+          ],
           "description": "interface-preflight.md で合意した validation_bias 値域。strict 時の追加 Hook 条件は PBI-116-06 の docs/ai/hook-enforcement.md に従う"
         },
         "structured_outputs": {
@@ -113,29 +177,185 @@
         },
         "adapter": {
           "type": "string",
-          "enum": ["outcome_first", "outcome_first_strict", "explicit_short", "legacy_or_unknown"],
+          "enum": [
+            "outcome_first",
+            "outcome_first_strict",
+            "explicit_short",
+            "legacy_or_unknown"
+          ],
           "description": "Prompt Assembly (PBI-116-03) で使用する adapter 種別"
         },
         "disallowed_modes": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["ultra_light", "light", "standard", "high_risk", "critical"]
+            "enum": [
+              "ultra_light",
+              "light",
+              "standard",
+              "high_risk",
+              "critical"
+            ]
           },
           "uniqueItems": true,
           "description": "本プロファイルで禁止する PlanGate mode（例: gpt-5_mini で critical を disallow）"
+        },
+        "edit_interface_preference": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "v2: モデルが得意な編集形式（PBI-HI-003 / #197）",
+          "required": [
+            "primary"
+          ],
+          "properties": {
+            "primary": {
+              "enum": [
+                "patch",
+                "string_replace",
+                "full_file"
+              ],
+              "type": "string"
+            },
+            "fallback": {
+              "enum": [
+                "patch",
+                "string_replace",
+                "full_file"
+              ],
+              "type": "string"
+            }
+          }
+        },
+        "retry_strategy": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "v2: 失敗時の回復方針。対象 category は docs/ai/tool-error-taxonomy.md(#203)が正本、本欄は方針/回数/待機（#197）",
+          "properties": {
+            "on_edit_failure": {
+              "enum": [
+                "reread_then_retry_small_diff",
+                "retry_same",
+                "escalate"
+              ],
+              "type": "string"
+            },
+            "on_test_failure": {
+              "enum": [
+                "inspect_error_then_fix",
+                "retry_same",
+                "escalate"
+              ],
+              "type": "string"
+            },
+            "max_retries": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "retryable の自動再試行上限（超過で soft_warning 降格）。未指定時は保守的既定 1（tool-error-taxonomy §7）"
+            },
+            "backoff": {
+              "enum": [
+                "none",
+                "linear",
+                "exponential"
+              ],
+              "type": "string"
+            }
+          }
+        },
+        "context_acquisition": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "v2: 初期コンテキスト取得戦略（Dynamic Context Engine #199 実装は別 PBI・Non-goal）",
+          "required": [
+            "strategy"
+          ],
+          "properties": {
+            "strategy": {
+              "enum": [
+                "dynamic_first",
+                "eager",
+                "lazy"
+              ],
+              "type": "string"
+            },
+            "initial_context_budget": {
+              "enum": [
+                "compact",
+                "standard",
+                "expanded"
+              ],
+              "type": "string"
+            }
+          }
+        },
+        "provider_capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "v2: provider の機能可否（判定根拠。runtime 実装は別 PBI）",
+          "properties": {
+            "supports_patch": {
+              "type": "boolean"
+            },
+            "supports_string_replace": {
+              "type": "boolean"
+            },
+            "supports_parallel_subagents": {
+              "type": "boolean"
+            }
+          }
+        },
+        "telemetry_tags": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "v2: 公開安全な provider/世代ラベル（固定 enum・free-form 不可。metrics-privacy §4: 鍵/アカウントID/社内モデル名は構造上排除）",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": [
+                "openai",
+                "anthropic",
+                "claude_code",
+                "codex",
+                "unknown"
+              ],
+              "description": "provider 種別（固定 enum・拡張は本 schema 改訂で additive）"
+            },
+            "generation": {
+              "type": "string",
+              "enum": [
+                "gpt-5.5",
+                "gpt-5.5-pro",
+                "gpt-5-mini",
+                "legacy",
+                "unknown"
+              ],
+              "description": "公開可能な世代ラベル（固定 enum registry。新世代追加は versioning-stability-policy §2.1 enum 追加=minor）"
+            }
+          }
         }
       },
       "additionalProperties": false
     },
     "effort_enum": {
       "type": "string",
-      "enum": ["low", "medium", "high", "xhigh"]
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
     },
-    "effort_value": { "$ref": "#/$defs/effort_enum" },
+    "effort_value": {
+      "$ref": "#/$defs/effort_enum"
+    },
     "verbosity_value": {
       "type": "string",
-      "enum": ["low", "medium", "high"]
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
     }
   }
 }

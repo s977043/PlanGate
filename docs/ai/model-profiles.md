@@ -1,6 +1,8 @@
 # PlanGate Model Profiles — 仕様 + マトリクス
 
-> **Status**: v1（PBI-116-02 で初版確立、Phase 2 / PBI-116）
+> **Status**: v2（#197 / PBI-HI-003 で edit_interface_preference / retry_strategy /
+> context_acquisition / provider_capabilities / telemetry_tags を追加。v1 は
+> 後方互換維持＝schema `version` は 1/2 両対応）
 > 本体定義: [`docs/ai/model-profiles.yaml`](./model-profiles.yaml)
 > Schema: [`schemas/model-profile.schema.json`](../../schemas/model-profile.schema.json)
 > Interface preflight: [`docs/working/PBI-116/interface-preflight.md`](../working/PBI-116/interface-preflight.md)
@@ -100,6 +102,59 @@ retryable な tool error（[tool-error-taxonomy.md](./tool-error-taxonomy.md) §
 - `release_blocker` 分類（schema_validation/missing_context/stale_contract）は
   **retry しない**（max_retries に関わらず即停止）。
 - profile 拡張・値変更は §10 の方針（別 PBI / eval 根拠）に従う。
+
+## 8-ter. v2 拡張フィールド（#197 / PBI-HI-003）
+
+モデル差分をプロンプト全文 fork ではなく Model Profile に閉じ込めるための
+v2 追加（すべて任意フィールド・既存 v1 profile は無変更で valid）。
+`retry_strategy` の Tool Error Taxonomy 接続詳細は **§8-bis**（#269）を正とし、
+本節は v2 全 5 フィールドの値域・移行・privacy を扱う（重複定義しない）。
+
+| フィールド | 内容 | 値域 |
+|-----------|------|------|
+| `edit_interface_preference` | モデルが得意な編集形式 | `primary`/`fallback` ∈ {patch, string_replace, full_file}（primary 必須）|
+| `retry_strategy` | 失敗時の回復方針・回数・待機 | `on_edit_failure`{reread_then_retry_small_diff,retry_same,escalate} / `on_test_failure`{inspect_error_then_fix,retry_same,escalate} / `max_retries` 0-10 / `backoff`{none,linear,exponential} |
+| `context_acquisition` | 初期コンテキスト取得戦略 | `strategy`{dynamic_first,eager,lazy}（必須）/ `initial_context_budget`{compact,standard,expanded} |
+| `provider_capabilities` | provider 機能可否（判定根拠）| `supports_patch` / `supports_string_replace` / `supports_parallel_subagents`（bool）|
+| `telemetry_tags` | 公開安全な provider/世代ラベル | `provider` ∈ {openai, anthropic, claude_code, codex, unknown} / `generation` ∈ {gpt-5.5, gpt-5.5-pro, gpt-5-mini, legacy, unknown}（**固定 enum・free-form 不可**。鍵/アカウントID/社内モデル名を構造排除＝metrics-privacy §4/§5.4）|
+
+### retry_strategy と Tool Error Taxonomy の責務分離
+
+- **どの category が retry 対象か** は [tool-error-taxonomy.md](./tool-error-taxonomy.md)
+  （#203・main 在席）が正本。回数・待機の値域は本書 **§8-bis**（#269）。
+- 本 `retry_strategy` は **回数（max_retries）・待機（backoff）・方針**のみを
+  profile 別に定義（二重定義しない）。`release_blocker` 分類
+  （schema_validation / missing_context / stale_contract）は max_retries に
+  関わらず **retry しない**（taxonomy §4）。
+- `max_retries` 未指定時は保守的既定 **1**。
+- **`on_*: escalate` のとき `max_retries` は適用しない**（即エスカレーション。
+  `legacy_or_unknown` は `escalate` + `max_retries: 0` で安全側を明示）。
+
+### telemetry_tags の registry（privacy）
+
+`provider` / `generation` は **固定 enum registry**（schema `enum`）。
+free-form を許さないことで [metrics-privacy.md](./metrics-privacy.md) §4 の
+鍵 / アカウント ID / 社内モデル名混入を構造的に排除する。新 provider /
+世代の追加は本 schema の enum 追加（versioning-stability-policy §2.1 =
+minor・additive）として行い、free-form 化はしない。
+
+### context_acquisition の位置づけ
+
+`strategy` は将来の Dynamic Context Engine（[#199](https://github.com/s977043/plangate/issues/199)）
+の **判定根拠**であり、本 PBI では DCE 実装はしない（Non-goal）。
+
+### 移行と後方互換
+
+- 既存 4 profile を v2 へ移行済（`docs/ai/model-profiles.yaml` version: 2）。
+- `legacy_or_unknown` fallback は維持（安全側: escalate / lazy / patch 非対応）。
+- schema `version` は **1/2 両対応**（v1 設定は無変更で valid＝
+  [versioning-stability-policy.md](./versioning-stability-policy.md) §2.1
+  オプショナル追加 = minor）。
+- **Core Contract / Gate / Artifact schema はモデル別に変更しない**（v2 でも不変）。
+- v1→v2 の比較は [#196](https://github.com/s977043/plangate/issues/196)
+  eval comparison（`--harness-compare`・main 在席）で v1 baseline と
+  対比可能（profile を harness_metadata に記録）。
+
 
 ## 9. critical mode 禁止の運用
 

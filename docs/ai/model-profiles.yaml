@@ -1,4 +1,4 @@
-# PlanGate Model Profiles v1
+# PlanGate Model Profiles v2 (#197 / PBI-HI-003)
 #
 # Schema: schemas/model-profile.schema.json
 # Companion doc: docs/ai/model-profiles.md
@@ -6,9 +6,11 @@
 #
 # Core Contract / Gate / Artifact schema はモデル別に変更しない。
 # 本ファイルは「reasoning effort / verbosity / context budget / tool policy / validation bias / adapter」
-# のモデル差分のみを表現する薄い設定層。
+# に加え v2 で「edit_interface_preference / retry_strategy / context_acquisition /
+# provider_capabilities / telemetry_tags」のモデル差分のみを表現する薄い設定層。
+# Core Contract / Gate / Artifact schema はモデル別に変更しない（v2 でも不変）。
 
-version: 1
+version: 2
 
 defaults:
   structured_outputs: true
@@ -36,6 +38,24 @@ models:
     tool_policy: allowed_tools_by_phase
     validation_bias: normal
     adapter: outcome_first
+    edit_interface_preference:
+      primary: patch
+      fallback: string_replace
+    retry_strategy:
+      on_edit_failure: reread_then_retry_small_diff
+      on_test_failure: inspect_error_then_fix
+      max_retries: 2
+      backoff: linear
+    context_acquisition:
+      strategy: dynamic_first
+      initial_context_budget: standard
+    provider_capabilities:
+      supports_patch: true
+      supports_string_replace: true
+      supports_parallel_subagents: false
+    telemetry_tags:
+      provider: openai
+      generation: gpt-5.5
 
   # 強力推論モデル。high_risk / critical で本領発揮。
   gpt-5_5_pro:
@@ -58,6 +78,24 @@ models:
     tool_policy: expanded
     validation_bias: strict
     adapter: outcome_first_strict
+    edit_interface_preference:
+      primary: patch
+      fallback: string_replace
+    retry_strategy:
+      on_edit_failure: reread_then_retry_small_diff
+      on_test_failure: inspect_error_then_fix
+      max_retries: 3
+      backoff: exponential
+    context_acquisition:
+      strategy: dynamic_first
+      initial_context_budget: expanded
+    provider_capabilities:
+      supports_patch: true
+      supports_string_replace: true
+      supports_parallel_subagents: false
+    telemetry_tags:
+      provider: openai
+      generation: gpt-5.5-pro
 
   # 高速軽量モデル。critical mode は disallow。
   gpt-5_mini:
@@ -80,6 +118,24 @@ models:
     validation_bias: lenient
     adapter: explicit_short
     disallowed_modes: [critical]
+    edit_interface_preference:
+      primary: string_replace
+      fallback: patch
+    retry_strategy:
+      on_edit_failure: retry_same
+      on_test_failure: inspect_error_then_fix
+      max_retries: 1
+      backoff: none
+    context_acquisition:
+      strategy: eager
+      initial_context_budget: compact
+    provider_capabilities:
+      supports_patch: true
+      supports_string_replace: true
+      supports_parallel_subagents: false
+    telemetry_tags:
+      provider: openai
+      generation: gpt-5-mini
 
   # フォールバック（未知モデル / レガシー）。安全側に倒す。
   legacy_or_unknown:
@@ -101,3 +157,20 @@ models:
     tool_policy: allowed_tools_by_phase
     validation_bias: normal
     adapter: legacy_or_unknown
+    edit_interface_preference:
+      primary: string_replace
+    retry_strategy:
+      on_edit_failure: escalate
+      on_test_failure: escalate
+      max_retries: 0
+      backoff: none
+    context_acquisition:
+      strategy: lazy
+      initial_context_budget: standard
+    provider_capabilities:
+      supports_patch: false
+      supports_string_replace: true
+      supports_parallel_subagents: false
+    telemetry_tags:
+      provider: unknown
+      generation: legacy
