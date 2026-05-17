@@ -128,6 +128,7 @@ cmd_help() {
     "  eval <TASK-XXXX> [--baseline]  Run 8-aspect eval (Issue #156)" \
     "  metrics <TASK-XXXX> [--collect|--report] Collect/report workflow metrics (Issue #195)" \
     "  plan-check <TASK-XXXX> [--init|--validate]  Lightweight plan quality check (#213)" \
+    "  report --from <date> --to <date>  Period report for retrospective (#200)" \
     "  context <TASK-XXXX> --phase <p> [--mode <m>] [--profile <k>]  Dynamic Context Engine v1 (opt-in, #199)" \
     "  keep-rate <TASK-XXXX> [--no-write]  Keep Rate v1 (advisory, #198)" \
     "  review <TASK-XXXX> [--phase]   Run external AI review (c2/v3)" \
@@ -1253,6 +1254,23 @@ PYV
   esac
 }
 
+cmd_report() {
+  # Reporting & Retrospective v1 — 期間集計 Markdown（advisory / #200）
+  # 正本: docs/ai/reporting.md
+  # 最小チェックのみ（--from/--to 必須検証は scripts/reporting.py argparse に委譲）
+  if [ $# -lt 1 ]; then
+    printf 'Usage: plangate report --from <YYYY-MM-DD> --to <YYYY-MM-DD> [--no-write]\n' >&2
+    return 1
+  fi
+  py="$plangate_root/scripts/reporting.py"
+  if [ ! -f "$py" ]; then
+    printf 'error: scripts/reporting.py not found\n' >&2
+    return 2
+  fi
+  python3 "$py" "$@"
+  return $?
+}
+
 cmd_context() {
   # Dynamic Context Engine v1 — phase/mode/profile 別 context 解決
   # opt-in・advisory（C-3/C-4 緩和なし / #199）。正本: docs/ai/context-engine.md
@@ -1434,6 +1452,7 @@ case "$command" in
   eval)        cmd_eval "$@" ;;
   metrics)     cmd_metrics "$@" ;;
   plan-check)  cmd_plan_check "$@" ;;
+  report)      cmd_report "$@" ;;
   context)     cmd_context "$@" ;;
   keep-rate)   cmd_keep_rate "$@" ;;
   review)      cmd_review "$@" ;;
