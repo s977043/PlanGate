@@ -40,6 +40,7 @@ FILENAME_TO_SCHEMA: dict[str, str] = {
     "2026-05-04-baseline.json": "eval-baseline.schema.json",
     "plan-quality-check.json": "plan-quality-check.schema.json",
     "eval-comparison.json": "eval-comparison.schema.json",
+    "keep-rate-result.json": "keep-rate-result.schema.json",
 }
 
 

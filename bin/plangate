@@ -128,6 +128,7 @@ cmd_help() {
     "  eval <TASK-XXXX> [--baseline]  Run 8-aspect eval (Issue #156)" \
     "  metrics <TASK-XXXX> [--collect|--report] Collect/report workflow metrics (Issue #195)" \
     "  plan-check <TASK-XXXX> [--init|--validate]  Lightweight plan quality check (#213)" \
+    "  keep-rate <TASK-XXXX> [--no-write]  Keep Rate v1 (advisory, #198)" \
     "  review <TASK-XXXX> [--phase]   Run external AI review (c2/v3)" \
     "  exec <TASK-XXXX> [--mode]      Dispatch implementation agent (after C-3)" \
     "  abort <TASK-XXXX> [--reason]   Record abort event in run.ndjson" \
@@ -1251,6 +1252,22 @@ PYV
   esac
 }
 
+cmd_keep_rate() {
+  # Keep Rate v1 — AI 成果物残存率（advisory・release blocker 不可 / #198）
+  # 正本: docs/ai/keep-rate.md
+  if [ $# -lt 1 ]; then
+    printf 'Usage: plangate keep-rate <TASK-XXXX> [--no-write]\n' >&2
+    return 1
+  fi
+  py="$plangate_root/scripts/keep-rate.py"
+  if [ ! -f "$py" ]; then
+    printf 'error: scripts/keep-rate.py not found\n' >&2
+    return 2
+  fi
+  python3 "$py" "$@"
+  return $?
+}
+
 cmd_review() {
   if [ $# -eq 0 ]; then
     printf 'Usage: plangate review <TASK-XXXX> [--phase c2|v3] [--file <path>]\n' >&2
@@ -1400,6 +1417,7 @@ case "$command" in
   eval)        cmd_eval "$@" ;;
   metrics)     cmd_metrics "$@" ;;
   plan-check)  cmd_plan_check "$@" ;;
+  keep-rate)   cmd_keep_rate "$@" ;;
   review)      cmd_review "$@" ;;
   exec)        cmd_exec "$@" ;;
   abort)       cmd_abort "$@" ;;
