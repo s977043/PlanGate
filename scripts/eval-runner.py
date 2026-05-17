@@ -323,12 +323,141 @@ def render_markdown(result: dict) -> str:
     return "\n".join(lines)
 
 
+
+def dogfood_eval(task_id: str) -> dict:
+    """#231 Dogfooding Eval v1: 5 項目の決定論構造判定 + rationale.
+
+    既存 8-aspect eval とは独立。LLM judge は docs/ai/dogfooding-eval.md の
+    judge-prompt を外部基盤で用いる（v1 は決定論判定が基盤・再現性優先）。
+    """
+    task_dir = WORKING_DIR / task_id
+    items = []
+
+    def add(n, title, verdict, rationale):
+        items.append({"n": n, "title": title, "verdict": verdict,
+                      "rationale": rationale})
+
+    # 1. PBI 入力から AC/Design/Task 分解が妥当か
+    pbi = task_dir / "pbi-input.md"
+    plan = task_dir / "plan.md"
+    pbi_t = pbi.read_text() if pbi.is_file() else ""
+    plan_t = plan.read_text() if plan.is_file() else ""
+    has_ac = ("Acceptance Criteria" in pbi_t or "受入基準" in pbi_t
+              or "AC-1" in pbi_t)
+    has_wb = ("Work Breakdown" in plan_t or "## 変更内容" in plan_t
+              or "Mode判定" in plan_t)
+    add(1, "PBI→AC/Design/Task 分解",
+        "PASS" if (has_ac and has_wb) else
+        ("PARTIAL" if (has_ac or has_wb) else "FAIL"),
+        f"pbi-input AC={has_ac} / plan WorkBreakdown={has_wb}")
+
+    # 2. handoff 6 要素
+    ho = task_dir / "handoff.md"
+    sec = count_handoff_sections(ho.read_text()) if ho.is_file() else 0
+    add(2, "handoff 6 要素",
+        "PASS" if sec >= 6 else ("PARTIAL" if sec >= 3 else "FAIL"),
+        f"handoff section_count={sec}/6"
+        + ("" if ho.is_file() else " (handoff.md 不在)"))
+
+    # 3. C-3/C-4 証跡
+    c3 = task_dir / "approvals" / "c3.json"
+    c3st = read_c3_status(c3) if c3.is_file() else None
+    ho_t = ho.read_text() if ho.is_file() else ""
+    status_p = task_dir / "status.md"
+    has_c4 = ("C-4" in ho_t) or (
+        status_p.is_file() and "C-4" in status_p.read_text())
+    # mn-1: 片方のみ証跡あり = PARTIAL（both=PASS / either=PARTIAL / neither=FAIL）
+    if c3st and has_c4:
+        v3 = "PASS"
+    elif c3st or has_c4:
+        v3 = "PARTIAL"
+    else:
+        v3 = "FAIL"
+    add(3, "C-3/C-4 証跡", v3,
+        f"c3_status={c3st} / C-4 言及={bool(has_c4)}")
+
+    # 4. Trace Timeline(experimental #229) イベント
+    ev = WORKING_DIR / "_metrics" / "events.ndjson"
+    has_ev = ev.is_file() and any(
+        task_id in ln for ln in ev.read_text().splitlines()) if ev.is_file() else False
+    add(4, "Trace Timeline イベント(experimental)",
+        "PASS" if has_ev else "PARTIAL",
+        f"events.ndjson に {task_id} の event={has_ev}"
+        " (experimental＝無くても FAIL ではなく PARTIAL)")
+
+    # 5. Stop rules / core-contract 違反なし
+    dl = WORKING_DIR / "_audit" / "skip-decision-log.jsonl"
+    unack = 0
+    if dl.is_file():
+        import json as _j
+        for ln in dl.read_text().splitlines():
+            ln = ln.strip()
+            if not ln:
+                continue
+            try:
+                d = _j.loads(ln)
+            except _j.JSONDecodeError:
+                continue
+            if d.get("event") == "EH-3_SKIP" and not d.get("acknowledged_by"):
+                unack += 1
+    # claim_wo_evidence は TASK 固有（handoff に証跡なし完了主張）→ FAIL 対象。
+    # unack（skip-decision-log）は repo-global のため当該 TASK の release
+    # blocker にはせず advisory（PARTIAL 注記）に留める（誤って全 TASK を
+    # FAIL 化しない・#231 v1 は TASK 単位判定が主）。
+    # MJ-2: 完了主張の検出を頑健化。handoff に「完了」系の主張があり、かつ
+    # 検証証跡語（PASS / テスト / hook 78 / CLI / 回帰 / 検証）が一切無い場合
+    # を「証跡なし完了主張」とみなす（否定文 false negative を緩和）。
+    evidence_terms = ("PASS", "テスト", "回帰", "検証", "hook ", "CLI ",
+                      "78/0", "64/0")
+    claim_terms = ("完了", "クローズ", "達成")
+    if ho_t:
+        has_claim = any(t in ho_t for t in claim_terms)
+        has_evidence = any(t in ho_t for t in evidence_terms)
+        claim_wo_evidence = has_claim and not has_evidence
+        ambiguous = has_claim and not has_evidence and len(ho_t) < 200
+    else:
+        claim_wo_evidence = False
+        ambiguous = False
+    if claim_wo_evidence:
+        v5 = "FAIL"
+    elif unack or ambiguous:
+        v5 = "PARTIAL"
+    else:
+        v5 = "PASS"
+    add(5, "Stop rules / core-contract 違反なし", v5,
+        f"証跡なし完了主張={claim_wo_evidence}（TASK固有=FAIL対象） / "
+        f"repo-global 未追認SKIP={unack}（advisory・当該TASKのblockerにしない）")
+
+    blockers = [it for it in items if it["verdict"] == "FAIL"]
+    return {"task_id": task_id, "schema": "dogfood-eval-v1",
+            "items": items, "release_blockers": len(blockers)}
+
+
+def render_dogfood_md(r: dict) -> str:
+    lines = [f"# Dogfooding Eval v1 — {r['task_id']}", "",
+             "> #231 PBI-HI-015 / single judge（決定論構造判定 + rationale）",
+             "> judge-prompt 正本: docs/ai/dogfooding-eval.md", "",
+             "| # | 項目 | 判定 |", "|---|------|------|"]
+    for it in r["items"]:
+        lines.append(f"| {it['n']} | {it['title']} | **{it['verdict']}** |")
+    lines += ["", "## Rationale", ""]
+    for it in r["items"]:
+        lines.append(f"### {it['n']}. {it['title']} — {it['verdict']}")
+        lines.append(it["rationale"])
+        lines.append("")
+    lines.append(f"## Release blockers: {r['release_blockers']}"
+                 + (" — マージ可" if r["release_blockers"] == 0
+                    else " — 要解消"))
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="PlanGate eval runner (Issue #156)")
     parser.add_argument("task_id", help="Target TASK-XXXX")
     parser.add_argument("--baseline", help="Baseline TASK-YYYY for comparison")
     parser.add_argument("--profile", help="Model profile key (recorded in output)")
     parser.add_argument("--no-write", action="store_true", help="Print to stdout instead of writing files")
+    parser.add_argument("--dogfood", action="store_true", help="[#231] Dogfooding Eval v1: 5-item deterministic structural eval -> eval-dogfood.md")
     parser.add_argument(
         "--session-log",
         help="Path to codex session log (NDJSON) for latency / token metrics (Issue #168)",
@@ -338,6 +467,17 @@ def main() -> int:
     if not re.match(r"^TASK-[0-9A-Za-z]+$", args.task_id):
         print(f"error: invalid task_id: {args.task_id}", file=sys.stderr)
         return 2
+
+    if args.dogfood:
+        dr = dogfood_eval(args.task_id)
+        dmd = render_dogfood_md(dr)
+        if args.no_write:
+            print(dmd)
+        else:
+            (WORKING_DIR / args.task_id).mkdir(parents=True, exist_ok=True)
+            (WORKING_DIR / args.task_id / "eval-dogfood.md").write_text(dmd + "\n")
+            print(f"Written: docs/working/{args.task_id}/eval-dogfood.md")
+        return 1 if dr["release_blockers"] else 0
 
     result = build_eval_result(args.task_id, args.profile, session_log=args.session_log)
     if args.baseline:

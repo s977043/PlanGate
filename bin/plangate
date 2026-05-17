@@ -890,7 +890,8 @@ cmd_eval() {
   # Run 8-aspect eval against a task dir. Wraps scripts/eval-runner.py.
   # Issue #156 / TASK-0049
   if [ $# -eq 0 ]; then
-    printf 'Usage: plangate eval <TASK-XXXX> [--baseline <TASK-YYYY>] [--profile <key>] [--no-write]\n' >&2
+    printf 'Usage: plangate eval <TASK-XXXX> [--baseline <TASK-YYYY>] [--profile <key>] [--no-write] [--dogfood]\n' >&2
+    printf '  --dogfood            [#231] Dogfooding Eval v1: 5-item structural eval -> eval-dogfood.md\n' >&2
     return 1
   fi
 
