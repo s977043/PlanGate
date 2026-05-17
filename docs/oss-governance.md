@@ -132,6 +132,14 @@ GitHub Discussions は有効化済みであることを確認した（2026-04-27
 | 活用事例・ショーケース | Discussions — Show and tell |
 | セキュリティ懸念 | Private vulnerability reporting |
 
+## バージョニング / 互換性
+
+リリースの互換性判定・安定性レベル・CHANGELOG 影響度タグの正本は
+[`docs/ai/versioning-stability-policy.md`](ai/versioning-stability-policy.md)。
+導入側が「このバージョンに上げて安全か」を CHANGELOG だけで判断できる
+ことを目的とし、Schema / Hook / Workflow / CLI 別の Breaking Change 定義と
+コンポーネント別 Stable / Beta / Experimental 宣言を提供する。
+
 ## Deferred Decisions
 
 各項目の判断状況を記録する（2026-04-27 更新）。
