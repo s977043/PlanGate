@@ -18,11 +18,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import plan_hash_util  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 WORKING = REPO / "docs" / "working"
@@ -38,19 +40,6 @@ _BUDGET = {
 _POLICY_ORDER = ("compact", "standard", "expanded")
 
 
-def _read_c3_plan_hash(c3_path: Path) -> str | None:
-    """c3.json を JSON として読み plan_hash の sha256 部を返す。
-
-    正規表現でなく json.load で読む（偽プロパティ注入耐性・EH-3 同意味）。
-    欠落/不正/不可は None。
-    """
-    try:
-        ph = json.loads(c3_path.read_text()).get("plan_hash", "")
-    except (OSError, ValueError):
-        return None
-    if isinstance(ph, str) and ph.startswith("sha256:"):
-        return ph[len("sha256:"):]
-    return None
 
 
 def _profile_policy(profile: str | None) -> str | None:
@@ -97,7 +86,7 @@ def _contract(task_id: str) -> tuple[list, dict]:
         ("c3_approval", d / "approvals" / "c3.json"),
     ]
     c3 = d / "approvals" / "c3.json"
-    rec_hash = _read_c3_plan_hash(c3)
+    rec_hash = plan_hash_util.recorded_plan_hash(c3)
     c3_exists = c3.is_file()
     for kind, fp in spec:
         if not fp.is_file():
@@ -107,7 +96,7 @@ def _contract(task_id: str) -> tuple[list, dict]:
         entry = {"kind": kind, "path": str(fp.relative_to(REPO)),
                  "status": "present"}
         if kind == "approved_plan" and rec_hash:
-            cur = hashlib.sha256(fp.read_bytes()).hexdigest()
+            cur = plan_hash_util.current_plan_hash(fp)
             entry["plan_hash"] = f"sha256:{cur}"
             plan_hash_match = cur == rec_hash
             if not plan_hash_match:

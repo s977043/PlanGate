@@ -13,12 +13,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import plan_hash_util  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 WORKING = REPO / "docs" / "working"
@@ -36,19 +38,6 @@ def _ratio(num: int, denom: int, **extra) -> dict:
     return {"value": round(100.0 * num / denom, 2), **extra}
 
 
-def _read_c3_plan_hash(c3_path: Path) -> str | None:
-    """c3.json を JSON として読み plan_hash の sha256 部を返す。
-
-    正規表現でなく json.load で読む（偽プロパティ注入耐性。EH-3 と同意味）。
-    欠落/不正/不可は None。
-    """
-    try:
-        ph = json.loads(c3_path.read_text()).get("plan_hash", "")
-    except (OSError, ValueError):
-        return None
-    if isinstance(ph, str) and ph.startswith("sha256:"):
-        return ph[len("sha256:"):]
-    return None
 
 
 def _git(*args: str) -> str | None:
@@ -119,9 +108,9 @@ def plan_keep_rate(task_id: str) -> dict:
     if not todo.is_file() or not c3.is_file() or not handoff.is_file():
         return _unknown("todo.md / c3.json / handoff.md missing")
     if plan_md.is_file():
-        rec = _read_c3_plan_hash(c3)
+        rec = plan_hash_util.recorded_plan_hash(c3)
         try:
-            cur = hashlib.sha256(plan_md.read_bytes()).hexdigest()
+            cur = plan_hash_util.current_plan_hash(plan_md)
         except OSError:
             # plan.md 読込不可は stale 検証不能 = unknown（算出不能は unknown 原則）
             return _unknown("plan.md unreadable — plan_hash unverifiable")

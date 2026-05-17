@@ -17,7 +17,10 @@ from __future__ import annotations
 
 import argparse
 import datetime
-import hashlib
+import sys as _sys
+from pathlib import Path as _P
+_sys.path.insert(0, str(_P(__file__).resolve().parent))
+import plan_hash_util  # noqa: E402
 import json
 import os
 import re
@@ -70,9 +73,6 @@ def file_mtime_iso(path: Path) -> str:
     return ts.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def sha256_hex(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
 
 def base_event(task_id: str, event: str, ts: str | None = None) -> dict:
     return {
@@ -105,7 +105,7 @@ def derive_events(task_dir: Path, task_id: str) -> list[dict]:
     test_cases = task_dir / "test-cases.md"
     if plan.is_file():
         ev = base_event(task_id, "plan_generated", file_mtime_iso(plan)) | {"phase": "B"}
-        ev["plan_hash"] = "sha256:" + sha256_hex(plan.read_bytes())
+        ev["plan_hash"] = plan_hash_util.current_plan_hash_prefixed(plan)
         # mode detection from plan.md (light/standard/high-risk/critical)
         # v8.6.0 PR6 (H-3 prerequisite): tolerate multiple plan.md formats
         plan_text = plan.read_text(errors="ignore")
