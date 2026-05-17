@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SCHEMAS_DIR = REPO_ROOT / "schemas"
+import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
+from _paths import REPO_ROOT, SCHEMAS_DIR  # noqa: E402
 
 # basename → schema filename
 # 新 schema を追加するときは本ファイルにエントリを足すだけ。

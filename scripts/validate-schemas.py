@@ -23,7 +23,8 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
+from _paths import REPO_ROOT  # noqa: E402
 
 # Issue #172: schema mapping は scripts/schema_mapping.py に集約（DRY）
 sys.path.insert(0, str(REPO_ROOT / "scripts"))

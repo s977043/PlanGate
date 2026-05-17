@@ -27,8 +27,8 @@ import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-WORKING_DIR = REPO_ROOT / "docs" / "working"
+import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
+from _paths import REPO_ROOT, WORKING_DIR  # noqa: E402
 METRICS_DIR = WORKING_DIR / "_metrics"
 EVENTS_LOG = METRICS_DIR / "events.ndjson"
 HOOK_AUDIT_LOG = WORKING_DIR / "_audit" / "hook-events.log"

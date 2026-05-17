@@ -21,7 +21,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
+from _paths import REPO_ROOT  # noqa: E402
 DEFAULT_EVENTS_LOG = REPO_ROOT / "docs" / "working" / "_metrics" / "events.ndjson"
 
 

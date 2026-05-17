@@ -32,8 +32,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-WORKING_DIR = REPO_ROOT / "docs" / "working"
+import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
+from _paths import REPO_ROOT, WORKING_DIR  # noqa: E402
 EVAL_RUNNER_VERSION = "1.2.0"  # Issue #168: codex session log parser 統合
 
 # Issue #172: schema mapping は scripts/schema_mapping.py に集約（DRY）

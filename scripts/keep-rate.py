@@ -22,8 +22,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import plan_hash_util  # noqa: E402
 
-REPO = Path(__file__).resolve().parent.parent
-WORKING = REPO / "docs" / "working"
+import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
+from _paths import REPO_ROOT as REPO, WORKING_DIR as WORKING  # noqa: E402
 AC_LINE = re.compile(r"^\|\s*AC[0-9A-Za-z_-]*\s*\|.*\|\s*(PASS|FAIL|WARN)\s*\|", re.I)
 
 UNKNOWN = "unknown"

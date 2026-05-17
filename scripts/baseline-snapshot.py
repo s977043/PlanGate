@@ -29,8 +29,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-WORKING_DIR = REPO_ROOT / "docs" / "working"
+import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
+from _paths import REPO_ROOT, WORKING_DIR  # noqa: E402
 EVAL_RUNNER = REPO_ROOT / "scripts" / "eval-runner.py"
 PLANGATE_BIN = REPO_ROOT / "bin" / "plangate"
 DEFAULT_OUT_DIR = REPO_ROOT / "docs" / "ai" / "eval-baselines"

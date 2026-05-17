@@ -25,7 +25,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
+from _paths import REPO_ROOT as REPO  # noqa: E402
 
 V860_FILE_CHECKS: list[tuple[str, str]] = [
     ("schemas/plangate-event.schema.json", "fail"),

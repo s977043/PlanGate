@@ -20,8 +20,8 @@ import re
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
-WORKING = REPO / "docs" / "working"
+import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
+from _paths import REPO_ROOT as REPO, WORKING_DIR as WORKING  # noqa: E402
 
 UNKNOWN = "unknown"
 C3_STATUSES = ("APPROVED", "CONDITIONAL", "REJECTED")

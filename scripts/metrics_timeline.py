@@ -14,7 +14,8 @@ import json
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
+from _paths import REPO_ROOT  # noqa: E402
 DEFAULT_LOG = REPO_ROOT / "docs" / "working" / "_metrics" / "events.ndjson"
 
 # phase 正規化順（1.0 A..C-4 + 1.1 WF-01..06 / handoff）。enum 外は末尾。
