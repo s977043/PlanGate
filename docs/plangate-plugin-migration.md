@@ -166,6 +166,15 @@ Task(subagent_type="plangate:spec-writer", ...)
 
 Commands は `/command-name` 形式でそのまま呼び出し可能。解決順（plugin vs legacy）は Claude Code 内部仕様に従う。
 
+## 手動コピー版からの移行（#224）
+
+`.claude/commands/` 等を手動コピー / 派生して運用している消費側
+（ai-agent-template / growth-lab 等）向けの **手動コピー起点の移行手順**・
+**Plugin 安定性宣言**・**バージョン同期メカニズム（release archive 方式）**・
+**カスタマイズ API（overlay precedence）** の正本は
+[`docs/ai/plugin-stability-and-sync.md`](ai/plugin-stability-and-sync.md)。
+本ドキュメント（段階移行・FAQ）と併用する。
+
 ## 既存利用者向け段階的移行手順
 
 ### Phase 1: 評価（推奨: 1 週間程度）
