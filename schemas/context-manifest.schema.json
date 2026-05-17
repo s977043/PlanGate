@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/s977043/plangate/schemas/context-manifest.schema.json",
+  "title": "Context Manifest (Dynamic Context Engine v1)",
+  "description": "phase/mode/profile に応じた resolved context。contract（固定・承認境界）と dynamic（動的取得）を分離。opt-in。正本: docs/ai/context-engine.md (#199 / PBI-HI-005)。C-3/C-4 緩和なし・Vector/embedding なし。",
+  "type": "object",
+  "required": ["task_id", "schema", "phase", "mode", "contract_context", "dynamic_context", "budget"],
+  "additionalProperties": false,
+  "properties": {
+    "task_id": { "type": "string", "pattern": "^TASK-[0-9A-Za-z]+$" },
+    "schema": { "type": "string", "const": "context-manifest/v1" },
+    "phase": { "type": "string", "enum": ["classify", "plan", "approve-wait", "execute", "review", "verify", "handoff"] },
+    "mode": { "type": "string", "enum": ["ultra_light", "light", "standard", "high_risk", "critical"] },
+    "profile": { "type": "string", "maxLength": 64 },
+    "contract_context": {
+      "type": "array",
+      "description": "固定（承認境界・監査可能性）。stale 検知時は invalidated=true",
+      "items": {
+        "type": "object",
+        "required": ["kind", "path", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "enum": ["pbi_input", "approved_plan", "test_cases", "c3_approval"] },
+          "path": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "status": { "type": "string", "enum": ["present", "missing", "stale"] },
+          "plan_hash": { "type": "string", "maxLength": 80 },
+          "invalidated": { "type": "boolean" }
+        }
+      }
+    },
+    "dynamic_context": {
+      "type": "array",
+      "description": "動的取得（記述子のみ。実取得は呼び出し側・budget 内）",
+      "items": {
+        "type": "object",
+        "required": ["kind", "source", "when"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "enum": ["git_status", "git_diff", "recent_files", "test_failure", "repo_structure", "coding_rules", "past_handoff", "related_pbi"] },
+          "source": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "when": { "type": "string", "enum": ["always", "on_demand", "on_failure"] }
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "required": ["max_context_policy", "dynamic_max_items"],
+      "additionalProperties": false,
+      "properties": {
+        "max_context_policy": { "type": "string", "enum": ["compact", "standard", "expanded"] },
+        "dynamic_max_items": { "type": "integer", "minimum": 0, "maximum": 64 }
+      }
+    },
+    "stale_guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "EH-3 plan_hash と矛盾しないための検証結果",
+      "properties": {
+        "plan_hash_match": { "type": ["boolean", "null"] },
+        "note": { "type": "string", "maxLength": 256 }
+      }
+    },
+    "note": { "type": "string", "maxLength": 256 }
+  }
+}

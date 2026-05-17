@@ -128,6 +128,7 @@ cmd_help() {
     "  eval <TASK-XXXX> [--baseline]  Run 8-aspect eval (Issue #156)" \
     "  metrics <TASK-XXXX> [--collect|--report] Collect/report workflow metrics (Issue #195)" \
     "  plan-check <TASK-XXXX> [--init|--validate]  Lightweight plan quality check (#213)" \
+    "  context <TASK-XXXX> --phase <p> [--mode <m>] [--profile <k>]  Dynamic Context Engine v1 (opt-in, #199)" \
     "  keep-rate <TASK-XXXX> [--no-write]  Keep Rate v1 (advisory, #198)" \
     "  review <TASK-XXXX> [--phase]   Run external AI review (c2/v3)" \
     "  exec <TASK-XXXX> [--mode]      Dispatch implementation agent (after C-3)" \
@@ -1252,6 +1253,22 @@ PYV
   esac
 }
 
+cmd_context() {
+  # Dynamic Context Engine v1 — phase/mode/profile 別 context 解決
+  # opt-in・advisory（C-3/C-4 緩和なし / #199）。正本: docs/ai/context-engine.md
+  if [ $# -lt 1 ]; then
+    printf 'Usage: plangate context <TASK-XXXX> --phase <p> [--mode <m>] [--profile <k>] [--no-write]\n' >&2
+    return 1
+  fi
+  py="$plangate_root/scripts/context-engine.py"
+  if [ ! -f "$py" ]; then
+    printf 'error: scripts/context-engine.py not found\n' >&2
+    return 2
+  fi
+  python3 "$py" "$@"
+  return $?
+}
+
 cmd_keep_rate() {
   # Keep Rate v1 — AI 成果物残存率（advisory・release blocker 不可 / #198）
   # 正本: docs/ai/keep-rate.md
@@ -1417,6 +1434,7 @@ case "$command" in
   eval)        cmd_eval "$@" ;;
   metrics)     cmd_metrics "$@" ;;
   plan-check)  cmd_plan_check "$@" ;;
+  context)     cmd_context "$@" ;;
   keep-rate)   cmd_keep_rate "$@" ;;
   review)      cmd_review "$@" ;;
   exec)        cmd_exec "$@" ;;
