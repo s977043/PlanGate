@@ -127,6 +127,7 @@ cmd_help() {
     "  validate-schemas <args>        Validate JSON artifacts against schemas/ (Issue #158)" \
     "  eval <TASK-XXXX> [--baseline]  Run 8-aspect eval (Issue #156)" \
     "  metrics <TASK-XXXX> [--collect|--report] Collect/report workflow metrics (Issue #195)" \
+    "  plan-check <TASK-XXXX> [--init|--validate]  Lightweight plan quality check (#213)" \
     "  review <TASK-XXXX> [--phase]   Run external AI review (c2/v3)" \
     "  exec <TASK-XXXX> [--mode]      Dispatch implementation agent (after C-3)" \
     "  abort <TASK-XXXX> [--reason]   Record abort event in run.ndjson" \
@@ -1168,6 +1169,88 @@ cmd_resume() {
   cmd_status "$task_id" 2>/dev/null | grep -E 'Current:|Next:' || true
 }
 
+cmd_plan_check() {
+  # Lightweight Plan Quality Check（手動実行・heavy Gate 非依存 / #213）
+  # 正本: docs/ai/plan-quality-checks.md
+  # Usage:
+  #   plangate plan-check <TASK-XXXX> --init   雛形 plan-quality-check.json 生成
+  #   plangate plan-check <TASK-XXXX> --validate  schema 検証
+  if [ $# -lt 1 ]; then
+    printf 'Usage: plangate plan-check <TASK-XXXX> [--init|--validate]\n' >&2
+    return 1
+  fi
+  task_id=$1
+  shift
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+  pqc_file="$plangate_working_dir/$task_id/plan-quality-check.json"
+  action=${1:---init}
+  case "$action" in
+    --init)
+      if [ -f "$pqc_file" ]; then
+        printf '[plan-check] exists (not overwritten): %s\n' "$pqc_file"
+        return 0
+      fi
+      cat > "$pqc_file" <<'PQC'
+{
+  "check_type": "combined",
+  "score": 0,
+  "decision": "insufficient",
+  "summary": "TODO: 計画品質サマリを記述（plan_check/risk_check/done_check）",
+  "score_breakdown": {
+    "goal_clarity": 0,
+    "scope_defined": 0,
+    "success_metric": 0,
+    "risks_identified": 0,
+    "done_criteria_defined": 0
+  },
+  "missing_items": [],
+  "risks": [],
+  "assumptions": [],
+  "done_criteria": [],
+  "next_actions": []
+}
+PQC
+      printf '[plan-check] template created: %s\n' "$pqc_file"
+      printf '  Fill in via plan-quality-check skill, then: plangate plan-check %s --validate\n' "$task_id"
+      return 0
+      ;;
+    --validate)
+      if [ ! -f "$pqc_file" ]; then
+        printf '[plan-check] not found: %s (run --init first)\n' "$pqc_file" >&2
+        return 2
+      fi
+      schema="$plangate_root/schemas/plan-quality-check.schema.json"
+      vs="$plangate_root/scripts/validate-schemas.py"
+      if [ -f "$vs" ]; then
+        python3 "$vs" "$pqc_file"
+        return $?
+      fi
+      python3 - "$pqc_file" "$schema" <<'PYV'
+import json,sys
+doc=json.load(open(sys.argv[1])); sch=json.load(open(sys.argv[2]))
+try:
+    import jsonschema
+    jsonschema.validate(doc,sch)
+    print("[plan-check] VALID:", sys.argv[1])
+except ImportError:
+    req=sch.get("required",[])
+    miss=[k for k in req if k not in doc]
+    print("[plan-check] %s (jsonschema absent; required check)" %
+          ("VALID" if not miss else "INVALID missing=%s"%miss))
+    sys.exit(0 if not miss else 1)
+except Exception as e:
+    print("[plan-check] INVALID:", e); sys.exit(1)
+PYV
+      return $?
+      ;;
+    *)
+      printf 'Usage: plangate plan-check <TASK-XXXX> [--init|--validate]\n' >&2
+      return 1
+      ;;
+  esac
+}
+
 cmd_review() {
   if [ $# -eq 0 ]; then
     printf 'Usage: plangate review <TASK-XXXX> [--phase c2|v3] [--file <path>]\n' >&2
@@ -1316,6 +1399,7 @@ case "$command" in
   validate-schemas) cmd_validate_schemas "$@" ;;
   eval)        cmd_eval "$@" ;;
   metrics)     cmd_metrics "$@" ;;
+  plan-check)  cmd_plan_check "$@" ;;
   review)      cmd_review "$@" ;;
   exec)        cmd_exec "$@" ;;
   abort)       cmd_abort "$@" ;;

@@ -6,12 +6,14 @@ on:
       - 'docs/working/**/*.json'
       - 'schemas/**/*.json'
       - 'scripts/validate-schemas.py'
+      - 'scripts/schema_mapping.py'
       - '.github/workflows/schema-validate.yml'
   push:
     branches: [main]
     paths:
       - 'schemas/**/*.json'
       - 'scripts/validate-schemas.py'
+      - 'scripts/schema_mapping.py'
 
 permissions:
   contents: read
@@ -32,6 +34,21 @@ jobs:
 
       - name: Install jsonschema
         run: pip install 'jsonschema>=4,<5'
+
+      - name: Validate schema files and mapping integrity
+        run: |
+          set -eu
+          for f in schemas/*.json; do python3 -m json.tool "$f" >/dev/null; done
+          python3 - <<'PYCHK'
+          import sys, pathlib
+          sys.path.insert(0, "scripts")
+          import schema_mapping as m
+          miss = [v for v in m.FILENAME_TO_SCHEMA.values()
+                  if not (pathlib.Path(m.SCHEMAS_DIR) / v).exists()]
+          if miss:
+              sys.exit("missing schema targets: %s" % miss)
+          print("schema files + schema_mapping integrity OK")
+          PYCHK
 
       - name: Determine changed JSON files
         id: changed

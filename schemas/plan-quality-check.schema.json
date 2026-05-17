@@ -1,0 +1,218 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/s977043/plangate/schemas/plan-quality-check.schema.json",
+  "title": "Plan Quality Check Result",
+  "description": "Lightweight Plan Quality Check 出力（plan_check / risk_check / done_check 統合）。正本: docs/ai/plan-quality-checks.md (#213 / PBI-PQ-001)。AI 判定は人間承認の代替ではない（補助情報）。",
+  "type": "object",
+  "required": [
+    "check_type",
+    "score",
+    "decision",
+    "summary"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "check_type": {
+      "type": "string",
+      "enum": [
+        "plan_check",
+        "risk_check",
+        "done_check",
+        "combined"
+      ],
+      "description": "実行した Check 種別。combined は 3 種を統合した結果"
+    },
+    "score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Plan Health Score（0-100）。内訳は docs/ai/plan-quality-checks.md §Plan Health Score"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "needs_clarification",
+        "insufficient"
+      ],
+      "description": "score 閾値に基づく助言的判定（ゲート判定・承認の代替ではない）"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "score_breakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Plan Health Score の最小内訳（各 0-100）",
+      "properties": {
+        "goal_clarity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "scope_defined": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "success_metric": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "risks_identified": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "done_criteria_defined": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "goal_clarity",
+        "scope_defined",
+        "success_metric",
+        "risks_identified",
+        "done_criteria_defined"
+      ]
+    },
+    "missing_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "field",
+          "severity",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "major",
+              "minor",
+              "info"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "severity",
+          "title"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "recommendation": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "confidence"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "validation_method": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "done_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "validation_notes": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "next_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "clarify",
+              "investigate",
+              "decide",
+              "implement",
+              "verify"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
