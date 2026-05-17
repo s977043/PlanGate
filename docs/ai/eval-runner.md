@@ -111,6 +111,12 @@ sh bin/plangate eval --harness-compare \
 - 測定不能な latency / fix_loop / v1_first_pass は `n/a`
   （Non-goal: 全 provider session log parser 非対応）。
 
+> **PlanGateBench 連携（#204）**: 代表 TASK 選定は
+> [`plangatebench.md`](./plangatebench.md) の fixture パターンに揃える
+> （baseline と target で同一パターン → 比較対象の揺れを排除）。
+> `--harness-compare`/`--targets`（#196 / PBI-HI-002）で代表 TASK を比較する。
+
+
 ### dry-run（出力せず確認）
 
 ```sh
