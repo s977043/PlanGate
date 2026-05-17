@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0081", "phase": "C-3", "c3_status": "APPROVED",
+  "approved_by": "mine_take", "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:a13e9002c85f2c4e9fbd7b48c5caec752d36db0b2e6452bd9e18b994debb2ae2",
+  "_review_summary": {
+    "c1_self_review": "PASS（4分類は direction-codex-gemini C4 確定・additive docs・論点なし）",
+    "c3_decision": "APPROVE — ユーザー follow-up 指示（S4 着手）+ 分類は既決。additive docs/rules・強制機構不変",
+    "post_approval_action": "exec: S1棚卸し→S2 responsibility-classes.md→S3 hybrid参照→S4整合→V-1/V-3"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

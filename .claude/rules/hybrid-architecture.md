@@ -6,6 +6,10 @@
 
 ## Rule 1〜5（再構築ルール）
 
+> **責務 4 分類（AI/Human/CI/Workflow-owned）の正本**:
+> [`responsibility-classes.md`](./responsibility-classes.md)（TASK-0081 S4）。
+> Rule 1〜5（配置責務）と直交・補完する実行責務の分界。
+
 | Rule | 内容 |
 |------|------|
 | **Rule 1** | **Workflow は順序と完了条件だけを持つ**。実装ノウハウは書かない |
