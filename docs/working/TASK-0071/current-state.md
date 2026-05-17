@@ -1,18 +1,25 @@
 # TASK-0071 現在状態
 
-> 更新: 2026-05-17 / フェーズ: C-2完了（CONDITIONAL）→ C-3確定待ち
+> 更新: 2026-05-17 / 親 PBI（D-1 3分割）
 
 ## 今ここ
 
-Phase B + C-1 + C-3(D-1/D-2 一次判定) + **S3a 設計note** + **C-2 外部レビュー
-(Codex+Gemini)** 完了。C-2 で critical 2件（env メンテ=自己付与/SKIP_REASON=
-理由≠権限）を両者独立検出 → S3a を承認アーティファクト方式へ改訂済み。
+D-1 で S1+S2 / S3 / S4 の3分割を C-3 決定。**S1+S2 は TASK-0080（PR #254）
+として実装・V-3 fix-loop + V-4 完了・MERGED**（Shadow Config 恒久対処＝
+wiring契約正本 + apply script + doctor --check-settings + V-1/handoff
+タスクロック + CI settings-drift）。本セッション通底の AC-8 摩擦に構造決着。
 
-## 次アクション（人間）
+## 残
 
-C-3 確定: review-external.md の「C-3 で確定すべき回答」3点を承認/修正。
-- ①30分(最大30分/延長別承認) ②env廃止・承認ファイル方式 ③SKIP_REASON未追認=CI required failure
+- **S3**（EH-3 メンテモード/SKIP_REASON）: s3a-design-note.md の C-3 確定3点
+  待ち（①30分/延長別承認 ②env廃止・承認ファイル方式 ③SKIP_REASON未追認=
+  CI required failure）。確定後に実装 PBI 起票
+- **S4**（責務4分類 rules 正本化）: 独立・低リスク・着手可
+- AC-8 wiring 実適用: `sh scripts/apply-claude-settings.sh`（ユーザー実行・
+  TASK-0080 で 1 コマンド化済）
 
-## 次アクション（自律可・依存待ち）
+## 次アクション
 
-S1+S2 exec は PR #242/#243 マージ後。S3 は S1/S2 後の単独 PR。
+1. ユーザー: `sh scripts/apply-claude-settings.sh` で AC-8/EH-9 wiring 適用
+2. S3 の C-3 3点を確定 → S3 実装 PBI 起票
+3. S4 実装 PBI 起票（独立着手可）
