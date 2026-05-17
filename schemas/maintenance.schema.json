@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plangate/schemas/maintenance.schema.json",
+  "title": "EH-3 maintenance grant (TASK-0082 / TASK-0071 S3)",
+  "description": "人間が生成する検証可能な承認ファイル。docs/working/_maintenance/maintenance.json。env では有効化不可（AI 自己付与防止）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["scope", "until", "reason", "approved_by", "granted_at"],
+  "properties": {
+    "scope": {"type": "string", "description": "メンテ対象の説明（例: hook 整備）"},
+    "until": {"type": "integer", "description": "失効 epoch 秒(UTC)。granted_at+1800 以下（最大30分）"},
+    "granted_at": {"type": "integer", "description": "付与 epoch 秒(UTC)"},
+    "reason": {"type": "string", "minLength": 1},
+    "approved_by": {"type": "string", "minLength": 1, "description": "人間の承認者（AI 不可）"}
+  }
+}

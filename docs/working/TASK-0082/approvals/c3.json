@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0082", "phase": "C-3", "c3_status": "APPROVED",
+  "approved_by": "mine_take", "approved_at": "2026-05-17T00:00:00Z",
+  "plan_hash": "sha256:f1f3092cf888fff2064653880b8326cef25bae3015566c9d59146642678abc6f",
+  "_review_summary": {
+    "c1_self_review": "PASS（設計=s3a C-2反映・3点確定済・本C-3は実装妥当性+D-1）",
+    "c3_decision": "APPROVE + 3点確定(①30分/最大30分/延長別承認 ②env廃止・承認ファイル方式・CI自動付与禁止 ③SKIP_REASON未追認=CI required failure) + D-1=decision-log.jsonl に acknowledged_by 追記（ユーザー 2026-05-17）",
+    "post_approval_action": "exec: S2 schema→S3 メンテ分岐→S4 SKIP_REASON→S5 CI→V-1/V-3/V-4"
+  },
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

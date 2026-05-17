@@ -261,8 +261,8 @@ else
   fail=$((fail + 1))
 fi
 
-# TC-2: no TASK ctx + non-plan target → SKIP (exit 0)
-out=$(PLANGATE_HOOK_FILE=src/foo.ts sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
+# TC-2: no TASK ctx + non-plan + SKIP_REASON → SKIP (exit 0)  ※S3(TASK-0082)で SKIP_REASON 必須化
+out=$(PLANGATE_SKIP_REASON="generic-edit" PLANGATE_HOOK_FILE=src/foo.ts sh "$HOOKS_DIR/check-plan-hash.sh" 2>&1) && rc=0 || rc=$?
 if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "SKIP"; then
   printf '[PASS] EH-3 P4d TC-2: no-task non-plan → exit 0 SKIP\n'
   pass=$((pass + 1))
@@ -281,8 +281,8 @@ else
   fail=$((fail + 1))
 fi
 
-# TC-6: target_file resolution priority — $2 used when env unset
-out=$(sh "$HOOKS_DIR/check-plan-hash.sh" "" src/bar.ts 2>&1) && rc=0 || rc=$?
+# TC-6: target_file resolution priority — $2 used when env unset（S3: SKIP_REASON 必須）
+out=$(PLANGATE_SKIP_REASON="arg-resolve" sh "$HOOKS_DIR/check-plan-hash.sh" "" src/bar.ts 2>&1) && rc=0 || rc=$?
 if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "SKIP"; then
   printf '[PASS] EH-3 P4d TC-6: $2 arg resolves target → SKIP\n'
   pass=$((pass + 1))

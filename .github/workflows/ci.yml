@@ -26,6 +26,18 @@ jobs:
       - name: settings wiring 契約 ↔ settings.example.json 整合（TASK-0080 S2）
         run: sh scripts/check-settings-wiring.sh --target example
 
+  skip-ack:
+    name: SKIP_REASON 追認
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: EH-3 SKIP の人間追認確認（TASK-0082 S5）
+        run: sh scripts/check-skip-acknowledged.sh
+
   markdown:
     name: Markdown lint
     runs-on: ubuntu-latest
