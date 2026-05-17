@@ -137,8 +137,10 @@ exec 前に停止 or 明示降格する:
 |----------|------|-----------------|
 | `delegation_unavailable` | サブエージェント起動（`Agent`/`Task`）が利用不可、**または判定不能**（両者を同一扱い＝安全側に倒す。判定不能で委譲を試みると再びデッドロックし得る） | exec router が **direct-implementer-mode** へ自動移行（人間介入不要・正規フロー）。conductor は委譲可能時のみ起動されるため Iron Law と衝突しない |
 
-> 正本 taxonomy は #203 で一元化予定。本表は field 恒常 bug（#237/#238/#239）
-> を待たせないための最小定義。
+> **正本 taxonomy は [`tool-error-taxonomy.md`](./tool-error-taxonomy.md)
+> （#203 / TASK-0093）に一元化済**。本表は exec router 直結の
+> `delegation_unavailable` 最小定義のみ残す（重複定義しない）。全 category /
+> recovery policy / severity / classification は正本を参照。
 
 ## 6. Available evidence
 

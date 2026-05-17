@@ -85,6 +85,22 @@ interface-preflight.md で合意した値域:
 | `normal` | 標準検証 | なし |
 | `strict` | 厳格検証 | PBI-116-06 `docs/ai/hook-enforcement.md` で定義（最低 3 件） |
 
+## 8-bis. retry_strategy（Tool Error Taxonomy 接続 / #203）
+
+retryable な tool error（[tool-error-taxonomy.md](./tool-error-taxonomy.md) §4）
+の自動再試行方針。profile 別に値を持てる（未定義時は保守的既定）。
+
+| キー | 意味 | 既定（未定義時）|
+|------|------|----------------|
+| `max_retries` | retryable の自動再試行上限。超過で soft_warning 降格 | `1` |
+| `backoff` | `provider_timeout` 等の待機方針（none/linear/exponential）| `none` |
+
+- どの category が retry 対象かは [tool-error-taxonomy.md](./tool-error-taxonomy.md)
+  §2/§3 が正本。本節は **回数・待機の値域**のみを定義（責務分離）。
+- `release_blocker` 分類（schema_validation/missing_context/stale_contract）は
+  **retry しない**（max_retries に関わらず即停止）。
+- profile 拡張・値変更は §10 の方針（別 PBI / eval 根拠）に従う。
+
 ## 9. critical mode 禁止の運用
 
 `gpt-5_mini` は `disallowed_modes: [critical]` を持つ。これにより:

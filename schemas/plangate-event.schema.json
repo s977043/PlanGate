@@ -18,7 +18,7 @@
         "1.0",
         "1.1"
       ],
-      "description": "PlanGate event schema version (1.0 baseline / 1.1 additive: gate_id, parent_event_id, phase WF/handoff — experimental, #229 PBI-HI-013)"
+      "description": "PlanGate event schema version (1.0 baseline / 1.1 additive: gate_id, parent_event_id, phase WF/handoff — experimental, #229 PBI-HI-013) / 1.1 additive: tool_error event + tool_error_category (#203 PBI-HI-010)"
     },
     "ts": {
       "type": "string",
@@ -43,8 +43,10 @@
         "external_review_completed",
         "pr_created",
         "c4_decided",
-        "handoff_completed"
-      ]
+        "handoff_completed",
+        "tool_error"
+      ],
+      "description": ""
     },
     "phase": {
       "type": "string",
@@ -162,6 +164,22 @@
       "description": "Causal link to a prior event id (1.1 optional / experimental #229). Privacy(#202): 識別子のみ・slash/空白/自由文不可",
       "pattern": "^[A-Za-z0-9._:-]{1,64}$",
       "maxLength": 64
+    },
+    "tool_error_category": {
+      "type": "string",
+      "enum": [
+        "edit_patch_failure",
+        "edit_replace_failure",
+        "test_command_failure",
+        "provider_timeout",
+        "schema_validation_failure",
+        "missing_context",
+        "permission_denied",
+        "stale_contract",
+        "delegation_unavailable",
+        "unknown_tool_error"
+      ],
+      "description": "tool error category (1.1 additive, #203 PBI-HI-010). 正本: docs/ai/tool-error-taxonomy.md"
     }
   },
   "allOf": [
@@ -248,6 +266,29 @@
       "then": {
         "required": [
           "fix_loop_count"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event": {
+            "const": "tool_error"
+          }
+        },
+        "required": [
+          "event"
+        ]
+      },
+      "then": {
+        "properties": {
+          "schema_version": {
+            "const": "1.1"
+          }
+        },
+        "required": [
+          "tool_error_category",
+          "schema_version"
         ]
       }
     }

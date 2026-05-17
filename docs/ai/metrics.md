@@ -98,10 +98,6 @@ git が無い / commit が見つからない場合は silent に skip。
 出力例（aggregate text）：
 
 ```text
-## By mode (H-3)
-- **light**: V-1 12/14 PASS (85.71%) / C-3 APPROVED=10 / hook_violations=2
-- **standard**: V-1 5/5 PASS (100.0%) / C-3 APPROVED=5 / hook_violations=0
-```
 
 ### 3.6 整合性検証（v8.6.0 PR5 / H-1）
 
@@ -140,6 +136,25 @@ bin/plangate doctor --json
 ```
 
 CI 統合用。v8.6.0 metrics & privacy セクション 16 check の結果を JSON で返す。`failures > 0` で exit 1。
+
+### 3.8 tool_error の記録方針（#203 PBI-HI-010）
+
+ツール失敗は `tool_error` event（schema 1.1 additive）として記録する。
+category は [tool-error-taxonomy.md](./tool-error-taxonomy.md) §2 の enum
+（`tool_error_category`）。Privacy（[metrics-privacy.md](./metrics-privacy.md)
+§4）に従い **message / stack trace / command output は emit しない**
+（`tool_error_category` と `tool_name` / `phase` のみ）。`unknown_tool_error`
+は harness improvement backlog 還流の入力（taxonomy §6）。
+
+```sh
+echo '{"schema_version":"1.1","ts":"2026-05-17T00:00:00Z","task_id":"TASK-XXXX","event":"tool_error","tool_error_category":"edit_patch_failure","tool_name":"Edit","phase":"D"}' \
+  >> "$EVENTS_LOG"
+```
+
+## By mode (H-3)
+- **light**: V-1 12/14 PASS (85.71%) / C-3 APPROVED=10 / hook_violations=2
+- **standard**: V-1 5/5 PASS (100.0%) / C-3 APPROVED=5 / hook_violations=0
+```
 
 ## 4. Privacy
 
@@ -214,7 +229,6 @@ baseline と metrics summary を組み合わせると、改善前後の差分が
 - [schemas/plangate-event.schema.json](../../schemas/plangate-event.schema.json)
 - [scripts/hooks/check-metrics-privacy.sh](../../scripts/hooks/check-metrics-privacy.sh) — EH-8 privacy 強制 hook
 - [examples/sample-task/metrics-events.ndjson](../../examples/sample-task/metrics-events.ndjson) / [metrics-summary.md](../../examples/sample-task/metrics-summary.md) — 利用例
-
 
 ## Trace Timeline v1（experimental / #229 PBI-HI-013・v8.7.0）
 
