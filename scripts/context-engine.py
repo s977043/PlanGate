@@ -35,8 +35,22 @@ _BUDGET = {
     "high_risk": ("expanded", 16),
     "critical": ("expanded", 24),
 }
-_POLICY_RANK = {"compact": 0, "standard": 1, "expanded": 2}
-_RANK_POLICY = {0: "compact", 1: "standard", 2: "expanded"}
+_POLICY_ORDER = ("compact", "standard", "expanded")
+
+
+def _read_c3_plan_hash(c3_path: Path) -> str | None:
+    """c3.json を JSON として読み plan_hash の sha256 部を返す。
+
+    正規表現でなく json.load で読む（偽プロパティ注入耐性・EH-3 同意味）。
+    欠落/不正/不可は None。
+    """
+    try:
+        ph = json.loads(c3_path.read_text()).get("plan_hash", "")
+    except (OSError, ValueError):
+        return None
+    if isinstance(ph, str) and ph.startswith("sha256:"):
+        return ph[len("sha256:"):]
+    return None
 
 
 def _profile_policy(profile: str | None) -> str | None:
@@ -83,11 +97,8 @@ def _contract(task_id: str) -> tuple[list, dict]:
         ("c3_approval", d / "approvals" / "c3.json"),
     ]
     c3 = d / "approvals" / "c3.json"
-    plan = d / "plan.md"
-    rec_hash = None
-    if c3.is_file():
-        m = re.search(r'"plan_hash"\s*:\s*"sha256:([0-9a-f]+)"', c3.read_text())
-        rec_hash = m.group(1) if m else None
+    rec_hash = _read_c3_plan_hash(c3)
+    c3_exists = c3.is_file()
     for kind, fp in spec:
         if not fp.is_file():
             items.append({"kind": kind, "path": str(fp.relative_to(REPO)),
@@ -95,25 +106,20 @@ def _contract(task_id: str) -> tuple[list, dict]:
             continue
         entry = {"kind": kind, "path": str(fp.relative_to(REPO)),
                  "status": "present"}
-        if kind == "approved_plan":
-            if rec_hash:
-                cur = hashlib.sha256(fp.read_bytes()).hexdigest()
-                entry["plan_hash"] = f"sha256:{cur}"
-                if cur != rec_hash:
-                    # EH-3 と矛盾しない: plan_hash 不一致 = stale。契約 invalidate
-                    entry["status"] = "stale"
-                    entry["invalidated"] = True
-                    plan_hash_match = False
-                    note = "plan.md changed after C-3 (EH-3 plan_hash mismatch)"
-                else:
-                    plan_hash_match = True
-            elif c3.is_file():
-                # c3 はあるが plan_hash 抽出不可 → 未照合の承認 plan を
-                # contract として使わせない（承認境界を弱めない / V-3 MJ-2）
+        if kind == "approved_plan" and rec_hash:
+            cur = hashlib.sha256(fp.read_bytes()).hexdigest()
+            entry["plan_hash"] = f"sha256:{cur}"
+            plan_hash_match = cur == rec_hash
+            if not plan_hash_match:
                 entry["status"] = "stale"
                 entry["invalidated"] = True
-                plan_hash_match = False
-                note = "plan_hash missing/unverified in c3.json — contract not usable"
+                note = "plan.md changed after C-3 (EH-3 plan_hash mismatch)"
+        elif kind == "approved_plan" and c3_exists:
+            # 未照合の承認 plan を contract に使わせない（承認境界保護 / V-3 MJ-2）
+            entry["status"] = "stale"
+            entry["invalidated"] = True
+            plan_hash_match = False
+            note = "plan_hash missing/unverified in c3.json — contract not usable"
         items.append(entry)
     return items, {"plan_hash_match": plan_hash_match,
                    "note": note or ("plan_hash consistent" if plan_hash_match else "no c3/plan to verify")}
@@ -122,9 +128,9 @@ def _contract(task_id: str) -> tuple[list, dict]:
 def build(task_id: str, phase: str, mode: str, profile: str | None) -> dict:
     pol, dmax = _BUDGET.get(mode, ("standard", 10))
     ppol = _profile_policy(profile)
-    if ppol in _POLICY_RANK:
-        # mode 由来と profile 由来の保守側（小さい rank）を採用
-        pol = _RANK_POLICY[min(_POLICY_RANK[pol], _POLICY_RANK[ppol])]
+    if ppol in _POLICY_ORDER:
+        pol = _POLICY_ORDER[min(_POLICY_ORDER.index(pol),
+                                _POLICY_ORDER.index(ppol))]
     contract, guard = _contract(task_id)
     dyn = [{"kind": k, "source": s, "when": w} for k, s, w in _DYNAMIC][:dmax]
     return {

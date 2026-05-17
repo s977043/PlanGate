@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -22,6 +23,32 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 WORKING = REPO / "docs" / "working"
 AC_LINE = re.compile(r"^\|\s*AC[0-9A-Za-z_-]*\s*\|.*\|\s*(PASS|FAIL|WARN)\s*\|", re.I)
+
+UNKNOWN = "unknown"
+REFERENCED = "referenced"
+
+
+def _unknown(reason: str) -> dict:
+    return {"value": UNKNOWN, "reason": reason}
+
+
+def _ratio(num: int, denom: int, **extra) -> dict:
+    return {"value": round(100.0 * num / denom, 2), **extra}
+
+
+def _read_c3_plan_hash(c3_path: Path) -> str | None:
+    """c3.json を JSON として読み plan_hash の sha256 部を返す。
+
+    正規表現でなく json.load で読む（偽プロパティ注入耐性。EH-3 と同意味）。
+    欠落/不正/不可は None。
+    """
+    try:
+        ph = json.loads(c3_path.read_text()).get("plan_hash", "")
+    except (OSError, ValueError):
+        return None
+    if isinstance(ph, str) and ph.startswith("sha256:"):
+        return ph[len("sha256:"):]
+    return None
 
 
 def _git(*args: str) -> str | None:
@@ -64,24 +91,19 @@ def code_keep_rate(task_id: str) -> dict:
     log = _git("log", "--all", "-E", "--format=%H",
                f"--grep=(^|[^0-9A-Za-z-]){re.escape(task_id)}([^0-9A-Za-z-]|$)")
     if not log or not log.strip():
-        return {"value": "unknown", "reason": f"no commit referencing {task_id}"}
+        return _unknown(f"no commit referencing {task_id}")
     shas = log.split()
-    changed: set[str] = set()
-    for sha in shas:
-        files = _git("show", "--name-only", "--format=", sha) or ""
-        for f in files.splitlines():
-            f = f.strip()
-            if not f or not _is_code(f):
-                continue
-            changed.add(f)
-    if not changed:
-        return {"value": "unknown", "reason": "no code files in TASK commits"}
-    survived = sum(1 for f in changed if (REPO / f).is_file())
-    return {
-        "value": round(100.0 * survived / len(changed), 2),
-        "survived": survived,
-        "total": len(changed),
+    # 全 SHA を 1 回の git show に渡す（N fork 回避）
+    files = _git("show", "--name-only", "--format=", *shas) or ""
+    changed = {
+        f.strip() for f in files.splitlines()
+        if f.strip() and _is_code(f.strip())
     }
+    if not changed:
+        return _unknown("no code files in TASK commits")
+    survived = sum(1 for f in changed if (REPO / f).is_file())
+    return _ratio(survived, len(changed), survived=survived,
+                  total=len(changed))
 
 
 def plan_keep_rate(task_id: str) -> dict:
@@ -95,32 +117,22 @@ def plan_keep_rate(task_id: str) -> dict:
     handoff = d / "handoff.md"
     plan_md = d / "plan.md"
     if not todo.is_file() or not c3.is_file() or not handoff.is_file():
-        return {"value": "unknown", "reason": "todo.md / c3.json / handoff.md missing"}
+        return _unknown("todo.md / c3.json / handoff.md missing")
     if plan_md.is_file():
+        rec = _read_c3_plan_hash(c3)
         try:
-            import hashlib
-
-            rec = re.search(
-                r'"plan_hash"\s*:\s*"sha256:([0-9a-f]+)"', c3.read_text()
-            )
             cur = hashlib.sha256(plan_md.read_bytes()).hexdigest()
-            if rec and rec.group(1) != cur:
-                return {
-                    "value": "unknown",
-                    "reason": "plan.md changed after C-3 (plan_hash mismatch)",
-                }
         except OSError:
-            pass
+            # plan.md 読込不可は stale 検証不能 = unknown（算出不能は unknown 原則）
+            return _unknown("plan.md unreadable — plan_hash unverifiable")
+        if rec and rec != cur:
+            return _unknown("plan.md changed after C-3 (plan_hash mismatch)")
     txt = todo.read_text()
     done = len(re.findall(r"^\s*- \[x\]", txt, re.M | re.I))
     total = len(re.findall(r"^\s*- \[[ xX]\]", txt, re.M))
     if total == 0:
-        return {"value": "unknown", "reason": "no todo checklist items"}
-    return {
-        "value": round(100.0 * done / total, 2),
-        "done": done,
-        "total": total,
-    }
+        return _unknown("no todo checklist items")
+    return _ratio(done, total, done=done, total=total)
 
 
 def acceptance_keep_rate(task_id: str) -> dict:
@@ -129,7 +141,7 @@ def acceptance_keep_rate(task_id: str) -> dict:
     tc = d / "test-cases.md"
     handoff = d / "handoff.md"
     if not tc.is_file() or not handoff.is_file():
-        return {"value": "unknown", "reason": "test-cases.md / handoff.md missing"}
+        return _unknown("test-cases.md / handoff.md missing")
     tc_ids = set(re.findall(r"\bAC[0-9][0-9A-Za-z_-]*", tc.read_text()))
     p = f = w = 0
     for ln in handoff.read_text().splitlines():
@@ -141,7 +153,7 @@ def acceptance_keep_rate(task_id: str) -> dict:
             w += v == "WARN"
     tot = p + f + w
     if tot == 0:
-        return {"value": "unknown", "reason": "no AC verdict rows in handoff"}
+        return _unknown("no AC verdict rows in handoff")
     out = {"value": round(100.0 * p / tot, 2), "pass": p, "fail": f, "warn": w}
     if tc_ids and tot < len(tc_ids):
         out["reason"] = (
@@ -160,7 +172,7 @@ def handoff_keep_rate(task_id: str) -> dict:
     """
     d = WORKING / task_id
     if not (d / "handoff.md").is_file():
-        return {"value": "unknown", "reason": "handoff.md missing"}
+        return _unknown("handoff.md missing")
     refs = 0
     for other in sorted(WORKING.glob("TASK-*")):
         if other.name == task_id or not other.is_dir():
@@ -171,11 +183,8 @@ def handoff_keep_rate(task_id: str) -> dict:
                 refs += 1
                 break
     if refs == 0:
-        return {
-            "value": "unknown",
-            "reason": "no downstream reference yet (定義: keep-rate.md §Handoff)",
-        }
-    return {"value": "referenced", "referenced_by": refs}
+        return _unknown("no downstream reference yet (定義: keep-rate.md §Handoff)")
+    return {"value": REFERENCED, "referenced_by": refs}
 
 
 def build(task_id: str) -> dict:
@@ -193,9 +202,9 @@ def build(task_id: str) -> dict:
 def render_md(r: dict) -> str:
     def fmt(m: dict) -> str:
         v = m["value"]
-        if v == "unknown":
+        if v == UNKNOWN:
             return f"unknown ({m.get('reason', '')})"
-        if v == "referenced":
+        if v == REFERENCED:
             return f"referenced (by {m.get('referenced_by')} TASK)"
         return f"{v}%"
 
