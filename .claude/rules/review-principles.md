@@ -84,6 +84,11 @@ CI自動レビュー・ローカルレビュー共通の判定フレーム。
   #230 events 化時の最小フィールド案:
   `{review_id:R-NNN, lane, severity, reflected_in, status}`（後続実装の
   解釈ブレ防止。本 PBI は参照定義まで）
+- **接続 IF 正本（#227 / TASK-0089）**: 本責務契約を C-2/V-3 外部
+  レビューア接続規約として正規化した正本は
+  [`docs/ai/external-reviewer-interface.md`](../../docs/ai/external-reviewer-interface.md)
+  （`.plangate-reviewers.yaml` / severity マッピング / 責務分担 / 3 導入
+  パターン）。本契約（観点・Severity・判定基準）は不変、IF は接続のみ規定
 
 ## 8. レビューの優先順位
 

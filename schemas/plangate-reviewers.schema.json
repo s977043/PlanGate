@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/s977043/plangate/schemas/plangate-reviewers.schema.json",
+  "title": "PlanGate External Reviewers Interface",
+  "description": "Schema for .plangate-reviewers.yaml — C-2/V-3 external reviewer wiring. 正本: docs/ai/external-reviewer-interface.md (#227)",
+  "type": "object",
+  "required": [
+    "version",
+    "reviewers"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": [
+        "1.0"
+      ],
+      "description": "IF schema version. Additive evolution per versioning-stability-policy.md §2.1"
+    },
+    "reviewers": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "c2": {
+          "$ref": "#/definitions/reviewerSpec"
+        },
+        "v3": {
+          "$ref": "#/definitions/reviewerSpec"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "reviewerSpec": {
+      "type": "object",
+      "required": [
+        "provider",
+        "command",
+        "output_mapping"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]{1,64}$",
+          "description": "Reviewer identifier, e.g. river-reviewer / gemini / codex"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "description": "Command emitting Finding JSON to stdout"
+        },
+        "output_mapping": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "severity": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "evidence": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "location": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "severity",
+            "evidence",
+            "location"
+          ]
+        }
+      }
+    }
+  }
+}

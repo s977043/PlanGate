@@ -29,3 +29,4 @@
 - [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — phase: C-1 / C-2 / V-3
 - [`.claude/rules/review-principles.md`](../../../.claude/rules/review-principles.md)
 - [`structured-outputs.md`](../structured-outputs.md)（schema validate CI 統合 / Issue #158）
+- [`external-reviewer-interface.md`](../external-reviewer-interface.md) — C-2/V-3 外部レビューア接続 IF 正本（#227）

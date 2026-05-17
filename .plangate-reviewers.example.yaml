@@ -1,0 +1,24 @@
+# PlanGate 外部レビューア接続 — 最小構成例（example。リネームで有効化）
+# 正本: docs/ai/external-reviewer-interface.md (#227)
+# スキーマ: schemas/plangate-reviewers.schema.json
+#
+# 有効化するには本ファイルを .plangate-reviewers.yaml にコピーする。
+# 未配置なら従来どおり PLANGATE_EXTERNAL_REVIEWER（既定 codex）で動作する。
+version: "1.0"
+reviewers:
+  # C-2: plan ゲート外部レビュー（upstream）
+  c2:
+    provider: river-reviewer
+    command: "river run . --phase upstream --output-format json"
+    output_mapping:
+      severity: finding.severity
+      evidence: finding.evidence
+      location: "finding.file + ':' + finding.line"
+  # V-3: 実装後外部モデルレビュー（midstream）
+  v3:
+    provider: river-reviewer
+    command: "river run . --phase midstream --output-format json"
+    output_mapping:
+      severity: finding.severity
+      evidence: finding.evidence
+      location: "finding.file + ':' + finding.line"
