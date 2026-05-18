@@ -179,9 +179,23 @@ if [ ! -f "$c3_file" ]; then
   exit 0
 fi
 
-# c3.json から plan_hash を抽出
-recorded_hash=$(grep '"plan_hash"' "$c3_file" 2>/dev/null \
-  | sed 's/.*"plan_hash"[[:space:]]*:[[:space:]]*"sha256:\([0-9a-f]*\)".*/\1/' || echo "")
+# c3.json から plan_hash を抽出（strict JSON / #282 TASK-0105）。
+# 寛容 sed 抽出は不正 JSON の c3.json でも plan_hash を拾い承認判定の
+# 入力健全性を損なうため、scripts/plan_hash_util.recorded_plan_hash と
+# 意味一致の strict 解析へ。不正/欠落/非 object/prefix 不一致は空（=SKIP）。
+# python3 は本フック :108 で既出依存（新規依存追加なし）。
+recorded_hash=$(python3 - "$c3_file" <<'PHX' 2>/dev/null || echo ""
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    print(""); raise SystemExit(0)
+if not isinstance(d, dict):
+    print(""); raise SystemExit(0)
+v = d.get("plan_hash", "")
+print(v[7:] if isinstance(v, str) and v.startswith("sha256:") else "")
+PHX
+)
 
 if [ -z "$recorded_hash" ]; then
   reason="plan_hash not found in c3.json"

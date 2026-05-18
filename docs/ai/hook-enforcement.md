@@ -28,6 +28,13 @@ PlanGate の **Iron Law 7 項目相当の不変条件** を、プロンプトに
 ### EH-3: plan_hash 改竄検知
 
 - **トリガー**: `approvals/c3.json` 発行後、`plan.md` が変更されたが `c3.json` の `plan_hash` が更新されていない
+> **#282 / TASK-0105 ハードニング**: c3.json の plan_hash 抽出を寛容
+> `sed` から **strict JSON 解析**（`scripts/plan_hash_util.recorded_plan_hash`
+> と意味一致）へ変更。不正 JSON / 非 object / prefix 不一致の c3.json は
+> 承認記録として**信用せず空＝SKIP**（旧 sed は不正でも plan_hash を抽出し
+> 比較続行＝不正記録を承認境界の根拠にしていた）。**承認境界はより厳格化
+> ＝安全側**。正常系（PASS）・改竄検知（BLOCK）の挙動は不変（回帰なし）。
+
 - **対応**: Hook が次の operation を block。再承認を要求
 - **基盤**: Iron Law #5（承認済 plan と実装差分の整合性）
 

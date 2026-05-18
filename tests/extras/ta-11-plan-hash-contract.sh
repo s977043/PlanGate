@@ -1,14 +1,14 @@
 # tests/extras/ta-11-plan-hash-contract.sh
 # Sourced by tests/run-tests.sh — relies on $pass / $fail / $FIXTURES_DIR
-# TASK-0100 (#193 follow-up): scripts/plan_hash_util.py（Python 共有正本）と
-# EH-3 shell（scripts/hooks/check-plan-hash.sh の sed 抽出）の plan_hash
-# 抽出契約を fixture で固定する。
+# TASK-0100 (#193 follow-up) / TASK-0105 (#282): scripts/plan_hash_util.py
+# （Python 共有正本）と EH-3 shell（scripts/hooks/check-plan-hash.sh の
+# **strict JSON 抽出**）の plan_hash 抽出契約を fixture で固定する。
 #
-# 契約:
-#   - 正常 / 偽プロパティ注入 / plan_hash 無: shell ≡ python（parity 必須）
-#   - 不正 JSON（末尾カンマ等）: python は strict に拒否（None）。これは
-#     「不正な c3.json を承認記録として信用しない」意図的安全側であり
-#     shell(sed 寛容抽出) との差異は **仕様**（バグではない）。
+# 契約（#282 後・全 parity）:
+#   - 正常 / 偽プロパティ注入 / plan_hash 無 / 不正 JSON（末尾カンマ等）:
+#     すべて shell ≡ python（parity 必須）。#282 で check-plan-hash.sh を
+#     寛容 sed から strict JSON へ変更したため、不正 c3.json は shell も
+#     python も空（承認記録として信用しない安全側）で一致する。
 
 printf '\n=== TA-11: plan_hash util ↔ EH-3 shell 契約 ===\n'
 
@@ -17,9 +17,19 @@ PHC_FIX="$FIXTURES_DIR/plan-hash-contract"
 PHC_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
 
 phc_shell() {
-  grep '"plan_hash"' "$1" 2>/dev/null \
-    | sed 's/.*"plan_hash"[[:space:]]*:[[:space:]]*"sha256:\([0-9a-f]*\)".*/\1/' \
-    || echo ""
+  # #282 後: check-plan-hash.sh と同一の strict JSON 抽出を検証（旧 sed
+  # レプリカは廃止。実フックの抽出契約と一致させる）
+  python3 - "$1" <<'PHX' 2>/dev/null || echo ""
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    print(""); raise SystemExit(0)
+if not isinstance(d, dict):
+    print(""); raise SystemExit(0)
+v = d.get("plan_hash", "")
+print(v[7:] if isinstance(v, str) and v.startswith("sha256:") else "")
+PHX
 }
 phc_python() {
   python3 - "$PHC_ROOT/scripts" "$1" <<'PY'
@@ -43,20 +53,8 @@ phc_assert_parity() {
   fi
 }
 
-phc_assert_strict_divergence() {
-  f="$PHC_FIX/$1"; label=$2
-  s=$(phc_shell "$f"); p=$(phc_python "$f")
-  # python は不正 JSON を None(空) に、shell は寛容抽出（非空）→ 差異が仕様
-  if [ -z "$p" ] && [ -n "$s" ]; then
-    printf '[PASS] %s — python strict 拒否(空) / shell 寛容(%s) = 意図的安全側\n' "$label" "$s"
-    pass=$((pass + 1))
-  else
-    printf '[FAIL] %s — 期待: python 空 & shell 非空。実際 shell=%s python=%s\n' "$label" "$s" "$p"
-    fail=$((fail + 1))
-  fi
-}
 
 phc_assert_parity valid.json    "正常 c3.json"
 phc_assert_parity injected.json "偽プロパティ注入"
 phc_assert_parity no-hash.json  "plan_hash 無"
-phc_assert_strict_divergence malformed-trailing-comma.json "不正JSON(末尾カンマ)"
+phc_assert_parity malformed-trailing-comma.json "不正JSON(末尾カンマ・#282後 strict parity)"
