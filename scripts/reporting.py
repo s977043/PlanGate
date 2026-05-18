@@ -22,6 +22,7 @@ from pathlib import Path
 
 import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
 from _paths import REPO_ROOT as REPO, WORKING_DIR as WORKING  # noqa: E402
+from metrics_reporter import load_events  # noqa: E402
 
 UNKNOWN = "unknown"
 C3_STATUSES = ("APPROVED", "CONDITIONAL", "REJECTED")
@@ -57,6 +58,38 @@ def _parse_status_md(text: str) -> dict:
     return out
 
 
+def _events_signals(task_events: list[dict]) -> dict:
+    """metrics events から v1_first_pass / fix_loop を厳密導出（#200 v2）。
+
+    events.ndjson（Metrics v1・gitignore）は決定論的な正本シグナル。
+    - v1_first_pass: 最初の `v1_completed` の verdict が PASS なら True、
+      FAIL/WARN 等なら False（fix loop 再実行を含む append 順＝時系列）
+    - fix_loop: `fix_loop_incremented` の fix_loop_count の最大
+    どちらも該当 event 無しなら未設定（呼び出し側が status.md へ fallback）。
+    """
+    out: dict = {}
+    # 有効 verdict（schema enum）を持つ v1_completed のみ候補。verdict 欠落/
+    # 不正行は除外し status.md fallback を塞がない（V-3 minor 防御）。
+    _VALID_VERDICT = {"PASS", "FAIL", "WARN", "APPROVED",
+                      "CONDITIONAL", "REJECTED", "REQUEST_CHANGES"}
+    v1 = [
+        e for e in task_events
+        if e.get("event") == "v1_completed"
+        and e.get("verdict") in _VALID_VERDICT
+    ]
+    if v1:
+        out["v1_first_pass"] = v1[0]["verdict"] == "PASS"
+    fl = [
+        e.get("fix_loop_count")
+        for e in task_events
+        if e.get("event") == "fix_loop_incremented"
+        and isinstance(e.get("fix_loop_count"), int)
+    ]
+    if fl:
+        out["fix_loop"] = max(fl)
+    return out
+
+
 def _date(s: str) -> _dt.date:
     return _dt.datetime.strptime(s, "%Y-%m-%d").date()
 
@@ -89,6 +122,17 @@ def _in_range(ts: str | None, lo: _dt.date, hi: _dt.date) -> bool:
 
 
 def collect(lo: _dt.date, hi: _dt.date) -> dict:
+    # events.ndjson（gitignore・clean checkout で不在の場合 [] → status.md
+    # fallback で従来挙動を維持）。load_events は metrics_reporter を再利用。
+    _events = load_events(WORKING / "_metrics" / "events.ndjson")
+    _ev_by_task: dict = {}
+    for _e in _events:
+        _tid = _e.get("task_id")
+        if _tid:
+            _ev_by_task.setdefault(_tid, []).append(_e)
+    _ev_by_task = {
+        _t: _events_signals(_evs) for _t, _evs in _ev_by_task.items()
+    }
     tasks = []
     for d in sorted(WORKING.glob("TASK-*")):
         if not d.is_dir():
@@ -113,10 +157,19 @@ def collect(lo: _dt.date, hi: _dt.date) -> dict:
                 "code": k.get("code_keep_rate", {}).get("value"),
                 "plan": k.get("plan_keep_rate", {}).get("value"),
             }
+        # シグナル優先順: events.ndjson（決定論正本）> status.md ヒューリ
+        # スティック > unknown。events 不在時は従来挙動（behavior-preserving）。
+        ev_sig = _ev_by_task.get(d.name, {})
+        status_sig = {}
         try:
-            rec.update(_parse_status_md((d / "status.md").read_text()))
+            status_sig = _parse_status_md((d / "status.md").read_text())
         except OSError:
             pass
+        for key in ("v1_first_pass", "fix_loop"):
+            if key in ev_sig:
+                rec[key] = ev_sig[key]
+            elif key in status_sig:
+                rec[key] = status_sig[key]
         tasks.append(rec)
     hook_viol = _hook_violations(lo, hi)
     return _aggregate(tasks, lo, hi, hook_viol)
