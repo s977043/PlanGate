@@ -56,6 +56,43 @@ sh bin/plangate report --from 2026-05-01 --to 2026-05-31 --no-write  # 標準出
 
 `--from`/`--to` は `YYYY-MM-DD`。`from > to` はエラー（exit 2）。
 
+## 4-bis. 精度オプション（#281 / opt-in・behavior-preserving）
+
+dogfooding 振り返りで顕在化した精度限界への opt-in 改善。**いずれも未指定
+時は従来挙動と完全等価**（behavior-preserving）。
+
+### `--exclude-test-hooks`
+
+hook violation 集計から **test/dev 由来行を構造化判定で除外**する。
+判定軸（雑な文字列一致でなく構造化キー）:
+
+- `hook-events.log` の task 列が `TASK-HOOKTEST` プレフィックス → 除外
+- task 列が `tests/fixtures/` を含むパス → 除外
+- `-`（TASK 文脈なし）等の曖昧行は **除外しない**（実 violation を隠さない）
+
+```sh
+sh bin/plangate report --from 2026-05-01 --to 2026-05-31 --exclude-test-hooks
+```
+
+### `--tasks <TASK-id,...>`（run スコープ）
+
+集計対象を指定 TASK 集合に限定（= 1 run の TASK セット単位の集計）。
+period 窓は維持したうえで対象 TASK を絞る追加条件。未指定時は全 TASK
+（従来挙動）。空指定（`""` / `","`）は exit 2。
+
+**run スコープ時の hook violation**: `--tasks` 指定時は hook violation 集計も
+対象 TASK セットの行のみに限定する（`-`＝TASK 文脈なし・fixtures パス等は
+run 外として除外）。これにより `task_count` と hook violation のスコープが
+一致する（#281 V-3 MJ-1）。
+
+```sh
+sh bin/plangate report --from 2026-05-01 --to 2026-05-31 --tasks TASK-0102,TASK-0101
+```
+
+> 真の run-id（イベント単位の run 識別）スコープには run_id インフラ新設が
+> 必要で本 PBI の Out-of-scope（#281）。本オプションは run=TASK セットの
+> 軽量近似であり、run_id 化は将来課題。
+
 ## 5. retrospective への接続
 
 1. `bin/plangate report` を sprint 期間で実行。

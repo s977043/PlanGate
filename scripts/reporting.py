@@ -121,7 +121,9 @@ def _in_range(ts: str | None, lo: _dt.date, hi: _dt.date) -> bool:
     return lo <= d <= hi
 
 
-def collect(lo: _dt.date, hi: _dt.date) -> dict:
+def collect(lo: _dt.date, hi: _dt.date,
+            only_tasks: set | None = None,
+            exclude_test: bool = False) -> dict:
     # events.ndjson（gitignore・clean checkout で不在の場合 [] → status.md
     # fallback で従来挙動を維持）。load_events は metrics_reporter を再利用。
     _events = load_events(WORKING / "_metrics" / "events.ndjson")
@@ -136,6 +138,8 @@ def collect(lo: _dt.date, hi: _dt.date) -> dict:
     tasks = []
     for d in sorted(WORKING.glob("TASK-*")):
         if not d.is_dir():
+            continue
+        if only_tasks is not None and d.name not in only_tasks:
             continue
         c3 = _read_json(d / "approvals" / "c3.json")
         if c3 is None or not _in_range(c3.get("approved_at"), lo, hi):
@@ -171,11 +175,27 @@ def collect(lo: _dt.date, hi: _dt.date) -> dict:
             elif key in status_sig:
                 rec[key] = status_sig[key]
         tasks.append(rec)
-    hook_viol = _hook_violations(lo, hi)
+    hook_viol = _hook_violations(lo, hi, exclude_test=exclude_test,
+                                 only_tasks=only_tasks)
     return _aggregate(tasks, lo, hi, hook_viol)
 
 
-def _hook_violations(lo: _dt.date, hi: _dt.date) -> dict:
+def _is_test_hook_row(task_col: str) -> bool:
+    """hook-events.log の task 列が test/dev 由来か（構造化判定）。
+
+    雑な文字列一致でなく構造化キーで判定（Codex 落とし穴1）:
+    - `TASK-HOOKTEST` プレフィックス（フック専用テスト TASK）
+    - `tests/fixtures/` を含むパス（テスト fixture 経路）
+    `-`（TASK 文脈なし）等の曖昧行は **除外しない**（実 violation を隠さない）。
+    """
+    if not task_col:
+        return False
+    return task_col.startswith("TASK-HOOKTEST") or "tests/fixtures/" in task_col
+
+
+def _hook_violations(lo: _dt.date, hi: _dt.date,
+                     exclude_test: bool = False,
+                     only_tasks: set | None = None) -> dict:
     """docs/working/_audit/hook-events.log の VIOLATION を期間集計（決定論）。
 
     形式: `<ISO ts>\t<LEVEL>\t<hook>\t<task>\t<msg>`。ts を UTC 日付化し
@@ -192,6 +212,14 @@ def _hook_violations(lo: _dt.date, hi: _dt.date) -> dict:
                     continue
                 if not _in_range(cols[0], lo, hi):
                     continue
+                if exclude_test and len(cols) >= 4 \
+                        and _is_test_hook_row(cols[3]):
+                    continue
+                if only_tasks is not None:
+                    # run スコープ: 対象 TASK セットの行のみ。`-`(TASK 文脈
+                    # なし)・fixtures パス等は run 外として除外（Codex MJ-1）
+                    if len(cols) < 4 or cols[3] not in only_tasks:
+                        continue
                 total += 1
                 hk = cols[2] or UNKNOWN
                 by_hook[hk] = by_hook.get(hk, 0) + 1
@@ -298,6 +326,10 @@ def main() -> int:
     ap.add_argument("--from", dest="frm", required=True, help="YYYY-MM-DD")
     ap.add_argument("--to", dest="to", required=True, help="YYYY-MM-DD")
     ap.add_argument("--no-write", action="store_true")
+    ap.add_argument("--exclude-test-hooks", action="store_true",
+                    help="hook violation 集計から test/dev 由来行を除外（#281）")
+    ap.add_argument("--tasks",
+                    help="run スコープ: 集計対象を TASK-id (カンマ区切り) に限定（#281）")
     a = ap.parse_args()
     try:
         lo, hi = _date(a.frm), _date(a.to)
@@ -307,7 +339,13 @@ def main() -> int:
     if lo > hi:
         print("error: --from is after --to", file=sys.stderr)
         return 2
-    r = collect(lo, hi)
+    only = None
+    if a.tasks is not None:
+        only = {x.strip() for x in a.tasks.split(',') if x.strip()}
+        if not only:
+            print('error: --tasks is empty after parsing', file=sys.stderr)
+            return 2
+    r = collect(lo, hi, only_tasks=only, exclude_test=a.exclude_test_hooks)
     md = render_md(r)
     js = json.dumps(r, indent=2, ensure_ascii=False)
     if a.no_write:
