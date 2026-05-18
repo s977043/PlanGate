@@ -1,7 +1,7 @@
 # Harness Improvement Roadmap
 
-> **Status**: v1.1（Phase 0 / 1 + Governance Done — v8.6.0 で完走、Phase 2 以降と Lightweight Plan Quality Checks は Proposed）
-> **Progress**: Phase 0 ✅ / Phase 1 ✅ / Governance (#201, #202) ✅ / Phase 2〜6 🔵 Open / Lightweight Plan Quality Checks (#213) 🔵 Open
+> **Status**: v1.2（Phase 0〜6 + Governance + Lightweight Plan Quality Checks すべて Done — EPIC #193 は CLOSED/COMPLETED 2026-05-17。本表は完了状態に同期済）
+> **Progress**: Phase 0〜6 ✅ / Governance (#201, #202) ✅ / Lightweight Plan Quality Checks (#213) ✅ / 全子 PBI 12/12 CLOSED（EPIC #193 CLOSED）
 > 関連: [`philosophy.md`](../philosophy.md) / [`eval-plan.md`](./eval-plan.md) / [`eval-runner.md`](./eval-runner.md) / [`metrics.md`](./metrics.md) / [`metrics-privacy.md`](./metrics-privacy.md) / [`issue-governance.md`](./issue-governance.md) / [`eval-baselines/2026-05-04-baseline.md`](./eval-baselines/2026-05-04-baseline.md) / [`model-profiles.md`](./model-profiles.md) / [`prompt-assembly.md`](./prompt-assembly.md) / [`tool-policy.md`](./tool-policy.md) / [`hook-enforcement.md`](./hook-enforcement.md)
 
 ## 1. 目的
@@ -58,21 +58,21 @@ PlanGate にはすでに以下が存在する。
 | --- | --- | --- | --- | --- |
 | 0 | Baseline alignment | 既存 eval / hook / profile の現在地を固定する | baseline report | ✅ Done (v8.6.0 / #194) |
 | 1 | Metrics v1 | 実利用シグナルを保存できるようにする | event schema / metrics command | ✅ Done (v8.6.0 / #195) |
-| **v8.7.0 主** | **段階的導入ガイド** | OSS 利用者の最大摩擦「どこまで使えばよいか不明」を解消する | Level 1-5 導入レベル / docs | 🔵 Open (v8.7.0 / #226) |
-| **v8.7.0 主** | **Plugin 成熟化** | 配布の確実性を機能思想より先に固める | 解決順 / prefix / 更新手順 | 🔵 Open (v8.7.0 / #224) |
-| **v8.7.0 主** | **バージョニング安定性ポリシー** | breaking vs additive を明文化、既存 artifact 互換を保証 | versioning-policy.md | 🔵 Open (v8.7.0 / #225) |
-| v8.7.0 副 | Run Outcome Review v1 | run 完了時の振り返りを軽量 markdown で標準化 | outcome-review.md template | 🔵 Open (v8.7.0 / #228) |
-| v8.7.0 副 | Lightweight Plan Quality Checks | 計画の不足・リスク・前提・完了条件を軽量に構造化する | Plan Check / Risk Check / Done Check | 🔵 Open (v8.7.0 / #213) |
-| v8.7.0 副 | Harness Eval expansion | eval-runner をハーネス変更判断に使いやすくする | comparison / release gate 拡張 | 🔵 Open (v8.7.0 / #196) |
-| v8.7.0 副 | Tool Error Taxonomy | hook/tool failure の分類軸 | error taxonomy / recovery policy | 🔵 Open (v8.7.0 / #203) |
-| v8.7.0 副 | PlanGateBench Fixture | 評価対象固定 | fixture suite | 🔵 Open (v8.7.0 / #204) |
-| v8.7.0 実験 | Trace Timeline v1 (Experimental) | 観測基盤の最小実装、quickstart 非掲載 | schema 1.1 additive / timeline JSON | 🔵 Open (v8.7.0 / #229) |
-| v8.8.0 | Dogfooding Eval v1 | PlanGate 自身を評価対象にする (single judge + human rationale) | eval suite / fixture | 🔵 Open (v8.8.0 / #231) |
-| v8.8.0 | Gate Event Normalization | gate_id / phase / status の語彙正規化 | normalized schema | 🔵 Open (v8.8.0 / #230) |
-| v8.8.0 | Model Profile v2 | モデルごとの実行特性を表現する | edit interface / retry / capability | 🔵 Open (v8.8.0 / #197) ← v8.7.0 から押し出し |
-| v8.8.0 | Keep Rate | AI 成果物が残ったかを測る | code / plan / acceptance / handoff keep rate | 🔵 Open (v8.8.0 / #198) |
-| v8.9.0 候補 | Dynamic Context Engine | 契約コンテキストと作業コンテキストを分離する | context manifest / context command | 🔵 Open (v8.9.0 / #199) |
-| v8.9.0 候補 | Reporting & Retrospective | スプリント改善に接続する | metrics report / retrospective template | 🔵 Open (v8.9.0 / #200) |
+| **v8.7.0 主** | **段階的導入ガイド** | OSS 利用者の最大摩擦「どこまで使えばよいか不明」を解消する | Level 1-5 導入レベル / docs | ✅ Done (v8.7.0 / #226 / PR #264) |
+| **v8.7.0 主** | **Plugin 成熟化** | 配布の確実性を機能思想より先に固める | 解決順 / prefix / 更新手順 | ✅ Done (v8.7.0 / #224 / PR #266) |
+| **v8.7.0 主** | **バージョニング安定性ポリシー** | breaking vs additive を明文化、既存 artifact 互換を保証 | versioning-policy.md | ✅ Done (v8.7.0 / #225 / PR #263) |
+| v8.7.0 副 | Run Outcome Review v1 | run 完了時の振り返りを軽量 markdown で標準化 | outcome-review.md template | ✅ Done (v8.7.0 / #228 / PR #259) |
+| v8.7.0 副 | Lightweight Plan Quality Checks | 計画の不足・リスク・前提・完了条件を軽量に構造化する | Plan Check / Risk Check / Done Check | ✅ Done (v8.7.0 / #213 / PR #267) |
+| v8.7.0 副 | Harness Eval expansion | eval-runner をハーネス変更判断に使いやすくする | comparison / release gate 拡張 | ✅ Done (v8.7.0 / #196 / PR #268) |
+| v8.7.0 副 | Tool Error Taxonomy | hook/tool failure の分類軸 | error taxonomy / recovery policy | ✅ Done (v8.7.0 / #203 / PR #269) |
+| v8.7.0 副 | PlanGateBench Fixture | 評価対象固定 | fixture suite | ✅ Done (v8.7.0 / #204 / PR #270) |
+| v8.7.0 実験 | Trace Timeline v1 (Experimental) | 観測基盤の最小実装、quickstart 非掲載 | schema 1.1 additive / timeline JSON | ✅ Done (v8.7.0 / #229 / PR #260) |
+| v8.8.0 | Dogfooding Eval v1 | PlanGate 自身を評価対象にする (single judge + human rationale) | eval suite / fixture | ✅ Done (v8.8.0 / #231 / PR #262) |
+| v8.8.0 | Gate Event Normalization | gate_id / phase / status の語彙正規化 | normalized schema | ✅ Done (v8.8.0 / #230 / PR #261) |
+| v8.8.0 | Model Profile v2 | モデルごとの実行特性を表現する | edit interface / retry / capability | ✅ Done (v8.8.0 / #197 / PR #271) ← v8.7.0 から押し出し |
+| v8.8.0 | Keep Rate | AI 成果物が残ったかを測る | code / plan / acceptance / handoff keep rate | ✅ Done (v8.8.0 / #198 / PR #272) |
+| v8.9.0 候補 | Dynamic Context Engine | 契約コンテキストと作業コンテキストを分離する | context manifest / context command | ✅ Done (v8.9.0 / #199 / PR #273) |
+| v8.9.0 候補 | Reporting & Retrospective | スプリント改善に接続する | metrics report / retrospective template | ✅ Done (v8.9.0 / #200 / PR #274) |
 | - | Issue/Label/Milestone Governance | Issue 運用ルール固定 | issue-governance.md / Issue Form | ✅ Done (v8.6.0 / #201) |
 | - | Metrics Privacy Policy | metrics 公開・秘匿境界 | metrics-privacy.md | ✅ Done (v8.6.0 / #202) |
 
