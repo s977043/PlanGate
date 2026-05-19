@@ -4,6 +4,108 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## v8.9.0 - 2026-05-19
+
+feat: Reporting & Retrospective v1 + reporting 精度 follow-up — EPIC #193 完遂
+
+EPIC [#193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) の **v8.9.0 milestone（#200）を完走し、roadmap を完全完遂**。Reporting & Retrospective v1（PBI-HI-006 / TASK-0098）で sprint retrospective 統合の基盤を実装し、その後 v1_first_pass / fix_loop の events 由来厳密化（TASK-0102）、test/dev フィルタ + run スコープ（#281 / TASK-0103）、roadmap 完了状態同期（TASK-0104）、EH-3 c3.json plan_hash 抽出の strict JSON 化（#282 / TASK-0105）まで follow-up を継続し、reporting の精度と決定論性を確定させた。
+
+タグ対象 SHA: `345620c`（#285 / TASK-0105、main HEAD）
+
+### Added
+
+- **Reporting & Retrospective v1**（**PBI-HI-006** / #200 / TASK-0098 / PR #274） — events.ndjson から sprint retrospective を導出する reporting 基盤。v1_first_pass / fix_loop など run 成果を集計
+- **reporting 精度 follow-up — test/dev フィルタ + run スコープ**（#281 / TASK-0103 / PR #283） — テスト / 開発用 run を集計対象から除外、run 単位スコープで集計精度を向上
+
+### Changed
+
+- **reporting の v1_first_pass / fix_loop を events 由来で厳密化**（#200 v2 / TASK-0102 / PR #280） — 推定ベースから events.ndjson 由来へ切り替え、決定論的集計化
+- **scripts パス定数を `_paths.py` へ共有化**（#277 / TASK-0101 / PR #278） — reuse M-2、scripts 横断のパス定数 DRY 化
+- **Plan Hash Utility 共有化**（#193 follow-up / TASK-0100 / PR #276） — plan hash 算出の重複排除
+- **`/simplify` follow-up — #198 / #199 局所クリーンアップ**（TASK-0099 / PR #275） — Keep Rate / Dynamic Context Engine の局所整理（挙動不変）
+- **EH-3 c3.json plan_hash 抽出を strict JSON 化**（#282 / TASK-0105 / PR #285） — 正規表現抽出から厳密 JSON parse へ、plan_hash 突合の堅牢化
+- **`docs/ai/harness-improvement-roadmap.md`**: 完了状態へ同期（TASK-0104 / PR #284） — EPIC #193 完遂を roadmap に反映
+
+### Process Notes
+
+- **EPIC #193 完遂**: v8.6.0（P0）→ v8.7.0（P1）→ v8.8.0（P1/P2）→ v8.9.0（P2 / #200）で Harness Improvement Roadmap を完全クローズ。残課題は #277（M-2 V2 backlog）のみ
+- **follow-up の継続**: v1 実装（TASK-0098）後に精度・決定論性 follow-up（TASK-0099〜0105）を 5 連続で実施し、reporting を「推定」から「events 由来の厳密集計」へ確定
+- **タグ方針**: v8.6.0 リリース後に main へ蓄積された成果を時系列保全するため、当時の版境界コミットに annotated tag を打つ。v8.9.0 は main HEAD `345620c`
+
+## v8.8.0 - 2026-05-18
+
+feat: Keep Rate v1 / Dynamic Context Engine v1 / Model Profile v2 / Gate Event Normalization / Dogfooding Eval v1
+
+EPIC [#193](https://github.com/s977043/plangate/issues/193) の **v8.8.0 milestone（5 件: #197 #198 #199 #230 #231）を完走**。Gate Event Normalization 正本（#230）と Dogfooding Eval v1（#231）で events / 評価基盤を整え、その上に Model Profile v2（#197）/ Keep Rate v1（#198）/ Dynamic Context Engine v1（#199）を実装。harness の自己評価・context 分離・モデル特性対応が揃った。
+
+タグ対象 SHA: `7e3ea4e`（#273 / TASK-0097 #199 Dynamic Context Engine v1、v8.8.0 milestone 最終マージ）
+
+### Added
+
+- **Gate Event Normalization 正本**（**PBI-HI-014** / #230 / PR #261） — Gate イベントの正規化スキーマを正本化（v8.8.0）
+- **Dogfooding Eval v1**（#231 / PR #262） — single judge + rationale 形式の自己評価 eval（v8.8.0）
+- **Model Profile v2**（**PBI-HI-003** / #197 / TASK-0095 / PR #271） — edit interface preference / retry strategy / provider capability / unknown model fallback
+- **Keep Rate v1**（**PBI-HI-004** / #198 / TASK-0096 / PR #272） — Code / Plan / Acceptance / Handoff Keep Rate の計測
+- **Dynamic Context Engine v1**（**PBI-HI-005** / #199 / TASK-0097 / PR #273） — context manifest による契約 / 作業 context 分離
+
+### Changed
+
+- events / schema 基盤を Gate Event Normalization（#230）で正規化し、後続の Keep Rate / Dynamic Context / Reporting が同一 events 源を参照できる構造に統一
+
+### Process Notes
+
+- **依存順守**: events 正規化（#230）/ Dogfooding Eval（#231）を先に置き、その上に #197 / #198 / #199 を実装
+- **版境界の近似**: v8.7.0 と v8.8.0 の作業はマージ時系列が交錯している（#230 / #231 が v8.7.0 の #224〜#227 / #196 / #203 / #204 / #213 より先にマージ）。SHA を版単調にするため、v8.8.0 タグは v8.8.0 milestone の最終マージ `7e3ea4e`（#199）に打つ。この SHA は #230 / #231 を含む全 v8.8.0 作業を内包する（v8.7.0 タグ `d0bd6cc` 配下に #230 / #231 が含まれる点は既知の近似として許容）
+- **タグ方針**: 当時の版境界コミットに annotated tag を打つ（v8.8.0 = `7e3ea4e`）
+
+## v8.7.0 - 2026-05-18
+
+feat: Harness Improvement Roadmap P1 + TASK-0071 Governance Hardening / Feedback F1〜F5 完遂
+
+EPIC [#193](https://github.com/s977043/plangate/issues/193) の **v8.7.0 milestone（9 件: #196 #203 #204 #213 #224 #225 #226 #228 #229）を完走**。加えて同期間に milestone 外の **TASK-0071 群**（Feedback F1〜F5 / Governance Hardening / #227 river-reviewer 標準 IF 正本化 / TASK-0089）を完遂し、exec 委譲デッドロック恒久対処・委譲 commit 境界強制・Lite 分岐 + C-3 条件付き降格・責務 4 分類正本化・Shadow Config ロック + drift CI を導入。harness の強制力と運用堅牢性が大きく前進した。
+
+タグ対象 SHA: `d0bd6cc`（#270 / TASK-0094 #204 PlanGateBench Fixture Suite、v8.7.0 milestone 最終マージ）
+
+### Added
+
+- **Eval comparison for harness changes**（**PBI-HI-002** / #196 / TASK-0092 / PR #268） — mode 別 release blocker 判定、metrics v1 連携
+- **Tool Error Taxonomy and Recovery Policy**（**PBI-HI-010** / #203 / TASK-0093 / PR #269） — tool error 分類・回復・計測
+- **PlanGateBench Fixture Suite**（**PBI-HI-011** / #204 / TASK-0094 / PR #270） — eval fixture 固定 + regression 検知
+- **Lightweight Plan Quality Checks**（**PBI-PQ-001** / #213 / TASK-0091 / PR #267） — 軽量 plan 品質チェック
+- **Run Outcome Review v1 テンプレート**（**PBI-HI-012** / #228 / PR #259） — run 結果レビュー定型（v8.7.0）
+- **Trace Timeline v1**（#229 / PR #260） — schema 1.1 additive + `metrics --timeline`（experimental / v8.7.0）
+- **Plugin モード成熟化と手動コピーからの移行パス**（#224 / TASK-0090 / PR #266）
+- **バージョニング安定性ポリシー正本化**（#225 / TASK-0087 / PR #263）
+- **段階的導入ガイド（ultra-light→standard 成長パス）**（#226 / TASK-0088 / PR #264）
+- **river-reviewer 外部レビューア標準 IF 正本化**（#227 / TASK-0089 / PR #265） — `docs/ai/external-reviewer-interface.md`
+- **TASK-0071 Feedback F1〜F5**:
+  - F1: exec 委譲デッドロック恒久対処（ケイパビリティ分岐 + 直接実行フォールバック / TASK-0072 / PR #245）
+  - F2: exec 強制力ギャップ（委譲 commit 境界強制 + exec 前プリフライト / TASK-0073 / PR #246、§5-bis 統合 TASK-0078 / PR #252）
+  - F3: Design/UI Addendum（UI 条件付き・Figma 有無で真実源分岐 / TASK-0074 / PR #247）
+  - F4: opt-in 終端 Retro フェーズ（振り返りドラフト自動生成・承認境界維持 / TASK-0075 / PR #248）
+  - F5-BC: C-2 責務分離 + 反映差分管理（TASK-0076 / PR #249）
+  - F5-AD: Lite 分岐 + C-3 条件付き降格（計画 TASK-0077 / PR #250、実装 TASK-0079 / PR #253）
+- **Governance Hardening**: Manual Gate + Shadow Config ロック + drift CI（TASK-0080 S1+S2 / PR #254）、責務 4 分類 rules 正本化（TASK-0081 / PR #256）、EH-3 メンテモード + SKIP_REASON（TASK-0082 S3 / PR #257）
+- **EH-3 P4(d) file-path-sensitive SKIP**（TASK-0070 / PR #243）
+- **doctor hook-wiring check + deterministic `--fix`**（TASK-0069 / PR #240 ほか）
+
+### Changed
+
+- **`bin/plangate doctor`**: hook-wiring check と決定論的 `--fix` を追加（TASK-0069）
+- **`.claude/rules/`**: 責務 4 分類正本（`responsibility-classes.md`）を追加し、hybrid-architecture / orchestrator-mode / working-context から参照
+- **EH-3 hook**: メンテモード + `SKIP_REASON` 対応（TASK-0082）、file-path-sensitive SKIP（TASK-0070）
+- **codex sandbox_mode**: 不正値 `"workspace-read"` を `"read-only"` に修正（PR #242）
+- **`docs/ai/harness-improvement-roadmap.md`**: v8.7.0 ロードマップを Option D に組み替え（PR #232）
+- **README / philosophy**: PlanGate の本質的価値メッセージを反映（PR #233）
+- **v8.6.0 リリース後改善 7 PR**（#215〜#221）: metrics privacy 強制 / 利用者向け doc 強化 / metrics 自動取得 / baseline 正式化 / 整合性検査強化 / observability / 機械可読化（retrospective #222 で集約）
+
+### Process Notes
+
+- **TASK-0071 完全クローズ**: F1〜F5 + Governance Hardening + #227 / TASK-0089 を含む TASK-0071 群を D-1 全 3 スライス完了で親 handoff 発行（PR #258）
+- **承認境界不変**: F5-AD（Lite 分岐 / C-3 条件付き降格）は承認境界を撤廃せず「同期 / 非同期の選択」に限定。opt-in 既定 OFF で既存挙動不変
+- **版境界の近似**: マージ時系列が v8.7.0 / v8.8.0 で交錯（#230 / #231 が v8.7.0 群より先にマージ）。SHA 単調性を優先し、v8.7.0 タグは v8.7.0 milestone の最終マージ `d0bd6cc`（#204）に打つ。この SHA は全 v8.7.0 作業を内包するが、先にマージされた #230 / #231（v8.8.0）も含む。これは交錯マージ下での最善近似であり、v8.8.0 タグ `7e3ea4e` が #230 / #231 を含む全 v8.8.0 作業を内包することで版の意味は保たれる
+- **タグ方針**: 当時の版境界コミットに annotated tag を打つ（v8.7.0 = `d0bd6cc`）
+
 ## v8.6.0 - 2026-05-04
 
 feat: Harness Improvement Roadmap Phase 0/1 + Governance — v8.6.0 milestone 完走
