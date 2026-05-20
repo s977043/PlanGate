@@ -28,8 +28,20 @@ EH-3 を迂回しており、運用負荷が継続的に発生している。
   - `start --reason "<理由>" [--paths <glob,...>] [--minutes <n>] [--force]` で
     `schemas/maintenance.schema.json` 準拠の
     `docs/working/_maintenance/maintenance.json` を生成
-  - **Human-owned 強制**: `start` は対話 TTY を要求し、非対話実行・CI 実行・
-    エージェント実行は **reject**（AI から CLI 起動でも自己付与不可）（R-001）
+  - **Human-owned 強制（多層 best-effort 防御 + 監査）**: 完全な構造的保証は
+    原理的に困難なため、本 PBI では「多層 best-effort 防御 + 全試行を監査ログ
+    で検知可能化」で AI 自己付与を阻む（R-001/R-012）:
+    - **L1 対話 TTY 要求**: `isatty(stdin)` チェック、非対話実行は reject
+    - **L2 環境変数バリア**: `CI` / `CLAUDE_AGENT` / `CURSOR_AGENT` /
+      `PLANGATE_BYPASS_HOOK` 等のフラグ検出時は reject
+    - **L3 プロセス系統 heuristic**: parent process が claude/codex/cursor 等の
+      既知 AI agent なら reject（不可偽装ではないが追加防御）
+    - **L4 対話 nonce 一致**: `PLANGATE_MAINT_ACK` 環境変数に画面表示の
+      ランダム nonce を打鍵することを要求
+    - **監査ログ強制**: 全 start 試行（成功・失敗）を `hook-events.log` に
+      env snapshot + ppid + isatty 結果付きで記録、人間が事後検知可能
+    - **明示的 best-effort 表明**: 構造的保証ではなく「多層防御 + 監査による
+      検知可能性」が本 PBI のスコープ。完全保証は別 PBI（R-012 設計判断）
   - `stop` で即時失効
   - **既定束縛**: one-shot（単回 Edit/Write で消費・自動無効化） +
     対象パススコープ（`allowed_paths`） + **TTL 既定 5 分・ハード上限 30 分**（R-008）
@@ -114,8 +126,10 @@ EH-3 を迂回しており、運用負荷が継続的に発生している。
 
 - `schemas/maintenance.schema.json` を additive に拡張（既存フィールド削除なし）
 - 既存 EH-3 の strict JSON 抽出（#282/TASK-0105 で確立）はそのまま流用
-- `bin/plangate maintenance start` は **対話 TTY を要求し AI 起動不可**。
-  生成される承認ファイル自体も env では効かない多重防御（R-001）
+- `bin/plangate maintenance start` は **多層 best-effort 防御 + 監査** で
+  AI 自己付与を阻む（R-001/R-012）。完全な構造保証は別 PBI に分割
+- **UTF-8 環境前提**（R-018, TC-22）: ファイルパス・reason 文字列処理は
+  UTF-8 ロケール前提。shift-jis 等の非 UTF-8 環境は documented limitation
 
 ## Mode 判定（参考）
 

@@ -10,9 +10,9 @@
 
 ### Phase 2: 実装
 - [ ] **T-03**: schema 拡張（allowed_paths/one_shot/consumed_at optional 追加、additionalProperties:false 維持）+ schema-validate テスト追加（owner=agent / Risk=low / depends_on=T-01 / 🚩 既存 schema test PASS）
-- [ ] **T-04**: `bin/plangate maintenance start/stop` CLI 実装 — TDD（失敗テスト先 → 実装 → green）（owner=agent / Risk=medium / depends_on=T-03 / 🚩 CLI 単体 PASS）
-- [ ] **T-05**: EH-3 hook 改修 — path scope check + TTL check + atomic one-shot consume（owner=agent / Risk=**high** / depends_on=T-04 / 🚩 既存 30 分窓テスト PASS + 新動作テスト PASS + 承認境界回帰なし）
-- [ ] **T-06**: Hardening Override 実装（`.claude/rules/*.md` / `.claude/settings*.json` / `scripts/hooks/*.sh` を窓内でも block）（owner=agent / Risk=high / depends_on=T-05 / 🚩 Override 対象パスの block テスト PASS）
+- [ ] **T-04**: `bin/plangate maintenance start/stop` CLI 実装 — TDD（失敗テスト先 → 実装 → green）。**R-012 多層 best-effort 防御 + 監査ログ書込み込み**（L1 isatty / L2 env barrier / L3 parent process heuristic / L4 対話 nonce / hook-events.log 記録）（owner=agent / Risk=**high** / depends_on=T-03 / 🚩 CLI 単体 PASS + 4 層防御の各 reject テスト PASS（TC-10/25/26/29）+ 監査ログ書込確認）
+- [ ] **T-05**: EH-3 hook 改修 — path scope check + TTL check + **atomic one-shot consume（`fcntl.flock(LOCK_EX)` 必須 → strict 再読出 → 未消費なら python3 `os.replace` で atomic 書込 → ロック解放、競合 fail-closed）**（R-002/R-017）（owner=agent / Risk=**critical** / depends_on=T-04 / 🚩 既存 30 分窓テスト PASS + 並行競合テスト（TC-30）PASS + 承認境界回帰なし）
+- [ ] **T-06**: Hardening Override 実装（**R-015 全 10 パターン**: `.claude/rules/*.md` / `.claude/settings*.json` / `.claude/commands/*.md` / `.claude/agents/*.md` / `scripts/hooks/*.sh` / `bin/plangate` / `schemas/*.schema.json` / `.github/workflows/*.yml` / `AGENTS.md` / `CLAUDE.md` を窓内でも block）。**判定順序: maintenance 判定の前**（R-020）（owner=agent / Risk=high / depends_on=T-05 / 🚩 10 パターン全 block テスト PASS（TC-24）+ 判定順序単体 PASS）
 - [ ] **T-07a**: `bin/plangate doctor` テキスト出力に有効窓表示行追加（owner=agent / Risk=low / depends_on=T-04 / 🚩 doctor 出力テスト PASS）
 - [ ] **T-07b**: `scripts/doctor_check.py` JSON 構造化出力に maintenance 状態追加（R-006）（owner=agent / Risk=low / depends_on=T-07a / 🚩 `doctor --json` で maintenance フィールド PASS）
 

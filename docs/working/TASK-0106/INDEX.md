@@ -4,7 +4,7 @@
 
 - **Source**: GitHub issue #289
 - **Title**: EH-3 in-session skip 改善 — `bin/plangate maintenance` CLI 新設
-- **Phase**: C-1 v2 完了（外部レビュー R-001〜R-011 確定反映後）(C-3 ゲート待ち = Human-owned)
+- **Phase**: C-1 v3 完了（外部レビュー v2 結果 R-012〜R-020 確定反映後）(C-3 ゲート待ち = Human-owned)
 - **Mode 判定（参考）**: high-risk（critical 候補）
 - **Labels**: `enhancement` / `priority:P2`
 - **Status**: PBI INPUT PACKAGE / plan / todo / test-cases / review-self (v2) / review-external 作成済。**C-3 ゲート待ち (Human-owned)**
@@ -18,7 +18,7 @@
 | `todo.md` | B: EXECUTION TODO | ✅ |
 | `test-cases.md` | B: テストケース定義 | ✅ |
 | `review-external.md` | C-2/V-3 外部レビュー集約 (Codex+Gemini, R-001..R-011) | ✅ |
-| `review-self.md` | C-1 v2: セルフレビュー (総合 96, 0 件指摘) | ✅ |
+| `review-self.md` | C-1 v3: セルフレビュー (総合 97, R-012 best-effort 明示) | ✅ |
 | `current-state.md` | 現状スナップショット | ✅ |
 | `status.md` | フェーズ履歴 | ⏳ 未生成 |
 | `handoff.md` | WF-05 完了パッケージ | ⏳ 未生成 |

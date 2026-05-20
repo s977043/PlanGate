@@ -4,13 +4,13 @@
 
 ## 現在のフェーズ
 
-PBI INPUT PACKAGE v2 + plan v2 + todo + test-cases (TC-31 まで) + review-self v2 (C-1 総合 96・blocker 0) + review-external 完成。C-3 ゲート (Human-owned) 待ち。
+PBI INPUT PACKAGE v3 + plan v3 + todo v3 + test-cases v3 (TC-26a/b/c/d 含む 35 件) + review-self v3 (C-1 総合 97、R-012 best-effort 設計明示) + review-external (R-001..R-020) 完成。C-3 ゲート (Human-owned) 待ち。
 
 ## 直近の作業
 
 - 2026-05-20: GitHub issue #289 から PBI INPUT PACKAGE 起票
 - 2026-05-20: plan.md / todo.md / test-cases.md / review-self.md 自律生成（Codex 優先順 2）
-- C-1 v2 採点: 総合 96 (外部レビュー R-001..R-011 反映後)、Auto-approve 候補
+- C-1 v3 採点: 総合 97 (外部レビュー v2 R-012..R-020 反映後・R-012 best-effort 設計明示)、CONDITIONAL APPROVE 候補
 
 ## 次のアクション
 

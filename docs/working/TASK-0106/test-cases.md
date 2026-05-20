@@ -60,8 +60,11 @@
 - **TC-22**: non-UTF-8 path (例: shift-jis 環境変数や filesystem encoding 不一致) でのふるまい → documented limitation として「UTF-8 環境を前提」を pbi-input.md / docs/ai/maintenance-cli.md に明記。テストは UTF-8 環境前提で skip 可
 - **TC-23 (AC-8)**: `tests/run-tests.sh` 実行で新規 ta-XX-maintenance.sh と既存 hook テストが順次呼び出され全 PASS する（runner 統合確認）（R-007）
 - **TC-24 (AC-3)**: Hardening Override 対象パス 10 種（`.claude/rules/*.md`, `.claude/settings*.json`, `.claude/commands/*.md`, `.claude/agents/*.md`, `scripts/hooks/*.sh`, `bin/plangate`, `schemas/*.schema.json`, `.github/workflows/*.yml`, `AGENTS.md`, `CLAUDE.md`）すべて窓内でも block（R-003）
-- **TC-25 (AC-5)**: 非対話実行 (stdin が tty でない、CI=true、agent 環境) で `bin/plangate maintenance start` → exit 非0 "interactive TTY required" reject（R-001）
-- **TC-26 (AC-5)**: TTY 偽装試行（agent から AI CLI 経由で起動）→ reject + 痕跡 hook-events.log 記録（R-001）
+- **TC-25 (AC-5, L1)**: L1 非対話実行（`stdin` not isatty）→ exit 非0 "L1: interactive TTY required" + 監査ログ記録（R-012）
+- **TC-26a (AC-5, L2)**: L2 環境変数バリア（`CI=true` or `CLAUDE_AGENT=*` or `CURSOR_AGENT=*` or `PLANGATE_BYPASS_HOOK=1`）→ exit 非0 "L2: agent env detected" + 監査ログ（R-012）
+- **TC-26b (AC-5, L3)**: L3 parent process heuristic（ppid 系統が claude/codex/cursor）→ exit 非0 "L3: AI agent lineage detected" + 監査ログ（R-012）
+- **TC-26c (AC-5, L4)**: L4 対話 nonce 一致失敗（`PLANGATE_MAINT_ACK` 未設定 or 不一致）→ exit 非0 "L4: nonce mismatch" + 監査ログ（R-012）
+- **TC-26d (AC-5, audit)**: 全 start 試行（成功 / 各 L 失敗）が hook-events.log に `event=maintenance_start_attempt` + env snapshot + ppid + isatty 結果で記録される（R-012）
 - **TC-27 (AC-6)**: `bin/plangate doctor --json` で `maintenance` キーに `{scope, until_epoch, remaining_seconds, paths, one_shot, consumed_at}` を含む（R-006）
 - **TC-28 (AC-9)**: 既存有効窓で `start --force` → atomic 置換、consumed_at 初期化、CLI が再度 TTY 要求（R-005/R-010）
 - **TC-29 (AC-10)**: 新設フィールド (allowed_paths/one_shot/consumed_at) も env 経由 (`PLANGATE_MAINT_ONE_SHOT=true` 等) では有効化不可（R-011）
