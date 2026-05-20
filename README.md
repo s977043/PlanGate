@@ -45,7 +45,7 @@ PlanGate は **すべての機能を最初から使う必要はありません**
 | **Level 5** | + eval / timeline | dogfooding eval、experimental timeline などの上級機能 |
 
 初回利用者は **Level 1 から始める** ことを推奨します。Level 4 以降は経験を積んでから検討してください。
-詳細ガイド: [Issue #226 段階的導入ガイド](https://github.com/s977043/plangate/issues/226)（v8.7.0 で整備中）
+詳細ガイド: [段階的導入ガイド](docs/staged-adoption-guide.md)（v8.7.0 でリリース済）
 
 ```mermaid
 flowchart LR
@@ -60,28 +60,30 @@ flowchart LR
     style L5 fill:#ffd6a5
 ```
 
-> **画像更新について**: 既存の [`docs/assets/harness-plangate-readme-dark-v2.png`](docs/assets/harness-plangate-readme-dark-v2.png) は v7〜v8.6 期の overview で、現時点でも有効です。v8.7.0 で確定した段階的導入レベルと自己進化フレームを反映した新画像は、デザイン作業として別途検討します（実装フェーズ外）。
+> **画像更新について**: 既存の [`docs/assets/harness-plangate-readme-dark-v2.png`](docs/assets/harness-plangate-readme-dark-v2.png) は v7〜v8.6 期の overview で、現時点でも有効です。v8.7.0 でリリースした段階的導入レベルと自己進化フレームを反映した新画像は、デザイン作業として別途検討します（実装フェーズ外）。
 
 ## 最新状態
 
-PlanGate は v8.6.0 で、Hook enforcement の上に **Metrics v1** と **Harness Improvement Governance** を載せ、改善サイクルを比較で判断できるガバナンスハーネスに進化しました。
+PlanGate は **v8.9.0**（Latest）で、Hook enforcement・Metrics v1・Harness Improvement Governance の上に **Reporting & Retrospective v1** を載せ、events.ndjson から sprint retrospective を決定論的に導出できるガバナンスハーネスへ到達しました。これにより [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) は **完遂（CLOSED / COMPLETED）** しています。
 
-v8.7.0 は外部 OSS 利用者の **「どこまで使えばよいか不明」問題** を解消するため、自己進化機能ではなく **OSS 整備（段階的導入ガイド / Plugin 成熟化 / バージョニング安定性ポリシー）** を主軸に据えています。
+v8.7.0〜v8.9.0 はリリース済みで、外部 OSS 利用者の **「どこまで使えばよいか不明」問題** に応える OSS 整備（段階的導入ガイド / Plugin 成熟化 / バージョニング安定性ポリシー）と、自己評価・context 分離・モデル特性対応・reporting の各基盤を順次投入しました。
 
 | 項目 | 状態 |
 | --- | --- |
-| 最新リリース | **v8.6.0** — Harness Improvement Roadmap Phase 0/1 + Governance |
-| 開発中 | **v8.7.0** — OSS 整備 3 主軸 + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) |
+| 最新リリース | **v8.9.0**（Latest, 2026-05-19）— Reporting & Retrospective v1 / EPIC #193 完遂 |
+| リリース済 | **v8.7.0** OSS 整備 3 主軸 + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1・Dynamic Context Engine v1・Model Profile v2・Gate Event Normalization・Dogfooding Eval v1 |
+| Roadmap | **EPIC #193 完遂（CLOSED / COMPLETED）** — Phase 0〜6 + Governance + Lightweight Plan Quality Checks 全 Done、子 PBI 12/12 CLOSED |
 | Hook enforcement | **10/10 hooks 実装済み**（v8.5.0 から維持） |
-| Metrics v1 | `bin/plangate metrics` による workflow event 集計（v8.6.0） |
-| Baseline | v8.5.0 直後の baseline を `docs/ai/eval-baselines/` に固定（v8.6.0） |
-| Governance | Issue / Label / Milestone Governance + Metrics Privacy Policy（v8.6.0） |
-| CLI テスト | `sh tests/run-tests.sh` — **32 PASS** |
-| Hook テスト | `sh tests/hooks/run-tests.sh` — **42 PASS** |
+| Metrics v1 | `bin/plangate metrics` による workflow event 集計（v8.6.0 初出） |
+| Reporting v1 | events.ndjson から sprint retrospective を導出（v8.9.0） |
+| Baseline | v8.5.0 直後の baseline を `docs/ai/eval-baselines/` に固定（v8.6.0 初出） |
+| Governance | Issue / Label / Milestone Governance + Metrics Privacy Policy（v8.6.0 初出） |
+| CLI テスト | `sh tests/run-tests.sh` — **68 PASS** |
+| Hook テスト | `sh tests/hooks/run-tests.sh` — **78 PASS** |
 | Eval | `bin/plangate eval` による 8 観点評価と release blocker 検知 |
 | Schema | `validate-schemas` + CI による JSON artifact 検証 |
 
-v8.6.0 では、以下のような不変条件を hook / CLI で検査できます。
+PlanGate では、以下のような不変条件を hook / CLI で検査できます。
 
 - `plan.md` なしの production code 編集を検知する
 - C-3 承認なしの実装をブロックする
@@ -291,12 +293,12 @@ sh tests/run-tests.sh
 sh tests/hooks/run-tests.sh
 ```
 
-v8.6.0 時点のテスト状況:
+テスト状況（最新）:
 
 | スイート | 件数 | 主な検証対象 |
 | --- | ---: | --- |
-| `tests/run-tests.sh` | **32 PASS** | CLI、Workflow DSL、schema validate、eval、metrics v1、provider dispatch、fixture 検証 |
-| `tests/hooks/run-tests.sh` | **42 PASS** | EH-1〜EH-7 / EHS-1〜EHS-3、default / strict / bypass の 3 mode 挙動 |
+| `tests/run-tests.sh` | **68 PASS** | CLI、Workflow DSL、schema validate、eval、metrics v1、reporting、provider dispatch、fixture 検証 |
+| `tests/hooks/run-tests.sh` | **78 PASS** | EH-1〜EH-9 / EHS-1〜EHS-3、default / strict / bypass の 3 mode 挙動 |
 
 主な検証対象:
 
@@ -304,16 +306,16 @@ v8.6.0 時点のテスト状況:
 - `plangate validate --mode <mode>` — Workflow DSL に基づく artifact 動的決定
 - `plangate validate-schemas` — task artifact の JSON Schema 準拠
 - `plangate eval` — 8 観点評価、baseline 比較、release blocker 検知
-- `plangate metrics` — workflow event collect / report（v8.6.0）
+- `plangate metrics` — workflow event collect / report（v8.6.0 初出）
 - `plangate review` — 外部 reviewer provider dispatch
 - `plangate exec` — C-3 gate 未通過時の実行ブロック
 - hook enforcement — plan / approval / hash / test-cases / evidence / forbidden_files / merge approvals / V-3 review の検査
 
 CI は同じ CLI / hook スイートを全 PR で `.github/workflows/test.yml` を通じて実行します。
 
-## Metrics v1 — 5 分クイックスタート（v8.6.0）
+## Metrics v1 — 5 分クイックスタート（v8.6.0 初出）
 
-PlanGate v8.6.0 から、ワークフロー event を構造化して保存・集計できます。
+PlanGate v8.6.0 から、ワークフロー event を構造化して保存・集計できます（v8.9.0 で Reporting & Retrospective v1 を追加）。
 opt-in: 既存の workflow には影響しません。
 
 ```bash

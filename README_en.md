@@ -45,7 +45,7 @@ You **don't need to use all features from the start**. Adopt only what you need 
 | **Level 5** | + eval / timeline | Advanced features: dogfooding eval, experimental timeline |
 
 New users should **start at Level 1**. Consider Level 4+ only after gaining operational experience.
-Detailed guide: [Issue #226 Staged adoption guide](https://github.com/s977043/plangate/issues/226) (in progress for v8.7.0).
+Detailed guide: [Staged adoption guide](docs/staged-adoption-guide.md) (shipped in v8.7.0).
 
 ```mermaid
 flowchart LR
@@ -60,28 +60,30 @@ flowchart LR
     style L5 fill:#ffd6a5
 ```
 
-> **About image updates**: The existing [`docs/assets/harness-plangate-readme-dark-v2.png`](docs/assets/harness-plangate-readme-dark-v2.png) is a v7-v8.6-era overview and remains valid. A new image reflecting the staged adoption levels and self-evolution frame finalized in v8.7.0 will be considered separately as a design task (outside this implementation phase).
+> **About image updates**: The existing [`docs/assets/harness-plangate-readme-dark-v2.png`](docs/assets/harness-plangate-readme-dark-v2.png) is a v7-v8.6-era overview and remains valid. A new image reflecting the staged adoption levels and self-evolution frame shipped in v8.7.0 will be considered separately as a design task (outside this implementation phase).
 
 ## Current Status
 
-As of v8.6.0, PlanGate combines Hook enforcement with **Metrics v1** and **Harness Improvement Governance**, so the improvement cycle can be judged by comparison rather than intuition.
+As of **v8.9.0** (Latest), PlanGate combines Hook enforcement, Metrics v1, and Harness Improvement Governance with **Reporting & Retrospective v1**, deriving sprint retrospectives deterministically from events.ndjson. With this, the [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) is **complete (CLOSED / COMPLETED)**.
 
-v8.7.0 (in development) focuses on **OSS adoption foundations** — staged adoption guide, plugin maturity, and versioning stability policy — rather than self-evolution features. This shift came from a 5-round strategy discussion that found external users primarily struggle with "where do I start, where do I stop," not with missing features.
+v8.7.0 through v8.9.0 have all shipped, addressing the external OSS user's "where do I start, where do I stop" problem via OSS adoption foundations (staged adoption guide, plugin maturity, versioning stability policy) and the self-evaluation, context separation, model-profile, and reporting bases delivered in sequence.
 
 | Item | Status |
 | --- | --- |
-| Latest release | **v8.6.0** — Harness Improvement Roadmap Phase 0/1 + Governance |
-| In development | **v8.7.0** — OSS adoption foundations + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) |
+| Latest release | **v8.9.0** (Latest, 2026-05-19) — Reporting & Retrospective v1 / EPIC #193 complete |
+| Shipped | **v8.7.0** OSS adoption foundations + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1, Dynamic Context Engine v1, Model Profile v2, Gate Event Normalization, Dogfooding Eval v1 |
+| Roadmap | **EPIC #193 complete (CLOSED / COMPLETED)** — Phases 0-6 + Governance + Lightweight Plan Quality Checks all Done, child PBIs 12/12 CLOSED |
 | Hook enforcement | **10/10 hooks implemented** (carried over from v8.5.0) |
-| Metrics v1 | Workflow event collection and reporting via `bin/plangate metrics` (v8.6.0) |
-| Baseline | v8.5.0 baseline fixed under `docs/ai/eval-baselines/` (v8.6.0) |
-| Governance | Issue / Label / Milestone Governance + Metrics Privacy Policy (v8.6.0) |
-| CLI tests | `sh tests/run-tests.sh` — **32 PASS** |
-| Hook tests | `sh tests/hooks/run-tests.sh` — **42 PASS** |
+| Metrics v1 | Workflow event collection and reporting via `bin/plangate metrics` (introduced in v8.6.0) |
+| Reporting v1 | Sprint retrospective derived from events.ndjson (v8.9.0) |
+| Baseline | v8.5.0 baseline fixed under `docs/ai/eval-baselines/` (introduced in v8.6.0) |
+| Governance | Issue / Label / Milestone Governance + Metrics Privacy Policy (introduced in v8.6.0) |
+| CLI tests | `sh tests/run-tests.sh` — **68 PASS** |
+| Hook tests | `sh tests/hooks/run-tests.sh` — **78 PASS** |
 | Eval | 8-observation evaluation and release blocker detection via `bin/plangate eval` |
 | Schema | JSON artifact validation via `validate-schemas` + CI |
 
-v8.6.0 can check these invariants through hooks and CLI:
+PlanGate can check these invariants through hooks and CLI:
 
 - Detect production code edits without `plan.md`
 - Block execution without C-3 approval
@@ -277,12 +279,12 @@ sh tests/run-tests.sh
 sh tests/hooks/run-tests.sh
 ```
 
-Test status as of v8.6.0:
+Test status (latest):
 
 | Suite | Count | Main coverage |
 | --- | ---: | --- |
-| `tests/run-tests.sh` | **32 PASS** | CLI, Workflow DSL, schema validate, eval, metrics v1, provider dispatch, fixture validation |
-| `tests/hooks/run-tests.sh` | **42 PASS** | EH-1 to EH-7 / EHS-1 to EHS-3, default / strict / bypass mode behavior |
+| `tests/run-tests.sh` | **68 PASS** | CLI, Workflow DSL, schema validate, eval, metrics v1, reporting, provider dispatch, fixture validation |
+| `tests/hooks/run-tests.sh` | **78 PASS** | EH-1 to EH-9 / EHS-1 to EHS-3, default / strict / bypass mode behavior |
 
 Main coverage:
 
@@ -290,16 +292,16 @@ Main coverage:
 - `plangate validate --mode <mode>` — artifact list determined dynamically from Workflow DSL
 - `plangate validate-schemas` — JSON Schema compliance for task artifacts
 - `plangate eval` — 8-observation evaluation, baseline comparison, release blocker detection
-- `plangate metrics` — workflow event collection / reporting (v8.6.0)
+- `plangate metrics` — workflow event collection / reporting (introduced in v8.6.0)
 - `plangate review` — external reviewer provider dispatch
 - `plangate exec` — blocked execution when the C-3 gate has not cleared
 - hook enforcement — plan / approval / hash / test-cases / evidence / forbidden_files / merge approvals / V-3 review checks
 
 CI runs the same CLI / hook suites on every PR via `.github/workflows/test.yml`.
 
-## Metrics v1 — 5-minute quickstart (v8.6.0)
+## Metrics v1 — 5-minute quickstart (introduced in v8.6.0)
 
-PlanGate v8.6.0 introduces structured workflow event collection and aggregation.
+PlanGate introduces structured workflow event collection and aggregation since v8.6.0 (Reporting & Retrospective v1 added in v8.9.0).
 It is opt-in: existing workflows are unaffected.
 
 ```bash
