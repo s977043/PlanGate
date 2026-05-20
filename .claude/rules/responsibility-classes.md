@@ -30,6 +30,38 @@
   本正本は上位集約だが、個別正本（orchestrator-mode）が policy 許容を
   定める箇所はそちらが優先（矛盾でなく委譲）。
 
+## 対外公開アーティファクト publish 責務分界
+
+> 2026-05-19 v8.7.0/v8.8.0/v8.9.0 リリース過去ログ保全の事後 3 者検証
+> (qa-reviewer / 責務境界レビュー / Codex) で major 指摘として共通検出され、
+> 明文化に至った領域。issue #296 参照。
+
+GitHub Release / git tag push / その他**対外公開告知**は merge と同等の
+**不可逆・対外確定操作**として扱い、以下のように分割する:
+
+| 操作 | 担当 | 具体例 |
+|------|------|--------|
+| release note 整備・tag/release コマンド提示・draft 作成 | **AI-owned** | CHANGELOG 追記、`gh release create <args>` 案の提示、release-manager Agent への委譲 |
+| `git push origin <tag>` 実行 | **Human-owned**（または計画段階で明示承認を取得した AI 実行） | 公開タグの確定 |
+| `gh release create` 実行 | **Human-owned**（同上） | GitHub Release の発行 |
+| 公開告知（ブログ・SNS 等） | **Human-owned** | 対外コミュニケーション |
+
+**例外**: 計画段階で対象 publish 操作の AI 単独実行を**明示的に y で承認**
+された場合に限り、その範囲で AI が実行可能。承認スコープを超える操作
+（別 tag・別 release・別告知）は再承認を要する。
+
+### 自己設置 Gate 非緩和原則（confirmation-policy 補足）
+
+AI が計画上「Step X は成果物提示後に**再承認**」と自ら明示 Gate を
+宣言した場合、**ユーザーの明示解除メッセージが無い限り**、`/goal` 設定
+・Stop hook 設定・暗黙の autonomy 指示などの**ゴール記述**は
+再承認とは見なさない。Gate 到達時は 1 回明示確認して停止する。
+
+これは AI 運用 4 原則 第1（実行前 y/n）・第2（迂回禁止）・第4
+（解釈変更禁止）の運用解釈であり、ユーザー承認後の自律実行 policy の
+「計画承認」範囲外の Step（自分で切り分けた再承認 Gate）は別承認領域
+として扱う。
+
 ## 既存ルール対応
 
 | 既存ルール | 対応する分類観点 |
@@ -41,6 +73,7 @@
 | [`mode-classification.md`](./mode-classification.md) lite_eligible / C-3 降格 | Human-owned（承認境界）+ Workflow-owned（同期/非同期 opt-in）|
 | [`docs/ai/settings-wiring-contract.md`](../../docs/ai/settings-wiring-contract.md) 責務分離表 | CI-owned（reference）/ AI-owned（doctor 実体検証）/ Human-owned（適用）の具体適用例 |
 | TASK-0077 AC-4（TASK-0071 との責務境界）| 本正本がその上位集約。Lite/降格は Human-owned 承認境界に従属 |
+| [本正本 「対外公開アーティファクト publish 責務分界」節](#対外公開アーティファクト-publish-責務分界) | tag/release publish は AI が draft/コマンド提示まで、実行は Human-owned（または計画段階で明示承認を取得した AI 実行）。issue #296 で正本化 |
 
 ## 位置づけ
 
