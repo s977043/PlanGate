@@ -1,0 +1,186 @@
+{
+  "schema": "report/v1",
+  "period": {
+    "from": "2026-05-01",
+    "to": "2026-05-31"
+  },
+  "task_count": 35,
+  "c3": {
+    "approved": 28,
+    "conditional": 7,
+    "rejected": 0
+  },
+  "c4": {
+    "approved": 0,
+    "request_changes": 0,
+    "rejected": 0
+  },
+  "v1_first_pass_rate": 50.0,
+  "v1_first_pass_observed": 2,
+  "v1_first_pass_unknown": 33,
+  "fix_loop_max": 0,
+  "release_blocker_total": 0,
+  "hook_violation": {
+    "total": 3422,
+    "by_hook": {
+      "check-c3-approval": 274,
+      "check-handoff-elements": 274,
+      "check-fix-loop": 274,
+      "check-plan-exists": 276,
+      "check-plan-hash": 527,
+      "check-test-cases": 200,
+      "check-verification-evidence": 200,
+      "check-forbidden-files": 200,
+      "check-merge-approvals": 200,
+      "check-v3-review": 200,
+      "check-metrics-privacy": 283,
+      "check-delegation-commit-boundary": 467,
+      "check-auth-preflight": 47
+    }
+  },
+  "tasks": [
+    {
+      "task_id": "TASK-0069",
+      "c3_status": "APPROVED",
+      "v1_first_pass": false,
+      "fix_loop": 0
+    },
+    {
+      "task_id": "TASK-0070",
+      "c3_status": "CONDITIONAL",
+      "v1_first_pass": true
+    },
+    {
+      "task_id": "TASK-0071",
+      "c3_status": "CONDITIONAL"
+    },
+    {
+      "task_id": "TASK-0072",
+      "c3_status": "CONDITIONAL"
+    },
+    {
+      "task_id": "TASK-0073",
+      "c3_status": "CONDITIONAL"
+    },
+    {
+      "task_id": "TASK-0074",
+      "c3_status": "CONDITIONAL"
+    },
+    {
+      "task_id": "TASK-0075",
+      "c3_status": "CONDITIONAL"
+    },
+    {
+      "task_id": "TASK-0076",
+      "c3_status": "CONDITIONAL"
+    },
+    {
+      "task_id": "TASK-0077",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0078",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0079",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0080",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0081",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0082",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0083",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0084",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0085",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0086",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0087",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0088",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0089",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0090",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0091",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0092",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0093",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0094",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0095",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0096",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0097",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0098",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0099",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0100",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0101",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0102",
+      "c3_status": "APPROVED"
+    },
+    {
+      "task_id": "TASK-0103",
+      "c3_status": "APPROVED"
+    }
+  ]
+}
