@@ -144,9 +144,9 @@ bin/plangate metrics --report --aggregate
 - baseline ([eval-baselines/2026-05-04-baseline.md](../../docs/ai/eval-baselines/2026-05-04-baseline.md)) と差分比較可能
 - PlanGate 自体もハーネス製品として改善する
 
-### Keep Rate concept (Roadmap, v8.8.0)
+### Keep Rate (実装済み, v8.8.0)
 
-見せる内容:
+見せる内容（v8.8.0 / #198 で実装済み）:
 
 - Code Keep Rate
 - Plan Keep Rate
