@@ -525,6 +525,25 @@ PYEOF
   fi
   printf '\n'
 
+  printf '=== Cursor Provider (optional) ===\n'
+  if [ -f "$plangate_root/.cursor/hooks.json" ]; then
+    printf '  [PASS] .cursor/hooks.json present\n'
+  else
+    printf '  [WARN] .cursor/hooks.json missing — see docs/cursor/quickstart.md\n'
+  fi
+  if [ -x "$plangate_root/scripts/hooks/cursor-adapter.sh" ]; then
+    printf '  [PASS] scripts/hooks/cursor-adapter.sh executable\n'
+  else
+    printf '  [WARN] scripts/hooks/cursor-adapter.sh missing or not executable\n'
+  fi
+  if [ -f "$plangate_root/docs/rfc/provider-cursor.md" ]; then
+    printf '  [PASS] docs/rfc/provider-cursor.md\n'
+  else
+    printf '  [WARN] docs/rfc/provider-cursor.md missing\n'
+  fi
+  printf '  [INFO] PLANGATE_IMPL_AGENT=cursor — manual Agent handoff (docs/cursor/quickstart.md)\n'
+  printf '\n'
+
   # T-8 (TASK-0069): --fix / --dry-run / --yes 修復分岐。
   # settings.json は scripts/doctor_fix.py 経由（直接書換禁止）。
   # 併せて EH-8 chmod / .gitignore 追記 / docs/working mkdir を修復。
@@ -1426,8 +1445,15 @@ cmd_exec() {
       printf 'info: codex exec — use /ai-dev-workflow %s exec in Claude Code\n' "$task_id"
       printf 'Context: %s/plan.md\n' "$work_dir"
       ;;
+    cursor)
+      printf 'info: cursor exec — open Cursor Agent with:\n'
+      printf '  Plan: %s/plan.md\n' "$work_dir"
+      printf '  Todo: %s/todo.md\n' "$work_dir"
+      printf '  Guide: docs/cursor/quickstart.md\n'
+      printf 'Set PLANGATE_HOOK_TASK=%s and PLANGATE_HOOK_STRICT=1 for hook enforcement.\n' "$task_id"
+      ;;
     *)
-      printf 'error: Unknown impl agent: %s (supported: codex, opencode)\n' "$agent" >&2
+      printf 'error: Unknown impl agent: %s (supported: codex, opencode, cursor)\n' "$agent" >&2
       return 1
       ;;
   esac

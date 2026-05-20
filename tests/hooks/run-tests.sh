@@ -723,5 +723,14 @@ else
   fail=$((fail + 1))
 fi
 
+note "Cursor adapter (Issue #291)"
+if sh "$REPO_ROOT/tests/hooks/cursor-adapter-test.sh" >/dev/null 2>&1; then
+  printf '[PASS] cursor-adapter-test.sh\n'
+  pass=$((pass + 1))
+else
+  printf '[FAIL] cursor-adapter-test.sh\n'
+  fail=$((fail + 1))
+fi
+
 printf '\nResults: %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -gt 0 ] && exit 1 || exit 0

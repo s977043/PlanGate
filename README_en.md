@@ -346,7 +346,7 @@ The gate mechanism, artifact schemas, and `run.ndjson` log format work independe
 | Codex CLI | External review (default, C-2 / V-3), exec implementation agent (default), parallel exec | Fully supported |
 | Gemini CLI | External review | Supported — `PLANGATE_EXTERNAL_REVIEWER=gemini plangate review` |
 | OpenCode | Implementation agent | Supported — `PLANGATE_IMPL_AGENT=opencode plangate exec` |
-| Cursor | Implementation agent | Planned |
+| Cursor | Implementation agent | Partial — [RFC](docs/rfc/provider-cursor.md) / [quickstart](docs/cursor/quickstart.md) / `.cursor/hooks.json` |
 
 To contribute support for a new provider, see [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-new-provider).
 
@@ -369,6 +369,8 @@ To contribute support for a new provider, see [CONTRIBUTING.md](CONTRIBUTING.md#
 | [docs/ai/responsibility-boundary.md](docs/ai/responsibility-boundary.md) | CLAUDE.md / Skill / Hook responsibility boundary |
 | [docs/ai/tool-policy.md](docs/ai/tool-policy.md) | Phase-specific allowed_tools definition |
 | [docs/ai/hook-enforcement.md](docs/ai/hook-enforcement.md) | v8.5 Hook enforcement 10/10 implementation status |
+| [docs/cursor/quickstart.md](docs/cursor/quickstart.md) | Cursor setup (Level 1–3) |
+| [docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md) | Cursor Provider RFC |
 | [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Using and migrating to Claude Code plugin |
 | [docs/oss-governance.md](docs/oss-governance.md) | OSS publication settings and operational decisions |
 | [CHANGELOG.md](CHANGELOG.md) | Major release history |

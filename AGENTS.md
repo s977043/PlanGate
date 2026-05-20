@@ -16,6 +16,14 @@
 - `package.json` なし → 一般的な lint / test / typecheck コマンドは未定義
 - 実行入口: `./scripts/ai-dev-workflow` / `./scripts/codex-local.sh` / `bin/plangate`
 
+## Cursor 固有参照
+
+- 導入手順: [`docs/cursor/quickstart.md`](docs/cursor/quickstart.md)
+- RFC: [`docs/rfc/provider-cursor.md`](docs/rfc/provider-cursor.md)
+- Hook 配線: `.cursor/hooks.json` → `scripts/hooks/cursor-adapter.sh`
+- ルール: `.cursor/rules/plangate.mdc`
+- スキル symlink: `.cursor/skills/` → `.agents/skills/`（正本は `.agents/skills/`）
+
 ## Codex 固有参照
 
 - 実行設定: `.codex/config.toml` / `.codex/instructions.md` / `.codex/agents/*.toml`

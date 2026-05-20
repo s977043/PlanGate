@@ -1,0 +1,45 @@
+---
+description: PlanGate gate-based workflow for Cursor Agent (C-3 / artifacts / skills)
+alwaysApply: true
+---
+
+# PlanGate (Cursor)
+
+このプロジェクトで PlanGate ワークフローを使うときは次を守る。
+
+## 必読
+
+1. [`docs/ai/project-rules.md`](../../docs/ai/project-rules.md)
+2. [`AGENTS.md`](../../AGENTS.md)
+3. [`docs/plangate.md`](../../docs/plangate.md)
+4. Cursor 導入: [`docs/cursor/quickstart.md`](../../docs/cursor/quickstart.md)
+
+## 作業コンテキスト
+
+- チケット作業は `docs/working/TASK-XXXX/` 以下で行う
+- 新規タスク: `bin/plangate init TASK-XXXX`
+- **C-3 承認前**に production コード（`bin/`, `schemas/`, `docs/ai/`, `.claude/` 等）を編集しない
+- 検証: `bin/plangate validate TASK-XXXX`
+
+## スキル（repo-owned 正本）
+
+ワークフロー用スキルは `.agents/skills/` が正本。`.cursor/skills/` は symlink。
+
+| フェーズ | スキル |
+| --- | --- |
+| 要件整理 | `ai-dev-brainstorm` |
+| plan 生成 | `ai-dev-plan` |
+| C-3 判定 | `plan-review-gate` |
+| 実装後レビュー | `self-review` |
+| コンテキスト読込 | `working-context` |
+
+スキル使用前に該当 `SKILL.md` を Read する。
+
+## Hook（Level 3）
+
+`PLANGATE_HOOK_TASK=TASK-XXXX` を export したうえで編集する。
+厳格モード: `PLANGATE_HOOK_STRICT=1`。
+
+## 言語
+
+日本語で出力・コミットメッセージ・PR 文面を書く。

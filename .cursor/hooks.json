@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": ".cursor/hooks/plangate-eh1-plan.sh",
+        "matcher": "Write|StrReplace|search_replace|apply_patch",
+        "failClosed": false
+      },
+      {
+        "command": ".cursor/hooks/plangate-eh2-c3.sh",
+        "matcher": "Write|StrReplace|search_replace|apply_patch",
+        "failClosed": false
+      }
+    ]
+  }
+}

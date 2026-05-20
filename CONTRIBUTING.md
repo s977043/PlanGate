@@ -88,6 +88,9 @@ To add support for a new provider (e.g. a new CLI tool):
 Do not implement provider support without an approved RFC — governance compatibility
 must be verified before merging.
 
+**Cursor** — see [`docs/rfc/provider-cursor.md`](docs/rfc/provider-cursor.md) and
+[`docs/cursor/quickstart.md`](docs/cursor/quickstart.md) (Issue [#291](https://github.com/s977043/PlanGate/issues/291)).
+
 ### CI について
 
 PR には `Markdown lint` の必須チェックがあります。ローカルで確認するには:
