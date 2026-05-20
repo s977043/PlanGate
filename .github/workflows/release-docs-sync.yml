@@ -1,0 +1,42 @@
+name: release-docs-sync
+
+# リリース公開時に CHANGELOG.md を /docs 配信面へ同期し PR を自動作成する。
+# merge は Human-owned（C-4）。本 workflow は PR 作成までで main 直 push しない。
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync CHANGELOG into docs/
+        run: sh scripts/sync-release-docs.sh
+
+      - name: Create PR if docs/changelog.md changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- docs/changelog.md; then
+            echo "no docs/changelog.md changes — nothing to do"
+            exit 0
+          fi
+          tag="${{ github.event.release.tag_name }}"
+          [ -n "$tag" ] || tag="manual-$(date +%Y%m%d%H%M%S)"
+          branch="chore/release-docs-sync-${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add docs/changelog.md
+          git commit -m "chore(docs): リリース時 changelog 同期 (${tag})"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "chore(docs): 公開ドキュメント changelog 同期 (${tag})" \
+            --body "release \`${tag}\` 発火による \`docs/changelog.md\` 自動同期（scripts/sync-release-docs.sh）。merge は Human-owned（C-4）。冪等生成物のため内容差分のみ。"
