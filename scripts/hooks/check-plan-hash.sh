@@ -160,7 +160,7 @@ try:
     if allowed is not None:
         if not isinstance(allowed, list):
             print("INVALID|allowed_paths not array"); sys.exit(0)
-        matched = any(fnmatch.fnmatch(norm_target, pat) for pat in allowed)
+        matched = any(fnmatch.fnmatchcase(norm_target, pat) for pat in allowed)
         if not matched:
             print(f"OUT_OF_SCOPE|target={norm_target} not in allowed_paths={allowed}")
             sys.exit(0)

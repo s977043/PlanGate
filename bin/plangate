@@ -688,7 +688,9 @@ try:
     consumed = d.get("consumed_at") is not None
     active = (int(d.get("granted_at", 0)) <= now and rem > 0 and not consumed)
     if active:
-        print(f"active remaining={rem//60:02d}:{rem%60:02d} scope={d.get('scope','')} one_shot={str(one_shot).lower()} paths={d.get('allowed_paths') or '(any non-Override)'}")
+        ap = d.get('allowed_paths')
+        paths_str = ap if ap is not None else '(any non-Override)'
+        print(f"active remaining={rem//60:02d}:{rem%60:02d} scope={d.get('scope','')} one_shot={str(one_shot).lower()} paths={paths_str}")
     elif consumed:
         print(f"consumed (one_shot) — re-issue with 'plangate maintenance start' if needed")
     elif rem == 0:
@@ -1237,7 +1239,7 @@ cmd_maintenance() {
     # $1=event $2=verdict $3=detail (JSON-safe)
     _ev="$1"; _vd="$2"; _dt="$3"
     printf '{"ts":"%s","event":"%s","verdict":"%s","ppid":%s,"isatty_stdin":%s,"detail":%s}\n' \
-      "$(_ts_iso)" "$_ev" "$_vd" "$$" \
+      "$(_ts_iso)" "$_ev" "$_vd" "${PPID:-0}" \
       "$([ -t 0 ] && printf true || printf false)" \
       "$(printf '%s' "$_dt" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')" \
       >> "$_hook_events" 2>/dev/null || true
@@ -1326,7 +1328,7 @@ cmd_maintenance() {
       if [ -n "$_paths" ]; then
         _allowed_json=$(printf '%s' "$_paths" | python3 -c 'import json,sys; print(json.dumps([p.strip() for p in sys.stdin.read().split(",") if p.strip()]))')
       fi
-      _user="${USER:-mine_take}"
+      _user="${USER:-unknown}"
       python3 - "$_maint" "$_user" "$_reason" "$_now" "$_until" "$_allowed_json" <<'PYW'
 import json, sys, os
 target, user, reason, granted_at, until_, allowed_json = sys.argv[1:7]
