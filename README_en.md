@@ -94,6 +94,19 @@ PlanGate can check these invariants through hooks and CLI:
 - Detect merges without both C-3 and C-4 approvals
 - Require V-3 external review for standard / high-risk / critical modes
 
+## Requirements
+
+| Type | Tool | Purpose |
+| --- | --- | --- |
+| **Required** | git / POSIX sh (bash/zsh) / python3 | `bin/plangate` CLI and hook foundation |
+| **Recommended** | [Claude Code](https://docs.claude.com/claude-code) | Main path for plan generation and exec (via slash commands) |
+| **Optional** | [gh CLI](https://cli.github.com/) | PR/issue operations (C-4 gate via GitHub) |
+| **Optional** | [Codex CLI](https://github.com/openai/codex) | exec implementation agent (default) / C-2 / V-3 external review |
+| **Optional** | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | Parallel external review |
+| **Optional** | [Cursor](https://cursor.com/) | `PLANGATE_IMPL_AGENT=cursor` (partial support, [docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md)) |
+
+OS: macOS / Linux (POSIX shell required). Use WSL on Windows. Without Claude Code, `bin/plangate` CLI still works for PBI document management and gate verification, but plan generation becomes manual.
+
 ## Install
 
 ### Option A: Clone and register plugin (recommended)
