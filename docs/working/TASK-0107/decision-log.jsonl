@@ -1,0 +1,8 @@
+{"ts": "2026-05-21T05:32:00Z", "event": "brainstorm_created", "source": "TASK-0107/brainstorm.md", "notes": "PBI 化前検討ログ作成"}
+{"ts": "2026-05-21T05:47:00Z", "event": "pbi_input_created", "source": "TASK-0107/pbi-input.md", "revision": "r0"}
+{"ts": "2026-05-21T15:18:00Z", "event": "c2_r1_reflected", "findings": ["R-001", "R-002", "R-003", "R-004", "R-005"], "severity": ["major", "major", "minor", "minor", "info"], "reviewers": ["codex", "gemini"]}
+{"ts": "2026-05-21T15:33:00Z", "event": "c2_r2_reflected", "findings": ["R-006", "R-007", "R-008"], "severity": ["minor", "info", "info"], "reviewers": ["codex", "gemini"]}
+{"ts": "2026-05-22T06:10:00Z", "event": "plan_generated", "files": ["plan.md", "todo.md", "test-cases.md"]}
+{"ts": "2026-05-22T06:25:00Z", "event": "c2_r3_reflected", "findings": ["R-009", "R-010", "R-011", "R-012", "R-013"], "severity": ["major", "major", "major", "major", "minor"], "reviewers": ["codex", "gemini"], "codex_judgment": "REJECT", "gemini_judgment": "APPROVE"}
+{"ts": "2026-05-22T06:30:00Z", "event": "c1_completed", "result": "PASS", "items": "17/17", "blockers": 0}
+{"ts": "2026-05-22T06:35:00Z", "event": "c3_gate_ready", "status": "pending_human_approval", "prerequisites": "lite_eligible=false, synchronous C-3 required, approvals/c3.json must be issued by human"}
