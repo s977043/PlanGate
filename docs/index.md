@@ -6,6 +6,29 @@ PlanGate は、AI コーディングエージェントをプロダクション�
 
 ![Harness Engineering と PlanGate の関係](assets/harness-plangate-readme-dark-v2.png)
 
+## 新規利用者: 最初に読む 3 ページ
+
+PlanGate を初めて知った方は、以下の順に **15-30 分** で読むことを推奨します。
+
+1. **[PlanGate ガイド](./plangate.md)** — 全体像・5 フェーズ・解決する問題（約 5 分）
+2. **[段階的導入ガイド](./staged-adoption-guide.md)** — Level 1 (Day 1) から始める具体手順（約 10 分）
+3. **[10 分チュートリアル（GitHub README）](https://github.com/s977043/PlanGate#10-分チュートリアル)** — 実際に手を動かす最小例（約 10 分）
+
+「自分のチームに合うか」を判断したい方は [思想と問題設定](./philosophy.md) も参照。
+
+## Requirements
+
+| 種別 | ツール | 用途 |
+| --- | --- | --- |
+| **Required** | git / POSIX sh (bash/zsh) / python3 | `bin/plangate` CLI と hook の基盤 |
+| **Recommended** | [Claude Code](https://docs.claude.com/claude-code) | plan 生成・exec の主導線（slash command 経由） |
+| **Optional** | [gh CLI](https://cli.github.com/) | PR / issue 操作（C-4 ゲートの GitHub 連携） |
+| **Optional** | [Codex CLI](https://github.com/openai/codex) | exec 実装エージェント（既定） / C-2 / V-3 外部レビュー |
+| **Optional** | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | 並列外部レビュー |
+| **Optional** | [Cursor](https://cursor.com/) | `PLANGATE_IMPL_AGENT=cursor`（部分対応・[RFC](./rfc/provider-cursor.md)） |
+
+OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推奨。
+
 ## はじめに読むもの
 
 | ドキュメント | 内容 |
