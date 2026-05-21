@@ -237,15 +237,79 @@ def run_v860_checks() -> dict:
     }
 
 
+def run_maintenance_checks() -> dict:
+    """maintenance scope: report active maintenance window metadata (TASK-0106 / AC-13)."""
+    import time
+    maint = REPO / "docs/working/_maintenance/maintenance.json"
+    out: dict = {
+        "scope": "maintenance",
+        "checks": [],
+        "failures": 0,
+        "warnings": 0,
+        "passed": True,
+        "maintenance": {"present": False},
+    }
+    if not maint.is_file():
+        out["checks"].append({
+            "id": "maintenance.json", "level": "info",
+            "status": "ok", "msg": "no active maintenance window",
+        })
+        return out
+    try:
+        d = json.loads(maint.read_text())
+    except Exception as e:
+        out["checks"].append({
+            "id": "maintenance.json", "level": "warn",
+            "status": "fail", "msg": f"unparsable: {e}",
+        })
+        out["warnings"] += 1
+        return out
+    now = int(time.time())
+    until = int(d.get("until", 0))
+    gat = int(d.get("granted_at", 0))
+    remaining = max(0, until - now)
+    consumed_at = d.get("consumed_at")
+    info = {
+        "present": True,
+        "scope": d.get("scope", ""),
+        "approved_by": d.get("approved_by", ""),
+        "reason": d.get("reason", ""),
+        "granted_at": gat,
+        "until_epoch": until,
+        "remaining_seconds": remaining,
+        "remaining_mmss": f"{remaining // 60:02d}:{remaining % 60:02d}",
+        "allowed_paths": d.get("allowed_paths"),
+        "one_shot": bool(d.get("one_shot", False)),
+        "consumed_at": consumed_at,
+        "active": gat <= now < until and consumed_at is None,
+    }
+    out["maintenance"] = info
+    if info["active"]:
+        out["checks"].append({
+            "id": "maintenance.json", "level": "info",
+            "status": "ok",
+            "msg": f"active: remaining={info['remaining_mmss']} scope={info['scope']} paths={info['allowed_paths']}",
+        })
+    else:
+        reason = "expired" if until <= now else (
+            "consumed (one_shot)" if consumed_at is not None else "not yet started")
+        out["checks"].append({
+            "id": "maintenance.json", "level": "info",
+            "status": "ok", "msg": f"inactive: {reason}",
+        })
+    return out
+
+
 SCOPES = {
     "v8.6.0": run_v860_checks,
     "hooks": run_hooks_checks,
+    "maintenance": run_maintenance_checks,
 }
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--scope", default="v8.6.0", help="Check scope (v8.6.0 | hooks)")
+    parser.add_argument("--scope", default="v8.6.0", help="Check scope (v8.6.0 | hooks | maintenance)")
     args = parser.parse_args(argv)
 
     runner = SCOPES.get(args.scope)

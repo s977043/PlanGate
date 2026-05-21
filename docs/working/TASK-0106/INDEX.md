@@ -4,7 +4,7 @@
 
 - **Source**: GitHub issue #289
 - **Title**: EH-3 in-session skip 改善 — `bin/plangate maintenance` CLI 新設
-- **Phase**: C-1 v3 完了（外部レビュー v2 結果 R-012〜R-020 確定反映後）(C-3 ゲート待ち = Human-owned)
+- **Phase**: exec 完了・V-1 PASS（handoff 6 要素 + AC-1..13 全 PASS + tests 82/0 + 79/0、PR 待ち）
 - **Mode 判定（参考）**: high-risk（critical 候補）
 - **Labels**: `enhancement` / `priority:P2`
 - **Status**: PBI INPUT PACKAGE / plan / todo / test-cases / review-self (v2) / review-external 作成済。**C-3 ゲート待ち (Human-owned)**
@@ -13,15 +13,16 @@
 
 | File | Role | Status |
 |------|------|--------|
-| `pbi-input.md` | A: PBI INPUT PACKAGE | ✅ |
-| `plan.md` | B: EXECUTION PLAN | ✅ |
-| `todo.md` | B: EXECUTION TODO | ✅ |
-| `test-cases.md` | B: テストケース定義 | ✅ |
-| `review-external.md` | C-2/V-3 外部レビュー集約 (Codex+Gemini, R-001..R-011) | ✅ |
-| `review-self.md` | C-1 v3: セルフレビュー (総合 97, R-012 best-effort 明示) | ✅ |
+| `pbi-input.md` | A: PBI INPUT PACKAGE (v3.2 + v3.1 AC ラベル整合) | ✅ |
+| `plan.md` | B: EXECUTION PLAN (v3.2) | ✅ |
+| `todo.md` | B: EXECUTION TODO (v3.2) | ✅ |
+| `test-cases.md` | B: テストケース定義 (TC-01..TC-34) | ✅ |
+| `review-self.md` | C-1 v3.1 (総合 98 / blocker 0) | ✅ |
+| `review-external.md` | C-2/V-3 外部レビュー集約 (R-001..R-031) | ✅ |
+| `approvals/c3.json` | C-3 ゲート判定 APPROVED (2026-05-21、Human) | ✅ |
+| `handoff.md` | WF-05 完了パッケージ (Rule 5 必須 6 要素) | ✅ |
 | `current-state.md` | 現状スナップショット | ✅ |
-| `status.md` | フェーズ履歴 | ⏳ 未生成 |
-| `handoff.md` | WF-05 完了パッケージ | ⏳ 未生成 |
+
 
 ## Next action
 

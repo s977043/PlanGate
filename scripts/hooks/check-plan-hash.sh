@@ -100,34 +100,123 @@ if [ -z "$task_id" ]; then
     exit 2
   fi
 
-  # ===== TASK-0082 / TASK-0071 S3: メンテモード（承認ファイル方式）=====
-  # 優先順 BYPASS(上記) > メンテ > 通常(SKIP_REASON)。plan.md は上で BLOCK 済
-  # ＝メンテで覆らない(E1)。env では有効化しない(承認ファイルのみ=AI自己付与不可)。
+  # ===== TASK-0106: メンテモード v2（承認ファイル方式 + 多層 + Override 物理先頭）=====
+  # 判定順序 (R-020):
+  #   (i)   target_file 正規化（./ 除去等・R-028）
+  #   (ii)  Hardening Override 物理先頭判定（R-003/R-015、10 パターン、maintenance より上）
+  #   (iii) maintenance ファイル valid 判定（v1=30分窓、v2=allowed_paths/one_shot/consumed_at）
+  #   (iv)  allowed_paths スコープ判定（指定なし=Override 対象以外を許可、後方互換）
+  #   (v)   flock(LOCK_EX|LOCK_NB) → 再 open(path) で inode 比較 → consumed_at 未消費なら os.replace（R-002/R-017/R-027/R-031）
+  # 優先順 BYPASS(上記) > Override(block) > maintenance(SKIP) > 通常(SKIP_REASON)。
+  # env では maintenance 有効化しない（承認ファイルのみ=AI自己付与不可・R-011）。
+  #
+  # (i) target_file 正規化
+  _norm_target="${target_file:-}"
+  case "$_norm_target" in
+    ./*) _norm_target="${_norm_target#./}" ;;
+  esac
+  case "$_norm_target" in
+    "$REPO_ROOT"/*) _norm_target="${_norm_target#$REPO_ROOT/}" ;;
+  esac
+
+  # (ii) Hardening Override 物理先頭判定（R-003/R-015、maintenance より上）
+  _override=0
+  case "$_norm_target" in
+    .claude/rules/*.md) _override=1 ;;
+    .claude/settings.json|.claude/settings.local.json|.claude/settings.example.json) _override=1 ;;
+    .claude/commands/*.md|.claude/commands/*/*.md) _override=1 ;;
+    .claude/agents/*.md|.claude/agents/*/*.md) _override=1 ;;
+    scripts/hooks/*.sh) _override=1 ;;
+    bin/plangate) _override=1 ;;
+    schemas/*.schema.json) _override=1 ;;
+    .github/workflows/*.yml|.github/workflows/*.yaml) _override=1 ;;
+    AGENTS.md|CLAUDE.md) _override=1 ;;
+  esac
+  if [ "$_override" = "1" ]; then
+    reason="HARDENING_OVERRIDE: ${_norm_target} は maintenance 窓内でも常時 block (R-003/R-015)"
+    log_event "HARDENING_OVERRIDE" "$reason"
+    printf '[Hook EH-3] %s\n' "$reason" >&2
+    exit 2
+  fi
+
+  # (iii)-(v) maintenance valid + scope + one-shot atomic consume
   _maint="$REPO_ROOT/docs/working/_maintenance/maintenance.json"
   if [ -f "$_maint" ]; then
-    _mvalid=$(python3 - "$_maint" <<'PYM' 2>/dev/null || true
-import json,sys,time
+    _mresult=$(MAINT_FILE="$_maint" NORM_TARGET="$_norm_target" python3 - <<'PYM' 2>/dev/null || true
+import json, os, sys, time, fnmatch
+import fcntl
+maint_path = os.environ["MAINT_FILE"]
+norm_target = os.environ["NORM_TARGET"]
 try:
-    d=json.load(open(sys.argv[1]))
-    ga=int(d["until"]); gat=int(d["granted_at"])
-    _now=int(time.time())
-    ok = (str(d.get("approved_by","")).strip()!=""
-          and str(d.get("reason","")).strip()!=""
-          and gat<=_now                          # 付与は過去（承認前メンテ禁止）
-          and ga>_now                            # 未失効
-          and ga-gat<=1800 and ga-gat>0)         # 最大30分
-    print("valid" if ok else "invalid")
-except Exception:
-    print("invalid")
+    with open(maint_path, "r") as f:
+        d = json.load(f)
+    ga = int(d["until"]); gat = int(d["granted_at"]); now = int(time.time())
+    base_ok = (str(d.get("approved_by","")).strip()!="" and
+               str(d.get("reason","")).strip()!="" and
+               gat<=now and ga>now and 0<ga-gat<=1800)
+    if not base_ok:
+        print("INVALID|base validation failed"); sys.exit(0)
+    allowed = d.get("allowed_paths")
+    if allowed is not None:
+        if not isinstance(allowed, list):
+            print("INVALID|allowed_paths not array"); sys.exit(0)
+        matched = any(fnmatch.fnmatch(norm_target, pat) for pat in allowed)
+        if not matched:
+            print(f"OUT_OF_SCOPE|target={norm_target} not in allowed_paths={allowed}")
+            sys.exit(0)
+    one_shot = bool(d.get("one_shot", False))
+    if not one_shot:
+        print(f"VALID|legacy 30min window (one_shot=false), target={norm_target}")
+        sys.exit(0)
+    if d.get("consumed_at") is not None:
+        print(f"CONSUMED|one_shot already consumed at {d.get('consumed_at')}")
+        sys.exit(0)
+    try:
+        with open(maint_path, "r+") as lock_fp:
+            try:
+                fcntl.flock(lock_fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                print("RACE_LOCK|flock LOCK_NB failed (concurrent hook), fail-closed")
+                sys.exit(0)
+            try:
+                lock_ino = os.fstat(lock_fp.fileno()).st_ino
+                path_ino = os.stat(maint_path).st_ino
+            except FileNotFoundError:
+                print("RACE_DELETE|target removed during lock, fail-closed")
+                sys.exit(0)
+            if lock_ino != path_ino:
+                print(f"RACE_INODE|fd ino={lock_ino} != path ino={path_ino}, fail-closed (R-031)")
+                sys.exit(0)
+            lock_fp.seek(0)
+            d2 = json.load(lock_fp)
+            if d2.get("consumed_at") is not None:
+                print(f"RACE_CONSUMED|re-read after lock: already consumed by other")
+                sys.exit(0)
+            d2["consumed_at"] = now
+            tmp = maint_path + ".tmp"
+            with open(tmp, "w") as wf:
+                json.dump(d2, wf, ensure_ascii=False, indent=2)
+            os.replace(tmp, maint_path)
+            print(f"VALID|one_shot consumed (consumed_at={now}), target={norm_target}")
+            sys.exit(0)
+    except Exception as e:
+        print(f"ERROR|{e}")
+        sys.exit(0)
+except Exception as e:
+    print(f"INVALID|{e}")
 PYM
 )
-    if [ "$_mvalid" = "valid" ]; then
-      reason="MAINTENANCE_SKIP: non-plan ${target_file:-unknown} (承認ファイル有効・最大30分窓)"
-      log_event "MAINTENANCE_SKIP" "$reason"
-      printf '[Hook EH-3 SKIP] %s\n' "$reason"
-      exit 0
-    fi
-    log_event "MAINTENANCE_INVALID" "maintenance.json 不正/失効 → fail-closed(通常 SKIP_REASON 判定へ)"
+    case "$_mresult" in
+      VALID*)
+        reason="MAINTENANCE_SKIP: non-plan ${_norm_target:-unknown} ($_mresult)"
+        log_event "MAINTENANCE_SKIP" "$reason"
+        printf '[Hook EH-3 SKIP] %s\n' "$reason"
+        exit 0
+        ;;
+      *)
+        log_event "MAINTENANCE_BLOCK" "fail-closed: $_mresult"
+        ;;
+    esac
   fi
 
   # ===== SKIP_REASON 例外申請（空/空白のみなら SKIP せず停止）=====

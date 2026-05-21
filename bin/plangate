@@ -136,6 +136,7 @@ cmd_help() {
     "  abort <TASK-XXXX> [--reason]   Record abort event in run.ndjson" \
     "  timeline <TASK-XXXX>           Display run.ndjson event log" \
     "  resume <TASK-XXXX>             Show current-state.md for session resume" \
+    "  maintenance <start|stop> ...   In-session edit window (Human-only, L1-L4 defense) (TASK-0106)" \
     "  version                        Print version"
 }
 
@@ -674,6 +675,34 @@ PYEOF
     return 0
   fi
 
+  # TASK-0106 T-07a: maintenance 窓の有無を 1 行表示（doctor 全 scope 共通の補足）
+  _maint_file="$plangate_root/docs/working/_maintenance/maintenance.json"
+  if [ -f "$_maint_file" ]; then
+    _m=$(python3 - "$_maint_file" <<'PYM' 2>/dev/null || true
+import json, sys, time
+try:
+    d = json.load(open(sys.argv[1]))
+    now = int(time.time())
+    rem = max(0, int(d.get("until", 0)) - now)
+    one_shot = bool(d.get("one_shot", False))
+    consumed = d.get("consumed_at") is not None
+    active = (int(d.get("granted_at", 0)) <= now and rem > 0 and not consumed)
+    if active:
+        print(f"active remaining={rem//60:02d}:{rem%60:02d} scope={d.get('scope','')} one_shot={str(one_shot).lower()} paths={d.get('allowed_paths') or '(any non-Override)'}")
+    elif consumed:
+        print(f"consumed (one_shot) — re-issue with 'plangate maintenance start' if needed")
+    elif rem == 0:
+        print(f"expired — use 'plangate maintenance stop' to clean up")
+    else:
+        print("inactive")
+except Exception as e:
+    print(f"unparsable: {e}")
+PYM
+)
+    printf '\n=== Maintenance Window ===\n'
+    printf '  [INFO] %s\n' "$_m"
+  fi
+
   if [ "$failures" -eq 0 ]; then
     printf 'Result: PASS (all checks passed)\n'
   else
@@ -1191,6 +1220,163 @@ cmd_resume() {
   cmd_status "$task_id" 2>/dev/null | grep -E 'Current:|Next:' || true
 }
 
+cmd_maintenance() {
+  # TASK-0106: bin/plangate maintenance start/stop
+  # Human-owned in-session skip CLI. 多層 best-effort 防御 + 全試行監査ログ。
+  # AI 自己付与は L1 isatty / L2 env barrier / L3 parent process heuristic /
+  # L4 対話 nonce で抑止し、全 start 試行を hook-events.log に記録。
+  # 完全な構造保証は別 PBI 分割（R-012）。
+  REPO_ROOT="$plangate_root"
+  _hook_events="$REPO_ROOT/docs/working/_audit/hook-events.log"
+  _maint_dir="$REPO_ROOT/docs/working/_maintenance"
+  _maint="$_maint_dir/maintenance.json"
+  mkdir -p "$_maint_dir" "$REPO_ROOT/docs/working/_audit"
+
+  _ts_iso() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+  _audit() {
+    # $1=event $2=verdict $3=detail (JSON-safe)
+    _ev="$1"; _vd="$2"; _dt="$3"
+    printf '{"ts":"%s","event":"%s","verdict":"%s","ppid":%s,"isatty_stdin":%s,"detail":%s}\n' \
+      "$(_ts_iso)" "$_ev" "$_vd" "$$" \
+      "$([ -t 0 ] && printf true || printf false)" \
+      "$(printf '%s' "$_dt" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')" \
+      >> "$_hook_events" 2>/dev/null || true
+  }
+
+  _sub="${1:-help}"
+  case "$_sub" in
+    start)
+      shift
+      _reason=""; _paths=""; _minutes="5"; _force="false"
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --reason)  _reason="$2"; shift 2 ;;
+          --paths)   _paths="$2"; shift 2 ;;
+          --minutes) _minutes="$2"; shift 2 ;;
+          --force)   _force="true"; shift ;;
+          *) printf 'error: unknown arg: %s\n' "$1" >&2; return 2 ;;
+        esac
+      done
+
+      # --- L1: isatty (stdin が対話 TTY か) ---
+      if ! [ -t 0 ]; then
+        _audit "maintenance_start_attempt" "reject_L1" "non-interactive stdin"
+        printf 'error: L1 interactive TTY required (stdin not a tty)\n' >&2
+        return 1
+      fi
+
+      # --- L2: env barrier ---
+      for _evname in CI CLAUDE_AGENT CURSOR_AGENT PLANGATE_BYPASS_HOOK; do
+        _evval=$(eval "printf '%s' \"\${$_evname:-}\"")
+        if [ -n "$_evval" ]; then
+          _audit "maintenance_start_attempt" "reject_L2" "env $_evname=$_evval detected"
+          printf 'error: L2 agent env detected (%s set)\n' "$_evname" >&2
+          return 1
+        fi
+      done
+
+      # --- L3: parent process heuristic ---
+      _pcomm=$(ps -p $PPID -o comm= 2>/dev/null | tr -d ' ')
+      # PLANGATE_FAKE_PPID_COMM is test-only injection (R-026)
+      if [ -n "${PLANGATE_FAKE_PPID_COMM:-}" ]; then _pcomm="$PLANGATE_FAKE_PPID_COMM"; fi
+      if printf '%s' "$_pcomm" | grep -iqE 'claude|codex|cursor'; then
+        _audit "maintenance_start_attempt" "reject_L3" "parent process comm=$_pcomm"
+        printf 'error: L3 AI agent lineage detected (ppid comm: %s)\n' "$_pcomm" >&2
+        return 1
+      fi
+
+      # --- L4: 対話 nonce ---
+      _nonce=$(python3 -c 'import secrets; print(secrets.token_hex(4))')
+      printf 'L4 nonce challenge: please type the following 8-hex string and press Enter to confirm human operation:\n'
+      printf '  %s\n' "$_nonce"
+      printf 'PLANGATE_MAINT_ACK> '
+      read _ack || _ack=""
+      if [ "$_ack" != "$_nonce" ]; then
+        _audit "maintenance_start_attempt" "reject_L4" "nonce mismatch (got: $_ack)"
+        printf 'error: L4 nonce mismatch (got: %s, expected: %s)\n' "$_ack" "$_nonce" >&2
+        return 1
+      fi
+
+      # --- 引数バリデーション ---
+      if [ -z "$_reason" ] || [ -z "$(printf '%s' "$_reason" | tr -d '[:space:]')" ]; then
+        _audit "maintenance_start_attempt" "reject_arg" "empty --reason"
+        printf 'error: --reason is required (non-blank)\n' >&2
+        return 2
+      fi
+      case "$_minutes" in
+        ''|*[!0-9]*) printf 'error: --minutes must be a positive integer\n' >&2; return 2 ;;
+      esac
+      if [ "$_minutes" -le 0 ] || [ "$_minutes" -gt 30 ]; then
+        _audit "maintenance_start_attempt" "reject_arg" "minutes out of range (1..30): $_minutes"
+        printf 'error: --minutes must be 1..30 (hard cap 30)\n' >&2
+        return 2
+      fi
+
+      # --- 既存有効ファイルチェック (AC-9 / R-005/R-010) ---
+      if [ -f "$_maint" ] && [ "$_force" = "false" ]; then
+        _audit "maintenance_start_attempt" "reject_existing" "already active maintenance.json present (use --force to overwrite)"
+        printf 'error: already active maintenance window (use --force to overwrite)\n' >&2
+        return 1
+      fi
+
+      # --- 生成 ---
+      _now=$(date -u +%s)
+      _until=$((_now + _minutes * 60))
+      _allowed_json="null"
+      if [ -n "$_paths" ]; then
+        _allowed_json=$(printf '%s' "$_paths" | python3 -c 'import json,sys; print(json.dumps([p.strip() for p in sys.stdin.read().split(",") if p.strip()]))')
+      fi
+      _user="${USER:-mine_take}"
+      python3 - "$_maint" "$_user" "$_reason" "$_now" "$_until" "$_allowed_json" <<'PYW'
+import json, sys, os
+target, user, reason, granted_at, until_, allowed_json = sys.argv[1:7]
+d = {
+    "scope": "in-session edit",
+    "until": int(until_),
+    "granted_at": int(granted_at),
+    "reason": reason,
+    "approved_by": user,
+    "one_shot": True,
+}
+allowed = json.loads(allowed_json)
+if allowed is not None:
+    d["allowed_paths"] = allowed
+tmp = target + ".tmp"
+with open(tmp, "w") as f:
+    json.dump(d, f, ensure_ascii=False, indent=2)
+os.replace(tmp, target)
+PYW
+      _audit "maintenance_start_attempt" "ok" "reason=$_reason paths=$_paths minutes=$_minutes force=$_force"
+      printf 'maintenance window opened: until=%s scope=in-session edit allowed_paths=%s one_shot=true\n' "$_until" "${_paths:-(any non-Override)}"
+      return 0
+      ;;
+    stop)
+      if [ -f "$_maint" ]; then
+        rm -f "$_maint"
+        _audit "maintenance_stop" "ok" "removed maintenance.json"
+        printf 'maintenance window closed (maintenance.json removed)\n'
+      else
+        _audit "maintenance_stop" "noop" "no active maintenance.json"
+        printf 'no active maintenance window\n'
+      fi
+      return 0
+      ;;
+    help|--help|-h|"")
+      printf 'Usage: plangate maintenance <subcommand> [args]\n\n'
+      printf 'Subcommands:\n'
+      printf '  start --reason "<text>" [--paths <glob,..>] [--minutes 1..30] [--force]\n'
+      printf '        Human-only (TTY+env+ppid+nonce 4-layer best-effort defense)\n'
+      printf '  stop  Remove active maintenance.json\n'
+      printf '  help  Show this help\n'
+      return 0
+      ;;
+    *)
+      printf 'error: unknown maintenance subcommand: %s\n' "$_sub" >&2
+      return 2
+      ;;
+  esac
+}
+
 cmd_plan_check() {
   # Lightweight Plan Quality Check（手動実行・heavy Gate 非依存 / #213）
   # 正本: docs/ai/plan-quality-checks.md
@@ -1486,6 +1672,7 @@ case "$command" in
   abort)       cmd_abort "$@" ;;
   timeline)    cmd_timeline "$@" ;;
   resume)      cmd_resume "$@" ;;
+  maintenance) cmd_maintenance "$@" ;;
   version|--version|-V) cmd_version ;;
   help|--help|-h)       cmd_help ;;
   *)

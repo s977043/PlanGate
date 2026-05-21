@@ -1,16 +1,53 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://plangate/schemas/maintenance.schema.json",
-  "title": "EH-3 maintenance grant (TASK-0082 / TASK-0071 S3)",
-  "description": "人間が生成する検証可能な承認ファイル。docs/working/_maintenance/maintenance.json。env では有効化不可（AI 自己付与防止）。",
+  "title": "EH-3 maintenance grant v2 (TASK-0106: + allowed_paths / one_shot / consumed_at)",
+  "description": "人間が生成する検証可能な承認ファイル。docs/working/_maintenance/maintenance.json。env では有効化不可（AI 自己付与防止）。v2 (TASK-0106) で allowed_paths/one_shot/consumed_at を optional 追加（既存 v1 ファイルは後方互換で動作）。",
   "type": "object",
   "additionalProperties": false,
-  "required": ["scope", "until", "reason", "approved_by", "granted_at"],
+  "required": [
+    "scope",
+    "until",
+    "reason",
+    "approved_by",
+    "granted_at"
+  ],
   "properties": {
-    "scope": {"type": "string", "description": "メンテ対象の説明（例: hook 整備）"},
-    "until": {"type": "integer", "description": "失効 epoch 秒(UTC)。granted_at+1800 以下（最大30分）"},
-    "granted_at": {"type": "integer", "description": "付与 epoch 秒(UTC)"},
-    "reason": {"type": "string", "minLength": 1},
-    "approved_by": {"type": "string", "minLength": 1, "description": "人間の承認者（AI 不可）"}
+    "scope": {
+      "type": "string",
+      "description": "メンテ対象の説明（例: hook 整備）"
+    },
+    "until": {
+      "type": "integer",
+      "description": "失効 epoch 秒(UTC)。granted_at+1800 以下（最大30分）"
+    },
+    "granted_at": {
+      "type": "integer",
+      "description": "付与 epoch 秒(UTC)"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approved_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "人間の承認者（AI 不可）"
+    },
+    "allowed_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "許可対象 path の glob 配列（例: [\"README.md\", \"docs/**/*.md\"]）。未指定なら Hardening Override 対象以外の任意 path を許可（後方互換）。Hardening Override 対象パスは本配列に含まれていても常時 block。"
+    },
+    "one_shot": {
+      "type": "boolean",
+      "description": "true なら単回 Edit/Write で消費・自動無効化（consumed_at が atomically 設定される）。未指定 or false は 30 分窓いっぱい再利用可（v1 後方互換）。"
+    },
+    "consumed_at": {
+      "type": "integer",
+      "description": "one_shot=true 時に EH-3 hook が flock 取得+再 read+os.replace で atomically 書込む消費 timestamp (epoch 秒, UTC)。AI/Human 双方とも手動設定は想定しない（hook 専用）。設定済みなら以降 block。"
+    }
   }
 }

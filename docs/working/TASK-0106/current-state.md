@@ -10,7 +10,7 @@ PBI INPUT PACKAGE v3 + plan v3 + todo v3 + test-cases v3 (TC-26a/b/c/d 含む 35
 
 - 2026-05-20: GitHub issue #289 から PBI INPUT PACKAGE 起票
 - 2026-05-20: plan.md / todo.md / test-cases.md / review-self.md 自律生成（Codex 優先順 2）
-- C-1 v3 採点: 総合 97 (外部レビュー v2 R-012..R-020 反映後・R-012 best-effort 設計明示)、CONDITIONAL APPROVE 候補
+- exec 成果: schema additive 拡張 / bin/plangate maintenance CLI (L1-L4 + 監査) / EH-3 v2 (flock + inode + Override 物理先頭) / doctor JSON / docs/ai/maintenance-cli.md / ta-12-maintenance.sh (14 ケース)
 
 ## 次のアクション
 
