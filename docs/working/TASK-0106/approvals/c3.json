@@ -1,0 +1,9 @@
+{
+  "task_id": "TASK-0106",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "mine_take",
+  "approved_at": "2026-05-21T03:17:18Z",
+  "plan_hash": "sha256:9039b9c7e0fb236044bd3816f03b24876e7843cd0dd25c687d5b64c9e0f6d0af",
+  "_review_notes": "R-012 (AI 自己付与の構造保証ではなく多層 best-effort + 監査 + 完全保証は別 PBI に分割) を明示承認。Codex CONDITIONAL の唯一の条件をクリア。Gemini APPROVE と整合。"
+}
