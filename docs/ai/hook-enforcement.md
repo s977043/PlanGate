@@ -1,6 +1,12 @@
 # Hook Enforcement — runtime で強制すべき不変条件
 
 > **Status**: v5（**Implementation: 10/10 hooks Done — #169 完走** — #157 で 3 hook、#169 セッション A で 2 / B で 3 / C で 2 = 計 10 hook、3 mode 設計）
+> **Hook 数の現状（v8.7.0 以降）**: 本書は **v8.5.0 時点の 10/10 hooks** スナップショット。
+> v8.6.0 で **EH-8**（`check-metrics-privacy.sh`、metrics privacy 強制）、
+> v8.7.0 で **EH-9**（`check-delegation-commit-boundary.sh`、TASK-0073 F2）を追加し、
+> 現状は **EH-1〜EH-9 + EHS-1〜EHS-3 = 12/12**。本書本文の表は v8.5.0 構成のまま
+> 維持し、追加分の詳細はそれぞれの実装 PR / CHANGELOG / `bin/plangate doctor` 出力を参照。
+
 > 関連: [`responsibility-boundary.md`](./responsibility-boundary.md) / [`tool-policy.md`](./tool-policy.md) / [`model-profiles.md`](./model-profiles.md)
 > 実装: [`scripts/hooks/check-plan-exists.sh`](../../scripts/hooks/check-plan-exists.sh) / [`check-c3-approval.sh`](../../scripts/hooks/check-c3-approval.sh) / [`check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) / [`check-test-cases.sh`](../../scripts/hooks/check-test-cases.sh) / [`check-verification-evidence.sh`](../../scripts/hooks/check-verification-evidence.sh) / [`check-forbidden-files.sh`](../../scripts/hooks/check-forbidden-files.sh) / [`check-merge-approvals.sh`](../../scripts/hooks/check-merge-approvals.sh) / [`check-v3-review.sh`](../../scripts/hooks/check-v3-review.sh) / [`check-handoff-elements.sh`](../../scripts/hooks/check-handoff-elements.sh) / [`check-fix-loop.sh`](../../scripts/hooks/check-fix-loop.sh)
 > 設定例: [`.claude/settings.example.json`](../../.claude/settings.example.json) / 単体テスト: [`tests/hooks/run-tests.sh`](../../tests/hooks/run-tests.sh)

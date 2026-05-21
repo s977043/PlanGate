@@ -1,5 +1,10 @@
 # PlanGate v4 -- フェーズD拡張設計（takt知見統合）
 
+> **Historical Archive**: 本書は v4 期 (2026-03) の設計記録。現在の実行層
+> は **v7 ハイブリッドアーキテクチャ**（[docs/plangate-v7-hybrid.md](./plangate-v7-hybrid.md)）
+> + Workflow / Skill / Agent 3 層に再構築済。本書は当時の設計判断記録
+> として参照用に保持。
+
 ## 概要
 
 PlanGate v3のフェーズD（Agent実行）を構造化・拡張し、**takt（マルチエージェント協調OSS）の実践知見**を統合したv4設計。
