@@ -27,7 +27,7 @@ PlanGate を初めて知った方は、以下の順に **15-30 分** で読む�
 | **Optional** | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | 並列外部レビュー |
 | **Optional** | [Cursor](https://cursor.com/) | `PLANGATE_IMPL_AGENT=cursor`（部分対応・[RFC](./rfc/provider-cursor.md)） |
 
-OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推奨。
+OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推奨。Claude Code を使わない場合は `bin/plangate` CLI のみで PBI 文書管理 + ゲート検証は可能ですが、plan 生成は手動になります。
 
 ## はじめに読むもの
 
