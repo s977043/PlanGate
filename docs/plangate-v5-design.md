@@ -1,5 +1,11 @@
 # PlanGate v5 -- L-0リンター自動修正ループ（ハーネスエンジニアリング知見統合）
 
+> **Historical Archive**: 本書は v5 期 (2026-04) の設計記録。L-0 リンター
+> ループ自体は v6/v7/v8 で実装・成熟化されているが、本書の構造はそのままでは
+> 現状を表さない。現状の正本は **v7 ハイブリッドアーキテクチャ**
+> （[docs/plangate-v7-hybrid.md](./plangate-v7-hybrid.md)）+
+> [docs/workflows/](./workflows/)。本書は設計判断記録として参照用に保持。
+
 ## 概要
 
 PlanGate v4のexecフェーズとV-1の間に**L-0（Lint Auto-Fix Loop）** を新設し、**ハーネスエンジニアリングの連続的フィードバック設計**を取り込んだv5設計。
