@@ -20,10 +20,10 @@ v2/v3 外部レビュー（Codex+Gemini）で検出された **critical 1**（R-
 
 | # | 項目 | 判定 | 根拠 |
 |---|------|------|------|
-| C1-PLAN-01 | 受入基準網羅性 | PASS | AC-1〜AC-10、TC-01〜TC-31（+ TC-26a/b/c/d で 35 件）対応 |
+| C1-PLAN-01 | 受入基準網羅性 | PASS | **AC-1〜AC-13**（v3.2 で AC-11/12/13 追加）すべて TC-01〜TC-34 マッピング表で対応 |
 | C1-PLAN-02 | Unknowns 処理 | PASS | 全 Unknowns 確定。R-012 は best-effort 明示で取扱い確定 |
 | C1-PLAN-03 | スコープ制御 | PASS | Hardening Override 10 パターン全 todo 化（R-015 解消）、Override 判定順序明文化（R-020）、構造保証は別 PBI 分割（R-012 明示） |
-| C1-PLAN-04 | テスト戦略 | PASS | Unit (L1-L4 各層) / Hook / Integration / E2E / Backward compat / Runner 統合 / 回帰、計 35 件 |
+| C1-PLAN-04 | テスト戦略 | PASS | Unit (L1-L4 各層) / Hook (flock + inode 再確認) / Integration / E2E / Backward compat / Runner 統合 / 回帰、**TC-01〜TC-34 計 34 件**（R-031 反映後） |
 | C1-PLAN-05 | Work Breakdown Output | PASS | T-04 を多層防御 + 監査ログ込みに、T-05 を flock 必須化、T-06 を 10 パターン明示に拡張（R-012/R-015/R-017） |
 | C1-PLAN-06 | 依存関係 | PASS | T-03→T-04（多層防御）→T-05（flock+os.replace）→T-06（10 パターン Override）→T-07a/b（doctor）→T-08..T-12 |
 | C1-PLAN-07 | 動作検証自動化 | PASS | 全 TC 自動化可、L1-L4 各層の reject + 監査ログ + race fail-closed を unit/integration で検証 |
