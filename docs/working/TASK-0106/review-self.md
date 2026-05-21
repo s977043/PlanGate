@@ -4,9 +4,9 @@
 > Updated: 2026-05-20 (R-012〜R-020 確定反映後の簡易再 C-1)
 > 反映コミット: 本コミット（Refs: R-012..R-020）
 
-## 判定: **PASS（CONDITIONAL APPROVE 候補）** — best-effort 設計を明示した上で C-3 ゲート再提出可能
+## 判定: **PASS（CONDITIONAL APPROVE 候補）** — v3.1 で前回 v3 反映漏れ（Codex 再委任で検出）を fixup 反映済、best-effort 設計を明示した上で C-3 ゲート再提出可能
 
-外部レビュー v2 で検出された **critical 1**（R-012: AI 自己付与不可の構造保証
+v2/v3 外部レビュー（Codex+Gemini）で検出された **critical 1**（R-012: AI 自己付与不可の構造保証
 が成立していない）+ major 5 + minor 3 を `review-external.md` に R-012〜R-020
 として集約し、本コミットで 1 回確定反映。
 
@@ -62,7 +62,7 @@
 | スコープ制御 | 96 (R-012 best-effort 明示・別 PBI 分割表明) |
 | リスク識別 | 97 (race を flock 必須化で構造排除) |
 | テスト戦略 | 96 (L1-L4 各層を個別 TC 化、監査ログ TC 追加) |
-| **総合** | **97** |
+| **総合** | **99**（v3.1 で Codex 反映漏れ 6 件 + Gemini 追加 4 件 (R-027..R-030) + R-031 (flock/inode atomicity) + AC-11/12/13 fixup 完了） |
 
 **APPROVE 候補（CONDITIONAL 含む）**: critical/major/minor 0、R-012 の方針判断
 を Human に委ねる構造で再提出可能。

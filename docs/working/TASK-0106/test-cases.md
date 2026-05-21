@@ -14,8 +14,11 @@
 | AC-6: `bin/plangate doctor` 表示 + `--json` 構造化 | TC-11, **TC-27** |
 | AC-7: 既存 30 分窓（Override 対象パス以外）後方互換 | TC-12 |
 | AC-8: ユニットテストが `tests/run-tests.sh` で検証可能 | **TC-23** (R-007) |
-| **AC-9**: 既存有効窓で `start --force` なしは reject | **TC-28** (R-005/R-010) |
+| **AC-9**: 既存有効窓で `start --force` なしは reject | **TC-20** (R-005/R-010/R-014) — TC-28 は `--force` 成功 edge |
 | **AC-10**: 新設フィールド判定も env では有効化不可 | **TC-29** (R-011) |
+| **AC-11**: flock 取得後の再 read 検証 + atomic RMW + 並行 fail-closed | **TC-30** + **TC-32** (R-027) |
+| **AC-12**: Hardening Override 表記揺れに関わらず確実遮断 | **TC-33** (R-028) |
+| **AC-13**: `doctor --json --scope maintenance` でメタデータ取得 | **TC-34** (R-030) |
 
 ## テストケース一覧
 
@@ -23,7 +26,7 @@
 
 | ID | 前提条件 | 入力 | 期待出力 | 種別 |
 |----|---------|------|---------|------|
-| TC-01 | clean state | `bin/plangate maintenance start --reason "test"` | `docs/working/_maintenance/maintenance.json` 作成、`reason="test"` `scope` 既定値、`until=granted_at+1800` (30分上限内) | unit |
+| TC-01 | clean state（TTY 環境・AI agent env なし・nonce 一致） | `bin/plangate maintenance start --reason "test"` | `docs/working/_maintenance/maintenance.json` 作成、`reason="test"` `scope` 既定値、`until=granted_at+300` (**既定 TTL 5 分**、ハード上限 30 分以下)（R-013） | unit |
 | TC-02 | TC-01 後 | `bin/plangate validate-schemas` または ad-hoc schema 検証 | maintenance.json が schemas/maintenance.schema.json に validate PASS | unit |
 
 ### Unit (hook)
@@ -44,7 +47,7 @@
 | ID | 前提条件 | 入力 | 期待出力 | 種別 |
 |----|---------|------|---------|------|
 | TC-11 | TC-01 後 | `bin/plangate doctor` | 出力に「maintenance: scope=... remaining=XX:YY paths=...」行が含まれる | integration |
-| TC-12 | 既存形式 maintenance.json（30 分窓・パス無指定、allowed_paths なし、one_shot なし） | EH-3 起動（no task、任意 path） | exit 0 (PASS。既存挙動と同じ＝後方互換) | integration |
+| TC-12 | 既存形式 maintenance.json（30 分窓・パス無指定、allowed_paths なし、one_shot なし） | EH-3 起動（no task、**Hardening Override 対象以外**の任意 path） | exit 0 (PASS。Override 対象以外は既存挙動と同じ＝後方互換、Override 対象は窓内でも block）（R-016） | integration |
 | TC-13 (E2E) | clean state | `start --paths "README.md" --minutes 5` → README.md Edit → 同じ承認で再 Edit → stop | 1 回目通過、2 回目 block、stop 後完全失効 | e2e |
 
 ### Edge cases
@@ -62,7 +65,7 @@
 - **TC-24 (AC-3)**: Hardening Override 対象パス 10 種（`.claude/rules/*.md`, `.claude/settings*.json`, `.claude/commands/*.md`, `.claude/agents/*.md`, `scripts/hooks/*.sh`, `bin/plangate`, `schemas/*.schema.json`, `.github/workflows/*.yml`, `AGENTS.md`, `CLAUDE.md`）すべて窓内でも block（R-003）
 - **TC-25 (AC-5, L1)**: L1 非対話実行（`stdin` not isatty）→ exit 非0 "L1: interactive TTY required" + 監査ログ記録（R-012）
 - **TC-26a (AC-5, L2)**: L2 環境変数バリア（`CI=true` or `CLAUDE_AGENT=*` or `CURSOR_AGENT=*` or `PLANGATE_BYPASS_HOOK=1`）→ exit 非0 "L2: agent env detected" + 監査ログ（R-012）
-- **TC-26b (AC-5, L3)**: L3 parent process heuristic（ppid 系統が claude/codex/cursor）→ exit 非0 "L3: AI agent lineage detected" + 監査ログ（R-012）
+- **TC-26b (AC-5, L3)**: L3 parent process heuristic（ppid 系統が claude/codex/cursor）→ exit 非0 "L3: AI agent lineage detected" + 監査ログ（R-012）。**CI 再現**: テスト内で `exec -a claude sh -c "bin/plangate maintenance start --reason x"` の様に argv[0] を mock するか、`PLANGATE_FAKE_PPID_COMM=claude` 等の test-only injection 変数を用意（実装時に Test Hook を spec 化）
 - **TC-26c (AC-5, L4)**: L4 対話 nonce 一致失敗（`PLANGATE_MAINT_ACK` 未設定 or 不一致）→ exit 非0 "L4: nonce mismatch" + 監査ログ（R-012）
 - **TC-26d (AC-5, audit)**: 全 start 試行（成功 / 各 L 失敗）が hook-events.log に `event=maintenance_start_attempt` + env snapshot + ppid + isatty 結果で記録される（R-012）
 - **TC-27 (AC-6)**: `bin/plangate doctor --json` で `maintenance` キーに `{scope, until_epoch, remaining_seconds, paths, one_shot, consumed_at}` を含む（R-006）
@@ -70,6 +73,9 @@
 - **TC-29 (AC-10)**: 新設フィールド (allowed_paths/one_shot/consumed_at) も env 経由 (`PLANGATE_MAINT_ONE_SHOT=true` 等) では有効化不可（R-011）
 - **TC-30 (R-002 race)**: 並行 hook 2 実行 → 1 つだけ通過、もう片方は競合検出 fail-closed で block。`os.replace` の atomicity verify
 - **TC-31 (R-009 strict)**: 新設フィールド読出に不正 JSON 構造（偽プロパティ・不正型）→ strict JSON 抽出で reject（block）
+- **TC-32 (AC-11)**: flock 取得**前**に「未消費」を読んだ 2 並列 hook が、flock 取得**後**に再 read で「他者が直前に消費済」と判定 → 後発が fail-closed で block。1 つだけ通過することを `python3 multiprocessing` 経由で verify（R-027）
+- **TC-33 (AC-12)**: `target_file=./.github/workflows/test.yml` / `target_file=.github/workflows/test.yml` / `target_file=/abs/path/.github/workflows/test.yml` のいずれも Hardening Override で block（R-028）
+- **TC-34 (AC-13)**: `bin/plangate doctor --json --scope maintenance` 出力が `{maintenance: {present: true|false, scope, until_epoch, remaining_seconds, allowed_paths, one_shot, consumed_at}}` を含む（R-030）
 
 ## 自動化可否
 

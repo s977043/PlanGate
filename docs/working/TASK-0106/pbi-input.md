@@ -23,8 +23,9 @@ EH-3 を迂回しており、運用負荷が継続的に発生している。
 
 ### In scope
 
-- `bin/plangate maintenance` サブコマンド新設（**Human-owned 実行**＝
-  AI 自己付与不可を構造的に維持）
+- `bin/plangate maintenance` サブコマンド新設（**Human-owned 運用** ＝
+  多層 best-effort 防御 + 全試行監査で AI 自己付与を実用的に抑止。完全な
+  構造保証は別 PBI に分割）
   - `start --reason "<理由>" [--paths <glob,...>] [--minutes <n>] [--force]` で
     `schemas/maintenance.schema.json` 準拠の
     `docs/working/_maintenance/maintenance.json` を生成
@@ -69,13 +70,24 @@ EH-3 を迂回しており、運用負荷が継続的に発生している。
       .github/workflows/*.yml, AGENTS.md, CLAUDE.md）は窓内でも常時 block される（R-003）
 - [ ] TTL 超過後は窓内であっても block され、ハード上限（30 分）を超える
       `--minutes` は拒否される。既定 TTL は 5 分（R-008）
-- [ ] AI（hook/CLI）からは承認を自己発行できない:
-      `maintenance start` は **対話 TTY を要求**し非対話/CI/agent 実行は reject、
-      かつ env 経路では有効化しない（R-001, R-011）
+- [ ] AI による承認の自己発行を **多層 best-effort で抑止し、全試行を監査
+      可能化** する（R-001/R-012）。`maintenance start` は L1 isatty / L2 env
+      barrier (CI/CLAUDE_AGENT/CURSOR_AGENT/PLANGATE_BYPASS_HOOK) / L3 parent
+      process heuristic / L4 対話 nonce (`PLANGATE_MAINT_ACK`) の 4 層で
+      reject、全試行を hook-events.log に env snapshot + ppid + isatty で
+      記録。env 経路では承認ファイルを有効化しない（R-011）。完全な構造
+      保証は別 PBI スコープ（明示的 best-effort）
 - [ ] **AC-9**: 既存有効な maintenance.json が存在する状態での `maintenance start`
       は `--force` なしでは exit 非0 で上書き拒否される（R-005, R-010）
 - [ ] **AC-10**: 新設フィールド（allowed_paths/one_shot/consumed_at）の判定も
       env 経由では有効化されない（ファイル存在のみを正本とする）（R-011）
+- [ ] **AC-11**: one-shot 消費は `flock(LOCK_EX | LOCK_NB)` 取得後の **再 read 検証**を
+      含む atomic Read-Modify-Write で実装、並行競合時 fail-closed（R-027）
+- [ ] **AC-12**: Hardening Override 10 パターンは `target_file` の表記揺れ
+      （`./` 有無、絶対パス、相対パス）に関わらず正規化後に確実に遮断（R-028）
+- [ ] **AC-13**: `bin/plangate doctor --json` 出力に maintenance scope が含まれ、
+      `maintenance.json` 有無・残 TTL・scope/paths/one_shot/consumed_at が
+      機械可読で取得可能（R-030）
 - [ ] `bin/plangate doctor` が有効な maintenance 窓の残時間と
       スコープを表示する
 - [ ] 既存 `maintenance.json`（30 分窓・パス無指定）が後方互換で動作する

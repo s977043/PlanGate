@@ -5,7 +5,7 @@
 
 ## Goal
 
-人間が in-session で EH-3 skip を許可する一級手段（`bin/plangate maintenance` CLI）を新設し、`maintenance.json` 承認ファイルの **one-shot + パススコープ + 短 TTL** で運用性を改善する。AI 自己付与不可は構造的に維持する。
+人間が in-session で EH-3 skip を許可する一級手段（`bin/plangate maintenance` CLI）を新設し、`maintenance.json` 承認ファイルの **one-shot + パススコープ + 短 TTL** で運用性を改善する。AI 自己付与は多層 best-effort（L1-L4）+ 全試行監査で実用的に抑止する（**完全な構造保証は別 PBI 分割を明示**）。
 
 ## Constraints / Non-goals
 
@@ -25,7 +25,7 @@
 
 ## Approach Overview
 
-`schemas/maintenance.schema.json` を **additive 拡張**（`allowed_paths`/`one_shot`/`consumed_at` を optional 追加、既存フィールド変更なし、`additionalProperties:false` 維持）。`bin/plangate maintenance start|stop` で `docs/working/_maintenance/maintenance.json` を生成/削除（start は **対話 TTY 要求**、`--force` で上書き許可）。EH-3 hook が python3 `os.replace(tmp, target)` で `consumed_at` を **atomic 更新**して one-shot 消費・path scope check・TTL check・**Hardening Override** を実行。書込前に mtime/inode 先取り検出、競合時 fail-closed (block)。`bin/plangate doctor` に表示行 + `--json` 構造化出力（`scripts/doctor_check.py` 経由）（R-006）。
+`schemas/maintenance.schema.json` を **additive 拡張**（`allowed_paths`/`one_shot`/`consumed_at` を optional 追加、既存フィールド変更なし、`additionalProperties:false` 維持）。`bin/plangate maintenance start|stop` で `docs/working/_maintenance/maintenance.json` を生成/削除（start は **対話 TTY 要求**、`--force` で上書き許可）。EH-3 hook では **判定順序**: (i) Hardening Override 判定（maintenance 判定より**物理的に上の行**・R-020/R-028）→ (ii) maintenance ファイル有無・TTL check → (iii) **`fcntl.flock(LOCK_EX | LOCK_NB)` 即座取得**（hook ブロッキング回避・R-027）→ (iv) **ロック取得後にパスを再オープン**して再 read（または `fstat` と `stat(path)` で inode 不変を確認）で `consumed_at` 未消費を再確認（`os.replace` は新 inode を作るため fd ベースの flock では他者の置換を検知不能・**path 再オープン or inode 確認必須**・R-031）→ (v) python3 `os.replace(tmp, target)` で atomic 書込 → (vi) ロック解放。**ロック失敗 or 再 read で消費済み判定は fail-closed (block)**。`target_file` は判定前に `./` 除去等で正規化（R-028）。`bin/plangate doctor` に表示行 + `--json` 構造化出力（`scripts/doctor_check.py` 経由）（R-006）。
 
 ## Work Breakdown
 
@@ -33,10 +33,10 @@
 |---|------|--------|-------|------|--------------|
 | 1 | schema 拡張 (`additionalProperties:false` 維持・新フィールドは optional) | `schemas/maintenance.schema.json` v2 | AI | low | 既存 schema test PASS |
 | 2 | `bin/plangate maintenance start/stop` CLI 実装 (--reason/--paths/--minutes、ハード上限 30 分、`--reason` 必須、`--force` 上書き)。**L1-L4 多層防御 + 監査ログ書込**を組み込む（R-012）: L1 isatty / L2 env barrier / L3 parent process heuristic / L4 対話 nonce (`PLANGATE_MAINT_ACK`)、全試行を hook-events.log 記録 | `bin/plangate` | AI | **high** | start で schema valid な JSON 生成、stop で削除、4 層防御の各層が unit test で reject 動作確認、監査ログ書込確認 |
-| 3 | EH-3 hook 改修: path scope check (sh glob) + TTL check + one-shot consume (python3 `os.replace` で atomic 書込、書込前 mtime/inode 先取り検出、競合時 fail-closed)（R-002） | `scripts/hooks/check-plan-hash.sh` | AI | **critical** (承認境界) | 既存 30 分窓テスト PASS + 並行競合テスト PASS + fail-closed 確認 |
+| 3 | EH-3 hook 改修: target_file 正規化（R-028）→ Hardening Override 物理先頭判定（R-020）→ TTL check → **`flock(LOCK_EX|LOCK_NB)` 即座取得 → ロック後再 read 検証 → `os.replace` atomic 書込 → 解放**（R-002/R-017/R-027）、競合 fail-closed | `scripts/hooks/check-plan-hash.sh` | AI | **critical** (承認境界) | 既存 30 分窓テスト + 並行競合（TC-30）+ fail-closed + 正規化 PASS |
 | 4 | Hardening Override 実装: 拡張リスト（.claude/rules/, .claude/settings*, .claude/commands/, .claude/agents/, scripts/hooks/, bin/plangate, schemas/, .github/workflows/, AGENTS.md, CLAUDE.md）は窓内でも block。新旧 maintenance.json 双方に適用（R-003/R-004） | EH-3 hook 内 | AI | **critical** | Override 対象 10 パターンの block テスト PASS |
 | 5a | `bin/plangate doctor` 表示行追加: 有効窓「scope/remaining (mm:ss)/paths」 | `bin/plangate` | AI | low | doctor 出力テスト PASS |
-| 5b | `scripts/doctor_check.py` の JSON 構造化出力に maintenance 状態を追加（R-006） | `scripts/doctor_check.py` | AI | low | `bin/plangate doctor --json` で maintenance フィールド検証 PASS |
+| 5b | `scripts/doctor_check.py` の `SCOPES` に `"maintenance"` を新設し、maintenance.json 有無・残 TTL・scope/paths/one_shot/consumed_at を機械可読 JSON で出力（R-006/R-030） | `scripts/doctor_check.py` | AI | low | `bin/plangate doctor --json --scope maintenance` で全メタデータ取得 PASS（AC-13） |
 | 6 | テスト追加: CLI 単体・hook 単体・E2E (start→edit→consume→re-block) | `tests/extras/ta-XX-maintenance.sh`、`tests/hooks/*` | AI | medium | 全テスト + 既存 68/78 PASS 維持 |
 | 7 | docs 整備: `docs/ai/maintenance-cli.md`（運用 guide） | docs | AI | low | リンク健全 |
 | 8 | handoff.md 作成 + V-1 受け入れ検査 | TASK-0106/handoff.md | AI | low | 全 AC PASS 確認 |
@@ -75,6 +75,10 @@
 | 既存 30 分窓との後方互換破壊 | high | 既存テストを必ず維持 + 新フィールド unknown 時のデフォルト動作を「Override 対象パス以外は既存挙動と同じ」に固定（R-004） |
 | Hardening Override と後方互換の衝突 | **major** | 既存 30 分窓「任意 path PASS」は **Override 対象パス以外**に限定する旨を明文化（R-004） |
 | 新設フィールド読出での寛容な抽出による bypass | **major** | strict JSON 抽出パターン (#282/TASK-0105) を新設 `allowed_paths`/`one_shot`/`consumed_at` 読出にも適用（R-009） |
+| **flock の Read-Modify-Write race** | **major** | flock 取得**前**に読んだ「未消費」を信じると race が崩壊。**ロック後の再 read 検証**を必須化、競合 fail-closed（R-027） |
+| **`os.replace` による inode 入れ替えと flock の整合** | **major** | `os.replace` は新 inode を作るため fd ベース flock で他者の置換を検知不能。**ロック後にパスを再オープンするか `fstat` vs `stat(path)` で inode 不変を確認**してから書込（R-031） |
+| Hardening Override の表記揺れ bypass | **major** | `target_file` が `./` 付き・絶対・相対で来る可能性 → 判定前に正規化 + `*/path|path` glob（R-028） |
+| macOS BSD ps と Linux GNU ps の差異 | minor | L3 parent heuristic で `ps -p $PPID -o comm=` のフルパス返却対応 → `grep -iqE 'claude|codex|cursor'` 部分一致（R-029） |
 
 ## Questions / Unknowns
 
