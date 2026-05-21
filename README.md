@@ -94,6 +94,19 @@ PlanGate では、以下のような不変条件を hook / CLI で検査でき�
 - C-3 / C-4 承認なしのマージを検知する
 - standard / high-risk / critical で V-3 外部レビューを必須化する
 
+## Requirements
+
+| 種別 | ツール | 用途 |
+| --- | --- | --- |
+| **Required** | git / POSIX sh (bash/zsh) / python3 | `bin/plangate` CLI と hook の基盤 |
+| **Recommended** | [Claude Code](https://docs.claude.com/claude-code) | plan 生成・exec の主導線（slash command 経由） |
+| **Optional** | [gh CLI](https://cli.github.com/) | PR / issue 操作（C-4 ゲートの GitHub 連携） |
+| **Optional** | [Codex CLI](https://github.com/openai/codex) | exec 実装エージェント（既定） / C-2 / V-3 外部レビュー |
+| **Optional** | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | 並列外部レビュー |
+| **Optional** | [Cursor](https://cursor.com/) | `PLANGATE_IMPL_AGENT=cursor`（部分対応・[docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md)） |
+
+OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推奨。Claude Code を使わない場合は `bin/plangate` CLI のみで PBI 文書管理 + ゲート検証は可能ですが、plan 生成は手動になります。
+
 ## インストール
 
 ### Option A: clone + plugin 登録（推奨）
