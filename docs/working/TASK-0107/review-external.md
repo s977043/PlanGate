@@ -104,9 +104,9 @@
 
 #### R-006 [minor] 保守性 — 監査表 `pending` 残存
 - **対象**: review-external.md §4 監査表
-- **改善案**: pre-commit 段階では `reflected (pre-commit)` に更新、commit SHA は後追記
+- **改善案**: pre-commit 段階では `reflected` に更新、commit SHA は後追記
 - **出典**: Codex（R2）
-- **反映**: 本表（§4）を `reflected (pre-commit)` に更新済
+- **反映**: 本表（§4）を `reflected` に更新済
 
 #### R-007 [info] 保守性 — brainstorm.md に旧判断残存
 - **対象**: brainstorm.md §4 / §7
@@ -168,21 +168,21 @@
 
 | R-NNN | severity | round | status | reflected_in(commit) | notes |
 |-------|----------|-------|--------|---------------------|-------|
-| R-001 | major | R1 | reflected (pre-commit) | TBD | pbi-input.md r1 §1責務表 / §3 AC-11 / §4 設計原則。commit SHA は反映 commit 作成時追記 |
-| R-002 | major | R1 | reflected (pre-commit) | TBD | pbi-input.md r1 §5 モード判定（high-risk + Hardening Override 明記）。commit SHA は反映 commit 作成時追記 |
-| R-003 | minor | R1 | reflected (pre-commit) | TBD | pbi-input.md r1 §3 AC-2〜AC-5（test-case 検証可能化）。commit SHA は反映 commit 作成時追記 |
-| R-004 | minor | R1 | reflected (pre-commit) | TBD | pbi-input.md r1 §3 AC-12（doctor --check-settings PASS）。commit SHA は反映 commit 作成時追記 |
-| R-005 | info | R1 | reflected (pre-commit) | TBD | pbi-input.md r1 §2 Scope 7 / §3 AC-13 / §4 設計原則 / §5 R7。commit SHA は反映 commit 作成時追記 |
-| R-006 | minor | R2 | reflected (self) | TBD | 本表（§4）を `reflected (pre-commit)` に更新済。commit SHA は反映 commit 作成時追記 |
-| R-007 | info | R2 | reflected (pre-commit) | TBD | brainstorm.md ヘッダーに「※ r1 で更新済」注記追加済。commit SHA は反映 commit 作成時追記 |
-| R-008 | info | R2 | reflected (pre-commit) | TBD | pbi-input.md §5 Unknowns U7 追加済（実行時 TASK ID 動的解決）。commit SHA は反映 commit 作成時追記 |
-| R-009 | major | R3 | reflected (pre-commit) | TBD | todo.md r1: C-3 を Phase 1 直後（G-C3）に移動、T-03〜T-08 の depends_on に G-C3 を明示。commit SHA は反映 commit 作成時追記 |
-| R-010 | major | R3 | reflected (pre-commit) | TBD | todo.md r1: L-0/V-1/V-2/V-3/PR を §workflow-conductor 後続フェーズに分離。実装 todo は T-01〜T-08 に集約。commit SHA は反映 commit 作成時追記 |
-| R-011 | major | R3 | reflected (pre-commit) | TBD | plan.md: 「lite C-2」表記を削除、「R1+R2+R3 実施」「review round 数の積上で品質担保」に修正。commit SHA は反映 commit 作成時追記 |
-| R-012 | major | R3 | reflected (pre-commit) | TBD | test-cases.md: TC-01/06/07/08/21/22 の種別に `manual` を追加（unit mock + manual / integration + manual）。commit SHA は反映 commit 作成時追記 |
-| R-013 | minor | R3 | reflected (pre-commit) | TBD | test-cases.md: EC-03 を「v1 unsupported（同時起動は検出して中断・v2 候補）」に変更。commit SHA は反映 commit 作成時追記 |
+| R-001 | major | R1 | reflected | f7ce0e7 | pbi-input.md r1 §1責務表 / §3 AC-11 / §4 設計原則。commit SHA は反映 commit 作成時追記 |
+| R-002 | major | R1 | reflected | f7ce0e7 | pbi-input.md r1 §5 モード判定（high-risk + Hardening Override 明記）。commit SHA は反映 commit 作成時追記 |
+| R-003 | minor | R1 | reflected | f7ce0e7 | pbi-input.md r1 §3 AC-2〜AC-5（test-case 検証可能化）。commit SHA は反映 commit 作成時追記 |
+| R-004 | minor | R1 | reflected | f7ce0e7 | pbi-input.md r1 §3 AC-12（doctor --check-settings PASS）。commit SHA は反映 commit 作成時追記 |
+| R-005 | info | R1 | reflected | f7ce0e7 | pbi-input.md r1 §2 Scope 7 / §3 AC-13 / §4 設計原則 / §5 R7。commit SHA は反映 commit 作成時追記 |
+| R-006 | minor | R2 | reflected | f7ce0e7 | 本表（§4）を `reflected` に更新済。commit SHA は反映 commit 作成時追記 |
+| R-007 | info | R2 | reflected | f7ce0e7 | brainstorm.md ヘッダーに「※ r1 で更新済」注記追加済。commit SHA は反映 commit 作成時追記 |
+| R-008 | info | R2 | reflected | f7ce0e7 | pbi-input.md §5 Unknowns U7 追加済（実行時 TASK ID 動的解決）。commit SHA は反映 commit 作成時追記 |
+| R-009 | major | R3 | reflected | f7ce0e7 | todo.md r1: C-3 を Phase 1 直後（G-C3）に移動、T-03〜T-08 の depends_on に G-C3 を明示。commit SHA は反映 commit 作成時追記 |
+| R-010 | major | R3 | reflected | f7ce0e7 | todo.md r1: L-0/V-1/V-2/V-3/PR を §workflow-conductor 後続フェーズに分離。実装 todo は T-01〜T-08 に集約。commit SHA は反映 commit 作成時追記 |
+| R-011 | major | R3 | reflected | f7ce0e7 | plan.md: 「lite C-2」表記を削除、「R1+R2+R3 実施」「review round 数の積上で品質担保」に修正。commit SHA は反映 commit 作成時追記 |
+| R-012 | major | R3 | reflected | f7ce0e7 | test-cases.md: TC-01/06/07/08/21/22 の種別に `manual` を追加（unit mock + manual / integration + manual）。commit SHA は反映 commit 作成時追記 |
+| R-013 | minor | R3 | reflected | f7ce0e7 | test-cases.md: EC-03 を「v1 unsupported（同時起動は検出して中断・v2 候補）」に変更。commit SHA は反映 commit 作成時追記 |
 
-git commit 完了後、`reflected (pre-commit)` を `reflected` に、`TBD` を実 commit SHA に追記する（追記専用）。
+git commit 完了後、`reflected` を `reflected` に、`TBD` を実 commit SHA に追記する（追記専用）。
 
 ---
 
