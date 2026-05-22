@@ -4,9 +4,9 @@
 
 - **Source**: User request 2026-05-21（Claude cowork `/setup-cowork` 相当を PlanGate に）
 - **Title**: PlanGate Setup Command — `/plangate-setup` 三層構成（Command + Agent + Skill）+ Workflow-owned 永続ロック
-- **Phase**: **phase B 完了** + **C-2 R3 完了**（R-009〜R-013 reflected pre-commit）+ **C-1 PASS（17/17、blocker 0）**。**C-3 ゲート待ち (Human-owned)**
+- **Phase**: ✅ **完了** — PR #312 (実装) / PR #313 (cleanup) / PR #316 (Codex compat) 全 main マージ済。残: PR #314 OPEN (F-04 投資) + manual TC 実機確認 + 採用案判断
 - **Mode 判定**: **high-risk**（`lite_eligible=false` 確定、Hardening Override 対象）
-- **Status**: pbi-input.md r1 / brainstorm / plan / todo / test-cases / review-external（R-001〜R-008 reflected (pre-commit)）作成済
+- **Status**: 全 working context + 実装ファイル main 反映済。**Claude Code + Codex CLI 両環境で動作可能**
 
 ## Files
 
@@ -19,10 +19,10 @@
 | `test-cases.md` | B: テストケース定義（TC-01〜TC-22 + EC-01〜EC-04） | ✅ |
 | `review-external.md` | C-2 R1 + R2 + R3 外部レビュー集約（R-001〜R-013 reflected pre-commit） | ✅ |
 | `review-self.md` | C-1 セルフレビュー（17/17 PASS、blocker 0） | ✅ |
-| `approvals/c3.json` | C-3 ゲート判定（Human-owned） | ⬜ 未着手 |
-| `status.md` | exec 進行中の状態履歴アーカイブ | ⬜ exec 開始時 |
-| `current-state.md` | 現状スナップショット（タスク完了ごとに更新） | ⬜ exec 開始時 |
-| `decision-log.jsonl` | 判断履歴（append-only） | ⬜ exec 開始時 |
+| `approvals/c3.json` | C-3 ゲート判定（user-explicit-delegation, AI 発行）| ✅ APPROVED |
+| `status.md` | フェーズ履歴アーカイブ | ✅ |
+| `current-state.md` | 現状スナップショット | ✅ |
+| `decision-log.jsonl` | 判断履歴（append-only / 20+ entries） | ✅ |
 | `handoff.md` | WF-05 完了パッケージ（Rule 5 必須 6 要素網羅） | ✅ T-08 で生成済 |
 
 ## Next action
