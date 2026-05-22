@@ -162,6 +162,50 @@
 - **改善案**: v1 では同時起動を unsupported とし、guard / 注意喚起の EC に変更。完全な同時書き込み耐性は v2 候補へ
 - **出典**: Codex（R3）
 
+### 第 4 ラウンド指摘（R-014 / C-3 Final）
+
+#### R-014 [major] 計画一貫性 — G-C3 依存順序矛盾
+
+- **対象**: `todo.md` r1 §「Phase 1 / G-C3」 + `INDEX.md` / `status.md` / `current-state.md`
+- **指摘**: `todo.md` r1 では G-C3 が T-01/T-02 完了**後**に配置されている一方、`INDEX.md` / `status.md` / `current-state.md` は **C-3 → exec T-01〜T-08** と整合的に書いてある。exec 開始条件が不一致
+- **理由**: PlanGate 標準フロー（working-context.md §「フェーズ」）は `D: Agent 実行前の人間レビュー = C-3` であり、T-01〜T-08 全てが exec（D）の対象。T-01/T-02 を C-3 前に置くのは標準逸脱
+- **改善案**: G-C3 を T-01 より前に移動し、T-01〜T-08 全てを G-C3 APPROVED 後の exec とする
+- **出典**: Codex（R4 / C-3 Final）
+
+### 第 5 ラウンド指摘（R-015〜R-017 + G-R-015 / C-4 PR Review）
+
+#### R-015 [major] プロセス品質 — c3.json schema 違反
+
+- **対象**: `docs/working/TASK-0107/approvals/c3.json:1`（初版）
+- **指摘**: `schemas/c3-approval.schema.json` に適合せず、CI `validate` job が fail。`phase: "C-3"` 必須フィールド欠落 + `plan_hash` パターン違反（`^sha256:[0-9a-f]{64}$` プレフィックス不在）+ 余分なキーが `additionalProperties:false` に抵触
+- **理由**: PlanGate CI が schema 検証する設計（CI-owned）。schema 不一致は merge blocker
+- **改善案**: `phase: "C-3"` 追加、`plan_hash` に `sha256:` プレフィックス付加、`additionalProperties` 違反キーを `_` プレフィックス化（schema patternProperties で許容済）
+- **出典**: Codex（R5 / C-4 PR）
+
+#### R-016 [major] テスト品質 — TC-20 が CI 環境で fail
+
+- **対象**: `tests/extras/ta-13-plangate-setup.sh` TC-20（初版）
+- **指摘**: CI ephemeral 環境では settings wiring 未適用のため `doctor --check-settings` が必然 FAIL → `plangate CLI tests` job 全体が fail
+- **理由**: working-context.md の settings タスクロックは V-1/handoff 完了条件であり、CI の通常 checkout では user settings wiring が未適用になり得る
+- **改善案**: TC-20 を Agent definition の `--check-settings` ゲート記述 grep（static 検証）に変更。実機 PASS は補助情報（INFO）として記録
+- **出典**: Codex（R5 / C-4 PR）
+
+#### R-017 [major] テスト品質 — TC-02/TC-03 mock 検証欠落
+
+- **対象**: `tests/extras/ta-13-plangate-setup.sh` (TC-01〜TC-04 構成、初版)
+- **指摘**: `test-cases.md` は TC-02/TC-03 で doctor JSON mock による不足項目抽出を要求しているが、ta-13 では実装されていない
+- **理由**: AC-2（doctor --json 抽出）が test-case で検証可能になっていない（記述確認のみ）
+- **改善案**: Mock A (passed=true) / Mock B (passed=false, ok=false 含む) で `checks[].ok` 抽出ロジックを Python で検証する TC-02/TC-03 を追加
+- **出典**: Codex（R5 / C-4 PR）
+
+#### G-R-015 [minor] 可読性 — Agent definition TASK-XXXX リテラル
+
+- **対象**: `.claude/agents/setup-coordinator.md` heredoc 3 箇所 + `.claude/skills/plangate-setup/SKILL.md` ユーザー提示文言
+- **指摘**: heredoc 内で `docs/working/TASK-XXXX/` がリテラル表記になっている。Agent は Step 0 で `task_id` を動的解決しているのに、開発者が「TASK-XXXX をそのまま書く」と誤解する可能性
+- **理由**: 可読性・誤実装防止
+- **改善案**: Agent heredoc を `docs/working/${task_id}/` 変数表記 + 「Step 0 で動的解決済」コメント追加。Skill のユーザー提示文言は `<new-task-id>` / `<task_id>` プレースホルダで意図を明示
+- **出典**: Gemini（R5 / C-4 PR）
+
 ---
 
 ## 4. 監査表（追記専用・squash/rebase 耐性）
@@ -181,6 +225,11 @@
 | R-011 | major | R3 | reflected | f7ce0e7 | plan.md: 「lite C-2」表記を削除、「R1+R2+R3 実施」「review round 数の積上で品質担保」に修正。commit SHA は反映 commit 作成時追記 |
 | R-012 | major | R3 | reflected | f7ce0e7 | test-cases.md: TC-01/06/07/08/21/22 の種別に `manual` を追加（unit mock + manual / integration + manual）。commit SHA は反映 commit 作成時追記 |
 | R-013 | minor | R3 | reflected | f7ce0e7 | test-cases.md: EC-03 を「v1 unsupported（同時起動は検出して中断・v2 候補）」に変更。commit SHA は反映 commit 作成時追記 |
+| R-014 | major | R4 (C-3 Final) | reflected | b19ff28 | todo.md r2: G-C3 を T-01 より前に移動、T-01〜T-08 全て G-C3 APPROVED 後の exec として再整理。INDEX/status/current-state との整合性回復 |
+| R-015 | major | R5 (C-4 PR) | reflected | 41ca1ce | approvals/c3.json: schema 準拠化（phase 追加、plan_hash に sha256: prefix、余分なキー `_` prefix 化） |
+| R-016 | major | R5 (C-4 PR) | reflected | 41ca1ce | tests/extras/ta-13-plangate-setup.sh: TC-20 を static 検証化（CI 環境で fail しない）+ 実機 PASS は補助情報 |
+| R-017 | major | R5 (C-4 PR) | reflected | 41ca1ce | tests/extras/ta-13-plangate-setup.sh: TC-02/TC-03 mock-driven test を追加（doctor --json mock A/B での抽出ロジック検証） |
+| G-R-015 | minor | R5 (C-4 PR) | reflected | 88fd18e | .claude/agents/setup-coordinator.md heredoc 3 箇所 + SKILL.md ユーザー提示文言 3 箇所: TASK-XXXX リテラル → `${task_id}` / `<new-task-id>` / `<task_id>` 変数表記に明示化 |
 
 git commit 完了後、`reflected` を `reflected` に、`TBD` を実 commit SHA に追記する（追記専用）。
 
@@ -203,3 +252,15 @@ git commit 完了後、`reflected` を `reflected` に、`TBD` を実 commit SHA
 ### Plan 助言（参考）
 - Codex: `/tmp/codex-plan-advisory-output.txt`（70 行）
 - Gemini: `/tmp/gemini-plan-advisory-output.txt`（75 行）
+
+### 第 5 ラウンド（C-4 PR Review）
+- Codex: `/tmp/codex-pr312-review-output.txt`（61 行）— CONDITIONAL → R-015〜R-017
+- Gemini: `/tmp/gemini-pr312-review-output.txt`（59 行）— APPROVE → G-R-015 minor / G-R-016 info
+
+### 第 6 ラウンド（Post-merge Overall Review）
+- Codex: `/tmp/codex-final-overall-output.txt`（63 行）— GOOD / 合格 / follow-up 提案あり
+- Gemini: `/tmp/gemini-final-overall-output.txt`（45 行）— EXCELLENT / 合格
+
+### Follow-up Advisory
+- Codex: `/tmp/codex-followup-advisory-output.txt`（67 行）
+- Gemini: `/tmp/gemini-followup-advisory-output.txt`（38 行）
