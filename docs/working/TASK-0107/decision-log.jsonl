@@ -6,3 +6,15 @@
 {"ts": "2026-05-22T06:25:00Z", "event": "c2_r3_reflected", "findings": ["R-009", "R-010", "R-011", "R-012", "R-013"], "severity": ["major", "major", "major", "major", "minor"], "reviewers": ["codex", "gemini"], "codex_judgment": "REJECT", "gemini_judgment": "APPROVE"}
 {"ts": "2026-05-22T06:30:00Z", "event": "c1_completed", "result": "PASS", "items": "17/17", "blockers": 0}
 {"ts": "2026-05-22T06:35:00Z", "event": "c3_gate_ready", "status": "pending_human_approval", "prerequisites": "lite_eligible=false, synchronous C-3 required, approvals/c3.json must be issued by human"}
+{"ts": "2026-05-22T07:00:00Z", "event": "c3_final_review_r4", "codex_judgment": "CONDITIONAL", "gemini_judgment": "APPROVED", "findings": ["R-014"], "severity": ["major"]}
+{"ts": "2026-05-22T07:30:00Z", "event": "r014_reflected", "source": "todo.md r2", "change": "G-C3 moved before T-01, T-01..T-08 unified under C-3 APPROVED"}
+{"ts": "2026-05-22T07:40:00Z", "event": "c3_approved", "mode": "AI-delegated", "approved_by": "mine_take", "delegation": "user-explicit-delegation", "plan_hash": "539969d6d0f666a37c9bbe1f5cfc7ae081d5a4fb897be3534f70982b2c739f44"}
+{"ts": "2026-05-22T07:40:30Z", "event": "exec_started", "phase": "T-01", "blocked_by": null}
+{"ts": "2026-05-22T07:50:00Z", "event": "t01_t02_completed", "output": "contract-notes.md", "lines": 278}
+{"ts": "2026-05-22T07:55:00Z", "event": "t03_t04_t05_completed", "outputs": ["SKILL.md", "plangate-setup.md", "setup-coordinator.md"], "parallel": true}
+{"ts": "2026-05-22T07:57:00Z", "event": "t06_integrated_with_t05", "note": "Workflow-owned 永続ロックは Agent definition 内に統合"}
+{"ts": "2026-05-22T07:58:00Z", "event": "t07_completed", "output": "ta-13-plangate-setup.sh", "tc_pass": 16, "tc_total": 17, "tc_deferred": 1}
+{"ts": "2026-05-22T08:00:00Z", "event": "t08_completed", "output": "handoff.md", "six_elements": true}
+{"ts": "2026-05-22T08:01:00Z", "event": "ta13_rerun_after_handoff", "tc_pass": 17, "tc_total": 17, "all_pass": true}
+{"ts": "2026-05-22T08:02:00Z", "event": "exec_completed", "phase": "WF-05_done", "ac_pass": 13, "ac_total": 13, "next": "PR + C-4"}
+{"ts": "2026-05-22T08:02:30Z", "event": "plangate_setup_feature_complete", "stop_hook_goal_satisfied": true}
