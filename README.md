@@ -277,6 +277,27 @@ PlanGate は Claude Code と Codex CLI の併用を前提にしています。�
 
 役割分担の詳細: [docs/ai/tool-roles.md](docs/ai/tool-roles.md)
 
+### 初期セットアップ（`/plangate-setup`）
+
+新規プロジェクト導入時の不足項目検知・提示・再検証を**対話的に実行**するための三層構成（TASK-0107）:
+
+| 環境 | 起動方法 |
+| --- | --- |
+| Claude Code | `/plangate-setup` slash command |
+| Codex CLI | `setup_coordinator` agent（`.codex/config.toml` に登録済） |
+
+設計原則（両環境共通）:
+
+- **AI は提示のみ、実行しない**: settings 適用などの Human-owned 操作は AI 不可（grep negative test で固定）
+- **`bin/plangate doctor --json` を単一検証源**とする
+- **Workflow-owned 永続ロック**（`status.md` + `decision-log.jsonl` + `doctor --check-settings PASS` ゲート）で Shadow Configuration を構造的防止
+- **解消不能 FAIL の脱出経路**（フォローアップ PBI 起票誘導 / 承知スキップ）
+
+実装ファイル:
+
+- Claude Code: `.claude/commands/plangate-setup.md` / `.claude/agents/setup-coordinator.md` / `.claude/skills/plangate-setup/SKILL.md`
+- Codex CLI: `.agents/skills/plangate-setup/SKILL.md`（共用 skill 正本）/ `.codex/agents/setup_coordinator.toml`
+
 ## CLI
 
 `bin/plangate` はローカルの作業コンテキストを検証・実行補助する POSIX sh ベースの CLI です。
