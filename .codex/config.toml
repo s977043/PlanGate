@@ -109,6 +109,14 @@ config_file = "agents/implementation_agent.toml"
 [agents.qa_reviewer]
 config_file = "agents/qa_reviewer.toml"
 
+# -- セットアップ（TASK-0107） --
+# /plangate-setup Command + setup_coordinator Agent + plangate-setup Skill の三層構成。
+# Claude Code 側は .claude/agents/setup-coordinator.md / .claude/skills/plangate-setup/SKILL.md。
+# 共用 skill 正本は .agents/skills/plangate-setup/SKILL.md。
+
+[agents.setup_coordinator]
+config_file = "agents/setup_coordinator.toml"
+
 # --- Shell environment ---
 [shell_environment_policy]
 # Minimal env vars for basic shell operation. Secrets are excluded intentionally.
