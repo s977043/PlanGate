@@ -60,3 +60,8 @@
   - 事実: `/ai-dev-workflow exec` が conductor を subagent 起動 → Task ツール不可で implementer 委譲が破綻
   - 再利用条件（更新後）: exec router（`/ai-dev-workflow exec`）が conductor 起動**前**にサブエージェント起動（`Agent`/`Task`）可否をツール存在検査で判定する。委譲可能なら conductor 起動、不可/判定不能なら conductor を起動せず **direct-implementer-mode**（router 自身が implementer。C-3/plan_hash/allowed_files/V-gates/C-4 は不変）。「subagent 検知→停止→メイン代行」という旧手動回避は撤廃
   - 根拠: Task is not available inside subagents。判定主体を conductor 内から router 層へ移し、フォールバックを正規フロー化（core-contract §5-bis / contracts/execute.md / #237 #238 #239 #234-E / TASK-0072）
+
+- [2026-05-22] PlanGate setup 機能（`/plangate-setup`）は Claude Code と Codex CLI の両環境で動作可能
+  - 事実: `.claude/{commands,agents,skills}/plangate-setup*` (Claude Code) と `.agents/skills/plangate-setup/SKILL.md` + `.codex/agents/setup_coordinator.toml` (Codex CLI) の二重配置。共用 skill 正本は `.agents/skills/plangate-setup/SKILL.md`。設計原則（Iron Law: AI は提示のみ / doctor 単一検証源 / Workflow-owned 永続ロック）は両環境で同一
+  - 再利用条件: 責務境界が曖昧な setup 系 PBI で、Human-owned 操作の追跡が必要な場合の参照実装。三層構成（Command + Agent + Skill）の責務分離パターンとして転用可能
+  - 根拠: TASK-0107 (PR #312 / #313 / #316 merged), `docs/working/TASK-0107/handoff.md` / `contract-notes.md`
