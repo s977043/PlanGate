@@ -284,7 +284,7 @@ PlanGate は Claude Code と Codex CLI の併用を前提にしています。�
 | 環境 | 起動方法 |
 | --- | --- |
 | Claude Code | `/plangate-setup` slash command |
-| Codex CLI | `setup_coordinator` agent（`.codex/config.toml` に登録済）|
+| Codex CLI | `setup_coordinator` agent（`.codex/config.toml` に登録済） |
 
 設計原則（両環境共通）:
 
@@ -294,6 +294,7 @@ PlanGate は Claude Code と Codex CLI の併用を前提にしています。�
 - **解消不能 FAIL の脱出経路**（フォローアップ PBI 起票誘導 / 承知スキップ）
 
 実装ファイル:
+
 - Claude Code: `.claude/commands/plangate-setup.md` / `.claude/agents/setup-coordinator.md` / `.claude/skills/plangate-setup/SKILL.md`
 - Codex CLI: `.agents/skills/plangate-setup/SKILL.md`（共用 skill 正本）/ `.codex/agents/setup_coordinator.toml`
 
