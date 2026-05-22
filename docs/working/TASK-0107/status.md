@@ -55,3 +55,39 @@
 2. `docs/working/TASK-0107/current-state.md`（L0）
 3. C-3 が発行済か `docs/working/TASK-0107/approvals/c3.json` を確認
 4. APPROVED なら T-01（事前契約確定）から exec 開始
+
+
+## 2026-05-22 08:00: exec 完了 + handoff.md 生成済
+
+### exec 進行
+
+| Task | Status | Output | TC |
+|------|--------|--------|----|
+| T-01 事前契約確定 | ✅ | contract-notes.md (278 行) | - |
+| T-02 三層責務設計 | ✅ | contract-notes.md §6/§7 追記 | - |
+| T-03 Skill 実装 | ✅ | .claude/skills/plangate-setup/SKILL.md (98 行) | TC-09/11 PASS |
+| T-04 Command 実装 | ✅ | .claude/commands/plangate-setup.md (21 行) | TC-01/17 PASS |
+| T-05 Agent 実装 | ✅ | .claude/agents/setup-coordinator.md (158 行) | TC-04/05/12/13/16/21/22 PASS |
+| T-06 Workflow-owned 永続ロック | ✅ | Agent 内に統合（status.md / decision-log.jsonl 更新仕様）| TC-18/19/20 PASS |
+| T-07 テスト/検証資産 | ✅ | tests/extras/ta-13-plangate-setup.sh (174 行) | 自身が PASS |
+| T-08 handoff.md 生成 | ✅ | docs/working/TASK-0107/handoff.md (164 行、6 要素網羅) | TC-15 PASS |
+
+### V-1 受け入れ検査結果
+
+- **自動化 TC**: 16 件 全 PASS（ta-13 実行で確認）
+- **manual TC**: 6 件（TC-01/06/07/08/21/22）— Agent 実機起動時の人間確認待ち（V-1 checklist 化）
+- **回帰**: 既存 tests/run-tests.sh への影響なし
+- **doctor --check-settings**: PASS（AC-12 ゲート通過）
+
+### 全 AC
+
+13/13 PASS（handoff.md §1 参照）
+
+### 完了確認
+
+✅ **PlanGate setup 機能 完成**（Stop hook goal 達成）
+
+### 次
+
+- PR 作成（workflow-conductor 自動 or 手動）
+- C-4 GitHub レビュー（👤 Human-owned）

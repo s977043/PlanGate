@@ -23,7 +23,7 @@
 | `status.md` | exec 進行中の状態履歴アーカイブ | ⬜ exec 開始時 |
 | `current-state.md` | 現状スナップショット（タスク完了ごとに更新） | ⬜ exec 開始時 |
 | `decision-log.jsonl` | 判断履歴（append-only） | ⬜ exec 開始時 |
-| `handoff.md` | WF-05 完了パッケージ（Rule 5 必須 6 要素） | ⬜ T-12 で生成 |
+| `handoff.md` | WF-05 完了パッケージ（Rule 5 必須 6 要素網羅） | ✅ T-08 で生成済 |
 
 ## Next action
 

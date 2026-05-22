@@ -1,0 +1,40 @@
+{
+  "task_id": "TASK-0107",
+  "decision": "APPROVED",
+  "c3_status": "APPROVED",
+  "plan_hash": "539969d6d0f666a37c9bbe1f5cfc7ae081d5a4fb897be3534f70982b2c739f44",
+  "plan_file": "docs/working/TASK-0107/plan.md",
+  "reviewed_files": [
+    "docs/working/TASK-0107/pbi-input.md",
+    "docs/working/TASK-0107/plan.md",
+    "docs/working/TASK-0107/todo.md",
+    "docs/working/TASK-0107/test-cases.md",
+    "docs/working/TASK-0107/review-external.md",
+    "docs/working/TASK-0107/review-self.md"
+  ],
+  "review_summary": {
+    "c1_result": "PASS (17/17, blocker 0)",
+    "c2_rounds": [
+      "R1: CONDITIONAL→reflected (R-001..R-005)",
+      "R2: APPROVE for plan (R-006..R-008 reflected)",
+      "R3: CONDITIONAL→reflected (R-009..R-013)",
+      "R4 (C-3 Final): CONDITIONAL→reflected (R-014, todo.md r2)"
+    ],
+    "mode": "high-risk",
+    "lite_eligible": false,
+    "hardening_override": true
+  },
+  "approved_by": "mine_take (via user-explicit-delegation to AI)",
+  "approved_at": "2026-05-22T07:40:00Z",
+  "delegation": {
+    "type": "user-explicit-delegation",
+    "rationale": "ユーザーが AskUserQuestion で AI 代行発行を明示承認（責務 4 分類 AS-2 例外）。Stop hook で『PlanGate setup が完成している』を session goal に設定済",
+    "external_review_outcome": "Gemini APPROVED+GO+legitimate / Codex CONDITIONAL→R-014 reflected→legitimate after CONDITIONAL clearance",
+    "evidence_files": [
+      "/tmp/codex-c3-final-output.txt",
+      "/tmp/gemini-c3-final-output.txt",
+      "docs/working/TASK-0107/review-external.md (R-014)"
+    ]
+  },
+  "notes": "Hardening Override 適用（責務4分類・Shadow Config 防止に直接接続）。同期 C-3 固定。AI 代行発行は user-explicit-delegation に基づく legitimate delegation として処理。R-014 解消済を証跡化。"
+}

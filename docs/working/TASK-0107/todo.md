@@ -2,7 +2,8 @@
 
 > Source: `plan.md` Work Breakdown / Mode: **high-risk** / C-3 同期固定（lite_eligible=false）
 > Generated: 2026-05-22
-> Revision: r1（C-2 R3 R-009/R-010 反映: C-3 を exec 前に移動、workflow-conductor 自動制御範囲を分離）
+> Revision: r2（C-3 final R-014 反映: G-C3 を T-01 より前に移動、C-3 → exec T-01〜T-08 の完全直列に整合）
+> 前回: r1（C-2 R3 R-009/R-010 反映: C-3 を exec 前に移動、workflow-conductor 自動制御範囲を分離）
 
 ## Legend
 
@@ -16,7 +17,25 @@
 
 ---
 
-## Phase 1: 準備（C-3 ゲート前）
+## Phase 1: C-3 ゲート（plan / todo / test-cases に対する人間レビュー）
+
+> 本 Phase は **plan/todo/test-cases 生成 + C-1 + C-2 完了後**に実施する人間ゲート。承認後に exec（T-01〜T-08）開始。
+
+### G-C3 👤 C-3: 人間レビュー（**exec 前 / 必須**）
+- **Output**: `docs/working/TASK-0107/approvals/c3.json`（`decision: APPROVED`、`plan_hash`、`c3_status: APPROVED`）
+- **三値**:
+  - APPROVE → Phase 2（exec T-01〜T-08）開始
+  - CONDITIONAL → review-external.md `R-NNN` 集約 → 1 回確定反映 → 簡易 C-1 → 人間が APPROVED `c3.json` 発行
+  - REJECT → plan 再生成
+- **🚩 Checkpoint**: pbi-input.md / plan.md / todo.md / test-cases.md / review-external.md（R-001〜R-014 反映済）/ review-self.md（17/17 PASS）を確認
+- **depends_on**: plan/todo/test-cases 生成完了 + C-1 完了
+- **Note**: **`lite_eligible=false` 確定**（Hardening Override 対象、同期 C-3 固定）。`bin/plangate exec` は APPROVED のみ受理
+
+---
+
+## Phase 2: exec（C-3 APPROVED 後のみ着手）
+
+> **重要**: T-01〜T-08 は全て **G-C3 APPROVED が前提**。
 
 ### T-01 🤖 Step 1: 事前契約確定
 - **Output**: `docs/working/TASK-0107/contract-notes.md`
@@ -26,51 +45,25 @@
   - Command の Agent invocation 方式（U4）— 既存 `.claude/commands/` から最も近いパターンを採用
   - TASK ID 動的解決ロジック（U7）— Task-local 方式 + 不明時 guard 仕様
 - **🚩 Checkpoint**: schema に `scope/checks[]/passed` 等が含まれることを確認、tools 集合決定
-- **depends_on**: なし
+- **depends_on**: G-C3
 
 ### T-02 🤖 Step 2: 三層責務設計確定
 - **Output**: `contract-notes.md` 末尾に責務境界表 + Cowork 5 要素 ⇄ PlanGate 対応表
 - **🚩 Checkpoint**: Command / Agent / Skill の入出力境界が表で 1:1 マップ
 - **depends_on**: T-01
 
----
-
-## C-3 ゲート（人間レビュー・同期固定）
-
-### G-C3 👤 C-3: 人間レビュー（**exec 前 / 必須**）
-- **Output**: `docs/working/TASK-0107/approvals/c3.json`（`decision: APPROVED`、`plan_hash`、`c3_status: APPROVED`）
-- **三値**:
-  - APPROVE → 以下の Phase 2 exec 開始
-  - CONDITIONAL → review-external.md `R-NNN` 集約 → 1 回確定反映 → 簡易 C-1 → 人間が APPROVED `c3.json` 発行
-  - REJECT → plan 再生成
-- **🚩 Checkpoint**: T-01/T-02 完了 + C-1 完了 + plan / todo / test-cases / review-external（R-009〜R-013 反映済）を確認
-- **depends_on**: T-01, T-02 完了、C-1 完了（C-1 は workflow-conductor 制御）
-- **Note**: **`lite_eligible=false` 確定**（Hardening Override 対象、同期 C-3 固定）。`bin/plangate exec` は APPROVED のみ受理
-
----
-
-## Phase 2: exec（C-3 APPROVED 後のみ着手）
-
-> **重要**: T-03〜T-08 は **G-C3 APPROVED が前提**。`depends_on` に `G-C3` を明示。
-
 ### T-03 🤖 Step 3: Skill 実装
 - **Output**: `.claude/skills/plangate-setup/SKILL.md`
-- **内容**:
-  - frontmatter（name, description）
-  - 5 要素対応表（Cowork 5 要素 ⇄ PlanGate 対応物）
-  - チェックリスト（doctor 検査項目から抜粋）
-  - Rule 1-5 準拠
-- **🚩 Checkpoint**: frontmatter 検証 + 5 要素表 grep + Rule 2 準拠（再利用単位、案件固有なし）
-- **depends_on**: G-C3
+- **内容**: frontmatter / 5 要素対応表 / チェックリスト / Rule 1-5 準拠
+- **🚩 Checkpoint**: frontmatter 検証 + 5 要素表 grep + Rule 2 準拠
+- **depends_on**: T-02
 - **並列可**: T-04, T-05 と並列
 
 ### T-04 🤖 Step 4: Command 実装
 - **Output**: `.claude/commands/plangate-setup.md`
-- **内容**:
-  - Agent invocation のみ（実装手順は書かない）
-  - 起動時の TASK ID 動的解決ロジック呼び出し
-- **🚩 Checkpoint**: Command 内に `bin/plangate` 直接呼び出しがゼロ + `.claude/settings.json` diff = 0
-- **depends_on**: G-C3
+- **内容**: Agent invocation のみ（実装手順は書かない）+ TASK ID 動的解決呼び出し
+- **🚩 Checkpoint**: Command 内に `bin/plangate` 直接呼び出しゼロ + `.claude/settings.json` diff = 0
+- **depends_on**: T-02
 - **並列可**: T-03, T-05 と並列
 
 ### T-05 🤖 Step 5: Agent 実装
@@ -80,7 +73,7 @@
   - 責務本文: doctor --json 連携 / Human-owned 提示のみ / 再検証ループ / 解消不能 FAIL 脱出経路
   - 「実行禁止・提示のみ」を明文化（grep negative test 用の固定文言）
 - **🚩 Checkpoint**: frontmatter 既存 Agent と同構造 + tools 最小 + `apply-claude-settings.sh` を呼ぶパス無し（grep）
-- **depends_on**: G-C3
+- **depends_on**: T-02
 - **並列可**: T-03, T-04 と並列
 
 ### T-06 🤖 Step 6: Workflow-owned 永続ロック実装
@@ -134,13 +127,15 @@
 ## 依存関係グラフ
 
 ```
-T-01 (契約確定)
-   ↓
-T-02 (責務設計)
+[plan/todo/test-cases 生成完了]
    ↓
 [C-1: workflow-conductor 自動制御 / 17 項目]
    ↓
 G-C3 (👤 人間レビュー / 同期ゲート / APPROVED 必須)
+   ↓
+T-01 (契約確定: doctor --json schema / tools / TASK ID 解決)
+   ↓
+T-02 (責務設計確定)
    ↓
    ├─→ T-03 (Skill)  ─┐
    ├─→ T-04 (Command) ─┤
@@ -159,8 +154,6 @@ G-C3 (👤 人間レビュー / 同期ゲート / APPROVED 必須)
 
 ## 残タスク
 
-- ⬜ T-01〜T-08: 全て未着手
-- ⬜ G-C3: 人間レビュー待ち（C-1 完了後）
-- 次の Action:
-  1. C-2 R3 R-009〜R-013 反映完了 → 簡易 C-1 → G-C3 ゲート（人間）
-  2. G-C3 APPROVED → workflow-conductor が exec（T-03〜T-08）+ L-0/V-1/V-2/V-3/PR を制御
+- ⬜ G-C3: 人間レビュー待ち（または AI 代行発行 — user-explicit-delegation）
+- ⬜ T-01〜T-08: 全て C-3 APPROVED 後着手
+- 次の Action: G-C3 → T-01（契約確定）→ T-02 → T-03/T-04/T-05（並列）→ T-06 → T-07 → conductor L-0/V-1/V-2/V-3 → T-08 → PR
