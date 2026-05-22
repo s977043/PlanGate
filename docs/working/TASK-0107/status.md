@@ -91,3 +91,34 @@
 
 - PR 作成（workflow-conductor 自動 or 手動）
 - C-4 GitHub レビュー（👤 Human-owned）
+
+
+## 2026-05-22 12:30: PR #313 / #316 マージ + Codex CLI 互換性完了
+
+### PR マージ履歴
+
+| PR | merge commit | mergedBy | 内容 |
+|----|--------------|----------|------|
+| #312 | 1ea5dac | s977043 | feat: /plangate-setup 三層実装 |
+| #313 | 5762cd8 | s977043 | chore: F-01 + F-02 cleanup (監査表 + manual TC checklist) |
+| **#316** | **95b9f87** | **s977043** | **feat: Codex CLI compatibility** |
+
+### Codex CLI 互換性対応（PR #316）
+
+- `.agents/skills/plangate-setup/SKILL.md`（共用 skill 正本）
+- `.codex/agents/setup_coordinator.toml`（Codex 用 agent 定義、TOML）
+- `.codex/config.toml`（`[agents.setup_coordinator]` 登録）
+- `.agents/skills/README.md`（一覧に追加）
+
+### 残作業
+
+- PR #314 OPEN: F-04 AGENTS.md 自動更新の調査 report（採用案判断は 👤 Human）
+- manual TC（TC-01/06/07/08/21/22）実機確認（👤 Human）
+- 別 PBI 候補:
+  - V2-01（再設定モード）/ V2-04（doctor --check-settings JSON 化）
+  - `doctor --check-settings` の read-only sandbox 対応
+  - `.claude/skills/` ↔ `.agents/skills/` の symlink 化
+
+### 完了確認
+
+✅ **PlanGate setup 機能 = Claude Code + Codex CLI 両環境で動作可能**
