@@ -11,8 +11,10 @@
 | `plan-review-gate` | C-1 / C-2 / C-3 の判定と exec 可否を確認する |
 | `manual-cloud-task` | tracked handoff packet を使って手動 Cloud task を起動する |
 | `working-context` | ローカル ticket コンテキストと Cloud handoff packet の橋渡し |
+| `plangate-setup` | PlanGate 初期セットアップを対話的に進めるためのチェックリスト・5 要素対応観点（TASK-0107 / Claude Code + Codex CLI 共用）|
 
 Codex CLI の標準入口は `./scripts/ai-dev-workflow TASK-XXXX brainstorm|plan|gate|prepare-cloud|exec|status|sync-cloud`。
+本 skill (`plangate-setup`) は Codex 用 agent `.codex/agents/setup_coordinator.toml` から参照される。
 
 ## v7 ハイブリッドアーキテクチャ対応スキル（Claude Code / Codex CLI 共用）
 
