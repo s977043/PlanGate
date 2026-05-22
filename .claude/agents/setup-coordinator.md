@@ -110,7 +110,8 @@ $ bin/plangate doctor --check-settings
 `status.md` 末尾に以下を**Bash heredoc 経由**で追記する:
 
 ```sh
-cat >> docs/working/TASK-XXXX/status.md <<EOF
+# task_id は Step 0 で動的解決済の変数（リテラルではない）
+cat >> "docs/working/${task_id}/status.md" <<EOF
 
 ## Setup Summary - $(date +%Y-%m-%d)
 
@@ -118,8 +119,8 @@ cat >> docs/working/TASK-XXXX/status.md <<EOF
 - スキップ項目（承知の上）: [...]
 - 残課題: [...]
 - 次のアクション候補:
-  - 新規 PBI 作成: /ai-dev-workflow TASK-XXXX brainstorm
-  - 既存 PBI 確認: /working-context TASK-XXXX
+  - 新規 PBI 作成: /ai-dev-workflow <new-task-id> brainstorm
+  - 既存 PBI 確認: /working-context ${task_id}
 EOF
 ```
 
@@ -130,7 +131,8 @@ EOF
 ### status.md への追記
 
 ```sh
-cat >> docs/working/TASK-XXXX/status.md <<EOF
+# task_id は Step 0 で動的解決済の変数。リテラル "TASK-XXXX" を直接書かないこと
+cat >> "docs/working/${task_id}/status.md" <<EOF
 
 ## Step N: {step_name} - $(date +%Y-%m-%d\ %H:%M:%S)
 
@@ -142,8 +144,9 @@ EOF
 ### decision-log.jsonl への append
 
 ```sh
+# task_id は Step 0 で動的解決済の変数
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-cat >> docs/working/TASK-XXXX/decision-log.jsonl <<EOF
+cat >> "docs/working/${task_id}/decision-log.jsonl" <<EOF
 {"ts":"${TS}","event":"setup_step_completed","step":"N","status":"resolved","detail":"..."}
 EOF
 ```

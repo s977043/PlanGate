@@ -71,7 +71,7 @@ sh scripts/apply-claude-settings.sh
 
 doctor FAIL が環境制約等で解消困難な場合、以下のいずれかを提示する:
 
-1. **フォローアップ PBI 起票誘導**: `/ai-dev-workflow TASK-XXXX brainstorm` で別 PBI 起票
+1. **フォローアップ PBI 起票誘導**: `/ai-dev-workflow <new-task-id> brainstorm` で別 PBI 起票（`<new-task-id>` は次の空き番号）
 2. **承知スキップ**: ユーザーが「承知の上で skip」を選択 → `status.md` に skip 理由を明示記録
 
 ## 完了条件
@@ -93,6 +93,6 @@ setup が完了したと判定する条件:
 - スキップ項目（承知の上）: [...]
 - 残課題: [...]
 - 次のアクション候補:
-  - 新規 PBI 作成: `/ai-dev-workflow TASK-XXXX brainstorm`
-  - 既存 PBI 確認: `/working-context TASK-XXXX`
+  - 新規 PBI 作成: `/ai-dev-workflow <new-task-id> brainstorm`
+  - 既存 PBI 確認: `/working-context <task_id>`（Agent が Step 0 で動的解決した値）
 ```
