@@ -63,6 +63,25 @@
 
 ---
 
+## 3.5 Post-merge Additions（v1 範囲で追加実装済）
+
+handoff.md 初版から外していたが、post-merge follow-up として **v1 範囲で追加実装した項目**:
+
+| ID | 内容 | 反映 PR | 状態 |
+|----|------|---------|------|
+| PM-01 | **Codex CLI 互換性レイヤー**（`.agents/skills/plangate-setup/` + `.codex/agents/setup_coordinator.toml` + `.codex/config.toml` 登録） | PR #316 merged (95b9f87) | ✅ 完了 |
+| PM-02 | **review-external.md 監査表補完**（R-014〜R-017 + G-R-015）| PR #313 merged (5762cd8) | ✅ 完了 |
+| PM-03 | **manual TC checklist**（TC-01/06/07/08/21/22 + EC-01 用） | PR #313 merged (5762cd8) | ✅ 完了 |
+| PM-04 | **F-04 AGENTS.md 自動更新の調査 report**（5 対処案）| PR #314 OPEN | ⏳ 採用案判断待ち |
+
+### 互換性レイヤーの設計原則
+
+- **共用 skill 正本**: `.agents/skills/plangate-setup/SKILL.md` を Claude Code + Codex CLI 共用とする
+- **ツール別 agent**: Claude 用は `.claude/agents/setup-coordinator.md`（Markdown frontmatter）、Codex 用は `.codex/agents/setup_coordinator.toml`（TOML）
+- **設計原則の一貫性**: Iron Law / Common Rationalizations / 5 ステップ対話フロー / Workflow-owned 永続ロック は両環境で同一
+
+---
+
 ## 4. 妥協点（採用しなかった選択肢と理由）
 
 | 妥協 | 採用した選択肢 | 採用しなかった選択肢 | 理由 |
