@@ -56,7 +56,7 @@ issue #310 残 5 項目 (#3-#7) を反映し、外部新規 OSS 利用者の初�
 
 - **markdownlint**: `.markdownlint-cli2.jsonc` 設定で全 markdown ファイル pass
 - **リンク健全性**: 新規・変更リンクが実ファイルに到達することを `find` + `grep` で機械検証
-- **既存テスト**: `tests/run-tests.sh` 82/0 + `tests/hooks/run-tests.sh` 79/0 維持（コード変更なしのため自明）
+- **既存テスト**: `tests/run-tests.sh` 101/0 + `tests/hooks/run-tests.sh` 79/0 維持（コード変更なしのため自明）
 - **C-2 外部レビュー**: Codex + Gemini に「新規 OSS 利用者の初期導入を Yes と判定できるか」を委任 (AC-6)
 
 ## Risks & Mitigations

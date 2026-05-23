@@ -42,4 +42,4 @@
 
 ## 完了条件
 
-全項目 ✅ + handoff 6 要素 + 全 AC PASS + markdownlint pass + リンク健全性 + tests/run-tests 82/0 + tests/hooks 79/0 維持 (コード変更なしで自明)
+全項目 ✅ + handoff 6 要素 + 全 AC PASS + markdownlint pass + リンク健全性 + tests/run-tests 101/0 + tests/hooks 79/0 維持 (コード変更なしで自明)

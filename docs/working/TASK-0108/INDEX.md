@@ -7,7 +7,7 @@
 - **Phase**: B 完了 (plan/todo/test-cases/review-self 揃った) / C-3 待ち (Human-owned)
 - **Mode 判定（参考）**: standard
 - **Labels**: `documentation` / `enhancement` / `priority:P2`
-- **Status**: PBI INPUT PACKAGE のみ作成済。plan/todo/test-cases は **C-3 ゲート前**の生成段階で着手
+- **Status**: plan / todo / test-cases / review-self 作成済。C-3 ゲート待ち (Human-owned)
 
 ## Files
 
@@ -25,6 +25,4 @@
 
 ## Next action
 
-#311 マージ後、人間が pbi-input.md をレビュー → plan 生成許可
-→ AI が plan / todo / test-cases / review-self → 必要なら C-2 外部レビュー
-（Codex+Gemini に #310 反映評価を再委任）→ C-3 → exec → AC-6 で再評価。
+Human が pbi-input / plan / todo / test-cases / review-self をレビュー → C-3 ゲート判定 (approvals/c3.json 発行) → AI が exec 着手 (T-01..T-11)。

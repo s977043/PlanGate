@@ -34,7 +34,7 @@
 - [ ] **AC-4**: 用語略号 (EH/WF/V/C/L) の意味と参照先を Glossary として 1 箇所に集約、主要 doc 冒頭からリンク
 - [ ] **AC-5**: 呼称統合 — plangate.md と workflows/ で同じフェーズ参照に WF-XX 主・ABCD 副 (or 統一) の表記方針を docs/ai/project-rules.md or 専用 readme で明文化
 - [ ] **AC-6**: Codex / Gemini に 再委任 — 全 5 項目反映後、両者から「公開導線が一貫して新規ユーザーに優しい」評価が得られる
-- [ ] **AC-7**: 既存テスト regression なし（CLI 82/0 + Hook 79/0 維持）、追加 doc が markdownlint pass
+- [ ] **AC-7**: 既存テスト regression なし（CLI 101/0 + Hook 79/0 維持）、追加 doc が markdownlint pass
 
 ## Notes from Refinement
 

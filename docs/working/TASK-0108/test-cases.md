@@ -21,7 +21,7 @@
 | ID | 前提 | 入力 | 期待出力 | 種別 |
 |----|------|------|---------|------|
 | TC-09 | 反映後の docs/ 全体 | `markdownlint-cli2 docs/**/*.md README*.md` | exit 0 (全 pass) | lint |
-| TC-10 | 反映後 | `sh tests/run-tests.sh` + `sh tests/hooks/run-tests.sh` | 82/0 + 79/0 PASS 維持 | regression |
+| TC-10 | 反映後 | `sh tests/run-tests.sh` + `sh tests/hooks/run-tests.sh` | 101/0 + 79/0 PASS 維持 | regression |
 
 ### 内容検証 (grep)
 
