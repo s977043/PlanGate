@@ -7,7 +7,7 @@
 | AC | TC IDs |
 |----|--------|
 | AC-1: `bin/plangate review --reviewer codex` で実 review 実行 + review-external.md 追記 | TC-01, TC-02 |
-| AC-2: .codex/hooks/ 配線で Codex 経由 Edit/Write が EH-1/EH-2 を尊重 | TC-03, TC-04, TC-05 |
+| AC-2: .codex/hooks/ 配線で Codex 経由 Edit/Write が EH-1/EH-2/EH-3 を尊重 | TC-03, TC-04, TC-05, **TC-05b** |
 | AC-3: docs/rfc/provider-codex.md 存在 + Status: Implemented + 正本ポインタ | TC-06 |
 | AC-4: README Provider 表で Codex 行が「完全対応 / exec 既定」のまま | TC-07 |
 | AC-5: 既存テスト regression なし (CLI 101/0 + Hook 79/0) | TC-08 |
@@ -29,6 +29,7 @@
 | TC-03 | `.codex/hooks/plangate-eh1-plan.sh` 経由で非 plan ファイル Edit (PLANGATE_HOOK_TASK 未設定、no plan.md) | hook 起動 | exit 2 (EH-1 block) | unit |
 | TC-04 | C-3 APPROVED の TASK 文脈で hook 起動 | EH-2 経由 Edit | exit 0 (skip) | unit |
 | TC-05 | `scripts/codex-local.sh` 経由実行で hook も発火 | adapter test | hook 経路で block/skip 正常動作 | integration |
+| **TC-05b** | `.codex/hooks/plangate-eh3-hash.sh` 経由で plan_hash mismatch ファイル Edit | hook 起動 | exit 2 (EH-3 block、承認境界実行正本が Codex 経由でも尊重) | unit |
 
 ### CX-3 + Provider 表整合
 

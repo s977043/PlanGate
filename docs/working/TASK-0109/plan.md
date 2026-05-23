@@ -31,7 +31,7 @@ Codex provider の「実用上は全面利用可」を **「完璧対応」** �
 | 1 | **準備**: `.cursor/hooks/` 構造把握 + `bin/plangate` review コードパス確認 + 既存 codex case (placeholder) 抽出 | 調査メモ | AI | low | 既存資産マップ完成 |
 | 2 | **CX-1 (CLI wiring)**: `bin/plangate review` の `codex` case を `codex exec --skip-git-repo-check` 直接呼出に実装。プロンプトは task の plan + review-external.md に流し、stdout を review-external.md に追記。gemini case 構造踏襲 | `bin/plangate` (review 関数内 codex case) | AI | medium | `bin/plangate review TASK-XXXX --phase c2 --reviewer codex` で実 review 生成 + 既存 gemini case regression なし |
 | 3 | **CX-2a (hook adapter 設計)**: `.cursor/hooks/cursor-adapter.sh` pattern を参考に `.codex/hooks/codex-adapter.sh` (or 同等経路) 設計。`scripts/codex-local.sh` ラッパとの責務分界文書化 | `.codex/hooks/codex-adapter.sh` (新規) + `.codex/README.md` 更新 (責務分界明示) | AI | **high** (承認境界相当) | EH-1/EH-2 を Codex から呼ぶ際の block/skip 動作確認 |
-| 4 | **CX-2b (hook 配線)**: `.codex/hooks/plangate-eh1-plan.sh` / `plangate-eh2-c3.sh` を Cursor 版 (`.cursor/hooks/`) を翻訳して追加。本 hook が `scripts/hooks/check-plan-exists.sh` / `check-c3-approval.sh` を呼び出す形式 | `.codex/hooks/plangate-eh1-plan.sh` / `plangate-eh2-c3.sh` (新規) | AI | high | smoke test: Codex 経由 Edit で EH-1 block / C-3 通過後 skip |
+| 4 | **CX-2b (hook 配線)**: `.codex/hooks/plangate-eh1-plan.sh` / `plangate-eh2-c3.sh` / `plangate-eh3-hash.sh` を Cursor 版 (`.cursor/hooks/`) を翻訳して追加。本 hook が `scripts/hooks/check-plan-exists.sh` / `check-c3-approval.sh` / `check-plan-hash.sh` を呼び出す形式（EH-3 配線で承認境界実行正本も Codex 経由で尊重） | `.codex/hooks/plangate-eh1-plan.sh` / `plangate-eh2-c3.sh` / `plangate-eh3-hash.sh` (新規) | AI | high | smoke test: Codex 経由 Edit で EH-1 block / C-3 通過後 skip / EH-3 hash mismatch block |
 | 5 | **CX-3 (provider-codex RFC)**: `docs/rfc/provider-codex.md` 新規。既存 RFC (provider-cursor.md) 構造踏襲、CX-1/CX-2 完成後の正本ポインタ集約 (`.codex/`, `scripts/ai-dev-workflow`, `scripts/codex-local.sh`, `docs/codex-cloud/`, 新 hooks/) | `docs/rfc/provider-codex.md` (新規) | AI | low | RFC が既存 3 RFC と structure 整合 |
 | 6 | **テスト**: CLI review codex case test + hook adapter test を tests/extras/ + tests/hooks/ に追加 | `tests/extras/ta-13-codex-review.sh` (新規) / `tests/hooks/codex-adapter-test.sh` (新規) | AI | medium | 既存 tests/run-tests 101/0 + tests/hooks 79/0 維持、新規 TC 全 PASS |
 | 7 | **handoff + V-1** | TASK-0109/handoff.md | AI | low | AC-1..6 全 PASS |
@@ -44,6 +44,7 @@ Codex provider の「実用上は全面利用可」を **「完璧対応」** �
 | `.codex/hooks/codex-adapter.sh` | 新規 (CX-2a) |
 | `.codex/hooks/plangate-eh1-plan.sh` | 新規 (CX-2b) |
 | `.codex/hooks/plangate-eh2-c3.sh` | 新規 (CX-2b) |
+| `.codex/hooks/plangate-eh3-hash.sh` | 新規 (CX-2b) |
 | `.codex/README.md` | 責務分界追記 (CX-2a) |
 | `docs/rfc/provider-codex.md` | 新規 (CX-3) |
 | `tests/extras/ta-13-codex-review.sh` | 新規 (CX-1 検証) |

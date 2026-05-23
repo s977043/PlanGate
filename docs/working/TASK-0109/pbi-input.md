@@ -46,7 +46,7 @@ Codex は PlanGate の **default exec agent + default reviewer** として
       と subagent/scripts/wrapper への正本ポインタを含む
 - [ ] **AC-4**: README Provider 表で Codex 行が「完全対応 / exec 実装
       エージェント（既定）」のまま矛盾なし
-- [ ] **AC-5**: 既存テスト regression なし (CLI 101/0 + Hook 79/0 維持)
+- [ ] **AC-5**: 既存テスト regression なし (CLI 101+α/0 + Hook 79+α/0 全件 PASS 維持)
 - [ ] **AC-6**: docs/index.md と README に追加された Requirements 表で
       Codex CLI の用途記述が新規実装と一貫
 

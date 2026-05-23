@@ -10,7 +10,7 @@
 ### Phase 2: 実装
 - [ ] **T-02 (CX-1)**: `bin/plangate` review 関数 codex case を `codex exec --skip-git-repo-check` 直接呼出に実装、stdout を review-external.md に追記。gemini case 構造踏襲 (owner=agent / Risk=medium / depends_on=T-01 / 🚩 gemini case regression なし + 新 codex review 動作)
 - [ ] **T-03 (CX-2a)**: `.codex/hooks/codex-adapter.sh` 設計+実装、`.codex/README.md` に責務分界表 (codex-local.sh = auth / codex-adapter.sh = hook bridge) 追加 (owner=agent / Risk=**high** / depends_on=T-01 / 🚩 既存 scripts/hooks 呼出経由で独自ロジック追加なし)
-- [ ] **T-04 (CX-2b)**: `.codex/hooks/plangate-eh1-plan.sh` / `plangate-eh2-c3.sh` を `.cursor/hooks/` 翻訳で追加 (`scripts/hooks/check-plan-exists.sh` / `check-c3-approval.sh` を呼ぶ shim) (owner=agent / Risk=high / depends_on=T-03 / 🚩 EH-1 block / EH-2 skip 動作確認)
+- [ ] **T-04 (CX-2b)**: `.codex/hooks/plangate-eh1-plan.sh` / `plangate-eh2-c3.sh` / `plangate-eh3-hash.sh` を `.cursor/hooks/` 翻訳で追加 (`scripts/hooks/check-plan-exists.sh` / `check-c3-approval.sh` / `check-plan-hash.sh` を呼ぶ shim、EH-3 配線で承認境界実行正本も Codex 経由で尊重) (owner=agent / Risk=high / depends_on=T-03 / 🚩 EH-1 block / EH-2 skip / EH-3 block 動作確認)
 - [ ] **T-05 (CX-3)**: `docs/rfc/provider-codex.md` 新規。既存 provider-cursor/gemini-cli/opencode RFC structure 踏襲、CX-1/CX-2 完了後の正本ポインタ集約 (owner=agent / Risk=low / depends_on=T-02,T-04 / 🚩 既存 3 RFC との structure 整合)
 
 ### Phase 3: 検証
