@@ -5,7 +5,7 @@ description: "tracked handoff packet を使って Codex Cloud task を手動起�
 
 # Manual Cloud Task (PlanGate / optional)
 
-> **PlanGate での位置付け**: PlanGate は Claude Code / Codex CLI どちらも**ローカル実行が原則**。Codex Cloud を使う場合のみ本 skill を使う（optional）。通常の Codex CLI ローカル実行は `local-exec-handoff` skill を参照。
+> **PlanGate での位置付け**: PlanGate は Claude Code / Codex CLI どちらも**ローカル実行が原則**。Codex Cloud を使う場合のみ本 skill を使う（optional）。ローカル exec 再開には `local-exec-handoff` skill を参照。
 
 ## Read First
 
