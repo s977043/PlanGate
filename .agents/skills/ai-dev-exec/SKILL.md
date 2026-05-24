@@ -7,13 +7,15 @@ description: "PlanGate の exec フェーズを TDD で実行する。Use when: 
 
 PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** を Codex / Claude Code 両方で実行する skill。
 
-## 前提条件（必須）
+## 前提条件（exec 開始ゲート）
 
 - `docs/working/TASK-XXXX/approvals/c3.json` が存在し `c3_status: APPROVED`
-- `plan_hash` が現 plan.md の SHA-256 と一致（EH-3 PASS）
-- `bin/plangate doctor --check-settings` が PASS（settings タスクロック・Shadow Config 防止）
+- `bin/plangate validate TASK-XXXX` PASS（plan_hash 整合 / artifact 整合 / EH-3 整合）
+- `bin/plangate exec TASK-XXXX` は APPROVED c3.json のみ受理（CLI 側で機械チェック）
 
 これらが満たされなければ exec を**開始しない**。
+
+> **settings タスクロック** (`bin/plangate doctor --check-settings`) は **V-1 / handoff 完了の前提条件**（`.claude/rules/working-context.md` 正本）。exec 入口では block しない。詳細は `ai-dev-verify` skill。
 
 ## Read First
 
@@ -45,8 +47,10 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
 
 ## CLI 呼び出し
 
-- 共通: `bin/plangate exec TASK-XXXX`（APPROVED c3.json のみ受理）
+- exec dispatch: `bin/plangate exec TASK-XXXX [--mode <mode>]`（APPROVED c3.json のみ受理）
+- 機械検証: `bin/plangate validate TASK-XXXX`
+- 並行で `./scripts/ai-dev-workflow TASK-XXXX exec` も利用可
 
 ## 次フェーズへ
 
-exec 完了後は workflow-conductor が L-0（リンター）→ V-1（受け入れ検査）→ V-2/V-3/V-4 を自動進行。verify 観点は `ai-dev-verify` skill。
+exec 完了後は `ai-dev-verify` skill で V-1〜V-4 + handoff.md 発行。L-0〜V-4 は workflow-conductor が自動進行。
