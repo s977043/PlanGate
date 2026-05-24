@@ -9,11 +9,11 @@
 - [ ] **T-02**: 既存 docs/philosophy.md / docs/index.md / plangate.md の冒頭構造を確認、Glossary/When-NOT リンク挿入位置を決定 (owner=agent / Risk=low)
 
 ### Phase 2: 実装 (5 改善項目)
-- [ ] **T-03 (#3)**: 30-min first run 単一化 — staged-adoption-guide.md Phase 0 を「正」とし、README は「短縮版・正本へのリンク」と冒頭で明示。両ファイルの相互参照固定 (owner=agent / Risk=low / depends_on=T-01 / 🚩 矛盾なし)
-- [ ] **T-04 (#4)**: README install 直後に doctor --fix 必須度 警告 box 追加 (⚠️ + blockquote)。README_en.md にも英訳 (owner=agent / Risk=low / 🚩 視覚的目立つ、英訳整合)
+- [ ] **T-03 (#3)**: 30-min first run 単一化 — staged-adoption-guide.md Phase 0 を**正本**、README + README_en + docs/index.md 3 ファイルで参照固定。アンカー `#phase-0-体験day-1` まで具体化 (owner=agent / Risk=low / depends_on=T-01 / 🚩 3 ファイル矛盾なし + アンカー解決)
+- [ ] **T-04 (#4)**: README install 直後に doctor --fix 必須度 警告 box 追加 (⚠️ + blockquote)。**MD028 回避: 空行にも `> ` 含める**。README_en.md にも英訳 (owner=agent / Risk=low / 🚩 視覚的目立つ + 英訳整合 + markdownlint pass)
 - [ ] **T-05 (#5)**: docs/when-not-to-use.md 新規作成 (短期プロト過剰/PBI 文化なし/Claude Code 非利用時制約 等 5 件以上)。docs/philosophy.md と docs/index.md からリンク (owner=agent / Risk=low / 🚩 5 件以上、攻撃的でない)
 - [ ] **T-06 (#6)**: docs/glossary.md 新規作成 (EH-1〜EH-9 / EHS-1〜3 / WF-01〜05 / V-1〜4 / C-1〜4 / L-0 / PBI 等 略号 1 行解説 + 参照 URL)。docs/index.md + plangate.md + philosophy.md 冒頭から 1 行リンク (owner=agent / Risk=low / 🚩 全略号網羅、参照先実在)
-- [ ] **T-07 (#7)**: ABCD ↔ WF-01..05 対応表を docs/glossary.md 末尾に追加。docs/ai/project-rules.md に「新規 doc は WF-XX 優先表記、既存 ABCD は対応表で吸収」方針追記 (owner=agent / Risk=medium / depends_on=T-06 / 🚩 対応表が機械的に正しい、既存 ABCD 参照は壊さない)
+- [ ] **T-07 (#7)**: ABCD ↔ WF-01..05 対応表を **docs/glossary.md 末尾に正本配置**、docs/workflows/README.md 既存対応表は glossary.md 参照に切替 (重複解消)。docs/plangate.md 見出しは `## A: PBI INPUT (WF-01/02)` 併記で**アンカー ID 維持**。docs/ai/project-rules.md に呼称方針追記 (owner=agent / Risk=medium / depends_on=T-06 / 🚩 正本/参照関係明確 + 既存アンカー破壊なし)
 
 ### Phase 3: 検証
 - [ ] **T-08**: markdownlint 全 markdown ファイル pass (owner=agent / Risk=low / 🚩 lint pass)
