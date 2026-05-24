@@ -28,11 +28,11 @@ issue #310 残 5 項目 (#3-#7) を反映し、外部新規 OSS 利用者の初�
 
 | # | Step | Output | Owner | Risk | 🚩 Checkpoint |
 |---|------|--------|-------|------|--------------|
-| 1 | **#3 30-min first run 単一化** — README の「10 分チュートリアル」を `docs/staged-adoption-guide.md` の Phase 0 とリンクで紐付け、どちらが「正」(staged-adoption が主、README は短縮版) かを冒頭で明示 | README.md + staged-adoption-guide.md | AI | low | 両ファイル冒頭で導線統一を確認、内容矛盾なし |
-| 2 | **#4 doctor --fix 必須度強調** — README install 節直後に「⚠️ これを実行しないとゲート (強制力) は機能しません」blockquote 追加 | README.md / README_en.md | AI | low | 視覚的目立つ box 表示、英訳整合 |
+| 1 | **#3 30-min first run 単一化** — README + README_en + docs/index.md の 3 箇所で `staged-adoption-guide.md` Phase 0 を**正本**として明示、README は短縮版・docs/index.md は導線。アンカー `[Phase 0](./docs/staged-adoption-guide.md#phase-0-体験day-1)` まで具体化 | README.md + README_en.md + docs/index.md + staged-adoption-guide.md | AI | low | 3 ファイル冒頭で導線統一、アンカー解決確認 |
+| 2 | **#4 doctor --fix 必須度強調** — README install 節直後に「⚠️ これを実行しないとゲート (強制力) は機能しません」blockquote 追加。**MD028 回避**: 空行にも `> ` を含める | README.md / README_en.md | AI | low | 視覚的目立つ box 表示、英訳整合、markdownlint MD028 pass |
 | 3 | **#5 When NOT to use ページ新規** — `docs/when-not-to-use.md` 新規作成、philosophy.md からリンク。短期プロト過剰/PBI 文化なし/Claude Code 非利用時の制約等 5 件以上 | docs/when-not-to-use.md (新規) + docs/philosophy.md (link) + docs/index.md (link) | AI | low | 5 件以上の具体的トレードオフ、攻撃的でないトーン |
 | 4 | **#6 用語 Glossary 新規** — `docs/glossary.md` 新規作成、EH-1〜EH-9/EHS-1〜3/WF-01〜05/V-1〜4/C-1〜4/L-0 等の略号 1 行解説 + 参照先 URL。主要 doc 冒頭から 1 行リンク | docs/glossary.md (新規) + docs/index.md (link) + 主要 doc (plangate.md/philosophy.md 等) 冒頭 link | AI | low | 全略号網羅、参照先実在 |
-| 5 | **#7 呼称統合 (LOW)** — A/B/C/D ↔ WF-01..05 の対応表を 1 箇所 (docs/glossary.md or workflows/README.md) に集約、新規ユーザー向けに WF-XX 優先表記方針を docs/ai/project-rules.md に明文化 (破壊的変更なし、対応表で吸収) | docs/glossary.md (or workflows/README.md) + docs/ai/project-rules.md (方針追記) | AI | medium | 対応表が機械的に正しい、既存 ABCD 参照は壊さない |
+| 5 | **#7 呼称統合 (LOW)** — A/B/C/D ↔ WF-01..05 対応表は**`docs/glossary.md` を正本**とし、既存 `docs/workflows/README.md` 対応表は glossary.md 参照に切替 (重複解消)。`docs/plangate.md` の見出しは `## A: PBI INPUT (WF-01/02)` のように**併記**に留め既存アンカー ID を維持。docs/ai/project-rules.md に「新規 doc は WF-XX 優先、既存 ABCD は対応表で吸収」方針追記 | docs/glossary.md (正本) + docs/workflows/README.md (参照に切替) + docs/plangate.md (見出し併記) + docs/ai/project-rules.md (方針追記) | AI | medium | 正本/参照関係明確 + 既存アンカー破壊なし + 対応表が機械的に正しい |
 | 6 | **C-2 任意外部レビュー** — Codex + Gemini 再委任、本 PR 反映後の評価で `CONDITIONAL Yes → Yes` を再確認 (AC-6) | review-external.md (本セッション内) | AI | low | 両レビュアから新たな major 0 件 |
 | 7 | **handoff + V-1** | TASK-0108/handoff.md | AI | low | AC-1..7 全 PASS |
 
@@ -49,6 +49,9 @@ issue #310 残 5 項目 (#3-#7) を反映し、外部新規 OSS 利用者の初�
 | `docs/index.md` | リンク追記 (#5, #6) |
 | `docs/plangate.md` | 冒頭 Glossary link (#6) |
 | `docs/ai/project-rules.md` | 呼称方針追記 (#7) |
+| `README_en.md` | T-03 (#3) 英訳 + アンカー追加 |
+| `docs/plangate.md` | T-07 (#7) 見出し併記 (アンカー維持) |
+| `docs/workflows/README.md` | T-07 (#7) 対応表を glossary 参照に切替 |
 | `docs/workflows/README.md` | 必要なら対応表参照 (#7) |
 | `docs/working/TASK-0108/handoff.md` | WF-05 |
 
@@ -63,7 +66,10 @@ issue #310 残 5 項目 (#3-#7) を反映し、外部新規 OSS 利用者の初�
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| **#7 呼称統合で既存 ABCD 参照リンクが壊れる** | medium | 既存 ABCD 表現は本文に残し、新規 ABCD ↔ WF-XX 対応表を docs/glossary.md に追加するだけにする（破壊回避） |
+| **#7 呼称統合で既存 ABCD 参照リンクが壊れる** | medium | 既存 ABCD 表現は本文に残し、`docs/plangate.md` の見出しは「`## A: PBI INPUT (WF-01/02)`」のように併記でアンカー ID 維持。対応表は `docs/glossary.md` 正本 + `docs/workflows/README.md` 参照切替で重複解消 (R-codex#1) |
+| **markdownlint MD028 (blank-line-in-blockquote) 違反** | low | T-04 警告 box の空行にも `> ` を含める実装ガイドを本 plan に明記 (R-gemini#1) |
+| **TC-08 外部レビュー判定プロトコル弱い** | medium | AC-6 の判定基準を「同一プロンプト / 対象ファイル一覧 / APPROVE-CONDITIONAL-REJECT / major 0・未解決 conditional 0」まで固定 (R-codex#2、test-cases.md TC-08 詳細化) |
+| **docs/index.md 「最初に読む 3 ページ」の純度** | low | #5 When NOT to use と #6 Glossary は「最初に読む 3 ページ」ではなく `## Reference` 等の補足セクションに配置 (R-gemini#3) |
 | **Glossary が肥大化して維持コスト増** | low | 略号一覧 + 参照先 URL のみで本文重複を避ける、各略号は 1 行解説 |
 | **When NOT to use が攻撃的トーンになる** | low | 「適用しないべきケース」「他ツールが適する場合」表現に統一、競合排他的表現を避ける |
 | **doctor --fix 強調 box が markdownlint MD028 (blank-line-in-blockquote) 違反** | low | 標準 blockquote 構文で書く、必要なら警告マーク用 emoji 使用 |
