@@ -28,7 +28,9 @@
 |----|------|------|------|------|
 | TC-03 | `.codex/hooks/plangate-eh1-plan.sh` 経由で非 plan ファイル Edit (PLANGATE_HOOK_TASK 未設定、no plan.md) | hook 起動 | exit 2 (EH-1 block) | unit |
 | TC-04 | C-3 APPROVED の TASK 文脈で hook 起動 | EH-2 経由 Edit | exit 0 (skip) | unit |
-| TC-05 | `scripts/codex-local.sh` 経由実行で hook も発火 | adapter test | hook 経路で block/skip 正常動作 | integration |
+| TC-05 | EH-3 配線が Codex 経由で発火することを **codex CLI fixture stub** で deterministic 検証 (R-codex#3: manual integration は補助) | `tests/hooks/codex-adapter-test.sh` で stub codex 経由 `bin/plangate review` 実行、plan_hash mismatch で block 確認 | block exit + 補助として実 codex でも smoke 確認 |
+| **TC-05c (R-gemini#1 CRITICAL)** | `bin/plangate review --reviewer codex` 実行時に `--sandbox read-only` フラグが付与されることを検証 | `grep -nE 'sandbox.+read-only' bin/plangate` + stub codex で argv ログ確認 | read-only sandbox 付与 確認 |
+| **TC-05d (R-gemini#2/3)** | `timeout` 600s wrap + `--output-last-message` 利用を検証 | `grep -nE 'timeout.*codex\|output-last-message' bin/plangate` | 両方 該当 |
 | **TC-05b** | `.codex/hooks/plangate-eh3-hash.sh` 経由で plan_hash mismatch ファイル Edit | hook 起動 | exit 2 (EH-3 block、承認境界実行正本が Codex 経由でも尊重) | unit |
 
 ### CX-3 + Provider 表整合
