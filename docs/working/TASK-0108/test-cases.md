@@ -6,7 +6,7 @@
 
 | AC | TC IDs |
 |----|--------|
-| AC-1: 公開トップ + README + staged-adoption-guide で 30 分初回体験エントリポイントが 1 本に統一・矛盾なし | TC-01, TC-02 |
+| AC-1: 公開トップ + README + staged-adoption-guide で 30 分初回体験エントリポイントが 1 本に統一・矛盾なし | TC-01, TC-02, **TC-01b** |
 | AC-2: README install 直後に doctor --fix 必須度の警告ブロック有・見落とせない強調 | TC-03 |
 | AC-3: docs/when-not-to-use.md 存在、Trade-offs / 適用しないべきケース 5 件以上 | TC-04 |
 | AC-4: 用語略号 (EH/WF/V/C/L) Glossary を 1 箇所に集約、主要 doc 冒頭からリンク | TC-05, TC-06 |
@@ -29,6 +29,7 @@
 |----|---------|--------------|------|
 | TC-01 | README に staged-adoption-guide.md への 「first run の正本リンク」が冒頭で明示 | `grep -n 'staged-adoption-guide\\|first run\\|正本' README.md` | 該当行 1 件以上、冒頭 (L100 以内) |
 | TC-02 | staged-adoption-guide.md に「30 分初回体験の正本」明記 + README への参照 | `grep -n '正本\\|README.md.*Quickstart' docs/staged-adoption-guide.md` | 該当 1 件以上 |
+| **TC-01b** | docs/index.md (公開トップ) で staged-adoption-guide.md を「正本」と明示 + アンカー解決 (`#phase-0-体験day-1`) | `grep -nE 'staged-adoption-guide.*正本' docs/index.md` | 該当 1 件以上 |
 | TC-03 | README install 節直後 (L100-L130) に doctor --fix 必須警告 (⚠️ / 注意 / 必須) | `grep -nE 'doctor --fix.*必須\\|⚠️.*doctor' README.md` | 該当 1 件以上、L100-L130 範囲 |
 | TC-04 | docs/when-not-to-use.md 実在、トレードオフ 5 件以上記載 | `ls docs/when-not-to-use.md && grep -cE '^- \\|^\\d+\\.' docs/when-not-to-use.md` | 5 行以上の bullet/numbered |
 | TC-05 | docs/glossary.md 実在、EH-1〜EH-9 / EHS-1〜3 / WF-01〜05 / V-1〜4 / C-1〜4 / L-0 略号網羅 | `grep -cE '^- \\*\\*EH-[0-9]+\\*\\*\\|^- \\*\\*WF-' docs/glossary.md` | 各カテゴリで該当行あり、計 25 行以上 |
@@ -39,7 +40,7 @@
 
 | ID | 内容 | 種別 |
 |----|------|------|
-| TC-08 | Codex + Gemini に再委任、両者から「新規 OSS 利用者が初期導入を Yes と判定可能」評価。前回 CONDITIONAL Yes と比較して major 改善ポイント 0 件 (= 既に修正反映済) | manual (review-external.md に追記) |
+| TC-08 | **外部レビュー判定プロトコル固定**: 同一プロンプト (新規 OSS 利用者視点で公開導線を評価) → 対象ファイル一覧 (#3/#4/#5/#6/#7 変更全て) → 判定 (APPROVE/CONDITIONAL/REJECT) → 合格条件 (**major 0 + 未解決 conditional 0 + 両者から「Yes (初期導入可能)」**) = AC-6 PASS。結果は review-external.md に R-NNN 追記 | manual (review-external.md) |
 
 ### Edge cases
 
