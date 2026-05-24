@@ -2,7 +2,7 @@
 
 > Source: plan.md / todo.md / test-cases.md / Generated: 2026-05-22
 
-## 判定: **PASS** — C-3 ゲート提出可能
+## 判定: **PASS** — C-3 ゲート提出可能 (C-2 proactive 反映 v2、R-001..R-006 確定反映後)
 
 ## Plan チェック（7 項目）
 

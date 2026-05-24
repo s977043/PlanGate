@@ -28,7 +28,7 @@
 
 ## 受入基準 (Acceptance Criteria)
 
-- [ ] **AC-1**: 公開トップ + README + staged-adoption-guide の 3 箇所で「30 分初回体験のエントリポイント」が 1 本に統一・矛盾なし
+- [ ] **AC-1**: 公開トップ (`docs/index.md` / Pages 配信) + README + staged-adoption-guide の **3 箇所**で「30 分初回体験のエントリポイント」が 1 本に統一・矛盾なし。`staged-adoption-guide.md` Phase 0 を**正本**、README は短縮版・docs/index.md は導線として明示
 - [ ] **AC-2**: README install 節直後に `doctor --fix` 必須度の警告ブロックがあり、見落とせない強調（**太字** + 注意マーク）
 - [ ] **AC-3**: `docs/when-not-to-use.md`（or 同等セクション）が存在し、Trade-offs / 適用しないべきケース 5 件以上を具体例で記載
 - [ ] **AC-4**: 用語略号 (EH/WF/V/C/L) の意味と参照先を Glossary として 1 箇所に集約、主要 doc 冒頭からリンク
