@@ -50,9 +50,9 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
 - exec dispatch: `bin/plangate exec TASK-XXXX [--mode <mode>]`（APPROVED c3.json のみ受理）
 - 機械検証: `bin/plangate validate TASK-XXXX`
 - 並行で `./scripts/ai-dev-workflow TASK-XXXX exec` も利用可
-- **Codex CLI 経由の場合は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto` を推奨**（pre-flight で validate + doctor --check-settings を実行、post-flight で plan.md drift 検知。詳細: #336 / scripts/codex-guarded.sh）
+- **Codex CLI 経由の場合は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto` を推奨**（pre-flight で validate + doctor --check-settings 実行、post-flight で plan.md drift 検知）
 
-> ⚠️ **Codex CLI の限界**: `scripts/codex-guarded.sh` は session 前後のチェックのみで、Codex の Write/Edit 自体は session 中に止められない。Claude Code の `PreToolUse:Write/Edit` hook と完全等価ではない（#336 中期/長期で改善予定）。
+> ✅ **Codex CLI 物理 hook 等価達成 (PR #347)**: `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` で EH-1/2/3/6/9 が Codex session 中の Write/Edit/Bash 呼び出しに対しても発火する。`scripts/codex-guarded.sh` の session 前後検知と合わせて Claude Code と等価な強制力。
 
 ## 次フェーズへ
 

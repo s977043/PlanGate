@@ -66,30 +66,39 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 > Iron Law による強制。完全機械化は TASK-0071 S3/S4 または別 PBI で扱う。
 
 
-## Codex CLI parity の限界（#336 / Gap 4）
+## Codex CLI parity (#336 / Gap 4) — 達成済
 
-`PreToolUse:Write/Edit` / `PreToolUse:Bash` hook は **Claude Code 固有**であり、Codex CLI には等価機構が無い。具体的に Codex CLI からは以下が**強制されない**:
+**判明事項** (2026-05-25 PR #347): OpenAI Codex CLI は `PreToolUse` / `PostToolUse` hook API を公式提供しており、Claude Code の hook 仕様と直接互換 (matcher / stdin JSON / exit 2 で deny / `hookSpecificOutput.permissionDecision`)。公式仕様: https://developers.openai.com/codex/hooks
 
-- EH-1 plan-exists / EH-2 c3-approval / EH-3 plan_hash / EH-6 forbidden_files (Write/Edit 系)
-- EH-9 delegation-commit-boundary (Bash 系)
+### 三層の強制機構
 
-### 短期解 (出荷済)
+| 層 | 機構 | カバー範囲 |
+|----|------|----------|
+| 1. Session 前 | `scripts/codex-guarded.sh` (PR #343) | validate / doctor / EH-8 privacy / plan.md hash snapshot |
+| 2. **Session 中 (物理 pre-Write block)** | **`.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` (PR #347)** | **EH-1 / EH-2 / EH-3 / EH-6 / EH-9 を Codex 側でも発火** |
+| 3. Session 後 | `scripts/codex-guarded.sh` post-flight | plan.md hash drift 検知 + validate 再実行 |
 
-`scripts/codex-guarded.sh` (PR #343) を **Codex CLI の正規入口**として使用する:
+### 等価強制マトリクス
 
-```sh
-scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto
-```
+| 強制 | Claude Code | Codex CLI |
+|------|-------------|-----------|
+| EH-1 plan-exists | ✅ `.claude/settings.json` PreToolUse | ✅ `.codex/hooks.json` PreToolUse |
+| EH-2 c3-approval | ✅ 同上 | ✅ 同上 |
+| EH-3 plan_hash | ✅ 同上 | ✅ 同上 |
+| EH-6 forbidden_files | ✅ 同上 | ✅ 同上 |
+| EH-9 delegation-commit-boundary | ✅ PreToolUse Bash | ✅ PreToolUse Bash |
 
-- Pre-flight (fail-closed): `bin/plangate validate <TASK>` + `bin/plangate doctor --check-settings` + EH-8 metrics privacy
-- Post-flight (warning): plan.md hash drift 検知 + validate 再実行
-- 監査ログ: `docs/working/_audit/codex-guarded.log`
+### Codex bridge の動作
 
-### 限界
+1. Codex CLI が `apply_patch` / `Edit` / `Write` / `Bash` 呼び出し前に `.codex/hooks.json` を参照
+2. 該当 matcher の `command` (= `.codex/hooks/eh-bridge.sh <HOOK_NAME>`) が起動
+3. eh-bridge.sh が stdin JSON から file path (Edit/Write.file_path or apply_patch.command の `*** Update/Add/Delete File:`) を抽出
+4. `PLANGATE_HOOK_FILE` / `PLANGATE_HOOK_TASK` を設定し `scripts/hooks/<HOOK_NAME>` を起動
+5. exit code を Codex の `hookSpecificOutput.permissionDecision` (`allow` / `deny`) に翻訳
+6. Codex CLI が deny 時は write を物理 block
 
-`codex-guarded.sh` は session 前後のチェックのみで、Codex session 中の Write/Edit を物理 block しない (post-write drift 検知のみ)。完全等価には Codex CLI 公開 plugin/hook API が必要 (#336 長期課題)。
+### 責務分界 (継続)
 
-### 責務分界
-
-- Codex CLI から `.claude/settings.json` / `bin/plangate` / `scripts/hooks/*.sh` 等の Hardening Override 領域を改変するのは依然として禁止 (AI-owned 不可)
-- これらの強制は Claude Code の hook 経由 (Claude セッション時) または Human 手動レビュー (Codex セッション時) で担保する
+- `.claude/settings.json` / `bin/plangate` / `scripts/hooks/*.sh` 等の Hardening Override 領域を改変するのは依然として **AI 改変不可** (Human-owned)
+- 新規 hook 追加 (`.codex/hooks.json` / `.codex/hooks/*.sh`) は AI-owned (Override 対象外)
+- 既存 hook 改変は Human-owned
