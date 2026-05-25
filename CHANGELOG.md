@@ -4,6 +4,33 @@ PlanGate の主要リリース履歴。
 
 このファイルは各リリース時点の内容を記録するものであり、この pull request の差分一覧ではない。
 
+## Unreleased
+
+### Added
+
+- `.agents/skills/` 配下に Codex CLI / Claude Code 共用の PlanGate ワークフロー skill 3 本を新設（#325 7601efb）
+  - `ai-dev-exec`: C-3 APPROVED 後の TDD exec phase（plan_hash 整合 + c3.json APPROVED 前提）
+  - `ai-dev-verify`: V-1〜V-4 受け入れ検査と handoff.md 発行（Rule 5 / 6 要素必須）
+  - `local-exec-handoff`: ローカル exec 再開・ツール間引き継ぎ用の短い指示パケット
+- `scripts/ai-dev-plan.sh` に環境変数追加（#330 efd86d0）
+  - `PLANGATE_PLAN_LEGACY=1`: 旧挙動（C-2 同パス作成 + Cloud handoff draft 強制）を保持（後方互換）
+  - `PLANGATE_CLOUD_HANDOFF=1`: 新挙動でも Cloud handoff draft を生成（Codex Cloud 利用時のみ）
+
+### Changed
+
+- 既存 5 skill (`ai-dev-brainstorm` / `ai-dev-plan` / `plan-review-gate` / `working-context` / `manual-cloud-task`) を PlanGate 固有要素 (mode 5 段階 + lite_eligible / C-1 17 項目 / R-NNN / handoff 6 要素 / EH-3 順序 / settings タスクロック) に整合（#325 7601efb）
+- `scripts/ai-dev-plan.sh` の Shadow Prompting を解消し、`.agents/skills/ai-dev-plan/SKILL.md` の B-1 → B-2 → B-3 フローと整合（#330 efd86d0）
+  - C-2 (review-external.md) 作成を本 phase から除外し `plan-review-gate` skill / `bin/plangate review --phase c2` に委譲
+  - Mode 5 段階判定 + `lite_eligible` を plan.md 必須セクションに追加
+- skill ↔ 実 CLI 整合（#327 6e31845）
+  - 架空 CLI コマンド (brainstorm/plan/gate/verify/handoff/handoff-local) を実在コマンドに置換
+  - settings タスクロックの参照位置を `ai-dev-exec` 開始条件 → `ai-dev-verify` 完了条件に修正（正本整合）
+  - Rule 2 ドリフト圧縮: skill 本体の固有仕様を `.claude/rules` 参照に置き換え（-57 行）
+
+### Security
+
+- `plan-review-gate` skill に `bin/plangate review` 誤起動警告を追加（実は外部 AI モデル呼び出しのため、C-1 セルフレビュー目的で起動するとコスト発生・機密送信のリスク）（#327 6e31845）
+
 ## v8.9.0 - 2026-05-19
 
 feat: Reporting & Retrospective v1 + reporting 精度 follow-up — EPIC #193 完遂
