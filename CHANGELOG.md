@@ -11,6 +11,12 @@ PlanGate の主要リリース履歴。
 - `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh`: Codex CLI 用 PreToolUse hook bridge を新設 (#336 / #347)。OpenAI Codex CLI の公式 hook API ([docs](https://developers.openai.com/codex/hooks)) を活用し、Claude Code の `PreToolUse:Write/Edit/Bash` hook と等価な物理 pre-Write block を Codex session 中にも実現。EH-1/EH-2/EH-3/EH-6/EH-9 が Codex 経由でも発火する。
 - `scripts/codex-guarded.sh`: Codex CLI 用 guarded entrypoint (#336 / #343)。session 前後で validate / doctor --check-settings / plan_hash drift 検知を実行。
 - `tests/extras/ta-14-codex-guarded.sh` / `ta-15-codex-hook-bridge.sh`: 上記 wrapper / hook bridge の 8 + 7 観点回帰テスト (#345 / #347)。
+- `docs/rfc/ai-self-set-gate-hook-enforcement.md`: RFC EH-10 Draft (Self-set Gate Enforcement) を追加 (#339)。
+- `docs/ai/settings-wiring-contract.md`: Codex CLI parity 達成に伴う wording 整備と EH-1〜EH-9 強制マトリクスを明文化 (#348)。
+- `docs/ai/project-rules.md` / `docs/ai/core-contract.md`: Codex CLI での運用を想定した doc 整合性の向上 (#331)。
+- `scripts/ai-dev-common.sh`: `set -e` 互換性を高めるための hotfix とテスト extras への適用 (#346)。
+- `AGENTS.md`: `.codex/agents/` から Claude Code 側の agent 定義を参照する際の bridge 方針を明記 (#341)。
+- `docs/ai/contracts/`: 共有 skill と実行契約 (contract) の接続を強化 (#344)。
 
 ### Added (skill 整備)
 

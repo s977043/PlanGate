@@ -75,6 +75,8 @@ LLM 出力 (assistant message) を session log から監査し、以下を `gate
 - session log の構造変更 (既存 `~/.claude/projects/.../<sessionId>.jsonl` を読み取り専用利用)
 - Cursor / Codex / Gemini など他 provider への配線 (本 RFC は Claude Code 経路に限定、別 provider は別 RFC)
 
+> **2026-05-26 追記 (PR #347 反映)**: Codex CLI への hook 配線は別 RFC を要するが、**hook 配線機構自体は既に整備済** (`.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` で EH-1/2/3/6/9 を bridge)。EH-10 を Codex 側にも展開する場合、`.codex/hooks.json` に `check-self-gate.sh` への bridge エントリを追加するだけで対応可能 (Codex CLI 公式 hook 仕様: https://developers.openai.com/codex/hooks)。当初 RFC では「Codex 配線は provider 横断で実装困難」としていたが、PR #347 により Codex 側 hook 配線の前提条件は解消済。
+
 ## Alternative Considered
 
 ### Alt-1: ソフトルールのみ維持 (現状)
