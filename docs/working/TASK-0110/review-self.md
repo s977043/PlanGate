@@ -32,6 +32,6 @@
 | C1-TC-02 | Edge case 網羅 | PASS (空 jsonl / 破損 entry / idempotent) |
 | C1-TC-03 | 自動化可否 | PASS (TC-01..TC-09 全 自動化可) |
 
-## 判定: **PASS** — C-3 ゲート提出可能
+## 判定: **PASS** — C-3 ゲート提出可能 (C-2 proactive R-001..R-006 確定反映後 v2)
 
-総合スコア: 92 / 100。blocker 0、major 0、minor 1 (Codex/Gemini 外部レビューで proactive C-2 推奨)。
+総合スコア: **95 / 100** (C-2 反映後)。blocker 0、major 0、minor 1 (Codex/Gemini 外部レビューで proactive C-2 推奨)。

@@ -8,7 +8,7 @@
 - [ ] **T-01**: skip-decision-log.jsonl の schema 把握 + check-skip-acknowledged.sh 読解 + entry 件数/サンプル抽出 (owner=agent / Risk=low / 🚩 既存資産マップ完成)
 
 ### Phase 2: 実装
-- [ ] **T-02**: `scripts/batch-acknowledge-skip-decisions.py` 新規。引数 `--dry-run` / `--apply --acknowledged-by NAME` / `--log PATH`。atomic RMW (.bak + os.replace) + byte-equal except 2 field (owner=agent / Risk=medium / depends_on=T-01 / 🚩 dry-run/apply 両動作)
+- [ ] **T-02 (R-002/R-005)**: `scripts/batch-acknowledge-skip-decisions.py` 新規。**raw-line-preserving 方式** (line-by-line で 2 field のみ既存 key 順維持で置換/追加)。**ISO 8601 UTC**。atomic RMW (.bak + os.replace) (owner=agent / Risk=medium / depends_on=T-01 / 🚩 dry-run/apply 両動作 + byte-equal except 2 field 機械検証)
 
 ### Phase 3: 検証
 - [ ] **T-03**: `tests/extras/ta-14-skip-acknowledge.sh` 新規 (fixture jsonl 3 case) + tests/run-tests.sh dispatcher 追記 (owner=agent / Risk=low / depends_on=T-02 / 🚩 tests/run-tests.sh PASS + 新 case 全 PASS)
@@ -21,7 +21,7 @@
 ## 👤 Human タスク
 
 - [ ] **H-01**: **C-3 ゲート** — plan/todo/test-cases/review-self.md 確認 → APPROVE/CONDITIONAL/REJECT → `approvals/c3.json` 発行
-- [ ] **H-02**: **適用** — `python3 scripts/batch-acknowledge-skip-decisions.py --apply --acknowledged-by s977043` 実行 (AI 不可)
+- [ ] **H-02 (R-001/R-003)**: **PR ブランチで適用** — `python3 scripts/batch-acknowledge-skip-decisions.py --apply --acknowledged-by s977043` をローカルで実行 → 変更を同一 PR にコミット (commit message に `applied by s977043 (TASK-0110 H-02)`) → push → CI "SKIP_REASON 追認" PASS 確認 → C-4 承認 → merge (AI 不可)
 - [ ] **H-03**: 適用後 CI で "SKIP_REASON 追認" PASS 確認
 - [ ] **H-04**: **C-4 ゲート (PR レビュー)** + **merge** (Human-owned 固定)
 
