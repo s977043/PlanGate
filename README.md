@@ -101,7 +101,7 @@ PlanGate では、以下のような不変条件を hook / CLI で検査でき�
 | **Required** | git / POSIX sh (bash/zsh) / python3 | `bin/plangate` CLI と hook の基盤 |
 | **Recommended** | [Claude Code](https://docs.claude.com/claude-code) | plan 生成・exec の主導線（slash command 経由） |
 | **Optional** | [gh CLI](https://cli.github.com/) | PR / issue 操作（C-4 ゲートの GitHub 連携） |
-| **Optional** | [Codex CLI](https://github.com/openai/codex) | exec 実装エージェント（既定） / C-2 / V-3 外部レビュー |
+| **Optional** | [Codex CLI](https://github.com/openai/codex) | exec 実装エージェント（既定） / C-2 / V-3 外部レビュー（**`scripts/codex-guarded.sh` による guarded execution 推奨**） |
 | **Optional** | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | 並列外部レビュー |
 | **Optional** | [Cursor](https://cursor.com/) | `PLANGATE_IMPL_AGENT=cursor`（部分対応・[docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md)） |
 
@@ -391,7 +391,7 @@ PlanGate のガバナンスワークフローはプロバイダに依存しな�
 | Provider | 役割 | 状態 |
 | --- | --- | --- |
 | Claude Code | 計画生成、exec オーケストレーション | 完全対応 |
-| Codex CLI | 外部レビュー（既定、C-2 / V-3）、exec 実装エージェント（既定）、並列実行 | 完全対応 |
+| Codex CLI | 外部レビュー（既定、C-2 / V-3）、exec 実装エージェント（既定）、並列実行 | 完全対応 (**物理 hook parity 達成済**) |
 | Gemini CLI | 外部レビュー | 対応済み — `PLANGATE_EXTERNAL_REVIEWER=gemini plangate review` |
 | OpenCode | 実装エージェント | 対応済み — `PLANGATE_IMPL_AGENT=opencode plangate exec` |
 | Cursor | 実装エージェント | 部分対応 — [RFC](docs/rfc/provider-cursor.md) / [クイックスタート](docs/cursor/quickstart.md) / `.cursor/hooks.json` |

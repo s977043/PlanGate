@@ -6,6 +6,13 @@
 
 `ta-NN-<short-name>.sh` 形式。`ta-` プレフィクス + 連番 + 1 行説明。
 
+## 主な拡張テスト
+
+| ファイル | 対象 | 背景 |
+|----------|------|------|
+| `ta-14-codex-guarded.sh` | `codex-guarded.sh` | Codex CLI 用 guarded entrypoint 検証 (#343) |
+| `ta-15-codex-hook-bridge.sh` | `.codex/hooks/eh-bridge.sh` | Codex CLI 物理 hook parity 検証 (#347) |
+
 ## 規約
 
 各 `.sh` は **source される前提**:
@@ -95,3 +102,21 @@ extras はすべて同一 shell プロセスで source されるため、関数�
 - TASK: `docs/working/TASK-0050/`
 - retrospective: `docs/working/retrospective-2026-05-01.md` § P-2 / T-4
 - set -e 書法ガイド追加: `docs/working/retrospective-2026-05-01-s3.md` § P-1 / T-2
+
+
+## 現行テスト一覧
+
+| File | 内容 |
+|------|------|
+| `ta-04-check-pr-issue-link.sh` | PR ↔ Issue リンク検証 |
+| `ta-05-validate-schemas.sh` | JSON schema 検証 |
+| `ta-06-hooks.sh` | EH-1〜EH-9 hook 動作検証 |
+| `ta-07-eval-runner.sh` | eval-runner 8 観点 |
+| `ta-08-codex-log-parser.sh` | Codex log parser |
+| `ta-09-metrics.sh` | metrics 収集 |
+| `ta-10-doctor-fix.sh` | doctor --fix 検証 |
+| `ta-11-plan-hash-contract.sh` | plan_hash 契約 |
+| `ta-12-maintenance.sh` | maintenance window |
+| `ta-13-plangate-setup.sh` | plangate-setup skill / agent |
+| `ta-14-codex-guarded.sh` | `scripts/codex-guarded.sh` 8 観点 (Gap 4 / #336 / PR #343) |
+| `ta-15-codex-hook-bridge.sh` | `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` 7 観点 (Gap 4 / #336 / PR #347) |

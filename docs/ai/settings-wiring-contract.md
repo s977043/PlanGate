@@ -61,9 +61,7 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
    扱いしない）違反。
 2. **`doctor --check-settings`**: 構造検証で未適用箇所を決定論的に列挙。
 
-> 既知の限界（V2 候補）: 完全な PreToolUse-hook レベルの機械 block（V-1
-> 実行経路への物理結線）は本スライス範囲外。現状は DoD + doctor FAIL +
-> Iron Law による強制。完全機械化は TASK-0071 S3/S4 または別 PBI で扱う。
+> ~~既知の限界（V2 候補）~~: ~~完全な PreToolUse-hook レベルの機械 block~~ — **解消済 (PR #347)**。`.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` で Codex CLI 側にも EH-1/2/3/6/9 が物理 PreToolUse block として配線済。Claude Code 側は従来通り `.claude/settings.json` で配線。詳細は本ファイル後段の §Codex CLI parity 参照。
 
 
 ## Codex CLI parity (#336 / Gap 4) — 達成済

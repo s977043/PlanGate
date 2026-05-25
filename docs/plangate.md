@@ -427,6 +427,7 @@ PlanGateのゲートは**PBI(チケット)1枚の中**に置きます。判断�
 | v4 | C-3三値化+V-1〜V-4+ライト/フルモード+C-4（v5 で 5 モードに置換） | takt(マルチエージェント協調) |
 | v5 | L-0リンター自動修正ループ | ハーネスエンジニアリング(フィードバック設計) |
 | v6(予定) | 決定論的フック+ガベージコレクション+段階的ルール昇格 | ハーネスエンジニアリング(運用設計) |
+| v8.9 | **Codex CLI 物理 hook 等価達成 (PR #347)** | OpenAI Codex CLI PreToolUse hook API |
 
 ---
 
@@ -465,3 +466,22 @@ PlanGateのゲートは**PBI(チケット)1枚の中**に置きます。判断�
 - `local-exec-handoff`: ローカル exec 再開パケット
 
 skill 一覧は `.agents/skills/README.md` を参照。
+
+
+## Codex CLI parity (PR #347 達成済)
+
+Claude Code の `.claude/settings.json` hooks (EH-1〜EH-9) と等価な強制力を、Codex CLI session でも実現:
+
+- **`.codex/hooks.json`** + **`.codex/hooks/eh-bridge.sh`**: PreToolUse hook bridge。`apply_patch|Edit|Write` で EH-1/2/3/6、`Bash` で EH-9 が Codex session 中にも発火。
+- **`scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto`**: Codex CLI の正規入口。pre-flight (validate + doctor) / post-flight (plan_hash drift 検知) を自動実行。
+
+OpenAI Codex CLI 公式 hook 仕様: https://developers.openai.com/codex/hooks
+
+### 強制マトリクス
+
+| 強制 | Claude Code | Codex CLI |
+|------|-------------|-----------|
+| EH-1 plan-exists / EH-2 c3-approval / EH-3 plan_hash / EH-6 forbidden_files | ✅ `.claude/settings.json` PreToolUse | ✅ `.codex/hooks.json` PreToolUse |
+| EH-9 delegation-commit-boundary | ✅ PreToolUse Bash | ✅ 同上 |
+
+詳細: [docs/ai/settings-wiring-contract.md](ai/settings-wiring-contract.md) §Codex CLI parity。
