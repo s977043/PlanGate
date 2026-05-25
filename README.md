@@ -16,6 +16,16 @@ PlanGate は、AI コーディングエージェントのためのガバナン�
 
 ![PlanGate overview](docs/assets/harness-plangate-readme-dark-v2.png)
 
+## 新規利用者: 最初に読む 3 ページ
+
+PlanGate を初めて知った方は、以下の順に **15-30 分** で読むことを推奨します。
+
+1. **[PlanGate ガイド](docs/plangate.md)** — 全体像・5 フェーズ・解決する問題（約 5 分）
+2. **[段階的導入ガイド](docs/staged-adoption-guide.md)** — Level 1 (Day 1) から始める具体手順（約 10 分）
+3. **[10 分チュートリアル（本 README 後半）](#10-分チュートリアル)** — 実際に手を動かす最小例（約 10 分）
+
+「自分のチームに合うか」を判断したい方は [思想と問題設定](docs/philosophy.md) と [When NOT to use](docs/when-not-to-use.md) を参照。略号 (EH-X / WF-XX / V-X / C-X) は [用語クイックリファレンス](docs/glossary.md) を参照。
+
 ## PlanGate の本質的価値
 
 PlanGate が配布するのは **「AI 開発の安全な型」** です。AI に何でも自動でやらせる枠組みではありません。
@@ -130,9 +140,11 @@ cp -r plangate/.claude/ your-project/.claude/
 > 既存利用者や段階的移行を行う場合、plugin と `.claude/` のデュアル運用は技術的に可能ですが、同名 Skill / コマンドの解決順に注意してください。
 > plugin 側を明示的に呼び出す場合は `plangate:<skill-or-agent>` prefix を使用します。詳細は [plugin 移行ガイド](docs/plangate-plugin-migration.md) を参照してください。
 
-### 導入後: hook 強制を有効化する
+### 導入後: hook 強制を有効化する 🚨 必須
 
-clone / plugin 導入だけでは hook 強制（ゲートの不変条件検査）は配線されません。導入先で次の 1 コマンドを実行して、`.claude/settings.json` への hook 配線を確立します。
+> ⚠️ **重要**: clone / plugin 導入だけでは **hook 強制（EH-1〜EH-9 のゲート不変条件検査）が配線されません**。本コマンドを実行しないと PlanGate の核となる承認境界保護が無効状態のままになります。
+
+clone / plugin 導入直後に、必ず次の 1 コマンドを実行して `.claude/settings.json` への hook 配線を確立してください:
 
 ```bash
 bin/plangate doctor --fix
@@ -421,6 +433,8 @@ PlanGate のガバナンスワークフローはプロバイダに依存しな�
 | [docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md) | Cursor Provider RFC |
 | [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Claude Code plugin としての利用・移行 |
 | [docs/oss-governance.md](docs/oss-governance.md) | OSS 公開設定・運用判断 |
+| [docs/glossary.md](docs/glossary.md) | **用語クイックリファレンス** — EH-X / WF-XX / V-X / C-X / mode 5 段階等の略号 (#310) |
+| [docs/when-not-to-use.md](docs/when-not-to-use.md) | **When NOT to use / Trade-offs** — PlanGate を採用しない方が良いケース (#310) |
 | [CHANGELOG.md](CHANGELOG.md) | 主要リリース履歴 |
 | [docs/working/discussions/](docs/working/discussions/) | Claude × Codex × Gemini の戦略ディスカッションログ（5 ラウンド、v8.7.0 主軸の根拠） |
 
