@@ -34,11 +34,11 @@ fi
 
 # === TC-04: TASK ID 未指定で error 終了 (exit 1) ===
 # Run from a directory that does NOT match docs/working/TASK-*/ to avoid cwd auto-detection
+_tc04_rc=0
 (
   cd "$PG_T14_ROOT"
   "$PG_T14_WRAPPER" >/dev/null 2>&1
-)
-_tc04_rc=$?
+) || _tc04_rc=$?
 if [ "$_tc04_rc" = "1" ]; then
   t14_pass "TC-04 missing TASK ID exits with code 1"
 else
@@ -46,11 +46,11 @@ else
 fi
 
 # === TC-05: 不正な TASK ID 形式で error 終了 (exit 1) ===
+_tc05_rc=0
 (
   cd "$PG_T14_ROOT"
   "$PG_T14_WRAPPER" --task "INVALID-XXX" >/dev/null 2>&1
-)
-_tc05_rc=$?
+) || _tc05_rc=$?
 if [ "$_tc05_rc" = "1" ]; then
   t14_pass "TC-05 invalid TASK ID format exits with code 1"
 else
