@@ -25,4 +25,6 @@ developer_instructions = """
 - Codexのread-onlyサンドボックスではclaude CLIがAPI接続できない
 - そのためsandbox_modeはworkspace-writeに設定済み
 - それでもAPI接続がブロックされる場合は、エラーメッセージをそのまま返す
+
+詳細定義 (rich content / Iron Law / Common Rationalizations / Allowed Context): `.claude/agents/claude-code-reviewer.md` を必ず読む。本 TOML は thin pointer であり、実行時規約は markdown 側を正とする。
 """
