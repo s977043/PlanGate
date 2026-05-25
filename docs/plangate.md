@@ -440,3 +440,28 @@ PlanGateのゲートは**PBI(チケット)1枚の中**に置きます。判断�
 - [メインコマンド定義](../.claude/commands/ai-dev-workflow.md) -- `/ai-dev-workflow`コマンド
 - [作業コンテキスト管理ルール](../.claude/rules/working-context.md) -- セッション管理
 - [レビュー判定フレーム](../.claude/rules/review-principles.md) -- レビュー原則
+
+
+## 関連環境変数
+
+### plan フェーズ (`scripts/ai-dev-plan.sh`)
+
+| 変数 | 既定 | 動作 |
+|------|------|------|
+| `PLANGATE_PLAN_LEGACY` | `0` | `1` で旧挙動（C-2 同パス作成 + Cloud handoff draft 強制）に切替（後方互換）|
+| `PLANGATE_CLOUD_HANDOFF` | `0` | `1` で新挙動でも Cloud handoff draft (`.codex/manual-cloud-task.md`) を生成 |
+
+詳細: `.agents/skills/ai-dev-plan/SKILL.md` と `scripts/ai-dev-plan.sh`。
+
+### Codex CLI / Claude Code 共用 skill
+
+`.agents/skills/` 配下に PlanGate ワークフロー専用 skill を配置:
+
+- `ai-dev-brainstorm` / `ai-dev-plan` / `plan-review-gate`: brainstorm → plan → C-1/C-2/C-3 gate
+- `ai-dev-exec`: exec phase (c3.json APPROVED + plan_hash 整合が前提)
+- `ai-dev-verify`: V-1〜V-4 + handoff.md 発行 (settings タスクロックは本 phase で検証)
+- `working-context`: L0〜L3 Progressive Disclosure
+- `manual-cloud-task`: Codex Cloud 利用時の handoff packet (optional)
+- `local-exec-handoff`: ローカル exec 再開パケット
+
+skill 一覧は `.agents/skills/README.md` を参照。
