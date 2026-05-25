@@ -47,5 +47,5 @@ PlanGate は Claude Code / Codex CLI ともローカル実行が原則。本 ski
 
 ## ツール別読み替え
 
-- **Codex CLI**: `.codex/` 配下にパケットを置く必要なし。`bin/plangate resume` 出力と本 skill Deliverable で十分。**exec 再開時は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto`** を推奨（pre/post-flight で plan_hash 整合・settings タスクロックを検証、#336 / Gap 4）。
+- **Codex CLI**: `.codex/` 配下にパケットを置く必要なし。`bin/plangate resume` 出力と本 skill Deliverable で十分。**exec 再開時は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto`** を推奨（pre/post-flight で plan_hash 整合・settings タスクロック検証）。session 中の物理 hook は `.codex/hooks.json` で EH-1/2/3/6/9 が自動発火する (PR #347)。
 - **Claude Code**: `/working-context` skill と組み合わせて利用。`PreToolUse:Write/Edit` hook が EH-3/EH-6/EH-9 を強制するため wrapper 不要。
