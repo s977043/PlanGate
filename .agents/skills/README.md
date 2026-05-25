@@ -10,10 +10,13 @@
 | `ai-dev-plan` | PBI INPUT PACKAGE から `plan.md` `todo.md` `test-cases.md` を作る |
 | `plan-review-gate` | C-1 / C-2 / C-3 の判定と exec 可否を確認する |
 | `manual-cloud-task` | tracked handoff packet を使って手動 Cloud task を起動する |
-| `working-context` | ローカル ticket コンテキストと Cloud handoff packet の橋渡し |
+| `working-context` | ローカル ticket コンテキストと Cloud handoff packet の橋渡し（L0〜L3 Progressive Disclosure） |
+| `ai-dev-exec` | C-3 APPROVED 後の TDD 実行フェーズ（plan_hash 整合 + c3.json APPROVED が前提）|
+| `ai-dev-verify` | V-1〜V-4 受け入れ検査と handoff.md 発行（Rule 5 / 6 要素必須）|
+| `local-exec-handoff` | ローカル exec 再開・ツール間引き継ぎ用の短い指示パケット（Cloud 不使用時）|
 | `plangate-setup` | PlanGate 初期セットアップを対話的に進めるためのチェックリスト・5 要素対応観点（TASK-0107 / Claude Code + Codex CLI 共用）|
 
-Codex CLI の標準入口は `./scripts/ai-dev-workflow TASK-XXXX brainstorm|plan|gate|prepare-cloud|exec|status|sync-cloud`。
+Codex CLI の標準入口は `./scripts/ai-dev-workflow TASK-XXXX brainstorm|plan|gate|exec|prepare-cloud|sync-cloud`。verify 系は `bin/plangate validate|review|eval|metrics TASK-XXXX` を併用する。
 本 skill (`plangate-setup`) は Codex 用 agent `.codex/agents/setup_coordinator.toml` から参照される。
 
 ## v7 ハイブリッドアーキテクチャ対応スキル（Claude Code / Codex CLI 共用）

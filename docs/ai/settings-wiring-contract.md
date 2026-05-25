@@ -64,3 +64,32 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 > 既知の限界（V2 候補）: 完全な PreToolUse-hook レベルの機械 block（V-1
 > 実行経路への物理結線）は本スライス範囲外。現状は DoD + doctor FAIL +
 > Iron Law による強制。完全機械化は TASK-0071 S3/S4 または別 PBI で扱う。
+
+
+## Codex CLI parity の限界（#336 / Gap 4）
+
+`PreToolUse:Write/Edit` / `PreToolUse:Bash` hook は **Claude Code 固有**であり、Codex CLI には等価機構が無い。具体的に Codex CLI からは以下が**強制されない**:
+
+- EH-1 plan-exists / EH-2 c3-approval / EH-3 plan_hash / EH-6 forbidden_files (Write/Edit 系)
+- EH-9 delegation-commit-boundary (Bash 系)
+
+### 短期解 (出荷済)
+
+`scripts/codex-guarded.sh` (PR #343) を **Codex CLI の正規入口**として使用する:
+
+```sh
+scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto
+```
+
+- Pre-flight (fail-closed): `bin/plangate validate <TASK>` + `bin/plangate doctor --check-settings` + EH-8 metrics privacy
+- Post-flight (warning): plan.md hash drift 検知 + validate 再実行
+- 監査ログ: `docs/working/_audit/codex-guarded.log`
+
+### 限界
+
+`codex-guarded.sh` は session 前後のチェックのみで、Codex session 中の Write/Edit を物理 block しない (post-write drift 検知のみ)。完全等価には Codex CLI 公開 plugin/hook API が必要 (#336 長期課題)。
+
+### 責務分界
+
+- Codex CLI から `.claude/settings.json` / `bin/plangate` / `scripts/hooks/*.sh` 等の Hardening Override 領域を改変するのは依然として禁止 (AI-owned 不可)
+- これらの強制は Claude Code の hook 経由 (Claude セッション時) または Human 手動レビュー (Codex セッション時) で担保する
