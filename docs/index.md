@@ -14,7 +14,7 @@ PlanGate を初めて知った方は、以下の順に **15-30 分** で読む�
 2. **[段階的導入ガイド](./staged-adoption-guide.md)** — Level 1 (Day 1) から始める具体手順（約 10 分）
 3. **[10 分チュートリアル（GitHub README）](https://github.com/s977043/PlanGate#10-分チュートリアル)** — 実際に手を動かす最小例（約 10 分）
 
-「自分のチームに合うか」を判断したい方は [思想と問題設定](./philosophy.md) も参照。
+「自分のチームに合うか」を判断したい方は [思想と問題設定](./philosophy.md) と [When NOT to use](./when-not-to-use.md) を参照。略号 (EH-X / WF-XX / V-X / C-X) は [用語クイックリファレンス](./glossary.md) を参照。
 
 ## Requirements
 
