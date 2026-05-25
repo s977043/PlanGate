@@ -13,6 +13,8 @@ Codex 固有の設定はこのディレクトリに集約する。
 ## Files
 
 - `config.toml` - Codex CLI の実行設定
+- `hooks.json` - Codex CLI 公式 hook 定義（PreToolUse 等の配線正本）
+- `hooks/eh-bridge.sh` - Claude Code 互換の PreToolUse hook 橋渡し shim (PR #347)
 - `instructions.md` - Codex 向けの読み込みガイド
 - `agents/*.toml` - Codex 用 custom subagents
 - `manual-cloud-task.md` - 手動 Cloud task 用の tracked handoff packet
@@ -38,6 +40,7 @@ Codex 固有の設定はこのディレクトリに集約する。
 | Claude Code | Codex |
 |---|---|
 | `/ai-dev-workflow TASK-XXXX brainstorm` | `./scripts/ai-dev-workflow TASK-XXXX brainstorm` |
+| `bin/plangate exec TASK-XXXX` (hook EH-1/2/3/6 で強制) | `./scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto` (pre/post-flight + .codex/hooks 物理 hook で強制) |
 | `/ai-dev-workflow TASK-XXXX plan` | `./scripts/ai-dev-workflow TASK-XXXX plan` |
 | `/ai-dev-workflow TASK-XXXX exec` | `./scripts/ai-dev-workflow TASK-XXXX exec` |
 | `/ai-dev-workflow TASK-XXXX status` | `./scripts/ai-dev-workflow TASK-XXXX status` |

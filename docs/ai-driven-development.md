@@ -290,7 +290,7 @@ Prompt 3  Agent実行（workflow-conductor経由）
 
 ### Prompt 1: Plan + ToDo + Test Cases生成
 
-> **v8.9+ 補足 (#325 / #330)**: plan フェーズは `.agents/skills/ai-dev-plan/SKILL.md` の **B-1 → B-2 → B-3** フロー（B-1 確認質問 / B-2 アプローチ比較 / B-3 3 ファイル同時生成）で実行する。`scripts/ai-dev-plan.sh` は新 skill に整合済。後方互換のため `PLANGATE_PLAN_LEGACY=1` で旧挙動（C-2 同パス + Cloud handoff 強制）、`PLANGATE_CLOUD_HANDOFF=1` で新挙動 + Cloud handoff draft を選択可能。C-2 外部 AI レビューは plan フェーズ内では作成せず、`plan-review-gate` skill / `bin/plangate review --phase c2` で別実行する。
+> **v8.9+ 補足 (#325 / #330 / #347)**: plan フェーズは `.agents/skills/ai-dev-plan/SKILL.md` の **B-1 → B-2 → B-3** フロー（B-1 確認質問 / B-2 アプローチ比較 / B-3 3 ファイル同時生成）で実行する。`scripts/ai-dev-plan.sh` は新 skill に整合済。**Codex CLI においても `.codex/hooks.json` 経由で Claude Code と等価な物理 hook 強制が有効化されている (#347)。**
 
 
 **タイミング:** In Progressに移動した直後
