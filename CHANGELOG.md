@@ -8,7 +8,7 @@ PlanGate の主要リリース履歴。
 
 ### Added
 
-- `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh`: Codex CLI 用 PreToolUse hook bridge を新設 (#336 / #347)。OpenAI Codex CLI の公式 hook API (https://developers.openai.com/codex/hooks) を活用し、Claude Code の `PreToolUse:Write/Edit/Bash` hook と等価な物理 pre-Write block を Codex session 中にも実現。EH-1/EH-2/EH-3/EH-6/EH-9 が Codex 経由でも発火する。
+- `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh`: Codex CLI 用 PreToolUse hook bridge を新設 (#336 / #347)。OpenAI Codex CLI の公式 hook API ([docs](https://developers.openai.com/codex/hooks)) を活用し、Claude Code の `PreToolUse:Write/Edit/Bash` hook と等価な物理 pre-Write block を Codex session 中にも実現。EH-1/EH-2/EH-3/EH-6/EH-9 が Codex 経由でも発火する。
 - `scripts/codex-guarded.sh`: Codex CLI 用 guarded entrypoint (#336 / #343)。session 前後で validate / doctor --check-settings / plan_hash drift 検知を実行。
 - `tests/extras/ta-14-codex-guarded.sh` / `ta-15-codex-hook-bridge.sh`: 上記 wrapper / hook bridge の 8 + 7 観点回帰テスト (#345 / #347)。
 
