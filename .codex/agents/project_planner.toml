@@ -18,4 +18,6 @@ developer_instructions = """
 
 成果物: plan.md / todo.md（docs/working/TASK-XXXX/ 配下）
 プロジェクト指示は AGENTS.md → docs/ai/project-rules.md（正本）を参照。日本語でやり取りする。
+
+詳細定義 (rich content / Iron Law / Common Rationalizations / Allowed Context): `.claude/agents/project-planner.md` を必ず読む。本 TOML は thin pointer であり、実行時規約は markdown 側を正とする。
 """

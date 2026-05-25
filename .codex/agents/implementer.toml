@@ -16,4 +16,6 @@ developer_instructions = """
 - スコープ外の改善・リファクタリングは禁止
 
 プロジェクト指示は AGENTS.md と CLAUDE.md を参照。日本語でやり取りする。
+
+詳細定義 (rich content / Iron Law / Common Rationalizations / Allowed Context): `.claude/agents/implementer.md` を必ず読む。本 TOML は thin pointer であり、実行時規約は markdown 側を正とする。
 """
