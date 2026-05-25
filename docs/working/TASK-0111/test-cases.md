@@ -19,12 +19,15 @@
 | ID | 内容 | コマンド/手順 | 期待 |
 |----|------|-------------|------|
 | TC-01 | docs/pages/ 配下に explanation/guides/reference/index.md / root pages/ 不存在 | `test -d docs/pages/explanation && test ! -d pages/` | exit 0 |
-| TC-02 | docs/index.md に `../pages/` または GitHub blob URL なし、`./pages/` のみ | `grep -nE '\\.\\./pages/\\|github\\.com/.*/blob/.*/pages' docs/index.md` | no match (exit 1) |
+| TC-02 (R-004) | **全 `docs/**/*.md`** に `../pages/` または GitHub blob URL なし | `grep -rnE '\.\./pages/\|github\.com/.*/blob/.*/pages' docs/ | grep -v 'docs/working/'` | no match |
 | TC-03 | _config.yml で docs/pages/ が collections / relative_links 経由で配信される設定 | `cat docs/_config.yml` で確認 + Jekyll build 想定 | 設定 OK |
-| TC-04 | 公開サイト https://s977043.github.io/PlanGate/ から docs/pages/ リンクが 200 OK | manual (Human) | 全 link 200 OK |
+| TC-04 (R-001/R-003) | 公開 URL `/PlanGate/pages/...` (Pages source=/docs ゆえ `/docs/` prefix なし) で 200 OK。pre-C-3: Human が `bundle exec jekyll serve` で local 検証 / post-merge: 公開サイトで再確認 | manual (Human) | 全 link 200 OK |
 | TC-05 | docs/index.md の link が main hardcode を含まない (相対パスのみ) | `grep -nE 's977043/main\\|s977043/PlanGate/blob' docs/index.md` | no match |
-| TC-06 | README.md, staged-adoption-guide.md 等の旧 `pages/` 参照が docs/pages/ に置換済 | T-01 で特定した全 docs を grep | 全置換 確認 |
+| TC-06 (R-004/R-005) | 全 `docs/**/*.md` + `documentation-management.md` 自己言及含む全箇所が新パス参照 | `grep -rn 'pages/' docs/ | grep -v 'docs/working/' | grep -v 'docs/pages/' | grep -v './pages/'` | no match |
 | TC-07 | markdownlint + reference 健全性 CI PASS | `npx markdownlint-cli '**/*.md' && sh scripts/check-reference-health.sh` (or 同等) | exit 0 |
+
+| **TC-08 (R-006)** | `sidebars.js` 等 Docusaurus 参照ファイルが旧 pages/ を参照していないこと | `grep -n 'pages/' sidebars.js 2>/dev/null || true` | 該当なし or 新パス |
+| **TC-09 (R-007)** | git mv 後 history 継続 | `git log --follow docs/pages/index.md | head` | 移設前 commit 表示 |
 
 ## エッジケース
 

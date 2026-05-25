@@ -32,8 +32,8 @@
 | C1-TC-02 | Edge case 網羅 | PASS |
 | C1-TC-03 | 自動化可否 | WARN (TC-04 のみ Human) |
 
-## 判定: **PASS** — C-3 ゲート提出可能 (proactive C-2 推奨)
+## 判定: **PASS** — C-3 ゲート提出可能 (C-2 proactive R-001..R-007 確定反映後 v2)
 
-総合スコア: 88 / 100。blocker 0、major 0、minor 2 (TC-04 自動化困難 / TASK-0108/0109 同様 proactive C-2 推奨)。
+総合スコア: **92 / 100** (C-2 反映後)。Codex major 3 (R-001/R-002/R-003) は design contract 確定 + T-06 mandatory pre-C-3 gate 格上げで解消。blocker 0、major 0、minor 2 (TC-04 自動化困難 / TASK-0108/0109 同様 proactive C-2 推奨)。
 
 structural change のため、C-3 前に Codex+Gemini proactive 外部レビュー (#295 (a) 採用妥当性 / secondary deploy 影響 / Jekyll permalink) を推奨。
