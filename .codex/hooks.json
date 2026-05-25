@@ -1,0 +1,48 @@
+{
+  "$schema_note": "Codex CLI hook spec: https://developers.openai.com/codex/hooks",
+  "$note": "PlanGate hook 群 (EH-1/EH-2/EH-3/EH-6) を Codex CLI PreToolUse へ橋渡し。Claude Code の .claude/settings.json hooks と等価な強制力を Codex セッションで実現する。EH-9 (delegation-commit-boundary) は Bash matcher で別途配線。",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.codex/hooks/eh-bridge.sh\" check-plan-exists.sh",
+            "timeout": 10,
+            "statusMessage": "PlanGate EH-1 plan-exists"
+          },
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.codex/hooks/eh-bridge.sh\" check-c3-approval.sh",
+            "timeout": 10,
+            "statusMessage": "PlanGate EH-2 c3-approval"
+          },
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.codex/hooks/eh-bridge.sh\" check-plan-hash.sh",
+            "timeout": 15,
+            "statusMessage": "PlanGate EH-3 plan_hash"
+          },
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.codex/hooks/eh-bridge.sh\" check-forbidden-files.sh",
+            "timeout": 10,
+            "statusMessage": "PlanGate EH-6 forbidden_files"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.codex/hooks/eh-bridge.sh\" check-delegation-commit-boundary.sh",
+            "timeout": 10,
+            "statusMessage": "PlanGate EH-9 delegation-commit-boundary"
+          }
+        ]
+      }
+    ]
+  }
+}
