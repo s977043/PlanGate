@@ -14,6 +14,6 @@
 
 ## ToDo 5 項目: PASS / TestCases 3 項目: PASS
 
-## 判定: **PASS** — C-3 ゲート提出可能 (proactive C-2 推奨)
+## 判定: **PASS** — C-3 ゲート提出可能 (C-2 proactive R-001..R-010 確定反映後 v2)
 
-総合スコア: 91/100。blocker 0、major 0、minor 2 (承認境界周辺の新規 hook なので mode-classification PBI #357 マージ後は「高」昇格判定要 / proactive C-2 推奨)。
+総合スコア: **94/100** (C-2 反映後)。Codex REJECT (major 2) + Gemini CRITICAL 1 (R-007 ta-15 衝突) + major 2 を全反映。blocker 0、major 0、minor 2 (承認境界周辺の新規 hook なので mode-classification PBI #357 マージ後は「高」昇格判定要 / proactive C-2 推奨)。

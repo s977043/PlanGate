@@ -26,7 +26,12 @@
 | TC-07 | 運用ガイド存在 + 主要セクション | `grep -E '## 検知\|## 対処\|## 設定\|## false positive\|## allowlist' docs/ai/ai-memory-pollution-guard.md` | 全該当 |
 | TC-08 | ta-15 tests/run-tests.sh dispatcher 認識 | `sh tests/run-tests.sh` | TA-15 case 自動 discovery + 全 PASS |
 | TC-09 | 既存 CI regression | `sh tests/run-tests.sh && sh tests/hooks/run-tests.sh` | 全 PASS |
-| TC-10 | allowlist marker でスキップ | fixture に `<!-- plangate-pollution-allowlist:claude-mem-context -->` + 汚染 | exit 0 |
+| TC-10 (R-004) | allowlist marker でスキップ (pattern id 単位) | fixture に `<!-- plangate-pollution-allowlist:claude-mem-context -->` + 汚染 | exit 0 (該当 pattern のみ無効、他 pattern は引き続き検出) |
+| **TC-11 (R-002)** | --auto-revert で unstaged diff があると block | 対象ファイルに unstaged 編集 + staged 汚染 + auto-revert env | exit 1 + 警告メッセージ "unstaged changes detected" |
+| **TC-12 (R-005)** | 巨大 file (>1MB) skip | 1MB 超 fixture | hook 走査 skip log + exit 0 |
+| **TC-13 (R-005)** | binary file skip | binary fixture (PNG/JPEG header) | skip log + exit 0 |
+| **TC-14 (R-005)** | rename / deleted file 適切に処理 | git mv / git rm fixture | hook 走査 skip or 適切なメッセージ |
+| **TC-15 (R-007)** | ta-16 として tests/run-tests.sh dispatcher 認識 (ta-15 衝突なし) | `sh tests/run-tests.sh` | TA-16 dispatcher 発火 + TA-15 (codex-hook-bridge) も別 dispatch |
 
 ## エッジケース
 

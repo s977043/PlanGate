@@ -30,18 +30,18 @@ PlanGate 標準テンプレに **pre-commit hook** を含めて、検知 (およ
 ### Out of scope
 
 - claude-mem 本体の改修
-- 既存 `.claude/settings.json` hooks との配線 (本 PBI は git レベル hook、PreToolUse は別 PBI)
+- 既存 `.claude/settings.json` hooks との配線 (本 PBI は **git pre-commit 層に限定**、PreToolUse 経路は本 PBI scope 外 / R-009)
 - AGENTS.md の content lint (本 PBI は「自動挿入 pattern 検知」のみ)
 
 ## 受入基準
 
-- AC-1: `scripts/hooks/check-ai-memory-pollution.sh` (新規) が pre-commit で実行され、staged diff に `<claude-mem-context>` を検出すると exit 1 + 対処メッセージ
+- AC-1: `scripts/hooks/check-ai-memory-pollution.sh` (新規) が **git pre-commit のみで** 実行され、staged diff に `<claude-mem-context>` を検出すると exit 1 + 対処メッセージ (PreToolUse JSON プロトコル非対応、scope 外 / R-009)
 - AC-2: 検知パターンを YAML/JSON 設定可能 (既定: `<claude-mem-context>`)
 - AC-3: 対象ファイルパターン設定可能 (既定: `AGENTS.md`、追加可: `CLAUDE.md`/`DESIGN.md`/`README.md`)
-- AC-4: `--auto-revert` mode (環境変数 `PLANGATE_POLLUTION_AUTO_REVERT=1` で有効化) で `git checkout -- <file>` を自動実行 + log 出力
-- AC-5: `.git/hooks/pre-commit` または `.husky/pre-commit` のテンプレを `templates/` に提供 (Human が `scripts/install-pre-commit.sh` 等で配置)
+- AC-4: `--auto-revert` mode (`PLANGATE_POLLUTION_AUTO_REVERT=1`) は **対象ファイルに unstaged diff がない場合のみ実行** (R-002 unstaged 人間編集保護)。unstaged diff がある場合は **auto-revert せず block + 警告メッセージ**
+- AC-5: pre-commit テンプレを **`scripts/templates/pre-commit.sample`** に提供 (R-008 既存配置パターン整合、ルート直下 `templates/` 不採用)。`scripts/install-pre-commit.sh` 経由で Human が opt-in 配置
 - AC-6: `docs/ai/ai-memory-pollution-guard.md` で運用ガイド (検知/対処/設定 method/false positive 対応)
-- AC-7: `tests/extras/ta-15-pollution-guard.sh` で fixture (claude-mem 挿入済 AGENTS.md / clean AGENTS.md / カスタム pattern) を unit test
+- AC-7: **`tests/extras/ta-16-pollution-guard.sh`** で fixture を unit test (R-007 CRITICAL: ta-15 は既存 `ta-15-codex-hook-bridge.sh` と連番衝突のため ta-16 に変更)
 - AC-8: markdownlint + tests/run-tests.sh + tests/hooks/run-tests.sh 全 PASS
 
 ## Notes from Refinement
