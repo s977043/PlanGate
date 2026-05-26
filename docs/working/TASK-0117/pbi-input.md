@@ -46,7 +46,7 @@ PlanGate A → B 遷移 (PBI INPUT → plan 生成) で AI が **規模見積も
 
 ## Notes from Refinement
 
-- `.claude/skills/ai-dev-plan/` 配下は Hardening Override 対象 (`.claude/` 配下) → C-3 APPROVED + maintenance window 経由
+- **実体は `.agents/skills/ai-dev-plan/SKILL.md`** (R-001 反映)。`.agents/skills/` は `.claude/` 配下と異なり Hardening Override 対象外 → maintenance window 不要
 - PocketEitan PR #371 の該当セクションを参考に最小ポート
 - 「事前メトリクス検証」は AI 判定の客観化であり、process drift (前回 session review 最大 risk) に直接効く
 - #352 codex-mvp-split は本 PBI 完了後に着手する前提
@@ -59,9 +59,9 @@ PlanGate A → B 遷移 (PBI INPUT → plan 生成) で AI が **規模見積も
 - skill 構造変更で既存 ai-dev-plan 動作 regression → mitigation: 追記のみ (additive)、既存 step を破壊しない
 
 ### Unknowns
-- 既存 `.claude/skills/ai-dev-plan/` の正確な構造 → T-01 で調査
+- 既存 `.agents/skills/ai-dev-plan/SKILL.md` の正確な構造 → T-01 で調査 (R-001 確定済)
 - skill / commands 配置の選択 (本 PBI 段階) → T-01 で決定
 
 ### Assumptions
-- `ai-dev-plan` 等の skill が `.claude/skills/` または `.claude/commands/` 配下に存在
-- Hardening Override 対象のため maintenance window 必須
+- `ai-dev-plan` skill は `.agents/skills/ai-dev-plan/SKILL.md` (実体確認済、R-001)
+- Hardening Override 対象外、maintenance window 不要
