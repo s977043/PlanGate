@@ -90,9 +90,11 @@ TASK-0117 (#351) 判定基準「1〜3 倍範囲」→ 採用、Mode 降格不要
 - `docs/changelog.md` は書換しない (歴史的記述、現在 ABCD 構造を説明)
 - `docs/index.md` の Liquid 参照を `./pages/...` 相対 link に切り替え
 
-### 残作業 (c3.json 発行後)
+### 残作業 (T-06 は pre-C-3 gate、他は c3.json 発行後)
 
-T-02 git mv → T-03 link 置換 → T-04 _config.yml 確認 → T-05 reference 健全性 → T-06 Human Jekyll local build (mandatory pre-C-3 gate) → T-07 handoff
+**T-06 (mandatory pre-C-3 gate)**: Human Jekyll local build → 200 OK 確認 → c3.json 発行可能化。
+
+**T-02 以降 (c3.json APPROVED 後)**: T-02 git mv → T-03 link 置換 → T-04 _config.yml 確認 → T-05 reference 健全性 → T-07 handoff。
 
 ## 10. Jekyll local build (T-06 mandatory pre-C-3 gate) 準備状況
 
