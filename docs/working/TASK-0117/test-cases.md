@@ -11,6 +11,7 @@
 | AC-5 TASK-0112 相互参照 | TC-05 |
 | AC-6 ta-19 機械検証 | TC-06 |
 | AC-7 markdownlint + regression | TC-07, TC-08 |
+| **AC-8 Metrics Evidence 欄** | **TC-09** (R-003 反映) |
 
 ## ケース
 
