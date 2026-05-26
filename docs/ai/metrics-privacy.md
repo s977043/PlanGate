@@ -175,5 +175,5 @@ PBI-HI-001 で実装される `schemas/plangate-event.schema.json` は、本ド�
 - [docs/ai/harness-improvement-roadmap.md](./harness-improvement-roadmap.md) §7 Phase 1 Metrics v1
 - [docs/ai/issue-governance.md](./issue-governance.md) — Issue / Label / Milestone Governance（v8.6.0 governance trio の一角）
 - [docs/ai/eval-baselines/2026-05-04-baseline.md](./eval-baselines/2026-05-04-baseline.md) — v8.6.0 比較起点 baseline
-- [pages/guides/governance/documentation-management.md](../../pages/guides/governance/documentation-management.md)
+- [docs/pages/guides/governance/documentation-management.md](../pages/guides/governance/documentation-management.md)
 - [scripts/hooks/check-metrics-privacy.sh](../../scripts/hooks/check-metrics-privacy.sh) — EH-8 privacy 強制 hook

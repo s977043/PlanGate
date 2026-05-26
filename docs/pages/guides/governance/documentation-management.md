@@ -9,7 +9,7 @@
 
 PlanGate のドキュメント管理方針と更新ルールを定義する。
 
-Kiro 前提の配置ではなく、River-Reviewer を参考に、公開説明ドキュメントは `pages/`、開発・運用ドキュメントは `docs/` に分ける。
+Kiro 前提の配置ではなく、River-Reviewer を参考に、公開説明ドキュメントは `docs/pages/`、開発・運用ドキュメントは `docs/` に分ける。
 
 このドキュメントは、次の判断を揃えるための正本である。
 
@@ -24,16 +24,16 @@ Kiro 前提の配置ではなく、River-Reviewer を参考に、公開説明ド
 
 | Directory | Role |
 | --- | --- |
-| `pages/` | 公開サイト・外部説明・プロダクト説明・ガイド・リファレンス |
-| `pages/explanation/` | 背景、思想、設計意図、プロダクト説明 |
-| `pages/guides/` | 導入手順、運用手順、デモ手順、ドキュメント管理方針 |
-| `pages/reference/` | FAQ、仕様、スキーマ、用語集、参照資料 |
+| `docs/pages/` | 公開サイト・外部説明・プロダクト説明・ガイド・リファレンス |
+| `docs/pages/explanation/` | 背景、思想、設計意図、プロダクト説明 |
+| `docs/pages/guides/` | 導入手順、運用手順、デモ手順、ドキュメント管理方針 |
+| `docs/pages/reference/` | FAQ、仕様、スキーマ、用語集、参照資料 |
 | `docs/` | 開発者向け runbook、内部運用、作業ログ、移行メモ、workflow 定義 |
 | `docs/working/` | TASK 単位の作業コンテキスト、レビュー記録、handoff |
 
 ## 3. Placement rules
 
-### `pages/explanation/` に置くもの
+### `docs/pages/explanation/` に置くもの
 
 - Product Overview
 - Philosophy
@@ -43,7 +43,7 @@ Kiro 前提の配置ではなく、River-Reviewer を参考に、公開説明ド
 - Architecture explanation
 - Roadmap narrative
 
-### `pages/guides/` に置くもの
+### `docs/pages/guides/` に置くもの
 
 - Quickstart
 - Setup guide
@@ -52,7 +52,7 @@ Kiro 前提の配置ではなく、River-Reviewer を参考に、公開説明ド
 - Documentation Management
 - Governance guide
 
-### `pages/reference/` に置くもの
+### `docs/pages/reference/` に置くもの
 
 - FAQ
 - Glossary
@@ -78,8 +78,8 @@ Kiro 前提の配置ではなく、River-Reviewer を参考に、公開説明ド
 
 | Change type | Required documentation update |
 | --- | --- |
-| User-facing behavior change | `pages/guides/` または `pages/reference/` を更新する |
-| Product messaging change | `pages/explanation/product/` を更新する |
+| User-facing behavior change | `docs/pages/guides/` または `docs/pages/reference/` を更新する |
+| Product messaging change | `docs/pages/explanation/product/` を更新する |
 | Workflow / Gate change | `docs/` の workflow 定義と公開 guide の影響を確認する |
 | CLI command change | CLI reference / guide / demo script を更新する |
 | Schema change | reference / schema docs / examples を更新する |
@@ -104,7 +104,7 @@ Kiro 前提の配置ではなく、River-Reviewer を参考に、公開説明ド
 
 ```text
 - [ ] User-facing behavior changed?
-- [ ] Public docs under pages/ need updates?
+- [ ] Public docs under docs/pages/ need updates?
 - [ ] Developer docs under docs/ need updates?
 - [ ] sidebars.js needs navigation updates?
 - [ ] FAQ needs a new entry or changed answer?
@@ -166,9 +166,9 @@ Kiro 前提の配置ではなく、River-Reviewer を参考に、公開説明ド
 Product narrative の正本は以下とする。
 
 ```text
-pages/explanation/product/overview.md
-pages/explanation/product/positioning.md
-pages/explanation/product/pm-po-elevator-pitch.md
+docs/pages/explanation/product/overview.md
+docs/pages/explanation/product/positioning.md
+docs/pages/explanation/product/pm-po-elevator-pitch.md
 ```
 
 README や issue でプロダクト説明を書く場合は、上記と矛盾させない。
@@ -178,7 +178,7 @@ README や issue でプロダクト説明を書く場合は、上記と矛盾さ
 FAQ の正本は以下とする。
 
 ```text
-pages/reference/product-faq.md
+docs/pages/reference/product-faq.md
 ```
 
 導入検討時の反論・質問が増えた場合は、まず FAQ を更新する。
@@ -188,7 +188,7 @@ pages/reference/product-faq.md
 デモ手順の正本は以下とする。
 
 ```text
-pages/guides/product-demo-script.md
+docs/pages/guides/product-demo-script.md
 ```
 
 CLI や workflow の変更でデモ手順が変わる場合は、必ず更新する。
@@ -198,7 +198,7 @@ CLI や workflow の変更でデモ手順が変わる場合は、必ず更新す
 ドキュメント配置・更新ルールの正本はこのファイルとする。
 
 ```text
-pages/guides/governance/documentation-management.md
+docs/pages/guides/governance/documentation-management.md
 ```
 
 ## 6. Sidebar policy
@@ -218,7 +218,7 @@ PlanGate では Product narrative を `解説 > プロダクト` に置く。
 
 ### Sidebar update rule
 
-`pages/` に新しい公開ページを追加した場合は、原則として `sidebars.js` へ追加する。
+`docs/pages/` に新しい公開ページを追加した場合は、原則として `sidebars.js` へ追加する。
 
 例外は以下のみ。
 
@@ -228,25 +228,25 @@ PlanGate では Product narrative を `解説 > プロダクト` に置く。
 
 ## 7. Current migration
 
-今回のプロダクト説明資料は、以下のように `pages/` へ移動する。
+今回のプロダクト説明資料は、以下のように `docs/pages/` へ移動する。
 
 | Old path | New path |
 | --- | --- |
-| `docs/product/README.md` | `pages/index.md` / `pages/explanation/product/overview.md` |
-| `docs/product/product-brief.md` | `pages/explanation/product/overview.md` |
-| `docs/product/before-after.md` | `pages/explanation/product/before-after.md` |
-| `docs/product/positioning.md` | `pages/explanation/product/positioning.md` |
-| `docs/product/value-proposition-canvas.md` | `pages/explanation/product/value-proposition-canvas.md` |
-| `docs/product/faq.md` | `pages/reference/product-faq.md` |
-| `docs/product/demo-script.md` | `pages/guides/product-demo-script.md` |
-| `docs/pm-po-elevator-pitch.md` | `pages/explanation/product/pm-po-elevator-pitch.md` |
+| `docs/product/README.md` | `docs/pages/index.md` / `docs/pages/explanation/product/overview.md` |
+| `docs/product/product-brief.md` | `docs/pages/explanation/product/overview.md` |
+| `docs/product/before-after.md` | `docs/pages/explanation/product/before-after.md` |
+| `docs/product/positioning.md` | `docs/pages/explanation/product/positioning.md` |
+| `docs/product/value-proposition-canvas.md` | `docs/pages/explanation/product/value-proposition-canvas.md` |
+| `docs/product/faq.md` | `docs/pages/reference/product-faq.md` |
+| `docs/product/demo-script.md` | `docs/pages/guides/product-demo-script.md` |
+| `docs/pm-po-elevator-pitch.md` | `docs/pages/explanation/product/pm-po-elevator-pitch.md` |
 
 ## 8. Monthly review
 
 月 1 回、以下を見直す。
 
-- `pages/` と `docs/` の役割が混ざっていないか
-- 外部向け説明が `pages/` に集約されているか
+- `docs/pages/` と `docs/` の役割が混ざっていないか
+- 外部向け説明が `docs/pages/` に集約されているか
 - `docs/working/` が公開導線に含まれていないか
 - Product Overview / Positioning / FAQ が実装状況とズレていないか
 - Harness Improvement Roadmap の進捗が反映されているか
@@ -283,7 +283,7 @@ PlanGate では Product narrative を `解説 > プロダクト` に置く。
 
 この方針は以下を目的にしない。
 
-- すべての既存 `docs/` を即時 `pages/` に移行すること
+- すべての既存 `docs/` を即時 `docs/pages/` に移行すること
 - Docusaurus 導入をこのPRで完了すること
 - `docs/working/` を公開サイトに含めること
 - Kiro 前提の運用を継続すること
@@ -291,7 +291,7 @@ PlanGate では Product narrative を `解説 > プロダクト` に置く。
 
 ## 11. Principle
 
-公開説明は `pages/`。
+公開説明は `docs/pages/`。
 開発・運用・作業ログは `docs/`。
 TASK 固有の状態は `docs/working/`。
 
