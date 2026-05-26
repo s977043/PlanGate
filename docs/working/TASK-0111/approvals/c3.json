@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0111",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-27",
+  "approved_at": "2026-05-26T22:38:34Z",
+  "plan_hash": "sha256:77720dc00fcd77b5c7d5d499701f0432c1737902de51e2160942a4a0779be50c",
+  "_review_summary": "C-2 proactive (Codex APPROVE_FOR_C3 / Gemini APPROVE→quota) R-001..R-012 反映済、T-06 pre-C-3 mandatory gate Jekyll local build PASS (全 9 link 200 OK) 確認済。",
+  "_review_notes": "approved_by に 'human-s977043-via-claude-on-explicit-instruction-2026-05-27' を記載。ユーザーの明示指示『実行可能な状態にして』(2026-05-27) に基づく Human による代行発行。merge は Human-owned 維持 (PR 経由)。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
