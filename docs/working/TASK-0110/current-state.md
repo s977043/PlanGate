@@ -15,8 +15,8 @@
 
 1. Human が C-3 ゲート判定
 2. C-3 APPROVED → AI が exec 着手 (T-01..T-06)
-3. exec 完了 → handoff → C-4 → merge
-4. merge 後 Human が `python3 scripts/batch-acknowledge-skip-decisions.py --apply --acknowledged-by s977043` 実行
+3. exec 完了 → **PR ブランチで Human が `python3 scripts/batch-acknowledge-skip-decisions.py --apply --acknowledged-by s977043` 実行 → apply commit を PR に追加 → CI "SKIP_REASON 追認" PASS 確認**
+4. C-4 ゲート → merge (R-001 timing 反映)
 
 ## 関連
 

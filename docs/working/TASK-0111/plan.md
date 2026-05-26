@@ -63,7 +63,7 @@
 
 - **Reference 健全性 CI**: 既存 `scripts/check-reference-health.sh` 等で internal link 検証
 - **markdownlint**: 全変更ファイル
-- **Jekyll local build (Human)**: `bundle exec jekyll serve` で `/docs/pages/...` 200 OK 確認 (CI 化は別 PBI)
+- **Jekyll local build (Human, mandatory pre-C-3)**: `cd docs && bundle exec jekyll serve --baseurl /PlanGate` で `/PlanGate/pages/...` (Pages source=/docs ゆえ `/docs/` prefix なし) 200 OK 確認 (CI 化は別 PBI)。**前提**: `Gemfile` 不在の場合は `gem install bundler jekyll && bundle init && bundle add jekyll` で local 準備、または `bundle exec jekyll serve` 等価コマンド (例: `jekyll serve --source docs --baseurl /PlanGate`)
 - **AC-4 公開サイト Human 事後確認**: merge + Pages rebuild 後 200 OK
 
 ## Risks & Mitigations
