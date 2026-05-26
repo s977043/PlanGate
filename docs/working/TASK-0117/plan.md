@@ -1,6 +1,6 @@
 # TASK-0117 EXECUTION PLAN
 
-> Source: pbi-input.md / Issue #351 / Mode: **light**
+> Source: pbi-input.md / Issue #351 / Mode: **standard** (R-002 反映)
 > Generated: 2026-05-26 / Codex 推奨
 
 ## Goal
@@ -21,11 +21,11 @@
 
 | # | Step | Output | Owner | Risk | 🚩 |
 |---|------|--------|-------|------|----|
-| 1 | **T-01 調査**: `.claude/skills/ai-dev-plan/` (or `.claude/commands/`) 構造把握、PocketEitan PR #371 該当セクション参照 | 調査メモ | AI | low | 既存構造マップ |
+| 1 | **T-01 調査**: `.agents/skills/ai-dev-plan/SKILL.md` (実体、R-001) 構造把握、PocketEitan PR #371 該当セクション参照 | 調査メモ | AI | low | 既存構造マップ |
 | 2 | **T-02 skill 追記 (R-001/R-003)**: `.agents/skills/ai-dev-plan/SKILL.md` に「事前メトリクス検証」セクション追加 (検証コマンド例 / 判定基準 / 実例 link / **B-1 → B-2 mandatory gate 配置**) | `.agents/skills/ai-dev-plan/SKILL.md` | AI | medium | markdownlint pass (Hardening Override 対象外) |
 | 3 | **T-03 doc (R-003)**: `docs/ai/plan-metrics-verification.md` 新規 (運用ガイド + PocketEitan 実例 + 判定基準数値 + **plan.md `## Metrics Evidence` 欄テンプレート**) | docs/ai/plan-metrics-verification.md | AI | low | plan.md template 例含む |
 | 4 | **T-04 test**: `tests/extras/ta-19-plan-metrics-verification.sh` (skill に該当セクション含むことを grep で機械検証) | tests/extras/ta-19-plan-metrics-verification.sh | AI | low | ta-19 PASS |
-| 5 | **T-05 handoff + V-1** | handoff.md | AI | low | AC-1..7 PASS |
+| 5 | **T-05 handoff + V-1** | handoff.md | AI | low | AC-1..8 PASS (AC-8 追加 / R-003) |
 
 ## Files / Components to Touch
 
