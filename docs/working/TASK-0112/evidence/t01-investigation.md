@@ -3,7 +3,9 @@
 > 実施: 2026-05-27 / Mode: read-only / C-3 前可
 > 目的: mode-classification.md 例外ルール拡張の追記前提を実数で確定
 
-## 1. 既存例外ルール 3 種 (.claude/rules/mode-classification.md L44-48)
+## 1. 既存例外ルール 3 種 (`.claude/rules/mode-classification.md` L44-48)
+
+> **注 (Gemini bot R-2/R-3 への応答)**: `.claude/rules/` と `plugin/plangate/rules/` の両方に同名 file が存在。**PlanGate 本体は `.claude/rules/` を正本**として参照 (Claude Code hooks / agents / rules の標準 path)。`plugin/plangate/rules/` は **配布版 (Codex/他 provider 向け)** で行数構成が異なる場合がある。本 PBI は host 側 `.claude/rules/` を正本として扱う。
 
 ```text
 **例外ルール**:
@@ -16,11 +18,15 @@
 
 ## 2. Hardening Override 対象パス (`scripts/hooks/check-plan-hash.sh` L106/122/136)
 
-10 パターン: `.claude/settings*.json` / `.claude/rules/` / `.claude/agents/` / `.claude/skills/` / `.claude/commands/` / `scripts/hooks/` / `scripts/_*.py` / `bin/plangate` / `schemas/` / `.github/workflows/` (+ `AGENTS.md` / `CLAUDE.md`)
+**9 パターン** (`scripts/hooks/check-plan-hash.sh` L124-134 の `case` ブロックを正本): `.claude/rules/*.md` / `.claude/settings.json|.claude/settings.local.json|.claude/settings.example.json` / `.claude/commands/*.md` / `.claude/agents/*.md` / `scripts/hooks/*.sh` / `bin/plangate` / `schemas/*.schema.json` / `.github/workflows/*.yml|*.yaml` / `AGENTS.md|CLAUDE.md`
+
+→ **`.claude/skills/` と `scripts/_*.py` は現行 override パターンに含まれていない** (Gemini bot R-1 指摘で確認、本 PBI T-02 でも追加せず実体に整合)
 
 新例外ルールの対象パス一覧と完全一致させる ＝ single source of truth。
 
-## 3. working-context.md AC-10 / AC-8 参照箇所 (L313 / L321-324)
+## 3. working-context.md AC-10 / AC-8 参照箇所 (`.claude/rules/working-context.md` L313 / L321-324)
+
+> **注 (Gemini bot R-4 への応答)**: `.claude/rules/working-context.md` は **374 行** (host 正本版)、AC-8/AC-10 を含む。`plugin/plangate/rules/working-context.md` は 221 行 (配布短縮版) で AC-8/AC-10 言及なし。本 PBI が参照するのは host 側 `.claude/rules/working-context.md`。
 
 - L313: AC-8 安全側 (判定不能 → 同期)
 - L321-324: AC-10 Hardening Override (Shadow Config / 承認境界 / 責務4分類 / Critical Infra → lite_eligible=false + 同期 C-3 強制)
@@ -69,16 +75,17 @@ TASK-0117 (#351) 判定基準「1〜3 倍」→ 採用、Mode 降格不要。
 
 ```markdown
 - **承認境界周辺の変更 → 最低でも「高」**（TASK-0106 Retrospective 由来）
-  - 対象パス（Hardening Override 対象と一致）:
-    - `.claude/settings*.json` / `.claude/rules/` / `.claude/agents/` / `.claude/skills/` / `.claude/commands/`
-    - `scripts/hooks/` / `scripts/_*.py`（hook 補助スクリプト）
+  - 対象パス（Hardening Override 対象と完全一致 / `scripts/hooks/check-plan-hash.sh` L124-134 正本）:
+    - `.claude/rules/*.md` / `.claude/settings*.json` / `.claude/commands/*.md` / `.claude/agents/*.md`
+    - `scripts/hooks/*.sh`
     - `bin/plangate`
-    - `schemas/`
-    - `.github/workflows/`
+    - `schemas/*.schema.json`
+    - `.github/workflows/*.yml|*.yaml`
     - `AGENTS.md` / `CLAUDE.md`
-  - 上記パスに touch する PBI は **`lite_eligible=false` 強制 + Standard C-3 同期固定**（[`working-context.md`](./working-context.md) C-3 条件付き降格 §AC-10 Hardening Override と整合）
+  - （注: `.claude/skills/` と `scripts/_*.py` は現行 override パターン外、本 PBI でも追加しない / Gemini bot R-1 反映）
+  - 上記パスに touch する PBI は **`lite_eligible=false` 強制 + Standard C-3 同期固定**（[`working-context.md`](../../../../.claude/rules/working-context.md) C-3 条件付き降格 §AC-10 Hardening Override と整合）
   - 監査ログ（`docs/working/_audit/`）の **データ一括変更** CLI も承認境界相当として扱い、最低「高」（例: TASK-0110 skip-decision-log 一括 acknowledge）
-- **自動推定の安全側**: 上記例外条件のいずれかが該当不確実な場合は**該当扱い**（mode を引き上げる側）にする（[`working-context.md`](./working-context.md) AC-8 安全側不変条件と一貫）
+- **自動推定の安全側**: 上記例外条件のいずれかが該当不確実な場合は**該当扱い**（mode を引き上げる側）にする（[`working-context.md`](../../../../.claude/rules/working-context.md) AC-8 安全側不変条件と一貫）
 ```
 
 ### 残作業 (c3.json APPROVED + maintenance window 後)
