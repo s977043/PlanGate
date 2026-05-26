@@ -2,6 +2,6 @@
 
 ## Plan/ToDo/TestCases: 全 PASS
 
-## 判定: **PASS** — C-3 ゲート提出可能
+## 判定: **PASS** — C-3 ゲート提出可能 (Codex C-2 R-001..R-005 確定反映後 v2)
 
-総合スコア: 92/100。blocker 0、major 0、minor 2 (LLM 解釈依存のソフトルール / TASK-0112 との境界明示を C-3 packet で確認推奨)。
+総合スコア: **88/100** (R-001..R-005 反映後)。Codex CONDITIONAL major 4 + minor 1 全反映 (skill path / Mode / Metrics Evidence / TASK-0112 前提解除)。blocker 0、major 0。

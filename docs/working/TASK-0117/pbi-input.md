@@ -16,7 +16,7 @@ PlanGate A → B 遷移 (PBI INPUT → plan 生成) で AI が **規模見積も
 
 ### In scope
 
-- `ai-dev-plan` skill (`.claude/skills/ai-dev-plan/` 等) に **「事前メトリクス検証」step 追加**
+- `ai-dev-plan` skill (**実体: `.agents/skills/ai-dev-plan/SKILL.md`**) に **「事前メトリクス検証」step 追加** (R-001 反映: `.claude/skills/` 配下ではなく `.agents/skills/` が実体)
   - 「全部 / 全件 / 残り N 件」系の対象は実数取得を必須化
   - `grep -rln <symbol> | wc -l` / `find . -name <pattern> | wc -l` 等のコマンド例
 - 判定基準明文化:
@@ -35,13 +35,14 @@ PlanGate A → B 遷移 (PBI INPUT → plan 生成) で AI が **規模見積も
 
 ## 受入基準
 
-- AC-1: `ai-dev-plan` skill に「事前メトリクス検証」セクションが追加 (Plan 生成前必須 step として明示)
+- AC-1: `.agents/skills/ai-dev-plan/SKILL.md` に「事前メトリクス検証」セクションが追加 (Plan 生成前必須 step、B-1 → B-2 mandatory gate に配置 / R-003)
 - AC-2: 検証コマンド例 (grep / wc / find 等) が docs に明記
 - AC-3: 判定基準 (3 倍以上はスコープ縮小 / 1〜3 倍は記録 / < 1 倍は Mode 降格候補) が docs に明文化
 - AC-4: 既存実例 ≥ 1 件 (PocketEitan 抽象語イラスト 17 グループ / 1697 ファイル) を docs に記載
-- AC-5: TASK-0112 例外ルール (承認境界周辺) と整合 (相互参照のみ、重複定義なし)
+- AC-5: **TASK-0112 plan は merged だが exec 未実施 → mode-classification.md に「承認境界周辺→最低 高」ルール本体は未追加 (R-004 反映)**。本 PBI では「TASK-0112 と将来統合候補」として相互参照、本 PBI exec 時点では境界判定を独立して持つ
 - AC-6: `tests/extras/ta-19-plan-metrics-verification.sh` で skill 構造を機械検証 (該当セクション grep)
 - AC-7: markdownlint + 既存テスト regression なし
+- **AC-8 (R-003)**: skill が plan.md template に **`## Metrics Evidence` 欄** を必須化 (実数 / 見積もり / ratio / 判定 を plan.md 内に残す出力契約)。ta-19 で plan.md 内の該当文字列を grep 検証
 
 ## Notes from Refinement
 
