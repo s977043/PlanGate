@@ -21,7 +21,7 @@
 | C1-TODO-01 | タスク粒度 | PASS |
 | C1-TODO-02 | depends_on 設定 | PASS |
 | C1-TODO-03 | チェックポイント設定 | PASS |
-| C1-TODO-04 | Iron Law 遵守 | PASS (AI 不可作業 = H-02 適用 を明示) |
+| C1-TODO-04 | Iron Law 遵守 | PASS (R-001 反映: H-02 適用は PR ブランチで exec 完了後・merge 前に Human 実行) |
 | C1-TODO-05 | 完了条件 | PASS |
 
 ## TestCases チェック (3 項目)

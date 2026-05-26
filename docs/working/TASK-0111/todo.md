@@ -21,7 +21,7 @@
 ## 👤 Human タスク
 
 - [ ] **H-01**: **C-3 ゲート** — plan/todo/test-cases/review-self.md 確認 → APPROVE/CONDITIONAL/REJECT → `approvals/c3.json` 発行
-- [ ] **H-02 (T-06, R-003 mandatory pre-C-3 gate)**: ローカル Jekyll build 検証 (AI 不可、**C-3 前に必須実施**) — `bundle exec jekyll serve` で `/docs/pages/...` 200 OK 確認
+- [ ] **H-02 (T-06, R-003 mandatory pre-C-3 gate)**: ローカル Jekyll build 検証 (AI 不可、**C-3 前に必須実施**、前提: Gemfile 不在時の準備手順は plan.md Testing Strategy 参照) — `bundle exec jekyll serve` で `/docs/pages/...` 200 OK 確認
 - [ ] **H-03**: **C-4 ゲート (PR レビュー)** + **merge** (Human-owned 固定)
 - [ ] **H-04 (AC-4)**: merge 後 公開サイト https://s977043.github.io/PlanGate/ で 200 OK 確認
 
