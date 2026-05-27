@@ -81,7 +81,9 @@ fi
 # === TC-08 (AC-3): docs/rfc/provider-codex.md 存在 + 主要 section ===
 RFC="$PG_T20_ROOT/docs/rfc/provider-codex.md"
 if [ -f "$RFC" ]; then
-  if grep -qE "## (Summary|Motivation|Architecture|Implementation|Setup)" "$RFC" | head -1; then
+  # Gemini R-002: grep -q | head -1 はパイプライン終了 status を head が常に 0 で隠蔽するため不可
+  # grep -qE 単体で終了 status 評価
+  if grep -qE "## (Summary|Motivation|Architecture|Implementation|Setup)" "$RFC"; then
     t20_pass "TC-08 provider-codex.md 存在 + 主要 section"
   else
     t20_fail "TC-08 主要 section 不足"
