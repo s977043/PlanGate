@@ -1560,8 +1560,38 @@ cmd_review() {
       result=$(printf '%s' "$prompt" | gemini --yolo 2>&1) || true
       ;;
     codex)
-      printf 'info: codex external review not yet wired — writing placeholder\n'
-      result="[codex review placeholder — configure PLANGATE_EXTERNAL_REVIEWER=gemini to use Gemini CLI]"
+      # CX-1 (TASK-0109): Codex CLI review wiring
+      # - R-005 (Gemini CRITICAL): --sandbox read-only でファイル改変防止
+      # - R-006 (Gemini): timeout 600s で wrap (codex CLI に --timeout なし)
+      # - R-007 (Gemini): --output-last-message <tmpfile> でクリーン出力
+      # - R-010 (Gemini): CLI 未 install error handling
+      if ! command -v codex >/dev/null 2>&1; then
+        printf 'error: codex CLI not found. Install: https://github.com/openai/codex\n' >&2
+        return 1
+      fi
+      # R-006 (Gemini): macOS は標準で timeout なし、gtimeout (coreutils) or fallback
+      if command -v timeout >/dev/null 2>&1; then
+        codex_timeout_cmd="timeout 600"
+      elif command -v gtimeout >/dev/null 2>&1; then
+        codex_timeout_cmd="gtimeout 600"
+      else
+        printf 'warn: timeout/gtimeout not found, running codex exec without timeout\n' >&2
+        codex_timeout_cmd=""
+      fi
+      codex_tmpfile=$(mktemp)
+      # shellcheck disable=SC2064  # trap で variable 展開を意図
+      trap "rm -f \"$codex_tmpfile\"" EXIT
+      # shellcheck disable=SC2086  # $codex_timeout_cmd は word splitting 必要
+      if ! $codex_timeout_cmd codex exec --skip-git-repo-check --sandbox read-only \
+          --output-last-message "$codex_tmpfile" "$prompt" >&2; then
+        printf 'error: codex exec failed or timeout (600s)\n' >&2
+        rm -f "$codex_tmpfile"
+        trap - EXIT
+        return 1
+      fi
+      result=$(cat "$codex_tmpfile")
+      rm -f "$codex_tmpfile"
+      trap - EXIT  # Gemini: 関数外 trap 漏れ防止
       ;;
     *)
       printf 'error: Unknown reviewer: %s (supported: codex, gemini)\n' "$reviewer" >&2
