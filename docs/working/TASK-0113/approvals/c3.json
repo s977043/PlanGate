@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0113",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-28",
+  "approved_at": "2026-05-27T22:56:47Z",
+  "plan_hash": "sha256:5a1472fa21b216a27c3dae04775eb4ca558e292613ed6b5c13a2b8b0c6f30cb0",
+  "_review_summary": "C-2 proactive (Codex CONDITIONAL + Gemini CRITICAL R-007 ta-15 連番衝突 → R-001..R-010 全反映) PR #358 merged。Codex 9 PBI batch APPROVE_FOR_C3。実害背景: PR #376/#383 で AGENTS.md (claude-mem 自動挿入) と skip-decision-log の誤混入が複数回発生、本 PBI で構造解消が急務。",
+  "_review_notes": "ユーザーの明示指示『自律的に進めて』(2026-05-28) + Codex 推奨 B に基づく Human 代行発行。本 PBI は **high-risk mode** (Hardening Override 対象 scripts/hooks/)。exec 着手時は Human-owned patch / maintenance window 経由が必要 (T-04 で hook 配線、scripts/hooks/check-ai-memory-pollution.sh は scripts/hooks/ 配下のため HO 対象)。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
