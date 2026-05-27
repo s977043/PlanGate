@@ -48,23 +48,39 @@ def parse_line(line: str) -> dict:
     return json.loads(line)
 
 
-def is_eh3_skip_unack(d: dict) -> bool:
-    """R-005: event:EH-3_SKIP かつ未追認"""
+def is_eh3_skip_unack(d) -> bool:
+    """R-005: event:EH-3_SKIP かつ未追認
+
+    Gemini bot MEDIUM 指摘: dict 以外 (list/str 等) で AttributeError を
+    防ぐため isinstance check 追加
+    """
+    if not isinstance(d, dict):
+        return False
     return (
         d.get("event") == "EH-3_SKIP"
         and (not d.get("acknowledged_by") or not d.get("acknowledged_at"))
     )
 
 
+# R-002 strict matching (Gemini bot HIGH 指摘反映): spacing 揺れに耐性
+_ACK_BY_NULL_RE = re.compile(r'"acknowledged_by"\s*:\s*null')
+_ACK_AT_NULL_RE = re.compile(r'"acknowledged_at"\s*:\s*null')
+_ACK_BY_KEY_RE = re.compile(r'"acknowledged_by"\s*:')
+_ACK_AT_KEY_RE = re.compile(r'"acknowledged_at"\s*:')
+
+
 def raw_line_preserving_update(
     line: str, acknowledged_by: str, acknowledged_at: str
-) -> str:
+) -> tuple:
     """R-002: raw line を JSON parse/dump せず、2 field のみ regex で置換/追加
 
     既存 key 順・spacing・escape を破壊しない。
-    - `"acknowledged_by":null` → `"acknowledged_by":"<name>"`
-    - `"acknowledged_at":null` → `"acknowledged_at":"<ts>"`
-    - 両方未存在 (古い entry) → line 末尾 `}` の直前に追加
+    spacing 揺れ (`"acknowledged_by":null` / `"acknowledged_by": null` /
+    `"acknowledged_by" : null`) に対応。
+
+    Returns: (new_line, was_modified)
+    Gemini bot HIGH 指摘: silent failure (replace 失敗でも updated_count
+    増加) を防ぐため、was_modified を返す
     """
     # 末尾 newline を保持
     if line.endswith("\n"):
@@ -74,22 +90,29 @@ def raw_line_preserving_update(
         body = line
         nl = ""
 
+    modified = False
+
     # 置換 1: acknowledged_by
     new_by = '"acknowledged_by":"' + acknowledged_by + '"'
-    if '"acknowledged_by":null' in body:
-        body = body.replace('"acknowledged_by":null', new_by, 1)
-    elif '"acknowledged_by"' not in body:
+    if _ACK_BY_NULL_RE.search(body):
+        body = _ACK_BY_NULL_RE.sub(new_by, body, count=1)
+        modified = True
+    elif not _ACK_BY_KEY_RE.search(body):
         # field 不在 → 末尾 } の直前に追加
         body = body[:-1] + "," + new_by + "}"
+        modified = True
+    # else: 既に value あり → 触らない (idempotent)
 
     # 置換 2: acknowledged_at
     new_at = '"acknowledged_at":"' + acknowledged_at + '"'
-    if '"acknowledged_at":null' in body:
-        body = body.replace('"acknowledged_at":null', new_at, 1)
-    elif '"acknowledged_at"' not in body:
+    if _ACK_AT_NULL_RE.search(body):
+        body = _ACK_AT_NULL_RE.sub(new_at, body, count=1)
+        modified = True
+    elif not _ACK_AT_KEY_RE.search(body):
         body = body[:-1] + "," + new_at + "}"
+        modified = True
 
-    return body + nl
+    return body + nl, modified
 
 
 def atomic_rmw(log_path: Path, new_content: str) -> Path:
@@ -176,17 +199,21 @@ def dry_run(log_path: Path) -> int:
 
 
 def apply_acknowledge(log_path: Path, acknowledged_by: str) -> int:
-    """R-002: --apply で atomic update。raw-line-preserving。"""
-    if not log_path.exists():
-        print(f"[batch-ack] skip-decision-log なし: {log_path}")
-        return 0
+    """R-002: --apply で atomic update。raw-line-preserving。
 
+    Gemini bot MEDIUM 指摘: arg validation を file existence check より先に
+    """
+    # arg validation 優先 (空 --acknowledged-by は環境問わず常に reject)
     if not acknowledged_by or not acknowledged_by.strip():
         print(
             "[batch-ack] FAIL: --acknowledged-by が空文字。Human 名を必須指定",
             file=sys.stderr,
         )
         return -1
+
+    if not log_path.exists():
+        print(f"[batch-ack] skip-decision-log なし: {log_path}")
+        return 0
 
     acknowledged_at = iso8601_utc_now()
     updated_count = 0
@@ -207,11 +234,21 @@ def apply_acknowledge(log_path: Path, acknowledged_by: str) -> int:
 
             if is_eh3_skip_unack(d):
                 # R-002: raw line update (json.dumps しない)
-                new_line = raw_line_preserving_update(
+                # Gemini bot HIGH: modified flag で silent failure 検出
+                new_line, was_modified = raw_line_preserving_update(
                     line, acknowledged_by, acknowledged_at
                 )
                 new_lines.append(new_line)
-                updated_count += 1
+                if was_modified:
+                    updated_count += 1
+                else:
+                    # was_modified=False = field 存在 + value 不可解 (regex マッチせず)
+                    # = silent failure。WARN し count に含めない
+                    print(
+                        f"[batch-ack] WARN: 想定外の line 構造 (regex 不一致)、"
+                        f"updated_count に含めない: {line.rstrip()[:100]}",
+                        file=sys.stderr,
+                    )
             else:
                 new_lines.append(line)
 
