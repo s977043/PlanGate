@@ -34,7 +34,7 @@ TASK-0112 (mode-classification 例外ルール、merged) と同じ操作パタ�
 - AC-2: 以下 4 項目が含まれる: (i) `&&` 連結 or `set -e`、(ii) `git push` 前 branch verify、(iii) protected branch への commit/push 事前確認、(iv) INC-2026-05-26-001 への参照
 - AC-3 (R-001 反映): AI 運用 4 原則 (CLAUDE.md `<law>`) との階層関係明示 (本 rule は第 1 原則の運用解釈)、**`main` は禁止 / 他 protected は明示確認** という 2 段階構造を明示
 - AC-4: TASK-0112 (mode-classification 例外ルール) との重複定義なし、相互参照のみ
-- AC-5: markdownlint pass + リンク健全性 CI pass
+- AC-5 (R-007 反映): markdownlint pass + **`docs/working/incidents/2026-05-26-empty-commit-direct-push.md` への相対 link 健全性確認** (TC-05) + リンク健全性 CI pass
 
 ## Notes from Refinement
 
