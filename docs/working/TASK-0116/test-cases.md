@@ -27,8 +27,8 @@
 | TC-09 | shellcheck + markdownlint | `shellcheck scripts/check-tag-main-parity.sh && npx markdownlint-cli docs/release-process.md` | exit 0 |
 | ~~TC-10 (stretch)~~ | ~~doctor 統合~~ — V2 候補に降格 (Codex 9 PBI review 反映) | — | — |
 
-| **TC-08 (R-001 fetch)** | script 冒頭の `git fetch origin main` 実行 + 失敗時 warning | (a) fetch 成功時 通常動作、(b) `--no-remote` etc で fetch 失敗模擬 → script は警告 + exit 非 0 | (a) exit 0/1 通常、(b) exit !=0 + 警告 |
-| **TC-09 (R-002 doc)** | `docs/release-process.md` に `--force-with-lease` + `refs/tags/<tag>:refs/tags/<tag>` 明記 | `grep -nE 'force-with-lease.*refs/tags' docs/release-process.md` | 該当 |
+| **TC-11 (R-001 fetch)** | script 冒頭の `git fetch origin main` 実行 + 失敗時 warning | (a) fetch 成功時 通常動作、(b) `--no-remote` etc で fetch 失敗模擬 → script は警告 + exit 非 0 | (a) exit 0/1 通常、(b) exit !=0 + 警告 |
+| **TC-12 (R-002 doc)** | `docs/release-process.md` に `--force-with-lease` + `refs/tags/<tag>:refs/tags/<tag>` 明記 | `grep -nE 'force-with-lease.*refs/tags' docs/release-process.md` | 該当 |
 
 ## エッジケース
 
