@@ -14,6 +14,6 @@
 
 ## ToDo 5 項目: PASS / TestCases 3 項目: PASS
 
-## 判定: **PASS** — C-3 ゲート提出可能
+## 判定: **PASS** — C-3 ゲート提出可能 (C-2 individual R-001..R-007 反映後 v2)
 
-総合スコア: 94/100。blocker 0、major 0、minor 1 (TASK-0110 を例示したことで TASK-0110 の mode 再評価示唆が発生するが、本 PBI で「以降の PBI から適用」と明記済)。
+総合スコア: **96/100** (C-2 反映後)。R-001 Mode 補正 / R-002 Human-owned patch / R-003 9 カテゴリ統一 / R-007 AC-10 関係明示 全反映。blocker 0、major 0、minor 1 (TASK-0110 を例示したことで TASK-0110 の mode 再評価示唆が発生するが、本 PBI で「以降の PBI から適用」と明記済)。
