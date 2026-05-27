@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# pre-commit hook: AI memory pollution 検知 (claude-mem 等の自動挿入)
+# Source: PlanGate TASK-0113 / #355
+# 設置: scripts/install-pre-commit.sh 経由 (opt-in)
+# 緊急 bypass: git commit --no-verify
+# 詳細: docs/ai/ai-memory-pollution-guard.md
+
+set -eu
+REPO_ROOT="$(CDPATH= cd -- "$(git rev-parse --show-toplevel)" && pwd)"
+exec sh "$REPO_ROOT/scripts/hooks/check-ai-memory-pollution.sh"
