@@ -10,7 +10,7 @@
 | AC-4 失敗時 `-f` 手順 doc | TC-06 |
 | AC-5 ta-18 fixture | TC-07 |
 | AC-6 regression + lint | TC-08, TC-09 |
-| AC-7 doctor 統合 (stretch) | TC-10 |
+| ~~AC-7 doctor 統合~~ | ~~TC-10~~ (削除済) |
 
 ## ケース
 
@@ -25,7 +25,7 @@
 | TC-07 | ta-18 dispatcher 認識 + 3 case PASS | `sh tests/run-tests.sh` | TA-18 全 case PASS |
 | TC-08 | 既存テスト regression なし | `sh tests/run-tests.sh && sh tests/hooks/run-tests.sh` | 全 PASS |
 | TC-09 | shellcheck + markdownlint | `shellcheck scripts/check-tag-main-parity.sh && npx markdownlint-cli docs/release-process.md` | exit 0 |
-| TC-10 (stretch) | `bin/plangate doctor` で latest tag vs main 表示 | `bin/plangate doctor --scope release` (or 同等) | tag/main parity 表示 |
+| ~~TC-10 (stretch)~~ | ~~doctor 統合~~ — V2 候補に降格 (Codex 9 PBI review 反映) | — | — |
 
 ## エッジケース
 
