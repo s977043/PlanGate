@@ -47,15 +47,15 @@
 | 既存進行中 PBI の mode 判定再評価リクエスト | low | 「本 PBI merge 後着手の PBI から適用」を文言に含める |
 | 例外ルール乱立 | low | 対象パスを Hardening Override と完全一致させて単一情報源化 |
 
-## Mode 判定
+## Mode 判定 (R-001 反映)
 
-**light** (`lite_eligible=false` 強制)
+**standard** (`lite_eligible=false` 強制)
 
-- 変更ファイル数: 1（+handoff 1）
+- 変更ファイル数: 1 (+handoff 1)
 - 受入基準数: 6
 - 変更種別: docs (rule) 追記
-- リスク: 中 (Hardening Override 対象だが内容は additive 文言追加)
+- リスク: 中-高 (Hardening Override 対象、承認境界自体への改修)
 - ロールバック: 容易 (git revert)
-- 影響範囲: `.claude/rules/mode-classification.md` のみ、以降の PBI mode 推定に波及
+- 影響範囲: `.claude/rules/mode-classification.md`、以降の PBI mode 推定に波及
 
-→ light で進行、ただし `lite_eligible=false` 強制（承認境界周辺自体）。**自己適用**（本 PBI 自体が新ルール対象なら最低「高」になるが、文言追加のみで影響範囲が rule 文言に限定されるため light で C-3 判定を仰ぐ）
+→ **standard に補正** (旧 light は R-001 反映で修正)。本 PBI 自身が「承認境界周辺は最低 高」を導入するため、自己例外 (light) は設計レーン上の矛盾。Hardening Override 対象の rule 改修は最低 standard、本 PBI の作業量は light 相当だが **リスクと影響範囲で standard** を選択。
