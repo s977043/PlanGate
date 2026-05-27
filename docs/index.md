@@ -11,8 +11,8 @@ PlanGate は、AI コーディングエージェントをプロダクション�
 PlanGate を初めて知った方は、以下の順に **15-30 分** で読むことを推奨します。
 
 1. **[PlanGate ガイド](./plangate.md)** — 全体像・5 フェーズ・解決する問題（約 5 分）
-2. **[段階的導入ガイド](./staged-adoption-guide.md)** — Level 1 (Day 1) から始める具体手順（約 10 分）
-3. **[10 分チュートリアル（GitHub README）](https://github.com/s977043/PlanGate#10-分チュートリアル)** — 実際に手を動かす最小例（約 10 分）
+2. **[段階的導入ガイド (Phase 0 = 正本)](./staged-adoption-guide.md#phase-0-体験day-1)** — Level 1 (Day 1) から始める **30 分初回体験の正本**（約 10 分）
+3. **[10 分チュートリアル（GitHub README）](https://github.com/s977043/PlanGate#10-分チュートリアル)** — 実際に手を動かす **短縮版**（約 10 分、正本 #2 への導線）
 
 「自分のチームに合うか」を判断したい方は [思想と問題設定](./philosophy.md) と [When NOT to use](./when-not-to-use.md) を参照。略号 (EH-X / WF-XX / V-X / C-X) は [用語クイックリファレンス](./glossary.md) を参照。
 
