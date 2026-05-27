@@ -20,7 +20,11 @@ PlanGate ドキュメントで頻出する略号の一覧。初見の方はこ�
 | **V-3** | 外部モデルレビュー | standard 以上 | 5 観点 + Severity 判定、R-NNN 採番 |
 | **V-4** | リリース前チェック | critical のみ | ドキュメント整合 / マイグレーション / セキュリティ |
 
-## Workflow フェーズ (WF-XX)
+## Workflow フェーズ (WF-XX) — ABCD ↔ WF 対応表 (正本)
+
+> 本対応表は ABCD↔WF 呼称対応の **正本** (single source of truth)。
+> 他 doc (例: `docs/workflows/README.md`) は本ファイルを参照する形に切替済 (TASK-0108 / #310 #7)。
+> 新規 doc は **WF-XX 優先表記** とし、既存 ABCD 表現は本対応表で吸収する。
 
 | 略号 | 名称 | 旧呼称 |
 |------|------|--------|
