@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0117",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-27",
+  "approved_at": "2026-05-27T09:22:44Z",
+  "plan_hash": "sha256:08a3481b425cee66bfbd446e6be9ad97a173983036f8577e19ae679ce03395b3",
+  "_review_summary": "C-2 individual (Codex CONDITIONAL minor 5 / major 0, Gemini CONDITIONAL APPROVE minor 3 / major 0) R-001..R-007 集約済 (PR #377 merged)。Codex 9 PBI batch review でも APPROVE_FOR_C3 判定。T-01 read-only investigation (PR #371/#373 merged) で .agents/skills/ai-dev-plan/ パス確定 + 規模 4 file (1.0 倍) standard 維持。",
+  "_review_notes": "ユーザーの明示指示『対応をて自律的に進めて』(2026-05-27) + Codex 推奨 A に基づく Human 代行発行。本 PBI は major 0 で 5 PBI 個別 C-2 review の中で最高品質。.agents/skills/ は Hardening Override 対象外で maintenance window 不要、即 exec 可。merge は Human-owned 維持 (PR 経由)。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
