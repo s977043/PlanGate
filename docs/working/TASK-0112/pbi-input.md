@@ -14,9 +14,9 @@ TASK-0106 (#289 EH-3 maintenance CLI) の retrospective で、**承認境界周�
 ### In scope
 
 - `.claude/rules/mode-classification.md` の例外ルールに「承認境界周辺の変更 → 最低でも『高』」を追加
-- 対象パスを Hardening Override 対象と一致させて明示（`scripts/hooks/check-plan-hash.sh` の検出パターンと整合）
+- 対象パスを Hardening Override 対象と一致 (`scripts/hooks/check-plan-hash.sh` L124-134 case 文 = **9 カテゴリ** が正本、`.claude/skills/` `scripts/_*.py` は実体対象外なので含めない / R-003/R-006)
 - 監査ログ (`docs/working/_audit/`) のデータ一括変更 CLI も承認境界相当として扱う旨（TASK-0110 を踏まえる）
-- `working-context.md` AC-10 Hardening Override（`lite_eligible=false` 強制）との整合明示
+- `working-context.md` AC-10 Hardening Override (`lite_eligible=false` 強制) との整合明示。本 PBI の「mode 引き上げ」は AC-10 の `lite_eligible=false` を**包含**する関係 (R-007 反映)
 - 自動推定の安全側（該当不確実→該当扱い）を AC-8 と一貫させる
 
 ### Out of scope
@@ -36,7 +36,7 @@ TASK-0106 (#289 EH-3 maintenance CLI) の retrospective で、**承認境界周�
 
 ## Notes from Refinement
 
-- `.claude/rules/` は Hardening Override 対象で AI 直接編集不可 → 本 PBI で c3.json APPROVED + EH-3 maintenance window 経由で適用
+- `.claude/rules/` は Hardening Override 対象で AI 直接編集不可 → 本 PBI は **Human-owned patch** で適用 (R-002 反映、maintenance window 経由は推奨しない: 承認境界変更を一時 window で通す前提が現行防御モデルと衝突)
 - 既存例外ルール 3 種は破壊しない（additive change）
 - TASK-0110 (#301) と関連: 監査ログ一括変更 CLI のため最低「高」適用＝TASK-0110 を Standard で進めることへの軽微な是正は出るが、本 PBI merge 時点での「以降の PBI から適用」とする
 
