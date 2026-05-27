@@ -1,0 +1,21 @@
+# AI memory pollution patterns config (TASK-0113 / #355)
+# Reference: docs/ai/ai-memory-pollution-guard.md
+# Schema: schemas/plangate-pollution-patterns.schema.json
+
+# 既定検知 pattern
+patterns:
+  - id: claude-mem-context
+    description: claude-mem (AI memory tool) が自動挿入する context block
+    regex: '<claude-mem-context>'
+
+# 対象 file (glob patterns)
+target_files:
+  - AGENTS.md
+  # 追加例:
+  # - CLAUDE.md
+  # - DESIGN.md
+  # - README.md
+
+# 設定:
+#   - allowlist marker: <!-- plangate-pollution-allowlist:<pattern-id> --> を該当 file 末尾に
+#   - auto-revert mode: PLANGATE_POLLUTION_AUTO_REVERT=1 git commit
