@@ -25,3 +25,23 @@
 
 - 呼称統合 (#7 LOW) は破壊回避のため対応表方式（既存 ABCD 参照は残置）
 - #310 の auto-close は本 PBI 完了 PR で（短期 #311 単独では行わない）
+
+
+## 進捗 (2026-05-27 更新)
+
+| Phase | 状態 |
+|-------|------|
+| B (plan 生成) | ✅ |
+| C-1 (review-self) | ✅ PASS 96/100 |
+| C-2 (proactive R-001..R-006) | ✅ 反映済 |
+| T-01 (read-only 調査) | ✅ PR #373 merged |
+| **#356 で 5 項目先行完了** | ✅ (#1/#2/#4/#5/#6 達成、本 PBI scope 縮小) |
+| C-3 (c3.json) | ⏳ Human 発行待ち |
+| exec (Step 1 + Step 5 + Step 7) | ⏳ |
+
+## 実 scope
+
+- **Step 1 (#3)**: 30-min first run 統一 (Phase 0 正本明示)
+- **Step 5 (#7)**: ABCD ↔ WF 呼称統合
+- Step 6 (任意 C-2 再委任)
+- Step 7 (handoff)

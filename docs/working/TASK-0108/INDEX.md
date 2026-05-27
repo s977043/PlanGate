@@ -26,3 +26,9 @@
 ## Next action
 
 Human が pbi-input / plan / todo / test-cases / review-self をレビュー → C-3 ゲート判定 (approvals/c3.json 発行) → AI が exec 着手 (T-01..T-11)。
+
+
+## 実 scope (T-01 後)
+
+- **2 項目残** (#3 30-min 統一 + #7 ABCD↔WF 呼称統合)
+- 5 項目は #356 (merged) で完了済 (Out of scope に明記)
