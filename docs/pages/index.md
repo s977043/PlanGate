@@ -23,11 +23,11 @@ No approved plan, no code.
 
 ## ドキュメント配置方針
 
-PlanGate の公開説明ドキュメントは River-Reviewer を参考に `pages/` 配下で管理する。
+PlanGate の公開説明ドキュメントは River-Reviewer を参考に `docs/pages/` 配下で管理する。
 
-- `pages/explanation/`: 背景、思想、プロダクト説明、ポジショニング
-- `pages/guides/`: 操作手順、導入手順、デモ手順、運用ガイド
-- `pages/reference/`: FAQ、仕様、スキーマ、用語集
+- `docs/pages/explanation/`: 背景、思想、プロダクト説明、ポジショニング
+- `docs/pages/guides/`: 操作手順、導入手順、デモ手順、運用ガイド
+- `docs/pages/reference/`: FAQ、仕様、スキーマ、用語集
 - `docs/`: 開発者向け runbook、内部運用、作業ログ、移行メモ
 
 ## Main message
