@@ -1,6 +1,6 @@
 # TASK-0112 EXECUTION PLAN
 
-> Source: pbi-input.md / Codex 推奨 C / Mode: **light**
+> Source: pbi-input.md / Codex 推奨 C / Mode: **standard** (R-001 反映)
 > Generated: 2026-05-26
 
 ## Goal
@@ -16,14 +16,14 @@
 
 ## Approach Overview
 
-`.claude/rules/mode-classification.md` の例外ルールセクション 1 箇所への追記のみ。`.claude/rules/` は Hardening Override 対象のため、本 PBI の C-3 APPROVED + maintenance window 経由で適用。
+`.claude/rules/mode-classification.md` の例外ルールセクション 1 箇所への追記のみ。`.claude/rules/` は Hardening Override 対象のため、本 PBI は **Human-owned patch (PR ベース)** で適用 (R-002 反映: maintenance window 経由は承認境界変更を一時 window で通す前提が現行防御モデルと衝突するため不採用)。
 
 ## Work Breakdown
 
 | # | Step | Output | Owner | Risk | 🚩 |
 |---|------|--------|-------|------|----|
 | 1 | **T-01**: 既存例外ルール構造確認 + Hardening Override 対象パスの単一情報源（check-plan-hash.sh）抽出 | 調査メモ | AI | low | パス一覧確定 |
-| 2 | **T-02**: `.claude/rules/mode-classification.md` 例外ルール追記 (承認境界周辺→最低「高」 + 対象パス一覧 + 監査ログ CLI 例外 + 自動推定安全側) | mode-classification.md | AI | medium (Hardening Override) | maintenance window 経由 + markdownlint pass |
+| 2 | **T-02 (R-002/R-003)**: `.claude/rules/mode-classification.md` 例外ルール追記 (承認境界周辺→最低「高」 + **9 カテゴリ対象パス一覧** (check-plan-hash.sh L124-134 と一致) + 監査ログ CLI 例外 + 自動推定安全側) | mode-classification.md | **Human (PR patch)** | medium (Hardening Override) | **Human-owned patch** + markdownlint pass |
 | 3 | **T-03**: handoff.md (Rule 5) + V-1 | handoff.md | AI | low | AC-1..6 PASS |
 
 ## Files / Components to Touch
@@ -43,7 +43,7 @@
 
 | Risk | Sev | Mitigation |
 |------|-----|------------|
-| Hardening Override 対象パス改変が EH-3 で block | high | C-3 APPROVED + maintenance window 経由で適用（TASK-0106 で実証済の運用） |
+| Hardening Override 対象パス改変が EH-3 で block | high | **Human-owned patch** で適用 (R-002 反映、maintenance window 経由は承認境界変更を一時 window で通す前提が防御モデルと衝突のため不採用) |
 | 既存進行中 PBI の mode 判定再評価リクエスト | low | 「本 PBI merge 後着手の PBI から適用」を文言に含める |
 | 例外ルール乱立 | low | 対象パスを Hardening Override と完全一致させて単一情報源化 |
 
