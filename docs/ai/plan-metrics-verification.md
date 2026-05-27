@@ -53,8 +53,8 @@ B-3 (3 ファイル同時生成)
 `.git`, `node_modules`, ビルドアーティファクト等を除外して **対象範囲を限定**:
 
 ```sh
-# 文字列言及数 (ファイル数ベース)
-grep -rln <symbol> --include='*.md' --include='*.ts' -- . | wc -l
+# 文字列言及数 (ファイル数ベース、.git/node_modules 等を除外)
+grep -rln --exclude-dir={.git,node_modules,dist,docs/working} <symbol> --include='*.md' --include='*.ts' -- . | wc -l
 
 # ファイル数
 find . -name <pattern> \
@@ -73,7 +73,7 @@ grep -rln <symbol> docs/ | xargs wc -l
 
 ### CI 等で `rg` 不在の環境
 
-`grep -rln + find -prune` で fallback。`grep -rln` は `-not -path` 相当の除外に `-r --include` を組み合わせる。
+`grep -rln --exclude-dir={.git,node_modules,...}` または `find -not -path` で fallback。`--include` だけでは `node_modules` 等のディレクトリ走査自体は防げないため、必ず `--exclude-dir` を併用する。
 
 ## plan.md template (Metrics Evidence 欄 / AC-8)
 

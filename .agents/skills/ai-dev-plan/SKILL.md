@@ -42,7 +42,7 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 **検証コマンド例** (.git / node_modules 等を除外):
 
 ```sh
-grep -rln <symbol> --include='*.md' -- . | wc -l
+grep -rln --exclude-dir={.git,node_modules,dist,docs/working} <symbol> --include='*.md' -- . | wc -l
 find . -name <pattern> -not -path './.git/*' -not -path './node_modules/*' | wc -l
 # 推奨: rg --files <path> | wc -l
 ```
