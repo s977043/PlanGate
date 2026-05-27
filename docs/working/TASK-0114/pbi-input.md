@@ -21,7 +21,7 @@ INC-2026-05-26-001 で AI が main 直接 push (empty commit 49448c5) を実施�
 - `docs/ai/direct-push-prevention.md` (新規) — 運用ガイド
 - `tests/extras/ta-17-pre-push-guard.sh` (新規) — fixture test
 - 既存 TASK-0113 templates/install パターンと一貫した設計
-- protected branch list 設定 (環境変数 `PLANGATE_PROTECTED_BRANCHES` で override 可)。**glob 判定は remote branch 名 (refs/heads/ を除いた部分) に対して `case` で実施**、`release/*` は `case` の glob として扱う (R-002 反映)
+- protected branch list 設定 (環境変数 `PLANGATE_PROTECTED_BRANCHES` で override 可)。**glob 判定は remote branch 名 (refs/heads/ を除いた部分) に対して `case` で実施**、`release/*` は `case` の glob として扱う (R-002 反映)。`set -f` (noglob) を適用してから `for pattern in $PLANGATE_PROTECTED_BRANCHES` 展開でファイルシステム glob 暴発を防止 (Gemini bot 指摘 #1)
 
 ### Out of scope
 
