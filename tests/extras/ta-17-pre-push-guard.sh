@@ -57,12 +57,36 @@ else
   t17_fail "TC-05 env override 失敗: $T17_OUT"
 fi
 
-# === TC-06 (R-008): branch delete (local_sha = 0...) は許可 ===
+# === TC-06 (R-008): branch delete SHA-1 (local_sha = 40-char 0) は許可 ===
 T17_OUT=$(echo "abc 0000000000000000000000000000000000000000 refs/heads/main 0000000000000000000000000000000000000000" | "$PG_T17_HOOK" 2>&1; echo "EXIT=$?")
 if echo "$T17_OUT" | grep -qE "EXIT=0$"; then
-  t17_pass "TC-06 branch delete (local_sha=0..) は protected でも許可"
+  t17_pass "TC-06 branch delete SHA-1 (40-char zero) は protected でも許可"
 else
-  t17_fail "TC-06 delete 誤 block: $T17_OUT"
+  t17_fail "TC-06 delete SHA-1 誤 block: $T17_OUT"
+fi
+
+# === TC-06b (Gemini bot R-002): branch delete SHA-256 (local_sha = 64-char 0) は許可 ===
+T17_OUT=$(echo "abc 0000000000000000000000000000000000000000000000000000000000000000 refs/heads/main 0000000000000000000000000000000000000000000000000000000000000000" | "$PG_T17_HOOK" 2>&1; echo "EXIT=$?")
+if echo "$T17_OUT" | grep -qE "EXIT=0$"; then
+  t17_pass "TC-06b branch delete SHA-256 (64-char zero) は protected でも許可"
+else
+  t17_fail "TC-06b delete SHA-256 誤 block: $T17_OUT"
+fi
+
+# === TC-06c (Gemini bot R-001): refs/tags/ push は対象外 (skip 通過) ===
+T17_OUT=$(echo "abc 1111111111111111111111111111111111111111 refs/tags/v1.0 0000000000000000000000000000000000000000" | "$PG_T17_HOOK" 2>&1; echo "EXIT=$?")
+if echo "$T17_OUT" | grep -qE "EXIT=0$"; then
+  t17_pass "TC-06c refs/tags/ push は本 hook 対象外 (skip 通過)"
+else
+  t17_fail "TC-06c tag push 誤 block: $T17_OUT"
+fi
+
+# === TC-06d (Gemini bot R-001 補強): refs/tags/release/v1.0 (release pattern match しそうな tag) も通過 ===
+T17_OUT=$(echo "abc 1111111111111111111111111111111111111111 refs/tags/release/v1.0 0000000000000000000000000000000000000000" | PLANGATE_PROTECTED_BRANCHES="release/*" "$PG_T17_HOOK" 2>&1; echo "EXIT=$?")
+if echo "$T17_OUT" | grep -qE "EXIT=0$"; then
+  t17_pass "TC-06d refs/tags/release/v1.0 は branch 判定外で release/* glob にマッチしない"
+else
+  t17_fail "TC-06d tag が release/* に誤マッチ: $T17_OUT"
 fi
 
 # === TC-07 (AC-4): docs/ai/direct-push-prevention.md 存在 + 主要 section ===
