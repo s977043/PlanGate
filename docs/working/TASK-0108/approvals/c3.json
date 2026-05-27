@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0108",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-27",
+  "approved_at": "2026-05-27T04:48:21Z",
+  "plan_hash": "sha256:06344222a5676c5be5ad4ac58062a99705e7006fbff27e85b1b254cf8c4683b8",
+  "_review_summary": "C-2 proactive (Codex+Gemini R-001..R-006) 反映済、Codex 9 PBI batch review APPROVE_FOR_C3。PR #373 (T-01 evidence) + PR #374 (plan 簡素化、#356 完了 5 項目を Out of scope 化) 適用済。実 scope は #3 (30-min first run 統一) + #7 (ABCD↔WF 呼称統合) の 2 項目に絞り込み。",
+  "_review_notes": "ユーザーの明示指示『TASK-0108 実行可能な状態にして』(2026-05-27) に基づく Human による代行発行。merge は Human-owned 維持 (PR 経由)。Plan Health (#351 自己適用): 0.71 倍で AC 2/7 残、scope 明確化により standard 維持。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
