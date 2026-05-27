@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# pre-push hook: protected branch への直接 push を block
+# Source: PlanGate TASK-0114 / INC-2026-05-26-001 Prevention P-1
+#
+# 設置: scripts/install-pre-push.sh で .git/hooks/pre-push に配置 (opt-in)
+# 緊急 bypass: git push --no-verify (慣行に準拠、最終防衛線は P-2 GitHub branch protection)
+#
+# 設計原則 (Gemini bot PR #379 反映):
+#   - set -f (noglob) 適用後 for 展開でファイルシステム glob 暴発防止
+#   - case 右辺 unquoted で glob 評価
+#   - local hook は第一防衛線、最後の防衛線は P-2 (Defense in Depth)
+#
+# stdin format (git pre-push spec):
+#   <local ref> <local sha> <remote ref> <remote sha>
+
+set -eu
+
+# 既定 protected list (AC-1 と AC-3 で統一)
+DEFAULT_PROTECTED="main master release/*"
+PROTECTED_BRANCHES="${PLANGATE_PROTECTED_BRANCHES:-$DEFAULT_PROTECTED}"
+
+# noglob 適用 (Gemini bot R-001: release/ ディレクトリ等でのファイルシステム glob 暴発防止)
+set -f
+
+# stdin parsing
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # remote_ref は refs/heads/<branch> 形式、prefix を除去
+  remote_branch="${remote_ref#refs/heads/}"
+
+  # branch 削除 (local_sha = 0...) は許可 (delete 操作は別意味)
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    continue
+  fi
+
+  # protected list と照合 (case 右辺 unquoted で glob 評価、Gemini bot R-007)
+  for pattern in $PROTECTED_BRANCHES; do
+    case "$remote_branch" in
+      $pattern)
+        echo "ERROR: Direct push to protected branch '$remote_branch' (matches '$pattern') is prohibited." >&2
+        echo "       Human-owned merge boundary (responsibility-classes.md) を維持してください。" >&2
+        echo "" >&2
+        echo "  対処:" >&2
+        echo "    1. feature branch を作成して PR 経由でマージしてください:" >&2
+        echo "       git checkout -b feature/<name>" >&2
+        echo "       git push -u origin feature/<name>" >&2
+        echo "       gh pr create" >&2
+        echo "" >&2
+        echo "    2. 緊急時の bypass (非推奨、監査ログに残ります):" >&2
+        echo "       git push --no-verify" >&2
+        echo "" >&2
+        echo "    3. protected list を override したい場合:" >&2
+        echo "       PLANGATE_PROTECTED_BRANCHES=\"<custom>\" git push" >&2
+        echo "" >&2
+        echo "  Defense in Depth:" >&2
+        echo "    - 第一防衛線 (本 hook): 手元での誤操作防止" >&2
+        echo "    - 最後の防衛線: GitHub branch protection (P-2、INC P-2 参照)" >&2
+        exit 1
+        ;;
+    esac
+  done
+done
+
+exit 0
