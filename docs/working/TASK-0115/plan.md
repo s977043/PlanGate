@@ -22,7 +22,7 @@
 | # | Step | Output | Owner | Risk | 🚩 |
 |---|------|--------|-------|------|----|
 | 1 | **T-01 調査**: TASK-0112 適用パターン確認、`responsibility-classes.md` 既存セクション構造把握 | 調査メモ | AI | low | 構造把握 |
-| 2 | **T-02 追記**: `.claude/rules/responsibility-classes.md` に新セクション「Bash 連結コマンド時の error guard (INC-2026-05-26-001 P-3)」追加 | responsibility-classes.md | AI | medium (Hardening Override) | maintenance window 経由 + markdownlint |
+| 2 | **T-02 追記 (R-001/R-008)**: `.claude/rules/responsibility-classes.md` の「既存ルール対応」**直前**に新セクション「Bash 連結コマンド時の error guard (INC-2026-05-26-001 P-3)」追加。**`main` 禁止 + 他 protected は明示確認** の 2 段階明記 | responsibility-classes.md | AI | medium (Hardening Override) | maintenance window or Human-owned patch + markdownlint |
 | 3 | **T-03**: handoff.md + V-1 | handoff.md | AI | low | AC-1..5 PASS |
 
 ## Files / Components to Touch
