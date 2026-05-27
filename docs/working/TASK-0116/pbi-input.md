@@ -35,7 +35,7 @@ INC-2026-05-26-001 / TASK-0114 / TASK-0115 と同じ governance hardening 系列
 - AC-4: 検証失敗時の `-f` 貼り替え手順が docs に明示 (Human オペレーション)
 - AC-5: `tests/extras/ta-18-tag-main-parity.sh` fixture 3 case: 一致 / 不一致 / tag 不在
 - AC-6: 既存テスト regression なし + markdownlint + shellcheck PASS
-- AC-7: `bin/plangate doctor` で latest tag vs main の事後確認 section を追加 (任意、stretch goal)
+- ~~AC-7 (stretch / 削除)~~: `bin/plangate doctor` 統合は **本 PBI から除外**。bin/plangate は Hardening Override で改修コスト高く、scripts/check-tag-main-parity.sh の機械検証で代替可。**doctor 統合は V2 候補に降格** (Codex 9 PBI review 反映)
 
 ## Notes from Refinement
 
