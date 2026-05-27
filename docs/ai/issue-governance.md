@@ -3,13 +3,13 @@
 > **Status**: v1
 > **Review cadence**: Monthly
 > **Owner**: Governance / Maintainer
-> **Related**: [EPIC #193](https://github.com/s977043/plangate/issues/193) / [pages/guides/governance/documentation-management.md](../../pages/guides/governance/documentation-management.md)
+> **Related**: [EPIC #193](https://github.com/s977043/plangate/issues/193) / [docs/pages/guides/governance/documentation-management.md](../pages/guides/governance/documentation-management.md)
 
 ## 1. 目的
 
 PlanGate の Issue 運用 (Issue 必須セクション / Label taxonomy / Milestone mapping) を正本化する。
 
-ドキュメント配置・更新ルールは [`pages/guides/governance/documentation-management.md`](../../pages/guides/governance/documentation-management.md) が正本。本ドキュメントは **Issue / Label / Milestone 側** を扱う。
+ドキュメント配置・更新ルールは [`docs/pages/guides/governance/documentation-management.md`](../pages/guides/governance/documentation-management.md) が正本。本ドキュメントは **Issue / Label / Milestone 側** を扱う。
 
 ## 2. Issue required sections
 
@@ -154,7 +154,7 @@ EPIC issue は以下を満たす。
 ## 11. 関連
 
 - [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193)
-- [pages/guides/governance/documentation-management.md](../../pages/guides/governance/documentation-management.md)（Doc 配置 / 更新ルール正本）
+- [docs/pages/guides/governance/documentation-management.md](../pages/guides/governance/documentation-management.md)（Doc 配置 / 更新ルール正本）
 - [.github/ISSUE_TEMPLATE/plangate-roadmap-task.yml](../../.github/ISSUE_TEMPLATE/plangate-roadmap-task.yml)
 - [docs/ai/metrics-privacy.md](./metrics-privacy.md) — Metrics v1 (#195) の privacy policy（v8.6.0 governance trio の一角）
 - [docs/ai/metrics.md](./metrics.md) — Metrics v1 運用 guide
