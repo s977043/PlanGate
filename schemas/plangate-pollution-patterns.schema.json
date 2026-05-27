@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/plangate-pollution-patterns.schema.json",
+  "title": "Plangate Pollution Patterns Config",
+  "description": "TASK-0113 (#355): AI memory pollution 検知 pre-commit hook の設定",
+  "type": "object",
+  "required": ["patterns", "target_files"],
+  "additionalProperties": false,
+  "properties": {
+    "patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "regex"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$",
+            "description": "Pattern ID (kebab-case)、allowlist marker で使用"
+          },
+          "description": {
+            "type": "string"
+          },
+          "regex": {
+            "type": "string",
+            "description": "POSIX BRE/ERE pattern (grep -E 互換)"
+          }
+        }
+      }
+    },
+    "target_files": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "target file glob pattern"
+      }
+    }
+  }
+}
