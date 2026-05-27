@@ -22,13 +22,23 @@ PROTECTED_BRANCHES="${PLANGATE_PROTECTED_BRANCHES:-$DEFAULT_PROTECTED}"
 # noglob 適用 (Gemini bot R-001: release/ ディレクトリ等でのファイルシステム glob 暴発防止)
 set -f
 
+# Git zero hash (SHA-1 = 40 chars, SHA-256 = 64 chars / Gemini bot R-002)
+ZERO_SHA1="0000000000000000000000000000000000000000"
+ZERO_SHA256="0000000000000000000000000000000000000000000000000000000000000000"
+
 # stdin parsing
 while read -r local_ref local_sha remote_ref remote_sha; do
-  # remote_ref は refs/heads/<branch> 形式、prefix を除去
+  # Gemini bot R-001: refs/heads/ 以外 (tags / notes) は本 hook の対象外、skip
+  case "$remote_ref" in
+    refs/heads/*) ;;
+    *) continue ;;
+  esac
+
+  # remote_ref から refs/heads/ prefix を除去
   remote_branch="${remote_ref#refs/heads/}"
 
-  # branch 削除 (local_sha = 0...) は許可 (delete 操作は別意味)
-  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+  # branch 削除 (local_sha = 0... / SHA-1 or SHA-256) は許可 (delete 操作は別意味)
+  if [ "$local_sha" = "$ZERO_SHA1" ] || [ "$local_sha" = "$ZERO_SHA256" ]; then
     continue
   fi
 
