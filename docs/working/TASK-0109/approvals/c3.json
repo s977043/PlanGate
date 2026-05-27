@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0109",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-28",
+  "approved_at": "2026-05-27T21:17:45Z",
+  "plan_hash": "sha256:5c1e1b439508b981f340924cd15808ee36a9c1eb81552d931c6529304f7afcc2",
+  "_review_summary": "C-2 proactive (Codex CONDITIONAL major 3 + Gemini CONDITIONAL major 1 CRITICAL → R-001..R-010 全反映 / CRITICAL R-005 --sandbox read-only も解消) PR #323 merged。Codex 9 PBI batch review APPROVE_FOR_C3。",
+  "_review_notes": "ユーザーの明示指示『TASK-0109 を進めたい』(2026-05-28) に基づく Human 代行発行。本 PBI は CRITICAL R-005 解消済、T-01 hook 起動経路をハードゲート化済。Codex provider/hook 系 (.codex/hooks 配線 + bin/plangate review codex 実装 + provider-codex RFC)。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
