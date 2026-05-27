@@ -22,10 +22,10 @@ PocketEitan `.claude/commands/release.md` Phase 5 の最小ポート + PlanGate 
 | # | Step | Output | Owner | Risk | 🚩 |
 |---|------|--------|-------|------|----|
 | 1 | **T-01 調査**: 既存 release 関連 docs / `.claude/commands/` / scripts 把握、PocketEitan 実装パターン参照 | 調査メモ | AI | low | 既存資産マップ |
-| 2 | **T-02 script**: `scripts/check-tag-main-parity.sh` (POSIX sh、引数 tag、`^{commit}` peel、exit 0/1) | scripts/check-tag-main-parity.sh | AI | medium | tag/main 比較動作 |
-| 3 | **T-03 doc**: `docs/release-process.md` (新規 or 既存追記) Iron Law + 検証フロー + 失敗時 `-f` 貼り替え手順 | docs/release-process.md | AI | low | Human 運用可能 |
-| 4 | **T-04 rule link**: `.claude/rules/responsibility-classes.md` §publish 責務分界 に検証手順 link 追記 | .claude/rules/responsibility-classes.md | AI | medium (Hardening Override) | maintenance window 経由 + markdownlint |
-| 5 | **T-05 test**: `tests/extras/ta-18-tag-main-parity.sh` fixture 3 case (一致/不一致/tag 不在) | tests/extras/ta-18-tag-main-parity.sh | AI | low | ta-18 全 PASS |
+| 2 | **T-02 script (R-001/R-004)**: `scripts/check-tag-main-parity.sh` (POSIX sh、引数 tag、**冒頭で `git fetch origin main`** (stale 防止、fetch 失敗時警告 + exit)、`^{commit}` peel (annotated/lightweight 両対応)、exit 0/1) | scripts/check-tag-main-parity.sh | AI | medium | tag/main 比較動作 + fetch 動作確認 |
+| 3 | **T-03 doc (R-002)**: `docs/release-process.md` (新規 or 既存追記) Iron Law + 検証フロー + 失敗時 **`--force-with-lease` + ref 明示** (`refs/tags/<tag>:refs/tags/<tag>`) 貼り替え手順 (Human 操作 + 監査ログ + 対象 tag 再確認 + 段階的フロー) | docs/release-process.md | AI | low | Human 運用可能、`--force-with-lease` 明記 |
+| 4 | **T-04 rule link (R-003)**: `.claude/rules/responsibility-classes.md` §publish 責務分界 に検証手順 link 追記 | .claude/rules/responsibility-classes.md | **Human (PR patch)** | medium (Hardening Override) | **Human-owned patch** (TASK-0112 同方針) + markdownlint |
+| 5 | **T-05 test (R-004)**: `tests/extras/ta-18-tag-main-parity.sh` fixture **5 case** (一致 / 不一致 / tag 不在 / **annotated tag peeling** / **lightweight tag peeling**) | tests/extras/ta-18-tag-main-parity.sh | AI | low | ta-18 全 5 case PASS |
 | ~~T-06 (stretch)~~ | ~~bin/plangate doctor 統合~~ | — | — | **本 PBI から除外** | V2 候補に降格 (Codex 9 PBI review 反映、bin/plangate は HO で改修コスト高) |
 | 7 | **T-07 handoff + V-1** | handoff.md | AI | low | AC-1..6 PASS (AC-7 任意) |
 
@@ -54,7 +54,9 @@ PocketEitan `.claude/commands/release.md` Phase 5 の最小ポート + PlanGate 
 | 既存 release skill と重複定義 | low | 本 PBI は Iron Law + 検証 script のみ、skill 改修は follow-up |
 | force push (`git push -f`) 濫用 | medium | 検証失敗時のみ + Human オペレーション固定 + 監査ログ docs に明示 |
 | Hardening Override 対象改修が EH-3 で block | high | C-3 APPROVED + maintenance window (TASK-0106/0112/0115 で実証済) |
-| lightweight tag vs annotated tag 揺れ | low | `^{commit}` peel で吸収、TC-03 で確認 |
+| lightweight tag vs annotated tag 揺れ | low | `^{commit}` peel で吸収、TC-02 (annotated) / TC-03 (lightweight) で両方検証 (R-004) |
+| **stale `origin/main` (fetch 漏れ) で誤判定** | medium | script 冒頭で `git fetch origin main` 実行、fetch 失敗時は exit + 警告 (R-001) |
+| **`git push -f` の濫用 / コミット書き換え** | medium | `--force-with-lease` + ref 明示 (`refs/tags/<tag>:refs/tags/<tag>`)、Human 操作 + 監査ログ + 対象 tag 再確認の段階フロー (R-002) |
 
 ## Mode 判定 (Codex 9 PBI review 反映)
 

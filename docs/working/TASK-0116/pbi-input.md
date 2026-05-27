@@ -17,10 +17,16 @@ INC-2026-05-26-001 / TASK-0114 / TASK-0115 と同じ governance hardening 系列
 
 - PlanGate workflow docs (`docs/workflows/` or `docs/release-process.md`) に Iron Law 追記
 - `.claude/rules/responsibility-classes.md` §「対外公開アーティファクト publish 責務分界」に検証手順 link
-- `scripts/check-tag-main-parity.sh` (新規) — `[ "$(git rev-parse <tag>^{commit})" = "$(git rev-parse origin/main)" ]` で機械検証
+- `scripts/check-tag-main-parity.sh` (新規) — script 冒頭で **`git fetch origin main`** (stale 防止 / R-001) を実行 (fetch 失敗時は明確警告 + exit)、その後 `[ "$(git rev-parse <tag>^{commit})" = "$(git rev-parse origin/main)" ]` で機械検証
 - `bin/plangate doctor` 統合 (option): 最新 tag vs main の整合確認
-- `docs/ai/release-process.md` (新規 or 既存追記) — 検証フロー手順書 + 失敗時 `-f` 貼り替え手順
+- `docs/ai/release-process.md` (新規 or 既存追記) — 検証フロー手順書 + 失敗時の **`--force-with-lease` + ref 明示** (`refs/tags/<tag>:refs/tags/<tag>`) 貼り替え手順 (R-002 反映、Human 操作 + 監査ログ + 対象 tag 再確認)
 - `tests/extras/ta-18-tag-main-parity.sh` (新規) fixture test
+
+### 承認境界 owner (R-003 反映)
+
+- `scripts/check-tag-main-parity.sh` 新規作成は AI 可 (Hardening Override 対象外パス)
+- `.claude/rules/responsibility-classes.md` 追記は **Hardening Override 対象** → **Human-owned patch** で適用 (TASK-0112 と同方針、maintenance window 経由は採用しない)
+- `docs/release-process.md` 新規は AI 可
 
 ### Out of scope
 
