@@ -29,11 +29,16 @@ else
   fi
 fi
 
-# === TC-03 (R-006): timeout wrap ===
-if grep -qE "timeout 600.*codex exec|timeout 600 codex" "$PG_T20_BIN"; then
+# === TC-03 (R-006): timeout wrap + macOS gtimeout fallback (Gemini HIGH 反映後) ===
+if grep -qE 'codex_timeout_cmd="timeout 600"|timeout 600 codex' "$PG_T20_BIN"; then
   t20_pass "TC-03 timeout 600 で codex exec wrap (R-006)"
 else
   t20_fail "TC-03 timeout wrap なし"
+fi
+if grep -qE "gtimeout 600" "$PG_T20_BIN"; then
+  t20_pass "TC-03b gtimeout (macOS coreutils) fallback (Gemini HIGH 反映)"
+else
+  t20_fail "TC-03b gtimeout fallback なし"
 fi
 
 # === TC-04 (R-007): --output-last-message でクリーン出力 ===
