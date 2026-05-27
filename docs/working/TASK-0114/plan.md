@@ -22,7 +22,7 @@ TASK-0113 (#355 pre-commit hook、PR #358) と並列構造で pre-push 版を提
 | # | Step | Output | Owner | Risk | 🚩 |
 |---|------|--------|-------|------|----|
 | 1 | **T-01 調査**: TASK-0113 template / install pattern 確認、git pre-push 仕様 (stdin format) 確認 | 調査メモ | AI | low | パターン把握 |
-| 2 | **T-02**: `scripts/templates/pre-push.sample` (POSIX sh、stdin parsing、protected check、エラーメッセージ) | scripts/templates/pre-push.sample | AI | medium | protected push 検出 + 明確メッセージ |
+| 2 | **T-02 (R-002/R-007)**: `scripts/templates/pre-push.sample` (POSIX sh、stdin parsing、protected check via `case $branch in $pattern)` (右辺 unquoted で glob)、エラーメッセージ) | scripts/templates/pre-push.sample | AI | medium | protected push 検出 + 明確メッセージ + release/* glob 動作 |
 | 3 | **T-03**: `scripts/install-pre-push.sh` (TASK-0113 install スクリプトと並列、`.bak` 保持) | scripts/install-pre-push.sh | AI | low | install 後 hook 発火 |
 | 4 | **T-04**: `docs/ai/direct-push-prevention.md` 運用ガイド | docs/ai/direct-push-prevention.md | AI | low | Human が読んで運用可能 |
 | 5 | **T-05**: `tests/extras/ta-17-pre-push-guard.sh` fixture 5 case | tests/extras/ta-17-pre-push-guard.sh | AI | low | tests/run-tests.sh + ta-17 PASS |
@@ -53,7 +53,7 @@ TASK-0113 (#355 pre-commit hook、PR #358) と並列構造で pre-push 版を提
 |------|-----|------------|
 | feature branch push false positive | low | protected list 明確化 + override env |
 | 既存 hook 衝突 | low | `.bak` 保持 + 明示警告 |
-| `--no-verify` で容易 bypass | acceptable | 緊急脱出弁、P-2 GitHub branch protection と組合せ |
+| `--no-verify` で容易 bypass | acceptable (R-003) | 緊急脱出弁、P-2 (GitHub branch protection) との責務分界を doc に強く明記 — **local hook は最後の防衛線、repo-wide enforcement は P-2 必須** |
 | stdin format の OS 差 | low | git 公式仕様準拠 (`<local ref> <local sha> <remote ref> <remote sha>`) |
 
 ## Mode 判定
