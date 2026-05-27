@@ -15,6 +15,16 @@ issue #310 残 5 項目 (#3-#7) を反映し、外部新規 OSS 利用者の初�
 - **既存ABCD呼称残置**: #7 で WF-XX を主表記化するが、既存 ABCD 参照は対応表で吸収 (破壊回避)
 - **markdownlint pass**: `.markdownlint-cli2.jsonc` の MD013/MD024 設定範囲で markdown 標準準拠
 
+### Out of scope (#356 で完了済、本 PBI 対象外)
+
+- **#1 「最初に読む 3 ページ」順序明示** — README L21-25 + docs/index.md L9-17 で達成済
+- **#2 Requirements 明文化** — README + docs/index.md 両方で達成済
+- **#4 doctor --fix 必須度強調** — README L143-155 で達成済
+- **#5 When NOT to use** — `docs/when-not-to-use.md` 新設済
+- **#6 用語 Glossary** — `docs/glossary.md` 新設済
+
+本 PBI の **実 scope は #3 (30-min 統一) + #7 (ABCD↔WF 呼称統合) の 2 項目** に絞られる (T-01 evidence で確認、PR #373)。
+
 ### Non-goals
 - Pages 配信構造の根本変更（#295 別途）
 - 過去 design doc (v4/v5) の本文更新（既に Historical Archive マーク済）
@@ -29,9 +39,9 @@ issue #310 残 5 項目 (#3-#7) を反映し、外部新規 OSS 利用者の初�
 | # | Step | Output | Owner | Risk | 🚩 Checkpoint |
 |---|------|--------|-------|------|--------------|
 | 1 | **#3 30-min first run 単一化** — README + README_en + docs/index.md の 3 箇所で `staged-adoption-guide.md` Phase 0 を**正本**として明示、README は短縮版・docs/index.md は導線。アンカー `[Phase 0](./docs/staged-adoption-guide.md#phase-0-体験day-1)` まで具体化 | README.md + README_en.md + docs/index.md + staged-adoption-guide.md | AI | low | 3 ファイル冒頭で導線統一、アンカー解決確認 |
-| 2 | **#4 doctor --fix 必須度強調** — README install 節直後に「⚠️ これを実行しないとゲート (強制力) は機能しません」blockquote 追加。**MD028 回避**: 空行にも `> ` を含める | README.md / README_en.md | AI | low | 視覚的目立つ box 表示、英訳整合、markdownlint MD028 pass |
-| 3 | **#5 When NOT to use ページ新規** — `docs/when-not-to-use.md` 新規作成、philosophy.md からリンク。短期プロト過剰/PBI 文化なし/Claude Code 非利用時の制約等 5 件以上 | docs/when-not-to-use.md (新規) + docs/philosophy.md (link) + docs/index.md (link) | AI | low | 5 件以上の具体的トレードオフ、攻撃的でないトーン |
-| 4 | **#6 用語 Glossary 新規** — `docs/glossary.md` 新規作成、EH-1〜EH-9/EHS-1〜3/WF-01〜05/V-1〜4/C-1〜4/L-0 等の略号 1 行解説 + 参照先 URL。主要 doc 冒頭から 1 行リンク | docs/glossary.md (新規) + docs/index.md (link) + 主要 doc (plangate.md/philosophy.md 等) 冒頭 link | AI | low | 全略号網羅、参照先実在 |
+| ~~2~~ | ~~**#4 doctor --fix 必須度強調**~~ — **#356 (merged) で完了** (README L143-155 `### 導入後: hook 強制 🚨 必須` + ⚠️ 重要 box 追加済) | — | — | **DONE via #356** | スコープから除外、AC-4 既に達成 |
+| ~~3~~ | ~~**#5 When NOT to use ページ新規**~~ — **#356 (merged) で完了** (`docs/when-not-to-use.md` 新設) | — | — | **DONE via #356** | スコープから除外、AC-5 既に達成 |
+| ~~4~~ | ~~**#6 用語 Glossary 新規**~~ — **#356 (merged) で完了** (`docs/glossary.md` 新設、L23-31 に ABCD↔WF 対応表含む) | — | — | **DONE via #356** | スコープから除外、AC-6 既に達成 |
 | 5 | **#7 呼称統合 (LOW)** — A/B/C/D ↔ WF-01..05 対応表は**`docs/glossary.md` を正本**とし、既存 `docs/workflows/README.md` 対応表は glossary.md 参照に切替 (重複解消)。`docs/plangate.md` の見出しは `## A: PBI INPUT (WF-01/02)` のように**併記**に留め既存アンカー ID を維持。docs/ai/project-rules.md に「新規 doc は WF-XX 優先、既存 ABCD は対応表で吸収」方針追記 | docs/glossary.md (正本) + docs/workflows/README.md (参照に切替) + docs/plangate.md (見出し併記) + docs/ai/project-rules.md (方針追記) | AI | medium | 正本/参照関係明確 + 既存アンカー破壊なし + 対応表が機械的に正しい |
 | 6 | **C-2 任意外部レビュー** — Codex + Gemini 再委任、本 PR 反映後の評価で `CONDITIONAL Yes → Yes` を再確認 (AC-6) | review-external.md (本セッション内) | AI | low | 両レビュアから新たな major 0 件 |
 | 7 | **handoff + V-1** | TASK-0108/handoff.md | AI | low | AC-1..7 全 PASS |
@@ -79,6 +89,16 @@ issue #310 残 5 項目 (#3-#7) を反映し、外部新規 OSS 利用者の初�
 - **#3 first-run 単一化**: README 10 分 と staged-adoption Phase 0 のどちらが「正」か → **staged-adoption-guide が主、README は短縮チュートリアル**（Codex 評価で staged-adoption が高評価）と固定。代替案は C-2 で再評価
 - **#6 Glossary 配置**: 専用 `docs/glossary.md` vs 主要 doc 冒頭 blockquote → **専用ファイル**（重複と維持コスト最小）
 - **#7 統合方針**: ABCD 完全廃止 vs 対応表で吸収 → **対応表で吸収** (破壊回避)
+
+## Plan Health (T-01 反映後)
+
+| 項目 | plan 見積もり | T-01 実数 | 比率 | 判定 |
+|------|--------------|----------|------|------|
+| 変更ファイル数 | 7 (Step 1-7) | **5** (Step 1 + Step 5 + Step 6 任意 + Step 7) | 0.71 倍 | 1 段降格候補 |
+| 受入基準数 | 7 | **2 残** (AC-3 + AC-7 / 他 5 件 #356 達成) | — | 本 PBI 実 scope は 2 件 |
+| 実 work breakdown | Step 1-7 | **Step 1 + Step 5 + Step 6 + Step 7** (Step 2/3/4 削除) | — | 簡素化 |
+
+→ #351 (TASK-0117) 事前メトリクス検証「< 1 倍 → Mode 1 段下げ候補」に該当。ただし本 PBI は **scope 縮小済で実 work が 2 項目** のため、Mode は standard 維持しつつ AC 充足率を明示 (5/7 既達成 + 2/7 残)。
 
 ## Mode 判定
 
