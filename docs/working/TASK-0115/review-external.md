@@ -18,8 +18,8 @@
 | R-003 (codex) | 保守性/テスト | minor | TC-02..TC-06 grep がファイル全体に当たる → 新セクション範囲を切ってから grep |
 | R-004 (codex) | 拡張性 | minor | 重複定義回避設計は妥当 |
 | R-005 (codex) | 可読性 | minor | section 構造明確 |
-| R-006 (gemini) | コードベース | Low | TASK-0112 (PR #357) 例外ルールが未反映の可能性 → 安全側 (lite_eligible=false 明示扱い) |
-| R-007 (gemini) | 検証 | Low | TC-05 INC 参照のリンク健全性を明示確認 |
+| R-006 (gemini) | コードベース | minor | TASK-0112 (PR #357) 例外ルールが未反映の可能性 → 安全側 (lite_eligible=false 明示扱い) |
+| R-007 (gemini) | 検証 | minor | TC-05 INC 参照のリンク健全性を明示確認 |
 | R-008 (gemini) | 構造 | minor | responsibility-classes.md 追記位置: 「既存ルール対応」セクション直前 |
 
 ## 反映方針 (次 PR)

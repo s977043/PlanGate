@@ -7,7 +7,7 @@
 | Reviewer | 判定 | 内訳 |
 |----------|------|------|
 | Codex | **CONDITIONAL** | minor 5 (major なし) |
-| Gemini | **CONDITIONAL APPROVE** | minor 3 |
+| Gemini | **CONDITIONAL APPROVE** | minor 2 |
 
 ## 集約 (R-001..R-007)
 
