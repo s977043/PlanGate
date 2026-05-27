@@ -8,9 +8,9 @@
 | C1-TODO-01..05 | PASS |
 | C1-TC-01..03 | PASS |
 
-## 判定: **PASS** — C-3 ゲート提出可能 (proactive C-2 試行、Codex usage 上限のため deferred / TASK-0113 install pattern 重複は本 PBI で明示整理済)
+## 判定: **PASS** — C-3 ゲート提出可能 (C-2 individual R-001..R-008 反映後 v2、Codex CONDITIONAL major 2 全解消)
 
-総合スコア: 90/100。blocker 0、major 0、minor 1 (proactive C-2 は Codex usage 上限により 2026-05-27 時点で deferred、c3.json 発行直前または exec 後の V-3 で再試行)。
+総合スコア: **93/100** (C-2 反映後)。R-001 AC 統一 / R-002 release/* glob 仕様 / R-003 P-2 責務分界 / R-004 TC-09 分離 / R-006 install 冪等性 / R-007 glob クォート扱い 全反映。blocker 0、major 0。
 
 ## TASK-0113 install pattern 重複整理 (Codex 9 PBI review 指摘反映)
 
