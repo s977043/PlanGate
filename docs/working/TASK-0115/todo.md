@@ -3,7 +3,7 @@
 ## 🤖 Agent タスク
 
 - [ ] **T-01**: TASK-0112 適用パターン + responsibility-classes.md 既存セクション構造把握 (owner=agent / Risk=low / 🚩 構造把握)
-- [ ] **T-02**: `.claude/rules/responsibility-classes.md` に新セクション追加 (owner=agent / Risk=medium / depends_on=T-01 / 🚩 maintenance window 経由 + markdownlint pass)
+- [ ] **T-02 (R-001/R-008)**: `.claude/rules/responsibility-classes.md` の「既存ルール対応」**直前**に新セクション追加 (main 禁止 + 他 protected 明示確認の 2 段階) (owner=agent / Risk=medium / depends_on=T-01 / 🚩 maintenance window or Human-owned patch + markdownlint pass)
 - [ ] **T-03**: handoff.md + V-1 (owner=agent / Risk=low / depends_on=T-02 / 🚩 AC-1..5 PASS)
 
 ## 👤 Human タスク
