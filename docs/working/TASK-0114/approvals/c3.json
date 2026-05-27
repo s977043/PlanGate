@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0114",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-28",
+  "approved_at": "2026-05-27T21:17:52Z",
+  "plan_hash": "sha256:99f7f0a9fe7533467dc2346faa98db670a585ef96bc63f6ef778e76b2a504b45",
+  "_review_summary": "C-2 individual (PR #377 集約) + Codex 9 PBI batch + Gemini bot PR #379 (set -f noglob / Defense in Depth 順序 / TC-04 glob テスト強化) 全反映済。INC-2026-05-26-001 P-1 (pre-push hook で main 直接 push 防止)。",
+  "_review_notes": "ユーザーの明示指示『TASK-0114 を進めたい』(2026-05-28) に基づく Human 代行発行。本 PBI は major 0、Hardening Override 対象外 (scripts/templates/ 新規パス、maintenance window 不要)。INC report の Prevention P-1 に対応。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
