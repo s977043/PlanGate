@@ -15,10 +15,11 @@ TASK-0112 (mode-classification 例外ルール、merged) と同じ操作パタ�
 
 ### In scope
 
-- `.claude/rules/responsibility-classes.md` または `.claude/rules/` 配下に「Bash 連結コマンド時の error guard」セクション追加
+- `.claude/rules/responsibility-classes.md` または `.claude/rules/` 配下に「Bash 連結コマンド時の error guard」セクション追加 (R-008 反映: 「既存ルール対応」セクション直前に配置で論理構造維持)
   - `&&` 連結 or `set -e` 必須
   - `git push` 前の `git rev-parse --abbrev-ref HEAD` で current branch verify
-  - protected branch (main/master/release/*) への commit/push は事前明示確認
+  - **`main` は直接 commit / push 禁止** (project-rules.md L66 と一致 / R-001 反映)
+  - **その他 protected branch (`master`, `release/*`) への commit/push は事前明示確認**
 - 追記場所の選択: 既存 [`responsibility-classes.md`](../../../../.claude/rules/responsibility-classes.md) §「対外公開アーティファクト publish 責務分界」と類似性が高いため同 file 内に追記、または新規 `.claude/rules/bash-command-chain-guard.md` を分離
 - INC-2026-05-26-001 を出典として明記
 
@@ -31,7 +32,7 @@ TASK-0112 (mode-classification 例外ルール、merged) と同じ操作パタ�
 
 - AC-1: `.claude/rules/` に「Bash 連結コマンド時の error guard」rule が追加されている
 - AC-2: 以下 4 項目が含まれる: (i) `&&` 連結 or `set -e`、(ii) `git push` 前 branch verify、(iii) protected branch への commit/push 事前確認、(iv) INC-2026-05-26-001 への参照
-- AC-3: AI 運用 4 原則 (CLAUDE.md `<law>`) との階層関係明示 (本 rule は第 1 原則の運用解釈)
+- AC-3 (R-001 反映): AI 運用 4 原則 (CLAUDE.md `<law>`) との階層関係明示 (本 rule は第 1 原則の運用解釈)、**`main` は禁止 / 他 protected は明示確認** という 2 段階構造を明示
 - AC-4: TASK-0112 (mode-classification 例外ルール) との重複定義なし、相互参照のみ
 - AC-5: markdownlint pass + リンク健全性 CI pass
 
