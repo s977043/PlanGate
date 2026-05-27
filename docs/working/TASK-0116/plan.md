@@ -54,7 +54,7 @@ PocketEitan `.claude/commands/release.md` Phase 5 の最小ポート + PlanGate 
 | 既存 release skill と重複定義 | low | 本 PBI は Iron Law + 検証 script のみ、skill 改修は follow-up |
 | force push (`git push -f`) 濫用 | medium | 検証失敗時のみ + Human オペレーション固定 + 監査ログ docs に明示 |
 | Hardening Override 対象改修が EH-3 で block | high | C-3 APPROVED + maintenance window (TASK-0106/0112/0115 で実証済) |
-| lightweight tag vs annotated tag 揺れ | low | `^{commit}` peel で吸収、TC-03/TC-04/TC-05 で annotated + lightweight 両方検証 (R-004) |
+| lightweight tag vs annotated tag 揺れ | low | `^{commit}` peel で吸収、TC-02 (annotated) / TC-03 (lightweight) で両方検証 (R-004) |
 | **stale `origin/main` (fetch 漏れ) で誤判定** | medium | script 冒頭で `git fetch origin main` 実行、fetch 失敗時は exit + 警告 (R-001) |
 | **`git push -f` の濫用 / コミット書き換え** | medium | `--force-with-lease` + ref 明示 (`refs/tags/<tag>:refs/tags/<tag>`)、Human 操作 + 監査ログ + 対象 tag 再確認の段階フロー (R-002) |
 
