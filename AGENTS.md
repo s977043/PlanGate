@@ -51,33 +51,31 @@
 <claude-mem-context>
 # Memory Context
 
-# [plangate] recent context, 2026-05-27 11:04am GMT+9
+# [plangate] recent context, 2026-05-26 5:20am GMT+9
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 12 obs (3,999t read) | 379,925t work | 99% savings
+Stats: 12 obs (4,335t read) | 410,476t work | 99% savings
 
 ### May 24, 2026
 S1704 PlanGate skill review and full CLI alignment — reviewing .codex/runtime-home-v2/skills/ai-dev-plan/SKILL.md and fixing all identified issues across 4 PRs (May 24 at 3:32 PM)
 ### May 25, 2026
 S1705 PlanGate skill review and full CLI alignment — reviewing ai-dev-plan/SKILL.md, fixing all identified issues across 4 PRs, filing remaining PBIs as GitHub Issues (May 25 at 7:00 AM)
 S1707 PlanGate skill review and full CLI alignment — all AI-autonomous work complete; two Human-owned patches designed, tested, and ready for application (May 25 at 7:10 AM)
-### May 26, 2026
-6599 7:35p ⚖️ TASK-0117 外部レビュー: ai-dev-plan skill への事前メトリクス検証 step 追加 (PR #364)
-6598 " 🔵 TASK-0111 C-2 評価: exec 着手前の状態確認完了
-6600 7:40p 🔵 ai-dev-plan SKILL.md の実在パスは .agents/skills/ — plan.md の参照パスが誤り
-6601 " 🔵 TASK-0112 (PR #357 merged): mode-classification.md に「承認境界周辺→最低高」例外ルール追加済
-6602 " 🔵 PlanGate skill 配置アーキテクチャ: .claude/skills/ vs .agents/skills/ の責務境界
-### May 27, 2026
-6621 6:50a ⚖️ TASK-0117 PR #364 C-2 Final Approval: APPROVE after R-001..R-005 All Reflected
-6626 " ⚖️ TASK-0111 T-01 PR #366 Wording Fix Review Gate
-6622 " 🔵 TASK-0117 Deliverables Not Yet Created — Only SKILL.md Exists on Wrong Branch
-6623 6:51a 🔵 PR #364 MERGED — Contains Only Planning Docs; SKILL.md Pre-dates TASK-0117 Exec
-6624 " 🔵 TASK-0117 plan.md Header/Body Mode Inconsistency: `light` vs `standard`
-6625 6:52a 🔵 TASK-0117 INDEX.md and current-state.md Contain Pre-R-002 Stale Values on Merged Branch
-6627 6:53a 🔴 PR #366 MERGED: TASK-0111 T-01 Evidence Wording Fix
+6233 9:00a 🔵 PlanGate PR #325/#327/#330 Documentation Verification (Read-Only Audit)
+6234 " 🔵 PlanGate Doc Verification: Most Target Files Unreadable or Empty
+6236 9:01a 🔵 PlanGate PR #325/#327/#330 Doc Audit: Concrete Findings Per Checklist Item
+6237 9:02a 🔵 PlanGate Doc Audit: Definitive Findings — New Skills Unregistered, Env Vars Undocumented, B-1→B-3 Flow Gap
+6276 11:04a ⚖️ PlanGate Codex Parity Gap #336 — 設計調査タスク発行
+6277 " 🔵 PlanGate hook 配線の実体確認 — .claude/settings.json 全構造
+6278 " 🔵 Codex CLI の sandbox_mode と forbidden_files 相当制御の確認結果
+6279 " 🔵 PlanGate リポジトリ構成 — .claude/.codex/.agents 三層アーキテクチャの確認
+6286 11:05a ⚖️ TASK-0111: pages/ → docs/pages/ 移設設計レビュー (C-2 外部レビュー)
+6280 " 🔵 hook スクリプト全体構造と Codex parity gap の技術的詳細
+6281 11:06a 🔵 bin/plangate exec の Codex 経路は情報表示のみ — 実行ゲートなし
+6287 11:11a 🔵 TASK-0111 C-2レビュー用リポジトリ現状調査結果
 
-Access 380k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 410k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
