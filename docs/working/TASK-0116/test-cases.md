@@ -17,8 +17,8 @@
 | ID | 内容 | コマンド | 期待 |
 |----|------|---------|------|
 | TC-01 | `docs/release-process.md` に Iron Law | `grep -nE 'NO RELEASE WITHOUT TAG-MAIN PARITY' docs/release-process.md` | 該当 |
-| TC-02 | script: tag = main 一致時 exit 0 | fixture repo で tag を HEAD に + script 実行 | exit 0 |
-| TC-03 | script: tag != main 不一致時 exit 1 | fixture で tag を別 commit に + script | exit 1 + メッセージ |
+| TC-02 (R-004 annotated) | script: **annotated tag** = main 一致時 exit 0 | fixture repo で `git tag -a v1.0 HEAD -m 'release'` + script 実行 | exit 0 (^{commit} で peeling 確認) |
+| TC-03 (R-004 lightweight) | script: **lightweight tag** = main 一致時 exit 0、tag != main 不一致時 exit 1 | fixture で `git tag v1.0-lite HEAD` (lightweight) → 一致 exit 0 / 別 commit → exit 1 | 両 case 期待動作 |
 | TC-04 | script: tag 不在時 exit 1 + 明確メッセージ | 存在しない tag を引数 | exit 1 |
 | TC-05 | `.claude/rules/responsibility-classes.md` に検証 link | `grep -nE 'check-tag-main-parity\|release-process' .claude/rules/responsibility-classes.md` | 該当 |
 | TC-06 | docs に `-f` 貼り替え手順 (Human オペレーション) | `grep -nE 'git push -f.*tag\|tag -fa' docs/release-process.md` | 該当 |
@@ -26,6 +26,9 @@
 | TC-08 | 既存テスト regression なし | `sh tests/run-tests.sh && sh tests/hooks/run-tests.sh` | 全 PASS |
 | TC-09 | shellcheck + markdownlint | `shellcheck scripts/check-tag-main-parity.sh && npx markdownlint-cli docs/release-process.md` | exit 0 |
 | ~~TC-10 (stretch)~~ | ~~doctor 統合~~ — V2 候補に降格 (Codex 9 PBI review 反映) | — | — |
+
+| **TC-08 (R-001 fetch)** | script 冒頭の `git fetch origin main` 実行 + 失敗時 warning | (a) fetch 成功時 通常動作、(b) `--no-remote` etc で fetch 失敗模擬 → script は警告 + exit 非 0 | (a) exit 0/1 通常、(b) exit !=0 + 警告 |
+| **TC-09 (R-002 doc)** | `docs/release-process.md` に `--force-with-lease` + `refs/tags/<tag>:refs/tags/<tag>` 明記 | `grep -nE 'force-with-lease.*refs/tags' docs/release-process.md` | 該当 |
 
 ## エッジケース
 
