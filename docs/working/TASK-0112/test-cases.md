@@ -16,7 +16,7 @@
 | ID | 内容 | コマンド | 期待 |
 |----|------|---------|------|
 | TC-01 | 「承認境界周辺の変更 → 最低でも『高』」追加 | `grep -n '承認境界周辺の変更.*最低でも.*高' .claude/rules/mode-classification.md` | 該当 1 件 |
-| TC-02 | 対象パス一覧が Hardening Override と一致 (.claude/, scripts/hooks/, bin/plangate, schemas/, .github/workflows/, AGENTS.md, CLAUDE.md) | `grep -nE '\.claude/.*scripts/hooks/.*bin/plangate' .claude/rules/mode-classification.md \|\| true` および手動比較 | 全 path 言及 |
+| TC-02 (R-003/R-005) | 対象パス一覧が check-plan-hash.sh L124-134 case 文と **9 カテゴリで完全一致** | `awk '/承認境界周辺の変更/,/^## /' .claude/rules/mode-classification.md | grep -cE '\.claude/rules|\.claude/settings|\.claude/commands|\.claude/agents|scripts/hooks|bin/plangate|schemas/|workflows|AGENTS|CLAUDE'` | カテゴリ count >= 9 |
 | TC-03 | working-context.md AC-10/AC-8 への相互参照 | `grep -nE 'AC-10\|AC-8\|working-context' .claude/rules/mode-classification.md` | 該当 |
 | TC-04 | 監査ログ一括変更 CLI 例外 (TASK-0110 を例示) | `grep -nE '監査ログ.*一括\|TASK-0110' .claude/rules/mode-classification.md` | 該当 |
 | TC-05 | 自動推定安全側 (不確実→該当扱い) | `grep -nE '安全側\|不確実.*該当' .claude/rules/mode-classification.md` | 該当 |
