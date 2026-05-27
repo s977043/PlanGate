@@ -73,21 +73,23 @@ graph TD
 
 ### 各フェーズの役割
 
-| フェーズ | 誰が | 何をする | 成果物 |
-| --- | --- | --- | --- |
-| **A**: PBI INPUT | 人間 | 要件・スコープ・受入基準を記入 | `pbi-input.md` |
-| **B**: Plan生成 | AI | 計画・タスク分解・テストケース定義を同時生成 | `plan.md` `todo.md` `test-cases.md` |
-| **C-1**: セルフレビュー | AI | 17項目のPASS/WARN/FAILチェック | `review-self.md` |
-| **C-2**: 外部AIレビュー | AI | 別AIモデルによる独立チェック | `review-external.md` |
-| **C-3**: 人間レビュー | **ゲート** | C-1/C-2の結果を踏まえて三値判断 | APPROVE / CONDITIONAL / REJECT |
-| **D**: Agent実行 | AI | TDDで実装(テスト全パスが完了条件) | 実装コード |
-| **L-0**: リンター自動修正 | AI | autofix → AI修正最大3回 → 抑制+V-3申し送り | リンター通過済みコード |
-| **V-1**: 受け入れ検査 | AI | test-cases.mdの完了条件を1つずつ機械的に突合 | PASS / FAIL(FAIL時はfix loop最大5回) |
-| **V-2**: コード最適化 | AI | 冗長コード削減・可読性向上(high-risk/criticalモード) | 最適化済みコード+テスト再実行 |
-| **V-3**: 外部モデルレビュー | AI | 外部AI(Gemini等)による設計品質チェック | レビュー結果 |
-| **V-4**: リリース前チェック | AI | PR作成前の最終品質ゲート(criticalモード) | チェック結果 |
-| **PR作成** | AI | GitHubにPull Request作成 | PR |
-| **C-4**: 人間レビュー | **ゲート** | PRの最終レビュー(GitHub上) | APPROVE / REQUEST CHANGES / REJECT |
+> ABCD ↔ WF-XX 対応の正本: [`docs/glossary.md` Workflow フェーズ](./glossary.md#workflow-フェーズ-wf-xx--abcd--wf-対応表-正本) (TASK-0108 / #310 #7)。下表は WF-XX 列で **併記**。
+
+| フェーズ | 対応 WF | 誰が | 何をする | 成果物 |
+| --- | --- | --- | --- | --- |
+| **A**: PBI INPUT | WF-01 / WF-02 | 人間 | 要件・スコープ・受入基準を記入 | `pbi-input.md` |
+| **B**: Plan生成 | WF-01〜WF-03 横断 | AI | 計画・タスク分解・テストケース定義を同時生成 | `plan.md` `todo.md` `test-cases.md` |
+| **C-1**: セルフレビュー | (WF 外) | AI | 17項目のPASS/WARN/FAILチェック | `review-self.md` |
+| **C-2**: 外部AIレビュー | (WF 外) | AI | 別AIモデルによる独立チェック | `review-external.md` |
+| **C-3**: 人間レビュー | (WF 外) | **ゲート** | C-1/C-2の結果を踏まえて三値判断 | APPROVE / CONDITIONAL / REJECT |
+| **D**: Agent実行 | **WF-04** Build & Refine | AI | TDDで実装(テスト全パスが完了条件) | 実装コード |
+| **L-0**: リンター自動修正 | WF-04 内 | AI | autofix → AI修正最大3回 → 抑制+V-3申し送り | リンター通過済みコード |
+| **V-1**: 受け入れ検査 | **WF-05** Verify | AI | test-cases.mdの完了条件を1つずつ機械的に突合 | PASS / FAIL(FAIL時はfix loop最大5回) |
+| **V-2**: コード最適化 | WF-04 延長 / WF-05 入口 | AI | 冗長コード削減・可読性向上(high-risk/criticalモード) | 最適化済みコード+テスト再実行 |
+| **V-3**: 外部モデルレビュー | WF-05 内 | AI | 外部AI(Gemini等)による設計品質チェック | レビュー結果 |
+| **V-4**: リリース前チェック | WF-05 Handoff 前 | AI | PR作成前の最終品質ゲート(criticalモード) | チェック結果 |
+| **PR作成** | WF-05 Handoff | AI | GitHubにPull Request作成 | PR |
+| **C-4**: 人間レビュー | (WF 外) | **ゲート** | PRの最終レビュー(GitHub上) | APPROVE / REQUEST CHANGES / REJECT |
 
 ### タスク規模による分岐（5 モード）
 

@@ -54,6 +54,11 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 
 ## PlanGate 既存フェーズとの対応表
 
+> **正本注記** (TASK-0108 / #310 #7): ABCD ↔ WF-XX 呼称対応の**正本**は
+> [`docs/glossary.md` Workflow フェーズ (WF-XX)](../glossary.md#workflow-フェーズ-wf-xx--abcd--wf-対応表-正本) に集約。
+> 本表は **レイヤー / 主担当 / 対応 WF の詳細** を扱う補足表として保持し、
+> 純粋な ABCD↔WF mapping は glossary.md を参照すること。
+
 本 Workflow は PlanGate の **実行層**。PlanGate の**統制層**（人間ゲート / 承認 / 状態保存）は別レイヤーとして両立する。
 
 | PlanGate フェーズ | レイヤー | 主担当 | 対応する WF / ゲート |

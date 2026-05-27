@@ -16,6 +16,16 @@ Unlike agent frameworks that focus on autonomy, PlanGate focuses on **approval b
 
 ![PlanGate overview](docs/assets/harness-plangate-readme-dark-v2.png)
 
+## Where to Start (First 3 Pages, 15-30 minutes)
+
+New to PlanGate? Read these 3 pages in order:
+
+1. **[PlanGate guide (Japanese)](docs/plangate.md)** — Big picture, 5 phases, problems solved (~5 min)
+2. **[Staged Adoption Guide (Phase 0 = canonical first run)](docs/staged-adoption-guide.md#phase-0-体験day-1)** — Start at Level 1 (Day 1). **30-min first run canonical source** (~10 min)
+3. **[10-min hands-on (this README, later section)](#10-minute-hands-on-tutorial)** — Minimal hands-on **short version**, pointer to #2 (~10 min)
+
+To decide "is PlanGate right for our team", see [Philosophy (Japanese)](docs/philosophy.md) and [When NOT to use](docs/when-not-to-use.md). For abbreviations (EH-X / WF-XX / V-X / C-X), see [Glossary](docs/glossary.md).
+
 ## What PlanGate Distributes
 
 PlanGate distributes **"a safe pattern for AI-driven development"** — not a framework that lets AI do everything autonomously.
