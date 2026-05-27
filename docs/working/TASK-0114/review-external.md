@@ -6,8 +6,8 @@
 
 | Reviewer | 判定 | 内訳 |
 |----------|------|------|
-| Codex | **CONDITIONAL** | major 2 + minor 4 |
-| Gemini | **CONDITIONAL APPROVE** | minor 3 + info 2 |
+| Codex | **CONDITIONAL** | major 2 + minor 3 |
+| Gemini | **CONDITIONAL APPROVE** | minor 2 + info 1 |
 
 ## 集約 (R-001..R-008)
 
