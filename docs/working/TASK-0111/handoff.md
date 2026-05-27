@@ -45,7 +45,7 @@
 
 1. `pages/` (9 file) を `docs/pages/` に `git mv` で移設 (history 保持)
 2. `docs/index.md` の Liquid `{{ site.github.repository_url }}/blob/{{ site.github.build_revision }}/pages/...` を **相対パス `./pages/...`** に置換 (4 link)
-3. `docs/ai/metrics-privacy.md` / `docs/ai/issue-governance.md` の `../../pages/` を `../pages/` に置換 (3 line / 4 箇所)
+3. `docs/ai/metrics-privacy.md` / `docs/ai/issue-governance.md` の `../../pages/` を `../pages/` に置換 (4 行 / 4 箇所)
 4. `docs/pages/index.md` + `docs/pages/guides/governance/documentation-management.md` の自己言及 (35+ 行) を `docs/pages/` に書換
 5. `docs/_config.yml` 不変 (既存 relative_links + collections で動作)
 6. `sidebars.js` 不変 (doc-id 形式で path 非依存)
