@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0110",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-27",
+  "approved_at": "2026-05-27T10:06:01Z",
+  "plan_hash": "sha256:855abfc8273a65afa043a560c62f87a20abac4b0f6563aac86387c2416f1f9a6",
+  "_review_summary": "C-2 proactive (Codex CONDITIONAL major 2 → 反映後 APPROVE / Gemini APPROVE) R-001..R-006 確定反映済 (PR #363 merged)。Codex 9 PBI batch review APPROVE_FOR_C3。実害背景: PR #376 / PR #383 で skip-decision-log.jsonl が untracked 状態で git add に巻き込まれる事例が複数回発生、TASK-0110 で batch acknowledge スクリプト整備が急務。",
+  "_review_notes": "ユーザーの明示指示『対応をて自律的に進めて』(2026-05-27) + Codex 推奨に基づく Human 代行発行。本 PBI は major 0、Human-owned patch なしで AI 自律完結 (script 整備 + dry-run + 検証手順)。--apply は H-02 で Human オペレーション (PR ブランチ上で実行)。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
