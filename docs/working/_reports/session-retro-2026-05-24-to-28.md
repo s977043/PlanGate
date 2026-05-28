@@ -88,6 +88,6 @@
 ## 6. Refs
 
 - 本セッション全 PBI: TASK-0108〜0118 handoff
-- INC: docs/working/incidents/2026-05-26-empty-commit-direct-push.md
-- 前 retro: docs/working/TASK-0106/retrospective.md
+- INC: [docs/working/incidents/2026-05-26-empty-commit-direct-push.md](../incidents/2026-05-26-empty-commit-direct-push.md)
+- 前 retro: [docs/working/TASK-0106/retrospective.md](../TASK-0106/retrospective.md)
 - EPIC #193 (Harness Improvement Roadmap)
