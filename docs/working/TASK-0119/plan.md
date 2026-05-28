@@ -25,7 +25,7 @@
 | 2 | T-02: scripts/hooks/check-git-add-scope.sh (skip-log 未追認 / 他 TASK eval-result 検知) | scripts/hooks/check-git-add-scope.sh (HO) | AI | medium | 検知 + exit 1 |
 | 3 | T-03: docs/ai/git-add-scope-guard.md | docs/ai/git-add-scope-guard.md | AI | low | Human 運用可能 |
 | 4 | T-04: tests/extras/ta-22-git-add-scope.sh | tests/extras/ta-22-git-add-scope.sh | AI | low | ta-22 PASS |
-| 5 | T-05: handoff + V-1 | handoff.md | AI | low | AC-1..6 PASS |
+| 5 | T-05: handoff + V-1 | docs/working/TASK-0119/handoff.md | AI | low | AC-1..6 PASS |
 
 ## Files / Components to Touch
 
