@@ -27,3 +27,20 @@ PlanGate ワークフローで使うテンプレート群。
 | [`review-self.md`](./review-self.md) / [`review-external.md`](./review-external.md) | C-1 / C-2 レビュー結果 | |
 
 > `run-outcome-review.md` は v8.6.0 以前の利用者に**移行コストゼロ**（任意・後方互換）。
+
+
+## Phase 分割表 (規模 L 以上 / #352 codex-mvp-split)
+
+規模 L 以上 (TASK-0117 #351 事前メトリクス検証で実数 ≥ 3 倍) の機能は、
+PBI INPUT PACKAGE (`pbi-input.md`) に **Phase 分割表** を含める:
+
+| Phase | 内容 | 工数 | 状態 |
+|---|---|---|---|
+| 1 | <採用 MVP> | M | 着手 |
+| 2 | <次の拡張> | S | 繰延 (別 PBI) |
+| 3 | <最終形> | M | 繰延 (別 PBI) |
+
+Phase 1 のみ本 PBI scope。Phase 1 の選定は [`/codex-mvp-split`](../../../.claude/commands/codex-mvp-split.md)
+で Codex 相談。正本: [`docs/ai/codex-mvp-split.md`](../../ai/codex-mvp-split.md)。
+
+(規模 standard 以下で分割不要の場合は「該当なし」と明記)
