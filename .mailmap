@@ -1,0 +1,9 @@
+# .mailmap — commit author/committer の表示正規化
+#
+# 目的: 過去に誤って kominem-unilabo アカウントで作成された commit を、
+#       正規アカウント s977043 (mine_take) として表示に再マッピングする。
+#       履歴 (commit hash) は書き換えず、git log/shortlog/blame および
+#       GitHub の contributor 表示上で正規化のみ行う (非破壊)。
+#
+# format: Proper-Name <proper-email> Commit-Name <commit-email>
+mine_take <s977043@users.noreply.github.com> kominem-unilabo <kominem-unilabo@users.noreply.github.com>
