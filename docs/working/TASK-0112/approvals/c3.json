@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0112",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-28",
+  "approved_at": "2026-05-27T23:54:10Z",
+  "plan_hash": "sha256:c9dae2c003eeefd86f09f6a28ab797f4649feb28493056639d09426315c65722",
+  "_review_summary": "C-2 individual (PR #378 merged): Codex CONDITIONAL major 3 (Mode 自己例外 / maintenance 経由 / 9 カテゴリ) + Gemini 概ね APPROVE → R-001..R-007 全反映。Codex 9 PBI batch APPROVE_FOR_C3。mode-classification.md 例外ルール拡張 (承認境界周辺 → 最低 high)。",
+  "_review_notes": "ユーザー明示指示『TASK-0112 c3.json 発行』(2026-05-28)。Mode standard (自己例外矛盾解消 / R-001)、Human-owned patch (maintenance window 経由ではなく直接 patch / R-002)。本 PBI exec で .claude/rules/mode-classification.md 改修を同一 PR に patch 含める。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
