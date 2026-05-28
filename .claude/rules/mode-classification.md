@@ -45,6 +45,21 @@
 - セキュリティ関連の変更 → 最低でも「中」
 - データベーススキーマ変更 → 最低でも「高」
 - 公開 API の破壊的変更 → 最低でも「超高」
+- **承認境界周辺の変更 → 最低でも「高」** (TASK-0106 Retrospective Try 由来 / TASK-0112)
+  - 対象パス (Hardening Override 対象と完全一致 / [`scripts/hooks/check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) L124-134 case 文 = **9 カテゴリ** 正本):
+    - `.claude/rules/*.md`
+    - `.claude/settings.json` / `.claude/settings.local.json` / `.claude/settings.example.json`
+    - `.claude/commands/*.md`
+    - `.claude/agents/*.md`
+    - `scripts/hooks/*.sh`
+    - `bin/plangate`
+    - `schemas/*.schema.json`
+    - `.github/workflows/*.yml` / `.github/workflows/*.yaml`
+    - `AGENTS.md` / `CLAUDE.md`
+  - (注: `.claude/skills/` と `scripts/_*.py` は現行 override パターン**外**、本ルールでも追加しない — R-003/R-006)
+  - 上記パスに touch する PBI は **`lite_eligible=false` 強制 + Standard C-3 同期固定** ([`working-context.md`](./working-context.md) C-3 条件付き降格 §AC-10 Hardening Override と整合 / R-007)
+  - 監査ログ (`docs/working/_audit/`) の **データ一括変更 CLI** も承認境界相当として扱い、最低「高」 (例: TASK-0110 skip-decision-log batch acknowledge)
+- **自動推定の安全側**: 上記例外条件のいずれかが該当不確実な場合は **該当扱い** (Mode を引き上げる側) にする ([`working-context.md`](./working-context.md) AC-8 安全側不変条件と一貫)
 
 ## lite_eligible（Lite ゲート派生属性 / F5-AD・opt-in 既定 OFF）
 
