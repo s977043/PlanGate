@@ -14,7 +14,7 @@ skill は読む順序と入出力規約のみを担う。
 1. `docs/ai/codex-mvp-split.md`（質問テンプレ・判定基準・実例の正本）
 2. `docs/ai/plan-metrics-verification.md`（#351 / TASK-0117、前段の規模判定）
 3. `.claude/rules/mode-classification.md`（5 段階 mode）
-4. `docs/working/templates/pbi-input.md`（Phase 分割表 section）
+4. `docs/working/templates/README.md`（Phase 分割表 section / pbi-input.md template は未作成、README に記述）
 
 ## 想定 phase
 
