@@ -32,6 +32,7 @@ module.exports = {
             'explanation/product/before-after',
             'explanation/product/positioning',
             'explanation/product/value-proposition-canvas',
+            'explanation/product/plan-creation-process',
           ],
         },
       ],
