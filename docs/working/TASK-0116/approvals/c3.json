@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0116",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-28",
+  "approved_at": "2026-05-28T00:41:58Z",
+  "plan_hash": "sha256:831e0a7ba8970bb94e2c4d4f6964c65cf4a59e3c3070d1b80d7d955d6d6e9fb2",
+  "_review_summary": "C-2 individual (PR #381 merged): Codex CONDITIONAL major 3 → R-001..R-004 全反映 / Gemini bot PR #381 で 2 件 medium (TC ID 衝突 / TC 参照誤り) 反映済。Codex 9 PBI batch APPROVE_FOR_C3。Gemini reviewer は当時 quota 切れで未取得 (V-3 で再試行可能)。issue #354 NO RELEASE WITHOUT TAG-MAIN PARITY Iron Law 実装。",
+  "_review_notes": "ユーザー明示指示『自律的に進めて』(2026-05-28) + Codex 推奨 A に基づく代行発行。本 PBI は Mode standard、stretch AC-7 (bin/plangate doctor 統合) は削除済 (R-003 反映で V2 降格)。.claude/rules/responsibility-classes.md §publish 責務分界への link 追記は HO、Human-owned patch 設計。TASK-0115 (本セッション merged) と同 file 編集だが順序 (0115 先 → 0116 後) で衝突回避済。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
