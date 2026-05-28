@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0118",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-28",
+  "approved_at": "2026-05-28T03:20:19Z",
+  "plan_hash": "sha256:776c7aca79120f0dd47d0dfb28cccc3d675a0682304e3e75f5a9fc8c12ef9fa0",
+  "_review_summary": "C-1 review-self PASS (90/100)。TASK-0117 (#351 事前メトリクス検証、merged) の完了で前提達成。Codex 推奨 A で PBI 化 (PR #397 merged)。codex-mvp-split skill/command で規模 L 機能の Phase 分割相談を標準化。",
+  "_review_notes": "ユーザー明示指示『自律的に進めて』(2026-05-28)。Mode standard、.claude/commands/ は Hardening Override (c3.json APPROVED + plan_hash 一致で AI exec 可、TASK-0112/0113/0115/0116 で実証済)。proactive C-2 は本 PBI では skip (review-self PASS + 既存実装 PocketEitan 参考で risk 低、V-3 で補完可)。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
