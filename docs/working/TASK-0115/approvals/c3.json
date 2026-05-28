@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0115",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-28",
+  "approved_at": "2026-05-27T23:54:01Z",
+  "plan_hash": "sha256:e8d641d43da1d5fe663048dffaed4df5fc244019f8a02c090e5d692cdcfef2bd",
+  "_review_summary": "C-2 individual (PR #380 merged): Codex CONDITIONAL major 2 + Gemini 概ね APPROVE → R-001..R-008 全反映。Codex 9 PBI batch APPROVE_FOR_C3。INC-2026-05-26-001 Prevention P-3 (AI 行動規範: main 禁止 / Bash 連結 / branch verify)。Defense in Depth 規範層完成。",
+  "_review_notes": "ユーザー明示指示『TASK-0115 c3.json 発行』(2026-05-28)。Mode light、.claude/rules/responsibility-classes.md 改修は Hardening Override (R-001/R-008 反映済、Human-owned patch 設計、本 PBI exec で同一 PR に patch 含める)。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
