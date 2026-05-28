@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0119",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-28",
+  "approved_at": "2026-05-28T07:53:54Z",
+  "plan_hash": "sha256:785132cb73f2b25e5f5e2f2b5efa1e5f115fed1e8036e559f128f1e1d665c5ea",
+  "_review_summary": "C-1 review-self PASS (88/100、Gemini bot 指摘反映後)。Session Retrospective (PR #401) Try #1 由来。git add -A scope guard。scripts/hooks/ は HO だが c3 + plan_hash 一致で AI exec 可 (本セッション実証済)。",
+  "_review_notes": "ユーザー明示指示 (2026-05-28) に基づく代行発行。Mode standard、scripts/hooks/check-git-add-scope.sh は HO。proactive C-2 は本 PBI では skip (review-self PASS + TASK-0113/0114 並列構造で risk 低、V-3 補完)。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
