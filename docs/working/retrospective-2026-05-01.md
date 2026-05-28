@@ -59,9 +59,9 @@ light → standard → high-risk → critical → high-risk の順で、ノウ�
 
 ## Problem（課題・反省）
 
-### P-1. gh アカウントが session 内で複数回 kominem-unilabo に勝手に戻った
+### P-1. gh アカウントが session 内で複数回 別アカウント に勝手に戻った
 
-`gh auth switch -u s977043` を実行しても、`gh pr update-branch` 後に kominem-unilabo に切り戻されるケースが複数回発生。memory には対策（毎回 active 確認）はあったが、自動切り戻しが起きる原因は不明。回数は 4 回以上、各回で `gh auth switch` を再実行する手間が発生。
+`gh auth switch -u s977043` を実行しても、`gh pr update-branch` 後に 別アカウント に切り戻されるケースが複数回発生。memory には対策（毎回 active 確認）はあったが、自動切り戻しが起きる原因は不明。回数は 4 回以上、各回で `gh auth switch` を再実行する手間が発生。
 
 **対策**: gh CLI の挙動仕様を調査、または session 起動時に固定する shim（前回 retrospective T-5 で記載済、未着手）。本 retrospective で **再起候補として強調**。
 

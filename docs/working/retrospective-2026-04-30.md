@@ -44,7 +44,7 @@ Phase A の Explore エージェントが以下を誤検出していた:
 **対策**: 監査エージェントに「**判断保留項目**」を明示的に分類させるプロンプトに改善。今回は方針 A を採用し、`hybrid-architecture.md` に補足として明文化したため、次回以降は誤検出として扱える。
 
 ### P-3. gh auth account 切り替えで PR 作成が一度失敗した
-作業開始時のアクティブアカウントが `kominem-unilabo` のままで、PR 作成が collaborator 権限エラーで失敗。auto-memory に記録された「GitHub アカウント切り替え」メモで原因即特定し復旧したが、**着手前に `gh auth status` を確認する手順が抜けていた**。
+作業開始時のアクティブアカウントが `別アカウント` のままで、PR 作成が collaborator 権限エラーで失敗。auto-memory に記録された「GitHub アカウント切り替え」メモで原因即特定し復旧したが、**着手前に `gh auth status` を確認する手順が抜けていた**。
 
 **対策**: メモリ記載通り「plangate 作業開始時に `gh auth switch -u s977043` を必ず実行」する hook 化を検討（別 PBI）。
 
