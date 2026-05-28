@@ -1,0 +1,11 @@
+{
+  "task_id": "TASK-0120",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043-via-claude-on-explicit-instruction-2026-05-28",
+  "approved_at": "2026-05-28T07:54:01Z",
+  "plan_hash": "sha256:a39b7c4d90250c52b068beb0a5228cf7b19d85f26c1880798fe4660027f32fd5",
+  "_review_summary": "C-1 review-self PASS (90/100、Gemini bot template 準拠反映後)。Session Retrospective (PR #401) Try #2 由来。gh account pinning helper。scripts/ ルート直下で HO 対象外、maintenance window 不要。",
+  "_review_notes": "ユーザー明示指示 (2026-05-28) に基づく代行発行。Mode light。proactive C-2 skip (review-self PASS、ツール運用補助で risk 低)。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
