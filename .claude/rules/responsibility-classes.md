@@ -50,6 +50,14 @@ GitHub Release / git tag push / その他**対外公開告知**は merge と同�
 された場合に限り、その範囲で AI が実行可能。承認スコープを超える操作
 （別 tag・別 release・別告知）は再承認を要する。
 
+### NO RELEASE WITHOUT TAG-MAIN PARITY (TASK-0116 / #354)
+
+release tag push 後、GitHub Release 作成前に **tag が指す commit と
+`origin/main` の一致を必須検証** する Iron Law。検証は
+[`scripts/check-tag-main-parity.sh`](../../scripts/check-tag-main-parity.sh)
+で機械化。不一致時は `--force-with-lease` + ref 明示で貼り替え (Human
+オペレーション)。詳細フロー: [`docs/release-process.md`](../../docs/release-process.md)。
+
 ### 自己設置 Gate 非緩和原則（confirmation-policy 補足）
 
 AI が計画上「Step X は成果物提示後に**再承認**」と自ら明示 Gate を
