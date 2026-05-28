@@ -54,7 +54,7 @@ v8.6.0 milestone を Phase A (#194 Baseline / #201 Governance / #202 Privacy) �
 - `**モード**: light` 形式しか拾えず、`## Mode 判定` / `## Mode\nlight` 形式（最近の TASK で多数）から mode が抽出できなかった
 - PR #220 で 3 形式対応 + fallback regex に強化、TASK-0059/0061 で正しく抽出可能に
 
-#### P-4: gh auth の自動切替で kominem-unilabo になる場面
+#### P-4: gh auth の自動切替で 別アカウント になる場面
 - `git push` 後に `gh pr create` / `gh pr merge` で 2 回 `must be a collaborator` / `does not have permissions` エラー
 - 都度 `gh auth switch -u s977043` で復旧、影響は軽微だが手数が増える
 - memory には三点セット必須と記録済み（auth switch + git config + remote SSH）

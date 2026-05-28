@@ -2,7 +2,7 @@
 # gh-pin-account.sh — plangate 作業時に gh CLI active account を s977043 に固定
 #
 # 背景: retrospective 2026-05-01 P-1 — plangate での作業中に gh CLI の active
-# account が想定外に kominem-unilabo へ切り戻る現象（本セッションで 4 回以上発生）。
+# account が想定外に 別アカウント へ切り戻る現象（本セッションで 4 回以上発生）。
 # 共有 mutation（pr merge / pr comment / issue create）が 403 で失敗する原因。
 #
 # Usage:

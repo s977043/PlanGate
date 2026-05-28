@@ -32,7 +32,7 @@
 - **claude-mem 自動挿入の実害**: PR #376/#383 で AGENTS.md / skip-decision-log が `git add -A` に巻き込まれた。→ TASK-0113 検知 hook + 根本削除で解消
 - **plan の前提崩れ**: TASK-0109 (CX-2 既達)、TASK-0108 (#356 で 5 項目先行完了)、TASK-0112 (skill path `.claude/skills/` 誤認 → `.agents/skills/`)。**plan 生成時の実数検証不足** → TASK-0117 (事前メトリクス検証) で構造化
 - **commit への noise 混入** (AGENTS.md / skip-decision-log / TASK-0059): `git add -A` の多用で複数回発生。→ 個別 `git add <path>` + `git restore --staged` で対処したが規律が緩んだ
-- **gh アカウント切替の頻発**: GraphQL mutation / PR create で kominem-unilabo にスイッチ、権限エラー多発。→ 各操作前 `gh auth switch --user s977043` 必須化
+- **gh アカウント切替の頻発**: GraphQL mutation / PR create で 別アカウント にスイッチ、権限エラー多発。→ 各操作前 `gh auth switch --user s977043` 必須化
 - **PR 量産による Human gate bottleneck**: 一時 4+ PR 同時 open。Codex が複数回「process drift」「停止」を警告
 
 ### Try (次に試す)

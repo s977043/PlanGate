@@ -5,7 +5,7 @@
 
 ## Context / Why
 
-本セッションで `gh` の active account が意図せず kominem-unilabo にスイッチし、`gh pr create` / GraphQL mutation (resolveReviewThread) が `must be a collaborator` / `FORBIDDEN` で失敗する事例が 5+ 回発生。都度 `gh auth switch --user s977043` で復旧したが属人的。
+本セッションで `gh` の active account が意図せず 別アカウント にスイッチし、`gh pr create` / GraphQL mutation (resolveReviewThread) が `must be a collaborator` / `FORBIDDEN` で失敗する事例が 5+ 回発生。都度 `gh auth switch --user s977043` で復旧したが属人的。
 
 PlanGate ルール: コミット / PR / merge は s977043 アカウント固定 (sockpuppet 禁止、`feedback_github_account_switch` / `feedback_no_sockpuppet_merge`)。
 
