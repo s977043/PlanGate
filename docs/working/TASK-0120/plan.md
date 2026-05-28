@@ -48,6 +48,12 @@ gh 操作前に active account を s977043 に強制するラッパを整備し�
 | switch 権限不足環境 | low | switch 失敗時 warning + 続行 |
 | SessionStart hook と二重 pinning | low | 責務整理 doc |
 
+## Questions / Unknowns
+
+- **SessionStart hook の実装場所**: `gh-pin-account` hook が `.claude/settings.json` か `scripts/hooks/` か → **T-01 で確定**
+- **二重 pinning の影響**: 既存 SessionStart hook と本ラッパの責務分界 → T-01 + T-03 doc で整理
+- **switch 権限不足環境の挙動**: switch 失敗時 warning + 続行で許容するか → plan で warning + 続行を仮採用
+
 ## Mode 判定
 
 **light** (HO 対象外、scripts/ ルート直下)
