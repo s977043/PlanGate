@@ -62,6 +62,50 @@ AI が計画上「Step X は成果物提示後に**再承認**」と自ら明示
 「計画承認」範囲外の Step（自分で切り分けた再承認 Gate）は別承認領域
 として扱う。
 
+## Bash 連結コマンド時の error guard (INC-2026-05-26-001 P-3 / TASK-0115)
+
+> AI 運用 4 原則 第 1 (実行前 y/n) の運用解釈。INC-2026-05-26-001
+> (empty commit 49448c5 main 直接 push 事故) を構造原因として明文化。
+
+AI が複数 git コマンドを連結実行する際は以下を遵守:
+
+1. **`&&` で連結する**: 改行区切りでの個別実行は前段失敗を後段が無視するリスクがある
+2. **または `set -e` を冒頭に書く**: スクリプトレベルでエラー伝播を強制
+3. **`git push` 前に必ず current branch を verify**:
+   ```sh
+   [ "$(git rev-parse --abbrev-ref HEAD)" = "<expected-branch>" ] || { echo "ABORT: wrong branch"; exit 1; }
+   ```
+4. **protected branch への commit / push は 2 段階**:
+   - **`main` は直接 commit / push 禁止** ([`project-rules.md`](../../docs/ai/project-rules.md) と一致)
+   - **他 protected (`master`, `release/*` 等) への commit/push は事前明示確認必須**
+
+### 物理的補強 (関連 PBI)
+
+- [TASK-0114 (#360)](../../docs/working/TASK-0114/handoff.md): pre-push hook で main 直接 push を技術層 block (INC P-1)
+- TASK-0116 (#354): release tag-main parity Iron Law (release プロセス保護)
+
+### Defense in Depth (層構造)
+
+| 層 | 機構 | 対応 PBI |
+|----|------|---------|
+| 規範層 (本セクション) | AI 行動規範 | **TASK-0115 (本 PBI)** |
+| 技術層 | pre-push hook | TASK-0114 (#360) |
+| repo-wide | GitHub branch protection | INC P-2 (Human-owned admin) |
+
+3 層組合せで物理 + 規範 + repo-wide enforcement の三段防御。
+
+### AI 運用 4 原則 階層関係
+
+- 第 1 原則 (実行前 y/n): 本 rule は第 1 原則の **運用解釈**
+- 第 4 原則 (解釈変更禁止): 本 rule を `/goal` / autonomy 包括承認等で**緩和してはならない**
+- 重複時の解釈: 本 rule とユーザー指示が衝突した場合、ユーザー指示が優先 (第 3 原則)
+
+### 参考: 実害事例
+
+INC-2026-05-26-001 では `git checkout` 失敗のエラーメッセージを AI が見落とし、main 上で `git commit --allow-empty` + `git push` を実行 → empty commit 49448c5 が PR 経由せず直接 main に push された。本 rule で構造原因解消。
+
+詳細: [`docs/working/incidents/2026-05-26-empty-commit-direct-push.md`](../../docs/working/incidents/2026-05-26-empty-commit-direct-push.md)
+
 ## 既存ルール対応
 
 | 既存ルール | 対応する分類観点 |
