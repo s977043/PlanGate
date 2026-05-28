@@ -52,7 +52,7 @@ related_issue: 171
 
 ### 概要
 
-plangate での作業中に gh CLI active account が想定外に kominem-unilabo へ切り戻る現象（retrospective 2026-05-01 P-1、本セッションで 4 回以上発生）への workaround。`scripts/gh-pin-account.sh` で現在 user を確認し、必要時のみ `s977043` に切替。SessionStart hook として `.claude/settings.example.json` に opt-in 登録。
+plangate での作業中に gh CLI active account が想定外に 別アカウント へ切り戻る現象（retrospective 2026-05-01 P-1、本セッションで 4 回以上発生）への workaround。`scripts/gh-pin-account.sh` で現在 user を確認し、必要時のみ `s977043` に切替。SessionStart hook として `.claude/settings.example.json` に opt-in 登録。
 
 主要成果:
 - `scripts/gh-pin-account.sh`（POSIX sh、冪等、`PLANGATE_GH_USER` で override 可能）

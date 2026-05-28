@@ -5,7 +5,7 @@
 
 ## Context / Why
 
-retrospective 2026-04-30 T-5 / 2026-05-01 P-1。plangate での作業中に gh CLI の active account が `kominem-unilabo` へ勝手に切り戻る現象が頻発。本セッションだけで 4 回以上、共有 mutation が `does not have the correct permissions` で失敗 → 手動 `gh auth switch` 必要。
+retrospective 2026-04-30 T-5 / 2026-05-01 P-1。plangate での作業中に gh CLI の active account が `別アカウント` へ勝手に切り戻る現象が頻発。本セッションだけで 4 回以上、共有 mutation が `does not have the correct permissions` で失敗 → 手動 `gh auth switch` 必要。
 
 ## What
 
