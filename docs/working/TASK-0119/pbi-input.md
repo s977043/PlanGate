@@ -15,7 +15,7 @@
 
 - `scripts/hooks/check-git-add-scope.sh` (新規) — pre-commit 段階で staged file に「scope 外と推定される noise」を検知
   - 既定検知対象: `docs/working/_audit/skip-decision-log.jsonl` (未追認) / `<claude-mem-context>` 含む file / `docs/working/TASK-*/eval-result.*` (他 TASK の dirty)
-- TASK-0113 (claude-mem 検知) との統合 or 並列 (重複回避、共通 pre-commit dispatcher 検討)
+- TASK-0113 (claude-mem 検知) との統合 or 並列。**並列時は `<claude-mem-context>` 検知は TASK-0113 に完全委譲し、本 hook は skip-decision-log / 他 TASK eval-result のみ担当** (重複検知・二重警告回避、T-01 で確定)
 - allowlist marker / 設定可能化 (TASK-0113 と同 pattern)
 - `docs/ai/git-add-scope-guard.md` 運用ガイド
 - `tests/extras/ta-22-git-add-scope.sh`
