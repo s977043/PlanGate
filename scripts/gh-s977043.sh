@@ -33,8 +33,25 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 127
 fi
 
+# 現在の active account を取得する。
+# 性能: gh api user は毎回ネットワーク往復が発生し全 gh 操作に遅延が乗るため
+# (Gemini review HIGH)、まず gh のローカル設定 (hosts.yml) から取得を試み、
+# 失敗時のみ gh api user へ fallback する。
+current=""
+config_file="${GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/gh}/hosts.yml"
+if [ -f "$config_file" ]; then
+  # github.com: ブロック内の `user:` (active account) を抽出。
+  current=$(awk '
+    /^github\.com:/        { in_block=1; next }
+    /^[^[:space:]]/        { in_block=0 }
+    in_block && $1=="user:" { gsub(/["'"'"']/,"",$2); print $2; exit }
+  ' "$config_file" 2>/dev/null || true)
+fi
+if [ -z "$current" ]; then
+  current=$(gh api user --jq .login 2>/dev/null || true)
+fi
+
 # 冪等: 既に desired account なら switch を skip (二重 pinning 回避)
-current=$(gh api user --jq .login 2>/dev/null || true)
 if [ "$current" != "$DESIRED_USER" ]; then
   # 既定は s977043: `gh auth switch --user s977043` 相当を実行
   if gh auth switch --user "$DESIRED_USER" >/dev/null 2>&1; then
