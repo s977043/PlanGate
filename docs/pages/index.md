@@ -19,6 +19,7 @@ No approved plan, no code.
 | [Product FAQ](./reference/product-faq.md) | 導入検討時の FAQ / 反論処理 |
 | [Demo Script](./guides/product-demo-script.md) | 5分 / 15分のデモ手順 |
 | [Value Proposition Canvas](./explanation/product/value-proposition-canvas.md) | Customer Jobs / Pains / Gains の整理 |
+| [高品質な実行計画ができるまで](./explanation/product/plan-creation-process.md) | PBI INPUT から C-3 承認まで、計画を生むプロセスの解説 |
 | [Documentation Management](./guides/governance/documentation-management.md) | River-Reviewerを参考にしたドキュメント管理方針 |
 
 ## ドキュメント配置方針
