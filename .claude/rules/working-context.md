@@ -298,6 +298,36 @@ status.mdの更新タイミングと記載内容を段階で分ける:
 - C-2（`review-external.md`）は任意。C-2をスキップする場合はC-1のみで判断可
 - FAILが出た場合は指摘事項（review-external.md の `R-NNN`）を反映してplan.md / todo.md / test-cases.mdを再生成する（反映コミットに `Refs: R-NNN`）
 
+#### C-3 Autonomous APPROVE（ユーザー自律実行委任時 / #353）
+
+ユーザーが「自律的に進めて」「残タスクを進めて」等の**自律実行指示**を明示した場合、
+以下の条件をすべて満たすときは AI が C-3 を autonomous APPROVE できる。
+
+**autonomous APPROVE 判定マトリクス**:
+
+| 条件 | autonomous APPROVE 可否 |
+|------|------------------------|
+| Mode = ultra-light / light | ✅ 可（C-1 PASS のみ） |
+| Mode = standard + 受入基準 ≤ 5 + 影響範囲が plan Files に閉じる | ✅ 可（C-1 PASS のみ） |
+| Mode = standard + 受入基準 > 5 または影響範囲が plan Files を超える | ⚠️ 条件付き（C-2 必須、重大指摘なし） |
+| Mode = high-risk / critical | ❌ 不可（人間 C-3 必須） |
+| Hardening Override 対象パスを含む | ❌ 不可（Mode に関わらず人間 C-3 必須） |
+| スキーマ変更 / 破壊的変更 / セキュリティ関連 | ❌ 不可（人間 C-3 必須） |
+
+**autonomous APPROVE 時の必須記録**:
+- `status.md` に `## C-3 Gate: AUTONOMOUS APPROVED` を記録
+- ユーザーの自律実行指示を verbatim で引用
+- C-1 結果（PASS or 軽微 WARN のみであること）
+
+**即停止条件（autonomous 実行中）**:
+- 想定外の規模・影響範囲の拡大が判明した時点で即停止 → 人間判断を仰ぐ
+- C-2 必須条件で重大指摘が出た場合は即停止
+
+**AC-10 Hardening Override 優先**（mode-classification.md AC-10 と一致）:
+HO 対象パスを含む変更は `autonomous APPROVE` および `lite_eligible` を**無効化**し
+Standard・同期 C-3 を強制。
+
+
 #### C-3 条件付き降格（opt-in・既定 OFF / F5-AD）
 
 > #234-D 実装。設計正本: TASK-0077（C-3 APPROVED）。**承認境界は撤廃しない**
