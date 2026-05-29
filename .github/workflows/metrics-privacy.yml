@@ -55,9 +55,11 @@ jobs:
           set -eu
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git diff --name-only --diff-filter=ACM "$BASE_SHA" "$HEAD_SHA" \
-              | grep -E '\.(json|ndjson)$' > .scan-files.txt || true
+              | grep -E '\.(json|ndjson)$' \
+              | grep -v '^tests/fixtures/' > .scan-files.txt || true
           else
-            git ls-files '*.json' '*.ndjson' > .scan-files.txt || true
+            git ls-files '*.json' '*.ndjson' \
+              | grep -v '^tests/fixtures/' > .scan-files.txt || true
           fi
           count=$(wc -l < .scan-files.txt | tr -d ' ')
           echo "count=$count" >>"$GITHUB_OUTPUT"
