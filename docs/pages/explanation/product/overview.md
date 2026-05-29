@@ -1,6 +1,6 @@
 # Product Overview: PlanGate
 
-> **Status**: v0（Product narrative draft）
+> **Status**: Stable
 > **Review cadence**: Monthly
 > **Owner**: Product / Maintainer
 
@@ -121,3 +121,11 @@ PlanGate は、AI coding agents の代替ではなく、それらをプロダク
 ## Main message
 
 PlanGate は、AI が速くコードを書く時代に、PM / PO が守るべき「何を作るか」「なぜ作るか」「Done とは何か」を失わないためのゲート型ハーネスである。
+
+## 関連ページ
+
+- [高品質な実行計画ができるまで](./plan-creation-process.md) — PBI INPUT から C-3 承認まで、計画を生むプロセスの詳細
+- [Before / After](./before-after.md) — 導入前後で何が変わるか
+- [Positioning](./positioning.md) — 競合・代替手段との差別化
+- [Product FAQ](../../reference/product-faq.md) — 導入検討時のよくある質問
+- [はじめる（Getting Started）](../../guides/getting-started.md) — 実際に使い始める

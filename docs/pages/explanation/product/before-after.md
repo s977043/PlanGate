@@ -1,6 +1,6 @@
 # Before / After: PlanGate
 
-> **Status**: v0
+> **Status**: Stable
 > **Review cadence**: Monthly
 
 ## 目的
@@ -67,3 +67,10 @@ AI development becomes manageable product delivery.
 PlanGate の価値は、AI の速度を落とすことではない。
 
 AI が速く動く前に、何を作るか、なぜ作るか、どう検証するかを固定することで、速さをプロダクト価値に接続することである。
+
+## 関連ページ
+
+- [Product Overview](./overview.md) — PlanGate の全体像と対象ユーザー
+- [Positioning](./positioning.md) — 競合・代替手段との差別化
+- [高品質な実行計画ができるまで](./plan-creation-process.md) — 計画フェーズの詳細
+- [はじめる（Getting Started）](../../guides/getting-started.md) — 実際に使い始める

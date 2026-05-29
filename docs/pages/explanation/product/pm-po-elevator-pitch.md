@@ -1,6 +1,6 @@
 # PM / PO Elevator Pitch
 
-> **Status**: v0（Pitch Draft）
+> **Status**: Stable
 > **Review cadence**: Monthly
 > **Owner**: Product / Maintainer
 
@@ -114,3 +114,10 @@ PlanGate では、AI が実装する前に plan と test-cases を作り、人�
 ## 現時点の推奨メインメッセージ
 
 PlanGate は、AI が速くコードを書く時代に、PM / PO が守るべき「何を作るか」「なぜ作るか」「Done とは何か」を失わないためのゲート型ハーネスである。
+
+## 次のステップ
+
+- [Before / After](./before-after.md) — 導入前後の変化を視覚的に説明
+- [Value Proposition Canvas](./value-proposition-canvas.md) — PM/PO 向けの詳細な価値整理
+- [Product FAQ](../../reference/product-faq.md) — よくある反論・質問への回答
+- [はじめる（Getting Started）](../../guides/getting-started.md) — チームへの導入を始める
