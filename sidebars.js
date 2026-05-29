@@ -6,6 +6,7 @@ module.exports = {
       type: 'category',
       label: 'ガイド',
       items: [
+        'guides/getting-started',
         'guides/product-demo-script',
         {
           type: 'category',
