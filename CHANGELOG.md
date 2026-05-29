@@ -64,6 +64,8 @@ v8.9.0（EPIC #193 完遂）以降に蓄積した TASK-0107〜0120 / Issue #353 
 - `.claude/rules/responsibility-classes.md`: Bash 連結コマンド error guard (INC P-3 / TASK-0115) + 自己設置 Gate 非緩和原則を明文化。
 - `docs/pages/` を `pages/` から移設 (TASK-0111 / #295)。
 - `.mailmap`: kominem-unilabo を s977043 へ非破壊再マッピング (#406 / #407)。
+- 既存 5 skill を PlanGate 固有要素に整合、Shadow Prompting 解消 (#325 / #327 / #330)。
+- `AGENTS.md`: `.codex/agents/` からの bridge 方針を明記 (#341)。
 
 ### Security
 
@@ -77,41 +79,6 @@ v8.9.0（EPIC #193 完遂）以降に蓄積した TASK-0107〜0120 / Issue #353 
 - **Codex CLI parity 完成**: EPIC #338 100% 達成。EH-1/2/3/6/9 の物理強制が Codex session にも適用。
 - **INC-2026-05-26-001 対応完遂**: empty commit 直接 push 事故に対し規範層 + 技術層 + repo-wide の三段防御を実装。
 - **承認境界 Hardening**: 設定ファイル・hook スクリプト等 9 カテゴリへの変更は自動的に high 以上モード + 同期 C-3 が強制。
-
-- `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh`: Codex CLI 用 PreToolUse hook bridge を新設 (#336 / #347)。OpenAI Codex CLI の公式 hook API ([docs](https://developers.openai.com/codex/hooks)) を活用し、Claude Code の `PreToolUse:Write/Edit/Bash` hook と等価な物理 pre-Write block を Codex session 中にも実現。EH-1/EH-2/EH-3/EH-6/EH-9 が Codex 経由でも発火する。
-- `scripts/codex-guarded.sh`: Codex CLI 用 guarded entrypoint (#336 / #343)。session 前後で validate / doctor --check-settings / plan_hash drift 検知を実行。
-- `tests/extras/ta-14-codex-guarded.sh` / `ta-15-codex-hook-bridge.sh`: 上記 wrapper / hook bridge の 8 + 7 観点回帰テスト (#345 / #347)。
-- `docs/rfc/ai-self-set-gate-hook-enforcement.md`: RFC EH-10 Draft (Self-set Gate Enforcement) を追加 (#339)。
-- `docs/ai/settings-wiring-contract.md`: Codex CLI parity 達成に伴う wording 整備と EH-1〜EH-9 強制マトリクスを明文化 (#348)。
-- `docs/ai/project-rules.md` / `docs/ai/core-contract.md`: Codex CLI での運用を想定した doc 整合性の向上 (#331)。
-- `scripts/ai-dev-common.sh`: `set -e` 互換性を高めるための hotfix とテスト extras への適用 (#346)。
-- `AGENTS.md`: `.codex/agents/` から Claude Code 側の agent 定義を参照する際の bridge 方針を明記 (#341)。
-- `docs/ai/contracts/`: 共有 skill と実行契約 (contract) の接続を強化 (#344)。
-
-### Added (skill 整備)
-
-- `.agents/skills/` 配下に Codex CLI / Claude Code 共用の PlanGate ワークフロー skill 3 本を新設（#325 7601efb）
-  - `ai-dev-exec`: C-3 APPROVED 後の TDD exec phase（plan_hash 整合 + c3.json APPROVED 前提）
-  - `ai-dev-verify`: V-1〜V-4 受け入れ検査と handoff.md 発行（Rule 5 / 6 要素必須）
-  - `local-exec-handoff`: ローカル exec 再開・ツール間引き継ぎ用の短い指示パケット
-- `scripts/ai-dev-plan.sh` に環境変数追加（#330 efd86d0）
-  - `PLANGATE_PLAN_LEGACY=1`: 旧挙動（C-2 同パス作成 + Cloud handoff draft 強制）を保持（後方互換）
-  - `PLANGATE_CLOUD_HANDOFF=1`: 新挙動でも Cloud handoff draft を生成（Codex Cloud 利用時のみ）
-
-### Changed
-
-- 既存 5 skill (`ai-dev-brainstorm` / `ai-dev-plan` / `plan-review-gate` / `working-context` / `manual-cloud-task`) を PlanGate 固有要素 (mode 5 段階 + lite_eligible / C-1 17 項目 / R-NNN / handoff 6 要素 / EH-3 順序 / settings タスクロック) に整合（#325 7601efb）
-- `scripts/ai-dev-plan.sh` の Shadow Prompting を解消し、`.agents/skills/ai-dev-plan/SKILL.md` の B-1 → B-2 → B-3 フローと整合（#330 efd86d0）
-  - C-2 (review-external.md) 作成を本 phase から除外し `plan-review-gate` skill / `bin/plangate review --phase c2` に委譲
-  - Mode 5 段階判定 + `lite_eligible` を plan.md 必須セクションに追加
-- skill ↔ 実 CLI 整合（#327 6e31845）
-  - 架空 CLI コマンド (brainstorm/plan/gate/verify/handoff/handoff-local) を実在コマンドに置換
-  - settings タスクロックの参照位置を `ai-dev-exec` 開始条件 → `ai-dev-verify` 完了条件に修正（正本整合）
-  - Rule 2 ドリフト圧縮: skill 本体の固有仕様を `.claude/rules` 参照に置き換え（-57 行）
-
-### Security
-
-- `plan-review-gate` skill に `bin/plangate review` 誤起動警告を追加（実は外部 AI モデル呼び出しのため、C-1 セルフレビュー目的で起動するとコスト発生・機密送信のリスク）（#327 6e31845）
 
 ## v8.9.0 - 2026-05-19
 
