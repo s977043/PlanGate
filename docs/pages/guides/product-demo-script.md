@@ -1,7 +1,17 @@
 # Product Demo Script: PlanGate
 
-> **Status**: v0
+> **Status**: Stable
 > **Review cadence**: Monthly
+
+## 事前準備
+
+デモ実施前に以下を確認してください。
+
+- PlanGate が設定済みのリポジトリが手元にある（または [はじめる](./getting-started.md) で作成）
+- `docs/working/` 配下に TASK ディレクトリのサンプルが 1 件以上ある
+- Claude Code CLI が起動できる状態である
+
+サンプルがない場合は、デモ前に ultra-light モードで 1 タスクを実行しておくことを推奨します。
 
 ## 目的
 
@@ -187,3 +197,9 @@ AI が速く動く前に、何を作るか、なぜ作るか、どう検証す�
 - [ ] verification evidence を見せられる
 - [ ] C-4 / handoff を見せられる
 - [ ] PM / PO 向けの価値に戻して説明できる
+
+## 関連ページ
+
+- [はじめる（Getting Started）](./getting-started.md) — 初期セットアップ
+- [高品質な実行計画ができるまで](../explanation/product/plan-creation-process.md) — 計画プロセスの詳細説明
+- [Product FAQ](../reference/product-faq.md) — デモ後の質問対応

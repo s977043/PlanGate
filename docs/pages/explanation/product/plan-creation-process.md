@@ -142,4 +142,11 @@ PlanGate の計画品質を支える要のひとつ。「全部 / 全件 / 残�
 - レビュー原則: [review-principles.md](https://github.com/s977043/PlanGate/blob/main/.claude/rules/review-principles.md)
 - plan 生成 skill: [ai-dev-plan SKILL](https://github.com/s977043/PlanGate/blob/main/.agents/skills/ai-dev-plan/SKILL.md)
 - ワークフロー全体像 / プロンプト: [ai-driven-development.md](https://github.com/s977043/PlanGate/blob/main/docs/ai-driven-development.md)
+- 段階的導入ガイド: [staged-adoption-guide.md](https://github.com/s977043/PlanGate/blob/main/docs/staged-adoption-guide.md)
 - Workflow 定義（WF-02 / WF-03）: [workflows/README.md](https://github.com/s977043/PlanGate/blob/main/docs/workflows/README.md)
+
+## 関連ページ
+
+- [はじめる（Getting Started）](../../guides/getting-started.md) — 実際に使い始める
+- [Product Overview](./overview.md) — PlanGate の全体像
+- [Product FAQ](../../reference/product-faq.md) — よくある質問

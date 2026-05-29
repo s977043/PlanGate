@@ -1,6 +1,6 @@
 # Product FAQ: PlanGate
 
-> **Status**: v0
+> **Status**: Stable
 > **Review cadence**: Monthly
 
 ## 基本理解
@@ -10,6 +10,8 @@
 PlanGate は、AI コーディングエージェントをプロダクト開発に安全に組み込むためのゲート型ワークフローハーネスである。
 
 AI が本番コードを書く前に、PBI、計画、TODO、受入条件、人間承認を必須化する。
+
+> 詳細は [Product Overview](../explanation/product/overview.md) を参照。
 
 ### Q. 一言で言うと？
 
@@ -50,6 +52,8 @@ AI がコードを書く前に、計画と受入条件を通す仕組みであ�
 - critical
 
 低リスクでは軽く、高リスクでは厳しくする。
+
+> 詳細は [Before / After](../explanation/product/before-after.md) を参照。
 
 ### Q. AI に任せる意味が薄れませんか？
 
@@ -157,3 +161,38 @@ PlanGate では code だけでなく、plan、test-cases、handoff も対象に�
 | 何が違う？ | 承認境界、監査可能性、Scrum-friendly delivery を重視する |
 | 競合は？ | Cursor / Claude Code / Codex の代替ではなく補完 |
 | 一番の価値は？ | PM / PO が守るべき価値、スコープ、Done を AI 開発でも守ること |
+
+## 導入に関する質問
+
+### Q. どこから始めればいいですか？
+
+[はじめる（Getting Started）](../guides/getting-started.md) を参照してください。ultra-light モードで 1 タスクを完了する体験から始めるのが最短経路です。
+
+段階的に導入を広げたい場合は [段階的導入ガイド](https://github.com/s977043/PlanGate/blob/main/docs/staged-adoption-guide.md) を参照してください。
+
+### Q. 既存プロジェクトに追加できますか？
+
+できます。PlanGate は既存のリポジトリに `.claude/` ディレクトリと設定ファイルを追加する形で導入します。既存コードへの変更は不要です。
+
+Phase 0（ultra-light）から始めて、チームの習熟度に応じて段階的にモードを上げていくことを推奨します。
+
+### Q. 依存関係・前提条件は何ですか？
+
+- Claude Code（CLI）または Codex CLI
+- Git リポジトリ
+- GitHub アカウント（PR ベースの C-4 ゲートに必要）
+
+PlanGate 自体は特定のプログラミング言語に依存しません。
+
+### Q. チーム全員が PlanGate を理解する必要がありますか？
+
+必須ではありません。最初は 1 人が PlanGate を使ってタスクを進め、C-3 / C-4 ゲートで他のメンバーがレビューする形でも機能します。
+
+徐々に plan.md / test-cases.md の読み方をチームに共有していく運用が現実的です。
+
+## 関連ページ
+
+- [はじめる（Getting Started）](../guides/getting-started.md) — 実際に使い始める
+- [Product Overview](../explanation/product/overview.md) — PlanGate の概要
+- [高品質な実行計画ができるまで](../explanation/product/plan-creation-process.md) — 計画プロセスの詳細
+- [Positioning](../explanation/product/positioning.md) — 競合・代替手段との差別化

@@ -1,13 +1,13 @@
 # Value Proposition Canvas: PlanGate
 
-> **Status**: v0
+> **Status**: Stable
 > **Review cadence**: Monthly
 
 ## 目的
 
 PlanGate が誰のどんな課題に効くのかを Value Proposition Canvas として整理する。
 
-Product Overview、Positioning、FAQ、Pitch Deck、README の材料として使う。
+[Product Overview](./overview.md)、[Positioning](./positioning.md)、[FAQ](../../reference/product-faq.md)、Pitch Deck、README の材料として使う。
 
 ## Customer segments
 
@@ -127,3 +127,10 @@ AI が本番コードを書く前に、人間が承認した計画と受入条�
 - Pain relievers が誇張になっていないか
 - Roadmap 進捗により新しい gain creator が増えていないか
 - PM / PO / EM / CTO の message fit は適切か
+
+## 関連ページ
+
+- [Product Overview](./overview.md) — PlanGate の全体像
+- [Positioning](./positioning.md) — ポジショニングと差別化
+- [PM / PO Elevator Pitch](./pm-po-elevator-pitch.md) — ピッチ構成
+- [Product FAQ](../../reference/product-faq.md) — 導入検討時の FAQ

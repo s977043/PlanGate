@@ -45,7 +45,7 @@ Kiro 前提の配置ではなく、River-Reviewer を参考に、公開説明ド
 
 ### `docs/pages/guides/` に置くもの
 
-- Quickstart
+- [はじめる（Getting Started）](../getting-started.md) — Quickstart に相当するガイド（`docs/pages/guides/getting-started.md`）
 - Setup guide
 - Demo Script
 - Workflow usage guide
@@ -228,18 +228,9 @@ PlanGate では Product narrative を `解説 > プロダクト` に置く。
 
 ## 7. Current migration
 
-今回のプロダクト説明資料は、以下のように `docs/pages/` へ移動する。
-
-| Old path | New path |
-| --- | --- |
-| `docs/product/README.md` | `docs/pages/index.md` / `docs/pages/explanation/product/overview.md` |
-| `docs/product/product-brief.md` | `docs/pages/explanation/product/overview.md` |
-| `docs/product/before-after.md` | `docs/pages/explanation/product/before-after.md` |
-| `docs/product/positioning.md` | `docs/pages/explanation/product/positioning.md` |
-| `docs/product/value-proposition-canvas.md` | `docs/pages/explanation/product/value-proposition-canvas.md` |
-| `docs/product/faq.md` | `docs/pages/reference/product-faq.md` |
-| `docs/product/demo-script.md` | `docs/pages/guides/product-demo-script.md` |
-| `docs/pm-po-elevator-pitch.md` | `docs/pages/explanation/product/pm-po-elevator-pitch.md` |
+> **Migration completed (2026-05)**
+>
+> `docs/product/` は存在しない。上記テーブルに記載されていた全ファイルは `docs/pages/` への移動が完了している。このセクションは履歴記録として残す。
 
 ## 8. Monthly review
 

@@ -12,6 +12,7 @@ No approved plan, no code.
 
 | ドキュメント | 内容 |
 | --- | --- |
+| [はじめる（Getting Started）](./guides/getting-started.md) | 3 ステップで PlanGate の基本的な流れを体験する |
 | [Product Overview](./explanation/product/overview.md) | PlanGate の概要、対象ユーザー、価値、仕組み |
 | [PM / PO Elevator Pitch](./explanation/product/pm-po-elevator-pitch.md) | PM / PO 向けの短い説明、タグライン、月次見直し観点 |
 | [Before / After](./explanation/product/before-after.md) | PlanGate 導入前後で何が変わるか |
@@ -38,3 +39,10 @@ PlanGate は、AI が速くコードを書く時代に、PM / PO が守るべき
 AI は実装前に計画と受入条件を出し、人間が承認してからコードを書く。実装後は検証と handoff を残す。
 
 だから PlanGate は、AI 開発を単なる自動化ではなく、プロダクト価値に接続された開発プロセスに変える。
+
+## 使い始める
+
+PlanGate を初めて導入する場合は、以下のガイドから始めてください。
+
+- [はじめる（Getting Started）](./guides/getting-started.md) — 3 ステップで PlanGate の基本的な流れを体験する
+- [段階的導入ガイド（GitHub）](https://github.com/s977043/PlanGate/blob/main/docs/staged-adoption-guide.md) — Phase 0 〜 Phase 3 の成長パスと、各フェーズで使うコンポーネントの詳細
