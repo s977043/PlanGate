@@ -74,13 +74,13 @@ flowchart LR
 
 ## 最新状態
 
-PlanGate は **v8.9.0**（Latest）で、Hook enforcement・Metrics v1・Harness Improvement Governance の上に **Reporting & Retrospective v1** を載せ、events.ndjson から sprint retrospective を決定論的に導出できるガバナンスハーネスへ到達しました。これにより [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) は **完遂（CLOSED / COMPLETED）** しています。
+PlanGate は **v8.10.0**（Latest）で、Hook enforcement・Metrics v1・Harness Improvement Governance の上に **Reporting & Retrospective v1** を載せ、events.ndjson から sprint retrospective を決定論的に導出できるガバナンスハーネスへ到達しました。これにより [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) は **完遂（CLOSED / COMPLETED）** しています。
 
 v8.7.0〜v8.9.0 はリリース済みで、外部 OSS 利用者の **「どこまで使えばよいか不明」問題** に応える OSS 整備（段階的導入ガイド / Plugin 成熟化 / バージョニング安定性ポリシー）と、自己評価・context 分離・モデル特性対応・reporting の各基盤を順次投入しました。
 
 | 項目 | 状態 |
 | --- | --- |
-| 最新リリース | **v8.9.0**（Latest, 2026-05-19）— Reporting & Retrospective v1 / EPIC #193 完遂 |
+| 最新リリース | **v8.10.0**（Latest, 2026-05-29）— Codex CLI parity 完成 / Hook・Guard 拡充 / Skill 整備 |
 | リリース済 | **v8.7.0** OSS 整備 3 主軸 + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1・Dynamic Context Engine v1・Model Profile v2・Gate Event Normalization・Dogfooding Eval v1 |
 | Roadmap | **EPIC #193 完遂（CLOSED / COMPLETED）** — Phase 0〜6 + Governance + Lightweight Plan Quality Checks 全 Done、子 PBI 12/12 CLOSED |
 | Hook enforcement | **12/12 hooks 実装済み**（EH-1〜EH-9 + EHS-1〜EHS-3、v8.5.0 で 10/10、v8.6.0 で EH-8、v8.7.0 で EH-9 を追加） |
@@ -88,8 +88,8 @@ v8.7.0〜v8.9.0 はリリース済みで、外部 OSS 利用者の **「どこ�
 | Reporting v1 | events.ndjson から sprint retrospective を導出（v8.9.0） |
 | Baseline | v8.5.0 直後の baseline を `docs/ai/eval-baselines/` に固定（v8.6.0 初出） |
 | Governance | Issue / Label / Milestone Governance + Metrics Privacy Policy（v8.6.0 初出） |
-| CLI テスト | `sh tests/run-tests.sh` — **68 PASS** |
-| Hook テスト | `sh tests/hooks/run-tests.sh` — **78 PASS** |
+| CLI テスト | `sh tests/run-tests.sh` — **211 PASS** |
+| Hook テスト | `sh tests/hooks/run-tests.sh` — **79 PASS** |
 | Eval | `bin/plangate eval` による 8 観点評価と release blocker 検知 |
 | Schema | `validate-schemas` + CI による JSON artifact 検証 |
 
