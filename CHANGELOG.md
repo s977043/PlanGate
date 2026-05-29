@@ -6,7 +6,77 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.10.0 - 2026-05-29
+
+feat: Codex CLI parity 完成 + Hook/Guard 拡充 + Skill 整備 + ドキュメント品質向上
+
+v8.9.0（EPIC #193 完遂）以降に蓄積した TASK-0107〜0120 / Issue #353 の実装群。Codex CLI parity の完成、セキュリティ hardening（INC P-1/P-3 対応）、pre-commit/pre-push guard 拡充、skill 整備、C-3 Autonomous APPROVE ルール明文化を含む。
+
+タグ対象 SHA: `1bde312`（#415 main HEAD）
+
 ### Added
+
+#### Codex CLI parity（EPIC #338 / 100% 達成）
+
+- `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh`: Codex CLI 用 PreToolUse hook bridge を新設 (#336 / #347)。EH-1/EH-2/EH-3/EH-6/EH-9 が Codex session 中にも物理発火する。
+- `scripts/codex-guarded.sh`: Codex CLI 用 guarded entrypoint (#336 / #343)。session 前後で validate / doctor --check-settings / plan_hash drift 検知を実行。
+- `docs/rfc/provider-codex.md`: Codex provider 完全対応ドキュメント (TASK-0109 / #315)。
+- `tests/extras/ta-14-codex-guarded.sh` / `ta-15-codex-hook-bridge.sh`: 8 + 7 観点回帰テスト (#345 / #347)。
+- `docs/rfc/ai-self-set-gate-hook-enforcement.md`: RFC EH-10 Draft (#339)。
+- `docs/ai/settings-wiring-contract.md`: EH-1〜EH-9 強制マトリクス明文化 (#348)。
+
+#### Skill 整備（#325 / #327 / #330 / TASK-0118）
+
+- `.agents/skills/ai-dev-exec` / `ai-dev-verify` / `local-exec-handoff`: Codex CLI / Claude Code 共用 skill 3 本を新設。
+- `.claude/commands/codex-mvp-split.md` + skill: MVP 分割判断 command/skill 実装 (TASK-0118 / #352)。
+- 既存 5 skill を PlanGate 固有要素（mode 5 段階 / lite_eligible / C-1 17 項目）に整合 (#325 / #327 / #330)。
+
+#### セキュリティ・Guard 拡充
+
+- `scripts/hooks/check-pre-push.sh`: main 直接 push を技術層でブロック (TASK-0114 / #360 / INC P-1)。
+- `scripts/check-git-add-scope.sh`: pre-commit で scope 外ファイル混入を機械検知 (TASK-0119)。
+- `scripts/hooks/check-ai-memory-pollution.sh`: claude-mem 自動挿入を pre-commit で検知 (TASK-0113 / #355)。
+- `scripts/check-tag-main-parity.sh`: NO RELEASE WITHOUT TAG-MAIN PARITY Iron Law (TASK-0116 / #354)。
+- `scripts/batch-acknowledge-skip-decisions.py`: skip-decision-log.jsonl 一括追認 CLI (TASK-0110 / #301)。
+- `tests/extras/ta-16〜ta-23`: 上記 guard/helper 群の回帰テスト追加。
+
+#### ヘルパー・UX
+
+- `scripts/gh-s977043.sh`: gh account pinning helper (TASK-0120)。
+- `/plangate-setup` Command + setup-coordinator Agent + plangate-setup Skill (TASK-0107 / #312)。
+- Cursor provider サポート（RFC / quickstart / hook adapters）(#292)。
+
+#### ドキュメント・公開ページ
+
+- `docs/pages/guides/getting-started.md`: 新規ユーザー向け Quickstart を追加。
+- `docs/pages/explanation/product/plan-creation-process.md`: 実行計画プロセス解説ガイド。
+- `docs/pages/` 全体の相互リンク・品質向上 (#414)。
+- `docs/working/incidents/2026-05-26-empty-commit-direct-push.md`: INC-2026-05-26-001 インシデント記録。
+
+#### C-3 運用改善
+
+- C-3 Autonomous APPROVE 基準を明文化 (#353 / #413)。
+- plan 事前メトリクス検証 mandatory gate 実装 (TASK-0117 / #351)。
+
+### Changed
+
+- `.claude/rules/mode-classification.md`: 承認境界周辺 9 カテゴリを `lite_eligible=false` 強制 + Standard C-3 同期固定に拡張 (TASK-0112)。
+- `.claude/rules/responsibility-classes.md`: Bash 連結コマンド error guard (INC P-3 / TASK-0115) + 自己設置 Gate 非緩和原則を明文化。
+- `docs/pages/` を `pages/` から移設 (TASK-0111 / #295)。
+- `.mailmap`: kominem-unilabo を s977043 へ非破壊再マッピング (#406 / #407)。
+
+### Security
+
+- pre-push hook による main 直接 push の技術層ブロック (TASK-0114)。
+- claude-mem 自動挿入の pre-commit 検知 (TASK-0113)。
+- git add scope guard による scope 外ファイル混入防止 (TASK-0119)。
+- `plan-review-gate` skill に `bin/plangate review` 誤起動警告を追加 (#327)。
+
+### Process Notes
+
+- **Codex CLI parity 完成**: EPIC #338 100% 達成。EH-1/2/3/6/9 の物理強制が Codex session にも適用。
+- **INC-2026-05-26-001 対応完遂**: empty commit 直接 push 事故に対し規範層 + 技術層 + repo-wide の三段防御を実装。
+- **承認境界 Hardening**: 設定ファイル・hook スクリプト等 9 カテゴリへの変更は自動的に high 以上モード + 同期 C-3 が強制。
 
 - `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh`: Codex CLI 用 PreToolUse hook bridge を新設 (#336 / #347)。OpenAI Codex CLI の公式 hook API ([docs](https://developers.openai.com/codex/hooks)) を活用し、Claude Code の `PreToolUse:Write/Edit/Bash` hook と等価な物理 pre-Write block を Codex session 中にも実現。EH-1/EH-2/EH-3/EH-6/EH-9 が Codex 経由でも発火する。
 - `scripts/codex-guarded.sh`: Codex CLI 用 guarded entrypoint (#336 / #343)。session 前後で validate / doctor --check-settings / plan_hash drift 検知を実行。
