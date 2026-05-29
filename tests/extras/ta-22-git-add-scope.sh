@@ -48,7 +48,7 @@ trap 'rm -rf "$T22_TMPDIR"' EXIT INT TERM
   git config user.name "test" && \
   echo "test" > test.txt && \
   git add test.txt
-) 2>/dev/null
+) 2>/dev/null || true
 
 T22_OUT=$(cd "$T22_TMPDIR" && PLANGATE_SKIP_SCOPE_CHECK=1 sh "$PG_T22_HOOK" 2>&1; echo "EXIT=$?")
 if echo "$T22_OUT" | grep -qE "EXIT=0$"; then
@@ -66,7 +66,7 @@ trap 'rm -rf "$T22_TMPDIR" "$T22_TMPDIR2"' EXIT INT TERM
   git init -q && \
   git config user.email "test@test.com" && \
   git config user.name "test"
-) 2>/dev/null
+) 2>/dev/null || true
 
 T22_OUT2=$(cd "$T22_TMPDIR2" && sh "$PG_T22_HOOK" 2>&1; echo "EXIT=$?")
 if echo "$T22_OUT2" | grep -qE "EXIT=0$"; then
@@ -88,7 +88,7 @@ trap 'rm -rf "$T22_TMPDIR" "$T22_TMPDIR2" "$T22_TMPDIR3"' EXIT INT TERM
   echo '{"ts":"2026-01-01T00:00:00Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"test","acknowledged_by":null,"acknowledged_at":null}' \
     > docs/working/_audit/skip-decision-log.jsonl && \
   git add docs/working/_audit/skip-decision-log.jsonl
-) 2>/dev/null
+) 2>/dev/null || true
 
 T22_OUT3=$(cd "$T22_TMPDIR3" && sh "$PG_T22_HOOK" 2>&1; echo "EXIT=$?")
 if echo "$T22_OUT3" | grep -qE "EXIT=1$" && echo "$T22_OUT3" | grep -q "acknowledged_by:null"; then
@@ -109,7 +109,7 @@ trap 'rm -rf "$T22_TMPDIR" "$T22_TMPDIR2" "$T22_TMPDIR3" "$T22_TMPDIR4"' EXIT IN
   mkdir -p docs/working/TASK-9999 && \
   echo '{"score":99}' > docs/working/TASK-9999/eval-result.json && \
   git add docs/working/TASK-9999/eval-result.json
-) 2>/dev/null
+) 2>/dev/null || true
 
 T22_OUT4=$(cd "$T22_TMPDIR4" && PLANGATE_HOOK_TASK=TASK-0001 sh "$PG_T22_HOOK" 2>&1; echo "EXIT=$?")
 if echo "$T22_OUT4" | grep -qE "EXIT=1$" && echo "$T22_OUT4" | grep -q "eval-result"; then
@@ -130,7 +130,7 @@ trap 'rm -rf "$T22_TMPDIR" "$T22_TMPDIR2" "$T22_TMPDIR3" "$T22_TMPDIR4" "$T22_TM
   mkdir -p docs/working/TASK-0119 && \
   echo '{"score":99}' > docs/working/TASK-0119/eval-result.json && \
   git add docs/working/TASK-0119/eval-result.json
-) 2>/dev/null
+) 2>/dev/null || true
 
 T22_OUT5=$(cd "$T22_TMPDIR5" && PLANGATE_HOOK_TASK=TASK-0119 sh "$PG_T22_HOOK" 2>&1; echo "EXIT=$?")
 if echo "$T22_OUT5" | grep -qE "EXIT=0$"; then
