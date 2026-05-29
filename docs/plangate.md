@@ -206,6 +206,23 @@ C-1/C-2の結果を参考にしながら、plan.md / todo.md / test-cases.mdを�
 
 > レビュー時間の目標: 15分以内/PBI(C-1/C-2で事前フィルター済みのため)
 
+#### 自律実行委任時の Autonomous APPROVE（#353）
+
+ユーザーが「自律的に進めて」等の**自律実行指示**を明示した場合、以下の条件下では AI が C-3 を autonomous APPROVE できます。
+
+| 条件 | autonomous APPROVE 可否 |
+|------|------------------------|
+| Mode = ultra-light / light | ✅ 可 |
+| Mode = standard + 受入基準 ≤ 5 + 影響範囲が plan Files に閉じる | ✅ 可 |
+| Mode = standard + 受入基準 > 5 または影響範囲が plan Files を超える | ⚠️ C-2 必須・重大指摘なし |
+| Mode = high-risk / critical | ❌ 人間 C-3 必須 |
+| Hardening Override 対象パスを含む | ❌ 人間 C-3 必須 |
+| スキーマ変更 / 破壊的変更 / セキュリティ関連 | ❌ 人間 C-3 必須 |
+
+autonomous APPROVE 時は `status.md` に `## C-3 Gate: AUTONOMOUS APPROVED` とユーザー指示の verbatim を記録します。想定外の規模拡大・影響範囲拡大が判明した時点で即停止し人間判断を仰ぎます。
+
+詳細は [`.claude/rules/working-context.md § C-3 Autonomous APPROVE`](https://github.com/s977043/PlanGate/blob/main/.claude/rules/working-context.md) を参照。
+
 ### Step 4: Agent実行(AI)
 
 ```bash
