@@ -11,6 +11,7 @@
 
 PlanGate is a governance-first workflow harness for AI coding agents.
 It prevents AI agents from writing production code until a human-approved plan, task list, and acceptance test set exist.
+The plan is where quality is shaped first; the approval gates and verification then carry that quality through to the implementation without leaks — quality originates in the plan and is preserved downstream.
 
 Unlike agent frameworks that focus on autonomy, PlanGate focuses on **approval boundaries, auditability, and Scrum-friendly delivery**.
 
@@ -154,6 +155,8 @@ Human writes PBI → AI generates plan → [C-3: Human approves]
 → AI implements (TDD) → Auto-verify (L-0, V-1…V-4)
 → PR created → [C-4: Human reviews on GitHub] → Merge
 ```
+
+Plan-first is the starting point; gate control, hook enforcement, and built-in verification preserve that plan's quality all the way to the implementation. The rows are not equal weights — the plan is the source of quality, and the rest safeguard it.
 
 | Concept | Description |
 | --- | --- |
