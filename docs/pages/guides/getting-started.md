@@ -1,6 +1,6 @@
 # はじめる（Getting Started）
 
-> **Status**: v0
+> **Status**: Stable
 > **Review cadence**: Monthly
 > **Owner**: Product / Maintainer
 

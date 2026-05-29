@@ -37,7 +37,7 @@ AI が本番コードを書く前に、PBI、計画、受入条件、人間承�
 | Manual process docs | Human-readable guidance | PlanGate aims to make gate, artifact, hook, eval, and metrics operational |
 | CI only | Post-implementation checks | PlanGate adds pre-implementation approval and acceptance clarity |
 
-> 競合に関する詳細な Q&A は [Product FAQ](../../reference/product-faq.md#競合・代替ツールに関する質問) を参照。
+> 競合に関する詳細な Q&A は [Product FAQ](../../reference/product-faq.md#競合代替手段に関する質問) を参照。
 
 ## Core tagline candidates
 
