@@ -38,6 +38,7 @@ OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推�
 | [PM / PO Elevator Pitch][pm-po-pitch] | PM / PO に PlanGate を説明するための短いピッチ、タグライン、定期見直し観点 |
 | [思想と問題設定](./philosophy.md) | PlanGate が向き合う課題、ハーネスエンジニアリングとの関係 |
 | [PlanGate ガイド](./plangate.md) | 全体像、フェーズ、運用手順 |
+| [高品質な実行計画ができるまで](./pages/explanation/product/plan-creation-process.md) | PBI INPUT から C-3 承認まで、計画を生むプロセスの解説 |
 | [v7 ハイブリッドアーキテクチャ](./plangate-v7-hybrid.md) | Governance × Modularity、Workflow / Skill / Agent 3 層 |
 | [Orchestrator Mode 仕様](./orchestrator-mode.md) | 親 PBI 分解 / 子 PBI 並行実行 / 統合ゲートの仕様（v1, Spec only） |
 | [Workflow 定義](./workflows/README.md) | WF-01〜WF-05 + Orchestrator Decomposition / Integration |
