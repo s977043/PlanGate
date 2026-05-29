@@ -1,6 +1,6 @@
 # Positioning: PlanGate
 
-> **Status**: v0
+> **Status**: Stable
 > **Review cadence**: Monthly
 
 ## Category
@@ -36,6 +36,8 @@ AI が本番コードを書く前に、PBI、計画、受入条件、人間承�
 | Autonomous agent frameworks | Autonomy and task completion | PlanGate prioritizes approval boundaries and auditability |
 | Manual process docs | Human-readable guidance | PlanGate aims to make gate, artifact, hook, eval, and metrics operational |
 | CI only | Post-implementation checks | PlanGate adds pre-implementation approval and acceptance clarity |
+
+> 競合に関する詳細な Q&A は [Product FAQ](../../reference/product-faq.md#競合・代替ツールに関する質問) を参照。
 
 ## Core tagline candidates
 
@@ -85,3 +87,10 @@ PlanGate は、AI コーディングエージェントをプロダクト開発�
 AI が本番コードを書く前に、PBI、計画、受入条件、人間承認を必須化します。
 これにより、AI 開発でもスコープ、Done の定義、検証証拠を守れます。
 ```
+
+## 関連ページ
+
+- [Product Overview](./overview.md) — PlanGate の概要と価値
+- [Before / After](./before-after.md) — 導入前後の変化
+- [Product FAQ](../../reference/product-faq.md) — 競合・代替手段の詳細 Q&A
+- [Value Proposition Canvas](./value-proposition-canvas.md) — Customer Jobs / Pains / Gains
