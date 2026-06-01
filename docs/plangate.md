@@ -450,7 +450,8 @@ PlanGateのゲートは**PBI(チケット)1枚の中**に置きます。判断�
 | v4 | C-3三値化+V-1〜V-4+ライト/フルモード+C-4（v5 で 5 モードに置換） | takt(マルチエージェント協調) |
 | v5 | L-0リンター自動修正ループ | ハーネスエンジニアリング(フィードバック設計) |
 | v6(予定) | 決定論的フック+ガベージコレクション+段階的ルール昇格 | ハーネスエンジニアリング(運用設計) |
-| v8.9 | **Codex CLI 物理 hook 等価達成 (PR #347)** | OpenAI Codex CLI PreToolUse hook API |
+| v8.9 | **Reporting & Retrospective v1 — events.ndjson 由来のスプリントレトロスペクティブ導出 (#200)** | — |
+| v8.10 | **Codex CLI 物理 hook 等価達成 (PR #347)** | OpenAI Codex CLI PreToolUse hook API |
 
 ---
 

@@ -150,8 +150,8 @@ bin/plangate metrics --report --aggregate
 
 - 感覚ではなく、eval と metrics で改善する
 - C-3 / V-1 / C-4 / hook violation を機械的に集計できる
-- metrics log は public repo にコミットしない設計（[metrics-privacy.md](../../docs/ai/metrics-privacy.md)）
-- baseline ([eval-baselines/2026-05-04-baseline.md](../../docs/ai/eval-baselines/2026-05-04-baseline.md)) と差分比較可能
+- metrics log は public repo にコミットしない設計（[metrics-privacy.md](../../../docs/ai/metrics-privacy.md)）
+- baseline ([eval-baselines/2026-05-04-baseline.md](../../../docs/ai/eval-baselines/2026-05-04-baseline.md)) と差分比較可能
 - PlanGate 自体もハーネス製品として改善する
 
 ### Keep Rate (実装済み, v8.8.0)
