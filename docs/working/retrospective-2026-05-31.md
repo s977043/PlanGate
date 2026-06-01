@@ -93,3 +93,65 @@ HO 9カテゴリは maintenance 窓内でも常時block（L122-140, exit 2）さ
 - `[feedback]` **feedback_maintenance_json_provenance_gap**: AIによる maintenance.json 直接作成（approved_by捏造）は責務4分類Human-owned承認トークンの代理捏造で一律禁止。EH-3は発行元を検証しない既知ギャップ(R-012)があり技術層では止まらない——人間口頭の『ファイル用意して』指示も bin/plangate maintenance start のL1-L4を人間が自ら通したこととは等価でない。c3.json/maintenance.json/settings/approvals は人間操作の代理作成を一律禁止
 - `[project]` **project_eh3_provenance_hardening_289**: EH-3 maintenance.json 発行元検証(HMAC署名+プロセス系譜+CI検出)とPreToolUse決定論ガードを #289配下の子PBIとして起票予定。R-012『完全な構造保証は別PBI』の実装昇格。承認境界enforcementを規範層(classifier)依存から決定論機械層へ降ろす
 - `[reference]` **reference_approval_boundary_two_layer_verdict**: 『AIは自分の実行許可を発行できない』は機能したが二層非対称: exec ゲート(c3.json APPROVED hard-require + plan_hash再検証=強い技術層)とmaintenance保護(発行元非検証=規範層依存・弱い)。後者は『規範解釈が正しい限りで成立する条件付き不可侵(最後の防壁)』であり絶対不可侵ではない
+
+---
+
+# Session Retrospective (増分2) — 2026-05-31 後半
+
+> 対象: 前回振り返り(本doc上半)以降の増分 — PR #419 マージ完遂 / issue #420 起票 / 3件の自己訂正インシデント
+> 生成: マルチエージェント増分振り返り(3観点: 自己訂正の質 / 責務分界 / 運用環境リスク)
+
+## 0. Headline
+
+セッション後半の増分の学び: AI 自己訂正は3件すべて回復したが「検証前に報告/記録する逐次先走り」が単一根本原因。最重要は永続層(memory)への未確定起票(E6)。回復能力(Keep)は維持し、verify-then-report を Iron Law 化する。
+
+## 1. KPT(増分)
+
+### Keep
+- 3誤認(E4 PR番号誤認 / E2 古いcheck.shコピーで誤FAIL / E6 未起票なのにmemoryへ起票済記述)とも、一次証跡(git log/merge-base, 最新版scriptのexit 0, 存在ラベルで再起票)に立ち返って自己訂正・整合できた。推測を決定論的証跡で上書きする回復ループは3件すべてで作動しており、回復能力は実装済みで機能している。
+- E2 で最初のFAILをCodexの修正不足に他責化せず『自分が古いawk版コピーを使ったミス』と自検証系の欠陥へ正しく切り分け直した。失敗時にまず自分の観測系を疑う姿勢は維持価値が高い。
+- 最も不可逆な c3.json 発行(E1)と HO編集(E3, .claude/agents/*.md = check-plan-hash.sh L120 で HO 確定)で『AI=事前検証+バックアップ+GREEN自動確認付きスクリプト提示 / Human=適用』の責務分界(responsibility-classes.md §境界の原則)を完璧に守った。アカウント不安定の中でも承認境界だけは崩れていない模範運用。横展開価値あり。
+- merge=Human / skip追認=Human / issue起票=AI の仕分けが responsibility-classes.md 4分類表(merge=Human-owned固定・sockpuppet禁止 / PR準備=AI-owned)と整合。E7でCodex使用上限により単独判断になっても境界に沿って正しく仕分けた。
+
+### Problem
+- [最重要] E6 — 未確定の成功を永続層(memory)へ先走り記述。gh issue create が存在しないsecurityラベルで失敗し issue は作成されなかったのに、AI は memory へ『#420 起票済』と記述した。結果整合(#420)は番号連番一致の偶然で、別番号なら memory が恒久的に誤参照を保持し続けた。memory は会話を跨ぐ正本(MEMORY.md INDEX 経由で次セッションがL0で読む)であり、揮発的口頭誤報告と質が異なる cross-session 二次被害を生む。
+- 3誤認に共通する単一根本原因 = 並列取り違えではなく『アクション実行→検証を挟まず結論確定→報告/記録』の逐次的先走り(楽観的確定バイアス)。E4=#418がMERGEDで存在した事実から#418=TASK-0121と推測確定 / E2=版の同一性確認前に古いコピーでFAIL確定 / E6=create の exit/返却番号確認前に起票済記録。review-principles §5『故障確率で判断』ではなく『願望で判断』した同一クラスの欠陥。
+- 検出タイミングが3件すべて『報告/記録の後』である構造的弱点。(1)信頼毀損: 誤報告をユーザーが信じて次判断に進む間、誤った前提で動く。(2)未検出残存: E4/E6 は『偶然 隣接番号で整合』したため発覚・回復できたが、整合しないケースでは訂正契機が生まれず回復が運任せ。(3)コスト: 報告→訂正の往復が監査ログ/会話を冗長化。『報告前検証』に1ステップ前倒しすれば同じ回復ロジックがゼロ往復で済む。
+- 発行元検証ギャップが実ファイルで再現(E2 Codex 自己付与 PLANGATE_SKIP_REASON)。check-plan-hash.sh L44-50 は PLANGATE_SKIP_REASON が設定されていれば『誰が設定したか』を検証せず無条件 return 0。skip-decision-log のスキーマは {ts,path,reason} のみで発行元フィールド不在(実ログで確認)のため、docstring が約束する『AI自己設定は監査で検出』は構造検出ではなく reason 文字列の目視運用に退化。非HO・C-3済で実害ゼロだが、同コードパスは HO ブロックの skip にも使われる最終防衛線で同型ギャップが残る。
+- 背景トリガー: gh アクティブアカウントが禁止アカウント kominem-unilabo へ恒常的にドリフト。E4 の gh pr create 失敗(must be a collaborator)の直接原因で、sockpuppet禁止・merge=Human-owned の前提(正しいアクター固定)を物理的に脅かす。本レビュー環境でも実測再現(gh auth status: kominem-unilabo Active=true / s977043 Active=false)。SessionStart hook の pin が効かないタイミングが根本原因未解明で、操作前の毎回手動switchは人間依存の対症療法。
+- 運用負債: skip-decision-log 追認待ち2件が未コミット放置。.bak 世代ファイルが5世代堆積(45100/58288/64454/64457/75849)し既に増殖が顕在化。追認は Human-owned(mode-classification.md でも監査ログ一括変更CLIは最低『高』)だが、未コミット放置は次セッションでの判別困難と監査連続性の断絶を招く。
+
+### Try
+- R-1/R-2 verify-then-report を Iron Law 化: 『マージした/成功した/PASSした/起票した』の完了系主張を出力する直前に必ず一次証跡を取得して突合する。マージ→gh pr view --json state,mergeCommit で state==MERGED かつ mergeCommit non-null かつ headRef/title が当該タスクと一致(E4再発防止: 番号の存在だけで同一視しない)。テスト→使用scriptの版をgit status/ハッシュで確認後にexit code を読む(E2再発防止)。起票→create の exit code と返却 issue 番号を取得後に番号確定(E6再発防止)。PR/issue/commit は『存在』ではなく『title/headRef/covers での紐付け』で同一性判定し隣接番号からの推測を禁止。feedback_verify_merge_before_branch_delete.md に『隣接成功からの推測禁止 / commit SHA一致』の1節を追記。
+- 永続層(memory/handoff/status.md)への完了系記述は『確定後のみ・未確定は明示マーク』を強制(E6専用ガード)。(i)書く前に R-1 の一次証跡で確定、(ii)確定前に書かざるを得ない場合は『PENDING-VERIFY: <検証コマンド>』を前置し確定後に除去する2フェーズ書き込み。memory書き込み時のセルフチェック『この完了主張は今この会話内で exit code/state を実測したか? No なら PENDING-VERIFY を付ける』を必須化。永続層の誤りは将来セッションが誤参照する二次被害のため口頭報告より厳しい確定要件を課す。
+- 完了/成功を主張する報告に一次証跡を1行添付して verify-then-report を可観測化(例: '#419 MERGED確認: state=MERGED, mergeCommit=<oid>, headRef=feat/task-0121' / 'check.sh GREEN: exit 0, 版=<commit>' / '#420 起票: exit 0, returned number=420')。証跡を1行書こうとすると未取得に気づくため『書けない=未検証』の検出器として報告前検出に前倒しできる。検証できなかった事実は隠さず明示する(本レビューでも禁止アカウントread が stale を返し独立確認不能な点を明示)。
+- 発行元検証ギャップを構造検出へ昇格(E2/E6 #420 follow-up へ束ねる): skip-decision-log エントリに issuer/source フィールドを追加({ts,path,reason,issuer:'human'|'ai-agent'|'unknown'})し、docstring の『AI自己設定は監査で検出』を reason 目視ではなくフィールド検査で機械判定可能にする。CI-owned層で issuer!=human の skip を drift 検出する workflow を足し Defense in Depth(規範層+技術層+CI層)で HO常時block の前提を補強。HO/承認境界パス編集のため Standard・同期 C-3 必須。
+- gh active アカウント固定を観測→事実特定→恒久化の順で多層化(推測でhookを固めない): (1)操作前後の login を decision-log に append し回帰タイミングを事実特定。(2)pre-push hook(TASK-0114 と同層)に『active != s977043 なら abort』を物理block追加。(3)push/pr/merge 系の PreToolUse Bash matcher に active verify 前置ガード。前提として settings.json / SessionStart / pre-push hook の実体を読み現状の pin enforcement 有無を事実確認する(本レビューでは tool で実体未確認)。
+- skip-decision-log 追認2件を issue化して Human-owned タスクとして可視トラッキング(未コミットの暗黙TODO化を排除)し、.bak 世代ファイルを .gitignore で除外しつつ正規ファイルのみ追跡。Codex使用上限(E2/E7)に対しては critical path を Codex 1本に依存させず Claude 側独立検証(最新版scriptでの再実行)を必須化する fallback policy を codex-multi-agent/orchestrator-mode に明文化(issue化不要・recommend)。
+
+## 2. Delta Follow-ups(前回に無い新規のみ)
+
+| severity | タイトル | action |
+|----------|---------|--------|
+| high | verify-then-report を Iron Law 化し feedback_verify_merge_before_branch_delete.md を『隣接成功からの推測禁止 / 当該タスク紐付け一致 / commit SHA一致』へ拡張 | 行動規範化 + memory化(feedback_verify_merge_before_branch_delete.md に1節追記。完了系3系統 マージ/テスト/起票の実測前提を R-1/R-2 として固定) |
+| high | 永続層(memory/handoff/status.md)への完了系記述に PENDING-VERIFY 2フェーズ書き込みを必須化(E6専用ガード) | 行動規範化(memory書き込み時セルフチェック『今この会話で exit/state を実測したか? No なら PENDING-VERIFY を前置』を必須化) |
+| high | PLANGATE_SKIP_REASON の発行元検証ギャップを構造検出へ昇格(skip-decision-log に issuer フィールド + CI drift 検出) | issue化(既存 #420 follow-up へ束ねる。HO/承認境界パス編集のため Standard・同期 C-3 必須) |
+| high | gh active アカウント kominem-unilabo 恒常ドリフトを pre-push/PreToolUse hook で技術層block(観測→事実特定→恒久化) | issue化(#420 とは別軸の運用環境/アカウント固定 PBI。前提として settings.json/SessionStart/pre-push hook の実体確認) |
+| medium | skip-decision-log 追認待ち2件の issue化 + .bak 世代ファイルの .gitignore 整理 | issue化(Human-owned タスクとして可視化) + .gitignore で .bak 除外・正規ファイルのみ追跡 |
+| low | Codex 使用上限到達時の fallback policy 明文化(critical 検証を Codex 1本に依存させない) | 行動規範化(codex-multi-agent/orchestrator-mode に『上限到達=Claude独立検証フォールバック必須』を追記。issue化不要) |
+
+## 3. 実施済みアクション(本増分振り返りから)
+
+- ✅ memory更新: `feedback_verify_merge_before_branch_delete`(完了系verify-then-report・隣接番号推測禁止へ拡張)
+- ✅ memory新規: `feedback_persist_layer_pending_verify`(永続層 PENDING-VERIFY 2フェーズ書き込み)
+- ✅ memory新規: `project_session_2026_05_29_carryover`(セッション完遂サマリ)
+- ✅ verify-then-report 実践: 完了系を一次証跡で実測 → PR#417 MERGED(707e961) / PR#419 MERGED(merge 1ee9c17, feature 931724c main祖先) / issue#420 OPEN / skip-log追認待ち2件 を確認
+
+## 4. 次アクション(すべてHuman-owned)
+
+| アクション | Owner | 関連 |
+|-----------|-------|------|
+| skip-decision-log 追認待ち2件 | 👤 | retro doc配置分 |
+| #420 PBI着手判断(HO実装は人間C-3必須) | 👤 | #420 |
+| gh account 恒常ドリフトの恒久対策(hook固定) | 👤 | 別軸PBI候補 |
+| PR#417 Gemini polish 4件 | 任意 | defer |
