@@ -1657,7 +1657,7 @@ _review_parallel() {
   trap "rm -rf \"$_rp_tmpdir\"" EXIT
 
   python3 - "$_rp_reviewers_yaml" "$_rp_phase" "$_rp_task_mode" "$_rp_tmpdir" << 'PYEOF'
-import sys, os, yaml
+import sys, os, yaml, shlex
 
 yaml_file = sys.argv[1]
 phase = sys.argv[2]
@@ -1715,7 +1715,7 @@ for idx, spec in enumerate(active_reviewers):
     spec_file = os.path.join(tmpdir, "spec_{:03d}".format(idx))
     with open(spec_file, "w") as f:
         f.write("provider={}\n".format(provider))
-        f.write("command={}\n".format(cmd))
+        f.write("command={}\n".format(shlex.quote(cmd)))
         f.write("lane={}\n".format(lane))
 
 with open(os.path.join(tmpdir, "count"), "w") as f:

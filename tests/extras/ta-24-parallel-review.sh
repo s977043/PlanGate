@@ -246,6 +246,42 @@ else
   printf '  [SKIP] TC-06b PyYAML not installed\n'
 fi
 
+# === TC-06c (AC-2): spec ファイルのコマンドにスペースが含まれても正しく動作（shlex.quote 修正検証）===
+if python3 -c 'import yaml, shlex' >/dev/null 2>&1; then
+  t24_tmpdir4=$(mktemp -d)
+  trap 'rm -rf "$t24_tmpdir4"' EXIT INT TERM
+
+  # コマンドにスペースが含まれる場合の spec ファイル生成テスト
+  t24_cmd_with_spaces="printf '%s' 'hello world'"
+  t24_spec="$t24_tmpdir4/spec_000"
+  python3 - "$t24_cmd_with_spaces" "$t24_spec" << 'INNER_PYEOF'
+import sys, shlex
+cmd = sys.argv[1]
+spec_file = sys.argv[2]
+with open(spec_file, "w") as f:
+    f.write("provider=mock\n")
+    f.write("command={}\n".format(shlex.quote(cmd)))
+    f.write("lane=\n")
+INNER_PYEOF
+
+  # source して command 変数を取得し eval が動くか確認
+  t24_eval_result=$(
+    provider=""; command=""; lane=""
+    . "$t24_spec"
+    eval "$command" 2>&1
+  )
+  if [ "$t24_eval_result" = "hello world" ]; then
+    t24_pass "TC-06c shlex.quote で spec ファイルのスペース含みコマンドが正常 eval"
+  else
+    t24_fail "TC-06c shlex.quote 修正 — eval 結果が不正: '$t24_eval_result'"
+  fi
+
+  rm -rf "$t24_tmpdir4"
+  trap - EXIT INT TERM
+else
+  printf '  [SKIP] TC-06c PyYAML/shlex not installed\n'
+fi
+
 # === TC-07 (AC-7): markdownlint-cli2 PASS（新規追加エラーなし）===
 # 既存ファイルに MD060 エラーが多数あるため、追加前後のエラー数を比較する
 INTERFACE_DOC="$PG_T24_ROOT/docs/ai/external-reviewer-interface.md"
