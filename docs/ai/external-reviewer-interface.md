@@ -151,3 +151,75 @@ events 化（[gate-event-normalization.md](./gate-event-normalization.md)）時�
 - [`ai/gate-event-normalization.md`](./gate-event-normalization.md) — events 正規化（#230）
 - [`ai/versioning-stability-policy.md`](./versioning-stability-policy.md) — severity 表変更の互換性扱い
 - river-reviewer 側: [s977043/river-reviewer#802](https://github.com/s977043/river-reviewer/issues/802)
+
+## 8. v2.0: 並列マルチレビューア（Mode 連動自動スケール）
+
+> v2.0 拡張（TASK-0122 / #424）。v1.0 との後方互換を維持する additive 拡張。
+
+### 8.1 フィールド説明
+
+| フィールド | 型 | 必須 | 説明 |
+|------------|---|------|------|
+| `lane` | `"design" \| "codebase" \| "security"` | 任意 | レビューレーン（[review-principles §7-bis](../../.claude/rules/review-principles.md) に対応） |
+| `mode_threshold` | enum（後述） | 任意 | このレビューアが起動する最低 Mode。タスクの Mode がこの値未満なら自動スキップ |
+| `command` | string **または** array of string | 必須 | v2.0 では文字列配列も許容（配列は空白結合して実行） |
+
+### 8.2 Mode スケール表
+
+`mode_threshold` の値と起動条件:
+
+| `mode_threshold` 値 | 起動するタスク Mode |
+|---------------------|---------------------|
+| `ultra-light` | ultra-light 以上（全 Mode） |
+| `light` | light 以上 |
+| `standard` | standard 以上 |
+| `high-risk` | high-risk 以上 |
+| `critical` | critical のみ |
+
+タスクの Mode は `docs/working/TASK-XXXX/current-state.md` または `plan.md` の
+`**Mode**:` / `**モード**:` 行から自動取得する。取得不能な場合は
+`mode_threshold` フィルタを無効化して全レビューアを実行する。
+
+### 8.3 v2.0 設定例
+
+```yaml
+version: "2.0"
+reviewers:
+  c2:
+    - provider: codex
+      lane: design
+      mode_threshold: standard
+      command: "codex review --phase upstream --output-format json"
+      output_mapping:
+        severity: finding.severity
+        evidence: finding.evidence
+        location: "finding.file + ':' + finding.line"
+    - provider: gemini
+      lane: security
+      mode_threshold: high-risk
+      command: "gemini review --phase upstream --output-format json"
+      output_mapping:
+        severity: finding.severity
+        evidence: finding.evidence
+        location: "finding.file + ':' + finding.line"
+  v3:
+    provider: codex
+    command: "codex review --phase midstream --output-format json"
+    output_mapping:
+      severity: finding.severity
+      evidence: finding.evidence
+      location: "finding.file + ':' + finding.line"
+```
+
+### 8.4 並列実行の動作
+
+1. `.plangate-reviewers.yaml` の当該フェーズが配列形式の場合、各レビューアを `&` で並列起動し `wait` で全完了を待つ
+2. 失敗したレビューアは `warn` 扱いでスキップ（他のレビューアには影響しない）
+3. 結果は `provider` 名アルファベット順にソートし `R-001`, `R-002` ... と連番を付けて `review-external.md` に集約
+4. 並列実行の記録は `decision-log.jsonl` に `parallel_review` イベントとして append される
+
+### 8.5 後方互換
+
+- v1.0 設定（`version: "1.0"` / command が文字列 / 単体 reviewerSpec）は **v2.0 schema で引き続き valid**
+- `.plangate-reviewers.yaml` が存在しない場合は従来どおり `PLANGATE_EXTERNAL_REVIEWER` 環境変数（既定 `codex`）で動作する
+- `python3` または `PyYAML` が未インストールの場合は `warn` を出力してレガシーフォールバック動作に切り替わる
