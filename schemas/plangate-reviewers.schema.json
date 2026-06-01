@@ -13,7 +13,8 @@
     "version": {
       "type": "string",
       "enum": [
-        "1.0"
+        "1.0",
+        "2.0"
       ],
       "description": "IF schema version. Additive evolution per versioning-stability-policy.md §2.1"
     },
@@ -23,10 +24,24 @@
       "minProperties": 1,
       "properties": {
         "c2": {
-          "$ref": "#/definitions/reviewerSpec"
+          "oneOf": [
+            { "$ref": "#/definitions/reviewerSpec" },
+            {
+              "type": "array",
+              "items": { "$ref": "#/definitions/reviewerSpec" },
+              "minItems": 1
+            }
+          ]
         },
         "v3": {
-          "$ref": "#/definitions/reviewerSpec"
+          "oneOf": [
+            { "$ref": "#/definitions/reviewerSpec" },
+            {
+              "type": "array",
+              "items": { "$ref": "#/definitions/reviewerSpec" },
+              "minItems": 1
+            }
+          ]
         }
       }
     }
@@ -47,10 +62,43 @@
           "description": "Reviewer identifier, e.g. river-reviewer / gemini / codex"
         },
         "command": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "minItems": 1
+            }
+          ],
+          "description": "Command emitting Finding JSON to stdout (string or array of strings)"
+        },
+        "lane": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 512,
-          "description": "Command emitting Finding JSON to stdout"
+          "enum": [
+            "design",
+            "codebase",
+            "security"
+          ],
+          "description": "Review lane — design, codebase, or security (v2.0)"
+        },
+        "mode_threshold": {
+          "type": "string",
+          "enum": [
+            "ultra-light",
+            "light",
+            "standard",
+            "high-risk",
+            "critical"
+          ],
+          "description": "Minimum mode level to activate this reviewer (v2.0)"
         },
         "output_mapping": {
           "type": "object",
