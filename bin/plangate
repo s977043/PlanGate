@@ -1642,11 +1642,11 @@ _review_parallel() {
   _rp_task_mode=""
   if [ -f "$_rp_work_dir/current-state.md" ]; then
     _rp_task_mode=$(grep -m1 '^\*\*[Mm]ode\*\*:' "$_rp_work_dir/current-state.md" 2>/dev/null | \
-      sed 's/.*:\s*//' | tr -d '`' | tr -d ' ' || true)
+      sed 's/.*:[[:space:]]*//' | tr -d '`' | tr -d ' ' || true)
   fi
   if [ -z "$_rp_task_mode" ] && [ -f "$_rp_work_dir/plan.md" ]; then
     _rp_task_mode=$(grep -m1 '^\*\*モード\*\*:\|^\*\*[Mm]ode\*\*:' "$_rp_work_dir/plan.md" 2>/dev/null | \
-      sed 's/.*:\s*//' | tr -d '`' | tr -d ' ' | sed 's/（.*//' || true)
+      sed 's/.*:[[:space:]]*//' | tr -d '`' | tr -d ' ' | sed 's/（.*//' || true)
   fi
   if [ -z "$_rp_task_mode" ]; then
     printf 'warn: task mode not found; mode_threshold filter disabled\n' >&2
@@ -1785,9 +1785,10 @@ PYEOF
       # shellcheck disable=SC1090
       . "$_spec_file"
       _rp_out_file="$_rp_tmpdir/out_$(printf '%03d' "$_rp_idx")"
+      _rp_status_file="$_rp_tmpdir/status_$(printf '%03d' "$_rp_idx")"
       printf 'Starting reviewer: %s (lane=%s)\n' "$provider" "$lane"
       # shellcheck disable=SC2086
-      (eval "$command" > "$_rp_out_file" 2>&1) &
+      (eval "$command" > "$_rp_out_file" 2>&1; echo $? > "$_rp_status_file") &
     fi
     _rp_idx=$((_rp_idx + 1))
   done
@@ -1812,7 +1813,8 @@ PYEOF
       provider=""; command=""; lane=""
       # shellcheck disable=SC1090
       . "$_spec_file"
-      if [ -f "$_rp_out_file" ]; then
+      _rp_status=$(cat "$_rp_tmpdir/status_$(printf '%03d' "$_rp_idx")" 2>/dev/null || echo 1)
+      if [ "$_rp_status" -eq 0 ] && [ -f "$_rp_out_file" ]; then
         _rp_r_id=$(printf 'R-%03d' "$_rp_r_num")
         {
           printf '## %s -- %s\n\n' "$_rp_r_id" "$provider"
@@ -1824,7 +1826,7 @@ PYEOF
         } >> "$_rp_output_file"
         _rp_r_num=$((_rp_r_num + 1))
       else
-        printf 'warn: output file missing for provider=%s; skipping\n' "$provider" >&2
+        printf 'warn: reviewer %s failed (exit=%s) or output missing; skipping\n' "$provider" "$_rp_status" >&2
       fi
     fi
     _rp_idx=$((_rp_idx + 1))
