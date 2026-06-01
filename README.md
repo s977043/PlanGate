@@ -77,12 +77,12 @@ flowchart LR
 
 PlanGate は **v8.10.0**（Latest）で、Hook enforcement・Metrics v1・Harness Improvement Governance の上に **Reporting & Retrospective v1** を載せ、events.ndjson から sprint retrospective を決定論的に導出できるガバナンスハーネスへ到達しました。これにより [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) は **完遂（CLOSED / COMPLETED）** しています。
 
-v8.7.0〜v8.9.0 はリリース済みで、外部 OSS 利用者の **「どこまで使えばよいか不明」問題** に応える OSS 整備（段階的導入ガイド / Plugin 成熟化 / バージョニング安定性ポリシー）と、自己評価・context 分離・モデル特性対応・reporting の各基盤を順次投入しました。
+v8.7.0〜v8.10.0 はリリース済みで、外部 OSS 利用者の **「どこまで使えばよいか不明」問題** に応える OSS 整備（段階的導入ガイド / Plugin 成熟化 / バージョニング安定性ポリシー）と、自己評価・context 分離・モデル特性対応・reporting の各基盤を順次投入しました。
 
 | 項目 | 状態 |
 | --- | --- |
 | 最新リリース | **v8.10.0**（Latest, 2026-05-29）— Codex CLI parity 完成 / Hook・Guard 拡充 / Skill 整備 |
-| リリース済 | **v8.7.0** OSS 整備 3 主軸 + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1・Dynamic Context Engine v1・Model Profile v2・Gate Event Normalization・Dogfooding Eval v1 |
+| リリース済 | **v8.7.0** OSS 整備 3 主軸 + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1・Dynamic Context Engine v1・Model Profile v2・Gate Event Normalization・Dogfooding Eval v1 / **v8.9.0** Reporting & Retrospective v1 / **v8.10.0** Codex CLI parity・Hook/Guard 拡充・Skill 整備 |
 | Roadmap | **EPIC #193 完遂（CLOSED / COMPLETED）** — Phase 0〜6 + Governance + Lightweight Plan Quality Checks 全 Done、子 PBI 12/12 CLOSED |
 | Hook enforcement | **12/12 hooks 実装済み**（EH-1〜EH-9 + EHS-1〜EHS-3、v8.5.0 で 10/10、v8.6.0 で EH-8、v8.7.0 で EH-9 を追加） |
 | Metrics v1 | `bin/plangate metrics` による workflow event 集計（v8.6.0 初出） |
@@ -346,8 +346,8 @@ sh tests/hooks/run-tests.sh
 
 | スイート | 件数 | 主な検証対象 |
 | --- | ---: | --- |
-| `tests/run-tests.sh` | **68 PASS** | CLI、Workflow DSL、schema validate、eval、metrics v1、reporting、provider dispatch、fixture 検証 |
-| `tests/hooks/run-tests.sh` | **78 PASS** | EH-1〜EH-9 / EHS-1〜EHS-3、default / strict / bypass の 3 mode 挙動 |
+| `tests/run-tests.sh` | **211 PASS** | CLI、Workflow DSL、schema validate、eval、metrics v1、reporting、provider dispatch、fixture 検証 |
+| `tests/hooks/run-tests.sh` | **79 PASS** | EH-1〜EH-9 / EHS-1〜EHS-3、default / strict / bypass の 3 mode 挙動 |
 
 主な検証対象:
 
@@ -438,6 +438,7 @@ PlanGate のガバナンスワークフローはプロバイダに依存しな�
 | [docs/oss-governance.md](docs/oss-governance.md) | OSS 公開設定・運用判断 |
 | [docs/glossary.md](docs/glossary.md) | **用語クイックリファレンス** — EH-X / WF-XX / V-X / C-X / mode 5 段階等の略号 (#310) |
 | [docs/when-not-to-use.md](docs/when-not-to-use.md) | **When NOT to use / Trade-offs** — PlanGate を採用しない方が良いケース (#310) |
+| [docs/release-process.md](docs/release-process.md) | リリースプロセス（Tag-Main Parity Iron Law / `scripts/check-tag-main-parity.sh` 必須手順） |
 | [CHANGELOG.md](CHANGELOG.md) | 主要リリース履歴 |
 | [docs/working/discussions/](docs/working/discussions/) | Claude × Codex × Gemini の戦略ディスカッションログ（5 ラウンド、v8.7.0 主軸の根拠） |
 

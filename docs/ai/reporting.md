@@ -33,6 +33,26 @@ Metrics v1 / Eval comparison / Keep Rate / Dynamic Context が揃っても、
 期間は `c3.json` の `approved_at` が `--from`〜`--to`（YYYY-MM-DD・両端含む）
 に入る TASK を対象とする。
 
+## 2-bis. retrospective scoring（5 軸配点 / TASK-0121）
+
+exec 完了後の振り返りメトリクスは以下の 5 軸 100 点満点で評価する
+（Plan-primacy 思想: 計画精度 ≥ 成果物品質 → 計画精度を最重視）。
+
+| 観点 | 配点 | 評価基準 |
+|------|------|---------|
+| 計画精度 | 30 | 想定粒度と実績の乖離・計画変更の有無・受入基準網羅性・スコープ制御・テスト戦略妥当性（C-1 語彙） |
+| テスト品質 | 15 | test-cases.md の網羅性、RED-GREEN 成功率 |
+| プロセス遵守 | 15 | Iron Law 違反の有無、チェック漏れ |
+| 効率性 | 10 | 並列実行活用度、セッション復旧の円滑さ |
+| 成果物品質 | 30 | 計画で定めた品質の達成度（保全達成度）: レビュー指摘数・CI 通過率・受入基準充足度 |
+
+**合計: 100 点固定。**
+
+> 正本はこのセクション。複製サイト（`docs/ai-driven-development.md` /
+> `.claude/agents/workflow-conductor.md` / `.claude/agents/retrospective-analyst.md` /
+> `plugin/plangate/agents/workflow-conductor.md`）との整合性は
+> `scripts/check-retro-scoring-consistency.sh` で機械検証する。
+
 ## 3. Report items
 
 | Item | 意味 |
