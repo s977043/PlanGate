@@ -1539,16 +1539,34 @@ cmd_review() {
   done
 
   work_dir="$plangate_working_dir/$task_id"
-  reviewer="${PLANGATE_EXTERNAL_REVIEWER:-codex}"
   output_file="$work_dir/review-external.md"
-
-  printf 'External review: %s (phase=%s, reviewer=%s)\n' "$task_id" "$phase" "$reviewer"
 
   if [ ! -f "$work_dir/plan.md" ]; then
     printf 'error: plan.md not found — run /ai-dev-workflow plan first\n' >&2
     return 1
   fi
 
+  # -- .plangate-reviewers.yaml 存在チェック ---------------------------------
+  reviewers_yaml="$plangate_root/.plangate-reviewers.yaml"
+  if [ -f "$reviewers_yaml" ] && command -v python3 >/dev/null 2>&1; then
+    if python3 -c 'import yaml' >/dev/null 2>&1; then
+      _rv_result=0
+      _review_parallel "$task_id" "$phase" "$work_dir" "$output_file" "$reviewers_yaml" || _rv_result=$?
+      if [ "$_rv_result" -eq 2 ]; then
+        : # phase not configured; fall through to legacy
+      else
+        return "$_rv_result"
+      fi
+    else
+      printf 'warn: PyYAML not installed; falling back to legacy reviewer\n' >&2
+    fi
+  elif [ -f "$reviewers_yaml" ] && ! command -v python3 >/dev/null 2>&1; then
+    printf 'warn: python3 not found; falling back to legacy reviewer\n' >&2
+  fi
+
+  # -- レガシーフォールバック（後方互換） -------------------------------------
+  reviewer="${PLANGATE_EXTERNAL_REVIEWER:-codex}"
+  printf 'External review: %s (phase=%s, reviewer=%s)\n' "$task_id" "$phase" "$reviewer"
   prompt="Review the following PlanGate plan and identify issues:\n$(cat "$work_dir/plan.md")"
 
   case "$reviewer" in
@@ -1600,7 +1618,7 @@ cmd_review() {
   esac
 
   {
-    printf '# External Review — %s\n\n' "$task_id"
+    printf '# External Review -- %s\n\n' "$task_id"
     printf '> Phase: %s\n' "$phase"
     printf '> Reviewer: %s\n' "$reviewer"
     printf '> Generated: %s\n\n' "$(plangate_now)"
@@ -1609,6 +1627,222 @@ cmd_review() {
 
   printf 'Review written to: %s\n' "$output_file"
 }
+
+# _review_parallel: .plangate-reviewers.yaml の配列形式に対応した並列実行
+# 引数: task_id phase work_dir output_file reviewers_yaml
+# 戻り値: 0=success, 1=error, 2=phase not configured (caller should fall through)
+_review_parallel() {
+  _rp_task_id=$1
+  _rp_phase=$2
+  _rp_work_dir=$3
+  _rp_output_file=$4
+  _rp_reviewers_yaml=$5
+
+  # タスクの mode を current-state.md または plan.md から取得
+  _rp_task_mode=""
+  if [ -f "$_rp_work_dir/current-state.md" ]; then
+    _rp_task_mode=$(grep -m1 '^\*\*[Mm]ode\*\*:' "$_rp_work_dir/current-state.md" 2>/dev/null | \
+      sed 's/.*:\s*//' | tr -d '`' | tr -d ' ' || true)
+  fi
+  if [ -z "$_rp_task_mode" ] && [ -f "$_rp_work_dir/plan.md" ]; then
+    _rp_task_mode=$(grep -m1 '^\*\*モード\*\*:\|^\*\*[Mm]ode\*\*:' "$_rp_work_dir/plan.md" 2>/dev/null | \
+      sed 's/.*:\s*//' | tr -d '`' | tr -d ' ' | sed 's/（.*//' || true)
+  fi
+  if [ -z "$_rp_task_mode" ]; then
+    printf 'warn: task mode not found; mode_threshold filter disabled\n' >&2
+  fi
+
+  _rp_tmpdir=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf \"$_rp_tmpdir\"" EXIT
+
+  python3 - "$_rp_reviewers_yaml" "$_rp_phase" "$_rp_task_mode" "$_rp_tmpdir" << 'PYEOF'
+import sys, os, yaml
+
+yaml_file = sys.argv[1]
+phase = sys.argv[2]
+task_mode = sys.argv[3]
+tmpdir = sys.argv[4]
+
+MODE_ORDER = ["ultra-light", "light", "standard", "high-risk", "critical"]
+
+def mode_rank(m):
+    try:
+        return MODE_ORDER.index(m)
+    except ValueError:
+        return -1
+
+with open(yaml_file) as f:
+    config = yaml.safe_load(f)
+
+reviewers_config = config.get("reviewers", {}).get(phase)
+if reviewers_config is None:
+    with open(os.path.join(tmpdir, "no_phase"), "w") as f:
+        f.write("no_phase\n")
+    sys.exit(0)
+
+if isinstance(reviewers_config, dict):
+    reviewers_list = [reviewers_config]
+    is_array = False
+else:
+    reviewers_list = reviewers_config
+    is_array = True
+
+with open(os.path.join(tmpdir, "is_array"), "w") as f:
+    f.write("1" if is_array else "0")
+
+active_reviewers = []
+for spec in reviewers_list:
+    threshold = spec.get("mode_threshold")
+    if threshold and task_mode:
+        task_rank = mode_rank(task_mode)
+        threshold_rank = mode_rank(threshold)
+        if task_rank < threshold_rank:
+            provider = spec.get("provider", "unknown")
+            sys.stderr.write("[mode_threshold] skip: {} (threshold={}, task_mode={})\n".format(
+                provider, threshold, task_mode))
+            continue
+    active_reviewers.append(spec)
+
+active_reviewers.sort(key=lambda s: s.get("provider", ""))
+
+for idx, spec in enumerate(active_reviewers):
+    provider = spec.get("provider", "reviewer{}".format(idx))
+    cmd = spec.get("command", "")
+    if isinstance(cmd, list):
+        cmd = " ".join(cmd)
+    lane = spec.get("lane", "")
+    spec_file = os.path.join(tmpdir, "spec_{:03d}".format(idx))
+    with open(spec_file, "w") as f:
+        f.write("provider={}\n".format(provider))
+        f.write("command={}\n".format(cmd))
+        f.write("lane={}\n".format(lane))
+
+with open(os.path.join(tmpdir, "count"), "w") as f:
+    f.write(str(len(active_reviewers)))
+PYEOF
+
+  if [ $? -ne 0 ]; then
+    printf 'error: failed to parse %s\n' "$_rp_reviewers_yaml" >&2
+    rm -rf "$_rp_tmpdir"
+    trap - EXIT
+    return 1
+  fi
+
+  if [ -f "$_rp_tmpdir/no_phase" ]; then
+    rm -rf "$_rp_tmpdir"
+    trap - EXIT
+    return 2
+  fi
+
+  _rp_count=$(cat "$_rp_tmpdir/count" 2>/dev/null || echo 0)
+  _rp_is_array=$(cat "$_rp_tmpdir/is_array" 2>/dev/null || echo 0)
+
+  if [ "$_rp_count" -eq 0 ]; then
+    printf 'warn: no reviewers active for phase=%s (all filtered by mode_threshold)\n' "$_rp_phase" >&2
+    {
+      printf '# External Review -- %s\n\n' "$_rp_task_id"
+      printf '> Phase: %s\n' "$_rp_phase"
+      printf '> Generated: %s\n\n' "$(plangate_now)"
+      printf 'No reviewers active (all filtered by mode_threshold=%s).\n' "$_rp_task_mode"
+    } > "$_rp_output_file"
+    rm -rf "$_rp_tmpdir"
+    trap - EXIT
+    printf 'Review written to: %s\n' "$_rp_output_file"
+    return 0
+  fi
+
+  # 単体 spec（is_array=0）の場合
+  if [ "$_rp_is_array" = "0" ]; then
+    _spec_file="$_rp_tmpdir/spec_000"
+    provider=""; command=""; lane=""
+    # shellcheck disable=SC1090
+    . "$_spec_file"
+    printf 'External review: %s (phase=%s, provider=%s)\n' "$_rp_task_id" "$_rp_phase" "$provider"
+    _rp_out=$(eval "$command" 2>&1) || _rp_out="[error: command failed]"
+    {
+      printf '# External Review -- %s\n\n' "$_rp_task_id"
+      printf '> Phase: %s\n' "$_rp_phase"
+      printf '> Provider: %s\n' "$provider"
+      printf '> Generated: %s\n\n' "$(plangate_now)"
+      printf '%s\n' "$_rp_out"
+    } > "$_rp_output_file"
+    rm -rf "$_rp_tmpdir"
+    trap - EXIT
+    printf 'Review written to: %s\n' "$_rp_output_file"
+    return 0
+  fi
+
+  # 配列形式: 並列実行
+  printf 'External review (parallel): %s (phase=%s, reviewers=%s)\n' \
+    "$_rp_task_id" "$_rp_phase" "$_rp_count"
+
+  _rp_idx=0
+  while [ "$_rp_idx" -lt "$_rp_count" ]; do
+    _spec_file="$_rp_tmpdir/spec_$(printf '%03d' "$_rp_idx")"
+    if [ -f "$_spec_file" ]; then
+      provider=""; command=""; lane=""
+      # shellcheck disable=SC1090
+      . "$_spec_file"
+      _rp_out_file="$_rp_tmpdir/out_$(printf '%03d' "$_rp_idx")"
+      printf 'Starting reviewer: %s (lane=%s)\n' "$provider" "$lane"
+      # shellcheck disable=SC2086
+      (eval "$command" > "$_rp_out_file" 2>&1) &
+    fi
+    _rp_idx=$((_rp_idx + 1))
+  done
+
+  wait
+
+  # 結果マージ: provider アルファベット順 + R-NNN 連番
+  _rp_r_num=1
+  {
+    printf '# External Review -- %s\n\n' "$_rp_task_id"
+    printf '> Phase: %s\n' "$_rp_phase"
+    printf '> Mode: %s\n' "$_rp_task_mode"
+    printf '> Generated: %s\n' "$(plangate_now)"
+    printf '> Reviewers: %s (parallel)\n\n' "$_rp_count"
+  } > "$_rp_output_file"
+
+  _rp_idx=0
+  while [ "$_rp_idx" -lt "$_rp_count" ]; do
+    _spec_file="$_rp_tmpdir/spec_$(printf '%03d' "$_rp_idx")"
+    _rp_out_file="$_rp_tmpdir/out_$(printf '%03d' "$_rp_idx")"
+    if [ -f "$_spec_file" ]; then
+      provider=""; command=""; lane=""
+      # shellcheck disable=SC1090
+      . "$_spec_file"
+      if [ -f "$_rp_out_file" ]; then
+        _rp_r_id=$(printf 'R-%03d' "$_rp_r_num")
+        {
+          printf '## %s -- %s\n\n' "$_rp_r_id" "$provider"
+          if [ -n "$lane" ]; then
+            printf '> Lane: %s\n\n' "$lane"
+          fi
+          cat "$_rp_out_file"
+          printf '\n'
+        } >> "$_rp_output_file"
+        _rp_r_num=$((_rp_r_num + 1))
+      else
+        printf 'warn: output file missing for provider=%s; skipping\n' "$provider" >&2
+      fi
+    fi
+    _rp_idx=$((_rp_idx + 1))
+  done
+
+  # decision-log に並列実行を記録
+  _rp_log="$_rp_work_dir/decision-log.jsonl"
+  if [ -f "$_rp_log" ]; then
+    plangate_append_ndjson "$_rp_log" \
+      "{\"ts\":\"$(plangate_now)\",\"event\":\"parallel_review\",\"phase\":\"$_rp_phase\",\"reviewers\":$_rp_count,\"task_mode\":\"$_rp_task_mode\"}"
+  fi
+
+  rm -rf "$_rp_tmpdir"
+  trap - EXIT
+  printf 'Review written to: %s\n' "$_rp_output_file"
+  return 0
+}
+
 
 cmd_exec() {
   if [ $# -eq 0 ]; then
