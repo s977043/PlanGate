@@ -1,23 +1,53 @@
-# PlanGate 外部レビューア接続 — 最小構成例（example。リネームで有効化）
+# PlanGate 外部レビューア接続 — 設定例（example。リネームで有効化）
 # 正本: docs/ai/external-reviewer-interface.md (#227)
 # スキーマ: schemas/plangate-reviewers.schema.json
 #
 # 有効化するには本ファイルを .plangate-reviewers.yaml にコピーする。
 # 未配置なら従来どおり PLANGATE_EXTERNAL_REVIEWER（既定 codex）で動作する。
-version: "1.0"
+#
+# ── v1.0 シングル構成例 ─────────────────────────────────────────────────────
+# version: "1.0"
+# reviewers:
+#   c2:
+#     provider: river-reviewer
+#     command: "river run . --phase upstream --output-format json"
+#     output_mapping:
+#       severity: finding.severity
+#       evidence: finding.evidence
+#       location: "finding.file + ':' + finding.line"
+#   v3:
+#     provider: river-reviewer
+#     command: "river run . --phase midstream --output-format json"
+#     output_mapping:
+#       severity: finding.severity
+#       evidence: finding.evidence
+#       location: "finding.file + ':' + finding.line"
+#
+# ── v2.0 並列マルチレビューア構成例 ────────────────────────────────────────
+version: "2.0"
 reviewers:
-  # C-2: plan ゲート外部レビュー（upstream）
+  # C-2: plan ゲート外部レビュー（upstream）— 並列2レビューア
   c2:
-    provider: river-reviewer
-    command: "river run . --phase upstream --output-format json"
-    output_mapping:
-      severity: finding.severity
-      evidence: finding.evidence
-      location: "finding.file + ':' + finding.line"
-  # V-3: 実装後外部モデルレビュー（midstream）
+    - provider: codex
+      lane: design
+      mode_threshold: standard
+      command: "codex review --phase upstream --output-format json"
+      output_mapping:
+        severity: finding.severity
+        evidence: finding.evidence
+        location: "finding.file + ':' + finding.line"
+    - provider: gemini
+      lane: security
+      mode_threshold: high-risk
+      command: "gemini review --phase upstream --output-format json"
+      output_mapping:
+        severity: finding.severity
+        evidence: finding.evidence
+        location: "finding.file + ':' + finding.line"
+  # V-3: 実装後外部モデルレビュー（midstream）— シングルレビューア
   v3:
-    provider: river-reviewer
-    command: "river run . --phase midstream --output-format json"
+    provider: codex
+    command: "codex review --phase midstream --output-format json"
     output_mapping:
       severity: finding.severity
       evidence: finding.evidence
