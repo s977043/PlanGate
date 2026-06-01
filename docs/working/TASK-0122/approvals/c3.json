@@ -1,0 +1,10 @@
+{
+  "task_id": "TASK-0122",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043",
+  "approved_at": "2026-06-01T02:55:00Z",
+  "plan_hash": "sha256:ad87193bc9c8bcb6028a7945d4e9e26e83b3351ba1a699117d5f08ea077c92c2",
+  "_review_summary": "C-1 PASS (17/17)。high-risk / HO 対象パス含む / C-3 同期固定。3 判断ポイント（PyYAML フォールバック / mode_threshold テキストパース / R-NNN ソートキー）を APPROVED。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}

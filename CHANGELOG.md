@@ -6,6 +6,10 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+### Changed
+
+- **retrospective scoring 配点変更**（TASK-0121）— 振り返りメトリクスを Plan-primacy 思想に整合。計画精度 15→30・効率性 25→10・成果物品質 30 維持（計画で定めた品質の達成度 = 保全達成度として再定義）。計画精度の評価基準に C-1 語彙（受入基準網羅性・スコープ制御・テスト戦略妥当性）を追加。`docs/ai/reporting.md`（§2-bis 新設） / `docs/ai-driven-development.md` を更新、`scripts/check-retro-scoring-consistency.sh` を新規追加。
+
 ## v8.10.0 - 2026-05-29
 
 feat: Codex CLI parity 完成 + Hook/Guard 拡充 + Skill 整備 + ドキュメント品質向上

@@ -65,6 +65,9 @@
 
 ## 5. Decision rules
 
+> 完了系の主張・記録は Iron Law #3（検証証拠）/ #4（隠さない）の運用解釈として、
+> **報告/記録の直前に一次証跡で突合する**（verify-then-report）。下表末尾 2 行を参照。
+
 | 状況 | 取るべき行動 |
 |------|------------|
 | 受入基準が曖昧 | ユーザーに確認（推測しない） |
@@ -76,6 +79,8 @@
 | 委譲不可（`delegation_unavailable`）| §5-bis-1: **direct-implementer-mode へ自動降格**（人間介入不要）|
 | 委譲境界 `no-commit` 違反 | §5-bis-1: EH-9 **block**（default=block、降格しない）|
 | 認証三点不整合 | §5-bis-1: auth-preflight **exit!=0 で exec 前停止**（降格しない）|
+| 完了系主張を出力/記録する直前 | 一次証跡を取得して突合（Iron Law #3 の運用解釈）。マージ=`gh pr view` の state/mergeCommit/headRef、テスト=script の版+exit code、起票=create の exit code+返却番号。**識別子は「存在」でなく SHA/headRef/title の紐付け一致で同一性判定**（隣接番号からの推測禁止）|
+| コマンド/手順/CLI を「これで直る」と案内する直前 | サブコマンド・スクリプトパスの**存在を実測**（`grep`/`--help`/正本 doc）。未確認の手順を断定しない |
 
 ## 5-bis. 実行環境不変条件（Execution Environment Invariant）
 
@@ -166,6 +171,7 @@ exec 前に停止 or 明示降格する:
 | 承認なし状態で production code 編集要求 | C-3 ゲート結果 |
 | データ削除 / 共有システム変更 / 認証情報操作 | 明示的承認 |
 | 同じ操作が hook / 権限で 1 回 deny された | 別アプローチか継続か |
+| ローカル破壊操作（`git checkout --` / `reset --hard` / `rm`）の対象に、自分が当該セッションで生成したのでも・ユーザーが名指しした範囲でもない tracked 変更が含まれる | 破棄せず内容を提示。「ノイズに見える」は破棄の根拠にしない |
 
 ## 8. Output discipline
 
