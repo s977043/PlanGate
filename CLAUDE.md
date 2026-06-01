@@ -10,9 +10,9 @@
 - 共有スキル: `.agents/skills/`（Codex CLI と共用）
 - ワークフロー詳細: [`docs/ai-driven-development.md`](docs/ai-driven-development.md) / Orchestrator: [`docs/orchestrator-mode.md`](docs/orchestrator-mode.md)
 
-## v8.9.0 Reporting & Governance（最新リリース機能）
+## v8.10.0 Codex CLI parity・Hook/Guard 拡充（最新リリース機能）
 
-> 最新リリース: **v8.9.0**（2026-05-19）Reporting & Retrospective v1。EPIC [#193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) は **CLOSED / COMPLETED**（Phase 0-6 + Governance + #213 全 Done、子 12/12 CLOSED）。リリース履歴の正本は [`CHANGELOG.md`](CHANGELOG.md)。
+> 最新リリース: **v8.10.0**（2026-05-29）Codex CLI parity 完成・Hook/Guard 拡充・Skill 整備。EPIC [#193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) は **CLOSED / COMPLETED**（Phase 0-6 + Governance + #213 全 Done、子 12/12 CLOSED）。リリース履歴の正本は [`CHANGELOG.md`](CHANGELOG.md)。
 
 - **Metrics v1**（v8.6.0 初出）: [`docs/ai/metrics.md`](docs/ai/metrics.md) — `bin/plangate metrics <TASK> --collect|--report|--validate`
 - **Reporting & Retrospective v1**（v8.9.0 / #200）: [`docs/ai/reporting.md`](docs/ai/reporting.md) — events.ndjson 由来で sprint retrospective を導出、retrospective テンプレート [`docs/working/templates/retrospective-template.md`](docs/working/templates/retrospective-template.md)
