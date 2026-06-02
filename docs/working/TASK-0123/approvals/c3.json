@@ -1,0 +1,10 @@
+{
+  "task_id": "TASK-0123",
+  "phase": "C-3",
+  "c3_status": "APPROVED",
+  "approved_by": "human-s977043",
+  "approved_at": "2026-06-02T00:00:00Z",
+  "plan_hash": "sha256:3296fc45d50a50ee341f3aef3ad2619b9634a7abd6326756aa73d08a7df37a4b",
+  "_review_summary": "C-1 PASS（WARN 2件: PLANGATE_MAINTENANCE_KEY 空文字挙動・BYPASS_HOOK関係）。Mode=critical / HO 全対象 / 承認境界強化 / HMAC署名+path block 二重防御。",
+  "_schema_reference": "schemas/c3-approval.schema.json"
+}
