@@ -32,6 +32,8 @@ Ready → In Progress
 
 ## ディレクトリ構造
 
+### 単一 PBI（標準）
+
 ```text
 docs/working/
 └── TASK-{ticket-number}/
@@ -45,6 +47,7 @@ docs/working/
     ├── review-external.md   # C-2: 外部AIレビュー結果（任意）
     ├── decision-log.jsonl   # B〜: 判断履歴（append-only、plan完了時に初期化）
     ├── status.md            # D〜: フェーズ履歴・完了記録のアーカイブ（随時追記）
+    ├── handoff.md           # WF-05: 完了時の引き継ぎパッケージ（全 PBI で必須、Rule 5）
     └── evidence/            # C-1〜: レビュー根拠・検証ログ
         ├── c1-review/       #   C-1 の根拠（FAIL時必須）
         ├── c2-review/       #   C-2 の根拠
@@ -52,6 +55,30 @@ docs/working/
         ├── verification/    #   動作検証スクリーンショット・ログ
         └── e2e/             #   E2E 検証結果
 ```
+
+### 親 PBI（Orchestrator Mode）
+
+親 PBI を扱う場合は別ディレクトリ `docs/working/PBI-{number}/` を併用する。詳細は [`docs/orchestrator-mode.md`](../../docs/orchestrator-mode.md) を参照。
+
+```text
+docs/working/
+└── PBI-{parent-number}/
+    ├── parent-plan.md          # 親計画（テンプレート: docs/working/templates/parent-plan.md）
+    ├── dependency-graph.md     # 子 PBI 依存関係グラフ
+    ├── parallelization-plan.md # 並行実行計画
+    ├── integration-plan.md     # 統合チェック / 親完了条件
+    ├── risk-report.md          # 親 PBI レベルの集約リスク
+    ├── approvals/
+    │   ├── parent-c3.json      # 親計画ゲート承認
+    │   └── parent-integration.json  # 統合ゲート承認
+    ├── children/
+    │   ├── PBI-{n}-01.yaml     # 子 PBI 仕様（schema: docs/schemas/child-pbi.yaml）
+    │   ├── PBI-{n}-02.yaml
+    │   └── ...
+    └── handoff.md              # 親 PBI 完了時の引き継ぎ（必須）
+```
+
+子 PBI の作業コンテキストは既存の `TASK-XXXX/` 構造を再利用する想定。実装は別 PBI（[`docs/orchestrator-mode.md`](../../docs/orchestrator-mode.md) の V2 範囲）。
 
 ## コンテキスト読み込みプロトコル（Progressive Disclosure）
 
@@ -69,12 +96,52 @@ docs/working/
 
 **フォールバック**: INDEX.md が存在しない場合（旧形式チケット）→ L1 から開始（status.md を直接読む = 従来動作）。
 
-### current-state.md と status.md の役割分担
+### current-state.md / status.md / handoff.md の役割分担
 
 | ファイル | 役割 | 目安行数 | 更新タイミング |
 |---------|------|---------|--------------|
 | current-state.md | 「今どこにいて、次に何をするか」のスナップショット | ~20行 | タスク完了ごとに上書き |
 | status.md | フェーズ履歴・完了記録のアーカイブ | 制限なし | フェーズ遷移・セッション終了時に追記 |
+| **handoff.md** | WF-05 完了時の引き継ぎパッケージ（完了資産） | 制限なし | WF-05 完了時に 1 回生成 |
+
+### handoff（WF-05 完了資産 / Rule 5）
+
+全 PBI で `handoff.md` を**必須出力**とする（Rule 5 遵守: 最終成果物は毎回 handoff に集約）。
+
+- **配置**: `docs/working/TASK-XXXX/handoff.md`（1 PBI につき 1 ファイル）
+- **テンプレート**: `docs/working/templates/handoff.md`
+- **必須 6 要素**:
+  1. 要件適合確認結果（AC ごとの PASS / FAIL / WARN）
+  2. 既知課題一覧
+  3. V2 候補
+  4. 妥協点（採用しなかった選択肢と理由）
+  5. 引き継ぎ文書（自由記述のサマリ）
+  6. テスト結果サマリ
+- **責任**: `qa-reviewer` が中核を作成し、`orchestrator` が最終統合
+- **PR マージ後も削除しない**（完了資産として保管、次の担当者・次スプリントが参照）
+- **light モード以下**で簡易版を採用する場合も、本テンプレートを踏襲し、該当しない項目は「該当なし」と明記
+
+status.md / current-state.md が「進行中の情報管理」であるのに対し、handoff.md は「完了後の資産発行」である。役割が明確に異なる。
+
+#### settings タスクロック（Shadow Config 防止 / TASK-0080 S1c）
+
+V-1 受け入れ検査 / handoff 完了の**前提条件**として
+`bin/plangate doctor --check-settings` が PASS していること。settings wiring
+契約（[`docs/ai/settings-wiring-contract.md`](../../docs/ai/settings-wiring-contract.md)）
+未準拠（例: EH-3 の `PLANGATE_HOOK_FILE` 未適用 / EH-9 未配線）の状態では
+**handoff/V-1 を完了扱いにできない**。AI は settings を自己改変できない
+（self-mod ガード）ため、`sh scripts/apply-claude-settings.sh` を**ユーザーが
+実行**して解消する。これにより「AI が適用済みと誤認して完了する」Shadow
+Configuration を構造的に防ぐ。
+
+### improvement-seeds.md（WF-06 Retro / opt-in・append-only）
+
+opt-in 終端フェーズ WF-06（[`docs/workflows/06_retro.md`](../../docs/workflows/06_retro.md)）が
+有効な run でのみ生成。配置 `docs/working/improvement-seeds.md`、run またぎで
+**追記専用**累積（既存編集・削除しない）。1 run 1 エントリ（#228 固定5項目 +
+confirmed_by）。人間 confirm 済のみ追記。#200 期間集計の入力源。
+既定 OFF のため未 opt-in run には存在しない（既存挙動不変）。正本仕様:
+[`docs/ai/retro-phase.md`](../../docs/ai/retro-phase.md)。
 
 ### evidence/ の保管ルール
 
@@ -135,9 +202,27 @@ docs/working/
 - TestCasesチェック（3項目）: 受入基準との紐付き、Edge case網羅、自動化可否
 - 判定: PASS / WARN / FAIL + 指摘事項
 
-### review-external.md（外部AIレビュー結果）
+### review-external.md（外部AIレビュー結果 / 指摘の追記専用集約）
 
 フェーズC-2で生成（任意）。外部AIツールによるレビュー結果。
+
+**C-2 指摘の差分管理（TASK-0076 F5-C / #234-C）**:
+- C-2 + 外部指摘は **review-external.md に追記専用で集約**する（計画本体へ
+  都度マージしない＝版管理困難・監査性低下・反映コスト化を防ぐ）
+- 各指摘に **指摘ID `R-NNN`** を採番。指摘ゼロでも「指摘なし」を明示記録
+  （監査連続性）
+- 計画本体（plan/todo/test-cases）への反映は **1 回だけ確定**。順序を
+  EH-3 / `approvals/c3.json` と整合させ固定する（V-3 MJ-1）:
+  **(1) review-external に R-NNN 集約 → (2) 1 回確定反映 → (3) 簡易 C-1
+  再実行 → (4) 人間が最終 `c3.json`（`c3_status=APPROVED`・確定後 plan の
+  `plan_hash`）を発行 → (5) exec**。反映コミットに `Refs: R-NNN`。
+  c3.json 発行は確定反映の **後**（先に発行すると EH-3 が後続反映を
+  mismatch 検知するため。`bin/plangate exec` は APPROVED のみ受理）
+- 監査表（追記専用・squash/rebase 耐性）: review-external.md に
+  `| R-NNN | status | reflected_in(commit) | notes |` を持たせ、
+  指摘→反映の抜けを検出可能にする（V-3 minor）
+- 将来 #230（Gate Event Normalization）/ #200 と additive に events 連携
+  （`review-finding → plan-revision` トレース）。本 PBI は ID+Refs まで
 
 ### status.md（作業ステータス）
 
@@ -208,10 +293,73 @@ status.mdの更新タイミングと記載内容を段階で分ける:
 - `review-self.md`（C-1）と`review-external.md`（C-2）のレビュー結果を人間が確認
 - 三値で判断:
   - **APPROVE**: exec開始。status.mdに`## C-3 Gate: APPROVED`を記録
-  - **CONDITIONAL**: 指摘をplan.mdに反映 + 簡易C-1再実行 → exec開始。status.mdに`## C-3 Gate: CONDITIONAL`を記録
+  - **CONDITIONAL**: review-external.md（`R-NNN`）集約済 → 1 回確定反映（`Refs: R-NNN`）→ 簡易C-1 → 人間が **APPROVED `c3.json`（確定後 plan_hash）発行** → exec開始。status.mdに`## C-3 Gate: CONDITIONAL`を記録（`bin/plangate exec` は APPROVED のみ受理）
   - **REJECT**: plan再生成。status.mdに`## C-3 Gate: REJECTED`を記録
 - C-2（`review-external.md`）は任意。C-2をスキップする場合はC-1のみで判断可
-- FAILが出た場合は指摘事項を反映してplan.md / todo.md / test-cases.mdを再生成する
+- FAILが出た場合は指摘事項（review-external.md の `R-NNN`）を反映してplan.md / todo.md / test-cases.mdを再生成する（反映コミットに `Refs: R-NNN`）
+
+#### C-3 Autonomous APPROVE（ユーザー自律実行委任時 / #353）
+
+ユーザーが「自律的に進めて」「残タスクを進めて」等の**自律実行指示**を明示した場合、
+以下の条件をすべて満たすときは AI が C-3 を autonomous APPROVE できる。
+
+**autonomous APPROVE 判定マトリクス**:
+
+| 条件 | autonomous APPROVE 可否 |
+|------|------------------------|
+| Mode = ultra-light / light | ✅ 可（C-1 PASS のみ） |
+| Mode = standard + 受入基準 ≤ 5 + 影響範囲が plan Files に閉じる | ✅ 可（C-1 PASS のみ） |
+| Mode = standard + 受入基準 > 5 または影響範囲が plan Files を超える | ⚠️ 条件付き（C-2 必須、重大指摘なし） |
+| Mode = high-risk / critical | ❌ 不可（人間 C-3 必須） |
+| Hardening Override 対象パスを含む | ❌ 不可（Mode に関わらず人間 C-3 必須） |
+| スキーマ変更 / 破壊的変更 / セキュリティ関連 | ❌ 不可（人間 C-3 必須） |
+
+**autonomous APPROVE 時の必須記録**:
+- `status.md` に `## C-3 Gate: AUTONOMOUS APPROVED` を記録
+- ユーザーの自律実行指示を verbatim で引用
+- C-1 結果（PASS or 軽微 WARN のみであること）
+
+**即停止条件（autonomous 実行中）**:
+- 想定外の規模・影響範囲の拡大が判明した時点で即停止 → 人間判断を仰ぐ
+- C-2 必須条件で重大指摘が出た場合は即停止
+
+**AC-10 Hardening Override 優先**（mode-classification.md AC-10 と一致）:
+HO 対象パスを含む変更は `autonomous APPROVE` および `lite_eligible` を**無効化**し
+Standard・同期 C-3 を強制。
+
+
+#### C-3 条件付き降格（opt-in・既定 OFF / F5-AD）
+
+> #234-D 実装。設計正本: TASK-0077（C-3 APPROVED）。**承認境界は撤廃しない**
+> ＝C-3 を「同期（既定）/ 非同期」から選べるようにするだけ。opt-in 未指定では
+> 発火せず従来どおり C-3 同期ブロック（既存挙動不変）。
+
+- **降格条件（すべて満たす場合のみ候補）**:
+  `C-1 PASS` かつ `C-2 critical/major = 0` かつ
+  [`lite_eligible=true`](../../.claude/rules/mode-classification.md)
+- **同期（既定）**: 従来どおり C-3 APPROVED まで exec をブロック。
+- **非同期（opt-in 明示時のみ）**: C-3 を事前ブロッカー→**事後確認**に降格。
+  exec を並行開始でき、人間が事後に確認。**reject されたら巻き戻す**。
+- **AC-8 安全側**: 降格条件のいずれかが判定不能/未充足なら**必ず同期**。
+- **AC-9 reject 時の巻き戻し（具体）**: 非同期降格中に人間が reject した場合、
+  以下を決定論的に巻き戻す:
+  1. exec が作った実装ブランチを破棄（または revert）
+  2. 生成済 PR を close
+  3. 当該 run の成果物（status/handoff 等）を invalidation マーク
+  4. `decision-log.jsonl` と監査ログに reject＋巻き戻しを記録
+  5. 既に出た派生成果物（後続が参照したもの）を「無効」と明示し追従是正
+- **AC-10 Hardening Override（最上位優先）**: 対象が **Shadow Config /
+  承認境界 / 責務4分類 / Critical Infra 指定**（TASK-0071 領域）に抵触する
+  場合、`lite_eligible` と C-3 降格を**無効化し Standard・同期 C-3 を強制**。
+  Lite/降格より Hardening Override が常に優先。
+  （TASK-0071 未マージ時は概念ルールとして適用。TASK-0071 マージ後に
+  機械判定へ接続＝本 PBI handoff の follow-up）
+- **監査（AC-9）**: 降格適用 / 非同期 exec 開始 / Override 発火 / reject＋
+  巻き戻し を `decision-log.jsonl`（append-only）と status.md に記録。
+
+> 本降格は **承認境界の撤廃ではなく同期/非同期の選択**。`bin/plangate exec`
+> は引き続き APPROVED の c3.json を要求する（非同期時は exec 並行で人間確認
+> → 事後 APPROVED 発行 or reject 巻き戻し）。
 
 #### C-4ゲート（PRレビュー・三値）
 
@@ -219,3 +367,38 @@ status.mdの更新タイミングと記載内容を段階で分ける:
 - **APPROVE**: マージ → Done
 - **REQUEST CHANGES**: 指摘内容に基づきexecから再実行
 - **REJECT**: planからやり直し（稀）
+
+## v7 ハイブリッドアーキテクチャ: Handoff の必須化
+
+PlanGate v7 ハイブリッドアーキテクチャ（TASK-0021 で導入）では、**全 PBI で handoff.md を必須出力**とする（Rule 5）。
+
+### handoff.md の位置付け
+
+| ファイル | 役割 | 更新タイミング | 読者 |
+|---------|------|-------------|------|
+| `status.md` | フェーズ履歴アーカイブ | フェーズ遷移毎 | 未来の担当者、監査 |
+| `current-state.md` | 今の状態スナップショット | タスク完了毎 | 現担当者、セッション復旧時 |
+| **`handoff.md`** | **完了時の引き継ぎパッケージ** | **TASK 完了時（必須）** | **次の担当者、レビュアー** |
+
+### handoff.md 必須 6 要素
+
+- 要件適合確認結果（`acceptance-review` Skill の出力）
+- 既知課題一覧（`known-issues-log` Skill の出力）
+- V2 候補（今回の scope 外）
+- 妥協点（選ばなかった選択肢と理由）
+- 引き継ぎ文書（5 分で状況把握できるサマリ）
+- テスト結果サマリ
+
+### タイミング
+
+WF-05 Verify & Handoff phase で生成。PlanGate ゲートでは V-1 PASS 後、C-4 ゲート前に発行。
+
+### テンプレート
+
+[`docs/working/templates/handoff.md`](../../docs/working/templates/handoff.md)
+
+### 関連
+
+- Workflow: [`docs/workflows/05_verify_and_handoff.md`](../../docs/workflows/05_verify_and_handoff.md)
+- Agent: `.claude/agents/qa-reviewer.md`（主担当）、`.claude/agents/orchestrator.md`（最終発行）
+- 例外: critical インシデント対応等、緊急度が極めて高い場合は事後追補で可

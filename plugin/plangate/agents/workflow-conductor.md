@@ -19,6 +19,26 @@ conductorはフェーズ遷移の調整と品質ゲートの管理のみを行�
 
 **許可される書き込み**: status.md / todo.md のみ（進捗管理ドキュメント）。それ以外のファイルへのWrite/Editは禁止。
 
+## 起動前提（router が capability preflight 済み / TASK-0072）
+
+conductor は **exec router（`/ai-dev-workflow exec`）が委譲可能と判定した場合のみ
+起動される**。委譲ケイパビリティ判定は router の責務であり、conductor 内では
+行わない（conductor は起動時点で既に subagent 化していれば自力で委譲不能を
+覆せないため。Codex V-3 CR-1）。
+
+- conductor が起動された＝委譲可能環境。conductor は従来どおり orchestrate に
+  専念し、実装は implementer サブエージェントへ委譲する（**Iron Law 不変**）
+- 委譲不可環境では router が conductor を**起動せず** direct-implementer-mode に
+  入る。「conductor が subagent 検知→停止→メイン代行」という旧挙動は**撤廃**
+  （field で恒常デッドロック化したため。#237/#238/#239/#234-E）
+- したがって本エージェント定義内に「委譲不可なら conductor が直接実行」は存在
+  しない。conductor は常に「実装しない」（Common Rationalizations 参照）。
+  実行者の分岐は router 層の責務であり conductor の責務ではない
+- サブエージェント起動ツールは `Agent`（ネスト時 `Task` 名で不可）。
+- 関連: [`../../docs/ai/core-contract.md`](../../docs/ai/core-contract.md) §5-bis、
+  [`../../docs/ai/contracts/execute.md`](../../docs/ai/contracts/execute.md) Error taxonomy、
+  `AGENT_LEARNINGS.md` 2026-05-16（更新済）
+
 ## Common Rationalizations
 
 | こう思ったら | 現実 |
@@ -213,7 +233,7 @@ V-1 FAIL検出時:
 
 plan.md の Mode判定に基づき、フェーズのスキップ判定を自動実行する。
 
-> 判定基準の正本: `plugin/plangate/rules/mode-classification.md`
+> 判定基準の正本: `.claude/rules/mode-classification.md`
 
 #### 5段階モードとフェーズ適用
 
