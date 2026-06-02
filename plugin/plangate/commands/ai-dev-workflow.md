@@ -17,7 +17,7 @@ $ARGUMENTS に以下の形式で渡される:
 
 ## Iron Law（不可侵ルール）
 
-違反したら即停止する 7 項目の Iron Law（[`docs/ai/core-contract.md`](../../../docs/ai/core-contract.md) の Hard constraints が正本）。
+違反したら即停止する 7 項目の Iron Law（[`docs/ai/core-contract.md`](../../docs/ai/core-contract.md) の Hard constraints が正本）。
 
 | ルール | 意味 |
 |-------|------|
@@ -281,6 +281,24 @@ Plan + ToDo + Test Cases 生成完了後、以下のファイルを自動生成�
    - `test-cases.md`（テスト定義）
 4. `evidence/` は検証結果の記録時のみアクセスする（L2）
 5. **読まない**: `pbi-input.md`（exec フェーズでは計画が権威）、`review-self.md`、`review-external.md`
+
+>  **exec 実行者の決定（capability preflight / TASK-0072・core-contract §5-bis）**:
+> exec router（本コマンド = conductor 起動**前**の最上位）が、サブエージェント
+> 起動（`Agent`/`Task`）の利用可否を**ツール存在検査**で判定し、実行者を分岐する。
+> 判定は conductor 内では行わない（conductor は起動された時点で既に委譲不能を
+> 自力で覆せないため。Codex V-3 CR-1）。
+>
+> - **委譲可能** → router が `workflow-conductor` を起動し orchestrate 委譲（最適経路）
+> - **委譲不可（subagent ネスト不可等）= `delegation_unavailable`** →
+>   router は conductor を**起動せず**、**direct-implementer-mode**（router 自身が
+>   implementer を直接実行）に入る。これが既定の正規フローであり人間介入不要
+> - **判定不能** → 安全側＝direct-implementer-mode
+>
+> direct-implementer-mode でも C-3 承認 / plan_hash / allowed_files / todo・
+> status 更新 / L-0〜V-4 / C-4 は **すべて不変**（[`../../docs/ai/core-contract.md`](../../docs/ai/core-contract.md) §5-bis）。
+> 命名注記: 本ハーネスのサブエージェント起動ツールは `Agent`（ネスト時は
+> `Task` 名で "not available inside subagents"）。両者を「サブエージェント起動
+> （`Agent`/`Task`）」と総称する。関連: `AGENT_LEARNINGS.md` 2026-05-16（更新済）。
 
 1. **C-3ゲート確認（三値対応）**:
    - ユーザーに「C-3（人間レビュー）の結果は？ APPROVE / CONDITIONAL / REJECT」と確認
