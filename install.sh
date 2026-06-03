@@ -23,6 +23,7 @@ SHOW_VERSION=0
 UNINSTALL=0
 TARGET_DIR=""
 MANIFEST_NAME="plangate-manifest.json"
+# --target が指定された場合は auto モードでも Claude Code のみ対象
 
 _log()  { printf '\033[1;32m[plangate]\033[0m %s\n' "$1"; }
 _warn() { printf '\033[1;33m[plangate]\033[0m %s\n' "$1"; }
@@ -33,7 +34,11 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --claude)     MODE="claude"; shift ;;
     --codex)      MODE="codex"; shift ;;
-    --target)     TARGET_DIR="$2"; shift 2 ;;
+    --target)
+      if [ $# -lt 2 ] || [ -z "${2:-}" ]; then
+        printf "Error: --target requires a directory argument\n" >&2; exit 1
+      fi
+      TARGET_DIR="$2"; shift 2 ;;
     --force)      FORCE=1; shift ;;
     --uninstall)  UNINSTALL=1; shift ;;
     --version)    SHOW_VERSION=1; shift ;;
@@ -194,6 +199,8 @@ fi
 
 case "$MODE" in
   auto)
+    # --target 指定時は Claude Code のみ（Codex の --target は --codex と組み合わせる）
+    if [ -n "$TARGET_DIR" ]; then install_claude; exit 0; fi
     HAS_CLAUDE=0; HAS_CODEX=0
     [ -d "$(pwd)/.claude" ] && HAS_CLAUDE=1
     [ -d "$(pwd)/.codex" ]  && HAS_CODEX=1
