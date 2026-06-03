@@ -35,7 +35,6 @@ done
 
 installed_count=0
 skipped_count=0
-updated_count=0
 installed_names=""
 skipped_names=""
 
@@ -52,8 +51,16 @@ extract_frontmatter_value() {
     $0 == "---" { exit 0 }
     index($0, target ":") == 1 {
       value = substr($0, length(target) + 2)
+      # CRLF 除去
+      gsub(/\r/, "", value)
       sub(/^[[:space:]]+/, "", value)
+      sub(/[[:space:]]+$/, "", value)
+      # ダブルクォート除去
       if (value ~ /^".*"$/) {
+        value = substr(value, 2, length(value) - 2)
+      }
+      # シングルクォート除去
+      else if (value ~ /'"'"'^'"'"'.*'"'"''"'"'$/) {
         value = substr(value, 2, length(value) - 2)
       }
       print value
@@ -142,7 +149,7 @@ for skill_file in "$SOURCE_DIR"/*/SKILL.md; do
   if [ -d "$ASSETS_SRC" ]; then
     target_assets_dir="$target_dir/assets"
     mkdir -p "$target_assets_dir"
-    cp "$ASSETS_SRC"/* "$target_assets_dir/" 2>/dev/null || true
+    for _a in "$ASSETS_SRC"/*; do [ -f "$_a" ] && cp "$_a" "$target_assets_dir/" 2>/dev/null || true; done
   fi
 
   # openai.yaml を生成
