@@ -1,0 +1,7 @@
+interface:
+  display_name: "review-gate"
+  short_description: "PlanGate skill: review-gate"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $review-gate to assist with this project."
+  brand_color: "#1A56DB"

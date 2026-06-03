@@ -1,0 +1,7 @@
+interface:
+  display_name: "skill-ops-planner"
+  short_description: "Plan skill operations and orchestration"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $skill-ops-planner to plan skill operations for this task."
+  brand_color: "#1A56DB"
