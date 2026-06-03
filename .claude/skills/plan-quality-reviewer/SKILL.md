@@ -19,7 +19,7 @@ C-2（plan ゲート外部レビュー）
 
 ## 役割・責務
 
-[`review-principles.md §7-bis`](../../../docs/ai/external-reviewer-interface.md) の
+[`review-principles.md §7-bis`](../../../.claude/rules/review-principles.md) の
 「設計妥当性レーン」担当として以下を担う:
 
 | 読む | 読まない（原則） |
@@ -69,7 +69,7 @@ pbi_input: <pbi-input.md の内容（任意）>
 
 ## 判定基準
 
-[`review-principles.md §3-4`](../../../docs/ai/external-reviewer-interface.md) に従う:
+[`review-principles.md §3-4`](../../../.claude/rules/review-principles.md) に従う:
 
 | 判定 | 条件 |
 |------|------|
