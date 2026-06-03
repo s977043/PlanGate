@@ -1,0 +1,57 @@
+name: sync-plugin-plangate
+
+# plugin/plangate/ を main push のたびに .claude/ と同期し、差分あり時に PR を自動作成。
+# merge は Human-owned (C-4)。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.claude/**'
+      - '.agents/skills/**'
+      - 'CHANGELOG.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run sync script
+        run: sh scripts/sync-plugin-plangate.sh
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- plugin/plangate/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PR if changed
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="chore/plugin-sync-${{ github.run_id }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add plugin/plangate/
+          git commit -m "chore(plugin): .claude/ → plugin/plangate/ 自動同期"
+          git push origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(plugin): plugin/plangate/ 自動同期" \
+            --body "push to main をトリガーに \`scripts/sync-plugin-plangate.sh\` が .claude/ との差分を検出しました。merge は Human-owned (C-4)。"
