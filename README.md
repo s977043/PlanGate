@@ -158,6 +158,8 @@ sh ~/plangate/install.sh --codex     # Codex のみ
 sh ~/plangate/install.sh --dry-run   # 変更内容を確認（実行しない）
 ```
 
+> **導入後**: hook 強制を有効化するには `~/plangate/bin/plangate doctor --fix` を実行してください。
+
 ### Option C: `.claude/` を直接コピー
 
 ```bash

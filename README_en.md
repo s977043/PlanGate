@@ -158,6 +158,8 @@ sh ~/plangate/install.sh --codex     # Codex only
 sh ~/plangate/install.sh --dry-run   # preview changes without applying
 ```
 
+> **Post-install**: Run `~/plangate/bin/plangate doctor --fix` to wire up hook enforcement.
+
 ### Option C: Copy `.claude/` directly
 
 ```bash

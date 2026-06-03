@@ -15,7 +15,15 @@ set -eu
 
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 PLUGIN_DIR="$REPO_ROOT/plugin/plangate"
-PLUGIN_VERSION="$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['version'])" 2>/dev/null || echo "unknown")"
+PLUGIN_VERSION="$(command -v python3 >/dev/null 2>&1 && python3 - "$PLUGIN_DIR/.claude-plugin/plugin.json" << 'PYEOF' || echo "unknown"
+import json, sys
+try:
+    with open(sys.argv[1], encoding='utf-8') as f:
+        print(json.load(f)['version'])
+except Exception:
+    print('unknown')
+PYEOF
+)"
 DRY_RUN=0
 MODE="auto"
 FORCE=0
@@ -29,6 +37,14 @@ _log()  { printf '\033[1;32m[plangate]\033[0m %s\n' "$1"; }
 _warn() { printf '\033[1;33m[plangate]\033[0m %s\n' "$1"; }
 _skip() { printf '\033[0;90m[plangate]\033[0m skip (exists): %s\n' "$1"; }
 _dry()  { printf '\033[1;36m[dry-run] \033[0m %s\n' "$1"; }
+
+# python3 が必要な操作（manifest 生成・読み込み・アンインストール）の前に呼ぶ
+_require_python3() {
+  command -v python3 >/dev/null 2>&1 || {
+    printf '\033[1;31m[plangate]\033[0m Error: python3 is required for this operation\n' >&2
+    exit 1
+  }
+}
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -63,7 +79,16 @@ if [ "$SHOW_VERSION" = "1" ]; then
   DEST="${TARGET_DIR:-$(pwd)/.claude}"
   MANIFEST="$DEST/$MANIFEST_NAME"
   if [ -f "$MANIFEST" ]; then
-    installed=$(python3 -c "import json; d=json.load(open('$MANIFEST')); print(d.get('version','unknown'))" 2>/dev/null || echo "unknown")
+    _require_python3
+    installed=$(python3 - "$MANIFEST" << 'PYEOF'
+import json, sys
+try:
+    with open(sys.argv[1], encoding='utf-8') as f:
+        print(json.load(f).get('version', 'unknown'))
+except Exception:
+    print('unknown')
+PYEOF
+)
     printf 'Installed: v%s  (manifest: %s)\n' "$installed" "$MANIFEST"
   else
     printf 'Not installed (no manifest found at %s)\n' "$DEST/$MANIFEST_NAME"
@@ -87,6 +112,11 @@ install_claude() {
       base="$(basename "$f")"
       if [ "$FORCE" = "0" ] && [ -e "$dst/$base" ]; then
         _skip "$dir/$base"
+        skipped=$((skipped + 1))
+        continue
+      fi
+      if [ -L "$f" ]; then
+        _warn "SKIP symlink: $dir/$base (symlinks are skipped for security)"
         skipped=$((skipped + 1))
         continue
       fi
@@ -117,16 +147,21 @@ uninstall_claude() {
     _warn "手動で $DEST/agents/ $DEST/skills/ $DEST/commands/ $DEST/rules/ を確認してください"
     exit 1
   fi
+  _require_python3
   python3 - "$MANIFEST" "$DRY_RUN" << 'PYEOF'
-import json, os, sys
+import json, os, sys, shutil
 manifest_path, dry = sys.argv[1], sys.argv[2] == '1'
-d = json.load(open(manifest_path, encoding='utf-8'))
+with open(manifest_path, encoding='utf-8') as fh:
+    d = json.load(fh)
 for f in d.get('files', []):
-    if os.path.exists(f):
+    if os.path.lexists(f):
         if dry:
             print(f'[dry-run]  WOULD DELETE: {f}')
         else:
-            os.remove(f)
+            if os.path.isdir(f) and not os.path.islink(f):
+                shutil.rmtree(f)
+            else:
+                os.remove(f)
             print(f'[plangate] deleted: {f}')
 if not dry:
     os.remove(manifest_path)
@@ -138,6 +173,7 @@ PYEOF
 _write_manifest() {
   dest="$1"
   manifest="$dest/$MANIFEST_NAME"
+  _require_python3
   python3 - "$dest" "$PLUGIN_DIR" "$PLUGIN_VERSION" "$manifest" << 'PYEOF'
 import json, os, sys
 from datetime import datetime, timezone

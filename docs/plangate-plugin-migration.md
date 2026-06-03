@@ -2,6 +2,7 @@
 
 > 最終更新: 2026-06-04
 > 対象バージョン: plugin 8.10.0
+> 対象ツール: Claude Code / Codex（両対応）
 
 ## 背景・目的
 
@@ -48,7 +49,7 @@ sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 
 ## 同梱範囲（plugin 8.10.0）
 
-### Skills (38)
+### Skills (38)  <!-- 実数: ls plugin/plangate/skills/ -->
 
 | Skill | 役割 |
 |-------|------|
@@ -138,9 +139,14 @@ cp plangate/.claude/agents/backend-specialist.md your-project/.claude/agents/
 
 ※ `test-engineer` と `release-manager` は現時点で `.claude/agents/` に存在しません（implementer が兼務、release-manager は critical モード時のみ必要）。
 
-### Codex CLI は対象外
+### Codex CLI 対応
 
-本 plugin は **Claude Code 専用**です。Codex CLI 向け設定（`.codex/`）は別 plugin（例: `openai-codex/codex`）として扱ってください。将来的に統合を検討する可能性はありますが、現時点では対象外です。
+本 plugin は **Claude Code と Codex の両方に対応**しています。
+
+- **Claude Code**: `plugin/plangate/` 配下の agents / skills / commands / rules を使用
+- **Codex**: `install.sh --codex` または `codex plugin marketplace add s977043/PlanGate` でスキルをインストール
+
+詳細は [plugin/plangate/README.md の Codex インストール手順](../plugin/plangate/README.md) を参照してください。
 
 ## Plugin 内 Rules 参照規則
 
@@ -264,9 +270,9 @@ plugin の安定性を十分確認後、以下を段階的に実施:
 
 **A.** 本 plugin 自体の改変は推奨しません。代わりに、利用先プロジェクトの `.claude/agents/` に配置してください。Claude Code は plugin 側と project 側を統合して認識します。
 
-### Q. Codex CLI 側も plugin 化する予定は？
+### Q. Codex CLI でも使える？
 
-**A.** 現時点で計画なし。Codex CLI のエコシステムは別途（`openai-codex/codex` plugin 等）で整備されているため、本 plugin との統合は慎重に検討します。
+**A.** はい。`codex plugin marketplace add s977043/PlanGate` または `sh install.sh --codex` でインストールできます。Claude Code と Codex 両対応の `.claude-plugin/marketplace.json` が含まれています。
 
 ### Q. 既存の `ai-dev-workflow` command がどう動くか分からない
 
