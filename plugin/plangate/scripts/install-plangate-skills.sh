@@ -20,6 +20,13 @@ while [ $# -gt 0 ]; do
     --source) SKILLS_SRC="$2"; shift 2 ;;
     --force)  FORCE=1; shift ;;
     --json)   JSON=1; shift ;;
+    --help|-h)
+      printf 'Usage: %s [--target DIR] [--force] [--json]\n' "$0"
+      printf 'Install PlanGate skills into Codex skill directory.\n'
+      printf '  --target DIR  Target directory (default: .codex/skills)\n'
+      printf '  --force       Overwrite existing skills\n'
+      printf '  --json        Output results as JSON\n'
+      exit 0 ;;
     *) printf 'Unknown option: %s\n' "$1" >&2; exit 1 ;;
   esac
 done

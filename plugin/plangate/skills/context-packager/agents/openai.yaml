@@ -1,0 +1,7 @@
+interface:
+  display_name: "context-packager"
+  short_description: "PlanGate skill: context-packager"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $context-packager to assist with this project."
+  brand_color: "#1A56DB"

@@ -102,7 +102,7 @@ import json, sys
 path, ver = sys.argv[1], sys.argv[2]
 with open(path) as f:
     d = json.load(f)
-d['version'] = ver
+d['version'] = ver.lstrip('v')
 with open(path, 'w') as f:
     json.dump(d, f, indent=2, ensure_ascii=False)
     f.write('\n')

@@ -1,0 +1,7 @@
+interface:
+  display_name: "pr-decision"
+  short_description: "PlanGate skill: pr-decision"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $pr-decision to assist with this project."
+  brand_color: "#1A56DB"
