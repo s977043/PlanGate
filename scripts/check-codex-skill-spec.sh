@@ -19,6 +19,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+command -v python3 >/dev/null 2>&1 || { printf '[spec-check] ERROR: python3 is required\n' >&2; exit 1; }
 python3 - "$TARGET_DIR" "$WARN_ONLY" << 'PYEOF'
 import os, re, sys, json
 

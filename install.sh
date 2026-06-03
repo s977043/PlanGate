@@ -15,7 +15,12 @@ set -eu
 
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 PLUGIN_DIR="$REPO_ROOT/plugin/plangate"
-PLUGIN_VERSION="$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['version'])" 2>/dev/null || echo "unknown")"
+PLUGIN_VERSION="$(python3 - "$PLUGIN_DIR/.claude-plugin/plugin.json" << 'PYEOF'
+import json, sys
+try: print(json.load(open(sys.argv[1]))['version'])
+except: print('unknown')
+PYEOF
+)"
 DRY_RUN=0
 MODE="auto"
 FORCE=0
@@ -63,7 +68,12 @@ if [ "$SHOW_VERSION" = "1" ]; then
   DEST="${TARGET_DIR:-$(pwd)/.claude}"
   MANIFEST="$DEST/$MANIFEST_NAME"
   if [ -f "$MANIFEST" ]; then
-    installed=$(python3 -c "import json; d=json.load(open('$MANIFEST')); print(d.get('version','unknown'))" 2>/dev/null || echo "unknown")
+    installed=$(python3 - "$MANIFEST" << 'PYEOF'
+import json, sys
+try: d=json.load(open(sys.argv[1])); print(d.get('version','unknown'))
+except: print('unknown')
+PYEOF
+)
     printf 'Installed: v%s  (manifest: %s)\n' "$installed" "$MANIFEST"
   else
     printf 'Not installed (no manifest found at %s)\n' "$DEST/$MANIFEST_NAME"
@@ -88,6 +98,10 @@ install_claude() {
       if [ "$FORCE" = "0" ] && [ -e "$dst/$base" ]; then
         _skip "$dir/$base"
         skipped=$((skipped + 1))
+        continue
+      fi
+      if [ -L "$f" ]; then
+        _warn "SKIP symlink: $dir/$base (symlinks are skipped for security)"
         continue
       fi
       if [ "$DRY_RUN" = "1" ]; then
