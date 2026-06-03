@@ -8,6 +8,25 @@ Provides Intent/Mode classification, a 4-Gate approval system, and an agent cont
 
 ## Install
 
+### ワンコマンドインストール（推奨）
+
+```bash
+git clone https://github.com/s977043/plangate.git
+cd plangate
+sh install.sh          # .claude/ と .codex/ を自動検出してインストール
+```
+
+オプション:
+
+```bash
+sh install.sh --claude              # Claude Code のみ
+sh install.sh --codex               # Codex のみ
+sh install.sh --target /path/to/dir # インストール先を指定
+sh install.sh --dry-run             # 変更内容を確認（実行しない）
+```
+
+### 手動インストール
+
 ### Claude Code へのインストール
 
 #### 前提条件
