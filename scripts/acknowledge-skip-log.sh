@@ -16,16 +16,20 @@ from datetime import datetime, timezone
 path, by = sys.argv[1], sys.argv[2]
 now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
-lines = [l.strip() for l in open(path) if l.strip()]
 updated, count = [], 0
+with open(path, encoding='utf-8') as f:
+    lines = [l.strip() for l in f if l.strip()]
+
 for line in lines:
     e = json.loads(line)
-    if e.get('acknowledged_by') is None:
+    if e.get('event', '').startswith('EH-') and e.get('acknowledged_by') is None:
         e['acknowledged_by'] = by
         e['acknowledged_at'] = now
         count += 1
-    updated.append(json.dumps(e, ensure_ascii=False))
+    updated.append(json.dumps(e, ensure_ascii=False, separators=(',', ':')))
 
-open(path, 'w').write('\n'.join(updated) + '\n')
+with open(path, 'w', encoding='utf-8') as f:
+    f.write('\n'.join(updated) + '\n')
+
 print(f"Updated {count} entries (acknowledged_by={by})")
 PYEOF
