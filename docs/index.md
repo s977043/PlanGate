@@ -43,7 +43,7 @@ OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推�
 | [Orchestrator Mode 仕様](./orchestrator-mode.md) | 親 PBI 分解 / 子 PBI 並行実行 / 統合ゲートの仕様（v1, Spec only） |
 | [Workflow 定義](./workflows/README.md) | WF-01〜WF-05 + Orchestrator Decomposition / Integration |
 | [Harness Improvement Roadmap](./ai/harness-improvement-roadmap.md) | モデル差分・実利用データ・評価結果を使って PlanGate ハーネスを継続改善するロードマップ |
-| [plugin 移行ガイド](./plangate-plugin-migration.md) | Claude Code plugin として使う場合の導入・移行 |
+| [plugin 移行ガイド](./plangate-plugin-migration.md) | Claude Code / Codex plugin として使う場合の導入・移行・インストール（Marketplace 対応） |
 | [OSS Governance](./oss-governance.md) | OSS 公開設定・運用判断 |
 | [Changelog](./changelog.md) | リリース履歴（リリース時に自動同期: scripts/sync-release-docs.sh） |
 
