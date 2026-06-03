@@ -11,7 +11,7 @@ description: "変更内容に対して詳細なセルフレビューを実施し
 
 PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phase 1〜12）に加えて **Iron Law 7 項目** と **8 eval 観点** で必ず判定する。`docs/ai/core-contract.md` が Iron Law の正本。
 
-### Iron Law 7 項目（[`core-contract.md`](../../../../docs/ai/core-contract.md) 正本）
+### Iron Law 7 項目（[`core-contract.md`](../../../docs/ai/core-contract.md) 正本）
 
 | # | Iron Law | 違反例 |
 |---|---------|-------|
@@ -23,7 +23,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | #6 | NO FIXES WITHOUT ROOT CAUSE INVESTIGATION | 原因不明のまま symptom を抑える |
 | #7 | NO SILENT GATE BYPASSES | C-3 / C-4 / Parent Integration Gate を黙ってスキップ |
 
-### 8 eval 観点（[`eval-plan.md`](../../../../docs/ai/eval-plan.md) / [`eval-cases/`](../../../../docs/ai/eval-cases/) 正本）
+### 8 eval 観点（[`eval-plan.md`](../../../docs/ai/eval-plan.md) / [`eval-cases/`](../../../docs/ai/eval-cases/) 正本）
 
 | 観点 | 判定 | release blocker |
 |------|------|----------------|
@@ -246,9 +246,9 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 
 ## 関連（PlanGate v8.3）
 
-- [`docs/ai/core-contract.md`](../../../../docs/ai/core-contract.md) — Iron Law 7 項目正本
-- [`docs/ai/eval-plan.md`](../../../../docs/ai/eval-plan.md) — 8 eval 観点 / release blocker 基準
-- [`docs/ai/eval-cases/`](../../../../docs/ai/eval-cases/) — 観点別詳細 × 8
-- [`docs/ai/structured-outputs.md`](../../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../../schemas/review-result.schema.json) — 出力 schema
-- [`docs/ai/contracts/review.md`](../../../../docs/ai/contracts/review.md) — review phase contract
-- [`.claude/rules/review-principles.md`](../../../../.claude/rules/review-principles.md) — レビュー原則（CI / ローカル共通）
+- [`docs/ai/core-contract.md`](../../../docs/ai/core-contract.md) — Iron Law 7 項目正本
+- [`docs/ai/eval-plan.md`](../../../docs/ai/eval-plan.md) — 8 eval 観点 / release blocker 基準
+- [`docs/ai/eval-cases/`](../../../docs/ai/eval-cases/) — 観点別詳細 × 8
+- [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — 出力 schema
+- [`docs/ai/contracts/review.md`](../../../docs/ai/contracts/review.md) — review phase contract
+- [`.claude/rules/review-principles.md`](../../rules/review-principles.md) — レビュー原則（CI / ローカル共通）

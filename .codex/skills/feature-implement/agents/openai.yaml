@@ -2,5 +2,5 @@ interface:
   display_name: "feature-implement"
   short_description: "design artifact に従って、最小単位で実装・テスト・自己レビューを繰り返し、動作するコード差分を生成する。Use when: WF-04 Build & Refine で実装する時、TDD で差分ごとに着実に進めたい時。"
   icon_small: "./assets/plangate-small.svg"
-  icon_large: "./assets/plangate.png"
+  icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use feature-implement to assist with this project."

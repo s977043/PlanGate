@@ -2,5 +2,5 @@ interface:
   display_name: "requirement-gap-scan"
   short_description: "初期要求から抜け漏れ・曖昧さ・対象外を体系的に洗い出し、追加要件候補をリストアップする。Use when: WF-02 Requirement Expansion で仕様の抜け漏れを検出したい時、PBI の In scope/Out of scope を締めたい時。"
   icon_small: "./assets/plangate-small.svg"
-  icon_large: "./assets/plangate.png"
+  icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use requirement-gap-scan to assist with this project."

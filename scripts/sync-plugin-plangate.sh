@@ -49,7 +49,25 @@ sync_dir() {
 for _dir in agents rules commands; do
   sync_dir "$CLAUDE_DIR/$_dir" "$PLUGIN_DIR/$_dir" "$_dir"
 done
-sync_dir "$SKILLS_DIR" "$PLUGIN_DIR/skills" "skills"
+
+# スキルはサブディレクトリ構造を持つため再帰コピーで同期する
+# 各スキルの SKILL.md を plugin/plangate/skills/<name>/SKILL.md にコピー
+_plugin_skills="$PLUGIN_DIR/skills"
+mkdir -p "$_plugin_skills"
+for _skill_dir in "$SKILLS_DIR"/*/; do
+  [ -d "$_skill_dir" ] || continue
+  _skill_name="$(basename "$_skill_dir")"
+  _src_md="$_skill_dir/SKILL.md"
+  [ -f "$_src_md" ] || continue
+  _dst_dir="$_plugin_skills/$_skill_name"
+  _dst_md="$_dst_dir/SKILL.md"
+  mkdir -p "$_dst_dir"
+  if [ ! -f "$_dst_md" ] || ! cmp -s "$_src_md" "$_dst_md"; then
+    if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD COPY: skills/$_skill_name/SKILL.md"
+    else cp "$_src_md" "$_dst_md"; _log "COPY: skills/$_skill_name/SKILL.md"; fi
+    changed=1
+  fi
+done
 
 # バージョン番号を CHANGELOG から取得（README.md / plugin.json 共用）
 _ver=""

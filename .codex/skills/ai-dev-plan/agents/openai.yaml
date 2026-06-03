@@ -2,5 +2,5 @@ interface:
   display_name: "ai-dev-plan"
   short_description: "PBI INPUT PACKAGE から PlanGate の plan.md / todo.md / test-cases.md を B-1→B-2→B-3 フローで作成する。Use when: docs/working/TASK-XXXX/pbi-input.md を元に実行計画を作りたい時。"
   icon_small: "./assets/plangate-small.svg"
-  icon_large: "./assets/plangate.png"
+  icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use ai-dev-plan to assist with this project."

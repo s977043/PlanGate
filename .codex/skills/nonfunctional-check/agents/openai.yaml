@@ -2,5 +2,5 @@ interface:
   display_name: "nonfunctional-check"
   short_description: "性能・保守性・安全性・アクセシビリティなど非機能要件を体系的にチェックし、明示すべき非機能要件を一覧化する。Use when: WF-02 で非機能要件を確認したい時、性能/セキュリティ/保守性の要件を見落としなく整理したい時。"
   icon_small: "./assets/plangate-small.svg"
-  icon_large: "./assets/plangate.png"
+  icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use nonfunctional-check to assist with this project."

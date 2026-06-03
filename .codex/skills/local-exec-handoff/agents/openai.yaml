@@ -2,5 +2,5 @@ interface:
   display_name: "local-exec-handoff"
   short_description: "PlanGate のローカル実行（Codex CLI / Claude Code）で exec を再開・引き継ぐための短い指示パケットを作る。Use when: セッション断後に exec を再開したい時、別エージェント・別ツールに作業を引き継ぎたい時。"
   icon_small: "./assets/plangate-small.svg"
-  icon_large: "./assets/plangate.png"
+  icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use local-exec-handoff to assist with this project."
