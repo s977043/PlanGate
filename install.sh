@@ -15,10 +15,13 @@ set -eu
 
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 PLUGIN_DIR="$REPO_ROOT/plugin/plangate"
-PLUGIN_VERSION="$(python3 - "$PLUGIN_DIR/.claude-plugin/plugin.json" << 'PYEOF'
+PLUGIN_VERSION="$(command -v python3 >/dev/null 2>&1 && python3 - "$PLUGIN_DIR/.claude-plugin/plugin.json" << 'PYEOF' || echo "unknown"
 import json, sys
-try: print(json.load(open(sys.argv[1]))['version'])
-except: print('unknown')
+try:
+    with open(sys.argv[1], encoding='utf-8') as f:
+        print(json.load(f)['version'])
+except Exception:
+    print('unknown')
 PYEOF
 )"
 DRY_RUN=0
@@ -70,8 +73,11 @@ if [ "$SHOW_VERSION" = "1" ]; then
   if [ -f "$MANIFEST" ]; then
     installed=$(python3 - "$MANIFEST" << 'PYEOF'
 import json, sys
-try: d=json.load(open(sys.argv[1])); print(d.get('version','unknown'))
-except: print('unknown')
+try:
+    with open(sys.argv[1], encoding='utf-8') as f:
+        print(json.load(f).get('version', 'unknown'))
+except Exception:
+    print('unknown')
 PYEOF
 )
     printf 'Installed: v%s  (manifest: %s)\n' "$installed" "$MANIFEST"
@@ -102,6 +108,7 @@ install_claude() {
       fi
       if [ -L "$f" ]; then
         _warn "SKIP symlink: $dir/$base (symlinks are skipped for security)"
+        skipped=$((skipped + 1))
         continue
       fi
       if [ "$DRY_RUN" = "1" ]; then
