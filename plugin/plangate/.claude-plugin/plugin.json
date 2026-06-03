@@ -1,7 +1,7 @@
 {
   "name": "plangate",
   "version": "8.10.0",
-  "description": "PlanGate — AI coding control OS for Claude Code. Intent/Mode classification, Skill Policy Router, Evidence Ledger, 4-Gate system (Design/TDD/Review/Completion), Context Packager, Subagent Dispatch, Worktree Policy, PR Decision, Setup Team. Commands: /pg-think /pg-hunt /pg-check /pg-verify /pg-tdd.",
+  "description": "PlanGate — AI coding governance OS for Claude Code and Codex. Provides 4-Gate approval system, Intent/Mode classification, Skill Policy Router, Evidence Ledger, and agent control layer.",
   "author": {
     "name": "PlanGate contributors"
   },
