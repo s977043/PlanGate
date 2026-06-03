@@ -33,7 +33,8 @@ for name in sorted(os.listdir(target_dir)):
     yaml_path = os.path.join(target_dir, name, 'agents', 'openai.yaml')
     if not os.path.exists(yaml_path): continue
     checked += 1
-    content = open(yaml_path).read()
+    with open(yaml_path, encoding='utf-8') as fh:
+        content = fh.read()
 
     # short_description: 25-64 chars
     m = re.search(r'short_description:\s*"([^"]*)"', content)
