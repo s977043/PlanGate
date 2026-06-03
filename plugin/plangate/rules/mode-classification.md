@@ -2,7 +2,6 @@
 
 > 正本。判定基準の調整はこのファイルのみで行う。
 > 参照元: `ai-dev-workflow.md`（plan サブコマンド）、`workflow-conductor.md`（役割7）
-> 関連 Skill: `intent-classifier`（依頼文 → Intent 判定）、`skill-policy-router`（Intent + Mode → GatePolicy）
 
 ## 5段階モード定義
 
@@ -33,8 +32,6 @@
 | 影響範囲 | 当該ファイルのみ | 当該機能のみ | 関連機能に波及 | 複数レイヤーに波及 | システム全体 |
 | ロールバック | 不要 | 容易 | 可能 | 計画的に必要 | 段階的ロールバック必須 |
 
-> **注**: 「高」のラベルは `high-risk`（旧: `full`）。`full` は非推奨となり `high-risk` を使用すること。
-
 ### 判定ロジック
 
 ```text
@@ -48,6 +45,62 @@
 - セキュリティ関連の変更 → 最低でも「中」
 - データベーススキーマ変更 → 最低でも「高」
 - 公開 API の破壊的変更 → 最低でも「超高」
+- **承認境界周辺の変更 → 最低でも「高」** (TASK-0106 Retrospective Try 由来 / TASK-0112)
+  - 対象パス (Hardening Override 対象と完全一致 / [`scripts/hooks/check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) L124-134 case 文 = **9 カテゴリ** 正本):
+    - `.claude/rules/*.md`
+    - `.claude/settings.json` / `.claude/settings.local.json` / `.claude/settings.example.json`
+    - `.claude/commands/*.md`
+    - `.claude/agents/*.md`
+    - `scripts/hooks/*.sh`
+    - `bin/plangate`
+    - `schemas/*.schema.json`
+    - `.github/workflows/*.yml` / `.github/workflows/*.yaml`
+    - `AGENTS.md` / `CLAUDE.md`
+  - (注: `.claude/skills/` と `scripts/_*.py` は現行 override パターン**外**、本ルールでも追加しない — R-003/R-006)
+  - 上記パスに touch する PBI は **`lite_eligible=false` 強制 + Standard C-3 同期固定** ([`working-context.md`](./working-context.md) C-3 条件付き降格 §AC-10 Hardening Override と整合 / R-007)
+  - 監査ログ (`docs/working/_audit/`) の **データ一括変更 CLI** も承認境界相当として扱い、最低「高」 (例: TASK-0110 skip-decision-log batch acknowledge)
+- **自動推定の安全側**: 上記例外条件のいずれかが該当不確実な場合は **該当扱い** (Mode を引き上げる側) にする ([`working-context.md`](./working-context.md) AC-8 安全側不変条件と一貫)
+
+## lite_eligible（Lite ゲート派生属性 / F5-AD・opt-in 既定 OFF）
+
+> #234-A 実装。設計正本: TASK-0077（C-3 APPROVED）。**5 段階 mode の直交軸に
+> しない＝内包する派生属性**（二重分類回避）。opt-in 未指定では発火せず
+> 従来 full ゲート（既存挙動不変）。
+
+`lite_eligible` は mode 判定の**下位派生**で、Lite ゲート（軽量運用）を
+許可してよいかを表す真偽属性。
+
+### 判定軸（すべて満たすときのみ lite_eligible=true 候補）
+
+| 軸 | lite_eligible 候補条件 |
+|----|----------------------|
+| 変更ファイル数 | 少（目安 ≤ light 相当） |
+| 新規設計の有無 | なし（既存構造の枠内） |
+| 既存パターン踏襲 | あり（新規設計ゼロ・ミラー実装） |
+
+- **自動推定 + 人間 override**: plan 段階の構造化メタ（将来 #213 Plan Health
+  連携）で自動推定し、**人間が override 可能**。
+- **AC-8 安全側不変条件**: 判定不能 / 根拠不足 / Plan Health 未算出 /
+  新規設計の有無が曖昧 のいずれかなら **必ず `lite_eligible=false`（Standard・
+  同期 C-3）**。Lite は「証明可能なときだけの例外」であり既定ではない。
+- **AC-11**: `critical` mode は**原則 `lite_eligible=false`**。例外を許す
+  場合は人間が C-3 で明示承認した記録を要する。**事前の C-3 明示承認が
+  無い `critical` は `lite_eligible=false`**＝Lite ゲートにも C-3 非同期
+  降格（working-context #### C-3 条件付き降格）の対象にもならない
+  （V-3 minor 反映・運用誤読防止）。
+- **AC-12**: Lite ゲートの外部レビューは **1 本**だが、その 1 本は
+  `critical/major=0` を要求し観点固定（品質を下げない）。
+
+### Lite ゲート構成 vs Standard
+
+| 項目 | Standard（既定） | Lite（lite_eligible=true かつ opt-in 時） |
+|------|-----------------|------------------------------------------|
+| C-1 | 17 項目 | 17 項目（不変）|
+| C-2 外部レビュー | 複数観点 | **1 本**（critical/major=0 要求・観点固定）|
+| C-3 | 同期（既定）| 同期（既定）。条件付き降格は working-context 参照 |
+
+> Lite は **強度の選択**であり 5 段階 mode・承認境界・5 レビュー観点
+> （[`review-principles.md`](./review-principles.md) §2〜4）を変更しない。
 
 ## フェーズ適用マトリクス
 
@@ -68,8 +121,6 @@
 | **V-4 リリース前チェック** | - | - | - | - | ○ |
 | **PR 作成** | ○ | ○ | ○ | ○ | ○ |
 | **C-4 PRレビュー** | ○ | ○ | ○ | ○ | ○（複数レビュアー推奨） |
-
-> 列ヘッダー（超低〜超高）は左から `ultra-light` / `light` / `standard` / `high-risk` / `critical` に対応する。
 
 ### 簡易版の定義
 
@@ -95,28 +146,6 @@
 - **最終判定**: {モード}（{オーバーライドの場合はその理由}）
 ```
 
-## Gate 適用マトリクス
-
-各モードで適用する Gate を定義する。○ = 必須、△ = 推奨/任意、- = スキップ。
-
-| Gate | ultra-light | light | standard | high-risk | critical |
-|------|------------|-------|----------|-----------|----------|
-| **Design Gate** | - | - | - | ○ | ○ |
-| **TDD Gate** | - | - | △ | ○ | ○ |
-| **Review Gate** | - | - | △（/pg-check 推奨） | ○ | ○ |
-| **Completion Gate** | - | △ | ○ | ○ | ○ |
-
-### Gate 詳細
-
-| Gate | ルール正本 | Skill | コマンド |
-|------|-----------|-------|---------|
-| Design Gate | `plugin/plangate/rules/design-gate.md` | `design-gate` | `/pg-think`（初段） |
-| TDD Gate | `plugin/plangate/commands/pg-tdd.md` | — | `/pg-tdd` |
-| Review Gate | `plugin/plangate/rules/review-gate.md` | `review-gate` | `/pg-check` |
-| Completion Gate | `plugin/plangate/rules/completion-gate.md` | — | `/pg-verify` |
-
-> 各 Gate の詳細条件は各ルールファイルを参照。Completion Gate が全 Gate の通過を一元管理する。
-
 ## 調整ガイド
 
 このファイルの判定基準を調整する際のルール:
@@ -126,54 +155,5 @@
 3. **フェーズ適用の変更**: ○/△/- の割当を変更可能。ただし以下は固定:
    - L-0（リンター）は全モードで必須
    - PR作成・C-4 は全モードで必須
+   - `lite_eligible` の AC-8 安全側（判定不能→Standard）/ AC-11（critical 原則不可）/ opt-in 既定 OFF は固定（緩和不可）
 4. **新モードの追加**: 5段階で不足する場合は中間モードを定義可能（非推奨）
-
-## GatePolicy 定義
-
-Mode ごとに必要な Skill とゲート要件（GatePolicy）を定義する。
-`skill-policy-router` Skill がこの定義に基づいて GatePolicy を返す。
-
-### GatePolicy フィールド
-
-| フィールド | 型 | 説明 |
-|-----------|---|------|
-| `requiredSkills` | string[] | 必須実行 Skill の識別子リスト |
-| `optionalSkills` | string[] | 推奨 Skill の識別子リスト |
-| `requiresUserApproval` | boolean | 人間の明示的承認が必要か |
-| `requiresEvidence` | boolean | 実行根拠（evidence）の保存が必要か |
-| `requiresFailingTestFirst` | boolean | failing test を先に書く TDD が必要か |
-| `requiresWorktree` | boolean | 独立ブランチ（worktree）での作業が必要か |
-
-### Skill 識別子
-
-| 識別子 | 対応する行動 |
-|--------|------------|
-| `think` | 設計・計画の立案（plan.md 生成） |
-| `hunt` | コードベース調査（Grep / Glob 探索） |
-| `check` | セルフレビュー（self-review Skill） |
-| `tdd` | テスト駆動開発（failing test first） |
-| `verify` | 受け入れ検査（test-cases.md 突合） |
-| `worktree` | 独立ブランチでの作業 |
-| `review` | 外部レビュー（human / external AI） |
-| `approval` | 人間の明示的承認取得 |
-
-### Mode 別 GatePolicy 一覧
-
-| Mode | requiredSkills | optionalSkills | approval | evidence | TDD | worktree |
-|------|---------------|----------------|---------|---------|-----|---------|
-| `ultra-light` | verify | check | false | false | false | false |
-| `light` | check, verify | think, hunt | false | false | false | false |
-| `standard` | think, check, verify | hunt, tdd | recommended | true | conditional | false |
-| `high-risk` | think, approval, worktree, tdd, check, review, verify | — | **true** | true | **true** | **true** |
-| `critical` | think, approval, worktree, tdd, review, verify | — | **true** | true | **true** | **true** |
-
-**`critical` の追加要件**:
-
-- ロールバック計画の策定
-- セキュリティレビューを含む多角的レビュー
-- 段階的デプロイ計画の策定
-
-### 参照
-
-- Skill: `plugin/plangate/skills/intent-classifier/SKILL.md`
-- Skill: `plugin/plangate/skills/skill-policy-router/SKILL.md`
