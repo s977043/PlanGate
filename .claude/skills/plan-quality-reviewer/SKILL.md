@@ -53,8 +53,8 @@ pbi_input: <pbi-input.md の内容（任意）>
 
 | ID | Lane | Severity | Status | 内容 |
 |----|------|---------|--------|------|
-| R-001 | design-validity | major | open | AC-02 の検証コマンドが未定義 |
-| R-002 | design-validity | minor | open | Risks セクションにロールバック手順が欠落 |
+| R-001 | design | major | open | AC-02 の検証コマンドが未定義 |
+| R-002 | design | minor | open | Risks セクションにロールバック手順が欠落 |
 ```
 
 各 Finding の必須フィールド:
@@ -62,7 +62,7 @@ pbi_input: <pbi-input.md の内容（任意）>
 | フィールド | 値の例 |
 |----------|--------|
 | `id` | `R-NNN`（review-external.md 採番ルールに従う） |
-| `lane` | `design-validity` |
+| `lane` | `design` |
 | `severity` | `critical` / `major` / `minor` / `info` |
 | `status` | `open` |
 | `body` | 具体的な指摘内容（plan.md の該当箇所を引用） |
