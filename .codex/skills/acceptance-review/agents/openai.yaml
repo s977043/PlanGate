@@ -1,0 +1,6 @@
+interface:
+  display_name: "acceptance-review"
+  short_description: "実装結果を受け入れ条件（AC）と照合し、適合 / 不足を明確化する。Use when: WF-05 Verify & Handoff で要件適合確認が必要な時、PR の受入基準チェックを網羅的に実施したい時。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate.png"
+  default_prompt: "Use acceptance-review to assist with this project."
