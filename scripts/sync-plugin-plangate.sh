@@ -60,8 +60,8 @@ if [ -f "$REPO_ROOT/CHANGELOG.md" ] && [ -f "$PLUGIN_README" ]; then
     if [ "$_cur" != "$_ver" ]; then
       if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD UPDATE version: $_cur -> $_ver"
       else
-        sed -i.bak "s/^\(- \*\*Version\*\*:\).*/\1 $_ver/" "$PLUGIN_README"
-        rm -f "${PLUGIN_README}.bak"
+        _tmp=$(mktemp)
+        sed "s/^\(- \*\*Version\*\*:\).*/\1 $_ver/" "$PLUGIN_README" > "$_tmp" && mv "$_tmp" "$PLUGIN_README"
         _log "UPDATE version: $_cur -> $_ver"
       fi
       changed=1

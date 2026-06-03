@@ -35,9 +35,9 @@ else
 fi
 
 # TC-04: --dry-run が実際にファイルを変更しない
-_t26_before=$(find "$PG_T26_PLUGIN" -type f | sort | md5sum 2>/dev/null || find "$PG_T26_PLUGIN" -type f | sort | cksum)
+_t26_before=$(find "$PG_T26_PLUGIN" -type f | sort | xargs cat 2>/dev/null | md5sum 2>/dev/null || find "$PG_T26_PLUGIN" -type f | sort | xargs cat 2>/dev/null | cksum)
 sh "$PG_T26_SCRIPT" --dry-run >/dev/null 2>&1 || true
-_t26_after=$(find "$PG_T26_PLUGIN" -type f | sort | md5sum 2>/dev/null || find "$PG_T26_PLUGIN" -type f | sort | cksum)
+_t26_after=$(find "$PG_T26_PLUGIN" -type f | sort | xargs cat 2>/dev/null | md5sum 2>/dev/null || find "$PG_T26_PLUGIN" -type f | sort | xargs cat 2>/dev/null | cksum)
 if [ "$_t26_before" = "$_t26_after" ]; then
   t26_pass "TC-04 --dry-run がファイルを変更しない"
 else
