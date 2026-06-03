@@ -16,9 +16,10 @@ if grep -q 'Codex skill spec check' "$WF"; then
 fi
 
 python3 - "$WF" << 'PYEOF'
-import sys, re
+import sys
 path = sys.argv[1]
-content = open(path).read()
+with open(path, encoding="utf-8") as fh:
+    content = fh.read()
 old = '      - name: Run sync script\n        run: sh scripts/sync-plugin-plangate.sh'
 new = ('      - name: Codex skill spec check\n'
        '        run: sh scripts/check-codex-skill-spec.sh --warn-only\n\n'
@@ -26,7 +27,8 @@ new = ('      - name: Codex skill spec check\n'
        '        run: sh scripts/sync-plugin-plangate.sh')
 assert old in content, f'Pattern not found in {path}'
 content = content.replace(old, new)
-open(path, 'w').write(content)
+with open(path, "w", encoding="utf-8") as fh:
+    fh.write(content)
 print(f'Patched: {path}')
 PYEOF
 
