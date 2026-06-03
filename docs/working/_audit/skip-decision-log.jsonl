@@ -1,86 +1,86 @@
-{"ts":"2026-05-27T09:26:33Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-27T09:26:34Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T08:40:48Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T08:40:48Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T08:41:37Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T08:41:37Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T08:44:30Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T08:44:30Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T09:11:33Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T09:11:34Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T09:12:17Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T09:12:18Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T09:13:09Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T09:13:09Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T23:50:13Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-28T23:50:13Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:33:20Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:33:20Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:35:09Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:35:09Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:38:25Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:38:25Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:43:19Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:43:19Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:44:08Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:44:08Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:44:55Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:44:55Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:45:40Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:45:40Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:46:29Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:46:29Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:47:34Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:47:34Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:48:19Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:48:19Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:53:23Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:53:23Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:54:07Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T00:54:07Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T05:06:58Z"}
-{"ts":"2026-05-29T06:34:37Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T06:40:06Z"}
-{"ts":"2026-05-29T06:34:37Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T06:40:06Z"}
-{"ts":"2026-05-29T06:35:42Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T06:40:06Z"}
-{"ts":"2026-05-29T06:35:42Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T06:40:06Z"}
-{"ts":"2026-05-29T06:36:01Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T06:40:06Z"}
-{"ts":"2026-05-29T06:36:02Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T06:40:06Z"}
-{"ts":"2026-05-29T06:36:54Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T06:40:06Z"}
-{"ts":"2026-05-29T06:36:54Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T06:40:06Z"}
-{"ts":"2026-05-29T06:37:37Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T06:40:06Z"}
-{"ts":"2026-05-29T06:37:37Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-05-29T06:40:06Z"}
-{"ts":"2026-05-30T23:37:20Z","event":"EH-3_SKIP","target":"docs/working/retrospective-2026-05-31.md","skip_reason":"retrospective doc (non-approval-token record) for 2026-05-31 session; placed by AI per user instruction '振り返り実施して'","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T02:32:16Z"}
-{"ts":"2026-05-30T23:38:42Z","event":"EH-3_SKIP","target":"docs/working/retrospective-2026-05-31.md","skip_reason":"retrospective doc correction note (non-approval-token); fix inaccurate #289/#336 status per post-hoc verification","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T02:32:16Z"}
-{"ts":"2026-06-01T09:55:06Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T23:23:44Z"}
-{"ts":"2026-06-01T09:55:06Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T23:23:44Z"}
-{"ts":"2026-06-01T09:57:19Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T23:23:44Z"}
-{"ts":"2026-06-01T09:57:19Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T23:23:44Z"}
-{"ts":"2026-06-01T10:25:57Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T23:23:44Z"}
-{"ts":"2026-06-01T10:25:57Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T23:23:44Z"}
-{"ts":"2026-06-01T10:30:16Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T23:23:44Z"}
-{"ts":"2026-06-01T10:30:16Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T23:23:44Z"}
-{"ts":"2026-06-01T10:35:28Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T23:23:44Z"}
-{"ts":"2026-06-01T10:35:28Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-01T23:23:44Z"}
-{"ts":"2026-06-01T23:41:58Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:41:58Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:43:56Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:43:56Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:45:06Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:45:06Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:46:22Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:46:23Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:51:36Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:51:36Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:53:44Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:53:44Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:57:30Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-01T23:57:30Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-02T00:00:07Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-02T00:00:07Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-02T00:10:43Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-02T00:10:43Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T00:14:00Z"}
-{"ts":"2026-06-02T09:54:34Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T09:58:21Z"}
-{"ts":"2026-06-02T09:54:34Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":"s977043","acknowledged_at":"2026-06-02T09:58:21Z"}
-{"ts":"2026-06-03T00:39:09Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":null,"acknowledged_at":null}
-{"ts":"2026-06-03T00:39:09Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":null,"acknowledged_at":null}
-{"ts":"2026-06-03T06:47:30Z","event":"EH-3_SKIP","target":"src/foo.ts","skip_reason":"generic-edit","acknowledged_by":null,"acknowledged_at":null}
-{"ts":"2026-06-03T06:47:31Z","event":"EH-3_SKIP","target":"src/bar.ts","skip_reason":"arg-resolve","acknowledged_by":null,"acknowledged_at":null}
+{"ts": "2026-05-27T09:26:33Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-27T09:26:34Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T08:40:48Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T08:40:48Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T08:41:37Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T08:41:37Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T08:44:30Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T08:44:30Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T09:11:33Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T09:11:34Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T09:12:17Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T09:12:18Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T09:13:09Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T09:13:09Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T23:50:13Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-28T23:50:13Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:33:20Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:33:20Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:35:09Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:35:09Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:38:25Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:38:25Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:43:19Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:43:19Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:44:08Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:44:08Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:44:55Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:44:55Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:45:40Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:45:40Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:46:29Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:46:29Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:47:34Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:47:34Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:48:19Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:48:19Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:53:23Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:53:23Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:54:07Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T00:54:07Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T05:06:58Z"}
+{"ts": "2026-05-29T06:34:37Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T06:40:06Z"}
+{"ts": "2026-05-29T06:34:37Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T06:40:06Z"}
+{"ts": "2026-05-29T06:35:42Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T06:40:06Z"}
+{"ts": "2026-05-29T06:35:42Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T06:40:06Z"}
+{"ts": "2026-05-29T06:36:01Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T06:40:06Z"}
+{"ts": "2026-05-29T06:36:02Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T06:40:06Z"}
+{"ts": "2026-05-29T06:36:54Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T06:40:06Z"}
+{"ts": "2026-05-29T06:36:54Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T06:40:06Z"}
+{"ts": "2026-05-29T06:37:37Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T06:40:06Z"}
+{"ts": "2026-05-29T06:37:37Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-05-29T06:40:06Z"}
+{"ts": "2026-05-30T23:37:20Z", "event": "EH-3_SKIP", "target": "docs/working/retrospective-2026-05-31.md", "skip_reason": "retrospective doc (non-approval-token record) for 2026-05-31 session; placed by AI per user instruction '振り返り実施して'", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T02:32:16Z"}
+{"ts": "2026-05-30T23:38:42Z", "event": "EH-3_SKIP", "target": "docs/working/retrospective-2026-05-31.md", "skip_reason": "retrospective doc correction note (non-approval-token); fix inaccurate #289/#336 status per post-hoc verification", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T02:32:16Z"}
+{"ts": "2026-06-01T09:55:06Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T23:23:44Z"}
+{"ts": "2026-06-01T09:55:06Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T23:23:44Z"}
+{"ts": "2026-06-01T09:57:19Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T23:23:44Z"}
+{"ts": "2026-06-01T09:57:19Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T23:23:44Z"}
+{"ts": "2026-06-01T10:25:57Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T23:23:44Z"}
+{"ts": "2026-06-01T10:25:57Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T23:23:44Z"}
+{"ts": "2026-06-01T10:30:16Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T23:23:44Z"}
+{"ts": "2026-06-01T10:30:16Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T23:23:44Z"}
+{"ts": "2026-06-01T10:35:28Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T23:23:44Z"}
+{"ts": "2026-06-01T10:35:28Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-01T23:23:44Z"}
+{"ts": "2026-06-01T23:41:58Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:41:58Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:43:56Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:43:56Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:45:06Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:45:06Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:46:22Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:46:23Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:51:36Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:51:36Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:53:44Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:53:44Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:57:30Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-01T23:57:30Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-02T00:00:07Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-02T00:00:07Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-02T00:10:43Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-02T00:10:43Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T00:14:00Z"}
+{"ts": "2026-06-02T09:54:34Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T09:58:21Z"}
+{"ts": "2026-06-02T09:54:34Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-02T09:58:21Z"}
+{"ts": "2026-06-03T00:39:09Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-03T07:30:31Z"}
+{"ts": "2026-06-03T00:39:09Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-03T07:30:31Z"}
+{"ts": "2026-06-03T06:47:30Z", "event": "EH-3_SKIP", "target": "src/foo.ts", "skip_reason": "generic-edit", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-03T07:30:31Z"}
+{"ts": "2026-06-03T06:47:31Z", "event": "EH-3_SKIP", "target": "src/bar.ts", "skip_reason": "arg-resolve", "acknowledged_by": "s977043", "acknowledged_at": "2026-06-03T07:30:31Z"}
