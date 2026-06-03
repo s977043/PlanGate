@@ -123,16 +123,19 @@ OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推�
 ### Option A: Marketplace から 1 コマンド（最推奨）
 
 **Claude Code（セッション内スラッシュコマンド）:**
-```
+
+```text
 /plugin marketplace add s977043/PlanGate
 ```
 
 その後、セッション内で:
-```
+
+```text
 /plugin install plangate
 ```
 
 **CLI から:**
+
 ```bash
 # Claude Code
 claude plugin marketplace add s977043/PlanGate
@@ -152,6 +155,7 @@ sh ~/plangate/install.sh       # .claude/ と .codex/ を自動検出してイ�
 ```
 
 オプション例:
+
 ```bash
 sh ~/plangate/install.sh --claude    # Claude Code のみ
 sh ~/plangate/install.sh --codex     # Codex のみ

@@ -123,16 +123,19 @@ OS: macOS / Linux (POSIX shell required). Use WSL on Windows. Without Claude Cod
 ### Option A: One command via Marketplace (recommended)
 
 **Claude Code (slash command in session):**
-```
+
+```text
 /plugin marketplace add s977043/PlanGate
 ```
 
 Then in session:
-```
+
+```text
 /plugin install plangate
 ```
 
 **Via CLI:**
+
 ```bash
 # Claude Code
 claude plugin marketplace add s977043/PlanGate
@@ -152,6 +155,7 @@ sh ~/plangate/install.sh       # auto-detects .claude/ and .codex/
 ```
 
 Options:
+
 ```bash
 sh ~/plangate/install.sh --claude    # Claude Code only
 sh ~/plangate/install.sh --codex     # Codex only
