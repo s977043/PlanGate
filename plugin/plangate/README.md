@@ -8,6 +8,25 @@ Provides Intent/Mode classification, a 4-Gate approval system, and an agent cont
 
 ## Install
 
+### ワンコマンドインストール（推奨）
+
+```bash
+git clone https://github.com/s977043/plangate.git
+cd plangate
+sh install.sh          # .claude/ と .codex/ を自動検出してインストール
+```
+
+オプション:
+
+```bash
+sh install.sh --claude              # Claude Code のみ
+sh install.sh --codex               # Codex のみ
+sh install.sh --target /path/to/dir # インストール先を指定
+sh install.sh --dry-run             # 変更内容を確認（実行しない）
+```
+
+### 手動インストール
+
 ### Claude Code へのインストール
 
 #### 前提条件
@@ -38,15 +57,21 @@ git clone https://github.com/s977043/plangate.git /path/to/plangate
 #### 方法 B: ファイルを手動コピー
 
 ```bash
-# 1. リポジトリをクローン
-git clone https://github.com/s977043/plangate.git
+# 1. リポジトリをクローン（ホームディレクトリ等に）
+git clone https://github.com/s977043/plangate.git ~/plangate
 
-# 2. plugin ディレクトリの中身を .claude/ 配下にコピー
-cd plangate
-cp -r plugin/plangate/agents/* /your-project/.claude/agents/
-cp -r plugin/plangate/skills/* /your-project/.claude/skills/
-cp -r plugin/plangate/commands/* /your-project/.claude/commands/
-cp -r plugin/plangate/rules/* /your-project/.claude/rules/
+# 2. 対象プロジェクトへ移動してインストール
+cd /your-project
+sh ~/plangate/install.sh --claude
+```
+
+または手動コピー:
+
+```bash
+cp -r ~/plangate/plugin/plangate/agents/*   /your-project/.claude/agents/
+cp -r ~/plangate/plugin/plangate/skills/*   /your-project/.claude/skills/
+cp -r ~/plangate/plugin/plangate/commands/* /your-project/.claude/commands/
+cp -r ~/plangate/plugin/plangate/rules/*    /your-project/.claude/rules/
 ```
 
 #### インストール確認
