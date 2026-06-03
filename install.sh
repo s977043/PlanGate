@@ -219,10 +219,12 @@ _print_caveats() {
 install_codex() {
   CODEX_DIR="${TARGET_DIR:-$(pwd)/.codex/skills}"
   _log "Codex: skills → $CODEX_DIR (v$PLUGIN_VERSION)"
+  _codex_force=""
+  [ "$FORCE" = "1" ] && _codex_force="--force"
   if [ "$DRY_RUN" = "1" ]; then
-    _dry "WOULD RUN: sh $PLUGIN_DIR/scripts/install-plangate-skills.sh --target $CODEX_DIR"
+    _dry "WOULD RUN: sh $PLUGIN_DIR/scripts/install-plangate-skills.sh --target $CODEX_DIR $_codex_force"
   else
-    sh "$PLUGIN_DIR/scripts/install-plangate-skills.sh" --target "$CODEX_DIR"
+    sh "$PLUGIN_DIR/scripts/install-plangate-skills.sh" --target "$CODEX_DIR" $_codex_force
     _log "Codex インストール完了"
     printf '\n\033[1m確認\033[0m: Codex セッションで $plangate-setup を実行してください\n\n'
   fi
