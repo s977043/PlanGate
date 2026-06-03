@@ -120,24 +120,53 @@ OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推�
 
 ## インストール
 
-### Option A: clone + plugin 登録（推奨）
+### Option A: Marketplace から 1 コマンド（最推奨）
 
-```bash
-git clone https://github.com/s977043/plangate.git
-cd plangate
+**Claude Code（セッション内スラッシュコマンド）:**
+```
+/plugin marketplace add s977043/PlanGate
 ```
 
-その後、[Claude Code plugin 登録手順](plugin/plangate/README.md) に従うか、`.claude/` をプロジェクトにコピーしてください。
+その後、セッション内で:
+```
+/plugin install plangate
+```
 
-### Option B: `.claude/` を直接コピー
+**CLI から:**
+```bash
+# Claude Code
+claude plugin marketplace add s977043/PlanGate
+claude plugin install plangate
+
+# Codex
+codex plugin marketplace add s977043/PlanGate
+codex plugin install plangate
+```
+
+### Option B: clone + install スクリプト
 
 ```bash
-git clone https://github.com/s977043/plangate.git
-cp -r plangate/.claude/ your-project/.claude/
+git clone https://github.com/s977043/plangate.git ~/plangate
+cd /your-project
+sh ~/plangate/install.sh       # .claude/ と .codex/ を自動検出してインストール
+```
+
+オプション例:
+```bash
+sh ~/plangate/install.sh --claude    # Claude Code のみ
+sh ~/plangate/install.sh --codex     # Codex のみ
+sh ~/plangate/install.sh --dry-run   # 変更内容を確認（実行しない）
+```
+
+### Option C: `.claude/` を直接コピー
+
+```bash
+git clone https://github.com/s977043/plangate.git ~/plangate
+cp -r ~/plangate/.claude/ /your-project/.claude/
 ```
 
 > [!NOTE]
-> **新規利用者は Option A または B のどちらか一方を推奨します。**
+> **新規利用者は Option A（Marketplace）または Option B（install スクリプト）を推奨します。**
 > 既存利用者や段階的移行を行う場合、plugin と `.claude/` のデュアル運用は技術的に可能ですが、同名 Skill / コマンドの解決順に注意してください。
 > plugin 側を明示的に呼び出す場合は `plangate:<skill-or-agent>` prefix を使用します。詳細は [plugin 移行ガイド](docs/plangate-plugin-migration.md) を参照してください。
 
