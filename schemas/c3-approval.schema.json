@@ -4,7 +4,14 @@
   "title": "C-3 Approval Record",
   "description": "Machine-readable C-3 gate approval record (approvals/c3.json)",
   "type": "object",
-  "required": ["task_id", "phase", "c3_status", "approved_by", "approved_at", "plan_hash"],
+  "required": [
+    "task_id",
+    "phase",
+    "c3_status",
+    "approved_by",
+    "approved_at",
+    "plan_hash"
+  ],
   "properties": {
     "task_id": {
       "type": "string",
@@ -16,7 +23,11 @@
     },
     "c3_status": {
       "type": "string",
-      "enum": ["APPROVED", "CONDITIONAL", "REJECTED"]
+      "enum": [
+        "APPROVED",
+        "CONDITIONAL",
+        "REJECTED"
+      ]
     },
     "approved_by": {
       "type": "string",
@@ -39,6 +50,34 @@
     "rejection_reason": {
       "type": "string",
       "description": "Required when c3_status is REJECTED"
+    },
+    "gate_checks": {
+      "type": "object",
+      "description": "Optional checklist for plan approval gates (standard+ mode recommended). Goal/Scope/Risk checks confirm plan.md existing sections are complete. Not applied to ultra-light/light mode.",
+      "properties": {
+        "goal": {
+          "type": "boolean",
+          "description": "Goal and success criteria are clearly defined in plan.md"
+        },
+        "scope": {
+          "type": "boolean",
+          "description": "In-scope / Out-of-scope boundary is explicitly stated in plan.md"
+        },
+        "risk": {
+          "type": "boolean",
+          "description": "Risks & Mitigations are enumerated in plan.md"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional human note on gate check results"
+        }
+      },
+      "additionalProperties": false,
+      "patternProperties": {
+        "^_": {
+          "description": "Underscore-prefixed keys are reserved for human-readable annotations. Ignored by machine validation but preserved in the file."
+        }
+      }
     }
   },
   "patternProperties": {
@@ -49,20 +88,36 @@
   "allOf": [
     {
       "if": {
-        "properties": { "c3_status": { "const": "CONDITIONAL" } },
-        "required": ["c3_status"]
+        "properties": {
+          "c3_status": {
+            "const": "CONDITIONAL"
+          }
+        },
+        "required": [
+          "c3_status"
+        ]
       },
       "then": {
-        "required": ["conditions"]
+        "required": [
+          "conditions"
+        ]
       }
     },
     {
       "if": {
-        "properties": { "c3_status": { "const": "REJECTED" } },
-        "required": ["c3_status"]
+        "properties": {
+          "c3_status": {
+            "const": "REJECTED"
+          }
+        },
+        "required": [
+          "c3_status"
+        ]
       },
       "then": {
-        "required": ["rejection_reason"]
+        "required": [
+          "rejection_reason"
+        ]
       }
     }
   ],
