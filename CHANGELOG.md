@@ -6,6 +6,18 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+### Added
+
+- **Plugin 正式配布対応**（TASK-0124〜0126 後続）— Claude Code / Codex Plugin を正式配布可能な状態に整備。
+  - `install.sh`: ワンコマンドインストール（`--claude` / `--codex` / `--force` / `--uninstall` / `--version` / `--dry-run`）
+  - `.claude-plugin/marketplace.json`: `/plugin marketplace add s977043/PlanGate` / `codex plugin marketplace add s977043/PlanGate` 対応
+  - `scripts/check-codex-skill-spec.sh`: openai.yaml 仕様チェック（short_description 25-64 文字・default_prompt `$skill-name` 形式・brand_color）
+  - `scripts/install-plangate-skills-to-codex.sh`: `.agents/skills/` → `.codex/skills/` 変換スクリプト
+  - `plugin/plangate/scripts/install-plangate-skills.sh`: Plugin 自己完結 Codex インストールスクリプト
+  - `.codex/skills/`: 28 スキルを openai.yaml 付きで展開（公式仕様準拠）
+  - `plugin.json`: `skills` / `repository` / `license` / `keywords` フィールド追加（公式ベストプラクティス）
+  - CI: `sync-plugin-plangate.yml` に仕様チェックステップを追加
+
 ### Changed
 
 - **retrospective scoring 配点変更**（TASK-0121）— 振り返りメトリクスを Plan-primacy 思想に整合。計画精度 15→30・効率性 25→10・成果物品質 30 維持（計画で定めた品質の達成度 = 保全達成度として再定義）。計画精度の評価基準に C-1 語彙（受入基準網羅性・スコープ制御・テスト戦略妥当性）を追加。`docs/ai/reporting.md`（§2-bis 新設） / `docs/ai-driven-development.md` を更新、`scripts/check-retro-scoring-consistency.sh` を新規追加。
