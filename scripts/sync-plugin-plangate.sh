@@ -51,21 +51,47 @@ for _dir in agents rules commands; do
 done
 sync_dir "$SKILLS_DIR" "$PLUGIN_DIR/skills" "skills"
 
-# バージョン行を最新 CHANGELOG に合わせて更新
-PLUGIN_README="$PLUGIN_DIR/README.md"
-if [ -f "$REPO_ROOT/CHANGELOG.md" ] && [ -f "$PLUGIN_README" ]; then
+# バージョン番号を CHANGELOG から取得（README.md / plugin.json 共用）
+_ver=""
+if [ -f "$REPO_ROOT/CHANGELOG.md" ]; then
   _ver=$(grep '^## v[0-9]' "$REPO_ROOT/CHANGELOG.md" | head -1 | sed 's/## \(v[^ ]*\).*/\1/')
-  if [ -n "$_ver" ]; then
-    _cur=$(grep '^\- \*\*Version\*\*:' "$PLUGIN_README" | sed 's/.*: //' || true)
-    if [ "$_cur" != "$_ver" ]; then
-      if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD UPDATE version: $_cur -> $_ver"
-      else
-        _tmp=$(mktemp)
-        sed "s/^\(- \*\*Version\*\*:\).*/\1 $_ver/" "$PLUGIN_README" > "$_tmp" && mv "$_tmp" "$PLUGIN_README"
-        _log "UPDATE version: $_cur -> $_ver"
-      fi
-      changed=1
+fi
+
+# README.md の Version 行を更新
+PLUGIN_README="$PLUGIN_DIR/README.md"
+if [ -n "$_ver" ] && [ -f "$PLUGIN_README" ]; then
+  _cur=$(grep '^\- \*\*Version\*\*:' "$PLUGIN_README" | sed 's/.*: //' || true)
+  if [ "$_cur" != "$_ver" ]; then
+    if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD UPDATE README version: $_cur -> $_ver"
+    else
+      _tmp=$(mktemp)
+      sed "s/^\(- \*\*Version\*\*:\).*/\1 $_ver/" "$PLUGIN_README" > "$_tmp" && mv "$_tmp" "$PLUGIN_README"
+      _log "UPDATE README version: $_cur -> $_ver"
     fi
+    changed=1
+  fi
+fi
+
+# plugin.json の version フィールドを更新
+PLUGIN_JSON="$PLUGIN_DIR/.claude-plugin/plugin.json"
+if [ -n "$_ver" ] && [ -f "$PLUGIN_JSON" ] && command -v python3 >/dev/null 2>&1; then
+  _pcur=$(python3 -c "import json; d=json.load(open('$PLUGIN_JSON')); print(d.get('version',''))" 2>/dev/null || true)
+  if [ "$_pcur" != "$_ver" ]; then
+    if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD UPDATE plugin.json version: $_pcur -> $_ver"
+    else
+      python3 - "$PLUGIN_JSON" "$_ver" << 'PYEOF'
+import json, sys
+path, ver = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    d = json.load(f)
+d['version'] = ver
+with open(path, 'w') as f:
+    json.dump(d, f, indent=2, ensure_ascii=False)
+    f.write('\n')
+PYEOF
+      _log "UPDATE plugin.json version: $_pcur -> $_ver"
+    fi
+    changed=1
   fi
 fi
 
