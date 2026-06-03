@@ -223,3 +223,39 @@ reviewers:
 - v1.0 設定（`version: "1.0"` / command が文字列 / 単体 reviewerSpec）は **v2.0 schema で引き続き valid**
 - `.plangate-reviewers.yaml` が存在しない場合は従来どおり `PLANGATE_EXTERNAL_REVIEWER` 環境変数（既定 `codex`）で動作する
 - `python3` または `PyYAML` が未インストールの場合は `warn` を出力してレガシーフォールバック動作に切り替わる
+
+## 9. 専門 Reviewer Skill 一覧（TASK-0126〜 段階導入）
+
+> 既存の 2 レーン設計（[`review-principles.md §7-bis`](../../.claude/rules/review-principles.md)）を
+> 維持しながら、C-2 / V-3 に接続する専門 Skill を段階的に整備する。
+> 導入順: ① plan-quality → ② security-risk → ③ test-strategy → ④ 残 4 本（high-risk+ 限定）
+
+| フェーズ | Skill | Lane | Mode 閾値 | 状態 |
+|---------|-------|------|----------|------|
+| C-2 | `plan-quality-reviewer` | design-validity | light+ | ✅ 導入済み（TASK-0126）|
+| C-2 / V-3 | `security-risk-reviewer` | security | standard+ | 🔜 予定 |
+| C-2 / V-3 | `test-strategy-reviewer` | test-strategy | standard+ | 🔜 予定 |
+| V-3 | `implementation-quality-reviewer` | code-quality | high-risk+ | 🔜 予定 |
+| V-4 | `release-readiness-reviewer` | release | critical+ | 🔜 予定 |
+| V-3 | `docs-handoff-reviewer` | docs | high-risk+ | 🔜 予定 |
+
+### 9.1 plan-quality-reviewer（設計妥当性レーン）
+
+- **Skill**: [`.claude/skills/plan-quality-reviewer/SKILL.md`](../../.claude/skills/plan-quality-reviewer/SKILL.md)
+- **責務**: plan.md / todo.md / test-cases.md を読み、受入基準網羅性・スコープ整合を確認。実コード原則不読。
+- **出力**: `R-NNN / lane=design-validity / severity / status` — `review-external.md` 追記互換
+- **設定例（v2.0）**:
+
+```yaml
+version: "2.0"
+reviewers:
+  c2:
+    - provider: plan-quality-reviewer
+      lane: design-validity
+      mode_threshold: light
+      command: "/plan-quality-reviewer"
+      output_mapping:
+        severity: finding.severity
+        evidence: finding.body
+        location: "finding.id"
+```
