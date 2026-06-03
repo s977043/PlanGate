@@ -92,9 +92,9 @@ Rule 4 を補完する **強制力の軸** での境界:
 
 | Rule | 機械検出方法 |
 |------|------------|
-| Rule 1 | `grep -l "実装方法\|コード例\|\\\`\\\`\\\`typescript\|\\\`\\\`\\\`python" docs/workflows/0*.md` → 0 件 |
-| Rule 2 | `grep -l "プロジェクト固有\|このプロジェクト\|TASK-" .claude/skills/<new>/SKILL.md` → 0 件 |
-| Rule 3 | `grep -l "Laravel\|PostgreSQL\|ECS\|Cloudflare" .claude/agents/<new>.md` → 0 件 |
+| Rule 1 | `grep -El "実装方法\|コード例\|\`\`\`typescript\|\`\`\`python" docs/workflows/0*.md` → 0 件 |
+| Rule 2 | `grep -El "プロジェクト固有\|このプロジェクト\|TASK-" .claude/skills/<new>/SKILL.md` → 0 件 |
+| Rule 3 | `grep -El "Laravel\|PostgreSQL\|ECS\|Cloudflare" .claude/agents/<new>.md` → 0 件 |
 | Rule 4 | Agent / Skill 内に特定プロジェクト名が無いことを確認 |
 | Rule 5 | 全 PBI で `docs/working/TASK-XXXX/handoff.md` 存在確認 |
 
