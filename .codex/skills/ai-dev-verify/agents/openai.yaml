@@ -1,0 +1,6 @@
+interface:
+  display_name: "ai-dev-verify"
+  short_description: "PlanGate の V-1〜V-4 受け入れ検査と handoff.md 発行を行う。Use when: exec 完了後に受け入れ検査を実行し PR 準備したい時。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use ai-dev-verify to assist with this project."

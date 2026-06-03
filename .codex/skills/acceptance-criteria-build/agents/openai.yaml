@@ -1,0 +1,6 @@
+interface:
+  display_name: "acceptance-criteria-build"
+  short_description: "要件とエッジケースから受け入れ条件（AC）を明文化し、チェックリスト形式で整理する。Use when: WF-02 で AC を確定したい時、Definition of Done を明確化したい時、テストケース設計の前提を整えたい時。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use acceptance-criteria-build to assist with this project."

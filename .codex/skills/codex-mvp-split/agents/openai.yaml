@@ -1,0 +1,6 @@
+interface:
+  display_name: "codex-mvp-split"
+  short_description: "規模 L 以上の機能の最小 MVP (Phase 1) を Codex に選定相談し Phase 分割表を作る。Use when: A フェーズ前段で規模 L 機能の MVP を決めたい時 / 事前メトリクス検証で実数 ≥ 3 倍判定時。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use codex-mvp-split to assist with this project."
