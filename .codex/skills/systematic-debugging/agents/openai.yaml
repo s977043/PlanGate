@@ -1,0 +1,6 @@
+interface:
+  display_name: "systematic-debugging"
+  short_description: "バグや障害を体系的に調査し、エビデンスに基づいて根本原因を特定する。Use when: 「動かない」「エラーが出る」「なぜか失敗する」「原因がわからない」「デバッグしたい」「テストが落ちる」「本番で問題が起きている」「再現できない」。一般的なコードレビューにはfind-bugsを使用。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use systematic-debugging to assist with this project."

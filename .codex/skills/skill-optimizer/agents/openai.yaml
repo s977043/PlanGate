@@ -1,0 +1,6 @@
+interface:
+  display_name: "skill-optimizer"
+  short_description: "Evaluate and improve an existing Codex skill using explicit success criteria and small controlled changes. Use when the user asks to optimize a skill, reduce over-triggering or under-triggering, improve reliability, tighten instructions, or add evals for a skill. Also trigger on \"スキルを改善して\", \"スキルを最適化して\", \"スキルの品質を確認して\"."
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use skill-optimizer to assist with this project."

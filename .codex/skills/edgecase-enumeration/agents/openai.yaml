@@ -1,0 +1,6 @@
+interface:
+  display_name: "edgecase-enumeration"
+  short_description: "境界条件・例外条件・異常系を体系的に列挙し、エッジケース一覧を作成する。Use when: WF-02 でエッジケース検討時、テスト観点の網羅性を高めたい時、失敗パス/異常系の抜けを防ぎたい時。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use edgecase-enumeration to assist with this project."

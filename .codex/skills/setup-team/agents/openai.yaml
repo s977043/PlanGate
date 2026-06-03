@@ -1,0 +1,6 @@
+interface:
+  display_name: "setup-team"
+  short_description: "タスクに応じたマルチエージェントチームを設計・構成する。Use when: 「エージェントチームを組んで」「複数エージェントで実行したい」「並列実行チームを設計して」「どのエージェントを使うか決めて」「チームでこのタスクを進めて」。1エージェントで完結する小タスクには不要。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use setup-team to assist with this project."

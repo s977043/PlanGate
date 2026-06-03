@@ -1,0 +1,6 @@
+interface:
+  display_name: "context-load"
+  short_description: "AGENTS.md と依頼文から案件の前提・制約・品質基準を抽出し、context artifact としてサマライズする。Use when: 新しい TASK に着手する前、WF-01 Context Bootstrap 開始時、前提情報を整理したい時。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use context-load to assist with this project."

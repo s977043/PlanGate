@@ -1,0 +1,6 @@
+interface:
+  display_name: "brainstorming"
+  short_description: "アイデアや要件を対話的に設計書（PBI INPUT PACKAGE）へ昇華する。Use when: 「こういう機能を作りたい」「どう実装すればいい？」「要件を整理したい」「設計を考えたい」「ブレスト」「アイデア出し」「what if」「どういうアプローチがある？」「PBI INPUT PACKAGEを作りたい」「技術調査の方向性を決めたい」。実装計画の作成にはai-dev-workflowを使用。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use brainstorming to assist with this project."

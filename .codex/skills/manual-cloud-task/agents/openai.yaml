@@ -1,0 +1,6 @@
+interface:
+  display_name: "manual-cloud-task"
+  short_description: "tracked handoff packet を使って Codex Cloud task を手動起動するための指示を組み立てる。Use when: Codex Cloud で exec 相当の作業を手動で進めたい時（PlanGate ではローカル実行が原則・本 skill は optional）。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use manual-cloud-task to assist with this project."
