@@ -1,0 +1,6 @@
+interface:
+  display_name: "self-review"
+  short_description: "変更内容に対して詳細なセルフレビューを実施し、構造化されたレポートを出力する。Use when: コミット・PR前に自分の変更を詳細レビューしたい時。「セルフレビューしたい」「コード品質を確認したい」「変更のレビューをして」。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate.png"
+  default_prompt: "Use self-review to assist with this project."

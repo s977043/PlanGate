@@ -1,0 +1,6 @@
+interface:
+  display_name: "codex-multi-agent"
+  short_description: "マルチエージェントでタスク分解・委譲・並列実行・結果統合を行うための共通運用スキル。Use when: 「マルチエージェントで進めたい」「並列で進めたい」「サブエージェントに任せたい」「複数 agent で調査/実装/レビューしたい」。Claude Code / Codex のどちらでも使える共通原則を定義し、末尾にツール別の読み替えを置く。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate.png"
+  default_prompt: "Use codex-multi-agent to assist with this project."
