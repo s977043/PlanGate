@@ -93,21 +93,30 @@ fi
 # plugin.json の version フィールドを更新
 PLUGIN_JSON="$PLUGIN_DIR/.claude-plugin/plugin.json"
 if [ -n "$_ver" ] && [ -f "$PLUGIN_JSON" ] && command -v python3 >/dev/null 2>&1; then
-  _pcur=$(python3 -c "import json; d=json.load(open('$PLUGIN_JSON')); print(d.get('version',''))" 2>/dev/null || true)
-  if [ "$_pcur" != "$_ver" ]; then
-    if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD UPDATE plugin.json version: $_pcur -> $_ver"
+  _pcur=$(python3 - "$PLUGIN_JSON" << 'PYJSON' 2>/dev/null || true
+import json, sys
+try:
+    with open(sys.argv[1], encoding='utf-8') as f:
+        print(json.load(f).get('version', ''))
+except Exception:
+    print('')
+PYJSON
+)
+  _ver_noprefix="${_ver#v}"
+  if [ "$_pcur" != "$_ver_noprefix" ]; then
+    if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD UPDATE plugin.json version: $_pcur -> $_ver_noprefix"
     else
       python3 - "$PLUGIN_JSON" "$_ver" << 'PYEOF'
 import json, sys
 path, ver = sys.argv[1], sys.argv[2]
-with open(path) as f:
+with open(path, encoding='utf-8') as f:
     d = json.load(f)
 d['version'] = ver.lstrip('v')
-with open(path, 'w') as f:
+with open(path, 'w', encoding='utf-8') as f:
     json.dump(d, f, indent=2, ensure_ascii=False)
     f.write('\n')
 PYEOF
-      _log "UPDATE plugin.json version: $_pcur -> $_ver"
+      _log "UPDATE plugin.json version: $_pcur -> $_ver_noprefix"
     fi
     changed=1
   fi

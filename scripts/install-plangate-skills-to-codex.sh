@@ -60,7 +60,7 @@ extract_frontmatter_value() {
         value = substr(value, 2, length(value) - 2)
       }
       # シングルクォート除去
-      else if (value ~ /'"'"'^'"'"'.*'"'"''"'"'$/) {
+      else if (value ~ /^'"'"'.*'"'"'$/) {
         value = substr(value, 2, length(value) - 2)
       }
       print value
@@ -134,10 +134,26 @@ for skill_file in "$SOURCE_DIR"/*/SKILL.md; do
   # フォールバック値
   [ -z "$frontmatter_name" ] && frontmatter_name="$skill_name"
   [ -z "$frontmatter_description" ] && frontmatter_description="PlanGate skill: $skill_name"
+  # short_description を 64 文字以内に安全に切り詰め（UTF-8 マルチバイト対応）
+  if command -v python3 >/dev/null 2>&1; then
+    frontmatter_description=$(python3 - "$frontmatter_description" << 'PYTRUNC'
+import sys
+s = sys.argv[1]
+print(s[:61] + '...' if len(s) > 64 else s)
+PYTRUNC
+)
+  fi
   [ -z "$frontmatter_icon_small" ] && frontmatter_icon_small="./assets/plangate-small.svg"
   [ -z "$frontmatter_icon_large" ] && frontmatter_icon_large="./assets/plangate.png"
   if [ -z "$frontmatter_default_prompt" ]; then
-    frontmatter_default_prompt="Use $skill_name to assist with this project."
+    frontmatter_default_prompt="Use \$$skill_name to assist with this project."
+  fi
+
+  # symlink はセキュリティのためスキップ
+  if [ -L "$skill_file" ]; then
+    skipped_count=$((skipped_count + 1))
+    printf 'skip(symlink): %s\n' "$skill_name"
+    continue
   fi
 
   mkdir -p "$target_agents_dir"
@@ -149,7 +165,10 @@ for skill_file in "$SOURCE_DIR"/*/SKILL.md; do
   if [ -d "$ASSETS_SRC" ]; then
     target_assets_dir="$target_dir/assets"
     mkdir -p "$target_assets_dir"
-    for _a in "$ASSETS_SRC"/*; do [ -f "$_a" ] && cp "$_a" "$target_assets_dir/" 2>/dev/null || true; done
+    for _a in "$ASSETS_SRC"/*; do
+      case "$_a" in *.placeholder) continue ;; esac
+      [ -f "$_a" ] && [ ! -L "$_a" ] && cp "$_a" "$target_assets_dir/" 2>/dev/null || true
+    done
   fi
 
   # openai.yaml を生成
@@ -166,6 +185,7 @@ for skill_file in "$SOURCE_DIR"/*/SKILL.md; do
     printf '  icon_small: "%s"\n' "$icon_small"
     printf '  icon_large: "%s"\n' "$icon_large"
     printf '  default_prompt: "%s"\n' "$default_prompt"
+    printf '  brand_color: "#1A56DB"\n'
   } > "$target_openai_yaml"
 
   installed_count=$((installed_count + 1))
