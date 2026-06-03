@@ -147,7 +147,7 @@ codex plugin install plangate
 
 ```bash
 git clone https://github.com/s977043/plangate.git ~/plangate
-cd /your-project
+cd path/to/your-project
 sh ~/plangate/install.sh       # .claude/ と .codex/ を自動検出してインストール
 ```
 
@@ -162,7 +162,7 @@ sh ~/plangate/install.sh --dry-run   # 変更内容を確認（実行しない�
 
 ```bash
 git clone https://github.com/s977043/plangate.git ~/plangate
-cp -r ~/plangate/.claude/ /your-project/.claude/
+cp -r ~/plangate/.claude/ path/to/your-project/.claude/
 ```
 
 > [!NOTE]

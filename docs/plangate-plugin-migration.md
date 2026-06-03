@@ -42,7 +42,7 @@ codex plugin marketplace add s977043/PlanGate && codex plugin install plangate
 
 ```bash
 git clone https://github.com/s977043/plangate.git ~/plangate
-cd /your-project
+cd path/to/your-project
 sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 ```
 
