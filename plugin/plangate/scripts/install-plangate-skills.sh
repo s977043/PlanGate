@@ -68,7 +68,12 @@ for skill_dir in "$SKILLS_SRC"/*/; do
     continue
   fi
 
-  # Copy SKILL.md
+  # Copy SKILL.md（symlink はセキュリティのためスキップ）
+  if [ -L "$skill_md" ]; then
+    _log "SKIP symlink: $name"
+    skipped=$((skipped+1))
+    continue
+  fi
   mkdir -p "$dst"
   if ! cp "$skill_md" "$dst_md"; then
     _log "ERROR copying SKILL.md for $name"
@@ -98,6 +103,16 @@ for skill_dir in "$SKILLS_SRC"/*/; do
     short_desc="Use the $name skill."
   fi
 
+  # short_description を 64 文字以内に安全に切り詰め（UTF-8 マルチバイト対応・UI 表示用）
+  if command -v python3 >/dev/null 2>&1; then
+    short_desc=$(python3 - "$short_desc" << 'PYTRUNC'
+import sys
+s = sys.argv[1]
+print(s[:61] + '...' if len(s) > 64 else s)
+PYTRUNC
+)
+  fi
+
   # Copy assets
   mkdir -p "$dst/assets"
   if [ -f "$ASSETS_SRC/plangate-small.svg" ]; then
@@ -114,7 +129,8 @@ interface:
   short_description: "$short_desc"
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $name to assist with this project."
+  default_prompt: "Use \$$name to assist with this project."
+  brand_color: "#1A56DB"
 YAML
 
   _log "INSTALL: $name"
