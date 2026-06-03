@@ -38,6 +38,14 @@ _warn() { printf '\033[1;33m[plangate]\033[0m %s\n' "$1"; }
 _skip() { printf '\033[0;90m[plangate]\033[0m skip (exists): %s\n' "$1"; }
 _dry()  { printf '\033[1;36m[dry-run] \033[0m %s\n' "$1"; }
 
+# python3 が必要な操作（manifest 生成・読み込み・アンインストール）の前に呼ぶ
+_require_python3() {
+  command -v python3 >/dev/null 2>&1 || {
+    printf '\033[1;31m[plangate]\033[0m Error: python3 is required for this operation\n' >&2
+    exit 1
+  }
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --claude)     MODE="claude"; shift ;;
@@ -71,6 +79,7 @@ if [ "$SHOW_VERSION" = "1" ]; then
   DEST="${TARGET_DIR:-$(pwd)/.claude}"
   MANIFEST="$DEST/$MANIFEST_NAME"
   if [ -f "$MANIFEST" ]; then
+    _require_python3
     installed=$(python3 - "$MANIFEST" << 'PYEOF'
 import json, sys
 try:
@@ -138,16 +147,21 @@ uninstall_claude() {
     _warn "手動で $DEST/agents/ $DEST/skills/ $DEST/commands/ $DEST/rules/ を確認してください"
     exit 1
   fi
+  _require_python3
   python3 - "$MANIFEST" "$DRY_RUN" << 'PYEOF'
-import json, os, sys
+import json, os, sys, shutil
 manifest_path, dry = sys.argv[1], sys.argv[2] == '1'
-d = json.load(open(manifest_path, encoding='utf-8'))
+with open(manifest_path, encoding='utf-8') as fh:
+    d = json.load(fh)
 for f in d.get('files', []):
-    if os.path.exists(f):
+    if os.path.lexists(f):
         if dry:
             print(f'[dry-run]  WOULD DELETE: {f}')
         else:
-            os.remove(f)
+            if os.path.isdir(f) and not os.path.islink(f):
+                shutil.rmtree(f)
+            else:
+                os.remove(f)
             print(f'[plangate] deleted: {f}')
 if not dry:
     os.remove(manifest_path)
@@ -159,6 +173,7 @@ PYEOF
 _write_manifest() {
   dest="$1"
   manifest="$dest/$MANIFEST_NAME"
+  _require_python3
   python3 - "$dest" "$PLUGIN_DIR" "$PLUGIN_VERSION" "$manifest" << 'PYEOF'
 import json, os, sys
 from datetime import datetime, timezone
