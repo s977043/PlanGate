@@ -1,6 +1,6 @@
 interface:
   display_name: "skill-ops-planner"
-  short_description: "Plan skill operations and orchestration"スキルの運用計画\", \"スキルポートフォリオ\", \"スキルロードマップ\", \"スキルを整理して\"."
+  short_description: "Plan skill operations and orchestration"
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use $skill-ops-planner to plan skill operations for this task."
