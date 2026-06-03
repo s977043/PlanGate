@@ -2,5 +2,5 @@ interface:
   display_name: "skill-ops-planner"
   short_description: "Create an operating policy and roadmap for a live portfolio of Codex skills. Use when the user asks to organize, govern, audit, measure, retire, or scale skills already used by a team or repository. Also trigger on \"スキルの運用計画\", \"スキルポートフォリオ\", \"スキルロードマップ\", \"スキルを整理して\"."
   icon_small: "./assets/plangate-small.svg"
-  icon_large: "./assets/plangate.png"
+  icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use skill-ops-planner to assist with this project."

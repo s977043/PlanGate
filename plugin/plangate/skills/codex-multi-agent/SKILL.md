@@ -1,6 +1,6 @@
 ---
 name: codex-multi-agent
-description: "マルチエージェントでタスク分解・委譲・並列実行・結果統合を行うための共通運用スキル。Use when: 「マルチエージェントで進めたい」「並列で進めたい」「サブエージェントに任せたい」「複数 agent で調査/実装/レビューしたい」。Codex / Claude Code のどちらでも使える共通原則を定義し、末尾にツール別の読み替えを置く。"
+description: "マルチエージェントでタスク分解・委譲・並列実行・結果統合を行うための共通運用スキル。Use when: 「マルチエージェントで進めたい」「並列で進めたい」「サブエージェントに任せたい」「複数 agent で調査/実装/レビューしたい」。Claude Code / Codex のどちらでも使える共通原則を定義し、末尾にツール別の読み替えを置く。"
 ---
 
 # Multi-Agent Operating Guide
@@ -274,17 +274,17 @@ Codex での代表的な操作:
 - 必要時のみ待機: `wait_agent`
 - 不要になったら終了: `close_agent`
 
-## Tool Mapping: Claude Code
+## Tool Mapping: Codex (Team/Task)
 
-Claude Code では、役割を既存の Team / Task 運用へ読み替える。
+Codex では、役割を既存の Team / Task 運用へ読み替える。
 
 - チーム設計・メンバー構成は `setup-team` の手順に読み替える
 - 役割名は `researcher`, `backend-dev`, `frontend-dev`, `tester` などのまま使ってよい
 - Team / Task ツール上の member 種別や owner 設定は、上の役割表を基準に割り当てる
 
-Claude Code 側では、ツール固有のチーム操作は [setup-team](../setup-team/SKILL.md) を参照する。
+Codex 側では、ツール固有のチーム操作は [setup-team](../setup-team/SKILL.md) を参照する。
 
 ## 関連スキル
 
-- `setup-team`: Claude Code の Team / Task ベース運用
+- `setup-team`: Codex の Team / Task ベース運用
 - `subagent-driven-development`: 実装タスクを委譲して二段階レビューを回すときに併用

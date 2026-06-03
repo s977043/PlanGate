@@ -76,7 +76,7 @@ git clone https://github.com/s977043/plangate.git
 cd plangate
 
 # 2. インストールスクリプトを実行（.codex/skills/ にスキルを同期）
-sh scripts/install-plangate-skills-to-codex.sh
+sh plugin/plangate/scripts/install-plangate-skills.sh
 ```
 
 実行すると `.codex/skills/<skill-name>/` 配下に各スキルの `SKILL.md` と `agents/openai.yaml` が生成されます。
@@ -85,7 +85,7 @@ sh scripts/install-plangate-skills-to-codex.sh
 
 ```bash
 ls .codex/skills/ | grep -v '^\.' | wc -l
-# 29 前後のスキルディレクトリが表示されれば成功
+# 37 前後のスキルディレクトリが表示されれば成功
 ```
 
 Codex UI を開き、スキル選択ペインで PlanGate スキル（例: `ai-dev-plan`, `brainstorming` など）が表示されることを確認。
@@ -95,7 +95,7 @@ Codex UI を開き、スキル選択ペインで PlanGate スキル（例: `ai-d
 ```bash
 cd plangate
 git pull
-sh scripts/install-plangate-skills-to-codex.sh
+sh plugin/plangate/scripts/install-plangate-skills.sh --force
 ```
 
 スクリプトは冪等に動作します（未変更スキルはスキップ、`--force` で強制上書き）。
@@ -106,7 +106,8 @@ sh scripts/install-plangate-skills-to-codex.sh
 |-----------|------|
 | `--force` | 既存スキルも強制上書き |
 | `--json` | インストール結果を JSON で stdout に出力（CI向け） |
-| `--source DIR` | ソースディレクトリを上書き（plugin/plangate/skills/ にも適用可） |
+| `--source DIR` | ソースディレクトリを上書き |
+| `--target DIR` | インストール先を上書き（デフォルト: `$(git rev-parse --show-toplevel)/.codex/skills`）|
 
 環境変数 `PLANGATE_SKILLS_DIR` でもソースディレクトリを指定できます。
 
@@ -120,47 +121,65 @@ plugin/plangate/
 │   └── plugin.json         # manifest (v8.10.0)
 ├── agents/                 # 24 agents
 ├── assets/                 # アイコン等のアセット
-│   ├── plangate-small.svg  # icon_small (32x32)
-│   └── plangate.png        # icon_large (128x128)
-├── skills/                 # 15 skills
+│   └── plangate-small.svg  # icon_small / icon_large 兼用 (SVG)
+├── skills/                 # 37 skills（.agents/skills/ と完全同期）
+│   ├── acceptance-criteria-build/
+│   ├── acceptance-review/
+│   ├── ai-dev-brainstorm/
+│   ├── ai-dev-exec/
+│   ├── ai-dev-plan/
+│   ├── ai-dev-verify/
+│   ├── architecture-sketch/
 │   ├── brainstorming/
+│   ├── codex-multi-agent/
+│   ├── codex-mvp-split/
+│   ├── context-load/
+│   ├── context-packager/
+│   ├── design-gate/
+│   ├── edgecase-enumeration/
+│   ├── evidence-ledger/
+│   ├── feature-implement/
+│   ├── intent-classifier/
+│   ├── known-issues-log/
+│   ├── local-exec-handoff/
+│   ├── manual-cloud-task/
+│   ├── nonfunctional-check/
+│   ├── plan-review-gate/
+│   ├── plangate-setup/
+│   ├── pr-decision/
+│   ├── requirement-gap-scan/
+│   ├── review-gate/
+│   ├── risk-assessment/
 │   ├── self-review/
+│   ├── setup-team/
+│   ├── skill-creator/
+│   ├── skill-ops-planner/
+│   ├── skill-optimizer/
+│   ├── skill-policy-router/
+│   ├── subagent-dispatch/
 │   ├── subagent-driven-development/
 │   ├── systematic-debugging/
-│   ├── codex-multi-agent/
-│   ├── setup-team/
-│   ├── intent-classifier/
-│   ├── skill-policy-router/
-│   ├── evidence-ledger/
-│   ├── design-gate/
-│   ├── review-gate/
-│   ├── context-packager/
-│   ├── subagent-dispatch/
-│   └── pr-decision/
-├── commands/               # 7 commands
+│   └── working-context/
+├── commands/               # 4 commands
 │   ├── working-context.md
 │   ├── ai-dev-workflow.md
-│   ├── pg-think.md
-│   ├── pg-hunt.md
-│   ├── pg-check.md
-│   ├── pg-verify.md
-│   └── pg-tdd.md
-├── rules/                  # 9 rules
-│   ├── working-context.md
-│   ├── review-principles.md
+│   ├── codex-mvp-split.md
+│   └── plangate-setup.md
+├── rules/                  # 6 rules
+│   ├── hybrid-architecture.md
 │   ├── mode-classification.md
-│   ├── evidence-ledger.md
-│   ├── design-gate.md
-│   ├── review-gate.md
-│   ├── completion-gate.md
-│   ├── subagent-roles.md
-│   └── worktree-policy.md
+│   ├── orchestrator-mode.md
+│   ├── responsibility-classes.md
+│   ├── review-principles.md
+│   └── working-context.md
 ├── hooks/                  # (reserved — 現バージョンでは未実装)
-└── scripts/                # (reserved — 現バージョンでは未実装)
+└── scripts/                # install-plangate-skills.sh
+    └── install-plangate-skills.sh
 ```
 
-> **NOTE**: `.agents/skills/` には 29 スキルが存在しますが、`plugin/plangate/skills/` には 15 スキルが含まれています。
-> 差分（14 スキル）は plugin 向け整理中です。全スキルを使うには `--source` オプションで `.agents/skills/` を指定して Codex インストールを実行してください。
+> **NOTE**: `plugin/plangate/assets/` には `plangate-small.svg` のみ含まれます。
+> `plangate.png` は同梱されていないため、`openai.yaml` の `icon_large` も
+> `plangate-small.svg`（SVG）を使用します。
 
 ---
 
@@ -182,6 +201,9 @@ plangate:self-review
 plangate:subagent-driven-development
 plangate:systematic-debugging
 plangate:codex-multi-agent
+plangate:ai-dev-plan
+plangate:ai-dev-exec
+plangate:ai-dev-verify
 ```
 
 ### Invoke agents (via the Task tool)
@@ -220,11 +242,11 @@ EH-1/2/3/6/9 などの Hook を使用するには、別途手動設定が必要�
 
 ## 配布チェックリスト
 
-- [ ] **ファイル整合性**: `plugin/plangate/skills/` のスキル数が `.agents/skills/` と一致していること（現状 15 vs 29 — 差分解消中）
-- [ ] **README 正確性**: Contents 欄のエージェント数・スキル数が実態と一致していること（agents: 24、skills: 15）
+- [ ] **ファイル整合性**: `plugin/plangate/skills/` のスキル数が `.agents/skills/` と一致していること（CI: `scripts/sync-plugin-plangate.sh` で自動同期）
+- [ ] **README 正確性**: Contents 欄のエージェント数・スキル数が実態と一致していること（agents: 24、skills: 37）
 - [ ] **openai.yaml 完全性**: 全スキルの `agents/openai.yaml` に 5 フィールド（display_name / short_description / icon_small / icon_large / default_prompt）が揃っていること
-- [ ] **アセット存在確認**: `plugin/plangate/assets/` に `plangate-small.svg` と `plangate.png` が実在すること
-- [ ] **インストールスクリプト動作確認**: `install-plangate-skills-to-codex.sh` をクリーン環境で実行し、全スキルが `.codex/skills/` に展開されること
+- [ ] **アセット存在確認**: `plugin/plangate/assets/` に `plangate-small.svg` が実在すること（PNG は不要）
+- [ ] **インストールスクリプト動作確認**: `install-plangate-skills.sh` をクリーン環境で実行し、全スキルが `.codex/skills/` に展開されること
 - [ ] **Claude Code インストール確認**: `plugin/plangate/` をプラグインパスとして指定し、Claude Code セッション内でスキル・コマンド・エージェントが認識されること（`/setup-team` で確認）
 - [ ] **hooks 配線状況の明示**: `plugin/plangate/hooks/` が reserved である旨を明記済み
 - [ ] **バージョン整合性**: `plugin/plangate/.claude-plugin/plugin.json` の version と `CHANGELOG.md` の最新リリースバージョンが一致していること
@@ -267,12 +289,12 @@ EH-1/2/3/6/9 を使うには `.codex/hooks/` と `.claude/settings.json` の手�
 
 - Post-install behavior depends on Claude Code internals (refer to runtime verification results)
 - `test-engineer` and `release-manager` agents are not bundled (they do not exist in `.claude/` either)
-- `plugin/plangate/skills/` には 15 スキルが含まれていますが、`.agents/skills/` の 29 スキルとの差分（14 スキル）は整理中です
+- `plugin/plangate/hooks/` は reserved（未実装）。EH-1/2/3/6/9 の利用には手動設定が必要
 
 ## Future / RFC
 
 - **Parent-Child PBI Orchestrator Mode** (specification only, see [`docs/orchestrator-mode.md`](../../docs/orchestrator-mode.md) and [`docs/rfc/plangate-decompose.md`](../../docs/rfc/plangate-decompose.md)): a layer above single-PBI control that decomposes a parent PBI into multiple child PBIs and runs each through PlanGate. Implementation (Parent Supervisor / Integration Agent / `plangate decompose` CLI / Hook-based gate enforcement) is tracked in follow-up PBIs.
-- **Plugin スキル完全同期**: `.agents/skills/` の 29 スキルをすべて `plugin/plangate/skills/` に同期し、CI で差分検出ジョブを整備
+- **Hooks 実装**: `plugin/plangate/hooks/` に EH-1/2/3/6/9 を同梱し、インストールスクリプトで自動配線
 
 ## References
 
