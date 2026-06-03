@@ -26,6 +26,9 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Codex skill spec check
+        run: sh scripts/check-codex-skill-spec.sh --warn-only
+
       - name: Run sync script
         run: sh scripts/sync-plugin-plangate.sh
 
