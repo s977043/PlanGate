@@ -47,3 +47,7 @@ scripts/parsers/__pycache__/
 # PlanGate Metrics v1 (Issue #195) — local artifact, never commit
 # privacy: docs/ai/metrics-privacy.md §8
 docs/working/_metrics/events.ndjson
+
+docs/working/_audit/hook-events.log.bak.*
+docs/working/_audit/skip-decision-log.jsonl.bak
+.tmp-metrics-events.ndjson
