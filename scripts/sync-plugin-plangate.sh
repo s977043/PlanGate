@@ -54,7 +54,7 @@ sync_dir "$SKILLS_DIR" "$PLUGIN_DIR/skills" "skills"
 # バージョン行を最新 CHANGELOG に合わせて更新
 PLUGIN_README="$PLUGIN_DIR/README.md"
 if [ -f "$REPO_ROOT/CHANGELOG.md" ] && [ -f "$PLUGIN_README" ]; then
-  _ver=$(grep -m1 '^## v[0-9]' "$REPO_ROOT/CHANGELOG.md" | sed 's/## \(v[^ ]*\).*/\1/')
+  _ver=$(grep '^## v[0-9]' "$REPO_ROOT/CHANGELOG.md" | head -1 | sed 's/## \(v[^ ]*\).*/\1/')
   if [ -n "$_ver" ]; then
     _cur=$(grep '^\- \*\*Version\*\*:' "$PLUGIN_README" | sed 's/.*: //' || true)
     if [ "$_cur" != "$_ver" ]; then
