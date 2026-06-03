@@ -1,0 +1,7 @@
+interface:
+  display_name: "skill-creator"
+  short_description: "Create or update a PlanGate skill definition"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $skill-creator to create or update a skill."
+  brand_color: "#1A56DB"
