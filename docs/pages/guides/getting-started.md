@@ -16,6 +16,39 @@ PlanGate は、AI コーディングエージェントをプロダクト開発�
 - Git リポジトリ
 - GitHub アカウント
 
+## インストール
+
+### Marketplace から（推奨）
+
+**Claude Code セッション内:**
+```
+/plugin marketplace add s977043/PlanGate
+/plugin install plangate
+```
+
+**CLI から:**
+```bash
+# Claude Code
+claude plugin marketplace add s977043/PlanGate
+claude plugin install plangate
+
+# Codex
+codex plugin marketplace add s977043/PlanGate
+codex plugin install plangate
+```
+
+### ワンコマンド（clone して install.sh）
+
+```bash
+git clone https://github.com/s977043/plangate.git ~/plangate
+cd /your-project
+sh ~/plangate/install.sh
+```
+
+詳細は [plugin/plangate/README.md](../../../plugin/plangate/README.md) を参照してください。
+
+---
+
 ## 3ステップで始める（Phase 0 体験）
 
 Phase 0 は「Day 1 で体験する」フェーズです。ultra-light モードで 1 タスクを最後まで完了し、PlanGate の基本的な流れを体感します。plan / C-1〜C-4 / V-1〜V-4 / エージェント / フック / metrics はすべて不要です。まず動かすことが目的です。
