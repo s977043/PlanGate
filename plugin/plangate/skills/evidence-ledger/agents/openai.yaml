@@ -1,0 +1,7 @@
+interface:
+  display_name: "evidence-ledger"
+  short_description: "PlanGate skill: evidence-ledger"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $evidence-ledger to assist with this project."
+  brand_color: "#1A56DB"

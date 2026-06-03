@@ -1,0 +1,7 @@
+interface:
+  display_name: "subagent-dispatch"
+  short_description: "PlanGate skill: subagent-dispatch"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $subagent-dispatch to assist with this project."
+  brand_color: "#1A56DB"

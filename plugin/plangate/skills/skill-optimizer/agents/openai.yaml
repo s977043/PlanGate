@@ -1,0 +1,7 @@
+interface:
+  display_name: "skill-optimizer"
+  short_description: "Optimize existing skill definitions"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $skill-optimizer to optimize this skill definition."
+  brand_color: "#1A56DB"
