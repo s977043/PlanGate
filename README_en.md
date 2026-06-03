@@ -120,24 +120,53 @@ OS: macOS / Linux (POSIX shell required). Use WSL on Windows. Without Claude Cod
 
 ## Install
 
-### Option A: Clone and register plugin (recommended)
+### Option A: One command via Marketplace (recommended)
 
-```bash
-git clone https://github.com/s977043/plangate.git
-cd plangate
+**Claude Code (slash command in session):**
+```
+/plugin marketplace add s977043/PlanGate
 ```
 
-Then follow [Claude Code plugin registration instructions](plugin/plangate/README.md), or copy `.claude/` into your project.
+Then in session:
+```
+/plugin install plangate
+```
 
-### Option B: Copy `.claude/` directly
+**Via CLI:**
+```bash
+# Claude Code
+claude plugin marketplace add s977043/PlanGate
+claude plugin install plangate
+
+# Codex
+codex plugin marketplace add s977043/PlanGate
+codex plugin install plangate
+```
+
+### Option B: Clone and install script
 
 ```bash
-git clone https://github.com/s977043/plangate.git
-cp -r plangate/.claude/ your-project/.claude/
+git clone https://github.com/s977043/plangate.git ~/plangate
+cd /your-project
+sh ~/plangate/install.sh       # auto-detects .claude/ and .codex/
+```
+
+Options:
+```bash
+sh ~/plangate/install.sh --claude    # Claude Code only
+sh ~/plangate/install.sh --codex     # Codex only
+sh ~/plangate/install.sh --dry-run   # preview changes without applying
+```
+
+### Option C: Copy `.claude/` directly
+
+```bash
+git clone https://github.com/s977043/plangate.git ~/plangate
+cp -r ~/plangate/.claude/ /your-project/.claude/
 ```
 
 > [!NOTE]
-> **New users should pick either Option A or Option B.**
+> **New users should use Option A (Marketplace) or Option B (install script).**
 > For existing users or staged migrations, dual-running the plugin alongside `.claude/` is technically supported, but be aware that same-named Skills / commands may resolve in non-obvious order.
 > To explicitly invoke the plugin side, use the `plangate:<skill-or-agent>` prefix. See [plugin migration guide](docs/plangate-plugin-migration.md) for details.
 
