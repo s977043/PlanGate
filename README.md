@@ -123,25 +123,30 @@ OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推�
 ### Option A: Marketplace から 1 コマンド（最推奨）
 
 **Claude Code（セッション内スラッシュコマンド）:**
-```
+
+```text
 /plugin marketplace add s977043/PlanGate
 ```
 
 その後、セッション内で:
-```
+
+```text
 /plugin install plangate
 ```
 
 **CLI から:**
+
 ```bash
 # Claude Code
 claude plugin marketplace add s977043/PlanGate
 claude plugin install plangate
 
-# Codex
+# Codex（marketplace 追加 + スキル展開）
 codex plugin marketplace add s977043/PlanGate
-codex plugin install plangate
+sh ~/plangate/install.sh --codex
 ```
+
+> Codex には `plugin install` サブコマンドはありません。`marketplace add` で marketplace を登録し、スキルは `install.sh --codex` で `.codex/skills/` に展開します。
 
 ### Option B: clone + install スクリプト
 
@@ -152,6 +157,7 @@ sh ~/plangate/install.sh       # .claude/ と .codex/ を自動検出してイ�
 ```
 
 オプション例:
+
 ```bash
 sh ~/plangate/install.sh --claude    # Claude Code のみ
 sh ~/plangate/install.sh --codex     # Codex のみ
@@ -159,6 +165,8 @@ sh ~/plangate/install.sh --dry-run   # 変更内容を確認（実行しない�
 ```
 
 > **導入後**: hook 強制を有効化するには `~/plangate/bin/plangate doctor --fix` を実行してください。
+>
+> **前提**: `install.sh` の manifest 生成・アンインストールには `python3` が必要です（未導入時は明示エラーで停止します）。
 
 ### Option C: `.claude/` を直接コピー
 
