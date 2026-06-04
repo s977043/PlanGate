@@ -4,7 +4,7 @@ PlanGate — a governance OS for AI-assisted coding.
 Provides Intent/Mode classification, a 4-Gate approval system, and an agent control layer as a Claude Code plugin.
 
 - **Version**: v8.11.0
-- **Source**: https://github.com/s977043/plangate
+- **Source**: <https://github.com/s977043/plangate>
 
 ## Install
 
@@ -78,7 +78,7 @@ cp -r ~/plangate/plugin/plangate/rules/*    /your-project/.claude/rules/
 
 Claude Code セッション内で以下を実行:
 
-```
+```text
 /setup-team
 ```
 
@@ -93,7 +93,16 @@ Claude Code セッション内で以下を実行:
 - Codex CLI（最新版推奨）
 - git, sh
 
-#### 手順
+#### 方法 A: Marketplace 経由（推奨）
+
+```bash
+# marketplace を登録（出力に Installed marketplace root が表示される）
+codex plugin marketplace add s977043/PlanGate
+```
+
+> Codex には `plugin install` サブコマンドはありません。`marketplace add` で登録が完了します。
+
+#### 方法 B: スクリプトで .codex/skills/ に直接展開
 
 ```bash
 # 1. リポジトリをクローン
@@ -109,13 +118,26 @@ sh plugin/plangate/scripts/install-plangate-skills.sh
 #### インストール確認
 
 ```bash
+# 方法 B（直接展開）の場合
 ls .codex/skills/ | grep -v '^\.' | wc -l
 # 37 前後のスキルディレクトリが表示されれば成功
 ```
 
 Codex UI を開き、スキル選択ペインで PlanGate スキル（例: `ai-dev-plan`, `brainstorming` など）が表示されることを確認。
 
+> **確認の注意**: `codex plugin marketplace list` は現行 Codex CLI では未実装（`unrecognized subcommand`）です。
+> Marketplace 登録の確認は、`codex plugin marketplace add` 実行時の出力 `Installed marketplace root: <path>` と、
+> その root 配下 `plugin/plangate/.claude-plugin/plugin.json` の `version` を参照してください。
+
 #### アップデート
+
+Marketplace 経由:
+
+```bash
+codex plugin marketplace upgrade plangate
+```
+
+スクリプト経由（方法 B）:
 
 ```bash
 cd plangate
@@ -128,11 +150,11 @@ sh plugin/plangate/scripts/install-plangate-skills.sh --force
 #### スクリプトオプション
 
 | オプション | 説明 |
-|-----------|------|
+| ---------- | ------ |
 | `--force` | 既存スキルも強制上書き |
 | `--json` | インストール結果を JSON で stdout に出力（CI向け） |
 | `--source DIR` | ソースディレクトリを上書き |
-| `--target DIR` | インストール先を上書き（デフォルト: `$(git rev-parse --show-toplevel)/.codex/skills`）|
+| `--target DIR` | インストール先を上書き（デフォルト: `$(git rev-parse --show-toplevel)/.codex/skills`） |
 
 環境変数 `PLANGATE_SKILLS_DIR` でもソースディレクトリを指定できます。
 
@@ -206,13 +228,29 @@ plugin/plangate/
 > `plangate.png` は同梱されていないため、`openai.yaml` の `icon_large` も
 > `plangate-small.svg`（SVG）を使用します。
 
+### Agents (23)
+
+責務別エージェント定義。plan / exec / review / verify / orchestrate などの単一責務を持つ（`agents/` 配下）。
+
+### Skills (37)
+
+再利用可能なスキル定義（`.agents/skills/` から同期 + plugin 専用スキルを含む上位集合。`skills/` 配下）。
+
+### Commands (4)
+
+スラッシュコマンド定義（`/working-context` / `/ai-dev-workflow` / `/codex-mvp-split` / `/plangate-setup`。`commands/` 配下）。
+
+### Rules (6)
+
+運用ルール定義（hybrid-architecture / mode-classification / orchestrator-mode / responsibility-classes / review-principles / working-context。`rules/` 配下）。
+
 ---
 
 ## Basic Usage
 
 ### Start a workflow
 
-```
+```text
 /working-context TASK-XXXX
 /ai-dev-workflow TASK-XXXX plan
 /ai-dev-workflow TASK-XXXX exec
@@ -220,7 +258,7 @@ plugin/plangate/
 
 ### Invoke skills explicitly
 
-```
+```text
 plangate:brainstorming
 plangate:self-review
 plangate:subagent-driven-development
