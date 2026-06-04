@@ -6,6 +6,12 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.11.0 - 2026-06-04
+
+feat: Claude Code / Codex Plugin 正式配布対応 + retrospective scoring 配点変更
+
+Plugin を Claude Code / Codex 双方で `marketplace add` / `install.sh` から導入できる正式配布状態に整備。Codex/Gemini レビューと ultracode 検証 Workflow（5観点並列）で発見した配布ブロッカー（実在しない `codex plugin install` の誤記、install.sh のパス注入・symlink・dry-run 副作用、openai.yaml 仕様非準拠など）を解消。
+
 ### Added
 
 - **Plugin 正式配布対応**（TASK-0124〜0126 後続）— Claude Code / Codex Plugin を正式配布可能な状態に整備。
@@ -21,6 +27,15 @@ PlanGate の主要リリース履歴。
 ### Changed
 
 - **retrospective scoring 配点変更**（TASK-0121）— 振り返りメトリクスを Plan-primacy 思想に整合。計画精度 15→30・効率性 25→10・成果物品質 30 維持（計画で定めた品質の達成度 = 保全達成度として再定義）。計画精度の評価基準に C-1 語彙（受入基準網羅性・スコープ制御・テスト戦略妥当性）を追加。`docs/ai/reporting.md`（§2-bis 新設） / `docs/ai-driven-development.md` を更新、`scripts/check-retro-scoring-consistency.sh` を新規追加。
+
+### Fixed
+
+- **Plugin 配布の堅牢化**（PR #447 / #448 — Codex/Gemini レビュー + ultracode 検証 Workflow）:
+  - **Critical**: 4 ドキュメントの `codex plugin install plangate` を削除（`codex plugin` に install サブコマンドは無く配布の入口でエラー）→ `marketplace add` + `install.sh --codex` に修正
+  - install.sh: Python コードへのパス直接展開を `sys.argv` 渡しに変更（パス注入防止）、`cp` のシンボリックリンクスキップ、`--dry-run` の mkdir 副作用解消、uninstall の空ディレクトリ除去、python3 ガード
+  - openai.yaml 生成: `default_prompt` を `$skill-name` 形式に・`brand_color` 追加・`short_description` を 64 文字以内に UTF-8 安全切り詰め
+  - install-plangate-skills-to-codex.sh: awk シングルクォート除去の正規表現破綻を修正（frontmatter 抽出が機能していなかった）
+  - sync-plugin-plangate.sh: plugin.json version 比較の v プレフィックス不一致で CI が毎回無駄 PR を作る問題を解消
 
 ## v8.10.0 - 2026-05-29
 
