@@ -21,20 +21,22 @@ PlanGate は、AI コーディングエージェントをプロダクト開発�
 ### Marketplace から（推奨）
 
 **Claude Code セッション内:**
-```
+
+```text
 /plugin marketplace add s977043/PlanGate
 /plugin install plangate
 ```
 
 **CLI から:**
+
 ```bash
 # Claude Code
 claude plugin marketplace add s977043/PlanGate
 claude plugin install plangate
 
-# Codex
+# Codex（marketplace 追加 + スキル展開）
 codex plugin marketplace add s977043/PlanGate
-codex plugin install plangate
+sh ~/plangate/install.sh --codex
 ```
 
 ### ワンコマンド（clone して install.sh）
