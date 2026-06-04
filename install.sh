@@ -106,7 +106,7 @@ install_claude() {
     src="$PLUGIN_DIR/$dir"
     dst="$DEST/$dir"
     [ -d "$src" ] || continue
-    mkdir -p "$dst"
+    [ "$DRY_RUN" = "1" ] || mkdir -p "$dst"
     for f in "$src"/*; do
       [ -e "$f" ] || continue
       base="$(basename "$f")"
@@ -166,6 +166,17 @@ for f in d.get('files', []):
 if not dry:
     os.remove(manifest_path)
     print(f'[plangate] removed manifest: {manifest_path}')
+    # 空になった agents/skills/commands/rules ディレクトリを best-effort で除去
+    import os.path as _p
+    base = _p.dirname(manifest_path)
+    for _sub in ('agents', 'skills', 'commands', 'rules'):
+        _d = _p.join(base, _sub)
+        if os.path.isdir(_d) and not os.listdir(_d):
+            try:
+                os.rmdir(_d)
+                print(f'[plangate] removed empty dir: {_d}')
+            except OSError:
+                pass
 PYEOF
 }
 

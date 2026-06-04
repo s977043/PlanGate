@@ -36,7 +36,7 @@ PlanGate は当初、`.claude/` ディレクトリを含むリポジトリ配布
 
 # CLI から
 claude plugin marketplace add s977043/PlanGate && claude plugin install plangate
-codex plugin marketplace add s977043/PlanGate && codex plugin install plangate
+codex plugin marketplace add s977043/PlanGate   # その後 sh install.sh --codex でスキル展開
 ```
 
 ### install.sh を使う

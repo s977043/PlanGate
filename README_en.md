@@ -141,10 +141,12 @@ Then in session:
 claude plugin marketplace add s977043/PlanGate
 claude plugin install plangate
 
-# Codex
+# Codex (add marketplace + install skills)
 codex plugin marketplace add s977043/PlanGate
-codex plugin install plangate
+sh ~/plangate/install.sh --codex
 ```
+
+> Codex has no `plugin install` subcommand. Register the marketplace with `marketplace add`, then expand skills into `.codex/skills/` via `install.sh --codex`.
 
 ### Option B: Clone and install script
 
