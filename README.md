@@ -165,6 +165,8 @@ sh ~/plangate/install.sh --dry-run   # 変更内容を確認（実行しない�
 ```
 
 > **導入後**: hook 強制を有効化するには `~/plangate/bin/plangate doctor --fix` を実行してください。
+>
+> **前提**: `install.sh` の manifest 生成・アンインストールには `python3` が必要です（未導入時は明示エラーで停止します）。
 
 ### Option C: `.claude/` を直接コピー
 
