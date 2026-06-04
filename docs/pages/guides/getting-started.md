@@ -34,10 +34,11 @@ PlanGate は、AI コーディングエージェントをプロダクト開発�
 claude plugin marketplace add s977043/PlanGate
 claude plugin install plangate
 
-# Codex（marketplace 追加 + スキル展開）
+# Codex（marketplace 登録）
 codex plugin marketplace add s977043/PlanGate
-sh ~/plangate/install.sh --codex
 ```
+
+> Codex でスキルを `.codex/skills/` に直接展開する場合は、下記「ワンコマンド（clone して install.sh）」で `sh ~/plangate/install.sh --codex` を実行してください。
 
 ### ワンコマンド（clone して install.sh）
 
