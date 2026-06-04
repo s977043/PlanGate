@@ -75,13 +75,13 @@ flowchart LR
 
 ## Current Status
 
-As of **v8.10.0** (Latest), PlanGate combines Hook enforcement, Metrics v1, and Harness Improvement Governance with **Reporting & Retrospective v1**, deriving sprint retrospectives deterministically from events.ndjson. With this, the [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) is **complete (CLOSED / COMPLETED)**.
+As of **v8.11.0** (Latest), PlanGate adds official Claude Code / Codex Plugin distribution and combines Hook enforcement, Metrics v1, and Harness Improvement Governance with **Reporting & Retrospective v1**, deriving sprint retrospectives deterministically from events.ndjson. With this, the [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) is **complete (CLOSED / COMPLETED)**.
 
 v8.7.0 through v8.9.0 have all shipped, addressing the external OSS user's "where do I start, where do I stop" problem via OSS adoption foundations (staged adoption guide, plugin maturity, versioning stability policy) and the self-evaluation, context separation, model-profile, and reporting bases delivered in sequence.
 
 | Item | Status |
 | --- | --- |
-| Latest release | **v8.10.0** (Latest, 2026-05-29) — Codex CLI parity complete / Hook & Guard expansion / Skill overhaul |
+| Latest release | **v8.11.0** (Latest, 2026-06-04) — Official Claude Code / Codex Plugin distribution (install.sh / marketplace.json / Codex skill packaging) |
 | Shipped | **v8.7.0** OSS adoption foundations + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1, Dynamic Context Engine v1, Model Profile v2, Gate Event Normalization, Dogfooding Eval v1 |
 | Roadmap | **EPIC #193 complete (CLOSED / COMPLETED)** — Phases 0-6 + Governance + Lightweight Plan Quality Checks all Done, child PBIs 12/12 CLOSED |
 | Hook enforcement | **12/12 hooks implemented** (EH-1 to EH-9 + EHS-1 to EHS-3; v8.5.0=10/10, v8.6.0 added EH-8, v8.7.0 added EH-9) |
@@ -141,12 +141,11 @@ Then in session:
 claude plugin marketplace add s977043/PlanGate
 claude plugin install plangate
 
-# Codex (add marketplace + install skills)
+# Codex (register marketplace)
 codex plugin marketplace add s977043/PlanGate
-sh ~/plangate/install.sh --codex
 ```
 
-> Codex has no `plugin install` subcommand. Register the marketplace with `marketplace add`, then expand skills into `.codex/skills/` via `install.sh --codex`.
+> Codex has no `plugin install` subcommand. Register the marketplace with `marketplace add`. To expand skills directly into `.codex/skills/`, use **Option B** (clone + `install.sh --codex`).
 
 ### Option B: Clone and install script
 

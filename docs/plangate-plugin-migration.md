@@ -1,7 +1,7 @@
 # PlanGate Claude Code Plugin 移行ガイド
 
 > 最終更新: 2026-06-04
-> 対象バージョン: plugin 8.10.0
+> 対象バージョン: plugin 8.11.0
 > 対象ツール: Claude Code / Codex（両対応）
 
 ## 背景・目的
@@ -36,7 +36,7 @@ PlanGate は当初、`.claude/` ディレクトリを含むリポジトリ配布
 
 # CLI から
 claude plugin marketplace add s977043/PlanGate && claude plugin install plangate
-codex plugin marketplace add s977043/PlanGate   # その後 sh install.sh --codex でスキル展開
+codex plugin marketplace add s977043/PlanGate   # スキル展開は clone 後に sh install.sh --codex
 ```
 
 ### install.sh を使う
@@ -47,9 +47,9 @@ cd path/to/your-project
 sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 ```
 
-## 同梱範囲（plugin 8.10.0）
+## 同梱範囲（plugin 8.11.0）
 
-### Skills (38)  <!-- 実数: ls plugin/plangate/skills/ -->
+### Skills (37)  <!-- 実数: ls plugin/plangate/skills/ -->
 
 | Skill | 役割 |
 |-------|------|

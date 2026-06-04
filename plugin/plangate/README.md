@@ -143,7 +143,7 @@ sh plugin/plangate/scripts/install-plangate-skills.sh --force
 ```text
 plugin/plangate/
 ├── .claude-plugin/
-│   └── plugin.json         # manifest (v8.10.0)
+│   └── plugin.json         # manifest (v8.11.0)
 ├── agents/                 # 23 agents
 ├── assets/                 # アイコン等のアセット
 │   └── plangate-small.svg  # icon_small / icon_large 兼用 (SVG)
