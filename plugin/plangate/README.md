@@ -3,7 +3,7 @@
 PlanGate — a governance OS for AI-assisted coding.
 Provides Intent/Mode classification, a 4-Gate approval system, and an agent control layer as a Claude Code plugin.
 
-- **Version**: v8.10.0
+- **Version**: v8.11.0
 - **Source**: https://github.com/s977043/plangate
 
 ## Install
@@ -147,7 +147,7 @@ plugin/plangate/
 ├── agents/                 # 23 agents
 ├── assets/                 # アイコン等のアセット
 │   └── plangate-small.svg  # icon_small / icon_large 兼用 (SVG)
-├── skills/                 # 38 skills（.agents/skills/ と完全同期）
+├── skills/                 # 37 skills（.agents/skills/ から同期 + plugin 専用スキルを含む上位集合）
 │   ├── acceptance-criteria-build/
 │   ├── acceptance-review/
 │   ├── ai-dev-brainstorm/
@@ -267,15 +267,15 @@ EH-1/2/3/6/9 などの Hook を使用するには、別途手動設定が必要�
 
 ## 配布チェックリスト
 
-- [ ] **ファイル整合性**: `plugin/plangate/skills/` のスキル数が `.agents/skills/` と一致していること（CI: `scripts/sync-plugin-plangate.sh` で自動同期）
-- [ ] **README 正確性**: Contents 欄のエージェント数・スキル数が実態と一致していること（agents: 23、skills: 38）
-- [ ] **openai.yaml 完全性**: 全スキルの `agents/openai.yaml` に 5 フィールド（display_name / short_description / icon_small / icon_large / default_prompt）が揃っていること
+- [ ] **ファイル整合性**: `plugin/plangate/skills/` が `.agents/skills/` を包含する上位集合であること（`scripts/sync-plugin-plangate.sh` で同期。`context-packager` 等の plugin 専用スキルを含む）
+- [ ] **README 正確性**: Contents 欄のエージェント数・スキル数が実態と一致していること（agents: 23、skills: 37）
+- [ ] **openai.yaml 完全性**: 全スキルの `agents/openai.yaml` に 6 フィールド（display_name / short_description / icon_small / icon_large / default_prompt / brand_color）が揃い、`scripts/check-codex-skill-spec.sh` を PASS すること
 - [ ] **アセット存在確認**: `plugin/plangate/assets/` に `plangate-small.svg` が実在すること（PNG は不要）
 - [ ] **インストールスクリプト動作確認**: `install-plangate-skills.sh` をクリーン環境で実行し、全スキルが `.codex/skills/` に展開されること
 - [ ] **Claude Code インストール確認**: `plugin/plangate/` をプラグインパスとして指定し、Claude Code セッション内でスキル・コマンド・エージェントが認識されること（`/setup-team` で確認）
 - [ ] **hooks 配線状況の明示**: `plugin/plangate/hooks/` が reserved である旨を明記済み
 - [ ] **バージョン整合性**: `plugin/plangate/.claude-plugin/plugin.json` の version と `CHANGELOG.md` の最新リリースバージョンが一致していること
-- [ ] **CI 同期チェック**: `.agents/skills/` と `plugin/plangate/skills/` の差分を検出する CI ジョブが存在すること
+- [ ] **CI 同期チェック**: `.agents/skills/` → `plugin/plangate/skills/` の同期差分を検出する CI ジョブ（`sync-plugin-plangate.yml`）が存在すること
 
 ---
 
