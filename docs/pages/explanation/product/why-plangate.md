@@ -86,7 +86,7 @@ codex plugin marketplace add s977043/PlanGate
 sh install.sh --codex
 ```
 
-> **次のステップ 2・3 を実行するには、リポジトリの clone が必要です。** Marketplace 導入はスキル / コマンドを配布しますが、ゲートを機械強制する `bin/plangate` と hook 本体はリポジトリに含まれます。clone してそのルートで作業してください。
+> **次のステップ 2・3 を実行するには、PlanGate リポジトリの clone が必要です。** Marketplace 導入はスキル / コマンドを配布しますが、ゲートを機械強制する `bin/plangate` と hook 本体は PlanGate リポジトリに含まれます。clone してそのルートで作業してください。
 >
 > ```bash
 > git clone https://github.com/s977043/PlanGate.git
@@ -97,7 +97,7 @@ sh install.sh --codex
 
 ### 2. hook 強制を配線（必須）
 
-承認境界の保護（plan_hash / forbidden_files）は hook で機械強制されます。**これを配線しないと保護が無効** です。リポジトリのルートで実行します。
+承認境界の保護（plan_hash / forbidden_files）は hook で機械強制されます。**これを配線しないと保護が無効** です。PlanGate リポジトリのルートで実行します。
 
 ```bash
 bin/plangate doctor --fix
@@ -109,7 +109,7 @@ bin/plangate doctor --fix --yes
 
 ### 3. Phase 0 を体験 — ultra-light で 1 タスク完了
 
-同じくリポジトリのルートで実行します。
+同じく PlanGate リポジトリのルートで実行します。
 
 ```bash
 bin/plangate init <TASK-番号>   # 例: bin/plangate init TASK-0001
@@ -142,7 +142,7 @@ ultra-light モードでは計画フェーズを省略し、**1 タスクを最�
 
 ## まず試す
 
-迷ったら **Phase 0 を 1 タスクだけ** 試してください。チーム全体の合意も、フル運用の決断もまだ要りません。clone → `bin/plangate doctor --fix` → `bin/plangate init TASK-0001` の 3 コマンドで、AI が承認前にコードを書かない体験を 5 分で確認できます。合わなければ捨てるだけ、コストはほぼゼロです。
+迷ったら **Phase 0 を 1 タスクだけ** 試してください。チーム全体の合意も、フル運用の決断もまだ要りません。`git clone` → `bin/plangate doctor --fix` → `bin/plangate init TASK-0001` の 3 コマンドで、AI が承認前にコードを書かない体験を 5 分で確認できます。合わなければ捨てるだけ、コストはほぼゼロです。
 
 ---
 
