@@ -175,7 +175,7 @@ PlanGate では code だけでなく、plan、test-cases、handoff も対象に�
 できます。既存コードへの変更は不要です。導入方法は 3 通り（最推奨は Marketplace）:
 
 - **Marketplace（最推奨）**: `/plugin marketplace add s977043/PlanGate` → `/plugin install plangate`（Claude Code セッション内）。Codex は `codex plugin marketplace add s977043/PlanGate`。
-- **ワンコマンド**: `git clone` 後に `sh ~/plangate/install.sh`（`.claude/` と `.codex/` を自動検出）。
+- **ワンコマンド**: `git clone https://github.com/s977043/plangate.git ~/plangate` 後に `sh ~/plangate/install.sh`（`.claude/` と `.codex/` を自動検出）。
 - **手動コピー**: `.claude/` をプロジェクトへコピー（補足手段）。
 
 詳細は [はじめる §インストール](../guides/getting-started.md) を参照。Phase 0（ultra-light）から始め、習熟度に応じて段階的にモードを上げる運用を推奨します。
