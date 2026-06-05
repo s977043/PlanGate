@@ -51,3 +51,6 @@ docs/working/_metrics/events.ndjson
 docs/working/_audit/hook-events.log.bak.*
 docs/working/_audit/skip-decision-log.jsonl.bak
 .tmp-metrics-events.ndjson
+
+# hook テストの一時産物（#452 後片付け）
+docs/working/TASK-HOOKTEST*/
