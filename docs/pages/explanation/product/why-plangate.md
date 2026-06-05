@@ -139,4 +139,4 @@ ultra-light モードでは計画フェーズを省略し、**1 タスクを最�
 | [Product Overview](./overview.md) | 概要、対象ユーザー、価値、仕組み |
 | [Positioning](./positioning.md) | 競合・代替手段との差別化 |
 
-[staged-adoption]: https://github.com/s977043/PlanGate/blob/main/docs/staged-adoption-guide.md
+[staged-adoption]: ../../../staged-adoption-guide.md
