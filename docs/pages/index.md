@@ -12,6 +12,7 @@ No approved plan, no code.
 
 | ドキュメント | 内容 |
 | --- | --- |
+| [**Why PlanGate（最初に読む）**](./explanation/product/why-plangate.md) | 導入検討者向け。3 分で「自分に必要か」判断、5 分で導入開始 |
 | [はじめる（Getting Started）](./guides/getting-started.md) | 3 ステップで PlanGate の基本的な流れを体験する |
 | [Product Overview](./explanation/product/overview.md) | PlanGate の概要、対象ユーザー、価値、仕組み |
 | [PM / PO Elevator Pitch](./explanation/product/pm-po-elevator-pitch.md) | PM / PO 向けの短い説明、タグライン、月次見直し観点 |
