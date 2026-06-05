@@ -27,7 +27,7 @@ created_by: orchestrator
 | **未充足リスク** | （unavailable 時必須）外部レビュー欠如により残るリスクの明示（critical/major/minor 相当の見積り）|
 
 > 実行状態が `executed` の場合は本セクションを「実行済み・finding は下記」と1行で済ませてよい。
-> `unavailable` の場合、理由・代替観点・未充足リスクの3点が空欄だと監査上 **無効**（FAIL 扱い）。
+> `unavailable` の場合、理由・代替観点・未充足リスクの3点が空欄だと監査上 **無効**（フロントマター `verdict` は `FAIL` 扱い）。すべて記録されていれば条件付き進行可（`verdict` は `WARN` 扱い）。
 
 ## サマリー
 
