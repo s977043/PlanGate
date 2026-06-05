@@ -34,6 +34,7 @@ OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推�
 | ドキュメント | 内容 |
 | --- | --- |
 | [公開ドキュメント入口][pages-index] | River-Reviewer 形式に寄せた `docs/pages/` 配下の公開説明ドキュメント |
+| [**Why PlanGate（最初に読む）**][why-plangate] | 導入検討者向け。3 分で「自分に必要か」判断、5 分で導入開始 |
 | [Product Overview][product-overview] | PlanGate の概要、対象ユーザー、価値、仕組み |
 | [PM / PO Elevator Pitch][pm-po-pitch] | PM / PO に PlanGate を説明するための短いピッチ、タグライン、定期見直し観点 |
 | [思想と問題設定](./philosophy.md) | PlanGate が向き合う課題、ハーネスエンジニアリングとの関係 |
@@ -76,5 +77,6 @@ PlanGate は、一般的なハーネスエンジニアリングの考え方を P
 `docs/working/` 配下にはチケット単位の作業コンテキストやレビュー記録が含まれるため、公開サイトの主要導線には含めません。
 
 [pages-index]: ./pages/index.md
+[why-plangate]: ./pages/explanation/product/why-plangate.md
 [product-overview]: ./pages/explanation/product/overview.md
 [pm-po-pitch]: ./pages/explanation/product/pm-po-elevator-pitch.md
