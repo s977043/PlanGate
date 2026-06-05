@@ -120,7 +120,7 @@ sh plugin/plangate/scripts/install-plangate-skills.sh
 ```bash
 # 方法 B（直接展開）の場合
 ls .codex/skills/ | grep -v '^\.' | wc -l
-# 37 前後のスキルディレクトリが表示されれば成功
+# 28 前後のスキルディレクトリが表示されれば成功（.codex/skills は .agents/skills 由来の共有スキル）
 ```
 
 Codex UI を開き、スキル選択ペインで PlanGate スキル（例: `ai-dev-plan`, `brainstorming` など）が表示されることを確認。

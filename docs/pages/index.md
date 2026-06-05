@@ -42,6 +42,8 @@ AI は実装前に計画と受入条件を出し、人間が承認してから�
 
 ## 使い始める
 
+> **最短導入**: Claude Code セッションで `/plugin marketplace add s977043/PlanGate` → `/plugin install plangate`。Codex は `codex plugin marketplace add s977043/PlanGate`。
+
 PlanGate を初めて導入する場合は、以下のガイドから始めてください。
 
 - [はじめる（Getting Started）](./guides/getting-started.md) — 3 ステップで PlanGate の基本的な流れを体験する
