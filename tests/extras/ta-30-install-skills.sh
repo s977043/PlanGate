@@ -33,31 +33,42 @@ else
   t30_fail "TC-03 --help が exit 非0"
 fi
 
-# TC-04: --target で一時展開し、plugin/plangate/skills と同数を展開
+# 一時ディレクトリを作成（空文字ガード: mktemp 失敗時に --target "" で
+# リポジトリの .codex/skills を上書きする事故を防ぐ）。TC-04〜06 で共用。
 _t30_tmp=$(mktemp -d)
-sh "$PG_T30_SH" --target "$_t30_tmp" >/dev/null 2>&1
-_t30_src=$(find "$PG_T30_ROOT/plugin/plangate/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
-_t30_out=$(ls "$_t30_tmp" 2>/dev/null | grep -v '^\.' | wc -l | tr -d ' ')
-if [ "$_t30_out" = "$_t30_src" ] && [ "$_t30_out" -gt 0 ]; then
-  t30_pass "TC-04 --target 展開数($_t30_out) = plugin skills 数($_t30_src)"
-else
-  t30_fail "TC-04 展開数不一致: out=$_t30_out src=$_t30_src"
-fi
+if [ -n "$_t30_tmp" ] && [ -d "$_t30_tmp" ]; then
+  sh "$PG_T30_SH" --target "$_t30_tmp" >/dev/null 2>&1
 
-# TC-05: 展開物が check-codex-skill-spec を PASS
-if sh "$PG_T30_SPEC" --target "$_t30_tmp" >/dev/null 2>&1; then
-  t30_pass "TC-05 展開物が check-codex-skill-spec PASS"
-else
-  t30_fail "TC-05 spec check が FAIL"
-fi
-rm -rf "$_t30_tmp"
+  # TC-04: 展開数 = plugin/plangate/skills 数（POSIX シェルループでカウント）
+  _t30_src=0
+  for _d in "$PG_T30_ROOT/plugin/plangate/skills"/*; do
+    [ -d "$_d" ] && _t30_src=$((_t30_src + 1))
+  done
+  _t30_out=0
+  for _d in "$_t30_tmp"/*; do
+    [ -d "$_d" ] && _t30_out=$((_t30_out + 1))
+  done
+  if [ "$_t30_out" = "$_t30_src" ] && [ "$_t30_out" -gt 0 ]; then
+    t30_pass "TC-04 --target 展開数($_t30_out) = plugin skills 数($_t30_src)"
+  else
+    t30_fail "TC-04 展開数不一致: out=$_t30_out src=$_t30_src"
+  fi
 
-# TC-06: 各展開スキルに SKILL.md + agents/openai.yaml がある（サンプル: brainstorming）
-_t30_tmp2=$(mktemp -d)
-sh "$PG_T30_SH" --target "$_t30_tmp2" >/dev/null 2>&1
-if [ -f "$_t30_tmp2/brainstorming/SKILL.md" ] && [ -f "$_t30_tmp2/brainstorming/agents/openai.yaml" ]; then
-  t30_pass "TC-06 展開スキルに SKILL.md + agents/openai.yaml"
+  # TC-05: 展開物が check-codex-skill-spec を PASS
+  if sh "$PG_T30_SPEC" --target "$_t30_tmp" >/dev/null 2>&1; then
+    t30_pass "TC-05 展開物が check-codex-skill-spec PASS"
+  else
+    t30_fail "TC-05 spec check が FAIL"
+  fi
+
+  # TC-06: 各展開スキルに SKILL.md + agents/openai.yaml（サンプル: brainstorming）
+  if [ -f "$_t30_tmp/brainstorming/SKILL.md" ] && [ -f "$_t30_tmp/brainstorming/agents/openai.yaml" ]; then
+    t30_pass "TC-06 展開スキルに SKILL.md + agents/openai.yaml"
+  else
+    t30_fail "TC-06 展開スキルの構造不備"
+  fi
+
+  rm -rf "$_t30_tmp"
 else
-  t30_fail "TC-06 展開スキルの構造不備"
+  t30_fail "TC-04 mktemp -d 失敗（TC-04〜06 をスキップ）"
 fi
-rm -rf "$_t30_tmp2"
