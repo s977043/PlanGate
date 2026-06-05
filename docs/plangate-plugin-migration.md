@@ -68,19 +68,18 @@ sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 | `subagent-dispatch` | 依存関係グラフ生成・並列実行可能タスク特定・dispatch |
 | `pr-decision` | Evidence Ledger + Review Gate から APPROVE/BLOCK/CONDITIONAL 判定 |
 
-### Commands (7)
+### Commands (4)
 
 | Command | 役割 |
 |---------|------|
 | `/working-context` | チケット単位の作業コンテキスト管理 |
 | `/ai-dev-workflow` | PlanGate ワークフロー起動（plan → exec 等） |
-| `/pg-check` | GatePolicy チェック・Completion Gate 確認 |
-| `/pg-hunt` | 問題調査・根本原因分析 |
-| `/pg-tdd` | Red→Green→Refactor TDD cycle + Evidence Ledger 連携 |
-| `/pg-think` | 設計・実装前の構造化思考 |
-| `/pg-verify` | 成果物検証・受入基準突合 |
+| `/codex-mvp-split` | Codex 向け MVP / バックログ分割 |
+| `/plangate-setup` | PlanGate セットアップ（setup-coordinator へ委譲） |
 
-### Agents (6)
+### Agents (23)
+
+責務別エージェント 23 件を同梱（全一覧は [`plugin/plangate/README.md` の `### Agents (23)`](../plugin/plangate/README.md) を参照）。主要なもの:
 
 | Agent | 役割 |
 |-------|------|
@@ -90,20 +89,23 @@ sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 | `linter-fixer` | L-0 リンター自動修正 |
 | `acceptance-tester` | V-1 受入検査 |
 | `code-optimizer` | V-2 コード最適化 |
+| `orchestrator` | 親 PBI 分解・統合の最終統括 |
+| `qa-reviewer` | handoff 中核作成・要件適合確認 |
 
-### Rules (9)
+他に `agile-coach` / `scrum-master` / `requirements-analyst` / `solution-architect` / `research-analyst` / `retrospective-analyst` / `project-planner` / `setup-coordinator` / `skill-designer` / `prompt-engineer` / `migration-agent` / `implementation-agent` / `explorer-agent` / `documentation-writer` / `claude-code-reviewer` を含む。
+
+### Rules (6)
 
 | Rule | 内容 |
 |------|------|
-| `working-context.md` | `docs/working/` 配下の作業コンテキスト管理ルール |
-| `review-principles.md` | CI/ローカル共通のレビュー判定フレーム |
+| `hybrid-architecture.md` | v7 ハイブリッドアーキテクチャ Rule 1〜5（配置責務） |
 | `mode-classification.md` | 5 段階モード分類基準（ultra-light/light/standard/high-risk/critical） |
-| `evidence-ledger.md` | Completion Gate ブロック条件の正本 |
-| `design-gate.md` | high-risk 以上での Design Artifact 必須定義 |
-| `review-gate.md` | 6 観点レビュー・critical finding ブロック条件 |
-| `completion-gate.md` | 全 Gate 通過を一元管理する 5 条件チェックポイント |
-| `subagent-roles.md` | 6 ロール定義（planner/implementer/reviewer 等） |
-| `worktree-policy.md` | high-risk: 必須（推奨）、critical: 必須（強制）|
+| `orchestrator-mode.md` | Orchestrator Mode の Gate 条件・AI 自己完結禁止条項 |
+| `responsibility-classes.md` | 責務 4 分類（AI/Human/CI/Workflow-owned） |
+| `review-principles.md` | CI/ローカル共通のレビュー判定フレーム |
+| `working-context.md` | `docs/working/` 配下の作業コンテキスト管理ルール |
+
+> 注: `design-gate` / `review-gate` / `evidence-ledger` 等は **rules ではなく skills** として `plugin/plangate/skills/` に同梱されています。
 
 ## 対象外の理由
 
@@ -170,7 +172,7 @@ plangate:subagent-driven-development
 plangate:systematic-debugging
 plangate:codex-multi-agent
 
-# Control OS / 統制系（9, plugin 0.5.0 で追加）
+# Control OS / 統制系（plugin 同梱の統制スキル群）
 plangate:setup-team
 plangate:intent-classifier
 plangate:skill-policy-router

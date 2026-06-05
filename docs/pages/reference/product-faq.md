@@ -172,15 +172,19 @@ PlanGate では code だけでなく、plan、test-cases、handoff も対象に�
 
 ### Q. 既存プロジェクトに追加できますか？
 
-できます。PlanGate は既存のリポジトリに `.claude/` ディレクトリと設定ファイルを追加する形で導入します。既存コードへの変更は不要です。
+できます。既存コードへの変更は不要です。導入方法は 3 通り（最推奨は Marketplace）:
 
-Phase 0（ultra-light）から始めて、チームの習熟度に応じて段階的にモードを上げていくことを推奨します。
+- **Marketplace（最推奨）**: `/plugin marketplace add s977043/PlanGate` → `/plugin install plangate`（Claude Code セッション内）。Codex は `codex plugin marketplace add s977043/PlanGate`。
+- **ワンコマンド**: `git clone https://github.com/s977043/plangate.git ~/plangate` 後に `sh ~/plangate/install.sh`（`.claude/` と `.codex/` を自動検出）。
+- **手動コピー**: `.claude/` をプロジェクトへコピー（補足手段）。
+
+詳細は [はじめる §インストール](../guides/getting-started.md) を参照。Phase 0（ultra-light）から始め、習熟度に応じて段階的にモードを上げる運用を推奨します。
 
 ### Q. 依存関係・前提条件は何ですか？
 
-- Claude Code（CLI）または Codex CLI
-- Git リポジトリ
-- GitHub アカウント（PR ベースの C-4 ゲートに必要）
+- **Required**: git / POSIX sh（bash/zsh）/ python3（`install.sh`・metrics の前提）
+- **Recommended**: Claude Code（plan 生成・exec の主導線）
+- **Optional**: Codex CLI（exec 実装エージェント既定 / C-2・V-3 外部レビュー）、GitHub アカウント（PR ベースの C-4 ゲート）
 
 PlanGate 自体は特定のプログラミング言語に依存しません。
 
