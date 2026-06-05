@@ -33,6 +33,7 @@ sh install.sh --dry-run             # 変更内容を確認（実行しない）
 
 - Claude Code CLI（最新版推奨）
 - git
+- `bin/plangate` CLI（一部のコマンド/スキル — `/plangate-setup`・`ai-dev-plan`・`ai-dev-exec`・`ai-dev-verify`・`plan-review-gate`・`working-context`・`local-exec-handoff` — が使用）。Plugin 単体導入時は PATH に無いため、リポジトリ clone と PATH への追加が必要です。一時的な追加: `git clone https://github.com/s977043/plangate.git ~/plangate && export PATH="$HOME/plangate/bin:$PATH"`（永続化するには `~/.bashrc` / `~/.zshrc` 等に追記）
 
 #### 方法 A: プラグインパスを直接指定（推奨）
 
@@ -92,6 +93,7 @@ Claude Code セッション内で以下を実行:
 
 - Codex CLI（最新版推奨）
 - git, sh
+- `bin/plangate` CLI（PlanGate のゲート検証を使う場合）。Plugin 単体では PATH に無いため、リポジトリ clone が必要（上記 Claude Code 前提条件参照）
 
 #### 方法 A: Marketplace 経由（推奨）
 
