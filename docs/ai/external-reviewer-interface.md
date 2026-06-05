@@ -259,3 +259,34 @@ reviewers:
         evidence: finding.body
         location: "finding.id"
 ```
+
+
+## 10. 外部レビュー実行不可時の記録規約（#463）
+
+C-2 / V-3 の外部 AI レビューが**実行不可**（CLI 未導入・API 不達・quota 超過・ネットワーク遮断等）の場合、`review-external.md` に以下を**必須記録**する。これにより「指摘なし（実行したが finding ゼロ）」と「実行不可（実行できなかった）」を区別し、監査連続性を保つ。
+
+### 必須記録項目（`unavailable` 時）
+
+| 項目 | 説明 |
+|------|------|
+| `実行状態` | `executed` / `unavailable` を明示 |
+| `実行不可の理由` | 具体的事由（例: `codex CLI 未導入` / `Gemini quota 超過`）|
+| `代替レビュー観点` | セルフレビュー（C-1）で補った観点、または後追いレビューの予定 |
+| `未充足リスク` | 外部レビュー欠如で残るリスク（severity 相当の見積り）|
+
+### 判定への影響
+
+- `unavailable` かつ上記 3 項目が記録されていれば、C-3 / 後続フェーズは**条件付きで進行可**（未充足リスクを承認境界の判断材料にする）。
+- `unavailable` なのに理由・代替観点・未充足リスクが空欄の場合、監査上**無効**として扱い、レビュー成果物を FAIL とする。
+
+### events 連携（#230 と additive）
+
+将来 events 化する場合の最小フィールド:
+
+```json
+{ "review_id": "R-NNN", "lane": "design|codebase|security",
+  "review_status": "executed|unavailable",
+  "unavailable_reason": "<string|null>", "residual_risk": "<string|null>" }
+```
+
+テンプレート: [`docs/working/templates/review-external.md`](../working/templates/review-external.md) の「外部レビュー実行可否（必須）」セクション。

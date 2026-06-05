@@ -34,6 +34,15 @@ Ready → In Progress
   → Done
 
 詳細定義: .claude/agents/workflow-conductor.md を参照。
+
+【Codex runtime での conductor 相当運用（#463）】
+Codex CLI では Claude Code の Task ツールによる sub-agent 起動ができないため、
+workflow-conductor を「別エージェントとして起動」する形は取れない。代わりに、
+本 conductor 指示を Codex セッションの司令塔ロールとして読み込み、フェーズ遷移の
+調整・品質ゲート確認を **メインセッションが直接代行** する（status.md / todo.md
+への記録は維持）。実装・テスト・git 書き込みは委譲先（codex exec 等）が行い、
+conductor ロールはあくまで調整に徹する（Iron Law 不変）。
+正本の権威ある記述は .claude/agents/workflow-conductor.md（HO）側で更新される。
 ワークフロー詳細: docs/plangate.md を参照。
 プロジェクト指示は AGENTS.md → docs/ai/project-rules.md（正本）を参照。日本語でやり取りする。
 """
