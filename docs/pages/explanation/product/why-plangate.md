@@ -86,9 +86,18 @@ codex plugin marketplace add s977043/PlanGate
 sh install.sh --codex
 ```
 
+> **次のステップ 2・3 を実行するには、PlanGate リポジトリの clone が必要です。** Marketplace 導入はスキル / コマンドを配布しますが、ゲートを機械強制する `bin/plangate` と hook 本体は PlanGate リポジトリに含まれます。clone してそのルートで作業してください。
+>
+> ```bash
+> git clone https://github.com/s977043/PlanGate.git
+> cd PlanGate   # 以降のコマンドはこのルートで実行
+> ```
+>
+> **前提**: `python3`（hook / doctor が使用）。`python3 --version` で確認できます。
+
 ### 2. hook 強制を配線（必須）
 
-承認境界の保護（plan_hash / forbidden_files）は hook で機械強制されます。**これを配線しないと保護が無効** です。
+承認境界の保護（plan_hash / forbidden_files）は hook で機械強制されます。**これを配線しないと保護が無効** です。PlanGate リポジトリのルートで実行します。
 
 ```bash
 bin/plangate doctor --fix
@@ -99,6 +108,8 @@ bin/plangate doctor --fix --yes
 ```
 
 ### 3. Phase 0 を体験 — ultra-light で 1 タスク完了
+
+同じく PlanGate リポジトリのルートで実行します。
 
 ```bash
 bin/plangate init <TASK-番号>   # 例: bin/plangate init TASK-0001
@@ -126,6 +137,12 @@ ultra-light モードでは計画フェーズを省略し、**1 タスクを最�
 - **導入 1 ヶ月後**: C-3 / C-4 の 2 ゲートがチームの標準リズムになり、承認後の改ざん・scope 外編集が hook で自動検知される。AI 作業の成功・失敗を後から説明できる状態が定着する。
 
 > Phase の詳細・各コンポーネントの昇格手順は [段階的導入ガイド][staged-adoption] を参照してください。
+
+---
+
+## まず試す
+
+迷ったら **Phase 0 を 1 タスクだけ** 試してください。チーム全体の合意も、フル運用の決断もまだ要りません。`git clone` → `bin/plangate doctor --fix` → `bin/plangate init TASK-0001` の 3 コマンドで、AI が承認前にコードを書かない体験を 5 分で確認できます。合わなければ捨てるだけ、コストはほぼゼロです。
 
 ---
 
