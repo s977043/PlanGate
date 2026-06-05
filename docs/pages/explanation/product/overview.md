@@ -79,7 +79,7 @@ AI は C-3 承認前に本番コードを書けない。実装前に、何を作
 | Auditability | plan、review、verification、handoff を残す |
 | Scrum-friendly delivery | PBI、受入条件、Done、handoff と接続する |
 | Harness improvement | eval、metrics、Keep Rate により PlanGate 自体を継続改善する |
-| Easy distribution | Claude Code / Codex の両方に marketplace add・install.sh でワンコマンド導入できる（v8.11.0〜） |
+| Easy distribution | Claude Code / Codex の両方に marketplace や install.sh で簡単に導入できる（v8.11.0〜） |
 
 ## How it works
 
