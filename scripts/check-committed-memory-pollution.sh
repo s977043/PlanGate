@@ -15,17 +15,21 @@ REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 WARN_ONLY=0
 [ "${1:-}" = "--warn-only" ] && WARN_ONLY=1
 
-# 検査対象 SSoT
-TARGETS="AGENTS.md CLAUDE.md"
+# 検査対象 SSoT（POLLUTION_TARGET_FILES で上書き可、絶対/相対パス両対応）
+TARGETS="${POLLUTION_TARGET_FILES:-AGENTS.md CLAUDE.md}"
 # AI memory ツール（claude-mem 等）が自動挿入する汚染パターン
 PATTERN='<claude-mem-context>|</claude-mem-context>|get_observations|mem-search skill'
 
 found=0
 for f in $TARGETS; do
-  [ -f "$REPO_ROOT/$f" ] || continue
-  if grep -nE "$PATTERN" "$REPO_ROOT/$f" >/dev/null 2>&1; then
+  case "$f" in
+    /*) fpath="$f" ;;
+    *)  fpath="$REPO_ROOT/$f" ;;
+  esac
+  [ -f "$fpath" ] || continue
+  if grep -nE "$PATTERN" "$fpath" >/dev/null 2>&1; then
     printf '[mem-pollution] %s に AI memory 汚染パターンを検出:\n' "$f"
-    grep -nE "$PATTERN" "$REPO_ROOT/$f" | sed 's/^/  /'
+    grep -nE "$PATTERN" "$fpath" | sed 's/^/  /'
     found=1
   fi
 done

@@ -31,22 +31,22 @@ else
   t29_fail "TC-03 --warn-only が exit 非0"
 fi
 
-# TC-04: 検出力 — 汚染を仕込んだ一時ファイルで grep 検出
+# TC-04: 検出力 — 実スクリプトを汚染フィクスチャに対して実行（exit 1 期待）
 _t29_tmp=$(mktemp)
 printf '# T\n<claude-mem-context>\nget_observations([1])\n</claude-mem-context>\n' > "$_t29_tmp"
-if grep -qE '<claude-mem-context>|get_observations' "$_t29_tmp" 2>/dev/null; then
-  t29_pass "TC-04 汚染パターンを検出できる（grep ロジック）"
+if POLLUTION_TARGET_FILES="$_t29_tmp" sh "$PG_T29_SCRIPT" >/dev/null 2>&1; then
+  t29_fail "TC-04 汚染を検出できず exit 0 になった"
 else
-  t29_fail "TC-04 汚染パターンを検出できない"
+  t29_pass "TC-04 汚染フィクスチャを実スクリプトが検出（exit 1）"
 fi
 rm -f "$_t29_tmp"
 
-# TC-05: クリーンなファイルは誤検出しない
+# TC-05: クリーンなファイルは実スクリプトで誤検出しない（exit 0 期待）
 _t29_clean=$(mktemp)
 printf '# AGENTS\nThis is a clean repo instruction file.\nMemory: persistent.\n' > "$_t29_clean"
-if grep -qE '<claude-mem-context>|</claude-mem-context>|get_observations|mem-search skill' "$_t29_clean" 2>/dev/null; then
-  t29_fail "TC-05 クリーンなファイルを誤検出した"
+if POLLUTION_TARGET_FILES="$_t29_clean" sh "$PG_T29_SCRIPT" >/dev/null 2>&1; then
+  t29_pass "TC-05 クリーンフィクスチャは実スクリプトで誤検出しない（exit 0）"
 else
-  t29_pass "TC-05 クリーンなファイルは誤検出しない"
+  t29_fail "TC-05 クリーンなファイルを誤検出した（exit 1）"
 fi
 rm -f "$_t29_clean"
