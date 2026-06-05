@@ -276,8 +276,8 @@ C-2 / V-3 の外部 AI レビューが**実行不可**（CLI 未導入・API 不
 
 ### 判定への影響
 
-- `unavailable` かつ上記 3 項目が記録されていれば、C-3 / 後続フェーズは**条件付きで進行可**（未充足リスクを承認境界の判断材料にする）。
-- `unavailable` なのに理由・代替観点・未充足リスクが空欄の場合、監査上**無効**として扱い、レビュー成果物を FAIL とする。
+- `unavailable` かつ上記 `unavailable` 時必須の 3 項目（実行不可の理由 / 代替レビュー観点 / 未充足リスク）が記録されていれば、C-3 / 後続フェーズは**条件付きで進行可**（未充足リスクを承認境界の判断材料にする）。この場合、`review-external.md` のフロントマター `verdict` は **`WARN`** とする。
+- `unavailable` なのに理由・代替観点・未充足リスクが空欄の場合、監査上**無効**として扱い、レビュー成果物を **FAIL** とする。この場合、フロントマター `verdict` は **`FAIL`** とする。
 
 ### events 連携（#230 と additive）
 
@@ -286,7 +286,9 @@ C-2 / V-3 の外部 AI レビューが**実行不可**（CLI 未導入・API 不
 ```json
 { "review_id": "R-NNN", "lane": "design|codebase|security",
   "review_status": "executed|unavailable",
-  "unavailable_reason": "<string|null>", "residual_risk": "<string|null>" }
+  "unavailable_reason": "<string|null>",
+  "alternative_perspective": "<string|null>",
+  "residual_risk": "<string|null>" }
 ```
 
 テンプレート: [`docs/working/templates/review-external.md`](../working/templates/review-external.md) の「外部レビュー実行可否（必須）」セクション。
