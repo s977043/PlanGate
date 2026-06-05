@@ -10,9 +10,24 @@ created_by: orchestrator
 
 # TASK-XXXX 外部AIレビュー結果（C-2）
 
-> レビュー日: YYYY-MM-DD
+> レビュー日時: YYYY-MM-DD HH:mm
 > レビューア: orchestrator → {backend-specialist, frontend-specialist, explorer}
 > 判定: **PASS** / **WARN** / **FAIL** — critical={0}, major={0}, minor={0}
+
+## 外部レビュー実行可否（必須）
+
+外部 AI レビューが**実行不可**だった場合は、このセクションを必ず記録する（空欄不可）。
+「指摘なし（実行したが finding ゼロ）」と「実行不可（そもそも実行できなかった）」を**区別する**こと。
+
+| 項目 | 内容 |
+|------|------|
+| **実行状態** | `executed`（実行済み） / `unavailable`（実行不可） |
+| **実行不可の理由** | （unavailable 時必須）例: codex CLI 未導入 / Gemini quota 超過 / API 不達 / ネットワーク遮断 |
+| **代替レビュー観点** | （unavailable 時必須）セルフレビューで補った観点、または後追いレビューの予定 |
+| **未充足リスク** | （unavailable 時必須）外部レビュー欠如により残るリスクの明示（critical/major/minor 相当の見積り）|
+
+> 実行状態が `executed` の場合は本セクションを「実行済み・finding は下記」と1行で済ませてよい。
+> `unavailable` の場合、理由・代替観点・未充足リスクの3点が空欄だと監査上 **無効**（FAIL 扱い）。
 
 ## サマリー
 
