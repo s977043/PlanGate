@@ -38,12 +38,40 @@ if [ -z "$LATEST_TAG" ]; then
   exit 0
 fi
 
-if [ "$PLUGIN_VERSION" = "$LATEST_TAG" ]; then
-  printf '[plugin-version] OK: plugin.json (%s) = tag (v%s)\n' "$PLUGIN_VERSION" "$LATEST_TAG"
+# marketplace.json の plugins[name==plangate].version も検証（#456）
+MARKETPLACE_JSON="$REPO_ROOT/.claude-plugin/marketplace.json"
+MARKETPLACE_VERSION=""
+if [ -f "$MARKETPLACE_JSON" ]; then
+  MARKETPLACE_VERSION=$(python3 - "$MARKETPLACE_JSON" << 'PYMP'
+import json, sys
+try:
+    with open(sys.argv[1], encoding='utf-8') as f:
+        d = json.load(f)
+    for plug in d.get('plugins', []):
+        if plug.get('name') == 'plangate':
+            print(plug.get('version', ''))
+            break
+except Exception:
+    print('')
+PYMP
+)
+fi
+
+_mismatch=0
+if [ "$PLUGIN_VERSION" != "$LATEST_TAG" ]; then
+  printf '[plugin-version] MISMATCH: plugin.json=%s / latest tag=v%s\n' "$PLUGIN_VERSION" "$LATEST_TAG" >&2
+  _mismatch=1
+fi
+if [ -n "$MARKETPLACE_VERSION" ] && [ "$MARKETPLACE_VERSION" != "$LATEST_TAG" ]; then
+  printf '[plugin-version] MISMATCH: marketplace.json=%s / latest tag=v%s\n' "$MARKETPLACE_VERSION" "$LATEST_TAG" >&2
+  _mismatch=1
+fi
+
+if [ "$_mismatch" = "0" ]; then
+  printf '[plugin-version] OK: plugin.json (%s) = marketplace.json (%s) = tag (v%s)\n' "$PLUGIN_VERSION" "$MARKETPLACE_VERSION" "$LATEST_TAG"
   exit 0
 fi
 
-printf '[plugin-version] MISMATCH: plugin.json=%s / latest tag=v%s\n' "$PLUGIN_VERSION" "$LATEST_TAG" >&2
-printf '  リリース時は plugin.json version を tag に合わせてください（sync-plugin-plangate.sh が CHANGELOG から自動更新）。\n' >&2
+printf '  リリース時は plugin.json / marketplace.json version を tag に合わせてください（sync-plugin-plangate.sh が CHANGELOG から自動更新）。\n' >&2
 [ "$WARN_ONLY" = "1" ] && { printf '[plugin-version] --warn-only: 継続\n'; exit 0; }
 exit 1
