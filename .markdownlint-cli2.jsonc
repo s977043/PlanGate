@@ -1,6 +1,10 @@
 {
   "config": {
     "MD013": false,
-    "MD024": { "siblings_only": true }
+    "MD024": { "siblings_only": true },
+    // MD060: table-column-style (markdownlint v0.40.0 新ルール) は
+    // テンプレート等で 324 件発火しローカル lint を汚染するため無効化。
+    // CI globs 対象では元々 0 件のため検査内容は実質不変。
+    "MD060": false
   }
 }
