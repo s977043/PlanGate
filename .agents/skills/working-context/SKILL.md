@@ -30,6 +30,7 @@ PlanGate の `docs/working/TASK-XXXX/` 配下を **L0〜L3 の Progressive Discl
 - INDEX.md が無ければフォールバックで status.md を直接読む（旧形式互換）
 - セッション開始は L0 → L1 の順で必要分だけ読む（不要 read を抑制）
 - 計画からの逸脱は status.md「計画からの変更点」セクションに記録
+- **status.md のフェーズ履歴は `YYYY-MM-DD HH:mm`（分まで）を必須**とする（#463）。日付のみ・時刻欠落は不可。セッション跨ぎ・同日複数フェーズ遷移の順序を一意に追跡するため。テンプレート: `docs/working/templates/status.md`
 - handoff.md は WF-05 完了時に 1 回発行（6 要素は `.claude/rules/working-context.md` および `docs/working/templates/handoff.md` を正本とする）
 
 ## CLI 呼び出し
