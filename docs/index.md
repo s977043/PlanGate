@@ -8,7 +8,7 @@ PlanGate は **「計画の精度が実装品質を方向づける」** とい�
 
 ## 新規利用者: 最初に読む
 
-PlanGate を初めて知った方は、まず **[Why PlanGate](./pages/explanation/product/why-plangate.md)**（約 3 分）で「自分に必要か」を判断してください。その後、以下の順に **15-30 分** で読むことを推奨します。
+PlanGate を初めて知った方は、まず **[Why PlanGate][why-plangate]**（約 3 分）で「自分に必要か」を判断してください。その後、以下の順に **15-30 分** で読むことを推奨します。
 
 1. **[PlanGate ガイド](./plangate.md)** — 全体像・5 フェーズ・解決する問題（約 5 分）
 2. **[段階的導入ガイド (Phase 0 = 正本)](./staged-adoption-guide.md#phase-0-体験day-1)** — Level 1 (Day 1) から始める **30 分初回体験の正本**（約 10 分）
