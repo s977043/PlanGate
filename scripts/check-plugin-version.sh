@@ -81,7 +81,11 @@ elif [ -n "$MARKETPLACE_VERSION" ] && [ "$MARKETPLACE_VERSION" != "$LATEST_TAG" 
 fi
 
 if [ "$_mismatch" = "0" ]; then
-  printf '[plugin-version] OK: plugin.json (%s) = marketplace.json (%s) = tag (v%s)\n' "$PLUGIN_VERSION" "$MARKETPLACE_VERSION" "$LATEST_TAG"
+  if [ -n "$MARKETPLACE_VERSION" ]; then
+    printf '[plugin-version] OK: plugin.json (%s) = marketplace.json (%s) = tag (v%s)\n' "$PLUGIN_VERSION" "$MARKETPLACE_VERSION" "$LATEST_TAG"
+  else
+    printf '[plugin-version] OK: plugin.json (%s) = tag (v%s)（marketplace.json なし）\n' "$PLUGIN_VERSION" "$LATEST_TAG"
+  fi
   exit 0
 fi
 

@@ -80,7 +80,10 @@ _t28_mp="$PG_T28_ROOT/.claude-plugin/marketplace.json"
 if [ -n "$_t28_tag" ] && [ -f "$_t28_mp" ]; then
   _t28_bak=$(mktemp)
   cp "$_t28_mp" "$_t28_bak"
-  python3 - "$_t28_mp" << 'PYBREAK' 2>/dev/null
+  # set -e 中断 / Ctrl-C 時も実ファイル（tracked な marketplace.json）を必ず復元する。
+  # trap + python の || true の二重防御で改変版の残留を防ぐ。
+  trap 'cp "$_t28_bak" "$_t28_mp" 2>/dev/null; rm -f "$_t28_bak"' EXIT INT TERM
+  python3 - "$_t28_mp" << 'PYBREAK' 2>/dev/null || true
 import json, sys
 d = json.load(open(sys.argv[1], encoding='utf-8'))
 for plug in d.get('plugins', []):
@@ -91,6 +94,7 @@ open(sys.argv[1], 'a', encoding='utf-8').write('\n')
 PYBREAK
   if sh "$PG_T28_SCRIPT" >/dev/null 2>&1; then _t28_neg=0; else _t28_neg=1; fi
   cp "$_t28_bak" "$_t28_mp"; rm -f "$_t28_bak"
+  trap - EXIT INT TERM
   if [ "$_t28_neg" = "1" ]; then
     t28_pass "TC-08 marketplace.json mismatch で exit 1（動的分岐）"
   else
