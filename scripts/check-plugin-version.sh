@@ -38,12 +38,53 @@ if [ -z "$LATEST_TAG" ]; then
   exit 0
 fi
 
-if [ "$PLUGIN_VERSION" = "$LATEST_TAG" ]; then
-  printf '[plugin-version] OK: plugin.json (%s) = tag (v%s)\n' "$PLUGIN_VERSION" "$LATEST_TAG"
+# marketplace.json の plugins[name==plangate].version も検証（#456）
+# 存在する以上は version を厳格に取得（parse 失敗・plangate 未定義・version 空は
+# サイレントスキップせずエラー扱い）
+MARKETPLACE_JSON="$REPO_ROOT/.claude-plugin/marketplace.json"
+MARKETPLACE_VERSION=""
+MARKETPLACE_ERR=""
+if [ -f "$MARKETPLACE_JSON" ]; then
+  MARKETPLACE_VERSION=$(python3 - "$MARKETPLACE_JSON" << 'PYMP'
+import json, sys
+try:
+    with open(sys.argv[1], encoding='utf-8') as f:
+        d = json.load(f)
+except Exception as e:
+    sys.stderr.write('parse-error: %s\n' % e)
+    sys.exit(1)
+for plug in d.get('plugins', []):
+    if plug.get('name') == 'plangate':
+        v = plug.get('version', '')
+        if not v:
+            sys.stderr.write('plangate plugin version が空\n')
+            sys.exit(1)
+        print(v)
+        sys.exit(0)
+sys.stderr.write('plangate plugin 定義が見つかりません\n')
+sys.exit(1)
+PYMP
+) || MARKETPLACE_ERR=1
+fi
+
+_mismatch=0
+if [ "$PLUGIN_VERSION" != "$LATEST_TAG" ]; then
+  printf '[plugin-version] MISMATCH: plugin.json=%s / latest tag=v%s\n' "$PLUGIN_VERSION" "$LATEST_TAG" >&2
+  _mismatch=1
+fi
+if [ -n "$MARKETPLACE_ERR" ]; then
+  printf '[plugin-version] ERROR: marketplace.json から plangate version を取得できません（存在するのに parse 失敗 / plangate 未定義 / version 空）\n' >&2
+  _mismatch=1
+elif [ -n "$MARKETPLACE_VERSION" ] && [ "$MARKETPLACE_VERSION" != "$LATEST_TAG" ]; then
+  printf '[plugin-version] MISMATCH: marketplace.json=%s / latest tag=v%s\n' "$MARKETPLACE_VERSION" "$LATEST_TAG" >&2
+  _mismatch=1
+fi
+
+if [ "$_mismatch" = "0" ]; then
+  printf '[plugin-version] OK: plugin.json (%s) = marketplace.json (%s) = tag (v%s)\n' "$PLUGIN_VERSION" "$MARKETPLACE_VERSION" "$LATEST_TAG"
   exit 0
 fi
 
-printf '[plugin-version] MISMATCH: plugin.json=%s / latest tag=v%s\n' "$PLUGIN_VERSION" "$LATEST_TAG" >&2
-printf '  リリース時は plugin.json version を tag に合わせてください（sync-plugin-plangate.sh が CHANGELOG から自動更新）。\n' >&2
+printf '  リリース時は plugin.json / marketplace.json version を tag に合わせてください（sync-plugin-plangate.sh が CHANGELOG から自動更新）。\n' >&2
 [ "$WARN_ONLY" = "1" ] && { printf '[plugin-version] --warn-only: 継続\n'; exit 0; }
 exit 1
