@@ -393,6 +393,14 @@ cmd_doctor() {
   fi
   printf '\n'
 
+  printf '=== Codex Plugin (non-fatal) ===\n'
+  if [ -f "$plangate_root/scripts/check-codex-plugin-status.sh" ]; then
+    sh "$plangate_root/scripts/check-codex-plugin-status.sh" || true
+  else
+    printf '  [INFO] scripts/check-codex-plugin-status.sh not found\n'
+  fi
+  printf '\n'
+
   printf '=== Required Workflow Files ===\n'
   plangate_check "docs/working/ directory exists" test -d "$plangate_working_dir" || failures=$((failures + 1))
   plangate_check_file "docs/working/templates/handoff.md" "$plangate_templates_dir/handoff.md" || failures=$((failures + 1))
