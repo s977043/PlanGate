@@ -55,6 +55,9 @@ try:
 except Exception as e:
     sys.stderr.write('parse-error: %s\n' % e)
     sys.exit(1)
+if not isinstance(d, dict):
+    sys.stderr.write('parse-error: root element is not a dictionary\n')
+    sys.exit(1)
 pv = None
 for plug in d.get('plugins', []):
     if plug.get('name') == 'plangate':
