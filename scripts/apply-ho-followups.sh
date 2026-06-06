@@ -28,16 +28,22 @@ command -v python3 >/dev/null 2>&1 || { printf 'python3 required\n' >&2; exit 1;
 edit_file() {
   _f="$ROOT/$1"
   if [ ! -f "$_f" ]; then printf '  [SKIP] %s が存在しません\n' "$1"; return 0; fi
-  _new=$(python3 - "$_f")
-  _old=$(cat "$_f")
-  if [ "$_new" = "$_old" ]; then printf '  [skip] %s（既適用 or 変更なし）\n' "$1"; return 0; fi
-  if [ "$DRY" = "1" ]; then
-    printf '  [dry-run] %s の差分:\n' "$1"
-    printf '%s\n' "$_new" | diff -u "$_f" - | sed 's/^/    /' || true
-  else
-    printf '%s\n' "$_new" > "$_f"
-    printf '  [applied] %s\n' "$1"
+  # コマンド置換は末尾改行を削るため一時ファイル経由で比較・更新する。
+  # 上書きは cat > で行い、既存ファイルのパーミッション（bin/plangate の実行権限
+  # 等）と末尾改行を保持する（mv だと mktemp の 0600 で上書きされる）。
+  _tmp=$(mktemp)
+  if python3 - "$_f" > "$_tmp"; then
+    if cmp -s "$_f" "$_tmp"; then
+      printf '  [skip] %s（既適用 or 変更なし）\n' "$1"
+    elif [ "$DRY" = "1" ]; then
+      printf '  [dry-run] %s の差分:\n' "$1"
+      diff -u "$_f" "$_tmp" | sed 's/^/    /' || true
+    else
+      cat "$_tmp" > "$_f"
+      printf '  [applied] %s\n' "$1"
+    fi
   fi
+  rm -f "$_tmp"
 }
 
 printf '=== #452: AGENTS.md から claude-mem-context 汚染ブロック除去 ===\n'
