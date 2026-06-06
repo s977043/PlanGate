@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "PlanGate — AI coding governance OS for Claude Code and Codex. 4-Gate approval system, Intent/Mode classification, Skill Policy Router, and agent control layer.",
-    "version": "8.11.0"
+    "version": "8.12.0"
   },
   "plugins": [
     {

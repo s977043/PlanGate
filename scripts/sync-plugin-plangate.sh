@@ -155,6 +155,12 @@ for plug in target:
         changed.append('%s -> %s' % (plug.get('version'), ver))
         if dry != '1':
             plug['version'] = ver
+# marketplace 自体の metadata.version も同期（plugins[].version との二重管理防止）
+md = d.get('metadata')
+if isinstance(md, dict) and md.get('version') not in (None, ver):
+    changed.append('metadata %s -> %s' % (md.get('version'), ver))
+    if dry != '1':
+        md['version'] = ver
 if changed and dry != '1':
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(d, f, indent=2, ensure_ascii=False)
