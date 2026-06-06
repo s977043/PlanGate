@@ -507,6 +507,8 @@ conductorはstatus.mdに以下のMarkdownセクションを管理する（YAML f
 
 ## 関連資産
 
+- Codex runtime での conductor 相当運用: [`.codex/agents/workflow_conductor.toml`](../../.codex/agents/workflow_conductor.toml)（Claude Code 以外の runtime では Task ツール非対応のため別エージェント起動不可。本 conductor 指示を司令塔ロールとして読み込み、フェーズ遷移を代行する）
+
 - **ai-dev-workflow.md** — conductorを呼び出すRouterコマンド
 - **plangate.md** — PlanGateガイド（全体像・設計思想）
 - **ai-driven-development.md** — ワークフロー詳細・プロンプト集
