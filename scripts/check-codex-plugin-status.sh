@@ -34,9 +34,12 @@ except Exception:
     print('')
 PYV
 )
+# skill 数は POSIX 準拠のシェルループでカウント（find -mindepth/-maxdepth は非 POSIX）
 _repo_skills=0
 if [ -d "$REPO_SKILLS_DIR" ]; then
-  _repo_skills=$(find "$REPO_SKILLS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+  for _sk in "$REPO_SKILLS_DIR"/*/; do
+    [ -d "$_sk" ] && _repo_skills=$((_repo_skills + 1))
+  done
 fi
 printf '[codex-plugin] repo manifest: version=%s skills=%s\n' "${_repo_ver:-?}" "$_repo_skills"
 
