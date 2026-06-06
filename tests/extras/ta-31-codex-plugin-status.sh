@@ -65,3 +65,19 @@ else
   t31_fail "TC-06 registered:YES / cache version が出ない"
 fi
 rm -rf "$_t31_home"
+
+# TC-07: --online で gh 不在時に「gh CLI 不在のためスキップ」（#476 / coverage 補完）
+# gh だけを除外した PATH（python3/dirname のみリンク）で実行し、ネットワーク非依存で
+# online 分岐の gh 不在パスを検証する。
+_t31_bin=$(mktemp -d) || { t31_fail "TC-07 mktemp 失敗"; return 0 2>/dev/null || true; }
+_t31_home7=$(mktemp -d)
+for _c in sh python3 dirname; do
+  _src=$(command -v "$_c" 2>/dev/null) && ln -s "$_src" "$_t31_bin/$_c" 2>/dev/null
+done
+_t31_out7=$(CODEX_HOME="$_t31_home7" PATH="$_t31_bin" sh "$PG_T31_SCRIPT" --online 2>/dev/null || printf '')
+if printf '%s' "$_t31_out7" | grep -q 'gh CLI 不在のためスキップ'; then
+  t31_pass "TC-07 --online で gh 不在時にスキップ案内"
+else
+  t31_fail "TC-07 --online gh 不在スキップが出ない（出力: $(printf '%s' "$_t31_out7" | tr '\n' '|'))"
+fi
+rm -rf "$_t31_bin" "$_t31_home7"
