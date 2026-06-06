@@ -146,3 +146,11 @@ if [ -n "${_t28_md:-}" ] && [ "${_t28_md:-}" = "${_t28_mpver:-}" ]; then
 else
   t28_fail "TC-10 marketplace 内 version drift: metadata=${_t28_md:-} / plugins=${_t28_mpver:-}"
 fi
+
+# TC-11: ルート README の Latest 表記 == plugin.json version（#481 後レビュー / 再発防止）
+_t28_readme=$(grep -oE '\*\*v[0-9.]+\*\*（Latest' "$PG_T28_ROOT/README.md" 2>/dev/null | head -1 | grep -oE '[0-9][0-9.]*' || printf '')
+if [ -n "${_t28_readme:-}" ] && [ "${_t28_readme:-}" = "${_t28_ver:-}" ]; then
+  t28_pass "TC-11 README Latest (v${_t28_readme}) == plugin.json (${_t28_ver:-})"
+else
+  t28_fail "TC-11 README Latest drift: README=${_t28_readme:-} / plugin.json=${_t28_ver:-}"
+fi

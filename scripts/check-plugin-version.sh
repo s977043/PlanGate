@@ -55,16 +55,22 @@ try:
 except Exception as e:
     sys.stderr.write('parse-error: %s\n' % e)
     sys.exit(1)
+pv = None
 for plug in d.get('plugins', []):
     if plug.get('name') == 'plangate':
-        v = plug.get('version', '')
-        if not v:
-            sys.stderr.write('plangate plugin version が空\n')
-            sys.exit(1)
-        print(v)
-        sys.exit(0)
-sys.stderr.write('plangate plugin 定義が見つかりません\n')
-sys.exit(1)
+        pv = plug.get('version', '')
+        break
+if not pv:
+    sys.stderr.write('plangate plugin version が空 or 未定義\n')
+    sys.exit(1)
+# metadata.version も検証（plugins[].version との二重管理 drift 防止 / #481）
+md = d.get('metadata', {})
+mdv = md.get('version') if isinstance(md, dict) else None
+if mdv is not None and mdv != pv:
+    sys.stderr.write('metadata.version (%s) != plugins[].version (%s)\n' % (mdv, pv))
+    sys.exit(1)
+print(pv)
+sys.exit(0)
 PYMP
 ) || MARKETPLACE_ERR=1
 fi
