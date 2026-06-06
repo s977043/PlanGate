@@ -46,3 +46,29 @@ case "${_t28_ver:-}" in
   "") t28_fail "TC-05 plugin.json version 取得失敗" ;;
   *)  t28_pass "TC-05 plugin.json version は v プレフィックスなし（${_t28_ver:-}）" ;;
 esac
+
+# TC-06: marketplace.json に plangate plugin の version フィールドが存在（#456）
+PG_T28_MP="$PG_T28_ROOT/.claude-plugin/marketplace.json"
+_t28_mpver=$(python3 - "$PG_T28_MP" << 'PYMP' 2>/dev/null || printf ''
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding='utf-8'))
+    for plug in d.get('plugins', []):
+        if plug.get('name') == 'plangate':
+            print(plug.get('version', '')); break
+except Exception:
+    print('')
+PYMP
+)
+if [ -n "${_t28_mpver:-}" ]; then
+  t28_pass "TC-06 marketplace.json に plangate version あり（${_t28_mpver:-}）"
+else
+  t28_fail "TC-06 marketplace.json に plangate version なし"
+fi
+
+# TC-07: plugin.json version == marketplace.json version（二重管理 drift なし / #456）
+if [ -n "${_t28_ver:-}" ] && [ "${_t28_ver:-}" = "${_t28_mpver:-}" ]; then
+  t28_pass "TC-07 plugin.json (${_t28_ver:-}) = marketplace.json (${_t28_mpver:-}) — version drift なし"
+else
+  t28_fail "TC-07 version drift: plugin.json=${_t28_ver:-} / marketplace.json=${_t28_mpver:-}"
+fi

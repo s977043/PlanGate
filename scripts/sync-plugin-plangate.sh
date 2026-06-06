@@ -122,6 +122,43 @@ PYEOF
   fi
 fi
 
+# marketplace.json の plugins[].version を更新（plugin.json と同期 / #456）
+MARKETPLACE_JSON="$REPO_ROOT/.claude-plugin/marketplace.json"
+if [ -n "$_ver" ] && [ -f "$MARKETPLACE_JSON" ] && command -v python3 >/dev/null 2>&1; then
+  _ver_noprefix="${_ver#v}"
+  _mp_changed=$(python3 - "$MARKETPLACE_JSON" "$_ver_noprefix" "$DRY_RUN" << 'PYJSON'
+import json, sys
+path, ver, dry = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    with open(path, encoding='utf-8') as f:
+        d = json.load(f)
+except Exception as e:
+    sys.stderr.write('marketplace.json read/parse error: %s\n' % e)
+    sys.exit(1)
+target = [p for p in d.get('plugins', []) if p.get('name') == 'plangate']
+if not target:
+    sys.stderr.write('marketplace.json に plangate plugin 定義がありません\n')
+    sys.exit(1)
+changed = []
+for plug in target:
+    if plug.get('version') != ver:
+        changed.append('%s -> %s' % (plug.get('version'), ver))
+        if dry != '1':
+            plug['version'] = ver
+if changed and dry != '1':
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(d, f, indent=2, ensure_ascii=False)
+        f.write('\n')
+print(';'.join(changed))
+PYJSON
+) || { _log "ERROR: marketplace.json 同期に失敗（parse 失敗 / plangate 未定義）"; exit 1; }
+  if [ -n "$_mp_changed" ]; then
+    if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD UPDATE marketplace.json version: $_mp_changed"
+    else _log "UPDATE marketplace.json version: $_mp_changed"; fi
+    changed=1
+  fi
+fi
+
 if [ "$changed" = "1" ]; then
   _log "Sync complete — changes detected"
 else
