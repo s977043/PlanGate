@@ -74,6 +74,16 @@ _ver=""
 if [ -f "$REPO_ROOT/CHANGELOG.md" ]; then
   _ver=$(grep '^## v[0-9]' "$REPO_ROOT/CHANGELOG.md" | head -1 | sed 's/## \(v[^ ]*\).*/\1/')
 fi
+# semver 形式を検証（CHANGELOG フォーマット変更時の誤 version 注入を防ぐ）。
+# 非 semver なら _ver を空にし、後続の version 書き込みを全てスキップする。
+if [ -n "$_ver" ]; then
+  # X.Y.Z（任意で -prerelease）を厳格検証。case の glob は緩く 8.11.0.1 等を
+  # 通してしまうため grep -E の正規表現で判定する。
+  if ! printf '%s' "${_ver#v}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+    _log "WARN: CHANGELOG の version '$_ver' が semver 形式でないため version 同期をスキップ"
+    _ver=""
+  fi
+fi
 
 # README.md の Version 行を更新
 PLUGIN_README="$PLUGIN_DIR/README.md"
