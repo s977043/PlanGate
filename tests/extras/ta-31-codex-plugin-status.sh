@@ -51,9 +51,9 @@ fi
 rm -rf "$_t31_tmp"
 
 # TC-06: cache 登録済み環境で registered:YES + cache version を出力（positive / レビュー major）
+# /tmp 配下のみを使うため trap は使わない（sourced 元 run-tests.sh の trap を
+# 破壊しないため）。中断時の tmp 残留は OS 側で掃除されるため許容する。
 _t31_home=$(mktemp -d) || { t31_fail "TC-06 mktemp 失敗"; return 0 2>/dev/null || true; }
-# set -e 中断時も一時ディレクトリを確実に掃除する
-trap 'rm -rf "$_t31_home"' EXIT INT TERM
 mkdir -p "$_t31_home/.tmp/marketplaces/plangate/.claude-plugin"
 printf '{"name":"plangate","plugins":[{"name":"plangate","version":"9.9.9"}]}\n' \
   > "$_t31_home/.tmp/marketplaces/plangate/.claude-plugin/marketplace.json"
@@ -65,4 +65,3 @@ else
   t31_fail "TC-06 registered:YES / cache version が出ない"
 fi
 rm -rf "$_t31_home"
-trap - EXIT INT TERM
