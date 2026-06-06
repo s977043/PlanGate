@@ -39,6 +39,8 @@ fi
 # 実 SSoT が現在 clean だと TC-01 で STRICT 分岐に入らないため、汚染 fixture で
 # 「STRICT 時に FAIL 昇格させる根拠（guard の非0 exit）」を独立して固定する。
 _t32_dirty=$(mktemp)
+# set -e 中断時も一時ファイルを確実に掃除する
+trap 'rm -f "$_t32_dirty"' EXIT INT TERM
 printf '<claude-mem-context>\nget_observations([1])\n</claude-mem-context>\n' > "$_t32_dirty"
 if POLLUTION_TARGET_FILES="$_t32_dirty" sh "$PG_T32_SCRIPT" >/dev/null 2>&1; then
   t32_fail "TC-02 汚染 fixture を guard が見逃した（STRICT 昇格の前提が崩壊）"
@@ -46,3 +48,4 @@ else
   t32_pass "TC-02 汚染 fixture で guard exit 1 → STRICT 時 FAIL 昇格の前提を満たす"
 fi
 rm -f "$_t32_dirty"
+trap - EXIT INT TERM
