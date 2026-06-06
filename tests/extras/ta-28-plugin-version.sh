@@ -130,3 +130,19 @@ elif [ "$_t28_res" = "FAIL" ]; then
 else
   t28_fail "TC-09 一時 repo 作成失敗（mktemp）"
 fi
+
+# TC-10: marketplace.json の metadata.version == plugins[].version（二重管理 drift / #481）
+_t28_md=$(python3 - "$PG_T28_MP" << 'PYMD' 2>/dev/null || printf ''
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding='utf-8'))
+    print(d.get('metadata', {}).get('version', ''))
+except Exception:
+    print('')
+PYMD
+)
+if [ -n "${_t28_md:-}" ] && [ "${_t28_md:-}" = "${_t28_mpver:-}" ]; then
+  t28_pass "TC-10 metadata.version (${_t28_md}) == plugins[].version (${_t28_mpver:-}) — drift なし"
+else
+  t28_fail "TC-10 marketplace 内 version drift: metadata=${_t28_md:-} / plugins=${_t28_mpver:-}"
+fi
