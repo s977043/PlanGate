@@ -21,6 +21,7 @@ ONLINE=0
 [ "${1:-}" = "--online" ] && ONLINE=1
 
 CODEX_HOME="${CODEX_HOME:-${HOME:-}/.codex}"
+REPO_SLUG="s977043/plangate"  # GitHub リポジトリ slug（表記ゆれ防止のため 1 箇所に集約）
 MP_CACHE="$CODEX_HOME/.tmp/marketplaces/plangate"
 REPO_PLUGIN_JSON="$REPO_ROOT/plugin/plangate/.claude-plugin/plugin.json"
 REPO_SKILLS_DIR="$REPO_ROOT/plugin/plangate/skills"
@@ -68,13 +69,13 @@ PYC
   fi
 else
   printf '[codex-plugin] registered: NO\n'
-  printf '[codex-plugin] 導入: codex plugin marketplace add s977043/PlanGate && sh install.sh --codex\n'
+  printf '[codex-plugin] 導入: codex plugin marketplace add %s && sh install.sh --codex\n' "$REPO_SLUG"
 fi
 
 # --- online 比較（opt-in）---
 if [ "$ONLINE" = "1" ]; then
   if command -v gh >/dev/null 2>&1; then
-    _latest=$(gh release view --repo s977043/plangate --json tagName --jq '.tagName' 2>/dev/null | sed 's/^v//' || printf '')
+    _latest=$(gh release view --repo "$REPO_SLUG" --json tagName --jq '.tagName' 2>/dev/null | sed 's/^v//' || printf '')
     if [ -n "$_latest" ]; then
       printf '[codex-plugin] latest release: v%s\n' "$_latest"
       [ "$_latest" != "${_repo_ver:-}" ] && printf '[codex-plugin] NOTE: repo(%s) != latest(%s)\n' "${_repo_ver:-?}" "$_latest"
