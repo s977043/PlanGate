@@ -90,6 +90,10 @@ CI自動レビュー・ローカルレビュー共通の判定フレーム。
   （`.plangate-reviewers.yaml` / severity マッピング / 責務分担 / 3 導入
   パターン）。本契約（観点・Severity・判定基準）は不変、IF は接続のみ規定
 
+## 7-ter. 外部レビュー実行不可時の記録（#463）
+
+C-2 / V-3 の外部 AI レビューが**実行不可**（CLI 未導入・API 不達・quota 超過等）の場合の記録規約は [`docs/ai/external-reviewer-interface.md`](../../docs/ai/external-reviewer-interface.md) §10 を正本とする。「指摘なし」と「実行不可」を区別し、`unavailable` は理由・代替観点・未充足リスクを必須記録（`verdict` は WARN、空欄は FAIL）。
+
 ## 8. レビューの優先順位
 
 1. **Critical**: セキュリティ脆弱性、データ損失のリスク、システムダウンの可能性

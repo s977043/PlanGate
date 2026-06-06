@@ -32,6 +32,10 @@ settings.json の wiring 適用、`apply-claude-settings.sh` の実行、Hook �
 - Gate 保持（`doctor --check-settings PASS` まで完了不可）
 - 進捗の永続記録（status.md / decision-log.jsonl への append）
 
+## bin/plangate 不在時のフォールバック
+
+`bin/plangate doctor --json` を実行する前に `command -v bin/plangate` で存在確認する。不在の場合は doctor をスキップし、PlanGate フルリポジトリの clone が必要である旨と clone コマンド（`git clone https://github.com/s977043/plangate.git`）を案内して停止する（command not found でユーザーを放置しない）。
+
 ## 対話フロー
 
 ### Step 0: TASK ID 動的解決
