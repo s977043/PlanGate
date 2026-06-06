@@ -22,10 +22,17 @@ t32_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 t32_warn() { pass=$((pass + 1)); printf '  [WARN] %s\n' "$1"; }
 
 # TC-01: 実 SSoT（既定の AGENTS.md / CLAUDE.md）が AI memory 汚染を含まない
-if sh "$PG_T32_SCRIPT" >/dev/null 2>&1; then
+# 汚染検出時は guard の詳細出力（どのファイルのどの行か）を CI ログに残す
+# ＝本テストの目的「現状の汚染を可視化」を達成する
+_t32_out=$(sh "$PG_T32_SCRIPT" 2>&1)
+_t32_rc=$?
+if [ "$_t32_rc" = "0" ]; then
   t32_pass "TC-01 実 SSoT に AI memory 汚染なし"
-elif [ "$PG_T32_STRICT" = "1" ]; then
-  t32_fail "TC-01 実 SSoT に汚染検出（STRICT）— AGENTS.md 等から <claude-mem-context> ブロックを除去してください（#452）"
 else
-  t32_warn "TC-01 実 SSoT に汚染残存（warn-only、#452 の HO 除去待ち）。除去後 STRICT_AGENTS_CHECK=1 で block 化"
+  printf '%s\n' "$_t32_out" | sed 's/^/      /'
+  if [ "$PG_T32_STRICT" = "1" ]; then
+    t32_fail "TC-01 実 SSoT に汚染検出（STRICT）— AGENTS.md 等から <claude-mem-context> ブロックを除去してください（#452）"
+  else
+    t32_warn "TC-01 実 SSoT に汚染残存（warn-only、#452 の HO 除去待ち）。除去後 STRICT_AGENTS_CHECK=1 で block 化"
+  fi
 fi
