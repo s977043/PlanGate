@@ -9,7 +9,9 @@
 
 set -eu
 
-REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+# REPO_ROOT は通常スクリプト位置から決まるが、テスト用に PLANGATE_REPO_ROOT で
+# 上書き可能（shallow clone で tag が無い等のケース検証のため。後方互換）。
+REPO_ROOT="${PLANGATE_REPO_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
 WARN_ONLY=0
 [ "${1:-}" = "--warn-only" ] && WARN_ONLY=1
 
@@ -69,14 +71,14 @@ fi
 
 _mismatch=0
 if [ "$PLUGIN_VERSION" != "$LATEST_TAG" ]; then
-  printf '[plugin-version] MISMATCH: plugin.json=%s / latest tag=v%s\n' "$PLUGIN_VERSION" "$LATEST_TAG" >&2
+  printf '[plugin-version] ERROR: plugin.json version mismatch — plugin.json=%s / latest tag=v%s\n' "$PLUGIN_VERSION" "$LATEST_TAG" >&2
   _mismatch=1
 fi
 if [ -n "$MARKETPLACE_ERR" ]; then
   printf '[plugin-version] ERROR: marketplace.json から plangate version を取得できません（存在するのに parse 失敗 / plangate 未定義 / version 空）\n' >&2
   _mismatch=1
 elif [ -n "$MARKETPLACE_VERSION" ] && [ "$MARKETPLACE_VERSION" != "$LATEST_TAG" ]; then
-  printf '[plugin-version] MISMATCH: marketplace.json=%s / latest tag=v%s\n' "$MARKETPLACE_VERSION" "$LATEST_TAG" >&2
+  printf '[plugin-version] ERROR: marketplace.json version mismatch — marketplace.json=%s / latest tag=v%s\n' "$MARKETPLACE_VERSION" "$LATEST_TAG" >&2
   _mismatch=1
 fi
 
