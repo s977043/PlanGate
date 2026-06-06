@@ -38,6 +38,8 @@ fi
 # TC-02: STRICT 昇格の前提を検証 — 汚染ありなら guard が exit 1 を返す（レビュー major）
 # 実 SSoT が現在 clean だと TC-01 で STRICT 分岐に入らないため、汚染 fixture で
 # 「STRICT 時に FAIL 昇格させる根拠（guard の非0 exit）」を独立して固定する。
+# /tmp 配下のみを使うため trap は使わない（sourced 元 run-tests.sh の trap を
+# 破壊しないため）。中断時の tmp 残留は OS 側で掃除されるため許容する。
 _t32_dirty=$(mktemp)
 printf '<claude-mem-context>\nget_observations([1])\n</claude-mem-context>\n' > "$_t32_dirty"
 if POLLUTION_TARGET_FILES="$_t32_dirty" sh "$PG_T32_SCRIPT" >/dev/null 2>&1; then
