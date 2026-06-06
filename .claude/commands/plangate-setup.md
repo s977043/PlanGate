@@ -2,6 +2,13 @@
 
 PlanGate の初期セットアップを対話的に実行する。
 
+## 前提条件
+
+`bin/plangate` CLI が必要です。Plugin 単体導入では PATH に含まれないため、未導入の場合は先に PlanGate リポジトリを clone してください:
+
+    git clone https://github.com/s977043/plangate.git ~/plangate
+    export PATH="$HOME/plangate/bin:$PATH"
+
 ## 引数
 
 なし（カレントディレクトリから TASK ID を動的解決する）。
