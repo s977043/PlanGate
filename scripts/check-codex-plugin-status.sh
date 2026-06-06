@@ -7,6 +7,8 @@
 # cache path は Codex CLI 実装依存:
 #   $CODEX_HOME/.tmp/marketplaces/plangate/  （CODEX_HOME 既定: ~/.codex）
 # 実装変更で path が変わり得るため、未検出でも fatal にせず「未登録」案内に留める。
+# TODO: `codex plugin marketplace list` 等の公式 status API が提供されたら、
+#       cache 直接検査からそのコマンド出力ベースへ移行する（内部 layout 依存を解消）。
 #
 # Usage: sh scripts/check-codex-plugin-status.sh [--online]
 #   --online: GitHub 最新リリースとの version 比較（opt-in、ネットワーク使用）
@@ -18,7 +20,7 @@ REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 ONLINE=0
 [ "${1:-}" = "--online" ] && ONLINE=1
 
-CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+CODEX_HOME="${CODEX_HOME:-${HOME:-}/.codex}"
 MP_CACHE="$CODEX_HOME/.tmp/marketplaces/plangate"
 REPO_PLUGIN_JSON="$REPO_ROOT/plugin/plangate/.claude-plugin/plugin.json"
 REPO_SKILLS_DIR="$REPO_ROOT/plugin/plangate/skills"
