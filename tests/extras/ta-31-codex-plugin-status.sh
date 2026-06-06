@@ -70,7 +70,7 @@ rm -rf "$_t31_home"
 # gh だけを除外した PATH（python3/dirname のみリンク）で実行し、ネットワーク非依存で
 # online 分岐の gh 不在パスを検証する。
 _t31_bin=$(mktemp -d) || { t31_fail "TC-07 mktemp 失敗"; return 0 2>/dev/null || true; }
-_t31_home7=$(mktemp -d)
+_t31_home7=$(mktemp -d) || { rm -rf "$_t31_bin"; t31_fail "TC-07 mktemp 失敗"; return 0 2>/dev/null || true; }
 for _c in sh python3 dirname; do
   _src=$(command -v "$_c" 2>/dev/null) && ln -s "$_src" "$_t31_bin/$_c" 2>/dev/null
 done
