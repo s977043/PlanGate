@@ -104,3 +104,29 @@ PYBREAK
 else
   t28_pass "TC-08 SKIP（tag 不在 or marketplace.json なし）"
 fi
+
+# TC-09: tag 不在（shallow clone 相当）で WARN + exit 0（#476 / 運用の穴を固定）
+# PLANGATE_REPO_ROOT を tag の無い一時 git repo に向け、LATEST_TAG 空時の挙動を検証。
+# TC-08 同様、trap をサブシェルに閉じ込めて親シェル（run-tests.sh）を汚染せず、
+# 中断時も一時ディレクトリを確実に掃除する。判定は stdout で返す。
+_t28_res=$(
+  _sh=$(mktemp -d) || exit 9
+  trap 'rm -rf "$_sh"' EXIT INT TERM
+  mkdir -p "$_sh/plugin/plangate/.claude-plugin" "$_sh/.claude-plugin"
+  printf '{"version":"8.11.0"}\n' > "$_sh/plugin/plangate/.claude-plugin/plugin.json"
+  printf '{"plugins":[{"name":"plangate","version":"8.11.0"}]}\n' > "$_sh/.claude-plugin/marketplace.json"
+  ( cd "$_sh" && git init -q 2>/dev/null )  # tag を作らない → describe 失敗
+  if PLANGATE_REPO_ROOT="$_sh" sh "$PG_T28_SCRIPT" 2>&1 | grep -q 'tag が見つかりません' \
+     && PLANGATE_REPO_ROOT="$_sh" sh "$PG_T28_SCRIPT" >/dev/null 2>&1; then
+    printf PASS
+  else
+    printf FAIL
+  fi
+)
+if [ "$_t28_res" = "PASS" ]; then
+  t28_pass "TC-09 tag 不在で WARN + exit 0（shallow clone 相当）"
+elif [ "$_t28_res" = "FAIL" ]; then
+  t28_fail "TC-09 tag 不在時の WARN/exit 0 が成立しない"
+else
+  t28_fail "TC-09 一時 repo 作成失敗（mktemp）"
+fi
