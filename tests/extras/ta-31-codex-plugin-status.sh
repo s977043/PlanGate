@@ -43,7 +43,7 @@ fi
 _t31_tmp=$(mktemp -d) || { t31_fail "TC-05 mktemp 失敗"; return 0 2>/dev/null || true; }
 _t31_out2=$(CODEX_HOME="$_t31_tmp" sh "$PG_T31_SCRIPT" 2>/dev/null || printf '')
 if printf '%s' "$_t31_out2" | grep -q 'registered: NO' && \
-   printf '%s' "$_t31_out2" | grep -q 'marketplace add s977043/PlanGate'; then
+   printf '%s' "$_t31_out2" | grep -q 'marketplace add s977043/plangate'; then
   t31_pass "TC-05 未登録時に導入コマンドを案内"
 else
   t31_fail "TC-05 未登録案内が無い"
