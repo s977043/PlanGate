@@ -34,3 +34,15 @@ else
     t32_warn "TC-01 実 SSoT に汚染残存（warn-only、#452 の HO 除去待ち）。除去後 STRICT_AGENTS_CHECK=1 で block 化"
   fi
 fi
+
+# TC-02: STRICT 昇格の前提を検証 — 汚染ありなら guard が exit 1 を返す（レビュー major）
+# 実 SSoT が現在 clean だと TC-01 で STRICT 分岐に入らないため、汚染 fixture で
+# 「STRICT 時に FAIL 昇格させる根拠（guard の非0 exit）」を独立して固定する。
+_t32_dirty=$(mktemp)
+printf '<claude-mem-context>\nget_observations([1])\n</claude-mem-context>\n' > "$_t32_dirty"
+if POLLUTION_TARGET_FILES="$_t32_dirty" sh "$PG_T32_SCRIPT" >/dev/null 2>&1; then
+  t32_fail "TC-02 汚染 fixture を guard が見逃した（STRICT 昇格の前提が崩壊）"
+else
+  t32_pass "TC-02 汚染 fixture で guard exit 1 → STRICT 時 FAIL 昇格の前提を満たす"
+fi
+rm -f "$_t32_dirty"

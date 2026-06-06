@@ -72,3 +72,30 @@ if [ -n "${_t28_ver:-}" ] && [ "${_t28_ver:-}" = "${_t28_mpver:-}" ]; then
 else
   t28_fail "TC-07 version drift: plugin.json=${_t28_ver:-} / marketplace.json=${_t28_mpver:-}"
 fi
+
+# TC-08: marketplace.json mismatch で exit 1（negative / 本体の動的分岐検証 / レビュー major）
+# tag 不在環境（shallow clone 等）では検証不能のためスキップ。実ファイルは即復元。
+_t28_tag=$(git -C "$PG_T28_ROOT" describe --tags --abbrev=0 2>/dev/null || printf '')
+_t28_mp="$PG_T28_ROOT/.claude-plugin/marketplace.json"
+if [ -n "$_t28_tag" ] && [ -f "$_t28_mp" ]; then
+  _t28_bak=$(mktemp)
+  cp "$_t28_mp" "$_t28_bak"
+  python3 - "$_t28_mp" << 'PYBREAK' 2>/dev/null
+import json, sys
+d = json.load(open(sys.argv[1], encoding='utf-8'))
+for plug in d.get('plugins', []):
+    if plug.get('name') == 'plangate':
+        plug['version'] = '0.0.0-ta28test'
+json.dump(d, open(sys.argv[1], 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
+open(sys.argv[1], 'a', encoding='utf-8').write('\n')
+PYBREAK
+  if sh "$PG_T28_SCRIPT" >/dev/null 2>&1; then _t28_neg=0; else _t28_neg=1; fi
+  cp "$_t28_bak" "$_t28_mp"; rm -f "$_t28_bak"
+  if [ "$_t28_neg" = "1" ]; then
+    t28_pass "TC-08 marketplace.json mismatch で exit 1（動的分岐）"
+  else
+    t28_fail "TC-08 mismatch なのに exit 0（検出漏れ）"
+  fi
+else
+  t28_pass "TC-08 SKIP（tag 不在 or marketplace.json なし）"
+fi
