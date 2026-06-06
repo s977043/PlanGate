@@ -24,9 +24,7 @@ t32_warn() { pass=$((pass + 1)); printf '  [WARN] %s\n' "$1"; }
 # TC-01: 実 SSoT（既定の AGENTS.md / CLAUDE.md）が AI memory 汚染を含まない
 # 汚染検出時は guard の詳細出力（どのファイルのどの行か）を CI ログに残す
 # ＝本テストの目的「現状の汚染を可視化」を達成する
-_t32_out=$(sh "$PG_T32_SCRIPT" 2>&1)
-_t32_rc=$?
-if [ "$_t32_rc" = "0" ]; then
+if _t32_out=$(sh "$PG_T32_SCRIPT" 2>&1); then
   t32_pass "TC-01 実 SSoT に AI memory 汚染なし"
 else
   printf '%s\n' "$_t32_out" | sed 's/^/      /'
