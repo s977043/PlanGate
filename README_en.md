@@ -25,7 +25,7 @@ New to PlanGate? Read these 3 pages in order:
 2. **[Staged Adoption Guide (Phase 0 = canonical first run)](docs/staged-adoption-guide.md#phase-0-体験day-1)** — Start at Level 1 (Day 1). **30-min first run canonical source** (~10 min)
 3. **[10-min hands-on (this README, later section)](#10-minute-hands-on-tutorial)** — Minimal hands-on **short version**, pointer to #2 (~10 min)
 
-To decide "is PlanGate right for our team", see [Philosophy (Japanese)](docs/philosophy.md) and [When NOT to use](docs/when-not-to-use.md). For abbreviations (EH-X / WF-XX / V-X / C-X), see [Glossary](docs/glossary.md).
+To decide "is PlanGate right for our team", see [Philosophy (Japanese)](docs/philosophy.md) and [When NOT to use](docs/pages/explanation/product/when-not-to-use.md). For abbreviations (EH-X / WF-XX / V-X / C-X), see [Glossary](docs/pages/reference/glossary.md).
 
 ## What PlanGate Distributes
 

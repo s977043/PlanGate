@@ -22,7 +22,7 @@ PlanGate — ゲート型AI駆動開発ワークフローのリポジトリ。
 
 > TASK-0108 / #310 #7 で確立。
 
-- **正本**: ABCD ↔ WF-XX 対応表は [`docs/glossary.md` Workflow フェーズ](../glossary.md#workflow-フェーズ-wf-xx--abcd--wf-対応表-正本) を **single source of truth** とする。
+- **正本**: ABCD ↔ WF-XX 対応表は [`docs/glossary.md` Workflow フェーズ](../pages/reference/glossary.md#workflow-フェーズ-wf-xx--abcd--wf-対応表-正本) を **single source of truth** とする。
 - **新規 doc の表記**: WF-XX 優先 (例: 「WF-04 で exec」「WF-05 で handoff」)。
 - **既存 ABCD 表記の扱い**: 既存 doc / コミット履歴 / handoff / レビュー成果物の ABCD 表現 (A/B/C-1〜4/D/L-0/V-1〜4) は破壊せず、対応表で吸収する。
 - **併記が望ましいケース**: 主要 doc (`docs/plangate.md` 等) の対応表では「`B: Plan生成 (WF-01〜WF-03 横断)`」のように両方を見える形で残す。
