@@ -277,7 +277,9 @@ PlanGate では Product narrative を `解説 > プロダクト` に置く。
 
 ### 9.3 Historical records
 
-意思決定や移行履歴として残す価値があるものは、削除せず `docs/` 側へ移す。
+意思決定や移行履歴として残す価値があるものは、削除せず保管する。
+過去バージョンの設計文書など**歴史的設計文書**は `docs/archive/` へ、
+release / audit / migration logs など運用記録は `docs/` 側へ移す。
 
 ## 10. Non-goals
 
