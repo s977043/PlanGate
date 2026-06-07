@@ -30,6 +30,7 @@ Kiro 前提の配置ではなく、River-Reviewer を参考に、公開説明ド
 | `docs/pages/reference/` | FAQ、仕様、スキーマ、用語集、参照資料 |
 | `docs/` | 開発者向け runbook、内部運用、作業ログ、移行メモ、workflow 定義 |
 | `docs/working/` | TASK 単位の作業コンテキスト、レビュー記録、handoff |
+| `docs/archive/` | 歴史的設計文書（過去バージョン設計、現行正本ではない） |
 
 ## 3. Placement rules
 
@@ -203,6 +204,14 @@ docs/pages/guides/governance/documentation-management.md
 
 ## 6. Sidebar policy
 
+> **注記（公開ビルド実態 / 2026-06）**: 現在の公開は GitHub Pages の **Jekyll legacy**
+> （source: `main` / `/docs`）であり、`sidebars.js` は **未参照の残骸**（将来の
+> Docusaurus 移行用の準備ファイル）です。現状の公開ナビゲーションは `docs/index.md`
+> をトップに、`jekyll-relative-links` プラグインによる `.md` 相対リンクで構成されます
+> （`docs/_config.yml` で `working/` を公開除外）。以下の sidebars.js 方針は
+> Docusaurus 移行後に有効化する想定です。それまで `sidebars.js` の更新は公開に反映
+> されないため、公開導線の変更は `docs/index.md`（および各 `docs/pages/` の目次）で行います。
+
 River-Reviewer と同様、公開 docs の navigation は `sidebars.js` で管理する。
 
 カテゴリは以下を基本とする。
@@ -268,7 +277,9 @@ PlanGate では Product narrative を `解説 > プロダクト` に置く。
 
 ### 9.3 Historical records
 
-意思決定や移行履歴として残す価値があるものは、削除せず `docs/` 側へ移す。
+意思決定や移行履歴として残す価値があるものは、削除せず保管する。
+過去バージョンの設計文書など**歴史的設計文書**は `docs/archive/` へ、
+release / audit / migration logs など運用記録は `docs/` 側へ移す。
 
 ## 10. Non-goals
 
