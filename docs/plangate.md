@@ -458,8 +458,8 @@ PlanGateのゲートは**PBI(チケット)1枚の中**に置きます。判断�
 ## 関連資料
 
 - [ワークフロー詳細・プロンプト集](ai-driven-development.md) -- 実装者向けリファレンス
-- [PlanGate v4設計 -- takt知見統合](plangate-v4-design.md) -- フェーズD拡張設計の詳細
-- [PlanGate v5設計 -- L-0リンター自動修正](plangate-v5-design.md) -- ハーネスエンジニアリング知見統合
+- [PlanGate v4設計 -- takt知見統合](archive/plangate-v4-design.md) -- フェーズD拡張設計の詳細
+- [PlanGate v5設計 -- L-0リンター自動修正](archive/plangate-v5-design.md) -- ハーネスエンジニアリング知見統合
 - [PlanGate v6ロードマップ](plangate-v6-roadmap.md) -- ハーネスエンジニアリング差分解消
 - [workflow-conductor定義](../.claude/agents/workflow-conductor.md) -- フェーズD司令塔エージェント
 - [メインコマンド定義](../.claude/commands/ai-dev-workflow.md) -- `/ai-dev-workflow`コマンド
