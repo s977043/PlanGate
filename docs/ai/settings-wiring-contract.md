@@ -100,3 +100,56 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 - `.claude/settings.json` / `bin/plangate` / `scripts/hooks/*.sh` 等の Hardening Override 領域を改変するのは依然として **AI 改変不可** (Human-owned)
 - 新規 hook 追加 (`.codex/hooks.json` / `.codex/hooks/*.sh`) は AI-owned (Override 対象外)
 - 既存 hook 改変は Human-owned
+
+## Wiring Integrity Enforcement（#500 / 配線整合性の強制・Specification）
+
+> Status: Specification（方針確定。実装は HO パス絡みのため受け入れ条件ごとに段階 PBI へ分解）
+> 出自: river 3 相レビュー（2026-06-08、Gemini + コードベース調査で代替実行 /
+> external-reviewer-interface §10 unavailable 準拠）で検出した「規範↔実装」乖離
+> （Shadow Config）への是正方針。
+
+### 強制モード方針（example=warning / 本番=strict）
+
+- `settings.example.json` は配布テンプレートのため **warning モード**（`PLANGATE_HOOK_STRICT`
+  未設定）を既定とし、導入直後の破壊を避ける。
+- **本番運用（承認境界を信頼する運用）では strict 必須**。`PLANGATE_HOOK_STRICT=1` を
+  設定し EH-2 / EH-3 / EH-6 等を block モードで動かす。
+- この warning↔strict の差は「設定の罠（Shadow Config）」になりうるため、後述の doctor
+  検証で乖離を物理ブロックする。
+
+### doctor によるモード別必須 strict 配線検証
+
+- `bin/plangate doctor --check-settings` は、コード整合性に加えて **現在のモードで必須
+  フックが strict 配線・有効化されているか** を検証する。
+- Governance Contract（モード → 必須 strict フック集合）を定義し、乖離があれば **exit 1
+  で物理ブロック**する。
+- これにより「スクリプトは存在するが settings に配線されておらず動かない幽霊ガバナンス」を
+  構造的に排除する。
+
+### EH-10: 承認トークン書込みガードの採番・配線
+
+- `scripts/check-approval-token-write.sh`（c3.json / maintenance.json 等の承認トークンへの
+  AI 書込みガード）を **EH-10** として正規採番し、`PreToolUse(Edit|Write)` に配線する。
+- #420（maintenance.json 発行元検証ギャップ / R-012）と直結。provenance 検証はそちらと協調。
+
+### 検証ロジックの対称化・テスト空白の解消（実装方針）
+
+| 受け入れ条件 | 実装方針 | 主パス（HO） |
+|------------|---------|-----------|
+| EH-2（c3_status）strict 化 | EH-3 と同じ python3 strict JSON 解析へ置換（permissive な grep/sed 抽出を廃止し EH-3 と対称化） | `scripts/hooks/check-c3-approval.sh` |
+| EH-1/EH-2 stdin fallback | env 未注入時に stdin `tool_input.file_path` から解決し SKIP(allow) を解消 | `scripts/hooks/*.sh` |
+| maintenance verdict テスト | VALID / CONSUMED / OUT_OF_SCOPE / HARDENING_OVERRIDE の fixture + assert を追加 | `tests/hooks/` |
+| ta-06 ログ握りつぶし解消 | `>/dev/null 2>&1` 圧縮をやめ、どの EH が落ちたかをログに残す | `tests/.../ta-06-hooks.sh` |
+
+### 段階 PBI 分解（HO 実適用は Human）
+
+本仕様の HO 実装は以下の順で段階 PBI に分解する（各々 plan → C-3 承認 👤 → exec、
+HO 適用は Human）:
+
+1. **EH-2 strict 化 + EH-1/EH-2 stdin fallback**（hooks 堅牢化・最小単位・回帰リスク低）
+2. **EH-10 採番・配線 + check-approval-token-write 統合**（#420 と協調）
+3. **doctor Wiring Integrity Enforcement**（Governance Contract 定義 + exit 1）
+4. **hooks 回帰テスト拡充**（maintenance verdict fixture + ta-06 ログ解消）
+
+各段階は承認境界（HO）の変更を含むため `mode-classification.md` により最低 high・
+Standard C-3 同期固定（autonomous APPROVE 無効）とする。
