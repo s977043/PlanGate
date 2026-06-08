@@ -2,7 +2,7 @@
 
 PlanGate は、AI コーディングエージェントを「速くコードを書く存在」としてだけ扱うのではなく、計画、承認、実装、検証、handoff を持つ開発ワークフローの中に置くための仕組みです。
 
-この文書では、PlanGate が向き合う課題、ハーネスエンジニアリングとの関係、設計上の意図を説明します。具体的な操作手順は [docs/plangate.md](./plangate.md)、v7 の構造は [docs/plangate-v7-hybrid.md](./plangate-v7-hybrid.md) を参照してください。
+この文書では、PlanGate が向き合う課題、ハーネスエンジニアリングとの関係、設計上の意図を説明します。具体的な操作手順は [docs/plangate.md](../../../plangate.md)、v7 の構造は [docs/plangate-v7-hybrid.md](../../../plangate-v7-hybrid.md) を参照してください。
 
 ## なぜ必要か
 
@@ -102,7 +102,7 @@ PlanGate の自己進化フレームは MAPE-K (IBM Autonomic Computing) に整�
 
 PlanGate は **すべての機能を最初から使う必要はありません**。Level 1（plan 承認のみ）から Level 5（eval / timeline）まで、必要な分だけ段階的に採用できます。自己進化機能は **Level 4 以降** に置き、quickstart には混ぜません。
 
-各レベルの具体的な機能範囲は [README §「段階的導入レベル」](../README.md#段階的導入レベル) を参照してください。
+各レベルの具体的な機能範囲は [README §「段階的導入レベル」](../../../../README.md#段階的導入レベル) を参照してください。
 
 ### 意図的に取り入れないもの
 
@@ -114,7 +114,7 @@ PlanGate は **すべての機能を最初から使う必要はありません**
 - Token / Cost attribution の schema 必須化（任意メタデータに留める）
 - 「自己進化」を外部表現として前面に出すこと（実務語彙: run review / timeline / regression check）
 
-詳細: [`docs/ai/harness-improvement-roadmap.md`](./ai/harness-improvement-roadmap.md) §13.5 Control Plane track
+詳細: [`docs/ai/harness-improvement-roadmap.md`](../../../ai/harness-improvement-roadmap.md) §13.5 Control Plane track
 
 ## 公開情報と設計解釈の区別
 
@@ -142,7 +142,7 @@ PlanGate は、AI コーディングエージェントをプロダクション�
 
 | ドキュメント | 内容 |
 | --- | --- |
-| [docs/plangate.md](./plangate.md) | 運用手順、フェーズ、ゲート、検証ステップ |
-| [docs/plangate-v7-hybrid.md](./plangate-v7-hybrid.md) | Governance × Modularity の v7 構造 |
-| [docs/workflows/README.md](./workflows/README.md) | WF-01〜WF-05 の Workflow 定義 |
-| [docs/ai/tool-roles.md](./ai/tool-roles.md) | Claude Code と Codex CLI の役割分担 |
+| [docs/plangate.md](../../../plangate.md) | 運用手順、フェーズ、ゲート、検証ステップ |
+| [docs/plangate-v7-hybrid.md](../../../plangate-v7-hybrid.md) | Governance × Modularity の v7 構造 |
+| [docs/workflows/README.md](../../../workflows/README.md) | WF-01〜WF-05 の Workflow 定義 |
+| [docs/ai/tool-roles.md](../../../ai/tool-roles.md) | Claude Code と Codex CLI の役割分担 |

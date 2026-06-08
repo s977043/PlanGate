@@ -6,7 +6,7 @@
 現行の全体像・設計は以下を参照してください。
 
 - [PlanGate ガイド](../plangate.md) — 現行の全体像・5 フェーズ
-- [思想と問題設定](../philosophy.md) — 設計思想
+- [思想と問題設定](../pages/explanation/product/philosophy.md) — 設計思想
 - [Harness Improvement Roadmap](../ai/harness-improvement-roadmap.md) — 改善ロードマップ
 
 ## 収録文書

@@ -539,8 +539,8 @@ docs: v7.5 — Deferred Decisions 判断記録・Discussions 設定確認・導�
 
 ### Added
 
-- `docs/oss-governance.md` — Deferred Decisions 判断結果を記録（Required approvals / Scorecard required check / GitHub Actions allowlist）
-- `docs/oss-governance.md` — GitHub Discussions 設定確認セクション追加（6カテゴリ・利用方針）
+- `docs/pages/guides/governance/oss-governance.md` — Deferred Decisions 判断結果を記録（Required approvals / Scorecard required check / GitHub Actions allowlist）
+- `docs/pages/guides/governance/oss-governance.md` — GitHub Discussions 設定確認セクション追加（6カテゴリ・利用方針）
 - `.github/ISSUE_TEMPLATE/config.yml` — Q&A / Ideas カテゴリへの Discussions リンクを追加
 
 ## v7.4.0 - 2026-04-26
@@ -562,7 +562,7 @@ docs: v7.3 governance — CI/Scorecard badges + docs/working/ public policy (#84
 ### Added
 
 - `README.md` — CI / OpenSSF Scorecard バッジを追加
-- `docs/oss-governance.md` — docs/working/ 公開方針・AGENT_LEARNINGS.md 位置づけを明示
+- `docs/pages/guides/governance/oss-governance.md` — docs/working/ 公開方針・AGENT_LEARNINGS.md 位置づけを明示
 
 ## v7.3.2 - 2026-04-26
 
@@ -644,7 +644,7 @@ Epic [#53](https://github.com/s977043/plangate/issues/53)「PlanGate を AI コ�
 README 刷新、GitHub Pages 公開、Claude Code / Codex CLI 共用スキルの整備を行ったリリース。
 
 - README をハーネスエンジニアリング上の位置づけを軸に再構成
-- `docs/philosophy.md` を追加し、思想・問題設定・PlanGate の設計解釈を分離
+- `docs/pages/explanation/product/philosophy.md` を追加し、思想・問題設定・PlanGate の設計解釈を分離
 - GitHub Pages 用の `docs/index.md` と `docs/_config.yml` を整備
 - MIT `LICENSE` を追加
 - `.agents/skills/` に Codex CLI / Claude Code 共用スキルを追加
