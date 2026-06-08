@@ -25,7 +25,7 @@ New to PlanGate? Read these 3 pages in order:
 2. **[Staged Adoption Guide (Phase 0 = canonical first run)](docs/staged-adoption-guide.md#phase-0-体験day-1)** — Start at Level 1 (Day 1). **30-min first run canonical source** (~10 min)
 3. **[10-min hands-on (this README, later section)](#10-minute-hands-on-tutorial)** — Minimal hands-on **short version**, pointer to #2 (~10 min)
 
-To decide "is PlanGate right for our team", see [Philosophy (Japanese)](docs/philosophy.md) and [When NOT to use](docs/pages/explanation/product/when-not-to-use.md). For abbreviations (EH-X / WF-XX / V-X / C-X), see [Glossary](docs/pages/reference/glossary.md).
+To decide "is PlanGate right for our team", see [Philosophy (Japanese)](./docs/pages/explanation/product/philosophy.md) and [When NOT to use](docs/pages/explanation/product/when-not-to-use.md). For abbreviations (EH-X / WF-XX / V-X / C-X), see [Glossary](docs/pages/reference/glossary.md).
 
 ## What PlanGate Distributes
 
@@ -41,7 +41,7 @@ PlanGate distributes **"a safe pattern for AI-driven development"** — not a fr
 
 > **Design center**: Not the Steering Loop (observation), but **evaluation → learning → governance**.
 > The Steering Loop here means "the observation loop that records every control point into events.ndjson so the run can be replayed later." It is the *foundation* of self-evolution, not its center.
-> See [docs/philosophy.md (Japanese)](docs/philosophy.md#自己進化フレームの設計判断) and [`docs/working/discussions/`](docs/working/discussions/) for the 5-round Claude × Codex × Gemini strategy discussions.
+> See [docs/philosophy.md (Japanese)](./docs/pages/explanation/product/philosophy.md#自己進化フレームの設計判断) and [`docs/working/discussions/`](docs/working/discussions/) for the 5-round Claude × Codex × Gemini strategy discussions.
 
 ## Staged Adoption Levels
 
@@ -416,7 +416,7 @@ To contribute support for a new provider, see [CONTRIBUTING.md](CONTRIBUTING.md#
 
 | Document | Description |
 | --- | --- |
-| [docs/philosophy.md](docs/philosophy.md) | Philosophy, problem framing, harness engineering positioning |
+| [docs/pages/explanation/product/philosophy.md](./docs/pages/explanation/product/philosophy.md) | Philosophy, problem framing, harness engineering positioning |
 | [docs/index.md](docs/index.md) | GitHub Pages documentation entry point |
 | [docs/plangate.md](docs/plangate.md) | PlanGate guide, operating procedures, phase descriptions |
 | [docs/plangate-v7-hybrid.md](docs/plangate-v7-hybrid.md) | v7 hybrid architecture |
@@ -434,7 +434,7 @@ To contribute support for a new provider, see [CONTRIBUTING.md](CONTRIBUTING.md#
 | [docs/cursor/quickstart.md](docs/cursor/quickstart.md) | Cursor setup (Level 1–3) |
 | [docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md) | Cursor Provider RFC |
 | [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Using and migrating to Claude Code plugin |
-| [docs/oss-governance.md](docs/oss-governance.md) | OSS publication settings and operational decisions |
+| [docs/pages/guides/governance/oss-governance.md](./docs/pages/guides/governance/oss-governance.md) | OSS publication settings and operational decisions |
 | [CHANGELOG.md](CHANGELOG.md) | Major release history |
 | [docs/working/discussions/](docs/working/discussions/) | Claude × Codex × Gemini strategy discussion logs (5 rounds, rationale for v8.7.0 main axis) |
 

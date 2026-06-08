@@ -2,7 +2,7 @@
 
 > **Status**: v1.2（Phase 0〜6 + Governance + Lightweight Plan Quality Checks すべて Done — EPIC #193 は CLOSED/COMPLETED 2026-05-17。本表は完了状態に同期済）
 > **Progress**: Phase 0〜6 ✅ / Governance (#201, #202) ✅ / Lightweight Plan Quality Checks (#213) ✅ / 全子 PBI 12/12 CLOSED（EPIC #193 CLOSED）
-> 関連: [`philosophy.md`](../philosophy.md) / [`eval-plan.md`](./eval-plan.md) / [`eval-runner.md`](./eval-runner.md) / [`metrics.md`](./metrics.md) / [`metrics-privacy.md`](./metrics-privacy.md) / [`issue-governance.md`](./issue-governance.md) / [`eval-baselines/2026-05-04-baseline.md`](./eval-baselines/2026-05-04-baseline.md) / [`model-profiles.md`](./model-profiles.md) / [`prompt-assembly.md`](./prompt-assembly.md) / [`tool-policy.md`](./tool-policy.md) / [`hook-enforcement.md`](./hook-enforcement.md)
+> 関連: [`philosophy.md`](../pages/explanation/product/philosophy.md) / [`eval-plan.md`](./eval-plan.md) / [`eval-runner.md`](./eval-runner.md) / [`metrics.md`](./metrics.md) / [`metrics-privacy.md`](./metrics-privacy.md) / [`issue-governance.md`](./issue-governance.md) / [`eval-baselines/2026-05-04-baseline.md`](./eval-baselines/2026-05-04-baseline.md) / [`model-profiles.md`](./model-profiles.md) / [`prompt-assembly.md`](./prompt-assembly.md) / [`tool-policy.md`](./tool-policy.md) / [`hook-enforcement.md`](./hook-enforcement.md)
 
 ## 1. 目的
 
