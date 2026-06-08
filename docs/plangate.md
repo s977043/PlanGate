@@ -244,6 +244,11 @@ workflow-conductor(司令塔エージェント)がtodo.mdにしたがってタ�
 7. **PR作成** -- GitHubにPull Requestを自動作成
 8. **C-4(人間レビュー)** -- GitHub上でPRをレビュー。APPROVE → マージ → Done / REQUEST CHANGES → execから再実行 / REJECT → planからやり直し(稀)
 
+> **カスタム静的解析には false-positive canary を必須化する**: プロジェクト独自の静的解析(例: デザイントークンの生値検出 `design:drift`)を L-0 に組み込んだら、**既知の誤検出パターンを集めた canary テストの追加を必須**とします。canary がないと、誤検出を一度修正しても再発したことに気づけません。
+>
+> - **実例**: `design:drift` が issue 参照表記 `#373` を HEX カラーと誤検出 → lookbehind で修正し、さらに `#388` / JSDoc `* #406` 等の既知誤検出を集めた canary テストを追加して恒久回帰防止とした。
+> - **AI レビューと静的解析の責務分界**: canary が機械的に守る領域(構文的・パターン的に判定できる誤検出)は AI レビューで重複指摘しない。AI レビューは意味的整合性(設計・スコープ・受入基準の妥当性)に集中する。静的解析は「決定論的に守れるものを 100% 守る」、AI レビューは「決定論で守れない判断」を担う、という多層防御の役割分担を保つ。
+
 > モードに応じてフェーズをスキップします。判定基準の正本: `.claude/rules/mode-classification.md`
 > - **ultra-light**: plan/C-1〜C-3スキップ、直接実装 → L-0 → 簡易V-1 → PR → C-4
 > - **light**: 簡易plan → 簡易C-1 → TDD → L-0 → V-1 → PR → C-4
