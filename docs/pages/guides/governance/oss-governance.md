@@ -53,7 +53,7 @@ GitHub Pages は `docs/index.md` を公開入口にする。
 
 公開サイトの主要導線に含める:
 
-- `docs/philosophy.md`
+- `docs/pages/explanation/product/philosophy.md`
 - `docs/plangate.md`
 - `docs/plangate-v7-hybrid.md`
 - `docs/workflows/README.md`
@@ -135,7 +135,7 @@ GitHub Discussions は有効化済みであることを確認した（2026-04-27
 ## バージョニング / 互換性
 
 リリースの互換性判定・安定性レベル・CHANGELOG 影響度タグの正本は
-[`docs/ai/versioning-stability-policy.md`](ai/versioning-stability-policy.md)。
+[`docs/ai/versioning-stability-policy.md`](../../../ai/versioning-stability-policy.md)。
 導入側が「このバージョンに上げて安全か」を CHANGELOG だけで判断できる
 ことを目的とし、Schema / Hook / Workflow / CLI 別の Breaking Change 定義と
 コンポーネント別 Stable / Beta / Experimental 宣言を提供する。

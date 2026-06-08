@@ -25,7 +25,7 @@ PlanGate を初めて知った方は、以下の順に **15-30 分** で読む�
 2. **[段階的導入ガイド (Phase 0 = 正本)](docs/staged-adoption-guide.md#phase-0-体験day-1)** — Level 1 (Day 1) から始める **30 分初回体験の正本**（約 10 分）
 3. **[10 分チュートリアル（本 README 後半）](#10-分チュートリアル)** — 実際に手を動かす **短縮版**（約 10 分、正本 #2 への導線）
 
-「自分のチームに合うか」を判断したい方は [思想と問題設定](docs/philosophy.md) と [When NOT to use](docs/pages/explanation/product/when-not-to-use.md) を参照。略号 (EH-X / WF-XX / V-X / C-X) は [用語クイックリファレンス](docs/pages/reference/glossary.md) を参照。
+「自分のチームに合うか」を判断したい方は [思想と問題設定](./docs/pages/explanation/product/philosophy.md) と [When NOT to use](docs/pages/explanation/product/when-not-to-use.md) を参照。略号 (EH-X / WF-XX / V-X / C-X) は [用語クイックリファレンス](docs/pages/reference/glossary.md) を参照。
 
 ## PlanGate の本質的価値
 
@@ -41,7 +41,7 @@ PlanGate が配布するのは **「AI 開発の安全な型」** です。AI �
 
 > **設計の中心**: 観測 (Steering Loop) ではなく **評価 → 学習 → ガバナンス**。
 > ここでいう Steering Loop とは「events.ndjson に全制御点を残し、後から replay 可能にする観測ループ」のこと。これは自己進化の「基盤」であって「中心」ではありません。
-> 詳細: [docs/philosophy.md §「自己進化フレームの設計判断」](docs/philosophy.md#自己進化フレームの設計判断) / [`docs/working/discussions/`](docs/working/discussions/)（Claude × Codex × Gemini の 5 ディスカッションログ）
+> 詳細: [docs/philosophy.md §「自己進化フレームの設計判断」](./docs/pages/explanation/product/philosophy.md#自己進化フレームの設計判断) / [`docs/working/discussions/`](docs/working/discussions/)（Claude × Codex × Gemini の 5 ディスカッションログ）
 
 ## 段階的導入レベル
 
@@ -455,7 +455,7 @@ PlanGate のガバナンスワークフローはプロバイダに依存しな�
 
 | ドキュメント | 内容 |
 | --- | --- |
-| [docs/philosophy.md](docs/philosophy.md) | 思想、問題設定、ハーネスエンジニアリング上の位置づけ |
+| [docs/pages/explanation/product/philosophy.md](./docs/pages/explanation/product/philosophy.md) | 思想、問題設定、ハーネスエンジニアリング上の位置づけ |
 | [docs/index.md](docs/index.md) | GitHub Pages 用の公開ドキュメント入口 |
 | [docs/plangate.md](docs/plangate.md) | PlanGate ガイド、運用手順、フェーズ説明 |
 | [docs/plangate-v7-hybrid.md](docs/plangate-v7-hybrid.md) | v7 ハイブリッドアーキテクチャ |
@@ -473,7 +473,7 @@ PlanGate のガバナンスワークフローはプロバイダに依存しな�
 | [docs/cursor/quickstart.md](docs/cursor/quickstart.md) | Cursor 向け導入（Level 1–3） |
 | [docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md) | Cursor Provider RFC |
 | [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Claude Code plugin としての利用・移行 |
-| [docs/oss-governance.md](docs/oss-governance.md) | OSS 公開設定・運用判断 |
+| [docs/pages/guides/governance/oss-governance.md](./docs/pages/guides/governance/oss-governance.md) | OSS 公開設定・運用判断 |
 | [docs/pages/reference/glossary.md](docs/pages/reference/glossary.md) | **用語クイックリファレンス** — EH-X / WF-XX / V-X / C-X / mode 5 段階等の略号 (#310) |
 | [docs/pages/explanation/product/when-not-to-use.md](docs/pages/explanation/product/when-not-to-use.md) | **When NOT to use / Trade-offs** — PlanGate を採用しない方が良いケース (#310) |
 | [docs/release-process.md](docs/release-process.md) | リリースプロセス（Tag-Main Parity Iron Law / `scripts/check-tag-main-parity.sh` 必須手順） |

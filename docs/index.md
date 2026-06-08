@@ -14,7 +14,7 @@ PlanGate を初めて知った方は、まず **[Why PlanGate][why-plangate]**�
 2. **[段階的導入ガイド (Phase 0 = 正本)](./staged-adoption-guide.md#phase-0-体験day-1)** — Level 1 (Day 1) から始める **30 分初回体験の正本**（約 10 分）
 3. **[10 分チュートリアル（GitHub README）](https://github.com/s977043/PlanGate#10-分チュートリアル)** — 実際に手を動かす **短縮版**（約 10 分、正本 #2 への導線）
 
-「自分のチームに合うか」を判断したい方は [思想と問題設定](./philosophy.md) と [When NOT to use](./pages/explanation/product/when-not-to-use.md) を参照。略号 (EH-X / WF-XX / V-X / C-X) は [用語クイックリファレンス](./pages/reference/glossary.md) を参照。
+「自分のチームに合うか」を判断したい方は [思想と問題設定](./pages/explanation/product/philosophy.md) と [When NOT to use](./pages/explanation/product/when-not-to-use.md) を参照。略号 (EH-X / WF-XX / V-X / C-X) は [用語クイックリファレンス](./pages/reference/glossary.md) を参照。
 
 ## Requirements
 
@@ -37,7 +37,7 @@ OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推�
 | [**Why PlanGate（最初に読む）**][why-plangate] | 導入検討者向け。3 分で「自分に必要か」判断、5 分で導入開始 |
 | [Product Overview][product-overview] | PlanGate の概要、対象ユーザー、価値、仕組み |
 | [PM / PO Elevator Pitch][pm-po-pitch] | PM / PO に PlanGate を説明するための短いピッチ、タグライン、定期見直し観点 |
-| [思想と問題設定](./philosophy.md) | PlanGate が向き合う課題、ハーネスエンジニアリングとの関係 |
+| [思想と問題設定](./pages/explanation/product/philosophy.md) | PlanGate が向き合う課題、ハーネスエンジニアリングとの関係 |
 | [PlanGate ガイド](./plangate.md) | 全体像、フェーズ、運用手順 |
 | [高品質な実行計画ができるまで](./pages/explanation/product/plan-creation-process.md) | PBI INPUT から C-3 承認まで、計画を生むプロセスの解説 |
 | [v7 ハイブリッドアーキテクチャ](./plangate-v7-hybrid.md) | Governance × Modularity、Workflow / Skill / Agent 3 層 |
@@ -45,7 +45,7 @@ OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推�
 | [Workflow 定義](./workflows/README.md) | WF-01〜WF-05 + Orchestrator Decomposition / Integration |
 | [Harness Improvement Roadmap](./ai/harness-improvement-roadmap.md) | モデル差分・実利用データ・評価結果を使って PlanGate ハーネスを継続改善するロードマップ |
 | [plugin 移行ガイド](./plangate-plugin-migration.md) | Claude Code / Codex plugin として使う場合の導入・移行・インストール（Marketplace 対応） |
-| [OSS Governance](./oss-governance.md) | OSS 公開設定・運用判断 |
+| [OSS Governance](./pages/guides/governance/oss-governance.md) | OSS 公開設定・運用判断 |
 | [Changelog](./changelog.md) | リリース履歴（リリース時に自動同期: scripts/sync-release-docs.sh） |
 
 ## PlanGate の位置づけ
