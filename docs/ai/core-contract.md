@@ -25,6 +25,16 @@
 - **検証証拠 (evidence)** に基づいて完了を判定する
 - **承認 (gate)** が下りるまで止まる
 
+## 1-bis. ワークフロー責務範囲（リリース/公開は責務外 / #487）
+
+PlanGate ワークフローの責務は **PBI INPUT から「PR 作成」と「C-4 承認（マージ → Done）」まで** である。具体的には classify → plan(C-3) → exec → L-0〜V-4 → **PR 作成** → **C-4 承認（マージ）**。
+
+**責務外**: C-4 マージ後の develop→main 本番リリース、`git tag` push、GitHub Release 発行、デプロイ完了確認・smoke テスト・本番公開確認。これらは下流プロジェクト固有の運用または別レイヤー（CI/CD・リリース運用）の責務であり、PlanGate ワークフローのゲートには組み込まない。
+
+> この境界により、PlanGate は「計画品質を承認境界で守り、PR を承認可能な状態まで運ぶ」ことに責務を集中する。リリース/公開の orchestration（例: issue #487 提案1「Phase R リリースゲート」）は **PlanGate ワークフロー責務外**とし、追加しない。
+>
+> 関連（直交する別軸）: tag/Release の **publish 操作を誰が実行するか**は [`responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)「対外公開アーティファクト publish 責務分界」が規定する（操作主体の話）。本セクションは **ワークフローの管轄範囲**を定める（どこまでがゲート対象か）。両者は直交し、本セクションが管轄＝C-4 まで、publish 分界が操作主体＝Human-owned（or 計画明示承認 AI）。
+
 ## 2. Goal
 
 ユーザーが定義した **PBI（Product Backlog Item）の受入基準** を、scope を逸脱せず・検証証拠を伴って・偽りなく満たすこと。
