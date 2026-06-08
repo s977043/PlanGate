@@ -54,7 +54,39 @@ WF-06 は発火しない＝既存 run 挙動は完全に不変（純追加・後
 > 運用助言（Gemini minor・V2 候補）: seeds 肥大時は #200 側で archive/rotate。
 > skip 時に理由 1 行を任意で残すと #200 統計精度が上がる（要件外・任意）。
 
-## 5. 関連
+## 5. 単発セッション捕捉の改善仕様（#505 ギャップ4 / Specification）
+
+> Status: Specification（設計判断 #228 に関わるため実装は段階 PBI / plan → C-3）。
+> 出自: PR #501-504 セッションの振り返り。
+
+### 課題
+
+opt-in 既定 OFF + `retro_enabled` の正本 source が「C-3 承認済み pbi-input」のみで
+あるため、**pbi-input を持たない単発セッション**（緊急 hotfix・1 人運用の日中改修・
+本セッションのような issue 駆動の連続 PR）では WF-06 が発動せず、プロセス教訓が
+improvement-seeds に蓄積されない。
+
+### 改善提案（実装は段階 PBI）
+
+| 提案 | 内容 | 影響パス | 区分 |
+|------|------|---------|------|
+| A. mode 連動 opt-in | standard 以上モードで `retro_enabled` 既定 true（light / ultra-light は false 維持） | `mode-classification.md` | HO（apply） |
+| B. スキーマ拡張 | improvement-seeds 5 項目に **任意項目「プロセス教訓」**（git 操作・HO 対応・自己検出など）を追加 | 本書 §2 | 非HO |
+| C. 単発セッション手動 retro | pbi-input 無しでも人間が明示 confirm すれば retro を許可（承認境界 = 人間 confirm は維持） | 本書 §1 | 非HO |
+
+### 不変条件（緩和しないもの）
+
+- **人間 confirm でのみ improvement-seeds に追記**（A/B/C いずれも撤廃しない）
+- **スコアリングは含めない**（#231 judge の責務）
+- opt-in 緩和は「発動しやすさ」の調整であり、**承認境界（人間判断点固定）は不変**
+
+### 提案 B のスキーマ（追記イメージ・任意項目）
+
+```text
+- プロセス教訓（任意）: <git 操作 / HO 対応 / 誤検出と自己修正など、次回の予防に値する手順上の学び>
+```
+
+## 6. 関連
 
 - workflow: [`docs/workflows/06_retro.md`](../workflows/06_retro.md)
 - 起源 issue: #235（関連 #228 / #200 / #231）
