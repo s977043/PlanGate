@@ -474,8 +474,8 @@ PlanGate のガバナンスワークフローはプロバイダに依存しな�
 | [docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md) | Cursor Provider RFC |
 | [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Claude Code plugin としての利用・移行 |
 | [docs/oss-governance.md](docs/oss-governance.md) | OSS 公開設定・運用判断 |
-| [docs/glossary.md](docs/pages/reference/glossary.md) | **用語クイックリファレンス** — EH-X / WF-XX / V-X / C-X / mode 5 段階等の略号 (#310) |
-| [docs/when-not-to-use.md](docs/pages/explanation/product/when-not-to-use.md) | **When NOT to use / Trade-offs** — PlanGate を採用しない方が良いケース (#310) |
+| [docs/pages/reference/glossary.md](docs/pages/reference/glossary.md) | **用語クイックリファレンス** — EH-X / WF-XX / V-X / C-X / mode 5 段階等の略号 (#310) |
+| [docs/pages/explanation/product/when-not-to-use.md](docs/pages/explanation/product/when-not-to-use.md) | **When NOT to use / Trade-offs** — PlanGate を採用しない方が良いケース (#310) |
 | [docs/release-process.md](docs/release-process.md) | リリースプロセス（Tag-Main Parity Iron Law / `scripts/check-tag-main-parity.sh` 必須手順） |
 | [CHANGELOG.md](CHANGELOG.md) | 主要リリース履歴 |
 | [docs/working/discussions/](docs/working/discussions/) | Claude × Codex × Gemini の戦略ディスカッションログ（5 ラウンド、v8.7.0 主軸の根拠） |
