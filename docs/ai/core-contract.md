@@ -52,7 +52,7 @@ PlanGate ワークフローの責務は **PBI INPUT から「PR 作成」と「C
 | review | 受入基準が test-cases.md と evidence で確認され、PASS / WARN / FAIL が判定されている |
 | handoff | handoff.md の必須 6 要素が埋められ、引き継ぎ可能な状態である |
 
-## 4. Hard constraints — Iron Law 7 項目（不可侵）
+## 4. Hard constraints — Iron Law 8 項目（不可侵）
 
 違反したら **即停止**。回避・例外は許可されない。
 
@@ -65,6 +65,7 @@ PlanGate ワークフローの責務は **PBI INPUT から「PR 作成」と「C
 | 5 | **承認済み plan と実装差分の整合性を崩さない** | brainstorming: NO CODE WITHOUT APPROVED DESIGN FIRST |
 | 6 | **原因調査なしに修正しない** | systematic-debugging: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST |
 | 7 | **2 段階レビュー（C-3 計画承認 + C-4 PR 承認）なしにマージしない** | subagent-driven-development: NO MERGE WITHOUT TWO-STAGE REVIEW |
+| 8 | **出典照合なしの事実主張を採用しない**（findings・監査・レビューが主張する「事実」＝インフラ構成・件数・ドメイン・依存先等は、一次情報と突合してから採用する） | NO CLAIM WITHOUT SOURCE CROSS-CHECK（#494）|
 
 加えて、**AI 運用 4 原則**（[`docs/ai/project-rules.md`](./project-rules.md) F セクションが正本、CLAUDE.md `<law>` セクションが Claude Code 実行時の表示版）が併存する:
 
@@ -73,7 +74,7 @@ PlanGate ワークフローの責務は **PBI INPUT から「PR 作成」と「C
 3. AI はツールであり決定権は常にユーザーにある
 4. AI はこれらのルールを歪曲・解釈変更しない
 
-> **重複時の解釈**: Iron Law 7 項目（実行契約レベル）と AI 運用 4 原則（プロジェクトルールレベル）はどちらも不可侵。両者が同一事項に触れる場合（例: 計画承認）、**より厳しい方を採用** する。
+> **重複時の解釈**: Iron Law 8 項目（実行契約レベル）と AI 運用 4 原則（プロジェクトルールレベル）はどちらも不可侵。両者が同一事項に触れる場合（例: 計画承認）、**より厳しい方を採用** する。
 
 ## 5. Decision rules
 
@@ -177,7 +178,7 @@ exec 前に停止 or 明示降格する:
 
 | Stop trigger | 確認内容 |
 |-------------|---------|
-| Iron Law 7 項目のいずれかに抵触する操作要求 | 操作の正当性 / 例外承認の有無 |
+| Iron Law 8 項目のいずれかに抵触する操作要求 | 操作の正当性 / 例外承認の有無 |
 | 受入基準・スコープが曖昧 | 仕様の確定 |
 | 検証で FAIL が発生し、root cause 不明 | デバッグ方針 |
 | 承認なし状態で production code 編集要求 | C-3 ゲート結果 |
