@@ -168,6 +168,19 @@ if anchor in s:
 sys.stdout.write(s)
 PY463C
 
+printf '=== Phase3: ci.yml の markdownlint glob を docs/pages/ 新パスへ更新（#488）===\n'
+printf '    前提: PR #488 マージ後に実行（philosophy/oss-governance が docs/pages/ へ移動済みであること）\n'
+edit_file .github/workflows/ci.yml <<'PYCI'
+import sys
+p = sys.argv[1]; s = open(p, encoding='utf-8').read()
+for old, new in [
+    ('            docs/philosophy.md\n', '            docs/pages/explanation/product/philosophy.md\n'),
+    ('            docs/oss-governance.md\n', '            docs/pages/guides/governance/oss-governance.md\n'),
+]:
+    s = s.replace(old, new)
+sys.stdout.write(s)
+PYCI
+
 printf '\n'
 if [ "$DRY" = "1" ]; then
   printf '=== --dry-run 完了。書き込みは行っていません。 ===\n'
