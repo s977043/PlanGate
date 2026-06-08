@@ -73,7 +73,7 @@ graph TD
 
 ### 各フェーズの役割
 
-> ABCD ↔ WF-XX 対応の正本: [`docs/glossary.md` Workflow フェーズ](pages/reference/glossary.md#workflow-フェーズ-wf-xx--abcd--wf-対応表-正本) (TASK-0108 / #310 #7)。下表は WF-XX 列で **併記**。
+> ABCD ↔ WF-XX 対応の正本: [`docs/pages/reference/glossary.md` Workflow フェーズ](./pages/reference/glossary.md#workflow-フェーズ-wf-xx--abcd--wf-対応表-正本) (TASK-0108 / #310 #7)。下表は WF-XX 列で **併記**。
 
 | フェーズ | 対応 WF | 誰が | 何をする | 成果物 |
 | --- | --- | --- | --- | --- |
