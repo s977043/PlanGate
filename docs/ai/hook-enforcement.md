@@ -13,7 +13,7 @@
 
 ## 1. 目的
 
-PlanGate の **Iron Law 7 項目相当の不変条件** を、プロンプトに頼らず **runtime で決定論的にブロック** する。プロンプト薄型化（PBI-116-01 で達成）と両立して、強制力を維持する。
+PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状 #1〜#7 相当）を、プロンプトに頼らず **runtime で決定論的にブロック** する。プロンプト薄型化（PBI-116-01 で達成）と両立して、強制力を維持する。なお Iron Law #8（出典照合）は決定論的 hook 化が困難なため、プロンプト + self-review（ソフト面）で担保し runtime hook の対象外とする。
 
 ## 2. 強制すべき不変条件（一覧）
 
@@ -172,5 +172,5 @@ docs/working/TASK-XXXX/plan.md を作成してください。
 - 責務境界: [`responsibility-boundary.md`](./responsibility-boundary.md)
 - Tool Policy: [`tool-policy.md`](./tool-policy.md)
 - Model Profile: [`model-profiles.md`](./model-profiles.md)
-- Iron Law 7 項目: [`core-contract.md`](./core-contract.md) § 4
+- Iron Law 8 項目: [`core-contract.md`](./core-contract.md) § 4
 - Phase 1 成果: [`core-contract.md`](./core-contract.md)

@@ -16,7 +16,7 @@
 
 以下は **すべてのプロファイルで共通**。Model Profile では変更しない:
 
-- **Core Contract**（[`core-contract.md`](./core-contract.md) Hard constraints / Iron Law 7 項目 / Stop rules / Output discipline）
+- **Core Contract**（[`core-contract.md`](./core-contract.md) Hard constraints / Iron Law 8 項目 / Stop rules / Output discipline）
 - **Gate 条件**（C-3 / C-4 / Parent C-3 / Parent Integration）
 - **Artifact schema**（plan / handoff / status / approvals 等）
 - **AI 運用 4 原則**（[`project-rules.md`](./project-rules.md) F セクション）
