@@ -28,7 +28,7 @@ PlanGate ワークフローにおいて、**モデルに判断させるべきも
 
 ### Hook（runtime 強制）に置くもの
 
-- **不変条件** — Iron Law 7 項目相当（Core Contract Hard constraints）
+- **不変条件** — Iron Law 8 項目相当（Core Contract Hard constraints）
 - **承認境界** — C-3 / C-4 ゲート遵守
 - **scope 境界** — `allowed_files` / `forbidden_files` 違反検出
 - **整合性** — `plan_hash` 改竄検知、`approvals/c3.json` の必須キー
