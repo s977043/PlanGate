@@ -3,7 +3,7 @@
 > PlanGate のバージョニングと互換性の **正本**。導入側が「このバージョンに
 > 上げて安全か」を CHANGELOG だけで判断できることを目的とする。
 > 関連: [#225](https://github.com/s977043/plangate/issues/225) / TASK-0087 /
-> [`oss-governance.md`](../oss-governance.md) / [`CHANGELOG.md`](../../CHANGELOG.md)
+> [`oss-governance.md`](../pages/guides/governance/oss-governance.md) / [`CHANGELOG.md`](../../CHANGELOG.md)
 
 ## 1. 目的と背景
 
@@ -162,7 +162,7 @@ CHANGELOG.md の各エントリ先頭に、導入側影響度を表すタグを�
 
 ## 8. 関連
 
-- [`oss-governance.md`](../oss-governance.md) — OSS 運用ガバナンス全体
+- [`oss-governance.md`](../pages/guides/governance/oss-governance.md) — OSS 運用ガバナンス全体
 - [`CHANGELOG.md`](../../CHANGELOG.md) — リリース履歴（本ポリシーのタグ適用先）
 - [`issue-governance.md`](./issue-governance.md) — Issue / Label / Milestone
 - [`.claude/rules/mode-classification.md`](../../.claude/rules/mode-classification.md) — 5 mode / lite_eligible
