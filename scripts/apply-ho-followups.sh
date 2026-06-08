@@ -171,13 +171,21 @@ PY463C
 printf '=== Phase3: ci.yml の markdownlint glob を docs/pages/ 新パスへ更新（#488）===\n'
 printf '    前提: PR #488 マージ後に実行（philosophy/oss-governance が docs/pages/ へ移動済みであること）\n'
 edit_file .github/workflows/ci.yml <<'PYCI'
-import sys
+import sys, re
 p = sys.argv[1]; s = open(p, encoding='utf-8').read()
-for old, new in [
-    ('            docs/philosophy.md\n', '            docs/pages/explanation/product/philosophy.md\n'),
-    ('            docs/oss-governance.md\n', '            docs/pages/guides/governance/oss-governance.md\n'),
+# インデント幅・改行コードに依存しない行単位置換。glob 行が見つからない場合は
+# 黙ってスキップせず WARN を出す（ci.yml フォーマット変更時の適用漏れを検出）。
+for oldp, newp in [
+    ('docs/philosophy.md', 'docs/pages/explanation/product/philosophy.md'),
+    ('docs/oss-governance.md', 'docs/pages/guides/governance/oss-governance.md'),
 ]:
-    s = s.replace(old, new)
+    if newp in s:
+        continue  # 既適用（冪等）
+    pat = re.compile(r'^([ \t]*)' + re.escape(oldp) + r'[ \t]*$', re.M)
+    if not pat.search(s):
+        sys.stderr.write('WARN: %s の glob 行が見つかりません（既適用 or ci.yml フォーマット変更）\n' % oldp)
+        continue
+    s = pat.sub(lambda m: m.group(1) + newp, s)
 sys.stdout.write(s)
 PYCI
 
