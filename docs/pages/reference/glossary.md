@@ -46,7 +46,7 @@ PlanGate の PreToolUse hook 群 (`scripts/hooks/check-*.sh` + `.claude/settings
 | **EH-6** | forbidden_files | scope 越境禁止 |
 | **EH-8** | metrics-privacy | events.ndjson の Forbidden field 検出 |
 | **EH-9** | delegation-commit-boundary | 委譲時の commit 境界違反検出 |
-| **EH-10** | self-set-gate-enforcement | AI 自己設置 Gate の Hook 強制（[RFC Draft](rfc/ai-self-set-gate-hook-enforcement.md)）|
+| **EH-10** | self-set-gate-enforcement | AI 自己設置 Gate の Hook 強制（[RFC Draft](../../rfc/ai-self-set-gate-hook-enforcement.md)）|
 
 ## モード分類 (5 段階)
 
@@ -75,6 +75,6 @@ PlanGate の PreToolUse hook 群 (`scripts/hooks/check-*.sh` + `.claude/settings
 
 ## 関連
 
-- 全体像: [PlanGate ガイド](plangate.md)
-- 段階的導入: [Staged Adoption Guide](staged-adoption-guide.md)
-- 設定契約: [settings-wiring-contract.md](ai/settings-wiring-contract.md)
+- 全体像: [PlanGate ガイド](../../plangate.md)
+- 段階的導入: [Staged Adoption Guide](../../staged-adoption-guide.md)
+- 設定契約: [settings-wiring-contract.md](../../ai/settings-wiring-contract.md)

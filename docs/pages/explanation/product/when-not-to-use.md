@@ -53,7 +53,7 @@ PlanGate を採用する場合、以下のコストを受け入れる必要が�
 |-------|------|--------|
 | **PBI 記入コスト** | Why / What / AC / Constraints / Non-goals を毎タスクで明文化 | テンプレ化、`bin/plangate brainstorm` で対話的生成 |
 | **C-3 承認の同期遅延** | 人間が plan を読んで判定するまで exec 待機 | `lite_eligible` で非同期降格 (条件付き)、light mode で簡略化 |
-| **学習負荷** | EH-X / WF-XX / V-X / C-X 略号、mode 分類、責務 4 分類 | [glossary.md](glossary.md) でクイックリファレンス、[Staged Adoption Guide](staged-adoption-guide.md) で段階導入 |
+| **学習負荷** | EH-X / WF-XX / V-X / C-X 略号、mode 分類、責務 4 分類 | [glossary.md](../../reference/glossary.md) でクイックリファレンス、[Staged Adoption Guide](../../../staged-adoption-guide.md) で段階導入 |
 | **handoff 維持コスト** | 全 PBI で 6 要素 handoff.md を発行・保管 | テンプレ自動生成 (`bin/plangate handoff`)、light mode で簡易版 |
 | **hook の摩擦** | EH-1〜EH-9 が誤検知する局面がある | `PLANGATE_BYPASS_HOOK=1` で一時 bypass (監査ログ記録) |
 
@@ -69,6 +69,6 @@ PlanGate を採用する場合、以下のコストを受け入れる必要が�
 
 ## 関連
 
-- [philosophy.md](philosophy.md) — 設計思想と問題設定
-- [staged-adoption-guide.md](staged-adoption-guide.md) — 段階的導入レベル 1〜5
-- [glossary.md](glossary.md) — 用語クイックリファレンス
+- [philosophy.md](../../../philosophy.md) — 設計思想と問題設定
+- [staged-adoption-guide.md](../../../staged-adoption-guide.md) — 段階的導入レベル 1〜5
+- [glossary.md](../../reference/glossary.md) — 用語クイックリファレンス
