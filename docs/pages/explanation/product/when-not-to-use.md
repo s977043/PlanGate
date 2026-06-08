@@ -69,6 +69,6 @@ PlanGate を採用する場合、以下のコストを受け入れる必要が�
 
 ## 関連
 
-- [philosophy.md](../../../philosophy.md) — 設計思想と問題設定
+- [philosophy.md](./philosophy.md) — 設計思想と問題設定
 - [staged-adoption-guide.md](../../../staged-adoption-guide.md) — 段階的導入レベル 1〜5
 - [glossary.md](../../reference/glossary.md) — 用語クイックリファレンス
