@@ -59,6 +59,6 @@ jobs:
             CONTRIBUTING.md
             SECURITY.md
             docs/index.md
-            docs/philosophy.md
-            docs/oss-governance.md
+            docs/pages/explanation/product/philosophy.md
+            docs/pages/guides/governance/oss-governance.md
             docs/workflows/**/*.md
