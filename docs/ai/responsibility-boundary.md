@@ -28,7 +28,7 @@ PlanGate ワークフローにおいて、**モデルに判断させるべきも
 
 ### Hook（runtime 強制）に置くもの
 
-- **不変条件** — Iron Law 8 項目相当（Core Contract Hard constraints）
+- **不変条件** — Iron Law のうち runtime 強制可能な項目（現状 #1〜#7 相当 / Core Contract Hard constraints）
 - **承認境界** — C-3 / C-4 ゲート遵守
 - **scope 境界** — `allowed_files` / `forbidden_files` 違反検出
 - **整合性** — `plan_hash` 改竄検知、`approvals/c3.json` の必須キー
@@ -63,6 +63,7 @@ PlanGate ワークフローにおいて、**モデルに判断させるべきも
 | 検証証拠なし PR 禁止 | Iron Law として明示 | review phase で diff/test のみ | **runtime block**（evidence なし PR）| evidence ディレクトリ存在チェック |
 | plan_hash 改竄禁止 | Iron Law として明示 | — | **runtime block**（hash 不一致検出）| approvals/c3.json の plan_hash と現 plan.md SHA 比較 |
 | 承認なし sub-issue 追加禁止 | Iron Law として明示 | — | **runtime block** | — |
+| findings/監査の事実主張は一次情報と照合（構成・件数・依存先等）| Iron Law #8 として明示 | — | —（決定論的 block 困難）| self-review #8 判定 + 事後の出典突合 |
 
 ## 6. 本 PBI のスコープ境界
 

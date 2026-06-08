@@ -22,7 +22,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | #5 | NO OUT-OF-SCOPE FILE EDITS | `allowed_files` 外 / `forbidden_files` 違反 |
 | #6 | NO FIXES WITHOUT ROOT CAUSE INVESTIGATION | 原因不明のまま symptom を抑える |
 | #7 | NO SILENT GATE BYPASSES | C-3 / C-4 / Parent Integration Gate を黙ってスキップ |
-| #8 | NO CLAIM WITHOUT SOURCE CROSS-CHECK | findings・監査・レビューの事実主張（構成・件数・依存先等）を一次情報と未照合で採用 |
+| #8 | NO CLAIM WITHOUT SOURCE CROSS-CHECK | findings・監査・レビューの事実主張（構成・件数・依存先等）を一次情報と未照合のまま採用 |
 
 ### 8 eval 観点（[`eval-plan.md`](../../../docs/ai/eval-plan.md) / [`eval-cases/`](../../../docs/ai/eval-cases/) 正本）
 
@@ -228,6 +228,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | Iron Law #5 NO OUT-OF-SCOPE FILE EDITS | PASS / FAIL | YES |
 | Iron Law #6 NO FIXES WITHOUT ROOT CAUSE | PASS / FAIL | YES |
 | Iron Law #7 NO SILENT GATE BYPASSES | PASS / FAIL | YES |
+| Iron Law #8 NO CLAIM WITHOUT SOURCE CROSS-CHECK | PASS / FAIL | YES |
 | eval: scope discipline | PASS / WARN / FAIL | YES |
 | eval: approval discipline | PASS / WARN / FAIL | YES |
 | eval: verification honesty | PASS / WARN / FAIL | YES |
