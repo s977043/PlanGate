@@ -22,8 +22,11 @@ PlanGate 責務範囲（[`core-contract.md`](./core-contract.md) §1-bis = PR �
 ```text
 C4AutoApproveAllowed =
   mode == ultra-light
-  AND C3AutonomousApproved          # working-context.md C-3 Autonomous APPROVE 済
-  AND RiskTierIntegrityPassed       # §3 のガードレール検証 PASS
+  AND (C3AutonomousApproved OR C3Skipped)
+                                    # ultra-light は mode-classification で C-3 をスキップ（C3Skipped）。
+                                    # C-3 を通す運用なら autonomous APPROVE 済（C3AutonomousApproved）。
+                                    # スキップの悪用（high-risk 偽装）は §3 Risk Tier Integrity が防ぐ。
+  AND RiskTierIntegrityPassed       # §3 のガードレール検証 PASS（スキップ時の唯一の担保）
   AND CiAllGreen                    # 全 CI チェック success（縮退時は §2 に従う）
   AND NoHardeningOverridePath       # HO 対象パスを 1 つも含まない
   AND NoSchemaOrBreakingOrSecurity  # schema / 破壊的 / セキュリティ変更を含まない
@@ -35,7 +38,9 @@ C4AutoApproveAllowed =
 
 - C-4 自律承認が許可された run では、人間の責務を **「PR 内容のレビュー」→「リスク分類が妥当だったかの事後監査」** にシフトする。
 - 事後監査で**リスク分類 drift**（本来 high-risk を ultra-light と誤分類/偽装）を検知した場合、当該エージェント/セッションの **C-4 自律権限を剥奪**し、以降は人間 C-4 を強制する（Escalation）。
-- 監査記録は `status.md` と `decision-log.jsonl` に append（`c4_auto_approved` / `tier_drift_detected`）。
+- 監査記録は `status.md` と `decision-log.jsonl`（JSON Lines）に append。最小スキーマ:
+  - `{"event": "c4_auto_approved", "task": "<id>", "mode": "ultra-light", "ci": "green|degraded"}`
+  - `{"event": "tier_drift_detected", "task": "<id>", "drift_from": "<declared_tier>", "drift_to": "<effective_tier>"}`
 
 ## 2. 提案2: CI 縮退モード（CI-degraded fallback）
 
