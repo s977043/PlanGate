@@ -19,6 +19,7 @@
 - V2 候補（今回の scope 外と確認された項目）が一覧化されている
 - 妥協点（選ばなかった選択肢と理由）が明文化されている
 - 引き継ぎ文書が handoff パッケージとして統合されている
+- **PR の変更ファイルが想定スコープどおりである**（`gh pr view --json files` または `git diff main --stat` で確認し、他ブランチ・他 PBI の混入がないこと。#505 ギャップ2）
 - **`bin/plangate doctor --check-settings` が PASS している**（TASK-0080
   S1c タスクロック: settings wiring 契約未準拠＝Shadow Configuration の
   状態では V-1/handoff を完了扱いにできない。未適用なら
