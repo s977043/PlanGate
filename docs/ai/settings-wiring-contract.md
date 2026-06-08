@@ -121,8 +121,11 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 
 - `bin/plangate doctor --check-settings` は、コード整合性に加えて **現在のモードで必須
   フックが strict 配線・有効化されているか** を検証する。
-- Governance Contract（モード → 必須 strict フック集合）を定義し、乖離があれば **exit 1
-  で物理ブロック**する。
+- Governance Contract（モード → 必須 strict フック集合）を定義する。
+- **モード別 exit code**: **strict モード**では乖離があれば **exit 1 で物理ブロック**する。
+  一方 **warning モード（example 既定）** では「導入直後の破壊を避ける」方針（上節）と
+  整合させ、未配線・非 strict 配線に対して **warning を出力したうえで exit 0 で通過**させる
+  （block しない）。モードごとの exit code 挙動を doctor 実装時に明示する。
 - これにより「スクリプトは存在するが settings に配線されておらず動かない幽霊ガバナンス」を
   構造的に排除する。
 
@@ -131,6 +134,7 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 - `scripts/check-approval-token-write.sh`（c3.json / maintenance.json 等の承認トークンへの
   AI 書込みガード）を **EH-10** として正規採番し、`PreToolUse(Edit|Write)` に配線する。
 - #420（maintenance.json 発行元検証ギャップ / R-012）と直結。provenance 検証はそちらと協調。
+- **配線方式（重要）**: Claude Code のフック実行環境は env `PLANGATE_HOOK_FILE` を自動 export しないため、`.claude/settings.json` の配線で `${PLANGATE_HOOK_FILE:-}` を **引数として明示的に渡す**（EH-3 と同様）。`check-approval-token-write.sh` は引数 `$1` をターゲットファイルパスの fallback として受け取れるよう実装する（env のみ参照だと Claude Code 環境下でガードがスルーされる）。
 
 ### 検証ロジックの対称化・テスト空白の解消（実装方針）
 
@@ -147,7 +151,7 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 HO 適用は Human）:
 
 1. **EH-2 strict 化 + EH-1/EH-2 stdin fallback**（hooks 堅牢化・最小単位・回帰リスク低）
-2. **EH-10 採番・配線 + check-approval-token-write 統合**（#420 と協調）
+2. **EH-10 採番・配線 + check-approval-token-write 統合**（#420 と協調）。配線時は既存の契約検証スクリプト `scripts/check-settings-wiring.sh` の `checks` リストにも EH-10（`check-approval-token-write.sh`）を追加し、CI / ローカルの契約ドリフト検知（`--target example`）に組み込んで配線漏れを防ぐ
 3. **doctor Wiring Integrity Enforcement**（Governance Contract 定義 + exit 1）
 4. **hooks 回帰テスト拡充**（maintenance verdict fixture + ta-06 ログ解消）
 
