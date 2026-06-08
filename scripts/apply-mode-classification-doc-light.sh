@@ -16,7 +16,14 @@ REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 TARGET="$REPO_ROOT/.claude/rules/mode-classification.md"
 ANCHOR="## フェーズ適用マトリクス"
 DRY_RUN=0
-[ "${1:-}" = "--dry-run" ] && DRY_RUN=1
+if [ $# -gt 0 ]; then
+  if [ "$1" = "--dry-run" ] && [ $# -eq 1 ]; then
+    DRY_RUN=1
+  else
+    echo "ERROR: 不正な引数です。Usage: $0 [--dry-run]" >&2
+    exit 1
+  fi
+fi
 
 [ -f "$TARGET" ] || { echo "ERROR: $TARGET が見つかりません"; exit 1; }
 
