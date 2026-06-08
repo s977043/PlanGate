@@ -33,6 +33,8 @@ PlanGate ワークフローの責務は **PBI INPUT から「PR 作成」と「C
 
 > この境界により、PlanGate は「計画品質を承認境界で守り、PR を承認可能な状態まで運ぶ」ことに責務を集中する。リリース/公開の orchestration（例: issue #487 提案1「Phase R リリースゲート」）は **PlanGate ワークフロー責務外**とし、追加しない。
 >
+> 責務内の自律性/可用性拡張（issue #487 提案2 CI 縮退・提案3 C-4 自律承認）は [`autonomous-degraded-gates-spec.md`](./autonomous-degraded-gates-spec.md) に Specification として正本化（実装強制は別 PBI / HO）。本セクション（管轄 = C-4 まで）の内側に閉じる。
+>
 > 関連（直交する別軸）: tag/Release の **publish 操作を誰が実行するか**は [`responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)「対外公開アーティファクト publish 責務分界」が規定する（操作主体の話）。本セクションは **ワークフローの管轄範囲**を定める（どこまでがゲート対象か）。両者は直交し、本セクションが管轄＝C-4 まで、publish 分界が操作主体＝Human-owned（or 計画明示承認 AI）。
 
 ## 2. Goal
