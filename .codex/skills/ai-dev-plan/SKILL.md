@@ -71,6 +71,24 @@ find . -name <pattern> -not -path './.git/*' -not -path './node_modules/*' | wc 
 - decision-log.jsonl に B-1/B-2/B-3 の主要判断を append-only で記録
 - mode が `critical` で `lite_eligible=true` の場合は人間の C-3 明示承認記録が前提（`mode-classification.md` AC-11）
 
+## 計画の構造化観点（river-review rr-upstream-create-plan-001 由来 / #517 受け入れ）
+
+plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
+
+1. **仮説と確定事項の分離** — 判断に必要な事実が欠けていれば Questions / Unknowns に
+   質問として先出しし、仮説（未確認の前提）と確定事項を混ぜない。情報不足のまま
+   推測で進めない
+2. **リスクの 3 点セット** — Risks には `内容 / 検証手段 / Fallback` を揃える。
+   不確実性（互換性・性能・移行・セキュリティ）ごとに検証方法が無いリスクを残さない
+3. **人間ゲートの明示** — 設計確認・仕様確認など人間レビューが必要なブレーキ
+   ポイントを Work Breakdown の 🚩 チェックポイントとして明示する（自己設置 Gate は
+   勝手に解除しない — responsibility-classes.md 準拠）
+4. **速く学べる順** — ステップは検証が早く回る順に並べ、クリティカルパスを明示。
+   並列可能な作業はまとめて示す
+
+> 出典: river-review `rr-upstream-create-plan-001`（skill インベントリ監査で
+> 「plan を作る側 = PlanGate の責務」と整理され移管。s977043/river-review#1105）
+
 ## CLI 呼び出し
 
 - 実コマンド: `./scripts/ai-dev-workflow TASK-XXXX plan`

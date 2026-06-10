@@ -2,7 +2,7 @@
 name: skill-designer
 description: Codex用 repo-owned skill の設計・SKILL.md作成を担当する。新スキルの要件整理、テンプレートに基づくスキル定義の作成、既存スキルの改善提案に使用。
 tools: Read, Grep, Glob, Bash, Edit, Write
-model: inherit
+model: sonnet
 ---
 
 # Skill Designer
