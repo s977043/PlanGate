@@ -87,7 +87,7 @@ AI が複数 git コマンドを連結実行する際は以下を遵守:
    - **`main` は直接 commit / push 禁止** ([`project-rules.md`](../../docs/ai/project-rules.md) と一致)
    - **他 protected (`master`, `release/*` 等) への commit/push は事前明示確認必須**
 5. **新規ブランチ作成時は base（分岐元）を verify**:
-   - 新規 feature ブランチは **`main` から分岐**する（`git checkout main && git fetch && git checkout -b <new>`）。直前の作業ブランチ上で `git checkout -b` すると、そのブランチの全コミットを巻き込んだ PR になる。
+   - 新規 feature ブランチは **`main` から分岐**する（`git fetch && git checkout -b <new> origin/main` — fetch はローカル main を更新しないため、origin/main を base に明示する）。直前の作業ブランチ上で `git checkout -b` すると、そのブランチの全コミットを巻き込んだ PR になる。
    - 作成直後に `git diff main --stat`（または PR 作成後に `gh pr view <n> --json files`）で **変更ファイルが想定どおりか検証**する。混入時は `main` から作り直して `git push --force-with-lease`。
    - 実害: INC として #502 が #494 ブランチ上で `git checkout -b` され、#494 の 5 ファイルを巻き込んだ（#505 ギャップ1。INC-2026-05-26-001 と同型の git 事故）。
 
