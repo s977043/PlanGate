@@ -34,7 +34,8 @@ case "$_t37_out" in
 esac
 
 # TC-03: keep-rate --no-write — 正常終了 + レポート出力 + ファイル非生成（md/json とも）
-_t37_out="$(sh "$PLANGATE_BIN" keep-rate "$_t37_task" --no-write 2>&1)" && _t37_rc=0 || _t37_rc=$?
+_t37_rc=0
+_t37_out="$(sh "$PLANGATE_BIN" keep-rate "$_t37_task" --no-write 2>&1)" || _t37_rc=$?
 if [ "$_t37_rc" -eq 0 ] \
    && printf '%s' "$_t37_out" | grep -q "Keep Rate v1: $_t37_task" \
    && [ ! -f "$_t37_dir/keep-rate-result.md" ] && [ ! -f "$_t37_dir/keep-rate-result.json" ]; then
@@ -51,7 +52,8 @@ case "$_t37_out" in
 esac
 
 # TC-05: context --no-write — 正常終了 + manifest を stdout のみに出力（md/json とも非生成）
-_t37_out="$(sh "$PLANGATE_BIN" context "$_t37_task" --phase plan --no-write 2>&1)" && _t37_rc=0 || _t37_rc=$?
+_t37_rc=0
+_t37_out="$(sh "$PLANGATE_BIN" context "$_t37_task" --phase plan --no-write 2>&1)" || _t37_rc=$?
 if [ "$_t37_rc" -eq 0 ] \
    && printf '%s' "$_t37_out" | grep -q "Context Manifest: $_t37_task" \
    && [ ! -f "$_t37_dir/context-manifest.md" ] && [ ! -f "$_t37_dir/context-manifest.json" ]; then
@@ -62,7 +64,8 @@ fi
 
 # TC-06: exec — C-3 未承認でゲート拒否 + 非ゼロ終了（承認境界の機械検証。
 # exit 0 で素通りすると CI/CD で検知できないため終了コードまで検証する）
-_t37_out="$(sh "$PLANGATE_BIN" exec "$_t37_task" 2>&1)" && _t37_rc=0 || _t37_rc=$?
+_t37_rc=0
+_t37_out="$(sh "$PLANGATE_BIN" exec "$_t37_task" 2>&1)" || _t37_rc=$?
 if [ "$_t37_rc" -ne 0 ] && printf '%s' "$_t37_out" | grep -q "C-3 gate not cleared"; then
   printf '[PASS] TA-37 TC-06: exec が C-3 未承認をブロックし非ゼロ終了（rc=%s）\n' "$_t37_rc"; pass=$((pass + 1))
 else
