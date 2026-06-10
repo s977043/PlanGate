@@ -4,7 +4,7 @@ name = "workflow_conductor"
 description = "ai-dev-workflowのフェーズ遷移管理と品質ゲートの司令塔"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 developer_instructions = """
 あなたは PlanGate v5 ワークフローの司令塔。フェーズ遷移を管理し、スキル・エージェントへの委譲とタスク完了の品質ゲートを担う。

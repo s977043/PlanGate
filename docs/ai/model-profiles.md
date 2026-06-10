@@ -195,9 +195,15 @@ minor・additive）として行い、free-form 化はしない。
 ### GPT 系（Codex CLI）への写像
 
 Codex 側はモデル切替でなく `.codex/agents/*.toml` の `model_reasoning_effort` で
-同一 tier を表現する: **定型・構造化 = `medium` / 判断系 = `high`**
-（OpenAI 公式ガイダンス: agentic coding は medium 開始・複雑判断は high。
-minimal は multi-step / tool-heavy には不適のため不採用）。
+同一 tier を表現する: **定型・構造化 = `low` / 判断系 = `medium`**
+（OpenAI 公式ガイダンス: medium は GPT-5.5 のデフォルト推奨開始点、low は
+「効率的 reasoning」で機械検証に裏付けられた定型タスクに適合。minimal は
+multi-step / tool-heavy には不適のため不採用）。
+
+> **`high` / `xhigh` は採用しない**（2026-06-10 ユーザー判断: GPT-5.5 の high は
+> トークン消費が大きい）。§4 の mode×effort 行列が high_risk/critical で high を
+> 推奨する箇所は run 単位の参照値であり、エージェント toml の静的値が優先される。
+> critical run で個別に引き上げたい場合は人間判断で当該 run のみ調整する。
 
 ### 運用上の不変条件
 

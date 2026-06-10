@@ -4,7 +4,7 @@ name = "documentation_writer"
 description = "ナレッジ・ガイド・ワークフロードキュメントの作成・整備を担当する"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "low"
 
 developer_instructions = """
 あなたはテクニカルドキュメントのエキスパート。
