@@ -84,7 +84,7 @@ v8.7.0〜v8.10.0 はリリース済みで、外部 OSS 利用者の **「どこ�
 | 最新リリース | **v8.12.0**（Latest, 2026-06-07）— 並列レビューア実行 + Plugin sync 品質ガード + 導入促進（Why PlanGate）・運用ガード整備 |
 | リリース済 | **v8.7.0** OSS 整備 3 主軸 + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1・Dynamic Context Engine v1・Model Profile v2・Gate Event Normalization・Dogfooding Eval v1 / **v8.9.0** Reporting & Retrospective v1 / **v8.10.0** Codex CLI parity・Hook/Guard 拡充・Skill 整備 / **v8.11.0** Claude Code / Codex Plugin 正式配布対応 |
 | Roadmap | **EPIC #193 完遂（CLOSED / COMPLETED）** — Phase 0〜6 + Governance + Lightweight Plan Quality Checks 全 Done、子 PBI 12/12 CLOSED |
-| Hook enforcement | **12/12 hooks 実装済み**（EH-1〜EH-9 + EHS-1〜EHS-3、v8.5.0 で 10/10、v8.6.0 で EH-8、v8.7.0 で EH-9 を追加） |
+| Hook enforcement | **12/12 hooks 実装済み**（EH-1〜EH-9 + EHS-1〜EHS-3。物理配線は 6/12 — 残りは [#500](https://github.com/s977043/plangate/issues/500) で配線予定、詳細は [`docs/ai/hook-enforcement.md`](docs/ai/hook-enforcement.md)） |
 | Metrics v1 | `bin/plangate metrics` による workflow event 集計（v8.6.0 初出） |
 | Reporting v1 | events.ndjson から sprint retrospective を導出（v8.9.0） |
 | Baseline | v8.5.0 直後の baseline を `docs/ai/eval-baselines/` に固定（v8.6.0 初出） |
