@@ -7,7 +7,7 @@
 
 ## PlanGateワークフローとの対応
 
-このルールはPlanGateワークフロー v5-v6の各フェーズで生成される成果物を永続化する。
+このルールはPlanGateワークフロー（v5 で確立、現行 v8 系まで継承）の各フェーズで生成される成果物を永続化する。
 PlanGateガイド: `docs/plangate.md`
 ワークフロー詳細: `docs/ai-driven-development.md`
 
@@ -143,6 +143,21 @@ confirmed_by）。人間 confirm 済のみ追記。#200 期間集計の入力源
 既定 OFF のため未 opt-in run には存在しない（既存挙動不変）。正本仕様:
 [`docs/ai/retro-phase.md`](../../docs/ai/retro-phase.md)。
 
+### 管理ディレクトリ（TASK 横断）
+
+`docs/working/` 直下にはチケット単位ディレクトリのほか、TASK 横断の管理ディレクトリが存在する:
+
+| ディレクトリ | 役割 |
+|------------|------|
+| `_audit/` | hook イベントログ・`skip-decision-log.jsonl`・doc-audit 結果（append-only 監査証跡） |
+| `_metrics/` | `bin/plangate metrics` の events.ndjson 出力先（events.ndjson は gitignore 対象。正本: [`docs/ai/metrics.md`](../../docs/ai/metrics.md)） |
+| `_reports/` | `bin/plangate metrics --report` / retrospective の期間集計成果物 |
+| `_merge/` | マージ運用 runbook |
+| `_prompts/` | レビュー用プロンプトのアーカイブ |
+| `discussions/` | 戦略ディスカッションログ |
+| `incidents/` | インシデント記録（例: INC-2026-05-26-001） |
+| `templates/` | working context 各ファイルのテンプレート正本 |
+
 ### evidence/ の保管ルール
 
 - **PASS 判定**: evidence は省略可（判定理由のみ review ファイルに記載）
@@ -258,6 +273,20 @@ status.mdの更新タイミングと記載内容を段階で分ける:
 - V系ステップ結果: L-0/V-1〜V-4の結果サマリ
 - 既知の制約・リスク
 - 次回セッション用のClaude Codeプロンプト（コンテキスト・背景・具体的タスクを含む）
+
+#### BLOCKED 状態（外部依存・Deferred ゲート / #498）
+
+外部依存（インフラ provision・人間の手元タスク・プロダクト判断・移行期間の経過待ち等）で着手できないタスクは、**未着手と区別して `BLOCKED` として明示**する。autonomous 実行が「実行可能タスクなし」に達した理由を構造的に表現し、解除条件を一覧化できるようにする。
+
+status.md の残タスクに BLOCKED タスクを以下のフィールドで記録する:
+
+| フィールド          | 内容                                              |
+| ------------------- | ------------------------------------------------- |
+| `blocker`           | 何が不足しているか（例: Upstash provision 未完了） |
+| `owner`             | 誰の担当か（human / 外部サービス / 時間経過）     |
+| `unblock_condition` | 解除条件（例: Vercel env 設定完了）               |
+
+**Deferred ゲート**: 「設計 / ADR は ship 済み、実装は外部条件の充足後」という中間状態。方針は C-3 で承認・記録済みだが exec に進めないタスクを、**REJECT でも未着手でもなく Deferred として保持**する（例: API rate limit は ADR で方針確定済みだが、外部ストアの provision 完了後に実装着手）。Deferred は blocker 解除時に通常フェーズへ復帰する。
 
 ## 運用ルール
 

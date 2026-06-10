@@ -75,13 +75,13 @@ flowchart LR
 
 ## Current Status
 
-As of **v8.11.0** (Latest), PlanGate adds official Claude Code / Codex Plugin distribution and combines Hook enforcement, Metrics v1, and Harness Improvement Governance with **Reporting & Retrospective v1**, deriving sprint retrospectives deterministically from events.ndjson. With this, the [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) is **complete (CLOSED / COMPLETED)**.
+As of **v8.12.0** (Latest), PlanGate adds parallel reviewer execution, plugin sync quality guards, an adoption landing page (Why PlanGate), and operations guards. v8.11.0 added official Claude Code / Codex Plugin distribution, and through v8.10.0 PlanGate combined Hook enforcement, Metrics v1, and Harness Improvement Governance with **Reporting & Retrospective v1**, deriving sprint retrospectives deterministically from events.ndjson. With this, the [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) is **complete (CLOSED / COMPLETED)**.
 
 v8.7.0 through v8.9.0 have all shipped, addressing the external OSS user's "where do I start, where do I stop" problem via OSS adoption foundations (staged adoption guide, plugin maturity, versioning stability policy) and the self-evaluation, context separation, model-profile, and reporting bases delivered in sequence.
 
 | Item | Status |
 | --- | --- |
-| Latest release | **v8.11.0** (Latest, 2026-06-04) — Official Claude Code / Codex Plugin distribution (install.sh / marketplace.json / Codex skill packaging) |
+| Latest release | **v8.12.0** (Latest, 2026-06-07) — Parallel reviewer execution + plugin sync quality guards + adoption landing (Why PlanGate) / operations guards |
 | Shipped | **v8.7.0** OSS adoption foundations + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1, Dynamic Context Engine v1, Model Profile v2, Gate Event Normalization, Dogfooding Eval v1 |
 | Roadmap | **EPIC #193 complete (CLOSED / COMPLETED)** — Phases 0-6 + Governance + Lightweight Plan Quality Checks all Done, child PBIs 12/12 CLOSED |
 | Hook enforcement | **12/12 hooks implemented** (EH-1 to EH-9 + EHS-1 to EHS-3; v8.5.0=10/10, v8.6.0 added EH-8, v8.7.0 added EH-9) |
@@ -89,8 +89,8 @@ v8.7.0 through v8.9.0 have all shipped, addressing the external OSS user's "wher
 | Reporting v1 | Sprint retrospective derived from events.ndjson (v8.9.0) |
 | Baseline | v8.5.0 baseline fixed under `docs/ai/eval-baselines/` (introduced in v8.6.0) |
 | Governance | Issue / Label / Milestone Governance + Metrics Privacy Policy (introduced in v8.6.0) |
-| CLI tests | `sh tests/run-tests.sh` — **68 PASS** |
-| Hook tests | `sh tests/hooks/run-tests.sh` — **78 PASS** |
+| CLI tests | `sh tests/run-tests.sh` — **271 PASS** |
+| Hook tests | `sh tests/hooks/run-tests.sh` — **79 PASS** |
 | Eval | 8-observation evaluation and release blocker detection via `bin/plangate eval` |
 | Schema | JSON artifact validation via `validate-schemas` + CI |
 
@@ -345,8 +345,8 @@ Test status (latest):
 
 | Suite | Count | Main coverage |
 | --- | ---: | --- |
-| `tests/run-tests.sh` | **68 PASS** | CLI, Workflow DSL, schema validate, eval, metrics v1, reporting, provider dispatch, fixture validation |
-| `tests/hooks/run-tests.sh` | **78 PASS** | EH-1 to EH-9 / EHS-1 to EHS-3, default / strict / bypass mode behavior |
+| `tests/run-tests.sh` | **271 PASS** | CLI, Workflow DSL, schema validate, eval, metrics v1, reporting, provider dispatch, fixture validation |
+| `tests/hooks/run-tests.sh` | **79 PASS** | EH-1 to EH-9 / EHS-1 to EHS-3, default / strict / bypass mode behavior |
 
 Main coverage:
 
