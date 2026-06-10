@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: Design a new Codex skill from a concrete use case and produce a repo-ready skill package. Use when the user asks to create a new skill, define a skill's responsibility, draft SKILL.md, choose frontmatter, design supporting files, or prepare eval criteria for a new skill. Also trigger on "スキルを作りたい", "スキルを作って", "スキルを追加して", "新しいスキル", "SKILL.md生成".
+description: Design a new repo-owned skill from a concrete use case and produce a repo-ready skill package. Use when the user asks to create a new skill, define a skill's responsibility, draft SKILL.md, choose frontmatter, design supporting files, or prepare eval criteria for a new skill. Also trigger on "スキルを作りたい", "スキルを作って", "スキルを追加して", "新しいスキル", "SKILL.md生成".
 allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 
