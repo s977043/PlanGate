@@ -126,17 +126,26 @@ extras はすべて同一 shell プロセスで source されるため、関数�
 source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火が保証されない**
 （ta-09 で実害を確認済み）。各 extras は以下を遵守する:
 
-1. **trap に頼らず末尾で明示 cleanup** — fixture（一時 TASK ディレクトリ等）は
-   ファイル末尾で `rm -rf` し、可能なら「削除されたこと」自体を TC として検証する
-   （例: ta-34 TC-06 / ta-37 TC-07）
+1. **trap に頼らず末尾で明示 cleanup + 開始時の冪等掃除** — fixture（一時 TASK
+   ディレクトリ等）はファイル末尾で `rm -rf` し、可能なら「削除されたこと」自体を
+   TC として検証する（例: ta-34 TC-06 / ta-37 TC-07）。set -e による途中終了で
+   cleanup が走らないケースに備え、**開始時にも前回残骸を `rm -rf` する**（冪等性）
 2. **trap を使う場合はサブシェルに閉じ込める**（ta-28 方式）か、自前ガード変数で
    再実行を no-op 化する（ta-09 方式）。親シェルの trap を `trap - EXIT` で
    消さない（他 extras の cleanup を巻き込むため）
 3. **実 docs/working を汚染しない** — tracked パスを使う場合は実行前退避→復元、
    原則は専用の未追跡 TASK 名（`TASK-TA<NN>TMP` 等）+ mktemp サンドボックス
    （正本: PR #511 の隔離パターン、hooks スイートは scripts/hooks のサンドボックス複製）
-4. **set -e 下の非ゼロ rc 捕捉**は `out="$(cmd)" && rc=0 || rc=$?` パターンを使う
-   （`out="$(cmd)"; rc=$?` は非ゼロ時にスイートを途中終了させる）
+4. **set -e 下の非ゼロ rc 捕捉**は `rc=0` を初期化してから `out="$(cmd)" || rc=$?`
+   で上書きする（`out="$(cmd)"; rc=$?` は非ゼロ時にスイートを途中終了させる）。
+   関数内では `local out="$(cmd)" || rc=$?` と書かない — `local` 自体の終了
+   ステータスがコマンドの rc を握りつぶすため、宣言と代入を分ける
 5. **変数は `_tNN_` プレフィクス**で名前空間を分け、他 extras と衝突させない
-6. **依存ゲート** — python ライブラリ等に依存する TC は
-   `python3 -c 'import x' || SKIP` で環境差を吸収する（CI には導入済み前提）
+6. **依存ゲート** — python ライブラリ等に依存する TC は環境差を吸収する
+   （CI には導入済み前提）。実パターン（ta-35 / ta-36 参照）:
+   `if ! python3 -c 'import x' >/dev/null 2>&1; then printf '[SKIP] ...'; else 本体 fi`
+7. **PLANGATE_* env はスイートが無害化する** — 実 hooks を直接呼ぶ extras
+   （ta-11 / ta-12 等）は、呼び出し元 env の `PLANGATE_SKIP_REASON` 等が漏れると
+   **実監査ログ（skip-decision-log.jsonl）へ書き込む**（2026-06-11 実害確認）。
+   run-tests.sh 冒頭で unset 済みのため extras 側の個別対処は不要だが、
+   テスト内で意図的に設定する場合はコマンド単位の env 前置に限定する
