@@ -1,7 +1,7 @@
 interface:
   display_name: "plangate-setup"
-  short_description: "Set up PlanGate in a new project"
+  short_description: "PlanGate 初期セットアップを対話的に進めるためのチェックリスト、5 要素対応観点、Human-owned 操作の ..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $plangate-setup to set up PlanGate for this project."
+  default_prompt: "Use $plangate-setup to assist with this project."
   brand_color: "#1A56DB"

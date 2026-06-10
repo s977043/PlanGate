@@ -1,7 +1,7 @@
 interface:
   display_name: "setup-team"
-  short_description: "Set up agent team roles and responsibilities"
+  short_description: "タスクに応じたマルチエージェントチームを設計・構成する。Use when: 「エージェントチームを組んで」「複数エージェン..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $setup-team to set up the agent team for this project."
+  default_prompt: "Use $setup-team to assist with this project."
   brand_color: "#1A56DB"

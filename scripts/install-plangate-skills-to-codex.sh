@@ -144,7 +144,7 @@ PYTRUNC
 )
   fi
   [ -z "$frontmatter_icon_small" ] && frontmatter_icon_small="./assets/plangate-small.svg"
-  [ -z "$frontmatter_icon_large" ] && frontmatter_icon_large="./assets/plangate.png"
+  [ -z "$frontmatter_icon_large" ] && frontmatter_icon_large="./assets/plangate-small.svg"
   if [ -z "$frontmatter_default_prompt" ]; then
     frontmatter_default_prompt="Use \$$skill_name to assist with this project."
   fi

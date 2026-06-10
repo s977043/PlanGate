@@ -1,7 +1,7 @@
 interface:
   display_name: "manual-cloud-task"
-  short_description: "Manage manual cloud tasks and deployments"
+  short_description: "tracked handoff packet を使って Codex Cloud task を手動起動するための指示を組み立..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $manual-cloud-task to manage this cloud deployment task."
+  default_prompt: "Use $manual-cloud-task to assist with this project."
   brand_color: "#1A56DB"

@@ -1,7 +1,7 @@
 interface:
   display_name: "nonfunctional-check"
-  short_description: "Check non-functional requirements like perf"
+  short_description: "性能・保守性・安全性・アクセシビリティなど非機能要件を体系的にチェックし、明示すべき非機能要件を一覧化する。Use whe..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $nonfunctional-check to check non-functional requirements."
+  default_prompt: "Use $nonfunctional-check to assist with this project."
   brand_color: "#1A56DB"

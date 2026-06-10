@@ -1,7 +1,7 @@
 interface:
   display_name: "ai-dev-plan"
-  short_description: "Plan AI dev tasks with structured work breakdown"
+  short_description: "PBI INPUT PACKAGE から PlanGate の plan.md / todo.md / test-case..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $ai-dev-plan to create a structured plan for this task."
+  default_prompt: "Use $ai-dev-plan to assist with this project."
   brand_color: "#1A56DB"
