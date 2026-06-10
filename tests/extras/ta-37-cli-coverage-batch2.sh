@@ -33,10 +33,12 @@ case "$_t37_out" in
   *) printf '[FAIL] TA-37 TC-02: %s\n' "$_t37_out"; fail=$((fail + 1)) ;;
 esac
 
-# TC-03: keep-rate --no-write — レポート出力 + ファイル非生成
-_t37_out="$(sh "$PLANGATE_BIN" keep-rate "$_t37_task" --no-write 2>&1)" || true
-if printf '%s' "$_t37_out" | grep -q "Keep Rate v1: $_t37_task" \
-   && [ ! -f "$_t37_dir/keep-rate-result.md" ]; then
+# TC-03: keep-rate --no-write — 正常終了 + レポート出力 + ファイル非生成（md/json とも）
+_t37_rc=0
+_t37_out="$(sh "$PLANGATE_BIN" keep-rate "$_t37_task" --no-write 2>&1)" || _t37_rc=$?
+if [ "$_t37_rc" -eq 0 ] \
+   && printf '%s' "$_t37_out" | grep -q "Keep Rate v1: $_t37_task" \
+   && [ ! -f "$_t37_dir/keep-rate-result.md" ] && [ ! -f "$_t37_dir/keep-rate-result.json" ]; then
   printf '[PASS] TA-37 TC-03: keep-rate --no-write がレポートを stdout のみに出力\n'; pass=$((pass + 1))
 else
   printf '[FAIL] TA-37 TC-03: %s\n' "$_t37_out"; fail=$((fail + 1))
@@ -49,21 +51,26 @@ case "$_t37_out" in
   *) printf '[FAIL] TA-37 TC-04: %s\n' "$_t37_out"; fail=$((fail + 1)) ;;
 esac
 
-# TC-05: context --no-write — manifest を stdout のみに出力
-_t37_out="$(sh "$PLANGATE_BIN" context "$_t37_task" --phase plan --no-write 2>&1)" || true
-if printf '%s' "$_t37_out" | grep -q "Context Manifest: $_t37_task" \
-   && [ ! -f "$_t37_dir/context-manifest.md" ]; then
+# TC-05: context --no-write — 正常終了 + manifest を stdout のみに出力（md/json とも非生成）
+_t37_rc=0
+_t37_out="$(sh "$PLANGATE_BIN" context "$_t37_task" --phase plan --no-write 2>&1)" || _t37_rc=$?
+if [ "$_t37_rc" -eq 0 ] \
+   && printf '%s' "$_t37_out" | grep -q "Context Manifest: $_t37_task" \
+   && [ ! -f "$_t37_dir/context-manifest.md" ] && [ ! -f "$_t37_dir/context-manifest.json" ]; then
   printf '[PASS] TA-37 TC-05: context --no-write が manifest を stdout のみに出力\n'; pass=$((pass + 1))
 else
   printf '[FAIL] TA-37 TC-05: %s\n' "$_t37_out"; fail=$((fail + 1))
 fi
 
-# TC-06: exec — C-3 未承認でゲート拒否（承認境界の機械検証）
-_t37_out="$(sh "$PLANGATE_BIN" exec "$_t37_task" 2>&1)" || true
-case "$_t37_out" in
-  *"C-3 gate not cleared"*) printf '[PASS] TA-37 TC-06: exec が C-3 未承認をブロック\n'; pass=$((pass + 1)) ;;
-  *) printf '[FAIL] TA-37 TC-06: ゲートが効いていない: %s\n' "$_t37_out"; fail=$((fail + 1)) ;;
-esac
+# TC-06: exec — C-3 未承認でゲート拒否 + 非ゼロ終了（承認境界の機械検証。
+# exit 0 で素通りすると CI/CD で検知できないため終了コードまで検証する）
+_t37_rc=0
+_t37_out="$(sh "$PLANGATE_BIN" exec "$_t37_task" 2>&1)" || _t37_rc=$?
+if [ "$_t37_rc" -ne 0 ] && printf '%s' "$_t37_out" | grep -q "C-3 gate not cleared"; then
+  printf '[PASS] TA-37 TC-06: exec が C-3 未承認をブロックし非ゼロ終了（rc=%s）\n' "$_t37_rc"; pass=$((pass + 1))
+else
+  printf '[FAIL] TA-37 TC-06: rc=%s out=%s\n' "$_t37_rc" "$_t37_out"; fail=$((fail + 1))
+fi
 
 # 後始末（trap に頼らず明示実行）
 rm -rf "$_t37_dir"
