@@ -4,9 +4,23 @@
 
 set -eu
 
+# hook（EH-3 等）は対象パス未解決時に stdin の JSON を読むため、
+# stdin が閉じない環境（バックグラウンド実行等）での無限待機を防ぐ
+exec </dev/null
+
 REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 HOOKS_DIR="$REPO_ROOT/scripts/hooks"
 FIXTURES_DIR="$REPO_ROOT/tests/fixtures/hooks"
+
+# ---- sandbox: hook は自身の配置から REPO_ROOT を解決するため、一時複製先で
+#      実行し、実リポジトリ docs/working/_audit への追記を隔離する（PR #511 follow-up）----
+SANDBOX_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/plangate-hooks-test.XXXXXX")
+mkdir -p "$SANDBOX_ROOT/scripts/hooks" "$SANDBOX_ROOT/docs/working"
+cp "$HOOKS_DIR"/*.sh "$SANDBOX_ROOT/scripts/hooks/"
+[ -f "$REPO_ROOT/.plangate-pollution-patterns.yaml" ] && cp "$REPO_ROOT/.plangate-pollution-patterns.yaml" "$SANDBOX_ROOT/"
+git init -q "$SANDBOX_ROOT" 2>/dev/null || mkdir -p "$SANDBOX_ROOT/.git"
+HOOKS_DIR="$SANDBOX_ROOT/scripts/hooks"
+TEST_ROOT="$SANDBOX_ROOT"
 
 pass=0
 fail=0
@@ -42,35 +56,35 @@ HASH_TAMPERED_NAME="TASK-HOOKTEST08" # plan.md が改変、c3.plan_hash と不�
 cleanup_dirs() {
   for n in "$TASK_HAS_C3_NAME" "$TASK_NO_C3_NAME" "$LOOP_OK_NAME" "$LOOP_OVER_NAME" \
            "$PLAN_OK_NAME" "$PLAN_NONE_NAME" "$HASH_OK_NAME" "$HASH_TAMPERED_NAME"; do
-    rm -rf "$REPO_ROOT/docs/working/$n"
+    rm -rf "$TEST_ROOT/docs/working/$n"
   done
 }
-trap cleanup_dirs EXIT INT TERM
+trap 'cleanup_dirs; rm -rf "$SANDBOX_ROOT"' EXIT INT TERM
 
 cleanup_dirs  # idempotent in case a previous run left artifacts
 
-mkdir -p "$REPO_ROOT/docs/working/$TASK_HAS_C3_NAME/approvals"
-mkdir -p "$REPO_ROOT/docs/working/$TASK_NO_C3_NAME"
-mkdir -p "$REPO_ROOT/docs/working/$LOOP_OK_NAME"
-mkdir -p "$REPO_ROOT/docs/working/$LOOP_OVER_NAME"
-mkdir -p "$REPO_ROOT/docs/working/$PLAN_OK_NAME"
-mkdir -p "$REPO_ROOT/docs/working/$PLAN_NONE_NAME"
-mkdir -p "$REPO_ROOT/docs/working/$HASH_OK_NAME/approvals"
-mkdir -p "$REPO_ROOT/docs/working/$HASH_TAMPERED_NAME/approvals"
-cp "$FIXTURES_DIR/has-c3/approvals/c3.json" "$REPO_ROOT/docs/working/$TASK_HAS_C3_NAME/approvals/c3.json"
+mkdir -p "$TEST_ROOT/docs/working/$TASK_HAS_C3_NAME/approvals"
+mkdir -p "$TEST_ROOT/docs/working/$TASK_NO_C3_NAME"
+mkdir -p "$TEST_ROOT/docs/working/$LOOP_OK_NAME"
+mkdir -p "$TEST_ROOT/docs/working/$LOOP_OVER_NAME"
+mkdir -p "$TEST_ROOT/docs/working/$PLAN_OK_NAME"
+mkdir -p "$TEST_ROOT/docs/working/$PLAN_NONE_NAME"
+mkdir -p "$TEST_ROOT/docs/working/$HASH_OK_NAME/approvals"
+mkdir -p "$TEST_ROOT/docs/working/$HASH_TAMPERED_NAME/approvals"
+cp "$FIXTURES_DIR/has-c3/approvals/c3.json" "$TEST_ROOT/docs/working/$TASK_HAS_C3_NAME/approvals/c3.json"
 
 # EH-1 fixture: plan.md exists (PLAN_OK), plan.md absent (PLAN_NONE)
-printf '# Sample plan\n' >"$REPO_ROOT/docs/working/$PLAN_OK_NAME/plan.md"
+printf '# Sample plan\n' >"$TEST_ROOT/docs/working/$PLAN_OK_NAME/plan.md"
 # PLAN_NONE has no plan.md
 
 # EH-3 fixture: build a plan.md, compute its sha256, and write a c3.json with matching plan_hash
-echo "# fixture plan for EH-3" >"$REPO_ROOT/docs/working/$HASH_OK_NAME/plan.md"
+echo "# fixture plan for EH-3" >"$TEST_ROOT/docs/working/$HASH_OK_NAME/plan.md"
 if command -v sha256sum >/dev/null 2>&1; then
-  HASH_OK_SHA=$(sha256sum "$REPO_ROOT/docs/working/$HASH_OK_NAME/plan.md" | awk '{print $1}')
+  HASH_OK_SHA=$(sha256sum "$TEST_ROOT/docs/working/$HASH_OK_NAME/plan.md" | awk '{print $1}')
 else
-  HASH_OK_SHA=$(shasum -a 256 "$REPO_ROOT/docs/working/$HASH_OK_NAME/plan.md" | awk '{print $1}')
+  HASH_OK_SHA=$(shasum -a 256 "$TEST_ROOT/docs/working/$HASH_OK_NAME/plan.md" | awk '{print $1}')
 fi
-cat >"$REPO_ROOT/docs/working/$HASH_OK_NAME/approvals/c3.json" <<EOF_C3OK
+cat >"$TEST_ROOT/docs/working/$HASH_OK_NAME/approvals/c3.json" <<EOF_C3OK
 {
   "task_id": "TASK-9999",
   "phase": "C-3",
@@ -82,13 +96,13 @@ cat >"$REPO_ROOT/docs/working/$HASH_OK_NAME/approvals/c3.json" <<EOF_C3OK
 EOF_C3OK
 
 # Tampered fixture: plan.md changes after c3.json was recorded (recorded hash points to OLD content)
-echo "# fixture plan ORIGINAL" >"$REPO_ROOT/docs/working/$HASH_TAMPERED_NAME/plan.md"
+echo "# fixture plan ORIGINAL" >"$TEST_ROOT/docs/working/$HASH_TAMPERED_NAME/plan.md"
 if command -v sha256sum >/dev/null 2>&1; then
-  HASH_OLD_SHA=$(sha256sum "$REPO_ROOT/docs/working/$HASH_TAMPERED_NAME/plan.md" | awk '{print $1}')
+  HASH_OLD_SHA=$(sha256sum "$TEST_ROOT/docs/working/$HASH_TAMPERED_NAME/plan.md" | awk '{print $1}')
 else
-  HASH_OLD_SHA=$(shasum -a 256 "$REPO_ROOT/docs/working/$HASH_TAMPERED_NAME/plan.md" | awk '{print $1}')
+  HASH_OLD_SHA=$(shasum -a 256 "$TEST_ROOT/docs/working/$HASH_TAMPERED_NAME/plan.md" | awk '{print $1}')
 fi
-cat >"$REPO_ROOT/docs/working/$HASH_TAMPERED_NAME/approvals/c3.json" <<EOF_C3TAMP
+cat >"$TEST_ROOT/docs/working/$HASH_TAMPERED_NAME/approvals/c3.json" <<EOF_C3TAMP
 {
   "task_id": "TASK-9998",
   "phase": "C-3",
@@ -99,7 +113,7 @@ cat >"$REPO_ROOT/docs/working/$HASH_TAMPERED_NAME/approvals/c3.json" <<EOF_C3TAM
 }
 EOF_C3TAMP
 # Now tamper the plan.md so its sha256 no longer matches plan_hash
-echo "# fixture plan TAMPERED" >"$REPO_ROOT/docs/working/$HASH_TAMPERED_NAME/plan.md"
+echo "# fixture plan TAMPERED" >"$TEST_ROOT/docs/working/$HASH_TAMPERED_NAME/plan.md"
 
 # ---- check-c3-approval.sh ----
 note "check-c3-approval.sh"
@@ -149,8 +163,8 @@ fi
 # ---- check-fix-loop.sh ----
 note "check-fix-loop.sh"
 
-printf '3\n' >"$REPO_ROOT/docs/working/$LOOP_OK_NAME/.fix-loop-count"
-printf '6\n' >"$REPO_ROOT/docs/working/$LOOP_OVER_NAME/.fix-loop-count"
+printf '3\n' >"$TEST_ROOT/docs/working/$LOOP_OK_NAME/.fix-loop-count"
+printf '6\n' >"$TEST_ROOT/docs/working/$LOOP_OVER_NAME/.fix-loop-count"
 
 # count under max → PASS
 out=$(sh "$HOOKS_DIR/check-fix-loop.sh" "$LOOP_OK_NAME" 2>&1 || true)
@@ -176,7 +190,7 @@ fi
 
 # increment action
 out=$(sh "$HOOKS_DIR/check-fix-loop.sh" "$LOOP_OK_NAME" increment 2>&1 || true)
-new_count=$(cat "$REPO_ROOT/docs/working/$LOOP_OK_NAME/.fix-loop-count")
+new_count=$(cat "$TEST_ROOT/docs/working/$LOOP_OK_NAME/.fix-loop-count")
 if [ "$new_count" = "4" ]; then
   printf '[PASS] increment: 3 → 4\n'
   pass=$((pass + 1))
@@ -429,24 +443,24 @@ PARENT_PBI="PBI-9999"
 
 cleanup_extra() {
   for n in "$TC_OK_NAME" "$TC_NONE_NAME" "$EV_OK_NAME" "$EV_NONE_NAME" "$FF_TASK"; do
-    rm -rf "$REPO_ROOT/docs/working/$n"
+    rm -rf "$TEST_ROOT/docs/working/$n"
   done
-  rm -rf "$REPO_ROOT/docs/working/$PARENT_PBI"
+  rm -rf "$TEST_ROOT/docs/working/$PARENT_PBI"
 }
 cleanup_extra
 
-mkdir -p "$REPO_ROOT/docs/working/$TC_OK_NAME" "$REPO_ROOT/docs/working/$TC_NONE_NAME"
-cp "$FIXTURES_DIR/test-cases-exists/test-cases.md" "$REPO_ROOT/docs/working/$TC_OK_NAME/test-cases.md"
-mkdir -p "$REPO_ROOT/docs/working/$EV_OK_NAME/evidence"
-mkdir -p "$REPO_ROOT/docs/working/$EV_NONE_NAME/evidence"  # exists but empty
-cp "$FIXTURES_DIR/evidence-ok/evidence/verification.md" "$REPO_ROOT/docs/working/$EV_OK_NAME/evidence/verification.md"
+mkdir -p "$TEST_ROOT/docs/working/$TC_OK_NAME" "$TEST_ROOT/docs/working/$TC_NONE_NAME"
+cp "$FIXTURES_DIR/test-cases-exists/test-cases.md" "$TEST_ROOT/docs/working/$TC_OK_NAME/test-cases.md"
+mkdir -p "$TEST_ROOT/docs/working/$EV_OK_NAME/evidence"
+mkdir -p "$TEST_ROOT/docs/working/$EV_NONE_NAME/evidence"  # exists but empty
+cp "$FIXTURES_DIR/evidence-ok/evidence/verification.md" "$TEST_ROOT/docs/working/$EV_OK_NAME/evidence/verification.md"
 
 # EH-6: 子 PBI YAML 設置（fixture）
-mkdir -p "$REPO_ROOT/docs/working/$PARENT_PBI/children"
-cp "$FIXTURES_DIR/forbidden-parent/PBI-9999/children/PBI-9999-01.yaml" "$REPO_ROOT/docs/working/$PARENT_PBI/children/PBI-9999-01.yaml"
+mkdir -p "$TEST_ROOT/docs/working/$PARENT_PBI/children"
+cp "$FIXTURES_DIR/forbidden-parent/PBI-9999/children/PBI-9999-01.yaml" "$TEST_ROOT/docs/working/$PARENT_PBI/children/PBI-9999-01.yaml"
 
 # 既存の trap に extras cleanup を追加
-trap "cleanup_dirs; cleanup_extra" EXIT INT TERM
+trap 'cleanup_dirs; cleanup_extra; rm -rf "$SANDBOX_ROOT"' EXIT INT TERM
 
 # ---- check-test-cases.sh (EH-4) ----
 note "check-test-cases.sh (EH-4)"
@@ -541,25 +555,25 @@ V3_NONE_NAME="TASK-HOOKTEST17"     # review-external.md なし
 
 cleanup_session_c() {
   for n in "$BOTH_APPR_NAME" "$C3_ONLY_NAME" "$NO_APPR_NAME" "$V3_EXISTS_NAME" "$V3_NONE_NAME"; do
-    rm -rf "$REPO_ROOT/docs/working/$n"
+    rm -rf "$TEST_ROOT/docs/working/$n"
   done
 }
 cleanup_session_c
 
-mkdir -p "$REPO_ROOT/docs/working/$BOTH_APPR_NAME/approvals"
-cp "$FIXTURES_DIR/both-approvals/c3.json" "$REPO_ROOT/docs/working/$BOTH_APPR_NAME/approvals/c3.json"
-cp "$FIXTURES_DIR/both-approvals/c4-approval.json" "$REPO_ROOT/docs/working/$BOTH_APPR_NAME/approvals/c4-approval.json"
+mkdir -p "$TEST_ROOT/docs/working/$BOTH_APPR_NAME/approvals"
+cp "$FIXTURES_DIR/both-approvals/c3.json" "$TEST_ROOT/docs/working/$BOTH_APPR_NAME/approvals/c3.json"
+cp "$FIXTURES_DIR/both-approvals/c4-approval.json" "$TEST_ROOT/docs/working/$BOTH_APPR_NAME/approvals/c4-approval.json"
 
-mkdir -p "$REPO_ROOT/docs/working/$C3_ONLY_NAME/approvals"
-cp "$FIXTURES_DIR/both-approvals/c3.json" "$REPO_ROOT/docs/working/$C3_ONLY_NAME/approvals/c3.json"
+mkdir -p "$TEST_ROOT/docs/working/$C3_ONLY_NAME/approvals"
+cp "$FIXTURES_DIR/both-approvals/c3.json" "$TEST_ROOT/docs/working/$C3_ONLY_NAME/approvals/c3.json"
 # c4 不在
 
-mkdir -p "$REPO_ROOT/docs/working/$NO_APPR_NAME/approvals"  # 空ディレクトリ
+mkdir -p "$TEST_ROOT/docs/working/$NO_APPR_NAME/approvals"  # 空ディレクトリ
 
-mkdir -p "$REPO_ROOT/docs/working/$V3_EXISTS_NAME"
-cp "$FIXTURES_DIR/v3-review-exists/review-external.md" "$REPO_ROOT/docs/working/$V3_EXISTS_NAME/review-external.md"
+mkdir -p "$TEST_ROOT/docs/working/$V3_EXISTS_NAME"
+cp "$FIXTURES_DIR/v3-review-exists/review-external.md" "$TEST_ROOT/docs/working/$V3_EXISTS_NAME/review-external.md"
 
-mkdir -p "$REPO_ROOT/docs/working/$V3_NONE_NAME"  # review-external.md なし
+mkdir -p "$TEST_ROOT/docs/working/$V3_NONE_NAME"  # review-external.md なし
 
 # 既存 trap に session C cleanup を追加
 trap "cleanup_dirs; cleanup_extra; cleanup_session_c" EXIT INT TERM
