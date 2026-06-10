@@ -12,6 +12,8 @@ PlanGate の主要リリース履歴。
 
 ### Added
 
+- **エージェント model tier**（#519）— エージェントを「定型・構造化 / 判断系」の 2 tier に分類し、Claude Code は frontmatter `model:`（sonnet / inherit）、Codex は `model_reasoning_effort`（low / medium、GPT-5.5 の high はトークン消費の運用判断で不採用）で表現。正本 [`docs/ai/model-profiles.md`](docs/ai/model-profiles.md) §11。plugin 配布版は `sync-plugin-plangate.sh` が `model: inherit` へ自動正規化し、利用者環境にモデル固定を持ち込まない。tier の崩れは `tests/extras/ta-33` が CI で機械検査
+
 - **status の BLOCKED 状態 + Deferred ゲート**（#498 / #510）— 外部依存で着手不能なタスクを未着手と区別して明示し、解除条件を一覧化
 - **V-1 テスト実行の単一プロセス既定化**（#497 / #509）— 並行 flaky な timeout を fix loop に流す前に単独再実行で切り分け
 - **doc-light モード適用スクリプト**（#496 / #503）— mode 分類に変更種別軸 + doc-light を追加する Human 適用スクリプト
