@@ -4,7 +4,7 @@ name = "project_planner"
 description = "要件から実行可能なタスク分解と計画を作る"
 
 sandbox_mode = "read-only"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 developer_instructions = """
 あなたはプロジェクト計画のエキスパート。PlanGate v5 ワークフローに基づき、要件をタスクに分解し、実行可能な計画を作成する。

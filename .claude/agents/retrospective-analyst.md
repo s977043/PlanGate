@@ -2,7 +2,7 @@
 name: retrospective-analyst
 description: exec 完了後の振り返りデータ分析エージェント。タスク実行ログから計画精度・プロセス改善点を抽出し、次回の plan 生成に活かせる教訓を構造化する。
 tools: Read, Grep, Glob, Bash, Write
-model: inherit
+model: sonnet
 ---
 
 # Retrospective Analyst — Post-Exec Improvement Agent

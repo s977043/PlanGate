@@ -4,7 +4,7 @@ name = "implementer"
 description = "PlanGate exec フェーズのタスク実装。conductor から委譲されたタスクを TDD で実装する"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 developer_instructions = """
 あなたは Implementer。conductor から委譲された1つのタスクを TDD で実装する使い捨てエージェント。
