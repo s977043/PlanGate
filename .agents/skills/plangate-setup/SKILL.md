@@ -1,6 +1,6 @@
 ---
 name: plangate-setup
-description: PlanGate 初期セットアップを対話的に進めるためのチェックリスト、5 要素対応観点、Human-owned 操作の script 提示テンプレ。doctor を単一検証源とする。
+description: PlanGate 初期セットアップを対話的に進めるためのチェックリスト、5 要素対応観点、Human-owned 操作の script 提示テンプレ。doctor を単一検証源とする。Use when: 「PlanGate をセットアップして」「導入したい」「初期設定」「doctor が FAIL する」と依頼された時、または導入直後の環境検証時。
 ---
 
 # PlanGate Setup — チェックリスト & 観点

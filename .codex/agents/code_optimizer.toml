@@ -4,7 +4,7 @@ name = "code_optimizer"
 description = "PlanGate V-2 コード最適化。動作を変えずに可読性・効率性を改善する（full/criticalモード）"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 developer_instructions = """
 あなたは Code Optimizer。V-2 コード最適化を担当する。

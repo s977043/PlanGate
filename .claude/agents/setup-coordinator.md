@@ -2,7 +2,7 @@
 name: setup-coordinator
 description: PlanGate 初期セットアップ対話エージェント。doctor を単一検証源として、Human-owned 操作の検知・提示・再検証ループ・進捗の永続記録を担う。settings wiring 等の Human-owned 操作は提示のみで実行しない。
 tools: Read, Grep, Bash
-model: inherit
+model: sonnet
 ---
 
 # Setup Coordinator — Initial Setup Dialog Agent

@@ -7,6 +7,19 @@
 > 現状は **EH-1〜EH-9 + EHS-1〜EHS-3 = 12/12**。本書本文の表は v8.5.0 構成のまま
 > 維持し、追加分の詳細はそれぞれの実装 PR / CHANGELOG / `bin/plangate doctor` 出力を参照。
 
+> **実装と物理配線の区別（2026-06-10 棚卸し）**: 12/12 は「スクリプト実装 +
+> 単体テスト済み」を指す。**発火経路（settings.json / .codex/hooks.json / CI /
+> bin/plangate）への物理配線は 6/12**。配線の完全化は
+> [#500 Wiring Integrity Enforcement](https://github.com/s977043/plangate/issues/500)
+> （仕様策定済み）の実装範囲。
+>
+> | 配線状態 | Hook | 発火経路 |
+> |---------|------|---------|
+> | ✅ 配線済み（6） | EH-1 / EH-2 / EH-3 / EH-6 / EH-9 | Claude PreToolUse + Codex hooks.json |
+> | | EH-8 | CI（metrics-privacy.yml）+ doctor + codex-guarded |
+> | ⏳ 実装済み・未配線（6） | EH-4 / EH-5 / EH-7 | 発火経路なし（#500 で配線予定） |
+> | | EHS-1 / EHS-2 / EHS-3 | 発火条件の `validation_bias: strict` 自体が未配線（model-profiles.yaml は参照層） |
+
 > 関連: [`responsibility-boundary.md`](./responsibility-boundary.md) / [`tool-policy.md`](./tool-policy.md) / [`model-profiles.md`](./model-profiles.md)
 > 実装: [`scripts/hooks/check-plan-exists.sh`](../../scripts/hooks/check-plan-exists.sh) / [`check-c3-approval.sh`](../../scripts/hooks/check-c3-approval.sh) / [`check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) / [`check-test-cases.sh`](../../scripts/hooks/check-test-cases.sh) / [`check-verification-evidence.sh`](../../scripts/hooks/check-verification-evidence.sh) / [`check-forbidden-files.sh`](../../scripts/hooks/check-forbidden-files.sh) / [`check-merge-approvals.sh`](../../scripts/hooks/check-merge-approvals.sh) / [`check-v3-review.sh`](../../scripts/hooks/check-v3-review.sh) / [`check-handoff-elements.sh`](../../scripts/hooks/check-handoff-elements.sh) / [`check-fix-loop.sh`](../../scripts/hooks/check-fix-loop.sh)
 > 設定例: [`.claude/settings.example.json`](../../.claude/settings.example.json) / 単体テスト: [`tests/hooks/run-tests.sh`](../../tests/hooks/run-tests.sh)

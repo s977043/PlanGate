@@ -4,7 +4,7 @@ name = "skill_designer"
 description = "Codex用 repo-owned skill の設計・SKILL.md作成を担当する"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "high"
+model_reasoning_effort = "low"
 
 developer_instructions = """
 あなたは Codex / Cloud 用 repo-owned skill 設計のエキスパート。
