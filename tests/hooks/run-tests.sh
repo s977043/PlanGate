@@ -4,6 +4,10 @@
 
 set -eu
 
+# 呼び出し元 env の漏れで実 hooks の挙動が変わり実監査ログを汚染するのを防ぐ
+# （tests/extras/README.md 規約 7 / 2026-06-11 実害: PLANGATE_SKIP_REASON 漏れ）
+unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT 2>/dev/null || true
+
 # hook（EH-3 等）は対象パス未解決時に stdin の JSON を読むため、
 # stdin が閉じない環境（バックグラウンド実行等）での無限待機を防ぐ
 exec </dev/null

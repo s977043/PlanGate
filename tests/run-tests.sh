@@ -10,6 +10,10 @@
 
 set -eu
 
+# 呼び出し元 env の漏れで実 hooks の挙動が変わり実監査ログを汚染するのを防ぐ
+# （tests/extras/README.md 規約 7 / 2026-06-11 実害: PLANGATE_SKIP_REASON 漏れ）
+unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT 2>/dev/null || true
+
 PLANGATE_BIN="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/bin/plangate"
 FIXTURES_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/fixtures"
 EXTRAS_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/extras"
