@@ -1,7 +1,7 @@
 interface:
   display_name: "feature-implement"
-  short_description: "Implement features with TDD and clean patterns"
+  short_description: "design artifact に従って、最小単位で実装・テスト・自己レビューを繰り返し、動作するコード差分を生成する。U..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $feature-implement to implement this feature."
+  default_prompt: "Use $feature-implement to assist with this project."
   brand_color: "#1A56DB"

@@ -1,7 +1,7 @@
 interface:
   display_name: "requirement-gap-scan"
-  short_description: "Scan for gaps in requirements and acceptance"
+  short_description: "初期要求から抜け漏れ・曖昧さ・対象外を体系的に洗い出し、追加要件候補をリストアップする。Use when: WF-02 R..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $requirement-gap-scan to scan for requirement gaps."
+  default_prompt: "Use $requirement-gap-scan to assist with this project."
   brand_color: "#1A56DB"

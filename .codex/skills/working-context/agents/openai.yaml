@@ -2,6 +2,6 @@ interface:
   display_name: "working-context"
   short_description: "PlanGate の TASK-XXXX 作業コンテキストを Progressive Disclosure で読込・更新す..."
   icon_small: "./assets/plangate-small.svg"
-  icon_large: "./assets/plangate.png"
+  icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use $working-context to assist with this project."
   brand_color: "#1A56DB"

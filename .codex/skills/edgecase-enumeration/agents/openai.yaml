@@ -1,7 +1,7 @@
 interface:
   display_name: "edgecase-enumeration"
-  short_description: "Enumerate edge cases and boundary conditions"
+  short_description: "境界条件・例外条件・異常系を体系的に列挙し、エッジケース一覧を作成する。Use when: WF-02 でエッジケース検討..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $edgecase-enumeration to enumerate edge cases for this feature."
+  default_prompt: "Use $edgecase-enumeration to assist with this project."
   brand_color: "#1A56DB"

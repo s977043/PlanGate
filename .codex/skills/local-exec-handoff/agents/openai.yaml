@@ -1,7 +1,7 @@
 interface:
   display_name: "local-exec-handoff"
-  short_description: "Hand off local execution tasks to the agent"
+  short_description: "PlanGate のローカル実行（Codex CLI / Claude Code）で exec を再開・引き継ぐための短い..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $local-exec-handoff to hand off this task for local execution."
+  default_prompt: "Use $local-exec-handoff to assist with this project."
   brand_color: "#1A56DB"

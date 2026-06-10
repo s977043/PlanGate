@@ -1,7 +1,7 @@
 interface:
   display_name: "plan-review-gate"
-  short_description: "Gate plan review before implementation starts"
+  short_description: "PlanGate の C-1 / C-2 / C-3 ゲートを確認し、exec 開始可否を判定する。Use when: p..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $plan-review-gate to review and gate this plan before execution."
+  default_prompt: "Use $plan-review-gate to assist with this project."
   brand_color: "#1A56DB"

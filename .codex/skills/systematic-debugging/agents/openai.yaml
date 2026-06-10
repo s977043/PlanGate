@@ -1,7 +1,7 @@
 interface:
   display_name: "systematic-debugging"
-  short_description: "Debug issues systematically with root cause"
+  short_description: "バグや障害を体系的に調査し、エビデンスに基づいて根本原因を特定する。Use when: 「動かない」「エラーが出る」「なぜ..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $systematic-debugging to debug this issue systematically."
+  default_prompt: "Use $systematic-debugging to assist with this project."
   brand_color: "#1A56DB"

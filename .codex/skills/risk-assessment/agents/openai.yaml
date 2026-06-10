@@ -1,7 +1,7 @@
 interface:
   display_name: "risk-assessment"
-  short_description: "Assess risks and define mitigation strategies"
+  short_description: "制約・未確定要素・技術的リスクを洗い出し、severity と mitigation を付けて一覧化する。Use when..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $risk-assessment to assess risks for this task."
+  default_prompt: "Use $risk-assessment to assist with this project."
   brand_color: "#1A56DB"

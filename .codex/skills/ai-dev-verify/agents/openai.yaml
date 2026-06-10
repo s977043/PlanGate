@@ -1,7 +1,7 @@
 interface:
   display_name: "ai-dev-verify"
-  short_description: "Verify AI dev implementation against requirements"
+  short_description: "PlanGate の V-1〜V-4 受け入れ検査と handoff.md 発行を行う。Use when: exec 完了..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $ai-dev-verify to verify the implementation meets requirements."
+  default_prompt: "Use $ai-dev-verify to assist with this project."
   brand_color: "#1A56DB"

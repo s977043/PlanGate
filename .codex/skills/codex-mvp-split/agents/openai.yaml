@@ -1,7 +1,7 @@
 interface:
   display_name: "codex-mvp-split"
-  short_description: "Split tasks into MVP and backlog items"
+  short_description: "規模 L 以上の機能の最小 MVP (Phase 1) を Codex に選定相談し Phase 分割表を作る。Use w..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $codex-mvp-split to split this task into MVP and backlog."
+  default_prompt: "Use $codex-mvp-split to assist with this project."
   brand_color: "#1A56DB"

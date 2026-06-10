@@ -1,7 +1,7 @@
 interface:
   display_name: "context-load"
-  short_description: "Load and restore session context quickly"
+  short_description: "AGENTS.md と依頼文から案件の前提・制約・品質基準を抽出し、context artifact としてサマライズする..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $context-load to load context for the current session."
+  default_prompt: "Use $context-load to assist with this project."
   brand_color: "#1A56DB"
