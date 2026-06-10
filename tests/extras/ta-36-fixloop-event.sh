@@ -21,10 +21,10 @@ import jsonschema
 
 # fixture audit log: INCREMENT 2 件（対象 task）+ 他 task + PASS 行
 with tempfile.NamedTemporaryFile("w", suffix=".log", delete=False) as f:
-    f.write("2026-06-11T00:00:01Z\tINCREMENT\tcheck-fix-loop.sh\tTASK-9936\tcount=1\n")
-    f.write("2026-06-11T00:00:02Z\tPASS\tcheck-fix-loop.sh\tTASK-9936\tcount=1, max=5\n")
-    f.write("2026-06-11T00:00:03Z\tINCREMENT\tcheck-fix-loop.sh\tTASK-OTHER\tcount=1\n")
-    f.write("2026-06-11T00:00:04Z\tINCREMENT\tcheck-fix-loop.sh\tTASK-9936\tcount=2\n")
+    f.write("2026-06-11T00:00:01Z\tINCREMENT\tcheck-fix-loop\tTASK-9936\tcount=1\n")
+    f.write("2026-06-11T00:00:02Z\tPASS\tcheck-fix-loop\tTASK-9936\tcount=1, max=5\n")
+    f.write("2026-06-11T00:00:03Z\tINCREMENT\tcheck-fix-loop\tTASK-OTHER\tcount=1\n")
+    f.write("2026-06-11T00:00:04Z\tINCREMENT\tcheck-fix-loop\tTASK-9936\tcount=2\n")
     log = f.name
 try:
     events = mc.derive_fix_loop_events("TASK-9936", Path(log))
