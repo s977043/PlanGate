@@ -68,6 +68,13 @@ sequenceDiagram
 
 詳細は `docs/workflows/README.md` 参照。
 
+## WF-06 Retro（opt-in・既定 OFF）
+
+標準シーケンスは WF-05 で終端する。WF-06 Retro は **opt-in 時のみ** C-4 後に
+`retrospective-analyst` が実行する終端フェーズで、`docs/working/improvement-seeds.md`
+へ追記専用で累積する（標準シーケンス図に含まれないのは既定 OFF のため）。
+詳細は [`06_retro.md`](./06_retro.md) / 正本仕様 `docs/ai/retro-phase.md` を参照。
+
 ## 既存 PlanGate Agent との並立
 
 本実行シーケンスは **責務ベース 5 体** で構成されるが、既存 PlanGate 特化版 Agent（`workflow-conductor`, `spec-writer`, `implementer`, `acceptance-tester` 等）は legacy として **並立**する。
