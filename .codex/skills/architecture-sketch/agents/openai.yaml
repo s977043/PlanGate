@@ -1,7 +1,7 @@
 interface:
   display_name: "architecture-sketch"
-  short_description: "Sketch architecture and module boundaries"
+  short_description: "確定した仕様を、モジュール境界・データフロー・状態管理・失敗時挙動を持つ設計案に落とし込む。Use when: WF-03..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $architecture-sketch to sketch the architecture for this feature."
+  default_prompt: "Use $architecture-sketch to assist with this project."
   brand_color: "#1A56DB"

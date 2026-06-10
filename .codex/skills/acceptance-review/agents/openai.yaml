@@ -1,7 +1,7 @@
 interface:
   display_name: "acceptance-review"
-  short_description: "Review and verify acceptance criteria are met"
+  short_description: "実装結果を受け入れ条件（AC）と照合し、適合 / 不足を明確化する。Use when: WF-05 Verify & Ha..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $acceptance-review to verify acceptance criteria are met."
+  default_prompt: "Use $acceptance-review to assist with this project."
   brand_color: "#1A56DB"

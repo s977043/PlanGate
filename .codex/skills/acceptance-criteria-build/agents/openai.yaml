@@ -1,7 +1,7 @@
 interface:
   display_name: "acceptance-criteria-build"
-  short_description: "Build acceptance criteria from requirements"
+  short_description: "要件とエッジケースから受け入れ条件（AC）を明文化し、チェックリスト形式で整理する。Use when: WF-02 で A..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $acceptance-criteria-build to build acceptance criteria for this task."
+  default_prompt: "Use $acceptance-criteria-build to assist with this project."
   brand_color: "#1A56DB"

@@ -1,7 +1,7 @@
 interface:
   display_name: "subagent-driven-development"
-  short_description: "Drive development with subagent delegation"
+  short_description: "実装計画のタスクをサブエージェントに委譲し、spec準拠+品質の2段階レビューで品質を担保する。Use when: 「この..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $subagent-driven-development to delegate this task to subagents."
+  default_prompt: "Use $subagent-driven-development to assist with this project."
   brand_color: "#1A56DB"
