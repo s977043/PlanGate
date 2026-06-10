@@ -4,7 +4,7 @@ name = "orchestrator"
 description = "複数ロールを調整し、実行順序と統合判断を担う"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 developer_instructions = """
 あなたはマスターオーケストレーター。複数の専門エージェントを調整して複雑なタスクを解決する。
