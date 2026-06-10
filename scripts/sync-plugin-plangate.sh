@@ -24,9 +24,12 @@ changed=0
 # §Claude Code エージェントの model tier）。配布版 plugin は利用者環境のモデル可用性に
 # 依存しないよう `inherit` へ正規化する（hybrid-architecture.md「export 時の抽象化」準拠）。
 _normalize_model() {
-  # $1=src file → stdout に model: 行を inherit 化した内容を出力
-  sed 's/^model: .*/model: inherit/' "$1"
+  # $1=src file → stdout に frontmatter の model: 行を inherit 化した内容を出力
+  # （docs/ai/model-profiles.md §11。本文中の model: 行は対象外）
+  sed '1,/^---$/{s/^model: .*/model: inherit/;}' "$1"
 }
+_tmp_norm=""
+trap 'rm -f "${_tmp_norm:-}"' EXIT INT TERM
 
 sync_dir() {
   _src="$1"; _dst="$2"; _label="$3"
