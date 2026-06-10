@@ -1,6 +1,14 @@
 workflow: ultra-light
 description: "Ultra-light mode — typo, config, comment fixes (1 file, 0-1 ACs)"
 
+# 設計意図（#513）: 本 yaml は bin/plangate validate/exec が消費する
+# 「artifact 検証層」であり、ゲート列の全体は表現しない。
+# mode-classification.md のフェーズ適用マトリクスが ultra-light に課す
+# L-0（○）/ V-1（△ 簡易確認）/ PR 作成（○）/ C-4（○）は
+# workflow-conductor（runtime）と Hook / CI が制御する。
+# gate_enforcement: {} は「c3 の required_artifacts 検証なし
+# （ultra-light は plan 不要のため）」を意味し、全ゲート無効ではない。
+
 phases:
   - id: wf04_build_and_refine
     requires: []
