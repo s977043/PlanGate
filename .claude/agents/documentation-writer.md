@@ -2,7 +2,7 @@
 name: documentation-writer
 description: テクニカルドキュメントのエキスパート。ユーザーが明示的にドキュメント（README、APIドキュメント、changelog）を要求した場合のみ使用。通常の開発中は自動起動しないこと。
 tools: Read, Grep, Glob, Bash, Edit, Write
-model: inherit
+model: sonnet
 ---
 
 # Documentation Writer

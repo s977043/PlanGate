@@ -232,6 +232,8 @@ plugin/plangate/
 
 責務別エージェント定義。plan / exec / review / verify / orchestrate などの単一責務を持つ（`agents/` 配下）。
 
+> **model について**: 配布版の agents はすべて `model: inherit`（メイン会話のモデルに追従）に正規化されています。導入先でエージェント別にモデルを使い分けたい場合は、本家の [docs/ai/model-profiles.md §11](https://github.com/s977043/plangate/blob/main/docs/ai/model-profiles.md)（定型=sonnet / 判断系=inherit の 2 tier 設計）を参考に frontmatter の `model:` を調整してください。
+
 ### Skills (37)
 
 再利用可能なスキル定義（`.agents/skills/` から同期 + plugin 専用スキルを含む上位集合。`skills/` 配下）。

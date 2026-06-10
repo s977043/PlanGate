@@ -114,3 +114,16 @@ Orchestrator Mode は親 PBI 配下の複数子 PBI を統制する仕様（[`do
 - Orchestrator Mode: `docs/orchestrator-mode.md` / `.claude/rules/orchestrator-mode.md`
 - モード分類: `.claude/rules/mode-classification.md`
 - レビュー原則: `.claude/rules/review-principles.md`
+
+## workflows/*.yaml（mode DSL）とフェーズ適用マトリクスの役割分担（#513）
+
+| 層 | 正本 | 機械消費 |
+|----|------|---------|
+| **artifact 検証** | `workflows/<mode>.yaml` の `gate_enforcement.c3.required_artifacts` | `bin/plangate validate/exec` が正規表現で消費（c3 のみ。c4 / plan_hash_check / phases[].artifact_schema は参照層） |
+| **ゲート列の適用範囲**（どの mode で L-0/V-1〜V-4/C-4 を実行するか） | [`mode-classification.md`](../../.claude/rules/mode-classification.md) のフェーズ適用マトリクス | workflow-conductor（runtime）+ Hook / CI |
+
+mode yaml がゲート列の一部しか含まない（例: `ultra-light.yaml` は WF-04 のみ・
+`gate_enforcement: {}`）のは**設計どおり**であり、ゲートの無効化を意味しない。
+yaml はあくまで「c3 ゲートで機械検証する成果物の一覧」を mode 別に定義する層。
+将来 c4 / plan_hash_check 等を機械配線する場合は #500（Wiring Integrity）系の
+実装 PBI として扱う。
