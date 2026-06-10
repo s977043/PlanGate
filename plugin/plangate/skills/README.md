@@ -52,3 +52,22 @@ WF-01〜WF-05 の各 phase で呼び出す再利用可能スキル。
 |--------|------|
 | `skill-creator` | 新しいスキルを対話的に設計・生成 |
 | `setup-team` | タスク規模・モードに応じた最適チーム設計とエージェント委譲準備 |
+
+## plugin 限定スキルの status（#514）
+
+以下 8 スキルは `.agents/skills/`（共有 SSoT）に存在せず **plugin 配布専用**。
+v7 統制層（TASK-0029 / TASK-0033）で plugin に直接追加され、導入先リポジトリで
+Intent/Mode 分類・4 Gate・エージェント統制を動かすための製品面コンポーネント:
+
+| スキル | 役割 | status |
+|--------|------|--------|
+| `intent-classifier` | 依頼の意図分類（mode 判定の前段） | plugin 専用・現役 |
+| `skill-policy-router` | mode に応じた skill 選択ルーティング | plugin 専用・現役 |
+| `design-gate` / `review-gate` | 設計/レビューゲートの実行枠 | plugin 専用・現役 |
+| `context-packager` | サブエージェントへの文脈パッケージング | plugin 専用・現役 |
+| `subagent-dispatch` | サブエージェント委譲の定型化 | plugin 専用・現役 |
+| `evidence-ledger` | レビュー根拠の台帳化 | plugin 専用・現役 |
+| `pr-decision` | PR 作成可否の判定 | plugin 専用・現役 |
+
+本リポジトリ自身の運用では同等機能を rules / workflow / bin/plangate が担うため
+`.agents/skills` には置かない（共有 SSoT へ昇格する場合は #514 の後続判断）。
