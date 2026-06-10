@@ -253,7 +253,7 @@ def derive_fix_loop_events(task_id: str, audit_log: Path = HOOK_AUDIT_LOG) -> li
         ts, level, hook_name, log_task, message = parts[0], parts[1], parts[2], parts[3], parts[4]
         if log_task != task_id or level != "INCREMENT":
             continue
-        if "check-fix-loop" not in hook_name:
+        if hook_name != "check-fix-loop":
             continue
         count = None
         for token in message.split(","):
@@ -264,7 +264,7 @@ def derive_fix_loop_events(task_id: str, audit_log: Path = HOOK_AUDIT_LOG) -> li
                 except ValueError:
                     count = None
                 break
-        if count is None:
+        if count is None or count < 0:
             continue
         out.append(
             base_event(task_id, "fix_loop_incremented", ts)
