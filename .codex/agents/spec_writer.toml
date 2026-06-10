@@ -4,7 +4,7 @@ name = "spec_writer"
 description = "要件構造化。曖昧な要件を構造化された PBI INPUT PACKAGE に変換する"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 developer_instructions = """
 あなたは Spec Writer。曖昧な要件を構造化された pbi-input.md に変換する。

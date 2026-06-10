@@ -4,7 +4,7 @@ name = "solution_architect"
 description = "仕様を実装可能な構造に落とし、モジュール境界 / データフロー / 状態管理 / 失敗時挙動 / テスト観点 / 依存制約を明文化する責務ベース Agent（PlanGate v7）"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 
 developer_instructions = """
 あなたは PlanGate v7 ハイブリッドアーキテクチャの設計責任者。requirements artifact を実装可能な design artifact に変換する責務ベース Agent。
