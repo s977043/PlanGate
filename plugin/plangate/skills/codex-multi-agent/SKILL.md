@@ -262,7 +262,6 @@ Codex では、役割を次のように割り当てる。
 | skill-design | `skill_designer` |
 | conductor | `workflow_conductor` |
 | orchestrator | `orchestrator` |
-| reviewer (bridge) | `claude_code_reviewer` |
 
 > 上記は PlanGate フレームワークの標準構成。
 > プロジェクト固有の specialist agent（frontend, backend, tester 等）は導入先リポジトリで追加する。

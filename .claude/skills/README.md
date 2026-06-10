@@ -7,8 +7,6 @@ PlanGate ワークフロー v5 / v6 / **v7** で使用するスキル群。
 | スキル | 説明 | カテゴリ |
 | ------ | ---- | -------- |
 | `skill-creator` | 新しいClaude Codeスキルを対話的に設計・生成するワークフロー | developer-tools |
-| `skill-optimizer` | 既存スキルの評価・改善（成功基準ベースの小さな変更） | developer-tools |
-| `skill-ops-planner` | スキルポートフォリオの運用計画・ロードマップ作成 | developer-tools |
 | `brainstorming` | アイデアや要件を対話的に設計書（PBI INPUT PACKAGE）へ昇華 | workflow |
 | `self-review` | 変更内容に対する詳細セルフレビュー（17項目チェック） | review |
 | `systematic-debugging` | バグや障害の体系的調査・根本原因特定 | debugging |

@@ -122,7 +122,7 @@ sh plugin/plangate/scripts/install-plangate-skills.sh
 ```bash
 # 方法 B（直接展開）の場合
 ls .codex/skills/ | grep -v '^\.' | wc -l
-# 37 前後のスキルディレクトリが表示されれば成功（plugin/plangate/skills の全スキルが展開されます）
+# 35 前後のスキルディレクトリが表示されれば成功（plugin/plangate/skills の全スキルが展開されます）
 ```
 
 Codex UI を開き、スキル選択ペインで PlanGate スキル（例: `ai-dev-plan`, `brainstorming` など）が表示されることを確認。
@@ -168,10 +168,10 @@ sh plugin/plangate/scripts/install-plangate-skills.sh --force
 plugin/plangate/
 ├── .claude-plugin/
 │   └── plugin.json         # manifest (v8.11.0)
-├── agents/                 # 23 agents
+├── agents/                 # 17 agents
 ├── assets/                 # アイコン等のアセット
 │   └── plangate-small.svg  # icon_small / icon_large 兼用 (SVG)
-├── skills/                 # 37 skills（.agents/skills/ から同期 + plugin 専用スキルを含む上位集合）
+├── skills/                 # 35 skills（.agents/skills/ から同期 + plugin 専用スキルを含む上位集合）
 │   ├── acceptance-criteria-build/
 │   ├── acceptance-review/
 │   ├── ai-dev-brainstorm/
@@ -202,8 +202,6 @@ plugin/plangate/
 │   ├── self-review/
 │   ├── setup-team/
 │   ├── skill-creator/
-│   ├── skill-ops-planner/
-│   ├── skill-optimizer/
 │   ├── skill-policy-router/
 │   ├── subagent-dispatch/
 │   ├── subagent-driven-development/

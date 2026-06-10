@@ -42,9 +42,6 @@ config_file = "agents/skill_designer.toml"
 
 # -- レビュー --
 
-[agents.claude_code_reviewer]
-config_file = "agents/claude_code_reviewer.toml"
-
 # -- 実装・品質 --
 
 [agents.implementer]
@@ -61,9 +58,6 @@ config_file = "agents/linter_fixer.toml"
 
 # -- 調査・分析 --
 
-[agents.research_analyst]
-config_file = "agents/research_analyst.toml"
-
 [agents.retrospective_analyst]
 config_file = "agents/retrospective_analyst.toml"
 
@@ -74,19 +68,7 @@ config_file = "agents/spec_writer.toml"
 
 # -- レビュー・改善 --
 
-[agents.prompt_engineer]
-config_file = "agents/prompt_engineer.toml"
-
-[agents.migration_agent]
-config_file = "agents/migration_agent.toml"
-
 # -- アジャイル --
-
-[agents.scrum_master]
-config_file = "agents/scrum_master.toml"
-
-[agents.agile_coach]
-config_file = "agents/agile_coach.toml"
 
 # -- 調査 --
 

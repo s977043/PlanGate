@@ -32,26 +32,11 @@ Codex から利用する repo-owned skill の正本は `.agents/skills/*/SKILL.m
 
 ### 調査・分析
 
-- **[research_analyst.toml](./research_analyst.toml)** - 技術調査・実現可能性分析
 - **[retrospective_analyst.toml](./retrospective_analyst.toml)** - exec後の振り返りデータ分析
 
 ### 要件・仕様
 
 - **[spec_writer.toml](./spec_writer.toml)** - 要件構造化、PBI INPUT PACKAGE 作成
-
-### レビュー・改善
-
-- **[prompt_engineer.toml](./prompt_engineer.toml)** - エージェント/スキル定義の品質改善
-- **[migration_agent.toml](./migration_agent.toml)** - 依存関係アップグレード・破壊的変更対応
-
-### アジャイル
-
-- **[scrum_master.toml](./scrum_master.toml)** - Sprint イベント支援、impediment 管理
-- **[agile_coach.toml](./agile_coach.toml)** - アウトカム志向、仮説検証設計、継続改善
-
-### レビュー
-
-- **[claude_code_reviewer.toml](./claude_code_reviewer.toml)** - Claude Code CLI による PR レビュー委譲
 
 ### 調査
 
