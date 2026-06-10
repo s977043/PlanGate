@@ -16,6 +16,15 @@
 | `local-exec-handoff` | ローカル exec 再開・ツール間引き継ぎ用の短い指示パケット（Cloud 不使用時）|
 | `plangate-setup` | PlanGate 初期セットアップを対話的に進めるためのチェックリスト・5 要素対応観点（TASK-0107 / Claude Code + Codex CLI 共用）|
 
+## 似た責務スキルの使い分け（#514）
+
+| 迷ったら | 選ぶスキル | 理由 |
+|---------|-----------|------|
+| plan の品質を**軽くスコアリング**したい | `plan-quality-check`（.claude 専用） | `bin/plangate plan-check` に配線された軽量ゲート。C-1 の代替ではない |
+| C-1/C-2/C-3 の**正式ゲート判定**を回したい | `plan-review-gate` | ゲート列の判定と exec 可否確認の正本フロー |
+| plan を**外部レビュアー視点で講評**してほしい | `plan-quality-reviewer`（.claude 専用） | スコアでなく講評を返す。正式ゲートの代替ではない |
+| 新しいスキルを**作りたい** | `skill-creator` | 要件→SKILL.md 一式の生成。既存スキルの改善は対象外 |
+
 Codex CLI の標準入口は `./scripts/ai-dev-workflow TASK-XXXX brainstorm|plan|gate|exec|prepare-cloud|sync-cloud`。verify 系は `bin/plangate validate|review|eval|metrics TASK-XXXX` を併用する。
 本 skill (`plangate-setup`) は Codex 用 agent `.codex/agents/setup_coordinator.toml` から参照される。
 
