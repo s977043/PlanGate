@@ -1,4 +1,4 @@
-<!-- sync: identical copies in skill-creator, skill-optimizer, skill-ops-planner -->
+<!-- sync: skill-creator が正本（旧: skill-optimizer / skill-ops-planner と共有、両者は未使用のため削除済み） -->
 
 # Default review checklist
 

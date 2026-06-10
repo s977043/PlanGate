@@ -9,6 +9,16 @@ Codex CLI 向けの要約版は `.codex/agents/*.toml` にあります。
 
 ## エージェント定義一覧
 
+> **2 層構成（2026-06-10 スリム化）**: ゲート列（WF-01〜06 / C / V / L-0）を担う
+> **コア**（orchestrator / workflow-conductor / requirements-analyst /
+> solution-architect / spec-writer / implementation-agent / implementer /
+> qa-reviewer / acceptance-tester / code-optimizer / linter-fixer /
+> retrospective-analyst / setup-coordinator）と、必要時に description マッチで
+> 起動する **支援**（explorer-agent / project-planner / documentation-writer /
+> skill-designer）の 2 層。実使用の証跡がない 6 体（agile-coach / scrum-master /
+> migration-agent / prompt-engineer / research-analyst / claude-code-reviewer）は
+> 2026-06-10 監査で削除（git 履歴から復元可能）。
+
 ### 計画・調整
 
 | エージェント | ファイル | Codex toml | 説明 |
@@ -24,14 +34,6 @@ Codex CLI 向けの要約版は `.codex/agents/*.toml` にあります。
 | documentation-writer | [documentation-writer.md](./documentation-writer.md) | `documentation_writer.toml` | ドキュメント・ナレッジ整備 |
 | skill-designer | [skill-designer.md](./skill-designer.md) | `skill_designer.toml` | Codex/Cloud用スキル設計・作成 |
 
-### レビュー・改善
-
-| エージェント | ファイル | Codex toml | 説明 |
-|------------|---------|------------|------|
-| claude-code-reviewer | [claude-code-reviewer.md](./claude-code-reviewer.md) | `claude_code_reviewer.toml` | Claude Code CLI による PR レビュー委譲 |
-| prompt-engineer | [prompt-engineer.md](./prompt-engineer.md) | `prompt_engineer.toml` | エージェント/スキル定義の品質改善 |
-| migration-agent | [migration-agent.md](./migration-agent.md) | `migration_agent.toml` | 依存関係アップグレード・破壊的変更対応 |
-
 ### 実装・品質
 
 | エージェント | ファイル | Codex toml | 説明 |
@@ -46,7 +48,6 @@ Codex CLI 向けの要約版は `.codex/agents/*.toml` にあります。
 | エージェント | ファイル | Codex toml | 説明 |
 |------------|---------|------------|------|
 | explorer-agent | [explorer-agent.md](./explorer-agent.md) | `explorer_agent.toml` | コードベース探索、アーキテクチャ分析 |
-| research-analyst | [research-analyst.md](./research-analyst.md) | `research_analyst.toml` | 技術調査・実現可能性分析 |
 | retrospective-analyst | [retrospective-analyst.md](./retrospective-analyst.md) | `retrospective_analyst.toml` | exec後の振り返りデータ分析 |
 
 ### 要件・仕様
@@ -54,13 +55,6 @@ Codex CLI 向けの要約版は `.codex/agents/*.toml` にあります。
 | エージェント | ファイル | Codex toml | 説明 |
 |------------|---------|------------|------|
 | spec-writer | [spec-writer.md](./spec-writer.md) | `spec_writer.toml` | 要件構造化、PBI INPUT PACKAGE 作成 |
-
-### アジャイル
-
-| エージェント | ファイル | Codex toml | 説明 |
-|------------|---------|------------|------|
-| scrum-master | [scrum-master.md](./scrum-master.md) | `scrum_master.toml` | Sprint イベント支援、impediment 管理 |
-| agile-coach | [agile-coach.md](./agile-coach.md) | `agile_coach.toml` | アウトカム志向、仮説検証設計、継続改善 |
 
 ### v7 ハイブリッドアーキテクチャ（責務ベース 5 体）
 
@@ -76,7 +70,7 @@ v7（`docs/plangate-v7-hybrid.md`）で導入された責務ベース Agent。WF
 
 実行シーケンス: [docs/workflows/execution-sequence.md](../../docs/workflows/execution-sequence.md)
 
-**既存 Agent との共存**: 汎用・補助系の既存 17 体は引き続き利用可能。詳細な棲み分けは [docs/working/TASK-0025/evidence/existing-agents-inventory.md](../../docs/working/TASK-0025/evidence/existing-agents-inventory.md) 参照。
+**既存 Agent との共存**: 汎用・補助系の既存 11 体は引き続き利用可能。詳細な棲み分けは [docs/working/TASK-0025/evidence/existing-agents-inventory.md](../../docs/working/TASK-0025/evidence/existing-agents-inventory.md) 参照。
 
 ---
 
