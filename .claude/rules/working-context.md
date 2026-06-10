@@ -7,7 +7,7 @@
 
 ## PlanGateワークフローとの対応
 
-このルールはPlanGateワークフロー v5-v6の各フェーズで生成される成果物を永続化する。
+このルールはPlanGateワークフロー（v5 で確立、現行 v8 系まで継承）の各フェーズで生成される成果物を永続化する。
 PlanGateガイド: `docs/plangate.md`
 ワークフロー詳細: `docs/ai-driven-development.md`
 
@@ -142,6 +142,21 @@ opt-in 終端フェーズ WF-06（[`docs/workflows/06_retro.md`](../../docs/work
 confirmed_by）。人間 confirm 済のみ追記。#200 期間集計の入力源。
 既定 OFF のため未 opt-in run には存在しない（既存挙動不変）。正本仕様:
 [`docs/ai/retro-phase.md`](../../docs/ai/retro-phase.md)。
+
+### 管理ディレクトリ（TASK 横断）
+
+`docs/working/` 直下にはチケット単位ディレクトリのほか、TASK 横断の管理ディレクトリが存在する:
+
+| ディレクトリ | 役割 |
+|------------|------|
+| `_audit/` | hook イベントログ・`skip-decision-log.jsonl`・doc-audit 結果（append-only 監査証跡） |
+| `_metrics/` | `bin/plangate metrics` の events.ndjson 出力先（events.ndjson は gitignore 対象。正本: [`docs/ai/metrics.md`](../../docs/ai/metrics.md)） |
+| `_reports/` | `bin/plangate metrics --report` / retrospective の期間集計成果物 |
+| `_merge/` | マージ運用 runbook |
+| `_prompts/` | レビュー用プロンプトのアーカイブ |
+| `discussions/` | 戦略ディスカッションログ |
+| `incidents/` | インシデント記録（例: INC-2026-05-26-001） |
+| `templates/` | working context 各ファイルのテンプレート正本 |
 
 ### evidence/ の保管ルール
 

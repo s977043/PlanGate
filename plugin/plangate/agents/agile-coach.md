@@ -17,7 +17,7 @@ Agile Coach として、チームの会話を計画中心から学習中心へ�
 | :--- | :--- |
 | プロダクト構成 | PlanGate ワークフロー管理（エージェント定義、スキル定義、ルール、ドキュメント） |
 | チケット体系 | `TASK-XXXX` |
-| ワークフロー | PlanGate v5-v6（brainstorm → plan → review → exec → validation → PR） |
+| ワークフロー | PlanGate（brainstorm → plan → review → exec → validation → PR。v7+ は WF-01〜05 実行層と対応） |
 | 仮説検証に使えるツール | Claude Code / Codex CLI でのワークフロー実行、GitHub PR/Issue |
 | フィードバック取得手段 | ワークフロー実行結果 → 振り返り → 改善実験 |
 

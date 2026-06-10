@@ -89,7 +89,7 @@ v8.7.0〜v8.10.0 はリリース済みで、外部 OSS 利用者の **「どこ�
 | Reporting v1 | events.ndjson から sprint retrospective を導出（v8.9.0） |
 | Baseline | v8.5.0 直後の baseline を `docs/ai/eval-baselines/` に固定（v8.6.0 初出） |
 | Governance | Issue / Label / Milestone Governance + Metrics Privacy Policy（v8.6.0 初出） |
-| CLI テスト | `sh tests/run-tests.sh` — **211 PASS** |
+| CLI テスト | `sh tests/run-tests.sh` — **271 PASS** |
 | Hook テスト | `sh tests/hooks/run-tests.sh` — **79 PASS** |
 | Eval | `bin/plangate eval` による 8 観点評価と release blocker 検知 |
 | Schema | `validate-schemas` + CI による JSON artifact 検証 |
@@ -384,7 +384,7 @@ sh tests/hooks/run-tests.sh
 
 | スイート | 件数 | 主な検証対象 |
 | --- | ---: | --- |
-| `tests/run-tests.sh` | **211 PASS** | CLI、Workflow DSL、schema validate、eval、metrics v1、reporting、provider dispatch、fixture 検証 |
+| `tests/run-tests.sh` | **271 PASS** | CLI、Workflow DSL、schema validate、eval、metrics v1、reporting、provider dispatch、fixture 検証 |
 | `tests/hooks/run-tests.sh` | **79 PASS** | EH-1〜EH-9 / EHS-1〜EHS-3、default / strict / bypass の 3 mode 挙動 |
 
 主な検証対象:
