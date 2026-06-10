@@ -10,6 +10,12 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.13.0 - 2026-06-11
+
+feat: 全体健全化リリース — 監査駆動の鮮度・整合・隔離改善 + エージェント model tier
+
+リポジトリ全体監査（2 ラウンド + Shadow Spec 棚卸し）を起点に、ドキュメント鮮度の回復、テストの実 docs/working 汚染の根治、未使用エージェント/スキルのスリム化、エージェント model tier（Claude: sonnet/inherit、Codex: low/medium effort）の導入、Hook enforcement の実装/配線の実態整合、yaml schema 検証、CLI テストカバレッジ完了（290 PASS）までを収録。
+
 ### Added
 
 - **エージェント model tier**（#519）— エージェントを「定型・構造化 / 判断系」の 2 tier に分類し、Claude Code は frontmatter `model:`（sonnet / inherit）、Codex は `model_reasoning_effort`（low / medium、GPT-5.5 の high はトークン消費の運用判断で不採用）で表現。正本 [`docs/ai/model-profiles.md`](docs/ai/model-profiles.md) §11。plugin 配布版は `sync-plugin-plangate.sh` が `model: inherit` へ自動正規化し、利用者環境にモデル固定を持ち込まない。tier の崩れは `tests/extras/ta-33` が CI で機械検査

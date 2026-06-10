@@ -75,13 +75,13 @@ flowchart LR
 
 ## Current Status
 
-As of **v8.12.0** (Latest), PlanGate adds parallel reviewer execution, plugin sync quality guards, an adoption landing page (Why PlanGate), and operations guards. v8.11.0 added official Claude Code / Codex Plugin distribution, and through v8.10.0 PlanGate combined Hook enforcement, Metrics v1, and Harness Improvement Governance with **Reporting & Retrospective v1**, deriving sprint retrospectives deterministically from events.ndjson. With this, the [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) is **complete (CLOSED / COMPLETED)**.
+As of **v8.13.0** (Latest), PlanGate ships a repository-wide health release: audit-driven documentation freshness, test isolation (no more tracked-file pollution), agent/skill slimming, agent model tiers (Claude: sonnet/inherit, Codex: low/medium effort), and Hook enforcement reality alignment. v8.12.0 added parallel reviewer execution, plugin sync quality guards, an adoption landing page (Why PlanGate), and operations guards. v8.11.0 added official Claude Code / Codex Plugin distribution, and through v8.10.0 PlanGate combined Hook enforcement, Metrics v1, and Harness Improvement Governance with **Reporting & Retrospective v1**, deriving sprint retrospectives deterministically from events.ndjson. With this, the [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) is **complete (CLOSED / COMPLETED)**.
 
 v8.7.0 through v8.9.0 have all shipped, addressing the external OSS user's "where do I start, where do I stop" problem via OSS adoption foundations (staged adoption guide, plugin maturity, versioning stability policy) and the self-evaluation, context separation, model-profile, and reporting bases delivered in sequence.
 
 | Item | Status |
 | --- | --- |
-| Latest release | **v8.12.0** (Latest, 2026-06-07) — Parallel reviewer execution + plugin sync quality guards + adoption landing (Why PlanGate) / operations guards |
+| Latest release | **v8.13.0** (Latest, 2026-06-11) — Repository-wide health release (audit-driven freshness / test isolation / slimming) + agent model tiers + enforcement reality alignment |
 | Shipped | **v8.7.0** OSS adoption foundations + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1, Dynamic Context Engine v1, Model Profile v2, Gate Event Normalization, Dogfooding Eval v1 |
 | Roadmap | **EPIC #193 complete (CLOSED / COMPLETED)** — Phases 0-6 + Governance + Lightweight Plan Quality Checks all Done, child PBIs 12/12 CLOSED |
 | Hook enforcement | **12/12 hooks implemented** (EH-1 to EH-9 + EHS-1 to EHS-3; physical wiring is 6/12 — remainder planned in [#500](https://github.com/s977043/plangate/issues/500), see [`docs/ai/hook-enforcement.md`](docs/ai/hook-enforcement.md)) |
