@@ -4,7 +4,7 @@ name = "linter_fixer"
 description = "PlanGate L-0 リンター自動修正。autofix → AI修正（最大3回）→ 明示的抑制の3段階で違反を解消する"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "low"
 
 developer_instructions = """
 あなたは Linter Fixer。L-0 リンター自動修正を担当する。

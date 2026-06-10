@@ -39,17 +39,17 @@ else
   fail=$((fail + 1))
 fi
 
-# TC-03: Codex 側 tier（定型=medium / 判断系=high）が正本どおり
-_t33_expect_medium="explorer_agent linter_fixer retrospective_analyst setup_coordinator documentation_writer skill_designer"
-_t33_expect_high="orchestrator workflow_conductor requirements_analyst solution_architect spec_writer implementation_agent implementer qa_reviewer acceptance_tester code_optimizer project_planner"
+# TC-03: Codex 側 tier（定型=low / 判断系=medium）が正本どおり
+_t33_expect_low="explorer_agent linter_fixer retrospective_analyst setup_coordinator documentation_writer skill_designer"
+_t33_expect_medium="orchestrator workflow_conductor requirements_analyst solution_architect spec_writer implementation_agent implementer qa_reviewer acceptance_tester code_optimizer project_planner"
 _t33_bad=""
+for _t33_n in $_t33_expect_low; do
+  _t33_e="$(grep -m1 'model_reasoning_effort' "$_t33_root/.codex/agents/$_t33_n.toml" | sed 's/.*"\(.*\)".*/\1/')"
+  [ "$_t33_e" = "low" ] || _t33_bad="$_t33_bad $_t33_n:$_t33_e(expect low)"
+done
 for _t33_n in $_t33_expect_medium; do
   _t33_e="$(grep -m1 'model_reasoning_effort' "$_t33_root/.codex/agents/$_t33_n.toml" | sed 's/.*"\(.*\)".*/\1/')"
   [ "$_t33_e" = "medium" ] || _t33_bad="$_t33_bad $_t33_n:$_t33_e(expect medium)"
-done
-for _t33_n in $_t33_expect_high; do
-  _t33_e="$(grep -m1 'model_reasoning_effort' "$_t33_root/.codex/agents/$_t33_n.toml" | sed 's/.*"\(.*\)".*/\1/')"
-  [ "$_t33_e" = "high" ] || _t33_bad="$_t33_bad $_t33_n:$_t33_e(expect high)"
 done
 if [ -z "$_t33_bad" ]; then
   printf '[PASS] TA-33 TC-03: Codex effort tier が model-profiles.md §11 と一致\n'
