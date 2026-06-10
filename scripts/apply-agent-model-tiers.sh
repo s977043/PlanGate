@@ -23,10 +23,17 @@ for a in $AGENTS; do
     echo "OK (already): $a"
     continue
   fi
+  # アンカー検証: frontmatter に model: 行が無ければ異常（ho-change-workflow 準拠）
+  if [ -z "$current" ]; then
+    echo "ERROR: $a に model: 行が見つかりません（適用中断）" >&2; exit 1
+  fi
   if [ "$MODE" = "--dry-run" ]; then
-    echo "[dry-run] $a: '$current' -> 'model: sonnet'"
+    echo "[dry-run] $a:"
+    printf -- "-%s\n+model: sonnet\n" "$current"
   elif [ "$MODE" = "--apply" ]; then
-    sed -i.bak 's/^model: .*/model: sonnet/' "$f" && rm -f "$f.bak"
+    # frontmatter（先頭の --- ブロック）内のみ置換・ポータブルな tmp 方式
+    sed '1,/^---$/{s/^model: .*/model: sonnet/;}' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+    grep -q '^model: sonnet$' "$f" || { echo "ERROR: $a への適用検証に失敗" >&2; exit 1; }
     echo "APPLIED: $a"
   else
     echo "usage: $0 [--dry-run|--apply]"; exit 1

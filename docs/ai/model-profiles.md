@@ -200,7 +200,7 @@ Codex 側はモデル切替でなく `.codex/agents/*.toml` の `model_reasoning
 「効率的 reasoning」で機械検証に裏付けられた定型タスクに適合。minimal は
 multi-step / tool-heavy には不適のため不採用）。
 
-> **`high` / `xhigh` は採用しない**（2026-06-10 ユーザー判断: GPT-5.5 の high は
+> **エージェント toml の静的値としては `high` / `xhigh` を採用しない**（2026-06-10 ユーザー判断: GPT-5.5 の high は
 > トークン消費が大きい）。§4 の mode×effort 行列が high_risk/critical で high を
 > 推奨する箇所は run 単位の参照値であり、エージェント toml の静的値が優先される。
 > critical run で個別に引き上げたい場合は人間判断で当該 run のみ調整する。
@@ -214,5 +214,7 @@ multi-step / tool-heavy には不適のため不採用）。
   apply スクリプト（`scripts/apply-agent-model-tiers.sh`）+ Human 実行
 - frontmatter の許容値は `inherit | sonnet | opus | haiku | fable | フルモデルID`。
   本リポジトリでは `inherit` / `sonnet` のみ使用（tests で機械検査）
+- 本 tier（定型/判断系）は `.claude/agents/README.md` の「コア/支援」2 層構成とは
+  **別軸**（例: linter-fixer はコアだが定型 tier、project-planner は支援だが判断系）
 - 再評価条件: メイン運用モデルの世代交代時、または定型 tier 群で fix loop /
   再試行の増加が観測された時（計測基盤は #520 系 follow-up 参照）
