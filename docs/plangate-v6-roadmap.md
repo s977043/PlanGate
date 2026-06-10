@@ -1,6 +1,6 @@
 # PlanGate v6 ロードマップ -- ハーネスエンジニアリング差分解消
 
-> **v7 ハイブリッドアーキテクチャ**: 本書の方向性を踏まえ、実行層を Workflow / Skill / Agent 3 層で再構築したのが v7。詳細は [docs/plangate-v7-hybrid.md](./plangate-v7-hybrid.md) 参照。v6 は本書のロードマップとして維持される。
+> **v7 ハイブリッドアーキテクチャ**: 本書の方向性を踏まえ、実行層を Workflow / Skill / Agent 3 層で再構築したのが v7。詳細は [docs/plangate-v7-hybrid.md](./plangate-v7-hybrid.md) 参照。v6 は本書のロードマップとして維持される。なお P1（決定論的フック）は v8.5.0 までに Hook enforcement（EH-1〜EH-9 + EHS-1〜3）として実装完了済み。
 
 ## 責務境界の大原則
 

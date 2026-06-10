@@ -46,6 +46,13 @@ V-1 受け入れ検査を担当する。test-cases.md の完了条件を**1つ�
 5. PASS / FAIL を判定
 ```
 
+### Step 2.5: 実行の信頼性（並行 flaky の切り分け / #497）
+
+テストランナーの並行実行は flaky な timeout を生み、実装は正しいのに偽 FAIL となりうる。これを fix loop に流さないため:
+
+- **単一プロセス実行を既定とする**: テストは `maxWorkers=1` 相当（単一プロセス）で実行し、並行・リソース競合に起因する偽 FAIL を避ける。
+- **疑わしい FAIL は fix loop 前に単独再実行で切り分ける**: timeout や間欠的失敗が出たら、当該テストを**単独で再実行**する。単独で PASS するなら実装ではなく実行環境起因（並行 flaky）と判定し、**fix loop を起動せず** conductor へ「環境起因 flaky」として報告する。単独でも FAIL なら実装起因として fix loop（最大5回）へ送る。
+
 ### Step 3: 結果レポート
 
 `docs/working/templates/v1-acceptance-result.md` のスキーマに従い結果を出力:

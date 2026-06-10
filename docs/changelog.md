@@ -10,6 +10,35 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.12.0 - 2026-06-07
+
+feat: 並列レビューア実行 + Plugin sync 品質ガード + 導入促進・運用ガード整備
+
+`bin/plangate review` の並列レビューア実行（TASK-0122）を追加。Plugin マニフェストの version 二重管理ガード・Codex Plugin 状態検査 helper・実 SSoT 汚染の CI 可視化など plugin sync 周辺の品質を強化。導入検討者向けランディング（Why PlanGate）と HO 待ち運用ガード（status 日時必須・外部レビュー実行不可記録・runtime conductor 運用・AGENTS.md 汚染除去）を整備。3 視点レビュー（セルフ + 別視点 + Gemini）で検出した多数の指摘を反映。
+
+### Added
+
+- **並列レビューア実行**（TASK-0122）— `bin/plangate review` に複数外部レビューアの並列実行を追加。spec ファイルのコマンドに `shlex.quote` を適用。
+- **Why PlanGate ランディングページ**（#468-470）— 導入検討者が 3 分で必要性を判断し 5 分で導入を始められる訴求ページ `docs/pages/explanation/product/why-plangate.md`。3 つの価値・段階的導入・成功イメージ・CTA を整理。
+- **Codex Plugin 状態検査 helper**（#451 / #472）— `scripts/check-codex-plugin-status.sh`。Codex Plugin の登録 / version / skill 数をネットワーク非依存でローカル検査。`bin/plangate doctor` に non-fatal セクションとして配線。
+- **HO 適用スクリプト**（#479）— `scripts/apply-ho-followups.sh`。HO パス変更を Human が冪等・`--dry-run` 付きで 1 コマンド適用。
+
+### Changed
+
+- **Plugin sync 品質改善**（#476 / #478）— 重大度ラベル統一（`MISMATCH` → `ERROR`）、リポジトリ slug 表記ゆれ統一、shallow clone での tag 空テスト追加。
+- **運用ガード整備**（#463 → #480）— `status.md` フェーズ履歴の日時 `YYYY-MM-DD HH:mm` 必須、外部レビュー実行不可時の記録規約（§7-ter）、Codex runtime での conductor 相当運用を正本に反映。
+- **/plangate-setup 前提条件明示**（#454 → #480）— `bin/plangate` 前提と clone 必要性を `plangate-setup.md` / `setup-coordinator.md` に追記。
+
+### Fixed
+
+- **Plugin version 二重管理ガード**（#456 / #471）— `plugin.json` ↔ `marketplace.json` の version を sync で同期・check で検証。parse 失敗 / 未定義 / 空を ERROR 化。
+- **AGENTS.md 汚染除去 + CI 可視化**（#452 → #473 / #480）— `<claude-mem-context>` 汚染ブロックを除去。実 SSoT 汚染を run-tests で可視化（warn-only / `STRICT_AGENTS_CHECK` 切替）。
+- **テスト堅牢化**（#474 / #475 / #477 / #478）— sourced テストの `trap` 親シェル汚染をサブシェル隔離で解消、semver 検証の `grep -E` 厳格化、`mktemp` リーク防止、`--online` カバレッジ補完。
+
+### Meta
+
+- 本リリースは issue #451 / #452 / #454 / #456 / #463 / #476 を close。
+
 ## v8.11.0 - 2026-06-04
 
 feat: Claude Code / Codex Plugin 正式配布対応 + retrospective scoring 配点変更
