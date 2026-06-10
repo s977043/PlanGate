@@ -6,6 +6,26 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+### Added
+
+- **status の BLOCKED 状態 + Deferred ゲート**（#498 / #510）— 外部依存で着手不能なタスクを未着手と区別して明示し、解除条件を一覧化
+- **V-1 テスト実行の単一プロセス既定化**（#497 / #509）— 並行 flaky な timeout を fix loop に流す前に単独再実行で切り分け
+- **doc-light モード適用スクリプト**（#496 / #503）— mode 分類に変更種別軸 + doc-light を追加する Human 適用スクリプト
+- **ブランチ base verify 規範の apply スクリプト**（#505 / #506）— `scripts/apply-responsibility-classes-branch-base.sh`（HO 適用は Human）
+
+### Changed
+
+- **Iron Law #8「NO CLAIM WITHOUT SOURCE CROSS-CHECK」追加**（#494 / #501）— core-contract に主張時の出典突合を義務化
+- **ワークフロー責務範囲の明文化**（#487 / #491・#492）— ワークフローは C-4 まで・リリース/公開は責務外。CI 縮退・C-4 自律承認を Specification として正本化
+- **WF-05 PR 変更ファイル検証 + HO 仕様+apply フロー正本化**（#505 / #507）、**retro 単発セッション捕捉の改善仕様**（#505 / #508）
+- **Wiring Integrity Enforcement 仕様の策定**（#500 / #504）
+- **L-0 カスタム静的解析の false-positive canary 必須化ガイド**（#499 / #502）
+- **ドキュメント整理 Phase 3**（#488〜#490）— philosophy / oss-governance を docs/pages/ へ移行、markdownlint glob・apply-ho-followups.sh を追随
+
+### Fixed
+
+- **全体監査 + テスト分離**（#511）— ドキュメント鮮度更新（v8.12.0 表記・テスト数実測・管理ディレクトリ文書化）、hooks テストのサンドボックス隔離、tracked 成果物汚染（TASK-9991 残骸・TASK-0059 eval-result・監査ログ fixture ノイズ 114 行）の根治
+
 ## v8.12.0 - 2026-06-07
 
 feat: 並列レビューア実行 + Plugin sync 品質ガード + 導入促進・運用ガード整備
