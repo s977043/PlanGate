@@ -180,3 +180,33 @@ minor・additive）として行い、free-form 化はしない。
   - PBI-116-06 (Tool Policy): `tool_policy` / `validation_bias` の射影
   - PBI-116-03 (Prompt Assembly): `adapter` の利用
   - PBI-116-05 (Eval Cases): プロファイル比較・回帰検証
+
+## 11. Claude Code エージェントの model tier（2026-06-10 / 正本）
+
+本ファイル §1〜10 は **Codex（GPT 系）実行モデル**の設定層。Claude Code 側の
+エージェント別モデル選択は `.claude/agents/*.md` の frontmatter `model:` が機構で、
+以下の 2 tier を正本とする（haiku は積極採用しない方針）:
+
+| Tier | frontmatter | 基準 | 対象 |
+|------|-------------|------|------|
+| 定型・構造化 | `model: sonnet` | 出力が機械検証（lint 再実行・テスト実行・schema 検証）に裏付けられる定型タスク、読み取り中心の調査・文書化 | explorer-agent / linter-fixer / retrospective-analyst / setup-coordinator / documentation-writer / skill-designer |
+| 判断系 | `model: inherit`（メイン会話に追従） | 計画・設計・実装・レビュー・ゲート判定など誤りが下流に波及する深い推論。メインを Fable/Opus で運用すればそのまま最上位モデルが適用される | orchestrator / workflow-conductor / requirements-analyst / solution-architect / spec-writer / implementation-agent / implementer / qa-reviewer / **acceptance-tester**（V-1 false PASS 防止のため定型側にしない） / code-optimizer / project-planner |
+
+### GPT 系（Codex CLI）への写像
+
+Codex 側はモデル切替でなく `.codex/agents/*.toml` の `model_reasoning_effort` で
+同一 tier を表現する: **定型・構造化 = `medium` / 判断系 = `high`**
+（OpenAI 公式ガイダンス: agentic coding は medium 開始・複雑判断は high。
+minimal は multi-step / tool-heavy には不適のため不採用）。
+
+### 運用上の不変条件
+
+- **plugin 配布版は `model: inherit` に正規化**する（`sync-plugin-plangate.sh` が
+  agents コピー時に自動正規化）。tier 指定は本リポジトリ運用向けであり、利用者
+  環境のモデル可用性に依存する設定を OSS 配布物に持ち込まない
+- `.claude/agents/*.md` は Hardening Override 対象のため、tier 変更の適用は
+  apply スクリプト（`scripts/apply-agent-model-tiers.sh`）+ Human 実行
+- frontmatter の許容値は `inherit | sonnet | opus | haiku | fable | フルモデルID`。
+  本リポジトリでは `inherit` / `sonnet` のみ使用（tests で機械検査）
+- 再評価条件: メイン運用モデルの世代交代時、または定型 tier 群で fix loop /
+  再試行の増加が観測された時（計測基盤は #520 系 follow-up 参照）

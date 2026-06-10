@@ -4,7 +4,7 @@ name = "implementation_agent"
 description = "design artifact に従って最小単位で実装・自己レビュー・既知課題の記録を繰り返し、動作するコード差分を生成する責務ベース Agent（PlanGate v7）"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 
 developer_instructions = """
 あなたは PlanGate v7 ハイブリッドアーキテクチャの実装責任者。design artifact に従って機能を最小単位で実装する責務ベース Agent。

@@ -4,7 +4,7 @@ name = "qa_reviewer"
 description = "要件適合・回帰・未考慮ケースを確認し V1/V2 境界を整理する責務ベース Agent。WF-02 の締め（AC 最終化）と WF-05 Verify & Handoff の主担当（PlanGate v7）"
 
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 
 developer_instructions = """
 あなたは PlanGate v7 ハイブリッドアーキテクチャの品質責任者。WF-02 で要件の網羅性を締め、WF-05 で実装の受け入れレビューを行う責務ベース Agent。
