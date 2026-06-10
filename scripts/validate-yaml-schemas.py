@@ -31,11 +31,17 @@ KNOWN_PAIRS = [
 
 
 def validate_pair(yaml_path: str, schema_path: str) -> str | None:
-    """戻り値: None=PASS / エラーメッセージ=FAIL"""
-    with open(yaml_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    with open(schema_path, encoding="utf-8") as f:
-        schema = json.load(f)
+    """戻り値: None=PASS / エラーメッセージ=FAIL（パース失敗・schema 不読も FAIL）"""
+    try:
+        with open(yaml_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except (OSError, yaml.YAMLError) as e:
+        return f"yaml load error: {e}"
+    try:
+        with open(schema_path, encoding="utf-8") as f:
+            schema = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        return f"schema load error: {e}"
     try:
         jsonschema.validate(data, schema)
         return None
@@ -44,11 +50,15 @@ def validate_pair(yaml_path: str, schema_path: str) -> str | None:
 
 
 def main() -> int:
-    if len(sys.argv) == 5 and sys.argv[1] == "--file" and sys.argv[3] == "--schema":
-        pairs = [(sys.argv[2], sys.argv[4], True)]
-    else:
+    if len(sys.argv) == 1:
         pairs = [(os.path.join(ROOT, y), os.path.join(ROOT, s), req)
                  for y, s, req in KNOWN_PAIRS]
+    elif len(sys.argv) == 5 and sys.argv[1] == "--file" and sys.argv[3] == "--schema":
+        pairs = [(sys.argv[2], sys.argv[4], True)]
+    else:
+        # 不完全な引数で既知ペア検証へサイレントフォールバックしない
+        print(f"usage: {os.path.basename(sys.argv[0])} [--file YAML --schema SCHEMA]")
+        return 1
 
     failed = False
     for yaml_path, schema_path, required in pairs:
