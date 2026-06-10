@@ -12,6 +12,8 @@ METRICS_AUDIT_LOG="$METRICS_REPO_ROOT/docs/working/_audit/hook-events.log"
 METRICS_AUDIT_BACKUP=""
 
 cleanup_metrics() {
+  # TA-09 完了後（復元済み）に EXIT trap から再実行された場合は no-op
+  [ -n "${METRICS_CLEANUP_DONE:-}" ] && return 0
   rm -rf "$METRICS_TASK_DIR"
   rm -f "$METRICS_LOG"
   if [ -n "$METRICS_AUDIT_BACKUP" ] && [ -f "$METRICS_AUDIT_BACKUP" ]; then
@@ -418,6 +420,12 @@ else
 fi
 
 # Test 18 (C-3): baseline-snapshot.py --dry-run produces schema-valid output for real TASKs
+# TASK-0059 の eval-result.{json,md} は tracked。eval-runner が上書きするため退避→復元する
+T59_DIR="$METRICS_REPO_ROOT/docs/working/TASK-0059"
+T59_BAK="$(mktemp -d "${TMPDIR:-/tmp}/ta09-task0059.XXXXXX")"
+for f in eval-result.json eval-result.md; do
+  [ -f "$T59_DIR/$f" ] && cp "$T59_DIR/$f" "$T59_BAK/$f"
+done
 if python3 -c 'import jsonschema' >/dev/null 2>&1; then
   snapshot_script="$METRICS_REPO_ROOT/scripts/baseline-snapshot.py"
   baseline_schema="$METRICS_REPO_ROOT/schemas/eval-baseline.schema.json"
@@ -439,3 +447,14 @@ jsonschema.validate(data, schema)
     fail=$((fail + 1))
   fi
 fi
+
+# TASK-0059 eval-result を復元（PR #511 follow-up）
+for f in eval-result.json eval-result.md; do
+  [ -f "$T59_BAK/$f" ] && cp "$T59_BAK/$f" "$T59_DIR/$f"
+done
+rm -rf "$T59_BAK"
+
+# fixture（TASK-9991）を確実に削除（後続 extras が trap EXIT を上書きするため、
+# trap に頼らずここで明示実行する。PR #511 follow-up: 実 docs/working 汚染防止）
+cleanup_metrics
+METRICS_CLEANUP_DONE=1
