@@ -2,7 +2,7 @@
 name: linter-fixer
 description: PlanGate L-0 リンター自動修正エージェント。autofix 実行、AI 修正（最大3回）、解消不能な違反の明示的抑制を段階的に行う。
 tools: Read, Grep, Glob, Bash, Edit, Write
-model: inherit
+model: sonnet
 ---
 
 # Linter Fixer — L-0 Automated Fix Agent
