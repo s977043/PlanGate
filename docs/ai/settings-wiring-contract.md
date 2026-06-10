@@ -66,6 +66,11 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 
 ## Codex CLI parity (#336 / Gap 4) — 達成済
 
+> **model tier の parity**: Claude Code は `.claude/agents/*.md` frontmatter の
+> `model:`（inherit/sonnet）、Codex は `.codex/agents/*.toml` の
+> `model_reasoning_effort`（high/medium）で同一の 2 tier を表現する。対応表の
+> 正本は [`model-profiles.md`](./model-profiles.md) §11。
+
 **判明事項** (2026-05-25 PR #347): OpenAI Codex CLI は `PreToolUse` / `PostToolUse` hook API を公式提供しており、Claude Code の hook 仕様と直接互換 (matcher / stdin JSON / exit 2 で deny / `hookSpecificOutput.permissionDecision`)。公式仕様: https://developers.openai.com/codex/hooks
 
 ### 三層の強制機構
