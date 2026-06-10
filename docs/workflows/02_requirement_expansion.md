@@ -25,6 +25,7 @@
 - `requirement-gap-scan`
 - `nonfunctional-check`
 - `edgecase-enumeration`
+- `risk-assessment`
 - `acceptance-criteria-build`
 
 ## 主担当 Agent
