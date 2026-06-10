@@ -84,7 +84,7 @@ v8.7.0 through v8.9.0 have all shipped, addressing the external OSS user's "wher
 | Latest release | **v8.12.0** (Latest, 2026-06-07) — Parallel reviewer execution + plugin sync quality guards + adoption landing (Why PlanGate) / operations guards |
 | Shipped | **v8.7.0** OSS adoption foundations + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1, Dynamic Context Engine v1, Model Profile v2, Gate Event Normalization, Dogfooding Eval v1 |
 | Roadmap | **EPIC #193 complete (CLOSED / COMPLETED)** — Phases 0-6 + Governance + Lightweight Plan Quality Checks all Done, child PBIs 12/12 CLOSED |
-| Hook enforcement | **12/12 hooks implemented** (EH-1 to EH-9 + EHS-1 to EHS-3; v8.5.0=10/10, v8.6.0 added EH-8, v8.7.0 added EH-9) |
+| Hook enforcement | **12/12 hooks implemented** (EH-1 to EH-9 + EHS-1 to EHS-3; physical wiring is 6/12 — remainder planned in [#500](https://github.com/s977043/plangate/issues/500), see [`docs/ai/hook-enforcement.md`](docs/ai/hook-enforcement.md)) |
 | Metrics v1 | Workflow event collection and reporting via `bin/plangate metrics` (introduced in v8.6.0) |
 | Reporting v1 | Sprint retrospective derived from events.ndjson (v8.9.0) |
 | Baseline | v8.5.0 baseline fixed under `docs/ai/eval-baselines/` (introduced in v8.6.0) |
