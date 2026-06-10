@@ -39,3 +39,10 @@ v7（`docs/plangate-v7-hybrid.md`）で追加された **再利用可能 Skill**
 - フォルダー名はkebab-case
 - 詳細ドキュメントは `references/` に分離する
 - テンプレート等は `assets/` に配置する
+
+## 配置の宣言（#514）
+
+`plan-quality-check` / `plan-quality-reviewer` は **Claude Code 専用スキル**として
+本ディレクトリのみに置く（共有 SSoT `.agents/skills/` へは置かない）。理由:
+`bin/plangate plan-check` の Claude 向け配線・講評形式が Claude Code の利用文脈に
+依存するため。Codex 側の同等機能は `plan-review-gate` + `bin/plangate validate` が担う。
