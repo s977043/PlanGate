@@ -30,7 +30,8 @@ done
 python3 - "$ROOT/.claude/agents/README.md" <<'PYEOF2'
 import re, sys
 p = sys.argv[1]
-lines = open(p, encoding="utf-8").read().splitlines()
+with open(p, encoding="utf-8") as f:
+    lines = f.read().splitlines()
 drop = ("| claude-code-reviewer ", "| prompt-engineer ", "| migration-agent ",
         "| research-analyst ", "| scrum-master ", "| agile-coach ")
 out = [l for l in lines if not l.startswith(drop)]
@@ -54,7 +55,8 @@ note = anchor + """
 """
 assert s.count(anchor) == 1
 s = s.replace(anchor, note)
-open(p, "w", encoding="utf-8").write(s)
+with open(p, "w", encoding="utf-8") as f:
+    f.write(s)
 print("README.md updated")
 PYEOF2
 
