@@ -186,6 +186,7 @@ def derive_events(task_dir: Path, task_id: str) -> list[dict]:
 
     # 8. hook_violation — derived from docs/working/_audit/hook-events.log (v8.6.0 PR3 / A-1)
     events.extend(derive_hook_events(task_id))
+    events.extend(derive_fix_loop_events(task_id))
 
     # 9. pr_created — derived from git log on handoff.md (v8.6.0 PR3 / A-2)
     if (task_dir / "handoff.md").is_file():
@@ -226,6 +227,48 @@ def derive_hook_events(task_id: str, audit_log: Path = HOOK_AUDIT_LOG) -> list[d
         out.append(
             base_event(task_id, "hook_violation", ts)
             | {"hook_id": hook_id, "hook_result": result}
+        )
+    return out
+
+
+def derive_fix_loop_events(task_id: str, audit_log: Path = HOOK_AUDIT_LOG) -> list[dict]:
+    """Read hook audit log and emit fix_loop_incremented events (#522).
+
+    check-fix-loop.sh logs INCREMENT lines as: ts \t INCREMENT \t hook \t task \t count=N
+    従来は VIOLATION 系のみ変換され INCREMENT が捨てられていたため、fix loop は
+    上限超過まで metrics 上不可視だった（Shadow Spec 棚卸し 2026-06-10）。
+    Privacy: message 列からは fix_loop_count（schema 許可スカラー）のみ抽出する。
+    """
+    out: list[dict] = []
+    if not audit_log.is_file():
+        return out
+    try:
+        lines = audit_log.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return out
+    for line in lines:
+        parts = line.split("\t")
+        if len(parts) < 5:
+            continue
+        ts, level, hook_name, log_task, message = parts[0], parts[1], parts[2], parts[3], parts[4]
+        if log_task != task_id or level != "INCREMENT":
+            continue
+        if hook_name != "check-fix-loop":
+            continue
+        count = None
+        for token in message.split(","):
+            token = token.strip()
+            if token.startswith("count="):
+                try:
+                    count = int(token[len("count="):])
+                except ValueError:
+                    count = None
+                break
+        if count is None or count < 0:
+            continue
+        out.append(
+            base_event(task_id, "fix_loop_incremented", ts)
+            | {"fix_loop_count": count}
         )
     return out
 
