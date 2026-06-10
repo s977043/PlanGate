@@ -2,6 +2,6 @@ interface:
   display_name: "codex-multi-agent"
   short_description: "マルチエージェントでタスク分解・委譲・並列実行・結果統合を行うための共通運用スキル。Use when: 「マルチエージェン..."
   icon_small: "./assets/plangate-small.svg"
-  icon_large: "./assets/plangate.png"
+  icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use $codex-multi-agent to assist with this project."
   brand_color: "#1A56DB"

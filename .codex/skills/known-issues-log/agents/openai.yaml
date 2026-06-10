@@ -1,7 +1,7 @@
 interface:
   display_name: "known-issues-log"
-  short_description: "Log and track known issues and workarounds"
+  short_description: "妥協点・既知不具合・V2 候補を文書化し、次の担当者が再開可能な形に整備する。Use when: WF-05 Verify..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $known-issues-log to log known issues for this task."
+  default_prompt: "Use $known-issues-log to assist with this project."
   brand_color: "#1A56DB"
