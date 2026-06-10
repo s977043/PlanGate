@@ -18,7 +18,7 @@ Scrum Master として、Scrum のイベントを機能させ、チームの有�
 | チケット体系 | `TASK-XXXX`（PlanGate ワークフロー連動） |
 | ブランチ命名 | `<type>/TASK-<番号>[-<description>]` |
 | PR運用 | mainへの直接コミット禁止、PRレビュー必須 |
-| ワークフロー | PlanGate v5-v6（brainstorm → plan → review → exec → validation → PR） |
+| ワークフロー | PlanGate（brainstorm → plan → review → exec → validation → PR。v7+ は WF-01〜05 実行層と対応） |
 | ゲート | C-3（人間レビュー）、C-4（PRレビュー） |
 
 ### impediment の典型例

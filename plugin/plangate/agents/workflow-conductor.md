@@ -419,7 +419,7 @@ superpowersの「コントローラーが全文脈を保持し、必要な情報
 - 懸念事項（ある場合）
 ```
 
-### Implementer への文脈供給ルール（v6追加）
+### Implementer への文脈供給ルール
 
 conductor が Implementer サブエージェントに文脈を構成する際の手順:
 
