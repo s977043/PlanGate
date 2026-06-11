@@ -13,7 +13,9 @@ t22_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
 # 一時ディレクトリを1個だけ作成し、サブディレクトリで各 TC を分離
 PG_T22_TMPBASE=$(mktemp -d)
-trap 'rm -rf "$PG_T22_TMPBASE"' EXIT INT TERM
+# #530-3: bare trap は source 連鎖で後続 extras に上書きされ発火保証されないため、
+# 共有 register_cleanup（run-tests.sh）でハーネス末尾に一括 drain させる（trap 非依存）。
+register_cleanup "$PG_T22_TMPBASE"
 
 # === TC-01 (AC-1): script 存在 + 実行可能 ===
 if [ -f "$PG_T22_HOOK" ] && [ -x "$PG_T22_HOOK" ]; then
@@ -142,4 +144,4 @@ else
   t22_fail "TC-08 同 TASK eval-result 誤検知 (rc=$PG_T22_LAST_RC): $PG_T22_LAST_OUT"
 fi
 
-# cleanup は trap で自動実行
+# cleanup は run-tests.sh 末尾の _pg_drain_cleanup が register_cleanup 登録分を一括実行
