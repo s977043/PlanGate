@@ -125,3 +125,14 @@ PlanGate — ゲート型AI駆動開発ワークフローのリポジトリ。
 | **`docs/ai/hook-enforcement.md`** | Hook で強制すべき項目（EHS-1〜EHS-3） |
 | `schemas/model-profile.schema.json` | Model Profile JSON Schema |
 | `schemas/{review-result,acceptance-result,mode-classification,handoff-summary}.schema.json` | Structured Outputs schema × 4 |
+
+## PR レビュー対応中の状態宣言（2026-06-11 / #533 競合の再発防止）
+
+AI が外部レビュー（Gemini 等）への対応・HO apply 待ちで PR に追加コミットを
+予定している間に C-4 マージが行われると、対応が main に乗らず follow-up PR が
+必要になる（PR #533 で実害、PR #537 でも apply 漏れが発生）。
+
+- AI は対応着手時に PR へ **「⏳ レビュー対応中 — マージは完了コメントまで待機してください」** とコメントし、
+  完了時に **「✅ 対応完了 — マージ可能です」** をコメントする
+- C-4 判断者は最新の状態コメントと未 resolve スレッドゼロを確認してからマージする
+- 状態コメントが無い PR は従来どおり（CI pass + スレッド resolve 済みでマージ可）
