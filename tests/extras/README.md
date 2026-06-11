@@ -130,9 +130,17 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
    ディレクトリ等）はファイル末尾で `rm -rf` し、可能なら「削除されたこと」自体を
    TC として検証する（例: ta-34 TC-06 / ta-37 TC-07）。set -e による途中終了で
    cleanup が走らないケースに備え、**開始時にも前回残骸を `rm -rf` する**（冪等性）
-2. **trap を使う場合はサブシェルに閉じ込める**（ta-28 方式）か、自前ガード変数で
-   再実行を no-op 化する（ta-09 方式）。親シェルの trap を `trap - EXIT` で
-   消さない（他 extras の cleanup を巻き込むため）
+2. **共有 cleanup ユーティリティ `register_cleanup` を使う（推奨 / #530-3）** —
+   run-tests.sh が提供する `register_cleanup <path>...` で一時パスを登録すると、
+   全 extras の source 完了後にハーネス末尾の `_pg_drain_cleanup` が一括削除する。
+   trap を一切張らないため source 連鎖の上書き問題が起きない（実装例: ta-22）。
+   ```sh
+   PG_TMP=$(mktemp -d)
+   register_cleanup "$PG_TMP"   # ハーネス末尾で自動 drain（trap 不要）
+   ```
+   どうしても trap が必要な場合は**サブシェルに閉じ込める**（ta-28 方式）か、
+   自前ガード変数で再実行を no-op 化する（ta-09 方式）。親シェルの trap を
+   `trap - EXIT` で消さない（他 extras / ハーネスの cleanup を巻き込むため）
 3. **実 docs/working を汚染しない** — tracked パスを使う場合は実行前退避→復元、
    原則は専用の未追跡 TASK 名（`TASK-TA<NN>TMP` 等）+ mktemp サンドボックス
    （正本: PR #511 の隔離パターン、hooks スイートは scripts/hooks のサンドボックス複製）
