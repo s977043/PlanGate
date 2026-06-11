@@ -10,10 +10,10 @@ _t38_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 _t38_allow=" Read Grep Glob Bash Edit Write Agent NotebookEdit WebFetch WebSearch AskUserQuestion Skill "
 
 _t38_bad=""
-for _t38_f in "$_t38_root"/.claude/agents/*.md; do
+for _t38_f in "$_t38_root"/.claude/agents/*.md "$_t38_root"/plugin/plangate/agents/*.md; do
   [ -f "$_t38_f" ] || continue
   case "$(basename "$_t38_f")" in README.md) continue ;; esac
-  _t38_tools="$(grep -m1 '^tools:' "$_t38_f" | sed 's/^tools: *//' | tr ',' ' ')"
+  _t38_tools="$(grep -m1 '^tools:' "$_t38_f" | sed 's/^tools: *//' | tr ',' ' ' | tr -d '\r')"
   for _t38_t in $_t38_tools; do
     case "$_t38_allow" in
       *" $_t38_t "*) ;;
@@ -22,7 +22,7 @@ for _t38_f in "$_t38_root"/.claude/agents/*.md; do
   done
 done
 if [ -z "$_t38_bad" ]; then
-  printf '[PASS] TA-38 TC-01: 全エージェントの tools が既知ツール名のみ\n'; pass=$((pass + 1))
+  printf '[PASS] TA-38 TC-01: 全エージェント（.claude + plugin 配布版）の tools が既知ツール名のみ\n'; pass=$((pass + 1))
 else
   printf '[FAIL] TA-38 TC-01: 実在しないツール名:%s\n' "$_t38_bad"; fail=$((fail + 1))
 fi
