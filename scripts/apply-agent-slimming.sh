@@ -16,9 +16,16 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 AGENTS="agile-coach scrum-master migration-agent prompt-engineer research-analyst claude-code-reviewer"
 
 if [ "$MODE" = "--dry-run" ]; then
-  echo "[dry-run] 削除予定:"
-  for a in $AGENTS; do echo "  .claude/agents/$a.md"; done
-  echo "[dry-run] 更新予定: .claude/agents/README.md（6 行削除 + 空セクション除去 + コア/支援 2 層注記）"
+  _pending=0
+  for a in $AGENTS; do
+    if [ -f "$ROOT/.claude/agents/$a.md" ]; then
+      echo "[dry-run] 削除予定: .claude/agents/$a.md"; _pending=1
+    fi
+  done
+  if grep -q "2 層構成" "$ROOT/.claude/agents/README.md" 2>/dev/null; then :; else
+    echo "[dry-run] 更新予定: .claude/agents/README.md"; _pending=1
+  fi
+  [ "$_pending" -eq 0 ] && echo "OK (already applied)"
   exit 0
 fi
 [ "$MODE" = "--apply" ] || { echo "usage: $0 [--dry-run|--apply]"; exit 1; }

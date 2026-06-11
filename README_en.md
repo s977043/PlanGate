@@ -89,8 +89,8 @@ v8.7.0 through v8.9.0 have all shipped, addressing the external OSS user's "wher
 | Reporting v1 | Sprint retrospective derived from events.ndjson (v8.9.0) |
 | Baseline | v8.5.0 baseline fixed under `docs/ai/eval-baselines/` (introduced in v8.6.0) |
 | Governance | Issue / Label / Milestone Governance + Metrics Privacy Policy (introduced in v8.6.0) |
-| CLI tests | `sh tests/run-tests.sh` — **271 PASS** |
-| Hook tests | `sh tests/hooks/run-tests.sh` — **79 PASS** |
+| CLI tests | `sh tests/run-tests.sh` (verified in CI on every PR; the run result is canonical) |
+| Hook tests | `sh tests/hooks/run-tests.sh` (same as above) |
 | Eval | 8-observation evaluation and release blocker detection via `bin/plangate eval` |
 | Schema | JSON artifact validation via `validate-schemas` + CI |
 
@@ -345,8 +345,8 @@ Test status (latest):
 
 | Suite | Count | Main coverage |
 | --- | ---: | --- |
-| `tests/run-tests.sh` | **271 PASS** | CLI, Workflow DSL, schema validate, eval, metrics v1, reporting, provider dispatch, fixture validation |
-| `tests/hooks/run-tests.sh` | **79 PASS** | EH-1 to EH-9 / EHS-1 to EHS-3, default / strict / bypass mode behavior |
+| `tests/run-tests.sh` | all PASS (CI-verified) | CLI, Workflow DSL, schema validate, eval, metrics v1, reporting, provider dispatch, fixture validation |
+| `tests/hooks/run-tests.sh` | all PASS (CI-verified) | EH-1 to EH-9 / EHS-1 to EHS-3, default / strict / bypass mode behavior |
 
 Main coverage:
 
