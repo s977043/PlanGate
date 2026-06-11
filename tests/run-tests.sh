@@ -21,6 +21,28 @@ EXTRAS_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/extras"
 pass=0
 fail=0
 
+# ── 共有 cleanup ユーティリティ（#530-3）─────────────────────────────
+# extras が個別に trap EXIT を張ると source 連鎖で互いに上書きし合い（さらに
+# `trap - EXIT` がハーネス側の trap まで消す）発火が保証されない
+# （tests/extras/README.md 規約参照）。代わりに extras は register_cleanup で
+# 一時パスを登録し、extras ループ末尾の単一 drain で一括削除する（trap 非依存）。
+_PG_CLEANUP_PATHS=""
+register_cleanup() {
+  for _pg_cp in "$@"; do
+    [ -n "$_pg_cp" ] || continue
+    _PG_CLEANUP_PATHS="${_PG_CLEANUP_PATHS}${_pg_cp}
+"
+  done
+}
+_pg_drain_cleanup() {
+  [ -n "$_PG_CLEANUP_PATHS" ] || return 0
+  printf '%s' "$_PG_CLEANUP_PATHS" | while IFS= read -r _pg_cp; do
+    [ -n "$_pg_cp" ] || continue
+    rm -rf "$_pg_cp" 2>/dev/null || true
+  done
+  _PG_CLEANUP_PATHS=""
+}
+
 assert_pass() {
   label=$1
   shift
@@ -136,6 +158,9 @@ if [ -d "$EXTRAS_DIR" ]; then
     . "$extra"
   done
 fi
+
+# extras が register_cleanup で登録した一時パスを一括削除（#530-3 / trap 非依存）
+_pg_drain_cleanup
 
 printf '\n'
 printf 'Results: %d passed, %d failed\n' "$pass" "$fail"
