@@ -20,9 +20,11 @@ case "$MODE" in
     python3 - "$F" "$OLD" "$NEW" <<'PY'
 import sys
 f, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
-s = open(f, encoding="utf-8").read()
+with open(f, encoding="utf-8") as fp:
+    s = fp.read()
 assert s.count(old) == 1
-open(f, "w", encoding="utf-8").write(s.replace(old, new))
+with open(f, "w", encoding="utf-8") as fp:
+    fp.write(s.replace(old, new))
 PY
     echo "APPLIED: explorer-agent.md" ;;
   *) echo "usage: $0 [--dry-run|--apply]"; exit 1 ;;
