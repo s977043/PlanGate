@@ -1,7 +1,7 @@
 ---
 name: explorer-agent
 description: コードベース探索、アーキテクチャ分析、調査エージェント。初期監査、リファクタリング計画、深い調査タスクに使用。
-tools: Read, Grep, Glob, Bash, ViewCodeItem, FindByName
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 
