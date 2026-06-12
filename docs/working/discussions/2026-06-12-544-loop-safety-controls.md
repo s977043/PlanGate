@@ -34,7 +34,7 @@ Risk / Review Checklist / Loop Log は次段で追加する。
 
 > rev.2 注: 下表は実機確認に基づき修正済。plan.md の必須セクション正本は
 > **`docs/working/templates/` には存在せず**（plan 雛形ファイルは無い）、
-> `docs/ai-driven-development.md` の Prompt 1（L291-）+ `.claude/rules/working-context.md` L179-188 が正本。
+> `docs/ai-driven-development.md` の Prompt 1（L291-）+ `.claude/rules/working-context.md` L179-191 が正本。
 > `.agents/skills/ai-dev-plan/SKILL.md` L31-33 も「skill は順序のみ、必須セクション正本は ai-driven-development.md / mode-classification」と明記。
 
 | 提案要素 | 既存の対応物（実機確認） | 判定 |
@@ -97,7 +97,7 @@ Risk / Review Checklist / Loop Log は次段で追加する。
 plan 雛形ファイルは存在しないため、**正本ドキュメントへの追記**になる:
 
 1. **`docs/ai-driven-development.md`** Prompt 1（L291-337 付近）— Stop Condition / Replan Rule セクション追記、Verification Automation 強化
-2. **`.claude/rules/working-context.md`** L179-188「plan.md（EXECUTION PLAN）」必須要素リストに追記
+2. **`.claude/rules/working-context.md`** L179-191「plan.md（EXECUTION PLAN）」必須要素リストに追記
 3. **`.agents/skills/ai-dev-plan/SKILL.md`** — 1・2 を正本参照しているため原則追従のみ（必須セクションを再定義しない＝Rule 1）
 4. **C-1 側**（`plan-quality-check` SKILL / `review-self.md` テンプレ）— Plan チェックに「Stop Condition 記入済か」「Replan Rule 記入済か」を追加
 
