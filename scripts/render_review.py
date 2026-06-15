@@ -92,6 +92,121 @@ def _is_table_sep(line):
     return bool(re.match(r"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$", line))
 
 
+def _disp_width(t):
+    """日本語など全角を 2, ASCII を 1 として概算表示幅。"""
+    w = 0
+    for ch in t:
+        w += 2 if ord(ch) > 0x2E7F else 1
+    return w
+
+
+def render_flow_svg(text):
+    """簡易 flow 記法（`A -> B` / `A -> B : label`）を依存ゼロの自己完結 inline SVG へ。
+    線形フロー/状態遷移図を矩形ノード + 矢印で縦方向に描く。外部 JS/CSS/画像なし。"""
+    edges = []
+    order = []
+    seen = {}
+
+    def node(name):
+        name = name.strip()
+        if name and name not in seen:
+            seen[name] = len(order)
+            order.append(name)
+        return seen.get(name)
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or "->" not in line:
+            continue
+        label = ""
+        body = line
+        # ラベル分離: " : "（前後スペース）または最後の矢印後の " :" のみ。
+        # ノード名内のコロン（Step 1: Init / http:// 等）との混同を防ぐ。
+        if " : " in body:
+            body, label = body.split(" : ", 1)
+        else:
+            parts_arrow = body.rsplit("->", 1)
+            if len(parts_arrow) == 2 and " :" in parts_arrow[1]:
+                body_pre, tail = parts_arrow
+                tgt, label = tail.split(" :", 1)
+                body = "%s->%s" % (body_pre, tgt)
+        parts = [p for p in body.split("->")]
+        # L-2: 連鎖（A->B->C）に末尾ラベルが付く場合、ラベルは最終エッジのみに付与する。
+        for k in range(len(parts) - 1):
+            a = node(parts[k]); b = node(parts[k + 1])
+            if a is not None and b is not None:
+                edge_label = label.strip() if k == len(parts) - 2 else ""
+                edges.append((a, b, edge_label))
+
+    if not order:
+        return "<pre><code>%s</code></pre>" % html.escape(text)
+
+    BW = max(140, max(_disp_width(n) for n in order) * 8 + 28)
+    BH = 42
+    GAP = 40
+    LX = 24            # 左マージン（矢印 routing 用の右側余白も確保）
+    RX = 150           # 右側 routing 用余白（距離依存 rx + 自己ループ対応）
+    W = LX + BW + RX
+    H = 24 + len(order) * (BH + GAP)
+
+    def cx():
+        return LX + BW / 2
+
+    def box_y(idx):
+        return 24 + idx * (BH + GAP)
+
+    out = []
+    out.append('<svg class="flow" viewBox="0 0 %d %d" width="%d" height="%d" '
+               'xmlns="http://www.w3.org/2000/svg" role="img">' % (W, H, W, H))
+    out.append('<defs><marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" '
+               'orient="auto" markerUnits="strokeWidth">'
+               '<path d="M0,0 L8,3 L0,6 z" fill="#57606a"/></marker></defs>')
+    # 矢印（先に描いてノードを上に）
+    for a, b, label in edges:
+        ya = box_y(a) + BH
+        yb = box_y(b)
+        if b == a + 1:
+            x = cx()
+            out.append('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="#57606a" '
+                       'stroke-width="1.5" marker-end="url(#arr)"/>' % (x, ya, x, yb - 2))
+            if label:
+                out.append('<text x="%g" y="%g" font-size="11" fill="#57606a">%s</text>'
+                           % (x + 6, (ya + yb) / 2 + 3, html.escape(label)))
+        elif b == a:
+            # 自己ループ: 右側に丸いカーブ（y1==y2 で平坦化しないよう bezier）
+            y = box_y(a) + BH / 2
+            sx = LX + BW
+            out.append('<path d="M%g,%g C%g,%g %g,%g %g,%g" fill="none" stroke="#8c959f" '
+                       'stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arr)"/>'
+                       % (sx, y - 8, sx + 22, y - 14, sx + 22, y + 14, sx + 2, y + 8))
+            if label:
+                out.append('<text x="%g" y="%g" font-size="11" fill="#8c959f">%s</text>'
+                           % (sx + 26, y + 4, html.escape(label)))
+        else:
+            # 非隣接: 右側を回す。複数エッジの重なり防止にノード間距離で rx を外へ。
+            dist = abs(a - b)
+            rx = LX + BW + 20 + min(50, dist * 10)
+            y1 = box_y(a) + BH / 2
+            y2 = box_y(b) + BH / 2
+            sx = LX + BW
+            out.append('<path d="M%g,%g H%g V%g H%g" fill="none" stroke="#8c959f" '
+                       'stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arr)"/>'
+                       % (sx, y1, rx, y2, sx + 2))
+            if label:
+                out.append('<text x="%g" y="%g" font-size="11" fill="#8c959f">%s</text>'
+                           % (rx + 4, (y1 + y2) / 2, html.escape(label)))
+    # ノード
+    for idx, name in enumerate(order):
+        y = box_y(idx)
+        out.append('<rect x="%g" y="%g" width="%g" height="%g" rx="8" '
+                   'fill="#ddf4ff" stroke="#54aeff" stroke-width="1.5"/>'
+                   % (LX, y, BW, BH))
+        out.append('<text x="%g" y="%g" font-size="13" text-anchor="middle" '
+                   'fill="#0a3069">%s</text>' % (cx(), y + BH / 2 + 4, html.escape(name)))
+    out.append('</svg>')
+    return '<div class="flow-wrap">%s</div>' % "".join(out)
+
+
 def md_to_html(md, sid="", headings_out=None):
     """簡易 Markdown→HTML。sid 指定時は見出しに id を付与し headings_out に (level, text, id) を収集。"""
     lines = md.splitlines()
@@ -100,6 +215,7 @@ def md_to_html(md, sid="", headings_out=None):
     n = len(lines)
     in_code = False
     code_buf = []
+    fence_lang = ""
     list_stack = []  # 'ul'/'ol'
     hcount = 0
 
@@ -116,13 +232,18 @@ def md_to_html(md, sid="", headings_out=None):
         if m and not in_code:
             close_lists()
             in_code = True
+            fence_lang = m.group(1).strip().lower()
             code_buf = []
             i += 1
             continue
         if in_code:
             if line.strip() == "```":
-                out.append("<pre><code>%s</code></pre>" % html.escape("\n".join(code_buf)))
+                if fence_lang == "flow":
+                    out.append(render_flow_svg("\n".join(code_buf)))
+                else:
+                    out.append("<pre><code>%s</code></pre>" % html.escape("\n".join(code_buf)))
                 in_code = False
+                fence_lang = ""
             else:
                 code_buf.append(line)
             i += 1
@@ -251,6 +372,9 @@ ul.checklist li{margin:2px 0}
 hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
 a{color:var(--accent)}
 .missing{color:var(--muted);font-style:italic}
+img,svg{max-width:100%}
+.flow-wrap{margin:12px 0;padding:8px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:auto}
+svg.flow text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 nav.perspectives{background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:12px 16px;margin-bottom:24px}
 nav.perspectives strong{display:block;margin-bottom:6px}
 nav.perspectives a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none;font-weight:600}
