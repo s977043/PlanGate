@@ -33,6 +33,20 @@ _LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 _CHECK = re.compile(r"^(\s*)- \[([ xX])\]\s+(.*)$")
 
 
+_SCHEME = re.compile(r"^\s*([a-zA-Z][a-zA-Z0-9+.\-]*):")
+_ALLOWED_SCHEMES = ("http", "https", "mailto")
+
+
+def _link_sub(m):
+    """[label](url) を安全に <a> へ。許可外スキーム(javascript:/data: 等)はリンク化しない。"""
+    label = m.group(1)
+    href = html.unescape(m.group(2)).strip()
+    sm = _SCHEME.match(href)
+    if sm and sm.group(1).lower() not in _ALLOWED_SCHEMES:
+        return label  # 不許可スキーム → プレーンテキスト（リンク無効化）
+    return '<a href="%s">%s</a>' % (html.escape(href, quote=True), label)
+
+
 def _inline(text):
     """インライン記法を HTML へ。先にエスケープし、code は二重エスケープ回避。"""
     # code span を placeholder で退避（中身はエスケープ）
@@ -46,8 +60,8 @@ def _inline(text):
     tmp = html.escape(tmp)
     tmp = _BOLD.sub(r"<strong>\1</strong>", tmp)
     tmp = _ITALIC.sub(r"<em>\1</em>", tmp)
-    # link: href はそのまま（エスケープ済みの & 等は許容）
-    tmp = _LINK.sub(lambda m: '<a href="%s">%s</a>' % (m.group(2), m.group(1)), tmp)
+    # link: href のスキームを検証（javascript:/data: 等は不許可・ラベルのみ描画）
+    tmp = _LINK.sub(_link_sub, tmp)
     # placeholder 復元
     tmp = re.sub(r"\x00(\d+)\x00", lambda m: "<code>%s</code>" % spans[int(m.group(1))], tmp)
     return tmp
