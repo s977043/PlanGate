@@ -6,6 +6,9 @@
 
 ---
 
+> **用語**: 本ノートの「HO」は **Hardening Override**（自己改変ガード対象パス）を指す。
+> 人間の責務分界は「Human-owned」と表記し区別する（混同回避 / #553 review）。
+
 ## 1. 役割（rev.3 と一貫）
 
 - **#544/#551**: plan に Loop Scope / Stop / Resume / Replan Triggers（機械値）/ Revert / Loop Attempts を**記述**（ソフト強制）
@@ -33,7 +36,7 @@ Final Implementation Instruction
 | `no_go` | REJECTED | plan 再生成 |
 
 - **Risk=high** → 最低 high mode・autonomous APPROVE 不可（mode-classification と整合）。
-- **Stop-Work Conditions** → #544/#551 の **機械トリガー**（変更ファイル2倍/+5・連続失敗3回・反復3回・plan外波及・AC変更）に**マッピング**し、exec 中に実行層（codex-guarded.sh / doctor）が監視。発火で Replan/停止。
+- **Stop-Work Conditions** → #544/#551 の **機械トリガー**（変更ファイル2倍/+5・連続失敗3回・反復3回・plan外波及・AC変更）に**マッピング**。検知方式は **post-flight（ツール実行後の事後検知）** を基本とする（`codex-guarded.sh` は非対話セッション中のリアルタイムフックを持たず post-flight 検証が中心のため）。発火で次サイクルの Replan/停止を要求。真のリアルタイム中断が要る場合は PreToolUse hook 層（別途）で扱う。
 - **Verification Required** → plan の Verification Automation に必須注入。
 - **Do Not Touch** → 既存 `forbidden_files`（EH-6 / check-forbidden-files.sh）に接続。
 
