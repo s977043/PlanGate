@@ -142,6 +142,7 @@ cmd_help() {
     "  timeline <TASK-XXXX>           Display run.ndjson event log" \
     "  resume <TASK-XXXX>             Show current-state.md for session resume" \
     "  approve <TASK-XXXX> [--reject|--conditional]  Human one-action C-3 approval (L1-L4, schema-valid c3.json) (TASK-0128)" \
+    "  render <TASK-XXXX> [--html]    Aggregate C-3 review MDs into self-contained HTML (TASK-0127)" \
     "  maintenance <start|stop> ...   In-session edit window (Human-only, L1-L4 defense) (TASK-0106)" \
     "  version                        Print version"
 }
@@ -2202,6 +2203,33 @@ PYC
   return 0
 }
 
+# ── render (TASK-0127 / C-3 review aggregation to self-contained HTML) ──
+# C-3 対象 7 種 MD を 1 枚の自己完結 HTML に集約（scripts/render_review.py 委譲）。
+# Python 標準ライブラリのみ・外部 CDN 依存なし。
+cmd_render() {
+  _rd_task=""; _rd_out=""; _rd_html=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --html) _rd_html=1; shift ;;
+      --out)  [ $# -lt 2 ] && { printf 'error: --out requires an argument\n' >&2; return 2; }; _rd_out="$2"; shift 2 ;;
+      -*)     printf 'error: unknown arg: %s\n' "$1" >&2; return 2 ;;
+      *)      _rd_task="$1"; shift ;;
+    esac
+  done
+  if [ -z "$_rd_task" ]; then
+    printf 'Usage: plangate render <TASK-XXXX> [--html] [--out <file>]\n' >&2
+    return 2
+  fi
+  plangate_validate_task_id "$_rd_task"
+  _rd_py="$plangate_root/scripts/render_review.py"
+  [ -f "$_rd_py" ] || { printf 'error: scripts/render_review.py not found\n' >&2; return 2; }
+  if [ -n "$_rd_out" ]; then
+    python3 "$_rd_py" --task "$_rd_task" --out "$_rd_out"
+  else
+    python3 "$_rd_py" --task "$_rd_task"
+  fi
+}
+
 # ── dispatch ──────────────────────────────────────────────────────────────────
 
 if [ $# -eq 0 ]; then
@@ -2235,6 +2263,7 @@ case "$command" in
   timeline)    cmd_timeline "$@" ;;
   resume)      cmd_resume "$@" ;;
   maintenance) cmd_maintenance "$@" ;;
+  render)      cmd_render "$@" ;;
   approve)     cmd_approve "$@" ;;
   version|--version|-V) cmd_version ;;
   help|--help|-h)       cmd_help ;;
