@@ -332,7 +332,43 @@ PBIタイトル: {{PBI_TITLE}}
 - Integration:
 - E2E:
 - Edge cases:
-- Verification Automation:
+- Verification Automation: 実装後に実行する検証コマンドを明示（test/lint/typecheck 等）。プロジェクト固有値は各リポジトリの CLAUDE.md が注入（Rule 4）。Stop Condition の「Verification 成功」と連動させる。
+
+### Loop Scope
+
+制御対象の Loop を1文で（単一 PBI の exec 内: 検証失敗→自己修正の反復 / autonomous 下の plan 逸脱の累積）。複数 PBI をまたぐ反復予算は #487（Risk Budget）の領域。
+
+> 本節以降の AEE（承認済み実行境界 / Approved Execution Envelope）条項は **#544 Phase1 = 明文化（ソフト強制）**。未記入で承認不可にする hard gate は **Phase2（#543）**。本欄の記載だけで「強制済み」とは見なさない。
+
+### Stop Condition
+
+完了とみなす条件（例: 変更が Scope 内 / Verification 成功 / 必要テスト追加 / 既存仕様を壊さない / 残課題明示）。
+
+### Resume Condition
+
+stop 後に再開するには、原因・修正方針・検証手順を plan に追記し Replan 判定を通す。
+
+### Replan Triggers
+
+前提崩壊・逸脱を検知する**機械値**（バリデータ/実行層が読める定量記述）。最小セット例:
+- 変更ファイル数 > max(想定×2, 想定+5)
+- 同一検証コマンドの連続失敗 3 回
+- 同一ファイルへの修正反復 3 回
+- plan 外ディレクトリへの波及 1 件
+- AC / Verification コマンドの変更 検知時
+
+> Phase1 では hard gate でなく「Replan 必須表示 / C-1 チェック失敗」として作用（強制は Phase2/#543）。本 Replan Rule は**自己設置 Gate 非緩和原則**と接続し、`/goal`・autonomy 包括承認では**自動解除しない**。
+
+### Revert Policy
+
+停止時、Scope 外へ波及した変更**のみ**を対象パス限定で `git restore -- <path>` する。ブランケットな `git stash` は使わない（破棄前チェックリスト準拠）。
+
+Loop Attempts:（exec 中に追記する最小ログ欄。人間可読。機械処理用スキーマは Phase3 で定義）
+- attempt:
+- changed:
+- verification:
+- result:
+- next decision: continue / replan / stop
 
 ### Risks & Mitigations
 ### Questions / Unknowns
