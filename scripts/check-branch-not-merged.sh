@@ -14,7 +14,7 @@ case "$BR" in main|master|HEAD) exit 0 ;; esac
 command -v gh >/dev/null 2>&1 || { printf '[branch-guard] gh 未導入のためスキップ\n'; exit 0; }
 
 # remote に同名ブランチが存在するか
-if git ls-remote --exit-code --heads origin "$BR" >/dev/null 2>&1; then
+if git ls-remote --exit-code origin "refs/heads/$BR" >/dev/null 2>&1; then
   exit 0   # remote に存在 = 通常の push（再作成ではない）
 fi
 
