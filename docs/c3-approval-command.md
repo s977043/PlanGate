@@ -26,7 +26,7 @@ plangate approve TASK-XXXX --reject --reason "設計の前提が未確定"
 
 ## Human-presence 多層防御（L1-L4）
 
-`maintenance start` と同等の best-effort 防御で、**非対話実行（AI の Bash 等）からの自己承認を物理的に封じる**:
+`maintenance start` と同等の **best-effort 多層防御**で、非対話実行（AI の Bash 等）からの自己承認を**抑止する**（絶対防御ではない・下記「防御の限界」参照）:
 
 | 層 | 検証 |
 |----|------|
@@ -34,6 +34,13 @@ plangate approve TASK-XXXX --reject --reason "設計の前提が未確定"
 | L2 | env barrier（CI / CLAUDE_AGENT / CURSOR_AGENT / PLANGATE_BYPASS_HOOK 不在） |
 | L3 | 親プロセスヒューリスティック（ppid comm が claude/codex/cursor でない） |
 | L4 | 対話 nonce challenge（8-hex を人間が打鍵） |
+
+> **防御の限界（best-effort であって絶対ではない / #546 Codex review）**: L1-L4 は
+> 「非対話 stdin・既知 agent env・AI 親プロセス」を確実に拒否するが、**疑似 TTY を
+> 持ち表示された nonce を読み取って応答できる自動化**は理論上突破しうる。また
+> `PLANGATE_FAKE_PPID_COMM` はテスト注入用で L3 を上書きできる。真の security
+> boundary が必要なら、承認を agent が観測・応答できない **out-of-band 操作**
+> （human-owned apply / OS keychain / 外部署名 等）へ寄せる強化が必要（follow-up）。
 
 いずれか不成立で承認は中断し `c3.json` は生成されない。
 
