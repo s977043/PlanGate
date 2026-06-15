@@ -92,9 +92,8 @@ def _is_table_sep(line):
     return bool(re.match(r"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$", line))
 
 
-def md_to_html(md):
-    """簡易 Markdown→HTML。対応: 見出し/コードフェンス/表/チェックボックス/
-    リスト/引用/水平線/段落/インライン。未対応はエスケープして段落化。"""
+def md_to_html(md, sid="", headings_out=None):
+    """簡易 Markdown→HTML。sid 指定時は見出しに id を付与し headings_out に (level, text, id) を収集。"""
     lines = md.splitlines()
     out = []
     i = 0
@@ -102,6 +101,7 @@ def md_to_html(md):
     in_code = False
     code_buf = []
     list_stack = []  # 'ul'/'ol'
+    hcount = [0]
 
     def close_lists():
         while list_stack:
@@ -140,7 +140,14 @@ def md_to_html(md):
         if m:
             close_lists()
             lvl = len(m.group(1))
-            out.append("<h%d>%s</h%d>" % (lvl, _inline(m.group(2)), lvl))
+            raw = m.group(2)
+            if sid:
+                hid = "%s-h%d" % (sid, hcount[0]); hcount[0] += 1
+                if headings_out is not None:
+                    headings_out.append((lvl, raw, hid))
+                out.append('<h%d id="%s">%s</h%d>' % (lvl, hid, _inline(raw), lvl))
+            else:
+                out.append("<h%d>%s</h%d>" % (lvl, _inline(raw), lvl))
             i += 1
             continue
 
@@ -244,10 +251,41 @@ ul.checklist li{margin:2px 0}
 hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
 a{color:var(--accent)}
 .missing{color:var(--muted);font-style:italic}
+nav.perspectives{background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.perspectives strong{display:block;margin-bottom:6px}
+nav.perspectives a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none;font-weight:600}
+nav.perspectives a:hover{text-decoration:underline}
+nav.perspectives .missing{margin:2px 10px 2px 0;display:inline-block}
 """
 
 
-def build_html(task_id, sections):
+KEY_PERSPECTIVES = [
+    ("Goal/目的", ["goal", "目的", "ゴール"]),
+    ("Scope/対象", ["scope", "対象", "non-goal", "非対象"]),
+    ("Risk", ["risk", "リスク"]),
+    ("Test/検証", ["test", "テスト", "verification", "検証"]),
+    ("Stop/Replan", ["stop condition", "replan", "停止", "差し戻し", "stop-work"]),
+    ("承認/Approval", ["approval", "承認", "受入", "mode判定"]),
+]
+
+
+def build_perspective_nav(all_headings):
+    items = []
+    for label, kws in KEY_PERSPECTIVES:
+        hit = None
+        for _lvl, text, hid in all_headings:
+            low = text.lower()
+            if any(k in low for k in kws):
+                hit = hid
+                break
+        if hit:
+            items.append('<a href="#%s">%s</a>' % (hit, html.escape(label)))
+        else:
+            items.append('<span class="missing">%s（なし）</span>' % html.escape(label))
+    return '<nav class="perspectives"><strong>承認観点ナビ</strong>' + "".join(items) + "</nav>"
+
+
+def build_html(task_id, sections, perspective_nav=""):
     toc = "".join('<a href="#%s">%s</a>' % (sid, html.escape(title)) for sid, title, _ in sections)
     body = []
     for sid, title, content in sections:
@@ -264,8 +302,9 @@ def build_html(task_id, sections):
 <header><h1>%s</h1><div class="meta">C-3 レビュー集約ビュー（self-contained）</div></header>
 <nav class="toc"><strong>目次</strong>%s</nav>
 %s
+%s
 </div></body></html>
-""" % (html.escape(task_id), CSS, html.escape(task_id), toc, "\n".join(body))
+""" % (html.escape(task_id), CSS, html.escape(task_id), toc, perspective_nav, "\n".join(body))
 
 
 def main():
@@ -286,6 +325,7 @@ def main():
         return 1
 
     sections = []
+    all_headings = []
     found = 0
     for fname, title in C3_ARTIFACTS:
         path = os.path.join(work_dir, fname)
@@ -293,15 +333,19 @@ def main():
         label = "%s (%s)" % (title, fname)
         if os.path.isfile(path):
             with open(path, encoding="utf-8") as f:
-                sections.append((sid, label, md_to_html(f.read())))
+                hd = []
+                rendered = md_to_html(f.read(), sid, hd)
+                sections.append((sid, label, rendered))
+                all_headings.extend(hd)
             found += 1
     if found == 0:
         sys.stderr.write("error: no C-3 artifacts found under %s\n" % work_dir)
         return 1
 
+    perspective_nav = build_perspective_nav(all_headings)
     out = args.out or os.path.join(work_dir, "%s-c3-review.html" % args.task)
     with open(out, "w", encoding="utf-8") as f:
-        f.write(build_html(args.task, sections))
+        f.write(build_html(args.task, sections, perspective_nav))
     sys.stdout.write("rendered %d artifact(s) -> %s\n" % (found, out))
     return 0
 
