@@ -30,7 +30,7 @@ _INLINE_CODE = re.compile(r"`([^`]+)`")
 _BOLD = re.compile(r"\*\*([^*]+)\*\*")
 _ITALIC = re.compile(r"(?<!\*)\*(?!\*)([^*]+)\*(?!\*)")
 _LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
-_CHECK = re.compile(r"^(\s*)- \[([ xX])\]\s+(.*)$")
+_CHECK = re.compile(r"^(\s*)[-*+]\s+\[([ xX])\]\s+(.*)$")
 
 
 _SCHEME = re.compile(r"^\s*([a-zA-Z][a-zA-Z0-9+.\-]*):")
@@ -89,7 +89,7 @@ def _render_table(rows):
 
 
 def _is_table_sep(line):
-    return bool(re.match(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$", line))
+    return bool(re.match(r"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$", line))
 
 
 def md_to_html(md):
@@ -105,7 +105,8 @@ def md_to_html(md):
 
     def close_lists():
         while list_stack:
-            out.append("</%s>" % list_stack.pop())
+            tag = list_stack.pop()
+            out.append("</%s>" % ("ul" if tag == "checklist" else tag))
 
     while i < n:
         line = lines[i]
@@ -158,10 +159,10 @@ def md_to_html(md):
         # チェックボックス
         m = _CHECK.match(line)
         if m:
-            if not list_stack or list_stack[-1] != "ul":
+            if not list_stack or list_stack[-1] != "checklist":
                 close_lists()
                 out.append("<ul class='checklist'>")
-                list_stack.append("ul")
+                list_stack.append("checklist")
             checked = "checked" if m.group(2).lower() == "x" else ""
             out.append(
                 "<li><input type='checkbox' disabled %s> %s</li>"
