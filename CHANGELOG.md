@@ -6,6 +6,23 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.14.0 - 2026-06-15
+
+feat: C-3 レビュー HTML 出力（plangate render）+ 人間ワンアクション C-3 承認（plangate approve）
+
+利用者の声「MD は確認しづらい / ファイルが多い / ブラウザで見たい」に応え、C-3 レビュー成果物をブラウザで横断把握できる HTML 出力を導入。あわせて「人間は承認の判断のみ、JSON/CLI 作業は負わない」という PlanGate コンセプトを実機化する承認 CLI を追加。
+
+### Added
+
+- **`plangate render`（C-3 レビュー HTML 出力 / TASK-0127・#546・#552）** — C-3 対象 7 種 MD（pbi-input / plan / todo / test-cases / review-self / review-external / handoff）を **1 枚の自己完結 HTML** に集約。目次アンカー / GFM 表 / チェックボックス / コードブロック / インラインをレンダリングし、HTML エスケープで XSS を防止。外部 CDN / script / 画像参照ゼロ（オフライン・ブラウザ直開き可）。実装 `scripts/render_review.py` は **Python 標準ライブラリのみ**（新規依存なし）。
+- **`plangate approve`（人間ワンアクション C-3 承認 / TASK-0128・#546）** — 対話 TTY で承認意思を示すだけで、plan_hash 自動算出・approved_by を git config 解決・`schemas/c3-approval.schema.json` 準拠の c3.json を自動生成（JSON 手書き不要）。`maintenance` 由来の L1-L4 Human-presence 検証（**best-effort**）で非対話実行からの自己承認を抑止。`check-approval-token-write.sh` を Edit\|Write + Bash matcher で配線し承認トークンへの直接書込を block。
+- **Loop 安全制御 討議メモ**（#544 / #545）— Loop Engineering の安全制御要素（Verification / Stop Condition / Replan Rule）の PlanGate 取り込み方針。
+
+### Notes
+
+- `plangate approve` の L1-L4 は **best-effort 多層防御**（疑似 TTY バイパスが理論上残る）。out-of-band 化（HMAC 署名 + OS keychain）による strict enforcement は #550 / #527 で継続。
+- `plangate render` の SVG 図解（html-diagram）・構造化 html-plan ナビは #548 / #549 で継続。
+
 ## v8.13.0 - 2026-06-11
 
 feat: 全体健全化リリース — 監査駆動の鮮度・整合・隔離改善 + エージェント model tier
