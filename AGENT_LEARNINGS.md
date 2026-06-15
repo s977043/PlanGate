@@ -65,3 +65,28 @@
   - 事実: `.claude/{commands,agents,skills}/plangate-setup*` (Claude Code) と `.agents/skills/plangate-setup/SKILL.md` + `.codex/agents/setup_coordinator.toml` (Codex CLI) の二重配置。共用 skill 正本は `.agents/skills/plangate-setup/SKILL.md`。設計原則（Iron Law: AI は提示のみ / doctor 単一検証源 / Workflow-owned 永続ロック）は両環境で同一
   - 再利用条件: 責務境界が曖昧な setup 系 PBI で、Human-owned 操作の追跡が必要な場合の参照実装。三層構成（Command + Agent + Skill）の責務分離パターンとして転用可能
   - 根拠: TASK-0107 (PR #312 / #313 / #316 merged), `docs/working/TASK-0107/handoff.md` / `contract-notes.md`
+
+- [2026-06-16] 承認境界機構は「best-effort 多層防御」と「物理 block」を区別して表現する
+  - 事実: `plangate approve` の L1-L4 (isatty/env/ppid/nonce) を当初「AI 自己承認を物理的に封じる」と記述したが、疑似 TTY を持つ自動化が表示 nonce を読んで応答すれば突破可能と Codex レビューで判明。docs を best-effort へ訂正し out-of-band 化を #550 に隔離
+  - 再利用条件: 承認/認証/ガード機構を説明する際、「絶対防御(物理 block)」と「best-effort(多層・抑止)」を必ず区別する。絶対表現は「agent が観測・応答できない out-of-band 操作」(署名鍵/keychain/GitHub Approve)に限る
+  - 根拠: #546 approve / Codex review / #550 #553 設計ノート。auto-mode classifier も AI 名義の承認トークン発行を impersonation として拒否(二層 governance)
+
+- [2026-06-16] push 前にマージ削除済ブランチの再作成を確認する
+  - 事実: #558 マージ後に追加修正をローカル旧ブランチ(`feat/render-flow-diagram-548`)へ commit→push し、マージ削除済ブランチを誤再作成。cleanup + follow-up PR #561 の手戻り
+  - 再利用条件: マージ済 PR の後に追加修正が出たら、旧ブランチを使わず `git checkout -b fix/<topic> origin/main` で main 起点に切り直す。push 前に `sh scripts/check-branch-not-merged.sh` で「現ブランチが MERGED+remote削除済」を検知
+  - 根拠: 既存学び[2026-05-16 PR後処理]の延長(マージ確定検証)。本セッションで guard script を新設
+
+- [2026-06-16] Bash 作成 doc の EH-3 skip は merge 前に追認する
+  - 事実: #544 系 doc(rev.3 AEE / TASK-0130)を未追認の EH-3 skip エントリ付きでマージし main CI(`SKIP_REASON 追認`)が累積 RED(1→2)。main 赤は新規 PR 全てに波及
+  - 再利用条件: Bash heredoc で discussions/ 等の doc を作り EH-3 skip を手動記録した場合、PR マージ前に `python3 scripts/batch-acknowledge-skip-decisions.py --apply --acknowledged-by <human>`(acknowledged_by は人間専任)で追認を済ませる。根治は #528 doc-light(skip 自体を出さない)
+  - 根拠: 本セッション #560/#562。check-skip-acknowledged.sh が CI required
+
+- [2026-06-16] 達成に人間操作必須の目標を /goal に設定しない
+  - 事実: 「ロードマップ(PR merge/HO 適用/C-3 承認 含む)完了」を /goal に設定したが、これらは承認境界ガバナンスで AI が代行不可。Stop hook が達成不可能条件を待ち ~9 回空回りし harness が強制終了
+  - 再利用条件: /goal の条件は「AI が単独完結できる範囲」に限定する。人間の merge/HO 適用/C-3 承認/監査追認を含む条件は goal にしない(構造的に満たせず Stop hook が空転)。設定済なら `/goal clear`
+  - 根拠: 本セッション。harness 通知「check stop_hook_active」「CLAUDE_CODE_STOP_HOOK_BLOCK_CAP」。responsibility-classes(merge/HO/承認は人間専任)
+
+- [2026-06-16] HO ファイルの小修正は 1 回の apply-script に集約する
+  - 事実: approve/render の bin/plangate(HO)修正が小刻みに発生し、その都度 apply-script 作成→人間再適用の往復が増えた
+  - 再利用条件: HO ファイル(bin/plangate/settings/hooks)への修正は、レビュー指摘を1ラウンド束ねてから 1 つの apply-script にまとめ、人間の再適用回数を最小化する。レビュー前に self-review/Codex で先回り検出して往復を減らす
+  - 根拠: 本セッション #552/#555/#558 系の HO 再適用
