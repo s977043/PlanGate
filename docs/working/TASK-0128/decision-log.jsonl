@@ -1,0 +1,5 @@
+{"ts":"2026-06-12","phase":"A","decision":"案A(plangate approve / Human-TTY多層防御)をPBI化。討議2026-06-12-c3c4-approval-ux-vs-provenance由来","by":"human"}
+{"ts":"2026-06-12","phase":"B-2","decision":"maintenance L1-L4を共通化しapproveに適用（案A）。L1のみ(案B)/GitHub(案C)は不採用","by":"agent"}
+{"ts":"2026-06-12","phase":"B-3","decision":"plan/todo/test-cases生成。Mode=high-risk（bin/plangate+settings=承認境界）。本PBI自身のC-3はbootstrap interim","by":"agent"}
+{"ts":"2026-06-12","phase":"C-2","decision":"codex(gpt-5.5)レビューでR-001..R-008(High4/Med4)。全件reflected。Mode high-risk→critical(R-007)","by":"agent"}
+{"ts":"2026-06-12","phase":"C-3","decision":"CONDITIONAL→1回確定反映完了(Refs R-001..R-008)。簡易C-1再実行へ","by":"agent"}

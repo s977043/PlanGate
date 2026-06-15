@@ -63,6 +63,24 @@
             "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-delegation-commit-boundary.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh"
+          }
+        ]
       }
     ]
   }
