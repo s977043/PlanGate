@@ -120,14 +120,15 @@ def render_flow_svg(text):
             continue
         label = ""
         body = line
-        # 末尾の ": label"（矢印の後ろ）を分離
+        # ラベル分離: " : "（前後スペース）または最後の矢印後の " :" のみ。
+        # ノード名内のコロン（Step 1: Init / http:// 等）との混同を防ぐ。
         if " : " in body:
             body, label = body.split(" : ", 1)
-        elif body.count(":") and "->" in body and body.rsplit("->", 1)[-1].count(":"):
-            tail = body.rsplit("->", 1)[-1]
-            if ":" in tail:
-                body_pre, _arrow, _ = body.rpartition("->")
-                tgt, _c, label = tail.partition(":")
+        else:
+            parts_arrow = body.rsplit("->", 1)
+            if len(parts_arrow) == 2 and " :" in parts_arrow[1]:
+                body_pre, tail = parts_arrow
+                tgt, label = tail.split(" :", 1)
                 body = "%s->%s" % (body_pre, tgt)
         parts = [p for p in body.split("->")]
         # L-2: 連鎖（A->B->C）に末尾ラベルが付く場合、ラベルは最終エッジのみに付与する。
@@ -144,7 +145,7 @@ def render_flow_svg(text):
     BH = 42
     GAP = 40
     LX = 24            # 左マージン（矢印 routing 用の右側余白も確保）
-    RX = 90            # 右側 routing 用余白
+    RX = 150           # 右側 routing 用余白（距離依存 rx + 自己ループ対応）
     W = LX + BW + RX
     H = 24 + len(order) * (BH + GAP)
 
@@ -171,9 +172,20 @@ def render_flow_svg(text):
             if label:
                 out.append('<text x="%g" y="%g" font-size="11" fill="#57606a">%s</text>'
                            % (x + 6, (ya + yb) / 2 + 3, html.escape(label)))
+        elif b == a:
+            # 自己ループ: 右側に丸いカーブ（y1==y2 で平坦化しないよう bezier）
+            y = box_y(a) + BH / 2
+            sx = LX + BW
+            out.append('<path d="M%g,%g C%g,%g %g,%g %g,%g" fill="none" stroke="#8c959f" '
+                       'stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#arr)"/>'
+                       % (sx, y - 8, sx + 22, y - 14, sx + 22, y + 14, sx + 2, y + 8))
+            if label:
+                out.append('<text x="%g" y="%g" font-size="11" fill="#8c959f">%s</text>'
+                           % (sx + 26, y + 4, html.escape(label)))
         else:
-            # 非隣接: 右側を回す
-            rx = LX + BW + 28
+            # 非隣接: 右側を回す。複数エッジの重なり防止にノード間距離で rx を外へ。
+            dist = abs(a - b)
+            rx = LX + BW + 20 + min(50, dist * 10)
             y1 = box_y(a) + BH / 2
             y2 = box_y(b) + BH / 2
             sx = LX + BW
