@@ -58,7 +58,7 @@ Replan / 停止判断を **AI の内省に依存させず**、実行層（`scrip
 
 | トリガー | 閾値（既定・plan で上書き可） |
 |---------|------------------------------|
-| 変更ファイル数の超過 | plan 想定の **2倍** または **+5 files** |
+| 変更ファイル数の超過 | `想定×2` と `想定+5` の**大きい方**を超過（小規模 N での誤発火回避: N=1→6 files、N=10→20 files）|
 | 同一検証コマンドの連続失敗 | **3 回** |
 | 同一ファイルへの修正反復 | **3 回** |
 | plan 外ディレクトリへの波及 | 1 件でも検知 |
@@ -80,6 +80,10 @@ Loop Attempts:
 - next decision: continue / replan / stop
 ```
 
+> **記法の明確化**: `Loop Attempts` は **YAML frontmatter ではなく**、plan/status.md 本文中の
+> 構造化セクション（fenced code もしくは Markdown リスト）として記述する。機械処理する場合は
+> 接続先（Phase 3）で正規スキーマを定義する。本 Phase 1 では人間可読の記録欄として導入。
+
 接続先（status.md 逐次記録 vs decision-log 拡張）の確定は Phase 3 だが、**欄の存在**は Phase 1 で導入。
 
 ### 2.5 Resume Condition（Codex / 新設）
@@ -95,8 +99,9 @@ Resume Condition: stop 後に再開するには、原因・修正方針・検証
 停止後の「どこまで戻すか」を定義（今日の作業ツリー後片付け規範と整合）:
 
 ```md
-Revert Policy: 停止時、Scope 外へ波及した変更は revert する。汚染ワークツリーは
-`git stash`/`git checkout -- <path>` でクリーン化し、Scope 内の検証済み変更のみ残す。
+Revert Policy: 停止時、Scope 外へ波及した変更**のみ**を revert する。
+ブランケットな `git stash`（Scope 内の検証済み変更まで退避してしまう）は使わず、
+**対象パスを限定**して `git restore -- <scope外path>` / `git checkout -- <scope外path>` でクリーン化する。
 （破棄前に「自分が作った/名指しされた変更か」を確認＝既存の破棄前チェックリスト準拠）
 ```
 
