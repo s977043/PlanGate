@@ -101,7 +101,7 @@ def md_to_html(md, sid="", headings_out=None):
     in_code = False
     code_buf = []
     list_stack = []  # 'ul'/'ol'
-    hcount = [0]
+    hcount = 0
 
     def close_lists():
         while list_stack:
@@ -142,7 +142,7 @@ def md_to_html(md, sid="", headings_out=None):
             lvl = len(m.group(1))
             raw = m.group(2)
             if sid:
-                hid = "%s-h%d" % (sid, hcount[0]); hcount[0] += 1
+                hid = "%s-h%d" % (sid, hcount); hcount += 1
                 if headings_out is not None:
                     headings_out.append((lvl, raw, hid))
                 out.append('<h%d id="%s">%s</h%d>' % (lvl, hid, _inline(raw), lvl))
@@ -275,7 +275,7 @@ def build_perspective_nav(all_headings):
         hit = None
         for _lvl, text, hid in all_headings:
             low = text.lower()
-            if any(k in low for k in kws):
+            if any(re.search(r'(?<![a-zA-Z])' + re.escape(k), low) for k in kws):
                 hit = hid
                 break
         if hit:
