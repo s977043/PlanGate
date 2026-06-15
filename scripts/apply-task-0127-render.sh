@@ -47,7 +47,7 @@ cmd_render() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --html) _rd_html=1; shift ;;
-      --out)  _rd_out="$2"; shift 2 ;;
+      --out)  [ $# -lt 2 ] && { printf 'error: --out requires an argument\n' >&2; return 2; }; _rd_out="$2"; shift 2 ;;
       -*)     printf 'error: unknown arg: %s\n' "$1" >&2; return 2 ;;
       *)      _rd_task="$1"; shift ;;
     esac
