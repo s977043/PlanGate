@@ -91,7 +91,7 @@ _plangate_presence_gate() {
   _nonce=$(python3 -c 'import secrets; print(secrets.token_hex(4))')
   printf 'L4 nonce challenge: type the 8-hex string to confirm human operation:\n  %s\n' "$_nonce"
   printf 'PLANGATE_APPROVE_ACK> '
-  read _ack || _ack=""
+  read -r _ack || _ack=""
   if [ "$_ack" != "$_nonce" ]; then
     _pg_audit reject_L4 "nonce mismatch"
     printf 'error: L4 nonce mismatch\n' >&2
@@ -110,8 +110,8 @@ cmd_approve() {
     case "$1" in
       --reject)      _ap_status="REJECTED"; shift ;;
       --conditional) _ap_status="CONDITIONAL"; shift ;;
-      --reason)      _ap_reason="$2"; shift 2 ;;
-      --conditions)  _ap_conditions="$2"; shift 2 ;;
+      --reason)      [ $# -lt 2 ] && { printf 'error: --reason requires an argument\n' >&2; return 2; }; _ap_reason="$2"; shift 2 ;;
+      --conditions)  [ $# -lt 2 ] && { printf 'error: --conditions requires an argument\n' >&2; return 2; }; _ap_conditions="$2"; shift 2 ;;
       --force)       _ap_force="true"; shift ;;
       -*)            printf 'error: unknown arg: %s\n' "$1" >&2; return 2 ;;
       *)             _ap_task="$1"; shift ;;
