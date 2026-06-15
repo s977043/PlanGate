@@ -11,7 +11,7 @@
 
 ## テストケース
 ### TC-01〜04: Decision→c3_status mapping
-- go→APPROVED候補 / revise_plan→CONDITIONAL / human_approval_required→人間C-3強制 / no_go→REJECTED の各単体 / 種別: unit
+- go→APPROVED / revise_plan→CONDITIONAL / human_approval_required→人間C-3強制 / no_go→REJECTED の各単体 / 種別: unit
 ### TC-05: Risk=high で autonomous APPROVE 無効化
 - Risk=high 入力 → mode 最低 high・autonomous 不可 / 種別: unit
 ### TC-06: C-1 充足チェック

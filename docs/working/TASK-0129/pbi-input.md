@@ -28,7 +28,7 @@ Relates #543 #544 #527 / 設計: PR #553
 
 | AC | 内容 |
 |----|------|
-| AC-01 | Decision → c3_status マッピングが定義され schema/doc に反映（go→APPROVED候補 / revise_plan→CONDITIONAL / human_approval_required→人間C-3強制 / no_go→REJECTED） |
+| AC-01 | Decision → c3_status マッピングが定義され schema/doc に反映（go→APPROVED / revise_plan→CONDITIONAL / human_approval_required→人間C-3強制 / no_go→REJECTED） |
 | AC-02 | Risk=high で最低 high mode・autonomous APPROVE 無効化が機械判定に接続 |
 | AC-03 | C-1 が plan の Stop Condition / Replan Triggers(機械値) 記入を検出（未記入で WARN/FAIL） |
 | AC-04 | Stop-Work Conditions ↔ #544/#551 機械トリガーの対応が定義される |
