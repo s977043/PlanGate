@@ -32,10 +32,15 @@ command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 が必要です"; e
 
 grep -q 'cmd_approve()' "$TARGET" || { echo "ERROR: cmd_approve が見つかりません（#546 未適用？）"; exit 1; }
 
+# 冪等: 既に P0 適用済み（test-mode gate コメントが presence gate にある）なら何もしない
+if grep -q 'PLANGATE_TEST_MODE=1 のときのみ honor する（#550 P0）' "$TARGET"; then
+  echo "SKIP: #550 P0 は既に適用済み"; exit 0
+fi
+
 python3 - "$TARGET" "$DRY_RUN" <<'PY'
 import sys, difflib
 target, dry = sys.argv[1], sys.argv[2] == "1"
-src = open(target).read()
+src = open(target, encoding='utf-8').read()
 new = src
 
 # (a) presence gate の FAKE_PPID を test-mode gate 化（approve 経路 = _plangate_presence_gate 内のみ）
@@ -68,6 +73,6 @@ if dry:
         fromfile="bin/plangate", tofile="bin/plangate (after)")))
     sys.stderr.write("\n[dry-run] 上記差分。\n")
 else:
-    open(target, "w").write(new)
+    open(target, 'w', encoding='utf-8').write(new)
     sys.stderr.write("[applied] #550 P0 ハードニングを bin/plangate に適用しました。\n")
 PY
