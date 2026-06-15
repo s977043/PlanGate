@@ -20,7 +20,7 @@ created_by: orchestrator
 | WARN | {0} |
 | FAIL | {0} |
 
-## Plan チェック（7項目）
+## Plan チェック（7項目 + AEE 2項目 / #544 Phase1）
 
 ### C1-PLAN-01: 受入基準網羅性
 - **result**: PASS / WARN / FAIL
@@ -68,6 +68,22 @@ created_by: orchestrator
 - **result**: PASS / WARN / FAIL
 - **category**: plan
 - **finding**: {Verification Automationが具体的か}
+- **evidence_ref**: —
+- **impacted_files**: []
+
+### C1-PLAN-08-AEE: Stop Condition 記入（#544 Phase1）
+
+- **result**: PASS / WARN / FAIL
+- **category**: plan
+- **finding**: {plan に Stop Condition が記入されているか（未記入は WARN。強制は Phase2/#543）}
+- **evidence_ref**: —
+- **impacted_files**: []
+
+### C1-PLAN-09-AEE: Replan Triggers 機械値（#544 Phase1）
+
+- **result**: PASS / WARN / FAIL
+- **category**: plan
+- **finding**: {plan の Replan Triggers に機械値が1つ以上記入されているか（未記入は WARN。強制は Phase2/#543）}
 - **evidence_ref**: —
 - **impacted_files**: []
 

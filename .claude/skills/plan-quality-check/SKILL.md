@@ -27,6 +27,8 @@ Design
 | `risk_check` | 失敗要因・依存関係・未決事項・暗黙の前提を確認 | risks / assumptions / next_actions |
 | `done_check` | 完了条件・検証方法・リリース後確認を確認 | done_criteria / validation_notes |
 
+> 補足: `done_check` は**停止条件（completion / stop condition）**の記述有無を、`risk_check` は**再計画トリガ（前提崩壊・逸脱を検知する定量条件）**の記述有無を確認観点に含める。いずれも汎用観点であり、具体のチェック項目はプロジェクト側テンプレート（例 review-self）で定義する。
+
 ## 入力
 
 - 計画文書（目的 / スコープ / 受入基準 / 完了条件を含むテキスト）
