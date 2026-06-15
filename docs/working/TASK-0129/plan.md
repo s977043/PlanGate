@@ -12,7 +12,7 @@
 - Non-goal: 機械トリガー実行層（codex-guarded.sh/doctor）実装は別 PBI（#527）/ #487 Risk Budget
 
 ## Approach Overview
-1. Decision→c3_status mapping を正規化（doc + schema）。go→APPROVED候補 / revise_plan→CONDITIONAL（R-NNN 集約）/ human_approval_required→人間C-3強制 / no_go→REJECTED
+1. Decision→c3_status mapping を正規化（doc + schema）。go→APPROVED / revise_plan→CONDITIONAL（R-NNN 集約）/ human_approval_required→人間C-3強制 / no_go→REJECTED
 2. `c3-approval.schema.json` に判定根拠フィールド（`review_decision` / `review_risk` 等）を additive 追加（後方互換・apply-script）
 3. C-1（plan-quality-check / review-self.md）に「Stop Condition / Replan Triggers(機械値) 記入」検出を追加
 4. Stop-Work Conditions ↔ #544/#551 機械トリガー対応表を working-context/正本に記載（apply-script）

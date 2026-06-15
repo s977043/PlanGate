@@ -3,7 +3,7 @@
 > 承認境界の中核。exec は**人間 C-3 承認後**。HO 適用は人間。
 
 ## 🤖 Agent（C-3 承認後に exec）
-- [ ] T01 Decision→c3_status mapping 確定（doc） — depends_on: C-3 / files: docs/
+- [ ] T01 Decision→c3_status mapping 確定（doc） — depends_on: H01 / files: docs/
 - [ ] T02 c3-approval.schema additive 拡張の apply-script（後方互換） — depends_on: T01 / files: scripts/apply-task-0129-schema.sh 🚩
 - [ ] T03 C-1 充足チェック（Stop/Replan Triggers 記入検出）追加 — depends_on: T01 / files: .claude/skills/plan-quality-check, docs
 - [ ] T04 Stop-Work↔機械トリガー対応表 apply-script（working-context HO） — depends_on: T01 / files: scripts/apply-task-0129-wc.sh 🚩
