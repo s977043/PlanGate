@@ -111,6 +111,51 @@ Loop 発散は token 課金急増を招く。安全制御を**コストガード
 
 ---
 
+### 2.8 コンセプト境界 — 契約ではなく Approved Execution Envelope（4視点探索 2026-06-15）
+
+> 出典: 「plan を契約化する ARTIFACT 強化」を4視点（solution-architect / explorer / qa-reviewer / Codex）で探索した結果。rev.3 §2.2（honest framing）を概念面で補強する。
+
+**呼称の線引き:**
+
+- 内部設計上は「plan の契約化（contract）」と呼んでよい。
+- **対外・運用上は「承認済み実行境界（Approved Execution Envelope, AEE）」** と呼ぶ。
+- 理由: PlanGate は実行ランタイムではなく「境界を固定し、逸脱時に止める統制層」。法的/心理的含意の強い「契約」を中心語にすると、ソフト強制（Phase 1）を「守られている」と誤認させる（用語インフレ）。AEE は承認済み plan_hash・scope・verification・stop/replan で囲われた実行境界、という実体を正確に伝える。
+
+**現状診断（4視点一致）= 「機構は揃い、条項だけ空白」:**
+
+PlanGate は AEE の「機構」を既に保有している:
+
+| 機構 | 既存資産 |
+|------|---------|
+| 版固定・原本性 | `plan_hash` + EH-3（check-plan-hash.sh）|
+| 署名・締結 | `c3.json`（APPROVED）|
+| 締結前審査 | C-1 / gate_checks |
+| 立入禁止 | forbidden_files（EH-6 / Do Not Touch）|
+| 検証 | Verification Automation / V-1 |
+| 再交渉 | C-3 CONDITIONAL → plan_hash 再発行 |
+
+足りないのは plan 本体の「条項」だけ = **Loop Scope / Stop Condition / Resume Condition / Replan Triggers / Revert Policy / Loop Attempts**（rev.3 §3 のスキーマがこれを埋める）。
+
+**逸脱境界（統制層 vs 実行エンジン）:**
+
+「検出・記録・停止・差し戻し（人間にエスカレーション）」までは統制層（OK）。「自動修復・自動リトライ・自己承認・自動再計画」は実行エンジン化（逸脱）。判定式: **不履行を人間にエスカレーションするか、AI が自力解消するか**。これは既存の AI 自己完結禁止（orchestrator-mode AS-1〜5）・第2原則（迂回禁止）の投影であり、AEE は新しい禁則を作らず既存禁則を plan に射影する。
+
+**フェーズ境界（「書く」と「止める」を別の完了定義に固定）:**
+
+- **Phase 1（#544/#551）**: 条項を書く。未記入を C-1 で検出する。**強制しない**。
+- **Phase 2（#543）**: 条項で止める。未充足なら C-3 承認不可（strict Gate）。
+- **#550**: 承認そのものを out-of-band provenance で強化（AEE の承認境界側）。
+
+> Codex の警句（最大の落とし穴）: **「plan に条項を書くこと」と「条項で実行を止めること」を同じ成果として扱わない**。混ぜると、実行エンジン化を避けたつもりで AI 自己申告依存の儀式を増やすだけになる。
+
+**非目標:**
+
+- 「契約」をユーザー向け docs / UI の中心語にしない（内部設計用語に留める。hard gate = Phase 2 到達で初めて「契約」と名乗れる）。
+- Phase 1 で hard enforcement 済みと表現しない。
+- #543 の Gate 設計 / #550 の approve provenance を本ドラフトに再実装しない（責務分離維持）。
+
+---
+
 ## 3. 更新後の plan 記述スキーマ（Phase 1）
 
 ```md
