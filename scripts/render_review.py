@@ -232,7 +232,9 @@ def md_to_html(md, sid="", headings_out=None):
         if m and not in_code:
             close_lists()
             in_code = True
-            fence_lang = m.group(1).strip().lower()
+            # fence の属性（```flow title="..." 等）に頑健にするため先頭単語のみ判定
+            _flang = m.group(1).strip()
+            fence_lang = _flang.split()[0].lower() if _flang else ""
             code_buf = []
             i += 1
             continue
