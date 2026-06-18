@@ -25,3 +25,10 @@
 - [x] R-002: TC-01 に option/rationale 表記確認 + TC-06 jq parse 構造検証追加 — PASS
 - [x] R-003: T4/TC-04 に pbi-input 不在時 fallback 確定条件を明記 — PASS
 - 判定: **PASS**。残 major なし。C-3（人間）待ち。
+
+## 簡易 C-1 再実行（gemini R-004..R-008 反映後）
+- decision-log トレーサビリティ: option↔alternatives 完全一致 — PASS
+- TC 機械検証の実行可能性: Markdown 抽出→jq 手順を明記 — PASS
+- files 追跡性: T4 に fallback 先 working-context 追加 — PASS
+- fallback パス整合: 正本 .claude/rules + ミラー併記（gemini 誤認は補足訂正） — PASS
+- 判定: PASS（critical/major 0、medium 5 反映済み）
