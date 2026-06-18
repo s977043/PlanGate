@@ -1,0 +1,4 @@
+{"phase":"B","decision":"Codex相談: 正本は(a).claude/skills移動+plugin mirror。hybrid原則整合","ts":"2026-06-18"}
+{"phase":"B","decision":"Mode別ポリシー表の単一正本はmode-classification.md。router重複表は削除し参照化","ts":"2026-06-18"}
+{"phase":"B","decision":"配線はWF-00 advisory(初回)。強制化・schema・bin配線は別PBI","ts":"2026-06-18"}
+{"phase":"B","decision":"Mode=critical。lite_eligible=false・人間C-3必須。初回スコープをadvisoryに限定しリスク低減","ts":"2026-06-18"}
