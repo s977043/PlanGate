@@ -87,7 +87,7 @@ created_by: orchestrator
 - **evidence_ref**: —
 - **impacted_files**: []
 
-## ToDo チェック（5項目）
+## ToDo チェック（6項目）
 
 ### C1-TODO-08: タスク粒度
 - **result**: PASS / WARN / FAIL
@@ -121,6 +121,13 @@ created_by: orchestrator
 - **result**: PASS / WARN / FAIL
 - **category**: todo
 - **finding**: {各タスクに完了条件が記述されているか}
+- **evidence_ref**: —
+- **impacted_files**: []
+
+### C1-TODO-RB: rollback（戻し手順）
+- **result**: PASS / WARN / FAIL
+- **category**: todo
+- **finding**: {high-risk/critical の実装タスクに `rollback:` が記述されているか。欠落は FAIL}
 - **evidence_ref**: —
 - **impacted_files**: []
 

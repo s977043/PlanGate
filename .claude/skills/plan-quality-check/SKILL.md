@@ -29,6 +29,8 @@ Design
 
 > 補足: `done_check` は**停止条件（completion / stop condition）**の記述有無を、`risk_check` は**再計画トリガ（前提崩壊・逸脱を検知する定量条件）**の記述有無を確認観点に含める。いずれも汎用観点であり、具体のチェック項目はプロジェクト側テンプレート（例 review-self）で定義する。
 
+> 補足2: high-risk / critical の実装タスクでは **rollback（戻し手順）の記述有無**を `done_check` の確認観点に含める。rollback 欠落は安全側（`needs_clarification`）に倒す。具体項目は review-self テンプレで定義（C1-TODO-RB）。
+
 ## 入力
 
 - 計画文書（目的 / スコープ / 受入基準 / 完了条件を含むテキスト）
