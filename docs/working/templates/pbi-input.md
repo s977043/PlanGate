@@ -24,7 +24,7 @@
 ## Notes from Refinement
 
 > 議論で決まったことの**要約**を記す。判断の正本は [`decision-log.jsonl`](./decision-log.jsonl)（スキーマ: [`decision-log-schema.md`](./decision-log-schema.md)）。
-> **不採用にした案とその理由は decision-log の `alternatives_rejected`（`[{option, rationale}]`）に構造化記録**し、ここはその参照・要約に留める（二重管理しない）。high-risk / critical / human decision では `alternatives_rejected` の記録が必須。
+> **不採用にした案とその理由は decision-log の `alternatives_rejected`（`[{"option": "...", "rationale": "..."}]`）に構造化記録**し、ここはその参照・要約に留める（二重管理しない）。high-risk / critical / human decision では `alternatives_rejected` の記録が必須。
 
 ## Estimation Evidence
 
