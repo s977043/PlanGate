@@ -10,7 +10,7 @@
 ### 検証
 - [ ] T5 --progress 有/無 diff + [done X/N] 出現 + status破損failed + privacy grep + doctor (owner:agent, depends_on:T3,T4, rollback:不要・検証のみ。HO適用後に実施)
 ### 完了
-- [ ] T6 handoff.md 作成(6要素) (owner:agent, rollback:不要)
+- [ ] T6 handoff.md 作成(6要素) (owner:agent, files:docs/working/TASK-0134/handoff.md, depends_on:T5, rollback:不要)
 
 ## 👤 Human タスク
 - [ ] H1 C-3 承認（high-risk / Standard 同期・exec 前ゲート） (owner:human 🚩)
@@ -18,7 +18,7 @@
 - [ ] H3 C-4 PR レビュー (owner:human)
 
 ## ⚠️ 依存
-- T1 → T2 → T3 / T4 → T5
+- T1 → T2 → T3 / T4 → T5 → T6
 - exec 開始は H1(C-3) 必須 / 実装反映は H2(HO 適用) 必須
 - T5 の動作検証は H2(人間 apply) 後（それ以前は PASS にできない）
 

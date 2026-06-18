@@ -1,7 +1,7 @@
 # C-1 セルフレビュー — TASK-0134 (#571)
 
 ## Plan チェック（7項目）
-- [x] P1 受入基準網羅: AC-01〜05 ↔ S1-S3 — PASS
+- [x] P1 受入基準網羅: AC-01〜06 ↔ S1-S3 — PASS
 - [x] P2 Unknowns: 出力先/fail-fast/exec横展開を確定 or Questions に明示 — PASS
 - [x] P3 スコープ制御: _review_parallel限定・フルUI/token-sec/exec横展開を Out of scope — PASS
 - [x] P4 テスト戦略: TC-01〜05 + Edge3、後方互換 diff・privacy grep — PASS
@@ -25,3 +25,8 @@
 - [x] R-001: plan に done_NNN sentinel / pid 生存確認 + 完了検出後の status 欠落→failed を明記、TC-06 追加、AC-05 精緻化 — PASS
 - [x] R-002: TC-07（引数互換: 併用順序・未知オプション・progress漏れ）+ AC-06 追加 — PASS
 - 判定: **PASS**。残 major なし。C-3（人間・high-risk）待ち。
+
+## 簡易 C-1 再実行（gemini R-003..R-004 反映後）
+- AC 網羅整合: P1 を AC-01〜06 に更新 — PASS
+- 依存フロー整合: T5 → T6 接続・T6 depends_on/files 補完 — PASS
+- 判定: PASS（critical/major 0、medium 2 反映済み）
