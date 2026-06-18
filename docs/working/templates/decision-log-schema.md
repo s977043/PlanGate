@@ -19,7 +19,7 @@ JSON Lines（`.jsonl`）— 1行1エントリ、append-only。
 | decision | string | Yes | 何を決めたか |
 | reason | string | Yes | なぜそう決めたか（コードベース由来の根拠） |
 | alternatives | string[] | Yes | 検討した他の選択肢（空配列可） |
-| alternatives_rejected | object[] | No | 不採用にした選択肢と理由 `[{option, rationale}]`（任意・空配列/省略可。**必須=high-risk / critical / human decision**）|
+| alternatives_rejected | object[] | No | 不採用にした選択肢と理由 `[{"option": "...", "rationale": "..."}]`（任意・空配列/省略可。**必須=high-risk / critical / human decision**）|
 | chosen_by | enum | Yes | `agent` / `human` / `auto` |
 
 ## 記録タイミング

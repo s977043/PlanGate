@@ -189,7 +189,7 @@ Step 6でWARN/FAILが出た場合:
 
 Step 4 でアプローチが選択されたら、**不採用にしたアプローチを `decision-log.jsonl` の `alternatives_rejected` に構造化記録**する。
 
-- 形式: `alternatives_rejected:[{option, rationale}]`（option=不採用案、rationale=不採用理由）
+- 形式: `"alternatives_rejected": [{"option": "不採用案", "rationale": "不採用理由"}]`（option=不採用案、rationale=不採用理由）
 - **必須**: high-risk / critical mode、または human decision のとき
 - 任意: standard 以下（推奨だが必須化しない）
 - **正本は decision-log.jsonl**。設計書（pbi-input）の `Notes from Refinement` はそこへの参照・要約に留め、不採用理由を二重管理しない
