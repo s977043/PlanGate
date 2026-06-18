@@ -185,6 +185,17 @@ Step 6でWARN/FAILが出た場合:
 - **過度に複雑にしない**: ユーザーが求めている以上の設計をしない
 - **対話を楽しむ**: 機械的な質問ではなく、ユーザーのアイデアを一緒に育てる姿勢
 
+## 不採用案の記録（decision-log 連携）
+
+Step 4 でアプローチが選択されたら、**不採用にしたアプローチを `decision-log.jsonl` の `alternatives_rejected` に構造化記録**する。
+
+- 形式: `"alternatives_rejected": [{"option": "不採用案", "rationale": "不採用理由"}]`（option=不採用案、rationale=不採用理由）
+- **必須**: high-risk / critical mode、または human decision のとき
+- 任意: standard 以下（推奨だが必須化しない）
+- **正本は decision-log.jsonl**。設計書（pbi-input）の `Notes from Refinement` はそこへの参照・要約に留め、不採用理由を二重管理しない
+- スキーマ: `docs/working/templates/decision-log-schema.md`
+
+
 ## 関連スキル
 
 - **ai-dev-workflow**: brainstorming完了後、実装計画の生成に使用
