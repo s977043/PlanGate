@@ -1,0 +1,4 @@
+{"phase":"B","decision":"Codex設計相談で追加先を(d)組合せに確定: working-context正本(HO)+ai-dev-plan SKILL+ミラー(生成規約)+C-1(欠落検出)","ts":"2026-06-18"}
+{"phase":"B","decision":"rollback表現は1行インラインキー rollback: 採用、長手順のみ補助ブロック許可","ts":"2026-06-18"}
+{"phase":"C-2","decision":"Codex C-2: major3/critical0 → CONDITIONAL。R-001..003を1回確定反映(Refs)","ts":"2026-06-18"}
+{"phase":"C-2","decision":"Mode=high-risk(承認境界周辺/HO) → autonomous APPROVE不可・人間C-3同期固定","ts":"2026-06-18"}
