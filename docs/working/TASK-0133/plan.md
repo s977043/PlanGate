@@ -22,7 +22,7 @@ brainstorm の不採用案理由を decision-log に構造化記録できるよ�
 ## Files / Components to Touch
 - `docs/working/templates/decision-log-schema.md`（AI 可・HO 外）
 - `.agents/skills/brainstorming/SKILL.md`（**正本**・AGENTS.md 準拠）+ ミラー `.claude/` `.codex/` `plugin/plangate/`（AI 可・skills は override 外）
-- `docs/working/templates/pbi-input.md`（**存在を T1 で確認**。無ければ `.claude/rules/working-context.md` の pbi-input 記述箇所へ fallback。fallback 先は T4 で確定 / AI 可）
+- `docs/working/templates/pbi-input.md`（**存在を T1 で確認**。無ければ `.claude/rules/working-context.md`（**正本**・実在。ミラー `plugin/plangate/rules/working-context.md` も同内容で実在）の pbi-input 記述箇所へ fallback。fallback 先は T4 で確定 / AI 可）
 
 ## Testing Strategy
 - 機械: schema に `alternatives_rejected` の grep、既存フィールド名が全て残ることの grep、サンプル JSON が jq でパース可能

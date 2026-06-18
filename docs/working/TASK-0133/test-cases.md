@@ -9,10 +9,10 @@
 ### AC-03: 正本関係明記
 - TC-04: pbi-input Notes と decision-log の正本(=decision-log)関係が記載。pbi-input.md 不在時の fallback 先（working-context.md）が確定記述される（Refs: R-003）。種別: レビュー
 ### AC-04-bis: alternatives_rejected 構造検証（Refs: R-002）
-- TC-06: decision-log-schema.md の `alternatives_rejected` サンプル JSONL 行が `jq '.alternatives_rejected[] | .option, .rationale'` でパースでき、option/rationale を持つ。種別: 機械
+- TC-06: decision-log-schema.md から `alternatives_rejected` サンプル JSONL 行を抽出（sed/awk でコードブロック行を取り出す）した上で `jq '.alternatives_rejected[] | .option, .rationale'` でパースでき、option/rationale を持つ。種別: 機械
 
 ### AC-04: 後方互換
-- TC-05: alternatives_rejected を持たない既存サンプル行が schema 上 valid（任意フィールド）であることが注記され、jq でパース可能。種別: 機械
+- TC-05: decision-log-schema.md から alternatives_rejected を持たない既存サンプル行を抽出し、jq でパース可能（任意フィールドとして valid である注記を確認）。種別: 機械
 
 ## Edge cases
 - EC-01: alternatives_rejected 空配列 / 省略の両方を許容

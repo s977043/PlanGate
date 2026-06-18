@@ -10,3 +10,14 @@
 
 ## 反映方針
 1 回確定反映。簡易 C-1 → 人間 C-3（standard・スキーマ変更）→ exec。
+
+## C-2 追加レビュー（gemini-code-assist / GitHub PR #570）— 追記専用
+レーン: 設計妥当性+整合 / verdict: 全 medium（critical 0 / major 0）
+
+| R-NNN | severity | 内容 | status | reflected_in | notes |
+|-------|----------|------|--------|--------------|-------|
+| R-004 | medium | decision-log の option が alternatives 文字列と不一致でトレース困難 | reflected | (this branch) | option を完全一致へ |
+| R-005 | medium | TC-06 が Markdown に直接 jq でパースエラー | reflected | (this branch) | 抽出(sed/awk)明記 |
+| R-006 | medium | TC-05 同上 | reflected | (this branch) | 抽出明記 |
+| R-007 | medium | T4 fallback 先 working-context が files 未記載 | reflected | (this branch) | files に .claude/rules/working-context.md 追加 |
+| R-008 | medium | plan fallback パスが実体と不一致との指摘 | reflected(補足) | (this branch) | .claude/rules が正本で実在（gemini 事実誤認）。ミラー併記で混乱解消 |

@@ -6,7 +6,7 @@
 ### 実装
 - [ ] T2 [S1] decision-log-schema.md に alternatives_rejected:[{option,rationale}] additive 追加 + サンプル + 後方互換注記 (owner:agent, files:docs/working/templates/decision-log-schema.md, depends_on:T1, rollback:該当追記を git checkout で復元)
 - [ ] T3 [S2] brainstorming skill に不採用理由 記録規約を追記（必須=high-risk/critical/human）。正本 .agents/skills → .claude/.codex/plugin ミラー同期 (owner:agent, files:.agents/skills/brainstorming/SKILL.md;.claude/skills/brainstorming/SKILL.md;.codex/skills/brainstorming/SKILL.md;plugin/plangate/skills/brainstorming/SKILL.md, depends_on:T1, rollback:4ファイルを git checkout で復元)
-- [ ] T4 [S3] pbi-input Notes の decision-log 参照縮退を規約化（pbi-input.md 不在時は working-context.md の該当箇所へ fallback・T1 で対象確定） (owner:agent, files:docs/working/templates/pbi-input.md, depends_on:T2, rollback:追記を git checkout で復元)
+- [ ] T4 [S3] pbi-input Notes の decision-log 参照縮退を規約化（pbi-input.md 不在時は working-context.md の該当箇所へ fallback・T1 で対象確定） (owner:agent, files:docs/working/templates/pbi-input.md;.claude/rules/working-context.md, depends_on:T2, rollback:追記を git checkout で復元)
 ### 検証
 - [ ] T5 alternatives_rejected grep / 既存フィールド全残 grep / サンプル jq parse / markdownlint (owner:agent, depends_on:T2,T3,T4, rollback:不要・検証のみ)
 ### 完了
