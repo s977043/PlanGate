@@ -36,3 +36,10 @@ C-2（Codex 外部レビュー）→ C-3（人間 APPROVED 必須・autonomous �
 - [x] R-002 反映: TC-03 を「working-context と SKILL の双方」に修正 — PASS
 - [x] R-003 反映: T6 の rollback を具体化（git checkout 復元）— PASS
 - 判定: **PASS**。残 major なし。C-3（人間 APPROVED）待ち。
+
+## 簡易 C-1 再実行（gemini R-004..R-009 反映後）
+- AC ↔ TC 整合: AC-01 を「双方」に統一し TC-03 と一致 — PASS
+- todo 規約（depends_on/files 必須）: T6/T8 補完で全 Agent タスク準拠 — PASS
+- TC-05 機械検証の妥当性: Agent タスク限定 grep に修正、偽陽性解消 — PASS
+- 用語整合（正本/ミラー）: plan 2 箇所修正 — PASS
+- 判定: PASS（critical/major 0、medium 6 反映済み）

@@ -11,7 +11,7 @@
 - **TC-04**: standard 以下で `rollback:不要` 明記が許容される旨が記載。種別: レビュー
 
 ### AC-03: 記入サンプルが1件存在
-- **TC-05**: `docs/working/TASK-0131/todo.md` の各タスクに `rollback:` が存在する。種別: 機械（`grep -c "rollback:" todo.md` ≥ 全タスク数）
+- **TC-05**: `docs/working/TASK-0131/todo.md` の各 Agent タスクに `rollback:` が存在する。種別: 機械（`grep '^- \[ \] T' docs/working/TASK-0131/todo.md | grep -vc 'rollback:'` が 0）
 
 ### AC-04: 正本+ミラー整合
 - **TC-06**: `.agents/` `.codex/` `plugin/plangate/` の ai-dev-plan SKILL の rollback 規約文が一致（diff 差分なし）。種別: 機械

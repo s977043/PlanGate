@@ -32,7 +32,7 @@ todo.md の各実装タスクに「タスク粒度のロールバック手順」
 - `docs/working/templates/review-self.md`（C-1 テンプレ・AI 編集可）
 
 ## Testing Strategy
-- Unit/機械: `grep` で 3 ミラー間の `rollback:` 規約一致を検証、markdownlint、`bin/plangate doctor`
+- Unit/機械: `grep` で 正本と2ミラー間の `rollback:` 規約一致を検証、markdownlint、`bin/plangate doctor`
 - Integration: 本 TASK todo.md に rollback 記入 → `bin/plangate validate TASK-0131` 整合
 - Verification: C-1 セルフレビューで rollback 欠落検出ロジックが high-risk で発火することを手動確認
 
@@ -42,7 +42,7 @@ todo.md の各実装タスクに「タスク粒度のロールバック手順」
 - R3 C-1 への項目追加で既存チェックと重複・誤検出 / 既存17項目を読み差分のみ追加 / 過検出時は条件を high-risk/critical に限定
 
 ## Metrics Evidence
-- 対象「ai-dev-plan SKILL ミラー全件」: 実数 4（`find` 実測）/ 見積もり 3 / ratio 1.33 → 採用、Risks R2 に記録。うち `.claude/worktrees/agent-ae384a6baedaaef08/` 1 件は worktree 残骸で同期対象外、正規ミラーは 3。
+- 対象「ai-dev-plan SKILL ミラー全件」: 実数 4（`find` 実測）/ 見積もり 3 / ratio 1.33 → 採用、Risks R2 に記録。うち `.claude/worktrees/agent-ae384a6baedaaef08/` 1 件は worktree 残骸で同期対象外、正本と正規ミラーの合計は 3。
 
 ## Questions / Unknowns
 - working-context.md の rollback 規約を「役割表」に足すか新規節にするか → apply-script 生成時に最小差分で決定。
