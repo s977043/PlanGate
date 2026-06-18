@@ -26,7 +26,7 @@ high-risk / critical mode では「各タスクが失敗したらどう戻すか
 - #566（Skill Router 統合）・#567（不採用理由の構造化）
 
 ## 受入基準
-- AC-01: todo.md の各タスクに Rollback 手順を記す規約が、正本（working-context.md または ai-dev-plan skill）に明文化されている
+- AC-01: todo.md の各タスクに Rollback 手順を記す規約が、正本（working-context.md および ai-dev-plan skill）の双方に明文化されている
 - AC-02: mode 別の必須/任意ルールが mode-classification.md / working-context.md と矛盾なく記載されている
 - AC-03: 記入サンプルが 1 件存在する
 - AC-04: ai-dev-plan skill の正本＋ミラー間で記述が整合している（drift を作らない）

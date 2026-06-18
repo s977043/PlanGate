@@ -10,13 +10,13 @@
 - [ ] T3 [S2] 上記を .codex/ と plugin/plangate/ のミラーへ同期 (owner:agent, files:.codex/skills/ai-dev-plan/SKILL.md;plugin/plangate/skills/ai-dev-plan/SKILL.md, depends_on:T2, rollback:2ミラーを git checkout で復元)
 - [ ] T4 [S1] working-context.md 追記の apply-script + patch を生成（AI編集しない） (owner:agent, files:scripts/apply-task-0131-rollback.sh, depends_on:T1, rollback:生成スクリプトを削除, 🚩HO)
 - [ ] T5 [S3] plan-quality-check SKILL + review-self.md に rollback 欠落検出を追加 (owner:agent, files:.claude/skills/plan-quality-check/SKILL.md;docs/working/templates/review-self.md, depends_on:T2, rollback:両ファイルを git checkout で復元)
-- [ ] T6 [S4] 本 todo.md を rollback 記入サンプルとして整える (owner:agent, depends_on:T2, rollback:todo.md のサンプル追記差分を git checkout で復元)
+- [ ] T6 [S4] 本 todo.md を rollback 記入サンプルとして整える (owner:agent, files:docs/working/TASK-0131/todo.md, depends_on:T2, rollback:todo.md のサンプル追記差分を git checkout で復元)
 
 ### 検証
 - [ ] T7 grep で3ミラー rollback 規約一致 + AC-05 検出項目確認 + markdownlint + doctor (owner:agent, depends_on:T3,T5, rollback:不要・検証のみ)
 
 ### 完了
-- [ ] T8 handoff.md 作成(6要素) (owner:agent, rollback:不要)
+- [ ] T8 handoff.md 作成(6要素) (owner:agent, files:docs/working/TASK-0131/handoff.md, depends_on:T7, rollback:不要)
 
 ## 👤 Human タスク
 - [ ] H1 C-3 承認（high-risk / Standard 同期・exec 前ゲート） (owner:human 🚩)
