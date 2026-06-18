@@ -25,3 +25,9 @@
 - [x] R-001: T5 files を docs/workflows/00_*.md に限定 — PASS
 - [x] R-002: AC-06 + TC-08（critical 制約維持の検証）追加 — PASS
 - 判定: **PASS**。残 major なし。C-3（人間・critical）待ち。
+
+## 簡易 C-1 再実行（gemini R-003..R-005 反映後）
+- 依存整合（drift防止）: T4→T6 / T5・T6→T2,T3 でミラー取りこぼし解消 — PASS
+- todo 規約（files 必須）: T6/T8 補完で全 Agent タスク準拠 — PASS
+- フロー図整合: 依存変更に追従 — PASS
+- 判定: PASS（critical/major 0、medium 3 反映済み）
