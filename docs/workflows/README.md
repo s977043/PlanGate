@@ -12,6 +12,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 
 | Phase | 目的 | ファイル |
 | --- | --- | --- |
+| **WF-00** Intent Intake（advisory）| 依頼の Intent / Mode / GatePolicy を整理する入口（非強制）| [`00_intent_intake.md`](./00_intent_intake.md) |
 | **WF-01** Context Bootstrap | 前提・制約・品質基準を読み込む | [`01_context_bootstrap.md`](./01_context_bootstrap.md) |
 | **WF-02** Requirement Expansion | 曖昧な要求から仕様の抜け漏れを洗い出す | [`02_requirement_expansion.md`](./02_requirement_expansion.md) |
 | **WF-03** Solution Design | 仕様を実装可能な構造へ落とす | [`03_solution_design.md`](./03_solution_design.md) |
