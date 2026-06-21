@@ -41,6 +41,10 @@ updated: YYYY-MM-DD
 | 視覚的受入基準 | <検証可能な合否条件> |
 | 視覚的回帰ガード | <変更禁止の既存表示> |
 | 視覚証跡 | <Figma 対比 / before-after・ビューポート別> |
+| UI 状態（default/hover/focus/disabled/loading/error） | <必要な状態の表示> |
+| design token（使用 / 不足） | <使用トークン / 新規トークン要否> |
+| component 再利用 / variant | <再利用候補コンポーネント / new variant 要否> |
+| アクセシビリティ | <キーボード操作 / フォーカス可視 / コントラスト> |
 
 ## 2. データフロー
 
