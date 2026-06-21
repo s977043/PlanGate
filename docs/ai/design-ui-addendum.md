@@ -53,6 +53,13 @@ UIタスク と判定（is_ui_task: true）
 5. 視覚的受入基準（検証可能な形）
 6. 視覚的回帰ガード（変えてはいけない既存表示）
 7. 視覚証跡（Figma 対比 or before/after・ビューポート別）
+8. UI 状態網羅（default / hover / focus / disabled / loading / error のうち必要な状態）
+9. design token（使用トークンの明示 + 不足トークンの要否）
+10. component 再利用（再利用候補の列挙 + new variant の要否）
+11. アクセシビリティ（キーボード操作 / フォーカス可視 / コントラスト等の UI 制約）
+
+> **未定義のデザイン値は発明しない**: 必要な token / variant が無い場合、実装で勝手に作らず「提案」として handoff の V2 候補・別 Issue へ分離する（#578 と整合 / #579）。
+> **DESIGN.md**: 存在すれば design system 正本として参照。無ければ既存パターンを正とする（一律必須化しない）。
 
 ## 5. 非 UI タスクの扱い
 
@@ -64,7 +71,7 @@ Figma なし案件のゲート回避も防ぐ。
 
 solution-architect が design.md を書く際、UI タスクなら「視覚設計」
 セクション（[`docs/working/templates/design.md`](../working/templates/design.md)）
-に Addendum の必須フィールド全体（1〜7）を反映する。pbi-input（要求）→ design.md（設計）→
+に Addendum の必須フィールド全体（1〜11）を反映する。pbi-input（要求）→ design.md（設計）→
 受入（証跡）で視覚要件が一貫する。
 
 ## 7. 関連

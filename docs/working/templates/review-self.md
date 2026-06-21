@@ -16,7 +16,7 @@ created_by: orchestrator
 
 | result | 件数 |
 |--------|------|
-| PASS | {24} |
+| PASS | {25} |
 | WARN | {0} |
 | FAIL | {0} |
 
@@ -201,6 +201,13 @@ created_by: orchestrator
 - **result**: PASS / WARN / FAIL
 - **category**: plan
 - **finding**: {実装中に発見したスコープ外の改善・不具合を、その場で直さず別 Issue / メモ（handoff V2 候補・既知課題）へ分離する方針か}
+- **evidence_ref**: —
+- **impacted_files**: []
+
+### C1-UI-01: UI デザインシステム準拠（#579・is_ui_task 時のみ）
+- **result**: PASS / WARN / FAIL / N/A
+- **category**: plan
+- **finding**: {is_ui_task の場合: states(default/hover/focus/disabled/loading/error) / design token / component 再利用+variant / accessibility を design.md 視覚設計に明示し、未定義デザイン値を発明せず提案扱い。DESIGN.md 存在時は参照。non-UI は N/A}
 - **evidence_ref**: —
 - **impacted_files**: []
 
