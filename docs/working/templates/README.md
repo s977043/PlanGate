@@ -25,6 +25,7 @@ PlanGate ワークフローで使うテンプレート群。
 | [`current-state.md`](./current-state.md) | 現在状態スナップショット | タスク完了毎に上書き |
 | [`design.md`](./design.md) | WF-03 設計成果物 | UI タスク時 視覚設計セクション併用 |
 | [`review-self.md`](./review-self.md) / [`review-external.md`](./review-external.md) | C-1 / C-2 レビュー結果 | |
+| [`evidence-tdd-ledger.json`](./evidence-tdd-ledger.json) | TDD RED/GREEN/REFACTOR VERIFY 証跡 | high-risk / critical mode のTDD必須時に使用 |
 
 > `run-outcome-review.md` は v8.6.0 以前の利用者に**移行コストゼロ**（任意・後方互換）。
 
