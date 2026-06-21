@@ -180,3 +180,4 @@ created_by: orchestrator
 - [ ] Out of Scopeに触れていない
 - [ ] Replan Triggers / Stop Condition が書かれている
 - [ ] high-risk / critical の場合、Rollbackが具体的
+- [ ] （is_ui_task の場合）states / design token / component 再利用+variant / a11y を design.md 視覚設計に明示し、未定義デザイン値は発明せず提案扱い（#579・non-UI は N/A）
