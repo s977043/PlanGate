@@ -4,7 +4,7 @@
 AI UI 実装前のデザインシステム準拠確認を、既存 `design-ui-addendum.md` の拡張で実現する。新ゲート/新 SKILL は作らず、不足 4 観点 + 提案扱いルール + UI 条件付き C-1 を追加。
 
 ## Constraints / Non-goals
-- `docs/ai/design-ui-addendum.md` + `docs/working/templates/{plan,review-self}.md` のみ編集（HO 非該当）。
+- `docs/ai/design-ui-addendum.md` + `docs/working/templates/{plan,review-self,design}.md` のみ編集（HO 非該当）。
 - `bin/plangate`（HO）の Addendum は触らない。正本記述は design-ui-addendum.md に置く。
 - 新 `design-gate` SKILL/rule を作らない（既存と命名衝突）。DESIGN.md を一律必須化しない。gate 強制しない。River Review/Hermes は別リポジトリ scope。
 - #578 / #581 と独立。
@@ -36,7 +36,7 @@ AI UI 実装前のデザインシステム準拠確認を、既存 `design-ui-ad
 - R3 non-UI 過検出 / is_ui_task 条件付き + N/A 許容 / 過検出時は条件強化
 
 ## Metrics Evidence
-- 対象「変更ファイル」: 実数 3（design-ui-addendum + plan + review-self）/ 見積もり 3 / ratio 1.0 → 採用。
+- 対象「変更ファイル」: 実数 4（design-ui-addendum + plan + review-self + design）/ 見積もり 4 / ratio 1.0 → 採用。
 
 ## Questions / Unknowns
 - DESIGN.md 置き場所 → 存在時参照・無ければ既存パターン正（一律必須化しない）。
@@ -46,7 +46,7 @@ AI UI 実装前のデザインシステム準拠確認を、既存 `design-ui-ad
 **モード**: standard
 
 **判定根拠**:
-- 変更ファイル数: 3（docs/ai + templates）→ standard
+- 変更ファイル数: 4（docs/ai + templates）→ standard
 - 受入基準数: 5 → standard
 - 変更種別: doc/テンプレ追記（既存 Addendum 拡張）
 - 影響範囲: UI タスクの Plan/C-1（is_ui_task 条件付き）
