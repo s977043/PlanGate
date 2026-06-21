@@ -16,7 +16,7 @@ created_by: orchestrator
 
 | result | 件数 |
 |--------|------|
-| PASS | {17} |
+| PASS | {22} |
 | WARN | {0} |
 | FAIL | {0} |
 
@@ -86,6 +86,26 @@ created_by: orchestrator
 - **finding**: {plan の Replan Triggers に機械値が1つ以上記入されているか（未記入は WARN。強制は Phase2/#543）}
 - **evidence_ref**: —
 - **impacted_files**: []
+
+## Plan 品質追加チェック（Superpowers 由来 / #581）
+
+> Superpowers を依存として導入するのではなく、`writing-plans` の考え方を PlanGate の C-1 に翻訳する。目的は、plan を「説明文」ではなく、AI実装者が安全に実行できる作業指示書にすること。
+
+### C1-SUP-PLAN-01: No Placeholders Rule
+- **result**: PASS / WARN / FAIL
+- **category**: plan
+- **finding**: {plan.md / todo.md / test-cases.md / design.md に、未解決の `TBD` / `TODO` / `後で実装` / `必要に応じて` / `適切に` / `いい感じに` / 未定義の関数・型・ファイルパス、および具体性を欠く『エラーハンドリングを追加』『テストを書く』『Task N と同様』が残っていないか}
+- **evidence_ref**: —
+- **impacted_files**: []
+- **failure_policy**: {standard以上は重大な曖昧表現をFAIL。ultra-light/lightでもexecに必要なファイル・コマンド・期待結果が欠ける場合はFAIL}
+
+### C1-SUP-PLAN-02: Task Sizing Rules
+- **result**: PASS / WARN / FAIL
+- **category**: plan
+- **finding**: {各Taskが独立して検証可能で、reviewerがTask単位でapprove/rejectできる粒度か。変更対象ファイル、公開インターフェース、検証コマンド、期待結果、依存関係が具体的か}
+- **evidence_ref**: —
+- **impacted_files**: []
+- **failure_policy**: {high-risk/criticalではTask単位の検証不能・責務混在・依存不明をFAIL}
 
 ## ToDo チェック（6項目）
 
@@ -178,7 +198,7 @@ created_by: orchestrator
 
 <!--
 共通schema フィールド定義:
-- check_id: 一意の識別子（C1-PLAN-01〜C1-B1B2-17）
+- check_id: 一意の識別子（C1-PLAN-01〜C1-B1B2-17 / C1-SUP-PLAN-01〜02）
 - category: plan / todo / test
 - result: PASS / WARN / FAIL
 - finding: 発見内容（1-2文）
