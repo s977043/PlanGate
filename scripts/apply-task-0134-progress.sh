@@ -12,6 +12,7 @@ s = open(f, encoding="utf-8").read()
 
 PROG = '''  if [ "$_rp_progress" = "1" ]; then
     _rp_seen_count=0
+    _rp_printed_count=0
     while [ "$_rp_seen_count" -lt "$_rp_count" ]; do
       _rp_seen_count=0
       _rp_pi=0
@@ -20,11 +21,12 @@ PROG = '''  if [ "$_rp_progress" = "1" ]; then
           _rp_seen_count=$((_rp_seen_count + 1))
           if [ ! -f "$_rp_tmpdir/seen_$(printf '%03d' "$_rp_pi")" ]; then
             : > "$_rp_tmpdir/seen_$(printf '%03d' "$_rp_pi")"
+            _rp_printed_count=$((_rp_printed_count + 1))
             _rp_pstat=$(cat "$_rp_tmpdir/status_$(printf '%03d' "$_rp_pi")" 2>/dev/null || echo 1)
             _rp_pprov=""
             [ -f "$_rp_tmpdir/spec_$(printf '%03d' "$_rp_pi")" ] && _rp_pprov=$(sed -n 's/^provider=//p' "$_rp_tmpdir/spec_$(printf '%03d' "$_rp_pi")")
-            if [ "$_rp_pstat" -eq 0 ] 2>/dev/null; then _rp_pres="ok"; else _rp_pres="failed"; fi
-            printf '[done %s/%s] %s %s\\n' "$_rp_seen_count" "$_rp_count" "$_rp_pprov" "$_rp_pres"
+            if [ "$_rp_pstat" = "0" ]; then _rp_pres="ok"; else _rp_pres="failed"; fi
+            printf '[done %s/%s] %s %s\\n' "$_rp_printed_count" "$_rp_count" "$_rp_pprov" "$_rp_pres"
           fi
         fi
         _rp_pi=$((_rp_pi + 1))
