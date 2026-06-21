@@ -16,9 +16,9 @@ AIエージェント開発の反パターンのうち、既存 PlanGate で**未
 3. **役割分担整理（#578 Done2）**: 新設でなく、plan.md / review-self.md から既存正本（decision-log.jsonl / AGENT_LEARNINGS.md / `_audit/` / documentation-management.md）への**参照リンク**を 1 箇所追記。
 
 ## Work Breakdown
-- **S1** plan.md に Verification 実行不能時欄 + Scope 予防注記を追加 / Owner: agent / Risk: 既存 Verification Plan との整合 / rollback: git checkout で復元
-- **S2** review-self.md に C1-SEC-01 / C1-SCOPE-DISC-01 を追加 + 件数更新 / Owner: agent / Risk: 既存項目との重複 / rollback: git checkout
-- **S3** 既存参照リンク追記（役割分担 Done を参照で充足）/ Owner: agent / Risk: リンク切れ / rollback: git checkout
+- **S1** plan.md に Verification 実行不能時欄 + Scope 予防注記を追加 / Owner: agent / Risk: 既存 Verification Plan との整合 / rollback: git checkout -- docs/working/templates/plan.md で復元
+- **S2** review-self.md に C1-SEC-01 / C1-SCOPE-DISC-01 を追加 + 件数更新 / Owner: agent / Risk: 既存項目との重複 / rollback: git checkout -- docs/working/templates/review-self.md で復元
+- **S3** 既存参照リンク追記（役割分担 Done を参照で充足）/ Owner: agent / Risk: リンク切れ / rollback: git checkout -- docs/working/templates/plan.md docs/working/templates/review-self.md で復元
 
 ## Files / Components to Touch
 - `docs/working/templates/plan.md`（AI 可・HO 外）

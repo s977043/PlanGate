@@ -8,7 +8,7 @@
 ### AC-03: Scope 予防チェック
 - TC-03: review-self.md に `C1-SCOPE-DISC-01`（実装中の発見を別 Issue/メモへ分離）が存在 + plan.md Scope に予防注記。種別: 機械（grep）
 ### AC-04: 既存参照で役割分担 Done 充足・_docs 新設しない
-- TC-04: plan/review-self に decision-log.jsonl / AGENT_LEARNINGS.md / `_audit/` / documentation-management への参照リンクがある（4 参照すべて）。`_docs/` ディレクトリを新設していない（find で不在 or 本 PBI で作らない）。種別: 機械（grep + find）
+- TC-04: plan/review-self に decision-log.jsonl / AGENT_LEARNINGS.md / `_audit/` / documentation-management.md への参照リンクがある（4 参照すべて）。`_docs/` ディレクトリを新設していない（find で不在 or 本 PBI で作らない）。種別: 機械（grep + find）
 ### AC-05: 重複ゼロ
 - TC-05: 追加項目が既存 C1（C1-PLAN-03 スコープ / C1-PLAN-08-AEE / C1-SUP-PLAN-01 No Placeholders 等）と重複しない（観点が直交）。種別: レビュー
 
