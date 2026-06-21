@@ -58,7 +58,7 @@ reps = [
    '  _rp_reviewers_yaml=$5\n  _rp_progress="${_review_progress:-0}"\n'),
   # R4: 子プロセス完了 sentinel（done_NNN）— R-001 未完了/完了後欠落の区別
   ('      (eval "$command" > "$_rp_out_file" 2>&1; echo $? > "$_rp_status_file") &',
-   '      (eval "$command" > "$_rp_out_file" 2>&1; echo $? > "$_rp_status_file"; : > "$_rp_tmpdir/done_$(printf \'%03d\' "$_rp_idx")") &'),
+   '      (_rp_ec=0; eval "$command" > "$_rp_out_file" 2>&1 || _rp_ec=$?; echo "$_rp_ec" > "$_rp_status_file"; : > "$_rp_tmpdir/done_$(printf \'%03d\' "$_rp_idx")") &'),
   # R5: wait 前にライブ進捗ポーリング
   ('    _rp_idx=$((_rp_idx + 1))\n  done\n\n  wait\n',
    '    _rp_idx=$((_rp_idx + 1))\n  done\n\n' + PROG + '  wait\n'),
