@@ -16,7 +16,7 @@ created_by: orchestrator
 
 | result | 件数 |
 |--------|------|
-| PASS | {22} |
+| PASS | {24} |
 | WARN | {0} |
 | FAIL | {0} |
 
@@ -187,6 +187,20 @@ created_by: orchestrator
 - **result**: PASS / WARN / FAIL
 - **category**: plan
 - **finding**: {2案以上のアプローチを比較し、推薦案の選定理由を明記したか}
+- **evidence_ref**: —
+- **impacted_files**: []
+
+### C1-SEC-01: 秘密情報 非接触（#578）
+- **result**: PASS / WARN / FAIL / N/A
+- **category**: plan
+- **finding**: {`.env` / APIキー / トークン / 個人パス / ローカル設定に触れない設計か。扱う可能性がある場合、secret scan / `git diff` 確認を Verification Plan に含めているか。秘密情報を扱わない変更は N/A}
+- **evidence_ref**: —
+- **impacted_files**: []
+
+### C1-SCOPE-DISC-01: 発見事項の予防的分離（#578）
+- **result**: PASS / WARN / FAIL
+- **category**: plan
+- **finding**: {実装中に発見したスコープ外の改善・不具合を、その場で直さず別 Issue / メモ（handoff V2 候補・既知課題）へ分離する方針か}
 - **evidence_ref**: —
 - **impacted_files**: []
 

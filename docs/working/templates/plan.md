@@ -36,11 +36,14 @@ created_by: orchestrator
 
 - {今回やらないこと}
 
+> 実装中に**スコープ外の改善・不具合を発見**した場合は、その場で直さず**別 Issue / メモ（handoff の V2 候補・既知課題）へ分離**する（依頼外変更・便乗リファクタの混入防止 / #578）。
+
 ## Global Constraints
 
 - {既存設計・命名規則・依存追加・セキュリティ・後方互換性などの制約}
 - `TBD` / `TODO` / `必要に応じて` / `適切に` のような曖昧な未決事項を残さない
 - 変更対象外ファイルを触る場合は、理由を明記する
+- 重要な設計判断は [`decision-log.jsonl`](./decision-log.jsonl)（正本）に記録する。学び/再発防止は [`AGENT_LEARNINGS.md`](../../../AGENT_LEARNINGS.md)、監査ログは [`_audit/`](../_audit/)、docs 配置規約は [`documentation-management.md`](../../pages/guides/governance/documentation-management.md) に従う（保存先を分離し AGENTS.md に恒常ルール以外を足さない / #578）
 
 ## Approach Comparison
 
@@ -145,6 +148,8 @@ created_by: orchestrator
 | Typecheck | `pnpm typecheck` | exitCode=0 | `evidence/verification/` |
 | Lint | `pnpm lint` | exitCode=0 | `evidence/verification/` |
 | Manual | {必要なら手動確認} | {期待結果} | `evidence/manual/` |
+
+> **検証が実行不能な場合**（環境制約・依存未整備等）は、その**理由**と**代替確認方法**を明記する（「Done = 検証完了」を満たせない検証を黙って省略しない / #578）。
 
 ## Replan Triggers
 
