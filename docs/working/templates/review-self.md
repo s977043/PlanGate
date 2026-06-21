@@ -16,7 +16,7 @@ created_by: orchestrator
 
 | result | 件数 |
 |--------|------|
-| PASS | {17+} |
+| PASS | {22} |
 | WARN | {0} |
 | FAIL | {0} |
 
@@ -94,7 +94,7 @@ created_by: orchestrator
 ### C1-SUP-PLAN-01: No Placeholders Rule
 - **result**: PASS / WARN / FAIL
 - **category**: plan
-- **finding**: {plan.md / todo.md / test-cases.md / design.md に、未解決の `TBD` / `TODO` / `後で実装` / `必要に応じて` / `適切に` / `いい感じに` / 未定義の関数・型・ファイルパスが残っていないか}
+- **finding**: {plan.md / todo.md / test-cases.md / design.md に、未解決の `TBD` / `TODO` / `後で実装` / `必要に応じて` / `適切に` / `いい感じに` / 未定義の関数・型・ファイルパス、および具体性を欠く『エラーハンドリングを追加』『テストを書く』『Task N と同様』が残っていないか}
 - **evidence_ref**: —
 - **impacted_files**: []
 - **failure_policy**: {standard以上は重大な曖昧表現をFAIL。ultra-light/lightでもexecに必要なファイル・コマンド・期待結果が欠ける場合はFAIL}

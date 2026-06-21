@@ -169,7 +169,8 @@ created_by: orchestrator
 
 - [ ] 受入基準がWork Breakdownにマッピングされている
 - [ ] TaskごとのFiles / Interfaces / Steps / Completion Criteriaが具体的
-- [ ] `TBD` / `TODO` / `必要に応じて` / `適切に` / `いい感じに` が残っていない
+- [ ] `TBD` / `TODO` / `後で実装` / `必要に応じて` / `適切に` / `いい感じに` が残っていない
+- [ ] 未定義の関数名・型名・ファイルパス・コマンドを参照していない
 - [ ] テストの入力・期待値・検証コマンドが具体的
 - [ ] Out of Scopeに触れていない
 - [ ] Replan Triggers / Stop Condition が書かれている
