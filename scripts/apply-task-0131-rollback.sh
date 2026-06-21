@@ -14,7 +14,7 @@ new=("- L-0〜V-4, PR作成はworkflow-conductorが自動制御するため含�
 "- 各タスクに `rollback:` を記載（戻し手順）。**必須=high-risk / critical の実装タスク**。standard 以下は任意、検証/読取のみは `rollback:不要` と明記可\n"
 "\n### test-cases.md（テストケース定義）")
 assert old in s, "anchor not found in working-context.md"
-open(f,"w",encoding="utf-8").write(s.replace(old,new))
+open(f,"w",encoding="utf-8",newline="\n").write(s.replace(old,new))
 print("applied rollback rule to", f)
 INNER
 echo "DONE. 適用後は git diff で確認し、TASK-0131 ブランチにコミットしてください。"
