@@ -2,7 +2,7 @@
 
 ## 🤖 Agent タスク
 ### 準備
-- [ ] T1 design-ui-addendum.md / plan.md / review-self.md / design.md の現状精読（重複確認）(owner:agent, files:docs/ai/design-ui-addendum.md;docs/working/templates/plan.md, rollback:不要・読取のみ)
+- [ ] T1 design-ui-addendum.md / plan.md / review-self.md / design.md の現状精読（重複確認）(owner:agent, files:docs/ai/design-ui-addendum.md;docs/working/templates/plan.md;docs/working/templates/review-self.md;docs/working/templates/design.md, rollback:不要・読取のみ)
 ### 実装
 - [ ] T2 [S1] design-ui-addendum.md に states(6)/design token/component再利用+variant/a11y + 提案扱いルール + DESIGN.md参照方針を追記し、design.md 視覚設計テーブルにも 4 観点を反映 (owner:agent, files:docs/ai/design-ui-addendum.md;docs/working/templates/design.md, depends_on:T1, rollback:git checkout -- docs/ai/design-ui-addendum.md docs/working/templates/design.md)
 - [ ] T3 [S2] plan.md に is_ui_task 条件付き UI チェック注記 (owner:agent, files:docs/working/templates/plan.md, depends_on:T1, rollback:git checkout -- docs/working/templates/plan.md)
