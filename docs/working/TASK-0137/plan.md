@@ -21,8 +21,8 @@
 ## Work Breakdown
 - **S1** dispatch/ テンプレ 4 種を新設 / Owner: agent / Risk: 既存 evidence/ との粒度整合 / rollback: git rm -r docs/working/templates/dispatch
 - **S2** context-packager に dispatch/brief 保存工程を追記 / Owner: agent / Risk: 既存出力との整合 / rollback: git checkout -- plugin/plangate/skills/context-packager/SKILL.md
-- **S3** subagent-dispatch / subagent-driven-development にファイルベース原則を明文化 / Owner: agent / Risk: 既存手順との重複 / rollback: git checkout -- 該当2 SKILL
-- **S4** review-gate SKILL + review-external に Plan Alignment ブロック（§2-4 不変）/ Owner: agent / Risk: review-principles との二重定義 / rollback: git checkout -- 該当2ファイル
+- **S3** subagent-dispatch / subagent-driven-development にファイルベース原則を明文化 / Owner: agent / Risk: 既存手順との重複 / rollback: git checkout -- plugin/plangate/skills/subagent-dispatch/SKILL.md .claude/skills/subagent-driven-development/SKILL.md
+- **S4** review-gate SKILL + review-external に Plan Alignment ブロック（§2-4 不変）/ Owner: agent / Risk: review-principles との二重定義 / rollback: git checkout -- plugin/plangate/skills/review-gate/SKILL.md docs/working/templates/review-external.md
 
 ## Files / Components to Touch
 - `docs/working/templates/dispatch/{task-NNN-brief,task-NNN-report,task-NNN-review-package,progress-ledger}.md`（新規・AI 可）
