@@ -12,6 +12,25 @@
 PBI（プロダクトバックログアイテム）からPlan生成、レビュー、Agent実行、多層防御検証、PR作成までを体系化したワークフロー。
 obra/superpowersの思想（Iron Law、合理化テーブル、2-5分粒度、TDD先行）をv3で取り込み、v4でtakt知見（マルチエージェント協調、V系検証ステップ）、v5でハーネスエンジニアリング知見（L-0リンター自動修正ループ）を統合。
 
+## Closed Loop 型 AI 開発における PlanGate の位置づけ
+
+PlanGate は **Loop 実行エンジンではない**。AI を自由に走らせ続ける仕組みではなく、Closed Loop 型 AI 開発（plan → 実装 → 検証 → 差分レビュー → 必要なら再計画 → PR）における **Plan Review Gate / Replan Gate（統制層）** として位置づける。
+
+```text
+Plan 作成 → 外部レビュー(C-2) → 承認(C-3) → 実装 → Verification(test/lint/typecheck)
+  → 差分レビュー(V-3) → NG なら Replan Gate / OK なら PR(C-4)
+```
+
+PlanGate の価値は「AI を自由に走らせること」ではなく、**走らせる前に計画を可視化し、走らせてよい条件を明確にすること**にある。Loop の安全制御は AEE（承認済み実行境界 / Approved Execution Envelope）として plan 正本に明文化する:
+
+- **Verification**（停止条件と連動する検証コマンド）/ **Stop Condition**（完了とみなす条件）/ **Replan Triggers**（前提崩壊・逸脱の機械値）/ **Loop Attempts**（最小ログ欄）
+
+詳細は本書「成果物① EXECUTION PLAN」の AEE 条項を参照。Phase1 では AEE は **明文化（ソフト強制: C-1 で記入検出）** であり、未記入で承認不可にする hard gate（strict mode）は **Phase2（[#543](https://github.com/s977043/plangate/issues/543)）** で扱う。完全自動リトライ・無制限の自己修正・複数 Agent の完全自律並列・自動マージは導入しない（人間承認境界を維持）。
+
+> 出典: [#544](https://github.com/s977043/plangate/issues/544)。戦略討議の詳細は [`docs/working/discussions/2026-06-15-544-loop-strategy-rev3.md`](working/discussions/2026-06-15-544-loop-strategy-rev3.md)。
+
+---
+
 ---
 
 ## クイックスタート（コマンド3つで完了）
