@@ -190,7 +190,7 @@ pnpm test path/to/test.test.ts && pnpm typecheck
 以下のルールを順番に適用する:
 
 1. `missingEvidence` が 1 件でもある → Completion Gate がブロックされる
-2. `phase != "tdd_red"` の EvidenceItem で `exitCode != 0` が 1 件でもある → `status = "failed"`
+2. `phase` が未指定、または `phase != "tdd_red"` の EvidenceItem で `exitCode != 0` が 1 件でもある → `status = "failed"`（`phase` 省略時は tdd_red 以外として扱う）
 3. `phase = "tdd_red"` で `exitCode = 0` → `status = "failed"`（REDになっていない）
 4. `phase = "tdd_red"` で `exitCode != 0` かつ `conclusion` が期待失敗を説明している → RED証跡として有効
 5. `evidence` が空 → `status = "unknown"`
@@ -202,9 +202,9 @@ pnpm test path/to/test.test.ts && pnpm typecheck
 
 - `phase="tdd_red"` のEvidenceItemがない
 - `phase="tdd_green"` のEvidenceItemがない
-- REDの失敗理由が期待失敗として説明されていない
+- REDの失敗理由が期待失敗として説明されていない（判定方針: `conclusion` が非空かつ失敗内容に言及していること。期待との厳密一致は LLM 補助判定とし、機械チェックの最低条件は `conclusion` 非空 + `exitCode != 0`）
 - GREENの成功コマンド・exitCode・出力抜粋がない
-- refactorを行ったのに `phase="refactor_verify"` がない
+- refactorを行ったのに `phase="refactor_verify"` がない（判定方針: 直前の `tdd_green` 証跡以降に**ソースコード変更ありかつテストコード変更なし**を refactor とみなす。機械判定が不能な場合は安全側で `refactor_verify` を必須化せず任意とする）
 
 ### ステップ 5: EvidenceLedger を出力する
 
