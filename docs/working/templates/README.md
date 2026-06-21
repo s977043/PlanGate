@@ -6,6 +6,7 @@ PlanGate ワークフローで使うテンプレート群。
 
 | テンプレート | 用途 | フェーズ |
 | --- | --- | --- |
+| [`plan.md`](./plan.md) | 実装前の実行可能な作業指示書（Task Sizing / No Placeholders / 検証計画） | WF-03 / C-1 |
 | [`handoff.md`](./handoff.md) | 完了時の引き継ぎパッケージ（必須6要素・全PBI必須） | WF-05 |
 
 ## 親 PBI（Orchestrator Mode）
