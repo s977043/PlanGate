@@ -61,6 +61,8 @@ find . -name <pattern> -not -path './.git/*' -not -path './node_modules/*' | wc 
 
 - タスク粒度 2-5 分、`Owner: agent / human` 必須、`depends_on` / `files` 必須
 - L-0〜V-4・PR 作成は workflow-conductor が自動制御するため含めない
+- 各タスクに `rollback:` を記載（戻し手順）。**必須=high-risk / critical の実装タスク**。standard 以下は任意、検証/読取のみは `rollback:不要` と明記可
+- rollback 手順が長い場合はタスク直下に補助ブロックで記述してよい
 
 ### test-cases.md 規約
 
