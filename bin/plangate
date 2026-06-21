@@ -1803,7 +1803,7 @@ PYEOF
       _rp_status_file="$_rp_tmpdir/status_$(printf '%03d' "$_rp_idx")"
       printf 'Starting reviewer: %s (lane=%s)\n' "$provider" "$lane"
       # shellcheck disable=SC2086
-      (eval "$command" > "$_rp_out_file" 2>&1; echo $? > "$_rp_status_file"; : > "$_rp_tmpdir/done_$(printf '%03d' "$_rp_idx")") &
+      (_rp_ec=0; eval "$command" > "$_rp_out_file" 2>&1 || _rp_ec=$?; echo "$_rp_ec" > "$_rp_status_file"; : > "$_rp_tmpdir/done_$(printf '%03d' "$_rp_idx")") &
     fi
     _rp_idx=$((_rp_idx + 1))
   done
