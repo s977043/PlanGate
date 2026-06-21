@@ -56,7 +56,7 @@ Intent はスキルの優先度や追加推奨にのみ影響する。
 
 | フィールド | ultra-light | light | standard | high-risk | critical |
 |-----------|------------|-------|----------|-----------|---------|
-| requiredSkills | verify | check, verify | think, check, verify | think, approval, worktree, tdd, check, review, verify | think, approval, worktree, tdd, review, verify |
+| requiredSkills | verify | check, verify | think, check, verify | think, approval, worktree, tdd, check, review, verify | think, approval, worktree, tdd, check, review, verify |
 | optionalSkills | check | think, hunt | hunt, tdd | — | — |
 | requiresUserApproval | false | false | recommended | true | true |
 | requiresEvidence | false | false | true | true | true |
