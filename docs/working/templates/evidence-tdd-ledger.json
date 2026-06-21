@@ -1,0 +1,40 @@
+{
+  "claim": "Task N の実装はTDDで完了した",
+  "status": "passed",
+  "evidence": [
+    {
+      "id": "ev-task-N-red",
+      "type": "test",
+      "phase": "tdd_red",
+      "command": "pnpm test path/to/test.test.ts",
+      "exitCode": 1,
+      "outputExcerpt": "Expected failure: function is not defined",
+      "filePath": "path/to/test.test.ts",
+      "conclusion": "未実装の対象関数が存在しないため、追加したテストが期待通り失敗した",
+      "createdAt": "YYYY-MM-DDTHH:mm:ss+09:00"
+    },
+    {
+      "id": "ev-task-N-green",
+      "type": "test",
+      "phase": "tdd_green",
+      "command": "pnpm test path/to/test.test.ts",
+      "exitCode": 0,
+      "outputExcerpt": "1 passed",
+      "filePath": "path/to/test.test.ts",
+      "conclusion": "最小実装により対象テストが成功した",
+      "createdAt": "YYYY-MM-DDTHH:mm:ss+09:00"
+    },
+    {
+      "id": "ev-task-N-refactor-verify",
+      "type": "test",
+      "phase": "refactor_verify",
+      "command": "pnpm test path/to/test.test.ts && pnpm typecheck",
+      "exitCode": 0,
+      "outputExcerpt": "1 passed; typecheck passed",
+      "filePath": "path/to/test.test.ts",
+      "conclusion": "refactor後も対象テストと型検査が成功した",
+      "createdAt": "YYYY-MM-DDTHH:mm:ss+09:00"
+    }
+  ],
+  "missingEvidence": []
+}
