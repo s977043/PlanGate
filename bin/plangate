@@ -1294,8 +1294,9 @@ cmd_maintenance() {
 
       # --- L3: parent process heuristic ---
       _pcomm=$(ps -p $PPID -o comm= 2>/dev/null | tr -d ' ')
-      # PLANGATE_FAKE_PPID_COMM is test-only injection (R-026)
-      if [ -n "${PLANGATE_FAKE_PPID_COMM:-}" ]; then _pcomm="$PLANGATE_FAKE_PPID_COMM"; fi
+      # PLANGATE_FAKE_PPID_COMM はテスト専用注入。本番経路での L3 上書きを防ぐため
+      # PLANGATE_TEST_MODE=1 のときのみ honor する（TASK-0139 AC-03）。
+      if [ "${PLANGATE_TEST_MODE:-0}" = "1" ] && [ -n "${PLANGATE_FAKE_PPID_COMM:-}" ]; then _pcomm="$PLANGATE_FAKE_PPID_COMM"; fi
       if printf '%s' "$_pcomm" | grep -iqE 'claude|codex|cursor'; then
         _audit "maintenance_start_attempt" "reject_L3" "parent process comm=$_pcomm"
         printf 'error: L3 AI agent lineage detected (ppid comm: %s)\n' "$_pcomm" >&2
@@ -1307,7 +1308,7 @@ cmd_maintenance() {
       printf 'L4 nonce challenge: please type the following 8-hex string and press Enter to confirm human operation:\n'
       printf '  %s\n' "$_nonce"
       printf 'PLANGATE_MAINT_ACK> '
-      read _ack || _ack=""
+      read -r _ack || _ack=""
       if [ "$_ack" != "$_nonce" ]; then
         _audit "maintenance_start_attempt" "reject_L4" "nonce mismatch (got: $_ack)"
         printf 'error: L4 nonce mismatch (got: %s, expected: %s)\n' "$_ack" "$_nonce" >&2
@@ -2111,7 +2112,9 @@ _plangate_presence_gate() {
   done
   # L3: parent process heuristic
   _pcomm=$(ps -p $PPID -o comm= 2>/dev/null | tr -d ' ')
-  if [ -n "${PLANGATE_FAKE_PPID_COMM:-}" ]; then _pcomm="$PLANGATE_FAKE_PPID_COMM"; fi
+  # PLANGATE_FAKE_PPID_COMM はテスト専用注入。本番経路での L3 上書きを防ぐため
+  # PLANGATE_TEST_MODE=1 のときのみ honor する（TASK-0139 AC-03）。
+  if [ "${PLANGATE_TEST_MODE:-0}" = "1" ] && [ -n "${PLANGATE_FAKE_PPID_COMM:-}" ]; then _pcomm="$PLANGATE_FAKE_PPID_COMM"; fi
   if printf '%s' "$_pcomm" | grep -iqE 'claude|codex|cursor'; then
     _pg_audit reject_L3 "ppid comm=$_pcomm"
     printf 'error: L3 AI agent lineage detected (ppid comm: %s)\n' "$_pcomm" >&2
@@ -2157,18 +2160,21 @@ cmd_approve() {
 
   # 三値 schema 必須フィールド（R-004）: REJECTED→reason / CONDITIONAL→conditions
   if [ "$_ap_status" = "REJECTED" ] && [ -z "$_ap_reason" ]; then
-    if [ -t 0 ]; then printf 'rejection reason> '; read _ap_reason || _ap_reason=""; fi
+    if [ -t 0 ]; then printf 'rejection reason> '; read -r _ap_reason || _ap_reason=""; fi
     [ -n "$_ap_reason" ] || { printf 'error: --reason required for --reject (schema)\n' >&2; return 2; }
   fi
   if [ "$_ap_status" = "CONDITIONAL" ] && [ -z "$_ap_conditions" ]; then
-    if [ -t 0 ]; then printf 'conditions> '; read _ap_conditions || _ap_conditions=""; fi
+    if [ -t 0 ]; then printf 'conditions> '; read -r _ap_conditions || _ap_conditions=""; fi
     [ -n "$_ap_conditions" ] || { printf 'error: --conditions required for --conditional (schema)\n' >&2; return 2; }
   fi
 
   # 既存 c3.json
   _ap_c3="$_ap_dir/approvals/c3.json"
+  # TASK-0139 AC-04: abort if c3.json exists and --force not given
+  # 承認記録の不可逆性を保護する（既存承認の無断上書き禁止）。
   if [ -f "$_ap_c3" ] && [ "$_ap_force" = "false" ]; then
-    printf 'note: existing c3.json found; re-approval will overwrite (use --force to skip this note)\n' >&2
+    printf 'error: existing c3.json found for %s; use --force to overwrite\n' "$_ap_task" >&2
+    return 2
   fi
 
   # Human-presence 検証（自己承認不可）
