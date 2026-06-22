@@ -55,11 +55,21 @@ check_changelog_sync() {
   fi
 }
 
+check_plugin_cache_sync() {
+  out="$(sh "$ROOT/scripts/sync-plugin-installed.sh" --dry-run 2>/dev/null || true)"
+  if printf '%s' "$out" | grep -q "no-op"; then
+    ok "plugin インストール済みキャッシュ同期済み（Claude Code + Codex）"
+  else
+    ng "plugin キャッシュ未同期 — 実行: sh scripts/sync-plugin-installed.sh"
+  fi
+}
+
 run_checks() {
   note "=== release readiness 検査 ==="
   check_versions
   check_pending_applies
   check_changelog_sync
+  check_plugin_cache_sync
   note "=== 手動確認 TODO（機械化対象外） ==="
   note "- README / README_en の最新リリース行（散文）が対象 version か"
   note "- CLAUDE.md の最新リリース節（HO — apply スクリプトで Human 適用）"

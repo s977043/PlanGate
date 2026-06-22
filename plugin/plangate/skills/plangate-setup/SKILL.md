@@ -19,7 +19,7 @@ description: PlanGate 初期セットアップを対話的に進めるための�
 | Global instructions | `.claude/settings.json` wiring | `doctor --check-settings` | 「`sh scripts/apply-claude-settings.sh` を実行してください」 |
 | Folder/Project instructions | `docs/working/` 構造 + TASK 配下 | ディレクトリ存在確認 | 「`mkdir -p docs/working/TASK-XXXX` で新規 TASK を作成してください」 |
 | Plugins | `.claude/agents/` / `.claude/skills/` / `.claude/commands/` | ディレクトリ存在確認 | 「`.claude/` 配下に必要な agents/skills/commands を配置してください」 |
-| Connectors | Hook（EH-3, EH-8, …）/ CI / MCP | `doctor --json` の `checks[]` で各 Hook 項目を検査 | 「該当 Hook を `.claude/settings.json` の hooks セクションに wire してください」 |
+| Connectors | Hook（EH-3, EH-8, …）/ CI / MCP | `doctor --json` の `checks[]` で各項目を検査（scope: `v8.6.0 Metrics & Privacy`、EH-8 実行可能属性を含む） | 「該当 Hook を `.claude/settings.json` の hooks セクションに wire してください」 |
 
 ## doctor 出力の解釈観点
 
@@ -38,14 +38,14 @@ description: PlanGate 初期セットアップを対話的に進めるための�
 
 ```
 不足項目  := [c for c in checks if c.ok == false]
-WARN 項目 := [c for c in checks if c.ok == true && c.level == "warn"]
+WARN 項目 := [c for c in checks if c.level == "warn"]
 overall_pass := all(c.ok for c in checks if c.level == "fail")
 ```
 
 ### 提示時の順序
 
 1. `level=fail` の `ok=false` 項目（必須）
-2. `level=warn` の `ok=false` 項目（推奨）
+2. `level=warn` 項目（推奨）
 3. `level=info` の補足
 
 ## Human-owned 操作テンプレ（**提示文のみ・実行禁止**）
@@ -95,4 +95,6 @@ setup が完了したと判定する条件:
 - 次のアクション候補:
   - 新規 PBI 作成: `/ai-dev-workflow <new-task-id> brainstorm`
   - 既存 PBI 確認: `/working-context <task_id>`（Agent が Step 0 で動的解決した値）
+  - C-3 レビュー確認: `bin/plangate render <task_id>`（v8.14.0〜: HTML でレビュー資料を確認）
+  - C-3 承認: `bin/plangate approve <task_id>`（v8.14.0〜: Human ワンアクション承認）
 ```
