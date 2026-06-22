@@ -15,7 +15,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Sync CHANGELOG into docs/
         run: sh scripts/sync-release-docs.sh
