@@ -11,10 +11,16 @@
 printf '\n=== TA-39: EH-3 doc-light 経路 (#528 TASK-0138) ===\n'
 
 # ── セットアップ ──────────────────────────────────────────────────
-_T39_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
+if [ -n "${FIXTURES_DIR:-}" ]; then
+  _T39_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
+else
+  _T39_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+fi
 _T39_HOOK_SRC="$_T39_ROOT/scripts/hooks/check-plan-hash.sh"
 _T39_TMP=$(mktemp -d)
-register_cleanup "$_T39_TMP"
+if command -v register_cleanup >/dev/null 2>&1; then
+  register_cleanup "$_T39_TMP"
+fi
 
 # サンドボックス：hook を tmp に複製し、REPO_ROOT が tmp を指すよう配置
 # check-plan-hash.sh は $(dirname "$0")/../.. で REPO_ROOT を解決する
@@ -47,7 +53,11 @@ if [ "$_T39_SKIP_APPLIED" = "0" ]; then
   printf '  [SKIP] TC-01〜06: apply-eh3-doc-light.sh --apply 実行後に再テストしてください\n'
   rm -rf "$_T39_TMP" 2>/dev/null || true
   # shellcheck disable=SC2317
-  return 0 2>/dev/null || true
+  if [ -n "${FIXTURES_DIR:-}" ]; then
+    return 0 2>/dev/null || exit 0
+  else
+    exit 0
+  fi
 fi
 
 # ── hook テスト用共通関数 ─────────────────────────────────────────

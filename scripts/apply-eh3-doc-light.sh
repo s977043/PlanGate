@@ -29,19 +29,20 @@ fi
 DOC_LIGHT_BLOCK='
   # [TASK-0138] doc-light 経路: 非 HO .md ファイルを記録付き自動 SKIP
   # HO 判定後（_override=0 が確定）かつ maintenance 判定前に評価。
-  # 拡張子判定はケース非感応（.md / .MD 両対応）
-  _dl_ext=$(printf '"'"'%s'"'"' "$_norm_target" | sed '"'"'s/.*\.//'"'"' | tr '"'"'[:upper:]'"'"' '"'"'[:lower:]'"'"')
-  if [ "$_dl_ext" = "md" ]; then
+  # 拡張子判定: POSIX case 文（外部プロセス不要・大文字小文字非感応・false positive 防止）
+  case "$_norm_target" in
+    *.[mM][dD])
     _dlog_dl="$WORKING_DIR/_audit/skip-decision-log.jsonl"
     mkdir -p "$(dirname "$_dlog_dl")"
     _ts_dl=$(date -u '"'"'+%Y-%m-%dT%H:%M:%SZ'"'"')
     _esc_dl=$(printf '"'"'%s'"'"' "${_norm_target:-unknown}" | sed '"'"'s/\\/\\\\/g; s/"/\\"/g'"'"' | tr -d '"'"'\n\r\t'"'"')
     printf '"'"'{"ts":"%s","event":"EH-3_DOC_LIGHT_SKIP","target":"%s","acknowledged_by":null,"acknowledged_at":null}\n'"'"' "$_ts_dl" "$_esc_dl" >>"$_dlog_dl"
-    reason="DOC_LIGHT_SKIP: non-HO .md target (${_norm_target:-unknown}) — auto-skipped"
-    log_event "DOC_LIGHT_SKIP" "$reason"
-    printf '"'"'[Hook EH-3 DOC_LIGHT_SKIP] %s\n'"'"' "$reason"
-    exit 0
-  fi
+      reason="DOC_LIGHT_SKIP: non-HO .md target (${_norm_target:-unknown}) — auto-skipped"
+      log_event "DOC_LIGHT_SKIP" "$reason"
+      printf '"'"'[Hook EH-3 DOC_LIGHT_SKIP] %s\n'"'"' "$reason"
+      exit 0
+    ;;
+  esac
 
 '
 
