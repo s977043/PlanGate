@@ -1,0 +1,7 @@
+interface:
+  display_name: "review-gate"
+  short_description: "Review Gate を実施し、実装の仕様準拠・品質・セキュリティを 6 観点でレビューする。Use when: 実装完了後にレビューをしたい時。「Review Gate を通したい」「コードレビュ"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $review-gate to assist with this project."
+  brand_color: "#1A56DB"
