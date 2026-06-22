@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-0138 — C-3 Review</title>
+<style>
+:root{--fg:#1f2328;--muted:#656d76;--bd:#d0d7de;--bg:#fff;--accent:#0969da;--code:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--fg);background:#fafbfc}
+.wrap{max-width:980px;margin:0 auto;padding:24px}
+header h1{margin:0 0 4px}
+.meta{color:var(--muted);font-size:14px;margin-bottom:16px}
+nav.toc{position:sticky;top:0;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.toc strong{display:block;margin-bottom:6px}
+nav.toc a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+section.doc{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 24px 24px;margin-bottom:28px}
+section.doc>h2.doc-title{border-bottom:2px solid var(--bd);padding-bottom:8px}
+h1,h2,h3,h4{line-height:1.3}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid var(--bd);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+code{background:var(--code);padding:.15em .35em;border-radius:4px;font-size:85%}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto}
+pre code{background:none;padding:0}
+blockquote{margin:8px 0;padding:0 12px;color:var(--muted);border-left:3px solid var(--bd)}
+ul.checklist{list-style:none;padding-left:18px}
+ul.checklist li{margin:2px 0}
+hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
+a{color:var(--accent)}
+.missing{color:var(--muted);font-style:italic}
+img,svg{max-width:100%}
+.flow-wrap{margin:12px 0;padding:8px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:auto}
+svg.flow text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+nav.perspectives{background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.perspectives strong{display:block;margin-bottom:6px}
+nav.perspectives a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none;font-weight:600}
+nav.perspectives a:hover{text-decoration:underline}
+nav.perspectives .missing{margin:2px 10px 2px 0;display:inline-block}
+</style></head>
+<body><div class="wrap">
+<header><h1>TASK-0138</h1><div class="meta">C-3 レビュー集約ビュー（self-contained）</div></header>
+<nav class="toc"><strong>目次</strong><a href="#pbi-input-md">PBI INPUT PACKAGE (pbi-input.md)</a><a href="#plan-md">EXECUTION PLAN (plan.md)</a><a href="#todo-md">EXECUTION TODO (todo.md)</a><a href="#test-cases-md">TEST CASES (test-cases.md)</a><a href="#review-self-md">C-1 セルフレビュー (review-self.md)</a></nav>
+<nav class="perspectives"><strong>承認観点ナビ</strong><a href="#plan-md-h1">Goal/目的</a><a href="#pbi-input-md-h2">Scope/対象</a><a href="#plan-md-h11">Risk</a><a href="#plan-md-h7">Test/検証</a><span class="missing">Stop/Replan（なし）</span><a href="#pbi-input-md-h3">承認/Approval</a></nav>
+<section class="doc" id="pbi-input-md">
+<h2 class="doc-title">PBI INPUT PACKAGE (pbi-input.md)</h2>
+<h1 id="pbi-input-md-h0">PBI INPUT PACKAGE — TASK-0138 (#528)</h1>
+<h2 id="pbi-input-md-h1">Context / Why</h2>
+<p>docs 修正のたびに EH-3（plan-hash hook）を <code>Bash + PLANGATE_SKIP_REASON</code> で回避する運用が常態化している。問題:</p>
+<ol>
+<li><strong>監査非対称</strong>: Edit/Write 経由ならば skip-decision-log に記録されるが、Bash 経由の編集は hook が発火せず記録が残らない</li>
+<li><strong>往復コスト</strong>: doc-only 変更にも SKIP_REASON を毎回設定する必要がある</li>
+</ol>
+<p>mode-classification.md §変更種別軸（#496 HO 適用済み / CLOSED）で <code>doc-light</code> 判定が定義済み。EH-3 にその経路を追加し、<strong>記録付き自動 SKIP</strong> で摩擦を解消する。</p>
+<h2 id="pbi-input-md-h2">What（Scope）</h2>
+<p><strong>In scope</strong>:</p>
+<ul>
+<li><code>scripts/hooks/check-plan-hash.sh</code> に doc-light 経路を追加</li>
+<li>判定対象: <code>task_id</code> 空 + 非 HO + 非 <code>plan.md</code> + 拡張子 <code>.md</code></li>
+<li>動作: <code>SKIP_REASON</code> なしで通す + <code>skip-decision-log.jsonl</code> に <code>EH-3_DOC_LIGHT_SKIP</code> エントリを記録</li>
+<li>HO パス（.claude/rules, .claude/agents, CLAUDE.md 等）は従来どおり BLOCK を維持</li>
+<li><code>tests/extras/ta-39-eh3-doc-light.sh</code> — doc-light 経路の TC 追加</li>
+<li><code>tests/run-tests.sh</code> に ta-39 を登録</li>
+</ul>
+<p><strong>Out of scope</strong>:</p>
+<ul>
+<li>TASK 文脈あり経路の変更</li>
+<li>maintenance.json / SKIP_REASON 経路の変更</li>
+<li>doc-light mode 判定ロジック本体（mode-classification.md は変更しない）</li>
+</ul>
+<h2 id="pbi-input-md-h3">受入基準</h2>
+<ul>
+<li>AC-01: docs 配下・非 HO の <code>.md</code> ファイルへの Edit/Write が TASK 文脈なしに通る（EH-3_DOC_LIGHT_SKIP ログ記録付き）</li>
+<li>AC-02: HO パス（.claude/rules/*.md, CLAUDE.md 等）は TASK 文脈なしの場合も従来どおり BLOCK</li>
+<li>AC-03: <code>plan.md</code> は従来どおり BLOCK（既存動作不変）</li>
+<li>AC-04: doc-light SKIP 時、<code>skip-decision-log.jsonl</code> に <code>EH-3_DOC_LIGHT_SKIP</code> イベントが追記される</li>
+<li>AC-05: ta-39 テストが全 TC PASS かつ <code>tests/run-tests.sh</code> で認識される</li>
+<li>AC-06: 既存 EH-3 テスト（ta-14）の全 TC が引き続き PASS（回帰なし）</li>
+</ul>
+<h2 id="pbi-input-md-h4">Notes from Refinement</h2>
+<ul>
+<li>判定順序: HO override check の直後・maintenance check の前に doc-light check を挿入</li>
+<li><code>acknowledged_by</code> は null のまま追記（AC-06 に合わせ要追認チェックは外さない — 将来 CI の監査目的）</li>
+<li><code>.md</code> 拡張子はケース非感応（<code>.MD</code> も対象）</li>
+<li>docs 以外のパスにある <code>.md</code>（例: <code>.claude/skills/*.md</code>）も非 HO なら doc-light 対象とする</li>
+<li><code>plan.md</code> は上流の BLOCK（既存実装）で処理済みのため doc-light 経路に入らない</li>
+</ul>
+<h2 id="pbi-input-md-h5">Estimation Evidence</h2>
+<ul>
+<li>Risks: HO 判定ロジックを誤ると承認境界が崩壊 → 既存 ta-14 回帰テストが保護</li>
+<li>Unknowns: なし（check-plan-hash.sh の構造を確認済み）</li>
+<li>Assumptions: #496 HO 適用済みであること（確認: CLOSED）</li>
+</ul>
+</section>
+<section class="doc" id="plan-md">
+<h2 class="doc-title">EXECUTION PLAN (plan.md)</h2>
+<h1 id="plan-md-h0">EXECUTION PLAN — TASK-0138 (#528)</h1>
+<h2 id="plan-md-h1">Goal</h2>
+<p>EH-3（check-plan-hash.sh）に doc-light 経路を追加し、非 HO <code>.md</code> ファイルへの TASK 文脈なし Edit/Write を記録付き自動 SKIP にする。</p>
+<h2 id="plan-md-h2">Constraints / Non-goals</h2>
+<ul>
+<li>HO パス（CLAUDE.md / .claude/rules/*.md 等 9 カテゴリ）は従来 BLOCK を維持（AC-10 不変）</li>
+<li>plan.md の BLOCK は不変（上流ロジック非変更）</li>
+<li>TASK 文脈あり経路は変更しない</li>
+<li>maintenance.json / SKIP_REASON 経路のロジックは変更しない</li>
+</ul>
+<h2 id="plan-md-h3">Approach Overview</h2>
+<p><code>check-plan-hash.sh</code> の <code>no task_id</code> ブランチに doc-light 判定ブロックを追加。</p>
+<p>挿入位置: Hardening Override 判定（step ii）直後・maintenance チェック（step iii）前。</p>
+<pre><code>HO override check (_override=1 → exit 2)
+   ↓
+[NEW] doc-light check: 拡張子 .md かつ 非 HO → DOC_LIGHT_SKIP + ログ → exit 0
+   ↓
+maintenance check (既存)
+   ↓
+SKIP_REASON check (既存)</code></pre>
+<h2 id="plan-md-h4">Work Breakdown</h2>
+<h3 id="plan-md-h5">Step 1: check-plan-hash.sh に doc-light 経路追加</h3>
+<ul>
+<li>Output: HO 判定後・maintenance 判定前に doc-light ブロックを挿入</li>
+<li>Owner: AI（HO パスのため apply は Human）</li>
+<li>Risk: HO 判定漏れで承認境界崩壊 → ta-14 回帰テストが保護</li>
+<li>チェックポイント: <code>sh tests/extras/ta-14-hook-eh3.sh</code> PASS</li>
+</ul>
+<h3 id="plan-md-h6">Step 2: ta-39-eh3-doc-light.sh 作成</h3>
+<ul>
+<li>Output: doc-light 経路専用テスト（TC-01〜TC-05）</li>
+<li>Owner: AI</li>
+<li>Risk: ロジックの仕様漏れ → AC を網羅した TC で担保</li>
+</ul>
+<h3 id="plan-md-h7">Step 3: tests/run-tests.sh に ta-39 登録</h3>
+<ul>
+<li>Output: ta-39 が <code>sh tests/run-tests.sh</code> で実行されること</li>
+<li>Owner: AI（run-tests.sh は HO 対象外）</li>
+<li>Risk: 低</li>
+</ul>
+<h3 id="plan-md-h8">Step 4: apply-script 生成（HO 適用用）</h3>
+<ul>
+<li>Output: <code>scripts/apply-eh3-doc-light.sh</code> — HO ファイル変更を人間が適用するためのパッチスクリプト</li>
+<li>Owner: AI（作成のみ）/ Human（実行）</li>
+<li>Risk: スクリプト誤適用 → dry-run オプション付き</li>
+</ul>
+<h2 id="plan-md-h9">Files / Components to Touch</h2>
+<table>
+<thead><tr>
+<th>ファイル</th>
+<th>変更種別</th>
+<th>HO</th>
+</tr></thead><tbody>
+<tr><td><code>scripts/hooks/check-plan-hash.sh</code></td><td>機能追加</td><td>✅ HO → apply-script 経由</td></tr>
+<tr><td><code>tests/extras/ta-39-eh3-doc-light.sh</code></td><td>新規</td><td>-</td></tr>
+<tr><td><code>tests/run-tests.sh</code></td><td>1行追加</td><td>-</td></tr>
+<tr><td><code>scripts/apply-eh3-doc-light.sh</code></td><td>新規（apply用）</td><td>-</td></tr>
+</tbody></table>
+<h2 id="plan-md-h10">Testing Strategy</h2>
+<ul>
+<li>Unit: ta-39（doc-light 経路 TC-01〜05）</li>
+<li>Regression: ta-14（既存 EH-3 TC が全 PASS）</li>
+<li>Integration: <code>sh tests/run-tests.sh</code> で ta-14 + ta-39 の全 TC PASS</li>
+</ul>
+<h2 id="plan-md-h11">Risks &amp; Mitigations</h2>
+<table>
+<thead><tr>
+<th>リスク</th>
+<th>対策</th>
+</tr></thead><tbody>
+<tr><td>HO 判定漏れ</td><td>ta-14 regression が検知。HO パスは既存 case 文を変更しない</td></tr>
+<tr><td>plan.md への doc-light 誤適用</td><td>plan.md は上流 case 文で BLOCK 済みのため doc-light に到達しない</td></tr>
+<tr><td>apply-script 誤実行</td><td>dry-run モード付き + 変更は 1 ファイルのみ</td></tr>
+</tbody></table>
+<h2 id="plan-md-h12">Mode判定</h2>
+<p><strong>モード</strong>: high-risk</p>
+<p><strong>判定根拠</strong>:</p>
+<ul>
+<li>変更ファイル数: 4 → standard</li>
+<li>承認境界周辺: <code>scripts/hooks/check-plan-hash.sh</code> = HO → high-risk 強制</li>
+<li>lite_eligible: false（HO 対象 AC-10）</li>
+<li><strong>最終判定</strong>: high-risk（HO 強制）</li>
+</ul>
+<p><strong>HO 適用方式</strong>: AI が <code>scripts/apply-eh3-doc-light.sh</code> を生成し、Human が実行。</p>
+</section>
+<section class="doc" id="todo-md">
+<h2 class="doc-title">EXECUTION TODO (todo.md)</h2>
+<h1 id="todo-md-h0">EXECUTION TODO — TASK-0138 (#528)</h1>
+<h2 id="todo-md-h1">🤖 Agent タスク</h2>
+<h3 id="todo-md-h2">準備フェーズ</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> T0: pbi-input.md 作成完了</li>
+<li><input type='checkbox' disabled checked> T1: plan.md / todo.md / test-cases.md 生成（本ファイル）</li>
+<li><input type='checkbox' disabled checked> T2: C-1 セルフレビュー（review-self.md）</li>
+</ul>
+<h3 id="todo-md-h3">実装フェーズ（C-3 APPROVED 後）</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T3: <code>check-plan-hash.sh</code> 差分パッチ（doc-light ブロック挿入）を <code>scripts/apply-eh3-doc-light.sh</code> に記述</li>
+</ul>
+<ul>
+<li>Owner: agent</li>
+<li>rollback: apply 未実行のため不要</li>
+<li>depends_on: C-3 APPROVED</li>
+<li>🚩 ta-14 全 TC PASS（hook 自体は人間適用前なので simulate でテスト）</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T4: <code>tests/extras/ta-39-eh3-doc-light.sh</code> 作成</li>
+</ul>
+<ul>
+<li>Owner: agent</li>
+<li>rollback: ファイル削除</li>
+<li>depends_on: T3（apply 内容に合わせた TC）</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T5: <code>tests/run-tests.sh</code> に ta-39 を登録（1行追加）</li>
+</ul>
+<ul>
+<li>Owner: agent</li>
+<li>rollback: 1行削除</li>
+</ul>
+<h3 id="todo-md-h4">検証フェーズ（Human が apply-script 実行後）</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T6: apply-script 実行後、<code>sh tests/extras/ta-14-hook-eh3.sh</code> PASS 確認</li>
+</ul>
+<ul>
+<li>Owner: agent（実行確認）</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T7: <code>sh tests/extras/ta-39-eh3-doc-light.sh</code> 全 TC PASS 確認</li>
+</ul>
+<ul>
+<li>Owner: agent</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T8: <code>sh tests/run-tests.sh</code> PASS 確認</li>
+</ul>
+<ul>
+<li>Owner: agent</li>
+</ul>
+<h3 id="todo-md-h5">完了フェーズ</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T9: handoff.md 生成</li>
+</ul>
+<ul>
+<li>Owner: agent</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T10: PR 作成</li>
+</ul>
+<ul>
+<li>Owner: agent</li>
+</ul>
+<h2 id="todo-md-h6">👤 Human タスク</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > H1: C-3 ゲート（plan レビュー + <code>bin/plangate approve TASK-0138</code>）</li>
+</ul>
+<ul>
+<li>🚩 H1 前に: review-self.md + C-3 HTML を確認</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > H2: apply-script 実行（<code>sh scripts/apply-eh3-doc-light.sh</code>）</li>
+</ul>
+<ul>
+<li>🚩 H2 前に: dry-run で差分確認</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > H3: C-4 PR レビュー・マージ</li>
+</ul>
+<h2 id="todo-md-h7">⚠️ 依存関係</h2>
+<pre><code>T0 → T1 → T2 → C-3 → T3 → T4 → T5 → H2(apply) → T6 → T7 → T8 → T9 → T10 → H3</code></pre>
+</section>
+<section class="doc" id="test-cases-md">
+<h2 class="doc-title">TEST CASES (test-cases.md)</h2>
+<h1 id="test-cases-md-h0">TEST CASES — TASK-0138 (#528)</h1>
+<h2 id="test-cases-md-h1">受入基準 → テストケースマッピング</h2>
+<table>
+<thead><tr>
+<th>AC</th>
+<th>TC</th>
+</tr></thead><tbody>
+<tr><td>AC-01: 非 HO .md → DOC_LIGHT_SKIP</td><td>TC-01, TC-02</td></tr>
+<tr><td>AC-02: HO パス → BLOCK</td><td>TC-03</td></tr>
+<tr><td>AC-03: plan.md → BLOCK</td><td>TC-04（既存 ta-14 カバー）</td></tr>
+<tr><td>AC-04: skip-decision-log に EH-3_DOC_LIGHT_SKIP 記録</td><td>TC-01（副次確認）</td></tr>
+<tr><td>AC-05: ta-39 全 PASS + run-tests 認識</td><td>TC-05</td></tr>
+<tr><td>AC-06: ta-14 回帰 PASS</td><td>TC-06</td></tr>
+</tbody></table>
+<h2 id="test-cases-md-h2">テストケース一覧</h2>
+<h3 id="test-cases-md-h3">TC-01: docs 配下 .md → DOC_LIGHT_SKIP</h3>
+<ul>
+<li>前提: TASK 文脈なし（PLANGATE_HOOK_TASK 未設定）</li>
+<li>入力: target_file = <code>docs/working/TASK-XXXX/status.md</code></li>
+<li>期待: exit 0 + stdout に <code>DOC_LIGHT_SKIP</code> 含む</li>
+<li>副次: skip-decision-log.jsonl に <code>EH-3_DOC_LIGHT_SKIP</code> エントリ追記</li>
+<li>種別: unit</li>
+</ul>
+<h3 id="test-cases-md-h4">TC-02: .claude/skills 配下 .md → DOC_LIGHT_SKIP（非 HO パス）</h3>
+<ul>
+<li>前提: TASK 文脈なし</li>
+<li>入力: target_file = <code>.claude/skills/some-skill/SKILL.md</code></li>
+<li>期待: exit 0 + stdout に <code>DOC_LIGHT_SKIP</code> 含む</li>
+<li>種別: unit</li>
+</ul>
+<h3 id="test-cases-md-h5">TC-03: HO パス .md → BLOCK</h3>
+<ul>
+<li>前提: TASK 文脈なし</li>
+<li>入力: target_file = <code>.claude/rules/working-context.md</code></li>
+<li>期待: exit 2（HARDENING_OVERRIDE）</li>
+<li>種別: unit（HO 境界の回帰）</li>
+</ul>
+<h3 id="test-cases-md-h6">TC-04: plan.md → BLOCK（既存動作回帰）</h3>
+<ul>
+<li>前提: TASK 文脈なし</li>
+<li>入力: target_file = <code>docs/working/TASK-XXXX/plan.md</code></li>
+<li>期待: exit 2（plan.md without TASK context）</li>
+<li>種別: unit（ta-14 重複だが明示確認）</li>
+</ul>
+<h3 id="test-cases-md-h7">TC-05: ta-39 が run-tests.sh で認識される</h3>
+<ul>
+<li>前提: <code>sh tests/run-tests.sh</code> 実行</li>
+<li>入力: -</li>
+<li>期待: ta-39 の TC が出力に含まれる</li>
+<li>種別: integration</li>
+</ul>
+<h3 id="test-cases-md-h8">TC-06: ta-14 全 TC 回帰 PASS</h3>
+<ul>
+<li>前提: apply 後の check-plan-hash.sh</li>
+<li>入力: <code>sh tests/extras/ta-14-hook-eh3.sh</code></li>
+<li>期待: 全 TC PASS / FAIL ゼロ</li>
+<li>種別: regression</li>
+</ul>
+<h2 id="test-cases-md-h9">エッジケース</h2>
+<ul>
+<li><code>.MD</code>（大文字拡張子）→ doc-light 対象（ケース非感応）</li>
+<li>CLAUDE.md → HO BLOCK（ファイル名判定で上流 case 文が捕捉）</li>
+<li>AGENTS.md → HO BLOCK（同上）</li>
+</ul>
+</section>
+<section class="doc" id="review-self-md">
+<h2 class="doc-title">C-1 セルフレビュー (review-self.md)</h2>
+<h1 id="review-self-md-h0">セルフレビュー — TASK-0138 (#528)</h1>
+<h2 id="review-self-md-h1">Plan チェック（7項目）</h2>
+<table>
+<thead><tr>
+<th>ID</th>
+<th>項目</th>
+<th>結果</th>
+<th>備考</th>
+</tr></thead><tbody>
+<tr><td>C1-PLAN-01</td><td>受入基準網羅性（AC → Step 対応）</td><td>PASS</td><td>AC-01〜06 が Work Breakdown の各 Step に対応</td></tr>
+<tr><td>C1-PLAN-02</td><td>Unknowns の処理（未解決事項が残っていない）</td><td>PASS</td><td>前提 #496 CLOSED を確認済み</td></tr>
+<tr><td>C1-PLAN-03</td><td>スコープ制御（In/Out scope の明示）</td><td>PASS</td><td>HO 適用方式・変更しない経路を明示</td></tr>
+<tr><td>C1-PLAN-04</td><td>テスト戦略（Unit / Regression / Integration）</td><td>PASS</td><td>ta-14 回帰 + ta-39 unit + run-tests integration</td></tr>
+<tr><td>C1-PLAN-05</td><td>Work Breakdown の Output 明示</td><td>PASS</td><td>各 Step に Output 記載</td></tr>
+<tr><td>C1-PLAN-06</td><td>依存関係の明示</td><td>PASS</td><td>depends_on, HO→Human apply 依存を記載</td></tr>
+<tr><td>C1-PLAN-07</td><td>動作検証の自動化可否</td><td>PASS</td><td>ta-14 回帰 + ta-39 で全 AC を自動検証可能</td></tr>
+</tbody></table>
+<h2 id="review-self-md-h2">ToDo チェック（5項目）</h2>
+<table>
+<thead><tr>
+<th>ID</th>
+<th>項目</th>
+<th>結果</th>
+<th>備考</th>
+</tr></thead><tbody>
+<tr><td>C1-TODO-01</td><td>タスク粒度（各タスクが 1 セッション内で完結）</td><td>PASS</td><td>T3〜T10 が適切な粒度</td></tr>
+<tr><td>C1-TODO-02</td><td>depends_on 設定</td><td>PASS</td><td>T3 が C-3 依存、T6〜T8 が Human H2 依存と明示</td></tr>
+<tr><td>C1-TODO-03</td><td>チェックポイント設定</td><td>PASS</td><td>各 Step に 🚩 記載</td></tr>
+<tr><td>C1-TODO-04</td><td>Iron Law 遵守（HO Apply は Human）</td><td>PASS</td><td>H2 が apply-script 実行、AI は作成のみ</td></tr>
+<tr><td>C1-TODO-05</td><td>完了条件の明確さ</td><td>PASS</td><td>T6〜T8 でテスト PASS を完了条件に設定</td></tr>
+</tbody></table>
+<h2 id="review-self-md-h3">TestCases チェック（3項目）</h2>
+<table>
+<thead><tr>
+<th>ID</th>
+<th>項目</th>
+<th>結果</th>
+<th>備考</th>
+</tr></thead><tbody>
+<tr><td>C1-TC-01</td><td>受入基準との紐付き</td><td>PASS</td><td>AC-01〜06 全件が TC にマッピング済み</td></tr>
+<tr><td>C1-TC-02</td><td>エッジケース網羅</td><td>PASS</td><td>大文字拡張子・CLAUDE.md・AGENTS.md を明示</td></tr>
+<tr><td>C1-TC-03</td><td>自動化可否</td><td>PASS</td><td>全 TC がシェルスクリプトで自動化可能</td></tr>
+</tbody></table>
+<h2 id="review-self-md-h4">判定</h2>
+<p><strong>PASS</strong>（17項目全 PASS）</p>
+<p>指摘事項: なし</p>
+<h2 id="review-self-md-h5">備考</h2>
+<ul>
+<li>HO 対象（scripts/hooks/*.sh）のため autonomous APPROVE 不可。Standard C-3 同期待ち。</li>
+<li>apply-script パターン（AI 作成 → Human 実行）を採用し、Iron Law を遵守。</li>
+</ul>
+</section>
+</div></body></html>
