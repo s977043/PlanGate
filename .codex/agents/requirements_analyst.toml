@@ -3,7 +3,7 @@
 name = "requirements_analyst"
 description = "初期要求を仕様に変換し、曖昧さ・抜け漏れ・対象外を整理する責務ベース Agent（PlanGate v7 ハイブリッドアーキテクチャ）"
 
-sandbox_mode = "workspace-write"
+sandbox_mode = "read-only"
 model_reasoning_effort = "medium"
 
 developer_instructions = """

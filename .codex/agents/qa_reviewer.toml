@@ -3,7 +3,7 @@
 name = "qa_reviewer"
 description = "要件適合・回帰・未考慮ケースを確認し V1/V2 境界を整理する責務ベース Agent。WF-02 の締め（AC 最終化）と WF-05 Verify & Handoff の主担当（PlanGate v7）"
 
-sandbox_mode = "workspace-write"
+sandbox_mode = "read-only"
 model_reasoning_effort = "medium"
 
 developer_instructions = """
