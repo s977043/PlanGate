@@ -1,0 +1,7 @@
+interface:
+  display_name: "context-packager"
+  short_description: "タスク委譲前に Allowed Context を構造化して出力する。対象ファイル・仕様・既存テスト・変更制約・実行コマンド・禁止スコープを整理し、サブエージェントに渡す文脈を最小化する。"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $context-packager to assist with this project."
+  brand_color: "#1A56DB"
