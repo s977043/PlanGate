@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-0139 — C-3 Review</title>
+<style>
+:root{--fg:#1f2328;--muted:#656d76;--bd:#d0d7de;--bg:#fff;--accent:#0969da;--code:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--fg);background:#fafbfc}
+.wrap{max-width:980px;margin:0 auto;padding:24px}
+header h1{margin:0 0 4px}
+.meta{color:var(--muted);font-size:14px;margin-bottom:16px}
+nav.toc{position:sticky;top:0;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.toc strong{display:block;margin-bottom:6px}
+nav.toc a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+section.doc{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 24px 24px;margin-bottom:28px}
+section.doc>h2.doc-title{border-bottom:2px solid var(--bd);padding-bottom:8px}
+h1,h2,h3,h4{line-height:1.3}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid var(--bd);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+code{background:var(--code);padding:.15em .35em;border-radius:4px;font-size:85%}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto}
+pre code{background:none;padding:0}
+blockquote{margin:8px 0;padding:0 12px;color:var(--muted);border-left:3px solid var(--bd)}
+ul.checklist{list-style:none;padding-left:18px}
+ul.checklist li{margin:2px 0}
+hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
+a{color:var(--accent)}
+.missing{color:var(--muted);font-style:italic}
+img,svg{max-width:100%}
+.flow-wrap{margin:12px 0;padding:8px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:auto}
+svg.flow text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+nav.perspectives{background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.perspectives strong{display:block;margin-bottom:6px}
+nav.perspectives a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none;font-weight:600}
+nav.perspectives a:hover{text-decoration:underline}
+nav.perspectives .missing{margin:2px 10px 2px 0;display:inline-block}
+</style></head>
+<body><div class="wrap">
+<header><h1>TASK-0139</h1><div class="meta">C-3 レビュー集約ビュー（self-contained）</div></header>
+<nav class="toc"><strong>目次</strong><a href="#pbi-input-md">PBI INPUT PACKAGE (pbi-input.md)</a><a href="#plan-md">EXECUTION PLAN (plan.md)</a><a href="#todo-md">EXECUTION TODO (todo.md)</a><a href="#test-cases-md">TEST CASES (test-cases.md)</a><a href="#review-self-md">C-1 セルフレビュー (review-self.md)</a></nav>
+<nav class="perspectives"><strong>承認観点ナビ</strong><a href="#plan-md-h1">Goal/目的</a><a href="#pbi-input-md-h2">Scope/対象</a><span class="missing">Risk（なし）</span><a href="#plan-md-h7">Test/検証</a><span class="missing">Stop/Replan（なし）</span><a href="#pbi-input-md-h3">承認/Approval</a></nav>
+<section class="doc" id="pbi-input-md">
+<h2 class="doc-title">PBI INPUT PACKAGE (pbi-input.md)</h2>
+<h1 id="pbi-input-md-h0">PBI INPUT PACKAGE — TASK-0139 (#550)</h1>
+<h2 id="pbi-input-md-h1">Context / Why</h2>
+<p><code>plangate approve</code> の Human-presence 検証（L1-L4）は best-effort であり、#546 Codex レビューで以下の残存リスクが指摘された:</p>
+<ol>
+<li><code>read</code> なしの <code>-r</code> 漏れ → バックスラッシュエスケープ注入の余地</li>
+<li><code>PLANGATE_FAKE_PPID_COMM</code> env が本番経路でも機能 → L3 をテスト注入 env でバイパス可能</li>
+<li>既存 c3.json を <code>--force</code> なしで上書き可能 → 承認記録の不可逆性を破る</li>
+<li>nonce 表示型の限界 → 疑似 TTY 自動化がスクリーンリードで回避可能</li>
+</ol>
+<p>本 issue は #527 EPIC（Enforcement Integrity）の子課題として、上記 4 点を修正・設計する。</p>
+<h2 id="pbi-input-md-h2">What（Scope）</h2>
+<p><strong>In scope</strong>:</p>
+<ul>
+<li><code>bin/plangate</code> の <code>cmd_approve</code> / <code>_plangate_presence_gate</code> / <code>cmd_maintenance_start</code> の read -r 化（3行）</li>
+<li><code>PLANGATE_FAKE_PPID_COMM</code> を <code>PLANGATE_TEST_MODE=1</code> ガードに変更（2箇所）</li>
+<li>c3.json 上書きポリシー: <code>--force</code> なし overwrite をデフォルト <strong>block</strong>（note → abort）</li>
+<li>out-of-band 承認設計 ADR（<code>docs/decisions/adr-001-approve-out-of-band.md</code>）— 実装は次フェーズ</li>
+<li>planning artifact（TASK-0128 plan.md 等）への「best-effort」追補注釈は docs コメントのみ</li>
+</ul>
+<p><strong>Out of scope</strong>:</p>
+<ul>
+<li>out-of-band の実装（HMAC / OS keychain / 外部署名 — 設計 ADR まで）</li>
+<li>#420（EH-3 provenance hardening）との統合実装</li>
+<li>L1-L4 以外の presence gate 変更</li>
+</ul>
+<h2 id="pbi-input-md-h3">受入基準</h2>
+<ul>
+<li>AC-01: <code>cmd_approve</code> の <code>read _ap_reason</code> / <code>read _ap_conditions</code> が <code>read -r</code> に修正される</li>
+<li>AC-02: <code>maintenance_start</code> 内の <code>read _ack</code> が <code>read -r</code> に修正される（L4 nonce）</li>
+<li>AC-03: <code>PLANGATE_FAKE_PPID_COMM</code> が <code>PLANGATE_TEST_MODE=1</code> 時のみ有効（本番経路では L3 に影響しない）</li>
+<li>AC-04: 既存 c3.json がある場合、<code>--force</code> なしは abort（<code>printf &#x27;error: existing c3.json...&#x27;</code>）</li>
+<li>AC-05: <code>docs/decisions/adr-001-approve-out-of-band.md</code> が生成され out-of-band 設計の選択肢を記述</li>
+<li>AC-06: テスト <code>ta-40-approve-hardening.sh</code> が全 TC PASS かつ run-tests で認識</li>
+<li>AC-07: 既存 approve テスト（ta-15 相当）が回帰 PASS</li>
+</ul>
+<h2 id="pbi-input-md-h4">Notes from Refinement</h2>
+<ul>
+<li><code>--force</code> は既にフラグとして存在するため、動作変更は note→abort のみ</li>
+<li>テストで <code>PLANGATE_FAKE_PPID_COMM</code> を使っている箇所は <code>PLANGATE_TEST_MODE=1</code> も同時に設定する</li>
+<li>ADR の選択肢: A) OS keychain, B) HMAC signed token, C) OTP/hardware key — 本 PBI は選択肢提示まで</li>
+<li><code>bin/plangate</code> は HO → apply-script 経由の人間適用</li>
+</ul>
+</section>
+<section class="doc" id="plan-md">
+<h2 class="doc-title">EXECUTION PLAN (plan.md)</h2>
+<h1 id="plan-md-h0">EXECUTION PLAN — TASK-0139 (#550)</h1>
+<h2 id="plan-md-h1">Goal</h2>
+<p><code>plangate approve</code> の L3/L4 presence gate に残る best-effort ギャップ（read -r 漏れ・FAKE_PPID 本番有効・overwrite policy・out-of-band 未設計）を修正し、strict enforcement に近づける。</p>
+<h2 id="plan-md-h2">Constraints / Non-goals</h2>
+<ul>
+<li>out-of-band の実装は次フェーズ（本 PBI は設計 ADR まで）</li>
+<li><code>bin/plangate</code> は HO → AI は apply-script 生成のみ、実行は Human</li>
+<li>テスト既存ロジック破壊禁止（FAKE_PPID_COMM を使う既存テストは PLANGATE_TEST_MODE=1 を追加）</li>
+</ul>
+<h2 id="plan-md-h3">Approach Overview</h2>
+<ol>
+<li><code>read -r</code> 化: 3 行の機械的変換（cmd_approve L2160/L2164, _plangate_presence_gate L2124 + maintenance L1314）</li>
+<li>FAKE_PPID_COMM ガード: <code>&amp;&amp; [ &quot;${PLANGATE_TEST_MODE:-0}&quot; = &quot;1&quot; ]</code> 条件を追加（2箇所）</li>
+<li>overwrite policy: <code>[ -f &quot;$_ap_c3&quot; ] &amp;&amp; [ &quot;$_ap_force&quot; = &quot;false&quot; ]</code> → note → <strong>return 2 (abort)</strong></li>
+<li>ADR: <code>docs/decisions/adr-001-approve-out-of-band.md</code> 新規作成</li>
+</ol>
+<h2 id="plan-md-h4">Work Breakdown</h2>
+<h3 id="plan-md-h5">Step 1: apply-script 生成（<code>scripts/apply-approve-hardening.sh</code>）</h3>
+<p><code>bin/plangate</code> の変更をパッチとして記述し Human が適用するスクリプト。</p>
+<ul>
+<li>read -r: 3行変換</li>
+<li>FAKE_PPID_COMM guard: 2箇所に <code>&amp;&amp; [ &quot;${PLANGATE_TEST_MODE:-0}&quot; = &quot;1&quot; ]</code> 追加</li>
+<li>overwrite block: note メッセージ → `printf &#x27;error: ...</li>
+</ul>
+<p>&#x27; &gt;&amp;2; return 2`</p>
+<ul>
+<li>🚩 dry-run オプション付き</li>
+</ul>
+<h3 id="plan-md-h6">Step 2: ADR 作成（<code>docs/decisions/adr-001-approve-out-of-band.md</code>）</h3>
+<p>out-of-band 承認設計の選択肢（A: OS keychain / B: HMAC token / C: OTP）と推奨案を記述。HO 対象外のため AI が直接作成。</p>
+<h3 id="plan-md-h7">Step 3: テスト既存修正（<code>PLANGATE_TEST_MODE=1</code> 追記）</h3>
+<p>FAKE_PPID_COMM を使っている既存テストに <code>PLANGATE_TEST_MODE=1</code> を追加。</p>
+<h3 id="plan-md-h8">Step 4: ta-40-approve-hardening.sh 作成</h3>
+<ul>
+<li>TC-01: read -r が機能し backslash が展開されないこと（模擬入力）</li>
+<li>TC-02: FAKE_PPID_COMM が PLANGATE_TEST_MODE 未設定時は L3 に影響しないこと</li>
+<li>TC-03: 既存 c3.json があり --force なしは abort</li>
+<li>TC-04: 既存 c3.json があり --force 付きは overwrite 継続</li>
+</ul>
+<h3 id="plan-md-h9">Step 5: run-tests.sh に ta-40 登録</h3>
+<h3 id="plan-md-h10">Step 6: apply → テスト確認（Human apply 後）</h3>
+<h2 id="plan-md-h11">Files / Components to Touch</h2>
+<table>
+<thead><tr>
+<th>ファイル</th>
+<th>変更</th>
+<th>HO</th>
+</tr></thead><tbody>
+<tr><td><code>bin/plangate</code></td><td>read -r / FAKE_PPID guard / overwrite block</td><td>✅ HO</td></tr>
+<tr><td><code>scripts/apply-approve-hardening.sh</code></td><td>新規（apply用）</td><td>—</td></tr>
+<tr><td><code>docs/decisions/adr-001-approve-out-of-band.md</code></td><td>新規 ADR</td><td>—</td></tr>
+<tr><td><code>tests/extras/ta-40-approve-hardening.sh</code></td><td>新規</td><td>—</td></tr>
+<tr><td><code>tests/run-tests.sh</code></td><td>1行追加</td><td>—</td></tr>
+<tr><td>既存テスト（FAKE_PPID 使用箇所）</td><td>PLANGATE_TEST_MODE=1 追記</td><td>—</td></tr>
+</tbody></table>
+<h2 id="plan-md-h12">Mode判定</h2>
+<p><strong>モード</strong>: high-risk（HO: bin/plangate）</p>
+<p><strong>lite_eligible</strong>: false</p>
+<p><strong>autonomous APPROVE</strong>: 不可</p>
+</section>
+<section class="doc" id="todo-md">
+<h2 class="doc-title">EXECUTION TODO (todo.md)</h2>
+<h1 id="todo-md-h0">EXECUTION TODO — TASK-0139 (#550)</h1>
+<h2 id="todo-md-h1">🤖 Agent タスク</h2>
+<h3 id="todo-md-h2">準備</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> T0: pbi-input.md / plan.md / todo.md / test-cases.md 生成</li>
+<li><input type='checkbox' disabled checked> T1: C-1 セルフレビュー</li>
+</ul>
+<h3 id="todo-md-h3">実装（C-3 APPROVED 後）</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T2: 既存テストで FAKE_PPID_COMM 使用箇所を grep して PLANGATE_TEST_MODE=1 追記</li>
+</ul>
+<ul>
+<li>depends_on: C-3 APPROVED</li>
+<li>rollback: git revert</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T3: <code>scripts/apply-approve-hardening.sh</code> 生成（bin/plangate パッチ）</li>
+</ul>
+<ul>
+<li>rollback: 不要（apply 前）</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T4: <code>docs/decisions/adr-001-approve-out-of-band.md</code> 作成（HO 対象外）</li>
+</ul>
+<ul>
+<li>rollback: ファイル削除</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T5: <code>tests/extras/ta-40-approve-hardening.sh</code> 作成（TC-01〜04）</li>
+</ul>
+<ul>
+<li>rollback: ファイル削除</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T6: <code>tests/run-tests.sh</code> に ta-40 登録（1行追加）</li>
+</ul>
+<h3 id="todo-md-h4">Human Apply 後の検証</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T7: <code>sh scripts/apply-approve-hardening.sh</code> 適用後に ta-40 全 TC PASS 確認</li>
+<li><input type='checkbox' disabled > T8: <code>sh tests/run-tests.sh</code> PASS 確認</li>
+</ul>
+<h3 id="todo-md-h5">完了</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T9: handoff.md 生成</li>
+<li><input type='checkbox' disabled > T10: PR 作成</li>
+</ul>
+<h2 id="todo-md-h6">👤 Human タスク</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > H1: C-3 承認（<code>bin/plangate approve TASK-0139</code>）</li>
+<li><input type='checkbox' disabled > H2: <code>sh scripts/apply-approve-hardening.sh</code>（bin/plangate HO 適用）</li>
+<li><input type='checkbox' disabled > H3: C-4 PR レビュー・マージ</li>
+</ul>
+<h2 id="todo-md-h7">依存関係</h2>
+<pre><code>T0→T1→C-3→T2→T3→T4→T5→T6→H2(apply)→T7→T8→T9→T10→H3</code></pre>
+</section>
+<section class="doc" id="test-cases-md">
+<h2 class="doc-title">TEST CASES (test-cases.md)</h2>
+<h1 id="test-cases-md-h0">TEST CASES — TASK-0139 (#550)</h1>
+<h2 id="test-cases-md-h1">受入基準マッピング</h2>
+<table>
+<thead><tr>
+<th>AC</th>
+<th>TC</th>
+</tr></thead><tbody>
+<tr><td>AC-01: read -r 化（cmd_approve）</td><td>TC-01</td></tr>
+<tr><td>AC-02: read -r 化（maintenance L4）</td><td>TC-02</td></tr>
+<tr><td>AC-03: FAKE_PPID_COMM 本番ガード</td><td>TC-03</td></tr>
+<tr><td>AC-04: c3.json 上書き block（--force なし）</td><td>TC-04</td></tr>
+<tr><td>AC-05: ADR ファイル存在</td><td>TC-05</td></tr>
+<tr><td>AC-06: ta-40 run-tests 認識</td><td>TC-06</td></tr>
+<tr><td>AC-07: 既存テスト回帰</td><td>TC-07</td></tr>
+</tbody></table>
+<h2 id="test-cases-md-h2">テストケース一覧</h2>
+<h3 id="test-cases-md-h3">TC-01: cmd_approve read -r — backslash が展開されない</h3>
+<ul>
+<li>前提: <code>--reason</code> に backslash を含む入力（echo に依存しない）</li>
+<li>期待: <code>_ap_reason</code> が <code>\</code> を保持する（展開されない）</li>
+<li>種別: unit</li>
+</ul>
+<h3 id="test-cases-md-h4">TC-02: maintenance read -r — L4 nonce の read が -r</h3>
+<ul>
+<li>確認方法: <code>grep &#x27;read -r _ack\|read -r _ap_reason\|read -r _ap_conditions&#x27; bin/plangate</code></li>
+<li>期待: 3 行が -r 付きで存在</li>
+<li>種別: static check</li>
+</ul>
+<h3 id="test-cases-md-h5">TC-03: FAKE_PPID_COMM が PLANGATE_TEST_MODE 未設定時に L3 に影響しない</h3>
+<ul>
+<li>前提: <code>PLANGATE_FAKE_PPID_COMM=claude_agent</code> / <code>PLANGATE_TEST_MODE</code> 未設定</li>
+<li>実行: presence gate の L3 判定を simulate</li>
+<li>期待: <code>_pcomm</code> が実際の親プロセス名を使う（注入されない）</li>
+<li>種別: unit</li>
+</ul>
+<h3 id="test-cases-md-h6">TC-04: c3.json 上書き — --force なし → abort</h3>
+<ul>
+<li>前提: <code>approvals/c3.json</code> が既存</li>
+<li>実行: <code>bin/plangate approve TASK-XXXX</code>（--force なし）</li>
+<li>期待: exit 2（error メッセージ）、c3.json が変更されない</li>
+<li>種別: unit</li>
+</ul>
+<h3 id="test-cases-md-h7">TC-05: c3.json 上書き — --force 付き → 継続</h3>
+<ul>
+<li>前提: <code>approvals/c3.json</code> が既存</li>
+<li>実行: <code>bin/plangate approve TASK-XXXX --force</code></li>
+<li>期待: 通常の presence gate に進む（abort しない）</li>
+<li>種別: unit</li>
+</ul>
+<h3 id="test-cases-md-h8">TC-06: ta-40 が run-tests.sh で認識</h3>
+<ul>
+<li>実行: <code>sh tests/run-tests.sh</code> | grep ta-40</li>
+<li>期待: ta-40 の TC が出力に含まれる</li>
+<li>種別: integration</li>
+</ul>
+<h3 id="test-cases-md-h9">TC-07: 既存 approve テスト回帰 PASS</h3>
+<ul>
+<li>実行: <code>sh tests/run-tests.sh</code>（ta-15 等）</li>
+<li>期待: FAKE_PPID 使用テストが PLANGATE_TEST_MODE=1 で引き続き PASS</li>
+<li>種別: regression</li>
+</ul>
+<h2 id="test-cases-md-h10">エッジケース</h2>
+<ul>
+<li><code>--force</code> と <code>--reject</code> の組み合わせ → overwrite block は APPROVED 経路のみか確認</li>
+<li><code>PLANGATE_TEST_MODE=1</code> 単独（FAKE_PPID_COMM 未設定）→ L3 変化なし（副作用なし）</li>
+</ul>
+</section>
+<section class="doc" id="review-self-md">
+<h2 class="doc-title">C-1 セルフレビュー (review-self.md)</h2>
+<h1 id="review-self-md-h0">セルフレビュー — TASK-0139 (#550)</h1>
+<h2 id="review-self-md-h1">Plan チェック（7項目）</h2>
+<table>
+<thead><tr>
+<th>ID</th>
+<th>項目</th>
+<th>結果</th>
+<th>備考</th>
+</tr></thead><tbody>
+<tr><td>C1-PLAN-01</td><td>受入基準網羅性</td><td>PASS</td><td>AC-01〜07 が Step に対応</td></tr>
+<tr><td>C1-PLAN-02</td><td>Unknowns 処理</td><td>PASS</td><td>out-of-band 実装は次フェーズと明示</td></tr>
+<tr><td>C1-PLAN-03</td><td>スコープ制御</td><td>PASS</td><td>In/Out scope 明示（実装除外・ADR まで）</td></tr>
+<tr><td>C1-PLAN-04</td><td>テスト戦略</td><td>PASS</td><td>ta-40 unit + ta-15 回帰 + run-tests integration</td></tr>
+<tr><td>C1-PLAN-05</td><td>Work Breakdown Output</td><td>PASS</td><td>各 Step に Output 記載</td></tr>
+<tr><td>C1-PLAN-06</td><td>依存関係</td><td>PASS</td><td>HO apply → H2 依存を明示</td></tr>
+<tr><td>C1-PLAN-07</td><td>動作検証自動化</td><td>PASS</td><td>TC-01〜07 全件自動化可能</td></tr>
+</tbody></table>
+<h2 id="review-self-md-h2">ToDo チェック（5項目）</h2>
+<table>
+<thead><tr>
+<th>ID</th>
+<th>項目</th>
+<th>結果</th>
+<th>備考</th>
+</tr></thead><tbody>
+<tr><td>C1-TODO-01</td><td>タスク粒度</td><td>PASS</td><td>T2〜T10 が適切な粒度</td></tr>
+<tr><td>C1-TODO-02</td><td>depends_on</td><td>PASS</td><td>C-3 依存・H2 依存を明示</td></tr>
+<tr><td>C1-TODO-03</td><td>チェックポイント</td><td>PASS</td><td>T7-T8 が apply 後の検証</td></tr>
+<tr><td>C1-TODO-04</td><td>Iron Law</td><td>PASS</td><td>bin/plangate 変更は apply-script → H2 適用</td></tr>
+<tr><td>C1-TODO-05</td><td>完了条件</td><td>PASS</td><td>T7-T8 テスト PASS が完了条件</td></tr>
+</tbody></table>
+<h2 id="review-self-md-h3">TestCases チェック（3項目）</h2>
+<table>
+<thead><tr>
+<th>ID</th>
+<th>項目</th>
+<th>結果</th>
+<th>備考</th>
+</tr></thead><tbody>
+<tr><td>C1-TC-01</td><td>受入基準との紐付き</td><td>PASS</td><td>AC-01〜07 全件 TC にマッピング</td></tr>
+<tr><td>C1-TC-02</td><td>エッジケース網羅</td><td>PASS</td><td>--force+--reject 組合せ / TEST_MODE 単独を明示</td></tr>
+<tr><td>C1-TC-03</td><td>自動化可否</td><td>PASS</td><td>TC-02 は static grep で自動化可能</td></tr>
+</tbody></table>
+<h2 id="review-self-md-h4">判定</h2>
+<p><strong>PASS</strong>（17項目全 PASS）</p>
+<p>指摘事項: なし</p>
+<h2 id="review-self-md-h5">備考</h2>
+<ul>
+<li><code>bin/plangate</code> = HO → autonomous APPROVE 不可。Standard C-3 同期待ち。</li>
+<li>ADR（docs/decisions/）は HO 外のため AI が直接作成可能（T4）。</li>
+</ul>
+</section>
+</div></body></html>
