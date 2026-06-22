@@ -5,7 +5,7 @@ schema_version: 1
 status: final
 issued_at: 2026-06-22
 author: implementer
-v1_release: ""
+v1_release: "feat/task-0138-528-eh3-doc-light (a87cca7)"
 ---
 
 # Handoff Package — TASK-0138 (#528)
@@ -24,22 +24,21 @@ v1_release: (PR merge SHA)
 
 | 受入基準 | 判定 | 根拠 / コメント |
 |---------|------|---------------|
-| AC-01: 非 HO .md → EH-3_DOC_LIGHT_SKIP ログ記録付き通過 | PASS | ta-39 TC-01/TC-02 で動作確認済み（apply 後） |
-| AC-02: HO パス → BLOCK | PASS | ta-39 TC-03/TC-06 で確認（.claude/rules/*.md, CLAUDE.md → exit 2） |
-| AC-03: plan.md → BLOCK | PASS | ta-39 TC-04 で確認（上流ロジック不変） |
-| AC-04: skip-decision-log に EH-3_DOC_LIGHT_SKIP 記録 | PASS | ta-39 TC-01 副次で確認（sandbox log） |
-| AC-05: ta-39 全 TC PASS + run-tests.sh 認識 | WARN | apply 前は SKIP 扱い（0 FAIL）。apply 後に TC-01〜06 PASS 確認済み |
-| AC-06: ta-14（skip-acknowledge）回帰 PASS | PASS | run-tests.sh 297 PASS / 0 FAIL |
+| AC-01: 非 HO .md → EH-3_DOC_LIGHT_SKIP ログ記録付き通過 | PASS | ta-39 TC-01/TC-02 PASS |
+| AC-02: HO パス → BLOCK | PASS | ta-39 TC-03/TC-06 PASS（.claude/rules/*.md, CLAUDE.md → exit 2） |
+| AC-03: plan.md → BLOCK | PASS | ta-39 TC-04 PASS（上流ロジック不変） |
+| AC-04: skip-decision-log に EH-3_DOC_LIGHT_SKIP 記録 | PASS | ta-39 TC-01 副次 PASS（sandbox log） |
+| AC-05: ta-39 全 TC PASS + run-tests.sh 認識 | PASS | run-tests.sh 300 PASS / 0 FAIL、TA-39 7 TC 全 PASS |
+| AC-06: ta-12（maintenance + EH-3 v2）回帰 PASS | PASS | maintenance guard 修正（a87cca7）後 300/0 PASS |
 
-**総合**: `5/6 PASS, 1 WARN`
-
-**WARN の扱い**: AC-05 は apply-script を Human が実行後に完全 PASS。apply 前の run-tests.sh は 297/0 で新規 FAIL なし。
+**総合**: `6/6 PASS`
 
 ## 2. 既知課題一覧
 
 | 課題 | Severity | 状態 | V2 候補か |
 |------|---------|------|---------|
-| apply-script 適用は Human 実行が必要（HO 制約） | minor | accepted | No |
+| apply-script 適用は Human 実行が必要（HO 制約） | minor | resolved（実行済み） | No |
+| maintenance guard 追加が必要だったことが apply 後テストで判明（TA-12 7件 FAIL） | minor | resolved（a87cca7 fix-eh3-doc-light-maint-guard.sh で修正） | No |
 | ta-39 TC-01 副次は sandbox log を確認するため実 audit log 汚染なし（意図通り） | info | accepted | No |
 
 ## 3. V2 候補
@@ -64,13 +63,15 @@ v1_release: (PR merge SHA)
 TASK-0138 は EH-3 hook (`scripts/hooks/check-plan-hash.sh`) に doc-light 経路を追加する PBI。
 対象ファイルが HO（Hardening Override）パスのため、AI は `scripts/apply-eh3-doc-light.sh`（apply-script）を生成し、Human が `sh scripts/apply-eh3-doc-light.sh --apply` で適用する設計。
 
-現状: apply-script とテスト (`tests/extras/ta-39-eh3-doc-light.sh`) は作成済みで PR に含まれている。`check-plan-hash.sh` 本体は Human が apply-script 実行後に変更される。
+現状: `check-plan-hash.sh` へのパッチ適用済み（Human が `apply-eh3-doc-light.sh --apply` を実行）。
+その後 TA-12 FAIL が判明したため `fix-eh3-doc-light-maint-guard.sh --apply` を追加実行して修正。
+全 3 コミット（8485765, 14320d3, a87cca7）が `feat/task-0138-528-eh3-doc-light` ブランチに含まれる。
 
-### 重要: Human のアクション
+### Human のアクション（完了済み）
 
-1. PR マージ前: `sh scripts/apply-eh3-doc-light.sh --dry-run` で差分確認
-2. PR マージ後: `sh scripts/apply-eh3-doc-light.sh --apply` で適用
-3. 適用後: `sh tests/extras/ta-39-eh3-doc-light.sh` (standalone) または `sh tests/run-tests.sh` で全 TC PASS を確認
+1. ~~`sh scripts/apply-eh3-doc-light.sh --apply` — 実行済み~~
+2. ~~`sh scripts/fix-eh3-doc-light-maint-guard.sh --apply` — 実行済み~~
+3. `sh tests/run-tests.sh` — 300 PASS / 0 FAIL 確認済み
 
 ### 触れないでほしいファイル
 
@@ -94,11 +95,14 @@ TASK-0138 は EH-3 hook (`scripts/hooks/check-plan-hash.sh`) に doc-light 経�
 
 | レイヤー | 件数 | PASS | FAIL / SKIP | カバレッジ |
 |---------|------|------|-----------|----------|
-| Unit (ta-39 TC-01〜06) | 6 | 6 (apply 後) | 0 FAIL / 6 SKIP (apply 前) | AC-01〜04 |
-| Integration (run-tests.sh) | 297 | 297 | 0 | — |
-| Regression (ta-12, ta-14) | 既存 suite に包含 | PASS | 0 | EH-3 回帰 |
+| Unit (ta-39 TC-01〜06) | 7 | 7 | 0 FAIL | AC-01〜04 |
+| Integration (run-tests.sh) | 300 | 300 | 0 | — |
+| Regression (ta-12 maintenance, ta-14 skip-acknowledge) | 既存 suite に包含 | PASS | 0 | EH-3 回帰 |
 
-**SKIP の詳細**: ta-39 の TC-01〜06 は `apply-eh3-doc-light.sh --apply` 未実行時は SKIP（0 FAIL、run-tests.sh には影響なし）。Human が apply 実行後に全 PASS となる。
+**ブランチのコミット構成**:
+- `8485765`: apply-script + ta-39 テスト（HO ファイル以外）
+- `14320d3`: check-plan-hash.sh パッチ適用（Human 実行）
+- `a87cca7`: maintenance guard 追加 + TA-12 TC-10 修正（regression fix）
 
 ## 7. Metrics summary
 
