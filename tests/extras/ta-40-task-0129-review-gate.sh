@@ -5,6 +5,9 @@
 printf '\n=== TA-40: TASK-0129 Review Gate Decision Mapping ===\n'
 
 _t40_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+if [ ! -f "$_t40_root/schemas/c3-approval.schema.json" ]; then
+  _t40_root="$(CDPATH= cd -- "$_t40_root/.." && pwd)"
+fi
 _t40_doc="$_t40_root/docs/ai/review-gate-decision-mapping.md"
 _t40_schema="$_t40_root/schemas/c3-approval.schema.json"
 _t40_schema_script="$_t40_root/scripts/apply-task-0129-schema.sh"
@@ -92,9 +95,9 @@ import json, sys, copy
 import jsonschema
 
 schema_path, c3_path = sys.argv[1], sys.argv[2]
-with open(schema_path) as f:
+with open(schema_path, encoding='utf-8') as f:
     schema = json.load(f)
-with open(c3_path) as f:
+with open(c3_path, encoding='utf-8') as f:
     c3 = json.load(f)
 
 # 拡張フィールドを schema に一時追加（apply-script と同じ内容）

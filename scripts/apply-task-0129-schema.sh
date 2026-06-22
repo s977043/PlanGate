@@ -37,7 +37,7 @@ fi
 command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 が必要です"; exit 1; }
 
 # べき等チェック
-if python3 -c "import json; d=json.load(open('$TARGET')); exit(0 if 'review_decision' in d.get('properties',{}) else 1)" 2>/dev/null; then
+if python3 -c "import json; d=json.load(open('$TARGET', encoding='utf-8')); exit(0 if 'review_decision' in d.get('properties',{}) else 1)" 2>/dev/null; then
   echo "SKIP: review_decision は既に適用済み（べき等）"
   exit 0
 fi
@@ -46,7 +46,7 @@ python3 - "$TARGET" "$DRY_RUN" <<'PY'
 import json, sys, difflib
 
 target, dry = sys.argv[1], sys.argv[2] == "1"
-with open(target) as f:
+with open(target, encoding='utf-8') as f:
     src_text = f.read()
 d = json.loads(src_text)
 
