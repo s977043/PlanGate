@@ -7,7 +7,7 @@
 # AC-03: PLANGATE_FAKE_PPID_COMM が PLANGATE_TEST_MODE=1 時のみ有効
 # AC-04: c3.json 上書き block (--force なし → abort)
 # AC-05: ADR ファイル存在
-# AC-06: ta-40 が run-tests.sh で認識 (自身の実行が証明)
+# AC-06: ta-41 が run-tests.sh で認識 (自身の実行が証明)
 # AC-07: 既存テスト回帰 PASS (run-tests.sh で確認済み)
 
 printf '\n=== TA-41: plangate approve hardening (TASK-0139 / #550) ===\n'
@@ -143,5 +143,5 @@ else
   t40_fail "TC-07 AC-06: scripts/apply-approve-hardening.sh NOT found"
 fi
 
-# ── TC-08: TC-06 — ta-40 が run-tests.sh で認識されている（自己証明） ──
-t40_pass "TC-08 AC-06: ta-40 is recognized by run-tests.sh (this test is running)"
+# ── TC-08: ta-41 が run-tests.sh で認識されている（自己証明） ──
+t40_pass "TC-08 AC-06: ta-41 is recognized by run-tests.sh (this test is running)"
