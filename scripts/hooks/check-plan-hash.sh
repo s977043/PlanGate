@@ -139,6 +139,22 @@ if [ -z "$task_id" ]; then
     exit 2
   fi
 
+
+  # [TASK-0138] doc-light path: auto-SKIP for non-HO .md files
+  # Inserted after HO check (_override=0 confirmed), before maintenance check.
+  _dl_ext=$(printf '%s' "$_norm_target" | sed 's/.*\.//; y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/')
+  if [ "$_dl_ext" = "md" ]; then
+    _dlog_dl="$WORKING_DIR/_audit/skip-decision-log.jsonl"
+    mkdir -p "$(dirname "$_dlog_dl")"
+    _ts_dl=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+    _esc_dl=$(printf '%s' "${_norm_target:-unknown}" | tr -d '\n\r\t')
+    printf '{"ts":"%s","event":"EH-3_DOC_LIGHT_SKIP","target":"%s","acknowledged_by":null,"acknowledged_at":null}\n' "$_ts_dl" "$_esc_dl" >>"$_dlog_dl"
+    reason="DOC_LIGHT_SKIP: non-HO .md target (${_norm_target:-unknown}) -- auto-skipped"
+    log_event "DOC_LIGHT_SKIP" "$reason"
+    printf '[Hook EH-3 DOC_LIGHT_SKIP] %s\n' "$reason"
+    exit 0
+  fi
+
   # (iii)-(v) maintenance valid + scope + one-shot atomic consume
   _maint="$REPO_ROOT/docs/working/_maintenance/maintenance.json"
   if [ -f "$_maint" ]; then
