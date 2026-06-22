@@ -90,6 +90,10 @@ description: タスク委譲前に Allowed Context を構造化して出力す�
 - context-engineering
 - subagent-control
 
+## dispatch/ へのファイル保存（#581 要素3）
+
+Allowed Context（6 要素）は委譲プロンプトに埋め込むだけでなく、`docs/working/TASK-XXXX/dispatch/task-NNN-brief.md` に**ファイルとして保存**する。これにより実装者の唯一の要件ファイルとなり、会話 compaction / モデル切替後も再現可能。テンプレは `docs/working/templates/dispatch/task-NNN-brief.md`。
+
 ## 関連
 
 - Skill: `subagent-dispatch`（Allowed Context を使ってエージェントに分配）
