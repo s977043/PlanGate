@@ -37,8 +37,12 @@ else
 fi
 
 # ── TC-02: init 異常系（既存 TASK での再実行 = 冪等）──────────────────────
-_t42_out=$("$_t42_bin" init "$_t42_task" 2>&1)
-_t42_rc=$?
+# set -e 環境下で command substitution を安全に捕捉するため if パターンを使用
+if _t42_out=$("$_t42_bin" init "$_t42_task" 2>&1); then
+  _t42_rc=0
+else
+  _t42_rc=$?
+fi
 if [ "$_t42_rc" -eq 0 ] && printf '%s' "$_t42_out" | grep -q 'already exists'; then
   t42_pass "TC-02 AC-01: init on existing task exits 0 with 'already exists' message"
 else
@@ -46,8 +50,12 @@ else
 fi
 
 # ── TC-03: status 正常系（TASK 存在）──────────────────────────────────────
-_t42_out=$("$_t42_bin" status "$_t42_task" 2>&1)
-_t42_rc=$?
+# set -e 環境下で command substitution を安全に捕捉するため if パターンを使用
+if _t42_out=$("$_t42_bin" status "$_t42_task" 2>&1); then
+  _t42_rc=0
+else
+  _t42_rc=$?
+fi
 if [ "$_t42_rc" -eq 0 ] && printf '%s' "$_t42_out" | grep -q "Task:"; then
   t42_pass "TC-03 AC-02: status exits 0 and shows 'Task:' line for existing task"
 else
@@ -61,7 +69,7 @@ if _t42_out=$("$_t42_bin" status TASK-T999 2>&1); then
 else
   _t42_rc=$?
 fi
-if [ "$_t42_rc" -ne 0 ] && printf '%s' "$_t42_out" | grep -q 'error\|not found'; then
+if [ "$_t42_rc" -ne 0 ] && printf '%s' "$_t42_out" | grep -Eq 'error|not found'; then
   t42_pass "TC-04 AC-02: status exits non-zero with error message for missing task"
 else
   t42_fail "TC-04 AC-02: status rc=$_t42_rc expected non-zero+error for missing task"
@@ -72,8 +80,12 @@ _t42_handoff="$_t42_work/handoff.md"
 if [ -f "$_t42_handoff" ]; then
   rm "$_t42_handoff"
 fi
-_t42_out=$("$_t42_bin" handoff "$_t42_task" 2>&1)
-_t42_rc=$?
+# set -e 環境下で command substitution を安全に捕捉するため if パターンを使用
+if _t42_out=$("$_t42_bin" handoff "$_t42_task" 2>&1); then
+  _t42_rc=0
+else
+  _t42_rc=$?
+fi
 if [ "$_t42_rc" -eq 0 ] && [ -f "$_t42_handoff" ]; then
   t42_pass "TC-05 AC-03: handoff exits 0 and creates handoff.md"
 elif [ "$_t42_rc" -eq 0 ] && printf '%s' "$_t42_out" | grep -q 'already exists'; then
@@ -87,8 +99,12 @@ fi
 _t42_task_t999_work="$_t42_root/docs/working/TASK-T999"
 register_cleanup "$_t42_task_t999_work"
 if [ -d "$_t42_task_t999_work" ]; then rm -rf "$_t42_task_t999_work"; fi
-_t42_out=$("$_t42_bin" handoff TASK-T999 2>&1)
-_t42_rc=$?
+# set -e 環境下で command substitution を安全に捕捉するため if パターンを使用
+if _t42_out=$("$_t42_bin" handoff TASK-T999 2>&1); then
+  _t42_rc=0
+else
+  _t42_rc=$?
+fi
 if [ "$_t42_rc" -eq 0 ] && [ -f "$_t42_task_t999_work/handoff.md" ]; then
   t42_pass "TC-06 AC-03: handoff creates dir+handoff.md even for non-existing task (mkdir-p)"
 else
@@ -102,7 +118,7 @@ if _t42_out=$("$_t42_bin" verify "$_t42_task" 2>&1); then
 else
   _t42_rc=$?
 fi
-if { [ "$_t42_rc" -eq 0 ] || [ "$_t42_rc" -eq 1 ]; } && printf '%s' "$_t42_out" | grep -q 'Validating\|verify\|\[PASS\]\|\[FAIL\]\|error'; then
+if { [ "$_t42_rc" -eq 0 ] || [ "$_t42_rc" -eq 1 ]; } && printf '%s' "$_t42_out" | grep -Eq 'Validating|verify|\[PASS\]|\[FAIL\]|error'; then
   t42_pass "TC-07 AC-04: verify smoke — exit 0/1, produces recognizable output"
 else
   t42_fail "TC-07 AC-04: verify rc=$_t42_rc or no recognizable output: ${_t42_out}"
@@ -118,7 +134,7 @@ if _t42_out=$("$_t42_bin" eval "$_t42_task" 2>&1); then
 else
   _t42_rc=$?
 fi
-if [ "$_t42_rc" -ne 0 ] && printf '%s' "$_t42_out" | grep -q 'handoff\|not found\|error'; then
+if [ "$_t42_rc" -ne 0 ] && printf '%s' "$_t42_out" | grep -Eq 'handoff|not found|error'; then
   t42_pass "TC-08 AC-04: eval smoke — non-zero exit + error message for missing handoff"
 else
   t42_fail "TC-08 AC-04: eval rc=$_t42_rc or no error message: ${_t42_out}"
