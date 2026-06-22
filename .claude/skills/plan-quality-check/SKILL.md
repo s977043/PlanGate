@@ -30,6 +30,15 @@ Design
 > 補足: `done_check` は**停止条件（completion / stop condition）**の記述有無を、`risk_check` は**再計画トリガ（前提崩壊・逸脱を検知する定量条件）**の記述有無を確認観点に含める。いずれも汎用観点であり、具体のチェック項目はプロジェクト側テンプレート（例 review-self）で定義する。
 
 > 補足2: high-risk / critical の実装タスクでは **rollback（戻し手順）の記述有無**を `done_check` の確認観点に含める。rollback 欠落は安全側（`needs_clarification`）に倒す。具体項目は review-self テンプレで定義（C1-TODO-RB）。
+> 補足3（TASK-0129 / #543）: **Loop 安全制御チェック**を `done_check` / `risk_check` 観点に追加する:
+>
+> | ID | チェック内容 | 判定 |
+> |----|------------|------|
+> | C1-LOOP-01 | plan に Stop Condition（停止条件）が記入されているか | 未記入 → `WARN`（high-risk/critical では `FAIL`）|
+> | C1-LOOP-02 | plan に Replan Triggers と機械値（閾値）が記入されているか | 未記入 → `WARN`、機械値なし → `WARN`（high-risk/critical では `FAIL`）|
+>
+> これらは `#544/#551` の Loop 安全制御（Phase1 検出）と連動し、
+> C-3 承認不可の strict Gate（Phase2）へ接続する（`docs/ai/review-gate-decision-mapping.md` §5 参照）。
 
 ## 入力
 
