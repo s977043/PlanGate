@@ -69,3 +69,14 @@ else
   printf '[FAIL] TA-33 TC-03: tier 不一致:%s\n' "$_t33_bad"
   fail=$((fail + 1))
 fi
+
+# TC-04: md agent 数 と toml 数の一致（drift 検出）
+_t33_md_count="$(ls "$_t33_root"/.claude/agents/*.md 2>/dev/null | grep -v 'README' | wc -l | tr -d ' ')"
+_t33_toml_cnt="$(ls "$_t33_root"/.codex/agents/*.toml 2>/dev/null | wc -l | tr -d ' ')"
+if [ "$_t33_md_count" = "$_t33_toml_cnt" ]; then
+  printf '[PASS] TA-33 TC-04: .claude/agents md(%s) = .codex/agents toml(%s)\n' "$_t33_md_count" "$_t33_toml_cnt"
+  pass=$((pass + 1))
+else
+  printf '[FAIL] TA-33 TC-04: drift md=%s toml=%s — scripts/gen-codex-agents.sh を実行してください\n' "$_t33_md_count" "$_t33_toml_cnt"
+  fail=$((fail + 1))
+fi
