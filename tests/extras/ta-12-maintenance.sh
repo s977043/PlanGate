@@ -134,7 +134,7 @@ printf '%s' "$_out" | grep -q 'SKIP_REASON 未設定' \
 
 # TC-10 (AC-5/AC-10): env 経由有効化不可
 rm -f "$PG_T12_MAINT"
-_out=$(PLANGATE_HOOK_FILE="docs/foo.md" PLANGATE_MAINT_ENABLE=1 sh "$PG_T12_HOOK" 2>&1 || true)
+_out=$(PLANGATE_HOOK_FILE="docs/foo.ts" PLANGATE_MAINT_ENABLE=1 sh "$PG_T12_HOOK" 2>&1 || true)
 printf '%s' "$_out" | grep -q 'SKIP_REASON 未設定' \
   && t12_pass "TC-10 env 経由有効化不可 (ファイル不在=block 維持)" \
   || t12_fail "TC-10 env-only"
