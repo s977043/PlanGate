@@ -56,37 +56,37 @@ new_props = {
         "type": "string",
         "enum": ["go", "revise_plan", "human_approval_required", "no_go"],
         "description": (
-            "外部レビューの Decision。go→APPROVED候補 / revise_plan→CONDITIONAL / "
-            "human_approval_required→人間C-3強制 / no_go→REJECTED。"
-            "未知値・欠落は安全側（人間C-3強制）として扱う（TASK-0129 / #543）。"
+            "Decision of external review. go -> APPROVED candidate / revise_plan -> CONDITIONAL / "
+            "human_approval_required -> Force human C-3 / no_go -> REJECTED. "
+            "Unknown or missing values are treated as force human C-3 for safety (TASK-0129 / #543)."
         )
     },
     "review_risk": {
         "type": "string",
         "enum": ["low", "medium", "high"],
         "description": (
-            "外部レビューの Risk。high→mode最低high-risk・autonomous APPROVE無効化。"
-            "欠落は安全側（medium相当）として扱う（TASK-0129 / #543）。"
+            "Risk of external review. high -> minimum mode high-risk and disable autonomous APPROVE. "
+            "Missing values are treated as medium for safety (TASK-0129 / #543)."
         )
     },
     "review_stop_works": {
         "type": "array",
         "items": {"type": "string"},
         "description": (
-            "外部レビューの Stop-Work Conditions リスト。"
-            "#544/#551 機械トリガーへのマッピングは "
-            "docs/ai/review-gate-decision-mapping.md §4 参照（TASK-0129 / #543）。"
+            "List of Stop-Work Conditions from external review. "
+            "See docs/ai/review-gate-decision-mapping.md §4 for mapping to "
+            "#544/#551 machine triggers (TASK-0129 / #543)."
         )
     },
     "review_source": {
         "type": "string",
-        "description": "外部レビューアの識別子（例: river-reviewer / gemini / codex）。"
+        "description": "Identifier of the external reviewer (e.g., river-reviewer / gemini / codex)."
     },
     "lite_eligible": {
         "type": "boolean",
         "description": (
-            "Lite ゲート適用可否。承認境界変更 PBI では false 固定 "
-            "（mode-classification.md AC-10 Hardening Override / TASK-0129 / #543）。"
+            "Whether Lite gate is eligible. Fixed to false for approval boundary changes "
+            "(mode-classification.md AC-10 Hardening Override / TASK-0129 / #543)."
         )
     }
 }
