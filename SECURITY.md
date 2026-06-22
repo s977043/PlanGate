@@ -6,7 +6,10 @@ This repository is maintained from the default branch. Please test against `main
 
 ## Reporting a Vulnerability
 
-Please do not open a public issue for a suspected vulnerability. Use GitHub's private vulnerability reporting flow from the repository Security tab when available.
+Please do not open a public issue for a suspected vulnerability.
+
+**Preferred method:** Use GitHub's private vulnerability reporting:
+[https://github.com/s977043/plangate/security/advisories/new](https://github.com/s977043/plangate/security/advisories/new)
 
 Include:
 
