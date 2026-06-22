@@ -38,7 +38,7 @@ DOC_LIGHT_BLOCK='
         _dlog_dl="$WORKING_DIR/_audit/skip-decision-log.jsonl"
         mkdir -p "$(dirname "$_dlog_dl")"
         _ts_dl=$(date -u '"'"'+%Y-%m-%dT%H:%M:%SZ'"'"')
-        _esc_dl=$(printf '"'"'%s'"'"' "${_norm_target:-unknown}" | tr -d '"'"'\n\r\t'"'"')
+        _esc_dl=$(printf '"'"'%s'"'"' "${_norm_target:-unknown}" | tr -d '"'"'\n\r\t'"'"' | sed '"'"'s/\\/\\\\/g; s/"/\\"/g'"'"')
         printf '"'"'{"ts":"%s","event":"EH-3_DOC_LIGHT_SKIP","target":"%s","acknowledged_by":null,"acknowledged_at":null}\n'"'"' "$_ts_dl" "$_esc_dl" >>"$_dlog_dl"
         reason="DOC_LIGHT_SKIP: non-HO .md target (${_norm_target:-unknown}) — auto-skipped"
         log_event "DOC_LIGHT_SKIP" "$reason"
@@ -62,7 +62,7 @@ anchor = '  _maint="$REPO_ROOT/docs/working/_maintenance/maintenance.json"'
 content = hook.read_text(encoding='utf-8')
 if anchor not in content:
     print('ERROR: anchor not found', file=sys.stderr); sys.exit(1)
-hook.write_text(content.replace(anchor, anchor + '\n' + block, 1), encoding='utf-8')
+hook.write_text(content.replace(anchor, anchor + block, 1), encoding='utf-8')
 print('APPLIED: doc-light block inserted after _maint definition')
 PY
   printf '次のステップ: sh tests/extras/ta-39-eh3-doc-light.sh\n'

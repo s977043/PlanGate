@@ -119,18 +119,18 @@ else
 fi
 
 # ── TC-06: AC-05 — ADR ファイルの存在 ──
-_t40_adr="$PG_T41_ROOT/docs/decisions/adr-001-approve-out-of-band.md"
-if [ -f "$_t40_adr" ]; then
+_t41_adr="$PG_T41_ROOT/docs/decisions/adr-001-approve-out-of-band.md"
+if [ -f "$_t41_adr" ]; then
   t41_pass "TC-06 AC-05: docs/decisions/adr-001-approve-out-of-band.md exists"
 else
   t41_fail "TC-06 AC-05: docs/decisions/adr-001-approve-out-of-band.md NOT found"
 fi
 
 # ── TC-07: AC-06 — apply-script の存在と syntax ──
-_t40_script="$PG_T41_ROOT/scripts/apply-approve-hardening.sh"
-if [ -f "$_t40_script" ]; then
+_t41_script="$PG_T41_ROOT/scripts/apply-approve-hardening.sh"
+if [ -f "$_t41_script" ]; then
   t41_pass "TC-07 AC-06: scripts/apply-approve-hardening.sh exists"
-  if sh -n "$_t40_script" 2>/dev/null; then
+  if sh -n "$_t41_script" 2>/dev/null; then
     t41_pass "TC-07 AC-06: apply-approve-hardening.sh shell syntax OK"
   else
     t41_fail "TC-07 AC-06: apply-approve-hardening.sh shell syntax error"
