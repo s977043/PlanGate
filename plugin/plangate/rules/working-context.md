@@ -199,6 +199,7 @@ confirmed_by）。人間 confirm 済のみ追記。#200 期間集計の入力源
 - ⚠️ 依存関係（Agent ↔ Human）
 - 各タスクに Owner（agent / human）と 🚩チェックポイントを明記
 - L-0〜V-4, PR作成はworkflow-conductorが自動制御するため含めない
+- 各タスクに `rollback:` を記載（戻し手順）。**必須=high-risk / critical の実装タスク**。standard 以下は任意、検証/読取のみは `rollback:不要` と明記可
 
 ### test-cases.md（テストケース定義）
 

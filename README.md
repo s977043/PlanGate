@@ -75,13 +75,13 @@ flowchart LR
 
 ## 最新状態
 
-PlanGate は **v8.14.0**（Latest）で C-3 レビュー HTML 出力（`plangate render`）と人間ワンアクション C-3 承認（`plangate approve`）を導入しました。v8.13.0 で全体監査駆動の健全化（docs 鮮度・テスト隔離・スリム化）、エージェント model tier、Hook enforcement の実態整合を実施しました。v8.12.0 で並列レビューア実行・Plugin sync 品質ガード・導入促進（Why PlanGate）・運用ガードを整備しました。v8.11.0 で Claude Code / Codex Plugin の正式配布に対応し、v8.10.0 までに Hook enforcement・Metrics v1・Harness Improvement Governance の上に **Reporting & Retrospective v1** を載せ、events.ndjson から sprint retrospective を決定論的に導出できるガバナンスハーネスへ到達しました。これにより [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) は **完遂（CLOSED / COMPLETED）** しています。
+PlanGate は **v8.15.0**（Latest）で Review Gate 機械化・EH-3 doc-light・approve ハードニング・CLI テスト完備・OpenSSF Scorecard 対応を導入しました。v8.14.0 で C-3 レビュー HTML 出力（`plangate render`）と人間ワンアクション C-3 承認（`plangate approve`）を導入しました。v8.13.0 で全体監査駆動の健全化（docs 鮮度・テスト隔離・スリム化）、エージェント model tier、Hook enforcement の実態整合を実施しました。v8.12.0 で並列レビューア実行・Plugin sync 品質ガード・導入促進（Why PlanGate）・運用ガードを整備しました。v8.11.0 で Claude Code / Codex Plugin の正式配布に対応し、v8.10.0 までに Hook enforcement・Metrics v1・Harness Improvement Governance の上に **Reporting & Retrospective v1** を載せ、events.ndjson から sprint retrospective を決定論的に導出できるガバナンスハーネスへ到達しました。これにより [EPIC #193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) は **完遂（CLOSED / COMPLETED）** しています。
 
 v8.7.0〜v8.10.0 はリリース済みで、外部 OSS 利用者の **「どこまで使えばよいか不明」問題** に応える OSS 整備（段階的導入ガイド / Plugin 成熟化 / バージョニング安定性ポリシー）と、自己評価・context 分離・モデル特性対応・reporting の各基盤を順次投入しました。
 
 | 項目 | 状態 |
 | --- | --- |
-| 最新リリース | **v8.13.0**（Latest, 2026-06-11）— 全体健全化（監査駆動の鮮度・整合・隔離改善）+ エージェント model tier + enforcement 実態整合 |
+| 最新リリース | **v8.15.0**（Latest, 2026-06-23）— Review Gate 機械化 + EH-3 doc-light + approve ハードニング + CLI テスト完備 + OpenSSF Scorecard 対応 |
 | リリース済 | **v8.7.0** OSS 整備 3 主軸 + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1・Dynamic Context Engine v1・Model Profile v2・Gate Event Normalization・Dogfooding Eval v1 / **v8.9.0** Reporting & Retrospective v1 / **v8.10.0** Codex CLI parity・Hook/Guard 拡充・Skill 整備 / **v8.11.0** Claude Code / Codex Plugin 正式配布対応 |
 | Roadmap | **EPIC #193 完遂（CLOSED / COMPLETED）** — Phase 0〜6 + Governance + Lightweight Plan Quality Checks 全 Done、子 PBI 12/12 CLOSED |
 | Hook enforcement | **12/12 hooks 実装済み**（EH-1〜EH-9 + EHS-1〜EHS-3。物理配線は 6/12 — 残りは [#500](https://github.com/s977043/plangate/issues/500) で配線予定、詳細は [`docs/ai/hook-enforcement.md`](docs/ai/hook-enforcement.md)） |

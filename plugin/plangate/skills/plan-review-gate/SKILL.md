@@ -23,42 +23,6 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 
 mode に応じた適用範囲・項目数（17 項目構成）は `.claude/rules/working-context.md` の C-1 節および `.claude/rules/mode-classification.md` フェーズ適用マトリクスを正本とする。FAIL があれば修正後再実行。evidence は FAIL 時必須（`evidence/c1-review/`）。
 
-### C-1 追加品質ゲート: Plan 実行可能性
-
-Superpowers の `writing-plans` から取り込む観点。ここでは Superpowers を依存として導入せず、PlanGate の C-1 に **plan を実行可能な作業指示書として読めるか** を確認する観点だけを吸収する。
-
-#### Task Sizing Rules
-
-各 Task / Step は以下を満たすこと。
-
-- 独立して検証可能な成果物を持つ
-- reviewer が単独で approve / reject できる粒度である
-- setup / config / docs は、それを必要とする成果物の Task に含める
-- 1 Task に複数の責務を詰め込まない
-- Task 間の依存関係・公開インターフェース・順序制約が明示されている
-- 変更対象ファイル、検証コマンド、期待結果が具体的に書かれている
-
-#### No Placeholders Rule
-
-以下が `plan.md` / `todo.md` / `test-cases.md` / `design.md` に残っている場合は C-1 FAIL として扱う。
-
-- `TBD`
-- `TODO`（未解決の実装TODO。チェックリスト用途は除く）
-- `後で実装`
-- `必要に応じて`
-- `適切に`
-- `いい感じに`
-- `エラーハンドリングを追加` だけで具体的な失敗条件・期待挙動がない
-- `テストを書く` だけで具体的な入力・期待値・検証コマンドがない
-- `Task N と同様` だけで、当該 Task 単独で実行できない
-- 未定義の関数名・型名・ファイルパス・コマンドを参照している
-
-#### 判定
-
-- `ultra-light` / `light`: 不備は WARN 可。ただし exec に必要なファイル・検証コマンドが欠ける場合は FAIL。
-- `standard`: Task Sizing / No Placeholders の重大不備は FAIL。
-- `high-risk` / `critical`: Task Sizing / No Placeholders の不備は FAIL。C-3 承認前に必ず修正する。
-
 ## C-2 外部レビュー
 
 - 2 レーン責務（設計妥当性 / コードベース整合）と R-NNN 採番・追記専用集約の規約は `.claude/rules/review-principles.md` §7-bis を正本とする

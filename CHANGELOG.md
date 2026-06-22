@@ -6,6 +6,26 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.15.0 - 2026-06-23
+
+feat: Review Gate 機械化 + EH-3 doc-light + approve 強化 + CLI テスト完備 + OpenSSF Scorecard 対応
+
+外部レビュー結果（Decision / risk）を c3_status へ自動マッピングし承認境界を機械執行する Review Gate（TASK-0129）、EH-3 フックに非 HO `.md` ファイルを記録付きで自動 SKIP する doc-light 経路（TASK-0138）、approve サブコマンドのハードニング（TASK-0139）、CLI サブコマンドの統合テスト完備（TASK-0140）を追加。あわせて OpenSSF Scorecard の 10 件のアラートを解消（SHA ピン・Token-Permissions・SECURITY.md・CodeQL）。
+
+### Added
+
+- **Review Gate 機械化（TASK-0129 / #543）** — 外部レビューの `Decision`（go / revise_plan / human_approval_required / no_go）と `review_risk`（low / medium / high）を `c3_status` へ自動マッピングし、`bin/plangate exec` での機械執行を実現。`apply-task-0129-schema.sh` / `apply-task-0129-wc.sh` で c3-approval スキーマと working-context を更新。C-1 Loop check（計画ループ検出）を同梱。
+- **EH-3 doc-light 経路（TASK-0138 / #528）** — `check-plan-hash.sh` に非 HO `.md` ファイルを記録付き自動 SKIP する doc-light 経路を追加。maintenance ファイル存在時はトークンライフサイクルを優先し doc-light を発火させない。`skip-decision-log.jsonl` に `EH-3_DOC_LIGHT_SKIP` イベントを記録。`ta-39` で 6 TC / 303 PASS。
+- **`plangate approve` ハードニング（TASK-0139 / #550）** — approve サブコマンドに `read -r` による理由・条件・確認の対話入力、`PLANGATE_TEST_MODE` ガード、c3.json 上書きブロック（`--force` で上書き可）を追加。ADR `docs/decisions/adr-001-approve-out-of-band.md` を同梱。`ta-41` で 302 PASS。
+- **CLI サブコマンド統合テスト（TASK-0140 / #515 #529）** — `ta-42` を新規追加し `bin/plangate` の全サブコマンド（plan / exec / review / approve / validate-schemas / metrics / doctor 等）を統合テストでカバー。302 PASS / 0 FAIL。
+- **OpenSSF Scorecard 対応** — Pinned-Dependencies（#25-29/#15/#17）: `actions/checkout@v7` / `actions/setup-python@v6` / pip を SHA ピンに変更（全 5 ワークフロー）。Token-Permissions（#21/#18）: `sync-plugin-plangate.yml` / `release-docs-sync.yml` のワークフローレベル `contents:write` を `permissions:{}` + ジョブレベルへ移動。SecurityPolicy（#3）: `SECURITY.md` に脆弱性報告 URL を追記。SAST（#7）: `codeql.yml` を追加し Python コードを CodeQL `security-extended` で解析。
+
+### Fixed
+
+- **plangate-setup スキル + Codex スキル追加** — plangate-setup スキル修正・Codex スキル追加・リリースフローへのプラグイン同期組み込み（#597）
+- **intent-classifier / skill-policy-router** — PlanGate CLI ops 認識を追加（#593）
+- **Gemini V-3 指摘対応** — ta-39 / ta-41 / ta-42 / apply スクリプト群の HIGH・medium 指摘を複数ラウンドで解消（#607）
+
 ## v8.14.0 - 2026-06-15
 
 feat: C-3 レビュー HTML 出力（plangate render）+ 人間ワンアクション C-3 承認（plangate approve）
