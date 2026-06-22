@@ -46,7 +46,7 @@ fi
 
 # TC-05: 実行後に .claude/agents/ の全 .md が plugin/plangate/agents/ に存在
 _t26_tmpdir=$(mktemp -d)
-trap 'rm -rf "$_t26_tmpdir"' EXIT INT TERM
+register_cleanup "$_t26_tmpdir"  # trap 非依存 (#530-3)
 cp -r "$PG_T26_PLUGIN" "$_t26_tmpdir/plugin_backup"
 sh "$PG_T26_SCRIPT" >/dev/null 2>&1 || true
 _t26_missing=0
@@ -60,8 +60,7 @@ done
 # restore
 rm -rf "$PG_T26_PLUGIN"
 cp -r "$_t26_tmpdir/plugin_backup" "$PG_T26_PLUGIN"
-rm -rf "$_t26_tmpdir"
-trap - EXIT INT TERM
+rm -rf "$_t26_tmpdir"  # 早期解放（register_cleanup との二重実行は冪等）
 if [ "$_t26_missing" = "0" ]; then
   t26_pass "TC-05 実行後 .claude/agents/ の全 .md が plugin に存在"
 else
