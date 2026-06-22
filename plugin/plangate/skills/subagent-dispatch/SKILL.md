@@ -91,6 +91,17 @@ graph TD
 - multi-agent
 - orchestration
 
+## ファイルベース受け渡し（#581 要素3）
+
+subagent へは会話履歴でなく **`dispatch/` 配下のファイル**で渡す:
+
+- task brief: `dispatch/task-NNN-brief.md`（context-packager の Allowed Context）
+- report: `dispatch/task-NNN-report.md`（実行コマンド・テスト結果・変更サマリ・懸念）
+- review package: `dispatch/task-NNN-review-package.md`（reviewer 入力を brief/report/diff/evidence へのリンクで固定）
+- progress ledger: `dispatch/progress-ledger.md`（進捗。compaction・モデル切替後はここから再開）
+
+reviewer は review-package ファイルのみを入力とし、会話履歴は渡さない。テンプレは `docs/working/templates/dispatch/`。
+
 ## 関連
 
 - Skill: `context-packager`（各エージェントへの Allowed Context 生成）
