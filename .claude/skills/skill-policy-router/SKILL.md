@@ -106,7 +106,7 @@ Intent に応じて optionalSkills を追加・調整する:
 | `research` | — |
 | `review` | check |
 | `docs` | — |
-| `ops` | verify（デプロイ検証のため、未追加の場合） |
+| `ops` | verify（デプロイ検証のため、未追加の場合）。**PlanGate CLI 操作**（render/approve/doctor/exec）は skill でなく直接 `bin/plangate <cmd>` を実行する |
 
 ただし、requiredSkills に既に含まれている Skill は optionalSkills に重複追加しない。
 
