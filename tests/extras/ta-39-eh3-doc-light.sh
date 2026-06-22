@@ -32,7 +32,7 @@ mkdir -p "$_T39_TMP/docs/working/_audit"
 # 実ファイルを複製して _audit log を tmp に向ける（WORKING_DIR は hook 内で固定）
 # → 実 audit ログ汚染のため、hook のコピー内の WORKING_DIR を tmp に書き換える
 cp "$_T39_HOOK_SRC" "$_T39_TMP/scripts/hooks/check-plan-hash.sh"
-# REPO_ROOT / WORKING_DIR を sed で tmp に固定
+# REPO_ROOT / WORKING_DIR はディレクトリ構造の模倣により自動的に tmp を指す
 _T39_HOOK="$_T39_TMP/scripts/hooks/check-plan-hash.sh"
 
 t39_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }

@@ -37,7 +37,7 @@ fi
 command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 が必要です"; exit 1; }
 
 # べき等チェック
-if python3 -c "import json; d=json.load(open('$TARGET', encoding='utf-8')); exit(0 if 'review_decision' in d.get('properties',{}) else 1)" 2>/dev/null; then
+if python3 -c "import json, sys; d=json.load(open(sys.argv[1], encoding='utf-8')); exit(0 if 'review_decision' in d.get('properties',{}) else 1)" "$TARGET" 2>/dev/null; then
   echo "SKIP: review_decision は既に適用済み（べき等）"
   exit 0
 fi
