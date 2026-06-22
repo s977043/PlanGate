@@ -34,7 +34,20 @@ description: "ユーザーの依頼文から開発 Intent を 7 分類し、stru
 | `research` | 技術調査・設計調査・情報収集 | 調査, 調べる, 比較, 評価, どうすべきか, 方針 |
 | `review` | コード・設計・ドキュメントのレビュー | レビュー, 確認, チェック, 問題ないか, 品質 |
 | `docs` | ドキュメント・コメント・README の追加・更新 | ドキュメント, README, コメント, 説明, 記述 |
-| `ops` | CI/CD・デプロイ・監視・インフラ・設定変更 | デプロイ, CI, CD, インフラ, 設定, 環境, リリース |
+| `ops` | CI/CD・デプロイ・監視・インフラ・設定変更・**PlanGate CLI 操作**（render/approve/exec/doctor） | デプロイ, CI, CD, インフラ, 設定, 環境, リリース, render, HTML 確認, C-3 確認, C-3 HTML, approve, plangate render, plangate approve, doctor |
+
+## PlanGate CLI 操作の認識（ops 補足）
+
+「C-3 の確認を HTML で行いたい」「render して」「plangate render」「C-3 HTML を出して」などは `ops` に分類し、検出したら即座に以下を実行する:
+
+| ユーザー表現 | 実行コマンド |
+|-------------|------------|
+| C-3 確認を HTML / render / HTML 出力 | `bin/plangate render <TASK>` |
+| C-3 承認 / approve | `bin/plangate approve <TASK>`（別ターミナル必須） |
+| doctor / 健全性確認 | `bin/plangate doctor` |
+| exec 開始 / exec して | `bin/plangate exec <TASK>`（C-3 APPROVED 確認後） |
+
+`<TASK>` はコンテキストから推定（不明なら確認）。**intent=ops と判定した時点で plangate コマンドの候補を提示し、承認を待たずに実行する**（render は読み取り専用）。
 
 ## 手順
 
