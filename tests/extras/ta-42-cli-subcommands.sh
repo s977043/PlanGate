@@ -55,8 +55,12 @@ else
 fi
 
 # ── TC-04: status 異常系（TASK なし → exit 1）──────────────────────────────
-_t42_out=$("$_t42_bin" status TASK-T999 2>&1)
-_t42_rc=$?
+# set -e 環境下で exit 1 の command substitution を安全に捕捉するため if パターンを使用
+if _t42_out=$("$_t42_bin" status TASK-T999 2>&1); then
+  _t42_rc=0
+else
+  _t42_rc=$?
+fi
 if [ "$_t42_rc" -ne 0 ] && printf '%s' "$_t42_out" | grep -q 'error\|not found'; then
   t42_pass "TC-04 AC-02: status exits non-zero with error message for missing task"
 else
@@ -75,7 +79,7 @@ if [ "$_t42_rc" -eq 0 ] && [ -f "$_t42_handoff" ]; then
 elif [ "$_t42_rc" -eq 0 ] && printf '%s' "$_t42_out" | grep -q 'already exists'; then
   t42_pass "TC-05 AC-03: handoff exits 0 (already exists, idempotent)"
 else
-  t42_fail "TC-05 AC-03: handoff rc=$_t42_rc, handoff.md missing or error: $(_t42_out)"
+  t42_fail "TC-05 AC-03: handoff rc=$_t42_rc, handoff.md missing or error: ${_t42_out}"
 fi
 
 # ── TC-06: handoff 非存在 TASK（mkdir-p で自動作成 → exit 0）──────────────
