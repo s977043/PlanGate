@@ -95,23 +95,33 @@ else
   t42_fail "TC-06 AC-03: handoff rc=$_t42_rc or handoff.md missing: ${_t42_out}"
 fi
 
-# ── TC-07: verify smoke（クラッシュしない・"Validating" 出力）────────────────
-_t42_out=$("$_t42_bin" verify "$_t42_task" 2>&1 || true)
-if printf '%s' "$_t42_out" | grep -q 'Validating\|verify\|\[PASS\]\|\[FAIL\]\|error'; then
-  t42_pass "TC-07 AC-04: verify smoke — does not crash, produces recognizable output"
+# ── TC-07: verify smoke（クラッシュしない・exit 0 or 1・"Validating" 出力）───
+# set -e 対応: if pattern で rc を捕捉、crash (exit 2+) を detect
+if _t42_out=$("$_t42_bin" verify "$_t42_task" 2>&1); then
+  _t42_rc=0
 else
-  t42_fail "TC-07 AC-04: verify produced no recognizable output: ${_t42_out}"
+  _t42_rc=$?
+fi
+if { [ "$_t42_rc" -eq 0 ] || [ "$_t42_rc" -eq 1 ]; } && printf '%s' "$_t42_out" | grep -q 'Validating\|verify\|\[PASS\]\|\[FAIL\]\|error'; then
+  t42_pass "TC-07 AC-04: verify smoke — exit 0/1, produces recognizable output"
+else
+  t42_fail "TC-07 AC-04: verify rc=$_t42_rc or no recognizable output: ${_t42_out}"
 fi
 
-# ── TC-08: eval smoke（handoff.md なし → exit 1 + エラーメッセージ）────────
+# ── TC-08: eval smoke（handoff.md なし → exit non-zero + エラーメッセージ）──
+# set -e 対応: if pattern で rc を捕捉し、rc が非ゼロであることも検証（AC-4 要件）
 if [ -f "$_t42_work/handoff.md" ]; then
   rm "$_t42_work/handoff.md"
 fi
-_t42_out=$("$_t42_bin" eval "$_t42_task" 2>&1 || true)
-if printf '%s' "$_t42_out" | grep -q 'handoff\|not found\|error'; then
-  t42_pass "TC-08 AC-04: eval smoke — missing handoff.md produces error message"
+if _t42_out=$("$_t42_bin" eval "$_t42_task" 2>&1); then
+  _t42_rc=0
 else
-  t42_fail "TC-08 AC-04: eval without handoff.md produced unexpected output: ${_t42_out}"
+  _t42_rc=$?
+fi
+if [ "$_t42_rc" -ne 0 ] && printf '%s' "$_t42_out" | grep -q 'handoff\|not found\|error'; then
+  t42_pass "TC-08 AC-04: eval smoke — non-zero exit + error message for missing handoff"
+else
+  t42_fail "TC-08 AC-04: eval rc=$_t42_rc or no error message: ${_t42_out}"
 fi
 
 # ── TC-09: AC-05 sandbox 非汚染確認（cleanup 登録済み）──────────────────────
