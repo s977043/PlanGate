@@ -87,7 +87,7 @@ b_new = '''  # L3: parent process heuristic
 if b_old in new:
     new = new.replace(b_old, b_new, 1)
     sys.stderr.write("  (b) _plangate_presence_gate FAKE_PPID guard applied\n")
-elif "TASK-0139 AC-03" in new:
+elif b_new in new:
     sys.stderr.write("  (b) _plangate_presence_gate: already applied\n")
 else:
     sys.exit("ERROR: _plangate_presence_gate L3 anchor not found")
@@ -126,8 +126,10 @@ else:
     if d_old2 in new:
         new = new.replace(d_old2, d_new, 1)
         sys.stderr.write("  (d) maintenance FAKE_PPID guard applied (alt anchor)\n")
+    elif d_new in new:
+        sys.stderr.write("  (d) maintenance FAKE_PPID guard: already applied\n")
     else:
-        sys.stderr.write("  WARN: maintenance L3 anchor not found or already applied\n")
+        sys.exit("ERROR: maintenance L3 anchor not found")
 
 # ── (e) cmd_approve: c3.json overwrite → abort if --force not given (AC-04) ──
 e_old = '''  # 既存 c3.json
