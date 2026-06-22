@@ -1,0 +1,7 @@
+interface:
+  display_name: "subagent-dispatch"
+  short_description: "high-risk/critical モードでタスクをロール別エージェントに分配する。依存関係グラフを生成し、並列実行可能タスクを特定して Allowed Context と共に dispatch す"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $subagent-dispatch to assist with this project."
+  brand_color: "#1A56DB"
