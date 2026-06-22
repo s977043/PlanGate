@@ -95,6 +95,24 @@ reason: severity=critical の finding が <N> 件あります。fix 後に再レ
 }
 ```
 
+## Plan Alignment レビュー（#581 要素4）
+
+> 5 観点・Severity・判定基準（`.claude/rules/review-principles.md` §2-4）は**不変**。本ブロックは Plan 正本との突合観点を補う追加レーン（観点数を増やさず C-2 設計妥当性レーン §7-bis と整合）。
+
+### Plan Alignment
+- plan.md の Task 要件を満たしているか
+- design.md の設計判断から逸脱していないか（逸脱なら理由明示）
+- Target Files 外を変更していないか
+- Out of Scope に抵触していないか
+- 余計な機能を追加していないか（scope creep）
+
+### Evidence Alignment
+- test-cases.md と Evidence Ledger が対応しているか
+- TDD 必須 mode で RED/GREEN 証跡があるか（#584 の tdd_red/green phase。証跡なしは **major**）
+
+### Production Readiness
+- エラー処理の具体性 / 後方互換 / セキュリティ・データ損失 / ドキュメント更新
+
 ## 関連
 
 - Rule: `review-gate.md`（正本 - ブロック条件・Mode 別適用条件）

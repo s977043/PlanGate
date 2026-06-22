@@ -127,6 +127,10 @@ FAIL → Implementerに差し戻し → 修正 → 再レビュー
 - **worktreeで隔離**: 可能な場合はgit worktreeで作業を隔離する
 - **mainブランチでは作業しない**: ユーザー同意なしにmainで作業開始しない
 
+## ファイルベース復元（#581 要素3）
+
+実装者・reviewer への受け渡しは会話履歴でなく `dispatch/` 配下のファイル（brief / report / review-package / progress-ledger）で行う。compaction・モデル切替後は `progress-ledger.md` から再開し、完了済みタスクの再実行・要件の曖昧化・責務の混在を防ぐ。テンプレは `docs/working/templates/dispatch/`。
+
 ## 関連スキル
 
 - **ai-dev-workflow**: 計画生成（plan/todo）に使用

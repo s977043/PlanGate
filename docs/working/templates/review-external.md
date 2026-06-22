@@ -71,6 +71,14 @@ created_by: orchestrator
 - **evidence_ref**: —
 - **impacted_files**: [{影響ファイルパス}]
 
+## Plan Alignment / Evidence Alignment / Production Readiness（#581 要素4）
+
+> 5 観点・Severity・判定基準（review-principles.md §2-4）不変の追加レーン。
+
+- **Plan Alignment**: plan 要件充足 / design.md 逸脱（理由明示）/ Target Files 外 / Out of Scope / 過剰機能
+- **Evidence Alignment**: test-cases ↔ Evidence Ledger 対応 / TDD 必須 mode の RED/GREEN 証跡（なしは major）
+- **Production Readiness**: エラー処理 / 後方互換 / セキュリティ・データ損失 / ドキュメント更新
+
 ## 自動修正ログ
 
 | check_id | 修正内容 | 修正先ファイル |
