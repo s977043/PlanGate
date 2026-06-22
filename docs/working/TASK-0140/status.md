@@ -24,10 +24,18 @@ artifact_type: status
 - HO ファイル非対象 ✅
 - スキーマ変更/破壊的変更なし ✅
 
-## 残タスク
+## V-1 受け入れ検査: PASS (2026-06-22)
 
-- [ ] I-1: ta-42 実装
-- [ ] I-2: run-tests.sh エントリ追記
-- [ ] V-1: テスト実行
-- [ ] PR 作成
-- [ ] handoff.md
+- ta-42 全 10 TC PASS
+- 全体 302 passed, 0 failed
+- CI fix: TC-04 の set -eu 下 command substitution → if パターン修正
+- PR #601 全 CI PASS (3/3: Test / CI / Check PR Issue Link)
+
+## 残タスク（更新）
+
+- [x] I-1: ta-42 実装
+- [x] I-2: tests/extras に追加（auto-load）
+- [x] V-1: テスト実行 PASS
+- [x] PR 作成 → #601
+- [x] handoff.md
+- [ ] C-4: 人間レビュー (PR #601)
