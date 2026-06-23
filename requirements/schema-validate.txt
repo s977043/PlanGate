@@ -1,0 +1,15 @@
+# Requirements for .github/workflows/schema-validate.yml
+# Pinned with SHA-256 hashes for Scorecard Pinned-Dependencies compliance
+# Platform: ubuntu-latest (x86_64) + python 3.12
+# Regenerate: see scripts/apply-pip-hash-schema-validate.sh comments
+jsonschema==4.23.0 \
+    --hash=sha256:fbadb6f8b144a8f8cf9f0b89ba94501d143e50411a1278633f56a7acf7fd5566
+attrs==24.2.0 \
+    --hash=sha256:81921eb96de3191c8258c199618104dd27ac608d9366f5e35d011eae1867ede2
+jsonschema-specifications==2023.12.1 \
+    --hash=sha256:87e4fdf3a94858b8a2ba2778d9ba57d8a9cafca7c7489c46ba0d30a8bc6a9c3c
+referencing==0.35.1 \
+    --hash=sha256:eda6d3234d62814d1c64e305c1331c9a3a6132da475ab6382eaa997b21ee75de
+rpds-py==0.20.1 \
+    --hash=sha256:ecd27a66740ffd621d20b9a2f2b5ee4129a56e27bfb9458a3bcc2e45794c96cb \
+    --hash=sha256:3c6afcf2338e7f374e8edc765c79fbcb4061d02b15dd5f8f314a4af2bdc7feb5
