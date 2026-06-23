@@ -21,13 +21,14 @@ jobs:
           ref: ${{ github.event.release.tag_name }}
 
       - name: Create release archive
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          tag="${{ github.event.release.tag_name }}"
           git archive --format=tar.gz \
-            --prefix="plangate-${tag}/" \
+            --prefix="plangate-${RELEASE_TAG}/" \
             HEAD \
-            -o "plangate-${tag}.tar.gz"
-          echo "ARCHIVE=plangate-${tag}.tar.gz" >> "$GITHUB_ENV"
+            -o "plangate-${RELEASE_TAG}.tar.gz"
+          echo "ARCHIVE=plangate-${RELEASE_TAG}.tar.gz" >> "$GITHUB_ENV"
 
       - name: Generate SLSA provenance attestation
         uses: actions/attest-build-provenance@e8d4baa0b41c87f71bb46de40f28fe2e2aaee96f # v2.4.0
@@ -37,6 +38,7 @@ jobs:
       - name: Upload archive to release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            "${{ env.ARCHIVE }}" --clobber
+          gh release upload "${RELEASE_TAG}" \
+            "${ARCHIVE}" --clobber
