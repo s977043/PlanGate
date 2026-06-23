@@ -85,7 +85,6 @@ sequenceDiagram
 | 既存 PlanGate ワークフローを継続 | 既存 PlanGate Agent |
 | 両方混在 | プロジェクトの CLAUDE.md で使い分けを明示 |
 
-
 ## 探索モード分岐（WF-07 opt-in）
 
 exploratory タスク（仮説→検証→学習ループ）の場合、WF-00 Intent Intake で

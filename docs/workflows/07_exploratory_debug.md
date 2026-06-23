@@ -16,6 +16,7 @@
 本フェーズは **既定で発火しない**。
 
 起動条件（いずれか）:
+
 - C-3 承認済み pbi-input の `exploratory: true` を明示
 - WF-00 Intent Intake で Mode が `exploratory` と判定される
 - 探索的タスクであることを人間が明示（`/ai-dev-workflow TASK-XXXX explore`、将来 CLI）
@@ -29,7 +30,8 @@
 探索的タスクでは AC（受入基準）が固定されず、検証ごとに更新される。
 
 **ループ構造**:
-```
+
+```text
 仮説定義（Hypothesis）
     ↓
 検証実行（Verify）
@@ -42,6 +44,7 @@ AC 更新（Update AC）← 前の仮説が解消されると次の層が露呈�
 ```
 
 **運用ルール**:
+
 - 各 `Hypothesis` は `status.md` の残タスクとして `仮説-N:` プレフィックスで記録する
 - 検証結果は `evidence/exploratory/hypothesis-N-result.md` に記録する
 - AC 更新時は `pbi-input.md` と `test-cases.md` に差分追記する（削除しない、append-only）
@@ -53,7 +56,7 @@ CI / EAS ビルド / デプロイ等、20分以上かかる外部検証を含む
 
 **BLOCKED 状態との連携** (`working-context.md` §BLOCKED 状態 / #498 Deferred ゲート):
 
-```
+```text
 status.md 残タスクの記録形式:
 - [ ] BLOCKED: 検証タスク名
     blocker: <外部サービス名（例: EAS production build #5）>
@@ -63,11 +66,13 @@ status.md 残タスクの記録形式:
 ```
 
 **再開プロトコル**:
+
 1. 外部検証完了後、結果を `evidence/exploratory/hypothesis-N-result.md` に記録
 2. `status.md` の BLOCKED タスクを `[x]` に更新し、学習内容を記載
 3. 次の仮説または完了に進む（Phase E-1 に戻る）
 
 **上限**:
+
 - 1 タスクあたりの外部検証待機は最大 5 回まで（5 回を超えたら根本設計を見直すゲート）
 
 ### Phase E-3: インシデント駆動の計画修正（AC 改訂フロー）
@@ -75,11 +80,13 @@ status.md 残タスクの記録形式:
 検証失敗時に spec/design を見直すフィードバックループ。
 
 **発動条件**:
+
 - Phase E-1 の検証が FAIL かつ「前提の誤り」が判明した場合
 - 想定していなかった問題が露呈した場合（入れ子障害の発見等）
 
 **AC 改訂フロー**:
-```
+
+```text
 検証 FAIL
     ↓
 根本原因の分類:
