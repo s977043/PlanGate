@@ -19,6 +19,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 | **WF-04** Build & Refine | 設計に従って最小単位で実装 | [`04_build_and_refine.md`](./04_build_and_refine.md) |
 | **WF-05** Verify & Handoff | 品質確認し、次フェーズへ渡せる状態にする | [`05_verify_and_handoff.md`](./05_verify_and_handoff.md) |
 | **WF-06** Retro（opt-in・既定OFF） | run 完了時に振り返りドラフト生成・改善ネタ蓄積 | [`06_retro.md`](./06_retro.md) |
+| **WF-07** Exploratory Debug（opt-in・既定OFF） | 探索的タスク・長時間外部検証・インシデント駆動 AC 更新 | [`07_exploratory_debug.md`](./07_exploratory_debug.md) |
 
 ## Artifact クラス（Phase 間受け渡し）
 

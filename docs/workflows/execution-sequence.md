@@ -84,3 +84,34 @@ sequenceDiagram
 | 新プロジェクトでハイブリッドアーキテクチャを採用 | 責務ベース 5 体 |
 | 既存 PlanGate ワークフローを継続 | 既存 PlanGate Agent |
 | 両方混在 | プロジェクトの CLAUDE.md で使い分けを明示 |
+
+
+## 探索モード分岐（WF-07 opt-in）
+
+exploratory タスク（仮説→検証→学習ループ）の場合、WF-00 Intent Intake で
+`Mode: exploratory` と判定されると WF-07 を opt-in する。
+
+```mermaid
+sequenceDiagram
+    participant O as orchestrator
+    participant R as requirements-analyst
+    participant Q as qa-reviewer
+
+    Note over O: WF-00: Mode=exploratory 検出
+    O->>R: 初期 AC 定義（柔軟・更新可）
+    loop 探索ループ（Phase E-1）
+        R->>R: 仮説定義
+        R->>Q: 検証実行
+        Q-->>R: 検証結果 (PASS/FAIL)
+        alt FAIL + 前提誤り
+            R->>R: AC 改訂（Phase E-3）
+        else FAIL + 外部検証待機
+            R->>R: BLOCKED: waiting_external_verification（Phase E-2）
+        else PASS
+            R->>R: 学習記録 → 次仮説 or 完了
+        end
+    end
+    Note over O: 全仮説解消 → WF-05 Verify & Handoff
+```
+
+詳細仕様: [`07_exploratory_debug.md`](./07_exploratory_debug.md)
