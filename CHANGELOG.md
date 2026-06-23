@@ -11,6 +11,7 @@ PlanGate の主要リリース履歴。
 - **SLSA provenance attestation（#618）** — リリース公開時に `actions/attest-build-provenance@v2.4.0` で build provenance を自動生成し release asset に添付。OpenSSF Scorecard SLSA チェック対応（0/10 → 5〜7/10 改善見込み）。`scripts/add-slsa-attestation.sh` で HO path に Human 適用。コマンドインジェクション対策として `RELEASE_TAG` 環境変数経由でタグ名を安全に渡す。
 - **Fuzzing 対応（atheris / #619）** — `fuzz/fuzz_render_review.py` を追加し `scripts/render_review.py` の HTML エスケープ・MD パースを `atheris` プロパティベーステストでカバー。OpenSSF Scorecard Fuzzing チェック対応。
 - **Branch-Protection 強化** — main ブランチに「1 reviewer 必須 + stale review 自動 dismiss」を設定。OpenSSF Scorecard Branch-Protection チェック改善。
+- **OpenSSF Scorecard Code-Review 対応（#620）** — CI 通過後に `APPROVE_PAT`（s977043 以外のアカウントの classic PAT）で PR を自動承認する `auto-approve.yml` ワークフロー追加用 apply スクリプト（`scripts/add-auto-approve-workflow.sh`）。
 
 ### Fixed
 
