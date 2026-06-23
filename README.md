@@ -6,6 +6,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/s977043/plangate)](https://github.com/s977043/plangate/releases)
 [![CI](https://github.com/s977043/plangate/actions/workflows/ci.yml/badge.svg)](https://github.com/s977043/plangate/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/s977043/plangate/badge)](https://securityscorecards.dev/viewer/?uri=github.com/s977043/plangate)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13340/badge)](https://www.bestpractices.dev/projects/13340)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![English](https://img.shields.io/badge/lang-English-blue)](README_en.md)
 
@@ -31,13 +32,13 @@ PlanGate を初めて知った方は、以下の順に **15-30 分** で読む�
 
 PlanGate が配布するのは **「AI 開発の安全な型」** です。AI に何でも自動でやらせる枠組みではありません。
 
-| PlanGate **がやること** | PlanGate **がやらないこと** |
-| --- | --- |
-| 計画 → 承認 → 実装 → 検証 → 引き継ぎの型を提供する | AI に勝手に skill / プロンプトを書き換えさせる |
-| C-3 / C-4 / V-1〜V-4 で人間の判断点を固定する | 自律エージェントを目指す |
-| 失敗・成功を後から説明可能にする（観測・再現基盤） | 全実行ログを完璧に再現する durable engine になる |
-| 段階的に採用できる導入レベル（Level 1〜5）を提供する | 全機能を最初から強制する |
-| Markdown ベースで認知負荷を抑える | SaaS / 外部 store を前提にする |
+| PlanGate **がやること**                              | PlanGate **がやらないこと**                      |
+| ---------------------------------------------------- | ------------------------------------------------ |
+| 計画 → 承認 → 実装 → 検証 → 引き継ぎの型を提供する   | AI に勝手に skill / プロンプトを書き換えさせる   |
+| C-3 / C-4 / V-1〜V-4 で人間の判断点を固定する        | 自律エージェントを目指す                         |
+| 失敗・成功を後から説明可能にする（観測・再現基盤）   | 全実行ログを完璧に再現する durable engine になる |
+| 段階的に採用できる導入レベル（Level 1〜5）を提供する | 全機能を最初から強制する                         |
+| Markdown ベースで認知負荷を抑える                    | SaaS / 外部 store を前提にする                   |
 
 > **設計の中心**: 観測 (Steering Loop) ではなく **評価 → 学習 → ガバナンス**。
 > ここでいう Steering Loop とは「events.ndjson に全制御点を残し、後から replay 可能にする観測ループ」のこと。これは自己進化の「基盤」であって「中心」ではありません。
@@ -47,13 +48,13 @@ PlanGate が配布するのは **「AI 開発の安全な型」** です。AI �
 
 PlanGate は **すべての機能を最初から使う必要はありません**。次の 5 段階で必要な分だけ採用できます。
 
-| Level | スコープ | 適用シーン |
-| --- | --- | --- |
-| **Level 1** | plan 承認だけ | AI に実装させる前に計画を承認したい |
-| **Level 2** | + handoff まで | 完了時の引き継ぎを標準化したい |
-| **Level 3** | + hooks / validate | scope / approval / evidence の不変条件を hook で強制したい |
+| Level       | スコープ                   | 適用シーン                                                         |
+| ----------- | -------------------------- | ------------------------------------------------------------------ |
+| **Level 1** | plan 承認だけ              | AI に実装させる前に計画を承認したい                                |
+| **Level 2** | + handoff まで             | 完了時の引き継ぎを標準化したい                                     |
+| **Level 3** | + hooks / validate         | scope / approval / evidence の不変条件を hook で強制したい         |
 | **Level 4** | + metrics / outcome review | 改善判断を計測ベースで行いたい（**自己進化軸はここから実質開始**） |
-| **Level 5** | + eval / timeline | dogfooding eval、experimental timeline などの上級機能 |
+| **Level 5** | + eval / timeline          | dogfooding eval、experimental timeline などの上級機能              |
 
 初回利用者は **Level 1 から始める** ことを推奨します。Level 4 以降は経験を積んでから検討してください。
 詳細ガイド: [段階的導入ガイド](docs/staged-adoption-guide.md)（v8.7.0 でリリース済）
@@ -79,20 +80,20 @@ PlanGate は **v8.15.0**（Latest）で Review Gate 機械化・EH-3 doc-light�
 
 v8.7.0〜v8.10.0 はリリース済みで、外部 OSS 利用者の **「どこまで使えばよいか不明」問題** に応える OSS 整備（段階的導入ガイド / Plugin 成熟化 / バージョニング安定性ポリシー）と、自己評価・context 分離・モデル特性対応・reporting の各基盤を順次投入しました。
 
-| 項目 | 状態 |
-| --- | --- |
-| 最新リリース | **v8.15.0**（Latest, 2026-06-23）— Review Gate 機械化 + EH-3 doc-light + approve ハードニング + CLI テスト完備 + OpenSSF Scorecard 対応 |
-| リリース済 | **v8.7.0** OSS 整備 3 主軸 + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1・Dynamic Context Engine v1・Model Profile v2・Gate Event Normalization・Dogfooding Eval v1 / **v8.9.0** Reporting & Retrospective v1 / **v8.10.0** Codex CLI parity・Hook/Guard 拡充・Skill 整備 / **v8.11.0** Claude Code / Codex Plugin 正式配布対応 |
-| Roadmap | **EPIC #193 完遂（CLOSED / COMPLETED）** — Phase 0〜6 + Governance + Lightweight Plan Quality Checks 全 Done、子 PBI 12/12 CLOSED |
-| Hook enforcement | **12/12 hooks 実装済み**（EH-1〜EH-9 + EHS-1〜EHS-3。物理配線は 6/12 — 残りは [#500](https://github.com/s977043/plangate/issues/500) で配線予定、詳細は [`docs/ai/hook-enforcement.md`](docs/ai/hook-enforcement.md)） |
-| Metrics v1 | `bin/plangate metrics` による workflow event 集計（v8.6.0 初出） |
-| Reporting v1 | events.ndjson から sprint retrospective を導出（v8.9.0） |
-| Baseline | v8.5.0 直後の baseline を `docs/ai/eval-baselines/` に固定（v8.6.0 初出） |
-| Governance | Issue / Label / Milestone Governance + Metrics Privacy Policy（v8.6.0 初出） |
-| CLI テスト | `sh tests/run-tests.sh`（全 PR を CI で検証。件数は実行結果が正） |
-| Hook テスト | `sh tests/hooks/run-tests.sh`（同上） |
-| Eval | `bin/plangate eval` による 8 観点評価と release blocker 検知 |
-| Schema | `validate-schemas` + CI による JSON artifact 検証 |
+| 項目             | 状態                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 最新リリース     | **v8.15.0**（Latest, 2026-06-23）— Review Gate 機械化 + EH-3 doc-light + approve ハードニング + CLI テスト完備 + OpenSSF Scorecard 対応                                                                                                                                                                                                                                             |
+| リリース済       | **v8.7.0** OSS 整備 3 主軸 + Run Outcome Review v1 (#228) + Trace Timeline v1 (Experimental, #229) / **v8.8.0** Keep Rate v1・Dynamic Context Engine v1・Model Profile v2・Gate Event Normalization・Dogfooding Eval v1 / **v8.9.0** Reporting & Retrospective v1 / **v8.10.0** Codex CLI parity・Hook/Guard 拡充・Skill 整備 / **v8.11.0** Claude Code / Codex Plugin 正式配布対応 |
+| Roadmap          | **EPIC #193 完遂（CLOSED / COMPLETED）** — Phase 0〜6 + Governance + Lightweight Plan Quality Checks 全 Done、子 PBI 12/12 CLOSED                                                                                                                                                                                                                                                   |
+| Hook enforcement | **12/12 hooks 実装済み**（EH-1〜EH-9 + EHS-1〜EHS-3。物理配線は 6/12 — 残りは [#500](https://github.com/s977043/plangate/issues/500) で配線予定、詳細は [`docs/ai/hook-enforcement.md`](docs/ai/hook-enforcement.md)）                                                                                                                                                              |
+| Metrics v1       | `bin/plangate metrics` による workflow event 集計（v8.6.0 初出）                                                                                                                                                                                                                                                                                                                    |
+| Reporting v1     | events.ndjson から sprint retrospective を導出（v8.9.0）                                                                                                                                                                                                                                                                                                                            |
+| Baseline         | v8.5.0 直後の baseline を `docs/ai/eval-baselines/` に固定（v8.6.0 初出）                                                                                                                                                                                                                                                                                                           |
+| Governance       | Issue / Label / Milestone Governance + Metrics Privacy Policy（v8.6.0 初出）                                                                                                                                                                                                                                                                                                        |
+| CLI テスト       | `sh tests/run-tests.sh`（全 PR を CI で検証。件数は実行結果が正）                                                                                                                                                                                                                                                                                                                   |
+| Hook テスト      | `sh tests/hooks/run-tests.sh`（同上）                                                                                                                                                                                                                                                                                                                                               |
+| Eval             | `bin/plangate eval` による 8 観点評価と release blocker 検知                                                                                                                                                                                                                                                                                                                        |
+| Schema           | `validate-schemas` + CI による JSON artifact 検証                                                                                                                                                                                                                                                                                                                                   |
 
 PlanGate では、以下のような不変条件を hook / CLI で検査できます。
 
@@ -107,14 +108,14 @@ PlanGate では、以下のような不変条件を hook / CLI で検査でき�
 
 ## Requirements
 
-| 種別 | ツール | 用途 |
-| --- | --- | --- |
-| **Required** | git / POSIX sh (bash/zsh) / python3 | `bin/plangate` CLI と hook の基盤 |
-| **Recommended** | [Claude Code](https://docs.claude.com/claude-code) | plan 生成・exec の主導線（slash command 経由） |
-| **Optional** | [gh CLI](https://cli.github.com/) | PR / issue 操作（C-4 ゲートの GitHub 連携） |
-| **Optional** | [Codex CLI](https://github.com/openai/codex) | exec 実装エージェント（既定） / C-2 / V-3 外部レビュー（**`scripts/codex-guarded.sh` による guarded execution 推奨**） |
-| **Optional** | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | 並列外部レビュー |
-| **Optional** | [Cursor](https://cursor.com/) | `PLANGATE_IMPL_AGENT=cursor`（部分対応・[docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md)） |
+| 種別            | ツール                                                    | 用途                                                                                                                   |
+| --------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Required**    | git / POSIX sh (bash/zsh) / python3                       | `bin/plangate` CLI と hook の基盤                                                                                      |
+| **Recommended** | [Claude Code](https://docs.claude.com/claude-code)        | plan 生成・exec の主導線（slash command 経由）                                                                         |
+| **Optional**    | [gh CLI](https://cli.github.com/)                         | PR / issue 操作（C-4 ゲートの GitHub 連携）                                                                            |
+| **Optional**    | [Codex CLI](https://github.com/openai/codex)              | exec 実装エージェント（既定） / C-2 / V-3 外部レビュー（**`scripts/codex-guarded.sh` による guarded execution 推奨**） |
+| **Optional**    | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | 並列外部レビュー                                                                                                       |
+| **Optional**    | [Cursor](https://cursor.com/)                             | `PLANGATE_IMPL_AGENT=cursor`（部分対応・[docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md)）                   |
 
 OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推奨。Claude Code を使わない場合は `bin/plangate` CLI のみで PBI 文書管理 + ゲート検証は可能ですが、plan 生成は手動になります。
 
@@ -199,10 +200,10 @@ bin/plangate doctor --fix
 
 PlanGate は AI 実装の前後に 2 つの人間承認ゲートを設けます。
 
-| ゲート | タイミング | 判断 |
-| --- | --- | --- |
-| **C-3** | 計画レビュー後、実装前 | APPROVE / CONDITIONAL / REJECT |
-| **C-4** | AI 実装後、GitHub PR 上 | APPROVE / REQUEST CHANGES |
+| ゲート  | タイミング              | 判断                           |
+| ------- | ----------------------- | ------------------------------ |
+| **C-3** | 計画レビュー後、実装前  | APPROVE / CONDITIONAL / REJECT |
+| **C-4** | AI 実装後、GitHub PR 上 | APPROVE / REQUEST CHANGES      |
 
 ```text
 人間が PBI を書く → AI が計画を生成 → [C-3: 人間が承認]
@@ -212,15 +213,15 @@ PlanGate は AI 実装の前後に 2 つの人間承認ゲートを設けます�
 
 計画先行を起点に、ゲート制御 / Hook 強制 / 検証内蔵がその計画品質を実装まで保ちます。各項目は等価ではなく、**計画先行が品質の発生源、ほかはその品質を漏らさない保全**という関係です。
 
-| 中核アイデア | 内容 |
-| --- | --- |
-| 計画先行 | PBI から plan / todo / test-cases を作り、承認前の実装を禁止する |
-| ゲート制御 | C-3（計画承認）と C-4（PR レビュー）で人間の判断点を固定する |
-| Hook 強制 | v8.5 では plan / approval / evidence / scope / review の不変条件を hook と CLI で検査する |
-| 検証内蔵 | L-0 / V-1〜V-4 により、実装後の検証をワークフローに組み込む |
-| 状態の永続化 | `docs/working/TASK-XXXX/` に計画、レビュー、検証、handoff を残す |
-| 実行層の分離 | v7 では Workflow / Skill / Agent を分け、再利用性と拡張性を高める |
-| Control OS | v7.2 以降は Intent / Mode / GatePolicy / Evidence Ledger / Completion Gate を持つ |
+| 中核アイデア | 内容                                                                                      |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| 計画先行     | PBI から plan / todo / test-cases を作り、承認前の実装を禁止する                          |
+| ゲート制御   | C-3（計画承認）と C-4（PR レビュー）で人間の判断点を固定する                              |
+| Hook 強制    | v8.5 では plan / approval / evidence / scope / review の不変条件を hook と CLI で検査する |
+| 検証内蔵     | L-0 / V-1〜V-4 により、実装後の検証をワークフローに組み込む                               |
+| 状態の永続化 | `docs/working/TASK-XXXX/` に計画、レビュー、検証、handoff を残す                          |
+| 実行層の分離 | v7 では Workflow / Skill / Agent を分け、再利用性と拡張性を高める                         |
+| Control OS   | v7.2 以降は Intent / Mode / GatePolicy / Evidence Ledger / Completion Gate を持つ         |
 
 ## クイックスタート
 
@@ -287,12 +288,12 @@ GitHub 上で PR をレビューし、準備ができたらマージします。
 
 ## Plugin vs `.claude/` の違い
 
-| | Plugin（plugin 登録経由） | `.claude/` コピー |
-| --- | --- | --- |
-| **用途** | 複数プロジェクトのベースレイヤー | 単一プロジェクトまたは完全カスタマイズ |
-| **更新** | 再 clone と再登録 | 手動 `git pull` |
-| **カスタマイズ** | プロジェクトの `.claude/` が plugin を上書き | 直接編集 |
-| **競合リスク** | 名前空間化により低い。ただし同名 command / skill の解決順に注意 | なし |
+|                  | Plugin（plugin 登録経由）                                       | `.claude/` コピー                      |
+| ---------------- | --------------------------------------------------------------- | -------------------------------------- |
+| **用途**         | 複数プロジェクトのベースレイヤー                                | 単一プロジェクトまたは完全カスタマイズ |
+| **更新**         | 再 clone と再登録                                               | 手動 `git pull`                        |
+| **カスタマイズ** | プロジェクトの `.claude/` が plugin を上書き                    | 直接編集                               |
+| **競合リスク**   | 名前空間化により低い。ただし同名 command / skill の解決順に注意 | なし                                   |
 
 新規導入ではどちらか一方を選びます。既存利用者の段階移行や高度なカスタマイズでは、Plugin をベースレイヤー、プロジェクトの `.claude/` を override として併用できます。
 登録手順は [plugin/plangate/README.md](plugin/plangate/README.md) を参照してください。
@@ -322,11 +323,11 @@ GitHub 上で PR をレビューし、準備ができたらマージします。
 
 PlanGate は Claude Code と Codex CLI の併用を前提にしています。共通ルールは [docs/ai/project-rules.md](docs/ai/project-rules.md) に一元化し、ツール固有の入口ファイルは薄く保ちます。
 
-| ツール | 入口ファイル | 固有設定 |
-| --- | --- | --- |
-| Claude Code | [CLAUDE.md](CLAUDE.md) | `.claude/` |
-| Codex CLI | [AGENTS.md](AGENTS.md) | `.codex/` |
-| 共通 | [docs/ai/project-rules.md](docs/ai/project-rules.md) | `docs/`、`scripts/` |
+| ツール      | 入口ファイル                                         | 固有設定            |
+| ----------- | ---------------------------------------------------- | ------------------- |
+| Claude Code | [CLAUDE.md](CLAUDE.md)                               | `.claude/`          |
+| Codex CLI   | [AGENTS.md](AGENTS.md)                               | `.codex/`           |
+| 共通        | [docs/ai/project-rules.md](docs/ai/project-rules.md) | `docs/`、`scripts/` |
 
 役割分担の詳細: [docs/ai/tool-roles.md](docs/ai/tool-roles.md)
 
@@ -334,10 +335,10 @@ PlanGate は Claude Code と Codex CLI の併用を前提にしています。�
 
 新規プロジェクト導入時の不足項目検知・提示・再検証を**対話的に実行**するための三層構成（TASK-0107）:
 
-| 環境 | 起動方法 |
-| --- | --- |
-| Claude Code | `/plangate-setup` slash command |
-| Codex CLI | `setup_coordinator` agent（`.codex/config.toml` に登録済） |
+| 環境        | 起動方法                                                   |
+| ----------- | ---------------------------------------------------------- |
+| Claude Code | `/plangate-setup` slash command                            |
+| Codex CLI   | `setup_coordinator` agent（`.codex/config.toml` に登録済） |
 
 設計原則（両環境共通）:
 
@@ -382,10 +383,10 @@ sh tests/hooks/run-tests.sh
 
 テスト状況（最新）:
 
-| スイート | 件数 | 主な検証対象 |
-| --- | ---: | --- |
-| `tests/run-tests.sh` | 全 PASS（CI 検証） | CLI、Workflow DSL、schema validate、eval、metrics v1、reporting、provider dispatch、fixture 検証 |
-| `tests/hooks/run-tests.sh` | 全 PASS（CI 検証） | EH-1〜EH-9 / EHS-1〜EHS-3、default / strict / bypass の 3 mode 挙動 |
+| スイート                   |               件数 | 主な検証対象                                                                                     |
+| -------------------------- | -----------------: | ------------------------------------------------------------------------------------------------ |
+| `tests/run-tests.sh`       | 全 PASS（CI 検証） | CLI、Workflow DSL、schema validate、eval、metrics v1、reporting、provider dispatch、fixture 検証 |
+| `tests/hooks/run-tests.sh` | 全 PASS（CI 検証） | EH-1〜EH-9 / EHS-1〜EHS-3、default / strict / bypass の 3 mode 挙動                              |
 
 主な検証対象:
 
@@ -424,14 +425,14 @@ bin/plangate metrics TASK-XXXX --report --json
 - [`examples/sample-task/metrics-events.ndjson`](examples/sample-task/metrics-events.ndjson) — 8 event の最小例
 - [`examples/sample-task/metrics-summary.md`](examples/sample-task/metrics-summary.md) — `--report` 出力例
 
-| 項目 | 場所 / 仕様 |
-| --- | --- |
-| Event schema | [`schemas/plangate-event.schema.json`](schemas/plangate-event.schema.json) — 11 events、`additionalProperties: false` |
-| Event log | `docs/working/_metrics/events.ndjson` — **`.gitignore` で除外、commit 禁止** |
-| Privacy policy | [`docs/ai/metrics-privacy.md`](docs/ai/metrics-privacy.md) — §3 Allowed のみ emit、§4 Forbidden は schema レベルで物理的に阻止 |
-| Privacy enforcement | Hook EH-8 (`scripts/hooks/check-metrics-privacy.sh`) — staging に events.ndjson / Forbidden field がないか検査 |
-| Baseline | [`docs/ai/eval-baselines/2026-05-04-baseline.{md,json}`](docs/ai/eval-baselines/) — v8.5.0 直後の固定 snapshot（後続改善との比較起点） |
-| Operational guide | [`docs/ai/metrics.md`](docs/ai/metrics.md) — 9 章運用 guide |
+| 項目                | 場所 / 仕様                                                                                                                            |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Event schema        | [`schemas/plangate-event.schema.json`](schemas/plangate-event.schema.json) — 11 events、`additionalProperties: false`                  |
+| Event log           | `docs/working/_metrics/events.ndjson` — **`.gitignore` で除外、commit 禁止**                                                           |
+| Privacy policy      | [`docs/ai/metrics-privacy.md`](docs/ai/metrics-privacy.md) — §3 Allowed のみ emit、§4 Forbidden は schema レベルで物理的に阻止         |
+| Privacy enforcement | Hook EH-8 (`scripts/hooks/check-metrics-privacy.sh`) — staging に events.ndjson / Forbidden field がないか検査                         |
+| Baseline            | [`docs/ai/eval-baselines/2026-05-04-baseline.{md,json}`](docs/ai/eval-baselines/) — v8.5.0 直後の固定 snapshot（後続改善との比較起点） |
+| Operational guide   | [`docs/ai/metrics.md`](docs/ai/metrics.md) — 9 章運用 guide                                                                            |
 
 > [!NOTE]
 > **`docs/working/_metrics/events.ndjson` は public repo に commit しません。** `.gitignore` + Hook EH-8 + schema `additionalProperties:false` の三層で privacy を強制しています。
@@ -441,44 +442,44 @@ bin/plangate metrics TASK-XXXX --report --json
 PlanGate のガバナンスワークフローはプロバイダに依存しない設計です。
 ゲート機構・Artifact スキーマ・`run.ndjson` ログ形式は、利用する AI ツールに関わらず動作します。
 
-| Provider | 役割 | 状態 |
-| --- | --- | --- |
-| Claude Code | 計画生成、exec オーケストレーション | 完全対応 |
-| Codex CLI | 外部レビュー（既定、C-2 / V-3）、exec 実装エージェント（既定）、並列実行 | 完全対応 (**物理 hook parity 達成済**) |
-| Gemini CLI | 外部レビュー | 対応済み — `PLANGATE_EXTERNAL_REVIEWER=gemini plangate review` |
-| OpenCode | 実装エージェント | 対応済み — `PLANGATE_IMPL_AGENT=opencode plangate exec` |
-| Cursor | 実装エージェント | 部分対応 — [RFC](docs/rfc/provider-cursor.md) / [クイックスタート](docs/cursor/quickstart.md) / `.cursor/hooks.json` |
+| Provider    | 役割                                                                     | 状態                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | 計画生成、exec オーケストレーション                                      | 完全対応                                                                                                             |
+| Codex CLI   | 外部レビュー（既定、C-2 / V-3）、exec 実装エージェント（既定）、並列実行 | 完全対応 (**物理 hook parity 達成済**)                                                                               |
+| Gemini CLI  | 外部レビュー                                                             | 対応済み — `PLANGATE_EXTERNAL_REVIEWER=gemini plangate review`                                                       |
+| OpenCode    | 実装エージェント                                                         | 対応済み — `PLANGATE_IMPL_AGENT=opencode plangate exec`                                                              |
+| Cursor      | 実装エージェント                                                         | 部分対応 — [RFC](docs/rfc/provider-cursor.md) / [クイックスタート](docs/cursor/quickstart.md) / `.cursor/hooks.json` |
 
 新しい Provider のサポート追加は [CONTRIBUTING.md](CONTRIBUTING.md#adding-a-new-provider) を参照してください。
 
 ## Read Next
 
-| ドキュメント | 内容 |
-| --- | --- |
-| [docs/pages/explanation/product/philosophy.md](./docs/pages/explanation/product/philosophy.md) | 思想、問題設定、ハーネスエンジニアリング上の位置づけ |
-| [docs/index.md](docs/index.md) | GitHub Pages 用の公開ドキュメント入口 |
-| [docs/plangate.md](docs/plangate.md) | PlanGate ガイド、運用手順、フェーズ説明 |
-| [docs/plangate-v7-hybrid.md](docs/plangate-v7-hybrid.md) | v7 ハイブリッドアーキテクチャ |
-| [docs/orchestrator-mode.md](docs/orchestrator-mode.md) | Parent-Child PBI Orchestrator Mode 仕様 |
-| [docs/workflows/README.md](docs/workflows/README.md) | WF-01〜WF-05 の Workflow 定義 |
-| [docs/ai/core-contract.md](docs/ai/core-contract.md) | 実行契約の正本（Iron Law / Stop rules / Output discipline） |
-| [docs/ai/model-profiles.yaml](docs/ai/model-profiles.yaml) | 実行モデル別 4 profile 設定（v8.3） |
-| [docs/ai/prompt-assembly.md](docs/ai/prompt-assembly.md) | プロンプト 4 層組み立て（v8.3） |
-| [docs/ai/structured-outputs.md](docs/ai/structured-outputs.md) | Structured Outputs / JSON Schema 適用方針（v8.3+） |
-| [docs/ai/eval-plan.md](docs/ai/eval-plan.md) | model migration eval framework（8 観点） |
-| [docs/ai/eval-runner.md](docs/ai/eval-runner.md) | `bin/plangate eval` による機械評価 CLI 仕様 |
-| [docs/ai/responsibility-boundary.md](docs/ai/responsibility-boundary.md) | CLAUDE.md / Skill / Hook の責務境界 |
-| [docs/ai/tool-policy.md](docs/ai/tool-policy.md) | phase 別 allowed_tools 定義 |
-| [docs/ai/hook-enforcement.md](docs/ai/hook-enforcement.md) | v8.5 の Hook enforcement 10/10 実装状態 |
-| [docs/cursor/quickstart.md](docs/cursor/quickstart.md) | Cursor 向け導入（Level 1–3） |
-| [docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md) | Cursor Provider RFC |
-| [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md) | Claude Code plugin としての利用・移行 |
-| [docs/pages/guides/governance/oss-governance.md](./docs/pages/guides/governance/oss-governance.md) | OSS 公開設定・運用判断 |
-| [docs/pages/reference/glossary.md](docs/pages/reference/glossary.md) | **用語クイックリファレンス** — EH-X / WF-XX / V-X / C-X / mode 5 段階等の略号 (#310) |
-| [docs/pages/explanation/product/when-not-to-use.md](docs/pages/explanation/product/when-not-to-use.md) | **When NOT to use / Trade-offs** — PlanGate を採用しない方が良いケース (#310) |
-| [docs/release-process.md](docs/release-process.md) | リリースプロセス（Tag-Main Parity Iron Law / `scripts/check-tag-main-parity.sh` 必須手順） |
-| [CHANGELOG.md](CHANGELOG.md) | 主要リリース履歴 |
-| [docs/working/discussions/](docs/working/discussions/) | Claude × Codex × Gemini の戦略ディスカッションログ（5 ラウンド、v8.7.0 主軸の根拠） |
+| ドキュメント                                                                                           | 内容                                                                                       |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| [docs/pages/explanation/product/philosophy.md](./docs/pages/explanation/product/philosophy.md)         | 思想、問題設定、ハーネスエンジニアリング上の位置づけ                                       |
+| [docs/index.md](docs/index.md)                                                                         | GitHub Pages 用の公開ドキュメント入口                                                      |
+| [docs/plangate.md](docs/plangate.md)                                                                   | PlanGate ガイド、運用手順、フェーズ説明                                                    |
+| [docs/plangate-v7-hybrid.md](docs/plangate-v7-hybrid.md)                                               | v7 ハイブリッドアーキテクチャ                                                              |
+| [docs/orchestrator-mode.md](docs/orchestrator-mode.md)                                                 | Parent-Child PBI Orchestrator Mode 仕様                                                    |
+| [docs/workflows/README.md](docs/workflows/README.md)                                                   | WF-01〜WF-05 の Workflow 定義                                                              |
+| [docs/ai/core-contract.md](docs/ai/core-contract.md)                                                   | 実行契約の正本（Iron Law / Stop rules / Output discipline）                                |
+| [docs/ai/model-profiles.yaml](docs/ai/model-profiles.yaml)                                             | 実行モデル別 4 profile 設定（v8.3）                                                        |
+| [docs/ai/prompt-assembly.md](docs/ai/prompt-assembly.md)                                               | プロンプト 4 層組み立て（v8.3）                                                            |
+| [docs/ai/structured-outputs.md](docs/ai/structured-outputs.md)                                         | Structured Outputs / JSON Schema 適用方針（v8.3+）                                         |
+| [docs/ai/eval-plan.md](docs/ai/eval-plan.md)                                                           | model migration eval framework（8 観点）                                                   |
+| [docs/ai/eval-runner.md](docs/ai/eval-runner.md)                                                       | `bin/plangate eval` による機械評価 CLI 仕様                                                |
+| [docs/ai/responsibility-boundary.md](docs/ai/responsibility-boundary.md)                               | CLAUDE.md / Skill / Hook の責務境界                                                        |
+| [docs/ai/tool-policy.md](docs/ai/tool-policy.md)                                                       | phase 別 allowed_tools 定義                                                                |
+| [docs/ai/hook-enforcement.md](docs/ai/hook-enforcement.md)                                             | v8.5 の Hook enforcement 10/10 実装状態                                                    |
+| [docs/cursor/quickstart.md](docs/cursor/quickstart.md)                                                 | Cursor 向け導入（Level 1–3）                                                               |
+| [docs/rfc/provider-cursor.md](docs/rfc/provider-cursor.md)                                             | Cursor Provider RFC                                                                        |
+| [docs/plangate-plugin-migration.md](docs/plangate-plugin-migration.md)                                 | Claude Code plugin としての利用・移行                                                      |
+| [docs/pages/guides/governance/oss-governance.md](./docs/pages/guides/governance/oss-governance.md)     | OSS 公開設定・運用判断                                                                     |
+| [docs/pages/reference/glossary.md](docs/pages/reference/glossary.md)                                   | **用語クイックリファレンス** — EH-X / WF-XX / V-X / C-X / mode 5 段階等の略号 (#310)       |
+| [docs/pages/explanation/product/when-not-to-use.md](docs/pages/explanation/product/when-not-to-use.md) | **When NOT to use / Trade-offs** — PlanGate を採用しない方が良いケース (#310)              |
+| [docs/release-process.md](docs/release-process.md)                                                     | リリースプロセス（Tag-Main Parity Iron Law / `scripts/check-tag-main-parity.sh` 必須手順） |
+| [CHANGELOG.md](CHANGELOG.md)                                                                           | 主要リリース履歴                                                                           |
+| [docs/working/discussions/](docs/working/discussions/)                                                 | Claude × Codex × Gemini の戦略ディスカッションログ（5 ラウンド、v8.7.0 主軸の根拠）        |
 
 ## ライセンス
 
