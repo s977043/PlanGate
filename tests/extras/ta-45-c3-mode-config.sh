@@ -162,7 +162,7 @@ try:
         "task_id": "TASK-0045",
         "phase": "C-3",
         "c3_status": "APPROVED",
-        "plan_hash": "sha256:abc123",
+        "plan_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "approved_at": "2026-06-25T00:00:00Z",
         "approved_by": "test@example.com",
         "source": "conversation"
