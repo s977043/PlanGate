@@ -205,7 +205,7 @@ def patch_bin_plangate_4a(repo_root, dry_run):
         "    printf 'cli'",
         '    return 0',
         '  fi',
-        "  _rpc_val=$(python3 - \"$_rpc_cfg\" \"$_rpc_key\" 2>&1 <<'PYC'",
+        "  _rpc_val=$(python3 - \"$_rpc_cfg\" \"$_rpc_key\" <<'PYC'",
         'import sys',
         'cfg_path, key = sys.argv[1], sys.argv[2]',
         'try:',
