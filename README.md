@@ -10,6 +10,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![English](https://img.shields.io/badge/lang-English-blue)](README_en.md)
 
+> PlanGate は OpenSSF Best Practices Passing バッジを取得しています。これは、OSS プロジェクトとしてのドキュメント、ライセンス、貢献フロー、品質管理、脆弱性報告手順などの基本的なベストプラクティスを満たしていることを示します。OpenSSF による安全性保証や脆弱性がないことの証明ではありません。
+
 PlanGate は、AI コーディングエージェントのためのガバナンス優先ワークフローハーネスです。
 人間が承認した計画・タスク・受入テストが揃うまで、AI にプロダクションコードを書かせません。
 計画の精度が実装品質を方向づけ、承認ゲートと検証がその品質を実装まで漏らさず着地させます（品質は計画で生まれ、後段で保全される）。
