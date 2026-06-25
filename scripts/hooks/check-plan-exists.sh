@@ -59,8 +59,32 @@ if [ -z "$task_id" ]; then
   task_id=${1:-}
 fi
 
+# stdin fallback: env/arg なし時に tool_input.file_path から TASK-ID を抽出
+if [ -z "$task_id" ] && [ ! -t 0 ]; then
+  _eh1_stdin=$(cat 2>/dev/null || true)
+  if [ -n "$_eh1_stdin" ]; then
+    _eh1_fp=""
+    if command -v jq >/dev/null 2>&1; then
+      _eh1_fp=$(printf '%s' "$_eh1_stdin" \
+        | jq -r '.tool_input.file_path // .file_path // empty' 2>/dev/null \
+        | head -1 || true)
+    fi
+    if [ -z "$_eh1_fp" ]; then
+      _eh1_fp=$(printf '%s' "$_eh1_stdin" \
+        | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' \
+        | head -1 \
+        | sed 's/.*"\([^"]*\)"$/\1/')
+    fi
+    if [ -n "$_eh1_fp" ]; then
+      task_id=$(printf '%s' "$_eh1_fp" \
+        | grep -o 'TASK-[0-9][0-9][0-9][0-9]' \
+        | head -1 || true)
+    fi
+  fi
+fi
+
 if [ -z "$task_id" ]; then
-  log_event "SKIP" "no PLANGATE_HOOK_TASK / arg, skipping (false-positive guard)"
+  log_event "SKIP" "no PLANGATE_HOOK_TASK / arg / stdin, skipping (false-positive guard)"
   emit_judgment "allow"
   exit 0
 fi
