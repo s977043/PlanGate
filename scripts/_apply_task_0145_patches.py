@@ -19,8 +19,13 @@ errors = 0
 def patch_file(rel_path, old, new, label=""):
     global errors
     path = os.path.join(repo_root, rel_path)
-    with open(path, encoding="utf-8") as f:
-        content = f.read()
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+    except OSError as e:
+        print(f"[ERROR] {label or rel_path}: cannot read file: {e}", file=sys.stderr)
+        errors += 1
+        return
     if new in content:
         print(f"[SKIP] {label or rel_path}: already applied")
         return
@@ -39,10 +44,15 @@ def patch_file(rel_path, old, new, label=""):
         if not lines:
             print(f"[NO DIFF] {rel_path}")
     else:
-        with open(path + ".bak", "w", encoding="utf-8") as f:
-            f.write(content)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(new_content)
+        try:
+            with open(path + ".bak", "w", encoding="utf-8") as f:
+                f.write(content)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+        except OSError as e:
+            print(f"[ERROR] {label or rel_path}: cannot write file: {e}", file=sys.stderr)
+            errors += 1
+            return
         print(f"[PATCHED] {rel_path}  (backup: {os.path.basename(path)}.bak)")
 
 
