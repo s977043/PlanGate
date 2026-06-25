@@ -33,7 +33,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install jsonschema
-        run: pip install 'jsonschema==4.23.0'
+        run: pip install --require-hashes -r requirements/schema-validate.txt
 
       - name: Validate schema files and mapping integrity
         run: |
