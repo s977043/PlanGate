@@ -162,3 +162,32 @@ HO 適用は Human）:
 
 各段階は承認境界（HO）の変更を含むため `mode-classification.md` により最低 high・
 Standard C-3 同期固定（autonomous APPROVE 無効）とする。
+
+## CLI 配線（EH-4/5/7）— TASK-0143
+
+> Status: Implemented（`scripts/apply-task-0143-eh457-wiring.sh --apply` 適用後に有効）
+
+PreToolUse hook ではなく **`bin/plangate` CLI サブコマンド経由**で発火する配線。
+
+| Hook | CLI 配線先 | 発火タイミング |
+|------|----------|-------------|
+| EH-4 (`check-test-cases.sh`) | `bin/plangate verify <TASK>` | V-1 実行**前**（strict=1、test-cases.md なしで block） |
+| EH-5 (`check-verification-evidence.sh`) | `bin/plangate verify <TASK>` | V-1 通過**後**（warn のみ、evidence なしで WARNING） |
+| EH-7 (`check-merge-approvals.sh`) | 手動呼び出し推奨 | merge 前: `sh scripts/hooks/check-merge-approvals.sh <TASK>` |
+
+### doctor 可視化
+
+`bin/plangate doctor` の `=== CLI Hook Wiring (EH-4/5/7) ===` セクションが:
+1. EH-4/5/7 スクリプトの存在・実行権限を PASS/WARN/FAIL で報告
+2. `bin/plangate verify` への配線状態（grep 確認）を PASS/WARN で報告
+
+### 適用方法（Human-owned）
+
+```sh
+# 差分確認（必須）
+sh scripts/apply-task-0143-eh457-wiring.sh --dry-run
+# 適用
+sh scripts/apply-task-0143-eh457-wiring.sh --apply
+```
+
+適用後: `bin/plangate doctor` の出力で `[PASS] EH-4 wired` / `[PASS] EH-5 wired` を確認する。

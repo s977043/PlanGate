@@ -11,3 +11,14 @@
 {"ts":"2026-06-15T09:35:04Z","event":"EH-3_SKIP","target":"docs/working/discussions/2026-06-15-544-loop-strategy-rev3.md","skip_reason":"#544 rev.3 に AEE(承認済み実行境界)節を追記（doc-only/discussions・非HO・Bash作成のためEH-3手動記録 / #528 doc-light相当）","acknowledged_by":"mine_take","acknowledged_at":"2026-06-18T08:15:20Z"}
 {"ts": "2026-06-15T10:04:24Z", "event": "EH-3_SKIP", "target": "docs/working/TASK-0130/", "skip_reason": "TASK-0130(#544 Phase1) planning成果物(pbi-input/plan/todo/test-cases)生成。c3未発行のためEH-3対象外だがBash作成のため一括記録 / 要人間追認", "acknowledged_by": "mine_take", "acknowledged_at": "2026-06-18T08:15:20Z"}
 {"ts": "2026-06-15T21:50:49Z", "event": "EH-3_SKIP", "target": "docs/working/TASK-0130/(exec)", "skip_reason": "TASK-0130(#544 Phase1) exec: AEE条項追加+apply-script生成。人間C-3 APPROVED済・Bash編集のため記録/要追認", "acknowledged_by": "mine_take", "acknowledged_at": "2026-06-18T08:15:20Z"}
+{"ts":"2026-06-23T10:19:05Z","event":"EH-3_DOC_LIGHT_SKIP","target":"CHANGELOG.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T00:30:26Z","event":"EH-3_DOC_LIGHT_SKIP","target":"CHANGELOG.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T00:51:36Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/project_v8_15_release.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T00:51:41Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T03:07:41Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-0143/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T03:35:32Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/settings-wiring-contract.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T03:35:44Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T03:36:18Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T03:36:28Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T03:43:45Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-0143/status.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T05:54:51Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}

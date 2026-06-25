@@ -1,48 +1,99 @@
-# TASK-0143 セルフレビュー結果（C-1）
+---
+task_id: TASK-0143
+artifact_type: review-self
+schema_version: 1
+status: complete
+---
 
-> mode=high-risk → 17項目フルチェック対象。本書は Plan 7 + ToDo 5 + TestCases 3 + B-1/B-2 の 2 = 17 項目。
+# C-1 セルフレビュー — TASK-0143
 
-## Plan チェック（7項目）
+## Plan チェック（7 項目）
 
-| # | 項目 | 判定 | 根拠 |
-|---|------|------|------|
-| C1-PLAN-01 | 受入基準網羅性 | PASS | #527 配線系 AC（12/12 表・doctor drift 検出）を本PBI AC-1〜2 に対応付け、固有 AC-3〜5 を追加 |
-| C1-PLAN-02 | Unknowns 処理 | PASS | 群B発火層を明示 Unknown 化し C-3 確定事項として切り出し（candidate1 提示）。EH-7 GH連携も判断項目化 |
-| C1-PLAN-03 | スコープ制御 | PASS | Non-goal に「hook ロジック新規実装」「GH branch protection 自動連携」を明記。`scripts/hooks/` は凍結 |
-| C1-PLAN-04 | テスト戦略 | PASS | Unit/Integration/Regression/Wiring negative を Testing Strategy + test-cases.md に定義 |
-| C1-PLAN-05 | Work Breakdown Output | PASS | 各 Step に Output 列を明記（doc/差分/メモ） |
-| C1-PLAN-06 | 依存関係 | PASS | todo.md 依存関係節で T3〜6 が T1/T2 後、T6 が C-3 後、検証が実装後と明示 |
-| C1-PLAN-07 | 動作検証自動化 | PASS | `sh tests/run-tests.sh` 全 PASS を V-1 前提に設定。doctor negative test 自動化 |
+### C1-PLAN-01: 受入基準網羅性
+- **判定**: PASS
+- **根拠**: AC-01〜09 の全 9 件がテストケース TC-01〜10 にマッピングされ、
+  Work Breakdown の各 Step も対応する AC に紐づいている。
 
-## ToDo チェック（5項目）
+### C1-PLAN-02: Unknowns 処理
+- **判定**: PASS
+- **根拠**: 調査 Step で 2 つの Unknowns を解消済み（pr/merge サブコマンド非存在 /
+  cmd_validate の test-cases.md チェック方式）。残 Unknowns なし。
 
-| # | 項目 | 判定 | 根拠 |
-|---|------|------|------|
-| C1-TODO-01 | タスク粒度 | PASS | 準備2 / 実装5 / 検証4 / 完了1 に分割、各々単一責務 |
-| C1-TODO-02 | depends_on 設定 | PASS | 依存関係節で明示 |
-| C1-TODO-03 | チェックポイント設定 | PASS | 各実装タスクに 🚩 を付与 |
-| C1-TODO-04 | Iron Law 遵守 | PASS | 承認境界 → C-3 ゲートを Human タスク先頭に固定。AI は `scripts/hooks/` 非改変 |
-| C1-TODO-05 | 完了条件 / rollback | PASS | 各実装/テストタスクに rollback 手順を記載（承認境界 high-risk 必須要件を充足） |
+### C1-PLAN-03: スコープ制御
+- **判定**: PASS
+- **根拠**: Non-goals に EHS-1〜3 実装 / PreToolUse hook 化 / pr・merge 新規サブコマンドを
+  明示除外。In scope との境界が明確。
 
-## TestCases チェック（3項目）
+### C1-PLAN-04: テスト戦略
+- **判定**: PASS
+- **根拠**: Unit（hook スクリプト直接呼び出し）/ Integration（ta-44 / run-tests.sh）/
+  Manual（apply-script dry-run → apply → verify 実行確認）の 3 層が定義されている。
 
-| # | 項目 | 判定 | 根拠 |
-|---|------|------|------|
-| C1-TC-01 | 受入基準との紐付き | PASS | AC→TC マッピング表で AC-1〜5 全てに TC を割当 |
-| C1-TC-02 | Edge case 網羅 | PASS | E1（段階化両モード）/ E2（EH-7二重化未完）/ E3（コメント行誤判定）/ E4（群B保留時の段階リリース） |
-| C1-TC-03 | 自動化可否 | PASS | 全 TC が run-tests / doctor で自動実行可能（手動依存なし） |
+### C1-PLAN-05: Work Breakdown Output
+- **判定**: PASS
+- **根拠**: Step 1〜6 の全 Step に Output / Owner / Risk / rollback が明記されている。
 
-## B-1 / B-2（追加2項目 / mode=high-risk）
+### C1-PLAN-06: 依存関係
+- **判定**: PASS
+- **根拠**: todo.md の依存グラフが `T-01 → T-02 → T-03 → T-04 → T-05 → H-02` と
+  明示され、Human Gate（H-01: C-3、H-02: apply-script）が AI-owned タスクと分離されている。
 
-| # | 項目 | 判定 | 根拠 |
-|---|------|------|------|
-| C1-B-01 | 承認境界 Hardening Override 整合 | PASS | 触れるパス（settings.example / bin/plangate / workflows / CLAUDE系doc）を high-risk 固定・lite_eligible=false と明記。`scripts/hooks/` 凍結 |
-| C1-B-02 | 段階的ロールバック | PASS | default=warning 段階導入 + 各タスク rollback 手順 + 群B保留時の群A単独リリース可（E4）で段階的後退を確保 |
+### C1-PLAN-07: 動作検証自動化
+- **判定**: PASS
+- **根拠**: ta-44 テストスイートが apply 前 SKIP / apply 後 PASS の 2 段階で
+  CLI 配線を自動検証する。`sh tests/run-tests.sh` 1 コマンドで実行可能。
+
+## ToDo チェック（5 項目）
+
+### C1-TODO-01: タスク粒度
+- **判定**: PASS
+- **根拠**: T-05〜T-09 は各 1 ファイル操作単位、🚩チェックポイントが適切な
+  マイルストーン（T-05: dry-run 確認, T-10: 332 PASS 確認）に配置されている。
+
+### C1-TODO-02: depends_on 設定
+- **判定**: PASS
+- **根拠**: 全 Agent タスクに depends_on が明記され、依存グラフと整合している。
+
+### C1-TODO-03: チェックポイント設定
+- **判定**: PASS
+- **根拠**: 🚩が T-05、T-10、H-01 に配置され、手戻りコストの高い境界を保護している。
+
+### C1-TODO-04: Iron Law 遵守
+- **判定**: PASS
+- **根拠**: H-02（apply-script 適用）を Human Gate として明示。
+  bin/plangate の AI 直接編集なし。main 直接 push なし。
+
+### C1-TODO-05: 完了条件
+- **判定**: PASS
+- **根拠**: todo.md 末尾の「完了条件」セクションに 5 件の機械確認可能な
+  条件（grep / test run / 実行確認）が列挙されている。
+
+## TestCases チェック（3 項目）
+
+### C1-TC-01: 受入基準との紐づき
+- **判定**: PASS
+- **根拠**: マッピング表で AC-01〜09 → TC-01〜10 が全件カバーされている。
+  AC-01 が TC-01/TC-02 の 2 件でカバーされ（PASS / FAIL 両方向検証）。
+
+### C1-TC-02: Edge case 網羅
+- **判定**: PASS
+- **根拠**: E-01（idempotent apply）/ E-02（空 test-cases.md）/ E-03（空 evidence）/
+  E-04（bin/plangate 未インストール）の 4 件が列挙されている。
+
+### C1-TC-03: 自動化可否
+- **判定**: PASS
+- **根拠**: TC-01〜08 は ta-44 で自動化可能。TC-09/10（dogfooding）は
+  `bin/plangate metrics --report` / `grep` で機械確認可能。
 
 ## 総合判定
 
-**PASS**（FAIL 0 / WARN 0）
+**PASS**
 
-- 17項目すべて PASS。evidence は PASS のため省略（判定根拠を本書に記載）。
-- **C-3 で必ず確定すべき2点**: ① 群B発火層 candidate1（conductor 単一判定層）の承認 ② EH-7 GitHub branch protection 連携を本PBIに含めるか別PBIに切り出すか。
-- C-3 APPROVE 後に exec（T1 から）着手可能。
+指摘事項なし。C-3 ゲートへ進む。
+
+## 注意事項（実装時）
+
+- apply-script は **grep/sed パターンベース**で行番号非依存にすること
+- ta-44 は apply 前に TC-02〜04 を **完全 SKIP**（assert しない）すること
+  （apply 未適用環境での偽 FAIL を防ぐ）
+- cmd_verify の EH-5 呼び出しは `|| true` で exit code を吸収すること（warn のみ）

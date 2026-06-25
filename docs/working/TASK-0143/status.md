@@ -1,23 +1,29 @@
-# TASK-0143 作業ステータス — hook 物理配線 6/12→12/12
+---
+task_id: TASK-0143
+artifact_type: status
+---
 
-## モード判定
-high-risk / lite_eligible=false（承認境界配線）
+# STATUS — TASK-0143
 
 ## C-3 Gate: APPROVED
-- 承認日: 2026-06-25
-- 確定事項:
-  1. 群B発火層 = **candidate1**（workflow-conductor を単一判定層として `validation_bias: strict` を解決）
-  2. EH-7 GitHub branch protection 連携 = **別PBIに切り出し**（本PBIは hook/CI 配線まで）
+ユーザー明示承認 2026-06-25（Claude Code 会話内 "APPROVE"）
+正式 c3.json: `! bin/plangate approve TASK-0143` 実行で記録要（Human-owned）
 
-## 全体構成
-- PR: `plan/task-0143-527-hook-wiring`（#627、plan C-3 用）
-- exec ブランチ: 本ファイル更新時点で exec 着手
+---
 
-## V系ステップ進捗
-- [ ] L-0 / V-1〜（exec 後）
+## D フェーズ: exec 完了（2026-06-25）
 
-## 残タスク
-- exec T1〜T12（todo.md 参照）
+### 実行タスク
+- [x] T-05: scripts/apply-task-0143-eh457-wiring.sh + _apply_task_0143_patches.py 作成（dry-run 3 patch 確認済み）
+- [x] T-06: docs/ai/settings-wiring-contract.md — CLI 配線（EH-4/5/7）セクション追加
+- [x] T-07: docs/ai/hook-enforcement.md — 配線表更新・EHS-1〜3 設計追加
+- [x] T-08: tests/extras/ta-44-eh457-cli-wiring.sh 新規作成（5 TC / apply 前 SKIP）
+- [x] T-09: extras/ 自動 source（run-tests.sh 編集不要）
+- [x] T-10: sh tests/run-tests.sh → 332 passed, 0 failed
 
-## 計画からの変更点
-- （随時追記）
+### Human Gate（残タスク）
+- [ ] H-01: `! bin/plangate approve TASK-0143` 実行（c3.json 正式記録）
+- [ ] H-02: `sh scripts/apply-task-0143-eh457-wiring.sh --apply` 実行
+
+### PR 作成待ち
+L-0 リンター → PR 作成 → C-4
