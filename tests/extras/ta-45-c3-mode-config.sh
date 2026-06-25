@@ -159,7 +159,7 @@ try:
         schema = json.load(f)
     # source: "conversation" を含む最小 c3.json（required: task_id/phase/c3_status/approved_by/approved_at/plan_hash）
     instance = {
-        "task_id": "TASK-T45",
+        "task_id": "TASK-0045",
         "phase": "C-3",
         "c3_status": "APPROVED",
         "plan_hash": "sha256:abc123",
