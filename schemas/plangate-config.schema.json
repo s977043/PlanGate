@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/plangate-config.schema.json",
+  "title": "PlanGate Project Config",
+  "description": ".plangate.yml プロジェクト設定スキーマ（TASK-0144）",
+  "type": "object",
+  "properties": {
+    "c3_approval": {
+      "type": "object",
+      "description": "C-3 承認モード設定",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["cli", "conversation"],
+          "description": "C-3 承認モード: cli (デフォルト) または conversation"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

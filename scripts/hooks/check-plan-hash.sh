@@ -140,6 +140,43 @@ if [ -z "$task_id" ]; then
   fi
 
 
+  # [TASK-0144] C-3 conversation mode: c3.json auto-generate path
+  # approvals/c3.json + conversation mode -> SKIP (通す。中身検証は EH-2 と AI 生成コードに委ねる)
+  case "$_norm_target" in
+    docs/working/TASK-*/approvals/c3.json)
+      _cfg_yml="$REPO_ROOT/.plangate.yml"
+      _c3mode="cli"
+      if [ -f "$_cfg_yml" ]; then
+        _c3mode=$(python3 - "$_cfg_yml" 2>/dev/null <<'PYC3'
+import sys
+cfg_path = sys.argv[1]
+try:
+    import yaml
+    with open(cfg_path, "r", encoding="utf-8") as f:
+        d = yaml.safe_load(f)
+    if not isinstance(d, dict):
+        print("cli"); sys.exit(0)
+    m = (d.get("c3_approval") or {}).get("mode", "cli")
+    print(m if m in ("cli", "conversation") else "cli")
+except Exception:
+    print("cli")
+PYC3
+) || _c3mode="cli"
+      fi
+      if [ "$_c3mode" = "conversation" ]; then
+        _dlog_c3="$WORKING_DIR/_audit/skip-decision-log.jsonl"
+        mkdir -p "$(dirname "$_dlog_c3")"
+        _ts_c3=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+        _esc_c3=$(printf '%s' "${_norm_target:-unknown}" | tr -d '\\n\\r\\t')
+        printf '{"ts":"%s","event":"EH-3_C3_CONVERSATION_SKIP","target":"%s","acknowledged_by":null,"acknowledged_at":null}\n' "$_ts_c3" "$_esc_c3" >>"$_dlog_c3"
+        reason="C3_CONVERSATION_SKIP: c3.json target (${_norm_target:-unknown}) -- conversation mode, auto-allowed"
+        log_event "C3_CONVERSATION_SKIP" "$reason"
+        printf '[Hook EH-3 C3_CONVERSATION_SKIP] %s\n' "$reason"
+        exit 0
+      fi
+      ;;
+  esac
+
   # (iii)-(v) maintenance valid + scope + one-shot atomic consume
   _maint="$REPO_ROOT/docs/working/_maintenance/maintenance.json"
   # [TASK-0138] doc-light path: auto-SKIP for non-HO .md files
