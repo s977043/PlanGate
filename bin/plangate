@@ -604,7 +604,7 @@ PYEOF
   printf '\n'
 
   printf '=== C-3 Approval Mode ===\n'
-  _c3mode_doctor=$(_read_plangate_config c3_approval.mode 2>/dev/null || echo 'cli')
+  _c3mode_doctor=$(_read_plangate_config c3_approval.mode || echo 'cli')
   if [ -f "$plangate_root/.plangate.yml" ]; then
     printf '  [INFO] .plangate.yml found: c3_approval.mode=%s\n' "$_c3mode_doctor"
   else
