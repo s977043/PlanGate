@@ -69,6 +69,17 @@ if [ -z "$task_id" ] && [ ! -t 0 ]; then
         | jq -r '.tool_input.file_path // .file_path // empty' 2>/dev/null \
         | head -1 || true)
     fi
+    if [ -z "$_eh1_fp" ] && command -v python3 >/dev/null 2>&1; then
+      _eh1_fp=$(printf '%s' "$_eh1_stdin" | python3 -c '
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    if isinstance(d, dict):
+        print(d.get("tool_input", {}).get("file_path") or d.get("file_path") or "")
+except Exception:
+    pass
+' 2>/dev/null || true)
+    fi
     if [ -z "$_eh1_fp" ]; then
       _eh1_fp=$(printf '%s' "$_eh1_stdin" \
         | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' \

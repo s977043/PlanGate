@@ -66,6 +66,17 @@ if [ -z "$task_id" ] && [ ! -t 0 ]; then
         | jq -r '.tool_input.file_path // .file_path // empty' 2>/dev/null \
         | head -1 || true)
     fi
+    if [ -z "$_eh2_fp" ] && command -v python3 >/dev/null 2>&1; then
+      _eh2_fp=$(printf '%s' "$_eh2_stdin" | python3 -c '
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    if isinstance(d, dict):
+        print(d.get("tool_input", {}).get("file_path") or d.get("file_path") or "")
+except Exception:
+    pass
+' 2>/dev/null || true)
+    fi
     if [ -z "$_eh2_fp" ]; then
       _eh2_fp=$(printf '%s' "$_eh2_stdin" \
         | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' \
@@ -114,7 +125,7 @@ fi
 c3_status=$(python3 - "$c3_file" <<'PYC3' 2>/dev/null || true
 import sys, json
 try:
-    with open(sys.argv[1]) as f:
+    with open(sys.argv[1], encoding="utf-8") as f:
         data = json.load(f)
     if isinstance(data, dict):
         print(data.get("c3_status", ""))
