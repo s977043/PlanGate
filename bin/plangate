@@ -528,6 +528,35 @@ PYEOF
   fi
   printf '\n'
 
+  printf '=== CLI Hook Wiring (EH-4/5/7) ===\n'
+  _cli_hook_failures=0
+  for _cli_hook_name in check-test-cases check-verification-evidence check-merge-approvals; do
+    _cli_hook_path="$plangate_root/scripts/hooks/${_cli_hook_name}.sh"
+    if [ -f "$_cli_hook_path" ] && [ -x "$_cli_hook_path" ]; then
+      printf '  [PASS] %s.sh exists and is executable\n' "$_cli_hook_name"
+    elif [ -f "$_cli_hook_path" ]; then
+      printf '  [WARN] %s.sh exists but is not executable\n' "$_cli_hook_name"
+    else
+      printf '  [FAIL] %s.sh not found\n' "$_cli_hook_name"
+      _cli_hook_failures=$((_cli_hook_failures + 1))
+    fi
+  done
+  if [ "$_cli_hook_failures" -gt 0 ]; then
+    failures=$((failures + _cli_hook_failures))
+  fi
+  if grep -q 'check-test-cases\.sh' "$plangate_root/bin/plangate" 2>/dev/null; then
+    printf '  [PASS] EH-4 wired in bin/plangate verify\n'
+  else
+    printf '  [WARN] EH-4 not wired -- run: sh scripts/apply-task-0143-eh457-wiring.sh --apply\n'
+  fi
+  if grep -q 'check-verification-evidence\.sh' "$plangate_root/bin/plangate" 2>/dev/null; then
+    printf '  [PASS] EH-5 wired in bin/plangate verify\n'
+  else
+    printf '  [WARN] EH-5 not wired -- run: sh scripts/apply-task-0143-eh457-wiring.sh --apply\n'
+  fi
+  printf '  [INFO] EH-7: run before merge: sh scripts/hooks/check-merge-approvals.sh <TASK-XXXX>\n'
+  printf '\n'
+
   printf '=== Optional Provider CLIs ===\n'
   if command -v gemini >/dev/null 2>&1; then
     printf '  [INFO] gemini CLI found (PLANGATE_EXTERNAL_REVIEWER=gemini supported)\n'
@@ -2033,11 +2062,18 @@ cmd_verify() {
       --mode=*) mode_flag="${arg#--mode=}" ;;
     esac
   done
+  printf '[verify] Checking EH-4: test-cases.md present...\n'
+  if ! PLANGATE_HOOK_STRICT=1 sh "$plangate_root/scripts/hooks/check-test-cases.sh" "$task_id"; then
+    printf '[verify] EH-4 BLOCK -- create docs/working/%s/test-cases.md first\n' "$task_id" >&2
+    return 1
+  fi
   printf '[verify] Running V-1 (validate)...\n'
   if ! "$0" validate "$task_id"; then
     printf '[verify] V-1 FAILED — stop\n' >&2
     return 1
   fi
+  printf '[verify] Checking EH-5: verification evidence present...\n'
+  sh "$plangate_root/scripts/hooks/check-verification-evidence.sh" "$task_id" || true
   printf '[verify] Running settings task-lock check...\n'
   if ! "$0" doctor --check-settings; then
     printf '[verify] settings task-lock FAILED — Human must run sh scripts/apply-claude-settings.sh\n' >&2
