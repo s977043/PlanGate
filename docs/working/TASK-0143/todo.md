@@ -1,36 +1,93 @@
-# TASK-0143 EXECUTION TODO — hook 6→12 配線
+---
+task_id: TASK-0143
+artifact_type: todo
+schema_version: 1
+status: draft
+---
 
-> mode=high-risk / lite_eligible=false。L-0〜V-4・PR は workflow-conductor が自動制御するため本リストに含めない。
-
-## 👤 Human ゲート
-
-- [ ] **C-3**: 本 plan の承認（exec 前ゲート）。特に **群B発火層 candidate1（conductor 単一判定層）** と **EH-7 GH連携の別PBI切出し** を明示判断
-- [ ] **C-4**: PR レビュー（GitHub 上）
+# EXECUTION TODO — TASK-0143
 
 ## 🤖 Agent タスク
 
-### 準備
-- [ ] T1: EH-4/5/7 の現行呼出箇所を conductor 定義 / CI / bin/plangate で棚卸し（重複配線回避）｜owner: agent｜🚩配線先確定｜rollback: 不要（読取のみ）
-- [ ] T2: `validation_bias` の現参照箇所（model-profiles.yaml 消費層）を特定し群B発火層の接続点を確定｜owner: agent｜🚩Unknown1 解消｜rollback: 不要（読取のみ）
+### 準備フェーズ
+- [x] T-01: pbi-input.md 作成（本 PBI の目的・スコープ・AC 定義）
+- [x] T-02: EH-4/5/7 スクリプト仕様調査（スクリプト内容・テスト構造の把握）
+- [x] T-03: bin/plangate の cmd_verify / cmd_doctor 現状把握
+- [x] T-04: plan.md / todo.md / test-cases.md 生成
 
-### 実装
-- [ ] T3: 群A配線 — conductor のフェーズ前（V-1前/PR前/merge前）に EH-4/5/7 CLI 呼出を追加（default=warning）｜owner: agent｜🚩既定挙動不変｜rollback: conductor 定義の該当呼出行を revert
-- [ ] T4: CI ガード — `.github/workflows/*.yml` に PR/merge 時の EH-5/EH-7 呼出を追加｜owner: agent｜🚩CI 失敗時の影響確認｜rollback: workflow 差分 revert
-- [ ] T5: `doctor --check-settings` を群A含む必須 hook 表に拡張し drift を exit≠0 検出｜owner: agent｜🚩既存6hook検証の非退行｜rollback: check-settings-wiring.sh 差分 revert
-- [ ] T6: 群B配線 — C-3 確定案で conductor が strict 時のみ EHS-1〜3 を発火｜owner: agent｜🚩strict限定・既定OFF回帰｜rollback: conductor の EHS 呼出ブロック revert
-- [ ] T7: `docs/ai/hook-enforcement.md` 配線表を 12/12 に更新（doctor 出力と一致）｜owner: agent｜🚩doc整合｜rollback: doc 差分 revert
+### 実装フェーズ
+- [ ] T-05: `scripts/apply-task-0143-eh457-wiring.sh` 作成
+  - cmd_verify に EH-4（strict）呼び出し追加
+  - cmd_verify に EH-5（warn）呼び出し追加
+  - cmd_doctor に CLI Hook Wiring セクション追加
+  - depends_on: T-04
+  - rollback: apply 前は不要、apply 後は `git checkout bin/plangate`
+  - 🚩 作成後 dry-run 出力を確認してから次へ
 
-### 検証
-- [ ] T8: `tests/extras/ta-06-hooks.sh` を拡張し EH-4/5/7 呼出を assert｜owner: agent｜rollback: テスト差分 revert
-- [ ] T9: doctor wiring negative test（群A未配線→exit≠0）追加｜owner: agent｜rollback: テスト差分 revert
-- [ ] T10: 群B回帰 — 非strict既定で EHS-1〜3 非発火を assert｜owner: agent｜rollback: テスト差分 revert
-- [ ] T11: `sh tests/run-tests.sh` 全 PASS（V-1 受け入れ検査の前提）｜owner: agent｜rollback: 不要（検証のみ）
+- [ ] T-06: `docs/ai/settings-wiring-contract.md` に CLI 配線セクション追記
+  - 「EH-4 / EH-5: bin/plangate verify に配線」
+  - 「EH-7: doctor 可視化（merge 前手動実行推奨）」
+  - depends_on: T-04
+  - rollback: `git checkout docs/ai/settings-wiring-contract.md`
 
-### 完了
-- [ ] T12: handoff.md 生成（必須6要素）｜owner: agent
+- [ ] T-07: `docs/ai/hook-enforcement.md` 更新
+  - 配線状態表: EH-4/5 → ✅ CLI 配線（apply 後）、EH-7 → ⏳ doctor のみ
+  - EHS-1〜3 設計セクション追加（発火条件・連携仕様）
+  - depends_on: T-04
+  - rollback: `git checkout docs/ai/hook-enforcement.md`
+
+- [ ] T-08: `tests/extras/ta-44-eh457-cli-wiring.sh` 新規作成
+  - TC-01: apply-script 未適用 → SKIP
+  - TC-02: EH-4 strict ブロック確認（test-cases.md なし → exit 1）
+  - TC-03: doctor に CLI Hook Wiring セクション出力確認
+  - TC-04: EH-4/5/7 スクリプト存在確認
+  - depends_on: T-05
+  - rollback: `git checkout tests/extras/ta-44-eh457-cli-wiring.sh`
+
+- [ ] T-09: `tests/run-tests.sh` に ta-44 source 追加
+  - depends_on: T-08
+  - rollback: `git checkout tests/run-tests.sh`
+
+### 検証フェーズ
+- [ ] T-10: `sh tests/run-tests.sh` 実行（ta-44 SKIP 確認、他テスト 0 FAIL）
+  - depends_on: T-05, T-08, T-09
+  - 🚩 既存 332 tests PASS + ta-44 SKIP が確認できたら次へ
+
+- [ ] T-11: C-1 セルフレビュー実施（review-self.md 生成）
+  - depends_on: T-05〜T-10 完了後
+  - rollback: 不要
+
+- [ ] T-12: current-state.md 更新
+  - depends_on: T-11
+
+## 👤 Human タスク
+
+- [ ] H-01: C-3 レビュー（plan / todo / test-cases 確認・三値判断）
+  - depends_on: T-11（C-1 完了後）
+  - 🚩 APPROVE: exec フェーズへ / CONDITIONAL: 反映後 exec / REJECT: plan 再生成
+
+- [ ] H-02: apply-script 適用（HO パス Human Gate）
+  - `sh scripts/apply-task-0143-eh457-wiring.sh --dry-run` で差分確認
+  - `sh scripts/apply-task-0143-eh457-wiring.sh --apply` で適用
+  - depends_on: H-01 APPROVE 後、T-05 完了後
+
+- [ ] H-03: C-4 PR レビュー（GitHub 上）
+  - depends_on: PR 作成後
 
 ## ⚠️ 依存関係
 
-- T3〜T6（実装）は T1/T2（棚卸し）完了後
-- T6（群B）は **C-3 で発火層確定後**にのみ着手（未確定なら T6 は保留・群A配線のみで段階リリース可）
-- T8〜T11（検証）は対応する実装ステップ完了後
+```
+T-01 → T-02 → T-03 → T-04
+T-04 → T-05 → T-08 → T-09 → T-10 → T-11
+T-04 → T-06
+T-04 → T-07
+T-11 → H-01 → H-02 → T-10（apply 後検証）→ PR → H-03
+```
+
+## 完了条件
+
+- `sh tests/run-tests.sh` で 0 FAIL（ta-44 は apply 前 SKIP、apply 後 PASS）
+- `docs/ai/settings-wiring-contract.md` に CLI 配線セクション存在
+- `docs/ai/hook-enforcement.md` 配線表 + EHS-1〜3 設計追加
+- apply 後: `bin/plangate verify TASK-0143` が EH-4 を呼び audit log に記録される
+- `docs/working/improvement-seeds.md` に本 PBI の retro エントリ追記

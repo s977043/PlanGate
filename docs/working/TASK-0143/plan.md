@@ -1,80 +1,127 @@
-# TASK-0143 EXECUTION PLAN — hook 物理配線 6/12 → 12/12（#527 子1 / #500 §1）
+---
+task_id: TASK-0143
+artifact_type: plan
+schema_version: 1
+status: draft
+---
 
-> 由来: EPIC [#527](https://github.com/s977043/plangate/issues/527) 子 PBI 第1号 ／ [#500](https://github.com/s977043/plangate/issues/500) §1 Shadow Config 解消
-> 前提: TASK-0141（#500 EH-2 strict / apply-script）の Human 適用（H-03）完了が望ましい（独立だが同じ承認境界領域）
+# EXECUTION PLAN — TASK-0143
 
 ## Goal
 
-実装済みだが発火経路のない 6 hook（EH-4 / EH-5 / EH-7 / EHS-1 / EHS-2 / EHS-3）に物理配線を与え、`docs/ai/hook-enforcement.md` の配線状態表を **6/12 → 12/12** にする。配線済みを `bin/plangate doctor` が機械検証し、drift を exit≠0 で検出できる状態を到達点とする（Shadow Config の構造的再発防止）。
+EH-4 / EH-5 を `bin/plangate verify` に CLI 配線し、EH-7 は `doctor` 経由で
+可視化する。settings-wiring-contract.md に CLI 配線セクションを追加、
+EHS-1〜3 の設計をドキュメント化し、ta-44 テストで配線確認を自動化する。
+#529 dogfooding として metrics opt-in + WF-06 retro を初回実施。
 
 ## Constraints / Non-goals
 
-- **Non-goal**: hook ロジック自体の新規実装（12/12 すべて実装済み・単体テスト済み）。本 PBI は「配線 + 配線検証」に限定。
-- **Non-goal**: GitHub branch protection の自動連携（EH-7 の GitHub 側強制は別 PBI 候補）。
-- **Constraint**: 承認境界パス（`scripts/hooks/` は触れない／`.claude/settings.example.json`・`bin/plangate`・`.github/workflows/` は触れる）→ **mode=high-risk 固定・lite_eligible=false**（mode-classification 承認境界ルール）。
-- **Constraint**: 既定挙動不変。新規配線は **default=warning（continue:true）** で導入し、strict 昇格は段階化（#527 Risk の fallback 方針）。
+- `bin/plangate` は HO パス → **AI は直接編集不可**。apply-script を作成し Human が適用する
+- EHS-1〜3 の実装は本 PBI 外（設計・ドキュメント化のみ）
+- `pr` / `merge` サブコマンドの新規実装は本 PBI 外
+- EH-4/5/7 の PreToolUse hook 化は本 PBI 外
 
 ## Approach Overview
 
-6 hook を性質で 2 群に分ける。
-
-| 群 | hook | 種別 | 発火経路（配線先） |
-|----|------|------|------------------|
-| **A: フェーズ呼出型** | EH-4（test-cases なし V-1 block）/ EH-5（検証ログなし PR block）/ EH-7（2段階レビューなしマージ block） | CLI（conductor が各フェーズ前に呼ぶ） | workflow-conductor のフェーズ前チェック + CI（PR/merge ガード） |
-| **B: strict プロファイル発火型** | EHS-1（V-3 必須）/ EHS-2（handoff 6要素）/ EHS-3（fix loop 上限） | CLI（`validation_bias: strict` 時のみ追加発火） | **発火条件 `validation_bias: strict` の判定層が未配線**（要設計判断） |
-
-**群 B の Unknown（#527 明記の未確定点）**: `validation_bias: strict` を「どの層が」判定して EHS-1〜3 を発火させるか。候補:
-1. workflow-conductor runtime が model-profiles.yaml の `validation_bias` を解決し、strict 時のみ EHS チェックを呼ぶ（参照層 → 強制層への昇格）
-2. hook 内で profile を自己解決（責務肥大・非推奨）
-
-→ **C-3 で候補1を確定する想定**（conductor を単一判定層に集約）。確定後に群 B を配線。
+1. `cmd_verify` に EH-4（strict）+ EH-5（warn）を追加する apply-script を作成
+2. `cmd_doctor` に `=== CLI Hook Wiring (EH-4/5/7) ===` セクションを追加（apply-script 経由）
+3. `docs/ai/settings-wiring-contract.md` に CLI 配線セクションを追記（AI 直接編集可）
+4. `docs/ai/hook-enforcement.md` 配線状態表を更新、EHS-1〜3 設計を追記
+5. `tests/extras/ta-44-eh457-cli-wiring.sh` を新規作成し `tests/run-tests.sh` に追加
 
 ## Work Breakdown
 
-| Step | 内容 | Output | Owner | Risk | 🚩 |
-|------|------|--------|-------|------|----|
-| S1 | EH-4/5/7 の現行呼出有無を conductor / CI で棚卸し（既に部分呼出があるか） | 棚卸しメモ | agent | 低 | 🚩配線先の重複確認 |
-| S2 | 群 A 配線: conductor のフェーズ前（V-1前/PR前/merge前）に CLI 呼出を追加。CI（PR/merge）にもガード追加 | conductor 定義 + `.github/workflows/*.yml` 差分 | agent | 中 | 🚩default=warning で導入 |
-| S3 | `bin/plangate doctor --check-settings` のモード別必須 hook 表を 6→9（群A含む）に拡張し drift 検出 | `bin/plangate` + `scripts/check-settings-wiring.sh` 差分 | agent | 中 | 🚩exit≠0 で drift block |
-| S4 | 群 B の発火層を C-3 確定案（候補1）で配線。strict 時のみ EHS-1〜3 発火 | conductor + model-profiles 参照配線 | agent | **高** | 🚩strict 限定・既定 OFF を回帰確認 |
-| S5 | `docs/ai/hook-enforcement.md` 配線表を 12/12 に更新 | doc 差分 | agent | 低 | 🚩doctor 出力と一致 |
+### Step 1: 調査（AI / 既完了）
+- **Output**: EH-4/5/7 スクリプト仕様確認、cmd_verify の現状把握、ta-43 テスト構造把握
+- **Owner**: agent
+- **Risk**: 低（read-only）
+- **rollback**: 不要
+
+### Step 2: apply-script 作成（AI）
+- `scripts/apply-task-0143-eh457-wiring.sh` を新規作成
+- **変更内容（bin/plangate への patch）**:
+  - `cmd_verify` 先頭に EH-4 呼び出し追加（strict=1 → test-cases.md なしは block）
+  - `cmd_verify` の validate PASS 後に EH-5 呼び出し追加（warning mode = exit 0）
+  - `cmd_doctor` に `=== CLI Hook Wiring (EH-4/5/7) ===` セクション追加
+- **dry-run / --apply 両対応**（ta-43 パターンに準拠）
+- **Output**: `scripts/apply-task-0143-eh457-wiring.sh`
+- **Owner**: agent
+- **Risk**: 中（apply 待ち状態では機能未配線のまま）
+- **rollback**: apply 前なら不要; apply 後は `git checkout bin/plangate`
+
+### Step 3: docs/ai/ ドキュメント更新（AI）
+- `docs/ai/settings-wiring-contract.md` に「CLI 配線（EH-4/5/7）」節を追加
+- `docs/ai/hook-enforcement.md` 配線状態表を更新（EH-4/5 → ✅ CLI 配線、EH-7 doctor 可視化 → ⏳、EHS-1〜3 設計追加）
+- **Output**: 2 ファイル更新
+- **Owner**: agent
+- **Risk**: 低（docs のみ）
+- **rollback**: `git checkout docs/ai/settings-wiring-contract.md docs/ai/hook-enforcement.md`
+
+### Step 4: ta-44 テスト作成（AI）
+- `tests/extras/ta-44-eh457-cli-wiring.sh` を新規作成
+- `tests/run-tests.sh` に source 追加
+- **テスト内容**:
+  - TC-01: apply-script 未適用時 → SKIP（bin/plangate grep で判定）
+  - TC-02（apply 後）: `plangate verify` 実行時に EH-4 が audit log に VIOLATION を記録すること（test-cases.md なし → exit 1）
+  - TC-03（apply 後）: doctor 出力に `CLI Hook Wiring` セクションが含まれること
+  - TC-04（apply 後）: doctor が EH-4/5/7 スクリプトの存在を PASS/WARN で報告すること
+- **Owner**: agent
+- **Risk**: 低
+- **rollback**: `git checkout tests/extras/ta-44-eh457-cli-wiring.sh tests/run-tests.sh`
+
+### Step 5: Human apply + 検証（Human）
+- 🚩 **Human Gate**: `sh scripts/apply-task-0143-eh457-wiring.sh --apply` 実行
+- `sh tests/run-tests.sh` で 0 FAIL 確認
+- **Owner**: human
+- **Risk**: 高（bin/plangate 変更）
+- **rollback**: `git checkout bin/plangate`
+
+### Step 6: #529 dogfooding（AI）
+- 各フェーズで `bin/plangate metrics TASK-0143 --collect` 実行
+- 完了後に `docs/working/improvement-seeds.md` にエントリ追記
+- **Owner**: agent
+- **Risk**: 低
+- **rollback**: 不要（append のみ）
 
 ## Files / Components to Touch
 
-- `.claude/settings.example.json`（群A PreToolUse 非該当分は conductor 側／CI 側に寄せる）
-- `bin/plangate` + `scripts/check-settings-wiring.sh`（doctor wiring 検証拡張）
-- `.claude/agents/workflow-conductor.md`（フェーズ前チェック呼出の明文化）
-- `.github/workflows/*.yml`（PR/merge ガード）
-- `docs/ai/hook-enforcement.md`（配線表更新）
-- **触れない**: `scripts/hooks/*.sh`（実装は完了・凍結）
+| ファイル | 変更種別 | HO | Owner |
+|---------|---------|-----|-------|
+| `bin/plangate` | Edit（apply-script 経由） | ✅ | Human (apply-script) |
+| `scripts/apply-task-0143-eh457-wiring.sh` | 新規作成 | — | AI |
+| `docs/ai/settings-wiring-contract.md` | Edit（CLI 配線節追加） | — | AI |
+| `docs/ai/hook-enforcement.md` | Edit（配線表更新、EHS 設計追加） | — | AI |
+| `tests/extras/ta-44-eh457-cli-wiring.sh` | 新規作成 | — | AI |
+| `tests/run-tests.sh` | Edit（ta-44 source 追加） | — | AI |
 
 ## Testing Strategy
 
-- **Unit/Integration**: `tests/extras/ta-06-hooks.sh` を拡張し EH-4/5/7 の「呼出されること」を assert（ta-06 のログ握りつぶし解消は #500 §3 で着手済 → 整合確認）。
-- **Wiring 検証**: `bin/plangate doctor --check-settings` が群A未配線時に exit≠0 を返す negative test を追加。
-- **群 B 回帰**: `validation_bias` 非 strict（既定）で EHS-1〜3 が発火しない（既存挙動不変）ことを assert。
-- **Verification Automation**: `sh tests/run-tests.sh` 全 PASS を V-1 完了条件とする。
+- **Unit**: ta-44 が apply 前に SKIP、apply 後に TC-02/03/04 PASS
+- **Integration**: `sh tests/run-tests.sh` 0 FAIL（既存 332 tests + ta-44）
+- **Verification**: `plangate verify TASK-0143` が EH-4 を呼び audit log に記録される
+- **Manual**: apply-script dry-run で期待差分を確認してから --apply
 
 ## Risks & Mitigations
 
-| Risk | 対策 |
-|------|------|
-| 群A配線で既存フローを誤 block | default=warning 導入 → 実績後に strict 昇格（段階化） |
-| 群B発火層の設計誤り（conductor 肥大） | C-3 で候補1を明示承認。判定は単一層に集約 |
-| doctor 拡張が既存 6 hook 検証を退行 | 既存 ta-10-doctor-fix / check-settings-wiring の回帰を必須化 |
+| リスク | 緩和策 |
+|-------|-------|
+| EH-5 が verify 後に呼ばれても evidence がない（常時 WARN） | warning mode のみ（exit 0）、FAIL ではなく WARN |
+| apply-script の patch が bin/plangate の行番号変化で失敗 | grep/sed パターンベースの patch（行番号非依存） |
+| EH-7 の verify 時呼び出しは C-4 未承認で常に WARN | EH-7 は verify に含めず doctor のみに限定 |
+| ta-44 が apply 未適用環境で FAIL | apply 判定 → SKIP パターン（ta-43 踏襲） |
 
-## Questions / Unknowns
+## Questions / Unknowns（解消済み）
 
-1. **群 B 発火層**（candidate1=conductor runtime）→ C-3 で確定。
-2. EH-7 は hook + GitHub branch protection の二重化が理想だが、本 PBI は hook/CI 配線まで。GH 側は別 PBI に切り出し可か？ → C-3 判断。
+- bin/plangate に pr/merge サブコマンド: **存在しない** → doctor 経由で EH-5/7 を案内
+- cmd_validate が test-cases.md をチェック: **validate は artifact check（ファイル存在）のみ、audit log なし** → EH-4 別途追加が必要
 
-## Mode判定
+## Mode 判定
 
-**モード**: high-risk
+**モード**: `high-risk`
 
 **判定根拠**:
-- 変更ファイル数: 5-6（settings.example / bin/plangate / conductor / workflows / doc）→ high-risk
-- 受入基準数: 5（#527 受入基準のうち配線系2 + 本 PBI 固有3）→ standard〜high-risk
-- 変更種別: 承認境界（settings / bin/plangate / .github/workflows）配線 → **承認境界ルールにより最低 high-risk 強制**
-- リスク: 高（強制力の発火経路そのもの。誤配線で誤 block / 強制漏れ両方のリスク）
-- **最終判定**: **high-risk**（承認境界周辺 → lite_eligible=false / Standard 同期 C-3 固定）
+- 変更ファイル数: 6 → standard
+- 変更種別: `bin/plangate`（Hardening Override 対象パス）→ **high-risk 強制**
+- 影響範囲: plangate verify フロー全体に波及
+- **最終判定**: `high-risk`（HO パス例外ルール適用）
+- `lite_eligible`: false（HO パス = 強制）

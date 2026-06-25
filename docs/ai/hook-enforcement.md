@@ -15,10 +15,11 @@
 >
 > | 配線状態 | Hook | 発火経路 |
 > |---------|------|---------|
-> | ✅ 配線済み（6） | EH-1 / EH-2 / EH-3 / EH-6 / EH-9 | Claude PreToolUse + Codex hooks.json |
+> | ✅ 配線済み（8） | EH-1 / EH-2 / EH-3 / EH-6 / EH-9 | Claude PreToolUse + Codex hooks.json |
 > | | EH-8 | CI（metrics-privacy.yml）+ doctor + codex-guarded |
-> | ⏳ 実装済み・未配線（6） | EH-4 / EH-5 / EH-7 | 発火経路なし（#500 で配線予定） |
-> | | EHS-1 / EHS-2 / EHS-3 | 発火条件の `validation_bias: strict` 自体が未配線（model-profiles.yaml は参照層） |
+> | ✅ CLI 配線（2、apply 後） | EH-4 / EH-5 | `bin/plangate verify` —EH-4: V-1 前 strict / EH-5: V-1 後 warn（TASK-0143） |
+> | ⏳ doctor 可視化のみ（1） | EH-7 | `bin/plangate doctor` CLI Hook Wiring セクション + 手動推奨（#500 後続） |
+> | ⏳ 設計済み・未実装（3） | EHS-1 / EHS-2 / EHS-3 | 発火条件の `validation_bias: strict` 自体が未配線（設計は本書 §EHS を参照） |
 
 > 関連: [`responsibility-boundary.md`](./responsibility-boundary.md) / [`tool-policy.md`](./tool-policy.md) / [`model-profiles.md`](./model-profiles.md)
 > 実装: [`scripts/hooks/check-plan-exists.sh`](../../scripts/hooks/check-plan-exists.sh) / [`check-c3-approval.sh`](../../scripts/hooks/check-c3-approval.sh) / [`check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) / [`check-test-cases.sh`](../../scripts/hooks/check-test-cases.sh) / [`check-verification-evidence.sh`](../../scripts/hooks/check-verification-evidence.sh) / [`check-forbidden-files.sh`](../../scripts/hooks/check-forbidden-files.sh) / [`check-merge-approvals.sh`](../../scripts/hooks/check-merge-approvals.sh) / [`check-v3-review.sh`](../../scripts/hooks/check-v3-review.sh) / [`check-handoff-elements.sh`](../../scripts/hooks/check-handoff-elements.sh) / [`check-fix-loop.sh`](../../scripts/hooks/check-fix-loop.sh)
@@ -88,24 +89,50 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 - **対応**: **default=block**（bypass・未宣言のみ従来動作=誤検出ゼロ。warn 廃止）。`git -c`/`-C`/env 前置/`command git`/`gh pr merge`/`sh -c` 等の回避形を網羅。信頼境界=stdin JSON 正本
 - **基盤**: #239 問題2（委譲先 Behavior Rule 不遵守）の決定論ガード化
 
-## 3. validation_bias: strict 時の追加条件
+## 3. validation_bias: strict 時の追加条件（EHS）
 
-Model Profile の `validation_bias: strict` プロファイル（gpt-5_5_pro）では、上記 EH-1〜EH-7 に加えて以下 3 件以上を追加で強制:
+> **設計ステータス**: 設計済み・未実装（TASK-0143）。スクリプトは実装済み、
+> 発火条件 `validation_bias: strict` 自体が未配線。
+> 実装は後続 PBI（#527 子 PBI 2 以降）。
+
+Model Profile の `validation_bias: strict` プロファイル（gpt-5_5_pro 等）では、
+上記 EH-1〜EH-7 に加えて以下 3 件を追加で強制:
 
 ### EHS-1: V-3 外部レビュー必須化
 
-- **トリガー**: standard 以上の mode で V-3 外部 AI レビューなしに PR 作成
+- **トリガー**: `standard` 以上の mode で V-3 外部 AI レビュー (`review-external.md`) なしに PR 作成
 - **対応**: Hook が PR 作成 block
+- **スクリプト**: `scripts/hooks/check-v3-review.sh`
+- **発火条件（設計）**: `validation_bias: strict` かつ `mode ∈ {standard, high-risk, critical}` かつ `review-external.md` が存在しない
+- **未配線理由**: `validation_bias: strict` を `bin/plangate verify` や `cmd_review` が判定・エクスポートする機構が未実装
 
 ### EHS-2: handoff.md 必須 6 要素チェック
 
-- **トリガー**: `handoff.md` が必須 6 要素（要件適合 / 既知課題 / V2 候補 / 妥協点 / 引き継ぎ文書 / テスト結果）を欠く
+- **トリガー**: `handoff.md` が必須 6 要素（要件適合 / 既知課題 / V2 候補 / 妥協点 / 引き継ぎ文書 / テスト結果）を欠く状態での WF-05 完了宣言
 - **対応**: Hook が WF-05 完了を block
+- **スクリプト**: `scripts/hooks/check-handoff-elements.sh`
+- **発火条件（設計）**: `validation_bias: strict` かつ handoff.md に 6 セクション未充足
+- **未配線理由**: `bin/plangate handoff` がスクリプトを呼ばない。TASK-0143 の後続 PBI で配線予定
 
 ### EHS-3: V-1 fix loop 上限超過 escalation
 
 - **トリガー**: V-1 FAIL → fix → V-1 のループが 5 回を超過
 - **対応**: Hook が ABORT、ユーザー判断にエスカレーション
+- **スクリプト**: `scripts/hooks/check-fix-loop.sh`
+- **発火条件（設計）**: `validation_bias: strict` かつ `docs/working/_audit/hook-events.log` の fix-loop カウントが閾値超過
+- **未配線理由**: `bin/plangate verify` が fix ループをカウントする機構が未実装
+
+### EHS 発火条件の設計（現状の制約と後続方針）
+
+`validation_bias: strict` は `docs/ai/model-profiles.yaml` で定義されるが、
+**実行時に `bin/plangate` や hook スクリプトがこの値を参照する機構が存在しない**。
+
+後続 PBI での実装案:
+1. `bin/plangate verify` が `--validation-bias strict` フラグを受け取り EHS を有効化
+2. または `model-profiles.yaml` の現在プロファイルを `bin/plangate` が読み込み自動判定
+3. または `PLANGATE_VALIDATION_BIAS=strict` 環境変数で制御
+
+設計の選択は #527 子 PBI 2〜6 の実装フェーズで確定する。
 
 ## 4. 実装（#157 で 3 hook + #169 で 7 hook = 計 10 hook、すべて完了）
 
@@ -146,7 +173,9 @@ Model Profile の `validation_bias: strict` プロファイル（gpt-5_5_pro）�
 
 ### 4.3 設定方法（opt-in）
 
-[`.claude/settings.example.json`](../../.claude/settings.example.json) を `.claude/settings.json` にコピーすると PreToolUse hook（**EH-1 + EH-2 + EH-3 + EH-6**）+ SessionStart（gh-pin-account）が有効化される。EH-4 / EH-5 / EH-7 / EHS-1 / EHS-2 / EHS-3 は CLI ツールとして workflow 内で呼び出す。
+[`.claude/settings.example.json`](../../.claude/settings.example.json) を `.claude/settings.json` にコピーすると PreToolUse hook（**EH-1 + EH-2 + EH-3 + EH-6**）+ SessionStart（gh-pin-account）が有効化される。
+
+**CLI 配線（TASK-0143 / apply-script 適用後）**: EH-4 は `plangate verify` V-1 前（strict=1）、EH-5 は V-1 後（warn）で発火。EH-7 / EHS-1 / EHS-2 / EHS-3 は引き続き手動呼び出し。
 
 ### 4.4 テスト
 

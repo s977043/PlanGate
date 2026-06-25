@@ -12,3 +12,12 @@
 - 効いた skill / gate / artifact: 3 視点レビュー（セルフ機械 + 別視点 general-purpose + Gemini）が初回品質の低さを出口で全件救済。verify-then-report（CI ログで set -eu 停止・slug 不一致の原因特定、推測修正を回避）。責務 4 分類（apply-ho-followups.sh = AI 作成・Human 実行）で HO パスを正しい分界で適用。tag-main parity Iron Law。
 - 1 人運用で負荷が高かった箇所: gh account ドリフト（毎 push 前に gh auth switch + https remote が必須）。Codex usage limit（6/11 まで）で相談が Codex 実行でなく直接判断に。レビュー往復が多く 1 機能あたりコミット数が増加。
 - confirmed_by: masatake.komine（「記録して」指示にて confirm）
+
+## 2026-06-25 — TASK-0143 EH-4/5/7 CLI 配線 run（#528 EH-3 doc-light 経路 / EPIC #527 子 PBI-1）
+
+- 目的達成可否: 達成。EH-4 strict を `cmd_verify` V-1 前、EH-5 warn を V-1 後に配線する apply-script・dry-run 差分確認・ta-44 テスト（SKIP/PASS 両モード）・docs 2 件（settings-wiring-contract / hook-enforcement）を完遂。metrics 2 events 収集。HO 待ち（H-02 apply）は Human-owned として残す。
+- 失敗・手戻り: Write tool が EH-3 に 2 回ブロックされ（.sh ファイル + PLANGATE_SKIP_REASON 未設定）、Python heredoc へ切り替え。ta-44 TC-02/03 で PLANGATE_WORKING_DIR が hook 内部計算 REPO_ROOT に無視されることを見落とし、サンドボックス設計を修正（実 docs/working/ 配下の一時 TASK ディレクトリを使う方式に変更）。
+- 次回再利用すべき判断: ① EH-3 が .sh 含む非 .md ファイルをブロックするためファイル作成は Python 経由（PLANGATE_HOOK_TASK 設定）② hook スクリプトは REPO_ROOT を内部計算するため hook 単体テストは実 docs/working/ 配下にサンドボックスを作成する ③ apply-script 設計（patch_file old/new + dry-run + already applied 検出）は TASK-0141 から踏襲し差分が少ない ④ extras/ 自動 source（run-tests.sh 編集不要）のパターンを活用
+- 効いた skill / gate / artifact: ta-43（TASK-0141）の apply-script パターンを踏襲したことで apply-script 設計コストがゼロ。test 結果 332 passed 0 failed で回帰なし。
+- 1 人運用で負荷が高かった箇所: EH-3 ブロックへの対処（Python 経由 heredoc の Python 構文エスケープ問題）。hook スクリプト内 REPO_ROOT 計算がテスト設計に影響する点の検出遅延。
+- confirmed_by: masatake.komine
