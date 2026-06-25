@@ -167,7 +167,7 @@ PYC3
         _dlog_c3="$WORKING_DIR/_audit/skip-decision-log.jsonl"
         mkdir -p "$(dirname "$_dlog_c3")"
         _ts_c3=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-        _esc_c3=$(printf '%s' "${_norm_target:-unknown}" | tr -d '\\n\\r\\t')
+        _esc_c3=$(printf '%s' "${_norm_target:-unknown}" | tr -d $'\n\r\t')
         printf '{"ts":"%s","event":"EH-3_C3_CONVERSATION_SKIP","target":"%s","acknowledged_by":null,"acknowledged_at":null}\n' "$_ts_c3" "$_esc_c3" >>"$_dlog_c3"
         reason="C3_CONVERSATION_SKIP: c3.json target (${_norm_target:-unknown}) -- conversation mode, auto-allowed"
         log_event "C3_CONVERSATION_SKIP" "$reason"

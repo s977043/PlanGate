@@ -288,6 +288,12 @@ BIN_4C_NEW = (
 patch_file("bin/plangate", BIN_4C_OLD, BIN_4C_NEW,
            "bin/plangate: doctor に C-3 Approval Mode セクション追加")
 
+# ─── Patch 5: bin/plangate — doctor の 2>/dev/null 削除（Gemini medium 指摘）─
+BIN_5_OLD = "  _c3mode_doctor=$(_read_plangate_config c3_approval.mode 2>/dev/null || echo 'cli')\n"
+BIN_5_NEW = "  _c3mode_doctor=$(_read_plangate_config c3_approval.mode || echo 'cli')\n"
+patch_file("bin/plangate", BIN_5_OLD, BIN_5_NEW,
+           "bin/plangate: doctor の _read_plangate_config から 2>/dev/null 削除（診断警告を表示）")
+
 print(f"\n=== Done ({mode_label}): {'OK' if ok else 'ERRORS found'} ===")
 if not ok:
     sys.exit(1)
