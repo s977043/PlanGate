@@ -6,23 +6,11 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-### Added
+## v8.15.0 - 2026-06-25
 
-- **SLSA provenance attestation（#618）** — リリース公開時に `actions/attest-build-provenance@v2.4.0` で build provenance を自動生成し release asset に添付。OpenSSF Scorecard SLSA チェック対応（0/10 → 5〜7/10 改善見込み）。`scripts/add-slsa-attestation.sh` で HO path に Human 適用。コマンドインジェクション対策として `RELEASE_TAG` 環境変数経由でタグ名を安全に渡す。
-- **Fuzzing 対応（atheris / #619）** — `fuzz/fuzz_render_review.py` を追加し `scripts/render_review.py` の HTML エスケープ・MD パースを `atheris` プロパティベーステストでカバー。OpenSSF Scorecard Fuzzing チェック対応。
-- **Branch-Protection 強化** — main ブランチに「1 reviewer 必須 + stale review 自動 dismiss」を設定。OpenSSF Scorecard Branch-Protection チェック改善。
-- **OpenSSF Scorecard Code-Review 対応（#620）** — CI 通過後に `APPROVE_PAT`（s977043 以外のアカウントの classic PAT）で PR を自動承認する `auto-approve.yml` ワークフロー追加用 apply スクリプト（`scripts/add-auto-approve-workflow.sh`）。
+feat: Review Gate 機械化 + EH-3 doc-light + approve 強化 + CLI テスト完備 + OpenSSF Scorecard 対応 + Best Practices Passing 取得
 
-### Fixed
-
-- **WF-07 Markdown lint（#617）** — `docs/workflows/07_exploratory_debug.md` の MD031/MD032/MD040 11 件 + `execution-sequence.md` の MD012 を解消。
-- **pip hash pinning（#616）** — `requirements/schema-validate.txt` を追加し `schema-validate.yml` で `--require-hashes` を強制（OpenSSF Pinned-Dependencies 対応）。
-
-## v8.15.0 - 2026-06-23
-
-feat: Review Gate 機械化 + EH-3 doc-light + approve 強化 + CLI テスト完備 + OpenSSF Scorecard 対応
-
-外部レビュー結果（Decision / risk）を c3_status へ自動マッピングし承認境界を機械執行する Review Gate（TASK-0129）、EH-3 フックに非 HO `.md` ファイルを記録付きで自動 SKIP する doc-light 経路（TASK-0138）、approve サブコマンドのハードニング（TASK-0139）、CLI サブコマンドの統合テスト完備（TASK-0140）を追加。あわせて OpenSSF Scorecard の 10 件のアラートを解消（SHA ピン・Token-Permissions・SECURITY.md・CodeQL）。
+外部レビュー結果（Decision / risk）を c3_status へ自動マッピングし承認境界を機械執行する Review Gate（TASK-0129）、EH-3 フックに非 HO `.md` ファイルを記録付きで自動 SKIP する doc-light 経路（TASK-0138）、approve サブコマンドのハードニング（TASK-0139）、CLI サブコマンドの統合テスト完備（TASK-0140）を追加。OpenSSF Scorecard 対応（Pinned-Dependencies / SLSA / Fuzzing / Branch-Protection / SAST / Token-Permissions / SecurityPolicy）と Best Practices Passing バッジ取得を含む。
 
 ### Added
 
@@ -30,10 +18,15 @@ feat: Review Gate 機械化 + EH-3 doc-light + approve 強化 + CLI テスト完
 - **EH-3 doc-light 経路（TASK-0138 / #528）** — `check-plan-hash.sh` に非 HO `.md` ファイルを記録付き自動 SKIP する doc-light 経路を追加。maintenance ファイル存在時はトークンライフサイクルを優先し doc-light を発火させない。`skip-decision-log.jsonl` に `EH-3_DOC_LIGHT_SKIP` イベントを記録。`ta-39` で 6 TC / 303 PASS。
 - **`plangate approve` ハードニング（TASK-0139 / #550）** — approve サブコマンドに `read -r` による理由・条件・確認の対話入力、`PLANGATE_TEST_MODE` ガード、c3.json 上書きブロック（`--force` で上書き可）を追加。ADR `docs/decisions/adr-001-approve-out-of-band.md` を同梱。`ta-41` で 302 PASS。
 - **CLI サブコマンド統合テスト（TASK-0140 / #515 #529）** — `ta-42` を新規追加し `bin/plangate` の全サブコマンド（plan / exec / review / approve / validate-schemas / metrics / doctor 等）を統合テストでカバー。302 PASS / 0 FAIL。
-- **OpenSSF Scorecard 対応** — Pinned-Dependencies（#25-29/#15/#17）: `actions/checkout@v7` / `actions/setup-python@v6` / pip を SHA ピンに変更（全 5 ワークフロー）。Token-Permissions（#21/#18）: `sync-plugin-plangate.yml` / `release-docs-sync.yml` のワークフローレベル `contents:write` を `permissions:{}` + ジョブレベルへ移動。SecurityPolicy（#3）: `SECURITY.md` に脆弱性報告 URL を追記。SAST（#7）: `codeql.yml` を追加し Python コードを CodeQL `security-extended` で解析。
+- **OpenSSF Scorecard 対応（#616〜#619）** — SHA ピン（actions/checkout@v7 / actions/setup-python@v6 / pip --require-hashes）、Token-Permissions 最小権限化、SECURITY.md 脆弱性報告 URL 追記、CodeQL `security-extended` 追加、SLSA provenance attestation（リリース時 build provenance 自動生成）、atheris Fuzzing（`fuzz/fuzz_render_review.py`）、Branch-Protection（1 reviewer 必須 + stale review dismiss）。
+- **OpenSSF Best Practices Passing 取得（#621）** — bestpractices.dev プロジェクト登録・全項目回答・Passing レベル達成。バッジを README / README_en に追加（project ID: 13340）。
+- **Code-Review auto-approve apply script（#620）** — `scripts/add-auto-approve-workflow.sh`。APPROVE_PAT（別アカウント PAT）設定後に `--apply` で `auto-approve.yml` を生成。
 
 ### Fixed
 
+- **WF-07 Markdown lint（#617）** — `docs/workflows/07_exploratory_debug.md` の MD031/MD032/MD040 11 件 + `execution-sequence.md` の MD012 を解消。
+- **pip hash pinning（#616）** — `requirements/schema-validate.txt` を追加し `schema-validate.yml` で `--require-hashes` を強制（OpenSSF Pinned-Dependencies 対応）。
+- **README_en v8.15.0 同期（#622/#623）** — 英語 README に v8.14.0〜v8.15.0 の変更点・OpenSSF Best Practices バッジの意義を追記。
 - **plangate-setup スキル + Codex スキル追加** — plangate-setup スキル修正・Codex スキル追加・リリースフローへのプラグイン同期組み込み（#597）
 - **intent-classifier / skill-policy-router** — PlanGate CLI ops 認識を追加（#593）
 - **Gemini V-3 指摘対応** — ta-39 / ta-41 / ta-42 / apply スクリプト群の HIGH・medium 指摘を複数ラウンドで解消（#607）
