@@ -24,7 +24,7 @@ v1_release: "1f645be (main, PR#632 マージコミット)"
 
 | 受入基準 | 判定 | 根拠 / コメント |
 |---------|------|---------------|
-| AC-01: `.plangate.yml` に `c3_approval: {mode: conversation}` → EH-3 が c3.json SKIP → `bin/plangate exec` 通過 | PASS | `check-plan-hash.sh` L143-174 に conversation モード経路（`^docs/working/TASK-[0-9]+/approvals/c3\.json$` マッチ → exit 0）が実装。ta-45 TC-01 が apply 後 PASS（テスト結果: 349 passed / 0 failed）|
+| AC-01: `.plangate.yml` に `c3_approval: {mode: conversation}` → EH-3 が c3.json SKIP → `bin/plangate exec` 通過 | PASS | `check-plan-hash.sh` L143-177 に conversation モード経路（`^docs/working/TASK-[0-9]+/approvals/c3\.json$` マッチ → exit 0）が実装。ta-45 TC-01 が apply 後 PASS（テスト結果: 349 passed / 0 failed）|
 | AC-02: `c3_approval: {mode: cli}` またはファイル未存在 → 現行動作維持 | PASS | デフォルト `cli`、`.plangate.yml` 未存在時は `_read_plangate_config()` が `cli` にフォールバック。ta-45 TC-02/TC-03 が PASS |
 | AC-03: 生成された c3.json に `source: conversation` フィールド | PASS | `schemas/c3-approval.schema.json` L54-58 に `source: {enum: ["cli", "conversation"]}` が optional フィールドとして追加。`bin/plangate approve` が `source: "cli"` を付与（PR#631 実装済み）|
 | AC-04: `bin/plangate doctor` が現在の承認モードを出力 | PASS | `bin/plangate` L606-611 に `=== C-3 Approval Mode ===` セクション追加。`.plangate.yml` 存在時は `c3_approval.mode=<値>` を表示、未存在時は `default: c3_approval.mode=cli` を表示。ta-45 TC-05 が PASS |
@@ -77,7 +77,7 @@ C-2 レビュー（Codex、R-001〜R-008）で critical 2 件を含む 8 件の�
 
 ### 触れないでほしいファイル
 
-- `scripts/hooks/check-plan-hash.sh`: EH-3 の conversation SKIP 経路（L143-174）は `.plangate.yml` mode 読み込みロジックと密結合。変更する場合は ta-45 TC-01/TC-03 を必ず通すこと
+- `scripts/hooks/check-plan-hash.sh`: EH-3 の conversation SKIP 経路（L143-177）は `.plangate.yml` mode 読み込みロジックと密結合。変更する場合は ta-45 TC-01/TC-03 を必ず通すこと
 - `schemas/c3-approval.schema.json`: `source` フィールドを `required` に変更すると既存 c3.json（source なし）が schema FAIL になる。optional のまま維持すること
 - `bin/plangate` の `_read_plangate_config()` 関数（L113-161): PyYAML fallback ロジックが複雑。変更する場合は python3 未インストール環境でも動作確認すること
 

@@ -25,7 +25,7 @@ v1_release: 5135ceb (PR#630 マージコミット / main ブランチ)
 | 受入基準 | 判定 | 根拠 / コメント |
 |---------|------|---------------|
 | AC-1: EH-2 の c3_status が python3 strict JSON 解析 | PASS | `check-c3-approval.sh` L125〜 に `python3 json.load` 実装。壊れた JSON / 非 object / フィールド欠落 → 2>/dev/null で空文字 → 非 APPROVED 扱い（fail-safe）。EH-3 と対称化済み |
-| AC-2: EH-1/EH-2 が stdin `tool_input.file_path` から TASK-ID 解決 | PASS | `check-c3-approval.sh` L59〜95、`check-plan-exists.sh` L62〜98 に stdin fallback 実装。優先順: env `PLANGATE_HOOK_TASK` → arg → stdin JSON 解析（jq → python3 → grep の 3 段フォールバック）。`cat 2>/dev/null || true` によるハング防止済み |
+| AC-2: EH-1/EH-2 が stdin `tool_input.file_path` から TASK-ID 解決 | PASS | `check-c3-approval.sh` L59〜92、`check-plan-exists.sh` L62〜95 に stdin fallback 実装。優先順: env `PLANGATE_HOOK_TASK` → arg → stdin JSON 解析（jq → python3 → grep の 3 段フォールバック）。`cat 2>/dev/null || true` によるハング防止済み |
 | AC-3: ta-06 が hook テスト結果を PASS/FAIL として報告 | PASS | `tests/extras/ta-06-hooks.sh` から `>/dev/null 2>&1` を除去。run-tests.sh が hook テスト結果を PASS/FAIL として認識可能 |
 | AC-4: ta-43 が壊れた JSON・コメント埋め込み・正常 JSON の 3 ケースを検証 | PASS | `tests/extras/ta-43-eh2-strict-json.sh` 新規作成。TC-01〜TC-06 の 6 ケース（正常 APPROVED・壊れた JSON・コメント埋め込み・フィールドなし・stdin 解決・stdin なし+env なし）を自動テスト化。サンドボックス構成（tmp に hook コピー）で実環境汚染なし |
 | AC-5: 全テスト（run-tests.sh）が 300+ PASS、FAIL=0 | PASS | 実測: 349 PASS, 0 FAIL（`sh tests/run-tests.sh`、PR#630 マージ後） |
