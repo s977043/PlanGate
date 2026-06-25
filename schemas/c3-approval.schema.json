@@ -51,6 +51,11 @@
       "type": "string",
       "description": "Required when c3_status is REJECTED"
     },
+    "source": {
+      "type": "string",
+      "enum": ["cli", "conversation"],
+      "description": "承認の発行元: cli (bin/plangate approve) または conversation (AI が会話内 APPROVE 後に生成 / TASK-0144)"
+    },
     "gate_checks": {
       "type": "object",
       "description": "Optional checklist for plan approval gates (standard+ mode recommended). Goal/Scope/Risk checks confirm plan.md existing sections are complete. Not applied to ultra-light/light mode.",
