@@ -191,3 +191,52 @@ sh scripts/apply-task-0143-eh457-wiring.sh --apply
 ```
 
 適用後: `bin/plangate doctor` の出力で `[PASS] EH-4 wired` / `[PASS] EH-5 wired` を確認する。
+
+## C-3 Approval Mode 設定（EH-3 conversation 経路）— TASK-0144
+
+> Status: Implemented（`scripts/apply-task-0144-c3-mode.sh --apply` 適用後に有効）
+
+`.plangate.yml` プロジェクト設定で C-3 承認モードを選択できる経路。
+
+### モード定義
+
+| モード | 動作 | `c3.json` の `source` フィールド |
+|--------|------|-------------------------------|
+| `cli`（デフォルト） | `bin/plangate approve <TASK>` で対話的に承認・c3.json 生成 | `"cli"` |
+| `conversation` | 会話内で人間が APPROVE 発話 → AI が exec 前に c3.json を生成 | `"conversation"` |
+
+### 設計の核心
+
+- **cmd_exec は変更しない**（R-001/R-002 反映）: c3.json は exec *前* に生成済みである必要がある
+- **EH-3 の責務は「通す」のみ**: `approvals/c3.json` + conversation mode → SKIP (exit 0)。c3.json の中身検証は EH-2 と AI 生成コードに委ねる
+- **自己承認にならない**: 人間が会話内で APPROVE を発話した後に AI が転記する形式（AI が自律的に承認を作るのではない）
+
+### EH-3 conversation 経路（新規）
+
+`scripts/hooks/check-plan-hash.sh` に追加された判定：
+
+1. `target_file` が `docs/working/TASK-*/approvals/c3.json` にマッチ
+2. `.plangate.yml` を読んで `c3_approval.mode` を取得
+3. `conversation` の場合 → `EH-3_C3_CONVERSATION_SKIP` をログに記録して `exit 0`（Write を許可）
+4. `cli` の場合 → 既存の maintenance / SKIP_REASON 判定に進む
+
+### 追加ファイル
+
+| ファイル | 種別 | 説明 |
+|---------|------|------|
+| `.plangate.yml` | 設定ファイル | プロジェクト設定（`c3_approval.mode: cli\|conversation`） |
+| `schemas/plangate-config.schema.json` | Schema（HO） | `.plangate.yml` の JSON Schema 検証定義 |
+| `schemas/c3-approval.schema.json` | Schema（HO 変更） | `source` フィールドを追加（optional） |
+| `scripts/hooks/check-plan-hash.sh` | Hook（HO 変更） | conversation SKIP 経路を追加 |
+| `bin/plangate` | CLI（HO 変更） | `_read_plangate_config()` 追加 / `source: "cli"` / doctor セクション追加 |
+
+### 適用方法（Human-owned）
+
+```sh
+# 差分確認（必須）
+sh scripts/apply-task-0144-c3-mode.sh
+# 適用
+sh scripts/apply-task-0144-c3-mode.sh --apply
+```
+
+適用後: `bin/plangate doctor` の出力で `=== C-3 Approval Mode ===` セクションを確認する。

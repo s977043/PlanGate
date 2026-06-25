@@ -1,0 +1,8 @@
+# PlanGate プロジェクト設定
+# 詳細: docs/ai/settings-wiring-contract.md
+
+# C-3 承認モード設定
+# cli: bin/plangate approve による CLI 承認（デフォルト・推奨）
+# conversation: 会話内の人間 APPROVE 発話後に AI が c3.json を生成
+c3_approval:
+  mode: cli

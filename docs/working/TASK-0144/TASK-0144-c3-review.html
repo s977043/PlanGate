@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-0144 — C-3 Review</title>
+<style>
+:root{--fg:#1f2328;--muted:#656d76;--bd:#d0d7de;--bg:#fff;--accent:#0969da;--code:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--fg);background:#fafbfc}
+.wrap{max-width:980px;margin:0 auto;padding:24px}
+header h1{margin:0 0 4px}
+.meta{color:var(--muted);font-size:14px;margin-bottom:16px}
+nav.toc{position:sticky;top:0;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.toc strong{display:block;margin-bottom:6px}
+nav.toc a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+section.doc{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 24px 24px;margin-bottom:28px}
+section.doc>h2.doc-title{border-bottom:2px solid var(--bd);padding-bottom:8px}
+h1,h2,h3,h4{line-height:1.3}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid var(--bd);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+code{background:var(--code);padding:.15em .35em;border-radius:4px;font-size:85%}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto}
+pre code{background:none;padding:0}
+blockquote{margin:8px 0;padding:0 12px;color:var(--muted);border-left:3px solid var(--bd)}
+ul.checklist{list-style:none;padding-left:18px}
+ul.checklist li{margin:2px 0}
+hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
+a{color:var(--accent)}
+.missing{color:var(--muted);font-style:italic}
+img,svg{max-width:100%}
+.flow-wrap{margin:12px 0;padding:8px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:auto}
+svg.flow text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+nav.perspectives{background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.perspectives strong{display:block;margin-bottom:6px}
+nav.perspectives a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none;font-weight:600}
+nav.perspectives a:hover{text-decoration:underline}
+nav.perspectives .missing{margin:2px 10px 2px 0;display:inline-block}
+</style></head>
+<body><div class="wrap">
+<header><h1>TASK-0144</h1><div class="meta">C-3 レビュー集約ビュー（self-contained）</div></header>
+<nav class="toc"><strong>目次</strong><a href="#pbi-input-md">PBI INPUT PACKAGE (pbi-input.md)</a><a href="#plan-md">EXECUTION PLAN (plan.md)</a><a href="#todo-md">EXECUTION TODO (todo.md)</a><a href="#test-cases-md">TEST CASES (test-cases.md)</a><a href="#review-self-md">C-1 セルフレビュー (review-self.md)</a><a href="#review-external-md">C-2 外部レビュー (review-external.md)</a></nav>
+<nav class="perspectives"><strong>承認観点ナビ</strong><a href="#plan-md-h1">Goal/目的</a><a href="#pbi-input-md-h2">Scope/対象</a><a href="#plan-md-h16">Risk</a><a href="#plan-md-h12">Test/検証</a><span class="missing">Stop/Replan（なし）</span><a href="#plan-md-h8">承認/Approval</a></nav>
+<section class="doc" id="pbi-input-md">
+<h2 class="doc-title">PBI INPUT PACKAGE (pbi-input.md)</h2>
+<hr>
+<p>task_id: TASK-0144</p>
+<p>artifact_type: pbi-input</p>
+<p>schema_version: 1</p>
+<p>status: draft</p>
+<hr>
+<h1 id="pbi-input-md-h0">PBI INPUT PACKAGE — TASK-0144</h1>
+<h2 id="pbi-input-md-h1">Context / Why</h2>
+<p>現行の C-3 承認は <code>bin/plangate approve</code> CLI 実行（Human-owned）が必須。</p>
+<p>個人・社内プロジェクトでは CLI の手間を省き、会話内の APPROVE で</p>
+<p>exec に進みたい。一方で OSS・厳密な監査が必要なプロジェクトでは</p>
+<p>CLI による provenance 記録を維持したい。</p>
+<p>プロジェクト設定（<code>.plangate.yml</code>）で承認モードを切り替えられるようにすることで、</p>
+<p>両方のニーズに対応する。関連: issue #626。</p>
+<h2 id="pbi-input-md-h2">What — Scope</h2>
+<h3 id="pbi-input-md-h3">In scope</h3>
+<table>
+<thead><tr>
+<th>#</th>
+<th>内容</th>
+<th>HO</th>
+</tr></thead><tbody>
+<tr><td>S1</td><td><code>.plangate.yml</code> に `c3_approval.mode: cli \</td><td>conversation` 設定を追加</td><td>—</td></tr>
+<tr><td>S2</td><td><code>schemas/plangate-config.schema.json</code>（または同等）にスキーマ定義を追加</td><td>—</td></tr>
+<tr><td>S3</td><td><code>bin/plangate</code> が <code>.plangate.yml</code> の <code>c3_approval.mode</code> を読み込み、exec / approve サブコマンドの動作を分岐</td><td>✅</td></tr>
+<tr><td>S4</td><td><code>conversation</code> モード時: AI が <code>approvals/c3.json</code> を Write 可能（EH-3 例外経路を明示・<code>source: conversation</code> フィールドで区別）</td><td>✅</td></tr>
+<tr><td>S5</td><td><code>bin/plangate doctor</code> で現在の承認モードを表示</td><td>✅</td></tr>
+<tr><td>S6</td><td>デフォルト <code>cli</code> で既存動作を完全後方互換に保つ</td><td>✅</td></tr>
+<tr><td>S7</td><td>c3.json スキーマに `source: cli \</td><td>conversation` フィールドを追加</td><td>—</td></tr>
+</tbody></table>
+<h3 id="pbi-input-md-h4">Out of scope</h3>
+<ul>
+<li><code>.plangate.yml</code> の他の設定項目（本 PBI は <code>c3_approval</code> のみ）</li>
+<li>EH-3 provenance 検証の完全実装（issue #420 — 後続 PBI）</li>
+<li><code>conversation</code> モードの HMAC 署名・セッション検証（V2 候補）</li>
+<li>GUI / Web UI での承認フロー</li>
+</ul>
+<h2 id="pbi-input-md-h5">Acceptance Criteria</h2>
+<table>
+<thead><tr>
+<th>AC</th>
+<th>内容</th>
+</tr></thead><tbody>
+<tr><td>AC-01</td><td><code>.plangate.yml</code> に <code>c3_approval: {mode: conversation}</code> を設定した状態で、会話内 APPROVE → AI が c3.json を生成 → <code>bin/plangate exec</code> が通る</td></tr>
+<tr><td>AC-02</td><td><code>.plangate.yml</code> に <code>c3_approval: {mode: cli}</code> またはファイル未存在の場合、現行動作（<code>bin/plangate approve</code> 必須）が維持される</td></tr>
+<tr><td>AC-03</td><td>生成された c3.json に <code>source: conversation</code> フィールドが含まれる</td></tr>
+<tr><td>AC-04</td><td><code>bin/plangate doctor</code> が現在の承認モード（cli / conversation）を出力する</td></tr>
+<tr><td>AC-05</td><td><code>schemas/plangate-config.schema.json</code> が <code>.plangate.yml</code> の <code>c3_approval.mode</code> を enum 検証する</td></tr>
+<tr><td>AC-06</td><td>既存テスト（<code>sh tests/run-tests.sh</code>）が 0 FAIL で通過する</td></tr>
+</tbody></table>
+<h2 id="pbi-input-md-h6">Notes from Refinement</h2>
+<ul>
+<li><strong>デフォルトは <code>cli</code></strong>: 既存プロジェクトへの破壊的変更を避ける。<code>.plangate.yml</code> 未設定 = <code>cli</code> モード。</li>
+<li><strong><code>source</code> フィールドで区別</strong>: <code>conversation</code> モードで AI が生成した c3.json は <code>source: conversation</code> を持ち、CLI 発行（<code>source: cli</code>）と機械的に区別できる（issue #420 の暫定対応）。</li>
+<li><strong>EH-3 例外経路</strong>: <code>conversation</code> モード時に AI が c3.json を Write しても EH-3 がブロックしない経路を明示的に設計する（暗黙の例外ではなく設計上の例外）。</li>
+<li><strong><code>bin/plangate</code> は HO パス</strong>: apply-script 経由で Human が適用する。</li>
+</ul>
+<h2 id="pbi-input-md-h7">Estimation Evidence</h2>
+<p><strong>Risks</strong>:</p>
+<ul>
+<li><code>bin/plangate</code> の設定読み込み追加は HO パス → apply-script が必要</li>
+<li>EH-3 hook の例外経路設計を誤ると conversation モードが常時 BLOCK になる可能性</li>
+<li><code>.plangate.yml</code> のスキーマが CI drift check と整合しているか要確認</li>
+</ul>
+<p><strong>Unknowns</strong>:</p>
+<ul>
+<li><code>.plangate.yml</code> が既に存在するか・既存スキーマとの衝突有無</li>
+<li>c3.json スキーマ（<code>schemas/c3-approval.schema.json</code>）の現行定義に <code>source</code> フィールドが追加可能か</li>
+</ul>
+<p><strong>Assumptions</strong>:</p>
+<ul>
+<li><code>.plangate.yml</code> はプロジェクトルートに配置（gitignore 対象外）</li>
+<li><code>conversation</code> モードで AI が生成する c3.json の中身は現行スキーマ準拠 + <code>source</code> フィールド追加</li>
+<li>設定ファイル未存在時は <code>cli</code> にフォールバック（安全側）</li>
+</ul>
+<h2 id="pbi-input-md-h8">関連</h2>
+<ul>
+<li>issue: #626</li>
+<li>関連 PBI: TASK-0143（EH-4/5/7 CLI 配線）</li>
+<li>関連 issue: #420（EH-3 provenance 検証ギャップ）</li>
+<li>設計正本: <code>docs/ai/settings-wiring-contract.md</code></li>
+<li>c3.json スキーマ: <code>schemas/c3-approval.schema.json</code>（要確認）</li>
+</ul>
+</section>
+<section class="doc" id="plan-md">
+<h2 class="doc-title">EXECUTION PLAN (plan.md)</h2>
+<hr>
+<p>task_id: TASK-0144</p>
+<p>artifact_type: plan</p>
+<p>schema_version: 1</p>
+<hr>
+<h1 id="plan-md-h0">EXECUTION PLAN — TASK-0144（C-2 反映版）</h1>
+<blockquote>C-2 指摘 R-001〜R-008 反映済み（2026-06-25）</blockquote>
+<blockquote>主要設計変更: cmd_exec ではなく cmd_approve が conversation モード時の c3.json 生成を担う</blockquote>
+<h2 id="plan-md-h1">Goal</h2>
+<p><code>.plangate.yml</code> の <code>c3_approval.mode</code> 設定により、C-3 承認を CLI（<code>bin/plangate approve</code>）と会話内 APPROVE（AI が exec 前に c3.json を生成）の 2 モードで切り替えられるようにする。デフォルトは <code>cli</code>（後方互換）。</p>
+<h2 id="plan-md-h2">Constraints / Non-goals</h2>
+<ul>
+<li><strong>デフォルト <code>cli</code></strong>: <code>.plangate.yml</code> 未存在 = <code>cli</code> モード（既存動作完全維持）</li>
+<li><strong><code>bin/plangate</code>, <code>scripts/hooks/*.sh</code>, <code>schemas/*.schema.json</code> は HO パス</strong> → apply-script 経由で Human が適用</li>
+<li><strong><code>cmd_exec</code> は変更しない</strong>（R-001/R-002 反映: ゲート自己充足を防ぐ）</li>
+<li>EH-3 provenance 完全検証は Out of scope（issue #420）</li>
+<li>HMAC 署名・セッション検証は V2 候補</li>
+</ul>
+<h2 id="plan-md-h3">Mode 判定</h2>
+<p><strong>モード</strong>: <code>high-risk</code></p>
+<p><strong>判定根拠</strong>:</p>
+<ul>
+<li>変更ファイル数: 6-8（bin/plangate + scripts/hooks/check-plan-hash.sh + schemas/*.schema.json x2 + apply-script x2 + .plangate.yml + test）→ high</li>
+<li>受入基準数: 6 → standard 上限</li>
+<li>承認境界周辺（bin/plangate / scripts/hooks/<em>.sh / schemas/</em>.schema.json）→ 例外ルールにより最低 high</li>
+<li><code>lite_eligible: false</code>（HO パス含む / high-risk）</li>
+</ul>
+<h2 id="plan-md-h4">Approach Overview（R-001/R-002 反映後の設計）</h2>
+<pre><code>人間が会話内で「APPROVE」発話
+      ↓
+AI が c3.json を生成（source: conversation, c3_status: APPROVED, plan_hash: 現 plan.md のハッシュ）
+      ↓
+EH-3: approvals/c3.json + conversation mode → SKIP (exit 0)  ← 「通す」だけ
+      ↓（Write 成功）
+bin/plangate exec TASK
+  → approvals/c3.json 存在チェック → PASS
+  → EH-2: c3_status=APPROVED 確認 → PASS
+  → exec 開始</code></pre>
+<p><strong>重要</strong>: <code>cmd_exec</code> は変更しない。c3.json は exec 前に存在する必要がある（現行コントラクト維持）。</p>
+<p><code>cmd_approve</code> が conversation モード時の c3.json 生成を担う（または AI 会話内での直接 Write）。</p>
+<p><strong>EH-3 例外経路の責務分担</strong>（R-003 反映）:</p>
+<ul>
+<li>EH-3 SKIP: <code>docs/working/TASK-XXXX/approvals/c3.json</code> パス + conversation モード → Write を通す（「通す」のみ）</li>
+<li>中身の検証: AI 生成コードが schema 準拠・plan_hash 付与を保証</li>
+<li>exec 時: EH-2 が c3_status=APPROVED を確認（従来通り）</li>
+</ul>
+<p><strong>EH-3 は c3.json の &quot;書込みポリシー制御&quot; のみ担い、内容検証は行わない。</strong></p>
+<h2 id="plan-md-h5">Work Breakdown</h2>
+<h3 id="plan-md-h6">Step 1: 調査・設計確認 ✅（完了）</h3>
+<ul>
+<li><strong>Output</strong>: EH-3 が c3.json を maintenance.json なしでブロックすること、<code>c3-approval.schema.json</code> が <code>additionalProperties: false</code> であることを確認</li>
+<li><strong>Owner</strong>: AI</li>
+</ul>
+<h3 id="plan-md-h7">Step 2: <code>.plangate.yml</code> サンプル + <code>plangate-config.schema.json</code> 作成</h3>
+<ul>
+<li><strong>Output</strong>:</li>
+<li><code>.plangate.yml</code> — プロジェクトルート（AI 直接作成可、HO 対象外）</li>
+<li><code>schemas/plangate-config.schema.json</code> — HO パス → apply-script</li>
+<li><strong>Owner</strong>: AI（.plangate.yml 直接）+ apply-script 経由 Human（schema）</li>
+<li>🚩 <strong>チェックポイント</strong>: <code>.plangate.yml</code> にサンプル設定が存在し、schema が enum で <code>cli|conversation</code> を検証する</li>
+</ul>
+<h3 id="plan-md-h8">Step 3: <code>schemas/c3-approval.schema.json</code> に <code>source</code> フィールド追加</h3>
+<ul>
+<li><strong>Output</strong>: <code>source: cli | conversation</code> の <strong>optional</strong> フィールド追加（R-004 反映: additionalProperties: false のため schema 追加必須）</li>
+<li><strong>Owner</strong>: apply-script 経由 Human</li>
+<li><strong>Risk</strong>: 既存 c3.json（source なし）が引き続き valid であること → test でカバー</li>
+<li>🚩 <strong>チェックポイント</strong>: TA-35（schema test）が 0 FAIL、旧 c3.json も新 c3.json も valid</li>
+</ul>
+<h3 id="plan-md-h9">Step 4: <code>scripts/hooks/check-plan-hash.sh</code> に conversation モード経路追加</h3>
+<ul>
+<li><strong>Output</strong>:</li>
+<li><code>approvals/c3.json</code> + conversation mode → SKIP (exit 0)</li>
+<li>SKIP ログを <code>_audit/skip-decision-log.jsonl</code> に <code>EH-3_C3_CONVERSATION_SKIP</code> として記録</li>
+<li><strong>Owner</strong>: apply-script 経由 Human</li>
+<li><strong>Risk</strong>: c3.json パターンの誤マッチ → <code>^docs/working/TASK-[0-9]+/approvals/c3\.json$</code> で strict 限定</li>
+<li>🚩 <strong>チェックポイント</strong>: conversation モード時 c3.json Write が exit 0 で通過する</li>
+</ul>
+<h3 id="plan-md-h10">Step 5: <code>bin/plangate</code> に config 読み込み + approve/doctor 分岐追加（R-001/R-002 反映）</h3>
+<ul>
+<li><strong>Output</strong>:</li>
+<li><code>_read_plangate_config()</code>: <code>.plangate.yml</code> の <code>c3_approval.mode</code> を読む（python3 yaml fallback あり）</li>
+<li><code>.plangate.yml</code> 存在 + 読めない/不正 mode → <strong>stderr に警告を出力</strong>（R-005 反映）</li>
+<li><code>cmd_approve</code> (conversation mode): 人間の APPROVE 発話後に AI が c3.json を生成するロジック（source: conversation, c3_status: APPROVED, plan_hash 付き）</li>
+<li><code>cmd_approve</code> (cli mode): 従来動作（変更なし）</li>
+<li><code>cmd_exec</code>: <strong>変更なし</strong>（R-001/R-002 反映: ゲート自己充足を防ぐ）</li>
+<li><code>cmd_doctor</code>: 現在の承認モード（cli / conversation）表示</li>
+<li><strong>Owner</strong>: apply-script 経由 Human</li>
+<li><strong>Risk</strong>: PyYAML 未インストール → <code>cli</code> にフォールバック（ただし警告表示）</li>
+<li>🚩 <strong>チェックポイント</strong>: <code>bin/plangate doctor</code> に承認モードが表示、<code>.plangate.yml</code> 不正値で警告が出る</li>
+</ul>
+<h3 id="plan-md-h11">Step 6: apply-script 作成（<code>_apply_task_0144_patches.py</code> + wrapper）</h3>
+<ul>
+<li><strong>Output</strong>: <code>scripts/_apply_task_0144_patches.py</code>（dry-run/apply 2 mode）+ <code>scripts/apply-task-0144-c3-mode.sh</code></li>
+<li><strong>Owner</strong>: AI</li>
+<li><strong>含む patch</strong>: Step 2（schema）/ Step 3（c3 schema）/ Step 4（EH-3）/ Step 5（bin/plangate）</li>
+<li><strong>Risk</strong>: apply-script の patch が実際の bin/plangate テキストと不一致 → dry-run で事前確認必須</li>
+</ul>
+<h3 id="plan-md-h12">Step 7: テスト作成（<code>tests/extras/ta-45-c3-mode-config.sh</code>）</h3>
+<ul>
+<li><strong>Output</strong>: ta-45（6 TC + edge cases）</li>
+<li><strong>Owner</strong>: AI</li>
+<li>apply 前: TC-01 が SKIP（TASK-0143/ta-44 と同様の skip 分岐）</li>
+<li>apply 後: TC-01〜06 が PASS</li>
+<li>TC-06: R-006 反映 — <code>.plangate.yml</code> の schema 検証 TC（jsonschema or python3 check）</li>
+<li>🚩 <strong>チェックポイント</strong>: <code>sh tests/run-tests.sh</code> 0 FAIL</li>
+</ul>
+<h3 id="plan-md-h13">Step 8: docs 更新</h3>
+<ul>
+<li><strong>Output</strong>: <code>docs/ai/settings-wiring-contract.md</code> に EH-3 conversation 経路を明記</li>
+<li><strong>Owner</strong>: AI（.md → doc-light SKIP、HO なし）</li>
+</ul>
+<h2 id="plan-md-h14">Files / Components to Touch（R-007 反映: HO 表記修正）</h2>
+<table>
+<thead><tr>
+<th>ファイル</th>
+<th>変更種別</th>
+<th>HO</th>
+<th>方法</th>
+</tr></thead><tbody>
+<tr><td><code>.plangate.yml</code></td><td>新規</td><td>—</td><td>AI 直接</td></tr>
+<tr><td><code>schemas/plangate-config.schema.json</code></td><td>新規</td><td>✅</td><td>apply-script</td></tr>
+<tr><td><code>schemas/c3-approval.schema.json</code></td><td>修正</td><td>✅</td><td>apply-script</td></tr>
+<tr><td><code>scripts/hooks/check-plan-hash.sh</code></td><td>修正</td><td>✅</td><td>apply-script</td></tr>
+<tr><td><code>bin/plangate</code></td><td>修正</td><td>✅</td><td>apply-script</td></tr>
+<tr><td><code>scripts/_apply_task_0144_patches.py</code></td><td>新規</td><td>—</td><td>AI 直接</td></tr>
+<tr><td><code>scripts/apply-task-0144-c3-mode.sh</code></td><td>新規</td><td>—</td><td>AI 直接</td></tr>
+<tr><td><code>tests/extras/ta-45-c3-mode-config.sh</code></td><td>新規</td><td>—</td><td>AI 直接</td></tr>
+<tr><td><code>docs/ai/settings-wiring-contract.md</code></td><td>追記</td><td>—</td><td>AI 直接（doc-light SKIP）</td></tr>
+</tbody></table>
+<h2 id="plan-md-h15">Testing Strategy</h2>
+<ul>
+<li><strong>Unit</strong>: ta-45（6 TC）— conversation/cli モード切り替え・schema 検証・doctor 出力・.plangate.yml 不正値 WARN</li>
+<li><strong>Regression</strong>: <code>sh tests/run-tests.sh</code> 全件 0 FAIL（R-008 反映: 件数固定せず exit 0 + TA-45 PASS 数）</li>
+<li><strong>E2E</strong>: apply-script --dry-run で diff 確認 → --apply → doctor PASS</li>
+</ul>
+<h2 id="plan-md-h16">Risks &amp; Mitigations</h2>
+<table>
+<thead><tr>
+<th>リスク</th>
+<th>軽減策</th>
+</tr></thead><tbody>
+<tr><td><code>.plangate.yml</code> 未存在時に python3 yaml が crash</td><td><code>try/except ImportError</code> / <code>try/except</code> で <code>cli</code> にフォールバック＋警告</td></tr>
+<tr><td>PyYAML 未インストール</td><td>同上</td></tr>
+<tr><td><code>.plangate.yml</code> 存在 + 読めない/不正 mode</td><td>R-005 反映: stderr に WARN 出力＋doctor で WARN 表示</td></tr>
+<tr><td>c3.json regex 誤マッチ</td><td><code>^docs/working/TASK-[0-9]+/approvals/c3\\.json$</code> で strict 限定</td></tr>
+<tr><td>既存 c3.json の schema 破壊</td><td>R-004 反映: <code>source</code> を optional として schema に追加。旧 c3.json も valid を TC でカバー</td></tr>
+<tr><td>cmd_exec のゲート自己充足</td><td>R-001/R-002 反映: cmd_exec は変更しない。c3.json は exec 前に生成</td></tr>
+</tbody></table>
+<h2 id="plan-md-h17">Questions / Unknowns</h2>
+<ul>
+<li>conversation モード時の c3.json 生成を <code>cmd_approve</code> に組み込むか、会話内で AI が直接 Write するか → 本 PBI では「AI が会話内で Write（EH-3 SKIP 経由）」を優先。cmd_approve は cli モードで従来通り。</li>
+<li>EH-3 の SKIP ログをどこに記録するか → <code>_audit/skip-decision-log.jsonl</code>（EH-3_C3_CONVERSATION_SKIP イベント）</li>
+</ul>
+</section>
+<section class="doc" id="todo-md">
+<h2 class="doc-title">EXECUTION TODO (todo.md)</h2>
+<hr>
+<p>task_id: TASK-0144</p>
+<p>artifact_type: todo</p>
+<p>schema_version: 1</p>
+<hr>
+<h1 id="todo-md-h0">EXECUTION TODO — TASK-0144（C-2 反映版）</h1>
+<blockquote>C-2 指摘 R-001/R-002 反映: cmd_exec は変更しない。cmd_approve に conversation 対応を追加。</blockquote>
+<h2 id="todo-md-h1">準備フェーズ</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> T-01: 既存スキーマ・bin/plangate・EH-3 コード調査（完了）</li>
+</ul>
+<ul>
+<li>Owner: AI</li>
+<li>rollback: 不要（読取のみ）</li>
+</ul>
+<h2 id="todo-md-h2">実装フェーズ</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-02: <code>.plangate.yml</code> サンプル作成</li>
+</ul>
+<ul>
+<li>Owner: AI (直接 Write)</li>
+<li>rollback: <code>rm .plangate.yml</code></li>
+<li>内容: <code>c3_approval: {mode: cli}</code> （デフォルト・コメント付き）</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-03: <code>schemas/plangate-config.schema.json</code> 作成（apply-script に含める）</li>
+</ul>
+<ul>
+<li>Owner: AI（apply-script 生成）→ Human（--apply 実行）</li>
+<li>rollback: <code>rm schemas/plangate-config.schema.json</code></li>
+<li>HO パス: schemas/*.schema.json</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-04: <code>schemas/c3-approval.schema.json</code> に source フィールド追加（apply-script）</li>
+</ul>
+<ul>
+<li>Owner: AI（apply-script 生成）→ Human（--apply 実行）</li>
+<li>rollback: .bak から復元</li>
+<li>HO パス: schemas/*.schema.json</li>
+<li>R-004 反映: additionalProperties:false のため schema 追加必須。旧 c3.json も valid を確認。</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-05: <code>scripts/hooks/check-plan-hash.sh</code> に conversation モード経路追加（apply-script）</li>
+</ul>
+<ul>
+<li>Owner: AI（apply-script 生成）→ Human（--apply 実行）</li>
+<li>rollback: .bak から復元</li>
+<li>HO パス: scripts/hooks/*.sh</li>
+<li>R-003 反映: SKIP は「通す」だけ。中身検証は EH-2 と AI 生成コードに委ねる。</li>
+<li>🚩 チェックポイント: conversation モードで c3.json Write が SKIP (exit 0) する</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-06: <code>bin/plangate</code> に config 読み込み + approve/doctor 分岐追加（apply-script）</li>
+</ul>
+<ul>
+<li>Owner: AI（apply-script 生成）→ Human（--apply 実行）</li>
+<li>rollback: bin/plangate.bak から復元</li>
+<li>HO パス: bin/plangate</li>
+<li>R-001/R-002 反映: cmd_exec は変更しない。cmd_approve に conversation モード対応を追加。</li>
+<li>R-005 反映: .plangate.yml 存在 + 読めない/不正 mode → stderr WARN</li>
+<li>🚩 チェックポイント: <code>bin/plangate doctor</code> に承認モードが表示される</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-07: apply-script 作成（<code>scripts/_apply_task_0144_patches.py</code> + wrapper）</li>
+</ul>
+<ul>
+<li>Owner: AI (直接 Write)</li>
+<li>rollback: <code>rm scripts/_apply_task_0144_patches.py scripts/apply-task-0144-c3-mode.sh</code></li>
+<li>含む patch: T-03/T-04/T-05/T-06</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-08: テスト作成 <code>tests/extras/ta-45-c3-mode-config.sh</code></li>
+</ul>
+<ul>
+<li>Owner: AI (直接 Write)</li>
+<li>rollback: <code>rm tests/extras/ta-45-c3-mode-config.sh</code></li>
+<li>R-006 反映: TC-06 に plangate-config.schema.json の検証 TC を追加</li>
+<li>R-008 反映: TC-07 から件数固定を削除（0 failed のみ確認）</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-09: docs 更新（<code>docs/ai/settings-wiring-contract.md</code> EH-3 conversation 経路明記）</li>
+</ul>
+<ul>
+<li>Owner: AI（doc-light SKIP、HO なし）</li>
+<li>rollback: git restore</li>
+</ul>
+<h2 id="todo-md-h3">検証フェーズ</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-10: dry-run 確認 <code>sh scripts/apply-task-0144-c3-mode.sh --dry-run</code></li>
+</ul>
+<ul>
+<li>Owner: AI + Human 目視確認</li>
+</ul>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-11: <code>sh tests/run-tests.sh</code> → apply 前は ta-45 TC-01 が SKIP</li>
+</ul>
+<ul>
+<li>Owner: AI</li>
+</ul>
+<h2 id="todo-md-h4">完了フェーズ</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T-12: working context 更新（status.md / current-state.md）</li>
+</ul>
+<ul>
+<li>Owner: AI</li>
+</ul>
+<h2 id="todo-md-h5">👤 Human Gate</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > H-01: C-3 レビュー・承認（<code>bin/plangate approve TASK-0144</code> または会話内 APPROVE）</li>
+<li><input type='checkbox' disabled > H-02: <code>sh scripts/apply-task-0144-c3-mode.sh --apply</code> 実行</li>
+<li><input type='checkbox' disabled > H-03: apply 後 <code>sh tests/run-tests.sh</code> で ta-45 全 TC PASS 確認</li>
+<li><input type='checkbox' disabled > H-04: C-4 PR レビュー</li>
+</ul>
+<h2 id="todo-md-h6">⚠️ 依存関係</h2>
+<ul>
+<li>T-07 が完了するまで H-02 は実行不可</li>
+<li>H-02 が完了するまで apply 後テストは実行不可（ta-45 TC-02〜06 は apply 後のみ PASS）</li>
+<li>H-01 (C-3) は T-08/T-09 完了後に実施</li>
+</ul>
+</section>
+<section class="doc" id="test-cases-md">
+<h2 class="doc-title">TEST CASES (test-cases.md)</h2>
+<hr>
+<p>task_id: TASK-0144</p>
+<p>artifact_type: test-cases</p>
+<p>schema_version: 1</p>
+<hr>
+<h1 id="test-cases-md-h0">TEST CASES — TASK-0144（C-2 反映版）</h1>
+<blockquote>C-2 指摘 R-006/R-007/R-008 反映済み</blockquote>
+<h2 id="test-cases-md-h1">受入基準 → テストケースマッピング</h2>
+<table>
+<thead><tr>
+<th>AC</th>
+<th>TC</th>
+<th>種別</th>
+</tr></thead><tbody>
+<tr><td>AC-01</td><td>TC-01: conversation モード + exec 前に c3.json 生成 → exec 通過</td><td>Integration</td></tr>
+<tr><td>AC-02</td><td>TC-02: cli モード（.plangate.yml あり）→ 現行動作維持</td><td>Integration</td></tr>
+<tr><td>AC-02</td><td>TC-03: .plangate.yml 未存在 → cli フォールバック</td><td>Integration</td></tr>
+<tr><td>AC-03</td><td>TC-04: AI 生成 c3.json に source: conversation フィールド</td><td>Unit</td></tr>
+<tr><td>AC-04</td><td>TC-05: doctor が承認モードを出力</td><td>Unit</td></tr>
+<tr><td>AC-05</td><td>TC-06: plangate-config.schema.json が mode enum を検証</td><td>Unit</td></tr>
+<tr><td>AC-06</td><td>TC-07: sh tests/run-tests.sh 0 FAIL（regression）</td><td>Integration</td></tr>
+</tbody></table>
+<h2 id="test-cases-md-h2">テストケース一覧</h2>
+<h3 id="test-cases-md-h3">TC-01: conversation モード + exec 前に c3.json 生成 → exec 通過</h3>
+<ul>
+<li><strong>前提条件</strong>: <code>.plangate.yml</code> に <code>c3_approval: {mode: conversation}</code> が設定済み、apply-script 適用済み</li>
+<li><strong>入力</strong>: exec 前に c3.json が生成済み（source: conversation, c3_status: APPROVED, plan_hash 付き）の状態で <code>bin/plangate exec TASK</code> 実行</li>
+<li><strong>期待出力</strong>: exec が c3.json の存在・APPROVED を確認して通過（cmd_exec は変更なし）</li>
+<li><strong>種別</strong>: Integration（apply 後のみ）</li>
+<li><strong>R-001/R-002 反映</strong>: c3.json は exec 前に生成済みである必要がある</li>
+</ul>
+<h3 id="test-cases-md-h4">TC-02: cli モード（.plangate.yml あり）→ 現行動作維持</h3>
+<ul>
+<li><strong>前提条件</strong>: <code>.plangate.yml</code> に <code>c3_approval: {mode: cli}</code> が設定済み</li>
+<li><strong>入力</strong>: c3.json が未存在の状態で <code>bin/plangate exec TASK</code> 実行</li>
+<li><strong>期待出力</strong>: exec が「approvals/c3.json not found」エラーで exit 1</li>
+<li><strong>種別</strong>: Integration</li>
+</ul>
+<h3 id="test-cases-md-h5">TC-03: .plangate.yml 未存在 → cli フォールバック</h3>
+<ul>
+<li><strong>前提条件</strong>: <code>.plangate.yml</code> が存在しない</li>
+<li><strong>入力</strong>: EH-3 が c3.json への Write を試みる</li>
+<li><strong>期待出力</strong>: maintenance.json なしの場合は BLOCK（cli 動作）</li>
+<li><strong>種別</strong>: Integration</li>
+</ul>
+<h3 id="test-cases-md-h6">TC-04: AI 生成 c3.json に source: conversation フィールド</h3>
+<ul>
+<li><strong>前提条件</strong>: conversation モード有効</li>
+<li><strong>入力</strong>: AI が approvals/c3.json を生成</li>
+<li><strong>期待出力</strong>: <code>jq .source approvals/c3.json</code> = <code>&quot;conversation&quot;</code></li>
+<li><strong>種別</strong>: Unit</li>
+</ul>
+<h3 id="test-cases-md-h7">TC-05: doctor が承認モードを出力</h3>
+<ul>
+<li><strong>前提条件</strong>: apply-script 適用済み</li>
+<li><strong>入力</strong>: <code>bin/plangate doctor</code></li>
+<li><strong>期待出力</strong>: 出力に <code>C-3 Approval Mode</code> または <code>c3_approval.mode</code> の表示（cli または conversation）</li>
+<li><strong>種別</strong>: Unit（grep で確認）</li>
+</ul>
+<h3 id="test-cases-md-h8">TC-06: plangate-config.schema.json が mode enum を検証（R-006 反映）</h3>
+<ul>
+<li><strong>前提条件</strong>: <code>schemas/plangate-config.schema.json</code> 存在、apply-script 適用済み</li>
+<li><strong>入力 (PASS)</strong>: <code>c3_approval: {mode: cli}</code> の yaml が schema に適合</li>
+<li><strong>入力 (FAIL)</strong>: <code>c3_approval: {mode: invalid}</code> の yaml が schema に不適合</li>
+<li><strong>期待出力</strong>: python3 jsonschema で PASS/FAIL を確認</li>
+<li><strong>種別</strong>: Unit</li>
+</ul>
+<h3 id="test-cases-md-h9">TC-07: sh tests/run-tests.sh 0 FAIL（R-008 反映: 件数固定なし）</h3>
+<ul>
+<li><strong>前提条件</strong>: apply-script 適用済み</li>
+<li><strong>入力</strong>: <code>sh tests/run-tests.sh</code></li>
+<li><strong>期待出力</strong>: <code>0 failed</code>（件数は問わない）</li>
+<li><strong>種別</strong>: Integration</li>
+</ul>
+<h2 id="test-cases-md-h10">エッジケース</h2>
+<table>
+<thead><tr>
+<th>ケース</th>
+<th>期待挙動</th>
+</tr></thead><tbody>
+<tr><td><code>.plangate.yml</code> に <code>c3_approval.mode</code> キーなし</td><td><code>cli</code> フォールバック</td></tr>
+<tr><td><code>.plangate.yml</code> に不正な mode 値（例: <code>foo</code>）</td><td><code>cli</code> フォールバック + stderr WARN（R-005 反映）</td></tr>
+<tr><td><code>.plangate.yml</code> 存在 + PyYAML 未インストール</td><td><code>cli</code> フォールバック + stderr WARN</td></tr>
+<tr><td><code>.plangate.yml</code> 存在 + 構文エラー（不正 YAML）</td><td><code>cli</code> フォールバック + stderr WARN（R-005 反映）</td></tr>
+<tr><td>c3.json が既に存在する状態で conversation モード exec</td><td>既存 c3.json を使用（cmd_exec 変更なし）</td></tr>
+<tr><td>approvals/ ディレクトリが未存在</td><td><code>mkdir -p</code> で自動生成</td></tr>
+<tr><td>既存 c3.json（source フィールドなし）の schema 検証</td><td>source が optional のため valid（R-004 反映）</td></tr>
+</tbody></table>
+</section>
+<section class="doc" id="review-self-md">
+<h2 class="doc-title">C-1 セルフレビュー (review-self.md)</h2>
+<hr>
+<p>task_id: TASK-0144</p>
+<p>artifact_type: review-self</p>
+<p>schema_version: 1</p>
+<hr>
+<h1 id="review-self-md-h0">SELF REVIEW — TASK-0144</h1>
+<h2 id="review-self-md-h1">Plan チェック（7 項目）</h2>
+<table>
+<thead><tr>
+<th>#</th>
+<th>項目</th>
+<th>判定</th>
+<th>指摘</th>
+</tr></thead><tbody>
+<tr><td>C1-PLAN-01</td><td>受入基準の網羅性（全 AC が Work Breakdown に対応）</td><td>✅ PASS</td><td>AC-01〜06 すべて Step 2〜7 に対応</td></tr>
+<tr><td>C1-PLAN-02</td><td>Unknowns の処理（.plangate.yml 未存在・PyYAML なし）</td><td>✅ PASS</td><td>Risks &amp; Mitigations に fallback 戦略を明記</td></tr>
+<tr><td>C1-PLAN-03</td><td>スコープ制御（EH-3 provenance / HMAC は Out of scope）</td><td>✅ PASS</td><td>Non-goals に明記済み</td></tr>
+<tr><td>C1-PLAN-04</td><td>テスト戦略（Unit + Integration + E2E）</td><td>✅ PASS</td><td>ta-45 + regression + dry-run/apply フローを記載</td></tr>
+<tr><td>C1-PLAN-05</td><td>Work Breakdown Output の明確性</td><td>✅ PASS</td><td>各 Step に Output / Owner / Risk / チェックポイントあり</td></tr>
+<tr><td>C1-PLAN-06</td><td>依存関係の明示（HO パスの apply-script + Human 適用）</td><td>✅ PASS</td><td>Files テーブルに HO / 方法を明記</td></tr>
+<tr><td>C1-PLAN-07</td><td>動作検証の自動化可能性</td><td>⚠️ WARN</td><td>TC-01〜04 は apply 後のみ実行可（apply 前は SKIP）。ta-45 で skip 経路を明示すること</td></tr>
+</tbody></table>
+<h2 id="review-self-md-h2">ToDo チェック（5 項目）</h2>
+<table>
+<thead><tr>
+<th>#</th>
+<th>項目</th>
+<th>判定</th>
+<th>指摘</th>
+</tr></thead><tbody>
+<tr><td>C1-TODO-01</td><td>タスク粒度（1 タスク = 1 成果物）</td><td>✅ PASS</td><td>T-02〜T-09 が各 1 ファイルに対応</td></tr>
+<tr><td>C1-TODO-02</td><td>depends_on 設定（T-07 → H-02 → T-11）</td><td>✅ PASS</td><td>依存関係セクションに明記</td></tr>
+<tr><td>C1-TODO-03</td><td>チェックポイント設定（🚩が key ステップに存在）</td><td>✅ PASS</td><td>T-05 / T-06 にチェックポイント設定済み</td></tr>
+<tr><td>C1-TODO-04</td><td>Iron Law 遵守（bin/plangate は HO → apply-script）</td><td>✅ PASS</td><td>T-03〜T-06 すべて apply-script 経由で Human 適用</td></tr>
+<tr><td>C1-TODO-05</td><td>完了条件（H-02 apply → ta-45 全 TC PASS）</td><td>✅ PASS</td><td>H-02/H-03 に検証 gate を設定済み</td></tr>
+</tbody></table>
+<h2 id="review-self-md-h3">TestCases チェック（3 項目）</h2>
+<table>
+<thead><tr>
+<th>#</th>
+<th>項目</th>
+<th>判定</th>
+<th>指摘</th>
+</tr></thead><tbody>
+<tr><td>C1-TC-01</td><td>受入基準との紐づき（全 AC に TC が存在）</td><td>✅ PASS</td><td>AC-01〜06 → TC-01〜07（AC-02 に 2 TC）</td></tr>
+<tr><td>C1-TC-02</td><td>エッジケース網羅（mode 未設定・不正値・PyYAML なし）</td><td>✅ PASS</td><td>Edge case テーブルに 5 パターン記載</td></tr>
+<tr><td>C1-TC-03</td><td>自動化可否（apply 後 tc-01〜07 は自動実行可）</td><td>⚠️ WARN</td><td>TC-01 の c3.json 生成 + exec 通過フローは sandbox 設計要（EH-3 モック or 実環境）</td></tr>
+</tbody></table>
+<h2 id="review-self-md-h4">判定</h2>
+<p><strong>PASS（WARN 2 件）</strong></p>
+<table>
+<thead><tr>
+<th>指摘</th>
+<th>内容</th>
+<th>対処</th>
+</tr></thead><tbody>
+<tr><td>W-01</td><td>TC-01〜04: apply 前は SKIP が必要</td><td>ta-45 に apply 前 SKIP 分岐を実装</td></tr>
+<tr><td>W-02</td><td>TC-01 の sandbox 設計（EH-3 が走る環境）</td><td>ta-45 で <code>PLANGATE_TEST_MODE=1</code> + tmp TASK ディレクトリで擬似実行</td></tr>
+</tbody></table>
+<p>WARN は既知・軽微なため、C-3 承認後に exec フェーズで解消する。</p>
+</section>
+<section class="doc" id="review-external-md">
+<h2 class="doc-title">C-2 外部レビュー (review-external.md)</h2>
+<h1 id="review-external-md-h0">External Review — TASK-0144</h1>
+<blockquote>Phase: C-2</blockquote>
+<blockquote>Generated: 2026-06-25</blockquote>
+<h2 id="review-external-md-h1">指摘 ID テーブル</h2>
+<table>
+<thead><tr>
+<th>R-NNN</th>
+<th>レーン</th>
+<th>Severity</th>
+<th>状態</th>
+<th>反映コミット</th>
+</tr></thead><tbody>
+<tr><td>R-001</td><td>設計妥当性</td><td>critical</td><td>✅ 反映済み</td><td>plan.md C-2反映版（cmd_exec 変更なし・exec 前生成）</td></tr>
+<tr><td>R-002</td><td>設計妥当性</td><td>critical</td><td>✅ 反映済み</td><td>plan.md C-2反映版（cmd_exec 変更なし）</td></tr>
+<tr><td>R-003</td><td>コードベース整合</td><td>major</td><td>✅ 反映済み</td><td>plan.md Step4（EH-3 SKIP 責務を「通す」のみに限定）</td></tr>
+<tr><td>R-004</td><td>コードベース整合</td><td>major</td><td>✅ 反映済み</td><td>plan.md Step3 / test-cases.md EC（旧 c3.json も valid）</td></tr>
+<tr><td>R-005</td><td>設計妥当性</td><td>major</td><td>✅ 反映済み</td><td>plan.md Step5 / test-cases.md EC（不正設定で WARN）</td></tr>
+<tr><td>R-006</td><td>設計妥当性</td><td>major</td><td>✅ 反映済み</td><td>test-cases.md TC-06（schema 検証 TC 追加）</td></tr>
+<tr><td>R-007</td><td>設計妥当性</td><td>minor</td><td>✅ 反映済み</td><td>plan.md Files テーブル（settings-wiring の HO 表記削除）</td></tr>
+<tr><td>R-008</td><td>設計妥当性</td><td>minor</td><td>✅ 反映済み</td><td>test-cases.md TC-07（件数固定削除・0 failed のみ）</td></tr>
+</tbody></table>
+<hr>
+<h2 id="review-external-md-h2">Codex レビュー（設計妥当性 + コードベース整合レーン）</h2>
+<blockquote>Reviewer: codex</blockquote>
+<blockquote>Generated: 2026-06-25T08:25:27Z</blockquote>
+<h3 id="review-external-md-h3">R-001 [critical] AI 自己承認と Core Contract の衝突</h3>
+<p><code>conversation</code> モードで &quot;AI が cmd_exec 内で c3.json を自動生成&quot; する設計は、現行 Core Contract の C-3 境界と衝突する。</p>
+<p>Core Contract は「C-3 承認前に production code を変更しない」を不可侵としており、現行 <code>bin/plangate approve</code> は「AI 自己承認を L1-L4 で封じる」設計になっている（<code>bin/plangate:2137</code>）。</p>
+<p><strong>修正案</strong>: conversation モードを「AI 自己承認」ではなく「会話内の人間 APPROVE 発話を機械的に c3.json に転記する経路」として再設計する。exec 前に c3.json が存在し、schema と plan_hash と承認ソースが検証済みである構造にする。</p>
+<h3 id="review-external-md-h4">R-002 [critical] cmd_exec でのゲート自己充足</h3>
+<p><code>cmd_exec</code> に c3.json 自動生成を入れると、「exec が承認を確認する」から「exec が承認を作る」に変わり C-3 の意味が崩れる。</p>
+<p>現行 <code>cmd_exec</code> は既存 <code>approvals/c3.json</code> の存在と <code>APPROVED</code> を先に要求している（<code>bin/plangate:1914</code>）。この順序を維持する必要がある。</p>
+<p><strong>修正案</strong>: c3.json 生成は exec より前（人間 APPROVE 発話後）に完了させる。<code>cmd_exec</code> は変更不要。</p>
+<h3 id="review-external-md-h5">R-003 [major] EH-3 の c3.json SKIP が広すぎる</h3>
+<p><code>approvals/c3.json + conversation mode → SKIP (exit 0)</code> は schema 妥当性・c3_status=APPROVED・plan_hash 一致・source=conversation の存在確認を別経路で fail-closed にしない限り、承認ファイルの改変経路になる。</p>
+<p><strong>修正案</strong>: EH-3 SKIP は「Write を通す」役割のみ。中身の検証はアプリ層（AI の c3.json 生成コード）と exec 時の EH-2 に委ねる。ただし SKIP の条件を厳密に定義（<code>docs/working/TASK-XXXX/approvals/c3.json</code> pattern に限定）し、plan にその理由を明示する。</p>
+<h3 id="review-external-md-h6">R-004 [major] c3-approval.schema.json の additionalProperties: false</h3>
+<p>plan は「additionalProperties: false でない場合は安全」としているが、現行 <code>c3-approval.schema.json</code> はトップレベルで <code>additionalProperties: false</code> である（<code>schemas/c3-approval.schema.json:124</code>）。</p>
+<p><code>source</code> フィールドを追加する場合、schema への追加は必須。旧 c3.json が通り、新 c3.json も通ることを両方テストに入れる必要がある。</p>
+<p><strong>修正案</strong>: plan の Risk 評価を修正。「additionalProperties: false のため source フィールドの schema 追加は必須」と明記する。</p>
+<h3 id="review-external-md-h7">R-005 [major] .plangate.yml fail-open の問題</h3>
+<p>ファイルが存在して PyYAML 未導入・構文不正・未知 mode の場合まで <code>cli</code> に黙って落とすと、ユーザーは <code>conversation</code> を設定したつもりで従来挙動になる。</p>
+<p><strong>修正案</strong>: <code>.plangate.yml</code> が存在する場合は「読めない/不正なら doctor WARN/FAIL」を追加する。AC に追加するか、test-cases のエッジケースとして明示する。</p>
+<h3 id="review-external-md-h8">R-006 [major] plangate-config.schema.json の検証コマンド未整備</h3>
+<p><code>schemas/plangate-config.schema.json</code> を追加しても、現行 schema mapping（<code>scripts/schema_mapping.py:20</code>）は JSON artifact のみを扱っており、<code>.plangate.yml</code> の検証コマンド・doctor 統合・ta-45 内の明示 validation が plan に記載されていない。</p>
+<p><strong>修正案</strong>: ta-45 に <code>.plangate.yml</code> の schema 検証 TC を追加（jsonschema CLI 等で検証）。test-cases.md の TC-06 に検証コマンドを明記する。</p>
+<h3 id="review-external-md-h9">R-007 [minor] docs/ai/settings-wiring-contract.md の HO 表記矛盾</h3>
+<p>plan の Files テーブルで <code>docs/ai/settings-wiring-contract.md</code> に HO ✅ を付けつつ「AI 直接 (doc-light SKIP)」としている。HO なら apply-script 必須のはず。</p>
+<p>現行 EH-3 の HO 判定パスは <code>docs/ai/*.md</code> を含まず（<code>check-plan-hash.sh:122</code>）、doc-light は非 HO <code>.md</code> の SKIP（<code>check-plan-hash.sh:145</code>）。</p>
+<p><strong>修正案</strong>: Files テーブルの HO カラムから <code>docs/ai/settings-wiring-contract.md</code> の ✅ を削除。「AI 直接 (doc-light SKIP)」の方が正確。</p>
+<h3 id="review-external-md-h10">R-008 [minor] テスト件数の固定化</h3>
+<p>「343 → 349 件想定」は drift しやすい。<code>sh tests/run-tests.sh</code> exit 0 と TA-45 の PASS 数に寄せた方が安全。</p>
+<p><strong>修正案</strong>: test-cases.md の TC-07 から件数予測を削除し「0 failed」確認に変更する。</p>
+<hr>
+<h2 id="review-external-md-h11">Gemini レビュー</h2>
+<blockquote>Reviewer: gemini</blockquote>
+<blockquote>Status: unavailable（IneligibleTierError — CLI 認証エラー）</blockquote>
+<blockquote>Reason: Gemini CLI が <code>IneligibleTierError</code> で認証失敗。Antigravity suite への移行が必要。</blockquote>
+<blockquote>代替観点: R-001〜R-008 は Codex のコードベース整合レーンで代替カバーされている。</blockquote>
+<blockquote>未充足リスク: Gemini 固有の設計整合視点が未確認。</blockquote>
+<blockquote>verdict: WARN</blockquote>
+</section>
+</div></body></html>
