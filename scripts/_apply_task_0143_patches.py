@@ -3,6 +3,10 @@
 # TASK-0143: bin/plangate への CLI 配線パッチ (呼び出し元: apply-task-0143-eh457-wiring.sh)
 import sys, os, difflib
 
+if len(sys.argv) < 3:
+    print(f"Usage: {sys.argv[0]} <repo_root> <dry_run_flag>", file=sys.stderr)
+    sys.exit(1)
+
 repo_root = sys.argv[1]
 dry_run = sys.argv[2] == "1"
 errors = 0
@@ -11,7 +15,7 @@ errors = 0
 def patch_file(rel_path, old, new, label=""):
     global errors
     path = os.path.join(repo_root, rel_path)
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         content = f.read()
     if new in content:
         print(f"[SKIP] {label or rel_path}: already applied")
@@ -32,9 +36,9 @@ def patch_file(rel_path, old, new, label=""):
             print(f"[NO DIFF] {rel_path}")
     else:
         bak = path + ".bak"
-        with open(bak, "w") as f:
+        with open(bak, "w", encoding="utf-8") as f:
             f.write(content)
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(new_content)
         print(f"[PATCHED] {rel_path}  (backup: {os.path.basename(bak)})")
 

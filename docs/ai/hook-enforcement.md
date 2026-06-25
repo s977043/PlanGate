@@ -15,7 +15,7 @@
 >
 > | 配線状態 | Hook | 発火経路 |
 > |---------|------|---------|
-> | ✅ 配線済み（8） | EH-1 / EH-2 / EH-3 / EH-6 / EH-9 | Claude PreToolUse + Codex hooks.json |
+> | ✅ 配線済み（6） | EH-1 / EH-2 / EH-3 / EH-6 / EH-9 | Claude PreToolUse + Codex hooks.json |
 > | | EH-8 | CI（metrics-privacy.yml）+ doctor + codex-guarded |
 > | ✅ CLI 配線（2、apply 後） | EH-4 / EH-5 | `bin/plangate verify` —EH-4: V-1 前 strict / EH-5: V-1 後 warn（TASK-0143） |
 > | ⏳ doctor 可視化のみ（1） | EH-7 | `bin/plangate doctor` CLI Hook Wiring セクション + 手動推奨（#500 後続） |
