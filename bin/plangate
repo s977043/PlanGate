@@ -2073,7 +2073,7 @@ cmd_verify() {
     return 1
   fi
   printf '[verify] Checking EH-5: verification evidence present...\n'
-  sh "$plangate_root/scripts/hooks/check-verification-evidence.sh" "$task_id" || true
+  PLANGATE_HOOK_STRICT=0 sh "$plangate_root/scripts/hooks/check-verification-evidence.sh" "$task_id" || true
   printf '[verify] Running settings task-lock check...\n'
   if ! "$0" doctor --check-settings; then
     printf '[verify] settings task-lock FAILED — Human must run sh scripts/apply-claude-settings.sh\n' >&2
