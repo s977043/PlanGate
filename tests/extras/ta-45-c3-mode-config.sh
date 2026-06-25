@@ -157,9 +157,10 @@ try:
     import jsonschema
     with open(schema_path, "r") as f:
         schema = json.load(f)
-    # source: "conversation" を含む最小 c3.json
+    # source: "conversation" を含む最小 c3.json（required: task_id/phase/c3_status/approved_by/approved_at/plan_hash）
     instance = {
         "task_id": "TASK-T45",
+        "phase": "C-3",
         "c3_status": "APPROVED",
         "plan_hash": "sha256:abc123",
         "approved_at": "2026-06-25T00:00:00Z",
