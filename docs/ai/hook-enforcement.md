@@ -17,9 +17,10 @@
 > |---------|------|---------|
 > | ✅ 配線済み（6） | EH-1 / EH-2 / EH-3 / EH-6 / EH-9 | Claude PreToolUse + Codex hooks.json |
 > | | EH-8 | CI（metrics-privacy.yml）+ doctor + codex-guarded |
-> | ✅ CLI 配線（2、apply 後） | EH-4 / EH-5 | `bin/plangate verify` —EH-4: V-1 前 strict / EH-5: V-1 後 warn（TASK-0143） |
+> | ✅ CLI 配線（3、apply 後） | EH-4 / EH-5 | `bin/plangate verify` —EH-4: V-1 前 strict / EH-5: V-1 後 warn（TASK-0143） |
+> | | EHS-1 | `bin/plangate verify` —V-3 不合格時に `validation_bias=strict` で block（TASK-0145 増分1） |
 > | ⏳ doctor 可視化のみ（1） | EH-7 | `bin/plangate doctor` CLI Hook Wiring セクション + 手動推奨（#500 後続） |
-> | ⏳ 設計済み・未実装（3） | EHS-1 / EHS-2 / EHS-3 | 発火条件の `validation_bias: strict` 自体が未配線（設計は本書 §EHS を参照） |
+> | ⏳ 設計済み・未実装（2） | EHS-2 / EHS-3 | 発火条件の `validation_bias: strict` 自体が未配線（設計は本書 §EHS を参照） |
 
 > 関連: [`responsibility-boundary.md`](./responsibility-boundary.md) / [`tool-policy.md`](./tool-policy.md) / [`model-profiles.md`](./model-profiles.md)
 > 実装: [`scripts/hooks/check-plan-exists.sh`](../../scripts/hooks/check-plan-exists.sh) / [`check-c3-approval.sh`](../../scripts/hooks/check-c3-approval.sh) / [`check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) / [`check-test-cases.sh`](../../scripts/hooks/check-test-cases.sh) / [`check-verification-evidence.sh`](../../scripts/hooks/check-verification-evidence.sh) / [`check-forbidden-files.sh`](../../scripts/hooks/check-forbidden-files.sh) / [`check-merge-approvals.sh`](../../scripts/hooks/check-merge-approvals.sh) / [`check-v3-review.sh`](../../scripts/hooks/check-v3-review.sh) / [`check-handoff-elements.sh`](../../scripts/hooks/check-handoff-elements.sh) / [`check-fix-loop.sh`](../../scripts/hooks/check-fix-loop.sh)
