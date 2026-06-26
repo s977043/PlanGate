@@ -66,6 +66,7 @@ P1_OLD = (
 P1_NEW = (
     "    # EHS-3 (TASK-0146 / #527): fix-loop カウンタ increment + strict 時 block\n"
     "    if [ \"${PLANGATE_VALIDATION_BIAS:-normal}\" = \"strict\" ]; then\n"
+    "      # EHS-3 BLOCK\n"
     "      PLANGATE_HOOK_STRICT=1 sh \"$plangate_root/scripts/hooks/check-fix-loop.sh\" \"$task_id\" increment || return 1\n"
     "    else\n"
     "      sh \"$plangate_root/scripts/hooks/check-fix-loop.sh\" \"$task_id\" increment 2>/dev/null || true\n"
@@ -100,6 +101,7 @@ P2_NEW = (
     "  done\n"
     "  if [ \"$_handoff_verify\" = \"1\" ]; then\n"
     "    if [ \"${PLANGATE_VALIDATION_BIAS:-normal}\" = \"strict\" ]; then\n"
+    "      # EHS-2 BLOCK\n"
     "      PLANGATE_HOOK_STRICT=1 sh \"$plangate_root/scripts/hooks/check-handoff-elements.sh\" \"$task_id\" || return 1\n"
     "    else\n"
     "      sh \"$plangate_root/scripts/hooks/check-handoff-elements.sh\" \"$task_id\" 2>/dev/null || true\n"
