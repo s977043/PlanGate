@@ -28,7 +28,7 @@ else
 fi
 
 # TC-02: EHS-3 strict 時は return 1（block）
-if awk '/EHS-3 BLOCK/{flag=2} flag && --flag && /return 1/{found=1} END{exit !found}' "$_T47_PG" 2>/dev/null; then
+if grep -q 'PLANGATE_HOOK_STRICT=1 sh.*check-fix-loop.sh.*increment || return 1' "$_T47_PG" 2>/dev/null; then
   printf '  [PASS] TC-02 EHS-3 strict 時 fix-loop 上限超過を block（return 1）\n'; pass=$((pass + 1))
 else
   printf '  [FAIL] TC-02 EHS-3 block 動作の欠落\n'; fail=$((fail + 1))
@@ -51,7 +51,7 @@ else
 fi
 
 # TC-05: EHS-2 strict 時は return 1（block）
-if awk '/EHS-2 BLOCK/{flag=2} flag && --flag && /return 1/{found=1} END{exit !found}' "$_T47_PG" 2>/dev/null; then
+if grep -q 'PLANGATE_HOOK_STRICT=1 sh.*check-handoff-elements.sh.*|| return 1' "$_T47_PG" 2>/dev/null; then
   printf '  [PASS] TC-05 EHS-2 strict 時 handoff 6要素不足を block（return 1）\n'; pass=$((pass + 1))
 else
   printf '  [FAIL] TC-05 EHS-2 block 動作の欠落\n'; fail=$((fail + 1))
