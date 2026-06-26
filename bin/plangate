@@ -2124,6 +2124,13 @@ cmd_verify() {
   fi
   printf '[verify] Running V-1 (validate)...\n'
   if ! "$0" validate "$task_id"; then
+    # EHS-3 (TASK-0146 / #527): fix-loop カウンタ increment + strict 時 block
+    if [ "${PLANGATE_VALIDATION_BIAS:-normal}" = "strict" ]; then
+      # EHS-3 BLOCK
+      PLANGATE_HOOK_STRICT=1 sh "$plangate_root/scripts/hooks/check-fix-loop.sh" "$task_id" increment || return 1
+    else
+      sh "$plangate_root/scripts/hooks/check-fix-loop.sh" "$task_id" increment 2>/dev/null || true
+    fi
     printf '[verify] V-1 FAILED — stop\n' >&2
     return 1
   fi
@@ -2137,7 +2144,16 @@ cmd_verify() {
   case "$mode_flag" in
     standard|high-risk|critical)
       printf '[verify] Running V-3 (external review)...\n'
-      "$0" review "$task_id" --phase v3 || printf '[verify] V-3 returned non-zero\n' >&2
+      if "$0" review "$task_id" --phase v3; then
+        :
+      else
+        # EHS-1 (TASK-0145 / #527): validation_bias=strict は V-3 合格を必須化
+        if [ "${PLANGATE_VALIDATION_BIAS:-normal}" = "strict" ]; then
+          printf '[verify] EHS-1 BLOCK -- validation_bias=strict requires a passing V-3 external review\n' >&2
+          return 1
+        fi
+        printf '[verify] V-3 returned non-zero\n' >&2
+      fi
       ;;
   esac
   printf '[verify] Running 8-aspect eval...\n'
@@ -2152,6 +2168,20 @@ cmd_handoff() {
   if [ -z "$task_id" ]; then
     printf 'Usage: plangate handoff <TASK-XXXX>\n' >&2
     return 2
+  fi
+  # EHS-2 (TASK-0146 / #527): --verify で handoff.md の 6 要素を検査
+  _handoff_verify=0
+  for _harg in "$@"; do
+    case "$_harg" in --verify) _handoff_verify=1 ;; esac
+  done
+  if [ "$_handoff_verify" = "1" ]; then
+    if [ "${PLANGATE_VALIDATION_BIAS:-normal}" = "strict" ]; then
+      # EHS-2 BLOCK
+      PLANGATE_HOOK_STRICT=1 sh "$plangate_root/scripts/hooks/check-handoff-elements.sh" "$task_id" || return 1
+    else
+      sh "$plangate_root/scripts/hooks/check-handoff-elements.sh" "$task_id" 2>/dev/null || true
+    fi
+    return 0
   fi
   work_dir="$plangate_working_dir/$task_id"
   template="$plangate_root/docs/working/templates/handoff.md"
