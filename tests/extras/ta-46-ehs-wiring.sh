@@ -29,7 +29,7 @@ else
 fi
 
 # TC-02: strict 時の V-3 不合格は return 1（block）
-if awk '/EHS-1 BLOCK/{flag=2} flag && --flag && /return 1/{found=1} END{exit !found}' "$_T46_PG" 2>/dev/null; then
+if awk '/EHS-1 BLOCK/{flag=3} flag && --flag && /return 1/{found=1} END{exit !found}' "$_T46_PG" 2>/dev/null; then
   printf '  [PASS] TC-02 EHS-1 strict 時 V-3 不合格を block（return 1）\n'; pass=$((pass + 1))
 else
   printf '  [FAIL] TC-02 EHS-1 block 動作の欠落\n'; fail=$((fail + 1))
