@@ -10,7 +10,7 @@
 > **実装と物理配線の区別（2026-06-10 棚卸し / 2026-06-27 更新）**: 12/12 は
 > 「スクリプト実装 + 単体テスト済み」を指す。**発火経路（settings.json /
 > .codex/hooks.json / CI / bin/plangate）への物理配線は 11/12**（PreToolUse/CI 配線 6
-> ＋ `bin/plangate` CLI 配線 5＝EH-4 / EH-5 / EHS-1 / EHS-2 / EHS-3。EH-7 のみ
+> + `bin/plangate` CLI 配線 5 = EH-4 / EH-5 / EHS-1 / EHS-2 / EHS-3。EH-7 のみ
 > doctor 可視化 + 手動推奨）。残る配線の完全化は
 > [#500 Wiring Integrity Enforcement](https://github.com/s977043/plangate/issues/500)
 > （仕様策定済み）の実装範囲。
