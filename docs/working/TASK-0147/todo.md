@@ -45,3 +45,4 @@
 
 - `model-profiles.yaml` の "active profile" 自動選択（案C）
 - conductor が `--profile` を必ず渡すことの強制（プロンプト止まり＝CLI 側に強制を閉じる）
+- `plugin/plangate/agents/workflow-conductor.md`（export 版）への補足同期（plugin sync で対応・本 PBI は `.claude/agents/` 正本のみ）

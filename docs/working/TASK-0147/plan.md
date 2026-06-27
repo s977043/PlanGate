@@ -26,7 +26,7 @@ normal/lenient では従来どおり非発火（既存挙動不変）。
 
 | Step | Output | Owner | Risk | 🚩 |
 |------|--------|-------|------|----|
-| 1 | `_resolve_validation_bias.py`（profile key → bias 解決ヘルパー、yaml 読取） | agent | low | yaml parse 健全性 |
+| 1 | `_resolve_validation_bias.py`（profile key → bias 解決ヘルパー、yaml 読取。**未知 key / yaml 欠落・破損時は normal fallback しつつ stderr に警告**＝サイレント失敗防止） | agent | low | yaml parse 健全性 |
 | 2 | apply-script: `cmd_verify`/`cmd_handoff` 冒頭で `--profile` 解決し `PLANGATE_VALIDATION_BIAS` を export（env 既設定時は尊重） | agent | **HO** | 🚩 bin/plangate 改変 |
 | 3 | `tests/extras/ta-49-bias-export.sh`（未適用SKIP / 適用後 TC-01〜05） | agent | low | — |
 | 4 | `workflow-conductor.md` に profile→bias 運用補足（補助・非強制） | agent | **HO** | 🚩 .claude/agents 改変 |
@@ -38,6 +38,11 @@ normal/lenient では従来どおり非発火（既存挙動不変）。
 - `scripts/apply-task-0147-bias-export.sh` + `_apply_task_0147_patches.py`（新規・AI 直接可）
 - `bin/plangate`（**HO** / apply-script 経由・Human 適用）
 - `.claude/agents/workflow-conductor.md`（**HO** / apply-script 経由・Human 適用）
+  - 注（PR #643 Gemini 指摘への回答）: 本リポジトリの **正本は `.claude/agents/`**
+    （repo-owned・Claude Code 実行時に読まれる定義・HO 対象）。`plugin/plangate/agents/workflow-conductor.md`
+    は **export 版**（hybrid-architecture.md 補足参照）。実行強制に関わるのは
+    `.claude/agents/` 側のため本 PBI はこちらを正とし、export 版の同期は
+    別途 plugin sync で扱う（本 PBI スコープ外・todo に follow-up 記載）。
 - `tests/extras/ta-49-bias-export.sh`（新規）
 - `docs/ai/hook-enforcement.md`（doc）
 
