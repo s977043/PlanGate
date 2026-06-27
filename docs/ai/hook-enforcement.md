@@ -19,7 +19,8 @@
 > | | EH-8 | CI（metrics-privacy.yml）+ doctor + codex-guarded |
 > | ✅ CLI 配線（2、apply 後） | EH-4 / EH-5 | `bin/plangate verify` —EH-4: V-1 前 strict / EH-5: V-1 後 warn（TASK-0143） |
 > | ⏳ doctor 可視化のみ（1） | EH-7 | `bin/plangate doctor` CLI Hook Wiring セクション + 手動推奨（#500 後続） |
-> | ⏳ 設計済み・未実装（3） | EHS-1 / EHS-2 / EHS-3 | 発火条件の `validation_bias: strict` 自体が未配線（設計は本書 §EHS を参照） |
+> | ⏳ CLI 配線 apply-script 準備済み・適用待ち（1） | EHS-1 | `bin/plangate verify` V-3 case を `validation_bias=strict` で block。apply-script [`scripts/apply-task-0145-ehs-wiring.sh`](../../scripts/apply-task-0145-ehs-wiring.sh)（TASK-0145 / #527）。HO のため Human が `--apply` で適用（適用後 ta-46 PASS）。発火条件 env `PLANGATE_VALIDATION_BIAS`（既定 normal＝非発火） |
+> | ⏳ 設計済み・未実装（2） | EHS-2 / EHS-3 | 発火条件の `validation_bias: strict` 配線が未整備（設計は本書 §EHS を参照。TASK-0145 増分2/3 で配線予定） |
 
 > 関連: [`responsibility-boundary.md`](./responsibility-boundary.md) / [`tool-policy.md`](./tool-policy.md) / [`model-profiles.md`](./model-profiles.md)
 > 実装: [`scripts/hooks/check-plan-exists.sh`](../../scripts/hooks/check-plan-exists.sh) / [`check-c3-approval.sh`](../../scripts/hooks/check-c3-approval.sh) / [`check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) / [`check-test-cases.sh`](../../scripts/hooks/check-test-cases.sh) / [`check-verification-evidence.sh`](../../scripts/hooks/check-verification-evidence.sh) / [`check-forbidden-files.sh`](../../scripts/hooks/check-forbidden-files.sh) / [`check-merge-approvals.sh`](../../scripts/hooks/check-merge-approvals.sh) / [`check-v3-review.sh`](../../scripts/hooks/check-v3-review.sh) / [`check-handoff-elements.sh`](../../scripts/hooks/check-handoff-elements.sh) / [`check-fix-loop.sh`](../../scripts/hooks/check-fix-loop.sh)
@@ -175,7 +176,7 @@ Model Profile の `validation_bias: strict` プロファイル（gpt-5_5_pro 等
 
 [`.claude/settings.example.json`](../../.claude/settings.example.json) を `.claude/settings.json` にコピーすると PreToolUse hook（**EH-1 + EH-2 + EH-3 + EH-6**）+ SessionStart（gh-pin-account）が有効化される。
 
-**CLI 配線（TASK-0143 / apply-script 適用後）**: EH-4 は `plangate verify` V-1 前（strict=1）、EH-5 は V-1 後（warn）で発火。EH-7 / EHS-1 / EHS-2 / EHS-3 は引き続き手動呼び出し。
+**CLI 配線（TASK-0143 / apply-script 適用後）**: EH-4 は `plangate verify` V-1 前（strict=1）、EH-5 は V-1 後（warn）で発火。EH-7 / EHS-2 / EHS-3 は引き続き手動呼び出し。EHS-1 は TASK-0145 apply-script で `bin/plangate verify` V-3 case に strict block を配線（Human 適用待ち、env `PLANGATE_VALIDATION_BIAS` 既定 normal で非発火）。
 
 ### 4.4 テスト
 
