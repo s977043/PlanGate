@@ -7,11 +7,18 @@
 > 現状は **EH-1〜EH-9 + EHS-1〜EHS-3 = 12/12**。本書本文の表は v8.5.0 構成のまま
 > 維持し、追加分の詳細はそれぞれの実装 PR / CHANGELOG / `bin/plangate doctor` 出力を参照。
 
-> **実装と物理配線の区別（2026-06-10 棚卸し）**: 12/12 は「スクリプト実装 +
-> 単体テスト済み」を指す。**発火経路（settings.json / .codex/hooks.json / CI /
-> bin/plangate）への物理配線は 6/12**。配線の完全化は
+> **実装と物理配線の区別（2026-06-10 棚卸し / 2026-06-27 更新）**: 12/12 は
+> 「スクリプト実装 + 単体テスト済み」を指す。**発火経路（settings.json /
+> .codex/hooks.json / CI / bin/plangate）への物理配線は 11/12**（PreToolUse/CI 配線 6
+> ＋ `bin/plangate` CLI 配線 5＝EH-4 / EH-5 / EHS-1 / EHS-2 / EHS-3。EH-7 のみ
+> doctor 可視化 + 手動推奨）。残る配線の完全化は
 > [#500 Wiring Integrity Enforcement](https://github.com/s977043/plangate/issues/500)
 > （仕様策定済み）の実装範囲。
+>
+> **未配線の機能ギャップ（EPIC #527 follow-up）**: EHS-1/2/3 の発火条件
+> `PLANGATE_VALIDATION_BIAS=strict` を conductor が `model-profiles.yaml` の active
+> profile から解決・export する経路は未配線（TASK-0146 で Non-goals）。env 既定
+> `normal` のため、現状 EHS-1/2/3 は明示 env 注入時のみ発火する。
 >
 > | 配線状態 | Hook | 発火経路 |
 > |---------|------|---------|
