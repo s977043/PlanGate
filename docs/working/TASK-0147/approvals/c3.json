@@ -1,10 +1,10 @@
 {
   "task_id": "TASK-0147",
+  "phase": "C-3",
   "c3_status": "APPROVED",
-  "decision": "APPROVED",
-  "approved_by": "human (masatake.komine@proni.co.jp)",
-  "approved_at": "2026-06-27",
-  "mode": "high-risk",
+  "approved_by": "masatake.komine@proni.co.jp",
+  "approved_at": "2026-06-27T00:00:00Z",
   "plan_hash": "sha256:0a3bb2744f8ef0b8b20ddbf55df988f24b9299fd077ec1a845e689274fc39de9",
-  "note": "ユーザー明示承認: 「TASK-0147 を C-3 承認して実装を進めて」。HO 2種 (bin/plangate + .claude/agents/workflow-conductor.md) を含む high-risk。実装は AI-owned 成果物 (helper/apply-script/test) のみ、HO 本体適用は Human-owned。"
+  "source": "conversation",
+  "conditions": "ユーザー明示承認: 「TASK-0147 を C-3 承認して実装を進めて」。high-risk / HO 2種 (bin/plangate + .claude/agents/workflow-conductor.md)。実装は AI-owned 成果物 (helper/apply-script/test) のみ、HO 本体適用は Human-owned (apply-script)。"
 }
