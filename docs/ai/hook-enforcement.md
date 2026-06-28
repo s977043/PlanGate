@@ -36,6 +36,34 @@
 > 実装: [`scripts/hooks/check-plan-exists.sh`](../../scripts/hooks/check-plan-exists.sh) / [`check-c3-approval.sh`](../../scripts/hooks/check-c3-approval.sh) / [`check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) / [`check-test-cases.sh`](../../scripts/hooks/check-test-cases.sh) / [`check-verification-evidence.sh`](../../scripts/hooks/check-verification-evidence.sh) / [`check-forbidden-files.sh`](../../scripts/hooks/check-forbidden-files.sh) / [`check-merge-approvals.sh`](../../scripts/hooks/check-merge-approvals.sh) / [`check-v3-review.sh`](../../scripts/hooks/check-v3-review.sh) / [`check-handoff-elements.sh`](../../scripts/hooks/check-handoff-elements.sh) / [`check-fix-loop.sh`](../../scripts/hooks/check-fix-loop.sh)
 > 設定例: [`.claude/settings.example.json`](../../.claude/settings.example.json) / 単体テスト: [`tests/hooks/run-tests.sh`](../../tests/hooks/run-tests.sh)
 
+## 0. 運用モード別の強制実態（CLI 依存度 / 2026-06-28 現状把握）
+
+> 各強制は「いつ発火するか」が経路ごとに異なる。とくに **CLI（`bin/plangate`）を
+> 通さない運用（手動 / AI 任せ）では、CLI 層の強制（EH-4 / EH-5 / EHS-1/2/3）は
+> 一度も発火しない**。承認境界の中核（EH-1/2/3/6/9）は CLI 非依存で常時発火する。
+
+### 発火層の分類
+
+| 層 | 強制 | 発火契機 | CLI を使わない運用での実態 |
+|----|------|---------|--------------------------|
+| **A. Claude PreToolUse**（自動・bypass 不能）| EH-1 / EH-2 / EH-3 / EH-6 / EH-9 + 承認トークン直書き block（TASK-0123）| Edit / Write / Bash のたび | ✅ 常時発火 |
+| **B. CI**（自動・bypass 不能）| EH-8（metrics privacy）/ settings drift / schema-validate / skip-ack / pr-issue-link | PR / push | ✅ 常時発火 |
+| **C. CLI**（`bin/plangate` 実行時のみ）| EH-4 / EH-5 / **EHS-1 / EHS-2 / EHS-3** | `verify` / `handoff --verify` を**実行したときだけ** | 🔴 **休眠**（CLI 未実行なら不発） |
+| **D. 外部設定**| EH-7（マージ 2 段階レビュー）| main へのマージ | 🔶 GitHub branch protection 設定に依存（Human-owned admin）|
+| **E. Codex hooks**| EH-3 / check-script-basename | Codex セッション中の apply_patch / Bash 等 | （Claude Code 運用では非該当）|
+
+### 含意
+
+- **承認境界（plan 未作成 / C-3 未承認 / plan_hash 改竄 / scope 逸脱 / 委譲境界）は
+  CLI を使わなくても 100% 強制**される（層 A）。
+- **検証品質ゲート（EH-4 / EH-5 / EHS-1 / EHS-2 / EHS-3）は CLI 駆動が前提**。
+  手動 / AI 任せ運用では休眠する（層 C）。EHS-1/2/3 は配線済み（TASK-0145/0146/0147）
+  だが、`bin/plangate verify` / `handoff --verify` を回さなければ実効しない。
+- **マージ保護（EH-7）はリポジトリの branch protection 設定次第**（層 D）。
+
+> 休眠ゲートを CLI 非依存で常時強制したい場合の選択肢（PR トリガーの CI 移植など）は
+> 別途設計判断（新規 PBI / EPIC #527 の後続）とする。本節は現状把握であり方針は未確定。
+
 ## 1. 目的
 
 PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状 #1〜#7 相当）を、プロンプトに頼らず **runtime で決定論的にブロック** する。プロンプト薄型化（PBI-116-01 で達成）と両立して、強制力を維持する。なお Iron Law #8（出典照合）は決定論的 hook 化が困難なため、プロンプト + self-review（ソフト面）で担保し runtime hook の対象外とする。
