@@ -15,10 +15,12 @@
 > [#500 Wiring Integrity Enforcement](https://github.com/s977043/plangate/issues/500)
 > （仕様策定済み）の実装範囲。
 >
-> **未配線の機能ギャップ（EPIC #527 follow-up）**: EHS-1/2/3 の発火条件
-> `PLANGATE_VALIDATION_BIAS=strict` を conductor が `model-profiles.yaml` の active
-> profile から解決・export する経路は未配線（TASK-0146 で Non-goals）。env 既定
-> `normal` のため、現状 EHS-1/2/3 は明示 env 注入時のみ発火する。
+> **発火条件の供給（EPIC #527 follow-up・配線済み）**: EHS-1/2/3 の発火条件
+> `PLANGATE_VALIDATION_BIAS=strict` は、`bin/plangate verify` / `handoff --verify` が
+> `--profile <key>` を受理し `model-profiles.yaml` の `validation_bias` を解決して内部
+> export する（TASK-0147 / #644 で配線・適用済み）。env で明示注入済みなら尊重し、
+> normal/lenient profile・無指定では非発火（既存挙動不変）。未知 key / yaml 欠落時は
+> normal fallback + stderr 警告（[`scripts/_resolve_validation_bias.py`](../../scripts/_resolve_validation_bias.py)）。
 >
 > | 配線状態 | Hook | 発火経路 |
 > |---------|------|---------|

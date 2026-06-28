@@ -2112,11 +2112,19 @@ cmd_verify() {
   fi
   shift
   mode_flag=""
+  profile_flag=""
   for arg in "$@"; do
     case "$arg" in
       --mode=*) mode_flag="${arg#--mode=}" ;;
+      --profile=*) profile_flag="${arg#--profile=}" ;;
     esac
   done
+  # validation_bias export (TASK-0147 / #527): --profile 指定時に解決し export。
+  # env で既に明示注入済みなら尊重（上書きしない）。normal/lenient は非発火。
+  if [ -z "${PLANGATE_VALIDATION_BIAS:-}" ] && [ -n "$profile_flag" ]; then
+    PLANGATE_VALIDATION_BIAS=$(python3 "$plangate_root/scripts/_resolve_validation_bias.py" "$profile_flag" "$plangate_root/docs/ai/model-profiles.yaml")
+    export PLANGATE_VALIDATION_BIAS
+  fi
   printf '[verify] Checking EH-4: test-cases.md present...\n'
   if ! PLANGATE_HOOK_STRICT=1 sh "$plangate_root/scripts/hooks/check-test-cases.sh" "$task_id"; then
     printf '[verify] EH-4 BLOCK -- create docs/working/%s/test-cases.md first\n' "$task_id" >&2
@@ -2171,9 +2179,19 @@ cmd_handoff() {
   fi
   # EHS-2 (TASK-0146 / #527): --verify で handoff.md の 6 要素を検査
   _handoff_verify=0
+  _handoff_profile=""
   for _harg in "$@"; do
-    case "$_harg" in --verify) _handoff_verify=1 ;; esac
+    case "$_harg" in
+      --verify) _handoff_verify=1 ;;
+      --profile=*) _handoff_profile="${_harg#--profile=}" ;;
+    esac
   done
+  # validation_bias export (TASK-0147 / #527): --profile 指定時に解決し export。
+  # env で既に明示注入済みなら尊重（上書きしない）。normal/lenient は非発火。
+  if [ -z "${PLANGATE_VALIDATION_BIAS:-}" ] && [ -n "$_handoff_profile" ]; then
+    PLANGATE_VALIDATION_BIAS=$(python3 "$plangate_root/scripts/_resolve_validation_bias.py" "$_handoff_profile" "$plangate_root/docs/ai/model-profiles.yaml")
+    export PLANGATE_VALIDATION_BIAS
+  fi
   if [ "$_handoff_verify" = "1" ]; then
     if [ "${PLANGATE_VALIDATION_BIAS:-normal}" = "strict" ]; then
       # EHS-2 BLOCK
