@@ -39,8 +39,13 @@
 ## 0. 運用モード別の強制実態（CLI 依存度 / 2026-06-28 現状把握）
 
 > 各強制は「いつ発火するか」が経路ごとに異なる。とくに **CLI（`bin/plangate`）を
-> 通さない運用（手動 / AI 任せ）では、CLI 層の強制（EH-4 / EH-5 / EHS-1/2/3）は
-> 一度も発火しない**。承認境界の中核（EH-1/2/3/6/9）は CLI 非依存で常時発火する。
+> 通さない運用では、CLI 層の強制（EH-4 / EH-5 / EHS-1/2/3）は一度も発火しない**。
+>
+> **「ローカル強制」の前提に注意**: 層 A（Claude PreToolUse）/ 層 E（Codex hooks）は
+> **Claude Code / Codex などの AI ツールを介して編集・コミットしたときのみ**ローカル発火する。
+> エディタで直接ファイルを編集して `git` で直接コミットする**完全手動運用では層 A/E も
+> 発火しない**（その場合の最終防壁は層 B の CI = PR/push トリガー）。以下の「手動 / AI 任せ」は
+> 主に「AI ツールは使うが `bin/plangate` CLI は回さない」運用を指す。
 
 ### 発火層の分類
 
@@ -130,9 +135,13 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 
 ## 3. validation_bias: strict 時の追加条件（EHS）
 
-> **設計ステータス**: 設計済み・未実装（TASK-0143）。スクリプトは実装済み、
-> 発火条件 `validation_bias: strict` 自体が未配線。
-> 実装は後続 PBI（#527 子 PBI 2 以降）。
+> **設計ステータス**: **配線・適用済み**（TASK-0145 / 0146 / 0147）。スクリプト実装に
+> 加え、発火条件 `validation_bias: strict` も `bin/plangate` に配線済み。発火条件の供給は
+> `--profile <key>` → `model-profiles.yaml` の `validation_bias` 解決 →
+> `PLANGATE_VALIDATION_BIAS` 内部 export（TASK-0147 / #644）。
+> **CLI 依存度の注意**: これらは CLI 層（§0 の層 C）であり、`bin/plangate verify` /
+> `handoff --verify` を実行したときのみ発火する（手動 / AI 任せ運用では休眠。CI 移植は
+> TASK-0148 で検討）。
 
 Model Profile の `validation_bias: strict` プロファイル（gpt-5_5_pro 等）では、
 上記 EH-1〜EH-7 に加えて以下 3 件を追加で強制:
@@ -142,36 +151,38 @@ Model Profile の `validation_bias: strict` プロファイル（gpt-5_5_pro 等
 - **トリガー**: `standard` 以上の mode で V-3 外部 AI レビュー (`review-external.md`) なしに PR 作成
 - **対応**: Hook が PR 作成 block
 - **スクリプト**: `scripts/hooks/check-v3-review.sh`
-- **発火条件（設計）**: `validation_bias: strict` かつ `mode ∈ {standard, high-risk, critical}` かつ `review-external.md` が存在しない
-- **未配線理由**: `validation_bias: strict` を `bin/plangate verify` や `cmd_review` が判定・エクスポートする機構が未実装
+- **発火条件**: `validation_bias: strict` かつ `mode ∈ {standard, high-risk, critical}` かつ `review-external.md` が存在しない
+- **配線**: `bin/plangate verify`（V-3 不合格時に strict で block。TASK-0145）。CLI 層（§0 層 C）
 
 ### EHS-2: handoff.md 必須 6 要素チェック
 
 - **トリガー**: `handoff.md` が必須 6 要素（要件適合 / 既知課題 / V2 候補 / 妥協点 / 引き継ぎ文書 / テスト結果）を欠く状態での WF-05 完了宣言
 - **対応**: Hook が WF-05 完了を block
 - **スクリプト**: `scripts/hooks/check-handoff-elements.sh`
-- **発火条件（設計）**: `validation_bias: strict` かつ handoff.md に 6 セクション未充足
-- **未配線理由**: `bin/plangate handoff` がスクリプトを呼ばない。TASK-0143 の後続 PBI で配線予定
+- **発火条件**: `validation_bias: strict` かつ handoff.md に 6 セクション未充足
+- **配線**: `bin/plangate handoff --verify`（6 要素不足を strict で block。TASK-0146）。CLI 層（§0 層 C）
 
 ### EHS-3: V-1 fix loop 上限超過 escalation
 
 - **トリガー**: V-1 FAIL → fix → V-1 のループが 5 回を超過
 - **対応**: Hook が ABORT、ユーザー判断にエスカレーション
 - **スクリプト**: `scripts/hooks/check-fix-loop.sh`
-- **発火条件（設計）**: `validation_bias: strict` かつ `docs/working/_audit/hook-events.log` の fix-loop カウントが閾値超過
-- **未配線理由**: `bin/plangate verify` が fix ループをカウントする機構が未実装
+- **発火条件**: `validation_bias: strict` かつ fix-loop カウントが閾値超過
+- **配線**: `bin/plangate verify`（V-1 FAIL 時に fix-loop increment + strict で上限超過 block。TASK-0146）。CLI 層（§0 層 C・CI 移植対象外）
 
-### EHS 発火条件の設計（現状の制約と後続方針）
+### EHS 発火条件の供給（配線済み）
 
-`validation_bias: strict` は `docs/ai/model-profiles.yaml` で定義されるが、
-**実行時に `bin/plangate` や hook スクリプトがこの値を参照する機構が存在しない**。
+`validation_bias: strict` は `docs/ai/model-profiles.yaml` で定義され、**実行時の供給は
+配線済み**（TASK-0147 / #644）: `bin/plangate verify` / `handoff --verify` が `--profile=<key>`
+（等号形式）を受理し、`model-profiles.yaml` の `validation_bias` を
+[`scripts/_resolve_validation_bias.py`](../../scripts/_resolve_validation_bias.py) で解決して
+`PLANGATE_VALIDATION_BIAS` を内部 export する。env で明示注入済みなら尊重し、
+normal/lenient・無指定では非発火（既存挙動不変）。未知 key / yaml 欠落時は normal
+fallback + stderr 警告。
 
-後続 PBI での実装案:
-1. `bin/plangate verify` が `--validation-bias strict` フラグを受け取り EHS を有効化
-2. または `model-profiles.yaml` の現在プロファイルを `bin/plangate` が読み込み自動判定
-3. または `PLANGATE_VALIDATION_BIAS=strict` 環境変数で制御
-
-設計の選択は #527 子 PBI 2〜6 の実装フェーズで確定する。
+**残課題**: 上記は CLI 層（§0 層 C）のため、CLI を回さない運用では休眠する。PR トリガーの
+CI へ EHS-1 / EHS-2 を移植して CLI 非依存で常時強制する案は TASK-0148 で検討（EHS-3 は
+CLI プロセス計数のため CLI 維持）。
 
 ## 4. 実装（#157 で 3 hook + #169 で 7 hook = 計 10 hook、すべて完了）
 
