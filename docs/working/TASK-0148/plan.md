@@ -16,7 +16,7 @@ PR をトリガーに、対象 TASK の **EHS-1（V-3 外部レビュー必須�
 
 | 案 | 内容 | 評価 |
 |----|------|------|
-| A（採用）| PR トリガーの新 workflow `ehs-pr-gates.yml`。変更された `docs/working/TASK-XXXX/` から TASK と mode を導出し、既存 `check-v3-review.sh` / `check-handoff-elements.sh` を strict 実行 | 既存スクリプト流用・CLI 非依存・bypass 不能 |
+| A（採用）| PR トリガーの新 workflow `ehs-pr-gates.yml`。変更された `docs/working/TASK-XXXX/` から TASK と mode を導出し、既存 `check-v3-review.sh` / `check-handoff-elements.sh` を strict 実行 | 既存スクリプト流用・CLI 非依存。**bypass 耐性は env クレンジング前提**（下記論点5）|
 | B | `bin/plangate verify` を CI step で呼ぶ | verify は validate/eval/metrics 等を含み CI で重い・副作用大。ゲート部分だけ切り出せない |
 | C | PreToolUse hook 化 | EHS は「PR / 完了時」トリガーで Edit 単位ではない。層が合わない |
 
@@ -27,21 +27,31 @@ PR をトリガーに、対象 TASK の **EHS-1（V-3 外部レビュー必須�
 1. **TASK と mode の導出**: CI は PR の変更ファイルから `docs/working/TASK-XXXX/` を検出し、
    `plan.md` の Mode 判定（または `c3.json`）から mode を読む必要がある。複数 TASK 変更・
    TASK 無し PR（doc-only 等）の扱いを定義する（安全側: 検出 0 件は SKIP、複数は各々検査）。
+   **実装方針（固定）**: 導出ロジックは **非HO の外部スクリプト `scripts/_derive_task_mode.py`
+   に完全に切り出す**（workflow inline 不可）。これにより修正・デバッグのたびに HO の
+   `ehs-pr-gates.yml` を変更せずに済み、C-3 承認負荷を下げる。
 2. **適用条件**: EHS-1 は `mode ∈ {standard, high-risk, critical}` のみ。CI は mode を
    判定して条件分岐する。`validation_bias=strict` 概念は CI では「PR ゲートは常時 strict」
    とするか profile 連動にするかを決める（**推奨: PR では mode ベースで常時適用**。
    profile はローカル CLI 向け概念のため CI では mode を一次条件にする）。
 3. **handoff 不在 PR の扱い**: WF-05 未到達の中間 PR で handoff.md が無い段階を
-   どう扱うか（推奨: handoff.md が存在する場合のみ 6 要素を検査。完了 PR ラベル
-   等で必須化は別 PBI）。
+   どう扱うか。**注意**: `check-handoff-elements.sh` は `PLANGATE_HOOK_STRICT=1` で
+   handoff.md 不在時に exit 1（block）する実装のため、そのまま strict 実行すると
+   中間 PR を誤 block する。**対策（スクリプト非改変を維持）**: workflow 側で
+   handoff.md の存在を先に判定し、**存在する場合のみ** strict 実行する（不在なら
+   skip）。完了 PR ラベル等での必須化は別 PBI。
 4. **EH-4 / EH-5 の扱い**: 同じく休眠だが本 PBI のスコープ外（EHS に限定）。
    別 PBI で test-cases / verification evidence の CI 検査を検討。
+5. **bypass 耐性 / env クレンジング**: 流用元 `check-*.sh` は `PLANGATE_BYPASS_HOOK=1`
+   で常時 exit 0 になるバイパスを持つ。CI で PR トリガー由来の env が注入・上書きされ
+   ないよう、workflow 側で **`PLANGATE_BYPASS_HOOK` を明示 unset / 固定**してから呼ぶ
+   （`env -u` 等）。これを満たして初めて「bypass 不能」と言える。
 
 ## Work Breakdown
 
 | Step | Output | Owner | Risk | チェックポイント |
 |------|--------|-------|------|----|
-| 1 | TASK/mode 導出ヘルパー（変更ファイル→TASK→mode）。非HO `scripts/_*.py` or workflow inline | agent | low | 複数/0 件の安全側 |
+| 1 | TASK/mode 導出ヘルパー `scripts/_derive_task_mode.py`（変更ファイル→TASK→mode）。**非HO 外部スクリプトに固定**（inline 不可） | agent | low | 複数/0 件の安全側 |
 | 2 | `.github/workflows/ehs-pr-gates.yml`（PR トリガー、EHS-1/EHS-2 を条件付き strict 実行） | agent | HO | .github/workflows |
 | 3 | CI 用に `check-v3-review.sh`/`check-handoff-elements.sh` を非破壊で呼ぶラッパ（必要なら） | agent | low | 既存挙動不変 |
 | 4 | テスト: fixture PR シナリオ（V-3 欠落で fail / 充足で pass / doc-only で skip） | agent | low | — |
@@ -69,6 +79,8 @@ PR をトリガーに、対象 TASK の **EHS-1（V-3 外部レビュー必須�
 | 既存 doc-only / 非 TASK PR が落ちる | TASK ディレクトリ変更が無い PR は対象外（早期 exit） |
 | `.github/workflows` 改変（HO）| apply ではなく通常 PR + 人間 C-3。required check 化は admin 設定（Human-owned）|
 | EHS-3 も移したく見える | スコープ外と明記（CLI プロセス計数のため CI 不適）|
+| `PLANGATE_BYPASS_HOOK` 注入で CI ゲートが空通過 | workflow で env unset / 固定してから check-*.sh を呼ぶ（論点5）|
+| handoff 不在の中間 PR を誤 block | workflow で存在判定後のみ strict 実行（論点3）|
 | #647 と doc 競合 | #647 マージ後に §0 更新を本 PBI に取り込む |
 
 ## Non-goals
