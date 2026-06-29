@@ -40,7 +40,7 @@ advisory のため強制完了条件なし。Intent / Mode / GatePolicy の見�
 
 intent-classifier が `exploratory` を返した場合、advisory として以下を提示する:
 
-```
+```text
 Intent: exploratory が検出されました。
 → WF-07 Exploratory Debug（opt-in）の使用を推奨します。
    docs/workflows/07_exploratory_debug.md を参照し、
