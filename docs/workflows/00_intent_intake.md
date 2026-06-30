@@ -36,6 +36,20 @@
 
 advisory のため強制完了条件なし。Intent / Mode / GatePolicy の見通しが得られたら WF-01（Context Bootstrap）へ。
 
+## exploratory 判定時の WF-07 推奨
+
+intent-classifier が `exploratory` を返した場合、advisory として以下を提示する:
+
+```text
+Intent: exploratory が検出されました。
+→ WF-07 Exploratory Debug（opt-in）の使用を推奨します。
+   docs/workflows/07_exploratory_debug.md を参照し、
+   pbi-input.md に `exploratory: true` を追加してください。
+   通常の WF-01〜05 に進む場合はそのまま続行できます。
+```
+
+WF-07 への移行は強制ではなく、人間が明示的に opt-in した場合のみ発動する（既定 OFF 原則不変）。
+
 ## 非強制
 
 本フローは助言であり、既存 WF-01〜05 の phase・ゲート・承認境界を一切変更しない。強制化は将来 PBI で検討。
