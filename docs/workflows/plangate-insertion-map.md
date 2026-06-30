@@ -15,6 +15,7 @@ graph TB
     subgraph "統制層（PlanGate）"
         A[A: PBI INPUT PACKAGE]
         B[B: Plan + ToDo + Test Cases]
+        PRR[Plan Review Readiness Gate]
         C1[C-1: セルフレビュー]
         C2[C-2: 外部AIレビュー]
         C3[C-3: 人間レビュー<br>三値ゲート]
@@ -40,7 +41,8 @@ graph TB
     WF01 --> WF02
     WF02 --> B
     B --> WF03
-    WF03 --> C1
+    WF03 --> PRR
+    PRR --> C1
     C1 --> C2
     C2 --> C3
     C3 -->|APPROVE| D
@@ -57,21 +59,21 @@ graph TB
 
 ## WF-03 Solution Design の挿入位置（詳細）
 
-WF-03 は **B（Plan）と C-1（セルフレビュー）の間** に挿入される。
+WF-03 は **B（Plan）と Plan Review Readiness Gate の間** に挿入される。Plan Review Readiness Gate は `plan.md` / `todo.md` / `test-cases.md` 生成後、C-1（セルフレビュー）の直前に置く。
 
 ```text
-A → WF-01 → WF-02 → B → [ WF-03 ] → C-1 → C-2 → C-3 → D
-                        ↑
-                        ここに挿入
+A → WF-01 → WF-02 → B → [ WF-03 ] → Plan Review Readiness Gate → C-1 → C-2 → C-3 → D
+                        ↑           ↑
+                        WF-03       C-1前のreadiness判定
 ```
 
 ### 挿入の意義
 
 | 挿入前（v5/v6） | 挿入後（v7 ハイブリッド） |
 | ---------------- | ---------------------- |
-| B（plan.md 生成）→ 直接 C-1 | B → **WF-03（design.md 生成）** → C-1 |
+| B（plan.md 生成）→ 直接 C-1 | B → **WF-03（design.md 生成）** → **Plan Review Readiness Gate** → C-1 |
 | plan.md に設計要素が混在 | plan.md = 計画、design.md = 設計（分離） |
-| 実装前の設計抜けが発生しやすい | 設計 artifact で抜けを防ぐ |
+| 実装前の設計抜けが発生しやすい | 設計 artifact と readiness 判定で抜けを防ぐ |
 
 ## WF-05 Verify & Handoff の挿入位置（詳細）
 

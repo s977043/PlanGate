@@ -67,6 +67,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 | --- | --- | --- | --- |
 | **A**: PBI INPUT PACKAGE 作成 | 統制 / 人間 | 人間 | WF-01 / WF-02 への入力提供 |
 | **B**: Plan + ToDo + TestCases 生成 | 統制 / AI | `workflow-conductor` 経由（内部で `spec-writer` が生成） | WF-01〜WF-03 を横断する計画策定 |
+| **Plan Review Readiness Gate** | 統制 / AI | 主エージェント | C-1 前の計画実行準備判定（[`plan-review-readiness-gate.md`](../ai/plan-review-readiness-gate.md)） |
 | **C-1**: セルフレビュー（17項目） | 統制 / AI | 主エージェント | 計画品質ゲート（WF 外） |
 | **C-2**: 外部AIレビュー | 統制 / AI | 外部 AI（Codex 等） | 計画独立検証ゲート（WF 外） |
 | **C-3**: 人間レビュー（三値） | 統制 / 人間 | 人間 | 計画承認ゲート（WF 外） |
@@ -81,7 +82,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 
 **読み方**:
 
-- **統制層**（PlanGate）: A / B / C-1 / C-2 / C-3 / PR作成 / C-4 — 「止める・承認する・状態を保存する」役割
+- **統制層**（PlanGate）: A / B / Plan Review Readiness Gate / C-1 / C-2 / C-3 / PR作成 / C-4 — 「止める・承認する・状態を保存する」役割
 - **実行層**（Workflow）: D / L-0 / V-1 / V-2 / V-3 / V-4 — 「柔軟で拡張可能な実行基盤」の中身を WF-01〜WF-05 で構造化
 
 ## Rule 1 の適用
