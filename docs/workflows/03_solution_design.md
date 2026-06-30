@@ -20,6 +20,7 @@
 - 失敗時の扱い（エラーパス / リトライ / フォールバック）が決定されている
 - テスト観点（Unit / Integration / E2E の分担）が決定されている
 - 依存ライブラリ制約・技術的妥協点が一覧化されている
+- `plan.md` / `todo.md` / `test-cases.md` 生成後、C-1 前に [`Plan Review Readiness Gate`](../ai/plan-review-readiness-gate.md) の 7 項目が確認可能な状態になっている
 
 ## 呼び出す Skill
 
@@ -50,4 +51,6 @@ WF-03 で生成する `design.md` は、PlanGate 既存の `plan.md` と併存�
 | 変化頻度 | チケット毎 | チケット毎 + アーキ変更時 |
 | 対象読者 | 実装者・レビュアー・PM | 実装者・アーキテクト |
 
-PlanGate 既存フロー（A → B → C-1 〜 C-3 → D）における WF-03 の挿入位置は [`docs/workflows/plangate-insertion-map.md`](./plangate-insertion-map.md) を参照。
+PlanGate 既存フロー（A → B → Plan Review Readiness Gate → C-1 〜 C-3 → D）における WF-03 の挿入位置は [`docs/workflows/plangate-insertion-map.md`](./plangate-insertion-map.md) を参照。
+
+WF-03 完了後、AI 実行計画は C-1 self-review に入る前に [`Plan Review Readiness Gate`](../ai/plan-review-readiness-gate.md) を通す。これは C-1 / C-2 / C-3 の代替ではなく、レビュー対象 artifact が実行可能な粒度で揃っているかを判定する前段ゲートである。

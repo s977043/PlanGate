@@ -151,6 +151,38 @@ created_by: orchestrator
 
 > **検証が実行不能な場合**（環境制約・依存未整備等）は、その**理由**と**代替確認方法**を明記する（「Done = 検証完了」を満たせない検証を黙って省略しない / #578）。
 
+## Plan Review Readiness
+
+> C-1 self-review の前に [`docs/ai/plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md) で確認する。各項目は `pass / needs_revision / blocked` 判定に使われるため、`TBD` / `TODO` / `必要に応じて` / `適切に` のまま残さない。
+
+### Success Criteria
+
+- AC: {受入基準と対応する `test-cases.md` のケースID}
+- Completion boundary: {どこまで終わればDoneか、どこから先は別PBIか}
+
+### Review Criteria
+
+- Design alignment: {既存設計・ADR・UI/UX・workflowとの整合観点}
+- Test expectations: {C-1/C-2/C-3で確認すべきテスト期待値}
+- Security: {セキュリティ観点。N/Aの場合は理由}
+- Maintainability: {保守性・命名・責務境界の観点}
+- Backward compatibility: {後方互換性。N/Aの場合は理由}
+- Operational risk: {運用リスク。N/Aの場合は理由}
+
+### Required Context
+
+- Referenced issues: {Issue URL / 番号}
+- ADR / docs: {参照したADR・設計doc・運用doc}
+- Existing implementation: {既存実装・関連ファイル}
+- Related tests: {関連テスト・fixture}
+- Constraints: {HO paths / forbidden files / 環境制約 / 権限制約}
+
+### Non-goals and Scope Boundary
+
+- Out of scope: {今回やらないこと}
+- Change-prohibited zones: {触らないファイル・ディレクトリ・設定}
+- Forbidden new dependencies: {追加禁止の依存。許可する場合は承認条件}
+
 ## Replan Triggers
 
 以下に該当した場合はexecを止め、planを更新してC-1を再実行する。
@@ -160,18 +192,37 @@ created_by: orchestrator
 - 受入基準と実装方針に矛盾が見つかった
 - Task間のインターフェースが成立しない
 - セキュリティ・データ損失・後方互換性リスクが見つかった
+- hidden dependency が見つかり、Work Breakdown または Files / Interfaces が変わる
+- public API / schema / hook / workflow 契約の変更が必要になった
+- `test-cases.md` と実装可能なテスト契約が一致しない
+- scope bloat（計画外ファイルが大幅に増える、または目的外改善が混入する）が発生した
+- security impact が新たに見つかった
 
 ## Stop Condition
 
 以下に該当した場合は人間判断まで停止する。
 
 - C-3承認前にexecが必要になった
+- 要件間の矛盾、または AC と実装方針の矛盾が見つかった
 - rollback不能な変更が必要になった
-- 外部API / 認証情報 / 本番データに触る必要が出た
+- 外部API / 認証情報 / 課金 / 権限 / 本番データに触る必要が出た
+- 破壊的操作、データ削除、migration、不可逆変更が必要になった
+- 新規依存追加、または大規模な想定外変更が必要になった
 - high-risk / criticalでTDD証跡を残せない
+
+## Human Approval Boundary
+
+以下は AI が自己判断で実行せず、人間承認または別PBI化まで停止する。
+
+- Security-sensitive changes: {暗号化・認証・認可・秘密情報・監査ログなど}
+- Auth / billing / permissions: {認証、課金、権限、アカウント操作}
+- Production operations: {本番操作、デプロイ、外部公開、運用設定}
+- Data deletion / migration: {削除、移行、不可逆なデータ変換}
+- Irreversible changes: {戻せない変更、公開 API 契約変更、広範な互換性破壊}
 
 ## C-1 Self Review Checklist
 
+- [ ] Plan Review Readiness Gate が `pass` 相当（7 項目がすべて具体化済み）
 - [ ] 受入基準がWork Breakdownにマッピングされている
 - [ ] TaskごとのFiles / Interfaces / Steps / Completion Criteriaが具体的
 - [ ] `TBD` / `TODO` / `後で実装` / `必要に応じて` / `適切に` / `いい感じに` が残っていない

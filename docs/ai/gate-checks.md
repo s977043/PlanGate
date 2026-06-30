@@ -9,6 +9,10 @@
 `gate_checks` は C-3 承認時に人間が任意で記録する計画ゲートチェックリスト。
 Goal / Scope / Risk の 3 項目を boolean で記録し、審査の透明性を高める。
 
+C-1 前に `pass / needs_revision / blocked` を判定する実行準備ゲートは、本仕様ではなく
+[`plan-review-readiness-gate.md`](./plan-review-readiness-gate.md) が扱う。`gate_checks`
+は C-3 承認記録の optional フィールドであり、Plan Review Readiness Gate を代替しない。
+
 | フィールド | 型 | 必須 | 説明 |
 |----------|---|------|------|
 | `gate_checks.goal` | boolean | 任意 | plan.md に Goal と成功条件が明確に定義されているか |

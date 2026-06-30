@@ -23,6 +23,11 @@ orchestration / PR review / QA automation / browser daemon）を直接移植
 > の承認境界・[responsibility-classes.md](../../.claude/rules/responsibility-classes.md)
 > の Human-owned 境界は不変）。
 
+C-1 前の `pass / needs_revision / blocked` 判定は
+[`plan-review-readiness-gate.md`](./plan-review-readiness-gate.md) を正本とする。
+本 Check は score と助言を返す補助層であり、Plan Review Readiness Gate の通過判定を
+代替しない。
+
 ## 2. Check 種別と責務
 
 | Check | 責務（何を確認するか） | 主出力フィールド |
