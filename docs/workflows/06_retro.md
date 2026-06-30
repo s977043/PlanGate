@@ -26,7 +26,7 @@ run（PBI/TASK）完了時に振り返りドラフトを生成し、改善ネタ
 
 - #228 固定 5 項目のドラフトが生成されている
   （目的達成可否 / 失敗・手戻り / 次回再利用すべき判断 /
-  効いた skill・gate・artifact / 1 人運用で負荷が高かった箇所）
+  効いた skill・gate・artifact / ツール・プロセス上の摩擦点）
 - ドラフトは **スコアリング（良し悪し判定）を含まない**（#231 judge と責務非重複）
 - 人間が 1 行で confirm / skip している
 - confirm 時、`docs/working/improvement-seeds.md` に append-only で 1 エントリ追記されている

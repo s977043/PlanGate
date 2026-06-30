@@ -31,7 +31,7 @@ WF-06 は発火しない＝既存 run 挙動は完全に不変（純追加・後
 - 失敗・手戻り: <text>
 - 次回再利用すべき判断: <text>
 - 効いた skill / gate / artifact: <text>
-- 1 人運用で負荷が高かった箇所: <text>
+- ツール・プロセス上の摩擦点: <text>
 - confirmed_by: <human>
 ```
 
