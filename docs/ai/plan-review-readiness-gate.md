@@ -34,23 +34,26 @@ WF-00 -> WF-01 -> WF-02 -> WF-03 -> plan/todo/test-cases
 | # | 項目 | `pass` | `needs_revision` | `blocked` |
 |---|------|--------|------------------|-----------|
 | 1 | Success criteria | AC、完了境界、Done 判定が具体的で、`test-cases.md` と対応している | AC と作業の対応が一部曖昧、検証方法が不足 | 成功条件が矛盾、または完了境界が定義不能 |
-| 2 | Review criteria | 設計整合、テスト期待値、セキュリティ、保守性、後方互換、運用リスクの観点が揃っている | 一部観点が N/A 理由なしで欠落 | 重要リスクをレビュー対象から外している |
+| 2 | Review criteria | 設計整合、テスト期待値、セキュリティ、保守性、後方互換、運用リスクの観点が揃っている | 一部観点が N/A 理由なし（N/A の根拠が未記載）または空欄で欠落 | 重要リスクをレビュー対象から外している |
 | 3 | Required context | 参照 Issue / ADR / docs / 既存実装 / 関連テスト / 制約が列挙されている | 参照先が不足、または確認済み/未確認の区別が弱い | 必須前提が未確認で、誤実装や破壊的変更につながる |
-| 4 | Non-goals and scope boundary | Out of scope、変更禁止領域、禁止依存が明示されている | 禁止領域や依存追加方針が曖昧 | HO パスや禁止領域を編集対象に含めている |
+| 4 | Non-goals and scope boundary | Out of scope、変更禁止領域、禁止依存が明示されている | 禁止領域や依存追加方針が曖昧 | HO パス（`bin/plangate`・`schemas/`・`.claude/`・`CLAUDE.md` 等、[EH-1 正本](./hook-enforcement.md) 参照）や禁止領域を編集対象に含めている |
 | 5 | Stop conditions | 競合要件、認証/課金/破壊的操作、新規依存、大規模な想定外変更の停止条件がある | 停止条件が一般論で、実行者が判断しにくい | 停止すべき条件を通常作業として扱っている |
-| 6 | Replan conditions | hidden dependency、public API 変更、test contract mismatch、scope bloat、security impact の再計画条件がある | 再計画条件が一部未記入、または閾値が曖昧 | 再計画が必要な変更を exec 中に吸収する計画になっている |
-| 7 | Human approval boundary | security、auth、billing、permissions、prod ops、data deletion、migration、irreversible changes の人間承認境界が明示されている | 一部境界が N/A 理由なしで欠落 | Human-owned 操作を AI 判断で実行する計画になっている |
+| 6 | Replan Triggers | hidden dependency、public API 変更、test contract mismatch、scope bloat、security impact の再計画トリガーが列挙されている | 再計画トリガーが一部未記入、または閾値が曖昧 | 再計画が必要な変更を exec 中に吸収する計画になっている |
+| 7 | Human approval boundary | security、auth、billing、permissions、prod ops、data deletion、migration、irreversible changes、merge（C-4）の人間承認境界が明示されている | 一部境界が N/A 理由なし（N/A の根拠が未記載）または空欄で欠落 | Human-owned 操作を AI 判断で実行する計画になっている |
 
 ## 4. Decision table
+
+複数条件が同時に成立した場合は、より厳しい verdict を採用する（`blocked` > `needs_revision` > `pass`）。
 
 | 条件 | Verdict |
 |------|---------|
 | 7 項目すべてが具体的に記入され、未解決の危険境界がない | `pass` |
 | 1 つ以上の項目に記入不足があるが、修正すれば C-1 に進める | `needs_revision` |
-| `TBD` / `TODO` / `必要に応じて` などが重要項目に残っている | `needs_revision` |
+| `TBD` / `TODO` / `必要に応じて` / プレースホルダ未置換 / 空欄 が重要項目に残っている | `needs_revision` |
 | AC と `test-cases.md` の対応が欠落している | `needs_revision` |
-| 禁止ファイル、HO パス、Out of scope が変更対象に含まれている | `blocked` |
-| 認証、課金、権限、本番運用、データ削除、migration、不可逆変更を AI 判断で実行する | `blocked` |
+| 禁止ファイル、HO パス（EH-1 正本参照）、Out of scope が変更対象に含まれている | `blocked` |
+| 認証、課金、権限、本番運用、データ削除、migration、不可逆変更、merge（C-4）を AI 判断で実行する | `blocked` |
+| 承認トークンファイル（`approvals/c3.json`・`maintenance.json` 等）を AI が直接編集する計画がある | `blocked` |
 | 新規依存や public API 変更が必要だが、承認境界と再計画条件が未定義 | `blocked` |
 | 要件が互いに矛盾し、AI が一意に解釈できない | `blocked` |
 
@@ -75,18 +78,22 @@ WF-00 -> WF-01 -> WF-02 -> WF-03 -> plan/todo/test-cases
 
 ### Non-goals and Scope Boundary
 - Out of scope: schema 変更、hook 実装、CLI 実装。
-- Forbidden zones: `bin/plangate`, `schemas/*.schema.json`, `.github/workflows/*.yml`
+- Forbidden zones: `bin/plangate`, `schemas/*.schema.json`, `.github/workflows/*.yml`,
+  `.claude/settings*.json`, `.claude/rules/**`, `plugin/plangate/**`,
+  `CLAUDE.md`, `AGENTS.md`, `docs/ai/core-contract.md`
+  （詳細は EH-1 production code 定義参照）
 
 ### Stop Conditions
 - HO パス編集が必要になったら停止。
 - 新規依存や CLI 実装が必要になったら停止。
 
-### Replan Conditions
+### Replan Triggers
 - C-1 前でなく C-3 側に置くべき既存正本が見つかった場合は再計画。
 - public API / schema 変更が必要になった場合は再計画。
 
 ### Human Approval Boundary
-- schema、hook、CI、権限、本番運用、データ削除、migration は人間承認なしに実行しない。
+- schema、hook、CI、権限、本番運用、データ削除、migration、merge（C-4）は人間承認なしに実行しない。
+- 承認トークンファイル（`approvals/c3.json` 等）の AI 直接編集は禁止。
 ```
 
 この例は、レビュー観点と停止境界が具体的で、実行者が「どこまで進めてよいか」を判断できる。
@@ -118,7 +125,7 @@ WF-00 -> WF-01 -> WF-02 -> WF-03 -> plan/todo/test-cases
 - AI が判断する。
 ```
 
-この例は、AC、レビュー観点、停止条件、再計画条件、人間承認境界が実行可能な粒度ではないため `needs_revision` になる。加えて、Human-owned 操作を AI 判断に委ねている場合は `blocked` とする。
+この例は、AC・レビュー観点・停止条件・再計画条件が実行可能な粒度ではないため `needs_revision` の要素を含む。さらに Human Approval Boundary に「AI が判断する」と記入されている箇所は Section 4 の `blocked` 条件に直接該当する。`needs_revision` と `blocked` は独立した判定軸であり、`blocked` 条件が 1 つでも成立すれば最終判定は `blocked`（優先順: `blocked` > `needs_revision` > `pass`）。
 
 ## 7. 関連
 
