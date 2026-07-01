@@ -59,7 +59,7 @@ sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 | `systematic-debugging` | エビデンスベースの体系的デバッグ |
 | `codex-multi-agent` | Codex マルチエージェント連携 |
 | `setup-team` | タスク規模・モードに応じたマルチエージェントチーム設計 |
-| `intent-classifier` | User Request を 7 分類（feature/bug/refactor 等） |
+| `intent-classifier` | User Request を 8 分類（feature/bug/refactor/exploratory 等） |
 | `skill-policy-router` | Intent + Mode → GatePolicy（requiredSkills 等）決定 |
 | `evidence-ledger` | 証拠記録・Completion Gate 連携 |
 | `design-gate` | high-risk 以上での設計 Artifact 8 項目必須チェック |

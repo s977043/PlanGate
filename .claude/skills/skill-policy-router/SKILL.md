@@ -82,7 +82,7 @@ Intent はスキルの優先度や追加推奨にのみ影響する。
 
 ```json
 {
-  "intent": "<feature|bug|refactor|research|review|docs|ops>",
+  "intent": "<feature|bug|refactor|research|review|docs|ops|exploratory>",
   "mode": "<ultra-light|light|standard|high-risk|critical>"
 }
 ```
@@ -107,6 +107,7 @@ Intent に応じて optionalSkills を追加・調整する:
 | `review` | check |
 | `docs` | — |
 | `ops` | verify（デプロイ検証のため、未追加の場合）。**PlanGate CLI 操作**（render/approve/doctor/exec）は skill でなく直接 `bin/plangate <cmd>` を実行する |
+| `exploratory` | — （WF-07 opt-in 推奨。通常フローに留まる場合は intent 相当の Skill 構成を使用）|
 
 ただし、requiredSkills に既に含まれている Skill は optionalSkills に重複追加しない。
 
