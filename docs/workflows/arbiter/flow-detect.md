@@ -118,7 +118,8 @@ human 昇格の洪水を防ぐため:
 
 ## 5. provenance 刻印
 
-> **provenance スキーマの正本は `docs/workflows/arbiter/decision-table.md` §5**。
+> **provenance スキーマの正本は
+> [`docs/workflows/arbiter/decision-table.md`](./decision-table.md) §5**。
 > 本セクションの責務は刻印**タイミング**の定義のみに限定し、フィールド名の
 > 独自定義は持たない（二重定義防止）。
 
@@ -126,11 +127,12 @@ human 昇格の洪水を防ぐため:
 
 - **A/B 合意時**（`verdict=approve-approve`）: auto-approve と同時に provenance を刻印する
 - **C/D 合意時**（severity=minor/low の不一致を Model C/D が独立裁定し合意した場合）:
-  auto-approve と同時に provenance を刻印する。この場合は decision-table.md §5 の
+  auto-approve と同時に provenance を刻印する。この場合は
+  [`decision-table.md`](./decision-table.md) §5 の
   「C/D 裁定時の追加フィールド」（`w_check.severity` / `w_check.model_c` /
   `w_check.model_d`）が併せて記録される。
 
-フィールド定義・必須項目・値域は decision-table.md §5 のみを参照すること。
+フィールド定義・必須項目・値域は [`decision-table.md`](./decision-table.md) §5 のみを参照すること。
 
 ---
 

@@ -13,7 +13,7 @@
 動作の核心は 3 ステップ:
 
 ```text
-flow      : 低リスク変更は人間承認を待たずに裁定まで流す（Arbiter の裁定は経る）
+flow      : 低リスク変更は人間承認を待たずに裁定まで流す（Arbiter の裁定を経る）
 detect    : 流れる変更を二重判定（W チェック 2 モデル）で逸脱検知
 escalate  : 逸脱（2 モデル不一致 / 承認境界接触 / critical）だけ人間へ昇格
             合意 clean は auto-approve + provenance 刻印
@@ -30,7 +30,7 @@ escalate  : 逸脱（2 モデル不一致 / 承認境界接触 / critical）だ�
 
 Arbiter は、PlanGate で積み重ねた統制資産 — 失敗履歴・INC 群（threat model
 初期値）、HO（Hardening Override）・承認境界・provenance・決定論の設計哲学 —
-を継承し、堅牢な on-the-loop ループモデルを構築することを目的とする。
+を継承し、堅牢な on-the-loop モデルを構築することを目的とする。
 本 PoC を独立リポジトリではなく PlanGate リポジトリ内で行う本質的な理由は、
 これらの資産が**ここにしか存在しない**ためである。詳細な資産分類は
 [`docs/ai/arbiter/asset-inventory.md`](./asset-inventory.md) を参照。
