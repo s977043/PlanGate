@@ -125,7 +125,7 @@ W チェックは以下の 4 軸を入力として評価する（Phase 1/2 で D
 - `class`: merge を含む / 含まない
 
 `boundary=touches-HO` の場合は残りの 3 軸を無視して即 human escalate。
-`boundary=clean` かつ `lite=false`、`critical` verdict、merge class 変更の場合も human escalate とする。
+`boundary=clean` かつ `lite=false`、W チェック不一致（approve-reject）、または merge class を含む変更の場合も human escalate とする。
 
 ---
 

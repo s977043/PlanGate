@@ -24,8 +24,8 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 | パス | 分類 | 変更禁止理由 |
 |------|------|------------|
 | `bin/plangate` | HO-core | 実行エンジン。AI 直接編集不可。制御極性（block until approved）が Arbiter と逆 |
-| `scripts/hooks/*.sh` | HO-hook | フック本体。AI 直接編集不可。誤変更で安全装置が無効化される |
-| `schemas/*.schema.json` | HO-schema | バリデーション定義。AI 直接編集不可。スキーマ改ざんで不変条件が崩壊する |
+| `scripts/hooks/**` | HO-hook | フック本体（全ファイル）。AI 直接編集不可。誤変更で安全装置が無効化される |
+| `schemas/**` | HO-schema | バリデーション定義（全ファイル）。AI 直接編集不可。スキーマ改ざんで不変条件が崩壊する |
 | `.claude/rules/*.md` | HO-rules | L0 契約正本。AI 直接編集不可。in-the-loop 前提の契約を Arbiter が変更しない |
 | `.claude/settings*.json` | HO-settings | Human-owned 設定。AI 自己改変禁止（self-mod guard） |
 | `.claude/settings.local.json` | HO-settings | 同上。ローカル設定も Human-owned |
@@ -81,8 +81,8 @@ else:
 
 ```text
 bin/plangate                → HO-core
-scripts/hooks/check-*.sh    → HO-hook
-schemas/plan.schema.json    → HO-schema
+scripts/hooks/check-hook.sh → HO-hook
+schemas/plan.schema.json   → HO-schema
 .claude/rules/mode-classification.md → HO-rules
 .claude/settings.json       → HO-settings
 .claude/settings.local.json → HO-settings
