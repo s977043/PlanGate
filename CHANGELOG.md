@@ -6,6 +6,14 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+- **feat(#493): exploratory intent 追加（8 分類化）・hypothesis-logger スキル実装・WF-07 接続（#651）**
+  — intent-classifier に `exploratory` を 8 番目の intent として追加。仮説採番・記録スキル
+  `hypothesis-logger` を新規実装。WF-00 に exploratory 判定時の WF-07 推奨 advisory を追加。
+
+- **docs(#652): Plan Review Readiness Gate 新規追加（#653）**
+  — C-1 self-review 前に `pass / needs_revision / blocked` を判定する計画実行準備ゲートを
+  追加。WF-03 完了条件・plangate-insertion-map・plan.md テンプレートを更新。
+
 ## v8.15.0 - 2026-06-25
 
 feat: Review Gate 機械化 + EH-3 doc-light + approve 強化 + CLI テスト完備 + OpenSSF Scorecard 対応 + Best Practices Passing 取得

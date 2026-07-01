@@ -14,7 +14,7 @@
 
 ```text
 依頼文
-  → intent-classifier        （Intent 7 分類）
+  → intent-classifier        （Intent 8 分類）
   → Mode 判定                 （mode-classification.md 正本・lite_eligible 含む）
   → skill-policy-router       （確定 Mode/lite_eligible → GatePolicy 写像）
   → ai-dev-plan 前段          （plan.md 着手）

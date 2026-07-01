@@ -8,10 +8,12 @@
 Plan Review Readiness Gate は、`plan.md` / `todo.md` / `test-cases.md` が生成された直後、C-1 self-review の前に置く計画実行準備ゲートである。
 
 ```text
-WF-00 -> WF-01 -> WF-02 -> WF-03 -> plan/todo/test-cases
+WF-00 -> WF-01 -> WF-02 -> WF-03 -> B[plan/todo/test-cases]
   -> Plan Review Readiness Gate
-  -> C-1 self-review -> C-2 external AI review -> C-3 human approval -> WF-04 -> WF-05
+  -> C-1 -> C-2 -> C-3 -> D[exec] -> WF-04 -> WF-05
 ```
+
+PlanGate 統制層フェーズ（A / B / D / L-0）との対応は [`plangate-insertion-map.md`](../workflows/plangate-insertion-map.md) を参照。
 
 このゲートの目的は、AI 実行に渡す前の計画が「レビュー可能」であり、かつ C-1 / C-2 / C-3 が見るべき境界を明示していることを確認することである。実装品質そのものを判定するゲートではなく、レビュー対象 artifact の準備状態を判定する。
 
@@ -83,7 +85,7 @@ WF-00 -> WF-01 -> WF-02 -> WF-03 -> plan/todo/test-cases
   `CLAUDE.md`, `AGENTS.md`, `docs/ai/core-contract.md`
   （詳細は EH-1 production code 定義参照）
 
-### Stop Conditions
+### Stop Condition
 - HO パス編集が必要になったら停止。
 - 新規依存や CLI 実装が必要になったら停止。
 
@@ -115,10 +117,10 @@ WF-00 -> WF-01 -> WF-02 -> WF-03 -> plan/todo/test-cases
 ### Non-goals and Scope Boundary
 - 特になし。
 
-### Stop Conditions
+### Stop Condition
 - 問題があれば止める。
 
-### Replan Conditions
+### Replan Triggers
 - 必要なら再計画する。
 
 ### Human Approval Boundary
