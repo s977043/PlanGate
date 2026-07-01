@@ -4,7 +4,7 @@
 > **目的**: "touches-HO" 判定の基準となるパスを machine-readable な形式で列挙する。
 > Phase 2 の Decision table から参照される。
 > **出典**: `docs/ai/hook-enforcement.md`、`docs/ai/autonomous-degraded-gates-spec.md` の
-> `NoHardeningOverridePath` 条件、および `docs/working/discussions/2026-06-11-arbiter-vision.md` §5.3
+> `NoHardeningOverridePath` 条件
 
 ---
 

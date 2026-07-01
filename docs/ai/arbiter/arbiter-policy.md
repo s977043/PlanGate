@@ -51,8 +51,6 @@ escalate  : 逸脱（W チェック不一致 / boundary=touches-HO / 予算超�
 
 ## 4. W チェック（2 モデル非対称）
 
-出典: `docs/working/discussions/2026-06-11-arbiter-vision.md` §5.2
-
 ### 4.1 基本判定表
 
 | モデル A | モデル B | → 裁定 |
@@ -103,7 +101,7 @@ C/D の結果は provenance に記録され、policy 改善（L4 学習）の入
 boundary=touches-HO の場合、lite 値・W チェック結果にかかわらず、必ず human escalate 固定。
 この条件は W チェック・severity 分類・観点特化裁定のいずれをもスキップする。
 
-> **「承認境界に触れた瞬間に全部 human に戻る」**（arbiter-vision.md §5.3）
+> **「承認境界に触れた瞬間に全部 human に戻る」**
 
 touches-HO 判定の正本: `docs/ai/arbiter/ho-paths.md`
 
@@ -114,7 +112,7 @@ touches-HO 判定の正本: `docs/ai/arbiter/ho-paths.md`
 本 policy（auto-approve を許す policy ルールを含む）の制定・改版は Human-owned 固定。
 AI は policy draft を提案できるが、発行・適用は Human-owned。
 
-「自分の枠を自分で書き換えない」（arbiter-vision.md §6 自己免疫疾患の抗体）
+「自分の枠を自分で書き換えない」
 
 ---
 
@@ -129,10 +127,22 @@ human 昇格の洪水を防ぐため、昇格件数に上限（予算）を設�
 
 ---
 
-## 8. 関連ドキュメント
+## 8. 安全装置（on-the-loop 固有の死因と抗体）
+
+| 死因 | 抗体 |
+| ------ | ------ |
+| サイレント逸脱 | 逸脱検知の完全配線（検知器に穴を残さない） |
+| 監督の幻想 | **承認 provenance**（誰が・どの policy で・対象 SHA・W チェック結果を刻印） |
+| 自己免疫疾患 | **policy/gate 生成は永久 in-the-loop**（第0の承認境界 §6 参照） |
+| 例外昇格の洪水 | human 昇格の**予算**（上限 N + 重大度トリアージ §7 参照） |
+| 承認境界の漸進侵食 | 境界の常時 block 維持 + 発行元検証（provenance）を塞ぐ |
+| 不可逆性 | **サーキットブレーカー**（`decision-table.md §5` 参照） |
+
+---
+
+## 9. 関連ドキュメント
 
 - `docs/ai/arbiter/ho-paths.md` — touches-HO 判定の正本
 - `docs/ai/arbiter/concept.md` — Arbiter の基本概念
 - `docs/ai/core-contract.md` — 上位制約（Iron Law）
 - `.claude/rules/responsibility-classes.md` — PlanGate 責務分類（参照のみ）
-- `docs/working/discussions/2026-06-11-arbiter-vision.md` — W チェック定義の出典
