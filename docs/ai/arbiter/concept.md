@@ -13,7 +13,7 @@
 動作の核心は 3 ステップ:
 
 ```text
-flow      : 低リスク変更は実行前ブロックせず流す
+flow      : 低リスク変更は人間承認を待たずに裁定まで流す（Arbiter の裁定は経る）
 detect    : 流れる変更を二重判定（W チェック 2 モデル）で逸脱検知
 escalate  : 逸脱（2 モデル不一致 / 承認境界接触 / critical）だけ人間へ昇格
             合意 clean は auto-approve + provenance 刻印
@@ -25,6 +25,15 @@ escalate  : 逸脱（2 モデル不一致 / 承認境界接触 / critical）だ�
 
 > Arbiter = AI を走らせたまま安全な枠に保ち、二重判定で逸脱だけを人間に昇格する、
 > 枠内自律 AI 開発の裁定ランタイム。
+
+### 目的（なぜ PlanGate リポジトリ内で PoC するか）
+
+Arbiter は、PlanGate で積み重ねた統制資産 — 失敗履歴・INC 群（threat model
+初期値）、HO（Hardening Override）・承認境界・provenance・決定論の設計哲学 —
+を継承し、堅牢な on-the-loop ループモデルを構築することを目的とする。
+本 PoC を独立リポジトリではなく PlanGate リポジトリ内で行う本質的な理由は、
+これらの資産が**ここにしか存在しない**ためである。詳細な資産分類は
+[`docs/ai/arbiter/asset-inventory.md`](./asset-inventory.md) を参照。
 
 ---
 
@@ -123,6 +132,13 @@ AGENTS.md                   同上
 │  • 不一致 / touches-HO / critical: human へ昇格 │
 └────────────────────────────────────────────────┘
 ```
+
+> **注（簡略版であることの明示）**: 上図は簡略版であり、
+> `A=approve & B=reject`（不一致）は実際には「即 human escalate」ではなく
+> **severity 分類**（critical/major → human escalate、minor/low →
+> Model C/D 裁定で auto-approve に到達し得る）へ進む。詳細分岐の正本は
+> [`docs/workflows/arbiter/flow-detect.md`](../../workflows/arbiter/flow-detect.md)
+> §3.2〜3.3。
 
 ### detect フェーズの入力（L2 入力 4 軸）
 
