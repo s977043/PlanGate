@@ -8,7 +8,7 @@
 Plan Review Readiness Gate は、`plan.md` / `todo.md` / `test-cases.md` が生成された直後、C-1 self-review の前に置く計画実行準備ゲートである。
 
 ```text
-WF-00 -> WF-01 -> WF-02 -> B[plan/todo/test-cases] -> WF-03
+WF-00 -> WF-01 -> WF-02 -> WF-03 -> B[plan/todo/test-cases]
   -> Plan Review Readiness Gate
   -> C-1 -> C-2 -> C-3 -> D[exec] -> WF-04 -> WF-05
 ```
