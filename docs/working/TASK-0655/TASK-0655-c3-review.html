@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-0655 (PR #660) — C-3 Review</title>
+<style>
+:root{--fg:#1f2328;--muted:#656d76;--bd:#d0d7de;--bg:#fff;--accent:#0969da;--code:#f6f8fa;
+--pass:#1a7f37;--pass-bg:#dafbe1;--warn:#9a6700;--warn-bg:#fff8c5;
+--fail:#cf222e;--fail-bg:#ffebe9;--ap:#0969da;--ap-bg:#ddf4ff}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--fg);background:#fafbfc}
+.wrap{max-width:980px;margin:0 auto;padding:24px}
+header h1{margin:0 0 4px}
+.meta{color:var(--muted);font-size:14px;margin-bottom:16px}
+nav.toc{position:sticky;top:0;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin-bottom:24px;z-index:10}
+nav.toc strong{display:block;margin-bottom:6px}
+nav.toc a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none;font-size:14px}
+nav.toc a:hover{text-decoration:underline}
+section.block{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 24px 24px;margin-bottom:28px}
+section.block>h2{border-bottom:2px solid var(--bd);padding-bottom:8px}
+h1,h2,h3,h4{line-height:1.3}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid var(--bd);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+code{background:var(--code);padding:.15em .35em;border-radius:4px;font-size:85%}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto;font-size:13px}
+pre code{background:none;padding:0}
+blockquote{margin:8px 0;padding:0 12px;color:var(--muted);border-left:3px solid var(--bd)}
+a{color:var(--accent)}
+.badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:13px;font-weight:600}
+.badge-pass{background:var(--pass-bg);color:var(--pass)}
+.badge-warn{background:var(--warn-bg);color:var(--warn)}
+.badge-fail{background:var(--fail-bg);color:var(--fail)}
+.badge-approve{background:var(--ap-bg);color:var(--ap)}
+.badge-request{background:var(--fail-bg);color:var(--fail)}
+.verdict-bar{background:var(--pass-bg);border:1px solid #1a7f37;border-radius:8px;padding:12px 20px;margin:16px 0;font-size:15px}
+.verdict-bar.warn{background:var(--warn-bg);border-color:var(--warn)}
+.reviewer-card{border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin:12px 0}
+.reviewer-card h4{margin:0 0 8px;font-size:15px}
+hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
+ul{margin:4px 0;padding-left:20px}
+li{margin:2px 0}
+.section-note{font-size:13px;color:var(--muted);margin-top:-8px;margin-bottom:12px}
+</style></head>
+<body><div class="wrap">
+
+<header>
+  <h1>TASK-0655 / PR #660</h1>
+  <div class="meta">C-3 レビュー集約ビュー &nbsp;|&nbsp; 2026-07-01 &nbsp;|&nbsp; feat/arbiter-phase0 &nbsp;|&nbsp; <a href="https://github.com/s977043/PlanGate/issues/655">#655</a> &nbsp;|&nbsp; <a href="https://github.com/s977043/PlanGate/pull/660">PR #660</a></div>
+</header>
+
+<nav class="toc">
+  <strong>目次</strong>
+  <a href="#overview">変更概要</a>
+  <a href="#c2-review">C-2 外部レビュー（3 エージェント）</a>
+  <a href="#c3-review">C-3 観点別レビュー（2 エージェント）</a>
+  <a href="#known-issues">既知課題</a>
+  <a href="#final-verdict">最終判定</a>
+</nav>
+
+<section class="block" id="overview">
+<h2>変更概要</h2>
+<table>
+  <tr><th>ブランチ</th><td><code>feat/arbiter-phase0</code></td></tr>
+  <tr><th>対象 issue</th><td><a href="https://github.com/s977043/PlanGate/issues/655">#655</a> feat(Arbiter): Phase 0 — コンセプト固定・資産棚卸し・検証スコープ定義</td></tr>
+  <tr><th>PR</th><td><a href="https://github.com/s977043/PlanGate/pull/660">#660</a></td></tr>
+  <tr><th>最終コミット</th><td><code>9ee7030</code> — fix: ho-paths.md に docs/ai/*.md 追加・優先順位明記</td></tr>
+</table>
+
+<h3>変更ファイル一覧</h3>
+<table>
+  <tr><th>ファイル</th><th>種別</th><th>内容</th></tr>
+  <tr><td><code>docs/ai/arbiter/concept.md</code></td><td>新規</td><td>Arbiter の定義・flow→detect→escalate・L2 入力 4 軸・検証スコープ</td></tr>
+  <tr><td><code>docs/ai/arbiter/asset-inventory.md</code></td><td>新規</td><td>PlanGate 共通資産の uses/not-uses 分類</td></tr>
+  <tr><td><code>docs/ai/arbiter/ho-paths.md</code></td><td>新規</td><td>touches-HO 判定基準リスト（17 パス、machine-readable）</td></tr>
+  <tr><td><code>docs/ai/arbiter/related-specs.md</code></td><td>新規</td><td>既存仕様との関係整理（autonomous-degraded-gates-spec.md = 拡張 等）</td></tr>
+  <tr><td><code>docs/working/_audit/skip-decision-log.jsonl</code></td><td>自動記録</td><td>EH-3 doc-light スキップの hook 自動追記（4 行）</td></tr>
+</table>
+
+<h3>HO パスへの変更確認</h3>
+<pre><code>.claude/rules/         — 変更なし
+bin/plangate           — 変更なし
+schemas/               — 変更なし
+.claude/settings*.json — 変更なし
+CLAUDE.md / AGENTS.md  — 変更なし
+.github/workflows/     — 変更なし
+docs/ai/*.md（既存）   — 変更なし</code></pre>
+</section>
+
+<section class="block" id="c2-review">
+<h2>C-2 外部レビュー（実装後・3 エージェント並列）</h2>
+<p class="section-note">初回実装コミット（14e31a8）後に実施。指摘はすべて修正対応済み。</p>
+
+<div class="reviewer-card">
+  <h4>plangate:acceptance-tester<span style="float:right"><span class="badge badge-fail">初回 FAIL</span> → <span class="badge badge-pass">修正後 PASS</span></span></h4>
+  <p><strong>検出:</strong> markdownlint 12 エラー（MD040×7 コードブロック言語指定なし、MD036×5 太字見出し）</p>
+  <p><strong>修正:</strong> コードブロックに <code>text</code>/<code>pseudocode</code> 指定追加。太字見出しを <code>###</code> に統一。最終 0 エラー。</p>
+</div>
+
+<div class="reviewer-card">
+  <h4>plangate:qa-reviewer<span style="float:right"><span class="badge badge-request">初回 REQUEST_CHANGES</span> → <span class="badge badge-approve">修正後 APPROVE</span></span></h4>
+  <p><strong>検出:</strong> <code>ho-paths.md</code> に <code>.claude/commands/*.md</code> と <code>.claude/agents/*.md</code> が欠落（正本 HO 9 カテゴリとの差分）</p>
+  <p><strong>修正:</strong> 4 パスを HO パス一覧に追加（commands、agents、workflows/*.yaml、settings.example.json）</p>
+</div>
+
+<div class="reviewer-card">
+  <h4>codex:codex-rescue<span style="float:right"><span class="badge badge-warn">MINOR_CHANGES → 対応済み</span></span></h4>
+  <p><strong>検出:</strong> ①同上 HO パス漏れ ②concept.md に L2 入力 4 軸の記述不足 ③responsibility-classes.md の責務 namespace 不明確</p>
+  <p><strong>修正:</strong> concept.md §4 に L2 入力 4 軸を追記。related-specs.md に「Arbiter L0 内のみ適用」の namespace 注記を追加。</p>
+</div>
+</section>
+
+<section class="block" id="c3-review">
+<h2>C-3 観点別レビュー（2 エージェント）</h2>
+<p class="section-note">修正後コミット（27ee064）を対象に実施。</p>
+
+<h3>plangate:qa-reviewer</h3>
+<table>
+  <tr><th>#</th><th>観点</th><th>判定</th><th>所見</th></tr>
+  <tr><td>1</td><td>Design alignment</td><td><span class="badge badge-pass">PASS</span></td><td>WF-00〜07 は変更対象外。concept.md §2 に「PlanGate 本番は in-the-loop 維持」明記。</td></tr>
+  <tr><td>2</td><td>Security</td><td><span class="badge badge-pass">PASS</span></td><td>HO パスへの変更ゼロ。settings*.json が self-mod guard 対象として明示。権限昇格リスクなし。</td></tr>
+  <tr><td>3</td><td>Backward compatibility</td><td><span class="badge badge-pass">PASS</span></td><td>「PlanGate 本番統制では responsibility-classes.md が優先」と明記。Policy-owned 追加は arbiter/ 内のみ。</td></tr>
+  <tr><td>4</td><td>Maintainability</td><td><span class="badge badge-warn">PASS/WARN</span></td><td>ロードマップが concept.md §6 に明記。<br><strong>WARN:</strong> ho-paths.md と hook-enforcement.md の同期手順未定義。→ KI-01</td></tr>
+  <tr><td>5</td><td>Operational risk</td><td><span class="badge badge-pass">PASS</span></td><td>新規ドキュメント 4 件 + append-only 自動記録のみ。markdownlint 0 エラー。</td></tr>
+  <tr><td>6</td><td>Scope boundary</td><td><span class="badge badge-pass">PASS</span></td><td>issue #655 完了条件 6 項目すべて充足。スコープ外変更なし。</td></tr>
+</table>
+<div class="verdict-bar">
+  <strong>qa-reviewer 総合:</strong> <span class="badge badge-approve">APPROVE</span> — HO パス影響ゼロ、#655 完了条件を全て充足。
+</div>
+
+<h3>plangate:solution-architect</h3>
+<table>
+  <tr><th>観点</th><th>判定</th><th>所見</th></tr>
+  <tr>
+    <td>A. Arbiter 構想との整合</td>
+    <td><span class="badge badge-pass">PASS</span></td>
+    <td>concept.md の flow→detect→escalate が vision §3 と一致。ho-paths.md の「即 human escalate」が vision §5.3 の要石を正確に実装。asset-inventory.md の uses/not-uses が vision §8「機構でなく哲学のみ継承」と整合。</td>
+  </tr>
+  <tr>
+    <td>B. Phase 1〜3 への接続性</td>
+    <td><span class="badge badge-warn">PASS/WARN</span></td>
+    <td>L2 入力 4 軸が concept.md §4 に明記され Phase 1 の基盤として十分。ho-paths.md は Phase 2 Decision table から参照可能な構造。<br><strong>WARN:</strong> <code>lite</code> 条件の定量定義が Phase 1 以降に先送り → KI-02</td>
+  </tr>
+  <tr>
+    <td>C. PlanGate 正本との境界</td>
+    <td><span class="badge badge-pass">PASS</span></td>
+    <td>related-specs.md が適用ドメインを明確分離。ho-paths.md が machine-readable 正本として concept.md §3 との優先順位を明記（C-3 対応コミット 9ee7030 で解消済み）。</td>
+  </tr>
+</table>
+<div class="verdict-bar warn">
+  <strong>solution-architect 総合:</strong> <span class="badge badge-approve">APPROVE_WITH_NOTE</span> — 設計骨格承認。必須対処（docs/ai/*.md エントリ欠落）は修正済み。残 WARN は Phase 1 入口で対応推奨。
+</div>
+</section>
+
+<section class="block" id="known-issues">
+<h2>既知課題 / Phase 1 申し送り事項</h2>
+<table>
+  <tr><th>ID</th><th>重大度</th><th>内容</th><th>推奨タイミング</th></tr>
+  <tr>
+    <td>KI-01</td>
+    <td><span class="badge badge-warn">WARN</span></td>
+    <td><code>ho-paths.md</code> と <code>hook-enforcement.md</code> の同期手順が未定義。Phase 1 以降で追従漏れリスク。</td>
+    <td>Phase 1 着手前に <code>ho-paths.md</code> 末尾に更新トリガーを追記</td>
+  </tr>
+  <tr>
+    <td>KI-02</td>
+    <td><span class="badge badge-warn">WARN</span></td>
+    <td><code>lite</code> 条件（低リスク要件の定量定義）が未定義。Phase 1 の arbiter-policy.md 作成時に auto-approve 候補の範囲が曖昧になる。</td>
+    <td>issue <a href="https://github.com/s977043/PlanGate/issues/656">#656</a>（Phase 1）着手前に TODO 明記</td>
+  </tr>
+  <tr>
+    <td>KI-03</td>
+    <td><span class="badge badge-warn">WARN</span></td>
+    <td>Policy-owned / Sensor-owned の責務骨格が Phase 1 以降に全量先送り。L2 裁定層の実装境界が曖昧になるリスク。</td>
+    <td>Phase 1 の arbiter-policy.md で定義</td>
+  </tr>
+  <tr>
+    <td>KI-04</td>
+    <td>INFO</td>
+    <td><code>skip-decision-log.jsonl</code> の 4 エントリが <code>acknowledged_by: null</code>（doc-light 経路の正式追認ステータス）。</td>
+    <td>本 C-3 承認時または doc-light 省略の明文化</td>
+  </tr>
+</table>
+</section>
+
+<section class="block" id="final-verdict">
+<h2>最終判定</h2>
+<div class="verdict-bar">
+  <strong>C-3 総合判定: <span class="badge badge-approve">APPROVE</span></strong><br><br>
+  <ul>
+    <li>HO パスへの変更ゼロ — PlanGate 本番への悪影響なし</li>
+    <li>issue #655 完了条件 6 項目すべて充足</li>
+    <li>markdownlint 0 エラー（最終）</li>
+    <li>5 エージェント独立レビューで Arbiter 構想との整合を確認</li>
+    <li>C-3 指摘（docs/ai/*.md エントリ欠落）は修正コミット（9ee7030）で解消済み</li>
+  </ul>
+  <br>
+  <strong>次ステップ:</strong> マージ後、Phase 1（<a href="https://github.com/s977043/PlanGate/issues/656">#656</a>）着手前に KI-01 / KI-02 を issue に反映。
+</div>
+
+<h3>レビュー参加エージェント</h3>
+<table>
+  <tr><th>エージェント</th><th>フェーズ</th><th>判定</th></tr>
+  <tr><td>plangate:acceptance-tester</td><td>C-2（初回）</td><td>FAIL → 修正後 PASS</td></tr>
+  <tr><td>plangate:qa-reviewer</td><td>C-2（初回）</td><td>REQUEST_CHANGES → 修正後 APPROVE</td></tr>
+  <tr><td>codex:codex-rescue</td><td>C-2（初回）</td><td>MINOR_CHANGES → 対応済み</td></tr>
+  <tr><td>plangate:qa-reviewer</td><td>C-3</td><td>APPROVE</td></tr>
+  <tr><td>plangate:solution-architect</td><td>C-3</td><td>APPROVE_WITH_NOTE</td></tr>
+</table>
+</section>
+
+</div></body></html>
