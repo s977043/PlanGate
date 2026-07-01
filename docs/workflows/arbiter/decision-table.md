@@ -19,7 +19,7 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 | ---- | ------ | ------ |
 | `boundary` | `touches-HO` / `clean` | HO パス（`docs/ai/arbiter/ho-paths.md`）への接触有無 |
 | `lite` | `true` / `false` | 低リスク要件を満たすか |
-| `verdict` | `approve-approve` / `approve-reject` / `reject-reject` | W チェック（Model A/B）の合意結果 |
+| `verdict` | `approve-approve` / `approve-reject` / `reject-reject` / `reject-approve` | W チェック（Model A/B）の合意・不一致結果 |
 | `class` | `merge` / `no-merge` | 変更に merge（C-4）を含むか |
 
 ### 軸の補足
@@ -27,6 +27,7 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 - `boundary` の判定正本: `docs/ai/arbiter/ho-paths.md`
 - `verdict=approve-reject` は W チェック不一致を意味する（`flow-detect.md §3.1` 参照）
 - `class=merge` は Human-owned 固定のため、他の軸にかかわらず human escalate となる
+- `verdict=reject-approve` は A が設計妥当性で NG のためブロック（`flow-detect.md §3.1` 参照）
 
 ---
 
@@ -40,7 +41,7 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 | 1 | `touches-HO` | `*` | `*` | `*` | **human escalate（固定）** |
 | 2 | `clean` | `false` | `*` | `*` | **human escalate** |
 | 3 | `clean` | `true` | `merge` | `*` | **human escalate**（merge=Human-owned 固定） |
-| 4 | `clean` | `true` | `no-merge` | `reject-reject` | **blocked** |
+| 4 | `clean` | `true` | `no-merge` | `reject-reject` / `reject-approve` | **blocked**（A が設計妥当性で NG） |
 | 5 | `clean` | `true` | `no-merge` | `approve-reject` | severity 分類 → C/D 裁定（§4 参照） |
 | 6 | `clean` | `true` | `no-merge` | `approve-approve` | **auto-approve** |
 
@@ -72,6 +73,10 @@ approve-reject
 ## 5. provenance スキーマ draft
 
 auto-approve 時（priority 6 または C/D 合意）に刻印する最低限の必須フィールド。
+
+> **PoC スコープ**: provenance 刻印は auto-approve 時のみ定義する。
+> HUMAN_ESCALATED / BLOCKED 時の audit trail（判断理由・escalate 経緯の記録）は
+> Phase 3 以降で定義予定。
 
 ```text
 decision:           AUTONOMOUS_APPROVED / HUMAN_ESCALATED / BLOCKED
@@ -128,7 +133,7 @@ on-the-loop 固有の「自律暴走」防止機構。
 トリガー : auto-approve 済みの変更を人間が事後 reject した
 動作     :
   1. 当該 policy を即時一時停止（policy_suspended=true）
-  2. 可能な範囲で巻き戻し実行
+  2. 可能な範囲で巻き戻し実行（不可逆操作を除く）
   3. human review キューへ昇格（CB-1 フラグ付き）
   4. 人間が原因分析・policy 再承認するまで同一 policy の auto-approve を停止
 復旧     : 人間が policy を再承認して policy_suspended=false に更新する
