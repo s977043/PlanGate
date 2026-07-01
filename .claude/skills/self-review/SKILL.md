@@ -47,6 +47,8 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | 「scope を少し広げただけ」 | 計画外編集は再承認が要る（Iron Law #2 / #5、scope discipline FAIL）|
 | 「test FAIL の原因は不明だがリトライで通った」 | root cause 不明のまま完了宣言禁止（Iron Law #6 / verification honesty FAIL）|
 | 「format adherence は軽微」 | schema 準拠率 < 95% は **release blocker**（暫定値、`eval-plan.md` § 6）|
+| 「スクリプトは雑でいい」 | SKILL.md・コマンド・エージェントに埋め込まれたシェル例はチーム全員が実行する。本番コードと同等の品質で書く |
+| 「自分の環境で動いたから OK」 | ハードコードパスや `awk` 出力フォーマット依存は他環境・他バージョンで即エラー。Phase 13 のポータビリティチェックで検証 |
 
 ## 手順
 
@@ -183,6 +185,39 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 
 全変更ファイルの変更理由を説明できるか確認。
 
+### Phase 13: シェルスクリプト・ドキュメント品質チェック
+
+`.sh` / `SKILL.md` / `agents/*.md` / `commands/*.md` / `scripts/**` が含まれる変更の場合のみ実施する。
+
+#### ポータビリティ（環境依存）
+
+- **ハードコードパス禁止**: `~/Documents/...` や `/Users/<name>/...` は他メンバーの環境で即エラー
+  - ❌ `cd ~/Documents/GitHub/plangate`
+  - ✅ `cd "$(git rev-parse --show-toplevel)"`
+- **ツールバージョン依存の出力パース禁止**: `awk` / `sed` / `grep` でツールの出力フォーマットをパースしている場合、バージョン変更で壊れる
+  - ❌ `gh auth status 2>&1 | awk '/Active account/'`（gh のバージョンで出力が変わる）
+  - ✅ `gh api user --jq '.login'`（API は安定）
+- **OS 差異**: `date` / `sed` 等の BSD / GNU 差異に注意（macOS と Linux で挙動が異なる場合がある）
+
+#### 危険な git 操作の安全ガード
+
+- `git reset --hard` / `git clean -f` / `git push --force` の前には必ず前提チェックを入れる
+  - ❌ `git reset --hard origin/$BASE`（ワーキングツリーが汚れていると変更が消える）
+  - ✅ `git status --short | grep -q . && { echo 'ERROR: dirty'; exit 1; }` を先に実行
+
+#### ドキュメント内の例示値
+
+- **実在するリソース名を例示に使わない**: PR 番号 / ブランチ名 / ユーザー名 / ファイルパスは実在するものを使うと誤解・誤操作を招く
+  - ❌ `#593`（実在する PR 番号）
+  - ✅ `#<PR番号>`（プレースホルダー）
+- **機密情報・個人情報が例示に含まれていないか**: メールアドレス・API キー・内部 URL 等
+
+#### セキュリティ（シェルスクリプト）
+
+- 変数展開のクォートが適切か（`"$VAR"` でスペース・特殊文字を安全に扱う）
+- ユーザー入力を直接シェルコマンドに渡していないか（コマンドインジェクション）
+- `eval` の不要な使用がないか
+
 ## 出力フォーマット
 
 **出力ルール**: OKの項目は省略可。**NG/要確認の項目のみ**を重点的に報告する。
@@ -216,6 +251,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | セキュリティ | OK / NG |
 | CI 互換性 | OK / NG |
 | コミット衛生 | OK / NG |
+| スクリプト・ドキュメント品質 | OK / NG |
 
 ### PlanGate v8.3 判定（PlanGate 文脈で必須）
 
@@ -254,3 +290,4 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 - [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — 出力 schema
 - [`docs/ai/contracts/review.md`](../../../docs/ai/contracts/review.md) — review phase contract
 - [`.claude/rules/review-principles.md`](../../rules/review-principles.md) — レビュー原則（CI / ローカル共通）
+- [`docs/ai/plan-review-readiness-gate.md`](../../../docs/ai/plan-review-readiness-gate.md) §9 — シェル・Python コード / ドキュメント変更時の追加観点（C-1〜C-5）
