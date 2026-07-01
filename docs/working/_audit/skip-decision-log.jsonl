@@ -34,3 +34,7 @@
 {"ts":"2026-06-29T02:03:56Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/skills/hypothesis-logger/SKILL.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-06-29T02:04:07Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/workflows/00_intent_intake.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-06-29T02:06:15Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/workflows/00_intent_intake.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-01T04:18:18Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/arbiter/concept.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-01T04:18:50Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/arbiter/asset-inventory.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-01T04:19:25Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/arbiter/ho-paths.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-01T04:20:09Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/arbiter/related-specs.md","acknowledged_by":null,"acknowledged_at":null}

@@ -33,6 +33,10 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 | `docs/ai/core-contract.md` | HO-contract | Iron Law 正本。最上位制約。Arbiter でも変更不可 |
 | `.github/workflows/*.yml` | HO-ci | CI/CD 定義。AI 直接編集不可。誤変更で安全装置・検証が無効化される |
 | `approvals/*.json` | HO-approval | 人間承認トークン。AI 代理作成禁止。provenance の偽造防止 |
+| `.claude/commands/*.md` | HO-rules | コマンド定義。実行入口・承認境界に影響。AI 直接編集不可 |
+| `.claude/agents/*.md` | HO-rules | Agent 行動契約。統制回避防止。AI 直接編集不可 |
+| `.claude/settings.example.json` | HO-settings | settings 契約例。自己改変・緩和防止 |
+| `.github/workflows/*.yaml` | HO-ci | CI/CD 定義（yaml 拡張子）。AI 直接編集不可 |
 | `plugin/plangate/**` | HO-plugin | プラグイン本体。AI 直接編集不可 |
 
 ---
@@ -55,7 +59,7 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 
 ## 判定アルゴリズム（Phase 2 Decision table 向け）
 
-```
+```pseudocode
 入力: 変更対象ファイルパスのリスト
 出力: boundary = "touches-HO" | "clean"
 
@@ -73,7 +77,7 @@ else:
 
 ### パターンマッチの例
 
-```
+```text
 bin/plangate                → HO-core
 scripts/hooks/check-*.sh    → HO-hook
 schemas/plan.schema.json    → HO-schema

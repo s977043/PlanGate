@@ -13,7 +13,7 @@
 
 動作の核心は 3 ステップ:
 
-```
+```text
 flow      : 低リスク変更は実行前ブロックせず流す
 detect    : 流れる変更を二重判定（W チェック 2 モデル）で逸脱検知
 escalate  : 逸脱（2 モデル不一致 / 承認境界接触 / critical）だけ人間へ昇格
@@ -56,14 +56,14 @@ PlanGate 本番は**並走期全体で in-the-loop を維持**する。PoC の�
 
 ### 変更可能な範囲
 
-```
+```text
 docs/ai/arbiter/   配下のみ（新規作成・更新）
 docs/workflows/arbiter/  配下のみ（新規作成・更新、Phase 1 以降）
 ```
 
 ### 変更禁止（読み取り専用・参照のみ）
 
-```
+```text
 .claude/rules/              L0 契約正本。in-the-loop 前提の契約を Arbiter が変更しない
 docs/ai/*.md                既存の PlanGate ドキュメント（arbiter/ サブディレクトリを除く）
 docs/workflows/*.md         既存のワークフロー定義
@@ -84,7 +84,7 @@ AGENTS.md                   同上
 
 ## 4. flow → detect → escalate の基本フロー
 
-```
+```text
 ┌────────────────────────────────────────────────┐
 │ AI が変更を生成                                  │
 └──────────────────┬─────────────────────────────┘
@@ -115,6 +115,18 @@ AGENTS.md                   同上
 └────────────────────────────────────────────────┘
 ```
 
+### detect フェーズの入力（L2 入力 4 軸）
+
+W チェックは以下の 4 軸を入力として評価する（Phase 1/2 で Decision table に展開）：
+
+- `boundary`: touches-HO / clean（HO パスに触れるか）
+- `lite`: true / false（低リスク要件を満たすか）
+- `verdict`: W チェック合意結果（approve-approve / approve-reject / reject-reject）
+- `class`: merge を含む / 含まない
+
+`boundary=touches-HO` の場合は残りの 3 軸を無視して即 human escalate。
+`boundary=clean` かつ `lite=false`、`critical` verdict、merge class 変更の場合も human escalate とする。
+
 ---
 
 ## 5. human-in-the-loop との違い
@@ -137,7 +149,7 @@ touches-HO は常に同期ブロック固定（Arbiter でも緩和しない）�
 
 ## 6. Phase 0 の位置づけ
 
-```
+```text
 Phase 0  哲学抽出  ← 現在地
   PlanGate threat model 移植 / L0 設計哲学の明文化 / 勝利条件定義
   成果物: concept.md / asset-inventory.md / ho-paths.md / related-specs.md

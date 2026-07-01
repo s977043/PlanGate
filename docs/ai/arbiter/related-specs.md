@@ -17,7 +17,7 @@
 
 ## autonomous-degraded-gates-spec.md との関係
 
-**関係: 拡張**
+### 関係: 拡張
 
 ### autonomous-degraded-gates-spec.md の思想
 
@@ -64,7 +64,7 @@ Arbiter は on-the-loop を前提とした制御極性の反転（flow が既定
 
 ## plan-review-readiness-gate.md との関係
 
-**関係: 独立**
+### 関係: 独立
 
 `plan-review-readiness-gate.md` は Arbiter の detect フェーズとは**異なる時点**で動作する
 既存ゲート。C-1 前（plan 提出前）の readiness 検証を担う。
@@ -86,7 +86,7 @@ Arbiter の boundary チェック・W チェックの設計に活用する。
 
 ## responsibility-classes.md との関係
 
-**関係: 上位制約（Arbiter は「追加」するが「変更」しない）**
+### 関係: 上位制約（Arbiter は「追加」するが「変更」しない）
 
 `responsibility-classes.md` は PlanGate の責務 4 分類（AI-owned / Human-owned /
 CI-owned / Workflow-owned）の正本。in-the-loop 前提に最適化された分類。
@@ -97,6 +97,11 @@ CI-owned / Workflow-owned）の正本。in-the-loop 前提に最適化された�
 - Arbiter の L0 設計（Phase 1 以降）では、**Policy-owned**（事前定義された自律許可の裁定）と
   **Sensor-owned**（逸脱検知の責務）を**追加**する設計を想定
 - Iron Law は Arbiter でも最上位制約として適用される
+
+> **注意**: ここで定義する Policy-owned / Sensor-owned の追加責務、および
+> Human-owned の役割変化は **Arbiter L0（docs/workflows/arbiter/ 配下）内のみ**に適用される。
+> PlanGate 本番フロー（WF-00〜WF-07）の C-3 / C-4 / merge 責務は変更しない。
+> PlanGate 本番統制では `responsibility-classes.md` が引き続き優先する。
 
 | 責務クラス | PlanGate 既存 | Arbiter 追加予定（Phase 1+） |
 |-----------|--------------|----------------------------|
@@ -111,7 +116,7 @@ CI-owned / Workflow-owned）の正本。in-the-loop 前提に最適化された�
 
 ## hook-enforcement.md との関係
 
-**関係: 独立（HO パス定義を参照・継承）**
+### 関係: 独立（HO パス定義を参照・継承）
 
 `hook-enforcement.md` は PlanGate の HO パスと hook 実装の正本。
 Arbiter は HO パスの定義を**参照**し、`docs/ai/arbiter/ho-paths.md` に集約する。
@@ -121,7 +126,7 @@ Arbiter は HO パスの定義を**参照**し、`docs/ai/arbiter/ho-paths.md` �
 
 ## core-contract.md（Iron Law）との関係
 
-**関係: 上位制約（Arbiter は Iron Law に従う）**
+### 関係: 上位制約（Arbiter は Iron Law に従う）
 
 Iron Law は Arbiter でも最上位制約として適用される。
 Arbiter-workflow は Iron Law の下位に位置し、Iron Law を緩和・変更しない。
