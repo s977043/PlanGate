@@ -30,7 +30,7 @@ auto-approve または human escalate
 
 | 条件 | 説明 |
 |------|------|
-| `boundary = clean` | 変更対象が HO パス（`ho-paths.md`）のいずれにも含まれない |
+| `boundary = clean` | 変更対象が HO パス（`docs/ai/arbiter/ho-paths.md`）のいずれにも含まれない |
 | `lite = true` | 低リスク要件を満たす（高リスク要素なし） |
 
 どちらか一つでも満たさない場合 → human escalate。
@@ -49,6 +49,7 @@ auto-approve または human escalate
 | --------- | --------- | -------- |
 | approve | approve | 合意 → auto-approve（boundary=clean 時） |
 | approve | reject | **不一致 → severity 分類へ** |
+| reject | approve | 不一致 → ブロック（A が設計妥当性で NG） |
 | reject | reject | 合意 → ブロック |
 
 モデル A（順方向）: 設計妥当性「正しく作られているか」を検証
@@ -96,7 +97,7 @@ C/D の裁定結果は provenance に記録され、policy 改善（L4 学習）
 | lite=false | 高リスク変更（低リスク帯外） |
 | W チェック不一致 かつ severity=critical | 権限変更・不可逆操作 |
 | W チェック不一致 かつ severity=major | 公開 API 変更・認証変更 |
-| W チェック不一致 かつ C/D いずれか reject | minor/low でも観点特化で割れた |
+| W チェック不一致 かつ C/D の判定が不一致（approve/reject の割れ） | minor/low でも観点特化で割れた |
 
 ### 4.2 escalate 予算
 

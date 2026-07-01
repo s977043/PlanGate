@@ -42,9 +42,9 @@ Phase 0（#655）の結論を参照:
 
 | 区分 | 内容 |
 | ------ | ------ |
-| 拡張 | Arbiter は `autonomous-degraded-gates-spec.md` の degraded-gates 概念を**拡張する** |
-| 非代替 | `autonomous-degraded-gates-spec.md` を置き換えない。PlanGate 本番の degraded-gates はそのまま |
-| 参照元 | `NoHardeningOverridePath` 条件を `ho-paths.md` の起点として参照 |
+| 拡張 | Arbiter は `docs/ai/autonomous-degraded-gates-spec.md` の degraded-gates 概念を**拡張する** |
+| 非代替 | `docs/ai/autonomous-degraded-gates-spec.md` を置き換えない。PlanGate 本番の degraded-gates はそのまま |
+| 参照元 | `NoHardeningOverridePath` 条件を `docs/ai/arbiter/ho-paths.md` の起点として参照 |
 
 ---
 

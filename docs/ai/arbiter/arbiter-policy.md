@@ -44,7 +44,7 @@ Arbiter（on-the-loop）では Human-owned は policy 制定・例外裁定・�
 ```text
 flow      : 低リスク変更（boundary=clean かつ lite=true）は実行前ブロックせず流す
 detect    : 変更を W チェック（2 モデル非対称）と boundary 判定で逸脱検知する
-escalate  : 逸脱（W チェック不一致 / boundary=touches-HO / verdict 超過）のみ人間昇格する
+escalate  : 逸脱（W チェック不一致 / boundary=touches-HO / 予算超過）のみ人間昇格する
 ```
 
 ---
@@ -59,6 +59,7 @@ escalate  : 逸脱（W チェック不一致 / boundary=touches-HO / verdict 超
 | --------- | --------- | -------- |
 | approve | approve | 合意 → auto-approve 候補（boundary=clean 時） |
 | approve | reject | 不一致 → **severity 分類へ進む** |
+| reject | approve | 不一致 → ブロック（A が設計妥当性で NG） |
 | reject | reject | 合意 → ブロック |
 
 モデル A（順方向）: 設計妥当性「正しく作られているか」を検証
