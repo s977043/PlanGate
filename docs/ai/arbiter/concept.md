@@ -2,7 +2,6 @@
 
 > **Status**: Phase 0 ドキュメント（2026-07-01）。PoC 段階の構想固定。確定仕様・実装方針ではない。
 > **置き場所**: docs/ai/arbiter/（PlanGate リポジトリ内 PoC 用サブディレクトリ）
-> **出典**: `docs/working/discussions/2026-06-11-arbiter-vision.md`
 
 ---
 
@@ -47,6 +46,16 @@ in/on の契約が混在し承認境界が二重定義になるため）。
 
 ただし、CLI 非依存設計への移行方針により、**まず docs/ 層で PoC を進める**。
 PlanGate 本番は**並走期全体で in-the-loop を維持**する。PoC の結果に応じて独立リポジトリへの移行を判断する。
+
+### L0 をゼロから設計する理由
+
+PlanGate L0（既存の統制契約）は「人間が実行ループの中にいる」前提に最適化された契約。
+Arbiter はその前提が異なる（人間はループの上）ため、L0 は2層に分けて扱う：
+
+- **継承するのは L0-メタ（設計哲学）**: 境界・provenance・決定論で自律を統制する思想。
+- **作り直すのは L0-契約**: 責務モデル / 承認の時制 / 境界の挙動 / mode 判定。
+
+制御の極性が反転する（block → flow）ため、実行エンジンも別物。
 
 ---
 
@@ -175,9 +184,36 @@ Phase 5  解禁判定
 
 ---
 
-## 7. 関連ドキュメント
+## 7. アーキテクチャ（6層）
+
+```text
+L5 コンテキスト基盤   任意。コード/docs/DB/インフラを統合グラフ化（AI が辿る燃料）
+L4 学習層            判断結果を次の gate に変換する閉ループ（誤検知抑制 / 真指摘の昇格）
+L3 自律実行層        非同期フロー・親子並列・self-healing・サーキットブレーカー
+L2 裁定層 ★          Arbiter の心臓。二分ルール / policy 評価 / provenance 発行
+L1 判断実行層        RiverReview 委譲（versioned skills / gates / W チェック / riverbed）
+─────────────────────────────────────────
+L0 統制契約層        承認境界 / 責務モデル / HO / mode 判定（on-the-loop 用に新規設計）
+```
+
+- **L2 が新規性の中核**。「block until approved」型でなく「flow → detect → escalate」型の決定エンジン。
+- **L1 は内製せず RiverReview に委譲**（判断基準を versioned skill 化する既存資産を活用）。
+- **L0 はゼロから設計**（既存ガバナンスの設計哲学だけ参照し、契約定義は on-the-loop 用に書き起こす。§2 参照）。
+
+---
+
+## 8. non-goals
+
+- 既存ツールの全機能カバー（valley of death を招く）
+- レビューエンジンの内蔵（L1 は RiverReview 委譲・再発明しない）
+- 人間承認ゼロの即時実現（policy maturity が満ちるまで保留）
+- 承認境界の緩和（touches-HO は常に同期ブロック固定）
+- L5 コンテキスト基盤の先行実装（PoC が極性反転を証明してから）
+
+---
+
+## 9. 関連ドキュメント
 
 - `docs/ai/arbiter/asset-inventory.md` — PlanGate 共通資産の uses/not-uses 分類
 - `docs/ai/arbiter/ho-paths.md` — touches-HO 判定基準リスト
 - `docs/ai/arbiter/related-specs.md` — 既存仕様との関係整理
-- `docs/working/discussions/2026-06-11-arbiter-vision.md` — 構想まとめ（出典）

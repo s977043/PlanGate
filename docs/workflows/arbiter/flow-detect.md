@@ -2,7 +2,7 @@
 
 > 適用ドメイン: Arbiter-workflow（docs/workflows/arbiter/ 配下）のみ
 > 非適用: PlanGate 本番フロー（WF-00〜WF-07）
-> 出典（W チェック定義）: `docs/working/discussions/2026-06-11-arbiter-vision.md` §5.2
+> W チェック定義正本: 本ドキュメント §3.1
 
 ---
 
@@ -40,8 +40,6 @@ auto-approve または human escalate
 ---
 
 ## 3. detect フェーズ — W チェック（2 モデル非対称）
-
-出典: `docs/working/discussions/2026-06-11-arbiter-vision.md` §5.2
 
 ### 3.1 基本判定
 
@@ -134,4 +132,3 @@ timestamp: <ISO 8601>
 - `docs/ai/arbiter/ho-paths.md` — boundary=touches-HO 判定の正本
 - `docs/ai/arbiter/concept.md` — Arbiter の基本概念
 - `docs/workflows/arbiter/00_concept.md` — WF との並立関係
-- `docs/working/discussions/2026-06-11-arbiter-vision.md` — W チェック定義の出典（§5.2）

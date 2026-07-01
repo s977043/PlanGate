@@ -2,7 +2,7 @@
 
 > 適用ドメイン: Arbiter-workflow（docs/workflows/arbiter/ 配下）のみ
 > 非適用: PlanGate 本番フロー（WF-00〜WF-07）
-> 出典: `docs/working/discussions/2026-06-11-arbiter-vision.md` §5.3, §5.4
+> 裁定ロジック設計: `docs/ai/arbiter/concept.md` §4 / 判定フロー: `docs/workflows/arbiter/flow-detect.md`
 
 ---
 
@@ -125,7 +125,6 @@ w_check:
 ## 6. サーキットブレーカー
 
 on-the-loop 固有の「自律暴走」防止機構。
-出典: `docs/working/discussions/2026-06-11-arbiter-vision.md` §6
 
 ### CB-1: 事後 reject（即時停止）
 
@@ -171,4 +170,3 @@ on-the-loop 固有の「自律暴走」防止機構。
 - `docs/ai/arbiter/ho-paths.md` — boundary=touches-HO 判定の正本
 - `docs/workflows/arbiter/flow-detect.md` — flow→detect→escalate の動作フロー（§3.2〜3.3: approve-reject の詳細）
 - `docs/workflows/arbiter/00_concept.md` — WF との並立関係
-- `docs/working/discussions/2026-06-11-arbiter-vision.md` — 二分ルール正本（§5）・サーキットブレーカー（§6）
