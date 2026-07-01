@@ -52,6 +52,16 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 > **boundary=touches-HO の場合、lite / class / verdict にかかわらず必ず human escalate 固定。**
 > これは W チェック結果・severity 分類・C/D 裁定のいずれをもスキップする絶対条件。
 
+### 裁定ラベルと provenance 値の対応
+
+| Decision table の裁定ラベル | provenance `decision` 値 |
+| --------------------------- | ------------------------- |
+| `auto-approve` | `AUTO_APPROVED` |
+| `human escalate` | `HUMAN_ESCALATED` |
+| `blocked` | `BLOCKED` |
+
+裁定ラベルは本 table 内の意思決定表記、`decision` 値は provenance JSON に刻印する列挙型。
+
 ---
 
 ## 4. approve-reject（不一致）の裁定詳細
@@ -79,7 +89,7 @@ auto-approve 時（priority 6 または C/D 合意）に刻印する最低限の
 > Phase 3 以降で定義予定。
 
 ```text
-decision:           AUTONOMOUS_APPROVED / HUMAN_ESCALATED / BLOCKED
+decision:           AUTO_APPROVED / HUMAN_ESCALATED / BLOCKED
 issued_by:          arbiter-v0.1（判断エンジン識別子）
 policy_ref:         auto-approve-lite-clean@v0（適用 policy 名 + バージョン）
 w_check:
@@ -108,10 +118,12 @@ w_check:
 | フィールド | 必須 | 説明 |
 | ----------- | ------ | ------ |
 | `decision` | ✅ | 最終裁定値（3 値） |
-| `issued_by` | ✅ | 判断エンジン識別子（provenance 偽造防止） |
+| `issued_by` | ✅ | 判断エンジンの識別・追跡用（真正性担保には署名等が別途必要） |
 | `policy_ref` | ✅ | 適用 policy 名とバージョン（policy 自動失効の追跡用） |
 | `w_check` | ✅ | W チェック（A/B）の判定と、C/D 裁定時の詳細 |
-| `target_sha` | ✅ | 対象コミット SHA（差し替え検知・replay attack 防止） |
+| `w_check.model_a` | ✅ | Model A の判定結果 |
+| `w_check.model_b` | ✅ | Model B の判定結果 |
+| `target_sha` | ✅ | 対象コミット SHA（差し替え検知用。replay 攻撃は検知・別途防止機構が必要） |
 | `boundary_check` | ✅ | boundary 判定結果（auto-approve は clean のみ） |
 | `lite_check` | ✅ | lite 判定結果（auto-approve は true のみ） |
 | `class_check` | ✅ | class 判定結果（auto-approve は no-merge のみ） |
@@ -141,20 +153,22 @@ on-the-loop 固有の「自律暴走」防止機構。
 ### CB-2: 連続 incident による policy 自動失効
 
 ```text
-トリガー : 同一 policy で N 回連続の事後 reject（N はデフォルト 3、パラメータ化予定）
+トリガー : 同一 policy で N 回連続の事後 reject（N はデフォルト 3、パラメータ化予定。
+             同一バージョンの再承認ではカウントは累積し、新バージョン発行でのみリセット）
 動作     :
   1. 当該 policy を自動失効（policy_expired=true）
   2. 失効ログを provenance に記録
   3. 以降、当該 policy を使った auto-approve を全面停止
   4. 全件 human escalate モードへフォールバック
 復旧     : 人間が policy を再設計・再承認して新バージョンを発行する
-目的     : 「自分の枠を自分で書き換えない」原則の維持（arbiter-vision.md §6）
+目的     : 「自分の枠を自分で書き換えない」原則の維持（arbiter-policy.md §6 参照）
 ```
 
 ### CB-3: escalate 予算超過（全停止）
 
 ```text
-トリガー : human escalate 件数が時間窓内で予算上限 N 件を超過
+トリガー : 全 policy 合算のグローバルな human escalate 件数が、
+             スライディング時間窓内で予算上限 N 件を超過
 動作     :
   1. 全 auto-approve を一時停止（circuit_open=true）
   2. サーキットブレーカー発火を CI / Workflow-owned に通知
