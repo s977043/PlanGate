@@ -72,7 +72,7 @@ C-3'（置換点）: AI 裁定ゲート = Arbiter
   ├─ AUTO_APPROVED + provenance 刻印 → exec へ
   └─ HUMAN_ESCALATED → 従来の人間 C-3 へ降格
 exec / L-0 / V 系                          ← 共通
-強化セルフレビュー（PR 作成前・必須）      ← ai-loop 固有（§3.4）
+宣言↔実差分の整合検証 + 強化セルフレビュー（PR 作成前・必須）← ai-loop 固有（§3.4）
 PR 作成
 CI + AI レビュー指摘対応ループ（merge-ready まで）← ai-loop 固有（§3.3）
 C-4・merge                                 ← Human-owned 固定（不変）
@@ -100,11 +100,30 @@ PR 後の CI・AI レビュー指摘対応ループは
 [`review-feedback-loop.md`](./review-feedback-loop.md) §2 の L4 学習閉ループ
 と接続する（指摘 → 対応 → 観点への還元 → 次回セルフレビューでの事前捕捉）。
 
+**detect の二段構成**: C-3' の W チェックは plan（宣言）に対する第 1 段の
+detect である。CI/PR 時の AI レビュー（ボットレビュー）を**実差分に対する
+第 2 段の detect** として位置づける。これにより「plan は妥当だが実装が逸脱」
+のケースを、セルフレビュー（自己判定）だけに依存せず独立判定で捕捉する。
+
+**収束ルール（指摘対応ループの打ち切り基準）**: 対応ラウンド（push →
+新規指摘確認）の上限は **3 ラウンド**とし、超過した場合は human escalate
+とする（escalate 予算 =
+[`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §7 と接続）。
+また新規指摘が minor / info のみとなった時点で、採用 / 理由付き不採用の
+記録を条件に merge-ready 判定へ進んでよい（収束保証）。
+
 ### 3.4 強化セルフレビュー（PR 作成前・必須ステップ）
 
 merge-ready 責務を担保するため、exec / V 系完了後・PR 作成前に**強化セルフ
 レビュー**を必須ステップとして組み込む:
 
+- **前段（宣言↔実差分の整合検証）**: plan の Files to Touch（宣言）と
+  実差分（`git diff --name-only`）を突合し、宣言外の変更がゼロであることを
+  機械確認する。C-3' の裁定は宣言に対する判定（第 1 段 detect）のため、
+  実装が宣言から逸脱していないことをここで検証する（PlanGate の EH-3
+  = plan 乖離検知と同型の防御。機械化は Phase 3 で `arbiter.py --verify-diff`
+  として実装予定）。宣言外の変更を検出した場合は exec へ差し戻すか、
+  再裁定（C-3' 再実行）を行う
 - **内容**: self-review スキル（Phase 1〜13 全観点）+
   [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)
   §8/§9 観点 + review-feedback-loop（L4）で還元済みの観点を必ず通す

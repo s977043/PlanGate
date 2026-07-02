@@ -105,10 +105,13 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 **強化セルフレビュー**を実施する（merge-ready 責務の担保。
 [`00_concept.md`](./00_concept.md) §3.4 参照）:
 
-1. self-review スキル（Phase 1〜13 全観点）を実行する
-2. [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)
+1. **宣言↔実差分の整合検証**: plan の Files to Touch と
+   `git diff --name-only` を突合し、宣言外の変更がゼロであることを確認する
+   （宣言外変更あり → exec 差し戻し or C-3' 再裁定）
+2. self-review スキル（Phase 1〜13 全観点）を実行する
+3. [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)
    §8/§9 観点を通す
-3. [`review-feedback-loop.md`](./review-feedback-loop.md) §2 で過去に還元済みの
+4. [`review-feedback-loop.md`](./review-feedback-loop.md) §2 で過去に還元済みの
    観点（過去の CI 失敗・AI レビュー指摘から抽出されたチェック項目）を通す
 
 全観点 PASS を確認してから PR を作成する。FAIL がある場合は exec へ差し戻す。
@@ -123,7 +126,11 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す:
 3. 対応内容（採用/不採用・理由）は
    [`review-feedback-loop.md`](./review-feedback-loop.md) §2 の L4 学習閉ループへ
    還元し、次回の強化セルフレビュー（手順 (6)）で事前に捕捉されるようにする
-4. **DoD**: CI 全 job green **かつ** AI レビュー指摘がゼロ、または全件対応完了
+4. **収束ルール**: 対応ラウンド上限は 3。超過時は human escalate
+   （[`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §7 escalate 予算
+   と接続）。新規指摘が minor / info のみになった時点で、記録を条件に
+   merge-ready 判定へ進んでよい（[`00_concept.md`](./00_concept.md) §3.3）
+5. **DoD**: CI 全 job green **かつ** AI レビュー指摘がゼロ、または全件対応完了
    （採用/理由付き不採用の記録あり）で merge-ready と判定し、C-4（人間の
    merge 承認、Human-owned 固定）待ちに遷移する
 
