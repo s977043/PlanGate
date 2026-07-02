@@ -8,7 +8,7 @@ PlanGate ワークフロー v5 / v6 / **v7** で使用するスキル群。
 | ------ | ---- | -------- |
 | `skill-creator` | 新しいClaude Codeスキルを対話的に設計・生成するワークフロー | developer-tools |
 | `brainstorming` | アイデアや要件を対話的に設計書（PBI INPUT PACKAGE）へ昇華 | workflow |
-| `self-review` | 変更内容に対する詳細セルフレビュー（詳細セルフレビュー（Phase 1〜13 + Iron Law / eval 判定）） | review |
+| `self-review` | 変更内容に対する詳細セルフレビュー（Phase 1〜13 + Iron Law / eval 判定） | review |
 | `systematic-debugging` | バグや障害の体系的調査・根本原因特定 | debugging |
 | `subagent-driven-development` | 実装タスクのサブエージェント委譲・品質管理 | workflow |
 | `codex-multi-agent` | マルチエージェントでタスク分解・委譲・並列実行・結果統合 | workflow |
