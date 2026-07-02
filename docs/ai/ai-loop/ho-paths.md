@@ -98,7 +98,7 @@ plugin/plangate/index.js    → HO-plugin
 
 ## Arbiter 固有の追加原則
 
-1. **docs/ai/arbiter/ 配下は Phase 0 限定の例外**: Arbiter PoC ドキュメント自体は
+1. **docs/ai/ai-loop/ 配下は Phase 0 限定の例外**: Arbiter PoC ドキュメント自体は
    AI が作成・更新できる（変更禁止リストに含まれない）。ただし、HO パスへの記述が
    HO 本体の変更を意味するわけではない（参照のみ）。
 
@@ -110,7 +110,7 @@ plugin/plangate/index.js    → HO-plugin
 
 ## 関連ドキュメント
 
-- `docs/ai/arbiter/concept.md` — Arbiter の基本概念（検証スコープ含む）
-- `docs/ai/arbiter/asset-inventory.md` — PlanGate 資産の uses/not-uses 分類
+- `docs/ai/ai-loop/concept.md` — Arbiter の基本概念（検証スコープ含む）
+- `docs/ai/ai-loop/asset-inventory.md` — PlanGate 資産の uses/not-uses 分類
 - `docs/ai/hook-enforcement.md` — HO パスの元定義（PlanGate 既存仕様）
 - `docs/ai/autonomous-degraded-gates-spec.md` — `NoHardeningOverridePath` 条件の定義元

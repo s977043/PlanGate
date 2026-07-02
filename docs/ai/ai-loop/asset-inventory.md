@@ -1,7 +1,7 @@
 # Arbiter — PlanGate 共通資産棚卸し
 
 > **Status**: Phase 0 ドキュメント（2026-07-01）。
-> **目的**: PlanGate の既存資産について、Arbiter-workflow での利用可否を分類する。
+> **目的**: PlanGate の既存資産について、ai-loop-workflow での利用可否を分類する。
 > **原則**: 設計哲学は継承するが、in-the-loop 前提の契約・実装は再設計が必要。
 
 ---
@@ -56,6 +56,6 @@ Arbiter は以下の PlanGate 設計哲学を**実装でなく思想として**�
 
 ## 関連ドキュメント
 
-- `docs/ai/arbiter/concept.md` — Arbiter の基本概念
-- `docs/ai/arbiter/ho-paths.md` — HO パス一覧（touches-HO 判定基準）
-- `docs/ai/arbiter/related-specs.md` — 既存仕様との関係整理
+- `docs/ai/ai-loop/concept.md` — Arbiter の基本概念
+- `docs/ai/ai-loop/ho-paths.md` — HO パス一覧（touches-HO 判定基準）
+- `docs/ai/ai-loop/related-specs.md` — 既存仕様との関係整理

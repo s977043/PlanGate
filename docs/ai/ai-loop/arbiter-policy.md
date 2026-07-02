@@ -1,6 +1,6 @@
 # Arbiter L0 policy
 
-> 適用ドメイン: Arbiter-workflow（docs/workflows/arbiter/ 配下）のみ
+> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
 > 非適用: PlanGate 本番フロー（WF-00〜WF-07）
 > 上位制約の優先順: core-contract.md > responsibility-classes.md > 本 policy
 > 本 policy は「detect/escalate 判断基準」のみを追加する
@@ -53,7 +53,7 @@ escalate  : 逸脱（W チェック不一致 / boundary=touches-HO / 予算超�
 
 ### 4.1 基本判定表
 
-> 判定表の正本は [`docs/workflows/arbiter/flow-detect.md`](../../workflows/arbiter/flow-detect.md) §3.1。本表は policy 文脈での再掲であり、相違がある場合は flow-detect.md を優先する。
+> 判定表の正本は [`docs/workflows/ai-loop/flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §3.1。本表は policy 文脈での再掲であり、相違がある場合は flow-detect.md を優先する。
 
 | モデル A | モデル B | → 裁定 |
 | --------- | --------- | -------- |
@@ -105,7 +105,7 @@ boundary=touches-HO の場合、lite 値・W チェック結果にかかわら�
 
 > **「承認境界に触れた瞬間に全部 human に戻る」**
 
-touches-HO 判定の正本: `docs/ai/arbiter/ho-paths.md`
+touches-HO 判定の正本: `docs/ai/ai-loop/ho-paths.md`
 
 ---
 
@@ -144,7 +144,7 @@ human 昇格の洪水を防ぐため、昇格件数に上限（予算）を設�
 
 ## 9. 関連ドキュメント
 
-- `docs/ai/arbiter/ho-paths.md` — touches-HO 判定の正本
-- `docs/ai/arbiter/concept.md` — Arbiter の基本概念
+- `docs/ai/ai-loop/ho-paths.md` — touches-HO 判定の正本
+- `docs/ai/ai-loop/concept.md` — Arbiter の基本概念
 - `docs/ai/core-contract.md` — 上位制約（Iron Law）
 - `.claude/rules/responsibility-classes.md` — PlanGate 責務分類（参照のみ）

@@ -1,8 +1,8 @@
 # decision-table — Arbiter 裁定 Decision table
 
-> 適用ドメイン: Arbiter-workflow（docs/workflows/arbiter/ 配下）のみ
+> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
 > 非適用: PlanGate 本番フロー（WF-00〜WF-07）
-> 裁定ロジック設計: `docs/ai/arbiter/concept.md` §4 / 判定フロー: `docs/workflows/arbiter/flow-detect.md`
+> 裁定ロジック設計: `docs/ai/ai-loop/concept.md` §4 / 判定フロー: `docs/workflows/ai-loop/flow-detect.md`
 
 ---
 
@@ -17,14 +17,14 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 
 | 軸 | 値域 | 説明 |
 | ---- | ------ | ------ |
-| `boundary` | `touches-HO` / `clean` | HO パス（`docs/ai/arbiter/ho-paths.md`）への接触有無 |
+| `boundary` | `touches-HO` / `clean` | HO パス（`docs/ai/ai-loop/ho-paths.md`）への接触有無 |
 | `lite` | `true` / `false` | 低リスク要件を満たすか |
 | `verdict` | `approve-approve` / `approve-reject` / `reject-reject` / `reject-approve` | W チェック（Model A/B）の合意・不一致結果 |
 | `class` | `merge` / `no-merge` | 変更に merge（C-4）を含むか |
 
 ### 軸の補足
 
-- `boundary` の判定正本: `docs/ai/arbiter/ho-paths.md`
+- `boundary` の判定正本: `docs/ai/ai-loop/ho-paths.md`
 - `verdict=approve-reject` は W チェック不一致を意味する（`flow-detect.md §3.1` 参照）
 - `class=merge` は Human-owned 固定のため、他の軸にかかわらず human escalate となる
 - `verdict=reject-approve` は A が設計妥当性で NG のためブロック（`flow-detect.md §3.1` 参照）
@@ -67,7 +67,7 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 ## 4. approve-reject（不一致）の裁定詳細
 
 `verdict=approve-reject`（W チェック不一致: A=approve, B=reject）は priority 5 で受ける。
-詳細な分岐は `docs/workflows/arbiter/flow-detect.md` §3.2〜3.3 で定義する。
+詳細な分岐は `docs/workflows/ai-loop/flow-detect.md` §3.2〜3.3 で定義する。
 
 ```text
 approve-reject
@@ -180,8 +180,8 @@ on-the-loop 固有の「自律暴走」防止機構。
 
 ## 7. 関連ドキュメント
 
-- [`docs/ai/arbiter/arbiter-policy.md`](../../ai/arbiter/arbiter-policy.md) — W チェック・escalate 予算・第0の承認境界
-- [`docs/ai/arbiter/ho-paths.md`](../../ai/arbiter/ho-paths.md) — boundary=touches-HO 判定の正本
-- [`docs/workflows/arbiter/flow-detect.md`](./flow-detect.md) — flow→detect→escalate の動作フロー（§3.2〜3.3: approve-reject の詳細）
-- [`docs/workflows/arbiter/00_concept.md`](./00_concept.md) — WF との並立関係
-- [`docs/workflows/arbiter/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject を L4 学習へ還元する閉ループ（§3 で本ドキュメント §6 CB-1 と接続）
+- [`docs/ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — W チェック・escalate 予算・第0の承認境界
+- [`docs/ai/ai-loop/ho-paths.md`](../../ai/ai-loop/ho-paths.md) — boundary=touches-HO 判定の正本
+- [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — flow→detect→escalate の動作フロー（§3.2〜3.3: approve-reject の詳細）
+- [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) — WF との並立関係
+- [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject を L4 学習へ還元する閉ループ（§3 で本ドキュメント §6 CB-1 と接続）
