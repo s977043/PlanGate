@@ -74,11 +74,11 @@ Model A / Model B を Agent ツールで **独立に**（相手の結論を見�
 観点: 設計妥当性・受入基準（AC）網羅・スコープ整合。
 他モデルの結論は見せない・参照しない。
 
-出力形式（3行、raw）:
+出力形式（常に3行、raw）:
 verdict: approve | reject
-reject_category: (reject時のみ) ho_path_contact | permission | irreversible |
+reject_category: none (approve時) | ho_path_contact | permission | irreversible |
   security_break | public_api | data_integrity | migration | auth_change |
-  logic | performance | test_shortage | documentation | format | naming
+  logic | performance | test_shortage | documentation | format | naming (reject時)
 理由: <1〜3文>
 ```
 
@@ -90,11 +90,11 @@ reject_category: (reject時のみ) ho_path_contact | permission | irreversible |
 観点: 失敗モード・境界値・悪用経路・想定外の入力。
 他モデルの結論は見せない・参照しない。
 
-出力形式（3行、raw）:
+出力形式（常に3行、raw）:
 verdict: approve | reject
-reject_category: (reject時のみ) ho_path_contact | permission | irreversible |
+reject_category: none (approve時) | ho_path_contact | permission | irreversible |
   security_break | public_api | data_integrity | migration | auth_change |
-  logic | performance | test_shortage | documentation | format | naming
+  logic | performance | test_shortage | documentation | format | naming (reject時)
 理由: <1〜3文>
 ```
 
@@ -150,6 +150,12 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
     許さないかを検証する」
   - Model D: 「後方互換性・データ整合性の観点で、この変更が既存の契約やデータ状態を
     壊さないかを検証する」
+
+  C/D の verdict を得たら、**Step 1 の入力 JSON の `verdicts.model_c` /
+  `verdicts.model_d` に設定し（`reject_category` は Model B のものを保持）、
+  `arbiter.py` を再実行**する（Step 3〜4 を繰り返す）。C/D 裁定を経た record には
+  `w_check.severity` / `w_check.model_c` / `w_check.model_d` が刻印される
+  （[`decision-table.md`](../../../docs/workflows/ai-loop/decision-table.md) §5）。
 
 ## 禁止事項
 
