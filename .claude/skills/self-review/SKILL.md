@@ -49,6 +49,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | 「format adherence は軽微」 | schema 準拠率 < 95% は **release blocker**（暫定値、`eval-plan.md` § 6）|
 | 「スクリプトは雑でいい」 | SKILL.md・コマンド・エージェントに埋め込まれたシェル例はチーム全員が実行する。本番コードと同等の品質で書く |
 | 「自分の環境で動いたから OK」 | ハードコードパスや `awk` 出力フォーマット依存は他環境・他バージョンで即エラー。Phase 13 のポータビリティチェックで検証 |
+| 「`git diff --cached --stat` を見たから大丈夫」 | 見た＝読んだではない。stat に映った想定外ファイル（`__pycache__` 等）を見落として commit した実害あり。1 行ずつ「なぜ staged か」を説明できるか確認しろ |
 
 ## 手順
 
@@ -208,7 +209,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 
 - `git reset --hard` / `git clean -f` / `git push --force` の前には必ず前提チェックを入れる
   - ❌ `git reset --hard origin/$BASE`（ワーキングツリーが汚れていると変更が消える）
-  - ✅ `git status --short | grep -q . && { echo 'ERROR: dirty'; exit 1; }` を先に実行
+  - ✅ `git status --porcelain | grep -q . && { echo 'ERROR: dirty'; exit 1; }` を先に実行（`--porcelain` は機械パース保証あり）
 
 #### ドキュメント内の例示値
 
@@ -302,4 +303,4 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 - [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — 出力 schema
 - [`docs/ai/contracts/review.md`](../../../docs/ai/contracts/review.md) — review phase contract
 - [`.claude/rules/review-principles.md`](../../rules/review-principles.md) — レビュー原則（CI / ローカル共通）
-- [`docs/ai/plan-review-readiness-gate.md`](../../../docs/ai/plan-review-readiness-gate.md) §9 — シェル・Python コード / ドキュメント変更時の追加観点（C-1〜C-5）
+- [`docs/ai/plan-review-readiness-gate.md`](../../../docs/ai/plan-review-readiness-gate.md) §7/§8 — ドキュメント変更（D-1〜D-6）/ シェル・Python コード変更（C-1〜C-6）の追加観点
