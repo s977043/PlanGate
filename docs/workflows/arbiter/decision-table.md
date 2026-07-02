@@ -184,3 +184,4 @@ on-the-loop 固有の「自律暴走」防止機構。
 - `docs/ai/arbiter/ho-paths.md` — boundary=touches-HO 判定の正本
 - `docs/workflows/arbiter/flow-detect.md` — flow→detect→escalate の動作フロー（§3.2〜3.3: approve-reject の詳細）
 - `docs/workflows/arbiter/00_concept.md` — WF との並立関係
+- [`docs/workflows/arbiter/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject を L4 学習へ還元する閉ループ（§3 で本ドキュメント §6 CB-1 と接続）
