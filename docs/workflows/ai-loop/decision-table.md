@@ -186,5 +186,6 @@ on-the-loop 固有の「自律暴走」防止機構。
 - [`docs/ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — W チェック・escalate 予算・第0の承認境界
 - [`docs/ai/ai-loop/ho-paths.md`](../../ai/ai-loop/ho-paths.md) — boundary=touches-HO 判定の正本
 - [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — flow→detect→escalate の動作フロー（§3.2〜3.3: approve-reject の詳細）
+- [`docs/workflows/ai-loop/lite-criteria.md`](./lite-criteria.md) — `lite` 軸の判定基準（可逆性要件含む）
 - [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) — WF との並立関係
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject を L4 学習へ還元する閉ループ（§3 で本ドキュメント §6 CB-1 と接続）

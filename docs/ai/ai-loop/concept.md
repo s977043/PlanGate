@@ -85,7 +85,7 @@ docs/workflows/ai-loop/  配下のみ（新規作成・更新、Phase 1 以降�
 
 ```text
 .claude/rules/              L0 契約正本。in-the-loop 前提の契約を Arbiter が変更しない
-docs/ai/*.md                既存の PlanGate ドキュメント（arbiter/ サブディレクトリを除く）
+docs/ai/*.md                既存の PlanGate ドキュメント（ai-loop/ サブディレクトリを除く）
 docs/workflows/*.md         既存のワークフロー定義
 bin/plangate                実行エンジン。AI 直接編集不可（HO-core）
 schemas/                    バリデーション定義。AI 直接編集不可
