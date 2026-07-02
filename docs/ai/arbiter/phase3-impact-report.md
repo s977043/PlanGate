@@ -66,7 +66,7 @@ PR #663（`docs: plan-review-readiness-gate.md にドキュメント仕様変更
 | 2 | **L0 契約が `responsibility-classes.md` と整合できなくなった** | Arbiter L0（`arbiter-policy.md`）は PlanGate の責務 4 分類（AI/Human/CI/Workflow-owned）を前提に「detect/escalate 判断基準のみ追加」する設計。この前提が崩れ、責務 4 分類そのものの改訂を要求する事態になった場合は分離が必要 |
 | 3 | **PlanGate 本番への副作用が検出された** | `a.3` で確認したとおり現状は副作用ゼロ。今後 `.claude/rules/`・`docs/ai/` 既存正本・`bin/plangate`・`schemas/` のいずれかに変更が及んだ場合、PoC の隔離が破綻したとみなす |
 | 4 | **provenance / severity 判定の実装が PlanGate の EH（Enforcement Hook）体系と競合する** | `decision-table.md` の provenance スキーマは PlanGate 側の課題（issue #420 EH-3 発行元検証）と同型の未解決課題を抱える。両者を同一リポジトリで別々に実装すると二重管理・矛盾のリスクがある |
-| 5 | **PoC の継続期間が長期化し docs 層のみでの検証に限界が生じた** | `concept.md` §6 のとおり Phase 0 は「まず docs/ 層で PoC」の判断。実装検証（severity 判定器・W チェック自動化等）が必要になった時点で、`arbiter-vision.md` §8 の当初推奨（別リポジトリ）に立ち返るべき局面 |
+| 5 | **PoC の継続期間が長期化し docs 層のみでの検証に限界が生じた** | `concept.md` §6 のとおり Phase 0 は「まず docs/ 層で PoC」の判断。実装検証（severity 判定器・W チェック自動化等）が必要になった時点で、[`concept.md`](./concept.md) §2 配置方針に記録された当初推奨（別リポジトリ）に立ち返るべき局面 |
 
 ### b.2 「PlanGate 内継続」維持条件
 
@@ -74,7 +74,7 @@ PR #663（`docs: plan-review-readiness-gate.md にドキュメント仕様変更
 |---|------|
 | 1 | 変更が `docs/ai/arbiter/` と `docs/workflows/arbiter/` 配下の docs 層のみで完結している |
 | 2 | PlanGate 本番（`.claude/rules/`・`docs/ai/` 既存正本・`bin/plangate`・`schemas/`・`.github/workflows/`）への副作用がゼロである |
-| 3 | Arbiter L0 policy が PlanGate 既存契約（`core-contract.md` > `responsibility-classes.md`）の優先順位を明示的に維持している |
+| 3 | Arbiter L0 policy が PlanGate 既存契約（[`core-contract.md`](../core-contract.md) > [`responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md)）の優先順位を明示的に維持している |
 
 ---
 
