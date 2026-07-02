@@ -27,6 +27,7 @@
 | 責務 4 分類の設計哲学 | `.claude/rules/responsibility-classes.md` | Human-owned / AI-owned の区別の思想は Arbiter でも継承 |
 | PlanGate の失敗履歴・INC 群 | `docs/working/` 各チケット | Arbiter の threat model 初期値として最大の遺産 |
 | 承認境界・決定論・HO の設計思想 | `docs/ai/hook-enforcement.md` 等 | 設計哲学レベルで参照（契約・実装は継承しない） |
+| WF-00〜03 / C-1 / C-2 フロー | `docs/workflows/` / `.claude/rules/` | 計画・設計品質ゲートとして共通利用（C-2 契約 = [`review-principles.md`](../../../.claude/rules/review-principles.md) §7-bis は不変） |
 
 ---
 
@@ -36,7 +37,7 @@
 |------|------|------------------|
 | L0 契約（責務分類本体） | `.claude/rules/responsibility-classes.md` | in-the-loop 前提に最適化されている。on-the-loop では責務モデルが異なる（Policy-owned / Sensor-owned が新設） |
 | bin/plangate exec（実行エンジン） | `bin/plangate` | "block until approved" 前提で設計されており、flow → detect と制御の極性が逆。HO-core のため AI 直接編集不可 |
-| C-3 承認ロジック | `.claude/rules/working-context.md` 等 | 実行前承認が前提。on-the-loop では承認の時制が「逸脱検知時」に移るため再設計が必要 |
+| C-3 承認ロジック | `.claude/rules/working-context.md` 等 | 実行前承認が前提。ai-loop では C-3 を C-3'（AI 裁定ゲート）に置換する（置換対象であり再設計対象。詳細は [`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3） |
 | mode-classification | `.claude/rules/mode-classification.md` | in-the-loop の mode 判定に特化。on-the-loop では boundary（touches-HO / clean）と lite が主軸 |
 | C-4 自律承認拡張（autonomous-degraded-gates） | `docs/ai/autonomous-degraded-gates-spec.md` | in-the-loop 内の例外的自律化仕様。Arbiter では flow が既定動作のため極性が異なる（関係は related-specs.md 参照） |
 | HO パス（scripts, schemas, settings 等）の実装 | `scripts/hooks/*.sh`, `schemas/`, `.claude/settings*.json` | HO-core のため AI 直接変更不可。Arbiter 側で独自定義を持つ（ho-paths.md 参照） |
