@@ -122,7 +122,7 @@ Codex）で検出された指摘 7 件を issue #670 で還元しており、本
 | # | 誤指摘パターン | 出現実績 | 機械反証 |
 | --- | --- | --- | --- |
 | S-1 | 「`.claude/rules/` は gitignore 対象でコミットされない（リンク切れになる）」 | 4 回（PR #680） | `git ls-files .claude/rules/` で追跡済みと確認可能。本リポジトリでは L0 契約の正本（`plugin/plangate/rules/` は配布用 export 版） |
-| S-2 | 「`docs/working/discussions/` の討議ログを関連ドキュメント節にリンクすべき」 | 7 回（PR #662 ×5・#669 ×2） | 討議ログは正式ドキュメントから参照しない方針（PR #662 対応時に確定・既存 11 箇所を正式ドキュメント参照へ置換済み） |
+| S-2 | 「`docs/working/discussions/` の討議ログを関連ドキュメント節にリンクすべき」 | 7 回（PR #662 ×5・#669 ×2） | **ai-loop 正式ドキュメント**（`docs/ai/ai-loop/`・`docs/workflows/ai-loop/`）は討議ログを参照しない方針（PR #662 対応時に確定し、当該ドキュメント内の参照 11 箇所を正式ドキュメント参照へ置換済み）。本 suppression の適用範囲も ai-loop ドキュメントに限る（README・roadmap 等の他領域の既存参照はスコープ外） |
 
 ## 6. 安全制約
 

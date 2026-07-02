@@ -124,7 +124,7 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す:
 2. **コンフリクトを確認する**（`gh pr view <n> --json mergeable` が `CONFLICTING`）。
    スタック PR の前段 squash マージ起因の場合は、固有コミットのみを
    `git rebase --onto origin/main <旧base> <branch>` で main に載せ替え、
-   三点照合（branch -vv・SHA 同定）のうえ `--force-with-lease` で push する。
+   三点照合（`git branch -vv`・SHA 同定）のうえ `--force-with-lease` で push する。
    push 直後の mergeable は再計算中の場合があるため数十秒後に再確認する
 3. CI/PR 時の AI レビュー指摘を確認する。各指摘について
    **採用して修正**するか、**理由付きで不採用とする**かを記録する
