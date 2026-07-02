@@ -97,13 +97,13 @@ PR #663（`docs: plan-review-readiness-gate.md にドキュメント仕様変更
 
 ## d. 未解決リスク（5 件）
 
-| # | リスク | 影響度 | 対応 Phase |
-|---|--------|--------|-----------|
-| 1 | `lite` 判定の具体基準が未定義（低リスク帯の閾値が Phase 1 以降 TBD） | 中 — flow フェーズの中核条件が未確定のため、detect フェーズの実効性を評価できない | Phase 1 |
-| 2 | `lite=true` の要件に「可逆であること」を含めるかが未決 | 中 — CB-1（Circuit Breaker）の巻き戻し条件「不可逆操作を除く」との整合が取れていない | Phase 1 |
-| 3 | severity 分類の判定主体が未確定（Model B の reject 理由から導出するか、専用分類器を置くか） | 中 — `flow-detect.md` §3.2 に「Phase 1 論点（未確定）」として明記済み | Phase 1 |
-| 4 | `ho-paths.md` の `approvals/*.json` glob が実際の配置 `docs/working/TASK-XXXX/approvals/*.json` にマッチしない可能性 | 高 — HO 判定の実効性に直結する。マッチしない場合、承認トークンパスへの変更が touches-HO として検出されない | Phase 2 実装移行時（現状は docs 層のみのため実害なし） |
-| 5 | provenance の発行元検証（`issued_by` は自己申告、署名等は別途） | 高 — PlanGate 側の未解決課題（issue #420 EH-3 発行元検証）と同型。Arbiter が実装段階に入る前に PlanGate 側の解決方針と整合させる必要がある | Phase 2 実装移行時 / PlanGate issue #420 の解決と連動 |
+| # | リスク | 影響度 | 対応 Phase | 状況 |
+|---|--------|--------|-----------|------|
+| 1 | `lite` 判定の具体基準が未定義（低リスク帯の閾値が Phase 1 以降 TBD） | 中 — flow フェーズの中核条件が未確定のため、detect フェーズの実効性を評価できない | Phase 1 | 解消済み（2026-07-02、[`lite-criteria.md`](../../workflows/ai-loop/lite-criteria.md)、issue #674） |
+| 2 | `lite=true` の要件に「可逆であること」を含めるかが未決 | 中 — CB-1（Circuit Breaker）の巻き戻し条件「不可逆操作を除く」との整合が取れていない | Phase 1 | 解消済み（2026-07-02、[`lite-criteria.md`](../../workflows/ai-loop/lite-criteria.md) §2 可逆性要件、issue #674） |
+| 3 | severity 分類の判定主体が未確定（Model B の reject 理由から導出するか、専用分類器を置くか） | 中 — `flow-detect.md` §3.2 に「Phase 1 論点（未確定）」として明記済み | Phase 1 | 解消済み（2026-07-02、[`flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §3.2.1、issue #674） |
+| 4 | `ho-paths.md` の `approvals/*.json` glob が実際の配置 `docs/working/TASK-XXXX/approvals/*.json` にマッチしない可能性 | 高 — HO 判定の実効性に直結する。マッチしない場合、承認トークンパスへの変更が touches-HO として検出されない | Phase 2 実装移行時（現状は docs 層のみのため実害なし） | 解消済み（[`ho-paths.md`](./ho-paths.md) glob 修正、issue #674） |
+| 5 | provenance の発行元検証（`issued_by` は自己申告、署名等は別途） | 高 — PlanGate 側の未解決課題（issue #420 EH-3 発行元検証）と同型。Arbiter が実装段階に入る前に PlanGate 側の解決方針と整合させる必要がある | Phase 2 実装移行時 / PlanGate issue #420 の解決と連動 | 未解消 |
 
 **件数**: 5 件（0 件ではない）。
 
