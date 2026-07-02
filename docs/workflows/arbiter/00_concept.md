@@ -27,11 +27,16 @@ Arbiter が存在証明を超えるまで PlanGate が本番統制を担う。
 | 適用対象 | 全変更 | low-risk 変更のみ（boundary=clean, lite=true） |
 | 実行ブロック | 承認前にブロック | 事前ブロックしない（flow） |
 | 競合 | なし | なし |
+| カバーする工程 | 開発プロセス全体（intent→要件→設計→実装→検証→handoff） | 裁定のみ（flow→detect→escalate） |
+| 変更の生成 | 責務内（WF-02〜04 で要件・設計・実装を導く） | 責務外（変更がどう作られたかは関知しない） |
 
 両者は競合しない。並走期において:
 
 - PlanGate が本番統制を担当する
 - Arbiter は PoC 領域（docs/ai/arbiter/ と docs/workflows/arbiter/）で実験的に稼働する
+
+Arbiter は WF-01〜05 相当のフェーズを持たず、置き換えもしない（判断実行は
+L1 = RiverReview 委譲、生成品質は上流責務）。
 
 ---
 
