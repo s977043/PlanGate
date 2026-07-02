@@ -146,7 +146,7 @@ W チェックは以下の 4 軸を入力として評価する（Phase 1/2 で D
 
 - `boundary`: touches-HO / clean（HO パスに触れるか）
 - `lite`: true / false（低リスク要件を満たすか）
-- `verdict`: W チェック合意結果（approve-approve / approve-reject / reject-reject）
+- `verdict`: W チェック合意結果（approve-approve / approve-reject / reject-approve / reject-reject）
 - `class`: merge を含む / 含まない
 
 `boundary=touches-HO` の場合は残りの 3 軸を無視して即 human escalate。

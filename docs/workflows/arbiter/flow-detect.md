@@ -32,8 +32,9 @@ auto-approve または human escalate
 |------|------|
 | `boundary = clean` | 変更対象が HO パス（`docs/ai/arbiter/ho-paths.md`）のいずれにも含まれない |
 | `lite = true` | 低リスク要件を満たす（高リスク要素なし） |
+| `class = no-merge` | 変更に merge（C-4）を含まない（merge は Human-owned 固定。[`decision-table.md`](./decision-table.md) §3 priority 3） |
 
-どちらか一つでも満たさない場合 → human escalate。
+いずれか一つでも満たさない場合 → human escalate。
 
 **boundary=touches-HO の場合、lite 値・W チェック結果にかかわらず、必ず human escalate 固定。**
 
@@ -102,6 +103,7 @@ C/D の裁定結果は provenance に記録され、policy 改善（L4 学習）
 | ------ | ------ |
 | boundary=touches-HO | HO パスに触れる変更（絶対条件） |
 | lite=false | 高リスク変更（低リスク帯外） |
+| class=merge | merge（C-4）は Human-owned 固定（[`decision-table.md`](./decision-table.md) §3 priority 3） |
 | W チェック不一致 かつ severity=critical | 権限変更・不可逆操作 |
 | W チェック不一致 かつ severity=major | 公開 API 変更・認証変更 |
 | W チェック不一致 かつ C/D の判定が不一致（approve/reject の割れ） | minor/low でも観点特化で割れた |
