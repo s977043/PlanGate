@@ -64,6 +64,15 @@ W チェック不一致（A=approve, B=reject）を検出した場合:
 | minor | ロジック変更・パフォーマンス影響・テスト不足 | Model C/D 裁定へ |
 | low | ドキュメント・フォーマット・命名 | Model C/D 裁定へ |
 
+**安全側既定**: 分類不能・根拠不足・判定が曖昧な場合は安全側に倒し
+**critical 扱い（human escalate）**とする（PlanGate の AC-8 安全側原則
+[`working-context.md`](../../../.claude/rules/working-context.md)
+と整合）。
+
+**Phase 1 論点（未確定）**: severity 分類の判定主体（Model B の reject
+理由から導出するのか、専用の分類器を置くのか）は本ドキュメントでは
+確定しない。Phase 1 で決定する。
+
 ### 3.3 観点特化 multi-agent 裁定（Model C/D）
 
 severity=minor/low の不一致を 2 つの観点特化モデルが独立に再判定する:
@@ -109,20 +118,21 @@ human 昇格の洪水を防ぐため:
 
 ## 5. provenance 刻印
 
-auto-approve 時（A/B 合意 または C/D 合意）に以下を記録する:
+> **provenance スキーマの正本は
+> [`docs/workflows/arbiter/decision-table.md`](./decision-table.md) §5**。
+> 本セクションの責務は刻印**タイミング**の定義のみに限定し、フィールド名の
+> 独自定義は持たない（二重定義防止）。
 
-```text
-approved_by: arbiter
-model_a_verdict: approve
-model_b_verdict: approve または reject
-model_c_verdict: approve（C/D 裁定時のみ）
-model_d_verdict: approve（C/D 裁定時のみ）
-severity: low または minor（C/D 裁定時のみ）
-boundary: clean
-lite: true
-sha: <commit SHA>
-timestamp: <ISO 8601>
-```
+刻印タイミングは以下のいずれか:
+
+- **A/B 合意時**（`verdict=approve-approve`）: auto-approve と同時に provenance を刻印する
+- **C/D 合意時**（severity=minor/low の不一致を Model C/D が独立裁定し合意した場合）:
+  auto-approve と同時に provenance を刻印する。この場合は
+  [`decision-table.md`](./decision-table.md) §5 の
+  「C/D 裁定時の追加フィールド」（`w_check.severity` / `w_check.model_c` /
+  `w_check.model_d`）が併せて記録される。
+
+フィールド定義・必須項目・値域は [`decision-table.md`](./decision-table.md) §5 のみを参照すること。
 
 ---
 
