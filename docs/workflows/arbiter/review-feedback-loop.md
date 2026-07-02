@@ -59,7 +59,7 @@ PR レビュー指摘（外部ボット・人間レビュアー）を指摘 ID�
 | 還元先 | 対象 | 責務 |
 | -------- | ------ | ------ |
 | skill（例: `self-review`） | 作業手順・チェックリストで捕捉できる指摘 | AI-owned（編集可） |
-| gate 観点ドキュメント（例: `plan-review-readiness-gate.md`） | 計画・レビュー観点で捕捉できる指摘 | AI-owned（編集可） |
+| gate 観点ドキュメント（例: [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)） | 計画・レビュー観点で捕捉できる指摘 | AI-owned（編集可） |
 | policy | auto-approve 条件・裁定ルールに関わる指摘 | **Human-owned 固定**（第0の承認境界 = [`arbiter-policy.md`](../../ai/arbiter/arbiter-policy.md) §6） |
 | 還元不要 | 一過性・案件固有 | 記録のみ |
 
