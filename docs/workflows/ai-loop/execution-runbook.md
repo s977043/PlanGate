@@ -183,3 +183,5 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す:
 - [`.claude/rules/orchestrator-mode.md`](../../../.claude/rules/orchestrator-mode.md) — 検証可能性 4 条件の正本
 - [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) §3 — PlanGate フロー共通化と C-3 置換（C-3'）・merge-ready 責務範囲の正本
 - [`docs/ai/plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md) — 強化セルフレビュー §7/§8 観点の参照元
+- [`.claude/skills/ai-loop-cycle/SKILL.md`](../../../.claude/skills/ai-loop-cycle/SKILL.md) — 本 runbook の 1 サイクルを実行する手順スキル（Model A/B/C/D 委託プロンプト定型）
+- [`.claude/skills/pr-watch/SKILL.md`](../../../.claude/skills/pr-watch/SKILL.md) — 手順 (7) の CI/AI レビュー指摘対応ループの監視・対応定型
