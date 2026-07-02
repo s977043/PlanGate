@@ -14,6 +14,7 @@
 ```sh
 git log --oneline origin/main -- docs/ai/arbiter/ docs/workflows/arbiter/
 git show <sha> --stat
+git show <sha> --name-only
 ```
 
 上記コマンドで検出された Arbiter 関連マージ済みコミットは以下の 5 件（新しい順）。
@@ -41,8 +42,8 @@ flow-detect / review-feedback-loop）の **計 9 ファイル**。加えて `doc
 `docs/ai/arbiter/` と `docs/workflows/arbiter/` 以外に変更が及ぶ範囲は
 `docs/working/`（作業ログ・討議ログ・監査ログの新規追加のみ）に限定されることを
 確認した。`.claude/rules/*.md`・`docs/ai/*.md`（arbiter 以外の既存正本）・
-`docs/workflows/*.md`（arbiter 以外の既存正本）・`bin/plangate`・`schemas/*` への
-変更は 5 コミット中いずれにも存在しない。
+`docs/workflows/*.md`（arbiter 以外の既存正本）・`bin/plangate`・`schemas/*`・
+`.github/workflows/*` への変更は 5 コミット中いずれにも存在しない。
 
 ### a.4 Arbiter 起点で PlanGate 側に還元された改善（副作用ではなく便益）
 
