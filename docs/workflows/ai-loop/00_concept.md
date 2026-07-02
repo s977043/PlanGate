@@ -42,7 +42,7 @@ C-2（2 レーン契約、[`review-principles.md`](../../../.claude/rules/review
 は引き続き Human-owned 固定（詳細は次節）。ただし ai-loop-workflow は
 **ai-dev-workflow（AI 工程は PR 作成まで、C-4 は人間）より広い責務**を持ち、
 PR 作成後の CI・AI レビュー指摘対応が完了し merge-ready に到達するまでを
-自らの DoD とする（詳細は §6）。
+自らの DoD とする（詳細は §3.3）。
 
 ---
 
