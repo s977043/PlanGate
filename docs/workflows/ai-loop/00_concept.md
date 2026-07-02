@@ -126,7 +126,7 @@ merge-ready 責務を担保するため、exec / V 系完了後・PR 作成前�
   再裁定（C-3' 再実行）を行う
 - **内容**: self-review スキル（Phase 1〜13 全観点）+
   [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)
-  §8/§9 観点 + review-feedback-loop（L4）で還元済みの観点を必ず通す
+  §7/§8 観点 + review-feedback-loop（L4）で還元済みの観点を必ず通す
 - **狙い**: PR 作成後の CI 失敗・AI レビュー指摘を事前に潰し、「PR 作成後に
   指摘を受けない状態」に近づける。指摘が出た場合は L4 ループ
   （[`review-feedback-loop.md`](./review-feedback-loop.md) §2）で観点へ
@@ -178,6 +178,6 @@ asset-inventory.md の uses/not-uses 分類に従う:
 - [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — C-3' の flow→detect→escalate 動作フロー
 - [`docs/workflows/ai-loop/execution-runbook.md`](./execution-runbook.md) — PR 前セルフレビュー・PR 後指摘対応ループの実行手順
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CI/AI レビュー指摘対応を L4 学習へ還元する閉ループ
-- [`docs/ai/plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md) — 強化セルフレビュー §8/§9 観点の参照元
+- [`docs/ai/plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md) — 強化セルフレビュー §7/§8 観点の参照元
 - [`.claude/rules/review-principles.md`](../../../.claude/rules/review-principles.md) §7-bis — C-2 の 2 レーン契約（不変）
 - [`.claude/rules/working-context.md`](../../../.claude/rules/working-context.md) — C-3 Autonomous APPROVE（#353）・C-3 条件付き降格（F5-AD）の正本

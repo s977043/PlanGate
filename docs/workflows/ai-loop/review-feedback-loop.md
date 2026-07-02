@@ -104,7 +104,7 @@ provenance 経由で L4 学習の入力になる。人間の事後 reject
 
 | レビュー指摘 | 還元先 | 結果 |
 | -------------- | -------- | ------ |
-| PR #662 G1〜G4 / C1〜C5（用語・定義・参照） | `plan-review-readiness-gate.md` §8 D-1〜D-5（PR #663） | マージ済 |
+| PR #662 G1〜G4 / C1〜C5（用語・定義・参照） | `plan-review-readiness-gate.md` §7 D-1〜D-5（PR #663。当時の節番号は §8） | マージ済 |
 | PR #665 R-1〜R-3（助詞・冗長・リンク化） | `self-review` スキル Phase 13 文章品質（PR #666） | レビュー中（2026-07-02 時点） |
 | PR #666 指摘 2 件（glob 表記・バックティック） | 即時反映（同 PR 内） | 反映済 |
 
@@ -113,7 +113,18 @@ Codex）で検出された指摘 7 件を issue #670 で還元しており、本
 
 ---
 
-## 5. 安全制約
+## 5. 登録済み suppression（誤検知抑制）
+
+§1 の誤検知抑制経路の実体。ボットレビューの誤指摘パターンを機械反証つきで
+登録し、同型指摘の再対応コストを削減する（採否判断時に本表を参照し、
+該当すれば反証根拠を引用して不採用とする）。登録は追記専用。
+
+| # | 誤指摘パターン | 出現実績 | 機械反証 |
+| --- | --- | --- | --- |
+| S-1 | 「`.claude/rules/` は gitignore 対象でコミットされない（リンク切れになる）」 | 4 回（PR #680） | `git ls-files .claude/rules/` で追跡済みと確認可能。本リポジトリでは L0 契約の正本（`plugin/plangate/rules/` は配布用 export 版） |
+| S-2 | 「`docs/working/discussions/` の討議ログを関連ドキュメント節にリンクすべき」 | 7 回（PR #662 ×5・#669 ×2） | 討議ログは正式ドキュメントから参照しない方針（PR #662 対応時に確定・既存 11 箇所を正式ドキュメント参照へ置換済み） |
+
+## 6. 安全制約
 
 - policy への還元は第0の承認境界（[`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §6）
   により Human-owned 固定。AI は policy draft の提案までしか行えず、発行・適用
@@ -127,7 +138,7 @@ Codex）で検出された指摘 7 件を issue #670 で還元しており、本
 
 ---
 
-## 6. 関連ドキュメント
+## 7. 関連ドキュメント
 
 - [`docs/ai/ai-loop/concept.md`](../../ai/ai-loop/concept.md) — Arbiter の基本概念・L4 学習層（§7）
 - [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — W チェック・severity 分類・Model C/D 裁定
