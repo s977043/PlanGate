@@ -72,9 +72,27 @@ W チェック不一致（A=approve, B=reject）を検出した場合:
 [`working-context.md`](../../../.claude/rules/working-context.md)
 と整合）。
 
-**Phase 1 論点（未確定）**: severity 分類の判定主体（Model B の reject
-理由から導出するのか、専用の分類器を置くのか）は本ドキュメントでは
-確定しない。Phase 1 で決定する。
+### 3.2.1 severity 分類主体（Phase 1 確定）
+
+severity 分類の判定主体は **決定論 rule ベースの分類器**とする。Model B
+の reject 理由テキストを、以下のカテゴリマッピング表に機械的に照合して
+severity を導出する。**Model B 自身に severity を自己申告させない**
+（自己申告は self-serving 判定の温床になるため、判定は Model B の入力から
+独立した分類器が行う）。
+
+**カテゴリマッピング表**（policy 扱い・改版は Human-owned 固定。第0の
+承認境界 = [`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §6）:
+
+| severity | reject 理由カテゴリ例 |
+| ---------- | ------------------------ |
+| critical | HO パス接触 / 権限変更 / 不可逆操作 / セキュリティ破壊 |
+| major | 公開 API 変更 / データ整合性 / マイグレーション / 認証変更 |
+| minor | ロジック変更 / パフォーマンス影響 / テスト不足 |
+| low | ドキュメント変更 / フォーマット / 命名 |
+
+分類器がいずれのカテゴリにも一致しない reject 理由を検出した場合（分類
+不能）は、本節冒頭の安全側既定に従い **critical 扱い（human escalate）**
+とする。この既定はマッピング表の改版によっても緩和しない。
 
 ### 3.3 観点特化 multi-agent 裁定（Model C/D）
 
@@ -146,4 +164,5 @@ human 昇格の洪水を防ぐため:
 - [`docs/ai/ai-loop/ho-paths.md`](../../ai/ai-loop/ho-paths.md) — boundary=touches-HO 判定の正本
 - [`docs/ai/ai-loop/concept.md`](../../ai/ai-loop/concept.md) — Arbiter の基本概念
 - [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) — WF との並立関係
+- [`docs/workflows/ai-loop/lite-criteria.md`](./lite-criteria.md) — `lite` 判定基準（§2 flow フェーズで使用）
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — Model C/D 裁定結果を L4 学習へ還元する閉ループ（§3 で本ドキュメント §3.3 と接続）
