@@ -138,8 +138,8 @@ human 昇格の洪水を防ぐため:
 
 ## 6. 関連ドキュメント
 
-- `docs/ai/arbiter/arbiter-policy.md` — W チェック拡張の policy 定義
-- `docs/ai/arbiter/ho-paths.md` — boundary=touches-HO 判定の正本
-- `docs/ai/arbiter/concept.md` — Arbiter の基本概念
-- `docs/workflows/arbiter/00_concept.md` — WF との並立関係
+- [`docs/ai/arbiter/arbiter-policy.md`](../../ai/arbiter/arbiter-policy.md) — W チェック拡張の policy 定義
+- [`docs/ai/arbiter/ho-paths.md`](../../ai/arbiter/ho-paths.md) — boundary=touches-HO 判定の正本
+- [`docs/ai/arbiter/concept.md`](../../ai/arbiter/concept.md) — Arbiter の基本概念
+- [`docs/workflows/arbiter/00_concept.md`](./00_concept.md) — WF との並立関係
 - [`docs/workflows/arbiter/review-feedback-loop.md`](./review-feedback-loop.md) — Model C/D 裁定結果を L4 学習へ還元する閉ループ（§3 で本ドキュメント §3.3 と接続）

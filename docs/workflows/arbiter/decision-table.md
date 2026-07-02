@@ -180,8 +180,8 @@ on-the-loop 固有の「自律暴走」防止機構。
 
 ## 7. 関連ドキュメント
 
-- `docs/ai/arbiter/arbiter-policy.md` — W チェック・escalate 予算・第0の承認境界
-- `docs/ai/arbiter/ho-paths.md` — boundary=touches-HO 判定の正本
-- `docs/workflows/arbiter/flow-detect.md` — flow→detect→escalate の動作フロー（§3.2〜3.3: approve-reject の詳細）
-- `docs/workflows/arbiter/00_concept.md` — WF との並立関係
+- [`docs/ai/arbiter/arbiter-policy.md`](../../ai/arbiter/arbiter-policy.md) — W チェック・escalate 予算・第0の承認境界
+- [`docs/ai/arbiter/ho-paths.md`](../../ai/arbiter/ho-paths.md) — boundary=touches-HO 判定の正本
+- [`docs/workflows/arbiter/flow-detect.md`](./flow-detect.md) — flow→detect→escalate の動作フロー（§3.2〜3.3: approve-reject の詳細）
+- [`docs/workflows/arbiter/00_concept.md`](./00_concept.md) — WF との並立関係
 - [`docs/workflows/arbiter/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject を L4 学習へ還元する閉ループ（§3 で本ドキュメント §6 CB-1 と接続）
