@@ -4,6 +4,9 @@
 > **位置づけ**: Phase 0〜2 + follow-up の検証結果を踏まえ、「PlanGate 内継続」vs
 > 「別リポジトリ分離」vs「中止」の判断材料を提供する。**判定は人間が行う**。
 > **出典**: [issue #659](https://github.com/s977043/plangate/issues/659)
+> **パス表記**: 本レポート §a の `docs/ai/arbiter/`・`docs/workflows/arbiter/` は
+> Phase 0〜3 当時の実パス（監査証跡のため改変しない）。2026-07-02 に
+> `docs/ai/ai-loop/`・`docs/workflows/ai-loop/` へ改称された（issue #672）。
 
 ---
 
@@ -113,8 +116,8 @@ PR #663（`docs: plan-review-readiness-gate.md にドキュメント仕様変更
 - [`docs/ai/arbiter/ho-paths.md`](./ho-paths.md) — HO パス集約リスト
 - [`docs/ai/arbiter/asset-inventory.md`](./asset-inventory.md) — PlanGate 共通資産棚卸し
 - [`docs/ai/arbiter/related-specs.md`](./related-specs.md) — 既存仕様との関係整理
-- [`docs/workflows/arbiter/00_concept.md`](../../workflows/arbiter/00_concept.md) — ワークフローコンセプト
-- [`docs/workflows/arbiter/flow-detect.md`](../../workflows/arbiter/flow-detect.md) — flow/detect フロー定義
-- [`docs/workflows/arbiter/decision-table.md`](../../workflows/arbiter/decision-table.md) — Decision table・provenance schema
-- [`docs/workflows/arbiter/review-feedback-loop.md`](../../workflows/arbiter/review-feedback-loop.md) — レビュー指摘還元閉ループ
+- [`docs/workflows/arbiter/00_concept.md`](../../workflows/ai-loop/00_concept.md) — ワークフローコンセプト
+- [`docs/workflows/arbiter/flow-detect.md`](../../workflows/ai-loop/flow-detect.md) — flow/detect フロー定義
+- [`docs/workflows/arbiter/decision-table.md`](../../workflows/ai-loop/decision-table.md) — Decision table・provenance schema
+- [`docs/workflows/arbiter/review-feedback-loop.md`](../../workflows/ai-loop/review-feedback-loop.md) — レビュー指摘還元閉ループ
 - [`.claude/rules/responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md) — 責務 4 分類正本

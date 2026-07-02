@@ -1,8 +1,8 @@
 # review-feedback-loop — レビュー指摘の事前チェック還元閉ループ
 
-> 適用ドメイン: Arbiter-workflow（docs/workflows/arbiter/ 配下）のみ
+> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
 > 非適用: PlanGate 本番フロー（WF-00〜WF-07）
-> 位置づけ: L4 学習層（[`concept.md`](../../ai/arbiter/concept.md) §7）の PoC 定義。
+> 位置づけ: L4 学習層（[`concept.md`](../../ai/ai-loop/concept.md) §7）の PoC 定義。
 > フル実装は Phase 4、本ドキュメントはフロー定義と手動運用（human-operated L4）を先行させる
 
 ---
@@ -60,7 +60,7 @@ PR レビュー指摘（外部ボット・人間レビュアー）を指摘 ID�
 | -------- | ------ | ------ |
 | skill（例: `self-review`） | 作業手順・チェックリストで捕捉できる指摘 | AI-owned（編集可） |
 | gate 観点ドキュメント（例: [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)） | 計画・レビュー観点で捕捉できる指摘 | AI-owned（編集可） |
-| policy | auto-approve 条件・裁定ルールに関わる指摘 | **Human-owned 固定**（第0の承認境界 = [`arbiter-policy.md`](../../ai/arbiter/arbiter-policy.md) §6） |
+| policy | auto-approve 条件・裁定ルールに関わる指摘 | **Human-owned 固定**（第0の承認境界 = [`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §6） |
 | 還元不要 | 一過性・案件固有 | 記録のみ |
 
 policy への還元候補は AI が draft 提案までしか行えない。発行・適用は
@@ -115,11 +115,11 @@ Codex）で検出された指摘 7 件を issue #670 で還元しており、本
 
 ## 5. 安全制約
 
-- policy への還元は第0の承認境界（[`arbiter-policy.md`](../../ai/arbiter/arbiter-policy.md) §6）
+- policy への還元は第0の承認境界（[`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §6）
   により Human-owned 固定。AI は policy draft の提案までしか行えず、発行・適用
   は人間が行う。
 - skill / gate への還元であっても、対象が HO パス
-  （[`ho-paths.md`](../../ai/arbiter/ho-paths.md)）に触れる場合は human escalate
+  （[`ho-paths.md`](../../ai/ai-loop/ho-paths.md)）に触れる場合は human escalate
   へ切り替える。
 - 学習ループ自身が承認境界を侵食してはならない（「自分の枠を自分で書き換え
   ない」の L4 版）。還元ループが policy への還元を自己承認する経路を持たない
@@ -129,8 +129,8 @@ Codex）で検出された指摘 7 件を issue #670 で還元しており、本
 
 ## 6. 関連ドキュメント
 
-- [`docs/ai/arbiter/concept.md`](../../ai/arbiter/concept.md) — Arbiter の基本概念・L4 学習層（§7）
-- [`docs/workflows/arbiter/flow-detect.md`](./flow-detect.md) — W チェック・severity 分類・Model C/D 裁定
-- [`docs/workflows/arbiter/decision-table.md`](./decision-table.md) — Decision table・provenance schema・サーキットブレーカー
-- [`docs/ai/arbiter/arbiter-policy.md`](../../ai/arbiter/arbiter-policy.md) — 第0の承認境界（§6）
+- [`docs/ai/ai-loop/concept.md`](../../ai/ai-loop/concept.md) — Arbiter の基本概念・L4 学習層（§7）
+- [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — W チェック・severity 分類・Model C/D 裁定
+- [`docs/workflows/ai-loop/decision-table.md`](./decision-table.md) — Decision table・provenance schema・サーキットブレーカー
+- [`docs/ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — 第0の承認境界（§6）
 - [`.claude/rules/working-context.md`](../../../.claude/rules/working-context.md) — `review-external.md` R-NNN 方式（資産継承元）

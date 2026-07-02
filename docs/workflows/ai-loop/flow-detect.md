@@ -1,6 +1,6 @@
 # flow-detect — Arbiter 動作フロー定義
 
-> 適用ドメイン: Arbiter-workflow（docs/workflows/arbiter/ 配下）のみ
+> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
 > 非適用: PlanGate 本番フロー（WF-00〜WF-07）
 > W チェック定義正本: 本ドキュメント §3.1
 
@@ -32,7 +32,7 @@ auto-approve または human escalate
 
 | 条件 | 説明 |
 |------|------|
-| `boundary = clean` | 変更対象が HO パス（`docs/ai/arbiter/ho-paths.md`）のいずれにも含まれない |
+| `boundary = clean` | 変更対象が HO パス（`docs/ai/ai-loop/ho-paths.md`）のいずれにも含まれない |
 | `lite = true` | 低リスク要件を満たす（高リスク要素なし） |
 | `class = no-merge` | 変更に merge（C-4）を含まない（merge は Human-owned 固定。[`decision-table.md`](./decision-table.md) §3 priority 3） |
 
@@ -123,7 +123,7 @@ human 昇格の洪水を防ぐため:
 ## 5. provenance 刻印
 
 > **provenance スキーマの正本は
-> [`docs/workflows/arbiter/decision-table.md`](./decision-table.md) §5**。
+> [`docs/workflows/ai-loop/decision-table.md`](./decision-table.md) §5**。
 > 本セクションの責務は刻印**タイミング**の定義のみに限定し、フィールド名の
 > 独自定義は持たない（二重定義防止）。
 
@@ -142,8 +142,8 @@ human 昇格の洪水を防ぐため:
 
 ## 6. 関連ドキュメント
 
-- [`docs/ai/arbiter/arbiter-policy.md`](../../ai/arbiter/arbiter-policy.md) — W チェック拡張の policy 定義
-- [`docs/ai/arbiter/ho-paths.md`](../../ai/arbiter/ho-paths.md) — boundary=touches-HO 判定の正本
-- [`docs/ai/arbiter/concept.md`](../../ai/arbiter/concept.md) — Arbiter の基本概念
-- [`docs/workflows/arbiter/00_concept.md`](./00_concept.md) — WF との並立関係
-- [`docs/workflows/arbiter/review-feedback-loop.md`](./review-feedback-loop.md) — Model C/D 裁定結果を L4 学習へ還元する閉ループ（§3 で本ドキュメント §3.3 と接続）
+- [`docs/ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — W チェック拡張の policy 定義
+- [`docs/ai/ai-loop/ho-paths.md`](../../ai/ai-loop/ho-paths.md) — boundary=touches-HO 判定の正本
+- [`docs/ai/ai-loop/concept.md`](../../ai/ai-loop/concept.md) — Arbiter の基本概念
+- [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) — WF との並立関係
+- [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — Model C/D 裁定結果を L4 学習へ還元する閉ループ（§3 で本ドキュメント §3.3 と接続）

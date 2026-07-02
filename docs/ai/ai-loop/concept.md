@@ -1,7 +1,9 @@
-# Arbiter-workflow — コンセプト定義
+# ai-loop-workflow — コンセプト定義
 
 > **Status**: Phase 0 ドキュメント（2026-07-01）。PoC 段階の構想固定。確定仕様・実装方針ではない。
-> **置き場所**: docs/ai/arbiter/（PlanGate リポジトリ内 PoC 用サブディレクトリ）
+> **置き場所**: docs/ai/ai-loop/（PlanGate リポジトリ内 PoC 用サブディレクトリ）
+> **名称**: ai-loop-workflow（旧称: Arbiter-workflow、2026-07-02 改称）。
+> 「Arbiter」は本 workflow の L2 裁定エンジン（部品）の名称として存続する。
 
 ---
 
@@ -33,7 +35,7 @@ Arbiter は、PlanGate で積み重ねた統制資産 — 失敗履歴・INC 群
 を継承し、堅牢な on-the-loop モデルを構築することを目的とする。
 本 PoC を独立リポジトリではなく PlanGate リポジトリ内で行う本質的な理由は、
 これらの資産が**ここにしか存在しない**ためである。詳細な資産分類は
-[`docs/ai/arbiter/asset-inventory.md`](./asset-inventory.md) を参照。
+[`docs/ai/ai-loop/asset-inventory.md`](./asset-inventory.md) を参照。
 
 ---
 
@@ -75,8 +77,8 @@ Arbiter はその前提が異なる（人間はループの上）ため、L0 は
 ### 変更可能な範囲
 
 ```text
-docs/ai/arbiter/   配下のみ（新規作成・更新）
-docs/workflows/arbiter/  配下のみ（新規作成・更新、Phase 1 以降）
+docs/ai/ai-loop/   配下のみ（新規作成・更新）
+docs/workflows/ai-loop/  配下のみ（新規作成・更新、Phase 1 以降）
 ```
 
 ### 変更禁止（読み取り専用・参照のみ）
@@ -94,7 +96,7 @@ AGENTS.md                   同上
 .github/workflows/          CI/CD 定義。AI 直接編集不可
 ```
 
-「変更可能なのは `docs/ai/arbiter/` および `docs/workflows/arbiter/` 配下のみ。
+「変更可能なのは `docs/ai/ai-loop/` および `docs/workflows/ai-loop/` 配下のみ。
 `.claude/rules/`、`docs/ai/` 既存ファイル、`bin/plangate`、`schemas/`、`CLAUDE.md`、
 `AGENTS.md`、`.github/workflows/` は変更禁止。」
 
@@ -137,7 +139,7 @@ AGENTS.md                   同上
 > `A=approve & B=reject`（不一致）は実際には「即 human escalate」ではなく
 > **severity 分類**（critical/major → human escalate、minor/low →
 > Model C/D 裁定で auto-approve に到達し得る）へ進む。詳細分岐の正本は
-> [`docs/workflows/arbiter/flow-detect.md`](../../workflows/arbiter/flow-detect.md)
+> [`docs/workflows/ai-loop/flow-detect.md`](../../workflows/ai-loop/flow-detect.md)
 > §3.2〜3.3。
 
 ### detect フェーズの入力（L2 入力 4 軸）
@@ -230,6 +232,6 @@ L0 統制契約層        承認境界 / 責務モデル / HO / mode 判定（on
 
 ## 9. 関連ドキュメント
 
-- `docs/ai/arbiter/asset-inventory.md` — PlanGate 共通資産の uses/not-uses 分類
-- `docs/ai/arbiter/ho-paths.md` — touches-HO 判定基準リスト
-- `docs/ai/arbiter/related-specs.md` — 既存仕様との関係整理
+- `docs/ai/ai-loop/asset-inventory.md` — PlanGate 共通資産の uses/not-uses 分類
+- `docs/ai/ai-loop/ho-paths.md` — touches-HO 判定基準リスト
+- `docs/ai/ai-loop/related-specs.md` — 既存仕様との関係整理

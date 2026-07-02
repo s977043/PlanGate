@@ -1,7 +1,7 @@
 # Arbiter — 既存仕様との関係整理
 
 > **Status**: Phase 0 ドキュメント（2026-07-01）。
-> **目的**: Arbiter-workflow と PlanGate 既存仕様の関係を明確化し、混乱・二重定義を防ぐ。
+> **目的**: ai-loop-workflow と PlanGate 既存仕様の関係を明確化し、混乱・二重定義を防ぐ。
 
 ---
 
@@ -35,9 +35,9 @@ C4AutoApproveAllowed =
   AND NoSchemaOrBreakingOrSecurity
 ```
 
-### Arbiter-workflow との対応関係
+### ai-loop-workflow との対応関係
 
-| autonomous-degraded-gates-spec.md | Arbiter-workflow |
+| autonomous-degraded-gates-spec.md | ai-loop-workflow |
 |-----------------------------------|-----------------|
 | `NoHardeningOverridePath` | `boundary = clean`（HO に触れない限り自律継続） |
 | C-4 自律承認（例外的な自律化） | flow（自律継続が既定動作） |
@@ -51,7 +51,7 @@ C4AutoApproveAllowed =
   Arbiter の `boundary=clean` と同じ思想（HO に触れない限り自律継続）
 - Arbiter は W チェック（2 モデル非対称）と provenance 刻印を追加することで、
   この思想をより精密に実装する
-- Arbiter-workflow が成熟した段階で、`autonomous-degraded-gates-spec.md` の
+- ai-loop-workflow が成熟した段階で、`autonomous-degraded-gates-spec.md` の
   改版を検討する（**Phase 3 の判断対象**）
 
 ### 重要な違い
@@ -78,7 +78,7 @@ Arbiter は on-the-loop を前提とした制御極性の反転（flow が既定
 
 ### Arbiter での参照
 
-Arbiter-workflow でも Plan Review Readiness Gate の**考え方**は参照できる。
+ai-loop-workflow でも Plan Review Readiness Gate の**考え方**は参照できる。
 特に「判定フレームを事前定義し、条件を機械的に評価する」設計思想は
 Arbiter の boundary チェック・W チェックの設計に活用する。
 
@@ -93,13 +93,13 @@ CI-owned / Workflow-owned）の正本。in-the-loop 前提に最適化された�
 
 ### Arbiter での取り扱い
 
-- `docs/ai/arbiter/` 配下のドキュメントは `responsibility-classes.md` を変更しない
+- `docs/ai/ai-loop/` 配下のドキュメントは `responsibility-classes.md` を変更しない
 - Arbiter の L0 設計（Phase 1 以降）では、**Policy-owned**（事前定義された自律許可の裁定）と
   **Sensor-owned**（逸脱検知の責務）を**追加**する設計を想定
 - Iron Law は Arbiter でも最上位制約として適用される
 
 > **注意**: ここで定義する Policy-owned / Sensor-owned の追加責務、および
-> Human-owned の役割変化は **Arbiter L0（docs/workflows/arbiter/ 配下）内のみ**に適用される。
+> Human-owned の役割変化は **Arbiter L0（docs/workflows/ai-loop/ 配下）内のみ**に適用される。
 > PlanGate 本番フロー（WF-00〜WF-07）の C-3 / C-4 / merge 責務は変更しない。
 > PlanGate 本番統制では `responsibility-classes.md` が引き続き優先する。
 
@@ -119,7 +119,7 @@ CI-owned / Workflow-owned）の正本。in-the-loop 前提に最適化された�
 ### 関係: 独立（HO パス定義を参照・継承）
 
 `hook-enforcement.md` は PlanGate の HO パスと hook 実装の正本。
-Arbiter は HO パスの定義を**参照**し、`docs/ai/arbiter/ho-paths.md` に集約する。
+Arbiter は HO パスの定義を**参照**し、`docs/ai/ai-loop/ho-paths.md` に集約する。
 `hook-enforcement.md` 自体は変更しない（`docs/ai/` 既存ファイルのため変更禁止）。
 
 ---
@@ -129,15 +129,15 @@ Arbiter は HO パスの定義を**参照**し、`docs/ai/arbiter/ho-paths.md` �
 ### 関係: 上位制約（Arbiter は Iron Law に従う）
 
 Iron Law は Arbiter でも最上位制約として適用される。
-Arbiter-workflow は Iron Law の下位に位置し、Iron Law を緩和・変更しない。
+ai-loop-workflow は Iron Law の下位に位置し、Iron Law を緩和・変更しない。
 
 ---
 
 ## 関連ドキュメント
 
-- `docs/ai/arbiter/concept.md` — Arbiter の基本概念・PlanGate との関係
-- `docs/ai/arbiter/asset-inventory.md` — 資産の uses/not-uses 分類
-- `docs/ai/arbiter/ho-paths.md` — touches-HO 判定基準リスト
+- `docs/ai/ai-loop/concept.md` — Arbiter の基本概念・PlanGate との関係
+- `docs/ai/ai-loop/asset-inventory.md` — 資産の uses/not-uses 分類
+- `docs/ai/ai-loop/ho-paths.md` — touches-HO 判定基準リスト
 - `docs/ai/autonomous-degraded-gates-spec.md` — `NoHardeningOverridePath` 定義元（読み取り専用）
 - `docs/ai/core-contract.md` — Iron Law 正本（読み取り専用）
 - `.claude/rules/responsibility-classes.md` — 責務 4 分類正本（読み取り専用）
