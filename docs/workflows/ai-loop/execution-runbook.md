@@ -24,6 +24,9 @@
 
 ## 2. 1 サイクルの手順
 
+**前提**: 本サイクルは **C-1 PASS・C-2 完了済み**であることを起点とする
+（C-3' ゲートとしての位置づけ。[`00_concept.md`](./00_concept.md) §3 参照）。
+
 ### (1) 変更ファイルリスト取得
 
 ```sh
@@ -96,6 +99,41 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 | `3` | `BLOCKED` | ブロックとして扱う。当該変更を採用しない。audit record（暫定）を保存し、理由（stderr の裁定サマリ）を記録する |
 | `1` | （入力エラー） | 入力 JSON の不備。stderr の理由メッセージに従い入力を修正して再実行する |
 
+### (6) 強化セルフレビュー（PR 作成前・必須）
+
+`AUTO_APPROVED`（exit code `0`）で exec / L-0 / V 系が完了した後、PR 作成前に
+**強化セルフレビュー**を実施する（merge-ready 責務の担保。
+[`00_concept.md`](./00_concept.md) §3.4 参照）:
+
+1. **宣言↔実差分の整合検証**: plan の Files to Touch と
+   `git diff --name-only <base>...HEAD` を突合し、宣言外の変更がゼロであることを確認する
+   （宣言外変更あり → exec 差し戻し or C-3' 再裁定）
+2. self-review スキル（Phase 1〜13 全観点）を実行する
+3. [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)
+   §8/§9 観点を通す
+4. [`review-feedback-loop.md`](./review-feedback-loop.md) §2 で過去に還元済みの
+   観点（過去の CI 失敗・AI レビュー指摘から抽出されたチェック項目）を通す
+
+全観点 PASS を確認してから PR を作成する。FAIL がある場合は exec へ差し戻す。
+
+### (7) PR 後の CI / AI レビュー指摘対応ループ（merge-ready まで）
+
+PR 作成後、以下を **merge-ready 到達まで**繰り返す:
+
+1. CI 実行結果を確認する。FAIL があれば修正し再度 (6) を通してから push する
+2. CI/PR 時の AI レビュー指摘を確認する。各指摘について
+   **採用して修正**するか、**理由付きで不採用とする**かを記録する
+3. 対応内容（採用/不採用・理由）は
+   [`review-feedback-loop.md`](./review-feedback-loop.md) §2 の L4 学習閉ループへ
+   還元し、次回の強化セルフレビュー（手順 (6)）で事前に捕捉されるようにする
+4. **収束ルール**: 対応ラウンド上限は 3。超過時は human escalate
+   （[`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §7 escalate 予算
+   と接続）。新規指摘が minor / info のみになった時点で、記録を条件に
+   merge-ready 判定へ進んでよい（[`00_concept.md`](./00_concept.md) §3.3）
+5. **DoD**: CI 全 job green **かつ** AI レビュー指摘がゼロ、または全件対応完了
+   （採用/理由付き不採用の記録あり）で merge-ready と判定し、C-4（人間の
+   merge 承認、Human-owned 固定）待ちに遷移する
+
 ---
 
 ## 3. 検証可能性 4 条件への適合
@@ -136,5 +174,7 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 - [`docs/ai/ai-loop/ho-paths.md`](../../ai/ai-loop/ho-paths.md) — boundary=touches-HO 判定の正本
 - [`docs/ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — Arbiter L0 policy
 - [`docs/ai/ai-loop/phase3-impact-report.md`](../../ai/ai-loop/phase3-impact-report.md) — 分離トリガー条件・判断記録
-- [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject を L4 学習へ還元する閉ループ
+- [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject / CI・AI レビュー指摘対応を L4 学習へ還元する閉ループ
 - [`.claude/rules/orchestrator-mode.md`](../../../.claude/rules/orchestrator-mode.md) — 検証可能性 4 条件の正本
+- [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) §3 — PlanGate フロー共通化と C-3 置換（C-3'）・merge-ready 責務範囲の正本
+- [`docs/ai/plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md) — 強化セルフレビュー §8/§9 観点の参照元

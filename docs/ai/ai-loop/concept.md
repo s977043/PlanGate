@@ -10,7 +10,11 @@
 ## 1. Arbiter とは何か
 
 **Arbiter** は、**AI を走らせたまま安全な枠に保ち、逸脱だけを人間に昇格する**、
-枠内自律（governed autonomy）AI 開発の**裁定ランタイム**。
+枠内自律（governed autonomy）AI 開発の**裁定ランタイム**。ai-loop-workflow
+全体では PlanGate の WF-00〜03・C-1・C-2 を共通利用し、**Arbiter は C-3
+（人間の計画承認）を置換する C-3' として動作する**
+（位置づけの詳細は
+[`docs/workflows/ai-loop/00_concept.md`](../../workflows/ai-loop/00_concept.md) §3）。
 
 動作の核心は 3 ステップ:
 
@@ -49,6 +53,7 @@ Arbiter は PlanGate の延長（v9 / 2.0）ではなく、**次世代検証プ�
 | 承認の時制 | 実行前 | 逸脱検知時 |
 | 制御の基本姿勢 | block until approved | flow → detect → escalate |
 | 現在の位置づけ | 本番統制を担う（並走期全体） | PoC 段階の独立プロジェクト |
+| AI 責務の終点 | PR 作成まで（C-4 は人間） | **merge-ready**（CI green + AI レビュー指摘対応完了）まで一気通貫（[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.3） |
 
 ### 配置方針（Phase 0 判断）
 
@@ -103,6 +108,12 @@ AGENTS.md                   同上
 ---
 
 ## 4. flow → detect → escalate の基本フロー
+
+本フローは C-1 PASS・C-2 完了後の **C-3' ゲート**として発火する
+（[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.2 パイプライン参照）。
+W チェックの対象は C-2 通過済みの plan アーティファクト（plan.md /
+todo.md / test-cases.md）である。実差分（実装コード）に対する独立判定は
+第 2 段の detect（CI/PR 時の AI レビュー。00_concept.md §3.3）が担う。
 
 ```text
 ┌────────────────────────────────────────────────┐
@@ -235,3 +246,4 @@ L0 統制契約層        承認境界 / 責務モデル / HO / mode 判定（on
 - `docs/ai/ai-loop/asset-inventory.md` — PlanGate 共通資産の uses/not-uses 分類
 - `docs/ai/ai-loop/ho-paths.md` — touches-HO 判定基準リスト
 - `docs/ai/ai-loop/related-specs.md` — 既存仕様との関係整理
+- [`docs/workflows/ai-loop/00_concept.md`](../../workflows/ai-loop/00_concept.md) §3 — PlanGate フロー共通化と C-3 置換（C-3'）の確定パイプライン・責務範囲
