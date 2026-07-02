@@ -14,7 +14,7 @@ PR レビューで受けた指摘を観点として抽出・還元し、次の P
 状態をつくる閉ループを定義する。
 
 真指摘の昇格（gate 観点への反映）と誤検知抑制（レビューボットの false-positive
-を suppression する経路）の両方向が L4 の対象である。PoC 段階では誤検知抑制は
+を抑制する経路）の両方向が L4 の対象である。PoC 段階では誤検知抑制は
 定義のみに留め、実装は Phase 4 以降のスコープとする。
 
 ---
@@ -45,6 +45,11 @@ PR レビュー指摘（外部ボット・人間レビュアー）を指摘 ID�
 | 再発性 | 再発性あり / 一過性 | 同型の指摘が将来の変更でも起こり得るか |
 | severity | critical / major / minor / info | [`review-principles.md`](../../../.claude/rules/review-principles.md) §3 の 4 段階定義に従う |
 
+> **注（severity の別軸性）**: ここでの severity は **PR レビュー指摘の分類**であり
+> [`review-principles.md`](../../../.claude/rules/review-principles.md) §3（info を含む 4 段階）に従う。
+> W チェック不一致の severity 分類（[`flow-detect.md`](./flow-detect.md) §3.2、low を含む 4 段階）とは
+> **別軸**であり、値域も異なる。混同しないこと。
+
 一過性（案件固有の一度きりの指摘）は還元不要（§2-3 の第4分岐）に落ちる。
 
 ### 2-3. 還元先判定
@@ -54,7 +59,7 @@ PR レビュー指摘（外部ボット・人間レビュアー）を指摘 ID�
 | 還元先 | 対象 | 責務 |
 | -------- | ------ | ------ |
 | skill（例: `self-review`） | 作業手順・チェックリストで捕捉できる指摘 | AI-owned（編集可） |
-| gate 観点ドキュメント（例: `plan-review-readiness-gate`） | 計画・レビュー観点で捕捉できる指摘 | AI-owned（編集可） |
+| gate 観点ドキュメント（例: [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)） | 計画・レビュー観点で捕捉できる指摘 | AI-owned（編集可） |
 | policy | auto-approve 条件・裁定ルールに関わる指摘 | **Human-owned 固定**（第0の承認境界 = [`arbiter-policy.md`](../../ai/arbiter/arbiter-policy.md) §6） |
 | 還元不要 | 一過性・案件固有 | 記録のみ |
 
@@ -72,7 +77,7 @@ Human-owned 固定であり、本ステップでもその境界は緩和しな�
 
 ### 2-5. 事前適用
 
-次回 flow 前の pre-check（self-review / readiness gate）で、還元した観点が
+次回 flow フェーズ前の pre-check（self-review / readiness gate）で、還元した観点が
 実際に効いていることを確認する。
 
 ### 2-6. 効果測定
@@ -102,6 +107,9 @@ provenance 経由で L4 学習の入力になる。人間の事後 reject
 | PR #662 G1〜G4 / C1〜C5（用語・定義・参照） | `plan-review-readiness-gate.md` §8 D-1〜D-5（PR #663） | マージ済 |
 | PR #665 R-1〜R-3（助詞・冗長・リンク化） | `self-review` スキル Phase 13 文章品質（PR #666） | レビュー中（2026-07-02 時点） |
 | PR #666 指摘 2 件（glob 表記・バックティック） | 即時反映（同 PR 内） | 反映済 |
+
+さらに 2026-07-02 のセッション振り返り（3 系統レビュー: セルフ / 複数エージェント /
+Codex）で検出された指摘 7 件を issue #670 で還元しており、本ループの **2 周目**に相当する。
 
 ---
 
