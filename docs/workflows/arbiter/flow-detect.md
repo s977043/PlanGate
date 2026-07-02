@@ -15,6 +15,8 @@
         ↓ clean
 [lite 判定]      → lite=false?  → human escalate
         ↓ true
+[class 判定]     → merge 含む?  → human escalate（merge=Human-owned 固定）
+        ↓ no-merge
 [detect: W チェック A/B]
         ↓
 [severity 分類 / C/D 裁定 / escalate 判定]
