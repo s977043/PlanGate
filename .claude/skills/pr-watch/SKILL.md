@@ -31,15 +31,22 @@ PR_NUMBER="<PR番号>"
 SEEN_FILE="/tmp/pr-watch-${PR_NUMBER}-seen-comments.txt"
 touch "${SEEN_FILE}"
 
+CURRENT_FILE="/tmp/pr-watch-${PR_NUMBER}-current.txt"
+
 while true; do
-  state=$(gh pr view "${PR_NUMBER}" --json state --jq .state)
+  # 一時的な gh 失敗（ネットワーク・レート制限）でクラッシュさせない
+  state=$(gh pr view "${PR_NUMBER}" --json state --jq .state 2>/dev/null || echo "")
   if [ "${state}" = "MERGED" ] || [ "${state}" = "CLOSED" ]; then
     echo "PR #${PR_NUMBER} is ${state}. Stop watching."
     exit 0
   fi
+  if [ -z "${state}" ]; then
+    sleep 60
+    continue
+  fi
 
   # (1) コンフリクト検知
-  mergeable=$(gh pr view "${PR_NUMBER}" --json mergeable --jq .mergeable)
+  mergeable=$(gh pr view "${PR_NUMBER}" --json mergeable --jq .mergeable 2>/dev/null || echo "")
   if [ "${mergeable}" = "CONFLICTING" ]; then
     echo "CONFLICTING detected on PR #${PR_NUMBER}"
   fi
@@ -50,13 +57,16 @@ while true; do
   fi
 
   # (3) 新規レビューコメント検知（inline review comments = ボット指摘を含む）
-  gh api "repos/<owner>/<repo>/pulls/${PR_NUMBER}/comments" --jq '.[].id' \
-    > /tmp/pr-watch-${PR_NUMBER}-current.txt
-  new_ids=$(comm -13 <(sort "${SEEN_FILE}") <(sort /tmp/pr-watch-${PR_NUMBER}-current.txt))
-  if [ -n "${new_ids}" ]; then
-    echo "New review comments: ${new_ids}"
+  # 取得成功時のみ SEEN_FILE を更新する（失敗時に空で上書きすると
+  # 次回成功時に既読コメントを全件「新規」と誤検知するため）
+  if gh api --paginate "repos/<owner>/<repo>/pulls/${PR_NUMBER}/comments" \
+       --jq '.[].id' > "${CURRENT_FILE}" 2>/dev/null; then
+    new_ids=$(comm -13 <(sort "${SEEN_FILE}") <(sort "${CURRENT_FILE}"))
+    if [ -n "${new_ids}" ]; then
+      echo "New review comments: ${new_ids}"
+    fi
+    cp "${CURRENT_FILE}" "${SEEN_FILE}"
   fi
-  cp /tmp/pr-watch-${PR_NUMBER}-current.txt "${SEEN_FILE}"
 
   sleep 60
 done
@@ -106,8 +116,11 @@ done
 ## 4. gh mutation の前置（アカウントドリフト対策）
 
 コメント返信・push 等の mutation を伴う `gh` 操作は、`gh auth switch` +
-viewer 検証 + mutation を**同一 Bash 呼び出し**で実行する（単発 switch は
-次コマンドで既定アカウントに戻るため）。
+viewer 検証 + mutation を**同一 Bash 呼び出し**で実行する。`gh auth switch`
+自体は設定ファイルを書き換える永続操作だが、**他プロセスも switch を行う
+環境では切替が競合（レースコンディション）し、mutation 実行の瞬間に別
+アカウントへ戻っている実測が繰り返しある**ため、switch と mutation の間に
+別呼び出しを挟まず、直前検証つきで atomic に行う。
 
 ```bash
 gh auth switch --user <expected-user> \

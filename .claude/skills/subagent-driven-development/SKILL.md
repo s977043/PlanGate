@@ -139,7 +139,7 @@ worktree で隔離したサブエージェントへ実装を委託する際、�
 
 1. **ブランチ作成元の明示**: `origin/main`（スタック構成で前段ブランチに
    依存する場合はその前段ブランチ）から新規ブランチを作成させ、base を
-   コマンドとして明示する（例: `git checkout -b <new> origin/main`）
+   コマンドとして明示する（例: `git fetch && git checkout -b <new> origin/main`。fetch 前置は [`responsibility-classes.md`](../../rules/responsibility-classes.md) の base verify 節が正本）
 2. **変更可能パスの限定列挙**: 触ってよいファイル・ディレクトリを具体パスで
    列挙する（`allowed_files` 相当）。曖昧な「関連ファイル」等の指定は禁止
 3. **commit 前後の検証手順**: commit 前に `git diff --cached --stat` で
