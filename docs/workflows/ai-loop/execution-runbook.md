@@ -106,7 +106,7 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 [`00_concept.md`](./00_concept.md) §3.4 参照）:
 
 1. **宣言↔実差分の整合検証**: plan の Files to Touch と
-   `git diff --name-only` を突合し、宣言外の変更がゼロであることを確認する
+   `git diff --name-only <base>...HEAD` を突合し、宣言外の変更がゼロであることを確認する
    （宣言外変更あり → exec 差し戻し or C-3' 再裁定）
 2. self-review スキル（Phase 1〜13 全観点）を実行する
 3. [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)

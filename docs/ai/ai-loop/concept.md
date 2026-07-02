@@ -112,7 +112,8 @@ AGENTS.md                   同上
 本フローは C-1 PASS・C-2 完了後の **C-3' ゲート**として発火する
 （[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.2 パイプライン参照）。
 W チェックの対象は C-2 通過済みの plan アーティファクト（plan.md /
-todo.md / test-cases.md）と、それに基づく変更差分である。
+todo.md / test-cases.md）である。実差分（実装コード）に対する独立判定は
+第 2 段の detect（CI/PR 時の AI レビュー。00_concept.md §3.3）が担う。
 
 ```text
 ┌────────────────────────────────────────────────┐
