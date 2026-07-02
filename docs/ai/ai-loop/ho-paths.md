@@ -32,9 +32,9 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 | `CLAUDE.md` | HO-contract | AI-Human 間の基本契約。AI による変更は契約の自己改ざんに相当 |
 | `AGENTS.md` | HO-contract | 同上。Codex 用基本契約 |
 | `docs/ai/core-contract.md` | HO-contract | Iron Law 正本。最上位制約。Arbiter でも変更不可 |
-| `docs/ai/*.md`（arbiter/ 除く） | HO-contract | PlanGate 既存ドキュメント正本。Arbiter PoC が既存仕様を書き換えないための境界 |
+| `docs/ai/*.md`（トップレベルの md のみ。`docs/ai/ai-loop/` 配下は対象外） | HO-contract | PlanGate 既存ドキュメント正本。Arbiter PoC が既存仕様を書き換えないための境界 |
 | `.github/workflows/*.yml` | HO-ci | CI/CD 定義。AI 直接編集不可。誤変更で安全装置・検証が無効化される |
-| `approvals/*.json` | HO-approval | 人間承認トークン。AI 代理作成禁止。provenance の偽造防止 |
+| `**/approvals/*.json` | HO-approval | 人間承認トークン。AI 代理作成禁止。provenance の偽造防止 |
 | `.claude/commands/*.md` | HO-rules | コマンド定義。実行入口・承認境界に影響。AI 直接編集不可 |
 | `.claude/agents/*.md` | HO-rules | Agent 行動契約。統制回避防止。AI 直接編集不可 |
 | `.claude/settings.example.json` | HO-settings | settings 契約例。自己改変・緩和防止 |
@@ -90,7 +90,7 @@ CLAUDE.md                   → HO-contract
 AGENTS.md                   → HO-contract
 docs/ai/core-contract.md    → HO-contract
 .github/workflows/ci.yml    → HO-ci
-approvals/2026-07-01.json   → HO-approval
+docs/working/TASK-0123/approvals/c3.json → HO-approval
 plugin/plangate/index.js    → HO-plugin
 ```
 

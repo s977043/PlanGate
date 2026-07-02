@@ -66,11 +66,17 @@ PR #663（`docs: plan-review-readiness-gate.md にドキュメント仕様変更
 
 | # | トリガー条件 | 根拠 |
 |---|------------|------|
-| 1 | **実行エンジン実装が必要になった** | `concept.md` §2 のとおり、PlanGate は block-until-approved、Arbiter は flow→detect→escalate と制御極性が逆。docs 層の PoC を超えて実行コード（hook / CLI）を書く段階に入ると、同一リポジトリ内に 2 つの相反する L0 契約が同居し、承認境界が二重定義になるリスクが顕在化する |
+| 1 | **実行エンジンが PlanGate 本番の統制フロー（`bin/plangate`・`scripts/hooks/`）と競合・結合する場合** | `concept.md` §2 のとおり、PlanGate は block-until-approved、Arbiter は flow→detect→escalate と制御極性が逆。**隔離された PoC 実行スクリプト**（`scripts/ai-loop/` 配下・PlanGate 本番フローから一切呼ばれない・HO パス非接触・独立テストで検証可能なもの）は、それ自体は「実行コードの実装」であっても本トリガーには**該当しない**。本番の統制フロー（`bin/plangate` の呼び出しグラフ・`scripts/hooks/` の物理配線）に組み込まれる、または `bin/plangate`/hooks から呼ばれる形に変わった時点で初めて該当し、同一リポジトリ内に 2 つの相反する L0 契約が同居するリスクが顕在化する |
 | 2 | **L0 契約が `responsibility-classes.md` と整合できなくなった** | Arbiter L0（`arbiter-policy.md`）は PlanGate の責務 4 分類（AI/Human/CI/Workflow-owned）を前提に「detect/escalate 判断基準のみ追加」する設計。この前提が崩れ、責務 4 分類そのものの改訂を要求する事態になった場合は分離が必要 |
 | 3 | **PlanGate 本番への副作用が検出された** | `a.3` で確認したとおり現状は副作用ゼロ。今後 `.claude/rules/`・`docs/ai/` 既存正本・`bin/plangate`・`schemas/` のいずれかに変更が及んだ場合、PoC の隔離が破綻したとみなす |
 | 4 | **provenance / severity 判定の実装が PlanGate の EH（Enforcement Hook）体系と競合する** | `decision-table.md` の provenance スキーマは PlanGate 側の課題（issue #420 EH-3 発行元検証）と同型の未解決課題を抱える。両者を同一リポジトリで別々に実装すると二重管理・矛盾のリスクがある |
-| 5 | **PoC の継続期間が長期化し docs 層のみでの検証に限界が生じた** | `concept.md` §6 のとおり Phase 0 は「まず docs/ 層で PoC」の判断。実装検証（severity 判定器・W チェック自動化等）が必要になった時点で、[`concept.md`](./concept.md) §2 配置方針に記録された当初推奨（別リポジトリ）に立ち返るべき局面 |
+| 5 | **PoC の継続期間が長期化し、docs 層 + 隔離スクリプトでの検証に限界が生じた場合** | `concept.md` §6 のとおり Phase 0 は「まず docs/ 層で PoC」の判断。Phase 2 で `scripts/ai-loop/` 配下の隔離 PoC スクリプトによる検証を追加した後も、なお実効性検証（本番規模データでの severity 判定精度検証・W チェック自動化の大規模運用等）が `scripts/ai-loop/` の枠内で完結しなくなった時点で、[`concept.md`](./concept.md) §2 配置方針に記録された当初推奨（別リポジトリ）に立ち返るべき局面 |
+
+> **判断記録（2026-07-02）**: issue #677 において、ユーザーが Human-owned 判定として
+> 「PlanGate 内に実行スクリプト（トリガー条件を見直したうえで）」を選択した。すなわち
+> `scripts/ai-loop/` 配下に隔離された L2 裁定エンジン PoC（`arbiter.py` 等）を実装する
+> ことは、上記トリガー 1・5 の精密化を前提に「別リポジトリ分離」の対象ではないと判断
+> された。本改定はその記録である。
 
 ### b.2 「PlanGate 内継続」維持条件
 
