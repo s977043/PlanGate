@@ -65,9 +65,14 @@ echo '{...}' | python3 scripts/ai-loop/arbiter.py
 モジュール docstring および [`decision-table.md`](./decision-table.md) §2・§5 を
 正本とする。
 
-### (4) provenance を保存
+### (4) decision record を保存
 
-`arbiter.py` の stdout（provenance JSON）を、以下の命名規則で保存する。
+`arbiter.py` の stdout（decision record JSON）を、以下の命名規則で保存する。
+
+> **正本性の注記**（[`decision-table.md`](./decision-table.md) §5 PoC スコープと整合）:
+> `AUTO_APPROVED` の record のみが **provenance 刻印**（正本）。
+> `HUMAN_ESCALATED` / `BLOCKED` の record は **audit record（暫定）**であり、
+> 正式な audit trail の定義は Phase 3 以降で行う。
 
 ```text
 docs/working/ai-loop-runs/<UTC日時: YYYYMMDDTHHMMSSZ>-<sha7>.json
@@ -79,16 +84,16 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
   > "docs/working/ai-loop-runs/$(date -u +%Y%m%dT%H%M%SZ)-$(git rev-parse --short HEAD).json"
 ```
 
-保存した provenance は次回以降の監査・L4 学習（[`review-feedback-loop.md`](./review-feedback-loop.md)）
+保存した decision record は次回以降の監査・L4 学習（[`review-feedback-loop.md`](./review-feedback-loop.md)）
 の入力となる。
 
 ### (5) exit code に応じた分岐
 
 | exit code | decision | 動作 |
 |-----------|----------|------|
-| `0` | `AUTO_APPROVED` | 自動承認として扱う。provenance を保存して 1 サイクル完了 |
-| `2` | `HUMAN_ESCALATED` | **停止して人間へ escalate**。provenance の `w_check` / `boundary_check` / `lite_check` を提示し、人間の判断を仰ぐ |
-| `3` | `BLOCKED` | ブロックとして扱う。当該変更を採用しない。provenance を保存し、理由（stderr の裁定サマリ）を記録する |
+| `0` | `AUTO_APPROVED` | 自動承認として扱う。provenance 刻印（正本）を保存して 1 サイクル完了 |
+| `2` | `HUMAN_ESCALATED` | **停止して人間へ escalate**。audit record（暫定）の `w_check` / `boundary_check` / `lite_check` を提示し、人間の判断を仰ぐ |
+| `3` | `BLOCKED` | ブロックとして扱う。当該変更を採用しない。audit record（暫定）を保存し、理由（stderr の裁定サマリ）を記録する |
 | `1` | （入力エラー） | 入力 JSON の不備。stderr の理由メッセージに従い入力を修正して再実行する |
 
 ---

@@ -84,9 +84,12 @@ approve-reject
 
 auto-approve 時（priority 6 または C/D 合意）に刻印する最低限の必須フィールド。
 
-> **PoC スコープ**: provenance 刻印は auto-approve 時のみ定義する。
-> HUMAN_ESCALATED / BLOCKED 時の audit trail（判断理由・escalate 経緯の記録）は
-> Phase 3 以降で定義予定。
+> **PoC スコープ**: **provenance 刻印**（正本として確定する記録）は auto-approve
+> 時のみ定義する。PoC 実装（`scripts/ai-loop/arbiter.py`）は HUMAN_ESCALATED /
+> BLOCKED を含む全裁定で同スキーマの decision record を出力するが、auto-approve
+> 以外の record は **audit record（暫定）** であり正本性を持たない。
+> HUMAN_ESCALATED / BLOCKED 時の audit trail の正式定義（判断理由・escalate
+> 経緯の記録）は Phase 3 以降で行う。
 
 ```text
 decision:           AUTO_APPROVED / HUMAN_ESCALATED / BLOCKED

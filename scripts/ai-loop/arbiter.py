@@ -226,7 +226,7 @@ EXIT_CODES = {
     DECISION_BLOCKED: 3,
 }
 
-ISSUED_BY = "arbiter-v0.1-poc"
+ISSUED_BY = "arbiter-v0.1"
 POLICY_REF = "auto-approve-lite-clean@v0"
 
 

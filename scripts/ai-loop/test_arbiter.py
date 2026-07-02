@@ -360,7 +360,7 @@ class ProvenanceSchemaTests(unittest.TestCase):
             "timestamp",
         ):
             self.assertIn(field, provenance)
-        self.assertEqual(provenance["issued_by"], "arbiter-v0.1-poc")
+        self.assertEqual(provenance["issued_by"], "arbiter-v0.1")
         self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v0")
         self.assertEqual(provenance["w_check"]["model_a"], "approve")
         self.assertEqual(provenance["w_check"]["model_b"], "approve")
