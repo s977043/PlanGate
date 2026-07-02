@@ -13,7 +13,7 @@ PR 作成後、マージまたは close されるまで監視し、CI エラー�
 | 観点 | 検知方法 | 対応 |
 |------|---------|------|
 | CI エラー | `gh pr checks <PR番号>` に `fail` | §3 CI FAIL 対応 |
-| レビューコメント | `gh pr view <PR番号> --json comments,reviews` の ID 差分 | §3 レビューコメント対応 |
+| レビューコメント | `gh api repos/<owner>/<repo>/pulls/<PR番号>/comments` の ID 差分（inline review comments。`gh pr view --json comments` は issue コメントのみでボット指摘を取りこぼす） | §3 レビューコメント対応 |
 | コンフリクト | `gh pr view <PR番号> --json mergeable` が `CONFLICTING` | §3 CONFLICTING 対応 |
 
 3 点いずれも未検知かつ `state` が `MERGED` / `CLOSED` になった時点で監視終了。
@@ -49,8 +49,8 @@ while true; do
     echo "CI FAIL detected on PR #${PR_NUMBER}"
   fi
 
-  # (3) 新規レビューコメント検知
-  gh pr view "${PR_NUMBER}" --json comments --jq '.comments[].id' \
+  # (3) 新規レビューコメント検知（inline review comments = ボット指摘を含む）
+  gh api "repos/<owner>/<repo>/pulls/${PR_NUMBER}/comments" --jq '.[].id' \
     > /tmp/pr-watch-${PR_NUMBER}-current.txt
   new_ids=$(comm -13 <(sort "${SEEN_FILE}") <(sort /tmp/pr-watch-${PR_NUMBER}-current.txt))
   if [ -n "${new_ids}" ]; then
