@@ -32,7 +32,7 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 | `CLAUDE.md` | HO-contract | AI-Human 間の基本契約。AI による変更は契約の自己改ざんに相当 |
 | `AGENTS.md` | HO-contract | 同上。Codex 用基本契約 |
 | `docs/ai/core-contract.md` | HO-contract | Iron Law 正本。最上位制約。Arbiter でも変更不可 |
-| `docs/ai/*.md`（ai-loop/ 除く） | HO-contract | PlanGate 既存ドキュメント正本。Arbiter PoC が既存仕様を書き換えないための境界 |
+| `docs/ai/*.md`（トップレベルの md のみ。`docs/ai/ai-loop/` 配下は対象外） | HO-contract | PlanGate 既存ドキュメント正本。Arbiter PoC が既存仕様を書き換えないための境界 |
 | `.github/workflows/*.yml` | HO-ci | CI/CD 定義。AI 直接編集不可。誤変更で安全装置・検証が無効化される |
 | `**/approvals/*.json` | HO-approval | 人間承認トークン。AI 代理作成禁止。provenance の偽造防止 |
 | `.claude/commands/*.md` | HO-rules | コマンド定義。実行入口・承認境界に影響。AI 直接編集不可 |

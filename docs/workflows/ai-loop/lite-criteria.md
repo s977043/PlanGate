@@ -10,7 +10,7 @@
 
 ## 1. 目的
 
-Arbiter flow フェーズの `lite` 軸（[`decision-table.md`](./decision-table.md)
+ai-loop-workflow の flow フェーズにおける `lite` 軸（[`decision-table.md`](./decision-table.md)
 §2）の判定基準を具体化する。[`mode-classification.md`](../../../.claude/rules/mode-classification.md)
 の `lite_eligible` 判定軸（PlanGate 本番向け）を継承しつつ、PoC 用に単純化し、
 **可逆性要件**を追加する。

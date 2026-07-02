@@ -72,7 +72,7 @@ W チェック不一致（A=approve, B=reject）を検出した場合:
 [`working-context.md`](../../../.claude/rules/working-context.md)
 と整合）。
 
-### 3.2.1 severity 分類主体（Phase 1 確定）
+#### 3.2.1 severity 分類主体（Phase 1 確定）
 
 severity 分類の判定主体は **決定論 rule ベースの分類器**とする。Model B
 の reject 理由テキストを、以下のカテゴリマッピング表に機械的に照合して
