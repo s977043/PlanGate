@@ -6,7 +6,7 @@ description: "WF-07 探索的デバッグの仮説を記録・追跡する。Use
 # Hypothesis Logger
 
 > 正本: `.claude/skills/hypothesis-logger/SKILL.md`
-> 関連: [`docs/workflows/07_exploratory_debug.md`](../../docs/workflows/07_exploratory_debug.md) Phase E-1
+> 関連: [`docs/workflows/07_exploratory_debug.md`](../../../docs/workflows/07_exploratory_debug.md) Phase E-1
 
 WF-07 探索的デバッグの仮説→検証→学習→AC 更新サイクルを構造化して記録する。
 
@@ -91,5 +91,5 @@ WF-07 探索的デバッグの仮説→検証→学習→AC 更新サイクル�
 
 ## 関連
 
-- WF-07: [`docs/workflows/07_exploratory_debug.md`](../../docs/workflows/07_exploratory_debug.md)
-- BLOCKED 状態: [`docs/ai/working-context.md`](../../docs/ai/working-context.md) §BLOCKED 状態
+- WF-07: [`docs/workflows/07_exploratory_debug.md`](../../../docs/workflows/07_exploratory_debug.md)
+- BLOCKED 状態: [`.claude/rules/working-context.md`](../../rules/working-context.md) §BLOCKED 状態
