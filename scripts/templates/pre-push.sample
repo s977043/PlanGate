@@ -70,4 +70,26 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   done
 done
 
+# === gh account ドリフト検証 (opt-in 拡張 / #684) ===
+# 既定は no-op。REPO_GUARD_EXPECTED_GH_LOGIN が非空のときのみ発火する。
+# 背景: gh CLI の active account がセッション中に別アカウントへドリフトし、
+#   誤アカウントで push しかける事故が反復 (docs/ai/repo-guard.md 参照)。
+# 誤爆防止: gh 未導入 / 環境変数未設定 / login 判定不能 のいずれも skip (無害)。
+# ループ後に 1 回だけ判定する (push 対象 ref に依存しないため)。
+EXPECTED_GH_LOGIN="${REPO_GUARD_EXPECTED_GH_LOGIN:-}"
+if [ -n "$EXPECTED_GH_LOGIN" ] && command -v gh >/dev/null 2>&1; then
+  current_login=$(gh api user --jq .login 2>/dev/null || true)
+  if [ -n "$current_login" ] && [ "$current_login" != "$EXPECTED_GH_LOGIN" ]; then
+    echo "ERROR: gh active account が想定外です ('$current_login' != '$EXPECTED_GH_LOGIN')" >&2
+    echo "       誤アカウントでの push を防止するため block しました (#684)。" >&2
+    echo "" >&2
+    echo "  対処:" >&2
+    echo "    gh auth switch --user $EXPECTED_GH_LOGIN" >&2
+    echo "" >&2
+    echo "  bypass (緊急時、非推奨):" >&2
+    echo "    git push --no-verify" >&2
+    exit 1
+  fi
+fi
+
 exit 0
