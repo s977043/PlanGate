@@ -126,3 +126,4 @@ Orchestrator Mode（親子 PBI）。
 - [`ai/versioning-stability-policy.md`](./ai/versioning-stability-policy.md) — warning→block 昇格の互換性扱い
 - [#224](https://github.com/s977043/plangate/issues/224) — Plugin 成熟化（導入配布パス）
 - [#227](https://github.com/s977043/plangate/issues/227) — river-reviewer 外部レビュー IF（Phase 3 C-2/V-3）
+- [`coexistence-guide.md`](./coexistence-guide.md) — 既存 plan→exec ワークフローがある場合の共存・部分導入パターン
