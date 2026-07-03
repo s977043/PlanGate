@@ -1,8 +1,8 @@
-# Repo Guard（pre-push テンプレート標準提供 / #684）
+# Repo Guard（pre-push guard + gh account 検証 / #684）
 
 > issue [#684](https://github.com/s977043/plangate/issues/684) 実装。
 > 関連: [`direct-push-prevention.md`](./direct-push-prevention.md)（TASK-0114
-> / #360、既存の main 直 push block 実装）/
+> / #360、protected branch 直 push block の**正本**）/
 > [`../staged-adoption-guide.md`](../staged-adoption-guide.md)（フック有効化
 > 推奨順）/ [`../../.claude/rules/responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)
 > （Bash 連結コマンド時の error guard / merge boundary の正本）
@@ -17,95 +17,77 @@ notionnext-blog の Memories / 実行履歴監査（2026-07-02）で、**リポ�
    操作をしかける事故。`docs/working/retrospective-*.md` に複数回記録
    （2026-04-30 〜 2026-05-31）。`scripts/gh-pin-account.sh`
    （SessionStart 時の pin）/ `scripts/gh-s977043.sh`（gh 操作直前の
-   ラッパ）は plangate リポジトリ固有の対策として存在するが、**pre-push
-   hook 側で検知する仕組みは存在しなかった**。
-2. **main への直接 push**: AI エージェント（conductor）が main へ直接
-   push した逸脱の実績（INC-2026-05-26-001）。TASK-0114（#360）で
-   `scripts/templates/pre-push.sample` + `scripts/install-pre-push.sh`
-   （`.git/hooks/pre-push` へ直接コピーする opt-in 方式）として対策済み。
+   ラッパ）は plangate リポジトリ固有の対策として存在するが、**push の
+   最終地点（pre-push hook）で account を検証する仕組みは無かった**。
+2. **protected branch への直接 push**: AI エージェント（conductor）が
+   main へ直接 push した逸脱（INC-2026-05-26-001）。
+   **TASK-0114（#360）で既に実装済み**（下記）。
 3. **宣言と実装の乖離**: notionnext-blog 側の Memories には「pre-push hook
    で検知する」と対策が宣言されていたが、実際には `.git/hooks/` が空の
-   ままだった。宣言だけで実装が伴わない状態を **doctor が検出できる
-   仕組みが無かった**。
+   ままだった。pre-push guard は #360 で提供済みだが、**install が opt-in
+   のため導入されていない**と、宣言だけで実装が伴わない状態になる。
 
-本 PBI は (1) の gh account 検証を pre-push hook に追加し、**PlanGate 資産
-として repo guard を標準提供**することで、消費側リポジトリが個別実装せず
-導入できるようにする。(3) の「宣言と実装の乖離」検出（doctor 連携）は
-別途 follow-up とする（後述）。
+## protected branch guard は #360 が正本（本 PR で新規実装しない）
 
-## 既存実装（TASK-0114 / #360）との関係
-
-| | `scripts/install-pre-push.sh`（TASK-0114） | `scripts/repo-guard/`（本 PBI） |
-|---|---|---|
-| 配線方式 | `.git/hooks/pre-push` へ直接コピー | `core.hooksPath` で `scripts/repo-guard` を指す |
-| main 直 push block | ○ | ○（同等ロジックを踏襲） |
-| gh account 検証 | なし | ○（`REPO_GUARD_EXPECTED_GH_LOGIN` 設定時） |
-| 既存 hook との共存 | 既存 `.git/hooks/pre-push` を `.bak` 退避して上書き | `core.hooksPath` 変更により他ディレクトリの直接配置 hook は参照されなくなる（相互排他点として明示・下記「注意」参照） |
-| 対象読者 | plangate リポジトリ自身 | plangate を導入する **消費側リポジトリ**（例: notionnext-blog）への標準配布を主眼 |
-
-両者は機能的に重複するが、排他的な選択肢として提供する。**新規導入する
-消費側リポジトリは `scripts/repo-guard/` を優先**し、`scripts/install-pre-push.sh`
-は plangate 自身（および `core.hooksPath` 方式を採らない既存導入先）向けの
-既存資産として維持する。
-
-### 注意: `core.hooksPath` 併用時の相互排他
-
-`core.hooksPath` を `scripts/repo-guard` に変更すると、Git は
-`.git/hooks/` 配下の hook を **一切参照しなくなる**（`core.hooksPath` は
-hook 探索先を完全に置き換える。追加ではなく上書き）。したがって
-`scripts/install-pre-push.sh` で `.git/hooks/pre-push` を導入済みのリポジトリ
-で `install-repo-guard.sh --apply` を実行すると、`.git/hooks/pre-push` は
-以後実行されなくなる（`scripts/repo-guard/pre-push` に一本化される）。
-`install-repo-guard.sh` は `--apply` 実行時にこの上書きを警告表示する。
-
-## 提供物
+protected branch（`main master release/*`）への直接 push block は
+**TASK-0114 / #360 が正本**であり、本 PR では新規実装しない（DRY）。既存資産:
 
 | ファイル | 役割 |
 |---------|------|
-| [`../../scripts/repo-guard/pre-push`](../../scripts/repo-guard/pre-push) | pre-push hook テンプレート本体（実行可能シェル） |
-| [`../../scripts/repo-guard/install-repo-guard.sh`](../../scripts/repo-guard/install-repo-guard.sh) | `core.hooksPath` 方式での配線 apply スクリプト（既定 dry-run） |
+| [`../../scripts/templates/pre-push.sample`](../../scripts/templates/pre-push.sample) | pre-push hook テンプレート本体（battle-tested。Gemini bot R-001/R-002 反映で noglob / SHA-1・SHA-256 zero hash 対応済み） |
+| [`../../scripts/install-pre-push.sh`](../../scripts/install-pre-push.sh) | `.git/hooks/pre-push` への opt-in install（既存 hook は `.bak` 退避・冪等） |
 
-## pre-push テンプレートが防ぐこと
+詳細な設計・bypass・Defense in Depth は
+[`direct-push-prevention.md`](./direct-push-prevention.md) を参照。
 
-1. **protected branch への直接 push**（既定: `main master release/*`）。
-   `local_sha` が全 0（SHA-1/SHA-256）の delete push はエッジケースとして
-   許可（ブランチ削除は別意味の操作、GitHub 側の branch protection で
-   別途保護する前提）。
-2. **期待 gh account との不一致**（`REPO_GUARD_EXPECTED_GH_LOGIN` 設定時
-   のみ有効化。未設定なら検証しない＝既定 opt-out）。`gh` 未導入環境では
-   自動的に skip（誤ブロックしない）。不一致時の挙動は
-   `REPO_GUARD_GH_MISMATCH_MODE`（既定 `block` / `warn` も選択可）。
+## 本 PR の新規貢献
 
-## セットアップ手順
+### 1. gh account ドリフト検証の opt-in 追加
+
+`scripts/templates/pre-push.sample` の末尾（protected branch チェックの
+**後**）に、環境変数 `REPO_GUARD_EXPECTED_GH_LOGIN` が設定されている場合
+**のみ**動く gh account 検証ブロックを追記した。既存の battle-tested
+ロジック（`set -eu` / `set -f` / stdin parse ループ）は一切変更していない。
+
+| 条件 | 挙動 |
+|------|------|
+| `REPO_GUARD_EXPECTED_GH_LOGIN` 未設定 | **完全に no-op**（既存挙動と不変） |
+| `gh` CLI 未導入 | skip（誤ブロックしない） |
+| `gh api user --jq .login` が判定不能 | skip（失敗は握りつぶす） |
+| 期待値と一致 | 通過 |
+| 期待値と不一致 | **push を block（exit 1、理由メッセージ）** |
+
+判定は stdin parse ループの**後に 1 回だけ**行う（push 対象 ref に依存
+しないため）。誤爆でブロックしすぎない安全側設計。
+
+### 2. doctor による hook 導入検証（follow-up・HO・別 PBI）
+
+後述の「Follow-up」参照。本 PR の scope 外。
+
+## セットアップ手順（宣言↔実装乖離の是正）
+
+「pre-push で検知する」という宣言を**実装が伴う状態**にするには、opt-in
+install の実行と（任意で）gh 検証の有効化を行う:
 
 ```sh
-# 1. 差分プレビュー（既定・破壊的操作なし）
-sh scripts/repo-guard/install-repo-guard.sh
-# または明示的に
-sh scripts/repo-guard/install-repo-guard.sh --dry-run
+# 1. pre-push guard を実際に配線する（#360 の opt-in install を実行）
+sh scripts/install-pre-push.sh --dry-run   # 差分確認
+sh scripts/install-pre-push.sh             # 実 install（Human が実行）
 
-# 2. 内容を確認した上で実適用（Human が実行）
-sh scripts/repo-guard/install-repo-guard.sh --apply
+# 2. （任意）gh account ドリフト検証を有効化する
+#    push 時に active account が期待値と一致するか検証したい場合、
+#    環境変数 REPO_GUARD_EXPECTED_GH_LOGIN を設定する。
+#    永続化するには shell profile か、リポジトリローカルの仕組みで宣言する:
+export REPO_GUARD_EXPECTED_GH_LOGIN="<your-gh-login>"   # 例: s977043
 ```
 
-`--apply` は `git config --local core.hooksPath scripts/repo-guard` を
-設定するのみで、`.git/hooks/` 配下のファイルは書き換えない（非破壊）。
+`REPO_GUARD_EXPECTED_GH_LOGIN` は個人環境依存（gh login）のため、環境変数
+として宣言する（コミットしない）。未設定なら gh 検証は無効＝既存挙動のまま。
 
-### 期待 gh account の宣言（任意）
+### protected branch のカスタマイズ
 
-リポジトリルートに `.repo-guard.conf` を作成する（本スクリプトは自動生成
-しない。値の宣言は人間が行う）:
-
-```sh
-# .repo-guard.conf
-REPO_GUARD_PROTECTED_BRANCHES="main master release/*"
-REPO_GUARD_EXPECTED_GH_LOGIN="<your-gh-login>"
-REPO_GUARD_GH_MISMATCH_MODE="block"  # block | warn
-```
-
-`.repo-guard.conf` は個人環境依存の値（gh login 等）を含み得るため
-`.gitignore` への追加を推奨する（チーム共通の protected branch 設定のみ
-共有したい場合はコミットしても構わない）。
+protected list の override は既存どおり `PLANGATE_PROTECTED_BRANCHES` で
+行う（[`direct-push-prevention.md`](./direct-push-prevention.md) 参照）。
 
 ## 緊急 bypass
 
@@ -113,38 +95,34 @@ REPO_GUARD_GH_MISMATCH_MODE="block"  # block | warn
 git push --no-verify
 ```
 
-`--no-verify` は git client 標準の hook skip 機構。本 hook を含む全 git
-hook を一律 skip するため監査ログに残らない。緊急時のみ使用し、最終防衛線
-は GitHub branch protection（Human-owned admin 操作、
-[`direct-push-prevention.md`](./direct-push-prevention.md) の Defense in
-Depth 表を参照）に委ねる。
+`--no-verify` は git client 標準の hook skip 機構。本 hook（protected
+branch guard + gh 検証）を含む全 git hook を一律 skip する。緊急時のみ使用
+し、最終防衛線は GitHub branch protection（Human-owned admin 操作）に委ねる。
 
 ## staged-adoption-guide との接続
 
 [`../staged-adoption-guide.md`](../staged-adoption-guide.md) の「1. フック
-有効化の推奨順序」において、repo guard（本 PBI）は git hook レイヤーの
-対策であり、`.claude/settings.json` の EH-1〜EH-9（Claude Code hook）とは
-別軸で独立に導入できる。Phase 0（Day 1）からの早期導入を推奨する
-（コード変更を伴わず、誤操作防止という性質上モード判定に依存しないため）。
+有効化の推奨順序」において、pre-push guard は git hook レイヤーの対策で
+あり、`.claude/settings.json` の EH-1〜EH-9（Claude Code hook）とは別軸で
+独立に導入できる。誤操作防止という性質上モード判定に依存しないため、
+Phase 0（Day 1）からの早期 install を推奨する。
 
-## Follow-up: `plangate doctor` への統合（本 PBI 範囲外）
+## Follow-up: `plangate doctor` への統合（本 PR 範囲外）
 
 issue #684 は「`plangate doctor` に『必須 git hooks が導入済みか』の
 チェック項目を追加」も要望しているが、`bin/plangate` は Hardening
 Override 対象パス
 （[`mode-classification.md`](../../.claude/rules/mode-classification.md)
-の 9 カテゴリ正本）に該当し、**AI が直接編集できない**（常時 block、
-[`project_ho_always_block.md`] 系の運用実績と整合）。
+の 9 カテゴリ正本）に該当し、**AI が直接編集できない**（常時 block）。
 
-したがって、doctor への「repo guard 導入済みか」チェック追加は **別 PBI
-として起票し、Standard モード・同期 C-3（人間承認）を経て実施する**。
-本 PBI（#684）はテンプレート + apply スクリプト + 本仕様書までを scope と
-し、doctor 連携は明示的に scope 外とする。
+したがって、doctor への「pre-push guard 導入済みか」チェック追加は **別
+PBI として起票し、Standard モード・同期 C-3（人間承認）を経て実施する**。
+本 PR（#684）は pre-push.sample への gh 検証 opt-in 追加 + 本仕様書までを
+scope とし、doctor 連携は明示的に scope 外とする。
 
-検証観点の候補（follow-up PBI 起票時の参考。本 PBI では実装しない）:
+検証観点の候補（follow-up PBI 起票時の参考。本 PR では実装しない）:
 
-- `git config --local --get core.hooksPath` が `scripts/repo-guard` を
-  指しているか
-- `scripts/repo-guard/pre-push` が存在し実行可能か
-- `.repo-guard.conf` の有無（未設定は WARN、gh account 検証が opt-out で
-  あることの周知に留める・FAIL にはしない）
+- `.git/hooks/pre-push`（または `core.hooksPath` 配下）が存在し実行可能か
+- `install-pre-push.sh` 由来の内容と一致するか（宣言↔実装乖離の機械検出）
+- `REPO_GUARD_EXPECTED_GH_LOGIN` が設定されているか（未設定は WARN・
+  gh 検証が opt-out であることの周知に留め、FAIL にはしない）
