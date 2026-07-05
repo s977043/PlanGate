@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-0131 — C-3 Review</title>
+<style>
+:root{--fg:#1f2328;--muted:#656d76;--bd:#d0d7de;--bg:#fff;--accent:#0969da;--code:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--fg);background:#fafbfc}
+.wrap{max-width:980px;margin:0 auto;padding:24px}
+header h1{margin:0 0 4px}
+.meta{color:var(--muted);font-size:14px;margin-bottom:16px}
+nav.toc{position:sticky;top:0;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.toc strong{display:block;margin-bottom:6px}
+nav.toc a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+section.doc{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 24px 24px;margin-bottom:28px}
+section.doc>h2.doc-title{border-bottom:2px solid var(--bd);padding-bottom:8px}
+h1,h2,h3,h4{line-height:1.3}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid var(--bd);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+code{background:var(--code);padding:.15em .35em;border-radius:4px;font-size:85%}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto}
+pre code{background:none;padding:0}
+blockquote{margin:8px 0;padding:0 12px;color:var(--muted);border-left:3px solid var(--bd)}
+ul.checklist{list-style:none;padding-left:18px}
+ul.checklist li{margin:2px 0}
+hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
+a{color:var(--accent)}
+.missing{color:var(--muted);font-style:italic}
+img,svg{max-width:100%}
+.flow-wrap{margin:12px 0;padding:8px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:auto}
+svg.flow text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+nav.perspectives{background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.perspectives strong{display:block;margin-bottom:6px}
+nav.perspectives a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none;font-weight:600}
+nav.perspectives a:hover{text-decoration:underline}
+nav.perspectives .missing{margin:2px 10px 2px 0;display:inline-block}
+</style></head>
+<body><div class="wrap">
+<header><h1>TASK-0131</h1><div class="meta">C-3 レビュー集約ビュー（self-contained）</div></header>
+<nav class="toc"><strong>目次</strong><a href="#pbi-input-md">PBI INPUT PACKAGE (pbi-input.md)</a><a href="#plan-md">EXECUTION PLAN (plan.md)</a><a href="#todo-md">EXECUTION TODO (todo.md)</a><a href="#test-cases-md">TEST CASES (test-cases.md)</a><a href="#review-self-md">C-1 セルフレビュー (review-self.md)</a><a href="#review-external-md">C-2 外部レビュー (review-external.md)</a></nav>
+<nav class="perspectives"><strong>承認観点ナビ</strong><a href="#plan-md-h1">Goal/目的</a><a href="#pbi-input-md-h3">Scope/対象</a><a href="#plan-md-h7">Risk</a><a href="#plan-md-h6">Test/検証</a><span class="missing">Stop/Replan（なし）</span><a href="#pbi-input-md-h6">承認/Approval</a></nav>
+<section class="doc" id="pbi-input-md">
+<h2 class="doc-title">PBI INPUT PACKAGE (pbi-input.md)</h2>
+<h1 id="pbi-input-md-h0">PBI INPUT PACKAGE — TASK-0131 (#565)</h1>
+<h2 id="pbi-input-md-h1">Context / Why</h2>
+<p>外部提案（agent-skills → PlanGate 取り込み検討）のギャップ調査で、提案6要素中5要素は既存充足を確認した。唯一の実質ギャップが「<strong>タスク粒度のロールバック手順の明示</strong>」。現状、戻し手順は <code>plan.md</code> の Risks &amp; Mitigations / Approach に散在し、<code>todo.md</code> の各タスク（owner / depends_on / files / 🚩）には Rollback 欄がない。</p>
+<p>high-risk / critical mode では「各タスクが失敗したらどう戻すか」を task 単位で持つ価値が高い（mode-classification.md 定性基準に「ロールバック: 計画的に必要 / 段階的ロールバック必須」が既にある）。</p>
+<h2 id="pbi-input-md-h2">重要な前提（調査で判明）</h2>
+<ul>
+<li><code>docs/working/templates/</code> に <strong>todo.md の独立テンプレ正本は存在しない</strong>。</li>
+<li>todo.md の構造定義は次に分散:</li>
+<li><code>.claude/rules/working-context.md</code>（todo.md の役割・記載内容の正本）</li>
+<li><code>.agents/skills/ai-dev-plan/SKILL.md</code> の「todo.md 規約」（<code>.codex/</code> <code>plugin/plangate/</code> <code>.claude/worktrees/</code> にミラー）</li>
+<li>したがって「Rollback フィールドをどこに追加するか」は<strong>設計判断</strong>（Codex 相談対象）。</li>
+</ul>
+<h2 id="pbi-input-md-h3">What (Scope)</h2>
+<h3 id="pbi-input-md-h4">In scope</h3>
+<ul>
+<li>todo.md 各タスクに Rollback 手順を表現する規約の追加（追加先は設計で確定）</li>
+<li>mode 別の必須/任意ルール（high-risk / critical で必須、それ以下は任意・「不要」明記可）</li>
+<li>記入サンプル（既存 TASK の todo.md いずれか、またはテンプレ例）</li>
+</ul>
+<h3 id="pbi-input-md-h5">Out of scope</h3>
+<ul>
+<li><code>plan.md</code> の Risks 構造の改変（責務分界＝plan は全体リスク / todo はタスク戻し手順、に留める）</li>
+<li>#566（Skill Router 統合）・#567（不採用理由の構造化）</li>
+</ul>
+<h2 id="pbi-input-md-h6">受入基準</h2>
+<ul>
+<li>AC-01: todo.md の各タスクに Rollback 手順を記す規約が、正本（working-context.md および ai-dev-plan skill）の双方に明文化されている</li>
+<li>AC-02: mode 別の必須/任意ルールが mode-classification.md / working-context.md と矛盾なく記載されている</li>
+<li>AC-03: 記入サンプルが 1 件存在する</li>
+<li>AC-04: ai-dev-plan skill の正本＋ミラー間で記述が整合している（drift を作らない）</li>
+<li>AC-05: C-1（plan-quality-check / review-self）が high-risk/critical の rollback 欠落を FAIL 検出する（Refs: R-001）</li>
+</ul>
+<h2 id="pbi-input-md-h7">Notes from Refinement</h2>
+<ul>
+<li>「テンプレ」という提案語に引きずられず、実態（規約分散）に合わせた追加先を選ぶ。</li>
+<li>二重管理（plan.md Risks と todo.md Rollback）を避ける責務分界を明記する。</li>
+</ul>
+<h2 id="pbi-input-md-h8">Estimation Evidence</h2>
+<ul>
+<li>Risks: 追加先が HO 対象（working-context.md = <code>.claude/rules/*.md</code>）の場合、AI 編集不可 → apply-script + 人間適用が必須。ai-dev-plan skill 正本（<code>.agents/skills/</code>）は override パターン外だが、ミラー同期の整合が必要。</li>
+<li>Unknowns: 追加先（working-context.md / skill / 新規テンプレ）の最適解 → Codex 相談で決定。</li>
+<li>Assumptions: mode-classification.md の既存ロールバック定性基準は変更しない（参照のみ）。</li>
+<li>Mode 見込み: <strong>high-risk</strong>（承認境界周辺の <code>.claude/rules/*.md</code> に触れる可能性 → 最低 high-risk・人間 C-3 同期固定 / autonomous APPROVE 不可）。</li>
+</ul>
+</section>
+<section class="doc" id="plan-md">
+<h2 class="doc-title">EXECUTION PLAN (plan.md)</h2>
+<h1 id="plan-md-h0">EXECUTION PLAN — TASK-0131 (#565)</h1>
+<h2 id="plan-md-h1">Goal</h2>
+<p>todo.md の各実装タスクに「タスク粒度のロールバック手順」を表現する規約を追加し、high-risk / critical mode で必須化する。戻し手順が plan.md Risks に散在する現状を、タスク単位で参照可能にする。</p>
+<h2 id="plan-md-h2">Constraints / Non-goals</h2>
+<ul>
+<li>新規 <code>docs/working/templates/todo.md</code> は作らない（working-context / skill との三重正本化を避ける / Codex 助言 A-3）。</li>
+<li><code>mode-classification.md</code> の既存ロールバック定性基準は変更しない（参照のみ）。</li>
+<li><code>plan.md</code> Risks 構造は改変しない（責務分界で整理）。</li>
+<li>#566 / #567 は対象外。</li>
+</ul>
+<h2 id="plan-md-h3">Approach Overview（Codex 設計相談 d: 組合せ を採用）</h2>
+<ol>
+<li><strong>正本の責務宣言</strong> → <code>.claude/rules/working-context.md</code>（HO 対象 → AI 編集せず apply-script を生成し人間が適用）</li>
+<li><strong>生成規約</strong> → <code>ai-dev-plan</code> SKILL の「todo.md 規約」に <code>rollback:</code> インラインキーと mode 別必須を追記（正本 <code>.agents/</code> + 正規ミラー <code>.codex/</code> <code>plugin/plangate/</code>。override 外のため AI 編集可）</li>
+<li><strong>欠落検出</strong> → C-1 セルフレビュー（<code>plan-quality-check</code> skill / <code>review-self.md</code> テンプレ）に「high-risk/critical で rollback 欠落 → FAIL」を追加（override 外）</li>
+<li><strong>表現</strong> → 既存1行形式を維持し <code>rollback:</code> を追加。長手順のみ直下補助ブロック許可。</li>
+</ol>
+<h2 id="plan-md-h4">Work Breakdown</h2>
+<ul>
+<li><strong>S1</strong> working-context.md に rollback 規約（責務分界 D + mode 別必須 C）を追記する apply-script + patch を<strong>生成</strong>（AI は適用しない）</li>
+<li>Output: <code>scripts/apply-task-0131-rollback.sh</code>（または patch） / Owner: agent / Risk: HO 適用漏れ / 🚩HO（人間適用）</li>
+<li><strong>S2</strong> ai-dev-plan SKILL「todo.md 規約」に <code>rollback:</code> キー + mode 別必須 + 補助ブロック許可を追記（<code>.agents/</code> 正本 → <code>.codex/</code> <code>plugin/plangate/</code> 同期）</li>
+<li>Output: 3 ファイル差分 / Owner: agent / Risk: ミラー drift / 🚩 正本→ミラー同期検証</li>
+<li><strong>S3</strong> <code>plan-quality-check</code> skill（および <code>review-self.md</code> テンプレ）に rollback 欠落検出項目を追加</li>
+<li>Output: skill/テンプレ差分 / Owner: agent / Risk: 既存17項目との重複</li>
+<li><strong>S4</strong> 記入サンプル追加（本 TASK の todo.md 自体をドッグフーディング例にする）</li>
+<li>Output: todo.md の rollback 記入例 / Owner: agent / Risk: なし</li>
+</ul>
+<h2 id="plan-md-h5">Files / Components to Touch</h2>
+<ul>
+<li><code>.claude/rules/working-context.md</code>（<strong>HO → apply-script 経由・人間適用</strong>）</li>
+<li><code>.agents/skills/ai-dev-plan/SKILL.md</code> + <code>.codex/skills/ai-dev-plan/SKILL.md</code> + <code>plugin/plangate/skills/ai-dev-plan/SKILL.md</code>（AI 編集可）</li>
+<li><code>.claude/skills/plan-quality-check/SKILL.md</code>（AI 編集可）</li>
+<li><code>docs/working/templates/review-self.md</code>（C-1 テンプレ・AI 編集可）</li>
+</ul>
+<h2 id="plan-md-h6">Testing Strategy</h2>
+<ul>
+<li>Unit/機械: <code>grep</code> で 正本と2ミラー間の <code>rollback:</code> 規約一致を検証、markdownlint、<code>bin/plangate doctor</code></li>
+<li>Integration: 本 TASK todo.md に rollback 記入 → <code>bin/plangate validate TASK-0131</code> 整合</li>
+<li>Verification: C-1 セルフレビューで rollback 欠落検出ロジックが high-risk で発火することを手動確認</li>
+</ul>
+<h2 id="plan-md-h7">Risks &amp; Mitigations（内容 / 検証手段 / Fallback）</h2>
+<ul>
+<li>R1 HO 適用漏れで working-context 正本だけ未反映 / doctor + grep 突合 / apply-script 未適用なら V-1 を PASS にしない（settings タスクロックと同型）</li>
+<li>R2 ai-dev-plan 正本とミラーの drift / grep 3 ファイル一致検証 / 不一致なら同期し直す</li>
+<li>R3 C-1 への項目追加で既存チェックと重複・誤検出 / 既存17項目を読み差分のみ追加 / 過検出時は条件を high-risk/critical に限定</li>
+</ul>
+<h2 id="plan-md-h8">Metrics Evidence</h2>
+<ul>
+<li>対象「ai-dev-plan SKILL ミラー全件」: 実数 4（<code>find</code> 実測）/ 見積もり 3 / ratio 1.33 → 採用、Risks R2 に記録。うち <code>.claude/worktrees/agent-ae384a6baedaaef08/</code> 1 件は worktree 残骸で同期対象外、正本と正規ミラーの合計は 3。</li>
+</ul>
+<h2 id="plan-md-h9">Questions / Unknowns</h2>
+<ul>
+<li>working-context.md の rollback 規約を「役割表」に足すか新規節にするか → apply-script 生成時に最小差分で決定。</li>
+</ul>
+<h2 id="plan-md-h10">Mode判定</h2>
+<p><strong>モード</strong>: high-risk</p>
+<p><strong>判定根拠</strong>:</p>
+<ul>
+<li>変更ファイル数: 6（working-context + skill×3 + plan-quality-check + review-self）→ high</li>
+<li>受入基準数: 4 → standard</li>
+<li>変更種別: 承認境界周辺（<code>.claude/rules/*.md</code> = HO 対象）→ <strong>最低 high-risk 強制</strong>（mode-classification 例外ルール）</li>
+<li>リスク: 中〜高（正本/ミラー整合・HO 適用）</li>
+<li><strong>最終判定</strong>: high-risk（<code>lite_eligible=false</code>・Standard 同期 C-3 固定・autonomous APPROVE 不可・人間 C-3 必須）</li>
+</ul>
+</section>
+<section class="doc" id="todo-md">
+<h2 class="doc-title">EXECUTION TODO (todo.md)</h2>
+<h1 id="todo-md-h0">EXECUTION TODO — TASK-0131 (#565)</h1>
+<h2 id="todo-md-h1">🤖 Agent タスク</h2>
+<h3 id="todo-md-h2">準備</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T1 working-context.md / ai-dev-plan SKILL の todo.md 規約 現状箇所を特定 (owner:agent, files:.claude/rules/working-context.md, rollback:不要・読取のみ)</li>
+</ul>
+<h3 id="todo-md-h3">実装</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T2 [S2] ai-dev-plan SKILL「todo.md 規約」に rollback: キー + mode別必須 + 補助ブロック許可を追記 (owner:agent, files:.agents/skills/ai-dev-plan/SKILL.md, depends_on:T1, rollback:git checkout で該当SKILL.mdを元に戻す)</li>
+<li><input type='checkbox' disabled > T3 [S2] 上記を .codex/ と plugin/plangate/ のミラーへ同期 (owner:agent, files:.codex/skills/ai-dev-plan/SKILL.md;plugin/plangate/skills/ai-dev-plan/SKILL.md, depends_on:T2, rollback:2ミラーを git checkout で復元)</li>
+<li><input type='checkbox' disabled > T4 [S1] working-context.md 追記の apply-script + patch を生成（AI編集しない） (owner:agent, files:scripts/apply-task-0131-rollback.sh, depends_on:T1, rollback:生成スクリプトを削除, 🚩HO)</li>
+<li><input type='checkbox' disabled > T5 [S3] plan-quality-check SKILL + review-self.md に rollback 欠落検出を追加 (owner:agent, files:.claude/skills/plan-quality-check/SKILL.md;docs/working/templates/review-self.md, depends_on:T2, rollback:両ファイルを git checkout で復元)</li>
+<li><input type='checkbox' disabled > T6 [S4] 本 todo.md を rollback 記入サンプルとして整える (owner:agent, files:docs/working/TASK-0131/todo.md, depends_on:T2, rollback:todo.md のサンプル追記差分を git checkout で復元)</li>
+</ul>
+<h3 id="todo-md-h4">検証</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T7 grep で3ミラー rollback 規約一致 + AC-05 検出項目確認 + markdownlint + doctor (owner:agent, depends_on:T3,T5, rollback:不要・検証のみ)</li>
+</ul>
+<h3 id="todo-md-h5">完了</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T8 handoff.md 作成(6要素) (owner:agent, files:docs/working/TASK-0131/handoff.md, depends_on:T7, rollback:不要)</li>
+</ul>
+<h2 id="todo-md-h6">👤 Human タスク</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > H1 C-3 承認（high-risk / Standard 同期・exec 前ゲート） (owner:human 🚩)</li>
+<li><input type='checkbox' disabled > H2 working-context.md の apply-script 実行（HO 適用） (owner:human 🚩)</li>
+<li><input type='checkbox' disabled > H3 C-4 PR レビュー (owner:human)</li>
+</ul>
+<h2 id="todo-md-h7">⚠️ 依存</h2>
+<ul>
+<li>T1 → T2 → T3 / T5 → T7</li>
+<li>exec 開始は H1(C-3) 必須 / S1 反映は H2(HO 適用) 必須</li>
+<li>AC-01 のうち working-context 正本反映の検証は H2(人間 apply) 後に実施</li>
+</ul>
+<h2 id="todo-md-h8">📌 rollback 記法サンプル（#565 ドッグフーディング）</h2>
+<p>各タスクの <code>rollback:</code> が本ファイルの記入例。検証/読取のみのタスクは <code>rollback:不要</code> と明記する（mode-classification の「不要明記可」に対応）。</p>
+</section>
+<section class="doc" id="test-cases-md">
+<h2 class="doc-title">TEST CASES (test-cases.md)</h2>
+<h1 id="test-cases-md-h0">TEST CASES — TASK-0131 (#565)</h1>
+<h2 id="test-cases-md-h1">AC → テストケース マッピング</h2>
+<h3 id="test-cases-md-h2">AC-01: todo.md 各タスクに rollback を記す規約が正本に明文化</h3>
+<ul>
+<li><strong>TC-01</strong>: <code>grep -n &quot;rollback&quot; .claude/rules/working-context.md</code> で rollback 規約節がヒットする（H2 適用後）。前提: working-context 更新適用済み。期待: 規約文がある。種別: 機械</li>
+<li><strong>TC-02</strong>: <code>grep -n &quot;rollback&quot; .agents/skills/ai-dev-plan/SKILL.md</code> で <code>rollback:</code> キー規約がヒットする。種別: 機械</li>
+</ul>
+<h3 id="test-cases-md-h3">AC-02: mode 別の必須/任意ルールが矛盾なく記載（Refs: R-002）</h3>
+<ul>
+<li><strong>TC-03</strong>: working-context <strong>と</strong> ai-dev-plan SKILL の<strong>双方</strong>に「high-risk/critical で rollback 必須・standard 以下任意」が記載され、mode-classification.md の定性基準と矛盾せず、正本(責務宣言)と生成規約の責務差分が整合する。種別: レビュー</li>
+<li><strong>TC-04</strong>: standard 以下で <code>rollback:不要</code> 明記が許容される旨が記載。種別: レビュー</li>
+</ul>
+<h3 id="test-cases-md-h4">AC-03: 記入サンプルが1件存在</h3>
+<ul>
+<li><strong>TC-05</strong>: <code>docs/working/TASK-0131/todo.md</code> の各 Agent タスクに <code>rollback:</code> が存在する。種別: 機械（<code>grep &#x27;^- \[ \] T&#x27; docs/working/TASK-0131/todo.md | grep -vc &#x27;rollback:&#x27;</code> が 0）</li>
+</ul>
+<h3 id="test-cases-md-h5">AC-04: 正本+ミラー整合</h3>
+<ul>
+<li><strong>TC-06</strong>: <code>.agents/</code> <code>.codex/</code> <code>plugin/plangate/</code> の ai-dev-plan SKILL の rollback 規約文が一致（diff 差分なし）。種別: 機械</li>
+</ul>
+<h3 id="test-cases-md-h6">AC-05: C-1 が rollback 欠落を検出（Refs: R-001）</h3>
+<ul>
+<li><strong>TC-07</strong>: <code>plan-quality-check</code> SKILL と <code>docs/working/templates/review-self.md</code> に「high-risk/critical の実装タスクで rollback 欠落 → FAIL」検出項目が存在する。high-risk plan で rollback 欠落タスクを与えると C-1 が FAIL 判定する。種別: レビュー + 機械（grep で検出項目の存在確認）</li>
+</ul>
+<h2 id="test-cases-md-h7">Edge cases</h2>
+<ul>
+<li>EC-01: 検証/読取のみタスク → <code>rollback:不要</code> を許容（誤って必須化しない）</li>
+<li>EC-02: 長手順 rollback → 直下補助ブロック記法が壊れずレンダリングされる</li>
+<li>EC-03: worktree 残骸ミラー（<code>.claude/worktrees/...</code>）は同期対象外として TC-06 から除外</li>
+</ul>
+</section>
+<section class="doc" id="review-self-md">
+<h2 class="doc-title">C-1 セルフレビュー (review-self.md)</h2>
+<h1 id="review-self-md-h0">C-1 セルフレビュー — TASK-0131 (#565)</h1>
+<h2 id="review-self-md-h1">Plan チェック（7項目）</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> P1 受入基準網羅性: AC-01〜04 が Work Breakdown S1-S4 と対応 — PASS</li>
+<li><input type='checkbox' disabled checked> P2 Unknowns 処理: working-context 追記形式を Questions に明示、apply-script 生成時決定 — PASS</li>
+<li><input type='checkbox' disabled checked> P3 スコープ制御: 新規テンプレ非作成・plan.md Risks 不改変・#566/#567 除外を Non-goals に明記 — PASS</li>
+<li><input type='checkbox' disabled checked> P4 テスト戦略: TC-01〜06 + Edge 3 件、機械/レビュー区分あり — PASS</li>
+<li><input type='checkbox' disabled checked> P5 Work Breakdown Output: 各 S に Output/Owner/Risk/🚩 — PASS</li>
+<li><input type='checkbox' disabled checked> P6 依存関係: todo.md ⚠️依存に T1→T2→T3/T5→T7、H2 後検証を明示 — PASS</li>
+<li><input type='checkbox' disabled checked> P7 動作検証自動化: grep 3 ミラー一致 / doctor / validate — PASS</li>
+</ul>
+<h2 id="review-self-md-h2">ToDo チェック（5項目）</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> D1 タスク粒度: T1-T8 が小単位 — PASS</li>
+<li><input type='checkbox' disabled checked> D2 depends_on 設定: あり — PASS</li>
+<li><input type='checkbox' disabled checked> D3 チェックポイント: 🚩HO（T4）/ H1/H2 — PASS</li>
+<li><input type='checkbox' disabled checked> D4 Iron Law 遵守: HO は apply-script 生成のみ・AI 適用しない（T4）— PASS</li>
+<li><input type='checkbox' disabled checked> D5 完了条件: handoff(T8) — PASS</li>
+</ul>
+<h2 id="review-self-md-h3">TestCases チェック（3項目）</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> T1 受入基準との紐付き: AC↔TC 明示 — PASS</li>
+<li><input type='checkbox' disabled checked> T2 Edge case 網羅: EC-01〜03（rollback不要許容 / 補助ブロック / worktree除外）— PASS</li>
+<li><input type='checkbox' disabled checked> T3 自動化可否: TC-01,02,05,06 機械化可 — PASS</li>
+</ul>
+<h2 id="review-self-md-h4">承認境界チェック（自己設置）</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> HO 対象（working-context.md）は AI 編集せず apply-script 経由・人間適用（H2）を明示 — PASS</li>
+<li><input type='checkbox' disabled checked> high-risk → lite_eligible=false / Standard 同期 C-3 / autonomous APPROVE 不可を Mode 判定に明記 — PASS</li>
+</ul>
+<h2 id="review-self-md-h5">判定</h2>
+<p><strong>PASS</strong>（FAIL なし）。軽微 WARN: working-context 追記の具体文言は apply-script 生成時に確定（Unknowns 記載済み）。</p>
+<h2 id="review-self-md-h6">次フェーズ</h2>
+<p>C-2（Codex 外部レビュー）→ C-3（人間 APPROVED 必須・autonomous 不可）。</p>
+<h2 id="review-self-md-h7">簡易 C-1 再実行（C-2 反映後 / Refs R-001..R-003）</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> R-001 反映: AC-05 + TC-07 追加、pbi-input に AC-05 — PASS</li>
+<li><input type='checkbox' disabled checked> R-002 反映: TC-03 を「working-context と SKILL の双方」に修正 — PASS</li>
+<li><input type='checkbox' disabled checked> R-003 反映: T6 の rollback を具体化（git checkout 復元）— PASS</li>
+</ul>
+<ul>
+<li>判定: <strong>PASS</strong>。残 major なし。C-3（人間 APPROVED）待ち。</li>
+</ul>
+<h2 id="review-self-md-h8">簡易 C-1 再実行（gemini R-004..R-009 反映後）</h2>
+<ul>
+<li>AC ↔ TC 整合: AC-01 を「双方」に統一し TC-03 と一致 — PASS</li>
+<li>todo 規約（depends_on/files 必須）: T6/T8 補完で全 Agent タスク準拠 — PASS</li>
+<li>TC-05 機械検証の妥当性: Agent タスク限定 grep に修正、偽陽性解消 — PASS</li>
+<li>用語整合（正本/ミラー）: plan 2 箇所修正 — PASS</li>
+<li>判定: PASS（critical/major 0、medium 6 反映済み）</li>
+</ul>
+</section>
+<section class="doc" id="review-external-md">
+<h2 class="doc-title">C-2 外部レビュー (review-external.md)</h2>
+<h1 id="review-external-md-h0">C-2 外部レビュー（Codex）— TASK-0131 (#565)</h1>
+<p>レビュア: Codex (gpt-5.5) / レーン: 設計妥当性 / verdict: CONDITIONAL（major 3 / critical 0）</p>
+<h2 id="review-external-md-h1">指摘一覧（追記専用）</h2>
+<table>
+<thead><tr>
+<th>R-NNN</th>
+<th>severity</th>
+<th>内容</th>
+<th>status</th>
+<th>reflected_in</th>
+<th>notes</th>
+</tr></thead><tbody>
+<tr><td>R-001</td><td>major</td><td>C-1 の rollback 欠落検出が受入基準に無く、未実装でも AC PASS 可能</td><td>reflected</td><td>(this branch)</td><td>AC-05 + TC-07 追加</td></tr>
+<tr><td>R-002</td><td>major</td><td>TC-03 が「working-context <strong>または</strong> skill」で双方反映を保証しない</td><td>reflected</td><td>(this branch)</td><td>TC-03 を「双方に」修正</td></tr>
+<tr><td>R-003</td><td>major</td><td>T6 が実装タスクなのに rollback:不要、high-risk 必須設計と矛盾</td><td>reflected</td><td>(this branch)</td><td>T6 rollback 具体化</td></tr>
+</tbody></table>
+<h2 id="review-external-md-h2">反映方針</h2>
+<p>1 回確定反映（本コミット）。簡易 C-1 再実行 → 人間 C-3（APPROVED）→ exec。</p>
+<h2 id="review-external-md-h3">C-2 追加レビュー（gemini-code-assist / GitHub PR #568）— 追記専用</h2>
+<p>レーン: 設計妥当性+整合 / verdict: 全 medium（critical 0 / major 0）</p>
+<table>
+<thead><tr>
+<th>R-NNN</th>
+<th>severity</th>
+<th>内容</th>
+<th>status</th>
+<th>reflected_in</th>
+<th>notes</th>
+</tr></thead><tbody>
+<tr><td>R-004</td><td>medium</td><td>AC-01 が「OR」で TC-03（双方）と不整合</td><td>reflected</td><td>(this branch)</td><td>AC-01 を「および/双方」に修正</td></tr>
+<tr><td>R-005</td><td>medium</td><td>plan Testing「3 ミラー間」用語不正確（正本はミラーでない）</td><td>reflected</td><td>(this branch)</td><td>「正本と2ミラー間」へ</td></tr>
+<tr><td>R-006</td><td>medium</td><td>plan Metrics「正規ミラーは 3」用語不正確</td><td>reflected</td><td>(this branch)</td><td>「正本と正規ミラーの合計は 3」へ</td></tr>
+<tr><td>R-007</td><td>medium</td><td>TC-05 grep が全行カウントで Agent タスク漏れを偽陽性化</td><td>reflected</td><td>(this branch)</td><td>Agent タスク限定 grep へ</td></tr>
+<tr><td>R-008</td><td>medium</td><td>T6 に files 欠落（ai-dev-plan SKILL 規約違反）</td><td>reflected</td><td>(this branch)</td><td>files 追記</td></tr>
+<tr><td>R-009</td><td>medium</td><td>T8 に depends_on/files 欠落</td><td>reflected</td><td>(this branch)</td><td>depends_on:T7 + files 追記</td></tr>
+</tbody></table>
+<p>注: R-005/R-006 の用語修正は「正本=ミラーではない」を反映。gemini の指摘は妥当。</p>
+</section>
+</div></body></html>

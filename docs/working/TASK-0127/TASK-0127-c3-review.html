@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-0127 — C-3 Review</title>
+<style>
+:root{--fg:#1f2328;--muted:#656d76;--bd:#d0d7de;--bg:#fff;--accent:#0969da;--code:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--fg);background:#fafbfc}
+.wrap{max-width:980px;margin:0 auto;padding:24px}
+header h1{margin:0 0 4px}
+.meta{color:var(--muted);font-size:14px;margin-bottom:16px}
+nav.toc{position:sticky;top:0;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.toc strong{display:block;margin-bottom:6px}
+nav.toc a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+section.doc{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 24px 24px;margin-bottom:28px}
+section.doc>h2.doc-title{border-bottom:2px solid var(--bd);padding-bottom:8px}
+h1,h2,h3,h4{line-height:1.3}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid var(--bd);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+code{background:var(--code);padding:.15em .35em;border-radius:4px;font-size:85%}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto}
+pre code{background:none;padding:0}
+blockquote{margin:8px 0;padding:0 12px;color:var(--muted);border-left:3px solid var(--bd)}
+ul.checklist{list-style:none;padding-left:18px}
+ul.checklist li{margin:2px 0}
+hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
+a{color:var(--accent)}
+.missing{color:var(--muted);font-style:italic}
+</style></head>
+<body><div class="wrap">
+<header><h1>TASK-0127</h1><div class="meta">C-3 レビュー集約ビュー（self-contained）</div></header>
+<nav class="toc"><strong>目次</strong><a href="#pbi-input-md">PBI INPUT PACKAGE (pbi-input.md)</a><a href="#plan-md">EXECUTION PLAN (plan.md)</a><a href="#todo-md">EXECUTION TODO (todo.md)</a><a href="#test-cases-md">TEST CASES (test-cases.md)</a><a href="#review-self-md">C-1 セルフレビュー (review-self.md)</a></nav>
+<section class="doc" id="pbi-input-md">
+<h2 class="doc-title">PBI INPUT PACKAGE (pbi-input.md)</h2>
+<h1>PBI INPUT PACKAGE: TASK-0127</h1>
+<h2>Context / Why</h2>
+<p>C-3 人間レビューは現状 <code>docs/working/TASK-XXXX/</code> 配下の複数 Markdown（<code>pbi-input.md</code> / <code>plan.md</code> / <code>todo.md</code> / <code>test-cases.md</code> / <code>review-self.md</code> / <code>review-external.md</code> / <code>handoff.md</code>）をエディタで個別に開いて確認する運用になっている。</p>
+<p>利用者から以下の声があり、レビュー体験を改善したい:</p>
+<ul>
+<li>MD ファイルは（生 Markdown のため）確認しづらい</li>
+<li>ファイルが多くて全体を把握しづらい</li>
+<li>ブラウザ上で確認したい</li>
+</ul>
+<p>C-3 レビュー対象アーティファクトを 1 枚の自己完結 HTML に集約し、ブラウザで横断把握できる出力オプションを提供する。</p>
+<h2>What</h2>
+<h3>In scope</h3>
+<ul>
+<li><code>bin/plangate render &lt;TASK-XXXX&gt; [--html]</code> サブコマンドの追加</li>
+<li><code>bin/plangate</code> 本体は <strong>Hardening Override 対象パス</strong>のため、AI は直接編集せず <code>scripts/apply-*.sh</code> パッチを作成 → <strong>人間が適用</strong>する（責務 4 分類: Human-owned 適用）</li>
+<li>レンダリング本体 <code>scripts/render_review.py</code>（HO 対象外 = AI 実装可、Python 標準ライブラリ中心 / 外部 pip 依存を増やさない）</li>
+<li>出力: <code>docs/working/&lt;TASK-XXXX&gt;/c3-review.html</code>（単一・自己完結 = CSS/JS 埋め込み、外部 CDN 依存なし）</li>
+<li>レンダリング内容:</li>
+<li>C-3 対象 7 種 MD を 1 ページに集約（存在するファイルのみ）</li>
+<li>先頭に目次（各セクションへのアンカーリンク）</li>
+<li>GFM 表 / チェックボックス（<code>- [ ]</code> / <code>- [x]</code>）/ コードブロック / 見出し / 相対リンクのレンダリング</li>
+<li>ドキュメント追記（<code>docs/</code> 配下に render コマンドの使い方を明記）</li>
+</ul>
+<h3>Out of scope（V2 候補）</h3>
+<ul>
+<li>ローカル HTTP サーバ / ライブリロード（<code>serve</code> サブコマンド）</li>
+<li>PDF 出力</li>
+<li>mermaid 等の図表描画</li>
+<li>外部 Markdown ライブラリ（markdown + pygments 等）の採用（依存追加を伴うため versioning-stability-policy 適合確認が別途必要）</li>
+<li>C-3 承認操作そのもの（<code>c3.json</code> 発行）の HTML UI 化（承認境界は Human-owned のまま不変）</li>
+</ul>
+<h2>受入基準</h2>
+<table>
+<thead><tr>
+<th>AC</th>
+<th>内容</th>
+</tr></thead><tbody>
+<tr><td>AC-01</td><td><code>bin/plangate render TASK-XXXX --html</code> で <code>docs/working/TASK-XXXX/c3-review.html</code> が生成される</td></tr>
+<tr><td>AC-02</td><td>存在する C-3 対象 MD（最大 7 種）がすべて 1 ページに集約され、欠落ファイルはスキップされる（エラーにしない）</td></tr>
+<tr><td>AC-03</td><td>先頭の目次から各 MD セクションへアンカー遷移できる</td></tr>
+<tr><td>AC-04</td><td>GFM 表・チェックボックス・コードブロック・見出しが HTML としてレンダリングされる</td></tr>
+<tr><td>AC-05</td><td>生成 HTML は自己完結（外部 CDN / 外部ファイル参照なし）で、オフライン・ブラウザ直開きで表示できる</td></tr>
+<tr><td>AC-06</td><td><code>scripts/render_review.py</code> は Python 標準ライブラリのみで動作し、新規 pip 依存を追加しない</td></tr>
+<tr><td>AC-07</td><td><code>bin/plangate</code> への変更は apply-script として提示され、AI は直接編集しない（適用は人間）</td></tr>
+<tr><td>AC-08</td><td>対象 TASK ディレクトリが存在しない場合は明示エラーを返す</td></tr>
+</tbody></table>
+<h2>Notes from Refinement</h2>
+<ul>
+<li>出力形態は「単一自己完結 HTML（静的ファイル）」を採用（ローカルサーバ案は V2）</li>
+<li>実装手段は「標準ツール内製（依存最小）」を採用（既存 MD ライブラリ案は依存追加のため V2）</li>
+<li>C-3 承認境界・5 レビュー観点は変更しない（閲覧体験の改善のみ）</li>
+</ul>
+<h2>Estimation Evidence</h2>
+<h3>Risks / Unknowns</h3>
+<ul>
+<li>Python 標準ライブラリのみで GFM 表 / チェックボックスを十分な品質でレンダリングできるか（簡易パーサの実装範囲）</li>
+<li><code>bin/plangate</code> が HO 対象のため apply-script + 人間適用フローが必要（AI 単独完結不可）</li>
+<li>Mode = high-risk（承認境界周辺 = <code>bin/plangate</code> に touch）→ <code>lite_eligible=false</code> / Standard C-3 同期固定</li>
+</ul>
+<h3>Assumptions</h3>
+<ul>
+<li>既存 <code>scripts/*.py</code>（<code>scripts/_*.py</code> 含む）のパターンに沿って <code>render_review.py</code> を実装</li>
+<li>既存 <code>scripts/apply-*.sh</code> のパターンに沿って bin/plangate パッチ用 apply-script を作成</li>
+<li>レンダリング対象は working-context.md 定義の C-3 アーティファクト 7 種を基準とする</li>
+</ul>
+</section>
+<section class="doc" id="plan-md">
+<h2 class="doc-title">EXECUTION PLAN (plan.md)</h2>
+<h1>EXECUTION PLAN: TASK-0127</h1>
+<p>C-3 人間レビュー用 HTML 出力オプション（<code>bin/plangate render</code>）</p>
+<h2>Goal</h2>
+<p>C-3 対象の 7 種 Markdown を 1 枚の自己完結 HTML に集約し、ブラウザで横断把握できる出力コマンドを提供する。MD が読みづらい / ファイルが多い / ブラウザで見たい、という利用者の声を解消する。</p>
+<h2>Constraints / Non-goals</h2>
+<ul>
+<li><strong>Constraints</strong></li>
+<li><code>bin/plangate</code> は Hardening Override 対象 → AI は直接編集せず apply-script を作り <strong>人間が適用</strong></li>
+<li><code>scripts/render_review.py</code> は <strong>Python 標準ライブラリのみ</strong>（新規 pip 依存ゼロ）</li>
+<li>生成 HTML は <strong>自己完結</strong>（外部 CDN / 外部ファイル参照なし）</li>
+<li><strong>Non-goals（V2）</strong></li>
+<li>ローカル HTTP サーバ / ライブリロード（<code>serve</code>）</li>
+<li>PDF 出力、mermaid 図描画</li>
+<li>外部 MD ライブラリ採用</li>
+<li>C-3 承認操作（c3.json 発行）の UI 化</li>
+</ul>
+<h2>Approach Overview</h2>
+<p><code>bin/plangate render &lt;TASK-XXXX&gt; [--html]</code> → <code>scripts/render_review.py</code> を呼び出し → C-3 対象 7 種 MD のうち存在するものを読み、目次付き 1 ページ HTML を <code>docs/working/&lt;TASK&gt;/&lt;TASK&gt;-c3-review.html</code> に出力。生成後は出力パスを表示するのみ（ブラウザ自動起動なし）。</p>
+<p>レンダリングは Python 標準ライブラリのみの簡易 Markdown→HTML 変換器を <code>render_review.py</code> 内に実装する（見出し / 段落 / GFM 表 / チェックボックス / コードブロック / インライン強調・コード・リンク）。</p>
+<h3>アプローチ比較（B-2）</h3>
+<table>
+<thead><tr>
+<th>案</th>
+<th>構成</th>
+<th>Pros</th>
+<th>Cons</th>
+<th>採否</th>
+</tr></thead><tbody>
+<tr><td><strong>A（採用）</strong></td><td><code>render_review.py</code>（標準ライブラリ簡易パーサ）+ bin/plangate apply-script</td><td>依存ゼロ・自己完結・HO 適用分離が明確</td><td>簡易パーサの対応記法が限定的（保守は局所）</td><td>✅</td></tr>
+<tr><td>B</td><td>外部 <code>markdown</code>+<code>pygments</code> 採用</td><td>高品質レンダリング</td><td>pip 依存追加・versioning-stability 適合確認が別途必要・ユーザー意向に反する</td><td>✗</td></tr>
+<tr><td>C</td><td>Shell + vendored marked.js 埋め込み</td><td>生成時 Python 不要</td><td>3rd-party JS を repo に vendor・ユーザーは Python OK 表明</td><td>✗</td></tr>
+</tbody></table>
+<h2>Work Breakdown</h2>
+<table>
+<thead><tr>
+<th>Step</th>
+<th>内容</th>
+<th>Output</th>
+<th>Owner</th>
+<th>Risk</th>
+<th>🚩</th>
+</tr></thead><tbody>
+<tr><td>S1</td><td><code>render_review.py</code> 実装（引数: work_dir / task_id / 出力先、7 種 MD 読込・欠落スキップ）</td><td>scripts/render_review.py</td><td>agent</td><td>M</td><td>🚩 簡易パーサの記法網羅</td></tr>
+<tr><td>S2</td><td>簡易 Markdown→HTML 変換（見出し/段落/表/チェックボックス/コード/インライン）</td><td>（S1 内）</td><td>agent</td><td>M</td><td>🚩 GFM 表・チェックボックス</td></tr>
+<tr><td>S3</td><td>自己完結 HTML テンプレート（CSS インライン・目次アンカー生成）</td><td>（S1 内）</td><td>agent</td><td>L</td><td></td></tr>
+<tr><td>S4</td><td><code>bin/plangate</code> 用 apply-script（<code>cmd_render</code> 関数 + dispatch <code>render)</code> 注入、冪等・--dry-run 対応）</td><td>scripts/apply-task-0127-render.sh</td><td>agent</td><td>M</td><td>🚩 既存 dispatch アンカー整合</td></tr>
+<tr><td>S5</td><td>help テキスト追記分も apply-script に含める</td><td>（S4 内）</td><td>agent</td><td>L</td><td></td></tr>
+<tr><td>S6</td><td>ドキュメント追記（render コマンドの使い方）</td><td>docs（既存ページに追記 or 新規）</td><td>agent</td><td>L</td><td></td></tr>
+<tr><td>S7</td><td>テスト（test-cases.md 全件）</td><td>evidence/test-runs/</td><td>agent</td><td>M</td><td>🚩 V-1 突合</td></tr>
+<tr><td>H1</td><td>apply-script を人間が dry-run → 適用</td><td>bin/plangate 反映</td><td>human</td><td>M</td><td>🚩 HO 適用</td></tr>
+</tbody></table>
+<h2>Files / Components to Touch</h2>
+<ul>
+<li>新規: <code>scripts/render_review.py</code>（AI 実装）</li>
+<li>新規: <code>scripts/apply-task-0127-render.sh</code>（AI 作成 / 人間適用）</li>
+<li>変更（apply-script 経由・人間適用）: <code>bin/plangate</code>（<code>cmd_render</code> + dispatch + help）</li>
+<li>追記: ドキュメント（<code>docs/</code> 配下、render 使い方）</li>
+</ul>
+<h2>Testing Strategy</h2>
+<ul>
+<li><strong>Unit</strong>: <code>render_review.py</code> の Markdown→HTML 変換を、表・チェックボックス・コードブロック・欠落ファイルの各入力で検証（fixture を使った Python 実行）</li>
+<li><strong>Integration</strong>: 既存 TASK ディレクトリ（例: TASK-0126）に対し render を実行し、7 種のうち存在分が 1 ページに集約され目次アンカーが機能することを確認</li>
+<li><strong>Verification</strong>: 生成 HTML をブラウザ（または curl で grep）で開き、外部参照ゼロ（<code>http://</code> / <code>https://</code> の src/href が CSS/JS に無い）を確認</li>
+<li><strong>エラー系</strong>: 存在しない TASK 指定で明示エラー・非ゼロ終了</li>
+</ul>
+<h2>Risks &amp; Mitigations</h2>
+<table>
+<thead><tr>
+<th>Risk</th>
+<th>Mitigation</th>
+</tr></thead><tbody>
+<tr><td>標準ライブラリのみで GFM 表/チェックボックスのレンダリング品質が不足</td><td>対応記法を明示スコープ化（test-cases で固定）、未対応記法は raw テキストにフォールバック</td></tr>
+<tr><td>bin/plangate dispatch の構造変更でアンカー不一致</td><td>apply-script はアンカー grep 検証 + 冪等 + --dry-run、不一致時は ERROR で停止</td></tr>
+<tr><td>HO 適用を AI が誤って実行</td><td>apply-script は AI が dry-run のみ、実適用は human（メモリ feedback-ho-apply-script-no-ai-exec 準拠）</td></tr>
+</tbody></table>
+<h2>Metrics Evidence</h2>
+<table>
+<thead><tr>
+<th>指標</th>
+<th>実数</th>
+<th>見積もり</th>
+<th>ratio</th>
+<th>判定</th>
+</tr></thead><tbody>
+<tr><td>レンダリング対象 MD 種別数</td><td>7（固定リスト: pbi-input/plan/todo/test-cases/review-self/review-external/handoff）</td><td>7</td><td>1.0</td><td>採用（「全件」系の曖昧スコープなし・固定集合）</td></tr>
+<tr><td>touch する HO ファイル</td><td>1（bin/plangate）</td><td>1</td><td>1.0</td><td>採用（apply-script + 人間適用で対応）</td></tr>
+</tbody></table>
+<p>固定集合のため repo-wide 実数取得は不要。対象は working-context.md 定義の C-3 アーティファクト 7 種。</p>
+<h2>Mode判定</h2>
+<p><strong>モード</strong>: high-risk</p>
+<p><strong>判定根拠</strong>:</p>
+<ul>
+<li>変更ファイル数: 新規2 + bin/plangate + docs ≈ 4 → standard 相当</li>
+<li>受入基準数: 8 → standard〜high</li>
+<li>変更種別: 機能追加（新コマンド）+ <strong>承認境界周辺（bin/plangate に touch）</strong> → <strong>最低 high 強制</strong>（mode-classification.md 例外ルール）</li>
+<li>リスク: 中（HO 適用フローを伴う）</li>
+<li><strong>最終判定</strong>: high-risk（<code>lite_eligible=false</code> / Standard C-3 同期固定 / Hardening Override 優先）</li>
+</ul>
+</section>
+<section class="doc" id="todo-md">
+<h2 class="doc-title">EXECUTION TODO (todo.md)</h2>
+<h1>EXECUTION TODO: TASK-0127</h1>
+<h2>🤖 Agent タスク</h2>
+<h3>準備</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T01 既存 <code>scripts/*.py</code> の引数処理・出力規約パターンを確認 — Owner: agent / depends_on: - / files: scripts/_paths.py, scripts/baseline-snapshot.py</li>
+<li><input type='checkbox' disabled > T02 C-3 対象 7 種 MD のファイル名定数を確定 — Owner: agent / depends_on: T01 / files: scripts/render_review.py</li>
+</ul>
+<h3>実装</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T03 <code>render_review.py</code> CLI 骨格（引数: --task / --work-dir / --out、欠落ファイルskip） — Owner: agent / depends_on: T02 / files: scripts/render_review.py 🚩</li>
+<li><input type='checkbox' disabled > T04 簡易 Markdown→HTML: 見出し・段落・水平線 — Owner: agent / depends_on: T03 / files: scripts/render_review.py</li>
+<li><input type='checkbox' disabled > T05 GFM 表のレンダリング — Owner: agent / depends_on: T04 / files: scripts/render_review.py 🚩</li>
+<li><input type='checkbox' disabled > T06 チェックボックス（- [ ] / - [x]）+ 箇条書き/番号リスト — Owner: agent / depends_on: T04 / files: scripts/render_review.py 🚩</li>
+<li><input type='checkbox' disabled > T07 コードブロック（```）+ インライン（code/strong/em/link）エスケープ — Owner: agent / depends_on: T04 / files: scripts/render_review.py</li>
+<li><input type='checkbox' disabled > T08 自己完結 HTML テンプレート（CSS インライン）+ 目次アンカー生成 — Owner: agent / depends_on: T05,T06,T07 / files: scripts/render_review.py</li>
+<li><input type='checkbox' disabled > T09 存在しない TASK 指定時の明示エラー・非ゼロ終了 — Owner: agent / depends_on: T03 / files: scripts/render_review.py</li>
+<li><input type='checkbox' disabled > T10 <code>apply-task-0127-render.sh</code>: cmd_render 関数注入（冪等・--dry-run・アンカー検証） — Owner: agent / depends_on: T03 / files: scripts/apply-task-0127-render.sh 🚩</li>
+<li><input type='checkbox' disabled > T11 apply-script に dispatch <code>render)</code> 行 + help 追記を含める — Owner: agent / depends_on: T10 / files: scripts/apply-task-0127-render.sh</li>
+<li><input type='checkbox' disabled > T12 ドキュメント追記（render 使い方） — Owner: agent / depends_on: T08 / files: docs/</li>
+</ul>
+<h3>検証</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T13 render_review.py unit（表/チェックボックス/コード/欠落 fixture） — Owner: agent / depends_on: T08 / files: evidence/test-runs/</li>
+<li><input type='checkbox' disabled > T14 既存 TASK で integration（7種集約・目次アンカー・外部参照ゼロ） — Owner: agent / depends_on: T08 / files: evidence/verification/ 🚩</li>
+</ul>
+<h3>完了</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T15 status.md / handoff.md 更新、apply-script の dry-run 出力を evidence 保存 — Owner: agent / depends_on: T13,T14 / files: docs/working/TASK-0127/</li>
+</ul>
+<h2>👤 Human タスク</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > H01 C-3: plan 承認（c3.json APPROVED 発行） — Owner: human / depends_on: C-1</li>
+<li><input type='checkbox' disabled > H02 apply-task-0127-render.sh を dry-run → 適用（bin/plangate 反映） — Owner: human / depends_on: T11 ⚠️ AI 実行不可（HO）</li>
+<li><input type='checkbox' disabled > H03 C-4: PR レビュー — Owner: human / depends_on: PR</li>
+</ul>
+<h2>⚠️ 依存関係</h2>
+<ul>
+<li>H02（HO 適用）は T11 完了後・PR とは独立に人間が実行可能だが、機能の動作確認（render コマンド経由）は H02 後でないと完結しない</li>
+</ul>
+</section>
+<section class="doc" id="test-cases-md">
+<h2 class="doc-title">TEST CASES (test-cases.md)</h2>
+<h1>TEST CASES: TASK-0127</h1>
+<h2>受入基準 → テストケース マッピング</h2>
+<table>
+<thead><tr>
+<th>AC</th>
+<th>テストケース</th>
+</tr></thead><tbody>
+<tr><td>AC-01</td><td>TC-01</td></tr>
+<tr><td>AC-02</td><td>TC-02, TC-03</td></tr>
+<tr><td>AC-03</td><td>TC-04</td></tr>
+<tr><td>AC-04</td><td>TC-05, TC-06, TC-07</td></tr>
+<tr><td>AC-05</td><td>TC-08</td></tr>
+<tr><td>AC-06</td><td>TC-09</td></tr>
+<tr><td>AC-07</td><td>TC-10</td></tr>
+<tr><td>AC-08</td><td>TC-11</td></tr>
+</tbody></table>
+<h2>テストケース一覧</h2>
+<h3>TC-01: HTML 生成（正常系）</h3>
+<ul>
+<li>前提: 7 種 MD が揃った TASK ディレクトリ</li>
+<li>入力: <code>render_review.py --task TASK-XXXX</code>（または bin 経由 <code>render TASK-XXXX --html</code>）</li>
+<li>期待: <code>docs/working/TASK-XXXX/TASK-XXXX-c3-review.html</code> が生成され、終了コード 0</li>
+<li>種別: integration</li>
+</ul>
+<h3>TC-02: 7 種集約</h3>
+<ul>
+<li>前提: 7 種すべて存在</li>
+<li>入力: render 実行</li>
+<li>期待: 生成 HTML に 7 セクション（pbi-input/plan/todo/test-cases/review-self/review-external/handoff）がすべて含まれる</li>
+<li>種別: integration</li>
+</ul>
+<h3>TC-03: 欠落ファイルのスキップ</h3>
+<ul>
+<li>前提: review-external.md と handoff.md が無い TASK ディレクトリ</li>
+<li>入力: render 実行</li>
+<li>期待: エラーにならず、存在する 5 種のみ集約。欠落分は目次に出さない（または「未生成」と明示）</li>
+<li>種別: unit/integration</li>
+</ul>
+<h3>TC-04: 目次アンカー遷移</h3>
+<ul>
+<li>前提: 複数 MD 存在</li>
+<li>入力: 生成 HTML を確認</li>
+<li>期待: 先頭目次の各リンク href=&quot;#...&quot; が対応セクションの id と一致</li>
+<li>種別: unit</li>
+</ul>
+<h3>TC-05: GFM 表レンダリング</h3>
+<ul>
+<li>入力: パイプ区切り表を含む MD</li>
+<li>期待: <code>&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;...</code> 構造に変換される</li>
+<li>種別: unit</li>
+</ul>
+<h3>TC-06: チェックボックス</h3>
+<ul>
+<li>入力: <code>- [ ]</code> / <code>- [x]</code> を含む MD</li>
+<li>期待: <code>&lt;input type=checkbox&gt;</code>（disabled、checked 反映）としてレンダリング</li>
+<li>種別: unit</li>
+</ul>
+<h3>TC-07: コードブロック / インライン</h3>
+<ul>
+<li>入力: ``<code> フェンス・インライン </code>code`・<strong>strong</strong>・<a href="url">link</a></li>
+<li>期待: <code>&lt;pre&gt;&lt;code&gt;</code> / <code>&lt;code&gt;</code> / <code>&lt;strong&gt;</code> / <code>&lt;a&gt;</code> に変換、HTML 特殊文字はエスケープ</li>
+<li>種別: unit</li>
+</ul>
+<h3>TC-08: 自己完結（外部参照ゼロ）</h3>
+<ul>
+<li>入力: 生成 HTML</li>
+<li>期待: <code>src=&quot;http</code>/<code>href=&quot;http</code> を持つ script/link/style が無い（CSS は inline、JS 無しまたは inline のみ）</li>
+<li>種別: verification</li>
+</ul>
+<h3>TC-09: Python 依存ゼロ</h3>
+<ul>
+<li>入力: <code>python3 scripts/render_review.py</code>（venv なし・標準のみ）</li>
+<li>期待: ImportError なく実行完了。<code>import</code> が標準ライブラリのみ</li>
+<li>種別: unit</li>
+</ul>
+<h3>TC-10: bin/plangate は apply-script 経由</h3>
+<ul>
+<li>入力: scripts/apply-task-0127-render.sh --dry-run</li>
+<li>期待: diff が表示され、本体は未変更。AI は実適用しない（human 適用）</li>
+<li>種別: verification</li>
+</ul>
+<h3>TC-11: 存在しない TASK</h3>
+<ul>
+<li>入力: <code>render_review.py --task TASK-9999</code>（ディレクトリ無し）</li>
+<li>期待: 明示エラーメッセージ + 非ゼロ終了</li>
+<li>種別: unit</li>
+</ul>
+<h2>エッジケース</h2>
+<ul>
+<li>空の MD ファイル（0 バイト）→ 見出しのみのセクション、クラッシュしない</li>
+<li>巨大表 / ネストリスト → 最低限崩れず raw fallback</li>
+<li>MD 内の <code>&lt;</code> <code>&gt;</code> <code>&amp;</code> → エスケープされ HTML 注入されない（XSS 防止）</li>
+</ul>
+</section>
+<section class="doc" id="review-self-md">
+<h2 class="doc-title">C-1 セルフレビュー (review-self.md)</h2>
+<h1>C-1 セルフレビュー: TASK-0127</h1>
+<p>Mode: high-risk → フル C-1（Plan 7 / ToDo 5 / TestCases 3）</p>
+<h2>Plan チェック（7項目）</h2>
+<table>
+<thead><tr>
+<th>#</th>
+<th>項目</th>
+<th>判定</th>
+<th>コメント</th>
+</tr></thead><tbody>
+<tr><td>P1</td><td>受入基準網羅性</td><td>PASS</td><td>AC-01〜08 が plan の In scope / Work Breakdown / Testing に対応</td></tr>
+<tr><td>P2</td><td>Unknowns 処理</td><td>PASS</td><td>簡易パーサ品質・HO 適用フローを Risks に明記し緩和策あり</td></tr>
+<tr><td>P3</td><td>スコープ制御</td><td>PASS</td><td>In/Out（V2: serve/PDF/mermaid/外部MDライブラリ）明確</td></tr>
+<tr><td>P4</td><td>テスト戦略</td><td>PASS</td><td>Unit/Integration/Verification/エラー系を定義</td></tr>
+<tr><td>P5</td><td>Work Breakdown Output</td><td>PASS</td><td>各 Step に Output / Owner / Risk / 🚩 を付与</td></tr>
+<tr><td>P6</td><td>依存関係</td><td>PASS</td><td>todo に depends_on、H02(HO適用)の AI 不可を明示</td></tr>
+<tr><td>P7</td><td>動作検証自動化</td><td>WARN(minor)</td><td>外部参照ゼロ(TC-08)・目次アンカー(TC-04)は grep ベースで自動化可能だが、ブラウザ目視確認の比重が残る</td></tr>
+</tbody></table>
+<h2>ToDo チェック（5項目）</h2>
+<table>
+<thead><tr>
+<th>#</th>
+<th>項目</th>
+<th>判定</th>
+<th>コメント</th>
+</tr></thead><tbody>
+<tr><td>T1</td><td>タスク粒度</td><td>PASS</td><td>T01〜T15 が 2〜5 分相当に分解</td></tr>
+<tr><td>T2</td><td>depends_on 設定</td><td>PASS</td><td>全タスクに depends_on / files</td></tr>
+<tr><td>T3</td><td>チェックポイント設定</td><td>PASS</td><td>T03/T05/T06/T10/T14 に 🚩</td></tr>
+<tr><td>T4</td><td>Iron Law 遵守</td><td>PASS</td><td>bin/plangate 直接編集なし→apply-script 経由・人間適用(H02)</td></tr>
+<tr><td>T5</td><td>完了条件</td><td>PASS</td><td>T15 で status/handoff 更新・evidence 保存</td></tr>
+</tbody></table>
+<h2>TestCases チェック（3項目）</h2>
+<table>
+<thead><tr>
+<th>#</th>
+<th>項目</th>
+<th>判定</th>
+<th>コメント</th>
+</tr></thead><tbody>
+<tr><td>C1</td><td>受入基準との紐付き</td><td>PASS</td><td>AC→TC マッピング表あり（AC-01〜08 全カバー）</td></tr>
+<tr><td>C2</td><td>Edge case 網羅</td><td>PASS</td><td>空ファイル/巨大表/XSS エスケープを明記</td></tr>
+<tr><td>C3</td><td>自動化可否</td><td>WARN(minor)</td><td>TC-04/TC-08 は grep で自動化可だが一部目視寄り</td></tr>
+</tbody></table>
+<h2>総合判定</h2>
+<p><strong>PASS</strong>（WARN minor 2 件: P7 / C3 — いずれもブラウザ目視の比重。grep ベース自動検証で代替可能なため exec をブロックしない）</p>
+<p>FAIL なし → C-2 / C-3 へ進行可能。</p>
+</section>
+</div></body></html>
