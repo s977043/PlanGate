@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-0134 — C-3 Review</title>
+<style>
+:root{--fg:#1f2328;--muted:#656d76;--bd:#d0d7de;--bg:#fff;--accent:#0969da;--code:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--fg);background:#fafbfc}
+.wrap{max-width:980px;margin:0 auto;padding:24px}
+header h1{margin:0 0 4px}
+.meta{color:var(--muted);font-size:14px;margin-bottom:16px}
+nav.toc{position:sticky;top:0;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.toc strong{display:block;margin-bottom:6px}
+nav.toc a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+section.doc{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 24px 24px;margin-bottom:28px}
+section.doc>h2.doc-title{border-bottom:2px solid var(--bd);padding-bottom:8px}
+h1,h2,h3,h4{line-height:1.3}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid var(--bd);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+code{background:var(--code);padding:.15em .35em;border-radius:4px;font-size:85%}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto}
+pre code{background:none;padding:0}
+blockquote{margin:8px 0;padding:0 12px;color:var(--muted);border-left:3px solid var(--bd)}
+ul.checklist{list-style:none;padding-left:18px}
+ul.checklist li{margin:2px 0}
+hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
+a{color:var(--accent)}
+.missing{color:var(--muted);font-style:italic}
+img,svg{max-width:100%}
+.flow-wrap{margin:12px 0;padding:8px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:auto}
+svg.flow text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+nav.perspectives{background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.perspectives strong{display:block;margin-bottom:6px}
+nav.perspectives a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none;font-weight:600}
+nav.perspectives a:hover{text-decoration:underline}
+nav.perspectives .missing{margin:2px 10px 2px 0;display:inline-block}
+</style></head>
+<body><div class="wrap">
+<header><h1>TASK-0134</h1><div class="meta">C-3 レビュー集約ビュー（self-contained）</div></header>
+<nav class="toc"><strong>目次</strong><a href="#pbi-input-md">PBI INPUT PACKAGE (pbi-input.md)</a><a href="#plan-md">EXECUTION PLAN (plan.md)</a><a href="#todo-md">EXECUTION TODO (todo.md)</a><a href="#test-cases-md">TEST CASES (test-cases.md)</a><a href="#review-self-md">C-1 セルフレビュー (review-self.md)</a><a href="#review-external-md">C-2 外部レビュー (review-external.md)</a></nav>
+<nav class="perspectives"><strong>承認観点ナビ</strong><a href="#plan-md-h1">Goal/目的</a><a href="#pbi-input-md-h2">Scope/対象</a><a href="#plan-md-h7">Risk</a><a href="#plan-md-h6">Test/検証</a><span class="missing">Stop/Replan（なし）</span><a href="#pbi-input-md-h5">承認/Approval</a></nav>
+<section class="doc" id="pbi-input-md">
+<h2 class="doc-title">PBI INPUT PACKAGE (pbi-input.md)</h2>
+<h1 id="pbi-input-md-h0">PBI INPUT PACKAGE — TASK-0134 (#571)</h1>
+<h2 id="pbi-input-md-h1">Context / Why</h2>
+<p>Gemma Cookbook apps/concurrent 取り込み検討の<strong>唯一の実質ギャップ</strong>。PlanGate の可視化（metrics/status/timeline/render）は全て事後・静的で、並列レビュー実行<strong>中</strong>のライブ進捗が無い。<code>bin/plangate</code> の <code>_review_parallel</code> は各 reviewer を <code>&amp;</code> 起動し <code>status_NNN</code> に exit code を書くが、<code>wait</code> で一括待機するため完了/失敗が逐次見えない。</p>
+<h2 id="pbi-input-md-h2">What (Scope)</h2>
+<h3 id="pbi-input-md-h3">In scope（Codex 相談で最小確定）</h3>
+<ul>
+<li><code>_review_parallel</code> に <code>--progress</code> opt-in 時の逐次進捗表示を追加（<code>wait</code> 前に status_NNN ポーリング → <code>[done X/N] provider ok|failed</code>）</li>
+<li>既存 collect/assemble ロジックは不変（wait は回収用に残す）</li>
+<li>出力先 stdout（既存 &quot;Starting reviewer&quot; と同ストリーム・--progress 時のみ）</li>
+</ul>
+<h3 id="pbi-input-md-h4">Out of scope</h3>
+<ul>
+<li>フル dashboard UI / Rich Live TUI</li>
+<li>token/sec・throughput（metrics-privacy 違反）</li>
+<li>exec 並列への横展開（将来・別 PBI）</li>
+<li>llama-server / file-based 通信等デモ固有要素</li>
+</ul>
+<h2 id="pbi-input-md-h5">受入基準</h2>
+<ul>
+<li>AC-01: <code>--progress</code> 指定時、各 reviewer 完了の都度 <code>[done X/N] provider ok|failed</code> が出力される</li>
+<li>AC-02: <code>--progress</code> 未指定時は既存出力と完全に同一（後方互換）</li>
+<li>AC-03: collect/assemble 結果（R-NNN 集約・decision-log parallel_review）が従来と不変</li>
+<li>AC-04: 進捗表示は provider 名・完了数・ok/failed のみ（token/sec/出力抜粋を含まない＝privacy遵守）</li>
+<li>AC-05: 子終了検出後に status ファイル破損/欠落なら <code>failed</code>（未完了で未作成の状態と区別・Refs R-001）</li>
+<li>AC-06: 引数互換（併用順序・未知オプション従来エラー・progress 漏れなし・Refs R-002）</li>
+</ul>
+<h2 id="pbi-input-md-h6">Estimation Evidence</h2>
+<ul>
+<li>Risks: <code>bin/plangate</code> は HO → AI 編集不可・apply-script + 人間適用。POSIX sh 互換必須。</li>
+<li>Unknowns（Codex Q4）: 出力先(stdout/stderr) / fail-fast 有無 / exec 横展開 → 本 PBI は _review_parallel・stdout・非fail-fast に確定。</li>
+<li>Mode 見込み: <strong>high-risk</strong>（承認境界 <code>bin/plangate</code>・HO）。lite_eligible=false・人間 C-3 必須・autonomous 不可。</li>
+</ul>
+</section>
+<section class="doc" id="plan-md">
+<h2 class="doc-title">EXECUTION PLAN (plan.md)</h2>
+<h1 id="plan-md-h0">EXECUTION PLAN — TASK-0134 (#571)</h1>
+<h2 id="plan-md-h1">Goal</h2>
+<p><code>_review_parallel</code> に <code>--progress</code> opt-in のライブ進捗表示（完了/失敗の逐次出力）を最小スコープで追加。既存挙動は完全後方互換。</p>
+<h2 id="plan-md-h2">Constraints / Non-goals</h2>
+<ul>
+<li>最小スコープ: <code>_review_parallel</code> のみ。exec 並列横展開は将来。</li>
+<li>フル UI・token/sec はスコープ外（privacy）。</li>
+<li><code>bin/plangate</code> は HO → AI 編集せず apply-script + 人間適用。</li>
+</ul>
+<h2 id="plan-md-h3">Approach Overview（Codex 設計相談）</h2>
+<ol>
+<li>各子プロセス起動時に <strong>pid を保持</strong>（または完了時に <code>done_NNN</code> sentinel を touch）し、<code>wait</code> 前のポーリングで <strong>子の終了を検出してから</strong> status_NNN を読む。子終了を検出後に status が空/欠落なら <code>failed</code>（未完了で status 未作成の状態とは区別する＝R-001）。新規完了の都度 <code>[done X/N] provider ok|failed</code> を出力。最後に <code>wait</code> で回収（collect は不変）。</li>
+<li><code>--progress</code> フラグ（cmd_review の引数解析）で opt-in。未指定時は従来出力を 1 文字も変えない。</li>
+<li>status 破損/欠落 → <code>failed</code> 表示（安全側）。出力先 stdout・非 fail-fast（全完了待つ）。</li>
+</ol>
+<h2 id="plan-md-h4">Work Breakdown</h2>
+<ul>
+<li><strong>S1</strong> cmd_review に <code>--progress</code> 引数解析を追加し <code>_review_parallel</code> へ伝播する apply-script + patch を<strong>生成</strong>（AI は適用しない）/ Owner: agent / Risk: 引数解析の既存互換 / 🚩HO</li>
+<li><strong>S2</strong> <code>_review_parallel</code> の wait 前に status ポーリング + 逐次表示ロジックの patch を生成 / Owner: agent / Risk: ポーリングの busy-loop / 🚩HO</li>
+<li><strong>S3</strong> 後方互換テスト（--progress 無しで既存出力一致）の test 手順を test-cases に定義 / Owner: agent</li>
+</ul>
+<h2 id="plan-md-h5">Files / Components to Touch</h2>
+<ul>
+<li><code>bin/plangate</code>（<strong>HO → apply-script 経由・人間適用</strong>。<code>_review_parallel</code> L1644-1854 + cmd_review 引数解析）</li>
+</ul>
+<h2 id="plan-md-h6">Testing Strategy</h2>
+<ul>
+<li>機械: <code>--progress</code> 有/無の出力 diff（無し=既存一致）、reviewer 2本 stub での <code>[done X/N]</code> 出現確認、status 破損時 failed 表示</li>
+<li>レビュー: privacy（出力に token/sec/抜粋が無い）、POSIX sh 互換</li>
+<li>doctor / 既存 review テストの回帰</li>
+</ul>
+<h2 id="plan-md-h7">Risks &amp; Mitigations（内容 / 検証手段 / Fallback）</h2>
+<ul>
+<li>R1 HO 適用漏れ / doctor + apply-script 未適用なら V-1 PASS にしない / apply-script 再提示</li>
+<li>R2 ポーリングの busy-loop で CPU 浪費 / <code>sleep 1</code> 間隔 + 完了時即 break / 間隔調整</li>
+<li>R3 既存出力破壊（後方互換違反）/ --progress 未指定時の diff テスト / 差分が出たら opt-in 分岐を見直す</li>
+</ul>
+<h2 id="plan-md-h8">Metrics Evidence</h2>
+<ul>
+<li>対象「変更関数」: 実数 2（cmd_review 引数解析 + _review_parallel）/ 見積もり 2 / ratio 1.0 → 採用。</li>
+</ul>
+<h2 id="plan-md-h9">Questions / Unknowns</h2>
+<ul>
+<li>exec 並列への横展開 → 本 PBI スコープ外（_review_parallel で実証後、別 PBI で検討）。</li>
+</ul>
+<h2 id="plan-md-h10">Mode判定</h2>
+<p><strong>モード</strong>: high-risk</p>
+<p><strong>判定根拠</strong>:</p>
+<ul>
+<li>変更ファイル数: 1（bin/plangate）だが HO・承認境界 → <strong>最低 high-risk 強制</strong></li>
+<li>受入基準数: 5 → standard</li>
+<li>変更種別: CLI 実行系・承認境界（bin/plangate）→ high-risk</li>
+<li>リスク: 中（後方互換・POSIX 互換・privacy）</li>
+<li><strong>最終判定</strong>: high-risk（lite_eligible=false・人間 C-3 必須・autonomous APPROVE 不可。bin/plangate は HO → exec で AI 編集せず apply-script + 人間適用）</li>
+</ul>
+</section>
+<section class="doc" id="todo-md">
+<h2 class="doc-title">EXECUTION TODO (todo.md)</h2>
+<h1 id="todo-md-h0">EXECUTION TODO — TASK-0134 (#571)</h1>
+<h2 id="todo-md-h1">🤖 Agent タスク</h2>
+<h3 id="todo-md-h2">準備</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T1 _review_parallel / cmd_review の現状引数解析・出力を精読 (owner:agent, files:bin/plangate, rollback:不要・読取のみ)</li>
+</ul>
+<h3 id="todo-md-h3">実装</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T2 [S1] cmd_review に --progress 引数解析 + _review_parallel への伝播 patch/apply-script を生成（AI編集しない） (owner:agent, files:scripts/apply-task-0134-progress.sh, depends_on:T1, rollback:生成スクリプトを削除, 🚩HO)</li>
+<li><input type='checkbox' disabled > T3 [S2] wait 前の status_NNN ポーリング + [done X/N] 逐次表示ロジックを上記 patch に含める (owner:agent, files:scripts/apply-task-0134-progress.sh, depends_on:T2, rollback:生成スクリプトを削除, 🚩HO)</li>
+<li><input type='checkbox' disabled > T4 [S3] 後方互換 + privacy のテスト手順を整備 (owner:agent, depends_on:T1, rollback:test 追記を git checkout で復元)</li>
+</ul>
+<h3 id="todo-md-h4">検証</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T5 --progress 有/無 diff + [done X/N] 出現 + status破損failed + privacy grep + doctor (owner:agent, depends_on:T3,T4, rollback:不要・検証のみ。HO適用後に実施)</li>
+</ul>
+<h3 id="todo-md-h5">完了</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T6 handoff.md 作成(6要素) (owner:agent, files:docs/working/TASK-0134/handoff.md, depends_on:T5, rollback:不要)</li>
+</ul>
+<h2 id="todo-md-h6">👤 Human タスク</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > H1 C-3 承認（high-risk / Standard 同期・exec 前ゲート） (owner:human 🚩)</li>
+<li><input type='checkbox' disabled > H2 bin/plangate の apply-script 実行（HO 適用） (owner:human 🚩)</li>
+<li><input type='checkbox' disabled > H3 C-4 PR レビュー (owner:human)</li>
+</ul>
+<h2 id="todo-md-h7">⚠️ 依存</h2>
+<ul>
+<li>T1 → T2 → T3 / T4 → T5 → T6</li>
+<li>exec 開始は H1(C-3) 必須 / 実装反映は H2(HO 適用) 必須</li>
+<li>T5 の動作検証は H2(人間 apply) 後（それ以前は PASS にできない）</li>
+</ul>
+<h2 id="todo-md-h8">📌 rollback 記法サンプル（#565 規約適用）</h2>
+<p>HO patch 生成タスクの rollback は「生成スクリプトを削除」（bin/plangate 自体は人間 apply のため AI 側は patch 破棄で戻る）。</p>
+</section>
+<section class="doc" id="test-cases-md">
+<h2 class="doc-title">TEST CASES (test-cases.md)</h2>
+<h1 id="test-cases-md-h0">TEST CASES — TASK-0134 (#571)</h1>
+<h2 id="test-cases-md-h1">AC → TC</h2>
+<h3 id="test-cases-md-h2">AC-01: --progress で逐次表示</h3>
+<ul>
+<li>TC-01: stub reviewer 2本で <code>--progress</code> 実行時、<code>[done 1/2] &lt;provider&gt; ok|failed</code> と <code>[done 2/2] ...</code> が完了順に出力。種別: 機械（HO適用後）</li>
+</ul>
+<h3 id="test-cases-md-h3">AC-02: 後方互換</h3>
+<ul>
+<li>TC-02: <code>--progress</code> 無しの出力が変更前と完全一致（diff 空）。種別: 機械</li>
+</ul>
+<h3 id="test-cases-md-h4">AC-03: collect/assemble 不変</h3>
+<ul>
+<li>TC-03: R-NNN 集約結果と decision-log の parallel_review イベントが従来と同一。種別: 機械</li>
+</ul>
+<h3 id="test-cases-md-h5">AC-04: privacy 遵守</h3>
+<ul>
+<li>TC-04: 進捗出力に token/sec/throughput/出力抜粋が含まれない（provider名・完了数・ok/failed のみ）。種別: 機械(grep)+レビュー</li>
+</ul>
+<h3 id="test-cases-md-h6">AC-05: status 破損の安全側 + 完了検出の区別（Refs: R-001）</h3>
+<ul>
+<li>TC-05: 子プロセス終了検出後に status_NNN が空/欠落のとき <code>[done X/N] &lt;provider&gt; failed</code> と表示。種別: 機械</li>
+<li>TC-06: 未完了（status 未作成・子稼働中）を <code>done</code> と誤カウントしない（完了数は子終了検出数と一致）。種別: 機械</li>
+</ul>
+<h3 id="test-cases-md-h7">AC-06: 引数互換（Refs: R-002）</h3>
+<ul>
+<li>TC-07: 既存オプションとの併用順序違いで壊れない / 未知オプションは従来どおりエラー / <code>--progress</code> が <code>_review_parallel</code> 以外の経路へ漏れない。種別: 機械</li>
+</ul>
+<h2 id="test-cases-md-h8">Edge cases</h2>
+<ul>
+<li>EC-01: reviewer 1本（並列でない単体）でも --progress が壊れない</li>
+<li>EC-02: 全 reviewer 失敗時も全件 [done] 表示後に collect が従来どおり警告</li>
+<li>EC-03: --progress はポーリング sleep 1s で busy-loop しない</li>
+</ul>
+</section>
+<section class="doc" id="review-self-md">
+<h2 class="doc-title">C-1 セルフレビュー (review-self.md)</h2>
+<h1 id="review-self-md-h0">C-1 セルフレビュー — TASK-0134 (#571)</h1>
+<h2 id="review-self-md-h1">Plan チェック（7項目）</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> P1 受入基準網羅: AC-01〜06 ↔ S1-S3 — PASS</li>
+<li><input type='checkbox' disabled checked> P2 Unknowns: 出力先/fail-fast/exec横展開を確定 or Questions に明示 — PASS</li>
+<li><input type='checkbox' disabled checked> P3 スコープ制御: _review_parallel限定・フルUI/token-sec/exec横展開を Out of scope — PASS</li>
+<li><input type='checkbox' disabled checked> P4 テスト戦略: TC-01〜05 + Edge3、後方互換 diff・privacy grep — PASS</li>
+<li><input type='checkbox' disabled checked> P5 Work Breakdown Output: 各 S に Output/Owner/Risk/🚩HO — PASS</li>
+<li><input type='checkbox' disabled checked> P6 依存関係: T1→T2→T3/T4→T5、H2後検証 — PASS</li>
+<li><input type='checkbox' disabled checked> P7 動作検証自動化: diff / 出現確認 / grep / doctor — PASS</li>
+</ul>
+<h2 id="review-self-md-h2">ToDo（5）/ TestCases（3）</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> タスク粒度・depends_on・🚩HO・rollback(#565規約)・Iron Law(HOはapply-script生成のみ) — PASS</li>
+<li><input type='checkbox' disabled checked> AC↔TC 紐付き / Edge(単体・全失敗・busy-loop回避) / 自動化可 — PASS</li>
+</ul>
+<h2 id="review-self-md-h3">承認境界チェック</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> bin/plangate は HO → AI 編集せず apply-script + 人間適用(H2) — PASS</li>
+<li><input type='checkbox' disabled checked> high-risk → lite_eligible=false / 人間 C-3 必須 / autonomous 不可 — PASS</li>
+<li><input type='checkbox' disabled checked> privacy（token/sec 非出力）を AC-04 で担保 — PASS</li>
+</ul>
+<h2 id="review-self-md-h4">判定</h2>
+<p><strong>PASS</strong>。後方互換(opt-in) + privacy 遵守でリスク低。C-2(Codex) → C-3(人間) 待ち。</p>
+<h2 id="review-self-md-h5">簡易 C-1 再実行（C-2 反映後 / Refs R-001..R-002）</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled checked> R-001: plan に done_NNN sentinel / pid 生存確認 + 完了検出後の status 欠落→failed を明記、TC-06 追加、AC-05 精緻化 — PASS</li>
+<li><input type='checkbox' disabled checked> R-002: TC-07（引数互換: 併用順序・未知オプション・progress漏れ）+ AC-06 追加 — PASS</li>
+</ul>
+<ul>
+<li>判定: <strong>PASS</strong>。残 major なし。C-3（人間・high-risk）待ち。</li>
+</ul>
+<h2 id="review-self-md-h6">簡易 C-1 再実行（gemini R-003..R-004 反映後）</h2>
+<ul>
+<li>AC 網羅整合: P1 を AC-01〜06 に更新 — PASS</li>
+<li>依存フロー整合: T5 → T6 接続・T6 depends_on/files 補完 — PASS</li>
+<li>判定: PASS（critical/major 0、medium 2 反映済み）</li>
+</ul>
+</section>
+<section class="doc" id="review-external-md">
+<h2 class="doc-title">C-2 外部レビュー (review-external.md)</h2>
+<h1 id="review-external-md-h0">C-2 外部レビュー（Codex）— TASK-0134 (#571)</h1>
+<p>レビュア: Codex (gpt-5.5) / レーン: 設計妥当性 / verdict: CONDITIONAL（major 1 / minor 1 / critical 0）</p>
+<table>
+<thead><tr>
+<th>R-NNN</th>
+<th>severity</th>
+<th>内容</th>
+<th>status</th>
+<th>reflected_in</th>
+<th>notes</th>
+</tr></thead><tbody>
+<tr><td>R-001</td><td>major</td><td>status_NNN 欠落判定が「未完了で未作成」と「完了後欠落」を区別不能</td><td>reflected</td><td>(this branch)</td><td>done_NNN sentinel / pid 生存確認を設計明記 + TC-06</td></tr>
+<tr><td>R-002</td><td>minor</td><td>引数互換テスト粒度不足（併用順序・未知オプション・progress漏れ）</td><td>reflected</td><td>(this branch)</td><td>TC-07 追加</td></tr>
+</tbody></table>
+<h2 id="review-external-md-h1">反映方針</h2>
+<p>1 回確定反映。簡易 C-1 → 人間 C-3（high-risk）→ exec。</p>
+<h2 id="review-external-md-h2">C-2 追加レビュー（gemini-code-assist / GitHub PR #572）— 追記専用</h2>
+<p>レーン: 設計妥当性+整合 / verdict: 全 medium（critical 0 / major 0）</p>
+<table>
+<thead><tr>
+<th>R-NNN</th>
+<th>severity</th>
+<th>内容</th>
+<th>status</th>
+<th>reflected_in</th>
+<th>notes</th>
+</tr></thead><tbody>
+<tr><td>R-003</td><td>medium</td><td>review-self P1 が AC-01〜05 のまま（AC-06 追加と不整合）</td><td>reflected</td><td>(this branch)</td><td>AC-01〜06 へ</td></tr>
+<tr><td>R-004</td><td>medium</td><td>todo 依存フローに T6(handoff) が未接続</td><td>reflected</td><td>(this branch)</td><td>T5 → T6 接続 + T6 depends_on/files 補完</td></tr>
+</tbody></table>
+</section>
+</div></body></html>
