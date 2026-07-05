@@ -5,13 +5,15 @@
 > **状態訂正（bookkeeping 2026-07-05）**: 旧記載「ステータス: DONE」は不正確だったため訂正した。実測で以下を確認:
 >
 > - ✅ **Part A（承認トークン書込ガード / AC-1〜4）は稼働済み**: `scripts/check-approval-token-write.sh` が存在し、`.claude/settings.json`（L65 / L74 の PreToolUse）に配線済み。C-3 も APPROVED（`approvals/c3.json` 実在）。
-> - ❌ **Part B（HMAC 署名 / AC-5）は未適用**: `schemas/maintenance.schema.json` に `hmac_signature` フィールドが**存在しない**（grep 実測 0 件）。`apply-task-0123-patches.sh` は生成済みだが **--apply が一度も実行されていない**（HO パスのため Human-owned）。したがって旧 AC-5「PASS（patch 適用後）」・TC-06「hmac_signature field present」は **現 main を反映しない偽 PASS**。
+> - ❌ **Part B（HMAC 署名 / AC-5）は未適用**: `schemas/maintenance.schema.json` に `hmac_signature` フィールドが**存在しない**（grep 実測 0 件）。`apply-task-0123-patches.sh` は生成済みだが **一度も実行されていない**（引数なし実行で適用・`--dry-run` で事前確認。HO パスのため Human-owned）。したがって旧 AC-5「PASS（patch 適用後）」・TC-06「hmac_signature field present」は **現 main を反映しない偽 PASS**。
 > - 親 issue **#420 は #427（本 TASK の PR）で CLOSED COMPLETED**。#427 コミット本文自身が "Closes #420 (partial — HO patches pending human application)" と明記しており、HMAC 層は当初から Human 適用待ち。
 >
 > **⚠️ 要 Human 判断（承認境界・security）**: HMAC 署名層（Part B）を
-> (a) 今から適用する（`sh scripts/apply-task-0123-patches.sh --apply` を Human が実行 = 多層防御を完成）か、
+> (a) 今から適用する（Human が `sh scripts/apply-task-0123-patches.sh` を実行 = 多層防御を完成。`--dry-run` で事前確認後、引数なしで適用）か、
 > (b) 適用せず「Part A ガードで #420 の実害は解消済み」として **Deferred/Superseded でクローズ**するか、
 > を人間が決定する。AI は本判断を行わない（`.claude/rules/responsibility-classes.md`）。
+>
+> **残る防御課題（C-2 Gemini 指摘 / security-medium）**: Part A ガード本体 `scripts/check-approval-token-write.sh` は HO 保護対象外（`scripts/hooks/` でも `.claude/` でもない）ため、AI が当該スクリプトを改変すればガードをバイパスしうる。Part B（HMAC 署名）の適用、またはガードスクリプト自体の HO 化（`scripts/hooks/` への移設 + settings 参照更新）が、この迂回を塞ぐ残存対策。上記 (a)/(b) の判断材料。
 
 ---
 
