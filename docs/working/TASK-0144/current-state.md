@@ -5,26 +5,32 @@ artifact_type: current-state
 
 # CURRENT STATE — TASK-0144
 
+> 更新: 2026-07-05 10:00（bookkeeping 是正 / stale 状態を解消）
+
 ## 現在位置
 
-**フェーズ**: C-2 完了（R-001〜R-008 反映済み）→ **C-3 承認待ち**
+**フェーズ**: Done（main マージ済 / Unreleased）
 
-## 修正内容（C-2 反映）
+## 完了内容（bookkeeping 是正）
 
-- R-001/R-002: cmd_exec 変更なし。c3.json は exec 前に生成（設計確定）
-- R-003: EH-3 SKIP の責務を「通す」のみに明文化
-- R-004: c3-approval.schema.json に source フィールド追加必須（apply-script に含める）
-- R-005: .plangate.yml 不正値 → stderr WARN 追加
-- R-006: ta-45 TC-06 に schema 検証 TC 追加
-- R-007: Files テーブルの settings-wiring HO 表記を修正
-- R-008: TC-07 から件数固定を削除
+- 旧記載は「C-2 完了 → C-3 承認待ち」の stale 表示だったが、実際は C-3 APPROVE
+  （`approvals/c3.json`）→ exec → PR マージまで完了済みだった
+- PR#631（C-3 approval mode 実装）/ PR#632（HO パス適用:
+  `apply-task-0144-c3-mode.sh --apply` 結果）/ PR#635（handoff.md 発行）が
+  全て main マージ済み。handoff.md は既発行（`issued_at: 2026-06-26`）
 
 ## 次のアクション
 
-1. 👤 Human: C-3 レビュー（修正後の plan.md / todo.md / test-cases.md を確認）
-2. 👤 Human: APPROVE / CONDITIONAL / REJECT を伝える
-3. 🤖 AI: exec（C-3 APPROVE 後）
+完了。残 Human ステップなし（次回リリースタグ切り時に同梱予定。tag/release
+発行は Human-owned）
 
 ## ブロッカー
 
-なし（C-3 待ち）
+なし
+
+---
+
+証跡: `git log --oneline -- docs/working/TASK-0144` → 09425f5(#631) /
+1f645be(#632, HO適用) / 4f9261e(#635, handoff) を確認。いずれも
+`git merge-base --is-ancestor <sha> HEAD` で origin/main 祖先と裏取り済み
+（2026-07-05）。
