@@ -83,13 +83,13 @@ PR 作成後から merge-ready までの Schedule は、以下の優先順位で
 | 優先度 | 条件 | 次アクション | terminal state |
 | --- | --- | --- | --- |
 | 1 | boundary=touches-HO / policy 変更 / irreversible 変更 | human escalate | `HUMAN_ESCALATED` |
-| 2 | CI failed | CI failure を調査・修正し、強化セルフレビューを再実行して push | continue |
-| 3 | merge conflict | conflict 解消、三点照合、`--force-with-lease` push | continue |
-| 4 | critical / major の AI review 指摘あり | 採用して修正、または理由付き不採用を記録 | continue or escalate |
-| 5 | minor / info のみ | 採用/不採用理由を記録し、DoD 判定へ進む | merge-ready candidate |
-| 6 | CI green かつ AI review 全件対応済み | C-4 待ちへ遷移 | `MERGE_READY` |
-| 7 | 対応ラウンド上限 3 超過 | human escalate | `HUMAN_ESCALATED` |
-| 8 | 同型指摘の再発 | review-feedback-loop へ還元し、Optimize 対象へ送る | recurse |
+| 2 | 対応ラウンド上限 3 超過 | human escalate | `HUMAN_ESCALATED` |
+| 3 | 同型指摘の再発 | review-feedback-loop へ還元し、Optimize 対象へ送る | recurse |
+| 4 | CI failed | CI failure を調査・修正し、強化セルフレビューを再実行して push | continue |
+| 5 | merge conflict | conflict 解消、三点照合、`--force-with-lease` push | continue |
+| 6 | critical / major の AI review 指摘あり | 採用して修正、または理由付き不採用を記録 | continue or escalate |
+| 7 | minor / info のみ | 採用/不採用理由を記録し、DoD 判定へ進む | merge-ready candidate |
+| 8 | CI green かつ AI review 全件対応済み | C-4 待ちへ遷移 | `MERGE_READY` |
 
 Schedule は「次に動く」ための判断であり、Schedule 自身が品質評価を兼ねてはならない。品質判断は Evaluate 層に残す。
 
