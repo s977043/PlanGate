@@ -21,14 +21,14 @@ Arbiter が存在証明を超えるまで PlanGate が本番統制を担う。
 
 ## 2. WF-00〜07 との並立関係
 
-| 観点 | PlanGate（WF-00〜07） | ai-loop-workflow |
-| ------ | ---------------------- | ----------------- |
-| ループモデル | in-the-loop（実行前承認） | on-the-loop（逸脱時昇格） |
-| 適用対象 | 全変更 | low-risk 変更のみ（boundary=clean, lite=true） |
-| 実行ブロック | 承認前にブロック | 事前ブロックしない（flow） |
-| 競合 | なし | なし |
+| 観点           | PlanGate（WF-00〜07）                                  | ai-loop-workflow                                                                                                                                                                                                                                                    |
+| -------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ループモデル   | in-the-loop（実行前承認）                              | on-the-loop（逸脱時昇格）                                                                                                                                                                                                                                           |
+| 適用対象       | 全変更                                                 | low-risk 変更のみ（boundary=clean, lite=true）                                                                                                                                                                                                                      |
+| 実行ブロック   | 承認前にブロック                                       | 事前ブロックしない（flow）                                                                                                                                                                                                                                          |
+| 競合           | なし                                                   | なし                                                                                                                                                                                                                                                                |
 | カバーする工程 | 開発プロセス全体（intent→要件→設計→実装→検証→handoff） | **intent 受付から merge-ready（CI 全 job green + AI レビュー指摘対応完了）まで一気通貫**。工程の実体（WF-00〜03・C-1・C-2・exec・V 系）は PlanGate と共通利用するが、**C-3（人間の計画承認）のみを AI 裁定ゲート（C-3'）に置換**し、成果の担保責任は ai-loop が持つ |
-| 変更の生成 | 責務内（WF-02〜04 で要件・設計・実装を導く） | **責務内（ai-dev-workflow より広い）**。生成から「CI 通過 + AI レビュー指摘対応完了」まで一気通貫で責務を持つ。工程の実体（生成・計画そのもの）は PlanGate 資産を共通利用するが、**成果の担保**（merge-ready 到達）は ai-loop 固有の責務 |
+| 変更の生成     | 責務内（WF-02〜04 で要件・設計・実装を導く）           | **責務内（ai-dev-workflow より広い）**。生成から「CI 通過 + AI レビュー指摘対応完了」まで一気通貫で責務を持つ。工程の実体（生成・計画そのもの）は PlanGate 資産を共通利用するが、**成果の担保**（merge-ready 到達）は ai-loop 固有の責務                            |
 
 両者は競合しない。並走期において:
 
@@ -85,12 +85,12 @@ CI/PR 時の AI レビュー指摘への対応が完了する（= merge-ready �
 であり、ai-dev-workflow（AI 工程は PR 作成まで、C-4 は人間）より**広い責務**
 を担保する。
 
-| 項目 | ai-dev-workflow | ai-loop-workflow |
-|------|------------------|-------------------|
-| AI 責務の終点 | PR 作成まで | **merge-ready**（CI green + AI レビュー指摘対応完了）まで |
-| PR 後の CI 失敗対応 | 人間主導（都度） | AI が対応ループを回す（review-feedback-loop.md §2 と接続） |
-| PR 後の AI レビュー指摘対応 | 人間主導（都度） | AI が採用/理由付き不採用を記録し対応完了まで担保 |
-| 人間の関与 | C-3（計画承認）+ C-4（merge） | **escalate 時の判断のみ + C-4（merge）** |
+| 項目                        | ai-dev-workflow               | ai-loop-workflow                                           |
+| --------------------------- | ----------------------------- | ---------------------------------------------------------- |
+| AI 責務の終点               | PR 作成まで                   | **merge-ready**（CI green + AI レビュー指摘対応完了）まで  |
+| PR 後の CI 失敗対応         | 人間主導（都度）              | AI が対応ループを回す（review-feedback-loop.md §2 と接続） |
+| PR 後の AI レビュー指摘対応 | 人間主導（都度）              | AI が採用/理由付き不採用を記録し対応完了まで担保           |
+| 人間の関与                  | C-3（計画承認）+ C-4（merge） | **escalate 時の判断のみ + C-4（merge）**                   |
 
 **DoD（merge-ready 到達条件）**: CI 全 job green **かつ** AI レビュー指摘が
 ゼロ、または全件対応完了（採用 / 理由付き不採用の記録）。これを満たして
@@ -142,6 +142,34 @@ C-3 条件付き降格（F5-AD）の判定を decision table + provenance で完
 撤廃ではない**。touches-HO は W チェック結果にかかわらず常に人間へ固定
 （[`concept.md`](../../ai/ai-loop/concept.md) §5「不変の原則」参照）。
 
+### 3.6 6層自己改善ループとの対応（Generate → Evaluate → Remember → Schedule → Optimize → Recurse）
+
+> 対応 issue: [#709](https://github.com/s977043/plangate/issues/709)
+
+ai-loop-workflow 全体は、Arbiter を「低リスク帯・境界内に限定した適応型
+生産システム（bounded adaptive production loop / human-on-the-loop）」として
+捉える 6 層モデル（Generate → Evaluate → Remember → Schedule → Optimize →
+Recurse）の実装例でもある。6 層モデルの定義・[`concept.md`](../../ai/ai-loop/concept.md)
+§7 の L0〜L5 との対応表は [`adaptive-production-loop.md`](./adaptive-production-loop.md)
+を正本とし、本節では再定義しない。
+
+§3.2 の確定パイプラインとの対応（概略。詳細な責務境界は
+[`adaptive-production-loop.md`](./adaptive-production-loop.md) §3 参照）:
+
+| 6 層     | §3.2 パイプラインの該当箇所                                                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Generate | plan・todo・test-cases 生成 〜 exec                                                                                                                    |
+| Evaluate | C-3'（W チェック → severity 分類 → C/D 裁定 → decision table）+ CI/AI レビュー指摘対応ループ（第 2 段 detect）                                         |
+| Remember | decision record 保存・provenance 刻印（[`decision-table.md`](./decision-table.md)）、[`review-feedback-loop.md`](./review-feedback-loop.md) §2-1・§2-2 |
+| Schedule | 指摘対応ループの次アクション判断（[`execution-runbook.md`](./execution-runbook.md) の Scheduling 判断表）                                              |
+| Optimize | L4 学習閉ループへの還元（[`review-feedback-loop.md`](./review-feedback-loop.md) §2-3〜§2-6）                                                           |
+| Recurse  | 効果測定 → 次サイクルの Generate/Evaluate への反映（[`review-feedback-loop.md`](./review-feedback-loop.md) §2-6 再発検出ループ）                       |
+
+**不変条件（Human-owned 固定）**: 6 層モデルのどの層も、policy 制定・HO
+パス操作・C-4（merge）を AI 自己完結にはしない。§3.5 の「承認境界の撤廃
+ではない」原則と同一であり、6 層モデル導入によっても**緩和しない**（詳細は
+[`adaptive-production-loop.md`](./adaptive-production-loop.md) §6）。
+
 ---
 
 ## 4. autonomous-degraded-gates-spec.md との関係
@@ -149,11 +177,11 @@ C-3 条件付き降格（F5-AD）の判定を decision table + provenance で完
 Phase 0（#655）の結論を参照:
 `docs/working/TASK-0655/TASK-0655-c3-review.html`
 
-| 区分 | 内容 |
-| ------ | ------ |
-| 拡張 | Arbiter は `docs/ai/autonomous-degraded-gates-spec.md` の degraded-gates 概念を**拡張する** |
+| 区分   | 内容                                                                                                  |
+| ------ | ----------------------------------------------------------------------------------------------------- |
+| 拡張   | Arbiter は `docs/ai/autonomous-degraded-gates-spec.md` の degraded-gates 概念を**拡張する**           |
 | 非代替 | `docs/ai/autonomous-degraded-gates-spec.md` を置き換えない。PlanGate 本番の degraded-gates はそのまま |
-| 参照元 | `NoHardeningOverridePath` 条件を `docs/ai/ai-loop/ho-paths.md` の起点として参照 |
+| 参照元 | `NoHardeningOverridePath` 条件を `docs/ai/ai-loop/ho-paths.md` の起点として参照                       |
 
 ---
 
@@ -178,6 +206,7 @@ asset-inventory.md の uses/not-uses 分類に従う:
 - [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — C-3' の flow→detect→escalate 動作フロー
 - [`docs/workflows/ai-loop/execution-runbook.md`](./execution-runbook.md) — PR 前セルフレビュー・PR 後指摘対応ループの実行手順
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CI/AI レビュー指摘対応を L4 学習へ還元する閉ループ
+- [`docs/workflows/ai-loop/adaptive-production-loop.md`](./adaptive-production-loop.md) — 6 層自己改善ループ（Generate→Evaluate→Remember→Schedule→Optimize→Recurse）の正本（§3.6 参照。issue #709）
 - [`docs/ai/plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md) — 強化セルフレビュー §7/§8 観点の参照元
 - [`.claude/rules/review-principles.md`](../../../.claude/rules/review-principles.md) §7-bis — C-2 の 2 レーン契約（不変）
 - [`.claude/rules/working-context.md`](../../../.claude/rules/working-context.md) — C-3 Autonomous APPROVE（#353）・C-3 条件付き降格（F5-AD）の正本

@@ -47,13 +47,13 @@ Arbiter は、PlanGate で積み重ねた統制資産 — 失敗履歴・INC 群
 
 Arbiter は PlanGate の延長（v9 / 2.0）ではなく、**次世代検証プロジェクト**として位置づける。
 
-| 項目 | PlanGate | Arbiter |
-|------|----------|---------|
-| 人間の役割 | ループの中（in-the-loop）= 実行前承認者 | ループの上（on-the-loop）= 枠の制定者・例外裁定者 |
-| 承認の時制 | 実行前 | 逸脱検知時 |
-| 制御の基本姿勢 | block until approved | flow → detect → escalate |
-| 現在の位置づけ | 本番統制を担う（並走期全体） | PoC 段階の独立プロジェクト |
-| AI 責務の終点 | PR 作成まで（C-4 は人間） | **merge-ready**（CI green + AI レビュー指摘対応完了）まで一気通貫（[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.3） |
+| 項目           | PlanGate                                | Arbiter                                                                                                                            |
+| -------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 人間の役割     | ループの中（in-the-loop）= 実行前承認者 | ループの上（on-the-loop）= 枠の制定者・例外裁定者                                                                                  |
+| 承認の時制     | 実行前                                  | 逸脱検知時                                                                                                                         |
+| 制御の基本姿勢 | block until approved                    | flow → detect → escalate                                                                                                           |
+| 現在の位置づけ | 本番統制を担う（並走期全体）            | PoC 段階の独立プロジェクト                                                                                                         |
+| AI 責務の終点  | PR 作成まで（C-4 は人間）               | **merge-ready**（CI green + AI レビュー指摘対応完了）まで一気通貫（[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.3） |
 
 ### 配置方針（Phase 0 判断）
 
@@ -169,14 +169,14 @@ W チェックは以下の 4 軸を入力として評価する（Phase 1/2 で D
 
 ## 5. human-in-the-loop との違い
 
-| 観点 | human-in-the-loop（PlanGate） | human-on-the-loop（Arbiter） |
-|------|-------------------------------|------------------------------|
-| 承認の時制 | 実行前（block until approved） | 逸脱検知時（flow → detect → escalate） |
-| 人間の関与 | 各実行を1件ずつ承認 | 枠の制定・例外の裁定・事後監督 |
-| AI の動作 | 承認を待ってから実行 | 枠内では自律実行、逸脱時に停止 |
-| ボトルネック | 人的レビューがリニアにしか伸びない | 低リスク帯はボトルネックを回避 |
-| 安全装置 | 実行前ゲート | provenance 刻印・逸脱検知・サーキットブレーカー |
-| policy 制定 | 都度人間判断 | **policy 制定は永久 in-the-loop**（第0の承認境界） |
+| 観点         | human-in-the-loop（PlanGate）      | human-on-the-loop（Arbiter）                       |
+| ------------ | ---------------------------------- | -------------------------------------------------- |
+| 承認の時制   | 実行前（block until approved）     | 逸脱検知時（flow → detect → escalate）             |
+| 人間の関与   | 各実行を1件ずつ承認                | 枠の制定・例外の裁定・事後監督                     |
+| AI の動作    | 承認を待ってから実行               | 枠内では自律実行、逸脱時に停止                     |
+| ボトルネック | 人的レビューがリニアにしか伸びない | 低リスク帯はボトルネックを回避                     |
+| 安全装置     | 実行前ゲート                       | provenance 刻印・逸脱検知・サーキットブレーカー    |
+| policy 制定  | 都度人間判断                       | **policy 制定は永久 in-the-loop**（第0の承認境界） |
 
 ### 不変の原則
 
@@ -229,6 +229,17 @@ L0 統制契約層        承認境界 / 責務モデル / HO / mode 判定（on
 - **L1 は内製せず RiverReview に委譲**（判断基準を versioned skill 化する既存資産を活用）。
 - **L0 はゼロから設計**（既存ガバナンスの設計哲学だけ参照し、契約定義は on-the-loop 用に書き起こす。§2 参照）。
 
+### 6層自己改善ループとの対応（issue #709）
+
+上記 L0〜L5 は**静的な層アーキテクチャ**であるのに対し、Generate →
+Evaluate → Remember → Schedule → Optimize → Recurse の 6 層モデルは
+**時間軸上の 1 サイクルの手順**であり、両者は直交する。6 層の各ステップが
+どの L0〜L5 層で実行されるかの対応表（多対多）・Remember と Optimize の
+分離・Recurse 条件・承認境界の不変条件（policy/HO/C-4 merge の Human-owned
+固定）は
+[`docs/workflows/ai-loop/adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md)
+を正本とする（本節では再定義しない）。
+
 ---
 
 ## 8. non-goals
@@ -247,3 +258,4 @@ L0 統制契約層        承認境界 / 責務モデル / HO / mode 判定（on
 - `docs/ai/ai-loop/ho-paths.md` — touches-HO 判定基準リスト
 - `docs/ai/ai-loop/related-specs.md` — 既存仕様との関係整理
 - [`docs/workflows/ai-loop/00_concept.md`](../../workflows/ai-loop/00_concept.md) §3 — PlanGate フロー共通化と C-3 置換（C-3'）の確定パイプライン・責務範囲
+- [`docs/workflows/ai-loop/adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md) — 6 層自己改善ループ（Generate→Evaluate→Remember→Schedule→Optimize→Recurse）正本。§7 の L0〜L5 との対応表を含む（issue #709）

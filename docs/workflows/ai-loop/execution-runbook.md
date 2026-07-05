@@ -92,12 +92,12 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 
 ### (5) exit code に応じた分岐
 
-| exit code | decision | 動作 |
-|-----------|----------|------|
-| `0` | `AUTO_APPROVED` | 自動承認として扱う。provenance 刻印（正本）を保存して 1 サイクル完了 |
-| `2` | `HUMAN_ESCALATED` | **停止して人間へ escalate**。audit record（暫定）の `w_check` / `boundary_check` / `lite_check` を提示し、人間の判断を仰ぐ |
-| `3` | `BLOCKED` | ブロックとして扱う。当該変更を採用しない。audit record（暫定）を保存し、理由（stderr の裁定サマリ）を記録する |
-| `1` | （入力エラー） | 入力 JSON の不備。stderr の理由メッセージに従い入力を修正して再実行する |
+| exit code | decision          | 動作                                                                                                                       |
+| --------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `0`       | `AUTO_APPROVED`   | 自動承認として扱う。provenance 刻印（正本）を保存して 1 サイクル完了                                                       |
+| `2`       | `HUMAN_ESCALATED` | **停止して人間へ escalate**。audit record（暫定）の `w_check` / `boundary_check` / `lite_check` を提示し、人間の判断を仰ぐ |
+| `3`       | `BLOCKED`         | ブロックとして扱う。当該変更を採用しない。audit record（暫定）を保存し、理由（stderr の裁定サマリ）を記録する              |
+| `1`       | （入力エラー）    | 入力 JSON の不備。stderr の理由メッセージに従い入力を修正して再実行する                                                    |
 
 ### (6) 強化セルフレビュー（PR 作成前・必須）
 
@@ -139,6 +139,80 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す:
    （採用/理由付き不採用の記録あり）で merge-ready と判定し、C-4（人間の
    merge 承認、Human-owned 固定）待ちに遷移する
 
+### Scheduling 判断表（次アクション優先順位）
+
+> 本節は issue #709（6 層自己改善ループ: Generate → Evaluate → Remember →
+> Schedule → Optimize → Recurse）AC-5 / AC-6 に対応する。**Schedule**
+> （1 ラウンドの観測結果から「次に何をするか」を選ぶ独立責務）の PoC 定義
+> であり、手順 (5) の exit code 分岐・手順 (7) の収束ルールを**再定義せず**、
+> 両者を判断材料として使う判断表を追加する。上位の 6 層モデルとの対応関係の
+> 正本は [`adaptive-production-loop.md`](./adaptive-production-loop.md) を参照。
+
+手順 (7) の PR 後ループにおいて、1 ラウンドの観測結果（CI 結果 / コンフリクト
+有無 / AI レビュー指摘 / severity 分類）から次に取るアクションを、以下の優先
+順位で選択する。上位の条件に該当すればそれを実行し、該当しない場合のみ
+下位へ進む。
+
+| 優先順位 | 次アクション                    | 選択条件                                                                                                                      | 参照                                                                                                                    |
+| -------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 1        | **fix CI**                      | CI が FAIL している                                                                                                           | 手順 (7)-1                                                                                                              |
+| 2        | **address AI review**           | CI は green だが未対応の AI レビュー指摘がある                                                                                | 手順 (7)-3                                                                                                              |
+| 3        | **re-run enhanced self-review** | fix CI / address AI review で差分に変更を加えた                                                                               | 手順 (6) 強化セルフレビュー                                                                                             |
+| 4        | **update suppression**          | AI レビュー指摘が誤検知と判定され、理由付き不採用として登録する対象である                                                     | [`review-feedback-loop.md`](./review-feedback-loop.md) §5 登録済み suppression                                          |
+| 5        | **escalate to human**           | 対応ラウンド上限超過、または severity=critical/major の不一致、または boundary=touches-HO / policy 還元 / C-4 merge に該当    | 手順 (7)-5・[`flow-detect.md`](./flow-detect.md) §4.1・[`ho-paths.md`](../../ai/ai-loop/ho-paths.md)                    |
+| 6        | **stop・block**                 | Model A/B（必要なら C/D）が合意でブロック、またはサーキットブレーカー発火、または human escalate の結果として不採用が確定した | [`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §4.1・§4.3・§8・[`decision-table.md`](./decision-table.md) §5 |
+
+**retry / round 上限**: 手順 (7)-5 の収束ルール（対応ラウンド上限 3）をそのまま
+継承し、本判断表はこの上限を緩和・変更しない。優先順位 1〜4 の実行 1 巡
+（CI 修正・AI レビュー対応の 1 往復）を 1 ラウンドと数える。
+
+**queue 対象**: Schedule が扱うキューは以下の 4 種類とする。優先順位表は
+主に「current PR loop」内の順序制御であり、他 3 キューは非同期・低頻度で
+処理してよい。
+
+| キュー               | 内容                                                                                           | 処理タイミング                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| current PR loop      | 手順 (7) の CI / AI レビュー対応そのもの                                                       | 即時（優先順位 1〜3）                                                                              |
+| review feedback loop | [`review-feedback-loop.md`](./review-feedback-loop.md) §2 の L4 学習閉ループへの還元           | PR ごとに 1 回、手順 (7)-4 のタイミングで投入                                                      |
+| memory hygiene       | decision record（`docs/working/ai-loop-runs/*.json`）・suppression 登録の重複 / 陳腐化の棚卸し | 非同期・低頻度（本 PoC では実施手順を定義せず、実施要否のみをキューに積む。具体化は Phase 4 以降） |
+| suppression update   | [`review-feedback-loop.md`](./review-feedback-loop.md) §5 への誤検知パターン追記               | 優先順位表 4「update suppression」実行時                                                           |
+
+**自動継続できる条件 / human escalate へ切り替える条件**:
+
+| 条件                                                                          | 判定                                                                                                                                    |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| exit code `0`（`AUTO_APPROVED`）かつ CI green かつ AI レビュー指摘なし/対応済 | 自動継続可（merge-ready 判定へ、手順 (7)-6）                                                                                            |
+| CI FAIL または未対応 AI レビュー指摘あり、かつ対応ラウンドが上限（3）内       | 自動継続可（優先順位 1〜4 を実行）                                                                                                      |
+| 対応ラウンド上限（3）超過                                                     | **human escalate 固定**（手順 (7)-5）                                                                                                   |
+| severity=critical/major の W チェック不一致                                   | **human escalate 固定**（[`flow-detect.md`](./flow-detect.md) §4.1）                                                                    |
+| boundary=touches-HO                                                           | **human escalate 固定**（W チェック結果に関わらず。[`ho-paths.md`](../../ai/ai-loop/ho-paths.md)）                                      |
+| policy（auto-approve 条件・裁定ルール）への還元が必要と判定                   | **human escalate 固定**（第0の承認境界。[`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §6）                                  |
+| C-4（merge）到達                                                              | **human escalate 固定**（Human-owned。本ドキュメント §4・[`working-context.md`](../../../.claude/rules/working-context.md) C-4 ゲート） |
+
+boundary=touches-HO / policy 還元 / C-4 merge の 3 条件は、対応ラウンド数や
+severity 分類の結果にかかわらず**常に** human escalate へ切り替える絶対条件
+であり、Schedule はこれらを自動継続候補として扱わない（AC-6）。
+
+**stop・block 条件**:
+
+- Model A/B（必要なら C/D）が揃って `reject` で合意した場合
+  （[`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §4.1・§4.3
+  「合意 → ブロック」）
+- サーキットブレーカーが発火した場合（[`decision-table.md`](./decision-table.md) §5）
+- human escalate の結果、人間が当該変更の不採用を判断した場合（audit record
+  を保存し、当該変更は採用せずに 1 サイクルを終了する。手順 (5) `BLOCKED`
+  相当）
+
+stop・block は「次のアクションを選ばない」終端状態であり、当該サイクルは
+ここで完結する（Recurse へは進めず、次サイクルへの入力は
+[`adaptive-production-loop.md`](./adaptive-production-loop.md) の Recurse 条件
+に従う）。
+
+> **不変条件（AC-6 / AC-7）**: 本判断表がどのように次アクションを選んでも、
+> **policy 制定・boundary=touches-HO・C-4（merge）の 3 点は Human-owned
+> 固定のまま変更しない**。Schedule はサイクルの進行順序を決める責務に
+> 留まり、承認境界そのものを自己変更・自己承認する経路を持たない。
+
 ---
 
 ## 3. 検証可能性 4 条件への適合
@@ -146,12 +220,12 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す:
 [`orchestrator-mode.md`](../../../.claude/rules/orchestrator-mode.md) §検証可能性
 の 4 条件に対する `arbiter.py` の適合状況:
 
-| 条件 | 適合内容 |
-|------|---------|
-| **冪等性** | 同一入力 JSON に対し `decision` は常に同一（`ProvenanceSchemaTests.test_auto_approve_provenance_fields` で検証。`timestamp` のみ実行毎に変化するが裁定結果には影響しない） |
-| **明示的失敗** | 入力エラー（exit code 1）は必ず理由メッセージを stderr に出力する（`[arbiter] 入力エラー: <理由>`） |
-| **トレーサビリティ** | boundary 判定で HO パターンに一致した場合、一致パス・パターン・分類を理由サマリ（stderr）に含める |
-| **テスト可能性** | `test_arbiter.py`（59 ケース）で decision table 全 priority・severity 全分類・C/D 全パターン・AC-8 安全側・boundary 全パターン・ho-paths.md との drift を機械的に検証可能 |
+| 条件                 | 適合内容                                                                                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **冪等性**           | 同一入力 JSON に対し `decision` は常に同一（`ProvenanceSchemaTests.test_auto_approve_provenance_fields` で検証。`timestamp` のみ実行毎に変化するが裁定結果には影響しない） |
+| **明示的失敗**       | 入力エラー（exit code 1）は必ず理由メッセージを stderr に出力する（`[arbiter] 入力エラー: <理由>`）                                                                        |
+| **トレーサビリティ** | boundary 判定で HO パターンに一致した場合、一致パス・パターン・分類を理由サマリ（stderr）に含める                                                                          |
+| **テスト可能性**     | `test_arbiter.py`（59 ケース）で decision table 全 priority・severity 全分類・C/D 全パターン・AC-8 安全側・boundary 全パターン・ho-paths.md との drift を機械的に検証可能  |
 
 ---
 
@@ -182,6 +256,7 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す:
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject / CI・AI レビュー指摘対応を L4 学習へ還元する閉ループ
 - [`.claude/rules/orchestrator-mode.md`](../../../.claude/rules/orchestrator-mode.md) — 検証可能性 4 条件の正本
 - [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) §3 — PlanGate フロー共通化と C-3 置換（C-3'）・merge-ready 責務範囲の正本
+- [`docs/workflows/ai-loop/adaptive-production-loop.md`](./adaptive-production-loop.md) — 6 層自己改善ループ（Generate → Evaluate → Remember → Schedule → Optimize → Recurse）の正本。本 runbook の Scheduling 判断表はこの Schedule 層の PoC 実装
 - [`docs/ai/plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md) — 強化セルフレビュー §7/§8 観点の参照元
 - [`.claude/skills/ai-loop-cycle/SKILL.md`](../../../.claude/skills/ai-loop-cycle/SKILL.md) — 本 runbook の 1 サイクルを実行する手順スキル（Model A/B/C/D 委託プロンプト定型）
 - [`.claude/skills/pr-watch/SKILL.md`](../../../.claude/skills/pr-watch/SKILL.md) — 手順 (7) の CI/AI レビュー指摘対応ループの監視・対応定型
