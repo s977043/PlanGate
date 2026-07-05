@@ -26,6 +26,17 @@
 
 set -eu
 
+# POSIX/C ロケール環境（CI/Docker 等でデフォルトが ASCII になるケース）でも
+# python3 の stdout を UTF-8 に固定し、日本語出力による UnicodeEncodeError で
+# 異常終了するのを防ぐ（C-2 Gemini high 指摘）。
+export PYTHONUTF8=1
+
+# mktemp で作った一時ファイルを、正常終了・エラー・中断（INT/TERM）いずれでも
+# 確実に掃除する（C-2 Gemini medium 指摘）。生成のたび TEMP_FILES に登録する。
+TEMP_FILES=""
+_cleanup_tmp() { [ -n "$TEMP_FILES" ] && rm -f $TEMP_FILES || true; }
+trap _cleanup_tmp EXIT INT TERM
+
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 DRY=0
 
@@ -63,6 +74,7 @@ edit_file() {
   fi
   _tmp=$(mktemp)
   _err=$(mktemp)
+  TEMP_FILES="$TEMP_FILES $_tmp $_err"
   if python3 - "$_f" > "$_tmp" 2>"$_err"; then
     if cmp -s "$_f" "$_tmp"; then
       printf '  [skip] %s（既適用 or 変更なし）\n' "$1"
