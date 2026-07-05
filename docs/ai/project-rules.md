@@ -10,11 +10,11 @@ PlanGate — ゲート型AI駆動開発ワークフローのリポジトリ。
 
 ## A'. 正本責務の境界
 
-| 正本ファイル | 責務 |
-|-----------|------|
-| **`docs/ai/core-contract.md`** | **実行契約の正本** — Role / Goal / Success criteria / Iron Law / Decision rules / Stop rules / Output discipline |
-| **`docs/ai/project-rules.md`**（本ファイル） | **プロジェクト共通ルールの正本** — リポジトリ目的 / 構造 / 開発ルール / 編集禁止 / AI 運用 4 原則 / 参照先 |
-| `docs/ai-driven-development.md` | ワークフロー詳細・プロンプト集（実行契約は core-contract を参照） |
+| 正本ファイル                                 | 責務                                                                                                             |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **`docs/ai/core-contract.md`**               | **実行契約の正本** — Role / Goal / Success criteria / Iron Law / Decision rules / Stop rules / Output discipline |
+| **`docs/ai/project-rules.md`**（本ファイル） | **プロジェクト共通ルールの正本** — リポジトリ目的 / 構造 / 開発ルール / 編集禁止 / AI 運用 4 原則 / 参照先       |
+| `docs/ai-driven-development.md`              | ワークフロー詳細・プロンプト集（実行契約は core-contract を参照）                                                |
 
 **重複時の解釈**: 実行判断は Core Contract が最終根拠。プロジェクト固有のルールは本ファイルが正本。
 
@@ -61,13 +61,13 @@ PlanGate — ゲート型AI駆動開発ワークフローのリポジトリ。
 
 **形式**: `<type>/TASK-<ticket-number>[-<description>]` または `<type>/<description>` (kebab-case)
 
-| タイプ | 用途 |
-| :--- | :--- |
-| `feature/` | 新機能・新コンテンツの追加 |
-| `fix/` | バグ修正・誤記修正 |
-| `docs/` | ドキュメントの追加・更新 |
+| タイプ      | 用途                             |
+| :---------- | :------------------------------- |
+| `feature/`  | 新機能・新コンテンツの追加       |
+| `fix/`      | バグ修正・誤記修正               |
+| `docs/`     | ドキュメントの追加・更新         |
 | `refactor/` | リファクタリング（機能変更なし） |
-| `chore/` | ビルドプロセスやツールの変更 |
+| `chore/`    | ビルドプロセスやツールの変更     |
 
 ## D. 作業コンテキスト
 
@@ -91,40 +91,41 @@ PlanGate — ゲート型AI駆動開発ワークフローのリポジトリ。
 
 ## G. 参照先
 
-| ドキュメント | パス |
-|---|---|
-| **実行契約（Core Contract）** | **`docs/ai/core-contract.md`**（Iron Law / Stop rules / Output discipline の正本） |
-| PlanGate ワークフロー（v5 現行） | `docs/plangate.md` |
-| PlanGate v6 ロードマップ | `docs/plangate-v6-roadmap.md` |
-| **PlanGate v7 ハイブリッドアーキテクチャ** | `docs/plangate-v7-hybrid.md` |
-| **Orchestrator Mode（親 PBI 分解、v8.2、Spec only）** | `docs/orchestrator-mode.md` |
-| Orchestrator Mode Gate 条件（正本） | `.claude/rules/orchestrator-mode.md` |
-| v7 Rule 1〜5 + 境界ルール | `.claude/rules/hybrid-architecture.md` |
-| v7 Workflow 定義（WF-01〜WF-05 + Orchestrator） | `docs/workflows/README.md` |
-| ワークフロー詳細・プロンプト集 | `docs/ai-driven-development.md` |
-| AIツール役割分担 | `docs/ai/tool-roles.md` |
-| レビュー原則 | `.claude/rules/review-principles.md` |
-| 作業コンテキスト管理 | `.claude/rules/working-context.md` |
-| モード分類 | `.claude/rules/mode-classification.md` |
+| ドキュメント                                                                             | パス                                                                               |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **実行契約（Core Contract）**                                                            | **`docs/ai/core-contract.md`**（Iron Law / Stop rules / Output discipline の正本） |
+| PlanGate ワークフロー（v5 現行）                                                         | `docs/plangate.md`                                                                 |
+| PlanGate v6 ロードマップ                                                                 | `docs/plangate-v6-roadmap.md`                                                      |
+| **PlanGate v7 ハイブリッドアーキテクチャ**                                               | `docs/plangate-v7-hybrid.md`                                                       |
+| **Orchestrator Mode（親 PBI 分解、v8.2、Spec only）**                                    | `docs/orchestrator-mode.md`                                                        |
+| Orchestrator Mode Gate 条件（正本）                                                      | `.claude/rules/orchestrator-mode.md`                                               |
+| v7 Rule 1〜5 + 境界ルール                                                                | `.claude/rules/hybrid-architecture.md`                                             |
+| v7 Workflow 定義（WF-01〜WF-05 + Orchestrator）                                          | `docs/workflows/README.md`                                                         |
+| ワークフロー詳細・プロンプト集                                                           | `docs/ai-driven-development.md`                                                    |
+| AIツール役割分担                                                                         | `docs/ai/tool-roles.md`                                                            |
+| レビュー原則                                                                             | `.claude/rules/review-principles.md`                                               |
+| 作業コンテキスト管理                                                                     | `.claude/rules/working-context.md`                                                 |
+| モード分類                                                                               | `.claude/rules/mode-classification.md`                                             |
+| **サブエージェント委譲プロトコル（派遣プロンプト自己完結性 / OUTCOME 契約 / 行動規範）** | `docs/ai/subagent-delegation/README.md`                                            |
 
 ### v8.3 最新実行モデル対応（PBI-116 EPIC 成果物）
 
-| ドキュメント | 役割 |
-|---|---|
-| **`docs/ai/model-profiles.yaml`** | 実行モデル別 4 profile（gpt-5_5 / gpt-5_5_pro / gpt-5_mini / legacy_or_unknown）— reasoning effort / verbosity / tool policy / context policy |
-| `docs/ai/model-profiles.md` | Model Profile の解説・選定ガイド |
-| **`docs/ai/prompt-assembly.md`** | プロンプト 4 層組み立て（base_contract / phase_contract / risk_mode_contract / model_adapter） |
-| `docs/ai/contracts/` | phase 別 contract 定義 × 7（plan / classify / approve-wait / execute / review / verify / handoff） |
-| `docs/ai/adapters/` | profile 別 adapter × 4（outcome_first / outcome_first_strict / explicit_short / legacy_or_unknown） |
-| **`docs/ai/structured-outputs.md`** | Structured Outputs 適用方針（review-result / acceptance-result / mode-classification / handoff-summary） |
-| **`docs/ai/eval-plan.md`** | model migration eval framework（8 観点 / 4 観点 release blocker） |
-| `docs/ai/eval-cases/` | 観点別詳細 × 8（scope-discipline / approval-gate / verification-honesty / format-adherence / ac-coverage / stop-behavior / tool-overuse / latency-cost） |
-| `docs/ai/eval-comparison-template.md` | prompt × model profile × reasoning effort 比較表テンプレート |
-| **`docs/ai/responsibility-boundary.md`** | CLAUDE.md / Skill / Hook の責務境界（強制力の軸） |
-| **`docs/ai/tool-policy.md`** | phase 別 allowed_tools 定義 |
-| **`docs/ai/hook-enforcement.md`** | Hook で強制すべき項目（EHS-1〜EHS-3） |
-| `schemas/model-profile.schema.json` | Model Profile JSON Schema |
-| `schemas/{review-result,acceptance-result,mode-classification,handoff-summary}.schema.json` | Structured Outputs schema × 4 |
+| ドキュメント                                                                                | 役割                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`docs/ai/model-profiles.yaml`**                                                           | 実行モデル別 4 profile（gpt-5_5 / gpt-5_5_pro / gpt-5_mini / legacy_or_unknown）— reasoning effort / verbosity / tool policy / context policy            |
+| `docs/ai/model-profiles.md`                                                                 | Model Profile の解説・選定ガイド                                                                                                                         |
+| **`docs/ai/prompt-assembly.md`**                                                            | プロンプト 4 層組み立て（base_contract / phase_contract / risk_mode_contract / model_adapter）                                                           |
+| `docs/ai/contracts/`                                                                        | phase 別 contract 定義 × 7（plan / classify / approve-wait / execute / review / verify / handoff）                                                       |
+| `docs/ai/adapters/`                                                                         | profile 別 adapter × 4（outcome_first / outcome_first_strict / explicit_short / legacy_or_unknown）                                                      |
+| **`docs/ai/structured-outputs.md`**                                                         | Structured Outputs 適用方針（review-result / acceptance-result / mode-classification / handoff-summary）                                                 |
+| **`docs/ai/eval-plan.md`**                                                                  | model migration eval framework（8 観点 / 4 観点 release blocker）                                                                                        |
+| `docs/ai/eval-cases/`                                                                       | 観点別詳細 × 8（scope-discipline / approval-gate / verification-honesty / format-adherence / ac-coverage / stop-behavior / tool-overuse / latency-cost） |
+| `docs/ai/eval-comparison-template.md`                                                       | prompt × model profile × reasoning effort 比較表テンプレート                                                                                             |
+| **`docs/ai/responsibility-boundary.md`**                                                    | CLAUDE.md / Skill / Hook の責務境界（強制力の軸）                                                                                                        |
+| **`docs/ai/tool-policy.md`**                                                                | phase 別 allowed_tools 定義                                                                                                                              |
+| **`docs/ai/hook-enforcement.md`**                                                           | Hook で強制すべき項目（EHS-1〜EHS-3）                                                                                                                    |
+| `schemas/model-profile.schema.json`                                                         | Model Profile JSON Schema                                                                                                                                |
+| `schemas/{review-result,acceptance-result,mode-classification,handoff-summary}.schema.json` | Structured Outputs schema × 4                                                                                                                            |
 
 ## PR レビュー対応中の状態宣言（2026-06-11 / #533 競合の再発防止）
 
