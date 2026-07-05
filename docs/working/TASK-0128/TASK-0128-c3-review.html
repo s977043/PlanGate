@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-0128 — C-3 Review</title>
+<style>
+:root{--fg:#1f2328;--muted:#656d76;--bd:#d0d7de;--bg:#fff;--accent:#0969da;--code:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;color:var(--fg);background:#fafbfc}
+.wrap{max-width:980px;margin:0 auto;padding:24px}
+header h1{margin:0 0 4px}
+.meta{color:var(--muted);font-size:14px;margin-bottom:16px}
+nav.toc{position:sticky;top:0;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin-bottom:24px}
+nav.toc strong{display:block;margin-bottom:6px}
+nav.toc a{display:inline-block;margin:2px 10px 2px 0;color:var(--accent);text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+section.doc{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 24px 24px;margin-bottom:28px}
+section.doc>h2.doc-title{border-bottom:2px solid var(--bd);padding-bottom:8px}
+h1,h2,h3,h4{line-height:1.3}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid var(--bd);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+code{background:var(--code);padding:.15em .35em;border-radius:4px;font-size:85%}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto}
+pre code{background:none;padding:0}
+blockquote{margin:8px 0;padding:0 12px;color:var(--muted);border-left:3px solid var(--bd)}
+ul.checklist{list-style:none;padding-left:18px}
+ul.checklist li{margin:2px 0}
+hr{border:none;border-top:1px solid var(--bd);margin:16px 0}
+a{color:var(--accent)}
+.missing{color:var(--muted);font-style:italic}
+</style></head>
+<body><div class="wrap">
+<header><h1>TASK-0128</h1><div class="meta">C-3 レビュー集約ビュー（self-contained）</div></header>
+<nav class="toc"><strong>目次</strong><a href="#pbi-input-md">PBI INPUT PACKAGE (pbi-input.md)</a><a href="#plan-md">EXECUTION PLAN (plan.md)</a><a href="#todo-md">EXECUTION TODO (todo.md)</a><a href="#test-cases-md">TEST CASES (test-cases.md)</a><a href="#review-self-md">C-1 セルフレビュー (review-self.md)</a><a href="#review-external-md">C-2 外部レビュー (review-external.md)</a><a href="#handoff-md">HANDOFF (handoff.md)</a></nav>
+<section class="doc" id="pbi-input-md">
+<h2 class="doc-title">PBI INPUT PACKAGE (pbi-input.md)</h2>
+<h1>PBI INPUT PACKAGE: TASK-0128</h1>
+<h2>Context / Why</h2>
+<p>PlanGate のコンセプトは「<strong>人間は C-3 / C-4 の承認『判断』をする。c3.json 発行・CLI 作業などの『作業』は人間に負わせない</strong>」（オーナー宣言 2026-06-12）。</p>
+<p>しかし現状の C-3 承認は人間が <code>c3.json</code> を手動発行する運用に倒れており、コンセプトと逆行している。一方で「完全ゼロ作業」は harness の auto-mode classifier が「AI による人間なりすまし」として原理的に拒否するため不可能（2026-06-12 実測）。</p>
+<p>そこで <strong>人間のワンアクション認証</strong>で c3.json を自動生成する <code>plangate approve</code> 機構（討議メモ 案 A）を導入する。人間は「承認ボタン1押し」相当、plan_hash 算出・approved_by 解決・timestamp は CLI が自動化する。<code>bin/plangate maintenance start</code> の Human-TTY 方式を踏襲し provenance を担保する。</p>
+<p>討議メモ: <code>docs/working/discussions/2026-06-12-c3c4-approval-ux-vs-provenance.md</code></p>
+<p>関連: #420（EH-3 provenance hardening）/ TASK-0123（check-approval-token-write.sh）</p>
+<h2>What</h2>
+<h3>In scope</h3>
+<ul>
+<li><code>bin/plangate approve &lt;TASK-XXXX&gt; [--reject|--conditional]</code> サブコマンド追加</li>
+<li><code>bin/plangate</code> は Hardening Override 対象 → AI は apply-script を作成し<strong>人間が適用</strong></li>
+<li><strong>Human-TTY 必須</strong>（<code>[ -t 0 ]</code> 等）: 非対話 Bash（= AI）からは実行不可。<code>maintenance start</code> と同方式</li>
+<li><code>plan.md</code> の plan_hash を自動算出（plangate_sha256）</li>
+<li><code>approved_by</code> を <code>git config user.email</code>（または name）から自動解決</li>
+<li><code>approved_at</code> を自動付与</li>
+<li><code>docs/working/&lt;TASK&gt;/approvals/c3.json</code> を <code>c3_status: APPROVED</code>（または REJECTED / CONDITIONAL）で生成</li>
+<li>既存 c3.json があれば確認の上で上書き（再承認 = plan 変更後の再算出に対応）</li>
+<li><code>scripts/check-approval-token-write.sh</code> を <code>.claude/settings.json</code> に<strong>配線</strong>（AI の c3.json 直接書込を block）し、<code>plangate approve</code>（TTY）を唯一の正規経路にする</li>
+<li>settings 配線は Human-owned 適用（apply-script + 人間実行）</li>
+<li>ドキュメント追記（C-3 承認手順を「c3.json 手書き」から「plangate approve」へ更新）</li>
+</ul>
+<h3>Out of scope（V2）</h3>
+<ul>
+<li>案 B（GitHub PR review ベース C-3 承認 → CI 生成）</li>
+<li>#420 のフル provenance hardening（HMAC + プロセス系譜 + CI 検証の全体）</li>
+<li>C-4 承認の機構変更（既に GitHub Approve でコンセプト適合済み）</li>
+<li>親 PBI（parent-c3.json / parent-integration.json）への展開</li>
+</ul>
+<h2>受入基準</h2>
+<table>
+<thead><tr>
+<th>AC</th>
+<th>内容</th>
+</tr></thead><tbody>
+<tr><td>AC-01</td><td><code>plangate approve TASK-XXXX</code> を <strong>対話 TTY</strong> で実行すると <code>approvals/c3.json</code>（c3_status=APPROVED）が生成される</td></tr>
+<tr><td>AC-02</td><td>生成 c3.json の plan_hash が現 plan.md の sha256 と一致する（自動算出）</td></tr>
+<tr><td>AC-03</td><td>approved_by が git config から自動解決される（人間が手入力しない）</td></tr>
+<tr><td>AC-04</td><td><strong>非対話実行（AI の Bash 等、TTY なし）では拒否</strong>され c3.json を生成しない</td></tr>
+<tr><td>AC-05</td><td><code>--reject</code> / <code>--conditional</code> で対応する c3_status を発行できる</td></tr>
+<tr><td>AC-06</td><td><code>check-approval-token-write.sh</code> が settings に配線され、AI の c3.json 直接 Write/Edit が block される</td></tr>
+<tr><td>AC-07</td><td><code>bin/plangate</code> 変更は apply-script 経由で AI は直接編集しない（人間適用）</td></tr>
+<tr><td>AC-08</td><td>既存 c3.json がある場合の再承認（plan 変更後）で plan_hash が更新される</td></tr>
+<tr><td>AC-09</td><td>承認後 <code>bin/plangate validate TASK-XXXX</code> が PASS する</td></tr>
+<tr><td>AC-10</td><td>生成 c3.json が <code>schemas/c3-approval.schema.json</code> に準拠（三値の条件付き必須フィールド含む / R-004,R-008）</td></tr>
+<tr><td>AC-11</td><td>REJECTED/CONDITIONAL は validate を呼ばず schema+plan_hash+status 表示で完了（R-003）</td></tr>
+</tbody></table>
+<h2>Notes from Refinement</h2>
+<ul>
+<li>コンセプト: 承認＝判断（人間）、転記＝自動（CLI）。完全ゼロ作業は不可（なりすまし防止）→ 人間ワンアクション認証が最小単位</li>
+<li>TTY 必須が AI 自己承認を物理的に防ぐ要（exec をアンブロックするトークンの自己発行防止）</li>
+<li>既存 memory <code>feedback_maintenance_json_provenance_gap</code> と階層整合（AI 代理作成は引き続き禁止、人間 TTY 経由のみ正規）</li>
+</ul>
+<h2>Estimation Evidence</h2>
+<h3>Risks / Unknowns</h3>
+<ul>
+<li><code>! plangate approve</code> をセッションから実行した場合に TTY が得られるか（maintenance start の TTY 判定実装を要確認）</li>
+<li>settings 配線（HO + Human-owned）と doctor/CI の整合</li>
+<li>Mode = high-risk（bin/plangate + settings = 承認境界 touch）→ lite_eligible=false / Standard C-3 同期固定（本 PBI 自身の承認もこの機構の bootstrap 問題を内包）</li>
+</ul>
+<h3>Assumptions</h3>
+<ul>
+<li><code>bin/plangate maintenance</code> の TTY 判定・apply-script パターンを踏襲</li>
+<li>approved_by は git config user.email を既定とする</li>
+<li>本 PBI 完成後、TASK-0127 の C-3 は <code>plangate approve</code> で正規承認する</li>
+</ul>
+</section>
+<section class="doc" id="plan-md">
+<h2 class="doc-title">EXECUTION PLAN (plan.md)</h2>
+<h1>EXECUTION PLAN: TASK-0128</h1>
+<p><code>plangate approve</code> — 人間ワンアクションで C-3 承認（c3.json 自動生成）</p>
+<blockquote>rev.2: C-2(codex gpt-5.5) 指摘 R-001..R-008 を確定反映。Mode を critical へ引き上げ。</blockquote>
+<h2>Goal</h2>
+<p>人間の「承認判断」だけで C-3 を確定し、c3.json の発行作業（JSON 手書き・plan_hash 算出）を不要にする <code>bin/plangate approve</code> を導入する。provenance は <code>maintenance</code> と同じ Human-presence 多層防御で担保し、AI の自己承認を物理的に封じる。</p>
+<h2>Constraints / Non-goals</h2>
+<ul>
+<li><strong>Constraints</strong></li>
+<li><code>bin/plangate</code> / <code>.claude/settings.json</code> は Hardening Override・self-mod 対象 → AI は apply-script を作り <strong>人間が適用</strong></li>
+<li>承認は <strong>Human-presence 多層検証</strong>必須（<code>maintenance</code> の L1-L4 を踏襲）。非対話（AI Bash）からは発行不可</li>
+<li>生成する c3.json は <strong><code>schemas/c3-approval.schema.json</code> 準拠</strong>必須（三値の条件付き必須フィールド含む / R-004,R-008）</li>
+<li>Python は plan_hash 算出等で既存依存範囲のみ（新規 pip 依存なし）</li>
+<li><strong>TASK-0123 (#420) との関係（R-001）</strong></li>
+<li><code>scripts/check-approval-token-write.sh</code> は <strong>TASK-0123 が作成済み</strong>（現状 settings 未配線）。本 PBI は <strong>その配線のみ</strong>を行い、#420 のフル provenance hardening（HMAC / プロセス系譜 / CI 検証）は <strong>再実装しない</strong>。</li>
+<li>#420 本体が後続で配線・強化する場合に備え、本 PBI の配線は #420 と additive（重複定義を避け、既存スクリプトを使う）。順序非依存（本 PBI 単独で成立）。</li>
+<li><strong>Non-goals（V2）</strong></li>
+<li>案 B（GitHub review ベース C-3）</li>
+<li>#420 フル provenance hardening（HMAC / プロセス系譜の完全実装）</li>
+<li>C-4 機構変更（GitHub Approve で適合済み）</li>
+<li>親 PBI（parent-c3 / parent-integration）対応</li>
+<li><strong>identity の暗号学的証明</strong>（本 PBI は presence 防御まで。identity 限界は注記で明示 / R-006）</li>
+</ul>
+<h2>Approach Overview</h2>
+<p><code>bin/plangate approve &lt;TASK-XXXX&gt; [--reject --reason &lt;text&gt;|--conditional --conditions &lt;text&gt;]</code>:</p>
+<ol>
+<li><code>maintenance</code> の <strong>L1 isatty / L2 env barrier / L3 ppid heuristic / L4 nonce</strong> を <strong><code>context</code> 引数付き共通関数に抽出</strong>（R-005）。<code>approve</code> 実行時は <code>_maintenance</code> 生成や <code>maintenance_start_attempt</code> 監査を起こさず、<code>approve</code> 固有の audit event 名・プロンプトを使う。</li>
+<li><code>plan.md</code> から plan_hash を <code>plangate_sha256</code> で算出</li>
+<li><code>approved_by</code> を <code>git config user.email</code>（無ければ user.name）で解決。<strong><code>approved_by_source: git-config</code> / <code>approver_identity_unverified: true</code> を併記</strong>し presence≠identity の限界を明示（R-006）</li>
+<li><code>approved_at</code> を生成</li>
+<li>c3_status に応じ <strong>schema 準拠</strong>で <code>approvals/c3.json</code> 生成（R-004）:</li>
+</ol>
+<ul>
+<li>APPROVED: plan_hash 等</li>
+<li>CONDITIONAL: <code>conditions</code>（<code>--conditions</code> or 対話入力）必須</li>
+<li>REJECTED: <code>rejection_reason</code>（<code>--reason</code> or 対話入力）必須</li>
+<li>既存あれば再承認として上書き（plan_hash 更新）</li>
+</ul>
+<ol>
+<li><strong>最終確認の分離（R-003）</strong>: APPROVED のみ <code>validate</code> 相当（c3_status=APPROVED + plan_hash 一致）を実行。REJECTED/CONDITIONAL は <code>validate</code> をかけず <strong>schema 検証 + plan_hash 記録 + status 表示</strong>にとどめる。</li>
+</ol>
+<h3>AI 直接書込の唯一経路化（R-002）</h3>
+<ul>
+<li><code>scripts/check-approval-token-write.sh</code> を settings の <strong>PreToolUse に <code>Edit|Write</code> と <code>Bash</code> の両 matcher</strong>で配線する。</li>
+<li>Edit|Write は <code>PLANGATE_HOOK_FILE</code>、Bash は <strong>コマンド文字列から <code>approvals/*.json</code> 等の対象 path を検出</strong>して block。</li>
+<li>これにより <code>cat &gt; .../approvals/c3.json</code> のような Bash 経由書込も防ぎ、<code>approve</code>(TTY) を唯一の正規経路にする。</li>
+<li>※本反映の発端: 本セッションで AI が Bash heredoc で c3.json を書こうとした事実（classifier では止まったが hook では未配線だった）。</li>
+</ul>
+<h3>アプローチ比較（B-2）</h3>
+<table>
+<thead><tr>
+<th>案</th>
+<th>構成</th>
+<th>Pros</th>
+<th>Cons</th>
+<th>採否</th>
+</tr></thead><tbody>
+<tr><td><strong>A（採用）</strong></td><td>maintenance L1-L4 を context 付き共通化し approve に適用 + Bash/Edit/Write 両 matcher 配線</td><td>実績ある防御を再利用・唯一経路化</td><td>共通化リファクタ + Bash path 検出の実装</td><td>✅</td></tr>
+<tr><td>B</td><td>approve は L1 isatty のみ・Edit\</td><td>Write のみ block</td><td>軽量</td><td>Bash 経由を防げない（R-002）・防御不整合</td><td>✗</td></tr>
+<tr><td>C</td><td>GitHub review ベース</td><td>provenance 強</td><td>exec 前 PR 必須・スコープ大</td><td>✗(V2)</td></tr>
+</tbody></table>
+<h2>Work Breakdown</h2>
+<table>
+<thead><tr>
+<th>Step</th>
+<th>内容</th>
+<th>Output</th>
+<th>Owner</th>
+<th>Risk</th>
+<th>🚩</th>
+</tr></thead><tbody>
+<tr><td>S1</td><td>maintenance L1-L4 を context 引数付き共通関数へ抽出（副作用分離 / R-005）</td><td>bin/plangate（apply-script）</td><td>agent</td><td>H</td><td>🚩 maintenance 回帰</td></tr>
+<tr><td>S2</td><td><code>cmd_approve</code> 実装（三値・schema 準拠・--reason/--conditions / R-004）</td><td>bin/plangate（apply-script）</td><td>agent</td><td>H</td><td>🚩 自己承認不可</td></tr>
+<tr><td>S3</td><td>approved_by 解決 + identity 限界注記（R-006）+ plan_hash 算出</td><td>bin/plangate（apply-script）</td><td>agent</td><td>M</td><td></td></tr>
+<tr><td>S4</td><td>最終確認の分離: APPROVED のみ validate / 他は schema+status（R-003）</td><td>bin/plangate（apply-script）</td><td>agent</td><td>M</td><td>🚩</td></tr>
+<tr><td>S5</td><td>dispatch approve) + help 追記</td><td>bin/plangate（apply-script）</td><td>agent</td><td>L</td><td></td></tr>
+<tr><td>S6</td><td>check-approval-token-write.sh を Edit\</td><td>Write + <strong>Bash</strong> で配線（R-002）+ Bash path 検出ロジック</td><td>scripts/apply-task-0128-approve.sh + hook 追補</td><td>agent</td><td>H</td><td>🚩 唯一経路化</td></tr>
+<tr><td>S7</td><td>apply-script 完成（冪等・--dry-run・アンカー検証・settings example 同期）</td><td>scripts/apply-task-0128-approve.sh</td><td>agent</td><td>M</td><td>🚩 settings drift</td></tr>
+<tr><td>S8</td><td>ドキュメント更新（C-3 手順 → plangate approve）</td><td>docs/</td><td>agent</td><td>L</td><td></td></tr>
+<tr><td>S9</td><td>テスト（test-cases 全件・非対話拒否・Bash 書込 block・schema 検証 / R-008）</td><td>evidence/</td><td>agent</td><td>H</td><td>🚩 V-1</td></tr>
+<tr><td>H1</td><td>apply-script を人間が dry-run → 適用（bin/plangate + settings）</td><td>反映</td><td>human</td><td>H</td><td>🚩 HO/self-mod</td></tr>
+</tbody></table>
+<h2>Files / Components to Touch</h2>
+<ul>
+<li>変更（apply-script 経由・人間適用）: <code>bin/plangate</code>（L1-L4 共通化 + <code>cmd_approve</code> + dispatch + help）</li>
+<li>変更（apply-script 経由・人間適用）: <code>.claude/settings.json</code> + <code>.claude/settings.example.json</code>（check-approval-token-write.sh を Edit|Write + Bash で配線）</li>
+<li>変更（必要時）: <code>scripts/check-approval-token-write.sh</code>（Bash コマンド文字列からの path 検出を追補 / R-002）</li>
+<li>新規: <code>scripts/apply-task-0128-approve.sh</code>（AI 作成 / 人間適用）</li>
+<li>追記: ドキュメント（C-3 承認手順）</li>
+</ul>
+<h2>Testing Strategy</h2>
+<ul>
+<li><strong>Unit</strong>: plan_hash 算出・approved_by 解決・三値 c3_status 生成（schema 準拠フィールド含む）</li>
+<li><strong>Schema（R-008）</strong>: 生成した APPROVED/CONDITIONAL/REJECTED の c3.json を <code>schemas/c3-approval.schema.json</code> で検証（<code>validate-schemas</code> 相当）</li>
+<li><strong>Integration</strong>: 対話 TTY で approve→（APPROVED 時）validate PASS</li>
+<li><strong>Security 負例（中核）</strong>: 非対話 approve を L1 で拒否 / <strong>Bash <code>cat &gt; approvals/c3.json</code> を hook が block（R-002）</strong> / env/ppid 不一致拒否</li>
+<li><strong>分離確認（R-003）</strong>: REJECTED/CONDITIONAL で validate を呼ばず schema+status で完了</li>
+<li><strong>回帰</strong>: maintenance start/stop が L1-L4 共通化後も挙動不変（R-005）</li>
+<li><strong>settings</strong>: 配線後 doctor --check-settings / drift チェック整合</li>
+</ul>
+<h2>Risks &amp; Mitigations</h2>
+<table>
+<thead><tr>
+<th>Risk</th>
+<th>Mitigation</th>
+</tr></thead><tbody>
+<tr><td>L1-L4 共通化で maintenance 既存挙動を壊す</td><td>context 引数で副作用分離、回帰テスト必須（S1 🚩 / R-005）</td></tr>
+<tr><td>Bash 経由書込の検出漏れ</td><td>hook に Bash matcher + path 検出 + 専用テスト（R-002）</td></tr>
+<tr><td>三値 schema 違反の c3.json 生成</td><td>生成前後で schema 検証を acceptance 化（R-004/R-008）</td></tr>
+<tr><td>approved_by を identity と誤認</td><td>identity_unverified 注記で限界明示（R-006）</td></tr>
+<tr><td>settings 配線 drift</td><td>apply-script に example 同期、doctor 検証</td></tr>
+<tr><td>本 PBI の C-3 bootstrap</td><td>完成まで interim、完成後 approve で TASK-0127/0128 正規承認</td></tr>
+</tbody></table>
+<h2>Metrics Evidence</h2>
+<table>
+<thead><tr>
+<th>指標</th>
+<th>実数</th>
+<th>見積もり</th>
+<th>ratio</th>
+<th>判定</th>
+</tr></thead><tbody>
+<tr><td>touch する HO/self-mod ファイル</td><td>3（bin/plangate, settings.json, settings.example.json）+ hook 追補</td><td>3</td><td>1.0</td><td>採用（apply-script + 人間適用）</td></tr>
+<tr><td>配線する hook matcher</td><td>2（Edit\</td><td>Write, Bash / R-002）</td><td>2</td><td>1.0</td><td>採用</td></tr>
+<tr><td>既存 schema 準拠</td><td>1（c3-approval.schema.json・三値条件付き必須）</td><td>1</td><td>1.0</td><td>採用</td></tr>
+</tbody></table>
+<h2>Mode判定</h2>
+<p><strong>モード</strong>: critical（R-007 反映で high-risk → critical 引き上げ）</p>
+<p><strong>判定根拠</strong>:</p>
+<ul>
+<li>変更ファイル数: bin/plangate + settings + settings.example + hook + apply-script + docs ≈ 6</li>
+<li>受入基準数: 11（反映で増）</li>
+<li>変更種別: <strong>承認境界の中核機構</strong>（c3.json 発行経路 + settings security hook 配線 + maintenance 共通化）= TASK-0123 と同等の critical 領域</li>
+<li>リスク: 極高（承認トークン発行経路・self-mod settings・既存防御の共通化）</li>
+<li><strong>最終判定</strong>: critical（lite_eligible=false / Standard C-3 同期固定 / Hardening Override 優先 / V-4 リリース前チェック追加）</li>
+</ul>
+</section>
+<section class="doc" id="todo-md">
+<h2 class="doc-title">EXECUTION TODO (todo.md)</h2>
+<h1>EXECUTION TODO: TASK-0128</h1>
+<blockquote>rev.2: C-2 指摘 R-001..R-008 反映。Mode=critical。</blockquote>
+<h2>🤖 Agent タスク</h2>
+<h3>準備</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T01 maintenance L1-L4 実装精読・context 引数付き共通化方針確定（R-005） — Owner: agent / depends_on: - / files: bin/plangate</li>
+<li><input type='checkbox' disabled > T02 c3-approval.schema.json の三値必須フィールド確認（conditions/rejection_reason / R-004） — Owner: agent / depends_on: - / files: schemas/c3-approval.schema.json</li>
+<li><input type='checkbox' disabled > T03 既存 check-approval-token-write.sh の Bash 対応要否確認（R-002）+ TASK-0123 配線責務確認（R-001） — Owner: agent / depends_on: - / files: scripts/check-approval-token-write.sh</li>
+</ul>
+<h3>実装（すべて apply-script 経由・bin/plangate 直接編集なし）</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T04 L1-L4 を context 引数付き共通関数へ抽出（副作用分離 / R-005） — Owner: agent / depends_on: T01 / files: scripts/apply-task-0128-approve.sh 🚩</li>
+<li><input type='checkbox' disabled > T05 cmd_approve 引数解析（TASK / --reject --reason / --conditional --conditions / R-004） — Owner: agent / depends_on: T04 / files: scripts/apply-task-0128-approve.sh</li>
+<li><input type='checkbox' disabled > T06 Human-presence 検証→失敗で非ゼロ終了（自己承認不可） — Owner: agent / depends_on: T04 / files: scripts/apply-task-0128-approve.sh 🚩</li>
+<li><input type='checkbox' disabled > T07 plan_hash 算出 + approved_by 解決 + identity_unverified 注記（R-006） — Owner: agent / depends_on: T05 / files: scripts/apply-task-0128-approve.sh</li>
+<li><input type='checkbox' disabled > T08 三値 c3.json 生成（schema 準拠・条件付き必須フィールド / R-004） — Owner: agent / depends_on: T07 / files: scripts/apply-task-0128-approve.sh 🚩</li>
+<li><input type='checkbox' disabled > T09 最終確認の分離: APPROVED のみ validate / 他は schema+status（R-003） — Owner: agent / depends_on: T08 / files: scripts/apply-task-0128-approve.sh 🚩</li>
+<li><input type='checkbox' disabled > T10 既存 c3.json 上書き（再承認・plan_hash 更新） — Owner: agent / depends_on: T08 / files: scripts/apply-task-0128-approve.sh</li>
+<li><input type='checkbox' disabled > T11 dispatch approve) + help 追記 — Owner: agent / depends_on: T05 / files: scripts/apply-task-0128-approve.sh</li>
+<li><input type='checkbox' disabled > T12 check-approval-token-write.sh を Edit|Write + <strong>Bash</strong> matcher で配線 + Bash path 検出（R-002） — Owner: agent / depends_on: T03 / files: scripts/apply-task-0128-approve.sh, scripts/check-approval-token-write.sh 🚩</li>
+<li><input type='checkbox' disabled > T13 apply-script 完成（冪等・--dry-run・アンカー検証・settings example 同期 / R-002） — Owner: agent / depends_on: T08,T11,T12 / files: scripts/apply-task-0128-approve.sh 🚩</li>
+<li><input type='checkbox' disabled > T14 ドキュメント更新（C-3 手順 → plangate approve） — Owner: agent / depends_on: T08 / files: docs/</li>
+</ul>
+<h3>検証</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T15 unit: plan_hash / approved_by / 三値生成 — Owner: agent / depends_on: T08 / files: evidence/test-runs/</li>
+<li><input type='checkbox' disabled > T16 schema 検証: APPROVED/CONDITIONAL/REJECTED の c3.json が schema PASS（R-008） — Owner: agent / depends_on: T08 / files: evidence/test-runs/ 🚩</li>
+<li><input type='checkbox' disabled > T17 integration: 対話 TTY で approve(APPROVED)→validate PASS — Owner: agent / depends_on: T13 / files: evidence/verification/ 🚩</li>
+<li><input type='checkbox' disabled > T18 security 負例: 非対話 approve 拒否 + <strong>Bash <code>cat &gt; approvals/c3.json</code> を hook block</strong>（R-002） — Owner: agent / depends_on: T06,T12 / files: evidence/verification/ 🚩</li>
+<li><input type='checkbox' disabled > T19 分離確認: REJECTED/CONDITIONAL で validate 非実行・schema+status 完了（R-003） — Owner: agent / depends_on: T09 / files: evidence/verification/</li>
+<li><input type='checkbox' disabled > T20 回帰: maintenance start/stop 既存挙動不変（R-005） — Owner: agent / depends_on: T04 / files: evidence/test-runs/ 🚩</li>
+</ul>
+<h3>完了</h3>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > T21 status/handoff 更新、apply-script dry-run 出力を evidence 保存 — Owner: agent / depends_on: T15,T16,T17,T18,T19,T20 / files: docs/working/TASK-0128/</li>
+</ul>
+<h2>👤 Human タスク</h2>
+<ul class='checklist'>
+<li><input type='checkbox' disabled > H01 C-3: plan 承認（bootstrap interim 手段） — Owner: human / depends_on: C-1</li>
+<li><input type='checkbox' disabled > H02 apply-task-0128-approve.sh を dry-run → 適用（bin/plangate + settings + example） — Owner: human / depends_on: T13 ⚠️ AI 実行不可（HO/self-mod）</li>
+<li><input type='checkbox' disabled > H03 適用後 plangate approve で TASK-0127/0128 を正規承認（コンセプト達成確認） — Owner: human / depends_on: H02</li>
+<li><input type='checkbox' disabled > H04 C-4: PR レビュー — Owner: human / depends_on: PR</li>
+</ul>
+<h2>⚠️ 依存関係</h2>
+<ul>
+<li>H02（HO + settings self-mod 適用）は人間専任。AI は dry-run のみ</li>
+<li>本 PBI の C-3（H01）は機構未完成のため interim、完成後 H03 で正規化</li>
+</ul>
+</section>
+<section class="doc" id="test-cases-md">
+<h2 class="doc-title">TEST CASES (test-cases.md)</h2>
+<h1>TEST CASES: TASK-0128</h1>
+<blockquote>rev.2: C-2 指摘 R-001..R-008 反映。</blockquote>
+<h2>受入基準 → テストケース マッピング</h2>
+<table>
+<thead><tr>
+<th>AC</th>
+<th>テストケース</th>
+</tr></thead><tbody>
+<tr><td>AC-01</td><td>TC-01</td></tr>
+<tr><td>AC-02</td><td>TC-02</td></tr>
+<tr><td>AC-03</td><td>TC-03</td></tr>
+<tr><td>AC-04</td><td>TC-04, TC-05</td></tr>
+<tr><td>AC-05</td><td>TC-06</td></tr>
+<tr><td>AC-06</td><td>TC-07, TC-12</td></tr>
+<tr><td>AC-07</td><td>TC-08</td></tr>
+<tr><td>AC-08</td><td>TC-09</td></tr>
+<tr><td>AC-09</td><td>TC-10</td></tr>
+<tr><td>AC-10（新: schema 準拠）</td><td>TC-11</td></tr>
+<tr><td>AC-11（新: 三値分離）</td><td>TC-13</td></tr>
+</tbody></table>
+<h2>テストケース一覧</h2>
+<h3>TC-01: 対話承認で c3.json 生成（正常系）</h3>
+<ul>
+<li>入力: <code>plangate approve TASK-XXXX</code>（TTY）</li>
+<li>期待: approvals/c3.json（APPROVED）生成、終了コード 0</li>
+<li>種別: integration</li>
+</ul>
+<h3>TC-02: plan_hash 自動一致</h3>
+<ul>
+<li>期待: plan_hash が <code>plangate_sha256 plan.md</code> と一致 / 種別: integration</li>
+</ul>
+<h3>TC-03: approved_by 自動解決 + identity 注記（R-006）</h3>
+<ul>
+<li>期待: approved_by=git config 値、<code>approver_identity_unverified: true</code> / <code>approved_by_source: git-config</code> を併記 / 種別: unit</li>
+</ul>
+<h3>TC-04: 非対話拒否（パイプ / stdin リダイレクト）</h3>
+<ul>
+<li>入力: <code>plangate approve TASK-XXXX &lt; /dev/null</code></li>
+<li>期待: L1 で拒否、c3.json 未生成、非ゼロ終了 / 種別: security</li>
+</ul>
+<h3>TC-05: 非対話拒否（多層 env/ppid）</h3>
+<ul>
+<li>期待: maintenance と同等に L2/L3 拒否 / 種別: security</li>
+</ul>
+<h3>TC-06: 三値発行（schema 必須フィールド付き / R-004）</h3>
+<ul>
+<li>入力: <code>--reject --reason &quot;...&quot;</code> / <code>--conditional --conditions &quot;...&quot;</code></li>
+<li>期待: REJECTED は rejection_reason、CONDITIONAL は conditions を含み生成 / 種別: unit</li>
+<li>負例: <code>--reject</code> で reason 未指定 → エラー（schema 違反を未然に防止）</li>
+</ul>
+<h3>TC-07: AI 直接書込 block — Edit|Write（R-002）</h3>
+<ul>
+<li>前提: hook 配線後</li>
+<li>入力: AI が Write/Edit で approvals/c3.json を書く</li>
+<li>期待: PreToolUse hook が block / 種別: verification</li>
+</ul>
+<h3>TC-12: AI 直接書込 block — <strong>Bash 経由</strong>（R-002 中核）</h3>
+<ul>
+<li>前提: Bash matcher 配線後</li>
+<li>入力: AI が Bash で <code>cat &gt; docs/working/TASK-XXXX/approvals/c3.json</code>（or printf/tee）</li>
+<li>期待: hook が Bash コマンド文字列から対象 path を検出し block / 種別: security</li>
+<li>補足: 本セッションで実際に AI が試みた書込経路。Edit|Write のみでは防げないことの回帰防止</li>
+</ul>
+<h3>TC-08: bin/plangate は apply-script 経由</h3>
+<ul>
+<li>入力: scripts/apply-task-0128-approve.sh --dry-run</li>
+<li>期待: diff 表示、本体未変更、AI は実適用しない / 種別: verification</li>
+</ul>
+<h3>TC-09: 再承認（plan 変更後）</h3>
+<ul>
+<li>期待: plan_hash が新 plan に更新され c3.json 上書き / 種別: integration</li>
+</ul>
+<h3>TC-10: 承認後 validate PASS（APPROVED）</h3>
+<ul>
+<li>期待: APPROVED で validate PASS / 種別: integration</li>
+</ul>
+<h3>TC-11: schema 検証（R-008）</h3>
+<ul>
+<li>入力: 生成した APPROVED/CONDITIONAL/REJECTED の c3.json</li>
+<li>期待: <code>schemas/c3-approval.schema.json</code> で全て PASS（壊れた JSON は検出される） / 種別: unit/verification</li>
+</ul>
+<h3>TC-13: 最終確認の分離（R-003）</h3>
+<ul>
+<li>入力: REJECTED/CONDITIONAL で approve</li>
+<li>期待: validate を呼ばず（APPROVED 外 FAIL を誤発生させない）、schema 検証 + plan_hash 記録 + status 表示で完了 / 種別: integration</li>
+</ul>
+<h3>回帰</h3>
+<h3>TC-R1: maintenance 既存挙動不変（R-005）</h3>
+<ul>
+<li>入力: L1-L4 共通化後の <code>maintenance start</code>（TTY 許可 / 非対話拒否）</li>
+<li>期待: 共通化前と同一挙動。<code>_maintenance</code> 生成・監査イベントが approve 実行時に混入しない / 種別: regression</li>
+</ul>
+<h2>エッジケース</h2>
+<ul>
+<li>plan.md 不在 → 明示エラー、c3.json 未生成</li>
+<li>git config user 未設定 → approved_by フォールバック（明示警告）or エラー</li>
+<li>approvals/ 未作成 → 自動 mkdir</li>
+<li><code>--reject</code> と <code>--conditional</code> 同時指定 → エラー（排他）</li>
+</ul>
+</section>
+<section class="doc" id="review-self-md">
+<h2 class="doc-title">C-1 セルフレビュー (review-self.md)</h2>
+<h1>C-1 セルフレビュー: TASK-0128</h1>
+<p>Mode: high-risk → フル C-1（Plan 7 / ToDo 5 / TestCases 3）</p>
+<h2>Plan チェック（7項目）</h2>
+<table>
+<thead><tr>
+<th>#</th>
+<th>項目</th>
+<th>判定</th>
+<th>コメント</th>
+</tr></thead><tbody>
+<tr><td>P1</td><td>受入基準網羅性</td><td>PASS</td><td>AC-01〜09 が Approach / Work Breakdown / Testing に対応</td></tr>
+<tr><td>P2</td><td>Unknowns 処理</td><td>PASS</td><td>TTY 取得可否・settings drift・bootstrap を Risks に明記し緩和策あり</td></tr>
+<tr><td>P3</td><td>スコープ制御</td><td>PASS</td><td>In/Out（V2: GitHub案B / #420フル / C-4 / 親PBI）明確</td></tr>
+<tr><td>P4</td><td>テスト戦略</td><td>PASS</td><td>Unit/Integration/Security負例/回帰/settings を定義。非対話拒否を中核に据える</td></tr>
+<tr><td>P5</td><td>Work Breakdown Output</td><td>PASS</td><td>各 Step に Output/Owner/Risk/🚩</td></tr>
+<tr><td>P6</td><td>依存関係</td><td>PASS</td><td>todo depends_on、H02 の人間専任・bootstrap 依存を明示</td></tr>
+<tr><td>P7</td><td>動作検証自動化</td><td>WARN(minor)</td><td>対話 TTY シミュレーション（script コマンド等）は環境依存。非対話拒否側は自動化容易</td></tr>
+</tbody></table>
+<h2>ToDo チェック（5項目）</h2>
+<table>
+<thead><tr>
+<th>#</th>
+<th>項目</th>
+<th>判定</th>
+<th>コメント</th>
+</tr></thead><tbody>
+<tr><td>T1</td><td>タスク粒度</td><td>PASS</td><td>T01〜T16 が適切に分解</td></tr>
+<tr><td>T2</td><td>depends_on 設定</td><td>PASS</td><td>全タスクに depends_on/files</td></tr>
+<tr><td>T3</td><td>チェックポイント設定</td><td>PASS</td><td>T03/T05/T09/T10/T13/T14/T15 に 🚩（防御・回帰の要所）</td></tr>
+<tr><td>T4</td><td>Iron Law 遵守</td><td>PASS</td><td>bin/plangate + settings は apply-script 経由・人間適用（H02）</td></tr>
+<tr><td>T5</td><td>完了条件</td><td>PASS</td><td>T16 で status/handoff/evidence</td></tr>
+</tbody></table>
+<h2>TestCases チェック（3項目）</h2>
+<table>
+<thead><tr>
+<th>#</th>
+<th>項目</th>
+<th>判定</th>
+<th>コメント</th>
+</tr></thead><tbody>
+<tr><td>C1</td><td>受入基準との紐付き</td><td>PASS</td><td>AC→TC 全カバー（AC-01〜09）</td></tr>
+<tr><td>C2</td><td>Edge case 網羅</td><td>PASS</td><td>plan不在/git config未設定/mkdir + 回帰TC-R1</td></tr>
+<tr><td>C3</td><td>自動化可否</td><td>PASS</td><td>非対話拒否・三値・hash は自動化可。TTY正常系は script で擬似化</td></tr>
+</tbody></table>
+<h2>リスク特記（high-risk として）</h2>
+<ul>
+<li><strong>回帰リスク</strong>: maintenance の L1-L4 共通化は既存の承認境界防御に触れる。TC-R1（回帰）を必須ゲートとし、共通化は関数抽出に限定（挙動不変）。</li>
+<li><strong>bootstrap</strong>: 本 PBI の C-3 を機構で自己承認できない循環は plan/todo で interim→完成後正規化として解消設計済み。</li>
+</ul>
+<h2>総合判定</h2>
+<p><strong>PASS</strong>（WARN minor 1 件: P7 — TTY 正常系の自動化が環境依存。負例側の自動化で承認境界の安全性は担保）</p>
+<p>FAIL なし → C-2 / C-3 へ進行可能。なお high-risk かつ承認境界中核のため、本 PBI は C-2 外部レビュー推奨度が高い。</p>
+</section>
+<section class="doc" id="review-external-md">
+<h2 class="doc-title">C-2 外部レビュー (review-external.md)</h2>
+<h1>External Review -- TASK-0128</h1>
+<blockquote>Phase: c2</blockquote>
+<blockquote>Reviewer: codex</blockquote>
+<blockquote>Generated: 2026-06-12T04:58:20Z</blockquote>
+<p><strong>指摘事項</strong></p>
+<ul>
+<li><strong>High:</strong> <code>check-approval-token-write.sh</code> の扱いが TASK-0123 と衝突/重複しています。既存計画では同スクリプトは承認トークン全般を block する HO 対象として設計済みで、<code>Bash</code> も対象に含める前提です（<a href="/Users/user/Documents/GitHub/plangate/docs/working/TASK-0123/plan.md:62">docs/working/TASK-0123/plan.md</a>）。TASK-0128 が同名スクリプトを別 apply-script で新規配線すると、TASK-0123 の HMAC/CI/schema 変更との順序・責務が曖昧になります。TASK-0123 を先行適用するのか、TASK-0128 に統合するのかを plan に明記すべきです。</li>
+</ul>
+<ul>
+<li><strong>High:</strong> 「AI の c3.json 直接書込を block」が <code>PreToolUse(Edit|Write)</code> だけでは不十分です。現在の <code>.claude/settings.json</code> では <code>Bash</code> は delegation guard のみで、承認トークン書込 guard は未配線です（<a href="/Users/user/Documents/GitHub/plangate/.claude/settings.json:13">.claude/settings.json</a>）。AI は <code>Bash</code> で <code>cat &gt; docs/working/.../approvals/c3.json</code> のように書けるため、唯一経路化を主張するなら <code>Bash</code> matcher と Bash 入力から対象 path を検出するテストが必要です。</li>
+</ul>
+<ul>
+<li><strong>High:</strong> <code>--reject</code> / <code>--conditional</code> と「<code>validate &lt;TASK&gt;</code> 相当の最終確認」が矛盾します。現行 <code>validate</code> は <code>c3_status = APPROVED</code> 以外を FAIL にします（<a href="/Users/user/Documents/GitHub/plangate/bin/plangate:884">bin/plangate</a>）。REJECTED/CONDITIONAL を正常な承認判断として発行するなら、最終確認は <code>validate</code> そのものではなく「schema + plan_hash + status 表示」に分ける必要があります。</li>
+</ul>
+<ul>
+<li><strong>High:</strong> <code>CONDITIONAL</code> / <code>REJECTED</code> の必須フィールドが plan にありません。schema は <code>CONDITIONAL</code> なら <code>conditions</code>、<code>REJECTED</code> なら <code>rejection_reason</code> を必須にしています（<a href="/Users/user/Documents/GitHub/plangate/schemas/c3-approval.schema.json:88">schemas/c3-approval.schema.json</a>）。CLI 仕様に <code>--conditions &lt;text&gt;</code> / <code>--reason &lt;text&gt;</code>、または対話入力を含めないと schema 違反の <code>c3.json</code> が生成されます。</li>
+</ul>
+<ul>
+<li><strong>Medium:</strong> L1-L4 共通化の副作用が未整理です。<code>cmd_maintenance</code> の L1-L4 は <code>_maintenance</code> ディレクトリ作成、<code>maintenance_start_attempt</code> 監査イベント、maintenance 固有エラーメッセージを内包しています（<a href="/Users/user/Documents/GitHub/plangate/bin/plangate:1238">bin/plangate</a>）。そのまま抽出すると <code>approve</code> 実行で maintenance 監査ログが混ざるか、不要な <code>_maintenance</code> 生成が起きます。共通関数は <code>context=maintenance|approve</code> を受け、audit event 名・プロンプト・副作用を分離する設計が必要です。</li>
+</ul>
+<ul>
+<li><strong>Medium:</strong> <code>approved_by = git config user.email/name</code> は「人間 presence」の証明ではありません。git config は AI 実行環境でも読め、任意設定も可能です。L1-L4 は presence、防御であって identity ではないため、<code>approved_by_source: git-config</code> や <code>approver_identity_unverified</code> のように provenance の限界を明示するか、手入力確認を追加した方が安全です。</li>
+</ul>
+<ul>
+<li><strong>Medium:</strong> Mode が <code>high-risk</code> は低めです。既存 TASK-0123 は承認境界・security hook・HO 横断変更として <code>critical</code> 判定です（<a href="/Users/user/Documents/GitHub/plangate/docs/working/TASK-0123/plan.md:31">docs/working/TASK-0123/plan.md</a>）。TASK-0128 も <code>bin/plangate</code>、<code>.claude/settings.json</code>、<code>approvals/c3.json</code> 発行経路という承認境界の中核を変更するため、少なくとも critical 判定に引き上げるのが整合的です。</li>
+</ul>
+<ul>
+<li><strong>Medium:</strong> Testing Strategy に schema validation が不足しています。<code>c3.json</code> は schema があり、三値 status の条件付き必須フィールドもあるため、<code>validate-schemas</code> または対象 schema 直接検証を acceptance に入れるべきです。plan_hash 整合だけでは壊れた <code>c3.json</code> を検出できません。</li>
+</ul>
+<p><strong>修正方針</strong></p>
+<p>この plan は採用前に、TASK-0123 との統合方針、<code>Bash</code> 経由書込 block、REJECTED/CONDITIONAL の schema 対応、<code>validate</code> と approve 結果表示の分離を直すべきです。特に <code>Edit|Write</code> だけで「唯一経路化」と書くのは危険です。</p>
+<hr>
+<h2>R-NNN 監査表（追記専用 / TASK-0076 F5-C）</h2>
+<table>
+<thead><tr>
+<th>R-NNN</th>
+<th>severity</th>
+<th>指摘要旨</th>
+<th>status</th>
+<th>reflected_in</th>
+<th>notes</th>
+</tr></thead><tbody>
+<tr><td>R-001</td><td>High</td><td>check-approval-token-write.sh が TASK-0123(#420) と重複/順序曖昧</td><td>reflected</td><td>plan.md(Constraints/Approach)</td><td>本PBIは既存scriptの配線のみ・#420 HMAC等は再実装しない</td></tr>
+<tr><td>R-002</td><td>High</td><td>Edit\</td><td>Write のみでは Bash 経由 c3.json 書込を防げない</td><td>reflected</td><td>plan/todo/test-cases</td><td>Bash matcher + path検出テスト追加</td></tr>
+<tr><td>R-003</td><td>High</td><td>--reject/--conditional と validate(APPROVED外FAIL)が矛盾</td><td>reflected</td><td>plan(Approach)/test-cases</td><td>最終確認をvalidateから分離</td></tr>
+<tr><td>R-004</td><td>High</td><td>CONDITIONAL/REJECTED 必須フィールド欠落(schema違反)</td><td>reflected</td><td>plan/todo/test-cases</td><td>--conditions/--reason・schema準拠</td></tr>
+<tr><td>R-005</td><td>Med</td><td>L1-L4抽出の副作用(_maintenance生成・監査混入)</td><td>reflected</td><td>plan/todo</td><td>context=maintenance\</td><td>approve 引数</td></tr>
+<tr><td>R-006</td><td>Med</td><td>approved_by=git config は presence≠identity</td><td>reflected</td><td>plan/test-cases</td><td>approved_by_source/identity_unverified注記</td></tr>
+<tr><td>R-007</td><td>Med</td><td>Mode=high-risk低い→critical</td><td>reflected</td><td>plan(Mode判定)</td><td>critical化・V-4追加</td></tr>
+<tr><td>R-008</td><td>Med</td><td>Testing に schema validation 不足</td><td>reflected</td><td>plan/test-cases</td><td>acceptance に schema検証</td></tr>
+</tbody></table>
+<p>反映コミット時メッセージに <code>Refs: R-001..R-008</code> を付す。</p>
+</section>
+<section class="doc" id="handoff-md">
+<h2 class="doc-title">HANDOFF (handoff.md)</h2>
+<h1>HANDOFF: TASK-0128 — <code>plangate approve</code>（人間ワンアクション C-3 承認）</h1>
+<h2>1. 要件適合確認（AC ごと）</h2>
+<table>
+<thead><tr>
+<th>AC</th>
+<th>内容</th>
+<th>判定</th>
+</tr></thead><tbody>
+<tr><td>AC-01</td><td>対話 TTY で c3.json(APPROVED) 生成</td><td>PASS（コア実装・TTY 正常系は適用後人間確認）</td></tr>
+<tr><td>AC-02</td><td>plan_hash 自動一致</td><td>PASS（plangate_sha256 使用）</td></tr>
+<tr><td>AC-03</td><td>approved_by 自動解決</td><td>PASS（git config user.email/name→USER）</td></tr>
+<tr><td>AC-04</td><td>非対話拒否・c3.json 未生成</td><td>PASS（TC-04 exit=1 実証）</td></tr>
+<tr><td>AC-05</td><td>--reject/--conditional 三値</td><td>PASS</td></tr>
+<tr><td>AC-06</td><td>check-approval-token-write.sh 配線で AI 直接書込 block</td><td>PASS（hook 強化済・配線は H02）</td></tr>
+<tr><td>AC-07</td><td>bin/plangate は apply-script 経由</td><td>PASS（AI 直接編集なし）</td></tr>
+<tr><td>AC-08</td><td>再承認で plan_hash 更新</td><td>PASS（上書き実装）</td></tr>
+<tr><td>AC-09</td><td>承認後 validate PASS</td><td>PASS（APPROVED 経路で cmd_validate 呼出）</td></tr>
+<tr><td>AC-10</td><td>c3.json schema 準拠</td><td>PASS（3 status とも jsonschema VALID）</td></tr>
+<tr><td>AC-11</td><td>REJECTED/CONDITIONAL は validate 非実行</td><td>PASS（R-003 分離）</td></tr>
+</tbody></table>
+<h2>2. 既知課題</h2>
+<ul>
+<li>TTY 正常系（TC-01/17）は pseudo-tty/人間実行が必要。AI 環境では L1-L4 を通せないため単体検証に留めた（これは仕様＝AI 自己承認不可の裏返し）。</li>
+<li>maintenance は不変方針のため、L1-L4 が maintenance(inline) と approve(_plangate_presence_gate) で<strong>重複</strong>。zero regression 優先の意図的判断。dedup は follow-up。</li>
+<li>check-approval-token-write.sh の Bash 検出はヒューリスティック（token path + 書込指標）。難読化された書込は理論上すり抜け得る（#420 のフル hardening が上位対策）。</li>
+</ul>
+<h2>3. V2 候補</h2>
+<ul>
+<li>案 B（GitHub review ベース C-3）</li>
+<li>maintenance L1-L4 の共通関数移行</li>
+<li>working-context.md（HO）の C-3 手順正本更新</li>
+<li>#420 フル provenance hardening との統合</li>
+</ul>
+<h2>4. 妥協点</h2>
+<ul>
+<li>L1-L4 を maintenance から抽出せず新規共通関数を追加（R-005 副作用回避 vs 重複）→ 重複を許容し回帰ゼロを優先</li>
+<li>identity は presence までで暗号学的検証なし（_approver_identity_unverified で明示 / R-006）</li>
+</ul>
+<h2>5. 引き継ぎ</h2>
+<p>人間が次を実施すれば機構が稼働する:</p>
+<ol>
+<li><code>sh scripts/apply-task-0128-approve.sh --dry-run</code> → 確認 → 適用</li>
+<li><code>sh scripts/apply-task-0128-token-guard-wiring.sh --dry-run</code> → 確認 → 適用</li>
+<li><code>plangate approve TASK-0128</code>（対話 TTY）で本 PBI を正規承認、続けて <code>plangate approve TASK-0127</code></li>
+<li>doctor --check-settings で settings lock 確認</li>
+</ol>
+<h2>6. テスト結果サマリ</h2>
+<ul>
+<li>非対話拒否 / plan 不在 / 三値必須 / 排他 / schema VALID(3) / Bash block / 読み取り許可 / 構文: 全 PASS（テストコピー・単体）</li>
+<li>TTY 正常系・maintenance 回帰: 適用後の人間確認待ち</li>
+</ul>
+</section>
+</div></body></html>
