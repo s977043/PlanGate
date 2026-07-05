@@ -6,13 +6,119 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-- **feat(#493): exploratory intent 追加（8 分類化）・hypothesis-logger スキル実装・WF-07 接続（#651）**
+> **DRAFT 集計**: v8.15.0 タグ以降 `origin/main` 53 commit を反映（2026-07-05 時点）。
+> バージョン番号・リリース日は未確定（Human-owned）。ドラフト詳細は
+> [`docs/working/_reports/v8.16.0-release-note-draft.md`](docs/working/_reports/v8.16.0-release-note-draft.md)。
+
+### Added
+
+- **Hook Enforcement 物理配線 6/12 → 11/12（TASK-0141 / 0143〜0147）**（#625 / #627〜#639 / #642〜#643 / #645〜#647）
+  — CLI 層 5 件（EH-4 / EH-5 / EHS-1 / EHS-2 / EHS-3）の hook 物理配線を追加し **6/12 → 11/12** に到達。
+  `bin/plangate` / `scripts/hooks/*.sh` / `schemas/*.schema.json` への実適用が **コミット済みで main に
+  反映済み**（apply-script の `--apply` 実行結果を含む、仕様のみではない）。
+  - **実装は 12/12（既存）／物理配線は 11/12**。EH-7（2 段階レビューなしマージ block）は `bin/plangate doctor`
+    可視化のみ・GitHub branch protection 依存で **未配線**（#500 後続）。正本: `docs/ai/hook-enforcement.md`。
+  - 追加配線した EH-4/5/EHS-1/2/3 は **CLI 層**で `bin/plangate verify` / `handoff --verify` 実行時に発火。
+    完全手動・AI 任せ運用では休眠する（**常時強制は層 A/B の EH-1/2/3/6/8/9**）。
+  - TASK-0143: plan（#627）→ 群A hook 配線 EH-4/5/7・C-3 APPROVED（#628）→ EH-4/5/7 CLI 配線 +
+    ta-44 テスト + EHS-1〜3 設計（#625）→ bin/plangate EH-4/5 CLI 配線（#629）→ 重複成果物除去（#633）
+  - TASK-0141: EH-2 strict JSON 化 + EH-1/2 stdin fallback（#630）
+  - TASK-0144: C-3 approval mode（cli/conversation）設計（#631）→ **HO パス実適用**
+    （`apply-task-0144-c3-mode.sh --apply` 結果、#632）
+  - TASK-0145: EHS-1 strict 発火配線 増分1（#634）→ handoff.md 発行 + 配線状態更新（#636）
+  - TASK-0146: EHS-2/3 配線 増分2/3（#637）→ Gemini medium 対応・BLOCK コメント追加（#638）
+  - TASK-0145/0146 合流: EHS-1/2/3 bin/plangate 実適用（apply-script 結果、359 PASS、#639）
+  - TASK-0141/0143/0144: handoff.md 発行（WF-05 完了資産、#635）
+  - 配線実態ドキュメント同期: 6/12→11/12（#642）→ 運用モード別強制実態（CLI 依存度）追記（#647）
+  - TASK-0147: validation_bias conductor export 配線 follow-up plan（#643）→ 配線実装
+    （apply-script 方式、#645）→ bin/plangate / conductor 実適用（apply-script 結果、#646）
+
+- **ai-loop（旧 Arbiter）Phase 0〜4 + L2 裁定エンジン PoC**（#660〜#662 / #665 / #668〜#669 /
+  #671 / #673 / #675 / #678 / #680〜#682 / #696）
+  — ai-loop ワークフロー仕様の Phase 0〜4 策定と L2 裁定エンジン PoC。**現状は仕様策定・PoC
+  検証段階であり、ai-loop への本番運用切り替えや既存 plan→exec フローの置換は未実施**（既存
+  ワークフローと並存、#687 の共存ガイド参照）。
+  - Phase 0: コンセプト固定・資産棚卸し・検証スコープ定義（#660）
+  - Phase 1/2a: arbiter-policy 正本化 + W チェック拡張フロー（#661）
+  - Phase 2b: decision-table.md（二分ルール Decision table・provenance schema・CB）（#662）
+  - Phase 2 follow-up: provenance 正本一元化・安全側 severity 既定・責務範囲明記（#665）
+  - Phase 1 改訂: lite 判定基準（可逆性要件）+ severity 分類主体確定（#675）
+  - Phase 2: L2 裁定エンジン PoC `scripts/ai-loop/arbiter.py` + 59 テスト + runbook（#678）
+  - Phase 3: phase3-impact-report.md（影響評価・分岐判断基準・未解決リスク）（#669）
+  - L4 PoC: review-feedback-loop.md（レビュー指摘の事前チェック還元閉ループ）（#668）
+  - 改称: Arbiter-workflow → ai-loop-workflow（#673）
+  - 概念改定: C-2 まで PlanGate 共通化・C-3 を AI 裁定ゲート「C-3'」に置換・merge-ready 責務明記（#680）
+  - 3 系統振り返りレビュー指摘 7 件の修正（severity 別軸・class 軸・セクション番号ほか）（#671）
+  - 3 レーン監査の還元: §7 欠番解消・D-6/C-6 新設・suppression 初登録・コンフリクト対応手順（#682）
+  - 初回実走: runbook に実行スキル 2 件を追記 + provenance 刻印（#696）
+
+- **Plan Review Readiness Gate**（#653 / #663）
+  — C-1 self-review 前に `pass / needs_revision / blocked` を判定する計画実行準備ゲートを
+  追加。WF-03 完了条件・plangate-insertion-map・plan.md テンプレートを更新（#653）。ドキュメント
+  仕様変更向けのレビュー観点を追加（#663）。
+
+- **exploratory intent 追加（8 分類化）・hypothesis-logger スキル実装・WF-07 接続**（#651）
   — intent-classifier に `exploratory` を 8 番目の intent として追加。仮説採番・記録スキル
   `hypothesis-logger` を新規実装。WF-00 に exploratory 判定時の WF-07 推奨 advisory を追加。
 
-- **docs(#652): Plan Review Readiness Gate 新規追加（#653）**
-  — C-1 self-review 前に `pass / needs_revision / blocked` を判定する計画実行準備ゲートを
-  追加。WF-03 完了条件・plangate-insertion-map・plan.md テンプレートを更新。
+- **新規スキル: pr-watch / ai-loop-cycle**（#694 / #695）
+  — `pr-watch`（PR 監視・状態把握手順）、`ai-loop-cycle`（ai-loop 1 サイクル実行手順 + Model
+  A/B/C/D 委託プロンプト定型）を新設。`subagent-driven-development` に worktree 委託の安全
+  ルールを追加（#695）。
+
+- **self-review スキル拡張**（#666）
+  — シェル/ドキュメント品質観点 + 文章品質チェックを追加。
+
+- **repo-owned 整合性検出スクリプト 2 種**（#700 / #703）
+  — stale パス参照検出 `scripts/check-stale-skill-refs.py`（#700）、plugin/repo-local スキル名
+  多重定義検出 `scripts/check-skill-name-collisions.py` + 優先順位ガイド（#703）。
+
+- **gh account ドリフト検証の pre-push opt-in 拡張**（#702）
+  — 既存 #360 pre-push hook に gh アクティブアカウントのドリフト検証を opt-in 拡張。
+
+- **段階的導入ドキュメント 3 種**（#697〜#699）
+  — plugin-only 環境の動作境界と CLI 非依存の最小導入パス（#699）、既存 plan→exec ワークフロー
+  との共存・部分導入ガイド（#698）、改称移行（arbiter→ai-loop 等）の grep チェックリスト
+  正本（#697）。
+
+### Changed
+
+- **improvement-seeds スキーマの OSS 非依存化**（#650）
+  — 「1 人運用」記述を「ツール・プロセス上の摩擦点」に変更（既存エントリは append-only の
+  ため不変）。
+- **依存関係更新**（#649）
+  — dependabot による github-actions グループ更新 5 件（`codeql.yml` / `schema-validate.yml`）。
+
+### Fixed
+
+- **PR#651/#653 マージ後ドキュメント整合性修正**（#654）
+  — skill-policy-router / plan-review-readiness-gate / plangate-plugin-migration /
+  00_intent_intake の記述不整合を解消。
+- **hypothesis-logger の壊れた相対リンク 3 件を修正**（#701）
+  — #700 の stale パス検出スクリプトが検出した実バグを dogfooding 修正。
+
+### Specification（仕様 + apply-script 提供のみ・HO 実適用は Human 待ち）
+
+> 以下は「仕様策定 + Human-owned 適用スクリプト（`--dry-run` 既定）の提供」までが完了した
+> 項目。Hardening Override（HO）対象パス（`.claude/rules/*.md` 等）への実適用（`--apply`）は
+> Human-owned であり、本ドラフト時点では**未実行**。上記 Hook Enforcement 項目（実適用済み）
+> とは異なり、**enforcement は live ではない**（working-context.md「settings タスクロック」と
+> 同型のギャップ）。
+
+- **品質コマンド実行証跡の必須化 仕様**（#706）
+  — PR/handoff ゲートでプロジェクト定義の品質コマンド実行証跡（evidence-ledger EvidenceItem）
+  を必須化する仕様 `docs/ai/quality-command-evidence.md` + 適用スクリプト
+  `scripts/apply-quality-command-gate.sh`（dry-run 既定、`--apply` は Human-owned）。
+- **レビュアー沈黙時のフォールバック + 証跡必須化 仕様**（#705）
+  — `docs/ai/reviewer-silence-fallback.md` + `scripts/apply-reviewer-silence-gate.sh`
+  （dry-run 既定）。
+- **workflow-conductor の plan 再実行ガード動的フェーズ表示化 仕様**（#708）
+  — `scripts/apply-conductor-dynamic-phase.sh`（dry-run 既定、HO 実適用は未実施）。
+- **W-6 autonomous APPROVE の人間著者導入手順 + doctor 検知 仕様**（#707）
+  — `docs/ai/w6-autonomous-approve-introduction.md`（仕様のみ、導入自体は未実施）。
+- **R-NNN 監査表の C-4 拡張 仕様**（#704）
+  — `docs/ai/review-feedback-c4-extension.md` + `scripts/apply-rnnn-c4-extension.sh`
+  （dry-run 既定）。
 
 ## v8.15.0 - 2026-06-25
 
