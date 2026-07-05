@@ -144,7 +144,50 @@ C-3 条件付き降格（F5-AD）の判定を decision table + provenance で完
 
 ---
 
-## 4. autonomous-degraded-gates-spec.md との関係
+## 4. 6 層自己改善ループとの関係
+
+ai-loop-workflow は、低リスク帯かつ承認境界に触れない範囲で、
+[`adaptive-production-loop.md`](./adaptive-production-loop.md) に定義する
+6 層自己改善ループを回す。
+
+```text
+Generate → Evaluate → Remember → Schedule → Optimize → Recurse
+```
+
+このモデルは `/goal` や `/loop` など特定ツールのコマンド仕様ではなく、
+ai-loop-workflow の上位運用 contract である。
+
+特に、`/loop` 型の schedule と、`/goal` 型の Goal / Exit Criteria を混同しない。
+PlanGate では **closed/open の違いを interval の有無で判断しない**。
+closed loop と呼べる条件は、以下が明示されていること:
+
+- Goal / Exit Criteria
+- Evaluate point
+- Stop / Escalation / Block の terminal state
+- Remember の保存先
+- Schedule の次アクション選択規則
+- Optimize の反映先
+- Human-owned 境界
+
+`/loop` の interval 省略は、PlanGate 上では Schedule の動的化にすぎない。
+Goal / Evaluate / Stop / Memory / Escalation Contract が明示されていなければ、
+closed loop とは扱わない。
+
+| 6 層 | 本ドキュメント上の対応 |
+| --- | --- |
+| Generate | WF-00〜03 / plan・todo・test-cases 生成、exec、PR 作成 |
+| Evaluate | C-1 / C-2 / C-3' / CI / AI review / DoD 判定 |
+| Remember | decision record、review-feedback-loop、suppression、provenance |
+| Schedule | CI fix、review comment handling、retry、stop、block、human escalate |
+| Optimize | self-review / gate / suppression / scheduling policy の更新 |
+| Recurse | 1 サイクルの出力を次サイクルの pre-check へ戻す |
+
+policy / HO / C-4 merge は Human-owned 固定であり、AI は自己改善ループを通じて
+承認境界そのものを自己変更しない。
+
+---
+
+## 5. autonomous-degraded-gates-spec.md との関係
 
 Phase 0（#655）の結論を参照:
 `docs/working/TASK-0655/TASK-0655-c3-review.html`
@@ -157,7 +200,7 @@ Phase 0（#655）の結論を参照:
 
 ---
 
-## 5. 共通スキル参照方法
+## 6. 共通スキル参照方法
 
 intent-classifier 等の PlanGate 共通スキルは shared として参照するが、
 Arbiter 側のコードから直接変更しない（参照のみ）。
@@ -167,7 +210,7 @@ asset-inventory.md の uses/not-uses 分類に従う:
 
 ---
 
-## 6. 関連ドキュメント
+## 7. 関連ドキュメント
 
 - `docs/ai/ai-loop/arbiter-policy.md` — Arbiter L0 policy
 - `docs/ai/ai-loop/ho-paths.md` — HO パス集約（touches-HO 判定の正本）
@@ -175,6 +218,7 @@ asset-inventory.md の uses/not-uses 分類に従う:
 - `docs/ai/ai-loop/concept.md` — Arbiter の基本概念（Phase 0）
 - `docs/ai/ai-loop/related-specs.md` — 既存仕様との関係（Phase 0）
 - `docs/ai/autonomous-degraded-gates-spec.md` — 参照元（変更禁止）
+- [`docs/workflows/ai-loop/adaptive-production-loop.md`](./adaptive-production-loop.md) — 6 層自己改善ループと `/goal` / `/loop` 責務分離の正本
 - [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — C-3' の flow→detect→escalate 動作フロー
 - [`docs/workflows/ai-loop/execution-runbook.md`](./execution-runbook.md) — PR 前セルフレビュー・PR 後指摘対応ループの実行手順
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CI/AI レビュー指摘対応を L4 学習へ還元する閉ループ

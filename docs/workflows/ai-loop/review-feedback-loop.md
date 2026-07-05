@@ -17,6 +17,26 @@ PR レビューで受けた指摘を観点として抽出・還元し、次の P
 を抑制する経路）の両方向が L4 の対象である。PoC 段階では誤検知抑制は
 定義のみに留め、実装は Phase 4 以降のスコープとする。
 
+本ドキュメントは [`adaptive-production-loop.md`](./adaptive-production-loop.md) の
+6 層モデルにおける **Remember** と **Optimize** の実体を扱う。
+
+---
+
+## 1.1 Remember / Optimize の責務分離
+
+本ループは「記録」と「改善」を混同しない。
+
+| 層 | 本ドキュメント上の責務 | 例 |
+| --- | --- | --- |
+| Remember | レビュー指摘・判断・反証・効果を保存する | 指摘 ID、severity、採用/不採用理由、suppression、効果測定 |
+| Optimize | 保存された事実を次回の振る舞いへ反映する | self-review 更新、readiness gate 更新、suppression 追加、scheduling policy 調整 |
+
+禁止事項:
+
+- 記録なしに skill / gate / suppression を更新しない
+- Optimize を理由に policy / HO / C-4 merge 境界を自己変更しない
+- false-positive 抑制を理由に critical / major 指摘を無視しない
+
 ---
 
 ## 2. 6 ステップフロー
@@ -27,6 +47,15 @@ PR レビューで受けた指摘を観点として抽出・還元し、次の P
                                                     再発検出 ─────────┘
                                                   （§2-1 へ戻る）
 ```
+
+| ステップ | 6 層モデル上の位置づけ |
+| --- | --- |
+| 収集 | Remember |
+| 分類 | Remember |
+| 還元先判定 | Evaluate / Schedule |
+| 反映 | Optimize |
+| 事前適用 | Recurse |
+| 効果測定 | Evaluate / Remember |
 
 ### 2-1. 収集
 
@@ -140,6 +169,7 @@ Codex）で検出された指摘 7 件を issue #670 で還元しており、本
 
 ## 7. 関連ドキュメント
 
+- [`docs/workflows/ai-loop/adaptive-production-loop.md`](./adaptive-production-loop.md) — 6 層自己改善ループ、Remember / Optimize 分離、`/goal` / `/loop` 責務分離の正本
 - [`docs/ai/ai-loop/concept.md`](../../ai/ai-loop/concept.md) — Arbiter の基本概念・L4 学習層（§7）
 - [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — W チェック・severity 分類・Model C/D 裁定
 - [`docs/workflows/ai-loop/decision-table.md`](./decision-table.md) — Decision table・provenance schema・サーキットブレーカー
