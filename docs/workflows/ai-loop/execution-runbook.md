@@ -129,13 +129,13 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 | 優先度 | 条件 | 次アクション | terminal state |
 | --- | --- | --- | --- |
 | 1 | boundary=touches-HO / policy 変更 / irreversible 変更 | 停止して human escalate | `HUMAN_ESCALATED` |
-| 2 | CI failed | CI failure を調査・修正し、(6) を再実行して push | continue |
-| 3 | merge conflict | conflict 解消、三点照合、`--force-with-lease` push | continue |
-| 4 | critical / major の AI review 指摘あり | 採用して修正、または理由付き不採用を記録 | continue or escalate |
-| 5 | minor / info のみ | 採用/不採用理由を記録し、DoD 判定へ進む | merge-ready candidate |
-| 6 | CI green かつ AI review 全件対応済み | C-4 待ちへ遷移 | `MERGE_READY` |
-| 7 | 対応ラウンド上限 3 超過 | 停止して human escalate | `HUMAN_ESCALATED` |
-| 8 | 同型指摘の再発 | `review-feedback-loop.md` へ還元し、Optimize 対象へ送る | recurse |
+| 2 | 対応ラウンド上限 3 超過 | 停止して human escalate | `HUMAN_ESCALATED` |
+| 3 | 同型指摘の再発 | `review-feedback-loop.md` へ還元し、Optimize 対象へ送る | recurse |
+| 4 | CI failed | CI failure を調査・修正し、(6) を再実行して push | continue |
+| 5 | merge conflict | conflict 解消、三点照合、lease-protected push | continue |
+| 6 | critical / major の AI review 指摘あり | 採用して修正、または理由付き不採用を記録 | continue or escalate |
+| 7 | minor / info のみ | 採用/不採用理由を記録し、DoD 判定へ進む | merge-ready candidate |
+| 8 | CI green かつ AI review 全件対応済み | C-4 待ちへ遷移 | `MERGE_READY` |
 
 #### 実行手順
 
@@ -143,7 +143,7 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 2. **コンフリクトを確認する**（`gh pr view <n> --json mergeable` が `CONFLICTING`）。
    スタック PR の前段 squash マージ起因の場合は、固有コミットのみを
    `git rebase --onto origin/main <旧base> <branch>` で main に載せ替え、
-   三点照合（`git branch -vv`・SHA 同定）のうえ `--force-with-lease` で push する。
+   三点照合（`git branch -vv`・SHA 同定）のうえ lease-protected push で反映する。
    push 直後の mergeable は再計算中の場合があるため数十秒後に再確認する
 3. CI/PR 時の AI レビュー指摘を確認する。各指摘について
    **採用して修正**するか、**理由付きで不採用とする**かを記録する
