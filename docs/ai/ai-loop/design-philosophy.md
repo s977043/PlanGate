@@ -27,6 +27,44 @@ ai-loop は PlanGate の否定でも代替でもない。**PlanGate が蓄積し
 > 一行で: **ai-loop とは、承認の時制を「実行前」から「逸脱検知時」へ移すための、
 > 境界・裁定・記憶・学習の設計である。**
 
+### 1.1 外部定義との整合 — human-on-the-loop は独自用語ではない
+
+in/on-the-loop は ai-loop の造語ではなく、監視制御・自律システム統制の文献で
+確立した用語である。独自定義の漂流を防ぐため、一般定義との対応を明示する。
+
+**一般定義（3 系統）**:
+
+| 出典                                       | 分類                      | 要旨                                                                                                                                                                                                                    |
+| ------------------------------------------ | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sheridan の監視制御（supervisory control） | —                         | 人間が断続的に指示・継続的に情報を受け取り、計算機側が自律制御ループを閉じる。HOTL の学術的起源                                                                                                                         |
+| 米 DoD Directive 3000.09（自律兵器統制）   | in / on / out of the loop | **in**: 人間が個別対象を選択（semi-autonomous）/ **on**: 人間が監視し停止できる（human-supervised）/ **out**: 起動後は人間介入なし（full autonomy）                                                                     |
+| EU HLEG「Trustworthy AI 倫理ガイドライン」 | HITL / HOTL / **HIC**     | **HITL**: 全決定サイクルへの介入能力 / **HOTL**: 設計サイクルでの介入 + 運用の監視 / **HIC（human-in-command）**: システム全体の活動監督と「いつ・どう使うか（使わないか）」の決定、人間裁量レベルの設定、override 能力 |
+
+**ai-loop の用法との対応**:
+
+ai-loop の「人間＝枠の制定者・例外の裁定者・事後の監督者」は、一般分類では
+**単一の HOTL ではなく 3 モードの複合**である:
+
+| ai-loop での人間の役割                                   | 一般分類での対応                                 |
+| -------------------------------------------------------- | ------------------------------------------------ |
+| 枠の制定者（policy 制定・第0の承認境界・使用範囲の決定） | **HIC（human-in-command）**                      |
+| 例外の裁定者・事後の監督者（監視・停止・override）       | **HOTL**（DoD の human-supervised / EU の HOTL） |
+| escalate 発火時の個別裁定（人間 C-3 への降格）           | **HITL**（当該案件のみ in-the-loop へ戻る）      |
+| touches-HO / C-4 merge（常時同期ブロック）               | **HITL 固定**（on へ移行しない領域）             |
+
+この対応から導かれる注意が 2 つある:
+
+1. **「on-the-loop」を一般の HOTL（監視+停止のみ）として弱く読まない。**
+   ai-loop の人間は監視者である前に **HIC＝枠の制定者**であり、policy 制定は
+   永久に Human-owned（I-1）。一般定義の HOTL 単独よりも人間の権限は強い。
+2. **out-of-the-loop（完全自律）は分類上も設計上も採用しない。**
+   DoD 分類の out に相当する状態は、ai-loop では non-goal（§9）かつ I-1 により
+   到達不能に設計される。
+
+> 要するに: ai-loop の human-on-the-loop とは、「**定常運転時の人間の位置**が
+> on である」ことを指す運用上の呼称であり、統制構造の全体は
+> **HIC（枠）+ HOTL（監視）+ HITL（例外・境界）のハイブリッド**である。
+
 ---
 
 ## 2. 第一原理（Invariants）
@@ -184,20 +222,20 @@ ai-loop は 2 つの直交する軸で記述される。混同しない。
 思想の劣化は語彙の曖昧化から始まる。以下の用語は本書の定義を正とし、
 ai-loop ドキュメント全体で同じ意味に使う。
 
-| 用語                                 | 定義                                                                                                                                                                                                                                                                                                                               | 対義・混同禁止                                            |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| **governed autonomy（枠内自律）**    | 承認境界の内側での AI 自律実行。境界外は常に人間                                                                                                                                                                                                                                                                                   | 完全自律（人間なし）                                      |
-| **bounded adaptive production loop** | 低リスク帯に限定され、1 サイクル contract（下記 closed loop）を満たす自己改善ループ                                                                                                                                                                                                                                                | 無制限の自己改善                                          |
-| **human-on-the-loop**                | 人間＝枠の制定者・例外の裁定者・事後の監督者                                                                                                                                                                                                                                                                                       | human-in-the-loop（実行前承認者）／ human-out-of-the-loop |
-| **closed loop**                      | 1 サイクル contract（**Goal / Evaluate / Stop / Memory / Schedule / Boundary** — 正本: [`adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md) §4）を満たす反復。Budget は Stop / Schedule に内包                                                                                                     | scheduled repetition / polling（interval 駆動の再実行）   |
-| **escalate**                         | 逸脱を人間へ昇格すること。2 文脈を区別する: **C-3' escalate**（plan 裁定の人間 C-3 への降格。承認境界の撤廃ではない）と **Schedule escalate**（PR 後ループでのラウンド上限超過・critical 指摘等による人間介入要求）                                                                                                                | エラー・失敗（escalate は正常系の一部）                   |
-| **W チェック**                       | 順方向（A）と adversarial（B）の 2 モデル非対称二重判定                                                                                                                                                                                                                                                                            | 単一モデルの自己レビュー                                  |
-| **severity（二軸）**                 | ①W チェック不一致の severity（critical/major/minor/**low** — [`flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §3.2）と ②レビュー指摘の severity（critical/major/minor/**info** — review-principles §3）は**別軸**。混同しない                                                                                            | 単一の severity 軸として扱うこと                          |
-| **L2 入力 4 軸**                     | `boundary`（touches-HO / clean）・`lite`（true / false）・`verdict`（W チェック合意結果）・`class`（merge 含む / 含まない）。裁定の全入力（[`concept.md`](./concept.md) §4）                                                                                                                                                       | —                                                         |
-| **provenance**                       | auto-approve の根拠刻印。誰が・何を・何を根拠に承認したかの追跡記録（発行元真正性の検証は未実装 — I-3 注記）                                                                                                                                                                                                                       | 単なる実行ログ                                            |
-| **terminal state**                   | 裁定の終端 3 値（`AUTO_APPROVED` / `HUMAN_ESCALATED` / `BLOCKED` — [`decision-table.md`](../../workflows/ai-loop/decision-table.md)）。**merge-ready は裁定でなく DoD 状態**（[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.3）、**round limit exceeded は HUMAN_ESCALATED への遷移理由**であり独立の state ではない | 中間状態・無限継続                                        |
-| **suppression**                      | 機械反証を伴う誤検知抑制の登録                                                                                                                                                                                                                                                                                                     | 根拠なき指摘の無視                                        |
-| **touches-HO**                       | HO パス（[`ho-paths.md`](./ho-paths.md)）への接触。全判定をスキップして即 human escalate する絶対条件                                                                                                                                                                                                                              | 高リスク一般（touches-HO は交渉不能の別格）               |
+| 用語                                 | 定義                                                                                                                                                                                                                                                                                                                               | 対義・混同禁止                                                                                          |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **governed autonomy（枠内自律）**    | 承認境界の内側での AI 自律実行。境界外は常に人間                                                                                                                                                                                                                                                                                   | 完全自律（人間なし）                                                                                    |
+| **bounded adaptive production loop** | 低リスク帯に限定され、1 サイクル contract（下記 closed loop）を満たす自己改善ループ                                                                                                                                                                                                                                                | 無制限の自己改善                                                                                        |
+| **human-on-the-loop**                | 人間＝枠の制定者・例外の裁定者・事後の監督者。一般分類（EU HLEG / DoD 3000.09）では **HIC + HOTL + HITL（例外・境界）のハイブリッド**であり、定常運転時の位置を指す運用呼称（§1.1）                                                                                                                                                | human-in-the-loop（実行前承認者）／ human-out-of-the-loop ／ 一般 HOTL 単独（監視のみ）としての弱い読み |
+| **closed loop**                      | 1 サイクル contract（**Goal / Evaluate / Stop / Memory / Schedule / Boundary** — 正本: [`adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md) §4）を満たす反復。Budget は Stop / Schedule に内包                                                                                                     | scheduled repetition / polling（interval 駆動の再実行）                                                 |
+| **escalate**                         | 逸脱を人間へ昇格すること。2 文脈を区別する: **C-3' escalate**（plan 裁定の人間 C-3 への降格。承認境界の撤廃ではない）と **Schedule escalate**（PR 後ループでのラウンド上限超過・critical 指摘等による人間介入要求）                                                                                                                | エラー・失敗（escalate は正常系の一部）                                                                 |
+| **W チェック**                       | 順方向（A）と adversarial（B）の 2 モデル非対称二重判定                                                                                                                                                                                                                                                                            | 単一モデルの自己レビュー                                                                                |
+| **severity（二軸）**                 | ①W チェック不一致の severity（critical/major/minor/**low** — [`flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §3.2）と ②レビュー指摘の severity（critical/major/minor/**info** — review-principles §3）は**別軸**。混同しない                                                                                            | 単一の severity 軸として扱うこと                                                                        |
+| **L2 入力 4 軸**                     | `boundary`（touches-HO / clean）・`lite`（true / false）・`verdict`（W チェック合意結果）・`class`（merge 含む / 含まない）。裁定の全入力（[`concept.md`](./concept.md) §4）                                                                                                                                                       | —                                                                                                       |
+| **provenance**                       | auto-approve の根拠刻印。誰が・何を・何を根拠に承認したかの追跡記録（発行元真正性の検証は未実装 — I-3 注記）                                                                                                                                                                                                                       | 単なる実行ログ                                                                                          |
+| **terminal state**                   | 裁定の終端 3 値（`AUTO_APPROVED` / `HUMAN_ESCALATED` / `BLOCKED` — [`decision-table.md`](../../workflows/ai-loop/decision-table.md)）。**merge-ready は裁定でなく DoD 状態**（[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.3）、**round limit exceeded は HUMAN_ESCALATED への遷移理由**であり独立の state ではない | 中間状態・無限継続                                                                                      |
+| **suppression**                      | 機械反証を伴う誤検知抑制の登録                                                                                                                                                                                                                                                                                                     | 根拠なき指摘の無視                                                                                      |
+| **touches-HO**                       | HO パス（[`ho-paths.md`](./ho-paths.md)）への接触。全判定をスキップして即 human escalate する絶対条件                                                                                                                                                                                                                              | 高リスク一般（touches-HO は交渉不能の別格）                                                             |
 
 ---
 
@@ -334,3 +372,12 @@ ai-loop ドキュメント全体で同じ意味に使う。
   closed loop 定義の文書内不整合（critical）、severity 二軸性・L2 入力 4 軸の語彙欠落、
   provenance の過大主張、可逆性の原理格上げ、intake loop の maker-checker 違反、
   削除規律の実行者不在、効果測定の頻度不在 — **全採用**（可逆性は I-8 に統合）。
+- **外部定義との照合**（C-4 レビュー指摘「独自定義を作らず一般定義と合わせる」を受けた
+  追加検証・2026-07-07）: human-in/on/out-the-loop の一般定義 3 系統
+  （Sheridan 監視制御 / 米 DoD Directive 3000.09 / EU HLEG Trustworthy AI の
+  HITL・HOTL・HIC 3 分類）を Web 調査で照合。ai-loop の用法は一般 HOTL 単独ではなく
+  **HIC + HOTL + HITL のハイブリッド**であることが判明し、§1.1 に対応表と
+  誤読防止の注意 2 点を明文化。主な参照:
+  [EU HLEG Ethics Guidelines for Trustworthy AI](https://digital-strategy.ec.europa.eu/en/library/ethics-guidelines-trustworthy-ai) /
+  [DoD Directive 3000.09](https://www.esd.whs.mil/portals/54/documents/dd/issuances/dodd/300009p.pdf) /
+  [CRS: U.S. Policy on Lethal Autonomous Weapon Systems](https://www.congress.gov/crs-product/IF11150)。
