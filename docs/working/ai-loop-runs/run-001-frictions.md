@@ -143,3 +143,45 @@
 | ---- | -------- | ---- |
 | F-21 | B 検出（実害前）: allowed_paths / ho-paths の glob 意味論（fnmatch / globstar / git pathspec）が未定義のまま表記慣習で運用されている。Phase 0（自動マッチャー不在）では実害なしだが、**L2/L3 で機械マッチングを実装する際に方言を 1 つに確定**する必要がある（ho-paths.md と共通の将来課題） | glob 意味論 |
 | F-22 | （成功）escalate 第 2 型 → 人間選択 → ワンラウンド合意 → exec のパターンが Run-006/008 で再現し、**設計判断つき変更の標準経路として安定**。要した人間の判断は 1 選択（B）のみ | 経路の定着 |
+
+---
+
+## Run-010 追記
+
+### 結果サマリ（Run-010）
+
+- 経過: escalate 第 2 型 → 人間判断「B」→ **R1 A✓/B✗（実効性3欠落）→ R2 A✓/B✗（検査限界の無開示）→
+  R3 A✓/B✗（SKILL.md 側 AC 欠落・ラウンド上限到達）→ flow-detect §3.3 どおり Model C/D 裁定
+  （C: 検査ロジックは AC-8 が担保・限界文言の冗長のみ / D: 自己不整合でなく AC 網羅の穴・
+  統合補完可能=Run-002 F-7 先例）→ AUTO_APPROVED（priority 5）** → exec 全 AC + 統合補完 PASS
+- **Run-003 実装の完全動作**: 本 run の provenance に reject_category=test_shortage・severity=minor が
+  刻印され、record 単体で「なぜ C/D 経路に入ったか」を追跡可能（F-10 の目的を本番で達成）
+
+### 摩擦点（Remember）
+
+| #    | 観測事実 | 種別 |
+| ---- | -------- | ---- |
+| F-23 | 「双方に反映」と宣言する改訂は**両側の AC を対で切る**（B R3 検出: 片側の grep AC 欠落は V-1 で実装漏れを見逃す）。ラウンド上限到達時は改訂でなく C/D 裁定が正路であることも本 run で実証 | AC 設計の対称性 |
+| F-24 | （成功）B が 3 ラウンドかけて trust boundary 機構の「誠実な安全主張」を段階的に締めた（判定既定 → 限界開示 → 検証対称性）。**安全機構の導入 run では B の連続 reject は正常なコスト**であり、C/D 裁定が過剰追及と実害の境界を引いた | 安全機構 run の型 |
+
+---
+
+## Run-011 追記
+
+### 結果サマリ（Run-011）
+
+- 経過: R1 A✓/B✓ ワンラウンド合意 → AUTO_APPROVED → exec 全 AC PASS。
+  **Dreams パターン初適用**: 元ログ不変（AC-3 で機械検証）+ 検証つき派生 digest
+  （frictions-digest-001.md）+ 採用は C-4 人間レビュー
+- **直近 3 run で追加した LoopSpec フィールドが全稼働**: scope.allowed_paths（Run-008）・
+  external_sources（Run-010・空配列の明示宣言として初運用）・構造化 deterministic（Run-006）
+- 計画段階で AC-2 の部分一致バグ（F-2 が F-24 にマッチ）を**事前検証が自己検出**（F-12 の 2 例目）
+
+### 摩擦点（Remember）
+
+| #    | 観測事実 | 種別 |
+| ---- | -------- | ---- |
+| F-25 | 「原則 11」の引用元を design-philosophy と誤記しかけた（正: working-discipline skill。design-philosophy は I-1〜I-9）。A が citation nit として検出。**原則・規律の引用には出典ファイルを明示する** | 引用の正確性 |
+| F-26 | （成功）F-14 が個別 LoopSpec でなく **checker 標準プロンプト（SKILL.md）に構造搭載**されているため全 run で自動的に機能する、と B が確認。「摩擦→skill 定型への昇格」が個別対処より高い恒久性を持つことの実証 | Optimize の置き場 |
+| F-27 | **run の締め処理が「PR 作成と同時に auto-merge を arm」しており、Gemini の非同期レビュー（数分後着弾）を確認する工程が閉路に無かった**（ユーザー指摘 → 全 run PR 突合で確認: マージ済みは指摘 0 件の偶然かユーザー促しで救済・#755/#756 に未対応 5 件が露出していた）。runbook §2-(7) の「AI レビュー指摘対応」が auto-merge + Approve でバイパス可能。**対策（即日適用）: PR 作成後は Gemini レビューの着弾を確認し、指摘対応（または指摘なし確認）を経てから auto-merge を arm する** | 締め処理の閉路欠落 |
+| F-28 | digest 系 AC の厳密形を確立（Gemini 指摘由来）: ID 収録は**状態表の行に限定**（行頭パターン `^\| F-$i` + 直後スペース）・元ログ不変は**削除行ゼロ**（`git diff <base> -- <log> \| grep -c '^-[^-]'` = 0）で「追記のみ」を検証 | AC の標準形 |
