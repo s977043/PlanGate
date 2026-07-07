@@ -29,6 +29,7 @@
   Rollback Plan / Human Approval Required Conditions
 - **チェック項目**:
   - [ ] Verification Method が具体コマンド・具体観測で書けている
+  - [ ] 検証コマンドを**実機で試行済み**（PASS する入力・FAIL する入力の両方向。原則 12）
   - [ ] Risk Areas に不可逆操作・共有状態・承認境界への接触が列挙されている
   - [ ] Expected Diff が要求に 1:1 で紐づいている（説明できない差分予定がない）
 - **停止条件**: Verification Method が書けない → 調査タスクへ分割。Unknowns が Goal に影響 → 調査先行
@@ -42,7 +43,8 @@
 - **出力**: [review-gate-template.md](./review-gate-template.md) 準拠のレビュー結果
 - **チェック項目**: 要件整合 / 既存設計整合 / 過剰実装 / セキュリティ / データ破壊 /
   テスト容易性 / 保守性 / 代替案比較 / 未検証の前提
-- **停止条件**: `needs_revision` → Plan へ戻る。`blocked` → 不足情報の取得へ。`rejected` → Intake へ戻る
+- **停止条件**: `needs_revision` → Plan へ戻る（改訂は**追記方式** — 旧版は監査記録として不変。
+  `needs_revision`→改訂→再レビューは**ラウンド上限 3**、超過で人間へ）。`blocked` → 不足情報の取得へ。`rejected` → Intake へ戻る
 - **人間確認**: レビューで承認境界・セキュリティ・データ破壊の懸念が出た場合
 
 ## 3. Approval
@@ -94,6 +96,7 @@
 - **出力**: [plan-memory.md](./plan-memory.md) の更新
 - **チェック項目**:
   - [ ] 却下した案と理由を残したか
+  - [ ] 時点記録（計画ラウンド・decision record）を遡及編集していないか（修正は事後注記で）
   - [ ] 未確定の完了系記述に PENDING-VERIFY を付けたか
   - [ ] 次のセッションが 5 分で状況把握できるか
 - **停止条件**: なし（ただし記録なしで次の作業に進まない）
