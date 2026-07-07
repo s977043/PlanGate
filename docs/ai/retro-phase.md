@@ -91,3 +91,4 @@ improvement-seeds に蓄積されない。
 - workflow: [`docs/workflows/06_retro.md`](../workflows/06_retro.md)
 - 起源 issue: #235（関連 #228 / #200 / #231）
 - 思想: F2/F3 と同じく「ゲート回避させない／人間判断点を固定」
+- seeds の統合フェーズ（hygiene）: [`seeds-hygiene.md`](./seeds-hygiene.md)（#754）
