@@ -102,6 +102,8 @@ reject_category: none (approve時) | ho_path_contact | permission | irreversible
 のカテゴリマッピング表に照合可能な文字列で記録する。一致しないカテゴリは分類器側で `critical`
 （human escalate）にフォールバックされる。
 
+**reject_category は enum の英小文字値をそのまま（verbatim）返させる。和訳・言い換え・自由記述は禁止**（例: 『ロジック変更』ではなく `logic`）。非一致は分類器が critical 扱いになる（安全側）ため裁定は壊れないが、意図しない escalate を生む。
+
 ## Step 3: `arbiter.py` へ入力し裁定を得る
 
 ```sh
@@ -110,12 +112,12 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json
 echo '{...}' | python3 scripts/ai-loop/arbiter.py
 ```
 
-| exit code | decision | 動作 |
-|-----------|----------|------|
-| `0` | `AUTO_APPROVED` | 自動承認。provenance 刻印（正本）を保存 |
-| `2` | `HUMAN_ESCALATED` | **停止して人間へ escalate**（`w_check` / `boundary_check` / `lite_check` を提示） |
-| `3` | `BLOCKED` | 当該変更を不採用。理由（stderr の裁定サマリ）を記録 |
-| `1` | 入力エラー | stderr の理由に従い入力 JSON を修正して再実行 |
+| exit code | decision          | 動作                                                                              |
+| --------- | ----------------- | --------------------------------------------------------------------------------- |
+| `0`       | `AUTO_APPROVED`   | 自動承認。provenance 刻印（正本）を保存                                           |
+| `2`       | `HUMAN_ESCALATED` | **停止して人間へ escalate**（`w_check` / `boundary_check` / `lite_check` を提示） |
+| `3`       | `BLOCKED`         | 当該変更を不採用。理由（stderr の裁定サマリ）を記録                               |
+| `1`       | 入力エラー        | stderr の理由に従い入力 JSON を修正して再実行                                     |
 
 分岐表・severity 分類・優先順位ロジックの正本は
 [`execution-runbook.md`](../../../docs/workflows/ai-loop/execution-runbook.md) §2(5) および
