@@ -1,0 +1,14 @@
+{
+  "boundary_check": "clean",
+  "class_check": "no-merge",
+  "decision": "HUMAN_ESCALATED",
+  "issued_by": "arbiter-v0.1",
+  "lite_check": false,
+  "policy_ref": "auto-approve-lite-clean@v0",
+  "target_sha": "5b8b763",
+  "timestamp": "2026-07-07T06:21:41Z",
+  "w_check": {
+    "model_a": "approve",
+    "model_b": "approve"
+  }
+}
