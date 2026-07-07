@@ -1,5 +1,10 @@
 # ai-loop Run-004 — LoopSpec + 計画（F-1 残余 + F-12 の ai-loop 側反映）
 
+> **読者への注記（C-4 対応・追記のみ）**: 本書はラウンド追記型の時点記録。Round 1 本文
+> （YAML 内 AC-2 の不整合 regex・プレースホルダを含む）は W チェックの判定証跡として
+> **意図的に不変**であり、確定版 AC・文言は **Round 2 / Round 3 節が置換**する
+> （design-philosophy 原則 11）。
+
 > Optimize バックログの消化 run（docs-only・2 ファイル）。
 > **接地で判明した事実（gap 分析の訂正）**: ai-loop-cycle スキルの W チェック定型には
 > reject_category の enum 列挙が**既に存在**（L79/L95）。Run-001 F-1 の真因は
