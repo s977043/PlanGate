@@ -73,3 +73,19 @@ loop:
 - **lite 4 軸**: size_ok=true / no_new_design=true（既存パターン踏襲の派生成果物・正本/schema 変更なし）/
   follows_pattern=true / reversible=true
 - **boundary**: clean / **class**: no-merge
+
+---
+
+## 事後注記（C-4 レビュー対応・2026-07-07。本文は W チェック時点の記録として不変）
+
+- **「run-001-frictions.md には触れない」と実 PR の追記の矛盾**（Gemini 指摘・正当）:
+  本文の「触れない」は **maker の exec（digest 生成）が元ログを書き換えない**の意であり、
+  LoopSpec `memory.write: [decision_record, run_frictions]` が宣言する **Remember フェーズの
+  追記（統合担当・append-only）**とは別工程。ただし計画本文の表現が両者を区別しておらず
+  自己矛盾に見えるのは事実 — 正確には「maker は触れない・Remember は追記のみ」。
+- **AC-2 の偽陽性**（検証証跡節のコメント行にマッチ）: 指摘どおり。**状態表の行に限定した
+  厳密版**で再検証済み: `grep -qE "^\| F-$i "` × 24 → **missing=0（実測）**。
+- **AC-3 のステージング依存 + 「追記のみ」未検証**: 指摘どおり。**既存行の削除・変更ゼロ**を
+  検証する厳密版で再検証済み: `git diff origin/main -- run-001-frictions.md | grep -c '^-[^-]'`
+  → **0（実測・追記のみを確認）**。
+- 上記 2 つの厳密版コマンドは次 run 以降の digest 系 AC の標準形とする（F-27 の表と併せて摩擦記録へ）。
