@@ -163,3 +163,23 @@
 | ---- | -------- | ---- |
 | F-23 | 「双方に反映」と宣言する改訂は**両側の AC を対で切る**（B R3 検出: 片側の grep AC 欠落は V-1 で実装漏れを見逃す）。ラウンド上限到達時は改訂でなく C/D 裁定が正路であることも本 run で実証 | AC 設計の対称性 |
 | F-24 | （成功）B が 3 ラウンドかけて trust boundary 機構の「誠実な安全主張」を段階的に締めた（判定既定 → 限界開示 → 検証対称性）。**安全機構の導入 run では B の連続 reject は正常なコスト**であり、C/D 裁定が過剰追及と実害の境界を引いた | 安全機構 run の型 |
+
+---
+
+## Run-011 追記
+
+### 結果サマリ（Run-011）
+
+- 経過: R1 A✓/B✓ ワンラウンド合意 → AUTO_APPROVED → exec 全 AC PASS。
+  **Dreams パターン初適用**: 元ログ不変（AC-3 で機械検証）+ 検証つき派生 digest
+  （frictions-digest-001.md）+ 採用は C-4 人間レビュー
+- **直近 3 run で追加した LoopSpec フィールドが全稼働**: scope.allowed_paths（Run-008）・
+  external_sources（Run-010・空配列の明示宣言として初運用）・構造化 deterministic（Run-006）
+- 計画段階で AC-2 の部分一致バグ（F-2 が F-24 にマッチ）を**事前検証が自己検出**（F-12 の 2 例目）
+
+### 摩擦点（Remember）
+
+| #    | 観測事実 | 種別 |
+| ---- | -------- | ---- |
+| F-25 | 「原則 11」の引用元を design-philosophy と誤記しかけた（正: working-discipline skill。design-philosophy は I-1〜I-9）。A が citation nit として検出。**原則・規律の引用には出典ファイルを明示する** | 引用の正確性 |
+| F-26 | （成功）F-14 が個別 LoopSpec でなく **checker 標準プロンプト（SKILL.md）に構造搭載**されているため全 run で自動的に機能する、と B が確認。「摩擦→skill 定型への昇格」が個別対処より高い恒久性を持つことの実証 | Optimize の置き場 |
