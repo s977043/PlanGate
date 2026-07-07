@@ -159,6 +159,58 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
   `w_check.severity` / `w_check.model_c` / `w_check.model_d` が刻印される
   （[`decision-table.md`](../../../docs/workflows/ai-loop/decision-table.md) §5）。
 
+## Step 5.5: exec 差分への rubric grader
+
+AUTO_APPROVED → exec 完了後・PR 作成前に、maker と独立の sonnet サブエージェント
+（grader）へ exec 差分を委託する（W チェックと同じ maker≠grader・独立文脈方式）。
+入力 = maker 差分 + 計画の Goal/確定文言。
+
+### rubric 5 項目（review-principles §2 からの docs-run 翻訳）
+
+以下の表は maker がそのまま SKILL.md に転記する確定版（Round 2 改訂 1）。
+定義の正本は [`review-principles.md`](../../rules/review-principles.md) §2 のままで、
+本表はそれを再定義せず docs-run に適用可能な fail 条件へ翻訳したものである。
+
+| #   | 基準（review-principles §2 からの docs-run 翻訳） | fail 条件（判定可能形）                                                                                       |
+| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1   | **正確性・正本整合**（保守性/可読性由来）         | 差分中のファイルパス・コマンド・参照リンクに実在しないものが 1 つ以上ある、または参照正本と矛盾する記述がある |
+| 2   | **要件適合**（計画との 1:1）                      | 計画の Goal・確定文言に対し宣言外の変更、または要求要素の欠落がある                                           |
+| 3   | **文体・構造踏襲**（可読性由来）                  | 追記が既存文書の見出し階層・表形式・文体から逸脱している                                                      |
+| 4   | **境界安全**（セキュリティ由来）                  | 承認境界・HO 境界・停止規則を弱める/緩和する記述を含む                                                        |
+| 5   | **重複定義回避**（拡張性/保守性由来）             | 既存正本に定義済みの規範を参照でなく再定義している                                                            |
+
+（パフォーマンス観点は docs-run では該当稀のため基準 1 に「実行例の到達性」として包含。
+5 観点との対応は各行に明記し重複定義しない — 定義の正本は review-principles §2 のまま）
+
+### grader 委託プロンプト定型（W チェック定型の形式踏襲）
+
+```text
+対象: <changed_files>（maker 差分）
+役割: この差分を上記 rubric 5 項目で採点する。
+計画: <計画 Goal / 確定文言>
+観点: rubric 5 項目（本節の表）。各項目を pass/fail で判定する。
+
+出力形式（常に3行、raw）:
+verdict: pass | fail
+failed_criteria: <fail とした項目番号を列挙（例: 2,4） or なし>
+feedback: <1〜3文>
+```
+
+判定ブロック（上記 3 行）に**続けて、基準ごとの証跡ブロックを別掲**する（行数自由・
+判定ブロックの 3 行 raw 形式とは別領域）:
+
+- **fail とする基準ごとに、差分からの引用（行）を必須添付する。引用のない fail は無効**
+  とし、maker は再試行前に grader へ差し戻せる
+- pass にも基準ごとに 1 行の根拠を証跡ブロックへ書く（全 5 行。「問題なし」のみは不可）
+- `feedback:` 行自体は 1 行に収める（複数論点はセミコロン区切り。詳細は証跡ブロックへ）
+
+### 再試行ループ
+
+- `verdict: fail` → feedback（引用込み）を添えて maker に再試行を委託する。**上限 2 回**
+- 上限超過 → `HUMAN_ESCALATED` として扱い、**grader の全出力（引用込み）を人間へ提示**
+  （false-fail 連鎖を人間が判断可能にする）
+- grader 出力は decision record と同様、run 記録へ全文貼付する（監査可能性）
+
 ## 禁止事項
 
 - lite 宣言の虚偽（判定不能を `true` 側に倒す）

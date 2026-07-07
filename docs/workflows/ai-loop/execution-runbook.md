@@ -110,6 +110,23 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 | `3`       | `BLOCKED`         | ブロックとして扱う。当該変更を採用しない。audit record（暫定）を保存し、理由（stderr の裁定サマリ）を記録する              |
 | `1`       | （入力エラー）    | 入力 JSON の不備。stderr の理由メッセージに従い入力を修正して再実行する                                                    |
 
+### (5b) exec 差分 rubric チェック（grader 再試行ループ）
+
+`AUTO_APPROVED`（exit code `0`）で exec 完了後・PR 作成前に、maker と独立の
+sonnet サブエージェント（**rubric grader**）へ exec 差分を委託する
+（手順詳細・rubric 5 項目・委託プロンプト定型は
+[`ai-loop-cycle` SKILL.md](../../../.claude/skills/ai-loop-cycle/SKILL.md)
+Step 5.5 を正本とし、本節では再定義しない）。
+
+1. maker 差分 + 計画の Goal/確定文言を grader に入力する
+2. grader は rubric 5 項目（正確性・正本整合 / 要件適合 / 文体・構造踏襲 /
+   境界安全 / 重複定義回避）で判定し、`verdict: pass|fail` /
+   `failed_criteria` / `feedback` を 3 行 raw で返す（fail は引用必須）
+3. `verdict: fail` → feedback を添えて maker に再試行を委託する。**上限 2 回**
+4. 上限超過 → `HUMAN_ESCALATED` として扱い、grader の全出力（引用込み）を
+   人間へ提示して停止する
+5. `verdict: pass` を確認してから (6) 強化セルフレビューへ進む
+
 ### (6) 強化セルフレビュー（PR 作成前・必須）
 
 `AUTO_APPROVED`（exit code `0`）で exec / L-0 / V 系が完了した後、PR 作成前に

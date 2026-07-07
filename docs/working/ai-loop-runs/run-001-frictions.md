@@ -223,3 +223,15 @@
   ワンラウンド合意 → AUTO_APPROVED（priority 6）→ exec 全 AC PASS・意図外 diff なし
 - **新規摩擦なし**（監査連続性のための明示記録）。F-33 対策の分離 worktree 運用を初適用
   し、並行セッション（#760/PR #762）と無干渉で完走
+
+## Run-016 での摩擦（2026-07-07 追記・旧称 Run-015）
+
+- 対象: #753 gap 2 の rubric grader PoC。escalate 第2型（Human 選択 1）→ W R1 B✗(logic:
+  rubric 5 項目の先送り) → R2 B✗(format: **F-30 正本化直後の run で F-30 違反を検出** —
+  正本化した規律が即座に checker の判定基準として機能）→ R3 A✓/B✓ → AUTO_APPROVED → exec 全 AC PASS
+
+### 摩擦点（Remember）
+
+| #    | 観測事実 | 種別 |
+| ---- | -------- | ---- |
+| F-34 | **run 番号の名前空間が多セッション間で無調整** — 本 run が計画時に採番した run-015 を、並行セッションが先に公開（PR #764）し衝突。公開前だったため Run-016 へ改番 + 事後注記で解消。対策候補: 採番前に `git ls-tree origin/main docs/working/ai-loop-runs/` で最新番号を確認し、開始時に採番予約コミットを先行 push する（Optimize 候補） | 並行セッションの採番衝突 |
