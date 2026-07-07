@@ -293,7 +293,7 @@ def check_skill_collisions() -> dict:
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {
             "name": name,
-            "ok": True,
+            "ok": False,
             "level": "warn",
             "detail": f"could not run collision check: {exc}",
         }
@@ -301,9 +301,9 @@ def check_skill_collisions() -> dict:
     if proc.returncode not in (0, 1):
         return {
             "name": name,
-            "ok": True,
+            "ok": False,
             "level": "warn",
-            "detail": f"collision check exited with unexpected code {proc.returncode} (skip)",
+            "detail": f"collision check exited with unexpected code {proc.returncode}",
         }
 
     collision = proc.returncode == 1
@@ -325,6 +325,19 @@ def check_prepush_guard() -> dict:
     乖離を防ぐため、hook ファイルの存在・実行可能性を検査する。
     """
     hook = REPO / ".git" / "hooks" / "pre-push"
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(REPO), "rev-parse", "--git-path", "hooks/pre-push"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            resolved = Path(proc.stdout.strip())
+            hook = resolved if resolved.is_absolute() else REPO / resolved
+    except (OSError, subprocess.TimeoutExpired):
+        pass  # 非 git 環境 (テスト sandbox 等) はハードコードパスにフォールバック
     installed = hook.is_file() and os.access(hook, os.X_OK)
     return {
         "name": "pre-push guard installed (#722)",
