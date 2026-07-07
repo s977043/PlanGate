@@ -33,6 +33,9 @@ auto-approve または human escalate
 
 ## 2. flow フェーズ
 
+> **事前ゲート**: 本フェーズ進入前に、非停止プロンプト（「完璧になるまで」「全列挙」等）を
+> 拒否・再形成する [`loop-safety-gates.md`](./loop-safety-gates.md) を通すこと（#728 / design-philosophy I-6）。
+
 低リスク変更の通過条件（すべて満たす場合のみ flow して detect へ進む）:
 
 | 条件 | 説明 |
