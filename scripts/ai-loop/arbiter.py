@@ -302,6 +302,7 @@ def build_provenance(
     severity: str | None = None,
     model_c: str | None = None,
     model_d: str | None = None,
+    reject_category: str | None = None,
 ) -> dict[str, Any]:
     """decision-table.md §5 準拠の provenance JSON を構築する。"""
     w_check: dict[str, Any] = {"model_a": model_a, "model_b": model_b}
@@ -311,6 +312,8 @@ def build_provenance(
         w_check["model_c"] = model_c
     if model_d is not None:
         w_check["model_d"] = model_d
+    if reject_category is not None:
+        w_check["reject_category"] = reject_category
 
     return {
         "decision": decision,
@@ -355,6 +358,7 @@ def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
             target_sha=target_sha,
             model_a=model_a,
             model_b=model_b,
+            reject_category=reject_category,
         )
         matched_desc = ", ".join(f"{m['path']} ({m['pattern']} / {m['classification']})" for m in matched)
         reason = f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {matched_desc}"
@@ -370,6 +374,7 @@ def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
             target_sha=target_sha,
             model_a=model_a,
             model_b=model_b,
+            reject_category=reject_category,
         )
         return provenance, "priority 2: boundary=clean だが lite=false（低リスク要件未充足）"
 
@@ -383,6 +388,7 @@ def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
             target_sha=target_sha,
             model_a=model_a,
             model_b=model_b,
+            reject_category=reject_category,
         )
         return provenance, "priority 3: class=merge（Human-owned 固定）"
 
@@ -398,6 +404,7 @@ def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
             target_sha=target_sha,
             model_a=model_a,
             model_b=model_b,
+            reject_category=reject_category,
         )
         return provenance, f"priority 4: verdict={verdict}（A が設計妥当性で NG、または両者合意で NG）"
 
@@ -411,6 +418,7 @@ def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
             target_sha=target_sha,
             model_a=model_a,
             model_b=model_b,
+            reject_category=reject_category,
         )
         return provenance, "priority 6: verdict=approve-approve（合意）"
 
@@ -428,6 +436,7 @@ def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
             target_sha=target_sha,
             model_a=model_a,
             model_b=model_b,
+            reject_category=reject_category,
             severity=severity,
         )
         return (
@@ -446,6 +455,7 @@ def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
             target_sha=target_sha,
             model_a=model_a,
             model_b=model_b,
+            reject_category=reject_category,
             severity=severity,
             model_c=model_c,
             model_d=model_d,
@@ -471,6 +481,7 @@ def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
         target_sha=target_sha,
         model_a=model_a,
         model_b=model_b,
+        reject_category=reject_category,
         severity=severity,
         model_c=model_c,
         model_d=model_d,
