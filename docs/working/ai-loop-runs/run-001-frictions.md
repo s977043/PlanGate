@@ -50,3 +50,5 @@
 | F-7 | Model B が計画自身の AC 設計に F-4 同型の穴を検出（no_duplicate_taxonomy が review 観点のみで機械検証不能・コピーによる迂回を AC-4 が検知しない）。**「AC の機械検証化」は再帰的に適用すべき規律**であることが判明 | 検証設計 |
 | F-8 | AC-3「記録層**または**契約層」の曖昧さを B が設計判断の残置と指摘 → Model D の裁定（契約層が妥当）で解消された。**配置の選択肢は W チェック前に 1 つへ確定させる**方が安い | 計画粒度 |
 | F-9 | （成功）F-1 Optimize が初適用で機能（B の reject_category が enum 準拠）。**記録→Optimize→次サイクルで効果確認**の I-5 ループが 1 巡した | 成功シグナル |
+
+| F-10 | decision record（arbiter.py の provenance 出力）に Model B の `reject_category` と C/D 起動理由が記録されず、「なぜ severity=low と分類されたか」が record 単体から追跡できない（C-4 レビュー指摘）。**record の手編集は provenance 改竄になるため行わず**、arbiter.py の provenance schema 拡張（`w_check.reject_category` フィールド追加 + test_arbiter 更新）を Optimize 候補とする | 記録スキーマの不足 |

@@ -10,7 +10,7 @@
 「誰が何に答えるか」の一意なタクソノミであり、新規資産の追加・改廃は同節を
 更新することで反映する。個別の機構・手順を探す場合は、まず同節から辿ること。
 
-## Phase 0 スナップショットについて（改変しない）
+## 時点固定のスナップショットについて（改変しない）（改変しない）
 
 [`asset-inventory.md`](./asset-inventory.md) / [`related-specs.md`](./related-specs.md) /
 [`ho-paths.md`](./ho-paths.md) の Phase 0 記述、および
