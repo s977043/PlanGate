@@ -201,3 +201,18 @@
 | F-29 | AC-1 の PASS 方向事前検証を「要求水準（≥2）未満のサンプル 1 件」で申告していた（R1 B が検出）。**PASS 方向の実測は AC の閾値・条件そのもので行う**（F-12 の運用厳密化） | 事前検証の水準 |
 | F-30 | Round 改訂で AC を変更する際、文章宣言のみでは**機械実行前提の YAML deterministic ブロックと食い違う**（R3 C が指摘・C/D 不一致で escalate）。対策: AC 変更時は**機械可読な consolidated deterministic ブロックを追記**する（遡及編集せず監査記録不変と両立）。loopspec.md への正本化は次 run の Optimize 候補 | AC 改訂の機械可読性 |
 | F-31 | run 途中の Human 指示（auto-merge 廃止）が確定文言・AC の前提を変えた。**運用前提の変更は即時に実運用（open PR）へも遡及適用**し（#757/#758 の arm 解除を実測）、run 側は Round 追記で追従する、の両輪が機能した | Human 指示の途中注入 |
+
+## Run-013 での摩擦（2026-07-07 追記）
+
+- 対象: #754 seeds-hygiene 仕様正本化（intake §6.1 の 3 例目・**HO 接触 run の初事例**）。
+  escalate 第2型（HO 接触 + 配置選択）→ Human 選択 1 → W R1 A✓/B✗(ho_path_contact) →
+  AC v2 強化（Round 3）→ W R2 A✓/B✓ → arbiter **priority 1 (boundary=touches-HO) で
+  HUMAN_ESCALATED**（W 合意でも機械的に Human へ返る I-1 実機確認・
+  record: `20260707T102937Z-94c9882-run013-r2.json`）→ Human 承認済みにより exec
+
+### 摩擦点（Remember）
+
+| #    | 観測事実 | 種別 |
+| ---- | -------- | ---- |
+| F-32 | ハーネスの Edit 後自動整形が retro-phase.md の既存テーブルを collateral 整形し +10/-9 の意図外 diff を発生 → **AC-6b（追加≤1・削除0）が設計どおり違反を機械検知** → maker が `printf >>` 直接追記へ切替えて +1/-0 に収束。数量 containment AC は整形フック事故の検出器としても機能する | containment AC の副次効果 |
+| F-33 | Run-013 検証中、作業ツリーに**スコープ外の HO 変更**（.claude/settings.example.json 改変 + scripts/hooks/ 新規 2 本・#760 由来・本セッションが中止破棄した実装とは別系統・settings.json 実配線にも PostToolUse/Stop が出現）を検出。**別セッション/手動操作との並行実行**が原因とみられる。対応: 破棄せず（名指し外 tracked 変更保護）・run PR から明示除外（explicit path staging）・Human へ報告。多セッション並行時の worktree 共有は run の AC-6a（ファイル数）を偽陽性側に振らせ得る | 並行セッションの worktree 干渉 |
