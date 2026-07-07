@@ -51,8 +51,10 @@ loop:
     maker: string # 必須。生成側の識別子（例: implementation_agent）
     checker: string # 必須。maker と異なる主体でなければならない（I-2）
   verification:
-    deterministic: # 必須（最低1件）。機械検証コマンド
-      - string
+    deterministic: # 必須（最低1件）。機械検証コマンド（構造化 — F-18/Run-006）
+      - cmd: string # 純粋なシェルコマンド（注記・期待値を混ぜない。そのまま実行可能）
+        expect_exit: int # 任意。期待 exit code（既定 0）
+        note: string # 任意。人間可読の注記（期待値の要点・AC 対応。実行には使わない）
     review: # 必須（最低1件）。裁定・レビュー観点
       - string # 例: requirements_fit / architecture_consistency / security_risk
   stopping_rule:
@@ -77,25 +79,28 @@ loop:
 
 ## 3. フィールド定義（必須 / 任意 / 既定値）
 
-| フィールド                              | 必須/任意                 | 既定値（未指定時）                                                   | 説明                                                                                                       |
-| --------------------------------------- | ------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `loop.name`                             | 必須                      | なし（欠落は起票拒否）                                               | ループの一意識別子                                                                                         |
-| `loop.trigger.type`                     | 必須                      | なし                                                                 | `manual` / `issue_created` / `pr_opened` / `scheduled` の4値                                               |
-| `loop.trigger.detail`                   | 任意                      | 空                                                                   | scheduled 時の実行条件補足                                                                                 |
-| `loop.goal.description`                 | 必須                      | なし                                                                 | 自然文での目的記述                                                                                         |
-| `loop.goal.exit_criteria_ref`           | 必須                      | なし（**安全側**: 未指定は closed loop 扱い不可＝polling 扱い、I-4） | merge-ready 到達条件の参照先                                                                               |
-| `loop.context.include`                  | 必須（1件以上）           | なし                                                                 | 持ち込む情報の種類の列挙                                                                                   |
-| `loop.context.exclude`                  | 必須（0件可だが明示必須） | 空配列でも明示要                                                     | stale 情報の除外を宣言的に強制する（黙示の「見せない」を許さない）                                         |
-| `loop.actors.maker`                     | 必須                      | なし                                                                 | 生成側識別子                                                                                               |
-| `loop.actors.checker`                   | 必須                      | なし（**maker と同一値は不可**。I-2 違反として拒否）                 | 検証側識別子                                                                                               |
-| `loop.verification.deterministic`       | 必須（1件以上）           | なし                                                                 | 機械検証コマンド列挙                                                                                       |
-| `loop.verification.review`              | 必須（1件以上）           | なし                                                                 | レビュー観点列挙                                                                                           |
-| `loop.stopping_rule.terminal_state_ref` | 必須                      | なし                                                                 | decision-table.md への参照固定                                                                             |
-| `loop.stopping_rule.round_limit_ref`    | 必須                      | なし                                                                 | execution-runbook.md §2-(7) への参照固定（数値の再定義禁止）                                               |
-| `loop.memory.write`                     | 必須（1件以上）           | なし                                                                 | 保存する記録種別                                                                                           |
-| `loop.memory.ref`                       | 必須                      | なし                                                                 | execution-runbook.md §2-(4)（decision record 保存の正本）への参照固定。L4 学習側は review-feedback-loop.md |
-| `loop.escalation.touches_ho`            | 固定値 `unconditional`    | `unconditional`（変更不可）                                          | I-1/I-8 に基づく絶対条件。LoopSpec が上書きすることは許容しない                                            |
-| `loop.escalation.budget_ref`            | 必須                      | なし                                                                 | arbiter-policy.md §7 への参照固定                                                                          |
+| フィールド                                      | 必須/任意                 | 既定値（未指定時）                                                   | 説明                                                                                                                                                                   |
+| ----------------------------------------------- | ------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `loop.name`                                     | 必須                      | なし（欠落は起票拒否）                                               | ループの一意識別子                                                                                                                                                     |
+| `loop.trigger.type`                             | 必須                      | なし                                                                 | `manual` / `issue_created` / `pr_opened` / `scheduled` の4値                                                                                                           |
+| `loop.trigger.detail`                           | 任意                      | 空                                                                   | scheduled 時の実行条件補足                                                                                                                                             |
+| `loop.goal.description`                         | 必須                      | なし                                                                 | 自然文での目的記述                                                                                                                                                     |
+| `loop.goal.exit_criteria_ref`                   | 必須                      | なし（**安全側**: 未指定は closed loop 扱い不可＝polling 扱い、I-4） | merge-ready 到達条件の参照先                                                                                                                                           |
+| `loop.context.include`                          | 必須（1件以上）           | なし                                                                 | 持ち込む情報の種類の列挙                                                                                                                                               |
+| `loop.context.exclude`                          | 必須（0件可だが明示必須） | 空配列でも明示要                                                     | stale 情報の除外を宣言的に強制する（黙示の「見せない」を許さない）                                                                                                     |
+| `loop.actors.maker`                             | 必須                      | なし                                                                 | 生成側識別子                                                                                                                                                           |
+| `loop.actors.checker`                           | 必須                      | なし（**maker と同一値は不可**。I-2 違反として拒否）                 | 検証側識別子                                                                                                                                                           |
+| `loop.verification.deterministic`               | 必須（1件以上）           | なし                                                                 | 構造化された機械検証コマンドの列挙（下記 3 サブフィールド）                                                                                                            |
+| `loop.verification.deterministic[].cmd`         | 必須                      | なし                                                                 | 純粋なシェルコマンド。そのまま実行可能・注記や期待値を混ぜない。F-12/F-14 規律（実機事前検証・証跡）は本フィールドに適用                                               |
+| `loop.verification.deterministic[].expect_exit` | 任意                      | 0                                                                    | 期待 exit code。**count ≥ N 型の判定は cmd 内で exit code に畳み込む**（例: `test "$(grep -cF x f)" -ge 2`。`grep -c` 単体は件数 1 でも exit 0 になる footgun に注意） |
+| `loop.verification.deterministic[].note`        | 任意                      | 空                                                                   | 人間可読注記（AC 対応の説明）。実行には使わない                                                                                                                        |
+| `loop.verification.review`                      | 必須（1件以上）           | なし                                                                 | レビュー観点列挙                                                                                                                                                       |
+| `loop.stopping_rule.terminal_state_ref`         | 必須                      | なし                                                                 | decision-table.md への参照固定                                                                                                                                         |
+| `loop.stopping_rule.round_limit_ref`            | 必須                      | なし                                                                 | execution-runbook.md §2-(7) への参照固定（数値の再定義禁止）                                                                                                           |
+| `loop.memory.write`                             | 必須（1件以上）           | なし                                                                 | 保存する記録種別                                                                                                                                                       |
+| `loop.memory.ref`                               | 必須                      | なし                                                                 | execution-runbook.md §2-(4)（decision record 保存の正本）への参照固定。L4 学習側は review-feedback-loop.md                                                             |
+| `loop.escalation.touches_ho`                    | 固定値 `unconditional`    | `unconditional`（変更不可）                                          | I-1/I-8 に基づく絶対条件。LoopSpec が上書きすることは許容しない                                                                                                        |
+| `loop.escalation.budget_ref`                    | 必須                      | なし                                                                 | arbiter-policy.md §7 への参照固定                                                                                                                                      |
 
 **安全側デフォルト（I-4 の適用）**: 上記「必須」フィールドが欠落・空・判定不能な LoopSpec は
 **closed loop として受理せず、Arbiter 統治外での実行も許可しない**（human へ差し戻す）。
@@ -105,6 +110,8 @@ loop:
 deterministic の各コマンドは、計画時に**実機で PASS/FAIL 両方向**（PASS する入力と FAIL する入力の双方）の挙動を確認してから AC に採用する。環境差 — BSD/GNU 等 — でサイレントに空を返す・ハードエラーになるコマンドの混入を防ぐ（実例: Run-003 R1/R2・Run-004 R1）。
 
 また、『実機で確認した』という申告には**実行出力（コマンドと結果）の貼付**を必須とする。証跡のない事前検証申告は未検証として扱う（実例: Run-004 R1 — 申告のみで未検証だった AC が W チェックで exit 2 を実機再現され虚偽と判明）。
+
+本規律は構造化後の `cmd` フィールドに適用される（`note` は実行対象外）。
 
 ---
 
@@ -133,8 +140,12 @@ loop:
     checker: review_agent
   verification:
     deterministic:
-      - "markdownlint docs/**/*.md"
-      - "scripts/check-links.sh docs/"
+      - cmd: "markdownlint docs/**/*.md"
+        expect_exit: 0
+        note: "全 docs 配下の markdownlint エラー 0 件"
+      - cmd: 'test "$(scripts/check-links.sh docs/ | grep -cF ''BROKEN'')" -eq 0'
+        expect_exit: 0
+        note: "リンク切れ 0 件（count 型は cmd 内 test で exit code に畳み込み）"
     review:
       - requirements_fit
       - architecture_consistency
