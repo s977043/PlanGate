@@ -46,8 +46,7 @@
   自体は今後も発生するため「現役」の判断・チェックリストとして残す
   （resolved マークは付与しない＝解消済みなのは検出手段であって作業その
   ものではないため）。
-- **apply-script パターン**（TASK-0143 エントリ）: `patch_file old/new +
-dry-run + already applied 検出` の設計を TASK-0141 から踏襲し、コスト
+- **apply-script パターン**（TASK-0143 エントリ）: `patch_file old/new + dry-run + already applied 検出` の設計を TASK-0141 から踏襲し、コスト
   ゼロで再利用できたと記録されている。今後も HO 待ち follow-up が発生す
   る限り現役の判断として扱う。
 - **hook スクリプト内 REPO_ROOT 計算とテスト設計の相互作用**（TASK-0143

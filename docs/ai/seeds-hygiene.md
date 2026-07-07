@@ -62,7 +62,7 @@ PlanGate の append-only + `confirmed_by` 原則とそのまま整合する。
   ドが exit 0 を返すことを必須検証とする。
 
   ```sh
-  git diff --quiet <base> -- docs/working/improvement-seeds.md
+  git diff --quiet origin/main -- docs/working/improvement-seeds.md
   ```
 
   exit 0 = seeds 本体に差分なし（append-only 不変条件を満たす）。exit 1 が
@@ -104,8 +104,7 @@ PR の C-4 レビューが兼ねる。AI は digest の生成・検証までを�
 
 - **v1 = 手動起動のみ**。skill もしくは `bin/plangate` サブコマンド経由で
   人間が明示的に起動する。
-- **scheduled 実行は宣言のみ**（設計メモ）。LoopSpec の `trigger.type:
-scheduled` 互換のトリガー形式を将来的に採用できるよう、起動条件を
+- **scheduled 実行は宣言のみ**（設計メモ）。LoopSpec の `trigger.type: scheduled` 互換のトリガー形式を将来的に採用できるよう、起動条件を
   `{type: manual}` として明示しておく。scheduled 実装（cron 等での自動起動）
   は本書のスコープ外であり、v2 候補として扱う。
 
