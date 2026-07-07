@@ -1,6 +1,6 @@
 ---
 name: plangate-working-discipline
-description: "PlanGate の中核作業規律。Plan → Review → Approve → Execute → Verify → Remember のループで AI 駆動開発の暴走・見落とし・偽の完了を防ぐ。Use when: 実装・修正・リファクタ・レビュー・長期タスク・セッション跨ぎ開発・サブエージェント利用判断のすべての作業開始時。Do not use when: 単発の質問応答・読み取りのみの調査（ループ全体は過剰。Verify/Report の規律のみ適用）。"
+description: "PlanGate の中核作業規律。Intake → Plan → Review → Approve → Execute → Verify → Remember → Next Action の 8 フェーズループで AI 駆動開発の暴走・見落とし・偽の完了を防ぐ。Use when: 実装・修正・リファクタ・レビュー・長期タスク・セッション跨ぎ開発・サブエージェント利用判断のすべての作業開始時。Do not use when: 単発の質問応答・読み取りのみの調査（ループ全体は過剰。Verify/Report の規律のみ適用）。"
 ---
 
 # PlanGate Working Discipline

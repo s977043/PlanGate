@@ -38,9 +38,10 @@ Verification Method / Expected Diff）を埋めて、Approval Gate 判定まで�
 ## 5. PR レビュー
 
 ```text
-PR #<N> を review-gate-template.md の観点でレビューして。差分に存在しない
-コードへの推測指摘はしない。指摘には severity を付け、「変更範囲外だが
-セキュリティ上見逃せないもの」だけ範囲外指摘を許可する。
+PR #<N> をレビューして。観点・Severity・判定は `.claude/rules/review-principles.md`
+（コードレビューの正本）に従う。差分に存在しないコードへの推測指摘はしない。
+「変更範囲外だがセキュリティ上見逃せないもの」だけ範囲外指摘を許可する。
+※ review-gate-template.md は計画（Plan 出力）レビュー用であり、PR の差分レビューには使わない。
 ```
 
 ## 6. 仕様レビュー
