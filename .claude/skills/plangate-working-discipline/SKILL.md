@@ -81,9 +81,10 @@ Verification Method / Rollback Plan / Human Approval Required Conditions
 
 - レビューは生成者と独立した視点で行う（自己レビューのみで通さない。
   可能なら別モデル・別セッション・adversarial 観点を 1 系統以上）。
-- **レビュアー自身にも停止規律を課す**: 実害のある欠陥のみ reject し、注記・記録で
-  管理可能な懸念は approve + 記録に回す（完璧主義による無限 reject は非停止の一形態）。
-  reject → 計画改訂 → 再レビューは**ラウンド上限（3）**内で収束させ、超過時は人間へ。
+- **レビュアー自身にも停止規律を課す**: 実害のある欠陥のみ差し戻し（`needs_revision`。
+  根本不成立なら `rejected` = Intake へ）とし、注記・記録で管理可能な懸念は
+  `approved` + 記録に回す（完璧主義による無限差し戻しは非停止の一形態）。
+  `needs_revision` → 計画改訂 → 再レビューは**ラウンド上限（3）**内で収束させ、超過時は人間へ。
 
 ### Approval Phase
 
