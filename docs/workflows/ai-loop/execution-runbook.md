@@ -92,12 +92,12 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 
 ### (5) exit code に応じた分岐
 
-| exit code | decision | 動作 |
-|-----------|----------|------|
-| `0` | `AUTO_APPROVED` | 自動承認として扱う。provenance 刻印（正本）を保存して 1 サイクル完了 |
-| `2` | `HUMAN_ESCALATED` | **停止して人間へ escalate**。audit record（暫定）の `w_check` / `boundary_check` / `lite_check` を提示し、人間の判断を仰ぐ |
-| `3` | `BLOCKED` | ブロックとして扱う。当該変更を採用しない。audit record（暫定）を保存し、理由（stderr の裁定サマリ）を記録する |
-| `1` | （入力エラー） | 入力 JSON の不備。stderr の理由メッセージに従い入力を修正して再実行する |
+| exit code | decision          | 動作                                                                                                                       |
+| --------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `0`       | `AUTO_APPROVED`   | 自動承認として扱う。provenance 刻印（正本）を保存して 1 サイクル完了                                                       |
+| `2`       | `HUMAN_ESCALATED` | **停止して人間へ escalate**。audit record（暫定）の `w_check` / `boundary_check` / `lite_check` を提示し、人間の判断を仰ぐ |
+| `3`       | `BLOCKED`         | ブロックとして扱う。当該変更を採用しない。audit record（暫定）を保存し、理由（stderr の裁定サマリ）を記録する              |
+| `1`       | （入力エラー）    | 入力 JSON の不備。stderr の理由メッセージに従い入力を修正して再実行する                                                    |
 
 ### (6) 強化セルフレビュー（PR 作成前・必須）
 
@@ -126,16 +126,16 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 
 #### Scheduling 判断表
 
-| 優先度 | 条件 | 次アクション | terminal state |
-| --- | --- | --- | --- |
-| 1 | boundary=touches-HO / policy 変更 / irreversible 変更 | 停止して human escalate | `HUMAN_ESCALATED` |
-| 2 | 対応ラウンド上限 3 超過 | 停止して human escalate | `HUMAN_ESCALATED` |
-| 3 | 同型指摘の再発 | `review-feedback-loop.md` へ還元し、Optimize 対象へ送る | recurse |
-| 4 | CI failed | CI failure を調査・修正し、(6) を再実行して push | continue |
-| 5 | merge conflict | conflict 解消、三点照合、lease-protected push | continue |
-| 6 | critical / major の AI review 指摘あり | 採用して修正、または理由付き不採用を記録 | continue or escalate |
-| 7 | minor / info のみ | 採用/不採用理由を記録し、DoD 判定へ進む | merge-ready candidate |
-| 8 | CI green かつ AI review 全件対応済み | C-4 待ちへ遷移 | `MERGE_READY` |
+| 優先度 | 条件                                                  | 次アクション                                            | terminal state        |
+| ------ | ----------------------------------------------------- | ------------------------------------------------------- | --------------------- |
+| 1      | boundary=touches-HO / policy 変更 / irreversible 変更 | 停止して human escalate                                 | `HUMAN_ESCALATED`     |
+| 2      | 対応ラウンド上限 3 超過                               | 停止して human escalate                                 | `HUMAN_ESCALATED`     |
+| 3      | 同型指摘の再発                                        | `review-feedback-loop.md` へ還元し、Optimize 対象へ送る | recurse               |
+| 4      | CI failed                                             | CI failure を調査・修正し、(6) を再実行して push        | continue              |
+| 5      | merge conflict                                        | conflict 解消、三点照合、lease-protected push           | continue              |
+| 6      | critical / major の AI review 指摘あり                | 採用して修正、または理由付き不採用を記録                | continue or escalate  |
+| 7      | minor / info のみ                                     | 採用/不採用理由を記録し、DoD 判定へ進む                 | merge-ready candidate |
+| 8      | CI green かつ AI review 全件対応済み                  | C-4 待ちへ遷移                                          | `MERGE_READY`         |
 
 #### 実行手順
 
@@ -145,8 +145,12 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
    `git rebase --onto origin/main <旧base> <branch>` で main に載せ替え、
    三点照合（`git branch -vv`・SHA 同定）のうえ lease-protected push で反映する。
    push 直後の mergeable は再計算中の場合があるため数十秒後に再確認する
-3. CI/PR 時の AI レビュー指摘を確認する。各指摘について
-   **採用して修正**するか、**理由付きで不採用とする**かを記録する
+3. **AI レビューの着弾を確認してから次へ進む**（PR 作成直後は未着弾のことがある —
+   着弾前にマージ準備を完了扱いにすると、指摘未対応のままマージされ得る。F-27 の実害経路）。
+   CI/PR 時の AI レビュー指摘を確認し、各指摘について**採用して修正**するか、
+   **理由付きで不採用とする**かを記録する。**auto-merge は使用しない**
+   （2026-07-07 Human 指示）。指摘対応完了（または指摘なしの確認）後に merge-ready 報告を
+   行い、マージは Human が実行する（responsibility-classes: merge は Human-owned）。
 4. 対応内容（採用/不採用・理由）は
    [`review-feedback-loop.md`](./review-feedback-loop.md) §2 の L4 学習閉ループへ
    還元し、次回の強化セルフレビュー（手順 (6)）で事前に捕捉されるようにする
@@ -165,12 +169,12 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 [`orchestrator-mode.md`](../../../.claude/rules/orchestrator-mode.md) §検証可能性
 の 4 条件に対する `arbiter.py` の適合状況:
 
-| 条件 | 適合内容 |
-|------|---------|
-| **冪等性** | 同一入力 JSON に対し `decision` は常に同一（`ProvenanceSchemaTests.test_auto_approve_provenance_fields` で検証。`timestamp` のみ実行毎に変化するが裁定結果には影響しない） |
-| **明示的失敗** | 入力エラー（exit code 1）は必ず理由メッセージを stderr に出力する（`[arbiter] 入力エラー: <理由>`） |
-| **トレーサビリティ** | boundary 判定で HO パターンに一致した場合、一致パス・パターン・分類を理由サマリ（stderr）に含める |
-| **テスト可能性** | `test_arbiter.py`（59 ケース）で decision table 全 priority・severity 全分類・C/D 全パターン・AC-8 安全側・boundary 全パターン・ho-paths.md との drift を機械的に検証可能 |
+| 条件                 | 適合内容                                                                                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **冪等性**           | 同一入力 JSON に対し `decision` は常に同一（`ProvenanceSchemaTests.test_auto_approve_provenance_fields` で検証。`timestamp` のみ実行毎に変化するが裁定結果には影響しない） |
+| **明示的失敗**       | 入力エラー（exit code 1）は必ず理由メッセージを stderr に出力する（`[arbiter] 入力エラー: <理由>`）                                                                        |
+| **トレーサビリティ** | boundary 判定で HO パターンに一致した場合、一致パス・パターン・分類を理由サマリ（stderr）に含める                                                                          |
+| **テスト可能性**     | `test_arbiter.py`（59 ケース）で decision table 全 priority・severity 全分類・C/D 全パターン・AC-8 安全側・boundary 全パターン・ho-paths.md との drift を機械的に検証可能  |
 
 ---
 
