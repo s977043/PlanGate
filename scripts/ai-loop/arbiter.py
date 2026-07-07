@@ -312,7 +312,7 @@ def build_provenance(
         w_check["model_c"] = model_c
     if model_d is not None:
         w_check["model_d"] = model_d
-    if reject_category is not None:
+    if model_b == "reject" and reject_category is not None:
         w_check["reject_category"] = reject_category
 
     return {

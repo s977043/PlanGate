@@ -364,6 +364,17 @@ class RejectCategoryProvenanceTests(unittest.TestCase):
         provenance, _ = arbiter.arbitrate(data)
         self.assertNotIn("reject_category", provenance["w_check"])
 
+    def test_reject_category_omitted_on_inconsistent_input(self):
+        """防御ガード: model_b=approve かつ reject_category に値がある不正入力でも、
+        record に reject_category キーが出力されない（decision-table.md §5:
+        model_b=reject 時のみ出力、の防御的保証）。
+        """
+        data = _base_input()
+        data["verdicts"]["reject_category"] = "logic"
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["w_check"]["model_b"], "approve")
+        self.assertNotIn("reject_category", provenance["w_check"])
+
     def test_severity_wired_from_reject_category_e2e(self):
         """AC-6: arbitrate() を e2e で通した record で
         w_check.severity == classify_severity(w_check.reject_category) を確認する。
