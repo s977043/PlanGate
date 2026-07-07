@@ -61,7 +61,7 @@ Critical を付けると false-block を生む。本ドキュメントは
 - 対象: `<例: 本番環境の DB 認証情報、外部 API の顧客向けキー>`
 - 注入経路: `<例: ECS taskdef の valueFrom / Terraform の secretsmanager データソース>`
 - 検証方法（レビュー時にこれを見れば注入方針か判断できる箇所）:
-  - `<例: infra/**/*.tf の \`valueFrom\` / \`secretsmanager_secret\` 参照>`
+  - `<例: infra/**/*.tf の valueFrom / secretsmanager_secret 参照>`
   - `<例: buildspec.yml の環境変数取得ステップ>`
   - `<例: CI ワークフローの secrets コンテキスト参照>`
 
