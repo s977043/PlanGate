@@ -1,0 +1,220 @@
+# LoopSpec — ループ実行境界の宣言構造
+
+> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
+> 非適用: PlanGate 本番フロー（WF-00〜WF-07）
+> 対応 issue: [#726](https://github.com/s977043/plangate/issues/726)（4層エンジニアリングモデル・LoopSpec 提案）
+> 準拠する第一原理（`docs/ai/ai-loop/design-philosophy.md` §2）:
+> **I-1**（承認境界の不可侵）・**I-4**（安全側デフォルト）・
+> **I-6**（停止できないループはループではない）・**I-9**（宣言↔実差分の二段 detect）
+> 本書は §8 トリアージ（design-philosophy.md）で「追記・新規ファイル」と仕分け済みの
+> issue #726 LoopSpec 部分を配置するものであり、4層モデル自体の採否判断は
+> design-philosophy.md §3 を正本とし再定義しない。
+
+---
+
+## 1. 目的
+
+「ループを回す」という指示だけでは、何が closed loop で何が単なる polling かを
+機械的に区別できない（design-philosophy.md I-6）。LoopSpec は、ai-loop-workflow 上で
+**1 つのループ実行の境界を宣言する構造**であり、以下を強制する:
+
+- goal・stopping rule・memory・escalation を**宣言必須**にする（宣言なき反復を拒否）
+- maker と checker を**構造的に分離**する（I-2 の LoopSpec 上の実装点）
+- 宣言（LoopSpec）と実行（arbiter 裁定・PR 差分）を**別物**として扱う（I-9 二段 detect の前提）
+
+LoopSpec は **arbiter.py への入力そのものではない**。LoopSpec は「このループを何のために・
+どこまでの権限で回すか」の宣言であり、各サイクルの裁定入力（decision-table.md §2 の
+4 軸: boundary/lite/verdict/class）は LoopSpec 宣言の範囲内で毎サイクル別途生成される。
+LoopSpec 自体を裁定エンジンが直接消費するわけではない。
+
+---
+
+## 2. LoopSpec YAML 構造
+
+```yaml
+loop:
+  name: string # 必須。ループの一意識別子（kebab-case）
+  trigger:
+    type: manual | issue_created | pr_opened | scheduled # 必須
+    detail: string # 任意。scheduled 時の cron 等、type の補足
+  goal:
+    description: string # 必須。このループで達成する目的（自然文）
+    exit_criteria_ref:
+      string # 必須。merge-ready 到達条件の参照先
+      # （00_concept.md §3.3 の DoD、または個別 plan の AC）
+  context:
+    include: # 必須（最低1件）。持ち込む情報の種類
+      - string # 例: related_issue / design_docs / diff / test_results
+    exclude: # 必須（空配列可、ただし明示は必須）
+      - string # 例: stale_tool_outputs / irrelevant_history
+  actors:
+    maker: string # 必須。生成側の識別子（例: implementation_agent）
+    checker: string # 必須。maker と異なる主体でなければならない（I-2）
+  verification:
+    deterministic: # 必須（最低1件）。機械検証コマンド
+      - string
+    review: # 必須（最低1件）。裁定・レビュー観点
+      - string # 例: requirements_fit / architecture_consistency / security_risk
+  stopping_rule:
+    terminal_state_ref:
+      string # 必須。参照先固定: decision-table.md（AUTO_APPROVED /
+      # HUMAN_ESCALATED / BLOCKED の3値）
+    round_limit_ref:
+      string # 必須。参照先固定: execution-runbook.md §2-(7) Scheduling 判断表（上限3）
+      # LoopSpec 内で数値を再定義しない（正本の断片化防止）
+  memory:
+    write: # 必須（最低1件）。書き込む記録の種類
+      - string # 例: decision_record / rejected_options / unresolved_risks
+    ref:
+      string # 必須。decision record の実体正本の参照先
+      # （保存の正本: execution-runbook.md §2-(4) / L4 学習側: review-feedback-loop.md）
+  escalation:
+    touches_ho: unconditional # 固定値。touches-HO は無条件 escalate（I-1/I-8、変更不可）
+    budget_ref: string # 必須。参照先固定: arbiter-policy.md §7（escalate 予算）
+```
+
+---
+
+## 3. フィールド定義（必須 / 任意 / 既定値）
+
+| フィールド                              | 必須/任意                 | 既定値（未指定時）                                                   | 説明                                                                                                       |
+| --------------------------------------- | ------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `loop.name`                             | 必須                      | なし（欠落は起票拒否）                                               | ループの一意識別子                                                                                         |
+| `loop.trigger.type`                     | 必須                      | なし                                                                 | `manual` / `issue_created` / `pr_opened` / `scheduled` の4値                                               |
+| `loop.trigger.detail`                   | 任意                      | 空                                                                   | scheduled 時の実行条件補足                                                                                 |
+| `loop.goal.description`                 | 必須                      | なし                                                                 | 自然文での目的記述                                                                                         |
+| `loop.goal.exit_criteria_ref`           | 必須                      | なし（**安全側**: 未指定は closed loop 扱い不可＝polling 扱い、I-4） | merge-ready 到達条件の参照先                                                                               |
+| `loop.context.include`                  | 必須（1件以上）           | なし                                                                 | 持ち込む情報の種類の列挙                                                                                   |
+| `loop.context.exclude`                  | 必須（0件可だが明示必須） | 空配列でも明示要                                                     | stale 情報の除外を宣言的に強制する（黙示の「見せない」を許さない）                                         |
+| `loop.actors.maker`                     | 必須                      | なし                                                                 | 生成側識別子                                                                                               |
+| `loop.actors.checker`                   | 必須                      | なし（**maker と同一値は不可**。I-2 違反として拒否）                 | 検証側識別子                                                                                               |
+| `loop.verification.deterministic`       | 必須（1件以上）           | なし                                                                 | 機械検証コマンド列挙                                                                                       |
+| `loop.verification.review`              | 必須（1件以上）           | なし                                                                 | レビュー観点列挙                                                                                           |
+| `loop.stopping_rule.terminal_state_ref` | 必須                      | なし                                                                 | decision-table.md への参照固定                                                                             |
+| `loop.stopping_rule.round_limit_ref`    | 必須                      | なし                                                                 | execution-runbook.md §2-(7) への参照固定（数値の再定義禁止）                                               |
+| `loop.memory.write`                     | 必須（1件以上）           | なし                                                                 | 保存する記録種別                                                                                           |
+| `loop.memory.ref`                       | 必須                      | なし                                                                 | execution-runbook.md §2-(4)（decision record 保存の正本）への参照固定。L4 学習側は review-feedback-loop.md |
+| `loop.escalation.touches_ho`            | 固定値 `unconditional`    | `unconditional`（変更不可）                                          | I-1/I-8 に基づく絶対条件。LoopSpec が上書きすることは許容しない                                            |
+| `loop.escalation.budget_ref`            | 必須                      | なし                                                                 | arbiter-policy.md §7 への参照固定                                                                          |
+
+**安全側デフォルト（I-4 の適用）**: 上記「必須」フィールドが欠落・空・判定不能な LoopSpec は
+**closed loop として受理せず、Arbiter 統治外での実行も許可しない**（human へ差し戻す）。
+「scheduled repetition（polling）として実行してよい」という意味では**ない** —
+分類（design-philosophy.md §5）は polling 相当だが、扱いは差し戻し一択である。
+
+---
+
+## 4. 記入例（ai-loop PoC の docs-only ループ）
+
+```yaml
+loop:
+  name: docs-only-typo-fix-loop
+  trigger:
+    type: issue_created
+    detail: "labels: docs-only かつ ai-loop-eligible"
+  goal:
+    description: "docs/ 配下の typo・リンク切れを検知し修正 PR を作る"
+    exit_criteria_ref: "00_concept.md §3.3（merge-ready = DoD 状態）"
+  context:
+    include:
+      - related_issue
+      - design_docs
+      - diff
+      - test_results
+    exclude:
+      - stale_tool_outputs
+      - irrelevant_history
+  actors:
+    maker: implementation_agent
+    checker: review_agent
+  verification:
+    deterministic:
+      - "markdownlint docs/**/*.md"
+      - "scripts/check-links.sh docs/"
+    review:
+      - requirements_fit
+      - architecture_consistency
+  stopping_rule:
+    terminal_state_ref: "decision-table.md（AUTO_APPROVED/HUMAN_ESCALATED/BLOCKED）"
+    round_limit_ref: "execution-runbook.md §2-(7) Scheduling 判断表（上限3）"
+  memory:
+    write:
+      - decision_record
+      - rejected_options
+      - unresolved_risks
+    ref: "execution-runbook.md §2-(4)（L4 学習側: review-feedback-loop.md）"
+  escalation:
+    touches_ho: unconditional
+    budget_ref: "arbiter-policy.md §7"
+```
+
+---
+
+## 5. 「LoopSpec を満たさない反復は closed loop と呼ばない」
+
+design-philosophy.md I-6 は closed loop の定義を
+`adaptive-production-loop.md §4` の 1 サイクル contract（**Goal / Evaluate / Stop /
+Memory / Schedule / Boundary** の6要素）に一本化している。LoopSpec は、この6要素を
+**実行前に宣言として書き下す** ための構造であり、両者は以下のように対応する
+（contract 自体を再定義するものではない）。
+
+| adaptive-production-loop.md §4 contract                | LoopSpec 上の対応フィールド                                                                      |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Goal（merge-ready 到達条件が明示）                     | `loop.goal.description` + `loop.goal.exit_criteria_ref`                                          |
+| Evaluate（C-1/C-2/C-3'/CI/AI review/DoD の判定点）     | `loop.verification.deterministic` + `loop.verification.review`                                   |
+| Stop（terminal state がある）                          | `loop.stopping_rule.terminal_state_ref` + `loop.stopping_rule.round_limit_ref`                   |
+| Memory（decision record 等の保存）                     | `loop.memory.write` + `loop.memory.ref`                                                          |
+| Schedule（次アクションの優先順位・retry 上限）         | `loop.stopping_rule.round_limit_ref`（Budget は Stop/Schedule に内包。design-philosophy.md I-6） |
+| Boundary（policy/HO/C-4 merge を AI が自己変更しない） | `loop.escalation.touches_ho`（固定値）+ `loop.escalation.budget_ref`                             |
+
+したがって: **LoopSpec の必須フィールドが1つでも欠落・空である反復は、
+adaptive-production-loop.md §4 の contract を満たさない ＝ closed loop ではなく
+scheduled repetition（polling）である**（design-philosophy.md §5 語彙集）。
+
+`loop.actors.maker` と `loop.actors.checker` が同一主体を指す LoopSpec は、
+6要素を満たしていても I-2（maker-checker 分離）違反として別途拒否する
+（closed loop の要件と maker-checker 分離は独立した必要条件であり、
+片方を満たしても他方の違反を免れない）。
+
+---
+
+## 6. provenance schema との整合注記
+
+LoopSpec と `decision-table.md` §5 の provenance schema は**別レイヤーの記録**であり、
+統合や置換の対象ではない。
+
+|          | LoopSpec             | provenance（decision-table.md §5）  |
+| -------- | -------------------- | ----------------------------------- |
+| 時点     | ループ開始前の宣言   | 各サイクルの裁定確定時に刻印        |
+| スコープ | 1 ループ全体の境界   | 1 回の裁定（auto-approve 等）の根拠 |
+| 変更頻度 | ループ定義変更時のみ | サイクルごとに新規生成              |
+| 正本     | 本書                 | decision-table.md §5                |
+
+対応点は `policy_ref`（provenance）が LoopSpec のどの宣言に基づくかを追跡できることのみで、
+LoopSpec 自体が provenance フィールドを持つ設計にはしない（二重定義の回避、
+design-philosophy.md §7「同じ問いに2つのファイルが答えてはならない」に従う）。
+将来 LoopSpec を機械検証する場合は、`policy_ref` の値として `loop.name` を採用する
+運用を推奨するに留める（本書は仕様であり、実装は別途）。
+
+---
+
+## 7. issue #726 AC との対応（充足マッピング）
+
+本書で直接定義しなかった #726 の論点は、以下の既存正本で充足または follow-up とする:
+
+| #726 の論点 | 充足先 |
+| --- | --- |
+| Handoff Artifact テンプレート | PlanGate 既存の handoff 正本（`.claude/rules/working-context.md` Rule 5 / `docs/working/templates/handoff.md`）を参照。LoopSpec では再定義しない |
+| no-progress detector | 実体は Scheduling 判断表の「同型指摘の再発 → Optimize 送り」+ ラウンド上限 3（`execution-runbook.md` §2-(7)）。独立した detector 化は follow-up 候補（効果測定後に判断） |
+| deterministic / LLM judge の使い分け | `loop.verification.deterministic`（機械検証）と `loop.verification.review`（裁定・レビュー観点）の二分で表現。judge 側の詳細正本は W チェック（`flow-detect.md` §3） |
+
+## 8. 関連ドキュメント
+
+- [`../../ai/ai-loop/design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) — 第一原理（I-1〜I-9）・語彙集・§8 トリアージ正本
+- [`adaptive-production-loop.md`](./adaptive-production-loop.md) §4 — 1 サイクル contract 正本（closed loop の定義）
+- [`decision-table.md`](./decision-table.md) §5 — provenance schema 正本
+- [`execution-runbook.md`](./execution-runbook.md) §5 — Scheduling 判断表・ラウンド上限（正本値）
+- [`flow-detect.md`](./flow-detect.md) — maker/checker 分離（W チェック）の判定フロー正本
+- [`review-feedback-loop.md`](./review-feedback-loop.md) — decision record の実体正本
+- [`../../ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §7 — escalate 予算正本
+- issue [#726](https://github.com/s977043/plangate/issues/726) — 本書の起点
