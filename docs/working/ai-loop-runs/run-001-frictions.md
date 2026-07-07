@@ -107,3 +107,21 @@
 | F-16 | （成功）教訓の事前適用でラウンド数が 3→1 に短縮。**「前 run の reject 理由を次 run の計画チェックリストに変換する」**が最も効率の高い Optimize であることの実測 | 成功シグナル |
 | F-17 | B 指摘の残課題（実害化前）: 証跡の「貼付」水準が要約で満たされ得る曖昧さ・貼付内容の改竄（実行していない出力の捏造）には無力。多層防御（deterministic 再実行 + adversarial 再検証）が前提であることを規律の限界として明記すべき | 証跡の限界 |
 | F-18 | LoopSpec の deterministic 欄が「コマンド+日本語注記」混在で、そのままシェル実行できない（C-4 Gemini 指摘・Run-005）。**「純粋コマンド + 期待 exit code」の分離フィールド形式**（例: cmd / expect_exit / expect_stdout）へ loopspec.md テンプレートを改善する — 将来の自動実行（L3）への布石にもなる | テンプレート形式 |
+
+---
+
+## Run-006 追記
+
+### 結果サマリ（Run-006）
+
+- 経過: **誠実 lite 申告（no_new_design=false）→ flow 段階で HUMAN_ESCALATED（W チェック前の
+  設計判断事前検出 — Run-001 とは別の escalate 経路の初通過）** → 人間判断「A」（構造体
+  cmd/expect_exit/note）→ no_new_design=true へ更新 → R1 A✓/B✓ ワンラウンド合意（3連続）→
+  AUTO_APPROVED → exec 全 AC PASS（maker が記入例の -ge 0 常真バグを自己検出し -eq 0 へ修正）
+
+### 摩擦点（Remember）
+
+| #    | 観測事実 | 種別 |
+| ---- | -------- | ---- |
+| F-19 | B 検出の footgun（実害前）: 構造体 A は expect_stdout を持たず、count ≥ N 型判定は exit code 単体で表現できない（grep -c は件数 1 でも exit 0）。対策として「cmd 内で test 畳み込み」を §3 に明記済み。将来 L3 自動実行の設計時に expect_stdout 追加を再検討 | スキーマ表現力 |
+| F-20 | （成功）「設計判断を含む run は lite を誠実に false 申告 → W チェック前に human へ」の経路が機能。escalate の 2 型（Run-001: W チェックが検出 / Run-006: 申告段階で自己検出）が出揃い、後者はレビューコスト（W 2体分）を節約 | escalate 経路 |
