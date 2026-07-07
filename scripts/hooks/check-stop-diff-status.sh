@@ -77,7 +77,7 @@ if [ -z "$diff_output" ]; then
 else
   printf '  git diff --check  : WARNING (whitespace error / conflict marker detected)\n'
   printf '%s\n' "$diff_output" | sed 's/^/    /'
-  log_event "WARNING" "diff --check flagged issue(s): $(printf '%s' "$diff_output" | tr '\n' ' | ')"
+  log_event "WARNING" "diff --check flagged issue(s): $(printf '%s' "$diff_output" | awk 'NR>1{printf " | "} {printf "%s", $0}')"
 fi
 
 # non-blocking 固定（設計上の意図的判断。上記コメント参照）

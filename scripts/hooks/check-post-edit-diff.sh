@@ -88,7 +88,13 @@ if [ -n "$target_file" ]; then
     /*) rel_target=${target_file#"$REPO_ROOT"/} ;;
     *)  rel_target=$target_file ;;
   esac
-  diff_output=$(git -C "$REPO_ROOT" diff --check -- "$rel_target" 2>/dev/null) || diff_rc=$?
+  if git -C "$REPO_ROOT" ls-files --error-unmatch "$rel_target" >/dev/null 2>&1; then
+    diff_output=$(git -C "$REPO_ROOT" diff --check -- "$rel_target" 2>/dev/null) || diff_rc=$?
+  elif [ -f "$REPO_ROOT/$rel_target" ]; then
+    # 新規作成された未追跡ファイル（untracked）は git diff --check の対象外のため、
+    # /dev/null と比較してファイル全体をチェックする（PR #762 gemini high 指摘）
+    diff_output=$(git -C "$REPO_ROOT" diff --no-index --check /dev/null "$rel_target" 2>/dev/null) || diff_rc=$?
+  fi
 else
   diff_output=$(git -C "$REPO_ROOT" diff --check 2>/dev/null) || diff_rc=$?
 fi
@@ -101,7 +107,7 @@ if [ "$diff_rc" -eq 0 ] || [ -z "$diff_output" ]; then
   exit 0
 fi
 
-reason="git diff --check flagged issue(s) in ${target_file:-<worktree>}: $(printf '%s' "$diff_output" | tr '\n' ' | ')"
+reason="git diff --check flagged issue(s) in ${target_file:-<worktree>}: $(printf '%s' "$diff_output" | awk 'NR>1{printf " | "} {printf "%s", $0}')"
 log_event "VIOLATION" "$reason"
 
 if [ "${PLANGATE_HOOK_STRICT:-0}" = "1" ]; then
