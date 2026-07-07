@@ -82,6 +82,29 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "_comment_": "Hook (Issue #760 提案 / EH-10 候補): Edit/Write/MultiEdit 直後の軽量品質チェック。git diff --check のみで whitespace error / leftover conflict marker を検出。PostToolUse はツール実行後発火のため取り消し不可 — default は warning、PLANGATE_HOOK_STRICT=1 で exit 2、PLANGATE_BYPASS_HOOK=1 で常時 pass。非 git 環境では no-op。",
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-post-edit-diff.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "_comment_": "Hook (Issue #760 提案 / EH-11 候補): セッション停止時の軽量 verify。git status --short + git diff --check のみ。意図的に non-blocking 固定（exit 0 常時）— Stop hook の block は停止阻止＝会話継続でループリスクがあるため STRICT モードは提供しない。完了担保は doctor タスクロックが別途担う。非 git 環境では no-op。",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-stop-diff-status.sh"
+          }
+        ]
+      }
     ]
   }
 }
