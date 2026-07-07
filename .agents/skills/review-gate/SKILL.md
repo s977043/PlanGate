@@ -43,23 +43,28 @@ severity=critical の finding がある場合、fix なしに Completion Gate �
 | 5   | **テスト不足**     | カバレッジ・エッジケース・重要パスの未テスト |
 | 6   | **破壊的変更**     | 後方互換性・API 変更・スキーマ変更           |
 
+> **観点フレームの正本との対応**: 本表の 6 観点は本 Skill の運用チェックリストであり、
+> `review-principles.md` §2 の 5 観点（可読性・拡張性・パフォーマンス・セキュリティ・
+> 保守性）を「仕様準拠」「破壊的変更」の突合軸込みで実装レビュー向けに再構成したもの。
+> severity 定義・判定基準は同 §3-4 を正本とする（観点フレームを増やす意図はない）。
+
 ### ステップ 2.5: secret/config finding の policy-grounding チェック（#731）
 
 > **背景**: 独立した複数レビューエージェント（security / backend / adversarial
 > 等）が「Secrets Manager 注入が正規運用」という**同一の前提を共有**すると、
-> adversarial のはずが合意形成で誤りを補強し、false-Critical を生む
+> adversarial のはずが合意形成で誤りを補強し、false-critical を生む
 > （#731 観測: `.env.production` の内部 proxy 用リテラル API キーを 3 エージェント
-> 全員が Critical 判定 → 実際は env 管理が意図的なチーム方針だった）。
+> 全員が critical 判定 → 実際は env 管理が意図的なチーム方針だった）。
 > secret/config のリテラル値は絶対的なアンチパターンではなく**プロジェクトの
 > 管理方針に依存する**。以下は「セキュリティ」観点で secret/config のリテラル値を
-> Critical/Major と判定する**前**に必ず行う。
+> critical/major と判定する**前**に必ず行う。
 
 セキュリティ観点の finding が secret/config リテラル値（API キー・トークン・
 接続文字列等）に関するものである場合:
 
 1. **policy-grounding チェック**: severity を確定する前に、以下いずれかで
    プロジェクトの実際の管理方針を検証する。検証せずに一般論（「リテラル値は
-   常にアンチパターン」）で Critical/Major を付けない。
+   常にアンチパターン」）で critical/major を付けない。
    - `docs/ai/secret-management-policy.md`（存在すれば、§3 allowlist・§5 判定
      手順を正本として参照する）
    - 同一ファイル内の他キーの記法（他キーもリテラルか、プレースホルダ
@@ -67,12 +72,12 @@ severity=critical の finding がある場合、fix なしに Completion Gate �
    - taskdef / terraform の `valueFrom`、buildspec の `.env` コピー処理、CI の
      secrets 取り扱いなど実装側の注入方針
    - 検証できなければ finding に「〜方針を仮定・要確認」と明示した上で
-     severity を確定する（黙って Critical にしない）。severity を一段階
+     severity を確定する（黙って critical にしない）。severity を一段階
      下げるのは env 管理慣習の傍証（同ファイル内の他キーもリテラル等）が
      ある場合に限る。傍証ゼロで下げない
    - **例外（downgrade 禁止）**: 明白に外部サービスのライブ認証情報と
      推定されるもの（cloud provider キー・既知の secret scanner 検出
-     パターン一致等）は、方針が検証できなくても Critical を維持する
+     パターン一致等）は、方針が検証できなくても critical を維持する
 2. **前提の自己反証**: 「この指摘は前提（例: Secrets Manager 注入が方針）に
    依存していないか」「前提が逆（env 管理が方針）なら severity はどう変わるか」
    を finding に 1 行で書く。逆転させても severity が変わらないなら判定は
@@ -94,7 +99,7 @@ severity=critical の finding がある場合、fix なしに Completion Gate �
 
 ### ステップ 5: critical finding がある場合は Completion Gate ブロック通知を出力する
 
-```
+```text
 [REVIEW GATE] BLOCKED
 reason: severity=critical の finding が <N> 件あります。fix 後に再レビューが必要です。
 ```
@@ -116,7 +121,7 @@ reason: severity=critical の finding が <N> 件あります。fix 後に再レ
 
 #### 総合判定
 
-```
+```text
 **総合判定**: PASS / BLOCK（critical: N件, major: N件）
 
 → Completion Gate: PASS / BLOCKED
