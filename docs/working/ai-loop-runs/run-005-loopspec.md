@@ -69,3 +69,14 @@ loop:
 - **Files（Expected Diff）**: 上記 2 ファイルのみ
 - **lite 4 軸**: size_ok=true / no_new_design=true / follows_pattern=true / reversible=true
 - **boundary**: clean / **class**: no-merge
+
+---
+
+## 事後注記（C-4 レビュー対応・2026-07-07。本文は W チェック時点の記録として不変）
+
+- **deterministic 欄の自然言語注記**（C-4 Gemini 指摘）: 本 run の deterministic 各行は
+  「コマンド + 期待値の注記」を混在させた記述であり、そのままシェル実行はできない。
+  実際の検証はコマンド部分をコピペ実行して行った（exec 報告・統合検証に実行出力の証跡あり）。
+  指摘のとおり **LoopSpec の deterministic は「純粋なシェルコマンド + 期待 exit code」の
+  分離形式**が機械実行に適するため、**F-18** として loopspec.md テンプレートの改善候補に記録し
+  次 run で反映する。本 YAML は時点記録につき遡及修正しない（design-philosophy 原則 11）。
