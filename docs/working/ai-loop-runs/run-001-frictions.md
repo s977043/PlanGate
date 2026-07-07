@@ -125,3 +125,21 @@
 | ---- | -------- | ---- |
 | F-19 | B 検出の footgun（実害前）: 構造体 A は expect_stdout を持たず、count ≥ N 型判定は exit code 単体で表現できない（grep -c は件数 1 でも exit 0）。対策として「cmd 内で test 畳み込み」を §3 に明記済み。将来 L3 自動実行の設計時に expect_stdout 追加を再検討 | スキーマ表現力 |
 | F-20 | （成功）「設計判断を含む run は lite を誠実に false 申告 → W チェック前に human へ」の経路が機能。escalate の 2 型（Run-001: W チェックが検出 / Run-006: 申告段階で自己検出）が出揃い、後者はレビューコスト（W 2体分）を節約 | escalate 経路 |
+
+---
+
+## Run-008 追記
+
+### 結果サマリ（Run-008）
+
+- 経過: escalate 第 2 型（誠実 lite=false）→ 人間判断「B」（allowed_paths のみ・
+  **enforcement なき cost cap 宣言は作らない**）→ R1 A✓/B✓ ワンラウンド合意 →
+  AUTO_APPROVED → exec 全 AC PASS（maker が実行出力を貼付 = F-14 定着）
+- #746→#749→Run-008 と、intake gap 分析の genuine gap が 2 run で schema に到達
+
+### 摩擦点（Remember）
+
+| #    | 観測事実 | 種別 |
+| ---- | -------- | ---- |
+| F-21 | B 検出（実害前）: allowed_paths / ho-paths の glob 意味論（fnmatch / globstar / git pathspec）が未定義のまま表記慣習で運用されている。Phase 0（自動マッチャー不在）では実害なしだが、**L2/L3 で機械マッチングを実装する際に方言を 1 つに確定**する必要がある（ho-paths.md と共通の将来課題） | glob 意味論 |
+| F-22 | （成功）escalate 第 2 型 → 人間選択 → ワンラウンド合意 → exec のパターンが Run-006/008 で再現し、**設計判断つき変更の標準経路として安定**。要した人間の判断は 1 選択（B）のみ | 経路の定着 |
