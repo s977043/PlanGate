@@ -216,6 +216,143 @@ def run_hooks_checks() -> dict:
     }
 
 
+def check_w6_introduction() -> dict:
+    """#720 follow-up: W-6 (C-3 Autonomous APPROVE 判定マトリクス) が未導入の
+
+    まま autonomous APPROVE 記録が存在する場合に WARN する (doc 仕様:
+    docs/ai/w6-autonomous-approve-introduction.md 5).
+
+    W6NotIntroduced: working-context.md (または相当ファイル) に見出し文字列
+    "C-3 Autonomous APPROVE" が存在しない。
+    AutonomousApproveRecordExists: docs/working/TASK-*/status.md のいずれかに
+    "C-3 Gate: AUTONOMOUS APPROVED" 文字列が存在する。
+    """
+    wc = REPO / ".claude" / "rules" / "working-context.md"
+    heading_marker = "C-3 Autonomous APPROVE"
+    introduced = False
+    if wc.is_file():
+        try:
+            introduced = heading_marker in wc.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            introduced = False
+
+    record_tasks: list[str] = []
+    working_dir = REPO / "docs" / "working"
+    if working_dir.is_dir():
+        for task_dir in sorted(working_dir.glob("TASK-*")):
+            status = task_dir / "status.md"
+            if not status.is_file():
+                continue
+            try:
+                text = status.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            if "C-3 Gate: AUTONOMOUS APPROVED" in text:
+                record_tasks.append(task_dir.name)
+
+    gap = (not introduced) and bool(record_tasks)
+    return {
+        "name": "W-6 autonomous APPROVE introduction gap (#720)",
+        "ok": not gap,
+        "level": "warn",
+        "detail": None
+        if not gap
+        else (
+            f"W-6 未導入だが AUTONOMOUS APPROVED 記録が {len(record_tasks)} 件検出 "
+            f"({', '.join(record_tasks)}). "
+            "導入手順: docs/ai/w6-autonomous-approve-introduction.md"
+        ),
+    }
+
+
+def check_skill_collisions() -> dict:
+    """#721 follow-up: skill/command/agent の name 多重定義を検出し WARN する。
+
+    scripts/check-skill-name-collisions.py (#692) をサブプロセスで実行し、
+    exit code 1 (衝突あり) を WARN として報告する。優先順位規約は
+    docs/ai/skill-collision-detection.md を参照 (repo-local 優先)。
+    """
+    script = REPO / "scripts" / "check-skill-name-collisions.py"
+    name = "skill/command/agent name collisions (#721)"
+    if not script.is_file():
+        return {
+            "name": name,
+            "ok": True,
+            "level": "warn",
+            "detail": "check-skill-name-collisions.py not found (skip)",
+        }
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {
+            "name": name,
+            "ok": False,
+            "level": "warn",
+            "detail": f"could not run collision check: {exc}",
+        }
+
+    if proc.returncode not in (0, 1):
+        return {
+            "name": name,
+            "ok": False,
+            "level": "warn",
+            "detail": f"collision check exited with unexpected code {proc.returncode}",
+        }
+
+    collision = proc.returncode == 1
+    first_line = (proc.stdout.splitlines() or [""])[0]
+    return {
+        "name": name,
+        "ok": not collision,
+        "level": "warn",
+        "detail": None
+        if not collision
+        else f"{first_line} (repo-local 優先。詳細: docs/ai/skill-collision-detection.md)",
+    }
+
+
+def check_prepush_guard() -> dict:
+    """#722 follow-up: pre-push gh account ドリフトガード hook の導入検証。
+
+    宣言 (docs/ai/repo-guard.md) と実装 (.git/hooks/pre-push の実体) の
+    乖離を防ぐため、hook ファイルの存在・実行可能性を検査する。
+    """
+    hook = REPO / ".git" / "hooks" / "pre-push"
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(REPO), "rev-parse", "--git-path", "hooks/pre-push"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            resolved = Path(proc.stdout.strip())
+            hook = resolved if resolved.is_absolute() else REPO / resolved
+    except (OSError, subprocess.TimeoutExpired):
+        pass  # 非 git 環境 (テスト sandbox 等) はハードコードパスにフォールバック
+    installed = hook.is_file() and os.access(hook, os.X_OK)
+    return {
+        "name": "pre-push guard installed (#722)",
+        "ok": installed,
+        "level": "warn",
+        "detail": None
+        if installed
+        else (
+            "pre-push guard 未導入 (protected branch / gh account drift 検証なし)。"
+            " 導入: sh scripts/install-pre-push.sh --dry-run -> "
+            "sh scripts/install-pre-push.sh (docs/ai/repo-guard.md)"
+        ),
+    }
+
+
 def run_v860_checks() -> dict:
     checks: list[dict] = []
     for path_rel, level in V860_FILE_CHECKS:
@@ -224,6 +361,9 @@ def run_v860_checks() -> dict:
     checks.append(check_events_gitignored())
     checks.append(check_events_actually_ignored())
     checks.append(check_events_not_tracked())
+    checks.append(check_w6_introduction())
+    checks.append(check_skill_collisions())
+    checks.append(check_prepush_guard())
 
     failures = sum(1 for c in checks if not c["ok"] and c["level"] == "fail")
     warnings = sum(1 for c in checks if not c["ok"] and c["level"] == "warn")
