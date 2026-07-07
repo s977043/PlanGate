@@ -30,7 +30,10 @@
 ### (0) run 採番（起票時 + PR 作成直前の 2 点照合）
 
 run 番号は**起票時**に `git fetch origin` 後、origin/main の
-`docs/working/ai-loop-runs/` 一覧と open PR（使用中ブランチ・記録ファイル）を
+`docs/working/ai-loop-runs/` 一覧
+（`git ls-tree --name-only origin/main docs/working/ai-loop-runs/`）と open PR の
+使用中ブランチ・記録ファイル
+（`gh pr list --state open --json headRefName --jq '.[].headRefName'`）を
 照合し、最大番号 +1 を仮採番する。さらに **PR 作成直前に同じ照合を再実行**し、
 並行 run による先取（同一パス add/add 衝突）を検出した場合は改番してから
 PR を作成する（F-34: 同日 2 回の採番衝突 — Run-013→014→015 の二重改番が実害）。
