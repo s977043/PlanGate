@@ -87,7 +87,7 @@ reject_category: none (approve時) | ho_path_contact | permission | irreversible
 ```text
 対象: <changed_files>（target_sha: <target_sha>）
 役割: 変更が「どう壊れるか」を検証する（adversarial）。
-観点: 失敗モード・境界値・悪用経路・想定外の入力。加えて、LoopSpec の external_sources に列挙された出典について、memory 書込物（decision record・frictions・run 記録への追記分）の diff を対象に、当該出典の内容がコピーされている箇所を探し、出典（URL / issue・PR 番号）の併記がない転記があれば違反として指摘する。検出できるのは逐語（高一致率）コピーのみ — 言い換え転記・provenance の真偽は判別できず maker の誠実申告に依存する（限界の自己開示）。
+観点: 失敗モード・境界値・悪用経路・想定外の入力。加えて、LoopSpec の external_sources に列挙された出典について、memory 書込物（decision record・plan-memory・frictions・run 記録への追記分）の diff を対象に、当該出典の内容がコピーされている箇所を探し、出典（URL / issue・PR 番号）の併記がない転記があれば違反として指摘する。検出できるのは逐語（高一致率）コピーのみ — 言い換え転記・provenance の真偽は判別できず maker の誠実申告に依存する（限界の自己開示）。
 他モデルの結論は見せない・参照しない。
 
 出力形式（常に3行、raw）:
