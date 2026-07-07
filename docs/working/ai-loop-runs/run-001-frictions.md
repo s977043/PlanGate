@@ -216,3 +216,10 @@
 | ---- | -------- | ---- |
 | F-32 | ハーネスの Edit 後自動整形が retro-phase.md の既存テーブルを collateral 整形し +10/-9 の意図外 diff を発生 → **AC-6b（追加≤1・削除0）が設計どおり違反を機械検知** → maker が `printf >>` 直接追記へ切替えて +1/-0 に収束。数量 containment AC は整形フック事故の検出器としても機能する | containment AC の副次効果 |
 | F-33 | Run-013 検証中、作業ツリーに**スコープ外の HO 変更**（.claude/settings.example.json 改変 + scripts/hooks/ 新規 2 本・#760 由来・本セッションが中止破棄した実装とは別系統・settings.json 実配線にも PostToolUse/Stop が出現）を検出。**別セッション/手動操作との並行実行**が原因とみられる。対応: 破棄せず（名指し外 tracked 変更保護）・run PR から明示除外（explicit path staging）・Human へ報告。多セッション並行時の worktree 共有は run の AC-6a（ファイル数）を偽陽性側に振らせ得る | 並行セッションの worktree 干渉 |
+
+## Run-014 での摩擦（2026-07-07 追記）
+
+- 対象: F-29/F-30 の loopspec.md 正本化（摩擦バックログ Optimize）。R1 A✓/B✓
+  ワンラウンド合意 → AUTO_APPROVED（priority 6）→ exec 全 AC PASS・意図外 diff なし
+- **新規摩擦なし**（監査連続性のための明示記録）。F-33 対策の分離 worktree 運用を初適用
+  し、並行セッション（#760/PR #762）と無干渉で完走
