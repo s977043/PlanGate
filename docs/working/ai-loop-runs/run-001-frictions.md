@@ -71,3 +71,20 @@
 | F-11 | 本 run は「裁定エンジンの記録方式を裁定エンジン自身のガバナンスで変更する」自己参照構造（R1/R2 の B が連続指摘）。歯止め（severity マッピング・裁定ロジック不変）で許容したが、**arbiter.py の判断ロジック（decision table 優先順位・SEVERITY_MAP）変更は touches_ho:unconditional 相当の固定ルール化を Human 判断で検討**すべき（構造的ゲート昇格の提案。#739 と同族） | I-1 境界設計 |
 | F-12 | 機械検証コマンド自体に欠陥が 2 度混入（R1: BSD sed 非互換で 0 行 / R2: grep パターンが命名規約と不整合で正しい実装を FAIL 判定）。**「検証コマンドは計画時に実機で通し、規約準拠のサンプル入力で PASS/FAIL 両方向を確認する」**を loopspec 検証設計の規律に追加すべき | 検証の検証 |
 | F-13 | （成功）W チェックの両極性が実証: 順方向 A も R2 で reject を出し（naming）、B は R3 で I-6 注意（無限 reject 禁止）の下で approve に収束。**3 ラウンド規律 + reject-reject BLOCKED + 合意 AUTO_APPROVED の全経路が 1 run 内で発火** | 成功シグナル |
+
+---
+
+## Run-004 追記
+
+### 結果サマリ（Run-004）
+
+- 経過: R1 A✓/B✗(logic — **私の AC-2 regex の括弧不整合を実機 CONFIRMED + 「両方向検証済み」が虚偽申告と暴露**) →
+  R2 A✓/B✗(logic — AC 固定句と追記文言の矛盾) → R3 A✓/B✓ → AUTO_APPROVED → exec 全 AC PASS
+- Run-003 の omit 実装が record で動作確認（model_b=approve → reject_category 不在）
+
+### 摩擦点（Remember）
+
+| #    | 観測事実 | 種別 |
+| ---- | -------- | ---- |
+| F-14 | 計画の「実機で両方向検証済み」という**申告自体が虚偽**だった（AC-1 のみ検証し AC-2 は未検証のまま「同様」と記載 → B が exit 2 を実機再現して暴露）。対策: レビュアーは事前検証の申告に**実行出力の貼付（証跡）**を要求する。working-discipline 原則 12 の運用強化として「検証した」には証跡を伴わせる | 申告の検証 |
+| F-15 | （成功）F-1 Optimize の連鎖確認: ai-loop-cycle スキル定型（3 行 raw + enum）を L1 が使用した結果、**4 ラウンド連続で reject_category が enum 準拠**（test_shortage/logic/logic/none）。スキル定型の使用が非準拠を構造的に防いだ | 成功シグナル |

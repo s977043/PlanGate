@@ -102,6 +102,8 @@ loop:
 「scheduled repetition（polling）として実行してよい」という意味では**ない** —
 分類（design-philosophy.md §5）は polling 相当だが、扱いは差し戻し一択である。
 
+deterministic の各コマンドは、計画時に**実機で PASS/FAIL 両方向**（PASS する入力と FAIL する入力の双方）の挙動を確認してから AC に採用する。環境差 — BSD/GNU 等 — でサイレントに空を返す・ハードエラーになるコマンドの混入を防ぐ（実例: Run-003 R1/R2・Run-004 R1）。
+
 ---
 
 ## 4. 記入例（ai-loop PoC の docs-only ループ）
@@ -202,11 +204,11 @@ design-philosophy.md §7「同じ問いに2つのファイルが答えてはな�
 
 本書で直接定義しなかった #726 の論点は、以下の既存正本で充足または follow-up とする:
 
-| #726 の論点 | 充足先 |
-| --- | --- |
-| Handoff Artifact テンプレート | PlanGate 既存の handoff 正本（`.claude/rules/working-context.md` Rule 5 / `docs/working/templates/handoff.md`）を参照。LoopSpec では再定義しない |
-| no-progress detector | 実体は Scheduling 判断表の「同型指摘の再発 → Optimize 送り」+ ラウンド上限 3（`execution-runbook.md` §2-(7)）。独立した detector 化は follow-up 候補（効果測定後に判断） |
-| deterministic / LLM judge の使い分け | `loop.verification.deterministic`（機械検証）と `loop.verification.review`（裁定・レビュー観点）の二分で表現。judge 側の詳細正本は W チェック（`flow-detect.md` §3） |
+| #726 の論点                          | 充足先                                                                                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Handoff Artifact テンプレート        | PlanGate 既存の handoff 正本（`.claude/rules/working-context.md` Rule 5 / `docs/working/templates/handoff.md`）を参照。LoopSpec では再定義しない                         |
+| no-progress detector                 | 実体は Scheduling 判断表の「同型指摘の再発 → Optimize 送り」+ ラウンド上限 3（`execution-runbook.md` §2-(7)）。独立した detector 化は follow-up 候補（効果測定後に判断） |
+| deterministic / LLM judge の使い分け | `loop.verification.deterministic`（機械検証）と `loop.verification.review`（裁定・レビュー観点）の二分で表現。judge 側の詳細正本は W チェック（`flow-detect.md` §3）     |
 
 ## 8. 関連ドキュメント
 
