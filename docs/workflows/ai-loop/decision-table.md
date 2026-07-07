@@ -134,6 +134,7 @@ w_check:
 | `w_check.severity` | C/D 時のみ | 不一致の severity 分類 |
 | `w_check.model_c` | C/D 時のみ | Model C の判定 |
 | `w_check.model_d` | C/D 時のみ | Model D の判定 |
+| `w_check.reject_category` | model_b=reject 時のみ（omit 方式） | reject 理由カテゴリ（severity 分類の入力元。model_b=approve 時はキー自体を省略） |
 
 ---
 

@@ -344,6 +344,57 @@ class CDArbitrationTests(unittest.TestCase):
         self.assertIn("欠落", reason)
 
 
+class RejectCategoryProvenanceTests(unittest.TestCase):
+    """provenance.w_check.reject_category の omit 方式配線検証（AC-1/AC-2/AC-6）。"""
+
+    def test_reject_category_present_when_model_b_rejects(self):
+        """AC-1: model_b=reject 時、w_check.reject_category が入力値と一致する。"""
+        data = _base_input()
+        data["verdicts"]["model_a"] = "approve"
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "logic"
+        data["verdicts"]["model_c"] = "approve"
+        data["verdicts"]["model_d"] = "approve"
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["w_check"]["reject_category"], "logic")
+
+    def test_reject_category_omitted_when_model_b_approves(self):
+        """AC-2: model_b=approve 時、w_check に reject_category キーが存在しない（omit 方式）。"""
+        data = _base_input()
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertNotIn("reject_category", provenance["w_check"])
+
+    def test_reject_category_omitted_on_inconsistent_input(self):
+        """防御ガード: model_b=approve かつ reject_category に値がある不正入力でも、
+        record に reject_category キーが出力されない（decision-table.md §5:
+        model_b=reject 時のみ出力、の防御的保証）。
+        """
+        data = _base_input()
+        data["verdicts"]["reject_category"] = "logic"
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["w_check"]["model_b"], "approve")
+        self.assertNotIn("reject_category", provenance["w_check"])
+
+    def test_severity_wired_from_reject_category_e2e(self):
+        """AC-6: arbitrate() を e2e で通した record で
+        w_check.severity == classify_severity(w_check.reject_category) を確認する。
+
+        これは配線検証（build_provenance へ reject_category が正しく渡り、
+        severity フィールドと整合しているか）であり、SEVERITY_MAP の
+        カテゴリ→severity マッピング妥当性そのものの検証ではない
+        （マッピング妥当性は SeverityClassificationTests が担当する）。
+        """
+        data = _base_input()
+        data["verdicts"]["model_a"] = "approve"
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "security_break"
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(
+            provenance["w_check"]["severity"],
+            arbiter.classify_severity(provenance["w_check"]["reject_category"]),
+        )
+
+
 class ProvenanceSchemaTests(unittest.TestCase):
     def test_auto_approve_provenance_fields(self):
         data = _base_input()

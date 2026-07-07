@@ -52,3 +52,22 @@
 | F-9 | （成功）F-1 Optimize が初適用で機能（B の reject_category が enum 準拠）。**記録→Optimize→次サイクルで効果確認**の I-5 ループが 1 巡した | 成功シグナル |
 
 | F-10 | decision record（arbiter.py の provenance 出力）に Model B の `reject_category` と C/D 起動理由が記録されず、「なぜ severity=low と分類されたか」が record 単体から追跡できない（C-4 レビュー指摘）。**record の手編集は provenance 改竄になるため行わず**、arbiter.py の provenance schema 拡張（`w_check.reject_category` フィールド追加 + test_arbiter 更新）を Optimize 候補とする | 記録スキーマの不足 |
+
+---
+
+## Run-003 追記（初のコード run・3 ラウンド収束）
+
+### 結果サマリ（Run-003）
+
+- 経過: R1 A✓/B✗(test_shortage) → 4改訂 → R2 **A✗(naming)/B✗(logic) 同一欠陥に独立到達 →
+  arbiter BLOCKED 刻印（reject-reject 経路の初発火）** → 改訂5-7 → R3 A✓/B✓ →
+  **AUTO_APPROVED（priority 6 合意）** → exec 62/62 PASS
+- F-10 達成の実証: run-002 相当入力の smoke で `w_check.reject_category: "documentation"` が刻印
+
+### 摩擦点（Remember）
+
+| #    | 観測事実 | 種別 |
+| ---- | -------- | ---- |
+| F-11 | 本 run は「裁定エンジンの記録方式を裁定エンジン自身のガバナンスで変更する」自己参照構造（R1/R2 の B が連続指摘）。歯止め（severity マッピング・裁定ロジック不変）で許容したが、**arbiter.py の判断ロジック（decision table 優先順位・SEVERITY_MAP）変更は touches_ho:unconditional 相当の固定ルール化を Human 判断で検討**すべき（構造的ゲート昇格の提案。#739 と同族） | I-1 境界設計 |
+| F-12 | 機械検証コマンド自体に欠陥が 2 度混入（R1: BSD sed 非互換で 0 行 / R2: grep パターンが命名規約と不整合で正しい実装を FAIL 判定）。**「検証コマンドは計画時に実機で通し、規約準拠のサンプル入力で PASS/FAIL 両方向を確認する」**を loopspec 検証設計の規律に追加すべき | 検証の検証 |
+| F-13 | （成功）W チェックの両極性が実証: 順方向 A も R2 で reject を出し（naming）、B は R3 で I-6 注意（無限 reject 禁止）の下で approve に収束。**3 ラウンド規律 + reject-reject BLOCKED + 合意 AUTO_APPROVED の全経路が 1 run 内で発火** | 成功シグナル |
