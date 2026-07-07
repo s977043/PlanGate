@@ -34,16 +34,16 @@
 
 ---
 
-# Run-002 追記（同ファイルに連続記録）
+## Run-002 追記（同ファイルに連続記録）
 
-## 結果サマリ
+### 結果サマリ（Run-002）
 
 - decision: **AUTO_APPROVED**（priority 5: severity=low・C/D=approve-approve）— 初の auto-approve + provenance 刻印
 - 経路: A=approve / B=reject(documentation・**F-1 の enum 厳格化が機能し語彙準拠**) → severity 分類 →
   Model C/D 観点特化裁定 → 決定論 auto-approve → exec（maker=sonnet）→ deterministic AC 全 PASS
 - decision record: `*-run002.json`
 
-## 摩擦点（Remember・次の Optimize 候補）
+### 摩擦点（Remember・次の Optimize 候補）
 
 | # | 観測事実 | 種別 |
 |---|---|---|
