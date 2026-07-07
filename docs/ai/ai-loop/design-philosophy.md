@@ -45,11 +45,11 @@ in/on-the-loop は ai-loop の造語ではなく、監視制御・自律シス�
 ai-loop の「人間＝枠の制定者・例外の裁定者・事後の監督者」は、一般分類では
 **単一の HOTL ではなく 3 モードの複合**である:
 
-| ai-loop での人間の役割                                   | 一般分類での対応                                                                                                                                                                             |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 枠の制定者（policy 制定・第0の承認境界・使用範囲の決定） | **HIC（human-in-command）**                                                                                                                                                                  |
-| 例外の裁定者・事後の監督者（監視・停止・override）       | **HOTL**（DoD の human-supervised / EU の HOTL）                                                                                                                                             |
-| escalate 発火時の個別裁定（人間 C-3 への降格）           | **HITL**（当該案件のみ in-the-loop へ戻る）                                                                                                                                                  |
+| ai-loop での人間の役割                                   | 一般分類での対応                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 枠の制定者（policy 制定・第0の承認境界・使用範囲の決定） | **HIC（human-in-command）**                                                                                                                                                                                                                                           |
+| 例外の裁定者・事後の監督者（監視・停止・override）       | **HOTL**（DoD の human-supervised / EU の HOTL）                                                                                                                                                                                                                      |
+| escalate 発火時の個別裁定（人間 C-3 への降格）           | **HITL**（当該案件のみ in-the-loop へ戻る）                                                                                                                                                                                                                           |
 | touches-HO / C-4 merge（常時同期ブロック）               | **HITL**（現行 policy。touches-HO は恒久固定。C-4 merge の解禁判定は concept.md Phase 5 の HIC 決定として Human に留保 — 入口基準の正本は [`hotl-merge-entry-criteria.md`](./hotl-merge-entry-criteria.md) / [#733](https://github.com/s977043/plangate/issues/733)） |
 
 この対応から導かれる注意が 2 つある:
@@ -291,20 +291,24 @@ ai-loop ドキュメント全体で同じ意味に使う。
 
 各ドキュメントの役割を一意に定める。**同じ問いに 2 つのファイルが答えてはならない。**
 
-| 層       | ファイル                                                                                                                                         | 答える問い                                                     |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| **思想** | 本書（design-philosophy.md）                                                                                                                     | なぜこう設計するのか。成長の手続き                             |
-| **契約** | [`arbiter-policy.md`](./arbiter-policy.md)                                                                                                       | 何が Human-owned か。escalate 予算                             |
-|          | [`ho-paths.md`](./ho-paths.md)                                                                                                                   | touches-HO の機械判定                                          |
-| **概念** | [`concept.md`](./concept.md)                                                                                                                     | ai-loop とは何か（L0-L5・in/on 対比・Phase 計画）              |
-|          | [`00_concept.md`](../../workflows/ai-loop/00_concept.md)                                                                                         | PlanGate フローとの接続（C-3'・merge-ready 責務）              |
-|          | [`adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md)                                                             | 6 ステップサイクルと 1 サイクル contract（closed loop の正本） |
-| **機構** | [`flow-detect.md`](../../workflows/ai-loop/flow-detect.md)                                                                                       | flow→detect→escalate の判定分岐                                |
-|          | [`decision-table.md`](../../workflows/ai-loop/decision-table.md)                                                                                 | 裁定の決定表・provenance schema・terminal state・CB            |
-|          | [`lite-criteria.md`](../../workflows/ai-loop/lite-criteria.md)                                                                                   | lite（低リスク・可逆性）判定基準                               |
-| **運用** | [`execution-runbook.md`](../../workflows/ai-loop/execution-runbook.md)                                                                           | 1 サイクルの実行手順・Scheduling 判断表                        |
-|          | [`review-feedback-loop.md`](../../workflows/ai-loop/review-feedback-loop.md)                                                                     | L4 学習閉ループ（Remember/Optimize の実体）                    |
-| **記録** | [`asset-inventory.md`](./asset-inventory.md) / [`related-specs.md`](./related-specs.md) / [`phase3-impact-report.md`](./phase3-impact-report.md) | 資産分類・関連仕様・Phase 判断記録                             |
+| 層       | ファイル                                                                                                                                         | 答える問い                                                         |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| **思想** | 本書（design-philosophy.md）                                                                                                                     | なぜこう設計するのか。成長の手続き                                 |
+| **契約** | [`arbiter-policy.md`](./arbiter-policy.md)                                                                                                       | 何が Human-owned か。escalate 予算                                 |
+|          | [`ho-paths.md`](./ho-paths.md)                                                                                                                   | touches-HO の機械判定                                              |
+|          | [`hotl-merge-entry-criteria.md`](./hotl-merge-entry-criteria.md)                                                                                 | HOTL merge 解禁の入口基準（C-4 merge 解禁判定は Human-owned 不変） |
+| **概念** | [`concept.md`](./concept.md)                                                                                                                     | ai-loop とは何か（L0-L5・in/on 対比・Phase 計画）                  |
+|          | [`00_concept.md`](../../workflows/ai-loop/00_concept.md)                                                                                         | PlanGate フローとの接続（C-3'・merge-ready 責務）                  |
+|          | [`adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md)                                                             | 6 ステップサイクルと 1 サイクル contract（closed loop の正本）     |
+| **機構** | [`flow-detect.md`](../../workflows/ai-loop/flow-detect.md)                                                                                       | flow→detect→escalate の判定分岐                                    |
+|          | [`decision-table.md`](../../workflows/ai-loop/decision-table.md)                                                                                 | 裁定の決定表・provenance schema・terminal state・CB                |
+|          | [`lite-criteria.md`](../../workflows/ai-loop/lite-criteria.md)                                                                                   | lite（低リスク・可逆性）判定基準                                   |
+|          | [`loopspec.md`](../../workflows/ai-loop/loopspec.md)                                                                                             | ループ実行境界の宣言構造                                           |
+|          | [`loop-safety-gates.md`](../../workflows/ai-loop/loop-safety-gates.md)                                                                           | 非停止プロンプトの事前拒否・再形成                                 |
+| **運用** | [`execution-runbook.md`](../../workflows/ai-loop/execution-runbook.md)                                                                           | 1 サイクルの実行手順・Scheduling 判断表                            |
+|          | [`review-feedback-loop.md`](../../workflows/ai-loop/review-feedback-loop.md)                                                                     | L4 学習閉ループ（Remember/Optimize の実体）                        |
+|          | [`unknown-discovery.md`](../../workflows/ai-loop/unknown-discovery.md)                                                                           | unknowns 4 分類と 3 ゲート                                         |
+| **記録** | [`asset-inventory.md`](./asset-inventory.md) / [`related-specs.md`](./related-specs.md) / [`phase3-impact-report.md`](./phase3-impact-report.md) | 資産分類・関連仕様・Phase 判断記録                                 |
 
 ### 7.1 既知の構造的課題（次期リファクタリング候補）
 
