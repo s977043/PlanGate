@@ -162,3 +162,13 @@ verification_final:
 摩擦記録: F-30「AC を Round 改訂で変更した場合、機械可読な consolidated deterministic
 ブロックを追記する（文章宣言のみでは機械実行前提の YAML と食い違う — C 指摘）」を
 run_frictions に記録。次 run 以降で loopspec.md への正本化を Optimize 候補とする。
+
+---
+
+## 事後注記（2026-07-07・PR #759 Gemini レビュー由来）
+
+Round 1 計画・consolidated 前の文言例にある正規表現 `^| ID` はパイプ未エスケープの
+誤記（正: `^\| ID`。オルタネーションになり全行にマッチする — 摩擦記録 F-28 原文は
+`^\| F-$i` とエスケープ済みであり、本 run への転記時の脱落）。正本
+（docs/workflows/ai-loop/loopspec.md）は反映コミットで `^\| ID` に修正済み。
+本 run 記録の Round 1 本文は監査記録として不変のまま、本注記が訂正する。
