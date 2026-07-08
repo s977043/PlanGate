@@ -46,11 +46,96 @@ fi
 
 _log() { [ "$JSON" = "1" ] || printf '[install] %s\n' "$1"; }
 
+# 一時作業ディレクトリ（bundled resources の差分判定・同期に使用。終了時に必ず掃除）
+_TMPDIR="$(mktemp -d)"
+trap '[ -n "${_TMPDIR:-}" ] && rm -rf "$_TMPDIR"' EXIT INT TERM
+
 # Counters
 installed=0
 skipped=0
 errors=0
 installed_names=""
+
+# bundled resources（skill 直下の SKILL.md 以外のサブディレクトリ）判定で
+# 特別扱いする名前。"agents" は openai.yaml 生成が dst 側で毎回再構築される
+# ため対象外、"assets" は ASSETS_SRC からの共有アイコンコピーで別管理。
+_is_managed_subdir() {
+  case "$1" in
+    agents|assets) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# $1=src_dir と $2=dst_dir の中身が完全一致するか（ファイル数 + 各ファイル cmp）。
+# symlink は比較対象から除外（コピー時にスキップされるため一致しなくてよい）。
+_dirs_equal() {
+  _de_src="$1"
+  _de_dst="$2"
+  [ -d "$_de_src" ] || return 1
+  [ -d "$_de_dst" ] || return 1
+  # __pycache__ / *.pyc は比較対象外（展開先でのスクリプト実行が生成する
+  # ランタイム産物であり、up-to-date 判定を汚して毎回再展開になるのを防ぐ）
+  _de_list_src="$(cd "$_de_src" && find . -type f ! -type l ! -path '*/__pycache__/*' ! -name '*.pyc' | sort)"
+  _de_list_dst="$(cd "$_de_dst" && find . -type f ! -type l ! -path '*/__pycache__/*' ! -name '*.pyc' | sort)"
+  [ "$_de_list_src" = "$_de_list_dst" ] || return 1
+  _de_old_ifs="$IFS"
+  IFS='
+'
+  set -f
+  for _de_rel in $_de_list_src; do
+    if ! cmp -s "$_de_src/$_de_rel" "$_de_dst/$_de_rel"; then
+      set +f
+      IFS="$_de_old_ifs"
+      return 1
+    fi
+  done
+  set +f
+
+  IFS="$_de_old_ifs"
+  return 0
+}
+
+# skill の bundled resources サブディレクトリ（references/ scripts/ 等）を
+# dst へ再帰同期する。symlink はディレクトリ・ファイルとも安全のためスキップ。
+# エラーは呼び出し元スコープの errors カウンタに直接加算する（サブシェル経由
+# の pipe|while はカウンタが親シェルへ伝播しないため使用しない）。
+_sync_resource_dir() {
+  _srd_src="$1"
+  _srd_dst="$2"
+  if [ -L "$_srd_src" ]; then
+    _log "SKIP symlink dir: $_srd_src"
+    return 0
+  fi
+  rm -rf "$_srd_dst"
+  mkdir -p "$_srd_dst"
+
+  _srd_dirs_list="$_TMPDIR/resource-dirs.lst"
+  _srd_files_list="$_TMPDIR/resource-files.lst"
+  (cd "$_srd_src" && find . -type d) > "$_srd_dirs_list"
+  (cd "$_srd_src" && find . -type f) > "$_srd_files_list"
+
+  while IFS= read -r _srd_rd; do
+    [ "$_srd_rd" = "." ] && continue
+    if [ -L "$_srd_src/$_srd_rd" ]; then
+      _log "SKIP symlink dir: $_srd_src/$_srd_rd"
+      continue
+    fi
+    mkdir -p "$_srd_dst/$_srd_rd"
+  done < "$_srd_dirs_list"
+
+  while IFS= read -r _srd_rf; do
+    if [ -L "$_srd_src/$_srd_rf" ]; then
+      _log "SKIP symlink: $_srd_src/$_srd_rf"
+      continue
+    fi
+    if ! cp "$_srd_src/$_srd_rf" "$_srd_dst/$_srd_rf"; then
+      _log "ERROR copying $_srd_src/$_srd_rf"
+      errors=$((errors+1))
+    fi
+  done < "$_srd_files_list"
+
+  rm -f "$_srd_dirs_list" "$_srd_files_list"
+}
 
 for skill_dir in "$SKILLS_SRC"/*/; do
   [ -d "$skill_dir" ] || continue
@@ -61,8 +146,29 @@ for skill_dir in "$SKILLS_SRC"/*/; do
   dst="$TARGET/$name"
   dst_md="$dst/SKILL.md"
 
-  # Skip if already up-to-date (unless --force)
+  # このスキルの bundled resources サブディレクトリ一覧（agents/assets を除く）
+  resource_subdirs=""
+  for _sub in "$skill_dir"*/; do
+    [ -d "$_sub" ] || continue
+    _sub_name="$(basename "$_sub")"
+    _is_managed_subdir "$_sub_name" && continue
+    resource_subdirs="$resource_subdirs $_sub_name"
+  done
+
+  # up-to-date 判定（--force なし時）: SKILL.md + 全 bundled resources サブ
+  # ディレクトリが一致していれば skip
+  up_to_date=0
   if [ "$FORCE" = "0" ] && [ -f "$dst_md" ] && cmp -s "$skill_md" "$dst_md"; then
+    up_to_date=1
+    for _sub_name in $resource_subdirs; do
+      if ! _dirs_equal "$skill_dir$_sub_name" "$dst/$_sub_name"; then
+        up_to_date=0
+        break
+      fi
+    done
+  fi
+
+  if [ "$up_to_date" = "1" ]; then
     _log "SKIP (up-to-date): $name"
     skipped=$((skipped+1))
     continue
@@ -80,6 +186,11 @@ for skill_dir in "$SKILLS_SRC"/*/; do
     errors=$((errors+1))
     continue
   fi
+
+  # bundled resources サブディレクトリ（references/ scripts/ 等）を再帰同期
+  for _sub_name in $resource_subdirs; do
+    _sync_resource_dir "$skill_dir$_sub_name" "$dst/$_sub_name"
+  done
 
   # Extract display_name and short_description from SKILL.md frontmatter
   display_name="$name"
