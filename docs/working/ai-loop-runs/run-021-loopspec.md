@@ -81,3 +81,15 @@ loop:
 - maker: AC 4 件 PASS・純追加（+5/+6）・printf 追記で F-32 回避
 - rubric grader: **pass 5/5（3 run 連続）**
 - orchestrator 独立再検証: AC 全 PASS・台帳 append-only 確認
+
+---
+
+## 事後注記（PR #770 Gemini レビュー由来・2026-07-08）
+
+AC-4 の `/tmp/run021.diff` 経由形に対し、シェル変数形
+`diff_files=$(git diff ...) && test "$(printf '%s\n' "$diff_files" | grep -c .)" -le N`
+なら一時ファイル不要で並行衝突リスク（W チェック B も指摘した F-34 同族の残留懸念）を
+排除できるとの指摘（妥当・採用）。変数形でも前段失敗 → exit≠0 となることを本注記時に
+両方向実測済み。**以後の run の件数集計型 AC は変数形を推奨実装とする**。
+本 LoopSpec の AC-4 は実行済みの時点記録として不変（正本 loopspec.md の F-41 文言は
+実装非依存のため変更不要 — `&&` による前段担保という規律自体は両形式に共通）。
