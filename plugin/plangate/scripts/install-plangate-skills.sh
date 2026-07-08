@@ -48,7 +48,7 @@ _log() { [ "$JSON" = "1" ] || printf '[install] %s\n' "$1"; }
 
 # 一時作業ディレクトリ（bundled resources の差分判定・同期に使用。終了時に必ず掃除）
 _TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$_TMPDIR"' EXIT INT TERM
+trap '[ -n "${_TMPDIR:-}" ] && rm -rf "$_TMPDIR"' EXIT INT TERM
 
 # Counters
 installed=0
@@ -81,12 +81,16 @@ _dirs_equal() {
   _de_old_ifs="$IFS"
   IFS='
 '
+  set -f
   for _de_rel in $_de_list_src; do
     if ! cmp -s "$_de_src/$_de_rel" "$_de_dst/$_de_rel"; then
+      set +f
       IFS="$_de_old_ifs"
       return 1
     fi
   done
+  set +f
+
   IFS="$_de_old_ifs"
   return 0
 }
