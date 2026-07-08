@@ -121,5 +121,5 @@ v8.16.0 の README_en 漏れ（レビューで水際検出）が実害・ヒヤ�
 | 7 | **`CLAUDE.md`「最新リリース」節** | **HO パスのため AI は apply スクリプト提示まで・適用は Human**（`sh scripts/apply-claude-md-*.sh --apply`。v8.14〜8.16 で 3 世代 stale になった構造原因への対策として本表に常設） |
 | 8 | `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR） |
 
-検証: `tests/extras/ta-28-plugin-version.sh`（1〜4/6 を機械検査。5・7 は未カバー —
-リリース準備 PR のレビュー観点として本表で担保する）。
+検証: `tests/extras/ta-28-plugin-version.sh`（2〜4 を機械検査。1・5・6・7 は未カバー —
+リリース準備 PR のレビュー観点として本表で担保する。ta-28 の 1/6 カバー拡張は V2 候補）。

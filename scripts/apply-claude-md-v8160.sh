@@ -30,14 +30,14 @@ if [ "$1" = "--dry-run" ]; then
   exit 0
 elif [ "$1" = "--apply" ]; then
   python3 - "$F" "$NEW_HEAD" "$NEW_BODY" <<'PY'
-import sys, re
+import sys
 f, new_head, new_body = sys.argv[1], sys.argv[2], sys.argv[3]
 s = open(f, encoding="utf-8").read()
 old_head = "## v8.13.0 全体健全化・エージェント model tier（最新リリース機能）"
 i = s.index(old_head)
 j = s.index("\n\n", s.index("> 最新リリース", i))
 s = s[:i] + new_head + "\n\n" + new_body + s[j:]
-open(f, "w", encoding="utf-8").write(s)
+open(f, "w", encoding="utf-8", newline="\n").write(s)
 print("[apply] CLAUDE.md 最新リリース節を v8.16.0 に更新")
 PY
   exit 0
