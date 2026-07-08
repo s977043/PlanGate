@@ -353,27 +353,43 @@ EH-1/2/3/6/9 を使うには `.codex/hooks/` と `.claude/settings.json` の手�
 本プラグインには `ai-loop-workflow`（human-on-the-loop 裁定ループ、通称 arbiter）の
 docs・裁定エンジン・skill が **参照用 PoC として同梱**されています。
 
+Plugin は `docs/` を配布対象として認識しません（公式仕様: プラグインが読み込むのは
+`agents/` / `commands/` / `skills/` 等の定義ディレクトリのみで、任意のディレクトリを
+自動配布する仕組みはありません）。そのため本 PoC は Agent Skills の **bundled
+resources** 方式（skill ディレクトリ内に `references/` + `scripts/` を自己完結で
+同梱する構成）で配布されます。
+
 ### 内容
 
-- `docs/workflows/ai-loop/`（1 サイクル手順等の正本）+ `docs/ai/ai-loop/`（設計思想・arbiter policy）— ai-loop-workflow の同梱 docs（1 サイクル手順・lite 判定 4 軸・
-  W チェック・裁定分岐・思想層。`docs/workflows/ai-loop/` + `docs/ai/ai-loop/`
-  の思想・仕様層から同期）
-- `scripts/ai-loop/arbiter.py` + `test_arbiter.py` — L2 裁定エンジンとそのテスト
-- `skills/ai-loop-cycle/` — 1 サイクル（C-3' 裁定）実行スキル（`.agents/skills/`
-  から同期される配布版正本。PlanGate リポジトリ固有パスを抽象化済み）
+`skills/ai-loop-cycle/` が唯一の配布単位です（`.agents/skills/ai-loop-cycle/` から
+同期される配布版正本。PlanGate リポジトリ固有パスを抽象化済み）:
+
+- `skills/ai-loop-cycle/SKILL.md` — 1 サイクル（C-3' 裁定）実行手順
+- `skills/ai-loop-cycle/references/` — ai-loop-workflow の同梱 docs（1 サイクル
+  手順・lite 判定 4 軸・W チェック・裁定分岐・思想層。フラット配置、17 ファイル。
+  `docs/workflows/ai-loop/` + `docs/ai/ai-loop/` の思想・仕様層から同期）
+- `skills/ai-loop-cycle/scripts/arbiter.py` + `test_arbiter.py` — L2 裁定エンジンと
+  そのテスト（`scripts/ai-loop/` から同期）
 
 ### 導入手順
 
 ```bash
-# marketplace 経由でインストール済みの場合、上記 3 点は自動的に含まれます
+# marketplace 経由でインストール済みの場合、上記一式は自動的に含まれます
 codex plugin marketplace add s977043/PlanGate
 # または方法 B（スクリプト展開）/ 手動コピーでも同様に含まれます
 ```
 
-導入後、`skills/ai-loop-cycle/SKILL.md` を呼び出す前に **`docs/ai/ai-loop/ho-paths.md`
+導入後、`skills/ai-loop-cycle/SKILL.md` を呼び出す前に
+**`${CLAUDE_PLUGIN_ROOT}/skills/ai-loop-cycle/references/ho-paths.md`
 の雛形注記に従い、導入先プロジェクト固有の HO（Hardening Override）パス一覧を
 確定**してください。未確定のまま運用すると、arbiter は安全側 escalate（human
 escalate）に倒れます（不変条件であり緩和不可）。
+
+裁定エンジンを直接呼び出す場合は、スキルディレクトリ内の同梱パスを参照します:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/ai-loop-cycle/scripts/arbiter.py" --input /path/to/input.json
+```
 
 ### 適用境界
 

@@ -5,21 +5,29 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 
 # ai-loop-cycle
 
-本プラグインに同梱される ai-loop ドキュメント（`docs/workflows/ai-loop/` および `docs/ai/ai-loop/` 配下。導入先で正本を
-別途保持している場合はそちらを優先する）の `execution-runbook.md` に定義された
+> 本スキルは **bundled resources**（`references/`・`scripts/`）で自己完結する。
+> スキルディレクトリ直下の `references/<name>.md` と `scripts/arbiter.py` を同梱し、
+> 導入先が独自の正本（`docs/workflows/ai-loop/` 等）を別途保持している場合は
+> そちらを優先すること。
+
+本スキルに同梱される ai-loop ドキュメント（`references/` 配下。導入先で正本を
+別途保持している場合はそちらを優先する）の `references/execution-runbook.md` に定義された
 1 サイクル（変更対象ファイル取得 → W チェック → `arbiter.py` 裁定 → record 保存 → 分岐後の行動）を
 実行するための手順スキル。判定ロジック・provenance スキーマの正本は runbook 側にあり、本スキルは
 それらを実行するための **委託プロンプト定型** と **手順の要約** のみを持つ（二重定義しない）。
+詳細な手順・分岐表は都度 `references/` を読みに行く（progressive disclosure。本 SKILL.md は
+手順の要点のみを持ち、runbook 等の全文を転記しない）。
 
 ## 前提
 
-- **C-1 PASS・C-2 完了済み**であること（`execution-runbook.md` §2 前提）。
+- **C-1 PASS・C-2 完了済み**であること（`references/execution-runbook.md` §2 前提）。
   本サイクルは C-3' ゲートの位置づけであり、C-1/C-2 未完了の変更には使わない。
-- 対象は **lite 帯候補の変更**（`lite-criteria.md` §2 の 4 軸を満たしうる変更）。
+- 対象は **lite 帯候補の変更**（`references/lite-criteria.md` §2 の 4 軸を満たしうる変更）。
   high-risk / critical 相当や boundary=touches-HO が明らかな変更には使わない
   （使っても flow フェーズで即 human escalate になる）。
-- 適用ドメインは本プラグイン同梱の ai-loop ドキュメント配下のみ。導入先の本番承認フロー
-  （ゲート・hook 等の統制機構）からは呼ばれない隔離 PoC として運用する。
+- 適用ドメインは本スキル同梱の ai-loop ドキュメント（`references/` 配下）のみ。
+  導入先の本番承認フロー（ゲート・hook 等の統制機構）からは呼ばれない隔離 PoC
+  として運用する。
 - **裁定記録・摩擦台帳の保存先は導入先プロジェクトで定義する**（本スキルは強制しない）。
   既定案として、導入先の作業ディレクトリ配下に run 単位の裁定 record 用サブディレクトリ
   （例: `<作業ディレクトリ>/ai-loop-runs/`）を設ける配置が参考になるが、導入先の
@@ -32,7 +40,7 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 - **計画時**（exec 前の C-3' 裁定）: plan の Files to Touch を使う
 - **再裁定時**（実装後・PR 前の再確認）: `git diff --name-only <base>...HEAD` の実差分を使う
 
-lite 4 軸（`lite-criteria.md` §2）をそれぞれ根拠つきで宣言する。**いずれかの軸が
+lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで宣言する。**いずれかの軸が
 判定不能なら false**（AC-8 安全側、虚偽宣言禁止）。
 
 - `size_ok`: 変更規模が light 相当以下か（ファイル数 1〜2 目安）
@@ -103,7 +111,7 @@ reject_category: none (approve時) | ho_path_contact | permission | irreversible
 理由: <1〜3文>
 ```
 
-`reject_category` は `flow-detect.md` §3.2.1 のカテゴリマッピング表に照合可能な文字列で
+`reject_category` は `references/flow-detect.md` §3.2.1 のカテゴリマッピング表に照合可能な文字列で
 記録する。一致しないカテゴリは分類器側で `critical`（human escalate）にフォールバックされる。
 
 **reject_category は enum の英小文字値をそのまま（verbatim）返させる。和訳・言い換え・自由記述は禁止**（例: 『ロジック変更』ではなく `logic`）。非一致は分類器が critical 扱いになる（安全側）ため裁定は壊れないが、意図しない escalate を生む。
@@ -111,13 +119,13 @@ reject_category: none (approve時) | ho_path_contact | permission | irreversible
 ## Step 3: `arbiter.py` へ入力し裁定を得る
 
 ```sh
-python3 scripts/ai-loop/arbiter.py --input /path/to/input.json
+python3 scripts/arbiter.py --input /path/to/input.json
 # または stdin 経由:
-echo '{...}' | python3 scripts/ai-loop/arbiter.py
+echo '{...}' | python3 scripts/arbiter.py
 ```
 
-（`arbiter.py` の配置は導入方法により異なる。本プラグイン同梱版は
-同梱 docs と対になる `scripts/ai-loop/arbiter.py` として配布される）
+（`arbiter.py` の配置は導入方法により異なる。本スキル同梱版は、スキルディレクトリ
+直下の `scripts/arbiter.py` として同梱 `references/` と対になる形で配布される）
 
 | exit code | decision          | 動作                                                                              |
 | --------- | ----------------- | --------------------------------------------------------------------------------- |
@@ -126,8 +134,8 @@ echo '{...}' | python3 scripts/ai-loop/arbiter.py
 | `3`       | `BLOCKED`         | 当該変更を不採用。理由（stderr の裁定サマリ）を記録                               |
 | `1`       | 入力エラー        | stderr の理由に従い入力 JSON を修正して再実行                                     |
 
-分岐表・severity 分類・優先順位ロジックの正本は `execution-runbook.md` §2(5) および
-`decision-table.md`。本スキルはこれを再定義しない。
+分岐表・severity 分類・優先順位ロジックの正本は `references/execution-runbook.md` §2(5) および
+`references/decision-table.md`。本スキルはこれを再定義しない。
 
 ## Step 4: record の保存
 
@@ -137,13 +145,13 @@ ai-loop-runs/`）へ、裁定日時とコミット SHA を含むファイル名�
 
 ```sh
 mkdir -p <導入先で定義した保存先>
-python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
+python3 scripts/arbiter.py --input /path/to/input.json \
   > "<導入先で定義した保存先>/$(date -u +%Y%m%dT%H%M%SZ)-$(git rev-parse --short HEAD).json"
 ```
 
 - `AUTO_APPROVED` の record のみ **provenance 刻印（正本）**
 - `HUMAN_ESCALATED` / `BLOCKED` の record は **audit record（暫定）**
-  （`execution-runbook.md` §2(4) 注記）
+  （`references/execution-runbook.md` §2(4) 注記）
 
 ## Step 5: 分岐後の行動
 
@@ -155,7 +163,7 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 - **exit 3（BLOCKED）**: 当該変更を採用しない。理由を audit record に記録して終了
 - **severity=minor/low の不一致のみ**、Model C（セキュリティ・認証・権限観点）/
   Model D（後方互換・データ整合観点）の委託プロンプト定型で再裁定する
-  （`flow-detect.md` §3.3）。委託プロンプトは Model A/B と同じ 3 行 raw 形式・
+  （`references/flow-detect.md` §3.3）。委託プロンプトは Model A/B と同じ 3 行 raw 形式・
   独立起動を踏襲し、観点のみ以下に差し替える:
   - Model C: 「セキュリティ・認証・権限の観点で、この変更が悪用・権限昇格・認証バイパスを
     許さないかを検証する」
@@ -166,7 +174,7 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
   `verdicts.model_d` に設定し（`reject_category` は Model B のものを保持）、
   `arbiter.py` を再実行**する（Step 3〜4 を繰り返す）。C/D 裁定を経た record には
   `w_check.severity` / `w_check.model_c` / `w_check.model_d` が刻印される
-  （`decision-table.md` §5）。
+  （`references/decision-table.md` §5）。
 
 ## Step 5.5: exec 差分への rubric grader
 
@@ -230,13 +238,13 @@ feedback: <1〜3文>
 
 ## 関連ドキュメント
 
-本スキルは以下のドキュメント（本プラグイン同梱の `docs/workflows/ai-loop/`・`docs/ai/ai-loop/` 配下。導入先が
+本スキルは以下のドキュメント（本スキル同梱の `references/` 配下。導入先が
 別途正本を保持する場合はそちらを優先）を前提として動作する:
 
-- `execution-runbook.md` — 1 サイクル手順の正本
-- `lite-criteria.md` — lite 4 軸・AC-8 安全側
-- `flow-detect.md` — W チェック・severity 分類・C/D 裁定
-- `decision-table.md` — Decision table・provenance schema
-- `scripts/ai-loop/arbiter.py` — 入力 JSON 仕様（docstring）
-- `ho-paths.md` — HO（Hardening Override）パス一覧（**プロジェクト固有・導入先で確定**）
+- `references/execution-runbook.md` — 1 サイクル手順の正本
+- `references/lite-criteria.md` — lite 4 軸・AC-8 安全側
+- `references/flow-detect.md` — W チェック・severity 分類・C/D 裁定
+- `references/decision-table.md` — Decision table・provenance schema
+- `scripts/arbiter.py` — 入力 JSON 仕様（docstring）
+- `references/ho-paths.md` — HO（Hardening Override）パス一覧（**プロジェクト固有・導入先で確定**）
 - 導入先の強化セルフレビュー観点（存在する場合）

@@ -16,7 +16,14 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import arbiter  # noqa: E402
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-HO_PATHS_MD = REPO_ROOT / "docs" / "ai" / "ai-loop" / "ho-paths.md"
+# ho-paths.md の配置は「リポジトリ本体（docs/ai/ai-loop/）」「配布 skill の
+# bundled resources（scripts/ の隣の references/）」の 2 通りがある（issue #771
+# rework）。候補を順に探索し、最初に存在したものを使う。
+_HO_PATHS_CANDIDATES = (
+    REPO_ROOT / "docs" / "ai" / "ai-loop" / "ho-paths.md",
+    pathlib.Path(__file__).resolve().parent.parent / "references" / "ho-paths.md",
+)
+HO_PATHS_MD = next((p for p in _HO_PATHS_CANDIDATES if p.exists()), _HO_PATHS_CANDIDATES[0])
 
 
 def _base_input(**overrides):
