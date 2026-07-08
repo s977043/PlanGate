@@ -36,7 +36,7 @@ feat: ai-loop 初回実運用 Run-001〜021 の摩擦是正閉ループ + planga
     （apply-script 方式、#645）→ bin/plangate / conductor 実適用（apply-script 結果、#646）
 
 - **ai-loop（旧 Arbiter）Phase 0〜4 + L2 裁定エンジン PoC**（#660〜#662 / #665 / #668〜#669 /
-  #671 / #673 / #675 / #678 / #680〜#682 / #696）
+  #671 / #673 / #675 / #678 / #680 / #682 / #696）
   — ai-loop ワークフロー仕様の Phase 0〜4 策定と L2 裁定エンジン PoC。**現状は仕様策定・PoC
   検証段階であり、ai-loop への本番運用切り替えや既存 plan→exec フローの置換は未実施**（既存
   ワークフローと並存、#687 の共存ガイド参照）。
@@ -63,10 +63,10 @@ feat: ai-loop 初回実運用 Run-001〜021 の摩擦是正閉ループ + planga
   — intent-classifier に `exploratory` を 8 番目の intent として追加。仮説採番・記録スキル
   `hypothesis-logger` を新規実装。WF-00 に exploratory 判定時の WF-07 推奨 advisory を追加。
 
-- **新規スキル: pr-watch / ai-loop-cycle**（#694 / #695）
-  — `pr-watch`（PR 監視・状態把握手順）、`ai-loop-cycle`（ai-loop 1 サイクル実行手順 + Model
-  A/B/C/D 委託プロンプト定型）を新設。`subagent-driven-development` に worktree 委託の安全
-  ルールを追加（#695）。
+- **新規スキル: ai-loop-cycle / pr-watch**（#694 / #695）
+  — `ai-loop-cycle`（ai-loop 1 サイクル実行手順 + Model A/B/C/D 委託プロンプト定型、#694）、
+  `pr-watch`（PR 監視・状態把握手順、#695）を新設。`subagent-driven-development` に worktree
+  委託の安全ルールを追加（#695）。
 
 - **self-review スキル拡張**（#666）
   — シェル/ドキュメント品質観点 + 文章品質チェックを追加。
@@ -84,7 +84,7 @@ feat: ai-loop 初回実運用 Run-001〜021 の摩擦是正閉ループ + planga
   正本（#697）。
 
 - **ai-loop（旧 Arbiter）初回実運用 Run-001〜021 + 摩擦是正閉ループ F-1〜F-41**
-  （#734〜#736 / #738 / #740〜#741 / #743〜#745 / #747〜#748 / #750 / #752 /
+  （#734 / #738 / #740 / #743 / #745 / #747〜#748 / #750 / #752 /
   #755 / #757 / #759 / #761 / #763〜#770）
   — Phase 0〜4 の仕様策定に続き、**初めて実運用（本番セッション）に投入**。
   `HUMAN_ESCALATED → 人間判断 → AUTO_APPROVED` のフル経路を完走（Run-001/002、
@@ -134,7 +134,7 @@ feat: ai-loop 初回実運用 Run-001〜021 の摩擦是正閉ループ + planga
   — 複数エージェントへの作業委譲時の責務分界・引き継ぎ形式・検証手順を
   正本化。
 
-- **PreCompact memory guard**（#742）（#744）
+- **PreCompact memory guard**（#742 / #744）
   — `/compact` 実行前に作業コンテキストの鮮度を検査する仕様 + apply-script
   （warn 既定）。
 
@@ -142,7 +142,7 @@ feat: ai-loop 初回実運用 Run-001〜021 の摩擦是正閉ループ + planga
   — Fable 5 の作業規律を PlanGate skill として明文化（8 ファイル）。v2 で
   ai-loop 実運用の学習（原則11/12・停止規律・追加指示の扱い）を還元。
 
-- **secret 判定の policy-grounding ガード**（#731）（#736）
+- **secret 判定の policy-grounding ガード**（#731 / #736）
   — secret 判定ロジックに根拠となるポリシー参照を必須化し、`#727` の
   gap 分析をクローズ。
 
@@ -169,6 +169,12 @@ feat: ai-loop 初回実運用 Run-001〜021 の摩擦是正閉ループ + planga
   00_intent_intake の記述不整合を解消。
 - **hypothesis-logger の壊れた相対リンク 3 件を修正**（#701）
   — #700 の stale パス検出スクリプトが検出した実バグを dogfooding 修正。
+- **TASK-0123 の偽 DONE を実態へ是正**（#718）
+  — Part A は deployed 済みだが Part B（HMAC）は未適用であるにもかかわらず DONE と記録されて
+  いた不整合を是正。Part B の適用可否は Human 判断待ちとして明示。
+- **stale current-state 是正 + handoff/c3-review 取込（state-audit bookkeeping）**（#717）
+  — stale な current-state 9 件を Done へ是正し、未発行 handoff 3 件を発行、c3-review 6 件を
+  取り込んで台帳を整合。
 
 ### Specification（仕様 + apply-script 提供のみ・HO 実適用は Human 待ち）
 
