@@ -68,6 +68,35 @@ if [ -n "$_t30_tmp" ] && [ -d "$_t30_tmp" ]; then
     t30_fail "TC-06 展開スキルの構造不備"
   fi
 
+  # TC-07: bundled resources 展開（ai-loop-cycle: references/ 17 + scripts/ 2）
+  _t30_refs=0; _t30_scr=0
+  for _f in "$_t30_tmp"/ai-loop-cycle/references/*.md; do
+    [ -f "$_f" ] && _t30_refs=$((_t30_refs+1))
+  done
+  for _f in "$_t30_tmp"/ai-loop-cycle/scripts/*.py; do
+    [ -f "$_f" ] && _t30_scr=$((_t30_scr+1))
+  done
+  if [ "$_t30_refs" -ge 17 ] && [ "$_t30_scr" -ge 2 ]; then
+    t30_pass "TC-07 bundled resources 展開 (references=$_t30_refs scripts=$_t30_scr)"
+  else
+    t30_fail "TC-07 bundled resources 欠落 (references=$_t30_refs scripts=$_t30_scr)"
+  fi
+
+  # TC-08: 展開先で arbiter テストが自立 PASS（bundled 配置の ho-paths 解決）
+  if python3 "$_t30_tmp/ai-loop-cycle/scripts/test_arbiter.py" >/dev/null 2>&1; then
+    t30_pass "TC-08 展開先 arbiter テスト自立 PASS"
+  else
+    t30_fail "TC-08 展開先 arbiter テスト FAIL"
+  fi
+
+  # TC-09: 2 回目実行は全 skip（bundled 込み up-to-date 判定）
+  _t30_out2=$(sh "$PG_T30_SH" --target "$_t30_tmp" 2>/dev/null | grep -oE 'installed: [0-9]+' | grep -oE '[0-9]+' || printf '')
+  if [ "${_t30_out2:-x}" = "0" ]; then
+    t30_pass "TC-09 2 回目実行は installed:0（up-to-date skip）"
+  else
+    t30_fail "TC-09 2 回目で再展開が発生 (installed=${_t30_out2:-?})"
+  fi
+
   rm -rf "$_t30_tmp"
 else
   t30_fail "TC-04 mktemp -d 失敗（TC-04〜06 をスキップ）"
