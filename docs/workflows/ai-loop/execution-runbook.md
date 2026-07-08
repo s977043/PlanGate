@@ -101,6 +101,11 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 保存した decision record は次回以降の監査・L4 学習（[`review-feedback-loop.md`](./review-feedback-loop.md)）
 の入力となる。
 
+摩擦 ID は台帳（[`run-001-frictions.md`](../../working/ai-loop-runs/run-001-frictions.md)）が単一権威。新しい F-NNN は台帳への
+追記と同時にのみ発行する（run 記録・PR 本文のみでの新 ID 発行は不可 —
+多セッション並行時の二重採番防止。F-34 と同根・2026-07-08 の F-35〜39 台帳欠落が実例）。
+採番前に台帳の最大 ID を確認する（§2-(0) の run 採番照合と同型）。
+
 ### (5) exit code に応じた分岐
 
 | exit code | decision          | 動作                                                                                                                       |
