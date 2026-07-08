@@ -44,6 +44,9 @@ docs/working/_audit/hook-events.log
 scripts/__pycache__/
 scripts/parsers/__pycache__/
 scripts/ai-loop/__pycache__/
+plugin/plangate/scripts/ai-loop/__pycache__/
+scripts/ai-loop/__pycache__/
+plugin/plangate/skills/ai-loop-cycle/scripts/__pycache__/
 
 # PlanGate Metrics v1 (Issue #195) — local artifact, never commit
 # privacy: docs/ai/metrics-privacy.md §8
