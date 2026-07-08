@@ -91,6 +91,112 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
   fi
 done
 
+# ai-loop-workflow の docs / scripts を plugin へ同期（issue #771）
+# - docs/workflows/ai-loop/*.md（正本 10 本）→ plugin/plangate/docs/workflows/ai-loop/（リポジトリとミラー配置 — arbiter テストの相対参照を維持）
+# - docs/ai/ai-loop/ の思想・仕様層抜粋（run 由来レポート・asset-inventory 等の
+#   内部管理系は対象外）→ 同上（ho-paths.md のみ雛形注記ヘッダを前置）
+# - scripts/ai-loop/{arbiter,test_arbiter}.py → plugin/plangate/scripts/ai-loop/
+AI_LOOP_WORKFLOWS_DIR="$REPO_ROOT/docs/workflows/ai-loop"
+AI_LOOP_SPEC_DIR="$REPO_ROOT/docs/ai/ai-loop"
+AI_LOOP_SCRIPTS_DIR="$REPO_ROOT/scripts/ai-loop"
+PLUGIN_AI_LOOP_WF_DOCS="$PLUGIN_DIR/docs/workflows/ai-loop"
+PLUGIN_AI_LOOP_SPEC_DOCS="$PLUGIN_DIR/docs/ai/ai-loop"
+PLUGIN_AI_LOOP_SCRIPTS="$PLUGIN_DIR/scripts/ai-loop"
+
+# docs/ai/ai-loop から同梱する思想・仕様層ファイル名（内部管理系除外の選定結果）
+_ai_loop_spec_files="design-philosophy.md arbiter-policy.md concept.md README.md hotl-merge-entry-criteria.md related-specs.md"
+
+_sync_ai_loop_file() {
+  # $1=src file, $2=dst dir, $3=label（ログ用）
+  _f="$1"; _dst_dir="$2"; _label="$3"
+  mkdir -p "$_dst_dir"
+  _base="$(basename "$_f")"
+  _dfile="$_dst_dir/$_base"
+  if [ ! -f "$_dfile" ] || ! cmp -s "$_f" "$_dfile"; then
+    if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD COPY: $_label/$_base"
+    else cp "$_f" "$_dfile"; _log "COPY: $_label/$_base"; fi
+    changed=1
+  fi
+}
+
+_ai_loop_expected_docs=""
+if [ -d "$AI_LOOP_WORKFLOWS_DIR" ]; then
+  for _f in "$AI_LOOP_WORKFLOWS_DIR"/*.md; do
+    [ -f "$_f" ] || continue
+    _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_WF_DOCS" "docs/workflows/ai-loop"
+    _ai_loop_expected_docs="$_ai_loop_expected_docs $(basename "$_f")"
+  done
+fi
+if [ -d "$AI_LOOP_SPEC_DIR" ]; then
+  for _name in $_ai_loop_spec_files; do
+    _f="$AI_LOOP_SPEC_DIR/$_name"
+    [ -f "$_f" ] || continue
+    _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_SPEC_DOCS" "docs/ai/ai-loop"
+    _ai_loop_expected_docs="$_ai_loop_expected_docs $_name"
+  done
+
+  # ho-paths.md はプロジェクト固有のため、雛形注記ヘッダを前置してコピーする
+  _ho_src="$AI_LOOP_SPEC_DIR/ho-paths.md"
+  if [ -f "$_ho_src" ]; then
+    mkdir -p "$PLUGIN_AI_LOOP_SPEC_DOCS"
+    _ho_dst="$PLUGIN_AI_LOOP_SPEC_DOCS/ho-paths.md"
+    _tmp_ho="$(mktemp)"
+    {
+      printf '%s\n' '> **雛形注記**: 本ファイルは PlanGate リポジトリでの運用実績を示す配布時の参考例です。'
+      printf '%s\n' '> HO（Hardening Override）パス一覧はプロジェクト固有につき、**導入先で確定**してください。'
+      printf '%s\n' '> 未確定のパスに触れる変更は、arbiter が安全側 escalate（human escalate）する原則を守ってください。'
+      printf '\n'
+      cat "$_ho_src"
+    } > "$_tmp_ho"
+    if [ ! -f "$_ho_dst" ] || ! cmp -s "$_tmp_ho" "$_ho_dst"; then
+      if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD COPY (template header prepended): docs/ai/ai-loop/ho-paths.md"
+      else cp "$_tmp_ho" "$_ho_dst"; _log "COPY (template header prepended): docs/ai/ai-loop/ho-paths.md"; fi
+      changed=1
+    fi
+    rm -f "$_tmp_ho"
+    _ai_loop_expected_docs="$_ai_loop_expected_docs ho-paths.md"
+  fi
+fi
+# plugin 側の ai-loop docs（両ミラー dir）から、正本側に存在しなくなったファイルを削除する
+for _dirpair in "$PLUGIN_AI_LOOP_WF_DOCS:docs/workflows/ai-loop" "$PLUGIN_AI_LOOP_SPEC_DOCS:docs/ai/ai-loop"; do
+  _dir="${_dirpair%%:*}"; _rel="${_dirpair#*:}"
+  [ -d "$_dir" ] || continue
+  for _f in "$_dir"/*.md; do
+    [ -f "$_f" ] || continue
+    _base="$(basename "$_f")"
+    case " $_ai_loop_expected_docs " in
+      *" $_base "*) : ;;
+      *)
+        if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: $_rel/$_base"
+        else rm "$_f"; _log "DELETE: $_rel/$_base"; fi
+        changed=1
+        ;;
+    esac
+  done
+done
+
+# arbiter 裁定エンジン + テストを同期（__pycache__ は対象外）
+if [ -d "$AI_LOOP_SCRIPTS_DIR" ]; then
+  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py"; do
+    [ -f "$_f" ] || continue
+    _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_SCRIPTS" "scripts/ai-loop"
+  done
+fi
+if [ -d "$PLUGIN_AI_LOOP_SCRIPTS" ]; then
+  for _f in "$PLUGIN_AI_LOOP_SCRIPTS"/*.py; do
+    [ -f "$_f" ] || continue
+    _base="$(basename "$_f")"
+    case "$_base" in
+      arbiter.py|test_arbiter.py) : ;;
+      *)
+        if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: scripts/ai-loop/$_base"
+        else rm "$_f"; _log "DELETE: scripts/ai-loop/$_base"; fi
+        changed=1
+        ;;
+    esac
+  done
+fi
+
 # バージョン番号を CHANGELOG から取得（README.md / plugin.json 共用）
 _ver=""
 if [ -f "$REPO_ROOT/CHANGELOG.md" ]; then
