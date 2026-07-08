@@ -19,13 +19,18 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 DST="$ROOT/.claude/commands/ai-loop-workflow.md"
 SRC="$ROOT/docs/working/_prompts/ai-loop-workflow-command.md"
 [ $# -eq 1 ] || { echo "usage: $0 --dry-run|--apply" >&2; exit 1; }
+[ "$1" = "--dry-run" ] || [ "$1" = "--apply" ] || { echo "usage: $0 --dry-run|--apply" >&2; exit 1; }
 [ -f "$SRC" ] || { echo "error: source not found: $SRC" >&2; exit 2; }
 if [ -f "$DST" ] && cmp -s "$SRC" "$DST"; then
   echo "[apply] SKIP: 適用済み（差分なし）"; exit 0
 fi
 if [ "$1" = "--dry-run" ]; then
   echo "[dry-run] COPY 予定: $SRC -> $DST"
-  [ -f "$DST" ] && diff -u "$DST" "$SRC" | head -40 || echo "[dry-run] 新規作成"
+  if [ -f "$DST" ]; then
+    diff -u "$DST" "$SRC" | head -40 || true
+  else
+    echo "[dry-run] 新規作成"
+  fi
   exit 0
 elif [ "$1" = "--apply" ]; then
   [ -d "$(dirname "$DST")" ] || { echo "error: .claude/commands/ 不在" >&2; exit 2; }
