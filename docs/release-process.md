@@ -103,3 +103,23 @@ sh scripts/check-tag-main-parity.sh <tag>
 - 検証 script: [`scripts/check-tag-main-parity.sh`](../scripts/check-tag-main-parity.sh)
 - 責務分界: [`.claude/rules/responsibility-classes.md`](../.claude/rules/responsibility-classes.md) §対外公開アーティファクト publish 責務分界
 - 参考: PocketEitan `.claude/commands/release.md` Phase 5 / memory `feedback_release_tag_collision_verify.md`
+
+## version 同期マップ（リリース準備 PR で更新する箇所の正本）
+
+リリース準備 PR（AI-owned）で以下を**全箇所同時に**対象 version へ更新する。
+1 箇所でも漏れると「Latest 表記の drift」となる（v8.13.0 の README 漏れ・
+v8.16.0 の README_en 漏れ（レビューで水際検出）が実害・ヒヤリの実例）:
+
+| # | ファイル | 箇所 |
+|---|---|---|
+| 1 | `CHANGELOG.md` | `## vX.Y.Z (date)` 節の確定（Unreleased を残す） |
+| 2 | `plugin/plangate/.claude-plugin/plugin.json` | `version` |
+| 3 | `.claude-plugin/marketplace.json` | `plugins[].version` と `metadata.version` の両方 |
+| 4 | `README.md` | 「最新リリース」表の行 + 冒頭散文 + 「リリース済」行 |
+| 5 | `README_en.md` | 同上（英語） |
+| 6 | `plugin/plangate/README.md` | `**Version**:` 行 |
+| 7 | **`CLAUDE.md`「最新リリース」節** | **HO パスのため AI は apply スクリプト提示まで・適用は Human**（`sh scripts/apply-claude-md-*.sh --apply`。v8.14〜8.16 で 3 世代 stale になった構造原因への対策として本表に常設） |
+| 8 | `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR） |
+
+検証: `tests/extras/ta-28-plugin-version.sh`（1〜4/6 を機械検査。5・7 は未カバー —
+リリース準備 PR のレビュー観点として本表で担保する）。
