@@ -6,9 +6,11 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-> **DRAFT 集計**: v8.15.0 タグ以降 `origin/main` 53 commit を反映（2026-07-05 時点）。
-> バージョン番号・リリース日は未確定（Human-owned）。ドラフト詳細は
-> [`docs/working/_reports/v8.16.0-release-note-draft.md`](docs/working/_reports/v8.16.0-release-note-draft.md)。
+## v8.16.0 (2026-07-08)
+
+feat: ai-loop 初回実運用 Run-001〜021 の摩擦是正閉ループ + plangate プラグインへの ai-loop 同梱 + Hook Enforcement 物理配線 6/12 → 11/12 + サブエージェント委譲プロトコル正本
+
+次世代ワークフロー「ai-loop」（旧 Arbiter）を Phase 0〜4 の仕様策定に続いて**初めて実運用に投入**し、Run-001〜021 で摩擦（friction）検出 → W チェック（3R 合議）→ loopspec.md / execution-runbook.md への正本化を反復するセルフチューニング閉ループ（F-1〜F-41）を確立した。`ai-loop-cycle` スキルは Agent Skills bundled resources 方式で plangate プラグインへ同梱し、他プロジェクトでの低リスク帯検証を可能にした（#771/#773）。Hook Enforcement は CLI 層 5 件（EH-4/5/EHS-1/2/3）の物理配線を追加して 6/12 → 11/12 に到達（TASK-0141/0143〜0147）。サブエージェント委譲プロトコル正本、doctor 3 チェック追加、review-gate skill 正本化、PostToolUse/Stop 軽量 hook（EH-10/EH-11 候補）、improvement-seeds hygiene 仕様、PreCompact memory guard、plangate-working-discipline skill（v1/v2）も追加。
 
 ### Added
 
@@ -81,6 +83,75 @@ PlanGate の主要リリース履歴。
   との共存・部分導入ガイド（#698）、改称移行（arbiter→ai-loop 等）の grep チェックリスト
   正本（#697）。
 
+- **ai-loop（旧 Arbiter）初回実運用 Run-001〜021 + 摩擦是正閉ループ F-1〜F-41**
+  （#734〜#736 / #738 / #740〜#741 / #743〜#745 / #747〜#748 / #750 / #752 /
+  #755 / #757 / #759 / #761 / #763〜#770）
+  — Phase 0〜4 の仕様策定に続き、**初めて実運用（本番セッション）に投入**。
+  `HUMAN_ESCALATED → 人間判断 → AUTO_APPROVED` のフル経路を完走（Run-001/002、
+  #738）した後、Run-003〜021 で摩擦（friction）検出 → W チェック（3R 合議）→
+  loopspec.md / execution-runbook.md への正本化、を反復するセルフチューニング
+  閉ループを確立した。
+  - intake batch1: LoopSpec / loop-safety / Unknown Discovery / HOTL 入口基準
+    （#726/#728/#729/#733-A、#734）
+  - Run-003: provenance に `reject_category` 追加（初のコード run、#740）
+  - Run-004: enum verbatim 強制 + 検証コマンド実機事前検証（#743）
+  - Run-005: 検証申告への証跡要求（#745）
+  - Run-006: `deterministic` 欄の構造化（cmd/expect_exit/note、#747）
+  - Run-007〜010: `#746`/`#749`/`#751`/`#753` intake（loop 4 型の語彙吸収、
+    `scope.allowed_paths` 追加、Managed Agents trust boundary 語彙、memory
+    trust boundary 宣言機構、#748/#750/#752/#755）
+  - doctor に W-6 検知 / skill 名衝突 / pre-push ガード検査を追加
+    （#720/#721/#722、#757）
+  - Run-012: F-27/F-28 正本化 + **auto-merge 廃止**を運用へ反映（#759、
+    以降は merge-ready 運用に一本化）
+  - review-gate skill を `.agents/skills` へ正本化（#737、#758）
+  - Run-013: improvement-seeds hygiene 仕様正本化 + digest サンプル #001
+    （#754、#761）
+  - PostToolUse/Stop 軽量品質 hook（EH-10/EH-11 候補）を配線（#760、#762）
+  - Run-014〜016: F-29/F-30 正本化（#763）、PR #762 レビュー対応の run 記録
+    （#764）、run 採番 2 点照合 + AC 転記規律（F-34/F-35、#765）
+  - Run-016（続）: exec 差分への **rubric grader 再試行ループ**を Step 5.5
+    として追加（#753 gap 2 PoC、5 項目採点 + 証跡引用義務 + 再試行 ≤2 →
+    HUMAN_ESCALATED、#766）
+  - Run-018/019: conflict 同定規律 + 参照値転記規律（F-36/F-37、#767）、
+    **摩擦 ID 台帳の単一権威化**（F-35〜F-40 索引転記 + 新 ID 発行規律、
+    並行セッション由来の転記誤りを 3R で是正、#768）
+  - Run-020/021: 実践主張の出典検証 + 実挿入形 AC 事前検証（F-38/F-39、
+    #769）、件数集計型 AC の silent pass 対策（F-41、#770）
+
+- **ai-loop-workflow を plangate プラグインへ同梱（#771/#773）**
+  — `ai-loop-cycle` スキルを Agent Skills **bundled resources 方式**（skill
+  ディレクトリ内に `references/`（正本 docs 17 本のミラー）+ `scripts/`
+  （`arbiter.py` 一式）を自己完結同梱）で再設計し、
+  `plugin/plangate/skills/ai-loop-cycle/` として配布。
+  `sync-plugin-plangate.sh` を拡張し正本 → plugin の同期を冪等化。
+  plugin README に導入手順・適用境界（低リスク帯
+  限定・PlanGate 本番非適用）を明記。検証: plugin 配下 arbiter 63 テスト
+  自立 PASS、フルスイート 387 passed。**他プロジェクトでの検証用途**であり
+  PlanGate 本体の運用を置き換えるものではない。
+
+- **サブエージェント委譲プロトコル正本を新設（#710/#711-716）**（#723）
+  — 複数エージェントへの作業委譲時の責務分界・引き継ぎ形式・検証手順を
+  正本化。
+
+- **PreCompact memory guard**（#742）（#744）
+  — `/compact` 実行前に作業コンテキストの鮮度を検査する仕様 + apply-script
+  （warn 既定）。
+
+- **plangate-working-discipline skill（v1/v2）**（#735 / #741）
+  — Fable 5 の作業規律を PlanGate skill として明文化（8 ファイル）。v2 で
+  ai-loop 実運用の学習（原則11/12・停止規律・追加指示の扱い）を還元。
+
+- **secret 判定の policy-grounding ガード**（#731）（#736）
+  — secret 判定ロジックに根拠となるポリシー参照を必須化し、`#727` の
+  gap 分析をクローズ。
+
+- **ai-loop 設計思想正本 design-philosophy.md**（#732）
+  — I-1〜I-9 の設計原則、成長メカニズム、文書地図を新設。
+
+- **ai-loop の bounded adaptive production loop 定義**（#724）
+  — 有界な適応的プロダクションループとしての ai-loop の定義を追加。
+
 ### Changed
 
 - **improvement-seeds スキーマの OSS 非依存化**（#650）
@@ -88,6 +159,8 @@ PlanGate の主要リリース履歴。
   ため不変）。
 - **依存関係更新**（#649）
   — dependabot による github-actions グループ更新 5 件（`codeql.yml` / `schema-validate.yml`）。
+- **依存関係更新（続）**（#730）
+  — dependabot による github-actions グループ更新 5 件（追加分）。
 
 ### Fixed
 
