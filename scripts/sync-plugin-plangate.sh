@@ -119,12 +119,13 @@ _sync_ai_loop_file() {
   fi
 }
 
-_ai_loop_expected_docs=""
+_ai_loop_expected_wf=""
+_ai_loop_expected_spec=""
 if [ -d "$AI_LOOP_WORKFLOWS_DIR" ]; then
   for _f in "$AI_LOOP_WORKFLOWS_DIR"/*.md; do
     [ -f "$_f" ] || continue
     _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_WF_DOCS" "docs/workflows/ai-loop"
-    _ai_loop_expected_docs="$_ai_loop_expected_docs $(basename "$_f")"
+    _ai_loop_expected_wf="$_ai_loop_expected_wf $(basename "$_f")"
   done
 fi
 if [ -d "$AI_LOOP_SPEC_DIR" ]; then
@@ -132,7 +133,7 @@ if [ -d "$AI_LOOP_SPEC_DIR" ]; then
     _f="$AI_LOOP_SPEC_DIR/$_name"
     [ -f "$_f" ] || continue
     _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_SPEC_DOCS" "docs/ai/ai-loop"
-    _ai_loop_expected_docs="$_ai_loop_expected_docs $_name"
+    _ai_loop_expected_spec="$_ai_loop_expected_spec $_name"
   done
 
   # ho-paths.md はプロジェクト固有のため、雛形注記ヘッダを前置してコピーする
@@ -154,17 +155,21 @@ if [ -d "$AI_LOOP_SPEC_DIR" ]; then
       changed=1
     fi
     rm -f "$_tmp_ho"
-    _ai_loop_expected_docs="$_ai_loop_expected_docs ho-paths.md"
+    _ai_loop_expected_spec="$_ai_loop_expected_spec ho-paths.md"
   fi
 fi
 # plugin 側の ai-loop docs（両ミラー dir）から、正本側に存在しなくなったファイルを削除する
 for _dirpair in "$PLUGIN_AI_LOOP_WF_DOCS:docs/workflows/ai-loop" "$PLUGIN_AI_LOOP_SPEC_DOCS:docs/ai/ai-loop"; do
   _dir="${_dirpair%%:*}"; _rel="${_dirpair#*:}"
   [ -d "$_dir" ] || continue
+  case "$_rel" in
+    docs/workflows/ai-loop) _expected="$_ai_loop_expected_wf" ;;
+    *) _expected="$_ai_loop_expected_spec" ;;
+  esac
   for _f in "$_dir"/*.md; do
     [ -f "$_f" ] || continue
     _base="$(basename "$_f")"
-    case " $_ai_loop_expected_docs " in
+    case " $_expected " in
       *" $_base "*) : ;;
       *)
         if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: $_rel/$_base"
