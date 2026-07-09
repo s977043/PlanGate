@@ -79,10 +79,7 @@ if [ -z "$remote_tag_commit" ] || [ -z "$remote_tag_obj" ]; then
 fi
 
 # ローカル tag が存在する場合の ^{commit}（存在しなくても検証は継続する）
-local_tag_commit=""
-if git rev-parse --verify -q "refs/tags/$TAG^{commit}" >/dev/null 2>&1; then
-  local_tag_commit=$(git rev-parse "refs/tags/$TAG^{commit}")
-fi
+local_tag_commit=$(git rev-parse --verify -q "refs/tags/$TAG^{commit}" 2>/dev/null || true)
 
 if [ "$remote_tag_commit" = "$main_commit" ]; then
   # 主判定 OK。ただしローカル tag が別実体を指していないか追加検査 (R-005)。
