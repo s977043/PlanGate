@@ -27,6 +27,19 @@
 **前提**: 本サイクルは **C-1 PASS・C-2 完了済み**であることを起点とする
 （C-3' ゲートとしての位置づけ。[`00_concept.md`](./00_concept.md) §3 参照）。
 
+### 確認カデンス（loop 内は自走・介入点は 2 つ / issue #782 P3）
+
+ai-loop-workflow の哲学は「escalate まで自走・人間はループ上で監督」
+（[`00_concept.md`](./00_concept.md) §3.3「人間の関与」行と整合）。
+1 サイクル内（LoopSpec 作成 → W チェック → 裁定 → exec → grader）では
+**逐次 y/n 確認を行わず自走**する。人間の介入ポイントは以下の **2 点のみ**:
+
+- **(a)** arbiter が `HUMAN_ESCALATED` を返した時（手順 (5)）
+- **(b)** merge（Human-owned 固定・手順 (7) DoD 後の C-4）
+
+ただし HO パス接触・想定外のスコープ拡大を検知した場合は既存 Iron Law
+（[`docs/ai/core-contract.md`](../../ai/core-contract.md)）に従い即停止する。
+
 ### (0) run 採番（起票時 + PR 作成直前の 2 点照合）
 
 run 番号は**起票時**に `git fetch origin` 後、origin/main の
