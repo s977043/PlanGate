@@ -34,11 +34,12 @@ ai-loop-workflow の哲学は「escalate まで自走・人間はループ上で
 1 サイクル内（LoopSpec 作成 → W チェック → 裁定 → exec → grader）では
 **逐次 y/n 確認を行わず自走**する。人間の介入ポイントは以下の **2 点のみ**:
 
-- **(a)** arbiter が `HUMAN_ESCALATED` を返した時（手順 (5)）
+- **(a)** `HUMAN_ESCALATED` に至った時（手順 (5) の arbiter 裁定のほか、
+  手順 (5b) grader 再試行上限超過・手順 (7) Scheduling 判断表の escalate を含む）
 - **(b)** merge（Human-owned 固定・手順 (7) DoD 後の C-4）
 
 ただし HO パス接触・想定外のスコープ拡大を検知した場合は既存 Iron Law
-（[`docs/ai/core-contract.md`](../../ai/core-contract.md)）に従い即停止する。
+（`docs/ai/core-contract.md`）に従い即停止する。
 
 ### (0) run 採番（起票時 + PR 作成直前の 2 点照合）
 
