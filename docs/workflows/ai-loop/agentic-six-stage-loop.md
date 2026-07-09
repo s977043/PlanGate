@@ -5,8 +5,8 @@
 > 対応 issue: [#780](https://github.com/s977043/plangate/issues/780)（ai-loop 6段階ループ適合性）
 > 位置づけ: 汎用的なエージェント実行パイプラインの役割語彙
 > （Triage / Conductor / Worker / Verifier / Gate / Trust Ledger）と、
-> 現行 ai-loop の機能責務語彙（`Generate → Evaluate → Remember → Schedule →
-> Optimize → Recurse`。正本: [`adaptive-production-loop.md`](./adaptive-production-loop.md) §3）
+> 現行 ai-loop の機能責務語彙（`Generate → Evaluate → Remember → Schedule → Optimize → Recurse`。
+> 正本: [`adaptive-production-loop.md`](./adaptive-production-loop.md) §3）
 > との**対応関係の正本**。新規機構を追加するものではなく、既存資産の
 > 索引・命名対応を集約する。
 
@@ -37,8 +37,8 @@
 
 ## 2. 6段階対応表
 
-現行 ai-loop は `Generate → Evaluate → Remember → Schedule → Optimize →
-Recurse`（機能責務・[`adaptive-production-loop.md`](./adaptive-production-loop.md) §3）
+現行 ai-loop は `Generate → Evaluate → Remember → Schedule → Optimize → Recurse`
+（機能責務・[`adaptive-production-loop.md`](./adaptive-production-loop.md) §3）
 を正本に持つ。今回の 6 段階（エージェント実行パイプラインの役割責務）との対応:
 
 | 段階 | 現行 ai-loop の対応資産（ファイル:節 / 機構名） | 充足 | gap |
