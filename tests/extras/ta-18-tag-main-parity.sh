@@ -111,3 +111,90 @@ fi
 
 # cleanup
 rm -rf "$T18_TMP"
+
+# === #783 R-005: リモート tag 実体照合 (実行ベース TC) ===
+# 既存 TC-01〜09 はロジック部分検証のみだったため、bare リポジトリを実 origin
+# とした fixture を作り、script を実際に実行して検証する。
+
+t18b_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
+t18b_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
+
+T18B_ROOT=$(mktemp -d)
+T18B_BARE="$T18B_ROOT/origin.git"
+T18B_WORK="$T18B_ROOT/work"
+
+(
+  set -eu
+  git init -q --bare "$T18B_BARE"
+  git init -q "$T18B_WORK"
+  cd "$T18B_WORK"
+  git config user.email t@t.t
+  git config user.name t
+  git config commit.gpgsign false
+  echo "v1" > f.txt
+  git add f.txt
+  git commit -q -m "c1"
+  git branch -M main
+  git remote add origin "$T18B_BARE"
+  git push -q origin main
+) >/dev/null 2>&1
+T18B_SETUP_RC=$?
+
+if [ "$T18B_SETUP_RC" -ne 0 ] || [ ! -d "$T18B_WORK/.git" ]; then
+  t18b_fail "TC-10/11/12 fixture セットアップ失敗 (rc=$T18B_SETUP_RC)"
+else
+  # --- TC-10: リモート tag = origin/main → exit 0 (OK) ---
+  (
+    cd "$T18B_WORK"
+    echo "v2" >> f.txt
+    git add f.txt
+    git commit -q -m "c2"
+    git push -q origin main
+    git tag -a v10 -m "release v10"
+    git push -q origin refs/tags/v10:refs/tags/v10
+  ) >/dev/null 2>&1
+
+  T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v10 2>&1) && T18B_RC=0 || T18B_RC=$?
+  if [ "$T18B_RC" -eq 0 ] && printf '%s' "$T18B_OUT" | grep -q "OK"; then
+    t18b_pass "TC-10 リモート tag = origin/main → exit 0 (OK)"
+  else
+    t18b_fail "TC-10 rc=$T18B_RC out=$T18B_OUT"
+  fi
+
+  # --- TC-11: リモート tag が古い commit・ローカル tag は新 commit
+  #     (2026-07-09 v8.16.0 実害シナリオ: 貼り替え済みだが push 未完了) → exit 1 ---
+  (
+    cd "$T18B_WORK"
+    git tag -a v11 -m "old release" HEAD
+    git push -q origin refs/tags/v11:refs/tags/v11
+    echo "v3" >> f.txt
+    git add f.txt
+    git commit -q -m "c3"
+    git push -q origin main
+    # ローカルのみ貼り替え (push しない = 実害シナリオ)
+    git tag -fa v11 -m "retagged locally, not pushed" HEAD
+  ) >/dev/null 2>&1
+
+  T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v11 2>&1) && T18B_RC=0 || T18B_RC=$?
+  if [ "$T18B_RC" -eq 1 ] && printf '%s' "$T18B_OUT" | grep -qE "MISMATCH|不一致"; then
+    t18b_pass "TC-11 リモート tag 古い + ローカル tag 新しい (実害シナリオ) → exit 1 + 不一致明示"
+  else
+    t18b_fail "TC-11 rc=$T18B_RC out=$T18B_OUT"
+  fi
+
+  # --- TC-12: tag をローカルにのみ作成しリモート未 push → exit 1 (push 忘れ検出) ---
+  (
+    cd "$T18B_WORK"
+    git tag v12 HEAD
+  ) >/dev/null 2>&1
+
+  T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v12 2>&1) && T18B_RC=0 || T18B_RC=$?
+  if [ "$T18B_RC" -eq 1 ] && printf '%s' "$T18B_OUT" | grep -qE "存在しません|push 忘れ"; then
+    t18b_pass "TC-12 ローカルのみ tag (未push) → exit 1 (push 忘れ検出)"
+  else
+    t18b_fail "TC-12 rc=$T18B_RC out=$T18B_OUT"
+  fi
+fi
+
+# cleanup (#783 fixture — 実 docs/working を汚染しないよう mktemp -d 配下のみ使用)
+rm -rf "$T18B_ROOT"
