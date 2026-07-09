@@ -10,11 +10,204 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-## v8.15.0 - 2026-06-23
+## v8.16.0 (2026-07-08)
 
-feat: Review Gate 機械化 + EH-3 doc-light + approve 強化 + CLI テスト完備 + OpenSSF Scorecard 対応
+feat: ai-loop 初回実運用 Run-001〜021 の摩擦是正閉ループ + plangate プラグインへの ai-loop 同梱 + Hook Enforcement 物理配線 6/12 → 11/12 + サブエージェント委譲プロトコル正本
 
-外部レビュー結果（Decision / risk）を c3_status へ自動マッピングし承認境界を機械執行する Review Gate（TASK-0129）、EH-3 フックに非 HO `.md` ファイルを記録付きで自動 SKIP する doc-light 経路（TASK-0138）、approve サブコマンドのハードニング（TASK-0139）、CLI サブコマンドの統合テスト完備（TASK-0140）を追加。あわせて OpenSSF Scorecard の 10 件のアラートを解消（SHA ピン・Token-Permissions・SECURITY.md・CodeQL）。
+次世代ワークフロー「ai-loop」（旧 Arbiter）を Phase 0〜4 の仕様策定に続いて**初めて実運用に投入**し、Run-001〜021 で摩擦（friction）検出 → W チェック（3R 合議）→ loopspec.md / execution-runbook.md への正本化を反復するセルフチューニング閉ループ（F-1〜F-41）を確立した。`ai-loop-cycle` スキルは Agent Skills bundled resources 方式で plangate プラグインへ同梱し、他プロジェクトでの低リスク帯検証を可能にした（#771/#773）。Hook Enforcement は CLI 層 5 件（EH-4/5/EHS-1/2/3）の物理配線を追加して 6/12 → 11/12 に到達（TASK-0141/0143〜0147）。サブエージェント委譲プロトコル正本、doctor 3 チェック追加、review-gate skill 正本化、PostToolUse/Stop 軽量 hook（EH-10/EH-11 候補）、improvement-seeds hygiene 仕様、PreCompact memory guard、plangate-working-discipline skill（v1/v2）も追加。
+
+### Added
+
+- **Hook Enforcement 物理配線 6/12 → 11/12（TASK-0141 / 0143〜0147）**（#625 / #627〜#639 / #642〜#643 / #645〜#647）
+  — CLI 層 5 件（EH-4 / EH-5 / EHS-1 / EHS-2 / EHS-3）の hook 物理配線を追加し **6/12 → 11/12** に到達。
+  `bin/plangate` / `scripts/hooks/*.sh` / `schemas/*.schema.json` への実適用が **コミット済みで main に
+  反映済み**（apply-script の `--apply` 実行結果を含む、仕様のみではない）。
+  - **実装は 12/12（既存）／物理配線は 11/12**。EH-7（2 段階レビューなしマージ block）は `bin/plangate doctor`
+    可視化のみ・GitHub branch protection 依存で **未配線**（#500 後続）。正本: `docs/ai/hook-enforcement.md`。
+  - 追加配線した EH-4/5/EHS-1/2/3 は **CLI 層**で `bin/plangate verify` / `handoff --verify` 実行時に発火。
+    完全手動・AI 任せ運用では休眠する（**常時強制は層 A/B の EH-1/2/3/6/8/9**）。
+  - TASK-0143: plan（#627）→ 群A hook 配線 EH-4/5/7・C-3 APPROVED（#628）→ EH-4/5/7 CLI 配線 +
+    ta-44 テスト + EHS-1〜3 設計（#625）→ bin/plangate EH-4/5 CLI 配線（#629）→ 重複成果物除去（#633）
+  - TASK-0141: EH-2 strict JSON 化 + EH-1/2 stdin fallback（#630）
+  - TASK-0144: C-3 approval mode（cli/conversation）設計（#631）→ **HO パス実適用**
+    （`apply-task-0144-c3-mode.sh --apply` 結果、#632）
+  - TASK-0145: EHS-1 strict 発火配線 増分1（#634）→ handoff.md 発行 + 配線状態更新（#636）
+  - TASK-0146: EHS-2/3 配線 増分2/3（#637）→ Gemini medium 対応・BLOCK コメント追加（#638）
+  - TASK-0145/0146 合流: EHS-1/2/3 bin/plangate 実適用（apply-script 結果、359 PASS、#639）
+  - TASK-0141/0143/0144: handoff.md 発行（WF-05 完了資産、#635）
+  - 配線実態ドキュメント同期: 6/12→11/12（#642）→ 運用モード別強制実態（CLI 依存度）追記（#647）
+  - TASK-0147: validation_bias conductor export 配線 follow-up plan（#643）→ 配線実装
+    （apply-script 方式、#645）→ bin/plangate / conductor 実適用（apply-script 結果、#646）
+
+- **ai-loop（旧 Arbiter）Phase 0〜4 + L2 裁定エンジン PoC**（#660〜#662 / #665 / #668〜#669 /
+  #671 / #673 / #675 / #678 / #680 / #682 / #696）
+  — ai-loop ワークフロー仕様の Phase 0〜4 策定と L2 裁定エンジン PoC。**現状は仕様策定・PoC
+  検証段階であり、ai-loop への本番運用切り替えや既存 plan→exec フローの置換は未実施**（既存
+  ワークフローと並存、#687 の共存ガイド参照）。
+  - Phase 0: コンセプト固定・資産棚卸し・検証スコープ定義（#660）
+  - Phase 1/2a: arbiter-policy 正本化 + W チェック拡張フロー（#661）
+  - Phase 2b: decision-table.md（二分ルール Decision table・provenance schema・CB）（#662）
+  - Phase 2 follow-up: provenance 正本一元化・安全側 severity 既定・責務範囲明記（#665）
+  - Phase 1 改訂: lite 判定基準（可逆性要件）+ severity 分類主体確定（#675）
+  - Phase 2: L2 裁定エンジン PoC `scripts/ai-loop/arbiter.py` + 59 テスト + runbook（#678）
+  - Phase 3: phase3-impact-report.md（影響評価・分岐判断基準・未解決リスク）（#669）
+  - L4 PoC: review-feedback-loop.md（レビュー指摘の事前チェック還元閉ループ）（#668）
+  - 改称: Arbiter-workflow → ai-loop-workflow（#673）
+  - 概念改定: C-2 まで PlanGate 共通化・C-3 を AI 裁定ゲート「C-3'」に置換・merge-ready 責務明記（#680）
+  - 3 系統振り返りレビュー指摘 7 件の修正（severity 別軸・class 軸・セクション番号ほか）（#671）
+  - 3 レーン監査の還元: §7 欠番解消・D-6/C-6 新設・suppression 初登録・コンフリクト対応手順（#682）
+  - 初回実走: runbook に実行スキル 2 件を追記 + provenance 刻印（#696）
+
+- **Plan Review Readiness Gate**（#653 / #663）
+  — C-1 self-review 前に `pass / needs_revision / blocked` を判定する計画実行準備ゲートを
+  追加。WF-03 完了条件・plangate-insertion-map・plan.md テンプレートを更新（#653）。ドキュメント
+  仕様変更向けのレビュー観点を追加（#663）。
+
+- **exploratory intent 追加（8 分類化）・hypothesis-logger スキル実装・WF-07 接続**（#651）
+  — intent-classifier に `exploratory` を 8 番目の intent として追加。仮説採番・記録スキル
+  `hypothesis-logger` を新規実装。WF-00 に exploratory 判定時の WF-07 推奨 advisory を追加。
+
+- **新規スキル: ai-loop-cycle / pr-watch**（#694 / #695）
+  — `ai-loop-cycle`（ai-loop 1 サイクル実行手順 + Model A/B/C/D 委託プロンプト定型、#694）、
+  `pr-watch`（PR 監視・状態把握手順、#695）を新設。`subagent-driven-development` に worktree
+  委託の安全ルールを追加（#695）。
+
+- **self-review スキル拡張**（#666）
+  — シェル/ドキュメント品質観点 + 文章品質チェックを追加。
+
+- **repo-owned 整合性検出スクリプト 2 種**（#700 / #703）
+  — stale パス参照検出 `scripts/check-stale-skill-refs.py`（#700）、plugin/repo-local スキル名
+  多重定義検出 `scripts/check-skill-name-collisions.py` + 優先順位ガイド（#703）。
+
+- **gh account ドリフト検証の pre-push opt-in 拡張**（#702）
+  — 既存 #360 pre-push hook に gh アクティブアカウントのドリフト検証を opt-in 拡張。
+
+- **段階的導入ドキュメント 3 種**（#697〜#699）
+  — plugin-only 環境の動作境界と CLI 非依存の最小導入パス（#699）、既存 plan→exec ワークフロー
+  との共存・部分導入ガイド（#698）、改称移行（arbiter→ai-loop 等）の grep チェックリスト
+  正本（#697）。
+
+- **ai-loop（旧 Arbiter）初回実運用 Run-001〜021 + 摩擦是正閉ループ F-1〜F-41**
+  （#734 / #738 / #740 / #743 / #745 / #747〜#748 / #750 / #752 /
+  #755 / #757 / #759 / #761 / #763〜#770）
+  — Phase 0〜4 の仕様策定に続き、**初めて実運用（本番セッション）に投入**。
+  `HUMAN_ESCALATED → 人間判断 → AUTO_APPROVED` のフル経路を完走（Run-001/002、
+  #738）した後、Run-003〜021 で摩擦（friction）検出 → W チェック（3R 合議）→
+  loopspec.md / execution-runbook.md への正本化、を反復するセルフチューニング
+  閉ループを確立した。
+  - intake batch1: LoopSpec / loop-safety / Unknown Discovery / HOTL 入口基準
+    （#726/#728/#729/#733-A、#734）
+  - Run-003: provenance に `reject_category` 追加（初のコード run、#740）
+  - Run-004: enum verbatim 強制 + 検証コマンド実機事前検証（#743）
+  - Run-005: 検証申告への証跡要求（#745）
+  - Run-006: `deterministic` 欄の構造化（cmd/expect_exit/note、#747）
+  - Run-007〜010: `#746`/`#749`/`#751`/`#753` intake（loop 4 型の語彙吸収、
+    `scope.allowed_paths` 追加、Managed Agents trust boundary 語彙、memory
+    trust boundary 宣言機構、#748/#750/#752/#755）
+  - doctor に W-6 検知 / skill 名衝突 / pre-push ガード検査を追加
+    （#720/#721/#722、#757）
+  - Run-012: F-27/F-28 正本化 + **auto-merge 廃止**を運用へ反映（#759、
+    以降は merge-ready 運用に一本化）
+  - review-gate skill を `.agents/skills` へ正本化（#737、#758）
+  - Run-013: improvement-seeds hygiene 仕様正本化 + digest サンプル #001
+    （#754、#761）
+  - PostToolUse/Stop 軽量品質 hook（EH-10/EH-11 候補）を配線（#760、#762）
+  - Run-014〜016: F-29/F-30 正本化（#763）、PR #762 レビュー対応の run 記録
+    （#764）、run 採番 2 点照合 + AC 転記規律（F-34/F-35、#765）
+  - Run-016（続）: exec 差分への **rubric grader 再試行ループ**を Step 5.5
+    として追加（#753 gap 2 PoC、5 項目採点 + 証跡引用義務 + 再試行 ≤2 →
+    HUMAN_ESCALATED、#766）
+  - Run-018/019: conflict 同定規律 + 参照値転記規律（F-36/F-37、#767）、
+    **摩擦 ID 台帳の単一権威化**（F-35〜F-40 索引転記 + 新 ID 発行規律、
+    並行セッション由来の転記誤りを 3R で是正、#768）
+  - Run-020/021: 実践主張の出典検証 + 実挿入形 AC 事前検証（F-38/F-39、
+    #769）、件数集計型 AC の silent pass 対策（F-41、#770）
+
+- **ai-loop-workflow を plangate プラグインへ同梱（#771/#773）**
+  — `ai-loop-cycle` スキルを Agent Skills **bundled resources 方式**（skill
+  ディレクトリ内に `references/`（正本 docs 17 本のミラー）+ `scripts/`
+  （`arbiter.py` 一式）を自己完結同梱）で再設計し、
+  `plugin/plangate/skills/ai-loop-cycle/` として配布。
+  `sync-plugin-plangate.sh` を拡張し正本 → plugin の同期を冪等化。
+  plugin README に導入手順・適用境界（低リスク帯
+  限定・PlanGate 本番非適用）を明記。検証: plugin 配下 arbiter 63 テスト
+  自立 PASS、フルスイート 387 passed。**他プロジェクトでの検証用途**であり
+  PlanGate 本体の運用を置き換えるものではない。
+
+- **サブエージェント委譲プロトコル正本を新設（#710/#711-716）**（#723）
+  — 複数エージェントへの作業委譲時の責務分界・引き継ぎ形式・検証手順を
+  正本化。
+
+- **PreCompact memory guard**（#742 / #744）
+  — `/compact` 実行前に作業コンテキストの鮮度を検査する仕様 + apply-script
+  （warn 既定）。
+
+- **plangate-working-discipline skill（v1/v2）**（#735 / #741）
+  — Fable 5 の作業規律を PlanGate skill として明文化（8 ファイル）。v2 で
+  ai-loop 実運用の学習（原則11/12・停止規律・追加指示の扱い）を還元。
+
+- **secret 判定の policy-grounding ガード**（#731 / #736）
+  — secret 判定ロジックに根拠となるポリシー参照を必須化し、`#727` の
+  gap 分析をクローズ。
+
+- **ai-loop 設計思想正本 design-philosophy.md**（#732）
+  — I-1〜I-9 の設計原則、成長メカニズム、文書地図を新設。
+
+- **ai-loop の bounded adaptive production loop 定義**（#724）
+  — 有界な適応的プロダクションループとしての ai-loop の定義を追加。
+
+### Changed
+
+- **improvement-seeds スキーマの OSS 非依存化**（#650）
+  — 「1 人運用」記述を「ツール・プロセス上の摩擦点」に変更（既存エントリは append-only の
+  ため不変）。
+- **依存関係更新**（#649）
+  — dependabot による github-actions グループ更新 5 件（`codeql.yml` / `schema-validate.yml`）。
+- **依存関係更新（続）**（#730）
+  — dependabot による github-actions グループ更新 5 件（追加分）。
+
+### Fixed
+
+- **PR#651/#653 マージ後ドキュメント整合性修正**（#654）
+  — skill-policy-router / plan-review-readiness-gate / plangate-plugin-migration /
+  00_intent_intake の記述不整合を解消。
+- **hypothesis-logger の壊れた相対リンク 3 件を修正**（#701）
+  — #700 の stale パス検出スクリプトが検出した実バグを dogfooding 修正。
+- **TASK-0123 の偽 DONE を実態へ是正**（#718）
+  — Part A は deployed 済みだが Part B（HMAC）は未適用であるにもかかわらず DONE と記録されて
+  いた不整合を是正。Part B の適用可否は Human 判断待ちとして明示。
+- **stale current-state 是正 + handoff/c3-review 取込（state-audit bookkeeping）**（#717）
+  — stale な current-state 9 件を Done へ是正し、未発行 handoff 3 件を発行、c3-review 6 件を
+  取り込んで台帳を整合。
+
+### Specification（仕様 + apply-script 提供のみ・HO 実適用は Human 待ち）
+
+> 以下は「仕様策定 + Human-owned 適用スクリプト（`--dry-run` 既定）の提供」までが完了した
+> 項目。Hardening Override（HO）対象パス（`.claude/rules/*.md` 等）への実適用（`--apply`）は
+> Human-owned であり、本ドラフト時点では**未実行**。上記 Hook Enforcement 項目（実適用済み）
+> とは異なり、**enforcement は live ではない**（working-context.md「settings タスクロック」と
+> 同型のギャップ）。
+
+- **品質コマンド実行証跡の必須化 仕様**（#706）
+  — PR/handoff ゲートでプロジェクト定義の品質コマンド実行証跡（evidence-ledger EvidenceItem）
+  を必須化する仕様 `docs/ai/quality-command-evidence.md` + 適用スクリプト
+  `scripts/apply-quality-command-gate.sh`（dry-run 既定、`--apply` は Human-owned）。
+- **レビュアー沈黙時のフォールバック + 証跡必須化 仕様**（#705）
+  — `docs/ai/reviewer-silence-fallback.md` + `scripts/apply-reviewer-silence-gate.sh`
+  （dry-run 既定）。
+- **workflow-conductor の plan 再実行ガード動的フェーズ表示化 仕様**（#708）
+  — `scripts/apply-conductor-dynamic-phase.sh`（dry-run 既定、HO 実適用は未実施）。
+- **W-6 autonomous APPROVE の人間著者導入手順 + doctor 検知 仕様**（#707）
+  — `docs/ai/w6-autonomous-approve-introduction.md`（仕様のみ、導入自体は未実施）。
+- **R-NNN 監査表の C-4 拡張 仕様**（#704）
+  — `docs/ai/review-feedback-c4-extension.md` + `scripts/apply-rnnn-c4-extension.sh`
+  （dry-run 既定）。
+
+## v8.15.0 - 2026-06-25
+
+feat: Review Gate 機械化 + EH-3 doc-light + approve 強化 + CLI テスト完備 + OpenSSF Scorecard 対応 + Best Practices Passing 取得
+
+外部レビュー結果（Decision / risk）を c3_status へ自動マッピングし承認境界を機械執行する Review Gate（TASK-0129）、EH-3 フックに非 HO `.md` ファイルを記録付きで自動 SKIP する doc-light 経路（TASK-0138）、approve サブコマンドのハードニング（TASK-0139）、CLI サブコマンドの統合テスト完備（TASK-0140）を追加。OpenSSF Scorecard 対応（Pinned-Dependencies / SLSA / Fuzzing / Branch-Protection / SAST / Token-Permissions / SecurityPolicy）と Best Practices Passing バッジ取得を含む。
 
 ### Added
 
@@ -22,10 +215,15 @@ feat: Review Gate 機械化 + EH-3 doc-light + approve 強化 + CLI テスト完
 - **EH-3 doc-light 経路（TASK-0138 / #528）** — `check-plan-hash.sh` に非 HO `.md` ファイルを記録付き自動 SKIP する doc-light 経路を追加。maintenance ファイル存在時はトークンライフサイクルを優先し doc-light を発火させない。`skip-decision-log.jsonl` に `EH-3_DOC_LIGHT_SKIP` イベントを記録。`ta-39` で 6 TC / 303 PASS。
 - **`plangate approve` ハードニング（TASK-0139 / #550）** — approve サブコマンドに `read -r` による理由・条件・確認の対話入力、`PLANGATE_TEST_MODE` ガード、c3.json 上書きブロック（`--force` で上書き可）を追加。ADR `docs/decisions/adr-001-approve-out-of-band.md` を同梱。`ta-41` で 302 PASS。
 - **CLI サブコマンド統合テスト（TASK-0140 / #515 #529）** — `ta-42` を新規追加し `bin/plangate` の全サブコマンド（plan / exec / review / approve / validate-schemas / metrics / doctor 等）を統合テストでカバー。302 PASS / 0 FAIL。
-- **OpenSSF Scorecard 対応** — Pinned-Dependencies（#25-29/#15/#17）: `actions/checkout@v7` / `actions/setup-python@v6` / pip を SHA ピンに変更（全 5 ワークフロー）。Token-Permissions（#21/#18）: `sync-plugin-plangate.yml` / `release-docs-sync.yml` のワークフローレベル `contents:write` を `permissions:{}` + ジョブレベルへ移動。SecurityPolicy（#3）: `SECURITY.md` に脆弱性報告 URL を追記。SAST（#7）: `codeql.yml` を追加し Python コードを CodeQL `security-extended` で解析。
+- **OpenSSF Scorecard 対応（#616〜#619）** — SHA ピン（actions/checkout@v7 / actions/setup-python@v6 / pip --require-hashes）、Token-Permissions 最小権限化、SECURITY.md 脆弱性報告 URL 追記、CodeQL `security-extended` 追加、SLSA provenance attestation（リリース時 build provenance 自動生成）、atheris Fuzzing（`fuzz/fuzz_render_review.py`）、Branch-Protection（1 reviewer 必須 + stale review dismiss）。
+- **OpenSSF Best Practices Passing 取得（#621）** — bestpractices.dev プロジェクト登録・全項目回答・Passing レベル達成。バッジを README / README_en に追加（project ID: 13340）。
+- **Code-Review auto-approve apply script（#620）** — `scripts/add-auto-approve-workflow.sh`。APPROVE_PAT（別アカウント PAT）設定後に `--apply` で `auto-approve.yml` を生成。
 
 ### Fixed
 
+- **WF-07 Markdown lint（#617）** — `docs/workflows/07_exploratory_debug.md` の MD031/MD032/MD040 11 件 + `execution-sequence.md` の MD012 を解消。
+- **pip hash pinning（#616）** — `requirements/schema-validate.txt` を追加し `schema-validate.yml` で `--require-hashes` を強制（OpenSSF Pinned-Dependencies 対応）。
+- **README_en v8.15.0 同期（#622/#623）** — 英語 README に v8.14.0〜v8.15.0 の変更点・OpenSSF Best Practices バッジの意義を追記。
 - **plangate-setup スキル + Codex スキル追加** — plangate-setup スキル修正・Codex スキル追加・リリースフローへのプラグイン同期組み込み（#597）
 - **intent-classifier / skill-policy-router** — PlanGate CLI ops 認識を追加（#593）
 - **Gemini V-3 指摘対応** — ta-39 / ta-41 / ta-42 / apply スクリプト群の HIGH・medium 指摘を複数ラウンドで解消（#607）
