@@ -45,6 +45,14 @@ created_by: orchestrator
 - 変更対象外ファイルを触る場合は、理由を明記する
 - 重要な設計判断は同タスクの `decision-log.jsonl`（正本・各 TASK ディレクトリ直下）に記録する。学び/再発防止は [`AGENT_LEARNINGS.md`](../../../AGENT_LEARNINGS.md)、監査ログは [`_audit/`](../_audit/)、docs 配置規約は [`documentation-management.md`](../../pages/guides/governance/documentation-management.md) に従う（保存先を分離し AGENTS.md に恒常ルール以外を足さない / #578）
 
+## 前提の実測検証（#786）
+
+> 計画が依拠する前提は、検証コマンドと実測結果で裏取りする。検証不能な前提は Questions / Unknowns に降格する。
+
+| 前提 | 検証コマンド | 実測結果 | 判定 |
+|---|---|---|---|
+| {計画が依拠する前提} | `{検証コマンド}` | {実測結果} | ✅ / ❌ / N/A |
+
 ## Approach Comparison
 
 | 案 | 内容 | メリット | デメリット | 判定 |
@@ -151,6 +159,14 @@ created_by: orchestrator
 
 > **検証が実行不能な場合**（環境制約・依存未整備等）は、その**理由**と**代替確認方法**を明記する（「Done = 検証完了」を満たせない検証を黙って省略しない / #578）。
 
+### レビューレーン計画（#786）
+
+| 成果物 | レーン（観点/独立性） | unavailable 時の代替 |
+|---|---|---|
+| {対象成果物} | {レーン1: 観点・独立性} / {レーン2: 観点・独立性} | {レーン不能時に切り替える代替レーン} |
+
+> 独立レーンが同一指摘に収斂 → 採用。単一レーンの推測指摘 → 実測で裏取り後に判定する。
+
 ## Plan Review Readiness
 
 > C-1 self-review の前に [`docs/ai/plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md) で確認する。各項目は `pass / needs_revision / blocked` 判定に使われるため、`TBD` / `TODO` / `必要に応じて` / `適切に` のまま残さない。
@@ -185,6 +201,8 @@ created_by: orchestrator
 
 ## Replan Triggers
 
+> plan-quality-check skill の C1-LOOP-02（Replan Triggers と機械値/閾値の記入）に対応する（#786）。
+
 以下に該当した場合はexecを止め、planを更新してC-1を再実行する。
 
 - 想定外の変更対象ファイルが必要になった
@@ -199,6 +217,8 @@ created_by: orchestrator
 - security impact が新たに見つかった
 
 ## Stop Condition
+
+> plan-quality-check skill の C1-LOOP-01（Stop Condition の記入）に対応する（#786）。
 
 以下に該当した場合は人間判断まで停止する。
 
