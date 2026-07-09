@@ -7,6 +7,11 @@ ai-loop-workflow（human-on-the-loop 裁定ループ）を明示起動する。
 実行手順の正本: skill `ai-loop-cycle`（1 サイクル = LoopSpec → W チェック →
 arbiter 裁定 → exec → rubric grader）。本コマンドは前提確認と起動のみを担う。
 
+> **docs の参照先**: plugin 導入先では ai-loop ドキュメントは skill 内の
+> `references/` 配下（`skills/ai-loop-cycle/references/`）に同梱される。
+> 本リポジトリ（正本側）では `docs/workflows/ai-loop/` 配下。以下の参照は
+> 環境に応じてどちらかで解決すること。
+
 ## 引数
 
 $ARGUMENTS に以下の形式で渡される:
@@ -43,5 +48,6 @@ $ARGUMENTS に以下の形式で渡される:
 ## 関連
 
 - skill: `ai-loop-cycle`（実行単位の正本）
-- docs: 同梱 ai-loop ドキュメント（design-philosophy / decision-table / execution-runbook）
+- docs: 同梱 ai-loop ドキュメント（design-philosophy / decision-table / execution-runbook —
+  plugin 導入先は skill 内 `references/`、本リポジトリは `docs/workflows/ai-loop/` 配下）
 - 対: `/ai-dev-workflow`（PlanGate 本番フロー入口）
