@@ -311,6 +311,7 @@ ai-loop ドキュメント全体で同じ意味に使う。
 |          | [`review-feedback-loop.md`](../../workflows/ai-loop/review-feedback-loop.md)                                                                     | L4 学習閉ループ（Remember/Optimize の実体）                        |
 |          | [`unknown-discovery.md`](../../workflows/ai-loop/unknown-discovery.md)                                                                           | unknowns 4 分類と 3 ゲート                                         |
 | **記録** | [`asset-inventory.md`](./asset-inventory.md) / [`related-specs.md`](./related-specs.md) / [`phase3-impact-report.md`](./phase3-impact-report.md) | 資産分類・関連仕様・Phase 判断記録                                 |
+|          | `agentic-six-stage-loop.md`                                                                 | 6段階ループ（Triage/Conductor/Worker/Verifier/Gate/Trust Ledger）対応表 + Trust Ledger 索引（#780） |
 
 ### 7.1 既知の構造的課題（次期リファクタリング候補）
 
