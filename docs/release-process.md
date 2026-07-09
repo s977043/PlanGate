@@ -11,9 +11,12 @@ NO RELEASE WITHOUT TAG-MAIN PARITY
 
 意味:
 
-- `git rev-parse <tag>^{commit}` と `git rev-parse origin/main` が **完全一致** するまで GitHub Release を作成しない
-- 一致しない場合は `git push --force-with-lease` で貼り替え (Human オペレーション)
+- **リモート tag 実体**（`git ls-remote origin refs/tags/<tag>` の peel 先 commit）と `git rev-parse origin/main` が **完全一致** するまで GitHub Release を作成しない
+- 判定基準はローカル tag の `rev-parse` ではなく **リモート実体（ls-remote）照合**（#783 R-005。ローカル tag は貼り替え済み・リモートは旧 commit のままでも、公開されるのはリモート tag のため）
+- 一致しない場合は `git push --force-with-lease=<ref>:<期待値>` で貼り替え (Human オペレーション)
 - 検証コマンドの実行ログを `status.md` / release note に記録
+
+> **注**: 本検証はリリース時ゲート。リリース後に main が進んだ状態での再実行は MISMATCH になる（仕様）。
 
 ## 背景
 
@@ -43,10 +46,11 @@ GitHub Release 作成
 # 1. tag push
 git push origin <tag>
 
-# 2. Iron Law: tag = main 検証 (R-001: 内部で git fetch origin main 実施)
+# 2. Iron Law: tag = main 検証 (R-001: 内部で git fetch origin main 実施、
+#    R-005: git ls-remote でリモート tag 実体を照合)
 sh scripts/check-tag-main-parity.sh <tag>
-# → OK: tag '<tag>' = origin/main (<sha>)  なら次へ
-# → MISMATCH なら下記フローで貼り替え
+# → OK: tag '<tag>' (origin 実体) = origin/main (<sha>)  なら次へ
+# → MISMATCH / FAIL なら下記フローで貼り替え
 ```
 
 ## 失敗時のフロー (MISMATCH 検出時)
@@ -61,18 +65,24 @@ git rev-parse origin/main
 # 2. annotated tag を作り直し (R-004: annotated を ^{commit} で peel 可能に)
 git tag -fa <tag> origin/main -m "release <tag>"
 
-# 3. remote tag を --force-with-lease + ref 明示で上書き (R-002)
-git push --force-with-lease origin refs/tags/<tag>:refs/tags/<tag>
+# 3. リモート tag オブジェクト SHA (ls-remote の un-peeled 行) を確認
+git ls-remote origin refs/tags/<tag>
 
-# 4. 再検証 → 一致するまで GitHub Release 作成禁止
+# 4. remote tag を --force-with-lease (期待値=リモート tag オブジェクト SHA) + ref 明示で上書き (R-002)
+#    注: annotated tag では期待値に peeled commit SHA を使うと必ず stale info で拒否される。
+#    期待値なしの --force-with-lease も tag では remote-tracking 参照がなく機能しない。
+#    check-tag-main-parity.sh が MISMATCH 時にこの形式のコマンドをそのまま出力する。
+git push --force-with-lease=refs/tags/<tag>:<リモートtagオブジェクトSHA> origin refs/tags/<tag>:refs/tags/<tag>
+
+# 5. 再検証 → 一致するまで GitHub Release 作成禁止
 sh scripts/check-tag-main-parity.sh <tag>
 ```
 
 ### --force-with-lease の理由 (R-002)
 
-通常の `git push -f` ではなく `--force-with-lease` + ref 明示 (`refs/tags/<tag>:refs/tags/<tag>`) を使う:
+通常の `git push -f` ではなく `--force-with-lease=<ref>:<期待値>` + ref 明示 (`refs/tags/<tag>:refs/tags/<tag>`) を使う:
 
-- `--force-with-lease`: remote 側が想定外に進んでいた場合に上書きを拒否 (他者の変更保護)
+- `--force-with-lease=<ref>:<期待値>`: remote 側が想定外に進んでいた場合に上書きを拒否 (他者の変更保護)。期待値は **リモート tag オブジェクト SHA**（ref の格納値。annotated tag では commit でなく tag オブジェクト）
 - ref 明示: 誤って別 ref を push するリスク排除
 - Human オペレーション + 監査ログ + 対象 tag 再確認 の段階フロー
 
@@ -86,12 +96,12 @@ sh scripts/check-tag-main-parity.sh <tag>
 
 ## tag 種別 (R-004)
 
-| tag 種別 | 動作 |
+| tag 種別 | 動作 (リモート照合 / #783 R-005) |
 |---------|------|
-| annotated tag (`git tag -a`) | `<tag>^{commit}` で peel して commit SHA 取得 |
-| lightweight tag (`git tag`) | `<tag>^{commit}` で同様 (lightweight は直接 commit を指す) |
+| annotated tag (`git tag -a`) | `git ls-remote origin "refs/tags/<tag>" "refs/tags/<tag>^{}"` の **peel 行** (`refs/tags/<tag>^{}`) の SHA を commit として採用 |
+| lightweight tag (`git tag`) | peel 行が現れないため **un-peeled 行** (`refs/tags/<tag>`) の SHA を採用 (直接 commit を指す) |
 
-両者とも `^{commit}` peeling で統一的に比較。
+両者ともリモート実体の peel 先 commit を `origin/main` と比較する。
 
 ## CI 化 (V2 候補)
 
