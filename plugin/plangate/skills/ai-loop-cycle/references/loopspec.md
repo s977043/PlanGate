@@ -270,11 +270,11 @@ design-philosophy.md §7「同じ問いに2つのファイルが答えてはな�
 
 ## 8. 関連ドキュメント
 
-- [`../../ai/ai-loop/design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) — 第一原理（I-1〜I-9）・語彙集・§8 トリアージ正本
+- [`../../ai/ai-loop/design-philosophy.md`](./design-philosophy.md) — 第一原理（I-1〜I-9）・語彙集・§8 トリアージ正本
 - [`adaptive-production-loop.md`](./adaptive-production-loop.md) §4 — 1 サイクル contract 正本（closed loop の定義）
 - [`decision-table.md`](./decision-table.md) §5 — provenance schema 正本
 - [`execution-runbook.md`](./execution-runbook.md) §2-(7) — Scheduling 判断表・ラウンド上限（正本値）
 - [`flow-detect.md`](./flow-detect.md) — maker/checker 分離（W チェック）の判定フロー正本
 - [`review-feedback-loop.md`](./review-feedback-loop.md) — decision record の実体正本
-- [`../../ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §7 — escalate 予算正本
+- [`../../ai/ai-loop/arbiter-policy.md`](./arbiter-policy.md) §7 — escalate 予算正本
 - issue [#726](https://github.com/s977043/plangate/issues/726) — 本書の起点

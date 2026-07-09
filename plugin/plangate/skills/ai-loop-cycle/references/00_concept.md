@@ -37,7 +37,7 @@ Arbiter が存在証明を超えるまで PlanGate が本番統制を担う。
 
 Arbiter は plan 生成・要件展開・設計（WF-01〜03）の**工程の実体**を再実装せず、
 PlanGate 既存フローをそのまま利用する。置き換えの対象は **C-3 のみ**であり、
-C-2（2 レーン契約、[`review-principles.md`](../../../.claude/rules/review-principles.md)
+C-2（2 レーン契約、`review-principles.md`
 §7-bis）は不変のまま踏襲する。判断実行は L1 = RiverReview 委譲、C-4・merge
 は引き続き Human-owned 固定（詳細は次節）。ただし ai-loop-workflow は
 **ai-dev-workflow（AI 工程は PR 作成まで、C-4 は人間）より広い責務**を持ち、
@@ -56,7 +56,7 @@ PR 作成後の CI・AI レビュー指摘対応が完了し merge-ready に到�
 >
 > 「そのために、PR作成前のセルフレビューの強化も整える」
 
-追加判断（AskUserQuestion）: 既存 C-2（2 レーン・[`review-principles.md`](../../../.claude/rules/review-principles.md)
+追加判断（AskUserQuestion）: 既存 C-2（2 レーン・`review-principles.md`
 §7-bis）は**不変**のまま、**後段に W チェック（C-3'）を追加**する方式を選択。
 
 ### 3.2 確定パイプライン
@@ -108,7 +108,7 @@ detect である。CI/PR 時の AI レビュー（ボットレビュー）を**�
 **収束ルール（指摘対応ループの打ち切り基準）**: 対応ラウンド（push →
 新規指摘確認）の上限は **3 ラウンド**とし、超過した場合は human escalate
 とする（escalate 予算 =
-[`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §7 と接続）。
+[`arbiter-policy.md`](./arbiter-policy.md) §7 と接続）。
 また新規指摘が minor / info のみとなった時点で、採用 / 理由付き不採用の
 記録を条件に merge-ready 判定へ進んでよい（収束保証）。
 
@@ -125,7 +125,7 @@ merge-ready 責務を担保するため、exec / V 系完了後・PR 作成前�
   として実装予定）。宣言外の変更を検出した場合は exec へ差し戻すか、
   再裁定（C-3' 再実行）を行う
 - **内容**: self-review スキル（Phase 1〜13 全観点）+
-  [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)
+  `plan-review-readiness-gate.md`
   §7/§8 観点 + review-feedback-loop（L4）で還元済みの観点を必ず通す
 - **狙い**: PR 作成後の CI 失敗・AI レビュー指摘を事前に潰し、「PR 作成後に
   指摘を受けない状態」に近づける。指摘が出た場合は L4 ループ
@@ -136,11 +136,11 @@ merge-ready 責務を担保するため、exec / V 系完了後・PR 作成前�
 ### 3.5 位置づけの整理
 
 本節は PlanGate 既存の C-3 Autonomous APPROVE
-（[`working-context.md`](../../../.claude/rules/working-context.md) #353）・
+（`working-context.md` #353）・
 C-3 条件付き降格（F5-AD）の判定を decision table + provenance で完全機械化
 した位置づけである。escalate は従来の人間 C-3 への降格であり、**承認境界の
 撤廃ではない**。touches-HO は W チェック結果にかかわらず常に人間へ固定
-（[`concept.md`](../../ai/ai-loop/concept.md) §5「不変の原則」参照）。
+（[`concept.md`](./concept.md) §5「不変の原則」参照）。
 
 ---
 
@@ -222,6 +222,6 @@ asset-inventory.md の uses/not-uses 分類に従う:
 - [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — C-3' の flow→detect→escalate 動作フロー
 - [`docs/workflows/ai-loop/execution-runbook.md`](./execution-runbook.md) — PR 前セルフレビュー・PR 後指摘対応ループの実行手順
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CI/AI レビュー指摘対応を L4 学習へ還元する閉ループ
-- [`docs/ai/plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md) — 強化セルフレビュー §7/§8 観点の参照元
-- [`.claude/rules/review-principles.md`](../../../.claude/rules/review-principles.md) §7-bis — C-2 の 2 レーン契約（不変）
-- [`.claude/rules/working-context.md`](../../../.claude/rules/working-context.md) — C-3 Autonomous APPROVE（#353）・C-3 条件付き降格（F5-AD）の正本
+- `plan-review-readiness-gate.md` — 強化セルフレビュー §7/§8 観点の参照元
+- `review-principles.md` §7-bis — C-2 の 2 レーン契約（不変）
+- `working-context.md` — C-3 Autonomous APPROVE（#353）・C-3 条件付き降格（F5-AD）の正本

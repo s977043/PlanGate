@@ -86,7 +86,7 @@ policy 制定は永久に Human-owned（第0の承認境界。[`arbiter-policy.m
 
 生成者に自己評価させない。Evaluate は生成と独立した主体・独立した極性
 （Model A=順方向「正しく作られているか」/ Model B=adversarial「どう壊れるか」）で行う
-（W チェック。[`flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §3）。
+（W チェック。[`flow-detect.md`](./flow-detect.md) §3）。
 この分離は成果物の評価に限らない: **思想・仕様の取り込み判断（§6 intake loop）にも適用する**。
 
 **なぜ**: 自己評価の甘さは、プロンプトの工夫では消えない。生成と同一のコンテキスト・
@@ -96,7 +96,7 @@ policy 制定は永久に Human-owned（第0の承認境界。[`arbiter-policy.m
 
 裁定（L2 / Arbiter）は決定論ロジックで行い、LLM の判断に委ねない。
 severity 分類は rule ベース分類器が行い、Model B の自己申告を採用しない
-（[`flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §3.2.1）。
+（[`flow-detect.md`](./flow-detect.md) §3.2.1）。
 auto-approve には provenance を刻印し、「誰が・何を根拠に・何を承認したか」を追跡可能に残す。
 
 **なぜ**: 同じ入力に同じ裁定が返らないシステムは監査できない。冪等性・明示的失敗・
@@ -104,7 +104,7 @@ auto-approve には provenance を刻印し、「誰が・何を根拠に・何�
 
 > **既知の限界（honest 注記）**: 現行 PoC の provenance は「刻印されている」ことを保証するが、
 > `issued_by` の**発行元真正性は未検証**（署名等が別途必要。
-> [`decision-table.md`](../../workflows/ai-loop/decision-table.md) §5 / PlanGate #420 と同型の
+> [`decision-table.md`](./decision-table.md) §5 / PlanGate #420 と同型の
 > 未解決課題）。I-3 は「決定論で裁定し記録を残す」原理であり、偽装不可能性まで主張しない。
 
 ### I-4. 安全側デフォルト — 判定不能は昇格側に倒す
@@ -120,7 +120,7 @@ boundary 判定不能・severity 分類不能・lite 判定の根拠不足は、
 Optimize（gate / skill / suppression / scheduling policy の更新）は、
 Remember（decision record・指摘・反証・効果の保存）に**記録された事実のみ**を根拠とする。
 逆に、記録するだけで次回の振る舞いに反映されない Remember も失敗として扱う
-（[`adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md) §6）。
+（[`adaptive-production-loop.md`](./adaptive-production-loop.md) §6）。
 
 **なぜ**: 根拠なきプロンプト・ゲート書き換えは再現不能な劣化を生み、
 記録だけの蓄積は「学習している感」だけを生む。両者を分離し一方向依存にすることで、
@@ -129,7 +129,7 @@ Remember（decision record・指摘・反証・効果の保存）に**記録さ�
 ### I-6. 停止できないループはループではない
 
 closed loop は 1 サイクルの contract
-（[`adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md) §4 を正本とする
+（[`adaptive-production-loop.md`](./adaptive-production-loop.md) §4 を正本とする
 Goal / Evaluate / Stop / Memory / Schedule / Boundary の 6 要素）を満たす反復のみを指す。
 これを満たさない反復は **scheduled repetition（polling）** と呼び、区別する。
 Budget（対応ラウンド上限・escalate 予算）は Stop / Schedule に内包される停止資源である。
@@ -138,7 +138,7 @@ Budget（対応ラウンド上限・escalate 予算）は Stop / Schedule に内
 
 停止機構は 2 層ある: **反復の停止**（terminal state への到達）と、
 **自律そのものの一時停止**（サーキットブレーカー CB。
-[`decision-table.md`](../../workflows/ai-loop/decision-table.md) §6 — 誤って学習した policy や
+[`decision-table.md`](./decision-table.md) §6 — 誤って学習した policy や
 昇格の洪水を止める）。両方を持たないループは片肺である。
 
 **なぜ**: 非停止は安全性の問題である以前に経済性の問題（推論コスト・トークン・時間）であり、
@@ -157,8 +157,8 @@ escalate が無制限なら人間はまた全件レビューに戻り、ゼロ�
 ### I-8. 枠内自律は低リスク帯に限定する — 可逆性の担保
 
 flow に乗せてよいのは `boundary=clean` **かつ** `lite=true` の変更のみ
-（[`flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §2 /
-[`lite-criteria.md`](../../workflows/ai-loop/lite-criteria.md)）。
+（[`flow-detect.md`](./flow-detect.md) §2 /
+[`lite-criteria.md`](./lite-criteria.md)）。
 lite 判定の必須軸には**可逆性**が含まれる: **不可逆な変更は flow に流さない**。
 
 **なぜ**: on-the-loop の安全装置（サーキットブレーカー・事後 reject・巻き戻し）は、
@@ -170,8 +170,8 @@ lite 判定の必須軸には**可逆性**が含まれる: **不可逆な変更�
 
 C-3'（Arbiter）が裁定するのは **plan 宣言**（第 1 段 detect）であり、
 実装後の**実差分**は PR 前の宣言↔実差分整合検証 + CI / AI レビュー（第 2 段 detect）で
-独立に再検証される（[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.3 /
-[`execution-runbook.md`](../../workflows/ai-loop/execution-runbook.md) §2-(6)）。
+独立に再検証される（[`00_concept.md`](./00_concept.md) §3.3 /
+[`execution-runbook.md`](./execution-runbook.md) §2-(6)）。
 宣言外の変更は exec 差し戻しまたは C-3' 再裁定であり、承認の使い回しを認めない。
 
 **なぜ**: 「plan は承認された」ことと「実装が plan の通りである」ことは別の命題である。
@@ -206,7 +206,7 @@ ai-loop は 2 つの直交する軸で記述される。混同しない。
   （[`concept.md`](./concept.md) §7）。L0 統制契約が全層を拘束し、L2 裁定が心臓。
 - **Generate → Evaluate → Remember → Schedule → Optimize → Recurse（動的な 1 サイクル）**:
   時間軸上で何が起きるか
-  （[`adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md) §3 の
+  （[`adaptive-production-loop.md`](./adaptive-production-loop.md) §3 の
   6 ステップ表。各ステップの ai-loop 上の対応は同表右列）。
 
 両軸の突き合わせ（どのステップがどの層で実行されるか）は、各正本の該当節を参照して行う。
@@ -227,13 +227,13 @@ ai-loop ドキュメント全体で同じ意味に使う。
 | **governed autonomy（枠内自律）**    | 承認境界の内側での AI 自律実行。境界外は常に人間                                                                                                                                                                                                                                                                                   | 完全自律（人間なし）                                                                                    |
 | **bounded adaptive production loop** | 低リスク帯に限定され、1 サイクル contract（下記 closed loop）を満たす自己改善ループ                                                                                                                                                                                                                                                | 無制限の自己改善                                                                                        |
 | **human-on-the-loop**                | 人間＝枠の制定者・例外の裁定者・事後の監督者。一般分類（EU HLEG / DoD 3000.09）では **HIC + HOTL + HITL（例外・境界）のハイブリッド**であり、定常運転時の位置を指す運用呼称（§1.1）                                                                                                                                                | human-in-the-loop（実行前承認者）／ human-out-of-the-loop ／ 一般 HOTL 単独（監視のみ）としての弱い読み |
-| **closed loop**                      | 1 サイクル contract（**Goal / Evaluate / Stop / Memory / Schedule / Boundary** — 正本: [`adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md) §4）を満たす反復。Budget は Stop / Schedule に内包                                                                                                     | scheduled repetition / polling（interval 駆動の再実行）                                                 |
+| **closed loop**                      | 1 サイクル contract（**Goal / Evaluate / Stop / Memory / Schedule / Boundary** — 正本: [`adaptive-production-loop.md`](./adaptive-production-loop.md) §4）を満たす反復。Budget は Stop / Schedule に内包                                                                                                     | scheduled repetition / polling（interval 駆動の再実行）                                                 |
 | **escalate**                         | 逸脱を人間へ昇格すること。2 文脈を区別する: **C-3' escalate**（plan 裁定の人間 C-3 への降格。承認境界の撤廃ではない）と **Schedule escalate**（PR 後ループでのラウンド上限超過・critical 指摘等による人間介入要求）                                                                                                                | エラー・失敗（escalate は正常系の一部）                                                                 |
 | **W チェック**                       | 順方向（A）と adversarial（B）の 2 モデル非対称二重判定                                                                                                                                                                                                                                                                            | 単一モデルの自己レビュー                                                                                |
-| **severity（二軸）**                 | ①W チェック不一致の severity（critical/major/minor/**low** — [`flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §3.2）と ②レビュー指摘の severity（critical/major/minor/**info** — review-principles §3）は**別軸**。混同しない                                                                                            | 単一の severity 軸として扱うこと                                                                        |
+| **severity（二軸）**                 | ①W チェック不一致の severity（critical/major/minor/**low** — [`flow-detect.md`](./flow-detect.md) §3.2）と ②レビュー指摘の severity（critical/major/minor/**info** — review-principles §3）は**別軸**。混同しない                                                                                            | 単一の severity 軸として扱うこと                                                                        |
 | **L2 入力 4 軸**                     | `boundary`（touches-HO / clean）・`lite`（true / false）・`verdict`（W チェック合意結果）・`class`（merge 含む / 含まない）。裁定の全入力（[`concept.md`](./concept.md) §4）                                                                                                                                                       | —                                                                                                       |
 | **provenance**                       | auto-approve の根拠刻印。誰が・何を・何を根拠に承認したかの追跡記録（発行元真正性の検証は未実装 — I-3 注記）                                                                                                                                                                                                                       | 単なる実行ログ                                                                                          |
-| **terminal state**                   | 裁定の終端 3 値（`AUTO_APPROVED` / `HUMAN_ESCALATED` / `BLOCKED` — [`decision-table.md`](../../workflows/ai-loop/decision-table.md)）。**merge-ready は裁定でなく DoD 状態**（[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.3）、**round limit exceeded は HUMAN_ESCALATED への遷移理由**であり独立の state ではない | 中間状態・無限継続                                                                                      |
+| **terminal state**                   | 裁定の終端 3 値（`AUTO_APPROVED` / `HUMAN_ESCALATED` / `BLOCKED` — [`decision-table.md`](./decision-table.md)）。**merge-ready は裁定でなく DoD 状態**（[`00_concept.md`](./00_concept.md) §3.3）、**round limit exceeded は HUMAN_ESCALATED への遷移理由**であり独立の state ではない | 中間状態・無限継続                                                                                      |
 | **suppression**                      | 機械反証を伴う誤検知抑制の登録                                                                                                                                                                                                                                                                                                     | 根拠なき指摘の無視                                                                                      |
 | **Turn/Goal/Time/Proactive（外部語彙）** | Claude Code 系の loop 4 型分類（issue #746）。PlanGate では **型として採用しない**: Turn≒`trigger:manual`・Time≒`trigger:scheduled`・Proactive≒`trigger:scheduled/issue_created` は **trigger の値**であり、Goal は型ではなく **contract の一要素**（adaptive-production-loop §2 の分離を維持） | 4 型を独立の分類軸として輸入すること（trigger/contract 混同の逆流） |
 | **memory trust boundary（ro/rw 分離）** | memory 層の信頼区分（issue #751 intake）: 正本（read-only 参照・無条件信頼）/ 生成 memory（decision record・plan-memory 等 read-write・生成物としての信頼度）/ **外部入力由来**（issue 本文・PR コメント等 — **memory へ直接転記しない隔離対象**。poisoning 対策）。機構化は follow-up（設計判断・Human escalate 経由） | 外部入力を「信頼された記憶」として次回セッションに読ませること |
@@ -300,17 +300,17 @@ ai-loop ドキュメント全体で同じ意味に使う。
 |          | [`ho-paths.md`](./ho-paths.md)                                                                                                                   | touches-HO の機械判定                                              |
 |          | [`hotl-merge-entry-criteria.md`](./hotl-merge-entry-criteria.md)                                                                                 | HOTL merge 解禁の入口基準（C-4 merge 解禁判定は Human-owned 不変） |
 | **概念** | [`concept.md`](./concept.md)                                                                                                                     | ai-loop とは何か（L0-L5・in/on 対比・Phase 計画）                  |
-|          | [`00_concept.md`](../../workflows/ai-loop/00_concept.md)                                                                                         | PlanGate フローとの接続（C-3'・merge-ready 責務）                  |
-|          | [`adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md)                                                             | 6 ステップサイクルと 1 サイクル contract（closed loop の正本）     |
-| **機構** | [`flow-detect.md`](../../workflows/ai-loop/flow-detect.md)                                                                                       | flow→detect→escalate の判定分岐                                    |
-|          | [`decision-table.md`](../../workflows/ai-loop/decision-table.md)                                                                                 | 裁定の決定表・provenance schema・terminal state・CB                |
-|          | [`lite-criteria.md`](../../workflows/ai-loop/lite-criteria.md)                                                                                   | lite（低リスク・可逆性）判定基準                                   |
-|          | [`loopspec.md`](../../workflows/ai-loop/loopspec.md)                                                                                             | ループ実行境界の宣言構造                                           |
-|          | [`loop-safety-gates.md`](../../workflows/ai-loop/loop-safety-gates.md)                                                                           | 非停止プロンプトの事前拒否・再形成                                 |
-| **運用** | [`execution-runbook.md`](../../workflows/ai-loop/execution-runbook.md)                                                                           | 1 サイクルの実行手順・Scheduling 判断表                            |
-|          | [`review-feedback-loop.md`](../../workflows/ai-loop/review-feedback-loop.md)                                                                     | L4 学習閉ループ（Remember/Optimize の実体）                        |
-|          | [`unknown-discovery.md`](../../workflows/ai-loop/unknown-discovery.md)                                                                           | unknowns 4 分類と 3 ゲート                                         |
-| **記録** | [`asset-inventory.md`](./asset-inventory.md) / [`related-specs.md`](./related-specs.md) / [`phase3-impact-report.md`](./phase3-impact-report.md) | 資産分類・関連仕様・Phase 判断記録                                 |
+|          | [`00_concept.md`](./00_concept.md)                                                                                         | PlanGate フローとの接続（C-3'・merge-ready 責務）                  |
+|          | [`adaptive-production-loop.md`](./adaptive-production-loop.md)                                                             | 6 ステップサイクルと 1 サイクル contract（closed loop の正本）     |
+| **機構** | [`flow-detect.md`](./flow-detect.md)                                                                                       | flow→detect→escalate の判定分岐                                    |
+|          | [`decision-table.md`](./decision-table.md)                                                                                 | 裁定の決定表・provenance schema・terminal state・CB                |
+|          | [`lite-criteria.md`](./lite-criteria.md)                                                                                   | lite（低リスク・可逆性）判定基準                                   |
+|          | [`loopspec.md`](./loopspec.md)                                                                                             | ループ実行境界の宣言構造                                           |
+|          | [`loop-safety-gates.md`](./loop-safety-gates.md)                                                                           | 非停止プロンプトの事前拒否・再形成                                 |
+| **運用** | [`execution-runbook.md`](./execution-runbook.md)                                                                           | 1 サイクルの実行手順・Scheduling 判断表                            |
+|          | [`review-feedback-loop.md`](./review-feedback-loop.md)                                                                     | L4 学習閉ループ（Remember/Optimize の実体）                        |
+|          | [`unknown-discovery.md`](./unknown-discovery.md)                                                                           | unknowns 4 分類と 3 ゲート                                         |
+| **記録** | `asset-inventory.md` / [`related-specs.md`](./related-specs.md) / `phase3-impact-report.md` | 資産分類・関連仕様・Phase 判断記録                                 |
 |          | `agentic-six-stage-loop.md`                                                                 | 6段階ループ（Triage/Conductor/Worker/Verifier/Gate/Trust Ledger）対応表 + Trust Ledger 索引（#780） |
 
 ### 7.1 既知の構造的課題（次期リファクタリング候補）
@@ -362,9 +362,9 @@ ai-loop ドキュメント全体で同じ意味に使う。
 ## 10. 関連ドキュメント
 
 - [`concept.md`](./concept.md) — ai-loop コンセプト定義（L0-L5・Phase 計画）
-- [`adaptive-production-loop.md`](../../workflows/ai-loop/adaptive-production-loop.md) — 6 ステップサイクル・1 サイクル contract 正本
+- [`adaptive-production-loop.md`](./adaptive-production-loop.md) — 6 ステップサイクル・1 サイクル contract 正本
 - [`arbiter-policy.md`](./arbiter-policy.md) — Human-owned 境界・escalate 予算
-- [`docs/ai/subagent-delegation/README.md`](../subagent-delegation/README.md) — 委譲プロトコル（Harness 層の隣接正本）
+- `subagent-delegation/README.md` — 委譲プロトコル（Harness 層の隣接正本）
 - issue [#726](https://github.com/s977043/plangate/issues/726) / [#727](https://github.com/s977043/plangate/issues/727) / [#728](https://github.com/s977043/plangate/issues/728) / [#729](https://github.com/s977043/plangate/issues/729) — intake 待ち知見
 
 ---

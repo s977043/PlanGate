@@ -14,7 +14,7 @@
 全体では PlanGate の WF-00〜03・C-1・C-2 を共通利用し、**Arbiter は C-3
 （人間の計画承認）を置換する C-3' として動作する**
 （位置づけの詳細は
-[`docs/workflows/ai-loop/00_concept.md`](../../workflows/ai-loop/00_concept.md) §3）。
+[`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) §3）。
 
 動作の核心は 3 ステップ:
 
@@ -39,7 +39,7 @@ Arbiter は、PlanGate で積み重ねた統制資産 — 失敗履歴・INC 群
 を継承し、堅牢な on-the-loop モデルを構築することを目的とする。
 本 PoC を独立リポジトリではなく PlanGate リポジトリ内で行う本質的な理由は、
 これらの資産が**ここにしか存在しない**ためである。詳細な資産分類は
-[`docs/ai/ai-loop/asset-inventory.md`](./asset-inventory.md) を参照。
+`asset-inventory.md` を参照。
 
 ---
 
@@ -53,7 +53,7 @@ Arbiter は PlanGate の延長（v9 / 2.0）ではなく、**次世代検証プ�
 | 承認の時制 | 実行前 | 逸脱検知時 |
 | 制御の基本姿勢 | block until approved | flow → detect → escalate |
 | 現在の位置づけ | 本番統制を担う（並走期全体） | PoC 段階の独立プロジェクト |
-| AI 責務の終点 | PR 作成まで（C-4 は人間） | **merge-ready**（CI green + AI レビュー指摘対応完了）まで一気通貫（[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.3） |
+| AI 責務の終点 | PR 作成まで（C-4 は人間） | **merge-ready**（CI green + AI レビュー指摘対応完了）まで一気通貫（[`00_concept.md`](./00_concept.md) §3.3） |
 
 ### 配置方針（Phase 0 判断）
 
@@ -110,7 +110,7 @@ AGENTS.md                   同上
 ## 4. flow → detect → escalate の基本フロー
 
 本フローは C-1 PASS・C-2 完了後の **C-3' ゲート**として発火する
-（[`00_concept.md`](../../workflows/ai-loop/00_concept.md) §3.2 パイプライン参照）。
+（[`00_concept.md`](./00_concept.md) §3.2 パイプライン参照）。
 W チェックの対象は C-2 通過済みの plan アーティファクト（plan.md /
 todo.md / test-cases.md）である。実差分（実装コード）に対する独立判定は
 第 2 段の detect（CI/PR 時の AI レビュー。00_concept.md §3.3）が担う。
@@ -150,7 +150,7 @@ todo.md / test-cases.md）である。実差分（実装コード）に対する
 > `A=approve & B=reject`（不一致）は実際には「即 human escalate」ではなく
 > **severity 分類**（critical/major → human escalate、minor/low →
 > Model C/D 裁定で auto-approve に到達し得る）へ進む。詳細分岐の正本は
-> [`docs/workflows/ai-loop/flow-detect.md`](../../workflows/ai-loop/flow-detect.md)
+> [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md)
 > §3.2〜3.3。
 
 ### detect フェーズの入力（L2 入力 4 軸）
@@ -246,4 +246,4 @@ L0 統制契約層        承認境界 / 責務モデル / HO / mode 判定（on
 - `docs/ai/ai-loop/asset-inventory.md` — PlanGate 共通資産の uses/not-uses 分類
 - `docs/ai/ai-loop/ho-paths.md` — touches-HO 判定基準リスト
 - `docs/ai/ai-loop/related-specs.md` — 既存仕様との関係整理
-- [`docs/workflows/ai-loop/00_concept.md`](../../workflows/ai-loop/00_concept.md) §3 — PlanGate フロー共通化と C-3 置換（C-3'）の確定パイプライン・責務範囲
+- [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) §3 — PlanGate フロー共通化と C-3 置換（C-3'）の確定パイプライン・責務範囲

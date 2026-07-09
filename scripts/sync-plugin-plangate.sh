@@ -29,7 +29,12 @@ _normalize_model() {
   sed '1,/^---$/{s/^model: .*/model: inherit/;}' "$1"
 }
 _tmp_norm=""
-trap 'rm -f "${_tmp_norm:-}"' EXIT INT TERM
+_ai_loop_map_file=""
+# per-file 一時ファイルも trap 対象にして中断時 leak を塞ぐ（gemini MEDIUM）。
+# POSIX sh に local は無く関数内代入も global なので、最後に割り当てた値を trap が掃除する。
+_tmp_rewritten=""
+_tmp_ho=""
+trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_tmp_ho:-}"' EXIT INT TERM
 
 sync_dir() {
   _src="$1"; _dst="$2"; _label="$3"
@@ -101,18 +106,28 @@ done
 #   内部管理系は対象外）→ 同上 references/（ho-paths.md のみ雛形注記ヘッダを前置）
 # - scripts/ai-loop/{arbiter,test_arbiter}.py → .../ai-loop-cycle/scripts/
 # 旧同期先（plugin/plangate/docs/ 全体・plugin/plangate/scripts/ai-loop/）は廃止。
+#
+# issue #790: references/ へ書き込む内容は正本 verbatim ではなく、
+# scripts/_ai_loop_link_rewrite.py で markdown リンクを自己完結化してから
+# 書き込む（正本側の `../`/`../../`/`../../../` 相対リンクは plugin 導入先で
+# リンク切れになるため）。変換は plugin コピーにのみ適用し、正本
+# docs/workflows/ai-loop/*.md・docs/ai/ai-loop/*.md 自体は変更しない。
 AI_LOOP_WORKFLOWS_DIR="$REPO_ROOT/docs/workflows/ai-loop"
 AI_LOOP_SPEC_DIR="$REPO_ROOT/docs/ai/ai-loop"
 AI_LOOP_SCRIPTS_DIR="$REPO_ROOT/scripts/ai-loop"
-PLUGIN_AI_LOOP_SKILL_DIR="$PLUGIN_DIR/skills/ai-loop-cycle"
+PLUGIN_AI_LOOP_SKILL_NAME="ai-loop-cycle"
+PLUGIN_AI_LOOP_SKILL_DIR="$PLUGIN_DIR/skills/$PLUGIN_AI_LOOP_SKILL_NAME"
 PLUGIN_AI_LOOP_REFS="$PLUGIN_AI_LOOP_SKILL_DIR/references"
 PLUGIN_AI_LOOP_SCRIPTS="$PLUGIN_AI_LOOP_SKILL_DIR/scripts"
+AI_LOOP_LINK_REWRITER="$REPO_ROOT/scripts/_ai_loop_link_rewrite.py"
 
 # docs/ai/ai-loop から同梱する思想・仕様層ファイル名（内部管理系除外の選定結果）
 _ai_loop_spec_files="design-philosophy.md arbiter-policy.md concept.md README.md hotl-merge-entry-criteria.md related-specs.md"
 
 _sync_ai_loop_file() {
-  # $1=src file, $2=dst dir, $3=label（ログ用）
+  # $1=src file, $2=dst dir, $3=label（ログ用）— リンク変換なしの単純コピー
+  # （scripts/*.py 等、markdown リンクを含まない同期対象向け。references/ の
+  #  markdown は _sync_ai_loop_ref_content を使う）
   _f="$1"; _dst_dir="$2"; _label="$3"
   mkdir -p "$_dst_dir"
   _base="$(basename "$_f")"
@@ -127,27 +142,77 @@ _sync_ai_loop_file() {
 # references/ はフラット配置（workflows 10 本 + spec 6 本 + ho-paths.md = 17 本、
 # ファイル名衝突なしを確認済み）。SKILL.md は本ループの対象外（親ディレクトリに
 # 配置されるため references/*.md の glob には含まれず、削除ループの対象にもならない）
+#
+# bundle 集合（_ai_loop_expected_refs）はリンク変換（issue #790）の判定にも使う
+# ため、コピーより前に全件を確定させる（二段構成: (1) 期待 basename 一覧を確定
+# → (2) 内容を変換しつつ書き込み。先にコピーしながら集合を積み上げると、後半で
+# 追加される bundle ファイルへの内部リンクを前半ファイルの変換時点でまだ判定
+# できない）。
+#
+# issue #790 MAJOR 是正: リンク変換は basename 単独では別実体へ誤ポイントし得る
+# （例 docs/ai/subagent-delegation/README.md が ai-loop の README.md と basename
+# 衝突）。同一実体判定のため basename → **バンドル元ソース実パス** の写像も
+# ここで確定し TSV でリライタへ渡す（key 集合がバンドル集合を成す）。
 _ai_loop_expected_refs=""
+_ai_loop_map_file="$(mktemp)"
+: > "$_ai_loop_map_file"
 if [ -d "$AI_LOOP_WORKFLOWS_DIR" ]; then
   for _f in "$AI_LOOP_WORKFLOWS_DIR"/*.md; do
     [ -f "$_f" ] || continue
-    _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_REFS" "skills/ai-loop-cycle/references"
-    _ai_loop_expected_refs="$_ai_loop_expected_refs $(basename "$_f")"
+    _b="$(basename "$_f")"
+    _ai_loop_expected_refs="$_ai_loop_expected_refs $_b"
+    printf '%s\t%s\n' "$_b" "$_f" >> "$_ai_loop_map_file"
+  done
+fi
+if [ -d "$AI_LOOP_SPEC_DIR" ]; then
+  for _name in $_ai_loop_spec_files; do
+    [ -f "$AI_LOOP_SPEC_DIR/$_name" ] || continue
+    _ai_loop_expected_refs="$_ai_loop_expected_refs $_name"
+    printf '%s\t%s\n' "$_name" "$AI_LOOP_SPEC_DIR/$_name" >> "$_ai_loop_map_file"
+  done
+  if [ -f "$AI_LOOP_SPEC_DIR/ho-paths.md" ]; then
+    _ai_loop_expected_refs="$_ai_loop_expected_refs ho-paths.md"
+    printf '%s\t%s\n' "ho-paths.md" "$AI_LOOP_SPEC_DIR/ho-paths.md" >> "$_ai_loop_map_file"
+  fi
+fi
+
+_sync_ai_loop_ref_content() {
+  # $1=content src file（変換前の内容。ho-paths.md はヘッダ前置後の tmp file）
+  # $2=source path（相対リンク解決の基準となる論理ソースパス。ho-paths.md は
+  #    ヘッダ前置前の元パス）、$3=dst basename（例: 00_concept.md）、$4=label
+  # references/ へ書き込む直前に markdown リンクを自己完結化する（issue #790）:
+  #   同一実体のバンドル内部参照 → ./name.md、本スキル自身の SKILL.md →
+  #   ../SKILL.md、それ以外（外部正本・別実体）→ リンク解除しインラインコード化
+  _content_src="$1"; _source_path="$2"; _base="$3"; _label="$4"
+  mkdir -p "$PLUGIN_AI_LOOP_REFS"
+  _dfile="$PLUGIN_AI_LOOP_REFS/$_base"
+  _tmp_rewritten="$(mktemp)"
+  python3 "$AI_LOOP_LINK_REWRITER" "$_content_src" "$_source_path" \
+    "$PLUGIN_AI_LOOP_SKILL_NAME" "$_ai_loop_map_file" > "$_tmp_rewritten"
+  if [ ! -f "$_dfile" ] || ! cmp -s "$_tmp_rewritten" "$_dfile"; then
+    if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD COPY (links self-contained): $_label/$_base"
+    else cp "$_tmp_rewritten" "$_dfile"; _log "COPY (links self-contained): $_label/$_base"; fi
+    changed=1
+  fi
+  rm -f "$_tmp_rewritten"
+}
+
+if [ -d "$AI_LOOP_WORKFLOWS_DIR" ]; then
+  for _f in "$AI_LOOP_WORKFLOWS_DIR"/*.md; do
+    [ -f "$_f" ] || continue
+    _sync_ai_loop_ref_content "$_f" "$_f" "$(basename "$_f")" "skills/ai-loop-cycle/references"
   done
 fi
 if [ -d "$AI_LOOP_SPEC_DIR" ]; then
   for _name in $_ai_loop_spec_files; do
     _f="$AI_LOOP_SPEC_DIR/$_name"
     [ -f "$_f" ] || continue
-    _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_REFS" "skills/ai-loop-cycle/references"
-    _ai_loop_expected_refs="$_ai_loop_expected_refs $_name"
+    _sync_ai_loop_ref_content "$_f" "$_f" "$_name" "skills/ai-loop-cycle/references"
   done
 
-  # ho-paths.md はプロジェクト固有のため、雛形注記ヘッダを前置してコピーする
+  # ho-paths.md はプロジェクト固有のため、雛形注記ヘッダを前置してからリンク変換する
   _ho_src="$AI_LOOP_SPEC_DIR/ho-paths.md"
   if [ -f "$_ho_src" ]; then
-    mkdir -p "$PLUGIN_AI_LOOP_REFS"
-    _ho_dst="$PLUGIN_AI_LOOP_REFS/ho-paths.md"
     _tmp_ho="$(mktemp)"
     {
       printf '%s\n' '> **雛形注記**: 本ファイルは PlanGate リポジトリでの運用実績を示す配布時の参考例です。'
@@ -156,13 +221,8 @@ if [ -d "$AI_LOOP_SPEC_DIR" ]; then
       printf '\n'
       cat "$_ho_src"
     } > "$_tmp_ho"
-    if [ ! -f "$_ho_dst" ] || ! cmp -s "$_tmp_ho" "$_ho_dst"; then
-      if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD COPY (template header prepended): skills/ai-loop-cycle/references/ho-paths.md"
-      else cp "$_tmp_ho" "$_ho_dst"; _log "COPY (template header prepended): skills/ai-loop-cycle/references/ho-paths.md"; fi
-      changed=1
-    fi
+    _sync_ai_loop_ref_content "$_tmp_ho" "$_ho_src" "ho-paths.md" "skills/ai-loop-cycle/references"
     rm -f "$_tmp_ho"
-    _ai_loop_expected_refs="$_ai_loop_expected_refs ho-paths.md"
   fi
 fi
 # plugin 側の skills/ai-loop-cycle/references/ から、正本側に存在しなくなったファイルを削除する
@@ -181,7 +241,8 @@ if [ -d "$PLUGIN_AI_LOOP_REFS" ]; then
   done
 fi
 
-# arbiter 裁定エンジン + テストを同期（__pycache__ は対象外）
+# arbiter 裁定エンジン + テストを同期（__pycache__ は対象外。markdown リンクを
+# 含まないためリンク変換は不要、単純コピーの _sync_ai_loop_file を使う）
 if [ -d "$AI_LOOP_SCRIPTS_DIR" ]; then
   for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py"; do
     [ -f "$_f" ] || continue

@@ -170,4 +170,4 @@ ai-loop-workflow の説明では、以下の表現を採用する。
 - [`review-feedback-loop.md`](./review-feedback-loop.md) — Remember / Optimize の実体となるレビュー指摘還元ループ
 - [`flow-detect.md`](./flow-detect.md) — C-3' の flow→detect→escalate 動作フロー
 - [`decision-table.md`](./decision-table.md) — terminal state と decision record
-- [`docs/ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — Human-owned 境界と escalate 予算
+- [`docs/ai/ai-loop/arbiter-policy.md`](./arbiter-policy.md) — Human-owned 境界と escalate 予算

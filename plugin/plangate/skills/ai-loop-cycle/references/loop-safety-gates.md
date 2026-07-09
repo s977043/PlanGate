@@ -2,8 +2,8 @@
 
 > 対応 issue: [#728](https://github.com/s977043/plangate/issues/728)（loop-safety gates）
 > 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ。PlanGate 本番フロー
-> （WF-00〜WF-07）には適用しない（[`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) 冒頭）。
-> 思想的根拠: [`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) **I-6「停止できないループはループではない」**
+> （WF-00〜WF-07）には適用しない（[`design-philosophy.md`](./design-philosophy.md) 冒頭）。
+> 思想的根拠: [`design-philosophy.md`](./design-philosophy.md) **I-6「停止できないループはループではない」**
 > （+ サーキットブレーカーによる自律そのものの一時停止という 2 層停止機構）。
 > 発火位置: [`flow-detect.md`](./flow-detect.md) **§2 flow フェーズへの進入前**に置く事前ゲート。
 > flow-detect.md 本体（boundary / lite / class 判定）は変更しない。本書はその手前の
@@ -140,7 +140,7 @@ flow 進入前に、以下 5 ゲートをこの順で通過確認する。**い�
   （**3 ラウンド**）は [`00_concept.md`](./00_concept.md) §「収束ルール」/
   [`adaptive-production-loop.md`](./adaptive-production-loop.md) の terminal state
   遷移表が正本。escalate 予算（severity 別の昇格上限・サーキットブレーカー連動）は
-  [`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §7 /
+  [`arbiter-policy.md`](./arbiter-policy.md) §7 /
   [`decision-table.md`](./decision-table.md) §6 が正本。本ゲートはこれらの値を
   変更・再宣言せず、「budget が設定されていること」自体の存在確認のみ行う。
 - **budget 未設定の指示**: §2 の再形成テンプレートに従い soft cap を注入して
@@ -197,12 +197,12 @@ Gate 1〜4 のいずれかで停止した場合、以下の定型で報告する
 ## 6. 既存正本との不整合防止（再定義しない事項の一覧）
 
 本書は以下を**再定義しない**。値・機構の変更が必要になった場合は、当該正本の
-版上げ手続き（[`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) §6.2）に従う。
+版上げ手続き（[`design-philosophy.md`](./design-philosophy.md) §6.2）に従う。
 
 | 事項                                           | 正本                                                                                                |
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | 対応ラウンド上限（3 ラウンド）・terminal state | [`00_concept.md`](./00_concept.md) / [`adaptive-production-loop.md`](./adaptive-production-loop.md) |
-| escalate 予算・severity 別の昇格上限           | [`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §7                                        |
+| escalate 予算・severity 別の昇格上限           | [`arbiter-policy.md`](./arbiter-policy.md) §7                                        |
 | サーキットブレーカー（CB-1〜CB-3）             | [`decision-table.md`](./decision-table.md) §6                                                       |
 | boundary / lite / class 判定                   | [`flow-detect.md`](./flow-detect.md) §2                                                             |
 | provenance スキーマ                            | [`decision-table.md`](./decision-table.md) §5                                                       |
@@ -211,10 +211,10 @@ Gate 1〜4 のいずれかで停止した場合、以下の定型で報告する
 
 ## 7. 関連ドキュメント
 
-- [`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) — I-6（本ゲートの思想的根拠）・§8 トリアージ（#728 の仕分け結果）
+- [`design-philosophy.md`](./design-philosophy.md) — I-6（本ゲートの思想的根拠）・§8 トリアージ（#728 の仕分け結果）
 - [`flow-detect.md`](./flow-detect.md) — 本ゲートの直後に発火する flow フェーズ（参照のみ、変更なし）
 - [`00_concept.md`](./00_concept.md) — 対応ラウンド上限・収束ルールの正本
 - [`adaptive-production-loop.md`](./adaptive-production-loop.md) — 1 サイクル contract（Goal/Evaluate/Stop/Memory/Schedule/Boundary）
-- [`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — escalate 予算の正本
+- [`arbiter-policy.md`](./arbiter-policy.md) — escalate 予算の正本
 - [`decision-table.md`](./decision-table.md) — terminal state・サーキットブレーカーの正本
 - issue [#728](https://github.com/s977043/plangate/issues/728) — 本書の起源

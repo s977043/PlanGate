@@ -2,8 +2,8 @@
 
 > 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
 > 非適用: PlanGate 本番フロー（WF-00〜WF-07）
-> 実装本体: [`scripts/ai-loop/arbiter.py`](../../../scripts/ai-loop/arbiter.py)
-> テスト: [`scripts/ai-loop/test_arbiter.py`](../../../scripts/ai-loop/test_arbiter.py)
+> 実装本体: `arbiter.py`
+> テスト: `test_arbiter.py`
 
 ---
 
@@ -89,7 +89,7 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json
 echo '{...}' | python3 scripts/ai-loop/arbiter.py
 ```
 
-入力 JSON のフィールド仕様は [`arbiter.py`](../../../scripts/ai-loop/arbiter.py)
+入力 JSON のフィールド仕様は `arbiter.py`
 モジュール docstring および [`decision-table.md`](./decision-table.md) §2・§5 を
 正本とする。
 
@@ -115,7 +115,7 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 保存した decision record は次回以降の監査・L4 学習（[`review-feedback-loop.md`](./review-feedback-loop.md)）
 の入力となる。
 
-摩擦 ID は台帳（[`run-001-frictions.md`](../../working/ai-loop-runs/run-001-frictions.md)）が単一権威。新しい F-NNN は台帳への
+摩擦 ID は台帳（`run-001-frictions.md`）が単一権威。新しい F-NNN は台帳への
 追記と同時にのみ発行する（run 記録・PR 本文のみでの新 ID 発行は不可 —
 多セッション並行時の二重採番防止。F-34 と同根・2026-07-08 の F-35〜39 台帳欠落が実例）。
 採番前に台帳の最大 ID を確認する（§2-(0) の run 採番照合と同型）。
@@ -134,7 +134,7 @@ python3 scripts/ai-loop/arbiter.py --input /path/to/input.json \
 `AUTO_APPROVED`（exit code `0`）で exec 完了後・PR 作成前に、maker と独立の
 sonnet サブエージェント（**rubric grader**）へ exec 差分を委託する
 （手順詳細・rubric 5 項目・委託プロンプト定型は
-[`ai-loop-cycle` SKILL.md](../../../.claude/skills/ai-loop-cycle/SKILL.md)
+[`ai-loop-cycle` SKILL.md](../SKILL.md)
 Step 5.5 を正本とし、本節では再定義しない）。
 
 1. maker 差分 + 計画の Goal/確定文言を grader に入力する
@@ -156,7 +156,7 @@ Step 5.5 を正本とし、本節では再定義しない）。
    `git diff --name-only <base>...HEAD` を突合し、宣言外の変更がゼロであることを確認する
    （宣言外変更あり → exec 差し戻し or C-3' 再裁定）
 2. self-review スキル（Phase 1〜13 全観点）を実行する
-3. [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)
+3. `plan-review-readiness-gate.md`
    §7/§8 観点を通す
 4. [`review-feedback-loop.md`](./review-feedback-loop.md) §2 で過去に還元済みの
    観点（過去の CI 失敗・AI レビュー指摘から抽出されたチェック項目）を通す
@@ -205,7 +205,7 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
    [`review-feedback-loop.md`](./review-feedback-loop.md) §2 の L4 学習閉ループへ
    還元し、次回の強化セルフレビュー（手順 (6)）で事前に捕捉されるようにする
 5. **収束ルール**: 対応ラウンド上限は 3。超過時は human escalate
-   （[`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §7 escalate 予算
+   （[`arbiter-policy.md`](./arbiter-policy.md) §7 escalate 予算
    と接続）。新規指摘が minor / info のみになった時点で、記録を条件に
    merge-ready 判定へ進んでよい（[`00_concept.md`](./00_concept.md) §3.3）
 6. **DoD**: CI 全 job green **かつ** AI レビュー指摘がゼロ、または全件対応完了
@@ -223,7 +223,7 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 
 ## 3. 検証可能性 4 条件への適合
 
-[`orchestrator-mode.md`](../../../.claude/rules/orchestrator-mode.md) §検証可能性
+`orchestrator-mode.md` §検証可能性
 の 4 条件に対する `arbiter.py` の適合状況:
 
 | 条件                 | 適合内容                                                                                                                                                                   |
@@ -239,15 +239,15 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 
 - 本エンジンは PlanGate 本番フロー（WF-00〜WF-07・`bin/plangate`・
   `scripts/hooks/`）から一切呼ばれない**隔離 PoC**である
-  （[`docs/ai/ai-loop/phase3-impact-report.md`](../../ai/ai-loop/phase3-impact-report.md) §b.1
+  （`phase3-impact-report.md` §b.1
   トリガー 1 の判断記録を参照）
 - W チェック（Model A/B/C/D）の verdict 品質は **L1（本 runbook を実行する
   呼び出し側）の責務**。`arbiter.py`（L2）は入力された verdict の内容が
   正しいかどうかを検証しない（決定論ロジックの適用のみ）
 - boundary=touches-HO は W チェック結果・severity 分類・C/D 裁定の**すべて
-  をスキップする絶対条件**（[`ho-paths.md`](../../ai/ai-loop/ho-paths.md) 判定ルール）
+  をスキップする絶対条件**（[`ho-paths.md`](./ho-paths.md) 判定ルール）
 - provenance の `issued_by` は自己申告であり、署名等の発行元検証機構は
-  本 PoC のスコープ外（[`phase3-impact-report.md`](../../ai/ai-loop/phase3-impact-report.md) §d
+  本 PoC のスコープ外（`phase3-impact-report.md` §d
   リスク 5、issue #420 EH-3 発行元検証と同型の未解決課題）
 
 ---
@@ -257,12 +257,12 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 - [`docs/workflows/ai-loop/adaptive-production-loop.md`](./adaptive-production-loop.md) — 6 層自己改善ループと Scheduling / Goal / Evaluate 分離の正本
 - [`docs/workflows/ai-loop/decision-table.md`](./decision-table.md) — Decision table・provenance schema・CB
 - [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — flow→detect→escalate 動作フロー
-- [`docs/ai/ai-loop/ho-paths.md`](../../ai/ai-loop/ho-paths.md) — boundary=touches-HO 判定の正本
-- [`docs/ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — Arbiter L0 policy
-- [`docs/ai/ai-loop/phase3-impact-report.md`](../../ai/ai-loop/phase3-impact-report.md) — 分離トリガー条件・判断記録
+- [`docs/ai/ai-loop/ho-paths.md`](./ho-paths.md) — boundary=touches-HO 判定の正本
+- [`docs/ai/ai-loop/arbiter-policy.md`](./arbiter-policy.md) — Arbiter L0 policy
+- `phase3-impact-report.md` — 分離トリガー条件・判断記録
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject / CI・AI レビュー指摘対応を L4 学習へ還元する閉ループ
-- [`.claude/rules/orchestrator-mode.md`](../../../.claude/rules/orchestrator-mode.md) — 検証可能性 4 条件の正本
+- `orchestrator-mode.md` — 検証可能性 4 条件の正本
 - [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) §3 — PlanGate フロー共通化と C-3 置換（C-3'）・merge-ready 責務範囲の正本
-- [`docs/ai/plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md) — 強化セルフレビュー §7/§8 観点の参照元
-- [`.claude/skills/ai-loop-cycle/SKILL.md`](../../../.claude/skills/ai-loop-cycle/SKILL.md) — 本 runbook の 1 サイクルを実行する手順スキル（Model A/B/C/D 委託プロンプト定型）
-- [`.claude/skills/pr-watch/SKILL.md`](../../../.claude/skills/pr-watch/SKILL.md) — 手順 (7) の CI/AI レビュー指摘対応ループの監視・対応定型
+- `plan-review-readiness-gate.md` — 強化セルフレビュー §7/§8 観点の参照元
+- [`.claude/skills/ai-loop-cycle/SKILL.md`](../SKILL.md) — 本 runbook の 1 サイクルを実行する手順スキル（Model A/B/C/D 委託プロンプト定型）
+- `pr-watch/SKILL.md` — 手順 (7) の CI/AI レビュー指摘対応ループの監視・対応定型

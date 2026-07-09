@@ -2,7 +2,7 @@
 
 > 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
 > 非適用: PlanGate 本番フロー（WF-00〜WF-07）
-> 位置づけ: L4 学習層（[`concept.md`](../../ai/ai-loop/concept.md) §7）の PoC 定義。
+> 位置づけ: L4 学習層（[`concept.md`](./concept.md) §7）の PoC 定義。
 > フル実装は Phase 4、本ドキュメントはフロー定義と手動運用（human-operated L4）を先行させる
 
 ---
@@ -61,7 +61,7 @@ PR レビューで受けた指摘を観点として抽出・還元し、次の P
 
 PR レビュー指摘（外部ボット・人間レビュアー）を指摘 ID（`R-NNN` 方式）付きで
 収集する。ID 採番と追記専用集約の方式は
-[`working-context.md`](../../../.claude/rules/working-context.md) の
+`working-context.md` の
 `review-external.md` 節（C-2 指摘の差分管理）を資産として継承する。指摘ゼロの
 回でも「指摘なし」を明示記録し、監査の連続性を保つ。
 
@@ -72,10 +72,10 @@ PR レビュー指摘（外部ボット・人間レビュアー）を指摘 ID�
 | 軸 | 値 | 説明 |
 | ---- | ---- | ---- |
 | 再発性 | 再発性あり / 一過性 | 同型の指摘が将来の変更でも起こり得るか |
-| severity | critical / major / minor / info | [`review-principles.md`](../../../.claude/rules/review-principles.md) §3 の 4 段階定義に従う |
+| severity | critical / major / minor / info | `review-principles.md` §3 の 4 段階定義に従う |
 
 > **注（severity の別軸性）**: ここでの severity は **PR レビュー指摘の分類**であり
-> [`review-principles.md`](../../../.claude/rules/review-principles.md) §3（info を含む 4 段階）に従う。
+> `review-principles.md` §3（info を含む 4 段階）に従う。
 > W チェック不一致の severity 分類（[`flow-detect.md`](./flow-detect.md) §3.2、low を含む 4 段階）とは
 > **別軸**であり、値域も異なる。混同しないこと。
 
@@ -88,8 +88,8 @@ PR レビュー指摘（外部ボット・人間レビュアー）を指摘 ID�
 | 還元先 | 対象 | 責務 |
 | -------- | ------ | ------ |
 | skill（例: `self-review`） | 作業手順・チェックリストで捕捉できる指摘 | AI-owned（編集可） |
-| gate 観点ドキュメント（例: [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)） | 計画・レビュー観点で捕捉できる指摘 | AI-owned（編集可） |
-| policy | auto-approve 条件・裁定ルールに関わる指摘 | **Human-owned 固定**（第0の承認境界 = [`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §6） |
+| gate 観点ドキュメント（例: `plan-review-readiness-gate.md`） | 計画・レビュー観点で捕捉できる指摘 | AI-owned（編集可） |
+| policy | auto-approve 条件・裁定ルールに関わる指摘 | **Human-owned 固定**（第0の承認境界 = [`arbiter-policy.md`](./arbiter-policy.md) §6） |
 | 還元不要 | 一過性・案件固有 | 記録のみ |
 
 policy への還元候補は AI が draft 提案までしか行えない。発行・適用は
@@ -155,11 +155,11 @@ Codex）で検出された指摘 7 件を issue #670 で還元しており、本
 
 ## 6. 安全制約
 
-- policy への還元は第0の承認境界（[`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §6）
+- policy への還元は第0の承認境界（[`arbiter-policy.md`](./arbiter-policy.md) §6）
   により Human-owned 固定。AI は policy draft の提案までしか行えず、発行・適用
   は人間が行う。
 - skill / gate への還元であっても、対象が HO パス
-  （[`ho-paths.md`](../../ai/ai-loop/ho-paths.md)）に触れる場合は human escalate
+  （[`ho-paths.md`](./ho-paths.md)）に触れる場合は human escalate
   へ切り替える。
 - 学習ループ自身が承認境界を侵食してはならない（「自分の枠を自分で書き換え
   ない」の L4 版）。還元ループが policy への還元を自己承認する経路を持たない
@@ -170,8 +170,8 @@ Codex）で検出された指摘 7 件を issue #670 で還元しており、本
 ## 7. 関連ドキュメント
 
 - [`docs/workflows/ai-loop/adaptive-production-loop.md`](./adaptive-production-loop.md) — 6 層自己改善ループ、Remember / Optimize 分離、`/goal` / `/loop` 責務分離の正本
-- [`docs/ai/ai-loop/concept.md`](../../ai/ai-loop/concept.md) — Arbiter の基本概念・L4 学習層（§7）
+- [`docs/ai/ai-loop/concept.md`](./concept.md) — Arbiter の基本概念・L4 学習層（§7）
 - [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — W チェック・severity 分類・Model C/D 裁定
 - [`docs/workflows/ai-loop/decision-table.md`](./decision-table.md) — Decision table・provenance schema・サーキットブレーカー
-- [`docs/ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — 第0の承認境界（§6）
-- [`.claude/rules/working-context.md`](../../../.claude/rules/working-context.md) — `review-external.md` R-NNN 方式（資産継承元）
+- [`docs/ai/ai-loop/arbiter-policy.md`](./arbiter-policy.md) — 第0の承認境界（§6）
+- `working-context.md` — `review-external.md` R-NNN 方式（資産継承元）

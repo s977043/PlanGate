@@ -53,7 +53,7 @@ escalate  : 逸脱（W チェック不一致 / boundary=touches-HO / 予算超�
 
 ### 4.1 基本判定表
 
-> 判定表の正本は [`docs/workflows/ai-loop/flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §3.1。本表は policy 文脈での再掲であり、相違がある場合は flow-detect.md を優先する。
+> 判定表の正本は [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) §3.1。本表は policy 文脈での再掲であり、相違がある場合は flow-detect.md を優先する。
 
 | モデル A | モデル B | → 裁定 |
 | --------- | --------- | -------- |

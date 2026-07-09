@@ -3,7 +3,7 @@
 > 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
 > 非適用: PlanGate 本番フロー（WF-00〜WF-07）
 > lite 基準の制定・改版は policy 扱い（第0の承認境界 =
-> [`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §6、Human-owned 固定）。
+> [`arbiter-policy.md`](./arbiter-policy.md) §6、Human-owned 固定）。
 > AI は基準改定の draft 提案までしか行えず、発行・適用は人間が行う
 
 ---
@@ -11,7 +11,7 @@
 ## 1. 目的
 
 ai-loop-workflow の flow フェーズにおける `lite` 軸（[`decision-table.md`](./decision-table.md)
-§2）の判定基準を具体化する。[`mode-classification.md`](../../../.claude/rules/mode-classification.md)
+§2）の判定基準を具体化する。`mode-classification.md`
 の `lite_eligible` 判定軸（PlanGate 本番向け）を継承しつつ、PoC 用に単純化し、
 **可逆性要件**を追加する。
 
@@ -112,6 +112,6 @@ else:
 
 - [`docs/workflows/ai-loop/decision-table.md`](./decision-table.md) — `lite` 軸を使う Decision table 本体
 - [`docs/workflows/ai-loop/flow-detect.md`](./flow-detect.md) — flow フェーズでの `lite` 判定の位置づけ
-- [`docs/ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — §6 第0の承認境界（本基準の改版が Human-owned 固定である根拠）
-- [`docs/ai/ai-loop/phase3-impact-report.md`](../../ai/ai-loop/phase3-impact-report.md) — §d リスク 1・2（本ドキュメントで解消）
-- [`.claude/rules/mode-classification.md`](../../../.claude/rules/mode-classification.md) — `lite_eligible` 判定軸・AC-8 安全側・AC-11 の継承元
+- [`docs/ai/ai-loop/arbiter-policy.md`](./arbiter-policy.md) — §6 第0の承認境界（本基準の改版が Human-owned 固定である根拠）
+- `phase3-impact-report.md` — §d リスク 1・2（本ドキュメントで解消）
+- `mode-classification.md` — `lite_eligible` 判定軸・AC-8 安全側・AC-11 の継承元
