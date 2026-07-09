@@ -115,14 +115,14 @@ rm -rf "$T18_TMP"
 # === #783 R-005: リモート tag 実体照合 (実行ベース TC) ===
 # 既存 TC-01〜09 はロジック部分検証のみだったため、bare リポジトリを実 origin
 # とした fixture を作り、script を実際に実行して検証する。
-
-t18b_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
-t18b_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
+# ヘルパーは既存の t18_pass / t18_fail を再利用する。
 
 T18B_ROOT=$(mktemp -d)
 T18B_BARE="$T18B_ROOT/origin.git"
 T18B_WORK="$T18B_ROOT/work"
 
+# set -eu 下では subshell 直後の `RC=$?` 行に到達しない（非ゼロで即 abort）ため
+# `&& RC=0 || RC=$?` 書法で捕捉する（tests/extras/README.md 規約 4）
 (
   set -eu
   git init -q --bare "$T18B_BARE"
@@ -137,14 +137,14 @@ T18B_WORK="$T18B_ROOT/work"
   git branch -M main
   git remote add origin "$T18B_BARE"
   git push -q origin main
-) >/dev/null 2>&1
-T18B_SETUP_RC=$?
+) >/dev/null 2>&1 && T18B_SETUP_RC=0 || T18B_SETUP_RC=$?
 
 if [ "$T18B_SETUP_RC" -ne 0 ] || [ ! -d "$T18B_WORK/.git" ]; then
-  t18b_fail "TC-10/11/12 fixture セットアップ失敗 (rc=$T18B_SETUP_RC)"
+  t18_fail "TC-10〜14 fixture セットアップ失敗 (rc=$T18B_SETUP_RC)"
 else
-  # --- TC-10: リモート tag = origin/main → exit 0 (OK) ---
+  # --- TC-10: リモート tag (annotated) = origin/main → exit 0 (OK) ---
   (
+    set -eu
     cd "$T18B_WORK"
     echo "v2" >> f.txt
     git add f.txt
@@ -152,18 +152,23 @@ else
     git push -q origin main
     git tag -a v10 -m "release v10"
     git push -q origin refs/tags/v10:refs/tags/v10
-  ) >/dev/null 2>&1
+  ) >/dev/null 2>&1 && T18B_RC=0 || T18B_RC=$?
 
-  T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v10 2>&1) && T18B_RC=0 || T18B_RC=$?
-  if [ "$T18B_RC" -eq 0 ] && printf '%s' "$T18B_OUT" | grep -q "OK"; then
-    t18b_pass "TC-10 リモート tag = origin/main → exit 0 (OK)"
+  if [ "$T18B_RC" -ne 0 ]; then
+    t18_fail "TC-10 fixture 準備失敗 (rc=$T18B_RC)"
   else
-    t18b_fail "TC-10 rc=$T18B_RC out=$T18B_OUT"
+    T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v10 2>&1) && T18B_RC=0 || T18B_RC=$?
+    if [ "$T18B_RC" -eq 0 ] && printf '%s' "$T18B_OUT" | grep -q "OK"; then
+      t18_pass "TC-10 リモート tag (annotated) = origin/main → exit 0 (OK)"
+    else
+      t18_fail "TC-10 rc=$T18B_RC out=$T18B_OUT"
+    fi
   fi
 
   # --- TC-11: リモート tag が古い commit・ローカル tag は新 commit
   #     (2026-07-09 v8.16.0 実害シナリオ: 貼り替え済みだが push 未完了) → exit 1 ---
   (
+    set -eu
     cd "$T18B_WORK"
     git tag -a v11 -m "old release" HEAD
     git push -q origin refs/tags/v11:refs/tags/v11
@@ -173,26 +178,80 @@ else
     git push -q origin main
     # ローカルのみ貼り替え (push しない = 実害シナリオ)
     git tag -fa v11 -m "retagged locally, not pushed" HEAD
-  ) >/dev/null 2>&1
+  ) >/dev/null 2>&1 && T18B_RC=0 || T18B_RC=$?
 
-  T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v11 2>&1) && T18B_RC=0 || T18B_RC=$?
-  if [ "$T18B_RC" -eq 1 ] && printf '%s' "$T18B_OUT" | grep -qE "MISMATCH|不一致"; then
-    t18b_pass "TC-11 リモート tag 古い + ローカル tag 新しい (実害シナリオ) → exit 1 + 不一致明示"
+  if [ "$T18B_RC" -ne 0 ]; then
+    t18_fail "TC-11 fixture 準備失敗 (rc=$T18B_RC)"
   else
-    t18b_fail "TC-11 rc=$T18B_RC out=$T18B_OUT"
+    T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v11 2>&1) && T18B_RC=0 || T18B_RC=$?
+    if [ "$T18B_RC" -eq 1 ] && printf '%s' "$T18B_OUT" | grep -qE "MISMATCH|不一致"; then
+      t18_pass "TC-11 リモート tag 古い + ローカル tag 新しい (実害シナリオ) → exit 1 + 不一致明示"
+    else
+      t18_fail "TC-11 rc=$T18B_RC out=$T18B_OUT"
+    fi
   fi
 
   # --- TC-12: tag をローカルにのみ作成しリモート未 push → exit 1 (push 忘れ検出) ---
   (
+    set -eu
     cd "$T18B_WORK"
     git tag v12 HEAD
-  ) >/dev/null 2>&1
+  ) >/dev/null 2>&1 && T18B_RC=0 || T18B_RC=$?
 
-  T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v12 2>&1) && T18B_RC=0 || T18B_RC=$?
-  if [ "$T18B_RC" -eq 1 ] && printf '%s' "$T18B_OUT" | grep -qE "存在しません|push 忘れ"; then
-    t18b_pass "TC-12 ローカルのみ tag (未push) → exit 1 (push 忘れ検出)"
+  if [ "$T18B_RC" -ne 0 ]; then
+    t18_fail "TC-12 fixture 準備失敗 (rc=$T18B_RC)"
   else
-    t18b_fail "TC-12 rc=$T18B_RC out=$T18B_OUT"
+    T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v12 2>&1) && T18B_RC=0 || T18B_RC=$?
+    if [ "$T18B_RC" -eq 1 ] && printf '%s' "$T18B_OUT" | grep -qE "存在しません|push 忘れ"; then
+      t18_pass "TC-12 ローカルのみ tag (未push) → exit 1 (push 忘れ検出)"
+    else
+      t18_fail "TC-12 rc=$T18B_RC out=$T18B_OUT"
+    fi
+  fi
+
+  # --- TC-13: lightweight リモート tag = origin/main → exit 0
+  #     (peel 行なし → un-peeled 行 fallback parse の実行カバー / R-004) ---
+  (
+    set -eu
+    cd "$T18B_WORK"
+    git tag v13 HEAD
+    git push -q origin refs/tags/v13:refs/tags/v13
+  ) >/dev/null 2>&1 && T18B_RC=0 || T18B_RC=$?
+
+  if [ "$T18B_RC" -ne 0 ]; then
+    t18_fail "TC-13 fixture 準備失敗 (rc=$T18B_RC)"
+  else
+    T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v13 2>&1) && T18B_RC=0 || T18B_RC=$?
+    if [ "$T18B_RC" -eq 0 ] && printf '%s' "$T18B_OUT" | grep -q "OK"; then
+      t18_pass "TC-13 lightweight リモート tag = origin/main → exit 0 (fallback parse)"
+    else
+      t18_fail "TC-13 rc=$T18B_RC out=$T18B_OUT"
+    fi
+  fi
+
+  # --- TC-14: リモート tag = origin/main だがローカル tag が古い → exit 1、
+  #     かつ「ローカル同期 (git fetch --force)」案内で「git push」案内を含まない
+  #     (逆方向 push でリモートの正しい tag を上書きさせない / #783 指摘2) ---
+  (
+    set -eu
+    cd "$T18B_WORK"
+    # ローカル tag は 1 つ前の commit を指す (古い)
+    git tag -a v14 -m "stale local" HEAD~1
+    # リモート tag は main HEAD を指す (lightweight として直接 push)
+    git push -q origin HEAD:refs/tags/v14
+  ) >/dev/null 2>&1 && T18B_RC=0 || T18B_RC=$?
+
+  if [ "$T18B_RC" -ne 0 ]; then
+    t18_fail "TC-14 fixture 準備失敗 (rc=$T18B_RC)"
+  else
+    T18B_OUT=$(cd "$T18B_WORK" && sh "$PG_T18_SCRIPT" v14 2>&1) && T18B_RC=0 || T18B_RC=$?
+    if [ "$T18B_RC" -eq 1 ] \
+      && printf '%s' "$T18B_OUT" | grep -q "git fetch --force" \
+      && ! printf '%s' "$T18B_OUT" | grep -q "git push"; then
+      t18_pass "TC-14 remote=main + ローカル tag 古い → exit 1 + fetch 同期案内 (push 案内なし)"
+    else
+      t18_fail "TC-14 rc=$T18B_RC out=$T18B_OUT"
+    fi
   fi
 fi
 
