@@ -126,7 +126,7 @@ w_check:
 | `w_check` | ✅ | W チェック（A/B）の判定と、C/D 裁定時の詳細 |
 | `w_check.model_a` | ✅ | Model A の判定結果 |
 | `w_check.model_b` | ✅ | Model B の判定結果 |
-| `target_sha` | ✅ | 対象コミット SHA（差し替え検知用。replay 攻撃は検知・別途防止機構が必要） |
+| `target_sha` | ✅ | 対象コミット SHA（差し替え検知用。replay 攻撃は検知・別途防止機構が必要。計画時/実装後の意味論は下記参照） |
 | `boundary_check` | ✅ | boundary 判定結果（auto-approve は clean のみ） |
 | `lite_check` | ✅ | lite 判定結果（auto-approve は true のみ） |
 | `class_check` | ✅ | class 判定結果（auto-approve は no-merge のみ） |
@@ -135,6 +135,16 @@ w_check:
 | `w_check.model_c` | C/D 時のみ | Model C の判定 |
 | `w_check.model_d` | C/D 時のみ | Model D の判定 |
 | `w_check.reject_category` | model_b=reject 時のみ（omit 方式） | reject 理由カテゴリ（severity 分類の入力元。model_b=approve 時はキー自体を省略） |
+
+### `target_sha` の計画時 vs 実装後の意味論（issue #782 P3）
+
+- **計画時裁定（exec 前 C-3'）**: `target_sha` = 裁定対象計画が前提とする
+  base commit（分岐元。通常は `origin/main` の HEAD）。「この基準点に対する
+  計画」を固定する意味であり、実装コミットの代用ではない。計画時の
+  差し替え検知は base 粒度に留まる（plan 粒度ではない）点に注意
+- **再裁定・実装後**: `target_sha` = 裁定対象の実装 commit
+- **値の制約**: null / 空は不可（`validate_input` の既存挙動は不変。
+  コード変更は本項のスコープ外）
 
 ---
 
