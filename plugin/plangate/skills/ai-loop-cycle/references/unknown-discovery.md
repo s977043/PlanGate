@@ -1,7 +1,7 @@
 # Unknown Discovery — 未知の発見・記録・レビュー可能化
 
 > 対応 issue: [#729](https://github.com/s977043/plangate/issues/729)
-> 根拠となる第一原理: [`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) I-9（承認された宣言は実差分で再検証される — 二段 detect）
+> 根拠となる第一原理: [`design-philosophy.md`](./design-philosophy.md) I-9（承認された宣言は実差分で再検証される — 二段 detect）
 > 本書の位置づけ: design-philosophy.md §8 トリアージにおける #729 の配置先（「plan 前ゲートは
 > PlanGate 側と ai-loop 側の両建て、Deviation Log は decision record と統合検討、I-9 の運用面を補完」）
 > を具体化した**機構**正本。思想的根拠（なぜ）は design-philosophy.md に譲り、本書は「何を・いつ・
@@ -20,7 +20,7 @@ PlanGate はすでに「Plan → Review → 承認 → 実行」の統制を持�
 - 要約・コンテキスト圧縮後に「却下した理由」「計画変更の理由」「未解決の論点」が失われる
 
 Unknown Discovery は、この「未知」を **発見（Plan 前）→ 明示（Plan 中）→ 記録（実装中）** の
-3 ゲートに分けて構造化し、[`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) I-9
+3 ゲートに分けて構造化し、[`design-philosophy.md`](./design-philosophy.md) I-9
 （宣言と実差分は別命題であり、二段で検証する）の**運用面**を補完する。
 
 ---
@@ -51,7 +51,7 @@ Unknown Discovery の目的は、**Unknown Unknowns をできる限り Known Unk
 - 初めて触るコード領域
 - 認証・課金・権限・データ移行など失敗コストが高い作業
 - UI/UX のように「見ないと判断できない」作業
-- AI に長時間実装させる作業（[`mode-classification.md`](../../../.claude/rules/mode-classification.md) の high-risk / critical 相当）
+- AI に長時間実装させる作業（`mode-classification.md` の high-risk / critical 相当）
 - PR レビューで差分だけ見ても意図が分かりづらい作業
 
 ### 対象外（適用しなくてよい）
@@ -60,7 +60,7 @@ Unknown Discovery の目的は、**Unknown Unknowns をできる限り Known Unk
 - 明確なバグ修正
 - 既存パターンに沿った単純追加
 - 影響範囲が限定されているリファクタ
-- [`mode-classification.md`](../../../.claude/rules/mode-classification.md) の ultra-light / light 相当
+- `mode-classification.md` の ultra-light / light 相当
 
 判定不能・境界事例は、design-philosophy I-4（安全側デフォルト）に従い**適用する側**に倒す。
 
@@ -116,7 +116,7 @@ Unknown Discovery の目的は、**Unknown Unknowns をできる限り Known Unk
 5. 次回の計画に反映すべき学び
 
 **成果物**: `plan.md` 内 `## Deviations` 節、または `docs/working/TASK-XXXX/status.md`
-の「計画からの変更点」節（[`working-context.md`](../../../.claude/rules/working-context.md)
+の「計画からの変更点」節（`working-context.md`
 既存節を流用。新規 `implementation-notes.md` は本書では採用しない — status.md が既に
 「計画からの変更点」を持つため、成果物を増やすより既存節に統合するほうが Progressive
 Disclosure（L1 で読める）と整合する）。
@@ -126,7 +126,7 @@ Disclosure（L1 で読める）と整合する）。
 - 保守的な対応（当初計画の範囲内での小さな調整）は記録のうえ続行してよい
 - 設計そのものを変える必要がある逸脱を発見した場合は、記録した上で**実行を止め**、
   人間または C-3' 相当のゲートに判断を仰ぐ（ai-loop 文脈では
-  [`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) I-1 の枠内で、
+  [`design-philosophy.md`](./design-philosophy.md) I-1 の枠内で、
   承認境界の拡大解釈を自己判断しない）
 
 ---
@@ -156,7 +156,7 @@ issue #729 の検討事項に含まれる「Review 前の Understanding / Quiz G
 本書の 3 ゲート（Discovery / Tweakable Decision / Deviation Log）とは性質が異なり
 （実装前後ではなく PR レビュー直前が対象）、PlanGate の C-4（PR レビュー）運用に接続する
 別ゲートとして扱う。本書では **導入するかどうかの検討事項として記録するに留め**、
-確定した観点定義は別途 PR レビュー関連の正本（[`review-principles.md`](../../../.claude/rules/review-principles.md)
+確定した観点定義は別途 PR レビュー関連の正本（`review-principles.md`
 等）側で扱う。
 
 想定される確認観点（参考）:
@@ -168,7 +168,7 @@ issue #729 の検討事項に含まれる「Review 前の Understanding / Quiz G
 
 ## 7. I-9 との関係（運用面の補完）
 
-[`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) I-9 は「承認された宣言
+[`design-philosophy.md`](./design-philosophy.md) I-9 は「承認された宣言
 （plan）と実差分は別命題であり、二段で検証する」という**検証構造**の原理である。
 本書の 3 ゲートは、その運用面を以下のように補完する:
 
@@ -186,9 +186,9 @@ issue #729 の検討事項に含まれる「Review 前の Understanding / Quiz G
 
 ## 8. 関連ドキュメント
 
-- [`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) §2 I-9 / §8 トリアージ（#729 行）
+- [`design-philosophy.md`](./design-philosophy.md) §2 I-9 / §8 トリアージ（#729 行）
 - [`execution-runbook.md`](./execution-runbook.md) §2-(4)（decision record 保存）
 - [`decision-table.md`](./decision-table.md) §5（provenance スキーマ）
-- [`working-context.md`](../../../.claude/rules/working-context.md)（status.md「計画からの変更点」節）
-- [`mode-classification.md`](../../../.claude/rules/mode-classification.md)（適用対象の mode 判定）
+- `working-context.md`（status.md「計画からの変更点」節）
+- `mode-classification.md`（適用対象の mode 判定）
 - issue [#729](https://github.com/s977043/plangate/issues/729)

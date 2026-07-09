@@ -12,13 +12,13 @@
 
 ## 時点固定のスナップショットについて（改変しない）
 
-[`asset-inventory.md`](./asset-inventory.md) / [`related-specs.md`](./related-specs.md) /
+`asset-inventory.md` / [`related-specs.md`](./related-specs.md) /
 [`ho-paths.md`](./ho-paths.md) の Phase 0 記述、および
-[`phase3-impact-report.md`](./phase3-impact-report.md) は**時点固定の監査証跡**であり、
+`phase3-impact-report.md` は**時点固定の監査証跡**であり、
 最新化のために書き換えない。最新の役割定義は常に `design-philosophy.md` §7 を参照する。
 
 ## 実行系正本
 
 ワークフロー手順（flow-detect / decision-table / execution-runbook 等）の正本は
-[`docs/workflows/ai-loop/`](../../workflows/ai-loop/) 配下（`00_concept.md` ほか）に
+`ai-loop` 配下（`00_concept.md` ほか）に
 ある。詳細は `design-philosophy.md` §7 を参照。

@@ -77,7 +77,7 @@ W チェック不一致（A=approve, B=reject）を検出した場合:
 
 **安全側既定**: 分類不能・根拠不足・判定が曖昧な場合は安全側に倒し
 **critical 扱い（human escalate）**とする（PlanGate の AC-8 安全側原則
-[`working-context.md`](../../../.claude/rules/working-context.md)
+`working-context.md`
 と整合）。
 
 #### 3.2.1 severity 分類主体（Phase 1 確定）
@@ -89,7 +89,7 @@ severity を導出する。**Model B 自身に severity を自己申告させな
 独立した分類器が行う）。
 
 **カテゴリマッピング表**（policy 扱い・改版は Human-owned 固定。第0の
-承認境界 = [`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) §6）:
+承認境界 = [`arbiter-policy.md`](./arbiter-policy.md) §6）:
 
 | severity | reject 理由カテゴリ例 |
 | ---------- | ------------------------ |
@@ -168,9 +168,9 @@ human 昇格の洪水を防ぐため:
 
 ## 6. 関連ドキュメント
 
-- [`docs/ai/ai-loop/arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — W チェック拡張の policy 定義
-- [`docs/ai/ai-loop/ho-paths.md`](../../ai/ai-loop/ho-paths.md) — boundary=touches-HO 判定の正本
-- [`docs/ai/ai-loop/concept.md`](../../ai/ai-loop/concept.md) — Arbiter の基本概念
+- [`docs/ai/ai-loop/arbiter-policy.md`](./arbiter-policy.md) — W チェック拡張の policy 定義
+- [`docs/ai/ai-loop/ho-paths.md`](./ho-paths.md) — boundary=touches-HO 判定の正本
+- [`docs/ai/ai-loop/concept.md`](./concept.md) — Arbiter の基本概念
 - [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) — WF との並立関係
 - [`docs/workflows/ai-loop/lite-criteria.md`](./lite-criteria.md) — `lite` 判定基準（§2 flow フェーズで使用）
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — Model C/D 裁定結果を L4 学習へ還元する閉ループ（§3 で本ドキュメント §3.3 と接続）

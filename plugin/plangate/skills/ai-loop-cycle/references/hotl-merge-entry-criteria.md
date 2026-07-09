@@ -25,7 +25,7 @@
 [`design-philosophy.md`](./design-philosophy.md) §1.1 は、ai-loop の統制構造が
 HIC（枠の制定者）+ HOTL（監視・停止）+ HITL（例外・境界）のハイブリッドであり、
 C-4 merge は現行 policy で **HITL 固定**（[`arbiter-policy.md`](./arbiter-policy.md) §2
-永久 Human-owned 4 項目・[`responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md)・
+永久 Human-owned 4 項目・`responsibility-classes.md`・
 orchestrator-mode.md AS-3）であることを明文化した。
 
 一方、[`concept.md`](./concept.md) §6 Phase 5「解禁判定: policy maturity で領域ごと
@@ -47,7 +47,7 @@ on-the-loop 委譲を拡大（人間が判定）」は、将来の HOTL merge �
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 前提条件             | `issued_by`（誰が承認したか）の自己申告を解消し、署名 / HMAC 等で発行元の真正性を検証可能にする                                                                                                                                                                                                             |
 | 現状                 | ❌ 未適用                                                                                                                                                                                                                                                                                                   |
-| 検証方法（充足条件） | (a) provenance schema（[`decision-table.md`](../../workflows/ai-loop/decision-table.md) §5）に `hmac_signature`（または同等の署名フィールド）が定義されている、かつ (b) 署名検証ロジックのテストが PASS する、かつ (c) 署名なし・改ざんされた provenance が reject されることを確認する自動テストが存在する |
+| 検証方法（充足条件） | (a) provenance schema（[`decision-table.md`](./decision-table.md) §5）に `hmac_signature`（または同等の署名フィールド）が定義されている、かつ (b) 署名検証ロジックのテストが PASS する、かつ (c) 署名なし・改ざんされた provenance が reject されることを確認する自動テストが存在する |
 | 関連                 | TASK-0123 Part B（Human 判断待ち）/ PlanGate [#420](https://github.com/s977043/plangate/issues/420) 同型 / [`design-philosophy.md`](./design-philosophy.md) I-3 既知の限界注記                                                                                                                              |
 
 ### 条件 2: 事後 revert の自動化 + post-merge 監視
@@ -57,16 +57,16 @@ on-the-loop 委譲を拡大（人間が判定）」は、将来の HOTL merge �
 | 前提条件             | merge 後に問題が判明した際、自動的に revert でき、post-merge の異常を検知する監視が CB-1〜3 と接続されている                                                                                                                                                                                  |
 | 現状                 | ❌ 未設計                                                                                                                                                                                                                                                                                     |
 | 検証方法（充足条件） | (a) revert 自動化スクリプト（または CI job）が存在し、実際に revert PR を生成するデモ実行が成功する、かつ (b) post-merge 監視が CB-1（事後 reject 即時停止）/ CB-2（連続 incident による policy 自動失効）/ CB-3（escalate 予算超過）のいずれかをトリガーできることを確認するテストが存在する |
-| 関連                 | [`decision-table.md`](../../workflows/ai-loop/decision-table.md) §6 サーキットブレーカー                                                                                                                                                                                                      |
+| 関連                 | [`decision-table.md`](./decision-table.md) §6 サーキットブレーカー                                                                                                                                                                                                      |
 
 ### 条件 3: 対象クラスの厳格限定
 
 | 項目                 | 内容                                                                                                                                                                                                                                                                                                                                               |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 前提条件             | HOTL merge を許可する対象を「docs-only / ai-loop PoC 配下 / doc-light 相当」等の低リスク帯に限定し、lite 判定の 4 軸 + 可逆性（[`design-philosophy.md`](./design-philosophy.md) I-8）を merge クラスにも適用する                                                                                                                                   |
-| 現状                 | △ [`lite-criteria.md`](../../workflows/ai-loop/lite-criteria.md) は存在するが、merge クラスは現行判定から除外されている                                                                                                                                                                                                                            |
-| 検証方法（充足条件） | (a) [`lite-criteria.md`](../../workflows/ai-loop/lite-criteria.md) §2 判定軸に「merge を含む変更」の扱いが明記され、可逆性要件（§2「可逆性要件の根拠」節）を満たすことが確認できる、かつ (b) [`flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §2 の `class`（merge 含む / 含まない）軸が実データで正しく分類されることをテストで確認する |
-| 関連                 | [`design-philosophy.md`](./design-philosophy.md) 語彙集「L2 入力 4 軸」`class` / [`flow-detect.md`](../../workflows/ai-loop/flow-detect.md) §2                                                                                                                                                                                                     |
+| 現状                 | △ [`lite-criteria.md`](./lite-criteria.md) は存在するが、merge クラスは現行判定から除外されている                                                                                                                                                                                                                            |
+| 検証方法（充足条件） | (a) [`lite-criteria.md`](./lite-criteria.md) §2 判定軸に「merge を含む変更」の扱いが明記され、可逆性要件（§2「可逆性要件の根拠」節）を満たすことが確認できる、かつ (b) [`flow-detect.md`](./flow-detect.md) §2 の `class`（merge 含む / 含まない）軸が実データで正しく分類されることをテストで確認する |
+| 関連                 | [`design-philosophy.md`](./design-philosophy.md) 語彙集「L2 入力 4 軸」`class` / [`flow-detect.md`](./flow-detect.md) §2                                                                                                                                                                                                     |
 
 ### 条件 4: veto window 設計
 
@@ -83,17 +83,17 @@ on-the-loop 委譲を拡大（人間が判定）」は、将来の HOTL merge �
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 前提条件             | 誤検知率・escalate 率・CB 発火履歴等の定量指標を計測し、policy が安定運用に足る成熟度にあることを示す                                                                                                                                                                           |
 | 現状                 | ❌ 未到達                                                                                                                                                                                                                                                                       |
-| 検証方法（充足条件） | (a) 上記指標が metrics v1（[`docs/ai/metrics.md`](../metrics.md)）に接続されている、かつ (b) ai-loop PoC の実走データが一定期間（具体的な期間・サンプル数は Phase C で確定）蓄積されている、かつ (c) 指標の閾値（例: 誤検知率 X% 未満）が事前に定義され、実測値と比較可能である |
+| 検証方法（充足条件） | (a) 上記指標が metrics v1（`metrics.md`）に接続されている、かつ (b) ai-loop PoC の実走データが一定期間（具体的な期間・サンプル数は Phase C で確定）蓄積されている、かつ (c) 指標の閾値（例: 誤検知率 X% 未満）が事前に定義され、実測値と比較可能である |
 | 関連                 | [`concept.md`](./concept.md) §6 Phase 5 / metrics v1                                                                                                                                                                                                                            |
 
 ### 条件 6: 統制の実質性検証（sockpuppet 禁止との整合）
 
 | 項目                 | 内容                                                                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 前提条件             | auto-approve 機構（PlanGate #620 apply-script 等）が、sockpuppet マージ禁止（[`responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md)）と実質的に整合するかを再確認する                                                                                                                                                                                                       |
+| 前提条件             | auto-approve 機構（PlanGate #620 apply-script 等）が、sockpuppet マージ禁止（`responsibility-classes.md`）と実質的に整合するかを再確認する                                                                                                                                                                                                       |
 | 現状                 | ❌ 未検証                                                                                                                                                                                                                                                                                                                                                                                            |
-| 検証方法（充足条件） | (a) auto-approve が発行する provenance の `issued_by` が実在する人間権限に紐づくこと（条件 1 と連動）、かつ (b) auto-approve 経路が「別アカウントでの自己承認」と機能的に等価にならないことをレビューし、レビュー結果を issue に記録する、かつ (c) [`responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md) の merge = Human-owned 固定の記述と矛盾しないことを人間が確認する |
-| 関連                 | [`responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md)                                                                                                                                                                                                                                                                                                                      |
+| 検証方法（充足条件） | (a) auto-approve が発行する provenance の `issued_by` が実在する人間権限に紐づくこと（条件 1 と連動）、かつ (b) auto-approve 経路が「別アカウントでの自己承認」と機能的に等価にならないことをレビューし、レビュー結果を issue に記録する、かつ (c) `responsibility-classes.md` の merge = Human-owned 固定の記述と矛盾しないことを人間が確認する |
+| 関連                 | `responsibility-classes.md`                                                                                                                                                                                                                                                                                                                      |
 
 ---
 
@@ -112,7 +112,7 @@ on-the-loop 委譲を拡大（人間が判定）」は、将来の HOTL merge �
 
 issue #733 の段階計画（Phase A〜D）のうち、**Phase B（前提整備・個別 PBI 化）** の候補を列挙する。
 各候補は独立 PBI として起票し、HO パスに触れる部分は apply-script 方式
-（[`responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md) 準拠）で扱う。
+（`responsibility-classes.md` 準拠）で扱う。
 
 | 候補 PBI                        | 対応条件 | 概要                                                               | 備考                                                                   |
 | ------------------------------- | -------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
@@ -121,7 +121,7 @@ issue #733 の段階計画（Phase A〜D）のうち、**Phase B（前提整備�
 | veto window 機構                | 条件 4   | merge-ready 通知 → N 時間 veto 猶予 → 沈黙時 auto-merge のロジック | 通知チャネル・沈黙判定の決定論化が焦点                                 |
 
 条件 3（対象クラス限定）・条件 5（policy maturity 計測）・条件 6（統制実質性検証）は、
-Phase B で個別実装 PBI を新設するのではなく、既存の [`lite-criteria.md`](../../workflows/ai-loop/lite-criteria.md)
+Phase B で個別実装 PBI を新設するのではなく、既存の [`lite-criteria.md`](./lite-criteria.md)
 （条件 3）・metrics v1 接続（条件 5・Phase C）・レビュー記録（条件 6）の**追記・確認作業**として
 扱う想定である。個別 PBI 化が必要と判断された場合は、本表に追加する。
 
@@ -153,7 +153,7 @@ design-philosophy.md 側は本書へのリンクを追加すること（design-p
 - [`design-philosophy.md`](./design-philosophy.md) §1.1 / I-1 / I-8
 - [`concept.md`](./concept.md) §6 Phase 5
 - [`arbiter-policy.md`](./arbiter-policy.md) §2 / §6
-- [`decision-table.md`](../../workflows/ai-loop/decision-table.md) §5 provenance スキーマ / §6 サーキットブレーカー
-- [`lite-criteria.md`](../../workflows/ai-loop/lite-criteria.md)
-- [`responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md)
+- [`decision-table.md`](./decision-table.md) §5 provenance スキーマ / §6 サーキットブレーカー
+- [`lite-criteria.md`](./lite-criteria.md)
+- `responsibility-classes.md`
 - issue [#733](https://github.com/s977043/plangate/issues/733) / TASK-0123 Part B / PlanGate [#420](https://github.com/s977043/plangate/issues/420) / [#620](https://github.com/s977043/plangate/issues/620)
