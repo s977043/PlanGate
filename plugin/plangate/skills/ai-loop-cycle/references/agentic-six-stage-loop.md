@@ -44,9 +44,9 @@ Recurse`（機能責務・[`adaptive-production-loop.md`](./adaptive-production-
 | 段階 | 現行 ai-loop の対応資産（ファイル:節 / 機構名） | 充足 | gap |
 | --- | --- | :-: | --- |
 | **Triage**（task 発見/受付/risk 分類） | `LoopSpec.trigger.type`（manual/issue_created/pr_opened/scheduled・[`loopspec.md`](./loopspec.md) §2）／[`loop-safety-gates.md`](./loop-safety-gates.md)（非停止プロンプト事前拒否・[`flow-detect.md`](./flow-detect.md) §2 事前ゲート）／boundary・lite・class 判定（[`flow-detect.md`](./flow-detect.md) §2）／[`lite-criteria.md`](./lite-criteria.md)／intent-classifier 共通 skill 参照（[`00_concept.md`](./00_concept.md) §6） | △ | **「タスク自体を発見・選別する層」が無い**。現状は「人が持ち込んだ 1 変更」を受ける intake のみ。issue/PR キューを走査して着手対象を選ぶ discovery が未定義（issue の判定と一致） |
-| **Conductor**（分解/役割割当/進行制御） | Scheduling 判断表（[`execution-runbook.md`](./execution-runbook.md) §2-(7) / [`adaptive-production-loop.md`](./adaptive-production-loop.md) §5）／round 上限 3・escalate 予算（`arbiter-policy.md` §7）／retry/stop/block 選択 | △ | **タスク分解（step 化）と役割割当が未定義**。ai-loop は分解を PlanGate WF 側に委ねる設計（[`00_concept.md`](./00_concept.md) §2「工程の実体は共通利用」）のため、conductor 責務が「PR 後 Scheduling」に偏在。着手前の分解制御が空白 |
-| **Worker**（生成/実装/PR 準備） | `LoopSpec.actors.maker`（[`loopspec.md`](./loopspec.md) §2）／exec（[`execution-runbook.md`](./execution-runbook.md) §2-(6)）／ai-loop-cycle SKILL の maker 委託／PR 作成 | △ | **worker として独立の role 定義が無い**。maker は「checker と異なる主体」制約（I-2）で識別されるだけで、責務記述が薄い |
-| **Verifier**（C-1/C-2/W/CI/grader） | C-1・C-2 共通踏襲（[`00_concept.md`](./00_concept.md) §3.2）／W チェック Model A/B/C/D（[`flow-detect.md`](./flow-detect.md) §3 / `arbiter-policy.md` §4）／rubric grader Step 5.5（`.claude/skills/ai-loop-cycle/SKILL.md` Step 5.5）／CI・AI レビュー第2段 detect（[`00_concept.md`](./00_concept.md) §3.3） | ○ | ほぼ充足。ただし **C-1 が「loop の前提」であって loop 内ステップとして義務化されていない**（#782 P1-1 と同根。計画品質ゲートの hard gate 化は §5 未決 #3 参照）。code-run 用 rubric variant 欠落（#782 P2） |
+| **Conductor**（分解/役割割当/進行制御） | Scheduling 判断表（[`execution-runbook.md`](./execution-runbook.md) §2-(7) / [`adaptive-production-loop.md`](./adaptive-production-loop.md) §5）／round 上限 3（[`execution-runbook.md`](./execution-runbook.md) §2-(7) が正本値）・escalate 予算（`arbiter-policy.md` §7）／retry/stop/block 選択 | △ | **タスク分解（step 化）と役割割当が未定義**。ai-loop は分解を PlanGate WF 側に委ねる設計（[`00_concept.md`](./00_concept.md) §2「工程の実体は共通利用」）のため、conductor 責務が「PR 後 Scheduling」に偏在。着手前の分解制御が空白 |
+| **Worker**（生成/実装/PR 準備） | `LoopSpec.actors.maker`（[`loopspec.md`](./loopspec.md) §2）／exec（[`execution-runbook.md`](./execution-runbook.md) §2-(5) exit code 分岐後の実装〜(5b) grader）／ai-loop-cycle SKILL の maker 委託／PR 作成 | △ | **worker として独立の role 定義が無い**。maker は「checker と異なる主体」制約（I-2）で識別されるだけで、責務記述が薄い |
+| **Verifier**（C-1/C-2/W/CI/grader） | C-1・C-2 共通踏襲（[`00_concept.md`](./00_concept.md) §3.2）／W チェック Model A/B/C/D（[`flow-detect.md`](./flow-detect.md) §3 / `arbiter-policy.md` §4）／rubric grader Step 5.5（`.claude/skills/ai-loop-cycle/SKILL.md` Step 5.5）／CI・AI レビュー第2段 detect（[`00_concept.md`](./00_concept.md) §3.3） | ○ | ほぼ充足。ただし **C-1 が「loop の前提」であって loop 内ステップとして義務化されていない**（#782 P1-1 と同根。計画品質ゲートの hard gate 化は §5「残る未決事項」参照）。code-run 用 rubric variant 欠落（#782 P2） |
 | **Gate**（判定/terminal state） | `arbiter.py` 3 値（AUTO_APPROVED/HUMAN_ESCALATED/BLOCKED・exit 0/2/3）／`MERGE_READY`（DoD 状態・[`00_concept.md`](./00_concept.md) §3.3）／C-4 wait（Human-owned 固定）／CB-1/2/3（[`decision-table.md`](./decision-table.md) §6） | ○ | ほぼ充足。terminal state と DoD 状態の区別は `design-philosophy.md` §5 語彙集で明示済み。命名 alias を本表に載せるだけ |
 | **Trust Ledger**（記録/学習） | decision record JSON（provenance・[`decision-table.md`](./decision-table.md) §5）／摩擦台帳 `run-001-frictions.md`（F-1〜F-41）／[`review-feedback-loop.md`](./review-feedback-loop.md)（R-NNN 還元・suppression S-1/S-2）／CB-1 事後 reject | △ | **単一正本・保存対象・更新条件・成功/失敗メトリクスが未統合**（§3 で定義） |
 
@@ -152,7 +152,7 @@ Conductor の役割は「PR 後 Scheduling 判断表（[`execution-runbook.md`](
 次アクション選択」に限定する。**着手前のタスク分解（step 化・役割割当）は
 PlanGate WF 側（WF-01〜03）に委譲したまま**とし、ai-loop 側に新設しない。
 
-この分担は [`hybrid-architecture.md`](../../../.claude/rules/hybrid-architecture.md)
+この分担は `.claude/rules/hybrid-architecture.md`
 Rule 1（Workflow は順序と完了条件だけを持つ。実装ノウハウは書かない）と
 衝突しない: PlanGate WF が引き続き「分解の実体」を持ち、ai-loop-workflow
 （本書含む）は「分解済みの成果物をどう Evaluate/Schedule するか」だけを扱う。
