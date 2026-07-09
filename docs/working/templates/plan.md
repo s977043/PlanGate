@@ -167,7 +167,7 @@ created_by: orchestrator
 
 ### レビューレーン計画（#786）
 
-> C-2 ゲートのレーン責務は `.claude/rules/review-principles.md` §7-bis / `docs/ai/external-reviewer-interface.md` が正本。本表はそれを成果物単位の実行計画へ落とすためのもの（レーンの新設・変更は正本側で行う）。
+> C-2 ゲートのレーン責務は [`.claude/rules/review-principles.md`](../../../.claude/rules/review-principles.md) §7-bis / [`docs/ai/external-reviewer-interface.md`](../../ai/external-reviewer-interface.md) が正本。本表はそれを成果物単位の実行計画へ落とすためのもの（レーンの新設・変更は正本側で行う）。
 
 | 成果物 | レーン（観点/独立性） | unavailable 時の代替 |
 |---|---|---|
