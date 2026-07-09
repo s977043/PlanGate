@@ -10,9 +10,9 @@
 - 共有スキル: `.agents/skills/`（Codex CLI と共用）
 - ワークフロー詳細: [`docs/ai-driven-development.md`](docs/ai-driven-development.md) / Orchestrator: [`docs/orchestrator-mode.md`](docs/orchestrator-mode.md)
 
-## v8.13.0 全体健全化・エージェント model tier（最新リリース機能）
+## v8.16.0 ai-loop 実運用（dogfooding）・Plugin 同梱配布（最新リリース機能）
 
-> 最新リリース: **v8.13.0**（2026-06-11）全体監査駆動の健全化（docs 鮮度・テスト隔離・スリム化）+ エージェント model tier（docs/ai/model-profiles.md §11）+ Hook enforcement 実態整合 + doc-light モード。v8.12.0 で並列レビューア実行・Plugin sync 品質ガード、v8.11.0 で Plugin 正式配布、v8.10.0 で Codex CLI parity 完成。EPIC [#193 Harness Improvement Roadmap](https://github.com/s977043/plangate/issues/193) は **CLOSED / COMPLETED**（Phase 0-6 + Governance + #213 全 Done、子 12/12 CLOSED）。リリース履歴の正本は [`CHANGELOG.md`](CHANGELOG.md)。
+> 最新リリース: **v8.16.0**（2026-07-08）ai-loop（旧 Arbiter）を自身の開発プロセスへの dogfooding として初実運用（Run-001〜021 の摩擦是正閉ループ・auto-merge 廃止 + merge-ready 運用・rubric grader・HO 境界の実行時 parse 化。**PlanGate 本番フロー WF-00〜07 は不変・ai-loop は PoC**）+ `ai-loop-cycle` スキルの plangate プラグイン同梱（bundled resources・導入前に ho-paths の導入先確定が必須）+ Hook Enforcement 物理配線 11/12 + サブエージェント委譲プロトコル正本。v8.15.0 で Review Gate 機械化・approve ハードニング、v8.14.0 で C-3 HTML 出力 + ワンアクション承認、v8.13.0 で全体健全化 + model tier。リリース履歴の正本は [`CHANGELOG.md`](CHANGELOG.md)。
 
 - **Metrics v1**（v8.6.0 初出）: [`docs/ai/metrics.md`](docs/ai/metrics.md) — `bin/plangate metrics <TASK> --collect|--report|--validate`
 - **Reporting & Retrospective v1**（v8.9.0 / #200）: [`docs/ai/reporting.md`](docs/ai/reporting.md) — events.ndjson 由来で sprint retrospective を導出、retrospective テンプレート [`docs/working/templates/retrospective-template.md`](docs/working/templates/retrospective-template.md)
