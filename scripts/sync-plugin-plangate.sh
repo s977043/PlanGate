@@ -30,7 +30,11 @@ _normalize_model() {
 }
 _tmp_norm=""
 _ai_loop_map_file=""
-trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}"' EXIT INT TERM
+# per-file 一時ファイルも trap 対象にして中断時 leak を塞ぐ（gemini MEDIUM）。
+# POSIX sh に local は無く関数内代入も global なので、最後に割り当てた値を trap が掃除する。
+_tmp_rewritten=""
+_tmp_ho=""
+trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_tmp_ho:-}"' EXIT INT TERM
 
 sync_dir() {
   _src="$1"; _dst="$2"; _label="$3"

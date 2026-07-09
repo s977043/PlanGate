@@ -17,6 +17,15 @@ PG_T54_REFS="$PG_T54_PLUGIN/skills/ai-loop-cycle/references"
 t54_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t54_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
+# _t54_hash: references/ 内の全ファイル内容を安定ハッシュ化する。
+# xargs cat は BSD/macOS では空入力時に cat を引数なし実行 → stdin 待ちで永久
+# ハングするため使わない（gemini HIGH）。空入力でも while ループ本体が走らず
+# md5sum/cksum が空ハッシュを返すのでハングしない。
+_t54_hash() {
+  find "$1" -type f 2>/dev/null | sort | while IFS= read -r _hf; do cat "$_hf"; done \
+    | { md5sum 2>/dev/null || cksum; }
+}
+
 # TC-00: rewriter helper 存在・構文チェック（scripts/_*.py は HO 外 / mode-classification.md）
 if [ -f "$PG_T54_REWRITER" ] && python3 -m py_compile "$PG_T54_REWRITER" 2>/dev/null; then
   t54_pass "TC-00 _ai_loop_link_rewrite.py 存在・compile OK"
@@ -50,9 +59,9 @@ else
 fi
 
 # TC-02: 冪等性 — 2 回目の sync 実行で references/ に追加差分が出ないこと
-_t54_hash_before=$(find "$PG_T54_REFS" -type f 2>/dev/null | sort | xargs cat 2>/dev/null | md5sum 2>/dev/null || find "$PG_T54_REFS" -type f 2>/dev/null | sort | xargs cat 2>/dev/null | cksum)
+_t54_hash_before=$(_t54_hash "$PG_T54_REFS")
 sh "$PG_T54_SCRIPT" >/dev/null 2>&1 || true
-_t54_hash_after=$(find "$PG_T54_REFS" -type f 2>/dev/null | sort | xargs cat 2>/dev/null | md5sum 2>/dev/null || find "$PG_T54_REFS" -type f 2>/dev/null | sort | xargs cat 2>/dev/null | cksum)
+_t54_hash_after=$(_t54_hash "$PG_T54_REFS")
 if [ "$_t54_hash_before" = "$_t54_hash_after" ]; then
   t54_pass "TC-02 2 回目の sync で references/ に差分なし（冪等性）"
 else

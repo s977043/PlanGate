@@ -71,8 +71,12 @@ _LINK_RE = re.compile(r"(?<!!)\[([^\]]*)\]\(([^)\s][^)]*)\)")
 _EXTERNAL_SCHEMES = ("http://", "https://", "mailto:")
 
 
-def _norm(path: str) -> str:
-    return os.path.normpath(path)
+def _real(path: str) -> str:
+    # 同一実体判定は symlink を解決してから比較する（macOS の /tmp→/private/tmp 等で
+    # リンク解決先とバンドル元 abspath の表現が食い違い、同一実体を「別」と誤判定して
+    # 過剰に inline code 化するのを防ぐ / gemini MEDIUM）。realpath は存在しない末尾
+    # 要素にも安全（字句的に正規化）で、存在ファイルには symlink 解決も効く。
+    return os.path.realpath(path)
 
 
 def _inline(segments: list[str], basename: str, bundle: set[str]) -> str:
@@ -144,8 +148,8 @@ def _rewrite_links_in_segment(
         # 相対リンクを src_dir 基準で解決した実パスがバンドル元と一致する時のみ
         # ./name.md 化する。不一致なら別実体なので外部扱い（inline code）。
         if basename in bundle:
-            resolved = _norm(os.path.join(src_dir, path_part))
-            if resolved == _norm(bundle_src[basename]):
+            resolved = _real(os.path.join(src_dir, path_part))
+            if resolved == _real(bundle_src[basename]):
                 return f"[{link_text}](./{basename}{anchor_suffix})"
             return _inline(segments, basename, bundle)
 
@@ -159,7 +163,8 @@ def rewrite(
 ) -> str:
     """フェンス付きコードブロックを保護しつつ、それ以外にリンク変換を適用する。"""
     bundle = set(bundle_src.keys())
-    src_dir = os.path.dirname(os.path.abspath(source_path))
+    # source_path も realpath 化して基準ディレクトリを求める（両辺 symlink 解決で一致判定）
+    src_dir = os.path.dirname(os.path.realpath(source_path))
     out: list[str] = []
     last = 0
     for m in _FENCE_RE.finditer(content):
@@ -180,7 +185,7 @@ def _load_bundle_map(tsv_path: str) -> dict[str, str]:
     bundle_src: dict[str, str] = {}
     with open(tsv_path, encoding="utf-8") as f:
         for line in f:
-            line = line.rstrip("\n")
+            line = line.rstrip("\r\n")  # CRLF 環境で末尾 \r を残さない（gemini MEDIUM）
             if not line:
                 continue
             basename, _, abspath = line.partition("\t")
