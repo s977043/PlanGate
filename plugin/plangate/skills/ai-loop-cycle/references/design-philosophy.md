@@ -364,7 +364,7 @@ ai-loop ドキュメント全体で同じ意味に使う。
 - [`concept.md`](./concept.md) — ai-loop コンセプト定義（L0-L5・Phase 計画）
 - [`adaptive-production-loop.md`](./adaptive-production-loop.md) — 6 ステップサイクル・1 サイクル contract 正本
 - [`arbiter-policy.md`](./arbiter-policy.md) — Human-owned 境界・escalate 予算
-- [`docs/ai/subagent-delegation/README.md`](./README.md) — 委譲プロトコル（Harness 層の隣接正本）
+- `subagent-delegation/README.md` — 委譲プロトコル（Harness 層の隣接正本）
 - issue [#726](https://github.com/s977043/plangate/issues/726) / [#727](https://github.com/s977043/plangate/issues/727) / [#728](https://github.com/s977043/plangate/issues/728) / [#729](https://github.com/s977043/plangate/issues/729) — intake 待ち知見
 
 ---

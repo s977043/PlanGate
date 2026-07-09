@@ -29,7 +29,8 @@ _normalize_model() {
   sed '1,/^---$/{s/^model: .*/model: inherit/;}' "$1"
 }
 _tmp_norm=""
-trap 'rm -f "${_tmp_norm:-}"' EXIT INT TERM
+_ai_loop_map_file=""
+trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}"' EXIT INT TERM
 
 sync_dir() {
   _src="$1"; _dst="$2"; _label="$3"
@@ -143,34 +144,47 @@ _sync_ai_loop_file() {
 # → (2) 内容を変換しつつ書き込み。先にコピーしながら集合を積み上げると、後半で
 # 追加される bundle ファイルへの内部リンクを前半ファイルの変換時点でまだ判定
 # できない）。
+#
+# issue #790 MAJOR 是正: リンク変換は basename 単独では別実体へ誤ポイントし得る
+# （例 docs/ai/subagent-delegation/README.md が ai-loop の README.md と basename
+# 衝突）。同一実体判定のため basename → **バンドル元ソース実パス** の写像も
+# ここで確定し TSV でリライタへ渡す（key 集合がバンドル集合を成す）。
 _ai_loop_expected_refs=""
+_ai_loop_map_file="$(mktemp)"
+: > "$_ai_loop_map_file"
 if [ -d "$AI_LOOP_WORKFLOWS_DIR" ]; then
   for _f in "$AI_LOOP_WORKFLOWS_DIR"/*.md; do
     [ -f "$_f" ] || continue
-    _ai_loop_expected_refs="$_ai_loop_expected_refs $(basename "$_f")"
+    _b="$(basename "$_f")"
+    _ai_loop_expected_refs="$_ai_loop_expected_refs $_b"
+    printf '%s\t%s\n' "$_b" "$_f" >> "$_ai_loop_map_file"
   done
 fi
 if [ -d "$AI_LOOP_SPEC_DIR" ]; then
   for _name in $_ai_loop_spec_files; do
     [ -f "$AI_LOOP_SPEC_DIR/$_name" ] || continue
     _ai_loop_expected_refs="$_ai_loop_expected_refs $_name"
+    printf '%s\t%s\n' "$_name" "$AI_LOOP_SPEC_DIR/$_name" >> "$_ai_loop_map_file"
   done
   if [ -f "$AI_LOOP_SPEC_DIR/ho-paths.md" ]; then
     _ai_loop_expected_refs="$_ai_loop_expected_refs ho-paths.md"
+    printf '%s\t%s\n' "ho-paths.md" "$AI_LOOP_SPEC_DIR/ho-paths.md" >> "$_ai_loop_map_file"
   fi
 fi
 
 _sync_ai_loop_ref_content() {
   # $1=content src file（変換前の内容。ho-paths.md はヘッダ前置後の tmp file）
-  # $2=dst basename（例: 00_concept.md）、$3=label（ログ用）
+  # $2=source path（相対リンク解決の基準となる論理ソースパス。ho-paths.md は
+  #    ヘッダ前置前の元パス）、$3=dst basename（例: 00_concept.md）、$4=label
   # references/ へ書き込む直前に markdown リンクを自己完結化する（issue #790）:
-  #   bundle 内部参照 → ./name.md、本スキル自身の SKILL.md → ../SKILL.md、
-  #   それ以外の外部正本参照 → リンク解除してインラインコード化
-  _content_src="$1"; _base="$2"; _label="$3"
+  #   同一実体のバンドル内部参照 → ./name.md、本スキル自身の SKILL.md →
+  #   ../SKILL.md、それ以外（外部正本・別実体）→ リンク解除しインラインコード化
+  _content_src="$1"; _source_path="$2"; _base="$3"; _label="$4"
   mkdir -p "$PLUGIN_AI_LOOP_REFS"
   _dfile="$PLUGIN_AI_LOOP_REFS/$_base"
   _tmp_rewritten="$(mktemp)"
-  python3 "$AI_LOOP_LINK_REWRITER" "$_content_src" "$PLUGIN_AI_LOOP_SKILL_NAME" $_ai_loop_expected_refs > "$_tmp_rewritten"
+  python3 "$AI_LOOP_LINK_REWRITER" "$_content_src" "$_source_path" \
+    "$PLUGIN_AI_LOOP_SKILL_NAME" "$_ai_loop_map_file" > "$_tmp_rewritten"
   if [ ! -f "$_dfile" ] || ! cmp -s "$_tmp_rewritten" "$_dfile"; then
     if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD COPY (links self-contained): $_label/$_base"
     else cp "$_tmp_rewritten" "$_dfile"; _log "COPY (links self-contained): $_label/$_base"; fi
@@ -182,14 +196,14 @@ _sync_ai_loop_ref_content() {
 if [ -d "$AI_LOOP_WORKFLOWS_DIR" ]; then
   for _f in "$AI_LOOP_WORKFLOWS_DIR"/*.md; do
     [ -f "$_f" ] || continue
-    _sync_ai_loop_ref_content "$_f" "$(basename "$_f")" "skills/ai-loop-cycle/references"
+    _sync_ai_loop_ref_content "$_f" "$_f" "$(basename "$_f")" "skills/ai-loop-cycle/references"
   done
 fi
 if [ -d "$AI_LOOP_SPEC_DIR" ]; then
   for _name in $_ai_loop_spec_files; do
     _f="$AI_LOOP_SPEC_DIR/$_name"
     [ -f "$_f" ] || continue
-    _sync_ai_loop_ref_content "$_f" "$_name" "skills/ai-loop-cycle/references"
+    _sync_ai_loop_ref_content "$_f" "$_f" "$_name" "skills/ai-loop-cycle/references"
   done
 
   # ho-paths.md はプロジェクト固有のため、雛形注記ヘッダを前置してからリンク変換する
@@ -203,7 +217,7 @@ if [ -d "$AI_LOOP_SPEC_DIR" ]; then
       printf '\n'
       cat "$_ho_src"
     } > "$_tmp_ho"
-    _sync_ai_loop_ref_content "$_tmp_ho" "ho-paths.md" "skills/ai-loop-cycle/references"
+    _sync_ai_loop_ref_content "$_tmp_ho" "$_ho_src" "ho-paths.md" "skills/ai-loop-cycle/references"
     rm -f "$_tmp_ho"
   fi
 fi

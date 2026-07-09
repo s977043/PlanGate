@@ -1,8 +1,10 @@
 # tests/extras/ta-54-ai-loop-link-selfcontained.sh
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
 # issue #790: plugin/plangate/skills/ai-loop-cycle/references/ の markdown リンクを
-# 自己完結化（bundle内部 → ./name.md、本スキル自身の SKILL.md → ../SKILL.md、
-# それ以外の外部正本 → インラインコード化）する sync-plugin-plangate.sh 改修の検証。
+# 自己完結化（同一実体のbundle内部 → ./name.md、本スキル自身の SKILL.md →
+# ../SKILL.md、それ以外の外部・別実体 → インラインコード化）する
+# sync-plugin-plangate.sh 改修の検証。3 レーンレビュー反映（basename 衝突の
+# 誤ポイント是正・変換差分検証力の強化・dead-link 走査の拡張）。
 
 printf '\n=== TA-54: ai-loop plugin bundle link self-containment (issue #790) ===\n'
 
@@ -33,14 +35,16 @@ sh "$PG_T54_SCRIPT" >/dev/null 2>&1 || true
 
 # TC-01: dead-link 0 検証。ただし本スキル自身の SKILL.md 参照（../SKILL.md）は
 # references/ の親ディレクトリに実在するため意図的な例外として除外する
-# （rule 2）。それ以外の `](../` パターンが 1 件でも残っていれば dead link。
+# （rule 2）。inline link `](../` に加え、参照定義 `]: ../` と autolink
+# `<../...>` も検出対象に含める（現コーパスに無くても将来の堅牢化 / F2）。
 if [ -d "$PG_T54_REFS" ]; then
-  _t54_dead=$(grep -rnE '\]\(\.\./' "$PG_T54_REFS"/*.md 2>/dev/null | grep -v '](\.\./SKILL\.md' || true)
+  _t54_dead=$(grep -rnE '\]\(\.\./|\]:[[:space:]]*\.\./|<\.\./' "$PG_T54_REFS"/*.md 2>/dev/null \
+    | grep -v '](\.\./SKILL\.md' || true)
 else
   _t54_dead="NO_REFS_DIR"
 fi
 if [ -z "$_t54_dead" ]; then
-  t54_pass "TC-01 dead-link 0（../SKILL.md 以外の ](../ パターンなし）"
+  t54_pass "TC-01 dead-link 0（../SKILL.md 以外の ../ 参照が inline/ref/autolink とも 0）"
 else
   t54_fail "TC-01 dead link 残存: $_t54_dead"
 fi
@@ -55,21 +59,39 @@ else
   t54_fail "TC-02 2 回目の sync で references/ に差分あり（冪等性違反）"
 fi
 
-# TC-03: 変換の正しさ — bundle 内部参照（00_concept.md）が ./00_concept.md に、
-# 外部参照（working-context.md）が inline code に変換されていること
+# TC-03a: 変換差分検証力（F3）— **実際に変換された行**を assert する。
+# adaptive-production-loop.md の arbiter-policy 参照は正本で
+# `](../../ai/ai-loop/arbiter-policy.md)`（cross-dir 相対）であり、変換後は
+# `](./arbiter-policy.md)` になる。同時に正本側には `./arbiter-policy.md` が
+# **無い**ことを確認し、無変換でも PASS してしまう空振りを防ぐ。
 if [ -f "$PG_T54_REFS/adaptive-production-loop.md" ] \
-  && grep -q '](\./00_concept\.md)' "$PG_T54_REFS/adaptive-production-loop.md" 2>/dev/null; then
-  t54_pass "TC-03a bundle 内部参照が ./00_concept.md に変換されている"
+  && grep -q '](\./arbiter-policy\.md)' "$PG_T54_REFS/adaptive-production-loop.md" 2>/dev/null \
+  && ! grep -q '](\./arbiter-policy\.md)' "$PG_T54_ROOT/docs/workflows/ai-loop/adaptive-production-loop.md" 2>/dev/null; then
+  t54_pass "TC-03a cross-dir bundle 参照が実際に ./arbiter-policy.md へ変換された（正本には無い）"
 else
-  t54_fail "TC-03a bundle 内部参照（00_concept.md）の変換を確認できない"
+  t54_fail "TC-03a ./arbiter-policy.md への変換を確認できない（変換差分検証力）"
 fi
 
+# TC-03b: 外部参照（working-context.md）がインラインコードに変換されていること
 if [ -f "$PG_T54_REFS/00_concept.md" ] \
   && grep -q '`working-context\.md`' "$PG_T54_REFS/00_concept.md" 2>/dev/null \
   && ! grep -q '\]\([^)]*working-context\.md\)' "$PG_T54_REFS/00_concept.md" 2>/dev/null; then
   t54_pass "TC-03b 外部参照（working-context.md）がインラインコードに変換されている"
 else
   t54_fail "TC-03b 外部参照（working-context.md）のインラインコード変換を確認できない"
+fi
+
+# TC-03c: basename 衝突の誤ポイント回帰固定（Finding 1）。
+# design-philosophy.md の `../subagent-delegation/README.md`（= 委譲プロトコル
+# README、別実体）が basename `README.md` の衝突で ai-loop の README へ silent
+# 誤ポイントしていた。同一実体判定により inline code `subagent-delegation/README.md`
+# になり、`](./README.md)` 誤リンクが **存在しない** ことを assert する。
+if [ -f "$PG_T54_REFS/design-philosophy.md" ] \
+  && grep -q '`subagent-delegation/README\.md`' "$PG_T54_REFS/design-philosophy.md" 2>/dev/null \
+  && ! grep -q '](\./README\.md)' "$PG_T54_REFS/design-philosophy.md" 2>/dev/null; then
+  t54_pass "TC-03c basename 衝突が別実体として inline 化・./README.md 誤リンクなし"
+else
+  t54_fail "TC-03c 誤ポイント是正を確認できない（subagent-delegation/README.md）"
 fi
 
 # TC-04: 本スキル自身の SKILL.md 参照は ../SKILL.md のまま維持される（rule 2、
@@ -91,7 +113,17 @@ else
   t54_fail "TC-05 正本 docs に意図しない差分: $_t54_src_dirty"
 fi
 
-# restore（ta-26 と同じ流儀 — テストが実リポジトリ state を変えたままにしない）
-rm -rf "$PG_T54_PLUGIN"
-cp -r "$PG_T54_TMPDIR/plugin_backup" "$PG_T54_PLUGIN"
+# restore（RiverReview I-3 hardening）— backup 存在を検証してから破壊的復元し、
+# 復元失敗を検知して非ゼロ終了（$fail 加算）する。CI の tmp 書込失敗時に real
+# plugin/plangate を破壊したまま復旧できずツリー汚染する経路を塞ぐ。
+if [ -d "$PG_T54_TMPDIR/plugin_backup" ] && [ -n "$(ls -A "$PG_T54_TMPDIR/plugin_backup" 2>/dev/null)" ]; then
+  rm -rf "$PG_T54_PLUGIN"
+  if cp -r "$PG_T54_TMPDIR/plugin_backup" "$PG_T54_PLUGIN" 2>/dev/null; then
+    :
+  else
+    t54_fail "TC-restore plugin/plangate の復元に失敗（ツリー汚染の可能性・要手動復旧）"
+  fi
+else
+  t54_fail "TC-restore backup 不在のため復元スキップ（plugin/plangate を破壊しない）"
+fi
 rm -rf "$PG_T54_TMPDIR"
