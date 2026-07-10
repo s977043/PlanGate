@@ -28,23 +28,24 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 [ $# -eq 1 ] || { echo "usage: $0 --dry-run|--apply" >&2; exit 1; }
-case "$1" in --dry-run|--apply) ;; *) echo "usage: $0 --dry-run|--apply" >&2; exit 1;; esac
+ACTION="$1"
+case "$ACTION" in --dry-run|--apply) ;; *) echo "usage: $0 --dry-run|--apply" >&2; exit 1;; esac
 
 # HO 対象パス走査（"setup-team" を含むファイルのみ対象にする。冪等: 0件ならSKIP）
-TARGETS=""
+set --  # 対象を位置パラメータで保持（スペース含みパス安全・gemini 指摘）
 for pat in "$ROOT"/.claude/commands/*.md "$ROOT"/.claude/agents/*.md "$ROOT"/.claude/rules/*.md; do
   [ -f "$pat" ] || continue
   if grep -qF 'setup-team' "$pat" 2>/dev/null; then
-    TARGETS="$TARGETS $pat"
+    set -- "$@" "$pat"
   fi
 done
 
-if [ -z "$TARGETS" ]; then
+if [ $# -eq 0 ]; then
   echo "[apply] SKIP: HO 対象 (.claude/commands|agents|rules) に 'setup-team' 参照なし（対応不要・適用済み or 該当なし）"
   exit 0
 fi
 
-if [ "$1" = "--dry-run" ]; then
+if [ "$ACTION" = "--dry-run" ]; then
   echo "[dry-run] 置換予定（setup-team → subagent-team-design）:"
   echo "[注意] growth-core / repo-local / river-review 文脈の setup-team 言及行は置換対象外。"
   echo "       該当行が含まれる場合は --apply せず手動編集すること（命名ポリシー: 他版は名前を保持）。"
