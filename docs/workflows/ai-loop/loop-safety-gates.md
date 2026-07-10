@@ -1,8 +1,9 @@
 # loop-safety-gates — flow 進入前の非停止プロンプト事前ゲート
 
 > 対応 issue: [#728](https://github.com/s977043/plangate/issues/728)（loop-safety gates）
-> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ。PlanGate 本番フロー
-> （WF-00〜WF-07）には適用しない（[`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) 冒頭）。
+> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用。
+> [`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) 冒頭）。②導入先リポジトリ = ho-paths 確定 +
+> LoopSpec scope.allowed_paths 宣言を前提に適用可。
 > 思想的根拠: [`design-philosophy.md`](../../ai/ai-loop/design-philosophy.md) **I-6「停止できないループはループではない」**
 > （+ サーキットブレーカーによる自律そのものの一時停止という 2 層停止機構）。
 > 発火位置: [`flow-detect.md`](./flow-detect.md) **§2 flow フェーズへの進入前**に置く事前ゲート。

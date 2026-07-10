@@ -1,7 +1,7 @@
 # review-feedback-loop — レビュー指摘の事前チェック還元閉ループ
 
-> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
-> 非適用: PlanGate 本番フロー（WF-00〜WF-07）
+> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
+> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
 > 位置づけ: L4 学習層（[`concept.md`](./concept.md) §7）の PoC 定義。
 > フル実装は Phase 4、本ドキュメントはフロー定義と手動運用（human-operated L4）を先行させる
 

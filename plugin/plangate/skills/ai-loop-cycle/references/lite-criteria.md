@@ -1,7 +1,7 @@
 # lite-criteria — lite 判定基準
 
-> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
-> 非適用: PlanGate 本番フロー（WF-00〜WF-07）
+> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
+> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
 > lite 基準の制定・改版は policy 扱い（第0の承認境界 =
 > [`arbiter-policy.md`](./arbiter-policy.md) §6、Human-owned 固定）。
 > AI は基準改定の draft 提案までしか行えず、発行・適用は人間が行う
@@ -16,6 +16,18 @@ ai-loop-workflow の flow フェーズにおける `lite` 軸（[`decision-table
 **可逆性要件**を追加する。
 
 `docs/ai/ai-loop/phase3-impact-report.md` §d リスク 1・2 を解消する成果物。
+
+### 導入先 auto-approve 方針の注記（Phase 1 / issue #807）
+
+issue [#782](https://github.com/s977043/plangate/issues/782) P1-2
+（「実機能は常に escalate に帰結し auto-approve が実質到達不能」）への応答は、
+Human 決定（issue [#807](https://github.com/s977043/plangate/issues/807)・
+2026-07-10）により **「docs 級限定の明文化」案から「lite 全域（本ドキュメント
+§2 の 4 軸を満たせば実機能も含む）」へ更新**された。`size_ok` の機械算出化
+（ファイル数閾値ではなく可逆性・パターン踏襲度を含む複合リスクスコア化。
+対応: issue [#780](https://github.com/s977043/plangate/issues/780) slice C）は
+当面の未実装事項として残り、申告制の保証を強化する unlock 位置づけである。
+AC-8 安全側（判定不能→false）・4 軸すべてを満たすことの要求は変更しない。
 
 ---
 

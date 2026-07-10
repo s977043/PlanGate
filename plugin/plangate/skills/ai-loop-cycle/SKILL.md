@@ -1,6 +1,6 @@
 ---
 name: ai-loop-cycle
-description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行する。Use when: 「ai-loop で回して」「C-3' 裁定を実行」「arbiter で裁定して」「ai-loop 初回実走」。適用ドメインは本プラグイン同梱の ai-loop ドキュメント配下のみで、導入先プロジェクトの本番承認フローには適用しない。"
+description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行する。Use when: 「ai-loop で回して」「C-3' 裁定を実行」「arbiter で裁定して」「ai-loop 初回実走」。適用ドメイン（Phase 1）: 本プラグイン同梱の ai-loop ドキュメント配下のみで、導入先プロジェクトの本番承認フローには適用しない。導入先での適用は ho-paths 確定 + LoopSpec allowed_paths 宣言が前提。"
 ---
 
 # ai-loop-cycle
@@ -25,9 +25,13 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 - 対象は **lite 帯候補の変更**（`references/lite-criteria.md` §2 の 4 軸を満たしうる変更）。
   high-risk / critical 相当や boundary=touches-HO が明らかな変更には使わない
   （使っても flow フェーズで即 human escalate になる）。
-- 適用ドメインは本スキル同梱の ai-loop ドキュメント（`references/` 配下）のみ。
+- 適用ドメイン（Phase 1）は本スキル同梱の ai-loop ドキュメント（`references/` 配下）のみ。
   導入先の本番承認フロー（ゲート・hook 等の統制機構）からは呼ばれない隔離 PoC
-  として運用する。
+  として運用する。導入先での適用は **①ho-paths の導入先確定 ②LoopSpec
+  `scope.allowed_paths` 宣言** の 2 条件が前提。
+- **auto-approve 方針（Phase 1）**: lite 4 軸（`references/lite-criteria.md` §2）を
+  申告制・AND・判定不能→false で満たせば、**実機能も `AUTO_APPROVED` 対象に含めてよい**
+  （docs 級限定ではない）。`size_ok` は当面申告制のまま。
 - **裁定記録・摩擦台帳の保存先は導入先プロジェクトで定義する**（本スキルは強制しない）。
   既定案として、導入先の作業ディレクトリ配下に run 単位の裁定 record 用サブディレクトリ
   （例: `<作業ディレクトリ>/ai-loop-runs/`）を設ける配置が参考になるが、導入先の

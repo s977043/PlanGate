@@ -102,9 +102,14 @@ plugin/plangate/index.js    → HO-plugin
 
 ## Arbiter 固有の追加原則
 
-1. **docs/ai/ai-loop/ 配下は Phase 0 限定の例外**: Arbiter PoC ドキュメント自体は
-   AI が作成・更新できる（変更禁止リストに含まれない）。ただし、HO パスへの記述が
-   HO 本体の変更を意味するわけではない（参照のみ）。
+1. **docs/ai/ai-loop/ 配下の Phase 1 定義**（issue #739 解消 / #807）:
+   `docs/ai/ai-loop/` 配下の AI 編集可は Phase 1（導入先実リポジトリでの検証）
+   移行後も**継続**する（変更禁止リストに含まれない）。ただし、**本ファイル
+   （`ho-paths.md`）自体の変更（HO 境界の定義変更）は Human 承認必須**とする
+   — HO パス集約リストの改廃は境界そのものの変更であり、Arbiter PoC が
+   自己の判定基準を自己改変しない（AI 自己完結禁止・responsibility-classes.md
+   と一貫）。HO パスへの記述が HO 本体の変更を意味するわけではない（参照のみ）
+   という原則は変わらない。
 
 2. **policy ファイル（将来定義）は HO-policy として追加予定**: Arbiter の
    `auto-approve-lite-clean@v1` 等の policy ファイルは制定・改版が Human-owned のため、

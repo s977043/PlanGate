@@ -1,7 +1,7 @@
 # Arbiter L0 policy
 
-> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
-> 非適用: PlanGate 本番フロー（WF-00〜WF-07）
+> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
+> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
 > 上位制約の優先順: core-contract.md > responsibility-classes.md > 本 policy
 > 本 policy は「detect/escalate 判断基準」のみを追加する
 

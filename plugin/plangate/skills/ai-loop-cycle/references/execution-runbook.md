@@ -1,9 +1,27 @@
 # execution-runbook — L2 裁定エンジン PoC 実行手順
 
-> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
-> 非適用: PlanGate 本番フロー（WF-00〜WF-07）
+> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
+> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
 > 実装本体: `arbiter.py`
 > テスト: `test_arbiter.py`
+
+---
+
+## 0. 導入先での開始手順（Phase 1）
+
+導入先リポジトリで ai-loop-workflow を初めて回す際の手順（詳細は各正本を参照。
+本節は要点のみ）:
+
+1. **ho-paths を導入先で確定する**: 導入先プロジェクト自身の HO 境界を
+   `docs/ai/ai-loop/ho-paths.md`（plugin 導入先は `references/ho-paths.md`）の
+   雛形ヘッダ（同梱版に前置される「本ファイルは...配布時の参考例」注記）を
+   参照しつつ、導入先固有のパス一覧として定義する。未確定のままだと
+   全件が human escalate になる（安全側デフォルト）
+2. **LoopSpec に `scope.allowed_paths` を宣言する**: [`loopspec.md`](./loopspec.md)
+   の既存必須フィールドで、当該 run の変更可能範囲を明示する
+3. **初回 run は escalate 前提で回す**: 導入初回は W チェック・境界判定の
+   実地確認を優先し、`HUMAN_ESCALATED` への降格を前提に運用する
+   （auto-approve の到達は 2 回目以降の検証課題とする）
 
 ---
 

@@ -1,7 +1,7 @@
 # LoopSpec — ループ実行境界の宣言構造
 
-> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
-> 非適用: PlanGate 本番フロー（WF-00〜WF-07）
+> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
+> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
 > 対応 issue: [#726](https://github.com/s977043/plangate/issues/726)（4層エンジニアリングモデル・LoopSpec 提案）
 > 準拠する第一原理（`docs/ai/ai-loop/design-philosophy.md` §2）:
 > **I-1**（承認境界の不可侵）・**I-4**（安全側デフォルト）・
