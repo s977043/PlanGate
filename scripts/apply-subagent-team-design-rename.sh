@@ -48,15 +48,14 @@ if [ "$1" = "--dry-run" ]; then
   echo "[dry-run] 置換予定（setup-team → subagent-team-design）:"
   echo "[注意] growth-core / repo-local / river-review 文脈の setup-team 言及行は置換対象外。"
   echo "       該当行が含まれる場合は --apply せず手動編集すること（命名ポリシー: 他版は名前を保持）。"
-  for f in $TARGETS; do
+  for f in "$@"; do
     echo "--- $f ---"
     grep -nF 'setup-team' "$f" || true
   done
   exit 0
-elif [ "$1" = "--apply" ]; then
+elif [ "$ACTION" = "--apply" ]; then
   # sed -i の互換性 (BSD/GNU) を避け、python3 で明示置換する（apply-diff-audit-rename.sh と同方針）。
-  # shellcheck disable=SC2086
-  python3 - $TARGETS <<'PY'
+  python3 - "$@" <<'PY'
 import sys
 for f in sys.argv[1:]:
     s = open(f, encoding="utf-8").read()
