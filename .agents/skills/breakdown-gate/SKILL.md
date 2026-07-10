@@ -5,6 +5,11 @@ description: "実装着手前にタスク粒度を5要素で判定し、必要�
 
 # Breakdown Gate
 
+> **Provenance（出典・vendoring 規約）**: growth-core `task-breakdown-gate`
+> （upstream: Growth-Teams-Agent@5219642 / 2026-07-03 時点）を PlanGate 向けに
+> 汎用化して取り込み（#799）。上流への自動追従はしない — 上流更新の反映は
+> **意図的に** diff をレビューして行う（provenance 追跡 + 意図的更新の vendoring 標準）。
+
 実装着手**前**にタスクの粒度を判定し、粗すぎる場合は分割候補を提示する intake ゲート。growth-core `task-breakdown-gate` から蒸留。
 
 ## Iron Law
