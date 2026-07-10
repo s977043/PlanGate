@@ -1,0 +1,7 @@
+interface:
+  display_name: "diff-audit"
+  short_description: "Audit a change diff across multiple review phases before commit/PR"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $diff-audit to audit the current change diff before commit or PR."
+  brand_color: "#1A56DB"

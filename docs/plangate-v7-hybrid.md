@@ -138,7 +138,7 @@ orchestrator (WF-01)
   → requirements-analyst (WF-02: requirement-gap-scan)
   → qa-reviewer (WF-02: edgecase + AC 確定)
   → solution-architect (WF-03: architecture-sketch)
-  → implementation-agent (WF-04: feature-implement + self-review)
+  → implementation-agent (WF-04: feature-implement + diff-audit)
   → qa-reviewer (WF-05: acceptance-review + known-issues-log)
   → orchestrator (handoff 発行)
 ```
@@ -213,7 +213,7 @@ PR Decision（APPROVE / BLOCK / CONDITIONAL）
 | high-risk | Design + TDD + Review + Completion Gate | `think`, `approval`, `worktree`, `tdd`, `check`, `review`, `verify` | — |
 | critical | 全 Gate（人間承認 + Rollback Plan 必須） | `think`, `approval`, `worktree`, `tdd`, `review`, `verify` | — |
 
-**Skill 識別子の凡例**: `think`（plan 立案）/ `hunt`（コード調査）/ `check`（self-review）/ `tdd`（failing test first）/ `verify`（test-cases 突合）/ `worktree`（独立ブランチ作業）/ `review`（外部レビュー）/ `approval`（人間承認）。
+**Skill 識別子の凡例**: `think`（plan 立案）/ `hunt`（コード調査）/ `check`（diff-audit、旧 self-review）/ `tdd`（failing test first）/ `verify`（test-cases 突合）/ `worktree`（独立ブランチ作業）/ `review`（外部レビュー）/ `approval`（人間承認）。
 
 **`critical` の追加要件**:
 

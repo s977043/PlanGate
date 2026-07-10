@@ -197,7 +197,7 @@ plugin/plangate/
 │   ├── requirement-gap-scan/
 │   ├── review-gate/
 │   ├── risk-assessment/
-│   ├── self-review/
+│   ├── diff-audit/
 │   ├── setup-team/
 │   ├── skill-creator/
 │   ├── skill-policy-router/
@@ -260,7 +260,7 @@ plugin/plangate/
 
 ```text
 plangate:brainstorming
-plangate:self-review
+plangate:diff-audit
 plangate:subagent-driven-development
 plangate:systematic-debugging
 plangate:codex-multi-agent

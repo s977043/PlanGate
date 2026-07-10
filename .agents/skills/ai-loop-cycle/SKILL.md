@@ -155,7 +155,7 @@ python3 scripts/arbiter.py --input /path/to/input.json \
 
 ## Step 5: 分岐後の行動
 
-- **exit 0（AUTO_APPROVED）**: exec → 強化セルフレビュー（self-review スキル全観点 +
+- **exit 0（AUTO_APPROVED）**: exec → 強化セルフレビュー（diff-audit スキル全観点 +
   導入先の plan-review readiness 相当の観点）→ PR 作成 → CI/AI レビュー指摘対応ループ
   （merge-ready まで）
 - **exit 2（HUMAN_ESCALATED）**: **停止して人間へ**。`w_check` / `boundary_check` /

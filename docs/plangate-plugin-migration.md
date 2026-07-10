@@ -54,7 +54,7 @@ sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 | Skill | 役割 |
 |-------|------|
 | `brainstorming` | アイデア → 設計書（PBI INPUT PACKAGE）への昇華 |
-| `self-review` | 変更内容の17項目体系的セルフレビュー |
+| `diff-audit` | 変更内容の17項目体系的セルフレビュー（旧 self-review） |
 | `subagent-driven-development` | サブエージェント駆動の2段階レビュー開発 |
 | `systematic-debugging` | エビデンスベースの体系的デバッグ |
 | `codex-multi-agent` | Codex マルチエージェント連携 |
@@ -167,7 +167,7 @@ plugin 内 agents から rules を参照する場合、plugin ルート相対パ
 ```
 # 基盤系（5）
 plangate:brainstorming
-plangate:self-review
+plangate:diff-audit
 plangate:subagent-driven-development
 plangate:systematic-debugging
 plangate:codex-multi-agent

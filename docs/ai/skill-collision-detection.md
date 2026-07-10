@@ -17,7 +17,8 @@ agent が多重定義されうる。エージェントのスキル選択が曖�
 ### 実例（interactive-ocean の資産棚卸し・2026-07-03）
 
 - `self-review`: repo-local（12 フェーズ版）/ growth-core / plangate の
-  **3 重定義**
+  **3 重定義**（plangate 版は diff-audit への改名で解消。repo-local /
+  growth-core 側は本 PBI の対象外・実例としての記録は保持する）
 - `setup-team`: repo-local / growth-core / plangate / river-review の
   **4 重定義**（さらに repo-local には command ラッパーも存在）
 - `iterative-quality-review`（repo-local）と plangate の review-gate 系も

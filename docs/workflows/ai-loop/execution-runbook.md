@@ -155,7 +155,7 @@ Step 5.5 を正本とし、本節では再定義しない）。
 1. **宣言↔実差分の整合検証**: plan の Files to Touch と
    `git diff --name-only <base>...HEAD` を突合し、宣言外の変更がゼロであることを確認する
    （宣言外変更あり → exec 差し戻し or C-3' 再裁定）
-2. self-review スキル（Phase 1〜13 全観点）を実行する
+2. diff-audit スキル（旧 self-review、Phase 1〜13 全観点）を実行する
 3. [`plan-review-readiness-gate.md`](../../ai/plan-review-readiness-gate.md)
    §7/§8 観点を通す
 4. [`review-feedback-loop.md`](./review-feedback-loop.md) §2 で過去に還元済みの
