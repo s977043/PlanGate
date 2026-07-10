@@ -188,3 +188,4 @@ Intent に応じて optionalSkills を追加・調整する:
 ## 関連 Skill
 
 - **intent-classifier**: ユーザー依頼文から Intent を判定する。このスキルの前段として使用
+- **breakdown-gate**: タスク粒度の intake ゲート。intent-classifier よりさらに前段（PlanGate 起動前）でタスク分割要否を判定する（`.agents/skills/breakdown-gate/`）

@@ -14,6 +14,7 @@ PlanGate ワークフロー v5 / v6 / **v7** で使用するスキル群。
 | `codex-multi-agent` | マルチエージェントでタスク分解・委譲・並列実行・結果統合 | workflow |
 | `setup-team` | タスク規模・モードに応じた最適チーム設計とエージェント委譲準備 | workflow |
 | `ref-integrity-scan` | 削除・移動・改名前後の被参照（inbound）全走査（#691 outbound の相補 / #798） | developer-tools |
+| `breakdown-gate` | PlanGate 起動前の intake 判定 — タスク粒度を5要素で判定し分割候補を提示（#799） | workflow |
 
 ## v7 ハイブリッドアーキテクチャ用 Skill（10 個）
 

@@ -1,0 +1,7 @@
+interface:
+  display_name: "breakdown-gate"
+  short_description: "PlanGate 起動前の intake 判定（mode-classification にかける前の分割要否）。実装着手前..."
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $breakdown-gate to assist with this project."
+  brand_color: "#1A56DB"
