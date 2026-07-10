@@ -99,7 +99,9 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
   # 生成する専用セクション（issue #771/#790）が管理しており、.agents/ 側に
   # references/ が無いため、この汎用同期（特に削除ループ）を通すと専用
   # セクションの成果物を消してしまう。
-  if [ "$_skill_name" != "ai-loop-cycle" ]; then
+    # source に references が無いスキルは本同期の管理外として dest に触らない
+    # （汎用セマンティクス。ai-loop-cycle は専用セクションが生成するため従来は
+    #   名指しガードだったが、src 存在ガードに一般化 — gemini #805 対応）
     _src_refs="$_skill_dir/references"
     _dst_refs="$_dst_dir/references"
     if [ -d "$_src_refs" ]; then
@@ -107,7 +109,7 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
       for _rf in "$_src_refs"/*.md; do
         [ -f "$_rf" ] || continue
         [ -L "$_rf" ] && continue
-        _rb="$(basename "$_rf")"
+        _rb="${_rf##*/}"
         _rdst="$_dst_refs/$_rb"
         if [ ! -f "$_rdst" ] || ! cmp -s "$_rf" "$_rdst"; then
           if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD COPY: skills/$_skill_name/references/$_rb"
@@ -116,10 +118,10 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
         fi
       done
     fi
-    if [ -d "$_dst_refs" ]; then
+    if [ -d "$_src_refs" ] && [ -d "$_dst_refs" ]; then
       for _rf in "$_dst_refs"/*.md; do
         [ -f "$_rf" ] || continue
-        _rb="$(basename "$_rf")"
+        _rb="${_rf##*/}"
         if [ ! -f "$_src_refs/$_rb" ]; then
           if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/$_skill_name/references/$_rb"
           else rm "$_rf"; _log "DELETE: skills/$_skill_name/references/$_rb"; fi
@@ -127,7 +129,6 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
         fi
       done
     fi
-  fi
 done
 
 # ai-loop-workflow の docs / scripts を plugin へ同期（issue #771 rework）
