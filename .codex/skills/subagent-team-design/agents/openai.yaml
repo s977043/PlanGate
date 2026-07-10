@@ -1,0 +1,7 @@
+interface:
+  display_name: "subagent-team-design"
+  short_description: "PlanGate のエージェント群を前提としたマルチエージェントチーム設計（旧 setup-team）。Use when: 「エージェントチームを組んで」「複数エージェン..."
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $subagent-team-design to assist with this project."
+  brand_color: "#1A56DB"

@@ -20,7 +20,10 @@ agent が多重定義されうる。エージェントのスキル選択が曖�
   **3 重定義**（plangate 版は diff-audit への改名で解消。repo-local /
   growth-core 側は本 PBI の対象外・実例としての記録は保持する）
 - `setup-team`: repo-local / growth-core / plangate / river-review の
-  **4 重定義**（さらに repo-local には command ラッパーも存在）
+  **4 重定義**（さらに repo-local には command ラッパーも存在。plangate 版は
+  内容乖離 53%（170/318 行）で「同名で中身が別物」に該当したため
+  `subagent-team-design` への改名で解消 — #800。repo-local / growth-core /
+  river-review 側は本 PBI の対象外・実例としての記録は保持する）
 - `iterative-quality-review`（repo-local）と plangate の review-gate 系も
   目的が重複
 

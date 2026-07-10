@@ -215,7 +215,7 @@ _print_caveats() {
   [ "${PLANGATE_SETUP_HINT:-1}" = "0" ] && return 0
   printf '\n\033[1;34m━━━ PlanGate v%s インストール完了 ━━━\033[0m\n' "$PLUGIN_VERSION"
   printf '\n\033[1mStep 1\033[0m: Claude Code セッションで確認\n'
-  printf '  /setup-team\n'
+  printf '  /subagent-team-design\n'
   printf '\n\033[1mStep 2\033[0m: プラグインパスを settings.json に追加（任意）\n'
   printf '  .claude/settings.json の "plugins" に以下を追記:\n'
   printf '  "%s"\n' "$REPO_ROOT/plugin/plangate"
