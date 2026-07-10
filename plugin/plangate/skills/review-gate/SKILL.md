@@ -182,7 +182,7 @@ reason: severity=critical の finding が <N> 件あります。fix 後に再レ
 
 ### レーン 2: ロジック正確性（発火: code 変更のある全モード）
 
-出典: growth-core `reviewer-logic`。5 観点マッピング: コード品質（正確性）・保守性。§5「故障確率で判断」に直結。
+出典: growth-core `reviewer-logic`。5 観点マッピング: 可読性・保守性。§5「故障確率で判断」に直結（finding の 6 観点分類ではコード品質が典型）。
 
 チェックリスト:
 
@@ -203,18 +203,18 @@ reason: severity=critical の finding が <N> 件あります。fix 後に再レ
 
 ### レーン 4: 主張と実態の突合（claim-vs-actual）（発火: code 変更のある全モード。特に「完了」「全置換」「N% 削減」等の主張を含む PR で必須）
 
-出典: growth-core `refactor-claim-audit` + river-review `adversarial-review`（Self-Contradiction / Refactor-Claim Audit / Cross-File Leakage）。5 観点マッピング: 保守性（残骸の有無）・仕様準拠。verify-then-report 規範の実装レビュー版。
+出典: growth-core `refactor-claim-audit` + river-review `adversarial-review`（Self-Contradiction / Refactor-Claim Audit / Cross-File Leakage）。5 観点マッピング: 保守性（残骸の有無・既存パターン準拠）。finding の 6 観点分類では仕様準拠が典型。verify-then-report 規範の実装レビュー版。
 
 チェックリスト:
 
 - **完了主張の反証**: 「全置換」「移行完了」「N% 削減」等の主張を grep 実測（旧 API・旧パターンの残存検索）と独立見積りで検証する。主張を鵜呑みにしない
-- **Cross-File Leakage**: 宣言された変更スコープ外のファイルに変更が漏れていないか（diff --stat と PR 記載の突合）
+- **Cross-File Leakage**: 宣言された変更スコープ外のファイルに変更が漏れていないか（diff --stat と **PR 記載**の突合。plan の Target Files との突合は Plan Alignment 節が担当 — 突合先が異なる相補チェック）
 - **Self-Contradiction**: PR 説明・コミットメッセージ・コメント・docs の間、および同一文書内での自己矛盾
 - 不採用・反証の記録は仕様引用または実測コマンド+結果を必須とする（推測のみでの棄却・採用をしない）
 
 ## 関連
 
-- Rule: `review-gate.md`（正本 - ブロック条件・Mode 別適用条件）
+- Rule: `mode-classification.md`（Mode 別フェーズ適用マトリクス・発火条件の正本）
 - Command: `/pg-check`（差分レビュー・finding 収集）
 - Skill: `evidence-ledger`（EvidenceItem 記録手順）
 - Rule: `review-principles.md`（レビューの姿勢・禁止事項・False-positive ガード）
