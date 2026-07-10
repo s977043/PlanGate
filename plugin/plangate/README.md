@@ -78,7 +78,7 @@ cp -r ~/plangate/plugin/plangate/rules/*    /your-project/.claude/rules/
 Claude Code セッション内で以下を実行:
 
 ```text
-/setup-team
+/subagent-team-design
 ```
 
 エージェント一覧と利用可能スキルが表示されれば成功。
@@ -198,7 +198,7 @@ plugin/plangate/
 │   ├── review-gate/
 │   ├── risk-assessment/
 │   ├── diff-audit/
-│   ├── setup-team/
+│   ├── subagent-team-design/
 │   ├── skill-creator/
 │   ├── skill-policy-router/
 │   ├── subagent-dispatch/
@@ -310,7 +310,7 @@ EH-1/2/3/6/9 などの Hook を使用するには、別途手動設定が必要�
 - [ ] **openai.yaml 完全性**: 全スキルの `agents/openai.yaml` に 6 フィールド（display_name / short_description / icon_small / icon_large / default_prompt / brand_color）が揃い、`scripts/check-codex-skill-spec.sh` を PASS すること
 - [ ] **アセット存在確認**: `plugin/plangate/assets/` に `plangate-small.svg` が実在すること（PNG は不要）
 - [ ] **インストールスクリプト動作確認**: `install-plangate-skills.sh` をクリーン環境で実行し、全スキルが `.codex/skills/` に展開されること
-- [ ] **Claude Code インストール確認**: `plugin/plangate/` をプラグインパスとして指定し、Claude Code セッション内でスキル・コマンド・エージェントが認識されること（`/setup-team` で確認）
+- [ ] **Claude Code インストール確認**: `plugin/plangate/` をプラグインパスとして指定し、Claude Code セッション内でスキル・コマンド・エージェントが認識されること（`/subagent-team-design` で確認）
 - [ ] **hooks 配線状況の明示**: `plugin/plangate/hooks/` が reserved である旨を明記済み
 - [ ] **バージョン整合性**: `plugin/plangate/.claude-plugin/plugin.json` の version と `CHANGELOG.md` の最新リリースバージョンが一致していること
 - [ ] **CI 同期チェック**: `.agents/skills/` → `plugin/plangate/skills/` の同期差分を検出する CI ジョブ（`sync-plugin-plangate.yml`）が存在すること

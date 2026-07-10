@@ -12,7 +12,7 @@ PlanGate ワークフロー v5 / v6 / **v7** で使用するスキル群。
 | `systematic-debugging` | バグや障害の体系的調査・根本原因特定 | debugging |
 | `subagent-driven-development` | 実装タスクのサブエージェント委譲・品質管理 | workflow |
 | `codex-multi-agent` | マルチエージェントでタスク分解・委譲・並列実行・結果統合 | workflow |
-| `setup-team` | タスク規模・モードに応じた最適チーム設計とエージェント委譲準備 | workflow |
+| `subagent-team-design` | タスク規模・モードに応じた最適チーム設計とエージェント委譲準備（旧 setup-team、#800 で改名） | workflow |
 | `ref-integrity-scan` | 削除・移動・改名前後の被参照（inbound）全走査（#691 outbound の相補 / #798） | developer-tools |
 | `breakdown-gate` | PlanGate 起動前の intake 判定 — タスク粒度を5要素で判定し分割候補を提示（#799） | workflow |
 

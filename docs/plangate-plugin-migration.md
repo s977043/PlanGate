@@ -58,7 +58,7 @@ sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 | `subagent-driven-development` | サブエージェント駆動の2段階レビュー開発 |
 | `systematic-debugging` | エビデンスベースの体系的デバッグ |
 | `codex-multi-agent` | Codex マルチエージェント連携 |
-| `setup-team` | タスク規模・モードに応じたマルチエージェントチーム設計 |
+| `subagent-team-design` | タスク規模・モードに応じたマルチエージェントチーム設計（旧 setup-team、#800 で改名） |
 | `intent-classifier` | User Request を 8 分類（feature/bug/refactor/exploratory 等） |
 | `skill-policy-router` | Intent + Mode → GatePolicy（requiredSkills 等）決定 |
 | `evidence-ledger` | 証拠記録・Completion Gate 連携 |
@@ -173,7 +173,7 @@ plangate:systematic-debugging
 plangate:codex-multi-agent
 
 # Control OS / 統制系（plugin 同梱の統制スキル群）
-plangate:setup-team
+plangate:subagent-team-design
 plangate:intent-classifier
 plangate:skill-policy-router
 plangate:evidence-ledger
