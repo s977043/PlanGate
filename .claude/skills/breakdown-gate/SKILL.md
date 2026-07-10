@@ -1,6 +1,6 @@
 ---
 name: breakdown-gate
-description: "実装着手前にタスク粒度を5要素で判定し、必要なら分割候補を提示するintakeゲート。Use when: 「タスクを分割して」「粒度が大きすぎる」「1 PRに複数目的が入っている」、PlanGateを起動すべきか迷う軽量タスクの判定時。出典: growth-core task-breakdown-gate 由来（#799）。"
+description: "PlanGate 起動前の intake 判定（mode-classification にかける前の分割要否）。実装着手前にタスク粒度を5要素で判定し、必要なら分割候補を提示する。Use when: PlanGate を起動すべきか迷う軽量タスクの判定時、PBI 化の前に分割要否を確かめたい時、「タスクを分割して」「粒度が大きすぎる」「1 PRに複数目的が入っている」。出典: growth-core task-breakdown-gate 由来（#799）。"
 ---
 
 # Breakdown Gate
@@ -25,6 +25,8 @@ description: "実装着手前にタスク粒度を5要素で判定し、必要�
 | 起動前 intake | **breakdown-gate（本スキル）** | 5 要素 + 粒度判定 → 分割候補提示 |
 | 起動後の規模判定 | [`mode-classification.md`](../../../.claude/rules/mode-classification.md)（正本・不変） | 本スキルは **mode を決めない**（判定基準は参照のみ） |
 | plan 生成後の粒度検査 | C-1 ToDo チェック「タスク粒度」（不変） | 本スキルは plan 生成**前** |
+| 規模 L 以上の MVP scoping | `codex-mvp-split`（既存・`.agents/skills/codex-mvp-split/`） | 本スキルは**分割要否の判定**まで。規模 L 以上と判明したら codex-mvp-split で最小 MVP（Phase 1）分割へ |
+| plan 生成後の品質スコア | `plan-quality-check`（既存・`.claude/skills/` 専用） | 5 要素は同系だがタイミングが異なる（本スキル=plan **前** / plan-quality-check=plan **後**）。チェックリストの正本は各自 — 変更時は相互参照 |
 
 本スキルは PlanGate の Mode 判定・C-1 レビューを代替しない。あくまで「PlanGate を起動する前に、そもそも 1 タスクとして扱ってよい粒度か」を判定する前段ゲート。
 
@@ -95,6 +97,7 @@ description: "実装着手前にタスク粒度を5要素で判定し、必要�
 ## 関連
 
 - [`mode-classification.md`](../../../.claude/rules/mode-classification.md) — 規模判定の正本。本スキルは mode を決めない
-- `plan-quality-check`（`.claude/skills/plan-quality-check/`） — plan 生成後の品質スコアリング
+- `codex-mvp-split`（`.agents/skills/codex-mvp-split/`） — 規模 L 以上の最小 MVP（Phase 1）選定。本スキルの分割要否判定の後段
+- `plan-quality-check`（`.claude/skills/plan-quality-check/`） — plan 生成後の品質スコアリング（本スキルは plan 生成前。変更時は相互参照）
 - [`subagent-driven-development`](../subagent-driven-development/SKILL.md) — 分割後の各タスクをサブエージェントへ委譲する際に使用
 - [`brainstorming`](../brainstorming/SKILL.md) — 要件そのものが曖昧な場合はこちらを先に使う（本スキルは要件確定後の粒度判定）

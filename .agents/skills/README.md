@@ -20,6 +20,7 @@
 
 | 迷ったら | 選ぶスキル | 理由 |
 |---------|-----------|------|
+| **着手前**にタスクを分割すべきか判定したい | `breakdown-gate` | PlanGate 起動前の intake 判定（mode-classification にかける前の分割要否）。mode 判定・C-1 の代替ではない |
 | plan の品質を**軽くスコアリング**したい | `plan-quality-check`（.claude 専用） | `bin/plangate plan-check` に配線された軽量ゲート。C-1 の代替ではない |
 | C-1/C-2/C-3 の**正式ゲート判定**を回したい | `plan-review-gate` | ゲート列の判定と exec 可否確認の正本フロー |
 | plan を**外部レビュアー視点で講評**してほしい | `plan-quality-reviewer`（.claude 専用） | スコアでなく講評を返す。正式ゲートの代替ではない |
@@ -54,7 +55,7 @@ WF-01〜WF-05 の各 phase で呼び出す再利用可能スキル。
 | `systematic-debugging` | エビデンスベースの体系的デバッグ |
 | `subagent-driven-development` | サブエージェント駆動の2段階レビュー開発 |
 | `codex-multi-agent` | Codex CLI を用いたマルチエージェント並列実行 |
-| `breakdown-gate` | 実装着手前にタスク粒度を5要素で判定するintakeゲート（PlanGate起動前・#799） |
+| `breakdown-gate` | PlanGate 起動前の intake 判定 — タスク粒度を5要素で判定し分割候補を提示（#799） |
 
 ## Skill 運用スキル（Claude Code / Codex CLI 共用）
 
