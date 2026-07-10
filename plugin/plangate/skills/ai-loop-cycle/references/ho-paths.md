@@ -44,6 +44,7 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 | `.claude/settings.example.json` | HO-settings | settings 契約例。自己改変・緩和防止 |
 | `.github/workflows/*.yaml` | HO-ci | CI/CD 定義（yaml 拡張子）。AI 直接編集不可 |
 | `plugin/plangate/**` | HO-plugin | プラグイン本体。AI 直接編集不可 |
+| `docs/ai/ai-loop/ho-paths.md` | HO-contract | HO 境界定義そのもの（本ファイル）。Arbiter が自己の判定基準を自己改変しないための機械層（原則 1 参照） |
 
 ---
 
@@ -109,7 +110,11 @@ plugin/plangate/index.js    → HO-plugin
    — HO パス集約リストの改廃は境界そのものの変更であり、Arbiter PoC が
    自己の判定基準を自己改変しない（AI 自己完結禁止・responsibility-classes.md
    と一貫）。HO パスへの記述が HO 本体の変更を意味するわけではない（参照のみ）
-   という原則は変わらない。
+   という原則は変わらない。この Human 承認必須は機械層でも強制される —
+   本ファイル自身（`docs/ai/ai-loop/ho-paths.md`）を上記 HO パス一覧に
+   HO-contract として登録済みであり、変更対象に含む run は
+   boundary=touches-HO で即 human escalate となる（#808 review-team
+   consensus 反映）。
 
 2. **policy ファイル（将来定義）は HO-policy として追加予定**: Arbiter の
    `auto-approve-lite-clean@v1` 等の policy ファイルは制定・改版が Human-owned のため、

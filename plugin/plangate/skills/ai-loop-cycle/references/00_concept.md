@@ -19,8 +19,10 @@ ai-loop-workflow は Phase 0（本リポジトリの `docs/workflows/ai-loop/` �
 
 1. **ho-paths の導入先確定**: 導入先プロジェクトが自身の HO（Hardening
    Override）境界を [`ho-paths.md`](./ho-paths.md) 相当の形で
-   確定していること。未確定の場合、全件が human escalate になる
-   （arbiter の安全側デフォルト）
+   確定していること。未確定のまま run を開始することは**規範違反**であり、
+   L1 は run を開始してはならない（現行 `arbiter.py` は plangate 固有の
+   HO パターンを内蔵するのみで、導入先 ho-paths の実行時解決・未確定検知
+   による全件 escalate は**未実装**。機械化は follow-up #809）
 2. **LoopSpec `scope.allowed_paths` の宣言**: [`loopspec.md`](./loopspec.md)
    の既存必須フィールドで、run ごとの変更可能範囲を宣言していること
 
@@ -41,7 +43,9 @@ plangate 本体（本リポジトリ）における ai-loop-workflow の適用�
 
 ### 不変条件（安全側 — 承認境界は不動。Phase 1 でも緩和しない）
 
-- HO 接触 = 無条件 escalate（fail-closed。ho-paths 不在も fail-closed）
+- HO 接触 = 無条件 escalate（fail-closed）。ho-paths 未確定時の全件
+  escalate は現状**規範層**（前提 1 の開始禁止）であり、機械層のガードは
+  follow-up #809
 - **NO MERGE BY AI** / escalate の自己解決禁止 / 対応ラウンド上限 3
 - W チェック独立 2 体（Model A/B、必要なら C/D）
 - lite 4 軸の AC-8 安全側（判定不能→false・虚偽宣言禁止）
@@ -52,6 +56,9 @@ plangate 本体（本リポジトリ）における ai-loop-workflow の適用�
 
 Phase 0（隔離 PoC・本リポジトリ限定）→ Phase 1（導入先実リポジトリでの検証・
 lite 全域 auto-approve 可）。移行判断は issue #807（Human 決定 verbatim 上記）。
+
+> 注: 本ファイル後段に現れる「Phase 2」「Phase 3」等はワークフロー**構築
+> フェーズ番号**（別系）であり、本節のデプロイ段階 Phase 0/1 とは無関係。
 
 ---
 

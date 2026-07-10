@@ -88,6 +88,7 @@ HO_PATTERNS: list[tuple[str, str]] = [
     (".claude/settings.example.json", "HO-settings"),  # settings 契約例
     (".github/workflows/*.yaml", "HO-ci"),  # CI/CD 定義（yaml）
     ("plugin/plangate/**", "HO-plugin"),  # プラグイン本体
+    ("docs/ai/ai-loop/ho-paths.md", "HO-contract"),  # HO 境界定義そのもの。自己改変防止（ho-paths.md 原則 1 の機械層）
 ]
 
 

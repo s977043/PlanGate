@@ -15,8 +15,9 @@
 1. **ho-paths を導入先で確定する**: 導入先プロジェクト自身の HO 境界を
    `docs/ai/ai-loop/ho-paths.md`（plugin 導入先は `references/ho-paths.md`）の
    雛形ヘッダ（同梱版に前置される「本ファイルは...配布時の参考例」注記）を
-   参照しつつ、導入先固有のパス一覧として定義する。未確定のままだと
-   全件が human escalate になる（安全側デフォルト）
+   参照しつつ、導入先固有のパス一覧として定義する。未確定のまま run を
+   開始してはならない（規範。arbiter による未確定検知・全件 escalate の
+   機械化は未実装 — follow-up #809）
 2. **LoopSpec に `scope.allowed_paths` を宣言する**: [`loopspec.md`](./loopspec.md)
    の既存必須フィールドで、当該 run の変更可能範囲を明示する
 3. **初回 run は escalate 前提で回す**: 導入初回は W チェック・境界判定の
