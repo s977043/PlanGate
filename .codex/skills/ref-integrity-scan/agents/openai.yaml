@@ -1,0 +1,7 @@
+interface:
+  display_name: "ref-integrity-scan"
+  short_description: "ファイル（スキル/ルール/フック/設定/ドキュメント）を削除・移動・改名する前後に、リポジトリ内の被参照（ダングリング参照..."
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $ref-integrity-scan to assist with this project."
+  brand_color: "#1A56DB"
