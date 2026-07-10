@@ -4,7 +4,7 @@
 
 # Arbiter — HO（Hardening Override）パス集約リスト
 
-> **Status**: Phase 0 ドキュメント（2026-07-01）。
+> **Status**: Phase 0 ドキュメント（2026-07-01。構築フェーズ番号 — #807 のデプロイ段階 Phase 0/1 とは別系）。
 > **目的**: "touches-HO" 判定の基準となるパスを machine-readable な形式で列挙する。
 > Phase 2 の Decision table から参照される。
 > **出典**: `docs/ai/hook-enforcement.md`、`docs/ai/autonomous-degraded-gates-spec.md` の

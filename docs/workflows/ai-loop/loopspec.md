@@ -52,6 +52,8 @@ loop:
   scope:
     allowed_paths: # 必須（最低1件）。このループ実行が変更してよいパス（glob）
       - string # 例: "docs/ai/ai-loop/**"。宣言外への変更は exec 差し戻し（I-9）
+        # boundary 自己判定の根拠には ho-paths.md「原則 1（Phase 1 定義 / #807）」を
+        # 引用する（旧「Phase 0 限定の例外」は #739 で置換済み・引用しない）
   actors:
     maker: string # 必須。生成側の識別子（例: implementation_agent）
     checker: string # 必須。maker と異なる主体でなければならない（I-2）

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """arbiter.py — ai-loop L2 裁定エンジン PoC（決定論のみ）。
 
-適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ。
-PlanGate 本番フロー（bin/plangate・scripts/hooks/）からは一切呼ばれない
-隔離 PoC スクリプト。
+適用ドメイン（Phase 1 / #807）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ
+（dogfooding 域）②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths
+宣言を前提に適用可。PlanGate 本番フロー（bin/plangate・scripts/hooks/）からは
+一切呼ばれない隔離 PoC スクリプト。
 
 正本:
 - docs/workflows/ai-loop/decision-table.md（§2 入力軸 / §3 Decision table / §5 provenance）
