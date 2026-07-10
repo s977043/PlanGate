@@ -46,7 +46,8 @@ if [ "$1" = "--dry-run" ]; then
 NEWTEXT
   exit 0
 elif [ "$1" = "--apply" ]; then
-  python3 - "$F1" <<'PY'
+  rc=0
+  python3 - "$F1" <<'PY' || rc=$?
 import sys
 
 f = sys.argv[1]
@@ -65,13 +66,18 @@ new = (
 
 if old not in s:
     print(f"[apply] {f}: 置換対象なし (SKIP)")
-    sys.exit(0)
+    sys.exit(3)  # 3 = SKIP（呼び出し側で次ステップ案内を抑制）
 
 n = s.count(old)
 s = s.replace(old, new)
 open(f, "w", encoding="utf-8", newline="\n").write(s)
 print(f"[apply] {f}: {n} 件置換")
 PY
+  if [ "$rc" -eq 3 ]; then
+    exit 0  # SKIP: 置換なし。次ステップ案内は出さない（誤解防止）
+  elif [ "$rc" -ne 0 ]; then
+    exit "$rc"
+  fi
   echo "[apply] 次: sh scripts/sync-plugin-plangate.sh を実行して plugin/plangate/commands/ へ伝播してください"
   echo "[apply] 次: git diff で反映内容を確認してから commit してください（HO 対象のため人間コミット推奨）"
   exit 0
