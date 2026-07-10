@@ -5,6 +5,11 @@ description: "ファイル（スキル/ルール/フック/設定/ドキュメ�
 
 # Ref Integrity Scan
 
+> **Provenance（出典・vendoring 規約）**: growth-core `deletion-reference-scan`
+> （upstream: Growth-Teams-Agent@5219642 / 2026-07-03 時点）を PlanGate 向けに
+> 汎用化して取り込み（#798）。上流への自動追従はしない — 上流更新の反映は
+> **意図的に** diff をレビューして行う（provenance 追跡 + 意図的更新の vendoring 標準）。
+
 ファイル・ディレクトリを削除・移動・改名する**前後**に、リポジトリ全体を対象に被参照（そのパスを指している箇所）を洗い出し、ダングリング参照を防ぐための手順スキル。
 
 ## #691（check-stale-skill-refs.py）との相補関係
