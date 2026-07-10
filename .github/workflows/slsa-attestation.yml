@@ -31,7 +31,7 @@ jobs:
           echo "ARCHIVE=plangate-${RELEASE_TAG}.tar.gz" >> "$GITHUB_ENV"
 
       - name: Generate SLSA provenance attestation
-        uses: actions/attest-build-provenance@e8d4baa0b41c87f71bb46de40f28fe2e2aaee96f # v2.4.0
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: ${{ env.ARCHIVE }}
 
