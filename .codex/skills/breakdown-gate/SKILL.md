@@ -23,7 +23,7 @@ description: "PlanGate 起動前の intake 判定（mode-classification にか�
 | 段階 | 担当 | 本スキルとの関係 |
 |---|---|---|
 | 起動前 intake | **breakdown-gate（本スキル）** | 5 要素 + 粒度判定 → 分割候補提示 |
-| 起動後の規模判定 | [`mode-classification.md`](../../../.claude/rules/mode-classification.md)（正本・不変） | 本スキルは **mode を決めない**（判定基準は参照のみ） |
+| 起動後の規模判定 | `.claude/rules/mode-classification.md`（正本・不変） | 本スキルは **mode を決めない**（判定基準は参照のみ） |
 | plan 生成後の粒度検査 | C-1 ToDo チェック「タスク粒度」（不変） | 本スキルは plan 生成**前** |
 | 規模 L 以上の MVP scoping | `codex-mvp-split`（既存・`.agents/skills/codex-mvp-split/`） | 本スキルは**分割要否の判定**まで。規模 L 以上と判明したら codex-mvp-split で最小 MVP（Phase 1）分割へ |
 | plan 生成後の品質スコア | `plan-quality-check`（既存・`.claude/skills/` 専用） | 5 要素は同系だがタイミングが異なる（本スキル=plan **前** / plan-quality-check=plan **後**）。チェックリストの正本は各自 — 変更時は相互参照 |
@@ -67,7 +67,7 @@ description: "PlanGate 起動前の intake 判定（mode-classification にか�
 
 ### Phase 4: 分割候補の提示
 
-分割が必要と判定したタスクについて、各分割候補が Iron Law（1 目的・1 PR 規模・1 検証）を満たす形で列挙し、依存順を明示する。分割後の各タスクは個別に PlanGate（[`mode-classification.md`](../../../.claude/rules/mode-classification.md)）の Mode 判定にかける導線を示す。
+分割が必要と判定したタスクについて、各分割候補が Iron Law（1 目的・1 PR 規模・1 検証）を満たす形で列挙し、依存順を明示する。分割後の各タスクは個別に PlanGate（`.claude/rules/mode-classification.md`）の Mode 判定にかける導線を示す。
 
 ## 出力フォーマット
 
@@ -96,7 +96,7 @@ description: "PlanGate 起動前の intake 判定（mode-classification にか�
 
 ## 関連
 
-- [`mode-classification.md`](../../../.claude/rules/mode-classification.md) — 規模判定の正本。本スキルは mode を決めない
+- `.claude/rules/mode-classification.md` — 規模判定の正本。本スキルは mode を決めない
 - `codex-mvp-split`（`.agents/skills/codex-mvp-split/`） — 規模 L 以上の最小 MVP（Phase 1）選定。本スキルの分割要否判定の後段
 - `plan-quality-check`（`.claude/skills/plan-quality-check/`） — plan 生成後の品質スコアリング（本スキルは plan 生成前。変更時は相互参照）
 - [`subagent-driven-development`](../subagent-driven-development/SKILL.md) — 分割後の各タスクをサブエージェントへ委譲する際に使用
