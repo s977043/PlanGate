@@ -73,9 +73,61 @@ WF-05 Verify & Handoff
 | **WARN** | 部分的に満たすが、scope の範囲で許容（理由を明記）|
 
 **禁止**:
+
 - evidence なき PASS（verification honesty FAIL → release blocker）
 - 「概ね動く」「だいたい OK」の主観判定
 - FAIL を WARN に格下げして release blocker を回避（Iron Law #4 違反）
+
+## UI 変更時の visual evidence 規約（UI 専用 V-1 / #797）
+
+UI 変更を含む PR の V-1 では、**PASS 判定でも visual evidence を必須**とする。
+
+> **一般規約への明示的上書き**: `.claude/rules/working-context.md` の evidence
+> 保管ルール（「PASS 判定: evidence は省略可」）に対する**明示的上書き**である。
+> UI の見た目の正しさはテストログだけでは示せないため、UI 変更に限り PASS でも
+> evidence を要求する。
+
+### 発火条件
+
+`review-gate` Skill レーン 5 と**同一の発火ヒューリスティック**を参照する
+（UI 系パス・拡張子の例示リストと「曖昧時は発火側に倒す」安全側規則。詳細:
+`review-gate` Skill の `references/ui-ux-lane.md` §1）。
+
+### 必須 evidence（`evidence/verification/` に保存）
+
+- **before/after スクリーンショット**（変更対象のコンポーネント / 画面）
+- **主要ブレークポイント**のスクリーンショット（最低 PC / SP の 2 点）
+- **E2E 実行結果**（該当フローの E2E がある場合。ログ or レポート）
+
+### visual regression 業界標準（運用指針）
+
+- **baseline は Git 管理**し、**意図的な UI 変更は同一 PR で baseline を更新**
+  する（変更を明示的・レビュー可能にする）
+- **コンポーネント単位のスクリーンショットを優先**（full-page は重要フローのみ）
+- 動的コンテンツ（timestamp・アバター等）は**マスク**し、**アニメーションは
+  無効化**（例: Playwright の `animations: 'disabled'`）
+- 実行は PR 時のみ（毎 commit ではない）。描画一貫性は CI / Docker 等の固定
+  環境を前提とする
+
+### 取得不能時（unavailable 記録で WARN）
+
+Playwright 等のスクリーンショット手段が環境に無い場合は、
+`docs/ai/external-reviewer-interface.md` §10（`review-principles.md` §7-ter）と
+同型の **unavailable 記録**（実行不可の理由 / 代替検証 / 未充足リスク）を残して
+**WARN** とする。**黙って「該当なし」にしない**（理由・代替・リスクが空欄の
+unavailable は無効 = FAIL）。
+
+### doc 専用 V-1 との関係
+
+doc 専用 V-1（`.claude/rules/mode-classification.md` の doc-light モード内）とは
+**発想が対称・placement は意図的に非対称**: doc 版は mode 機構に結線するため
+HO（Hardening Override）対象の rule 層に置かれ、UI 版（本規約）は skill 層 =
+非 HO・ソフト強制として置かれている。
+
+### Optional: Figma ↔ 実装の計測突合
+
+環境に Figma MCP + Playwright MCP がある場合のみの optional 手順として、
+`review-gate` Skill の `references/ui-ux-lane.md` §5 を参照（必須にしない）。
 
 ## 使い方
 
