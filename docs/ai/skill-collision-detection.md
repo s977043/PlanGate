@@ -20,7 +20,10 @@ agent が多重定義されうる。エージェントのスキル選択が曖�
   **3 重定義**（plangate 版は diff-audit への改名で解消。repo-local /
   growth-core 側は本 PBI の対象外・実例としての記録は保持する）
 - `setup-team`: repo-local / growth-core / plangate / river-review の
-  **4 重定義**（さらに repo-local には command ラッパーも存在）
+  **4 重定義**（さらに repo-local には command ラッパーも存在。plangate 版は
+  内容乖離 53%（170/318 行）で「同名で中身が別物」に該当したため
+  `subagent-team-design` への改名で解消 — #800。repo-local / growth-core /
+  river-review 側は本 PBI の対象外・実例としての記録は保持する）
 - `iterative-quality-review`（repo-local）と plangate の review-gate 系も
   目的が重複
 
@@ -124,6 +127,36 @@ python3 scripts/check-skill-name-collisions.py --selftest
       → repo-local 側を削除し plugin 版に一本化する
 - [ ] いずれの場合も、**「どの定義が実際に呼ばれるか」** を
       skill-policy-router のルーティング表または個別ドキュメントに明示する
+
+## 同名スキルの取り込み・改名ポリシー（#800）
+
+> issue [#800](https://github.com/s977043/plangate/issues/800) の Human 判断
+> （2026-07-10）を正本化。growth-core と残存する同名スキル 4 件
+> （brainstorming / systematic-debugging / setup-team / codex-multi-agent）
+> の扱いを決定した際の一般化ポリシー。
+
+1. **新規取り込みは別名必須**。上流（growth-core 等）から新規にスキルを
+   取り込む場合は、衝突を未然に防ぐため元のスキル名をそのまま使わず
+   別名を付ける。**Use when トリガも上流と意図的に差別化**し、どちらが
+   起動するか曖昧にしない（`ref-integrity-scan` / `diff-audit` 取り込み
+   時に適用済みのパターン）。
+2. **既存衝突は改名を基本**とするが、**内容乖離が小さく名前が適切であれば
+   現状維持可**。無理に改名しない。判断は**乖離実測**（行数差分・
+   description 差分・トリガ差分）を根拠に個別に行う。
+3. **維持と判定した分も、上流乖離が拡大すれば改名へ再判定**する
+   （fork 再棚卸しトリガ — 四半期 or 上流 minor 版更新時 — と連動）。
+
+### #800 個別裁定（実例）
+
+| skill | 乖離実測 | 裁定 | 根拠 |
+|---|---|---|---|
+| `systematic-debugging` | 2%（6/260 行） | 現状維持 | 実質同一コピー。改名は参照更新コストのみで益なし |
+| `brainstorming` | 20%（81/401 行・description 同一） | 現状維持 | 目的同一（PBI INPUT PACKAGE 昇華）。乖離分は PlanGate WF 接続の差 |
+| `codex-multi-agent` | 12%（69/581 行・description ほぼ同一） | 現状維持 | 共通運用スキルとして同一起源、環境言及の差のみ |
+| `setup-team`（plangate 版） | **53%**（170/318 行・116 行 vs 202 行・トリガも相違） | **改名**（→ `subagent-team-design`） | 同名で中身が別物＝#692 の本来の問題（起動先により挙動が変わる）に該当 |
+
+維持 3 件は本表を記録として保持し、上流乖離が拡大したら再判定する
+（上記トリガ条件参照）。
 
 ## doctor / L-0 / CI への配線について
 

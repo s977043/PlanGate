@@ -41,7 +41,7 @@ plugin-only 環境でどこまで PlanGate の価値（レビュー観点・plan
 | `known-issues-log` / `evidence-ledger` | 既知課題・根拠の記録 |
 | `context-load` / `context-packager` | コンテキストの読み込み・引き継ぎパケット作成 |
 | `feature-implement` / `design-gate` | 実装ガイド・設計ゲート観点 |
-| `codex-multi-agent` / `codex-mvp-split` / `subagent-dispatch` / `subagent-driven-development` / `setup-team` | マルチエージェント運用パターン |
+| `codex-multi-agent` / `codex-mvp-split` / `subagent-dispatch` / `subagent-driven-development` / `subagent-team-design`（旧 setup-team） | マルチエージェント運用パターン |
 | `manual-cloud-task` / `pr-decision` | 手動運用の意思決定補助 |
 | `skill-creator` / `systematic-debugging` | スキル設計・デバッグ手法 |
 

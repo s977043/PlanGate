@@ -1,0 +1,7 @@
+interface:
+  display_name: "subagent-team-design"
+  short_description: "Design a PlanGate agent team (successor to setup-team)"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $subagent-team-design to set up the agent team for this project."
+  brand_color: "#1A56DB"
