@@ -91,6 +91,53 @@ needs_update() {
   [ "$src_hash" != "$dst_hash" ]
 }
 
+# references/*.md に差分があるかを判定（bundled resources / #797）
+refs_need_update() {
+  src_refs="$1/references"
+  dst_refs="$2/references"
+  if [ ! -d "$src_refs" ]; then
+    # source に references が無いスキルは本同期の管理外（例: ai-loop-cycle は
+    # sync-plugin-plangate.sh の専用セクションが plugin 側に生成する）。
+    # dest の有無に関わらず「更新不要」— 触らない（gemini HIGH #805 対応）
+    return 1
+  fi
+  [ -d "$dst_refs" ] || return 0
+  for rf in "$src_refs"/*.md; do
+    [ -f "$rf" ] || continue
+    rb="${rf##*/}"
+    [ -f "$dst_refs/$rb" ] || return 0
+    cmp -s "$rf" "$dst_refs/$rb" || return 0
+  done
+  for rf in "$dst_refs"/*.md; do
+    [ -f "$rf" ] || continue
+    rb="${rf##*/}"
+    [ -f "$src_refs/$rb" ] || return 0
+  done
+  return 1
+}
+
+# references/*.md を同期（コピー + 正本に無いファイルの削除）
+sync_refs() {
+  src_refs="$1/references"
+  dst_refs="$2/references"
+  if [ ! -d "$src_refs" ]; then
+    # source に references が無い = 本同期の管理外。dest を削除しない
+    # （生成型スキルの成果物を消す実害を実験で確認 — gemini HIGH #805 対応）
+    return 0
+  fi
+  mkdir -p "$dst_refs"
+  for rf in "$src_refs"/*.md; do
+    [ -f "$rf" ] || continue
+    [ -L "$rf" ] && continue
+    cp "$rf" "$dst_refs/${rf##*/}"
+  done
+  for rf in "$dst_refs"/*.md; do
+    [ -f "$rf" ] || continue
+    rb="${rf##*/}"
+    [ -f "$src_refs/$rb" ] || rm "$rf"
+  done
+}
+
 mkdir -p "$CODEX_SKILLS_DIR"
 
 for skill_file in "$SOURCE_DIR"/*/SKILL.md; do
@@ -115,7 +162,7 @@ for skill_file in "$SOURCE_DIR"/*/SKILL.md; do
 
   # 差分チェック（--force なし時）
   if [ "$FORCE" -eq 0 ] && [ -f "$target_skill_file" ] && [ -f "$target_openai_yaml" ]; then
-    if ! needs_update "$skill_file" "$target_skill_file"; then
+    if ! needs_update "$skill_file" "$target_skill_file" && ! refs_need_update "$skill_dir" "$target_dir"; then
       skipped_count=$((skipped_count + 1))
       skipped_names="${skipped_names}${skill_name}(no-change)
 "
@@ -160,6 +207,9 @@ PYTRUNC
 
   # SKILL.md をコピー
   cp "$skill_file" "$target_skill_file"
+
+  # bundled references/*.md を同期（#797）
+  sync_refs "$skill_dir" "$target_dir"
 
   # assets をコピー（存在する場合）
   if [ -d "$ASSETS_SRC" ]; then

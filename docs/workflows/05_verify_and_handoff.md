@@ -24,6 +24,12 @@
   S1c タスクロック: settings wiring 契約未準拠＝Shadow Configuration の
   状態では V-1/handoff を完了扱いにできない。未適用なら
   `sh scripts/apply-claude-settings.sh` をユーザーが実行して解消）
+- **UI 変更を含む PR では visual evidence が `evidence/verification/` に保存
+  されている**（**PASS 判定でも必須**: before/after スクリーンショット・主要
+  ブレークポイント最低 PC/SP 2 点・E2E 実行結果。取得不能時は unavailable
+  記録で WARN。発火条件・詳細の正本は `acceptance-review` Skill の
+  「UI 変更時の visual evidence 規約」/ #797。`.claude/rules/working-context.md`
+  一般規約「PASS は evidence 省略可」への明示的上書き）
 
 ## 呼び出す Skill
 
