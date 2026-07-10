@@ -449,7 +449,7 @@ conductor が Implementer サブエージェントに文脈を構成する際の
 |-------------|--------|----------------|
 | brainstorm | brainstorming skill | ユーザー入力 + コードベース調査結果 |
 | plan生成 | project-planner agent | pbi-input.md全文 |
-| C-1 | self-review skill（17項目チェック） | plan + todo + test-cases + pbi-input |
+| C-1 | diff-audit skill（17項目チェック） | plan + todo + test-cases + pbi-input |
 | C-2 | 利用可能なサブエージェント | plan + todo + test-cases + review-self |
 | exec: 実装 | implementer agent（タスクごとに新規） | タスク詳細（抽出済み）+ テストケース（抽出済み）+ 既存パターン |
 | L-0: autofix/AI修正 | linter-fixer agent | リンター設定 + 違反一覧 + 該当コード |
@@ -513,7 +513,7 @@ conductorはstatus.mdに以下のMarkdownセクションを管理する（YAML f
 - **plangate.md** — PlanGateガイド（全体像・設計思想）
 - **ai-driven-development.md** — ワークフロー詳細・プロンプト集
 - **brainstorming/SKILL.md** — Phase 0で利用
-- **self-review/SKILL.md** — Phase C-1で利用
+- **diff-audit/SKILL.md** — Phase C-1で利用
 - **subagent-driven-development/SKILL.md** — Phase Dで利用
 - **working-context.md** — ディレクトリ構造・ファイル定義
 
