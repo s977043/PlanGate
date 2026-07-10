@@ -1,7 +1,0 @@
-interface:
-  display_name: "self-review"
-  short_description: "Self-review plan and implementation quality"
-  icon_small: "./assets/plangate-small.svg"
-  icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $self-review to review the current plan and implementation."
-  brand_color: "#1A56DB"

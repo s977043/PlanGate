@@ -1,17 +1,17 @@
 ---
-name: self-review
-description: "変更内容に対して詳細なセルフレビューを実施し、構造化されたレポートを出力する。Use when: コミット・PR前に自分の変更を詳細レビューしたい時。「セルフレビューしたい」「コード品質を確認したい」「変更のレビューをして」。"
+name: diff-audit
+description: "変更差分を多段フェーズで精査し、構造化された監査レポートを出力する。Use when: 「差分監査したい」「コミット・PR前に変更を精査したい」「コード品質を確認したい」「変更のレビューをして」。旧 self-review（plangate 版）の後継。"
 ---
 
-# セルフレビュー
+# Diff Audit（差分監査）
 
-変更内容に対して詳細なセルフレビューを実施し、構造化されたレポートを出力する。
+変更差分を多段フェーズで精査し、構造化された監査レポートを出力する。
 
 ## PlanGate v8.3 実行契約との整合
 
-PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phase 1〜12）に加えて **Iron Law 7 項目** と **8 eval 観点** で必ず判定する。`docs/ai/core-contract.md` が Iron Law の正本。
+PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phase 1〜12）に加えて **Iron Law 8 項目** と **8 eval 観点** で必ず判定する。`docs/ai/core-contract.md` が Iron Law の正本。
 
-### Iron Law 7 項目（[`core-contract.md`](../../../docs/ai/core-contract.md) 正本）
+### Iron Law 8 項目（[`core-contract.md`](../../../docs/ai/core-contract.md) 正本）
 
 | # | Iron Law | 違反例 |
 |---|---------|-------|
@@ -22,6 +22,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | #5 | NO OUT-OF-SCOPE FILE EDITS | `allowed_files` 外 / `forbidden_files` 違反 |
 | #6 | NO FIXES WITHOUT ROOT CAUSE INVESTIGATION | 原因不明のまま symptom を抑える |
 | #7 | NO SILENT GATE BYPASSES | C-3 / C-4 / Parent Integration Gate を黙ってスキップ |
+| #8 | NO CLAIM WITHOUT SOURCE CROSS-CHECK | findings・監査・レビューの事実主張（構成・件数・依存先等）を一次情報と未照合のまま採用 |
 
 ### 8 eval 観点（[`eval-plan.md`](../../../docs/ai/eval-plan.md) / [`eval-cases/`](../../../docs/ai/eval-cases/) 正本）
 
@@ -46,6 +47,19 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | 「scope を少し広げただけ」 | 計画外編集は再承認が要る（Iron Law #2 / #5、scope discipline FAIL）|
 | 「test FAIL の原因は不明だがリトライで通った」 | root cause 不明のまま完了宣言禁止（Iron Law #6 / verification honesty FAIL）|
 | 「format adherence は軽微」 | schema 準拠率 < 95% は **release blocker**（暫定値、`eval-plan.md` § 6）|
+| 「スクリプトは雑でいい」 | SKILL.md・コマンド・エージェントに埋め込まれたシェル例はチーム全員が実行する。本番コードと同等の品質で書く |
+| 「自分の環境で動いたから OK」 | ハードコードパスや `awk` 出力フォーマット依存は他環境・他バージョンで即エラー。Phase 13 のポータビリティチェックで検証 |
+| 「`git diff --cached --stat` を見たから大丈夫」 | 見た＝読んだではない。stat に映った想定外ファイル（`__pycache__` 等）を見落として commit した実害あり。1 行ずつ「なぜ staged か」を説明できるか確認しろ |
+
+## review-gate（実装後ゲート）との役割分界（#795 / #794）
+
+| | 本スキル（diff-audit） | review-gate |
+|---|---|---|
+| タイミング | コミット・PR **前**のセルフ検査 | 実装完了後の Review Gate（V-3 / C-4 前） |
+| 主体 | 変更を作った本人（self） | レビュー実行者（ゲート判定） |
+| 出力 | 構造化監査レポート（本スキル定義） | 6 観点 finding 表 + Completion Gate 判定 |
+
+review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: アーキテクチャ設計思想 / ロジック正確性 / AI 生成コード・アンチパターン / 主張と実態の突合）のうち、レーン 2〜4 はセルフ検査段階でも有効。本スキルの Phase 4（データフロー追跡）・Phase 9（エッジケース・安全性確認）はレーン 2（ロジック正確性: データフロー追跡・境界条件・null 安全性）と、Phase 5（残骸・未使用コードチェック）・Phase 12（コミット衛生チェック）はレーン 4（claim-vs-actual: 完了主張の grep 反証・置き土産の未然検出）と対応する。ゲートで指摘される前に self 段階で潰すのが本スキルの役割。
 
 ## 手順
 
@@ -182,6 +196,51 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 
 全変更ファイルの変更理由を説明できるか確認。
 
+### Phase 13: シェルスクリプト・ドキュメント品質チェック
+
+変更内容に応じて実施するサブセクションを選ぶ:
+
+| 変更内容 | 実施するサブセクション |
+|---------|----------------------|
+| `**/*.sh` / `SKILL.md` / `agents/*.md` / `commands/*.md` / `scripts/**` を含む | 全サブセクション |
+| Markdown ドキュメント（`**/*.md`）のみ | 「ドキュメント内の例示値」「ドキュメント文章品質」のみ |
+
+#### ポータビリティ（環境依存）
+
+- **ハードコードパス禁止**: `~/Documents/...` や `/Users/<name>/...` は他メンバーの環境で即エラー
+  - ❌ `cd ~/Documents/GitHub/plangate`
+  - ✅ `cd "$(git rev-parse --show-toplevel)"`
+- **ツールバージョン依存の出力パース禁止**: `awk` / `sed` / `grep` でツールの出力フォーマットをパースしている場合、バージョン変更で壊れる
+  - ❌ `gh auth status 2>&1 | awk '/Active account/'`（gh のバージョンで出力が変わる）
+  - ✅ `gh api user --jq '.login'`（API は安定）
+- **OS 差異**: `date` / `sed` 等の BSD / GNU 差異に注意（macOS と Linux で挙動が異なる場合がある）
+
+#### 危険な git 操作の安全ガード
+
+- `git reset --hard` / `git clean -f` / `git push --force` の前には必ず前提チェックを入れる
+  - ❌ `git reset --hard origin/$BASE`（ワーキングツリーが汚れていると変更が消える）
+  - ✅ `git status --porcelain | grep -q . && { echo 'ERROR: dirty'; exit 1; }` を先に実行（`--porcelain` は機械パース保証あり）
+
+#### ドキュメント内の例示値
+
+- **実在するリソース名を例示に使わない**: PR 番号 / ブランチ名 / ユーザー名 / ファイルパスは実在するものを使うと誤解・誤操作を招く
+  - ❌ `#593`（実在する PR 番号）
+  - ✅ `#<PR番号>`（プレースホルダー）
+- **機密情報・個人情報が例示に含まれていないか**: メールアドレス・API キー・内部 URL 等
+
+#### セキュリティ（シェルスクリプト）
+
+- 変数展開のクォートが適切か（`"$VAR"` でスペース・特殊文字を安全に扱う）
+- ユーザー入力を直接シェルコマンドに渡していないか（コマンドインジェクション）
+- `eval` の不要な使用がないか
+
+#### ドキュメント文章品質（PR #665 レビュー指摘由来）
+
+- **助詞・文法**: 声に出して不自然な助詞がないか（例: 「裁定は経る」→「裁定を経る」）
+- **冗長表現・同義重複**: 外来語とその訳語の重複がないか（例: 「on-the-loop ループモデル」→「on-the-loop モデル」）。同一文書内の既出表記と揃える
+- **ファイル参照のリンク化**: 他ドキュメントへの言及がプレーンテキストのままになっていないか。`` `[file.md](./file.md)` `` 形式でリンク化し、リンク先の実在を確認する（正本参照・関連ドキュメント節は特に必須）
+- **リンク化による行長超過**: リンク化で 80 文字制限（MD013）を超える場合は折り返しで吸収する
+
 ## 出力フォーマット
 
 **出力ルール**: OKの項目は省略可。**NG/要確認の項目のみ**を重点的に報告する。
@@ -215,6 +274,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | セキュリティ | OK / NG |
 | CI 互換性 | OK / NG |
 | コミット衛生 | OK / NG |
+| スクリプト・ドキュメント品質 | OK / NG |
 
 ### PlanGate v8.3 判定（PlanGate 文脈で必須）
 
@@ -227,6 +287,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | Iron Law #5 NO OUT-OF-SCOPE FILE EDITS | PASS / FAIL | YES |
 | Iron Law #6 NO FIXES WITHOUT ROOT CAUSE | PASS / FAIL | YES |
 | Iron Law #7 NO SILENT GATE BYPASSES | PASS / FAIL | YES |
+| Iron Law #8 NO CLAIM WITHOUT SOURCE CROSS-CHECK | PASS / FAIL | YES |
 | eval: scope discipline | PASS / WARN / FAIL | YES |
 | eval: approval discipline | PASS / WARN / FAIL | YES |
 | eval: verification honesty | PASS / WARN / FAIL | YES |
@@ -246,9 +307,10 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 
 ## 関連（PlanGate v8.3）
 
-- [`docs/ai/core-contract.md`](../../../docs/ai/core-contract.md) — Iron Law 7 項目正本
+- [`docs/ai/core-contract.md`](../../../docs/ai/core-contract.md) — Iron Law 8 項目正本
 - [`docs/ai/eval-plan.md`](../../../docs/ai/eval-plan.md) — 8 eval 観点 / release blocker 基準
 - [`docs/ai/eval-cases/`](../../../docs/ai/eval-cases/) — 観点別詳細 × 8
 - [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — 出力 schema
 - [`docs/ai/contracts/review.md`](../../../docs/ai/contracts/review.md) — review phase contract
 - [`.claude/rules/review-principles.md`](../../rules/review-principles.md) — レビュー原則（CI / ローカル共通）
+- [`docs/ai/plan-review-readiness-gate.md`](../../../docs/ai/plan-review-readiness-gate.md) §7/§8 — ドキュメント変更（D-1〜D-6）/ シェル・Python コード変更（C-1〜C-6）の追加観点

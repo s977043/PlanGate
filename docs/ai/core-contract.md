@@ -60,7 +60,7 @@ PlanGate ワークフローの責務は **PBI INPUT から「PR 作成」と「C
 |---|---------|------|
 | 1 | **C-3 承認前に production code を変更しない** | plan: NO EXECUTION WITHOUT REVIEWED PLAN FIRST |
 | 2 | **PBI 外の scope を追加しない** | exec: NO SCOPE CHANGE WITHOUT USER APPROVAL |
-| 3 | **検証証拠なしに完了扱いしない** | self-review: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE |
+| 3 | **検証証拠なしに完了扱いしない** | diff-audit: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE |
 | 4 | **失敗・未実行・残リスクを隠さない** | verification honesty（独立明記） |
 | 5 | **承認済み plan と実装差分の整合性を崩さない** | brainstorming: NO CODE WITHOUT APPROVED DESIGN FIRST |
 | 6 | **原因調査なしに修正しない** | systematic-debugging: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST |

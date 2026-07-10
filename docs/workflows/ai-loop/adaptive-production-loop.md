@@ -54,8 +54,8 @@ PlanGate では、以下のように責務を分離する。
 | Evaluate | 生成物に「No」と言う | C-1、C-2、C-3' Arbiter、CI、AI review、DoD 判定 |
 | Remember | 実行結果・判断・指摘・反証を保存する | decision record、review-feedback-loop、suppression、provenance |
 | Schedule | 次アクションを選ぶ | retry、queue、CI fix、review comment handling、stop、block、human escalate |
-| Optimize | 保存した記録を次回の振る舞いへ反映する | skill / gate / suppression / self-review 観点の更新 |
-| Recurse | 1 サイクルの出力を次サイクルの入力へ戻す | 次回 pre-check、次回 C-3'、次回 PR 前 self-review |
+| Optimize | 保存した記録を次回の振る舞いへ反映する | skill / gate / suppression / diff-audit 観点の更新 |
+| Recurse | 1 サイクルの出力を次サイクルの入力へ戻す | 次回 pre-check、次回 C-3'、次回 PR 前 diff-audit |
 
 ---
 
@@ -116,7 +116,7 @@ PlanGate では以下に分ける。
 
 保存された事実をもとに、次回の振る舞いを更新する。
 
-- self-review 観点を追加する
+- diff-audit 観点を追加する
 - readiness gate の観点を更新する
 - suppression を追加する
 - scheduling policy を調整する
@@ -137,7 +137,7 @@ PlanGate では以下に分ける。
 | 出力 | 次サイクルへの戻し先 |
 | --- | --- |
 | CI failure | 強化セルフレビュー / test checklist |
-| AI review true-positive | self-review / readiness gate |
+| AI review true-positive | diff-audit / readiness gate |
 | AI review false-positive | suppression |
 | human reject | C-3' 判定条件 / policy draft |
 | round limit exceeded | scheduling policy / escalate budget |

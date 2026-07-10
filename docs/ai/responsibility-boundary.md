@@ -63,7 +63,7 @@ PlanGate ワークフローにおいて、**モデルに判断させるべきも
 | 検証証拠なし PR 禁止 | Iron Law として明示 | review phase で diff/test のみ | **runtime block**（evidence なし PR）| evidence ディレクトリ存在チェック |
 | plan_hash 改竄禁止 | Iron Law として明示 | — | **runtime block**（hash 不一致検出）| approvals/c3.json の plan_hash と現 plan.md SHA 比較 |
 | 承認なし sub-issue 追加禁止 | Iron Law として明示 | — | **runtime block** | — |
-| findings/監査の事実主張は一次情報と照合（構成・件数・依存先等）| Iron Law #8 として明示 | — | —（決定論的 block 困難）| self-review #8 判定 + 事後の出典突合 |
+| findings/監査の事実主張は一次情報と照合（構成・件数・依存先等）| Iron Law #8 として明示 | — | —（決定論的 block 困難）| diff-audit #8 判定 + 事後の出典突合 |
 
 ## 6. 本 PBI のスコープ境界
 

@@ -32,7 +32,7 @@ sequenceDiagram
     R->>A: WF-03 開始（要件確定）
     A->>A: architecture-sketch
     A->>I: WF-04 開始（設計確定）
-    I->>I: feature-implement + self-review
+    I->>I: feature-implement + diff-audit
     I->>Q: WF-05 開始（実装完了）
     Q->>Q: acceptance-review + known-issues-log
     Q->>O: handoff 発行
