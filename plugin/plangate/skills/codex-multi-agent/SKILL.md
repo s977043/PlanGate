@@ -277,13 +277,13 @@ Codex での代表的な操作:
 
 Codex では、役割を既存の Team / Task 運用へ読み替える。
 
-- チーム設計・メンバー構成は `setup-team` の手順に読み替える
+- チーム設計・メンバー構成は `subagent-team-design`（旧 setup-team）の手順に読み替える
 - 役割名は `researcher`, `backend-dev`, `frontend-dev`, `tester` などのまま使ってよい
 - Team / Task ツール上の member 種別や owner 設定は、上の役割表を基準に割り当てる
 
-Codex 側では、ツール固有のチーム操作は [setup-team](../setup-team/SKILL.md) を参照する。
+Codex 側では、ツール固有のチーム操作は [subagent-team-design](../subagent-team-design/SKILL.md) を参照する。
 
 ## 関連スキル
 
-- `setup-team`: Codex の Team / Task ベース運用
+- `subagent-team-design`: Codex の Team / Task ベース運用（旧 setup-team）
 - `subagent-driven-development`: 実装タスクを委譲して二段階レビューを回すときに併用
