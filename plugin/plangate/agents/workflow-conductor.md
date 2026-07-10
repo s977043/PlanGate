@@ -449,7 +449,7 @@ conductor が Implementer サブエージェントに文脈を構成する際の
 |-------------|--------|----------------|
 | brainstorm | brainstorming skill | ユーザー入力 + コードベース調査結果 |
 | plan生成 | project-planner agent | pbi-input.md全文 |
-| C-1 | self-review skill（17項目チェック） | plan + todo + test-cases + pbi-input |
+| C-1 | diff-audit skill（17項目チェック） | plan + todo + test-cases + pbi-input |
 | C-2 | 利用可能なサブエージェント | plan + todo + test-cases + review-self |
 | exec: 実装 | implementer agent（タスクごとに新規） | タスク詳細（抽出済み）+ テストケース（抽出済み）+ 既存パターン |
 | L-0: autofix/AI修正 | linter-fixer agent | リンター設定 + 違反一覧 + 該当コード |
@@ -513,6 +513,19 @@ conductorはstatus.mdに以下のMarkdownセクションを管理する（YAML f
 - **plangate.md** — PlanGateガイド（全体像・設計思想）
 - **ai-driven-development.md** — ワークフロー詳細・プロンプト集
 - **brainstorming/SKILL.md** — Phase 0で利用
-- **self-review/SKILL.md** — Phase C-1で利用
+- **diff-audit/SKILL.md** — Phase C-1で利用
 - **subagent-driven-development/SKILL.md** — Phase Dで利用
 - **working-context.md** — ディレクトリ構造・ファイル定義
+
+---
+
+## validation_bias の供給（TASK-0147 / #527・非強制の補足）
+
+strict profile（`model-profiles.yaml` の `validation_bias: strict`）で EHS-1/2/3 を
+実 run 発火させたい場合、conductor は V フェーズの CLI 呼び出しに `--profile=<key>` を
+渡す（**等号形式必須**。例: `bin/plangate verify <TASK> --mode=<m> --profile=gpt-5_5_pro`。
+`--mode` と同じく `--flag=value` 形式のみ受理し、スペース区切り `--profile <key>` は無視される）。CLI が
+`model-profiles.yaml` から `validation_bias` を解決し `PLANGATE_VALIDATION_BIAS` を
+内部 export する。env で明示注入済みならそれを尊重する。normal/lenient profile では
+従来どおり非発火（既存挙動不変）。**強制は CLI 側（`bin/plangate`）に閉じており、
+本補足は運用ガイドであって強制力を持たない**。

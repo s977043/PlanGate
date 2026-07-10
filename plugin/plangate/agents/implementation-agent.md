@@ -21,7 +21,7 @@ model: inherit
 ## 呼び出し Skill
 
 - `feature-implement` — 個別機能の実装（WF-04 主体 / v7 責務ベース Skill 10 個のうち Build カテゴリ）
-- `self-review`（既存 Skill、v7 の 10 Skill には含まれないが併用可）— 実装直後の構造化セルフレビュー
+- `diff-audit`（既存 Skill、v7 の 10 Skill には含まれないが併用可）— 実装直後の構造化セルフレビュー
 - `known-issues-log` — 妥協点・既知課題の記録（WF-05 との橋渡し）
 
 ## 委譲関係
