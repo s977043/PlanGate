@@ -1,6 +1,6 @@
 ---
 name: ref-integrity-scan
-description: "ファイル（スキル/ルール/フック/設定/ドキュメント）を削除・移動・改名する前後に、リポジトリ内の被参照（ダングリング参照）を全走査して修正候補を提示する。Use when: git rm / git mv の前後、スキル・ルールのパス変更時、『削除前にチェックして』『参照切れを探して』。出典: growth-core deletion-reference-scan 由来（#798）。"
+description: "ファイル（スキル/ルール/フック/設定/ドキュメント）を削除・移動・改名する前後に、リポジトリ内の被参照（ダングリング参照）を全走査して修正候補を提示する。Use when: PlanGate 資産（4 配置 sync を持つスキル/ルール/コマンド）の削除・移動・改名時、git rm / git mv の前後、スキル・ルールのパス変更時、『削除前にチェックして』『参照切れを探して』。出典: growth-core deletion-reference-scan 由来（#798）。"
 ---
 
 # Ref Integrity Scan
