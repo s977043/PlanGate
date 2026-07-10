@@ -46,6 +46,8 @@ fi
 
 if [ "$1" = "--dry-run" ]; then
   echo "[dry-run] 置換予定（setup-team → subagent-team-design）:"
+  echo "[注意] growth-core / repo-local / river-review 文脈の setup-team 言及行は置換対象外。"
+  echo "       該当行が含まれる場合は --apply せず手動編集すること（命名ポリシー: 他版は名前を保持）。"
   for f in $TARGETS; do
     echo "--- $f ---"
     grep -nF 'setup-team' "$f" || true
