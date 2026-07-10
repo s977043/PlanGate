@@ -59,30 +59,30 @@ description: "ファイル（スキル/ルール/フック/設定/ドキュメ�
 TARGET_FULL="path/to/target"          # フルパス（削除・移動対象）
 TARGET_NAME="$(basename "$TARGET_FULL")"  # ファイル名のみ
 
-# パターン1: フルパスでの参照
-grep -rn --include='*.md' --include='*.json' --include='*.sh' \
-  --include='*.yaml' --include='*.yml' \
-  -F -- "$TARGET_FULL" \
-  docs/ .claude/ .agents/ .codex/ .cursor/ plugin/ bin/ scripts/ \
-  CLAUDE.md AGENTS.md README.md 2>/dev/null
+# プレースホルダのまま実行すると全行マッチで大量出力になるためガードする
+if [ -z "$TARGET_FULL" ] || [ "$TARGET_FULL" = "path/to/target" ]; then
+  echo "Error: TARGET_FULL を実際の対象パスに設定してください" >&2
+else
+  # git grep は .gitignore を尊重し高速。--untracked で未コミットの新規ファイルも対象に含める
+  # パターン1: フルパスでの参照
+  git grep -n -F --untracked -- "$TARGET_FULL" -- '*.md' '*.json' '*.sh' '*.yaml' '*.yml'
 
-# パターン2: ファイル名のみでの参照（誤検出が出やすいので手動で絞り込む）
-grep -rn --include='*.md' --include='*.json' --include='*.sh' \
-  --include='*.yaml' --include='*.yml' \
-  -F -- "$TARGET_NAME" \
-  docs/ .claude/ .agents/ .codex/ .cursor/ plugin/ bin/ scripts/ \
-  CLAUDE.md AGENTS.md README.md 2>/dev/null
+  # パターン2: ファイル名のみでの参照（誤検出が出やすいので手動で絞り込む）
+  git grep -n -F --untracked -- "$TARGET_NAME" -- '*.md' '*.json' '*.sh' '*.yaml' '*.yml'
+fi
 ```
 
 **加えて symlink 走査**を行う。macOS の `xargs` は空入力（一致ゼロ件）で待機してハングすることがあるため、`find | xargs` ではなく **while-read 形式**を使う:
 
 ```sh
-find . -type l 2>/dev/null | while IFS= read -r _link; do
-  _resolved="$(readlink "$_link")"
-  case "$_resolved" in
-    *"$TARGET_NAME"*) printf 'SYMLINK: %s -> %s\n' "$_link" "$_resolved" ;;
-  esac
-done
+if [ -n "$TARGET_NAME" ] && [ "$TARGET_NAME" != "target" ]; then
+  find . -type l 2>/dev/null | while IFS= read -r _link; do
+    _resolved="$(readlink "$_link")"
+    case "$_resolved" in
+      *"$TARGET_NAME"*) printf 'SYMLINK: %s -> %s\n' "$_link" "$_resolved" ;;
+    esac
+  done
+fi
 ```
 
 ### Step 3: ヒットの分類
