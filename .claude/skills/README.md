@@ -13,6 +13,7 @@ PlanGate ワークフロー v5 / v6 / **v7** で使用するスキル群。
 | `subagent-driven-development` | 実装タスクのサブエージェント委譲・品質管理 | workflow |
 | `codex-multi-agent` | マルチエージェントでタスク分解・委譲・並列実行・結果統合 | workflow |
 | `setup-team` | タスク規模・モードに応じた最適チーム設計とエージェント委譲準備 | workflow |
+| `ref-integrity-scan` | 削除・移動・改名前後の被参照（inbound）全走査（#691 outbound の相補 / #798） | developer-tools |
 
 ## v7 ハイブリッドアーキテクチャ用 Skill（10 個）
 

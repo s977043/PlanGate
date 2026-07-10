@@ -61,3 +61,4 @@ WF-01〜WF-05 の各 phase で呼び出す再利用可能スキル。
 |--------|------|
 | `skill-creator` | 新しいスキルを対話的に設計・生成 |
 | `setup-team` | タスク規模・モードに応じた最適チーム設計とエージェント委譲準備 |
+| `ref-integrity-scan` | 削除・移動・改名前後の被参照（inbound）を全走査。`check-stale-skill-refs.py`（#691・outbound）の相補（#798）|
