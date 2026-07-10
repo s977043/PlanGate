@@ -50,9 +50,12 @@ import sys
 for f in sys.argv[1:]:
     s = open(f, encoding="utf-8").read()
     n = s.count("self-review")
-    s = s.replace("self-review", "diff-audit")
-    open(f, "w", encoding="utf-8", newline="\n").write(s)
-    print(f"[apply] {f}: {n} 件置換")
+    if n > 0:
+        s = s.replace("self-review", "diff-audit")
+        open(f, "w", encoding="utf-8", newline="\n").write(s)
+        print(f"[apply] {f}: {n} 件置換")
+    else:
+        print(f"[apply] {f}: 置換対象なし (SKIP)")
 PY
   echo "[apply] 次: sh scripts/sync-plugin-plangate.sh を実行して plugin/plangate/agents/ へ伝播してください"
   exit 0
