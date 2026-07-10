@@ -1,0 +1,7 @@
+interface:
+  display_name: "breakdown-gate"
+  short_description: "実装着手前にタスク粒度を5要素で判定し、必要なら分割候補を提示するintakeゲート。Use when: 「タスクを分割し..."
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $breakdown-gate to assist with this project."
+  brand_color: "#1A56DB"

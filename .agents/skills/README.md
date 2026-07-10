@@ -54,6 +54,7 @@ WF-01〜WF-05 の各 phase で呼び出す再利用可能スキル。
 | `systematic-debugging` | エビデンスベースの体系的デバッグ |
 | `subagent-driven-development` | サブエージェント駆動の2段階レビュー開発 |
 | `codex-multi-agent` | Codex CLI を用いたマルチエージェント並列実行 |
+| `breakdown-gate` | 実装着手前にタスク粒度を5要素で判定するintakeゲート（PlanGate起動前・#799） |
 
 ## Skill 運用スキル（Claude Code / Codex CLI 共用）
 

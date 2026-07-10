@@ -150,3 +150,4 @@ intent-classifier は **Intent 8 分類のみ**を担う。Mode 判定・`lite_e
 ## 関連 Skill
 
 - **skill-policy-router**: Intent + Mode を受け取り GatePolicy を返す。intent-classifier の出力をそのまま渡せる
+- **breakdown-gate**: タスク粒度の intake ゲート。intent-classifier のさらに前段で、分割が必要な粗粒度タスクを検出する（`.agents/skills/breakdown-gate/`）
