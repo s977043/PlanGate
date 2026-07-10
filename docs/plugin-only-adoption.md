@@ -37,7 +37,7 @@ plugin-only 環境でどこまで PlanGate の価値（レビュー観点・plan
 | `requirement-gap-scan` / `edgecase-enumeration` | 要件の抜け漏れ・エッジケース洗い出し |
 | `risk-assessment` / `nonfunctional-check` | リスク・非機能観点の洗い出し |
 | `review-gate` | 6 観点レビュー（`/pg-check` 出力を分類するレビューフレーム） |
-| `self-review` | セルフレビュー（構造化チェックリスト） |
+| `diff-audit` | セルフレビュー（構造化チェックリスト、旧 self-review） |
 | `known-issues-log` / `evidence-ledger` | 既知課題・根拠の記録 |
 | `context-load` / `context-packager` | コンテキストの読み込み・引き継ぎパケット作成 |
 | `feature-implement` / `design-gate` | 実装ガイド・設計ゲート観点 |
@@ -84,7 +84,7 @@ Phase 0 に先行する準備段階として位置づける。
 | 2 | `acceptance-criteria-build` / `requirement-gap-scan` | 受入基準を作り、抜け漏れを洗い出す |
 | 3 | plan.md / handoff.md を手動作成（[`working-context.md`](../.claude/rules/working-context.md) の各ファイル役割定義に従う） | PlanGate の型に沿った計画・引き継ぎ資産を残す |
 | 4 | `risk-assessment` / `edgecase-enumeration` / `nonfunctional-check` | 実装前のリスク・エッジケース・非機能観点を洗い出す |
-| 5 | `review-gate` / `self-review` | 実装後に 6 観点・チェックリストでレビューする |
+| 5 | `review-gate` / `diff-audit` | 実装後に 6 観点・チェックリストでレビューする |
 | 6 | `known-issues-log` / `evidence-ledger` | 既知課題・レビュー根拠を記録し次担当へ引き継ぐ |
 | 7 | [`mode-classification.md`](../.claude/rules/mode-classification.md) を手動参照 | 変更規模に応じた運用強度（5 段階モード）を自己判定する |
 

@@ -82,7 +82,7 @@ ai-loop-workflow 全体を導入せずに、PlanGate 本番フローで使える
    （`P-NNN` 3 件以上、PBI 横断でも可）観測された時点で還元候補とする
 3. **還元先判定**: 指摘内容に応じて以下いずれかへ 1 行追加する
    - 実装観点（コーディング時に気をつけるべき点） →
-     [`self-review`](../../.claude/skills/self-review/SKILL.md) スキルの該当
+     [`diff-audit`](../../.claude/skills/diff-audit/SKILL.md)（旧 self-review）スキルの該当
      Phase、または [`plan-review-readiness-gate.md`](./plan-review-readiness-gate.md)
      の該当セクション（§7〜§9 を参照。既存の「シェル/ドキュメント品質観点」
      「シェル/Python コード変更観点」節と同様の粒度で追加する）

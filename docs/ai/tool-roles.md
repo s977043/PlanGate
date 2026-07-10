@@ -37,7 +37,7 @@ v7 opt-in は PBI 単位で段階的に可能。既存 `workflow-conductor` + `i
 
 - **探索・分析**: コードベース調査、影響範囲特定、Gap検出
 - **対話的設計**: brainstormingスキルによるPBI INPUT PACKAGE生成
-- **レビュー**: self-reviewスキル、review-principles適用
+- **レビュー**: diff-auditスキル（旧 self-review）、review-principles適用
 - **PlanGate planフェーズ**: B（計画生成）、C-1（セルフレビュー）、C-2（外部レビュー）
 - **ワークフロー制御**: `/ai-dev-workflow`、`/working-context` コマンド
 - **デバッグ**: systematic-debuggingスキル

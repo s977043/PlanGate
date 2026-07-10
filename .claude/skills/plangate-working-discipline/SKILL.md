@@ -166,7 +166,7 @@ CI/CD・デプロイ設定変更 / 外部 API・料金・規約に影響する�
 | `.claude/rules/responsibility-classes.md` | AI/Human/CI/Workflow の責務 4 分類・自己設置 Gate 非緩和 |
 | `.claude/rules/working-context.md` | C-3/C-4 ゲート・handoff・作業コンテキスト構造 |
 | `docs/ai/subagent-delegation/` | 派遣プロンプト 8 要素・OUTCOME 契約・行動規範（委譲の契約層） |
-| `.claude/skills/self-review` | commit/PR 前のセルフレビュー手順（本 skill の Verify を補完する実行手段） |
+| `.claude/skills/diff-audit` | commit/PR 前のセルフレビュー手順（本 skill の Verify を補完する実行手段、旧 self-review） |
 | `.claude/skills/subagent-driven-development` | 委託実装の 2 段階レビュー開発手法 |
 
 本 skill の固有価値は「**8 フェーズループとしての接続**」（各正本をいつ・どの順で使い、

@@ -124,7 +124,7 @@ obra/superpowersから取り込んだ最上位ルール。違反したら即停�
 | plan（フェーズB） | `NO EXECUTION WITHOUT REVIEWED PLAN FIRST` |
 | exec（フェーズD） | `NO SCOPE CHANGE WITHOUT USER APPROVAL` |
 | subagent-driven-development | `NO MERGE WITHOUT TWO-STAGE REVIEW` |
-| self-review | `NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE` |
+| diff-audit | `NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE` |
 | systematic-debugging | `NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST` |
 
 ---
@@ -604,7 +604,7 @@ D: TDD実装 → L-0: リンター自動修正 → V-1: 受け入れ検査 → V
 | v7 Workflow 定義（WF-01〜WF-05 + Orchestrator） | `docs/workflows/README.md` |
 | メインコマンド | `.claude/commands/ai-dev-workflow.md` |
 | workflow-conductor | `.claude/agents/workflow-conductor.md` |
-| セルフレビュースキル | `.claude/skills/self-review/SKILL.md` |
+| セルフレビュースキル | `.claude/skills/diff-audit/SKILL.md`（旧 self-review） |
 | brainstormingスキル | `.claude/skills/brainstorming/SKILL.md` |
 | SDDスキル | `.claude/skills/subagent-driven-development/SKILL.md` |
 | debuggingスキル | `.claude/skills/systematic-debugging/SKILL.md` |

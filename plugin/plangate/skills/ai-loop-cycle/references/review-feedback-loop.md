@@ -10,7 +10,7 @@
 ## 1. 目的
 
 PR レビューで受けた指摘を観点として抽出・還元し、次の PR 時には同型の指摘が
-事前チェック（self-review / readiness gate / detect フェーズ）で捕捉されている
+事前チェック（diff-audit / readiness gate / detect フェーズ）で捕捉されている
 状態をつくる閉ループを定義する。
 
 真指摘の昇格（gate 観点への反映）と誤検知抑制（レビューボットの false-positive
@@ -29,7 +29,7 @@ PR レビューで受けた指摘を観点として抽出・還元し、次の P
 | 層 | 本ドキュメント上の責務 | 例 |
 | --- | --- | --- |
 | Remember | レビュー指摘・判断・反証・効果を保存する | 指摘 ID、severity、採用/不採用理由、suppression、効果測定 |
-| Optimize | 保存された事実を次回の振る舞いへ反映する | self-review 更新、readiness gate 更新、suppression 追加、scheduling policy 調整 |
+| Optimize | 保存された事実を次回の振る舞いへ反映する | diff-audit 更新、readiness gate 更新、suppression 追加、scheduling policy 調整 |
 
 禁止事項:
 
@@ -87,7 +87,7 @@ PR レビュー指摘（外部ボット・人間レビュアー）を指摘 ID�
 
 | 還元先 | 対象 | 責務 |
 | -------- | ------ | ------ |
-| skill（例: `self-review`） | 作業手順・チェックリストで捕捉できる指摘 | AI-owned（編集可） |
+| skill（例: `diff-audit`） | 作業手順・チェックリストで捕捉できる指摘 | AI-owned（編集可） |
 | gate 観点ドキュメント（例: `plan-review-readiness-gate.md`） | 計画・レビュー観点で捕捉できる指摘 | AI-owned（編集可） |
 | policy | auto-approve 条件・裁定ルールに関わる指摘 | **Human-owned 固定**（第0の承認境界 = [`arbiter-policy.md`](./arbiter-policy.md) §6） |
 | 還元不要 | 一過性・案件固有 | 記録のみ |
@@ -106,7 +106,7 @@ Human-owned 固定であり、本ステップでもその境界は緩和しな�
 
 ### 2-5. 事前適用
 
-次回 flow フェーズ前の pre-check（self-review / readiness gate）で、還元した観点が
+次回 flow フェーズ前の pre-check（diff-audit / readiness gate）で、還元した観点が
 実際に効いていることを確認する。
 
 ### 2-6. 効果測定
@@ -134,7 +134,7 @@ provenance 経由で L4 学習の入力になる。人間の事後 reject
 | レビュー指摘 | 還元先 | 結果 |
 | -------------- | -------- | ------ |
 | PR #662 G1〜G4 / C1〜C5（用語・定義・参照） | `plan-review-readiness-gate.md` §7 D-1〜D-5（PR #663。当時の節番号は §8） | マージ済 |
-| PR #665 R-1〜R-3（助詞・冗長・リンク化） | `self-review` スキル Phase 13 文章品質（PR #666） | レビュー中（2026-07-02 時点） |
+| PR #665 R-1〜R-3（助詞・冗長・リンク化） | `diff-audit`（旧 self-review）スキル Phase 13 文章品質（PR #666） | レビュー中（2026-07-02 時点） |
 | PR #666 指摘 2 件（glob 表記・バックティック） | 即時反映（同 PR 内） | 反映済 |
 
 さらに 2026-07-02 のセッション振り返り（3 系統レビュー: セルフ / 複数エージェント /

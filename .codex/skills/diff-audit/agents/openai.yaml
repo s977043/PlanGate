@@ -1,0 +1,7 @@
+interface:
+  display_name: "diff-audit"
+  short_description: "変更差分を多段フェーズで精査し、構造化された監査レポートを出力する。Use when: 「差分監査したい」「コミット・PR..."
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $diff-audit to assist with this project."
+  brand_color: "#1A56DB"

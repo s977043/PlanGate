@@ -45,7 +45,7 @@ Intent はスキルの優先度や追加推奨にのみ影響する。
 |--------|----------------|
 | `think` | 設計・計画の立案（plan.md 生成） |
 | `hunt` | コードベース調査（Grep / Glob 探索） |
-| `check` | セルフレビュー（self-review Skill） |
+| `check` | セルフレビュー（diff-audit Skill、旧 self-review） |
 | `tdd` | テスト駆動開発（failing test first） |
 | `verify` | 受け入れ検査（test-cases.md 突合） |
 | `worktree` | 独立ブランチでの作業（worktree 分離） |

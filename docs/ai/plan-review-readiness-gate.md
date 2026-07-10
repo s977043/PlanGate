@@ -5,7 +5,7 @@
 
 ## 1. 目的と位置づけ
 
-Plan Review Readiness Gate は、`plan.md` / `todo.md` / `test-cases.md` が生成された直後、C-1 self-review の前に置く計画実行準備ゲートである。
+Plan Review Readiness Gate は、`plan.md` / `todo.md` / `test-cases.md` が生成された直後、C-1 diff-audit の前に置く計画実行準備ゲートである。
 
 ```text
 WF-00 -> WF-01 -> WF-02 -> WF-03 -> B[plan/todo/test-cases]
@@ -23,7 +23,7 @@ PlanGate 統制層フェーズ（A / B / D / L-0）との対応は [`plangate-in
 
 | Verdict | 意味 | 次アクション |
 |---------|------|--------------|
-| `pass` | 7 項目がすべて記入され、C-1 で妥当性レビューできる状態 | C-1 self-review へ進む |
+| `pass` | 7 項目がすべて記入され、C-1 で妥当性レビューできる状態 | C-1 diff-audit へ進む |
 | `needs_revision` | 計画の不足はあるが、危険操作や承認境界違反ではない | `plan.md` / `todo.md` / `test-cases.md` を修正して再判定 |
 | `blocked` | 矛盾、未承認の危険操作、Human-owned 境界、破壊的操作、依存追加など、AI が自己判断で進めてはいけない要素がある | 人間判断または PBI 再整理まで停止 |
 

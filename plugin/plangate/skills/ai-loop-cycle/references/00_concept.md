@@ -124,7 +124,7 @@ merge-ready 責務を担保するため、exec / V 系完了後・PR 作成前�
   = plan 乖離検知と同型の防御。機械化は Phase 3 で `arbiter.py --verify-diff`
   として実装予定）。宣言外の変更を検出した場合は exec へ差し戻すか、
   再裁定（C-3' 再実行）を行う
-- **内容**: self-review スキル（Phase 1〜13 全観点）+
+- **内容**: diff-audit スキル（旧 self-review、Phase 1〜13 全観点）+
   `plan-review-readiness-gate.md`
   §7/§8 観点 + review-feedback-loop（L4）で還元済みの観点を必ず通す
 - **狙い**: PR 作成後の CI 失敗・AI レビュー指摘を事前に潰し、「PR 作成後に
@@ -179,7 +179,7 @@ closed loop とは扱わない。
 | Evaluate | C-1 / C-2 / C-3' / CI / AI review / DoD 判定 |
 | Remember | decision record、review-feedback-loop、suppression、provenance |
 | Schedule | CI fix、review comment handling、retry、stop、block、human escalate |
-| Optimize | self-review / gate / suppression / scheduling policy の更新 |
+| Optimize | diff-audit / gate / suppression / scheduling policy の更新 |
 | Recurse | 1 サイクルの出力を次サイクルの pre-check へ戻す |
 
 policy / HO / C-4 merge は Human-owned 固定であり、AI は自己改善ループを通じて

@@ -28,7 +28,7 @@ Codex 固有の設定はこのディレクトリに集約する。
 ## AI-Dev Workflow
 
 - `./scripts/ai-dev-workflow TASK-XXXX brainstorm` - PBI INPUT PACKAGE を対話的に整える
-- `./scripts/ai-dev-workflow TASK-XXXX plan` - plan / todo / test-cases / self-review / external-review / handoff draft を半自動生成
+- `./scripts/ai-dev-workflow TASK-XXXX plan` - plan / todo / test-cases / diff-audit / external-review / handoff draft を半自動生成
 - `./scripts/ai-dev-workflow TASK-XXXX gate` - C-1 / C-2 / C-3 の gate を確認する
 - `./scripts/ai-dev-workflow TASK-XXXX prepare-cloud` - Cloud task 用 packet をローカル ticket 情報から再生成
 - `./scripts/ai-dev-workflow TASK-XXXX exec` - workflow_conductor 前提で exec を進める

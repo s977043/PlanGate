@@ -1,7 +1,0 @@
-interface:
-  display_name: "self-review"
-  short_description: "変更内容に対して詳細なセルフレビューを実施し、構造化されたレポートを出力する。Use when: コミット・PR前に自分の..."
-  icon_small: "./assets/plangate-small.svg"
-  icon_large: "./assets/plangate-small.svg"
-  default_prompt: "Use $self-review to assist with this project."
-  brand_color: "#1A56DB"

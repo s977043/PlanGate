@@ -73,7 +73,7 @@ EH-1 が警告またはブロックします。C-3 未承認のまま実装フ�
 | PBI 整理 | `ai-dev-brainstorm` | `.agents/skills/ai-dev-brainstorm/SKILL.md` |
 | plan 生成 | `ai-dev-plan` | `.agents/skills/ai-dev-plan/SKILL.md` |
 | C-3 判定 | `plan-review-gate` | `.agents/skills/plan-review-gate/SKILL.md` |
-| セルフレビュー | `self-review` | `.agents/skills/self-review/SKILL.md` |
+| セルフレビュー | `diff-audit` | `.agents/skills/diff-audit/SKILL.md`（旧 self-review） |
 | 作業コンテキスト | `working-context` | `.agents/skills/working-context/SKILL.md` |
 
 プロジェクト `.cursor/skills/` には上記への **symlink** を置いています。Agent はスキル名を指定するか、
