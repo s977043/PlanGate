@@ -53,4 +53,4 @@ WF-03 で生成する `design.md` は、PlanGate 既存の `plan.md` と併存�
 
 PlanGate 既存フロー（A → B → Plan Review Readiness Gate → C-1 〜 C-3 → D）における WF-03 の挿入位置は [`docs/workflows/plangate-insertion-map.md`](./plangate-insertion-map.md) を参照。
 
-WF-03 完了後、AI 実行計画は C-1 diff-audit に入る前に [`Plan Review Readiness Gate`](../ai/plan-review-readiness-gate.md) を通す。これは C-1 / C-2 / C-3 の代替ではなく、レビュー対象 artifact が実行可能な粒度で揃っているかを判定する前段ゲートである。
+WF-03 完了後、AI 実行計画は C-1 self-review に入る前に [`Plan Review Readiness Gate`](../ai/plan-review-readiness-gate.md) を通す。これは C-1 / C-2 / C-3 の代替ではなく、レビュー対象 artifact が実行可能な粒度で揃っているかを判定する前段ゲートである。
