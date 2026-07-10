@@ -23,6 +23,8 @@ F1="$ROOT/.claude/agents/implementation-agent.md"
 F2="$ROOT/.claude/agents/workflow-conductor.md"
 
 [ $# -eq 1 ] || { echo "usage: $0 --dry-run|--apply" >&2; exit 1; }
+case "$1" in --dry-run|--apply) ;; *) echo "usage: $0 --dry-run|--apply" >&2; exit 1;; esac
+[ -f "$F1" ] && [ -f "$F2" ] || { echo "[apply] ERROR: 対象ファイルが見つかりません: $F1 / $F2" >&2; exit 1; }
 
 # 冪等性チェック: 置換対象の旧参照 self-review が両ファイルから既に消えていれば
 # 適用済み（またはそもそも該当箇所が無い）とみなし SKIP する。
@@ -52,6 +54,7 @@ for f in sys.argv[1:]:
     open(f, "w", encoding="utf-8", newline="\n").write(s)
     print(f"[apply] {f}: {n} 件置換")
 PY
+  echo "[apply] 次: sh scripts/sync-plugin-plangate.sh を実行して plugin/plangate/agents/ へ伝播してください"
   exit 0
 fi
 echo "usage: $0 --dry-run|--apply" >&2; exit 1
