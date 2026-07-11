@@ -1111,11 +1111,14 @@ class RunMetaProvenanceTests(unittest.TestCase):
 
     RUN_META = {"run_id": "run-999", "round_index": 1, "task_id": "TASK-0780"}
 
-    def test_run_absent_yields_null(self):
+    def test_run_absent_omits_run_key(self):
+        """入力に run が無いときは provenance に run キー自体を刻まない
+        （`run: null` を出さない）。metrics.py がこれを legacy（run キー欠落）に
+        正しく分類できるようにするため（invalid_run_meta 誤計上の回避）。"""
         data = _base_input()
         self.assertNotIn("run", data)
         provenance, _ = arbiter.arbitrate(data)
-        self.assertIsNone(provenance["run"])
+        self.assertNotIn("run", provenance)
 
     def test_priority0_fail_closed_carries_run(self):
         data = _base_input(run=self.RUN_META)
@@ -1261,22 +1264,18 @@ class ArbiterMetricsIntegrationTests(unittest.TestCase):
         self.assertEqual(report["first_pass"]["denominator"], 1)
         self.assertEqual(report["first_pass"]["rate"], 1.0)
 
-    def test_run_input_omitted_yields_explicit_null_classified_as_invalid_run_meta(self):
-        """入力に run が無い呼び出しは record に `"run": null` を刻む（欠落ではない）。
-
-        metrics.py の分類基準（module docstring）では legacy は「run キー自体が
-        無い record」（#780 以前に発行された真の旧 record）専用であり、
-        `"run": null` は run キーが存在するが run_id が無効（None）なため
-        invalid_run_meta に分類される（legacy とは別カウント）。この区別により
-        「#780 以降に arbiter を run メタ無しで呼んだ」ケースと「#780 より前の
-        本当の旧 record」を metrics 側で判別できる。
-        """
+    def test_run_omitted_record_is_classified_as_legacy_not_invalid_run_meta(self):
+        """入力に run が無い後方互換呼び出しは provenance に run キーを刻まない
+        （`run: null` を出さない）。これにより metrics.py は当該 record を
+        legacy（run メタ未計装・集計対象外の正常レコード）に分類し、
+        invalid_run_meta（run メタを主張するが run_id が falsy＝要注意）には
+        入れない。未計装が要注意カテゴリに水増しされる問題（#780 コーディネータ
+        指摘）を防ぐ。"""
         legacy = _base_input()
         self.assertNotIn("run", legacy)
         arbiter.validate_input(legacy)
         prov_legacy, _ = arbiter.arbitrate(legacy)
-        self.assertIsNone(prov_legacy["run"])
-        self.assertIn("run", prov_legacy)  # キー自体は常に存在する（欠落ではなく null）
+        self.assertNotIn("run", prov_legacy)  # run キーは刻まれない（null でもない）
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = pathlib.Path(tmp)
@@ -1284,30 +1283,11 @@ class ArbiterMetricsIntegrationTests(unittest.TestCase):
 
             report = self.metrics.collect(tmp_path)
 
-        self.assertEqual(report["legacy_count"], 0)
-        self.assertEqual(report["invalid_run_meta_count"], 1)
-        self.assertEqual(report["run_count"], 0)
-        self.assertEqual(report["first_pass"]["denominator"], 0)
-        self.assertIsNone(report["first_pass"]["rate"])
-
-    def test_true_legacy_record_missing_run_key_entirely_is_classified_as_legacy(self):
-        """`run` キー自体が存在しない真の legacy record（#780 以前）は legacy_count に入る。"""
-        prov_legacy, _ = arbiter.arbitrate(_base_input())
-        record_without_run_key = dict(prov_legacy)
-        del record_without_run_key["run"]
-        self.assertNotIn("run", record_without_run_key)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = pathlib.Path(tmp)
-            (tmp_path / "true-legacy.json").write_text(
-                json.dumps(record_without_run_key), encoding="utf-8"
-            )
-
-            report = self.metrics.collect(tmp_path)
-
         self.assertEqual(report["legacy_count"], 1)
         self.assertEqual(report["invalid_run_meta_count"], 0)
         self.assertEqual(report["run_count"], 0)
+        self.assertEqual(report["first_pass"]["denominator"], 0)
+        self.assertIsNone(report["first_pass"]["rate"])
 
 
 class MainExitCodeTests(unittest.TestCase):

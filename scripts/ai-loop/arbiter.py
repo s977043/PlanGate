@@ -40,7 +40,7 @@ L1（呼び出し側）が別途取得し、その verdict を本モジュール
         "round_index": int,             #   bool 不可・必須（run 提供時）
         "task_id": str,
         "repair_action": str            #   任意（再試行時のみ）
-      } | null                          # 省略時は provenance に "run": null として刻む
+      } | 省略可                        # 省略時は provenance に run キー自体を刻まない（null も出さない）
     }
 
 `allowed_paths` は LoopSpec `scope.allowed_paths`（既存必須フィールド）宣言を
@@ -53,7 +53,9 @@ I-1 不変条件）。
 `run`（#780 Slice D 後半 追加）は任意フィールド。指定すると全裁定経路の
 provenance にそのまま刻まれ、`scripts/ai-loop/metrics.py`（#812）が run 単位の
 集計（first-pass rate 等）に用いる。省略可・後方互換（既存呼び出しを壊さない）。
-gate 挙動は変えないため POLICY_REF のバージョンは進めない。
+**省略時は provenance に `run` キー自体を刻まない**（`"run": null` を出さない）ため、
+metrics.py は当該 record を legacy（run メタ未計装）に分類し invalid_run_meta へ
+誤計上しない。gate 挙動は変えないため POLICY_REF のバージョンは進めない。
 
 CLI:
     --input <file>      入力 JSON ファイル（省略時は stdin）
@@ -559,9 +561,13 @@ def build_provenance(
 
     `run`（#780 Slice D 後半 追加・additive・任意）: 呼び出し側入力の
     `run`（{run_id, round_index, task_id, repair_action?}）をそのまま刻む。
-    省略時は None（`"run": null` として出力）。metrics.py（#812）が
-    run 単位の集計（first-pass rate 等）に用いる。gate 挙動（POLICY_REF）は
-    変えない純粋な additive provenance 拡張。
+    **run が None（未指定）のときは `run` キー自体を刻まない**（`"run": null` は
+    出力しない）。これにより metrics.py（#812）は当該 record を legacy（run メタ
+    未計装・集計対象外の正常レコード）に分類でき、invalid_run_meta（run メタを
+    主張するが run_id が falsy＝要注意）への誤計上を避けられる。run が与えられた
+    ときのみ 4 サブフィールドを刻む。metrics.py が run 単位の集計（first-pass
+    rate 等）に用いる。gate 挙動（POLICY_REF）は変えない純粋な additive
+    provenance 拡張。
     """
     w_check: dict[str, Any] = {"model_a": model_a, "model_b": model_b}
     if severity is not None:
@@ -573,7 +579,7 @@ def build_provenance(
     if model_b == "reject" and reject_category is not None:
         w_check["reject_category"] = reject_category
 
-    return {
+    provenance: dict[str, Any] = {
         "decision": decision,
         "issued_by": ISSUED_BY,
         "policy_ref": POLICY_REF,
@@ -585,9 +591,14 @@ def build_provenance(
         "scope_check": scope_check,
         "ho_paths_source": ho_paths_source,
         "ho_pattern_count": ho_pattern_count,
-        "run": run,
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+    # run 未指定時は `run` キー自体を省略する（`"run": null` を出さない）。
+    # metrics.py の legacy（キー欠落）/ invalid_run_meta（キー有だが run_id falsy）
+    # 分類において、未計装を legacy に落とすため（#780 コーディネータ指摘）。
+    if run is not None:
+        provenance["run"] = run
+    return provenance
 
 
 def arbitrate(

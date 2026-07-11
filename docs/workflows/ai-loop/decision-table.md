@@ -144,7 +144,7 @@ w_check:
 
 ### run メタ（#780 Slice D 後半 追加・additive・任意）
 
-呼び出し側入力の `run`（省略可）をそのまま provenance に刻む。省略時は `run: null`。
+呼び出し側入力の `run`（省略可）をそのまま provenance に刻む。**省略時は `run` キー自体を刻まない**（`run: null` は出力しない）。これにより `metrics.py` は当該 record を legacy（run メタ未計装・集計対象外の正常レコード）に分類し、invalid_run_meta（run メタを主張するが run_id が falsy＝要注意）へ誤計上しない。
 
 ```text
 run:
@@ -180,7 +180,7 @@ run:
 | `w_check.model_c` | C/D 時のみ | Model C の判定 |
 | `w_check.model_d` | C/D 時のみ | Model D の判定 |
 | `w_check.reject_category` | model_b=reject 時のみ（omit 方式） | reject 理由カテゴリ（severity 分類の入力元。model_b=approve 時はキー自体を省略） |
-| `run` | 任意（#780 追加・additive） | 呼び出し側入力の run メタをそのまま刻む。省略時は `null`。`scripts/ai-loop/metrics.py`（#812）の run 単位集計（first-pass rate 等）の入力契約 |
+| `run` | 任意（#780 追加・additive） | 呼び出し側入力の run メタをそのまま刻む。**省略時はキー自体を刻まない**（`null` も出力しない → metrics で legacy 分類）。`scripts/ai-loop/metrics.py`（#812）の run 単位集計（first-pass rate 等）の入力契約 |
 | `run.run_id` | run 提供時のみ | 非空 string（run 単位の連番識別子。空文字・空白のみは入力エラー） |
 | `run.round_index` | run 提供時のみ | int（bool 不可・必須）。同一 run 内の再試行回数（0 起点） |
 | `run.task_id` | run 提供時のみ | string（対象 PBI 識別子） |
