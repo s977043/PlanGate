@@ -47,6 +47,8 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで宣言する。**いずれかの軸が
 判定不能なら false**（AC-8 安全側、虚偽宣言禁止）。
 
+`allowed_paths` は LoopSpec の `scope.allowed_paths` 宣言をそのまま渡す（#809）。
+
 - `size_ok`: 変更規模が light 相当以下か（ファイル数 1〜2 目安）
 - `no_new_design`: 新規設計がないか（既存構造の枠内か）
 - `follows_pattern`: 既存パターンを踏襲しているか（ミラー実装か）
@@ -60,6 +62,7 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
 ```json
 {
   "changed_files": ["docs/example.md"],
+  "allowed_paths": ["docs/example.md"],
   "lite": {
     "size_ok": true,
     "no_new_design": true,
