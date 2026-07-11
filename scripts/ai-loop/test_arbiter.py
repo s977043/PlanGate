@@ -1289,6 +1289,44 @@ class ArbiterMetricsIntegrationTests(unittest.TestCase):
         self.assertEqual(report["first_pass"]["denominator"], 0)
         self.assertIsNone(report["first_pass"]["rate"])
 
+    def test_round_index_origin_contract_1_counts_0_does_not(self):
+        """round_index 起点契約の回帰固定（レビュー major 反映）。
+
+        metrics.py（変更禁止・#812）は round_index==1 を初回ラウンドの sentinel
+        として first_pass を判定する（`next(r for r in rounds if
+        r["run"].get("round_index") == 1)`）。したがって呼び出し側は初回に
+        round_index=1 を刻まねばならず、doc が誤って「0 起点」を指示すると
+        成功 run が恒久的に first_pass 分子から漏れる（サイレント過小集計）。
+
+        arbiter は round_index の値をそのまま刻む（int 検証のみ）ため、この
+        テストは arbiter→metrics の実経路で「1 起点=分子に入る / 0 起点=入らない」
+        を明示アサートし、doc/実装契約の再ズレを検知する。"""
+        # 起点=1 の AUTO record 単独 → first_pass 分子に入る
+        r1 = _base_input(run={"run_id": "run-origin-1", "round_index": 1, "task_id": "TASK-0780"})
+        arbiter.validate_input(r1)
+        prov1, _ = arbiter.arbitrate(r1)
+        self.assertEqual(prov1["decision"], "AUTO_APPROVED")
+        self.assertEqual(prov1["run"]["round_index"], 1)
+
+        # 起点=0 の AUTO record 単独（0 起点の初回を模擬）→ 分子に入らない
+        r0 = _base_input(run={"run_id": "run-origin-0", "round_index": 0, "task_id": "TASK-0780"})
+        arbiter.validate_input(r0)
+        prov0, _ = arbiter.arbitrate(r0)
+        self.assertEqual(prov0["decision"], "AUTO_APPROVED")
+        self.assertEqual(prov0["run"]["round_index"], 0)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            (tmp_path / "origin-1.json").write_text(json.dumps(prov1), encoding="utf-8")
+            (tmp_path / "origin-0.json").write_text(json.dumps(prov0), encoding="utf-8")
+            report = self.metrics.collect(tmp_path)
+
+        # 2 run とも分母（run 単位）には入るが、分子は round_index==1 の run のみ
+        self.assertEqual(report["run_count"], 2)
+        self.assertEqual(report["first_pass"]["denominator"], 2)
+        self.assertEqual(report["first_pass"]["numerator"], 1)
+        self.assertEqual(report["first_pass"]["rate"], 0.5)
+
 
 class MainExitCodeTests(unittest.TestCase):
     """main() の exit code 契約（0/2/3/1）を stdin 経由で確認する。"""

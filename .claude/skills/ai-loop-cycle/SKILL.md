@@ -41,7 +41,7 @@ lite 4 軸（[`lite-criteria.md`](../../../docs/workflows/ai-loop/lite-criteria.
 `target_sha` は対象コミットの SHA。`allowed_paths` は LoopSpec の `scope.allowed_paths`
 宣言をそのまま渡す（#809）。
 
-`run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（再試行ごとに +1）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
+`run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（**初回呼び出し=1**、再試行ごとに +1。1 起点。metrics は round_index==1 を初回 sentinel に first_pass 判定するため 0 起点不可）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
 
 入力 JSON の例:
 

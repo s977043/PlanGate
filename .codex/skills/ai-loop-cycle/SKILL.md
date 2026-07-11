@@ -69,7 +69,7 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
 `class` は `merge` を含む変更なら `"merge"`（即 human escalate）、含まなければ `"no-merge"`。
 `target_sha` は対象コミットの SHA。
 
-`run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（再試行ごとに +1）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
+`run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（**初回呼び出し=1**、再試行ごとに +1。1 起点。metrics は round_index==1 を初回 sentinel に first_pass 判定するため 0 起点不可）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
 
 入力 JSON の例:
 

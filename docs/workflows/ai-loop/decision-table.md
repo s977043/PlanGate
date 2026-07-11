@@ -149,7 +149,7 @@ w_check:
 ```text
 run:
   run_id:        run-022（run 単位の連番識別子。非空 string 必須）
-  round_index:   1（同一 run 内の再試行回数。0 起点。int 必須・bool 不可）
+  round_index:   1（初回呼び出し=1、再試行ごとに +1。**1 起点**。int 必須・bool 不可。metrics は round_index==1 を初回 sentinel として first_pass を判定するため 0 起点は不可）
   task_id:       TASK-XXXX（対象 PBI 識別子。string 必須）
   repair_action: reject 指摘に基づき修正（再試行時のみ・任意・string）
 ```
@@ -182,7 +182,7 @@ run:
 | `w_check.reject_category` | model_b=reject 時のみ（omit 方式） | reject 理由カテゴリ（severity 分類の入力元。model_b=approve 時はキー自体を省略） |
 | `run` | 任意（#780 追加・additive） | 呼び出し側入力の run メタをそのまま刻む。**省略時はキー自体を刻まない**（`null` も出力しない → metrics で legacy 分類）。`scripts/ai-loop/metrics.py`（#812）の run 単位集計（first-pass rate 等）の入力契約 |
 | `run.run_id` | run 提供時のみ | 非空 string（run 単位の連番識別子。空文字・空白のみは入力エラー） |
-| `run.round_index` | run 提供時のみ | int（bool 不可・必須）。同一 run 内の再試行回数（0 起点） |
+| `run.round_index` | run 提供時のみ | int（bool 不可・必須）。**1 起点**（初回呼び出し=1、再試行ごとに +1）。`metrics.py` は round_index==1 を初回ラウンドの sentinel として first_pass を判定するため、0 起点にすると成功 run が恒久的に first_pass 分子から漏れる |
 | `run.task_id` | run 提供時のみ | string（対象 PBI 識別子） |
 | `run.repair_action` | run 提供時のみ・任意 | string（再試行時の修正内容の要約。初回 round には無いことが多い） |
 
