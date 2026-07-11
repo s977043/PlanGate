@@ -20,9 +20,9 @@ ai-loop-workflow は Phase 0（本リポジトリの `docs/workflows/ai-loop/` �
 1. **ho-paths の導入先確定**: 導入先プロジェクトが自身の HO（Hardening
    Override）境界を [`ho-paths.md`](../../ai/ai-loop/ho-paths.md) 相当の形で
    確定していること。未確定のまま run を開始することは**規範違反**であり、
-   L1 は run を開始してはならない（現行 `arbiter.py` は plangate 固有の
-   HO パターンを内蔵するのみで、導入先 ho-paths の実行時解決・未確定検知
-   による全件 escalate は**未実装**。機械化は follow-up #809）
+   L1 は run を開始してはならない（`arbiter.py` は ho-paths.md を実行時解決
+   し、導入先 ho-paths の未確定・パース結果 0 件時は全件 human escalate する
+   fail-closed 機械化を実装済み — #809）
 2. **LoopSpec `scope.allowed_paths` の宣言**: [`loopspec.md`](./loopspec.md)
    の既存必須フィールドで、run ごとの変更可能範囲を宣言していること
 
@@ -33,7 +33,9 @@ ai-loop-workflow は Phase 0（本リポジトリの `docs/workflows/ai-loop/` �
 `AUTO_APPROVED` 対象に含めてよい**（Human 決定・2026-07-10）。Phase 0 時点の
 「事実上 docs 級のみ」（issue #782 実測）から拡張する。`lite.size_ok` は
 当面**申告制のまま**とし、git 由来の機械算出 blast-radius boolean への置換
-（#780 slice C）が、申告制に伴う保証強化の unlock として残る。
+（#780 slice C）が、申告制に伴う保証強化の unlock として残る。導入先での
+実機能 auto-approve の実運用開始は `lite.size_ok` の機械算出（#780 slice C）
+導入を前提とする（順序制約）。
 
 ### plangate 本体の扱い（据え置き）
 
@@ -44,8 +46,8 @@ plangate 本体（本リポジトリ）における ai-loop-workflow の適用�
 ### 不変条件（安全側 — 承認境界は不動。Phase 1 でも緩和しない）
 
 - HO 接触 = 無条件 escalate（fail-closed）。ho-paths 未確定時の全件
-  escalate は現状**規範層**（前提 1 の開始禁止）であり、機械層のガードは
-  follow-up #809
+  escalate は**規範層**（前提 1 の開始禁止）に加え、`arbiter.py` の
+  実行時解決 fail-closed（#809）で**機械層のガードも実装済み**
 - **NO MERGE BY AI** / escalate の自己解決禁止 / 対応ラウンド上限 3
 - W チェック独立 2 体（Model A/B、必要なら C/D）
 - lite 4 軸の AC-8 安全側（判定不能→false・虚偽宣言禁止）

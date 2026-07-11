@@ -38,13 +38,15 @@ lite 4 軸（[`lite-criteria.md`](../../../docs/workflows/ai-loop/lite-criteria.
 - `reversible`: 可逆か（`git revert` 一発等、機械的な巻き戻し手順があるか）
 
 `class` は `merge` を含む変更なら `"merge"`（即 human escalate）、含まなければ `"no-merge"`。
-`target_sha` は対象コミットの SHA。
+`target_sha` は対象コミットの SHA。`allowed_paths` は LoopSpec の `scope.allowed_paths`
+宣言をそのまま渡す（#809）。
 
 入力 JSON の例:
 
 ```json
 {
   "changed_files": ["docs/workflows/ai-loop/example.md"],
+  "allowed_paths": ["docs/workflows/ai-loop/example.md"],
   "lite": {
     "size_ok": true,
     "no_new_design": true,
