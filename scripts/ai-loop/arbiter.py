@@ -711,82 +711,32 @@ def arbitrate(
             **kw,
         )
 
-    # priority 0/1/1.5/2/3/4/6 のデータ駆動テーブル（TASK-0814 R1）。
-    # 各行は decision-table.md §3 の対応 priority 行 1 つに対応する
-    # (label, guard, decision, boundary_value, scope_check, reason_fn)。
-    # guard は「scope 検査を通過した以降は in_scope を刻む」という既存の
-    # 優先順位（コメント参照）をそのまま反映しており、上から順に最初に
-    # True になった行が採用される（元の if/return 連鎖と同一の短絡評価）。
+    # priority 0/1/1.5/2/3/4/6 のデータ駆動テーブル（TASK-0814 R1）。各行は
+    # decision-table.md §3 の対応 priority 行 1 つに対応する (label, guard,
+    # decision, boundary_value, scope_check, reason_fn)。guard が True に
+    # なった最初の行が採用される（元の if/return 連鎖と同一の短絡評価）。
+    # scope 検査（priority 1.5）通過後の全行は in_scope を刻む（既存優先順位）。
     # priority 5（approve-reject の severity 分類 + C/D 裁定）は 2 段判定で
     # 分岐が複雑なため、無理にテーブルへ押し込まず本テーブルの後で個別処理
     # として残す（TASK-0814 plan の over-engineering 回避方針）。
+    def _matched_desc() -> str:
+        return ", ".join(f"{m['path']} ({m['pattern']} / {m['classification']})" for m in signals.matched)
+
     priority_table: list[tuple[str, bool, str, str, str, Any]] = [
-        (
-            "priority 0",
-            not ho_patterns,
-            DECISION_HUMAN_ESCALATED,
-            "unresolved",
-            "unresolved",
-            lambda: f"priority 0: ho-paths unresolved (fail-closed)。探索パス: {', '.join(ho_searched)}",
-        ),
-        (
-            # scope 検査（priority 1.5）より前で return するため scope_check は
-            # not_evaluated。lite / class / verdict を問わず必ず human escalate 固定。
-            "priority 1",
-            signals.boundary == "touches-HO",
-            DECISION_HUMAN_ESCALATED,
-            signals.boundary,
-            "not_evaluated",
-            lambda: (
-                "priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: "
-                + ", ".join(f"{m['path']} ({m['pattern']} / {m['classification']})" for m in signals.matched)
-            ),
-        ),
-        (
-            "priority 1.5",
-            not signals.scope_ok,
-            DECISION_HUMAN_ESCALATED,
-            signals.boundary,
-            "scope_violation",
-            lambda: (
-                "priority 1.5: boundary=clean だが scope_violation（allowed_paths 逸脱パス: "
-                + ", ".join(signals.violations)
-                + "）"
-            ),
-        ),
-        (
-            # ここに到達＝scope 検査を実際に通過（合格）。以降の全行は in_scope を刻む。
-            "priority 2",
-            not signals.lite_result,
-            DECISION_HUMAN_ESCALATED,
-            signals.boundary,
-            "in_scope",
-            lambda: "priority 2: boundary=clean だが lite=false（低リスク要件未充足）",
-        ),
-        (
-            "priority 3",
-            class_value == "merge",
-            DECISION_HUMAN_ESCALATED,
-            signals.boundary,
-            "in_scope",
-            lambda: "priority 3: class=merge（Human-owned 固定）",
-        ),
-        (
-            "priority 4",
-            signals.verdict in ("reject-reject", "reject-approve"),
-            DECISION_BLOCKED,
-            signals.boundary,
-            "in_scope",
-            lambda: f"priority 4: verdict={signals.verdict}（A が設計妥当性で NG、または両者合意で NG）",
-        ),
-        (
-            "priority 6",
-            signals.verdict == "approve-approve",
-            DECISION_AUTO_APPROVED,
-            signals.boundary,
-            "in_scope",
-            lambda: "priority 6: verdict=approve-approve（合意）",
-        ),
+        ("priority 0", not ho_patterns, DECISION_HUMAN_ESCALATED, "unresolved", "unresolved",
+         lambda: f"priority 0: ho-paths unresolved (fail-closed)。探索パス: {', '.join(ho_searched)}"),
+        ("priority 1", signals.boundary == "touches-HO", DECISION_HUMAN_ESCALATED, signals.boundary, "not_evaluated",
+         lambda: f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {_matched_desc()}"),
+        ("priority 1.5", not signals.scope_ok, DECISION_HUMAN_ESCALATED, signals.boundary, "scope_violation",
+         lambda: f"priority 1.5: boundary=clean だが scope_violation（allowed_paths 逸脱パス: {', '.join(signals.violations)}）"),
+        ("priority 2", not signals.lite_result, DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
+         lambda: "priority 2: boundary=clean だが lite=false（低リスク要件未充足）"),
+        ("priority 3", class_value == "merge", DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
+         lambda: "priority 3: class=merge（Human-owned 固定）"),
+        ("priority 4", signals.verdict in ("reject-reject", "reject-approve"), DECISION_BLOCKED, signals.boundary, "in_scope",
+         lambda: f"priority 4: verdict={signals.verdict}（A が設計妥当性で NG、または両者合意で NG）"),
+        ("priority 6", signals.verdict == "approve-approve", DECISION_AUTO_APPROVED, signals.boundary, "in_scope",
+         lambda: "priority 6: verdict=approve-approve（合意）"),
     ]
 
     for _label, guard, decision, boundary_value, scope_check, reason_fn in priority_table:
