@@ -924,6 +924,114 @@ class HoPathsProvenanceVisibilityTests(unittest.TestCase):
             self.assertEqual(provenance["ho_pattern_count"], 1)
 
 
+class GeminiSecurityHardeningTests(unittest.TestCase):
+    """PR #813 gemini レビュー反映（#809）: バックスラッシュ traversal / read_text
+    の ValueError / regex キャッシュ。
+    """
+
+    # --- 修正 1（security-high）: バックスラッシュ経路の traversal 封鎖 ---
+
+    def test_backslash_traversal_rejected_in_validate(self):
+        """`foo\\..\\bar`（バックスラッシュ traversal）は入力段で拒否。"""
+        data = _base_input(changed_files=["foo\\..\\bar"])
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_plain_backslash_rejected_in_validate(self):
+        """`foo\\bar`（.. を含まない単なるバックスラッシュ区切り）も一律拒否。"""
+        data = _base_input(changed_files=["foo\\bar"])
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_backslash_rejected_in_allowed_paths(self):
+        data = _base_input(allowed_paths=["foo\\..\\**"])
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_safe_normalized_path_flags_backslash(self):
+        _norm, err = arbiter._safe_normalized_path("foo\\..\\bar")
+        self.assertIsNotNone(err)
+        self.assertIn("\\", err)
+
+    def test_backslash_boundary_check_is_safe_side(self):
+        """判定関数単体でも、バックスラッシュ経路は clean にせず touches-HO 相当に倒す。"""
+        boundary, matched = arbiter.boundary_check(["foo\\..\\bin\\plangate"])
+        self.assertEqual(boundary, "touches-HO")
+        self.assertTrue(matched)
+
+    def _run_main_with_stdin(self, payload):
+        import io
+
+        old_stdin, old_stdout, old_stderr = sys.stdin, sys.stdout, sys.stderr
+        sys.stdin = io.StringIO(json.dumps(payload))
+        sys.stdout = io.StringIO()
+        sys.stderr = io.StringIO()
+        try:
+            code = arbiter.main([])
+            out, err = sys.stdout.getvalue(), sys.stderr.getvalue()
+        finally:
+            sys.stdin, sys.stdout, sys.stderr = old_stdin, old_stdout, old_stderr
+        return code, out, err
+
+    def test_e2e_backslash_traversal_exits_1_never_auto_approves(self):
+        """再現固定: バックスラッシュ traversal は exit 1（入力エラー）で
+        AUTO_APPROVED / clean にならない。
+        """
+        data = _base_input(changed_files=["foo\\..\\bin\\plangate"], allowed_paths=["**"])
+        code, out, err = self._run_main_with_stdin(data)
+        self.assertEqual(code, 1)
+        self.assertNotIn("AUTO_APPROVED", out)
+        self.assertIn("入力エラー", err)
+
+    # --- 修正 2（medium）: read_text の UnicodeDecodeError（ValueError）で fail-closed ---
+
+    def test_resolve_ho_patterns_skips_undecodable_file(self):
+        """不正 UTF-8 の ho-paths 明示指定 → 当該候補 skip、他候補なしで fail-closed（patterns=[]）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = pathlib.Path(tmp) / "bad-ho-paths.md"
+            bad.write_bytes(b"\xff\xfe\x00\x01 invalid utf-8 \x80\x81")
+            patterns, source, searched = arbiter.resolve_ho_patterns(str(bad))
+            self.assertEqual(patterns, [])
+            self.assertIsNone(source)
+            self.assertEqual(searched, [str(bad)])
+
+    def test_arbitrate_fail_closed_on_undecodable_ho_paths(self):
+        """不正 UTF-8 の ho-paths 指定時、arbitrate は全件 HUMAN_ESCALATED（fail-closed）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = pathlib.Path(tmp) / "bad-ho-paths.md"
+            bad.write_bytes(b"\xff\xfe\x00\x01\x80\x81\x82")
+            data = _base_input()  # 本来なら AUTO_APPROVED になる happy-path 入力
+            provenance, reason = arbiter.arbitrate(data, ho_paths_path=str(bad))
+            self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+            self.assertEqual(provenance["boundary_check"], "unresolved")
+            self.assertIn("fail-closed", reason)
+
+    # --- 修正 3（medium・perf）: regex キャッシュ導入後も判定不変（回帰） ---
+
+    def test_regex_cache_preserves_boundary_semantics(self):
+        """キャッシュ導入後も既存 boundary 判定が全て不変であることの回帰確認。"""
+        cases = [
+            (["bin/plangate"], "touches-HO"),
+            (["scripts/hooks/check-plan-hash.sh"], "touches-HO"),
+            (["schemas/plan.schema.json"], "touches-HO"),
+            ([".claude/rules/mode-classification.md"], "touches-HO"),
+            (["docs/ai/ai-loop/ho-paths.md"], "touches-HO"),
+            (["docs/ai/ai-loop/concept.md"], "clean"),
+            (["docs/workflows/ai-loop/decision-table.md"], "clean"),
+            (["plugin/plangate/index.js"], "touches-HO"),
+        ]
+        for changed, expected in cases:
+            with self.subTest(changed=changed):
+                boundary, _ = arbiter.boundary_check(changed)
+                self.assertEqual(boundary, expected)
+
+    def test_regex_cache_returns_identical_compiled_object(self):
+        """同一パターンの再変換がキャッシュされ、同一 compiled regex を返す（メモ化の実証）。"""
+        first = arbiter._ho_pattern_to_regex("scripts/hooks/**")
+        second = arbiter._ho_pattern_to_regex("scripts/hooks/**")
+        self.assertIs(first, second)
+
+
 class MainExitCodeTests(unittest.TestCase):
     """main() の exit code 契約（0/2/3/1）を stdin 経由で確認する。"""
 

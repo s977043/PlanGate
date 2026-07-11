@@ -63,6 +63,7 @@ exit code:
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import pathlib
 import posixpath
@@ -160,7 +161,10 @@ def resolve_ho_patterns(
             continue
         try:
             content = candidate.read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, ValueError):
+            # UnicodeDecodeError（ValueError サブクラス。不正 UTF-8 / バイナリ）は
+            # OSError で捕捉されない。fail-closed を維持するため当該候補を skip し
+            # 次候補へ（全候補失敗なら patterns=[] → arbitrate が全件 escalate）。
             continue
         patterns = parse_ho_paths_table(content)
         if patterns:
@@ -170,12 +174,18 @@ def resolve_ho_patterns(
     return [], None, searched
 
 
+@functools.lru_cache(maxsize=None)
 def _ho_pattern_to_regex(pattern: str) -> re.Pattern[str]:
     """HO パターン文字列をセグメント境界を尊重した正規表現へ変換する。
 
     `*` は 1 セグメント内、`**` は 0 個以上のセグメント（"/" をまたぐ）に
     マッチする。fnmatch / pathlib.PurePath.match はいずれもこの意味論を
     正しく提供しないため、自前で構築する。
+
+    ho-paths.md の動的読み込み化（#809）で本関数は matches_ho_pattern /
+    check_allowed_paths のループから同一パターンで繰り返し呼ばれるため、
+    lru_cache でコンパイル済み regex をメモ化する（gemini medium・挙動不変）。
+    入力はイミュータブルな str のみ・純関数のためキャッシュ安全。
     """
     segments = pattern.split("/")
     n = len(segments)
@@ -270,15 +280,23 @@ def _safe_normalized_path(path: str) -> tuple[str, str | None]:
     """パスを正規化し、リポジトリ相対として不正なら理由文字列を返す。
 
     戻り値: (正規化後パス, エラー理由 or None)
-    エラー条件: 空 / 絶対パス（先頭 /）/ 空セグメント（//）/
+    エラー条件: 空 / バックスラッシュ（\\）/ 絶対パス（先頭 /）/ 空セグメント（//）/
     `..` セグメントを含む（traversal。normpath でルート内に畳み込める場合も
     含めて一律拒否 — 正規パス表現以外を受理しない）。
     先頭 `./` は normpath が畳み込むためエラーにしない（正規化後の実体で
     マッチ評価する）。
+
+    バックスラッシュ拒否の根拠（gemini security-high / #809）: `.split("/")`
+    は `/` でしか分割しないため、`foo\\..\\bar` のようなバックスラッシュ
+    区切り path は `..` チェックをすり抜ける（Windows / 一部ツールが `\\` を
+    セパレータ扱いする場合の traversal 迂回）。Git のパスは常に `/` 区切りの
+    ため、`\\` を含む path は一律不正として拒否する。
     """
     stripped = path.strip()
     if stripped == "":
         return stripped, "空のパス"
+    if "\\" in stripped:
+        return stripped, "バックスラッシュ（\\）"
     if stripped.startswith("/"):
         return stripped, "絶対パス"
     if "//" in stripped:
