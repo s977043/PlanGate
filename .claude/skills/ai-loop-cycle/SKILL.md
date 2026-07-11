@@ -42,7 +42,10 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 lite 4 軸（[`lite-criteria.md`](../../../docs/workflows/ai-loop/lite-criteria.md) §2）を
 それぞれ根拠つきで宣言する。**いずれかの軸が判定不能なら false**（AC-8 安全側、虚偽宣言禁止）。
 
-- `size_ok`: 変更規模が light 相当以下か（ファイル数 1〜2 目安）
+- `size_ok`: 変更規模が light 相当以下か（ファイル数 1〜2 目安）。**申告するが、
+  arbiter が `changed_files` の実ファイル数で機械検証する**（`SIZE_OK_MAX_FILES`=2。
+  実ファイル数が 2 を超えて `size_ok=true` を申告すると priority 1.9 で human
+  escalate。#780 Slice C）
 - `no_new_design`: 新規設計がないか（既存構造の枠内か）
 - `follows_pattern`: 既存パターンを踏襲しているか（ミラー実装か）
 - `reversible`: 可逆か（`git revert` 一発等、機械的な巻き戻し手順があるか）

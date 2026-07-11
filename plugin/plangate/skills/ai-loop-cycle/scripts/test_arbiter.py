@@ -479,6 +479,184 @@ class PlanQualityGatePriorityTests(unittest.TestCase):
         self.assertIn("型: NoneType", reason)
 
 
+class SizeOkMachineCheckTests(unittest.TestCase):
+    """#780 Slice C: priority 1.9（size_ok 機械検証）の裁定経路テスト。
+
+    中核原則: escalate 条件を追加するのみ。申告と実測が一致するケース
+    （size_ok=true かつ changed_files<=2、または size_ok=false）は
+    従来と同一裁定を維持し、申告 size_ok=true だが実ファイル数が
+    SIZE_OK_MAX_FILES（2）を超えるケースのみ HUMAN_ESCALATED に倒れる。
+    """
+
+    def test_size_ok_max_files_constant_is_two(self):
+        self.assertEqual(arbiter.SIZE_OK_MAX_FILES, 2)
+
+    def test_declared_true_one_file_reaches_auto_approve(self):
+        """申告 size_ok=true・changed_files=1 個 → 従来どおり AUTO_APPROVED。"""
+        data = _base_input(changed_files=["docs/workflows/ai-loop/decision-table.md"])
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertIn("priority 6", reason)
+
+    def test_declared_true_two_files_boundary_reaches_auto_approve(self):
+        """申告 size_ok=true・changed_files=2 個（閾値ちょうど）→ 従来どおり AUTO_APPROVED。"""
+        data = _base_input(
+            changed_files=["docs/workflows/ai-loop/decision-table.md", "docs/workflows/ai-loop/lite-criteria.md"],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertIn("priority 6", reason)
+
+    def test_declared_true_three_files_escalates(self):
+        """申告 size_ok=true・changed_files=3 個（閾値+1）→ HUMAN_ESCALATED
+        （申告と blast-radius の不一致・priority 1.9）。"""
+        data = _base_input(
+            changed_files=[
+                "docs/workflows/ai-loop/decision-table.md",
+                "docs/workflows/ai-loop/lite-criteria.md",
+                "docs/workflows/ai-loop/flow-detect.md",
+            ],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.9", reason)
+        self.assertIn("実ファイル数 3", reason)
+        self.assertIn("閾値 2", reason)
+
+    def test_declared_false_many_files_unchanged_reaches_priority2(self):
+        """申告 size_ok=false（実ファイル数に関わらず）→ 従来どおり priority 2 escalate
+        （priority 1.9 の対象外・変化なし）。"""
+        data = _base_input(
+            changed_files=[
+                "docs/workflows/ai-loop/decision-table.md",
+                "docs/workflows/ai-loop/lite-criteria.md",
+                "docs/workflows/ai-loop/flow-detect.md",
+            ],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+            lite={"size_ok": False, "no_new_design": True, "follows_pattern": True, "reversible": True},
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 2", reason)
+        self.assertNotIn("priority 1.9", reason)
+
+    def test_touches_ho_preempts_size_check(self):
+        """HO 優先: touches-HO + size_ok=true 申告 + ファイル数超過でも
+        boundary=touches-HO（priority 1）が先に確定する。"""
+        data = _base_input(
+            changed_files=["bin/plangate", "docs/a.md", "docs/b.md"],
+            allowed_paths=["**"],
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+        self.assertIn("priority 1", reason)
+        self.assertNotIn("priority 1.9", reason)
+
+    def test_scope_violation_preempts_size_check(self):
+        """scope 優先: scope 逸脱 + size_ok=true 申告 + ファイル数超過でも
+        priority 1.5（scope）が priority 1.9 より先に確定する。"""
+        data = _base_input(
+            changed_files=["scripts/unrelated/a.py", "scripts/unrelated/b.py", "scripts/unrelated/c.py"],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["scope_check"], "scope_violation")
+        self.assertIn("priority 1.5", reason)
+        self.assertNotIn("priority 1.9", reason)
+
+    def test_plan_quality_preempts_size_check(self):
+        """plan-quality 優先: gates 不備 + size_ok=true 申告 + ファイル数超過でも
+        priority 1.7（plan-quality）が priority 1.9 より先に確定する。"""
+        data = _base_input(
+            changed_files=[
+                "docs/workflows/ai-loop/decision-table.md",
+                "docs/workflows/ai-loop/lite-criteria.md",
+                "docs/workflows/ai-loop/flow-detect.md",
+            ],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+            gates={"c1": "FAIL", "breakdown": "pass"},
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.7", reason)
+        self.assertNotIn("priority 1.9", reason)
+
+    def test_size_check_preempts_lite_check(self):
+        """priority 1.9 優先: size 不一致 + 他 lite 軸 false（lite_result も false）
+        でも priority 1.9 が priority 2 より先に確定する
+        （size_ok=true 申告自体は他軸と独立に機械検証されるため）。"""
+        data = _base_input(
+            changed_files=[
+                "docs/workflows/ai-loop/decision-table.md",
+                "docs/workflows/ai-loop/lite-criteria.md",
+                "docs/workflows/ai-loop/flow-detect.md",
+            ],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+            lite={"size_ok": True, "no_new_design": False, "follows_pattern": True, "reversible": True},
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.9", reason)
+        self.assertNotIn("priority 2:", reason)
+
+    def test_size_ok_non_bool_declared_value_not_mismatch(self):
+        """AC-8 安全側と同型: size_ok が非 bool（例: 1）は「申告=true」と確定できない
+        ため priority 1.9 の対象にならない（lite_check 側で false 扱いとなり
+        priority 2 escalate に倒れる。安全側は「escalate しない」側に倒れない）。"""
+        data = _base_input(
+            changed_files=[
+                "docs/workflows/ai-loop/decision-table.md",
+                "docs/workflows/ai-loop/lite-criteria.md",
+                "docs/workflows/ai-loop/flow-detect.md",
+            ],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+            lite={"size_ok": 1, "no_new_design": True, "follows_pattern": True, "reversible": True},
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 2", reason)
+        self.assertNotIn("priority 1.9", reason)
+
+
+class DeclaredSizeOkUnitTests(unittest.TestCase):
+    """_declared_size_ok() / machine_size_check() 単体テスト。"""
+
+    def test_declared_true(self):
+        self.assertTrue(arbiter._declared_size_ok({"size_ok": True}))
+
+    def test_declared_false(self):
+        self.assertFalse(arbiter._declared_size_ok({"size_ok": False}))
+
+    def test_declared_missing_key(self):
+        self.assertFalse(arbiter._declared_size_ok({}))
+
+    def test_declared_none_value(self):
+        self.assertFalse(arbiter._declared_size_ok({"size_ok": None}))
+
+    def test_declared_non_bool_value(self):
+        self.assertFalse(arbiter._declared_size_ok({"size_ok": 1}))
+
+    def test_declared_not_a_dict(self):
+        self.assertFalse(arbiter._declared_size_ok("size_ok"))
+        self.assertFalse(arbiter._declared_size_ok(None))
+
+    def test_machine_size_check_one_file(self):
+        self.assertTrue(arbiter.machine_size_check(["a.md"]))
+
+    def test_machine_size_check_two_files_boundary(self):
+        self.assertTrue(arbiter.machine_size_check(["a.md", "b.md"]))
+
+    def test_machine_size_check_three_files_exceeds(self):
+        self.assertFalse(arbiter.machine_size_check(["a.md", "b.md", "c.md"]))
+
+    def test_machine_size_check_zero_files(self):
+        self.assertTrue(arbiter.machine_size_check([]))
+
+
 class SeverityEscalationTests(unittest.TestCase):
     def test_severity_critical_escalates(self):
         data = _base_input()
@@ -621,7 +799,7 @@ class ProvenanceSchemaTests(unittest.TestCase):
         ):
             self.assertIn(field, provenance)
         self.assertEqual(provenance["issued_by"], "arbiter-v0.1")
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v2")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v3")
         self.assertEqual(provenance["scope_check"], "in_scope")
         self.assertEqual(provenance["w_check"]["model_a"], "approve")
         self.assertEqual(provenance["w_check"]["model_b"], "approve")
@@ -820,15 +998,16 @@ class PolicyRefVersionTests(unittest.TestCase):
     """TC-11: POLICY_REF が @v1 へ改版されていること（allowed_paths 必須化・fail-closed機械化）。
 
     #780 Slice B で @v1 → @v2 へ再改版（gates 必須化・priority 1.7 追加）。
+    #780 Slice C で @v2 → @v3 へ再改版（size_ok 機械検証・priority 1.9 追加）。
     """
 
-    def test_tc11_policy_ref_is_v2(self):
-        self.assertEqual(arbiter.POLICY_REF, "auto-approve-lite-clean@v2")
+    def test_tc11_policy_ref_is_v3(self):
+        self.assertEqual(arbiter.POLICY_REF, "auto-approve-lite-clean@v3")
 
-    def test_tc11_provenance_policy_ref_is_v2(self):
+    def test_tc11_provenance_policy_ref_is_v3(self):
         data = _base_input()
         provenance, _ = arbiter.arbitrate(data)
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v2")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v3")
 
 
 class PathNormalizationSecurityTests(unittest.TestCase):
@@ -1394,10 +1573,10 @@ class RunMetaProvenanceTests(unittest.TestCase):
 
     def test_policy_ref_unchanged_when_run_present(self):
         """run は additive provenance であり policy 改版ではない（run 追加は据え置き。
-        現行ベースラインは #780 Slice B の gates 必須化で @v2 — run 起因の改版ではない）。"""
+        現行ベースラインは #780 Slice C の size_ok 機械検証で @v3 — run 起因の改版ではない）。"""
         data = _base_input(run=self.RUN_META)
         provenance, _ = arbiter.arbitrate(data)
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v2")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v3")
 
 
 class GatesProvenanceTests(unittest.TestCase):
@@ -1511,10 +1690,10 @@ class GatesProvenanceTests(unittest.TestCase):
 
     def test_policy_ref_unchanged_when_gates_present(self):
         """gates 刻印は additive provenance であり policy 改版ではない
-        （POLICY_REF は @v2 据え置き）。"""
+        （POLICY_REF は現行ベースライン @v3 据え置き。gates 追加自体が原因の改版ではない）。"""
         data = _base_input(gates=self.GATES_META)
         provenance, _ = arbiter.arbitrate(data)
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v2")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v3")
 
 
 class ArbiterMetricsIntegrationTests(unittest.TestCase):
@@ -1761,7 +1940,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 0,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "unresolved",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1798,7 +1977,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": False,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "not_evaluated",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "reject", "model_b": "reject"},
@@ -1824,7 +2003,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "scope_violation",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1850,7 +2029,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": False,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1873,7 +2052,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1898,7 +2077,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "reject", "model_b": "reject"},
@@ -1926,7 +2105,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "reject", "model_b": "approve"},
@@ -1952,7 +2131,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1978,7 +2157,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2012,7 +2191,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2048,7 +2227,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2085,7 +2264,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2123,7 +2302,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2161,7 +2340,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2194,7 +2373,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v2",
+                "policy_ref": "auto-approve-lite-clean@v3",
                 "run": {
                     "repair_action": None,
                     "round_index": 0,

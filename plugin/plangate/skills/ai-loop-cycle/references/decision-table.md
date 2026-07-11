@@ -52,10 +52,10 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 > **boundary=touches-HO の場合、lite / class / verdict にかかわらず必ず human escalate 固定。**
 > これは W チェック結果・severity 分類・C/D 裁定のいずれをもスキップする絶対条件。
 
-### priority 0 / 1.5 / 1.7（#809・#780 Slice B 追加・機械実装のみで本表 1〜6 の番号体系は不変）
+### priority 0 / 1.5 / 1.7 / 1.9（#809・#780 Slice B・#780 Slice C 追加・機械実装のみで本表 1〜6 の番号体系は不変）
 
 上記 priority 1〜6 の番号体系（本リポジトリの正本表記）は変更しない。以下の
-3 チェックは `scripts/ai-loop/arbiter.py`（#809・#780 Slice B）が実装する
+4 チェックは `scripts/ai-loop/arbiter.py`（#809・#780 Slice B・#780 Slice C）が実装する
 **前置・割込みチェック**であり、実装上は 1〜6 の評価より手前 / 間で評価される:
 
 | priority | 内容 | → 裁定 |
@@ -63,6 +63,7 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 | **0** | ho-paths.md が実行時解決できない、またはパース結果が 0 件（fail-closed）。boundary 判定そのものが実行不能なため、他のどの軸よりも先に評価する | **human escalate（固定・絶対条件）** |
 | **1.5** | boundary=clean（priority 1 通過後）だが、`changed_files` が `allowed_paths` のいずれの glob にも一致しない（scope 逸脱） | **human escalate** |
 | **1.7** | boundary=clean・scope 逸脱なし（priority 1.5 通過後）だが、`gates.c1 == "PASS"` かつ `gates.breakdown == "pass"`（両方とも厳密一致）を満たさない（plan 品質ゲート未充足） | **human escalate** |
+| **1.9** | priority 1.7 通過後、申告 `lite.size_ok == true`（bool）だが `changed_files` の実ファイル数が `SIZE_OK_MAX_FILES`（2）を超える（申告と blast-radius の不一致） | **human escalate** |
 
 - priority 0 は「boundary が touches-HO か clean か」を判定する前提条件
   （ho-paths 一覧そのもの）が欠落しているケースであり、fail-open
@@ -70,7 +71,7 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 - priority 1.5 は priority 1（touches-HO）の**後**に評価する。
   `allowed_paths` に HO パスを宣言していても HO escalate は免れない
   （`design-philosophy.md` I-1 不変条件、LoopSpec 既存規定）
-- priority 1.7（#780 Slice B）は priority 1.5（scope）の**後**・priority 2（lite）の
+- priority 1.7（#780 Slice B）は priority 1.5（scope）の**後**・priority 1.9（size 機械検証）の
   **前**に評価する。`gates`（`{"c1": str, "breakdown": str}`）は任意入力フィールドで、
   欠落・null・非 dict・型不一致・値の表記違い（例: 小文字 `"pass"` 以外の
   `breakdown`、`"PASS"` 以外の `c1`）は**すべて安全側で未充足＝human escalate**
@@ -80,6 +81,14 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
   結果（`"PASS"` のみ通過）、`breakdown` は breakdown-gate スキルの粒度判定
   結果（`"pass"` のみ通過。`split-suggested` 等は未充足）を渡す想定
   （`.agents/skills/ai-loop-cycle/SKILL.md` Step 0/1 参照）
+- priority 1.9（#780 Slice C）は priority 1.7（plan-quality）の**後**・priority 2（lite）の
+  **前**に評価する。`lite.size_ok` は引き続き申告制（他 3 軸と同型の bool 申告）だが、
+  arbiter が `changed_files` の実ファイル数を機械算出し、`size_ok == true` の申告を
+  クロスチェックする。申告と実測が一致するケース（`size_ok=true` かつファイル数
+  ≤2、または `size_ok=false`）は**従来と同一の裁定を維持**する。**本チェックも
+  escalate 条件を追加するだけの安全側変更であり、以前 auto-approve/blocked
+  だった経路を auto-approve にする効果は一切持たない**（POLICY_REF を `@v2` →
+  `@v3` へ改版した理由）。
 
 ### 裁定ラベルと provenance 値の対応
 
@@ -123,7 +132,7 @@ auto-approve 時（priority 6 または C/D 合意）に刻印する最低限の
 ```text
 decision:           AUTO_APPROVED / HUMAN_ESCALATED / BLOCKED
 issued_by:          arbiter-v0.1（判断エンジン識別子）
-policy_ref:         auto-approve-lite-clean@v2（適用 policy 名 + バージョン）
+policy_ref:         auto-approve-lite-clean@v3（適用 policy 名 + バージョン）
 w_check:
   model_a: approve
   model_b: approve
@@ -139,12 +148,17 @@ timestamp:          <ISO 8601>
 
 > **policy_ref バージョン履歴**: `@v0` → `@v1`（#809: allowed_paths 必須化・
 > ho-paths 実行時解決の fail-closed 機械化）→ `@v2`（#780 Slice B: `gates`
-> 入力による plan 品質ゲート priority 1.7 の追加）。`@v0` 時点の PoC は
+> 入力による plan 品質ゲート priority 1.7 の追加）→ `@v3`（#780 Slice C:
+> `lite.size_ok` 申告を `changed_files` 実ファイル数（`SIZE_OK_MAX_FILES`=2）で
+> 機械検証する priority 1.9 の追加）。`@v0` 時点の PoC は
 > `HO_PATTERNS` ハードコード定数＋allowed_paths 未検証だったため、境界判定
 > ロジックが変わった本改版で policy バージョンを進めた。`@v2` は
 > auto-approve の新必要条件（`gates.c1 == "PASS"` かつ `gates.breakdown ==
 > "pass"`）を追加した改版であり、escalate 条件を追加するだけの安全側変更
 > （以前 auto-approve/blocked だった経路が新たに auto-approve になることはない）。
+> `@v3` も同型の安全側変更で、申告 `size_ok=true` かつ実ファイル数が閾値を
+> 超える（申告と blast-radius の不一致）ケースのみ escalate を追加する
+> （申告と実測が一致するケースは `@v2` までと同一裁定を維持）。
 
 ### C/D 裁定時の追加フィールド（severity=minor/low 時のみ）
 

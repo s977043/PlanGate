@@ -32,7 +32,10 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
   `scope.allowed_paths` 宣言** の 2 条件が前提。
 - **auto-approve 方針（Phase 1）**: lite 4 軸（`references/lite-criteria.md` §2）を
   申告制・AND・判定不能→false で満たせば、**実機能も `AUTO_APPROVED` 対象に含めてよい**
-  （docs 級限定ではない）。`size_ok` は当面申告制のまま。
+  （docs 級限定ではない）。`size_ok` は申告するが、arbiter が `changed_files` の
+  実ファイル数で機械検証する（`SIZE_OK_MAX_FILES`=2。実ファイル数が 2 を超えて
+  `size_ok=true` を申告すると priority 1.9 で human escalate。#780 Slice C）。
+  他 3 軸（`no_new_design`/`follows_pattern`/`reversible`）は引き続き申告制のまま。
 - **裁定記録・摩擦台帳の保存先は導入先プロジェクトで定義する**（本スキルは強制しない）。
   既定案として、導入先の作業ディレクトリ配下に run 単位の裁定 record 用サブディレクトリ
   （例: `<作業ディレクトリ>/ai-loop-runs/`）を設ける配置が参考になるが、導入先の
@@ -60,7 +63,10 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
 
 `allowed_paths` は LoopSpec の `scope.allowed_paths` 宣言をそのまま渡す（#809）。
 
-- `size_ok`: 変更規模が light 相当以下か（ファイル数 1〜2 目安）
+- `size_ok`: 変更規模が light 相当以下か（ファイル数 1〜2 目安）。**申告するが、
+  arbiter が `changed_files` の実ファイル数で機械検証する**（`SIZE_OK_MAX_FILES`=2。
+  実ファイル数が 2 を超えて `size_ok=true` を申告すると priority 1.9 で human
+  escalate。#780 Slice C）
 - `no_new_design`: 新規設計がないか（既存構造の枠内か）
 - `follows_pattern`: 既存パターンを踏襲しているか（ミラー実装か）
 - `reversible`: 可逆か（`git revert` 一発等、機械的な巻き戻し手順があるか）
