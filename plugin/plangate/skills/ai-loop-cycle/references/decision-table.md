@@ -121,6 +121,8 @@ target_sha:         <変更対象コミット SHA（差し替え検知用）>
 lite_check:         true
 class_check:        no-merge
 scope_check:        in_scope
+ho_paths_source:    docs/ai/ai-loop/ho-paths.md（解決された ho-paths のパス。未解決時は null）
+ho_pattern_count:   18（解決した HO パターン抽出件数）
 timestamp:          <ISO 8601>
 ```
 
@@ -154,7 +156,9 @@ w_check:
 | `boundary_check` | ✅ | boundary 判定結果（auto-approve は clean のみ。ho-paths 未解決 fail-closed 時は `unresolved`） |
 | `lite_check` | ✅ | lite 判定結果（auto-approve は true のみ） |
 | `class_check` | ✅ | class 判定結果（auto-approve は no-merge のみ） |
-| `scope_check` | ✅（#809 追加） | allowed_paths 判定結果。`in_scope` / `scope_violation` / `unresolved`（auto-approve は `in_scope` のみ） |
+| `scope_check` | ✅（#809 追加） | allowed_paths 判定結果。`in_scope`（priority 1.5 の scope 検査を実際に通過）/ `scope_violation`（逸脱検出）/ `unresolved`（ho-paths 未解決 fail-closed）/ `not_evaluated`（touches-HO 等 scope 検査より前で確定し未評価。既定値。`in_scope` と誤読させないため #809 敵対的レビュー minor 反映で導入）。auto-approve は `in_scope` のみ |
+| `ho_paths_source` | ✅（#809 追加） | 解決された ho-paths.md のパス（未解決 fail-closed 時は `null`）。全裁定経路で刻む |
+| `ho_pattern_count` | ✅（#809 追加） | 解決した HO パターン抽出件数（int。未解決時は 0）。「`boundary=clean` だが `ho_pattern_count=1`」のような過少網羅を監査で検知するための可視化フィールド（fail-closed 閾値そのものは 0 のまま — 導入先ごとに妥当な最小 HO クラス数が異なるため件数閾値化はしない） |
 | `timestamp` | ✅ | 刻印日時（ISO 8601） |
 | `w_check.severity` | C/D 時のみ | 不一致の severity 分類 |
 | `w_check.model_c` | C/D 時のみ | Model C の判定 |
