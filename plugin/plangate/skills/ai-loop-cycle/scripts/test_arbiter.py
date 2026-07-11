@@ -1032,6 +1032,314 @@ class GeminiSecurityHardeningTests(unittest.TestCase):
         self.assertIs(first, second)
 
 
+class RunMetaValidationTests(unittest.TestCase):
+    """#780 Slice D 後半: 入力 `run`（任意フィールド）のバリデーション。"""
+
+    def test_run_absent_passes_validation(self):
+        data = _base_input()
+        validated = arbiter.validate_input(data)
+        self.assertNotIn("run", validated)
+
+    def test_run_valid_without_repair_action_passes(self):
+        data = _base_input(run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780"})
+        validated = arbiter.validate_input(data)
+        self.assertEqual(validated["run"]["run_id"], "run-001")
+
+    def test_run_valid_with_repair_action_passes(self):
+        data = _base_input(
+            run={
+                "run_id": "run-001",
+                "round_index": 2,
+                "task_id": "TASK-0780",
+                "repair_action": "reject 指摘に基づき修正",
+            }
+        )
+        validated = arbiter.validate_input(data)
+        self.assertEqual(validated["run"]["repair_action"], "reject 指摘に基づき修正")
+
+    def test_run_non_dict_raises(self):
+        data = _base_input(run="not-a-dict")
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_run_id_empty_string_raises(self):
+        data = _base_input(run={"run_id": "", "round_index": 1, "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_run_id_whitespace_only_raises(self):
+        data = _base_input(run={"run_id": "   ", "round_index": 1, "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_run_id_non_string_raises(self):
+        data = _base_input(run={"run_id": 123, "round_index": 1, "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_round_index_string_raises(self):
+        data = _base_input(run={"run_id": "run-001", "round_index": "1", "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_round_index_bool_raises(self):
+        """round_index は bool を除外した厳密 int（bool は int のサブクラス）。"""
+        data = _base_input(run={"run_id": "run-001", "round_index": True, "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_round_index_missing_raises(self):
+        data = _base_input(run={"run_id": "run-001", "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_task_id_int_raises(self):
+        data = _base_input(run={"run_id": "run-001", "round_index": 1, "task_id": 780})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_task_id_empty_string_raises(self):
+        """task_id は run_id と対称に非空 str 必須（空文字は exit 1 / gemini medium）。"""
+        data = _base_input(run={"run_id": "run-001", "round_index": 1, "task_id": ""})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_task_id_whitespace_only_raises(self):
+        """task_id 空白のみ（strip 後空）は非空要件を満たさず exit 1（gemini medium 実測是正）。"""
+        data = _base_input(run={"run_id": "run-001", "round_index": 1, "task_id": "   "})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_repair_action_non_string_raises(self):
+        data = _base_input(
+            run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780", "repair_action": 5}
+        )
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+
+class RunMetaProvenanceTests(unittest.TestCase):
+    """#780 Slice D 後半: provenance への run 刻印（全裁定経路で additive に刻む）。"""
+
+    RUN_META = {"run_id": "run-999", "round_index": 1, "task_id": "TASK-0780"}
+
+    def test_run_absent_omits_run_key(self):
+        """入力に run が無いときは provenance に run キー自体を刻まない
+        （`run: null` を出さない）。metrics.py がこれを legacy（run キー欠落）に
+        正しく分類できるようにするため（invalid_run_meta 誤計上の回避）。"""
+        data = _base_input()
+        self.assertNotIn("run", data)
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertNotIn("run", provenance)
+
+    def test_priority0_fail_closed_carries_run(self):
+        data = _base_input(run=self.RUN_META)
+        provenance, _ = arbiter.arbitrate(data, ho_paths_path="/nonexistent/ho-paths.md")
+        self.assertEqual(provenance["boundary_check"], "unresolved")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority1_touches_ho_carries_run(self):
+        data = _base_input(run=self.RUN_META, changed_files=["bin/plangate"])
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority1_5_scope_violation_carries_run(self):
+        data = _base_input(run=self.RUN_META, changed_files=["out/of/scope.md"])
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["scope_check"], "scope_violation")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority2_lite_false_carries_run(self):
+        data = _base_input(
+            run=self.RUN_META,
+            lite={
+                "size_ok": False,
+                "no_new_design": True,
+                "follows_pattern": True,
+                "reversible": True,
+            },
+        )
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority3_merge_carries_run(self):
+        data = _base_input(run=self.RUN_META, **{"class": "merge"})
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority4_blocked_carries_run(self):
+        data = _base_input(run=self.RUN_META)
+        data["verdicts"]["model_a"] = "reject"
+        data["verdicts"]["model_b"] = "reject"
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "BLOCKED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority5_human_escalated_carries_run(self):
+        data = _base_input(run=self.RUN_META)
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "auth_change"  # severity=major
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority5_cd_auto_approved_carries_run(self):
+        data = _base_input(run=self.RUN_META)
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "logic"  # severity=minor
+        data["verdicts"]["model_c"] = "approve"
+        data["verdicts"]["model_d"] = "approve"
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority6_auto_approved_carries_run(self):
+        data = _base_input(run=self.RUN_META)
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_policy_ref_unchanged_when_run_present(self):
+        """run は additive provenance であり policy 改版ではない（@v1 据え置き）。"""
+        data = _base_input(run=self.RUN_META)
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v1")
+
+
+class ArbiterMetricsIntegrationTests(unittest.TestCase):
+    """#780 Slice D 後半の核心: arbiter が刻んだ run 付き record を実際に
+    metrics.py（#812 消費側）へ渡し、first_pass 判定が正しく機能することを実証する。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import metrics as metrics_module  # noqa: E402  (sys.path は本ファイル冒頭で設定済み)
+
+        cls.metrics = metrics_module
+
+    def test_first_pass_false_when_round1_rejected_then_round2_auto_approved(self):
+        run_id = "run-780-int-reject-then-approve"
+
+        round1 = _base_input(run={"run_id": run_id, "round_index": 1, "task_id": "TASK-0780"})
+        round1["verdicts"]["model_a"] = "reject"
+        round1["verdicts"]["model_b"] = "reject"
+        arbiter.validate_input(round1)
+        prov1, _ = arbiter.arbitrate(round1)
+        self.assertEqual(prov1["decision"], "BLOCKED")
+
+        round2 = _base_input(
+            run={
+                "run_id": run_id,
+                "round_index": 2,
+                "task_id": "TASK-0780",
+                "repair_action": "reject 指摘（reject-reject）に基づき修正",
+            }
+        )
+        arbiter.validate_input(round2)
+        prov2, _ = arbiter.arbitrate(round2)
+        self.assertEqual(prov2["decision"], "AUTO_APPROVED")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            (tmp_path / "round1.json").write_text(json.dumps(prov1), encoding="utf-8")
+            (tmp_path / "round2.json").write_text(json.dumps(prov2), encoding="utf-8")
+
+            report = self.metrics.collect(tmp_path)
+
+        self.assertEqual(report["run_count"], 1)
+        self.assertEqual(report["legacy_count"], 0)
+        self.assertEqual(report["invalid_run_meta_count"], 0)
+        self.assertEqual(report["first_pass"]["denominator"], 1)
+        self.assertEqual(report["first_pass"]["numerator"], 0)
+        self.assertEqual(report["first_pass"]["rate"], 0.0)
+        self.assertEqual(report["round_distribution"], {2: 1})
+
+    def test_first_pass_true_when_round1_auto_approved(self):
+        run_id = "run-780-int-first-pass"
+
+        round1 = _base_input(run={"run_id": run_id, "round_index": 1, "task_id": "TASK-0780"})
+        arbiter.validate_input(round1)
+        prov1, _ = arbiter.arbitrate(round1)
+        self.assertEqual(prov1["decision"], "AUTO_APPROVED")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            (tmp_path / "round1.json").write_text(json.dumps(prov1), encoding="utf-8")
+
+            report = self.metrics.collect(tmp_path)
+
+        self.assertEqual(report["run_count"], 1)
+        self.assertEqual(report["first_pass"]["numerator"], 1)
+        self.assertEqual(report["first_pass"]["denominator"], 1)
+        self.assertEqual(report["first_pass"]["rate"], 1.0)
+
+    def test_run_omitted_record_is_classified_as_legacy_not_invalid_run_meta(self):
+        """入力に run が無い後方互換呼び出しは provenance に run キーを刻まない
+        （`run: null` を出さない）。これにより metrics.py は当該 record を
+        legacy（run メタ未計装・集計対象外の正常レコード）に分類し、
+        invalid_run_meta（run メタを主張するが run_id が falsy＝要注意）には
+        入れない。未計装が要注意カテゴリに水増しされる問題（#780 コーディネータ
+        指摘）を防ぐ。"""
+        legacy = _base_input()
+        self.assertNotIn("run", legacy)
+        arbiter.validate_input(legacy)
+        prov_legacy, _ = arbiter.arbitrate(legacy)
+        self.assertNotIn("run", prov_legacy)  # run キーは刻まれない（null でもない）
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            (tmp_path / "no-run-input.json").write_text(json.dumps(prov_legacy), encoding="utf-8")
+
+            report = self.metrics.collect(tmp_path)
+
+        self.assertEqual(report["legacy_count"], 1)
+        self.assertEqual(report["invalid_run_meta_count"], 0)
+        self.assertEqual(report["run_count"], 0)
+        self.assertEqual(report["first_pass"]["denominator"], 0)
+        self.assertIsNone(report["first_pass"]["rate"])
+
+    def test_round_index_origin_contract_1_counts_0_does_not(self):
+        """round_index 起点契約の回帰固定（レビュー major 反映）。
+
+        metrics.py（変更禁止・#812）は round_index==1 を初回ラウンドの sentinel
+        として first_pass を判定する（`next(r for r in rounds if
+        r["run"].get("round_index") == 1)`）。したがって呼び出し側は初回に
+        round_index=1 を刻まねばならず、doc が誤って「0 起点」を指示すると
+        成功 run が恒久的に first_pass 分子から漏れる（サイレント過小集計）。
+
+        arbiter は round_index の値をそのまま刻む（int 検証のみ）ため、この
+        テストは arbiter→metrics の実経路で「1 起点=分子に入る / 0 起点=入らない」
+        を明示アサートし、doc/実装契約の再ズレを検知する。"""
+        # 起点=1 の AUTO record 単独 → first_pass 分子に入る
+        r1 = _base_input(run={"run_id": "run-origin-1", "round_index": 1, "task_id": "TASK-0780"})
+        arbiter.validate_input(r1)
+        prov1, _ = arbiter.arbitrate(r1)
+        self.assertEqual(prov1["decision"], "AUTO_APPROVED")
+        self.assertEqual(prov1["run"]["round_index"], 1)
+
+        # 起点=0 の AUTO record 単独（0 起点の初回を模擬）→ 分子に入らない
+        r0 = _base_input(run={"run_id": "run-origin-0", "round_index": 0, "task_id": "TASK-0780"})
+        arbiter.validate_input(r0)
+        prov0, _ = arbiter.arbitrate(r0)
+        self.assertEqual(prov0["decision"], "AUTO_APPROVED")
+        self.assertEqual(prov0["run"]["round_index"], 0)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            (tmp_path / "origin-1.json").write_text(json.dumps(prov1), encoding="utf-8")
+            (tmp_path / "origin-0.json").write_text(json.dumps(prov0), encoding="utf-8")
+            report = self.metrics.collect(tmp_path)
+
+        # 2 run とも分母（run 単位）には入るが、分子は round_index==1 の run のみ
+        self.assertEqual(report["run_count"], 2)
+        self.assertEqual(report["first_pass"]["denominator"], 2)
+        self.assertEqual(report["first_pass"]["numerator"], 1)
+        self.assertEqual(report["first_pass"]["rate"], 0.5)
+
+
 class MainExitCodeTests(unittest.TestCase):
     """main() の exit code 契約（0/2/3/1）を stdin 経由で確認する。"""
 
