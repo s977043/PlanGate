@@ -102,6 +102,12 @@ class BoundaryCheckTests(unittest.TestCase):
         boundary, _ = arbiter.boundary_check(["docs/ai/ai-loop/concept.md"])
         self.assertEqual(boundary, "clean")
 
+    def test_ho_paths_md_itself(self):
+        """HO 境界定義ファイル自体の変更は touches-HO（自己改変防止 / #808 consensus）。"""
+        boundary, matched = arbiter.boundary_check(["docs/ai/ai-loop/ho-paths.md"])
+        self.assertEqual(boundary, "touches-HO")
+        self.assertEqual(matched[0]["classification"], "HO-contract")
+
     def test_github_workflows_yml(self):
         boundary, _ = arbiter.boundary_check([".github/workflows/ci.yml"])
         self.assertEqual(boundary, "touches-HO")

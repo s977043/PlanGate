@@ -1,6 +1,6 @@
 # Arbiter — HO（Hardening Override）パス集約リスト
 
-> **Status**: Phase 0 ドキュメント（2026-07-01）。
+> **Status**: Phase 0 ドキュメント（2026-07-01。構築フェーズ番号 — #807 のデプロイ段階 Phase 0/1 とは別系）。
 > **目的**: "touches-HO" 判定の基準となるパスを machine-readable な形式で列挙する。
 > Phase 2 の Decision table から参照される。
 > **出典**: `docs/ai/hook-enforcement.md`、`docs/ai/autonomous-degraded-gates-spec.md` の
@@ -40,6 +40,7 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 | `.claude/settings.example.json` | HO-settings | settings 契約例。自己改変・緩和防止 |
 | `.github/workflows/*.yaml` | HO-ci | CI/CD 定義（yaml 拡張子）。AI 直接編集不可 |
 | `plugin/plangate/**` | HO-plugin | プラグイン本体。AI 直接編集不可 |
+| `docs/ai/ai-loop/ho-paths.md` | HO-contract | HO 境界定義そのもの（本ファイル）。Arbiter が自己の判定基準を自己改変しないための機械層（原則 1 参照） |
 
 ---
 
@@ -98,9 +99,18 @@ plugin/plangate/index.js    → HO-plugin
 
 ## Arbiter 固有の追加原則
 
-1. **docs/ai/ai-loop/ 配下は Phase 0 限定の例外**: Arbiter PoC ドキュメント自体は
-   AI が作成・更新できる（変更禁止リストに含まれない）。ただし、HO パスへの記述が
-   HO 本体の変更を意味するわけではない（参照のみ）。
+1. **docs/ai/ai-loop/ 配下の Phase 1 定義**（issue #739 解消 / #807）:
+   `docs/ai/ai-loop/` 配下の AI 編集可は Phase 1（導入先実リポジトリでの検証）
+   移行後も**継続**する（変更禁止リストに含まれない）。ただし、**本ファイル
+   （`ho-paths.md`）自体の変更（HO 境界の定義変更）は Human 承認必須**とする
+   — HO パス集約リストの改廃は境界そのものの変更であり、Arbiter PoC が
+   自己の判定基準を自己改変しない（AI 自己完結禁止・responsibility-classes.md
+   と一貫）。HO パスへの記述が HO 本体の変更を意味するわけではない（参照のみ）
+   という原則は変わらない。この Human 承認必須は機械層でも強制される —
+   本ファイル自身（`docs/ai/ai-loop/ho-paths.md`）を上記 HO パス一覧に
+   HO-contract として登録済みであり、変更対象に含む run は
+   boundary=touches-HO で即 human escalate となる（#808 review-team
+   consensus 反映）。
 
 2. **policy ファイル（将来定義）は HO-policy として追加予定**: Arbiter の
    `auto-approve-lite-clean@v1` 等の policy ファイルは制定・改版が Human-owned のため、

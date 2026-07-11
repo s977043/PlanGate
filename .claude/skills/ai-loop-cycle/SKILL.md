@@ -1,6 +1,6 @@
 ---
 name: ai-loop-cycle
-description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行する。Use when: 「ai-loop で回して」「C-3' 裁定を実行」「arbiter で裁定して」「ai-loop 初回実走」。適用ドメインは docs/workflows/ai-loop/ 配下のみで、PlanGate 本番フロー（WF-00〜WF-07）には適用しない。"
+description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行する。Use when: 「ai-loop で回して」「C-3' 裁定を実行」「arbiter で裁定して」「ai-loop 初回実走」。適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（本番フロー WF-00〜WF-07 非適用）②導入先リポジトリ = ho-paths 確定 + LoopSpec allowed_paths 宣言を前提に適用可。"
 ---
 
 # ai-loop-cycle
@@ -17,8 +17,10 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 - 対象は **lite 帯候補の変更**（[`lite-criteria.md`](../../../docs/workflows/ai-loop/lite-criteria.md) §2 の
   4 軸を満たしうる変更）。high-risk / critical 相当や boundary=touches-HO が明らかな変更には使わない
   （使っても flow フェーズで即 human escalate になる）。
-- 適用ドメインは `docs/workflows/ai-loop/` 配下のみ。PlanGate 本番フロー（`bin/plangate`・
-  `scripts/hooks/`）からは呼ばれない隔離 PoC である。
+- 適用ドメイン（Phase 1）: ①plangate 本体 = `docs/workflows/ai-loop/` 配下のみ。PlanGate 本番フロー
+  （`bin/plangate`・`scripts/hooks/`）からは呼ばれない隔離 PoC である。②導入先リポジトリ = ho-paths
+  を導入先で確定し LoopSpec `scope.allowed_paths` を宣言していれば適用可（導入先の本番承認フロー
+  からは呼ばれない点は不変）。
 
 ## Step 1: 入力の組み立て
 
