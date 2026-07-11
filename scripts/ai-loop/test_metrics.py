@@ -289,5 +289,184 @@ class TestRealDataIntegration(unittest.TestCase):
         self.assertEqual(payload["run_count"], 0)
 
 
+class TestInvalidRunId(unittest.TestCase):
+    """run_id が非空文字列でない record は run 扱いせず invalid_run_meta_count に計上する。
+
+    レビュー指摘（major）: falsy run_id（None / "" / 空白のみ）が同一キーへ
+    誤集約され first-pass rate を実態より高く歪める問題の回帰テスト。
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.runs_dir = pathlib.Path(self.tmpdir.name)
+
+        # invalid: run_id=None / run_id="" / run_id="  "（空白のみ）
+        rec_none = _run_record("placeholder", 1, "AUTO_APPROVED", "inv0001")
+        rec_none["run"]["run_id"] = None
+        _write(self.runs_dir, "invalid-none.json", rec_none)
+
+        rec_empty = _run_record("placeholder", 1, "AUTO_APPROVED", "inv0002")
+        rec_empty["run"]["run_id"] = ""
+        _write(self.runs_dir, "invalid-empty.json", rec_empty)
+
+        rec_blank = _run_record("placeholder", 1, "AUTO_APPROVED", "inv0003")
+        rec_blank["run"]["run_id"] = "  "
+        _write(self.runs_dir, "invalid-blank.json", rec_blank)
+
+        # valid run 1 件（first_pass=false になるよう escalate にする）
+        _write(
+            self.runs_dir,
+            "run-V-r1.json",
+            _run_record("run-V", 1, "HUMAN_ESCALATED", "vvv0001", reject_category="logic"),
+        )
+
+        self.report = metrics.collect(self.runs_dir)
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_invalid_run_meta_count(self):
+        self.assertEqual(self.report["invalid_run_meta_count"], 3)
+
+    def test_invalid_not_counted_as_legacy(self):
+        # invalid run meta は legacy（run キー自体が無い）と区別する
+        self.assertEqual(self.report["legacy_count"], 0)
+
+    def test_run_count_excludes_invalid(self):
+        # invalid 3 件が同一キーへ誤集約されて run_count に混ざらないこと
+        self.assertEqual(self.report["run_count"], 1)
+
+    def test_first_pass_not_polluted(self):
+        # 誤集約バグでは AUTO_APPROVED の invalid 群が first_pass を押し上げていた
+        self.assertEqual(self.report["first_pass"]["denominator"], 1)
+        self.assertEqual(self.report["first_pass"]["numerator"], 0)
+
+    def test_markdown_mentions_invalid_count(self):
+        md = metrics.render_markdown(self.report)
+        self.assertIn("invalid run meta 3 件", md)
+
+    def test_json_includes_invalid_count(self):
+        payload = json.loads(metrics.render_json(self.report))
+        self.assertEqual(payload["invalid_run_meta_count"], 3)
+
+
+class TestRoundIndexTypeMix(unittest.TestCase):
+    """round_index の型不正（int 以外）record は skip へ回し、他集計は継続する。
+
+    レビュー指摘（major）: 同一 run 内に "1"(str) と 2(int) が混在すると sort の
+    TypeError で traceback 終了し exit code 契約から逸脱する問題の回帰テスト。
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.runs_dir = pathlib.Path(self.tmpdir.name)
+
+        # run-X: round_index="1"(str・不正) と 2(int・正常) の混在
+        rec_str = _run_record("run-X", 1, "HUMAN_ESCALATED", "xxx0001", reject_category="logic")
+        rec_str["run"]["round_index"] = "1"
+        _write(self.runs_dir, "run-X-r1-strindex.json", rec_str)
+
+        _write(
+            self.runs_dir,
+            "run-X-r2.json",
+            _run_record("run-X", 2, "AUTO_APPROVED", "xxx0002"),
+        )
+
+        # bool は int のサブクラスだが round_index としては不正（type(x) is int で除外）
+        rec_bool = _run_record("run-Y", 1, "AUTO_APPROVED", "yyy0001")
+        rec_bool["run"]["round_index"] = True
+        _write(self.runs_dir, "run-Y-r1-boolindex.json", rec_bool)
+
+        # 健全な run 1 件
+        _write(
+            self.runs_dir,
+            "run-Z-r1.json",
+            _run_record("run-Z", 1, "AUTO_APPROVED", "zzz0001"),
+        )
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_no_uncaught_typeerror(self):
+        # TypeError で落ちず report が返ること
+        report = metrics.collect(self.runs_dir)
+        self.assertIsInstance(report, dict)
+
+    def test_bad_round_index_records_skipped_with_reason(self):
+        report = metrics.collect(self.runs_dir)
+        self.assertEqual(report["skipped_count"], 2)
+        reasons = " / ".join(item["reason"] for item in report["skipped"])
+        self.assertIn("round_index", reasons)
+        skipped_files = " / ".join(item["file"] for item in report["skipped"])
+        self.assertIn("run-X-r1-strindex.json", skipped_files)
+        self.assertIn("run-Y-r1-boolindex.json", skipped_files)
+
+    def test_run_survives_with_remaining_records(self):
+        # 当該 record のみ除外・run 全体は残る（run-X は r2 のみで存続）
+        report = metrics.collect(self.runs_dir)
+        self.assertEqual(report["run_count"], 2)  # run-X + run-Z
+        # run-X は round_index=2 の 1 record のみ -> first_pass=false
+        # run-Z は round_index=1 AUTO -> first_pass=true
+        self.assertEqual(report["first_pass"]["numerator"], 1)
+        self.assertEqual(report["first_pass"]["denominator"], 2)
+
+    def test_cli_exit_zero(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--runs-dir", str(self.runs_dir)],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertIn("skip", result.stdout.lower())
+
+
+class TestDuplicateRoundIndex(unittest.TestCase):
+    """同一 run 内の round_index 重複は warnings として明示し、集計は継続する。
+
+    レビュー指摘（minor）: 重複があると round 数が過大計上されるため検知を明示。
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.runs_dir = pathlib.Path(self.tmpdir.name)
+
+        _write(
+            self.runs_dir,
+            "run-X-r1a.json",
+            _run_record("run-X", 1, "HUMAN_ESCALATED", "xxx0001", reject_category="logic"),
+        )
+        _write(
+            self.runs_dir,
+            "run-X-r1b.json",
+            _run_record("run-X", 1, "AUTO_APPROVED", "xxx0002"),
+        )
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_warning_emitted(self):
+        report = metrics.collect(self.runs_dir)
+        self.assertEqual(len(report["warnings"]), 1)
+        self.assertIn("run-X", report["warnings"][0])
+        self.assertIn("duplicate round_index 1", report["warnings"][0])
+
+    def test_aggregation_continues(self):
+        report = metrics.collect(self.runs_dir)
+        self.assertEqual(report["run_count"], 1)
+        self.assertEqual(report["decision_counts"]["HUMAN_ESCALATED"], 1)
+        self.assertEqual(report["decision_counts"]["AUTO_APPROVED"], 1)
+
+    def test_json_output_contains_warnings(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--runs-dir", str(self.runs_dir), "--format", "json"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertIn("warnings", payload)
+        self.assertTrue(any("duplicate round_index" in w for w in payload["warnings"]))
+
+
 if __name__ == "__main__":
     unittest.main()
