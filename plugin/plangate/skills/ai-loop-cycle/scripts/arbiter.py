@@ -705,16 +705,15 @@ def arbitrate(
     ho_patterns, ho_source, ho_searched = resolve_ho_patterns(ho_paths_path)
     ho_pattern_count = len(ho_patterns)
 
-    # 判定前処理（boundary/scope/lite/verdict）を 1 箇所に集約（TASK-0814 R2）。
-    # ho_patterns が空（fail-closed）でも呼び出し可能（lite_result はその場合も
-    # 同一値。詳細は _evaluate_signals の docstring）。
-    signals = _evaluate_signals(data, ho_patterns)
-
     # 全裁定経路の provenance に ho-paths の出典・抽出件数を刻む（#809 監査可視化）。
     # boundary/scope/decision 等の可変フィールドは呼び出し側で個別に渡す。
-    def _mk(**kw: Any) -> dict[str, Any]:
+    # lite_result は fail-closed（priority 0）経路でも刻む必要があるため、
+    # signals 未算出の priority 0 経路では data["lite"] から直接評価する
+    # （lite_check は ho_patterns の解決可否と無関係な純関数のため、signals
+    # 経由でも直接でも同一値。gemini medium 反映の early-return 化に伴う）。
+    def _mk(lite_value: bool, **kw: Any) -> dict[str, Any]:
         return build_provenance(
-            lite_result=signals.lite_result,
+            lite_result=lite_value,
             class_value=class_value,
             target_sha=target_sha,
             model_a=model_a,
@@ -726,20 +725,39 @@ def arbitrate(
             **kw,
         )
 
-    # priority 0/1/1.5/2/3/4/6 のデータ駆動テーブル（TASK-0814 R1）。各行は
+    # priority 0: ho-paths 未解決（fail-closed）は boundary=unresolved 固定で
+    # signals（boundary/scope）を一切使わないため、_evaluate_signals を呼ぶ前に
+    # early-return する（gemini medium 反映 / TASK-0814 R3+）。これにより
+    # 不要なパス正規化・boundary_check・check_allowed_paths を fail-closed 経路
+    # で実行しない（eager 評価の解消）。fail-open は絶対に行わない。
+    if not ho_patterns:
+        provenance = _mk(
+            lite_value=lite_check(data["lite"]),
+            decision=DECISION_HUMAN_ESCALATED,
+            boundary="unresolved",
+            scope_check="unresolved",
+        )
+        reason = f"priority 0: ho-paths unresolved (fail-closed)。探索パス: {', '.join(ho_searched)}"
+        return provenance, reason
+
+    # 判定前処理（boundary/scope/lite/verdict）を 1 箇所に集約（TASK-0814 R2）。
+    # priority 0（fail-closed）は上で early-return 済みのため、ここに到達する
+    # 時点で ho_patterns は非空。
+    signals = _evaluate_signals(data, ho_patterns)
+
+    # priority 1/1.5/2/3/4/6 のデータ駆動テーブル（TASK-0814 R1）。各行は
     # decision-table.md §3 の対応 priority 行 1 つに対応する (label, guard,
     # decision, boundary_value, scope_check, reason_fn)。guard が True に
     # なった最初の行が採用される（元の if/return 連鎖と同一の短絡評価）。
     # scope 検査（priority 1.5）通過後の全行は in_scope を刻む（既存優先順位）。
-    # priority 5（approve-reject の severity 分類 + C/D 裁定）は 2 段判定で
-    # 分岐が複雑なため、無理にテーブルへ押し込まず本テーブルの後で個別処理
-    # として残す（TASK-0814 plan の over-engineering 回避方針）。
+    # priority 0（fail-closed）は上で early-return 済み。priority 5
+    # （approve-reject の severity 分類 + C/D 裁定）は 2 段判定で分岐が複雑な
+    # ため、無理にテーブルへ押し込まず本テーブルの後で個別処理として残す
+    # （TASK-0814 plan の over-engineering 回避方針）。
     def _matched_desc() -> str:
         return ", ".join(f"{m['path']} ({m['pattern']} / {m['classification']})" for m in signals.matched)
 
     priority_table: list[tuple[str, bool, str, str, str, Any]] = [
-        ("priority 0", not ho_patterns, DECISION_HUMAN_ESCALATED, "unresolved", "unresolved",
-         lambda: f"priority 0: ho-paths unresolved (fail-closed)。探索パス: {', '.join(ho_searched)}"),
         ("priority 1", signals.boundary == "touches-HO", DECISION_HUMAN_ESCALATED, signals.boundary, "not_evaluated",
          lambda: f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {_matched_desc()}"),
         ("priority 1.5", not signals.scope_ok, DECISION_HUMAN_ESCALATED, signals.boundary, "scope_violation",
@@ -756,7 +774,9 @@ def arbitrate(
 
     for _label, guard, decision, boundary_value, scope_check, reason_fn in priority_table:
         if guard:
-            provenance = _mk(decision=decision, boundary=boundary_value, scope_check=scope_check)
+            provenance = _mk(
+                lite_value=signals.lite_result, decision=decision, boundary=boundary_value, scope_check=scope_check
+            )
             return provenance, reason_fn()
 
     # priority 5: approve-reject → severity 分類 → C/D 裁定。
@@ -768,6 +788,7 @@ def arbitrate(
 
     if severity in ("critical", "major"):
         provenance = _mk(
+            lite_value=signals.lite_result,
             decision=DECISION_HUMAN_ESCALATED,
             boundary=signals.boundary,
             scope_check="in_scope",
@@ -782,6 +803,7 @@ def arbitrate(
     # C か D が欠落している場合は安全側で human escalate。
     if model_c is None or model_d is None:
         provenance = _mk(
+            lite_value=signals.lite_result,
             decision=DECISION_HUMAN_ESCALATED,
             boundary=signals.boundary,
             scope_check="in_scope",
@@ -803,6 +825,7 @@ def arbitrate(
         decision = DECISION_HUMAN_ESCALATED
 
     provenance = _mk(
+        lite_value=signals.lite_result,
         decision=decision,
         boundary=signals.boundary,
         scope_check="in_scope",
