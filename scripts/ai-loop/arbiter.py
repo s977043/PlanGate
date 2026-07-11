@@ -432,35 +432,50 @@ def _require(condition: bool, message: str) -> None:
         raise InputError(message)
 
 
+def _require_normalized_path_list(
+    value: Any, field: str, *, kind: str, require_non_empty: bool = False
+) -> None:
+    """changed_files / allowed_paths 共通の list 検証を集約する（TASK-0814 R3）。
+
+    手順は「(1) value が string のリストであること（require_non_empty=True
+    なら非空リスト・非空文字列要素も要求）→ (2) 各要素を
+    _safe_normalized_path で検証 → 不正なら _require で InputError」の
+    同型 2 回（changed_files / allowed_paths）を 1 関数に集約したもの。
+
+    `require_non_empty`（allowed_paths のみ True）: 空リスト・空文字列要素を
+    リスト構造検査の時点で拒否する（LoopSpec scope.allowed_paths 宣言は
+    非空必須のため）。changed_files（False）は空文字列要素の拒否を
+    _safe_normalized_path（空文字列は「空のパス」エラー）に委ねる —
+    元コードの挙動をそのまま踏襲する。
+    `kind`: エラーメッセージ中の名詞（changed_files="パス" /
+    allowed_paths="パターン"）。
+    """
+    if require_non_empty:
+        _require(
+            isinstance(value, list) and len(value) > 0 and all(isinstance(p, str) and p != "" for p in value),
+            f"{field} は非空の string リストである必要があります（LoopSpec scope.allowed_paths 宣言を渡す）",
+        )
+    else:
+        _require(
+            isinstance(value, list) and all(isinstance(p, str) for p in value),
+            f"{field} は string のリストである必要があります",
+        )
+    for path in value:
+        _norm, err = _safe_normalized_path(path)
+        _require(
+            err is None,
+            f"{field} に不正な{kind}があります（{err}。リポジトリ相対の正規{kind}のみ受理）: {path!r}",
+        )
+
+
 def validate_input(data: Any) -> dict[str, Any]:
     """入力 JSON の構造を検証し、明示的失敗（理由メッセージ付き）を返す。"""
     _require(isinstance(data, dict), "入力は JSON object である必要があります")
 
-    changed_files = data.get("changed_files")
-    _require(
-        isinstance(changed_files, list) and all(isinstance(p, str) for p in changed_files),
-        "changed_files は string のリストである必要があります",
+    _require_normalized_path_list(data.get("changed_files"), "changed_files", kind="パス")
+    _require_normalized_path_list(
+        data.get("allowed_paths"), "allowed_paths", kind="パターン", require_non_empty=True
     )
-    for path in changed_files:
-        _norm, err = _safe_normalized_path(path)
-        _require(
-            err is None,
-            f"changed_files に不正なパスがあります（{err}。リポジトリ相対の正規パスのみ受理）: {path!r}",
-        )
-
-    allowed_paths = data.get("allowed_paths")
-    _require(
-        isinstance(allowed_paths, list)
-        and len(allowed_paths) > 0
-        and all(isinstance(p, str) and p != "" for p in allowed_paths),
-        "allowed_paths は非空の string リストである必要があります（LoopSpec scope.allowed_paths 宣言を渡す）",
-    )
-    for path in allowed_paths:
-        _norm, err = _safe_normalized_path(path)
-        _require(
-            err is None,
-            f"allowed_paths に不正なパターンがあります（{err}。リポジトリ相対の正規パターンのみ受理）: {path!r}",
-        )
 
     lite = data.get("lite")
     _require(isinstance(lite, dict), "lite は object である必要があります")
