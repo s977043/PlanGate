@@ -76,6 +76,7 @@ exit code:
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import functools
 import json
 import pathlib
@@ -601,6 +602,63 @@ def build_provenance(
     return provenance
 
 
+# ---------------------------------------------------------------------------
+# 判定前処理（TASK-0814 R2）: boundary / scope / lite / verdict の集約
+# ---------------------------------------------------------------------------
+@dataclasses.dataclass(frozen=True)
+class Signals:
+    """arbitrate() の priority 分岐に先立つ判定前処理の結果（TASK-0814 R2）。
+
+    _evaluate_signals() の戻り値。boundary_check / check_allowed_paths /
+    lite_check / verdict 正規化（model_a-model_b 文字列化）を 1 箇所に
+    集約し、arbitrate() は本 dataclass を見て priority 分岐のみを行う。
+    """
+
+    boundary: str
+    matched: list[dict[str, str]]
+    scope_ok: bool
+    violations: list[str]
+    lite_result: bool
+    verdict: str
+
+
+def _evaluate_signals(data: dict[str, Any], ho_patterns: list[tuple[str, str]]) -> Signals:
+    """priority 分岐に先立つ判定前処理をまとめて評価する（TASK-0814 R2）。
+
+    出典: docs/workflows/ai-loop/decision-table.md §3。ここで評価する
+    boundary_check（priority 1）/ check_allowed_paths（priority 1.5）/
+    lite_check（priority 2）/ verdict 正規化（priority 4/6 判定用の
+    "{model_a}-{model_b}" 文字列）は、いずれも純関数の組み合わせであり
+    副作用を持たない。
+
+    `ho_patterns` が空（resolve_ho_patterns 未解決・fail-closed 前提）でも
+    本関数は呼び出し可能。その場合 `boundary_check` は仕様上 "clean"
+    （touches-HO 0 件）を返すが、priority 0（ho-paths 未解決）は
+    arbitrate() 側で本関数呼び出しより前に確定判断されるため、当該経路の
+    provenance には boundary/scope_ok/violations の値は反映されない。
+    `lite_result` は ho_patterns の解決可否と無関係に `data["lite"]` の
+    4 軸判定のみで決まるため、priority 0 経路でも同じ値が使われる
+    （元コードの計算順序と同一の観測結果）。
+    """
+    changed_files: list[str] = data["changed_files"]
+    allowed_paths: list[str] = data["allowed_paths"]
+    verdicts: dict[str, Any] = data["verdicts"]
+
+    boundary, matched = boundary_check(changed_files, ho_patterns)
+    scope_ok, violations = check_allowed_paths(changed_files, allowed_paths)
+    lite_result = lite_check(data["lite"])
+    verdict = f"{verdicts['model_a']}-{verdicts['model_b']}"
+
+    return Signals(
+        boundary=boundary,
+        matched=matched,
+        scope_ok=scope_ok,
+        violations=violations,
+        lite_result=lite_result,
+        verdict=verdict,
+    )
+
+
 def arbitrate(
     data: dict[str, Any], *, ho_paths_path: str | None = None
 ) -> tuple[dict[str, Any], str]:
@@ -618,9 +676,6 @@ def arbitrate(
 
     戻り値: (provenance dict, 人間可読の理由サマリ)
     """
-    changed_files: list[str] = data["changed_files"]
-    allowed_paths: list[str] = data["allowed_paths"]
-    lite_input = data["lite"]
     class_value: str = data["class"]
     verdicts: dict[str, Any] = data["verdicts"]
     target_sha: str = data["target_sha"]
@@ -632,16 +687,19 @@ def arbitrate(
     reject_category: str | None = verdicts.get("reject_category")
     run: dict[str, Any] | None = data.get("run")
 
-    lite_result = lite_check(lite_input)
-
     ho_patterns, ho_source, ho_searched = resolve_ho_patterns(ho_paths_path)
     ho_pattern_count = len(ho_patterns)
+
+    # 判定前処理（boundary/scope/lite/verdict）を 1 箇所に集約（TASK-0814 R2）。
+    # ho_patterns が空（fail-closed）でも呼び出し可能（lite_result はその場合も
+    # 同一値。詳細は _evaluate_signals の docstring）。
+    signals = _evaluate_signals(data, ho_patterns)
 
     # 全裁定経路の provenance に ho-paths の出典・抽出件数を刻む（#809 監査可視化）。
     # boundary/scope/decision 等の可変フィールドは呼び出し側で個別に渡す。
     def _mk(**kw: Any) -> dict[str, Any]:
         return build_provenance(
-            lite_result=lite_result,
+            lite_result=signals.lite_result,
             class_value=class_value,
             target_sha=target_sha,
             model_a=model_a,
@@ -665,29 +723,28 @@ def arbitrate(
         reason = f"priority 0: ho-paths unresolved (fail-closed)。探索パス: {searched_desc}"
         return provenance, reason
 
-    boundary, matched = boundary_check(changed_files, ho_patterns)
-
     # priority 1: touches-HO は lite / class / verdict を問わず必ず human escalate 固定。
     # scope 検査（priority 1.5）より前で return するため scope_check は not_evaluated。
-    if boundary == "touches-HO":
+    if signals.boundary == "touches-HO":
         provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
+            boundary=signals.boundary,
             scope_check="not_evaluated",
         )
-        matched_desc = ", ".join(f"{m['path']} ({m['pattern']} / {m['classification']})" for m in matched)
+        matched_desc = ", ".join(
+            f"{m['path']} ({m['pattern']} / {m['classification']})" for m in signals.matched
+        )
         reason = f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {matched_desc}"
         return provenance, reason
 
     # priority 1.5: allowed_paths 逸脱（scope 違反）は human escalate。
-    scope_ok, violations = check_allowed_paths(changed_files, allowed_paths)
-    if not scope_ok:
+    if not signals.scope_ok:
         provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
+            boundary=signals.boundary,
             scope_check="scope_violation",
         )
-        violations_desc = ", ".join(violations)
+        violations_desc = ", ".join(signals.violations)
         reason = (
             f"priority 1.5: boundary=clean だが scope_violation"
             f"（allowed_paths 逸脱パス: {violations_desc}）"
@@ -696,10 +753,10 @@ def arbitrate(
 
     # ここに到達＝scope 検査を実際に通過（合格）。以降の全経路は in_scope を刻む。
     # priority 2: lite=false は human escalate。
-    if not lite_result:
+    if not signals.lite_result:
         provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
+            boundary=signals.boundary,
             scope_check="in_scope",
         )
         return provenance, "priority 2: boundary=clean だが lite=false（低リスク要件未充足）"
@@ -708,40 +765,40 @@ def arbitrate(
     if class_value == "merge":
         provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
+            boundary=signals.boundary,
             scope_check="in_scope",
         )
         return provenance, "priority 3: class=merge（Human-owned 固定）"
 
-    verdict = f"{model_a}-{model_b}"
-
     # priority 4: reject-reject / reject-approve は blocked。
-    if verdict in ("reject-reject", "reject-approve"):
+    if signals.verdict in ("reject-reject", "reject-approve"):
         provenance = _mk(
             decision=DECISION_BLOCKED,
-            boundary=boundary,
+            boundary=signals.boundary,
             scope_check="in_scope",
         )
-        return provenance, f"priority 4: verdict={verdict}（A が設計妥当性で NG、または両者合意で NG）"
+        return provenance, f"priority 4: verdict={signals.verdict}（A が設計妥当性で NG、または両者合意で NG）"
 
     # priority 6: approve-approve は auto-approve。
-    if verdict == "approve-approve":
+    if signals.verdict == "approve-approve":
         provenance = _mk(
             decision=DECISION_AUTO_APPROVED,
-            boundary=boundary,
+            boundary=signals.boundary,
             scope_check="in_scope",
         )
         return provenance, "priority 6: verdict=approve-approve（合意）"
 
     # priority 5: approve-reject → severity 分類 → C/D 裁定。
     # (verdict は入力バリデーションで approve/reject の 2 値に限定済みのため、
-    #  ここに到達する場合は必ず approve-reject)
+    #  ここに到達する場合は必ず approve-reject。テーブル化しない理由は
+    #  TASK-0814 plan 参照 — severity 分類 + C/D 裁定の 2 段判定で分岐が
+    #  複雑なため個別処理のまま維持する）
     severity = classify_severity(reject_category)
 
     if severity in ("critical", "major"):
         provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
+            boundary=signals.boundary,
             scope_check="in_scope",
             severity=severity,
         )
@@ -755,7 +812,7 @@ def arbitrate(
     if model_c is None or model_d is None:
         provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
+            boundary=signals.boundary,
             scope_check="in_scope",
             severity=severity,
             model_c=model_c,
@@ -776,7 +833,7 @@ def arbitrate(
 
     provenance = _mk(
         decision=decision,
-        boundary=boundary,
+        boundary=signals.boundary,
         scope_check="in_scope",
         severity=severity,
         model_c=model_c,
