@@ -591,6 +591,7 @@ def build_provenance(
     ho_paths_source: str | None = None,
     ho_pattern_count: int = 0,
     run: dict[str, Any] | None = None,
+    gates: Any = None,
 ) -> dict[str, Any]:
     """decision-table.md §5 準拠の provenance JSON を構築する。
 
@@ -617,6 +618,15 @@ def build_provenance(
     ときのみ 4 サブフィールドを刻む。metrics.py が run 単位の集計（first-pass
     rate 等）に用いる。gate 挙動（POLICY_REF）は変えない純粋な additive
     provenance 拡張。
+
+    `gates`（#780 follow-up 追加・additive・任意）: 呼び出し側入力の
+    `gates`（priority 1.7 の plan-quality 判定に使われる `{c1, breakdown}` 相当）
+    を**生値のまま**刻む（dict でも非 dict でも判定せず診断用にそのまま記録）。
+    **gates が None（未指定）のときは `gates` キー自体を刻まない**（`run` と
+    同じ規約・`"gates": null` は出力しない）。これにより plan-quality gate で
+    escalate した理由（gates 不備の具体的な値）を provenance から監査・集計
+    できる（Trust Ledger 強化）。判定ロジック（plan_quality_check）・gate 挙動
+    （POLICY_REF）は変えない純粋な additive provenance 拡張。
     """
     w_check: dict[str, Any] = {"model_a": model_a, "model_b": model_b}
     if severity is not None:
@@ -647,6 +657,11 @@ def build_provenance(
     # 分類において、未計装を legacy に落とすため（#780 コーディネータ指摘）。
     if run is not None:
         provenance["run"] = run
+    # gates 未指定時は `gates` キー自体を省略する（`"gates": null` を出さない・
+    # run と同じ additive 規約）。plan-quality escalate（priority 1.7）の理由を
+    # record から監査できるようにする（#780 follow-up）。
+    if gates is not None:
+        provenance["gates"] = gates
     return provenance
 
 
@@ -737,6 +752,7 @@ def arbitrate(
     model_d: str | None = verdicts.get("model_d")
     reject_category: str | None = verdicts.get("reject_category")
     run: dict[str, Any] | None = data.get("run")
+    gates_meta: Any = data.get("gates")
 
     ho_patterns, ho_source, ho_searched = resolve_ho_patterns(ho_paths_path)
     ho_pattern_count = len(ho_patterns)
@@ -758,6 +774,7 @@ def arbitrate(
             ho_paths_source=ho_source,
             ho_pattern_count=ho_pattern_count,
             run=run,
+            gates=gates_meta,
             **kw,
         )
 

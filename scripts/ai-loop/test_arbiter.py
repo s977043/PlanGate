@@ -1400,6 +1400,123 @@ class RunMetaProvenanceTests(unittest.TestCase):
         self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v2")
 
 
+class GatesProvenanceTests(unittest.TestCase):
+    """#780 follow-up: provenance への gates 刻印（run と同じ additive パターンを厳密踏襲）。
+
+    build_provenance が入力の gates（priority 1.7 の plan-quality 判定に使う
+    {c1, breakdown}）を record に生値のまま刻む。省略時は run と同じく
+    `gates` キー自体を刻まない（`"gates": null` を出さない）。刻印は
+    plan-quality escalate の理由を監査・集計可能にする（Trust Ledger 強化）。
+    判定ロジック（plan_quality_check）・priority 順序・POLICY_REF は不変。
+    """
+
+    GATES_META = {"c1": "PASS", "breakdown": "pass"}
+
+    def test_gates_absent_omits_gates_key(self):
+        """gates フィールド自体が入力に無いとき、provenance に gates キー自体を
+        刻まない（run と同じ後方互換規約・`"gates": null` を出さない）。"""
+        data = _base_input()
+        del data["gates"]
+        validated = arbiter.validate_input(data)  # 入力エラーにならないことを確認
+        provenance, _ = arbiter.arbitrate(validated)
+        self.assertNotIn("gates", provenance)
+
+    def test_gates_non_dict_carries_raw_value(self):
+        """gates が dict でない（例: "oops"）場合も生値のまま刻む。判定は
+        plan_quality_check が担うため、刻印は診断用の生値でよい。"""
+        data = _base_input(gates="oops")
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["gates"], "oops")
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+
+    def test_priority0_fail_closed_carries_gates(self):
+        data = _base_input(gates=self.GATES_META)
+        provenance, _ = arbiter.arbitrate(data, ho_paths_path="/nonexistent/ho-paths.md")
+        self.assertEqual(provenance["boundary_check"], "unresolved")
+        self.assertEqual(provenance["gates"], self.GATES_META)
+
+    def test_priority1_touches_ho_carries_gates(self):
+        data = _base_input(gates=self.GATES_META, changed_files=["bin/plangate"])
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+        self.assertEqual(provenance["gates"], self.GATES_META)
+
+    def test_priority1_5_scope_violation_carries_gates(self):
+        data = _base_input(gates=self.GATES_META, changed_files=["out/of/scope.md"])
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["scope_check"], "scope_violation")
+        self.assertEqual(provenance["gates"], self.GATES_META)
+
+    def test_priority1_7_plan_quality_escalate_carries_failing_gates(self):
+        """priority 1.7（plan-quality escalate）でも gates（不備の生値）が
+        刻まれる。escalate 理由の監査可能化が本 follow-up の主眼。"""
+        bad_gates = {"c1": "FAIL", "breakdown": "pass"}
+        data = _base_input(gates=bad_gates)
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.7", reason)
+        self.assertEqual(provenance["gates"], bad_gates)
+
+    def test_priority2_lite_false_carries_gates(self):
+        data = _base_input(
+            gates=self.GATES_META,
+            lite={
+                "size_ok": False,
+                "no_new_design": True,
+                "follows_pattern": True,
+                "reversible": True,
+            },
+        )
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["gates"], self.GATES_META)
+
+    def test_priority3_merge_carries_gates(self):
+        data = _base_input(gates=self.GATES_META, **{"class": "merge"})
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["gates"], self.GATES_META)
+
+    def test_priority4_blocked_carries_gates(self):
+        data = _base_input(gates=self.GATES_META)
+        data["verdicts"]["model_a"] = "reject"
+        data["verdicts"]["model_b"] = "reject"
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "BLOCKED")
+        self.assertEqual(provenance["gates"], self.GATES_META)
+
+    def test_priority5_human_escalated_carries_gates(self):
+        data = _base_input(gates=self.GATES_META)
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "auth_change"  # severity=major
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["gates"], self.GATES_META)
+
+    def test_priority5_cd_auto_approved_carries_gates(self):
+        data = _base_input(gates=self.GATES_META)
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "logic"  # severity=minor
+        data["verdicts"]["model_c"] = "approve"
+        data["verdicts"]["model_d"] = "approve"
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["gates"], self.GATES_META)
+
+    def test_priority6_auto_approved_carries_gates(self):
+        data = _base_input(gates=self.GATES_META)
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["gates"], self.GATES_META)
+
+    def test_policy_ref_unchanged_when_gates_present(self):
+        """gates 刻印は additive provenance であり policy 改版ではない
+        （POLICY_REF は @v2 据え置き）。"""
+        data = _base_input(gates=self.GATES_META)
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v2")
+
+
 class ArbiterMetricsIntegrationTests(unittest.TestCase):
     """#780 Slice D 後半の核心: arbiter が刻んだ run 付き record を実際に
     metrics.py（#812 消費側）へ渡し、first_pass 判定が正しく機能することを実証する。
@@ -1586,6 +1703,13 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
     minor 側は C/D 裁定の 4 パターン + 欠落ケース）/ 6 approve-approve、
     加えて run メタ付き（#780 Slice D 後半・additive）を網羅する。
 
+    全ケース共通で `_base_input()` の既定 gates（`{"c1": "PASS",
+    "breakdown": "pass"}`）が additive に刻まれる（#780 follow-up・
+    gates provenance 刻印）。gates 追加は `decision` / `reason` を一切
+    変えない purely additive な拡張であることを、本テストの固定値比較が
+    そのまま証明する（gates 追加前後で decision/reason は不変、
+    provenance に `gates` キーが増えるのみ）。
+
     各シナリオの (provenance dict, reason str) を **リファクタ前の現行コード
     で実測して固定した値** と突き合わせる。`timestamp` は実行時刻依存のため
     比較対象から除外し、`ho_paths_source` は cwd 依存の絶対パスのため
@@ -1632,6 +1756,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "unresolved",
                 "class_check": "no-merge",
                 "decision": "HUMAN_ESCALATED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": None,
                 "ho_pattern_count": 0,
                 "issued_by": "arbiter-v0.1",
@@ -1668,6 +1793,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "touches-HO",
                 "class_check": "merge",
                 "decision": "HUMAN_ESCALATED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1693,6 +1819,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "HUMAN_ESCALATED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1718,6 +1845,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "HUMAN_ESCALATED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1740,6 +1868,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "merge",
                 "decision": "HUMAN_ESCALATED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1764,6 +1893,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "BLOCKED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1791,6 +1921,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "BLOCKED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1816,6 +1947,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "AUTO_APPROVED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1841,6 +1973,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "HUMAN_ESCALATED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1874,6 +2007,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "HUMAN_ESCALATED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1909,6 +2043,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "HUMAN_ESCALATED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1945,6 +2080,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "AUTO_APPROVED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -1982,6 +2118,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "BLOCKED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -2019,6 +2156,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "HUMAN_ESCALATED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
@@ -2051,6 +2189,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "boundary_check": "clean",
                 "class_check": "no-merge",
                 "decision": "AUTO_APPROVED",
+                "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
