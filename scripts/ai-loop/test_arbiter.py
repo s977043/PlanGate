@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import pathlib
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -29,6 +30,7 @@ HO_PATHS_MD = next((p for p in _HO_PATHS_CANDIDATES if p.exists()), _HO_PATHS_CA
 def _base_input(**overrides):
     data = {
         "changed_files": ["docs/workflows/ai-loop/decision-table.md"],
+        "allowed_paths": ["docs/workflows/ai-loop/**"],
         "lite": {
             "size_ok": True,
             "no_new_design": True,
@@ -143,17 +145,23 @@ class BoundaryCheckTests(unittest.TestCase):
         self.assertEqual(matched, [])
 
     def test_ho_pattern_drift_against_source_of_truth(self):
-        """HO_PATTERNS の各パターン文字列が ho-paths.md 本文に存在することを検証する。
+        """実行時パースされた全パターンが ho-paths.md 本文に存在することを検証する（#809）。
 
-        正本（docs/ai/ai-loop/ho-paths.md）とのドリフトを検出する。
+        #809 により HO_PATTERNS ハードコード定数は廃止され、ho-paths.md 本文を
+        実行時にパースする方式へ変更された。ドリフトは構造的に発生しなくなるが、
+        パーサの抽出内容が本文の記述と食い違っていないこと（例: 注釈括弧の
+        誤混入）を継続して検証する。
         """
         self.assertTrue(HO_PATHS_MD.exists(), f"正本ファイルが見つかりません: {HO_PATHS_MD}")
         content = HO_PATHS_MD.read_text(encoding="utf-8")
-        missing = [pattern for pattern, _ in arbiter.HO_PATTERNS if pattern not in content]
+        patterns, source, _searched = arbiter.resolve_ho_patterns()
+        self.assertIsNotNone(source, "ho-paths.md の実行時解決に失敗しました")
+        self.assertGreaterEqual(len(patterns), 18, f"パース件数が想定を下回ります: {len(patterns)}")
+        missing = [pattern for pattern, _classification in patterns if pattern not in content]
         self.assertEqual(
             missing,
             [],
-            f"HO_PATTERNS に ho-paths.md 本文と同期していないパターンがあります: {missing}",
+            f"パースされたパターンが ho-paths.md 本文に見当たりません: {missing}",
         )
 
 
@@ -421,11 +429,13 @@ class ProvenanceSchemaTests(unittest.TestCase):
             "boundary_check",
             "lite_check",
             "class_check",
+            "scope_check",
             "timestamp",
         ):
             self.assertIn(field, provenance)
         self.assertEqual(provenance["issued_by"], "arbiter-v0.1")
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v0")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v1")
+        self.assertEqual(provenance["scope_check"], "in_scope")
         self.assertEqual(provenance["w_check"]["model_a"], "approve")
         self.assertEqual(provenance["w_check"]["model_b"], "approve")
         # 決定論であることの確認（同一入力 → 同一 decision）
@@ -454,6 +464,181 @@ class InputValidationTests(unittest.TestCase):
     def test_non_dict_input_raises(self):
         with self.assertRaises(arbiter.InputError):
             arbiter.validate_input(["not", "a", "dict"])
+
+    def test_missing_allowed_paths_raises(self):
+        """TC-7: allowed_paths 欠落は入力エラー（#809 必須化）。"""
+        data = _base_input()
+        del data["allowed_paths"]
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_empty_allowed_paths_raises(self):
+        """TC-7: allowed_paths が空リストは入力エラー（非空 string リスト要件）。"""
+        data = _base_input(allowed_paths=[])
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_non_list_allowed_paths_raises(self):
+        """TC-7: allowed_paths が非リスト（例: string）は入力エラー。"""
+        data = _base_input(allowed_paths="docs/workflows/ai-loop/**")
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_non_string_item_in_allowed_paths_raises(self):
+        """TC-7: allowed_paths の要素に非 string が混じる場合は入力エラー。"""
+        data = _base_input(allowed_paths=["docs/workflows/ai-loop/**", 123])
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+
+class HoPathsResolutionTests(unittest.TestCase):
+    """TC-1〜TC-4: ho-paths.md 実行時解決の優先順位 + fail-closed（#809）。"""
+
+    def test_tc1_cli_explicit_path_takes_priority(self):
+        """TC-1: --ho-paths 相当（cli_path 明示指定）は CWD/script-relative より優先される。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            custom = pathlib.Path(tmpdir) / "custom-ho-paths.md"
+            custom.write_text(
+                "## HO パス一覧\n\n"
+                "| パス | 分類 | 変更禁止理由 |\n"
+                "|------|------|------------|\n"
+                "| `only-in-custom/**` | HO-custom | テスト専用パターン |\n",
+                encoding="utf-8",
+            )
+            patterns, source, searched = arbiter.resolve_ho_patterns(str(custom))
+            self.assertEqual(patterns, [("only-in-custom/**", "HO-custom")])
+            self.assertEqual(source, str(custom))
+            self.assertEqual(searched, [str(custom)])
+
+    def test_tc2_candidate_order_cwd_before_bundled(self):
+        """TC-2: cli_path 未指定時の候補順序は (1) CWD の docs/ai/ai-loop/ho-paths.md
+        → (2) スクリプト位置基準 ../references/ho-paths.md の順。
+        """
+        candidates = arbiter._candidate_ho_paths_sources(None)
+        self.assertEqual(len(candidates), 2)
+        self.assertTrue(str(candidates[0]).endswith(str(pathlib.Path("docs/ai/ai-loop/ho-paths.md"))))
+        self.assertTrue(str(candidates[1]).endswith(str(pathlib.Path("references/ho-paths.md"))))
+
+    def test_tc3_fail_closed_when_explicit_path_missing(self):
+        """TC-3: 明示パスが存在しない場合、fail-closed（patterns=[], source=None）。"""
+        missing_path = "/nonexistent/path/does-not-exist-ho-paths.md"
+        patterns, source, searched = arbiter.resolve_ho_patterns(missing_path)
+        self.assertEqual(patterns, [])
+        self.assertIsNone(source)
+        self.assertEqual(searched, [missing_path])
+
+    def test_tc4_fail_closed_when_zero_parseable_rows(self):
+        """TC-4: ファイルは存在するがパース可能な行が 0 件 → fail-closed。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            empty_doc = pathlib.Path(tmpdir) / "empty-ho-paths.md"
+            empty_doc.write_text("# HO パス一覧\n\n本文にはテーブル行が一切ない。\n", encoding="utf-8")
+            patterns, source, searched = arbiter.resolve_ho_patterns(str(empty_doc))
+            self.assertEqual(patterns, [])
+            self.assertIsNone(source)
+            self.assertEqual(searched, [str(empty_doc)])
+
+
+class HoPathsTableParsingTests(unittest.TestCase):
+    """TC-6: parse_ho_paths_table の注釈括弧除去・境界動作。"""
+
+    def test_tc6_annotation_parenthetical_excluded_from_pattern(self):
+        content = (
+            "## HO パス一覧\n\n"
+            "| パス | 分類 | 変更禁止理由 |\n"
+            "|------|------|------------|\n"
+            "| `docs/ai/*.md`（トップレベルの md のみ。`docs/ai/ai-loop/` 配下は対象外） "
+            "| HO-contract | 理由 |\n"
+        )
+        patterns = arbiter.parse_ho_paths_table(content)
+        self.assertEqual(patterns, [("docs/ai/*.md", "HO-contract")])
+
+    def test_tc6_header_and_separator_rows_ignored(self):
+        content = (
+            "| パス | 分類 | 変更禁止理由 |\n"
+            "|------|------|------------|\n"
+            "| `bin/plangate` | HO-core | 理由 |\n"
+        )
+        patterns = arbiter.parse_ho_paths_table(content)
+        self.assertEqual(patterns, [("bin/plangate", "HO-core")])
+
+    def test_tc6_non_table_lines_ignored(self):
+        content = "本文の説明文。バッククォート `example` を含むが表ではない。\n"
+        patterns = arbiter.parse_ho_paths_table(content)
+        self.assertEqual(patterns, [])
+
+
+class FailClosedIntegrationTests(unittest.TestCase):
+    """TC-5: ho-paths 未解決時、arbitrate() は verdict/lite/class を問わず全件escalate。"""
+
+    def test_tc5_unresolved_ho_paths_escalates_regardless_of_verdicts(self):
+        missing_path = "/nonexistent/path/does-not-exist-ho-paths.md"
+        data = _base_input()  # approve-approve・lite 全 true・class=no-merge（本来なら auto-approve 相当）
+        provenance, reason = arbiter.arbitrate(data, ho_paths_path=missing_path)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["boundary_check"], "unresolved")
+        self.assertIn("fail-closed", reason)
+        self.assertIn("priority 0", reason)
+
+    def test_tc5_unresolved_ho_paths_escalates_even_with_reject_reject(self):
+        """fail-closed は「厳しい裁定を優先」より前段の絶対条件。reject-reject（本来 BLOCKED）でも
+        ho-paths 未解決時は HUMAN_ESCALATED（boundary 判定不能を明示する decision）を返す。
+        """
+        missing_path = "/nonexistent/path/does-not-exist-ho-paths.md"
+        data = _base_input()
+        data["verdicts"]["model_a"] = "reject"
+        data["verdicts"]["model_b"] = "reject"
+        provenance, _reason = arbiter.arbitrate(data, ho_paths_path=missing_path)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+
+
+class AllowedPathsScopeTests(unittest.TestCase):
+    """TC-8〜TC-10: allowed_paths 必須化・scope 逸脱 escalate・touches-HO 優先順位。"""
+
+    def test_tc8_in_scope_change_proceeds_to_normal_evaluation(self):
+        """TC-8: allowed_paths 内の変更は scope チェックを通過し通常の priority 評価へ進む。"""
+        data = _base_input(allowed_paths=["docs/workflows/ai-loop/**"])
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["scope_check"], "in_scope")
+        self.assertIn("priority 6", reason)
+
+    def test_tc9_out_of_scope_change_escalates(self):
+        """TC-9: changed_files が allowed_paths のどの glob にも一致しない → human escalate。"""
+        data = _base_input(
+            changed_files=["docs/workflows/ai-loop/decision-table.md", "scripts/unrelated/tool.py"],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["scope_check"], "scope_violation")
+        self.assertIn("priority 1.5", reason)
+        self.assertIn("scripts/unrelated/tool.py", reason)
+
+    def test_tc10_touches_ho_overrides_even_when_allowed_paths_declares_it(self):
+        """TC-10: allowed_paths に HO パスそのものを宣言していても HO escalate は免れない
+        （design-philosophy.md I-1 不変条件・優先順位は touches-HO が常に先）。
+        """
+        data = _base_input(
+            changed_files=["bin/plangate"],
+            allowed_paths=["bin/plangate"],
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+        self.assertIn("priority 1", reason)
+        self.assertNotIn("priority 1.5", reason)
+
+
+class PolicyRefVersionTests(unittest.TestCase):
+    """TC-11: POLICY_REF が @v1 へ改版されていること（allowed_paths 必須化・fail-closed機械化）。"""
+
+    def test_tc11_policy_ref_is_v1(self):
+        self.assertEqual(arbiter.POLICY_REF, "auto-approve-lite-clean@v1")
+
+    def test_tc11_provenance_policy_ref_is_v1(self):
+        data = _base_input()
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v1")
 
 
 class MainExitCodeTests(unittest.TestCase):
