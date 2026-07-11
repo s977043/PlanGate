@@ -170,8 +170,12 @@ Rule 1（Workflow は順序と完了条件だけを持つ。実装ノウハウ�
 判断せず、後続 slice（B/C）または別途の Human 判断に委ねる:
 
 - **計画品質ゲートの hard gate 化度合い**（#782 P1-1 対応・slice B 相当）:
-  `insufficient → 差し戻し` を advisory のまま維持するか hard gate 化するかの
-  線引きは Human 確定事項。本書は既存 Verifier の gap 記述（§2）に留める
+  **#817 で plan 品質ゲート（priority 1.7・`gates.c1 == "PASS"` かつ
+  `gates.breakdown == "pass"` を auto-approve の必要条件）として一部
+  hard gate 化を実装済み**（§2 Verifier 行と整合）。C-1 相当は「loop の
+  前提」から auto-approve 経路の hard gate へ格上げされた。ただし
+  **C-2 の loop 内義務化・code-run 用 rubric variant（#782 P2）は未決のまま
+  残る**。残りの線引き（C-2 hard gate 化の是非等）は引き続き Human 確定事項
 - **size_ok のしきい値**（#782 P1-2 対応・slice C 相当）: `size_ok` を
   git 由来の機械算出 blast-radius boolean へ置換する場合の具体しきい値は
   policy（Human-owned）であり、本書では定義しない
