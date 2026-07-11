@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -208,19 +209,22 @@ class TestMissingRunsDir(unittest.TestCase):
     """--runs-dir が不在の場合は exit 1 + 明示メッセージ。"""
 
     def test_cli_exit_one_with_message(self):
-        missing_dir = pathlib.Path(tempfile.gettempdir()) / "metrics-does-not-exist-xyz"
-        if missing_dir.exists():
-            import shutil
-
-            shutil.rmtree(missing_dir)
-        result = subprocess.run(
-            [sys.executable, str(SCRIPT_PATH), "--runs-dir", str(missing_dir)],
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(result.returncode, 1)
-        self.assertTrue(result.stderr.strip())
-        self.assertIn(str(missing_dir), result.stderr)
+        # 一意な一時ディレクトリを作り、その中の非存在サブパスを "不在 runs-dir"
+        # として使う（固定名を共有 tmp 直下に作ると並列実行で他プロセスと競合
+        # しうるため。mkdtemp が一意 dir を保証し、サブパスは常に非存在）。
+        base = tempfile.mkdtemp()
+        missing_dir = pathlib.Path(base) / "does-not-exist"
+        try:
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT_PATH), "--runs-dir", str(missing_dir)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertTrue(result.stderr.strip())
+            self.assertIn(str(missing_dir), result.stderr)
+        finally:
+            os.rmdir(base)
 
 
 class TestJsonFormatStructure(unittest.TestCase):
