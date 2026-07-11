@@ -34,7 +34,13 @@ L1（呼び出し側）が別途取得し、その verdict を本モジュール
         "model_c": "approve" | "reject" | null,
         "model_d": "approve" | "reject" | null
       },
-      "target_sha": str
+      "target_sha": str,
+      "run": {                          # 任意（#780 Slice D 後半 追加・additive）
+        "run_id": str,                  #   非空 string（run 単位の連番識別子）
+        "round_index": int,             #   bool 不可・必須（run 提供時）
+        "task_id": str,
+        "repair_action": str            #   任意（再試行時のみ）
+      } | null                          # 省略時は provenance に "run": null として刻む
     }
 
 `allowed_paths` は LoopSpec `scope.allowed_paths`（既存必須フィールド）宣言を
@@ -43,6 +49,11 @@ L1（呼び出し側）が別途取得し、その verdict を本モジュール
 する（#809）。ただし HO 接触判定（boundary=touches-HO）が常に先に評価され、
 allowed_paths に HO パスを含めても HO escalate は免れない（design-philosophy
 I-1 不変条件）。
+
+`run`（#780 Slice D 後半 追加）は任意フィールド。指定すると全裁定経路の
+provenance にそのまま刻まれ、`scripts/ai-loop/metrics.py`（#812）が run 単位の
+集計（first-pass rate 等）に用いる。省略可・後方互換（既存呼び出しを壊さない）。
+gate 挙動は変えないため POLICY_REF のバージョンは進めない。
 
 CLI:
     --input <file>      入力 JSON ファイル（省略時は stdin）
@@ -486,6 +497,29 @@ def validate_input(data: Any) -> dict[str, Any]:
     target_sha = data.get("target_sha")
     _require(isinstance(target_sha, str) and target_sha != "", "target_sha は非空の string である必要があります")
 
+    run = data.get("run")
+    if run is not None:
+        _require(isinstance(run, dict), "run は object または省略である必要があります")
+        run_id = run.get("run_id")
+        _require(
+            isinstance(run_id, str) and run_id.strip() != "",
+            "run.run_id は非空の string である必要があります",
+        )
+        _require(
+            "round_index" in run and type(run.get("round_index")) is int,
+            "run.round_index は int である必要があります（bool 不可・必須）",
+        )
+        task_id = run.get("task_id")
+        _require(
+            isinstance(task_id, str),
+            "run.task_id は string である必要があります",
+        )
+        repair_action = run.get("repair_action")
+        _require(
+            repair_action is None or isinstance(repair_action, str),
+            "run.repair_action は string または省略である必要があります",
+        )
+
     return data
 
 
@@ -505,6 +539,7 @@ def build_provenance(
     scope_check: str = "not_evaluated",
     ho_paths_source: str | None = None,
     ho_pattern_count: int = 0,
+    run: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """decision-table.md §5 準拠の provenance JSON を構築する。
 
@@ -521,6 +556,12 @@ def build_provenance(
     None）。`ho_pattern_count`（#809 追加）: 解決した HO パターン抽出件数。
     「boundary=clean だが ho_pattern_count=1」のような過少網羅を監査で
     検知できるようにする（fail-closed 閾値そのものは 0 のまま — 可視化に留める）。
+
+    `run`（#780 Slice D 後半 追加・additive・任意）: 呼び出し側入力の
+    `run`（{run_id, round_index, task_id, repair_action?}）をそのまま刻む。
+    省略時は None（`"run": null` として出力）。metrics.py（#812）が
+    run 単位の集計（first-pass rate 等）に用いる。gate 挙動（POLICY_REF）は
+    変えない純粋な additive provenance 拡張。
     """
     w_check: dict[str, Any] = {"model_a": model_a, "model_b": model_b}
     if severity is not None:
@@ -544,6 +585,7 @@ def build_provenance(
         "scope_check": scope_check,
         "ho_paths_source": ho_paths_source,
         "ho_pattern_count": ho_pattern_count,
+        "run": run,
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
@@ -577,6 +619,7 @@ def arbitrate(
     model_c: str | None = verdicts.get("model_c")
     model_d: str | None = verdicts.get("model_d")
     reject_category: str | None = verdicts.get("reject_category")
+    run: dict[str, Any] | None = data.get("run")
 
     lite_result = lite_check(lite_input)
 
@@ -595,6 +638,7 @@ def arbitrate(
             reject_category=reject_category,
             ho_paths_source=ho_source,
             ho_pattern_count=ho_pattern_count,
+            run=run,
             **kw,
         )
 

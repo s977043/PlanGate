@@ -276,10 +276,13 @@ if [ -d "$PLUGIN_AI_LOOP_REFS" ]; then
   done
 fi
 
-# arbiter 裁定エンジン + テストを同期（__pycache__ は対象外。markdown リンクを
-# 含まないためリンク変換は不要、単純コピーの _sync_ai_loop_file を使う）
+# arbiter 裁定エンジン + テスト + metrics（#780 Slice D 後半: test_arbiter.py の
+# ArbiterMetricsIntegrationTests が同ディレクトリの metrics モジュールを import
+# するため、bundled 配置でも自立実行できるよう metrics.py も同梱する）を同期
+# （__pycache__ は対象外。markdown リンクを含まないためリンク変換は不要、
+# 単純コピーの _sync_ai_loop_file を使う）
 if [ -d "$AI_LOOP_SCRIPTS_DIR" ]; then
-  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py"; do
+  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py" "$AI_LOOP_SCRIPTS_DIR/metrics.py"; do
     [ -f "$_f" ] || continue
     _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_SCRIPTS" "skills/ai-loop-cycle/scripts"
   done
@@ -289,7 +292,7 @@ if [ -d "$PLUGIN_AI_LOOP_SCRIPTS" ]; then
     [ -f "$_f" ] || continue
     _base="$(basename "$_f")"
     case "$_base" in
-      arbiter.py|test_arbiter.py) : ;;
+      arbiter.py|test_arbiter.py|metrics.py) : ;;
       *)
         if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/scripts/$_base"
         else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/scripts/$_base"; fi
