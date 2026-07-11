@@ -1032,6 +1032,284 @@ class GeminiSecurityHardeningTests(unittest.TestCase):
         self.assertIs(first, second)
 
 
+class RunMetaValidationTests(unittest.TestCase):
+    """#780 Slice D 後半: 入力 `run`（任意フィールド）のバリデーション。"""
+
+    def test_run_absent_passes_validation(self):
+        data = _base_input()
+        validated = arbiter.validate_input(data)
+        self.assertNotIn("run", validated)
+
+    def test_run_valid_without_repair_action_passes(self):
+        data = _base_input(run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780"})
+        validated = arbiter.validate_input(data)
+        self.assertEqual(validated["run"]["run_id"], "run-001")
+
+    def test_run_valid_with_repair_action_passes(self):
+        data = _base_input(
+            run={
+                "run_id": "run-001",
+                "round_index": 2,
+                "task_id": "TASK-0780",
+                "repair_action": "reject 指摘に基づき修正",
+            }
+        )
+        validated = arbiter.validate_input(data)
+        self.assertEqual(validated["run"]["repair_action"], "reject 指摘に基づき修正")
+
+    def test_run_non_dict_raises(self):
+        data = _base_input(run="not-a-dict")
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_run_id_empty_string_raises(self):
+        data = _base_input(run={"run_id": "", "round_index": 1, "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_run_id_whitespace_only_raises(self):
+        data = _base_input(run={"run_id": "   ", "round_index": 1, "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_run_id_non_string_raises(self):
+        data = _base_input(run={"run_id": 123, "round_index": 1, "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_round_index_string_raises(self):
+        data = _base_input(run={"run_id": "run-001", "round_index": "1", "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_round_index_bool_raises(self):
+        """round_index は bool を除外した厳密 int（bool は int のサブクラス）。"""
+        data = _base_input(run={"run_id": "run-001", "round_index": True, "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_round_index_missing_raises(self):
+        data = _base_input(run={"run_id": "run-001", "task_id": "TASK-0780"})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_task_id_int_raises(self):
+        data = _base_input(run={"run_id": "run-001", "round_index": 1, "task_id": 780})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_repair_action_non_string_raises(self):
+        data = _base_input(
+            run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780", "repair_action": 5}
+        )
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+
+class RunMetaProvenanceTests(unittest.TestCase):
+    """#780 Slice D 後半: provenance への run 刻印（全裁定経路で additive に刻む）。"""
+
+    RUN_META = {"run_id": "run-999", "round_index": 1, "task_id": "TASK-0780"}
+
+    def test_run_absent_yields_null(self):
+        data = _base_input()
+        self.assertNotIn("run", data)
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertIsNone(provenance["run"])
+
+    def test_priority0_fail_closed_carries_run(self):
+        data = _base_input(run=self.RUN_META)
+        provenance, _ = arbiter.arbitrate(data, ho_paths_path="/nonexistent/ho-paths.md")
+        self.assertEqual(provenance["boundary_check"], "unresolved")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority1_touches_ho_carries_run(self):
+        data = _base_input(run=self.RUN_META, changed_files=["bin/plangate"])
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority1_5_scope_violation_carries_run(self):
+        data = _base_input(run=self.RUN_META, changed_files=["out/of/scope.md"])
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["scope_check"], "scope_violation")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority2_lite_false_carries_run(self):
+        data = _base_input(
+            run=self.RUN_META,
+            lite={
+                "size_ok": False,
+                "no_new_design": True,
+                "follows_pattern": True,
+                "reversible": True,
+            },
+        )
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority3_merge_carries_run(self):
+        data = _base_input(run=self.RUN_META, **{"class": "merge"})
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority4_blocked_carries_run(self):
+        data = _base_input(run=self.RUN_META)
+        data["verdicts"]["model_a"] = "reject"
+        data["verdicts"]["model_b"] = "reject"
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "BLOCKED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority5_human_escalated_carries_run(self):
+        data = _base_input(run=self.RUN_META)
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "auth_change"  # severity=major
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority5_cd_auto_approved_carries_run(self):
+        data = _base_input(run=self.RUN_META)
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "logic"  # severity=minor
+        data["verdicts"]["model_c"] = "approve"
+        data["verdicts"]["model_d"] = "approve"
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_priority6_auto_approved_carries_run(self):
+        data = _base_input(run=self.RUN_META)
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["run"], self.RUN_META)
+
+    def test_policy_ref_unchanged_when_run_present(self):
+        """run は additive provenance であり policy 改版ではない（@v1 据え置き）。"""
+        data = _base_input(run=self.RUN_META)
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v1")
+
+
+class ArbiterMetricsIntegrationTests(unittest.TestCase):
+    """#780 Slice D 後半の核心: arbiter が刻んだ run 付き record を実際に
+    metrics.py（#812 消費側）へ渡し、first_pass 判定が正しく機能することを実証する。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import metrics as metrics_module  # noqa: E402  (sys.path は本ファイル冒頭で設定済み)
+
+        cls.metrics = metrics_module
+
+    def test_first_pass_false_when_round1_rejected_then_round2_auto_approved(self):
+        run_id = "run-780-int-reject-then-approve"
+
+        round1 = _base_input(run={"run_id": run_id, "round_index": 1, "task_id": "TASK-0780"})
+        round1["verdicts"]["model_a"] = "reject"
+        round1["verdicts"]["model_b"] = "reject"
+        arbiter.validate_input(round1)
+        prov1, _ = arbiter.arbitrate(round1)
+        self.assertEqual(prov1["decision"], "BLOCKED")
+
+        round2 = _base_input(
+            run={
+                "run_id": run_id,
+                "round_index": 2,
+                "task_id": "TASK-0780",
+                "repair_action": "reject 指摘（reject-reject）に基づき修正",
+            }
+        )
+        arbiter.validate_input(round2)
+        prov2, _ = arbiter.arbitrate(round2)
+        self.assertEqual(prov2["decision"], "AUTO_APPROVED")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            (tmp_path / "round1.json").write_text(json.dumps(prov1), encoding="utf-8")
+            (tmp_path / "round2.json").write_text(json.dumps(prov2), encoding="utf-8")
+
+            report = self.metrics.collect(tmp_path)
+
+        self.assertEqual(report["run_count"], 1)
+        self.assertEqual(report["legacy_count"], 0)
+        self.assertEqual(report["invalid_run_meta_count"], 0)
+        self.assertEqual(report["first_pass"]["denominator"], 1)
+        self.assertEqual(report["first_pass"]["numerator"], 0)
+        self.assertEqual(report["first_pass"]["rate"], 0.0)
+        self.assertEqual(report["round_distribution"], {2: 1})
+
+    def test_first_pass_true_when_round1_auto_approved(self):
+        run_id = "run-780-int-first-pass"
+
+        round1 = _base_input(run={"run_id": run_id, "round_index": 1, "task_id": "TASK-0780"})
+        arbiter.validate_input(round1)
+        prov1, _ = arbiter.arbitrate(round1)
+        self.assertEqual(prov1["decision"], "AUTO_APPROVED")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            (tmp_path / "round1.json").write_text(json.dumps(prov1), encoding="utf-8")
+
+            report = self.metrics.collect(tmp_path)
+
+        self.assertEqual(report["run_count"], 1)
+        self.assertEqual(report["first_pass"]["numerator"], 1)
+        self.assertEqual(report["first_pass"]["denominator"], 1)
+        self.assertEqual(report["first_pass"]["rate"], 1.0)
+
+    def test_run_input_omitted_yields_explicit_null_classified_as_invalid_run_meta(self):
+        """入力に run が無い呼び出しは record に `"run": null` を刻む（欠落ではない）。
+
+        metrics.py の分類基準（module docstring）では legacy は「run キー自体が
+        無い record」（#780 以前に発行された真の旧 record）専用であり、
+        `"run": null` は run キーが存在するが run_id が無効（None）なため
+        invalid_run_meta に分類される（legacy とは別カウント）。この区別により
+        「#780 以降に arbiter を run メタ無しで呼んだ」ケースと「#780 より前の
+        本当の旧 record」を metrics 側で判別できる。
+        """
+        legacy = _base_input()
+        self.assertNotIn("run", legacy)
+        arbiter.validate_input(legacy)
+        prov_legacy, _ = arbiter.arbitrate(legacy)
+        self.assertIsNone(prov_legacy["run"])
+        self.assertIn("run", prov_legacy)  # キー自体は常に存在する（欠落ではなく null）
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            (tmp_path / "no-run-input.json").write_text(json.dumps(prov_legacy), encoding="utf-8")
+
+            report = self.metrics.collect(tmp_path)
+
+        self.assertEqual(report["legacy_count"], 0)
+        self.assertEqual(report["invalid_run_meta_count"], 1)
+        self.assertEqual(report["run_count"], 0)
+        self.assertEqual(report["first_pass"]["denominator"], 0)
+        self.assertIsNone(report["first_pass"]["rate"])
+
+    def test_true_legacy_record_missing_run_key_entirely_is_classified_as_legacy(self):
+        """`run` キー自体が存在しない真の legacy record（#780 以前）は legacy_count に入る。"""
+        prov_legacy, _ = arbiter.arbitrate(_base_input())
+        record_without_run_key = dict(prov_legacy)
+        del record_without_run_key["run"]
+        self.assertNotIn("run", record_without_run_key)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            (tmp_path / "true-legacy.json").write_text(
+                json.dumps(record_without_run_key), encoding="utf-8"
+            )
+
+            report = self.metrics.collect(tmp_path)
+
+        self.assertEqual(report["legacy_count"], 1)
+        self.assertEqual(report["invalid_run_meta_count"], 0)
+        self.assertEqual(report["run_count"], 0)
+
+
 class MainExitCodeTests(unittest.TestCase):
     """main() の exit code 契約（0/2/3/1）を stdin 経由で確認する。"""
 
