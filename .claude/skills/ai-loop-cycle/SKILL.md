@@ -14,6 +14,7 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 
 - **C-1 PASS・C-2 完了済み**であること（[`execution-runbook.md`](../../../docs/workflows/ai-loop/execution-runbook.md) §2 前提）。
   本サイクルは C-3' ゲートの位置づけであり、C-1/C-2 未完了の変更には使わない。
+  この C-1 の実施結果（`PASS`）を Step 1 の入力 `gates.c1` にそのまま渡す（#780 Slice B）。
 - 対象は **lite 帯候補の変更**（[`lite-criteria.md`](../../../docs/workflows/ai-loop/lite-criteria.md) §2 の
   4 軸を満たしうる変更）。high-risk / critical 相当や boundary=touches-HO が明らかな変更には使わない
   （使っても flow フェーズで即 human escalate になる）。
@@ -21,6 +22,15 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
   （`bin/plangate`・`scripts/hooks/`）からは呼ばれない隔離 PoC である。②導入先リポジトリ = ho-paths
   を導入先で確定し LoopSpec `scope.allowed_paths` を宣言していれば適用可（導入先の本番承認フロー
   からは呼ばれない点は不変）。
+
+## Step 0: breakdown-gate による粒度判定（#780 Slice B）
+
+[`breakdown-gate`](../breakdown-gate/SKILL.md) スキルでタスク粒度を判定する
+（理想 / 許容 / 分割必須の 3 段階）。判定結果を `gates.breakdown` へ変換する:
+
+- 理想 / 許容 → `"pass"`
+- 分割必須 → `"pass"` 以外の値（例 `"split-suggested"`）。arbiter は priority 1.7
+  で human escalate する（分割してから再度サイクルへ）
 
 ## Step 1: 入力の組み立て
 
@@ -40,6 +50,15 @@ lite 4 軸（[`lite-criteria.md`](../../../docs/workflows/ai-loop/lite-criteria.
 `class` は `merge` を含む変更なら `"merge"`（即 human escalate）、含まなければ `"no-merge"`。
 `target_sha` は対象コミットの SHA。`allowed_paths` は LoopSpec の `scope.allowed_paths`
 宣言をそのまま渡す（#809）。
+
+`gates`（任意・#780 Slice B）は plan 品質ゲート（priority 1.7）の入力。**Step 0**
+（breakdown-gate スキルで粒度判定）の verdict を `gates.breakdown` に
+（`理想`/`許容` → `"pass"`、`分割必須` → それ以外の値、例 `"split-suggested"`。
+`"pass"` 以外はすべて未充足扱い）、**Step 1**（C-1 実施結果）を `gates.c1` に
+（`"PASS"` のみ通過。`FAIL`/未実施はそれ以外の値）設定する。**gates 自体を
+省略した場合も入力エラーにはならないが、priority 1.7 で human escalate に
+倒れる**（後方互換・安全側。以前の auto-approve 経路を壊さないためには
+gates を両方 `"PASS"`/`"pass"` で渡す必要がある）。
 
 `run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（**初回呼び出し=1**、再試行ごとに +1。1 起点。metrics は round_index==1 を初回 sentinel に first_pass 判定するため 0 起点不可）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
 
@@ -64,6 +83,10 @@ lite 4 軸（[`lite-criteria.md`](../../../docs/workflows/ai-loop/lite-criteria.
     "model_d": null
   },
   "target_sha": "abc1234",
+  "gates": {
+    "c1": "PASS",
+    "breakdown": "pass"
+  },
   "run": {
     "run_id": "run-022",
     "round_index": 1,

@@ -35,6 +35,10 @@ L1（呼び出し側）が別途取得し、その verdict を本モジュール
         "model_d": "approve" | "reject" | null
       },
       "target_sha": str,
+      "gates": {                         # 任意（#780 Slice B 追加・additive）
+        "c1": str,                       #   "PASS" 厳密一致のみ plan-quality を満たす
+        "breakdown": str                 #   "pass" 厳密一致のみ plan-quality を満たす
+      } | 省略可,                        # 省略・null・非 dict・値不一致はすべて priority 1.7 escalate（安全側）
       "run": {                          # 任意（#780 Slice D 後半 追加・additive）
         "run_id": str,                  #   非空 string（run 単位の連番識別子）
         "round_index": int,             #   bool 不可・必須（run 提供時）
@@ -49,6 +53,14 @@ L1（呼び出し側）が別途取得し、その verdict を本モジュール
 する（#809）。ただし HO 接触判定（boundary=touches-HO）が常に先に評価され、
 allowed_paths に HO パスを含めても HO escalate は免れない（design-philosophy
 I-1 不変条件）。
+
+`gates`（#780 Slice B 追加）は任意フィールド。`gates.c1 == "PASS"` かつ
+`gates.breakdown == "pass"`（両方とも厳密一致）のときのみ plan-quality gate
+を満たしたとみなす（priority 1.7）。欠落・null・非 dict・型不一致・値の
+表記違いはすべて安全側で未充足（human escalate）に倒れる。**この変更は
+escalate 条件を追加するだけの安全側変更であり、以前 escalate だった経路を
+auto-approve にする効果は一切持たない**（POLICY_REF を @v1 → @v2 へ改版した
+理由）。
 
 `run`（#780 Slice D 後半 追加）は任意フィールド。指定すると全裁定経路の
 provenance にそのまま刻まれ、`scripts/ai-loop/metrics.py`（#812）が run 単位の
@@ -376,6 +388,27 @@ def lite_check(lite_input: Any) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# plan 品質ゲート判定: priority 1.7（#780 Slice B・AC-8 安全側）
+# ---------------------------------------------------------------------------
+# 出典: docs/workflows/ai-loop/decision-table.md §3 priority 1.7 /
+# `.agents/skills/ai-loop-cycle/SKILL.md` Step 0（breakdown-gate）・Step 1（C-1）。
+# 任意フィールド `gates`（{"c1": str, "breakdown": str}）を厳密一致で判定する。
+# **この関数は escalate 条件を追加するだけの安全側変更**であり、以前 escalate
+# だった経路を auto-approve に倒す効果を一切持たない（gates 欠落・null・
+# 異表記・非 str はすべて false＝escalate 側に倒れる）。
+def plan_quality_check(gates: Any) -> bool:
+    """gates.c1 == "PASS" かつ gates.breakdown == "pass"（両方とも厳密一致）のときのみ true。
+
+    `gates` 自体が dict でない（欠落・null・非 dict）場合も false。
+    値が str でない場合は `==` 比較が自然に False になるため追加の型検査は不要
+    （例: 123 == "PASS" は False）。
+    """
+    if not isinstance(gates, dict):
+        return False
+    return gates.get("c1") == "PASS" and gates.get("breakdown") == "pass"
+
+
+# ---------------------------------------------------------------------------
 # severity 分類（priority 5 時のみ使用）
 # ---------------------------------------------------------------------------
 # 出典: docs/workflows/ai-loop/flow-detect.md §3.2.1 カテゴリマッピング表。
@@ -420,7 +453,7 @@ EXIT_CODES = {
 }
 
 ISSUED_BY = "arbiter-v0.1"
-POLICY_REF = "auto-approve-lite-clean@v1"
+POLICY_REF = "auto-approve-lite-clean@v2"
 
 
 class InputError(ValueError):
@@ -634,6 +667,7 @@ class Signals:
     scope_ok: bool
     violations: list[str]
     lite_result: bool
+    plan_quality_ok: bool
     verdict: str
 
 
@@ -662,6 +696,7 @@ def _evaluate_signals(data: dict[str, Any], ho_patterns: list[tuple[str, str]]) 
     boundary, matched = boundary_check(changed_files, ho_patterns)
     scope_ok, violations = check_allowed_paths(changed_files, allowed_paths)
     lite_result = lite_check(data["lite"])
+    plan_quality_ok = plan_quality_check(data.get("gates"))
     verdict = f"{verdicts['model_a']}-{verdicts['model_b']}"
 
     return Signals(
@@ -670,6 +705,7 @@ def _evaluate_signals(data: dict[str, Any], ho_patterns: list[tuple[str, str]]) 
         scope_ok=scope_ok,
         violations=violations,
         lite_result=lite_result,
+        plan_quality_ok=plan_quality_ok,
         verdict=verdict,
     )
 
@@ -757,11 +793,22 @@ def arbitrate(
     def _matched_desc() -> str:
         return ", ".join(f"{m['path']} ({m['pattern']} / {m['classification']})" for m in signals.matched)
 
+    def _gates_reason() -> str:
+        gates = data.get("gates")
+        # 理由メッセージのみ型を判別（decision・判定ロジックは不変）。gates が
+        # dict でない（str/list/int 等）場合は「キー未指定（c1=None）」と区別
+        # できるよう型不正を明示する（gemini medium 反映・#780 Slice B）。
+        if not isinstance(gates, dict):
+            return f"priority 1.7: plan-quality gate 未充足（gates が dict でない・型: {type(gates).__name__}）"
+        return f"priority 1.7: plan-quality gate 未充足（c1={gates.get('c1')} breakdown={gates.get('breakdown')}）"
+
     priority_table: list[tuple[str, bool, str, str, str, Any]] = [
         ("priority 1", signals.boundary == "touches-HO", DECISION_HUMAN_ESCALATED, signals.boundary, "not_evaluated",
          lambda: f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {_matched_desc()}"),
         ("priority 1.5", not signals.scope_ok, DECISION_HUMAN_ESCALATED, signals.boundary, "scope_violation",
          lambda: f"priority 1.5: boundary=clean だが scope_violation（allowed_paths 逸脱パス: {', '.join(signals.violations)}）"),
+        ("priority 1.7", not signals.plan_quality_ok, DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
+         _gates_reason),
         ("priority 2", not signals.lite_result, DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
          lambda: "priority 2: boundary=clean だが lite=false（低リスク要件未充足）"),
         ("priority 3", class_value == "merge", DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",

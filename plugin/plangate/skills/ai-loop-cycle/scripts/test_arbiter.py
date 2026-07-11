@@ -46,6 +46,11 @@ def _base_input(**overrides):
             "model_d": None,
         },
         "target_sha": "abc1234",
+        # #780 Slice B: priority 1.7（plan-quality gate）を既定で満たしておく。
+        # これにより priority 2 以降の裁定を検証する既存 characterization test
+        # 群は、gates 未対応時代の裁定と同一の結果を維持する（gates 完備は
+        # escalate を追加しないための前提条件・後方互換のための既定値）。
+        "gates": {"c1": "PASS", "breakdown": "pass"},
     }
     data.update(overrides)
     return data
@@ -292,6 +297,188 @@ class DecisionTablePriorityTests(unittest.TestCase):
         self.assertIn("priority 6", reason)
 
 
+class PlanQualityCheckUnitTests(unittest.TestCase):
+    """plan_quality_check() 単体テスト（AC-8 安全側: 欠落・null・型不一致は false）。"""
+
+    def test_both_pass_is_true(self):
+        self.assertTrue(arbiter.plan_quality_check({"c1": "PASS", "breakdown": "pass"}))
+
+    def test_c1_fail_is_false(self):
+        self.assertFalse(arbiter.plan_quality_check({"c1": "FAIL", "breakdown": "pass"}))
+
+    def test_breakdown_split_suggested_is_false(self):
+        self.assertFalse(arbiter.plan_quality_check({"c1": "PASS", "breakdown": "split-suggested"}))
+
+    def test_gates_missing_key_is_false(self):
+        self.assertFalse(arbiter.plan_quality_check({"c1": "PASS"}))
+        self.assertFalse(arbiter.plan_quality_check({"breakdown": "pass"}))
+        self.assertFalse(arbiter.plan_quality_check({}))
+
+    def test_gates_none_is_false(self):
+        self.assertFalse(arbiter.plan_quality_check(None))
+
+    def test_gates_non_dict_is_false(self):
+        self.assertFalse(arbiter.plan_quality_check("PASS"))
+        self.assertFalse(arbiter.plan_quality_check(["PASS", "pass"]))
+
+    def test_c1_non_string_is_false(self):
+        """AC-8 安全側: 非 str（例: 123）は false。"""
+        self.assertFalse(arbiter.plan_quality_check({"c1": 123, "breakdown": "pass"}))
+
+    def test_breakdown_none_is_false(self):
+        self.assertFalse(arbiter.plan_quality_check({"c1": "PASS", "breakdown": None}))
+
+    def test_case_sensitive_mismatch_is_false(self):
+        """厳密一致: "pass"（小文字）・"PASS"（大文字）以外の表記ゆれは false。"""
+        self.assertFalse(arbiter.plan_quality_check({"c1": "pass", "breakdown": "pass"}))
+        self.assertFalse(arbiter.plan_quality_check({"c1": "PASS", "breakdown": "PASS"}))
+
+
+class PlanQualityGatePriorityTests(unittest.TestCase):
+    """#780 Slice B: priority 1.7（plan-quality gate）の裁定経路テスト。
+
+    中核原則: escalate 条件を追加するのみ。以前 auto-approve だったケースは
+    gates 完備時のみ auto-approve を維持し、gates 不備は escalate に倒れる。
+    """
+
+    def test_gates_complete_reaches_auto_approve(self):
+        """gates 完備 + 他 auto-approve 条件 → AUTO_APPROVED（#816 と同一裁定）。"""
+        data = _base_input(gates={"c1": "PASS", "breakdown": "pass"})
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertIn("priority 6", reason)
+
+    def test_gates_c1_fail_escalates(self):
+        data = _base_input(gates={"c1": "FAIL", "breakdown": "pass"})
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.7", reason)
+        self.assertIn("plan-quality", reason)
+
+    def test_gates_breakdown_split_suggested_escalates(self):
+        data = _base_input(gates={"c1": "PASS", "breakdown": "split-suggested"})
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.7", reason)
+
+    def test_gates_missing_field_escalates_exit2_not_exit1(self):
+        """gates フィールド自体が無い入力は exit 1（入力エラー）ではなく
+        exit 2（HUMAN_ESCALATED）になる（後方互換の要）。"""
+        data = _base_input()
+        del data["gates"]
+        validated = arbiter.validate_input(data)  # 入力エラーにならないことを確認
+        provenance, reason = arbiter.arbitrate(validated)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.7", reason)
+        self.assertEqual(arbiter.EXIT_CODES[provenance["decision"]], 2)
+
+    def test_gates_null_escalates(self):
+        data = _base_input(gates=None)
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.7", reason)
+
+    def test_gates_c1_null_escalates(self):
+        data = _base_input(gates={"c1": None, "breakdown": "pass"})
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.7", reason)
+
+    def test_gates_c1_non_string_escalates(self):
+        data = _base_input(gates={"c1": 123, "breakdown": "pass"})
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.7", reason)
+
+    def test_touches_ho_preempts_plan_quality_gate(self):
+        """HO 優先: touches-HO + gates.c1=FAIL でも boundary=touches-HO が先に確定する
+        （priority 1 が priority 1.7 より先。c1 の値で上書きされない）。"""
+        data = _base_input(
+            changed_files=["bin/plangate"],
+            allowed_paths=["bin/plangate"],
+            gates={"c1": "FAIL", "breakdown": "split-suggested"},
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+        self.assertIn("priority 1", reason)
+        self.assertNotIn("priority 1.7", reason)
+
+    def test_scope_violation_preempts_plan_quality_gate(self):
+        """scope 優先: scope 逸脱 + gates 完備でも priority 1.5（scope）が
+        priority 1.7 より先に確定する。"""
+        data = _base_input(
+            changed_files=["scripts/unrelated/tool.py"],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+            gates={"c1": "PASS", "breakdown": "pass"},
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["scope_check"], "scope_violation")
+        self.assertIn("priority 1.5", reason)
+        self.assertNotIn("priority 1.7", reason)
+
+    def test_gates_ok_but_lite_false_reaches_priority2(self):
+        """gates 完備で priority 1.7 を通過した後、priority 2（lite=false）へ進む。"""
+        data = _base_input(
+            gates={"c1": "PASS", "breakdown": "pass"},
+            lite={"size_ok": False, "no_new_design": True, "follows_pattern": True, "reversible": True},
+        )
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 2", reason)
+
+    def test_gates_reason_includes_values(self):
+        data = _base_input(gates={"c1": "FAIL", "breakdown": "not-pass"})
+        _provenance, reason = arbiter.arbitrate(data)
+        self.assertIn("c1=FAIL", reason)
+        self.assertIn("breakdown=not-pass", reason)
+
+    def test_gates_non_dict_reason_indicates_type_error(self):
+        """gemini medium: gates が dict 以外（str/list/int）のとき、理由が
+        「gates が dict でない・型: <型名>」を明示し、「キー未指定（c1=None）」と
+        区別できる（decision は不変・escalate のまま）。"""
+        for bad_gates, type_name in [
+            ("not-a-dict", "str"),
+            (["c1", "pass"], "list"),
+            (123, "int"),
+        ]:
+            with self.subTest(gates=bad_gates):
+                data = _base_input(gates=bad_gates)
+                provenance, reason = arbiter.arbitrate(data)
+                self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+                self.assertIn("priority 1.7", reason)
+                self.assertIn("gates が dict でない", reason)
+                self.assertIn(f"型: {type_name}", reason)
+                # 非 dict では c1=None 表記を出さない（型不正と混同させない）
+                self.assertNotIn("c1=None", reason)
+
+    def test_gates_dict_missing_keys_reason_uses_key_values(self):
+        """回帰: gates が dict のままキー不備（例: 空 dict・部分 dict）は従来どおり
+        c1=<値> breakdown=<値> の理由（型不正メッセージにはしない）。coordinator
+        仕様の「gates=dict で c1/breakdown 不備 → 従来どおりの理由」に対応。"""
+        for partial in [{}, {"c1": "FAIL"}, {"breakdown": "split-suggested"}]:
+            with self.subTest(gates=partial):
+                data = _base_input(gates=partial)
+                _provenance, reason = arbiter.arbitrate(data)
+                self.assertIn("priority 1.7", reason)
+                self.assertIn(f"c1={partial.get('c1')}", reason)
+                self.assertIn(f"breakdown={partial.get('breakdown')}", reason)
+                self.assertNotIn("dict でない", reason)
+
+    def test_gates_absent_reason_indicates_type_error(self):
+        """gates キー自体が欠落（data.get→None）も非 dict 扱いで型明示。
+        「gates 未提供」を「dict でない・型: NoneType」として c1=None 混同を避ける
+        （decision は escalate のまま不変）。"""
+        data = _base_input()
+        del data["gates"]
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.7", reason)
+        self.assertIn("gates が dict でない", reason)
+        self.assertIn("型: NoneType", reason)
+
+
 class SeverityEscalationTests(unittest.TestCase):
     def test_severity_critical_escalates(self):
         data = _base_input()
@@ -434,7 +621,7 @@ class ProvenanceSchemaTests(unittest.TestCase):
         ):
             self.assertIn(field, provenance)
         self.assertEqual(provenance["issued_by"], "arbiter-v0.1")
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v1")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v2")
         self.assertEqual(provenance["scope_check"], "in_scope")
         self.assertEqual(provenance["w_check"]["model_a"], "approve")
         self.assertEqual(provenance["w_check"]["model_b"], "approve")
@@ -630,15 +817,18 @@ class AllowedPathsScopeTests(unittest.TestCase):
 
 
 class PolicyRefVersionTests(unittest.TestCase):
-    """TC-11: POLICY_REF が @v1 へ改版されていること（allowed_paths 必須化・fail-closed機械化）。"""
+    """TC-11: POLICY_REF が @v1 へ改版されていること（allowed_paths 必須化・fail-closed機械化）。
 
-    def test_tc11_policy_ref_is_v1(self):
-        self.assertEqual(arbiter.POLICY_REF, "auto-approve-lite-clean@v1")
+    #780 Slice B で @v1 → @v2 へ再改版（gates 必須化・priority 1.7 追加）。
+    """
 
-    def test_tc11_provenance_policy_ref_is_v1(self):
+    def test_tc11_policy_ref_is_v2(self):
+        self.assertEqual(arbiter.POLICY_REF, "auto-approve-lite-clean@v2")
+
+    def test_tc11_provenance_policy_ref_is_v2(self):
         data = _base_input()
         provenance, _ = arbiter.arbitrate(data)
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v1")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v2")
 
 
 class PathNormalizationSecurityTests(unittest.TestCase):
@@ -1203,10 +1393,11 @@ class RunMetaProvenanceTests(unittest.TestCase):
         self.assertEqual(provenance["run"], self.RUN_META)
 
     def test_policy_ref_unchanged_when_run_present(self):
-        """run は additive provenance であり policy 改版ではない（@v1 据え置き）。"""
+        """run は additive provenance であり policy 改版ではない（run 追加は据え置き。
+        現行ベースラインは #780 Slice B の gates 必須化で @v2 — run 起因の改版ではない）。"""
         data = _base_input(run=self.RUN_META)
         provenance, _ = arbiter.arbitrate(data)
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v1")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v2")
 
 
 class ArbiterMetricsIntegrationTests(unittest.TestCase):
@@ -1445,7 +1636,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 0,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "unresolved",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1481,7 +1672,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": False,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "not_evaluated",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "reject", "model_b": "reject"},
@@ -1506,7 +1697,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "scope_violation",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1531,7 +1722,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": False,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1553,7 +1744,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1577,7 +1768,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "reject", "model_b": "reject"},
@@ -1604,7 +1795,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "reject", "model_b": "approve"},
@@ -1629,7 +1820,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1654,7 +1845,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -1687,7 +1878,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -1722,7 +1913,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -1758,7 +1949,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -1795,7 +1986,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -1832,7 +2023,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -1864,7 +2055,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v1",
+                "policy_ref": "auto-approve-lite-clean@v2",
                 "run": {
                     "repair_action": None,
                     "round_index": 0,

@@ -22,6 +22,7 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 
 - **C-1 PASS・C-2 完了済み**であること（`references/execution-runbook.md` §2 前提）。
   本サイクルは C-3' ゲートの位置づけであり、C-1/C-2 未完了の変更には使わない。
+  この C-1 の実施結果（`PASS`）を Step 1 の入力 `gates.c1` にそのまま渡す（#780 Slice B）。
 - 対象は **lite 帯候補の変更**（`references/lite-criteria.md` §2 の 4 軸を満たしうる変更）。
   high-risk / critical 相当や boundary=touches-HO が明らかな変更には使わない
   （使っても flow フェーズで即 human escalate になる）。
@@ -36,6 +37,16 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
   既定案として、導入先の作業ディレクトリ配下に run 単位の裁定 record 用サブディレクトリ
   （例: `<作業ディレクトリ>/ai-loop-runs/`）を設ける配置が参考になるが、導入先の
   ディレクトリ規約を優先すること。
+
+## Step 0: breakdown-gate による粒度判定（#780 Slice B）
+
+`breakdown-gate` スキル（同梱・または導入先の等価スキル）でタスク粒度を
+判定する（理想 / 許容 / 分割必須の 3 段階）。判定結果を `gates.breakdown`
+へ変換する:
+
+- 理想 / 許容 → `"pass"`
+- 分割必須 → `"pass"` 以外の値（例 `"split-suggested"`）。arbiter は priority 1.7
+  で human escalate する（分割してから再度サイクルへ）
 
 ## Step 1: 入力の組み立て
 
@@ -56,6 +67,14 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
 
 `class` は `merge` を含む変更なら `"merge"`（即 human escalate）、含まなければ `"no-merge"`。
 `target_sha` は対象コミットの SHA。
+
+`gates`（任意・#780 Slice B）は plan 品質ゲート（priority 1.7）の入力。**Step 0**
+（breakdown-gate 判定）の verdict を `gates.breakdown` に（`理想`/`許容` → `"pass"`、
+`分割必須` → それ以外の値。`"pass"` 以外はすべて未充足扱い）、**Step 1 の前提**
+（C-1 実施結果）を `gates.c1` に（`"PASS"` のみ通過）設定する。**gates 省略も
+入力エラーにはならないが、priority 1.7 で human escalate に倒れる**（後方互換・
+安全側。以前の auto-approve 経路を壊さないためには gates を両方
+`"PASS"`/`"pass"` で渡す必要がある）。
 
 `run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（**初回呼び出し=1**、再試行ごとに +1。1 起点。metrics は round_index==1 を初回 sentinel に first_pass 判定するため 0 起点不可）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
 
@@ -80,6 +99,10 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
     "model_d": null
   },
   "target_sha": "abc1234",
+  "gates": {
+    "c1": "PASS",
+    "breakdown": "pass"
+  },
   "run": {
     "run_id": "run-022",
     "round_index": 1,
