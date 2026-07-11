@@ -177,10 +177,11 @@ run:
 ### 入力: gates（#780 Slice B 追加・additive・任意）
 
 呼び出し側入力の `gates`（省略可）は priority 1.7（plan 品質ゲート）の判定
-にのみ使う入力軸であり、`run` と異なり **provenance には echo されない**
-（判定結果は decision / reason にのみ反映される。PoC スコープでは gates 自体の
-生値を record に刻む必要性が薄いため見送り — 将来 Phase で必要になれば
-additive に追加検討）。
+に使う入力軸であり、判定結果は decision / reason に反映される。加えて
+**#780 follow-up（#819）以降は provenance にも生値のまま刻まれる**
+（省略時はキー省略・`run` と同じ additive 規約）。これにより plan-quality
+gate で escalate した理由を record から監査・集計できる。刻印の詳細仕様は
+§5 provenance フィールド表の `gates` 行を参照。
 
 ```text
 gates:
@@ -218,6 +219,7 @@ plan_quality_ok=false**（priority 1.7 で human escalate）に倒れる。
 | `run.round_index` | run 提供時のみ | int（bool 不可・必須）。**1 起点**（初回呼び出し=1、再試行ごとに +1）。`metrics.py` は round_index==1 を初回ラウンドの sentinel として first_pass を判定するため、0 起点にすると成功 run が恒久的に first_pass 分子から漏れる |
 | `run.task_id` | run 提供時のみ | string（対象 PBI 識別子） |
 | `run.repair_action` | run 提供時のみ・任意 | string（再試行時の修正内容の要約。初回 round には無いことが多い） |
+| `gates` | 任意（#780 follow-up 追加・additive） | 呼び出し側入力の gates（priority 1.7 の plan-quality 判定に使う `{c1, breakdown}` 相当）を**生値のまま**刻む（dict でも非 dict でも判定せず記録のみ）。**省略時はキー自体を刻まない**（`null` も出力しない・`run` と同じ規約）。plan-quality gate で escalate した理由を provenance から監査・集計可能にする（Trust Ledger 強化）。判定ロジック（`plan_quality_check`）・`POLICY_REF` は変えない純粋な additive 拡張 |
 
 ### `target_sha` の計画時 vs 実装後の意味論（issue #782 P3）
 
