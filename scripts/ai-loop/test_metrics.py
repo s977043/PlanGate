@@ -468,5 +468,96 @@ class TestDuplicateRoundIndex(unittest.TestCase):
         self.assertTrue(any("duplicate round_index" in w for w in payload["warnings"]))
 
 
+class TestFirstPassMissingRoundIndex(unittest.TestCase):
+    """first_pass 判定は sort 先頭でなく round_index==1 を明示探索する。
+
+    gemini 指摘（high）: round_index 欠落レコード（0 扱い）が同一 run に混在
+    すると sort 先頭が欠落レコードになり、実 round_index==1 が AUTO_APPROVED
+    でも first_pass を取りこぼす回帰テスト。
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.runs_dir = pathlib.Path(self.tmpdir.name)
+
+        # run-A: round_index 欠落レコード（sort 先頭に来る=0 扱い）+ round 1 AUTO
+        rec_missing = _run_record("run-A", 99, "HUMAN_ESCALATED", "aaa0000", reject_category="logic")
+        del rec_missing["run"]["round_index"]  # 欠落 -> 0 扱いで sort 先頭
+        _write(self.runs_dir, "run-A-missing.json", rec_missing)
+        _write(
+            self.runs_dir,
+            "run-A-r1.json",
+            _run_record("run-A", 1, "AUTO_APPROVED", "aaa0001"),
+        )
+
+        # run-B: round 2 から始まる（round_index==1 が存在しない）
+        _write(
+            self.runs_dir,
+            "run-B-r2.json",
+            _run_record("run-B", 2, "AUTO_APPROVED", "bbb0002"),
+        )
+        _write(
+            self.runs_dir,
+            "run-B-r3.json",
+            _run_record("run-B", 3, "AUTO_APPROVED", "bbb0003"),
+        )
+
+        self.report = metrics.collect(self.runs_dir)
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_first_pass_counts_actual_round1_despite_missing(self):
+        # run-A は round_index==1 が AUTO -> first_pass=true（欠落 sort 先頭に惑わされない）
+        # run-B は round_index==1 が不在 -> first_pass=false（分子に入らない）
+        self.assertEqual(self.report["first_pass"]["numerator"], 1)
+
+    def test_run_without_round1_still_in_denominator(self):
+        # 「round 1 が無い run は first-pass ではない」が分母には run として含む
+        self.assertEqual(self.report["first_pass"]["denominator"], 2)
+        self.assertEqual(self.report["run_count"], 2)
+
+
+class TestSpecialCharPathGlob(unittest.TestCase):
+    """runs_dir にブラケット等特殊文字が含まれても *.json を正しく拾う。
+
+    gemini 指摘（medium）: glob.glob(str(...)) はパスの [ ] をワイルドカードと
+    誤解釈する。Path.glob 移行の回帰テスト。
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        # 親 tmp の下に [test] ディレクトリを作る（ブラケットは glob 特殊文字）
+        self.runs_dir = pathlib.Path(self.tmpdir.name) / "[test]runs"
+        self.runs_dir.mkdir(parents=True)
+
+        _write(
+            self.runs_dir,
+            "run-A-r1.json",
+            _run_record("run-A", 1, "AUTO_APPROVED", "aaa0001"),
+        )
+        _write(self.runs_dir, "legacy-1.json", _legacy_record(target_sha="leg0001"))
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_collect_finds_json_in_bracket_path(self):
+        report = metrics.collect(self.runs_dir)
+        self.assertEqual(report["total_records"], 2)
+        self.assertEqual(report["run_count"], 1)
+        self.assertEqual(report["legacy_count"], 1)
+
+    def test_cli_finds_json_in_bracket_path(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT_PATH), "--runs-dir", str(self.runs_dir), "--format", "json"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["total_records"], 2)
+        self.assertEqual(payload["run_count"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -25,7 +25,13 @@ record の分類（無言の合算・無言の除外の両方を禁止）:
   round_index の型不正は当該 record のみ除外し、run 全体は残す
 - run record: 上記以外。run_id 単位に集約し round_index 昇順に並べる。
   round_index 欠落は 0 として扱う（sort 上は先頭に来るが、first_pass 判定
-  は round_index == 1 を要求するため欠落 record は first_pass にならない）
+  は round_index == 1 の record を明示探索するため、欠落 record が sort
+  先頭にあっても first_pass 判定に影響しない）
+
+first_pass 導出: 各 run について round_index == 1 の record を明示探索し、
+それが decision == "AUTO_APPROVED" なら first_pass=true。round_index == 1
+の record が存在しない run は first_pass 分子に加算しない（「round 1 が
+無い run は first-pass ではない」）。ただし run 単位の分母には含める。
 
 同一 run 内で round_index が重複した場合は warnings 配列
 （例: "run-X: duplicate round_index 1"）として明示し、集計は継続する。
@@ -44,7 +50,6 @@ exit code:
 from __future__ import annotations
 
 import argparse
-import glob
 import json
 import sys
 from collections import Counter
@@ -60,13 +65,17 @@ def _load_records(
     戻り値: ((file_path, record) のリスト, skip した file の {file, reason} のリスト)。
     破損 JSON・非 dict のトップレベル値・decision 欠落は skip する
     （fail-silent 禁止で理由を記録）。
+
+    ディレクトリ探索は Path.glob を使う（glob.glob(str(...)) は runs_dir パスに
+    ブラケット等の glob 特殊文字が含まれるとワイルドカードとして誤解釈される）。
     """
     entries: list[tuple[str, dict[str, Any]]] = []
     skipped: list[dict[str, str]] = []
 
-    for file_path in sorted(glob.glob(str(runs_dir / "*.json"))):
+    for path in sorted(runs_dir.glob("*.json")):
+        file_path = str(path)
         try:
-            with open(file_path, "r", encoding="utf-8") as fh:
+            with open(path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
         except (OSError, json.JSONDecodeError) as exc:
             skipped.append({"file": file_path, "reason": f"JSON parse error: {exc}"})
@@ -135,9 +144,10 @@ def collect(runs_dir: Path) -> dict[str, Any]:
     仕様:
     - run グルーピング: 有効な run_id（非空文字列）を持つ record を run 単位に
       集約（round_index 昇順）
-    - first_pass 導出: round_index == 1 の record が decision ==
-      "AUTO_APPROVED" なら first_pass=true（集計側で計算・record には
-      刻印しない）
+    - first_pass 導出: 各 run で round_index == 1 の record を明示探索し、
+      それが decision == "AUTO_APPROVED" なら first_pass=true（集計側で計算・
+      record には刻印しない）。round_index == 1 が存在しない run は分子に
+      入れないが分母には含める
     - failure_category: reject ラウンドの w_check.reject_category（存在すれば）
       を分類キーに使う（新フィールドは発明しない）
     - legacy / invalid run meta / skipped の分類は module docstring 参照。
@@ -190,11 +200,12 @@ def collect(runs_dir: Path) -> dict[str, Any]:
             if count > 1:
                 warnings.append(f"{run_id}: duplicate round_index {index_value}")
 
-        first_round = rounds[0]
-        if (
-            first_round["run"].get("round_index") == 1
-            and first_round.get("decision") == "AUTO_APPROVED"
-        ):
+        # first_pass 判定は sort 先頭でなく round_index == 1 を明示探索する
+        # （round_index 欠落=0 扱いの record が sort 先頭に来ても取りこぼさない）
+        first_round = next(
+            (r for r in rounds if r["run"].get("round_index") == 1), None
+        )
+        if first_round is not None and first_round.get("decision") == "AUTO_APPROVED":
             first_pass_numerator += 1
 
         for rec in rounds:
