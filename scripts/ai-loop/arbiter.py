@@ -795,9 +795,12 @@ def arbitrate(
 
     def _gates_reason() -> str:
         gates = data.get("gates")
-        c1_value = gates.get("c1") if isinstance(gates, dict) else None
-        breakdown_value = gates.get("breakdown") if isinstance(gates, dict) else None
-        return f"priority 1.7: plan-quality gate 未充足（c1={c1_value} breakdown={breakdown_value}）"
+        # 理由メッセージのみ型を判別（decision・判定ロジックは不変）。gates が
+        # dict でない（str/list/int 等）場合は「キー未指定（c1=None）」と区別
+        # できるよう型不正を明示する（gemini medium 反映・#780 Slice B）。
+        if not isinstance(gates, dict):
+            return f"priority 1.7: plan-quality gate 未充足（gates が dict でない・型: {type(gates).__name__}）"
+        return f"priority 1.7: plan-quality gate 未充足（c1={gates.get('c1')} breakdown={gates.get('breakdown')}）"
 
     priority_table: list[tuple[str, bool, str, str, str, Any]] = [
         ("priority 1", signals.boundary == "touches-HO", DECISION_HUMAN_ESCALATED, signals.boundary, "not_evaluated",

@@ -434,6 +434,50 @@ class PlanQualityGatePriorityTests(unittest.TestCase):
         self.assertIn("c1=FAIL", reason)
         self.assertIn("breakdown=not-pass", reason)
 
+    def test_gates_non_dict_reason_indicates_type_error(self):
+        """gemini medium: gates が dict 以外（str/list/int）のとき、理由が
+        「gates が dict でない・型: <型名>」を明示し、「キー未指定（c1=None）」と
+        区別できる（decision は不変・escalate のまま）。"""
+        for bad_gates, type_name in [
+            ("not-a-dict", "str"),
+            (["c1", "pass"], "list"),
+            (123, "int"),
+        ]:
+            with self.subTest(gates=bad_gates):
+                data = _base_input(gates=bad_gates)
+                provenance, reason = arbiter.arbitrate(data)
+                self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+                self.assertIn("priority 1.7", reason)
+                self.assertIn("gates が dict でない", reason)
+                self.assertIn(f"型: {type_name}", reason)
+                # 非 dict では c1=None 表記を出さない（型不正と混同させない）
+                self.assertNotIn("c1=None", reason)
+
+    def test_gates_dict_missing_keys_reason_uses_key_values(self):
+        """回帰: gates が dict のままキー不備（例: 空 dict・部分 dict）は従来どおり
+        c1=<値> breakdown=<値> の理由（型不正メッセージにはしない）。coordinator
+        仕様の「gates=dict で c1/breakdown 不備 → 従来どおりの理由」に対応。"""
+        for partial in [{}, {"c1": "FAIL"}, {"breakdown": "split-suggested"}]:
+            with self.subTest(gates=partial):
+                data = _base_input(gates=partial)
+                _provenance, reason = arbiter.arbitrate(data)
+                self.assertIn("priority 1.7", reason)
+                self.assertIn(f"c1={partial.get('c1')}", reason)
+                self.assertIn(f"breakdown={partial.get('breakdown')}", reason)
+                self.assertNotIn("dict でない", reason)
+
+    def test_gates_absent_reason_indicates_type_error(self):
+        """gates キー自体が欠落（data.get→None）も非 dict 扱いで型明示。
+        「gates 未提供」を「dict でない・型: NoneType」として c1=None 混同を避ける
+        （decision は escalate のまま不変）。"""
+        data = _base_input()
+        del data["gates"]
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.7", reason)
+        self.assertIn("gates が dict でない", reason)
+        self.assertIn("型: NoneType", reason)
+
 
 class SeverityEscalationTests(unittest.TestCase):
     def test_severity_critical_escalates(self):
