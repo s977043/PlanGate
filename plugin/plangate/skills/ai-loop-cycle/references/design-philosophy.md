@@ -3,8 +3,9 @@
 > **位置づけ**: ai-loop-workflow の**思想層の正本**。全 ai-loop ドキュメントの最上位に立ち、
 > 「なぜこう設計するのか」の根拠と、今後の成長（外部知見の取り込み・仕様の版上げ）の
 > 手続きを定義する。個別の機構・手順は本書から参照される各正本が持つ（§7 文書地図）。
-> **適用ドメイン**: ai-loop-workflow（docs/ai/ai-loop/ / docs/workflows/ai-loop/）のみ。
-> PlanGate 本番フロー（WF-00〜WF-07）には適用しない。
+> **適用ドメイン（Phase 1）**: ①plangate 本体 = docs/ai/ai-loop/ / docs/workflows/ai-loop/ 配下のみ
+> （dogfooding 域・本番フロー WF-00〜WF-07 非適用）。②導入先リポジトリ = ho-paths 確定 +
+> LoopSpec scope.allowed_paths 宣言を前提に適用可。
 > **検討経緯**: 初版は Fable 起草 + Codex / 独立 adversarial レビュー（Gemini は
 > 実行不可のため代替。§11）の 2 系統検討を反映（2026-07-07）。
 

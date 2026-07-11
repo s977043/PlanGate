@@ -1,7 +1,7 @@
 # agentic-six-stage-loop — 6段階ループ対応表 + Trust Ledger 索引
 
-> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
-> 非適用: PlanGate 本番フロー（WF-00〜WF-07）
+> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
+> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
 > 対応 issue: [#780](https://github.com/s977043/plangate/issues/780)（ai-loop 6段階ループ適合性）
 > 位置づけ: 汎用的なエージェント実行パイプラインの役割語彙
 > （Triage / Conductor / Worker / Verifier / Gate / Trust Ledger）と、

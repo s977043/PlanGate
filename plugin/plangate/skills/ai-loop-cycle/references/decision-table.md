@@ -1,7 +1,7 @@
 # decision-table — Arbiter 裁定 Decision table
 
-> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
-> 非適用: PlanGate 本番フロー（WF-00〜WF-07）
+> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
+> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
 > 裁定ロジック設計: `docs/ai/ai-loop/concept.md` §4 / 判定フロー: `docs/workflows/ai-loop/flow-detect.md`
 
 ---

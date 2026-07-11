@@ -1,7 +1,64 @@
 # ai-loop-workflow 概念ドキュメント
 
-> 適用ドメイン: ai-loop-workflow（docs/workflows/ai-loop/ 配下）のみ
-> 非適用: PlanGate 本番フロー（WF-00〜WF-07）
+> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
+> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
+
+---
+
+## Phase 1: 導入先適用
+
+> Human 決定（2026-07-10・verbatim）:
+> 「ai-loopのPoCとして、実際に開発中のリポジトリでの動作を検証していきたい。このフェーズに入ったと考えており、制限を調整したい」
+> （issue [#807](https://github.com/s977043/plangate/issues/807)）
+
+ai-loop-workflow は Phase 0（本リポジトリの `docs/workflows/ai-loop/` 配下限定の
+隔離 PoC）から **Phase 1（導入先実リポジトリでの検証）** へ移行した
+（Run-001〜021 の dogfooding + issue #782 の導入先実走 1 件の完了を根拠とする）。
+
+### 前提（導入先で適用可能とする 2 条件）
+
+1. **ho-paths の導入先確定**: 導入先プロジェクトが自身の HO（Hardening
+   Override）境界を [`ho-paths.md`](./ho-paths.md) 相当の形で
+   確定していること。未確定のまま run を開始することは**規範違反**であり、
+   L1 は run を開始してはならない（現行 `arbiter.py` は plangate 固有の
+   HO パターンを内蔵するのみで、導入先 ho-paths の実行時解決・未確定検知
+   による全件 escalate は**未実装**。機械化は follow-up #809）
+2. **LoopSpec `scope.allowed_paths` の宣言**: [`loopspec.md`](./loopspec.md)
+   の既存必須フィールドで、run ごとの変更可能範囲を宣言していること
+
+### auto-approve 方針（Phase 1 更新）
+
+導入先での auto-approve 適用範囲は、**lite 4 軸（[`lite-criteria.md`](./lite-criteria.md)
+§2）を申告制・AND・判定不能→false（AC-8 安全側）で満たせば、実機能も
+`AUTO_APPROVED` 対象に含めてよい**（Human 決定・2026-07-10）。Phase 0 時点の
+「事実上 docs 級のみ」（issue #782 実測）から拡張する。`lite.size_ok` は
+当面**申告制のまま**とし、git 由来の機械算出 blast-radius boolean への置換
+（#780 slice C）が、申告制に伴う保証強化の unlock として残る。
+
+### plangate 本体の扱い（据え置き）
+
+plangate 本体（本リポジトリ）における ai-loop-workflow の適用ドメインは
+**据え置き**であり、`docs/workflows/ai-loop/` 配下限定・PlanGate 本番フロー
+（WF-00〜07）非適用のまま変更しない。
+
+### 不変条件（安全側 — 承認境界は不動。Phase 1 でも緩和しない）
+
+- HO 接触 = 無条件 escalate（fail-closed）。ho-paths 未確定時の全件
+  escalate は現状**規範層**（前提 1 の開始禁止）であり、機械層のガードは
+  follow-up #809
+- **NO MERGE BY AI** / escalate の自己解決禁止 / 対応ラウンド上限 3
+- W チェック独立 2 体（Model A/B、必要なら C/D）
+- lite 4 軸の AC-8 安全側（判定不能→false・虚偽宣言禁止）
+- `allowed_paths` に HO パスを書いても escalate は免れない
+  （LoopSpec 既存規定・design-philosophy.md I-1）
+
+### Phase 0 → Phase 1 移行履歴
+
+Phase 0（隔離 PoC・本リポジトリ限定）→ Phase 1（導入先実リポジトリでの検証・
+lite 全域 auto-approve 可）。移行判断は issue #807（Human 決定 verbatim 上記）。
+
+> 注: 本ファイル後段に現れる「Phase 2」「Phase 3」等はワークフロー**構築
+> フェーズ番号**（別系）であり、本節のデプロイ段階 Phase 0/1 とは無関係。
 
 ---
 
