@@ -1384,5 +1384,501 @@ class MainExitCodeTests(unittest.TestCase):
         self.assertIn("入力エラー", stderr_value)
 
 
+
+
+class ArbitrateCharacterizationTests(unittest.TestCase):
+    """TASK-0814 R0: arbitrate() のリファクタリング（動作不変）に対する固定基準。
+
+    全 priority 経路（0 fail-closed / 1 touches-HO / 1.5 scope_violation /
+    2 lite=false / 3 class=merge / 4 verdict reject（reject-reject と
+    reject-approve の両方）/ 5 approve-reject（severity critical/major、
+    minor 側は C/D 裁定の 4 パターン + 欠落ケース）/ 6 approve-approve、
+    加えて run メタ付き（#780 Slice D 後半・additive）を網羅する。
+
+    各シナリオの (provenance dict, reason str) を **リファクタ前の現行コード
+    で実測して固定した値** と突き合わせる。`timestamp` は実行時刻依存のため
+    比較対象から除外し、`ho_paths_source` は cwd 依存の絶対パスのため
+    `_NORMALIZED_HO_SOURCE` プレースホルダに正規化してから比較する
+    （いずれも arbitrate() の priority 分岐ロジックとは無関係な環境依存
+    フィールドであり、正規化してもバイト一致検証の意味は損なわない）。
+
+    Python dict の等価性は JSON へ sort_keys=True でダンプした文字列の
+    等価性と同値（キー集合・値が完全一致すれば同一 JSON 文字列になる）
+    ため、本テストの assertEqual(dict, dict) が「record バイト一致」の
+    機械証明として機能する。
+
+    このテストが緑のまま Step 1〜3（_evaluate_signals 抽出 → priority
+    テーブル化 → _require_normalized_path_list 抽出）を完了できることが
+    「動作不変」の機械証明となる。
+    """
+
+    _NORMALIZED_HO_SOURCE = "<HO_PATHS_SOURCE>"
+
+    @classmethod
+    def _normalize(cls, provenance):
+        normalized = dict(provenance)
+        normalized.pop("timestamp", None)
+        if normalized.get("ho_paths_source") is not None:
+            normalized["ho_paths_source"] = cls._NORMALIZED_HO_SOURCE
+        return normalized
+
+    def _run(self, data, **kwargs):
+        provenance, reason = arbiter.arbitrate(data, **kwargs)
+        return self._normalize(provenance), reason
+
+    def _assert_json_roundtrip_stable(self, provenance):
+        """provenance を sort_keys=True JSON にダンプ→再ロードして元と一致
+        することを確認する（「バイト一致」の直接的な機械証明の補強）。"""
+        dumped = json.dumps(provenance, ensure_ascii=False, sort_keys=True)
+        self.assertEqual(json.loads(dumped), provenance)
+
+    def test_priority0_fail_closed(self):
+        data = _base_input()
+        provenance, reason = self._run(data, ho_paths_path="/nonexistent/ho-paths.md")
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "unresolved",
+                "class_check": "no-merge",
+                "decision": "HUMAN_ESCALATED",
+                "ho_paths_source": None,
+                "ho_pattern_count": 0,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "unresolved",
+                "target_sha": "abc1234",
+                "w_check": {"model_a": "approve", "model_b": "approve"},
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 0: ho-paths unresolved (fail-closed)。探索パス: /nonexistent/ho-paths.md",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority1_touches_ho(self):
+        data = _base_input(
+            changed_files=["bin/plangate"],
+            lite={"size_ok": False, "no_new_design": False, "follows_pattern": False, "reversible": False},
+            **{"class": "merge"},
+        )
+        data["verdicts"] = {
+            "model_a": "reject",
+            "model_b": "reject",
+            "reject_category": None,
+            "model_c": None,
+            "model_d": None,
+        }
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "touches-HO",
+                "class_check": "merge",
+                "decision": "HUMAN_ESCALATED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": False,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "not_evaluated",
+                "target_sha": "abc1234",
+                "w_check": {"model_a": "reject", "model_b": "reject"},
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: bin/plangate (bin/plangate / HO-core)",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority1_5_scope_violation(self):
+        data = _base_input(changed_files=["docs/other/outside.md"], allowed_paths=["docs/workflows/ai-loop/**"])
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "HUMAN_ESCALATED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "scope_violation",
+                "target_sha": "abc1234",
+                "w_check": {"model_a": "approve", "model_b": "approve"},
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 1.5: boundary=clean だが scope_violation（allowed_paths 逸脱パス: docs/other/outside.md）",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority2_lite_false(self):
+        data = _base_input(lite={"size_ok": False, "no_new_design": True, "follows_pattern": True, "reversible": True})
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "HUMAN_ESCALATED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": False,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {"model_a": "approve", "model_b": "approve"},
+            },
+        )
+        self.assertEqual(reason, "priority 2: boundary=clean だが lite=false（低リスク要件未充足）")
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority3_class_merge(self):
+        data = _base_input(**{"class": "merge"})
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "merge",
+                "decision": "HUMAN_ESCALATED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {"model_a": "approve", "model_b": "approve"},
+            },
+        )
+        self.assertEqual(reason, "priority 3: class=merge（Human-owned 固定）")
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority4_reject_reject(self):
+        data = _base_input()
+        data["verdicts"]["model_a"] = "reject"
+        data["verdicts"]["model_b"] = "reject"
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "BLOCKED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {"model_a": "reject", "model_b": "reject"},
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 4: verdict=reject-reject（A が設計妥当性で NG、または両者合意で NG）",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority4_reject_approve(self):
+        data = _base_input()
+        data["verdicts"]["model_a"] = "reject"
+        data["verdicts"]["model_b"] = "approve"
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "BLOCKED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {"model_a": "reject", "model_b": "approve"},
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 4: verdict=reject-approve（A が設計妥当性で NG、または両者合意で NG）",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority6_approve_approve(self):
+        data = _base_input()
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "AUTO_APPROVED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {"model_a": "approve", "model_b": "approve"},
+            },
+        )
+        self.assertEqual(reason, "priority 6: verdict=approve-approve（合意）")
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority5_severity_critical(self):
+        data = _base_input()
+        data["verdicts"]["model_a"] = "approve"
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "security_break"
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "HUMAN_ESCALATED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {
+                    "model_a": "approve",
+                    "model_b": "reject",
+                    "reject_category": "security_break",
+                    "severity": "critical",
+                },
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 5: verdict=approve-reject, severity=critical（reject_category='security_break'）→ human escalate 固定",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority5_severity_major(self):
+        data = _base_input()
+        data["verdicts"]["model_a"] = "approve"
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "auth_change"
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "HUMAN_ESCALATED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {
+                    "model_a": "approve",
+                    "model_b": "reject",
+                    "reject_category": "auth_change",
+                    "severity": "major",
+                },
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 5: verdict=approve-reject, severity=major（reject_category='auth_change'）→ human escalate 固定",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority5_cd_missing(self):
+        data = _base_input()
+        data["verdicts"]["model_a"] = "approve"
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "logic"
+        data["verdicts"]["model_c"] = None
+        data["verdicts"]["model_d"] = "approve"
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "HUMAN_ESCALATED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {
+                    "model_a": "approve",
+                    "model_b": "reject",
+                    "model_d": "approve",
+                    "reject_category": "logic",
+                    "severity": "minor",
+                },
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 5: severity=minor だが model_c/model_d のいずれかが欠落 → human escalate（安全側）",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority5_cd_approve_approve(self):
+        data = _base_input()
+        data["verdicts"]["model_a"] = "approve"
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "logic"
+        data["verdicts"]["model_c"] = "approve"
+        data["verdicts"]["model_d"] = "approve"
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "AUTO_APPROVED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {
+                    "model_a": "approve",
+                    "model_b": "reject",
+                    "model_c": "approve",
+                    "model_d": "approve",
+                    "reject_category": "logic",
+                    "severity": "minor",
+                },
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 5: severity=minor, C/D 裁定=approve-approve → AUTO_APPROVED",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority5_cd_reject_reject(self):
+        data = _base_input()
+        data["verdicts"]["model_a"] = "approve"
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "logic"
+        data["verdicts"]["model_c"] = "reject"
+        data["verdicts"]["model_d"] = "reject"
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "BLOCKED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {
+                    "model_a": "approve",
+                    "model_b": "reject",
+                    "model_c": "reject",
+                    "model_d": "reject",
+                    "reject_category": "logic",
+                    "severity": "minor",
+                },
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 5: severity=minor, C/D 裁定=reject-reject → BLOCKED",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_priority5_cd_mixed(self):
+        data = _base_input()
+        data["verdicts"]["model_a"] = "approve"
+        data["verdicts"]["model_b"] = "reject"
+        data["verdicts"]["reject_category"] = "logic"
+        data["verdicts"]["model_c"] = "approve"
+        data["verdicts"]["model_d"] = "reject"
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "HUMAN_ESCALATED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {
+                    "model_a": "approve",
+                    "model_b": "reject",
+                    "model_c": "approve",
+                    "model_d": "reject",
+                    "reject_category": "logic",
+                    "severity": "minor",
+                },
+            },
+        )
+        self.assertEqual(
+            reason,
+            "priority 5: severity=minor, C/D 裁定=approve-reject → HUMAN_ESCALATED",
+        )
+        self._assert_json_roundtrip_stable(provenance)
+
+    def test_with_run_meta_approve_approve(self):
+        data = _base_input(run={"run_id": "run-001", "round_index": 0, "task_id": "TASK-0814", "repair_action": None})
+        provenance, reason = self._run(data)
+        self.assertEqual(
+            provenance,
+            {
+                "boundary_check": "clean",
+                "class_check": "no-merge",
+                "decision": "AUTO_APPROVED",
+                "ho_paths_source": self._NORMALIZED_HO_SOURCE,
+                "ho_pattern_count": 18,
+                "issued_by": "arbiter-v0.1",
+                "lite_check": True,
+                "policy_ref": "auto-approve-lite-clean@v1",
+                "run": {
+                    "repair_action": None,
+                    "round_index": 0,
+                    "run_id": "run-001",
+                    "task_id": "TASK-0814",
+                },
+                "scope_check": "in_scope",
+                "target_sha": "abc1234",
+                "w_check": {"model_a": "approve", "model_b": "approve"},
+            },
+        )
+        self.assertEqual(reason, "priority 6: verdict=approve-approve（合意）")
+        self._assert_json_roundtrip_stable(provenance)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -76,6 +76,7 @@ exit code:
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import functools
 import json
 import pathlib
@@ -431,35 +432,50 @@ def _require(condition: bool, message: str) -> None:
         raise InputError(message)
 
 
+def _require_normalized_path_list(
+    value: Any, field: str, *, kind: str, require_non_empty: bool = False
+) -> None:
+    """changed_files / allowed_paths 共通の list 検証を集約する（TASK-0814 R3）。
+
+    手順は「(1) value が string のリストであること（require_non_empty=True
+    なら非空リスト・非空文字列要素も要求）→ (2) 各要素を
+    _safe_normalized_path で検証 → 不正なら _require で InputError」の
+    同型 2 回（changed_files / allowed_paths）を 1 関数に集約したもの。
+
+    `require_non_empty`（allowed_paths のみ True）: 空リスト・空文字列要素を
+    リスト構造検査の時点で拒否する（LoopSpec scope.allowed_paths 宣言は
+    非空必須のため）。changed_files（False）は空文字列要素の拒否を
+    _safe_normalized_path（空文字列は「空のパス」エラー）に委ねる —
+    元コードの挙動をそのまま踏襲する。
+    `kind`: エラーメッセージ中の名詞（changed_files="パス" /
+    allowed_paths="パターン"）。
+    """
+    if require_non_empty:
+        _require(
+            isinstance(value, list) and len(value) > 0 and all(isinstance(p, str) and p != "" for p in value),
+            f"{field} は非空の string リストである必要があります（LoopSpec scope.allowed_paths 宣言を渡す）",
+        )
+    else:
+        _require(
+            isinstance(value, list) and all(isinstance(p, str) for p in value),
+            f"{field} は string のリストである必要があります",
+        )
+    for path in value:
+        _norm, err = _safe_normalized_path(path)
+        _require(
+            err is None,
+            f"{field} に不正な{kind}があります（{err}。リポジトリ相対の正規{kind}のみ受理）: {path!r}",
+        )
+
+
 def validate_input(data: Any) -> dict[str, Any]:
     """入力 JSON の構造を検証し、明示的失敗（理由メッセージ付き）を返す。"""
     _require(isinstance(data, dict), "入力は JSON object である必要があります")
 
-    changed_files = data.get("changed_files")
-    _require(
-        isinstance(changed_files, list) and all(isinstance(p, str) for p in changed_files),
-        "changed_files は string のリストである必要があります",
+    _require_normalized_path_list(data.get("changed_files"), "changed_files", kind="パス")
+    _require_normalized_path_list(
+        data.get("allowed_paths"), "allowed_paths", kind="パターン", require_non_empty=True
     )
-    for path in changed_files:
-        _norm, err = _safe_normalized_path(path)
-        _require(
-            err is None,
-            f"changed_files に不正なパスがあります（{err}。リポジトリ相対の正規パスのみ受理）: {path!r}",
-        )
-
-    allowed_paths = data.get("allowed_paths")
-    _require(
-        isinstance(allowed_paths, list)
-        and len(allowed_paths) > 0
-        and all(isinstance(p, str) and p != "" for p in allowed_paths),
-        "allowed_paths は非空の string リストである必要があります（LoopSpec scope.allowed_paths 宣言を渡す）",
-    )
-    for path in allowed_paths:
-        _norm, err = _safe_normalized_path(path)
-        _require(
-            err is None,
-            f"allowed_paths に不正なパターンがあります（{err}。リポジトリ相対の正規パターンのみ受理）: {path!r}",
-        )
 
     lite = data.get("lite")
     _require(isinstance(lite, dict), "lite は object である必要があります")
@@ -601,6 +617,63 @@ def build_provenance(
     return provenance
 
 
+# ---------------------------------------------------------------------------
+# 判定前処理（TASK-0814 R2）: boundary / scope / lite / verdict の集約
+# ---------------------------------------------------------------------------
+@dataclasses.dataclass(frozen=True)
+class Signals:
+    """arbitrate() の priority 分岐に先立つ判定前処理の結果（TASK-0814 R2）。
+
+    _evaluate_signals() の戻り値。boundary_check / check_allowed_paths /
+    lite_check / verdict 正規化（model_a-model_b 文字列化）を 1 箇所に
+    集約し、arbitrate() は本 dataclass を見て priority 分岐のみを行う。
+    """
+
+    boundary: str
+    matched: list[dict[str, str]]
+    scope_ok: bool
+    violations: list[str]
+    lite_result: bool
+    verdict: str
+
+
+def _evaluate_signals(data: dict[str, Any], ho_patterns: list[tuple[str, str]]) -> Signals:
+    """priority 分岐に先立つ判定前処理をまとめて評価する（TASK-0814 R2）。
+
+    出典: docs/workflows/ai-loop/decision-table.md §3。ここで評価する
+    boundary_check（priority 1）/ check_allowed_paths（priority 1.5）/
+    lite_check（priority 2）/ verdict 正規化（priority 4/6 判定用の
+    "{model_a}-{model_b}" 文字列）は、いずれも純関数の組み合わせであり
+    副作用を持たない。
+
+    `ho_patterns` が空（resolve_ho_patterns 未解決・fail-closed 前提）でも
+    本関数は呼び出し可能。その場合 `boundary_check` は仕様上 "clean"
+    （touches-HO 0 件）を返すが、priority 0（ho-paths 未解決）は
+    arbitrate() 側で本関数呼び出しより前に確定判断されるため、当該経路の
+    provenance には boundary/scope_ok/violations の値は反映されない。
+    `lite_result` は ho_patterns の解決可否と無関係に `data["lite"]` の
+    4 軸判定のみで決まるため、priority 0 経路でも同じ値が使われる
+    （元コードの計算順序と同一の観測結果）。
+    """
+    changed_files: list[str] = data["changed_files"]
+    allowed_paths: list[str] = data["allowed_paths"]
+    verdicts: dict[str, Any] = data["verdicts"]
+
+    boundary, matched = boundary_check(changed_files, ho_patterns)
+    scope_ok, violations = check_allowed_paths(changed_files, allowed_paths)
+    lite_result = lite_check(data["lite"])
+    verdict = f"{verdicts['model_a']}-{verdicts['model_b']}"
+
+    return Signals(
+        boundary=boundary,
+        matched=matched,
+        scope_ok=scope_ok,
+        violations=violations,
+        lite_result=lite_result,
+        verdict=verdict,
+    )
+
+
 def arbitrate(
     data: dict[str, Any], *, ho_paths_path: str | None = None
 ) -> tuple[dict[str, Any], str]:
@@ -618,9 +691,6 @@ def arbitrate(
 
     戻り値: (provenance dict, 人間可読の理由サマリ)
     """
-    changed_files: list[str] = data["changed_files"]
-    allowed_paths: list[str] = data["allowed_paths"]
-    lite_input = data["lite"]
     class_value: str = data["class"]
     verdicts: dict[str, Any] = data["verdicts"]
     target_sha: str = data["target_sha"]
@@ -632,16 +702,18 @@ def arbitrate(
     reject_category: str | None = verdicts.get("reject_category")
     run: dict[str, Any] | None = data.get("run")
 
-    lite_result = lite_check(lite_input)
-
     ho_patterns, ho_source, ho_searched = resolve_ho_patterns(ho_paths_path)
     ho_pattern_count = len(ho_patterns)
 
     # 全裁定経路の provenance に ho-paths の出典・抽出件数を刻む（#809 監査可視化）。
     # boundary/scope/decision 等の可変フィールドは呼び出し側で個別に渡す。
-    def _mk(**kw: Any) -> dict[str, Any]:
+    # lite_result は fail-closed（priority 0）経路でも刻む必要があるため、
+    # signals 未算出の priority 0 経路では data["lite"] から直接評価する
+    # （lite_check は ho_patterns の解決可否と無関係な純関数のため、signals
+    # 経由でも直接でも同一値。gemini medium 反映の early-return 化に伴う）。
+    def _mk(lite_value: bool, **kw: Any) -> dict[str, Any]:
         return build_provenance(
-            lite_result=lite_result,
+            lite_result=lite_value,
             class_value=class_value,
             target_sha=target_sha,
             model_a=model_a,
@@ -653,95 +725,72 @@ def arbitrate(
             **kw,
         )
 
-    # priority 0: ho-paths 未解決（fail-closed）。boundary 判定が実行不能なため
-    # 絶対条件として全件 human escalate とする。
+    # priority 0: ho-paths 未解決（fail-closed）は boundary=unresolved 固定で
+    # signals（boundary/scope）を一切使わないため、_evaluate_signals を呼ぶ前に
+    # early-return する（gemini medium 反映 / TASK-0814 R3+）。これにより
+    # 不要なパス正規化・boundary_check・check_allowed_paths を fail-closed 経路
+    # で実行しない（eager 評価の解消）。fail-open は絶対に行わない。
     if not ho_patterns:
         provenance = _mk(
+            lite_value=lite_check(data["lite"]),
             decision=DECISION_HUMAN_ESCALATED,
             boundary="unresolved",
             scope_check="unresolved",
         )
-        searched_desc = ", ".join(ho_searched)
-        reason = f"priority 0: ho-paths unresolved (fail-closed)。探索パス: {searched_desc}"
+        reason = f"priority 0: ho-paths unresolved (fail-closed)。探索パス: {', '.join(ho_searched)}"
         return provenance, reason
 
-    boundary, matched = boundary_check(changed_files, ho_patterns)
+    # 判定前処理（boundary/scope/lite/verdict）を 1 箇所に集約（TASK-0814 R2）。
+    # priority 0（fail-closed）は上で early-return 済みのため、ここに到達する
+    # 時点で ho_patterns は非空。
+    signals = _evaluate_signals(data, ho_patterns)
 
-    # priority 1: touches-HO は lite / class / verdict を問わず必ず human escalate 固定。
-    # scope 検査（priority 1.5）より前で return するため scope_check は not_evaluated。
-    if boundary == "touches-HO":
-        provenance = _mk(
-            decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
-            scope_check="not_evaluated",
-        )
-        matched_desc = ", ".join(f"{m['path']} ({m['pattern']} / {m['classification']})" for m in matched)
-        reason = f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {matched_desc}"
-        return provenance, reason
+    # priority 1/1.5/2/3/4/6 のデータ駆動テーブル（TASK-0814 R1）。各行は
+    # decision-table.md §3 の対応 priority 行 1 つに対応する (label, guard,
+    # decision, boundary_value, scope_check, reason_fn)。guard が True に
+    # なった最初の行が採用される（元の if/return 連鎖と同一の短絡評価）。
+    # scope 検査（priority 1.5）通過後の全行は in_scope を刻む（既存優先順位）。
+    # priority 0（fail-closed）は上で early-return 済み。priority 5
+    # （approve-reject の severity 分類 + C/D 裁定）は 2 段判定で分岐が複雑な
+    # ため、無理にテーブルへ押し込まず本テーブルの後で個別処理として残す
+    # （TASK-0814 plan の over-engineering 回避方針）。
+    def _matched_desc() -> str:
+        return ", ".join(f"{m['path']} ({m['pattern']} / {m['classification']})" for m in signals.matched)
 
-    # priority 1.5: allowed_paths 逸脱（scope 違反）は human escalate。
-    scope_ok, violations = check_allowed_paths(changed_files, allowed_paths)
-    if not scope_ok:
-        provenance = _mk(
-            decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
-            scope_check="scope_violation",
-        )
-        violations_desc = ", ".join(violations)
-        reason = (
-            f"priority 1.5: boundary=clean だが scope_violation"
-            f"（allowed_paths 逸脱パス: {violations_desc}）"
-        )
-        return provenance, reason
+    priority_table: list[tuple[str, bool, str, str, str, Any]] = [
+        ("priority 1", signals.boundary == "touches-HO", DECISION_HUMAN_ESCALATED, signals.boundary, "not_evaluated",
+         lambda: f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {_matched_desc()}"),
+        ("priority 1.5", not signals.scope_ok, DECISION_HUMAN_ESCALATED, signals.boundary, "scope_violation",
+         lambda: f"priority 1.5: boundary=clean だが scope_violation（allowed_paths 逸脱パス: {', '.join(signals.violations)}）"),
+        ("priority 2", not signals.lite_result, DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
+         lambda: "priority 2: boundary=clean だが lite=false（低リスク要件未充足）"),
+        ("priority 3", class_value == "merge", DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
+         lambda: "priority 3: class=merge（Human-owned 固定）"),
+        ("priority 4", signals.verdict in ("reject-reject", "reject-approve"), DECISION_BLOCKED, signals.boundary, "in_scope",
+         lambda: f"priority 4: verdict={signals.verdict}（A が設計妥当性で NG、または両者合意で NG）"),
+        ("priority 6", signals.verdict == "approve-approve", DECISION_AUTO_APPROVED, signals.boundary, "in_scope",
+         lambda: "priority 6: verdict=approve-approve（合意）"),
+    ]
 
-    # ここに到達＝scope 検査を実際に通過（合格）。以降の全経路は in_scope を刻む。
-    # priority 2: lite=false は human escalate。
-    if not lite_result:
-        provenance = _mk(
-            decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
-            scope_check="in_scope",
-        )
-        return provenance, "priority 2: boundary=clean だが lite=false（低リスク要件未充足）"
-
-    # priority 3: class=merge は human escalate（merge=Human-owned 固定）。
-    if class_value == "merge":
-        provenance = _mk(
-            decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
-            scope_check="in_scope",
-        )
-        return provenance, "priority 3: class=merge（Human-owned 固定）"
-
-    verdict = f"{model_a}-{model_b}"
-
-    # priority 4: reject-reject / reject-approve は blocked。
-    if verdict in ("reject-reject", "reject-approve"):
-        provenance = _mk(
-            decision=DECISION_BLOCKED,
-            boundary=boundary,
-            scope_check="in_scope",
-        )
-        return provenance, f"priority 4: verdict={verdict}（A が設計妥当性で NG、または両者合意で NG）"
-
-    # priority 6: approve-approve は auto-approve。
-    if verdict == "approve-approve":
-        provenance = _mk(
-            decision=DECISION_AUTO_APPROVED,
-            boundary=boundary,
-            scope_check="in_scope",
-        )
-        return provenance, "priority 6: verdict=approve-approve（合意）"
+    for _label, guard, decision, boundary_value, scope_check, reason_fn in priority_table:
+        if guard:
+            provenance = _mk(
+                lite_value=signals.lite_result, decision=decision, boundary=boundary_value, scope_check=scope_check
+            )
+            return provenance, reason_fn()
 
     # priority 5: approve-reject → severity 分類 → C/D 裁定。
     # (verdict は入力バリデーションで approve/reject の 2 値に限定済みのため、
-    #  ここに到達する場合は必ず approve-reject)
+    #  ここに到達する場合は必ず approve-reject。テーブル化しない理由は
+    #  TASK-0814 plan 参照 — severity 分類 + C/D 裁定の 2 段判定で分岐が
+    #  複雑なため個別処理のまま維持する）
     severity = classify_severity(reject_category)
 
     if severity in ("critical", "major"):
         provenance = _mk(
+            lite_value=signals.lite_result,
             decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
+            boundary=signals.boundary,
             scope_check="in_scope",
             severity=severity,
         )
@@ -754,8 +803,9 @@ def arbitrate(
     # C か D が欠落している場合は安全側で human escalate。
     if model_c is None or model_d is None:
         provenance = _mk(
+            lite_value=signals.lite_result,
             decision=DECISION_HUMAN_ESCALATED,
-            boundary=boundary,
+            boundary=signals.boundary,
             scope_check="in_scope",
             severity=severity,
             model_c=model_c,
@@ -775,8 +825,9 @@ def arbitrate(
         decision = DECISION_HUMAN_ESCALATED
 
     provenance = _mk(
+        lite_value=signals.lite_result,
         decision=decision,
-        boundary=boundary,
+        boundary=signals.boundary,
         scope_check="in_scope",
         severity=severity,
         model_c=model_c,
