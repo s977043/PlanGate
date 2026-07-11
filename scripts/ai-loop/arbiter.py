@@ -21,7 +21,9 @@ L1（呼び出し側）が別途取得し、その verdict を本モジュール
       "changed_files": [str, ...],
       "allowed_paths": [str, ...],
       "lite": {
-        "size_ok": bool,
+        "size_ok": bool,                 #   申告値。arbiter が changed_files 実数で機械検証する
+                                          #   （#780 Slice C・SIZE_OK_MAX_FILES）。申告 true だが
+                                          #   実ファイル数が閾値超過なら priority 1.9 で escalate
         "no_new_design": bool,
         "follows_pattern": bool,
         "reversible": bool
@@ -68,6 +70,13 @@ provenance にそのまま刻まれ、`scripts/ai-loop/metrics.py`（#812）が 
 **省略時は provenance に `run` キー自体を刻まない**（`"run": null` を出さない）ため、
 metrics.py は当該 record を legacy（run メタ未計装）に分類し invalid_run_meta へ
 誤計上しない。gate 挙動は変えないため POLICY_REF のバージョンは進めない。
+
+`lite.size_ok`（#780 Slice C 追加の機械検証）は従来どおり申告 bool だが、
+arbiter は `changed_files` の実ファイル数と `SIZE_OK_MAX_FILES` を比較し
+機械検証する。申告 `size_ok=true` かつ実ファイル数が閾値を超える場合のみ
+priority 1.9 で HUMAN_ESCALATED とする（申告と実測が一致するケース、および
+申告 `size_ok=false` のケースは既存裁定を維持する安全側変更）。POLICY_REF を
+`@v2` → `@v3` へ改版した理由（機械 size 検証の追加）。
 
 CLI:
     --input <file>      入力 JSON ファイル（省略時は stdin）
@@ -388,6 +397,42 @@ def lite_check(lite_input: Any) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# size_ok 機械検証: priority 1.9（#780 Slice C・AC-8 安全側とは独立の追加検証）
+# ---------------------------------------------------------------------------
+# 出典: docs/workflows/ai-loop/plan-slice-c.md（TASK-0780 Slice C）・
+# docs/workflows/ai-loop/lite-criteria.md §2「変更規模」（ファイル数 1〜2 目安）。
+# `lite.size_ok` は引き続き申告制（他 3 軸と同じ AC-8 安全側は lite_check が担う）。
+# 本節は「申告 size_ok=true」を `changed_files` の実ファイル数で機械検証し、
+# 申告と実測が食い違う（実際は blast-radius が大きい）場合のみ escalate を
+# 追加する。**この変更は escalate 条件を追加するだけの安全側変更であり、
+# 以前 escalate だった経路を auto-approve にする効果は一切持たない**
+# （POLICY_REF を @v2 → @v3 へ改版した理由）。
+SIZE_OK_MAX_FILES = 2
+
+
+def _declared_size_ok(lite_input: Any) -> bool:
+    """`lite.size_ok` が厳密に bool 型の True で申告されているかを判定する。
+
+    lite_check の各軸判定と同型（bool は int のサブクラスのため
+    isinstance(value, bool) を先に確認する）。`lite_input` が dict でない・
+    `size_ok` キー欠落・None・非 bool・False はすべて false を返す
+    （申告=true と確定できる場合のみ true。機械検証チェックの前提入力）。
+    """
+    if not isinstance(lite_input, dict):
+        return False
+    value = lite_input.get("size_ok")
+    return isinstance(value, bool) and value is True
+
+
+def machine_size_check(changed_files: list[str]) -> bool:
+    """`changed_files` の実ファイル数が SIZE_OK_MAX_FILES 以下かを機械判定する。
+
+    出典: lite-criteria.md §2「変更規模」（ファイル数 1〜2 目安 = light 相当）。
+    """
+    return len(changed_files) <= SIZE_OK_MAX_FILES
+
+
+# ---------------------------------------------------------------------------
 # plan 品質ゲート判定: priority 1.7（#780 Slice B・AC-8 安全側）
 # ---------------------------------------------------------------------------
 # 出典: docs/workflows/ai-loop/decision-table.md §3 priority 1.7 /
@@ -453,7 +498,7 @@ EXIT_CODES = {
 }
 
 ISSUED_BY = "arbiter-v0.1"
-POLICY_REF = "auto-approve-lite-clean@v2"
+POLICY_REF = "auto-approve-lite-clean@v3"
 
 
 class InputError(ValueError):
@@ -673,8 +718,9 @@ class Signals:
     """arbitrate() の priority 分岐に先立つ判定前処理の結果（TASK-0814 R2）。
 
     _evaluate_signals() の戻り値。boundary_check / check_allowed_paths /
-    lite_check / verdict 正規化（model_a-model_b 文字列化）を 1 箇所に
-    集約し、arbitrate() は本 dataclass を見て priority 分岐のみを行う。
+    lite_check / size_ok 機械検証（#780 Slice C） / verdict 正規化
+    （model_a-model_b 文字列化）を 1 箇所に集約し、arbitrate() は本
+    dataclass を見て priority 分岐のみを行う。
     """
 
     boundary: str
@@ -683,6 +729,8 @@ class Signals:
     violations: list[str]
     lite_result: bool
     plan_quality_ok: bool
+    declared_size_ok: bool
+    machine_size_ok: bool
     verdict: str
 
 
@@ -712,6 +760,8 @@ def _evaluate_signals(data: dict[str, Any], ho_patterns: list[tuple[str, str]]) 
     scope_ok, violations = check_allowed_paths(changed_files, allowed_paths)
     lite_result = lite_check(data["lite"])
     plan_quality_ok = plan_quality_check(data.get("gates"))
+    declared_size_ok = _declared_size_ok(data["lite"])
+    machine_size_ok = machine_size_check(changed_files)
     verdict = f"{verdicts['model_a']}-{verdicts['model_b']}"
 
     return Signals(
@@ -721,6 +771,8 @@ def _evaluate_signals(data: dict[str, Any], ho_patterns: list[tuple[str, str]]) 
         violations=violations,
         lite_result=lite_result,
         plan_quality_ok=plan_quality_ok,
+        declared_size_ok=declared_size_ok,
+        machine_size_ok=machine_size_ok,
         verdict=verdict,
     )
 
@@ -819,6 +871,15 @@ def arbitrate(
             return f"priority 1.7: plan-quality gate 未充足（gates が dict でない・型: {type(gates).__name__}）"
         return f"priority 1.7: plan-quality gate 未充足（c1={gates.get('c1')} breakdown={gates.get('breakdown')}）"
 
+    def _size_mismatch_reason() -> str:
+        # 出典: docs/workflows/ai-loop/plan-slice-c.md（#780 Slice C）。
+        # 申告 size_ok=true だが実ファイル数が SIZE_OK_MAX_FILES を超える
+        # （申告と blast-radius の不一致）ときのみ本行が採用される。
+        return (
+            f"priority 1.9: size_ok 申告=true だが実ファイル数 {len(data['changed_files'])} が"
+            f"閾値 {SIZE_OK_MAX_FILES} を超過（申告と blast-radius 不一致）"
+        )
+
     priority_table: list[tuple[str, bool, str, str, str, Any]] = [
         ("priority 1", signals.boundary == "touches-HO", DECISION_HUMAN_ESCALATED, signals.boundary, "not_evaluated",
          lambda: f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {_matched_desc()}"),
@@ -826,6 +887,8 @@ def arbitrate(
          lambda: f"priority 1.5: boundary=clean だが scope_violation（allowed_paths 逸脱パス: {', '.join(signals.violations)}）"),
         ("priority 1.7", not signals.plan_quality_ok, DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
          _gates_reason),
+        ("priority 1.9", signals.declared_size_ok and not signals.machine_size_ok, DECISION_HUMAN_ESCALATED,
+         signals.boundary, "in_scope", _size_mismatch_reason),
         ("priority 2", not signals.lite_result, DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
          lambda: "priority 2: boundary=clean だが lite=false（低リスク要件未充足）"),
         ("priority 3", class_value == "merge", DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",

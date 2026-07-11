@@ -23,10 +23,13 @@ issue [#782](https://github.com/s977043/plangate/issues/782) P1-2
 （「実機能は常に escalate に帰結し auto-approve が実質到達不能」）への応答は、
 Human 決定（issue [#807](https://github.com/s977043/plangate/issues/807)・
 2026-07-10）により **「docs 級限定の明文化」案から「lite 全域（本ドキュメント
-§2 の 4 軸を満たせば実機能も含む）」へ更新**された。`size_ok` の機械算出化
-（ファイル数閾値ではなく可逆性・パターン踏襲度を含む複合リスクスコア化。
-対応: issue [#780](https://github.com/s977043/plangate/issues/780) slice C）は
-当面の未実装事項として残り、申告制の保証を強化する unlock 位置づけである。
+§2 の 4 軸を満たせば実機能も含む）」へ更新**された。`size_ok` の機械検証化
+（issue [#780](https://github.com/s977043/plangate/issues/780) slice C で実装済み）は
+「ファイル数閾値（`SIZE_OK_MAX_FILES`=2）と `changed_files` 実数の突合」という
+最小形で実現された（当初想定した可逆性・パターン踏襲度を含む複合リスク
+スコア化は見送り、申告制の保証を強化する最小の unlock に留めた。§2 の
+「変更規模」欄・arbiter.py の `machine_size_check()` 参照）。他 3 軸
+（新規設計の有無・既存パターン踏襲・可逆性）は引き続き申告制のまま。
 AC-8 安全側（判定不能→false）・4 軸すべてを満たすことの要求は変更しない。
 
 ---
@@ -37,7 +40,7 @@ AC-8 安全側（判定不能→false）・4 軸すべてを満たすことの�
 
 | 軸 | lite=true 候補条件 | 継承元 |
 | ---- | -------------------- | -------- |
-| 変更規模 | `mode-classification.md` の light 相当以下（変更ファイル数 1〜2 目安） | `mode-classification.md` 定量基準 |
+| 変更規模 | `mode-classification.md` の light 相当以下（変更ファイル数 1〜2 目安）。**申告 `size_ok=true` は arbiter が `changed_files` 実数で機械検証する**（`SIZE_OK_MAX_FILES`=2 超過なら申告と実測の不一致として escalate。issue #780 slice C） | `mode-classification.md` 定量基準 |
 | 新規設計の有無 | なし（既存構造の枠内） | `mode-classification.md` lite_eligible 判定軸 |
 | 既存パターン踏襲 | あり（新規設計ゼロ・ミラー実装） | `mode-classification.md` lite_eligible 判定軸 |
 | **可逆性** | 変更が可逆である（巻き戻し手順が機械的に実行可能。例: `git revert` 一発、ファイル単位の差し戻しで完全復元できる） | 本ドキュメントで新規追加（PoC 固有） |
@@ -93,7 +96,9 @@ lite は「証明可能なときだけの例外」であり既定ではない。
 
 lite = true
 
-// 軸1: 変更規模
+// 軸1: 変更規模（申告 size_ok=true は arbiter.py が changed_files 実数で
+// SIZE_OK_MAX_FILES=2 と機械突合する。申告と実測が不一致なら priority 1.9
+// で human escalate — issue #780 slice C）
 if not (変更規模 <= light相当):
     lite = false
 
