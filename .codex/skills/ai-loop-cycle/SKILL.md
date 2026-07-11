@@ -5,6 +5,20 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 
 # ai-loop-cycle
 
+> **配置に関する注記（#809）**: 本 `.codex/skills/ai-loop-cycle/` 配置は
+> bundled resources（`references/`・`scripts/`）を**同梱していない**（本文中の
+> 記述は `.agents/skills/ai-loop-cycle/SKILL.md` と共通のテキストであり、
+> bundled 配置を前提とした文言を含むが、実体の `references/`・`scripts/`
+> ディレクトリはここには存在しない）。判定ロジック・provenance スキーマの
+> 実装は repo 正本 [`scripts/ai-loop/arbiter.py`](../../../scripts/ai-loop/arbiter.py)、
+> 手順・分岐表の正本は [`docs/workflows/ai-loop/`](../../../docs/workflows/ai-loop/)
+> を参照すること。`.agents/` → `.codex/` の同期は
+> `scripts/install-plangate-skills-to-codex.sh` によるが、3 配置
+> （`.agents/` / `.codex/` / `plugin/plangate/`）の SKILL.md 内容同一性を
+> 機械的に強制するテストは現状存在しない（手動同期依存）。
+
+<!-- 以下は .agents/skills/ai-loop-cycle/SKILL.md と共通のテキスト（bundled 配置前提の文言を含む） -->
+
 > 本スキルは **bundled resources**（`references/`・`scripts/`）で自己完結する。
 > スキルディレクトリ直下の `references/<name>.md` と `scripts/arbiter.py` を同梱し、
 > 導入先が独自の正本（`docs/workflows/ai-loop/` 等）を別途保持している場合は
