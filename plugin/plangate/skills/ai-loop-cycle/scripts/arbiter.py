@@ -19,6 +19,7 @@ L1（呼び出し側）が別途取得し、その verdict を本モジュール
 入力（JSON、stdin または --input <file>）:
     {
       "changed_files": [str, ...],
+      "allowed_paths": [str, ...],
       "lite": {
         "size_ok": bool,
         "no_new_design": bool,
@@ -36,6 +37,18 @@ L1（呼び出し側）が別途取得し、その verdict を本モジュール
       "target_sha": str
     }
 
+`allowed_paths` は LoopSpec `scope.allowed_paths`（既存必須フィールド）宣言を
+そのまま渡す非空の string リスト。必須。`changed_files` の各パスがこの
+リストのいずれの glob にも一致しない場合、scope 逸脱として human escalate
+する（#809）。ただし HO 接触判定（boundary=touches-HO）が常に先に評価され、
+allowed_paths に HO パスを含めても HO escalate は免れない（design-philosophy
+I-1 不変条件）。
+
+CLI:
+    --input <file>      入力 JSON ファイル（省略時は stdin）
+    --ho-paths <file>   HO パス一覧（ho-paths.md）の明示パス（#809）。
+                        省略時は実行時解決（下記）。
+
 出力:
     stdout — provenance JSON（decision-table.md §5 準拠）
     stderr — 人間可読の裁定サマリ（適用 priority と理由）
@@ -51,18 +64,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import pathlib
 import re
 import sys
 from datetime import datetime, timezone
 from typing import Any
 
 # ---------------------------------------------------------------------------
-# boundary 判定: HO（Hardening Override）パス一覧
+# boundary 判定: HO（Hardening Override）パス一覧（実行時解決 + fail-closed / #809）
 # ---------------------------------------------------------------------------
-# 出典: docs/ai/ai-loop/ho-paths.md（本リポジトリの正本）。
-# 各エントリは (glob パターン, HO 分類) のタプル。パターン文字列は
-# ho-paths.md 本文の表記と 1 文字も違わず一致させること（test_arbiter.py の
-# drift テストが本文中の存在を検証する）。
+# 出典: docs/ai/ai-loop/ho-paths.md（本リポジトリの正本）の「## HO パス一覧」表。
+# ハードコード定数は持たず、実行時に ho-paths.md 本文をパースして
+# (glob パターン, HO 分類) のリストを構築する（導入先リポジトリ固有の
+# ho-paths.md にも同一コードで対応するため）。
 #
 # パターン記法（ho-paths.md の記法をそのまま踏襲）:
 #   - `*`  : 1 パスセグメント内の任意文字列（"/" をまたがない）
@@ -70,26 +84,89 @@ from typing import Any
 # fnmatch はパスセグメント非対応（`*` が "/" をまたいでしまう）ため、
 # 本モジュールでは独自のセグメントベース matcher（_ho_pattern_to_regex）を
 # 使用する。
-HO_PATTERNS: list[tuple[str, str]] = [
-    ("bin/plangate", "HO-core"),  # 実行エンジン本体。AI 直接編集不可
-    ("scripts/hooks/**", "HO-hook"),  # フック本体（全ファイル）
-    ("schemas/**", "HO-schema"),  # バリデーション定義（全ファイル）
-    (".claude/rules/*.md", "HO-rules"),  # L0 契約正本
-    (".claude/settings*.json", "HO-settings"),  # Human-owned 設定
-    (".claude/settings.local.json", "HO-settings"),  # ローカル設定
-    ("CLAUDE.md", "HO-contract"),  # AI-Human 間の基本契約
-    ("AGENTS.md", "HO-contract"),  # 同上（Codex 用）
-    ("docs/ai/core-contract.md", "HO-contract"),  # Iron Law 正本
-    ("docs/ai/*.md", "HO-contract"),  # トップレベルの md のみ（docs/ai/ai-loop/ 配下は対象外。単一セグメント matcher により自動的に除外される）
-    (".github/workflows/*.yml", "HO-ci"),  # CI/CD 定義（yml）
-    ("**/approvals/*.json", "HO-approval"),  # 人間承認トークン（全階層）
-    (".claude/commands/*.md", "HO-rules"),  # コマンド定義
-    (".claude/agents/*.md", "HO-rules"),  # Agent 行動契約
-    (".claude/settings.example.json", "HO-settings"),  # settings 契約例
-    (".github/workflows/*.yaml", "HO-ci"),  # CI/CD 定義（yaml）
-    ("plugin/plangate/**", "HO-plugin"),  # プラグイン本体
-    ("docs/ai/ai-loop/ho-paths.md", "HO-contract"),  # HO 境界定義そのもの。自己改変防止（ho-paths.md 原則 1 の機械層）
-]
+
+#: ho-paths.md 本文の「## HO パス一覧」表の 1 行から第 1 列（バッククォート
+#: 内のパターン文字列）を抽出する正規表現。列内に注釈括弧（例:
+#: `` `docs/ai/*.md`（トップレベルの md のみ。`docs/ai/ai-loop/` 配下は対象外） ``）
+#: が付随する場合も、**最初の** バッククォート区間のみを採用することで
+#: 注釈中の入れ子バッククォート例を誤って拾わない。
+_HO_TABLE_PATTERN_RE = re.compile(r"`([^`]+)`")
+
+#: CLI 未指定時に解決を試みる既定候補（本リポジトリ本体配置）。
+_DEFAULT_HO_PATHS_RELATIVE = ("docs", "ai", "ai-loop", "ho-paths.md")
+#: CLI 未指定時に解決を試みる第 2 候補（plugin bundled 配置。スクリプト自身の
+#: 配置ディレクトリの親 = スキルルート、その配下の references/ho-paths.md）。
+_BUNDLED_HO_PATHS_RELATIVE = ("references", "ho-paths.md")
+
+
+def parse_ho_paths_table(content: str) -> list[tuple[str, str]]:
+    """ho-paths.md 本文の「## HO パス一覧」表から (pattern, classification) を抽出する。
+
+    行が「`| `pattern`（backtick 区切り） | 分類 | 理由 |`」形式であることのみを前提とする
+    （バッククォート付き第 1 列を持つ行のみが対象。見出し行・区切り行・
+    「## 分類定義」等の他表はバッククォート付き第 1 列を持たないため自動的に
+    除外される）。パース結果が 0 件の場合は空リストを返す（fail-closed の
+    判断は呼び出し側 resolve_ho_patterns / arbitrate が担う）。
+    """
+    patterns: list[tuple[str, str]] = []
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = stripped.split("|")
+        if len(cells) < 4:
+            continue
+        match = _HO_TABLE_PATTERN_RE.search(cells[1])
+        if not match:
+            continue
+        classification = cells[2].strip()
+        if not classification:
+            continue
+        patterns.append((match.group(1), classification))
+    return patterns
+
+
+def _candidate_ho_paths_sources(cli_path: str | None) -> list[pathlib.Path]:
+    """ho-paths.md の解決候補パスを優先順位順に返す。
+
+    解決順（#809）: (1) CLI 明示指定 → (2) CWD の docs/ai/ai-loop/ho-paths.md
+    → (3) スクリプト位置基準の ../references/ho-paths.md（plugin bundled 配置用）。
+    CLI 指定時は他候補を一切試さない（明示指定を無条件優先）。
+    """
+    if cli_path:
+        return [pathlib.Path(cli_path)]
+    script_dir = pathlib.Path(__file__).resolve().parent
+    return [
+        pathlib.Path.cwd().joinpath(*_DEFAULT_HO_PATHS_RELATIVE),
+        script_dir.parent.joinpath(*_BUNDLED_HO_PATHS_RELATIVE),
+    ]
+
+
+def resolve_ho_patterns(
+    cli_path: str | None = None,
+) -> tuple[list[tuple[str, str]], str | None, list[str]]:
+    """HO パターンを実行時解決する（fail-closed / #809）。
+
+    戻り値: (patterns, resolved_source_path or None, searched_paths)
+    いずれの候補も存在しない、または存在するがパース結果が 0 件の場合は
+    patterns=[] を返す（呼び出し側 arbitrate() が全件 HUMAN_ESCALATED に
+    フォールバックする責務を持つ。fail-open は絶対に行わない）。
+    """
+    searched: list[str] = []
+    for candidate in _candidate_ho_paths_sources(cli_path):
+        searched.append(str(candidate))
+        if not candidate.is_file():
+            continue
+        try:
+            content = candidate.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        patterns = parse_ho_paths_table(content)
+        if patterns:
+            return patterns, str(candidate), searched
+        # ファイルは存在するがパース結果 0 件 → このソースは不採用、次候補へ
+        # （CLI 明示指定時は候補が 1 つのみのため、この分岐通過後は fail-closed）
+    return [], None, searched
 
 
 def _ho_pattern_to_regex(pattern: str) -> re.Pattern[str]:
@@ -131,35 +208,61 @@ def _ho_pattern_to_regex(pattern: str) -> re.Pattern[str]:
     return re.compile(regex)
 
 
-_HO_REGEXES: list[tuple[re.Pattern[str], str, str]] = [
-    (_ho_pattern_to_regex(pattern), pattern, classification)
-    for pattern, classification in HO_PATTERNS
-]
-
-
-def matches_ho_pattern(path: str) -> tuple[bool, str | None, str | None]:
-    """path がいずれかの HO パターンに一致するかを判定する。
+def matches_ho_pattern(
+    path: str, ho_patterns: list[tuple[str, str]]
+) -> tuple[bool, str | None, str | None]:
+    """path が ho_patterns のいずれかに一致するかを判定する。
 
     戻り値: (一致したか, 一致パターン文字列 or None, HO 分類 or None)
     """
-    for regex, pattern, classification in _HO_REGEXES:
-        if regex.match(path):
+    for pattern, classification in ho_patterns:
+        if _ho_pattern_to_regex(pattern).match(path):
             return True, pattern, classification
     return False, None, None
 
 
-def boundary_check(changed_files: list[str]) -> tuple[str, list[dict[str, str]]]:
+def boundary_check(
+    changed_files: list[str], ho_patterns: list[tuple[str, str]] | None = None
+) -> tuple[str, list[dict[str, str]]]:
     """boundary 判定: touches-HO | clean。
 
     出典: docs/ai/ai-loop/ho-paths.md 判定アルゴリズム。
     1 つでも HO パターンに一致すれば touches-HO（即確定）。
+
+    `ho_patterns` 省略時は resolve_ho_patterns() の既定解決（CLI 指定なし）
+    を用いる。fail-closed（解決不能）の判定は呼び出し側（主に arbitrate()）
+    の責務であり、本関数はパターン集合が空なら単に touches-HO 0 件
+    （＝見かけ上 clean）を返す点に注意 — fail-closed を保証したい呼び出し元は
+    resolve_ho_patterns() の戻り値を直接チェックしてから本関数を呼ぶこと。
     """
+    if ho_patterns is None:
+        ho_patterns, _source, _searched = resolve_ho_patterns()
     matched: list[dict[str, str]] = []
     for path in changed_files:
-        hit, pattern, classification = matches_ho_pattern(path)
+        hit, pattern, classification = matches_ho_pattern(path, ho_patterns)
         if hit:
             matched.append({"path": path, "pattern": pattern or "", "classification": classification or ""})
     return ("touches-HO" if matched else "clean"), matched
+
+
+# ---------------------------------------------------------------------------
+# scope 判定: allowed_paths 逸脱チェック（#809）
+# ---------------------------------------------------------------------------
+def check_allowed_paths(changed_files: list[str], allowed_paths: list[str]) -> tuple[bool, list[str]]:
+    """changed_files の各パスが allowed_paths のいずれかの glob に一致するか検証する。
+
+    出典: LoopSpec scope.allowed_paths（既存必須フィールド）。パターン記法は
+    ho-paths.md と同一のセグメント意味論（_ho_pattern_to_regex を再利用）。
+
+    戻り値: (全件 in-scope か, 逸脱パスのリスト)
+    優先順位注意: この関数は boundary_check（touches-HO 判定）より**後**に
+    呼び出すこと。allowed_paths に HO パスを宣言していても HO escalate は
+    免れない（design-philosophy.md I-1 不変条件）ため、呼び出し順序を
+    入れ替えてはならない。
+    """
+    regexes = [_ho_pattern_to_regex(pattern) for pattern in allowed_paths]
+    violations = [path for path in changed_files if not any(rx.match(path) for rx in regexes)]
+    return (len(violations) == 0), violations
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +332,7 @@ EXIT_CODES = {
 }
 
 ISSUED_BY = "arbiter-v0.1"
-POLICY_REF = "auto-approve-lite-clean@v0"
+POLICY_REF = "auto-approve-lite-clean@v1"
 
 
 class InputError(ValueError):
@@ -249,6 +352,14 @@ def validate_input(data: Any) -> dict[str, Any]:
     _require(
         isinstance(changed_files, list) and all(isinstance(p, str) for p in changed_files),
         "changed_files は string のリストである必要があります",
+    )
+
+    allowed_paths = data.get("allowed_paths")
+    _require(
+        isinstance(allowed_paths, list)
+        and len(allowed_paths) > 0
+        and all(isinstance(p, str) and p != "" for p in allowed_paths),
+        "allowed_paths は非空の string リストである必要があります（LoopSpec scope.allowed_paths 宣言を渡す）",
     )
 
     lite = data.get("lite")
@@ -305,8 +416,14 @@ def build_provenance(
     model_c: str | None = None,
     model_d: str | None = None,
     reject_category: str | None = None,
+    scope_check: str = "in_scope",
 ) -> dict[str, Any]:
-    """decision-table.md §5 準拠の provenance JSON を構築する。"""
+    """decision-table.md §5 準拠の provenance JSON を構築する。
+
+    `scope_check`（#809 追加フィールド）: allowed_paths 逸脱チェックの結果。
+    "in_scope" | "scope_violation" | "unresolved"（ho-paths 未解決で
+    boundary 判定自体に到達しなかった場合）。
+    """
     w_check: dict[str, Any] = {"model_a": model_a, "model_b": model_b}
     if severity is not None:
         w_check["severity"] = severity
@@ -326,16 +443,30 @@ def build_provenance(
         "boundary_check": boundary,
         "lite_check": lite_result,
         "class_check": class_value,
+        "scope_check": scope_check,
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
 
-def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
+def arbitrate(
+    data: dict[str, Any], *, ho_paths_path: str | None = None
+) -> tuple[dict[str, Any], str]:
     """decision-table.md §3 priority 1〜6 を順に評価し、provenance と適用理由を返す。
+
+    priority 0（#809 追加・decision-table.md 非記載の fail-closed 前置チェック）:
+    ho-paths.md が実行時解決できない、またはパース結果が 0 件の場合、boundary
+    判定そのものが実行不能なため、lite / class / verdict にかかわらず全件
+    HUMAN_ESCALATED とする（fail-open 禁止・絶対条件）。
+
+    priority 1.5（#809 追加・decision-table.md 非記載の scope チェック）:
+    boundary=touches-HO の判定（priority 1）より**後**、priority 2（lite）より
+    **前**に、changed_files が allowed_paths の宣言範囲内かを検証する。
+    範囲外のパスが 1 つでもあれば human escalate とする。
 
     戻り値: (provenance dict, 人間可読の理由サマリ)
     """
     changed_files: list[str] = data["changed_files"]
+    allowed_paths: list[str] = data["allowed_paths"]
     lite_input = data["lite"]
     class_value: str = data["class"]
     verdicts: dict[str, Any] = data["verdicts"]
@@ -347,8 +478,29 @@ def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
     model_d: str | None = verdicts.get("model_d")
     reject_category: str | None = verdicts.get("reject_category")
 
-    boundary, matched = boundary_check(changed_files)
     lite_result = lite_check(lite_input)
+
+    ho_patterns, _ho_source, ho_searched = resolve_ho_patterns(ho_paths_path)
+
+    # priority 0: ho-paths 未解決（fail-closed）。boundary 判定が実行不能なため
+    # 絶対条件として全件 human escalate とする。
+    if not ho_patterns:
+        provenance = build_provenance(
+            decision=DECISION_HUMAN_ESCALATED,
+            boundary="unresolved",
+            lite_result=lite_result,
+            class_value=class_value,
+            target_sha=target_sha,
+            model_a=model_a,
+            model_b=model_b,
+            reject_category=reject_category,
+            scope_check="unresolved",
+        )
+        searched_desc = ", ".join(ho_searched)
+        reason = f"priority 0: ho-paths unresolved (fail-closed)。探索パス: {searched_desc}"
+        return provenance, reason
+
+    boundary, matched = boundary_check(changed_files, ho_patterns)
 
     # priority 1: touches-HO は lite / class / verdict を問わず必ず human escalate 固定。
     if boundary == "touches-HO":
@@ -364,6 +516,27 @@ def arbitrate(data: dict[str, Any]) -> tuple[dict[str, Any], str]:
         )
         matched_desc = ", ".join(f"{m['path']} ({m['pattern']} / {m['classification']})" for m in matched)
         reason = f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {matched_desc}"
+        return provenance, reason
+
+    # priority 1.5: allowed_paths 逸脱（scope 違反）は human escalate。
+    scope_ok, violations = check_allowed_paths(changed_files, allowed_paths)
+    if not scope_ok:
+        provenance = build_provenance(
+            decision=DECISION_HUMAN_ESCALATED,
+            boundary=boundary,
+            lite_result=lite_result,
+            class_value=class_value,
+            target_sha=target_sha,
+            model_a=model_a,
+            model_b=model_b,
+            reject_category=reject_category,
+            scope_check="scope_violation",
+        )
+        violations_desc = ", ".join(violations)
+        reason = (
+            f"priority 1.5: boundary=clean だが scope_violation"
+            f"（allowed_paths 逸脱パス: {violations_desc}）"
+        )
         return provenance, reason
 
     # priority 2: lite=false は human escalate。
@@ -504,6 +677,12 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="入力 JSON ファイルのパス（省略時は stdin から読む）",
     )
+    parser.add_argument(
+        "--ho-paths",
+        dest="ho_paths_path",
+        default=None,
+        help="HO パス一覧（ho-paths.md）の明示パス（省略時は実行時解決 / #809）",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -528,7 +707,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[arbiter] 入力エラー: {exc}", file=sys.stderr)
         return 1
 
-    provenance, reason = arbitrate(validated)
+    provenance, reason = arbitrate(validated, ho_paths_path=args.ho_paths_path)
     decision = provenance["decision"]
 
     print(json.dumps(provenance, ensure_ascii=False, indent=2, sort_keys=True))

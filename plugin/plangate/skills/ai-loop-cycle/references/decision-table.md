@@ -52,6 +52,24 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 > **boundary=touches-HO の場合、lite / class / verdict にかかわらず必ず human escalate 固定。**
 > これは W チェック結果・severity 分類・C/D 裁定のいずれをもスキップする絶対条件。
 
+### priority 0 / 1.5（#809 追加・機械実装のみで本表 1〜6 の番号体系は不変）
+
+上記 priority 1〜6 の番号体系（本リポジトリの正本表記）は変更しない。以下の
+2 チェックは `scripts/ai-loop/arbiter.py`（#809）が実装する**前置・割込み
+チェック**であり、実装上は 1〜6 の評価より手前 / 間で評価される:
+
+| priority | 内容 | → 裁定 |
+| ---------- | ------ | -------- |
+| **0** | ho-paths.md が実行時解決できない、またはパース結果が 0 件（fail-closed）。boundary 判定そのものが実行不能なため、他のどの軸よりも先に評価する | **human escalate（固定・絶対条件）** |
+| **1.5** | boundary=clean（priority 1 通過後）だが、`changed_files` が `allowed_paths` のいずれの glob にも一致しない（scope 逸脱） | **human escalate** |
+
+- priority 0 は「boundary が touches-HO か clean か」を判定する前提条件
+  （ho-paths 一覧そのもの）が欠落しているケースであり、fail-open
+  （判定不能を clean 扱いにする）は絶対に行わない
+- priority 1.5 は priority 1（touches-HO）の**後**に評価する。
+  `allowed_paths` に HO パスを宣言していても HO escalate は免れない
+  （`design-philosophy.md` I-1 不変条件、LoopSpec 既存規定）
+
 ### 裁定ラベルと provenance 値の対応
 
 | Decision table の裁定ラベル | provenance `decision` 値 |
@@ -94,7 +112,7 @@ auto-approve 時（priority 6 または C/D 合意）に刻印する最低限の
 ```text
 decision:           AUTO_APPROVED / HUMAN_ESCALATED / BLOCKED
 issued_by:          arbiter-v0.1（判断エンジン識別子）
-policy_ref:         auto-approve-lite-clean@v0（適用 policy 名 + バージョン）
+policy_ref:         auto-approve-lite-clean@v1（適用 policy 名 + バージョン）
 w_check:
   model_a: approve
   model_b: approve
@@ -102,8 +120,14 @@ boundary_check:     clean
 target_sha:         <変更対象コミット SHA（差し替え検知用）>
 lite_check:         true
 class_check:        no-merge
+scope_check:        in_scope
 timestamp:          <ISO 8601>
 ```
+
+> **policy_ref バージョン履歴**: `@v0` → `@v1`（#809: allowed_paths 必須化・
+> ho-paths 実行時解決の fail-closed 機械化）。`@v0` 時点の PoC は
+> `HO_PATTERNS` ハードコード定数＋allowed_paths 未検証だったため、境界判定
+> ロジックが変わった本改版で policy バージョンを進めた。
 
 ### C/D 裁定時の追加フィールド（severity=minor/low 時のみ）
 
@@ -127,9 +151,10 @@ w_check:
 | `w_check.model_a` | ✅ | Model A の判定結果 |
 | `w_check.model_b` | ✅ | Model B の判定結果 |
 | `target_sha` | ✅ | 対象コミット SHA（差し替え検知用。replay 攻撃は検知・別途防止機構が必要。計画時/実装後の意味論は下記参照） |
-| `boundary_check` | ✅ | boundary 判定結果（auto-approve は clean のみ） |
+| `boundary_check` | ✅ | boundary 判定結果（auto-approve は clean のみ。ho-paths 未解決 fail-closed 時は `unresolved`） |
 | `lite_check` | ✅ | lite 判定結果（auto-approve は true のみ） |
 | `class_check` | ✅ | class 判定結果（auto-approve は no-merge のみ） |
+| `scope_check` | ✅（#809 追加） | allowed_paths 判定結果。`in_scope` / `scope_violation` / `unresolved`（auto-approve は `in_scope` のみ） |
 | `timestamp` | ✅ | 刻印日時（ISO 8601） |
 | `w_check.severity` | C/D 時のみ | 不一致の severity 分類 |
 | `w_check.model_c` | C/D 時のみ | Model C の判定 |
