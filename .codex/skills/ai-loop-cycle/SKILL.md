@@ -5,20 +5,6 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 
 # ai-loop-cycle
 
-> **配置に関する注記（#809）**: 本 `.codex/skills/ai-loop-cycle/` 配置は
-> bundled resources（`references/`・`scripts/`）を**同梱していない**（本文中の
-> 記述は `.agents/skills/ai-loop-cycle/SKILL.md` と共通のテキストであり、
-> bundled 配置を前提とした文言を含むが、実体の `references/`・`scripts/`
-> ディレクトリはここには存在しない）。判定ロジック・provenance スキーマの
-> 実装は repo 正本 [`scripts/ai-loop/arbiter.py`](../../../scripts/ai-loop/arbiter.py)、
-> 手順・分岐表の正本は [`docs/workflows/ai-loop/`](../../../docs/workflows/ai-loop/)
-> を参照すること。`.agents/` → `.codex/` の同期は
-> `scripts/install-plangate-skills-to-codex.sh` によるが、3 配置
-> （`.agents/` / `.codex/` / `plugin/plangate/`）の SKILL.md 内容同一性を
-> 機械的に強制するテストは現状存在しない（手動同期依存）。
-
-<!-- 以下は .agents/skills/ai-loop-cycle/SKILL.md と共通のテキスト（bundled 配置前提の文言を含む） -->
-
 > 本スキルは **bundled resources**（`references/`・`scripts/`）で自己完結する。
 > スキルディレクトリ直下の `references/<name>.md` と `scripts/arbiter.py` を同梱し、
 > 導入先が独自の正本（`docs/workflows/ai-loop/` 等）を別途保持している場合は
@@ -36,6 +22,7 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 
 - **C-1 PASS・C-2 完了済み**であること（`references/execution-runbook.md` §2 前提）。
   本サイクルは C-3' ゲートの位置づけであり、C-1/C-2 未完了の変更には使わない。
+  この C-1 の実施結果（`PASS`）を Step 1 の入力 `gates.c1` にそのまま渡す（#780 Slice B）。
 - 対象は **lite 帯候補の変更**（`references/lite-criteria.md` §2 の 4 軸を満たしうる変更）。
   high-risk / critical 相当や boundary=touches-HO が明らかな変更には使わない
   （使っても flow フェーズで即 human escalate になる）。
@@ -51,6 +38,16 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
   （例: `<作業ディレクトリ>/ai-loop-runs/`）を設ける配置が参考になるが、導入先の
   ディレクトリ規約を優先すること。
 
+## Step 0: breakdown-gate による粒度判定（#780 Slice B）
+
+`breakdown-gate` スキル（同梱・または導入先の等価スキル）でタスク粒度を
+判定する（理想 / 許容 / 分割必須の 3 段階）。判定結果を `gates.breakdown`
+へ変換する:
+
+- 理想 / 許容 → `"pass"`
+- 分割必須 → `"pass"` 以外の値（例 `"split-suggested"`）。arbiter は priority 1.7
+  で human escalate する（分割してから再度サイクルへ）
+
 ## Step 1: 入力の組み立て
 
 `changed_files` を決定する:
@@ -61,6 +58,8 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで宣言する。**いずれかの軸が
 判定不能なら false**（AC-8 安全側、虚偽宣言禁止）。
 
+`allowed_paths` は LoopSpec の `scope.allowed_paths` 宣言をそのまま渡す（#809）。
+
 - `size_ok`: 変更規模が light 相当以下か（ファイル数 1〜2 目安）
 - `no_new_design`: 新規設計がないか（既存構造の枠内か）
 - `follows_pattern`: 既存パターンを踏襲しているか（ミラー実装か）
@@ -69,6 +68,14 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
 `class` は `merge` を含む変更なら `"merge"`（即 human escalate）、含まなければ `"no-merge"`。
 `target_sha` は対象コミットの SHA。
 
+`gates`（任意・#780 Slice B）は plan 品質ゲート（priority 1.7）の入力。**Step 0**
+（breakdown-gate 判定）の verdict を `gates.breakdown` に（`理想`/`許容` → `"pass"`、
+`分割必須` → それ以外の値。`"pass"` 以外はすべて未充足扱い）、**Step 1 の前提**
+（C-1 実施結果）を `gates.c1` に（`"PASS"` のみ通過）設定する。**gates 省略も
+入力エラーにはならないが、priority 1.7 で human escalate に倒れる**（後方互換・
+安全側。以前の auto-approve 経路を壊さないためには gates を両方
+`"PASS"`/`"pass"` で渡す必要がある）。
+
 `run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（**初回呼び出し=1**、再試行ごとに +1。1 起点。metrics は round_index==1 を初回 sentinel に first_pass 判定するため 0 起点不可）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
 
 入力 JSON の例:
@@ -76,6 +83,7 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
 ```json
 {
   "changed_files": ["docs/example.md"],
+  "allowed_paths": ["docs/example.md"],
   "lite": {
     "size_ok": true,
     "no_new_design": true,
@@ -91,6 +99,10 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
     "model_d": null
   },
   "target_sha": "abc1234",
+  "gates": {
+    "c1": "PASS",
+    "breakdown": "pass"
+  },
   "run": {
     "run_id": "run-022",
     "round_index": 1,

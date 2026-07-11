@@ -52,16 +52,17 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 > **boundary=touches-HO の場合、lite / class / verdict にかかわらず必ず human escalate 固定。**
 > これは W チェック結果・severity 分類・C/D 裁定のいずれをもスキップする絶対条件。
 
-### priority 0 / 1.5（#809 追加・機械実装のみで本表 1〜6 の番号体系は不変）
+### priority 0 / 1.5 / 1.7（#809・#780 Slice B 追加・機械実装のみで本表 1〜6 の番号体系は不変）
 
 上記 priority 1〜6 の番号体系（本リポジトリの正本表記）は変更しない。以下の
-2 チェックは `scripts/ai-loop/arbiter.py`（#809）が実装する**前置・割込み
-チェック**であり、実装上は 1〜6 の評価より手前 / 間で評価される:
+3 チェックは `scripts/ai-loop/arbiter.py`（#809・#780 Slice B）が実装する
+**前置・割込みチェック**であり、実装上は 1〜6 の評価より手前 / 間で評価される:
 
 | priority | 内容 | → 裁定 |
 | ---------- | ------ | -------- |
 | **0** | ho-paths.md が実行時解決できない、またはパース結果が 0 件（fail-closed）。boundary 判定そのものが実行不能なため、他のどの軸よりも先に評価する | **human escalate（固定・絶対条件）** |
 | **1.5** | boundary=clean（priority 1 通過後）だが、`changed_files` が `allowed_paths` のいずれの glob にも一致しない（scope 逸脱） | **human escalate** |
+| **1.7** | boundary=clean・scope 逸脱なし（priority 1.5 通過後）だが、`gates.c1 == "PASS"` かつ `gates.breakdown == "pass"`（両方とも厳密一致）を満たさない（plan 品質ゲート未充足） | **human escalate** |
 
 - priority 0 は「boundary が touches-HO か clean か」を判定する前提条件
   （ho-paths 一覧そのもの）が欠落しているケースであり、fail-open
@@ -69,6 +70,16 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 - priority 1.5 は priority 1（touches-HO）の**後**に評価する。
   `allowed_paths` に HO パスを宣言していても HO escalate は免れない
   （`design-philosophy.md` I-1 不変条件、LoopSpec 既存規定）
+- priority 1.7（#780 Slice B）は priority 1.5（scope）の**後**・priority 2（lite）の
+  **前**に評価する。`gates`（`{"c1": str, "breakdown": str}`）は任意入力フィールドで、
+  欠落・null・非 dict・型不一致・値の表記違い（例: 小文字 `"pass"` 以外の
+  `breakdown`、`"PASS"` 以外の `c1`）は**すべて安全側で未充足＝human escalate**
+  に倒れる。**本チェックは escalate 条件を追加するだけの安全側変更であり、
+  以前 escalate/blocked だった経路を auto-approve にする効果は一切持たない**
+  （POLICY_REF を `@v1` → `@v2` へ改版した理由）。`c1` は C-1 セルフレビューの
+  結果（`"PASS"` のみ通過）、`breakdown` は breakdown-gate スキルの粒度判定
+  結果（`"pass"` のみ通過。`split-suggested` 等は未充足）を渡す想定
+  （`.agents/skills/ai-loop-cycle/SKILL.md` Step 0/1 参照）
 
 ### 裁定ラベルと provenance 値の対応
 
@@ -112,7 +123,7 @@ auto-approve 時（priority 6 または C/D 合意）に刻印する最低限の
 ```text
 decision:           AUTO_APPROVED / HUMAN_ESCALATED / BLOCKED
 issued_by:          arbiter-v0.1（判断エンジン識別子）
-policy_ref:         auto-approve-lite-clean@v1（適用 policy 名 + バージョン）
+policy_ref:         auto-approve-lite-clean@v2（適用 policy 名 + バージョン）
 w_check:
   model_a: approve
   model_b: approve
@@ -127,9 +138,13 @@ timestamp:          <ISO 8601>
 ```
 
 > **policy_ref バージョン履歴**: `@v0` → `@v1`（#809: allowed_paths 必須化・
-> ho-paths 実行時解決の fail-closed 機械化）。`@v0` 時点の PoC は
+> ho-paths 実行時解決の fail-closed 機械化）→ `@v2`（#780 Slice B: `gates`
+> 入力による plan 品質ゲート priority 1.7 の追加）。`@v0` 時点の PoC は
 > `HO_PATTERNS` ハードコード定数＋allowed_paths 未検証だったため、境界判定
-> ロジックが変わった本改版で policy バージョンを進めた。
+> ロジックが変わった本改版で policy バージョンを進めた。`@v2` は
+> auto-approve の新必要条件（`gates.c1 == "PASS"` かつ `gates.breakdown ==
+> "pass"`）を追加した改版であり、escalate 条件を追加するだけの安全側変更
+> （以前 auto-approve/blocked だった経路が新たに auto-approve になることはない）。
 
 ### C/D 裁定時の追加フィールド（severity=minor/low 時のみ）
 
@@ -156,7 +171,25 @@ run:
 
 `run` は `scripts/ai-loop/metrics.py`（#812）が run 単位の集計（first-pass rate 等）に
 用いる消費契約。gate 挙動（POLICY_REF）は変えない純粋な additive provenance 拡張であり、
-本追加による policy バージョン改版は行わない（`auto-approve-lite-clean@v1` 据え置き）。
+本追加による policy バージョン改版は行わない（run 追加自体は据え置き。現行ベースラインは
+`@v2` — #780 Slice B の `gates` 必須化によるもので、run 起因の改版ではない）。
+
+### 入力: gates（#780 Slice B 追加・additive・任意）
+
+呼び出し側入力の `gates`（省略可）は priority 1.7（plan 品質ゲート）の判定
+にのみ使う入力軸であり、`run` と異なり **provenance には echo されない**
+（判定結果は decision / reason にのみ反映される。PoC スコープでは gates 自体の
+生値を record に刻む必要性が薄いため見送り — 将来 Phase で必要になれば
+additive に追加検討）。
+
+```text
+gates:
+  c1:        PASS（C-1 セルフレビューの結果。"PASS" 以外はすべて未充足扱い）
+  breakdown: pass（breakdown-gate スキルの粒度判定結果。"pass" 以外はすべて未充足扱い）
+```
+
+`gates` 省略・null・非 dict・キー欠落・値の表記違いは**すべて安全側で
+plan_quality_ok=false**（priority 1.7 で human escalate）に倒れる。
 
 ### フィールド定義
 
