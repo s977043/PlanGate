@@ -177,10 +177,11 @@ run:
 ### 入力: gates（#780 Slice B 追加・additive・任意）
 
 呼び出し側入力の `gates`（省略可）は priority 1.7（plan 品質ゲート）の判定
-にのみ使う入力軸であり、`run` と異なり **provenance には echo されない**
-（判定結果は decision / reason にのみ反映される。PoC スコープでは gates 自体の
-生値を record に刻む必要性が薄いため見送り — 将来 Phase で必要になれば
-additive に追加検討）。
+に使う入力軸であり、判定結果は decision / reason に反映される。加えて
+**#780 follow-up（#819）以降は provenance にも生値のまま刻まれる**
+（省略時はキー省略・`run` と同じ additive 規約）。これにより plan-quality
+gate で escalate した理由を record から監査・集計できる。刻印の詳細仕様は
+§5 provenance フィールド表の `gates` 行を参照。
 
 ```text
 gates:
