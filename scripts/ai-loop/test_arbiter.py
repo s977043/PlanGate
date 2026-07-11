@@ -1098,6 +1098,18 @@ class RunMetaValidationTests(unittest.TestCase):
         with self.assertRaises(arbiter.InputError):
             arbiter.validate_input(data)
 
+    def test_task_id_empty_string_raises(self):
+        """task_id は run_id と対称に非空 str 必須（空文字は exit 1 / gemini medium）。"""
+        data = _base_input(run={"run_id": "run-001", "round_index": 1, "task_id": ""})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_task_id_whitespace_only_raises(self):
+        """task_id 空白のみ（strip 後空）は非空要件を満たさず exit 1（gemini medium 実測是正）。"""
+        data = _base_input(run={"run_id": "run-001", "round_index": 1, "task_id": "   "})
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
     def test_repair_action_non_string_raises(self):
         data = _base_input(
             run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780", "repair_action": 5}

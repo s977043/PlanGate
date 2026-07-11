@@ -513,8 +513,8 @@ def validate_input(data: Any) -> dict[str, Any]:
         )
         task_id = run.get("task_id")
         _require(
-            isinstance(task_id, str),
-            "run.task_id は string である必要があります",
+            isinstance(task_id, str) and task_id.strip() != "",
+            "run.task_id は非空の string である必要があります",
         )
         repair_action = run.get("repair_action")
         _require(
