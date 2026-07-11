@@ -484,13 +484,25 @@ def build_provenance(
     model_c: str | None = None,
     model_d: str | None = None,
     reject_category: str | None = None,
-    scope_check: str = "in_scope",
+    scope_check: str = "not_evaluated",
+    ho_paths_source: str | None = None,
+    ho_pattern_count: int = 0,
 ) -> dict[str, Any]:
     """decision-table.md §5 準拠の provenance JSON を構築する。
 
     `scope_check`（#809 追加フィールド）: allowed_paths 逸脱チェックの結果。
-    "in_scope" | "scope_violation" | "unresolved"（ho-paths 未解決で
-    boundary 判定自体に到達しなかった場合）。
+    - "in_scope": priority 1.5 の scope 検査を**実際に通過**した（合格）
+    - "scope_violation": priority 1.5 で allowed_paths 逸脱を検出した
+    - "unresolved": ho-paths 未解決（fail-closed）で boundary 判定自体に
+      到達しなかった
+    - "not_evaluated": scope 検査より前で return した経路（touches-HO 等）で
+      scope が未評価。既定値はこれ（未評価を "in_scope" と誤読させないため
+      #809 敵対的レビュー minor 反映で "in_scope" → "not_evaluated" に変更）
+
+    `ho_paths_source`（#809 追加）: 解決された ho-paths.md のパス（未解決時は
+    None）。`ho_pattern_count`（#809 追加）: 解決した HO パターン抽出件数。
+    「boundary=clean だが ho_pattern_count=1」のような過少網羅を監査で
+    検知できるようにする（fail-closed 閾値そのものは 0 のまま — 可視化に留める）。
     """
     w_check: dict[str, Any] = {"model_a": model_a, "model_b": model_b}
     if severity is not None:
@@ -512,6 +524,8 @@ def build_provenance(
         "lite_check": lite_result,
         "class_check": class_value,
         "scope_check": scope_check,
+        "ho_paths_source": ho_paths_source,
+        "ho_pattern_count": ho_pattern_count,
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
@@ -548,20 +562,30 @@ def arbitrate(
 
     lite_result = lite_check(lite_input)
 
-    ho_patterns, _ho_source, ho_searched = resolve_ho_patterns(ho_paths_path)
+    ho_patterns, ho_source, ho_searched = resolve_ho_patterns(ho_paths_path)
+    ho_pattern_count = len(ho_patterns)
 
-    # priority 0: ho-paths 未解決（fail-closed）。boundary 判定が実行不能なため
-    # 絶対条件として全件 human escalate とする。
-    if not ho_patterns:
-        provenance = build_provenance(
-            decision=DECISION_HUMAN_ESCALATED,
-            boundary="unresolved",
+    # 全裁定経路の provenance に ho-paths の出典・抽出件数を刻む（#809 監査可視化）。
+    # boundary/scope/decision 等の可変フィールドは呼び出し側で個別に渡す。
+    def _mk(**kw: Any) -> dict[str, Any]:
+        return build_provenance(
             lite_result=lite_result,
             class_value=class_value,
             target_sha=target_sha,
             model_a=model_a,
             model_b=model_b,
             reject_category=reject_category,
+            ho_paths_source=ho_source,
+            ho_pattern_count=ho_pattern_count,
+            **kw,
+        )
+
+    # priority 0: ho-paths 未解決（fail-closed）。boundary 判定が実行不能なため
+    # 絶対条件として全件 human escalate とする。
+    if not ho_patterns:
+        provenance = _mk(
+            decision=DECISION_HUMAN_ESCALATED,
+            boundary="unresolved",
             scope_check="unresolved",
         )
         searched_desc = ", ".join(ho_searched)
@@ -571,16 +595,12 @@ def arbitrate(
     boundary, matched = boundary_check(changed_files, ho_patterns)
 
     # priority 1: touches-HO は lite / class / verdict を問わず必ず human escalate 固定。
+    # scope 検査（priority 1.5）より前で return するため scope_check は not_evaluated。
     if boundary == "touches-HO":
-        provenance = build_provenance(
+        provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
             boundary=boundary,
-            lite_result=lite_result,
-            class_value=class_value,
-            target_sha=target_sha,
-            model_a=model_a,
-            model_b=model_b,
-            reject_category=reject_category,
+            scope_check="not_evaluated",
         )
         matched_desc = ", ".join(f"{m['path']} ({m['pattern']} / {m['classification']})" for m in matched)
         reason = f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {matched_desc}"
@@ -589,15 +609,9 @@ def arbitrate(
     # priority 1.5: allowed_paths 逸脱（scope 違反）は human escalate。
     scope_ok, violations = check_allowed_paths(changed_files, allowed_paths)
     if not scope_ok:
-        provenance = build_provenance(
+        provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
             boundary=boundary,
-            lite_result=lite_result,
-            class_value=class_value,
-            target_sha=target_sha,
-            model_a=model_a,
-            model_b=model_b,
-            reject_category=reject_category,
             scope_check="scope_violation",
         )
         violations_desc = ", ".join(violations)
@@ -607,31 +621,22 @@ def arbitrate(
         )
         return provenance, reason
 
+    # ここに到達＝scope 検査を実際に通過（合格）。以降の全経路は in_scope を刻む。
     # priority 2: lite=false は human escalate。
     if not lite_result:
-        provenance = build_provenance(
+        provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
             boundary=boundary,
-            lite_result=lite_result,
-            class_value=class_value,
-            target_sha=target_sha,
-            model_a=model_a,
-            model_b=model_b,
-            reject_category=reject_category,
+            scope_check="in_scope",
         )
         return provenance, "priority 2: boundary=clean だが lite=false（低リスク要件未充足）"
 
     # priority 3: class=merge は human escalate（merge=Human-owned 固定）。
     if class_value == "merge":
-        provenance = build_provenance(
+        provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
             boundary=boundary,
-            lite_result=lite_result,
-            class_value=class_value,
-            target_sha=target_sha,
-            model_a=model_a,
-            model_b=model_b,
-            reject_category=reject_category,
+            scope_check="in_scope",
         )
         return provenance, "priority 3: class=merge（Human-owned 固定）"
 
@@ -639,29 +644,19 @@ def arbitrate(
 
     # priority 4: reject-reject / reject-approve は blocked。
     if verdict in ("reject-reject", "reject-approve"):
-        provenance = build_provenance(
+        provenance = _mk(
             decision=DECISION_BLOCKED,
             boundary=boundary,
-            lite_result=lite_result,
-            class_value=class_value,
-            target_sha=target_sha,
-            model_a=model_a,
-            model_b=model_b,
-            reject_category=reject_category,
+            scope_check="in_scope",
         )
         return provenance, f"priority 4: verdict={verdict}（A が設計妥当性で NG、または両者合意で NG）"
 
     # priority 6: approve-approve は auto-approve。
     if verdict == "approve-approve":
-        provenance = build_provenance(
+        provenance = _mk(
             decision=DECISION_AUTO_APPROVED,
             boundary=boundary,
-            lite_result=lite_result,
-            class_value=class_value,
-            target_sha=target_sha,
-            model_a=model_a,
-            model_b=model_b,
-            reject_category=reject_category,
+            scope_check="in_scope",
         )
         return provenance, "priority 6: verdict=approve-approve（合意）"
 
@@ -671,15 +666,10 @@ def arbitrate(
     severity = classify_severity(reject_category)
 
     if severity in ("critical", "major"):
-        provenance = build_provenance(
+        provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
             boundary=boundary,
-            lite_result=lite_result,
-            class_value=class_value,
-            target_sha=target_sha,
-            model_a=model_a,
-            model_b=model_b,
-            reject_category=reject_category,
+            scope_check="in_scope",
             severity=severity,
         )
         return (
@@ -690,15 +680,10 @@ def arbitrate(
     # severity=minor/low → Model C/D 裁定。
     # C か D が欠落している場合は安全側で human escalate。
     if model_c is None or model_d is None:
-        provenance = build_provenance(
+        provenance = _mk(
             decision=DECISION_HUMAN_ESCALATED,
             boundary=boundary,
-            lite_result=lite_result,
-            class_value=class_value,
-            target_sha=target_sha,
-            model_a=model_a,
-            model_b=model_b,
-            reject_category=reject_category,
+            scope_check="in_scope",
             severity=severity,
             model_c=model_c,
             model_d=model_d,
@@ -716,15 +701,10 @@ def arbitrate(
     else:
         decision = DECISION_HUMAN_ESCALATED
 
-    provenance = build_provenance(
+    provenance = _mk(
         decision=decision,
         boundary=boundary,
-        lite_result=lite_result,
-        class_value=class_value,
-        target_sha=target_sha,
-        model_a=model_a,
-        model_b=model_b,
-        reject_category=reject_category,
+        scope_check="in_scope",
         severity=severity,
         model_c=model_c,
         model_d=model_d,

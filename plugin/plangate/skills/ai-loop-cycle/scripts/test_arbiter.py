@@ -798,6 +798,132 @@ class PathNormalizationSecurityTests(unittest.TestCase):
         self.assertEqual(provenance["scope_check"], "in_scope")
 
 
+class ScopeCheckNotEvaluatedTests(unittest.TestCase):
+    """敵対的レビュー minor（Finding 3・#809）: scope 未評価経路の scope_check 明示。"""
+
+    def test_touches_ho_record_marks_scope_not_evaluated(self):
+        """touches-HO 経路（priority 1）は scope 検査より前で return するため
+        scope_check == "not_evaluated"（"in_scope" と誤読させない）。
+        """
+        data = _base_input(changed_files=["bin/plangate"], allowed_paths=["bin/plangate"])
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+        self.assertEqual(provenance["scope_check"], "not_evaluated")
+
+    def test_fail_closed_record_marks_scope_unresolved(self):
+        """fail-closed 経路（priority 0）は scope_check == "unresolved"（従来どおり）。"""
+        data = _base_input()
+        provenance, _ = arbiter.arbitrate(data, ho_paths_path="/nonexistent/ho-paths.md")
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["scope_check"], "unresolved")
+
+    def test_scope_violation_record_marks_scope_violation(self):
+        data = _base_input(
+            changed_files=["scripts/unrelated/tool.py"],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+        )
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["scope_check"], "scope_violation")
+
+    def test_auto_approved_record_still_in_scope(self):
+        """scope 検査を通過した AUTO_APPROVED は従来どおり scope_check == "in_scope"。"""
+        data = _base_input()
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["scope_check"], "in_scope")
+
+    def test_lite_false_after_scope_pass_is_in_scope(self):
+        """lite=false（priority 2）は scope 検査通過後に評価されるため in_scope。"""
+        data = _base_input(
+            lite={"size_ok": False, "no_new_design": True, "follows_pattern": True, "reversible": True}
+        )
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["scope_check"], "in_scope")
+
+    def test_build_provenance_default_scope_check_is_not_evaluated(self):
+        """build_provenance の scope_check 既定値は "not_evaluated"（"in_scope" ではない）。"""
+        prov = arbiter.build_provenance(
+            decision="HUMAN_ESCALATED",
+            boundary="touches-HO",
+            lite_result=True,
+            class_value="no-merge",
+            target_sha="abc1234",
+            model_a="approve",
+            model_b="approve",
+        )
+        self.assertEqual(prov["scope_check"], "not_evaluated")
+
+
+class HoPathsProvenanceVisibilityTests(unittest.TestCase):
+    """敵対的レビュー minor（Finding 2・#809）: ho-paths 出典・抽出件数の record 刻印。"""
+
+    def test_all_records_carry_ho_paths_source_and_count(self):
+        """全裁定経路の record に ho_paths_source（非 null）と ho_pattern_count（正の int）が刻まれる。"""
+        scenarios = [
+            ("auto_approved", _base_input()),
+            ("touches_ho", _base_input(changed_files=["bin/plangate"], allowed_paths=["bin/plangate"])),
+            (
+                "scope_violation",
+                _base_input(
+                    changed_files=["scripts/unrelated/tool.py"],
+                    allowed_paths=["docs/workflows/ai-loop/**"],
+                ),
+            ),
+            (
+                "lite_false",
+                _base_input(
+                    lite={"size_ok": False, "no_new_design": True, "follows_pattern": True, "reversible": True}
+                ),
+            ),
+        ]
+        for name, data in scenarios:
+            with self.subTest(scenario=name):
+                provenance, _ = arbiter.arbitrate(data)
+                self.assertIn("ho_paths_source", provenance)
+                self.assertIn("ho_pattern_count", provenance)
+                self.assertIsNotNone(provenance["ho_paths_source"], "解決時は非 null")
+                self.assertIsInstance(provenance["ho_pattern_count"], int)
+                self.assertGreater(provenance["ho_pattern_count"], 0)
+
+    def test_ho_paths_source_matches_resolved_path(self):
+        data = _base_input()
+        patterns, source, _searched = arbiter.resolve_ho_patterns()
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["ho_paths_source"], source)
+        self.assertEqual(provenance["ho_pattern_count"], len(patterns))
+
+    def test_fail_closed_record_has_null_source_and_zero_count(self):
+        """解決不能（fail-closed）時は ho_paths_source == None・ho_pattern_count == 0。"""
+        data = _base_input()
+        provenance, _ = arbiter.arbitrate(data, ho_paths_path="/nonexistent/ho-paths.md")
+        self.assertIsNone(provenance["ho_paths_source"])
+        self.assertEqual(provenance["ho_pattern_count"], 0)
+
+    def test_under_coverage_is_detectable_via_count(self):
+        """過少網羅（1 行 ho-paths.md）を ho_pattern_count で検知できる（可視化）。"""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tiny = pathlib.Path(tmpdir) / "tiny-ho-paths.md"
+            tiny.write_text(
+                "## HO パス一覧\n\n"
+                "| パス | 分類 | 変更禁止理由 |\n"
+                "|------|------|------------|\n"
+                "| `bin/plangate` | HO-core | 唯一の HO パターン |\n",
+                encoding="utf-8",
+            )
+            data = _base_input(
+                changed_files=["docs/workflows/ai-loop/example.md"],
+                allowed_paths=["docs/workflows/ai-loop/**"],
+            )
+            provenance, _ = arbiter.arbitrate(data, ho_paths_path=str(tiny))
+            # boundary=clean だが ho_pattern_count=1 の過少網羅が record から読める
+            self.assertEqual(provenance["boundary_check"], "clean")
+            self.assertEqual(provenance["ho_pattern_count"], 1)
+
+
 class MainExitCodeTests(unittest.TestCase):
     """main() の exit code 契約（0/2/3/1）を stdin 経由で確認する。"""
 
