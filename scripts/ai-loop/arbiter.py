@@ -65,6 +65,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import posixpath
 import re
 import sys
 from datetime import datetime, timezone
@@ -239,10 +240,56 @@ def boundary_check(
         ho_patterns, _source, _searched = resolve_ho_patterns()
     matched: list[dict[str, str]] = []
     for path in changed_files:
-        hit, pattern, classification = matches_ho_pattern(path, ho_patterns)
+        norm, err = _safe_normalized_path(path)
+        if err is not None:
+            # 不正パス（ルート外 traversal 等）は判定不能＝安全側で touches-HO
+            # 相当として扱う（本来は validate_input が exit 1 で拒否する第一
+            # 防壁があるが、判定関数単体でも fail-open にしない第二防壁）。
+            matched.append({"path": path, "pattern": "", "classification": f"unsafe-path（{err}）"})
+            continue
+        hit, pattern, classification = matches_ho_pattern(norm, ho_patterns)
         if hit:
             matched.append({"path": path, "pattern": pattern or "", "classification": classification or ""})
     return ("touches-HO" if matched else "clean"), matched
+
+
+# ---------------------------------------------------------------------------
+# パス正規化・安全性検査（#809 敵対的レビュー major 反映）
+# ---------------------------------------------------------------------------
+# changed_files / allowed_paths を素の文字列のまま正規表現に当てると、
+# `./bin/plangate`（先頭 ./ 変種）や `docs/ai/ai-loop/../../../bin/plangate`
+# （traversal）が HO パターンに一致せず boundary=clean となり、touches-HO
+# 絶対条件（design-philosophy I-1）を迂回して AUTO_APPROVED に到達し得る。
+# 2 層防御で封鎖する:
+#   第一防壁（入力段）: validate_input が不正パス（正規化後も `..` 残存・
+#     絶対パス・空セグメント //）を InputError（exit 1）で拒否
+#   第二防壁（判定段）: boundary_check / check_allowed_paths がマッチ直前に
+#     posixpath.normpath で畳み込んでから評価。判定関数単体に不正パスが
+#     渡った場合も安全側（touches-HO 相当 / scope violation）に倒す
+def _safe_normalized_path(path: str) -> tuple[str, str | None]:
+    """パスを正規化し、リポジトリ相対として不正なら理由文字列を返す。
+
+    戻り値: (正規化後パス, エラー理由 or None)
+    エラー条件: 空 / 絶対パス（先頭 /）/ 空セグメント（//）/
+    `..` セグメントを含む（traversal。normpath でルート内に畳み込める場合も
+    含めて一律拒否 — 正規パス表現以外を受理しない）。
+    先頭 `./` は normpath が畳み込むためエラーにしない（正規化後の実体で
+    マッチ評価する）。
+    """
+    stripped = path.strip()
+    if stripped == "":
+        return stripped, "空のパス"
+    if stripped.startswith("/"):
+        return stripped, "絶対パス"
+    if "//" in stripped:
+        return stripped, "空セグメント（//）"
+    if ".." in stripped.split("/"):
+        return stripped, "`..` セグメント（traversal）"
+    norm = posixpath.normpath(stripped)
+    # 上の検査で `..` は既に拒否済みだが、normpath 結果にも残さない（防御的既定）
+    if norm == ".." or norm.startswith("../"):
+        return norm, "リポジトリルート外（.. セグメント残存）"
+    return norm, None
 
 
 # ---------------------------------------------------------------------------
@@ -261,7 +308,16 @@ def check_allowed_paths(changed_files: list[str], allowed_paths: list[str]) -> t
     入れ替えてはならない。
     """
     regexes = [_ho_pattern_to_regex(pattern) for pattern in allowed_paths]
-    violations = [path for path in changed_files if not any(rx.match(path) for rx in regexes)]
+    violations: list[str] = []
+    for path in changed_files:
+        norm, err = _safe_normalized_path(path)
+        if err is not None:
+            # 不正パスは定義上 scope 外（安全側）。第一防壁（validate_input）
+            # を経ない直接呼び出しでも fail-open にしない。
+            violations.append(path)
+            continue
+        if not any(rx.match(norm) for rx in regexes):
+            violations.append(path)
     return (len(violations) == 0), violations
 
 
@@ -353,6 +409,12 @@ def validate_input(data: Any) -> dict[str, Any]:
         isinstance(changed_files, list) and all(isinstance(p, str) for p in changed_files),
         "changed_files は string のリストである必要があります",
     )
+    for path in changed_files:
+        _norm, err = _safe_normalized_path(path)
+        _require(
+            err is None,
+            f"changed_files に不正なパスがあります（{err}。リポジトリ相対の正規パスのみ受理）: {path!r}",
+        )
 
     allowed_paths = data.get("allowed_paths")
     _require(
@@ -361,6 +423,12 @@ def validate_input(data: Any) -> dict[str, Any]:
         and all(isinstance(p, str) and p != "" for p in allowed_paths),
         "allowed_paths は非空の string リストである必要があります（LoopSpec scope.allowed_paths 宣言を渡す）",
     )
+    for path in allowed_paths:
+        _norm, err = _safe_normalized_path(path)
+        _require(
+            err is None,
+            f"allowed_paths に不正なパターンがあります（{err}。リポジトリ相対の正規パターンのみ受理）: {path!r}",
+        )
 
     lite = data.get("lite")
     _require(isinstance(lite, dict), "lite は object である必要があります")

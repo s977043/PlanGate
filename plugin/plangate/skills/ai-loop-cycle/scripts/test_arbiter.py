@@ -641,6 +641,163 @@ class PolicyRefVersionTests(unittest.TestCase):
         self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v1")
 
 
+class PathNormalizationSecurityTests(unittest.TestCase):
+    """敵対的レビュー major 反映（#809）: パス正規化欠如による touches-HO 迂回の封鎖。
+
+    2 層防御:
+    - 第一防壁（入力段）: validate_input が正規化後 `..` 残存・絶対パス・
+      空セグメント（//）を InputError（exit 1）で拒否する
+    - 第二防壁（判定段）: boundary_check / check_allowed_paths がマッチ直前に
+      normpath で畳み込み、`./bin/plangate` 等の変種でも HO を捕捉する。
+      判定関数単体に不正パスが渡った場合も安全側（escalate 相当）に倒す
+    """
+
+    # --- 第二防壁: 正規化後マッチ（./ 変種で HO 捕捉） ---
+
+    def test_dot_slash_prefix_variant_is_caught_as_touches_ho(self):
+        """`./bin/plangate` は正規化後に bin/plangate として touches-HO 捕捉。"""
+        data = _base_input(changed_files=["./bin/plangate"], allowed_paths=["**"])
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+        self.assertIn("priority 1", reason)
+
+    def test_boundary_check_normalizes_before_matching(self):
+        boundary, matched = arbiter.boundary_check(["./bin/plangate"])
+        self.assertEqual(boundary, "touches-HO")
+        self.assertEqual(matched[0]["classification"], "HO-core")
+
+    def test_interior_dotdot_collapsing_to_ho_paths_md_is_caught(self):
+        """自己改変 traversal: `docs/ai/ai-loop/x/../ho-paths.md` は正規化後に
+        ho-paths.md 本体として touches-HO 捕捉（clean にしない / #808 防止の維持）。
+        """
+        data = _base_input(
+            changed_files=["docs/ai/ai-loop/x/../ho-paths.md"],
+            allowed_paths=["docs/ai/ai-loop/**"],
+        )
+        provenance, _reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+
+    def test_arbitrate_direct_call_with_root_escaping_path_is_safe_side(self):
+        """validate_input を経ない arbitrate() 直呼びでも、ルート外へ抜ける
+        `..` パスは安全側（escalate。AUTO_APPROVED 到達不可）に倒れる。
+        """
+        data = _base_input(
+            changed_files=["docs/ai/ai-loop/../../../bin/plangate"],
+            allowed_paths=["docs/ai/ai-loop/**"],
+        )
+        provenance, _reason = arbiter.arbitrate(data)
+        self.assertNotEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+
+    # --- 第一防壁: validate_input での拒否 ---
+
+    def test_validate_rejects_root_escaping_traversal(self):
+        data = _base_input(
+            changed_files=["docs/ai/ai-loop/../../../bin/plangate"],
+            allowed_paths=["docs/ai/ai-loop/**"],
+        )
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_validate_rejects_empty_segment(self):
+        data = _base_input(changed_files=["bin//plangate"])
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_validate_rejects_absolute_path(self):
+        data = _base_input(changed_files=["/etc/passwd"])
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_validate_rejects_traversal_in_allowed_paths(self):
+        data = _base_input(allowed_paths=["../**"])
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    # --- CLI e2e: exit code 固定 ---
+
+    def _run_main_with_stdin(self, payload):
+        import io
+
+        old_stdin = sys.stdin
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdin = io.StringIO(json.dumps(payload))
+        sys.stdout = io.StringIO()
+        sys.stderr = io.StringIO()
+        try:
+            code = arbiter.main([])
+            stdout_value = sys.stdout.getvalue()
+            stderr_value = sys.stderr.getvalue()
+        finally:
+            sys.stdin = old_stdin
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+        return code, stdout_value, stderr_value
+
+    def test_e2e_traversal_exits_1_and_never_auto_approves(self):
+        """再現ケース固定: traversal + narrow allowed_paths は exit 1（入力エラー）。
+        AUTO_APPROVED（exit 0）に到達しないことを固定する。
+        """
+        data = _base_input(
+            changed_files=["docs/ai/ai-loop/../../../bin/plangate"],
+            allowed_paths=["docs/ai/ai-loop/**"],
+        )
+        code, stdout_value, stderr_value = self._run_main_with_stdin(data)
+        self.assertEqual(code, 1)
+        self.assertNotIn("AUTO_APPROVED", stdout_value)
+        self.assertIn("入力エラー", stderr_value)
+        self.assertIn("bin/plangate", stderr_value)
+
+    def test_e2e_dot_slash_variant_escalates_exit_2(self):
+        """再現ケース固定: `./bin/plangate` + allowed=** は touches-HO escalate（exit 2）。"""
+        data = _base_input(changed_files=["./bin/plangate"], allowed_paths=["**"])
+        code, stdout_value, _ = self._run_main_with_stdin(data)
+        self.assertEqual(code, 2)
+        self.assertEqual(json.loads(stdout_value)["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(json.loads(stdout_value)["boundary_check"], "touches-HO")
+
+    def test_e2e_empty_segment_exits_1(self):
+        data = _base_input(changed_files=["bin//plangate"])
+        code, _, stderr_value = self._run_main_with_stdin(data)
+        self.assertEqual(code, 1)
+        self.assertIn("入力エラー", stderr_value)
+
+    def test_e2e_absolute_path_exits_1(self):
+        data = _base_input(changed_files=["/etc/passwd"])
+        code, _, stderr_value = self._run_main_with_stdin(data)
+        self.assertEqual(code, 1)
+        self.assertIn("入力エラー", stderr_value)
+
+    # --- 回帰: 正規の素パスは従来どおり ---
+
+    def test_regression_plain_ho_path_still_escalates(self):
+        data = _base_input(changed_files=["bin/plangate"], allowed_paths=["bin/plangate"])
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+
+    def test_regression_plain_ho_paths_md_still_escalates(self):
+        data = _base_input(
+            changed_files=["docs/ai/ai-loop/ho-paths.md"],
+            allowed_paths=["docs/ai/ai-loop/**"],
+        )
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+
+    def test_regression_happy_path_still_auto_approves(self):
+        data = _base_input(
+            changed_files=["docs/workflows/ai-loop/example.md"],
+            allowed_paths=["docs/workflows/ai-loop/**"],
+        )
+        provenance, _ = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["scope_check"], "in_scope")
+
+
 class MainExitCodeTests(unittest.TestCase):
     """main() の exit code 契約（0/2/3/1）を stdin 経由で確認する。"""
 
