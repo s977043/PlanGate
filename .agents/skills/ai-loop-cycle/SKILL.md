@@ -57,6 +57,8 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
 `class` は `merge` を含む変更なら `"merge"`（即 human escalate）、含まなければ `"no-merge"`。
 `target_sha` は対象コミットの SHA。
 
+`run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（再試行ごとに +1）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
+
 入力 JSON の例:
 
 ```json
@@ -77,7 +79,12 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
     "model_c": null,
     "model_d": null
   },
-  "target_sha": "abc1234"
+  "target_sha": "abc1234",
+  "run": {
+    "run_id": "run-022",
+    "round_index": 1,
+    "task_id": "TASK-XXXX"
+  }
 }
 ```
 
