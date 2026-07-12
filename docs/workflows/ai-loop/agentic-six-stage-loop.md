@@ -202,6 +202,7 @@ Rule 1（Workflow は順序と完了条件だけを持つ。実装ノウハウ�
 - [`adaptive-production-loop.md`](./adaptive-production-loop.md) — 6 層自己改善ループ・1 サイクル contract 正本
 - [`decision-table.md`](./decision-table.md) — Decision table・provenance schema・terminal state・CB
 - [`execution-runbook.md`](./execution-runbook.md) — 1 サイクルの実行手順・Scheduling 判断表
+- [`stop-rollback.md`](./stop-rollback.md) — Stop 条件対応表・AUTO_APPROVED 後の事後 reject 巻き戻し手順（EPIC #822 項目4）
 - `docs/ai/ai-loop/design-philosophy.md` §7 — 文書地図（本書はここに additive 1 行で登録）
 - `.claude/rules/hybrid-architecture.md` Rule 1 — Workflow は順序と完了条件だけを持つ（判断2 の整合根拠）
 - issue [#780](https://github.com/s977043/plangate/issues/780) — 本書の起点（6段階ループ適合性の設計ドラフト）
