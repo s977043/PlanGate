@@ -114,3 +114,14 @@
 {"ts":"2026-07-12T05:16:52Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a82b530ec59286723/docs/workflows/ai-loop/stop-rollback.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-12T07:24:57Z","event":"EH-3_DOC_LIGHT_SKIP","target":"AGENT_LEARNINGS.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-12T07:46:00Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/.claude/plans/deep-churning-wadler.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:20:05Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a20e46d4651ab8279/docs/workflows/ai-loop/stop-rollback.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:20:18Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a20e46d4651ab8279/docs/workflows/ai-loop/stop-rollback.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:20:31Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a20e46d4651ab8279/docs/workflows/ai-loop/stop-rollback.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:21:22Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a20e46d4651ab8279/docs/workflows/ai-loop/agentic-six-stage-loop.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:21:46Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a20e46d4651ab8279/docs/workflows/ai-loop/decision-table.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:21:55Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a20e46d4651ab8279/docs/workflows/ai-loop/loop-safety-gates.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:32:09Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a0d7411d07f65fbd8/docs/workflows/ai-loop/stop-rollback.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:32:15Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a0d7411d07f65fbd8/docs/workflows/ai-loop/stop-rollback.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:50:38Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a5f4578a82af14f82/docs/ai/subagent-delegation/dispatch-template.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:50:52Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a5f4578a82af14f82/docs/ai/subagent-delegation/behavior-norms.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T08:52:59Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-0833/ai-loop-runs/grader-output.md","acknowledged_by":null,"acknowledged_at":null}
