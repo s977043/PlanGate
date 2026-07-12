@@ -498,7 +498,7 @@ EXIT_CODES = {
 }
 
 ISSUED_BY = "arbiter-v0.1"
-POLICY_REF = "auto-approve-lite-clean@v3"
+POLICY_REF = "auto-approve-lite-clean@v4"
 
 
 class InputError(ValueError):
@@ -615,6 +615,15 @@ def validate_input(data: Any) -> dict[str, Any]:
             repair_action is None or isinstance(repair_action, str),
             "run.repair_action は string または省略である必要があります",
         )
+        # cost_cap（#749 C案(2)層・任意フィールド）: run 予算の単位は round 数
+        # （ユーザー確定）。未宣言（キー欠落・None）なら「予算なし」＝従来どおり
+        # 判定に一切関与しない（additive）。宣言する場合は bool を除外した
+        # 厳密 int のみ許容（round_index と同型のバリデーション規約）。
+        if "cost_cap" in run and run.get("cost_cap") is not None:
+            _require(
+                type(run.get("cost_cap")) is int,
+                "run.cost_cap は int である必要があります（bool 不可・省略可）",
+            )
 
     return data
 
@@ -880,6 +889,27 @@ def arbitrate(
             f"閾値 {SIZE_OK_MAX_FILES} を超過（申告と blast-radius 不一致）"
         )
 
+    # cost_cap 超過判定（priority 1.95・#749 C案(2)層・decision-table.md 非記載の
+    # 追加割込みチェック。priority 1.9（size 機械検証）の後・priority 2（lite）の
+    # 前に評価する）。run.cost_cap（任意・単位=round 数・ユーザー確定）が宣言され、
+    # かつ run.round_index が cost_cap を超えた場合のみ human escalate とする。
+    # 未宣言（run が None、または run.cost_cap 未指定/None）なら従来どおり本行は
+    # 発火しない（additive・安全側 escalate の追加のみ・既存 auto-approve 経路は
+    # 広げない）。境界値: round_index == cost_cap は通過（超過のみ escalate）。
+    cost_cap = run.get("cost_cap") if run is not None else None
+    cost_cap_exceeded = (
+        run is not None
+        and cost_cap is not None
+        and run.get("round_index") is not None
+        and run["round_index"] > cost_cap
+    )
+
+    def _cost_cap_reason() -> str:
+        return (
+            f"priority 1.95: run.round_index={run['round_index']} が run.cost_cap={cost_cap} を"
+            f"超過（run 予算超過・単位=round 数）"
+        )
+
     priority_table: list[tuple[str, bool, str, str, str, Any]] = [
         ("priority 1", signals.boundary == "touches-HO", DECISION_HUMAN_ESCALATED, signals.boundary, "not_evaluated",
          lambda: f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {_matched_desc()}"),
@@ -889,6 +919,8 @@ def arbitrate(
          _gates_reason),
         ("priority 1.9", signals.declared_size_ok and not signals.machine_size_ok, DECISION_HUMAN_ESCALATED,
          signals.boundary, "in_scope", _size_mismatch_reason),
+        ("priority 1.95", cost_cap_exceeded, DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
+         _cost_cap_reason),
         ("priority 2", not signals.lite_result, DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
          lambda: "priority 2: boundary=clean だが lite=false（低リスク要件未充足）"),
         ("priority 3", class_value == "merge", DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",

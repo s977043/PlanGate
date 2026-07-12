@@ -64,6 +64,7 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 | **1.5** | boundary=clean（priority 1 通過後）だが、`changed_files` が `allowed_paths` のいずれの glob にも一致しない（scope 逸脱） | **human escalate** |
 | **1.7** | boundary=clean・scope 逸脱なし（priority 1.5 通過後）だが、`gates.c1 == "PASS"` かつ `gates.breakdown == "pass"`（両方とも厳密一致）を満たさない（plan 品質ゲート未充足） | **human escalate** |
 | **1.9** | priority 1.7 通過後、申告 `lite.size_ok == true`（bool）だが `changed_files` の実ファイル数が `SIZE_OK_MAX_FILES`（2）を超える（申告と blast-radius の不一致） | **human escalate** |
+| **1.95** | priority 1.9 通過後、`run.cost_cap`（任意・単位=round 数）が宣言され、かつ `run.round_index` が `cost_cap` を超過（run 予算超過） | **human escalate** |
 
 - priority 0 は「boundary が touches-HO か clean か」を判定する前提条件
   （ho-paths 一覧そのもの）が欠落しているケースであり、fail-open
@@ -89,6 +90,20 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
   escalate 条件を追加するだけの安全側変更であり、以前 auto-approve/blocked
   だった経路を auto-approve にする効果は一切持たない**（POLICY_REF を `@v2` →
   `@v3` へ改版した理由）。
+- priority 1.95（#749 C案(2)層・decision-table.md 本改版で追加）は priority 1.9
+  （size 機械検証）の**後**・priority 2（lite）の**前**に評価する。`run.cost_cap`
+  は任意入力フィールド（**単位は round 数**・ユーザー確定）で、未宣言（`run` 自体が
+  無い、または `run.cost_cap` が省略/`null`）なら本チェックは発火せず従来どおり
+  （additive・fail-open ではなく単に「予算なし」を意味する明示的な非設置）。
+  宣言時は `run.round_index > run.cost_cap` の場合のみ human escalate とする
+  （境界値 `round_index == cost_cap` は通過。超過のみ escalate）。cost cap の
+  累積消費は arbiter が呼び出し側入力の `run.round_index`（record/入力から
+  自己計測）のみで判定するため、外部計測ソースは不要（#749 draft 1「C（推奨）:
+  二層合成」の (2) run 予算層に対応。(1) agent frontmatter `maxTurns` は HO 対象
+  パスのため本改版のスコープ外・別途 Human 適用）。**本チェックも escalate
+  条件を追加するだけの安全側変更であり、以前 auto-approve/blocked だった経路を
+  auto-approve にする効果は一切持たない**（POLICY_REF を `@v3` → `@v4` へ
+  改版した理由）。
 
 ### 裁定ラベルと provenance 値の対応
 
@@ -132,7 +147,7 @@ auto-approve 時（priority 6 または C/D 合意）に刻印する最低限の
 ```text
 decision:           AUTO_APPROVED / HUMAN_ESCALATED / BLOCKED
 issued_by:          arbiter-v0.1（判断エンジン識別子）
-policy_ref:         auto-approve-lite-clean@v3（適用 policy 名 + バージョン）
+policy_ref:         auto-approve-lite-clean@v4（適用 policy 名 + バージョン）
 w_check:
   model_a: approve
   model_b: approve
@@ -150,7 +165,8 @@ timestamp:          <ISO 8601>
 > ho-paths 実行時解決の fail-closed 機械化）→ `@v2`（#780 Slice B: `gates`
 > 入力による plan 品質ゲート priority 1.7 の追加）→ `@v3`（#780 Slice C:
 > `lite.size_ok` 申告を `changed_files` 実ファイル数（`SIZE_OK_MAX_FILES`=2）で
-> 機械検証する priority 1.9 の追加）。`@v0` 時点の PoC は
+> 機械検証する priority 1.9 の追加）→ `@v4`（#749 C案(2)層: `run.cost_cap`
+> （単位=round 数）超過を検知する priority 1.95 の追加）。`@v0` 時点の PoC は
 > `HO_PATTERNS` ハードコード定数＋allowed_paths 未検証だったため、境界判定
 > ロジックが変わった本改版で policy バージョンを進めた。`@v2` は
 > auto-approve の新必要条件（`gates.c1 == "PASS"` かつ `gates.breakdown ==

@@ -799,7 +799,7 @@ class ProvenanceSchemaTests(unittest.TestCase):
         ):
             self.assertIn(field, provenance)
         self.assertEqual(provenance["issued_by"], "arbiter-v0.1")
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v3")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v4")
         self.assertEqual(provenance["scope_check"], "in_scope")
         self.assertEqual(provenance["w_check"]["model_a"], "approve")
         self.assertEqual(provenance["w_check"]["model_b"], "approve")
@@ -1002,12 +1002,12 @@ class PolicyRefVersionTests(unittest.TestCase):
     """
 
     def test_tc11_policy_ref_is_v3(self):
-        self.assertEqual(arbiter.POLICY_REF, "auto-approve-lite-clean@v3")
+        self.assertEqual(arbiter.POLICY_REF, "auto-approve-lite-clean@v4")
 
     def test_tc11_provenance_policy_ref_is_v3(self):
         data = _base_input()
         provenance, _ = arbiter.arbitrate(data)
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v3")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v4")
 
 
 class PathNormalizationSecurityTests(unittest.TestCase):
@@ -1486,6 +1486,146 @@ class RunMetaValidationTests(unittest.TestCase):
         with self.assertRaises(arbiter.InputError):
             arbiter.validate_input(data)
 
+    def test_cost_cap_absent_passes(self):
+        """#749 C案(2)層: run.cost_cap 未宣言（キー欠落）は従来どおり合格（additive）。"""
+        data = _base_input(run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780"})
+        validated = arbiter.validate_input(data)
+        self.assertNotIn("cost_cap", validated["run"])
+
+    def test_cost_cap_none_passes(self):
+        """run.cost_cap=None（明示 null）も未宣言と同義で合格。"""
+        data = _base_input(
+            run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780", "cost_cap": None}
+        )
+        validated = arbiter.validate_input(data)
+        self.assertIsNone(validated["run"]["cost_cap"])
+
+    def test_cost_cap_valid_int_passes(self):
+        data = _base_input(
+            run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780", "cost_cap": 5}
+        )
+        validated = arbiter.validate_input(data)
+        self.assertEqual(validated["run"]["cost_cap"], 5)
+
+    def test_cost_cap_bool_raises(self):
+        """bool は int のサブクラスのため round_index と同型で明示的に除外する。"""
+        data = _base_input(
+            run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780", "cost_cap": True}
+        )
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_cost_cap_string_raises(self):
+        data = _base_input(
+            run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780", "cost_cap": "5"}
+        )
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_cost_cap_float_raises(self):
+        data = _base_input(
+            run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780", "cost_cap": 5.5}
+        )
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+
+class CostCapArbitrationTests(unittest.TestCase):
+    """#749 C案(2)層: priority 1.95（run.cost_cap 超過 → human escalate）の裁定経路テスト。
+
+    単位は round 数（ユーザー確定）。arbiter は入力の run.round_index /
+    run.cost_cap のみから自己完結で判定する（外部計測ソース不要）。
+    """
+
+    def _cost_cap_input(self, *, round_index, cost_cap):
+        return _base_input(
+            run={
+                "run_id": "run-cost-cap",
+                "round_index": round_index,
+                "task_id": "TASK-0749",
+                **({"cost_cap": cost_cap} if cost_cap is not None else {}),
+            }
+        )
+
+    def test_cost_cap_unset_does_not_escalate(self):
+        """cost_cap 未宣言（run はあるが cost_cap キー無し）なら従来どおり
+        auto-approve に到達する（priority 1.95 は発火しない）。"""
+        data = self._cost_cap_input(round_index=999, cost_cap=None)
+        data["run"].pop("cost_cap", None)
+        provenance, reason = arbiter.arbitrate(
+            arbiter.validate_input(data), ho_paths_path=str(HO_PATHS_MD)
+        )
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertNotIn("priority 1.95", reason)
+
+    def test_round_index_below_cost_cap_passes_through(self):
+        data = self._cost_cap_input(round_index=2, cost_cap=5)
+        provenance, reason = arbiter.arbitrate(
+            arbiter.validate_input(data), ho_paths_path=str(HO_PATHS_MD)
+        )
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertNotIn("priority 1.95", reason)
+
+    def test_round_index_equal_cost_cap_passes_through(self):
+        """境界値: round_index == cost_cap は通過（超過のみ escalate）。"""
+        data = self._cost_cap_input(round_index=5, cost_cap=5)
+        provenance, reason = arbiter.arbitrate(
+            arbiter.validate_input(data), ho_paths_path=str(HO_PATHS_MD)
+        )
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertNotIn("priority 1.95", reason)
+
+    def test_round_index_exceeds_cost_cap_escalates(self):
+        data = self._cost_cap_input(round_index=6, cost_cap=5)
+        provenance, reason = arbiter.arbitrate(
+            arbiter.validate_input(data), ho_paths_path=str(HO_PATHS_MD)
+        )
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.95", reason)
+        self.assertEqual(provenance["run"]["cost_cap"], 5)
+        self.assertEqual(provenance["run"]["round_index"], 6)
+
+    def test_cost_cap_escalate_takes_priority_over_lite_false(self):
+        """priority 1.95 は priority 2（lite）より先に確定する。"""
+        data = self._cost_cap_input(round_index=6, cost_cap=5)
+        data["lite"] = {
+            "size_ok": True,
+            "no_new_design": False,
+            "follows_pattern": True,
+            "reversible": True,
+        }
+        provenance, reason = arbiter.arbitrate(
+            arbiter.validate_input(data), ho_paths_path=str(HO_PATHS_MD)
+        )
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.95", reason)
+        self.assertNotIn("priority 2", reason)
+
+    def test_size_mismatch_takes_priority_over_cost_cap(self):
+        """priority 1.9（size 機械検証）が priority 1.95（cost_cap）より先に確定する。"""
+        data = self._cost_cap_input(round_index=6, cost_cap=5)
+        data["changed_files"] = [
+            "docs/workflows/ai-loop/decision-table.md",
+            "docs/workflows/ai-loop/flow-detect.md",
+            "docs/workflows/ai-loop/plan-slice-c.md",
+        ]
+        data["allowed_paths"] = ["docs/workflows/ai-loop/**"]
+        provenance, reason = arbiter.arbitrate(
+            arbiter.validate_input(data), ho_paths_path=str(HO_PATHS_MD)
+        )
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1.9", reason)
+        self.assertNotIn("priority 1.95", reason)
+
+    def test_run_absent_does_not_escalate(self):
+        """run 自体が未指定なら cost_cap 判定は評価されない（既存挙動不変）。"""
+        data = _base_input()
+        provenance, reason = arbiter.arbitrate(
+            arbiter.validate_input(data), ho_paths_path=str(HO_PATHS_MD)
+        )
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertNotIn("priority 1.95", reason)
+
 
 class RunMetaProvenanceTests(unittest.TestCase):
     """#780 Slice D 後半: provenance への run 刻印（全裁定経路で additive に刻む）。"""
@@ -1576,7 +1716,7 @@ class RunMetaProvenanceTests(unittest.TestCase):
         現行ベースラインは #780 Slice C の size_ok 機械検証で @v3 — run 起因の改版ではない）。"""
         data = _base_input(run=self.RUN_META)
         provenance, _ = arbiter.arbitrate(data)
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v3")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v4")
 
 
 class GatesProvenanceTests(unittest.TestCase):
@@ -1693,7 +1833,7 @@ class GatesProvenanceTests(unittest.TestCase):
         （POLICY_REF は現行ベースライン @v3 据え置き。gates 追加自体が原因の改版ではない）。"""
         data = _base_input(gates=self.GATES_META)
         provenance, _ = arbiter.arbitrate(data)
-        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v3")
+        self.assertEqual(provenance["policy_ref"], "auto-approve-lite-clean@v4")
 
 
 class ArbiterMetricsIntegrationTests(unittest.TestCase):
@@ -1940,7 +2080,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 0,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "unresolved",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -1977,7 +2117,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": False,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "not_evaluated",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "reject", "model_b": "reject"},
@@ -2003,7 +2143,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "scope_violation",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -2029,7 +2169,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": False,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -2052,7 +2192,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -2077,7 +2217,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "reject", "model_b": "reject"},
@@ -2105,7 +2245,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "reject", "model_b": "approve"},
@@ -2131,7 +2271,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {"model_a": "approve", "model_b": "approve"},
@@ -2157,7 +2297,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2191,7 +2331,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2227,7 +2367,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2264,7 +2404,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2302,7 +2442,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2340,7 +2480,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "scope_check": "in_scope",
                 "target_sha": "abc1234",
                 "w_check": {
@@ -2373,7 +2513,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "ho_pattern_count": 18,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
-                "policy_ref": "auto-approve-lite-clean@v3",
+                "policy_ref": "auto-approve-lite-clean@v4",
                 "run": {
                     "repair_action": None,
                     "round_index": 0,
