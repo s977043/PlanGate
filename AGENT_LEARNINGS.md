@@ -105,3 +105,8 @@
   - 事実: `scripts/sync-plugin-installed.sh` を `release-prep.sh` に組み込み、Claude Code プラグインキャッシュ（`~/.claude/plugins/`）と Codex スキル（`~/.codex/skills/`）の同期状態をリリース前チェックの 1 項目として自動検出する。`--dry-run` オプションで差分のみ確認可能
   - 再利用条件: リリース前（`sh scripts/release-prep.sh` 実行時）に「plugin インストール済みキャッシュ同期済み」が NG なら `sh scripts/sync-plugin-installed.sh` を実行する。差分なし時は `[sync-installed] no-op` を出力して正常終了
   - 根拠: 2026-06-22 セッション。Claude Code プラグインキャッシュ 13 ファイル乖離・Codex スキル 9 件不足を発見し自動化（PR #597）
+
+- [2026-07-12] squash-merge されたPRのブランチから新ブランチを切ると必ずコンフリクトする
+  - 事実: PR #824（D-2）が squash-merge された後、そのブランチ起点で作った #825（D-3）が `rebase --onto` でコンフリクト（squash されたコミット群と個別コミットが同一内容でも別 SHA 扱いになるため）。パッチ抽出（`git diff <base>..<head> -- <files> | git apply`）で新ブランチに適用し直して解決
+  - 再利用条件: 前提 PR がまだマージされていないブランチから派生作業を始める場合、必ず `git fetch origin main` 後の `origin/main` 起点で新ブランチを切る。既に squash-merge 済みの旧ブランチから派生してしまった場合は、rebase でなく実差分のみパッチ抽出して新ブランチに適用する
+  - 根拠: 2026-07-12 EPIC #822 discovery D-3 実装時（PR #825→#826）
