@@ -563,5 +563,164 @@ class TestSpecialCharPathGlob(unittest.TestCase):
         self.assertEqual(payload["run_count"], 1)
 
 
+class TestHotlHealthRates(unittest.TestCase):
+    """escalate_rate / human_intervention_rate を decision_counts から厳密一致で検証する。"""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.runs_dir = pathlib.Path(self.tmpdir.name)
+
+        # decision_counts = {AUTO_APPROVED: 8, HUMAN_ESCALATED: 2, BLOCKED: 1}
+        for i in range(8):
+            _write(
+                self.runs_dir,
+                f"run-auto-{i}.json",
+                _run_record(f"run-auto-{i}", 1, "AUTO_APPROVED", f"a{i:04d}"),
+            )
+        for i in range(2):
+            _write(
+                self.runs_dir,
+                f"run-esc-{i}.json",
+                _run_record(f"run-esc-{i}", 1, "HUMAN_ESCALATED", f"e{i:04d}"),
+            )
+        _write(
+            self.runs_dir,
+            "run-blocked-0.json",
+            _run_record("run-blocked-0", 1, "BLOCKED", "b0000"),
+        )
+
+        self.report = metrics.collect(self.runs_dir)
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_escalate_rate_exact(self):
+        escalate = self.report["hotl_health"]["escalate_rate"]
+        self.assertEqual(escalate["count"], 2)
+        self.assertEqual(escalate["total"], 11)
+        self.assertAlmostEqual(escalate["rate"], 2 / 11)
+
+    def test_human_intervention_rate_exact(self):
+        intervention = self.report["hotl_health"]["human_intervention_rate"]
+        self.assertEqual(intervention["count"], 3)
+        self.assertEqual(intervention["total"], 11)
+        self.assertAlmostEqual(intervention["rate"], 3 / 11)
+
+
+class TestHotlReversal(unittest.TestCase):
+    """reversal_rate: 途中 reject → 最終 round AUTO_APPROVED の run 割合を検証する。"""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.runs_dir = pathlib.Path(self.tmpdir.name)
+
+        # run-reversed: round1=BLOCKED -> round2=AUTO_APPROVED (reversed=true)
+        _write(
+            self.runs_dir,
+            "run-reversed-r1.json",
+            _run_record("run-reversed", 1, "BLOCKED", "r0001"),
+        )
+        _write(
+            self.runs_dir,
+            "run-reversed-r2.json",
+            _run_record("run-reversed", 2, "AUTO_APPROVED", "r0002"),
+        )
+
+        # run-clean: 全 round AUTO_APPROVED (reversed=false・非対象)
+        _write(
+            self.runs_dir,
+            "run-clean-r1.json",
+            _run_record("run-clean", 1, "AUTO_APPROVED", "c0001"),
+        )
+
+        # run-unresolved: 最終 round も HUMAN_ESCALATED のまま (reversed=false・未収束)
+        _write(
+            self.runs_dir,
+            "run-unresolved-r1.json",
+            _run_record("run-unresolved", 1, "BLOCKED", "u0001"),
+        )
+        _write(
+            self.runs_dir,
+            "run-unresolved-r2.json",
+            _run_record("run-unresolved", 2, "HUMAN_ESCALATED", "u0002"),
+        )
+
+        self.report = metrics.collect(self.runs_dir)
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_reversed_run_counted(self):
+        reversal = self.report["hotl_health"]["reversal"]
+        self.assertEqual(reversal["reversed_runs"], 1)
+
+    def test_all_auto_approved_run_not_reversed(self):
+        # run-clean は非対象（途中 reject が無い）なので reversed_runs=1 のまま
+        reversal = self.report["hotl_health"]["reversal"]
+        self.assertEqual(reversal["reversed_runs"], 1)
+
+    def test_unresolved_run_not_reversed(self):
+        # run-unresolved は最終 round が HUMAN_ESCALATED のまま（未収束）なので不算入
+        reversal = self.report["hotl_health"]["reversal"]
+        self.assertEqual(reversal["run_count"], 3)
+        self.assertEqual(reversal["reversed_runs"], 1)
+        self.assertAlmostEqual(reversal["rate"], 1 / 3)
+
+
+class TestHotlReversalZeroRuns(unittest.TestCase):
+    """run_count=0 の場合、reversal.rate は None を返す。"""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.runs_dir = pathlib.Path(self.tmpdir.name)
+        self.report = metrics.collect(self.runs_dir)
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_reversal_rate_none_when_no_runs(self):
+        reversal = self.report["hotl_health"]["reversal"]
+        self.assertEqual(reversal["run_count"], 0)
+        self.assertEqual(reversal["reversed_runs"], 0)
+        self.assertIsNone(reversal["rate"])
+
+
+class TestHotlHealthRegression(unittest.TestCase):
+    """hotl_health 追加が既存フィールドを一切変更しないことを回帰確認する。"""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.runs_dir = pathlib.Path(self.tmpdir.name)
+        _write(
+            self.runs_dir,
+            "run-A-r1.json",
+            _run_record("run-A", 1, "AUTO_APPROVED", "aaa0001"),
+        )
+        self.report = metrics.collect(self.runs_dir)
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_existing_keys_still_present(self):
+        for key in (
+            "total_records",
+            "legacy_count",
+            "invalid_run_meta_count",
+            "run_count",
+            "first_pass",
+            "decision_counts",
+            "round_distribution",
+            "failure_category_breakdown",
+            "warnings",
+            "skipped_count",
+            "skipped",
+        ):
+            self.assertIn(key, self.report)
+
+    def test_markdown_mentions_hotl_health(self):
+        md = metrics.render_markdown(self.report)
+        self.assertIn("HOTL健全性", md)
+
+
 if __name__ == "__main__":
     unittest.main()
