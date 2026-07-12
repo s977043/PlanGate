@@ -13,8 +13,8 @@
 {"ts": "2026-06-15T21:50:49Z", "event": "EH-3_SKIP", "target": "docs/working/TASK-0130/(exec)", "skip_reason": "TASK-0130(#544 Phase1) exec: AEE条項追加+apply-script生成。人間C-3 APPROVED済・Bash編集のため記録/要追認", "acknowledged_by": "mine_take", "acknowledged_at": "2026-06-18T08:15:20Z"}
 {"ts":"2026-06-23T10:19:05Z","event":"EH-3_DOC_LIGHT_SKIP","target":"CHANGELOG.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-06-25T00:30:26Z","event":"EH-3_DOC_LIGHT_SKIP","target":"CHANGELOG.md","acknowledged_by":null,"acknowledged_at":null}
-{"ts":"2026-06-25T00:51:36Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/project_v8_15_release.md","acknowledged_by":null,"acknowledged_at":null}
-{"ts":"2026-06-25T00:51:41Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T00:51:36Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/project_v8_15_release.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-06-25T00:51:41Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-06-25T03:07:41Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-0143/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-06-25T03:35:32Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/settings-wiring-contract.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-06-25T03:35:44Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
@@ -102,9 +102,9 @@
 {"ts":"2026-07-11T10:51:51Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-af60cb18440c55073/docs/workflows/ai-loop/decision-table.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-11T12:19:05Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-ae7a0f8fd8376a578/docs/workflows/ai-loop/agentic-six-stage-loop.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-11T15:31:01Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-ae7a0f8fd8376a578/docs/workflows/ai-loop/agentic-six-stage-loop.md","acknowledged_by":null,"acknowledged_at":null}
-{"ts":"2026-07-11T23:28:09Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/project_session_2026_07_11_hotl.md","acknowledged_by":null,"acknowledged_at":null}
-{"ts":"2026-07-11T23:28:27Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/feedback_multimodel_review_and_independent_verify.md","acknowledged_by":null,"acknowledged_at":null}
-{"ts":"2026-07-12T01:34:12Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-11T23:28:09Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/project_session_2026_07_11_hotl.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-11T23:28:27Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/feedback_multimodel_review_and_independent_verify.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T01:34:12Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-12T03:06:33Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a70af36821efabfaf/docs/workflows/ai-loop/agentic-six-stage-loop.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-12T03:29:47Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-0822/design-hotl-stop-rollback.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-12T03:29:51Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-0822/design-stop-rollback-b.md","acknowledged_by":null,"acknowledged_at":null}
@@ -130,3 +130,12 @@
 {"ts":"2026-07-12T10:43:07Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/project_session_2026_07_12_hotl_completion.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-12T10:43:34Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-12T10:50:00Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<scratchpad>/issue749-drafts-v2.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T12:39:10Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/project_session_2026_07_12_hotl_completion.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T12:45:14Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/project_release_history.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T12:45:44Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/project_session_2026_07_12_hotl_completion.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T12:46:31Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/feedback_pr_watch_three_signals.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T12:47:15Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T12:59:13Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/feedback_eh3_env_startup_fixed.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T12:59:25Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/feedback_w_split_organizer_factcheck.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T12:59:46Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/reference_plugin_install_source.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T12:59:59Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
