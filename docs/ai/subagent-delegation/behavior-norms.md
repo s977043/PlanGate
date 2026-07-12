@@ -98,6 +98,7 @@ issue #714 のフル版に含める「優先順位: CLAUDE.md / rules / 派遣�
 2. CLAUDE.md・`.claude/rules/*.md` はいずれも [`docs/ai/project-rules.md`](../project-rules.md) §G の参照先一覧に連なるドキュメント群であり、両者は通常矛盾しない。矛盾が生じた場合（想定外の記述不整合）はサブエージェント側で断定判断せず、要判断事項（P0）として差し戻す
 3. 「派遣プロンプト制約」（[dispatch-template.md](./dispatch-template.md) 要素6）は当該タスク限定の追加制約であり、CLAUDE.md・rules が定める禁止事項を緩和する方向には作用しない（追加のみ許可、緩和不可）
 4. SSOT（派遣プロンプト要素3で示す最初に読む資料）は最後尾に位置づける。SSOT の記述が古い・現状と乖離している場合は実測結果を優先し、その旨を報告する
+5. EH-3（`scripts/hooks/check-plan-hash.sh` の Edit ゲート）にブロックされた場合、Bash 経由の直接書き込みでのゲート迂回は禁止事項として緩和されない。正規経路（`PLANGATE_SKIP_REASON` を設定して再実行し、`docs/working/_audit/skip-decision-log.jsonl` に記録させる）に従う（[dispatch-template.md](./dispatch-template.md) 要素6参照）
 
 ## 4. 使い分け基準
 
