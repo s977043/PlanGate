@@ -28,7 +28,7 @@ L124-134 の `case` 文と一致確認済み。9 カテゴリに `plugin/**` は
 実害（2026-07-12 セッションで顕在化・#842 issue 本文より引用）:
 
 - PR #830 / #831 は `plugin/plangate/**` 配下の bundled resources を EH-3 に
-  掛からず直接編集してマージできた（EH-3 は plugin/\*\* を対象外にしているため）
+  掛からず直接編集してマージできた（EH-3 は `plugin/**` を対象外にしているため）
 - run-024 の ai-loop cycle では `plugin/plangate/**` への変更が ho-paths.md 上の
   HO-plugin に該当し、arbiter が escalate。PR #840 の worker は plugin 同期
   （`scripts/sync-plugin-plangate.sh`）を見送った
