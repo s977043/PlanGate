@@ -2389,5 +2389,138 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
         self._assert_json_roundtrip_stable(provenance)
 
 
+class TestHOTLInvariants(unittest.TestCase):
+    """EPIC #822 完了条件『不変条件（merge/HO/escalate 自己解決）が機械層で
+    保持されている（回帰テスト）』の明示的固定化。
+
+    `docs/workflows/ai-loop/decision-table.md` / `arbiter.py` が正本と
+    する 4 つの Human 固定不変条件を、既存カバレッジ（DecisionTablePriorityTests
+    / ArbitrateCharacterizationTests 等）とは独立した **敵対的ケース**
+    （他の全軸を AUTO_APPROVED 側の最良値に揃えた上で、当該 1 軸だけを
+    Human 固定条件に倒す）として固定する。
+
+    既存カバレッジとの関係（重複回避のためのマッピング）:
+      - 不変条件1 (class=merge): `DecisionTablePriorityTests.
+        test_priority3_class_merge` と `ArbitrateCharacterizationTests.
+        test_priority6_approve_approve` 系で priority 3 単体・priority 6
+        legitimate 到達は既にカバー済み。ただし「lite 4 軸 true・gates
+        pass・verdict approve-approve という**最良条件が全て揃っていても**
+        merge だけで確実に落ちる」ことを単一テストで明示検証するものは
+        無かったため本クラスで追加する。
+      - 不変条件2 (touches-HO): 既存の `test_priority1_touches_ho_overrides_everything`
+        / characterization 版はいずれも lite 全 false・class=merge の
+        **worst-case 合成**で touches-HO を検証しており、「touches-HO
+        以外は最良」という敵対的ケースが存在しなかった（本クラスの主眼）。
+      - 不変条件3 (ho-paths 未解決 fail-closed): `test_priority0_fail_closed`
+        が既に `_base_input()`（最良値）+ 未解決パスで検証済み。本クラスは
+        「最良値であることの明示的な自己文書化」として同型ケースを
+        HOTL 不変条件の文脈で再掲する（実質カバー済みのため assertion は
+        最小限）。
+      - 不変条件4 (escalate 自己解決禁止): 既存テストに直接の該当なし
+        （新規）。arbitrate() のシグネチャには「直前ラウンドの decision」
+        を受け取る入力経路が存在しないことを、`data` に偽装した
+        `decision`/`prior_decision` キーを注入しても出力に一切影響しない
+        ことで実証する。
+    """
+
+    def _best_case_input(self, **overrides):
+        """AUTO_APPROVED に到達しうる最良値（lite 4 軸 true・gates pass・
+        verdict approve-approve・scope 内・class=no-merge）を明示的に構成する。
+        `_base_input()` の既定値と同義だが、本クラスでは意図を自己文書化
+        するために明示的に列挙する。"""
+        base_kwargs = {
+            "lite": {"size_ok": True, "no_new_design": True, "follows_pattern": True, "reversible": True},
+            "class": "no-merge",
+            "verdicts": {
+                "model_a": "approve",
+                "model_b": "approve",
+                "reject_category": None,
+                "model_c": None,
+                "model_d": None,
+            },
+            "gates": {"c1": "PASS", "breakdown": "pass"},
+        }
+        base_kwargs.update(overrides)
+        return _base_input(**base_kwargs)
+
+    def test_invariant1_class_merge_escalates_despite_best_case_background(self):
+        """不変条件1: class=merge は lite 全軸 true・gates pass・
+        verdict approve-approve（W check 双方 approve）という最良条件下でも
+        必ず HUMAN_ESCALATED になる（AUTO_APPROVED への昇格経路が存在しない）。
+        """
+        data = self._best_case_input(**{"class": "merge"})
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 3", reason)
+        self.assertEqual(provenance["lite_check"], True)
+        self.assertEqual(provenance["w_check"], {"model_a": "approve", "model_b": "approve"})
+
+    def test_invariant2_touches_ho_escalates_despite_best_case_background(self):
+        """不変条件2: touches-HO（changed_files が HO パターン一致）は
+        lite 全軸 true・class=no-merge・verdict approve-approve という
+        最良条件下でも必ず HUMAN_ESCALATED になる（priority 1 が絶対条件と
+        して最優先で評価されるため、後続の好条件では覆せない）。
+        """
+        data = self._best_case_input(changed_files=["bin/plangate"], allowed_paths=["bin/**"])
+        provenance, reason = arbiter.arbitrate(data)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1", reason)
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+        # 好条件（lite/verdict）は provenance に刻まれるが decision には無関係
+        self.assertEqual(provenance["lite_check"], True)
+        self.assertEqual(provenance["class_check"], "no-merge")
+        self.assertEqual(provenance["w_check"], {"model_a": "approve", "model_b": "approve"})
+
+    def test_invariant3_ho_paths_unresolved_fail_closed_despite_best_case_background(self):
+        """不変条件3: ho-paths.md が実行時解決できない場合、lite/class/verdict
+        が最良条件であっても fail-open せず必ず HUMAN_ESCALATED（priority 0）
+        になる。"""
+        data = self._best_case_input()
+        provenance, reason = arbiter.arbitrate(data, ho_paths_path="/nonexistent/ho-paths.md")
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 0", reason)
+        self.assertEqual(provenance["ho_pattern_count"], 0)
+
+    def test_invariant4_arbitrate_has_no_prior_decision_input_channel(self):
+        """不変条件4: escalate の自己解決禁止。arbitrate() は `class` /
+        `verdicts` / `lite` / `changed_files` / `allowed_paths` / `gates` /
+        `run` 以外の入力を評価に用いない。呼び出し側が過去の
+        HUMAN_ESCALATED 裁定結果を模した `decision` / `prior_decision`
+        キーを `data` に注入しても、出力される決定は最良値の入力からのみ
+        決まり、注入したキーの値（過去 escalate の事実）によって
+        AUTO_APPROVED へ昇格することはない（そのような再裁定経路自体が
+        存在しないことを実証する）。"""
+        base = self._best_case_input()
+
+        # 過去ラウンドで HUMAN_ESCALATED だった体で偽装キーを注入
+        forged = dict(base)
+        forged["decision"] = "HUMAN_ESCALATED"
+        forged["prior_decision"] = "HUMAN_ESCALATED"
+        forged["prior_verdict"] = "escalated"
+        forged["override"] = "AUTO_APPROVED"
+        forged["self_resolved"] = True
+
+        provenance_plain, reason_plain = arbiter.arbitrate(base)
+        provenance_forged, reason_forged = arbiter.arbitrate(forged)
+
+        # timestamp のみ実行時刻依存で差異が出うるため除外して比較
+        def _drop_ts(p):
+            d = dict(p)
+            d.pop("timestamp", None)
+            return d
+
+        self.assertEqual(_drop_ts(provenance_plain), _drop_ts(provenance_forged))
+        self.assertEqual(reason_plain, reason_forged)
+        # 逆方向: 偽装で「まだ escalate 未経験」を装っても、実際に
+        # HO/merge に触れていれば escalate は変わらず維持される
+        forged_but_ho = dict(forged)
+        forged_but_ho["changed_files"] = ["bin/plangate"]
+        forged_but_ho["allowed_paths"] = ["bin/**"]
+        forged_but_ho["decision"] = "AUTO_APPROVED"  # 偽装で昇格済みを装う
+        provenance_ho, reason_ho = arbiter.arbitrate(forged_but_ho)
+        self.assertEqual(provenance_ho["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1", reason_ho)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
