@@ -78,12 +78,12 @@
 
 - [2026-07-12] checkout/restore でファイルを戻す前に「自分が作った変更か」を確認する
   - 事実: Human が適用済みの未コミット HO 変更（`apply-subagent-delegation-wiring.sh` による 4 ファイル追記）が作業ツリーに残る状態で、AI が該当 4 ファイルに対し `git checkout main -- <path>` を実行し Human 適用済み変更を上書き消失させた（Human にスクリプト再実行を依頼して復旧）
-  - 再利用条件: `git checkout -- path` / `git restore path` でファイルを既存 ref に戻す前に、対象ファイルの未コミット差分を `git diff path` で確認し、「自分が作った変更でない」場合は上書きしない（既存学び「名指し外 tracked 変更は破棄しない」の checkout -- path 形への拡張）
+  - 再利用条件: `git checkout [<branch>] -- path` / `git restore [--source <ref>] path` 等、ファイルを既存 ref の内容へ戻す操作の前に、対象ファイルの未コミット差分を `git diff path` で確認し、「自分が作った変更でない」場合は上書きしない（既存学び「名指し外 tracked 変更は破棄しない」の checkout -- path 形への拡張）
   - 根拠: 2026-07-12 セッション実害。既存 rule（`.claude/rules/responsibility-classes.md` HO 適用は Human-owned）と一貫
 
 - [2026-07-12] ブランチ作成失敗後の commit は current branch を必ず verify する
   - 事実: `set -e` 付き複合コマンド内で `git checkout -b <branch> origin/main` が untracked ファイル衝突で失敗した後、後続の `git add`/`git commit` が main 上で実行され main へ直接コミットが作られた（push 前に検知し branch 退避 + `reset --hard origin/main` で復旧）
-  - 再利用条件: ブランチ作成と commit を同一複合コマンドに含める場合、commit 直前に `[ "$(git rev-parse --abbrev-ref HEAD)" = "<expected>" ] || exit 1` を必ず挟む
+  - 再利用条件: ブランチ作成と後続の変更操作（`git add` / `git commit` 等）を同一複合コマンドに含める場合、最初の変更操作の直前に `[ "$(git rev-parse --abbrev-ref HEAD)" = "<expected>" ] || exit 1` を必ず挟む
   - 根拠: INC-2026-05-26-001 P-3（push 前 verify）の commit 前 verify への拡張。`.claude/rules/responsibility-classes.md` の Bash 連結コマンド error guard と一貫
 
 - [2026-06-16] Bash 作成 doc の EH-3 skip は merge 前に追認する
