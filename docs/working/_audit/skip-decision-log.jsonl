@@ -125,3 +125,8 @@
 {"ts":"2026-07-12T08:50:38Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a5f4578a82af14f82/docs/ai/subagent-delegation/dispatch-template.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-12T08:50:52Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a5f4578a82af14f82/docs/ai/subagent-delegation/behavior-norms.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-12T08:52:59Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-0833/ai-loop-runs/grader-output.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T10:29:56Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a7adba0a7af6d1fd1/AGENT_LEARNINGS.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T10:30:22Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a7adba0a7af6d1fd1/AGENT_LEARNINGS.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T10:43:07Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/project_session_2026_07_12_hotl_completion.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T10:43:34Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-12T10:50:00Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/49ace254-47fd-43bf-84ea-46d7cfefcca0/scratchpad/issue749-drafts-v2.md","acknowledged_by":null,"acknowledged_at":null}
