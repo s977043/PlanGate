@@ -3,7 +3,9 @@ task_id: TASK-0810
 artifact_type: pbi-input
 schema_version: 1
 status: draft
-related_issue: https://github.com/s977043/plangate/issues/810, https://github.com/s977043/plangate/issues/786
+related_issue:
+  - https://github.com/s977043/plangate/issues/810
+  - https://github.com/s977043/plangate/issues/786
 created_by: orchestrator
 ---
 
