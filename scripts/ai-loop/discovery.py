@@ -85,6 +85,16 @@ DEFAULT_HO_SIGNALS: tuple[str, ...] = (
     "schema",
     "settings",
     "承認境界",
+    # HO-plugin (ho-paths.md: `plugin/plangate/**`) 事前判定強化
+    # (#839 / run-024 乖離是正)。_contains_any は substring 判定のため、
+    # "plugin" 1 語のみで "plugin/" "plugin/plangate/" 等のパス断片を
+    # すべて包含する（gemini medium 指摘反映・#841。冗長な複数語登録を
+    # 廃し "plugin" に集約）。run-024 実測（#837）のように本文が
+    # 「plugin 同梱」「plugin bundled」等スラッシュ無しで言及するケース
+    # も同じ 1 語で拾う（fail-closed: 除外方向にのみ広げる。ASCII
+    # "plugin" のみを対象とし、カタカナ「プラグイン」等の表記ゆれは
+    # 非対応 = 偽陰性は後段 arbiter に委ねる）。
+    "plugin",
 )
 
 # 大規模語（lite 帯を外れるシグナル）。
