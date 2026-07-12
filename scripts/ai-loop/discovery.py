@@ -31,6 +31,7 @@ discovery.py 自体はファイル入力を受けるだけで gh を直叩きし
 CLI:
     python3 scripts/ai-loop/discovery.py --issues <path.json>
         [--label ai-loop-auto] [--format md|json] [--ho-paths <path>]
+        [--emit-next-command]
 
 exit code:
     0 = 正常（候補あり/なし両方）
@@ -52,6 +53,20 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_LABEL = "ai-loop-auto"
+
+# recommended_next 構造化オブジェクト（TASK-0818 D-3）。discovery は execしない・
+# arbiterを呼ばない — human/orchestratorが既存 ai-loop-cycle を辿るための道しるべ。
+RECOMMENDED_NEXT_ACTION = "propose-to-ai-loop-cycle"
+RECOMMENDED_NEXT_ENTRY_POINT = "docs/workflows/ai-loop/execution-runbook.md"
+RECOMMENDED_NEXT_STEP = (
+    "human/orchestratorがissueを読み、通常のai-loop-cycle"
+    "（W check→arbiter裁定）をこのissueに対して開始する"
+)
+
+# 「discoveryはGateをbypassしない」旨の明示（サマリ md/json 共通）。
+NO_BYPASS_NOTICE = (
+    "次にGateを通すのはHuman/orchestratorの判断であり、discoveryはbypassしない。"
+)
 
 # HO（Hardening Override）示唆語 — docs/ai/ai-loop/ho-paths.md の代表パス断片 +
 # 承認境界を示す一般語。--ho-paths 指定時はここへ追加でパス断片を取り込む。
@@ -289,16 +304,31 @@ def evaluate_issue(
         "title": title_str,
         "candidate": True,
         "reasons": reasons,
-        "recommended_next": "propose-to-ai-loop-cycle",
+        "recommended_next": {
+            "action": RECOMMENDED_NEXT_ACTION,
+            "entry_point": RECOMMENDED_NEXT_ENTRY_POINT,
+            "next_step": RECOMMENDED_NEXT_STEP,
+        },
     }
+
+
+def _build_next_command(number: Any) -> str:
+    """人間がコピペ実行できる提案コマンド文字列を生成する（discovery自身は実行しない）。"""
+    return f"# candidate #{number}: 'ai-loop-cycle' skill を issue #{number} に対して開始してください"
 
 
 def run_discovery(
     issues: list[dict[str, Any]],
     label: str,
     ho_signals: tuple[str, ...],
+    emit_next_command: bool = False,
 ) -> dict[str, Any]:
-    """全 issue を評価し candidates/excluded/summary を構築する（read-only・純関数）。"""
+    """全 issue を評価し candidates/excluded/summary を構築する（read-only・純関数）。
+
+    emit_next_command=True の場合、各 candidate に人間がコピペ実行できる
+    提案コマンド文字列（next_command）を付加する。discovery 自身はこの
+    コマンドを一切実行しない（文字列生成のみ・subprocess呼び出し禁止）。
+    """
     candidates: list[dict[str, Any]] = []
     excluded: list[dict[str, Any]] = []
     no_label_count = 0
@@ -306,14 +336,15 @@ def run_discovery(
     for issue in issues:
         result = evaluate_issue(issue, label, ho_signals)
         if result["candidate"]:
-            candidates.append(
-                {
-                    "number": result["number"],
-                    "title": result["title"],
-                    "reasons": result["reasons"],
-                    "recommended_next": result["recommended_next"],
-                }
-            )
+            candidate: dict[str, Any] = {
+                "number": result["number"],
+                "title": result["title"],
+                "reasons": result["reasons"],
+                "recommended_next": result["recommended_next"],
+            }
+            if emit_next_command:
+                candidate["next_command"] = _build_next_command(result["number"])
+            candidates.append(candidate)
         else:
             excluded.append(
                 {
@@ -332,6 +363,7 @@ def run_discovery(
             "candidate_count": len(candidates),
             "excluded_count": len(excluded),
             "no_label_count": no_label_count,
+            "no_bypass_notice": NO_BYPASS_NOTICE,
         },
     }
 
@@ -351,6 +383,7 @@ def format_md(result: dict[str, Any]) -> str:
             n=summary["no_label_count"],
         )
     )
+    lines.append(f"- {summary['no_bypass_notice']}")
     lines.append("")
 
     lines.append("## Candidates")
@@ -365,10 +398,18 @@ def format_md(result: dict[str, Any]) -> str:
             reasons_str = ", ".join(
                 f"{k}={'OK' if v else 'NG'}" for k, v in cand["reasons"].items()
             )
+            next_action = cand["recommended_next"]["action"]
             lines.append(
                 f"| #{cand['number']} | {cand['title']} | "
-                f"{cand['recommended_next']} | {reasons_str} |"
+                f"{next_action} | {reasons_str} |"
             )
+        if any("next_command" in cand for cand in result["candidates"]):
+            lines.append("")
+            lines.append("### 提案コマンド（人間がコピペ実行・discoveryは実行しない）")
+            lines.append("")
+            for cand in result["candidates"]:
+                if "next_command" in cand:
+                    lines.append(cand["next_command"])
     lines.append("")
 
     lines.append("## Excluded（無言除外なし・全件理由付き）")
@@ -416,6 +457,15 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="ho-paths.md パス（HO シグナル拡充用・任意）",
     )
+    parser.add_argument(
+        "--emit-next-command",
+        action="store_true",
+        default=False,
+        help=(
+            "候補ごとに人間がコピペ実行できる提案コマンド文字列を出力に含める"
+            "（discovery自身は実行しない・read-only維持・既定false）"
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -425,7 +475,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     ho_signals = _load_ho_signals(args.ho_paths)
-    result = run_discovery(issues, args.label, ho_signals)
+    result = run_discovery(
+        issues, args.label, ho_signals, emit_next_command=args.emit_next_command
+    )
 
     if args.format == "json":
         print(format_json(result))
