@@ -285,12 +285,19 @@ class TestRealDataIntegration(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         payload = json.loads(result.stdout)
 
-        # 現行スキーマの実データは 'run' メタを一切持たないため、全件 legacy 扱い。
-        # 件数はハードコードせず、実データ件数を動的に数えて比較する
-        # (record 件数は将来の run 追加で変わりうるため)。
+        # 実データは 'run' メタ付き record（#780 Slice D 後半以降の dogfooding
+        # run）と、run メタを持たない旧形式 record が混在しうる（#749 実測時点で
+        # 26 件中 1 件が run メタ付きに移行済み）。件数はハードコードせず、
+        # legacy_count + run_count（+ invalid_run_meta_count、実測 0）が
+        # total_records に一致するという不変条件のみを検証する（brittle な
+        # 「全件 legacy」固定断定は将来の run 追加で必ず崩れるため撤去）。
         self.assertEqual(payload["total_records"], expected_total)
-        self.assertEqual(payload["legacy_count"], expected_total)
-        self.assertEqual(payload["run_count"], 0)
+        self.assertEqual(
+            payload["legacy_count"] + payload["run_count"] + payload.get("invalid_run_meta_count", 0),
+            expected_total,
+        )
+        self.assertGreaterEqual(payload["legacy_count"], 0)
+        self.assertGreaterEqual(payload["run_count"], 0)
 
 
 class TestInvalidRunId(unittest.TestCase):
