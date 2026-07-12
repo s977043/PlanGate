@@ -167,6 +167,88 @@ class TestEvaluateIssueExcludedHoRisk(unittest.TestCase):
         self.assertEqual(result["reason"], "ho-risk")
 
 
+class TestEvaluateIssueExcludedHoPluginToken(unittest.TestCase):
+    """#839: HO-plugin（plugin/plangate/**）語彙の事前判定（run-024 乖離是正）。
+
+    fail-closed 原則: 追加は除外方向のみ。突合不能（表記ゆれ等）は従来どおり
+    通過させ後段 arbiter に委ねる（偽陰性の境界も明示的にテストする）。
+    """
+
+    def test_837_like_body_without_slash_is_excluded_ho_risk(self):
+        # run-024 実測: #837 本文は「plugin 同梱側」「plugin bundled SKILL.md」
+        # とスラッシュ無しで言及し、旧語彙では no_ho_risk を通過していた。
+        issue = _issue(
+            837,
+            title="docs: ai-loop-cycle SKILL の run メタ記載と record 保存先誘導を改善",
+            body=(
+                "SKILL.md（plugin 同梱側の正本配置に従う）の入力 JSON 例に "
+                "run メタを追加する。plugin bundled SKILL.md も対象。"
+            ),
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "ho-risk")
+
+    def test_backtick_plugin_path_literal_is_excluded_ho_risk(self):
+        issue = _issue(
+            838,
+            title="docs 更新",
+            body="対象は `plugin/plangate/skills/ai-loop-cycle/SKILL.md` のみ。",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "ho-risk")
+
+    def test_bare_plugin_path_literal_is_excluded_ho_risk(self):
+        issue = _issue(
+            839,
+            title="docs 更新",
+            body="対象は plugin/plangate/skills/ai-loop-cycle/SKILL.md のみ。",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "ho-risk")
+
+    def test_uppercase_plugin_mention_is_excluded_ho_risk(self):
+        # evaluate_issue は NFKC 正規化 + 小文字化するため大文字表記も拾う。
+        issue = _issue(
+            840,
+            title="Update Plugin bundled docs",
+            body="Sync the PLUGIN/PLANGATE bundled resources description.",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "ho-risk")
+
+    def test_katakana_plugin_only_is_not_excluded_false_negative_boundary(self):
+        # 偽陰性の境界を文書化: カタカナ「プラグイン」のみ（ASCII plugin 無し）
+        # は除外しない = 従来どおり通過させ後段 arbiter に委ねる（fail-closed:
+        # discovery を Gate の代替にしない。除外方向にだけ語彙を追加する）。
+        issue = _issue(
+            841,
+            title="ドキュメントの誤字修正",
+            body="プラグインの説明文の誤字を 1 箇所直す。",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertTrue(result["candidate"])
+        self.assertTrue(result["reasons"]["no_ho_risk"])
+
+
 class TestEvaluateIssueExcludedNotLite(unittest.TestCase):
     def test_architecture_change_in_title_is_excluded(self):
         issue = _issue(
