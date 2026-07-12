@@ -45,7 +45,17 @@ class TestEvaluateIssueCandidate(unittest.TestCase):
             issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
         )
         self.assertTrue(result["candidate"])
-        self.assertEqual(result["recommended_next"], "propose-to-ai-loop-cycle")
+        self.assertEqual(
+            result["recommended_next"],
+            {
+                "action": "propose-to-ai-loop-cycle",
+                "entry_point": "docs/workflows/ai-loop/execution-runbook.md",
+                "next_step": (
+                    "human/orchestratorがissueを読み、通常のai-loop-cycle"
+                    "（W check→arbiter裁定）をこのissueに対して開始する"
+                ),
+            },
+        )
         self.assertEqual(
             result["reasons"],
             {
@@ -54,6 +64,49 @@ class TestEvaluateIssueCandidate(unittest.TestCase):
                 "is_lite": True,
                 "deps_resolved": True,
             },
+        )
+
+
+class TestRecommendedNextStructured(unittest.TestCase):
+    def test_recommended_next_has_three_keys(self):
+        issue = _issue(
+            101,
+            title="小さな修正",
+            body="1ファイルの軽微な修正",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertEqual(
+            set(result["recommended_next"].keys()),
+            {"action", "entry_point", "next_step"},
+        )
+        self.assertEqual(
+            result["recommended_next"]["action"], "propose-to-ai-loop-cycle"
+        )
+        self.assertEqual(
+            result["recommended_next"]["entry_point"],
+            "docs/workflows/ai-loop/execution-runbook.md",
+        )
+
+    def test_run_discovery_candidates_carry_structured_recommended_next(self):
+        issues = [
+            _issue(
+                102,
+                title="小さな修正",
+                body="1ファイルの軽微な修正",
+                labels=["ai-loop-auto"],
+            )
+        ]
+        result = discovery.run_discovery(
+            issues, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        cand = result["candidates"][0]
+        self.assertIsInstance(cand["recommended_next"], dict)
+        self.assertEqual(
+            set(cand["recommended_next"].keys()),
+            {"action", "entry_point", "next_step"},
         )
 
 
@@ -425,6 +478,175 @@ class TestReadOnlyInvariant(unittest.TestCase):
             ["git", "status", "--porcelain"], cwd=REPO_ROOT, text=True
         )
         self.assertEqual(before, after)
+
+
+class TestEmitNextCommand(unittest.TestCase):
+    def test_emit_next_command_flag_includes_proposal_string(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            issues_file = pathlib.Path(tmp) / "issues.json"
+            issues_file.write_text(
+                json.dumps(
+                    [
+                        _issue(
+                            123,
+                            title="小さな修正",
+                            body="1ファイルの軽微な修正",
+                            labels=["ai-loop-auto"],
+                        )
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--issues",
+                    str(issues_file),
+                    "--format",
+                    "md",
+                    "--emit-next-command",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("#123", result.stdout)
+            self.assertIn("ai-loop-cycle", result.stdout)
+
+    def test_without_flag_no_proposal_command_string(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            issues_file = pathlib.Path(tmp) / "issues.json"
+            issues_file.write_text(
+                json.dumps(
+                    [
+                        _issue(
+                            124,
+                            title="小さな修正",
+                            body="1ファイルの軽微な修正",
+                            labels=["ai-loop-auto"],
+                        )
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--issues",
+                    str(issues_file),
+                    "--format",
+                    "md",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertNotIn("candidate #124", result.stdout)
+
+    def test_emit_next_command_json_format_includes_field(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            issues_file = pathlib.Path(tmp) / "issues.json"
+            issues_file.write_text(
+                json.dumps(
+                    [
+                        _issue(
+                            125,
+                            title="小さな修正",
+                            body="1ファイルの軽微な修正",
+                            labels=["ai-loop-auto"],
+                        )
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--issues",
+                    str(issues_file),
+                    "--format",
+                    "json",
+                    "--emit-next-command",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0)
+            parsed = json.loads(result.stdout)
+            cand = parsed["candidates"][0]
+            self.assertIn("next_command", cand)
+            self.assertIn("#125", cand["next_command"])
+
+    def test_emit_next_command_json_format_absent_without_flag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            issues_file = pathlib.Path(tmp) / "issues.json"
+            issues_file.write_text(
+                json.dumps(
+                    [
+                        _issue(
+                            126,
+                            title="小さな修正",
+                            body="1ファイルの軽微な修正",
+                            labels=["ai-loop-auto"],
+                        )
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_PATH),
+                    "--issues",
+                    str(issues_file),
+                    "--format",
+                    "json",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0)
+            parsed = json.loads(result.stdout)
+            cand = parsed["candidates"][0]
+            self.assertNotIn("next_command", cand)
+
+
+class TestNoBypassSummaryLine(unittest.TestCase):
+    def test_md_summary_mentions_human_orchestrator_judgment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            issues_file = pathlib.Path(tmp) / "issues.json"
+            issues_file.write_text(
+                json.dumps([_issue(200, title="バグ修正", body="", labels=[])]),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT_PATH), "--issues", str(issues_file), "--format", "md"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("Human", result.stdout)
+            self.assertIn("bypass", result.stdout)
+
+    def test_json_summary_mentions_human_orchestrator_judgment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            issues_file = pathlib.Path(tmp) / "issues.json"
+            issues_file.write_text(
+                json.dumps([_issue(201, title="バグ修正", body="", labels=[])]),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT_PATH), "--issues", str(issues_file), "--format", "json"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0)
+            parsed = json.loads(result.stdout)
+            self.assertIn("no_bypass_notice", parsed["summary"])
+            self.assertIn("Human", parsed["summary"]["no_bypass_notice"])
 
 
 if __name__ == "__main__":
