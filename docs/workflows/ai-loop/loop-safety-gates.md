@@ -218,4 +218,5 @@ Gate 1〜4 のいずれかで停止した場合、以下の定型で報告する
 - [`adaptive-production-loop.md`](./adaptive-production-loop.md) — 1 サイクル contract（Goal/Evaluate/Stop/Memory/Schedule/Boundary）
 - [`arbiter-policy.md`](../../ai/ai-loop/arbiter-policy.md) — escalate 予算の正本
 - [`decision-table.md`](./decision-table.md) — terminal state・サーキットブレーカーの正本
+- [`stop-rollback.md`](./stop-rollback.md) — Gate 1〜5・対応ラウンド上限を「stop 条件」として横断集約し、AUTO_APPROVED 後の事後 reject 巻き戻し手順を扱う（EPIC #822 項目4。§6 と同じく本書は再定義しない）
 - issue [#728](https://github.com/s977043/plangate/issues/728) — 本書の起源

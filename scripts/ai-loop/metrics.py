@@ -229,6 +229,8 @@ def collect(runs_dir: Path) -> dict[str, Any]:
         else None
     )
 
+    hotl_health = _compute_hotl_health(decision_counts, grouped)
+
     return {
         "total_records": len(legacy_records)
         + len(invalid_meta_records)
@@ -247,6 +249,61 @@ def collect(runs_dir: Path) -> dict[str, Any]:
         "warnings": warnings,
         "skipped_count": len(skipped),
         "skipped": skipped,
+        "hotl_health": hotl_health,
+    }
+
+
+def _compute_hotl_health(
+    decision_counts: Counter[str],
+    grouped: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    """HOTL健全性指標（escalate_rate / human_intervention_rate / reversal）を算出する。
+
+    - escalate_rate: decision_counts の HUMAN_ESCALATED が全 decision に占める割合
+    - human_intervention_rate: HUMAN_ESCALATED + BLOCKED が全 decision に占める割合
+    - reversal: run 内で途中に非 AUTO_APPROVED があり、最終 round が
+      AUTO_APPROVED に至った run の割合（run_count=0 なら rate=None）
+    """
+    total_decisions = sum(decision_counts.values())
+    escalated = decision_counts.get("HUMAN_ESCALATED", 0)
+    blocked = decision_counts.get("BLOCKED", 0)
+    intervention = escalated + blocked
+
+    escalate_rate = {
+        "count": escalated,
+        "total": total_decisions,
+        "rate": (escalated / total_decisions if total_decisions > 0 else None),
+    }
+    human_intervention_rate = {
+        "count": intervention,
+        "total": total_decisions,
+        "rate": (intervention / total_decisions if total_decisions > 0 else None),
+    }
+
+    reversed_runs = 0
+    for rounds in grouped.values():
+        if len(rounds) < 2:
+            continue
+        final_decision = rounds[-1].get("decision")
+        if final_decision != "AUTO_APPROVED":
+            continue
+        had_non_auto_before = any(
+            r.get("decision") != "AUTO_APPROVED" for r in rounds[:-1]
+        )
+        if had_non_auto_before:
+            reversed_runs += 1
+
+    run_count = len(grouped)
+    reversal = {
+        "reversed_runs": reversed_runs,
+        "run_count": run_count,
+        "rate": (reversed_runs / run_count if run_count > 0 else None),
+    }
+
+    return {
+        "escalate_rate": escalate_rate,
+        "human_intervention_rate": human_intervention_rate,
+        "reversal": reversal,
     }
 
 
@@ -312,6 +369,36 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines.append(f"- skipped: {report['skipped_count']} 件")
     for item in report["skipped"]:
         lines.append(f"  - {item['file']}: {item['reason']}")
+
+    lines.append("")
+    lines.append("## HOTL健全性")
+    hotl = report["hotl_health"]
+
+    esc = hotl["escalate_rate"]
+    if esc["rate"] is not None:
+        lines.append(
+            f"- escalate rate: {esc['count']}/{esc['total']} ({esc['rate'] * 100:.1f}%)"
+        )
+    else:
+        lines.append("- escalate rate: N/A（decision 0 件のため算出不可）")
+
+    intervention = hotl["human_intervention_rate"]
+    if intervention["rate"] is not None:
+        lines.append(
+            f"- human intervention rate: {intervention['count']}/{intervention['total']}"
+            f" ({intervention['rate'] * 100:.1f}%)"
+        )
+    else:
+        lines.append("- human intervention rate: N/A（decision 0 件のため算出不可）")
+
+    reversal = hotl["reversal"]
+    if reversal["rate"] is not None:
+        lines.append(
+            f"- reversal rate: {reversal['reversed_runs']}/{reversal['run_count']}"
+            f" ({reversal['rate'] * 100:.1f}%)"
+        )
+    else:
+        lines.append("- reversal rate: N/A（run 0 件のため算出不可）")
 
     return "\n".join(lines)
 

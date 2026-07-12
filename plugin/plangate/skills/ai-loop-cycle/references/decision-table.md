@@ -299,3 +299,4 @@ on-the-loop 固有の「自律暴走」防止機構。
 - [`docs/workflows/ai-loop/lite-criteria.md`](./lite-criteria.md) — `lite` 軸の判定基準（可逆性要件含む）
 - [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) — WF との並立関係
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject を L4 学習へ還元する閉ループ（§3 で本ドキュメント §6 CB-1 と接続）
+- [`docs/workflows/ai-loop/stop-rollback.md`](./stop-rollback.md) — §6 CB-1〜3・§3 priority 0〜6 を横断し、Stop 条件と AUTO_APPROVED 後の事後 reject 巻き戻し手順を集約（EPIC #822 項目4。値・機構は本書を正本とし再定義しない）
