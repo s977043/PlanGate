@@ -206,3 +206,74 @@ Rule 1（Workflow は順序と完了条件だけを持つ。実装ノウハウ�
 - `.claude/rules/hybrid-architecture.md` Rule 1 — Workflow は順序と完了条件だけを持つ（判断2 の整合根拠）
 - issue [#780](https://github.com/s977043/plangate/issues/780) — 本書の起点（6段階ループ適合性の設計ドラフト）
 - issue [#782](https://github.com/s977043/plangate/issues/782) — 実走レポート（P1-1/P1-2 の入力元。計画品質ゲート・size_ok は本書スコープ外・slice B/C）
+
+---
+
+## 8. HOTL境界（EPIC #822）
+
+> 親: [#822](https://github.com/s977043/plangate/issues/822) EPIC（HITL→HOTL変革）。
+> 本節は「何が非ブロック化（HOTL化＝人間の事前承認なしで進む）し、何が
+> Human固定（HITL＝人間の事前承認必須）で残るか」を、直近セッションで実装
+> した機構（#813/#815/#817/#819/#820/#824/#826）を根拠に対応表として
+> 明文化する。**新しい判断基準を作るものではない**: §2 の充足度・§5 の
+> 判断1〜3、および `.claude/rules/responsibility-classes.md` /
+> `.claude/rules/orchestrator-mode.md` の既存正本をそのまま ai-loop 文脈へ
+> 索引付けするだけである（重複定義しない・正本は変更しない）。
+
+### 8.1 非ブロック化されている部分（HOTL・事前承認なしで自動進行）
+
+直近セッションで実装した以下は、人間の**事前**承認なしに自動で進む
+（§2 Verifier/Gate の充足度「○」/「△」の裏付けとなった実装）:
+
+| 段階 | 機構 | 実装PR |
+| --- | --- | --- |
+| HO境界の実行時解決 | ho-paths 実行時 parse・解決不能時は fail-closed | [#813](https://github.com/s977043/plangate/issues/813) |
+| plan品質チェック | priority 1.7（gates.c1/breakdown を auto-approve 必要条件に） | [#817](https://github.com/s977043/plangate/issues/817) |
+| record への run メタ刻印 | run_id/round_index 等を provenance に刻印 | [#815](https://github.com/s977043/plangate/issues/815) |
+| gates 生値の provenance 刻印 | plan-quality escalate の監査可能化 | [#819](https://github.com/s977043/plangate/issues/819) |
+| size機械検証 | priority 1.9（size_ok 申告と実測 changed_files の突合） | [#820](https://github.com/s977043/plangate/issues/820) |
+| W check（Model A/B 独立裁定） | §2 Verifier 対応資産（既存・[`flow-detect.md`](./flow-detect.md) §3） | 既存 |
+| arbiter裁定 | AUTO_APPROVED/HUMAN_ESCALATED/BLOCKED（§2 Gate 対応資産） | 既存 |
+| candidate提示（discovery） | D-2 read-only 候補提示 / D-3 recommended_next 構造化 | [#824](https://github.com/s977043/plangate/issues/824) / [#826](https://github.com/s977043/plangate/issues/826) |
+
+**条件**: 上記いずれも lite 4 軸（[`lite-criteria.md`](./lite-criteria.md)）を
+満たし・HO 非接触・plan 品質ゲート通過の場合のみ `AUTO_APPROVED` に到達し
+うる。1 つでも欠ければ `HUMAN_ESCALATED` / `BLOCKED`（§2 Gate alias・
+[`decision-table.md`](./decision-table.md) 参照）に落ちる。
+
+### 8.2 Human固定（HITL・事前承認が必須のまま）で残る部分
+
+以下は本セッションの変更で**一切緩和されていない**。判定主体・強制根拠は
+既存正本のまま（本節は ai-loop 文脈での索引にとどめ、正本を再定義しない）:
+
+| 項目 | 固定理由 | 正本 |
+| --- | --- | --- |
+| merge | AI は merge しない（sockpuppet 禁止と一貫。Human-owned 固定） | [`responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md) |
+| HO 接触 | touches-HO は無条件 escalate（priority 1・絶対条件） | [`ho-paths.md`](../../ai/ai-loop/ho-paths.md) |
+| escalate の自己解決 | AI 自己完結禁止（人間しか担えない操作を AI-owned にしない） | [`responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md) |
+| 重大/critical リスク | AC-8 安全側で Human 確定（判定不能/未充足なら Standard・同期） | [`mode-classification.md`](../../../.claude/rules/mode-classification.md) |
+| discovery の着手決定 | D-2/D-3 は candidate 提示のみ・exec は Human/orchestrator が起動 | 本書 §2 Triage gap・[`unknown-discovery.md`](./unknown-discovery.md) |
+| C-3/C-4 ゲートの判定主体 | APPROVE/REQUEST CHANGES/REJECT の決定権は人間のまま | [`working-context.md`](../../../.claude/rules/working-context.md) |
+| 親 PBI 分解確定・子 exec 開始・親完了宣言・スコープ拡大（AS-1〜AS-5） | AI 自己完結禁止条項（親子構造を伴う場合の Gate） | [`orchestrator-mode.md`](../../../.claude/rules/orchestrator-mode.md) |
+
+### 8.3 事後監査による安全性担保（EPIC #822 リスク対応）
+
+`AUTO_APPROVED` の経路はすべて以下で事後監査可能（record 保存・
+§3 Trust Ledger 索引の「裁定イベント」「承認根拠」系列と対応）:
+
+- run_id / round_index / task_id（[#815](https://github.com/s977043/plangate/issues/815)）
+- gates.c1 / breakdown の生値（[#819](https://github.com/s977043/plangate/issues/819)）
+- size_ok 申告 vs 実測 changed_files 突合（[#820](https://github.com/s977043/plangate/issues/820)）
+- metrics.py での集計可能性（first-pass rate 等・[#812](https://github.com/s977043/plangate/issues/812)）
+
+事後監査であって事前承認の代替ではない点に注意する: 8.1 の非ブロック化は
+「実行後に検証可能」であることを条件に許容されており、8.2 の Human 固定
+項目を事後監査で置き換えるものではない。
+
+### 8.4 本節が主張しないこと
+
+- 「完全自律」「HITL 全廃」ではない。8.2 の Human 固定項目は本セッションの
+  範囲で一切変更されていない
+- 本節はこのセッションで実装済みの機構の範囲の事実記述にとどまる。将来の
+  拡張（discovery の着手決定自動化等）は明示的に対象外（§2 Triage gap /
+  §5 判断1「V2 候補」参照）
