@@ -2425,23 +2425,11 @@ class TestHOTLInvariants(unittest.TestCase):
 
     def _best_case_input(self, **overrides):
         """AUTO_APPROVED に到達しうる最良値（lite 4 軸 true・gates pass・
-        verdict approve-approve・scope 内・class=no-merge）を明示的に構成する。
-        `_base_input()` の既定値と同義だが、本クラスでは意図を自己文書化
-        するために明示的に列挙する。"""
-        base_kwargs = {
-            "lite": {"size_ok": True, "no_new_design": True, "follows_pattern": True, "reversible": True},
-            "class": "no-merge",
-            "verdicts": {
-                "model_a": "approve",
-                "model_b": "approve",
-                "reject_category": None,
-                "model_c": None,
-                "model_d": None,
-            },
-            "gates": {"c1": "PASS", "breakdown": "pass"},
-        }
-        base_kwargs.update(overrides)
-        return _base_input(**base_kwargs)
+        verdict approve-approve・scope 内・class=no-merge）は `_base_input()`
+        の既定値そのもの。値をハードコード複製すると `_base_input()` 側の
+        変更に追従できず不整合ドリフトを招くため、`_base_input()` の戻り値
+        をそのまま最良値として使い、必要な差分のみ overrides で上書きする。"""
+        return _base_input(**overrides)
 
     def test_invariant1_class_merge_escalates_despite_best_case_background(self):
         """不変条件1: class=merge は lite 全軸 true・gates pass・
