@@ -33,6 +33,7 @@
 - 役割分担: `docs/ai/tool-roles.md`
 - 作業コンテキストプロトコル（Progressive Disclosure）: `.claude/rules/working-context.md`
 - ワークフロー: `docs/ai-driven-development.md` / Orchestrator: `docs/orchestrator-mode.md`
+- サブエージェント委譲プロトコル: `docs/ai/subagent-delegation/README.md`（派遣プロンプト必須8要素 / OUTCOME契約 / 行動規範。既存の C-3/C-4 ゲートおよび orchestrator-mode の Gate 不変条件は変更しない）
 
 ## 出力
 

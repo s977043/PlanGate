@@ -9,6 +9,7 @@
 - 運用ルール: `.claude/rules/`（hybrid-architecture / orchestrator-mode 含む）
 - 共有スキル: `.agents/skills/`（Codex CLI と共用）
 - ワークフロー詳細: [`docs/ai-driven-development.md`](docs/ai-driven-development.md) / Orchestrator: [`docs/orchestrator-mode.md`](docs/orchestrator-mode.md)
+- サブエージェント委譲プロトコル: [`docs/ai/subagent-delegation/README.md`](docs/ai/subagent-delegation/README.md)（派遣プロンプト必須8要素 / OUTCOME契約 / 行動規範 / PlanGateフロー接続。既存の C-3/C-4 ゲートおよび orchestrator-mode の Gate 不変条件は変更しない）
 
 ## v8.16.0 ai-loop 実運用（dogfooding）・Plugin 同梱配布（最新リリース機能）
 
