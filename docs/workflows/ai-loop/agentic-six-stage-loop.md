@@ -44,11 +44,11 @@
 | 段階 | 現行 ai-loop の対応資産（ファイル:節 / 機構名） | 充足 | gap |
 | --- | --- | :-: | --- |
 | **Triage**（task 発見/受付/risk 分類） | `LoopSpec.trigger.type`（manual/issue_created/pr_opened/scheduled・[`loopspec.md`](./loopspec.md) §2）／[`loop-safety-gates.md`](./loop-safety-gates.md)（非停止プロンプト事前拒否・[`flow-detect.md`](./flow-detect.md) §2 事前ゲート）／boundary・lite・class 判定（[`flow-detect.md`](./flow-detect.md) §2）／[`lite-criteria.md`](./lite-criteria.md)／intent-classifier 共通 skill 参照（[`00_concept.md`](./00_concept.md) §6） | △ | **「タスク自体を発見・選別する層」が無い**。現状は「人が持ち込んだ 1 変更」を受ける intake のみ。issue/PR キューを走査して着手対象を選ぶ discovery が未定義（issue の判定と一致） |
-| **Conductor**（分解/役割割当/進行制御） | Scheduling 判断表（[`execution-runbook.md`](./execution-runbook.md) §2-(7) / [`adaptive-production-loop.md`](./adaptive-production-loop.md) §5）／round 上限 3（[`execution-runbook.md`](./execution-runbook.md) §2-(7) が正本値）・escalate 予算（`arbiter-policy.md` §7）／retry/stop/block 選択 | △ | **タスク分解（step 化）と役割割当が未定義**。ai-loop は分解を PlanGate WF 側に委ねる設計（[`00_concept.md`](./00_concept.md) §2「工程の実体は共通利用」）のため、conductor 責務が「PR 後 Scheduling」に偏在。着手前の分解制御が空白 |
+| **Conductor**（分解/役割割当/進行制御） | Scheduling 判断表（[`execution-runbook.md`](./execution-runbook.md) §2-(7) / [`adaptive-production-loop.md`](./adaptive-production-loop.md) §5）／round 上限 3（[`execution-runbook.md`](./execution-runbook.md) §2-(7) が正本値）・escalate 予算（`arbiter-policy.md` §7）／retry/stop/block 選択／breakdown-gate スキルを Step 0 として接続し `gates.breakdown == "pass"`（split-suggested 等は escalate）を priority 1.7 の一部に組込み（[`decision-table.md`](./decision-table.md) §「priority 0/1.5/1.7/1.9」・#817） | △ | **着手前の粒度判定（intake）は breakdown-gate 接続で部分解消**（#817）。ただし**タスク分解（step 化）と役割割当そのものは依然未定義**。ai-loop は分解実体を PlanGate WF 側に委ねる設計（[`00_concept.md`](./00_concept.md) §2「工程の実体は共通利用」）のままで、conductor 責務は「PR 後 Scheduling + 着手前 breakdown gate 判定」に留まり、step 化・役割割当は空白のまま |
 | **Worker**（生成/実装/PR 準備） | `LoopSpec.actors.maker`（[`loopspec.md`](./loopspec.md) §2）／exec（[`execution-runbook.md`](./execution-runbook.md) §2-(5) exit code 分岐後の実装〜(5b) grader）／ai-loop-cycle SKILL の maker 委託／PR 作成 | △ | **worker として独立の role 定義が無い**。maker は「checker と異なる主体」制約（I-2）で識別されるだけで、責務記述が薄い |
-| **Verifier**（C-1/C-2/W/CI/grader） | C-1・C-2 共通踏襲（[`00_concept.md`](./00_concept.md) §3.2）／W チェック Model A/B/C/D（[`flow-detect.md`](./flow-detect.md) §3 / `arbiter-policy.md` §4）／rubric grader Step 5.5（`.claude/skills/ai-loop-cycle/SKILL.md` Step 5.5）／CI・AI レビュー第2段 detect（[`00_concept.md`](./00_concept.md) §3.3） | ○ | ほぼ充足。ただし **C-1 が「loop の前提」であって loop 内ステップとして義務化されていない**（#782 P1-1 と同根。計画品質ゲートの hard gate 化は §5「残る未決事項」参照）。code-run 用 rubric variant 欠落（#782 P2） |
-| **Gate**（判定/terminal state） | `arbiter.py` 3 値（AUTO_APPROVED/HUMAN_ESCALATED/BLOCKED・exit 0/2/3）／`MERGE_READY`（DoD 状態・[`00_concept.md`](./00_concept.md) §3.3）／C-4 wait（Human-owned 固定）／CB-1/2/3（[`decision-table.md`](./decision-table.md) §6） | ○ | ほぼ充足。terminal state と DoD 状態の区別は `design-philosophy.md` §5 語彙集で明示済み。命名 alias を本表に載せるだけ |
-| **Trust Ledger**（記録/学習） | decision record JSON（provenance・[`decision-table.md`](./decision-table.md) §5）／摩擦台帳 `run-001-frictions.md`（F-1〜F-41）／[`review-feedback-loop.md`](./review-feedback-loop.md)（R-NNN 還元・suppression S-1/S-2）／CB-1 事後 reject | △ | **単一正本・保存対象・更新条件・成功/失敗メトリクスが未統合**（§3 で定義） |
+| **Verifier**（C-1/C-2/W/CI/grader） | C-1・C-2 共通踏襲（[`00_concept.md`](./00_concept.md) §3.2）／W チェック Model A/B/C/D（[`flow-detect.md`](./flow-detect.md) §3 / `arbiter-policy.md` §4）／rubric grader Step 5.5（`.claude/skills/ai-loop-cycle/SKILL.md` Step 5.5）／CI・AI レビュー第2段 detect（[`00_concept.md`](./00_concept.md) §3.3）／plan 品質ゲート priority 1.7（`gates.c1 == "PASS"` を auto-approve の必要条件化・[`decision-table.md`](./decision-table.md) §「priority 0/1.5/1.7/1.9」・#817） | ○ | **C-1 相当の loop 内義務化は解消済み（#817）**: `gates.c1 == "PASS"` かつ `gates.breakdown == "pass"`（両方厳密一致）を満たさない場合は priority 1.7 で human escalate に倒れるため、C-1 は「loop の前提」から「auto-approve 経路の hard gate」へ格上げされた。ただし **C-2 の loop 内義務化は未対応**、**code-run 用 rubric variant（#782 P2）も未対応**のまま残る |
+| **Gate**（判定/terminal state） | `arbiter.py` 3 値（AUTO_APPROVED/HUMAN_ESCALATED/BLOCKED・exit 0/2/3）／`MERGE_READY`（DoD 状態・[`00_concept.md`](./00_concept.md) §3.3）／C-4 wait（Human-owned 固定）／CB-1/2/3（[`decision-table.md`](./decision-table.md) §6）／fail-closed（ho-paths 未解決時の全件 escalate）+ allowed_paths 判定 + パス正規化を機械層に配線（[`decision-table.md`](./decision-table.md) §「priority 0/1.5/1.7/1.9」・#813） | ○ | ほぼ充足。terminal state と DoD 状態の区別は `design-philosophy.md` §5 語彙集で明示済み。**fail-closed 配線（#813）で priority 0 の安全側判定が機械層に落ち、充足度の裏付けがさらに強化**された。命名 alias を本表に載せるだけ |
+| **Trust Ledger**（記録/学習） | decision record JSON（provenance・[`decision-table.md`](./decision-table.md) §5）／摩擦台帳 `run-001-frictions.md`（F-1〜F-41）／[`review-feedback-loop.md`](./review-feedback-loop.md)（R-NNN 還元・suppression S-1/S-2）／CB-1 事後 reject／decision record 集計 `metrics.py`（#812）／arbiter が record に run メタ（run_id/round_index/task_id/repair_action）を刻印（#815）／`gates`（c1/breakdown）を provenance に刻み plan-quality escalate を監査可能化（#819）／`size_ok` を changed_files 実数で機械検証（#820） | △ | **メトリクス統合基盤は前進（#812/#815/#819/#820）**: first-pass rate 等の成功/失敗シグナルを算出する集計ロジック（metrics.py）と、その入力となる run メタ・gates・size 検証結果の provenance 刻印が揃った。ただし**単一正本への完全統合・成功/失敗メトリクスの定常運用（レポート化）は未了**のため △ を維持 |
 
 ### 2.1 用語対応（alias）
 
@@ -170,8 +170,12 @@ Rule 1（Workflow は順序と完了条件だけを持つ。実装ノウハウ�
 判断せず、後続 slice（B/C）または別途の Human 判断に委ねる:
 
 - **計画品質ゲートの hard gate 化度合い**（#782 P1-1 対応・slice B 相当）:
-  `insufficient → 差し戻し` を advisory のまま維持するか hard gate 化するかの
-  線引きは Human 確定事項。本書は既存 Verifier の gap 記述（§2）に留める
+  **#817 で plan 品質ゲート（priority 1.7・`gates.c1 == "PASS"` かつ
+  `gates.breakdown == "pass"` を auto-approve の必要条件）として一部
+  hard gate 化を実装済み**（§2 Verifier 行と整合）。C-1 相当は「loop の
+  前提」から auto-approve 経路の hard gate へ格上げされた。ただし
+  **C-2 の loop 内義務化・code-run 用 rubric variant（#782 P2）は未決のまま
+  残る**。残りの線引き（C-2 hard gate 化の是非等）は引き続き Human 確定事項
 - **size_ok のしきい値**（#782 P1-2 対応・slice C 相当）: `size_ok` を
   git 由来の機械算出 blast-radius boolean へ置換する場合の具体しきい値は
   policy（Human-owned）であり、本書では定義しない
