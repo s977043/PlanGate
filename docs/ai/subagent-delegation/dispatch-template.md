@@ -78,6 +78,7 @@
 | 触ってはいけないファイル・ディレクトリ・repo | 「`.claude/rules/*.md` / `.claude/settings*.json` 等の HO パスは Write/Edit 禁止（作成のみ許可、適用は人間）」 |
 | 稼働中プロセス停止禁止                       | 「他セッションが起動しているプロセス・サーバーを `kill` しない」                                               |
 | 削除・外部投稿・破壊的操作                   | 「`git push` / PR 作成 / issue 起票 / ファイル削除は事前承認なしに行わない」                                   |
+| EH-3（`check-plan-hash.sh`）にブロックされた場合 | 「Edit ゲートに拒否されたら `PLANGATE_SKIP_REASON` を設定して再実行する正規経路を使う（`docs/working/_audit/skip-decision-log.jsonl` に記録される）。Bash 経由の直接書き込みでゲートを迂回しない」 |
 | ソフト上限                                   | 「Nステップ（目安 15）または概算 Mトークン相当で一旦中断し、進捗を報告する」                                   |
 
 ### 要素7: 出力形式
