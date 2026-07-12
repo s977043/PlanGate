@@ -47,6 +47,7 @@ import argparse
 import json
 import re
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -72,6 +73,9 @@ DEFAULT_HO_SIGNALS: tuple[str, ...] = (
 )
 
 # 大規模語（lite 帯を外れるシグナル）。
+# 日本語語彙は既存を維持し、英語圏 issue がすり抜けないよう英語語彙を追加する
+# （false-positive 修正: Refactor entire auth module / large migration...
+# rewriting architecture 等が候補に混入していた実測に基づく）。
 LARGE_SCALE_SIGNALS: tuple[str, ...] = (
     "アーキ",
     "横断",
@@ -81,14 +85,62 @@ LARGE_SCALE_SIGNALS: tuple[str, ...] = (
     "破壊的変更",
     "全面書き換え",
     "大規模",
+    "refactor",
+    "rewrite",
+    "migration",
+    "migrate",
+    "architecture",
+    "architectural",
+    "cross-cutting",
+    "large-scale",
+    "overhaul",
+    "redesign",
 )
 
-# 未解決依存シグナル。
+# 未解決依存シグナル（直接一致で除外する固定フレーズ）。
+# 「waiting on #55 / #90 の完了を待って」等の言い回しがすり抜けていた実測に
+# 基づき追加（false-positive 修正）。
 DEPENDENCY_SIGNALS: tuple[str, ...] = (
     "blocked",
+    "block",
     "depends on #",
     "後続",
+    "waiting on",
+    "wait for",
+    "待って",
+    "待ち",
+    "保留",
+    "未完了",
+    "pending #",
 )
+
+# #数字 と共存する場合にのみ依存ありと判定する語幹（over-exclusion回避:
+# #数字単独では依存判定しない。DEPENDENCY_SIGNALS の固定フレーズより広い
+# 語幹をここに限定し、#数字との共起を条件とすることで誤検出を抑える）。
+DEPENDENCY_ISSUE_NUMBER_STEMS: tuple[str, ...] = (
+    "waiting",
+    "wait",
+    "depends",
+    "blocked",
+    "block",
+    "待",
+    "保留",
+    "後続",
+    "pending",
+)
+
+_ISSUE_NUMBER_RE = re.compile(r"#\d+")
+
+
+def _has_dependency_with_issue_number(text: str) -> bool:
+    """text 内に #数字 と依存語幹が共存する場合に True を返す。
+
+    #数字単独（依存語なし）は False のまま（over-exclusion回避 / AC-8 と対）。
+    """
+    if not _ISSUE_NUMBER_RE.search(text):
+        return False
+    return any(stem in text for stem in DEPENDENCY_ISSUE_NUMBER_STEMS)
+
 
 _HO_PATH_CELL_RE = re.compile(r"`([^`]+)`")
 
@@ -179,7 +231,10 @@ def evaluate_issue(
         if isinstance(entry, (str, dict))
     }
 
-    text = f"{title_str}\n{body_str}".lower()
+    # 全角文字（全角英字・全角記号等）を NFKC で正規化してから小文字化する。
+    # 正規化前は「ｓｃｒｉｐｔｓ／ｈｏｏｋｓ」等の全角表記が半角シグナルに
+    # マッチせず no_ho_risk=true の false-positive になっていた（fix 3, minor）。
+    text = unicodedata.normalize("NFKC", f"{title_str}\n{body_str}").lower()
 
     reasons: dict[str, bool] = {}
 
@@ -217,6 +272,8 @@ def evaluate_issue(
         }
 
     dep_hit = _contains_any(text, DEPENDENCY_SIGNALS)
+    if dep_hit is None and _has_dependency_with_issue_number(text):
+        dep_hit = "issue-number+dependency-word"
     reasons["deps_resolved"] = dep_hit is None
     if dep_hit is not None:
         return {

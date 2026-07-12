@@ -97,6 +97,22 @@ class TestEvaluateIssueExcludedHoRisk(unittest.TestCase):
         self.assertFalse(result["candidate"])
         self.assertEqual(result["reason"], "ho-risk")
 
+    def test_fullwidth_ho_signal_is_normalized_and_excluded(self):
+        # 全角英字 + 全角スラッシュで書かれた scripts/hooks 相当語。
+        # NFKC 正規化前は半角シグナルにマッチせず false-positive で candidate 化していた。
+        fullwidth_signal = "ｓｃｒｉｐｔｓ／ｈｏｏｋｓ"
+        issue = _issue(
+            107,
+            title="設定変更",
+            body=f"{fullwidth_signal} 配下を変更する",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "ho-risk")
+
 
 class TestEvaluateIssueExcludedNotLite(unittest.TestCase):
     def test_architecture_change_in_title_is_excluded(self):
@@ -104,6 +120,32 @@ class TestEvaluateIssueExcludedNotLite(unittest.TestCase):
             6,
             title="アーキテクチャ変更を実施する",
             body="全体構造を見直す",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "not-lite")
+
+    def test_english_refactor_entire_module_is_excluded(self):
+        issue = _issue(
+            100,
+            title="Refactor entire auth module",
+            body="Clean up the whole authentication layer.",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "not-lite")
+
+    def test_english_large_migration_rewriting_architecture_is_excluded(self):
+        issue = _issue(
+            101,
+            title="Data store change",
+            body="This is a large migration effort rewriting architecture end to end.",
             labels=["ai-loop-auto"],
         )
         result = discovery.evaluate_issue(
@@ -134,6 +176,72 @@ class TestEvaluateIssueExcludedDependency(unittest.TestCase):
         )
         self.assertFalse(result["candidate"])
         self.assertEqual(result["reason"], "dependency")
+
+    def test_waiting_on_issue_number_is_excluded_dependency(self):
+        issue = _issue(
+            102,
+            title="機能追加",
+            body="waiting on #55 の完了を待って",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "dependency")
+
+    def test_matte_word_with_issue_number_is_excluded_dependency(self):
+        issue = _issue(
+            103,
+            title="機能追加",
+            body="#90 の完了を待って着手する",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "dependency")
+
+    def test_pending_hash_is_excluded_dependency(self):
+        issue = _issue(
+            104,
+            title="機能追加",
+            body="pending #77 の対応待ち",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "dependency")
+
+    def test_block_word_case_insensitive_is_excluded_dependency(self):
+        issue = _issue(
+            105,
+            title="機能追加",
+            body="BLOCK on other team's response",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertFalse(result["candidate"])
+        self.assertEqual(result["reason"], "dependency")
+
+    def test_standalone_issue_number_without_dependency_word_is_not_excluded_as_dependency(self):
+        # over-exclusion回避: #数字単独（依存語なし）は dependency 理由で除外しない
+        issue = _issue(
+            106,
+            title="小さな修正",
+            body="Related to #42 but this is independent 1ファイルの軽微な修正",
+            labels=["ai-loop-auto"],
+        )
+        result = discovery.evaluate_issue(
+            issue, "ai-loop-auto", discovery.DEFAULT_HO_SIGNALS
+        )
+        self.assertTrue(result["candidate"])
+        self.assertTrue(result["reasons"]["deps_resolved"])
 
 
 class TestRunDiscoveryZeroCandidates(unittest.TestCase):
