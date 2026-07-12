@@ -1529,6 +1529,22 @@ class RunMetaValidationTests(unittest.TestCase):
         with self.assertRaises(arbiter.InputError):
             arbiter.validate_input(data)
 
+    def test_cost_cap_zero_raises(self):
+        """cost_cap=0 は「初回 round から即 escalate」となり無意味な予算のため拒否する
+        （gemini review 指摘反映）。"""
+        data = _base_input(
+            run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780", "cost_cap": 0}
+        )
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
+    def test_cost_cap_negative_raises(self):
+        data = _base_input(
+            run={"run_id": "run-001", "round_index": 1, "task_id": "TASK-0780", "cost_cap": -1}
+        )
+        with self.assertRaises(arbiter.InputError):
+            arbiter.validate_input(data)
+
 
 class CostCapArbitrationTests(unittest.TestCase):
     """#749 C案(2)層: priority 1.95（run.cost_cap 超過 → human escalate）の裁定経路テスト。

@@ -619,10 +619,13 @@ def validate_input(data: Any) -> dict[str, Any]:
         # （ユーザー確定）。未宣言（キー欠落・None）なら「予算なし」＝従来どおり
         # 判定に一切関与しない（additive）。宣言する場合は bool を除外した
         # 厳密 int のみ許容（round_index と同型のバリデーション規約）。
+        # 0 / 負値は「初回 round から即 escalate」という無意味な予算のため
+        # 不正値として拒否する（gemini review 指摘反映）。
         if "cost_cap" in run and run.get("cost_cap") is not None:
+            cost_cap_value = run.get("cost_cap")
             _require(
-                type(run.get("cost_cap")) is int,
-                "run.cost_cap は int である必要があります（bool 不可・省略可）",
+                type(cost_cap_value) is int and cost_cap_value >= 1,
+                "run.cost_cap は 1 以上の int である必要があります（bool 不可）",
             )
 
     return data
