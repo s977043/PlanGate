@@ -241,7 +241,7 @@ reflog 期限切れ後の `git gc` により対象コミットが祖先関係か
   経ている）なら close の対象ではなく、revert PR の下書き作成に切り替える（§3.1 の帰結どおり、
   この revert PR の merge は通常の C-4 を経る。特別扱いしない）
 - **確認対象 PR の曖昧さ解消（major 指摘 F8 反映）**: 「対象 PR」は元 PR か revert PR かで
-  確認事項が異なるため、Post-flight（§3.7 補足）では以下の 2 項目に分割する:
+  確認事項が異なるため、監査ログ記録（Step 4・§3.7）では以下の 2 項目に分割する:
   - (a) revert PR を起票した場合、そのレビュー・merge の状態
   - (b) 元 PR が未 merge 時点で close された場合は、その close 状態
 - **機械化可否**: PR close / revert PR 下書き作成のコマンド実行自体は機械化可能だが、
@@ -311,7 +311,7 @@ reflog 期限切れ後の `git gc` により対象コミットが祖先関係か
   されていないかを `git merge-base --is-ancestor <reject対象sha> <後続runのtarget_sha>` で
   機械チェックできる（git オブジェクトが到達可能な間のみ）
 - **既知の限界（過大な自動化をしない理由）**:
-  - provenance record には `changed_files` が刻まれない（`arbiter.py:622-716` の
+  - provenance record には `changed_files` が刻まれない（`arbiter.py:622-710` の
     `build_provenance()` にこのキーは存在しない。実測確認済み）。そのため「ファイル単位の依存」
     までは機械検出できず、**コミット祖先関係の検出に留まる**
   - `run_id`/`round_index` を欠く旧 25 record（Run-001〜021）は run 横断の紐付けが機械的に
