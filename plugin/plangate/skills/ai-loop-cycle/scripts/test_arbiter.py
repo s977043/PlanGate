@@ -141,8 +141,12 @@ class BoundaryCheckTests(unittest.TestCase):
         self.assertEqual(boundary, "touches-HO")
 
     def test_plugin_plangate(self):
-        boundary, _ = arbiter.boundary_check(["plugin/plangate/index.js"])
-        self.assertEqual(boundary, "touches-HO")
+        # #842 B案: plugin/plangate/** は HO 対象外（ho-paths.md から HO-plugin を
+        # 削除）。正本 .claude/** 等は EH-3 で保護済みであり、派生成果物の整合は
+        # CI-owned（sync-plugin-plangate.yml の drift 検出 → 同期 PR → C-4）に一本化。
+        boundary, matched = arbiter.boundary_check(["plugin/plangate/index.js"])
+        self.assertEqual(boundary, "clean")
+        self.assertEqual(matched, [])
 
     def test_clean_path(self):
         boundary, matched = arbiter.boundary_check(["scripts/ai-loop/arbiter.py"])
@@ -161,7 +165,7 @@ class BoundaryCheckTests(unittest.TestCase):
         content = HO_PATHS_MD.read_text(encoding="utf-8")
         patterns, source, _searched = arbiter.resolve_ho_patterns()
         self.assertIsNotNone(source, "ho-paths.md の実行時解決に失敗しました")
-        self.assertGreaterEqual(len(patterns), 18, f"パース件数が想定を下回ります: {len(patterns)}")
+        self.assertGreaterEqual(len(patterns), 17, f"パース件数が想定を下回ります: {len(patterns)}")
         missing = [pattern for pattern, _classification in patterns if pattern not in content]
         self.assertEqual(
             missing,
@@ -1387,7 +1391,7 @@ class GeminiSecurityHardeningTests(unittest.TestCase):
             (["docs/ai/ai-loop/ho-paths.md"], "touches-HO"),
             (["docs/ai/ai-loop/concept.md"], "clean"),
             (["docs/workflows/ai-loop/decision-table.md"], "clean"),
-            (["plugin/plangate/index.js"], "touches-HO"),
+            (["plugin/plangate/index.js"], "clean"),  # #842 B案: HO 対象外
         ]
         for changed, expected in cases:
             with self.subTest(changed=changed):
@@ -2130,7 +2134,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "HUMAN_ESCALATED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": False,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2156,7 +2160,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "HUMAN_ESCALATED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2182,7 +2186,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "HUMAN_ESCALATED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": False,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2205,7 +2209,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "HUMAN_ESCALATED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2230,7 +2234,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "BLOCKED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2258,7 +2262,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "BLOCKED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2284,7 +2288,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "AUTO_APPROVED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2310,7 +2314,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "HUMAN_ESCALATED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2344,7 +2348,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "HUMAN_ESCALATED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2380,7 +2384,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "HUMAN_ESCALATED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2417,7 +2421,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "AUTO_APPROVED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2455,7 +2459,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "BLOCKED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2493,7 +2497,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "HUMAN_ESCALATED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",
@@ -2526,7 +2530,7 @@ class ArbitrateCharacterizationTests(unittest.TestCase):
                 "decision": "AUTO_APPROVED",
                 "gates": {"breakdown": "pass", "c1": "PASS"},
                 "ho_paths_source": self._NORMALIZED_HO_SOURCE,
-                "ho_pattern_count": 18,
+                "ho_pattern_count": 17,
                 "issued_by": "arbiter-v0.1",
                 "lite_check": True,
                 "policy_ref": "auto-approve-lite-clean@v4",

@@ -9,3 +9,6 @@
 {"ts":"2026-07-13T02:11:28Z","phase":"C-3","decision":"APPROVED","rationale":"Human ワンアクション（bin/plangate approve・L1-L4 presence検証）。plan_hash=sha256:d694ddc8...、validate 全PASS","actor":"human"}
 {"ts":"2026-07-13","phase":"H-2","decision":"Human が HO patch 2 件を適用（commit bdbc58e）","rationale":"ho-paths.md HO-plugin 3箇所削除+注記 / sync yml trigger に docs/ai/ai-loop/** と scripts/ai-loop/** 追加","actor":"human"}
 {"ts":"2026-07-13","phase":"T-4","decision":"H-2 適用検証 PASS","rationale":"HO-plugin 残存 0・yml trigger 2行追加を実測","actor":"agent"}
+{"ts":"2026-07-13","phase":"exec","decision":"test_arbiter.py の追従修正を本 PR に含める（Human 承認: AskUserQuestion で「test_arbiter.py のみ追従」を選択）","rationale":"arbiter.py は ho-paths.md を実行時パース。HO-plugin 削除で 15 箇所が FAIL。B案の必然的帰結・新規設計判断なし。discovery.py の plugin 語彙は過剰除外だが安全側のため現状維持","actor":"human+agent"}
+{"ts":"2026-07-13","phase":"exec","decision":"plugin bundled 同期（S6）を本 PR で前倒し実施","rationale":"CI の TA-30 TC-08 が plugin bundled の test_arbiter.py を実行するため、同期なしでは PR-1 が green にならない","actor":"agent"}
+{"ts":"2026-07-13","phase":"V-1","decision":"CLI テスト 404 passed / 0 failed","rationale":"TA-42 TC-04 AC-02 は 1 回目のみ FAIL・2 回目 PASS・単体では rc=1 正常 → テスト間状態汚染の flaky（本 PR 無関係・CI では PASS）","actor":"agent"}

@@ -29,6 +29,10 @@ created_by: orchestrator
 
 - C-2 R-001 反映で「提案差分 2」（sync-plugin-plangate.yml trigger 拡張）を追加。AC-4 の CI-owned 一本化は trigger 拡張適用後に成立
 - C-2 R-002 反映で PR-1 / PR-2 の 2 段構成を確定
+- **スコープ追加 1（Human 承認済み・2026-07-13）**: `scripts/ai-loop/test_arbiter.py` の追従修正。arbiter.py は ho-paths.md を実行時パースするため、HO-plugin 削除で `plugin/plangate/index.js → touches-HO` を期待する 2 テスト + `ho_pattern_count: 18` の 15 箇所が FAIL。B案の必然的帰結であり新規設計判断を含まないため、AskUserQuestion で方針確認の上（「test_arbiter.py のみ追従」を選択）本 PR に含めた。plan.md は書き換えていない（plan_hash 保持・EH-3 整合）
+  - 見送り: `scripts/ai-loop/discovery.py` の `"plugin"` ho-risk 語彙（#841）。CI は落ちず、過剰除外だが安全側のため現状維持（別 issue 化候補）
+- **スコープ追加 2（S6 の前倒し）**: plugin bundled 同期（`sh scripts/sync-plugin-plangate.sh`）を本 PR で実施。CI の TA-30 TC-08 が **plugin bundled 側の test_arbiter.py を実行**するため、同期しないと PR-1 が green にならない。同期対象は `skills/ai-loop-cycle/references/ho-paths.md` / `scripts/test_arbiter.py` / README version（v8.17.0 → v8.17.1 の既存 drift）
+- **flaky 検出（本 PR 無関係）**: `TA-42 TC-04 AC-02`（status rc for missing task）がローカル 1 回目で FAIL、2 回目 PASS。単体実行では rc=1 で正常。テスト間の状態汚染と判断（CI では PASS）
 - インシデント（是正済み）: 初回コミットが local main に乗る事故 → 三点照合の上 ff-only で `docs/task-0842-plan` へ移送・local main を origin/main へ復元（push 前・実害なし。decision-log 記録済み）
 
 ## 残タスク
