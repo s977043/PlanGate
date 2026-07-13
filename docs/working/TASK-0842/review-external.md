@@ -32,9 +32,9 @@
 
 | R-NNN | severity | 内容（要約） | 検証（オーガナイザー実測） | status | reflected_in(commit) | notes |
 |-------|----------|------------|--------------------------|--------|---------------------|-------|
-| R-001 | major | CI trigger（.claude/** / .agents/skills/** / CHANGELOG.md）が同期元 docs/ai/ai-loop/** / scripts/ai-loop/** を未カバー → ai-loop 変更は同期 PR を起動しない | CONFIRMED（yml paths 実測 + sync-plugin-plangate.sh L151-152 実測） | accepted | (確定反映コミットで記入) | 対応: workflow trigger paths 拡張を Human 適用差分として plan に追加（.github/workflows/*.yml は HO-ci のため AI 編集不可）。AC-4 の「CI-owned 一本化」は trigger 拡張適用後に成立と明記 |
-| R-002 | major | ho-paths.md の Human 適用 commit から PR / C-4 への経路が未定義（main 直接 commit は禁止） | CONFIRMED（project-rules C 実測） | accepted | (同上) | 対応: PR 単位を確定 — PR-1（本タスクブランチ: plan 成果物 + asset-inventory + Human が HO 差分 2 件を同ブランチに commit → C-4）/ PR-2（#843 同期 PR → C-4） |
-| R-003 | medium | AC-3 検証 `git diff --stat -- <paths>` は未コミット差分のみで「本タスクで未変更」を証明しない | CONFIRMED | accepted | (同上) | 対応: `git diff --stat origin/main...HEAD -- <paths>`（ブランチ全差分）+ 未コミット差分の 2 段確認に修正、evidence 再取得 |
-| R-004 | medium | 提案差分の hunk header が git apply 不能な説明形式 | CONFIRMED（@@ 構文不一致） | accepted | (同上) | 対応: 「手動編集用の変更指示（git apply 非対応）」と明記し、対象行番号を付記 |
+| R-001 | major | CI trigger（.claude/** / .agents/skills/** / CHANGELOG.md）が同期元 docs/ai/ai-loop/** / scripts/ai-loop/** を未カバー → ai-loop 変更は同期 PR を起動しない | CONFIRMED（yml paths 実測 + sync-plugin-plangate.sh L151-152 実測） | accepted | ac7fa07 | 対応: workflow trigger paths 拡張を Human 適用差分として plan に追加（.github/workflows/*.yml は HO-ci のため AI 編集不可）。AC-4 の「CI-owned 一本化」は trigger 拡張適用後に成立と明記 |
+| R-002 | major | ho-paths.md の Human 適用 commit から PR / C-4 への経路が未定義（main 直接 commit は禁止） | CONFIRMED（project-rules C 実測） | accepted | ac7fa07 | 対応: PR 単位を確定 — PR-1（本タスクブランチ: plan 成果物 + asset-inventory + Human が HO 差分 2 件を同ブランチに commit → C-4）/ PR-2（#843 同期 PR → C-4） |
+| R-003 | medium | AC-3 検証 `git diff --stat -- <paths>` は未コミット差分のみで「本タスクで未変更」を証明しない | CONFIRMED | accepted | ac7fa07 | 対応: `git diff --stat origin/main...HEAD -- <paths>`（ブランチ全差分）+ 未コミット差分の 2 段確認に修正、evidence 再取得 |
+| R-004 | medium | 提案差分の hunk header が git apply 不能な説明形式 | CONFIRMED（@@ 構文不一致） | accepted | ac7fa07 | 対応: 「手動編集用の変更指示（git apply 非対応）」と明記し、対象行番号を付記 |
 
 指摘なし項目: なし（4 件すべて指摘あり）。

@@ -5,3 +5,4 @@
 {"ts":"2026-07-13","phase":"C-1","decision":"PASS(17項目)","rationale":"FAIL 0/WARN 0。evidence省略(全PASS)","actor":"agent"}
 {"ts":"2026-07-13","phase":"C-2","decision":"外部レビュー(codex)指摘4件を全件accepted","rationale":"R-001(CI trigger未カバー)/R-002(PR経路未定義)/R-003(AC-3検証不十分)/R-004(diff形式)。全件オーガナイザー実測でCONFIRMED","actor":"agent"}
 {"ts":"2026-07-13","phase":"C-2-reflect","decision":"1回確定反映: 提案差分2(yml trigger拡張)追加・PR-1/PR-2構成確定・AC-3検証2段化・差分形式注記","rationale":"Refs: R-001,R-002,R-003,R-004","actor":"agent"}
+{"ts":"2026-07-13","phase":"C-2-reflect","decision":"確定反映コミット=ac7fa07（R-NNN監査表reflected_in記入）","rationale":"当初コミットがlocal mainに乗る事故を検知→三点照合の上ff-onlyでdocs/task-0842-planへ移送・local mainをorigin/mainへ復元（push前に是正・実害なし）","actor":"agent"}
