@@ -130,6 +130,7 @@ INC-2026-05-26-001 では `git checkout` 失敗のエラーメッセージを AI
 | [`docs/ai/settings-wiring-contract.md`](../../docs/ai/settings-wiring-contract.md) 責務分離表 | CI-owned（reference）/ AI-owned（doctor 実体検証）/ Human-owned（適用）の具体適用例 |
 | TASK-0077 AC-4（TASK-0071 との責務境界）| 本正本がその上位集約。Lite/降格は Human-owned 承認境界に従属 |
 | [本正本 「対外公開アーティファクト publish 責務分界」節](#対外公開アーティファクト-publish-責務分界) | tag/release publish は AI が draft/コマンド提示まで、実行は Human-owned（または計画段階で明示承認を取得した AI 実行）。issue #296 で正本化 |
+| [`docs/ai/subagent-delegation/README.md`](../../docs/ai/subagent-delegation/README.md)（サブエージェント委譲プロトコル） | AI-owned（派遣プロンプト作成・完了結果の最低限受け入れ確認）+ Human-owned（P0 要判断事項の承認・破壊的操作の承認） |
 
 ## 位置づけ
 
