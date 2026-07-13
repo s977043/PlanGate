@@ -44,3 +44,24 @@ created_by: orchestrator
 | EC-3 | H-2 未適用のまま ai-loop run が `plugin/**` に触れる | 従来どおり escalate（安全側・実害なし）。handoff で未適用状態を明示追跡 |
 | EC-4 | 同期 PR に意図しない大量 drift が混在 | 出自区別が困難なら分割 PR 化（Fallback 3） |
 | EC-5 | 提案差分 2（yml trigger 拡張）が未適用のまま ai-loop 系のみの変更が main に入る | CI 同期 PR は起動しない（R-001 の既知ギャップ）→ AI が手動 sync 実行で補完し、handoff で未適用を追跡 |
+
+---
+
+## B'案 追加テストケース（改訂 2）
+
+| ID | 前提条件 | 入力 / 手順 | 期待出力 | 種別 |
+|----|---------|------------|---------|------|
+| TC-9 (AC-8) | H-5 適用後 | `python3 -c "import sys;sys.path.insert(0,'scripts/ai-loop');import arbiter;print(arbiter.boundary_check(['plugin/plangate/scripts/install-plangate-skills.sh']))"` | `('touches-HO', [...])` — 限定 HO が効いている | 自動 |
+| TC-10 (AC-9) | H-5 適用後 | 同上で `plugin/plangate/skills/ai-loop-cycle/references/ho-paths.md` | `('clean', [])` — 派生成果物は HO 外（正規 sync を阻害しない） | 自動 |
+| TC-11 (AC-10) | H-5 適用後 | PR #860 の CI | **drift check job** が存在し PASS | 自動（CI） |
+| TC-12 (AC-10) | H-5 適用後 | `grep -c "plugin/plangate\|docs/workflows/ai-loop\|_ai_loop_link_rewrite\|sync-plugin-plangate.sh" .github/workflows/sync-plugin-plangate.yml` | trigger に 4 パスすべて存在 | 自動 |
+| TC-13 (AC-11) | H-5 適用後 | `grep -n "plugin/plangate" docs/ai/plan-review-readiness-gate.md` | 限定 HO パス（`scripts/**`）に更新済み | 目視 |
+| TC-14 (AC-12) | T-12/T-14 後 | `python3 scripts/ai-loop/test_arbiter.py` / `sh tests/run-tests.sh` / `sh scripts/sync-plugin-plangate.sh --dry-run` | 全 PASS + 差分ゼロ | 自動 |
+
+### 追加 Edge case
+
+| ID | ケース | 期待動作 |
+|----|-------|---------|
+| EC-6 | 限定 HO パターンが広すぎて sync スクリプトの書き込みまで block | TC-10 で検出（派生成果物が touches-HO になったら FAIL）→ パターン絞り込みの差分を再提示 |
+| EC-7 | PR drift check job が既存 PR を軒並み fail させる | PR #860 上で green を確認（TC-11）。fail する場合は `continue-on-error` で段階導入 |
+| EC-8 | orphan SKILL.md（7 件）が改変される | **検出不能**（既知の残存リスク）。follow-up issue（T-16）で `.agents/skills/` 正本化により解消 |

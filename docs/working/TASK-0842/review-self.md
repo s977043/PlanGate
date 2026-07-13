@@ -68,3 +68,24 @@ C-2 指摘 R-001〜R-004（全件 accepted・実測 CONFIRMED）の確定反映�
 | 整合性 | PASS | plan / todo / test-cases（TC-3/TC-4/EC-5）の三者が PR 構成・検証手順で一致 |
 
 **判定: PASS**（C-3 提示可能）
+
+---
+
+## 簡易 C-1 再実行（B'案・改訂 2 / 2026-07-13）
+
+W チェック指摘 R-005〜R-009（全件 accepted・オーガナイザー独立実測で CONFIRMED）の確定反映を確認:
+
+| 項目 | 判定 | 根拠 |
+|------|------|------|
+| R-005 反映（CI 未発火） | PASS | 提案差分 4 に `plugin/plangate/**` trigger 追加 + **PR 段階 drift check job** を新設。AC-10 / TC-11 / TC-12 で検証 |
+| R-006 反映（無防備な独自実体） | PASS | 提案差分 3 に限定 HO `HO-plugin-dist` 4 パターン。AC-8（`scripts/**` → touches-HO）/ AC-9（派生成果物 → clean）で検証。plugin 配下の 2 分表を plan に明記 |
+| R-007 反映（trigger 不完全） | PASS | 提案差分 4 に `docs/workflows/ai-loop/**` / `_ai_loop_link_rewrite.py` / `sync-plugin-plangate.sh` を追加 |
+| R-008 反映（discovery 矛盾） | PASS | 限定 HO 採用により plugin の一部が HO のまま残るため **discovery.py の "plugin" 語彙は整合が回復**（削除不要）。substring 過剰除外は別 issue |
+| R-009 反映（第 3 の定義箇所） | PASS | 提案差分 5 で `plan-review-readiness-gate.md` を限定 HO パスに更新 |
+| 受入基準の追加 | PASS | AC-8〜AC-12 を追加。TC-9〜TC-14・EC-6〜EC-8 と対応 |
+| Risks の 3 点セット | PASS | Risks 5/6/7 を追加（内容 / 検証手段 / Fallback を各々明記） |
+| 実現可能性の実測 | PASS | arbiter の `**` パターン対応を実測確認（`scripts/hooks/a/b/deep.sh` → touches-HO / `**/approvals/*.json` の中間 ** も機能） |
+| 残存リスクの明示 | PASS | orphan SKILL.md 7 件は限定 HO にも drift check にも掛からないことを plan / test-cases（EC-8）/ handoff に明記し follow-up issue 化（T-16） |
+| Mode 判定 | PASS | high-risk 維持。scope 変更のため **C-3 再承認**が必要と明記 |
+
+**判定: PASS**（C-3 再承認に提示可能）

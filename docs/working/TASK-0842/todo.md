@@ -61,3 +61,38 @@ created_by: orchestrator
 ```
 T-1, T-2（並列可）→ C-1 → C-2 反映 → H-1（C-3 🚩）→ H-2（PR-1 ブランチ上 🚩）→ T-3, T-4 → T-6b（PR-1）→ H-3（C-4 🚩）→ T-5 → T-6（PR-2）→ H-4（C-4 🚩）→ T-7
 ```
+
+---
+
+## B'案 追加タスク（改訂 2 / 2026-07-13）
+
+> W チェック（敵対的レビュー）で B案の前提崩壊が判明（R-005〜R-009）。限定 HO + CI 強化へ再設計。
+
+### 🤖 Agent タスク
+
+- [x] T-8: W チェック指摘を review-external.md に R-005〜R-009 として集約（実測裏取り済み）
+  - Owner: agent / rollback: 不要（追記専用）
+- [x] T-9: plan.md / todo.md / test-cases.md へ 1 回確定反映（B'案）
+  - Owner: agent / rollback: `git checkout -- docs/working/TASK-0842/`
+- [ ] T-10: 簡易 C-1 再実行 → review-self.md に追記
+  - Owner: agent / depends_on: T-9 / rollback: 不要
+- [ ] T-11: 提案差分 3/4/5 の `git apply` 可能な patch を生成し `--check` で検証（AI は適用しない）
+  - Owner: agent / depends_on: H-4（C-3 再承認）/ rollback: 不要（scratchpad 出力のみ）
+- [ ] T-12: `scripts/ai-loop/test_arbiter.py` を限定 HO に追従（`ho_pattern_count` 17 → 21、`plugin/plangate/scripts/**` を touches-HO 期待に追加、派生成果物は clean 期待を維持）
+  - Owner: agent / depends_on: H-5（Human 適用）/ files: `scripts/ai-loop/test_arbiter.py`
+  - rollback: `git checkout -- scripts/ai-loop/test_arbiter.py`
+- [ ] T-13: `asset-inventory.md` の記述を限定 HO に修正（「HO 対象外」→「独自実体は限定 HO、派生成果物は CI drift check」）
+  - Owner: agent / depends_on: H-5 / files: `docs/ai/ai-loop/asset-inventory.md`
+  - rollback: `git checkout -- docs/ai/ai-loop/asset-inventory.md`
+- [ ] T-14: plugin bundled 再同期（`sh scripts/sync-plugin-plangate.sh`）+ 全 CLI テスト + AC-8/AC-9 検証
+  - Owner: agent / depends_on: T-12, T-13 / rollback: `git checkout -- plugin/plangate/`
+- [ ] T-15: PR #860 に「✅ 対応完了 — マージ可能です」をコメント（drift check job が green であることを確認後）
+  - Owner: agent / depends_on: T-14 / rollback: 不要
+- [ ] T-16: orphan SKILL.md 7 件の正本化を follow-up issue として起票
+  - Owner: agent / rollback: issue close
+
+### 👤 Human タスク
+
+- [ ] **H-4: C-3 再承認**（scope 変更・B'案）— 改訂 plan.md を確認し `bin/plangate approve TASK-0842` を**実 TTY** で実行（新 plan_hash で c3.json 再発行）
+- [ ] **H-5: 提案差分 3/4/5 を PR-1 ブランチ上で commit**（ho-paths.md 限定 HO / sync yml trigger 完全化 + PR drift check job / plan-review-readiness-gate.md）
+- [ ] H-3': PR-1（#860）の C-4 レビュー・merge（H-3 を改訂 2 で置換）

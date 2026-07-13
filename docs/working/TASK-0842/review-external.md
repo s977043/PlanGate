@@ -38,3 +38,23 @@
 | R-004 | medium | 提案差分の hunk header が git apply 不能な説明形式 | CONFIRMED（@@ 構文不一致） | accepted | ac7fa07 | 対応: 「手動編集用の変更指示（git apply 非対応）」と明記し、対象行番号を付記 |
 
 指摘なし項目: なし（4 件すべて指摘あり）。
+
+---
+
+## W チェック（敵対的レビュー / 2026-07-13・PR #860 exec 後）
+
+> Copilot が quota 切れでレビュー不可のため、規律に従い敵対的レビューを 1 本実施。
+> 総合判定 **REJECT**。全指摘をオーガナイザーが独立実測して裏取り（全件 CONFIRMED）。
+
+| R-NNN | severity | 内容 | オーガナイザー実測 | status | reflected_in | notes |
+|-------|----------|------|------------------|--------|-------------|-------|
+| R-005 | critical | sync CI の trigger に `plugin/plangate/**` が無く、plugin 直接変更では drift 検出が発火しない。「CI 一本化」の前提が崩壊 | **CONFIRMED**（yml の `on.push.paths` 実測） | accepted | (B'案反映コミット) | trigger に `plugin/plangate/**` 追加 + **PR 段階の drift check job** 新設 |
+| R-006 | critical | plugin 配下 136 件中 47 件は**同期元が存在しない独自実体**（`scripts/**` 2 / `hooks/**` 1 / `skills/*/agents/**` 35 / `.claude-plugin/**` 1 等）。HO からも外れ drift 比較対象も無く**どのゲートにも守られない**。`install-plangate-skills.sh`（利用者が実行）と配布 hook を含みサプライチェーン面の実害 | **CONFIRMED**（`grep -c install-plangate-skills scripts/sync-plugin-plangate.sh` = 0 / `arbiter.boundary_check(['plugin/plangate/scripts/install-plangate-skills.sh'])` → `('clean',[])`） | accepted | (同上) | **限定 HO**（`HO-plugin-dist`）4 パターンを ho-paths.md に追加。派生成果物（87 件）は HO 外のまま（sync を阻害しない）+ PR drift check で担保 |
+| R-007 | major | trigger 拡張が不完全。`docs/workflows/ai-loop/**`（12 本・references/ の同期元）が漏れ。`scripts/_ai_loop_link_rewrite.py` / `scripts/sync-plugin-plangate.sh` 自身も trigger 外 | **CONFIRMED**（`AI_LOOP_WORKFLOWS_DIR` = sync L150 / yml paths に無し / `ls docs/workflows/ai-loop \| wc -l` = 12） | accepted | (同上) | trigger に 3 パス追加 |
+| R-008 | major | `discovery.py` L88 の `"plugin"` ho-risk 語彙が残存し ho-paths（HO でない）と食い違う（Shadow Config） | **CONFIRMED**（`grep -rn HO-plugin` で discovery.py / test_discovery.py に残存） | accepted（**限定 HO 採用で解消**） | (同上) | B'案では plugin の一部が HO のまま残るため、discovery の "plugin" 語彙は**整合が回復**する。substring 判定による過剰除外（lite 帯の plugin doc issue を除外）は別 issue |
+| R-009 | minor | `docs/ai/plan-review-readiness-gate.md` L84 の Forbidden zones 例に `plugin/plangate/**` が残存（第 3 の定義箇所） | **CONFIRMED** | accepted | (同上) | 限定 HO パスに更新（HO-contract のため Human 適用） |
+
+**却下した指摘**: なし（全件採用）。
+
+**残存リスク（handoff 記録・follow-up issue 化）**:
+- orphan SKILL.md 7 件（`.agents/skills/` に正本が無い plugin 専用 SKILL.md）は sync 対象外のため drift check でも検出できない。限定 HO にも含めない（他 31 件の同期対象 SKILL.md と同一パターンになり sync を阻害するため）。正本を `.agents/skills/` 側に立てる是正を別 issue とする

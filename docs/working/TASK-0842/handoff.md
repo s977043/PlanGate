@@ -33,6 +33,8 @@ v1_release: ""
 - **#843 の同期は未実施**（PR-1 merge 後に PR-2 として実施）。同期 PR には #840 由来（arbiter.py / test_arbiter.py / test_metrics.py）以外の drift（`rules/orchestrator-mode.md` / `rules/responsibility-classes.md` / `skills/ai-loop-cycle/references/decision-table.md` 等）が同時に含まれる見込み — PR 本文で出自を区別する
 - **CI trigger 拡張の実効性は main merge 後にしか検証できない**（`on.push.branches: [main]` のため）。PR-1 merge 後の初回 `docs/ai/ai-loop/**` 変更で同期 PR が自動起動することを確認する
 - plugin への配布反映は次回 version bump 時（plugin.json / CHANGELOG 経由）
+- **plan.md の誤記（WONTFIX / gemini 指摘・PR #860）**: L32・L64 の「D-2」は「B-2（アプローチ比較）」の誤り。指摘は正当だが、plan.md は `c3.json` の plan_hash で保護された承認済み artifact であり、修正すると EH-3 が mismatch を検知し C-3 再承認が必要になる。内部参照 1 箇所の誤記に対しコストが見合わないため本 PR では修正せず、次回 plan 改訂時に是正する
+- **テスト副作用（要 follow-up）**: `sh tests/run-tests.sh` の実行がリポジトリの `plugin/plangate/agents/*.md` 7 件を削除する事象を実測（本 PR の 592b615 に混入 → 4240718 で復元）。テストが repo の `plugin/` を直接書き換えている疑い。他 PR でも同種事故を起こしうるため独立 issue 化する
 
 ## 3. V2 候補
 
