@@ -23,6 +23,7 @@
 - `docs/working/templates/plan.md`（全見出し一覧・F-1/F-2/F-4 実装済み節）
 - `docs/workflows/ai-loop/unknown-discovery.md`（4 分類・3 ゲート構造）
 - `docs/working/discussions/` 既存ファイル一覧（形式参考、内容は個別に未読）
+- CLAUDE.md / .claude/rules/working-context.md（todo.md 記述ルール・rollback 既定 — セッションコンテキストとして実測）
 
 未確認（Human 確認が必要、または本分析のスコープ外として未実施）:
 
