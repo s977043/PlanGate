@@ -22,6 +22,7 @@
 | [`hybrid-architecture.md`](./hybrid-architecture.md) | Rule 1〜5 を継承。本ルールは Rule 5（最終成果物は handoff に集約）を親 PBI 層に拡張 |
 | [`working-context.md`](./working-context.md) | `docs/working/TASK-XXXX/` 構造を子 PBI 層で再利用、親 PBI 層は `docs/working/PBI-XXX/` を別途使用 |
 | [`review-principles.md`](./review-principles.md) | レビュー判定フレームを親 / 子両方に適用 |
+| [`docs/ai/subagent-delegation/README.md`](../../docs/ai/subagent-delegation/README.md) | サブエージェント派遣プロンプトの契約層（委譲判断基準 / OUTCOME 契約 / 行動規範）を追加する。本ルールの Gate 不変条件（AS-1〜5 / `ChildExecAllowed` / `ParentDone`）とは直交し、変更しない |
 
 ## 不変条件 1: ChildExecAllowed
 
