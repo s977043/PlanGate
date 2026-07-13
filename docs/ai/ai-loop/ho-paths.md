@@ -39,7 +39,6 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 | `.claude/agents/*.md` | HO-rules | Agent 行動契約。統制回避防止。AI 直接編集不可 |
 | `.claude/settings.example.json` | HO-settings | settings 契約例。自己改変・緩和防止 |
 | `.github/workflows/*.yaml` | HO-ci | CI/CD 定義（yaml 拡張子）。AI 直接編集不可 |
-| `plugin/plangate/**` | HO-plugin | プラグイン本体。AI 直接編集不可 |
 | `docs/ai/ai-loop/ho-paths.md` | HO-contract | HO 境界定義そのもの（本ファイル）。Arbiter が自己の判定基準を自己改変しないための機械層（原則 1 参照） |
 
 ---
@@ -56,7 +55,6 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 | HO-contract | AI-Human 間の基本契約・Iron Law |
 | HO-ci | CI/CD 定義・自動検証の物理配線 |
 | HO-approval | 人間承認トークン・provenance 証跡 |
-| HO-plugin | CLI プラグイン本体 |
 
 ---
 
@@ -92,7 +90,6 @@ AGENTS.md                   → HO-contract
 docs/ai/core-contract.md    → HO-contract
 .github/workflows/ci.yml    → HO-ci
 docs/working/TASK-0123/approvals/c3.json → HO-approval
-plugin/plangate/index.js    → HO-plugin
 ```
 
 ---
@@ -124,3 +121,8 @@ plugin/plangate/index.js    → HO-plugin
 - `docs/ai/ai-loop/asset-inventory.md` — PlanGate 資産の uses/not-uses 分類
 - `docs/ai/hook-enforcement.md` — HO パスの元定義（PlanGate 既存仕様）
 - `docs/ai/autonomous-degraded-gates-spec.md` — `NoHardeningOverridePath` 条件の定義元
+
+> **注（#842 B案確定）**: `plugin/plangate/**` は HO 対象外。正本 `.claude/**` 等は
+> EH-3 9 カテゴリで保護済みであり、派生成果物 `plugin/plangate/**` の整合は
+> CI-owned（`.github/workflows/sync-plugin-plangate.yml` の drift 検出 → 同期 PR →
+> Human C-4 merge）に一本化する。
