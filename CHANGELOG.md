@@ -6,6 +6,15 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.17.1 (2026-07-13)
+
+fix: plugin bundle の同期漏れを追従（v8.17.0 tag に未収載だった `.claude/` → `plugin/plangate/` 差分の取り込み）
+
+### Fixed
+
+- **plugin bundle 同期** — `arbiter.py`（+37行）/ `decision-table.md`（+20行）/ `test_arbiter.py`（+196行）/ `test_metrics.py` / rules 2 ファイル / README を `.claude/` 正本と同期（plugin-sync 自動検出 run-29216958418 由来）
+- **plugin version を 8.17.1 に更新**（patch。機能追加なし・bundle 完全性の追従のみ）
+
 ## v8.17.0 (2026-07-13)
 
 feat: ai-loop Phase 1 移行（導入先実リポジトリ検証の正式化）+ 安全前提の機械層配線 + 計測基盤の実データ稼働 + HOTL 境界正本化
