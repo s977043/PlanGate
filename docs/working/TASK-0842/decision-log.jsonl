@@ -1,0 +1,7 @@
+{"ts":"2026-07-13","phase":"B-1","decision":"確認質問なし","rationale":"B案採用推奨をHumanが2026-07-13に再確認済み（HOOK設定を強化しない=A案不採用）。全論点確定","actor":"agent"}
+{"ts":"2026-07-13","phase":"B-1-metrics","decision":"事前メトリクス検証PASS","rationale":"HO-plugin言及=ho-paths.md 3箇所(L42/L59/L95)、docs/ai/ai-loop/配下plugin言及ファイル=1。見積もり比ratio 1.0","actor":"agent"}
+{"ts":"2026-07-13","phase":"B-2","decision":"B案採用候補（C-3で最終確定）","rationale":"正本.claude/**はEH-3保護済み、派生plugin/はCI-owned drift gateでPR経由強制。A案は正規sync阻害、C案は維持コスト過大（V2候補）","actor":"agent"}
+{"ts":"2026-07-13","phase":"B-3","decision":"plan/todo/test-cases生成。S4(ho-paths適用)先行→S6(#843同期)の順序を確定","rationale":"HO非対称を先に解消し同期runがescalateされない状態で実行するため","actor":"agent"}
+{"ts":"2026-07-13","phase":"C-1","decision":"PASS(17項目)","rationale":"FAIL 0/WARN 0。evidence省略(全PASS)","actor":"agent"}
+{"ts":"2026-07-13","phase":"C-2","decision":"外部レビュー(codex)指摘4件を全件accepted","rationale":"R-001(CI trigger未カバー)/R-002(PR経路未定義)/R-003(AC-3検証不十分)/R-004(diff形式)。全件オーガナイザー実測でCONFIRMED","actor":"agent"}
+{"ts":"2026-07-13","phase":"C-2-reflect","decision":"1回確定反映: 提案差分2(yml trigger拡張)追加・PR-1/PR-2構成確定・AC-3検証2段化・差分形式注記","rationale":"Refs: R-001,R-002,R-003,R-004","actor":"agent"}

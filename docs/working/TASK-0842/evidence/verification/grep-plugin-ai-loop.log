@@ -1,0 +1,4 @@
+# grep -rn plugin docs/ai/ai-loop/ (2026-07-13)
+docs/ai/ai-loop/ho-paths.md:42:| `plugin/plangate/**` | HO-plugin | プラグイン本体。AI 直接編集不可 |
+docs/ai/ai-loop/ho-paths.md:59:| HO-plugin | CLI プラグイン本体 |
+docs/ai/ai-loop/ho-paths.md:95:plugin/plangate/index.js    → HO-plugin
