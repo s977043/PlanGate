@@ -7,3 +7,5 @@
 {"ts":"2026-07-13","phase":"C-2-reflect","decision":"1回確定反映: 提案差分2(yml trigger拡張)追加・PR-1/PR-2構成確定・AC-3検証2段化・差分形式注記","rationale":"Refs: R-001,R-002,R-003,R-004","actor":"agent"}
 {"ts":"2026-07-13","phase":"C-2-reflect","decision":"確定反映コミット=ac7fa07（R-NNN監査表reflected_in記入）","rationale":"当初コミットがlocal mainに乗る事故を検知→三点照合の上ff-onlyでdocs/task-0842-planへ移送・local mainをorigin/mainへ復元（push前に是正・実害なし）","actor":"agent"}
 {"ts":"2026-07-13T02:11:28Z","phase":"C-3","decision":"APPROVED","rationale":"Human ワンアクション（bin/plangate approve・L1-L4 presence検証）。plan_hash=sha256:d694ddc8...、validate 全PASS","actor":"human"}
+{"ts":"2026-07-13","phase":"H-2","decision":"Human が HO patch 2 件を適用（commit bdbc58e）","rationale":"ho-paths.md HO-plugin 3箇所削除+注記 / sync yml trigger に docs/ai/ai-loop/** と scripts/ai-loop/** 追加","actor":"human"}
+{"ts":"2026-07-13","phase":"T-4","decision":"H-2 適用検証 PASS","rationale":"HO-plugin 残存 0・yml trigger 2行追加を実測","actor":"agent"}

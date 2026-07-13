@@ -55,6 +55,18 @@ Arbiter は以下の PlanGate 設計哲学を**実装でなく思想として**�
 
 ---
 
+## plugin bundled resources の担保（#842 B案 / 2026-07-13 確定）
+
+`plugin/plangate/**` は `.claude/**` 等の**派生成果物**であり、HO 対象外とする
+（`ho-paths.md` から `HO-plugin` を削除済み）。正本側は EH-3 の 9 カテゴリで
+保護されているため、派生側の整合は **CI-owned** に一本化する:
+
+`.github/workflows/sync-plugin-plangate.yml`（同期元 = `.claude/**` /
+`.agents/skills/**` / `CHANGELOG.md` / `docs/ai/ai-loop/**` / `scripts/ai-loop/**`）
+が main push 時に drift を検出 → 同期 PR を自動作成 → **Human C-4 merge**。
+
+---
+
 ## 関連ドキュメント
 
 - `docs/ai/ai-loop/concept.md` — Arbiter の基本概念
