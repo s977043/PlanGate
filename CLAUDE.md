@@ -11,9 +11,9 @@
 - ワークフロー詳細: [`docs/ai-driven-development.md`](docs/ai-driven-development.md) / Orchestrator: [`docs/orchestrator-mode.md`](docs/orchestrator-mode.md)
 - サブエージェント委譲プロトコル: [`docs/ai/subagent-delegation/README.md`](docs/ai/subagent-delegation/README.md)（派遣プロンプト必須8要素 / OUTCOME契約 / 行動規範 / PlanGateフロー接続。既存の C-3/C-4 ゲートおよび orchestrator-mode の Gate 不変条件は変更しない）
 
-## v8.16.0 ai-loop 実運用（dogfooding）・Plugin 同梱配布（最新リリース機能）
+## v8.17.1 ai-loop 最新の Plugin 配布反映（最新リリース機能）
 
-> 最新リリース: **v8.16.0**（2026-07-08）ai-loop（旧 Arbiter）を自身の開発プロセスへの dogfooding として初実運用（Run-001〜021 の摩擦是正閉ループ・auto-merge 廃止 + merge-ready 運用・rubric grader・HO 境界の実行時 parse 化。**PlanGate 本番フロー WF-00〜07 は不変・ai-loop は PoC**）+ `ai-loop-cycle` スキルの plangate プラグイン同梱（bundled resources・導入前に ho-paths の導入先確定が必須）+ Hook Enforcement 物理配線 11/12 + サブエージェント委譲プロトコル正本。v8.15.0 で Review Gate 機械化・approve ハードニング、v8.14.0 で C-3 HTML 出力 + ワンアクション承認、v8.13.0 で全体健全化 + model tier。リリース履歴の正本は [`CHANGELOG.md`](CHANGELOG.md)。
+> 最新リリース: **v8.17.1**（2026-07-13）v8.16.0 タグ以降に main へ蓄積した ai-loop の変更を plugin 配布へ反映（v8.17.0）+ plugin-sync 同期漏れの追従（v8.17.1）。主要変更: ai-loop Phase 1 移行＝導入先実リポジトリ検証の正式化（#808）・fail-closed + allowed_paths の機械層配線（#813）・計測基盤の実データ稼働 `metrics.py` / run メタ刻印（#812/#815）・LoopSpec cost_cap 超過の escalate（#840）・HOTL 境界正本化 + 回帰テスト（#827〜#832/#830）。**PlanGate 本番フロー WF-00〜07 は不変・ai-loop は Phase 1（導入先検証）**。v8.16.0 で ai-loop 初実運用（Run-001〜021）+ plugin 同梱、v8.15.0 で Review Gate 機械化・approve ハードニング、v8.14.0 で C-3 HTML 出力 + ワンアクション承認。リリース履歴の正本は [`CHANGELOG.md`](CHANGELOG.md)。
 
 - **Metrics v1**（v8.6.0 初出）: [`docs/ai/metrics.md`](docs/ai/metrics.md) — `bin/plangate metrics <TASK> --collect|--report|--validate`
 - **Reporting & Retrospective v1**（v8.9.0 / #200）: [`docs/ai/reporting.md`](docs/ai/reporting.md) — events.ndjson 由来で sprint retrospective を導出、retrospective テンプレート [`docs/working/templates/retrospective-template.md`](docs/working/templates/retrospective-template.md)
