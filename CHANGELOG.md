@@ -34,9 +34,8 @@ v8.16.0 タグ以降 main に蓄積した ai-loop / HOTL / スキル群の変更
 ### Changed
 
 - **HOTL 境界の正本化** — 非ブロック化部分と Human 固定部分の対応表（#822 項目1、#827）+ stop 条件と巻き戻しの正本化（#832）+ W check = C-3' 命名接続（#828）
-- **ai-loop arbiter の分岐テーブル化 + 責務抽出**（動作不変、#814、#816)
+- **ai-loop arbiter の分岐テーブル化 + 責務抽出**（動作不変、#814、#816）
 - **plugin version を 8.17.0 に更新**（marketplace.json / plugin.json。`claude plugin update` での追従を可能にする）
-
 
 ## v8.16.0 (2026-07-08)
 
