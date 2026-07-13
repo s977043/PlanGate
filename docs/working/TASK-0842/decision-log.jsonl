@@ -12,3 +12,4 @@
 {"ts":"2026-07-13","phase":"exec","decision":"test_arbiter.py の追従修正を本 PR に含める（Human 承認: AskUserQuestion で「test_arbiter.py のみ追従」を選択）","rationale":"arbiter.py は ho-paths.md を実行時パース。HO-plugin 削除で 15 箇所が FAIL。B案の必然的帰結・新規設計判断なし。discovery.py の plugin 語彙は過剰除外だが安全側のため現状維持","actor":"human+agent"}
 {"ts":"2026-07-13","phase":"exec","decision":"plugin bundled 同期（S6）を本 PR で前倒し実施","rationale":"CI の TA-30 TC-08 が plugin bundled の test_arbiter.py を実行するため、同期なしでは PR-1 が green にならない","actor":"agent"}
 {"ts":"2026-07-13","phase":"V-1","decision":"CLI テスト 404 passed / 0 failed","rationale":"TA-42 TC-04 AC-02 は 1 回目のみ FAIL・2 回目 PASS・単体では rc=1 正常 → テスト間状態汚染の flaky（本 PR 無関係・CI では PASS）","actor":"agent"}
+{"ts":"2026-07-13","phase":"exec-incident","decision":"592b615 に混入した plugin/plangate/agents/*.md 7 件の削除を origin/main から復元","rationale":"sync 直後の git status には削除が無く、tests/run-tests.sh 実行中に消えた（テストの副作用疑い）。.claude/agents に 7 件すべて実在し削除は誤り。復元後 sync --dry-run = no changes で整合確認","actor":"agent"}
