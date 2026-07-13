@@ -6,6 +6,37 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.17.0 (2026-07-13)
+
+feat: ai-loop Phase 1 移行（導入先実リポジトリ検証の正式化）+ 安全前提の機械層配線 + 計測基盤の実データ稼働 + HOTL 境界正本化
+
+v8.16.0 タグ以降 main に蓄積した ai-loop / HOTL / スキル群の変更を plugin 配布に反映するリリース。plugin bundle（`plugin/plangate/skills/ai-loop-cycle/`）は references 全面更新 + `metrics.py` / `test_metrics.py` / `agentic-six-stage-loop.md` / `stop-rollback.md` を新規同梱する。
+
+### Added
+
+- **ai-loop Phase 1 移行 — 導入先実リポジトリでの検証を正式化**（#807 / #808）
+- **ai-loop 計測基盤** — decision record 集計 `metrics.py`（#780 Slice D 前半、#812）+ arbiter が record に run メタを刻印（Slice D 後半、#815）+ HOTL 健全性メトリクス（escalate / human_intervention / reversal rate、#822 項目3、#831）
+- **ai-loop plan 品質ゲート priority 1.7** — C-1 / breakdown を auto-approve 必要条件に（#780 Slice B、#817）+ gates を provenance に刻む（#819）
+- **size_ok の機械検証** — changed_files 実数で判定 + POLICY_REF @v3（#780 Slice C、#820）
+- **LoopSpec cost_cap** — round 予算超過を arbiter が escalate（#749 C案(2)層、#840）
+- **ai-loop discovery** — D-2 read-only 候補提示 CLI（#824）/ D-3 recommended_next 構造化 + `--emit-next-command`（#826）/ A-1 HO 事前判定強化（HO-plugin 語彙追加、#841）
+- **HOTL 不変条件の回帰テスト**（merge / HO / fail-closed / escalate 自己解決禁止、#822、#830）
+- **スキル新設・改名**: `breakdown-gate`（#802）/ `ref-integrity-scan`（#801）/ `self-review` → `diff-audit` 改名 + Iron Law 8 / Phase 13 正本化（#796）/ `setup-team` → `subagent-team-design` 改名 + 命名ポリシー正本化（#806）
+- **review-gate 拡張** — growth-core 由来 4 観点レーン追加（#795）+ UI/UX パック（レーン5 + UI 専用 V-1、#805）
+- **workflow-conductor plan 再実行ガード**（#676、#845）
+
+### Fixed
+
+- **ai-loop Phase 1 安全前提の機械層配線** — fail-closed + allowed_paths + パス正規化（#809、#813）
+- **plugin bundle の dead link ゼロ自己完結化**（#790、#793）+ `test_metrics.py` の bundle 追加（#821）
+- **check-tag-main-parity をリモート tag 実体照合に変更**（偽 PASS 解消、#787）
+
+### Changed
+
+- **HOTL 境界の正本化** — 非ブロック化部分と Human 固定部分の対応表（#822 項目1、#827）+ stop 条件と巻き戻しの正本化（#832）+ W check = C-3' 命名接続（#828）
+- **ai-loop arbiter の分岐テーブル化 + 責務抽出**（動作不変、#814、#816）
+- **plugin version を 8.17.0 に更新**（marketplace.json / plugin.json。`claude plugin update` での追従を可能にする）
+
 ## v8.16.0 (2026-07-08)
 
 feat: ai-loop 初回実運用 Run-001〜021 の摩擦是正閉ループ + plangate プラグインへの ai-loop 同梱 + Hook Enforcement 物理配線 6/12 → 11/12 + サブエージェント委譲プロトコル正本
