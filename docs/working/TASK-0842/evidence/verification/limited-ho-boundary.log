@@ -1,0 +1,11 @@
+# S8 事後検証（AC-8/AC-9）2026-07-14 14:20 commit ff25506
+ho_pattern_count: 21
+  [PASS] plugin/plangate/scripts/install-plangate-skills.sh -> touches-HO (expect touches-HO)
+  [PASS] plugin/plangate/hooks/some-hook.sh -> touches-HO (expect touches-HO)
+  [PASS] plugin/plangate/skills/x/agents/openai.yaml -> touches-HO (expect touches-HO)
+  [PASS] plugin/plangate/.claude-plugin/plugin.json -> touches-HO (expect touches-HO)
+  [PASS] plugin/plangate/skills/ai-loop-cycle/references/ho-paths.md -> clean (expect clean)
+  [PASS] plugin/plangate/skills/brainstorming/SKILL.md -> clean (expect clean)
+  [PASS] plugin/plangate/agents/orchestrator.md -> clean (expect clean)
+  [PASS] plugin/plangate/README.md -> clean (expect clean)
+AC-8/AC-9: ALL PASS

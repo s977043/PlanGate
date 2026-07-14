@@ -55,15 +55,21 @@ Arbiter は以下の PlanGate 設計哲学を**実装でなく思想として**�
 
 ---
 
-## plugin bundled resources の担保（#842 B案 / 2026-07-13 確定）
+## plugin bundled resources の担保（#842 B'案 / 2026-07-14 確定）
 
-`plugin/plangate/**` は `.claude/**` 等の**派生成果物**であり、HO 対象外とする
-（`ho-paths.md` から `HO-plugin` を削除済み）。正本側は EH-3 の 9 カテゴリで
-保護されているため、派生側の整合は **CI-owned** に一本化する:
+`plugin/plangate/**` は**一律 HO ではなく 2 分**する:
 
-`.github/workflows/sync-plugin-plangate.yml`（同期元 = `.claude/**` /
-`.agents/skills/**` / `CHANGELOG.md` / `docs/ai/ai-loop/**` / `scripts/ai-loop/**`）
-が main push 時に drift を検出 → 同期 PR を自動作成 → **Human C-4 merge**。
+| 区分 | 対象 | 担保 |
+|------|------|------|
+| **独自実体（限定 HO）** | `plugin/plangate/scripts/**` / `hooks/**` / `**/agents/*.yaml` / `.claude-plugin/**` | `HO-plugin-dist`（`ho-paths.md` 登録済み・AI 直接編集不可）。sync が生成せず drift 比較が構造的に不可能なため |
+| **派生成果物** | sync が生成するもの（skills/SKILL.md・references/・agents/*.md・rules/・commands/ 等） | HO 対象外（正規 sync を阻害しない）。**CI-owned**: `sync-plugin-plangate.yml` の **PR 段階 drift check**（sync 後差分ゼロを必須）+ main push 時の同期 PR → **Human C-4 merge** |
+
+同期元 = `.claude/**` / `.agents/skills/**` / `CHANGELOG.md` / `docs/ai/ai-loop/**` /
+`docs/workflows/ai-loop/**` / `scripts/ai-loop/**` / `scripts/_ai_loop_link_rewrite.py` /
+`scripts/sync-plugin-plangate.sh`（trigger 完全化済み・#842 R-005/R-007）。
+
+既知の残存: `.agents/skills/` に正本を持たない orphan SKILL.md（7 件）は
+どちらの担保にも掛からない（#862 で正本化を追跡）。
 
 ---
 
