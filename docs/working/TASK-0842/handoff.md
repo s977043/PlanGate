@@ -10,7 +10,9 @@ v1_release: ""
 
 # HANDOFF — TASK-0842
 
-> #842 HO リスト二重管理の整合（B案）。PR-1 = #860（C-4 待ち）/ PR-2 = #843 同期（PR-1 merge 後）
+> #842 HO リスト二重管理の整合（**B'案** = 限定 HO + CI 強化）。PR-1 = #860（C-4 待ち）/ PR-2 = #843 同期（PR-1 merge 後）
+>
+> **改訂 2（2026-07-14）**: 敵対 W チェックで B案の前提崩壊（R-005〜R-009）が判明し B'案へ再設計。C-3 再承認済み（--force・新 plan_hash）。独自実体 = `HO-plugin-dist` 4 パターン / 派生成果物 = PR 段階 drift check job（AC-8〜AC-12 全 PASS・drift-check CI 実測 green）
 
 ## 1. 要件適合確認結果
 
@@ -72,3 +74,37 @@ HO パス（`ho-paths.md` = HO-contract / workflow yml = HO-ci）は AI 編集�
 | `bin/plangate validate TASK-0842` | PASS |
 
 コード変更なし（doc + 運用ゲートの変更）のため unit/integration テストは対象外。
+
+---
+
+## 追補（B'案 / 2026-07-14）
+
+### 追加 AC の結果
+
+| AC | 判定 | 根拠 |
+|----|------|------|
+| AC-8（独自実体 → touches-HO） | **PASS** | `evidence/verification/limited-ho-boundary.log` — scripts/hooks/agents-yaml/manifest の 4 種すべて touches-HO |
+| AC-9（派生成果物 → clean） | **PASS** | 同 log — bundled ho-paths.md / SKILL.md / agents/*.md / README すべて clean（正規 sync を阻害しない） |
+| AC-10（trigger 完全化 + PR drift check） | **PASS** | drift-check job が PR #860 で実測 **success**（sync job は PR 上で正しく skipped） |
+| AC-11（readiness-gate 更新） | **PASS** | Forbidden zones を限定 HO パスに更新（Human 適用 ff25506） |
+| AC-12（テスト・同期整合） | **PASS** | test_arbiter 236 tests OK（count=21）/ CLI テスト 403 passed（FAIL 1 は既知 flaky TA-42 TC-04 — 単体 rc=1 正常・2 回目の観測）/ `--dry-run` 差分ゼロ |
+
+### 新たに判明した既知課題（追加）
+
+- **Actions の PR 作成が repo 設定で禁止されている**: main push の sync workflow は
+  2026-07-13 の 2 run とも「GitHub Actions is not permitted to create or approve
+  pull requests」で failure。**同期 PR の自動作成は従来から機能していない**（Human-owned:
+  Settings → Actions → General → 「Allow GitHub Actions to create and approve pull
+  requests」を ON にすると解消）。ただし本 PR の drift check job が「drift を持ち込む
+  PR を merge 前に fail させる」ため、乖離の混入自体は防止される
+- **TA-42 TC-04 の flaky**（2 回観測）: スイート内でのみ `status` の exit code 期待が
+  崩れる。単体実行では正常。テスト間の状態汚染疑い — #861 と同根の可能性
+
+### インシデント記録（本タスク中・すべて是正済み）
+
+1. コミットが local main に乗る（三点照合 → ff-only 移送で復旧・push 前）
+2. テスト実行が plugin agents 7 件を削除（origin/main から復元 4240718 → **#861 起票**）
+3. **AI 生成 patch のヘッダ破損で HO ファイル 3 本が削除 commit に**（sed 置換順序ミス。
+   `git apply --check` では検出不能だった。未 push のうちに reset+restore で復旧し、
+   worktree 実編集 → `git diff` ネイティブ生成 + **clean worktree での実適用テスト**方式に変更）
+4. 破損 patch の迷子ファイル掃除で正規 `workflows/*.yaml` を誤削除（`git restore` で即復旧）
