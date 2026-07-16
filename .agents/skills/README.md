@@ -64,3 +64,18 @@ WF-01〜WF-05 の各 phase で呼び出す再利用可能スキル。
 | `skill-creator` | 新しいスキルを対話的に設計・生成 |
 | `subagent-team-design` | タスク規模・モードに応じた最適チーム設計とエージェント委譲準備（旧 setup-team、#800 で改名） |
 | `ref-integrity-scan` | 削除・移動・改名前後の被参照（inbound）を全走査。`check-stale-skill-refs.py`（#691・outbound）の相補（#798）|
+
+## ゲート・委譲支援スキル（plugin 配布対象 / #862 で正本化）
+
+旧来 `plugin/plangate/skills/` にのみ実体があった 7 件。sync / drift check の担保下に
+入れるため、本ディレクトリを正本として plugin 側は sync による派生成果物とする（#862）。
+
+| スキル | 役割 |
+|--------|------|
+| `context-packager` | タスク委譲前に Allowed Context を構造化して出力 |
+| `design-gate` | high-risk 以上のタスクで実装前に Design Artifact を生成・評価 |
+| `evidence-ledger` | 完了主張を証拠付きで記録し EvidenceLedger を出力 |
+| `intent-classifier` | 依頼文から開発 Intent を分類し structured JSON で返す |
+| `pr-decision` | gate/evidence/review/risk/rollback から PR 可否を判定 |
+| `skill-policy-router` | Intent と Mode から必要 Skill・GatePolicy を決定 |
+| `subagent-dispatch` | high-risk/critical でタスクをロール別エージェントに分配 |
