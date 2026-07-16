@@ -81,7 +81,8 @@ PlanGate 統制層フェーズ（A / B / D / L-0）との対応は [`plangate-in
 ### Non-goals and Scope Boundary
 - Out of scope: schema 変更、hook 実装、CLI 実装。
 - Forbidden zones: `bin/plangate`, `schemas/*.schema.json`, `.github/workflows/*.yml`,
-  `.claude/settings*.json`, `.claude/rules/**`, `plugin/plangate/**`,
+  `.claude/settings*.json`, `.claude/rules/**`,
+  `plugin/plangate/{scripts,hooks,.claude-plugin}/**` / `plugin/plangate/**/agents/*.yaml`（限定 HO・#842 B'案。派生成果物は対象外）,
   `CLAUDE.md`, `AGENTS.md`, `docs/ai/core-contract.md`
   （詳細は EH-1 production code 定義参照）
 

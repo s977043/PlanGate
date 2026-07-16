@@ -1,0 +1,20 @@
+# T-4: H-2 適用検証（2026-07-13）commit bdbc58e
+## ① ho-paths.md の HO-plugin 残存数（期待: 0）
+count=0
+0
+## ② ho-paths.md の plugin 言及（期待: 注記内の参照のみ）
+125:> **注（#842 B案確定）**: `plugin/plangate/**` は HO 対象外。正本 `.claude/**` 等は
+126:> EH-3 9 カテゴリで保護済みであり、派生成果物 `plugin/plangate/**` の整合は
+127:> CI-owned（`.github/workflows/sync-plugin-plangate.yml` の drift 検出 → 同期 PR →
+## ③ sync-plugin-plangate.yml の trigger paths
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.claude/**'
+      - '.agents/skills/**'
+      - 'CHANGELOG.md'
+      - 'docs/ai/ai-loop/**'
+      - 'scripts/ai-loop/**'
+  workflow_dispatch:
+

@@ -10,12 +10,54 @@ on:
       - '.claude/**'
       - '.agents/skills/**'
       - 'CHANGELOG.md'
+      - 'docs/ai/ai-loop/**'
+      - 'docs/workflows/ai-loop/**'
+      - 'scripts/ai-loop/**'
+      - 'scripts/_ai_loop_link_rewrite.py'
+      - 'scripts/sync-plugin-plangate.sh'
+      - 'plugin/plangate/**'
+  pull_request:
+    paths:
+      - '.claude/**'
+      - '.agents/skills/**'
+      - 'docs/ai/ai-loop/**'
+      - 'docs/workflows/ai-loop/**'
+      - 'scripts/ai-loop/**'
+      - 'scripts/_ai_loop_link_rewrite.py'
+      - 'scripts/sync-plugin-plangate.sh'
+      - 'plugin/plangate/**'
   workflow_dispatch:
 
 permissions: {}
 
 jobs:
+  # PR 段階で plugin/plangate/ と正本の drift を検出する (#842 R-005)。
+  # push 後の同期 PR だけでは「main にマージされてから気づく」構造のため、
+  # PR 時点で sync 実行後の差分ゼロを必須とする。
+  drift-check:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 1
+
+      - name: Verify plugin/plangate is in sync with sources
+        run: |
+          sh scripts/sync-plugin-plangate.sh
+          if ! git diff --quiet -- plugin/plangate/; then
+            echo "::error::plugin/plangate/ が正本と乖離しています。ローカルで 'sh scripts/sync-plugin-plangate.sh' を実行し、結果をコミットしてください。"
+            git diff --stat -- plugin/plangate/
+            exit 1
+          fi
+          echo "plugin/plangate/ is in sync with sources."
+
   sync:
+    if: github.event_name != 'pull_request'
     permissions:
       contents: write
       pull-requests: write

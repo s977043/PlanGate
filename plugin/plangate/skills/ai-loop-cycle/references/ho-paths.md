@@ -43,7 +43,10 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 | `.claude/agents/*.md` | HO-rules | Agent 行動契約。統制回避防止。AI 直接編集不可 |
 | `.claude/settings.example.json` | HO-settings | settings 契約例。自己改変・緩和防止 |
 | `.github/workflows/*.yaml` | HO-ci | CI/CD 定義（yaml 拡張子）。AI 直接編集不可 |
-| `plugin/plangate/**` | HO-plugin | プラグイン本体。AI 直接編集不可 |
+| `plugin/plangate/scripts/**` | HO-plugin-dist | 配布実行スクリプト（利用者が実行）。同期元が無く drift 検出不能。サプライチェーン防護 |
+| `plugin/plangate/hooks/**` | HO-plugin-dist | 配布 hook（安全装置本体）。同期元が無く drift 検出不能 |
+| `plugin/plangate/**/agents/*.yaml` | HO-plugin-dist | 配布 agent 設定。同期元が無く drift 検出不能 |
+| `plugin/plangate/.claude-plugin/**` | HO-plugin-dist | plugin manifest（version 行以外に同期元が無い） |
 | `docs/ai/ai-loop/ho-paths.md` | HO-contract | HO 境界定義そのもの（本ファイル）。Arbiter が自己の判定基準を自己改変しないための機械層（原則 1 参照） |
 
 ---
@@ -60,7 +63,7 @@ Arbiter の flow → detect → escalate において、変更対象ファイル
 | HO-contract | AI-Human 間の基本契約・Iron Law |
 | HO-ci | CI/CD 定義・自動検証の物理配線 |
 | HO-approval | 人間承認トークン・provenance 証跡 |
-| HO-plugin | CLI プラグイン本体 |
+| HO-plugin-dist | plugin 配布物のうち**同期元を持たない独自実体**（実行系）。sync が生成する派生成果物は対象外（PR drift check で担保） |
 
 ---
 
@@ -96,7 +99,8 @@ AGENTS.md                   → HO-contract
 docs/ai/core-contract.md    → HO-contract
 .github/workflows/ci.yml    → HO-ci
 docs/working/TASK-0123/approvals/c3.json → HO-approval
-plugin/plangate/index.js    → HO-plugin
+plugin/plangate/scripts/install-plangate-skills.sh → HO-plugin-dist
+plugin/plangate/skills/ai-loop-cycle/references/ho-paths.md → clean（派生成果物・PR drift check で担保）
 ```
 
 ---
@@ -128,3 +132,10 @@ plugin/plangate/index.js    → HO-plugin
 - `docs/ai/ai-loop/asset-inventory.md` — PlanGate 資産の uses/not-uses 分類
 - `docs/ai/hook-enforcement.md` — HO パスの元定義（PlanGate 既存仕様）
 - `docs/ai/autonomous-degraded-gates-spec.md` — `NoHardeningOverridePath` 条件の定義元
+
+> **注（#842 B'案確定 / 2026-07-13）**: `plugin/plangate/**` は**一律 HO ではない**。
+> plugin 配下を 2 分し、**同期元を持たない独自実体（実行系）のみ `HO-plugin-dist` として
+> HO 対象**とする（上表 4 パターン）。sync が生成する**派生成果物は HO 対象外**とし、
+> 正規 sync（`scripts/sync-plugin-plangate.sh`）の書き込みを阻害しない。派生成果物の
+> 整合は CI-owned（`sync-plugin-plangate.yml` の **PR 段階 drift check** + main push の
+> 同期 PR → Human C-4 merge）で担保する。
