@@ -61,6 +61,23 @@ sync_dir() {
       changed=1
     fi
   done
+  # #861 safety guard: src ファイル数が dst（README.md 除く）の半数未満のときは
+  # 同期元の欠落（checkout 不全・誤パス等）を疑い、削除フェーズをスキップして WARN。
+  _src_n=0
+  for _f in "$_src"/*.md "$_src"/*.yaml "$_src"/*.yml "$_src"/*.json; do
+    [ -f "$_f" ] || continue
+    _src_n=$((_src_n + 1))
+  done
+  _dst_n=0
+  for _f in "$_dst"/*.md "$_dst"/*.yaml "$_dst"/*.yml "$_dst"/*.json; do
+    [ -f "$_f" ] || continue
+    [ "$(basename "$_f")" = "README.md" ] && continue
+    _dst_n=$((_dst_n + 1))
+  done
+  if [ $((_src_n * 2)) -lt "$_dst_n" ]; then
+    _log "WARN (#861 safety guard): src=$_src_n < half of dst=$_dst_n — DELETE phase skipped for $_label"
+    return 0
+  fi
   for _f in "$_dst"/*.md "$_dst"/*.yaml "$_dst"/*.yml "$_dst"/*.json; do
     [ -f "$_f" ] || continue
     _base="$(basename "$_f")"
