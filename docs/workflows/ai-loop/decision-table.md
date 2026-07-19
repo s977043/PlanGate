@@ -62,6 +62,8 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 | ---------- | ------ | -------- |
 | **0** | ho-paths.md が実行時解決できない、またはパース結果が 0 件（fail-closed）。boundary 判定そのものが実行不能なため、他のどの軸よりも先に評価する | **human escalate（固定・絶対条件）** |
 | **1.5** | boundary=clean（priority 1 通過後）だが、`changed_files` が `allowed_paths` のいずれの glob にも一致しない（scope 逸脱） | **human escalate** |
+| **1.6** | priority 1.5 通過後、`production: true`（Plan-first 正式入口の宣言）だが `plan_package` が未指定、または `plan_package` の構造が不正（必須キー欠落） | **human escalate** |
+| **1.65** | priority 1.6 通過後、`plan_package` の整合検証 NG — reviewer snapshot（model_a/model_b）の plan_hash / source_sha / plan_package_hash 三つ組がトップレベル値と不一致、snapshot 欠落、または `plan_package.source_sha != target_sha` | **blocked** |
 | **1.7** | boundary=clean・scope 逸脱なし（priority 1.5 通過後）だが、`gates.c1 == "PASS"` かつ `gates.breakdown == "pass"`（両方とも厳密一致）を満たさない（plan 品質ゲート未充足） | **human escalate** |
 | **1.9** | priority 1.7 通過後、申告 `lite.size_ok == true`（bool）だが `changed_files` の実ファイル数が `SIZE_OK_MAX_FILES`（2）を超える（申告と blast-radius の不一致） | **human escalate** |
 | **1.95** | priority 1.9 通過後、`run.cost_cap`（任意・単位=round 数）が宣言され、かつ `run.round_index` が `cost_cap` を超過（run 予算超過） | **human escalate** |
@@ -72,6 +74,14 @@ Arbiter L2 裁定層の判断ロジックを機械的に決定可能な形式で
 - priority 1.5 は priority 1（touches-HO）の**後**に評価する。
   `allowed_paths` に HO パスを宣言していても HO escalate は免れない
   （`design-philosophy.md` I-1 不変条件、LoopSpec 既存規定）
+- priority 1.6 / 1.65（TASK-0872 / issue #872）は priority 1.5（scope）の**後**・
+  priority 1.7（plan-quality）の**前**に評価する。`production` / `plan_package` は
+  任意入力フィールド（additive）で、両方未指定の従来入力では一切発火しない。
+  `production: true` は Plan-first 正式入口（`plan_package.py` 経由）の宣言であり、
+  **raw な `gates.c1=PASS` 文字列だけでは production run は通過できない**（AC-4）。
+  1.65 の blocked は c3-prime-contract.md §3/§4 の fail-closed（hash mismatch は
+  escalate でなく差し戻し）。フィールド契約の正本:
+  [`c3-prime-contract.md`](./c3-prime-contract.md)
 - priority 1.7（#780 Slice B）は priority 1.5（scope）の**後**・priority 1.9（size 機械検証）の
   **前**に評価する。`gates`（`{"c1": str, "breakdown": str}`）は任意入力フィールドで、
   欠落・null・非 dict・型不一致・値の表記違い（例: 小文字 `"pass"` 以外の

@@ -46,7 +46,18 @@ L1（呼び出し側）が別途取得し、その verdict を本モジュール
         "round_index": int,             #   bool 不可・必須（run 提供時）
         "task_id": str,
         "repair_action": str            #   任意（再試行時のみ）
-      } | 省略可                        # 省略時は provenance に run キー自体を刻まない（null も出さない）
+      } | 省略可,                       # 省略時は provenance に run キー自体を刻まない（null も出さない）
+      "production": bool,               # 任意（TASK-0872 追加・additive）。true = Plan-first
+                                        #   正式入口の宣言。true で plan_package 欠落/構造不正なら
+                                        #   priority 1.6 で escalate（AC-1/AC-4）。bool 厳密
+      "plan_package": {                 # 任意（TASK-0872 追加・additive）。plan_package.py が
+        "plan_hash": str,               #   検証・組み立てた Plan Package ブロック。契約正本:
+        "source_sha": str,              #   docs/workflows/ai-loop/c3-prime-contract.md §2/§3。
+        "plan_package_hash": str,       #   reviewer snapshot 三つ組不一致・source_sha≠target_sha・
+        "c1_evidence_ref": str,         #   snapshot 欠落は priority 1.65 で BLOCKED（fail-closed）。
+        "c2_evidence_ref": str,         #   全裁定経路の provenance にそのまま刻まれる（AC-5）
+        "reviewers": {"model_a": {...}, "model_b": {...}}
+      } | 省略可
     }
 
 `allowed_paths` は LoopSpec `scope.allowed_paths`（既存必須フィールド）宣言を
@@ -454,6 +465,70 @@ def plan_quality_check(gates: Any) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Plan Package gate 判定: priority 1.6 / 1.65（TASK-0872 / issue #872）
+# ---------------------------------------------------------------------------
+# 契約正本: docs/workflows/ai-loop/c3-prime-contract.md §2/§3。
+# 任意フィールド `plan_package`（plan_package.py が検証・組み立てたブロック）を
+# 構造（structure）と整合（integrity）の 2 段で判定する。
+# - structure NG → priority 1.6 で HUMAN_ESCALATED（gates と同じ安全側規約）
+# - integrity NG（reviewer snapshot 三つ組不一致 / source_sha≠target_sha /
+#   snapshot 欠落）→ priority 1.65 で BLOCKED（契約 §3/§4 の fail-closed）
+# escalate / BLOCKED 条件を追加するだけの安全側変更であり、以前 escalate だった
+# 経路を auto-approve に倒す効果は持たない。
+PLAN_PACKAGE_REQUIRED_KEYS = (
+    "plan_hash",
+    "source_sha",
+    "plan_package_hash",
+    "c1_evidence_ref",
+    "c2_evidence_ref",
+    "reviewers",
+)
+SNAPSHOT_REQUIRED_KEYS = (
+    "verdict",
+    "plan_hash",
+    "source_sha",
+    "plan_package_hash",
+    "evidence_ref",
+)
+
+
+def plan_package_check(plan_package: Any, target_sha: str) -> tuple[bool, bool, str]:
+    """(structure_ok, integrity_ok, reason) を返す。
+
+    structure_ok=False → priority 1.6（escalate）。integrity_ok=False →
+    priority 1.65（BLOCKED）。両方 True なら reason は空文字。
+    """
+    if not isinstance(plan_package, dict):
+        return False, False, f"plan_package が object でない（型: {type(plan_package).__name__}）"
+    missing = [k for k in PLAN_PACKAGE_REQUIRED_KEYS if not plan_package.get(k)]
+    if missing:
+        return False, False, f"plan_package 必須キー欠落: {', '.join(missing)}"
+
+    reviewers = plan_package.get("reviewers")
+    if not isinstance(reviewers, dict):
+        return True, False, "plan_package.reviewers が object でない"
+    for model in ("model_a", "model_b"):
+        snap = reviewers.get(model)
+        if not isinstance(snap, dict):
+            return True, False, f"reviewers.{model} の snapshot が欠落（契約 §3: BLOCKED）"
+        snap_missing = [k for k in SNAPSHOT_REQUIRED_KEYS if not snap.get(k)]
+        if snap_missing:
+            return True, False, f"reviewers.{model} の snapshot キー欠落: {', '.join(snap_missing)}"
+        for key in ("plan_hash", "source_sha", "plan_package_hash"):
+            if snap.get(key) != plan_package.get(key):
+                return True, False, (
+                    f"reviewers.{model}.{key} がトップレベル値と不一致"
+                    "（同一 Plan Package を観ていない = AC-5 違反）"
+                )
+    if plan_package.get("source_sha") != target_sha:
+        return True, False, (
+            f"plan_package.source_sha ({plan_package.get('source_sha')}) と "
+            f"target_sha ({target_sha}) が不一致（R-011）"
+        )
+    return True, True, ""
+
+
+# ---------------------------------------------------------------------------
 # severity 分類（priority 5 時のみ使用）
 # ---------------------------------------------------------------------------
 # 出典: docs/workflows/ai-loop/flow-detect.md §3.2.1 カテゴリマッピング表。
@@ -593,6 +668,26 @@ def validate_input(data: Any) -> dict[str, Any]:
     target_sha = data.get("target_sha")
     _require(isinstance(target_sha, str) and target_sha != "", "target_sha は非空の string である必要があります")
 
+    # production（TASK-0872 追加・additive・任意）: Plan-first 正式入口の宣言。
+    # true のとき plan_package の presence が必須になる（priority 1.6）。
+    # bool 厳密（"true" 等の文字列は拒否・run.round_index と同型の規約）。
+    if "production" in data and data.get("production") is not None:
+        _require(
+            type(data.get("production")) is bool,
+            "production は bool である必要があります（文字列不可）",
+        )
+
+    # plan_package（TASK-0872 追加・additive・任意）: c3-prime-contract.md §2/§3 の
+    # 検証済み Plan Package ブロック。構造の詳細検証は arbitrate 側の
+    # plan_package_check（priority 1.6 / 1.65）で安全側判定する（入力エラーに
+    # しないのは、欠落・不一致を「escalate / BLOCKED という裁定」として
+    # provenance に残すため）。ここでは型のみ検査する。
+    if "plan_package" in data and data.get("plan_package") is not None:
+        _require(
+            isinstance(data.get("plan_package"), dict),
+            "plan_package は object または省略である必要があります",
+        )
+
     run = data.get("run")
     if run is not None:
         _require(isinstance(run, dict), "run は object または省略である必要があります")
@@ -649,6 +744,8 @@ def build_provenance(
     ho_pattern_count: int = 0,
     run: dict[str, Any] | None = None,
     gates: Any = None,
+    plan_package: dict[str, Any] | None = None,
+    timestamp: str | None = None,
 ) -> dict[str, Any]:
     """decision-table.md §5 準拠の provenance JSON を構築する。
 
@@ -707,7 +804,12 @@ def build_provenance(
         "scope_check": scope_check,
         "ho_paths_source": ho_paths_source,
         "ho_pattern_count": ho_pattern_count,
-        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        # timestamp 注入（TASK-0872 / R-010）: 呼び出し側から固定値を注入できる。
+        # 未注入時は従来どおり now（後方互換）。注入により「同一入力 → byte 同一
+        # provenance」の冪等検証（c3-prime-contract.md / シナリオ 9）が可能になる。
+        "timestamp": timestamp
+        if timestamp is not None
+        else datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     # run 未指定時は `run` キー自体を省略する（`"run": null` を出さない）。
     # metrics.py の legacy（キー欠落）/ invalid_run_meta（キー有だが run_id falsy）
@@ -719,6 +821,12 @@ def build_provenance(
     # record から監査できるようにする（#780 follow-up）。
     if gates is not None:
         provenance["gates"] = gates
+    # plan_package 未指定時は `plan_package` キー自体を省略する（run/gates と同じ
+    # additive 規約・TASK-0872）。指定時は c3-prime-contract.md §2/§3 の検証済み
+    # ブロックをそのまま刻み、AC-5（Model A/B が同一 plan_hash / source_sha を
+    # 観たことの record 確認）を成立させる。
+    if plan_package is not None:
+        provenance["plan_package"] = plan_package
     return provenance
 
 
@@ -790,7 +898,7 @@ def _evaluate_signals(data: dict[str, Any], ho_patterns: list[tuple[str, str]]) 
 
 
 def arbitrate(
-    data: dict[str, Any], *, ho_paths_path: str | None = None
+    data: dict[str, Any], *, ho_paths_path: str | None = None, timestamp: str | None = None
 ) -> tuple[dict[str, Any], str]:
     """decision-table.md §3 priority 1〜6 を順に評価し、provenance と適用理由を返す。
 
@@ -817,6 +925,9 @@ def arbitrate(
     reject_category: str | None = verdicts.get("reject_category")
     run: dict[str, Any] | None = data.get("run")
     gates_meta: Any = data.get("gates")
+    # TASK-0872: Plan-first 正式入口の宣言（production）と検証済み Plan Package。
+    production: bool = data.get("production") is True
+    plan_package: dict[str, Any] | None = data.get("plan_package")
 
     ho_patterns, ho_source, ho_searched = resolve_ho_patterns(ho_paths_path)
     ho_pattern_count = len(ho_patterns)
@@ -839,6 +950,8 @@ def arbitrate(
             ho_pattern_count=ho_pattern_count,
             run=run,
             gates=gates_meta,
+            plan_package=plan_package,
+            timestamp=timestamp,
             **kw,
         )
 
@@ -913,11 +1026,41 @@ def arbitrate(
             f"超過（run 予算超過・単位=round 数）"
         )
 
+    # Plan Package gate（TASK-0872 / priority 1.6・1.65）の判定材料。
+    # plan_package 未指定時は check を評価しない（structure/integrity とも False の
+    # 既定だが、1.6 の guard は production=true のときのみ・1.65 は指定時のみ発火）。
+    pp_present = plan_package is not None
+    if pp_present:
+        pp_structure_ok, pp_integrity_ok, pp_reason = plan_package_check(plan_package, target_sha)
+    else:
+        pp_structure_ok, pp_integrity_ok, pp_reason = False, False, "plan_package 未指定"
+
+    def _pp_escalate_reason() -> str:
+        if not pp_present:
+            return (
+                "priority 1.6: production run だが plan_package が未指定"
+                "（Plan-first 入口以外からの production run は不可 / AC-1・AC-4）"
+            )
+        return f"priority 1.6: plan_package 構造不正（{pp_reason}）"
+
+    def _pp_blocked_reason() -> str:
+        return f"priority 1.65: plan_package 整合検証 NG（{pp_reason}）"
+
     priority_table: list[tuple[str, bool, str, str, str, Any]] = [
         ("priority 1", signals.boundary == "touches-HO", DECISION_HUMAN_ESCALATED, signals.boundary, "not_evaluated",
          lambda: f"priority 1: boundary=touches-HO（絶対条件・固定）。一致パス: {_matched_desc()}"),
         ("priority 1.5", not signals.scope_ok, DECISION_HUMAN_ESCALATED, signals.boundary, "scope_violation",
          lambda: f"priority 1.5: boundary=clean だが scope_violation（allowed_paths 逸脱パス: {', '.join(signals.violations)}）"),
+        # priority 1.6（TASK-0872）: production run の plan_package presence /
+        # structure gate。gates.c1 文字列だけでは production 経路を通過できない
+        # （AC-4）。非 production で plan_package も無い従来入力は発火しない（additive）。
+        ("priority 1.6", (production and not pp_present) or (pp_present and not pp_structure_ok),
+         DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope", _pp_escalate_reason),
+        # priority 1.65（TASK-0872）: plan_package の整合検証（reviewer snapshot
+        # 三つ組一致 / source_sha=target_sha）。不一致・snapshot 欠落は BLOCKED
+        # （c3-prime-contract.md §3/§4 の fail-closed）。
+        ("priority 1.65", pp_present and pp_structure_ok and not pp_integrity_ok,
+         DECISION_BLOCKED, signals.boundary, "in_scope", _pp_blocked_reason),
         ("priority 1.7", not signals.plan_quality_ok, DECISION_HUMAN_ESCALATED, signals.boundary, "in_scope",
          _gates_reason),
         ("priority 1.9", signals.declared_size_ok and not signals.machine_size_ok, DECISION_HUMAN_ESCALATED,
@@ -1017,6 +1160,15 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="HO パス一覧（ho-paths.md）の明示パス（省略時は実行時解決 / #809）",
     )
+    parser.add_argument(
+        "--timestamp",
+        dest="timestamp",
+        default=None,
+        help=(
+            "provenance に刻む timestamp の固定注入（ISO 8601 UTC）。省略時は now。"
+            "同一入力からの byte 同一 provenance 検証用（TASK-0872 / R-010）"
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -1041,7 +1193,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[arbiter] 入力エラー: {exc}", file=sys.stderr)
         return 1
 
-    provenance, reason = arbitrate(validated, ho_paths_path=args.ho_paths_path)
+    provenance, reason = arbitrate(
+        validated, ho_paths_path=args.ho_paths_path, timestamp=args.timestamp
+    )
     decision = provenance["decision"]
 
     print(json.dumps(provenance, ensure_ascii=False, indent=2, sort_keys=True))

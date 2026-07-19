@@ -193,6 +193,12 @@ detect である。CI/PR 時の AI レビュー（ボットレビュー）を**�
   = plan 乖離検知と同型の防御。機械化は Phase 3 で `arbiter.py --verify-diff`
   として実装予定）。宣言外の変更を検出した場合は exec へ差し戻すか、
   再裁定（C-3' 再実行）を行う
+  - **位相注記（TASK-0872 / issue #872）**: 承認時点の Plan Package **束縛**
+    （presence / artifact hash / source SHA / reviewer snapshot の固定と
+    stale 化）は `plan_package.py` + arbiter priority 1.6/1.65 として**実装済み**
+    （契約正本: [`c3-prime-contract.md`](./c3-prime-contract.md)）。本項の
+    `--verify-diff`（exec **後**の実差分検証）はそれとは別位相で、
+    **未実装のまま Phase 3**（#873 以降の範囲）
 - **内容**: diff-audit スキル（旧 self-review、Phase 1〜13 全観点）+
   `plan-review-readiness-gate.md`
   §7/§8 観点 + review-feedback-loop（L4）で還元済みの観点を必ず通す
