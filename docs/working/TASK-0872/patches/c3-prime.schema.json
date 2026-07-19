@@ -117,6 +117,31 @@
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "$comment": "Contract sections 2/4 (#887 review): AUTO_APPROVED requires both reviewer verdicts to be approve. Cross-field constraint so a tampered AUTO_APPROVED+reject record fails schema validation, not only the PR-2 strict-JSON check.",
+      "if": {
+        "properties": {
+          "decision": { "const": "AUTO_APPROVED" }
+        },
+        "required": ["decision"]
+      },
+      "then": {
+        "properties": {
+          "reviewers": {
+            "properties": {
+              "model_a": {
+                "properties": { "verdict": { "const": "approve" } }
+              },
+              "model_b": {
+                "properties": { "verdict": { "const": "approve" } }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "sha256": {
       "type": "string",

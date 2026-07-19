@@ -71,16 +71,33 @@ def check_presence(task_dir):
 # 構造的に排除）。ファイル内にちょうど 1 回でなければ fail-closed。
 _C1_MARKER_RE = re.compile(r"^C1-VERDICT: (\S+) plan=(sha256:[0-9a-f]{64})$", re.MULTILINE)
 _C2_MARKER_RE = re.compile(r"^C2-VERDICT: (\S+) plan=(sha256:[0-9a-f]{64})$", re.MULTILINE)
+# プレフィックス行（`C1-VERDICT:` で始まるが完全文法に一致しない行も含む）を
+# 数える。完全マッチ数とプレフィックス行数が一致しなければ、文法外の
+# VERDICT 行が混入している（末尾空白・不正 hash 等の追記）ため fail-closed
+# にする（#887 レビュー / Codex minor 指摘反映）。
+_C1_PREFIX_RE = re.compile(r"^C1-VERDICT:", re.MULTILINE)
+_C2_PREFIX_RE = re.compile(r"^C2-VERDICT:", re.MULTILINE)
+
+# 契約 §2: decision の 3 値 allowlist（#887 レビュー / 両 Codex major 指摘反映）。
+VALID_DECISIONS = ("AUTO_APPROVED", "HUMAN_ESCALATED", "BLOCKED")
+VALID_VERDICTS = ("approve", "reject")
 
 
-def _read_evidence_marker(path, marker_re):
-    """マーカーを読み (verdict, plan_hash, error) を返す。ちょうど 1 回以外はエラー。"""
+def _read_evidence_marker(path, marker_re, prefix_re):
+    """マーカーを読み (verdict, plan_hash, error) を返す。
+
+    完全マッチがちょうど 1 回、かつプレフィックス行数と一致する場合のみ受理。
+    それ以外（0 回 / 2 回以上 / プレフィックスのみ一致する文法外行の混入）は
+    すべて fail-closed。
+    """
     text = path.read_text(encoding="utf-8", errors="replace")
     matches = marker_re.findall(text)
-    if len(matches) != 1:
+    prefix_count = len(prefix_re.findall(text))
+    if len(matches) != 1 or prefix_count != 1:
         return None, None, (
-            f"evidence: {path.name} の VERDICT マーカーが {len(matches)} 回"
-            "（契約 §1: ちょうど 1 回。0 回=未対応 artifact / 2 回以上=曖昧・fail-closed）")
+            f"evidence: {path.name} の VERDICT マーカーが不正"
+            f"（完全一致 {len(matches)} 回 / プレフィックス行 {prefix_count} 行。"
+            "契約 §1: 完全文法でちょうど 1 回のみ・fail-closed）")
     verdict, plan_hash = matches[0]
     return verdict, plan_hash, None
 
@@ -96,15 +113,15 @@ def check_evidence(task_dir):
     plan = task_dir / "plan.md"
     current_plan_hash = _sha256_of(plan) if plan.is_file() else None
 
-    for name, marker_re, accepted in (
-        (C1_EVIDENCE, _C1_MARKER_RE, ("PASS",)),
-        (C2_EVIDENCE, _C2_MARKER_RE, ("approve",)),
+    for name, marker_re, prefix_re, accepted in (
+        (C1_EVIDENCE, _C1_MARKER_RE, _C1_PREFIX_RE, ("PASS",)),
+        (C2_EVIDENCE, _C2_MARKER_RE, _C2_PREFIX_RE, ("approve",)),
     ):
         path = task_dir / name
         if not path.is_file():
             errors.append(f"evidence: {name} が存在しない")
             continue
-        verdict, marker_hash, err = _read_evidence_marker(path, marker_re)
+        verdict, marker_hash, err = _read_evidence_marker(path, marker_re, prefix_re)
         if err:
             errors.append(err)
             continue
@@ -248,11 +265,18 @@ def build_c3_prime(task_dir, task_id, source_sha, target_sha, verdicts,
     if source_sha != target_sha:
         errors.append(
             f"source_sha ({source_sha}) と target_sha ({target_sha}) が不一致（R-011）")
-    if not re.match(r"^[0-9a-f]{7,40}$", source_sha or ""):
+    if not re.fullmatch(r"[0-9a-f]{7,40}", source_sha or ""):
         errors.append(f"source_sha が commit SHA 形式でない: {source_sha!r}")
+    # decision の 3 値 allowlist（契約 §2 / #887 レビュー・両 Codex major）。
+    if decision not in VALID_DECISIONS:
+        errors.append(
+            f"decision が契約の 3 値以外: {decision!r}（許容: {VALID_DECISIONS}）")
     for m in ("model_a", "model_b"):
         if m not in (verdicts or {}):
             errors.append(f"verdicts.{m} が欠落（reviewer snapshot を組めない）")
+        elif (verdicts or {}).get(m) not in VALID_VERDICTS:
+            errors.append(
+                f"verdicts.{m} が approve/reject 以外: {(verdicts or {}).get(m)!r}")
         if m not in (reviewer_evidence or {}):
             errors.append(f"reviewer_evidence.{m} が欠落")
     # decision↔verdicts 整合（契約 §2 / #887 F-3）: AUTO_APPROVED は両 reviewer
@@ -277,10 +301,13 @@ def build_c3_prime(task_dir, task_id, source_sha, target_sha, verdicts,
         }
         for m in ("model_a", "model_b")
     }
-    # check_evidence 通過済み = マーカーはちょうど 1 回・受理値であることが保証
-    # されているため、ここでの再読は evidence_ref の表示値組み立てのみ。
-    c1_mark, _, _ = _read_evidence_marker(task_dir / C1_EVIDENCE, _C1_MARKER_RE)
-    c2_mark, _, _ = _read_evidence_marker(task_dir / C2_EVIDENCE, _C2_MARKER_RE)
+    # evidence_ref 表示値の再読。check_evidence は build 冒頭で通過済みだが、
+    # compute_hashes 後の TOCTOU 改変で再読が失敗しうる（#887 レビュー / Codex
+    # 新規バグ指摘）。再読エラーは #None を含む record を返さず fail-closed。
+    c1_mark, _, c1_err = _read_evidence_marker(task_dir / C1_EVIDENCE, _C1_MARKER_RE, _C1_PREFIX_RE)
+    c2_mark, _, c2_err = _read_evidence_marker(task_dir / C2_EVIDENCE, _C2_MARKER_RE, _C2_PREFIX_RE)
+    if c1_err or c2_err:
+        raise PlanPackageError([e for e in (c1_err, c2_err) if e])
 
     return {
         "task_id": task_id,

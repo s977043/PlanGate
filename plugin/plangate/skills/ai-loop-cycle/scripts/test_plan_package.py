@@ -178,6 +178,15 @@ class EvidenceTests(unittest.TestCase):
             errors = plan_package.check_evidence(task_dir)
             self.assertTrue(errors, "F-5: マーカー無し artifact が受理された")
 
+    def test_malformed_prefix_line_fail_closed(self):
+        # #887 Codex minor: 有効マーカー 1 行 + プレフィックスのみ一致する文法外の
+        # 追記行（末尾空白等）がある場合、完全一致は 1 でもプレフィックス 2 で fail-closed
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(
+                tmp, c1_extra="C1-VERDICT: PASS plan=sha256:deadbeef  extra\n")
+            errors = plan_package.check_evidence(task_dir)
+            self.assertTrue(errors, "文法外プレフィックス行が受理された")
+
     def test_mtime_does_not_affect_verdict(self):
         # #887 F-2: mtime をどう操作しても判定は変わらない（決定論）
         with tempfile.TemporaryDirectory() as tmp:
@@ -362,6 +371,45 @@ class BuildC3PrimeTests(unittest.TestCase):
                                  verdicts={"model_a": "approve", "model_b": "reject"},
                                  decision="HUMAN_ESCALATED")
             self.assertEqual(record["decision"], "HUMAN_ESCALATED")
+
+    def test_decision_must_be_in_allowlist(self):
+        # #887 Codex major: decision の 3 値 allowlist（契約外の値を record にしない）
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp)
+            for bad in ("unknown", "NOT_A_DECISION", "approved", ""):
+                with self.subTest(decision=bad):
+                    with self.assertRaises(plan_package.PlanPackageError):
+                        self._build(task_dir,
+                                    verdicts={"model_a": "approve", "model_b": "approve"},
+                                    decision=bad)
+
+    def test_verdict_must_be_approve_or_reject(self):
+        # #887 Codex major: reviewer verdict の allowlist
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp)
+            with self.assertRaises(plan_package.PlanPackageError):
+                self._build(task_dir,
+                            verdicts={"model_a": "approve", "model_b": "maybe"},
+                            decision="HUMAN_ESCALATED")
+
+    def test_evidence_reread_failure_is_fail_closed(self):
+        # #887 Codex 新規バグ: compute_hashes 後の TOCTOU 改変で再読が失敗しても
+        # #None を含む record を返さず PlanPackageError
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp)
+            orig = plan_package.compute_hashes
+
+            def patched(td):
+                r = orig(td)
+                (task_dir / "review-external.md").write_text("# broken\n", encoding="utf-8")
+                return r
+
+            plan_package.compute_hashes = patched
+            try:
+                with self.assertRaises(plan_package.PlanPackageError):
+                    self._build(task_dir)
+            finally:
+                plan_package.compute_hashes = orig
 
     def test_serialization_constraint(self):
         # 契約 §5: json.dumps(indent=2, sort_keys=True) でトップレベル plan_hash 行が 1 回のみ
