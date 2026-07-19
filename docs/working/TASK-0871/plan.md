@@ -104,7 +104,7 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
 | Step | 内容 | Output | Owner | Risk | 🚩 | rollback |
 |------|------|--------|-------|------|-----|---------|
 | S1 | 矛盾一覧の確定監査（付録 A を rg で再実測し evidence 化） | `evidence/verification/terminology-audit.md` | agent | 低 | - | 不要（読取のみ） |
-| S2 | `rollout-policy.md` 新設（Phase 1 適用制限・lite/clean/reversible・auto-approve 方針を 00_concept から移設） | `docs/workflows/ai-loop/rollout-policy.md` | agent | 中 | - | `git revert`（新規 1 ファイル削除） |
+| S2 | `rollout-policy.md` 新設（Phase 1 適用制限・lite/clean/reversible・auto-approve 方針を 00_concept から移設。**設計前提 = 汎用表現で verbatim 配布・雛形注記ヘッダ機構なし — Q6 C-3 確定**） | `docs/workflows/ai-loop/rollout-policy.md` | agent | 中 | - | `git revert`（新規 1 ファイル削除） |
 | S3 | `00_concept.md` 再構成（正本宣言 + 5 責務表 + terminal state 定義 + C-3/C-3' 経路 + Delivery/Evolution 区別 + harness 自己変更禁止 + Phase 1 節を rollout-policy 参照へ置換） | 更新版 00_concept.md | agent | 高 | 🚩 S3 完了時に diff 提示・Human 確認 | `git revert`（単一 commit に閉じる） |
 | S4 | 周辺 docs 整合（six-stage / adaptive / flow-detect 等の terminal state・責務記述を正本参照へ。重複定義の削減） | 更新版各 docs | agent | 中 | - | `git revert` |
 | S5 | Core Contract 整合（§1-bis へ「ai-loop 実行プロファイル時の AI 責務終点 = merge-ready、C-4/merge は Human 固定」の参照追記。実行契約の骨格は不変） | 更新版 core-contract.md | agent | 高 | 🚩 HO 隣接（CLAUDE.md 参照系）。diff 提示・Human 確認 | `git revert` |
@@ -193,21 +193,20 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
   併記まで行うか
 - Q3: S6 の HO 対象ファイルは本 PR に含めるか、Human 適用の別 commit に
   分離するか
-- Q4（C-1 F-3 / C-2 R-002 反映・**deferred-to-C3**）: **AC-9 の対象限定
-  （#866 除外・ai-dev / ai-loop アーキ文書に限定）は issue #871 本文の AC-9
-  （無限定）に対する plan 側の付加であり、C-3 で Human 明示承認が必要**。
-  **TC-09 の判定はこの未承認スコープ解釈に依存している**ため、承認なしに
-  TC-09 を PASS 判定しない。承認時は issue #871 へ scope 注記コメントを残し、
-  承認結果は issue コメント + `evidence/` の双方に記録する（R-003 の規定。
-  記録タスクは todo H-01 / T-13）
-- Q5（C-2 R-007 反映・**deferred-to-C3**）: `.claude/skills/ai-loop-cycle/SKILL.md`
-  （repo ローカル実行版・`.agents` 版と別内容並存）の扱い。本 plan では
-  Files to Touch / T-07 / 付録 B rg に追加済み（HO 外・AI 編集可）だが、
-  **並存自体の解消方針（正本一本化 or 意図的並存の明文化）は C-3 で確定**。
-  ファイルが別であるため #866 の Non-goals 除外は流用しない
-- Q6（C-2 R-009 反映・**deferred-to-C3**）: 新設 `rollout-policy.md` は plugin
-  glob 自動同梱により**雛形注記ヘッダなしで導入先へ verbatim 配布**される。
-  配布形態（そのまま配布 / 導入先向け注記ヘッダ付与）を C-3 で確定
+- Q4（C-1 F-3 / C-2 R-002 反映）— **確定: 承認済み（2026-07-19 C-3 / Human
+  APPROVE）**。AC-9 の監査対象限定（ai-dev / ai-loop アーキ文書に限定・#866 は
+  別トラック）を Human が C-3 で明示承認した。TC-09 は本承認を前提に PASS 判定
+  可能。issue #871 への scope 注記コメントはオーガナイザーが実施（承認結果の
+  evidence 記録は todo T-13 のとおり）
+- Q5（C-2 R-007 反映）— **確定（2026-07-19 C-3）**:
+  `.claude/skills/ai-loop-cycle/SKILL.md`（repo ローカル実行版）は**本 TASK で
+  新正本へ整合させる**。T-07 で `.agents` 版と併せて編集し（HO 外・AI 編集可）、
+  TC-14 で機械検証する。ファイルが別であるため #866 の Non-goals 除外は流用
+  しない
+- Q6（C-2 R-009 反映）— **確定（2026-07-19 C-3）**: `rollout-policy.md` は
+  **汎用の書き方で作成し verbatim 配布**する（雛形注記ヘッダ機構は追加しない）。
+  これを S2 / T-03（rollout-policy 新設）の**設計前提**とする — 本文は導入先で
+  もそのまま読める汎用表現（plangate 本体固有の文脈依存表現を持ち込まない）
 
 ## Mode 判定
 
