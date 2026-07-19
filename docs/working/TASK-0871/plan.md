@@ -45,6 +45,22 @@ policy（lite / clean / reversible）を**別レイヤーへ分離**する。既
   **上限 12 を超過し得る** → Replan Trigger（>12 で follow-up 分割）を発動基準
   とし、超過時は条件付き群（参照 1 行追従・採否記録系）を第 2 PR へ分割する
 - sync 対象確認: `scripts/sync-plugin-plangate.sh` 実在（実測）
+- **Replan 再計算（2026-07-19 Replan Trigger 発動・Human 判断）**: exec 実測で
+  手編集 11 ファイル（docs/working 除外）に達し、CI
+  `.github/workflows/sync-plugin-plangate.yml` の drift-check が
+  `docs/workflows/ai-loop/**` 等を touch する PR に「sync 実行後差分ゼロ」を
+  強制（#842 R-005 fail-closed）するため **sync 生成物は各 PR に同梱必須**
+  （sync 後回し分割は不可）。手編集 11 + sync 生成物で上限 12 を超過見込み →
+  Replan Trigger を原則どおり発動し **2 PR 分割**へ改訂（Human 判断
+  2026-07-19: カウント除外の逸脱は不承認・plan 分割で対応）。
+  sync 対象マッピング実測（`scripts/sync-plugin-plangate.sh` L95-99 dir loop /
+  L103-114 skills loop / L153-200 ai-loop references 同期）:
+  - `docs/workflows/ai-loop/*.md`（glob 全件）→ `plugin/plangate/skills/ai-loop-cycle/references/<同名>.md`（1:1・リンク変換つき）
+  - `.agents/skills/ai-loop-cycle/SKILL.md` → `plugin/plangate/skills/ai-loop-cycle/SKILL.md`
+  - `.claude/commands/ai-loop-workflow.md` → `plugin/plangate/commands/ai-loop-workflow.md`
+  - `docs/ai/core-contract.md` / `.claude/skills/ai-loop-cycle/SKILL.md` は **sync 対象外**（plugin に対応物なし・実測）
+  - **PR-1 実数見込み = 手編集 6 + sync 生成物 4 = 10（≤ 12 ✓）**
+  - **PR-2 実数見込み = 手編集 6 + sync 生成物 6 = 12（≤ 12 ✓・上限ちょうど）**
 
 ## Approach Overview — 正本の指定方針（選択肢比較）
 
@@ -117,6 +133,23 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
 速く学べる順: S1（事実確定）→ S2/S3（正本確定）を先行し、周辺追従（S4〜S6）は
 正本確定後に並列化。クリティカルパスは S3。
 
+### 2 PR 分割構成（Replan 2026-07-19・Human 承認済み）
+
+CI drift-check（#842 R-005 fail-closed: `docs/workflows/ai-loop/**` 等 touch 時に
+sync 後差分ゼロを強制）により sync 生成物は各 PR 同梱必須。以下に分割する:
+
+| PR | 内容 | 手編集ファイル | sync 生成物（plugin/） | 合計 |
+|----|------|---------------|----------------------|------|
+| **PR-1（正本確定・本 TASK の主 PR）** | S1〜S3 + S5 + S6 + S7a | `docs/workflows/ai-loop/rollout-policy.md`（新設）/ `00_concept.md` / `docs/ai/core-contract.md` / `.claude/skills/ai-loop-cycle/SKILL.md` / `.agents/skills/ai-loop-cycle/SKILL.md` / `.claude/commands/ai-loop-workflow.md`（HO patch・**H-02 承認済み**）= 6 | `skills/ai-loop-cycle/references/rollout-policy.md`（新規）/ `references/00_concept.md` / `skills/ai-loop-cycle/SKILL.md` / `commands/ai-loop-workflow.md` = 4 | **10 ≤ 12** |
+| **PR-2（周辺追従・follow-up）** | S4 + S7b（T-05 = commit `e8f42f0` の内容） | six-stage / adaptive / flow-detect / stop-rollback / loopspec / execution-runbook = 6 | `references/` 同名 6 本 | **12 ≤ 12** |
+
+- **ブランチ構成**: PR-1 = 現 worktree から T-05 commit（`e8f42f0`）を除いた
+  cherry-pick 構成 / PR-2 = `e8f42f0` + 対応 sync（**実施はオーケストレーター**）
+- S7（plugin sync）は **S7a（PR-1 分）/ S7b（PR-2 分）に分割**。
+  S8〜S9（検証・独立レビュー）および TC-11（sync dry-run 差分ゼロ）は
+  **PR ごとに実施・成立**させる
+- PR-2 は PR-1 merge 後に作成する（正本参照リンクの解決順を保証）
+
 ## Stop Condition / Replan Triggers（C-1 F-1 反映 / C1-LOOP-01/02）
 
 ### Stop Condition（即停止・機械値 + 判定手段 / R-004 反映）
@@ -132,7 +165,7 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
 
 | トリガ | 機械値 | 判定コマンド / 証跡パス（入力元） | 動作 |
 |--------|--------|----------------------------------|------|
-| 編集ファイル実数が上限超過 | **> 12 ファイル** | `git diff --name-only origin/main...HEAD \| grep -v '^docs/working/' \| wc -l` | 停止し follow-up PR 分割へ replan（R-2） |
+| 編集ファイル実数が上限超過 | **> 12 ファイル（PR 単位で判定）** | `git diff --name-only origin/main...HEAD \| grep -v '^docs/working/' \| wc -l`（PR ブランチごと） | 停止し follow-up PR 分割へ replan（R-2）。**2026-07-19 発動済み → 2 PR 分割へ改訂（Work Breakdown「2 PR 分割構成」）** |
 | sync dry-run 差分が正本外へ波及 | 波及 **≥ 1 ファイル** | `sh scripts/sync-plugin-plangate.sh` dry-run 出力のファイル一覧を本 plan「Files / Components to Touch」節（allowlist）と突合し、一覧外の検出数を数える | 停止し scope 再判定・replan（R-5 / Iron Law #2） |
 | 独立レビュー差し戻しが 2 巡しても矛盾 > 0 | **2 巡超過** | `ls docs/working/TASK-0871/evidence/verification/independent-review-*.md \| wc -l` が **> 2** かつ最新 artifact の矛盾 > 0 | plan へ差し戻し・Human C-3 再承認 |
 
@@ -174,6 +207,10 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
   当該ファイルのみ Human 適用 or 明示承認フローに分離した commit にする
 - **R-2 編集ファイル数の膨張**（見積 8〜16〔C-2 反映後再計算・Metrics Evidence 参照〕 → 実測で 12 超過の恐れ）/ 検証: S1 の
   再実測で確定 / Fallback: 参照 1 行追従に留まる周辺 docs は別 follow-up PR に分割
+  / **顕在化・対応済み（2026-07-19）**: 手編集 11 + sync 生成物同梱必須（CI
+  drift-check #842 R-005）で超過見込みが確定し Replan Trigger 発動。Fallback
+  どおり 2 PR 分割（Work Breakdown「2 PR 分割構成」= PR-1: 10 / PR-2: 12、
+  いずれも ≤ 12）へ plan 改訂した
 - **R-3 core-contract の改変が実行契約を揺らす** / 検証: 追記は §1-bis への
   参照 1 段落に限定し Iron Law / Stop rules は不変を diff で確認 / Fallback:
   core-contract 変更を落とし、正本側から一方向参照のみにする（AC-10 は参照
@@ -207,6 +244,15 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
   **汎用の書き方で作成し verbatim 配布**する（雛形注記ヘッダ機構は追加しない）。
   これを S2 / T-03（rollout-policy 新設）の**設計前提**とする — 本文は導入先で
   もそのまま読める汎用表現（plangate 本体固有の文脈依存表現を持ち込まない）
+- Q7 — **確定（2026-07-19 Human 判断・Replan）**: plugin sync 生成物を
+  Replan Trigger の編集ファイル実数カウントから**除外する逸脱は不承認**。
+  原則どおり Replan Trigger を発動し、**2 PR 分割**（Work Breakdown
+  「2 PR 分割構成」）で上限 12 以内に収めて対応する
+- 進捗記録（status 反映・2026-07-19）: **T-04 diff / T-06 diff は Human 🚩
+  承認済み**。**H-02（HO 対象 `.claude/commands/ai-loop-workflow.md` への
+  patch 適用判断）も承認済み**（patch =
+  `evidence/ho-patch/ai-loop-workflow.md.patch`・`git apply --check` exit 0。
+  適用オペレーション自体は Human 実施待ち）
 
 ## Mode 判定
 
