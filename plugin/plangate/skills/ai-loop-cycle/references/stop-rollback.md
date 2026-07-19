@@ -1,8 +1,7 @@
 # stop-rollback — Stop 条件と巻き戻し（EPIC #822 項目4）
 
 > 親: [#822](https://github.com/s977043/plangate/issues/822) EPIC（HITL→HOTL変革）項目4「stop条件と巻き戻し」
-> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
-> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
+> 適用制限（Phase 1 rollout eligibility）の正本: [`rollout-policy.md`](./rollout-policy.md)
 > 本書の成立ち: 設計案A（手順書ベース）・設計案B（チェックリスト＋機械検証スクリプト案ベース）の
 > 2 ドラフトに対し独立の敵対的検証（各 major 4 件 / critical 2〜3 件を含む）を行い、
 > **すべての critical / major 指摘を解消したうえで両案の長所を統合した最終版**。

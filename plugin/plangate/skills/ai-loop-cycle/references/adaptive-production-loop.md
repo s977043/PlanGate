@@ -1,7 +1,6 @@
 # adaptive-production-loop — bounded adaptive production loop
 
-> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
-> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
+> 適用制限（Phase 1 rollout eligibility）の正本: [`rollout-policy.md`](./rollout-policy.md)
 > 位置づけ: Issue #709 の正本。`Generate → Evaluate → Remember → Schedule → Optimize → Recurse` を ai-loop-workflow に取り込むための上位概念。
 
 ---
@@ -65,9 +64,9 @@ ai-loop-workflow の 1 サイクルは、以下の contract を満たす場合�
 
 | contract | 必須条件 |
 | --- | --- |
-| Goal | merge-ready 到達条件が明示されている |
+| Goal | `MERGE_READY` 到達条件が明示されている |
 | Evaluate | C-1 / C-2 / C-3' / CI / AI review / DoD の判定点がある |
-| Stop | AUTO_APPROVED / HUMAN_ESCALATED / BLOCKED / merge-ready / round limit exceeded の terminal state がある |
+| Stop | 裁定の terminal state（`AUTO_APPROVED` / `HUMAN_ESCALATED` / `BLOCKED`）がある。`MERGE_READY` は裁定でなく Delivery の DoD 状態、round limit exceeded は `HUMAN_ESCALATED` への遷移理由（語彙群区別の正本 = [`00_concept.md`](./00_concept.md) §2.3） |
 | Memory | decision record、採用/不採用理由、CI/AI review 指摘、suppression を保存する |
 | Schedule | 次アクションの優先順位と retry 上限がある |
 | Boundary | policy / HO / C-4 merge を AI が自己変更しない |
@@ -78,9 +77,9 @@ ai-loop-workflow の 1 サイクルは、以下の contract を満たす場合�
 
 ## 5. Scheduling 判断表
 
-PR 作成後から merge-ready までの Schedule は、以下の優先順位で決める。
+PR 作成後から `MERGE_READY` までの Schedule は、以下の優先順位で決める。
 
-| 優先度 | 条件 | 次アクション | terminal state |
+| 優先度 | 条件 | 次アクション | 次状態 |
 | --- | --- | --- | --- |
 | 1 | boundary=touches-HO / policy 変更 / irreversible 変更 | human escalate | `HUMAN_ESCALATED` |
 | 2 | 対応ラウンド上限 3 超過 | human escalate | `HUMAN_ESCALATED` |
@@ -88,7 +87,7 @@ PR 作成後から merge-ready までの Schedule は、以下の優先順位で
 | 4 | CI failed | CI failure を調査・修正し、強化セルフレビューを再実行して push | continue |
 | 5 | merge conflict | conflict 解消、三点照合、`--force-with-lease` push | continue |
 | 6 | critical / major の AI review 指摘あり | 採用して修正、または理由付き不採用を記録 | continue or escalate |
-| 7 | minor / info のみ | 採用/不採用理由を記録し、DoD 判定へ進む | merge-ready candidate |
+| 7 | minor / info のみ | 採用/不採用理由を記録し、DoD 判定へ進む | `MERGE_READY` candidate |
 | 8 | CI green かつ AI review 全件対応済み | C-4 待ちへ遷移 | `MERGE_READY` |
 
 Schedule は「次に動く」ための判断であり、Schedule 自身が品質評価を兼ねてはならない。品質判断は Evaluate 層に残す。
@@ -141,7 +140,7 @@ PlanGate では以下に分ける。
 | AI review false-positive | suppression |
 | human reject | C-3' 判定条件 / policy draft |
 | round limit exceeded | scheduling policy / escalate budget |
-| merge-ready 成功 | 成功パターンとして decision record に保存 |
+| `MERGE_READY` 到達 | 成功パターンとして decision record に保存 |
 
 Recurse は無限継続ではない。次サイクルへ渡す情報を保存した時点で 1 サイクルは完了し、terminal state に従って停止または C-4 待ちへ遷移する。
 
@@ -165,7 +164,7 @@ ai-loop-workflow の説明では、以下の表現を採用する。
 
 ## 9. 関連ドキュメント
 
-- [`00_concept.md`](./00_concept.md) — ai-loop-workflow の位置づけ、C-3'、merge-ready 責務範囲
+- [`00_concept.md`](./00_concept.md) — ai-loop-workflow の位置づけ、C-3'、`MERGE_READY` 責務範囲（責務・terminal state の正本 = §2）
 - [`execution-runbook.md`](./execution-runbook.md) — 1 サイクルの実行手順、PR 後の CI / AI review 対応ループ
 - [`review-feedback-loop.md`](./review-feedback-loop.md) — Remember / Optimize の実体となるレビュー指摘還元ループ
 - [`flow-detect.md`](./flow-detect.md) — C-3' の flow→detect→escalate 動作フロー
