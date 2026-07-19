@@ -2,7 +2,9 @@
 
 ai-loop-workflow（human-on-the-loop 裁定ループ）を明示起動する。
 `/ai-dev-workflow`（PlanGate 本番フロー WF-00〜07）と**対をなす入口**であり、
-本番フローの置き換えではない（低リスク帯限定・PoC。本番承認フローには適用しない）。
+本番フローの置き換えではない。恒久定義（責務・terminal state・C-3'/Human C-3 経路）の
+正本は `00_concept.md`、適用制限（Phase 1 rollout eligibility）の正本は
+`rollout-policy.md`（eligible run 限定。PlanGate 本番フローの C-3 は常に Human・不変）。
 
 実行手順の正本: skill `ai-loop-cycle`（1 サイクル = LoopSpec → W チェック →
 arbiter 裁定 → exec → rubric grader）。本コマンドは前提確認と起動のみを担う。
@@ -27,10 +29,11 @@ $ARGUMENTS に以下の形式で渡される:
    ho-paths 解決元の stderr 表示を確認する。未確定なら「全件 human escalate になる」旨を伝え、確定を促す
 2. **保存先の定義**: run 記録（LoopSpec・decision record）と摩擦台帳の置き場が
    プロジェクトで定義済みか（未定義なら既定案を提示して合意を取る）
-3. **適用ドメイン（Phase 1）**: 対象変更が lite 帯候補か（`lite-criteria.md` §2 の
-   4 軸〔変更規模・新規設計の有無・既存パターン踏襲・可逆性〕を満たしうる変更。
-   docs に限らず実機能も含む — Human 決定 #807）。承認境界・本番承認フローに
-   触れる場合は本コマンドを使わず通常フローへ
+3. **適用制限（Phase 1 rollout eligibility）**: 対象変更が `rollout-policy.md` の
+   eligible 条件を満たしうるか（boundary=clean、かつ `lite-criteria.md` §2 の
+   4 軸〔変更規模・新規設計の有無・既存パターン踏襲・可逆性〕。docs に限らず
+   実機能も含む — Human 決定 #807）。承認境界・本番承認フローに触れる場合は
+   本コマンドを使わず通常フローへ
 
 ## 実行
 
