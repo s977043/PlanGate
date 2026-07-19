@@ -172,7 +172,7 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
 - **R-1 HO 接触**: `.claude/commands/ai-loop-workflow.md` は HO 対象で AI 適用
   不可の運用がある / 検証: check-plan-hash.sh の HO パターンと突合 / Fallback:
   当該ファイルのみ Human 適用 or 明示承認フローに分離した commit にする
-- **R-2 編集ファイル数の膨張**（見積 8〜12 → 実測で超過の恐れ）/ 検証: S1 の
+- **R-2 編集ファイル数の膨張**（見積 8〜16〔C-2 反映後再計算・Metrics Evidence 参照〕 → 実測で 12 超過の恐れ）/ 検証: S1 の
   再実測で確定 / Fallback: 参照 1 行追従に留まる周辺 docs は別 follow-up PR に分割
 - **R-3 core-contract の改変が実行契約を揺らす** / 検証: 追記は §1-bis への
   参照 1 段落に限定し Iron Law / Stop rules は不変を diff で確認 / Fallback:

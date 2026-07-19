@@ -67,7 +67,7 @@
 
 ## 完了フェーズ
 
-- [ ] T-13 AC-1〜AC-10 突合表を evidence 化し current-state / status 更新。
+- [ ] T-13 AC-1〜AC-10 突合表（TC-14/TC-15 を含む）を evidence 化し current-state / status 更新。
   **H-01 で確定した AC-9 スコープ限定・#866 別トラック化の承認結果を
   issue #871 コメントと `evidence/` の双方に記録する（C-2 R-002/R-003 反映）**
   - Owner: agent / depends_on: T-12, H-01 / rollback: 不要

@@ -34,7 +34,7 @@
 | TC-07 | S3 完了 | 正本の Loop 構造節を確認 | 内側 Delivery Loop（1 run）と外側 Evolution Loop（completed runs → improvement PR）が別節で定義 | 目視 |
 | TC-08 | S3 完了 | `rg -n "harness" docs/workflows/ai-loop/00_concept.md` | active run は開始時 harness を保持し自己変更しない・改善は別 TASK/PR の規則が記載 | 機械 + 目視 |
 | TC-09 | S4〜S6 完了・**plan Q4 の C-3 承認済み（未承認なら PASS 判定不可 — R-002）** | ai-dev / ai-loop アーキ・責務定義文書を列挙し、責務・terminal state・decision table の定義（参照でない実定義）の所在を確認。**走査範囲に `docs/ai/ai-loop/` の plugin 同梱 spec 層（concept.md / asset-inventory.md / hotl-merge-entry-criteria.md）を含める（C-2 R-008 反映）** | 各定義の実定義が 1 文書のみ。他は参照（spec 層は参照化 or 採否理由記録）。#866 領域（skills 正本）は判定対象外と明記 | 目視（表で evidence 化） |
-| TC-10 | S5〜S7 完了 | AC-10 名指し 6 ファイルの相互参照を確認 + link check 実行 | link check PASS・6 ファイルの記述が正本と矛盾しない | 機械 + 目視 |
+| TC-10 | S5〜S7 完了 | AC-10 名指し 6 ファイルの相互参照を確認 + link check 実行 | link check PASS（**T-09 で固定したコマンド・対象・exit code 0 条件に準拠。ログは `evidence/verification/lint-linkcheck.log` — 簡易 C-1 N-2 反映**）・6 ファイルの記述が正本と矛盾しない | 機械 + 目視 |
 | TC-11 | S7 完了 | `sh scripts/sync-plugin-plangate.sh` dry-run | 差分ゼロ（差分ありなら sync 後に再実行しゼロ）。ログを evidence 保存 | 機械 |
 | TC-12 | S8 完了 | plan 付録 B の用語監査コマンド全件実行（**走査範囲は `.claude/skills/` と `docs/ai/ai-loop/` を含む改訂版付録 B。`.claude/skills/pr-watch/SKILL.md` L137 の「merge-ready 判定」用語衝突も残置採否記録の対象 — C-2 R-008/R-010 反映**） | 旧定義・矛盾表現の残 = 0、または残す各件に採否理由が evidence にある | 機械 + evidence |
 | TC-13 | 全実装完了 | maker と別コンテキストのレビュアーに正本 + 周辺 6 ファイルを渡しレビュー | 責務境界・C-3/C-3'・terminal state の矛盾指摘 0 件（>0 なら FAIL・差し戻し） | 独立レビュー |
