@@ -195,7 +195,7 @@ PR 作成後、以下を **`MERGE_READY` 到達まで**繰り返す。
 
 #### Scheduling 判断表
 
-| 優先度 | 条件                                                  | 次アクション                                            | terminal state        |
+| 優先度 | 条件                                                  | 次アクション                                            | 次状態                |
 | ------ | ----------------------------------------------------- | ------------------------------------------------------- | --------------------- |
 | 1      | boundary=touches-HO / policy 変更 / irreversible 変更 | 停止して human escalate                                 | `HUMAN_ESCALATED`     |
 | 2      | 対応ラウンド上限 3 超過                               | 停止して human escalate                                 | `HUMAN_ESCALATED`     |

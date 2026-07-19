@@ -79,7 +79,7 @@ ai-loop-workflow の 1 サイクルは、以下の contract を満たす場合�
 
 PR 作成後から `MERGE_READY` までの Schedule は、以下の優先順位で決める。
 
-| 優先度 | 条件 | 次アクション | terminal state |
+| 優先度 | 条件 | 次アクション | 次状態 |
 | --- | --- | --- | --- |
 | 1 | boundary=touches-HO / policy 変更 / irreversible 変更 | human escalate | `HUMAN_ESCALATED` |
 | 2 | 対応ラウンド上限 3 超過 | human escalate | `HUMAN_ESCALATED` |
