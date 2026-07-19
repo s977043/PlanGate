@@ -1,0 +1,172 @@
+diff --git a/bin/plangate b/bin/plangate
+index d974cb6..b0f0f81 100755
+--- a/bin/plangate
++++ b/bin/plangate
+@@ -882,6 +882,28 @@ cmd_status() {
+   fi
+ }
+ 
++# c3-prime / legacy c3.json の受理を判別・検証する共有ヘルパー（TASK-0872 PR-2）。
++# approvals/c3.json の approval_kind を strict JSON で判別し、c3-prime なら
++# scripts/ai-loop/c3prime_verify.py で Plan Package 束縛を全数再検証する
++# （契約 §4/§5: legacy grep 経路は c3-prime に流用しない）。
++# 戻り値: 0=c3-prime 受理 / 10=legacy（呼び出し側が grep 経路で処理）/ 1=c3-prime NG
++_plangate_c3_dispatch() {
++  _c3d_dir="$1"
++  _c3d_verify="$plangate_root/scripts/ai-loop/c3prime_verify.py"
++  if [ ! -f "$_c3d_verify" ]; then
++    # 検証器が無い環境では c3-prime を受理できない（fail-closed）。
++    # legacy 判別のみ python3 で行い、legacy なら委譲・c3-prime なら NG。
++    _c3d_kind=$(python3 -c "import json,sys
++try: d=json.load(open(sys.argv[1]))
++except Exception: print(''); sys.exit(0)
++print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$_c3d_dir/approvals/c3.json" 2>/dev/null || echo "")
++    [ "$_c3d_kind" = "c3-prime" ] && return 1
++    return 10
++  fi
++  python3 "$_c3d_verify" "$_c3d_dir" >&2
++  return $?
++}
++
+ cmd_validate() {
+   if [ $# -eq 0 ]; then
+     printf 'Usage: plangate validate <TASK-XXXX> [--mode <mode>] | --dir <path> [--mode <mode>]\n' >&2
+@@ -967,29 +989,42 @@ cmd_validate() {
+     failures=$((failures + 1))
+   else
+     printf '  [PASS] approvals/c3.json exists\n'
+-    c3_status=$(grep '"c3_status"' "$c3_file" 2>/dev/null | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
+-    if [ "$c3_status" = "APPROVED" ]; then
+-      printf '  [PASS] c3_status = APPROVED\n'
+-    else
+-      printf '  [FAIL] c3_status = %s (expected APPROVED)\n' "${c3_status:-missing}"
++    # TASK-0872 PR-2: c3-prime は Plan Package 束縛を全数再検証（契約 §4）。
++    # legacy（approval_kind 無し）は従来の grep 経路で処理する。
++    # set -eu 下で非ゼロ戻り（10=legacy / 1=NG）が中断を招かないよう `|| _c3_rc=$?` で受ける。
++    _c3_rc=0
++    _plangate_c3_dispatch "$work_dir" || _c3_rc=$?
++    if [ "$_c3_rc" = "0" ]; then
++      printf '  [PASS] c3-prime record verified (decision=AUTO_APPROVED, Plan Package 束縛整合)\n'
++    elif [ "$_c3_rc" = "1" ]; then
++      printf '  [FAIL] c3-prime verification failed (see message above)\n'
+       failures=$((failures + 1))
+-    fi
+-
+-    # plan_hash check
+-    plan_file="$work_dir/plan.md"
+-    if [ -f "$plan_file" ]; then
+-      recorded_hash=$(grep '"plan_hash"' "$c3_file" 2>/dev/null | sed 's/.*"plan_hash"[[:space:]]*:[[:space:]]*"sha256:\([^"]*\)".*/\1/' || echo "")
+-      if [ -z "$recorded_hash" ]; then
+-        printf '  [WARN] plan_hash not found in c3.json\n'
++    else
++      # _c3_rc == 10: legacy 経路（従来どおり grep で c3_status / plan_hash 検証）
++      c3_status=$(grep '"c3_status"' "$c3_file" 2>/dev/null | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
++      if [ "$c3_status" = "APPROVED" ]; then
++        printf '  [PASS] c3_status = APPROVED\n'
+       else
+-        current_hash=$(plangate_sha256 "$plan_file")
+-        if [ "$current_hash" = "$recorded_hash" ]; then
+-          printf '  [PASS] plan.md hash matches c3.json (no post-approval modification)\n'
++        printf '  [FAIL] c3_status = %s (expected APPROVED)\n' "${c3_status:-missing}"
++        failures=$((failures + 1))
++      fi
++
++      # plan_hash check
++      plan_file="$work_dir/plan.md"
++      if [ -f "$plan_file" ]; then
++        recorded_hash=$(grep '"plan_hash"' "$c3_file" 2>/dev/null | sed 's/.*"plan_hash"[[:space:]]*:[[:space:]]*"sha256:\([^"]*\)".*/\1/' || echo "")
++        if [ -z "$recorded_hash" ]; then
++          printf '  [WARN] plan_hash not found in c3.json\n'
+         else
+-          printf '  [FAIL] plan.md hash MISMATCH — plan was modified after C-3 approval\n'
+-          printf '         recorded: sha256:%s\n' "$recorded_hash"
+-          printf '         current:  sha256:%s\n' "$current_hash"
+-          failures=$((failures + 1))
++          current_hash=$(plangate_sha256 "$plan_file")
++          if [ "$current_hash" = "$recorded_hash" ]; then
++            printf '  [PASS] plan.md hash matches c3.json (no post-approval modification)\n'
++          else
++            printf '  [FAIL] plan.md hash MISMATCH — plan was modified after C-3 approval\n'
++            printf '         recorded: sha256:%s\n' "$recorded_hash"
++            printf '         current:  sha256:%s\n' "$current_hash"
++            failures=$((failures + 1))
++          fi
+         fi
+       fi
+     fi
+@@ -2002,19 +2037,28 @@ cmd_exec() {
+     return 1
+   fi
+ 
+-  c3_status=$(grep '"c3_status"' "$work_dir/approvals/c3.json" 2>/dev/null \
+-    | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
+-  if [ "$c3_status" != "APPROVED" ]; then
+-    printf 'error: C-3 gate not approved (status=%s)\n' "${c3_status:-missing}" >&2
++  # TASK-0872 PR-2: c3-prime は Plan Package 束縛を全数再検証（契約 §4）。
++  # legacy（approval_kind 無し）は従来の grep + plan_hash 経路で処理する。
++  # set -eu 下で非ゼロ戻り（10=legacy / 1=NG）が中断を招かないよう `|| _c3_rc=$?` で受ける。
++  _c3_rc=0
++  _plangate_c3_dispatch "$work_dir" || _c3_rc=$?
++  if [ "$_c3_rc" = "1" ]; then
++    printf 'error: C-3 gate not approved (c3-prime verification failed; see above)\n' >&2
+     return 1
+-  fi
++  elif [ "$_c3_rc" = "10" ]; then
++    c3_status=$(grep '"c3_status"' "$work_dir/approvals/c3.json" 2>/dev/null \
++      | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
++    if [ "$c3_status" != "APPROVED" ]; then
++      printf 'error: C-3 gate not approved (status=%s)\n' "${c3_status:-missing}" >&2
++      return 1
++    fi
+ 
+-  # Gate check: plan_hash integrity (EH-3 integration at exec entry)
+-  # plan.md must not have been modified after C-3 approval.
+-  plan_file="$work_dir/plan.md"
+-  c3_file="$work_dir/approvals/c3.json"
+-  if [ -f "$plan_file" ]; then
+-    recorded_hash=$(python3 -c "import json,sys
++    # Gate check: plan_hash integrity (EH-3 integration at exec entry)
++    # plan.md must not have been modified after C-3 approval.
++    plan_file="$work_dir/plan.md"
++    c3_file="$work_dir/approvals/c3.json"
++    if [ -f "$plan_file" ]; then
++      recorded_hash=$(python3 -c "import json,sys
+ try:
+     d=json.load(open(sys.argv[1]))
+ except Exception:
+@@ -2023,21 +2067,23 @@ if not isinstance(d,dict):
+     print(''); sys.exit(0)
+ v=d.get('plan_hash','')
+ print(v[7:] if isinstance(v,str) and v.startswith('sha256:') else '')" "$c3_file" 2>/dev/null || echo "")
+-    if [ -n "$recorded_hash" ]; then
+-      if command -v sha256sum >/dev/null 2>&1; then
+-        current_hash=$(sha256sum "$plan_file" | awk '{print $1}')
+-      else
+-        current_hash=$(shasum -a 256 "$plan_file" | awk '{print $1}')
+-      fi
+-      if [ "$recorded_hash" != "$current_hash" ]; then
+-        printf 'error: plan_hash mismatch -- plan.md modified after C-3 approval\n' >&2
+-        printf '  Recorded: sha256:%s\n' "$recorded_hash" >&2
+-        printf '  Current : sha256:%s\n' "$current_hash" >&2
+-        printf '  Action  : Re-approval required (update c3.json plan_hash) or revert plan.md.\n' >&2
+-        return 1
++      if [ -n "$recorded_hash" ]; then
++        if command -v sha256sum >/dev/null 2>&1; then
++          current_hash=$(sha256sum "$plan_file" | awk '{print $1}')
++        else
++          current_hash=$(shasum -a 256 "$plan_file" | awk '{print $1}')
++        fi
++        if [ "$recorded_hash" != "$current_hash" ]; then
++          printf 'error: plan_hash mismatch -- plan.md modified after C-3 approval\n' >&2
++          printf '  Recorded: sha256:%s\n' "$recorded_hash" >&2
++          printf '  Current : sha256:%s\n' "$current_hash" >&2
++          printf '  Action  : Re-approval required (update c3.json plan_hash) or revert plan.md.\n' >&2
++          return 1
++        fi
+       fi
+     fi
+   fi
++  # _c3_rc == 0: c3-prime 受理（Plan Package 束縛整合済み）
+ 
+   # Record session start
+   ts=$(plangate_now)

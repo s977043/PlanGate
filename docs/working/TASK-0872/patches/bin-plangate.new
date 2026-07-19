@@ -1,0 +1,2497 @@
+#!/bin/sh
+# PlanGate CLI
+# Usage: plangate <command> [args]
+
+set -eu
+
+PLANGATE_VERSION="0.2.0"
+
+plangate_bin_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+plangate_root=$(CDPATH= cd -- "$plangate_bin_dir/.." && pwd)
+plangate_working_dir="$plangate_root/docs/working"
+plangate_templates_dir="$plangate_root/docs/working/templates"
+
+# ── utilities ────────────────────────────────────────────────────────────────
+
+plangate_now() {
+  date -u '+%Y-%m-%dT%H:%M:%SZ'
+}
+
+plangate_today() {
+  date '+%Y-%m-%d'
+}
+
+plangate_sha256() {
+  file=$1
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+  else
+    shasum -a 256 "$file" | awk '{print $1}'
+  fi
+}
+
+plangate_validate_task_id() {
+  task_id=$1
+  case "$task_id" in
+    TASK-[A-Za-z0-9]*)
+      case "$task_id" in
+        *[!A-Za-z0-9-]*)
+          printf 'error: Task ID must contain only letters, numbers, and hyphens.\n' >&2
+          return 1
+          ;;
+      esac
+      ;;
+    *)
+      printf 'error: Task ID must match TASK-XXXX (e.g. TASK-0001).\n' >&2
+      return 1
+      ;;
+  esac
+}
+
+plangate_require_task_dir() {
+  task_id=$1
+  work_dir="$plangate_working_dir/$task_id"
+  if [ ! -d "$work_dir" ]; then
+    printf 'error: Task directory not found: %s\n' "$work_dir" >&2
+    printf 'Run: plangate init %s\n' "$task_id" >&2
+    return 1
+  fi
+}
+
+plangate_check() {
+  label=$1
+  shift
+  if "$@" >/dev/null 2>&1; then
+    printf '  [PASS] %s\n' "$label"
+    return 0
+  else
+    printf '  [FAIL] %s\n' "$label"
+    return 1
+  fi
+}
+
+plangate_check_file() {
+  label=$1
+  path=$2
+  if [ -f "$path" ]; then
+    printf '  [PASS] %s\n' "$label"
+    return 0
+  else
+    printf '  [FAIL] %s — not found: %s\n' "$label" "$path"
+    return 1
+  fi
+}
+
+plangate_append_ndjson() {
+  file=$1
+  json=$2
+  printf '%s\n' "$json" >> "$file"
+}
+
+# Extract c3 required_artifacts from a workflow YAML and print one filename per line.
+# Uses python3 for YAML parsing (python3 is required by the timeline command already).
+plangate_yaml_c3_artifacts() {
+  yaml_file=$1
+  python3 - "$yaml_file" <<'PYEOF'
+import sys, re
+with open(sys.argv[1]) as f:
+    content = f.read()
+# Find required_artifacts: [...] under gate_enforcement.c3
+m = re.search(r'gate_enforcement.*?c3:.*?required_artifacts:\s*\[([^\]]+)\]', content, re.DOTALL)
+if m:
+    mapping = {
+        'pbi_input': 'pbi-input.md', 'plan': 'plan.md', 'todo': 'todo.md',
+        'test_cases': 'test-cases.md', 'review_self': 'review-self.md',
+        'review_external': 'review-external.md', 'handoff': 'handoff.md',
+    }
+    for item in m.group(1).split(','):
+        key = item.strip()
+        print(mapping.get(key, key + '.md'))
+PYEOF
+}
+
+# [TASK-0144] .plangate.yml から設定値を読む（c3_approval.mode 等）
+# 使い方: _read_plangate_config <key>  (例: c3_approval.mode)
+# .plangate.yml 未存在 -> 'cli' (デフォルト)
+# PyYAML 未インストール・不正 YAML・不正 mode 値 -> stderr WARN + 'cli'
+_read_plangate_config() {
+  _rpc_key="${1:-c3_approval.mode}"
+  _rpc_cfg="$plangate_root/.plangate.yml"
+  if [ ! -f "$_rpc_cfg" ]; then
+    printf 'cli'
+    return 0
+  fi
+  _rpc_val=$(python3 - "$_rpc_cfg" "$_rpc_key" <<'PYC'
+import sys
+cfg_path, key = sys.argv[1], sys.argv[2]
+try:
+    import yaml
+    with open(cfg_path, "r", encoding="utf-8") as f:
+        d = yaml.safe_load(f)
+    if not isinstance(d, dict):
+        sys.stderr.write("warn: .plangate.yml is not a YAML mapping\n")
+        print("cli"); sys.exit(0)
+    val = d
+    for part in key.split("."):
+        if not isinstance(val, dict):
+            sys.stderr.write("warn: .plangate.yml key path broken: {}\n".format(key))
+            print("cli"); sys.exit(0)
+        val = val.get(part)
+    if val is None:
+        print("cli"); sys.exit(0)
+    allowed = {"cli", "conversation"}
+    if str(val) not in allowed:
+        sys.stderr.write("warn: .plangate.yml {}: invalid value: {}\n".format(key, val))
+        print("cli"); sys.exit(0)
+    print(str(val))
+except ImportError:
+    sys.stderr.write("warn: PyYAML not installed; falling back to cli mode\n")
+    print("cli")
+except Exception as e:
+    sys.stderr.write("warn: .plangate.yml read error: {}\n".format(e))
+    print("cli")
+PYC
+) || _rpc_val="cli"
+  [ -n "$_rpc_val" ] || _rpc_val="cli"
+  printf '%s' "$_rpc_val"
+}
+
+# ── commands ──────────────────────────────────────────────────────────────────
+
+cmd_help() {
+  printf '%s\n' \
+    "PlanGate CLI v$PLANGATE_VERSION" \
+    "" \
+    "Usage: plangate <command> [args]" \
+    "" \
+    "Commands:" \
+    "  init <TASK-XXXX>               Create task folder and template files" \
+    "  brainstorm <TASK-XXXX>         Brainstorm PBI INPUT PACKAGE (wraps ai-dev-workflow)" \
+    "  plan <TASK-XXXX>               Generate plan.md/todo.md/test-cases.md (B-1->B-2->B-3)" \
+    "  gate <TASK-XXXX>               Check C-1/C-2/C-3 gate readiness" \
+    "  verify <TASK-XXXX> [--mode]    Run V-1 (validate) + settings lock + V-3 + eval + metrics" \
+    "  handoff <TASK-XXXX>            Copy handoff.md template into TASK working dir" \
+    "  doctor [--json] [--scope <v>] [--fix [--dry-run] [--yes]] [--check-settings]" \
+    "                                 Check environment; --fix wires hooks (TASK-0069)" \
+    "  status <TASK-XXXX>             Show current phase and next action" \
+    "  validate <TASK-XXXX> [--mode]  Verify artifacts and plan_hash integrity" \
+    "  validate-schemas <args>        Validate JSON artifacts against schemas/ (Issue #158)" \
+    "  eval <TASK-XXXX> [--baseline]  Run 8-aspect eval (Issue #156)" \
+    "  metrics <TASK-XXXX> [--collect|--report] Collect/report workflow metrics (Issue #195)" \
+    "  plan-check <TASK-XXXX> [--init|--validate]  Lightweight plan quality check (#213)" \
+    "  report --from <date> --to <date>  Period report for retrospective (#200)" \
+    "  context <TASK-XXXX> --phase <p> [--mode <m>] [--profile <k>]  Dynamic Context Engine v1 (opt-in, #199)" \
+    "  keep-rate <TASK-XXXX> [--no-write]  Keep Rate v1 (advisory, #198)" \
+    "  review <TASK-XXXX> [--phase]   Run external AI review (c2/v3)" \
+    "  exec <TASK-XXXX> [--mode]      Dispatch implementation agent (after C-3)" \
+    "  abort <TASK-XXXX> [--reason]   Record abort event in run.ndjson" \
+    "  timeline <TASK-XXXX>           Display run.ndjson event log" \
+    "  resume <TASK-XXXX>             Show current-state.md for session resume" \
+    "  approve <TASK-XXXX> [--reject|--conditional]  Human one-action C-3 approval (L1-L4, schema-valid c3.json) (TASK-0128)" \
+    "  render <TASK-XXXX> [--html]    Aggregate C-3 review MDs into self-contained HTML (TASK-0127)" \
+    "  maintenance <start|stop> ...   In-session edit window (Human-only, L1-L4 defense) (TASK-0106)" \
+    "  version                        Print version"
+}
+
+cmd_version() {
+  printf 'plangate %s\n' "$PLANGATE_VERSION"
+}
+
+cmd_init() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate init <TASK-XXXX>\n' >&2
+    return 1
+  fi
+  task_id=$1
+  plangate_validate_task_id "$task_id"
+  work_dir="$plangate_working_dir/$task_id"
+
+  if [ -d "$work_dir" ]; then
+    printf 'Task directory already exists: %s\n' "$work_dir"
+    printf 'Use plangate status %s to check current state.\n' "$task_id"
+    return 0
+  fi
+
+  mkdir -p "$work_dir/approvals" "$work_dir/evidence"
+
+  cat > "$work_dir/pbi-input.md" <<EOF
+---
+task_id: $task_id
+artifact_type: pbi-input
+schema_version: 1
+status: draft
+---
+
+# PBI INPUT PACKAGE — $task_id
+
+## Context / Why
+
+TODO: なぜこの作業が必要か
+
+## What — Scope
+
+### In scope
+
+- TODO
+
+### Out of scope
+
+- TODO
+
+## Acceptance Criteria
+
+- [ ] AC-1: TODO
+
+## Notes from Refinement
+
+## Estimation Evidence
+
+**Risks**: TODO
+**Unknowns**: TODO
+**Assumptions**: TODO
+
+<!-- ===== Design/UI Addendum（UI/デザインタスクのみ。非UIタスクは本節を削除可） =====
+     判定: is_ui_task を人手宣言（基本）。変更がUI層中心なら自動ヒント警告（補助）。
+     真実源は環境で分岐（Figma あり→Figma正 / なし→既存パターン正 / どちらも無→参照なし明示）。
+     詳細仕様: docs/ai/design-ui-addendum.md -->
+
+## Design/UI Addendum（UI タスク時のみ・非UIは削除可）
+
+\`is_ui_task: false\`  <!-- UI/デザイン変更が主目的なら true。true 時は以下必須 -->
+
+### 1. 踏襲元の明示（★最優先・単独でも効果大）
+
+- 真似る既存実装（X）: TODO（path / component）
+- 真似てはいけない（not Y）: TODO + 理由
+- 参照なしの場合: \`[参照なし]\` と明示（曖昧進行・ゲート回避を防ぐ）
+
+### 2. 真実源（source of truth）— 環境分岐
+
+- Figma あり: ノード URL / フレーム参照 = TODO（pixel/token は Figma 由来）
+- Figma なし: 踏襲元の既存パターンを正
+- どちらも無: \`[参照なし]\`（視覚受入基準・回帰ガードは必須のまま）
+
+### 3. 配置仕様
+
+- 挿入位置（どの要素の前/後）: TODO
+- 余白/間隔（できればデザイントークン名）: TODO
+
+### 4. レスポンシブ・マトリクス
+
+| ビューポート | 期待表示 |
+|------------|---------|
+| PC | TODO |
+| SP | TODO |
+
+### 5. 視覚的受入基準
+
+- TODO（要素の有無・リンク先・崩れないこと等、検証可能な形で）
+
+### 6. 視覚的回帰ガード
+
+- 変えてはいけない既存表示: TODO
+
+### 7. 視覚証跡
+
+- 受入時スクショ: Figma vs 実装 / または before/after（PC・SP）
+EOF
+
+  cat > "$work_dir/current-state.md" <<EOF
+# $task_id 現在状態
+
+> 更新日: $(plangate_today)
+> フェーズ: A — PBI INPUT 作成中
+
+## 中断地点
+
+pbi-input.md を記入してください。
+
+## 次のアクション
+
+1. \`docs/working/$task_id/pbi-input.md\` の Why / What / AC を埋める
+2. \`/ai-dev-workflow $task_id plan\` で plan / todo / test-cases を生成する
+EOF
+
+  cat > "$work_dir/INDEX.md" <<EOF
+# $task_id INDEX
+
+> 生成日: $(plangate_today)
+> フェーズ: A
+
+## ファイル一覧
+
+| ファイル | 状態 |
+| --- | --- |
+| pbi-input.md | draft |
+| plan.md | - |
+| todo.md | - |
+| test-cases.md | - |
+| review-self.md | - |
+| handoff.md | - |
+EOF
+
+  printf 'Initialized: %s\n' "$work_dir"
+  printf 'Next: edit %s/pbi-input.md\n' "$work_dir"
+}
+
+cmd_doctor() {
+  # T-7 (TASK-0069): 引数を解析。
+  #   --json        : 機械可読出力（doctor_check.py へ委譲）
+  #   --scope <v>    : doctor_check.py へ透過転送（default v8.6.0）
+  #   --fix/--dry-run/--yes : 修復系（実体は T-8 で追加。ここでは flag 受領と
+  #                            非 tty + --yes 無し時の安全 abort 土台のみ）
+  doctor_json=0
+  doctor_scope=v8.6.0
+  doctor_fix=0
+  doctor_dry_run=0
+  doctor_yes=0
+  doctor_check_settings=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json)    doctor_json=1 ;;
+      --scope)
+        if [ $# -lt 2 ]; then
+          printf 'plangate doctor: --scope requires a value\n' >&2
+          return 2
+        fi
+        doctor_scope=$2
+        shift
+        ;;
+      --scope=*) doctor_scope=${1#--scope=} ;;
+      --fix)     doctor_fix=1 ;;
+      --dry-run) doctor_dry_run=1 ;;
+      --yes)     doctor_yes=1 ;;
+      --check-settings) doctor_check_settings=1 ;;
+      *)
+        printf 'plangate doctor: unknown argument: %s\n' "$1" >&2
+        return 2
+        ;;
+    esac
+    shift
+  done
+
+  # TASK-0080 S1b: --check-settings は settings wiring 契約検証へ委譲
+  # （既存 doctor ロジック非破壊。単独フラグとして早期 return）。
+  if [ "$doctor_check_settings" -eq 1 ]; then
+    csw="$plangate_root/scripts/check-settings-wiring.sh"
+    if [ ! -f "$csw" ]; then
+      printf 'plangate doctor --check-settings: %s not found\n' "$csw" >&2
+      return 2
+    fi
+    sh "$csw" --target user
+    return $?
+  fi
+
+  # K-3 (v8.6.0 PR7) + T-7: --json は doctor_check.py へ委譲。--scope を透過転送
+  # （指定なし時は従来通り v8.6.0 → 出力バイト互換）。
+  if [ "$doctor_json" -eq 1 ]; then
+    py="$plangate_root/scripts/doctor_check.py"
+    if [ ! -f "$py" ]; then
+      printf '{"error": "scripts/doctor_check.py not found"}\n' >&2
+      return 2
+    fi
+    python3 "$py" --scope "$doctor_scope"
+    return $?
+  fi
+
+  # T-7: 非 tty かつ --yes 無しで --fix を要求された場合は、確認プロンプトを
+  # 出せず（set -eu 下で read が EOF を返すと中断/誤動作するため）安全に
+  # abort する。実際の修復ロジック自体は T-8 で追加する。
+  if [ "$doctor_fix" -eq 1 ] && [ "$doctor_yes" -eq 0 ] && [ "$doctor_dry_run" -eq 0 ]; then
+    if [ ! -t 0 ]; then
+      printf 'plangate doctor --fix: refusing to prompt on a non-interactive stdin.\n' >&2
+      printf '                       No changes were made. Re-run with --yes to proceed.\n' >&2
+      return 3
+    fi
+  fi
+
+  printf 'PlanGate Doctor — environment check\n'
+  printf '\n'
+
+  failures=0
+
+  printf '=== CLI Tools ===\n'
+  plangate_check "gh (GitHub CLI)" command -v gh || failures=$((failures + 1))
+  plangate_check "git" command -v git || failures=$((failures + 1))
+  plangate_check "codex (Codex CLI)" command -v codex || failures=$((failures + 1))
+  printf '\n'
+
+  printf '=== Claude Code Plugin / .claude/ ===\n'
+  has_plugin=0
+  has_claude_dir=0
+
+  if [ -d "$plangate_root/plugin/plangate" ]; then
+    printf '  [INFO] plugin/plangate/ exists (Option A)\n'
+    has_plugin=1
+  fi
+  if [ -d "$HOME/.claude/commands" ] || [ -d "$plangate_root/.claude/commands" ]; then
+    printf '  [INFO] .claude/commands/ exists (Option B)\n'
+    has_claude_dir=1
+  fi
+
+  if [ "$has_plugin" -eq 1 ] && [ "$has_claude_dir" -eq 1 ]; then
+    printf '  [WARN] Both plugin and .claude/ detected — may cause duplicate command loading\n'
+    printf '         See: TROUBLESHOOTING.md — Double installation\n'
+  elif [ "$has_plugin" -eq 0 ] && [ "$has_claude_dir" -eq 0 ]; then
+    printf '  [FAIL] Neither plugin/plangate/ nor .claude/commands/ found\n'
+    printf '         Install instructions: README.md — Install\n'
+    failures=$((failures + 1))
+  else
+    printf '  [PASS] Installation method detected\n'
+  fi
+  printf '\n'
+
+  printf '=== Codex Plugin (non-fatal) ===\n'
+  if [ -f "$plangate_root/scripts/check-codex-plugin-status.sh" ]; then
+    sh "$plangate_root/scripts/check-codex-plugin-status.sh" || true
+  else
+    printf '  [INFO] scripts/check-codex-plugin-status.sh not found\n'
+  fi
+  printf '\n'
+
+  printf '=== Required Workflow Files ===\n'
+  plangate_check "docs/working/ directory exists" test -d "$plangate_working_dir" || failures=$((failures + 1))
+  plangate_check_file "docs/working/templates/handoff.md" "$plangate_templates_dir/handoff.md" || failures=$((failures + 1))
+  plangate_check_file "CLAUDE.md" "$plangate_root/CLAUDE.md" || failures=$((failures + 1))
+  plangate_check "docs/working/ writable" test -w "$plangate_working_dir" || failures=$((failures + 1))
+  printf '\n'
+
+  printf '=== Rules ===\n'
+  for rule in working-context review-principles mode-classification; do
+    plangate_check_file "$rule.md" "$plangate_root/.claude/rules/$rule.md" || failures=$((failures + 1))
+  done
+  printf '\n'
+
+  printf '=== v8.6.0 Metrics & Privacy ===\n'
+  # F-3 (v8.6.0 改善 PR5): metrics v1 / privacy 強制の health check
+  plangate_check_file "schemas/plangate-event.schema.json" "$plangate_root/schemas/plangate-event.schema.json" || failures=$((failures + 1))
+  plangate_check_file "schemas/eval-baseline.schema.json" "$plangate_root/schemas/eval-baseline.schema.json" || failures=$((failures + 1))
+  plangate_check_file "scripts/metrics_collector.py" "$plangate_root/scripts/metrics_collector.py" || failures=$((failures + 1))
+  plangate_check_file "scripts/metrics_reporter.py" "$plangate_root/scripts/metrics_reporter.py" || failures=$((failures + 1))
+  plangate_check_file "scripts/baseline-snapshot.py" "$plangate_root/scripts/baseline-snapshot.py" || failures=$((failures + 1))
+  plangate_check_file "scripts/hooks/check-metrics-privacy.sh (EH-8)" "$plangate_root/scripts/hooks/check-metrics-privacy.sh" || failures=$((failures + 1))
+  if [ -x "$plangate_root/scripts/hooks/check-metrics-privacy.sh" ]; then
+    printf '  [PASS] EH-8 hook is executable\n'
+  else
+    printf '  [WARN] scripts/hooks/check-metrics-privacy.sh is not executable\n'
+  fi
+  if grep -q '_metrics/events.ndjson' "$plangate_root/.gitignore" 2>/dev/null; then
+    printf '  [PASS] docs/working/_metrics/events.ndjson is .gitignore-d (privacy §8)\n'
+  else
+    printf '  [FAIL] events.ndjson missing from .gitignore — privacy §8 not enforced\n'
+    failures=$((failures + 1))
+  fi
+  if [ -f "$plangate_root/docs/working/_metrics/events.ndjson" ]; then
+    if git -C "$plangate_root" check-ignore docs/working/_metrics/events.ndjson >/dev/null 2>&1; then
+      printf '  [PASS] events.ndjson exists locally and is git-ignored\n'
+    else
+      printf '  [FAIL] events.ndjson exists but is NOT git-ignored\n'
+      failures=$((failures + 1))
+    fi
+  else
+    printf '  [INFO] events.ndjson absent (no metrics collected yet — opt-in)\n'
+  fi
+  plangate_check_file "docs/ai/metrics.md" "$plangate_root/docs/ai/metrics.md" || failures=$((failures + 1))
+  plangate_check_file "docs/ai/metrics-privacy.md" "$plangate_root/docs/ai/metrics-privacy.md" || failures=$((failures + 1))
+  printf '\n'
+
+  printf '=== Hook Enforcement Wiring ===\n'
+  # T-7 (TASK-0069 / AC-1): .claude/settings.json が .claude/settings.example.json
+  # の各 hook ブロック (event, matcher, type, command) を含むかを判定する。
+  # 正本は settings.example.json（scripts/hooks/ のファイル数とは独立）。
+  # command 文字列のみの集合一致は不採用（別 event/matcher に存在しても誤 PASS
+  # するため）。ブロック単位で同一 event 配下に同一 matcher/type/command を要求。
+  # privacy: presence の真偽のみ。settings 内容・パス値は出力しない。
+  doctor_example="$plangate_root/.claude/settings.example.json"
+  doctor_settings="$plangate_root/.claude/settings.json"
+  if [ ! -f "$doctor_example" ]; then
+    printf '  [WARN] .claude/settings.example.json not found — cannot evaluate hook wiring\n'
+  else
+    doctor_wiring_rc=0
+    python3 - "$doctor_example" "$doctor_settings" <<'PYEOF' || doctor_wiring_rc=$?
+import json
+import sys
+
+example_path, settings_path = sys.argv[1], sys.argv[2]
+
+
+def blocks(doc):
+    """Yield (event, matcher, type, command) tuples from a settings doc."""
+    out = set()
+    hooks = (doc or {}).get("hooks", {})
+    if not isinstance(hooks, dict):
+        return out
+    for event, entries in hooks.items():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            matcher = entry.get("matcher")
+            for h in entry.get("hooks", []) or []:
+                if not isinstance(h, dict):
+                    continue
+                out.add((event, matcher, h.get("type"), h.get("command")))
+    return out
+
+
+try:
+    with open(example_path, "r", encoding="utf-8") as f:
+        expected = blocks(json.load(f))
+except (OSError, ValueError):
+    print("  [WARN] .claude/settings.example.json is unreadable or invalid JSON")
+    sys.exit(0)
+
+if not expected:
+    print("  [WARN] .claude/settings.example.json defines no hook blocks")
+    sys.exit(0)
+
+try:
+    with open(settings_path, "r", encoding="utf-8") as f:
+        present = blocks(json.load(f))
+except FileNotFoundError:
+    present = set()
+except (OSError, ValueError):
+    print("  [FAIL] PlanGate hooks not wired"
+          " (.claude/settings.json is missing or not valid JSON)")
+    sys.exit(1)
+
+missing = expected - present
+if missing:
+    print("  [FAIL] PlanGate hooks not wired"
+          " (%d/%d expected hook block(s) missing from .claude/settings.json)"
+          % (len(missing), len(expected)))
+    print("         Run: plangate doctor --fix   (see TROUBLESHOOTING.md)")
+    sys.exit(1)
+
+print("  [PASS] PlanGate hooks wired (%d/%d hook blocks present)"
+      % (len(expected), len(expected)))
+sys.exit(0)
+PYEOF
+    if [ "$doctor_wiring_rc" -ne 0 ]; then
+      failures=$((failures + 1))
+    fi
+  fi
+  printf '\n'
+
+  printf '=== CLI Hook Wiring (EH-4/5/7) ===\n'
+  _cli_hook_failures=0
+  for _cli_hook_name in check-test-cases check-verification-evidence check-merge-approvals; do
+    _cli_hook_path="$plangate_root/scripts/hooks/${_cli_hook_name}.sh"
+    if [ -f "$_cli_hook_path" ] && [ -x "$_cli_hook_path" ]; then
+      printf '  [PASS] %s.sh exists and is executable\n' "$_cli_hook_name"
+    elif [ -f "$_cli_hook_path" ]; then
+      printf '  [WARN] %s.sh exists but is not executable\n' "$_cli_hook_name"
+    else
+      printf '  [FAIL] %s.sh not found\n' "$_cli_hook_name"
+      _cli_hook_failures=$((_cli_hook_failures + 1))
+    fi
+  done
+  if [ "$_cli_hook_failures" -gt 0 ]; then
+    failures=$((failures + _cli_hook_failures))
+  fi
+  if grep -q 'check-test-cases\.sh' "$plangate_root/bin/plangate" 2>/dev/null; then
+    printf '  [PASS] EH-4 wired in bin/plangate verify\n'
+  else
+    printf '  [WARN] EH-4 not wired -- run: sh scripts/apply-task-0143-eh457-wiring.sh --apply\n'
+  fi
+  if grep -q 'check-verification-evidence\.sh' "$plangate_root/bin/plangate" 2>/dev/null; then
+    printf '  [PASS] EH-5 wired in bin/plangate verify\n'
+  else
+    printf '  [WARN] EH-5 not wired -- run: sh scripts/apply-task-0143-eh457-wiring.sh --apply\n'
+  fi
+  printf '  [INFO] EH-7: run before merge: sh scripts/hooks/check-merge-approvals.sh <TASK-XXXX>\n'
+  printf '\n'
+
+  printf '=== C-3 Approval Mode ===\n'
+  _c3mode_doctor=$(_read_plangate_config c3_approval.mode || echo 'cli')
+  if [ -f "$plangate_root/.plangate.yml" ]; then
+    printf '  [INFO] .plangate.yml found: c3_approval.mode=%s\n' "$_c3mode_doctor"
+  else
+    printf '  [INFO] .plangate.yml not found (default: c3_approval.mode=cli)\n'
+  fi
+  printf '\n'
+
+  printf '=== Optional Provider CLIs ===\n'
+  if command -v gemini >/dev/null 2>&1; then
+    printf '  [INFO] gemini CLI found (PLANGATE_EXTERNAL_REVIEWER=gemini supported)\n'
+  else
+    printf '  [INFO] gemini CLI not found (optional — install to enable plangate review with Gemini)\n'
+  fi
+  if command -v opencode >/dev/null 2>&1; then
+    printf '  [INFO] opencode found (PLANGATE_IMPL_AGENT=opencode supported)\n'
+  else
+    printf '  [INFO] opencode not found (optional — install to enable plangate exec with OpenCode)\n'
+  fi
+  printf '\n'
+
+  printf '=== Cursor Provider (optional) ===\n'
+  if [ -f "$plangate_root/.cursor/hooks.json" ]; then
+    printf '  [PASS] .cursor/hooks.json present\n'
+  else
+    printf '  [WARN] .cursor/hooks.json missing — see docs/cursor/quickstart.md\n'
+  fi
+  if [ -x "$plangate_root/scripts/hooks/cursor-adapter.sh" ]; then
+    printf '  [PASS] scripts/hooks/cursor-adapter.sh executable\n'
+  else
+    printf '  [WARN] scripts/hooks/cursor-adapter.sh missing or not executable\n'
+  fi
+  if [ -f "$plangate_root/docs/rfc/provider-cursor.md" ]; then
+    printf '  [PASS] docs/rfc/provider-cursor.md\n'
+  else
+    printf '  [WARN] docs/rfc/provider-cursor.md missing\n'
+  fi
+  printf '  [INFO] PLANGATE_IMPL_AGENT=cursor — manual Agent handoff (docs/cursor/quickstart.md)\n'
+  printf '\n'
+
+  # T-8 (TASK-0069): --fix / --dry-run / --yes 修復分岐。
+  # settings.json は scripts/doctor_fix.py 経由（直接書換禁止）。
+  # 併せて EH-8 chmod / .gitignore 追記 / docs/working mkdir を修復。
+  # gh/codex 未導入は自動インストールせず案内のみ（exit code は他修復に従う）。
+  if [ "$doctor_fix" -eq 1 ]; then
+    printf '=== Fix (TASK-0069) ===\n'
+
+    fix_py="$plangate_root/scripts/doctor_fix.py"
+    if [ ! -f "$fix_py" ]; then
+      printf '  [FAIL] scripts/doctor_fix.py not found — cannot apply fixes\n' >&2
+      return 2
+    fi
+
+    if [ "$doctor_dry_run" -eq 1 ]; then
+      # Dry-run: 全修復対象を非書込で計画表示のみ。
+      printf '  [PLAN] dry-run — no files will be modified\n'
+      printf '  [PLAN] settings.json hooks (via doctor_fix.py --dry-run):\n'
+      dry_run_output=$(python3 "$fix_py" --project-dir "$plangate_root" --dry-run) || {
+        printf '  [FAIL] doctor_fix.py --dry-run failed\n' >&2
+        return 2
+      }
+      printf '%s\n' "$dry_run_output" | sed 's/^/         /'
+      eh8="$plangate_root/scripts/hooks/check-metrics-privacy.sh"
+      if [ -f "$eh8" ] && [ ! -x "$eh8" ]; then
+        printf '  [PLAN] would: chmod +x scripts/hooks/check-metrics-privacy.sh (EH-8)\n'
+      fi
+      if ! grep -q '_metrics/events.ndjson' "$plangate_root/.gitignore" 2>/dev/null; then
+        printf '  [PLAN] would: append docs/working/_metrics/events.ndjson to .gitignore\n'
+      fi
+      if [ ! -d "$plangate_working_dir" ]; then
+        printf '  [PLAN] would: mkdir -p docs/working/\n'
+      fi
+      printf '\n'
+      printf 'Result: DRY-RUN (no changes made; %d check(s) currently failing)\n' "$failures"
+      return 0
+    fi
+
+    # 確認ゲート: --yes でスキップ。非 tty かつ --yes 無しは（T-7 の土台に
+    # 加えここでも）安全に abort（プロンプトで hang させない）。
+    if [ "$doctor_yes" -eq 0 ]; then
+      if [ ! -t 0 ]; then
+        printf 'plangate doctor --fix: refusing to prompt on a non-interactive stdin.\n' >&2
+        printf '                       No changes were made. Re-run with --yes to proceed.\n' >&2
+        return 3
+      fi
+      printf '  This will modify .claude/settings.json (merge-only, backup kept),\n'
+      printf '  scripts/hooks/check-metrics-privacy.sh permissions, .gitignore and docs/working/.\n'
+      printf '  Proceed? [y/N] '
+      fix_reply=n
+      read -r fix_reply || fix_reply=n
+      case "$fix_reply" in
+        y | Y | yes | YES) ;;
+        *)
+          printf '  Aborted by user. No changes were made.\n'
+          return 4
+          ;;
+      esac
+    fi
+
+    fix_rc=0
+
+    # 1. settings.json: doctor_fix.py --apply（merge-only / backup / 冪等）
+    if python3 "$fix_py" --project-dir "$plangate_root" --apply; then
+      printf '  [DONE] settings.json hooks merged (doctor_fix.py --apply)\n'
+    else
+      printf '  [FAIL] doctor_fix.py --apply failed\n' >&2
+      fix_rc=1
+    fi
+
+    # 2. EH-8 実行ビット
+    eh8="$plangate_root/scripts/hooks/check-metrics-privacy.sh"
+    if [ -f "$eh8" ]; then
+      if [ -x "$eh8" ]; then
+        printf '  [SKIP] EH-8 hook already executable\n'
+      elif chmod +x "$eh8"; then
+        printf '  [DONE] chmod +x scripts/hooks/check-metrics-privacy.sh (EH-8)\n'
+      else
+        printf '  [FAIL] could not chmod +x EH-8 hook\n' >&2
+        fix_rc=1
+      fi
+    fi
+
+    # 3. .gitignore に events.ndjson 追記（privacy §8）
+    gitignore="$plangate_root/.gitignore"
+    if grep -q '_metrics/events.ndjson' "$gitignore" 2>/dev/null; then
+      printf '  [SKIP] .gitignore already excludes events.ndjson\n'
+    else
+      if [ -f "$gitignore" ] && [ -s "$gitignore" ] && [ "$(tail -c 1 "$gitignore")" != "$(printf '\n')" ]; then
+        printf '\n' >> "$gitignore" || {
+          printf '  [FAIL] could not append newline to .gitignore\n' >&2
+          fix_rc=1
+        }
+      fi
+    fi
+    if [ "$fix_rc" -eq 0 ] && ! grep -q '_metrics/events.ndjson' "$gitignore" 2>/dev/null; then
+      if printf '%s\n' 'docs/working/_metrics/events.ndjson' >> "$gitignore"; then
+      printf '  [DONE] appended events.ndjson to .gitignore\n'
+      else
+        printf '  [FAIL] could not append to .gitignore\n' >&2
+        fix_rc=1
+      fi
+    fi
+
+    # 4. docs/working/ ディレクトリ
+    if [ -d "$plangate_working_dir" ]; then
+      printf '  [SKIP] docs/working/ already exists\n'
+    elif mkdir -p "$plangate_working_dir"; then
+      printf '  [DONE] created docs/working/\n'
+    else
+      printf '  [FAIL] could not create docs/working/\n' >&2
+      fix_rc=1
+    fi
+
+    # 5. gh / codex 未導入は案内のみ（自動インストールしない）
+    if ! command -v gh >/dev/null 2>&1; then
+      printf '  [INFO] gh (GitHub CLI) not installed — install manually: https://cli.github.com/\n'
+    fi
+    if ! command -v codex >/dev/null 2>&1; then
+      printf '  [INFO] codex (Codex CLI) not installed — install manually per your provider docs\n'
+    fi
+
+    printf '\n'
+    if [ "$fix_rc" -ne 0 ]; then
+      printf 'Result: FIX FAILED (one or more repair steps failed)\n'
+      return 1
+    fi
+    printf 'Result: FIX APPLIED (re-run `plangate doctor` to verify)\n'
+    return 0
+  fi
+
+  # TASK-0106 T-07a: maintenance 窓の有無を 1 行表示（doctor 全 scope 共通の補足）
+  _maint_file="$plangate_root/docs/working/_maintenance/maintenance.json"
+  if [ -f "$_maint_file" ]; then
+    _m=$(python3 - "$_maint_file" <<'PYM' 2>/dev/null || true
+import json, sys, time
+try:
+    d = json.load(open(sys.argv[1]))
+    now = int(time.time())
+    rem = max(0, int(d.get("until", 0)) - now)
+    one_shot = bool(d.get("one_shot", False))
+    consumed = d.get("consumed_at") is not None
+    active = (int(d.get("granted_at", 0)) <= now and rem > 0 and not consumed)
+    if active:
+        ap = d.get('allowed_paths')
+        paths_str = ap if ap is not None else '(any non-Override)'
+        print(f"active remaining={rem//60:02d}:{rem%60:02d} scope={d.get('scope','')} one_shot={str(one_shot).lower()} paths={paths_str}")
+    elif consumed:
+        print(f"consumed (one_shot) — re-issue with 'plangate maintenance start' if needed")
+    elif rem == 0:
+        print(f"expired — use 'plangate maintenance stop' to clean up")
+    else:
+        print("inactive")
+except Exception as e:
+    print(f"unparsable: {e}")
+PYM
+)
+    printf '\n=== Maintenance Window ===\n'
+    printf '  [INFO] %s\n' "$_m"
+  fi
+
+  if [ "$failures" -eq 0 ]; then
+    printf 'Result: PASS (all checks passed)\n'
+  else
+    printf 'Result: FAIL (%d check(s) failed)\n' "$failures"
+    return 1
+  fi
+}
+
+cmd_status() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate status <TASK-XXXX>\n' >&2
+    return 1
+  fi
+  task_id=$1
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  work_dir="$plangate_working_dir/$task_id"
+
+  printf 'Task:     %s\n' "$task_id"
+  printf 'Work dir: %s\n' "$work_dir"
+  printf '\n'
+
+  # Artifact presence
+  printf '=== Artifacts ===\n'
+  for f in pbi-input.md plan.md todo.md test-cases.md review-self.md handoff.md; do
+    if [ -f "$work_dir/$f" ]; then
+      printf '  [x] %s\n' "$f"
+    else
+      printf '  [ ] %s\n' "$f"
+    fi
+  done
+  printf '\n'
+
+  # Gate status
+  printf '=== Gates ===\n'
+  if [ -f "$work_dir/approvals/c3.json" ]; then
+    c3_status=$(grep '"c3_status"' "$work_dir/approvals/c3.json" 2>/dev/null | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "unknown")
+    printf '  C-3: %s\n' "$c3_status"
+  else
+    printf '  C-3: pending\n'
+  fi
+  if [ -f "$work_dir/approvals/c4.json" ]; then
+    c4_status=$(grep '"c4_status"' "$work_dir/approvals/c4.json" 2>/dev/null | sed 's/.*"c4_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "unknown")
+    printf '  C-4: %s\n' "$c4_status"
+  else
+    printf '  C-4: pending\n'
+  fi
+  printf '\n'
+
+  # Phase inference
+  printf '=== Phase ===\n'
+  if [ ! -f "$work_dir/pbi-input.md" ]; then
+    phase="A — PBI input required"
+    next="Edit docs/working/$task_id/pbi-input.md"
+  elif [ ! -f "$work_dir/plan.md" ]; then
+    phase="B — plan generation required"
+    next="/ai-dev-workflow $task_id plan"
+  elif [ ! -f "$work_dir/approvals/c3.json" ]; then
+    phase="C-3 — human review pending"
+    next="Review plan.md → create approvals/c3.json"
+  elif [ ! -f "$work_dir/handoff.md" ]; then
+    phase="D / V — exec or verification"
+    next="/ai-dev-workflow $task_id exec"
+  else
+    phase="Done"
+    next="Close issue and merge PR"
+  fi
+  printf '  Current: %s\n' "$phase"
+  printf '  Next:    %s\n' "$next"
+
+  # current-state.md excerpt
+  if [ -f "$work_dir/current-state.md" ]; then
+    printf '\n=== current-state.md (last 10 lines) ===\n'
+    tail -10 "$work_dir/current-state.md"
+  fi
+}
+
+# c3-prime / legacy c3.json の受理を判別・検証する共有ヘルパー（TASK-0872 PR-2）。
+# approvals/c3.json の approval_kind を strict JSON で判別し、c3-prime なら
+# scripts/ai-loop/c3prime_verify.py で Plan Package 束縛を全数再検証する
+# （契約 §4/§5: legacy grep 経路は c3-prime に流用しない）。
+# 戻り値: 0=c3-prime 受理 / 10=legacy（呼び出し側が grep 経路で処理）/ 1=c3-prime NG
+_plangate_c3_dispatch() {
+  _c3d_dir="$1"
+  _c3d_verify="$plangate_root/scripts/ai-loop/c3prime_verify.py"
+  if [ ! -f "$_c3d_verify" ]; then
+    # 検証器が無い環境では c3-prime を受理できない（fail-closed）。
+    # legacy 判別のみ python3 で行い、legacy なら委譲・c3-prime なら NG。
+    _c3d_kind=$(python3 -c "import json,sys
+try: d=json.load(open(sys.argv[1]))
+except Exception: print(''); sys.exit(0)
+print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$_c3d_dir/approvals/c3.json" 2>/dev/null || echo "")
+    [ "$_c3d_kind" = "c3-prime" ] && return 1
+    return 10
+  fi
+  python3 "$_c3d_verify" "$_c3d_dir" >&2
+  return $?
+}
+
+cmd_validate() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate validate <TASK-XXXX> [--mode <mode>] | --dir <path> [--mode <mode>]\n' >&2
+    return 1
+  fi
+
+  # TA-01: parse all flags first, then dispatch by positional arg
+  work_dir=""
+  label=""
+  task_id=""
+  mode=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dir)
+        shift
+        if [ $# -eq 0 ]; then
+          printf 'Usage: plangate validate --dir <path>\n' >&2
+          return 1
+        fi
+        work_dir=$1
+        label=$(basename "$work_dir")
+        ;;
+      --mode)
+        shift
+        if [ $# -eq 0 ]; then
+          printf 'error: --mode requires a value\n' >&2
+          return 1
+        fi
+        mode=$1
+        ;;
+      *)
+        task_id=$1
+        ;;
+    esac
+    shift
+  done
+
+  if [ -n "$task_id" ]; then
+    plangate_validate_task_id "$task_id"
+    plangate_require_task_dir "$task_id"
+    work_dir="$plangate_working_dir/$task_id"
+    label="$task_id"
+  fi
+
+  if [ -z "$work_dir" ]; then
+    printf 'Usage: plangate validate <TASK-XXXX> [--mode <mode>] | --dir <path> [--mode <mode>]\n' >&2
+    return 1
+  fi
+
+  if [ ! -d "$work_dir" ]; then
+    printf 'error: Directory not found: %s\n' "$work_dir" >&2
+    return 1
+  fi
+
+  failures=0
+
+  printf 'Validating: %s\n\n' "$label"
+
+  # TA-01: use YAML-derived artifact list when --mode is specified
+  printf '=== Required Artifacts ===\n'
+  if [ -n "$mode" ]; then
+    yaml_file="$plangate_root/workflows/$mode.yaml"
+    if [ ! -f "$yaml_file" ]; then
+      printf 'error: Unknown mode: %s (no %s)\n' "$mode" "$yaml_file" >&2
+      return 1
+    fi
+    artifact_list=$(plangate_yaml_c3_artifacts "$yaml_file")
+    for f in $artifact_list; do
+      plangate_check_file "$f" "$work_dir/$f" || failures=$((failures + 1))
+    done
+  else
+    for f in pbi-input.md plan.md todo.md test-cases.md review-self.md; do
+      plangate_check_file "$f" "$work_dir/$f" || failures=$((failures + 1))
+    done
+  fi
+  printf '\n'
+
+  printf '=== C-3 Gate ===\n'
+  c3_file="$work_dir/approvals/c3.json"
+  if [ ! -f "$c3_file" ]; then
+    printf '  [FAIL] approvals/c3.json not found\n'
+    failures=$((failures + 1))
+  else
+    printf '  [PASS] approvals/c3.json exists\n'
+    # TASK-0872 PR-2: c3-prime は Plan Package 束縛を全数再検証（契約 §4）。
+    # legacy（approval_kind 無し）は従来の grep 経路で処理する。
+    # set -eu 下で非ゼロ戻り（10=legacy / 1=NG）が中断を招かないよう `|| _c3_rc=$?` で受ける。
+    _c3_rc=0
+    _plangate_c3_dispatch "$work_dir" || _c3_rc=$?
+    if [ "$_c3_rc" = "0" ]; then
+      printf '  [PASS] c3-prime record verified (decision=AUTO_APPROVED, Plan Package 束縛整合)\n'
+    elif [ "$_c3_rc" = "1" ]; then
+      printf '  [FAIL] c3-prime verification failed (see message above)\n'
+      failures=$((failures + 1))
+    else
+      # _c3_rc == 10: legacy 経路（従来どおり grep で c3_status / plan_hash 検証）
+      c3_status=$(grep '"c3_status"' "$c3_file" 2>/dev/null | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
+      if [ "$c3_status" = "APPROVED" ]; then
+        printf '  [PASS] c3_status = APPROVED\n'
+      else
+        printf '  [FAIL] c3_status = %s (expected APPROVED)\n' "${c3_status:-missing}"
+        failures=$((failures + 1))
+      fi
+
+      # plan_hash check
+      plan_file="$work_dir/plan.md"
+      if [ -f "$plan_file" ]; then
+        recorded_hash=$(grep '"plan_hash"' "$c3_file" 2>/dev/null | sed 's/.*"plan_hash"[[:space:]]*:[[:space:]]*"sha256:\([^"]*\)".*/\1/' || echo "")
+        if [ -z "$recorded_hash" ]; then
+          printf '  [WARN] plan_hash not found in c3.json\n'
+        else
+          current_hash=$(plangate_sha256 "$plan_file")
+          if [ "$current_hash" = "$recorded_hash" ]; then
+            printf '  [PASS] plan.md hash matches c3.json (no post-approval modification)\n'
+          else
+            printf '  [FAIL] plan.md hash MISMATCH — plan was modified after C-3 approval\n'
+            printf '         recorded: sha256:%s\n' "$recorded_hash"
+            printf '         current:  sha256:%s\n' "$current_hash"
+            failures=$((failures + 1))
+          fi
+        fi
+      fi
+    fi
+  fi
+  printf '\n'
+
+  if [ "$failures" -eq 0 ]; then
+    printf 'Result: PASS\n'
+  else
+    printf 'Result: FAIL (%d issue(s))\n' "$failures"
+    return 1
+  fi
+}
+
+cmd_validate_schemas() {
+  # Validate JSON artifacts under a TASK dir / arbitrary --dir / explicit files
+  # against schemas/. Wraps scripts/validate-schemas.py.
+  # Usage:
+  #   plangate validate-schemas <TASK-XXXX>
+  #   plangate validate-schemas --dir <path>
+  #   plangate validate-schemas --files-from <list>
+  #   plangate validate-schemas <file>...
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate validate-schemas <TASK-XXXX> | --dir <path> | --files-from <list> | <file>...\n' >&2
+    return 1
+  fi
+
+  py_script="$plangate_root/scripts/validate-schemas.py"
+  if [ ! -f "$py_script" ]; then
+    printf 'error: scripts/validate-schemas.py not found\n' >&2
+    return 2
+  fi
+
+  # If first arg matches TASK-XXXX, expand to --dir <task-dir>
+  case "$1" in
+    TASK-*)
+      task_id=$1
+      shift
+      plangate_validate_task_id "$task_id"
+      plangate_require_task_dir "$task_id"
+      python3 "$py_script" --dir "$plangate_working_dir/$task_id" "$@"
+      return $?
+      ;;
+  esac
+
+  python3 "$py_script" "$@"
+  return $?
+}
+
+cmd_eval() {
+  # Run 8-aspect eval against a task dir. Wraps scripts/eval-runner.py.
+  # Issue #156 / TASK-0049
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate eval <TASK-XXXX> [--baseline <TASK-YYYY>] [--profile <key>] [--no-write] [--dogfood]\n' >&2
+    printf '  --dogfood            [#231] Dogfooding Eval v1: 5-item structural eval -> eval-dogfood.md\n' >&2
+    return 1
+  fi
+
+  py_script="$plangate_root/scripts/eval-runner.py"
+  if [ ! -f "$py_script" ]; then
+    printf 'error: scripts/eval-runner.py not found\n' >&2
+    return 2
+  fi
+
+  python3 "$py_script" "$@"
+  return $?
+}
+
+cmd_metrics() {
+  # Collect / report / validate PlanGate workflow metrics for a TASK.
+  # Issue #195 / PBI-HI-001 (Metrics v1) + v8.6.0 PR5 (--validate)
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate metrics <TASK-XXXX> [--collect|--report|--validate] [--aggregate] [--json|--markdown-section] [--since <date>]\n' >&2
+    printf '  --collect            Append metrics events to docs/working/_metrics/events.ndjson (default if no flag)\n' >&2
+    printf '  --report             Print summary instead of appending\n' >&2
+    printf '  --validate           Validate every line of events.ndjson against plangate-event.schema.json\n' >&2
+    printf '  --timeline           [experimental #229] Emit phase/gate/ts-ordered timeline JSON (schema 1.1)\n' >&2
+    printf '  --aggregate          Aggregate across all TASKs (--report only)\n' >&2
+    printf '  --json               JSON output (--report / --timeline)\n' >&2
+    printf '  --markdown-section   Emit handoff §7 markdown table (--report only, v8.6.0 PR7 / K-1)\n' >&2
+    printf '  --since <date>       Filter events with ts >= ISO date (v8.6.0 PR7 / K-2)\n' >&2
+    return 1
+  fi
+
+  collector="$plangate_root/scripts/metrics_collector.py"
+  reporter="$plangate_root/scripts/metrics_reporter.py"
+  if [ ! -f "$collector" ] || [ ! -f "$reporter" ]; then
+    printf 'error: metrics scripts not found under scripts/\n' >&2
+    return 2
+  fi
+
+  mode="collect"
+  passthrough=""
+  task_id=""
+  events_log_arg=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --collect) mode="collect" ;;
+      --report) mode="report" ;;
+      --validate) mode="validate" ;;
+      --timeline) mode="timeline" ;;
+      --aggregate) passthrough="$passthrough --aggregate" ;;
+      --json) passthrough="$passthrough --json" ;;
+      --markdown-section) passthrough="$passthrough --markdown-section" ;;
+      --since)
+        shift
+        passthrough="$passthrough --since $1"
+        ;;
+      --dry-run) passthrough="$passthrough --dry-run" ;;
+      --events-log)
+        shift
+        events_log_arg="$1"
+        passthrough="$passthrough --events-log $1"
+        ;;
+      TASK-*) task_id="$1" ;;
+      *)
+        printf 'Unknown metrics arg: %s\n' "$1" >&2
+        return 2
+        ;;
+    esac
+    shift
+  done
+
+  if [ "$mode" = "timeline" ]; then
+    # #229 PBI-HI-013 (experimental): phase/gate/ts 順 timeline JSON
+    case "$passthrough" in
+      *--aggregate*|*--markdown-section*)
+        printf 'plangate metrics --timeline: --aggregate/--markdown-section は併用不可\n' >&2
+        return 2 ;;
+    esac
+    tl="$plangate_root/scripts/metrics_timeline.py"
+    if [ ! -f "$tl" ]; then
+      printf 'error: scripts/metrics_timeline.py not found\n' >&2
+      return 2
+    fi
+    if [ -n "$events_log_arg" ]; then
+      python3 "$tl" "$task_id" --events-log "$events_log_arg"
+    else
+      python3 "$tl" "$task_id"
+    fi
+    return $?
+  fi
+
+  if [ "$mode" = "validate" ]; then
+    # H-1 (v8.6.0 PR5): validate events.ndjson against plangate-event.schema.json
+    schema="$plangate_root/schemas/plangate-event.schema.json"
+    log_path=${events_log_arg:-"$plangate_root/docs/working/_metrics/events.ndjson"}
+    if [ ! -f "$schema" ]; then
+      printf '[FAIL] schema not found: %s\n' "$schema" >&2
+      return 2
+    fi
+    if [ ! -f "$log_path" ]; then
+      printf '[INFO] events.ndjson not found at %s — nothing to validate\n' "$log_path"
+      return 0
+    fi
+    python3 - "$schema" "$log_path" <<'PY' "$@"
+import json, sys
+try:
+    import jsonschema
+except ImportError:
+    print("[SKIP] jsonschema not available — install with: pip install jsonschema", file=sys.stderr)
+    sys.exit(0)
+schema_path, log_path = sys.argv[1], sys.argv[2]
+schema = json.load(open(schema_path))
+ok = 0
+errors = []
+with open(log_path) as fp:
+    for ln, raw in enumerate(fp, 1):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except json.JSONDecodeError as e:
+            errors.append(f"line {ln}: invalid JSON ({e})")
+            continue
+        try:
+            jsonschema.validate(ev, schema)
+            ok += 1
+        except jsonschema.ValidationError as e:
+            errors.append(f"line {ln}: schema violation ({e.message})")
+print(f"[INFO] validated {ok} valid event(s) against plangate-event.schema.json")
+if errors:
+    for e in errors[:20]:
+        print(f"[FAIL] {e}", file=sys.stderr)
+    if len(errors) > 20:
+        print(f"[FAIL] ... and {len(errors)-20} more", file=sys.stderr)
+    sys.exit(1)
+print("[PASS] all events valid")
+PY
+    return $?
+  fi
+
+  if [ "$mode" = "collect" ]; then
+    if [ -z "$task_id" ]; then
+      printf 'metrics --collect requires TASK-XXXX\n' >&2
+      return 2
+    fi
+    # shellcheck disable=SC2086
+    python3 "$collector" "$task_id" $passthrough
+    return $?
+  fi
+
+  # report
+  if [ -n "$task_id" ]; then
+    # shellcheck disable=SC2086
+    python3 "$reporter" "$task_id" $passthrough
+  else
+    # shellcheck disable=SC2086
+    python3 "$reporter" $passthrough
+  fi
+  return $?
+}
+
+cmd_abort() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate abort <TASK-XXXX> [--reason "..."]\n' >&2
+    return 1
+  fi
+  task_id=$1
+  shift
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  reason="no reason specified"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --reason)
+        shift
+        reason="${1:-}"
+        ;;
+      *)
+        reason="$1"
+        ;;
+    esac
+    shift
+  done
+
+  work_dir="$plangate_working_dir/$task_id"
+  run_log="$work_dir/run.ndjson"
+  ts=$(plangate_now)
+
+  # JSON-escape the reason: backslash and double-quote must be escaped
+  escaped_reason=$(printf '%s' "$reason" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  plangate_append_ndjson "$run_log" \
+    "{\"ts\":\"$ts\",\"task_id\":\"$task_id\",\"phase\":\"D\",\"event\":\"session_ended\",\"detail\":\"aborted: $escaped_reason\"}"
+
+  printf 'Abort recorded in: %s\n' "$run_log"
+  printf 'Reason: %s\n' "$reason"
+}
+
+cmd_timeline() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate timeline <TASK-XXXX>\n' >&2
+    return 1
+  fi
+  task_id=$1
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  work_dir="$plangate_working_dir/$task_id"
+  run_log="$work_dir/run.ndjson"
+
+  if [ ! -f "$run_log" ]; then
+    printf 'No run.ndjson found for %s\n' "$task_id"
+    printf 'Events are recorded automatically during exec.\n'
+    return 0
+  fi
+
+  printf 'Timeline: %s\n\n' "$task_id"
+  printf '%-25s %-6s %-30s %s\n' "Timestamp" "Phase" "Event" "Detail"
+  printf '%s\n' "$(printf '%.0s-' $(seq 1 80))"
+
+  while IFS= read -r line; do
+    if command -v python3 >/dev/null 2>&1; then
+      # Use python3 for correct JSON decoding (handles escaped characters in detail)
+      result=$(printf '%s' "$line" | python3 -c "
+import json, sys
+try:
+    d = json.loads(sys.stdin.read().strip())
+    sep = '\x01'
+    fields = [
+        d.get('ts', '-'),
+        d.get('phase', '-'),
+        d.get('event', '-'),
+        d.get('detail', '').replace('\n', ' ').replace('\x01', ' '),
+    ]
+    print(sep.join(fields))
+except Exception:
+    print('-\x01-\x01-\x01')
+" 2>/dev/null || printf '%s\001%s\001%s\001' "-" "-" "-")
+      ts=${result%%"$(printf '\001')"*}
+      _rest=${result#*"$(printf '\001')"}
+      phase=${_rest%%"$(printf '\001')"*}
+      _rest=${_rest#*"$(printf '\001')"}
+      event=${_rest%%"$(printf '\001')"*}
+      detail=${_rest#*"$(printf '\001')"}
+    else
+      # Fallback: sed-based extraction (does not handle escaped quotes in detail)
+      ts=$(printf '%s' "$line" | sed 's/.*"ts"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
+      phase=$(printf '%s' "$line" | sed 's/.*"phase"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
+      event=$(printf '%s' "$line" | sed 's/.*"event"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "-")
+      detail=$(printf '%s' "$line" | sed 's/.*"detail"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' 2>/dev/null || echo "")
+    fi
+    printf '%-25s %-6s %-30s %s\n' "$ts" "$phase" "$event" "$detail"
+  done < "$run_log"
+}
+
+cmd_resume() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate resume <TASK-XXXX>\n' >&2
+    return 1
+  fi
+  task_id=$1
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  work_dir="$plangate_working_dir/$task_id"
+
+  printf '=== Resume: %s ===\n\n' "$task_id"
+
+  if [ -f "$work_dir/current-state.md" ]; then
+    cat "$work_dir/current-state.md"
+  else
+    printf 'No current-state.md found. Run plangate status %s for phase info.\n' "$task_id"
+  fi
+
+  printf '\n=== Quick Status ===\n'
+  cmd_status "$task_id" 2>/dev/null | grep -E 'Current:|Next:' || true
+}
+
+cmd_maintenance() {
+  # TASK-0106: bin/plangate maintenance start/stop
+  # Human-owned in-session skip CLI. 多層 best-effort 防御 + 全試行監査ログ。
+  # AI 自己付与は L1 isatty / L2 env barrier / L3 parent process heuristic /
+  # L4 対話 nonce で抑止し、全 start 試行を hook-events.log に記録。
+  # 完全な構造保証は別 PBI 分割（R-012）。
+  REPO_ROOT="$plangate_root"
+  _hook_events="$REPO_ROOT/docs/working/_audit/hook-events.log"
+  _maint_dir="$REPO_ROOT/docs/working/_maintenance"
+  _maint="$_maint_dir/maintenance.json"
+  mkdir -p "$_maint_dir" "$REPO_ROOT/docs/working/_audit"
+
+  _ts_iso() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+  _audit() {
+    # $1=event $2=verdict $3=detail (JSON-safe)
+    _ev="$1"; _vd="$2"; _dt="$3"
+    printf '{"ts":"%s","event":"%s","verdict":"%s","ppid":%s,"isatty_stdin":%s,"detail":%s}\n' \
+      "$(_ts_iso)" "$_ev" "$_vd" "${PPID:-0}" \
+      "$([ -t 0 ] && printf true || printf false)" \
+      "$(printf '%s' "$_dt" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')" \
+      >> "$_hook_events" 2>/dev/null || true
+  }
+
+  _sub="${1:-help}"
+  case "$_sub" in
+    start)
+      shift
+      _reason=""; _paths=""; _minutes="5"; _force="false"
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --reason)  _reason="$2"; shift 2 ;;
+          --paths)   _paths="$2"; shift 2 ;;
+          --minutes) _minutes="$2"; shift 2 ;;
+          --force)   _force="true"; shift ;;
+          *) printf 'error: unknown arg: %s\n' "$1" >&2; return 2 ;;
+        esac
+      done
+
+      # --- L1: isatty (stdin が対話 TTY か) ---
+      if ! [ -t 0 ]; then
+        _audit "maintenance_start_attempt" "reject_L1" "non-interactive stdin"
+        printf 'error: L1 interactive TTY required (stdin not a tty)\n' >&2
+        return 1
+      fi
+
+      # --- L2: env barrier ---
+      for _evname in CI CLAUDE_AGENT CURSOR_AGENT PLANGATE_BYPASS_HOOK; do
+        _evval=$(eval "printf '%s' \"\${$_evname:-}\"")
+        if [ -n "$_evval" ]; then
+          _audit "maintenance_start_attempt" "reject_L2" "env $_evname=$_evval detected"
+          printf 'error: L2 agent env detected (%s set)\n' "$_evname" >&2
+          return 1
+        fi
+      done
+
+      # --- L3: parent process heuristic ---
+      _pcomm=$(ps -p $PPID -o comm= 2>/dev/null | tr -d ' ')
+      # PLANGATE_FAKE_PPID_COMM はテスト専用注入。本番経路での L3 上書きを防ぐため
+      # PLANGATE_TEST_MODE=1 のときのみ honor する（TASK-0139 AC-03）。
+      if [ "${PLANGATE_TEST_MODE:-0}" = "1" ] && [ -n "${PLANGATE_FAKE_PPID_COMM:-}" ]; then _pcomm="$PLANGATE_FAKE_PPID_COMM"; fi
+      if printf '%s' "$_pcomm" | grep -iqE 'claude|codex|cursor'; then
+        _audit "maintenance_start_attempt" "reject_L3" "parent process comm=$_pcomm"
+        printf 'error: L3 AI agent lineage detected (ppid comm: %s)\n' "$_pcomm" >&2
+        return 1
+      fi
+
+      # --- L4: 対話 nonce ---
+      _nonce=$(python3 -c 'import secrets; print(secrets.token_hex(4))')
+      printf 'L4 nonce challenge: please type the following 8-hex string and press Enter to confirm human operation:\n'
+      printf '  %s\n' "$_nonce"
+      printf 'PLANGATE_MAINT_ACK> '
+      read -r _ack || _ack=""
+      if [ "$_ack" != "$_nonce" ]; then
+        _audit "maintenance_start_attempt" "reject_L4" "nonce mismatch (got: $_ack)"
+        printf 'error: L4 nonce mismatch (got: %s, expected: %s)\n' "$_ack" "$_nonce" >&2
+        return 1
+      fi
+
+      # --- 引数バリデーション ---
+      if [ -z "$_reason" ] || [ -z "$(printf '%s' "$_reason" | tr -d '[:space:]')" ]; then
+        _audit "maintenance_start_attempt" "reject_arg" "empty --reason"
+        printf 'error: --reason is required (non-blank)\n' >&2
+        return 2
+      fi
+      case "$_minutes" in
+        ''|*[!0-9]*) printf 'error: --minutes must be a positive integer\n' >&2; return 2 ;;
+      esac
+      if [ "$_minutes" -le 0 ] || [ "$_minutes" -gt 30 ]; then
+        _audit "maintenance_start_attempt" "reject_arg" "minutes out of range (1..30): $_minutes"
+        printf 'error: --minutes must be 1..30 (hard cap 30)\n' >&2
+        return 2
+      fi
+
+      # --- 既存有効ファイルチェック (AC-9 / R-005/R-010) ---
+      if [ -f "$_maint" ] && [ "$_force" = "false" ]; then
+        _audit "maintenance_start_attempt" "reject_existing" "already active maintenance.json present (use --force to overwrite)"
+        printf 'error: already active maintenance window (use --force to overwrite)\n' >&2
+        return 1
+      fi
+
+      # --- 生成 ---
+      _now=$(date -u +%s)
+      _until=$((_now + _minutes * 60))
+      _allowed_json="null"
+      if [ -n "$_paths" ]; then
+        _allowed_json=$(printf '%s' "$_paths" | python3 -c 'import json,sys; print(json.dumps([p.strip() for p in sys.stdin.read().split(",") if p.strip()]))')
+      fi
+      _user="${USER:-unknown}"
+      python3 - "$_maint" "$_user" "$_reason" "$_now" "$_until" "$_allowed_json" <<'PYW'
+import json, sys, os
+target, user, reason, granted_at, until_, allowed_json = sys.argv[1:7]
+d = {
+    "scope": "in-session edit",
+    "until": int(until_),
+    "granted_at": int(granted_at),
+    "reason": reason,
+    "approved_by": user,
+    "one_shot": True,
+}
+allowed = json.loads(allowed_json)
+if allowed is not None:
+    d["allowed_paths"] = allowed
+tmp = target + ".tmp"
+with open(tmp, "w") as f:
+    json.dump(d, f, ensure_ascii=False, indent=2)
+os.replace(tmp, target)
+PYW
+      _audit "maintenance_start_attempt" "ok" "reason=$_reason paths=$_paths minutes=$_minutes force=$_force"
+      printf 'maintenance window opened: until=%s scope=in-session edit allowed_paths=%s one_shot=true\n' "$_until" "${_paths:-(any non-Override)}"
+      return 0
+      ;;
+    stop)
+      if [ -f "$_maint" ]; then
+        rm -f "$_maint"
+        _audit "maintenance_stop" "ok" "removed maintenance.json"
+        printf 'maintenance window closed (maintenance.json removed)\n'
+      else
+        _audit "maintenance_stop" "noop" "no active maintenance.json"
+        printf 'no active maintenance window\n'
+      fi
+      return 0
+      ;;
+    help|--help|-h|"")
+      printf 'Usage: plangate maintenance <subcommand> [args]\n\n'
+      printf 'Subcommands:\n'
+      printf '  start --reason "<text>" [--paths <glob,..>] [--minutes 1..30] [--force]\n'
+      printf '        Human-only (TTY+env+ppid+nonce 4-layer best-effort defense)\n'
+      printf '  stop  Remove active maintenance.json\n'
+      printf '  help  Show this help\n'
+      return 0
+      ;;
+    *)
+      printf 'error: unknown maintenance subcommand: %s\n' "$_sub" >&2
+      return 2
+      ;;
+  esac
+}
+
+cmd_plan_check() {
+  # Lightweight Plan Quality Check（手動実行・heavy Gate 非依存 / #213）
+  # 正本: docs/ai/plan-quality-checks.md
+  # Usage:
+  #   plangate plan-check <TASK-XXXX> --init   雛形 plan-quality-check.json 生成
+  #   plangate plan-check <TASK-XXXX> --validate  schema 検証
+  if [ $# -lt 1 ]; then
+    printf 'Usage: plangate plan-check <TASK-XXXX> [--init|--validate]\n' >&2
+    return 1
+  fi
+  task_id=$1
+  shift
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+  pqc_file="$plangate_working_dir/$task_id/plan-quality-check.json"
+  action=${1:---init}
+  case "$action" in
+    --init)
+      if [ -f "$pqc_file" ]; then
+        printf '[plan-check] exists (not overwritten): %s\n' "$pqc_file"
+        return 0
+      fi
+      cat > "$pqc_file" <<'PQC'
+{
+  "check_type": "combined",
+  "score": 0,
+  "decision": "insufficient",
+  "summary": "TODO: 計画品質サマリを記述（plan_check/risk_check/done_check）",
+  "score_breakdown": {
+    "goal_clarity": 0,
+    "scope_defined": 0,
+    "success_metric": 0,
+    "risks_identified": 0,
+    "done_criteria_defined": 0
+  },
+  "missing_items": [],
+  "risks": [],
+  "assumptions": [],
+  "done_criteria": [],
+  "next_actions": []
+}
+PQC
+      printf '[plan-check] template created: %s\n' "$pqc_file"
+      printf '  Fill in via plan-quality-check skill, then: plangate plan-check %s --validate\n' "$task_id"
+      return 0
+      ;;
+    --validate)
+      if [ ! -f "$pqc_file" ]; then
+        printf '[plan-check] not found: %s (run --init first)\n' "$pqc_file" >&2
+        return 2
+      fi
+      schema="$plangate_root/schemas/plan-quality-check.schema.json"
+      vs="$plangate_root/scripts/validate-schemas.py"
+      if [ -f "$vs" ]; then
+        python3 "$vs" "$pqc_file"
+        return $?
+      fi
+      python3 - "$pqc_file" "$schema" <<'PYV'
+import json,sys
+doc=json.load(open(sys.argv[1])); sch=json.load(open(sys.argv[2]))
+try:
+    import jsonschema
+    jsonschema.validate(doc,sch)
+    print("[plan-check] VALID:", sys.argv[1])
+except ImportError:
+    req=sch.get("required",[])
+    miss=[k for k in req if k not in doc]
+    print("[plan-check] %s (jsonschema absent; required check)" %
+          ("VALID" if not miss else "INVALID missing=%s"%miss))
+    sys.exit(0 if not miss else 1)
+except Exception as e:
+    print("[plan-check] INVALID:", e); sys.exit(1)
+PYV
+      return $?
+      ;;
+    *)
+      printf 'Usage: plangate plan-check <TASK-XXXX> [--init|--validate]\n' >&2
+      return 1
+      ;;
+  esac
+}
+
+cmd_report() {
+  # Reporting & Retrospective v1 — 期間集計 Markdown（advisory / #200）
+  # 正本: docs/ai/reporting.md
+  # 最小チェックのみ（--from/--to 必須検証は scripts/reporting.py argparse に委譲）
+  if [ $# -lt 1 ]; then
+    printf 'Usage: plangate report --from <YYYY-MM-DD> --to <YYYY-MM-DD> [--no-write]\n' >&2
+    return 1
+  fi
+  py="$plangate_root/scripts/reporting.py"
+  if [ ! -f "$py" ]; then
+    printf 'error: scripts/reporting.py not found\n' >&2
+    return 2
+  fi
+  python3 "$py" "$@"
+  return $?
+}
+
+cmd_context() {
+  # Dynamic Context Engine v1 — phase/mode/profile 別 context 解決
+  # opt-in・advisory（C-3/C-4 緩和なし / #199）。正本: docs/ai/context-engine.md
+  if [ $# -lt 1 ]; then
+    printf 'Usage: plangate context <TASK-XXXX> --phase <p> [--mode <m>] [--profile <k>] [--no-write]\n' >&2
+    return 1
+  fi
+  py="$plangate_root/scripts/context-engine.py"
+  if [ ! -f "$py" ]; then
+    printf 'error: scripts/context-engine.py not found\n' >&2
+    return 2
+  fi
+  python3 "$py" "$@"
+  return $?
+}
+
+cmd_keep_rate() {
+  # Keep Rate v1 — AI 成果物残存率（advisory・release blocker 不可 / #198）
+  # 正本: docs/ai/keep-rate.md
+  if [ $# -lt 1 ]; then
+    printf 'Usage: plangate keep-rate <TASK-XXXX> [--no-write]\n' >&2
+    return 1
+  fi
+  py="$plangate_root/scripts/keep-rate.py"
+  if [ ! -f "$py" ]; then
+    printf 'error: scripts/keep-rate.py not found\n' >&2
+    return 2
+  fi
+  python3 "$py" "$@"
+  return $?
+}
+
+cmd_review() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate review <TASK-XXXX> [--phase c2|v3] [--file <path>]\n' >&2
+    return 1
+  fi
+  task_id=$1; shift
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  phase="c2"
+  _review_progress=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --phase)
+        shift
+        phase="${1:-c2}"
+        ;;
+      --file)
+        shift
+        ;;  # --file is accepted but unused in this version; kept for future use
+      --progress)
+        _review_progress=1
+        ;;
+    esac
+    shift
+  done
+
+  work_dir="$plangate_working_dir/$task_id"
+  output_file="$work_dir/review-external.md"
+
+  if [ ! -f "$work_dir/plan.md" ]; then
+    printf 'error: plan.md not found — run /ai-dev-workflow plan first\n' >&2
+    return 1
+  fi
+
+  # -- .plangate-reviewers.yaml 存在チェック ---------------------------------
+  reviewers_yaml="$plangate_root/.plangate-reviewers.yaml"
+  if [ -f "$reviewers_yaml" ] && command -v python3 >/dev/null 2>&1; then
+    if python3 -c 'import yaml' >/dev/null 2>&1; then
+      _rv_result=0
+      _review_parallel "$task_id" "$phase" "$work_dir" "$output_file" "$reviewers_yaml" || _rv_result=$?
+      if [ "$_rv_result" -eq 2 ]; then
+        : # phase not configured; fall through to legacy
+      else
+        return "$_rv_result"
+      fi
+    else
+      printf 'warn: PyYAML not installed; falling back to legacy reviewer\n' >&2
+    fi
+  elif [ -f "$reviewers_yaml" ] && ! command -v python3 >/dev/null 2>&1; then
+    printf 'warn: python3 not found; falling back to legacy reviewer\n' >&2
+  fi
+
+  # -- レガシーフォールバック（後方互換） -------------------------------------
+  reviewer="${PLANGATE_EXTERNAL_REVIEWER:-codex}"
+  printf 'External review: %s (phase=%s, reviewer=%s)\n' "$task_id" "$phase" "$reviewer"
+  prompt="Review the following PlanGate plan and identify issues:\n$(cat "$work_dir/plan.md")"
+
+  case "$reviewer" in
+    gemini)
+      if ! command -v gemini >/dev/null 2>&1; then
+        printf 'error: gemini CLI not found. Install: https://github.com/google-gemini/gemini-cli\n' >&2
+        return 1
+      fi
+      result=$(printf '%s' "$prompt" | gemini --yolo 2>&1) || true
+      ;;
+    codex)
+      # CX-1 (TASK-0109): Codex CLI review wiring
+      # - R-005 (Gemini CRITICAL): --sandbox read-only でファイル改変防止
+      # - R-006 (Gemini): timeout 600s で wrap (codex CLI に --timeout なし)
+      # - R-007 (Gemini): --output-last-message <tmpfile> でクリーン出力
+      # - R-010 (Gemini): CLI 未 install error handling
+      if ! command -v codex >/dev/null 2>&1; then
+        printf 'error: codex CLI not found. Install: https://github.com/openai/codex\n' >&2
+        return 1
+      fi
+      # R-006 (Gemini): macOS は標準で timeout なし、gtimeout (coreutils) or fallback
+      if command -v timeout >/dev/null 2>&1; then
+        codex_timeout_cmd="timeout 600"
+      elif command -v gtimeout >/dev/null 2>&1; then
+        codex_timeout_cmd="gtimeout 600"
+      else
+        printf 'warn: timeout/gtimeout not found, running codex exec without timeout\n' >&2
+        codex_timeout_cmd=""
+      fi
+      codex_tmpfile=$(mktemp)
+      # shellcheck disable=SC2064  # trap で variable 展開を意図
+      trap "rm -f \"$codex_tmpfile\"" EXIT
+      # shellcheck disable=SC2086  # $codex_timeout_cmd は word splitting 必要
+      if ! $codex_timeout_cmd codex exec --skip-git-repo-check --sandbox read-only \
+          --output-last-message "$codex_tmpfile" "$prompt" >&2; then
+        printf 'error: codex exec failed or timeout (600s)\n' >&2
+        rm -f "$codex_tmpfile"
+        trap - EXIT
+        return 1
+      fi
+      result=$(cat "$codex_tmpfile")
+      rm -f "$codex_tmpfile"
+      trap - EXIT  # Gemini: 関数外 trap 漏れ防止
+      ;;
+    *)
+      printf 'error: Unknown reviewer: %s (supported: codex, gemini)\n' "$reviewer" >&2
+      return 1
+      ;;
+  esac
+
+  {
+    printf '# External Review -- %s\n\n' "$task_id"
+    printf '> Phase: %s\n' "$phase"
+    printf '> Reviewer: %s\n' "$reviewer"
+    printf '> Generated: %s\n\n' "$(plangate_now)"
+    printf '%s\n' "$result"
+  } > "$output_file"
+
+  printf 'Review written to: %s\n' "$output_file"
+}
+
+# _review_parallel: .plangate-reviewers.yaml の配列形式に対応した並列実行
+# 引数: task_id phase work_dir output_file reviewers_yaml
+# 戻り値: 0=success, 1=error, 2=phase not configured (caller should fall through)
+_review_parallel() {
+  _rp_task_id=$1
+  _rp_phase=$2
+  _rp_work_dir=$3
+  _rp_output_file=$4
+  _rp_reviewers_yaml=$5
+  _rp_progress="${_review_progress:-0}"
+
+  # タスクの mode を current-state.md または plan.md から取得
+  _rp_task_mode=""
+  if [ -f "$_rp_work_dir/current-state.md" ]; then
+    _rp_task_mode=$(grep -m1 '^\*\*[Mm]ode\*\*:' "$_rp_work_dir/current-state.md" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*//' | tr -d '`' | tr -d ' ' || true)
+  fi
+  if [ -z "$_rp_task_mode" ] && [ -f "$_rp_work_dir/plan.md" ]; then
+    _rp_task_mode=$(grep -m1 '^\*\*モード\*\*:\|^\*\*[Mm]ode\*\*:' "$_rp_work_dir/plan.md" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*//' | tr -d '`' | tr -d ' ' | sed 's/（.*//' || true)
+  fi
+  if [ -z "$_rp_task_mode" ]; then
+    printf 'warn: task mode not found; mode_threshold filter disabled\n' >&2
+  fi
+
+  _rp_tmpdir=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf \"$_rp_tmpdir\"" EXIT
+
+  python3 - "$_rp_reviewers_yaml" "$_rp_phase" "$_rp_task_mode" "$_rp_tmpdir" << 'PYEOF'
+import sys, os, yaml, shlex
+
+yaml_file = sys.argv[1]
+phase = sys.argv[2]
+task_mode = sys.argv[3]
+tmpdir = sys.argv[4]
+
+MODE_ORDER = ["ultra-light", "light", "standard", "high-risk", "critical"]
+
+def mode_rank(m):
+    try:
+        return MODE_ORDER.index(m)
+    except ValueError:
+        return -1
+
+with open(yaml_file) as f:
+    config = yaml.safe_load(f)
+
+reviewers_config = config.get("reviewers", {}).get(phase)
+if reviewers_config is None:
+    with open(os.path.join(tmpdir, "no_phase"), "w") as f:
+        f.write("no_phase\n")
+    sys.exit(0)
+
+if isinstance(reviewers_config, dict):
+    reviewers_list = [reviewers_config]
+    is_array = False
+else:
+    reviewers_list = reviewers_config
+    is_array = True
+
+with open(os.path.join(tmpdir, "is_array"), "w") as f:
+    f.write("1" if is_array else "0")
+
+active_reviewers = []
+for spec in reviewers_list:
+    threshold = spec.get("mode_threshold")
+    if threshold and task_mode:
+        task_rank = mode_rank(task_mode)
+        threshold_rank = mode_rank(threshold)
+        if task_rank < threshold_rank:
+            provider = spec.get("provider", "unknown")
+            sys.stderr.write("[mode_threshold] skip: {} (threshold={}, task_mode={})\n".format(
+                provider, threshold, task_mode))
+            continue
+    active_reviewers.append(spec)
+
+active_reviewers.sort(key=lambda s: s.get("provider", ""))
+
+for idx, spec in enumerate(active_reviewers):
+    provider = spec.get("provider", "reviewer{}".format(idx))
+    cmd = spec.get("command", "")
+    if isinstance(cmd, list):
+        cmd = " ".join(cmd)
+    lane = spec.get("lane", "")
+    spec_file = os.path.join(tmpdir, "spec_{:03d}".format(idx))
+    with open(spec_file, "w") as f:
+        f.write("provider={}\n".format(provider))
+        f.write("command={}\n".format(shlex.quote(cmd)))
+        f.write("lane={}\n".format(lane))
+
+with open(os.path.join(tmpdir, "count"), "w") as f:
+    f.write(str(len(active_reviewers)))
+PYEOF
+
+  if [ $? -ne 0 ]; then
+    printf 'error: failed to parse %s\n' "$_rp_reviewers_yaml" >&2
+    rm -rf "$_rp_tmpdir"
+    trap - EXIT
+    return 1
+  fi
+
+  if [ -f "$_rp_tmpdir/no_phase" ]; then
+    rm -rf "$_rp_tmpdir"
+    trap - EXIT
+    return 2
+  fi
+
+  _rp_count=$(cat "$_rp_tmpdir/count" 2>/dev/null || echo 0)
+  _rp_is_array=$(cat "$_rp_tmpdir/is_array" 2>/dev/null || echo 0)
+
+  if [ "$_rp_count" -eq 0 ]; then
+    printf 'warn: no reviewers active for phase=%s (all filtered by mode_threshold)\n' "$_rp_phase" >&2
+    {
+      printf '# External Review -- %s\n\n' "$_rp_task_id"
+      printf '> Phase: %s\n' "$_rp_phase"
+      printf '> Generated: %s\n\n' "$(plangate_now)"
+      printf 'No reviewers active (all filtered by mode_threshold=%s).\n' "$_rp_task_mode"
+    } > "$_rp_output_file"
+    rm -rf "$_rp_tmpdir"
+    trap - EXIT
+    printf 'Review written to: %s\n' "$_rp_output_file"
+    return 0
+  fi
+
+  # 単体 spec（is_array=0）の場合
+  if [ "$_rp_is_array" = "0" ]; then
+    _spec_file="$_rp_tmpdir/spec_000"
+    provider=""; command=""; lane=""
+    # shellcheck disable=SC1090
+    . "$_spec_file"
+    printf 'External review: %s (phase=%s, provider=%s)\n' "$_rp_task_id" "$_rp_phase" "$provider"
+    _rp_out=$(eval "$command" 2>&1) || _rp_out="[error: command failed]"
+    {
+      printf '# External Review -- %s\n\n' "$_rp_task_id"
+      printf '> Phase: %s\n' "$_rp_phase"
+      printf '> Provider: %s\n' "$provider"
+      printf '> Generated: %s\n\n' "$(plangate_now)"
+      printf '%s\n' "$_rp_out"
+    } > "$_rp_output_file"
+    rm -rf "$_rp_tmpdir"
+    trap - EXIT
+    printf 'Review written to: %s\n' "$_rp_output_file"
+    return 0
+  fi
+
+  # 配列形式: 並列実行
+  printf 'External review (parallel): %s (phase=%s, reviewers=%s)\n' \
+    "$_rp_task_id" "$_rp_phase" "$_rp_count"
+
+  _rp_idx=0
+  while [ "$_rp_idx" -lt "$_rp_count" ]; do
+    _spec_file="$_rp_tmpdir/spec_$(printf '%03d' "$_rp_idx")"
+    if [ -f "$_spec_file" ]; then
+      provider=""; command=""; lane=""
+      # shellcheck disable=SC1090
+      . "$_spec_file"
+      _rp_out_file="$_rp_tmpdir/out_$(printf '%03d' "$_rp_idx")"
+      _rp_status_file="$_rp_tmpdir/status_$(printf '%03d' "$_rp_idx")"
+      printf 'Starting reviewer: %s (lane=%s)\n' "$provider" "$lane"
+      # shellcheck disable=SC2086
+      (_rp_ec=0; eval "$command" > "$_rp_out_file" 2>&1 || _rp_ec=$?; echo "$_rp_ec" > "$_rp_status_file"; : > "$_rp_tmpdir/done_$(printf '%03d' "$_rp_idx")") &
+    fi
+    _rp_idx=$((_rp_idx + 1))
+  done
+
+  if [ "$_rp_progress" = "1" ]; then
+    _rp_seen_count=0
+    _rp_printed_count=0
+    while [ "$_rp_seen_count" -lt "$_rp_count" ]; do
+      _rp_seen_count=0
+      _rp_pi=0
+      while [ "$_rp_pi" -lt "$_rp_count" ]; do
+        if [ -f "$_rp_tmpdir/done_$(printf '%03d' "$_rp_pi")" ]; then
+          _rp_seen_count=$((_rp_seen_count + 1))
+          if [ ! -f "$_rp_tmpdir/seen_$(printf '%03d' "$_rp_pi")" ]; then
+            : > "$_rp_tmpdir/seen_$(printf '%03d' "$_rp_pi")"
+            _rp_printed_count=$((_rp_printed_count + 1))
+            _rp_pstat=$(cat "$_rp_tmpdir/status_$(printf '%03d' "$_rp_pi")" 2>/dev/null || echo 1)
+            _rp_pprov=""
+            [ -f "$_rp_tmpdir/spec_$(printf '%03d' "$_rp_pi")" ] && _rp_pprov=$(sed -n 's/^provider=//p' "$_rp_tmpdir/spec_$(printf '%03d' "$_rp_pi")")
+            if [ "$_rp_pstat" = "0" ]; then _rp_pres="ok"; else _rp_pres="failed"; fi
+            printf '[done %s/%s] %s %s\n' "$_rp_printed_count" "$_rp_count" "$_rp_pprov" "$_rp_pres"
+          fi
+        fi
+        _rp_pi=$((_rp_pi + 1))
+      done
+      [ "$_rp_seen_count" -lt "$_rp_count" ] && sleep 1
+    done
+  fi
+
+  wait
+
+  # 結果マージ: provider アルファベット順 + R-NNN 連番
+  _rp_r_num=1
+  {
+    printf '# External Review -- %s\n\n' "$_rp_task_id"
+    printf '> Phase: %s\n' "$_rp_phase"
+    printf '> Mode: %s\n' "$_rp_task_mode"
+    printf '> Generated: %s\n' "$(plangate_now)"
+    printf '> Reviewers: %s (parallel)\n\n' "$_rp_count"
+  } > "$_rp_output_file"
+
+  _rp_idx=0
+  while [ "$_rp_idx" -lt "$_rp_count" ]; do
+    _spec_file="$_rp_tmpdir/spec_$(printf '%03d' "$_rp_idx")"
+    _rp_out_file="$_rp_tmpdir/out_$(printf '%03d' "$_rp_idx")"
+    if [ -f "$_spec_file" ]; then
+      provider=""; command=""; lane=""
+      # shellcheck disable=SC1090
+      . "$_spec_file"
+      _rp_status=$(cat "$_rp_tmpdir/status_$(printf '%03d' "$_rp_idx")" 2>/dev/null || echo 1)
+      if [ "$_rp_status" -eq 0 ] && [ -f "$_rp_out_file" ]; then
+        _rp_r_id=$(printf 'R-%03d' "$_rp_r_num")
+        {
+          printf '## %s -- %s\n\n' "$_rp_r_id" "$provider"
+          if [ -n "$lane" ]; then
+            printf '> Lane: %s\n\n' "$lane"
+          fi
+          cat "$_rp_out_file"
+          printf '\n'
+        } >> "$_rp_output_file"
+        _rp_r_num=$((_rp_r_num + 1))
+      else
+        printf 'warn: reviewer %s failed (exit=%s) or output missing; skipping\n' "$provider" "$_rp_status" >&2
+      fi
+    fi
+    _rp_idx=$((_rp_idx + 1))
+  done
+
+  # decision-log に並列実行を記録
+  _rp_log="$_rp_work_dir/decision-log.jsonl"
+  if [ -f "$_rp_log" ]; then
+    plangate_append_ndjson "$_rp_log" \
+      "{\"ts\":\"$(plangate_now)\",\"event\":\"parallel_review\",\"phase\":\"$_rp_phase\",\"reviewers\":$_rp_count,\"task_mode\":\"$_rp_task_mode\"}"
+  fi
+
+  rm -rf "$_rp_tmpdir"
+  trap - EXIT
+  printf 'Review written to: %s\n' "$_rp_output_file"
+  return 0
+}
+
+
+cmd_exec() {
+  if [ $# -eq 0 ]; then
+    printf 'Usage: plangate exec <TASK-XXXX> [--mode <mode>]\n' >&2
+    return 1
+  fi
+  task_id=$1; shift
+  plangate_validate_task_id "$task_id"
+  plangate_require_task_dir "$task_id"
+
+  mode=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --mode)
+        shift
+        mode="${1:-}"
+        ;;
+    esac
+    shift
+  done
+
+  work_dir="$plangate_working_dir/$task_id"
+  agent="${PLANGATE_IMPL_AGENT:-codex}"
+  run_log="$work_dir/run.ndjson"
+
+  # Gate check: c3.json must exist and be APPROVED
+  if [ ! -f "$work_dir/approvals/c3.json" ]; then
+    printf 'error: C-3 gate not cleared — approvals/c3.json not found\n' >&2
+    printf 'Run: plangate validate %s\n' "$task_id" >&2
+    return 1
+  fi
+
+  # TASK-0872 PR-2: c3-prime は Plan Package 束縛を全数再検証（契約 §4）。
+  # legacy（approval_kind 無し）は従来の grep + plan_hash 経路で処理する。
+  # set -eu 下で非ゼロ戻り（10=legacy / 1=NG）が中断を招かないよう `|| _c3_rc=$?` で受ける。
+  _c3_rc=0
+  _plangate_c3_dispatch "$work_dir" || _c3_rc=$?
+  if [ "$_c3_rc" = "1" ]; then
+    printf 'error: C-3 gate not approved (c3-prime verification failed; see above)\n' >&2
+    return 1
+  elif [ "$_c3_rc" = "10" ]; then
+    c3_status=$(grep '"c3_status"' "$work_dir/approvals/c3.json" 2>/dev/null \
+      | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
+    if [ "$c3_status" != "APPROVED" ]; then
+      printf 'error: C-3 gate not approved (status=%s)\n' "${c3_status:-missing}" >&2
+      return 1
+    fi
+
+    # Gate check: plan_hash integrity (EH-3 integration at exec entry)
+    # plan.md must not have been modified after C-3 approval.
+    plan_file="$work_dir/plan.md"
+    c3_file="$work_dir/approvals/c3.json"
+    if [ -f "$plan_file" ]; then
+      recorded_hash=$(python3 -c "import json,sys
+try:
+    d=json.load(open(sys.argv[1]))
+except Exception:
+    print(''); sys.exit(0)
+if not isinstance(d,dict):
+    print(''); sys.exit(0)
+v=d.get('plan_hash','')
+print(v[7:] if isinstance(v,str) and v.startswith('sha256:') else '')" "$c3_file" 2>/dev/null || echo "")
+      if [ -n "$recorded_hash" ]; then
+        if command -v sha256sum >/dev/null 2>&1; then
+          current_hash=$(sha256sum "$plan_file" | awk '{print $1}')
+        else
+          current_hash=$(shasum -a 256 "$plan_file" | awk '{print $1}')
+        fi
+        if [ "$recorded_hash" != "$current_hash" ]; then
+          printf 'error: plan_hash mismatch -- plan.md modified after C-3 approval\n' >&2
+          printf '  Recorded: sha256:%s\n' "$recorded_hash" >&2
+          printf '  Current : sha256:%s\n' "$current_hash" >&2
+          printf '  Action  : Re-approval required (update c3.json plan_hash) or revert plan.md.\n' >&2
+          return 1
+        fi
+      fi
+    fi
+  fi
+  # _c3_rc == 0: c3-prime 受理（Plan Package 束縛整合済み）
+
+  # Record session start
+  ts=$(plangate_now)
+  plangate_append_ndjson "$run_log" \
+    "{\"ts\":\"$ts\",\"task_id\":\"$task_id\",\"phase\":\"D\",\"event\":\"session_started\",\"detail\":\"agent=$agent\"}"
+
+  printf 'Exec: %s (agent=%s)\n' "$task_id" "$agent"
+
+  case "$agent" in
+    opencode)
+      if ! command -v opencode >/dev/null 2>&1; then
+        printf 'error: opencode not found. Install: https://opencode.ai\n' >&2
+        return 1
+      fi
+      context="Implement the plan in docs/working/$task_id/plan.md. Follow todo.md. Run tests after each step."
+      opencode run "$context"
+      ;;
+    codex)
+      printf 'info: codex exec — use /ai-dev-workflow %s exec in Claude Code\n' "$task_id"
+      printf 'Context: %s/plan.md\n' "$work_dir"
+      ;;
+    cursor)
+      printf 'info: cursor exec — open Cursor Agent with:\n'
+      printf '  Plan: %s/plan.md\n' "$work_dir"
+      printf '  Todo: %s/todo.md\n' "$work_dir"
+      printf '  Guide: docs/cursor/quickstart.md\n'
+      printf 'Set PLANGATE_HOOK_TASK=%s and PLANGATE_HOOK_STRICT=1 for hook enforcement.\n' "$task_id"
+      ;;
+    *)
+      printf 'error: Unknown impl agent: %s (supported: codex, opencode, cursor)\n' "$agent" >&2
+      return 1
+      ;;
+  esac
+}
+
+
+cmd_brainstorm() {
+  task_id="${1:-}"
+  if [ -z "$task_id" ]; then
+    printf 'Usage: plangate brainstorm <TASK-XXXX>\n' >&2
+    return 2
+  fi
+  shift
+  exec "$plangate_root/scripts/ai-dev-workflow" "$task_id" brainstorm "$@"
+}
+
+cmd_plan() {
+  task_id="${1:-}"
+  if [ -z "$task_id" ]; then
+    printf 'Usage: plangate plan <TASK-XXXX>\n' >&2
+    return 2
+  fi
+  shift
+  exec "$plangate_root/scripts/ai-dev-workflow" "$task_id" plan "$@"
+}
+
+cmd_gate() {
+  task_id="${1:-}"
+  if [ -z "$task_id" ]; then
+    printf 'Usage: plangate gate <TASK-XXXX>\n' >&2
+    return 2
+  fi
+  shift
+  exec "$plangate_root/scripts/ai-dev-workflow" "$task_id" gate "$@"
+}
+
+cmd_verify() {
+  task_id="${1:-}"
+  if [ -z "$task_id" ]; then
+    printf 'Usage: plangate verify <TASK-XXXX>\n' >&2
+    return 2
+  fi
+  shift
+  mode_flag=""
+  profile_flag=""
+  for arg in "$@"; do
+    case "$arg" in
+      --mode=*) mode_flag="${arg#--mode=}" ;;
+      --profile=*) profile_flag="${arg#--profile=}" ;;
+    esac
+  done
+  # validation_bias export (TASK-0147 / #527): --profile 指定時に解決し export。
+  # env で既に明示注入済みなら尊重（上書きしない）。normal/lenient は非発火。
+  if [ -z "${PLANGATE_VALIDATION_BIAS:-}" ] && [ -n "$profile_flag" ]; then
+    PLANGATE_VALIDATION_BIAS=$(python3 "$plangate_root/scripts/_resolve_validation_bias.py" "$profile_flag" "$plangate_root/docs/ai/model-profiles.yaml")
+    export PLANGATE_VALIDATION_BIAS
+  fi
+  printf '[verify] Checking EH-4: test-cases.md present...\n'
+  if ! PLANGATE_HOOK_STRICT=1 sh "$plangate_root/scripts/hooks/check-test-cases.sh" "$task_id"; then
+    printf '[verify] EH-4 BLOCK -- create docs/working/%s/test-cases.md first\n' "$task_id" >&2
+    return 1
+  fi
+  printf '[verify] Running V-1 (validate)...\n'
+  if ! "$0" validate "$task_id"; then
+    # EHS-3 (TASK-0146 / #527): fix-loop カウンタ increment + strict 時 block
+    if [ "${PLANGATE_VALIDATION_BIAS:-normal}" = "strict" ]; then
+      # EHS-3 BLOCK
+      PLANGATE_HOOK_STRICT=1 sh "$plangate_root/scripts/hooks/check-fix-loop.sh" "$task_id" increment || return 1
+    else
+      sh "$plangate_root/scripts/hooks/check-fix-loop.sh" "$task_id" increment 2>/dev/null || true
+    fi
+    printf '[verify] V-1 FAILED — stop\n' >&2
+    return 1
+  fi
+  printf '[verify] Checking EH-5: verification evidence present...\n'
+  PLANGATE_HOOK_STRICT=0 sh "$plangate_root/scripts/hooks/check-verification-evidence.sh" "$task_id" || true
+  printf '[verify] Running settings task-lock check...\n'
+  if ! "$0" doctor --check-settings; then
+    printf '[verify] settings task-lock FAILED — Human must run sh scripts/apply-claude-settings.sh\n' >&2
+    return 1
+  fi
+  case "$mode_flag" in
+    standard|high-risk|critical)
+      printf '[verify] Running V-3 (external review)...\n'
+      if "$0" review "$task_id" --phase v3; then
+        :
+      else
+        # EHS-1 (TASK-0145 / #527): validation_bias=strict は V-3 合格を必須化
+        if [ "${PLANGATE_VALIDATION_BIAS:-normal}" = "strict" ]; then
+          printf '[verify] EHS-1 BLOCK -- validation_bias=strict requires a passing V-3 external review\n' >&2
+          return 1
+        fi
+        printf '[verify] V-3 returned non-zero\n' >&2
+      fi
+      ;;
+  esac
+  printf '[verify] Running 8-aspect eval...\n'
+  "$0" eval "$task_id" || printf '[verify] eval returned non-zero\n' >&2
+  printf '[verify] Collecting metrics...\n'
+  "$0" metrics "$task_id" --collect || printf '[verify] metrics returned non-zero\n' >&2
+  printf '[verify] Complete. Next: plangate handoff %s\n' "$task_id"
+}
+
+cmd_handoff() {
+  task_id="${1:-}"
+  if [ -z "$task_id" ]; then
+    printf 'Usage: plangate handoff <TASK-XXXX>\n' >&2
+    return 2
+  fi
+  # EHS-2 (TASK-0146 / #527): --verify で handoff.md の 6 要素を検査
+  _handoff_verify=0
+  _handoff_profile=""
+  for _harg in "$@"; do
+    case "$_harg" in
+      --verify) _handoff_verify=1 ;;
+      --profile=*) _handoff_profile="${_harg#--profile=}" ;;
+    esac
+  done
+  # validation_bias export (TASK-0147 / #527): --profile 指定時に解決し export。
+  # env で既に明示注入済みなら尊重（上書きしない）。normal/lenient は非発火。
+  if [ -z "${PLANGATE_VALIDATION_BIAS:-}" ] && [ -n "$_handoff_profile" ]; then
+    PLANGATE_VALIDATION_BIAS=$(python3 "$plangate_root/scripts/_resolve_validation_bias.py" "$_handoff_profile" "$plangate_root/docs/ai/model-profiles.yaml")
+    export PLANGATE_VALIDATION_BIAS
+  fi
+  if [ "$_handoff_verify" = "1" ]; then
+    if [ "${PLANGATE_VALIDATION_BIAS:-normal}" = "strict" ]; then
+      # EHS-2 BLOCK
+      PLANGATE_HOOK_STRICT=1 sh "$plangate_root/scripts/hooks/check-handoff-elements.sh" "$task_id" || return 1
+    else
+      sh "$plangate_root/scripts/hooks/check-handoff-elements.sh" "$task_id" 2>/dev/null || true
+    fi
+    return 0
+  fi
+  work_dir="$plangate_working_dir/$task_id"
+  template="$plangate_root/docs/working/templates/handoff.md"
+  target="$work_dir/handoff.md"
+  if [ ! -f "$template" ]; then
+    printf 'error: handoff template not found: %s\n' "$template" >&2
+    return 1
+  fi
+  if [ -f "$target" ]; then
+    printf 'handoff.md already exists: %s (skip)\n' "$target"
+    return 0
+  fi
+  mkdir -p "$work_dir"
+  cp "$template" "$target"
+  printf 'Created: %s\n' "$target"
+  printf 'Fill the 6 required sections (要件適合 / 既知課題 / V2 / 妥協点 / 引き継ぎ / テスト結果).\n'
+  printf 'Verify settings task-lock: plangate doctor --check-settings\n'
+}
+
+# ── presence gate (TASK-0128 / shared Human-presence L1-L4, side-effect free) ──
+# maintenance の L1-L4 と同等の best-effort 防御。_maintenance 生成や
+# maintenance 固有 audit を起こさない（R-005）。引数: $1=context label。
+# 監査は docs/working/_audit/hook-events.log に context 付きで記録。
+_plangate_presence_gate() {
+  _pg_ctx="${1:-approve}"
+  _pg_log="$plangate_root/docs/working/_audit/hook-events.log"
+  mkdir -p "$plangate_root/docs/working/_audit"
+  _pg_audit() {
+    printf '{"ts":"%s","event":"%s_presence_attempt","verdict":"%s","ppid":%s,"isatty_stdin":%s,"detail":%s}\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$_pg_ctx" "$1" "${PPID:-0}" \
+      "$([ -t 0 ] && printf true || printf false)" \
+      "$(printf '%s' "$2" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')" \
+      >> "$_pg_log" 2>/dev/null || true
+  }
+  # L1: isatty
+  if ! [ -t 0 ]; then
+    _pg_audit reject_L1 "non-interactive stdin"
+    printf 'error: L1 interactive TTY required (stdin not a tty)\n' >&2
+    return 1
+  fi
+  # L2: env barrier
+  for _evname in CI CLAUDE_AGENT CURSOR_AGENT PLANGATE_BYPASS_HOOK; do
+    _evval=$(eval "printf '%s' \"\${$_evname:-}\"")
+    if [ -n "$_evval" ]; then
+      _pg_audit reject_L2 "env $_evname set"
+      printf 'error: L2 agent env detected (%s set)\n' "$_evname" >&2
+      return 1
+    fi
+  done
+  # L3: parent process heuristic
+  _pcomm=$(ps -p $PPID -o comm= 2>/dev/null | tr -d ' ')
+  # PLANGATE_FAKE_PPID_COMM はテスト専用注入。本番経路での L3 上書きを防ぐため
+  # PLANGATE_TEST_MODE=1 のときのみ honor する（TASK-0139 AC-03）。
+  if [ "${PLANGATE_TEST_MODE:-0}" = "1" ] && [ -n "${PLANGATE_FAKE_PPID_COMM:-}" ]; then _pcomm="$PLANGATE_FAKE_PPID_COMM"; fi
+  if printf '%s' "$_pcomm" | grep -iqE 'claude|codex|cursor'; then
+    _pg_audit reject_L3 "ppid comm=$_pcomm"
+    printf 'error: L3 AI agent lineage detected (ppid comm: %s)\n' "$_pcomm" >&2
+    return 1
+  fi
+  # L4: interactive nonce
+  _nonce=$(python3 -c 'import secrets; print(secrets.token_hex(4))')
+  printf 'L4 nonce challenge: type the 8-hex string to confirm human operation:\n  %s\n' "$_nonce"
+  printf 'PLANGATE_APPROVE_ACK> '
+  read -r _ack || _ack=""
+  if [ "$_ack" != "$_nonce" ]; then
+    _pg_audit reject_L4 "nonce mismatch"
+    printf 'error: L4 nonce mismatch\n' >&2
+    return 1
+  fi
+  _pg_audit accept "presence confirmed"
+  return 0
+}
+
+# ── approve (TASK-0128 / human one-action C-3 approval) ──
+# 人間の承認「判断」だけで c3.json を schema 準拠で生成（JSON 手書き不要）。
+# AI 自己承認は _plangate_presence_gate(L1-L4) で物理的に封じる。
+cmd_approve() {
+  _ap_status="APPROVED"; _ap_reason=""; _ap_conditions=""; _ap_force="false"; _ap_task=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --reject)      _ap_status="REJECTED"; shift ;;
+      --conditional) _ap_status="CONDITIONAL"; shift ;;
+      --reason)      [ $# -lt 2 ] && { printf 'error: --reason requires an argument\n' >&2; return 2; }; _ap_reason="$2"; shift 2 ;;
+      --conditions)  [ $# -lt 2 ] && { printf 'error: --conditions requires an argument\n' >&2; return 2; }; _ap_conditions="$2"; shift 2 ;;
+      --force)       _ap_force="true"; shift ;;
+      -*)            printf 'error: unknown arg: %s\n' "$1" >&2; return 2 ;;
+      *)             _ap_task="$1"; shift ;;
+    esac
+  done
+  [ -n "$_ap_task" ] || { printf 'Usage: plangate approve <TASK-XXXX> [--reject --reason <t>|--conditional --conditions <t>]\n' >&2; return 2; }
+  # 排他
+  if [ "$_ap_status" = "REJECTED" ] && [ -n "$_ap_conditions" ]; then printf 'error: --conditions is for --conditional\n' >&2; return 2; fi
+  plangate_validate_task_id "$_ap_task"
+  _ap_dir="$plangate_working_dir/$_ap_task"
+  _ap_plan="$_ap_dir/plan.md"
+  [ -f "$_ap_plan" ] || { printf 'error: plan.md not found: %s\n' "$_ap_plan" >&2; return 1; }
+
+  # 三値 schema 必須フィールド（R-004）: REJECTED→reason / CONDITIONAL→conditions
+  if [ "$_ap_status" = "REJECTED" ] && [ -z "$_ap_reason" ]; then
+    if [ -t 0 ]; then printf 'rejection reason> '; read -r _ap_reason || _ap_reason=""; fi
+    [ -n "$_ap_reason" ] || { printf 'error: --reason required for --reject (schema)\n' >&2; return 2; }
+  fi
+  if [ "$_ap_status" = "CONDITIONAL" ] && [ -z "$_ap_conditions" ]; then
+    if [ -t 0 ]; then printf 'conditions> '; read -r _ap_conditions || _ap_conditions=""; fi
+    [ -n "$_ap_conditions" ] || { printf 'error: --conditions required for --conditional (schema)\n' >&2; return 2; }
+  fi
+
+  # 既存 c3.json
+  _ap_c3="$_ap_dir/approvals/c3.json"
+  # TASK-0139 AC-04: abort if c3.json exists and --force not given
+  # 承認記録の不可逆性を保護する（既存承認の無断上書き禁止）。
+  if [ -f "$_ap_c3" ] && [ "$_ap_force" = "false" ]; then
+    printf 'error: existing c3.json found for %s; use --force to overwrite\n' "$_ap_task" >&2
+    return 2
+  fi
+
+  # Human-presence 検証（自己承認不可）
+  _plangate_presence_gate approve || { printf 'error: approval aborted (presence gate failed)\n' >&2; return 1; }
+
+  # 自動算出
+  _ap_hash="sha256:$(plangate_sha256 "$_ap_plan")"
+  _ap_by="$(git -C "$plangate_root" config user.email 2>/dev/null || true)"
+  [ -n "$_ap_by" ] || _ap_by="$(git -C "$plangate_root" config user.name 2>/dev/null || true)"
+  [ -n "$_ap_by" ] || _ap_by="${USER:-unknown}"
+  _ap_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  mkdir -p "$_ap_dir/approvals"
+  # schema 準拠 c3.json 生成（identity 限界は _ 注釈で明示 / R-006）
+  python3 - "$_ap_c3" "$_ap_task" "$_ap_status" "$_ap_by" "$_ap_at" "$_ap_hash" "$_ap_reason" "$_ap_conditions" <<'PYC'
+import json, sys
+c3, task, status, by, at, phash, reason, conditions = sys.argv[1:9]
+d = {
+    "task_id": task,
+    "phase": "C-3",
+    "c3_status": status,
+    "approved_by": by,
+    "approved_at": at,
+    "plan_hash": phash,
+    "source": "cli",
+    "_approved_by_source": "git-config",
+    "_approver_identity_unverified": True,
+    "_note": "Generated by `plangate approve` (TASK-0128). Human presence verified via L1-L4; identity (approved_by) is git-config derived and NOT cryptographically verified.",
+}
+if status == "REJECTED":
+    d["rejection_reason"] = reason
+if status == "CONDITIONAL":
+    d["conditions"] = conditions
+with open(c3, "w") as f:
+    json.dump(d, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+PYC
+  printf 'c3.json written: %s (c3_status=%s)\n' "$_ap_c3" "$_ap_status"
+
+  # schema 検証（R-008・既存 validate-schemas.py / jsonschema 任意）
+  _ap_vs="$plangate_root/scripts/validate-schemas.py"
+  if [ -f "$_ap_vs" ]; then
+    if python3 "$_ap_vs" "$_ap_c3" >/dev/null 2>&1; then
+      printf '  [PASS] schema valid (c3-approval.schema.json)\n'
+    else
+      _ap_vrc=$?
+      if [ "$_ap_vrc" = "2" ]; then
+        printf '  [WARN] schema validation skipped (jsonschema not installed)\n'
+      else
+        printf '  [FAIL] schema validation failed (rc=%s)\n' "$_ap_vrc" >&2
+        return 1
+      fi
+    fi
+  fi
+
+  # 最終確認の分離（R-003）: APPROVED のみ validate、他は status 表示のみ
+  if [ "$_ap_status" = "APPROVED" ]; then
+    printf '  Running validate (APPROVED only)...\n'
+    cmd_validate "$_ap_task" || { printf '  [FAIL] validate did not pass\n' >&2; return 1; }
+  else
+    printf '  [INFO] %s: validate skipped (only APPROVED unblocks exec). plan_hash recorded: %s\n' "$_ap_status" "$_ap_hash"
+  fi
+  return 0
+}
+
+# ── render (TASK-0127 / C-3 review aggregation to self-contained HTML) ──
+# C-3 対象 7 種 MD を 1 枚の自己完結 HTML に集約（scripts/render_review.py 委譲）。
+# Python 標準ライブラリのみ・外部 CDN 依存なし。
+cmd_render() {
+  _rd_task=""; _rd_out=""; _rd_html=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --html) _rd_html=1; shift ;;
+      --out)  [ $# -lt 2 ] && { printf 'error: --out requires an argument\n' >&2; return 2; }; _rd_out="$2"; shift 2 ;;
+      -*)     printf 'error: unknown arg: %s\n' "$1" >&2; return 2 ;;
+      *)      _rd_task="$1"; shift ;;
+    esac
+  done
+  if [ -z "$_rd_task" ]; then
+    printf 'Usage: plangate render <TASK-XXXX> [--html] [--out <file>]\n' >&2
+    return 2
+  fi
+  plangate_validate_task_id "$_rd_task"
+  _rd_py="$plangate_root/scripts/render_review.py"
+  [ -f "$_rd_py" ] || { printf 'error: scripts/render_review.py not found\n' >&2; return 2; }
+  if [ -n "$_rd_out" ]; then
+    python3 "$_rd_py" --task "$_rd_task" --out "$_rd_out"
+  else
+    python3 "$_rd_py" --task "$_rd_task"
+  fi
+}
+
+# ── dispatch ──────────────────────────────────────────────────────────────────
+
+if [ $# -eq 0 ]; then
+  cmd_help
+  exit 0
+fi
+
+command=$1
+shift
+
+case "$command" in
+  init)        cmd_init "$@" ;;
+  brainstorm)  cmd_brainstorm "$@" ;;
+  plan)        cmd_plan "$@" ;;
+  gate)        cmd_gate "$@" ;;
+  verify)      cmd_verify "$@" ;;
+  handoff)     cmd_handoff "$@" ;;
+  doctor)      cmd_doctor "$@" ;;
+  status)      cmd_status "$@" ;;
+  validate)    cmd_validate "$@" ;;
+  validate-schemas) cmd_validate_schemas "$@" ;;
+  eval)        cmd_eval "$@" ;;
+  metrics)     cmd_metrics "$@" ;;
+  plan-check)  cmd_plan_check "$@" ;;
+  report)      cmd_report "$@" ;;
+  context)     cmd_context "$@" ;;
+  keep-rate)   cmd_keep_rate "$@" ;;
+  review)      cmd_review "$@" ;;
+  exec)        cmd_exec "$@" ;;
+  abort)       cmd_abort "$@" ;;
+  timeline)    cmd_timeline "$@" ;;
+  resume)      cmd_resume "$@" ;;
+  maintenance) cmd_maintenance "$@" ;;
+  render)      cmd_render "$@" ;;
+  approve)     cmd_approve "$@" ;;
+  version|--version|-V) cmd_version ;;
+  help|--help|-h)       cmd_help ;;
+  *)
+    printf 'Unknown command: %s\n' "$command" >&2
+    printf 'Run: plangate help\n' >&2
+    exit 1
+    ;;
+esac

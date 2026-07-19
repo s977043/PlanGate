@@ -1,8 +1,9 @@
 # Current State — TASK-0872
 
-- 更新: 2026-07-20 08:05
-- フェーズ: exec（PR-1 merged #886 → #887 是正完了 = PR #888 C-4 待ち）
-- Mode: critical / c3.json APPROVED（plan_hash 1af8d43e…・不変）
-- 直近の完了: #887（PR #886 敵対的レビュー major 4）の全件是正 — evidence 判定マーカー正規化（F-1/F-5）・hash ベース stale（F-2）・decision↔verdicts 整合（F-3）・HO 先勝ちテスト（F-6）・契約 §5 是正（F-7）・schema 不在窓 FAIL 化（F-8）+ T-14 schema patch 同梱
-- 次のアクション（Human）: C-4 = PR #888 レビュー・マージ
-- マージ後の残: T-15 bin/plangate 両受理 patch → T-16 command 入口 patch → H-3 Human 適用（schema 含む）→ T-18 E2E extras fixture → T-19/20 記録
+- 更新: 2026-07-20 09:00
+- フェーズ: exec（PR-2 = 非 HO 実装完了・PR 作成へ / HO patch は Human 適用待ち）
+- Mode: critical
+- 直近の完了: PR-2 の受理側実装 — `scripts/ai-loop/c3prime_verify.py`（非 HO・契約 §4 全数再検証）+ bin/plangate 配線 patch（sandbox 実適用テストで全 6 exit code 実測）+ command run 入口 patch + schema 完成形 + TA-55 E2E（非 HO 部分 CI 常時 PASS・HO 全鎖は適用後 SKIP→PASS）
+- 次のアクション: 非 HO を commit → PR 作成 → C-4 + H-3（HO patch Human 適用）
+- 既知（スコープ外）: ta-42 TC-04（status 異常系 exit）はローカル macOS sh の set -e 挙動差による偽陽性。main CI（Test）は e6ccc4f で success = CI では通る。PR-2 非改変領域
+- HO 適用手順: `patches/ho-apply-approval.md`
