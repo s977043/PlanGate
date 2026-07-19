@@ -36,6 +36,8 @@ PlanGate ワークフローの責務は **PBI INPUT から「PR 作成」と「C
 > 責務内の自律性/可用性拡張（issue #487 提案2 CI 縮退・提案3 C-4 自律承認）は [`autonomous-degraded-gates-spec.md`](./autonomous-degraded-gates-spec.md) に Specification として正本化（実装強制は別 PBI / HO）。本セクション（管轄 = C-4 まで）の内側に閉じる。
 >
 > 関連（直交する別軸）: tag/Release の **publish 操作を誰が実行するか**は [`responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)「対外公開アーティファクト publish 責務分界」が規定する（操作主体の話）。本セクションは **ワークフローの管轄範囲**を定める（どこまでがゲート対象か）。両者は直交し、本セクションが管轄＝C-4 まで、publish 分界が操作主体＝Human-owned（or 計画明示承認 AI）。
+>
+> 関連（ai-loop 実行プロファイル時の AI 責務終点）: ai-loop-workflow（eligible run 限定の実行プロファイル）で動作する場合、AI 責務の終点は PR 作成ではなく **`MERGE_READY`（merge-ready = CI 全 job green + AI レビュー指摘全件対応完了）** まで拡張される。**C-4 / merge は引き続き Human-owned 固定**であり、本セクションの管轄境界（C-4 まで・マージは Human）は変わらない。責務・terminal state・C-3'/Human C-3 経路の正本は [`docs/workflows/ai-loop/00_concept.md`](../workflows/ai-loop/00_concept.md)、適用制限（Phase 1 rollout eligibility）は [`docs/workflows/ai-loop/rollout-policy.md`](../workflows/ai-loop/rollout-policy.md) を参照。
 
 ## 2. Goal
 

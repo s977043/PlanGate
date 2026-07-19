@@ -1,0 +1,61 @@
+$ gh issue view 871 --json body -q .body
+Parent: #870
+
+## 背景
+
+現行の `docs/workflows/ai-loop/00_concept.md` には「ai-dev は PR 作成まで、ai-loop は merge-ready まで」「C-3 のみ C-3' へ置換」が記載されている。一方、command / skill / Core Contract / six-stage 文書には、独立 PoC、Human C-3 固定、PlanGate と ai-dev の語彙混在が残る。
+
+恒久的なアーキテクチャ定義と、Phase 1 の適用制限が同じ節で扱われているため、実装判断の基準が一意でない。
+
+## 目的
+
+PlanGate Core、ai-dev、ai-loop Delivery、ai-loop Evolution、Human Gate の責務と終端状態を一つの正本へ統合し、PoC の rollout policy を別レイヤーへ分離する。
+
+## Scope
+
+- 正本となる architecture / responsibility document を一つ指定する
+- `PR_CREATED`、`MERGE_READY`、`MERGED` の意味と判定主体を定義する
+- ai-dev の AI 責務終点を PR 作成、ai-loop の AI 責務終点を merge-ready とする
+- C-3' を eligible run の標準自動経路、Human C-3 を escalate 経路として定義する
+- C-4 / merge / HO / policy / first principles は Human-owned に固定する
+- Stable architecture と Phase 1 rollout policy（lite / clean / reversible）を別節または別文書にする
+- 既存文書は新しい正本を参照し、責務・terminal state・decision table の重複定義を削減する
+- plugin 同梱 references と正本の同期関係を明示する
+
+## Acceptance Criteria
+
+- [ ] `PlanGate Core`、`ai-dev`、`ai-loop Delivery`、`ai-loop Evolution`、`Human` の5責務が定義されている
+- [ ] `ai-dev: Request → PR_CREATED`、`ai-loop: Request → MERGE_READY`、`Human: C-4 → MERGED` が明記されている
+- [ ] ai-loop が ai-dev の Plan / exec / verify を再実装せず共通利用することが明記されている
+- [ ] C-3 と C-3' の通常経路・escalate経路・判定主体が矛盾なく定義されている
+- [ ] architecture invariant と rollout eligibility policy が分離されている
+- [ ] `AUTO_APPROVED`等の裁定状態と`MERGE_READY`等のDelivery状態が区別されている
+- [ ] 内側のDelivery Loopと外側のEvolution Loopが区別されている
+- [ ] active runのharness自己変更禁止と、改善を別TASK/PRで行う規則が記載されている
+- [ ] 正本一覧に同じ責務の複数正本が残っていない
+- [ ] `.claude/commands/ai-loop-workflow.md`、`ai-loop-cycle`、`00_concept.md`、`agentic-six-stage-loop.md`、`adaptive-production-loop.md`、Core Contractの参照が整合している
+
+## Verification
+
+- 文書リンクチェックがPASSする
+- `rg`等による用語監査で、旧定義・矛盾表現が残る場合は一覧と採否理由がevidenceにある
+- plugin sync dry-runが差分ゼロになる
+- makerとは別コンテキストのレビューで、責務境界・C-3/C-3'・terminal stateの矛盾が0件である
+
+## Non-goals
+
+- C-3' arbiterやPR controllerの実装
+- lite適用範囲の拡大
+- C-4 / mergeの自動化
+- 文書階層全体の一括移動・改名
+
+## Definition of Done / Close条件
+
+- [ ] 上記Acceptance Criteriaがすべてchecked
+- [ ] 正本を変更するPRがmainへmerge済み
+- [ ] PR本文またはIssueコメントにlink check、sync dry-run、独立reviewのevidenceがある
+- [ ] #870から本Issueの成果物がcanonical definitionとして参照されている
+
+設計案のみ、未mergeのPR、矛盾一覧だけではcloseしない。
+
+exit_code=0

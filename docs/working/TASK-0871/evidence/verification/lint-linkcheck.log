@@ -1,0 +1,43 @@
+# T-09 lint / link check — PR-1（branch docs/task-0871-canonical）2026-07-19
+
+## CI コマンド抽出（todo T-09 固定手順）
+
+- markdownlint: `.github/workflows/ci.yml` markdown job（L40-63）=
+  `DavidAnson/markdownlint-cli2-action` v24.0.0。globs は README / CHANGELOG /
+  docs/index.md / docs/pages/...（3 本）/ **docs/workflows/**/*.md** 等。
+  ローカル等価コマンド: `npx markdownlint-cli2 <files>`（設定 `.markdownlint-cli2.jsonc`）
+- link check: **専用 job は `.github/workflows/` に存在しない**（全 10 workflow
+  実査: check-pr-issue-link / ci / codeql / metrics-privacy / release-docs-sync /
+  schema-validate / scorecard / slsa-attestation / sync-plugin-plangate / test）。
+  代替として doc 専用 V-1 観点の**相対リンク実在チェック**（markdown リンクの
+  相対パス解決先 exists 検査・python one-shot）を実施
+
+## 対象
+
+`git diff --name-only origin/main...HEAD -- '*.md'` 全 14 ファイル
+（手編集 6 + plugin sync 4 + docs/working 4〔plan / todo / ho-apply-approval /
+terminology-audit〕）
+
+## markdownlint 実行結果
+
+1. CI globs 該当分（docs/workflows/ai-loop/{00_concept,rollout-policy}.md）:
+   **exit 0（0 issues）= PASS**
+2. 全変更 .md 14 ファイル: exit 1 — 検出は以下の 2 件のみで、**いずれも
+   origin/main 時点から存在する pre-existing**（本 PR diff 起因ではないことを
+   `git show origin/main:<file>` で確認済み）:
+   - `docs/ai/core-contract.md:24` MD032（§1「担う責務:」直後のリスト —
+     本 PR の追記は §1-bis 末尾 2 行のみ）
+   - `docs/working/TASK-0871/plan.md:262` MD032（Mode 判定節 — main の旧 L216 に同一指摘）
+   本 PR で新規に導入した lint violation は **0 件**。
+   （pre-existing の修正は差分最小化・plan hash 保全のためスコープ外 — 報告のみ）
+
+## link check（相対リンク実在チェック）実行結果
+
+対象: 手編集 6 + plugin references 2（00_concept / rollout-policy）。
+相対リンク解決先の存在検査 → **broken 0 件・exit 0 = PASS**
+
+## PASS 判定
+
+- markdownlint（CI 等価スコープ）: PASS（exit 0）
+- link check（代替・相対リンク実在）: PASS（exit 0）
+- 新規 violation: 0 件
