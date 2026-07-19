@@ -25,7 +25,7 @@ C1-VERDICT: PASS plan=sha256:<64hex>     # review-self.md（受理は PASS の�
 C2-VERDICT: approve plan=sha256:<64hex>  # review-external.md（受理は approve のみ）
 ```
 
-- マーカーは**行頭一致**（`^C1-VERDICT: ` / `^C2-VERDICT: `）で、ファイル内に**ちょうど 1 回**存在しなければならない。0 回（マーカー未対応の既存 artifact を含む）および 2 回以上（追記・重複 = 曖昧）は **fail-closed**（escalate）
+- マーカーは**行頭一致**（regex: `^C1-VERDICT:` / `^C2-VERDICT:` + 半角空白 1 個）で、ファイル内に**ちょうど 1 回**存在しなければならない。0 回（マーカー未対応の既存 artifact を含む）および 2 回以上（追記・重複 = 曖昧）は **fail-closed**（escalate）
 - `plan=` の値は **evidence 作成時点の plan.md の sha256**。検証時の plan.md の sha256 と不一致なら **stale**（escalate）。stale 判定はこの hash 照合のみで行い、**mtime は判定に使わない**（決定論・touch バイパス不可）
 - verdict 値はマーカー内の値のみを読む。受理は C-1 = `PASS` / C-2 = `approve` のみ（それ以外・欠落・型違いはすべて escalate）
 
