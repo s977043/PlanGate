@@ -205,3 +205,20 @@ sync 生成物は期待 4 本と完全一致（期待外への波及 0 件・PR-
 （意味変更なし・該当 2 行のみ）した後、`sh scripts/sync-plugin-plangate.sh` を
 再実行（COPY: skills/ai-loop-cycle/SKILL.md の 1 本のみ波及・期待どおり）。
 続けて `--dry-run` 再確認 → **「Sync complete — no changes」・exit 0（差分ゼロ維持）**。
+
+---
+
+## 9. T-10: 用語監査 after 実測（PR-2 ブランチ `docs/task-0871-followup`・2026-07-19）
+
+PR-2（e8f42f0 + T-08b sync）適用後、PR-1 merge 済み main（`4c5d1e6`）比の最終値:
+
+| 項目 | 実測 | 判定 / 採否理由 |
+|------|------|----------------|
+| 周辺 6 docs の小文字 merge-ready | **0 件**（rg exit 1） | T-12 参考所見 1 の残置一覧（adaptive / execution-runbook / six-stage）は e8f42f0 で全て解消。追加修正 0 件 |
+| CMD3 同列列挙 | 3 ファイル 4 件 | 全て「区別を定義/注記する側」（adaptive L69 新 Stop 行・six-stage L49/L61 の DoD 状態注記・design-philosophy L237 語彙集）で同列列挙ではない — 是正不要（残置採用） |
+| CMD1 独立/隔離 PoC | rollout-policy 2（歴史記録 verbatim・採用）/ phase3-impact-report 1（歴史レポート・編集対象外） | 恒久定義文書からは 0 件 |
+| CMD5 適用ドメイン注記 | 6 件（workflows 4: lite-criteria / loop-safety-gates / decision-table / review-feedback-loop + spec 層 2: design-philosophy / arbiter-policy） | **plan S4 名指し 6 ファイル外**のため本 TASK スコープ外（Non-goals「文書階層全体の一括移動」に接続）。D-8 完全解消は follow-up 候補として記録 |
+| 小文字 merge-ready の残（全走査） | 00_concept 1（正規化注記の説明文・仕様）/ pr-watch SKILL 1（plan Files 外・走査のみ対象）/ spec 層 6（concept 1・design-philosophy 3・hotl-merge-entry-criteria 2） | spec 層は plan の「参照化 or 採否理由記録」対象（TC-09/TC-12）→ **本 PR では編集せず採否記録**: `docs/ai/ai-loop/concept.md` L56 等は plugin 同梱 spec 層で、正本（00_concept §2.2）への参照文脈として意味が通る旧表記。表記統一は別 follow-up（T-12 所見 5 とも一致）。pr-watch SKILL は runbook 手順の要約引用で意味変更なし — 残置採用 |
+
+**PR-2 適用後、plan AC の対象文書（ai-dev / ai-loop アーキ文書 = workflows 層 +
+command + SKILL）で未解消の旧定義・矛盾表現は 0 件**（残置は全て採否理由記録済み）。

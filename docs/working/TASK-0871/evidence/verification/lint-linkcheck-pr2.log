@@ -1,0 +1,25 @@
+# T-09 lint / link check — PR-2（branch docs/task-0871-followup）2026-07-19
+
+## CI コマンド抽出
+
+PR-1 の `lint-linkcheck.log` と同一（ci.yml markdown job = markdownlint-cli2-action
+v24・globs に docs/workflows/**/*.md。link check 専用 CI job は不在のため
+相対リンク実在チェックで代替）。
+
+## 対象
+
+`git diff --name-only origin/main...HEAD -- '*.md'` = 12 ファイル
+（手編集 6 = 周辺 docs / plugin references 6）
+
+## 実行結果
+
+- markdownlint（CI 等価: docs/workflows/ 6 本）: **exit 0 = PASS**
+- markdownlint（plugin references 6 本）: **exit 0 = PASS**
+- link check（6 docs の相対リンク実在チェック）: **broken 0・exit 0 = PASS**
+- 新規 violation: 0 件
+
+## T-11: sync dry-run 差分ゼロ（PR-2）
+
+T-08b commit（`bf43529`）後の `--dry-run` → **「Sync complete — no changes」・
+exit 0（差分ゼロ）**。sync 生成物は期待 6 本（references/ 周辺 docs 同名）と
+完全一致・期待外の波及 0 件。
