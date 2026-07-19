@@ -161,3 +161,39 @@ L201 / L275 は恒久定義・参照一覧であり移設対象外（00_concept 
 **結論**: HO 該当は `.claude/commands/ai-loop-workflow.md` の 1 件のみ（plan R-1 の想定どおり）。
 S6/T-07 の適用方式 = AI は diff 提示まで・適用判断は Human（H-02）で確定。
 本ワーカー（T-01〜T-04）は同ファイルおよび `docs/ai/core-contract.md` に触れない。
+
+---
+
+## 5. T-10: 用語監査 after 実測（PR-1 ブランチ `docs/task-0871-canonical`・2026-07-19）
+
+> **解釈上の前提**: PR-1 ブランチは plan「2 PR 分割構成」により **T-05（周辺 6
+> docs 整合 = commit `e8f42f0`）を含まない**。周辺 docs（six-stage / adaptive /
+> flow-detect / stop-rollback / loopspec / execution-runbook）の残置は
+> **PR-2 で解消予定の期待どおりの値**である。
+
+| CMD | before（§1・T-01） | after（PR-1） | 差分と残置の採否理由 |
+|-----|-------------------|---------------|---------------------|
+| CMD1 独立/隔離 PoC | 8 件/5 ファイル | 5 件/3 ファイル | 00_concept 3→0・SKILL 両版 2→0（解消）。残置: rollout-policy 2（Phase 0 の**歴史記録として verbatim 移設した文言**・恒久定義でない — 採用）/ execution-runbook 2（**PR-2 対象**）/ phase3-impact-report 1（歴史レポート・plan の走査対象だが編集対象外 — 残置採用） |
+| CMD2 MERGE_READY/merge-ready | 41 件/11（MERGE_READY 5） | 49 件/12 | 00_concept 9→19（全て `MERGE_READY` 正規化済み・定義正本化で増加は仕様）/ core-contract 0→1（T-06 追記）。周辺 docs の merge-ready 旧表記は **PR-2 対象** |
+| CMD3 同列列挙 | 4 件（要是正 = adaptive L70） | 4 件 | adaptive L70 の是正は **PR-2（e8f42f0）対象**。他 3 件は区別を定義/注記する側で是正不要（before と同判定） |
+| CMD4 C-3' 定義箇所 | 12 ファイル 37 件（command/core-contract 0） | 15 ファイル 45 件 | 00_concept 9→20（正本集約・仕様どおり増）/ **command 0→1・core-contract 0→1**（D-4 解消: 実行契約と入口に C-3' への参照が現れた）/ rollout-policy 3（新設・参照のみ） |
+| CMD5 適用ドメイン注記 | 15 ファイル 17 件 | 12 ファイル 12 件 | 00_concept・SKILL 両版（各2）・command 分は解消。残 12 件中 workflows 配下 10 件は **PR-2 対象**、design-philosophy / arbiter-policy の各 1 件は spec 層「参照化 or 採否記録」対象（TC-09/TC-12 の確定に委ねる — 本 PR では未編集のまま残置） |
+| CMD6 5 責務語彙（本体 docs） | 0 件 | 00_concept 8 件 | D-12 解消（5 責務表 + Delivery/Evolution 区別が正本に存在） |
+
+## 6. T-08a N-2: sync スクリプト stale コメント「17 本」の採否記録
+
+`scripts/sync-plugin-plangate.sh` L196 のコメント「workflows 10 本 + spec 6 本 +
+ho-paths.md = 17 本」は rollout-policy.md 追加後の実態（workflows 11 本）と
+乖離するが、**本 PR では編集しない（不採用）**。理由:
+
+1. PR-1 の編集ファイル実数を 10 に保つ（Replan 後の上限 12 に対する余裕確保。
+   スクリプト touch は sync workflow の path トリガにも該当し波及が読みにくい）
+2. コメントのみの乖離で動作影響ゼロ（references/ 同期は glob 駆動・数値は使われない）
+3. 数値レス化は別途軽微修正（#877 系 chore）で対応可能
+
+## 7. T-11: sync dry-run 差分ゼロの最終確認（PR-1）
+
+T-08a commit（`970c226`）後に `sh scripts/sync-plugin-plangate.sh --dry-run` を
+再実行 → **「Sync complete — no changes」・exit 0（差分ゼロ）**。
+sync 生成物は期待 4 本と完全一致（期待外への波及 0 件・PR-2 対象 references
+への巻き込みなし = e8f42f0 未包含のため周辺 docs は main のまま）。
