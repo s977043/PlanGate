@@ -65,51 +65,55 @@ def check_presence(task_dir):
     return errors
 
 
-def _extract_verdict_line(text, patterns):
-    """判定行を後方から探す（最後の判定が正）。見つからなければ None。"""
-    for line in reversed(text.splitlines()):
-        for pat in patterns:
-            if pat in line:
-                return line
-    return None
+# evidence 判定マーカー（契約 §1 正規定義 / #887 F-1・F-2・F-5）。
+# 行頭アンカー + verdict + evidence 作成時点の plan.md sha256。自然文の
+# 「判定:」表記からの substring 抽出は行わない（後置追記による判定反転を
+# 構造的に排除）。ファイル内にちょうど 1 回でなければ fail-closed。
+_C1_MARKER_RE = re.compile(r"^C1-VERDICT: (\S+) plan=(sha256:[0-9a-f]{64})$", re.MULTILINE)
+_C2_MARKER_RE = re.compile(r"^C2-VERDICT: (\S+) plan=(sha256:[0-9a-f]{64})$", re.MULTILINE)
 
 
-# 判定「値」の抽出（行全体の部分一致は「FAIL 0 件」等の注記に誤反応するため使わない）
-_C1_VERDICT_RE = re.compile(r"判定:\s*\**([A-Z]+)\**")
-_C2_VERDICT_RE = re.compile(r"総合判定:\s*\**([a-z]+)\**")
+def _read_evidence_marker(path, marker_re):
+    """マーカーを読み (verdict, plan_hash, error) を返す。ちょうど 1 回以外はエラー。"""
+    text = path.read_text(encoding="utf-8", errors="replace")
+    matches = marker_re.findall(text)
+    if len(matches) != 1:
+        return None, None, (
+            f"evidence: {path.name} の VERDICT マーカーが {len(matches)} 回"
+            "（契約 §1: ちょうど 1 回。0 回=未対応 artifact / 2 回以上=曖昧・fail-closed）")
+    verdict, plan_hash = matches[0]
+    return verdict, plan_hash, None
 
 
 def check_evidence(task_dir):
-    """契約 §1: C-1/C-2 evidence の判定・stale 検証（AC-3 / R-002）。
+    """契約 §1: C-1/C-2 evidence のマーカー判定・stale 検証（AC-3 / R-002 / #887）。
 
-    受理は C-1=PASS / C-2=approve のみ（それ以外・抽出不能はすべて fail-closed）。
-    stale は evidence の mtime < plan.md の mtime の暫定実装
-    （#810 の evidence キー契約確定後に hash 照合へ強化する。plan.md Unknowns 参照）。
+    受理は C-1=PASS / C-2=approve のみ。stale はマーカー内 plan hash と現
+    plan.md の sha256 照合のみで判定する（mtime 不使用・決定論 / F-2）。
     """
     task_dir = pathlib.Path(task_dir)
     errors = []
     plan = task_dir / "plan.md"
-    plan_mtime = plan.stat().st_mtime if plan.is_file() else None
+    current_plan_hash = _sha256_of(plan) if plan.is_file() else None
 
-    for name, patterns, verdict_re, accepted in (
-        (C1_EVIDENCE, ("判定:",), _C1_VERDICT_RE, ("PASS",)),
-        (C2_EVIDENCE, ("総合判定:",), _C2_VERDICT_RE, ("approve",)),
+    for name, marker_re, accepted in (
+        (C1_EVIDENCE, _C1_MARKER_RE, ("PASS",)),
+        (C2_EVIDENCE, _C2_MARKER_RE, ("approve",)),
     ):
         path = task_dir / name
         if not path.is_file():
             errors.append(f"evidence: {name} が存在しない")
             continue
-        text = path.read_text(encoding="utf-8", errors="replace")
-        line = _extract_verdict_line(text, patterns)
-        match = verdict_re.search(line) if line else None
-        if line is None or match is None:
-            errors.append(f"evidence: {name} に判定行が見つからない（fail-closed）")
-        elif match.group(1) not in accepted:
+        verdict, marker_hash, err = _read_evidence_marker(path, marker_re)
+        if err:
+            errors.append(err)
+            continue
+        if verdict not in accepted:
+            errors.append(f"evidence: {name} の判定が受理対象外 ({verdict})")
+        if current_plan_hash is not None and marker_hash != current_plan_hash:
             errors.append(
-                f"evidence: {name} の判定が受理対象外 ({match.group(1)}): {line.strip()}")
-        if plan_mtime is not None and path.stat().st_mtime < plan_mtime:
-            errors.append(
-                f"evidence: {name} が stale（plan.md より古い。再 C-1/C-2 が必要）")
+                f"evidence: {name} が stale（マーカーの plan hash が現 plan.md と不一致。"
+                "再 C-1/C-2 が必要）")
     return errors
 
 
@@ -251,6 +255,14 @@ def build_c3_prime(task_dir, task_id, source_sha, target_sha, verdicts,
             errors.append(f"verdicts.{m} が欠落（reviewer snapshot を組めない）")
         if m not in (reviewer_evidence or {}):
             errors.append(f"reviewer_evidence.{m} が欠落")
+    # decision↔verdicts 整合（契約 §2 / #887 F-3）: AUTO_APPROVED は両 reviewer
+    # approve のときのみ。reject を含む AUTO_APPROVED record は生成拒否。
+    if decision == "AUTO_APPROVED" and any(
+        (verdicts or {}).get(m) != "approve" for m in ("model_a", "model_b")
+    ):
+        errors.append(
+            "decision=AUTO_APPROVED だが reviewer verdict に approve 以外を含む"
+            "（decision↔verdicts 不整合 / F-3）")
     if errors:
         raise PlanPackageError(errors)
 
@@ -265,14 +277,10 @@ def build_c3_prime(task_dir, task_id, source_sha, target_sha, verdicts,
         }
         for m in ("model_a", "model_b")
     }
-    c1_line = _extract_verdict_line(
-        (task_dir / C1_EVIDENCE).read_text(encoding="utf-8", errors="replace"),
-        ("判定:",)) or ""
-    c2_line = _extract_verdict_line(
-        (task_dir / C2_EVIDENCE).read_text(encoding="utf-8", errors="replace"),
-        ("総合判定:",)) or ""
-    c1_mark = "PASS" if "PASS" in c1_line else "UNKNOWN"
-    c2_mark = "approve" if "approve" in c2_line else "UNKNOWN"
+    # check_evidence 通過済み = マーカーはちょうど 1 回・受理値であることが保証
+    # されているため、ここでの再読は evidence_ref の表示値組み立てのみ。
+    c1_mark, _, _ = _read_evidence_marker(task_dir / C1_EVIDENCE, _C1_MARKER_RE)
+    c2_mark, _, _ = _read_evidence_marker(task_dir / C2_EVIDENCE, _C2_MARKER_RE)
 
     return {
         "task_id": task_id,

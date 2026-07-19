@@ -42,19 +42,16 @@ sandbox タスクの目的記述。
 **モード**: standard
 """
 
-REVIEW_SELF_PASS = """# C-1 セルフレビュー — TASK-9999
+def _make_task_dir(tmp, omit=(), empty=(), c1_verdict="PASS", c2_verdict="approve",
+                   c1_hash=None, c2_hash=None, c1_markers=1, c2_markers=1,
+                   c1_extra="", c2_extra=""):
+    """sandbox の Plan Package 6 要素を生成する（c3-prime-contract.md §1 マーカー準拠）。
 
-> 判定: **PASS**（WARN 0 件・FAIL 0 件）
-"""
-
-REVIEW_EXTERNAL_OK = """# C-2 外部レビュー結果 — TASK-9999
-
-総合判定: approve
-"""
-
-
-def _make_task_dir(tmp, omit=(), empty=(), c1_text=REVIEW_SELF_PASS, c2_text=REVIEW_EXTERNAL_OK):
-    """sandbox の Plan Package 6 要素を生成する。omit で欠落・empty で 0 byte を再現。"""
+    omit で欠落・empty で 0 byte を再現。c1_hash/c2_hash 指定でマーカーの
+    plan= を上書き（stale 再現）。c*_markers でマーカー行数を制御（0=未対応
+    artifact / 2=重複追記攻撃）。c*_extra はマーカー後に追記される自然文
+    （F-1 の追記攻撃再現用）。
+    """
     task_dir = pathlib.Path(tmp) / "TASK-9999"
     task_dir.mkdir(parents=True, exist_ok=True)
     contents = {
@@ -62,24 +59,25 @@ def _make_task_dir(tmp, omit=(), empty=(), c1_text=REVIEW_SELF_PASS, c2_text=REV
         "plan.md": PLAN_BODY,
         "todo.md": "# TODO\n- [ ] T-1\n",
         "test-cases.md": "# TEST CASES\n| AC-1 | TC-01 |\n",
-        "review-self.md": c1_text,
-        "review-external.md": c2_text,
     }
     for name, body in contents.items():
         if name in omit:
             continue
-        path = task_dir / name
-        path.write_text("" if name in empty else body, encoding="utf-8")
-    # evidence を plan.md より新しくする（stale でない状態が既定）
-    now = 4102444800  # 2100-01-01 固定（決定論）
-    for name in contents:
-        p = task_dir / name
-        if p.exists():
-            os.utime(p, (now, now))
-    for name in ("review-self.md", "review-external.md"):
-        p = task_dir / name
-        if p.exists():
-            os.utime(p, (now + 60, now + 60))
+        (task_dir / name).write_text("" if name in empty else body, encoding="utf-8")
+
+    plan_sha = "sha256:" + hashlib.sha256(PLAN_BODY.encode("utf-8")).hexdigest()
+    c1_marker = f"C1-VERDICT: {c1_verdict} plan={c1_hash or plan_sha}\n"
+    c2_marker = f"C2-VERDICT: {c2_verdict} plan={c2_hash or plan_sha}\n"
+    if "review-self.md" not in omit:
+        body = "# C-1 セルフレビュー — TASK-9999\n\n> 判定: **PASS**（WARN 0 件・FAIL 0 件）\n\n" \
+            + c1_marker * c1_markers + c1_extra
+        (task_dir / "review-self.md").write_text(
+            "" if "review-self.md" in empty else body, encoding="utf-8")
+    if "review-external.md" not in omit:
+        body = "# C-2 外部レビュー結果 — TASK-9999\n\n" \
+            + c2_marker * c2_markers + c2_extra
+        (task_dir / "review-external.md").write_text(
+            "" if "review-external.md" in empty else body, encoding="utf-8")
     return task_dir
 
 
@@ -127,14 +125,20 @@ class PresenceTests(unittest.TestCase):
 
 
 class EvidenceTests(unittest.TestCase):
-    """TC-03: C-1/C-2 × 欠落/FAIL/stale の表駆動 6 ケース + TC-04 根拠出力。"""
+    """TC-03: C-1/C-2 × 欠落/FAIL/stale の表駆動 6 ケース + TC-04 根拠出力
+    + #887 F-1（追記反転・重複・未対応 artifact）/ F-2（hash 決定論 stale）。"""
+
+    STALE_HASH = "sha256:" + "0" * 64
 
     def test_evidence_anomaly_table(self):
+        # C-1/C-2 × 欠落 / FAIL(reject) / stale の 6 ケース（R-002 / F-2）
         cases = [
             ("c1-missing", dict(omit=("review-self.md",))),
             ("c2-missing", dict(omit=("review-external.md",))),
-            ("c1-fail", dict(c1_text="# C-1\n> 判定: **FAIL**\n")),
-            ("c2-fail", dict(c2_text="# C-2\n総合判定: reject\n")),
+            ("c1-fail", dict(c1_verdict="FAIL")),
+            ("c2-reject", dict(c2_verdict="reject")),
+            ("c1-stale", dict(c1_hash=self.STALE_HASH)),
+            ("c2-stale", dict(c2_hash=self.STALE_HASH)),
         ]
         for label, kwargs in cases:
             with self.subTest(case=label):
@@ -143,19 +147,45 @@ class EvidenceTests(unittest.TestCase):
                     errors = plan_package.check_evidence(task_dir)
                     self.assertTrue(errors, f"{label}: 単独異常で fail-closed になっていない")
 
-    def test_evidence_stale_table(self):
-        # stale: evidence の mtime が plan.md より古い（暫定実装 / plan Unknowns 準拠）
-        for name in ("review-self.md", "review-external.md"):
-            with self.subTest(stale=name):
-                with tempfile.TemporaryDirectory() as tmp:
-                    task_dir = _make_task_dir(tmp)
-                    old = 946684800  # 2000-01-01
-                    os.utime(task_dir / name, (old, old))
-                    errors = plan_package.check_evidence(task_dir)
-                    self.assertTrue(errors, f"{name} stale で fail-closed になっていない")
-                    # TC-04: stale 判定根拠（ファイル名）が機械追跡可能
-                    self.assertTrue(any(name in e and "stale" in e.lower() for e in errors),
-                                    f"stale 根拠が出力に含まれない: {errors}")
+    def test_stale_reason_is_traceable(self):
+        # TC-04: stale 根拠（ファイル名 + stale）が機械追跡可能（hash 照合ベース / F-2）
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp, c1_hash=self.STALE_HASH)
+            errors = plan_package.check_evidence(task_dir)
+            self.assertTrue(any("review-self.md" in e and "stale" in e.lower() for e in errors),
+                            f"stale 根拠が出力に含まれない: {errors}")
+
+    def test_f1_appended_text_cannot_flip_verdict(self):
+        # #887 F-1: FAIL マーカーの後に自然文の「判定: PASS」等を追記しても反転しない
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(
+                tmp, c1_verdict="FAIL",
+                c1_extra="\n参考メモ: 修正後は 判定: PASS となる見込み。\n判定: **PASS**\n")
+            errors = plan_package.check_evidence(task_dir)
+            self.assertTrue(errors, "F-1: 追記テキストで FAIL→PASS 反転した")
+
+    def test_f1_duplicate_marker_fail_closed(self):
+        # #887 F-1: マーカー 2 回（PASS を追記する攻撃）は曖昧 = fail-closed
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp, c1_markers=2)
+            errors = plan_package.check_evidence(task_dir)
+            self.assertTrue(errors, "F-1: 重複マーカーが受理された")
+
+    def test_f5_legacy_artifact_without_marker_fail_closed(self):
+        # #887 F-5: マーカー未対応の実 artifact 形式（自然文の判定行のみ）は fail-closed
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp, c1_markers=0)
+            errors = plan_package.check_evidence(task_dir)
+            self.assertTrue(errors, "F-5: マーカー無し artifact が受理された")
+
+    def test_mtime_does_not_affect_verdict(self):
+        # #887 F-2: mtime をどう操作しても判定は変わらない（決定論）
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp)
+            old = 946684800  # 2000-01-01
+            os.utime(task_dir / "review-self.md", (old, old))
+            self.assertEqual(plan_package.check_evidence(task_dir), [],
+                             "F-2: mtime 操作が判定に影響した")
 
     def test_evidence_ok(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -311,9 +341,27 @@ class BuildC3PrimeTests(unittest.TestCase):
 
     def test_evidence_failure_blocks_build(self):
         with tempfile.TemporaryDirectory() as tmp:
-            task_dir = _make_task_dir(tmp, c1_text="# C-1\n> 判定: **FAIL**\n")
+            task_dir = _make_task_dir(tmp, c1_verdict="FAIL")
             with self.assertRaises(plan_package.PlanPackageError):
                 self._build(task_dir)
+
+    def test_f3_decision_verdict_mismatch_rejected(self):
+        # #887 F-3: AUTO_APPROVED は両 reviewer approve のときのみ（生成側検証）
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp)
+            with self.assertRaises(plan_package.PlanPackageError):
+                self._build(task_dir,
+                            verdicts={"model_a": "reject", "model_b": "reject"},
+                            decision="AUTO_APPROVED")
+
+    def test_f3_non_auto_decision_with_rejects_allowed(self):
+        # reject を含んでも decision が非 AUTO_APPROVED なら record 生成可（整合）
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp)
+            record = self._build(task_dir,
+                                 verdicts={"model_a": "approve", "model_b": "reject"},
+                                 decision="HUMAN_ESCALATED")
+            self.assertEqual(record["decision"], "HUMAN_ESCALATED")
 
     def test_serialization_constraint(self):
         # 契約 §5: json.dumps(indent=2, sort_keys=True) でトップレベル plan_hash 行が 1 回のみ

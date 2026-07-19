@@ -18,7 +18,18 @@
 | 5 | C-1 evidence: `review-self.md` | 存在 + 判定行が PASS（FAIL/欠落/stale は escalate） |
 | 6 | C-2 evidence: `review-external.md` | 存在（総合判定の抽出可能性。欠落/FAIL/stale は escalate） |
 
-**stale 判定**: evidence の内容 hash が承認記録時点と不一致、または evidence が参照する plan_hash が現 plan.md の sha256 と不一致の場合 stale。C-1/C-2 いずれか**単独**の異常でも `AUTO_APPROVED` にならない（AC-3 / R-002）。
+**evidence 判定マーカー（正規定義 / #887 F-1・F-2・F-5）**: C-1 / C-2 evidence の機械判定は、以下の**行頭アンカー付きマーカー行**のみを正とする（自然文の「判定:」表記からの substring 抽出は行わない — 追記による判定反転を構造的に排除）:
+
+```text
+C1-VERDICT: PASS plan=sha256:<64hex>     # review-self.md（受理は PASS のみ）
+C2-VERDICT: approve plan=sha256:<64hex>  # review-external.md（受理は approve のみ）
+```
+
+- マーカーは**行頭一致**（`^C1-VERDICT: ` / `^C2-VERDICT: `）で、ファイル内に**ちょうど 1 回**存在しなければならない。0 回（マーカー未対応の既存 artifact を含む）および 2 回以上（追記・重複 = 曖昧）は **fail-closed**（escalate）
+- `plan=` の値は **evidence 作成時点の plan.md の sha256**。検証時の plan.md の sha256 と不一致なら **stale**（escalate）。stale 判定はこの hash 照合のみで行い、**mtime は判定に使わない**（決定論・touch バイパス不可）
+- verdict 値はマーカー内の値のみを読む。受理は C-1 = `PASS` / C-2 = `approve` のみ（それ以外・欠落・型違いはすべて escalate）
+
+C-1/C-2 いずれか**単独**の異常でも `AUTO_APPROVED` にならない（AC-3 / R-002）。
 
 ## 2. c3-prime artifact フィールド定義
 
@@ -29,7 +40,7 @@
 | `task_id` | ✅ | `^TASK-[0-9]{4}$` | run の必須識別子（AC-1） |
 | `approval_kind` | ✅ | 固定 `"c3-prime"` | legacy（キー自体なし）との判別子。未知値は受理拒否（EC-4） |
 | `phase` | ✅ | 固定 `"C-3'"` | |
-| `decision` | ✅ | `AUTO_APPROVED` \| `HUMAN_ESCALATED` \| `BLOCKED` | decision-table.md の 3 値。**`c3_status` キーは c3-prime に含めない**（§5 serialization） |
+| `decision` | ✅ | `AUTO_APPROVED` \| `HUMAN_ESCALATED` \| `BLOCKED` | decision-table.md の 3 値。**`c3_status` キーは c3-prime に含めない**（§5 serialization）。**decision↔verdicts 整合（#887 F-3）**: `AUTO_APPROVED` は `reviewers.model_a.verdict` と `model_b.verdict` が**両方 `approve` のときのみ**許容。reject を含む record での `AUTO_APPROVED` は生成側で拒否・受理側で BLOCK |
 | `source_sha` | ✅ | `^[0-9a-f]{7,40}$` | W チェック時の対象 commit。**arbiter 入力 `target_sha` と同一値であることを生成時に照合**（不一致は生成拒否 / R-011） |
 | `plan_hash` | ✅ | `^sha256:[0-9a-f]{64}$` | **plan.md 単体**の sha256（legacy c3-approval / EH-3 と同一契約・変更しない） |
 | `plan_package_hash` | ✅ | `^sha256:[0-9a-f]{64}$` | `artifact_hashes` を key 昇順で正規化した JSON（`json.dumps(sort_keys=True, separators=(',',':'))`）の sha256 |
@@ -67,6 +78,7 @@
 | `approval_kind == "c3-prime"` | 本契約で検証（python3 strict JSON のみ。grep/sed 経路は使わない） |
 | `approval_kind` がその他の値 | 受理拒否（EC-4） |
 | `decision != "AUTO_APPROVED"` | exec 不可（HUMAN_ESCALATED は Human C-3 待ち・BLOCKED は差し戻し） |
+| `decision == "AUTO_APPROVED"` だが reviewers の verdict に `reject` を含む | **BLOCK**（decision↔verdicts 不整合 record = 改竄兆候。#887 F-3 の受理側検証） |
 | `plan_hash` ≠ 現 plan.md sha256 | FAIL（stale・legacy と同一規則） |
 | `artifact_hashes` のいずれか ≠ 現ファイル sha256 | FAIL（stale。**不一致エントリ名を失敗メッセージに含む**） |
 | `source_sha` ≠ 検証時点の対象 SHA | **BLOCK（警告に降格しない fail-closed 固定 / R-003）**。再 C-1/C-2/C-3' を要求 |
@@ -74,11 +86,11 @@
 
 EH-3 hook（`check-plan-hash.sh`）は top-level `plan_hash` のみを strict JSON で読むため、c3-prime に対しても**無変更で機能**する（非退行・本契約が plan_hash を legacy と同一義で保持する理由）。
 
-## 5. serialization 制約（R-009）
+## 5. serialization 制約（R-009 / #887 F-7 是正）
 
 - `json.dumps(indent=2, sort_keys=True)` で整形（arbiter provenance 出力と同形）
-- トップレベルに `"plan_hash"` を含む行は **1 回のみ**（reviewer snapshot 内の `plan_hash` はネスト 2 段のインデントで grep `^  "plan_hash"` に一致しないこと）
 - **`"c3_status"` キーを含めない**（legacy grep 経路が c3-prime を誤受理しないための能動的防御。c3-prime の正は `decision`）
+- **legacy grep/sed 抽出経路（`bin/plangate` の非アンカー `grep '"plan_hash"'` 等）は c3-prime に対して流用不可**。c3-prime は `plan_hash` がトップレベルと reviewer snapshot 内に複数回出現するため、非アンカー grep は多行マッチして誤動作する。受理側（PR-2）は `approval_kind` 判別後、c3-prime の全フィールドを **python3 strict JSON のみ**で読むこと（§4 と同一規則。旧記述「インデント幅で grep 衝突を回避する」は誤りだったため削除 / F-7）
 
 ## 6. LoopSpec 決定論的派生マッピング（AC-10 / R-012）
 
@@ -109,6 +121,8 @@ LoopSpec（[`loopspec.md`](./loopspec.md) §3）の必須フィールド**全数
 ## 7. #873（delivery.py）への引き渡し
 
 issue #873 の MERGE_READY 状態機械は c3-prime を**読み取り専用**で消費する。読むフィールド: `task_id` / `decision` / `source_sha` / `plan_hash` / `plan_package_hash`。head SHA 束縛は `source_sha` を基点とし、PR head が `source_sha` の子孫でない場合は #873 側で fail-closed（本契約はフィールド提供まで。遷移規則は #873 の正本で定義）。
+
+**trust boundary（R-018 / #887 F-4）**: arbiter provenance / c3-prime record の `decision` は「その入力に対する裁定」であり、record の実在 artifact への束縛（§4 の hash / source_sha / verdict 整合検証）を**受理側が再実行して初めて信頼できる**。#873 delivery.py および PR-2 受理側は decision 値を無検証で信頼してはならない（fail-closed 再検証が必須）。record が Plan-first 正規経路（`plan_package.py` 経由）で生成されたことの担保は本再検証 + §4 の全規則で構成する。
 
 ## 8. バージョニング
 

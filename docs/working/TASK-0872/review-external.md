@@ -43,6 +43,17 @@
 | R-013 | reflected | (同上 Refs: R-013) | E2E は extras パターン第一候補・CI 前提記述修正・Unknown 1 件解消 |
 | R-014 | recorded | - | 反映不要（設計裏付けの確認） |
 
+## 敵対的レビュー（PR #886 / 2026-07-20・bot quota 不在の代替 1 本・全指摘実測再現）
+
+> レーン C（敵対的・fail-open/契約乖離/priority 順序/偽装攻撃/metrics 回帰/schema dispatch の 6 観点）→ **approve**（重大 0）
+
+| ID | severity | 対象 | 指摘（要約） | 採否 |
+|----|----------|------|-------------|------|
+| R-015 | minor | schema_mapping.py + schemas/ | PR-1〜PR-2 窓で c3-prime.schema.json 不在 → validate-schemas が SKIP（latent fail-open。実害ゼロ = c3.json writer 配線未着地） | **採用**（PR-2 で schema 先行着地 + approval_kind==c3-prime かつ schema 不在は SKIP でなく FAIL 化） |
+| R-016 | minor | arbiter.py priority 1.6 | production=true + plan_package 欠落 + reject-reject が従来 BLOCKED → HUMAN_ESCALATED に変化（両者とも非承認で安全側・誤設定入力のみ） | 記録のみ（理由文への verdict 併記は過剰と判断・実害小） |
+| R-017 | minor | plan_package.py `_PATH_RE` | Files to Touch 抽出が `../../etc/passwd` 等も allowed_paths に拾う（plan.md は C-1/C-2 済み正本のため実害低・ファイル読み取りには不使用） | V2 候補（`..`/URL スキーム除外の sanitize。handoff に記載） |
+| R-018 | info | c3-prime-contract.md §7 | #873 delivery.py が arbiter decision を再検証なしに信頼しない旨（trust boundary の fail-closed 担保）を明示すべき | **採用**（PR-2 で §7 に 1 文追記） |
+
 ## 指摘なしと明示された観点
 
 - レーン A: スコープ / Non-goals の相互整合、AC・9 シナリオのマッピング網羅性
