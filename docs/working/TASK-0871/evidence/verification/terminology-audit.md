@@ -197,3 +197,11 @@ T-08a commit（`970c226`）後に `sh scripts/sync-plugin-plangate.sh --dry-run`
 再実行 → **「Sync complete — no changes」・exit 0（差分ゼロ）**。
 sync 生成物は期待 4 本と完全一致（期待外への波及 0 件・PR-2 対象 references
 への巻き込みなし = e8f42f0 未包含のため周辺 docs は main のまま）。
+
+## 8. T-11 追記: T-12 所見 2 反映後の sync 再確認（2026-07-19）
+
+独立レビュー #1（`independent-review-1.md`・矛盾 0 件 PASS）の参考所見 2
+（SKILL 両版 Step 5 の小文字 merge-ready）を `MERGE_READY` 表記へ統一
+（意味変更なし・該当 2 行のみ）した後、`sh scripts/sync-plugin-plangate.sh` を
+再実行（COPY: skills/ai-loop-cycle/SKILL.md の 1 本のみ波及・期待どおり）。
+続けて `--dry-run` 再確認 → **「Sync complete — no changes」・exit 0（差分ゼロ維持）**。

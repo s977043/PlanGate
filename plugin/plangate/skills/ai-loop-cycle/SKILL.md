@@ -201,7 +201,7 @@ python3 scripts/arbiter.py --input /path/to/input.json \
 
 - **exit 0（AUTO_APPROVED）**: exec → 強化セルフレビュー（diff-audit スキル全観点 +
   導入先の plan-review readiness 相当の観点）→ PR 作成 → CI/AI レビュー指摘対応ループ
-  （merge-ready まで）
+  （`MERGE_READY` まで）
 - **exit 2（HUMAN_ESCALATED）**: **停止して人間へ**。`w_check` / `boundary_check` /
   `lite_check` の内容を提示し、人間の判断を仰ぐ。AI が自己解決してはならない
 - **exit 3（BLOCKED）**: 当該変更を採用しない。理由を audit record に記録して終了
