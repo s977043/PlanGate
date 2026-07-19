@@ -1,7 +1,6 @@
 # flow-detect — Arbiter 動作フロー定義
 
-> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
-> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
+> 適用制限（Phase 1 rollout eligibility）の正本: [`rollout-policy.md`](./rollout-policy.md)
 > W チェック定義正本: 本ドキュメント §3.1
 
 ---

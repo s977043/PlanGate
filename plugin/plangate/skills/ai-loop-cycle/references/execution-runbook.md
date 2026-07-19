@@ -1,7 +1,6 @@
 # execution-runbook — L2 裁定エンジン PoC 実行手順
 
-> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
-> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
+> 適用制限（Phase 1 rollout eligibility）の正本: [`rollout-policy.md`](./rollout-policy.md)
 > 実装本体: `arbiter.py`
 > テスト: `test_arbiter.py`
 
@@ -35,7 +34,7 @@
 手順を定義する。
 
 **制約（絶対）**: 本エンジンは PlanGate 本番フロー（WF-00〜WF-07・`bin/plangate`・
-`scripts/hooks/`）から一切呼ばれない**隔離 PoC**である。W チェック（Model A/B/C/D
+`scripts/hooks/`）から一切呼ばれない**隔離された実験実装**である（適用制限の正本 = [`rollout-policy.md`](./rollout-policy.md)）。W チェック（Model A/B/C/D
 の verdict）の**品質そのもの**は L1（本 runbook を実行する呼び出し側）の責務であり、
 `arbiter.py`（L2）は入力された verdict を決定論ロジックで裁定するのみで、verdict
 自体の正しさを検証しない。
@@ -169,7 +168,7 @@ Step 5.5 を正本とし、本節では再定義しない）。
 ### (6) 強化セルフレビュー（PR 作成前・必須）
 
 `AUTO_APPROVED`（exit code `0`）で exec / L-0 / V 系が完了した後、PR 作成前に
-**強化セルフレビュー**を実施する（merge-ready 責務の担保。
+**強化セルフレビュー**を実施する（`MERGE_READY` 責務の担保。
 [`00_concept.md`](./00_concept.md) §3.4 参照）:
 
 1. **宣言↔実差分の整合検証**: plan の Files to Touch と
@@ -186,9 +185,9 @@ Step 5.5 を正本とし、本節では再定義しない）。
 
 全観点 PASS を確認してから PR を作成する。FAIL がある場合は exec へ差し戻す。
 
-### (7) PR 後の CI / AI レビュー指摘対応ループ（merge-ready まで）
+### (7) PR 後の CI / AI レビュー指摘対応ループ（MERGE_READY まで）
 
-PR 作成後、以下を **merge-ready 到達まで**繰り返す。
+PR 作成後、以下を **`MERGE_READY` 到達まで**繰り返す。
 
 この手順は [`adaptive-production-loop.md`](./adaptive-production-loop.md) の
 6 層モデルにおける **Schedule** の実行点である。ただし Schedule は「次に何をするか」を
@@ -204,7 +203,7 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 | 4      | CI failed                                             | CI failure を調査・修正し、(6) を再実行して push        | continue              |
 | 5      | merge conflict                                        | conflict 解消、三点照合、lease-protected push           | continue              |
 | 6      | critical / major の AI review 指摘あり                | 採用して修正、または理由付き不採用を記録                | continue or escalate  |
-| 7      | minor / info のみ                                     | 採用/不採用理由を記録し、DoD 判定へ進む                 | merge-ready candidate |
+| 7      | minor / info のみ                                     | 採用/不採用理由を記録し、DoD 判定へ進む                 | `MERGE_READY` candidate |
 | 8      | CI green かつ AI review 全件対応済み                  | C-4 待ちへ遷移                                          | `MERGE_READY`         |
 
 #### 実行手順
@@ -219,7 +218,7 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
    着弾前にマージ準備を完了扱いにすると、指摘未対応のままマージされ得る。F-27 の実害経路）。
    CI/PR 時の AI レビュー指摘を確認し、各指摘について**採用して修正**するか、
    **理由付きで不採用とする**かを記録する。**auto-merge は使用しない**
-   （2026-07-07 Human 指示）。指摘対応完了（または指摘なしの確認）後に merge-ready 報告を
+   （2026-07-07 Human 指示）。指摘対応完了（または指摘なしの確認）後に `MERGE_READY` 報告を
    行い、マージは Human が実行する（responsibility-classes: merge は Human-owned）。
 4. 対応内容（採用/不採用・理由）は
    [`review-feedback-loop.md`](./review-feedback-loop.md) §2 の L4 学習閉ループへ
@@ -227,9 +226,9 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 5. **収束ルール**: 対応ラウンド上限は 3。超過時は human escalate
    （[`arbiter-policy.md`](./arbiter-policy.md) §7 escalate 予算
    と接続）。新規指摘が minor / info のみになった時点で、記録を条件に
-   merge-ready 判定へ進んでよい（[`00_concept.md`](./00_concept.md) §3.3）
+   `MERGE_READY` 判定へ進んでよい（[`00_concept.md`](./00_concept.md) §3.3）
 6. **DoD**: CI 全 job green **かつ** AI レビュー指摘がゼロ、または全件対応完了
-   （採用/理由付き不採用の記録あり）で merge-ready と判定し、C-4（人間の
+   （採用/理由付き不採用の記録あり）で `MERGE_READY` と判定し、C-4（人間の
    merge 承認、Human-owned 固定）待ちに遷移する
 7. **conflict 解消時の同定規律**: rebase/merge の conflict 解消では、stage 番号
    （`:2:`/`:3:`）や ours/theirs のラベル理解に依存せず、
@@ -258,7 +257,7 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 ## 4. 制約の明記
 
 - 本エンジンは PlanGate 本番フロー（WF-00〜WF-07・`bin/plangate`・
-  `scripts/hooks/`）から一切呼ばれない**隔離 PoC**である
+  `scripts/hooks/`）から一切呼ばれない**隔離された実験実装**である
   （`phase3-impact-report.md` §b.1
   トリガー 1 の判断記録を参照）
 - W チェック（Model A/B/C/D）の verdict 品質は **L1（本 runbook を実行する
@@ -282,7 +281,7 @@ PR 作成後、以下を **merge-ready 到達まで**繰り返す。
 - `phase3-impact-report.md` — 分離トリガー条件・判断記録
 - [`docs/workflows/ai-loop/review-feedback-loop.md`](./review-feedback-loop.md) — CB-1 事後 reject / CI・AI レビュー指摘対応を L4 学習へ還元する閉ループ
 - `orchestrator-mode.md` — 検証可能性 4 条件の正本
-- [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) §3 — PlanGate フロー共通化と C-3 置換（C-3'）・merge-ready 責務範囲の正本
+- [`docs/workflows/ai-loop/00_concept.md`](./00_concept.md) §3 — PlanGate フロー共通化と C-3 置換（C-3'）・`MERGE_READY` 責務範囲の正本
 - `plan-review-readiness-gate.md` — 強化セルフレビュー §7/§8 観点の参照元
 - [`.claude/skills/ai-loop-cycle/SKILL.md`](../SKILL.md) — 本 runbook の 1 サイクルを実行する手順スキル（Model A/B/C/D 委託プロンプト定型）
 - `pr-watch/SKILL.md` — 手順 (7) の CI/AI レビュー指摘対応ループの監視・対応定型

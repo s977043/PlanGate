@@ -1,7 +1,6 @@
 # agentic-six-stage-loop — 6段階ループ対応表 + Trust Ledger 索引
 
-> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
-> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
+> 適用制限（Phase 1 rollout eligibility）の正本: [`rollout-policy.md`](./rollout-policy.md)
 > 対応 issue: [#780](https://github.com/s977043/plangate/issues/780)（ai-loop 6段階ループ適合性）
 > 位置づけ: 汎用的なエージェント実行パイプラインの役割語彙
 > （Triage / Conductor / Worker / Verifier / Gate / Trust Ledger）と、
@@ -47,7 +46,7 @@
 | **Conductor**（分解/役割割当/進行制御） | Scheduling 判断表（[`execution-runbook.md`](./execution-runbook.md) §2-(7) / [`adaptive-production-loop.md`](./adaptive-production-loop.md) §5）／round 上限 3（[`execution-runbook.md`](./execution-runbook.md) §2-(7) が正本値）・escalate 予算（`arbiter-policy.md` §7）／retry/stop/block 選択／breakdown-gate スキルを Step 0 として接続し `gates.breakdown == "pass"`（split-suggested 等は escalate）を priority 1.7 の一部に組込み（[`decision-table.md`](./decision-table.md) §「priority 0/1.5/1.7/1.9」・#817） | △ | **着手前の粒度判定（intake）は breakdown-gate 接続で部分解消**（#817）。ただし**タスク分解（step 化）と役割割当そのものは依然未定義**。ai-loop は分解実体を PlanGate WF 側に委ねる設計（[`00_concept.md`](./00_concept.md) §2「工程の実体は共通利用」）のままで、conductor 責務は「PR 後 Scheduling + 着手前 breakdown gate 判定」に留まり、step 化・役割割当は空白のまま |
 | **Worker**（生成/実装/PR 準備） | `LoopSpec.actors.maker`（[`loopspec.md`](./loopspec.md) §2）／exec（[`execution-runbook.md`](./execution-runbook.md) §2-(5) exit code 分岐後の実装〜(5b) grader）／ai-loop-cycle SKILL の maker 委託／PR 作成 | △ | **worker として独立の role 定義が無い**。maker は「checker と異なる主体」制約（I-2）で識別されるだけで、責務記述が薄い |
 | **Verifier**（C-1/C-2/W/CI/grader） | C-1・C-2 共通踏襲（[`00_concept.md`](./00_concept.md) §3.2）／W チェック Model A/B/C/D（[`flow-detect.md`](./flow-detect.md) §3 / `arbiter-policy.md` §4）＝C-3'（[`00_concept.md`](./00_concept.md) §3「C-3'（置換点）: AI裁定ゲート = Arbiter」）／rubric grader Step 5.5（`.claude/skills/ai-loop-cycle/SKILL.md` Step 5.5）／CI・AI レビュー第2段 detect（[`00_concept.md`](./00_concept.md) §3.3）／plan 品質ゲート priority 1.7（`gates.c1 == "PASS"` を auto-approve の必要条件化・[`decision-table.md`](./decision-table.md) §「priority 0/1.5/1.7/1.9」・#817） | ○ | **C-1 相当の loop 内義務化は解消済み（#817）**: `gates.c1 == "PASS"` かつ `gates.breakdown == "pass"`（両方厳密一致）を満たさない場合は priority 1.7 で human escalate に倒れるため、C-1 は「loop の前提」から「auto-approve 経路の hard gate」へ格上げされた。ただし **C-2 の loop 内義務化は未対応**、**code-run 用 rubric variant（#782 P2）も未対応**のまま残る |
-| **Gate**（判定/terminal state） | `arbiter.py` 3 値（AUTO_APPROVED/HUMAN_ESCALATED/BLOCKED・exit 0/2/3）／`MERGE_READY`（DoD 状態・[`00_concept.md`](./00_concept.md) §3.3）／C-4 wait（Human-owned 固定）／CB-1/2/3（[`decision-table.md`](./decision-table.md) §6）／fail-closed（ho-paths 未解決時の全件 escalate）+ allowed_paths 判定 + パス正規化を機械層に配線（[`decision-table.md`](./decision-table.md) §「priority 0/1.5/1.7/1.9」・#813） | ○ | ほぼ充足。terminal state と DoD 状態の区別は `design-philosophy.md` §5 語彙集で明示済み。**fail-closed 配線（#813）で priority 0 の安全側判定が機械層に落ち、充足度の裏付けがさらに強化**された。命名 alias を本表に載せるだけ |
+| **Gate**（判定/terminal state） | `arbiter.py` 3 値（AUTO_APPROVED/HUMAN_ESCALATED/BLOCKED・exit 0/2/3）／`MERGE_READY`（DoD 状態・[`00_concept.md`](./00_concept.md) §3.3）／C-4 wait（Human-owned 固定）／CB-1/2/3（[`decision-table.md`](./decision-table.md) §6）／fail-closed（ho-paths 未解決時の全件 escalate）+ allowed_paths 判定 + パス正規化を機械層に配線（[`decision-table.md`](./decision-table.md) §「priority 0/1.5/1.7/1.9」・#813） | ○ | ほぼ充足。terminal state（裁定 3 値）と DoD 状態の区別は [`00_concept.md`](./00_concept.md) §2.3（語彙群区別の正本）で明示済み。**fail-closed 配線（#813）で priority 0 の安全側判定が機械層に落ち、充足度の裏付けがさらに強化**された。命名 alias を本表に載せるだけ |
 | **Trust Ledger**（記録/学習） | decision record JSON（provenance・[`decision-table.md`](./decision-table.md) §5）／摩擦台帳 `run-001-frictions.md`（F-1〜F-41）／[`review-feedback-loop.md`](./review-feedback-loop.md)（R-NNN 還元・suppression S-1/S-2）／CB-1 事後 reject／decision record 集計 `metrics.py`（#812）／arbiter が record に run メタ（run_id/round_index/task_id/repair_action）を刻印（#815）／`gates`（c1/breakdown）を provenance に刻み plan-quality escalate を監査可能化（#819）／`size_ok` を changed_files 実数で機械検証（#820） | △ | **メトリクス統合基盤は前進（#812/#815/#819/#820）**: first-pass rate 等の成功/失敗シグナルを算出する集計ロジック（metrics.py）と、その入力となる run メタ・gates・size 検証結果の provenance 刻印が揃った。ただし**単一正本への完全統合・成功/失敗メトリクスの定常運用（レポート化）は未了**のため △ を維持 |
 
 ### 2.1 用語対応（alias）
@@ -198,7 +197,7 @@ Rule 1（Workflow は順序と完了条件だけを持つ。実装ノウハウ�
 
 ## 7. 関連ドキュメント
 
-- [`00_concept.md`](./00_concept.md) — PlanGate フローとの接続（C-3'・merge-ready 責務）
+- [`00_concept.md`](./00_concept.md) — PlanGate フローとの接続（C-3'・`MERGE_READY` 責務。責務・terminal state の正本 = §2）
 - [`adaptive-production-loop.md`](./adaptive-production-loop.md) — 6 層自己改善ループ・1 サイクル contract 正本
 - [`decision-table.md`](./decision-table.md) — Decision table・provenance schema・terminal state・CB
 - [`execution-runbook.md`](./execution-runbook.md) — 1 サイクルの実行手順・Scheduling 判断表
