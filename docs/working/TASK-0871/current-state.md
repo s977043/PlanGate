@@ -1,17 +1,13 @@
 # current-state — TASK-0871
 
-- 日時: 2026-07-19
-- フェーズ: **C-3 承認完了（Q4〜Q6 確定）・c3.json 発行待ち**
-  （B 起草 → C-1 WARN 反映 → C-2 R-001〜R-012 反映 → 簡易 C-1 N-1〜N-3 → C-3 Human APPROVE 済み）
-- Mode: high-risk（承認境界周辺 touch: `.claude/commands/ai-loop-workflow.md` /
-  `docs/ai/core-contract.md`）。lite_eligible=false・C-3 同期 Human 必須
-- 正本方針（C-3 承認済み）: **B案** = `00_concept.md` を単一正本へ昇格・再構成 +
-  Phase 1 制約を新設 `rollout-policy.md` へ分離（Q6: 汎用表現で verbatim 配布）
-- C-3 確定事項: Q4 = AC-9 監査対象限定 承認 / Q5 = `.claude/skills/ai-loop-cycle`
-  を本 TASK で新正本へ整合 / Q6 = rollout-policy 雛形注記ヘッダ機構なし
-- plan_hash（C-3 確定版 plan.md SHA256）:
-  `e4679ad065257eb3b3c04662b2766b56b52dcedc390b89d5052a7a24468ec33b`
-- ブロッカー: なし（Human ワンアクション待ち: `bin/plangate approve TASK-0871` /
-  PR #879 C-4）
-- 次アクション: c3.json 発行 → PR #879 merge → exec（T-03〜）
-- 注意: decision-log.jsonl はオーガナイザー側で初期化する（本ワーカーは未作成）
+- 日時: 2026-07-19 23:30
+- フェーズ: **完了（Done）**。issue #871 CLOSED（COMPLETED）
+- 成果: 00_concept.md 単一正本化 + rollout-policy.md 分離。PR-1 #881（4c5d1e6）+
+  PR-2 #882（07a9d66）merge 済み
+- AC: **10/10 PASS**（+ TC-14/TC-15 + Verification 4/4。
+  [`evidence/verification/ac-final-matrix.md`](./evidence/verification/ac-final-matrix.md)）
+- ゲート記録: C-3 APPROVED ×2（Replan 挟み・plan_hash e4679ad0… → 843d9618…）/
+  H-02 承認 + Human 適用（a50ccb3）/ C-4 merge ×2 / 独立レビュー矛盾 0 件 ×2
+- ブロッカー: なし
+- 次アクション: **なし**（follow-up は [`handoff.md`](./handoff.md) §3 V2 候補を参照。
+  後続実装は EPIC #870 の #872/#873）

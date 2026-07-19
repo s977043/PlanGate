@@ -1,25 +1,26 @@
 # TASK-0871 INDEX — 正本定義統合・PoC 制約分離
 
-- issue: [#871](https://github.com/s977043/plangate/issues/871) / 親 EPIC: [#870](https://github.com/s977043/plangate/issues/870)
-- 現在フェーズ: **C-3 承認済み（2026-07-19 Human APPROVE）→ c3.json 発行待ち → exec（T-03〜）着手待ち**
-- Mode: **high-risk** / lite_eligible=false / C-3 同期・Human 必須
+- issue: [#871](https://github.com/s977043/plangate/issues/871)（**CLOSED / COMPLETED**） / 親 EPIC: [#870](https://github.com/s977043/plangate/issues/870)
+- 現在フェーズ: **完了（Done）**（PR-1 [#881](https://github.com/s977043/plangate/pull/881) + PR-2 [#882](https://github.com/s977043/plangate/pull/882) merge 済み・AC 10/10 PASS）
+- Mode: **high-risk** / lite_eligible=false / C-3 同期・Human 必須（APPROVED ×2・Replan 経由）
 
 ## ファイル索引
 
 | ファイル | 状態 |
 |---------|------|
 | [pbi-input.md](./pbi-input.md) | 作成済（issue #871 本文の構造化） |
-| [plan.md](./plan.md) | 作成済（正本方針比較 = B案推奨・矛盾一覧付録 A/B 付き） |
-| [todo.md](./todo.md) | 作成済（T-01〜T-13 / H-01〜H-03） |
-| [test-cases.md](./test-cases.md) | 作成済（AC 10 項目 → TC-01〜13 + EC-01〜06） |
-| [current-state.md](./current-state.md) | 作成済 |
-| decision-log.jsonl | 未作成（オーガナイザー側で初期化） |
+| [plan.md](./plan.md) | 確定（B案 + Replan「2 PR 分割構成」・plan_hash 843d9618…） |
+| [todo.md](./todo.md) | 全タスク完了（T-01〜T-13 / H-01〜H-03） |
+| [test-cases.md](./test-cases.md) | 作成済（AC 10 項目 → TC-01〜15 + EC-01〜06） |
+| [current-state.md](./current-state.md) | 完了状態 |
+| [status.md](./status.md) | 作成済（フェーズ履歴・C-3 Gate 記録） |
+| [handoff.md](./handoff.md) | **発行済（必須 6 要素）** |
 | [review-self.md](./review-self.md) | 作成済（C-1・WARN。監査スナップショット・編集禁止） |
 | [review-external.md](./review-external.md) | 作成済（C-2 2 レーン・R-001〜R-012 + 監査表） |
-| status.md / handoff.md | 未着手（後続フェーズ） |
+| approvals/ | c3.json（APPROVED・843d9618…）/ ho-apply-approval.md |
+| evidence/verification/ | terminology-audit / lint-linkcheck ×2 / independent-review ×2 / **ac-final-matrix.md（T-13）** |
+| decision-log.jsonl | 未作成（オーガナイザー側管理） |
 
 ## 次のアクション
 
-1. c3.json 発行（Human: `bin/plangate approve TASK-0871`・plan_hash = C-3 確定版 plan.md の SHA256）
-2. PR #879 merge（C-4）
-3. exec 着手（T-03〜。c3.json APPROVED が前提 — Iron Law #1）
+なし（TASK 完了）。follow-up は [handoff.md](./handoff.md) §3 V2 候補、後続実装は EPIC #870 の #872 / #873。
