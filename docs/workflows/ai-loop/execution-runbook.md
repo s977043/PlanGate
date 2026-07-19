@@ -112,6 +112,15 @@ echo '{...}' | python3 scripts/ai-loop/arbiter.py
 モジュール docstring および [`decision-table.md`](./decision-table.md) §2・§5 を
 正本とする。
 
+**Plan-first production run（TASK-0872 / issue #872）**: `ai-loop run TASK-XXXX`
+から開始した run では、入力 JSON に `production: true` と `plan_package` ブロック
+（`scripts/ai-loop/plan_package.py` が presence / evidence / hash を検証して組み立てた
+もの）を必ず含める。`production: true` で `plan_package` が欠落・構造不正なら
+priority 1.6 で escalate、reviewer snapshot 不一致・source_sha ≠ target_sha は
+priority 1.65 で blocked（契約正本: [`c3-prime-contract.md`](./c3-prime-contract.md)）。
+再現検証（同一入力 → byte 同一 record）が必要な場合は `--timestamp` で刻印時刻を
+固定注入できる。
+
 ### (4) decision record を保存
 
 `arbiter.py` の stdout（decision record JSON）を、以下の命名規則で保存する。

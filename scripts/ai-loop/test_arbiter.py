@@ -2684,5 +2684,123 @@ class TestHOTLInvariants(unittest.TestCase):
         self.assertIn("priority 1", reason_ho)
 
 
+def _valid_plan_package(sha="abc1234"):
+    """契約準拠の plan_package ブロック（c3-prime-contract.md §2/§3）。"""
+    ph = "sha256:" + "a" * 64
+    pph = "sha256:" + "b" * 64
+
+    def snap(verdict, ref):
+        return {
+            "verdict": verdict,
+            "plan_hash": ph,
+            "source_sha": sha,
+            "plan_package_hash": pph,
+            "evidence_ref": ref,
+        }
+
+    return {
+        "plan_hash": ph,
+        "source_sha": sha,
+        "plan_package_hash": pph,
+        "c1_evidence_ref": "review-self.md#PASS",
+        "c2_evidence_ref": "review-external.md#approve",
+        "reviewers": {
+            "model_a": snap("approve", "record#a"),
+            "model_b": snap("approve", "record#b"),
+        },
+    }
+
+
+class PlanPackageGateTests(unittest.TestCase):
+    """TASK-0872: production presence gate（priority 1.6）+ integrity（priority 1.65）。
+
+    契約正本: docs/workflows/ai-loop/c3-prime-contract.md
+    カバー: TC-05（AC-4）/ TC-06（AC-5）/ TC-09 の arbiter 側 / additive 後方互換
+    """
+
+    def _arbitrate(self, **overrides):
+        data = arbiter.validate_input(_base_input(**overrides))
+        return arbiter.arbitrate(data, ho_paths_path=str(HO_PATHS_MD))
+
+    def test_production_without_plan_package_escalates(self):
+        # AC-4 / TC-05: gates 完備（_base_input 既定）でも plan_package 無しでは
+        # production run は AUTO_APPROVED にならない
+        provenance, reason = self._arbitrate(production=True)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("1.6", reason)
+
+    def test_production_flag_must_be_strict_bool(self):
+        with self.assertRaises(ValueError):
+            arbiter.validate_input(_base_input(production="true"))
+
+    def test_valid_plan_package_auto_approved_with_provenance(self):
+        # TC-08a 統合側: valid plan_package + approve/approve → AUTO_APPROVED
+        # + provenance へ plan_package 刻印（AC-5 / R-004）
+        pp = _valid_plan_package()
+        provenance, _ = self._arbitrate(production=True, plan_package=pp)
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertEqual(provenance["plan_package"]["plan_hash"], pp["plan_hash"])
+        self.assertEqual(provenance["plan_package"]["source_sha"], "abc1234")
+        self.assertEqual(
+            provenance["plan_package"]["reviewers"]["model_b"]["plan_package_hash"],
+            pp["plan_package_hash"],
+        )
+
+    def test_legacy_input_has_no_plan_package_key(self):
+        # additive 後方互換: plan_package 未指定なら provenance にキー自体を刻まない
+        provenance, _ = self._arbitrate()
+        self.assertEqual(provenance["decision"], "AUTO_APPROVED")
+        self.assertNotIn("plan_package", provenance)
+        self.assertNotIn("production", provenance)
+
+    def test_reviewer_snapshot_hash_mismatch_blocked(self):
+        # TC-06 / 契約 §3: snapshot 三つ組不一致は BLOCKED（fail-closed）
+        pp = _valid_plan_package()
+        pp["reviewers"]["model_b"]["plan_hash"] = "sha256:" + "f" * 64
+        provenance, reason = self._arbitrate(production=True, plan_package=pp)
+        self.assertEqual(provenance["decision"], "BLOCKED")
+        self.assertIn("1.65", reason)
+
+    def test_reviewer_snapshot_missing_blocked(self):
+        # 契約 §3: snapshot の欠落も BLOCKED
+        pp = _valid_plan_package()
+        del pp["reviewers"]["model_b"]
+        provenance, _ = self._arbitrate(production=True, plan_package=pp)
+        self.assertEqual(provenance["decision"], "BLOCKED")
+
+    def test_source_sha_target_sha_mismatch_blocked(self):
+        # 契約 §2 R-011: plan_package.source_sha != target_sha は BLOCKED
+        pp = _valid_plan_package(sha="fff9999")
+        provenance, _ = self._arbitrate(production=True, plan_package=pp)
+        self.assertEqual(provenance["decision"], "BLOCKED")
+
+    def test_plan_package_top_level_key_missing_escalates(self):
+        # トップレベル必須キー欠落は構造不正 → escalate（安全側）
+        pp = _valid_plan_package()
+        del pp["c1_evidence_ref"]
+        provenance, reason = self._arbitrate(production=True, plan_package=pp)
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("1.6", reason)
+
+    def test_plan_package_without_production_still_validated(self):
+        # production=false でも plan_package を渡せば integrity は検証される
+        pp = _valid_plan_package()
+        pp["reviewers"]["model_a"]["source_sha"] = "0000000"
+        provenance, _ = self._arbitrate(plan_package=pp)
+        self.assertEqual(provenance["decision"], "BLOCKED")
+
+    def test_timestamp_injection_idempotent(self):
+        # TC-11 arbiter 側 / R-010: timestamp 注入で同一入力 → byte 同一 provenance
+        pp = _valid_plan_package()
+        ts = "2100-01-01T00:00:00Z"
+        data = arbiter.validate_input(_base_input(production=True, plan_package=pp))
+        p1, _ = arbiter.arbitrate(data, ho_paths_path=str(HO_PATHS_MD), timestamp=ts)
+        p2, _ = arbiter.arbitrate(data, ho_paths_path=str(HO_PATHS_MD), timestamp=ts)
+        self.assertEqual(p1["timestamp"], ts)
+        self.assertEqual(
+            json.dumps(p1, sort_keys=True), json.dumps(p2, sort_keys=True)
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

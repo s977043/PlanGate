@@ -45,10 +45,33 @@ FILENAME_TO_SCHEMA: dict[str, str] = {
 }
 
 
+def _dispatch_by_approval_kind(json_path: Path, schema_name: str) -> str:
+    """c3.json の approval_kind による schema dispatch（TASK-0872 / R-006）。
+
+    approvals/c3.json は legacy（approval_kind キーなし → c3-approval.schema.json）と
+    c3-prime（approval_kind == "c3-prime" → c3-prime.schema.json）の 2 形式が同一
+    basename を共有する。ファイル内容で判別する（契約正本:
+    docs/workflows/ai-loop/c3-prime-contract.md §4）。JSON として読めない場合は
+    legacy 側へ倒す（不正 JSON は schema 検証そのものが FAIL として捕捉する）。
+    """
+    if json_path.name != "c3.json":
+        return schema_name
+    try:
+        import json
+
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return schema_name
+    if isinstance(data, dict) and data.get("approval_kind") == "c3-prime":
+        return "c3-prime.schema.json"
+    return schema_name
+
+
 def lookup_schema(json_path: Path) -> Path | None:
     """JSON ファイルパスから対応する schema ファイルパスを返す（無ければ None）"""
     schema_name = FILENAME_TO_SCHEMA.get(json_path.name)
     if schema_name is None:
         return None
+    schema_name = _dispatch_by_approval_kind(json_path, schema_name)
     schema_path = SCHEMAS_DIR / schema_name
     return schema_path if schema_path.is_file() else None

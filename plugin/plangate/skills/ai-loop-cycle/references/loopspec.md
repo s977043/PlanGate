@@ -26,6 +26,18 @@ LoopSpec は **arbiter.py への入力そのものではない**。LoopSpec は�
 4 軸: boundary/lite/verdict/class）は LoopSpec 宣言の範囲内で毎サイクル別途生成される。
 LoopSpec 自体を裁定エンジンが直接消費するわけではない。
 
+### Plan Package からの決定論的派生（TASK-0872 / issue #872）
+
+Plan-first 正式入口（`ai-loop run TASK-XXXX`）では、LoopSpec を**手入力しない**。
+`scripts/ai-loop/plan_package.py` の `derive_loopspec()` が Plan Package
+（pbi-input / plan / todo / test-cases + C-1/C-2 evidence）から §3 の必須フィールド
+**全数**を機械導出する（同一入力 → byte 同一の冪等派生。導出不能フィールドが
+1 つでもあれば fail-closed で派生失敗）。フィールドごとの派生元（plan.md の節 or
+固定既定値）の対応表は [`c3-prime-contract.md`](./c3-prime-contract.md) §6 が正本。
+手入力 LoopSpec と派生 LoopSpec の併用は不可（派生のみが正 — Plan との重複手入力を
+排除する AC-10）。本節は production run（`production: true`）の規約であり、
+非 production の PoC 実験 run では従来どおり手書き LoopSpec を許容する。
+
 ---
 
 ## 2. LoopSpec YAML 構造
