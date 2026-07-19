@@ -108,7 +108,7 @@ LoopSpec（[`loopspec.md`](./loopspec.md) §3）の必須フィールド**全数
 
 ## 7. #873（delivery.py）への引き渡し
 
-#873 の MERGE_READY 状態機械は c3-prime を**読み取り専用**で消費する。読むフィールド: `task_id` / `decision` / `source_sha` / `plan_hash` / `plan_package_hash`。head SHA 束縛は `source_sha` を基点とし、PR head が `source_sha` の子孫でない場合は #873 側で fail-closed（本契約はフィールド提供まで。遷移規則は #873 の正本で定義）。
+issue #873 の MERGE_READY 状態機械は c3-prime を**読み取り専用**で消費する。読むフィールド: `task_id` / `decision` / `source_sha` / `plan_hash` / `plan_package_hash`。head SHA 束縛は `source_sha` を基点とし、PR head が `source_sha` の子孫でない場合は #873 側で fail-closed（本契約はフィールド提供まで。遷移規則は #873 の正本で定義）。
 
 ## 8. バージョニング
 
