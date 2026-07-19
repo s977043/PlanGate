@@ -72,6 +72,12 @@ def lookup_schema(json_path: Path) -> Path | None:
     schema_name = FILENAME_TO_SCHEMA.get(json_path.name)
     if schema_name is None:
         return None
-    schema_name = _dispatch_by_approval_kind(json_path, schema_name)
-    schema_path = SCHEMAS_DIR / schema_name
+    dispatched = _dispatch_by_approval_kind(json_path, schema_name)
+    schema_path = SCHEMAS_DIR / dispatched
+    if dispatched != schema_name and not schema_path.is_file():
+        # dispatch 先（c3-prime.schema.json）が未配置: None（=SKIP）に落とすと
+        # c3-prime artifact が沈黙スキップされる fail-open 窓になるため、存在
+        # しないパスをそのまま返し validate-schemas 側の読み込み ERROR で
+        # fail-closed にする（#887 F-8。schema は PR-2 で配置される）。
+        return schema_path
     return schema_path if schema_path.is_file() else None

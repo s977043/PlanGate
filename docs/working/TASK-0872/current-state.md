@@ -1,9 +1,8 @@
 # Current State — TASK-0872
 
-- 更新: 2026-07-20 07:40
-- フェーズ: exec（PR-1 実装完了 → PR 作成へ）
-- Mode: critical / c3.json APPROVED（plan_hash 1af8d43e…・validate PASS）
-- 直近の完了: T-1〜T-13（TDD 全 GREEN: test_plan_package 20 / test_arbiter 246 / test_metrics 40 / test_discovery / run-tests 404 passed・1 fail は TA-54 TC-05 の未コミット偽陽性 = commit 後解消見込み）
-- 実装済み: c3-prime-contract.md（契約正本・#873 共有）/ plan_package.py + テスト / arbiter priority 1.6・1.65 + production/plan_package/timestamp 注入 / schema_mapping dispatch（R-006）/ sync 列挙（R-008）/ docs 4 本 / SKILL ×2 + plugin sync（agents==plugin cmp 一致・2 回目 no-op）
-- 次のアクション: PR-1 の commit → push → PR 作成 → run-tests 再確認 → C-4（H-2）
-- 残: PR-2（HO patch: c3-prime.schema.json / bin/plangate 両受理 / command run 入口 / E2E extras）は PR-1 マージ後
+- 更新: 2026-07-20 08:05
+- フェーズ: exec（PR-1 merged #886 → #887 是正完了 = PR #888 C-4 待ち）
+- Mode: critical / c3.json APPROVED（plan_hash 1af8d43e…・不変）
+- 直近の完了: #887（PR #886 敵対的レビュー major 4）の全件是正 — evidence 判定マーカー正規化（F-1/F-5）・hash ベース stale（F-2）・decision↔verdicts 整合（F-3）・HO 先勝ちテスト（F-6）・契約 §5 是正（F-7）・schema 不在窓 FAIL 化（F-8）+ T-14 schema patch 同梱
+- 次のアクション（Human）: C-4 = PR #888 レビュー・マージ
+- マージ後の残: T-15 bin/plangate 両受理 patch → T-16 command 入口 patch → H-3 Human 適用（schema 含む）→ T-18 E2E extras fixture → T-19/20 記録

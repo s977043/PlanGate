@@ -43,6 +43,33 @@
 | R-013 | reflected | (同上 Refs: R-013) | E2E は extras パターン第一候補・CI 前提記述修正・Unknown 1 件解消 |
 | R-014 | recorded | - | 反映不要（設計裏付けの確認） |
 
+## 敵対的レビュー（PR #886 / 2026-07-20・bot quota 不在の代替 1 本・全指摘実測再現）
+
+> レーン C（敵対的・fail-open/契約乖離/priority 順序/偽装攻撃/metrics 回帰/schema dispatch の 6 観点）→ **approve**（重大 0）
+
+| ID | severity | 対象 | 指摘（要約） | 採否 |
+|----|----------|------|-------------|------|
+| R-015 | minor | schema_mapping.py + schemas/ | PR-1〜PR-2 窓で c3-prime.schema.json 不在 → validate-schemas が SKIP（latent fail-open。実害ゼロ = c3.json writer 配線未着地） | **採用**（PR-2 で schema 先行着地 + approval_kind==c3-prime かつ schema 不在は SKIP でなく FAIL 化） |
+| R-016 | minor | arbiter.py priority 1.6 | production=true + plan_package 欠落 + reject-reject が従来 BLOCKED → HUMAN_ESCALATED に変化（両者とも非承認で安全側・誤設定入力のみ） | 記録のみ（理由文への verdict 併記は過剰と判断・実害小） |
+| R-017 | minor | plan_package.py `_PATH_RE` | Files to Touch 抽出が `../../etc/passwd` 等も allowed_paths に拾う（plan.md は C-1/C-2 済み正本のため実害低・ファイル読み取りには不使用） | V2 候補（`..`/URL スキーム除外の sanitize。handoff に記載） |
+| R-018 | info | c3-prime-contract.md §7 | #873 delivery.py が arbiter decision を再検証なしに信頼しない旨（trust boundary の fail-closed 担保）を明示すべき | **採用**（PR-2 で §7 に 1 文追記） |
+
+## 複数エージェントレビュー（PR #888 / 2026-07-20・Codex ×2 + Sonnet 独立）
+
+> レーン: Codex A（conditional）/ Codex B（reject・ただし reject 理由は PR-2 スコープの受理側未実装＝本 PR 対象外）/ Sonnet 独立（approve）。分裂の争点は事実問題のためオーガナイザーが全件一次ソースで再現裁定。
+
+| ID | severity | 対象 | 指摘 | 裁定・採否 |
+|----|----------|------|------|-----------|
+| R-019 | major | plan_package.py build_c3_prime | decision の 3 値 allowlist 検証なし（`decision="unknown"` で record 生成）— 両 Codex 一致 | **採用**（再現 CONFIRMED。`VALID_DECISIONS` allowlist + verdict allowlist + `fullmatch` 化） |
+| R-020 | major | patches/c3-prime.schema.json | `AUTO_APPROVED` + reject×2 が schema を通過（cross-field 制約なし）— Codex A | **採用**（再現 CONFIRMED。`allOf`/`if`/`then` で AUTO_APPROVED 時の両 verdict を const:approve に固定） |
+| R-021 | major | plan_package.py build_c3_prime | evidence 再読の TOCTOU で `#None` を含む record を返す— Codex B 新規バグ | **採用**（再現 CONFIRMED。再読エラーを fail-closed で raise） |
+| R-022 | major | tests/extras/ta-05 | F-8（schema 不在→ERROR）の負経路回帰テストが無い（#887 close 条件未充足）— Codex A | **採用**（ta-05 に c3-prime + schema 未配置 → 非ゼロ終了の回帰テスト追加・実測 PASS） |
+| R-023 | minor | plan_package.py `_read_evidence_marker` | プレフィックス一致だが文法外の追記行が fail-closed でない— Codex A | **採用**（プレフィックス行数 == 完全一致数を要求・負側テスト追加） |
+| R-024 | major(スコープ外) | bin/plangate | c3-prime の strict JSON 受理分岐が無い（legacy grep で誤動作）— Codex B の reject 理由 | **スコープ外**（PR-2 の T-15 で実装。本 PR は明示的に受理側を含まない。F-8 により未配置窓は fail-closed で安全） |
+| R-025 | info(スコープ外) | schemas/c3-prime.schema.json | 未配置で c3-prime は常に schema ERROR— Codex B | **スコープ外**（PR-2 の H-3 Human 適用。patch は patches/ に同梱・cross-field 制約込みで完成） |
+
+Sonnet 独立レーンの approve は上記エッジ（allowlist/cross-field/TOCTOU）を突かなかった検出力差。ただし「テスト fixture が実運用 artifact 形式と整合（#887 F-5 の再発なし）」「契約内部整合に矛盾なし」「legacy 経路非変更を実測」の確証は有用として記録。
+
 ## 指摘なしと明示された観点
 
 - レーン A: スコープ / Non-goals の相互整合、AC・9 シナリオのマッピング網羅性

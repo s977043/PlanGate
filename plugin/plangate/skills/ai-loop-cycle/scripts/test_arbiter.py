@@ -2789,6 +2789,19 @@ class PlanPackageGateTests(unittest.TestCase):
         provenance, _ = self._arbitrate(plan_package=pp)
         self.assertEqual(provenance["decision"], "BLOCKED")
 
+    def test_ho_contact_wins_over_plan_package_gate(self):
+        # #887 F-6: valid plan_package + production でも HO 接触は priority 1 が先勝ち
+        pp = _valid_plan_package()
+        provenance, reason = self._arbitrate(
+            production=True,
+            plan_package=pp,
+            changed_files=["bin/plangate"],
+            allowed_paths=["bin/plangate"],
+        )
+        self.assertEqual(provenance["decision"], "HUMAN_ESCALATED")
+        self.assertIn("priority 1:", reason)
+        self.assertEqual(provenance["boundary_check"], "touches-HO")
+
     def test_timestamp_injection_idempotent(self):
         # TC-11 arbiter 側 / R-010: timestamp 注入で同一入力 → byte 同一 provenance
         pp = _valid_plan_package()
