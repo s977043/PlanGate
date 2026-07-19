@@ -1,0 +1,10 @@
+{"ts":"2026-07-20T00:00:00Z","phase":"B-1","decision":"確認質問はスキップ（carry-over 2026-07-19 で主要論点3件は事前調査済み・ユーザー既読。PR分割/新schema有力の推奨に従い、残る設計裁量は plan の Questions/Unknowns として C-3 に委ねる）","by":"agent"}
+{"ts":"2026-07-20T00:00:00Z","phase":"B-1","decision":"事前メトリクス検証: touch候補17ファイル全実在をwc -lで実測。実数16〜17 vs 見積もり12〜16 = ratio 1.0〜1.3倍 → 採用・Risksに記録","by":"agent"}
+{"ts":"2026-07-20T00:00:00Z","phase":"B-2","decision":"c3-prime schema は新設案(B)採用: c3-approval.schema.json拡張(A)はadditionalProperties:false下でlegacy再検証リスク、bridge変換(C)はAUTO_APPROVEDのhuman承認偽装となり監査上不可","by":"agent"}
+{"ts":"2026-07-20T00:00:00Z","phase":"B-2","decision":"Plan Package検証はscripts/ai-loop/plan_package.py新設(B)採用: arbiter.pyへの直接実装(A)は純関数設計を壊しファイルI/O責務が混濁。#873 delivery.pyと同型の決定論・fail-closedモジュールとする","by":"agent"}
+{"ts":"2026-07-20T00:00:00Z","phase":"B-2","decision":"plan_hashは既存契約(plan.md単体sha256)不変のまま、artifact_hashes+plan_package_hashを加算。AC-11後方互換をbyte不変で担保","by":"agent"}
+{"ts":"2026-07-20T00:00:00Z","phase":"B-3","decision":"Mode=critical(定量: ファイル数16+・AC 11+の2軸がcritical圏、安全側不変条件)。plugin sync除外なら14〜15=high-riskのためC-3でのオーバーライド選択肢を plan に併記。PR-1(非HO)/PR-2(HO)の2スライス分割","by":"agent"}
+{"ts":"2026-07-20T00:18:00Z","phase":"C-2","decision":"2レーン並列実施: レーンA(Codex設計妥当性)=reject major5 / レーンB(コードベース整合)=conditional major3+minor4+info2。R-001〜R-014採番。R-006/007/008/013はオーガナイザーが一次ソース実測で裏取り済み(schema_mapping.py L21 / cmp実測 / sync L306 / ta-30 L86)","by":"agent"}
+{"ts":"2026-07-20T00:18:00Z","phase":"C-2反映","decision":"R-001〜R-013を1回確定反映(plan/todo/test-cases)。主要変更: Step 0契約5要件追加・source_sha不一致=BLOCK固定・TC-08をa/b分離・schema_mapping.py+sync .shをFiles to Touchへ追加・E2EはextrasパターンでHO面積縮小(test.yml除外)・実数19〜20へ更新","by":"agent"}
+{"ts":"2026-07-20T00:18:00Z","phase":"簡易C-1","decision":"Plan 7項目再実行=PASS。C-3判断材料の提示へ(critical・Human必須)","by":"agent"}
+{"ts":"2026-07-20T00:20:00Z","phase":"C-3","decision":"Human APPROVE(AskUserQuestion verbatim: APPROVE / critical 維持 (Recommended))。plan正式化PRへ進む。c3.json発行はHumanのbin/plangate approve実行","by":"human"}
