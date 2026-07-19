@@ -5,41 +5,41 @@
 
 ## 準備フェーズ
 
-- [ ] T-01 矛盾一覧の確定監査（plan 付録 A/B の rg を実行し evidence 保存。
+- [x] T-01 矛盾一覧の確定監査（plan 付録 A/B の rg を実行し evidence 保存。
   あわせて `gh issue view 871 --json body` の**成功ログを evidence 化**し、
   issue 原文の独立照合を可能にする — C-2 R-001 反映）
   - Owner: agent / depends_on: なし
   - files: `docs/working/TASK-0871/evidence/verification/terminology-audit.md`,
     `docs/working/TASK-0871/evidence/verification/issue-871-fetch.log`
   - rollback: 不要（読取・evidence 追加のみ）
-- [ ] T-02 HO 対象パス突合（touch 予定ファイルを `scripts/hooks/check-plan-hash.sh` の HO パターンと照合し、S6 の適用方式を確定）
+- [x] T-02 HO 対象パス突合（touch 予定ファイルを `scripts/hooks/check-plan-hash.sh` の HO パターンと照合し、S6 の適用方式を確定）
   - Owner: agent / depends_on: T-01
   - files: （読取のみ）
   - rollback: 不要
 
 ## 実装フェーズ
 
-- [ ] T-03 `rollout-policy.md` 新設（00_concept 冒頭「Phase 1: 導入先適用」節と lite/clean/reversible 条件・auto-approve 方針・不変条件を移設）
+- [x] T-03 `rollout-policy.md` 新設（00_concept 冒頭「Phase 1: 導入先適用」節と lite/clean/reversible 条件・auto-approve 方針・不変条件を移設）
   - Owner: agent / depends_on: T-02
   - files: `docs/workflows/ai-loop/rollout-policy.md`
   - rollback: `git revert <commit>`（新規 1 ファイルのため削除で完全復元）
-- [ ] T-04 `00_concept.md` 正本化再構成（正本宣言 / 5 責務表〔Core・ai-dev・Delivery・Evolution・Human〕/ terminal state 定義〔PR_CREATED / MERGE_READY / MERGED + 判定主体〕/ C-3'=標準・Human C-3=escalate の経路定義 / 裁定状態と Delivery 状態の区別 / 内外 Loop 区別 / active run harness 自己変更禁止 / Phase 1 節を rollout-policy 参照 1 行へ）
+- [x] T-04 `00_concept.md` 正本化再構成（正本宣言 / 5 責務表〔Core・ai-dev・Delivery・Evolution・Human〕/ terminal state 定義〔PR_CREATED / MERGE_READY / MERGED + 判定主体〕/ C-3'=標準・Human C-3=escalate の経路定義 / 裁定状態と Delivery 状態の区別 / 内外 Loop 区別 / active run harness 自己変更禁止 / Phase 1 節を rollout-policy 参照 1 行へ）
   - Owner: agent / depends_on: T-03 / 🚩 完了時 diff を Human に提示
   - files: `docs/workflows/ai-loop/00_concept.md`
   - rollback: `git revert <commit>`（本タスクを単一 commit に閉じる）
-- [ ] T-05 周辺 docs 参照整合（six-stage / adaptive / flow-detect / stop-rollback / loopspec / execution-runbook の責務・terminal state 重複を正本参照へ削減。差分が出るもののみ）
+- [x] T-05 周辺 docs 参照整合（six-stage / adaptive / flow-detect / stop-rollback / loopspec / execution-runbook の責務・terminal state 重複を正本参照へ削減。差分が出るもののみ）
   - Owner: agent / depends_on: T-04
   - files: `docs/workflows/ai-loop/*.md`
   - rollback: `git revert <commit>`
-- [ ] T-06 Core Contract 整合（§1-bis に ai-loop 実行プロファイル時の AI 責務終点 = merge-ready と正本参照を追記。Iron Law / Stop rules 本文は不変）
+- [x] T-06 Core Contract 整合（§1-bis に ai-loop 実行プロファイル時の AI 責務終点 = merge-ready と正本参照を追記。Iron Law / Stop rules 本文は不変）
   - Owner: agent / depends_on: T-04 / 🚩 CLAUDE.md 参照系。diff 提示・Human 確認
   - files: `docs/ai/core-contract.md`
   - rollback: `git revert <commit>`
-- [ ] T-07 command / skill 整合（`.claude/commands/ai-loop-workflow.md`〔HO 対象〕と `.agents/skills/ai-loop-cycle/SKILL.md`、および **`.claude/skills/ai-loop-cycle/SKILL.md`〔repo ローカル実行版・HO 外・AI 編集可。C-2 R-007 反映。並存解消方針は plan Q5 = C-3 確定〕** の PoC 表現を「恒久定義=正本参照 / 適用制限=rollout-policy 参照」に分離）
+- [x] T-07 command / skill 整合（`.claude/commands/ai-loop-workflow.md`〔HO 対象〕と `.agents/skills/ai-loop-cycle/SKILL.md`、および **`.claude/skills/ai-loop-cycle/SKILL.md`〔repo ローカル実行版・HO 外・AI 編集可。C-2 R-007 反映。並存解消方針は plan Q5 = C-3 確定〕** の PoC 表現を「恒久定義=正本参照 / 適用制限=rollout-policy 参照」に分離）
   - Owner: agent（diff 作成まで）+ human（HO 対象の適用判断） / depends_on: T-04 / 🚩 HO 接触: Human 承認前に commit しない
   - files: `.claude/commands/ai-loop-workflow.md`, `.agents/skills/ai-loop-cycle/SKILL.md`, `.claude/skills/ai-loop-cycle/SKILL.md`
   - rollback: `git revert <commit>`。Human 手適用分は Human が同 diff の逆適用で戻す
-- [ ] T-08a plugin sync 整合 **PR-1 分**（Replan 2026-07-19 / plan「2 PR 分割構成」）:
+- [x] T-08a plugin sync 整合 **PR-1 分**（Replan 2026-07-19 / plan「2 PR 分割構成」）:
   PR-1 ブランチ（T-05 commit `e8f42f0` を除く cherry-pick 構成・構成はオーケストレーター実施）上で
   `sh scripts/sync-plugin-plangate.sh` を dry-run → 同期。生成物は
   `plugin/plangate/skills/ai-loop-cycle/references/{rollout-policy,00_concept}.md` /
@@ -49,7 +49,7 @@
   - Owner: agent / depends_on: T-06, T-07, H-02 適用（PR-1 構成確定後）
   - files: `plugin/` 配下（sync スクリプト経由のみ）+ `scripts/sync-plugin-plangate.sh`（コメントのみ）
   - rollback: `git revert <commit>`（sync 再実行で再現可能）
-- [ ] T-08b plugin sync 整合 **PR-2 分**: PR-2 ブランチ（`e8f42f0` ベース）上で同 sync を実行。
+- [x] T-08b plugin sync 整合 **PR-2 分**: PR-2 ブランチ（`e8f42f0` ベース）上で同 sync を実行。
   生成物は `references/` 同名 6 本（six-stage / adaptive / flow-detect / stop-rollback /
   loopspec / execution-runbook。PR-2 合計 12 ≤ 12 を commit 前に実測）
   - Owner: agent / depends_on: **PR-1 merge 後**（正本参照リンクの解決順保証）+ T-05（`e8f42f0`）
@@ -62,7 +62,7 @@
 > TC-11（sync dry-run 差分ゼロ）は各 PR ブランチ上で成立させる。以下の
 > depends_on は PR-1 系 = T-08a、PR-2 系 = T-08b と読み替える。
 
-- [ ] T-09 link check + markdownlint（C-2 R-005 反映・コマンド/条件を固定）
+- [x] T-09 link check + markdownlint（C-2 R-005 反映・コマンド/条件を固定）
   - 対象: `git diff --name-only origin/main...HEAD -- '*.md'` の全件
   - コマンド: リポジトリ CI と同一（`.github/workflows/` の markdownlint /
     link check job 定義から実行コマンドを抽出・転記して使用。抽出結果も
@@ -71,26 +71,26 @@
   - ログ保存先: `docs/working/TASK-0871/evidence/verification/lint-linkcheck.log`
   - Owner: agent / depends_on: T-08a（PR-1）/ T-08b（PR-2） / files: evidence のみ
   - rollback: 不要
-- [ ] T-10 用語監査の再実測（plan 付録 B 全コマンド。旧定義残は採否理由を evidence 化）
+- [x] T-10 用語監査の再実測（plan 付録 B 全コマンド。旧定義残は採否理由を evidence 化）
   - Owner: agent / depends_on: T-09
   - files: `docs/working/TASK-0871/evidence/verification/`
   - rollback: 不要
-- [ ] T-11 sync dry-run 差分ゼロの最終確認（evidence 保存）
+- [x] T-11 sync dry-run 差分ゼロの最終確認（evidence 保存）
   - Owner: agent / depends_on: T-10 / rollback: 不要
-- [ ] T-12 独立レビュー（maker と別コンテキストで責務境界・C-3/C-3'・terminal state 矛盾 0 件を確認、記録）
+- [x] T-12 独立レビュー（maker と別コンテキストで責務境界・C-3/C-3'・terminal state 矛盾 0 件を確認、記録）
   - Owner: agent（別コンテキスト） / depends_on: T-11 / 🚩 矛盾 >0 は T-04〜T-07 へ差し戻し
   - rollback: 不要
 
 ## 完了フェーズ
 
-- [ ] T-13 AC-1〜AC-10 突合表（TC-14/TC-15 を含む）を evidence 化し current-state / status 更新。
+- [x] T-13 AC-1〜AC-10 突合表（TC-14/TC-15 を含む）を evidence 化し current-state / status 更新。
   **H-01 で確定した AC-9 スコープ限定・#866 別トラック化の承認結果を
   issue #871 コメントと `evidence/` の双方に記録する（C-2 R-002/R-003 反映）**
   - Owner: agent / depends_on: T-12, H-01 / rollback: 不要
 
 ## 👤 Human タスク
 
-- [ ] H-01 C-3 ゲート（同期・必須）: plan / todo / test-cases 承認、**Q1〜Q6 の確定**
+- [x] H-01 C-3 ゲート（同期・必須）: plan / todo / test-cases 承認、**Q1〜Q6 の確定**
   （Q4: AC-9 スコープ限定の明示承認 / Q5: `.claude/skills/ai-loop-cycle` 並存の扱い /
   Q6: rollout-policy 配布形態）、`approvals/c3.json` 発行。
   **承認結果（特に Q4 の scope 限定）は issue #871 へ scope 注記コメントとして残す**（C-2 R-002/R-003）
@@ -99,7 +99,7 @@
   （2026-07-19）**。patch = `evidence/ho-patch/ai-loop-workflow.md.patch`
   （`git apply --check` exit 0）。適用オペレーションは Human 実施待ち
   - depends_on: T-07 diff 提示
-- [ ] H-03 C-4 PR レビュー・merge（Human-owned 固定）
+- [x] H-03 C-4 PR レビュー・merge（Human-owned 固定）
 
 ## ⚠️ 依存関係
 
