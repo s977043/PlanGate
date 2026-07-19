@@ -37,7 +37,7 @@
   - files: `.claude/commands/ai-loop-workflow.md`, `.agents/skills/ai-loop-cycle/SKILL.md`
   - rollback: `git revert <commit>`。Human 手適用分は Human が同 diff の逆適用で戻す
 - [ ] T-08 plugin sync 整合（`sh scripts/sync-plugin-plangate.sh` を dry-run し references 同梱差分を確認。差分があれば同期し、正本に同期関係を明記）
-  - Owner: agent / depends_on: T-05, T-07
+  - Owner: agent / depends_on: T-05, T-06, T-07（plan の (S4∥S5∥S6)→S7 と一致 / C-1 F-4 反映）
   - files: `plugin/` 配下（sync スクリプト経由のみ）
   - rollback: `git revert <commit>`（sync 再実行で再現可能）
 

@@ -105,6 +105,25 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
 速く学べる順: S1（事実確定）→ S2/S3（正本確定）を先行し、周辺追従（S4〜S6）は
 正本確定後に並列化。クリティカルパスは S3。
 
+## Stop Condition / Replan Triggers（C-1 F-1 反映 / C1-LOOP-01/02）
+
+### Stop Condition（即停止・機械値）
+
+| 条件 | 機械値 | 動作 |
+|------|--------|------|
+| 独立レビュー（TC-13）の矛盾指摘 | **> 0 件** | 停止し S3〜S6 へ差し戻し（S9 🚩 と同一） |
+| HO 対象ファイル（T-07）の diff が Human 未承認 | 未承認 = 1 件でも残存 | T-07 停止・V-1 を PASS にしない（EC-1 と同一） |
+| C-3 `approvals/c3.json` が APPROVED でない | APPROVED 以外 | T-03〜T-08 着手禁止（Iron Law #1） |
+| 安全側不変条件（HO escalate / NO MERGE BY AI / lite AC-8）の移設欠落を検出 | rg 突合で欠落 **≥ 1 件** | 停止し S2/S3 を修正（R-4 / EC-4） |
+
+### Replan Triggers（plan 再生成・C-3 再承認へ戻る・機械値）
+
+| トリガ | 機械値 | 動作 |
+|--------|--------|------|
+| 編集ファイル実数が Metrics Evidence 上限を超過 | **> 12 ファイル** | 停止し follow-up PR 分割へ replan（R-2） |
+| sync dry-run 差分が正本外（`docs/workflows/ai-loop/` / plan Files 外）へ波及 | 波及 **≥ 1 ファイル** | 停止し scope 再判定・replan（R-5 / Iron Law #2） |
+| 独立レビュー差し戻しが 2 巡しても矛盾 > 0 | **2 巡超過** | plan へ差し戻し・Human C-3 再承認 |
+
 ## Files / Components to Touch
 
 - `docs/workflows/ai-loop/00_concept.md`（正本昇格・再構成）
@@ -115,6 +134,9 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
 - `docs/ai/core-contract.md`（§1-bis 参照追記・小差分）※CLAUDE.md 参照系
 - `.claude/commands/ai-loop-workflow.md`（**HO 対象**・小差分）
 - `.agents/skills/ai-loop-cycle/SKILL.md`（適用ドメイン記述の参照化）
+- `docs/ai/ai-loop/design-philosophy.md`（EC-5 / D-6 の解消先候補: §5 語彙集と
+  新正本の状態語彙定義の二重化解消。touch 要否は TC-09/EC-5 の確定結果次第
+  — 語彙集を参照化する場合のみ小差分。C-1 F-2 反映）
 - `plugin/` 同梱 references（sync スクリプト経由でのみ更新）
 
 ## Testing Strategy
@@ -152,6 +174,10 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
   併記まで行うか
 - Q3: S6 の HO 対象ファイルは本 PR に含めるか、Human 適用の別 commit に
   分離するか
+- Q4（C-1 F-3 反映）: **AC-9 の対象限定（#866 除外・ai-dev / ai-loop アーキ
+  文書に限定）は issue #871 本文の AC-9（無限定）に対する plan 側の付加で
+  あり、C-3 で Human 確定が必要**。承認時は issue #871 へ scope 注記コメント
+  を残すことを推奨
 
 ## Mode 判定
 
