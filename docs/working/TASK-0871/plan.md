@@ -38,6 +38,12 @@ policy（lite / clean / reversible）を**別レイヤーへ分離**する。既
     execution-runbook / unknown-discovery / design-philosophy ≈ **6 ファイル**（参照 1 行の追従のみ）
 - AI 見積もり: 編集 8〜12 ファイル / 実数（必須 6 + 追従 ≤6）= **最大 12**
 - ratio ≈ 1.0〜1.5（< 3 倍）→ **採用**。ratio 分は Risks R-2 に記録
+- **C-2 反映後の再計算（R-007/R-008 取り込み）**: 編集必須 = AC-10 名指し 6 +
+  rollout-policy 新設 1 + `.claude/skills/ai-loop-cycle/SKILL.md` 1 = **8**。
+  条件付き（採否理由記録のみで編集ゼロになり得る）= 周辺 docs ≤4 +
+  design-philosophy 1 + `docs/ai/ai-loop/` spec 層 3 = **≤8**。見込み 8〜16 で
+  **上限 12 を超過し得る** → Replan Trigger（>12 で follow-up 分割）を発動基準
+  とし、超過時は条件付き群（参照 1 行追従・採否記録系）を第 2 PR へ分割する
 - sync 対象確認: `scripts/sync-plugin-plangate.sh` 実在（実測）
 
 ## Approach Overview — 正本の指定方針（選択肢比較）
@@ -82,6 +88,12 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
   重大時）。判定主体: C-3' = arbiter（decision table priority 0〜6）、
   escalate 先 = Human（AC-4）
 - ai-loop は ai-dev の Plan / exec / verify を再実装せず共通利用（AC-3）
+- **C-3' と WF-00〜07 不変の両立規定（R-006 反映）**: 正本に「PlanGate 本番
+  フロー（WF-00〜07）の C-3 は常に Human・pre-exec のまま不変」「C-3' は
+  ai-loop Delivery（eligible run）に限る**別経路**であり、PlanGate C-3 を
+  置換しない」を**順序図付き**で規定する（両経路の入口分岐 → C-3 / C-3' →
+  exec → terminal state を 1 つの図で示す）。検証は TC-04 の拡張
+  （core-contract / WF 対応表の不変性確認）で行う
 - 内側 Delivery Loop（1 run: Request → MERGE_READY）と外側 Evolution Loop
   （completed runs → candidate → experiment → improvement PR）を区別（AC-7）
 - active run は開始時の harness を最後まで保持し自己変更しない。改善は別
@@ -107,22 +119,22 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
 
 ## Stop Condition / Replan Triggers（C-1 F-1 反映 / C1-LOOP-01/02）
 
-### Stop Condition（即停止・機械値）
+### Stop Condition（即停止・機械値 + 判定手段 / R-004 反映）
 
-| 条件 | 機械値 | 動作 |
-|------|--------|------|
-| 独立レビュー（TC-13）の矛盾指摘 | **> 0 件** | 停止し S3〜S6 へ差し戻し（S9 🚩 と同一） |
-| HO 対象ファイル（T-07）の diff が Human 未承認 | 未承認 = 1 件でも残存 | T-07 停止・V-1 を PASS にしない（EC-1 と同一） |
-| C-3 `approvals/c3.json` が APPROVED でない | APPROVED 以外 | T-03〜T-08 着手禁止（Iron Law #1） |
-| 安全側不変条件（HO escalate / NO MERGE BY AI / lite AC-8）の移設欠落を検出 | rg 突合で欠落 **≥ 1 件** | 停止し S2/S3 を修正（R-4 / EC-4） |
+| 条件 | 機械値 | 判定コマンド / 証跡パス（入力元） | 動作 |
+|------|--------|----------------------------------|------|
+| 独立レビュー（TC-13）の矛盾指摘 | **> 0 件** | `evidence/verification/independent-review-<N>.md`（連番 artifact）の指摘表の行数を実測 | 停止し S3〜S6 へ差し戻し（S9 🚩 と同一） |
+| HO 対象ファイル（T-07）の diff が Human 未承認 | 承認記録の未存在 | `docs/working/TASK-0871/approvals/ho-apply-approval.md`（H-02 の承認記録）— `ls` で存在確認。未存在 = 未承認 | T-07 停止・V-1 を PASS にしない（EC-1 と同一） |
+| C-3 承認なし | `decision != "APPROVED"` | `jq -r .decision docs/working/TASK-0871/approvals/c3.json`（ファイル未存在も未承認扱い） | T-03〜T-08 着手禁止（Iron Law #1） |
+| 安全側不変条件の移設欠落 | rg 突合で欠落 **≥ 1 件** | `rg -c "touches-HO\|NO MERGE BY AI\|判定不能→false" docs/workflows/ai-loop/rollout-policy.md` を移設元 00_concept（変更前 `git show origin/main:...`）と件数突合 | 停止し S2/S3 を修正（R-4 / EC-4） |
 
-### Replan Triggers（plan 再生成・C-3 再承認へ戻る・機械値）
+### Replan Triggers（plan 再生成・C-3 再承認へ戻る・機械値 + 判定手段 / R-004 反映）
 
-| トリガ | 機械値 | 動作 |
-|--------|--------|------|
-| 編集ファイル実数が Metrics Evidence 上限を超過 | **> 12 ファイル** | 停止し follow-up PR 分割へ replan（R-2） |
-| sync dry-run 差分が正本外（`docs/workflows/ai-loop/` / plan Files 外）へ波及 | 波及 **≥ 1 ファイル** | 停止し scope 再判定・replan（R-5 / Iron Law #2） |
-| 独立レビュー差し戻しが 2 巡しても矛盾 > 0 | **2 巡超過** | plan へ差し戻し・Human C-3 再承認 |
+| トリガ | 機械値 | 判定コマンド / 証跡パス（入力元） | 動作 |
+|--------|--------|----------------------------------|------|
+| 編集ファイル実数が上限超過 | **> 12 ファイル** | `git diff --name-only origin/main...HEAD \| grep -v '^docs/working/' \| wc -l` | 停止し follow-up PR 分割へ replan（R-2） |
+| sync dry-run 差分が正本外へ波及 | 波及 **≥ 1 ファイル** | `sh scripts/sync-plugin-plangate.sh` dry-run 出力のファイル一覧を本 plan「Files / Components to Touch」節（allowlist）と突合し、一覧外の検出数を数える | 停止し scope 再判定・replan（R-5 / Iron Law #2） |
+| 独立レビュー差し戻しが 2 巡しても矛盾 > 0 | **2 巡超過** | `ls docs/working/TASK-0871/evidence/verification/independent-review-*.md \| wc -l` が **> 2** かつ最新 artifact の矛盾 > 0 | plan へ差し戻し・Human C-3 再承認 |
 
 ## Files / Components to Touch
 
@@ -137,6 +149,13 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
 - `docs/ai/ai-loop/design-philosophy.md`（EC-5 / D-6 の解消先候補: §5 語彙集と
   新正本の状態語彙定義の二重化解消。touch 要否は TC-09/EC-5 の確定結果次第
   — 語彙集を参照化する場合のみ小差分。C-1 F-2 反映）
+- `.claude/skills/ai-loop-cycle/SKILL.md`（**repo ローカル実行版・`.agents` 版と
+  別内容で並存**。L21-22 に Phase 1 制限直書きあり。HO 対象外・AI 編集可。
+  取り扱い方針は Q5 参照。R-007 反映）
+- `docs/ai/ai-loop/` の plugin 同梱 spec 層（`concept.md`〔L56 に merge-ready
+  責務表〕/ `asset-inventory.md` / `hotl-merge-entry-criteria.md` — sync の
+  `_ai_loop_spec_files` 対象）: **編集必須ではなく「参照化 or 採否理由記録」
+  対象**として TC-09 / TC-12 の走査範囲に含める（R-008 反映）
 - `plugin/` 同梱 references（sync スクリプト経由でのみ更新）
 
 ## Testing Strategy
@@ -174,10 +193,21 @@ issue Non-goals（一括移動・改名の禁止）に整合し、AC-9 を「正
   併記まで行うか
 - Q3: S6 の HO 対象ファイルは本 PR に含めるか、Human 適用の別 commit に
   分離するか
-- Q4（C-1 F-3 反映）: **AC-9 の対象限定（#866 除外・ai-dev / ai-loop アーキ
-  文書に限定）は issue #871 本文の AC-9（無限定）に対する plan 側の付加で
-  あり、C-3 で Human 確定が必要**。承認時は issue #871 へ scope 注記コメント
-  を残すことを推奨
+- Q4（C-1 F-3 / C-2 R-002 反映・**deferred-to-C3**）: **AC-9 の対象限定
+  （#866 除外・ai-dev / ai-loop アーキ文書に限定）は issue #871 本文の AC-9
+  （無限定）に対する plan 側の付加であり、C-3 で Human 明示承認が必要**。
+  **TC-09 の判定はこの未承認スコープ解釈に依存している**ため、承認なしに
+  TC-09 を PASS 判定しない。承認時は issue #871 へ scope 注記コメントを残し、
+  承認結果は issue コメント + `evidence/` の双方に記録する（R-003 の規定。
+  記録タスクは todo H-01 / T-13）
+- Q5（C-2 R-007 反映・**deferred-to-C3**）: `.claude/skills/ai-loop-cycle/SKILL.md`
+  （repo ローカル実行版・`.agents` 版と別内容並存）の扱い。本 plan では
+  Files to Touch / T-07 / 付録 B rg に追加済み（HO 外・AI 編集可）だが、
+  **並存自体の解消方針（正本一本化 or 意図的並存の明文化）は C-3 で確定**。
+  ファイルが別であるため #866 の Non-goals 除外は流用しない
+- Q6（C-2 R-009 反映・**deferred-to-C3**）: 新設 `rollout-policy.md` は plugin
+  glob 自動同梱により**雛形注記ヘッダなしで導入先へ verbatim 配布**される。
+  配布形態（そのまま配布 / 導入先向け注記ヘッダ付与）を C-3 で確定
 
 ## Mode 判定
 
@@ -225,21 +255,23 @@ adaptive-production-loop.md（§1〜6）/ decision-table.md /
 
 ## 付録 B: 用語監査コマンド例（Verification 対応）
 
+> 走査範囲は C-2 R-007/R-008 反映で `.claude/skills/` と `docs/ai/ai-loop/` を含む。
+
 ```sh
 # 独立 PoC 表現の残数（正本確定後は rollout-policy 参照へ置換されているべき）
-rg -n "独立 PoC|独立PoC" docs/workflows/ai-loop/ .claude/commands/ .agents/skills/ai-loop-cycle/
+rg -n "独立 PoC|独立PoC|隔離 PoC" docs/workflows/ai-loop/ docs/ai/ai-loop/ .claude/commands/ .agents/skills/ai-loop-cycle/ .claude/skills/ai-loop-cycle/
 
 # terminal state 表記揺れ（MERGE_READY / merge-ready の使い分けが正本定義どおりか）
-rg -n "MERGE_READY|merge-ready" docs/workflows/ai-loop/ docs/ai/core-contract.md .claude/commands/ai-loop-workflow.md .agents/skills/ai-loop-cycle/SKILL.md
+rg -n "MERGE_READY|merge-ready" docs/workflows/ai-loop/ docs/ai/ai-loop/ docs/ai/core-contract.md .claude/commands/ai-loop-workflow.md .agents/skills/ai-loop-cycle/SKILL.md .claude/skills/ai-loop-cycle/SKILL.md .claude/skills/pr-watch/SKILL.md
 
 # 裁定状態と Delivery 状態の同列列挙が残っていないか
-rg -n "AUTO_APPROVED.*(merge-ready|MERGE_READY)|（merge-ready.*AUTO_APPROVED" docs/workflows/ai-loop/
+rg -n "AUTO_APPROVED.*(merge-ready|MERGE_READY)|（merge-ready.*AUTO_APPROVED" docs/workflows/ai-loop/ docs/ai/ai-loop/
 
 # C-3' 経路の定義箇所（正本 1 箇所 + 参照のみになっているか）
-rg -c "C-3'" docs/workflows/ai-loop/*.md .claude/commands/ai-loop-workflow.md docs/ai/core-contract.md
+rg -c "C-3'" docs/workflows/ai-loop/*.md docs/ai/ai-loop/*.md .claude/commands/ai-loop-workflow.md docs/ai/core-contract.md
 
 # Phase 1 適用ドメイン注記の重複（正本参照 1 行化の進捗）
-rg -c "適用ドメイン（Phase 1）" docs/workflows/ai-loop/ .agents/skills/ai-loop-cycle/
+rg -c "適用ドメイン（Phase 1）" docs/workflows/ai-loop/ docs/ai/ai-loop/ .agents/skills/ai-loop-cycle/ .claude/skills/ai-loop-cycle/
 
 # 5 責務語彙の定義箇所（PlanGate Core / ai-dev / ai-loop Delivery / Evolution / Human）
 rg -n "ai-loop Delivery|ai-loop Evolution" docs/
