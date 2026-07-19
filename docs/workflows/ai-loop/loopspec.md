@@ -1,7 +1,6 @@
 # LoopSpec — ループ実行境界の宣言構造
 
-> 適用ドメイン（Phase 1）: ①plangate 本体 = docs/workflows/ai-loop/ 配下のみ（dogfooding 域・本番フロー WF-00〜07 非適用）
-> ②導入先リポジトリ = ho-paths 確定 + LoopSpec scope.allowed_paths 宣言を前提に適用可
+> 適用制限（Phase 1 rollout eligibility）の正本: [`rollout-policy.md`](./rollout-policy.md)
 > 対応 issue: [#726](https://github.com/s977043/plangate/issues/726)（4層エンジニアリングモデル・LoopSpec 提案）
 > 準拠する第一原理（`docs/ai/ai-loop/design-philosophy.md` §2）:
 > **I-1**（承認境界の不可侵）・**I-4**（安全側デフォルト）・
@@ -40,7 +39,7 @@ loop:
   goal:
     description: string # 必須。このループで達成する目的（自然文）
     exit_criteria_ref:
-      string # 必須。merge-ready 到達条件の参照先
+      string # 必須。MERGE_READY 到達条件の参照先
       # （00_concept.md §3.3 の DoD、または個別 plan の AC）
   context:
     include: # 必須（最低1件）。持ち込む情報の種類（internal（正本・生成 memory 由来）専用）
@@ -92,7 +91,7 @@ loop:
 | `loop.trigger.type`                             | 必須                      | なし                                                                 | `manual` / `issue_created` / `pr_opened` / `scheduled` の4値                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `loop.trigger.detail`                           | 任意                      | 空                                                                   | scheduled 時の実行条件補足                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `loop.goal.description`                         | 必須                      | なし                                                                 | 自然文での目的記述                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `loop.goal.exit_criteria_ref`                   | 必須                      | なし（**安全側**: 未指定は closed loop 扱い不可＝polling 扱い、I-4） | merge-ready 到達条件の参照先                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `loop.goal.exit_criteria_ref`                   | 必須                      | なし（**安全側**: 未指定は closed loop 扱い不可＝polling 扱い、I-4） | `MERGE_READY` 到達条件の参照先                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `loop.context.include`                          | 必須（1件以上）           | なし                                                                 | 持ち込む情報の種類の列挙                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `loop.context.exclude`                          | 必須（0件可だが明示必須） | 空配列でも明示要                                                     | stale 情報の除外を宣言的に強制する（黙示の「見せない」を許さない）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `loop.context.external_sources`                 | 必須（0件可だが明示必須） | 空配列でも明示要                                                     | 外部入力由来の出典を**別リストで明示宣言**する（exclude と同じ「黙示を許さない」I-4 型）。**転記規律**: external_sources の内容は memory（`decision_record` / `plan_memory` / `run_frictions` — `loop.memory.write` の値表記と一致）へ**直接転記せず、出典つき引用（URL/ID + 引用範囲）として記録する**（F-14 の証跡規律に接続。W チェック Model B の検査対象）。**internal / external の判定に迷う場合は external 側に倒す（I-4）**。過去の run 記録・frictions に出典つき引用として記録済みの外部テキストは internal（生成 memory 由来）として扱ってよいが、生テキストの再持ち込みは external として再宣言する。同一情報源を exclude と external_sources の両方に書いた場合は **exclude が優先**（見せない > 見せるが隔離） |
@@ -168,7 +167,7 @@ loop:
     detail: "labels: docs-only かつ ai-loop-eligible"
   goal:
     description: "docs/ 配下の typo・リンク切れを検知し修正 PR を作る"
-    exit_criteria_ref: "00_concept.md §3.3（merge-ready = DoD 状態）"
+    exit_criteria_ref: "00_concept.md §3.3（MERGE_READY = DoD 状態）"
   context:
     include:
       - related_issue
@@ -222,7 +221,7 @@ Memory / Schedule / Boundary** の6要素）に一本化している。LoopSpec 
 
 | adaptive-production-loop.md §4 contract                | LoopSpec 上の対応フィールド                                                                      |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Goal（merge-ready 到達条件が明示）                     | `loop.goal.description` + `loop.goal.exit_criteria_ref`                                          |
+| Goal（`MERGE_READY` 到達条件が明示）                     | `loop.goal.description` + `loop.goal.exit_criteria_ref`                                          |
 | Evaluate（C-1/C-2/C-3'/CI/AI review/DoD の判定点）     | `loop.verification.deterministic` + `loop.verification.review`                                   |
 | Stop（terminal state がある）                          | `loop.stopping_rule.terminal_state_ref` + `loop.stopping_rule.round_limit_ref`                   |
 | Memory（decision record 等の保存）                     | `loop.memory.write` + `loop.memory.ref`                                                          |
