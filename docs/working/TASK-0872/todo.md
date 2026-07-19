@@ -33,7 +33,8 @@
 - [ ] 🚩 T-14: `schemas/c3-prime.schema.json` patch 生成 + `python3 -c "import json; json.load(...)"` 検証（AI は適用しない）[Owner: agent] [depends_on: T-13] [files: docs/working/TASK-0872/patches/] rollback: patch 破棄
 - [ ] 🚩 T-15: `bin/plangate` validate / exec preflight の c3-prime 両対応 patch 生成 + sandbox で dry-run 検証（legacy c3 経路無変更を diff で証明）[Owner: agent] [depends_on: T-14] [files: docs/working/TASK-0872/patches/] rollback: patch 破棄
 - [ ] T-16: `.claude/commands/ai-loop-workflow.md`（+plugin sync 対）の run 入口 TASK-XXXX 必須化 patch 生成。**入口レベルの検証（TASK ID なし → W チェック未実行で停止 / TASK-XXXX あり → 後続へ進む）を T-18 の E2E に含める（R-001）** [Owner: agent] [depends_on: T-15] [files: docs/working/TASK-0872/patches/] rollback: patch 破棄
-- [ ] 🚩 T-18: E2E fixture 作成 — `tests/extras/ta-NN-c3-prime.sh` + `tests/fixtures/<name>/` の既存パターン採用（run-tests.sh 自動 source・test.yml touch 不要 / R-013）。カバー: 入口 TASK ID 必須（R-001）/ valid Package → arbiter → c3-prime → validate PASS → preflight PASS / plan 1 byte 改変 → FAIL / **source_sha のみ変更 → BLOCK（R-003）**。TA-30 に plan_package テストの展開先自立 PASS を追加（R-008）[Owner: agent] [depends_on: T-15] [files: tests/extras/, tests/fixtures/] rollback: fixture 削除
+- [ ] 🚩 T-18: E2E fixture 作成 — `tests/extras/ta-NN-c3-prime.sh` + `tests/fixtures/<name>/` の既存パターン採用（run-tests.sh 自動 source・test.yml touch 不要 / R-013）。カバー: 入口 TASK ID 必須（R-001）/ valid Package → arbiter → c3-prime → validate PASS → preflight PASS / plan 1 byte 改変 → FAIL / **source_sha のみ変更 → BLOCK（R-003）**。TA-30 に plan_package テストの展開先自立 PASS を追加（R-008）[Owner: agent] [depends_on: T-15, T-16] [files: tests/extras/, tests/fixtures/] rollback: fixture 削除
+  - 注: T-17 は欠番（C-2 R-013 反映で旧 T-17「CI 配線 patch」を本タスクへ統合した監査痕跡として番号を保持）
 
 ### 完了フェーズ
 

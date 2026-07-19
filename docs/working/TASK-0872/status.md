@@ -1,6 +1,6 @@
 # STATUS — TASK-0872
 
-> Issue: #872（P0）/ Mode: critical / 現在フェーズ: C-2 実行中
+> Issue: #872（P0）/ Mode: critical / 現在フェーズ: C-3 承認済み（マージ・実行待ち）
 
 ## フェーズ履歴
 
@@ -16,10 +16,11 @@
 
 ## 残タスク
 
-- [ ] C-2 結果の R-NNN 集約（review-external.md）
-- [ ] （指摘あれば）1 回確定反映 → 簡易 C-1 再実行
-- [ ] C-3 Human 判断材料の提示（critical のため人間必須）— **ここで停止**
-- [ ] （C-3 APPROVED 後）exec: todo.md T-1〜（PR-1 → PR-2）
+- [x] C-2 結果の R-NNN 集約（review-external.md）
+- [x] （指摘あれば）1 回確定反映 → 簡易 C-1 再実行
+- [x] C-3 Human 判断材料の提示（critical のため人間必須）→ APPROVED・c3.json 発行済み
+- [ ] C-4: PR #885 レビュー・マージ（Human）
+- [ ] （マージ後）exec: todo.md T-1〜（PR-1 → PR-2）
 
 ## モード判定結果
 
