@@ -170,3 +170,8 @@
 {"ts":"2026-07-16T05:25:33Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a94d459ee79f6b93b/.agents/skills/README.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-19T02:05:24Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/carry-over.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-07-19T02:57:10Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/carry-over.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-19T03:12:47Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/carry-over.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-19T03:21:42Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/feedback_maintenance_token_discipline.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-19T03:21:48Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-19T03:49:10Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/carry-over.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-07-19T03:49:19Z","event":"EH-3_DOC_LIGHT_SKIP","target":"<external:ai-second-brain>/08 Agent Context/memory/plangate/carry-over.md","acknowledged_by":null,"acknowledged_at":null}
