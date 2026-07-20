@@ -108,6 +108,23 @@ reviewer_evidence を build_c3_prime の必須 distinct 引数として扱う運
 - (A) `scripts/ai-loop/*_verify.py`（または本ファイル）を HO 9 カテゴリへ追加（`check-plan-hash.sh` + `mode-classification.md` = ともに HO を Human patch 適用）→ 機械強制を回復。以後 verifier 編集も HO ceremony
 - (B) 現状維持 + handoff に V2/known-issue として明示（セキュリティ関連 = 最低「中」の判断依存保護は残る）
 
+## PR #889 3 ラウンド目レビュー（2026-07-20・ユーザー指示・Codex + Sonnet 独立・head ee08c45）
+
+> R2 是正後の最新状態を再レビュー。Codex=conditional（環境の書込制限で動的テスト未実行=検証不能・穴の検出ではない）/ Sonnet=conditional approve（核心すべて実測健全・minor のみ）。新規 critical/high なし。
+
+| ID | severity | lane | 指摘 | 是正 |
+|----|----------|------|------|------|
+| R3-01 | minor | Codex | patch ファイルの trailing whitespace（`git diff --check`）| **是正**: 完成形 `.new` は whitespace ゼロ。原因は unified diff の空行 context マーカー → `patches/.gitattributes`（`*.patch -whitespace`）で除外（check-attr で unset 確認） |
+| R3-02 | minor | Sonnet | artifact_hashes 個別改竄（plan.md 以外）の専用テスト欠落（L143-148 ループ未到達）| **是正**: `test_artifact_hashes_individual_tampering`（todo/test-cases/pbi-input/review-external の 4 subtest）追加。計 12 テスト |
+| R3-03 | info | Sonnet | known-issues KI-1 の "verbatim" 主張が repo に一次証跡なし | **是正**: decision-log.jsonl に選択肢ラベル原文「B: 現状維持 + V2 明記」を追記（監査可能化）|
+| R3-04 | minor | Sonnet | ho-apply 切り戻しが cp 経路（`git checkout -- bin/plangate`）を欠く | **是正**: ho-apply-approval.md に cp 経路の切り戻しを併記 |
+| R3-05 | info | Sonnet | 契約 §4 の expected_sha=None（静的 validate は形式チェックのみ）が読みにくい | **是正**: 契約 §4 に 1 文追記 |
+| — | 指摘なし | 両 | 契約↔実装 1:1（全 11 規則）・producer 非依存テスト・legacy 後方互換（byte-identical）・HO patch 適用後 byte 一致 + validate/exec 4 パターン実測・run-tests 411 passed | Sonnet が HO patch を独自適用した sandbox で validate/exec を実測し健全確認 |
+
+**CI 実測**: Analyze (python)=CodeQL は GitHub 503 障害中の「Perform CodeQL Analysis」step 失敗（インフラ）→ 復旧後**再実行で pass**。全 checks green・MERGEABLE を実測確定。
+
+3 ラウンドの敵対レビューで穴が収束（R1 表層 → R2 evidence/task_id/独立性の深層 → R3 は test 網羅と doc 精度のみ）。受理側の偽造耐性が実測で確立。
+
 ## 指摘なしと明示された観点
 
 - レーン A: スコープ / Non-goals の相互整合、AC・9 シナリオのマッピング網羅性

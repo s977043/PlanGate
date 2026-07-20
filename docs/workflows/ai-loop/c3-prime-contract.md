@@ -81,7 +81,7 @@ C-1/C-2 いずれか**単独**の異常でも `AUTO_APPROVED` にならない（
 | `decision == "AUTO_APPROVED"` だが reviewers の verdict に `reject` を含む | **BLOCK**（decision↔verdicts 不整合 record = 改竄兆候。#887 F-3 の受理側検証） |
 | `plan_hash` ≠ 現 plan.md sha256 | FAIL（stale・legacy と同一規則） |
 | `artifact_hashes` のいずれか ≠ 現ファイル sha256 | FAIL（stale。**不一致エントリ名を失敗メッセージに含む**） |
-| `source_sha` ≠ 検証時点の対象 SHA | **BLOCK（警告に降格しない fail-closed 固定 / R-003）**。exec preflight は `git rev-parse HEAD` を `expected_sha` として受理器へ渡し厳密照合する（#889 critical）。静的 validate は expected_sha を渡さず構造・束縛のみ検証 |
+| `source_sha` ≠ 検証時点の対象 SHA | **BLOCK（警告に降格しない fail-closed 固定 / R-003）**。exec preflight は `git rev-parse HEAD` を `expected_sha` として受理器へ渡し厳密照合する（#889 critical）。静的 validate は `expected_sha` を渡さないため source_sha は**形式チェックのみ**（HEAD 一致照合はしない）。SHA 一致の強制点は exec |
 | トップレベルに `c3_status` / 未知キー / 必須キー欠落 | **FAIL**（構造 allowlist・#889 critical。`^_` 注釈キーのみ許容） |
 | 受理器（`c3prime_verify.py`）が実在しない | c3-prime は **FAIL**（検証不能。`approval_kind` キーが物理的に無い場合のみ legacy 委譲 / #889 high fallback） |
 | 同一 TASK に legacy と c3-prime が併存 | **物理的に不可能**（同一パス `approvals/c3.json` のため）。上書きは `--force` 相当の明示操作のみ（EC-5 の解決） |

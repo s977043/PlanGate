@@ -55,7 +55,9 @@ python3 scripts/ai-loop/c3prime_verify.py --help 2>/dev/null || true
 **切り戻し（R2-09 / run-tests.sh が新規 FAIL を出した場合）**:
 
 ```sh
-git apply -R docs/working/TASK-0872/patches/bin-plangate.patch   # bin/plangate を戻す
+# bin/plangate を戻す（適用方法に応じて選ぶ）:
+git apply -R docs/working/TASK-0872/patches/bin-plangate.patch   # git apply で適用した場合
+# git checkout -- bin/plangate                                    # cp .new で適用した場合はこちら
 git checkout -- .claude/commands/ai-loop-workflow.md plugin/plangate/commands/ai-loop-workflow.md
 rm -f schemas/c3-prime.schema.json
 sh scripts/sync-plugin-plangate.sh && sh tests/run-tests.sh      # 非退行を再確認

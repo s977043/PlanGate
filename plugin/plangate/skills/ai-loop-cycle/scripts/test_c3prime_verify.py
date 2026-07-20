@@ -169,6 +169,18 @@ class C3PrimeVerifyTests(unittest.TestCase):
             check("issued_at 不正", lambda r: r.update({"issued_at": "not-a-date"}))
             check("非 string 注釈", lambda r: r.update({"_note": 123}))
 
+    def test_artifact_hashes_individual_tampering(self):
+        # Sonnet minor: plan.md 以外の個別 artifact 改竄 → artifact_hashes 不一致で reject
+        # （L143-148 の for name in ARTIFACTS ループの回帰網。plan.md はトップレベル
+        #  plan_hash チェックで先に落ちるため別ファイルで到達させる）
+        for name in ("todo.md", "test-cases.md", "pbi-input.md", "review-external.md"):
+            with self.subTest(artifact=name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    d = tpp._make_task_dir(tmp)
+                    _build_valid(d)
+                    (d / name).write_text((d / name).read_text() + "x")
+                    self.assertEqual(_run(d), 1, f"{name} 改竄が受理された")
+
     def test_r2_expected_sha_required_at_exec(self):
         # exec 相当（expected_sha 指定）では偽 source_sha を BLOCK
         with tempfile.TemporaryDirectory() as tmp:
