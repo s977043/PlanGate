@@ -1,0 +1,19 @@
+diff --git a/.claude/commands/ai-loop-workflow.md b/.claude/commands/ai-loop-workflow.md
+index 625eb6e..c3e8cad 100644
+--- a/.claude/commands/ai-loop-workflow.md
++++ b/.claude/commands/ai-loop-workflow.md
+@@ -18,7 +18,13 @@ arbiter 裁定 → exec → rubric grader）。本コマンドは前提確認と
+ 
+ $ARGUMENTS に以下の形式で渡される:
+ 
+-- `run <対象の説明>` — 新しい run を開始（LoopSpec 作成から）
++- `run TASK-XXXX` — **Plan-first の正式入口**（TASK ID 必須）。既存の Plan Package
++  （pbi-input / plan / todo / test-cases + C-1/C-2 evidence）を起点に production run を
++  開始する。LoopSpec は `scripts/ai-loop/plan_package.py` の `derive_loopspec()` で
++  Plan Package から決定論派生し、`production: true` + `plan_package` ブロックを
++  arbiter へ渡す（契約正本: `docs/workflows/ai-loop/c3-prime-contract.md`）。
++  TASK ID を伴わない自由文だけの `run <説明>` は **production run を開始できない**
++  （TASK-0872 / #872。Plan Package 束縛の無い run を Wチェックへ進めない）
+ - `status` — 直近 run の状態・decision record・摩擦台帳の要約を表示
+ - （引数なし） — 前提チェックのみ実施して結果を報告
+ 

@@ -70,7 +70,7 @@ C-1/C-2 いずれか**単独**の異常でも `AUTO_APPROVED` にならない（
 
 ## 4. stale / 受理規則（AC-7 / AC-8 / AC-9）
 
-受理側（`bin/plangate validate` / exec preflight — PR-2）は `approval_kind` の有無で分岐する:
+受理側（`bin/plangate validate` / exec preflight — PR-2）は `approval_kind` の有無で分岐する。**受理側は decision 値を無検証で信頼せず、以下の全規則を strict JSON で再検証する**（trust boundary / #887 F-4 / #889 critical）。トップレベルは必須キー allowlist（`c3_status` および未知キーは reject）+ `task_id`（`TASK-XXXX`）+ `phase`（`C-3'`）+ evidence/policy/issued の非空を含む:
 
 | 条件 | 判定 |
 |------|------|
@@ -81,10 +81,18 @@ C-1/C-2 いずれか**単独**の異常でも `AUTO_APPROVED` にならない（
 | `decision == "AUTO_APPROVED"` だが reviewers の verdict に `reject` を含む | **BLOCK**（decision↔verdicts 不整合 record = 改竄兆候。#887 F-3 の受理側検証） |
 | `plan_hash` ≠ 現 plan.md sha256 | FAIL（stale・legacy と同一規則） |
 | `artifact_hashes` のいずれか ≠ 現ファイル sha256 | FAIL（stale。**不一致エントリ名を失敗メッセージに含む**） |
-| `source_sha` ≠ 検証時点の対象 SHA | **BLOCK（警告に降格しない fail-closed 固定 / R-003）**。再 C-1/C-2/C-3' を要求 |
+| `source_sha` ≠ 検証時点の対象 SHA | **BLOCK（警告に降格しない fail-closed 固定 / R-003）**。exec preflight は `git rev-parse HEAD` を `expected_sha` として受理器へ渡し厳密照合する（#889 critical）。静的 validate は `expected_sha` を渡さないため source_sha は**形式チェックのみ**（HEAD 一致照合はしない）。SHA 一致の強制点は exec |
+| トップレベルに `c3_status` / 未知キー / 必須キー欠落 | **FAIL**（構造 allowlist・#889 critical。`^_` 注釈キーのみ許容） |
+| 受理器（`c3prime_verify.py`）が実在しない | c3-prime は **FAIL**（検証不能。`approval_kind` キーが物理的に無い場合のみ legacy 委譲 / #889 high fallback） |
 | 同一 TASK に legacy と c3-prime が併存 | **物理的に不可能**（同一パス `approvals/c3.json` のため）。上書きは `--force` 相当の明示操作のみ（EC-5 の解決） |
 
 EH-3 hook（`check-plan-hash.sh`）は top-level `plan_hash` のみを strict JSON で読むため、c3-prime に対しても**無変更で機能**する（非退行・本契約が plan_hash を legacy と同一義で保持する理由）。
+
+**TOCTOU の残余窓（#889 high・既知制約）**: 受理器は exec preflight で再検証するが、検証成功から `session_started` 記録までの 1 shell 文の窓で外部プロセスが artifact を書き換える理論的余地は残る（ローカル書込レースが前提）。緩和として **exec preflight が受理検証の実点**であり（validate だけでなく exec 直前に再検証）、session 開始は直後に続く。Phase 1（隔離 PoC）ではこの残余窓を許容し、将来 flock ベースの単一 snapshot 検証を V2 候補とする（handoff 記載）。
+
+**受理側の再検証範囲（#889 R2 critical/high 反映）**: 受理器（`c3prime_verify.py`）は record の binding hash だけでなく **C-1/C-2 evidence marker を再検証**（`plan_package.check_evidence` を受理側でも実行）し、`task_id` を **task_dir 名に束縛**し、両 reviewer の `evidence_ref` **独立性**を要求し、issued_at 形式・reviewer/snapshot キーの `additionalProperties:false` 相当を強制する。exec は HEAD を解決できない環境では c3-prime を **BLOCK**（source_sha 照合を skip して受理しない・fail-closed）。
+
+**脅威モデルの境界（V2 候補）**: 現行はローカル作業ツリーの改竄検出（承認後の drift・evidence 改竄）を対象とする。record と作業ツリーの**双方**を任意に書換できる攻撃者（同一整合な偽造一式の構築）は、`source_sha` の Git tree との照合または署名済み provenance でのみ防げる。Phase 1（eligible run 限定・boundary=clean・信頼済みローカル repo）ではこれを scope 外とし、git-tree 束縛/署名を V2 候補として handoff に記載する。
 
 ## 5. serialization 制約（R-009 / #887 F-7 是正）
 

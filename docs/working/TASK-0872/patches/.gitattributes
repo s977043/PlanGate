@@ -1,0 +1,4 @@
+# 生成された unified diff 成果物。空行の context マーカー（行頭 1 空白）を含むため
+# git diff --check の trailing-whitespace 検査対象から除外する（#889 Codex minor）。
+# 実適用対象の完成形（*.new）は trailing whitespace ゼロを別途保証している。
+*.patch -whitespace

@@ -70,6 +70,61 @@
 
 Sonnet 独立レーンの approve は上記エッジ（allowlist/cross-field/TOCTOU）を突かなかった検出力差。ただし「テスト fixture が実運用 artifact 形式と整合（#887 F-5 の再発なし）」「契約内部整合に矛盾なし」「legacy 経路非変更を実測」の確証は有用として記録。
 
+## PR #889 受理側の Codex 敵対的レビュー（2026-07-20・reject → 全件是正）
+
+> 受理側（承認境界・セキュリティ critical）に Codex 敵対的レビュー 1 本。全指摘をオーガナイザーが一次ソースで再現裁定。
+
+| ID | severity | 対象 | 指摘 | 再現 | 是正 |
+|----|----------|------|------|------|------|
+| R-026 | **critical** | c3prime_verify.py | 偽造 record（source_sha 不整合・必須欠落・c3_status 混入・未知キー）を AUTO_APPROVED 受理 | **CONFIRMED**（exit 0） | **是正**: 構造 allowlist + 必須キー + c3_status 拒否 + task_id/phase + evidence/policy/issued 非空 + optional expected_sha 照合（exec で HEAD 強制） |
+| R-027 | high | bin/plangate `_plangate_c3_dispatch` | 受理器不在時、`approval_kind=[]`/null/不正 JSON が legacy(10) に委譲され grep が受理 | **CONFIRMED**（rc=10） | **是正**: fallback を「approval_kind キーが物理的に無い場合のみ 10、存在すれば値不問で 1」へ |
+| R-028 | high | c3prime_verify.py / exec | TOCTOU: 検証成功〜session_start の窓で artifact 書換余地 | 妥当（ローカル書込レース前提） | **緩和 + 契約明記**: exec preflight が再検証の実点。残余窓は Phase 1 許容・flock 単一 snapshot は V2 候補（契約 §4） |
+| R-029 | medium | ta-55 | producer 経由 record のみで受理側偽造耐性を検証していない | 妥当 | **是正**: `test_c3prime_verify.py` 新設（producer 非依存の手 mutate 14 パターン）+ ta-55 に手偽造ケース追加 |
+| R-030 | info | bin/plangate `\|\| _c3_rc=$?` | 指摘なし（set -e 安全を確認） | — | 変更不要 |
+
+Codex の critical/high は受理側の実バグで、単独レビューでは見つかっていた（オーガナイザーの sandbox 実適用テストは exit code は見たが偽造耐性は見ていなかった＝受理側の敵対レビューが機能した好例）。
+
+## PR #889 再レビュー（2026-07-20・ユーザー指示・Codex R2 + Sonnet 独立）
+
+> 是正後 head 357a11a を再レビュー。Codex R2=**reject**（より深い critical/high 検出）/ Sonnet=conditional（HO ガバナンス major）。全件一次ソース再現裁定。
+
+| ID | severity | lane | 指摘 | 再現 | 是正 |
+|----|----------|------|------|------|------|
+| R2-01 | **critical** | Codex | 受理器が C-1/C-2 evidence 内容を再検証せず、FAIL/reject/marker 無し evidence + 再 hash 済み record が HEAD 照合付きでも受理 | **CONFIRMED**（exit 0） | **是正**: 受理側でも `plan_package.check_evidence` を実行し marker/stale を再検証 |
+| R2-02 | high | Codex | task_id が task_dir に非束縛（TASK-0001 record を TASK-9999 dir で受理） | **CONFIRMED** | **是正**: `task_dir.name == task_id` を必須化 |
+| R2-03 | high | Codex | reviewer 独立性偽装（model_a==model_b 同一 snapshot/evidence 受理） | CONFIRMED | **是正**: 両者の `evidence_ref` 相異を必須化 |
+| R2-04 | high | Codex | 非 git exec で HEAD 空 → expected_sha 照合 skip で受理（fail-open） | 妥当（環境制約で Codex 未実行・オーガナイザーが sandbox 実測） | **是正**: c3-prime かつ HEAD 空は exec で即 BLOCK |
+| R2-05 | medium | Codex | schema 同等の nested 制約未実施（issued_at 形式・extra reviewer・snapshot 未知キー・非 string 注釈） | CONFIRMED（4 ケース） | **是正**: 受理器に型・additionalProperties 相当・注釈型・reviewer/snapshot キー exactness を追加 |
+| R2-06 | medium | Codex | sync に c3prime_verify.py / test 欠落（plugin 配布不完全） | CONFIRMED | **是正**: sync-plugin-plangate.sh の copy + delete-protection 両列挙へ追加 |
+| R2-07 | **major** | Sonnet | 受理ロジックが HO 機械強制対象外（`scripts/ai-loop/*.py`）へ移動 → 非 HO PR で受理ゲートを静かに弱められる | **裏取り済**（HO 9 カテゴリ case 文に非該当） | **Human 判断待ち**（下記）— HO リスト追加は `check-plan-hash.sh` + `mode-classification.md`（ともに HO）編集を要する承認境界ガバナンス決定 |
+| R2-08 | minor | Sonnet | test にネスト経路（artifact_hashes 個別/plan_package_hash 単独/evidence_ref 欠落）専用ケース不足 | 妥当 | **是正**（R2-05 の nested テストで大半カバー・handoff に残記載） |
+| R2-09 | minor | Sonnet | ho-apply に切り戻し手順（git apply -R）記載なし | 妥当 | handoff/次コミットで追記予定 |
+
+reviewer_evidence を build_c3_prime の必須 distinct 引数として扱う運用に。脅威モデル境界（record+tree 双方書換可能な攻撃者は git-tree 束縛/署名でのみ防御 = V2）は契約 §4 に明記。
+
+### R2-07（HO ガバナンス）— Human 判断が必要
+
+受理検証ロジックが非 HO の `scripts/ai-loop/c3prime_verify.py` にあるため、将来の非 HO PR 単独で承認ゲートを弱められる。選択肢:
+- (A) `scripts/ai-loop/*_verify.py`（または本ファイル）を HO 9 カテゴリへ追加（`check-plan-hash.sh` + `mode-classification.md` = ともに HO を Human patch 適用）→ 機械強制を回復。以後 verifier 編集も HO ceremony
+- (B) 現状維持 + handoff に V2/known-issue として明示（セキュリティ関連 = 最低「中」の判断依存保護は残る）
+
+## PR #889 3 ラウンド目レビュー（2026-07-20・ユーザー指示・Codex + Sonnet 独立・head ee08c45）
+
+> R2 是正後の最新状態を再レビュー。Codex=conditional（環境の書込制限で動的テスト未実行=検証不能・穴の検出ではない）/ Sonnet=conditional approve（核心すべて実測健全・minor のみ）。新規 critical/high なし。
+
+| ID | severity | lane | 指摘 | 是正 |
+|----|----------|------|------|------|
+| R3-01 | minor | Codex | patch ファイルの trailing whitespace（`git diff --check`）| **是正**: 完成形 `.new` は whitespace ゼロ。原因は unified diff の空行 context マーカー → `patches/.gitattributes`（`*.patch -whitespace`）で除外（check-attr で unset 確認） |
+| R3-02 | minor | Sonnet | artifact_hashes 個別改竄（plan.md 以外）の専用テスト欠落（L143-148 ループ未到達）| **是正**: `test_artifact_hashes_individual_tampering`（todo/test-cases/pbi-input/review-external の 4 subtest）追加。計 12 テスト |
+| R3-03 | info | Sonnet | known-issues KI-1 の "verbatim" 主張が repo に一次証跡なし | **是正**: decision-log.jsonl に選択肢ラベル原文「B: 現状維持 + V2 明記」を追記（監査可能化）|
+| R3-04 | minor | Sonnet | ho-apply 切り戻しが cp 経路（`git checkout -- bin/plangate`）を欠く | **是正**: ho-apply-approval.md に cp 経路の切り戻しを併記 |
+| R3-05 | info | Sonnet | 契約 §4 の expected_sha=None（静的 validate は形式チェックのみ）が読みにくい | **是正**: 契約 §4 に 1 文追記 |
+| — | 指摘なし | 両 | 契約↔実装 1:1（全 11 規則）・producer 非依存テスト・legacy 後方互換（byte-identical）・HO patch 適用後 byte 一致 + validate/exec 4 パターン実測・run-tests 411 passed | Sonnet が HO patch を独自適用した sandbox で validate/exec を実測し健全確認 |
+
+**CI 実測**: Analyze (python)=CodeQL は GitHub 503 障害中の「Perform CodeQL Analysis」step 失敗（インフラ）→ 復旧後**再実行で pass**。全 checks green・MERGEABLE を実測確定。
+
+3 ラウンドの敵対レビューで穴が収束（R1 表層 → R2 evidence/task_id/独立性の深層 → R3 は test 網羅と doc 精度のみ）。受理側の偽造耐性が実測で確立。
+
 ## 指摘なしと明示された観点
 
 - レーン A: スコープ / Non-goals の相互整合、AC・9 シナリオのマッピング網羅性
