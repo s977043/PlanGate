@@ -48,9 +48,20 @@ cp docs/working/TASK-0872/patches/c3-prime.schema.json schemas/c3-prime.schema.j
 
 # 4. 検証（適用後）
 sh scripts/sync-plugin-plangate.sh            # drift 0 確認
-sh tests/run-tests.sh                          # TA-55 の HO 全鎖テストが SKIP→PASS へ
+sh tests/run-tests.sh                          # TA-55 の HO 全鎖テストが SKIP→PASS / legacy 全テスト非退行 PASS
 python3 scripts/ai-loop/c3prime_verify.py --help 2>/dev/null || true
 ```
+
+**切り戻し（R2-09 / run-tests.sh が新規 FAIL を出した場合）**:
+
+```sh
+git apply -R docs/working/TASK-0872/patches/bin-plangate.patch   # bin/plangate を戻す
+git checkout -- .claude/commands/ai-loop-workflow.md plugin/plangate/commands/ai-loop-workflow.md
+rm -f schemas/c3-prime.schema.json
+sh scripts/sync-plugin-plangate.sh && sh tests/run-tests.sh      # 非退行を再確認
+```
+
+適用後は legacy c3.json の既存テスト（`plangate validate --dir` 等）が引き続き PASS することを `run-tests.sh` 全体 PASS で確認する（legacy 分岐は byte-identical 温存済み）。
 
 ## 適用後に自動で有効化されるもの
 
