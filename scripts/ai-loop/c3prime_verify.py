@@ -7,9 +7,11 @@ Plan Package への束縛を全数**再検証**する（trust boundary: decision
 無検証で信頼しない・#887 F-4/R-018）。legacy（approval_kind なし）は本
 スクリプトの対象外（呼び出し側 shell の grep 経路が担う）。
 
-使い方: c3prime_verify.py <task_dir>
+使い方: c3prime_verify.py <task_dir> [expected_sha]
+  expected_sha を渡すと source_sha との厳密一致を強制する（契約 §4・exec 時に
+  bin/plangate が `git rev-parse HEAD` を渡す）。省略時は構造・束縛のみ検証。
   exit 0  = c3-prime として受理（AUTO_APPROVED・全束縛整合）
-  exit 10 = legacy（approval_kind 無し）→ 呼び出し側が legacy 経路で処理
+  exit 10 = legacy（approval_kind キー無し）→ 呼び出し側が legacy 経路で処理
   exit 1  = c3-prime だが検証 NG（fail-closed。理由を stderr に出力）
 """
 from __future__ import annotations
@@ -27,6 +29,15 @@ ARTIFACTS = (
 VALID_DECISIONS = ("AUTO_APPROVED", "HUMAN_ESCALATED", "BLOCKED")
 VALID_VERDICTS = ("approve", "reject")
 SNAPSHOT_KEYS = ("verdict", "plan_hash", "source_sha", "plan_package_hash", "evidence_ref")
+# 契約 §2: c3-prime トップレベルの必須キー（allowlist の中核）。
+REQUIRED_KEYS = (
+    "task_id", "approval_kind", "phase", "decision", "source_sha", "plan_hash",
+    "plan_package_hash", "artifact_hashes", "c1_evidence_ref", "c2_evidence_ref",
+    "reviewers", "policy_ref", "issued_at", "issued_by",
+)
+# 任意で許容する追加キー（それ以外の未知キーは reject。`c3_status` は §5 で明示禁止）。
+OPTIONAL_KEYS = ("derived_loopspec_hash",)
+ALLOWED_KEYS = set(REQUIRED_KEYS) | set(OPTIONAL_KEYS)
 
 
 def _sha256(path: pathlib.Path) -> str:
@@ -39,10 +50,11 @@ def _fail(msg: str) -> int:
 
 
 def main(argv):
-    if len(argv) != 2:
-        print("usage: c3prime_verify.py <task_dir>", file=sys.stderr)
+    if len(argv) not in (2, 3):
+        print("usage: c3prime_verify.py <task_dir> [expected_sha]", file=sys.stderr)
         return 1
     task_dir = pathlib.Path(argv[1])
+    expected_sha = argv[2] if len(argv) == 3 else None
     c3 = task_dir / "approvals" / "c3.json"
     if not c3.is_file():
         return _fail("approvals/c3.json not found")
@@ -54,12 +66,30 @@ def main(argv):
         return _fail("c3.json が JSON object でない")
 
     if data.get("approval_kind") != "c3-prime":
-        # legacy（キー無し）または未知値。未知値は明示 fail、無しは legacy 委譲。
+        # legacy（キー無し）または未知値。未知値・型違いは明示 fail、
+        # キーが物理的に存在しない場合のみ legacy 委譲（fail-closed / #889 high）。
         if "approval_kind" in data:
-            return _fail(f"approval_kind が未知値: {data.get('approval_kind')!r}")
+            return _fail(f"approval_kind が未知値/型違い: {data.get('approval_kind')!r}")
         return 10  # legacy → 呼び出し側 shell へ委譲
 
-    # ここから c3-prime。契約 §4 の全規則を再検証する。
+    # ここから c3-prime。契約 §2/§4/§5 の全規則を再検証する。
+    # 構造 allowlist + 必須キー（#889 critical）。c3_status は §5 で明示禁止。
+    if "c3_status" in data:
+        return _fail("c3-prime に c3_status が含まれる（契約 §5 で禁止）")
+    unknown = [k for k in data if k not in ALLOWED_KEYS and not k.startswith("_")]
+    if unknown:
+        return _fail(f"未知のトップレベルキー: {unknown}")
+    missing = [k for k in REQUIRED_KEYS if k not in data]
+    if missing:
+        return _fail(f"必須キー欠落: {missing}")
+    if not re.fullmatch(r"TASK-[0-9]{4}", str(data.get("task_id", ""))):
+        return _fail(f"task_id が TASK-XXXX 形式でない: {data.get('task_id')!r}")
+    if data.get("phase") != "C-3'":
+        return _fail(f"phase が C-3' でない: {data.get('phase')!r}")
+    for k in ("c1_evidence_ref", "c2_evidence_ref", "policy_ref", "issued_at", "issued_by"):
+        if not isinstance(data.get(k), str) or not data.get(k):
+            return _fail(f"{k} が非空 string でない")
+
     # decision 3値 allowlist
     decision = data.get("decision")
     if decision not in VALID_DECISIONS:
@@ -67,10 +97,17 @@ def main(argv):
     if decision != "AUTO_APPROVED":
         return _fail(f"decision={decision}（exec 不可。AUTO_APPROVED のみ受理）")
 
-    # source_sha 形式
+    # source_sha 形式 + 検証時点の対象 SHA との一致（契約 §4 / #889 critical）。
     source_sha = data.get("source_sha", "")
-    if not re.fullmatch(r"[0-9a-f]{7,40}", source_sha or ""):
+    if not isinstance(source_sha, str) or not re.fullmatch(r"[0-9a-f]{7,40}", source_sha):
         return _fail(f"source_sha が commit SHA 形式でない: {source_sha!r}")
+    if expected_sha is not None:
+        # HEAD は full SHA、record は短縮のこともあるため prefix 一致で照合。
+        exp = expected_sha.strip()
+        if not (exp == source_sha or exp.startswith(source_sha) or source_sha.startswith(exp)):
+            return _fail(
+                f"source_sha ({source_sha}) が検証時点の対象 SHA ({exp}) と不一致"
+                "（BLOCK・再 C-1/C-2/C-3' が必要）")
 
     # plan_hash = plan.md 単体（legacy と同一契約）
     plan_md = task_dir / "plan.md"

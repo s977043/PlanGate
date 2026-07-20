@@ -70,6 +70,20 @@
 
 Sonnet 独立レーンの approve は上記エッジ（allowlist/cross-field/TOCTOU）を突かなかった検出力差。ただし「テスト fixture が実運用 artifact 形式と整合（#887 F-5 の再発なし）」「契約内部整合に矛盾なし」「legacy 経路非変更を実測」の確証は有用として記録。
 
+## PR #889 受理側の Codex 敵対的レビュー（2026-07-20・reject → 全件是正）
+
+> 受理側（承認境界・セキュリティ critical）に Codex 敵対的レビュー 1 本。全指摘をオーガナイザーが一次ソースで再現裁定。
+
+| ID | severity | 対象 | 指摘 | 再現 | 是正 |
+|----|----------|------|------|------|------|
+| R-026 | **critical** | c3prime_verify.py | 偽造 record（source_sha 不整合・必須欠落・c3_status 混入・未知キー）を AUTO_APPROVED 受理 | **CONFIRMED**（exit 0） | **是正**: 構造 allowlist + 必須キー + c3_status 拒否 + task_id/phase + evidence/policy/issued 非空 + optional expected_sha 照合（exec で HEAD 強制） |
+| R-027 | high | bin/plangate `_plangate_c3_dispatch` | 受理器不在時、`approval_kind=[]`/null/不正 JSON が legacy(10) に委譲され grep が受理 | **CONFIRMED**（rc=10） | **是正**: fallback を「approval_kind キーが物理的に無い場合のみ 10、存在すれば値不問で 1」へ |
+| R-028 | high | c3prime_verify.py / exec | TOCTOU: 検証成功〜session_start の窓で artifact 書換余地 | 妥当（ローカル書込レース前提） | **緩和 + 契約明記**: exec preflight が再検証の実点。残余窓は Phase 1 許容・flock 単一 snapshot は V2 候補（契約 §4） |
+| R-029 | medium | ta-55 | producer 経由 record のみで受理側偽造耐性を検証していない | 妥当 | **是正**: `test_c3prime_verify.py` 新設（producer 非依存の手 mutate 14 パターン）+ ta-55 に手偽造ケース追加 |
+| R-030 | info | bin/plangate `\|\| _c3_rc=$?` | 指摘なし（set -e 安全を確認） | — | 変更不要 |
+
+Codex の critical/high は受理側の実バグで、単独レビューでは見つかっていた（オーガナイザーの sandbox 実適用テストは exit code は見たが偽造耐性は見ていなかった＝受理側の敵対レビューが機能した好例）。
+
 ## 指摘なしと明示された観点
 
 - レーン A: スコープ / Non-goals の相互整合、AC・9 シナリオのマッピング網羅性

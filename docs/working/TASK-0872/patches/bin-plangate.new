@@ -886,21 +886,28 @@ cmd_status() {
 # approvals/c3.json の approval_kind を strict JSON で判別し、c3-prime なら
 # scripts/ai-loop/c3prime_verify.py で Plan Package 束縛を全数再検証する
 # （契約 §4/§5: legacy grep 経路は c3-prime に流用しない）。
+# 第2引数に expected_sha を渡すと source_sha との厳密一致を強制する（exec 時）。
 # 戻り値: 0=c3-prime 受理 / 10=legacy（呼び出し側が grep 経路で処理）/ 1=c3-prime NG
 _plangate_c3_dispatch() {
   _c3d_dir="$1"
+  _c3d_expected="${2:-}"
   _c3d_verify="$plangate_root/scripts/ai-loop/c3prime_verify.py"
   if [ ! -f "$_c3d_verify" ]; then
-    # 検証器が無い環境では c3-prime を受理できない（fail-closed）。
-    # legacy 判別のみ python3 で行い、legacy なら委譲・c3-prime なら NG。
-    _c3d_kind=$(python3 -c "import json,sys
+    # 検証器が無い環境では c3-prime を受理できない（fail-closed / #889 high）。
+    # approval_kind キーが物理的に存在しない場合のみ legacy(10) 委譲。キーが
+    # 存在すれば（値が何であれ・型違い・空文字含む）検証不能として NG(1)。
+    _c3d_present=$(python3 -c "import json,sys
 try: d=json.load(open(sys.argv[1]))
-except Exception: print(''); sys.exit(0)
-print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$_c3d_dir/approvals/c3.json" 2>/dev/null || echo "")
-    [ "$_c3d_kind" = "c3-prime" ] && return 1
-    return 10
+except Exception: print('ERR'); sys.exit(0)
+print('YES' if isinstance(d,dict) and 'approval_kind' in d else 'NO')" "$_c3d_dir/approvals/c3.json" 2>/dev/null || echo "ERR")
+    [ "$_c3d_present" = "NO" ] && return 10
+    return 1
   fi
-  python3 "$_c3d_verify" "$_c3d_dir" >&2
+  if [ -n "$_c3d_expected" ]; then
+    python3 "$_c3d_verify" "$_c3d_dir" "$_c3d_expected" >&2
+  else
+    python3 "$_c3d_verify" "$_c3d_dir" >&2
+  fi
   return $?
 }
 
@@ -2038,10 +2045,12 @@ cmd_exec() {
   fi
 
   # TASK-0872 PR-2: c3-prime は Plan Package 束縛を全数再検証（契約 §4）。
+  # exec は対象 commit（HEAD）に対して実行するため、source_sha と HEAD の一致を強制する。
   # legacy（approval_kind 無し）は従来の grep + plan_hash 経路で処理する。
   # set -eu 下で非ゼロ戻り（10=legacy / 1=NG）が中断を招かないよう `|| _c3_rc=$?` で受ける。
+  _exec_head=$(git -C "$plangate_root" rev-parse HEAD 2>/dev/null || echo "")
   _c3_rc=0
-  _plangate_c3_dispatch "$work_dir" || _c3_rc=$?
+  _plangate_c3_dispatch "$work_dir" "$_exec_head" || _c3_rc=$?
   if [ "$_c3_rc" = "1" ]; then
     printf 'error: C-3 gate not approved (c3-prime verification failed; see above)\n' >&2
     return 1

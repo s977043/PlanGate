@@ -61,6 +61,14 @@ PYEOF
     printf '{"approval_kind":"c3-double-prime"}' > "$_t55_task/approvals/c3.json"
     _t55_rc=0; python3 "$PG_T55_VERIFY" "$_t55_task" >/dev/null 2>&1 || _t55_rc=$?
     if [ "$_t55_rc" = "1" ]; then t55_pass "未知 approval_kind → exit 1 (fail-closed)"; else t55_fail "未知 approval_kind が reject されない (rc=$_t55_rc)"; fi
+
+    # #889 critical: producer を介さない手偽造 record を reject（c3_status 混入・
+    # 未知キー・必須欠落を一括で持つ最小偽造）。詳細な網羅は
+    # scripts/ai-loop/test_c3prime_verify.py（producer 非依存の単体テスト）。
+    printf '{"approval_kind":"c3-prime","decision":"AUTO_APPROVED","source_sha":"deadbee","c3_status":"APPROVED","evil":"x"}' \
+      > "$_t55_task/approvals/c3.json"
+    _t55_rc=0; python3 "$PG_T55_VERIFY" "$_t55_task" >/dev/null 2>&1 || _t55_rc=$?
+    if [ "$_t55_rc" = "1" ]; then t55_pass "手偽造 record (c3_status+未知+欠落) → exit 1"; else t55_fail "手偽造 record が受理された (rc=$_t55_rc)"; fi
   else
     t55_fail "sandbox TASK 生成に失敗（plan_package.py import 不可）"
   fi
