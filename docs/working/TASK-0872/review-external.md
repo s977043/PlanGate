@@ -84,6 +84,30 @@ Sonnet 独立レーンの approve は上記エッジ（allowlist/cross-field/TOC
 
 Codex の critical/high は受理側の実バグで、単独レビューでは見つかっていた（オーガナイザーの sandbox 実適用テストは exit code は見たが偽造耐性は見ていなかった＝受理側の敵対レビューが機能した好例）。
 
+## PR #889 再レビュー（2026-07-20・ユーザー指示・Codex R2 + Sonnet 独立）
+
+> 是正後 head 357a11a を再レビュー。Codex R2=**reject**（より深い critical/high 検出）/ Sonnet=conditional（HO ガバナンス major）。全件一次ソース再現裁定。
+
+| ID | severity | lane | 指摘 | 再現 | 是正 |
+|----|----------|------|------|------|------|
+| R2-01 | **critical** | Codex | 受理器が C-1/C-2 evidence 内容を再検証せず、FAIL/reject/marker 無し evidence + 再 hash 済み record が HEAD 照合付きでも受理 | **CONFIRMED**（exit 0） | **是正**: 受理側でも `plan_package.check_evidence` を実行し marker/stale を再検証 |
+| R2-02 | high | Codex | task_id が task_dir に非束縛（TASK-0001 record を TASK-9999 dir で受理） | **CONFIRMED** | **是正**: `task_dir.name == task_id` を必須化 |
+| R2-03 | high | Codex | reviewer 独立性偽装（model_a==model_b 同一 snapshot/evidence 受理） | CONFIRMED | **是正**: 両者の `evidence_ref` 相異を必須化 |
+| R2-04 | high | Codex | 非 git exec で HEAD 空 → expected_sha 照合 skip で受理（fail-open） | 妥当（環境制約で Codex 未実行・オーガナイザーが sandbox 実測） | **是正**: c3-prime かつ HEAD 空は exec で即 BLOCK |
+| R2-05 | medium | Codex | schema 同等の nested 制約未実施（issued_at 形式・extra reviewer・snapshot 未知キー・非 string 注釈） | CONFIRMED（4 ケース） | **是正**: 受理器に型・additionalProperties 相当・注釈型・reviewer/snapshot キー exactness を追加 |
+| R2-06 | medium | Codex | sync に c3prime_verify.py / test 欠落（plugin 配布不完全） | CONFIRMED | **是正**: sync-plugin-plangate.sh の copy + delete-protection 両列挙へ追加 |
+| R2-07 | **major** | Sonnet | 受理ロジックが HO 機械強制対象外（`scripts/ai-loop/*.py`）へ移動 → 非 HO PR で受理ゲートを静かに弱められる | **裏取り済**（HO 9 カテゴリ case 文に非該当） | **Human 判断待ち**（下記）— HO リスト追加は `check-plan-hash.sh` + `mode-classification.md`（ともに HO）編集を要する承認境界ガバナンス決定 |
+| R2-08 | minor | Sonnet | test にネスト経路（artifact_hashes 個別/plan_package_hash 単独/evidence_ref 欠落）専用ケース不足 | 妥当 | **是正**（R2-05 の nested テストで大半カバー・handoff に残記載） |
+| R2-09 | minor | Sonnet | ho-apply に切り戻し手順（git apply -R）記載なし | 妥当 | handoff/次コミットで追記予定 |
+
+reviewer_evidence を build_c3_prime の必須 distinct 引数として扱う運用に。脅威モデル境界（record+tree 双方書換可能な攻撃者は git-tree 束縛/署名でのみ防御 = V2）は契約 §4 に明記。
+
+### R2-07（HO ガバナンス）— Human 判断が必要
+
+受理検証ロジックが非 HO の `scripts/ai-loop/c3prime_verify.py` にあるため、将来の非 HO PR 単独で承認ゲートを弱められる。選択肢:
+- (A) `scripts/ai-loop/*_verify.py`（または本ファイル）を HO 9 カテゴリへ追加（`check-plan-hash.sh` + `mode-classification.md` = ともに HO を Human patch 適用）→ 機械強制を回復。以後 verifier 編集も HO ceremony
+- (B) 現状維持 + handoff に V2/known-issue として明示（セキュリティ関連 = 最低「中」の判断依存保護は残る）
+
 ## 指摘なしと明示された観点
 
 - レーン A: スコープ / Non-goals の相互整合、AC・9 シナリオのマッピング網羅性

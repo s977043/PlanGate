@@ -90,6 +90,10 @@ EH-3 hook（`check-plan-hash.sh`）は top-level `plan_hash` のみを strict JS
 
 **TOCTOU の残余窓（#889 high・既知制約）**: 受理器は exec preflight で再検証するが、検証成功から `session_started` 記録までの 1 shell 文の窓で外部プロセスが artifact を書き換える理論的余地は残る（ローカル書込レースが前提）。緩和として **exec preflight が受理検証の実点**であり（validate だけでなく exec 直前に再検証）、session 開始は直後に続く。Phase 1（隔離 PoC）ではこの残余窓を許容し、将来 flock ベースの単一 snapshot 検証を V2 候補とする（handoff 記載）。
 
+**受理側の再検証範囲（#889 R2 critical/high 反映）**: 受理器（`c3prime_verify.py`）は record の binding hash だけでなく **C-1/C-2 evidence marker を再検証**（`plan_package.check_evidence` を受理側でも実行）し、`task_id` を **task_dir 名に束縛**し、両 reviewer の `evidence_ref` **独立性**を要求し、issued_at 形式・reviewer/snapshot キーの `additionalProperties:false` 相当を強制する。exec は HEAD を解決できない環境では c3-prime を **BLOCK**（source_sha 照合を skip して受理しない・fail-closed）。
+
+**脅威モデルの境界（V2 候補）**: 現行はローカル作業ツリーの改竄検出（承認後の drift・evidence 改竄）を対象とする。record と作業ツリーの**双方**を任意に書換できる攻撃者（同一整合な偽造一式の構築）は、`source_sha` の Git tree との照合または署名済み provenance でのみ防げる。Phase 1（eligible run 限定・boundary=clean・信頼済みローカル repo）ではこれを scope 外とし、git-tree 束縛/署名を V2 候補として handoff に記載する。
+
 ## 5. serialization 制約（R-009 / #887 F-7 是正）
 
 - `json.dumps(indent=2, sort_keys=True)` で整形（arbiter provenance 出力と同形）

@@ -1,5 +1,5 @@
 diff --git a/bin/plangate b/bin/plangate
-index d974cb6..df53d7b 100755
+index d974cb6..8fba911 100755
 --- a/bin/plangate
 +++ b/bin/plangate
 @@ -882,6 +882,35 @@ cmd_status() {
@@ -101,7 +101,7 @@ index d974cb6..df53d7b 100755
          fi
        fi
      fi
-@@ -2002,19 +2044,30 @@ cmd_exec() {
+@@ -2002,19 +2044,43 @@ cmd_exec() {
      return 1
    fi
  
@@ -109,17 +109,30 @@ index d974cb6..df53d7b 100755
 -    | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
 -  if [ "$c3_status" != "APPROVED" ]; then
 -    printf 'error: C-3 gate not approved (status=%s)\n' "${c3_status:-missing}" >&2
+-    return 1
 +  # TASK-0872 PR-2: c3-prime は Plan Package 束縛を全数再検証（契約 §4）。
 +  # exec は対象 commit（HEAD）に対して実行するため、source_sha と HEAD の一致を強制する。
 +  # legacy（approval_kind 無し）は従来の grep + plan_hash 経路で処理する。
 +  # set -eu 下で非ゼロ戻り（10=legacy / 1=NG）が中断を招かないよう `|| _c3_rc=$?` で受ける。
 +  _exec_head=$(git -C "$plangate_root" rev-parse HEAD 2>/dev/null || echo "")
++  # c3-prime を exec する場合、HEAD が解決できない環境（非 git）では source_sha
++  # 照合を skip して受理してはならない（fail-closed / #889 R2 high）。
++  # approval_kind=c3-prime かつ HEAD 空なら即 BLOCK。
++  if [ -z "$_exec_head" ]; then
++    _c3_kind=$(python3 -c "import json,sys
++try: d=json.load(open(sys.argv[1]))
++except Exception: print(''); sys.exit(0)
++print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$work_dir/approvals/c3.json" 2>/dev/null || echo "")
++    if [ "$_c3_kind" = "c3-prime" ]; then
++      printf 'error: c3-prime exec requires resolvable HEAD (git rev-parse HEAD failed)\n' >&2
++      return 1
++    fi
+   fi
 +  _c3_rc=0
 +  _plangate_c3_dispatch "$work_dir" "$_exec_head" || _c3_rc=$?
 +  if [ "$_c3_rc" = "1" ]; then
 +    printf 'error: C-3 gate not approved (c3-prime verification failed; see above)\n' >&2
-     return 1
--  fi
++    return 1
 +  elif [ "$_c3_rc" = "10" ]; then
 +    c3_status=$(grep '"c3_status"' "$work_dir/approvals/c3.json" 2>/dev/null \
 +      | sed 's/.*"c3_status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
@@ -143,7 +156,7 @@ index d974cb6..df53d7b 100755
  try:
      d=json.load(open(sys.argv[1]))
  except Exception:
-@@ -2023,21 +2076,23 @@ if not isinstance(d,dict):
+@@ -2023,21 +2089,23 @@ if not isinstance(d,dict):
      print(''); sys.exit(0)
  v=d.get('plan_hash','')
  print(v[7:] if isinstance(v,str) and v.startswith('sha256:') else '')" "$c3_file" 2>/dev/null || echo "")

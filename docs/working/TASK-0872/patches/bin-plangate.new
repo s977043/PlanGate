@@ -2049,6 +2049,19 @@ cmd_exec() {
   # legacy（approval_kind 無し）は従来の grep + plan_hash 経路で処理する。
   # set -eu 下で非ゼロ戻り（10=legacy / 1=NG）が中断を招かないよう `|| _c3_rc=$?` で受ける。
   _exec_head=$(git -C "$plangate_root" rev-parse HEAD 2>/dev/null || echo "")
+  # c3-prime を exec する場合、HEAD が解決できない環境（非 git）では source_sha
+  # 照合を skip して受理してはならない（fail-closed / #889 R2 high）。
+  # approval_kind=c3-prime かつ HEAD 空なら即 BLOCK。
+  if [ -z "$_exec_head" ]; then
+    _c3_kind=$(python3 -c "import json,sys
+try: d=json.load(open(sys.argv[1]))
+except Exception: print(''); sys.exit(0)
+print(d.get('approval_kind','') if isinstance(d,dict) else '')" "$work_dir/approvals/c3.json" 2>/dev/null || echo "")
+    if [ "$_c3_kind" = "c3-prime" ]; then
+      printf 'error: c3-prime exec requires resolvable HEAD (git rev-parse HEAD failed)\n' >&2
+      return 1
+    fi
+  fi
   _c3_rc=0
   _plangate_c3_dispatch "$work_dir" "$_exec_head" || _c3_rc=$?
   if [ "$_c3_rc" = "1" ]; then
