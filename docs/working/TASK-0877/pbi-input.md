@@ -9,6 +9,7 @@
 `scripts/sync-plugin-plangate.sh` の mass-delete safety guard（#861 由来）が **silent（WARN + `return 0`）** で、exit code を変えないまま copy 側で `changed=1` になるため、CI 自動 PR が生成され毎 run 発火し続ける恒久 drift リスクがある。#875 敵対的レビューで F1〜F5 が未反映と指摘された。
 
 実測（2026-07-20・main c0461bb）:
+
 - guard 実体: `sync-plugin-plangate.sh` L79-81（`if src*2 < dst then WARN; return 0`）— silent 経路が残存
 - DELETE 正常系テスト（TC-09）は `tests/extras/ta-26-plugin-sync.sh` に**不在**（TC-08 = guard 発火側のみ）
 - **全対象ファイルが非 HO**（`scripts/sync-plugin-plangate.sh` は `scripts/` 直下で `scripts/hooks/*.sh` に非該当）

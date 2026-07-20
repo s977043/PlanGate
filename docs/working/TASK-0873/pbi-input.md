@@ -9,6 +9,7 @@
 `ai-loop run TASK-XXXX`（#872 で Plan-first 化）が C-3'（c3-prime）で AUTO_APPROVED した後、PR 作成 → CI・AI レビュー対応 → 修正反復 → **MERGE_READY** へ収束させる状態機械が未実装。現状は状態遷移の docs 語彙（`PR_CREATED → MERGE_READY → MERGED`）と Scheduling 判断表しかなく、機械実装がない。
 
 実測（2026-07-20・main c0461bb）:
+
 - 状態語彙 `WAITING_FOR_CHECKS` / `WAITING_FOR_REVIEW` / `CHECKS_FAILED` は**リポジトリ内に未実在（#873 が新規導入）**。既存 docs 語彙は `00_concept.md` L82（`PR_CREATED/MERGE_READY/MERGED`）+ `execution-runbook.md` L197-245（Scheduling 判断表）
 - `scripts/ai-loop/delivery.py` は**未存在（新設）**。既存 `arbiter.py` / `plan_package.py` / `c3prime_verify.py` は「決定論・fail-closed・冪等」の同型設計
 - c3-prime 契約（#872）は `c3-prime-contract.md` §7 に delivery.py 向け引き渡し（読むフィールド・trust boundary）を確定済み。§6 consumer 一覧に `#873 delivery.py（読み取り）` 登録済み
