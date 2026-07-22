@@ -22,6 +22,13 @@ if [ ! -f "$PG_T55_VERIFY" ]; then
 elif ! command -v python3 >/dev/null 2>&1; then
   printf '  [SKIP] python3 不在\n'
 else
+  # TASK-0896: 共通契約層（c3_contract.py）の単体テストを CI 実行経路に乗せる
+  if python3 "$PG_T55_ROOT/scripts/ai-loop/test_c3_contract.py" >/dev/null 2>&1; then
+    t55_pass "test_c3_contract.py 単体テスト（共通契約層）"
+  else
+    t55_fail "test_c3_contract.py 単体テスト FAIL"
+  fi
+
   # sandbox TASK dir を build_c3_prime で生成（plan_package.py を利用）
   _t55_tmp=$(mktemp -d)
   register_cleanup "$_t55_tmp"
