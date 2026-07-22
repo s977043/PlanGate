@@ -1,0 +1,14 @@
+=== final 2026-07-22 17:56 feat/task-0896-c3-contract 99816f8 ===
+Ran 22 tests in 0.046s
+
+OK
+Ran 247 tests in 0.097s
+
+OK
+Ran 30 tests in 0.178s
+
+OK
+Ran 12 tests in 3.013s
+
+OK
+run-tests: 412 passed, 0 failed（b1x8cmubu 実測・ta-30 scripts=10 / ta-55 新 TC PASS）

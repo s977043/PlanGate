@@ -1,0 +1,15 @@
+=== baseline 2026-07-22 17:42 main b632a91 (repo root 実行) ===
+Ran 247 tests in 0.087s
+
+OK
+Ran 30 tests in 0.150s
+
+OK
+Ran 12 tests in 2.770s
+
+OK
+--- 注: scripts/ai-loop cwd での test_arbiter 実行は ho-paths 相対解決で FAIL する（repo root 実行が正・CI 同様） ---
+  [PASS] 手偽造 record (c3_status+未知+欠落) → exit 1
+  [PASS] HO 適用後: bin/plangate validate が c3-prime を受理
+
+Results: 411 passed, 0 failed

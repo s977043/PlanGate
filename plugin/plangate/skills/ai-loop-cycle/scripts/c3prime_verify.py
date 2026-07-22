@@ -16,35 +16,26 @@ Plan Package への束縛を全数**再検証**する（trust boundary: decision
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import pathlib
 import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import c3_contract  # noqa: E402  契約定数の単一定義（TASK-0896 / #896）
 import plan_package  # noqa: E402  受理側でも evidence marker を再検証するため共有
 
-ARTIFACTS = (
-    "pbi-input.md", "plan.md", "todo.md", "test-cases.md",
-    "review-self.md", "review-external.md",
-)
-VALID_DECISIONS = ("AUTO_APPROVED", "HUMAN_ESCALATED", "BLOCKED")
-VALID_VERDICTS = ("approve", "reject")
-SNAPSHOT_KEYS = ("verdict", "plan_hash", "source_sha", "plan_package_hash", "evidence_ref")
-# 契約 §2: c3-prime トップレベルの必須キー（allowlist の中核）。
-REQUIRED_KEYS = (
-    "task_id", "approval_kind", "phase", "decision", "source_sha", "plan_hash",
-    "plan_package_hash", "artifact_hashes", "c1_evidence_ref", "c2_evidence_ref",
-    "reviewers", "policy_ref", "issued_at", "issued_by",
-)
-# 任意で許容する追加キー（それ以外の未知キーは reject。`c3_status` は §5 で明示禁止）。
-OPTIONAL_KEYS = ("derived_loopspec_hash",)
-ALLOWED_KEYS = set(REQUIRED_KEYS) | set(OPTIONAL_KEYS)
+# 契約定数は c3_contract が単一定義（値の契約固定は test_c3_contract.py）。
+ARTIFACTS = c3_contract.ARTIFACTS
+VALID_DECISIONS = c3_contract.VALID_DECISIONS
+VALID_VERDICTS = c3_contract.VALID_VERDICTS
+SNAPSHOT_KEYS = c3_contract.SNAPSHOT_KEYS
+REQUIRED_KEYS = c3_contract.RECORD_REQUIRED_KEYS
+OPTIONAL_KEYS = c3_contract.RECORD_OPTIONAL_KEYS
+ALLOWED_KEYS = c3_contract.RECORD_ALLOWED_KEYS
 
 
-def _sha256(path: pathlib.Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+_sha256 = c3_contract.sha256_of_file  # 単一実装（TASK-0896 AC-2）
 
 
 def _fail(msg: str) -> int:
@@ -148,8 +139,7 @@ def main(argv):
             return _fail(f"artifact_hashes 不一致: {name}（stale）")
 
     # plan_package_hash = artifact_hashes の正規化 JSON の sha256
-    canon = json.dumps(ah, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    if data.get("plan_package_hash") != "sha256:" + hashlib.sha256(canon).hexdigest():
+    if data.get("plan_package_hash") != c3_contract.canonical_hash(ah):
         return _fail("plan_package_hash が artifact_hashes から再計算した値と不一致")
 
     # reviewer snapshot 三つ組一致 + decision-verdict 整合
@@ -157,18 +147,14 @@ def main(argv):
     # model_a / model_b ちょうど 2 者（余剰 reviewer キーは reject / #889 R2 medium）。
     if not isinstance(reviewers, dict) or set(reviewers) != {"model_a", "model_b"}:
         return _fail(f"reviewers は model_a / model_b のちょうど 2 者: {sorted(reviewers) if isinstance(reviewers, dict) else reviewers!r}")
+    # snapshot 5 キー整合（strict_keys=True = ちょうど 5 キー・未知ネストキーは
+    # reject / #889 R2 medium）+ 三つ組一致は共通純関数。理由リスト非空 → reject。
+    trio_reasons = c3_contract.check_snapshot_trio(data, reviewers, strict_keys=True)
+    if trio_reasons:
+        return _fail(trio_reasons[0])
     for m in ("model_a", "model_b"):
-        snap = reviewers.get(m)
-        # snapshot は 5 キーちょうど（未知ネストキーは reject / #889 R2 medium）。
-        if not isinstance(snap, dict) or set(snap) != set(SNAPSHOT_KEYS):
-            return _fail(f"reviewers.{m} の snapshot キーが規定 5 キーと不一致")
-        if any(not snap.get(k) for k in SNAPSHOT_KEYS):
-            return _fail(f"reviewers.{m} の snapshot に空値")
-        if snap.get("verdict") not in VALID_VERDICTS:
+        if reviewers[m].get("verdict") not in VALID_VERDICTS:
             return _fail(f"reviewers.{m}.verdict が approve/reject 以外")
-        for key in ("plan_hash", "source_sha", "plan_package_hash"):
-            if snap.get(key) != data.get(key):
-                return _fail(f"reviewers.{m}.{key} がトップレベル値と不一致（AC-5 違反）")
     # reviewer 独立性: 両者の evidence_ref が同一なら独立 2 者レビュー偽装
     # （#889 R2 high。snapshot hash は同一が正だが evidence は別根拠であるべき）。
     if reviewers["model_a"]["evidence_ref"] == reviewers["model_b"]["evidence_ref"]:
