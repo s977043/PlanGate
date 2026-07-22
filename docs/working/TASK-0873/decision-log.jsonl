@@ -1,0 +1,8 @@
+{"ts":"2026-07-22T05:30:00Z","phase":"B-1","decision":"新状態語彙はサブステート導入（既存3状態不変・正規化マッピング表で接続）","by":"human","ref":"plan.md#確認事項 Q1"}
+{"ts":"2026-07-22T05:30:00Z","phase":"B-1","decision":"#896と並行（delivery.pyは現行mainのc3prime_verifyをimport・c3_contract置換は#896側rebase）","by":"human","ref":"plan.md#確認事項 Q2"}
+{"ts":"2026-07-22T05:35:00Z","phase":"B-2","decision":"実行モデル=A-1 snapshot入力の判定エンジン（決定論・fixture駆動）。gh API常駐ループはV2","by":"agent","ref":"plan.md#アプローチ比較 論点A"}
+{"ts":"2026-07-22T05:35:00Z","phase":"B-2","decision":"AC-1契約=code単一定義+contract emit+doc整合テスト（B-1案）。docs/schemas配置はC-3論点","by":"agent","ref":"plan.md#アプローチ比較 論点B"}
+{"ts":"2026-07-22T05:40:00Z","phase":"B-3","decision":"Mode=critical（AC12→定量11+で決定論・pbi-inputのhigh-risk見込みをhedgeと判定し引き上げ）。lite_eligible=false","by":"agent","ref":"plan.md#Mode判定"}
+{"ts":"2026-07-22T06:10:00Z","phase":"C-1","decision":"PASS（WARN1=record出力先未指定を自動修正）","by":"agent","ref":"review-self.md"}
+{"ts":"2026-07-22T06:40:00Z","phase":"C-2","decision":"2レーン分裂（Codex reject c2/m6 vs 整合レーン approve m0）→オーガナイザーが争点4点を一次ソース実測で裁定。R-001〜R-015全採用（R-004/R-006は部分採用=sandbox実行スタブ+Phase1信頼境界+C-3論点化）","by":"agent","ref":"review-external.md"}
+{"ts":"2026-07-22T06:50:00Z","phase":"C-2反映","decision":"1回確定反映完了（plan/todo/test-cases）。二次矛盾1件（assess行の旧冪等キー）を検出・是正。簡易C-1 PASS。確定後plan_hash=8c366f5387572bdd6cb30a33092c239ff1c4068cbff8e04d8747a4244e9cd033","by":"agent","ref":"review-self.md#簡易C-1再実行"}
