@@ -498,19 +498,12 @@ def plan_package_check(plan_package: Any, target_sha: str) -> tuple[bool, bool, 
     reviewers = plan_package.get("reviewers")
     if not isinstance(reviewers, dict):
         return True, False, "plan_package.reviewers が object でない"
-    for model in ("model_a", "model_b"):
-        snap = reviewers.get(model)
-        if not isinstance(snap, dict):
-            return True, False, f"reviewers.{model} の snapshot が欠落（契約 §3: BLOCKED）"
-        snap_missing = [k for k in SNAPSHOT_REQUIRED_KEYS if not snap.get(k)]
-        if snap_missing:
-            return True, False, f"reviewers.{model} の snapshot キー欠落: {', '.join(snap_missing)}"
-        for key in ("plan_hash", "source_sha", "plan_package_hash"):
-            if snap.get(key) != plan_package.get(key):
-                return True, False, (
-                    f"reviewers.{model}.{key} がトップレベル値と不一致"
-                    "（同一 Plan Package を観ていない = AC-5 違反）"
-                )
+    # snapshot 5 キー整合 + 三つ組一致は共通純関数（strict_keys=False = 余剰キー
+    # 許容の既存挙動を保存）。理由リスト非空 → integrity NG（先頭を reason に）。
+    trio_reasons = c3_contract.check_snapshot_trio(
+        plan_package, reviewers, strict_keys=False)
+    if trio_reasons:
+        return True, False, trio_reasons[0]
     if plan_package.get("source_sha") != target_sha:
         return True, False, (
             f"plan_package.source_sha ({plan_package.get('source_sha')}) と "

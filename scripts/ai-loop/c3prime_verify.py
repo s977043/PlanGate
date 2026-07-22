@@ -147,18 +147,14 @@ def main(argv):
     # model_a / model_b ちょうど 2 者（余剰 reviewer キーは reject / #889 R2 medium）。
     if not isinstance(reviewers, dict) or set(reviewers) != {"model_a", "model_b"}:
         return _fail(f"reviewers は model_a / model_b のちょうど 2 者: {sorted(reviewers) if isinstance(reviewers, dict) else reviewers!r}")
+    # snapshot 5 キー整合（strict_keys=True = ちょうど 5 キー・未知ネストキーは
+    # reject / #889 R2 medium）+ 三つ組一致は共通純関数。理由リスト非空 → reject。
+    trio_reasons = c3_contract.check_snapshot_trio(data, reviewers, strict_keys=True)
+    if trio_reasons:
+        return _fail(trio_reasons[0])
     for m in ("model_a", "model_b"):
-        snap = reviewers.get(m)
-        # snapshot は 5 キーちょうど（未知ネストキーは reject / #889 R2 medium）。
-        if not isinstance(snap, dict) or set(snap) != set(SNAPSHOT_KEYS):
-            return _fail(f"reviewers.{m} の snapshot キーが規定 5 キーと不一致")
-        if any(not snap.get(k) for k in SNAPSHOT_KEYS):
-            return _fail(f"reviewers.{m} の snapshot に空値")
-        if snap.get("verdict") not in VALID_VERDICTS:
+        if reviewers[m].get("verdict") not in VALID_VERDICTS:
             return _fail(f"reviewers.{m}.verdict が approve/reject 以外")
-        for key in ("plan_hash", "source_sha", "plan_package_hash"):
-            if snap.get(key) != data.get(key):
-                return _fail(f"reviewers.{m}.{key} がトップレベル値と不一致（AC-5 違反）")
     # reviewer 独立性: 両者の evidence_ref が同一なら独立 2 者レビュー偽装
     # （#889 R2 high。snapshot hash は同一が正だが evidence は別根拠であるべき）。
     if reviewers["model_a"]["evidence_ref"] == reviewers["model_b"]["evidence_ref"]:

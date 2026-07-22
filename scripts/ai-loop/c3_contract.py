@@ -74,6 +74,44 @@ def canonical_hash(obj) -> str:
     return "sha256:" + hashlib.sha256(canon).hexdigest()
 
 
+def check_snapshot_trio(container, reviewers, strict_keys) -> list[str]:
+    """reviewer snapshot の 5 キー整合 + 三つ組一致を検査し理由リストを返す。
+
+    空リスト = OK。判定・終端制御（arbiter の tuple 部分成功 / c3prime_verify の
+    即時 reject）は呼び出し側の責務。理由リストの生成順序は検査順で契約固定:
+    reviewer 順（model_a → model_b）× reviewer 内は
+    (1) snapshot 型 / キー集合 → (2) 空値 → (3) 三つ組不一致（TASK-0896 R-004）。
+
+    strict_keys の非対称は #889 R2 由来の意図的設計を保存する（TASK-0896 R-005）:
+    - strict_keys=True（c3prime_verify）: snapshot はちょうど 5 キー（余剰 reject）
+    - strict_keys=False（arbiter）: 欠落・空値のみ検査（余剰キー許容）
+
+    本関数が検査しないもの（呼び出し側残置）: verdict 語彙 / evidence_ref 独立性 /
+    AUTO_APPROVED 整合 / reviewers ちょうど 2 者（strict 側）/ 余剰 reviewer 許容
+    （lenient 側）/ PLAN_PACKAGE_REQUIRED_KEYS 構造検査 / source_sha vs target_sha。
+    """
+    reasons: list[str] = []
+    for model in ("model_a", "model_b"):
+        snap = reviewers.get(model) if isinstance(reviewers, dict) else None
+        if not isinstance(snap, dict):
+            reasons.append(f"reviewers.{model} の snapshot が欠落（契約 §3: fail-closed）")
+            continue
+        if strict_keys and set(snap) != set(SNAPSHOT_KEYS):
+            reasons.append(f"reviewers.{model} の snapshot キーが規定 5 キーと不一致")
+            continue
+        missing = [k for k in SNAPSHOT_KEYS if not snap.get(k)]
+        if missing:
+            reasons.append(
+                f"reviewers.{model} の snapshot キー欠落: {', '.join(missing)}")
+            continue
+        for key in TRIO_KEYS:
+            if snap.get(key) != (container.get(key) if isinstance(container, dict) else None):
+                reasons.append(
+                    f"reviewers.{model}.{key} がトップレベル値と不一致"
+                    "（同一 Plan Package を観ていない = AC-5 違反）")
+    return reasons
+
+
 # ---------------------------------------------------------------------------
 # I/O あり関数（arbiter は import / call しない — AC-6）
 # ---------------------------------------------------------------------------
