@@ -20,10 +20,12 @@ metrics）** はまだ定義されていない。各 Workflow が個別に停止
   1. LoopSpec 決定論検証（`docs/workflows/ai-loop/loopspec.md` 必須フィールド + I-4 安全側差し戻し）
   2. Plan Package + C-1/breakdown マーカー（`arbiter.py` priority 1.6/1.65/1.7 の `gates.c1 == "PASS"` / `plan_package` 整合）
   3. W チェック + rubric（LLM 判断 Model A/B/C/D。`arbiter.py` L16 が「L2 は決定論のみ・LLM 判断は W チェック」と分離を明記）
-  4. arbiter 決定論裁定（`decision-table.md` priority 0〜6 + 1.5/1.65/1.7/1.9 の機械実装）
+  4. arbiter 決定論裁定（`decision-table.md` priority 0〜6 + 1.5/1.6/1.65/1.7/1.9/1.95 の機械実装）
   5. terminal 3 値（`AUTO_APPROVED` / `HUMAN_ESCALATED` / `BLOCKED`・exit 0/2/3）+ `MERGE_READY`（DoD 状態・`00_concept.md` §2.3 で語彙区別済み）
 - **issue が要求する 4 値 verifier status（`pass|fail|unavailable|inconclusive`）は不存在**:
-  `rg "inconclusive|unavailable"` が `scripts/` / `docs/workflows/ai-loop/` で **0 件**（実測）
+  `rg "inconclusive|unavailable"` が `scripts/ai-loop/` および `docs/workflows/ai-loop/` で **0 件**
+  （実測。`scripts/eval-runner.py:136` に verifier 語彙と無関係な文字列
+  `codex_log_parser unavailable` が 1 件あるのみ）
 - **停止予算は round 系のみ**: `cost_cap` は run 予算＝**round 数単位**（`arbiter.py` L713〜/L1008〜・priority 1.95・#840）。
   time / token / cost_usd / 連続失敗上限は不存在。`loopspec.md` **L125** が「cost cap フィールドは
   設けない — enforcement 不在の宣言フィールドを作らない（#749 で enforcement 設計と同時に検討する）」
@@ -32,7 +34,8 @@ metrics）** はまだ定義されていない。各 Workflow が個別に停止
   follow-up 候補（効果測定後に判断）」と記載。fingerprint / oscillation は repo 全域 **0 件**
   （`rg -i "fingerprint|oscillation"` 2007 files 検索・実測）
 - **採用コスト metrics は不存在**: `scripts/ai-loop/metrics.py` はレート系のみ
-  （`first_pass_acceptance_rate` 等）。`cost` / `token` / `human_minutes` フィールドは **0 件**（実測）
+  （first-pass rate＝`first_pass` 導出 / `escalate_rate` / `human_intervention_rate` 等）。
+  `cost` / `token` / `human_minutes` フィールドは **0 件**（実測）
 - **最重要リスク＝正本断片化**: `loop-safety-gates.md` **§6**（L198「既存正本との不整合防止（再定義しない
   事項の一覧）」）と `stop-rollback.md` **§0**（「本書は既存正本の再定義ではない」）が、ラウンド上限 3 /
   CB-1〜3 / escalate 予算等の**数値再定義を禁止**している。本契約が数値を再宣言すると 3 つ目の正本を
@@ -128,8 +131,8 @@ EPIC #870 DoD へ PR・test・E2E evidence link 反映。
   （exit code 契約）/ `metrics.py`（fail-silent 禁止の明示区分）/ `arbiter.py` priority 1.95
   （cost_cap 境界値=通過・超過のみ escalate）を踏襲
 - **metrics 拡張は additive**: `metrics.py` に `cost_usd` / `tokens` / `human_minutes` /
-  `accepted_change` を追加する際、既存レート系集計（`first_pass_acceptance_rate` 等）と
-  record 世代区分を壊さない（additive フィールド + 欠落時は集計分母から明示除外）
+  `accepted_change` を追加する際、既存レート系集計（first-pass rate＝`first_pass` 導出 /
+  `escalate_rate` 等）と record 世代区分を壊さない（additive フィールド + 欠落時は集計分母から明示除外）
 
 ### C-3 論点一覧（人間判断が必要な事項）
 
@@ -149,6 +152,10 @@ EPIC #870 DoD へ PR・test・E2E evidence link 反映。
    （`MERGE_READY|HUMAN_ESCALATED|BLOCKED`）との語彙合わせを #874 実装前に先行確定する
 5. **task profile の粒度**: risk class（既存 5 mode / LoopSpec risk）と task profile
    （探索的 / 定型修正）のどちらを既定 budget のキーにするか
+6. **#869 adapter の検証非対称**: In scope 4（adapter 境界）は #869 を含むが、issue の
+   AC 14 項目・fixture 12 件・DoD 統合テスト（#872/#873/#874 の最低 1 経路ずつ）には
+   #869 検証が無い（issue 自体の非対称）。#869 adapter の検証を**追加 AC 化する**か、
+   **#869 側 PBI へ後続分離する**か（issue 合意要・issue コメントでの提起を推奨）
 
 ## Estimation Evidence
 
