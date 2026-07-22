@@ -18,9 +18,10 @@ PR #860（#842）の検証過程で、plugin 配布物の CLI 依存に 2 つの
    ai-loop-cycle 同梱物 10 本（references 5 + scripts 5）
 2. **PATH を通しても字義どおりでは動かない**: README の対処法は
    `export PATH="$HOME/plangate/bin:$PATH"` だが、スキル本文の呼び出しは全て
-   `bin/plangate <cmd>` の**相対パス形式**（実測・スキル正本+複製の SKILL.md 合算:
-   `bin/plangate exec` ×7 / `bin/plangate validate` ×6 / `bin/plangate doctor` ×6 /
-   `bin/plangate review` ×5 / `bin/plangate resume` ×5 等）。PATH 解決される
+   `bin/plangate <cmd>` の**相対パス形式**（実測・スキル正本 9 本+複製 3 本の
+   SKILL.md 合算: `bin/plangate exec` ×7 / `bin/plangate validate` ×6 /
+   `bin/plangate doctor` ×6 / `bin/plangate resume` ×5 /
+   `bin/plangate review` ×4 等）。PATH 解決される
    コマンド名は `plangate` であり、導入先リポジトリの cwd に `bin/plangate` は
    存在しないため、plugin 単体導入環境でスキル記載を字義どおり実行すると失敗する
 
@@ -35,8 +36,12 @@ PR #860（#842）の検証過程で、plugin 配布物の CLI 依存に 2 つの
 `.agents/skills/` へ移設され、sync / drift check の担保下に入った。本 PBI の
 対象スキル正本は **`.agents/skills/` の CLI 参照 SKILL.md 9 本**（旧記述の
 「.agents 7 本 + .claude 3 本 = 10 本」を置き換える）。`.claude/skills/` 側の
-複製 3 本（plangate-setup / intent-classifier / skill-policy-router）は
-正本と整合させる。
+複製 3 本（plangate-setup / intent-classifier / skill-policy-router）のうち、
+plangate-setup は正本と同一（diff 一致・実測）で degrade 節/表記統一を同時適用。
+intent-classifier / skill-policy-router は `.claude` 側が正本より新しい内容
+（exploratory intent 等）を含むが、**内容差分の解消・sync 正本宣言は issue #866
+の所有領域**であり、本 PBI は**表記統一のみ**行い内容差分に触れない
+（下記 C-3 論点参照）。
 
 ## What — Scope
 
@@ -51,9 +56,11 @@ PR #860（#842）の検証過程で、plugin 配布物の CLI 依存に 2 つの
    `plangate <cmd>`（PATH 解決形式）。PlanGate リポジトリ自身での実行を説明する
    文脈のみ `bin/plangate`（相対）を残してよいが、その場合は
    「リポジトリルートで実行」を明記
-3. **`.claude/skills/` 複製 3 本の整合**: `plangate-setup` /
-   `intent-classifier` / `skill-policy-router` を正本（`.agents/skills/`）の
-   degrade 節・表記統一と一致させる（整合方向は plan で確定。下記 Risks 参照）
+3. **`.claude/skills/` 複製 3 本への反映**: `plangate-setup`（正本と同一・実測）は
+   degrade 節・表記統一を正本と同内容で適用。`intent-classifier` /
+   `skill-policy-router` は **表記統一（`bin/plangate` → `plangate`）のみ**適用し、
+   内容差分（exploratory intent 等）には触れない（解消・逆反映の可否判断は
+   **#866 所有**。下記 C-3 論点・Risks 参照）
 4. **README 是正**: `plugin/plangate/README.md` の依存列挙を実測
    （スキル 9 + コマンド 1 + agents 2）に更新し、「スキル内の表記は
    `plangate`（PATH 解決）。リポジトリ内では `bin/plangate`」の注記を追加。
@@ -62,7 +69,7 @@ PR #860（#842）の検証過程で、plugin 配布物の CLI 依存に 2 つの
 5. **HO パスの差分提案**（AI は編集せず、patch 提案 → Human 適用）:
    `.claude/commands/plangate-setup.md` / `.claude/agents/setup-coordinator.md` /
    `.claude/agents/workflow-conductor.md`（EH-3 9 カテゴリ該当・実測
-   `bin/plangate` 参照 3 + 6 + 2 = 11 箇所）
+   `bin/plangate` 参照 3 + 8 + 2 = **13 箇所**）
 6. **plugin への反映**: `sh scripts/sync-plugin-plangate.sh` で派生分
    （.agents/skills 由来 9 本 + rules / commands / agents）を同期。
    #862 解消により旧「orphan 2 本の直接編集」は**不要**（sync が担保）
@@ -95,8 +102,9 @@ PR #860（#842）の検証過程で、plugin 配布物の CLI 依存に 2 つの
       `git apply --check` 済み patch として提案され、Human 適用後に plugin へ
       sync 反映されている
 - [ ] AC-5: `sh scripts/sync-plugin-plangate.sh --dry-run` が差分ゼロ（正本と
-      plugin の一致）。`.claude/skills/` 複製 3 本は `diff` で正本
-      （`.agents/skills/`）と degrade 節・表記が整合
+      plugin の一致）。`.claude/skills/` 複製のうち plangate-setup は `diff` で
+      正本（`.agents/skills/`）と一致、intent-classifier / skill-policy-router は
+      表記統一のみ反映（内容差分は #866 所有のため本 PBI で解消しない）
 - [ ] AC-6: 全 CLI テスト（`sh tests/run-tests.sh`）PASS
 
 ### In scope ↔ AC 対応
@@ -105,7 +113,7 @@ PR #860（#842）の検証過程で、plugin 配布物の CLI 依存に 2 つの
 |----------|-----|
 | 1. degrade 節追加（正本 9 本） | AC-1 |
 | 2. 表記統一（正本 9 本） | AC-2 |
-| 3. `.claude/skills/` 複製 3 本の整合 | AC-2 / AC-5 |
+| 3. `.claude/skills/` 複製 3 本への反映 | AC-2 / AC-5 |
 | 4. README 是正 | AC-3 |
 | 5. HO パス 3 本の patch 提案 | AC-4 |
 | 6. plugin sync 反映 | AC-4 / AC-5 / AC-6 |
@@ -124,13 +132,26 @@ PR #860（#842）の検証過程で、plugin 配布物の CLI 依存に 2 つの
 - テスト実行後は必ず `git status` を取り直してから add する（#861 の副作用対策・
   memory 済み）
 
+### C-3 論点（#866 との依存順の固定）
+
+- intent-classifier / skill-policy-router の「`.claude` 側が正本より新しい」
+  内容差分（exploratory intent・breakdown-gate 言及）の解消と sync 正本宣言は
+  **issue #866 の所有領域**。本 PBI は **#866 の C-3 完了（`.agents` = sync 正本の
+  確定・当該 2 スキルの内容差分解消）を前提**とし、#863 は当該 2 スキルの
+  **内容差分に触れない**（表記統一のみ。逆反映の可否判断は #866 所有）
+- #866 の C-3 が未完了のまま本 PBI を先行させる場合の扱い（当該 2 スキルの
+  `.claude` 複製への表記統一を Deferred にするか、表記統一のみ先行するか）を
+  C-3 で確定する
+
 ## Estimation Evidence
 
 **実測メトリクス（2026-07-22・main b632a91）**:
 
-- 正本側 `bin/plangate` 参照: `.agents/skills/` SKILL.md **9 ファイル 39 箇所**、
-  `.claude/skills/` 7 ファイル 12 箇所（うち本 PBI 対象の複製 3 本 = 7 箇所）、
-  commands/agents **3 ファイル 11 箇所**（HO）
+- 正本側 `bin/plangate` 参照（計数は**出現数基準** `grep -o`）:
+  `.agents/skills/` SKILL.md **9 ファイル 39 箇所**、`.claude/skills/`
+  7 ファイル 12 箇所（うち本 PBI 対象の複製 3 本 = 7 箇所）、commands/agents
+  **3 ファイル 13 箇所**（HO。setup-coordinator.md に 1 行 2 出現の行が
+  2 行あるため行数基準では 11）
 - 実編集ファイル数: 正本 9 + `.claude/skills/` 複製 3 + README 1 +
   HO patch 3（Human 適用）= **16**（うち AI 直接編集 13、Human 適用 3）。
   plugin sync 派生は別途 ~12（skills 9 + commands 1 + agents 2）で
@@ -141,15 +162,15 @@ PR #860（#842）の検証過程で、plugin 配布物の CLI 依存に 2 つの
 | リスク | 検証手段 | Fallback |
 |--------|---------|----------|
 | 表記統一が V-3/CI の文書整合チェック（ref-integrity 等）に引っかかる | L-0 / `sh tests/run-tests.sh` 全 PASS で検証 | 該当箇所のみ `bin/plangate` + 「リポジトリルートで実行」注記に戻す |
-| `.claude/skills/` 複製 2 本（intent-classifier / skill-policy-router）が `.agents/skills/` 正本より新しい内容を含む（実測: exploratory intent・breakdown-gate 言及の差分）— 単純上書きで先行変更を失う | 整合作業前に `diff` で差分を全数確認し、内容差は正本へ逆反映してから整合 | 逆反映の要否判断を C-3 論点に上げ、Human 判断で確定 |
+| `.claude/skills/` 複製 2 本（intent-classifier / skill-policy-router）が `.agents/skills/` 正本より新しい内容を含む（実測: exploratory intent・breakdown-gate 言及の差分）— #866 の裁定前に本 PBI が内容差分に触れると競合 | C-3 論点で依存順を固定（#866 の C-3 完了を前提・本 PBI は当該 2 スキルへ表記統一のみ。内容差分・逆反映の可否判断は #866 所有） | #866 未完了で先行する場合は当該 2 スキルの `.claude` 複製への反映を Deferred とし、正本 9 本 + plangate-setup のみで進める |
 | HO patch 適用と AI 編集分の順序不整合 | AI 分を先に commit → patch 提案 → Human 適用 → sync の順（TASK-0842 H-2/H-5 と同型のフロー） | 順序が崩れた場合は sync --dry-run 差分で検出し再 sync |
 | `plangate` への表記統一により、リポジトリ内で PATH 未設定の開発者が混乱 | README / スキル冒頭に使い分けを 1 行明記 | doctor / setup 導線に PATH 案内を追記（別 PBI 提案） |
 
 ### Unknowns
 
 - degrade 節の粒度（定型 vs スキル個別）は plan で確定（推奨: 個別 2〜4 行）
-- `.claude/skills/` 複製 3 本の整合方向（正本へ逆反映する差分の範囲）は
-  plan で diff 全数を根拠に確定
+- #866 の C-3 完了時期（未完了で先行する場合の当該 2 スキルの扱いは
+  上記 C-3 論点で確定。内容差分の解消方向は本 PBI の Unknown ではなく #866 所有）
 
 ### Assumptions
 
