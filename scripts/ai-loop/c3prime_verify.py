@@ -16,7 +16,6 @@ Plan Package への束縛を全数**再検証**する（trust boundary: decision
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import pathlib
 import re
@@ -36,8 +35,7 @@ OPTIONAL_KEYS = c3_contract.RECORD_OPTIONAL_KEYS
 ALLOWED_KEYS = c3_contract.RECORD_ALLOWED_KEYS
 
 
-def _sha256(path: pathlib.Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+_sha256 = c3_contract.sha256_of_file  # 単一実装（TASK-0896 AC-2）
 
 
 def _fail(msg: str) -> int:
@@ -141,8 +139,7 @@ def main(argv):
             return _fail(f"artifact_hashes 不一致: {name}（stale）")
 
     # plan_package_hash = artifact_hashes の正規化 JSON の sha256
-    canon = json.dumps(ah, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    if data.get("plan_package_hash") != "sha256:" + hashlib.sha256(canon).hexdigest():
+    if data.get("plan_package_hash") != c3_contract.canonical_hash(ah):
         return _fail("plan_package_hash が artifact_hashes から再計算した値と不一致")
 
     # reviewer snapshot 三つ組一致 + decision-verdict 整合

@@ -77,5 +77,32 @@ class ConsumerAliasTests(unittest.TestCase):
         self.assertIs(arbiter.SNAPSHOT_REQUIRED_KEYS, c3_contract.SNAPSHOT_KEYS)
 
 
+
+class HashTests(unittest.TestCase):
+    """hash ヘルパーの境界値（コミット b）。"""
+
+    def test_canonical_hash_deterministic_and_order_independent(self):
+        import hashlib as _h
+        expected = "sha256:" + _h.sha256(b'{"a":1,"b":2}').hexdigest()
+        self.assertEqual(c3_contract.canonical_hash({"a": 1, "b": 2}), expected)
+        self.assertEqual(c3_contract.canonical_hash({"b": 2, "a": 1}), expected)
+
+    def test_canonical_hash_empty(self):
+        import hashlib as _h
+        self.assertEqual(c3_contract.canonical_hash({}),
+                         "sha256:" + _h.sha256(b"{}").hexdigest())
+
+    def test_sha256_of_file_detects_one_byte_change(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            p1 = pathlib.Path(d) / "a.md"
+            p2 = pathlib.Path(d) / "b.md"
+            p1.write_bytes(b"plan body\n")
+            p2.write_bytes(b"plan bodY\n")
+            h1 = c3_contract.sha256_of_file(p1)
+            self.assertTrue(h1.startswith("sha256:") and len(h1) == 71)
+            self.assertEqual(h1, c3_contract.sha256_of_file(p1))
+            self.assertNotEqual(h1, c3_contract.sha256_of_file(p2))
+
 if __name__ == "__main__":
     unittest.main()

@@ -14,6 +14,10 @@ c3prime_verify.py（record 受理器）の 3 消費者が import 参照する単
 """
 from __future__ import annotations
 
+import hashlib
+import json
+import pathlib
+
 # ---------------------------------------------------------------------------
 # 契約定数（契約 §1/§2）
 # ---------------------------------------------------------------------------
@@ -58,3 +62,22 @@ PLAN_PACKAGE_REQUIRED_KEYS = (
 
 # 三つ組照合の対象キー（snapshot 値 = container トップレベル値の一致要求）。
 TRIO_KEYS = ("plan_hash", "source_sha", "plan_package_hash")
+
+
+# ---------------------------------------------------------------------------
+# I/O なし純関数
+# ---------------------------------------------------------------------------
+
+def canonical_hash(obj) -> str:
+    """正規化 JSON（sort_keys・区切り最小）の sha256 を返す（契約 §2）。"""
+    canon = json.dumps(obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(canon).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# I/O あり関数（arbiter は import / call しない — AC-6）
+# ---------------------------------------------------------------------------
+
+def sha256_of_file(path) -> str:
+    """ファイル内容の sha256 を `sha256:<64hex>` 形式で返す（契約 §2）。"""
+    return "sha256:" + hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()

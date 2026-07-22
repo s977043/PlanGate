@@ -15,7 +15,6 @@ ai-loop（Phase 1）の C-3' を Plan Package の hash と evidence へ束縛す
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import pathlib
 import re
@@ -130,8 +129,7 @@ def check_evidence(task_dir):
     return errors
 
 
-def _sha256_of(path):
-    return "sha256:" + hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
+_sha256_of = c3_contract.sha256_of_file  # 単一実装（TASK-0896 AC-2）
 
 
 def compute_hashes(task_dir):
@@ -141,12 +139,10 @@ def compute_hashes(task_dir):
     if presence:
         raise PlanPackageError(presence)
     artifact_hashes = {name: _sha256_of(task_dir / name) for name in ARTIFACTS}
-    canon = json.dumps(artifact_hashes, sort_keys=True,
-                       separators=(",", ":")).encode("utf-8")
     return {
         "artifact_hashes": artifact_hashes,
         "plan_hash": artifact_hashes["plan.md"],
-        "plan_package_hash": "sha256:" + hashlib.sha256(canon).hexdigest(),
+        "plan_package_hash": c3_contract.canonical_hash(artifact_hashes),
     }
 
 
