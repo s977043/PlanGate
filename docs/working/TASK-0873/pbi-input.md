@@ -12,18 +12,24 @@
 
 - 状態語彙 `WAITING_FOR_CHECKS` / `WAITING_FOR_REVIEW` / `CHECKS_FAILED` は**リポジトリ内に未実在（#873 が新規導入）**。既存 docs 語彙は `00_concept.md` L82（`PR_CREATED/MERGE_READY/MERGED`）+ `execution-runbook.md` L197-245（Scheduling 判断表）
 - `scripts/ai-loop/delivery.py` は**未存在（新設）**。既存 `arbiter.py` / `plan_package.py` / `c3prime_verify.py` は「決定論・fail-closed・冪等」の同型設計
-- c3-prime 契約（#872）は `c3-prime-contract.md` §7 に delivery.py 向け引き渡し（読むフィールド・trust boundary）を確定済み。§6 consumer 一覧に `#873 delivery.py（読み取り）` 登録済み
+- c3-prime 契約（#872）は `c3-prime-contract.md` **§7** に delivery.py 向け引き渡し（読むフィールド `task_id`/`decision`/`source_sha`/`plan_hash`/`plan_package_hash` + trust boundary 再検証責務）を確定済み
 
 ## What（Scope）
 
 ### In scope
 
-1. **MERGE_READY 状態機械**（`scripts/ai-loop/delivery.py` 新設）: `PR_CREATED` から `MERGE_READY` への収束を決定論・fail-closed・冪等で実装。新状態語彙（`WAITING_FOR_CHECKS` 等）を既存 docs 語彙（`PR_CREATED/MERGE_READY/MERGED` + Scheduling 判断表）へ**正規化**して導入
-2. **c3-prime 受理側 trust boundary**（§7）: delivery.py は c3-prime record の `decision` を無検証で信頼せず、`c3prime_verify.py` を import 再利用 or 同等再検証で fail-closed。head SHA 束縛 = `source_sha` 基点で PR head が子孫でなければ fail-closed
-3. **CI・AI レビュー対応の反復**: CI 全 job green AND AI レビュー指摘全件対応完了で MERGE_READY
-4. **NO MERGE BY AI（Iron Law）担保**: 遷移表に `MERGED` 遷移を持たせない（`MERGE_READY` 止まり）+ delivery.py が merge API シンボル（`gh pr merge` / `merge_pull_request`）を含まないソース走査テスト
-5. **resume 冪等性**: run record の `source_sha` を基点にした resume 冪等（#873 新規設計）
-6. **E2E テスト**: `tests/extras/ta-56-*.sh`（番号仮）を ta-55 様式（sandbox + 直接叩き + HO 未適用 SKIP）で相乗り
+1. **状態機械契約（machine-readable）**: state transition を **schema または同等の機械可読契約**として定義（`docs/schemas/` or 正本 doc + 検証）。新状態語彙（`WAITING_FOR_CHECKS`/`WAITING_FOR_REVIEW`/`CHECKS_FAILED` 等）を既存 docs 語彙（`PR_CREATED/MERGE_READY/MERGED` + Scheduling 判断表）へ**正規化**。`scripts/ai-loop/delivery.py` 新設（決定論・fail-closed・冪等）
+2. **最新 head SHA 束縛**: 最新 head SHA 以外の CI success / required review 未着弾の pending では **MERGE_READY にしない**
+3. **CI failure taxonomy と repair 反復**: CI failure を **code / flaky / environment / permission / unknown** へ分類し、修正・push・再評価へ遷移。permission/API 不明時は成功扱いせず HUMAN_ESCALATED
+4. **review disposition 追跡**: review 指摘を **修正 commit または実測 evidence 付き不採用**へ紐付け（採否 / evidence / repair commit）
+5. **Plan 逸脱検出**: Plan 外修正を検出したら exec 差し戻し または C-3' 再裁定
+6. **conflict 再評価**: conflict 解消後に **base/head/結果の三点照合** + CI/review 再評価
+7. **round 上限**: 最大 **3 repair round**。round 4 へ進まず HUMAN_ESCALATED
+8. **c3-prime 受理側 trust boundary**（§7）: `decision` を無検証で信頼せず `c3prime_verify.py` を import 再利用 or 同等再検証で fail-closed。head SHA 束縛は `source_sha` 基点
+9. **NO MERGE BY AI（Iron Law）担保**: 遷移表に `MERGED` 遷移を持たせない（`MERGE_READY` 止まり・C-4 待ちで停止）+ delivery.py が merge API シンボル（`gh pr merge` / `merge_pull_request`）を含まないソース走査テスト
+10. **resume 冪等性（V1 必須）**: run record の `source_sha` / head SHA を基点に、resume を複数回実行しても同じコメント・修正・push を**重複しない**。fixture で固定
+11. **MERGE_READY record**: **PR 番号 / head SHA / check summary / review disposition / round / plan hash** を残す
+12. **E2E テスト**: 下記 10 必須 fixture を `tests/extras/ta-56-*.sh`（番号仮）で ta-55 様式（sandbox + 直接叩き + HO 未適用 SKIP）で実走
 
 ### Out of scope
 
@@ -31,15 +37,26 @@
 - C-4 / merge 自動化（NO MERGE BY AI・Human 固定）
 - Evolution Loop（#874/#869）への接続（本 PBI は Delivery まで）
 
-## 受入基準（#873 issue + 調査反映）
+## 受入基準（#873 issue verbatim + 調査反映）
 
-- AC-1: `PR_CREATED` から `MERGE_READY` への状態遷移が決定論・fail-closed・冪等
-- AC-2: 新状態語彙が既存 docs 語彙（`00_concept` L82 / Scheduling 判断表）へ正規化され、正本 doc に定義
-- AC-3: delivery.py が c3-prime `decision` を無検証で信頼せず fail-closed 再検証（§7 trust boundary）
-- AC-4: head SHA 束縛（PR head が `source_sha` の子孫か）で不一致は BLOCK
-- AC-5: 遷移表に `MERGED` 遷移が無い + delivery.py に merge API シンボル不在（ソース走査テストで固定）
-- AC-6: resume 冪等（同一 run record から同一状態）
-- AC-7: E2E fixture が CI 登録（ta-55 様式・run-tests.sh 経由）
+- AC-1: state transition が **schema または同等の機械可読契約**として定義されている
+- AC-2: 最新 head SHA 以外の CI success で MERGE_READY にならない
+- AC-3: required review 未着弾の pending 状態で MERGE_READY にならない
+- AC-4: CI failure から修正・push・再評価へ遷移できる（taxonomy: code/flaky/environment/permission/unknown）
+- AC-5: review 指摘から修正 commit または evidence 付き不採用を追跡できる
+- AC-6: Plan 外修正を検出すると exec 差し戻しまたは C-3' 再裁定になる
+- AC-7: conflict 解消後に base/head/結果の三点照合 + CI/review を再評価する
+- AC-8: round 4 へ進まず HUMAN_ESCALATED になる
+- AC-9: permission/API 不明時に成功扱いせず HUMAN_ESCALATED になる
+- AC-10: resume を複数回実行しても同じコメント・修正・push を重複しない
+- AC-11: MERGE_READY record に PR 番号・head SHA・check summary・review disposition・round・plan hash が残る
+- AC-12: merge 実行経路がなく、C-4 待ちで停止する
+
+### 必須 fixture（issue verbatim・10 件）
+
+1. CI pending / 2. CI green・review pending / 3. CI fail→repair→green / 4. major review→repair→re-review / 5. false positive→実測 evidence 付き不採用 / 6. stale CI on old SHA / 7. merge conflict→解消→再評価 / 8. round limit 超過 / 9. API permission 不足 / 10. process 中断→resume
+
+DoD: AC + 10 fixture すべて CI PASS / sandbox で `PR_CREATED → CI failure/review repair → MERGE_READY` 実走 / 最新 head SHA 紐づき MERGE_READY evidence 保存 / 実装 PR main merge / issue コメントに E2E run・fixture log・状態遷移 record link / #870 収束 DoD へ evidence link。**手順書追加のみ・CI green のみ・review 未着弾では close しない**
 
 ## Notes from Refinement（調査で確定した設計方針）
 
@@ -55,7 +72,7 @@
 | リスク | 検証手段 | Fallback |
 |--------|---------|----------|
 | 新状態語彙と既存 docs 語彙の二重管理 | 正規化マッピング表を正本 doc に固定 | 新語彙を既存 3 状態のサブステートとして定義 |
-| resume 冪等の設計が greenfield | fixture 駆動で同一 run record → 同一状態を検証 | Phase 1 は resume 非対応・単発実行のみ（V2 で resume）|
+| resume 冪等の設計が greenfield | fixture 10（process 中断→resume）で複数回 resume の重複なしを検証 | resume は **V1 必須**（issue AC-10）のため V2 送りにしない。実装難時は record への冪等キー（head SHA + round）で「実行済み操作の再実行抑止」に最小化する |
 | delivery.py が c3-prime 再検証を誤実装 | c3prime_verify.py を import 再利用（再実装しない）| §4 全規則の再実装 + 敵対レビュー |
 
 ### Unknowns
