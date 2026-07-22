@@ -61,21 +61,26 @@ PRIORITY_ORDER = (
     "merge_ready",
 )
 
-_INTERMEDIATE = tuple(s for s in STATES if s not in (TERMINAL, "MERGE_READY_CANDIDATE"))
-_NEXT_COMMON = tuple(sorted(_INTERMEDIATE + EXITS + ("MERGE_READY_CANDIDATE",)))
-TRANSITIONS = {
-    "CHECKS_FAILED": [s for s in _NEXT_COMMON if s != "MERGE_READY_CANDIDATE"],
-    "CONFLICT": [s for s in _NEXT_COMMON if s != "MERGE_READY_CANDIDATE"],
-    "MERGE_READY": [],
-    "MERGE_READY_CANDIDATE": sorted(_NEXT_COMMON + ("MERGE_READY",)),
-    "REVIEW_REPAIR": list(_NEXT_COMMON),
-    "WAITING_FOR_CHECKS": list(_NEXT_COMMON),
-    "WAITING_FOR_REVIEW": sorted(_NEXT_COMMON + ("MERGE_READY",)),
-}
+# assess は stateless（各回 snapshot 駆動で前状態に依存しない / A-07 是正）。
+# したがって非終端状態からは次回 assess で任意の状態・exit へ到達し得る。
+# 唯一の不変量は「MERGE_READY は終端（遷移なし）」= NO MERGE BY AI + C-4 待ち。
+# TRANSITIONS はこの実到達グラフを正直に表現する（正本 doc §3 の優先度表が
+# 「どの入力でどの状態に入るか」の意味論・本表は「到達可能性」を担う）。
+_NON_TERMINAL = tuple(s for s in STATES if s != TERMINAL) + EXITS
+_REACHABLE = sorted(STATES + EXITS)  # MERGE_READY 含む・全状態へ到達可
+TRANSITIONS = {s: list(_REACHABLE) for s in _NON_TERMINAL if s in STATES}
+TRANSITIONS["MERGE_READY"] = []
 
 REPAIR_KINDS = ("repair_ci", "repair_review", "resolve_conflict")
 ROUND_LIMIT = 3
 VALID_TAXONOMY_REPAIR = ("code", "flaky", "environment")
+
+# enum allowlist（未知値は fail-closed。良性の正規化漏れ / GitHub 実状態でも
+# 成功側に倒さない — R1 A-02/B-01/B-02）。
+MERGEABLE_VALID = ("MERGEABLE", "CONFLICTING", "UNKNOWN")
+SEVERITY_VALID = ("critical", "major", "minor", "info")
+SEVERITY_HARD = ("critical", "major")  # repair commit を要する（未知値もここへ倒す）
+DISPOSITION_KINDS = ("adopted", "rejected")
 
 
 def contract_dict() -> dict:
@@ -120,18 +125,25 @@ def validate_snapshot(snap) -> list[str]:
     need("pr_number", lambda v: isinstance(v, int) and not isinstance(v, bool), "int")
     need("head_sha", _is_sha, "hex 7-40")
     need("source_sha_ancestry", lambda v: v in (True, False, None), "true/false/null")
-    need("mergeable", lambda v: isinstance(v, str) and v, "非空 string")
+    # mergeable は allowlist（未知値は fail-closed / A-02・B-01）。
+    need("mergeable", lambda v: v in MERGEABLE_VALID,
+         f"enum {MERGEABLE_VALID}（未知値は fail-closed）")
     need("checks", lambda v: isinstance(v, list) and all(
         isinstance(c, dict) and isinstance(c.get("name"), str)
         and _is_sha(c.get("sha")) and isinstance(c.get("conclusion"), str)
         for c in v), "list of {name, sha, conclusion}")
     need("review", lambda v: isinstance(v, dict) and isinstance(v.get("state"), str)
          and _is_sha(v.get("sha")), "{state, sha}")
+    # findings: severity / disposition.kind を allowlist（未知値 fail-closed / A-02・B-02）。
     need("findings", lambda v: isinstance(v, list) and all(
         isinstance(f, dict) and isinstance(f.get("id"), str)
-        and isinstance(f.get("finding_type"), str) and isinstance(f.get("severity"), str)
-        and (f.get("disposition") is None or isinstance(f.get("disposition"), dict))
-        for f in v), "list of {id, finding_type, severity, disposition}")
+        and isinstance(f.get("finding_type"), str)
+        and f.get("severity") in SEVERITY_VALID
+        and (f.get("disposition") is None or (
+            isinstance(f.get("disposition"), dict)
+            and f["disposition"].get("kind") in DISPOSITION_KINDS))
+        for f in v),
+         "list of {id, finding_type, severity∈enum, disposition{kind∈enum}?}")
     need("changed_files", lambda v: isinstance(v, list) and all(
         isinstance(p, str) for p in v), "list of string")
     need("allowed_paths", lambda v: isinstance(v, list) and all(
@@ -178,10 +190,18 @@ def _resolved(f: dict) -> bool:
     return False
 
 
-def _completed_rounds(entries) -> int:
-    rounds = [e.get("round", 0) for e in entries
-              if e.get("kind") == "receipt" and e.get("action_kind") in REPAIR_KINDS
-              and isinstance(e.get("round"), int)]
+def _pr_receipts(entries, pr):
+    """当該 PR の receipt のみ（無関係 PR の receipt を round/recurrence に混ぜない
+    — A-06）。receipt に pr_number が無い旧形式は集計対象外（fail-closed 寄り）。"""
+    return [e for e in entries
+            if e.get("kind") == "receipt" and e.get("pr_number") == pr]
+
+
+def _completed_rounds(entries, pr) -> int:
+    rounds = [e["round"] for e in _pr_receipts(entries, pr)
+              if e.get("action_kind") in REPAIR_KINDS
+              and isinstance(e.get("round"), int) and not isinstance(e.get("round"), bool)
+              and e["round"] >= 0]
     return max(rounds, default=0)
 
 
@@ -193,10 +213,21 @@ def _intent_ids(entries) -> set:
     return {e.get("action_id") for e in entries if e.get("kind") == "intent"}
 
 
-def _past_repair_finding_types(entries) -> set:
-    return {e.get("finding_type") for e in entries
-            if e.get("kind") == "receipt" and e.get("action_kind") == "repair_review"
-            and e.get("finding_type")}
+def _past_repair_finding_types(entries, pr) -> set:
+    return {e.get("finding_type") for e in _pr_receipts(entries, pr)
+            if e.get("action_kind") == "repair_review" and e.get("finding_type")}
+
+
+def _path_allowed(path: str, allowed) -> bool:
+    """ディレクトリ許可は末尾 `/` 単位の境界一致・ファイル許可は完全一致（A-03:
+    `scripts/foo` が `scripts/foobar.py` にマッチする prefix バグを排除）。"""
+    for a in allowed:
+        if a.endswith("/"):
+            if path == a.rstrip("/") or path.startswith(a):
+                return True
+        elif path == a:
+            return True
+    return False
 
 
 def assess(snapshot: dict, entries: list, plan_hash: str | None = None) -> dict:
@@ -219,7 +250,7 @@ def assess(snapshot: dict, entries: list, plan_hash: str | None = None) -> dict:
     # 0b. Plan 逸脱（AC-6）→ EXEC_RETURN
     allowed = snapshot["allowed_paths"]
     deviated = [p for p in snapshot["changed_files"]
-                if not any(p == a or p.startswith(a) for a in allowed)]
+                if not _path_allowed(p, allowed)]
     if deviated:
         state = "EXEC_RETURN"
         reasons.append(f"Plan 逸脱: allowed_paths 外の変更 {deviated}")
@@ -243,17 +274,19 @@ def assess(snapshot: dict, entries: list, plan_hash: str | None = None) -> dict:
         review_ok = review["state"] == "approved" and review["sha"] == head
         findings = snapshot["findings"]
         unresolved = [f for f in findings if not _resolved(f)]
-        unresolved_hard = [f for f in unresolved if f["severity"] in ("critical", "major")]
-        completed = _completed_rounds(entries)
+        unresolved_hard = [f for f in unresolved if f["severity"] in SEVERITY_HARD]
+        completed = _completed_rounds(entries, pr)
         next_round = completed + 1
 
         cr = snapshot.get("conflict_resolution")
         cr_incomplete = isinstance(cr, dict) and not all(
             cr.get(k) for k in ("base_sha", "head_sha", "result_sha"))
-        conflict_need = snapshot["mergeable"] == "CONFLICTING" or cr_incomplete
+        # mergeable は allowlist（validate_snapshot 済み）。MERGEABLE 以外は
+        # conflict 側に倒す（UNKNOWN = GitHub 計算中も fail-closed / A-02・B-01）。
+        conflict_need = snapshot["mergeable"] != "MERGEABLE" or cr_incomplete
 
         recurrence = [f for f in unresolved
-                      if f["finding_type"] in _past_repair_finding_types(entries)]
+                      if f["finding_type"] in _past_repair_finding_types(entries, pr)]
 
         # 4'. taxonomy 検証不能（permission / unknown / 未知値）→ escalate（AC-9）
         if failed:
@@ -305,7 +338,7 @@ def assess(snapshot: dict, entries: list, plan_hash: str | None = None) -> dict:
             # 優先度 6: 未解決 finding（critical/major は修正・minor/info は記録要求）
             state = "REVIEW_REPAIR"
             for f in unresolved:
-                kind = "repair_review" if f["severity"] in ("critical", "major") \
+                kind = "repair_review" if f["severity"] in SEVERITY_HARD \
                     else "record_disposition"
                 payload = {"pr_number": pr, "head_sha": head,
                            "finding_id": f["id"], "finding_type": f["finding_type"],
@@ -385,20 +418,41 @@ def record_path(task_dir) -> pathlib.Path:
     return pathlib.Path(task_dir) / "delivery" / "record.jsonl"
 
 
+class RecordError(ValueError):
+    pass
+
+
 def load_entries(path) -> list:
+    """record.jsonl を読み込む。破損行 / 記録済み entry_id の改竄は fail-closed で
+    RecordError（B-04: 生 traceback を避け制御された停止。A-05: 攻撃者が予測 entry_id を
+    先行投入して append を抑止する手を封じるため、保存 entry_id を信用せず再計算照合）。"""
     p = pathlib.Path(path)
     if not p.is_file():
         return []
     entries = []
-    for line in p.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            entries.append(json.loads(line))
+    for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError as exc:
+            raise RecordError(f"record.jsonl の {i} 行目が壊れている（fail-closed）: {exc}")
+        if not isinstance(row, dict):
+            raise RecordError(f"record.jsonl の {i} 行目が object でない（fail-closed）")
+        stored = row.get("entry_id")
+        recomputed = entry_id(row)
+        if stored is not None and stored != recomputed:
+            raise RecordError(
+                f"record.jsonl の {i} 行目の entry_id が本体と不一致"
+                "（改竄兆候・fail-closed）")
+        entries.append(row)
     return entries
 
 
 def append_entries(path, entries, now: str) -> int:
     p = pathlib.Path(path)
-    existing = {e.get("entry_id") or entry_id(e) for e in load_entries(p)}
+    # 保存 entry_id は信用せず本体から再計算（A-05）。
+    existing = {entry_id(e) for e in load_entries(p)}
     p.parent.mkdir(parents=True, exist_ok=True)
     n = 0
     with open(p, "a", encoding="utf-8") as f:
@@ -406,7 +460,7 @@ def append_entries(path, entries, now: str) -> int:
             eid = entry_id(e)
             if eid in existing:
                 continue
-            row = {"entry_id": eid, **e, "at": now}
+            row = {**e, "at": now, "entry_id": eid}
             f.write(json.dumps(row, sort_keys=True, ensure_ascii=False) + "\n")
             existing.add(eid)
             n += 1
@@ -441,12 +495,14 @@ def _parse_kv(argv):
 
 
 def _cmd_assess(opts) -> int:
-    for k in ("task-dir", "snapshot", "now"):
+    # expected-sha を必須化（A-08: 呼び出し側が渡し忘れると source_sha 照合が
+    # 弱体化する。信頼済み実行層が解決した対象 SHA の注入を強制）。
+    for k in ("task-dir", "snapshot", "now", "expected-sha"):
         if not opts.get(k):
             print(f"delivery: --{k} は必須", file=sys.stderr)
             return 2
     task_dir = pathlib.Path(opts["task-dir"])
-    rc, captured = verify_c3(task_dir, opts.get("expected-sha"))
+    rc, captured = verify_c3(task_dir, opts["expected-sha"])
     if rc == 10:
         print("delivery: BLOCK — legacy c3.json（ai-loop Delivery は c3-prime 必須）",
               file=sys.stderr)
@@ -461,7 +517,19 @@ def _cmd_assess(opts) -> int:
     except (OSError, ValueError) as exc:
         print(f"delivery: snapshot を読めない: {exc}", file=sys.stderr)
         return 2
-    entries = load_entries(record_path(task_dir))
+    # snapshot.task_id を c3 の task_id / task_dir に束縛（A-01/B-03: 別 TASK の
+    # snapshot をこの承認へ流し込む手を封じる）。task_id が存在して不一致のときのみ
+    # BLOCK（欠落/形式不正は後続の validate_snapshot が fail-closed で報告する）。
+    if isinstance(snapshot, dict) and snapshot.get("task_id") is not None \
+            and snapshot.get("task_id") != c3.get("task_id"):
+        print(f"delivery: BLOCK — snapshot.task_id ({snapshot.get('task_id')!r}) が "
+              f"c3-prime の task_id ({c3.get('task_id')!r}) と不一致", file=sys.stderr)
+        return 3
+    try:
+        entries = load_entries(record_path(task_dir))
+    except RecordError as exc:
+        print(f"delivery: BLOCK — {exc}", file=sys.stderr)
+        return 3
     try:
         result = assess(snapshot, entries, plan_hash=c3.get("plan_hash"))
     except SnapshotError as exc:
@@ -479,7 +547,11 @@ def _cmd_receipt(opts) -> int:
             print(f"delivery: --{k} は必須", file=sys.stderr)
             return 2
     path = record_path(opts["task-dir"])
-    entries = load_entries(path)
+    try:
+        entries = load_entries(path)
+    except RecordError as exc:
+        print(f"delivery: {exc}", file=sys.stderr)
+        return 3
     intent = next((e for e in entries
                    if e.get("kind") == "intent" and e.get("action_id") == opts["action-id"]),
                   None)
@@ -487,11 +559,16 @@ def _cmd_receipt(opts) -> int:
         print(f"delivery: intent が存在しない action_id: {opts['action-id']}"
               "（fail-closed: 記録なき実行は受理しない）", file=sys.stderr)
         return 2
+    payload = intent.get("payload") or {}
+    # receipt に pr_number / head_sha を intent から束縛（A-06: round/recurrence の
+    # 集計を対象 PR に限定するため）。
     receipt = {"kind": "receipt", "action_id": opts["action-id"],
                "action_kind": intent.get("action_kind"),
-               "round": (intent.get("payload") or {}).get("round", 0),
+               "pr_number": payload.get("pr_number"),
+               "head_sha": payload.get("head_sha"),
+               "round": payload.get("round", 0),
                "result_ref": opts["result-ref"]}
-    ft = (intent.get("payload") or {}).get("finding_type")
+    ft = payload.get("finding_type")
     if ft:
         receipt["finding_type"] = ft
     append_entries(path, [receipt], opts["now"])

@@ -50,9 +50,10 @@ def _finding(fid="F-1", ftype="lint", severity="major", disposition=None):
             "disposition": disposition}
 
 
-def _receipt(kind, round_, action_id="x" * 8, ftype=None):
+def _receipt(kind, round_, action_id="x" * 8, ftype=None, pr=123, head=H1):
     e = {"kind": "receipt", "action_id": action_id, "action_kind": kind,
-         "round": round_, "result_ref": "evidence/r.log"}
+         "pr_number": pr, "head_sha": head, "round": round_,
+         "result_ref": "evidence/r.log"}
     if ftype is not None:
         e["finding_type"] = ftype
     return e
@@ -341,6 +342,10 @@ class CliIntegrationTests(unittest.TestCase):
     """TC-19/20 + legacy BLOCK（R-009）+ receipt CLI — c3-prime 入口再検証。"""
 
     def _run(self, argv):
+        # assess は expected-sha 必須（A-08）。未指定なら c3-prime source_sha に
+        # 一致する既定値を注入（fixture の build_c3_prime source_sha="abc1234"）。
+        if len(argv) > 1 and argv[1] == "assess" and "--expected-sha" not in argv:
+            argv = argv + ["--expected-sha", "abc1234"]
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             rc = delivery.main(argv)
@@ -453,6 +458,132 @@ class CliIntegrationTests(unittest.TestCase):
                                     "--action-id", "sha256:" + "0" * 64,
                                     "--result-ref", "e", "--now", NOW])
             self.assertEqual(rc, 2)
+
+    def test_a01_cross_task_snapshot_blocked(self):
+        # A-01/B-03: 別 TASK の snapshot をこの承認へ流し込めない
+        with tempfile.TemporaryDirectory() as tmp:
+            d = _make_approved_task(tmp)
+            sf = self._snap_file(tmp, _snap(task_id="TASK-0001"))
+            rc, _, err = self._run(["delivery", "assess", "--task-dir", str(d),
+                                    "--snapshot", sf, "--now", NOW])
+            self.assertEqual(rc, 3)
+            self.assertIn("task_id", err)
+
+    def test_a08_missing_expected_sha_exit2(self):
+        # A-08: expected-sha 未指定は受理しない（_run の自動注入を回避して検証）
+        with tempfile.TemporaryDirectory() as tmp:
+            d = _make_approved_task(tmp)
+            sf = self._snap_file(tmp, _snap())
+            out, err = io.StringIO(), io.StringIO()
+            with redirect_stdout(out), redirect_stderr(err):
+                rc = delivery.main(["delivery", "assess", "--task-dir", str(d),
+                                    "--snapshot", sf, "--now", NOW])
+            self.assertEqual(rc, 2)
+            self.assertIn("expected-sha", err.getvalue())
+
+    def test_b04_broken_record_fail_closed(self):
+        # B-04: 壊れた record.jsonl は生 traceback でなく制御された BLOCK
+        with tempfile.TemporaryDirectory() as tmp:
+            d = _make_approved_task(tmp)
+            rp = d / "delivery" / "record.jsonl"
+            rp.parent.mkdir(parents=True, exist_ok=True)
+            rp.write_text('{"kind": "state"\nNOT JSON{{{\n', encoding="utf-8")
+            rc, _, err = self._run(["delivery", "assess", "--task-dir", str(d),
+                                    "--snapshot", self._snap_file(tmp, _snap()),
+                                    "--now", NOW])
+            self.assertEqual(rc, 3)
+            self.assertIn("壊れ", err)
+
+    def test_a05_forged_entry_id_fail_closed(self):
+        # A-05: 予測 entry_id を先行投入して append を抑止する手を封じる
+        with tempfile.TemporaryDirectory() as tmp:
+            d = _make_approved_task(tmp)
+            rp = d / "delivery" / "record.jsonl"
+            rp.parent.mkdir(parents=True, exist_ok=True)
+            # entry_id が本体と不一致な行 → load 時に fail-closed
+            rp.write_text(json.dumps({"entry_id": "forged", "kind": "junk"}) + "\n",
+                          encoding="utf-8")
+            rc, _, err = self._run(["delivery", "assess", "--task-dir", str(d),
+                                    "--snapshot", self._snap_file(tmp, _snap()),
+                                    "--now", NOW])
+            self.assertEqual(rc, 3)
+            self.assertIn("entry_id", err)
+
+
+class R1RegressionTests(unittest.TestCase):
+    """R1 敵対レビュー（A-01〜A-08 / B-01〜B-05）の純関数レベル回帰。"""
+
+    def test_b01_unknown_mergeable_rejected_at_validation(self):
+        for val in ("unknown", "garbage", "dirty", "blocked"):
+            reasons = delivery.validate_snapshot(_snap(mergeable=val))
+            self.assertIn("mergeable", json.dumps(reasons), val)
+
+    def test_b01_unknown_mergeable_not_merge_ready(self):
+        # UNKNOWN（GitHub 計算中）は enum 内だが MERGEABLE でない → conflict 側
+        r = delivery.assess(_snap(mergeable="UNKNOWN"), [])
+        self.assertNotEqual(r["state"], "MERGE_READY")
+        self.assertEqual(r["state"], "CONFLICT")
+
+    def test_b02_unknown_severity_rejected_at_validation(self):
+        for val in ("blocker", "P0", "showstopper"):
+            reasons = delivery.validate_snapshot(_snap(
+                findings=[_finding(severity=val)]))
+            self.assertIn("severity", json.dumps(reasons), val)
+
+    def test_b02_unknown_disposition_kind_rejected(self):
+        reasons = delivery.validate_snapshot(_snap(
+            findings=[_finding(disposition={"kind": "wontfix"})]))
+        self.assertTrue(reasons)
+
+    def test_a03_path_boundary_not_prefix(self):
+        # scripts/foo は scripts/foobar.py にマッチしない
+        r = delivery.assess(_snap(allowed_paths=["scripts/foo"],
+                                  changed_files=["scripts/foobar.py"]), [])
+        self.assertEqual(r["state"], "EXEC_RETURN")
+        # ディレクトリ許可（末尾 /）は配下にマッチ
+        r2 = delivery.assess(_snap(allowed_paths=["scripts/foo/"],
+                                   changed_files=["scripts/foo/x.py"]), [])
+        self.assertNotEqual(r2["state"], "EXEC_RETURN")
+
+    def test_a06_unrelated_pr_receipt_not_counted(self):
+        # 別 PR の repair_review receipt は recurrence / round に混ざらない
+        other = _receipt("repair_review", 1, ftype="security", pr=999)
+        r = delivery.assess(_snap(findings=[_finding(ftype="security")]), [other])
+        self.assertEqual(r["state"], "REVIEW_REPAIR")
+        # recurrence 扱いされない → feedback_loop_referral は出ない
+        self.assertNotIn("feedback_loop_referral",
+                         [a["action_kind"] for a in r["actions"]])
+        # 同一 PR の receipt なら recurrence 扱い
+        same = _receipt("repair_review", 1, ftype="security", pr=123)
+        r2 = delivery.assess(_snap(findings=[_finding(ftype="security")]), [same])
+        self.assertIn("feedback_loop_referral",
+                      [a["action_kind"] for a in r2["actions"]])
+
+    def test_a06_round_pr_scoped(self):
+        # 別 PR の round=3 receipt は round 上限に影響しない
+        other = _receipt("repair_ci", 3, pr=999)
+        r = delivery.assess(_snap(
+            checks=[{"name": "ci", "sha": H1, "conclusion": "failure"}],
+            ci_failure_taxonomy="code"), [other])
+        self.assertEqual(r["state"], "CHECKS_FAILED")  # round 1 扱い（escalate しない）
+        self.assertEqual(r["actions"][0]["round"], 1)
+
+    def test_a05_string_round_ignored(self):
+        # 文字列 round / 負値 round は集計対象外
+        junk = {"kind": "receipt", "action_kind": "repair_ci", "pr_number": 123,
+                "round": "3", "action_id": "z"}
+        r = delivery.assess(_snap(
+            checks=[{"name": "ci", "sha": H1, "conclusion": "failure"}],
+            ci_failure_taxonomy="code"), [junk])
+        self.assertEqual(r["actions"][0]["round"], 1)
+
+    def test_a07_contract_matches_stateless(self):
+        # MERGE_READY のみ終端。非終端は全状態へ到達可（stateless の正直な表現）
+        t = delivery.TRANSITIONS
+        self.assertEqual(t["MERGE_READY"], [])
+        for s in ("CHECKS_FAILED", "CONFLICT", "WAITING_FOR_CHECKS"):
+            self.assertIn("MERGE_READY", t[s])
+            self.assertIn("MERGE_READY_CANDIDATE", t[s])
 
 
 if __name__ == "__main__":

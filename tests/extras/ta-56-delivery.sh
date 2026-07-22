@@ -26,7 +26,7 @@ elif ! command -v python3 >/dev/null 2>&1; then
 else
   # 1. 単体テスト
   if python3 "$PG_T56_ROOT/scripts/ai-loop/test_delivery.py" >/dev/null 2>&1; then
-    t56_pass "test_delivery.py 単体テスト（36 テスト）"
+    t56_pass "test_delivery.py 単体テスト（49 テスト・R1 回帰含む）"
   else
     t56_fail "test_delivery.py 単体テスト FAIL"
   fi
@@ -73,7 +73,7 @@ PYEOF
     # フェーズ 1: CI failure → CHECKS_FAILED + repair intent
     _t56_out="$_t56_tmp/out1.json"
     if python3 "$PG_T56_DELIVERY" assess --task-dir "$_t56_task" \
-        --snapshot "$_t56_tmp/snap1.json" --now "$_t56_now" > "$_t56_out" 2>/dev/null \
+        --snapshot "$_t56_tmp/snap1.json" --expected-sha abc1234 --now "$_t56_now" > "$_t56_out" 2>/dev/null \
       && grep -q '"state": "CHECKS_FAILED"' "$_t56_out"; then
       t56_pass "sandbox: CI failure → CHECKS_FAILED + repair 要求"
     else
@@ -94,7 +94,7 @@ PYEOF
     # フェーズ 2: 新 head 全 green → MERGE_READY（round=1 が record に残る）
     _t56_out2="$_t56_tmp/out2.json"
     if python3 "$PG_T56_DELIVERY" assess --task-dir "$_t56_task" \
-        --snapshot "$_t56_tmp/snap2.json" --now "$_t56_now" > "$_t56_out2" 2>/dev/null \
+        --snapshot "$_t56_tmp/snap2.json" --expected-sha abc1234 --now "$_t56_now" > "$_t56_out2" 2>/dev/null \
       && grep -q '"state": "MERGE_READY"' "$_t56_out2" \
       && grep -q '"round": 1' "$_t56_out2" \
       && grep -q '"plan_hash": "sha256:' "$_t56_out2"; then
@@ -114,7 +114,7 @@ PYEOF
     # resume 冪等（AC-10）: 同一 snapshot 再 assess → record 差分ゼロ
     _t56_lines_before=$(wc -l < "$_t56_task/delivery/record.jsonl")
     python3 "$PG_T56_DELIVERY" assess --task-dir "$_t56_task" \
-      --snapshot "$_t56_tmp/snap2.json" --now "$_t56_now" >/dev/null 2>&1
+      --snapshot "$_t56_tmp/snap2.json" --expected-sha abc1234 --now "$_t56_now" >/dev/null 2>&1
     _t56_lines_after=$(wc -l < "$_t56_task/delivery/record.jsonl")
     if [ "$_t56_lines_before" = "$_t56_lines_after" ]; then
       t56_pass "resume 冪等: 再 assess で record 差分ゼロ"
@@ -126,7 +126,7 @@ PYEOF
     printf '{"task_id":"TASK-9999","phase":"C-3","c3_status":"APPROVED","plan_hash":"sha256:%064d"}' 0 \
       > "$_t56_task/approvals/c3.json"
     _t56_rc=0; python3 "$PG_T56_DELIVERY" assess --task-dir "$_t56_task" \
-      --snapshot "$_t56_tmp/snap2.json" --now "$_t56_now" >/dev/null 2>&1 || _t56_rc=$?
+      --snapshot "$_t56_tmp/snap2.json" --expected-sha abc1234 --now "$_t56_now" >/dev/null 2>&1 || _t56_rc=$?
     if [ "$_t56_rc" = "3" ]; then
       t56_pass "legacy c3.json → exit 3 (BLOCK)"
     else

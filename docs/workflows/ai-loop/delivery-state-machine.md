@@ -29,6 +29,8 @@
 
 判定は以下の優先度順（上が勝つ）。runbook §2-(7) の 8 行を全行カバーする。
 
+**`assess` は stateless（各回 snapshot + record 履歴駆動で前状態に依存しない）**。本表は「どの入力でどの状態に入るか」の意味論を定める。§8 の `transitions`（到達可能性グラフ）は「非終端状態からは次回 assess で任意の状態・exit へ到達し得る（唯一の不変量 = `MERGE_READY` は終端）」を表し、両者は役割が異なる（前者 = 入力→状態、後者 = 状態→到達可能状態集合）。
+
 | 優先度 | 条件 | 次サブステート / exit | 要求アクション |
 |--------|------|---------------------|---------------|
 | 0a | snapshot 構造不正（必須キー欠落・型不一致・空） | （判定不能 = エラー終了。対象キー名を明示） | — |
@@ -126,6 +128,8 @@ append-only の JSONL。**delivery.py が自己 append する**のは既存 ai-l
       "CONFLICT",
       "EXEC_RETURN",
       "HUMAN_ESCALATED",
+      "MERGE_READY",
+      "MERGE_READY_CANDIDATE",
       "REVIEW_REPAIR",
       "WAITING_FOR_CHECKS",
       "WAITING_FOR_REVIEW"
@@ -135,6 +139,8 @@ append-only の JSONL。**delivery.py が自己 append する**のは既存 ai-l
       "CONFLICT",
       "EXEC_RETURN",
       "HUMAN_ESCALATED",
+      "MERGE_READY",
+      "MERGE_READY_CANDIDATE",
       "REVIEW_REPAIR",
       "WAITING_FOR_CHECKS",
       "WAITING_FOR_REVIEW"
@@ -156,6 +162,7 @@ append-only の JSONL。**delivery.py が自己 append する**のは既存 ai-l
       "CONFLICT",
       "EXEC_RETURN",
       "HUMAN_ESCALATED",
+      "MERGE_READY",
       "MERGE_READY_CANDIDATE",
       "REVIEW_REPAIR",
       "WAITING_FOR_CHECKS",
@@ -166,6 +173,7 @@ append-only の JSONL。**delivery.py が自己 append する**のは既存 ai-l
       "CONFLICT",
       "EXEC_RETURN",
       "HUMAN_ESCALATED",
+      "MERGE_READY",
       "MERGE_READY_CANDIDATE",
       "REVIEW_REPAIR",
       "WAITING_FOR_CHECKS",
