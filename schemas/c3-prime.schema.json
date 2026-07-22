@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/c3-prime.schema.json",
+  "title": "C-3' (c3-prime) Approval Record",
+  "description": "Machine-readable C-3' arbiter decision record bound to a Plan Package (approvals/c3.json with approval_kind=c3-prime). Contract: docs/workflows/ai-loop/c3-prime-contract.md",
+  "type": "object",
+  "required": [
+    "task_id",
+    "approval_kind",
+    "phase",
+    "decision",
+    "source_sha",
+    "plan_hash",
+    "plan_package_hash",
+    "artifact_hashes",
+    "c1_evidence_ref",
+    "c2_evidence_ref",
+    "reviewers",
+    "policy_ref",
+    "issued_at",
+    "issued_by"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$"
+    },
+    "approval_kind": {
+      "type": "string",
+      "const": "c3-prime"
+    },
+    "phase": {
+      "type": "string",
+      "const": "C-3'"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "AUTO_APPROVED",
+        "HUMAN_ESCALATED",
+        "BLOCKED"
+      ]
+    },
+    "source_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$",
+      "description": "Commit SHA observed by the W-check; must equal arbiter target_sha at issue time (R-011)"
+    },
+    "plan_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 of plan.md alone (same contract as legacy c3-approval / EH-3)"
+    },
+    "plan_package_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 of the canonicalized artifact_hashes JSON (sort_keys, compact separators)"
+    },
+    "artifact_hashes": {
+      "type": "object",
+      "required": [
+        "pbi-input.md",
+        "plan.md",
+        "todo.md",
+        "test-cases.md",
+        "review-self.md",
+        "review-external.md"
+      ],
+      "properties": {
+        "pbi-input.md": { "$ref": "#/$defs/sha256" },
+        "plan.md": { "$ref": "#/$defs/sha256" },
+        "todo.md": { "$ref": "#/$defs/sha256" },
+        "test-cases.md": { "$ref": "#/$defs/sha256" },
+        "review-self.md": { "$ref": "#/$defs/sha256" },
+        "review-external.md": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "c1_evidence_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "c2_evidence_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewers": {
+      "type": "object",
+      "required": ["model_a", "model_b"],
+      "properties": {
+        "model_a": { "$ref": "#/$defs/reviewerSnapshot" },
+        "model_b": { "$ref": "#/$defs/reviewerSnapshot" }
+      },
+      "additionalProperties": false
+    },
+    "policy_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "issued_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "issued_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "derived_loopspec_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "Optional: SHA-256 of the canonicalized LoopSpec derived per contract section 6 (AC-10 reproducibility)"
+    }
+  },
+  "patternProperties": {
+    "^_": {
+      "type": "string",
+      "description": "Annotation-only keys (same convention as c3-approval.schema.json). c3_status is intentionally NOT allowed (contract section 5)."
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "$comment": "Contract sections 2/4 (#887 review): AUTO_APPROVED requires both reviewer verdicts to be approve. Cross-field constraint so a tampered AUTO_APPROVED+reject record fails schema validation, not only the PR-2 strict-JSON check.",
+      "if": {
+        "properties": {
+          "decision": { "const": "AUTO_APPROVED" }
+        },
+        "required": ["decision"]
+      },
+      "then": {
+        "properties": {
+          "reviewers": {
+            "properties": {
+              "model_a": {
+                "properties": { "verdict": { "const": "approve" } }
+              },
+              "model_b": {
+                "properties": { "verdict": { "const": "approve" } }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "reviewerSnapshot": {
+      "type": "object",
+      "required": [
+        "verdict",
+        "plan_hash",
+        "source_sha",
+        "plan_package_hash",
+        "evidence_ref"
+      ],
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "enum": ["approve", "reject"]
+        },
+        "plan_hash": { "$ref": "#/$defs/sha256" },
+        "source_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$"
+        },
+        "plan_package_hash": { "$ref": "#/$defs/sha256" },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
