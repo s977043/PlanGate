@@ -165,7 +165,7 @@ class SnapshotTrioTests(unittest.TestCase):
         reasons = c3_contract.check_snapshot_trio(_container(), rv, strict_keys=False)
         self.assertEqual(len(reasons), 2)
         self.assertIn("model_a", reasons[0])
-        self.assertIn("キー欠落", reasons[0])
+        self.assertIn("キー欠落または空値", reasons[0])
         self.assertIn("model_b.plan_hash", reasons[1])
 
     def test_representative_wording_regression(self):

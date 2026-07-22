@@ -102,7 +102,7 @@ def check_snapshot_trio(container, reviewers, strict_keys) -> list[str]:
         missing = [k for k in SNAPSHOT_KEYS if not snap.get(k)]
         if missing:
             reasons.append(
-                f"reviewers.{model} の snapshot キー欠落: {', '.join(missing)}")
+                f"reviewers.{model} の snapshot キー欠落または空値: {', '.join(missing)}")
             continue
         for key in TRIO_KEYS:
             if snap.get(key) != (container.get(key) if isinstance(container, dict) else None):

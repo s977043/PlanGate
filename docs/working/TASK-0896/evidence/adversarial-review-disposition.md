@@ -18,3 +18,16 @@
 | AF-4 | 独立 | info | `derived_loopspec_hash` が任意値でも受理 — 新旧同一の既存挙動（本 PR の差分でない） | **不採用（スコープ外）**: handoff V2 候補に記録（契約側の値検証は #874 系で検討） |
 
 **AC-7 確認**: 偽造 record 群 reject 不変（37 パターン exit code 一致 + test_c3prime_verify 12 不変）
+
+---
+
+## River Review（ローカル / PR #902 作成後・2026-07-22）
+
+独立再実行（4 スイート全 OK・byte 一致・被参照 grep）付き finding verification 適用済み。**critical/major 0・総合 = マージ可（APPROVE 推奨）**。
+
+| RF | severity | 指摘 | 裁定 |
+|----|----------|------|------|
+| F-1 | minor | strict 経路で「キーは存在するが空値」のとき診断が「キー欠落」と報告されオペレータが誤読しうる（判定・exit code は不変・旧文言の被参照 0 件実測） | **採用（即修正）**: 文言を「キー欠落または空値」へ 1 語修正 + 順序契約テストの assert 更新（コミット e）。契約改版として明示コミット（R-004 Fallback 準拠） |
+| F-2 | info | 複合異常時の先頭診断優先順変化 | 既 disposition（AF-1 / KI-1）— 確認のみ |
+| F-3 | info | arbiter の sys.path 非挿入（python -P で fail-closed crash を実測） | 既 disposition（AF-2 / KI-2）— 確認のみ |
+| F-4 | info | arbiter の共通層 import が中腹配置（sibling は冒頭） | **不採用**: 契約定数の使用箇所直近に置く意図コメントあり・AST テストは位置非依存。V2 の整理時に検討 |
