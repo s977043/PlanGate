@@ -15,7 +15,6 @@ ai-loop（Phase 1）の C-3' を Plan Package の hash と evidence へ束縛す
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import pathlib
 import re
@@ -23,15 +22,11 @@ import sys
 
 TASK_ID_RE = re.compile(r"^TASK-[0-9]{4}$")
 
-# 契約 §1: Plan Package 6 要素（key 順は artifact_hashes の表示順にも使う）
-ARTIFACTS = (
-    "pbi-input.md",
-    "plan.md",
-    "todo.md",
-    "test-cases.md",
-    "review-self.md",
-    "review-external.md",
-)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import c3_contract  # noqa: E402  契約定数の単一定義（TASK-0896 / #896）
+
+# 契約 §1: Plan Package 6 要素（単一定義は c3_contract）
+ARTIFACTS = c3_contract.ARTIFACTS
 
 C1_EVIDENCE = "review-self.md"
 C2_EVIDENCE = "review-external.md"
@@ -78,9 +73,9 @@ _C2_MARKER_RE = re.compile(r"^C2-VERDICT: (\S+) plan=(sha256:[0-9a-f]{64})$", re
 _C1_PREFIX_RE = re.compile(r"^C1-VERDICT:", re.MULTILINE)
 _C2_PREFIX_RE = re.compile(r"^C2-VERDICT:", re.MULTILINE)
 
-# 契約 §2: decision の 3 値 allowlist（#887 レビュー / 両 Codex major 指摘反映）。
-VALID_DECISIONS = ("AUTO_APPROVED", "HUMAN_ESCALATED", "BLOCKED")
-VALID_VERDICTS = ("approve", "reject")
+# 契約 §2: decision の 3 値 allowlist（単一定義は c3_contract）。
+VALID_DECISIONS = c3_contract.VALID_DECISIONS
+VALID_VERDICTS = c3_contract.VALID_VERDICTS
 
 
 def _read_evidence_marker(path, marker_re, prefix_re):
@@ -134,8 +129,7 @@ def check_evidence(task_dir):
     return errors
 
 
-def _sha256_of(path):
-    return "sha256:" + hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
+_sha256_of = c3_contract.sha256_of_file  # 単一実装（TASK-0896 AC-2）
 
 
 def compute_hashes(task_dir):
@@ -145,12 +139,10 @@ def compute_hashes(task_dir):
     if presence:
         raise PlanPackageError(presence)
     artifact_hashes = {name: _sha256_of(task_dir / name) for name in ARTIFACTS}
-    canon = json.dumps(artifact_hashes, sort_keys=True,
-                       separators=(",", ":")).encode("utf-8")
     return {
         "artifact_hashes": artifact_hashes,
         "plan_hash": artifact_hashes["plan.md"],
-        "plan_package_hash": "sha256:" + hashlib.sha256(canon).hexdigest(),
+        "plan_package_hash": c3_contract.canonical_hash(artifact_hashes),
     }
 
 
