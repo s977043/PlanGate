@@ -77,3 +77,9 @@ sh scripts/sync-plugin-plangate.sh && sh tests/run-tests.sh      # 非退行を�
 未適用の間、c3-prime artifact は `bin/plangate` の legacy grep 経路で `c3_status`
 不在により **FAIL**（受理されない）。schema-validate も #887 F-8 により
 schema 不在で **ERROR**。いずれも安全側で、Shadow Config は発生しない。
+
+## 適用記録（H-3 完了）
+
+- **適用**: 2026-07-22 Human が対話実行（`git apply bin-plangate.patch` + `.new` 3 件 cp・APPLY OK 確認）
+- **検証（オーガナイザー実測）**: 4 ファイルとも patches/ 完成形と byte 一致（cmp exit 0）/ sync dry-run drift 0 / `tests/run-tests.sh` **411 passed / 0 failed・exit 0**（TA-55 HO 全鎖 SKIP→PASS: c3-prime 受理・改竄 reject・legacy 委譲・未知 approval_kind fail-closed）
+- 注: 未 commit 状態での再実行時に 1〜3 件の揺れを観測（既知の TC-05 系偽陽性・commit で解消するパターン）。クリーン 1 回実行の exit 0 を正とする
