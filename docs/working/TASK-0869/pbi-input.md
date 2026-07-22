@@ -12,7 +12,7 @@
 
 - **Evolution Loop の機械層は完全ゼロ**: `schemas/`（29 ファイル実測）に candidate / experiment schema 不在。`rg "HarnessImprovementCandidate|harness-improvement-candidate|HarnessExperimentResult"` は全リポジトリで **0 件**（issue 本文のみ）。`scripts/ai-loop/` は `arbiter.py` / `c3prime_verify.py` / `discovery.py` / `metrics.py` / `plan_package.py` + テストのみで clustering / shadow 抽出 / baseline 接続なし
 - **candidate 抽出は現状すべて手動**: `docs/ai/reporting.md` §6「次の harness improvement PBI 候補 抽出方針」は advisory の人間判断表。`docs/working/ai-loop-runs/frictions-digest-001.md` は F-1〜F-24 の**手動**状態表（検証つき派生ダイジェスト）で、機械可読 candidate 契約ではない
-- **WHERE×WHY enum は未正本化**: issue 提案の WHY 語彙（`context_loss` / `premature_finalize` / `routing_mismatch` 等）は `docs/` / `scripts/` で **0 件**（issue 本文のみに存在）
+- **WHERE×WHY enum は未正本化**: issue 提案の WHY 語彙 10 値のうち **`tool_error` を除く 9 値は `docs/` / `scripts/` で 0 件**（issue 本文のみに存在）。`tool_error` のみ **9 ファイル 38 箇所に実在**し、`docs/ai/tool-error-taxonomy.md` が既存正本 → WHY enum の `tool_error` と既存 tool-error taxonomy の**整合（二重定義回避）が必要**（下記 C-3 論点）
 - **入力素材は実在**: 完了 Run record は `docs/working/ai-loop-runs/*.json` **28 件**（実測）。ただし `rg harness_version scripts/` は **0 件** = RunEvidence（#874）は pbi-input 合意のみで producer 未実装
 - **workflow 正本の不在**: `docs/workflows/ai-loop/`（14 ファイル実測）に `harness-evolution-cycle.md` は存在しない。内側/外側の区別と **active run の harness 自己変更禁止**は `docs/workflows/ai-loop/00_concept.md` **§4.1** が既定（改善は別 TASK/Plan/PR とし、C-4 を経て次回以降の run にのみ反映）
 - **schema 配置の HO 分岐**: `schemas/**` は **HO**（`docs/ai/ai-loop/ho-paths.md` L28「AI 直接編集不可」）。非 HO 前例は `docs/schemas/child-pbi.yaml` のみ。issue 本文のたたき台 `schemas/harness-improvement-candidate.schema.json` は HO 側の提案（#874 pbi-input と同型の C-3 分岐）
@@ -20,10 +20,10 @@
 
 ## What（Scope）
 
-### In scope（棚卸しコメントの順序 1〜3 = Shadow まで。canary は根拠取得後の後続）
+### In scope（棚卸しコメントの順序 1〜2 = Gap analysis + Shadow まで。順序 3 Historical paired replay・順序 4 canary は後続）
 
-1. **Gap analysis（対応表）**: 既存部品（`metrics.py` / reporting §6 / frictions-digest / eval-baseline / rubric grader #753 / rollback）と外側ループ 8 段（Observe → Cluster → Propose → Replay/Eval → Gate → Canary → Measure → Record/Rollback)の対応表を `docs/workflows/ai-loop/harness-evolution-cycle.md` に正本化。内側/外側の責務・停止条件の区別は 00_concept.md §4.1 を参照し重複定義しない
-2. **2 schema**: `HarnessImprovementCandidate`（issue 記載の `candidate_id` / `source_run_ids` / `target_layer` / `target_surface` / `allowed_paths` / `observed_pattern` / `cause_hypothesis` / `baseline_version` / `proposed_change` / `expected_metric` / `acceptance_threshold` / `risk` / `boundary_impact` / `evaluation_plan` / `canary_plan` / `rollback_plan` / `status` / `decision` / `decision_reason` を最低項目）+ `HarnessExperimentResult`（baseline/candidate・activation・品質・回帰・コスト・採否）。配置先は HO 分岐（下記 Notes）で **C-3 確定**
+1. **Gap analysis（対応表）**: 既存部品（`metrics.py` / reporting §6 / frictions-digest / eval-baseline / rubric grader #753 / rollback）と外側ループ 8 段（Observe → Cluster → Propose → Replay/Eval → Gate → Canary → Measure → Record/Rollback)の対応表、および issue 記載の **6-stage ai-loop 対応表**（Triage / Conductor / Worker / Verifier / Gate / Trust Ledger の外側ループ責務）を `docs/workflows/ai-loop/harness-evolution-cycle.md` に正本化。内側/外側の責務・停止条件の区別は 00_concept.md §4.1 を参照し重複定義しない
+2. **2 schema**: `HarnessImprovementCandidate`（issue 記載の `candidate_id` / `created_at` / `source_run_ids` / `target_layer` / `target_surface` / `allowed_paths` / `observed_pattern` / `cause_hypothesis` / `baseline_version` / `proposed_change` / `expected_metric` / `acceptance_threshold` / `risk` / `boundary_impact` / `evaluation_plan` / `canary_plan` / `rollback_plan` / `status` / `decision` / `decision_reason` を最低項目）+ `HarnessExperimentResult`（baseline/candidate・activation・品質・回帰・コスト・採否）。配置先は HO 分岐（下記 Notes）で **C-3 確定**
 3. **WHERE×WHY enum の正本化**: `WHERE`（`prompt`/`context`/`harness`/`loop` の 4 値）× `WHY`（`context_loss`/`premature_finalize`/`retry_loop`/`review_miss`/`routing_mismatch`/`tool_error`/`false_positive`/`cost_overrun`/`boundary_escalation`/`model_capability_limit` の 10 値）を schema enum として固定し、`observed_pattern`（観測事実）と `cause_hypothesis`（原因仮説）をフィールド分離
 4. **Shadow 抽出 CLI `scripts/ai-loop/evolution.py`**（非 HO・隔離 PoC）: 完了 Run evidence（現行 28 record + #874 RunEvidence fixture）から candidate を**生成するだけ**（read-only・変更適用なし）。既存 `plan_package.py`/`c3prime_verify.py`/`metrics.py` の決定論・fail-closed・冪等規約を踏襲（timestamp 注入・`now()` 直参照禁止・legacy/invalid/skip の明示区分）。**#874 producer 未実装を fixture 駆動で吸収**し #874 完了を待たない
 5. **§4.1 並存規約の機械チェック**: candidate の `allowed_paths` が active run の `allowed_paths` と交差する場合は **BLOCKED を明示**（00_concept.md §4.1「active run の harness 自己変更禁止」を shadow 段階から機械担保）
@@ -40,7 +40,8 @@
 - モデルの自己書き換え、無制限の Skill / Hook 自動更新
 - remote service / SaaS の必須化（Hermes / ai-second-brain 非依存で単体動作）
 - #811 Memory Promotion Gate の置き換え（promotion sub-gate として接続のみ）
-- limited canary の実適用（棚卸し順序 4 = 「根拠が得られた場合のみ」。本 PBI は shadow + replay 検証まで。自動適用は low-risk・reversible・boundary-clean・`allowed_paths` 内限定の原則のみ文書化）
+- **Historical paired replay の実行（棚卸し順序 3）**: replay runner / `HarnessExperimentResult` producer（実験を実行し結果 record を生成する主体）は本 PBI に**含まない**（V2 候補）。本 PBI は検証**契約**（schema + fixture）の定義まで
+- limited canary の実適用（棚卸し順序 4 = 「根拠が得られた場合のみ」。本 PBI は順序 1〜2 = Gap analysis + Shadow まで。自動適用は low-risk・reversible・boundary-clean・`allowed_paths` 内限定の原則のみ文書化）
 
 ## 受入基準（issue #869 Definition of Done verbatim・10 項目）
 
@@ -49,9 +50,11 @@
 - AC-3: raw transcript / hidden CoT を要求しない
 - AC-4: Candidate / Experiment Result の schema、provenance、rollback が定義されている
 - AC-5: 提案者と評価者が分離され、paired baseline、activation、regression が検証できる
+  - **本 PBI の充足水準**: 検証**契約**（schema の `evaluation_plan` 等フィールド + fixture）の定義まで。**実行主体（replay runner / `HarnessExperimentResult` producer）は Out of scope + V2 候補**（fixture による契約検証と replay 実行を混同しない）
 - AC-6: 既存 terminal decision、C-4 / merge、production WF-00〜07 の境界を変更しない
 - AC-7: #811 との責務境界と接続条件が文書化されている
 - AC-8: 10 件以上の代表ケースで評価し、critical regression が 0 件である
+  - **本 PBI の充足水準（読み替え・C-3 で人間承認を取る）**: 10 件以上の代表ケースに対する **candidate 生成の決定論検証 + fixture 回帰 0 件**まで。harness 変更**適用後**の regression 計測は canary 後続（順序 3〜4）で充足
 - AC-9: Prompt / Context / Harness / Loop の代表候補を fixture で検証できる
 - AC-10: 採用 / 修正 / 却下と理由を Trust Ledger または ADR に残せる
 
@@ -65,12 +68,12 @@
 | In scope | 対応 AC |
 |----------|---------|
 | 1 Gap analysis / harness-evolution-cycle.md | AC-1, AC-6 |
-| 2 schema 2 本 | AC-4, AC-10 |
+| 2 schema 2 本 | AC-4, AC-5（検証契約の schema 側）, AC-10 |
 | 3 WHERE×WHY enum 正本化 | AC-12（+ AC-4） |
-| 4 shadow 抽出 CLI evolution.py | AC-2, AC-3, AC-5 |
+| 4 shadow 抽出 CLI evolution.py | AC-2, AC-3 |
 | 5 allowed_paths 交差 BLOCKED | AC-11（+ AC-6） |
 | 6 #811/#874 接続境界 | AC-7 |
-| 7 fixture 群 | AC-8, AC-9（+ AC-3 privacy 検証） |
+| 7 fixture 群 | AC-5（検証契約の fixture 側）, AC-8, AC-9（+ AC-3 privacy 検証） |
 
 ### DoD / Close 条件（issue「検討したい論点」= C-3 論点として繰り越し）
 
@@ -81,6 +84,13 @@ issue 本文の 5 論点は pbi-input では確定せず C-3 / plan で確定す
 3. Phase 1 自動適用範囲（docs-only vs lite 条件充足の downstream `allowed_paths`）— 本 PBI は shadow のみのため後続論点
 4. #811 必須 promotion sub-gate の対象範囲
 5. Trust Ledger（既存 record への optional fields vs 独立 experiment ledger）
+
+調査・レビュー反映で追加した C-3 論点（追補 1〜4）:
+
+1. **AC-8 充足水準の読み替え承認**: 「10 件以上の代表ケースで評価・critical regression 0 件」を本 PBI では「candidate 生成の決定論検証 + fixture 回帰 0 件」と読み替える（適用後 regression 計測は canary 後続）ことの人間承認
+2. **WHY enum `tool_error` と既存 tool-error taxonomy の整合**: `docs/ai/tool-error-taxonomy.md`（既存正本・9 ファイル 38 箇所で使用）との二重定義回避（参照統合 or サブセット宣言）
+3. **enum 拡張ポリシー（versioning）**: schema を `schemas/`（HO）に置く場合、WHERE×WHY 語彙 1 件の追加ごとに **HO patch（Human 適用）が必要**になる帰結の受容可否。docs/schemas/（非 HO）なら AI 完結だが機械強制は validator 側
+4. **#874 との schema 配置確定の順序**: #874（RunEvidence）の C-3 が先に配置を確定した場合は本 PBI が追従し、本 PBI が先の場合は #874 側へ同側選択を申し送る（分裂させない手順の確定）
 
 ## Notes from Refinement（調査で確定した設計方針）
 
@@ -101,10 +111,10 @@ issue 本文の 5 論点は pbi-input では確定せず C-3 / plan で確定す
 |--------|---------|----------|
 | schema HO 分岐（`schemas/` vs `docs/schemas/`）で #874 と配置が分裂 | C-3 で #874 と同側に確定 | docs/schemas/ + 非 HO validator（AI 完結）|
 | #874 RunEvidence 未実装で入力契約が動かない | RunEvidence fixture 駆動で先行実装（#874 完了を待たない） | adapter IF はフィールド契約まで・実接続は #874 実装後 |
-| shadow のつもりが適用系に踏み込む（§4.1 違反） | evolution.py を read-only 決定論 CLI に固定 + allowed_paths 交差 BLOCKED（AC-11）+ ソースに書き込み経路なしのテスト | 生成物は `docs/working/` 配下 candidate record のみに限定 |
+| shadow のつもりが適用系に踏み込む（§4.1 違反） | evolution.py を read-only 決定論 CLI に固定 + allowed_paths 交差 BLOCKED（AC-11）+ ソースに書き込み経路なしのテスト | 生成物は candidate record のみに限定（出力先は C-3 論点 2 の確定に従う。暫定は `docs/working/` 配下）|
 | 「10 件以上の代表ケース」（AC-8）の素材不足 | 完了 Run record 28 件（実測）+ frictions-digest F-1〜F-24 から代表ケース抽出 | 不足分は synthetic fixture（決定論・issue の非決定挙動記録規律に従う）|
 | privacy 違反（raw transcript / hidden CoT 混入） | privacy fixture で機械検証（AC-3）+ metrics-privacy.md 4 層強制の既存枠 | evidence は参照（run_id / F-ID）のみ・本文非保存 |
-| #811 未実装で promotion 接続が検証不能 | 接続「条件」の文書化まで（AC-7 は文書化が要求水準・issue verbatim） | promotion 実接続は #811 実装後の後続 |
+| #811 未実装で promotion 接続が検証不能 | `docs/working/TASK-0811/pbi-input.md` との突合レビューで接続条件（sub-gate 対象・IF フィールド）の整合を確認（AC-7 は文書化が要求水準・issue verbatim） | promotion 実接続は #811 実装後の後続 |
 
 ### Unknowns
 
