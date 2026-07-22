@@ -61,10 +61,13 @@ intent-classifier / skill-policy-router は `.claude` 側が正本より新し�
    `skill-policy-router` は **表記統一（`bin/plangate` → `plangate`）のみ**適用し、
    内容差分（exploratory intent 等）には触れない（解消・逆反映の可否判断は
    **#866 所有**。下記 C-3 論点・Risks 参照）
-4. **README 是正**: `plugin/plangate/README.md` の依存列挙を実測
+4. **README 是正（2 本）**: `plugin/plangate/README.md` の依存列挙を実測
    （スキル 9 + コマンド 1 + agents 2）に更新し、「スキル内の表記は
    `plangate`（PATH 解決）。リポジトリ内では `bin/plangate`」の注記を追加。
-   README 本文は sync 対象外の独自実体（version 行のみ sync）のため直接編集
+   加えて `plugin/plangate/skills/README.md`（sync skip 対象の独立実体・
+   L19 に `bin/plangate` の相対パス案内あり = 本 PBI の故障モードそのもの）にも
+   同注記・表記是正を適用。両 README とも sync 対象外の独自実体
+   （前者は version 行のみ sync）のため直接編集
    （#842 B'案の限定 HO 4 パターン外 = AI 編集可）
 5. **HO パスの差分提案**（AI は編集せず、patch 提案 → Human 適用）:
    `.claude/commands/plangate-setup.md` / `.claude/agents/setup-coordinator.md` /
@@ -83,7 +86,7 @@ intent-classifier / skill-policy-router は `.claude` 側が正本より新し�
   （リポジトリ内実行・ai-loop ドメインの文脈。必要なら別 issue）
 - `.claude/skills/` 側の新規 CLI 参照ファイル（`ai-loop-cycle` /
   `plan-quality-reviewer` / `plangate-working-discipline` テンプレート / README）
-  の表記統一（同上・スキル配布 10 本のスコープ外）
+  の表記統一（同上・本 PBI のスキル配布対象＝正本 9 本 + 複製 3 本のスコープ外）
 - テスト（ta-26 の rm -rf 問題）— #861（CLOSED 済みだが本 PBI では扱わない）
 
 ## 受入基準
@@ -97,7 +100,9 @@ intent-classifier / skill-policy-router は `.claude` 側が正本より新し�
       `grep -rn "bin/plangate" .agents/skills/*/SKILL.md .claude/skills/{plangate-setup,intent-classifier,skill-policy-router}/SKILL.md`
       の残存が全て意図的注記であることをレビューで確認
 - [ ] AC-3: `plugin/plangate/README.md` の依存列挙が実測（スキル 9 + コマンド 1 +
-      agents 2）と一致し、`plangate` / `bin/plangate` の使い分け注記がある
+      agents 2）と一致し、`plangate` / `bin/plangate` の使い分け注記がある。
+      `plugin/plangate/skills/README.md` L19 の `bin/plangate` 相対パス案内も
+      同様に是正されている
 - [ ] AC-4: HO パス 3 本（commands/plangate-setup.md・agents 2 本）の差分が
       `git apply --check` 済み patch として提案され、Human 適用後に plugin へ
       sync 反映されている
@@ -114,7 +119,7 @@ intent-classifier / skill-policy-router は `.claude` 側が正本より新し�
 | 1. degrade 節追加（正本 9 本） | AC-1 |
 | 2. 表記統一（正本 9 本） | AC-2 |
 | 3. `.claude/skills/` 複製 3 本への反映 | AC-2 / AC-5 |
-| 4. README 是正 | AC-3 |
+| 4. README 是正（2 本） | AC-3 |
 | 5. HO パス 3 本の patch 提案 | AC-4 |
 | 6. plugin sync 反映 | AC-4 / AC-5 / AC-6 |
 
@@ -152,10 +157,10 @@ intent-classifier / skill-policy-router は `.claude` 側が正本より新し�
   7 ファイル 12 箇所（うち本 PBI 対象の複製 3 本 = 7 箇所）、commands/agents
   **3 ファイル 13 箇所**（HO。setup-coordinator.md に 1 行 2 出現の行が
   2 行あるため行数基準では 11）
-- 実編集ファイル数: 正本 9 + `.claude/skills/` 複製 3 + README 1 +
-  HO patch 3（Human 適用）= **16**（うち AI 直接編集 13、Human 適用 3）。
+- 実編集ファイル数: 正本 9 + `.claude/skills/` 複製 3 + README 2 +
+  HO patch 3（Human 適用）= **17**（うち AI 直接編集 14、Human 適用 3）。
   plugin sync 派生は別途 ~12（skills 9 + commands 1 + agents 2）で
-  **PR 全体の変更ファイルは ~28**
+  **PR 全体の変更ファイルは ~29**
 
 ### Risks
 
@@ -175,7 +180,7 @@ intent-classifier / skill-policy-router は `.claude` 側が正本より新し�
 ### Assumptions
 
 - **Mode: critical で確定**（`mode-classification.md` 定量基準の機械判定:
-  変更ファイル数 = 実編集 16 + sync 派生 ~12 = **~28 で「16+ → 超高」が決定論**。
+  変更ファイル数 = 実編集 17 + sync 派生 ~12 = **~29 で「16+ → 超高」が決定論**。
   受入基準数 6 → 高。定性: HO 対象パス（`.claude/commands/*.md` /
   `.claude/agents/*.md`）を含む「承認境界周辺の変更 → 最低 高」。
   判定ロジック「各軸の最大値を採用」で **critical 確定**）。
