@@ -23,17 +23,17 @@ Uzabase Agile Journey の記事「リファクタリングは、なぜ必要な�
 - **refactor 検証証跡は既存**: `refactor_verify` は `docs/working/templates/evidence-tdd-ledger.json` / `docs/ai/quality-command-evidence.md` / `plugin/plangate/skills/evidence-ledger/SKILL.md` に実在 → 再実装しない
 - **#810 は OPEN・pbi-input 合意済（plan 未正式化）**: `docs/working/TASK-0810/pbi-input.md` は `docs/working/templates/plan.md` の `## Questions / Unknowns（#786）` 節拡張 + C-1 17 項目への Blocking Unknown gate 追加を In scope に持つ。本 PBI も同一アーティファクト（plan テンプレート + C-1）を拡張するため、**実装順は #810 後が安全**（同一ファイルへの 2 回の非同期改訂を避ける。#810 pbi-input が 2 issue 統合を決めたのと同じ理由）
 - **大規模負債の別 Issue 化は既存規約**: handoff テンプレートの「V2 候補」欄 + 「実装で勝手に作らず提案として handoff の V2 候補・別 Issue へ分離する」前例（`docs/ai/design-ui-addendum.md` L61、#578 系・CLOSED）→ Case 3 の受け皿は既存で、重複定義しない
-- **HO 分岐**: issue「想定する組み込み箇所」の `.claude/commands/ai-dev-workflow.md`（C-1 17 項目の正本）/ `.claude/rules/*.md` は HO-rules（`docs/ai/ai-loop/ho-paths.md` L29/L38「AI 直接編集不可」）。加えて **`docs/ai/*.md`（トップレベルの md のみ）は HO-contract**（ho-paths.md L35。`docs/ai/ai-loop/` 配下と `docs/workflows/` / `docs/` 直下は対象外）→ 説明文書はトップレベル `docs/ai/` を避ければ非 HO で AI 完結。非 HO で AI が完結できるのは `docs/working/templates/plan.md`（#786 系で改訂実績あり）/ `docs/` 直下・`docs/workflows/` 配下の説明文書 / fixture
+- **HO 分岐**: issue「想定する組み込み箇所」は抽象ステージ名のみで「具体的な名称・ステージ番号は、現行リポジトリ構造を確認して調整する」と明記されている。それに対応する本リポジトリ実体（**本 pbi-input のマッピング**）のうち `.claude/commands/ai-dev-workflow.md`（C-1 17 項目の正本）/ `.claude/rules/*.md` は HO-rules（`docs/ai/ai-loop/ho-paths.md` L29/L38「AI 直接編集不可」）。加えて **`docs/ai/*.md`（トップレベルの md のみ）は HO-contract**（ho-paths.md L35。`docs/ai/ai-loop/` 配下と `docs/workflows/` / `docs/` 直下は対象外）→ 説明文書はトップレベル `docs/ai/` を避ければ非 HO で AI 完結。非 HO で AI が完結できるのは `docs/working/templates/plan.md`（#786 系で改訂実績あり）/ `docs/` 直下・`docs/workflows/` 配下の説明文書 / fixture
 
 ## What（Scope）
 
 ### In scope（棚卸しコメントの genuine gap 3 点 + それを運ぶ最小の組み込み）
 
 1. **条件付き Knowledge Delta 節**: issue 本文の 4 部構成（Newly learned / Existing representation / Delta / Required structural response）を plan テンプレートへ**条件付き**で導入。適用条件（issue verbatim 4 条件: 既存コードの責務・境界・命名を変更する / ドメインルールの理解が更新された / 変更前の構造が新しい要件を不自然にしている / リファクタリングを含む可能性が高い）と省略条件（Case 1 相当）を定義。**入力層は #810 の Facts / Assumptions / Unknowns 構造と共有**し、plan テンプレートに重複記入欄を作らない
-2. **タスク分割パターン**: A. Characterization / Safety Net → B. Preparatory Refactoring → C. Behavior Change → D. Post-change Refactoring → E. Independent Verification の順序分解と原則 4 点（issue verbatim: Red で構造変更を進めない / 振る舞い変更と構造変更を識別可能な単位へ分ける / Preparatory は最小範囲 / 広範囲負債は隠さず別 Issue/Epic 候補として報告）を todo / Work Breakdown 規約へ導入
+2. **タスク分割パターン**: A. Characterization / Safety Net → B. Preparatory Refactoring → C. Behavior Change → D. Post-change Refactoring → E. Independent Verification の順序分解と原則 4 点（issue verbatim: 「テストが Red の状態で構造変更を進めない」/「振る舞い変更と構造変更を**可能な限り別コミットまたは識別可能な単位へ分ける**」/「Preparatory Refactoring は後続変更を安全・単純にする最小範囲に限定する」/「広範囲な負債解消は通常タスクへ隠さず、別 Issue/Epic 候補として報告する」）を todo / Work Breakdown 規約へ導入
 3. **Characterization Test / Preparatory Refactoring の適用条件定義**: どういう場合に A / B を先行させるか（テスト不足 × 構造変更範囲）の判定条件を正本化。実践例として既存 `ArbitrateCharacterizationTests` を参照
 4. **過剰設計チェックの参照統合（C-1 + PR 前セルフレビュー配線）**: issue 提案の 5 チェック項目のうち、YAGNI / 投機的抽象化系は既存 `review-gate` 観点（#794）への**参照**で充足し二重実装しない。新規追加は Knowledge Delta 固有の項目（「新しい名前・責務・境界が Knowledge Delta を正しく表現する」「今回触る必要のない範囲まで変更していない」）に限定（充足方式は C-3 論点 2）。配線先は issue「想定する組み込み箇所」verbatim の **C-1 セルフレビュー**と **C-4 前後の実行前・PR 前セルフレビュー（`review-self.md` の C-1 相当運用 / `diff-audit` 系）**の両方とし、後者には「構造変更と振る舞い変更が識別可能な単位に分かれているか」の再検査観点を含める（#810 が同レビューへ Unknown 再検査観点を追加するのと同型・増分最小）
-5. **Behavior Preservation の完了確認**: 構造変更を含む場合の完了判定項目（issue verbatim: 既存 + 追加テスト PASS / 型チェック・静的解析 PASS / 外部 IF 互換 / 振る舞い変更と構造変更の区別説明 / rollback 可能または不可逆性の Plan 承認）を条件付きで定義。V-2 `code-optimizer` Iron Law・`refactor_verify`（evidence-tdd-ledger）と整合させ、既存機構の重複再定義をしない（配線先は plan で確定）
+5. **Behavior Preservation の完了確認**: 構造変更を含む場合の完了判定項目（issue verbatim: 「既存テストと追加テストが通る」/「型チェック・静的解析が通る」/「外部 API、永続化形式、イベント、CLI、公開インターフェースの互換性が維持される」/「振る舞い変更がある場合は、構造変更と区別して説明されている」/「rollback 可能、または不可逆性が Plan で承認されている」）を条件付きで定義。V-2 `code-optimizer` Iron Law・`refactor_verify`（evidence-tdd-ledger）と整合させ、既存機構の重複再定義をしない（配線先は plan で確定）
 6. **記録層は既存拡張にスリム化**: 変更理由と検証結果は `decision-log.jsonl`（append-only）と handoff（妥協点 / V2 候補）の**既存構造の記載規約拡張**で残す。新スキーマ・Trust Ledger schema 新フィールドは追加しない（棚卸しコメント verbatim。不足が実測された場合のみ additive に後続検討）
 7. **docs 説明 + 3 ケースのサンプル / fixture**: 「コード美化ではなく知識差分の同期」であることの説明文書と、Case 1（小さな機能追加 = 省略経路）/ Case 2（ドメイン理解更新の既存機能変更 = A→B→C 分割）/ Case 3（構造的負債 = 別 Issue/Epic 候補出力）のサンプルまたは fixture
 
@@ -60,6 +60,7 @@ Uzabase Agile Journey の記事「リファクタリングは、なぜ必要な�
 - AC-5: 投機的抽象化と不要な変更範囲を検出するレビュー項目が追加されている
   - **本 PBI の充足水準（棚卸しコメント整合）**: YAGNI / 投機的抽象化の検出本体は既存 `review-gate`（#794）への参照統合で充足し、新規追加は Knowledge Delta 固有項目に限定する（充足方式は C-3 論点 2 で確定）
 - AC-6: 構造変更前後の振る舞い維持を確認するゲートが追加されている
+  - **本 PBI の充足水準**: 新規ゲートフェーズは追加せず、既存ゲート（V-1 受け入れ検査または todo E 完了条件）への**条件付き確認項目の追加**で充足する（配線先は C-3 論点 5 で確定）
 - AC-7: Trust Ledger への記録方法が既存スキーマと整合している
   - **本 PBI の充足水準（棚卸しコメント verbatim 準拠・C-3 承認対象の読み替え）**: 新規フィールドを追加せず、既存 `decision-log.jsonl` / handoff の記載規約拡張で表現できることをもって「整合」とする（出典: [棚卸しコメント permalink](https://github.com/s977043/PlanGate/issues/867#issuecomment-5011251311)）。充足の具体化として、**既存 Trust Ledger 4 系列（decision record / provenance / 摩擦台帳 / review-feedback）のどこへ何（変更理由 / Knowledge Delta / 検証結果 / 投機的抽象化の有無）を記録するかの対応表を plan で作成**する
 - AC-8: サンプルまたは fixture で、単純機能変更・既存コード変更・大規模負債の 3 ケースを確認できる
