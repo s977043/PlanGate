@@ -19,11 +19,23 @@
 - 論点 2（EPIC #870 追記）: **投稿する**（AI が下書き投稿・論点 1 の決定内容を反映）
 - c3.json 発行: Human が `bin/plangate approve TASK-0896` を plan branch 上で実行（発行は確定反映 f6bf1a9 の後 = EH-3 整合順序）
 
+## exec 記録（2026-07-22）
+
+| 日時 | 内容 |
+|------|------|
+| 2026-07-22 14:30 | c3.json 発行（Human 対話実行）→ PR #899（plan 正式化）CI 全 green → C-4 merge b75f277 |
+| 2026-07-22 17:40 | exec 開始（branch `feat/task-0896-c3-contract`）・ベースライン 247/30/12/411 全 green |
+| 2026-07-22 18:10 | コミット a 91dbd81（定数集約）/ b 673112d（hash 統合）/ c cf925c9（trio 共通化）/ d 99816f8（sync + ta-55） |
+| 2026-07-22 18:55 | 敵対レビュー 2 レーン完了（critical/major 0・AF-1〜4 disposition）・handoff 発行 |
+
+### 計画からの変更点
+
+なし（Files to Touch 9 ファイル内で完結・Replan Trigger 発火なし）。AF-1（診断優先順の変化）は R-004 順序契約の設計帰結として記録対応（KI-1）。
+
 ## 残タスク
 
-- [ ] c3.json 発行（Human・`bin/plangate approve TASK-0896`）
-- [ ] c3.json commit + push → PR 作成（plan 正式化 PR・1 PR 完結方式）
-- [ ] C-4 マージ後: exec 開始（todo.md T-1〜T-17・本セッション or `PLANGATE_HOOK_TASK=TASK-0896` 再起動セッション）
+- [ ] exec PR 作成 → C-4（Human レビュー・マージ）
+- [ ] マージ後: issue #896 に DoD evidence 記録 → close 判定
 
 ## 参照
 
