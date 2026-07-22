@@ -34,13 +34,13 @@ plan の「既存コード実態」主張は **9 項目中 9 項目で一次ソ�
 
 | R-NNN | status | reflected_in (commit) | notes |
 |-------|--------|----------------------|-------|
-| R-001 | 採用 | (確定反映コミットで記入) | AC-1 verbatim 準拠・REQUIRED_KEYS 系 3 定数を c3_contract へ |
+| R-001 | 採用 | f6bf1a9 | AC-1 verbatim 準拠・REQUIRED_KEYS 系 3 定数を c3_contract へ |
 | R-002 | 不採用 | — | 経路違い（human C-3 経路・前例 TASK-0872） |
-| R-003 | 採用 | (同上) | TC-5/TC-10 拡張 |
-| R-004 | 採用 | (同上) | 理由リスト順序契約 + 代表文言回帰固定 |
-| R-005 | 採用 | (同上) | reviewer 集合非対称の保存を明記 |
-| R-006 | 採用 | (同上) | source_sha/target_sha 残置明記 |
-| R-007 | 採用 | (同上) | 行番号修正 |
-| R-008 | 採用 | (同上) | arbiter sys.path 不要の確定 |
-| R-009 | 採用 | (同上) | sync 順序逆転禁止 |
-| R-010 | 採用 | (同上) | ta-55 に 1 行追記・実数 9 へ更新 |
+| R-003 | 採用 | f6bf1a9 | TC-5/TC-10 拡張 |
+| R-004 | 採用 | f6bf1a9 | 理由リスト順序契約 + 代表文言回帰固定 |
+| R-005 | 採用 | f6bf1a9 | reviewer 集合非対称の保存を明記 |
+| R-006 | 採用 | f6bf1a9 | source_sha/target_sha 残置明記 |
+| R-007 | 採用 | f6bf1a9 | 行番号修正 |
+| R-008 | 採用 | f6bf1a9 | arbiter sys.path 不要の確定 |
+| R-009 | 採用 | f6bf1a9 | sync 順序逆転禁止 |
+| R-010 | 採用 | f6bf1a9 | ta-55 に 1 行追記・実数 9 へ更新 |
