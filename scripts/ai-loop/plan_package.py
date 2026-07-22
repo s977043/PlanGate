@@ -23,15 +23,11 @@ import sys
 
 TASK_ID_RE = re.compile(r"^TASK-[0-9]{4}$")
 
-# 契約 §1: Plan Package 6 要素（key 順は artifact_hashes の表示順にも使う）
-ARTIFACTS = (
-    "pbi-input.md",
-    "plan.md",
-    "todo.md",
-    "test-cases.md",
-    "review-self.md",
-    "review-external.md",
-)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import c3_contract  # noqa: E402  契約定数の単一定義（TASK-0896 / #896）
+
+# 契約 §1: Plan Package 6 要素（単一定義は c3_contract）
+ARTIFACTS = c3_contract.ARTIFACTS
 
 C1_EVIDENCE = "review-self.md"
 C2_EVIDENCE = "review-external.md"
@@ -78,9 +74,9 @@ _C2_MARKER_RE = re.compile(r"^C2-VERDICT: (\S+) plan=(sha256:[0-9a-f]{64})$", re
 _C1_PREFIX_RE = re.compile(r"^C1-VERDICT:", re.MULTILINE)
 _C2_PREFIX_RE = re.compile(r"^C2-VERDICT:", re.MULTILINE)
 
-# 契約 §2: decision の 3 値 allowlist（#887 レビュー / 両 Codex major 指摘反映）。
-VALID_DECISIONS = ("AUTO_APPROVED", "HUMAN_ESCALATED", "BLOCKED")
-VALID_VERDICTS = ("approve", "reject")
+# 契約 §2: decision の 3 値 allowlist（単一定義は c3_contract）。
+VALID_DECISIONS = c3_contract.VALID_DECISIONS
+VALID_VERDICTS = c3_contract.VALID_VERDICTS
 
 
 def _read_evidence_marker(path, marker_re, prefix_re):

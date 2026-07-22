@@ -475,21 +475,12 @@ def plan_quality_check(gates: Any) -> bool:
 #   snapshot 欠落）→ priority 1.65 で BLOCKED（契約 §3/§4 の fail-closed）
 # escalate / BLOCKED 条件を追加するだけの安全側変更であり、以前 escalate だった
 # 経路を auto-approve に倒す効果は持たない。
-PLAN_PACKAGE_REQUIRED_KEYS = (
-    "plan_hash",
-    "source_sha",
-    "plan_package_hash",
-    "c1_evidence_ref",
-    "c2_evidence_ref",
-    "reviewers",
-)
-SNAPSHOT_REQUIRED_KEYS = (
-    "verdict",
-    "plan_hash",
-    "source_sha",
-    "plan_package_hash",
-    "evidence_ref",
-)
+# 契約定数は c3_contract が単一定義（TASK-0896 / #896）。arbiter は I/O なし層
+# （定数・純関数）のみを import する（AC-6: sha256_of_file は import / call しない）。
+import c3_contract  # noqa: E402
+
+PLAN_PACKAGE_REQUIRED_KEYS = c3_contract.PLAN_PACKAGE_REQUIRED_KEYS
+SNAPSHOT_REQUIRED_KEYS = c3_contract.SNAPSHOT_KEYS
 
 
 def plan_package_check(plan_package: Any, target_sha: str) -> tuple[bool, bool, str]:

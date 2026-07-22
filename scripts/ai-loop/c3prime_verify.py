@@ -23,24 +23,17 @@ import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import c3_contract  # noqa: E402  契約定数の単一定義（TASK-0896 / #896）
 import plan_package  # noqa: E402  受理側でも evidence marker を再検証するため共有
 
-ARTIFACTS = (
-    "pbi-input.md", "plan.md", "todo.md", "test-cases.md",
-    "review-self.md", "review-external.md",
-)
-VALID_DECISIONS = ("AUTO_APPROVED", "HUMAN_ESCALATED", "BLOCKED")
-VALID_VERDICTS = ("approve", "reject")
-SNAPSHOT_KEYS = ("verdict", "plan_hash", "source_sha", "plan_package_hash", "evidence_ref")
-# 契約 §2: c3-prime トップレベルの必須キー（allowlist の中核）。
-REQUIRED_KEYS = (
-    "task_id", "approval_kind", "phase", "decision", "source_sha", "plan_hash",
-    "plan_package_hash", "artifact_hashes", "c1_evidence_ref", "c2_evidence_ref",
-    "reviewers", "policy_ref", "issued_at", "issued_by",
-)
-# 任意で許容する追加キー（それ以外の未知キーは reject。`c3_status` は §5 で明示禁止）。
-OPTIONAL_KEYS = ("derived_loopspec_hash",)
-ALLOWED_KEYS = set(REQUIRED_KEYS) | set(OPTIONAL_KEYS)
+# 契約定数は c3_contract が単一定義（値の契約固定は test_c3_contract.py）。
+ARTIFACTS = c3_contract.ARTIFACTS
+VALID_DECISIONS = c3_contract.VALID_DECISIONS
+VALID_VERDICTS = c3_contract.VALID_VERDICTS
+SNAPSHOT_KEYS = c3_contract.SNAPSHOT_KEYS
+REQUIRED_KEYS = c3_contract.RECORD_REQUIRED_KEYS
+OPTIONAL_KEYS = c3_contract.RECORD_OPTIONAL_KEYS
+ALLOWED_KEYS = c3_contract.RECORD_ALLOWED_KEYS
 
 
 def _sha256(path: pathlib.Path) -> str:
