@@ -577,6 +577,24 @@ class R1RegressionTests(unittest.TestCase):
             ci_failure_taxonomy="code"), [junk])
         self.assertEqual(r["actions"][0]["round"], 1)
 
+    def test_b2_11_disposition_recorded_content_is_c4_scope(self):
+        # R2 B2-11: rejected+evidence_ref の finding は resolved 扱いで MERGE_READY
+        # に到達する（記録の存在を機械保証）。evidence_ref 内容の真正性は C-4 の
+        # 責務（doc §5 で明文化）。全 disposition が record に残ることを保証。
+        fs = [{"id": f"F-{i}", "finding_type": "logic", "severity": "major",
+               "disposition": {"kind": "rejected", "evidence_ref": f"e-{i}.log"}}
+              for i in range(3)]
+        r = delivery.assess(_snap(findings=fs), [])
+        self.assertEqual(r["state"], "MERGE_READY")
+        # review_disposition に全 finding が残り C-4 で追跡可能
+        self.assertEqual(set(r["record"]["review_disposition"]), {"F-0", "F-1", "F-2"})
+
+    def test_b2_path_boundary_empty_and_root(self):
+        # 空文字 / "/" のみの allowed は誤許可しない（fail-closed 寄り）
+        self.assertFalse(delivery._path_allowed("scripts/x.py", [""]))
+        self.assertFalse(delivery._path_allowed("scripts/x.py", ["/"]))
+        self.assertFalse(delivery._path_allowed("anything", ["/"]))
+
     def test_a07_contract_matches_stateless(self):
         # MERGE_READY のみ終端。非終端は全状態へ到達可（stateless の正直な表現）
         t = delivery.TRANSITIONS

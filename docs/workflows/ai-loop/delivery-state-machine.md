@@ -62,6 +62,8 @@ delivery.py は PR 状態を **snapshot JSON** として受け取る判定エン
 
 runbook §2-(7)-6 と同一（再定義しない）: **最新 head SHA の CI 全 job green かつ AI レビュー指摘ゼロまたは全件対応完了（採用 = repair commit / 不採用 = 実測 evidence_ref の記録あり）**。加えて機械判定として: `source_sha_ancestry == true` / conflict なし / `dod_evaluated == true`（優先度 7 → 8 の 2 段階を強制）。
 
+**disposition の内容真正性は C-4 の責務（R2 B2-11・責務分界）**: delivery.py は「各 finding に `adopted(repair_commit)` または `rejected(evidence_ref)` の**記録が存在すること**」を機械保証するが、`evidence_ref` が指す不採用根拠の**内容の妥当性**（実測ログが本当に false positive を示すか）は検証しない（snapshot 入力のみで内容実在を確認できないため）。この最終確認は **C-4（Human merge レビュー）** が担う。`MERGE_READY` は「機械ゲートを全通過し人間の最終判断に載せてよい」状態であって「merge してよい」ではない（NO MERGE BY AI）。全 disposition は MERGE_READY record の `review_disposition` に残り C-4 で追跡可能。Phase 1 trust boundary（信頼済みローカル供給）下でこの分界を採り、evidence 内容の機械検証は V2 候補。
+
 ## 6. record 契約（`docs/working/TASK-XXXX/delivery/record.jsonl`）
 
 append-only の JSONL。**delivery.py が自己 append する**のは既存 ai-loop scripts（stdout emit）からの意図的逸脱 — 冪等判定が既存 record 読取を要するため（decision-log.jsonl の append-only 前例と整合）。
