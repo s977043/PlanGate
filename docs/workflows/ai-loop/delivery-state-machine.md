@@ -37,10 +37,11 @@
 | 0b | Plan 逸脱（changed_files ⊄ allowed_paths） | `EXEC_RETURN` | —（逸脱パスを reasons / state entry に列挙・intent なし） |
 | 1 | escalation_flags 非空（touches-HO / policy 変更 / irreversible） | `HUMAN_ESCALATED` | —（理由を reasons / state entry に記録・intent なし） |
 | 1' | `source_sha_ancestry` が true 以外（検証不能/不成立 — fail-closed） | `HUMAN_ESCALATED` | 同上 |
+| 1'' | 未知の check conclusion（§4 allowlist 外・RV-1） | `HUMAN_ESCALATED` | —（pending 扱いにしない = livelock も成功側誤倒れも防ぐ・intent なし） |
+| 1''' | CI failed かつ taxonomy = permission/unknown/分類不能（AC-9） | `HUMAN_ESCALATED` | —（成功扱いにしない・intent なし。round 上限・再発判定より先に評価 = 検証不能は常に最優先で escalate〔安全側優先の設計判断・RV-3〕） |
 | 2 | repair round が 4 に達する（上限 3 超過） | `HUMAN_ESCALATED` | 同上 |
 | 3 | 同型指摘の再発（finding_type が過去 disposition と一致） | `REVIEW_REPAIR` | `feedback_loop_referral`（review-feedback-loop.md への還元要求）+ `repair_review`。recurse は独立 state にしない |
 | 4 | 最新 head の CI failed（taxonomy = code/flaky/environment） | `CHECKS_FAILED` | `repair_ci` |
-| 4' | taxonomy = permission/unknown/分類不能（AC-9） | `HUMAN_ESCALATED` | —（成功扱いにしない・intent なし） |
 | 5 | mergeable = CONFLICTING | `CONFLICT` | `resolve_conflict`（base/head/result 三点照合フィールド必須。欠落は解消と認めない） |
 | 6 | 未解決の critical/major finding あり | `REVIEW_REPAIR` | finding ごとの `repair_review` |
 | 6' | 未解決の minor/info finding あり（fail-closed 拡張） | `REVIEW_REPAIR` | finding ごとの `record_disposition`（採用/不採用理由の記録要求） |
@@ -53,7 +54,11 @@
 
 delivery.py は PR 状態を **snapshot JSON** として受け取る判定エンジンであり、ネットワーク・外部プロセス実行を持たない（純判定器契約）。
 
-**信頼境界（Phase 1）**: snapshot は信頼済みローカル呼び出し側（runbook 手順の実行者 / ta-56 sandbox）が供給する。c3-prime-contract §4 の脅威モデル境界と同型で、悪意ある snapshot 供給者は Phase 1 の scope 外（raw check evidence への束縛は V2 候補）。ただし**独立検証不能な値は常に fail-closed**: 未知 taxonomy → `HUMAN_ESCALATED` / ancestry 根拠欠落（`source_sha_ancestry` が true 以外）→ `HUMAN_ESCALATED` / checks と head の SHA 不整合 → stale として `WAITING_FOR_CHECKS`（成功扱いにしない）。
+**信頼境界（Phase 1）**: snapshot は信頼済みローカル呼び出し側（runbook 手順の実行者 / ta-56 sandbox）が供給する。c3-prime-contract §4 の脅威モデル境界と同型で、悪意ある snapshot 供給者は Phase 1 の scope 外（raw check evidence への束縛は V2 候補）。ただし**独立検証不能な値は常に fail-closed**: 未知 taxonomy → `HUMAN_ESCALATED` / 未知の check conclusion → `HUMAN_ESCALATED`（RV-1）/ ancestry 根拠欠落（`source_sha_ancestry` が true 以外）→ `HUMAN_ESCALATED` / checks と head の SHA 不整合 → stale として `WAITING_FOR_CHECKS`（成功扱いにしない）。
+
+**check conclusion の語彙（RV-1 allowlist）**: failed 群 = `failure` / `cancelled` / `timed_out` / `action_required` / `startup_failure`（terminal 失敗 — pending 扱いにすると恒久 WAITING の livelock になる）/ pending 群 = `pending` / `queued` / `in_progress` / 非 block 群 = `success` / `neutral` / `skipped`（terminal 非失敗。例: 条件 skip の sync job）/ **allowlist 外は `HUMAN_ESCALATED`**。
+
+**snapshot 供給者の責務（RV-2）**: `checks[]` は **required check が全件登録されてから** snapshot を切ること（push 直後は check-run の登録が非同期のため、部分登録の瞬間 snapshot では「全 success」が honest に成立し得る）。required check 集合の機械束縛（`required_checks[]` フィールドと ⊇ 照合）は V2 候補。Phase 1 の後段防衛は C-4 Human レビュー + branch protection。
 
 主要フィールド（詳細は `delivery.py contract` の emit と test-cases が契約）:
 `task_id` / `pr_number` / `head_sha` / `source_sha_ancestry`（head が c3-prime `source_sha` の子孫か。供給値・sandbox では git 実測）/ `mergeable` / `checks[]`（`name`/`sha`/`conclusion`）/ `review`（`state`/`sha`）/ `ci_failure_taxonomy` / `findings[]`（`id`/`finding_type`/`severity`/`disposition`）/ `changed_files[]` / `allowed_paths[]` / `escalation_flags[]` / `conflict_resolution`（`base_sha`/`head_sha`/`result_sha`）/ `dod_evaluated`
@@ -104,6 +109,8 @@ append-only の JSONL。**delivery.py が自己 append する**のは既存 ai-l
     "plan_deviation",
     "escalation_flags",
     "ancestry_fail",
+    "unknown_check_conclusion",
+    "taxonomy_unverifiable",
     "round_limit",
     "same_type_recurrence",
     "ci_failed",

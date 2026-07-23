@@ -50,6 +50,8 @@ PRIORITY_ORDER = (
     "plan_deviation",
     "escalation_flags",
     "ancestry_fail",
+    "unknown_check_conclusion",
+    "taxonomy_unverifiable",
     "round_limit",
     "same_type_recurrence",
     "ci_failed",
@@ -74,6 +76,17 @@ TRANSITIONS["MERGE_READY"] = []
 REPAIR_KINDS = ("repair_ci", "repair_review", "resolve_conflict")
 ROUND_LIMIT = 3
 VALID_TAXONOMY_REPAIR = ("code", "flaky", "environment")
+
+# check conclusion の allowlist（RV-1 / River Review）。GitHub Checks API の
+# conclusion を 3 群に分類し、**未知値は HUMAN_ESCALATED（fail-closed）**。
+# cancelled / timed_out / action_required / startup_failure は terminal 失敗
+# （pending 扱いにすると恒久 WAITING の livelock になる）。neutral / skipped は
+# terminal 非失敗（例: 条件 skip の sync job）で green を block しない —
+# required check の完全性担保は snapshot 供給者責務（doc §4 / RV-2）。
+CHECK_FAILED = ("failure", "cancelled", "timed_out", "action_required",
+                "startup_failure")
+CHECK_PENDING = ("pending", "queued", "in_progress")
+CHECK_NONBLOCKING = ("success", "neutral", "skipped")
 
 # enum allowlist（未知値は fail-closed。良性の正規化漏れ / GitHub 実状態でも
 # 成功側に倒さない — R1 A-02/B-01/B-02）。
@@ -268,8 +281,11 @@ def assess(snapshot: dict, entries: list, plan_hash: str | None = None) -> dict:
 
     if state is None:
         checks_at_head = [c for c in snapshot["checks"] if c["sha"] == head]
-        failed = [c for c in checks_at_head if c["conclusion"] == "failure"]
-        pending = [c for c in checks_at_head if c["conclusion"] not in ("success", "failure")]
+        failed = [c for c in checks_at_head if c["conclusion"] in CHECK_FAILED]
+        pending = [c for c in checks_at_head if c["conclusion"] in CHECK_PENDING]
+        unknown_checks = [
+            c for c in checks_at_head
+            if c["conclusion"] not in CHECK_FAILED + CHECK_PENDING + CHECK_NONBLOCKING]
         review = snapshot["review"]
         review_ok = review["state"] == "approved" and review["sha"] == head
         findings = snapshot["findings"]
@@ -288,8 +304,16 @@ def assess(snapshot: dict, entries: list, plan_hash: str | None = None) -> dict:
         recurrence = [f for f in unresolved
                       if f["finding_type"] in _past_repair_finding_types(entries, pr)]
 
+        # 4''. 未知の check conclusion → escalate（RV-1・allowlist 外は
+        # pending 扱いにしない = livelock も成功側誤倒れも防ぐ fail-closed）
+        if unknown_checks:
+            state = "HUMAN_ESCALATED"
+            reasons.append(
+                "未知の check conclusion（fail-closed）: "
+                f"{sorted({c['conclusion'] for c in unknown_checks})}")
+
         # 4'. taxonomy 検証不能（permission / unknown / 未知値）→ escalate（AC-9）
-        if failed:
+        if state is None and failed:
             tax = snapshot.get("ci_failure_taxonomy")
             if tax not in VALID_TAXONOMY_REPAIR:
                 state = "HUMAN_ESCALATED"
@@ -381,7 +405,7 @@ def assess(snapshot: dict, entries: list, plan_hash: str | None = None) -> dict:
 
     new_entries: list[dict] = []
     state_entry = {"kind": "state", "state": state, "head_sha": head,
-                   "reasons": sorted(reasons)}
+                   "pr_number": pr, "reasons": sorted(reasons)}
     known = {entry_id({k: v for k, v in e.items() if k not in ("at", "entry_id")})
              for e in entries}
     if entry_id(state_entry) not in known:

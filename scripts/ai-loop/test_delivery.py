@@ -604,5 +604,51 @@ class R1RegressionTests(unittest.TestCase):
             self.assertIn("MERGE_READY_CANDIDATE", t[s])
 
 
+class RiverReviewFixTests(unittest.TestCase):
+    """RV-1/RV-3/RV-4（River Review 2026-07-23）— conclusion allowlist と監査束縛。"""
+
+    def test_rv1_terminal_failure_conclusions_are_failed_not_pending(self):
+        # cancelled / timed_out 等は pending 扱い（livelock）にせず failed 群へ
+        for concl in ("cancelled", "timed_out", "action_required",
+                      "startup_failure"):
+            r = delivery.assess(_snap(
+                checks=[{"name": "ci", "sha": H1, "conclusion": concl}],
+                ci_failure_taxonomy="code"), [])
+            self.assertEqual(r["state"], "CHECKS_FAILED", concl)
+            self.assertIn("repair_ci",
+                          [a["action_kind"] for a in r["actions"]], concl)
+
+    def test_rv1_terminal_failure_with_unverifiable_taxonomy_escalates(self):
+        r = delivery.assess(_snap(
+            checks=[{"name": "ci", "sha": H1, "conclusion": "cancelled"}]), [])
+        self.assertEqual(r["state"], "HUMAN_ESCALATED")
+
+    def test_rv1_unknown_conclusion_escalates_fail_closed(self):
+        r = delivery.assess(_snap(
+            checks=[{"name": "ci", "sha": H1, "conclusion": "totally_new"}]), [])
+        self.assertEqual(r["state"], "HUMAN_ESCALATED")
+        self.assertTrue(any("未知の check conclusion" in x for x in r["reasons"]))
+
+    def test_rv1_skipped_and_neutral_do_not_block_green(self):
+        r = delivery.assess(_snap(checks=[
+            {"name": "ci", "sha": H1, "conclusion": "success"},
+            {"name": "sync", "sha": H1, "conclusion": "skipped"},
+            {"name": "lint", "sha": H1, "conclusion": "neutral"}]), [])
+        self.assertEqual(r["state"], "MERGE_READY")
+
+    def test_rv3_priority_order_declares_unverifiable_before_recurrence(self):
+        order = delivery.PRIORITY_ORDER
+        self.assertLess(order.index("unknown_check_conclusion"),
+                        order.index("round_limit"))
+        self.assertLess(order.index("taxonomy_unverifiable"),
+                        order.index("same_type_recurrence"))
+
+    def test_rv4_state_entry_bound_to_pr_number(self):
+        r = delivery.assess(_snap(), [])
+        states = [e for e in r["new_entries"] if e.get("kind") == "state"]
+        self.assertTrue(states)
+        self.assertEqual(states[0]["pr_number"], 123)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

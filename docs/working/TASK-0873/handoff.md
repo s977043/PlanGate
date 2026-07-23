@@ -57,6 +57,9 @@ test-cases.md の AC-1〜12 を test_delivery.py（51 テスト）+ ta-56 E2E（
 | V2 候補 | 理由 | 優先度 | 関連 |
 |--------|------|--------|------|
 | repair 実行の機械化（実 PR/gh を叩く action consumer） | V1 は snapshot 判定エンジン + sandbox スタブまで | Medium | #873 follow-up |
+| `required_checks[]` の snapshot 束縛（⊇ 照合で部分登録 green を機械拒否） | River Review RV-2。Phase 1 は doc §4 の供給者責務 + C-4/branch protection の後段防衛で受容 | Medium | RV-2 / #894 budgets |
+| 禁止トークン走査の手法分離（ta-56 を AST import allowlist 化 or popen 追加） | RV-5: unit と ta-56 が同一リストを共有し盲点も共有 | Low | RV-5 |
+| `_parse_kv` の値欠落検出（次の `--flag` を値として飲まない） | RV-6: bypass にはならないが診断性の問題 | Low | RV-6 |
 | disposition evidence 内容の機械検証 | Phase 1 は C-4 が最終確認 | Low | B2-11 |
 | raw check evidence への snapshot 束縛 | Phase 1 信頼境界を狭める | Low | R1 A-08 残余 |
 | Evolution Loop への Delivery evidence 接続 | 本 PBI は Delivery まで | Medium | #874/#869 |
