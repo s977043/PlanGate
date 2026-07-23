@@ -1,0 +1,13 @@
+{"phase":"B-1","decision":"Metrics Evidence 実測: touch=4 ファイル(rollout-policy ×2 + ai-loop-workflow command ×2)。HO=1(.claude/commands/ai-loop-workflow.md)","basis":"find/cmp 実測","ratio":"~1.0 (pbi-input 3-4 と整合)"}
+{"phase":"B-1","decision":"Q1 実機能 auto-approve は #780 slice C 前提を継承","basis":"Human 決定 2026-07-23 AskUserQuestion","impact":"§2 注記節で #780 順序制約を明文化・承認境界安全側維持"}
+{"phase":"B-1","decision":"Q2 00_concept.md は Out of scope 据え置き","basis":"Human 決定","impact":"touch 4 ファイルに固定"}
+{"phase":"B-1","decision":"Q3 1 PR・HO patch 同梱(TASK-0896/0871 型)","basis":"Human 決定","impact":"AI は非HO 3ファイル編集 + HO patches/ 同梱、Human 適用"}
+{"phase":"B-2","decision":"rollout-policy §2 拡張は案C(表行拡張+直下注記節)を採用","basis":"Mode=critical で差分の可読性最優先。案A誤読リスク/案B §4 断片化","alternatives":["A:表セル書換のみ","B:eligible域+別判定節","C:表行拡張+注記節"]}
+{"phase":"B-3","decision":"plan/todo/test-cases 3 ファイル生成完了","mode":"critical","lite_eligible":false}
+{"phase":"C-2","decision":"2レーン(設計妥当性/コードベース整合)+独立検証 完了。R-001〜006/R-101〜104 全採用","basis":"review-external.md","verdict":"conditional"}
+{"phase":"C-2","decision":"R-001 critical CONFIRMED: scripts/ai-loop/** は非HO(check-plan-hash.sh case文/ho-paths.md 両不在) → 拡張で自己改変auto-approve可 → carve-out で是正","independent_verify":true}
+{"phase":"C-2","decision":"R-101 CONFIRMED: rollout-policy plugin は link-rewrite 派生でcmp byte不一致が正常 → AC-5をsync冪等へ是正。command は cp 派生でcmp一致が正","independent_verify":"lane-B実測"}
+{"phase":"C-2","decision":"確定反映1回: AC-6/7/8追加・S3削除(plugin command先行編集はrevert)・sync機構差反映・#780ハード順序制約","refs":"R-001..006,R-101..104"}
+{"phase":"C-3prime","decision":"ai-loop run-026 実走: arbiter exit2 HUMAN_ESCALATED (priority1 boundary=touches-HO .claude/commands/ai-loop-workflow.md)。Phase1 承認境界遵守escalate実証","record":"docs/working/TASK-0907/ai-loop-runs/20260723T100912Z-3b987a1.json","w_check":"A=approve/B=reject(security_break)"}
+{"phase":"C-3prime","decision":"R-107 反映(Model B新発見・CONFIRMED): carve-out を engine code のみ→判定基準policy/criteria文書群へ拡張。AC-6/TC-6更新","independent_verify":"ho-paths.md原則2 L119-121 実測"}
+{"phase":"C-3","decision":"Human が 10:13:28Z に approve 実行(c3.json APPROVED・plan_hash 52e9d903)。ただしオーガナイザーが承認後 10:14:00Z に plan.md を R-107 整合修正→plan_hash MISMATCH。加えて L80/L109 の engine-only 残存も是正","incident":"承認後plan編集でhash無効化(オーガナイザーのミス)","resolution":"plan を R-107 完全整合→Human 再approve が正規復旧"}
