@@ -128,7 +128,7 @@ LoopSpec（[`loopspec.md`](./loopspec.md) §3）の必須フィールド**全数
 
 ## 7. #873（delivery.py）への引き渡し
 
-issue #873 の MERGE_READY 状態機械は c3-prime を**読み取り専用**で消費する。読むフィールド: `task_id` / `decision` / `source_sha` / `plan_hash` / `plan_package_hash`。head SHA 束縛は `source_sha` を基点とし、PR head が `source_sha` の子孫でない場合は #873 側で fail-closed（本契約はフィールド提供まで。遷移規則は #873 の正本で定義）。
+issue #873 の MERGE_READY 状態機械は c3-prime を**読み取り専用**で消費する。読むフィールド: `task_id` / `decision` / `source_sha` / `plan_hash` / `plan_package_hash`。head SHA 束縛は `source_sha` を基点とし、PR head が `source_sha` の子孫でない場合は #873 側で fail-closed（本契約はフィールド提供まで。遷移規則の正本は [`delivery-state-machine.md`](./delivery-state-machine.md) / TASK-0873）。
 
 **trust boundary（R-018 / #887 F-4）**: arbiter provenance / c3-prime record の `decision` は「その入力に対する裁定」であり、record の実在 artifact への束縛（§4 の hash / source_sha / verdict 整合検証）を**受理側が再実行して初めて信頼できる**。#873 delivery.py および PR-2 受理側は decision 値を無検証で信頼してはならない（fail-closed 再検証が必須）。record が Plan-first 正規経路（`plan_package.py` 経由）で生成されたことの担保は本再検証 + §4 の全規則で構成する。
 

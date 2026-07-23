@@ -6,3 +6,8 @@
 {"ts":"2026-07-22T06:10:00Z","phase":"C-1","decision":"PASS（WARN1=record出力先未指定を自動修正）","by":"agent","ref":"review-self.md"}
 {"ts":"2026-07-22T06:40:00Z","phase":"C-2","decision":"2レーン分裂（Codex reject c2/m6 vs 整合レーン approve m0）→オーガナイザーが争点4点を一次ソース実測で裁定。R-001〜R-015全採用（R-004/R-006は部分採用=sandbox実行スタブ+Phase1信頼境界+C-3論点化）","by":"agent","ref":"review-external.md"}
 {"ts":"2026-07-22T06:50:00Z","phase":"C-2反映","decision":"1回確定反映完了（plan/todo/test-cases）。二次矛盾1件（assess行の旧冪等キー）を検出・是正。簡易C-1 PASS。確定後plan_hash=8c366f5387572bdd6cb30a33092c239ff1c4068cbff8e04d8747a4244e9cd033","by":"agent","ref":"review-self.md#簡易C-1再実行"}
+{"ts":"2026-07-23T07:40:00Z","phase":"exec","decision":"C-3 APPROVED後 exec開始。#896 c3_contract先行mergeによりdelivery.pyはc3_contract.canonical_hash + c3prime_verify.mainをimport（plan Replan Trigger規定・C-3承認時確認）","by":"agent","ref":"status.md#exec開始"}
+{"ts":"2026-07-23T08:30:00Z","phase":"exec","decision":"delivery.py実装完了（判定エンジンA-1・contract emit・legacy exit10 BLOCK・intent/receipt 2段）。run-tests 421/0","by":"agent","ref":"handoff.md"}
+{"ts":"2026-07-23T09:00:00Z","phase":"V-3相当","decision":"敵対レビューR1で fail-open 3件実証（mergeable/severity未検証・task_id非束縛）→全是正。enum allowlist+path境界+task_id束縛+entry_id再計算+pr scoped round+expected-sha必須","by":"agent","ref":"commit 90e9775"}
+{"ts":"2026-07-23T09:20:00Z","phase":"V-3相当","decision":"R2でround リセット不可等を実測防御確認。B2-11(disposition内容真正性)はfail-openでなくC-4責務の分界と裁定→§5明文化","by":"agent","ref":"commit 8556ad8"}
+{"ts":"2026-07-23T09:30:00Z","phase":"V-1","decision":"V-1 PASS（全AC-1〜12・FAIL 0）。acceptance-testerが機械突合。doc↔contract byte一致・MERGED 0・禁止トークン0を独立確認","by":"agent","ref":"handoff.md#1"}

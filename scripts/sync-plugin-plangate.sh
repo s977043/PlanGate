@@ -307,7 +307,9 @@ if [ -d "$AI_LOOP_SCRIPTS_DIR" ]; then
   # 明示列挙に無いと plugin 配布物からサイレント欠落するため必ず対で列挙する）
   # c3_contract.py + test_c3_contract.py（TASK-0896: arbiter/plan_package/
   # c3prime_verify が import する共通契約層。列挙漏れは bundled 側 import エラー）
-  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py" "$AI_LOOP_SCRIPTS_DIR/metrics.py" "$AI_LOOP_SCRIPTS_DIR/test_metrics.py" "$AI_LOOP_SCRIPTS_DIR/plan_package.py" "$AI_LOOP_SCRIPTS_DIR/test_plan_package.py" "$AI_LOOP_SCRIPTS_DIR/c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/test_c3_contract.py"; do
+  # delivery.py + test_delivery.py（TASK-0873: MERGE_READY 状態機械。
+  # c3prime_verify/c3_contract を import するため対で列挙する）
+  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py" "$AI_LOOP_SCRIPTS_DIR/metrics.py" "$AI_LOOP_SCRIPTS_DIR/test_metrics.py" "$AI_LOOP_SCRIPTS_DIR/plan_package.py" "$AI_LOOP_SCRIPTS_DIR/test_plan_package.py" "$AI_LOOP_SCRIPTS_DIR/c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/test_c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/delivery.py" "$AI_LOOP_SCRIPTS_DIR/test_delivery.py"; do
     [ -f "$_f" ] || continue
     _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_SCRIPTS" "skills/ai-loop-cycle/scripts"
   done
@@ -317,7 +319,7 @@ if [ -d "$PLUGIN_AI_LOOP_SCRIPTS" ]; then
     [ -f "$_f" ] || continue
     _base="$(basename "$_f")"
     case "$_base" in
-      arbiter.py|test_arbiter.py|metrics.py|test_metrics.py|plan_package.py|test_plan_package.py|c3prime_verify.py|test_c3prime_verify.py|c3_contract.py|test_c3_contract.py) : ;;
+      arbiter.py|test_arbiter.py|metrics.py|test_metrics.py|plan_package.py|test_plan_package.py|c3prime_verify.py|test_c3prime_verify.py|c3_contract.py|test_c3_contract.py|delivery.py|test_delivery.py) : ;;
       *)
         if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/scripts/$_base"
         else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/scripts/$_base"; fi

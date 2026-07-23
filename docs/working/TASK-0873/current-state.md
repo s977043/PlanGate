@@ -1,9 +1,9 @@
 # Current State — TASK-0873
 
-- フェーズ: plan 完了（B-3 → C-1 PASS → C-2 2 レーン → R-001〜R-015 確定反映 → 簡易 C-1 PASS）→ **C-3 Human 待ち**
-- Mode: **critical**（AC 12 → 定量決定論）/ lite_eligible=false / autonomous APPROVE 不可
-- C-2 結果: Lane A（Codex 設計妥当性）reject critical 2 + major 6 / Lane B（コードベース整合）approve minor 5 + info 3 → 分裂裁定を一次ソース実測で確定・15 件全採用（うち 2 件部分採用）・確定反映済み
-- 確定後 plan_hash: `8c366f5387572bdd6cb30a33092c239ff1c4068cbff8e04d8747a4244e9cd033`
-- 次アクション（Human）: C-3 詳細レビュー（**C-3 論点 8 件** = plan Questions 節）→ `bin/plangate approve TASK-0873` で c3.json 発行 → `PLANGATE_HOOK_TASK=TASK-0873` セッションで exec
-- ブロッカー: C-3 Human 承認のみ
-- 注意: 並行セッションが TASK-0896 を C-3 APPROVED（PR #899 OPEN）。#873 exec と #896 exec は並行可（重複 = sync 列挙 2 箇所のみ）
+- フェーズ: exec 完了・**V-1 PASS**（全 AC-1〜12・FAIL 0）→ 残 = River Review → PR 作成
+- branch: `feat/task-0873-delivery`（worktree task-0873-exec・origin/main +7 commit・未 push）
+- 実装完了: delivery-state-machine.md 正本 / delivery.py（判定エンジン）/ test_delivery.py 51 テスト / ta-56 E2E 10 項目 / sync 列挙 +2
+- 検証: `sh tests/run-tests.sh` = 421 passed / 0 failed / exit 0（クリーン）。doc↔contract byte 一致（sha256 0923a770…）
+- 敵対レビュー: R1（fail-open 3 件 = mergeable/severity 未検証・task_id 非束縛を是正）+ R2（round リセット不可・B2-11 は責務分界と明文化）で収束
+- **次セッション再開点**: この worktree で River Review（feat/task-0873-delivery の diff）→ 指摘是正 → PR 作成（GH_TOKEN=$(gh auth token --user s977043)）→ C-4
+- ブロッカー: なし（Human C-3 は APPROVED 済み c3.json 10c9e50）
