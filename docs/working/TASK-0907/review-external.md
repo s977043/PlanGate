@@ -21,7 +21,7 @@
 | R-108 | PR前敵対レビュー | major | 採用 | rollout-policy §2 / plan / test-cases / handoff | R-107 の**列挙が不完全**（00_concept・design-philosophy 等 判定正本 7 件漏れ・自ファイル §5/§6 が正本と名指す 2 件を欠く自己矛盾）→ **glob 化**（Human 決定 2026-07-24） |
 | R-109 | PR前敵対レビュー | major | 採用 | rollout-policy §2 注記 / command patch v3 | command 文言が carve-out の**機械層 escalate を実態より強く断言**し handoff KI-1 と矛盾（arbiter は carve-out を clean 判定）→ 機械層/規範層を分離記述 |
 | R-110 | River Review M-1 | major | 採用 | rollout-policy §2 ③ / plan / test-cases / handoff | carve-out の穴: `ai-loop-cycle` SKILL.md（W チェック定型・reject_category enum・escalate 分岐・grader 上限）が carve-out にも HO にも不在 → ③として skill glob 追加 |
-| R-111 | River Review M-2 | major | **Human 判断待ち** | （未反映） | `docs/ai/ai-loop/concept.md` §3 等 7+ 兄弟正本・arbiter.py docstring・CLAUDE.md が旧狭域を「不変条件」と宣言しており本変更と反転。plan の Out of scope（B-1 Q2）は *参照整合* の範囲で、*規範の反転* を含むか要 Human 再確認 |
+| R-111 | River Review M-2 | major | 採用（Human 決定 2026-07-24） | docs/ai/ai-loop/concept.md §3 | `docs/ai/ai-loop/concept.md` §3 等 7+ 兄弟正本・arbiter.py docstring・CLAUDE.md が旧狭域を「不変条件」と宣言しており本変更と反転。plan の Out of scope（B-1 Q2）は *参照整合* の範囲で、*規範の反転* を含むか要 Human 再確認 |
 | R-112 | River Review M-3 | major | 採用 | patches/ho-apply-approval.md / handoff KI-3 | 手順書が v1 patch のみ指示し v2 未言及 → 手順どおりだと R-109 が残存。**v3 へ統合**（v2 削除）+ sync 手順明記 + KI-3 記録 |
 | R-113 | River Review m-1 | minor | 採用 | rollout-policy §2 注記 | 配布コピー扱いの非対称 → 「配布派生は正本 carve-out で保護・drift-check で検出」に統一 |
 | R-114 | River Review m-2 | minor | 採用 | rollout-policy §2 注記 | ho-paths 原則2 の射程（policy ファイル限定）を超えた引用 → 「原則2 の拡張として V2 で ①〜③ を HO 登録」と射程差を明記 |

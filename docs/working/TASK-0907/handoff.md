@@ -27,6 +27,7 @@
 ## 3. V2 候補
 
 - ai-loop 判定基盤（engine + policy 群）を `ho-paths.md` に **HO-policy 登録**し、規範層 carve-out を機械層強制へ昇格（原則2 の将来登録）。
+- **正本間矛盾の残追従（River M-2 / R-111 の残り・follow-up issue 化）**: `concept.md` §3 には現在値ポインタを追加済みだが、旧狭域バナーが `decision-table.md:3` / `lite-criteria.md:3` / `loop-safety-gates.md:4` / `review-feedback-loop.md:3` / `arbiter-policy.md:3` / `design-philosophy.md:6`、および **`scripts/ai-loop/arbiter.py` docstring**・**`CLAUDE.md`** に残存。いずれも carve-out or HO のため escalate/Human 経路で追従する。
 - `lite.size_ok` の機械算出（#780 slice C）— plangate 本体の実機能 auto-approve 実運用の前提。
 - ai-loop run の実走実証（arbiter が plangate 本体 lite/clean 変更を AUTO_APPROVED する初例）は #877 等の実 bug fix で（本 PBI は doc 変更でその素地を作る）。
 
