@@ -80,6 +80,12 @@ Arbiter はその前提が異なる（人間はループの上）ため、L0 は
 > **この制約は plangate 本体では Phase 1 移行（#807）後も据え置きの不変条件**
 > （`docs/workflows/ai-loop/00_concept.md` Phase 1 節参照。なお本節の Phase 1 以降等の
 > 番号は構築フェーズ番号であり、#807 のデプロイ段階 Phase 0/1 とは別系）。
+>
+> **適用ドメインの現在値は [`rollout-policy.md`](../../workflows/ai-loop/rollout-policy.md) §2 を正本とする**
+> （TASK-0907 / [#907](https://github.com/s977043/plangate/issues/907) で拡張。本節 §3 の範囲記述は
+> Arbiter PoC 時点の値であり、現在は「`lite=true ∧ boundary=clean ∧ reversible` 帯の本番フロー変更＋
+> ai-loop 判定基盤の carve-out（`docs/workflows/ai-loop/**`・`docs/ai/ai-loop/**`・`scripts/ai-loop/**`・
+> `*/skills/ai-loop-cycle/**` は escalate 固定）」が現在値）。
 
 ### 変更可能な範囲
 
