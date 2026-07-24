@@ -40,12 +40,15 @@ $ARGUMENTS に以下の形式で渡される:
    4 軸〔変更規模・新規設計の有無・既存パターン踏襲・可逆性〕。docs に限らず
    実機能も含む — Human 決定 #807）。plangate 本体（提供元リポジトリ）でも
    `lite=true ∧ boundary=clean ∧ reversible` 帯の本番フロー変更は本コマンドを
-   使ってよい（§2 適用ドメイン拡張・TASK-0907 / #907）。ただし**承認境界・HO
-   パス・ai-loop 判定基盤 carve-out（`scripts/ai-loop/**` + 判定基準
-   policy/criteria 文書群）に触れる変更、および本番承認フロー（PlanGate
-   WF-00〜07）の C-3 は常に Human**。これらに触れる変更を本コマンドで開始しても
-   arbiter が boundary=touches-HO / lite=false で無条件 escalate する（NO MERGE
-   BY AI・touches-HO 停止規則は不変）
+   使ってよい（§2 適用ドメイン拡張・TASK-0907 / #907）。ただし以下は**機械層と
+   規範層で担保の強さが異なる**ため区別すること:
+   - **本番承認フロー（PlanGate WF-00〜07）の C-3 は常に Human**（不変）
+   - **HO パス接触**: arbiter が `ho-paths.md` の HO 表から `boundary=touches-HO`
+     を導出し**機械層で無条件 escalate**（NO MERGE BY AI・touches-HO 停止規則は不変）
+   - **ai-loop 判定基盤の carve-out**（対象集合の正本は `rollout-policy.md` §2 注記
+     ＝エンジンコード / policy・spec 文書 corpus / 実行手順スキル）: これらは HO 表に
+     不在のため **arbiter は `boundary=clean` と判定し機械 escalate しない** →
+     **実行者が escalate する責務を負う**（機械層強制は V2 の HO 登録後）
 
 ## 実行
 
