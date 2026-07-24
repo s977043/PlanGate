@@ -27,10 +27,22 @@
 
 | 項目 | ベースライン（main ee9a1b5） | 実装後 |
 |------|------------------------------|--------|
-| `sh tests/run-tests.sh` | 422 passed / 0 failed（exit 0） | **428 passed / 0 failed（exit 0）** |
-| `sh tests/extras/ta-26-plugin-sync.sh`（standalone） | 8 passed / 0 failed | **14 passed / 0 failed** |
+| `sh tests/run-tests.sh` | 422 passed / 0 failed（exit 0） | **430 passed / 0 failed（exit 0）** |
+| `sh tests/extras/ta-26-plugin-sync.sh`（standalone） | 8 passed / 0 failed | **16 passed / 0 failed** |
 | Verification Automation（`run-tests && ta-26`） | — | **exit 0** |
 | ta-26 実行時間 | 約 15 秒 | 約 30 秒（TC-13 の子プロセス 2 回ぶん。子では TC-03/04 を省略して 48 秒→30 秒に短縮） |
+
+**変異注入テスト（PR 前敵対レビュー）**: 実装に 7 種の変異を注入して新 TC が捕捉するか実測した。
+
+| 変異 | 検出 |
+|------|------|
+| 終端 `exit 3` ブロック無効化 | TC-10/12/13/16 が FAIL |
+| 判定式を旧 `src*2 < dst` へ戻す | TC-12/13 が FAIL |
+| ta-26 の判別を `FIXTURES_DIR` 単独へ戻す | TC-13 が FAIL |
+| `run-tests.sh` の `PG_HARNESS_SOURCED=1` 削除 | TC-13 が FAIL |
+| override 分岐を無効化 | TC-11/13 が FAIL |
+| `_warn` を stdout へ戻す | TC-10/13/16 が FAIL |
+| **README 対称化を戻す** | **当初は全 TC PASS（変異が生存）→ TC-17 を追加して FAIL 検出**（A-001） |
 
 **回帰検出力の実証**: 新しい ta-26 を `origin/main` の worktree（旧実装）に対して実行すると
 **TC-10 / TC-11 / TC-12 / TC-13 / TC-16 が FAIL**（9 passed / 5 failed・exit 1）。
@@ -46,9 +58,15 @@ TC-09 は正常系ガードのため旧実装でも PASS。すなわち新規 TC
 
 | # | 内容 | 状態 |
 |---|------|------|
-| KI-1 | **src 駆動の無ガード削除が 2 経路残る**（`sync-plugin-plangate.sh` L140-150 = skills references / L283-296 = ai-loop-cycle references）。特に後者は正本 2 ディレクトリが空化すると期待集合が空になり全 `.md` 削除に至る真の hazard。L317-330 は allowlist 駆動のため対象外 | **#914 へ分離**（C-3 Q2 で確定） |
+| KI-1 | **src 駆動の無ガード削除が 2 経路残る**（本 PR 適用後の行番号で `sync-plugin-plangate.sh` L174-184 = skills references / L317-330 = ai-loop-cycle references。#914 本文は適用前の L140-150 / L283-296 表記）。特に後者は正本 2 ディレクトリが空化すると期待集合が空になり全 `.md` 削除に至る真の hazard。L317-330 は allowlist 駆動のため対象外 | **#914 へ分離**（C-3 Q2 で確定） |
 | KI-2 | **harness/standalone 判別が二機構併存**。`${FIXTURES_DIR:-}` 単独判定を使う既存 11 extras（ta-39/43/44/45/46/47/49/50/51/52/53）と、本 PBI で導入した `PG_HARNESS_SOURCED` 方式が並存する。`tests/extras/README.md` の規約追記も未実施 | **#914 へ分離**（C-2 R-204 の部分採用） |
 | KI-3 | ta-26 の実行時間が 15 秒 → 30 秒に増加（TC-13 の子プロセス 2 回）。子では最も重い TC-03/TC-04 を省略済みだが、さらに削るなら ① を落として ②（`FIXTURES_DIR` 汚染ケース）のみに絞る余地がある | V2 候補 |
+| KI-1a | **KI-1 の実害規模（実測）**: 実 repo コピーから `docs/workflows/ai-loop/` のみ欠損させた sandbox で sync を実行すると、`skills/ai-loop-cycle/references/` が **22 → 7 ファイル（15 件削除）**・**exit 0・警告ゼロ**で消える。#914 の優先度判断材料 | **#914 へ**（PR 前敵対レビュー A-002 の実測） |
+| KI-5 | **override は CI 実行環境からは防げない**。AC-2 の「CI `env:` に置かない」は TC-15（`.github/` の文字列検査）までで、Actions の repo/org 変数・self-hosted runner の環境・`GITHUB_ENV` 追記から `PLANGATE_ALLOW_MASS_DELETE=1` が入れば fail-closed は恒久的に消える（sandbox 実測: `CI=true GITHUB_ACTIONS=true PLANGATE_ALLOW_MASS_DELETE=1` で override が通る） | 残存リスク（A-004）。機構的防御は #914 か別 issue |
+| KI-6 | **guard は内容盲目**。src 側の symlink が `_src_count` を水増しして guard をすり抜ける（実測: 実体 1 + symlink 3 で stale 4 件が無警告削除）。現状 `.claude/*` に symlink は無いため実害なし | #914 候補（`[ -L ] && continue` を src 集計へ / A-007） |
+| KI-7 | **境界 `stale == src` は無警告で通る**。guard は `stale > src` のみのため、全件リネーム時など「dst を 100% 削除」する経路が残る（実測: src 4 新規 / dst 4 旧 → 4 件全削除・exit 0）。全件リネームでは正しい挙動だが、運用上は「src と同数までの全消しは通る」と理解しておく | 仕様（A-008） |
+| KI-8 | **`tests/extras/ta-54` が実リポジトリに対し sync を `\|\| true` で 2 回呼び exit 3 を握り潰す**（L43 / L63）。TC-05 は本 PBI で rc 捕捉へ是正したが ta-54 は Files to Touch 外のため未対応 | #914 へ（A-009。scope 逸脱を避けるため本 PBI では touch しない） |
+| KI-9 | CI `drift-check` job で guard が発火すると exit 3 で step が即死し、yml の `::error::` annotation に到達しない（stderr 出力で代替済み = AC-9）。`.github/**` は HO のため本 PBI 対象外 | #914 か別 issue（A-010） |
 | KI-4 | 判定式は README.md の対称化により旧式と**厳密等価ではない**（`stale > S_old − R` vs 旧 `stale > S_old + R`）。実 repo では **安全側へ最大 2 件早く発火**する。#861 の意図と同方向のため許容 | 仕様として plan 論点 B に記録 |
 
 ## 4. 妥協点（採用しなかった選択肢と理由）
@@ -70,7 +88,7 @@ WARN を出して `return 0` する silent 実装だったため、CI が「削�
 `PLANGATE_ALLOW_MASS_DELETE=1` の明示 override と、dry-run/実行で判定が食い違わない
 **stale 件数ベースの判定式**へ差し替えた。あわせてテスト側の空振り（TC-03 の `$?` 未検証）を
 是正し、DELETE 正常系・exit 3・override・モード一致・harness 判別・複数 label 発火の
-6 TC を追加した。
+8 TC（TC-09/10/11/12/13/15/16/17）を追加した。
 
 **触ったファイル（3 件・すべて非 HO）**:
 
@@ -78,7 +96,7 @@ WARN を出して `return 0` する silent 実装だったため、CI が「削�
    `_stale_count > _src_count` へ（README.md を src/dst 対称に除外）/ override 分岐 /
    終端 exit 3（dry-run は exit 0 維持）
 2. `tests/extras/ta-26-plugin-sync.sh` — standalone 判別を `PG_HARNESS_SOURCED` AND
-   `FIXTURES_DIR` へ / TC-03 是正 / TC-09〜TC-13・TC-16 追加 / 子プロセス再帰防止
+   `FIXTURES_DIR` へ / TC-03 是正 / TC-09〜TC-13・TC-15・TC-16・TC-17 追加 / 子プロセス再帰防止
    （`PG_T26_NO_RECURSE`）
 3. `tests/run-tests.sh` — unset リストに `PG_HARNESS_SOURCED` / `PLANGATE_ALLOW_MASS_DELETE`
    を追加 / extras source 直前に `PG_HARNESS_SOURCED=1`（非 export）
@@ -115,5 +133,23 @@ C-2 / W チェックが検出した主な穴（いずれも実装前に解消）
 - **major**: plan の guard 行番号が誤り（実測 L64-82 / 判定式 L79）
 - **major**: exit 3 は drift-check の説明メッセージに到達しない → AC-9 新設
 - **W-B**: 「実行時は厳密に等価」は README 対称化を入れると成立しない（安全側へ 2 件ずれる）
+
+### PR 作成前レビュー（2 本・A-14）
+
+| レビュー | verdict | 内訳 |
+|---------|---------|------|
+| River Review（ローカル） | Human review recommended | critical 0 / **major 1** / minor 3 / info 2 |
+| 敵対レビュー（独立） | conditional | critical 0 / **major 2**（1 件は #914 既知）/ minor 4 / info 4 |
+
+**反映した主な指摘**:
+
+- River major: 「実 repo で guard が誤発火 → CI 恒常 fail」に**回帰検出力がゼロ**だった（plan は TC-03/04 で担保と書いたが、両者は `--dry-run` 実行のため構造上 exit 3 を返せない）→ **TC-05 で exit code を assert**（実 repo 相当 sandbox の見張り）。plan.md L121 の緩和記述は C-3 承認済みのため編集せず、本 handoff に訂正を記録する
+- 敵対 major A-001: **README 対称化に回帰テストが無く変異が生存**していた → **TC-17 追加**（変異注入で FAIL を実測確認）
+- River minor: stale 述語が集計側と削除側で二重定義 → 両ループに相互参照コメント / override の CI 非設定が手動確認のみ → **TC-15 として恒久 TC 化** / TC-16 の固定 `/tmp` パス → sandbox 内へ
+- River info: TC-13 が子プロセスの総合 rc に依存し他 TC の失敗が連鎖 → サマリ行の `0 failed` 判定へ変更
+- 敵対 minor A-003: standalone 実行時に `PLANGATE_ALLOW_MASS_DELETE` が unset されない → ta-26 の standalone fallback で unset
+- 敵対 minor A-005/A-006: todo.md のチェックボックス未更新 / status.md の時刻欠落・c3.json 発行済みとの矛盾 → 是正
+
+**攻めたが破れなかった経路**（敵対レビュー実測）: ファイル名の空白・glob 文字 / `dash` での POSIX 適合 / `grep -c` の `set -eu` 相互作用 / TC-13 の孫プロセス生成 / exit 3 の全呼び出し元（CI 2 job + ta-26 + ta-54） / exit code 優先順位 / 実 repo 破壊 / plan_hash 整合（C-3 承認後の plan 編集なし）
 
 record: `ai-loop-runs/20260724T220125Z-ee9a1b5.json`

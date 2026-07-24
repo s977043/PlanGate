@@ -88,6 +88,9 @@ sync_dir() {
     [ "$(basename "$_f")" = "README.md" ] && continue
     _src_count=$((_src_count + 1))
   done
+  # 注意: ここの「stale の定義」（README.md 除外 + src 側に同名が無い）は、
+  # 下の削除ループの条件と**必ず一致させること**。片方だけ変えると「N 件と
+  # 数えて guard を通したのに実際は M 件消す」形で guard が無効化される（#861 再発型）。
   _stale_count=0
   for _f in "$_dst"/*.md "$_dst"/*.yaml "$_dst"/*.yml "$_dst"/*.json; do
     [ -f "$_f" ] || continue
@@ -108,6 +111,8 @@ sync_dir() {
       return 0
     fi
   fi
+  # 削除条件は上の _stale_count 集計と同一（README.md 除外 + src に同名が無い）。
+  # 変更する場合は必ず両方を同時に更新する。
   for _f in "$_dst"/*.md "$_dst"/*.yaml "$_dst"/*.yml "$_dst"/*.json; do
     [ -f "$_f" ] || continue
     _base="$(basename "$_f")"

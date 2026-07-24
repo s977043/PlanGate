@@ -17,6 +17,9 @@ printf '\n=== TA-26: plugin-sync (TASK-0124) ===\n'
 # の規約追記は follow-up issue で扱う（本 PBI では touch しない）。
 if [ "${PG_HARNESS_SOURCED:-0}" != "1" ] || [ -z "${FIXTURES_DIR:-}" ]; then
   PG_T26_STANDALONE=1
+  # 呼び出し元 env の漏れで guard 検証が無効化されるのを防ぐ（run-tests.sh L15
+  # の規約と対称。standalone 実行にはその防御が効かないため自前で行う）。
+  unset PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
   FIXTURES_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/../fixtures" && pwd)"
   pass=0
   fail=0
@@ -126,7 +129,13 @@ if [ -f "$PG_T26_ROOT/.claude-plugin/marketplace.json" ]; then
   cp "$PG_T26_ROOT/.claude-plugin/marketplace.json" "$_t26_sb/.claude-plugin/marketplace.json"
 fi
 cp -r "$PG_T26_PLUGIN" "$_t26_sb/plugin/plangate"
-sh "$_t26_sb/scripts/sync-plugin-plangate.sh" >/dev/null 2>&1 || true
+# exit code も捕捉する（#877）。この sandbox は実 .claude/{agents,rules,commands} +
+# 実 plugin/plangate のコピーであり、実リポジトリの stale 関係をそのまま再現する。
+# guard の閾値を締めすぎた等で「実 repo で誤発火 → CI 恒常 fail」に倒れた場合、
+# ここが最初に赤くなる見張りになる（dry-run 実行の TC-03/TC-04 は exit 3 を
+# 構造上返さないため、この経路でしか検出できない）。
+_t26_rc5=0
+sh "$_t26_sb/scripts/sync-plugin-plangate.sh" >/dev/null 2>&1 || _t26_rc5=$?
 _t26_missing=0
 for _f in "$_t26_sb/.claude/agents/"*.md; do
   [ -f "$_f" ] || continue
@@ -136,10 +145,10 @@ for _f in "$_t26_sb/.claude/agents/"*.md; do
   fi
 done
 rm -rf "$_t26_tmpdir"  # 早期解放（register_cleanup との二重実行は冪等）
-if [ "$_t26_missing" = "0" ]; then
-  t26_pass "TC-05 sandbox 実行後 .claude/agents/ の全 .md が plugin に存在（実 repo 非破壊）"
+if [ "$_t26_missing" = "0" ] && [ "$_t26_rc5" -eq 0 ]; then
+  t26_pass "TC-05 sandbox 実行後 .claude/agents/ の全 .md が plugin に存在・exit 0（guard 誤発火なし / 実 repo 非破壊）"
 else
-  t26_fail "TC-05 sandbox 実行後 plugin/agents/ に $_t26_missing 件不足"
+  t26_fail "TC-05 失敗 (missing=$_t26_missing 期待0 / rc=$_t26_rc5 期待0 — rc=3 なら実 repo 相当で guard が誤発火している)"
 fi
 
 # TC-06: plugin/plangate/README.md の Version 行が存在
@@ -298,8 +307,10 @@ else
   else
     _t26_13c=1  # standalone 実行時は ①② の結果のみで判定する
   fi
-  if [ "$_t26_rc13a" -eq 0 ] && printf '%s' "$_t26_out13a" | grep -q 'TA-26 standalone:' \
-    && [ "$_t26_rc13b" -eq 0 ] && printf '%s' "$_t26_out13b" | grep -q 'TA-26 standalone:' \
+  # 判定は子プロセスの総合 exit code ではなく standalone サマリ行を見る。
+  # rc に依存させると他 TC の失敗が TC-13 へ道連れで伝播し、原因が読めなくなる。
+  if printf '%s' "$_t26_out13a" | grep -q 'TA-26 standalone: .* 0 failed' \
+    && printf '%s' "$_t26_out13b" | grep -q 'TA-26 standalone: .* 0 failed' \
     && [ "$_t26_13c" = "1" ] \
     && grep -q 'PG_HARNESS_SOURCED=1' "$PG_T26_ROOT/tests/run-tests.sh"; then
     t26_pass "TC-13 PG_HARNESS_SOURCED で harness/standalone を判別（FIXTURES_DIR 汚染にも耐える）"
@@ -314,8 +325,11 @@ for _t26_lb in agents rules commands; do
   _t26_mk_guard_sandbox "$_t26_t16" 1 4 "$_t26_lb"
 done
 _t26_rc16=0
-_t26_err16=$(sh "$_t26_t16/scripts/sync-plugin-plangate.sh" 2>/tmp/pg-t26-err16 >/dev/null) || _t26_rc16=$?
-_t26_err16=$(cat /tmp/pg-t26-err16 2>/dev/null); rm -f /tmp/pg-t26-err16
+# stderr は sandbox 内のファイルへ退避する（固定 /tmp パスは並列実行時に衝突し、
+# cleanup 漏れも起こす）。sandbox 直下のファイルは sync の走査対象外。
+_t26_err16f="$_t26_t16/stderr.log"
+sh "$_t26_t16/scripts/sync-plugin-plangate.sh" >/dev/null 2>"$_t26_err16f" || _t26_rc16=$?
+_t26_err16=$(cat "$_t26_err16f" 2>/dev/null || true)
 _t26_warn16=$(printf '%s\n' "$_t26_err16" | grep -c 'DELETE skipped for' || true)
 _t26_copied16=1
 for _t26_lb in agents rules commands; do
@@ -326,6 +340,42 @@ if [ "$_t26_rc16" -eq 3 ] && [ "$_t26_warn16" = "3" ] && [ "$_t26_copied16" = "1
   t26_pass "TC-16 複数 label 同時発火（WARN 3 行・exit 3 は 1 回・コピーは全 label 実行）"
 else
   t26_fail "TC-16 失敗 (rc=$_t26_rc16 期待3 / WARN=$_t26_warn16 期待3 / copied=$_t26_copied16)"
+fi
+
+# TC-17: README.md を src/dst 対称に除外していること（#877 F2 / R-108）
+# src 実体 1 件（keep-1.md）+ README.md、stale 2 件。
+# - 対称除外（正）: src=1 / stale=2 → 2 > 1 で発火（rc=3・stale 残存）
+# - 旧非対称（src 側が README を数える）: src=2 → 2 > 2 が偽 → stale を削除して rc=0
+# この TC が無いと「README 除外を src 側だけ戻す」変異がテストを素通りする。
+_t26_t17=$(mktemp -d); register_cleanup "$_t26_t17"
+_t26_mk_guard_sandbox "$_t26_t17" 1 2
+printf -- '# README\n' > "$_t26_t17/.claude/agents/README.md"
+printf -- '# README\n' > "$_t26_t17/plugin/plangate/agents/README.md"
+_t26_rc17=0
+sh "$_t26_t17/scripts/sync-plugin-plangate.sh" >/dev/null 2>&1 || _t26_rc17=$?
+_t26_stale17=0
+for _t26_n in 1 2; do
+  [ -f "$_t26_t17/plugin/plangate/agents/stale-$_t26_n.md" ] && _t26_stale17=$((_t26_stale17 + 1))
+done
+rm -rf "$_t26_t17"
+if [ "$_t26_rc17" -eq 3 ] && [ "$_t26_stale17" = "2" ]; then
+  t26_pass "TC-17 README.md を src/dst 対称に除外（src 実体1/stale2 で発火）"
+else
+  t26_fail "TC-17 失敗 (rc=$_t26_rc17 期待3 / stale 残存=$_t26_stale17 期待2 — src 側の README 除外が抜けている可能性)"
+fi
+
+# TC-15: override フラグが CI workflow に埋め込まれていない（#877 AC-2 後段 / AC-7）
+# .github/workflows/** は Hardening Override 対象で AI が編集できないため、
+# 「CI 側で恒久的に guard が無効化されていないこと」は tests 側から見張る。
+if [ -d "$PG_T26_ROOT/.github" ]; then
+  _t26_ci_hits=$(grep -rl 'PLANGATE_ALLOW_MASS_DELETE' "$PG_T26_ROOT/.github/" 2>/dev/null | wc -l | tr -d ' ')
+else
+  _t26_ci_hits=0
+fi
+if [ "$_t26_ci_hits" = "0" ]; then
+  t26_pass "TC-15 PLANGATE_ALLOW_MASS_DELETE が .github/ に存在しない（CI での恒久無効化なし）"
+else
+  t26_fail "TC-15 .github/ に PLANGATE_ALLOW_MASS_DELETE が $_t26_ci_hits 件（CI で guard が無効化される）"
 fi
 
 # 単体実行時のみ: cleanup drain + サマリ + exit code（source 時は run-tests.sh が担う）

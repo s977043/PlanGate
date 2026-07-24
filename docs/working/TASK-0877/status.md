@@ -4,12 +4,15 @@
 
 | 日時 | フェーズ | 結果 |
 |------|---------|------|
-| 2026-07-25 (JST) | B: plan / todo / test-cases 生成 | 完了（Mode=high-risk / lite_eligible=false） |
-| 2026-07-25 | C-1 セルフレビュー（25 項目） | **PASS**（critical/major/minor = 0・N/A 2） |
-| 2026-07-25 | C-2 外部レビュー 2 レーン | **conditional ×2**（critical 1 / major 8 / minor 10 / info 6）→ 24 件全採用（R-204 のみ部分採用・不採用 0） |
-| 2026-07-25 | 確定反映（1 回）+ 簡易 C-1 | **PASS** |
-| 2026-07-25 | C-3' ai-loop run-027 round 1 | **HUMAN_ESCALATED（exit 2）** — priority 2: boundary=clean だが lite=false |
-| 2026-07-25 | C-3（Human） | **APPROVED**（論点 1〜6 すべて推奨どおり）。`c3.json` 発行は Human の対話 TTY 実行待ち |
+| 2026-07-25 05:40 | B: plan / todo / test-cases 生成 | 完了（Mode=high-risk / lite_eligible=false） |
+| 2026-07-25 06:05 | C-1 セルフレビュー（25 項目） | **PASS**（critical/major/minor = 0・N/A 2） |
+| 2026-07-25 06:35 | C-2 外部レビュー 2 レーン | **conditional ×2**（critical 1 / major 8 / minor 10 / info 6）→ 24 件全採用（R-204 のみ部分採用・不採用 0） |
+| 2026-07-25 06:50 | 確定反映（1 回）+ 簡易 C-1 | **PASS** |
+| 2026-07-25 07:01 | C-3' ai-loop run-027 round 1 | **HUMAN_ESCALATED（exit 2）** — priority 2: boundary=clean だが lite=false |
+| 2026-07-25 07:03 | C-3（Human） | **APPROVED**（論点 1〜6 すべて推奨どおり）。`approvals/c3.json` 発行済み（`approved_at: 2026-07-24T22:03:51Z` / `source: cli`）・`bin/plangate validate` PASS |
+| 2026-07-25 07:30 | exec（A-6〜A-9） | 完了（3 ファイル・commit e99c84b） |
+| 2026-07-25 07:45 | V-1 受け入れ検査 | **AC 9/9 PASS** |
+| 2026-07-25 08:10 | PR 前レビュー（River Review + 敵対） | major 3 / minor 7 / info 6 → 反映済み（TC-15/TC-17 追加・TC-05 rc 監視・TC-13 rc 依存排除ほか） |
 
 ## C-3' 裁定の内訳（run-027）
 
