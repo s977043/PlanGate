@@ -1,0 +1,12 @@
+{"ts":"2026-07-25","phase":"B-1","decision":"dry-run は exit 0 維持・実行時のみ guard 発火で exit 3","rationale":"CI 2 job は --dry-run を使わない生実行（yml L51/L76 実測）","owner":"human","source":"carry-over v15 既決"}
+{"ts":"2026-07-25","phase":"B-1","decision":"F5 は別 issue 分離","rationale":"scope 肥大回避。AC-6 で記録を義務化","owner":"human","source":"carry-over v15 既決"}
+{"ts":"2026-07-25","phase":"B-2","decision":"論点 A = 終端集約 exit 3（A-1）","rationale":"コピー継続契約を維持し複数 label 発火でも決定論","owner":"agent"}
+{"ts":"2026-07-25","phase":"B-2","decision":"論点 B = stale ベース判定（stale > src）","rationale":"dst_count 依存を排し dry-run/実行で一致。README 対称化で安全側に最大 2 件ずれる","owner":"agent"}
+{"ts":"2026-07-25","phase":"C-1","decision":"PASS（25 項目）","rationale":"critical/major/minor = 0","owner":"agent"}
+{"ts":"2026-07-25","phase":"C-2","decision":"2 レーンとも conditional → 24 件全採用（R-204 部分採用）","rationale":"critical 1（TC-13 無限再帰）・major 8 を 1 回確定反映","owner":"agent"}
+{"ts":"2026-07-25","phase":"C-2-followup","decision":"AC-9 新設（guard メッセージの stderr + override 手順 + label）","rationale":"exit 3 は drift-check の説明メッセージに到達しない（R-205）","owner":"agent"}
+{"ts":"2026-07-25","phase":"C-3-prime","decision":"HUMAN_ESCALATED (run-027 / exit 2)","rationale":"boundary=clean だが lite=false（3 ファイル > SIZE_OK_MAX_FILES=2）。W チェックは model_a/model_b とも approve","owner":"arbiter","record":"ai-loop-runs/20260724T220125Z-ee9a1b5.json"}
+{"ts":"2026-07-25","phase":"C-3","decision":"APPROVED（論点 1〜6 すべて推奨どおり）","rationale":"Human が AskUserQuestion で APPROVE を選択。論点1=AC-8 in scope 化 / 論点2=stale>src への読み替え（README 対称化で安全側へ最大2件ずれる点を含む）/ 論点3=dry-run exit 0 維持 / 論点4=PLANGATE_ALLOW_MASS_DELETE 命名 / 論点5=override は Human-owned ローカル限定・CI env 禁止 / 論点6=R-204 は follow-up 分離","owner":"human","plan_hash":"sha256:a49aca66b085c8cc77522b736c649c16bc252d15871da955f8040af82811dc10"}
+{"ts":"2026-07-25","phase":"exec","decision":"TC-13 の子プロセスでは TC-03/TC-04 を省略","rationale":"実リポジトリ sync 3 回で子 1 回あたり約 13 秒。親で必ず実行されるためカバレッジ不変。ta-26 全体 48s→30s","owner":"agent"}
+{"ts":"2026-07-25","phase":"V-1","decision":"AC 9/9 PASS","rationale":"acceptance-tester が実行コマンド + exit code で機械突合。実行時点の AC-6 FAIL は #914 起票と handoff 発行で解消","owner":"agent"}
+{"ts":"2026-07-25","phase":"A-12","decision":"follow-up issue #914 起票","rationale":"F5（src 駆動の無ガード削除 2 経路）+ R-204（harness 判別規約統一）","owner":"agent"}

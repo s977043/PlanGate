@@ -1,0 +1,49 @@
+{
+  "boundary_check": "clean",
+  "class_check": "no-merge",
+  "decision": "HUMAN_ESCALATED",
+  "gates": {
+    "breakdown": "pass",
+    "c1": "PASS"
+  },
+  "ho_paths_source": "/Users/user/Documents/GitHub/plangate/docs/ai/ai-loop/ho-paths.md",
+  "ho_pattern_count": 21,
+  "issued_by": "arbiter-v0.1",
+  "lite_check": false,
+  "plan_package": {
+    "c1_evidence_ref": "review-self.md#PASS",
+    "c2_evidence_ref": "review-external.md#approve",
+    "plan_hash": "sha256:a49aca66b085c8cc77522b736c649c16bc252d15871da955f8040af82811dc10",
+    "plan_package_hash": "sha256:33403bd748b4d32c1bd51644a520826d1864679252a8b8e90ce9f790d8a78227",
+    "reviewers": {
+      "model_a": {
+        "evidence_ref": "evidence/w-check/model-a.md",
+        "plan_hash": "sha256:a49aca66b085c8cc77522b736c649c16bc252d15871da955f8040af82811dc10",
+        "plan_package_hash": "sha256:33403bd748b4d32c1bd51644a520826d1864679252a8b8e90ce9f790d8a78227",
+        "source_sha": "ee9a1b5aec174006489d3a4999a6dd7f087b0da2",
+        "verdict": "approve"
+      },
+      "model_b": {
+        "evidence_ref": "evidence/w-check/model-b.md",
+        "plan_hash": "sha256:a49aca66b085c8cc77522b736c649c16bc252d15871da955f8040af82811dc10",
+        "plan_package_hash": "sha256:33403bd748b4d32c1bd51644a520826d1864679252a8b8e90ce9f790d8a78227",
+        "source_sha": "ee9a1b5aec174006489d3a4999a6dd7f087b0da2",
+        "verdict": "approve"
+      }
+    },
+    "source_sha": "ee9a1b5aec174006489d3a4999a6dd7f087b0da2"
+  },
+  "policy_ref": "auto-approve-lite-clean@v4",
+  "run": {
+    "round_index": 1,
+    "run_id": "run-027",
+    "task_id": "TASK-0877"
+  },
+  "scope_check": "in_scope",
+  "target_sha": "ee9a1b5aec174006489d3a4999a6dd7f087b0da2",
+  "timestamp": "2026-07-24T22:01:25Z",
+  "w_check": {
+    "model_a": "approve",
+    "model_b": "approve"
+  }
+}
