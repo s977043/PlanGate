@@ -12,7 +12,7 @@
 | AC-3 | Human 決定 verbatim が §2 に記録 | TC-3 |
 | AC-4 | command 実行前チェック3 整合 + ガード非後退 | TC-4 |
 | AC-5 | rollout-policy sync 冪等 / command cmp 一致 | TC-5 |
-| AC-6 | carve-out `scripts/ai-loop/**` が §2 注記に存在 | TC-6 |
+| AC-6 | carve-out（engine `scripts/ai-loop/**` + ai-loop policy/spec corpus glob）が §2 注記に存在 | TC-6 |
 | AC-7 | 新規 auto-approve 可能化する承認境界相当パスが無い | TC-7 |
 | AC-8 | #780 未導入下で実機能は決定論的 escalate | TC-8 |
 
@@ -53,7 +53,7 @@
 - 入力: §2 注記節
 - 期待:
   - ①エンジンコード `scripts/ai-loop/**`（+ 配布版 `plugin/plangate/skills/ai-loop-cycle/scripts/**`）が除外・escalate 固定
-  - ②判定基準 policy/criteria 文書群（`rollout-policy`/`lite-criteria`/`decision-table`/`flow-detect`/`loop-safety-gates`/`arbiter-policy`）が除外・escalate 固定
+  - ②ai-loop policy/spec 文書 corpus 全体（`docs/workflows/ai-loop/**` + `docs/ai/ai-loop/**`）が除外・escalate 固定
 - 種別: grep 突合（①②両方の言及を確認）
 
 ### TC-7（AC-7・R-002）承認境界相当パスの非増加

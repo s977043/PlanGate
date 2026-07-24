@@ -11,3 +11,6 @@
 {"phase":"C-3prime","decision":"ai-loop run-026 実走: arbiter exit2 HUMAN_ESCALATED (priority1 boundary=touches-HO .claude/commands/ai-loop-workflow.md)。Phase1 承認境界遵守escalate実証","record":"docs/working/TASK-0907/ai-loop-runs/20260723T100912Z-3b987a1.json","w_check":"A=approve/B=reject(security_break)"}
 {"phase":"C-3prime","decision":"R-107 反映(Model B新発見・CONFIRMED): carve-out を engine code のみ→判定基準policy/criteria文書群へ拡張。AC-6/TC-6更新","independent_verify":"ho-paths.md原則2 L119-121 実測"}
 {"phase":"C-3","decision":"Human が 10:13:28Z に approve 実行(c3.json APPROVED・plan_hash 52e9d903)。ただしオーガナイザーが承認後 10:14:00Z に plan.md を R-107 整合修正→plan_hash MISMATCH。加えて L80/L109 の engine-only 残存も是正","incident":"承認後plan編集でhash無効化(オーガナイザーのミス)","resolution":"plan を R-107 完全整合→Human 再approve が正規復旧"}
+{"phase":"pre-PR-review","decision":"敵対レビューで R-108(carve-out 列挙不完全・判定正本7件漏れ・自己矛盾) / R-109(command が機械層 escalate を過大断言・KI-1 矛盾) を検出。両者一次ソース CONFIRMED","severity":"major x2"}
+{"phase":"pre-PR-review","decision":"Human 決定: carve-out を列挙→glob(docs/workflows/ai-loop/** + docs/ai/ai-loop/**)へ。トレードオフ=従来dogfooding域のauto-approveもescalate化を受容(安全性優先)","basis":"AskUserQuestion 2026-07-24"}
+{"phase":"pre-PR-review","decision":"command patch v2 生成(機械層 HO escalate / 規範層 carve-out を分離記述)。実適用テスト exit0・完成形byte一致。Replan により plan_hash 変更→再承認要"}

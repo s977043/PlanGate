@@ -18,6 +18,8 @@
 | R-103 | コードベース整合 | major | 採用 | plan(S3削除/順序ロック) todo(T4削除) | command plugin 先行編集は sync で revert |
 | R-104 | コードベース整合 | info | 確認済 | — | command は現在 .claude↔plugin byte 一致（前提成立） |
 | R-107 | ai-loop run-026 Model B | critical | 採用 | plan(Goal/Constraints/AC-6) test-cases(TC-6) | carve-out が policy/criteria 文書を除外せず自己緩和経路が残る（R-001 拡張） |
+| R-108 | PR前敵対レビュー | major | 採用 | rollout-policy §2 / plan / test-cases / handoff | R-107 の**列挙が不完全**（00_concept・design-philosophy 等 判定正本 7 件漏れ・自ファイル §5/§6 が正本と名指す 2 件を欠く自己矛盾）→ **glob 化**（Human 決定 2026-07-24） |
+| R-109 | PR前敵対レビュー | major | 採用 | rollout-policy §2 注記 / command patch v2 | command 文言が carve-out の**機械層 escalate を実態より強く断言**し handoff KI-1 と矛盾（arbiter は carve-out を clean 判定）→ 機械層/規範層を分離記述 |
 
 ## 独立検証（オーガナイザー・一次ソース）
 
@@ -32,5 +34,11 @@
 2. **R-101/R-102/R-103**: rollout-policy（正本=docs・plugin=link-rewrite 派生）と command（正本=.claude HO・plugin=cp 派生）の sync 機構差を Files/Work Breakdown に反映。**AC-5 を cmp byte 一致 → sync 冪等（dry-run 変更ゼロ）へ是正**。command 用は .claude↔plugin cmp を維持。**S3（AI が plugin command 先行編集）を削除**（sync で revert されるため）。command は Human patch（.claude 正本）→ sync 再生成のみ
 3. **R-002/R-003/R-004**: AC 群を承認境界の非後退検証へ強化（§4/§6 additive-only・#780 ハード順序制約・command ガード非後退）
 4. **R-005/R-006**: AC-1 grep 化・run 実証は handoff で doc 完了と分離
+
+### PR 前レビュー（2026-07-24・commit b5f49ec）
+
+- **R-108 CONFIRMED**（一次検証）: `00_concept.md`/`design-philosophy.md`/`c3-prime-contract.md`/`loopspec.md`/`delivery-state-machine.md`/`stop-rollback.md` すべて ho-paths HO 表 hit 0（=clean）。rollout-policy §5 L107 が design-philosophy を I-1 正本、§6 L112 が 00_concept を escalate 経路正本と名指すのに carve-out 未収載＝自己矛盾。→ **列挙を廃し glob**（`docs/workflows/ai-loop/**` + `docs/ai/ai-loop/**`）
+- **R-109 CONFIRMED**（一次検証）: `arbiter.py` `boundary_check` は ho_patterns（ho-paths HO 表）からのみ touches-HO を導出 → carve-out パスは clean 判定＝機械 escalate しない。command の断言を機械層（HO パス）/規範層（ai-loop corpus・実行者責務）に分離し KI-1 と整合させた
+- **River Review レーンは API エラーで失敗** → 再実行予定（§10 実行不可記録）
 
 総合判定: **conditional**（R-001 carve-out 反映 + AC 強化を確定反映 → 簡易 C-1 → 人間 C-3 APPROVED を条件に exec 可）

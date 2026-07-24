@@ -10,14 +10,14 @@
 
 `docs/workflows/ai-loop/rollout-policy.md` §2 の適用ドメインを拡張し、plangate 本体（提供元リポジトリ）の実コード変更のうち **`lite=true ∧ boundary=clean ∧ reversible` 帯**に ai-loop-workflow を適用可能にする。承認境界（§5 不変条件）は一字も緩和しない。後続の lite/clean/reversible な bug fix（#877 等）を ai-loop でドッグフーディングしながら改善知見を得る。
 
-**ただし ai-loop 自身の判定基盤は拡張対象から carve-out する**（自己改変の auto-approve 化防止・`Refs: R-001 / R-107`）。carve-out 対象 = ①強制エンジンコード `scripts/ai-loop/**` + 配布版 ②**判定基準を定義する policy/criteria 文書群**（`docs/workflows/ai-loop/{rollout-policy,lite-criteria,decision-table,flow-detect,loop-safety-gates}.md` + `docs/ai/ai-loop/arbiter-policy.md`）。②は ai-loop run（run-026）の Model B が検出・一次ソースで CONFIRMED（`ho-paths.md` 原則2 = policy は現状 clean・将来 HO-policy 登録予定）。
+**ただし ai-loop 自身の判定基盤は拡張対象から carve-out する**（自己改変の auto-approve 化防止・`Refs: R-001 / R-107`）。carve-out 対象 = ①強制エンジンコード `scripts/ai-loop/**` + 配布版 ②**ai-loop policy/spec 文書 corpus 全体**（`docs/workflows/ai-loop/**` + `docs/ai/ai-loop/**`）。②は ai-loop run（run-026）の Model B が検出・一次ソースで CONFIRMED（`ho-paths.md` 原則2 = policy は現状 clean・将来 HO-policy 登録予定）。
 
 ## Constraints / Non-goals
 
 - **§5 不変条件は不動**（NO MERGE BY AI / HO 接触＝無条件 escalate / W チェック独立 2 体 / lite AC-8 安全側）。差分で「変更なし・明示維持」を示す（AC-2）
 - **承認境界は §5 のみでない**（§4 auto-approve 方針 / §6 escalate 条件 / command 実行前チェック3 / ho-paths clean 判定集合）。これらも additive-only とし escalate 条件の削除・緩和ゼロを検証する（AC-7・`Refs: R-002`）
 - **実機能 auto-approve は #780 slice C（size_ok 機械算出）を前提として継承（ハード順序制約）**（B-1 Q1 Human 決定・`Refs: R-003`）。**#780 未導入下では plangate 本体の実機能 run は決定論的に escalate**（「escalate 寄り」等の非決定論的表現は用いない）。§4 順序制約と一貫（再定義せず参照）
-- **判定基盤 carve-out**: §2 拡張の適用対象から ①強制エンジンコード `scripts/ai-loop/**` + 配布版 `plugin/plangate/skills/ai-loop-cycle/scripts/**` ②判定基準 policy/criteria 文書群（`docs/workflows/ai-loop/{rollout-policy,lite-criteria,decision-table,flow-detect,loop-safety-gates}.md` + `docs/ai/ai-loop/arbiter-policy.md`）を除外（escalate 固定）。ho-paths self-protection 原則（ho-paths.md 自身が HO な理由）と同型。②は将来 `ho-paths.md` 原則2 の HO-policy 登録で機械層化するまでの規範層 carve-out（`Refs: R-001 / R-107`）
+- **判定基盤 carve-out**: §2 拡張の適用対象から ①強制エンジンコード `scripts/ai-loop/**` + 配布版 `plugin/plangate/skills/ai-loop-cycle/scripts/**` ②ai-loop policy/spec 文書 corpus 全体（`docs/workflows/ai-loop/**` + `docs/ai/ai-loop/**`）を除外（escalate 固定）。ho-paths self-protection 原則（ho-paths.md 自身が HO な理由）と同型。②は将来 `ho-paths.md` 原則2 の HO-policy 登録で機械層化するまでの規範層 carve-out（`Refs: R-001 / R-107`）
 - `00_concept.md` §3.6 等の参照整合は **Out of scope**（B-1 Q2 Human 決定）
 - Non-goal: `lite.size_ok` の機械算出（#780 slice C 本体）/ 導入先の §3 適用条件変更 / §5 不変条件の変更 / ai-loop engine の HO 登録（carve-out で代替・将来判断）
 
@@ -77,7 +77,7 @@ rollout-policy §2 の拡張表現について 3 案を比較し **案 C（表�
     - rollout-policy: `sync --dry-run` 変更ゼロ（冪等）
     - command: `.claude`↔`plugin` cmp exit 0（H2 適用後）
     - §5/§4/§6 escalate 条件の diff = additive-only（削除・緩和ゼロ）
-    - carve-out（①`scripts/ai-loop/**` + 配布版 ②判定基準 policy/criteria 文書群 の除外）が §2 注記に存在
+    - carve-out（①`scripts/ai-loop/**` + 配布版 ②ai-loop policy/spec 文書 corpus 全体 の除外）が §2 注記に存在
   - Owner: agent / evidence/
   - Risk: HO command は Human 適用前は不整合 → 🚩 S5 の command 部は H2 の後
   - rollback: 不要（検証）
@@ -106,7 +106,7 @@ rollout-policy §2 の拡張表現について 3 案を比較し **案 C（表�
 
 | リスク | 検証手段 | Fallback |
 |--------|---------|----------|
-| ai-loop 自己改変の auto-approve 化（R-001/R-107） | §2 注記に carve-out（エンジンコード + 判定基準 policy 文書群）・TC-6 で grep 確認 | escalate 固定を注記に明記・将来 HO-policy 登録も選択肢 |
+| ai-loop 自己改変の auto-approve 化（R-001/R-107） | §2 注記に carve-out（エンジンコード + ai-loop policy/spec 文書 corpus 全体）・TC-6 で grep 確認 | escalate 固定を注記に明記・将来 HO-policy 登録も選択肢 |
 | 承認境界の緩和（§5 だけ見て見逃す・R-002） | §4/§6 escalate 条件 diff = additive-only（TC-2 拡張） | 注記に「§4/§6 additive のみ」明記 |
 | #780 順序制約の軟化（R-003） | 注記に §4 同一のハード順序制約・TC で決定論確認 | 「寄り」表現排除・#780 未導入は escalate 固定 |
 | command ガード緩和（R-004） | patch diff でガード非後退確認（TC-4 拡張） | 緩和は boundary=clean・非承認境界に限定と注記で境界画定 |
@@ -114,7 +114,7 @@ rollout-policy §2 の拡張表現について 3 案を比較し **案 C（表�
 
 ## Questions / Unknowns（C-3 論点）
 
-1. **【最重要・R-001/R-107】carve-out 方式**: §2 拡張の適用対象から ①強制エンジンコード `scripts/ai-loop/**` + 配布版 ②判定基準 policy/criteria 文書群（`rollout-policy`/`lite-criteria`/`decision-table`/`flow-detect`/`loop-safety-gates`/`arbiter-policy`）を除外（escalate 固定）で承認境界の自己改変を防ぐ方針でよいか。代替は ai-loop engine + policy を ho-paths.md に **HO 登録**（より強いが通常の開発も全て Human patch 化＝重い。ho-paths.md 原則2 の将来 HO-policy 登録に接続）。**規範層 carve-out 推奨**
+1. **【最重要・R-001/R-107】carve-out 方式**: §2 拡張の適用対象から ①強制エンジンコード `scripts/ai-loop/**` + 配布版 ②ai-loop policy/spec 文書 corpus 全体（`docs/workflows/ai-loop/**` + `docs/ai/ai-loop/**`）を除外（escalate 固定）で承認境界の自己改変を防ぐ方針でよいか。代替は ai-loop engine + policy を ho-paths.md に **HO 登録**（より強いが通常の開発も全て Human patch 化＝重い。ho-paths.md 原則2 の将来 HO-policy 登録に接続）。**規範層 carve-out 推奨**
 2. **§2 拡張の表現（案 C）** が §5/§4/§6 の escalate 条件を diff ゼロ/additive に留めているか（C-3 で差分確認）
 3. **#780 ハード順序制約継承**の文言が §4 を再定義せず参照になっているか
 4. **AC-5 の是正**（cmp byte 一致 → sync 冪等）が rollout-policy に対し妥当か
@@ -128,7 +128,7 @@ rollout-policy §2 の拡張表現について 3 案を比較し **案 C（表�
 - **AC-3**: Human 決定 verbatim が §2 に移行根拠として記録される
 - **AC-4**（R-004 強化）: command 実行前チェック3 が §2 と整合し、かつ HO 接触無条件 escalate / NO MERGE BY AI / touches-HO 停止規則が非後退
 - **AC-5**（R-101 是正）: rollout-policy は sync 冪等（dry-run 変更ゼロ）、command は `.claude`↔`plugin` cmp exit 0（H2 後）
-- **AC-6**（R-001 / R-107 新規）: §2 注記に carve-out が存在し、①強制エンジンコード `scripts/ai-loop/**` + 配布版 ②判定基準 policy/criteria 文書群（`rollout-policy`/`lite-criteria`/`decision-table`/`flow-detect`/`loop-safety-gates`/`arbiter-policy`）の**両方**を拡張対象から除外・escalate 固定と明記
+- **AC-6**（R-001 / R-107 新規）: §2 注記に carve-out が存在し、①強制エンジンコード `scripts/ai-loop/**` + 配布版 ②ai-loop policy/spec 文書 corpus 全体（`docs/workflows/ai-loop/**` + `docs/ai/ai-loop/**`）の**両方**を拡張対象から除外・escalate 固定と明記
 - **AC-7**（R-002 新規）: 本拡張で新規に auto-approve 可能化する承認境界相当パスが無いことを列挙確認（clean 判定集合の点検）
 - **AC-8**（R-003 新規）: #780 未導入下では plangate 本体の実機能 auto-approve は決定論的に escalate（注記に §4 同一のハード順序制約）
 

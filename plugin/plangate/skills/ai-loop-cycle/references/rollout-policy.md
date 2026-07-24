@@ -35,7 +35,7 @@ ai-loop-workflow は Phase 0（ワークフロー提供元リポジトリの
 
 | 対象 | 適用可否 |
 |------|---------|
-| ワークフロー提供元リポジトリ（plangate 本体） | `docs/workflows/ai-loop/` 配下（dogfooding 域）＋ **`lite=true ∧ boundary=clean ∧ reversible` 帯の本番フロー変更**（下記注記の carve-out を除く）。本番承認フロー（PlanGate WF-00〜07）の **C-3 は常に Human・§5 不変**。実機能の auto-approve は §4 の #780 slice C 前提を継承 |
+| ワークフロー提供元リポジトリ（plangate 本体） | **`lite=true ∧ boundary=clean ∧ reversible` 帯の本番フロー変更**（下記注記の判定基盤 carve-out＝ai-loop policy/spec/engine corpus を**除く**）。本番承認フロー（PlanGate WF-00〜07）の **C-3 は常に Human・§5 不変**。実機能の auto-approve は §4 の #780 slice C 前提を継承 |
 | 導入先リポジトリ | §3 の前提 2 条件を満たす場合に適用可 |
 
 #### plangate 本体拡張の注記（TASK-0907 / [#907](https://github.com/s977043/plangate/issues/907)）
@@ -49,10 +49,10 @@ plangate 本体（提供元リポジトリ）の実コード変更のうち、§
 - **§5 不変条件は不動**（NO MERGE BY AI / HO 接触＝無条件 escalate / W チェック独立 2 体 / lite AC-8 安全側）。本拡張は §5 を一字も変更しない。
 - **§4／§6 の escalate 条件は additive-only**（削除・条件緩和なし）。
 - **#780 ハード順序制約の継承**: plangate 本体の実機能 auto-approve の実運用開始も、§4 と同様に `lite.size_ok` の機械算出（[#780](https://github.com/s977043/plangate/issues/780) slice C）導入を**前提とする**。#780 未導入下では plangate 本体の実機能 auto-approve は**決定論的に escalate** する（申告制 `size_ok` のままでは実機能は eligible にならない）。
-- **判定基盤 carve-out（自己改変防止）**: 本拡張の適用対象から ai-loop 自身の判定基盤を**除外し escalate 固定**とする:
+- **判定基盤 carve-out（自己改変防止・glob）**: 本拡張の適用対象から ai-loop 自身の判定基盤を**除外し escalate 固定**とする。**列挙でなく glob** で塞ぐ（判定・思想・契約・停止・merge 入口の正本群を漏れなく包含するため）:
   - ①強制エンジンコード: `scripts/ai-loop/**` および配布版 `plugin/plangate/skills/ai-loop-cycle/scripts/**`
-  - ②判定基準を定義する policy／criteria 文書群: `docs/workflows/ai-loop/{rollout-policy,lite-criteria,decision-table,flow-detect,loop-safety-gates}.md`・`docs/ai/ai-loop/arbiter-policy.md`（本ファイル自身を含む）
-  - これは `ho-paths.md` 自身が HO である self-protection 原則と同型。②は同ファイル原則 2 の将来 HO-policy 登録で機械層化するまでの**規範層 carve-out**。
+  - ②ai-loop policy／spec 文書 corpus 全体: `docs/workflows/ai-loop/**`・`docs/ai/ai-loop/**`（本ファイル自身を含む）
+  - **規範層である旨の明示**: arbiter（`arbiter.py`）の `boundary_check` は ho-paths.md の HO 表からのみ touches-HO を導出するため、上記 carve-out パスは現状 **boundary=clean と判定される**（機械層では escalate しない）。よって本 carve-out は**規範層**であり、eligible 判定時に実行者が escalate する責務を負う。機械層強制は `ho-paths.md` 自身が HO である self-protection 原則と同型に、同ファイル原則 2 の**将来 HO-policy 登録**で達成する（それまでは規範層 + W チェック 2 体で担保）。
 
 ### Phase 0 → Phase 1 移行履歴
 
