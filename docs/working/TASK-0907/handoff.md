@@ -12,7 +12,7 @@
 | AC-3 | Human verbatim 記録 | **PASS** | §2 注記に 2 文 verbatim |
 | AC-4 | command 整合 + ガード非後退 | **PASS** | lite/clean 帯明記・NO MERGE BY AI/touches-HO/無条件 escalate 保持（強化置換） |
 | AC-5 | rollout-policy sync 冪等 / command cmp | **PASS** | dry-run no change / cmp exit 0 |
-| AC-6 | carve-out（engine + ai-loop corpus glob） | **PASS** | ①`scripts/ai-loop/**` ②`docs/workflows/ai-loop/**` + `docs/ai/ai-loop/**`（glob・列挙漏れ構造的に排除） |
+| AC-6 | carve-out（engine + corpus + skill の 3 系統 glob） | **PASS** | ①`scripts/ai-loop/**` ②`docs/workflows/ai-loop/**`+`docs/ai/ai-loop/**` ③`.agents/skills/ai-loop-cycle/**`+`.claude/skills/ai-loop-cycle/**`（River M-1 反映） |
 | AC-7 | 承認境界相当パスの非増加 | **PASS** | carve-out で判定基盤を除外・clean 集合点検 |
 | AC-8 | #780 未導入下は決定論的 escalate | **PASS** | 「決定論的に escalate」明記・「寄り」不在 |
 
@@ -21,6 +21,7 @@
 ## 2. 既知課題一覧
 
 - **KI-1（規範層 carve-out の機械層未接続）**: 判定基盤②（ai-loop policy/spec corpus）の carve-out は現状**規範層**（§2 注記の文言）。`ho-paths.md` 原則2 の将来 HO-policy 登録で機械層化するまで、arbiter は policy 文書変更を boundary=clean と判定する（HO command 等の別 HO 接触がなければ escalate しない可能性）。→ V2 で HO-policy 登録により機械強制化。
+- **KI-3（command v3 patch の適用が完了条件）**: `.claude/commands/ai-loop-workflow.md` は v1 適用済みだが、R-109 是正版（v3）が**未適用**の間は本文に「arbiter が無条件 escalate」の過大断言が残る。適用手順は `patches/ho-apply-approval.md`（v3 を指す）。適用後に `sh scripts/sync-plugin-plangate.sh` で plugin 側 cp 再生成が必要（未実行だと CI の sync drift-check が落ちる）。
 - **KI-2（settings hooks 未配線）**: `bin/plangate doctor` が 7/10 hook 未配線で FAIL（環境既存・Human-owned settings wiring・本 PBI 無関係）。
 
 ## 3. V2 候補

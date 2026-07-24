@@ -4,6 +4,10 @@
 > 本 patch は AI が生成し **sandbox で実適用テスト済み**（dry-run/実適用 exit 0・適用後 = 完成形 byte 一致）。
 > 適用は **Human-owned**（責務4分類）。
 
+> **適用対象は v3 のみ**（v1 は適用済み・v2 は生成後に supersede して削除）。v3 は現 HEAD へ
+> clean 適用可を sandbox 実適用テストで確認済み（dry-run/apply exit 0・適用後 = 完成形 byte 一致）。
+> v3 は R-109（機械層 escalate の過大断言）を是正し、carve-out 集合を rollout-policy §2 注記へ参照委譲する。
+
 ## 対象ファイル（HO）
 
 - `.claude/commands/ai-loop-workflow.md` — 実行前チェック3 の文言を §2 適用ドメイン拡張と整合。ガード非後退（承認境界/HO 接触は通常フロー・NO MERGE BY AI・touches-HO 停止規則は不変）を保持。
@@ -13,9 +17,9 @@
 ```sh
 cd /Users/user/Documents/GitHub/plangate
 # 1. 適用前 dry-run（exit 0 を確認）
-patch -p1 --dry-run < docs/working/TASK-0907/patches/ai-loop-workflow-command.patch
+patch -p1 --dry-run < docs/working/TASK-0907/patches/ai-loop-workflow-command-v3.patch
 # 2. 適用
-patch -p1 < docs/working/TASK-0907/patches/ai-loop-workflow-command.patch
+patch -p1 < docs/working/TASK-0907/patches/ai-loop-workflow-command-v3.patch
 # 3. 適用後、plugin command を sync 再生成（T5）
 sh scripts/sync-plugin-plangate.sh
 # 4. byte 一致検証（AC-5 command 部）
@@ -28,7 +32,7 @@ cmp .claude/commands/ai-loop-workflow.md plugin/plangate/commands/ai-loop-workfl
 # 未 commit なら
 git checkout -- .claude/commands/ai-loop-workflow.md plugin/plangate/commands/ai-loop-workflow.md
 # または reverse patch
-patch -R -p1 < docs/working/TASK-0907/patches/ai-loop-workflow-command.patch
+patch -R -p1 < docs/working/TASK-0907/patches/ai-loop-workflow-command-v3.patch
 ```
 
 ## 未適用時の安全性（EC-1）

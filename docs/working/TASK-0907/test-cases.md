@@ -54,6 +54,7 @@
 - 期待:
   - ①エンジンコード `scripts/ai-loop/**`（+ 配布版 `plugin/plangate/skills/ai-loop-cycle/scripts/**`）が除外・escalate 固定
   - ②ai-loop policy/spec 文書 corpus 全体（`docs/workflows/ai-loop/**` + `docs/ai/ai-loop/**`）が除外・escalate 固定
+  - ③実行手順スキル（`.agents/skills/ai-loop-cycle/**` + `.claude/skills/ai-loop-cycle/**`）が除外・escalate 固定（River M-1）
 - 種別: grep 突合（①②両方の言及を確認）
 
 ### TC-7（AC-7・R-002）承認境界相当パスの非増加

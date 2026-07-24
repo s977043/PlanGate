@@ -50,9 +50,14 @@ plangate 本体（提供元リポジトリ）の実コード変更のうち、§
 - **§4／§6 の escalate 条件は additive-only**（削除・条件緩和なし）。
 - **#780 ハード順序制約の継承**: plangate 本体の実機能 auto-approve の実運用開始も、§4 と同様に `lite.size_ok` の機械算出（[#780](https://github.com/s977043/plangate/issues/780) slice C）導入を**前提とする**。#780 未導入下では plangate 本体の実機能 auto-approve は**決定論的に escalate** する（申告制 `size_ok` のままでは実機能は eligible にならない）。
 - **判定基盤 carve-out（自己改変防止・glob）**: 本拡張の適用対象から ai-loop 自身の判定基盤を**除外し escalate 固定**とする。**列挙でなく glob** で塞ぐ（判定・思想・契約・停止・merge 入口の正本群を漏れなく包含するため）:
-  - ①強制エンジンコード: `scripts/ai-loop/**` および配布版 `plugin/plangate/skills/ai-loop-cycle/scripts/**`
+  - ①強制エンジンコード: `scripts/ai-loop/**`
   - ②ai-loop policy／spec 文書 corpus 全体: `docs/workflows/ai-loop/**`・`docs/ai/ai-loop/**`（本ファイル自身を含む）
-  - **規範層である旨の明示**: arbiter（`arbiter.py`）の `boundary_check` は ho-paths.md の HO 表からのみ touches-HO を導出するため、上記 carve-out パスは現状 **boundary=clean と判定される**（機械層では escalate しない）。よって本 carve-out は**規範層**であり、eligible 判定時に実行者が escalate する責務を負う。機械層強制は `ho-paths.md` 自身が HO である self-protection 原則と同型に、同ファイル原則 2 の**将来 HO-policy 登録**で達成する（それまでは規範層 + W チェック 2 体で担保）。
+  - ③ai-loop 実行手順スキル: `.agents/skills/ai-loop-cycle/**`・`.claude/skills/ai-loop-cycle/**`（W チェック委託定型・`reject_category` enum・escalate 分岐・grader 上限を保持する判定基盤）
+  - **配布派生の扱い**: 上記 ①〜③ の配布コピー（`plugin/plangate/skills/ai-loop-cycle/**` 等）は `sync-plugin-plangate.sh` が生成する派生成果物であり、正本を carve-out することで実質的に保護される。配布側の独立改変は CI の sync drift-check で検出する（正本と非対称に直接編集しない）。
+  - **規範層である旨の明示**: arbiter（`arbiter.py`）の `boundary_check` は ho-paths.md の HO 表からのみ touches-HO を導出するため、上記 carve-out パスは現状 **boundary=clean と判定される**（機械層では escalate しない）。よって本 carve-out は**規範層**であり、eligible 判定時に実行者が escalate する責務を負う（W チェック 2 体が併せて担保）。
+  - **機械層化の射程（V2）**: `ho-paths.md` 原則 2 は本来 **policy ファイル**（`auto-approve-lite-clean@v1` 等）を対象とし、エンジンコード・doc corpus 全体・skill の将来登録までは約束していない。機械層強制は同原則 2 の**拡張**として、①〜③ を含む HO 登録を V2 で行う（`ho-paths.md` 自身が HO である self-protection 原則と同型）。
+
+> **§3 前提 2 条件との関係**: §3 は表題どおり導入先向けだが、`allowed_paths` 宣言（前提 2）は arbiter が全 run で非空必須検証するため **plangate 本体 run にも同様に適用**される（ho-paths は本リポジトリで確定済み＝前提 1 充足）。
 
 ### Phase 0 → Phase 1 移行履歴
 
