@@ -12,7 +12,12 @@ set -eu
 
 # 呼び出し元 env の漏れで実 hooks の挙動が変わり実監査ログを汚染するのを防ぐ
 # （tests/extras/README.md 規約 7 / 2026-06-11 実害: PLANGATE_SKIP_REASON 漏れ）
-unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT 2>/dev/null || true
+# PG_HARNESS_SOURCED: harness/standalone 判別シグナル（#877 F3）。外部 env から
+#   漏れると extras が誤って harness 実行と判定するため必ず先に unset する。
+# PLANGATE_ALLOW_MASS_DELETE: sync の mass-delete guard 解除フラグ（#877 F1）。
+#   開発者環境に export されたままだと guard が恒久的に無効化され、テストが
+#   guard の発火を検出できなくなる。
+unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
 
 PLANGATE_BIN="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/bin/plangate"
 FIXTURES_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/fixtures"
@@ -150,6 +155,12 @@ rm -rf "$TMPDIR_TASK"
 # ── Extras: tests/extras/*.sh を順番に source（Issue #170）─────────────────────
 # 新規 TA-NN を追加するときは tests/extras/ にファイルを置くだけでよい。
 # 本体（このファイル）の編集は不要 → PBI 連続実装時の衝突を回避。
+#
+# extras に「harness から source されている」ことを明示するシグナルを渡す（#877 F3）。
+# export しない: export すると extras が起動した子プロセスまで harness 実行と
+# 誤判定し、standalone fallback（pass / fail / register_cleanup の自前定義）に
+# 入らず壊れる。
+PG_HARNESS_SOURCED=1
 if [ -d "$EXTRAS_DIR" ]; then
   for extra in "$EXTRAS_DIR"/ta-*.sh; do
     # POSIX glob: マッチ無しのときリテラル文字列が返るため存在チェック

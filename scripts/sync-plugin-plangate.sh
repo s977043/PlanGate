@@ -13,12 +13,21 @@ fi
 
 _log()    { printf '[sync-plugin] %s\n' "$1"; }
 _drylog() { printf '[sync-plugin][dry-run] %s\n' "$1"; }
+# safety guard の通知は stderr へ出す（#877 AC-9）。CI drift-check job は
+# `sh scripts/sync-plugin-plangate.sh` を run ブロックの 1 行目で実行するため、
+# 非ゼロ終了すると後続の `::error::` 説明行に到達しない。「何が起きたか / どう
+# 解除するか」は本スクリプトの出力だけが伝達手段になる。
+_warn()   { printf '[sync-plugin] %s\n' "$1" >&2; }
 
 PLUGIN_DIR="$REPO_ROOT/plugin/plangate"
 CLAUDE_DIR="$REPO_ROOT/.claude"
 SKILLS_DIR="$REPO_ROOT/.agents/skills"
 
 changed=0
+# #861 safety guard の発火フラグ（#877 F1）。sync_dir はサブシェルを介さず
+# 呼ばれるため（下の for ループ 1 箇所のみ）、POSIX sh に local が無くても
+# global への集約が成立する。終端で 1 回だけ判定して exit 3 する。
+guard_fired=0
 
 # agents の model frontmatter は本リポジトリ運用向けの tier 指定（docs/ai/model-profiles.md
 # §Claude Code エージェントの model tier）。配布版 plugin は利用者環境のモデル可用性に
@@ -61,25 +70,49 @@ sync_dir() {
       changed=1
     fi
   done
-  # safety guard (#861): src 側の対象ファイルが dst 側の半数未満のときは、
-  # src が一時的に欠損している可能性が高いため削除ループのみスキップする
-  # （コピーは阻害しない）。.claude/agents/ 欠損状態で sync が走って plugin
-  # 側を大量削除する事故（issue #861）を構造的に防ぐ。
+  # safety guard (#861 / #877): dst 側の削除候補（stale = dst にあって src に
+  # 無いファイル）が src 側の残存件数を上回るときは、src が一時的に欠損している
+  # 可能性が高いため削除ループのみスキップする（コピーは阻害しない）。
+  # .claude/agents/ 欠損状態で sync が走って plugin 側を大量削除する事故
+  # （issue #861）を構造的に防ぐ。
+  #
+  # #877 F2: 判定を dst 総数ベース（src*2 < dst）から stale 件数ベースへ変更する。
+  # 旧式の _dst_count はコピーループ通過後に数えるため、dry-run（コピーしない）と
+  # 実行（コピー済み）で同じ入力から異なる値になり判定が食い違った
+  # （実測: src=3 / stale=4 で dry-run 非発火・実行発火）。stale と src は
+  # コピー動作の影響を受けないため両モードで一致する。README.md は src/dst とも
+  # 除外して対称に数える（旧式は src 側のみ含む非対称だった）。
   _src_count=0
   for _f in "$_src"/*.md "$_src"/*.yaml "$_src"/*.yml "$_src"/*.json; do
     [ -f "$_f" ] || continue
+    [ "$(basename "$_f")" = "README.md" ] && continue
     _src_count=$((_src_count + 1))
   done
-  _dst_count=0
+  # 注意: ここの「stale の定義」（README.md 除外 + src 側に同名が無い）は、
+  # 下の削除ループの条件と**必ず一致させること**。片方だけ変えると「N 件と
+  # 数えて guard を通したのに実際は M 件消す」形で guard が無効化される（#861 再発型）。
+  _stale_count=0
   for _f in "$_dst"/*.md "$_dst"/*.yaml "$_dst"/*.yml "$_dst"/*.json; do
     [ -f "$_f" ] || continue
-    [ "$(basename "$_f")" = "README.md" ] && continue
-    _dst_count=$((_dst_count + 1))
+    _base="$(basename "$_f")"
+    [ "$_base" = "README.md" ] && continue
+    if [ ! -f "$_src/$_base" ]; then
+      _stale_count=$((_stale_count + 1))
+    fi
   done
-  if [ "$_dst_count" -gt 0 ] && [ $((_src_count * 2)) -lt "$_dst_count" ]; then
-    _log "WARN: DELETE skipped for $_label — src=${_src_count} / dst=${_dst_count} (src が半数未満のため削除を保留 / #861 safety guard)"
-    return 0
+  if [ "$_stale_count" -gt "$_src_count" ]; then
+    if [ "${PLANGATE_ALLOW_MASS_DELETE:-0}" = "1" ]; then
+      # override は Human-owned のローカル操作限定（CI workflow の env: には
+      # 置かない）。解除したことを必ず記録に残す（#877 AC-2）。
+      _warn "WARN: mass-delete guard を PLANGATE_ALLOW_MASS_DELETE=1 で解除しました — $_label (src=${_src_count} / stale=${_stale_count}) の削除を続行します"
+    else
+      _warn "WARN: DELETE skipped for $_label — src=${_src_count} / stale=${_stale_count} (削除候補が src 残存数を上回るため削除を保留 / #861 safety guard)。意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください"
+      guard_fired=1
+      return 0
+    fi
   fi
+  # 削除条件は上の _stale_count 集計と同一（README.md 除外 + src に同名が無い）。
+  # 変更する場合は必ず両方を同時に更新する。
   for _f in "$_dst"/*.md "$_dst"/*.yaml "$_dst"/*.yml "$_dst"/*.json; do
     [ -f "$_f" ] || continue
     _base="$(basename "$_f")"
@@ -439,4 +472,15 @@ if [ "$changed" = "1" ]; then
   _log "Sync complete — changes detected"
 else
   _log "Sync complete — no changes"
+fi
+
+# #877 F1: mass-delete safety guard が発火した run は非ゼロ（exit 3）で終了する。
+# 従来は WARN を出して exit 0 のまま終わっていたため、CI の sync job が「削除が
+# 永久に保留されたまま毎 run 発火し続ける」恒久 drift を検知できなかった。
+# dry-run は副作用が無く予告のみのため exit 0 を維持する（CI の 2 job はいずれも
+# --dry-run を使わない生実行であり、exit 3 だけで job は自動 fail する）。
+# exit code の優先順位: 先行 fatal（marketplace.json 同期失敗の exit 1）> guard（exit 3）。
+if [ "$guard_fired" = "1" ] && [ "$DRY_RUN" != "1" ]; then
+  _warn "ERROR: mass-delete safety guard が発火したため削除を保留しました (#861 / #877)。正本側の欠損を確認するか、意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください"
+  exit 3
 fi
