@@ -18,15 +18,15 @@ created_by: orchestrator
 
 | result | 件数 |
 |--------|------|
-| PASS | 22 |
+| PASS | 23 |
 | WARN | 0 |
 | FAIL | 0 |
-| N/A | 3 |
+| N/A | 2 |
 
 **C-1 実施中に自己検出して是正した項目**（WARN → PASS）:
 
 1. **C1-SUP-PLAN-01**: `test-cases.md` V-1-B のループに `<V-1-A と同じ 11 本>` というプレースホルダが残っていた → 11 本を明示列挙に置換
-2. **C1-TODO-08**: T-05 が 12 TC を 1 タスクで扱っており独立検証できない粒度だった → **T-05a / T-05b / T-05c に 3 分割**し、plan Step 4 にも粒度方針を追記
+2. **C1-TODO-08**: T-05 が 14 TC を 1 タスクで扱っており独立検証できない粒度だった → **T-05a / T-05b / T-05c に 3 分割**し、plan Step 4 にも粒度方針を追記
 3. **C1-PLAN-08-AEE / 09-AEE**: plan に Stop Condition / Replan Triggers が未記入だった → Stop Condition 6 件 + Replan Triggers RT-1〜RT-6（機械値）を追記
 
 ## Plan チェック（7項目 + AEE 2項目）
@@ -117,7 +117,7 @@ created_by: orchestrator
 
 - **result**: PASS（T-05 分割により）
 - **category**: plan
-- **finding**: 全タスクに変更対象ファイル・検証コマンド・期待結果・依存関係・`rollback:` が具体化されている。T-05 は 12 TC を 1 タスクで扱い独立検証できない粒度だったため T-05a/b/c に 3 分割（各タスクが対応 TC の PASS で単独 approve/reject 可能）
+- **finding**: 全タスクに変更対象ファイル・検証コマンド・期待結果・依存関係・`rollback:` が具体化されている。T-05 は 14 TC を 1 タスクで扱い独立検証できない粒度だったため T-05a/b/c に 3 分割（各タスクが対応 TC の PASS で単独 approve/reject 可能）
 - **evidence_ref**: —
 - **impacted_files**: [docs/working/TASK-0914/todo.md, docs/working/TASK-0914/plan.md]
 
@@ -227,7 +227,7 @@ created_by: orchestrator
 
 - **result**: PASS
 - **category**: plan
-- **finding**: 実測で発見したスコープ外事象を確実に分離している — ①standalone exit code 伝播欠落 → Step 6 で独立 issue 化（AC-8）②`tests/extras/README.md` の「現行テスト一覧」表ドリフト（56 本中 12 本掲載）→ Non-goals + V2 候補 ③standalone preamble の共通化 → V2 候補。その場で直す計画にしていない
+- **finding**: 実測で発見したスコープ外事象を確実に分離している — ①standalone exit code 伝播欠落 → Step 6 で独立 issue 化（AC-8）②`tests/extras/README.md` の「現行テスト一覧」表ドリフト（53 本中 12 本掲載）→ Non-goals + V2 候補 ③standalone preamble の共通化 → V2 候補。その場で直す計画にしていない
 - **evidence_ref**: —
 - **impacted_files**: []
 
@@ -248,9 +248,21 @@ created_by: orchestrator
 | C1-SUP-PLAN-01 | V-1-B のプレースホルダ `<V-1-A と同じ 11 本>` を 11 本の明示列挙へ置換 | test-cases.md |
 | C1-TODO-08 / C1-SUP-PLAN-02 | T-05 を T-05a / T-05b / T-05c に 3 分割（+ plan Step 4 に粒度方針を追記） | todo.md, plan.md |
 
+## 第 2 ラウンド（River Review）後の追記 — 2026-07-25
+
+PR 作成前のローカル River Review（`river-review-docs` + `river-review-testing` + `adversarial-review`）で **major 4 / minor 5 / info 1** を追加検出し、全件反映した。オーガナイザーが全 major を実測で裏取り済み（[`review-external.md`](./review-external.md) §第 2 ラウンド）。C-1 の判定に影響した項目:
+
+- **C1-PLAN-07（動作検証自動化）**: PASS 判定を維持するが、根拠を更新。V-1 ループが実行可能であることを **実際に走らせて**確認した結果 `ta-50` で無限ハングする欠陥（RV-M1）と、汚染注入が AND を両方立てて harness 分岐に入る欠陥（RV-M2）が判明したため、`</dev/null` + `cd` repo root + 3 ループ分離を反映済み。**「コピペで再現可能」を実行して確かめる工程を C-1 に組み込むべき**という教訓を得た（当初の C-1 は文面の具体性のみを見ていた）
+- **C1-TEST-15（エッジケース）**: `base == stale` を「TC 不要」としていた判断を撤回し **TC-34** を新設（変異 M-6b の検出に必要だった）
+- **C1-PLAN-01（受入基準網羅性）**: AC-9 の検査対象に `ta-26` が含まれるのに ta-26 の unset 拡張がどの Step にも無い scope 未接続（RV-M3）を是正
+- **件数の実測是正**: 既存 TC 15→**16** / 新規 TC 12→**14** / extras 56→**53** / ta-39 の FAIL 6→**7** / 本サマリー PASS 22→**23**・N/A 3→**2**
+
+第 2 ラウンド反映後の C-1 判定は **PASS を維持**（critical=0 / major=0）。
+
 ## C-3 への申し送り
 
 - **C-1 判定: PASS**（critical=0 / major=0 / minor=0）
-- **C-2 判定: WARN**（critical=0 / major=7）→ 全 14 指摘を **1 回確定反映済み**（[`review-external.md`](./review-external.md) 監査表の status は全件 `reflected`）
+- **C-2 判定: WARN**（critical=0 / major=7）→ 全 14 指摘を **1 回確定反映済み**
+- **River Review 判定: WARN**（critical=0 / major=4）→ 全 10 指摘を反映済み（[`review-external.md`](./review-external.md) 監査表の status は全件 `reflected`）
 - `.claude/rules/working-context.md` の三値では **CONDITIONAL 経路**を通っている。残るのは **Human による APPROVED `c3.json` の発行のみ**
 - **high-risk のため autonomous APPROVE 不可**（`.claude/rules/mode-classification.md` / working-context AC-10 系の判定マトリクス）。`bin/plangate approve` は対話 TTY 必須で AI からは実行できない

@@ -1,6 +1,6 @@
 # TASK-0914 Current State
 
-> 更新: 2026-07-25 10:30
+> 更新: 2026-07-25 11:20
 
 ## フェーズ: C-3待ち
 
@@ -11,6 +11,7 @@
 - B: plan.md / todo.md / test-cases.md 生成（2026-07-25）
 - C-2: 2 レーン外部レビュー（設計妥当性 = major 5 / コードベース整合 = major 2）→ `R-301..R-309` / `R-350..R-354` を **1 回確定反映**
 - C-1: 25 項目セルフレビュー **PASS**（実施中に 4 件を自己検出・是正）
+- River Review（PR 作成前ローカル / 第 2 ラウンド）: **WARN**（critical 0 / major 4）→ `RV-M1..M4` / `RV-m1..m5` / `RV-i1` を全件反映。major 4 件はオーガナイザーが実測で裏取り済み
 
 ## 現在のタスク
 
@@ -37,4 +38,4 @@
 - mode: high-risk
 - C-3 verdict: 未到達（Human 待ち）
 - V-1 verdict: 未実施
-- baseline: `sh tests/run-tests.sh` = 430 passed / 0 failed（main `90c313d` 実測）
+- baseline: `sh tests/run-tests.sh` = 430 passed / 0 failed（main `90c313d` 実測）→ 新規 14 TC 追加後の目標 = 444 passed / 0 failed

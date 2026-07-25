@@ -55,6 +55,51 @@
 | U-1 | `references/README.md` の存在 | 経路1 の対象 skill（`skill-creator` / `review-gate`）の **src 側には不在** → 論点 **D-2（除外しない）を維持**。`plugin/plangate/skills/ai-loop-cycle/references/README.md` は実在するが、これは経路2 が `_ai_loop_spec_files`（L212）経由で正規に同期する対象であり D の判断対象外 |
 | U-2 | 位置パラメータの後段使用 | **0 件**（`$@` / `shift` / `set --` なし。`$1` は L10 の `--dry-run` 判定のみで Step 2 の実装位置より前）→ `set -- $_ai_loop_expected_refs; _n=$#` は **安全**。`for` カウントループへの切替は不要 |
 
+---
+
+## 第 2 ラウンド: River Review（PR 作成前のローカル実施 / 2026-07-25）
+
+> 対象: branch `feat/task-0914-plan` HEAD `59c13a1` の差分（計画文書 7 ファイル・990 行）
+> ルーティング: `river-review-docs` + `river-review-testing` + `adversarial-review`
+> 判定: **WARN**（critical 0 / major 4 / minor 5 / info 1）。第 1 ラウンドの 14 指摘とは非重複
+
+### オーガナイザーによる裏取り（実測・全 major を確認）
+
+| 指摘 | 裏取りコマンド | 結果 |
+|------|--------------|------|
+| RV-M1（V-1 ループが stdin 未リダイレクトでハング） | `sh tests/extras/ta-50-precompact-guard.sh` を 10 秒監視 / `</dev/null` 付きと比較 | **確認**（10 秒経過も生存 = HANG。`</dev/null` 付きは rc=0 / PASS=9） |
+| RV-M2（V-1-B が AND を両方注入し harness 分岐へ入る） | `env ... PG_HARNESS_SOURCED=1 FIXTURES_DIR=/nonexistent/fixtures sh tests/extras/ta-39-*.sh` | **確認**（PASS=0 / baseline 8 → ROOT 解決が壊れる） |
+| RV-M3（ta-26 の unset が 1 env のみで AC-9 の包含検査に落ちる） | `grep -n 'unset' tests/extras/ta-26-plugin-sync.sh` | **確認**（L22 の `PLANGATE_ALLOW_MASS_DELETE` 1 件のみ） |
+| RV-m2（件数の食い違い） | `grep -o 'TC-[0-9][0-9]' ta-26 \| sort -u \| wc -l` / `ls tests/extras/ta-*.sh \| wc -l` / ta-39 の FAIL 数 | **確認**（既存 TC = **16**（TC-14 欠番）/ extras = **53** 本 / ta-39 の FAIL = **7 件**（PASS 1）。当方の「15 / 56 / 6」は誤り） |
+
+### 監査表（River Review / 追記）
+
+| ID | severity | 概要 | status | reflected_in | notes |
+|----|----------|------|--------|--------------|-------|
+| RV-M1 | major | V-1-A / V-1-B のループが `sh "$f"` を stdin 未リダイレクトで呼ぶため、`ta-50` が起動する `scripts/precompact-memory-guard.sh` の `cat`（非 tty 時に EOF まで読む）で**無限ハング**する。Stop Condition にハングの項目がなく自律実行が無言停止する | reflected | 第 2 ラウンド反映コミット | 全ループの `sh "$f"` を `sh "$f" </dev/null` に変更（T-01 の baseline 実測にも適用）。Stop Condition に「検証ループの無応答」を追加 |
+| RV-M2 | major | V-1-B が `PG_HARNESS_SOURCED=1` と `FIXTURES_DIR` を**同時注入**するため AND 判別が真になり harness 分岐へ入る。ROOT が壊れ移行前後で同じく PASS=0 → AC-7 の「V-1-A と同一結果」は原理的に達成不能で、RT-4 が確実に誤発火する。R-302 の**逆方向**（過剰注入）の欠陥 | reflected | 同上 | V-1-B から `PG_HARNESS_SOURCED` を外し「`FIXTURES_DIR` だけが漏れている」シナリオへ。`PG_HARNESS_SOURCED` 単独注入は **V-1-B' として第 3 ループに分離** |
+| RV-M3 | major | AC-9 の「unset 集合の包含」検査は `ta-26`（既に AND 判別済み・unset は 1 env のみ）で必ず失敗するが、ta-26 の unset 拡張がどの Step にも無い（AC と Step の scope 未接続） | reflected | 同上 | Step 5 / T-07 の Output に「ta-26 の standalone unset を 7 env へ拡張」を追加（ファイル数 14 は不変）。AC-9 と TC-33 の glob を `tests/extras/ta-*.sh` に統一 |
+| RV-M4 | major | 変異注入表の誤り 3 点: ①M-6 の対象に TC-25 / TC-32（= guard 発火帯）が入っており「常に blocked」でも期待どおり PASS する ②`stale >= base` 変種は `base == stale` を突く fixture が存在せず（E-3 が「TC 不要」と明言）どの TC も FAIL しない ③M-5 が `continue` 実装を前提にしているが経路1 の削除ループは `for` 本体の最終ブロックで `continue` を要さない。結果 T-06 が必ず「期待 FAIL 不出」を生み **RT-3 / Stop Condition 3 を誤発火**させる | reflected | 同上 | M-6 の対象を TC-24 / TC-29 に限定。`base == stale` 境界の **TC-34 を新設**し M-6b で突く（E-3 の「TC 不要」判断を撤回）。M-5 を実装非依存の振る舞い記述へ書き換え |
+| RV-m1 | minor | V-1-B が 7 env のうち 5 env しか注入せず、`PLANGATE_SKIP_REASON` / `PLANGATE_BYPASS_HOOK` / `PLANGATE_HOOK_STRICT` の無害化が挙動レベルで未検証（AC-9 の静的検査は「存在」しか見ない） | reflected | 同上 | V-1-B の注入を **7 env 全件**にし論点 F の集合と 1:1 対応させる |
+| RV-m2 | minor | 件数の食い違い 6 件（既存 TC 15→**16** / 新規 TC 12→**14** / extras 56→**53** / ta-39 の FAIL 6→**7** / review-self サマリー PASS 22・N/A 3 → **23・2** / RT-6 の「想定 TC 数」が未定義で機械判定不能） | reflected | 同上 | 全件是正。RT-6 は総テスト数 **444**（430 + 14）に固定 |
+| RV-m3 | minor | `tests/extras/README.md` 既存規約 7 の「extras 側の個別対処は不要」が新規項目 8（各 extras が自前で unset）と矛盾したまま残り、新規 extras の著者が unset を省略して AC-9 が将来落ちる（U-3 の drift を規約側から誘発） | reflected | 同上 | T-08 に「規約 7 の該当文を standalone は防御が効かない旨へ改める」を追加 |
+| RV-m4 | minor | `_mass_delete_blocked` 擬似コードが WARN 文字列を `src=`→`base=` に変え `#861 safety guard` 部分を `...` で省略しており、そのまま実装すると既存 TC-08 / TC-12 の grep が外れて T-02 の 🚩 が guard 挙動と無関係な理由で落ちる | reflected | 同上 | Step 1 に「WARN 文の維持必須語（`#861 safety guard` / `解除しました` / `mass-delete safety guard が発火`）は不変」制約を追加 |
+| RV-m5 | minor | AC↔TC マッピングの非対称（AC-1 に TC-25 を入れたのに AC-2 に TC-32 がない）+ AC-4 の既存 TC ラベル誤付（`.github/` 検査は TC-15 のみで TC-11 は override 動作） | reflected | 同上 | AC-2 に TC-32 を追加。AC-4 のラベルを分離 |
+| RV-i1 | info | 検証手順の暗黙前提 3 点（M-1 の `git show HEAD:` が exec 中の HEAD 移動で非決定論 / V-1 ループの相対 glob が cwd 依存・`grep -c` が 0 件で rc=1 / **Stop Condition 6 と RT-2 が同一機械値で異なる指示**） | reflected | 同上 | `git show 90c313d:` に固定 / ループ冒頭に `cd "$(git rev-parse --show-toplevel)"` / Stop-6 を「RT-2 の再計画でも解消しない場合」へ条件分岐 |
+
+### River Review が実測で「一致」を確認した主張（再検証不要の記録）
+
+baseline 430/0、guard ブロック L103-113、経路1 L173-183 とコピーループの `[ -L ]` L163（削除ループ側に `[ -L ]` が無いことも確認 → 論点 D' の前提は正しい）、経路2 L316-329、終端 exit 3 L483-486、allowlist L350-363、extras 11 本と ta-39 の 2 箇所、論点 F の 7 env と `run-tests.sh` L20 の完全一致、`_t26_mk_guard_sandbox` L197-215、README 規約が現在 7 項目（→ 項目 8 が正しい採番）、TC-20〜33 の非衝突、相対リンク 8 本すべて実在（MISS 0）、Files 表 14 行と Mode 判定根拠の整合、V-1-A の shell 構文（`case *"[FAIL]"*` の誤解釈なし）。
+
+### T-01 の baseline 参考値（River Review が clean env で実測 / `</dev/null` 付き）
+
+```text
+ta-39=8  ta-43=6  ta-44=5  ta-45=6  ta-46=4  ta-47=6
+ta-49=6  ta-50=9  ta-51=5  ta-52=5  ta-53=4      計 64
+```
+
+**T-01 では自ら再実測して確定する**（本値は参考。全ファイル `[FAIL]` 0 / rc 0 で採取されたもの）。
+
 ## 次アクション（PlanGate 規約順序）
 
 1. ✅ 本ファイルへ R-NNN 集約（完了）

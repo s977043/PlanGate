@@ -1,23 +1,23 @@
 # テストケース定義 — TASK-0914
 
 > Plan: [`plan.md`](./plan.md) / ToDo: [`todo.md`](./todo.md) / C-2: [`review-external.md`](./review-external.md)
-> 実装先: `tests/extras/ta-26-plugin-sync.sh`（既存 TC-01〜TC-17 に追記。**新規は TC-20 以降**を採番。TC 番号の非衝突は C-2 で実測確認済み）
+> 実装先: `tests/extras/ta-26-plugin-sync.sh`（既存 **16 TC**（TC-01〜13 / 15 / 16 / 17。TC-14 は欠番）に追記。**新規は TC-20 以降 = 14 本**（TC-20〜30 / 32 / 33 / 34）。TC 番号の非衝突は実測確認済み）
 > baseline: main `90c313d` で `sh tests/run-tests.sh` = **430 passed / 0 failed**（実測）
-> C-2 指摘 `R-301..R-309` / `R-350..R-354` 反映済み
+> C-2 指摘 `R-301..R-309` / `R-350..R-354` + River Review `RV-M1..M4` / `RV-m1..m5` / `RV-i1` 反映済み
 
 ## 受入基準 → テストケース マッピング
 
 | AC | 内容 | 対応 TC | 種別 |
 |----|------|---------|------|
 | AC-1 | 経路2（ai-loop refs）guard 発火 + exit 3 | TC-20, TC-21, TC-22, **TC-25** | Integration（負側 + dry-run 一致） |
-| AC-2 | 経路1（汎用 refs）guard 発火 + exit 3 | TC-26, TC-27 | Integration（負側） |
-| AC-3 | 各経路の負側 + 正常系 TC が ta-26 に存在 | 負側: TC-20, TC-21, TC-22, TC-26, TC-27 / **正常系: TC-24, TC-29** / dry-run 一致: TC-25, **TC-32** / 検出力: M-1〜M-7 | Integration |
-| AC-4 | override が全経路で一貫 | TC-23, TC-28 +（既存 TC-11 / 既存 TC-15 = `.github/` に override フラグ非埋込） | Integration + 静的検査 |
+| AC-2 | 経路1（汎用 refs）guard 発火 + exit 3 | TC-26, TC-27, **TC-32** | Integration（負側 + dry-run 一致） |
+| AC-3 | 各経路の負側 + 正常系 TC が ta-26 に存在 | 負側: TC-20, TC-21, TC-22, TC-26, TC-27 / **正常系: TC-24, TC-29** / 境界: **TC-34** / dry-run 一致: TC-25, TC-32 / 検出力: M-1〜M-7（M-6b 含む） | Integration |
+| AC-4 | override が全経路で一貫 | TC-23, TC-28 + 既存 TC-11（override 動作）+ 既存 TC-15（`.github/` に override フラグ非埋込） | Integration + 静的検査 |
 | AC-5 | README.md に判別規約が明記 | TC-30 | 静的検査 |
-| AC-6 | 11 extras 移行後、harness 430/0 + standalone が **①`[FAIL]` 不在 ②exit 0 ③`[PASS]` 件数が baseline 一致** | V-1-A | Verification Automation |
-| AC-7 | **汚染 env 下**でも AC-6 の 3 条件と同結果 | V-1-B | Verification Automation |
+| AC-6 | 11 extras 移行後、harness 444/0 + standalone が **①`[FAIL]` 不在 ②exit 0 ③`[PASS]` 件数が baseline 一致** | V-1-A | Verification Automation |
+| AC-7 | **汚染 env 下**でも AC-6 の 3 条件と同結果 | V-1-B（`FIXTURES_DIR` 漏れ）+ **V-1-B'**（`PG_HARNESS_SOURCED` 単独漏れ） | Verification Automation |
 | AC-8 | exit code 伝播欠落が別 issue として起票 + handoff に妥協点記録 | V-1-C | 成果物確認 |
-| AC-9 | 単独判別の**残存 0**（件数ハードコードなし）+ unset 集合の包含 | **TC-33** | 静的検査 |
+| AC-9 | 単独判別の**残存 0**（件数ハードコードなし）+ unset 集合の包含（`ta-26` も対象） | **TC-33** | 静的検査 |
 | （不変） | `sync_dir` 経路の挙動が共通関数化で変わらない | 既存 TC-08〜TC-17 全 PASS | Regression |
 
 > **AC-3 は範囲指定をやめ個別列挙にした**（R-303c）。正常系 TC-24 / TC-29 が「形骸化防止」の裏付けとして明示的に AC-3 へ紐付く。
@@ -129,6 +129,14 @@
 - **種別**: 静的検査（AC-9）
 - **追加理由**: 「統一」は残存 0 という**全体性質**であり、個別ファイルの置換完了とは別命題。挙動テスト（AC-6/AC-7）は clean env なら単独判定が残っていても PASS するため残存を検出できない。件数固定だと将来/別ファイルの単独判定を取りこぼす
 
+### TC-34: 境界 — base = stale（同数）で guard 非発火 🆕 RV-M4
+
+- **前提条件**: skill-A の src `references/` に 3 件、dst に 6 件（うち **3 件が stale**）= base=3 / stale=3
+- **入力**: `sh scripts/sync-plugin-plangate.sh`
+- **期待出力**: exit 0。stale 3 件が削除され、src と一致する 3 件は保持。`DELETE skipped` を**含まない**（`stale > base` が偽なので非発火が正しい）
+- **種別**: Integration（境界 / 形骸化防止）
+- **追加理由**: 閾値の `>` を `>=` に 1 段ずらす変異（M-6b）を検出できる fixture が既存 TC に存在しなかった（乖離帯は stale=base+1 のため）。E-3 の「`base = stale` は TC 不要」判断を撤回して新設
+
 > **TC-31 は撤回**（R-307）。既存 TC-15（`.github/` に override フラグ非埋込）と同内容の再掲で二重管理になるため、AC-4 のマッピング表から既存 TC-15 を参照する形へ変更した。
 
 ---
@@ -140,62 +148,90 @@
 
 | ID | 変異内容 | 対象 TC | 期待 | 実証対象 |
 |----|---------|---------|------|---------|
-| M-1 | 経路2 の guard 呼び出しを削除（`git show HEAD:scripts/sync-plugin-plangate.sh` の該当ブロックへ戻す） | TC-20, TC-21, TC-22 | **FAIL**（dst 全削除・exit 0 になる） | 負側 |
+| M-1 | 経路2 の guard 呼び出しを削除（**`git show 90c313d:scripts/sync-plugin-plangate.sh`** の該当ブロックへ戻す。`HEAD:` は exec 中に移動して非決定論になる — RV-i1） | TC-20, TC-21, TC-22 | **FAIL**（dst 全削除・exit 0 になる） | 負側 |
 | M-2 | 経路1 の guard 呼び出しを削除 | TC-26, TC-27 | **FAIL** | 負側 |
 | M-3 | 閾値を `stale > base` → `stale > base + 100` に改変（発火しなくなる方向） | TC-20, TC-26 | **FAIL** | 負側 |
 | M-4 | `guard_fired=1` の代入をサブシェル `$( )` 内へ移す | TC-22, TC-27 | **FAIL**（exit 3 にならず 0 になる） | 負側（silent failure） |
-| M-5 | 経路1 の skip を `continue` → `break` に改変 | TC-26 | **FAIL**（skill-B が同期されない） | 制御フロー |
-| **M-6** 🆕 | `_mass_delete_blocked` を**常に blocked 返却**（または閾値を `stale >= base`）に改変＝**過剰発火**方向 | TC-24, TC-29, TC-25, TC-32 | **FAIL** | **正常系（形骸化防止）** |
-| **M-7** 🆕 | `_mass_delete_blocked` 内の `PLANGATE_ALLOW_MASS_DELETE` 判定行を削除 | TC-23, TC-28 | **FAIL** | **override（AC-4）** |
+| M-5 | **経路1 の skip の粒度を「当該 skill の references 削除のみ」から「skill ループ全体の中断」へ変える**（実装が `continue` か `if` ネストかに依存しない振る舞い記述 — RV-M4③） | TC-26 | **FAIL**（skill-B が同期されない） | 制御フロー |
+| **M-6** | `_mass_delete_blocked` を**常に blocked 返却**に改変＝**過剰発火**方向 | **TC-24, TC-29 のみ** | **FAIL**（正当な 1 件削除が block される） | **正常系（形骸化防止）** |
+| **M-6b** 🆕 | 閾値を `stale > base` → **`stale >= base`** に改変（境界の 1 段だけ過剰発火） | **TC-34** | **FAIL**（base=stale で発火してしまう） | **境界（形骸化防止）** |
+| **M-7** | `_mass_delete_blocked` 内の `PLANGATE_ALLOW_MASS_DELETE` 判定行を削除 | TC-23, TC-28 | **FAIL** | **override（AC-4）** |
 
-M-1〜M-7 の実行ログは `evidence/test-runs/` へ保存する。**M-6 は plan Risks 表の最上位リスク（閾値誤りによる形骸化）の mitigation が空振りでないことを保証する唯一の手段**。
+### M-6 / M-6b の対象 TC を絞った理由（RV-M4）
+
+- **M-6 に TC-25 / TC-32 を含めてはいけない**: この 2 件は base=3 / stale=4 = **guard が発火する帯**の fixture であり、期待出力は「dry-run exit 0 / 実行 exit 3 で判定一致」。`_mass_delete_blocked` が常に blocked を返しても両モードで発火するため期待どおり **PASS のまま**になり、「期待 FAIL 不出」として RT-3 / Stop Condition 3 を誤発火させる
+- **`stale >= base` 変種は M-6 から分離して M-6b とし、専用 fixture（TC-34）を用意する**: 挙動が変わるのは `stale == base` のときだけで、乖離帯（stale = base+1）を突く既存 TC ではどれも FAIL しない。E-3 の「`base = stale` は TC 不要」判断を撤回して TC-34 を新設した
+
+M-1〜M-7（M-6b 含む計 8 変異）の実行ログは `evidence/test-runs/` へ保存する。**M-6 / M-6b は plan Risks 表の最上位リスク（閾値誤りによる形骸化）の mitigation が空振りでないことを保証する唯一の手段**。
 
 ---
 
 ## Verification Automation（AC-6 / AC-7 / AC-8 / AC-9）
 
-> ⚠️ **V-1-A と V-1-B はループを別々に定義する**（R-302）。V-1-A の `env -u` を V-1-B に流用すると注入した汚染が実行直前に剥がされ、**AC-7 の検出力がゼロになる**（実害の主因 `PLANGATE_HOOK_TASK` がまさに `-u` 対象）。
+> ⚠️ **3 つの注意点**（いずれも実測で顕在化した欠陥の是正）:
+>
+> 1. **V-1-A と V-1-B はループを別々に定義する**（R-302）。V-1-A の `env -u` を V-1-B に流用すると注入した汚染が実行直前に剥がされ、**AC-7 の検出力がゼロになる**（実害の主因 `PLANGATE_HOOK_TASK` がまさに `-u` 対象）。
+> 2. **`sh "$f"` は必ず `</dev/null` を付ける**（RV-M1）。`ta-50-precompact-guard.sh` が起動する `scripts/precompact-memory-guard.sh` は非 tty stdin のとき `cat` で EOF まで読むため、リダイレクトなしだと**無限ハングする**（10 秒監視で実測確認）。`sh tests/run-tests.sh` は source 型で `[ -t 0 ]` の条件が変わるため 430/0 を通り、**この故障は standalone ループでのみ顕在化する**。
+> 3. **汚染注入で `PG_HARNESS_SOURCED` と `FIXTURES_DIR` を同時に立ててはいけない**（RV-M2）。移行後の判別式は AND なので両方揃うと **harness 分岐へ入り** ROOT 解決が壊れて全 TC が消える（実測: ta-39 が PASS=0 / baseline 8）。この結果は移行前後で同一なので、AC-7 が原理的に達成不能になり RT-4 が誤発火する。単独注入は V-1-B' に分離する。
 
 ### V-1-A: AC-6 — clean env での standalone 実行（3 条件）
 
 ```sh
+cd "$(git rev-parse --show-toplevel)"   # 相対 glob のため cwd を repo root に固定（RV-i1）
 # baseline は T-01 で実測した「ファイル名 → [PASS] 件数」の表を参照する
 for f in tests/extras/ta-39-*.sh tests/extras/ta-43-*.sh tests/extras/ta-44-*.sh \
          tests/extras/ta-45-*.sh tests/extras/ta-46-*.sh tests/extras/ta-47-*.sh \
          tests/extras/ta-49-*.sh tests/extras/ta-50-*.sh tests/extras/ta-51-*.sh \
          tests/extras/ta-52-*.sh tests/extras/ta-53-*.sh; do
   out=$(env -u PLANGATE_HOOK_TASK -u PLANGATE_HOOK_FILE -u PG_HARNESS_SOURCED \
-            -u FIXTURES_DIR -u PLANGATE_ALLOW_MASS_DELETE sh "$f" 2>&1); rc=$?
-  n_pass=$(printf '%s\n' "$out" | grep -c '\[PASS\]')
+            -u FIXTURES_DIR -u PLANGATE_ALLOW_MASS_DELETE sh "$f" </dev/null 2>&1); rc=$?
+  n_pass=$(printf '%s\n' "$out" | grep -c '\[PASS\]' || true)   # 0 件で rc=1 になるため || true
   case "$out" in *"[FAIL]"*) echo "NG(FAIL detected): $f";; esac      # 条件①
   [ "$rc" = "0" ] || echo "NG(rc=$rc): $f"                            # 条件②
   echo "COUNT $f=$n_pass"                                             # 条件③ baseline と照合
 done
 ```
 
-**期待**: `NG` が 1 件も出力されない **かつ** 全ファイルの `COUNT` が T-01 baseline と一致。加えて `sh tests/run-tests.sh` が `430 + 新規TC数 passed, 0 failed`。
+**期待**: `NG` が 1 件も出力されない **かつ** 全ファイルの `COUNT` が T-01 baseline と一致。加えて `sh tests/run-tests.sh` が `444 passed, 0 failed`（430 + 新規 14 TC）。
 
 > 条件③がないと「置換ミスで standalone 分岐に入らず 1 件も実行せず exit 0」でも PASS してしまう（R-301）。判別式そのものを触る変更なので、この故障モードが本命。
 
-### V-1-B: AC-7 — 汚染 env での standalone 実行（**独立したループ**）
+### V-1-B: AC-7 — 汚染 env での standalone 実行（**独立したループ / `FIXTURES_DIR` 側の漏れ**）
 
 ```sh
+cd "$(git rev-parse --show-toplevel)"
 for f in tests/extras/ta-39-*.sh tests/extras/ta-43-*.sh tests/extras/ta-44-*.sh \
          tests/extras/ta-45-*.sh tests/extras/ta-46-*.sh tests/extras/ta-47-*.sh \
          tests/extras/ta-49-*.sh tests/extras/ta-50-*.sh tests/extras/ta-51-*.sh \
          tests/extras/ta-52-*.sh tests/extras/ta-53-*.sh; do
-  out=$(env PLANGATE_HOOK_TASK=TASK-9999 PLANGATE_HOOK_FILE=/nonexistent/x.md \
-            PLANGATE_ALLOW_MASS_DELETE=1 PG_HARNESS_SOURCED=1 \
-            FIXTURES_DIR=/nonexistent/fixtures sh "$f" 2>&1); rc=$?
-  n_pass=$(printf '%s\n' "$out" | grep -c '\[PASS\]')
+  out=$(env PLANGATE_SKIP_REASON=x PLANGATE_HOOK_TASK=TASK-9999 \
+            PLANGATE_HOOK_FILE=/nonexistent/x.md PLANGATE_BYPASS_HOOK=1 \
+            PLANGATE_HOOK_STRICT=1 PLANGATE_ALLOW_MASS_DELETE=1 \
+            FIXTURES_DIR=/nonexistent/fixtures sh "$f" </dev/null 2>&1); rc=$?
+  n_pass=$(printf '%s\n' "$out" | grep -c '\[PASS\]' || true)
   case "$out" in *"[FAIL]"*) echo "NG(FAIL detected): $f";; esac
   [ "$rc" = "0" ] || echo "NG(rc=$rc): $f"
   echo "COUNT $f=$n_pass"
 done
 ```
 
-**期待**: V-1-A と**完全に同一の結果**（NG ゼロ・COUNT 一致）。
-**検出力の証明（T-01 で先に実施）**: 移行**前**に同じループを流すと **ta-39 で NG が出る**（`PLANGATE_HOOK_TASK` 汚染により 6 件 FAIL）。移行後に NG が消えることで、この TC が空振りでないことを示す。ログは `evidence/test-runs/` へ保存。
+- **注入する env は 6 件**（論点 F の 7 env のうち `PG_HARNESS_SOURCED` を除く全件 — RV-m1 で 5 件から拡張）。`PG_HARNESS_SOURCED` は AND の片側なので V-1-B' で単独検証する（RV-M2）
+- **期待**: V-1-A と**完全に同一の結果**（NG ゼロ・COUNT 一致）
+- **検出力の証明（T-01 で先に実施）**: 移行**前**に同じループを流すと `FIXTURES_DIR` 単独判定が harness と誤判定して ROOT が壊れ **NG が出る**。移行後は AND の片側が欠けるため standalone 側（安全側）へ倒れて NG が消える。ログは `evidence/test-runs/` へ保存
+
+### V-1-B': AC-7 — `PG_HARNESS_SOURCED` 単独漏れ（第 3 ループ / RV-M2）
+
+```sh
+cd "$(git rev-parse --show-toplevel)"
+for f in <V-1-A と同じ 11 本の glob>; do
+  out=$(env PG_HARNESS_SOURCED=1 -u FIXTURES_DIR sh "$f" </dev/null 2>&1); rc=$?
+  ...  # 判定は V-1-A と同一の 3 条件
+done
+```
+
+> `FIXTURES_DIR` を注入しないこと（AND の他方が欠けるので standalone 側へ倒れるのが正しい挙動）。上記 `<...>` は V-1-A のファイルリストをそのまま使う。
+
+**期待**: V-1-A と同一結果（NG ゼロ・COUNT 一致）。**移行前もこのケースは NG が出ない**（`FIXTURES_DIR` 単独判定は `PG_HARNESS_SOURCED` を見ないため）ので、これは**回帰防止（移行後に壊れないこと）専用**であり検出力の証明対象ではない。
 
 ### V-1-C: AC-8 — 別 issue の起票 + handoff 記録の確認
 
@@ -209,7 +245,7 @@ done
 |---|--------|------|
 | E-1 | 正本の片方だけが消失（`docs/workflows/ai-loop/` のみ消失、`docs/ai/ai-loop/` は健全） | 期待集合は部分的に残るため base > 0。stale との比較次第で発火/非発火が決まる。**閾値の意味どおりの挙動**であり TC-24 の正常系と TC-20 の負側の中間帯。plan 論点 C のとおり専用閾値は設けない |
 | E-2 | dst の references ディレクトリ自体が存在しない | 既存 `[ -d ]` ガードでループに入らない → guard 判定にも到達しない（削除ゼロ = 安全）。TC 不要 |
-| E-3 | base = stale（同数） | `stale > base` が偽 → 非発火（削除実行）。TC-25 / TC-32 の乖離帯 fixture が隣接帯を覆う |
+| E-3 | base = stale（同数） | `stale > base` が偽 → 非発火（削除実行）。**TC-34 で専用 fixture を持つ**（RV-M4。乖離帯 fixture は stale=base+1 なので `stale >= base` への 1 段ずれを検出できなかった） |
 | E-4 | `plugin/plangate/skills/*/references/README.md` が存在する場合 | **C-2 で実測解消**（R-353）: 経路1 の対象 skill（skill-creator / review-gate）の src 側には不在 → D-2 維持。`ai-loop-cycle/references/README.md` は経路2 が `_ai_loop_spec_files` で正規同期する対象で D の判断対象外 |
 | E-5 | `set -- $_ai_loop_expected_refs` が位置パラメータを破壊 | **C-2 で実測解消**（U-2）: 後段の `$@` / `shift` / `set --` 使用は 0 件（`$1` は L10 の `--dry-run` のみ）→ 安全 |
 | E-6 | 11 本のうち harness 実行時に `unset` が漏れて harness の env を壊す | `unset` は else 節（standalone 分岐）の内側のみ。`sh tests/run-tests.sh` 430/0 の維持で担保（T-07 🚩） |
@@ -220,9 +256,9 @@ done
 
 | TC | 自動化 | 備考 |
 |----|--------|------|
-| TC-20〜TC-29, TC-32 | ✅ 可 | ta-26 の sandbox パターンで完全自動化 |
+| TC-20〜TC-29, TC-32, TC-34 | ✅ 可 | ta-26 の sandbox パターンで完全自動化 |
 | TC-30, TC-33 | ✅ 可 | grep ベースの静的検査（TC-33 は件数ハードコードなし） |
-| M-1〜M-7 | ⚠️ 半自動 | 変異は手動注入 → TC 実行は自動。ログを evidence へ保存 |
-| V-1-A, V-1-B | ✅ 可 | 上記ループ。**別々に定義**して status.md に記録し V-1 で再実行 |
+| M-1〜M-7（M-6b 含む計 8） | ⚠️ 半自動 | 変異は手動注入 → TC 実行は自動。ログを evidence へ保存 |
+| V-1-A, V-1-B, V-1-B' | ✅ 可 | 上記 3 ループ。**別々に定義**し `</dev/null` + `cd` repo root を必ず含めて status.md に記録し V-1 で再実行 |
 | V-1-C | ❌ 手動 | issue 起票内容 + handoff 記録の確認 |
 | E-7（symlink 対称性） | ❌ 手動 | 実装レビュー観点として V-3 へ引き継ぐ |

@@ -23,7 +23,7 @@
 - `sync_dir` guard の再設計（#877 で完了）
 - scripts allowlist `case` 削除経路（L350-363）への guard 適用 — **src 欠損に依存せず mass-delete しないため対象外**（実測: 削除条件は L355 のハードコード allowlist のみで、`AI_LOOP_SCRIPTS_DIR` は L338 のコピー元存在ガードにしか使われない）
 - extras 11 本への standalone exit code 伝播（`exit $fail` 相当）の追加 → **別 issue へ切り出し**（本 plan Step 6）
-- `tests/extras/README.md` の「現行テスト一覧」表のドリフト是正（56 本中 12 本しか掲載されていない既存文書負債）→ 別 issue 候補（V2）
+- `tests/extras/README.md` の「現行テスト一覧」表のドリフト是正（**53 本**中 12 本しか掲載されていない既存文書負債）→ 別 issue 候補（V2）
 
 ## Approach Overview
 
@@ -69,7 +69,7 @@ PLANGATE_HOOK_STRICT  PG_HARNESS_SOURCED  PLANGATE_ALLOW_MASS_DELETE
 
 ### 実害の実測（本 plan 作成時に再現）
 
-`PLANGATE_HOOK_TASK=TASK-0914` が設定されたシェルから `sh tests/extras/ta-39-eh3-doc-light.sh` を standalone 実行すると **6 件 FAIL**（EH-3 が sandbox 外の TASK-0914 の plan.md を探しに行く）。`env -u PLANGATE_HOOK_TASK` で再実行すると**全 PASS**。exit code はいずれも 0 のため CI・手元双方で静かに通る。これが R-204（外部 env 漏れによる誤判定）の実害実例であり、AC-7 の回帰テスト対象。
+`PLANGATE_HOOK_TASK=TASK-0914` が設定されたシェルから `sh tests/extras/ta-39-eh3-doc-light.sh` を standalone 実行すると **7 件 FAIL**（PASS 1）（EH-3 が sandbox 外の TASK-0914 の plan.md を探しに行く）。`env -u PLANGATE_HOOK_TASK` で再実行すると**全 PASS**。exit code はいずれも 0 のため CI・手元双方で静かに通る。これが R-204（外部 env 漏れによる誤判定）の実害実例であり、AC-7 の回帰テスト対象。
 
 ## 受入基準（確定版）
 
@@ -82,10 +82,10 @@ pbi-input の AC-1〜AC-6 を継承し、**AC-6 を強化**・**AC-7 / AC-8 / AC
 | AC-3 | 各経路の負側テスト（guard 発火）と正常系テスト（通常削除）が `tests/extras/ta-26-plugin-sync.sh` に追加される | 継承 |
 | AC-4 | `PLANGATE_ALLOW_MASS_DELETE=1` による override が全経路で一貫して効く | 継承 |
 | AC-5 | `tests/extras/README.md` に harness 判別規約が明記される | 継承 |
-| AC-6 | 既存 11 extras が `PG_HARNESS_SOURCED` 方式へ移行し、`sh tests/run-tests.sh`（430 passed / 0 failed）と各 standalone 実行の双方が **①出力に `[FAIL]` を含まない ②exit 0 ③`[PASS]` 件数が移行前 baseline と一致**（3 条件すべて） | **強化**（現状 11 本は exit code に FAIL を反映しないため「exit 0」単独では空振り。さらに③がないと「分岐に入らず 1 件も実行せず exit 0」でも条件を満たす — R-301） |
+| AC-6 | 既存 11 extras が `PG_HARNESS_SOURCED` 方式へ移行し、`sh tests/run-tests.sh`（**444 passed / 0 failed** = 430 + 新規 14 TC）と各 standalone 実行の双方が **①出力に `[FAIL]` を含まない ②exit 0 ③`[PASS]` 件数が移行前 baseline と一致**（3 条件すべて） | **強化**（現状 11 本は exit code に FAIL を反映しないため「exit 0」単独では空振り。さらに③がないと「分岐に入らず 1 件も実行せず exit 0」でも条件を満たす — R-301） |
 | AC-7 | `PLANGATE_HOOK_TASK` 等の `PLANGATE_*` / `PG_HARNESS_SOURCED` / `FIXTURES_DIR` が**外部から汚染された状態**で 11 本を standalone 実行しても、AC-6 の 3 条件と同一結果になる | **追加**（今回の実害の直接的な回帰。R-204 の趣旨＝外部 env 漏れ耐性そのもの） |
 | AC-8 | extras 11 本の standalone exit code 伝播欠落が独立 issue として起票され、本 PBI の scope 外であること・切り出しの代償が handoff の「妥協点」に記録される | **追加**（案 C のスコープ境界を成果物として固定する。R-309） |
-| AC-9 | `tests/extras/**.sh` に対する静的検査で、**`PG_HARNESS_SOURCED` を伴わない `FIXTURES_DIR` 単独の harness 判別が 0 件**であること。あわせて `run-tests.sh` の unset 集合 ⊆ 各 extras の standalone unset 集合 であること（いずれも **11 という件数をハードコードしない** grep ベース判定） | **追加**（R-304 / R-306。「統一」は全体性質であり、個別ファイルの置換完了とは別命題。挙動テストだけでは残存を検出できない） |
+| AC-9 | `tests/extras/ta-*.sh` に対する静的検査（**`ta-26` も対象**）で、**`PG_HARNESS_SOURCED` を伴わない `FIXTURES_DIR` 単独の harness 判別が 0 件**であること。あわせて `run-tests.sh` の unset 集合 ⊆ 各 extras の standalone unset 集合 であること（いずれも **11 という件数をハードコードしない** grep ベース判定） | **追加**（R-304 / R-306。「統一」は全体性質であり、個別ファイルの置換完了とは別命題。挙動テストだけでは残存を検出できない） |
 
 ## Work Breakdown
 
@@ -94,8 +94,9 @@ pbi-input の AC-1〜AC-6 を継承し、**AC-6 を強化**・**AC-7 / AC-8 / AC
 - **Output**: `_mass_delete_blocked()` が `scripts/sync-plugin-plangate.sh` に追加され、既存 `sync_dir` 内 guard（**L103-113**。内側 `if`〜対応する `fi` 2 個までを含む — R-352）が同関数呼び出しへ置換される。`sh -n` PASS、`sh tests/run-tests.sh` が **430 passed / 0 failed** を維持
 - **Owner**: agent
 - **Risk**: 中（既存 guard の挙動を変えると TC-08〜TC-17 が回帰する）
-- 🚩 **チェックポイント**: 置換後に `tests/extras/ta-26-plugin-sync.sh` の既存 15 TC が全 PASS すること（`sync_dir` 経路の挙動不変を証明）
+- 🚩 **チェックポイント**: 置換後に `tests/extras/ta-26-plugin-sync.sh` の既存 **16 TC**（TC-14 は欠番）が全 PASS すること（`sync_dir` 経路の挙動不変を証明）
 - **事前実測（R-301 / AC-6 の baseline 確立）**: 移行前の 11 本について ①各本の `[PASS]` 件数（AC-6 条件③の baseline）②失敗表記が全 11 本で `[FAIL]` に統一されているか（非統一なら AC-6 の判定語彙を拡張）を実測し `status.md` へ記録する
+- **WARN 文の維持必須語（RV-m4）**: 共通関数化で既存 WARN 文を書き換える際、`#861 safety guard` / `解除しました` / `mass-delete safety guard が発火` の **3 語は変えない**（既存 TC-08 / TC-12 が grep で判定しているため、変えると guard 挙動と無関係な理由で 🚩 が落ちる）。`src=` → `base=` の語彙変更のみ許容
 - U-1 / U-2 は C-2 で解消済み（[`review-external.md`](./review-external.md) §Unknowns の解消）。Step 1 での再実測は不要
 - `rollback:` `git checkout -- scripts/sync-plugin-plangate.sh`
 
@@ -120,7 +121,7 @@ pbi-input の AC-1〜AC-6 を継承し、**AC-6 を強化**・**AC-7 / AC-8 / AC
 ### Step 4: テスト追加（ta-26）
 
 - **Output**: `tests/extras/ta-26-plugin-sync.sh` に経路1/経路2 の負側（guard 発火 + exit 3）・正常系（通常削除）・override・dry-run/実行の判定一致・静的検査の TC を追加。新規ヘルパー `_t26_mk_refs_guard_sandbox` / `_t26_mk_ai_loop_guard_sandbox` を既存 `_t26_mk_guard_sandbox`（L197-215）と同型で実装
-- **タスク粒度**: 12 TC を 1 タスクで扱うと独立検証できないため、todo では **T-05a（経路2 TC）/ T-05b（経路1 TC）/ T-05c（静的 TC）に 3 分割**する（C-1 自己検出）
+- **タスク粒度**: 14 TC を 1 タスクで扱うと独立検証できないため、todo では **T-05a（経路2 TC）/ T-05b（経路1 TC）/ T-05c（静的 TC）に 3 分割**する（C-1 自己検出）
 - **Owner**: agent
 - **Risk**: 中（sandbox 構築が経路ごとに非対称。経路2 は `scripts/_ai_loop_link_rewrite.py`（python3 依存）を同梱する必要がある）
 - 🚩 **チェックポイント**: **変異注入で検出力を実証**する — guard 適用前の実装（`git stash` 相当）に対して新規 TC が FAIL することを確認してから受理。空振り fixture を作っていないことの証明
@@ -134,10 +135,11 @@ pbi-input の AC-1〜AC-6 を継承し、**AC-6 を強化**・**AC-7 / AC-8 / AC
   - 11 本（ta-39/43/44/45/46/47/49/50/51/52/53）の `if [ -n "${FIXTURES_DIR:-}" ]; then` を `if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then` へ置換
   - **ta-39 のみ例外構造（R-350）**: 同ファイルは当該文字列を **2 箇所**持つ（L14 = ROOT 解決 / L55 = apply 未適用時の `return`/`exit` 分岐）。**2 箇所とも AND 条件化する**が、`unset` は **L14 側の else 節にのみ**追加する（L55 側は ROOT 解決ではないため無害化の対象外）。他 10 本は 1 箇所のみ（実測）
   - 各本の standalone 分岐（else 節）に論点 F の **7 env** の `unset` を追加
+  - **`ta-26-plugin-sync.sh` の standalone unset も 7 env へ拡張（RV-M3）**: ta-26 は既に AND 判別済みだが unset は `PLANGATE_ALLOW_MASS_DELETE` 1 件のみ（実測）。AC-9 の包含検査は ta-26 も対象とするため、拡張しないと **TC-33 が自ファイルで自テストを落とす**。ファイル数 14 は不変（ta-26 は Step 4 で既に変更対象）
   - `tests/extras/README.md` の「隔離・後始末の規約（#530）」節へ項目 8 として判別規約を追記
 - **Owner**: agent
 - **Risk**: 低〜中（機械的置換だが 11 箇所 + ta-39 の例外。unset 追加位置を誤ると harness 実行側の env を壊す）
-- 🚩 **チェックポイント**: `sh tests/run-tests.sh` が 430 passed / 0 failed を維持 + **AC-6 の 3 条件**（`[FAIL]` 不在 / exit 0 / `[PASS]` 件数が baseline 一致）+ **AC-7**（汚染 env 下でも同結果）+ **AC-9**（単独判別の残存 0・unset 集合の包含）
+- 🚩 **チェックポイント**: `sh tests/run-tests.sh` が 0 failed を維持 + **AC-6 の 3 条件**（`[FAIL]` 不在 / exit 0 / `[PASS]` 件数が baseline 一致）+ **AC-7**（汚染 env 下でも同結果）+ **AC-9**（単独判別の残存 0・unset 集合の包含）
 - `rollback:` `git checkout -- tests/extras/ tests/extras/README.md`
 
 ### Step 6: 別 issue 起票（スコープ切り出しの明示）
@@ -154,7 +156,7 @@ pbi-input の AC-1〜AC-6 を継承し、**AC-6 を強化**・**AC-7 / AC-8 / AC
 | ファイル | 変更種別 | Step |
 |---------|---------|------|
 | `scripts/sync-plugin-plangate.sh` | 関数追加 + 3 箇所の guard 適用 | 1/2/3 |
-| `tests/extras/ta-26-plugin-sync.sh` | TC + ヘルパー追加 | 4 |
+| `tests/extras/ta-26-plugin-sync.sh` | TC + ヘルパー追加 **+ standalone unset を 7 env へ拡張**（RV-M3） | 4 / 5 |
 | `tests/extras/README.md` | 規約 1 項目追記 | 5 |
 | `tests/extras/ta-39-eh3-doc-light.sh` | 判別式 + unset | 5 |
 | `tests/extras/ta-43-eh2-strict-json.sh` | 同上 | 5 |
@@ -176,10 +178,10 @@ pbi-input の AC-1〜AC-6 を継承し、**AC-6 を強化**・**AC-7 / AC-8 / AC
 |----|------|
 | **Unit（shell）** | `sh -n scripts/sync-plugin-plangate.sh`（syntax）。`_mass_delete_blocked` の単体相当は ta-26 の TC で境界値（stale=base / stale=base+1 / base=0）を突く |
 | **Integration** | `tests/extras/ta-26-plugin-sync.sh` の sandbox 実行。**経路1/2 それぞれで 負側（発火→exit 3）/ 正常系 / override / dry-run 一致 の 4 系統**（経路1 の dry-run 一致 = TC-32。R-303 で欠落を是正） |
-| **Regression** | `sh tests/run-tests.sh` が **430 passed / 0 failed**（baseline 実測値、main 90c313d）を維持 |
+| **Regression** | `sh tests/run-tests.sh` = **430 passed / 0 failed**（baseline 実測値、main `90c313d`）→ 新規 14 TC 追加後は **444 passed / 0 failed** |
 | **Static** | AC-9（単独判別の残存 0 / unset 集合の包含）と AC-5（README 規約）は grep ベースの静的検査。**件数をハードコードしない**（R-304） |
-| **Verification Automation** | AC-6 / AC-7 は 11 本を機械検証するループを **clean 用（V-1-A）と汚染 env 用（V-1-B）で別々に定義**する。V-1-A の `env -u` を V-1-B に流用すると汚染が剥がれて検出力ゼロになる（R-302 で是正）。両ループを status.md に記録し V-1 で再実行 |
-| **変異注入（必須）** | Step 4 で新規 TC の検出力を実証。**guard 弱体化方向（M-1〜M-5）だけでなく過剰発火方向（M-6）と override 無効化（M-7）も含める** — 正常系 TC と override TC の検出力が未実証だと最上位リスク（形骸化）の mitigation が空振りする（R-305） |
+| **Verification Automation** | AC-6 / AC-7 は 11 本を機械検証するループを **3 本に分離**: clean（V-1-A）/ `FIXTURES_DIR` 漏れ（V-1-B）/ `PG_HARNESS_SOURCED` 単独漏れ（V-1-B'）。V-1-A の `env -u` を流用すると汚染が剥がれ（R-302）、AND を両方注入すると harness 分岐へ入って全 TC が消える（RV-M2）。**全ループで `sh "$f" </dev/null` 必須**（RV-M1: 未リダイレクトだと `ta-50` が無限ハング）。3 ループを status.md に記録し V-1 で再実行 |
+| **変異注入（必須）** | Step 4 で新規 TC の検出力を実証。弱体化方向（M-1〜M-5）+ 過剰発火（M-6 / **M-6b**）+ override 無効化（M-7）の **計 8 変異**（R-305 / RV-M4）。M-6 の対象は TC-24 / TC-29 に限定し、閾値の 1 段ずれ（`stale >= base`）は専用 fixture **TC-34** を持つ M-6b で突く |
 
 ## Risks & Mitigations
 
@@ -212,7 +214,8 @@ pbi-input の AC-1〜AC-6 を継承し、**AC-6 を強化**・**AC-7 / AC-8 / AC
 3. **変異注入（M-1〜M-7）で FAIL を確認できない TC が 1 件以上**残り、TC 設計の作り直しでも解消しない（= 検出力を実証できない → AC-3 の受理条件を満たせない）
 4. **経路1/2 の閾値で override が必須になる正当ケース**が sandbox 検証中に判明した（= 論点 C の「経路ごとに閾値を変えない」判断が崩れる）
 5. **HO 対象パスへの変更が必要**になった（現計画は非該当。必要になった時点で Human C-3 再承認が必須）
-6. `sh tests/run-tests.sh` の **failed > 0 が同一原因で 3 回連続**して解消しない
+6. `sh tests/run-tests.sh` の **failed > 0 が同一原因で 3 回連続**し、かつ **RT-2 の再計画を実施しても解消しない**（RT-2 が先に走る。本条件は最終手段 — RV-i1）
+7. **検証ループ（V-1-A / V-1-B / V-1-B'）が 60 秒を超えて無応答**（RV-M1: `</dev/null` 漏れで `ta-50` が `cat` にブロックされる既知の故障。まず stdin リダイレクトを確認し、それでも解消しなければ停止）
 
 ## Replan Triggers（機械値 / #544 AEE）
 
@@ -223,7 +226,7 @@ pbi-input の AC-1〜AC-6 を継承し、**AC-6 を強化**・**AC-7 / AC-8 / AC
 | RT-3 | M-1〜M-7 のうち **期待 FAIL が出ない変異が 1 件以上** | 対応 TC の fixture を再設計（空振り fixture の疑い） |
 | RT-4 | V-1-A / V-1-B の `NG` 件数 `> 0` が 2 回連続 | Step 5 の置換方針（論点 E / F）を再検討 |
 | RT-5 | `_ai_loop_expected_refs` の要素数が **移行前後で変化**（同期対象の意図しない増減） | 経路2 の集計ロジックを再設計 |
-| RT-6 | 新規 TC 追加後の総テスト数が `430 + 想定 TC 数` と **一致しない** | TC の重複・未登録を調査（`ta-26` への登録漏れ） |
+| RT-6 | 新規 TC 追加後の総テスト数が **444**（430 + 新規 14 TC）と **一致しない** | TC の重複・未登録を調査（`ta-26` への登録漏れ）|
 
 ## Mode判定
 
