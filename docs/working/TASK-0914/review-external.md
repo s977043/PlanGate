@@ -100,6 +100,20 @@ ta-49=6  ta-50=9  ta-51=5  ta-52=5  ta-53=4      計 64
 
 **T-01 では自ら再実測して確定する**（本値は参考。全ファイル `[FAIL]` 0 / rc 0 で採取されたもの）。
 
+---
+
+## 第 3 ラウンド: PR #919 上の自動レビュー（2026-07-25）
+
+> [`docs/ai/external-reviewer-interface.md`](../../ai/external-reviewer-interface.md) §10 / `.claude/rules/review-principles.md` §7-ter に従い、**「指摘なし」と「実行不可」を区別して記録**する。
+
+| レビュア | verdict | 理由 | 代替観点 / 未充足リスク |
+|---------|---------|------|----------------------|
+| `copilot-pull-request-reviewer[bot]` | **unavailable**（WARN） | 「Copilot was unable to review this pull request because the user who requested the review has reached their quota limit.」= **quota 超過**（実行されていない。指摘ゼロではない） | 代替: C-2 2 レーン（設計妥当性 / コードベース整合）+ River Review 3 スキル（docs / testing / adversarial）で major 11 件を検出・全件反映済み。**未充足リスク**: Copilot 固有の観点（汎用コードパターン指摘）が本 PR には未適用。ただし本 PR の差分は計画文書のみで実行コード 0 行のため、リスクは低い |
+| `gemini-code-assist` | **unavailable**（WARN） | 「The consumer version of Gemini Code Assist on GitHub has been sunset. All code review activity has officially ceased.」= **サービス終了** | 同上。恒久的に利用不可のため、以後の PR でも同 verdict になる（環境要因・本 PBI 起因ではない） |
+| `github-actions`（check-pr-issue-link） | WARN（意図的・disposition 済み） | 「no closing keyword found」= PR 本文に `closes #N` がない | **意図的**。#914 は本 PR（plan 正式化）ではクローズせず exec 完了時にクローズするため、closing keyword を置かないのが正しい。PR にコメントで理由を明示済み |
+
+**CI**: 7 checks 全 pass（Markdown lint / plangate CLI tests / settings wiring drift / SKIP_REASON 追認 / CodeQL / Analyze (python) / check）。
+
 ## 次アクション（PlanGate 規約順序）
 
 1. ✅ 本ファイルへ R-NNN 集約（完了）
