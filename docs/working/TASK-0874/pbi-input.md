@@ -101,7 +101,7 @@ AC と 10 fixture 全 PASS / schema・producer・validator・consumer adapter �
 
 ### Unknowns
 
-- schema 配置先（`schemas/` HO vs `docs/schemas/` 非 HO）→ **C-3 で確定**
+- schema 配置先（`schemas/` HO vs `docs/schemas/` 非 HO）→ ~~C-3 で確定~~ → **✅ 裁定済み（2026-07-31）: 案 2 = `docs/schemas/`（非 HO）で確定**（上記裁定ブロック参照）
 - versioning policy の粒度（RunEvidence schema version と既存 arbiter record の 9/14 キー世代の関係）→ plan で確定
 - #869/#811 adapter IF の最小フィールド（source_run_ids / baseline harness version 以外）→ #869/#811 の pbi と整合
 
@@ -115,5 +115,5 @@ AC と 10 fixture 全 PASS / schema・producer・validator・consumer adapter �
 
 ### Assumptions
 
-- 新設: `run_evidence.py` + test + validator + adapter IF + schema（配置先は C-3）+ 10 fixture（`tests/extras/ta-NN`）+ c3-prime-contract §7 追記
+- 新設: `run_evidence.py` + test + validator + adapter IF + schema（配置先は**裁定済み: `docs/schemas/`**）+ 10 fixture（`tests/extras/ta-NN`）+ c3-prime-contract §7 追記
 - **Mode: critical で確定**（`mode-classification.md` 定量基準: **受入基準数 11+ → 超高（critical）が決定論的**。本 PBI は AC 13 + In scope 対応 3 = 実質 16 で 11+ 確定。変更ファイル数も schema + producer + validator + adapter + 10 fixture + テスト + contract 追記で 16+（超高）。「各軸の最大値を採用」で critical 確定）。**autonomous APPROVE 不可・人間 C-3 必須・V-4 リリース前チェック要**。schema を `schemas/` に置く場合は **Hardening Override 発火**（autonomous 完全排除・lite_eligible 無効化）が追加で確定

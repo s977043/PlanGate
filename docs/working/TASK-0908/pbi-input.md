@@ -101,7 +101,7 @@ ai-loop には LoopSpec・Arbiter・rubric grader・metrics・Trust Ledger（pro
 
 ### Unknowns
 
-- Run Evaluation Result の配置先（`schemas/*.schema.json` = HO か、ai-loop 配下 contract 文書か）→ plan で確定（安全側 = HO 該当想定で見積もる）
+- Run Evaluation Result の配置先（`schemas/*.schema.json` = HO か、ai-loop 配下 contract 文書か）→ ~~plan で確定（安全側 = HO 該当想定で見積もる）~~ → **✅ 裁定済み（2026-07-31）: 案 2 = `docs/schemas/`（非 HO）で確定**（上記裁定ブロック参照）。**見積もりも非 HO 前提へ更新してよい**
 - 「approval 前編集」「grader feedback 無視」を既存証跡のどのイベントから決定論的に導出できるか（session ログ非保存の制約下で）→ gap analysis で対応表化し、導出不能項目は `unknown` に落とす
 - rubric grader（SKILL.md Step 5.5）の出力が機械可読形式で証跡化されているか → 実 Run record の実測で確認
 

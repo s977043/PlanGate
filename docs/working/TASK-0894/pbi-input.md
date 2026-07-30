@@ -178,7 +178,7 @@ EPIC #870 DoD へ PR・test・E2E evidence link 反映。
 
 ### Unknowns
 
-- schema 配置先（`schemas/` HO vs `docs/schemas/` 非 HO）→ **C-3 で確定（#874 と同一決定に揃える）**
+- schema 配置先（`schemas/` HO vs `docs/schemas/` 非 HO）→ ~~C-3 で確定（#874 と同一決定に揃える）~~ → **✅ 裁定済み（2026-07-31）: 案 2 = `docs/schemas/`（非 HO）で確定**（上記裁定ブロック参照）
 - 2 分割 (a)/(b) の PBI 分割 vs PR 分割 → **C-3 で確定**
 - `MERGE_READY` を decision enum に含めるか変換表右辺に留めるか → **C-3 で確定（論点 4）**
 - task profile 別既定 budget の初期値（実測データ不足。Run-001〜 の arbiter record から導出可能かは plan で確認）

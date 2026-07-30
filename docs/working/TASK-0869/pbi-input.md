@@ -124,12 +124,12 @@ issue 本文の 5 論点は pbi-input では確定せず C-3 / plan で確定す
 
 ### Unknowns
 
-- schema 配置先（`schemas/` HO vs `docs/schemas/` 非 HO・#874 と同側）→ **C-3 で確定**
+- schema 配置先（`schemas/` HO vs `docs/schemas/` 非 HO・#874 と同側）→ ~~C-3 で確定~~ → **✅ 裁定済み（2026-07-31）: 案 2 = `docs/schemas/`（非 HO）で確定**（上記裁定ブロック参照）
 - Trigger / candidate 位置づけ / Trust Ledger 形式（issue 論点 1・2・5）→ C-3 / plan で確定
 - `harness-evolution-policy.md`（docs/ai/ai-loop/ 側）を独立文書にするか harness-evolution-cycle.md に集約するか → plan で確定
 - clustering の粒度（WHERE×WHY の組をキーにした決定論 group-by で足りるか、類似度判定が要るか）→ plan で確定（Phase 1 は決定論 group-by を推奨・LLM 判定は shadow で不使用）
 
 ### Assumptions
 
-- 新設: `evolution.py` + test + schema 2 本（配置先は C-3）+ WHERE×WHY enum + `harness-evolution-cycle.md` + fixture 群（`tests/fixtures/ai-loop/evolution/` + `tests/extras/ta-NN`、ta-55 様式）。既存正本（00_concept.md §4.1 / reporting.md / design-philosophy.md invariants）は変更しない
+- 新設: `evolution.py` + test + schema 2 本（配置先は**裁定済み: `docs/schemas/`**）+ WHERE×WHY enum + `harness-evolution-cycle.md` + fixture 群（`tests/fixtures/ai-loop/evolution/` + `tests/extras/ta-NN`、ta-55 様式）。既存正本（00_concept.md §4.1 / reporting.md / design-philosophy.md invariants）は変更しない
 - **Mode: critical で確定**（`mode-classification.md` 定量基準の機械判定: **受入基準数 = issue DoD verbatim 10 + In scope 対応 2 = 12 → 11+ で超高（critical）が決定論**。変更ファイル数は schema 2 + evolution.py + test + workflow 正本 + fixture 複数 + ta-NN で 6-15（高）〜16+、「各軸の最大値を採用」で critical 確定）。**autonomous APPROVE 不可・人間 C-3 必須・V-4 リリース前チェック要**。事前調査の「high-risk 見込み」は AC 数の機械判定で critical へ更新（hedge しない）。schema を `schemas/` に置く場合は **Hardening Override 発火**（lite_eligible 無効化・Standard 同期 C-3・HO patch の Human 適用）が追加で確定
