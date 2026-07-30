@@ -81,6 +81,12 @@ AC と 10 fixture 全 PASS / schema・producer・validator・consumer adapter �
 - **上流未実装のため fixture 先行**: #873（delivery.py の terminal_state 供給元）と #811 が未実装・OPEN。#874 の consumer adapter は fixture 8/9/10（shadow candidate / paired replay / rollback）で契約検証する構造
 - **決定論パターン先例**: `plan_package.py`（決定論・fail-closed・冪等）/ `c3prime_verify.py`（exit code 契約）/ `metrics.py`（世代分裂の legacy/invalid/skip 明示区分）を転写
 
+> **✅ schema 配置論点の裁定（2026-07-31・Human。本ブロックは schema 配置のみに係る — 他の C-3 論点は未裁定のまま）**: **案 2 段階方式**を採用。Phase 1（shadow）は
+> `docs/schemas/`（非 HO）で 4 PBI（#894/#874/#869/#908）同側に統一し、本番接続
+> （promotion gate / Gate 接続）の C-3 で `schemas/` へ **1 回の HO patch で昇格**
+> （前例 `3ec2e24`）。昇格判定は Gate 接続 PR の Human C-3 チェックリストで行う。
+> 裁定の正本: [`docs/working/discussions/2026-07-31-schema-placement-ho-arbitration.md`](../discussions/2026-07-31-schema-placement-ho-arbitration.md) §7
+
 ## Estimation Evidence
 
 ### Risks

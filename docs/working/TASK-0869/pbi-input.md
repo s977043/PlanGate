@@ -92,6 +92,12 @@ issue 本文の 5 論点は pbi-input では確定せず C-3 / plan で確定す
 3. **enum 拡張ポリシー（versioning）**: schema を `schemas/`（HO）に置く場合、WHERE×WHY 語彙 1 件の追加ごとに **HO patch（Human 適用）が必要**になる帰結の受容可否。docs/schemas/（非 HO）なら AI 完結だが機械強制は validator 側
 4. **#874 との schema 配置確定の順序**: #874（RunEvidence）の C-3 が先に配置を確定した場合は本 PBI が追従し、本 PBI が先の場合は #874 側へ同側選択を申し送る（分裂させない手順の確定）
 
+> **✅ schema 配置論点の裁定（2026-07-31・Human。本ブロックは schema 配置のみに係る — 他の C-3 論点は未裁定のまま）**: **案 2 段階方式**を採用。Phase 1（shadow）は
+> `docs/schemas/`（非 HO）で 4 PBI（#894/#874/#869/#908）同側に統一し、本番接続
+> （promotion gate / Gate 接続）の C-3 で `schemas/` へ **1 回の HO patch で昇格**
+> （前例 `3ec2e24`）。昇格判定は Gate 接続 PR の Human C-3 チェックリストで行う。
+> 裁定の正本: [`docs/working/discussions/2026-07-31-schema-placement-ho-arbitration.md`](../discussions/2026-07-31-schema-placement-ho-arbitration.md) §7
+
 ## Notes from Refinement（調査で確定した設計方針）
 
 - **HO 分岐（C-3 論点・#874 と同型）**: schema を issue たたき台どおり `schemas/` に置くと **HO patch（Human 適用）**が必要（`ho-paths.md` L28）。AI 主体で回すなら `docs/schemas/`（非 HO・前例 `child-pbi.yaml`）に契約文書として置き、機械検証は非 HO validator（`scripts/ai-loop/evolution.py` 側）が担う。**どちらを採るかを C-3 で確定**。#874 RunEvidence schema と**同じ側に揃える**（分裂させない）ことを推奨
