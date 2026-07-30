@@ -9,14 +9,14 @@
 |---------|----------------|------|
 | **AC-1** snapshot が head SHA に束縛（`checks[].sha` / `review.sha` = `head_sha`） | TC-01, TC-02, TC-03 | Unit |
 | **AC-2** `required_checks[]` ⊇ 照合で部分登録 green を拒否 | TC-04, TC-05, TC-06 | Unit |
-| **AC-3** intent → 実行 → receipt → reconcile が冪等 | TC-07, TC-08, TC-09 | Unit / Integration |
+| **AC-3** intent → 実行 → receipt → reconcile が冪等 | TC-07, TC-08, TC-09, TC-09b | Unit / Integration |
 | **AC-4** 実 PR の repair E2E が 1 周通る | TC-10（fixture・機械化された合格基準）, TC-11（実 PR 手動実走の証跡）, TC-39（未完了 check-run の写像。**これが無いと repair 直後に `invalid_snapshot` へ落ち 1 周が実 PR で回らない**） | E2E / Unit |
-| **AC-5** 破壊的操作を実行する経路が存在しない | TC-20〜TC-31, TC-31b | Unit |
+| **AC-5** 破壊的操作を実行する経路が存在しない | TC-20〜TC-31, TC-31b, TC-31c | Unit |
 | **AC-6** #894 Loop Control Contract との接続点 | TC-12, TC-13 | Integration |
 | **AC-7** `delivery.py` / `c3_contract.py` / `c3prime_verify.py` が不変 | TC-14, TC-15, TC-16 | E2E |
 | **AC-8** `ci_failure_taxonomy` の供給元が機械的に特定できる | TC-17, TC-18, TC-19 | Unit |
 | **AC-9** raw check evidence を同梱し `checks[]` の導出を機械照合 | TC-32, TC-33, TC-34 | Unit |
-| （AC 横断）**snapshot 供給契約の健全性**（C-2 反映 / R-017・R-018・R-019・R-026） | TC-35, TC-36, TC-37, TC-38, TC-39 | Unit |
+| （AC 横断）**snapshot 供給契約の健全性**（C-2 反映 / R-017・R-018・R-019・R-026 + River Review 反映 / **R-034**） | TC-35, TC-36, TC-37, TC-38, TC-39, TC-40 | Unit / Integration |
 
 ## AC-1: head SHA 束縛（Collector）
 
@@ -272,7 +272,7 @@
 
 - 前提条件: `check_exec_boundary.py` 実装済み / 現行ツリー（違反注入は一時コピー上で行い作業ツリーを汚さない）
 - 入力: `python3 scripts/ai-loop/check_exec_boundary.py`
-- 期待出力: ①現行ツリーが **clean**（`discovery.py` の docstring 禁止宣言文に HIT しない = substring 走査を使っていない。**判定は下記「argv 先頭要素 不変条件（精緻化版）」＝読み取り専用 git allowlist + grandfather 例外 1 件を適用した状態で行う**）②`gh_exec.py` 以外に**実行系トークン**の import を注入すると **FAIL** ③`test_*.py` 内の `subprocess.run` / `check_output` の argv 先頭要素が **`sys.executable` でも読み取り専用 git サブコマンド allowlist（`status` / `rev-parse` / `diff` / `log` / `merge-base` / `ls-remote` / `show`）でもなく**、かつ **grandfather 例外リストにも載っていない**場合 **FAIL**（テスト単純除外を迂回路にしない）④**`gh_exec.py` に対する逆向きホワイトリスト検査**: `subprocess` **のみ**許可し、その他の実行系トークンが 1 件でもあれば **FAIL**（例: `gh_exec.py` に `os.system("gh pr merge 1")` を注入すると FAIL）⑤**argv がリテラルでなく変数経由で静的追跡不能なとき**は、例外リストに載っていない限り **FAIL に倒す（fail-closed）**。**`delivery.py` 系の既存 substring 走査（`test_tc18_pure_verdict_source` / ta-56）は不変**
+- 期待出力: ①現行ツリーが **clean**（`discovery.py` の docstring 禁止宣言文に HIT しない = substring 走査を使っていない。**判定は下記「argv 先頭要素 不変条件（精緻化版）」＝読み取り専用 git allowlist + grandfather 例外 1 件を適用した状態で行う**）②`gh_exec.py` 以外に**実行系トークン**の import を注入すると **FAIL** ③`test_*.py` 内の `subprocess.run` / `check_output` の argv 先頭要素が **`sys.executable` でも読み取り専用 git サブコマンド allowlist（`status` / `rev-parse` / `diff` / `log` / `merge-base` / `ls-remote` / `show`）でもなく**、かつ **grandfather 例外リストにも載っていない**場合 **FAIL**（テスト単純除外を迂回路にしない）。**照合は `import subprocess as X` / `from subprocess import run, check_output` 等の import 形を AST で解決してから行う**（別名・直接 import も同一扱い。解決できない import 形は fail-closed）。属性呼び出し形（`ast.Attribute(value=Name('subprocess'))`）だけを見る実装では、**exec で新規作成する test 6 本が別名・直接 import を使った瞬間に照合をすり抜け検査器が clean を返す**（R-035。現行ツリーは `import subprocess` のみのため今は空振りしないが、新規コードで穴になる）④**`gh_exec.py` に対する逆向きホワイトリスト検査**: `subprocess` **のみ**許可し、その他の実行系トークンが 1 件でもあれば **FAIL**（例: `gh_exec.py` に `os.system("gh pr merge 1")` を注入すると FAIL）⑤**argv がリテラルでなく変数経由で静的追跡不能なとき**は、例外リストに載っていない限り **FAIL に倒す（fail-closed）**。**`delivery.py` 系の既存 substring 走査（`test_tc18_pure_verdict_source` / ta-56）は不変**
 - **argv 先頭要素 不変条件（精緻化版 / C-1 F-1 の裁定）**: 許可は `sys.executable` **または**読み取り専用 git サブコマンド allowlist。**grandfather 例外は `test_c3prime_verify.py` の `_run()`（`args = ["python3", ...]`）1 件のみ**で、`check_exec_boundary.py` に**ファイル + 関数名で特定して列挙**し凍結する（`"python3"` は PATH 依存で実行中インタプリタと一致しない潜在不具合のため、正当化ではなく凍結扱い）。`test_discovery.py` の `["git", "status", "--porcelain"]` 2 箇所は allowlist で**恒久的に許容**され例外リストには載せない。`test_c3prime_verify.py` の `sys.executable` 化は **V2 候補**（本 PBI では触らない = `allowed_paths` を増やさない）
 - **検査対象トークン集合（R-025 反映 / pbi AC-5 と同一）**: `subprocess` / `os.system` / `os.popen` / `os.exec*` / `os.spawn*` / `urllib` / `socket` / `http.client` / `requests` / `importlib.import_module` による動的 import。**`subprocess` の import のみを検査する縮小版では `gh_exec.py` 内の `os.system("gh pr merge 1")` を止められない**ため、集合を pbi AC-5 の列挙まで戻す
 - 種別: Unit / E2E
@@ -282,6 +282,16 @@
 - 前提条件: `check_exec_boundary.py` 実装済み / 例外リストが 1 件（`test_c3prime_verify.py` の `_run()`）で初期化されている
 - 入力: ①例外リストの実体（`check_exec_boundary.py` が公開する定数）を読む ②例外リストに 2 件目のエントリを追加した状態でテストを実行する
 - 期待出力: ①例外リストの件数が **厳密に 1** であり、そのエントリが `test_c3prime_verify.py` の `_run()` を指す ②**2 件目を追加すると本 TC が FAIL する**（= 例外リストの増加が機械的にブロックされ、新規コードには不変条件が厳格に適用される）。**変異注入で検出力を実証する**（1 件固定のアサートを外すと本 TC が空振りすることを確認）
+- 種別: Unit
+
+### TC-31c: import 形の解決（別名 / 直接 import の変異注入 / R-035）
+
+- 前提条件: `check_exec_boundary.py` 実装済み / 違反注入は一時コピー上で行い作業ツリーを汚さない（TC-31 と同様式）
+- 入力: 一時コピーの `test_*.py` に次の 3 形を注入する
+  1. `import subprocess as sp` + `sp.run(["python3", "x.py"])`
+  2. `from subprocess import run` + `run(["python3", "x.py"])`
+  3. `from subprocess import check_output as co` + `co(["python3", "x.py"])`
+- 期待出力: **3 形すべてで FAIL**（`"python3"` は `sys.executable` でも読み取り専用 git サブコマンドでもなく grandfather 例外リストにも無いため）。**検出力の実証（変異注入）**: import 形の解決を外し `ast.Attribute(value=Name('subprocess'))` のみを見る実装に差し替えると、3 形すべてが**すり抜けて clean になる**ことを確認する。あわせて **`import subprocess as sp` + `sp.run([sys.executable, ...])` は PASS**（正側 — 別名解決が過剰検出になっていないこと）
 - 種別: Unit
 
 ## AC-9: raw check evidence（縮小実施 / Q1 回答）
@@ -353,6 +363,19 @@
   3. 写像を外した実装では `conclusion = None` により **優先度 1 の `invalid_snapshot`** に落ち `WAITING_FOR_CHECKS` に到達しないことを負側で確認する（**変異注入で検出力を実証**。fixture が手書きだと乖離が隠れるため）
 - 種別: Unit
 
+### TC-40: `finding_type` 語彙の同一性と `id` の決定論（R-034 / `same_type_recurrence` の fail-open 封じ）
+
+- 前提条件: `collector.py`（`findings[]` 変換アダプタ）/ `executor.py` / `reconciler.py` 実装済み / `delivery.py` は main の実物を使用 / `record.jsonl` に当該 PR の `repair_review` receipt（`finding_type` 付き）が記録済み
+- 入力:
+  1. **正側**: 既存 `repair_review` receipt と**同じ `finding_type`** を持つ未解消 finding を、変換アダプタ経由で生成した snapshot に載せて `assess()` に投入する
+  2. **負側（変異注入）**: 変換アダプタ側の `finding_type` を receipt 側と**別語彙**（例 `security` → `sec`）にした snapshot を同条件で投入する
+  3. **`id` の決定論**: 同一の入力 finding（`docs/ai/external-reviewer-interface.md` §3.2 形式）から 2 回アダプタを実行する
+- 期待出力:
+  1. 正側: `assess()` が `REVIEW_REPAIR` を返し、actions に **`feedback_loop_referral`** が含まれる（`delivery.py` L305 の `recurrence` が非空 = 同型指摘の再発として検知される）
+  2. 負側: `_past_repair_finding_types()` との**集合積が空**になり `feedback_loop_referral` が出ない（= 語彙不一致だと再発検知が**恒久 fail-open** になることを実証する。この負側が FAIL しない実装は語彙の同一性を担保できていない）
+  3. `id` の決定論: 2 回の実行で同一 `id` が生成される。負側として `id` を run ごとに変える実装では、`_resolved()` の disposition 突合が壊れ `unresolved_hard` が解消されず `MERGE_READY` に到達しないことを確認する
+- 種別: Integration
+
 ## エッジケース
 
 ### TC-E1: GitHub API の rate limit
@@ -406,7 +429,7 @@
 
 ### TC-E8: sync 列挙の片方漏れ検出
 
-- 前提条件: `sync-plugin-plangate.sh` の 2 箇所（L345 for ループ / L355 case）へ新規 12 本を追加済み（T-37 / T-38 完了後）
-- 入力: `sync-plugin-plangate.sh` の L345 for ループ側 と L355 case 側 の basename 集合
+- 前提条件: `sync-plugin-plangate.sh` の 2 箇所（**記号アンカー** で特定: for ループ `for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" …` / case `arbiter.py|test_arbiter.py|…) : ;;`。行番号 L345 / L355 は 2026-07-31 時点の**目安**）へ新規 12 本を追加済み（T-37 / T-38 完了後）
+- 入力: `sync-plugin-plangate.sh` の for ループ側（上記記号アンカー）と case 側（同）の basename 集合
 - 期待出力: 2 集合の差分が **0**（片方だけに追加された状態を検出して FAIL）
 - 種別: E2E

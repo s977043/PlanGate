@@ -66,7 +66,7 @@
 
 ## C-2 外部レビュー（plan 段階 / 2026-07-31）
 
-> **追記専用**。上記 `R-001`〜`R-016`（pbi-input 段階）は**一切変更していない**。
+> **追記専用**。ここでいう追記専用とは「**`R-NNN` 監査表エントリは不変**（編集・削除しない）」ことを指す。上記 `R-001`〜`R-016`（pbi-input 段階）の監査表エントリは一切変更していない一方、**pbi 段階節の「次アクション」欄のみ進捗マーカー（`⏳` → `✅`）を更新している**（進捗欄は監査対象の指摘記録ではないため。RR-05 で宣言と実態の乖離が指摘され本節で明確化）。
 > 実施: 2026-07-31 / 対象: `docs/working/TASK-0917/plan.md` / `todo.md` / `test-cases.md`
 > 基点: `origin/main` = `b45ab17` / ブランチ `task-0917-plan`
 > 反映順序: `.claude/rules/working-context.md` §C-2 指摘の差分管理に従い **(1) 本ファイルへ R-NNN 集約 → (2) 1 回確定反映**。
@@ -135,7 +135,55 @@
 
 1. ✅ 本ファイルへ `R-017`〜`R-033` を集約
 2. ✅ plan / todo / test-cases への **1 回確定反映**（本セッション）
-3. ⏳ **簡易 C-1 再実行**（反映後の plan / todo / test-cases に対する 17 項目チェック）
-4. ⏳ **Human C-3**（`approvals/c3.json` を確定後 plan の `plan_hash` で発行。Questions / Unknowns **10 件**の明示判断）→ exec
+3. ✅ **簡易 C-1 再実行**（反映後の plan / todo / test-cases に対する 25 項目チェック → 是正後 PASS。[`review-self.md`](./review-self.md)）
+4. ✅ **Human C-3**（`approvals/c3.json` を `c3_status: APPROVED` で発行済み。Questions / Unknowns **10 件**の明示判断）
+   - ⚠️ ただし下記 **River Review（PR 作成直前）** の反映で `plan.md` を再編集したため、**当該 `c3.json` の `plan_hash` は stale** となった。**C-3 再承認が必要**（`bin/plangate approve TASK-0917` を人間が再実行）
 
 > ⚠️ `c3.json` の発行は **確定反映の後**（先に発行すると EH-3 が後続反映を mismatch 検知するため）。`bin/plangate exec` は APPROVED のみ受理する。
+
+---
+
+## River Review（PR 作成直前 / 2026-07-31）
+
+> **追記専用**（`R-NNN` 監査表エントリは不変）。実施: 2026-07-31 / 対象: ブランチ `task-0917-plan` の差分（`plan.md` / `todo.md` / `test-cases.md` / `review-self.md` / `review-external.md` / `INDEX.md` / `current-state.md` / `decision-log.jsonl`）
+> 基点: `origin/main` = `b45ab17` / HEAD = `4ac6eff`
+> 経緯: `.claude/rules/` の「PR 作成前は毎回セルフ + 複数エージェントレビュー / gh pr create 前に branch diff へ River Review をローカル実施」に従い、C-3 APPROVED **後・PR 作成前**に実施した追加レビュー。
+
+**判定: FAIL**（critical 0 / **major 3** / minor 5 / info 2）
+
+River Review が FAIL 判定を出したため、**PR 作成前に全件を処理**した。うち `plan.md` 本体の修正を要した 2 件（RR-02 / RR-03）に **`R-034` / `R-035`** を採番する。**`plan.md` を再編集したため `approvals/c3.json` の `plan_hash` は stale となり、C-3 再承認が必要**（`c3.json` は Human 承認トークンであり AI は作成・更新しない）。
+
+### オーガナイザーによる裏取り（実測）
+
+| ID | 裏取りコマンド / 参照 | 実測結果 |
+|----|---------------------|---------|
+| RR-02 / `R-034` | `grep -n "_past_repair_finding_types\|finding_type\|_resolved" scripts/ai-loop/delivery.py` / `grep -c findings docs/working/TASK-0917/todo.md` / `grep -c finding_type docs/working/TASK-0917/test-cases.md` | **確認**。L229-231 `_past_repair_finding_types()` は `repair_review` receipt 側の `finding_type` 集合を返し、L305 `recurrence` が snapshot 側 `findings[].finding_type` との**集合積**を取る。snapshot 側は Collector の変換アダプタ、receipt 側は Executor が供給するため**同一語彙でなければ積は常に空**＝`same_type_recurrence` が恒久 fail-open。`id` が run 間で不安定だと L195 `_resolved()` の disposition 突合が壊れ `unresolved_hard` が消えず `MERGE_READY` に到達しない。**todo の `findings` 出現 0 件 / test-cases の `finding_type` 出現 0 件**（タスクも TC も存在しない） |
+| RR-03 / `R-035` | `grep -rn "^import subprocess\|^from subprocess\|import subprocess as" scripts/ai-loop/*.py` / `plan.md` の「argv 先頭要素 不変条件」1. | **確認**。現行ツリーは `import subprocess` のみ（`test_c3prime_verify.py:14` / `test_discovery.py:14` / `test_metrics.py:12`）で今は空振りしないが、不変条件は**属性呼び出し形**（`ast.Attribute(value=Name('subprocess'))`）を前提に書かれており、**exec で新規作成する test 6 本が `from subprocess import run` / `import subprocess as sp` を使うと照合をすり抜け検査器が clean を返す** |
+| RR-04 | `review-self.md` の F-1 evidence 再現コマンド 1 を再実行 | **確認**。`TOTAL = 20` / `sys.executable 該当 = 17` / 違反 3（`test_c3prime_verify.py:42` / `test_discovery.py:530` / `test_discovery.py:559`）。本文の「21 箇所 / 18 箇所」は誤りだが**違反 3 箇所の内訳と裁定は不変** |
+| RR-07 | `grep -n 'AI_LOOP_SCRIPTS_DIR/arbiter.py' scripts/sync-plugin-plangate.sh` / `grep -n 'arbiter.py\|test_arbiter.py' scripts/sync-plugin-plangate.sh` | **確認**。それぞれ **345 行 / 355 行**（現時点は一致）。ただし R-028 で `run-tests.sh` 側を記号アンカー化したのに sync-plugin 側 8 箇所（plan 4 / todo 2 / test-cases 2）は行番号のまま = 同型の stale 化リスクが残置 |
+| RR-08 | `grep -n "skip-decision-log" scripts/hooks/check-plan-hash.sh` / `git check-ignore docs/working/_audit/skip-decision-log.jsonl` | **確認**。EH-3 は SKIP 判断のたび **tracked** ファイル `docs/working/_audit/skip-decision-log.jsonl` へ追記する。同ファイルは `allowed_paths` 21 件に**含まれない**ため、commit に混入すると `plan_deviation` → `EXEC_RETURN` を誘発する |
+| info-1 | `python3 -c "…" docs/working/TASK-0917/decision-log.jsonl`（全 24 行の走査） | **反証**。「触るファイル数 18→19 / Replan Trigger >23→>24 の変更エントリが無い」は誤り。**24 行目のうち 21 行目**（`R-023 / R-024 反映で…`）に「Files は 18 → 19 本（`execution-runbook.md` 追加）、Replan Trigger は > 23 → > 24 へ再計算」が**既に記録済み**。よって重複エントリは追記しない |
+
+### 監査表（指摘 → 反映）
+
+| ID | severity | 概要 | status | notes |
+|----|----------|------|--------|-------|
+| RR-01 | major | `INDEX.md` が stale（現在フェーズ「C-1 待ち」/ `review-self.md`・`current-state.md`・`approvals/c3.json` が `⏳` / Questions「8 件」）で、C-1 PASS・C-2 反映・C-3 APPROVED の実態と乖離 | **fixed（オーガナイザーが `INDEX.md` を是正済み）** | 本ワーカーの担当スコープ外（再修正しない）。現在フェーズ / 各ファイル状態 / Questions 10 件へ更新済み |
+| **RR-02** = **`R-034`** | major | `finding_type` の**語彙規則が未定義**で同型指摘の再発検知が fail-open。snapshot 側（Collector の変換アダプタ）と receipt 側（Executor の `repair_review`）が同一語彙でないと `_past_repair_finding_types()` の集合積が常に空になり `same_type_recurrence` が発火しない。`id` の決定論も未定義で `_resolved()` の disposition 突合が壊れうる。**todo に該当タスク 0 件 / test-cases に該当 TC 0 件**（実測） | reflected | `plan.md` D3 表の `findings[]` 行に語彙同一性 + `id` 決定論の 1 文を追加 / Step 6 チェックポイントに追記 / Metrics Evidence に実測 1 行追加 / **`todo.md` に T-51 を新設**（`files:` は既存 21 パス内の `collector.py` + `executor.py` + `test_reconciler.py` に収め `allowed_paths` を増やさない）/ **`test-cases.md` に TC-40 を新設**（正側 = `feedback_loop_referral` 発火 / 負側 = 語彙不一致で空振り / `id` 決定論）。AC 横断行に TC-40 を追加 |
+| **RR-03** = **`R-035`** | major | AST 照合が **import 形を解決せず素通し**する。不変条件 1. は属性呼び出し形（`ast.Attribute(value=Name('subprocess'))`）前提で書かれており、exec で新規作成する test 6 本が `from subprocess import run` / `import subprocess as sp` を使うと照合をすり抜ける。plan 自身の「テストの単純除外は迂回路になる」という宣言目的が達成されない | reflected | `plan.md` の「argv 先頭要素 不変条件」1. に import 形解決 + 解決不能は fail-closed の 1 文を追加 / Testing Strategy の `test_check_exec_boundary.py` 行に追記 / `test-cases.md` TC-31 ③ に同文を反映 + **TC-31c を新設**（別名 `import subprocess as sp` / 直接 `from subprocess import run` / `check_output as co` の 3 形を変異注入して FAIL することを実証。解決を外すと 3 形とも clean になることも確認）。AC-5 マッピング行に TC-31c を追加 |
+| RR-04 | minor | `review-self.md` の F-1 evidence の数値（「21 箇所 / 18 箇所」）が再現しない（実測 20 / 17） | reflected | **frozen な 25 項目判定表・指摘一覧・F-1 evidence 本文は編集せず**、末尾「C-1 指摘の是正記録」節に 1 行の訂正追記のみ（append-only 遵守） |
+| RR-05 | minor | `review-external.md` の宣言（「追記専用」「`R-001`〜`R-016` は一切変更していない」）と実態の矛盾（pbi 段階節の「次アクション」2 行が `⏳`→`✅` に書き換わっている）。かつ C-2 節自身の次アクション 3./4. は完了済みなのに `⏳` のまま | reflected | C-2 節の宣言文を「**`R-NNN` 監査表エントリは不変**。pbi 段階節の『次アクション』欄のみ進捗マーカーを更新」へ明確化 + C-2 節の次アクション 3./4. を `✅` へ更新（4. には `plan_hash` stale・再承認要の注記を併記） |
+| RR-06 | minor | C-2 / C-1 反映の追従漏れ 4 箇所 | reflected | ①`plan.md` L6「`R-001`〜`R-016` 全件反映済み」→ **`R-001`〜`R-035`** ②`plan.md` L7「B-2 比較（D1〜**D4**）」→ **D1〜D5**（D5 が実在）③Approach Overview「REST GET **3〜4 本**」→ **4 本**（todo T-25 / TC-29 は 4 endpoint で確定済み）④`test-cases.md` の **AC-3 マッピング行に `TC-09b` を追加**（TC-31b は AC-5 行に追加済みなのに TC-09b だけ非対称に漏れていた） |
+| RR-07 | minor | 行番号アンカー `L345` / `L355` が 8 箇所そのまま（plan 4 / todo 2 / test-cases 2）。R-028 で `run-tests.sh` 側は記号アンカー化したのに sync-plugin 側だけ残置 = 同型の stale 化リスク | reflected | **8 箇所すべてに記号アンカーを併記**（for ループ = `for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" …` / case = `arbiter.py\|test_arbiter.py\|…) : ;;`）し、行番号は「2026-07-31 時点の**目安**」と明記。plan Step 10 に「exec では記号アンカーで grep して位置特定する」旨を 1 行追加 |
+| RR-08 | minor | EH-3（`check-plan-hash.sh`）は SKIP 判断のたび tracked ファイル `docs/working/_audit/skip-decision-log.jsonl` へ追記する。同ファイルは `allowed_paths` 21 件の**外**であり、commit に混入すると `plan_deviation` → `EXEC_RETURN` を誘発する | reflected | `todo.md` **T-49（コミット整理）に 1 行追加** —「`docs/working/_audit/` への hook 由来追記は本 branch に含めず別 PR に分離する」。**`allowed_paths` を広げる方向の是正はしない**（AC-5 / scope を緩めるため） |
+| info-1 | info | `decision-log.jsonl` に「触るファイル数 18→19 / Replan Trigger >23→>24」の変更エントリが無い | **invalid（実測で反証）** | 実測: `decision-log.jsonl` **21 行目**に既記録（「Files は 18 → 19 本…Replan Trigger は > 23 → > 24 へ再計算」）。**重複エントリは追記しない**。代わりに本 River Review の実施・`R-034` / `R-035` の裁定・`plan_hash` 無効化と再承認要を 3 エントリ追記した |
+| info-2 | info | 生成物 `docs/working/TASK-0917/TASK-0917-c3-review.html` が untracked のまま残っている | reflected（方針明記） | **untracked のまま残す**（`bin/plangate render` で再生成可能）。`current-state.md` に「C-3 レビュー HTML は untracked（再生成可）。コミット時は `git add <path>` 明示で混入を防ぐ」を 1 行記載 |
+
+### 次アクション
+
+1. ✅ 本ファイルへ `RR-01`〜`RR-08` + info 2 件を集約（`R-034` / `R-035` を採番）
+2. ✅ `plan.md` / `todo.md` / `test-cases.md` / `review-self.md`（是正記録節）/ `current-state.md` / `decision-log.jsonl` への **1 回確定反映**
+3. ⏳ **Human による C-3 再承認**（`bin/plangate approve TASK-0917` を再実行し、**再編集後の `plan.md` の `plan_hash`** で `approvals/c3.json` を再発行）
+4. ⏳ 再コミット → PR 作成 → C-4
+
+> ⚠️ **`approvals/c3.json` は Human 承認トークン**であり、AI は作成・更新しない（`.claude/rules/responsibility-classes.md` / MEMORY `maintenance.json 発行元ギャップ`）。本反映では `c3.json` を**一切変更していない**（`git diff --stat HEAD -- docs/working/TASK-0917/approvals/c3.json` = 0 行で証明）。

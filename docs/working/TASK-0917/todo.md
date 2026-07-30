@@ -51,7 +51,8 @@
 
 - [ ] 🚩 T-27: `test_executor.py` RED（6 action_kind / repair push / 通知コメント内包（新 action_kind を作らない）/ コメント失敗を握り潰さず escalation / receipt に comment URL / **通知コメントが repair push より先に打たれること**（R-021: コメント失敗なら push しない = 中断時の残骸を可逆な「余分なコメント 1 件」に限定）/ **実行前 pre-check「`expected_parent_sha` が既に PR head の祖先なら実行済みとみなし skip」**（push 済み・receipt 未記録での resume 時に二重 push しない）） [Owner: agent] [depends_on: T-26] [files: scripts/ai-loop/test_executor.py] rollback: ファイル削除
 - [ ] T-28: `executor.py` 実装（GREEN・外部書き込みは `gh_exec.py` 経由のみ。**実行順序 = 通知コメント → pre-check（祖先判定で skip）→ repair push → receipt**） [Owner: agent] [depends_on: T-27] [files: scripts/ai-loop/executor.py] rollback: ファイル削除
-- [ ] T-29: `test_reconciler.py` RED（AC-3 冪等: 同一 `action_id` 再実行で二重作用しない / intent↔receipt 突合 / `result_ref` convention からの disposition 再構成 / `record.jsonl` 破損） [Owner: agent] [depends_on: T-28] [files: scripts/ai-loop/test_reconciler.py] rollback: ファイル削除
+- [ ] 🚩 T-51: **`finding_type` 語彙の単一定数表化（R-034）** — Collector の `findings[]` 変換アダプタと Executor の `repair_review` receipt が**同一の定数表を import** する形にし（定数表の置き場は `collector.py`・`executor.py` はそこから import。新規モジュールを作らず `allowed_paths` を増やさない）、アダプタが生成する `id` を入力 finding に対して**決定論的**にする。あわせて **TC-40**（`repair_review` receipt 済みの `finding_type` を持つ finding を再投入 → `REVIEW_REPAIR` + `feedback_loop_referral` が出る正側 / 語彙不一致だと `_past_repair_finding_types()` の集合積が空になり再発検知が空振りする負側の変異注入）を実装する。根拠 = `delivery.py` L229-231 の `_past_repair_finding_types()` と L305 の `recurrence` は snapshot 側（Collector アダプタ生成）と receipt 側（Executor 記録）の `finding_type` が同一語彙でないと**恒久 fail-open**、`id` が run 間で不安定だと `_resolved()` の disposition 突合が壊れ `unresolved_hard` が消えず `MERGE_READY` に到達しない [Owner: agent] [depends_on: T-28] [files: scripts/ai-loop/collector.py, scripts/ai-loop/executor.py, scripts/ai-loop/test_reconciler.py] rollback: git restore -- scripts/ai-loop/collector.py scripts/ai-loop/executor.py scripts/ai-loop/test_reconciler.py
+- [ ] T-29: `test_reconciler.py` RED（AC-3 冪等: 同一 `action_id` 再実行で二重作用しない / intent↔receipt 突合 / `result_ref` convention からの disposition 再構成 / `record.jsonl` 破損） [Owner: agent] [depends_on: T-51] [files: scripts/ai-loop/test_reconciler.py] rollback: ファイル削除
 - [ ] 🚩 T-30: `reconciler.py` 実装（GREEN・`c3_contract.canonical_hash()` を **import 再利用**し独自実装しない） [Owner: agent] [depends_on: T-29] [files: scripts/ai-loop/reconciler.py] rollback: ファイル削除
 - [ ] T-31: 統合テスト — Collector → `delivery.py assess()` → Executor → `delivery.py receipt` → Reconciler の 1 周を fixture 上で通す（`delivery.py` は実物を呼ぶ） [Owner: agent] [depends_on: T-30] [files: scripts/ai-loop/test_reconciler.py] rollback: git restore
 - [ ] 🚩 T-32: **AC-6 接続点の統合テスト（TC-12 / TC-13）**— Collector が `escalation_flags` に積んだ opaque reason code が `assess()` を素通しして `HUMAN_ESCALATED` に到達し `record.jsonl` に state entry が残ることを検証（連続 2 run で「何も起きていない run」と区別できること）。**語彙の妥当性は検証しない**（enum は #894 が決める）。R-023: AC-6 に実装タスクが 0 件で「誰も書かないテスト」になっていた状態の是正 [Owner: agent] [depends_on: T-31] [files: scripts/ai-loop/test_reconciler.py] rollback: git restore
@@ -65,8 +66,8 @@
 
 ### 配布 / doc フェーズ
 
-- [ ] 🚩 T-37: `sync-plugin-plangate.sh` **L345 のコピー元 for ループ**へ新規 12 本を追加 [Owner: agent] [depends_on: T-36] [files: scripts/sync-plugin-plangate.sh] rollback: git restore -- scripts/sync-plugin-plangate.sh
-- [ ] 🚩 T-38: `sync-plugin-plangate.sh` **L355 の case 許可判定**へ新規 12 本を追加（T-37 とは別タスク。片方漏れ = sync drift / R-011） [Owner: agent] [depends_on: T-37] [files: scripts/sync-plugin-plangate.sh] rollback: 同上
+- [ ] 🚩 T-37: `sync-plugin-plangate.sh` の**コピー元 for ループ**へ新規 12 本を追加（**記号アンカー** `for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" …` で位置特定。行番号 L345 は 2026-07-31 時点の**目安**） [Owner: agent] [depends_on: T-36] [files: scripts/sync-plugin-plangate.sh] rollback: git restore -- scripts/sync-plugin-plangate.sh
+- [ ] 🚩 T-38: `sync-plugin-plangate.sh` の **case 許可判定**へ新規 12 本を追加（**記号アンカー** `arbiter.py|test_arbiter.py|…) : ;;` で位置特定。行番号 L355 は**目安**。T-37 とは別タスク。片方漏れ = sync drift / R-011） [Owner: agent] [depends_on: T-37] [files: scripts/sync-plugin-plangate.sh] rollback: 同上
 - [ ] T-39: **2 箇所の列挙が同一集合であることを機械照合**（for ループ側と case 側の basename 集合を diff して差分 0 を確認）— 片方漏れの検出タスク [Owner: agent] [depends_on: T-38] [files: -] rollback:不要
 - [ ] T-40: sync 実行 → 2 回目 no-op → `git diff --quiet plugin/` 確認 [Owner: agent] [depends_on: T-39] [files: plugin/plangate/] rollback: git restore -- plugin/
 - [ ] T-41: `delivery-state-machine.md` §4 へ **5 文**を additive 追記（①AC-8 供給主体 = `ci_taxonomy.py` ②AC-5 scope 限界 = Executor 経路のみ ③**AC-9 の限界** = 手作り snapshot の直接投入は塞がない ④**⊇ 照合は Collector pre-check として Phase 1 実装済み**・`required_checks[]` のフィールド化は引き続き V2 ⑤**branch protection は `required_approving_review_count: 0` のため後段防衛として当てにしない**（issue #928 参照））。④⑤ は §4 の現行記述が本 PBI で stale 化することの是正（R-027）。③ の記載先は plan 冒頭 Q1 帰結・test-cases の AC-9 注記と一致させる（R-024）。**`<!-- contract:begin/end -->` ブロックには触れない** [Owner: agent] [depends_on: T-40] [files: docs/workflows/ai-loop/delivery-state-machine.md] rollback: git restore
@@ -83,7 +84,7 @@
 
 ### 完了フェーズ
 
-- [ ] T-49: コミット整理（1 コミット 1 種類・`Refs:` 付き） [Owner: agent] [depends_on: T-48] [files: -] rollback: git reset（push 前のみ）
+- [ ] T-49: コミット整理（1 コミット 1 種類・`Refs:` 付き）。**`docs/working/_audit/` への hook 由来追記（`skip-decision-log.jsonl` 等）は本 branch に含めず別 PR に分離する**（同ファイルは tracked かつ `allowed_paths` 21 件の**外**であり、混入すると `plan_deviation` → `EXEC_RETURN` を誘発する。`allowed_paths` を広げる方向の是正はしない = AC-5 / scope を緩めないため。R-035 系の RR-08 反映） [Owner: agent] [depends_on: T-48] [files: -] rollback: git reset（push 前のみ）
 - [ ] T-50: `status.md` / `current-state.md` 最終更新 + V2 候補（required checks の config キャッシュ / プロセス外の物理ガード / 実 API drift 検出 / **`ta-56-delivery.sh` のテスト件数ラベルの動的抽出**（R-033））を handoff へ記録 [Owner: agent] [depends_on: T-49] [files: docs/working/TASK-0917/] rollback:不要
 
 ## 👤 Humanタスク

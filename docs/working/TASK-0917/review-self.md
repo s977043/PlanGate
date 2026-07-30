@@ -497,3 +497,7 @@ grep -nE '18 本|19 本|> 23|> \*\*24\*\*|ratio 1\.5|1\.58' docs/working/TASK-09
 - **critical = 0 / major = 0**（F-1 fixed により C1-PLAN-05 の FAIL 要因が解消）/ minor = 0（F-2〜F-5 fixed）/ info = 2（F-6 部分対応・F-7 対応不要 — いずれも判定に影響しない）
 - 影響を受けるチェック項目の是正後の見立て: **C1-PLAN-05 = FAIL → PASS**（Step 1 の完了条件が現行ツリーで達成可能になった）/ **C1-PLAN-09-AEE = WARN → PASS**（Replan Trigger の機械値が plan 内で一意）/ **C1-TEST-14 = WARN → PASS**（TC-31 の自己矛盾解消 + `前提条件` 欠落 0）。**C1-SUP-PLAN-02 / C1-TODO-08 は WARN のまま**（T-25 / T-16 / T-33 の複合タスク粒度は本是正の対象外 = C-3 の分割判断に委ねる。ただし WARN は FAIL 要因ではない）
 - 上記 25 項目判定表そのものは C-1 実施時点の記録として保存し、本節の見立てで**上書きしていない**（append-only）
+
+### 訂正追記（River Review RR-04 / 2026-07-31）
+
+- **F-1 evidence の「21 箇所 / 18 箇所」は正しくは「20 箇所 / 17 箇所」**（同節の再現コマンド 1 を再実行した実測: `TOTAL = 20` / `sys.executable` 該当 = **17**）。**違反 3 箇所（`test_c3prime_verify.py:42` / `test_discovery.py:530` / `test_discovery.py:559`）の内訳と F-1 の裁定は不変**。frozen な 25 項目判定表・指摘一覧・F-1 evidence 本文は append-only 契約により編集していない（V-20 行の「21 箇所中 18 箇所」も同様に原文のまま保存）

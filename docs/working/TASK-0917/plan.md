@@ -3,8 +3,8 @@
 > Issue: [#917](https://github.com/s977043/plangate/issues/917)（enhancement / ai-loop / **priority:P0**）
 > Parent EPIC: [#870](https://github.com/s977043/plangate/issues/870)（**close blocker**）
 > 由来: [#873](https://github.com/s977043/plangate/issues/873) / TASK-0873 が V2 送りとした「実 PR 収束系」の実装
-> 入力: [`pbi-input.md`](./pbi-input.md) / [`review-external.md`](./review-external.md)（`R-001`〜`R-016` 全件反映済み）
-> 作成: 2026-07-31（B-1 確認 3 問 → 事前メトリクス検証 → B-2 比較（D1〜D4）→ B-3 生成）
+> 入力: [`pbi-input.md`](./pbi-input.md) / [`review-external.md`](./review-external.md)（`R-001`〜`R-035` 全件反映済み）
+> 作成: 2026-07-31（B-1 確認 3 問 → 事前メトリクス検証 → B-2 比較（D1〜D5）→ B-3 生成）
 > 基点: `origin/main` = `b45ab17`
 
 ## 確認事項（B-1 / Human 回答済み 2026-07-31）
@@ -75,7 +75,7 @@
 
 現行ツリーには「argv 先頭要素 = `sys.executable` に限る」という素朴な不変条件の違反が 3 箇所実在し（`test_c3prime_verify.py` の `_run()` 1 箇所 / `test_discovery.py` の 2 箇所）、**いずれも `## Files / Components to Touch` の 21 パスの外**にある。素朴版のままでは exec が「allowed_paths 外を編集して `plan_deviation` → `EXEC_RETURN`」か「承認済み不変条件を無断で弱める」かに追い込まれるため、不変条件を次のとおり精緻化する:
 
-1. **許可条件**: `test_*.py` 内の `subprocess.run` / `check_output`（および `Popen` / `call` / `check_call`）の **argv 先頭要素**は、**`sys.executable`**、**または読み取り専用 git サブコマンドの allowlist**（argv = `["git", <sub>, ...]` かつ `<sub>` ∈ `status` / `rev-parse` / `diff` / `log` / `merge-base` / `ls-remote` / `show`）に限る。→ `test_discovery.py` の 2 箇所（`["git", "status", "--porcelain"]`）は**正当な用途として恒久的に許容**される（テストが git 状態を確認するのは妥当）
+1. **許可条件**: `test_*.py` 内の `subprocess.run` / `check_output`（および `Popen` / `call` / `check_call`）の **argv 先頭要素**は、**`sys.executable`**、**または読み取り専用 git サブコマンドの allowlist**（argv = `["git", <sub>, ...]` かつ `<sub>` ∈ `status` / `rev-parse` / `diff` / `log` / `merge-base` / `ls-remote` / `show`）に限る。→ `test_discovery.py` の 2 箇所（`["git", "status", "--porcelain"]`）は**正当な用途として恒久的に許容**される（テストが git 状態を確認するのは妥当）。**`import subprocess as X` / `from subprocess import run, check_output` 等の import 形を AST で解決してから照合する**（別名・直接 import も同一扱い）。解決できない import 形は fail-closed。→ 現行ツリーは `import subprocess` のみ（`test_c3prime_verify.py` / `test_discovery.py` / `test_metrics.py`）だが、**属性呼び出し形（`ast.Attribute(value=Name('subprocess'))`）だけを見る実装では、exec で新規作成する test 6 本が別名・直接 import を使った瞬間に照合をすり抜け検査器が clean を返す**（= 「テストの単純除外は迂回路になる」という本節の目的が達成されない。R-035）
 2. **grandfather 例外の凍結**: `test_c3prime_verify.py` の `_run()` が組み立てる `args = ["python3", str(VERIFY), str(task_dir)]` は、**`check_exec_boundary.py` に列挙された例外リスト（ファイル + 関数名で特定）に 1 件だけ載せて凍結**する。**例外リストが増えないことをテストで固定**し、新規コードには厳格に適用する。理由 = `"python3"` は PATH 依存で実行中インタプリタと一致しない潜在不具合であり、**正当化ではなく凍結**が正しい扱いである
 3. **静的証明できない場合の既定は violation（fail-closed）**: argv がリテラルでなく変数経由で追跡不能なときは、**例外リストに載っていない限り FAIL に倒す**
 4. `test_c3prime_verify.py` の `sys.executable` 化は **V2 候補**（本 PBI では触らない = `allowed_paths` を増やさない。Risks 表下の V2 候補に記載）
@@ -108,7 +108,7 @@ in-process allowlist は **この Python プロセス経由の作用しか守ら
 | キー | 案 | 採用 |
 |------|----|------|
 | `allowed_paths` | (a) c3 record から読む / (b) **plan.md から再導出** / (c) 手渡し | **(b)**。c3 record には値ではなく `derived_loopspec_hash` しか無い。`plan_package.py` の `derive_loopspec()` が `plan.md` の `## Files / Components to Touch` から `_PATH_RE`（バッククォート内の `a/b` 形式）で抽出する経路が**既存**なので、**`extract_allowed_paths(plan_text)` を public 化して共有**する（`derive_loopspec` の maker/checker 検証を巻き込まないよう抽出だけ切り出す）。抽出 0 件は `escalation_flags` へ |
-| `findings[]` | (a) 新 producer を作る / (b) **薄い変換アダプタ + receipt convention** / (c) #874 に委譲 | **(b)**。producer は repo 内に**存在しない**（`repair_commit` / `dod_evaluated` は `delivery.py` + そのテスト + 正本 doc にしか出現しない = consumer のみ・実測）。**#874 は下流（RunEvidence の事後集約）なので委譲不可**。2 段構成で最小実装: ①発見（`id` / `finding_type` / `severity`）は `docs/ai/external-reviewer-interface.md §3.2` の `{finding, severity, evidence, location}` からの**薄い変換アダプタ** ②`disposition` の書き戻しは **`delivery.py receipt --result-ref <str>` の既存汎用文字列**を convention で使う（例 `adopted:<repair_commit_sha>` / `rejected:<evidence_ref_path>`）。Reconciler が `record.jsonl` の intent と receipt を `action_id` で突合して `disposition` を再構成する（**`delivery.py` 本体は不変のまま**） |
+| `findings[]` | (a) 新 producer を作る / (b) **薄い変換アダプタ + receipt convention** / (c) #874 に委譲 | **(b)**。producer は repo 内に**存在しない**（`repair_commit` / `dod_evaluated` は `delivery.py` + そのテスト + 正本 doc にしか出現しない = consumer のみ・実測）。**#874 は下流（RunEvidence の事後集約）なので委譲不可**。2 段構成で最小実装: ①発見（`id` / `finding_type` / `severity`）は `docs/ai/external-reviewer-interface.md §3.2` の `{finding, severity, evidence, location}` からの**薄い変換アダプタ** ②`disposition` の書き戻しは **`delivery.py receipt --result-ref <str>` の既存汎用文字列**を convention で使う（例 `adopted:<repair_commit_sha>` / `rejected:<evidence_ref_path>`）。Reconciler が `record.jsonl` の intent と receipt を `action_id` で突合して `disposition` を再構成する（**`delivery.py` 本体は不変のまま**）。**`finding_type` は Executor が `repair_review` receipt に載せる値と同一語彙を使い（Collector の変換アダプタと Executor が同一の定数表を import する）、アダプタが生成する `id` は入力 finding に対して決定論的であること**（語彙が不一致だと `_past_repair_finding_types()` の集合積が常に空になり `same_type_recurrence` が fail-open になる。`id` が run 間で不安定だと `_resolved()` の disposition 突合が壊れ `unresolved_hard` が消えず `MERGE_READY` に到達しない。R-034） |
 | `dod_evaluated` | (a) 別ファイル / (b) **record.jsonl から導出** | **(b)**。「直近の `dod_reevaluate` receipt が現在の `head_sha` に束縛されて存在するか」で導出（Collector 内の 1 関数）。不一致・未存在・破損は `False`（`delivery.py` は False を `MERGE_READY_CANDIDATE` 止まりとして扱うので既に fail-closed） |
 | `source_sha_ancestry` | (a) 手渡し / (b) **git 実測** | **(b)**。`git merge-base --is-ancestor <c3.source_sha> <head_sha>`（exit 0→`True` / exit 1→`False` / それ以外→`None`）。**実装は repo 内に 0 件で新規**。shallow clone では解決できないため明示 fetch の前処理を入れる |
 | `ci_failure_taxonomy` | (a) CI ログから全自動分類 / (b) **人間 or 別層が明示 + 狭い自動 allowlist**（採用） / (c) 常に未指定 | **(b)**。実 CI（`.github/workflows/ci.yml` / `test.yml`）は**全ジョブが単発 shell 実行**で retry / JUnit 構造化出力 / flaky マーカーが無く、`code` / `flaky` / `environment` の**自動判別信号が事実上ない**。既定は「`record.jsonl` の manual taxonomy entry を Collector が**読むだけ**」とし、補助的に**狭い allowlist 自動分類**（`rate limit` / `ECONNRESET` / `runner has received a shutdown signal` 等の既知パターン一致時のみ `environment`）を足す。**`code` を機械が積極的に断定しない**。未該当は taxonomy を出力せず `delivery.py` の既存 fail-closed（`HUMAN_ESCALATED`）に委ねる。AC-8 が要求するのは「供給主体の機械的特定 + モジュール境界 + 単体テスト」であって分類精度の保証ではない |
@@ -155,7 +155,7 @@ GitHub REST GET ──▶ collector.py ──▶ snapshot.json ──▶ deliver
 ```
 
 1. **`gh_exec.py`**（唯一の `subprocess` 境界 / allowlist）→ **`check_exec_boundary.py`**（AST で境界を機械強制）
-2. **`collector.py`**: REST GET **3〜4 本**で snapshot を組み立てる。`gh pr view --json statusCheckRollup` は**使わない**（後述の実測理由）
+2. **`collector.py`**: REST GET **4 本**で snapshot を組み立てる（下記 4 endpoint = `todo.md` T-25 / `test-cases.md` TC-29 と同一集合）。`gh pr view --json statusCheckRollup` は**使わない**（後述の実測理由）
    - `repos/{o}/{r}/commits/{sha}/check-runs` → `id` / `head_sha` / **`status`** / `conclusion` / `completed_at`（**AC-1 と AC-9 の両方をこれ 1 本で賄える**）
      - **`status` → `conclusion` 写像（R-019 反映・必須）**: `CHECK_PENDING = ("pending", "queued", "in_progress")` は check-run の **`status` の値**であって `conclusion` の値ではない。未完了 check-run の `conclusion` は **null** で、`validate_snapshot()` は `checks[].conclusion` に `str` を要求するため（`None` 不可 → `invalid_snapshot`）、**`status != "completed"` のときは `conclusion = status`（`queued` / `in_progress`）へ写像する**。この写像が無いと repair push 直後（check-run が queued / in_progress）に優先度 1 の `invalid_snapshot` へ落ち、**`WAITING_FOR_CHECKS` に到達せず AC-4 の「repair → 最新 head 再評価 → MERGE_READY」の 1 周が実 PR で回らない**（fixture は手書きのため乖離が隠れる）
    - `repos/{o}/{r}/pulls/{n}/reviews` → `id` / `state` / `commit_id` / `submitted_at`（`per_page` 明示・全件取得。縮約規則は D3 §`review` の縮約規則）
@@ -166,7 +166,7 @@ GitHub REST GET ──▶ collector.py ──▶ snapshot.json ──▶ deliver
 3. **`ci_taxonomy.py`**: `record.jsonl` の manual entry を正とし、補助的に狭い allowlist 自動分類（AC-8 の供給主体 = 本モジュール）
 4. **`executor.py`**: 6 種の `action_kind`（`repair_ci` / `resolve_conflict` / `repair_review` / `record_disposition` / `feedback_loop_referral` / `dod_reevaluate`）を実行。repair push は `gh_exec.push_pr_head()`、通知コメントは `repair_ci` / `repair_review` に**内包**
 5. **`reconciler.py`**: intent ↔ receipt を `action_id`（`c3_contract.canonical_hash()` を**変更せず import 再利用**）で突合し、冪等を担保。`disposition` を receipt の `result_ref` convention から再構成
-6. **配布 / doc**: `sync-plugin-plangate.sh` の **L345 のコピー元 for ループ**と **L355 の case 許可判定**の**両方**へ 12 本を追加。doc は `delivery-state-machine.md` §4（contract ブロック**外**）へ AC-8 供給主体を 1 文追記
+6. **配布 / doc**: `sync-plugin-plangate.sh` の **コピー元 for ループ**（記号アンカー: `for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" …`・行番号は**目安** L345）と **case 許可判定**（記号アンカー: `arbiter.py|test_arbiter.py|…) : ;;`・行番号は**目安** L355）の**両方**へ 12 本を追加。doc は `delivery-state-machine.md` §4（contract ブロック**外**）へ AC-8 供給主体を 1 文追記
 
 ### ⚠️ 設計を変えた実測: Collector の主経路は REST GET
 
@@ -198,7 +198,7 @@ GitHub REST GET ──▶ collector.py ──▶ snapshot.json ──▶ deliver
 6. **Step 6: `executor.py`（AC-3 / R-005 通知）**
    - Output: `scripts/ai-loop/executor.py` / `scripts/ai-loop/test_executor.py`
    - Owner: agent / Risk: **高**（唯一の外部書き込み層）
-   - 🚩 チェックポイント: 新 `action_kind` を作っていない / コメント失敗を握り潰さない / receipt に comment URL を記録
+   - 🚩 チェックポイント: 新 `action_kind` を作っていない / コメント失敗を握り潰さない / receipt に comment URL を記録 / **`finding_type` の語彙が Collector の変換アダプタと Executor の `repair_review` receipt で同一定数表から供給されている**こと（R-034。語彙不一致だと `_past_repair_finding_types()` の集合積が常に空になり `same_type_recurrence` が恒久 fail-open）
 7. **Step 7: `reconciler.py`（AC-3 冪等 / D3 findings 再構成）+ AC-6 接続点の統合テスト**
    - Output: `scripts/ai-loop/reconciler.py` / `scripts/ai-loop/test_reconciler.py`（**AC-6 の接続点統合テスト TC-12 / TC-13 を含む** — R-023 反映）
    - Owner: agent / Risk: 中
@@ -213,8 +213,9 @@ GitHub REST GET ──▶ collector.py ──▶ snapshot.json ──▶ deliver
    - Owner: agent（実行）/ human（検証用 PR の後片付け）/ Risk: 中
    - 🚩 チェックポイント: **実 PR に対する書き込みは repair push とコメントのみ**であることをログで確認。close / branch 削除は行わない
 10. **Step 10: 配布同期（R-011）**
-    - Output: `scripts/sync-plugin-plangate.sh`（**L345 と L355 の 2 箇所**）+ `plugin/plangate/` 再生成
+    - Output: `scripts/sync-plugin-plangate.sh`（**2 箇所** = for ループ `for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" …` / case `arbiter.py|test_arbiter.py|…) : ;;`）+ `plugin/plangate/` 再生成
     - Owner: agent / Risk: 中（片方漏れ = sync drift）
+    - **参照は記号アンカーで行う**（R-035 系の RR-07 反映）: 行番号 L345 / L355 は 2026-07-31 時点の**目安**であり、上流変更で stale 化する。exec では上記 2 つの記号アンカーで grep して位置を特定する
     - 🚩 チェックポイント: sync 2 回目 no-op / `git diff --quiet plugin/` / **2 箇所の列挙が同一集合**であることを機械照合
 11. **Step 11: doc 追記 + stale 是正**
     - Output: `docs/workflows/ai-loop/delivery-state-machine.md` §4 へ **計 5 文**を additive 追記 / `tests/extras/ta-56-delivery.sh` L29 の「51 テスト」→「57 テスト」 / `docs/workflows/ai-loop/execution-runbook.md`（D2-B を多層防御の補助として記載 — R-024）
@@ -261,7 +262,7 @@ GitHub REST GET ──▶ collector.py ──▶ snapshot.json ──▶ deliver
 | 14 | `scripts/ai-loop/plan_package.py` | 改変（`extract_allowed_paths` public 化のみ） |
 | 15 | `scripts/ai-loop/test_plan_package.py` | 改変（public 化のテスト追加） |
 | 16 | `tests/extras/ta-56-delivery.sh` | 改変（L29「51 テスト」→「57 テスト」の 1 行是正） |
-| 17 | `scripts/sync-plugin-plangate.sh` | 改変（**L345 の for ループ + L355 の case の 2 箇所**） |
+| 17 | `scripts/sync-plugin-plangate.sh` | 改変（**2 箇所** = for ループ `for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" …` + case `arbiter.py\|test_arbiter.py\|…) : ;;`。行番号 L345 / L355 は目安） |
 | 18 | `docs/workflows/ai-loop/delivery-state-machine.md` | 改変（§4 に **5 文** additive。**contract ブロックは不変**） |
 | 19 | `docs/workflows/ai-loop/execution-runbook.md` | 改変（D2-B を多層防御の**補助**として記載。R-024 — 宣言した doc 更新先を `allowed_paths` に含める） |
 | 20 | `plugin/plangate/` | sync 自動再生成 |
@@ -288,12 +289,13 @@ GitHub REST GET ──▶ collector.py ──▶ snapshot.json ──▶ deliver
 | required status checks（AC-2 の取得元） | **1 件**（`Markdown lint`）。`gh api repos/s977043/plangate/rules/branches/main --jq '[.[] \| select(.type=="required_status_checks") \| .parameters.required_status_checks[].context]'` → `["Markdown lint"]` / **exit 0**（R-022 で `rulesets/{id}` から差し替え・ruleset id 不要） | — | — | AC-2 の ⊇ 照合対象。1 件しかないため負側テストは fixture で作る |
 | 新規 extras の CI 配線 | **不要**（`tests/run-tests.sh` は `if [ -d "$EXTRAS_DIR" ]` 直下の `for extra in "$EXTRAS_DIR"/ta-*.sh` で glob 自動 source。**記号アンカーで参照**。R-028 で「L155-160」を訂正 — 当該行は**コメント行**で、実体は `PG_HARNESS_SOURCED=1` の直後の `if`/`for` 2 行） | 1 ファイル改変 | 0 | Files から `tests/run-tests.sh` を除外（Mode は他要因で critical のため据え置き） |
 | `scripts/ai-loop/test_*.py` の実行導線 | **0 本**（`tests/run-tests.sh` は python を呼ばない。`test_plan_package.py` は ta-55 / ta-56 から `import ... as tpp` の **fixture helper としてのみ** import され本体は未実行） | — | — | R-020 の根拠。ta-57 に **7 本**の `python3 .../test_*.py` を追加する |
+| `finding_type` 語彙契約のタスク / TC | **0 件 / 0 件**（`grep -c findings docs/working/TASK-0917/todo.md` = 0 / `grep -c finding_type docs/working/TASK-0917/test-cases.md` = 0。River Review 実測） | — | — | R-034 の根拠。`delivery.py` L229-231 / L305 の集合積が語彙不一致で常に空 = `same_type_recurrence` の恒久 fail-open。**T-51 と TC-40 を新設**して塞ぐ |
 
 ## Testing Strategy
 
 - **Unit**
   - `test_gh_exec.py`: allowlist の正側 / 負側（T-A〜T-H 相当・`test-cases.md` TC-20〜TC-30。**TC-31 / TC-31b は `test_check_exec_boundary.py` の担当**）。**deny ケースで `subprocess` が一度も呼ばれない**ことを monkeypatch で固定
-  - `test_check_exec_boundary.py`: 現行ツリーに対する clean 判定 / 違反注入で FAIL / `test_*.py` の argv 先頭要素 不変条件（**精緻化版**: `sys.executable` または読み取り専用 git サブコマンド allowlist）/ **grandfather 例外リストが 1 件から増えないことの固定**（負側）/ **argv が静的追跡不能なら例外リスト外は FAIL（fail-closed）**（`test-cases.md` TC-31 / TC-31b）
+  - `test_check_exec_boundary.py`: 現行ツリーに対する clean 判定 / 違反注入で FAIL / `test_*.py` の argv 先頭要素 不変条件（**精緻化版**: `sys.executable` または読み取り専用 git サブコマンド allowlist）/ **grandfather 例外リストが 1 件から増えないことの固定**（負側）/ **argv が静的追跡不能なら例外リスト外は FAIL（fail-closed）** / **import 形（`import subprocess as sp` / `from subprocess import run`）を AST で解決してから照合し、別名・直接 import の変異注入で FAIL することを検出力として実証**（R-035）（`test-cases.md` TC-31 / TC-31b / TC-31c）
   - `test_collector.py`: fixture 注入（`gh_exec` を差し替え）で snapshot 組み立て・pre-check・AC-9 自己照合
   - `test_ci_taxonomy.py`: manual entry 優先 / 自動 allowlist / 未該当は出力なし
   - `test_executor.py`: 6 action_kind / 通知内包 / 失敗時の escalation
@@ -357,7 +359,7 @@ Loop Attempts:（exec 中に追記）
 | **required checks の取得に repo admin 権限が要るか未確認** | 非 admin トークンで反証していない（Unknowns に残す） | 取得失敗 = fail-closed なので安全側に倒れる。恒常的に取得できないなら Replan Trigger |
 | repair push が C-4 承認を stale にする（`dismiss_stale_reviews_on_push: false` 実測） | R-005 案② 明示通知コメント（`repair_ci` / `repair_review` に内包）+ receipt に comment URL 記録 | コメント投稿失敗は握り潰さず `escalation_flags` へ |
 | `delivery.py` に手を入れてしまう | AC-7 の 3 点（差分 0 行 / 57 テスト / contract byte 一致）を ta-57 と CI 双方で機械検証 | 検知即 `git restore -- scripts/ai-loop/delivery.py` + Replan |
-| sync 列挙の片方漏れ（**L345 / L355 の 2 箇所**・新規 12 本） | 2 箇所の列挙が同一集合であることを機械照合する検証タスク（**todo T-39**。R-028 で T-30（= `reconciler.py` 実装）からの誤参照を訂正）+ sync 2 回目 no-op | 漏れ検知時は両方へ追加し `git diff --quiet plugin/` を再確認 |
+| sync 列挙の片方漏れ（**2 箇所** = for ループ `for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" …` / case `arbiter.py\|test_arbiter.py\|…) : ;;`。行番号 L345 / L355 は目安・新規 12 本） | 2 箇所の列挙が同一集合であることを機械照合する検証タスク（**todo T-39**。R-028 で T-30（= `reconciler.py` 実装）からの誤参照を訂正）+ sync 2 回目 no-op | 漏れ検知時は両方へ追加し `git diff --quiet plugin/` を再確認 |
 | **新規 unit test 6 本が一度も実行されない**（`run-tests.sh` は python を呼ばず extras の `ta-*.sh` を glob source するだけ） | ta-57 に 7 本の `python3 .../test_*.py` を明示追加（R-020）+ Stop Condition の下限を **437** に引き上げ | 7 本の PASS 行を出力から grep して不足を検出。不足時は ta-57 を是正するまで Stop |
 | **`changed_files` を空リストで埋めて逸脱検知が fail-open 化**（`plan_deviation` が常に不発） | `changed_files` を読み取り系 git で実測（R-017）+ 取得失敗は `changed_files_unavailable:<reason>` で fail-closed + 空リスト時の負側 TC | 空のまま `assess()` に渡さない（`escalation_flags` 経由で `HUMAN_ESCALATED`） |
 | **`conflict_resolution` を常時出力して恒久 `CONFLICT`**（`cr_incomplete` → `conflict_need = True` で `MERGE_READY` 到達不能） | 三点（`base_sha` / `head_sha` / `result_sha`）が揃うときのみ出力（R-026）+ 「conflict 未発生時はキー自体を出さない」TC | 出力を止めれば任意キーのため `assess()` は素通しする |
@@ -395,7 +397,7 @@ Loop Attempts:（exec 中に追記）
 
 - **受入基準数: 9 件**（AC-1〜9）→ 高（6-10）
 - **変更ファイル数: 19**（手作業・plugin / working 除く。R-024 で `execution-runbook.md` を追加）→ **超高（16+）**
-- タスク数（見込み）: 21+（`todo.md` **実数 50**。`grep -oE 'T-[0-9]+' todo.md | sort -u | wc -l` = 50・T-1〜T-50 欠番なし。R-028 で「32」を訂正 — `decision-log.jsonl` は当時 48 と記録しており **plan 本文だけが自己矛盾**していた。C-2 反映で R-023 / R-024 由来の 2 タスクが増え 48 → 50）→ **超高**
+- タスク数（見込み）: 21+（`todo.md` **実数 51**。`grep -oE 'T-[0-9]+' todo.md | sort -u | wc -l` = 51・T-1〜T-51 欠番なし。R-028 で「32」を訂正 — `decision-log.jsonl` は当時 48 と記録しており **plan 本文だけが自己矛盾**していた。C-2 反映で R-023 / R-024 由来の 2 タスクが増え 48 → 50、River Review 反映で R-034 由来の T-51 が増え 50 → **51**）→ **超高**
 - 変更種別（定性が支配的）:
   - **リポジトリに初めて「外部作用を実行する層」を導入する**（現状 ai-loop は全て純判定器 + ファイル I/O のみ）
   - 実 GitHub API への**書き込み**（repair push / コメント）を伴い、**副作用の巻き戻しが容易でない**（Revert Policy L3 が必要）
