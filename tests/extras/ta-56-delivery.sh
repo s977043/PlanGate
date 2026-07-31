@@ -26,7 +26,7 @@ elif ! command -v python3 >/dev/null 2>&1; then
 else
   # 1. 単体テスト
   if python3 "$PG_T56_ROOT/scripts/ai-loop/test_delivery.py" >/dev/null 2>&1; then
-    t56_pass "test_delivery.py 単体テスト（51 テスト・R1/R2 回帰含む）"
+    t56_pass "test_delivery.py 単体テスト（57 テスト・R1/R2 回帰含む）"
   else
     t56_fail "test_delivery.py 単体テスト FAIL"
   fi
