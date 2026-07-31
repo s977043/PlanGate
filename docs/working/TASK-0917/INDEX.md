@@ -4,7 +4,7 @@
 > 由来: [#873](https://github.com/s977043/plangate/issues/873) / TASK-0873 の V2 送り分（実 PR 収束系）
 > 基点: `origin/main` = `b45ab17`
 > Mode: **critical**（`lite_eligible=false` / 人間 C-3 詳細レビュー必須 / V-4 実行対象）
-> 現在フェーズ: **exec 完了 / V-1 PASS（FAIL 0）** — T-1〜T-51 実装完了、敵対レビュー R1/R2/R3 の critical 10 / major 15 を全件是正、T-35/T-36 の実 PR 1 周も実施済み。残るは **C-4（PR レビュー・マージ）と検証用 PR #940 の後片付け**（いずれも Human-owned）
+> 現在フェーズ: **exec 完了 / V-1 WARN（条件付き PASS / FAIL 0）** — T-1〜T-51 実装完了、敵対レビュー R1/R2/R3 の critical 10 / major 15 を全件是正、T-35/T-36 の実 PR 1 周も実施済み。残るは **C-4（PR レビュー・マージ）と検証用 PR #940 の後片付け**（いずれも Human-owned）
 > plan 承認: **C-3 APPROVED**（2026-07-30T23:26:43Z・`plan_hash` = `sha256:f72077a3…86cc29`）
 
 | ファイル | 状態 |
@@ -20,4 +20,4 @@
 | [decision-log.jsonl](./decision-log.jsonl) | ✅ B-1 / B-2 / B-3 / C-2 / C-1 / C-3 + **exec 期の裁定**（append-only） |
 | [status.md](./status.md) | ✅ フェーズ履歴 + **計画からの変更点 9 件** |
 | [handoff.md](./handoff.md) | ✅ WF-05 完了資産（必須 6 要素） |
-| [evidence/e2e/](./evidence/e2e/) | ✅ AC-4 / TC-11（実 PR #940 への 1 周実走・25 ファイル） |
+| [evidence/e2e/](./evidence/e2e/) | ✅ AC-4 / TC-11（実 PR #940 への 1 周実走・**23 ファイル**） |

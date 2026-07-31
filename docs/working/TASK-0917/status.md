@@ -35,15 +35,15 @@
 
 | PR | ブランチ | 状態 |
 |----|---------|------|
-| （未作成） | `feat/task-0917-delivery` | 本 PBI 本体。`origin` へ `3c1242f` まで push 済み（`e519a87` は未 push）。PR 作成は WF-05 完了後 → C-4 |
+| （未作成） | `feat/task-0917-delivery` | 本 PBI 本体。`origin` へ `3c1242f` まで push 済み（**`e519a87` / `aab4d53` の 2 commit が未 push**）。PR 作成は WF-05 完了後 → C-4 |
 | [#940](https://github.com/s977043/PlanGate/pull/940) | `chore/task-0917-e2e-probe` | **draft / OPEN**（head `7b22922`・2026-07-31 15:53 に GET で実測）。**AC-4 検証専用 / DO NOT MERGE**。close + branch 削除は **Human-owned（未了）** |
 
 ## 実装状態
 
 | 種別 | 件数 | 内容 |
 |------|------|------|
-| commit | **13**（`origin/main..HEAD`） | 実装 4 / E2E 1 / plugin sync 1 / doc 1 / 是正 5（R1×2・R2×2・R3×1）+ merge 1・全 commit に `Refs:` あり |
-| 変更ファイル | **58**（`git diff --name-only origin/main...HEAD`） | 手作業 19（新規 13 / 改変 6）+ plugin 自動同期 14 + `docs/working/TASK-0917/evidence/` 25 |
+| commit | **14**（`origin/main..HEAD` / 2026-07-31 再実測） | 実装 4 / E2E 1 / plugin sync 1 / doc 1 / 是正 5（R1×2・R2×2・R3×1）+ merge 1 + WF-05 完了資産 1・**merge commit（`3c1242f`）を除く全 commit に `Refs:` あり（13/13）**。WF-05 発行時点（`e519a87`）では 13 |
+| 変更ファイル | **64**（`git diff --name-only origin/main..HEAD` / 2026-07-31 再実測） | 手作業 19（新規 13 / 改変 6）+ plugin 自動同期 **16**（`scripts/` 14 + `references/` 2）+ `docs/working/TASK-0917/evidence/` **23** = 58（WF-05 発行時点 `e519a87`）+ WF-05 完了資産 6（`INDEX` / `status` / `current-state` / `handoff` / `todo` / `decision-log`）= **64** |
 | 新規モジュール | 6 + テスト 6 | `gh_exec` / `check_exec_boundary` / `collector` / `ci_taxonomy` / `executor` / `reconciler` |
 | `allowed_paths` 逸脱 | **0 件** | 全変更ファイルが `plan.md` 由来の `allowed_paths` 21 件配下（毎コミット前に機械照合） |
 | `docs/working/_audit/` の混入 | **0 件** | RR-08 の要件どおり本 branch から除外（`git diff --name-only` に `_audit` は 0 件） |
@@ -106,8 +106,11 @@ worktree: /Users/user/Documents/GitHub/plangate-wt-0917（branch feat/task-0917-
 1. WF-05 成果物 4 ファイル（status.md / current-state.md / handoff.md / todo.md）を
    1 コミットにまとめて push（Refs: #917。docs/working/_audit/ を混入させない）
 2. gh pr create で PR を作成（base main / head feat/task-0917-delivery）。
-   本文は handoff.md §5 の引き継ぎ文書を要約し、既知課題 8 件と
-   「AC-7 の差分 0 行検査が PR 時 CI では空振りする」ことを明記する
+   本文は handoff.md §5 の引き継ぎ文書を要約し、
+   既知課題 10 件（K-1〜K-10 / うち major 4 件: K-1・K-2・K-5・K-6）と
+   「AC-7 の差分 0 行検査が PR 時 CI では空振りする」（K-5）ことを明記する。
+   K-5（PR 時 CI の空振り）と K-6（プロダクション runner 不在）は
+   C-4 の判断に直結するため必ず本文へ載せること
 3. C-4（Human レビュー・マージ）を待つ。**AI はマージしない**
 4. マージ後に Human が PR #940 を close + branch 削除（AI は実行不可）
 5. follow-up issue を起票: .github/workflows/test.yml の fetch-depth: 0

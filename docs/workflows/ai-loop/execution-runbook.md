@@ -396,7 +396,13 @@ clone するため、`pull_request` イベントでは `origin/main` も `main` 
 ta-57 はこの場合 **`[WARN]` を出して先へ進む**（fail を増やして CI を落とすのではなく、
 「3 点中 2 点しか機械検証されていない環境である」ことを可視化する）。
 
-したがって **AC-7 の 3 点が揃うのはローカル実行 / main への push 後**であり、
+**base ref が HEAD と同一 commit に解決する場合も同様に実行しない**。`git diff --stat HEAD --
+<path>` は常に 0 行差分を返すため、実際に変更されているファイルでも PASS してしまう
+（vacuous な PASS）。`main` への push 後の CI は `actions/checkout` が `origin/main` を HEAD と
+同じ SHA に作るためこれに該当する。ta-57 はこの場合も base ref を採用せず `[WARN]` 経路へ落とす。
+
+したがって **AC-7 の 3 点が揃うのは base ref が HEAD と異なる checkout**（＝ローカルの
+feature branch 実行）であり、
 「ta-57 と CI の双方で 3 点とも機械検証される」とは言えない。PR 時にも TC-14 を
 走らせたい場合は checkout に `fetch-depth: 0`（または base ref の明示 fetch）を
 足す必要がある（`.github/workflows/` は Hardening Override 対象のため別 PBI /

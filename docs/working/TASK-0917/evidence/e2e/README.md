@@ -76,8 +76,15 @@ python3 harness/idem_recon.py
 python3 harness/driver.py collect3
 ```
 
-`harness/*.py` の定数（`HEAD_AT_APPROVAL` / `REPAIR_COMMIT` / `PR` / `BRANCH`）は
-実走ごとに実測値へ書き換えること。
+`harness/*.py` の定数（`WT` / `REPO` / `SOURCE_SHA` / `HEAD_AT_APPROVAL` / `REPAIR_COMMIT` /
+`PR` / `BRANCH`）は実走ごとに実測値へ書き換えること。とくに **`WT` は
+`/Users/user/Documents/GitHub/plangate-wt-0917` という machine-local な絶対パス**で、
+`driver.py` / `exec_step.py` / `idem_recon.py` の 3 本すべてが持つ。`EVID` / `TASK_DIR` /
+`RAW` はすべて `WT` 由来のため、**`WT` を直さないと最初の書き出しで `FileNotFoundError`
+になる**。
+
+> 保存されている `harness/*.py` は 2026-07-31 の実走時の**実物をそのまま残した証跡**である。
+> 再現時は上記定数を書き換えた**コピー**を使い、証跡側は書き換えないこと。
 
 ## 注意事項
 
@@ -114,4 +121,4 @@ python3 harness/driver.py collect3
 | `raw/spawn-ledger-idem-recon.json` | 冪等再実行 + 負検証中の全 argv |
 | `run/delivery/record.jsonl` | intent / notice / receipt の append-only 記録 |
 | `harness/*.py` | 実走に使ったハーネス（実装ではない） |
-| `probe.md` | push 対象の無害なダミーファイル |
+| `probe.md` | push 対象の無害なダミーファイル（**probe ブランチ `chore/task-0917-e2e-probe` 側にのみ存在。本ブランチには含まない**） |

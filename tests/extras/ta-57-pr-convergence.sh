@@ -575,18 +575,33 @@ PYEOF
   #     実測（2026-07-31）: `.github/workflows/test.yml` の `actions/checkout` は
   #     `fetch-depth` 未指定（既定 1）で、`pull_request` イベントでは
   #     `origin/main` も `main` も存在しない → PR 時 CI では本検査は走らない。
-  #     3 点が揃うのは **ローカル** / main への push 後。
+  #
+  #     さらに **base ref が HEAD と同一 commit に解決する場合も検出力を持たない**。
+  #     `git diff --stat HEAD -- <path>` は常に 0 行差分を返すため、実際には
+  #     1000 行超を変更したファイルでも PASS してしまう（vacuous な PASS）。
+  #     push-to-main の CI では `actions/checkout` が `origin/main` を HEAD と
+  #     同じ SHA に作るため、この条件に該当する。上と同じ R2 B2-2 の方針で、
+  #     **無音で通すのではなく [WARN] 経路へ落として未検証であることを明示**する。
+  #     したがって 3 点が揃うのは **base ref が HEAD と異なる checkout**（＝
+  #     ローカルの feature branch 実行）に限られる。
   _t57_base=""
+  _t57_head=$(git -C "$PG_T57_ROOT" rev-parse HEAD 2>/dev/null || printf '')
   for _t57_ref in origin/main main; do
     if git -C "$PG_T57_ROOT" rev-parse --verify --quiet "$_t57_ref" >/dev/null 2>&1; then
+      # base ref が HEAD と同一 commit なら差分は常に空 = 検出力ゼロ。採用しない。
+      _t57_refsha=$(git -C "$PG_T57_ROOT" rev-parse "$_t57_ref" 2>/dev/null || printf '')
+      if [ -n "$_t57_head" ] && [ "$_t57_refsha" = "$_t57_head" ]; then
+        continue
+      fi
       _t57_base="$_t57_ref"
       break
     fi
   done
   if [ -z "$_t57_base" ]; then
-    printf '  [WARN] TC-14 / AC-7 差分検査は **未実行**: base ref (origin/main / main) が無い checkout\n' >&2
+    printf '  [WARN] TC-14 / AC-7 差分検査は **未実行**: HEAD と異なる base ref (origin/main / main) が無い checkout\n' >&2
     printf '  [WARN]   → この環境で機械検証された AC-7 は 3 点中 2 点（TC-15 / TC-16）のみ。TC-14（差分 0 行）は未検証\n' >&2
-    printf '  [WARN]   → 3 点が揃うのはローカル / main への push 後（PR 時 CI は checkout の fetch-depth 既定 1 のため base ref 不在）\n' >&2
+    printf '  [WARN]   → base ref 不在（PR 時 CI: checkout の fetch-depth 既定 1）または base ref == HEAD（push-to-main の CI）では検出力を持たないため\n' >&2
+    printf '  [WARN]   → 3 点が揃うのは base ref が HEAD と異なる checkout（ローカルの feature branch 実行）\n' >&2
   else
     _t57_rc=0
     # shellcheck disable=SC2086

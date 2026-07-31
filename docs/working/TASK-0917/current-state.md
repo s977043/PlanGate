@@ -6,7 +6,7 @@
 
 ## 進捗: T-1〜T-51 完了 / Human タスクは C-3 のみ完了・C-4 と後片付けが未了
 
-- branch: `feat/task-0917-delivery`（**13 commit**・`origin` へ `3c1242f` まで push 済み / `e519a87` は未 push）
+- branch: `feat/task-0917-delivery`（**14 commit / 変更 64 ファイル**・`origin` へ `3c1242f` まで push 済み / **`e519a87` と `aab4d53` の 2 commit が未 push**。WF-05 発行時点 `e519a87` では 13 commit / 58 ファイル）
 - Mode: **critical**（`lite_eligible=false` / V-4 対象 / carve-out ①② のため ai-loop 自走は escalate 固定）
 - ゲート: **C-3 = APPROVED**（`plan_hash` = `sha256:f72077a3…86cc29`）/ **C-4 = pending（PR 未作成）**
 - 検証: `sh tests/run-tests.sh` = **453 passed / 0 failed**（下限 436）/ unit **486** / AC-7 差分 **0 行** / 境界検査 **clean（26 ファイル・違反 0）**

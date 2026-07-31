@@ -5,7 +5,7 @@ schema_version: 1
 status: final
 issued_at: 2026-07-31
 author: qa-reviewer
-v1_release: "e519a87"
+v1_release: "e519a87"  # WF-05 発行時点の HEAD。以降の完了資産 commit で branch HEAD は前進する（確定は C-4 マージ時）
 ---
 
 # TASK-0917 Handoff Package
@@ -23,7 +23,7 @@ author: qa-reviewer
 issued_at: 2026-07-31
 mode: critical
 branch: feat/task-0917-delivery
-v1_release: e519a87  # 未 merge（PR 未作成）。C-4 承認・マージをもって確定
+v1_release: e519a87  # WF-05 発行時点の HEAD。未 merge（PR 未作成）で、完了資産 commit により branch HEAD は前進する。C-4 承認・マージをもって確定
 c3_gate: APPROVED (2026-07-30T23:26:43Z / plan_hash sha256:f72077a3...86cc29)
 c4_gate: pending
 ```
@@ -105,7 +105,7 @@ c4_gate: pending
 
 `delivery.py`（純判定器 / TASK-0873）の**外側 2 層**を新設した。**GitHub Collector**（実 PR から head SHA 束縛の snapshot を組み立てる）、**Action Executor**（唯一の外部書き込み層）、**Reconciler**（intent ↔ receipt 突合・冪等）に加え、外部作用を構造的に封じ込める **`gh_exec.py`（in-process allowlist）** と **`check_exec_boundary.py`（AST 境界検査器）**、AC-8 の供給主体 `ci_taxonomy.py` を実装した。`delivery.py` / `c3_contract.py` / `c3prime_verify.py` は**一行も変更していない**（差分 0 行を実測）。
 
-現状は **branch `feat/task-0917-delivery` に 13 commit**（`e519a87` のみ未 push）。**PR は未作成**で、次のゲートは **C-4（Human レビュー・マージ）**。テストは `sh tests/run-tests.sh` = 453 passed / 0 failed、unit 486 件。実 PR [#940](https://github.com/s977043/PlanGate/pull/940) で 1 周を実走し**実装の欠陥は 0 件**だった。**PR #940 は draft / OPEN のまま残っている**ので、C-4 後に人間が close + branch 削除すること。
+現状は **branch `feat/task-0917-delivery` に 14 commit / 変更 64 ファイル**（`origin/main..HEAD` / 2026-07-31 再実測）。`origin` へは `3c1242f` まで push 済みで、**`e519a87` / `aab4d53` の 2 commit が未 push**。うち WF-05 発行時点（`e519a87`）は 13 commit / 58 ファイルで、差分は完了資産 6 ファイルの発行 commit。**PR は未作成**で、次のゲートは **C-4（Human レビュー・マージ）**。テストは `sh tests/run-tests.sh` = 453 passed / 0 failed、unit 486 件。実 PR [#940](https://github.com/s977043/PlanGate/pull/940) で 1 周を実走し**実装の欠陥は 0 件**だった。**PR #940 は draft / OPEN のまま残っている**ので、C-4 後に人間が close + branch 削除すること。
 
 ### 触れないでほしいファイル
 
@@ -135,12 +135,14 @@ c4_gate: pending
 
 | レイヤー | 件数 | PASS | FAIL / SKIP | カバレッジ |
 |---------|------|------|-----------|----------|
-| Unit（`scripts/ai-loop/test_*.py` 8 本） | **486** | **486** | 0 / 0 | AC-1〜AC-3 / AC-5 / AC-8 / AC-9 の全 TC |
+| Unit（本 PBI 関連 **8 本**: `check_exec_boundary` / `gh_exec` / `collector` / `ci_taxonomy` / `executor` / `reconciler` / `plan_package` / `delivery`） | **486** | **486** | 0 / 0 | AC-1〜AC-3 / AC-5 / AC-8 / AC-9 の全 TC |
 | Integration（`test_reconciler.py` に内包） | 上記に含む | 全 PASS | 0 / 0 | Collector → `assess()` → Executor → receipt → Reconciler の 1 周（TC-09b / TC-12 / TC-13） |
 | E2E（`sh tests/run-tests.sh` / shell harness 全体） | **453** | **453** | **0** / —（`ta-13` TC-17 は linked worktree で SKIP） | `ta-57-pr-convergence.sh` の 24 件を含む |
 | 手動 E2E（実 PR 1 周 / TC-11） | 1 周 | 1 周 | 0 | AC-4。外部書き込みは**コメント 1 件 + push 1 回のみ** |
 
 **unit の内訳**: `check_exec_boundary` 130 / `gh_exec` 60 / `collector` 98 / `ci_taxonomy` 25 / `executor` 48 / `reconciler` 29 / `plan_package` 39 / `delivery` 57 = **486**
+
+> ⚠️ **486 は上記 8 本の合計であって `scripts/ai-loop/test_*.py` の glob 全体ではない**。glob は **13 本**（上記 8 本 + `arbiter` 247 / `discovery` 42 / `metrics` 40 / `c3_contract` 22 / `c3prime_verify` 12）で、13 本すべてを実行すると **849**（2026-07-31 実測）。glob 表記で再実行して 849 を得ても 486 は誤りではない。
 
 **Stop Condition**: worktree 下限 **436**（= worktree baseline 429 + 新規 PASS 行 7）に対し実測 **453**（+17）→ 充足。共有 checkout の baseline は 430（差 1 は `ta-13` TC-17 の worktree SKIP / K-4）。
 
@@ -152,7 +154,13 @@ c4_gate: pending
 
 **実行境界検査**: `python3 scripts/ai-loop/check_exec_boundary.py` → **`clean`（26 ファイル / 違反 0）**
 
-**FAIL / SKIP の詳細**: FAIL は 0 件。SKIP は `ta-13` TC-17（linked worktree では `.git` がファイルのため常に SKIP / K-4）と、`ta-25` が `[SKIP]` を pass に計上している箇所（K-2）— 後者は**計上方法自体が既知課題**。
+**FAIL / SKIP の詳細**: FAIL は 0 件。`[SKIP]` の印字は **3 件**（2026-07-31 実測）:
+
+- `ta-13` TC-17 — linked worktree では `.git` がファイルのため常に SKIP（**pass 非計上** / K-4）
+- `ta-05` F-8 — `schemas/c3-prime.schema.json` が配置済みのため SKIP（**pass 非計上**）
+- `ta-25` TC-06 — `[SKIP]` を印字しながら `pass=$((pass + 1))` を実行（**pass 計上** / K-2）。**計上方法自体が既知課題**
+
+453 の内訳に影響するのは pass 計上される `ta-25` TC-06 のみで、**453 という実測値は不変**。
 
 ## 7. Metrics summary（v8.6.0+、任意）
 
