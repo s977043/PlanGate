@@ -1,0 +1,18 @@
+{
+  "actions": [],
+  "new_entries": [
+    {
+      "head_sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+      "kind": "state",
+      "pr_number": 940,
+      "reasons": [
+        "required review が最新 head で未着弾"
+      ],
+      "state": "WAITING_FOR_REVIEW"
+    }
+  ],
+  "reasons": [
+    "required review が最新 head で未着弾"
+  ],
+  "state": "WAITING_FOR_REVIEW"
+}

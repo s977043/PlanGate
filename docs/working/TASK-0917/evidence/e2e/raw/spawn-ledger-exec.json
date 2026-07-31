@@ -1,0 +1,93 @@
+[
+  {
+    "argv": [
+      "gh",
+      "pr",
+      "comment",
+      "940",
+      "--body-file",
+      "/private/var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/plangate-gh-exec-arljdwi1.md",
+      "--repo",
+      "s977043/PlanGate"
+    ],
+    "elapsed_ms": 1185,
+    "returncode": 0,
+    "seq": 1,
+    "stderr": "",
+    "stdout": "https://github.com/s977043/PlanGate/pull/940#issuecomment-5140067809\n"
+  },
+  {
+    "argv": [
+      "gh",
+      "pr",
+      "view",
+      "chore/task-0917-e2e-probe",
+      "--json",
+      "headRefOid",
+      "--repo",
+      "s977043/PlanGate"
+    ],
+    "elapsed_ms": 525,
+    "returncode": 0,
+    "seq": 2,
+    "stderr": "",
+    "stdout": "{\"headRefOid\":\"fe0abc66d426ce13b18c58d407ecfa6f68808450\"}\n"
+  },
+  {
+    "argv": [
+      "gh",
+      "pr",
+      "view",
+      "chore/task-0917-e2e-probe",
+      "--json",
+      "headRefName,baseRefName",
+      "--repo",
+      "s977043/PlanGate"
+    ],
+    "elapsed_ms": 545,
+    "returncode": 0,
+    "seq": 3,
+    "stderr": "",
+    "stdout": "{\"baseRefName\":\"main\",\"headRefName\":\"chore/task-0917-e2e-probe\"}\n"
+  },
+  {
+    "argv": [
+      "git",
+      "ls-remote",
+      "--get-url",
+      "origin"
+    ],
+    "elapsed_ms": 26,
+    "returncode": 0,
+    "seq": 4,
+    "stderr": "",
+    "stdout": "git@github-s977043:s977043/PlanGate.git\n"
+  },
+  {
+    "argv": [
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+      "HEAD"
+    ],
+    "elapsed_ms": 20,
+    "returncode": 0,
+    "seq": 5,
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "git",
+      "push",
+      "origin",
+      "HEAD:refs/heads/chore/task-0917-e2e-probe"
+    ],
+    "elapsed_ms": 2476,
+    "returncode": 0,
+    "seq": 6,
+    "stderr": "To github-s977043:s977043/PlanGate.git\n   fe0abc6..7b22922  HEAD -> chore/task-0917-e2e-probe\n",
+    "stdout": ""
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "action_id": "sha256:6cc2520b2024d22f228016f50008da1deb45cf8df55398b8cad4b123c57b7456",
+  "action_kind": "repair_ci",
+  "failed_checks": [
+    "Markdown lint"
+  ],
+  "head_sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+  "pr_number": 940,
+  "round": 1,
+  "taxonomy": "code"
+}

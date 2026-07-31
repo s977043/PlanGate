@@ -1,0 +1,16 @@
+{
+  "outcomes": [
+    {
+      "action_id": "sha256:6cc2520b2024d22f228016f50008da1deb45cf8df55398b8cad4b123c57b7456",
+      "action_kind": "repair_ci",
+      "comment_url": null,
+      "escalation_flags": [],
+      "pushed": false,
+      "reason": null,
+      "result_ref": null,
+      "status": "already_receipted"
+    }
+  ],
+  "record_lines_after": 3,
+  "spawn_calls_during_rerun": 0
+}
