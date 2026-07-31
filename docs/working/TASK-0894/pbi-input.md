@@ -157,6 +157,12 @@ EPIC #870 DoD へ PR・test・E2E evidence link 反映。
    #869 検証が無い（issue 自体の非対称）。#869 adapter の検証を**追加 AC 化する**か、
    **#869 側 PBI へ後続分離する**か（issue 合意要・issue コメントでの提起を推奨）
 
+> **✅ schema 配置論点の裁定（2026-07-31・Human。本ブロックは schema 配置のみに係る — 他の C-3 論点は未裁定のまま）**: **案 2 段階方式**を採用。Phase 1（shadow）は
+> `docs/schemas/`（非 HO）で 4 PBI（#894/#874/#869/#908）同側に統一し、本番接続
+> （promotion gate / Gate 接続）の C-3 で `schemas/` へ **1 回の HO patch で昇格**
+> （前例 `3ec2e24`）。昇格判定は Gate 接続 PR の Human C-3 チェックリストで行う。
+> 裁定の正本: [`docs/working/discussions/2026-07-31-schema-placement-ho-arbitration.md`](../discussions/2026-07-31-schema-placement-ho-arbitration.md) §7
+
 ## Estimation Evidence
 
 ### Risks
@@ -172,7 +178,7 @@ EPIC #870 DoD へ PR・test・E2E evidence link 反映。
 
 ### Unknowns
 
-- schema 配置先（`schemas/` HO vs `docs/schemas/` 非 HO）→ **C-3 で確定（#874 と同一決定に揃える）**
+- schema 配置先（`schemas/` HO vs `docs/schemas/` 非 HO）→ ~~C-3 で確定（#874 と同一決定に揃える）~~ → **✅ 裁定済み（2026-07-31）: 案 2 = `docs/schemas/`（非 HO）で確定**（上記裁定ブロック参照）
 - 2 分割 (a)/(b) の PBI 分割 vs PR 分割 → **C-3 で確定**
 - `MERGE_READY` を decision enum に含めるか変換表右辺に留めるか → **C-3 で確定（論点 4）**
 - task profile 別既定 budget の初期値（実測データ不足。Run-001〜 の arbiter record から導出可能かは plan で確認）

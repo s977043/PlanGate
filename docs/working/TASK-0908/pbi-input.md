@@ -83,6 +83,12 @@ ai-loop には LoopSpec・Arbiter・rubric grader・metrics・Trust Ledger（pro
 - **下流依存**: #909 / #910 は本 PBI の Run Evaluation Result schema 確定待ち。schema フィールド（特に `trajectory` / `operational` の内訳）は下流が参照する contract になるため、`schema_version: 1` の互換方針を明記する
 - **実装段階（issue 準拠・plan の Work Breakdown 骨子）**: (1) Gap analysis → (2) Shadow result → (3) Trajectory rules v1 → (4) Dogfooding → (5) Gate 接続判断（判断材料の提出まで。接続自体は out of scope）
 
+> **✅ schema 配置論点の裁定（2026-07-31・Human。本ブロックは schema 配置のみに係る — 他の C-3 論点は未裁定のまま）**: **案 2 段階方式**を採用。Phase 1（shadow）は
+> `docs/schemas/`（非 HO）で 4 PBI（#894/#874/#869/#908）同側に統一し、本番接続
+> （promotion gate / Gate 接続）の C-3 で `schemas/` へ **1 回の HO patch で昇格**
+> （前例 `3ec2e24`）。昇格判定は Gate 接続 PR の Human C-3 チェックリストで行う。
+> 裁定の正本: [`docs/working/discussions/2026-07-31-schema-placement-ho-arbitration.md`](../discussions/2026-07-31-schema-placement-ho-arbitration.md) §7
+
 ## Estimation Evidence
 
 ### Risks
@@ -95,7 +101,7 @@ ai-loop には LoopSpec・Arbiter・rubric grader・metrics・Trust Ledger（pro
 
 ### Unknowns
 
-- Run Evaluation Result の配置先（`schemas/*.schema.json` = HO か、ai-loop 配下 contract 文書か）→ plan で確定（安全側 = HO 該当想定で見積もる）
+- Run Evaluation Result の配置先（`schemas/*.schema.json` = HO か、ai-loop 配下 contract 文書か）→ ~~plan で確定（安全側 = HO 該当想定で見積もる）~~ → **✅ 裁定済み（2026-07-31）: 案 2 = `docs/schemas/`（非 HO）で確定**（上記裁定ブロック参照）。**見積もりも非 HO 前提へ更新してよい**
 - 「approval 前編集」「grader feedback 無視」を既存証跡のどのイベントから決定論的に導出できるか（session ログ非保存の制約下で）→ gap analysis で対応表化し、導出不能項目は `unknown` に落とす
 - rubric grader（SKILL.md Step 5.5）の出力が機械可読形式で証跡化されているか → 実 Run record の実測で確認
 
