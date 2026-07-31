@@ -281,9 +281,16 @@ PR 作成後、以下を **`MERGE_READY` 到達まで**繰り返す。
 ### 実行系境界の多層防御 — D2-B は *補助*（TASK-0917 / #917）
 
 手順 (7) を機械実行する Executor（`scripts/ai-loop/executor.py`）の外部作用は
-`scripts/ai-loop/gh_exec.py` を**唯一の境界**とし、許可された `gh` サブコマンドの
-in-process allowlist を `scripts/ai-loop/check_exec_boundary.py` が AST で機械強制する
-（D2-A / AC-5）。**設計上の保証はこの層だけに依存する**。
+`scripts/ai-loop/gh_exec.py` を**唯一の境界**とする（D2-A / AC-5）。
+**設計上の保証はこの層だけに依存する**。強制の主語は 2 つに分かれる:
+
+| 何を強制するか | 誰が強制するか | 時点 |
+|---|---|---|
+| 許可された `gh` / 読み取り系 `git` サブコマンドの **allowlist 照合** | `gh_exec.authorize_gh()` / `authorize_git()`（**runtime**） | コマンド発行のたび |
+| `scripts/ai-loop/` の他モジュールが **`gh_exec` を迂回していない**こと（実行系トークン 0 件）と、`gh_exec.py` 内部の構造規律（`shell=True` 不使用 / `_spawn()` 単一経路 / 監査済み入口のみ） | `scripts/ai-loop/check_exec_boundary.py`（**AST 静的検査**） | CI / `tests/extras/ta-57-pr-convergence.sh` |
+
+つまり `check_exec_boundary.py` は allowlist そのものを強制するのではなく、
+**allowlist を通らない実行経路が生えていないこと**を静的に保証する。
 
 既存の `scripts/hooks/check-delegation-commit-boundary.sh` と GitHub の branch
 protection は **多層防御の補助**として併用してよいが、**設計はこれらに依存しない**。

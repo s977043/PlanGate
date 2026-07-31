@@ -7,12 +7,20 @@
 不変条件:
   1. `gh_exec.py` **以外**のモジュールは実行系トークンを持たない
      （`subprocess` / `os.system` / `os.popen` / `os.exec*` / `os.spawn*` /
-     `urllib` / `socket` / `http.client` / `requests` /
-     `importlib.import_module` による動的 import）。
+     `os.posix_spawn*` / `os.forkpty` / `pty` / `ctypes` / `multiprocessing` /
+     `asyncio.create_subprocess_*` / `urllib` / `socket` / `http.client` /
+     `requests` / `importlib.import_module` による動的 import）。
   2. `gh_exec.py` は「除外」ではなく **逆向きホワイトリスト検査**にかける。
      `subprocess` **のみ**許可し、その他の実行系トークンは 0 件であること
      （除外にすると唯一の実行境界そのものが無検査になり、`gh_exec.py` 内の
      `os.system("gh pr merge 1")` を止めるものが存在しなくなる）。
+     さらに `gh_exec.py` **内部の** `subprocess` 呼び出しサイトには
+     **構造規律**を課す（R1-A-4。語の有無だけでは唯一の境界の内部に無検査の
+     抜け道が残るため）:
+       (a) `shell=True` を渡さない（非リテラル / `**kwargs` 展開も fail-closed）
+       (b) `subprocess` 呼び出しは単一のプライベート実行関数（`_spawn()`）に限る
+       (c) `_spawn()` の呼び出し元は監査済みの入口関数集合
+           （`GH_EXEC_SPAWN_CALLERS`）に限る
   3. `test_*.py` は `subprocess` を使ってよいが、`run` / `check_output` /
      `Popen` / `call` / `check_call` 等の **argv 先頭要素**は
      `sys.executable` **または**読み取り専用 git サブコマンド allowlist
@@ -23,6 +31,13 @@
   5. import 形は AST で解決してから照合する（`import subprocess as sp` /
      `from subprocess import run` / `from subprocess import check_output as co`
      も同一扱い）。解決できない import 形（star import 等）は fail-closed。
+  6. **動的属性アクセス / 動的コード生成は全モジュールで禁止**（R1-A-1 / A-2）。
+     `getattr(os, "system")` は属性トークンとして解決して判定し、
+     `getattr(os, "sys" + "tem")` のように**第 2 引数がリテラルでない**場合は
+     解決不能として fail-closed で violation にする（不変条件 4 と同じ原則を
+     実行系トークン検出全体へ一貫適用する）。`eval` / `exec` / `compile` は
+     AST 静的検査と原理的に相容れないため **`gh_exec.py` を含む全モジュールで**
+     一律 deny。
 
 **substring 走査は使わない**: `discovery.py` の docstring には「subprocess での
 gh 呼び出し禁止」という宣言文が実在し、grep 方式では偽陽性になる。
@@ -72,17 +87,46 @@ GRANDFATHER_ARGV_EXCEPTIONS = (
 )
 
 #: import しただけで違反となるモジュール root（実行系 / ネットワーク）。
-FORBIDDEN_MODULE_ROOTS = ("urllib", "socket", "http", "requests")
+#: `pty` / `ctypes` / `multiprocessing` は難読化なしの直書きで
+#: `pty.spawn(["gh","pr","merge","1"])` / `ctypes.CDLL("libc").system(...)` /
+#: `multiprocessing` 経由の子プロセス起動を作れるため root ごと deny する（R1-A-3）。
+FORBIDDEN_MODULE_ROOTS = ("urllib", "socket", "http", "requests",
+                          "pty", "ctypes", "multiprocessing")
 
 #: `os` の実行系属性（完全一致 / prefix）。
-OS_EXEC_ATTRS = ("system", "popen")
+#: `posix_spawn` / `posix_spawnp` / `forkpty` は prefix ("exec"/"spawn") に
+#: 当たらないため**完全一致側**に載せる（R1-A-3）。
+OS_EXEC_ATTRS = ("system", "popen", "posix_spawn", "posix_spawnp", "forkpty")
 OS_EXEC_PREFIXES = ("exec", "spawn")
+
+#: `asyncio` 経由の子プロセス起動（R1-A-3）。
+ASYNCIO_EXEC_ATTRS = ("create_subprocess_exec", "create_subprocess_shell")
+
+#: 動的コード生成の builtin。**`gh_exec.py` を含む全モジュールで** deny する
+#: （AST 静的検査と原理的に相容れないため / R1-A-2）。
+DYNAMIC_CODE_BUILTINS = ("eval", "exec", "compile")
+
+#: 動的属性アクセスの builtin（第 2 引数が文字列リテラルなら属性トークンとして
+#: 解決し、リテラルでなければ fail-closed で violation にする / R1-A-1）。
+DYNAMIC_ATTR_BUILTIN = "getattr"
+
+#: `gh_exec.py` 内で `subprocess` を呼んでよい唯一のプライベート実行関数。
+GH_EXEC_SPAWN_FUNC = "_spawn"
+
+#: `GH_EXEC_SPAWN_FUNC` を呼んでよい入口関数（**この 3 件から増やさない**）。
+#: `push_pr_head` は allowlist ではなく構造化 API（`build_push_argv()` が argv を
+#: 自ら組み立てる）経路であり、`run_gh` / `run_git` と同格の監査済み入口である。
+GH_EXEC_SPAWN_CALLERS = ("run_gh", "run_git", "push_pr_head")
 
 # 違反コード
 CODE_EXEC_TOKEN = "EXEC_TOKEN"
 CODE_GH_EXEC_EXTRA_TOKEN = "GH_EXEC_EXTRA_TOKEN"
+CODE_GH_EXEC_SHELL = "GH_EXEC_SHELL"
+CODE_GH_EXEC_SPAWN_SITE = "GH_EXEC_SPAWN_SITE"
+CODE_GH_EXEC_SPAWN_CALLER = "GH_EXEC_SPAWN_CALLER"
 CODE_ARGV_HEAD = "ARGV_HEAD"
 CODE_ARGV_UNRESOLVED = "ARGV_UNRESOLVED"
+CODE_DYNAMIC_UNRESOLVED = "DYNAMIC_UNRESOLVED"
 CODE_IMPORT_UNRESOLVED = "IMPORT_UNRESOLVED"
 CODE_SYNTAX = "SYNTAX"
 
@@ -185,6 +229,10 @@ def _module_token(dotted: str):
             attr = rest[0]
             if attr in OS_EXEC_ATTRS or any(attr.startswith(p) for p in OS_EXEC_PREFIXES):
                 return f"os.{attr}"
+    if root == "asyncio":
+        rest = dotted.split(".")[1:]
+        if rest and rest[0] in ASYNCIO_EXEC_ATTRS:
+            return f"asyncio.{rest[0]}"
     return None
 
 
@@ -208,8 +256,35 @@ def _is_sys_executable(node, binds: _Bindings) -> bool:
             and _resolves_to_module(node.value, binds, "sys"))
 
 
+def _getattr_token(node, binds: _Bindings):
+    """`getattr(mod, "attr")` を属性トークンとして解決する（R1-A-1）。
+
+    戻り値は `(token, resolvable)`:
+      - 第 2 引数が**文字列リテラル**なら静的に解決し `(token or None, True)`
+      - リテラルでない（変数 / 文字列連結 / f-string 等）なら `(None, False)`
+        ＝ **fail-closed で violation** にする（不変条件 4 と同じ原則）
+    """
+    if len(node.args) < 2:
+        return (None, False)
+    attr_node = node.args[1]
+    if not (isinstance(attr_node, ast.Constant) and isinstance(attr_node.value, str)):
+        return (None, False)
+    base = node.args[0]
+    if not isinstance(base, ast.Name):
+        return (None, True)
+    target = binds.modules.get(base.id)
+    if target is None:
+        return (None, True)
+    return (_module_token(f"{target}.{attr_node.value}"), True)
+
+
 def _collect_exec_tokens(tree, binds: _Bindings):
-    """(lineno, token) のリストを返す。import 形と属性呼び出し形の両方を拾う。"""
+    """(lineno, token) のリストを返す。import 形と属性呼び出し形の両方を拾う。
+
+    `getattr` による動的属性アクセスと `eval` / `exec` / `compile` による動的
+    コード生成も対象（R1-A-1 / A-2）。前者はリテラル解決できなければ
+    fail-closed、後者は無条件に violation とする。
+    """
     found = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -233,7 +308,82 @@ def _collect_exec_tokens(tree, binds: _Bindings):
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             if node.func.id == "__import__":
                 found.append((node.lineno, "__import__"))
+            elif node.func.id in DYNAMIC_CODE_BUILTINS:
+                found.append((node.lineno, f"{node.func.id}()"))
+            elif node.func.id == DYNAMIC_ATTR_BUILTIN:
+                token, _resolvable = _getattr_token(node, binds)
+                if token:
+                    found.append((node.lineno, f"{DYNAMIC_ATTR_BUILTIN} 経由: {token}"))
     return found
+
+
+def _collect_dynamic_unresolved(tree, binds: _Bindings, name: str):
+    """静的に解決できない `getattr` を fail-closed の Violation として返す（R1-A-1）。"""
+    violations = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+            continue
+        if node.func.id != DYNAMIC_ATTR_BUILTIN:
+            continue
+        _token, resolvable = _getattr_token(node, binds)
+        if not resolvable:
+            violations.append(Violation(
+                name, node.lineno, CODE_DYNAMIC_UNRESOLVED,
+                "getattr の属性名が文字列リテラルでない（静的追跡不能 / fail-closed）"))
+    return violations
+
+
+# ---------------------------------------------------------------------------
+# gh_exec.py 内部の構造規律（R1-A-4 / 逆向きホワイトリストの深化）
+# ---------------------------------------------------------------------------
+
+def _shell_kwarg_verdict(call):
+    """`shell=` キーワードを検査する。OK なら None、違反なら detail 文字列。"""
+    for keyword in call.keywords:
+        if keyword.arg is None:
+            return ("subprocess 呼び出しに **kwargs 展開があり shell=True を"
+                    "静的に否定できない（fail-closed）")
+        if keyword.arg != "shell":
+            continue
+        value = keyword.value
+        if isinstance(value, ast.Constant) and value.value is False:
+            continue
+        if isinstance(value, ast.Constant):
+            return f"subprocess 呼び出しに shell={value.value!r} が渡されている"
+        return "shell= の値がリテラルでない（静的追跡不能 / fail-closed）"
+    return None
+
+
+def _gh_exec_discipline(tree, binds: _Bindings, name: str):
+    """`gh_exec.py` 内部の subprocess 呼び出しサイトを AST で列挙して検査する。
+
+    語（`subprocess` の有無）だけを見る逆向きホワイトリストでは、唯一の境界の
+    **内部**に `subprocess.run(cmd, shell=True)` のような無検査の抜け道が残る。
+    """
+    violations = []
+    scopes = _enclosing_functions(tree)
+    for call in _subprocess_call_sites(tree, binds):
+        detail = _shell_kwarg_verdict(call)
+        if detail is not None:
+            violations.append(Violation(name, call.lineno, CODE_GH_EXEC_SHELL, detail))
+        enclosing = scopes.get(id(call))
+        if enclosing != GH_EXEC_SPAWN_FUNC:
+            violations.append(Violation(
+                name, call.lineno, CODE_GH_EXEC_SPAWN_SITE,
+                f"subprocess の呼び出しは {GH_EXEC_SPAWN_FUNC}() に限る"
+                f"（実際の関数: {enclosing!r}）"))
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+            continue
+        if node.func.id != GH_EXEC_SPAWN_FUNC:
+            continue
+        enclosing = scopes.get(id(node))
+        if enclosing not in GH_EXEC_SPAWN_CALLERS:
+            violations.append(Violation(
+                name, node.lineno, CODE_GH_EXEC_SPAWN_CALLER,
+                f"{GH_EXEC_SPAWN_FUNC}() の呼び出し元は "
+                f"{list(GH_EXEC_SPAWN_CALLERS)} に限る（実際の関数: {enclosing!r}）"))
+    return violations
 
 
 # ---------------------------------------------------------------------------
@@ -331,6 +481,11 @@ def check_source(name: str, source: str,
             violations.append(Violation(
                 name, lineno, CODE_EXEC_TOKEN,
                 f"{GH_EXEC_MODULE} 以外での実行系トークン: {token}"))
+
+    violations.extend(_collect_dynamic_unresolved(tree, binds, name))
+
+    if is_gh_exec:
+        violations.extend(_gh_exec_discipline(tree, binds, name))
 
     if is_test:
         scopes = _enclosing_functions(tree)

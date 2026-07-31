@@ -17,6 +17,7 @@ TC-31c（import 形の解決・別名/直接 import の変異注入）
 from __future__ import annotations
 
 import ast
+import contextlib
 import pathlib
 import subprocess
 import sys
@@ -172,9 +173,13 @@ class ExecTokenDetectionTests(unittest.TestCase):
 
 class GhExecReverseWhitelistTests(unittest.TestCase):
     def test_tc31_gh_exec_allows_subprocess(self):
+        """`subprocess` 自体は許可。ただし R1-A-4 の構造規律
+        （`_spawn()` 経由 / 監査済み入口からの呼び出し）を満たす形であること。"""
         source = ("import subprocess\n"
+                  "def _spawn(argv):\n"
+                  "    return subprocess.run(argv, capture_output=True, text=True)\n"
                   "def run_gh(argv):\n"
-                  "    return subprocess.run(argv, capture_output=True, text=True)\n")
+                  "    return _spawn(argv)\n")
         self.assertEqual(ceb.check_source("gh_exec.py", source), [])
 
     def test_tc31_gh_exec_rejects_os_system(self):
@@ -387,6 +392,325 @@ class ImportFormResolutionTests(unittest.TestCase):
             with self.subTest(form=label):
                 self.assertIn(ceb.CODE_EXEC_TOKEN,
                               _codes(ceb.check_source("collector.py", source)))
+
+
+# ---------------------------------------------------------------------------
+# R1-A-1〜A-4: 敵対レビュー R1 で実測されたすり抜けの回帰固定
+# ---------------------------------------------------------------------------
+
+@contextlib.contextmanager
+def _patched(**attrs):
+    """`check_exec_boundary` のモジュール属性を一時差し替えする（変異注入用）。
+
+    「検査を外すと元のすり抜けが復活する」ことを実証するために使う。
+    作業ツリーのファイルは 1 バイトも書き換えない。
+
+    退避に `getattr(ceb, key)` を使わないのは、本ファイル自身が検査対象であり
+    **属性名が変数の `getattr` は fail-closed で violation** になるため（R1-A-1）。
+    """
+    saved = {key: ceb.__dict__[key] for key in attrs}
+    try:
+        for key, value in attrs.items():
+            setattr(ceb, key, value)
+        yield
+    finally:
+        for key, value in saved.items():
+            setattr(ceb, key, value)
+
+
+#: R1 で「MISS（すり抜け）」と実測された再現コード。すべて DETECTED になること。
+R1_REPRODUCTIONS = {
+    # A-1: 動的属性アクセス
+    "A-1/getattr-literal": (
+        "collector.py",
+        "import os\ndef x(cmd):\n    getattr(os, \"system\")(cmd)\n"),
+    "A-1/getattr-concat": (
+        "collector.py",
+        "import os\ndef x(cmd):\n    getattr(os, \"sys\" + \"tem\")(cmd)\n"),
+    # A-2: 動的コード生成
+    "A-2/exec": (
+        "collector.py",
+        "def x(cmd):\n    exec(\"import os; os.system(cmd)\")\n"),
+    "A-2/eval": ("collector.py", "def x(cmd):\n    eval(cmd)\n"),
+    "A-2/compile": ("collector.py", "def x(cmd):\n    compile(cmd, \"<s>\", \"exec\")\n"),
+    # A-3: 難読化なしの直書き
+    "A-3/pty": (
+        "collector.py",
+        "import pty\ndef x():\n    pty.spawn([\"gh\",\"pr\",\"merge\",\"1\"])\n"),
+    "A-3/ctypes": (
+        "collector.py",
+        "import ctypes\ndef x(c):\n    ctypes.CDLL(\"libc\").system(c)\n"),
+    "A-3/os.posix_spawn": (
+        "collector.py",
+        "import os\ndef x():\n    os.posix_spawn(\"/bin/sh\", [], os.environ)\n"),
+    "A-3/multiprocessing": ("collector.py", "import multiprocessing\n"),
+    "A-3/asyncio-exec": (
+        "collector.py",
+        "import asyncio\nasync def x():\n"
+        "    await asyncio.create_subprocess_exec(\"gh\", \"pr\", \"merge\", \"1\")\n"),
+    "A-3/asyncio-shell": (
+        "collector.py",
+        "import asyncio\nasync def x():\n"
+        "    await asyncio.create_subprocess_shell(\"gh pr merge 1\")\n"),
+    # A-4: 唯一の境界の内部
+    "A-4/gh_exec-shell-true": (
+        "gh_exec.py",
+        "import subprocess\ndef rogue(cmd):\n"
+        "    return subprocess.run(cmd, shell=True)\n"),
+}
+
+
+class R1ReproductionTests(unittest.TestCase):
+    """R1 critical 4 件の再現コードが是正後に必ず検出されること。"""
+
+    def test_all_r1_reproductions_are_detected(self):
+        for label, (name, source) in R1_REPRODUCTIONS.items():
+            with self.subTest(case=label):
+                self.assertTrue(ceb.check_source(name, source),
+                                f"{label} がすり抜けた")
+
+    def test_current_tree_has_no_false_positive_after_hardening(self):
+        """正側: 追加した検査で現行 26 ファイルに偽陽性が出ないこと。"""
+        targets = ceb.default_targets()
+        self.assertGreaterEqual(len(targets), 26)
+        self.assertEqual(ceb.check_paths(targets), [])
+
+
+class DynamicAttributeAccessTests(unittest.TestCase):
+    """R1-A-1: `getattr` 経由の実行系トークン。"""
+
+    def test_literal_attribute_is_resolved_as_token(self):
+        source = "import os\ndef x(cmd):\n    getattr(os, \"system\")(cmd)\n"
+        violations = ceb.check_source("collector.py", source)
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(violations))
+        self.assertIn("os.system", repr(violations))
+
+    def test_non_literal_attribute_is_fail_closed(self):
+        for label, expr in (("concat", "\"sys\" + \"tem\""),
+                            ("variable", "name"),
+                            ("fstring", "f\"sys{'tem'}\""),
+                            ("join", "\"\".join([\"sys\", \"tem\"])")):
+            with self.subTest(form=label):
+                source = (f"import os\ndef x(cmd, name):\n"
+                          f"    getattr(os, {expr})(cmd)\n")
+                self.assertIn(ceb.CODE_DYNAMIC_UNRESOLVED,
+                              _codes(ceb.check_source("collector.py", source)))
+
+    def test_alias_import_is_resolved_too(self):
+        source = "import os as o\ndef x(cmd):\n    getattr(o, \"system\")(cmd)\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN,
+                      _codes(ceb.check_source("collector.py", source)))
+
+    def test_benign_literal_getattr_is_not_flagged(self):
+        """偽陽性ガード: `getattr(proc, \"returncode\", 1)`（executor.py 実使用形）。"""
+        source = ("def x(proc):\n"
+                  "    return getattr(proc, \"returncode\", 1)\n")
+        self.assertEqual(ceb.check_source("collector.py", source), [])
+
+    def test_getattr_on_non_exec_module_attr_is_not_flagged(self):
+        source = "import json\ndef x(v):\n    return getattr(json, \"dumps\")(v)\n"
+        self.assertEqual(ceb.check_source("collector.py", source), [])
+
+    def test_gh_exec_is_also_covered(self):
+        source = "import os\ndef x(cmd):\n    getattr(os, \"system\")(cmd)\n"
+        self.assertIn(ceb.CODE_GH_EXEC_EXTRA_TOKEN,
+                      _codes(ceb.check_source("gh_exec.py", source)))
+
+    def test_mutation_disabling_getattr_check_restores_the_hole(self):
+        """変異注入: getattr 検出を外すと R1 の再現コードが両方すり抜ける。"""
+        with _patched(DYNAMIC_ATTR_BUILTIN="__disabled__"):
+            for label in ("A-1/getattr-literal", "A-1/getattr-concat"):
+                name, source = R1_REPRODUCTIONS[label]
+                self.assertEqual(ceb.check_source(name, source), [],
+                                 f"{label} は変異後すり抜けるはず")
+        for label in ("A-1/getattr-literal", "A-1/getattr-concat"):
+            name, source = R1_REPRODUCTIONS[label]
+            self.assertTrue(ceb.check_source(name, source))
+
+
+class DynamicCodeGenerationTests(unittest.TestCase):
+    """R1-A-2: `eval` / `exec` / `compile` は全モジュールで deny。"""
+
+    def test_all_dynamic_builtins_are_flagged_everywhere(self):
+        for builtin in ceb.DYNAMIC_CODE_BUILTINS:
+            for module, code in (("collector.py", ceb.CODE_EXEC_TOKEN),
+                                 ("gh_exec.py", ceb.CODE_GH_EXEC_EXTRA_TOKEN),
+                                 ("test_x.py", ceb.CODE_EXEC_TOKEN)):
+                with self.subTest(builtin=builtin, module=module):
+                    source = f"def x(cmd):\n    {builtin}(cmd)\n"
+                    self.assertIn(code, _codes(ceb.check_source(module, source)))
+
+    def test_attribute_form_compile_is_not_a_false_positive(self):
+        """`re.compile` は builtin `compile` ではない（gh_exec.py 実使用形）。"""
+        source = "import re\nP = re.compile(r\"x\")\n"
+        self.assertEqual(ceb.check_source("gh_exec.py", source), [])
+        self.assertEqual(ceb.check_source("collector.py", source), [])
+
+    def test_mutation_disabling_dynamic_builtins_restores_the_hole(self):
+        with _patched(DYNAMIC_CODE_BUILTINS=()):
+            name, source = R1_REPRODUCTIONS["A-2/exec"]
+            self.assertEqual(ceb.check_source(name, source), [])
+        self.assertTrue(ceb.check_source(*R1_REPRODUCTIONS["A-2/exec"]))
+
+
+class DirectExecModuleTests(unittest.TestCase):
+    """R1-A-3: 難読化なしの直書きで通っていたモジュール / 属性。"""
+
+    #: 是正前の定数（変異注入用）。
+    LEGACY_FORBIDDEN_ROOTS = ("urllib", "socket", "http", "requests")
+    LEGACY_OS_EXEC_ATTRS = ("system", "popen")
+
+    def test_new_forbidden_roots_are_flagged(self):
+        for root in ("pty", "ctypes", "multiprocessing"):
+            with self.subTest(root=root):
+                self.assertIn(root, ceb.FORBIDDEN_MODULE_ROOTS)
+                self.assertIn(ceb.CODE_EXEC_TOKEN,
+                              _codes(ceb.check_source("collector.py",
+                                                      f"import {root}\n")))
+                self.assertIn(ceb.CODE_EXEC_TOKEN,
+                              _codes(ceb.check_source("collector.py",
+                                                      f"from {root} import spawn\n")))
+
+    def test_os_posix_spawn_family_is_flagged(self):
+        for attr in ("posix_spawn", "posix_spawnp", "forkpty"):
+            with self.subTest(attr=attr):
+                source = f"import os\ndef x():\n    os.{attr}(\"/bin/sh\", [], {{}})\n"
+                self.assertIn(ceb.CODE_EXEC_TOKEN,
+                              _codes(ceb.check_source("collector.py", source)))
+
+    def test_os_prefix_family_still_flagged(self):
+        """既存の prefix 判定（exec* / spawn*）を壊していないこと。"""
+        for attr in ("execv", "execve", "spawnl", "spawnvp"):
+            with self.subTest(attr=attr):
+                source = f"import os\ndef x():\n    os.{attr}(\"/bin/sh\")\n"
+                self.assertIn(ceb.CODE_EXEC_TOKEN,
+                              _codes(ceb.check_source("collector.py", source)))
+
+    def test_benign_os_attributes_are_not_flagged(self):
+        for attr in ("environ", "path", "getcwd", "sep"):
+            with self.subTest(attr=attr):
+                self.assertEqual(
+                    ceb.check_source("collector.py",
+                                     f"import os\nV = os.{attr}\n"), [])
+
+    def test_asyncio_subprocess_helpers_are_flagged(self):
+        for attr in ceb.ASYNCIO_EXEC_ATTRS:
+            with self.subTest(attr=attr):
+                source = f"import asyncio\nasync def x():\n    await asyncio.{attr}(\"x\")\n"
+                self.assertIn(ceb.CODE_EXEC_TOKEN,
+                              _codes(ceb.check_source("collector.py", source)))
+                self.assertIn(ceb.CODE_EXEC_TOKEN,
+                              _codes(ceb.check_source(
+                                  "collector.py", f"from asyncio import {attr}\n")))
+
+    def test_benign_asyncio_usage_is_not_flagged(self):
+        source = "import asyncio\ndef x(c):\n    return asyncio.run(c)\n"
+        self.assertEqual(ceb.check_source("collector.py", source), [])
+
+    def test_mutation_legacy_constants_restore_all_three_holes(self):
+        """変異注入: 是正前の定数へ戻すと A-3 の 5 形すべてがすり抜ける。"""
+        labels = ("A-3/pty", "A-3/ctypes", "A-3/os.posix_spawn",
+                  "A-3/multiprocessing", "A-3/asyncio-shell")
+        with _patched(FORBIDDEN_MODULE_ROOTS=self.LEGACY_FORBIDDEN_ROOTS,
+                      OS_EXEC_ATTRS=self.LEGACY_OS_EXEC_ATTRS,
+                      ASYNCIO_EXEC_ATTRS=()):
+            for label in labels:
+                with self.subTest(case=label, phase="mutated"):
+                    self.assertEqual(ceb.check_source(*R1_REPRODUCTIONS[label]), [])
+        for label in labels:
+            with self.subTest(case=label, phase="fixed"):
+                self.assertTrue(ceb.check_source(*R1_REPRODUCTIONS[label]))
+
+
+class GhExecInternalDisciplineTests(unittest.TestCase):
+    """R1-A-4: 「唯一の境界」の内部に無検査の抜け道を残さない。"""
+
+    def test_real_gh_exec_passes_the_discipline(self):
+        source = (HERE / "gh_exec.py").read_text(encoding="utf-8")
+        self.assertEqual(ceb.check_source("gh_exec.py", source), [])
+
+    def test_shell_true_is_flagged(self):
+        source = ("import subprocess\ndef _spawn(cmd):\n"
+                  "    return subprocess.run(cmd, shell=True)\n")
+        self.assertIn(ceb.CODE_GH_EXEC_SHELL,
+                      _codes(ceb.check_source("gh_exec.py", source)))
+
+    def test_non_literal_shell_value_is_fail_closed(self):
+        source = ("import subprocess\nS = False\ndef _spawn(cmd):\n"
+                  "    return subprocess.run(cmd, shell=S)\n"
+                  "def run_gh(a):\n    return _spawn(a)\n")
+        self.assertIn(ceb.CODE_GH_EXEC_SHELL,
+                      _codes(ceb.check_source("gh_exec.py", source)))
+
+    def test_kwargs_expansion_is_fail_closed(self):
+        source = ("import subprocess\ndef _spawn(cmd, **kw):\n"
+                  "    return subprocess.run(cmd, **kw)\n"
+                  "def run_gh(a):\n    return _spawn(a)\n")
+        self.assertIn(ceb.CODE_GH_EXEC_SHELL,
+                      _codes(ceb.check_source("gh_exec.py", source)))
+
+    def test_shell_false_literal_is_allowed(self):
+        source = ("import subprocess\ndef _spawn(cmd):\n"
+                  "    return subprocess.run(cmd, shell=False)\n"
+                  "def run_gh(a):\n    return _spawn(a)\n")
+        self.assertEqual(ceb.check_source("gh_exec.py", source), [])
+
+    def test_subprocess_call_outside_spawn_is_flagged(self):
+        source = ("import subprocess\ndef rogue(cmd):\n"
+                  "    return subprocess.run(cmd)\n")
+        self.assertIn(ceb.CODE_GH_EXEC_SPAWN_SITE,
+                      _codes(ceb.check_source("gh_exec.py", source)))
+
+    def test_module_level_subprocess_call_is_flagged(self):
+        source = "import subprocess\nR = subprocess.run([\"gh\", \"pr\", \"merge\"])\n"
+        self.assertIn(ceb.CODE_GH_EXEC_SPAWN_SITE,
+                      _codes(ceb.check_source("gh_exec.py", source)))
+
+    def test_unaudited_spawn_caller_is_flagged(self):
+        source = ("import subprocess\ndef _spawn(a):\n"
+                  "    return subprocess.run(a)\n"
+                  "def rogue(a):\n    return _spawn(a)\n")
+        self.assertIn(ceb.CODE_GH_EXEC_SPAWN_CALLER,
+                      _codes(ceb.check_source("gh_exec.py", source)))
+
+    def test_audited_spawn_callers_pass(self):
+        for caller in ceb.GH_EXEC_SPAWN_CALLERS:
+            with self.subTest(caller=caller):
+                source = ("import subprocess\ndef _spawn(a):\n"
+                          "    return subprocess.run(a)\n"
+                          f"def {caller}(a):\n    return _spawn(a)\n")
+                self.assertEqual(ceb.check_source("gh_exec.py", source), [])
+
+    def test_spawn_caller_set_is_frozen_at_three(self):
+        """監査済み入口が 3 件から増えないことを固定する（grandfather と同型）。
+
+        件数を見ない弱い検査では 4 件目の追加を検出できない（下の変異注入で実証）。
+        """
+        self.assertEqual(len(ceb.GH_EXEC_SPAWN_CALLERS), 3,
+                         f"監査済み入口が増えている: {ceb.GH_EXEC_SPAWN_CALLERS}")
+        self.assertEqual(tuple(ceb.GH_EXEC_SPAWN_CALLERS),
+                         ("run_gh", "run_git", "push_pr_head"))
+
+    def test_mutation_extra_spawn_caller_would_suppress_a_real_violation(self):
+        source = ("import subprocess\ndef _spawn(a):\n"
+                  "    return subprocess.run(a)\n"
+                  "def rogue(a):\n    return _spawn(a)\n")
+        self.assertTrue(ceb.check_source("gh_exec.py", source))
+        with _patched(GH_EXEC_SPAWN_CALLERS=ceb.GH_EXEC_SPAWN_CALLERS + ("rogue",)):
+            self.assertEqual(ceb.check_source("gh_exec.py", source), [])
+
+    def test_mutation_word_only_reverse_whitelist_restores_the_hole(self):
+        """変異注入: 是正前の「語の有無しか見ない」実装ではすり抜ける。"""
+        name, source = R1_REPRODUCTIONS["A-4/gh_exec-shell-true"]
+        with _patched(_gh_exec_discipline=lambda tree, binds, n: []):
+            self.assertEqual(ceb.check_source(name, source), [])
+        self.assertTrue(ceb.check_source(name, source))
+
+    def test_discipline_does_not_apply_to_other_modules(self):
+        """test_*.py の `subprocess.run` は argv 不変条件側で扱う（二重適用しない）。"""
+        source = ("import subprocess\nimport sys\ndef helper():\n"
+                  "    return subprocess.run([sys.executable, \"x.py\"])\n")
+        self.assertEqual(ceb.check_source("test_x.py", source), [])
 
 
 # ---------------------------------------------------------------------------

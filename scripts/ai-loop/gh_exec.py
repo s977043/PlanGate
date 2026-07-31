@@ -7,8 +7,11 @@
 `subprocess` **のみ**許可され、`os.system` / `urllib` / `socket` 等は 0 件）。
 
 設計:
-  - **リポジトリ内で唯一 `subprocess` を import してよいモジュール**。gh と git を
-    同一モジュールに置き、allowlist テーブルは 2 つ（`GH_RULES` / `GIT_READ_RULES`）。
+  - **`scripts/ai-loop/` 配下で唯一 `subprocess` を import してよいモジュール**
+    （`check_exec_boundary.py` の既定検査対象は `scripts/ai-loop/*.py` であり、
+    `scripts/doctor_check.py` 等リポジトリ内の他ディレクトリは対象外。
+    「リポジトリ内で唯一」ではない）。gh と git を同一モジュールに置き、
+    allowlist テーブルは 2 つ（`GH_RULES` / `GIT_READ_RULES`）。
   - `shell=False` 固定・argv はリスト・`argv[0]` は wrapper が固定する
     （caller から受け取らない）。
   - **allowlist は argv トークン列の構造照合**:
@@ -415,9 +418,16 @@ GH_RULES = (
 # rule table（読み取り系 git）
 # ---------------------------------------------------------------------------
 
-#: git operand（rev-ish / パス）として許可する形。`+` / `:` / 先頭 `-` は許可しない。
+#: git operand の 1 辺（rev-ish / パス）。`+` / `:` / 先頭 `-` は許可しない。
+#: **`.` の直後に `.` を置けない**形にすることで、`a/../../etc/passwd` のような
+#: `..` パストラバーサルを構造的に排除する（R1-A-5）。素朴な
+#: `[A-Za-z0-9._/-]*` は `..` を辺の内部に飲み込むため fullmatch が成立していた。
+_GIT_OPERAND_SIDE = r"[A-Za-z0-9_][A-Za-z0-9_/-]*(?:\.[A-Za-z0-9_/-]+)*"
+
+#: operand 全体。`..` / `...` は **range 区切りとしてのみ**許可する
+#: （`origin/main...<sha>` は Collector の changed_files 取得で実使用）。
 _GIT_OPERAND_RE = re.compile(
-    r"[A-Za-z0-9_][A-Za-z0-9._/-]*(?:\.{2,3}[A-Za-z0-9_][A-Za-z0-9._/-]*)?")
+    rf"{_GIT_OPERAND_SIDE}(?:\.{{2,3}}{_GIT_OPERAND_SIDE})?")
 
 GIT_READ_RULES = (
     GitRule("rev-parse",
@@ -557,11 +567,21 @@ def make_comment_body_file(body: str) -> pathlib.Path:
 
 
 def comment_pr(*, repo: str, pr_number, body: str, cwd=None):
-    """PR へコメントする（本文は wrapper が生成した temp file 経由に限定）。"""
+    """PR へコメントする（本文は wrapper が生成した temp file 経由に限定）。
+
+    temp file は `finally` で必ず回収する（R1-A-6）。allowlist 照合
+    （`body_file_wrapper_temp`）は `run_gh` 実行中にしか必要ないため、
+    実行後に path を削除し `_WRAPPER_BODY_FILES` から外しても安全性は落ちない
+    （むしろ登録集合が単調増加しなくなり、古い path の再利用余地も消える）。
+    """
     path = make_comment_body_file(body)
-    return run_gh(["pr", "comment", str(int(pr_number)),
-                   "--body-file", str(path), "--repo", repo],
-                  repo=repo, cwd=cwd)
+    try:
+        return run_gh(["pr", "comment", str(int(pr_number)),
+                       "--body-file", str(path), "--repo", repo],
+                      repo=repo, cwd=cwd)
+    finally:
+        _WRAPPER_BODY_FILES.discard(str(path))
+        path.unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------

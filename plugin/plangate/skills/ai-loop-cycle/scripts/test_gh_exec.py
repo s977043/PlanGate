@@ -24,6 +24,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import pathlib
+import re
 import sys
 import unittest
 
@@ -623,13 +624,27 @@ class PositiveAllowTests(SpyMixin, unittest.TestCase):
         self.assertIn("--body-file", argv)
 
     def test_comment_pr_helper_uses_wrapper_temp_file(self):
+        """本文の実在と allowlist 登録は **`run_gh` 実行中**に観測する（R1-A-6）。
+
+        `comment_pr()` は `finally` で temp file を回収するため、戻り値を受け取った
+        後にファイルを読む形では検証できない（回収が正しく効いている証拠でもある）。
+        """
+        seen: dict = {}
+
+        def handler(argv):
+            path = pathlib.Path(argv[argv.index("--body-file") + 1])
+            seen["body"] = path.read_text(encoding="utf-8")
+            seen["registered"] = str(path.resolve()) in gh_exec._WRAPPER_BODY_FILES
+            return _Completed(0, "", "")
+
+        self.spy._handler = handler
         gh_exec.comment_pr(repo=REPO, pr_number=1, body="hello")
         self.assertEqual(len(self.spy.calls), 1)
         argv = self.spy.calls[0][1]
         self.assertEqual(argv[:4], ["gh", "pr", "comment", "1"])
         self.assertIn("--body-file", argv)
-        body_path = pathlib.Path(argv[argv.index("--body-file") + 1])
-        self.assertEqual(body_path.read_text(encoding="utf-8"), "hello")
+        self.assertEqual(seen["body"], "hello")
+        self.assertTrue(seen["registered"], "実行中は allowlist に登録されているべき")
 
     def test_readonly_git_subcommands_are_allowed(self):
         for args in ALLOWED_GIT_COMMANDS:
@@ -788,6 +803,143 @@ class MutationDetectionTests(SpyMixin, unittest.TestCase):
         mutant = self._mutate("api", "endpoint_bound")
         self.assertIn(f"repos/{REPO}/pulls/1/merge",
                       gh_exec.authorize_gh(args, repo=REPO, rules=mutant))
+
+
+# ===========================================================================
+# R1-A-5: 読み取り系 git operand の `..` パストラバーサル
+# ===========================================================================
+
+#: 是正前の素朴な operand 正規表現（`..` を辺の内部に飲み込む）。変異注入用。
+_LEGACY_GIT_OPERAND_RE = re.compile(
+    r"[A-Za-z0-9_][A-Za-z0-9._/-]*(?:\.{2,3}[A-Za-z0-9_][A-Za-z0-9._/-]*)?")
+
+#: `..` をパス成分として含む operand（deny されるべき）。
+TRAVERSAL_OPERANDS = (
+    "a/../../etc/passwd",
+    "a/..",
+    "..",
+    "...",
+    "docs/../../../etc/shadow",
+    "main..",
+    "a/../b...c",
+)
+
+#: range 区切りとしての `..` / `...`（allow され続けるべき正側）。
+RANGE_OPERANDS = (
+    "main...HEAD",
+    "main..HEAD",
+    f"origin/main...{SHA}",
+    "v1.2.3..v1.2.4",
+    "HEAD",
+    "feat/task-0917-delivery",
+)
+
+
+class GitOperandTraversalTests(SpyMixin, unittest.TestCase):
+    """R1-A-5: 「`..` は組み立てない」という説明と実装の乖離を塞ぐ。"""
+
+    def test_traversal_operands_are_denied(self):
+        for operand in TRAVERSAL_OPERANDS:
+            with self.subTest(operand=operand):
+                with self.assertRaises(gh_exec.Denied):
+                    gh_exec.run_git(["show", "--no-patch", operand])
+                with self.assertRaises(gh_exec.Denied):
+                    gh_exec.run_git(["diff", "--name-only", operand])
+        self.assertNoSpawn()
+
+    def test_range_operands_are_still_allowed(self):
+        """正側の非回帰: `origin/main...<sha>`（Collector 実使用形）は通り続ける。"""
+        for operand in RANGE_OPERANDS:
+            with self.subTest(operand=operand):
+                argv = gh_exec.authorize_git(["diff", "--name-only", operand])
+                self.assertEqual(argv, ["git", "diff", "--name-only", operand])
+
+    def test_mutation_legacy_operand_regex_lets_traversal_through(self):
+        """変異注入: 是正前の正規表現では `a/../../etc/passwd` が fullmatch する。"""
+        self.assertIsNotNone(
+            _LEGACY_GIT_OPERAND_RE.fullmatch("a/../../etc/passwd"),
+            "前提: 旧実装ではすり抜けていた")
+        self.assertIsNone(
+            gh_exec._GIT_OPERAND_RE.fullmatch("a/../../etc/passwd"),
+            "是正後の正規表現でトラバーサルが残っている")
+
+    def test_mutation_regex_swap_restores_the_hole(self):
+        """`_GIT_OPERAND_RE` を旧版へ差し替えると deny が allow に戻る。"""
+        original = gh_exec._GIT_OPERAND_RE
+        try:
+            gh_exec._GIT_OPERAND_RE = _LEGACY_GIT_OPERAND_RE
+            argv = gh_exec.authorize_git(["show", "--no-patch", "a/../../etc/passwd"])
+            self.assertIn("a/../../etc/passwd", argv)
+        finally:
+            gh_exec._GIT_OPERAND_RE = original
+        with self.assertRaises(gh_exec.Denied):
+            gh_exec.authorize_git(["show", "--no-patch", "a/../../etc/passwd"])
+
+
+# ===========================================================================
+# R1-A-6: コメント本文 temp file の回収
+# ===========================================================================
+
+class CommentBodyFileLifecycleTests(SpyMixin, unittest.TestCase):
+    """R1-A-6: `make_comment_body_file()` の temp file を `finally` で回収する。"""
+
+    def test_comment_pr_removes_temp_file_and_registration(self):
+        seen: dict = {}
+
+        def handler(argv):
+            seen["path"] = pathlib.Path(argv[argv.index("--body-file") + 1])
+            return _Completed(0, "", "")
+
+        self.spy._handler = handler
+        before = set(gh_exec._WRAPPER_BODY_FILES)
+        gh_exec.comment_pr(repo=REPO, pr_number=1, body="hello")
+        path = seen["path"]
+        self.assertFalse(path.exists(), f"temp file が回収されていない: {path}")
+        self.assertNotIn(str(path.resolve()), gh_exec._WRAPPER_BODY_FILES)
+        self.assertEqual(set(gh_exec._WRAPPER_BODY_FILES), before,
+                         "登録集合が単調増加している")
+
+    def test_comment_pr_cleans_up_even_when_execution_raises(self):
+        seen: dict = {}
+
+        def handler(argv):
+            seen["path"] = pathlib.Path(argv[argv.index("--body-file") + 1])
+            raise RuntimeError("gh が落ちた")
+
+        self.spy._handler = handler
+        with self.assertRaises(RuntimeError):
+            gh_exec.comment_pr(repo=REPO, pr_number=1, body="hello")
+        self.assertFalse(seen["path"].exists())
+        self.assertNotIn(str(seen["path"].resolve()), gh_exec._WRAPPER_BODY_FILES)
+
+    def test_make_comment_body_file_still_registers_for_authorization(self):
+        """回収は `comment_pr()` 側の責務。生成器自体の契約は変えていない。"""
+        path = gh_exec.make_comment_body_file("notice")
+        try:
+            self.assertTrue(path.exists())
+            self.assertIn(str(path.resolve()), gh_exec._WRAPPER_BODY_FILES)
+            argv = gh_exec.authorize_gh(
+                ["pr", "comment", "1", "--body-file", str(path), "--repo", REPO],
+                repo=REPO)
+            self.assertIn(str(path), argv)
+        finally:
+            gh_exec._WRAPPER_BODY_FILES.discard(str(path.resolve()))
+            path.unlink(missing_ok=True)
+
+    def test_recycled_path_is_denied_after_cleanup(self):
+        """回収後は同じ path を再指定しても deny される（登録が外れている）。"""
+        seen: dict = {}
+
+        def handler(argv):
+            seen["path"] = argv[argv.index("--body-file") + 1]
+            return _Completed(0, "", "")
+
+        self.spy._handler = handler
+        gh_exec.comment_pr(repo=REPO, pr_number=1, body="hello")
+        with self.assertRaises(gh_exec.Denied):
+            gh_exec.authorize_gh(
+                ["pr", "comment", "1", "--body-file", seen["path"], "--repo", REPO],
+                repo=REPO)
 
 
 if __name__ == "__main__":

@@ -65,7 +65,7 @@ delivery.py は PR 状態を **snapshot JSON** として受け取る判定エン
 1. AC-8 の `ci_failure_taxonomy` の**供給主体は `ci_taxonomy.py`** であり、`delivery.py` 自身は分類を行わず供給された値の enum 判定（未知は `HUMAN_ESCALATED`）のみを担う。
 2. AC-5 の in-process allowlist（`check_exec_boundary.py`）が守るのは **Executor 経路のみ**であり、同一セッションの Bash や別プロセスから直接発行される `gh pr merge` は塞がない。
 3. AC-9 が保証するのは **Collector が生成した snapshot の内部整合まで**であり、**手作りの snapshot を `delivery.py` へ直接投入する経路は塞がない**（Phase 1 の信頼境界はこれを解消しきらない）。
-4. required check 集合の **⊇ 照合は Collector の pre-check として Phase 1 で実装済み**（不足は `escalation_flags` に理由コードとして積まれる）であり、上記「V2 候補」は `delivery.py` 契約フィールドとしての `required_checks[]` の**フィールド化**（機械束縛）に限って引き続き有効である。
+4. required check 集合の **⊇ 照合は Collector の pre-check として Phase 1 で実装済み**（不足は `escalation_flags` に理由コードとして積まれる）であり、上記「V2 候補」は `delivery.py` 契約フィールドとしての `required_checks[]` の**フィールド化**（機械束縛）に限って引き続き有効である。ただし発火条件は限定的である: 照合は **head の check が settled（pending 系が 0 件）になった時点でのみ**発火し（repair push 直後の未登録局面で `HUMAN_ESCALATED` へ倒れると AC-4 の再評価 1 周が回らないため）、かつ **required 集合が空のときは空振りする**（`rules/branches/{ref}` が required を返さない構成では不足を検出しない）。settled でない間は `waiting_checks` が先に立つため merge 側に fail-open にはならない。
 5. branch protection は現状 `required_approving_review_count: 0` のため、上記「Phase 1 の後段防衛は C-4 Human レビュー + branch protection」のうち **branch protection は後段防衛として当てにしない**（issue #928 参照）。
 
 主要フィールド（詳細は `delivery.py contract` の emit と test-cases が契約）:
