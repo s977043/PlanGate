@@ -60,6 +60,14 @@ delivery.py は PR 状態を **snapshot JSON** として受け取る判定エン
 
 **snapshot 供給者の責務（RV-2）**: `checks[]` は **required check が全件登録されてから** snapshot を切ること（push 直後は check-run の登録が非同期のため、部分登録の瞬間 snapshot では「全 success」が honest に成立し得る）。required check 集合の機械束縛（`required_checks[]` フィールドと ⊇ 照合）は V2 候補。Phase 1 の後段防衛は C-4 Human レビュー + branch protection。
 
+**TASK-0917 追補（Phase 1 実装反映 / R-024・R-027）** — 以下 5 点は本節の先行記述を補足し、4. / 5. は本 PBI により stale 化した記述を**上書き**する:
+
+1. AC-8 の `ci_failure_taxonomy` の**供給主体は `ci_taxonomy.py`** であり、`delivery.py` 自身は分類を行わず供給された値の enum 判定（未知は `HUMAN_ESCALATED`）のみを担う。
+2. AC-5 の in-process allowlist（`check_exec_boundary.py`）が守るのは **Executor 経路のみ**であり、同一セッションの Bash や別プロセスから直接発行される `gh pr merge` は塞がない。
+3. AC-9 が保証するのは **Collector が生成した snapshot の内部整合まで**であり、**手作りの snapshot を `delivery.py` へ直接投入する経路は塞がない**（Phase 1 の信頼境界はこれを解消しきらない）。
+4. required check 集合の **⊇ 照合は Collector の pre-check として Phase 1 で実装済み**（不足は `escalation_flags` に理由コードとして積まれる）であり、上記「V2 候補」は `delivery.py` 契約フィールドとしての `required_checks[]` の**フィールド化**（機械束縛）に限って引き続き有効である。
+5. branch protection は現状 `required_approving_review_count: 0` のため、上記「Phase 1 の後段防衛は C-4 Human レビュー + branch protection」のうち **branch protection は後段防衛として当てにしない**（issue #928 参照）。
+
 主要フィールド（詳細は `delivery.py contract` の emit と test-cases が契約）:
 `task_id` / `pr_number` / `head_sha` / `source_sha_ancestry`（head が c3-prime `source_sha` の子孫か。供給値・sandbox では git 実測）/ `mergeable` / `checks[]`（`name`/`sha`/`conclusion`）/ `review`（`state`/`sha`）/ `ci_failure_taxonomy` / `findings[]`（`id`/`finding_type`/`severity`/`disposition`）/ `changed_files[]` / `allowed_paths[]` / `escalation_flags[]` / `conflict_resolution`（`base_sha`/`head_sha`/`result_sha`）/ `dod_evaluated`
 

@@ -278,6 +278,35 @@ PR 作成後、以下を **`MERGE_READY` 到達まで**繰り返す。
   本 PoC のスコープ外（[`phase3-impact-report.md`](../../ai/ai-loop/phase3-impact-report.md) §d
   リスク 5、issue #420 EH-3 発行元検証と同型の未解決課題）
 
+### 実行系境界の多層防御 — D2-B は *補助*（TASK-0917 / #917）
+
+手順 (7) を機械実行する Executor（`scripts/ai-loop/executor.py`）の外部作用は
+`scripts/ai-loop/gh_exec.py` を**唯一の境界**とし、許可された `gh` サブコマンドの
+in-process allowlist を `scripts/ai-loop/check_exec_boundary.py` が AST で機械強制する
+（D2-A / AC-5）。**設計上の保証はこの層だけに依存する**。
+
+既存の `scripts/hooks/check-delegation-commit-boundary.sh` と GitHub の branch
+protection は **多層防御の補助**として併用してよいが、**設計はこれらに依存しない**。
+補助に留める根拠（TASK-0917 plan R-001 / R-031 の 2026-07-31 実測）:
+
+- hook は `PLANGATE_DELEGATION_NOCOMMIT != 1` のとき即 allow する（既定で無効）
+- hook は Bash の command 文字列しか見ないため、Python プロセス内から発行される
+  作用（本 Executor の経路）を原理的に捕捉しない
+- `.claude/settings.json` は `PreToolUse` 未配線（`bin/plangate doctor` の
+  `=== Hook Enforcement Wiring ===` が `[FAIL] PlanGate hooks not wired`）。
+  配布テンプレ `.claude/settings.example.json` のトップレベルキーは
+  `["_comment_", "_usage_", "hooks"]` で **`permissions` キー自体が存在しない**
+  （= deny 設定 0 件）
+- `.git/hooks/` に非 sample hook は 0 件（`scripts/install-pre-push.sh` 未適用）
+- branch protection 側も `required_approving_review_count: 0` のため承認を
+  強制していない（issue #928）
+
+**Executor 実行ホストの前提条件**: Executor を回すホストでは
+`sh scripts/install-pre-push.sh` を適用し、main 直接 push を技術層で block した
+状態にしておくこと（[`responsibility-classes.md`](../../../.claude/rules/responsibility-classes.md)
+Defense in Depth / TASK-0114）。ただしこれも上記の意味で**補助**であり、AC-5 の
+保証を肩代わりしない — 未適用のホストでも Executor 側の allowlist は同じ強度で働く。
+
 ---
 
 ## 5. 関連ドキュメント
