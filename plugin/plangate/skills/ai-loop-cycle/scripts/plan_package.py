@@ -167,6 +167,24 @@ def _extract_section(text, heading):
 _PATH_RE = re.compile(r"`([^`\s]+/[^`\s]+)`")
 
 
+def extract_allowed_paths(plan_text):
+    """plan.md 本文の `## Files / Components to Touch` からパスを抽出する純関数。
+
+    TASK-0917 論点 D3（`allowed_paths` の供給経路）。`derive_loopspec()` と
+    Collector が**同一実装**を共有するための public 化であり、抽出ロジック
+    そのものは従来と同一（`_extract_section` + `_PATH_RE`）。
+
+    - 引数は plan テキストのみ（task_dir / maker / checker を取らない =
+      `derive_loopspec()` の presence 検査・actors 検証を巻き込まない）
+    - 節が無い / 抽出 0 件のときは**例外ではなく空リスト**を返す。0 件をどう
+      扱うかは呼び出し側の責務（Collector は `escalation_flags` へ倒し、
+      `derive_loopspec()` は従来どおり fail-closed で PlanPackageError）
+    - ファイルシステム・ネットワークに触れない（決定論）
+    """
+    section = _extract_section(plan_text, "Files / Components to Touch")
+    return _PATH_RE.findall(section or "")
+
+
 def derive_loopspec(task_dir, task_id, maker, checker):
     """契約 §6: LoopSpec 必須フィールド全数の決定論的派生（AC-10 / R-012）。
 
@@ -190,8 +208,7 @@ def derive_loopspec(task_dir, task_id, maker, checker):
     if not goal:
         raise PlanPackageError(["derive: plan.md に `## Goal` 節がない"])
 
-    files_section = _extract_section(plan_text, "Files / Components to Touch")
-    allowed_paths = _PATH_RE.findall(files_section or "")
+    allowed_paths = extract_allowed_paths(plan_text)
     if not allowed_paths:
         raise PlanPackageError(
             ["derive: `## Files / Components to Touch` からパスを抽出できない"])
