@@ -9,3 +9,4 @@ Collector / Executor / Reconciler を実 PR に対して 1 周させ、fixture �
 （Executor は原理的に close も branch 削除も実行できません）。
 
 - 実走記録: `docs/working/TASK-0917/evidence/e2e/`
+- repair push probe: T-35 実走で Executor が push した無害な 1 行（2026-07-31T06:35:23Z）
