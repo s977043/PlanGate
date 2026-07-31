@@ -724,7 +724,7 @@ class GhExecInternalDisciplineTests(unittest.TestCase):
     def test_mutation_word_only_reverse_whitelist_restores_the_hole(self):
         """変異注入: 是正前の「語の有無しか見ない」実装ではすり抜ける。"""
         name, source = R1_REPRODUCTIONS["A-4/gh_exec-shell-true"]
-        with _patched(_gh_exec_discipline=lambda tree, binds, n: []):
+        with _patched(_gh_exec_discipline=lambda *_a, **_kw: []):
             self.assertEqual(ceb.check_source(name, source), [])
         self.assertTrue(ceb.check_source(name, source))
 
@@ -875,7 +875,7 @@ class BindingPropagationTests(unittest.TestCase):
         for label, (name, source) in PROPAGATION_ONLY_SOURCES.items():
             with self.subTest(case=label, phase="fixed"):
                 self.assertTrue(ceb.check_source(name, source))
-        with _patched(_propagate_bindings=lambda tree, binds: False):
+        with _patched(_propagate_bindings=lambda *_a, **_kw: False):
             for label, (name, source) in PROPAGATION_ONLY_SOURCES.items():
                 with self.subTest(case=label, phase="mutated"):
                     self.assertEqual(ceb.check_source(name, source), [])
@@ -886,10 +886,10 @@ class BindingPropagationTests(unittest.TestCase):
         R2-a-1（束縛伝播）/ R2-a-2（イントロスペクション・間接実行名・
         `gh_exec.py` 厳格解決）の合成で 6 形が塞がっていることの実証。
         """
-        with _patched(_propagate_bindings=lambda tree, binds: False,
+        with _patched(_propagate_bindings=lambda *_a, **_kw: False,
                       INTROSPECTION_ATTRS=frozenset(),
                       INDIRECT_EXEC_ATTRS=frozenset(),
-                      _gh_exec_indirect_calls=lambda tree, binds, name, exceptions=None: []):
+                      _gh_exec_indirect_calls=lambda *_a, **_kw: []):
             for label in R2_REPRODUCTIONS:
                 with self.subTest(case=label, phase="mutated"):
                     self.assertEqual(ceb.check_source(*R2_REPRODUCTIONS[label]), [])
@@ -1014,6 +1014,336 @@ class GhExecStrictResolutionTests(unittest.TestCase):
         for name in ("collector.py", "test_x.py"):
             with self.subTest(module=name):
                 self.assertEqual(ceb.check_source(name, source), [])
+
+
+# ---------------------------------------------------------------------------
+# R3-1: 添字式（ast.Subscript）経路 / R3-3: TYPE_CHECKING 偽陽性
+# ---------------------------------------------------------------------------
+
+#: R3 敵対レビューで「MISS（すり抜け）」と実測された 3 形。すべて DETECTED になること。
+#: R2 までは `ast.Attribute` チェーンしか解決していなかったため、**意味が同じでも
+#: AST の形が `ast.Subscript` なだけ**で検査の視野外になっていた。
+#: 非対称性が症状として現れていた:
+#:   - `os.__dict__["system"]` は DETECTED / `vars(os)["system"]` は MISS
+#:   - `sys.modules["subprocess"].Popen` は DETECTED / `.run` は MISS
+R3_REPRODUCTIONS = {
+    "R3/vars-subscript": (
+        "collector.py",
+        "import os\ndef x():\n    vars(os)[\"system\"](\"cmd\")\n"),
+    "R3/sys-modules-run": (
+        "collector.py",
+        "import sys\ndef x(a):\n    sys.modules[\"subprocess\"].run(a)\n"),
+    "R3/gh_exec-sys-modules-shell-true": (
+        "gh_exec.py",
+        "import sys\ndef run_gh(a):\n"
+        "    sys.modules[\"subprocess\"].run(a, shell=True)\n"),
+}
+
+#: R3 是正で新たに「正当な書き方」として通ることを固定する形（偽陽性ゼロの実証）。
+#: 添字は Python の日常語彙なので、ここが崩れると CI が正当なコードを止める。
+R3_BENIGN_SOURCES = {
+    "type-checking-block": (
+        "collector.py",
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n"
+        "    import subprocess\ndef f(x: \"subprocess.Popen\") -> None:\n    pass\n"),
+    "type-checking-qualified": (
+        "collector.py",
+        "from __future__ import annotations\nimport typing\n"
+        "if typing.TYPE_CHECKING:\n    import subprocess\n"
+        "def f(x: subprocess.Popen) -> None:\n    pass\n"),
+    "plain-dict-subscript": ("collector.py", "def x(d):\n    return d[\"key\"]\n"),
+    "list-index": ("collector.py", "def x(lst):\n    return lst[0]\n"),
+    "os-environ-subscript": (
+        "collector.py", "import os\ndef x():\n    return os.environ[\"HOME\"]\n"),
+    "argv-slice": ("collector.py", "import sys\ndef x():\n    return sys.argv[1:]\n"),
+    "fstring-subscript": ("collector.py", "def x(d):\n    return f\"{d['k']}\"\n"),
+    "functools-partial": (
+        "collector.py",
+        "import functools\ndef x(f, a):\n    return functools.partial(f, a)\n"),
+    "custom-decorator": (
+        "collector.py", "def deco(f):\n    return f\n@deco\ndef g():\n    return 1\n"),
+    "comprehension-subscript": (
+        "collector.py", "def x(items):\n    return [i[\"name\"] for i in items]\n"),
+    "nested-dict-subscript": (
+        "collector.py", "def x(cfg):\n    return cfg[\"a\"][\"b\"]\n"),
+    "module-level-dict-lookup": (
+        "collector.py", "M = {\"a\": 1}\ndef x():\n    return M[\"a\"]\n"),
+    "subscript-assign-target": ("collector.py", "def x(d, v):\n    d[\"k\"] = v\n"),
+    "type-checking-else-branch-is-benign": (
+        "collector.py",
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import subprocess\n"
+        "else:\n    import json\ndef f():\n    return json.dumps({})\n"),
+}
+
+
+class SubscriptResolutionTests(unittest.TestCase):
+    """R3-1: `ast.Subscript` も束縛解決の対象にする（不変条件 9）。"""
+
+    def test_all_r3_reproductions_are_detected(self):
+        for label, (name, source) in R3_REPRODUCTIONS.items():
+            with self.subTest(case=label):
+                self.assertTrue(ceb.check_source(name, source), f"{label} がすり抜けた")
+
+    def test_vars_subscript_resolves_to_the_same_token_as_dunder_dict(self):
+        """非対称性の解消: `vars(os)["system"]` と `os.__dict__["system"]` は同じ。"""
+        via_vars = ceb.check_source(
+            "collector.py", "import os\ndef x():\n    vars(os)[\"system\"](\"c\")\n")
+        via_dict = ceb.check_source(
+            "collector.py", "import os\ndef x():\n    os.__dict__[\"system\"](\"c\")\n")
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(via_vars))
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(via_dict))
+        self.assertIn("os.system", repr(via_vars))
+        self.assertIn("os.system", repr(via_dict))
+
+    def test_sys_modules_run_and_popen_are_both_blocked(self):
+        """非対称性の解消: `.Popen` だけでなく `.run` も塞がる。"""
+        for attr in ("run", "Popen", "check_output", "call", "check_call"):
+            with self.subTest(attr=attr):
+                source = (f"import sys\ndef x(a):\n"
+                          f"    sys.modules[\"subprocess\"].{attr}(a)\n")
+                self.assertIn(ceb.CODE_EXEC_TOKEN,
+                              _codes(ceb.check_source("collector.py", source)))
+
+    def test_gh_exec_shell_true_via_sys_modules_is_flagged(self):
+        name, source = R3_REPRODUCTIONS["R3/gh_exec-sys-modules-shell-true"]
+        codes = _codes(ceb.check_source(name, source))
+        self.assertIn(ceb.CODE_GH_EXEC_SHELL, codes)
+        self.assertIn(ceb.CODE_GH_EXEC_SPAWN_SITE, codes)
+
+    def test_globals_subscript_resolves_to_module_binding(self):
+        source = ("import subprocess\ndef x(a):\n"
+                  "    globals()[\"subprocess\"].run(a)\n")
+        self.assertIn(ceb.CODE_EXEC_TOKEN,
+                      _codes(ceb.check_source("collector.py", source)))
+
+    def test_vars_on_propagated_alias_is_resolved(self):
+        """束縛伝播（不変条件 7）と添字解決（不変条件 9）が合成される。"""
+        source = "import os\nm = os\ndef x(c):\n    vars(m)[\"system\"](c)\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN,
+                      _codes(ceb.check_source("collector.py", source)))
+
+    def test_argv_invariant_applies_to_subscript_call_sites_in_tests(self):
+        """`test_*.py` の argv 不変条件が添字経路にも効く（除外の穴を作らない）。"""
+        for label, source in (
+                ("vars", "import subprocess\ndef x():\n"
+                         "    vars(subprocess)[\"run\"]([\"gh\",\"pr\",\"merge\",\"1\"])\n"),
+                ("sys.modules", "import sys\ndef x():\n"
+                                "    sys.modules[\"subprocess\"]"
+                                ".run([\"gh\",\"pr\",\"merge\",\"1\"])\n")):
+            with self.subTest(form=label):
+                self.assertIn(ceb.CODE_ARGV_HEAD,
+                              _codes(ceb.check_source("test_x.py", source)))
+
+    def test_argv_positive_case_via_subscript_passes(self):
+        source = ("import sys\ndef x():\n"
+                  "    sys.modules[\"subprocess\"].run([sys.executable, \"a.py\"])\n")
+        self.assertEqual(ceb.check_source("test_x.py", source), [])
+
+    def test_no_false_positive_on_r3_benign_sources(self):
+        """偽陽性ゼロの実証: 添字を含む正当な書き方 14 種が 1 件も違反にならない。"""
+        self.assertGreaterEqual(len(R3_BENIGN_SOURCES), 8)
+        for label, (name, source) in R3_BENIGN_SOURCES.items():
+            with self.subTest(case=label):
+                self.assertEqual(ceb.check_source(name, source), [])
+
+    def test_current_tree_is_still_clean_after_r3(self):
+        targets = ceb.default_targets()
+        self.assertGreaterEqual(len(targets), 26)
+        self.assertEqual(ceb.check_paths(targets), [])
+
+    def test_mutation_disabling_subscript_layer_restores_all_three_holes(self):
+        """変異注入: 添字解決 + 添字 fail-closed を外すと R3 の 3 形が復活する。"""
+        with _patched(_resolve_subscript=lambda binds, node: None,
+                      _resolve_namespace_call=lambda binds, node: None,
+                      _collect_subscript_unresolved=lambda *_a, **_kw: []):
+            for label, (name, source) in R3_REPRODUCTIONS.items():
+                with self.subTest(case=label, phase="mutated"):
+                    self.assertEqual(ceb.check_source(name, source), [],
+                                     f"{label} は変異後すり抜けるはず")
+        for label, (name, source) in R3_REPRODUCTIONS.items():
+            with self.subTest(case=label, phase="fixed"):
+                self.assertTrue(ceb.check_source(name, source))
+
+    def test_mutation_disabling_only_resolution_leaves_fail_closed_layer(self):
+        """層の独立性: 解決だけを外しても fail-closed 層が 3 形すべてを受け止める。
+
+        解決層（`_resolve_subscript` / `_resolve_namespace_call`）を外すと
+        「実行系トークンとしての識別」は失われるが、
+          - `vars(os)["system"](...)` は**添字式の呼び出し**の基底が解決不能
+          - `sys.modules["subprocess"]` は `sys.modules` 参照の fail-closed
+        に落ちる。**両層を同時に外して初めてすり抜ける**
+        （`test_mutation_disabling_subscript_layer_restores_all_three_holes`）
+        ことが、層が独立している証拠になる。
+        """
+        with _patched(_resolve_subscript=lambda binds, node: None,
+                      _resolve_namespace_call=lambda binds, node: None):
+            for label, (name, source) in R3_REPRODUCTIONS.items():
+                with self.subTest(case=label):
+                    self.assertIn(ceb.CODE_INDIRECT_EXEC,
+                                  _codes(ceb.check_source(name, source)))
+
+
+class SubscriptFailClosedTests(unittest.TestCase):
+    """R3-1 の fail-closed 層（不変条件 9 の後段）。"""
+
+    def test_subscript_call_with_unresolvable_base_is_flagged(self):
+        source = "def x(table, a):\n    return table[\"run\"](a)\n"
+        self.assertIn(ceb.CODE_INDIRECT_EXEC,
+                      _codes(ceb.check_source("collector.py", source)))
+
+    def test_subscript_call_with_variable_key_is_flagged(self):
+        source = "def x(table, k, a):\n    return table[k](a)\n"
+        self.assertIn(ceb.CODE_INDIRECT_EXEC,
+                      _codes(ceb.check_source("collector.py", source)))
+
+    def test_dynamic_attr_family_without_literal_subscript_is_flagged(self):
+        for builtin, source in (
+                ("vars", "import os\ndef x(k):\n    return vars(os)[k]\n"),
+                ("globals", "def x():\n    return globals()\n"),
+                ("locals", "def x():\n    return locals()\n"),
+                ("dir", "import os\ndef x():\n    return dir(os)\n")):
+            with self.subTest(builtin=builtin):
+                self.assertIn(ceb.CODE_DYNAMIC_UNRESOLVED,
+                              _codes(ceb.check_source("collector.py", source)))
+
+    def test_sys_modules_without_literal_subscript_is_flagged(self):
+        for label, source in (
+                ("variable-key", "import sys\ndef x(n):\n    return sys.modules[n]\n"),
+                ("bare", "import sys\ndef x():\n    return sys.modules\n")):
+            with self.subTest(form=label):
+                self.assertIn(ceb.CODE_INDIRECT_EXEC,
+                              _codes(ceb.check_source("collector.py", source)))
+
+    def test_dynamic_attr_family_is_a_family_not_a_single_builtin(self):
+        """`vars` / `globals` / `locals` / `dir` を明示的に族として扱っている。"""
+        self.assertEqual(ceb.DYNAMIC_ATTR_FAMILY,
+                         frozenset({"vars", "globals", "locals", "dir"}))
+
+
+class TypeCheckingExclusionTests(unittest.TestCase):
+    """R3-3: `if TYPE_CHECKING:` の型専用 import を偽陽性にしない（不変条件 10）。"""
+
+    def test_type_checking_import_is_not_flagged(self):
+        for label, source in (
+                ("bare", "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n"
+                         "    import subprocess\n"
+                         "def f(x: \"subprocess.Popen\") -> None:\n    pass\n"),
+                ("qualified", "import typing\nif typing.TYPE_CHECKING:\n"
+                              "    import subprocess\n"
+                              "def f(x: \"subprocess.Popen\") -> None:\n    pass\n")):
+            with self.subTest(form=label):
+                self.assertEqual(ceb.check_source("collector.py", source), [])
+
+    def test_else_branch_of_type_checking_still_runs_and_is_checked(self):
+        """`else:` は実行されるので対象外にしない（緩めすぎの防止）。"""
+        source = ("from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n"
+                  "    import json\nelse:\n    import subprocess\n")
+        self.assertIn(ceb.CODE_EXEC_TOKEN,
+                      _codes(ceb.check_source("collector.py", source)))
+
+    def test_ordinary_if_block_is_not_excluded(self):
+        source = "def x(flag):\n    if flag:\n        import subprocess\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN,
+                      _codes(ceb.check_source("collector.py", source)))
+
+    def test_annotation_is_excluded_only_with_future_annotations(self):
+        """PEP 563 が効く（= 注釈が評価されない）ときだけ注釈を対象外にする。"""
+        with_future = ("from __future__ import annotations\nimport os\n"
+                       "def f(x: os.system) -> None:\n    pass\n")
+        self.assertEqual(ceb.check_source("collector.py", with_future), [])
+        without_future = "import os\ndef f(x: os.system) -> None:\n    pass\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN,
+                      _codes(ceb.check_source("collector.py", without_future)))
+
+    def test_runtime_code_inside_a_type_checking_module_is_still_checked(self):
+        """TYPE_CHECKING を持つモジュールでも本体コードは通常どおり検査される。"""
+        source = ("from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n"
+                  "    import subprocess\ndef f(cmd):\n    import os\n"
+                  "    os.system(cmd)\n")
+        self.assertIn(ceb.CODE_EXEC_TOKEN,
+                      _codes(ceb.check_source("collector.py", source)))
+
+
+# ---------------------------------------------------------------------------
+# R3-2 / R3-4 / 残存脅威モデル: コード中の主張が実態と一致していること
+# ---------------------------------------------------------------------------
+
+class DocumentedClaimsTests(unittest.TestCase):
+    """コード中の主張は「実測で真」でなければならない（誤った安心を残さない）。
+
+    R3-2 で `INDIRECT_EXEC_ATTRS` のコメントが**実態と食い違っていた**
+    （「別名経由の `subprocess.run` は束縛伝播が解決するので検出力は落ちない」
+    と無条件に書いていたが `sys.modules["subprocess"].run` がすり抜けていた）。
+    同じ事故を繰り返さないよう、主張の前提を機械で固定する。
+    """
+
+    SOURCE = SCRIPT.read_text(encoding="utf-8")
+
+    def test_alias_claim_is_true_for_every_acquisition_route(self):
+        """R3-2: 「モジュール内で subprocess を取得する経路は塞いである」の実測。"""
+        routes = {
+            "import-as": "import subprocess as sp\ndef x(a):\n    sp.run(a)\n",
+            "from-import": "from subprocess import run\ndef x(a):\n    run(a)\n",
+            "assign-alias": ("import subprocess\n_run = subprocess.run\n"
+                             "def x(a):\n    _run(a)\n"),
+            "dunder-dict": ("import sys\ndef x(a):\n"
+                            "    sys.__dict__[\"modules\"]"
+                            "[\"subprocess\"].run(a)\n"),
+            "dunder-dict-via-alias": ("import sys\n"
+                                      "_t = sys.__dict__[\"modules\"]\n"
+                                      "def x(a):\n    _t[\"subprocess\"].run(a)\n"),
+            "vars": ("import subprocess\ndef x(a):\n"
+                     "    vars(subprocess)[\"run\"](a)\n"),
+            "sys-modules": ("import sys\ndef x(a):\n"
+                            "    sys.modules[\"subprocess\"].run(a)\n"),
+            "globals": ("import subprocess\ndef x(a):\n"
+                        "    globals()[\"subprocess\"].run(a)\n"),
+        }
+        for label, source in routes.items():
+            with self.subTest(route=label):
+                self.assertTrue(ceb.check_source("collector.py", source),
+                                f"{label} の取得経路がすり抜けた")
+
+    def test_documented_residual_gap_is_actually_a_gap(self):
+        """R3-2: 「残余」として明記した形が本当に残余であること（虚偽記載の防止）。
+
+        `def f(m, a): m.run(a)` は偽陽性回避のため意図的に検出しない。
+        「塞げていない」と書いた以上、塞がっていないことも固定する。
+        """
+        source = "def f(m, a):\n    return m.run(a)\n"
+        self.assertEqual(ceb.check_source("collector.py", source), [])
+
+    def test_indirect_exec_attrs_comment_states_the_residual(self):
+        self.assertIn("塞げていない残余", self.SOURCE)
+        self.assertIn("モジュール外から渡ってくる", self.SOURCE)
+
+    def test_frozen_exception_comment_states_the_rules_constraint(self):
+        """R3-4: `rules=` 差し替え禁止という前提がコード中に凍結されていること。"""
+        self.assertIn("`rules=` を外部から差し替えないこと", self.SOURCE)
+
+    def test_module_docstring_states_the_residual_threat_model(self):
+        doc = ceb.__doc__ or ""
+        self.assertIn("残存脅威モデル", doc)
+        self.assertIn("完全性は主張しない", doc)
+        self.assertIn("多層防御の 1 層", doc)
+        for round_label in ("R1", "R2", "R3"):
+            with self.subTest(round=round_label):
+                self.assertIn(round_label, doc)
+
+    def test_module_docstring_names_the_real_guarantors(self):
+        doc = ceb.__doc__ or ""
+        for guarantor in ("gh_exec", "C-4", "branch protection"):
+            with self.subTest(guarantor=guarantor):
+                self.assertIn(guarantor, doc)
+
+    def test_runbook_documents_the_residual_threat_model(self):
+        runbook = (HERE.parents[1] / "docs" / "workflows" / "ai-loop"
+                   / "execution-runbook.md")
+        self.assertTrue(runbook.is_file(), f"runbook が無い: {runbook}")
+        text = runbook.read_text(encoding="utf-8")
+        for phrase in ("残存脅威モデル", "多層防御", "完全性"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
 
 
 # ---------------------------------------------------------------------------

@@ -333,6 +333,52 @@ protection は **多層防御の補助**として併用してよいが、**設�
 Defense in Depth / TASK-0114）。ただしこれも上記の意味で**補助**であり、AC-5 の
 保証を肩代わりしない — 未適用のホストでも Executor 側の allowlist は同じ強度で働く。
 
+#### `check_exec_boundary.py` の残存脅威モデル（何を守り、何を守らないか）
+
+> **完全性は主張しない。** TASK-0917 では AST 静的検査に対して敵対レビューを
+> **3 ラウンド**回し、**毎回 1 つ深い回避クラスが新たに見つかった**。この事実
+> 自体が「静的検査で任意の回避を塞ぎ切れる」という主張が成り立たないことの
+> 証拠である。次に触る人が「もう完全に塞がっている」と誤読しないために、
+> 塞いだクラスと残る限界を明示する。
+
+| ラウンド | 新たに出た回避クラス | 是正 |
+|---|---|---|
+| **R1** | 直接記述（`subprocess` / `os.system` / `pty` / `ctypes` / `multiprocessing` / `asyncio.create_subprocess_*`）、`getattr(os, "system")`、`eval`・`exec`・`compile`、`gh_exec.py` 内部の `shell=True` / `_spawn()` 外の呼び出しサイト | 実行系トークンの列挙 + 動的属性 / 動的コード生成の deny + `gh_exec.py` 内部の構造規律 |
+| **R2** | **ローカル別名**（`mod = os` の 1 行で R1 の是正がすべて無効化された）、イントロスペクション属性（`os.__dict__["system"]`） | 束縛の代入伝播（不動点）+ fail-closed 既定への反転 |
+| **R3** | **`ast.Subscript` 経路**（`vars(os)["system"]` / `sys.modules["subprocess"].run` / `globals()["subprocess"]`）。`os.__dict__["system"]` は検出できるのに `vars(os)["system"]` はすり抜ける、`.Popen` は検出できるのに `.run` はすり抜ける、という**非対称性**が症状として現れていた | 添字式の束縛解決 + 添字経路の fail-closed 層 |
+
+**守るもの**:
+
+- **偶発的な迂回**。将来の実装者が無自覚に `subprocess` / `os.system` /
+  `pty` / `ctypes` 等を書くこと
+- **上表に列挙した回避クラス**（3 ラウンドの敵対レビューで実測 → 是正 →
+  回帰テストで凍結）
+- 静的に解決できない間接参照を「トークンでない」ではなく **violation** として
+  扱う fail-closed の既定
+
+**守らないもの**:
+
+- **コミット権限を持つ実装者が意図的に回避しようとする場合**。AST 静的検査は
+  sandbox ではなく、新しい回避クラスは原理的に無限に存在しうる
+- **この Python プロセスの外**の作用（同一セッションの Bash・別プロセス・
+  別 CI ジョブからの `gh pr merge`）
+- `scripts/ai-loop/*.py` **以外**のファイル。検査対象ディレクトリ外から実行
+  能力を渡す経路は視野外
+- 基底がモジュール外から渡される一般名の呼び出し（`def f(m): m.run(x)`）。
+  偽陽性を避けるため `run` / `call` は間接実行名に載せていない
+
+したがって **`check_exec_boundary.py` は「多層防御の 1 層」**であり、
+**単独で「NO MERGE BY AI」を保証するものではない**。保証の主体は
+
+1. runtime の `gh_exec` allowlist（`authorize_gh()` の deny 既定）
+2. **C-4 Human レビュー**
+3. repo 側の branch protection / required review
+
+であり、本検査器は「それらが気付かないうちに掘り崩されていないこと」を CI で
+機械的に確かめる補助線に過ぎない。**新しい回避クラスを見つけたら、塞いだうえで
+必ず上表に 1 行追加すること**（塞いだ範囲の記録を残さないと、次の読み手が
+再び「完全に塞がっている」と誤読する）。
+
 ### AC-7 差分検査（TC-14）は実行環境に依存する（PR 時 CI では走らない）
 
 判定エンジン 3 ファイル（`delivery.py` / `c3_contract.py` / `c3prime_verify.py`）を
