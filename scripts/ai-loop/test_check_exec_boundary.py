@@ -22,6 +22,7 @@ import pathlib
 import subprocess
 import sys
 import unittest
+from unittest import mock
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -405,17 +406,16 @@ def _patched(**attrs):
     「検査を外すと元のすり抜けが復活する」ことを実証するために使う。
     作業ツリーのファイルは 1 バイトも書き換えない。
 
-    退避に `getattr(ceb, key)` を使わないのは、本ファイル自身が検査対象であり
-    **属性名が変数の `getattr` は fail-closed で violation** になるため（R1-A-1）。
+    退避 / 復元に `getattr(ceb, key)` も `ceb.__dict__[key]` も使わず
+    `unittest.mock.patch.object` に委ねる。理由 = **本ファイル自身が検査対象**
+    であり、属性名が変数の `getattr`（R1-A-1）も `__dict__` 添字（R2-a-2）も
+    fail-closed で violation になるため。旧実装は後者で前者を迂回しており、
+    それ自体が「検査器の穴を使って検査器を回避した」実例だった。
     """
-    saved = {key: ceb.__dict__[key] for key in attrs}
-    try:
+    with contextlib.ExitStack() as stack:
         for key, value in attrs.items():
-            setattr(ceb, key, value)
+            stack.enter_context(mock.patch.object(ceb, key, value))
         yield
-    finally:
-        for key, value in saved.items():
-            setattr(ceb, key, value)
 
 
 #: R1 で「MISS（すり抜け）」と実測された再現コード。すべて DETECTED になること。
@@ -608,8 +608,14 @@ class DirectExecModuleTests(unittest.TestCase):
         self.assertEqual(ceb.check_source("collector.py", source), [])
 
     def test_mutation_legacy_constants_restore_all_three_holes(self):
-        """変異注入: 是正前の定数へ戻すと A-3 の 5 形すべてがすり抜ける。"""
-        labels = ("A-3/pty", "A-3/ctypes", "A-3/os.posix_spawn",
+        """変異注入: 是正前の定数へ戻すと A-3 の 4 形がすり抜ける。
+
+        `A-3/ctypes` だけは R2-a-2 で**独立した第 2 層**（基底が解決できない
+        属性参照のうち実行系の名前 = `INDIRECT_EXEC_ATTRS`）にも掛かるように
+        なったため、R1-A-3 の定数だけを戻しても落ちない。第 2 層も外すと
+        すり抜けることを次のテストで別途固定する（層の独立性の実証）。
+        """
+        labels = ("A-3/pty", "A-3/os.posix_spawn",
                   "A-3/multiprocessing", "A-3/asyncio-shell")
         with _patched(FORBIDDEN_MODULE_ROOTS=self.LEGACY_FORBIDDEN_ROOTS,
                       OS_EXEC_ATTRS=self.LEGACY_OS_EXEC_ATTRS,
@@ -617,9 +623,25 @@ class DirectExecModuleTests(unittest.TestCase):
             for label in labels:
                 with self.subTest(case=label, phase="mutated"):
                     self.assertEqual(ceb.check_source(*R1_REPRODUCTIONS[label]), [])
-        for label in labels:
+            with self.subTest(case="A-3/ctypes", phase="second-layer-holds"):
+                self.assertTrue(ceb.check_source(*R1_REPRODUCTIONS["A-3/ctypes"]))
+        for label in labels + ("A-3/ctypes",):
             with self.subTest(case=label, phase="fixed"):
                 self.assertTrue(ceb.check_source(*R1_REPRODUCTIONS[label]))
+
+    def test_mutation_both_layers_off_restores_the_ctypes_hole(self):
+        """変異注入: R1-A-3 定数 + R2-a-2 第 2 層の**両方**を外すと ctypes が復活する。
+
+        「R1-A-3 の定数がまだ load-bearing である」ことの実証（第 2 層が
+        できたから元の層が不要になった、という誤読を防ぐ）。
+        """
+        case = R1_REPRODUCTIONS["A-3/ctypes"]
+        with _patched(FORBIDDEN_MODULE_ROOTS=self.LEGACY_FORBIDDEN_ROOTS,
+                      OS_EXEC_ATTRS=self.LEGACY_OS_EXEC_ATTRS,
+                      ASYNCIO_EXEC_ATTRS=(),
+                      INDIRECT_EXEC_ATTRS=frozenset()):
+            self.assertEqual(ceb.check_source(*case), [])
+        self.assertTrue(ceb.check_source(*case))
 
 
 class GhExecInternalDisciplineTests(unittest.TestCase):
@@ -711,6 +733,287 @@ class GhExecInternalDisciplineTests(unittest.TestCase):
         source = ("import subprocess\nimport sys\ndef helper():\n"
                   "    return subprocess.run([sys.executable, \"x.py\"])\n")
         self.assertEqual(ceb.check_source("test_x.py", source), [])
+
+
+# ---------------------------------------------------------------------------
+# R2-a-1 / R2-a-2: 束縛伝播（データフロー追跡）と fail-closed 既定
+# ---------------------------------------------------------------------------
+
+#: R2 敵対レビューで「MISS（すり抜け）」と実測された 6 形。すべて DETECTED になること。
+#: 束縛表を `import` 文だけから作ると、**変数への代入 1 行**で 1〜3・6 の全検査が
+#: 迂回できた（R2-a-1）。加えて未知の名前を「トークンでない」と判定していたため
+#: `__dict__` 添字も無検査だった（R2-a-2）。
+R2_REPRODUCTIONS = {
+    # gh_exec.py 内部の構造規律（R1-A-4）の復活
+    "R2/gh_exec-alias-shell-true": (
+        "gh_exec.py",
+        "import subprocess\n_run = subprocess.run\ndef run_gh(a):\n"
+        "    return _run([\"gh\"]+a, shell=True)\n"),
+    "R2/gh_exec-os-alias": (
+        "gh_exec.py",
+        "import subprocess\nimport os\n_os = os\ndef run_gh(a):\n"
+        "    _os.system(\"x\")\n"),
+    # 全モジュール共通の実行系トークン deny（R1-A-1 / A-3）の復活
+    "R2/module-alias-attr": (
+        "collector.py", "import os\nmod = os\ndef x():\n    mod.system(\"x\")\n"),
+    "R2/getattr-on-alias": (
+        "collector.py",
+        "import os\nmod = os\ndef x():\n    getattr(mod,\"system\")(\"x\")\n"),
+    "R2/dunder-dict-subscript": (
+        "collector.py", "import os\ndef x():\n    os.__dict__[\"system\"](\"x\")\n"),
+    # test_*.py の argv 不変条件（R1）の復活
+    "R2/test-argv-via-alias": (
+        "test_x.py",
+        "import subprocess\n_run = subprocess.run\ndef x():\n"
+        "    _run([\"gh\",\"pr\",\"merge\",\"1\"])\n"),
+}
+
+#: 正当な Python の書き方。**1 件も violation を出してはならない**（偽陽性ゼロ）。
+BENIGN_SOURCES = {
+    "getattr-default-on-local": (
+        "collector.py",
+        "def x(proc):\n    return getattr(proc, \"returncode\", 1)\n"),
+    "re-compile": ("collector.py", "import re\nPAT = re.compile(r\"a+\")\n"),
+    "os-environ": ("collector.py", "import os\ndef x():\n    return os.environ.get(\"HOME\")\n"),
+    "os-path-join": (
+        "collector.py",
+        "import os\ndef x(a, b):\n    return os.path.join(a, b)\n"),
+    "self-method-call": (
+        "collector.py",
+        "class C:\n    def a(self):\n        return self.b()\n"
+        "    def b(self):\n        return 1\n"),
+    "local-dataclass-method": (
+        "collector.py",
+        "import dataclasses\n@dataclasses.dataclass\nclass R:\n    n: int\n"
+        "    def run(self):\n        return self.n\n"
+        "def x():\n    return R(1).run()\n"),
+    "json-dumps": (
+        "collector.py",
+        "import json\ndef x(d):\n    return json.dumps(d, ensure_ascii=False)\n"),
+    "pathlib-chain": (
+        "collector.py",
+        "import pathlib\ndef x(p):\n    return pathlib.Path(p).resolve().parent\n"),
+    "local-var-method-chain": (
+        "collector.py",
+        "def x(view):\n    return view.stdout.strip().splitlines()\n"),
+    "alias-of-benign-module": (
+        "collector.py", "import json\n_j = json\ndef x(d):\n    return _j.loads(d)\n"),
+    "test-subprocess-sys-executable": (
+        "test_x.py",
+        "import subprocess\nimport sys\ndef x():\n"
+        "    subprocess.run([sys.executable, \"a.py\"])\n"),
+    "enumerate-over-local-callables": (
+        "collector.py",
+        "def x(handlers, ctx):\n    for h in handlers:\n        h(ctx)\n"),
+}
+
+
+#: **束縛伝播でしか捕まらない**形（fail-closed 層は属性名で判定するため
+#: `run` のような一般的な名前には掛からない）。伝播の検出力実証に使う。
+PROPAGATION_ONLY_SOURCES = {
+    # `gh_exec.py` は `subprocess` 自体は合法なので、別名を解決できるかどうかで
+    # 「`_spawn()` の外での呼び出し」を検出できるか否かが決まる。
+    "module-alias-subprocess-run": (
+        "gh_exec.py",
+        "import subprocess\n_sp = subprocess\ndef run_gh(a):\n    return _sp.run(a)\n"),
+    "func-alias-argv-in-test": R2_REPRODUCTIONS["R2/test-argv-via-alias"],
+}
+
+
+class BindingPropagationTests(unittest.TestCase):
+    """R2-a-1: 束縛は `import` だけでなく代入も伝播する（データフロー追跡）。"""
+
+    def test_all_r2_reproductions_are_detected(self):
+        for label, (name, source) in R2_REPRODUCTIONS.items():
+            with self.subTest(case=label):
+                self.assertTrue(ceb.check_source(name, source), f"{label} がすり抜けた")
+
+    def test_no_false_positive_on_benign_sources(self):
+        """偽陽性ゼロの実証: 正当な書き方 12 種が 1 件も違反にならない。"""
+        for label, (name, source) in BENIGN_SOURCES.items():
+            with self.subTest(case=label):
+                self.assertEqual(ceb.check_source(name, source), [])
+
+    def test_chained_alias_is_propagated(self):
+        source = "import os\na = os\nb = a\ndef x():\n    b.system(\"x\")\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(ceb.check_source("collector.py", source)))
+
+    def test_tuple_assignment_is_propagated(self):
+        source = "import os\nimport sys\na, b = os, sys\ndef x():\n    a.system(\"x\")\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(ceb.check_source("collector.py", source)))
+
+    def test_multiple_assignment_is_propagated(self):
+        source = "import os\na = b = os\ndef x():\n    b.popen(\"x\")\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(ceb.check_source("collector.py", source)))
+
+    def test_annotated_assignment_is_propagated(self):
+        source = "import os\nm: object = os\ndef x():\n    m.system(\"x\")\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(ceb.check_source("collector.py", source)))
+
+    def test_function_default_argument_is_propagated(self):
+        source = ("import subprocess\ndef x(runner=subprocess.run):\n"
+                  "    return runner([\"gh\", \"pr\", \"merge\", \"1\"])\n")
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(ceb.check_source("collector.py", source)))
+
+    def test_keyword_only_default_is_propagated(self):
+        source = ("import os\ndef x(*, m=os):\n    m.system(\"x\")\n")
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(ceb.check_source("collector.py", source)))
+
+    def test_alias_of_exec_function_in_test_module_is_argv_checked(self):
+        """test_*.py: 別名経由でも argv 不変条件が効く（正側 = sys.executable は通る）。"""
+        ok = ("import subprocess\nimport sys\n_run = subprocess.run\n"
+              "def x():\n    _run([sys.executable, \"a.py\"])\n")
+        self.assertEqual(ceb.check_source("test_x.py", ok), [])
+
+    def test_mutation_disabling_propagation_restores_propagation_only_holes(self):
+        """変異注入: 伝播を外すと（＝ import 文だけの旧モデル）別名がすり抜ける。
+
+        R2 の 6 形のうち 4 形は **fail-closed 層（R2-a-2）にも**掛かるため、
+        伝播だけを外しても落ちない（層が独立している証拠）。ここでは
+        「伝播でしか捕まらない形」を使って伝播そのものの検出力を実証する。
+        """
+        for label, (name, source) in PROPAGATION_ONLY_SOURCES.items():
+            with self.subTest(case=label, phase="fixed"):
+                self.assertTrue(ceb.check_source(name, source))
+        with _patched(_propagate_bindings=lambda tree, binds: False):
+            for label, (name, source) in PROPAGATION_ONLY_SOURCES.items():
+                with self.subTest(case=label, phase="mutated"):
+                    self.assertEqual(ceb.check_source(name, source), [])
+
+    def test_mutation_disabling_all_r2_layers_restores_all_six_holes(self):
+        """変異注入: R2 で足した層を**すべて**外すと 6 形すべてがすり抜ける。
+
+        R2-a-1（束縛伝播）/ R2-a-2（イントロスペクション・間接実行名・
+        `gh_exec.py` 厳格解決）の合成で 6 形が塞がっていることの実証。
+        """
+        with _patched(_propagate_bindings=lambda tree, binds: False,
+                      INTROSPECTION_ATTRS=frozenset(),
+                      INDIRECT_EXEC_ATTRS=frozenset(),
+                      _gh_exec_indirect_calls=lambda tree, binds, name, exceptions=None: []):
+            for label in R2_REPRODUCTIONS:
+                with self.subTest(case=label, phase="mutated"):
+                    self.assertEqual(ceb.check_source(*R2_REPRODUCTIONS[label]), [])
+        for label in R2_REPRODUCTIONS:
+            with self.subTest(case=label, phase="fixed"):
+                self.assertTrue(ceb.check_source(*R2_REPRODUCTIONS[label]))
+
+    def test_propagation_reaches_fixed_point_without_infinite_loop(self):
+        """伝播は不動点で停止する（自己参照の代入でも停止すること）。"""
+        source = "import os\na = os\na = a\ndef x():\n    a.system(\"x\")\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(ceb.check_source("collector.py", source)))
+
+
+class FailClosedDefaultTests(unittest.TestCase):
+    """R2-a-2: 「解決できない = トークンでない」を「解決できない = violation」へ反転。"""
+
+    def test_dunder_dict_with_literal_key_resolves_to_token(self):
+        source = "import os\ndef x():\n    os.__dict__[\"system\"](\"x\")\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(ceb.check_source("collector.py", source)))
+
+    def test_dunder_dict_with_variable_key_is_fail_closed(self):
+        source = "import os\ndef x(k):\n    return os.__dict__[k]\n"
+        self.assertIn(ceb.CODE_INDIRECT_EXEC,
+                      _codes(ceb.check_source("collector.py", source)))
+
+    def test_dunder_dict_without_subscript_is_fail_closed(self):
+        source = "import os\ndef x():\n    d = os.__dict__\n    return d\n"
+        self.assertIn(ceb.CODE_INDIRECT_EXEC,
+                      _codes(ceb.check_source("collector.py", source)))
+
+    def test_other_introspection_attrs_are_fail_closed(self):
+        for attr in ("__globals__", "__builtins__", "__subclasses__",
+                     "__getattribute__", "__code__"):
+            with self.subTest(attr=attr):
+                source = f"def x(f):\n    return f.{attr}\n"
+                self.assertIn(ceb.CODE_INDIRECT_EXEC,
+                              _codes(ceb.check_source("collector.py", source)))
+
+    def test_declaration_dunders_are_not_flagged(self):
+        """`__slots__` / `__repr__` / `__name__` 等の宣言系は対象外（偽陽性ガード）。"""
+        source = ("class C:\n    __slots__ = (\"a\",)\n"
+                  "    def __repr__(self):\n        return type(self).__name__\n")
+        self.assertEqual(ceb.check_source("collector.py", source), [])
+
+    def test_unresolved_base_with_exec_attr_is_fail_closed(self):
+        source = "def x(m, c):\n    return m.system(c)\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(ceb.check_source("collector.py", source)))
+
+    def test_unresolved_base_with_benign_attr_is_not_flagged(self):
+        source = "def x(proc):\n    return proc.returncode\n"
+        self.assertEqual(ceb.check_source("collector.py", source), [])
+
+    def test_execute_is_not_confused_with_os_exec_family(self):
+        """`cursor.execute()` は prefix 一致では倒さない（`OS_EXEC_FAMILY` は完全一致）。"""
+        source = "def x(cursor, q):\n    return cursor.execute(q)\n"
+        self.assertEqual(ceb.check_source("collector.py", source), [])
+
+    def test_getattr_on_unresolved_base_with_exec_name_is_fail_closed(self):
+        source = "def x(m, c):\n    return getattr(m, \"system\")(c)\n"
+        self.assertIn(ceb.CODE_EXEC_TOKEN, _codes(ceb.check_source("collector.py", source)))
+
+    def test_getattr_on_unresolved_base_with_benign_name_passes(self):
+        source = "def x(proc):\n    return getattr(proc, \"returncode\", 1)\n"
+        self.assertEqual(ceb.check_source("collector.py", source), [])
+
+    def test_mutation_disabling_indirect_attrs_restores_the_hole(self):
+        cases = ("def x(m, c):\n    return m.system(c)\n",
+                 "def x(m, c):\n    return getattr(m, \"system\")(c)\n")
+        with _patched(INDIRECT_EXEC_ATTRS=frozenset()):
+            for source in cases:
+                with self.subTest(source=source, phase="mutated"):
+                    self.assertEqual(ceb.check_source("collector.py", source), [])
+        for source in cases:
+            with self.subTest(source=source, phase="fixed"):
+                self.assertTrue(ceb.check_source("collector.py", source))
+
+
+class GhExecStrictResolutionTests(unittest.TestCase):
+    """R2-a-2 不変条件 8(d): `gh_exec.py` は呼び出し先の静的解決を要求する。"""
+
+    def test_real_gh_exec_passes_strict_resolution(self):
+        source = (HERE / "gh_exec.py").read_text(encoding="utf-8")
+        self.assertEqual(ceb.check_source("gh_exec.py", source), [])
+
+    def test_unresolvable_bare_call_is_flagged(self):
+        source = ("def run_gh(handlers, a):\n    for h in handlers:\n"
+                  "        return h(a)\n")
+        self.assertIn(ceb.CODE_GH_EXEC_INDIRECT_CALL,
+                      _codes(ceb.check_source("gh_exec.py", source)))
+
+    def test_module_local_and_builtin_calls_pass(self):
+        source = ("def helper(a):\n    return len(str(a))\n"
+                  "def run_gh(a):\n    return helper(a)\n")
+        self.assertEqual(ceb.check_source("gh_exec.py", source), [])
+
+    def test_exception_list_is_exactly_one_entry(self):
+        entries = ceb.GH_EXEC_INDIRECT_CALL_EXCEPTIONS
+        self.assertEqual(len(entries), 1, f"例外は 1 件固定: {list(entries)}")
+        self.assertEqual(tuple(entries[0]), ("authorize_gh", "condition"))
+
+    def test_exception_is_scoped_to_function_and_callee_name(self):
+        """例外は (関数名, 呼び出し名) の組で効く（別関数の同名呼び出しは通さない）。"""
+        outside = ("def authorize_git(rule, ctx):\n    for _n, condition in rule:\n"
+                   "        condition(ctx)\n")
+        self.assertIn(ceb.CODE_GH_EXEC_INDIRECT_CALL,
+                      _codes(ceb.check_source("gh_exec.py", outside)))
+        inside = ("def authorize_gh(rule, ctx):\n    for _n, condition in rule:\n"
+                  "        condition(ctx)\n")
+        self.assertEqual(ceb.check_source("gh_exec.py", inside), [])
+
+    def test_mutation_extra_exception_would_suppress_a_real_violation(self):
+        rogue = ("def run_gh(handlers, a):\n    for h in handlers:\n"
+                 "        return h(a)\n")
+        self.assertTrue(ceb.check_source("gh_exec.py", rogue))
+        with _patched(GH_EXEC_INDIRECT_CALL_EXCEPTIONS=(
+                ("authorize_gh", "condition"), ("run_gh", "h"))):
+            self.assertEqual(ceb.check_source("gh_exec.py", rogue), [])
+
+    def test_strict_resolution_does_not_apply_to_other_modules(self):
+        source = ("def x(handlers, a):\n    for h in handlers:\n"
+                  "        return h(a)\n")
+        for name in ("collector.py", "test_x.py"):
+            with self.subTest(module=name):
+                self.assertEqual(ceb.check_source(name, source), [])
 
 
 # ---------------------------------------------------------------------------

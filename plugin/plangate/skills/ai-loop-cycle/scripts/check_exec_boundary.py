@@ -38,6 +38,28 @@
      実行系トークン検出全体へ一貫適用する）。`eval` / `exec` / `compile` は
      AST 静的検査と原理的に相容れないため **`gh_exec.py` を含む全モジュールで**
      一律 deny。
+  7. **束縛は代入を伝播する**（R2-a-1 / 根本是正）。トークン判定の基底を
+     `import` 文だけから作ると `_run = subprocess.run` / `_os = os` の
+     **1 行の代入**で 1〜3・6 の全検査が迂回できる。`Assign` / `AnnAssign` /
+     `AugAssign` の右辺、タプル代入・多重代入、および**関数のデフォルト引数**
+     （`def f(runner=subprocess.run)`）を不動点まで伝播させ、別名を元の
+     dotted path と同一視する。
+  8. **既定は fail-closed**（R2-a-2 / 根本是正）。「静的に解決できない＝
+     トークンでない」ではなく「静的に解決できない＝violation」を既定にする。
+     ただし通常の `self.foo()` / ローカルオブジェクトのメソッド呼び出しまで
+     violation にすると偽陽性で開発が止まるため、**間接的に実行能力を取得
+     しうる形**へ適用範囲を限定する:
+       (a) `__dict__` / `__globals__` 等の**イントロスペクション属性**は
+           「解決可能なモジュール + 文字列リテラル添字」以外すべて violation
+           （`os.__dict__["system"]` は `os.system` として解決する）
+       (b) 基底が解決できない属性参照のうち、属性名が**実行系の名前**
+           （`system` / `popen` / `run` / `Popen` / `exec*` / `spawn*` 等）に
+           一致するもの
+       (c) 基底が解決できない `getattr(x, "<実行系の名前>")`
+       (d) `gh_exec.py` **のみ**さらに厳格に、**呼び出し先が静的に解決できない
+           bare name 呼び出し**を violation にする（唯一の外部作用境界であり、
+           小さく統制されているため成立する）。例外は
+           `GH_EXEC_INDIRECT_CALL_EXCEPTIONS` に**凍結**して列挙する
 
 **substring 走査は使わない**: `discovery.py` の docstring には「subprocess での
 gh 呼び出し禁止」という宣言文が実在し、grep 方式では偽陽性になる。
@@ -118,15 +140,71 @@ GH_EXEC_SPAWN_FUNC = "_spawn"
 #: 自ら組み立てる）経路であり、`run_gh` / `run_git` と同格の監査済み入口である。
 GH_EXEC_SPAWN_CALLERS = ("run_gh", "run_git", "push_pr_head")
 
+#: イントロスペクション属性。**解決可能なモジュール + 文字列リテラル添字**
+#: （`os.__dict__["system"]`）以外は一律 fail-closed（不変条件 8(a) / R2-a-2）。
+#: `__slots__` / `__repr__` / `__name__` 等の宣言・メタ情報系は含めない。
+INTROSPECTION_ATTRS = frozenset({
+    "__dict__", "__globals__", "__builtins__", "__subclasses__",
+    "__getattribute__", "__code__", "__bases__", "__mro__", "__loader__",
+    "__closure__", "__func__", "__self__", "__wrapped__",
+})
+
+#: `os` の exec / spawn ファミリ（**完全一致**）。基底が解決できない属性参照に
+#: 使う。prefix 一致（`OS_EXEC_PREFIXES`）をそのまま使うと `cursor.execute()` の
+#: ような無害な呼び出しを誤検出するため、族を明示列挙する。
+OS_EXEC_FAMILY = (
+    "execl", "execle", "execlp", "execlpe",
+    "execv", "execve", "execvp", "execvpe",
+    "spawnl", "spawnle", "spawnlp", "spawnlpe",
+    "spawnv", "spawnve", "spawnvp", "spawnvpe",
+    "forkpty", "posix_spawn", "posix_spawnp",
+)
+
+#: 基底が静的に解決できないときに fail-closed とする属性名（不変条件 8(b)/(c)）。
+#: **「その名前自体が実行能力を指す」ものだけ**を載せる。
+#: `run` / `call` / `fork` を**載せない**のは、`R(1).run()`（ローカル dataclass の
+#: メソッド）や `repo.fork()` のような正当な呼び出しと区別できず偽陽性になるため。
+#: 別名経由の `subprocess.run`（`_run = subprocess.run`）は本層ではなく
+#: **束縛伝播（不変条件 7）が解決して**捕捉するので、検出力は落ちない。
+INDIRECT_EXEC_ATTRS = frozenset(
+    OS_EXEC_ATTRS + ASYNCIO_EXEC_ATTRS + OS_EXEC_FAMILY
+    + ("Popen", "check_output", "check_call", "getoutput", "getstatusoutput",
+       "CDLL", "LoadLibrary", "import_module", "__import__"))
+
+#: `gh_exec.py` で bare name 呼び出しの静的解決を免除する (関数名, 呼び出し名)。
+#: **この 1 件から増やさない**（`GRANDFATHER_ARGV_EXCEPTIONS` と同じ凍結方式）。
+#: `authorize_gh()` は rule table の condition 関数列（`GH_RULES` に載る
+#: module-local な `_c_*`）を反復適用するため、呼び出し先がループ変数になる。
+#: 解消には `gh_exec.py` 側の構造変更が要るため、本 PBI では**凍結**して扱う。
+GH_EXEC_INDIRECT_CALL_EXCEPTIONS = (
+    ("authorize_gh", "condition"),
+)
+
+#: `gh_exec.py` の bare name 呼び出しで静的解決済みとみなす builtin。
+#: `dir(builtins)` を使わない（`eval` / `getattr` / `__import__` を巻き込むため）。
+SAFE_BUILTIN_CALLS = frozenset({
+    "bool", "bytes", "dict", "enumerate", "float", "format", "frozenset", "int",
+    "isinstance", "issubclass", "iter", "len", "list", "max", "min", "next",
+    "range", "repr", "reversed", "set", "sorted", "str", "sum", "tuple", "zip",
+    "all", "any", "abs", "print", "super", "ValueError", "TypeError",
+    "KeyError", "IndexError", "RuntimeError", "NotImplementedError",
+    "AssertionError", "OSError", "Exception",
+})
+
+#: 代入伝播の不動点反復の上限（`a = b`, `b = c` の連鎖長の安全側上限）。
+MAX_PROPAGATION_ROUNDS = 8
+
 # 違反コード
 CODE_EXEC_TOKEN = "EXEC_TOKEN"
 CODE_GH_EXEC_EXTRA_TOKEN = "GH_EXEC_EXTRA_TOKEN"
 CODE_GH_EXEC_SHELL = "GH_EXEC_SHELL"
 CODE_GH_EXEC_SPAWN_SITE = "GH_EXEC_SPAWN_SITE"
 CODE_GH_EXEC_SPAWN_CALLER = "GH_EXEC_SPAWN_CALLER"
+CODE_GH_EXEC_INDIRECT_CALL = "GH_EXEC_INDIRECT_CALL"
 CODE_ARGV_HEAD = "ARGV_HEAD"
 CODE_ARGV_UNRESOLVED = "ARGV_UNRESOLVED"
 CODE_DYNAMIC_UNRESOLVED = "DYNAMIC_UNRESOLVED"
+CODE_INDIRECT_EXEC = "INDIRECT_EXEC"
 CODE_IMPORT_UNRESOLVED = "IMPORT_UNRESOLVED"
 CODE_SYNTAX = "SYNTAX"
 
@@ -157,15 +235,99 @@ class Violation:
 # ---------------------------------------------------------------------------
 
 class _Bindings:
-    """モジュール内のローカル名 → 正規 import パスの束縛表。"""
+    """モジュール内のローカル名 → 正規 import パスの束縛表。
+
+    import だけでなく**代入の右辺も伝播**する（不変条件 7 / R2-a-1）。
+    `_run = subprocess.run` のような 1 行の別名付けで検査が迂回されるのを防ぐ。
+    """
 
     def __init__(self) -> None:
         self.modules: dict[str, str] = {}      # 名前 → モジュール dotted path
         self.functions: dict[str, str] = {}    # 名前 → "module.attr" dotted path
 
+    def bind(self, local: str, dotted: str) -> bool:
+        """`local` を `dotted` の別名として登録する。変化があれば True。"""
+        changed = False
+        if self.modules.get(local) != dotted:
+            self.modules[local] = dotted
+            changed = True
+        if self.functions.get(local) != dotted:
+            self.functions[local] = dotted
+            changed = True
+        return changed
+
+    def resolve(self, node):
+        """`Name` / `Attribute` チェーンを dotted path へ解決する（不能なら None）。"""
+        if isinstance(node, ast.Name):
+            return self.modules.get(node.id) or self.functions.get(node.id)
+        if isinstance(node, ast.Attribute):
+            base = self.resolve(node.value)
+            return f"{base}.{node.attr}" if base else None
+        return None
+
+
+def _unpack_targets(target, value):
+    """(target, value) を分解する。タプル / リストの要素数一致時のみ対応付ける。"""
+    if isinstance(target, (ast.Tuple, ast.List)):
+        if isinstance(value, (ast.Tuple, ast.List)) and len(target.elts) == len(value.elts):
+            for sub_target, sub_value in zip(target.elts, value.elts):
+                yield from _unpack_targets(sub_target, sub_value)
+        return
+    yield (target, value)
+
+
+def _assignment_pairs(node):
+    """`Assign` / `AnnAssign` / `AugAssign` から (target, value) を列挙する。
+
+    多重代入（`a = b = os`）は `node.targets` の各要素へ、タプル代入
+    （`a, b = os, sys`）は要素数一致時に要素ごとへ展開する。
+    """
+    if isinstance(node, ast.Assign):
+        for target in node.targets:
+            yield from _unpack_targets(target, node.value)
+    elif isinstance(node, ast.AnnAssign) and node.value is not None:
+        yield from _unpack_targets(node.target, node.value)
+    elif isinstance(node, ast.AugAssign):
+        yield from _unpack_targets(node.target, node.value)
+
+
+def _default_pairs(func):
+    """関数のデフォルト引数から (引数名, デフォルト式) を列挙する。
+
+    `def f(runner=subprocess.run)` を代入と同等に扱う（不変条件 7）。
+    """
+    args = func.args
+    positional = list(getattr(args, "posonlyargs", [])) + list(args.args)
+    if args.defaults:
+        for arg, default in zip(positional[len(positional) - len(args.defaults):],
+                                args.defaults):
+            yield (arg.arg, default)
+    for arg, default in zip(args.kwonlyargs, args.kw_defaults):
+        if default is not None:
+            yield (arg.arg, default)
+
+
+def _propagate_bindings(tree, binds: _Bindings) -> bool:
+    """代入 / デフォルト引数を 1 巡だけ伝播する。変化があれば True。"""
+    changed = False
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for local, default in _default_pairs(node):
+                dotted = binds.resolve(default)
+                if dotted and binds.bind(local, dotted):
+                    changed = True
+            continue
+        for target, value in _assignment_pairs(node):
+            if not isinstance(target, ast.Name):
+                continue
+            dotted = binds.resolve(value)
+            if dotted and binds.bind(target.id, dotted):
+                changed = True
+    return changed
+
 
 def _collect_bindings(tree, violations, name):
-    """import 文を走査して束縛表を作り、解決不能な形（star import）を fail-closed で記録。"""
+    """import + 代入伝播で束縛表を作り、解決不能な形（star import）を fail-closed で記録。"""
     binds = _Bindings()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -188,6 +350,10 @@ def _collect_bindings(tree, violations, name):
                 binds.functions[local] = dotted
                 # `from urllib import request` のようにモジュールを直接束縛する形も拾う
                 binds.modules.setdefault(local, dotted)
+    # 代入の連鎖（`a = os` → `b = a`）を不動点まで伝播する。
+    for _round in range(MAX_PROPAGATION_ROUNDS):
+        if not _propagate_bindings(tree, binds):
+            break
     return binds
 
 
@@ -237,10 +403,12 @@ def _module_token(dotted: str):
 
 
 def _attribute_token(node, binds: _Bindings):
-    """`X.attr` 形の実行系トークンを解決する（X はローカル束縛名）。"""
-    if not isinstance(node.value, ast.Name):
-        return None
-    target = binds.modules.get(node.value.id)
+    """`X.attr` 形の実行系トークンを解決する（X は束縛名 / 属性チェーン）。
+
+    `_Bindings.resolve` を使うため、`import` 由来の名前だけでなく**代入で
+    伝播した別名**（`_os = os` の `_os.system`）も解決できる（R2-a-1）。
+    """
+    target = binds.resolve(node.value)
     if target is None:
         return None
     return _module_token(f"{target}.{node.attr}")
@@ -269,13 +437,34 @@ def _getattr_token(node, binds: _Bindings):
     attr_node = node.args[1]
     if not (isinstance(attr_node, ast.Constant) and isinstance(attr_node.value, str)):
         return (None, False)
-    base = node.args[0]
-    if not isinstance(base, ast.Name):
-        return (None, True)
-    target = binds.modules.get(base.id)
+    target = binds.resolve(node.args[0])
     if target is None:
+        # 基底が解決できない。既定を fail-closed へ反転する（R2-a-2 / 不変条件 8(c)）:
+        # 属性名が実行能力そのものの名前なら violation、無害な名前
+        # （`getattr(proc, "returncode", 1)` 等）は従来どおり通す。
+        if attr_node.value in INDIRECT_EXEC_ATTRS:
+            return (f"?.{attr_node.value}（基底が静的に解決できない）", True)
         return (None, True)
     return (_module_token(f"{target}.{attr_node.value}"), True)
+
+
+def _introspection_subscripts(tree):
+    """`X.__dict__["literal"]` の形を (Attribute ノード id → キー文字列) で返す。
+
+    この形**だけ**が静的に解決可能なイントロスペクションであり、それ以外
+    （キーが非リテラル / 添字を伴わない参照）は fail-closed で violation にする。
+    """
+    resolved: dict[int, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Subscript):
+            continue
+        base = node.value
+        if not (isinstance(base, ast.Attribute) and base.attr in INTROSPECTION_ATTRS):
+            continue
+        key = node.slice
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            resolved[id(base)] = key.value
+    return resolved
 
 
 def _collect_exec_tokens(tree, binds: _Bindings):
@@ -286,6 +475,7 @@ def _collect_exec_tokens(tree, binds: _Bindings):
     fail-closed、後者は無条件に violation とする。
     """
     found = []
+    introspection = _introspection_subscripts(tree)
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -302,9 +492,26 @@ def _collect_exec_tokens(tree, binds: _Bindings):
                 if token:
                     found.append((node.lineno, token))
         elif isinstance(node, ast.Attribute):
+            if node.attr in INTROSPECTION_ATTRS:
+                # `os.__dict__["system"]` を `os.system` として解決する
+                # （解決できない形は `_collect_dynamic_unresolved` が fail-closed）。
+                key = introspection.get(id(node))
+                target = binds.resolve(node.value)
+                if key is not None and target is not None:
+                    token = _module_token(f"{target}.{key}")
+                    if token:
+                        found.append((node.lineno, f"{node.attr} 経由: {token}"))
+                continue
             token = _attribute_token(node, binds)
             if token:
                 found.append((node.lineno, token))
+            elif (binds.resolve(node.value) is None
+                  and node.attr in INDIRECT_EXEC_ATTRS):
+                # 基底が解決できない属性参照。既定を fail-closed へ反転する
+                # （R2-a-2 / 不変条件 8(b)）。属性名が実行能力そのものの名前の
+                # ときだけ倒すことで `proc.returncode` 等の偽陽性を出さない。
+                found.append((node.lineno,
+                              f"?.{node.attr}（基底が静的に解決できない）"))
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             if node.func.id == "__import__":
                 found.append((node.lineno, "__import__"))
@@ -318,9 +525,22 @@ def _collect_exec_tokens(tree, binds: _Bindings):
 
 
 def _collect_dynamic_unresolved(tree, binds: _Bindings, name: str):
-    """静的に解決できない `getattr` を fail-closed の Violation として返す（R1-A-1）。"""
+    """静的に解決できない動的参照を fail-closed の Violation として返す。
+
+    - `getattr` の属性名が文字列リテラルでない（R1-A-1）
+    - イントロスペクション属性（`__dict__` 等）が「解決可能な基底 + 文字列
+      リテラル添字」以外の形で現れる（R2-a-2 / 不変条件 8(a)）
+    """
     violations = []
+    introspection = _introspection_subscripts(tree)
     for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr in INTROSPECTION_ATTRS:
+            if introspection.get(id(node)) is None or binds.resolve(node.value) is None:
+                violations.append(Violation(
+                    name, node.lineno, CODE_INDIRECT_EXEC,
+                    f"イントロスペクション属性 {node.attr} による間接参照"
+                    "（解決可能なモジュール + 文字列リテラル添字 以外は fail-closed）"))
+            continue
         if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
             continue
         if node.func.id != DYNAMIC_ATTR_BUILTIN:
@@ -352,6 +572,45 @@ def _shell_kwarg_verdict(call):
             return f"subprocess 呼び出しに shell={value.value!r} が渡されている"
         return "shell= の値がリテラルでない（静的追跡不能 / fail-closed）"
     return None
+
+
+def _local_definitions(tree) -> set:
+    """モジュール内で定義される関数 / クラス名（ネストを含む）を返す。"""
+    return {node.name for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+
+
+def _gh_exec_indirect_calls(tree, binds: _Bindings, name: str, exceptions=None):
+    """`gh_exec.py` の **呼び出し先が静的に解決できない** bare name 呼び出しを検出する。
+
+    唯一の外部作用境界に対して**既定を fail-closed へ反転**する
+    （R2-a-2 / 不変条件 8(d)）。`gh_exec.py` は小さく統制されているため
+    「呼び出し先はモジュール内定義 / import 由来 / 安全 builtin のいずれか」を
+    要求できる。属性呼び出し（`path.unlink()` 等）は対象外にして偽陽性を防ぎ、
+    そちらは `INDIRECT_EXEC_ATTRS` による fail-closed が受け持つ。
+    """
+    # 既定値は**呼び出し時**に解決する（`def` 時に束縛すると、凍結リストを
+    # 差し替える変異注入テストが素通りして検出力を実証できなくなる）。
+    if exceptions is None:
+        exceptions = GH_EXEC_INDIRECT_CALL_EXCEPTIONS
+    violations = []
+    known = _local_definitions(tree) | set(binds.modules) | set(binds.functions)
+    scopes = _enclosing_functions(tree)
+    exempt = set(exceptions)
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+            continue
+        callee = node.func.id
+        if callee in known or callee in SAFE_BUILTIN_CALLS:
+            continue
+        if callee in DYNAMIC_CODE_BUILTINS or callee == DYNAMIC_ATTR_BUILTIN:
+            continue  # 専用の deny 経路（`_collect_exec_tokens`）が既に扱う
+        if (scopes.get(id(node)), callee) in exempt:
+            continue
+        violations.append(Violation(
+            name, node.lineno, CODE_GH_EXEC_INDIRECT_CALL,
+            f"呼び出し先が静的に解決できない（fail-closed）: {callee}()"))
+    return violations
 
 
 def _gh_exec_discipline(tree, binds: _Bindings, name: str):
@@ -486,6 +745,7 @@ def check_source(name: str, source: str,
 
     if is_gh_exec:
         violations.extend(_gh_exec_discipline(tree, binds, name))
+        violations.extend(_gh_exec_indirect_calls(tree, binds, name))
 
     if is_test:
         scopes = _enclosing_functions(tree)

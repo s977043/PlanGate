@@ -23,6 +23,25 @@
 3. **初回 run は escalate 前提で回す**: 導入初回は W チェック・境界判定の
    実地確認を優先し、`HUMAN_ESCALATED` への降格を前提に運用する
    （auto-approve の到達は 2 回目以降の検証課題とする）
+4. **base ブランチに required status check を 1 件以上定義する**:
+   Collector は `rules/branches/{ref}` から required check 集合を取得し、
+   `checks[]` との ⊇ 照合を行う。**required 集合が空**（ruleset 未設定 /
+   classic protection / required ルール無し）の場合、⊇ 照合は自明に成立して
+   無音で消えるため、理由コード `required_checks_empty` を積んで fail-closed に
+   倒す設計になっている（R1 B-3 是正）。したがって **required status check が
+   1 件も定義されていない導入先では、健全な PR であっても全 run が
+   `required_checks_empty` で `HUMAN_ESCALATED` になる**。
+   これは Collector 側の不具合ではなく**導入先の前提条件の不足**である。
+   auto-approve を到達可能にするには、run を開始する前に base ブランチの
+   ruleset へ required status check を定義しておくこと。
+
+> **前提条件 4 と「repo 設定に依存しない設計」の関係**: 本 PBI の判定ロジック
+> （優先度表・裁定・state machine）は repo 設定に依存しない。依存するのは
+> **auto-approve へ到達できるか否か**という運用上の到達可能性だけであり、
+> 前提条件を満たさない導入先でも**安全側（escalate）に倒れる**という意味では
+> 挙動は決定論的に定義されている。fail-closed を緩めて空集合を「required 無し」
+> と解釈すると R1 の D-03 fail-open が復活するため、緩和ではなく
+> **前提条件の明示**で解決する。
 
 ---
 

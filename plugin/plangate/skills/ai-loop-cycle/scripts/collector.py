@@ -117,6 +117,10 @@ FLAG_REQUIRED_CHECKS_MISSING = "required_checks_missing"
 #: 空集合に対する ⊇ 照合は自明に成立するため、flag を積まないと「照合が無音で
 #: 消える」（R1 B-3）。空は「required が無いこと」の証明ではなく「required を
 #: 機械が確認できていないこと」であり fail-closed 側に倒す。
+#: **前提条件**: base ブランチに required status check が 1 件も定義されていない
+#: 導入先では健全な PR でも全 run が本 flag で `HUMAN_ESCALATED` になるため、
+#: run 開始前に 1 件以上定義しておくこと（`docs/workflows/ai-loop/execution-runbook.md`
+#: §0 手順 4。fail-closed を緩めると R1 D-03 の fail-open が復活するため緩和しない）。
 FLAG_REQUIRED_CHECKS_EMPTY = "required_checks_empty"
 FLAG_CHANGED_FILES_UNAVAILABLE = "changed_files_unavailable"
 #: 取得は成功したが差分が 0 件（PR に差分が無いのは正常状態ではない / R1 B-9）。
