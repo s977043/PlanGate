@@ -6,6 +6,34 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.18.0 (2026-07-31)
+
+feat: 実 PR 収束（`MERGE_READY`）の一気通貫 — delivery 判定エンジン + GitHub Collector / Action Executor / Reconciler + Plan-first C-3' 束縛
+
+v8.17.1 タグ以降 main に蓄積した 46 マージ（+49k 行）を反映するリリース。EPIC #870 の close blocker だった「PR 作成後の CI / review repair → `MERGE_READY` 実収束」が実 PR 実走証跡付きで完成し、ai-loop の Delivery 層が動く状態になった。承認境界は不変（NO MERGE BY AI・C-4 / merge は Human-owned 固定）。
+
+### Added
+
+- **MERGE_READY 状態機械 `delivery.py`** — 決定論判定エンジン（純判定器・外部作用ゼロをソース走査で固定・7 状態 + EXITS・`PRIORITY_ORDER`・intent / receipt 2 段・contract ブロックの byte 一致検証）（#873、#905）
+- **実 PR 収束 — GitHub Collector / Action Executor / Reconciler**（#917、#941）— head SHA 束縛 snapshot 取得（stale check 排除・旧 head の APPROVED 不採用）/ `required_checks[]` ⊇ 照合で部分登録 green を fail-closed 拒否 / raw check evidence の自己照合 / intent → 実行 → receipt → reconcile の冪等系 / **実 PR 1 周の実走証跡**（probe PR #940・`evidence/e2e/` に完全保存）
+- **実行境界検査器 + gh / git 実行ラッパ** — 許可サブコマンド allowlist 方式（禁止は補集合として自動成立: `gh pr merge` / `gh pr review --approve` / close / force-push / branch 削除 / 非 GET api。実走 spawn ledger で違反 0 件を実証）（#917 AC-5、#941）
+- **`ci_failure_taxonomy` 供給主体 `ci_taxonomy.py`** — manual entry 優先・`code` を機械が断定しない・未該当は既存 fail-closed に委ねる（#941）
+- **c3-prime 受理器 + Plan-first 束縛** — `c3prime_verify.py`（非 HO 受理器）+ HO patch 群の Human 適用（`ai-loop run TASK-XXXX` の Plan Package 束縛・schema 配置）（#872、#889、#895）
+- **`c3_contract.py` 共通契約層化** — `canonical_hash` 等の検証ロジックを arbiter / c3prime / delivery が共用（#896、#902）
+- **rollout-policy §2 の本体拡張** — plangate 本体の lite / clean / reversible 帯へ適用ドメインを拡張 + **判定基盤 carve-out**（自己改変防止 glob・規範層。機械層強制は #916 で追跡）（#907、#912）
+
+### Fixed
+
+- **mass-delete safety guard の fail-closed 化** — `guard_fired` → 終端 exit 3 + `PLANGATE_ALLOW_MASS_DELETE=1` override + stale ベース判定で dry-run / 実行の判定一致（#877、#915）。残る 2 経路への適用は #914（plan C-3 待ち）
+- probe PR #940 マージ後の記述実態訂正・ta-13 の worktree SKIP 差異等は handoff 既知課題として記録
+
+### Changed
+
+- **ai-dev / ai-loop 境界の重心決定を正本化** — 「重心を Delivery へ移す」（C-3' は eligible run 限定の入口最適化に格下げして維持。本体価値 = PR 後の収束 + Evolution）を議論 doc として記録（#926）
+- **schema 配置の横断裁定（案 2 段階方式）** — Phase 1 は `docs/schemas/`（非 HO）で 4 PBI（#894/#874/#869/#908）同側に統一 → 本番接続の C-3 で `schemas/` へ 1 回の HO patch 昇格（#930、#932）
+- **pbi / plan の整備**（各 2 レーンレビュー済み）: #914（plan・C-3 待ち）/ #916 / #921 / #923 / #894 / #874 / #869 / #908 / #867 / #863 / #866 / #868 / #917（plan → exec 完了）
+- **plugin version を 8.18.0 に更新**（marketplace.json / plugin.json。`claude plugin update` での追従を可能にする）
+
 ## v8.17.1 (2026-07-13)
 
 fix: plugin bundle の同期漏れを追従（v8.17.0 tag に未収載だった `.claude/` → `plugin/plangate/` 差分の取り込み）
