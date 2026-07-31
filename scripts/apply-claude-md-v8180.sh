@@ -21,6 +21,7 @@ NEW_HEAD="## v8.18.0 実 PR 収束（MERGE_READY）の一気通貫（最新リ�
 NEW_BODY="> 最新リリース: **v8.18.0**（2026-07-31）v8.17.1 タグ以降に main へ蓄積した 46 マージ（+49k 行）を反映。主要変更: MERGE_READY 状態機械 \`delivery.py\`＝決定論判定エンジン（#873/#905）・**実 PR 収束＝GitHub Collector / Action Executor / Reconciler + 実行境界検査器 + gh/git 実行ラッパ（allowlist 方式）**（#917/#941・実 PR 1 周の実走証跡付き）・c3-prime 受理器 + Plan-first 束縛（#872/#889/#895）・rollout-policy §2 本体拡張 + 判定基盤 carve-out（#907/#912）・mass-delete guard の fail-closed 化（#877/#915）。**PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。v8.17.x で ai-loop Phase 1 移行 + 計測基盤、v8.16.0 で ai-loop 初実運用 + plugin 同梱。リリース履歴の正本は [\`CHANGELOG.md\`](CHANGELOG.md)。"
 
 command -v python3 >/dev/null 2>&1 || { echo "python3 required" >&2; exit 1; }
+grep -qF "$NEW_HEAD" "$F" && { echo "SKIP: 適用済み（新見出しが既に存在）"; exit 0; }
 grep -qF "$OLD_HEAD" "$F" || { echo "SKIP: 旧見出しが見つからない（適用済み or 形式変更）" >&2; exit 1; }
 
 export OLD_HEAD NEW_HEAD NEW_BODY F
@@ -36,7 +37,6 @@ if not m:
     print("SKIP: 旧本文パターン不一致", file=sys.stderr); sys.exit(1)
 new = new_head + "\n\n" + new_body + "\n"
 out = s[:m.start()] + new + s[m.end():]
-mode = sys.argv[1] if len(sys.argv) > 1 else '--dry-run'
 open('/tmp/claude-md-v8180.new', 'w', encoding='utf-8').write(out)
 print("--- 置換プレビュー（新見出し + 本文先頭 200 字）---")
 print(new[:260])

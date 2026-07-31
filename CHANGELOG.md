@@ -21,17 +21,20 @@ v8.17.1 タグ以降 main に蓄積した 46 マージ（+49k 行）を反映す
 - **c3-prime 受理器 + Plan-first 束縛** — `c3prime_verify.py`（非 HO 受理器）+ HO patch 群の Human 適用（`ai-loop run TASK-XXXX` の Plan Package 束縛・schema 配置）（#872、#889、#895）
 - **`c3_contract.py` 共通契約層化** — `canonical_hash` 等の検証ロジックを arbiter / c3prime / delivery が共用（#896、#902）
 - **rollout-policy §2 の本体拡張** — plangate 本体の lite / clean / reversible 帯へ適用ドメインを拡張 + **判定基盤 carve-out**（自己改変防止 glob・規範層。機械層強制は #916 で追跡）（#907、#912）
+- **ai-loop 正本定義統合** — `00_concept.md` の正本昇格 + rollout-policy 分離（5 責務・terminal state・C-3' 経路の単一正本化）（#871、#879〜#883）
 
 ### Fixed
 
 - **mass-delete safety guard の fail-closed 化** — `guard_fired` → 終端 exit 3 + `PLANGATE_ALLOW_MASS_DELETE=1` override + stale ベース判定で dry-run / 実行の判定一致（#877、#915）。残る 2 経路への適用は #914（plan C-3 待ち）
+- **orphan SKILL.md 7 件の正本移設** — `.agents/skills/` 正本へ移設し sync / drift check の担保下へ（plugin 配布正確性）（#862、#865）
+- **ta-26 の実リポジトリ非破壊化 + sync safety guard**（#861、#875）/ **HO リスト二重管理の整合 + sync CI trigger 拡張**（#842、#860）
 - probe PR #940 マージ後の記述実態訂正・ta-13 の worktree SKIP 差異等は handoff 既知課題として記録
 
 ### Changed
 
 - **ai-dev / ai-loop 境界の重心決定を正本化** — 「重心を Delivery へ移す」（C-3' は eligible run 限定の入口最適化に格下げして維持。本体価値 = PR 後の収束 + Evolution）を議論 doc として記録（#926）
 - **schema 配置の横断裁定（案 2 段階方式）** — Phase 1 は `docs/schemas/`（非 HO）で 4 PBI（#894/#874/#869/#908）同側に統一 → 本番接続の C-3 で `schemas/` へ 1 回の HO patch 昇格（#930、#932）
-- **pbi / plan の整備**（各 2 レーンレビュー済み）: #914（plan・C-3 待ち）/ #916 / #921 / #923 / #894 / #874 / #869 / #908 / #867 / #863 / #866 / #868 / #917（plan → exec 完了）
+- **pbi / plan の整備**（多くは 2 レーンレビュー済み）: #914（plan・C-3 待ち）/ #913 / #916 / #921 / #923 / #894 / #874 / #869 / #908 / #867 / #863 / #866 / #868 / #917（plan → exec 完了）
 - **plugin version を 8.18.0 に更新**（marketplace.json / plugin.json。`claude plugin update` での追従を可能にする）
 
 ## v8.17.1 (2026-07-13)
