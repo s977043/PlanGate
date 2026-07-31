@@ -14,8 +14,18 @@
 #   3. fixture E2E 1 周（TC-10）: Collector → `delivery.assess()` → Executor →
 #      `delivery.py receipt` → Reconciler を CI 失敗 → repair → 最新 head 再評価
 #      → MERGE_READY まで通す。`delivery.py` は実物を呼び、`gh_exec` は fake へ
-#      差し替えて**実ネットワーク / 実プロセス起動に一切到達しない**
-#   4. AC-7 の 3 点再確認（3 ファイル 0 行差分 / 57 テスト OK / contract byte 一致）
+#      差し替えて**実ネットワーク / 実プロセス起動に一切到達しない**。
+#      加えて (11)(12) で **失敗経路**も 1 本通す（R2 B2-1 / B2-3）:
+#      rc≠0 の repair push は receipt されず、Executor が積んだ理由コードと
+#      orphan receipt が次 run の snapshot へ合流して `HUMAN_ESCALATED` に至る
+#      （`apply_escalation_flags` / `escalation_flags` / `filter_unexecuted` /
+#      `safe_reconcile` の**非テスト呼び出し元**をここで確保する）
+#   4. AC-7 の 3 点再確認（TC-14 3 ファイル 0 行差分 / TC-15 57 テスト OK /
+#      TC-16 contract byte 一致）。TC-14 は base ref を要するため、無い環境では
+#      **[WARN] で「3 点中 2 点しか検証されていない」ことを明示**する（無音 SKIP
+#      にしない / R2 B2-2）
+#   5. TC-E8: `sync-plugin-plangate.sh` の for ループ側と case 側の basename
+#      集合が一致すること（片方漏れは `git diff --quiet plugin/` では検出されない）
 #
 # 隔離・後片付け（tests/extras/README.md §隔離・後始末の規約）:
 #   trap は張らない（source 連鎖で上書きされ発火が保証されないため）。
@@ -137,10 +147,12 @@ class FakeProc:
 
 
 class FakePush:
-    def __init__(self):
-        self.pushed = True
+    """`gh_exec.PushResult` 互換。`pushed` は **push が成功したか**（R2 B2-1）。"""
+
+    def __init__(self, rc=0):
+        self.pushed = rc == 0
         self.argv = ("git", "push")
-        self.result = FakeProc(0, "")
+        self.result = FakeProc(rc, "")
 
 
 class FakeGh:
@@ -150,7 +162,7 @@ class FakeGh:
 
     def __init__(self, *, head_sha, checks, reviews, contexts=("ci",),
                  changed=("scripts/ai-loop/sandbox_a.py",), mergeable=True,
-                 ancestry_rc=0, pr_head=None):
+                 ancestry_rc=0, pr_head=None, push_rc=0):
         self.head_sha = head_sha
         self.checks = list(checks)
         self.reviews = list(reviews)
@@ -159,6 +171,7 @@ class FakeGh:
         self.mergeable = mergeable
         self.ancestry_rc = ancestry_rc
         self.pr_head = pr_head or head_sha
+        self.push_rc = push_rc
         self.gh_calls = []
         self.git_calls = []
         self.comment_calls = []
@@ -208,7 +221,7 @@ class FakeGh:
     def push_pr_head(self, *, repo, branch, expected_parent_sha, cwd=None):
         self.push_calls.append({"branch": branch,
                                 "expected_parent_sha": expected_parent_sha})
-        return FakePush()
+        return FakePush(self.push_rc)
 
     @property
     def write_calls(self):
@@ -245,22 +258,23 @@ RECORD = delivery.record_path(task_dir)
 FAKES = []
 
 
-def collect(fake, *, ci_log_text="", findings=()):
+def collect(fake, *, ci_log_text="", findings=(), record_path=None):
     """`findings` は**明示供給**する（未供給は `findings_unavailable` / R1 B-4）。"""
     FAKES.append(fake)
     return collector.collect(
         task_id=TASK, repo=REPO, pr_number=PR, source_sha=SRC,
-        plan_text=PLAN_TEXT, record_path=RECORD, ci_log_text=ci_log_text,
-        findings=list(findings), gh=fake)
+        plan_text=PLAN_TEXT, record_path=record_path or RECORD,
+        ci_log_text=ci_log_text, findings=list(findings), gh=fake)
 
 
-def assess_cli(snapshot, tag):
+def assess_cli(snapshot, tag, target_dir=None):
     """`delivery.py assess` を**実物のまま** in-process で呼ぶ（subprocess を使わない）。"""
     path = pathlib.Path(TMP) / ("snapshot-%s.json" % tag)
     path.write_text(json.dumps(snapshot, indent=2, sort_keys=True), encoding="utf-8")
     out, err = io.StringIO(), io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        rc = delivery.main(["delivery.py", "assess", "--task-dir", str(task_dir),
+        rc = delivery.main(["delivery.py", "assess",
+                            "--task-dir", str(target_dir or task_dir),
                             "--snapshot", str(path), "--now", NOW,
                             "--expected-sha", SRC])
     if rc != 0:
@@ -345,6 +359,75 @@ r3b = assess_cli(snap3, "3")
 _after = record_lines()
 emit("resume_state", r3b["state"])
 emit("resume_delta", _after - _before)
+
+# --- AC-6 Executor 側の実証（R2 B2-3）------------------------------------
+# 「算出されるが誰も消費しない値」を作らないための **非テスト呼び出し元**を
+# ここで 1 本通す: `reconciler.filter_unexecuted()` / `safe_reconcile()` /
+# `escalation_flags()`（orphan 昇格）/ `executor.apply_escalation_flags()`。
+# 実証する事実 = 「**Executor が積んだ**理由コードが次 run の snapshot へ合流し
+# `HUMAN_ESCALATED` に到達する」（AC-6 は Collector 側の素通しだけでは
+# 半分しか固定されない）。
+ESC_ROOT = str(pathlib.Path(TMP) / "esc")
+esc_dir = tpp._make_task_dir(ESC_ROOT)
+(esc_dir / "approvals").mkdir(exist_ok=True)
+esc_c3 = plan_package.build_c3_prime(
+    esc_dir, task_id=TASK, source_sha=SRC, target_sha=SRC,
+    verdicts={"model_a": "approve", "model_b": "approve"},
+    reviewer_evidence={"model_a": "r#a", "model_b": "r#b"},
+    decision="AUTO_APPROVED", policy_ref="p@v4",
+    issued_at=NOW, issued_by="arbiter-v0.1")
+(esc_dir / "approvals" / "c3.json").write_text(
+    plan_package.serialize_c3_prime(esc_c3), encoding="utf-8")
+ESC_RECORD = delivery.record_path(esc_dir)
+
+# (a) CI 失敗 → repair_ci。push は **rc≠0 で失敗**（B2-1 の rc 検査が効くこと）
+fake_e1 = FakeGh(head_sha=H1, checks=[check_run("ci", H1, "failure")],
+                 reviews=[review("APPROVED", H1)], push_rc=1)
+snap_e1 = collect(fake_e1, ci_log_text="curl: API rate limit exceeded for runner",
+                  record_path=ESC_RECORD)
+esc_r1 = assess_cli(snap_e1, "e1", esc_dir)
+emit("esc_round1_actions", ",".join(sorted(a["action_kind"] for a in esc_r1["actions"])))
+esc_pending = reconciler.filter_unexecuted(
+    esc_r1["actions"], delivery.load_entries(ESC_RECORD))
+emit("esc_pending_actions", len(esc_pending))
+esc_ctx = executor.ExecContext(repo=REPO, branch=BRANCH, task_dir=esc_dir, now=NOW,
+                               gh=fake_e1, repair_commit_sha=H2)
+esc_rep = executor.execute_actions(esc_pending, esc_ctx)
+emit("esc_exec_statuses", ",".join(o.status for o in esc_rep.outcomes))
+emit("esc_push_failed_flag",
+     int(any(f.startswith(executor.FLAG_PUSH_FAILED)
+             for f in esc_rep.escalation_flags)))
+emit("esc_receipts_after_failed_push",
+     len([e for e in delivery.load_entries(ESC_RECORD)
+          if e.get("kind") == "receipt"]))
+
+# (b) 記録なき実行（intent の無い receipt）も同じ 1 点へ合流させる
+delivery.append_entries(ESC_RECORD, [{
+    "kind": "receipt", "action_id": "sha256:orphan", "action_kind": "repair_ci",
+    "pr_number": PR, "head_sha": H1, "round": 1,
+    "result_ref": "adopted:%s" % H2}], NOW)
+esc_recon, esc_recon_err = reconciler.safe_reconcile(esc_dir, pr_number=PR)
+emit("esc_recon_ok", int(esc_recon_err is None))
+emit("esc_orphans", len(esc_recon.orphan_receipts))
+
+# (c) 次 run の snapshot へ合流 → HUMAN_ESCALATED（合流前は終端でないこと）
+fake_e2 = FakeGh(head_sha=H2, checks=[check_run("ci", H2, "success")],
+                 reviews=[review("APPROVED", H2)])
+snap_e2 = collect(fake_e2, record_path=ESC_RECORD)
+emit("esc_snap2_flags", len(snap_e2["escalation_flags"]))
+emit("esc_before_state", assess_cli(snap_e2, "e2", esc_dir)["state"])
+esc_merged = executor.apply_escalation_flags(
+    snap_e2, list(esc_rep.escalation_flags) + list(
+        reconciler.escalation_flags(esc_recon)))
+emit("esc_merged_flags", len(esc_merged["escalation_flags"]))
+esc_after = assess_cli(esc_merged, "e3", esc_dir)
+emit("esc_after_state", esc_after["state"])
+emit("esc_reason_carries_executor_flag",
+     int(any(executor.FLAG_PUSH_FAILED in str(r)
+             for r in esc_after.get("reasons") or [])))
+emit("esc_reason_carries_orphan",
+     int(any(reconciler.FLAG_ORPHAN_RECEIPT in str(r)
+             for r in esc_after.get("reasons") or [])))
 
 # --- 外部作用の実測（実ネットワーク / 実プロセス起動に到達しない）--------
 emit("real_subprocess_calls", _NoProcess.calls)
@@ -455,12 +538,44 @@ PYEOF
     else
       t57_fail "E2E: 実行系境界が破れている（real_subprocess=$(_t57_kv real_subprocess_calls)）"
     fi
+
+    # (11) rc≠0 の push は成功扱いにならない（R2 B2-1 / 不可逆作用の失敗検査）
+    if [ "$(_t57_kv esc_pending_actions)" = "1" ] \
+      && [ "$(_t57_kv esc_exec_statuses)" = "failed" ] \
+      && [ "$(_t57_kv esc_push_failed_flag)" = "1" ] \
+      && [ "$(_t57_kv esc_receipts_after_failed_push)" = "0" ]; then
+      t57_pass "E2E: rc≠0 の repair push は failed 扱い（receipt 0 件 = 次 run で同一 intent が再要求される）"
+    else
+      t57_fail "E2E: push 失敗が成功として receipt された（status=$(_t57_kv esc_exec_statuses) receipts=$(_t57_kv esc_receipts_after_failed_push)）"
+    fi
+
+    # (12) AC-6 Executor 側: 積んだ理由コードが次 run snapshot 経由で HUMAN_ESCALATED へ
+    if [ "$(_t57_kv esc_recon_ok)" = "1" ] \
+      && [ "$(_t57_kv esc_orphans)" = "1" ] \
+      && [ "$(_t57_kv esc_snap2_flags)" = "0" ] \
+      && [ "$(_t57_kv esc_before_state)" != "HUMAN_ESCALATED" ] \
+      && [ "$(_t57_kv esc_merged_flags)" -ge 2 ] \
+      && [ "$(_t57_kv esc_after_state)" = "HUMAN_ESCALATED" ] \
+      && [ "$(_t57_kv esc_reason_carries_executor_flag)" = "1" ] \
+      && [ "$(_t57_kv esc_reason_carries_orphan)" = "1" ]; then
+      t57_pass "E2E(AC-6): Executor の flag + orphan receipt → 次 run snapshot → HUMAN_ESCALATED（合流前は $(_t57_kv esc_before_state)）"
+    else
+      t57_fail "E2E(AC-6): Executor 側の escalation 接続が成立しない（before=$(_t57_kv esc_before_state) after=$(_t57_kv esc_after_state) merged_flags=$(_t57_kv esc_merged_flags)）"
+    fi
   fi
 
   # ── 4. AC-7: delivery.py / c3_contract.py / c3prime_verify.py が不変 ────
   _t57_ac7_files="scripts/ai-loop/delivery.py scripts/ai-loop/c3_contract.py scripts/ai-loop/c3prime_verify.py"
 
-  # (a) main との差分 0 行（base ref が無い CI checkout では SKIP）
+  # (a) TC-14: main との差分 0 行
+  #     base ref が無い checkout では**実行できない**。この場合に無音 [SKIP] に
+  #     すると「AC-7 は ta-57 と CI 双方で機械検証される」という宣言と実態が
+  #     ずれる（R2 B2-2）。fail は増やさず（CI を落とさず）、**3 点中 2 点しか
+  #     検証されていない環境であることを出力に明示**する。
+  #     実測（2026-07-31）: `.github/workflows/test.yml` の `actions/checkout` は
+  #     `fetch-depth` 未指定（既定 1）で、`pull_request` イベントでは
+  #     `origin/main` も `main` も存在しない → PR 時 CI では本検査は走らない。
+  #     3 点が揃うのは **ローカル** / main への push 後。
   _t57_base=""
   for _t57_ref in origin/main main; do
     if git -C "$PG_T57_ROOT" rev-parse --verify --quiet "$_t57_ref" >/dev/null 2>&1; then
@@ -469,31 +584,33 @@ PYEOF
     fi
   done
   if [ -z "$_t57_base" ]; then
-    printf '  [SKIP] AC-7 差分検査: base ref (origin/main / main) が無い checkout\n'
+    printf '  [WARN] TC-14 / AC-7 差分検査は **未実行**: base ref (origin/main / main) が無い checkout\n' >&2
+    printf '  [WARN]   → この環境で機械検証された AC-7 は 3 点中 2 点（TC-15 / TC-16）のみ。TC-14（差分 0 行）は未検証\n' >&2
+    printf '  [WARN]   → 3 点が揃うのはローカル / main への push 後（PR 時 CI は checkout の fetch-depth 既定 1 のため base ref 不在）\n' >&2
   else
     _t57_rc=0
     # shellcheck disable=SC2086
     _t57_diff=$(git -C "$PG_T57_ROOT" diff --stat "$_t57_base" -- $_t57_ac7_files 2>&1) || _t57_rc=$?
     if [ "$_t57_rc" -eq 0 ] && [ -z "$_t57_diff" ]; then
-      t57_pass "AC-7: delivery.py / c3_contract.py / c3prime_verify.py が $_t57_base から 0 行差分"
+      t57_pass "TC-14 / AC-7: delivery.py / c3_contract.py / c3prime_verify.py が $_t57_base から 0 行差分"
     else
-      t57_fail "AC-7: 判定エンジン 3 ファイルに差分がある (rc=$_t57_rc): $_t57_diff"
+      t57_fail "TC-14 / AC-7: 判定エンジン 3 ファイルに差分がある (rc=$_t57_rc): $_t57_diff"
     fi
   fi
 
-  # (b) test_delivery.py が 57 tests で OK（件数も条件に入れる）
+  # (b) TC-15: test_delivery.py が 57 tests で OK（件数も条件に入れる）
   _t57_log="$_t57_tmp/test_delivery.log"
   _t57_rc=0
   python3 "$PG_T57_AILOOP/test_delivery.py" >"$_t57_log" 2>&1 || _t57_rc=$?
   _t57_n=$(sed -n 's/^Ran \([0-9][0-9]*\) tests* in .*/\1/p' "$_t57_log" | head -1)
   [ -n "$_t57_n" ] || _t57_n=0
   if [ "$_t57_rc" -eq 0 ] && grep -q '^OK' "$_t57_log" && [ "$_t57_n" -eq 57 ]; then
-    t57_pass "AC-7: test_delivery.py（Ran 57 tests / OK）"
+    t57_pass "TC-15 / AC-7: test_delivery.py（Ran 57 tests / OK）"
   else
-    t57_fail "AC-7: test_delivery.py が 57 tests OK でない（rc=${_t57_rc} / ran=${_t57_n}）"
+    t57_fail "TC-15 / AC-7: test_delivery.py が 57 tests OK でない（rc=${_t57_rc} / ran=${_t57_n}）"
   fi
 
-  # (c) doc ↔ contract の byte 一致（ta-56 と同一方式）
+  # (c) TC-16: doc ↔ contract の byte 一致（ta-56 と同一方式）
   _t57_doc="$PG_T57_ROOT/docs/workflows/ai-loop/delivery-state-machine.md"
   _t57_emit="$_t57_tmp/contract.json"
   _t57_docblock="$_t57_tmp/docblock.json"
@@ -501,14 +618,41 @@ PYEOF
   sed -n '/<!-- contract:begin -->/,/<!-- contract:end -->/p' "$_t57_doc" \
     | sed '1d;$d' | sed '1d;$d' > "$_t57_docblock"
   if cmp -s "$_t57_emit" "$_t57_docblock"; then
-    t57_pass "AC-7: delivery-state-machine.md の contract ブロックが byte 一致（drift なし）"
+    t57_pass "TC-16 / AC-7: delivery-state-machine.md の contract ブロックが byte 一致（drift なし）"
   else
-    t57_fail "AC-7: contract ブロックが emit と不一致（drift）"
+    t57_fail "TC-16 / AC-7: contract ブロックが emit と不一致（drift）"
+  fi
+
+  # ── 5. TC-E8: sync 列挙の片方漏れ検出（R-011 / R2 B2-5）─────────────────
+  # `sync-plugin-plangate.sh` は「コピー元の for ループ」と「plugin 側の残置を
+  # 許可する case」の **2 箇所**に同じ basename 集合を持つ。片方だけに追加すると
+  #   - for だけ  → コピーされるが case で削除され、次回 sync で復活…を繰り返す
+  #   - case だけ → そもそもコピーされない
+  # のいずれも `git diff --quiet plugin/` は clean になり CI が検出しない。
+  # 一度限りの手動照合（T-39）ではなく、2 集合の差分 0 を毎回機械検査する。
+  _t57_sync="$PG_T57_ROOT/scripts/sync-plugin-plangate.sh"
+  if [ ! -f "$_t57_sync" ]; then
+    t57_fail "TC-E8: sync-plugin-plangate.sh が見つからない"
+  else
+    _t57_for="$_t57_tmp/sync-for.txt"
+    _t57_case="$_t57_tmp/sync-case.txt"
+    # shellcheck disable=SC2016  # `$AI_LOOP_SCRIPTS_DIR` は展開せず literal で照合する
+    grep 'for _f in "\$AI_LOOP_SCRIPTS_DIR/' "$_t57_sync" \
+      | grep -o '[A-Za-z0-9_]*\.py' | sort -u > "$_t57_for"
+    grep '^ *arbiter\.py|' "$_t57_sync" \
+      | grep -o '[A-Za-z0-9_]*\.py' | sort -u > "$_t57_case"
+    _t57_n=$(wc -l < "$_t57_for" | tr -d ' ')
+    if [ "$_t57_n" -gt 0 ] && cmp -s "$_t57_for" "$_t57_case"; then
+      t57_pass "TC-E8: sync-plugin-plangate.sh の for ループ側と case 側の basename 集合が一致（${_t57_n} 本）"
+    else
+      t57_fail "TC-E8: sync 列挙の片方漏れ（for=${_t57_n} 本 / 差分: $(diff "$_t57_for" "$_t57_case" | tr '\n' ' ')）"
+    fi
   fi
 
   # ── 後片付け（trap 非依存 / register_cleanup と二重化）──────────────────
   rm -rf "$_t57_tmp"
   unset _t57_tmp _t57_e2e _t57_e2e_err _t57_log _t57_bnd _t57_n _t57_rc \
         _t57_base _t57_ref _t57_diff _t57_doc _t57_emit _t57_docblock \
-        _t57_ac7_files _t57_mod _t57_path 2>/dev/null || true
+        _t57_ac7_files _t57_mod _t57_path _t57_sync _t57_for _t57_case \
+        2>/dev/null || true
 fi

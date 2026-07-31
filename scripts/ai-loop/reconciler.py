@@ -29,7 +29,10 @@ Work Breakdown Step 7。
   送出する（`safe_reconcile()` は明示的に `(None, error)` を返す形でのみ抑制）。
   破損ファイルを**書き直さない**（append-only 契約）。
 - `intent` の無い `receipt`（記録なき実行の兆候）は `orphan_receipts` として
-  明示する（黙って無視しない）。
+  明示し、`escalation_flags()` で理由コードへ**昇格**させる（R2 B2-3）。
+  `Reconciliation` に載せるだけでは誰も消費せず判定に届かないため、
+  `executor.apply_escalation_flags()` 経由で次 run の snapshot へ合流させ
+  `delivery.assess()` の優先度 1 で `HUMAN_ESCALATED` に到達させる。
 - convention を満たさない `result_ref` からは disposition を**捏造しない**。
 
 ## 外部作用ゼロ
@@ -58,6 +61,10 @@ DISPOSITION_FIELD = {"adopted": "repair_commit", "rejected": "evidence_ref"}
 
 #: `conflict_resolution` の三点（`delivery.py` の `cr_incomplete` と同じ集合）。
 CONFLICT_KEYS = ("base_sha", "head_sha", "result_sha")
+
+#: `intent` の無い `receipt`（記録なき実行の兆候）を表す理由コード（opaque）。
+#: `executor.py` の `FLAG_*` と同じ規約（`<layer>_<reason>`）で命名する。
+FLAG_ORPHAN_RECEIPT = "reconciler_orphan_receipt"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -114,10 +121,16 @@ def filter_unexecuted(actions, entries) -> list:
 
     `delivery.assess()` 側でも同じ除外が行われるが、**Executor の直前でも**
     独立に効かせる（手渡しの action 列や resume 経路で二重作用させないため）。
+
+    判定規則は `executor.is_receipted()` に**一本化**する（R2 B2-3）。ここで
+    `a.get("action_id") not in receipts` と書き直すと Executor 側の
+    `is_receipted(action, receipt_ids(entries))` と二重実装になり、片方だけ
+    規則が変わったときに「Reconciler は落としたのに Executor は実行する」
+    drift が起きる。依存の向きは reconciler → executor の一方向に保つ。
     """
     receipts = executor.receipt_ids(entries)
     return [a for a in actions or ()
-            if isinstance(a, dict) and a.get("action_id") not in receipts]
+            if isinstance(a, dict) and not executor.is_receipted(a, receipts)]
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +240,25 @@ def index_entries(entries, pr_number) -> Reconciliation:
         pending=pending, orphan_receipts=orphans,
         dispositions=reconstruct_dispositions(entries, pr_number),
         conflict_resolution=reconstruct_conflict_resolution(entries, pr_number))
+
+
+def escalation_flags(state: Reconciliation) -> tuple:
+    """突合結果から **次 run の snapshot へ渡す理由コード**を導出する（R2 B2-3）。
+
+    `orphan_receipts`（`intent` の無い `receipt` = 記録なき実行の兆候）は
+    `Reconciliation` に載るだけでは誰も消費せず、算出したのに判定へ届かない
+    値になっていた。本関数で `escalation_flags` へ**昇格**させ、
+    `executor.apply_escalation_flags()` 経由で次 run の snapshot に合流させると
+    `delivery.assess()` の優先度 1（`escalation_flags` → `HUMAN_ESCALATED`）が
+    そのまま効く（`delivery.py` は 1 行も変更しない / AC-7）。
+
+    `pending`（receipt 待ちの intent）は**昇格させない**: 外部作用前の中断は
+    次 run で同一 intent が再要求される正常な resume 経路であり
+    （TC-09）、これを escalate すると中断のたびに人間を呼ぶことになる。
+    昇格対象は「記録に無い実行が起きた形跡」= 不可逆側の異常だけに限る。
+    """
+    return tuple(f"{FLAG_ORPHAN_RECEIPT}:{aid}"
+                 for aid in (state.orphan_receipts if state else ()))
 
 
 def reconcile(task_dir, *, pr_number, entries=None) -> Reconciliation:

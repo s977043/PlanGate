@@ -66,12 +66,17 @@ class FakeProc:
 
 
 class FakePush:
-    """`gh_exec.PushResult` の最小互換。"""
+    """`gh_exec.PushResult` の最小互換。
 
-    def __init__(self, argv=("git", "push")):
-        self.pushed = True
+    `pushed` は **実際に push が成功したか**。`gh_exec.push_pr_head()` は
+    `git push` の rc が非 0 のとき `pushed=False` を返す（R2 B2-1）ため、
+    fixture も同じ意味論に揃える。
+    """
+
+    def __init__(self, argv=("git", "push"), rc=0):
+        self.pushed = rc == 0
         self.argv = tuple(argv)
-        self.result = FakeProc(0, "")
+        self.result = FakeProc(rc, "")
 
 
 class FakeGh:
@@ -83,12 +88,15 @@ class FakeGh:
     Denied = gh_exec.Denied
 
     def __init__(self, *, pr_head=OLD, comment_rc=0, comment_url=None,
-                 ancestor_rc=None, push_error=None):
+                 ancestor_rc=None, push_error=None, push_rc=0, ancestry=None):
         self.pr_head = pr_head
         self.comment_rc = comment_rc
         self.comment_url = comment_url or f"https://github.com/{REPO}/pull/{PR}#c1"
         self.ancestor_rc = ancestor_rc
+        #: `(ancestor, descendant)` → rc。個別指定が無い組は `ancestor_rc` へ委ねる。
+        self.ancestry = dict(ancestry or {})
         self.push_error = push_error
+        self.push_rc = push_rc
         self.gh_calls = []
         self.git_calls = []
         self.comment_calls = []
@@ -106,6 +114,9 @@ class FakeGh:
     def run_git(self, args, *, cwd=None):
         self.git_calls.append(tuple(args))
         if args[:2] == ["merge-base", "--is-ancestor"]:
+            key = (args[2], args[3])
+            if key in self.ancestry:
+                return FakeProc(self.ancestry[key], "")
             if self.ancestor_rc is not None:
                 return FakeProc(self.ancestor_rc, "")
             # 既定: 祖先関係なし（= 未適用）
@@ -124,7 +135,7 @@ class FakeGh:
                                 "expected_parent_sha": expected_parent_sha})
         if self.push_error is not None:
             raise self.push_error
-        return FakePush()
+        return FakePush(rc=self.push_rc)
 
     @property
     def write_calls(self) -> int:
@@ -791,6 +802,216 @@ class TestNoticeDeduplication(SandboxCase):
             executor.notice_key = original_key
             executor.notice_index = original_index
         self.assertEqual(len(gh.comment_calls), 3)
+
+
+# ---------------------------------------------------------------------------
+# R2 B2-1: comment（可逆）と push（不可逆）の失敗検査は対称であること
+# ---------------------------------------------------------------------------
+
+class TestFailureCheckSymmetry(SandboxCase):
+    """可逆なコメントだけ rc を検査し、不可逆な push を無検査にしない。
+
+    非対称だと push 失敗が `STATUS_EXECUTED` + receipt になり、`delivery.py` の
+    `actions = [a for a in actions if a["action_id"] not in receipts]` により
+    **当該 intent が二度と再要求されない**（修正が反映されないまま「repair 済み」
+    として loop が進む）。
+    """
+
+    def _repair_ci(self):
+        return _action("repair_ci", {"pr_number": PR, "head_sha": OLD, "round": 1,
+                                     "taxonomy": "code", "failed_checks": ["CI"]})
+
+    def test_both_helpers_report_rc_in_the_same_shape(self):
+        """`perform_comment()` と `perform_push()` は同じ形で rc を返す。"""
+        action = self._repair_ci()
+        ctx = self.ctx(FakeGh(comment_rc=7, push_rc=9))
+        comment = executor.perform_comment(action, ctx)
+        push = executor.perform_push(action, ctx)
+        self.assertFalse(comment.ok)
+        self.assertEqual(comment.reason, "rc=7")
+        self.assertFalse(push.pushed)
+        self.assertEqual(push.reason, "rc=9")
+
+    def test_push_rc_failure_writes_no_receipt_and_escalates(self):
+        """rc≠0 の push → `STATUS_FAILED` / receipt 0 件 / `escalation_flags` あり。"""
+        action = self._repair_ci()
+        self.seed([_intent(action)])
+        gh = FakeGh(push_rc=1)
+        report = executor.execute_actions([action], self.ctx(gh))
+        self.assertEqual(len(gh.push_calls), 1)
+        self.assertEqual(report.outcomes[0].status, executor.STATUS_FAILED)
+        self.assertEqual([e for e in self.entries() if e["kind"] == "receipt"], [])
+        self.assertTrue(any(f.startswith(executor.FLAG_PUSH_FAILED)
+                            for f in report.escalation_flags),
+                        report.escalation_flags)
+
+    def test_comment_and_push_failures_are_treated_identically(self):
+        """同じ「rc≠0」でも comment 失敗と push 失敗が同じ帰結になる（対称性）。"""
+        results = {}
+        for label, gh in (("comment", FakeGh(comment_rc=1)),
+                          ("push", FakeGh(push_rc=1))):
+            with self.subTest(failed=label):
+                sandbox = self.tmp / f"sym-{label}"
+                sandbox.mkdir()
+                action = self._repair_ci()
+                delivery.append_entries(delivery.record_path(sandbox),
+                                        [_intent(action)], NOW)
+                report = executor.execute_actions(
+                    [action], self.ctx(gh, task_dir=sandbox))
+                entries = delivery.load_entries(delivery.record_path(sandbox))
+                results[label] = (
+                    report.outcomes[0].status,
+                    len([e for e in entries if e["kind"] == "receipt"]),
+                    bool(report.escalation_flags))
+        self.assertEqual(results["comment"], results["push"], results)
+        self.assertEqual(results["push"], (executor.STATUS_FAILED, 0, True))
+
+    def test_mutation_unchecked_push_rc_writes_a_receipt(self):
+        """検出力の実証: `perform_push()` の rc 検査を外すと receipt が書かれる。
+
+        是正前の実装（`push_pr_head()` の返り値を見ず常に成功とみなす）を
+        monkeypatch で再現し、**同じ rc≠0 の push** に対して判定が反転する
+        （receipt 0 件 → 1 件）ことを示す。作業ツリーは書き換えない。
+        """
+        action = self._repair_ci()
+        self.seed([_intent(action)])
+        gh_real = FakeGh(push_rc=1)
+        executor.execute_actions([action], self.ctx(gh_real))
+        self.assertEqual([e for e in self.entries() if e["kind"] == "receipt"], [])
+
+        mutant_dir = self.tmp / "mutant-push-rc"
+        mutant_dir.mkdir()
+        delivery.append_entries(delivery.record_path(mutant_dir),
+                                [_intent(action)], NOW)
+        gh_mut = FakeGh(push_rc=1)
+        original = executor.perform_push
+        try:
+            # 変異体: 返り値を検査せず常に成功（= B2-1 是正前の挙動）
+            executor.perform_push = lambda *a, **k: executor.PushOutcome(True)
+            report = executor.execute_actions(
+                [action], self.ctx(gh_mut, task_dir=mutant_dir))
+        finally:
+            executor.perform_push = original
+        mutant_entries = delivery.load_entries(delivery.record_path(mutant_dir))
+        self.assertEqual(report.outcomes[0].status, executor.STATUS_EXECUTED)
+        self.assertEqual(
+            len([e for e in mutant_entries if e["kind"] == "receipt"]), 1,
+            "rc 無検査の変異体で receipt が書かれない = テストが空振り")
+
+
+# ---------------------------------------------------------------------------
+# R2 B2-4: pre-check は repair commit そのものの到達可能性で判定する
+# ---------------------------------------------------------------------------
+
+class TestPrecheckRepairReachability(SandboxCase):
+    """snapshot 採取後に**無関係な commit** が head に載ったケースを skip しない。
+
+    `push_already_applied()` が `expected_parent_sha` の祖先性しか見ないと、
+    無関係な commit が 1 つ載っただけで「repair 済み」と誤判定して
+    `STATUS_SKIPPED` + receipt を記録し、**当該 repair が永久に push されない**。
+    """
+
+    def _repair_ci(self):
+        return _action("repair_ci", {"pr_number": PR, "head_sha": OLD, "round": 1,
+                                     "taxonomy": "code", "failed_checks": ["CI"]})
+
+    def _unrelated_head_gh(self):
+        """head=OTHER（無関係 commit）。OLD は祖先だが repair(NEW) は未到達。"""
+        return FakeGh(pr_head=OTHER, ancestry={(OLD, OTHER): 0, (NEW, OTHER): 1})
+
+    def test_unrelated_commit_on_head_does_not_skip_the_push(self):
+        action = self._repair_ci()
+        self.seed([_intent(action)])
+        gh = self._unrelated_head_gh()
+        report = executor.execute_actions([action], self.ctx(gh))
+        self.assertEqual(len(gh.push_calls), 1, "無関係 commit で repair が skip された")
+        self.assertEqual(report.outcomes[0].status, executor.STATUS_EXECUTED)
+        self.assertNotIn(executor.PART_SKIPPED,
+                         executor.parse_result_ref(report.outcomes[0].result_ref))
+
+    def test_repair_commit_reachable_still_skips(self):
+        """repair commit が head から到達可能なら従来どおり skip（正側の維持）。"""
+        action = self._repair_ci()
+        self.seed([_intent(action)])
+        gh = FakeGh(pr_head=NEW, ancestry={(OLD, NEW): 0, (NEW, NEW): 0})
+        report = executor.execute_actions([action], self.ctx(gh))
+        self.assertEqual(len(gh.push_calls), 0)
+        self.assertEqual(report.outcomes[0].status, executor.STATUS_SKIPPED)
+
+    def test_unresolved_repair_ancestry_is_flagged_and_pushed(self):
+        """repair commit の祖先性が判定不能 → 握り潰さず flag を積んで push を試みる。"""
+        action = self._repair_ci()
+        self.seed([_intent(action)])
+        gh = FakeGh(pr_head=OTHER, ancestry={(OLD, OTHER): 0, (NEW, OTHER): 2})
+        report = executor.execute_actions([action], self.ctx(gh))
+        self.assertEqual(len(gh.push_calls), 1)
+        self.assertTrue(any("repair_commit_ancestry_unresolved" in f
+                            for f in report.escalation_flags),
+                        report.escalation_flags)
+
+    def test_mutation_parent_only_precheck_skips_forever(self):
+        """検出力の実証: 旧判定（`expected_parent_sha` の祖先性のみ）は skip する。"""
+        action = self._repair_ci()
+        self.seed([_intent(action)])
+
+        def legacy(act, ctx):
+            head, reason = executor.fetch_pr_head_sha(ctx)
+            if head is None:
+                return None, reason
+            if head == act.get("head_sha"):
+                return False, None
+            verdict = executor.is_ancestor(ctx, act.get("head_sha"), head)
+            if verdict is None:
+                return None, "ancestry_unresolved"
+            return bool(verdict), None
+
+        gh_mut = self._unrelated_head_gh()
+        original = executor.push_already_applied
+        try:
+            executor.push_already_applied = legacy
+            report = executor.execute_actions([action], self.ctx(gh_mut))
+        finally:
+            executor.push_already_applied = original
+        self.assertEqual(len(gh_mut.push_calls), 0)
+        self.assertEqual(report.outcomes[0].status, executor.STATUS_SKIPPED)
+        # 旧判定では receipt が書かれ、以後この repair は再要求されない
+        self.assertEqual(
+            len([e for e in self.entries() if e["kind"] == "receipt"]), 1)
+
+
+# ---------------------------------------------------------------------------
+# R2 B2-3: receipt 済み判定の単一化（Executor / Reconciler 共用）
+# ---------------------------------------------------------------------------
+
+class TestReceiptPredicateIsSingleSourced(SandboxCase):
+
+    def test_is_receipted_is_the_only_rule(self):
+        action = _action("repair_ci", {"pr_number": PR, "head_sha": OLD, "round": 1,
+                                       "taxonomy": "code", "failed_checks": ["CI"]})
+        entries = [_intent(action)]
+        receipts = executor.receipt_ids(entries)
+        self.assertFalse(executor.is_receipted(action, receipts))
+        entries.append({"kind": "receipt", "action_id": action["action_id"]})
+        self.assertTrue(executor.is_receipted(action,
+                                              executor.receipt_ids(entries)))
+        self.assertFalse(executor.is_receipted("文字列", {"x"}))  # 非 dict は False
+
+    def test_reconciler_delegates_to_the_same_predicate(self):
+        """`reconciler.filter_unexecuted()` は独自判定を持たない（drift 防止）。"""
+        import reconciler  # noqa: PLC0415  依存の向きは reconciler → executor
+        action = _action("repair_ci", {"pr_number": PR, "head_sha": OLD, "round": 1,
+                                       "taxonomy": "code", "failed_checks": ["CI"]})
+        entries = [_intent(action),
+                   {"kind": "receipt", "action_id": action["action_id"]}]
+        self.assertEqual(reconciler.filter_unexecuted([action], entries), [])
+
+        original = executor.is_receipted
+        try:
+            executor.is_receipted = lambda a, r: False  # 変異注入
+            self.assertEqual(reconciler.filter_unexecuted([action], entries),
+                             [action])
+        finally:
+            executor.is_receipted = original
 
 
 if __name__ == "__main__":

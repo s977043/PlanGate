@@ -13,6 +13,8 @@
   TC-37 / TC-38（conflict_resolution は三点が揃うときのみ出力）
   TC-39（未完了 check-run の status → conclusion 写像）
   TC-E1 / TC-E2 / TC-E3（rate limit / timeout / ancestry 解決不能）
+  TC-E4（`allowed_paths` 抽出 0 件 → `allowed_paths_empty`）
+  TC-E7（`dod_evaluated` の head 束縛 / 旧 head の receipt を採用しない）
 
 設計上の注意:
 - **実ネットワークに出ない**。`gh_exec` は fixture（`FakeGh`）を注入して差し替え、
@@ -595,6 +597,11 @@ class TestD3SuppliedKeys(unittest.TestCase):
             _merge_ready_entries(), PR, H1))
 
     def test_dod_evaluated_false_cases(self):
+        """TC-E7: `dod_evaluated` は最新 head に束縛される。
+
+        直近の `dod_reevaluate` receipt が**旧 head**（または別 PR / intent
+        のみ）なら `False`（`MERGE_READY_CANDIDATE` 止まり）。
+        """
         cases = {
             "未存在": [],
             "旧 head": [{"kind": "receipt", "action_kind": "dod_reevaluate",
@@ -641,7 +648,7 @@ class TestD3SuppliedKeys(unittest.TestCase):
                           "scripts/ai-loop/test_collector.py"])
 
     def test_allowed_paths_zero_extraction_is_escalated(self):
-        """抽出 0 件は `escalation_flags` へ（破棄・例外 exit しない）。
+        """TC-E4: 抽出 0 件は `escalation_flags` へ（破棄・例外 exit しない）。
 
         `changed_files` が空でないときは `plan_deviation`（優先度 2）が
         `escalation_flags`（優先度 3）より先に立つため `EXEC_RETURN`。

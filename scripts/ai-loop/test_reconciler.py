@@ -263,6 +263,69 @@ class TestIdempotence(SandboxCase):
         state = reconciler.reconcile(self.task_dir, pr_number=PR)
         self.assertEqual(state.orphan_receipts, ("sha256:deadbeef",))
 
+    def test_orphan_receipt_is_promoted_to_an_escalation_flag(self):
+        """R2 B2-3: `orphan_receipts` を算出しただけで終わらせない。
+
+        `Reconciliation` に載せるだけでは誰も消費しないため、
+        `escalation_flags()` で理由コードへ昇格させ、
+        `executor.apply_escalation_flags()` 経由で `delivery.assess()` の
+        優先度 1（`escalation_flags` → `HUMAN_ESCALATED`）に届かせる。
+        """
+        self.seed([{"kind": "receipt", "action_id": "sha256:deadbeef",
+                    "action_kind": "repair_ci", "pr_number": PR,
+                    "head_sha": H1, "round": 1, "result_ref": "adopted:" + H2}])
+        state = reconciler.reconcile(self.task_dir, pr_number=PR)
+        flags = reconciler.escalation_flags(state)
+        self.assertEqual(
+            flags, (f"{reconciler.FLAG_ORPHAN_RECEIPT}:sha256:deadbeef",))
+
+        snapshot = executor.apply_escalation_flags({"escalation_flags": []}, flags)
+        self.assertEqual(snapshot["escalation_flags"], list(flags))
+
+    def test_pending_intent_is_not_promoted(self):
+        """receipt 待ちの intent（正常な resume 経路）は escalate しない。"""
+        action = self._repair()
+        self.seed([_intent(action)])
+        state = reconciler.reconcile(self.task_dir, pr_number=PR)
+        self.assertEqual(state.pending, (action["action_id"],))
+        self.assertEqual(reconciler.escalation_flags(state), ())
+
+    def test_orphan_flag_reaches_human_escalated(self):
+        """昇格した理由コードが `delivery.assess()` を `HUMAN_ESCALATED` にする。"""
+        gh = LoopGh(head_sha=H1, checks=[check_run("CI", head_sha=H1)],
+                    reviews=[review("APPROVED", H1)])
+        snapshot = collector.collect(task_id=TASK, repo=REPO, pr_number=PR,
+                                     source_sha=SRC, plan_text=PLAN_TEXT,
+                                     record_path=self.record(), findings=[], gh=gh)
+        self.assertEqual(snapshot["escalation_flags"], [])
+        clean = delivery.assess(copy.deepcopy(snapshot), self.entries())["state"]
+        self.assertNotEqual(clean, "HUMAN_ESCALATED")
+
+        self.seed([{"kind": "receipt", "action_id": "sha256:deadbeef",
+                    "action_kind": "repair_ci", "pr_number": PR,
+                    "head_sha": H1, "round": 1, "result_ref": "adopted:" + H2}])
+        state = reconciler.reconcile(self.task_dir, pr_number=PR)
+        merged = executor.apply_escalation_flags(
+            snapshot, reconciler.escalation_flags(state))
+        self.assertEqual(delivery.assess(merged, self.entries())["state"],
+                         "HUMAN_ESCALATED")
+
+    def test_mutation_dropping_promotion_hides_the_orphan(self):
+        """検出力の実証: 昇格を外す（空 tuple 固定）と orphan が判定へ届かない。"""
+        self.seed([{"kind": "receipt", "action_id": "sha256:deadbeef",
+                    "action_kind": "repair_ci", "pr_number": PR,
+                    "head_sha": H1, "round": 1, "result_ref": "adopted:" + H2}])
+        state = reconciler.reconcile(self.task_dir, pr_number=PR)
+        original = reconciler.escalation_flags
+        try:
+            reconciler.escalation_flags = lambda _s: ()   # 変異注入（是正前）
+            merged = executor.apply_escalation_flags(
+                {"escalation_flags": []}, reconciler.escalation_flags(state))
+        finally:
+            reconciler.escalation_flags = original
+        self.assertEqual(merged["escalation_flags"], [])
+        self.assertTrue(state.orphan_receipts)  # 兆候は出ているのに届かない
+
     def test_tc08_action_id_reuses_canonical_hash(self):
         """TC-08: `reconciler.py` は `c3_contract.canonical_hash` を import 再利用する。"""
         payload = {"pr_number": PR, "head_sha": H1, "round": 1,

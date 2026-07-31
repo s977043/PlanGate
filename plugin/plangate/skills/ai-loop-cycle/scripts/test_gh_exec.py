@@ -659,7 +659,8 @@ class PositiveAllowTests(SpyMixin, unittest.TestCase):
 # ===========================================================================
 
 def _push_handler(*, head_ref="feat/task-0917-delivery", base_ref="main",
-                  origin_url=f"git@github.com:{REPO}.git", ancestor_rc=0):
+                  origin_url=f"git@github.com:{REPO}.git", ancestor_rc=0,
+                  push_rc=0, push_stderr=""):
     def handler(argv):
         if argv[:3] == ["gh", "pr", "view"]:
             return _Completed(0, json.dumps(
@@ -669,7 +670,7 @@ def _push_handler(*, head_ref="feat/task-0917-delivery", base_ref="main",
         if argv[:2] == ["git", "merge-base"]:
             return _Completed(ancestor_rc, "")
         if argv[:2] == ["git", "push"]:
-            return _Completed(0, "pushed")
+            return _Completed(push_rc, "" if push_rc else "pushed", push_stderr)
         raise AssertionError(f"想定外の argv: {argv}")
     return handler
 
@@ -742,6 +743,70 @@ class PushPreCheckTests(SpyMixin, unittest.TestCase):
                     gh_exec.push_pr_head(repo=REPO, branch=self.BRANCH,
                                          expected_parent_sha=sha, cwd=str(HERE))
                 self.assertEqual(self._pushed(), [])
+
+
+# ===========================================================================
+# R2 B2-1: push の終了コード検査（不可逆な作用だけ無検査にしない）
+# ===========================================================================
+
+class PushExitCodeTests(SpyMixin, unittest.TestCase):
+    """`git push` の rc を検査し、失敗を `pushed=True` として返さない。
+
+    事前検査 4 点（`gh pr view` / `baseRefName` / origin URL / fast-forward）は
+    すべて `returncode` を見ているのに **push 自身だけ無検査**だと、reject /
+    認証失敗 / ネットワーク断で失敗した push が `executor.perform_push()` から
+    成功と解釈され、`STATUS_EXECUTED` + receipt が書かれる。`delivery.py` は
+    `actions = [a for a in actions if a["action_id"] not in receipts]` で
+    receipt 済み intent を再要求しないため、**修正が反映されないまま
+    「repair 済み」として loop が進む**。
+    """
+
+    BRANCH = "feat/task-0917-delivery"
+
+    def _run_push(self, handler):
+        self.spy = _SubprocessSpy(handler)
+        gh_exec.subprocess = self.spy
+        return gh_exec.push_pr_head(
+            repo=REPO, branch=self.BRANCH, expected_parent_sha=SHA, cwd=str(HERE))
+
+    def _pushed(self):
+        return [c for c in self.spy.calls if c[1][:2] == ["git", "push"]]
+
+    def test_nonzero_push_exit_code_is_reported_as_not_pushed(self):
+        """rc≠0（reject / 認証失敗 / ネットワーク断）→ `pushed=False`。"""
+        for rc, stderr in ((1, "! [rejected] non-fast-forward"),
+                           (128, "fatal: Authentication failed"),
+                           (255, "ssh: connect timed out")):
+            with self.subTest(rc=rc):
+                result = self._run_push(_push_handler(push_rc=rc,
+                                                      push_stderr=stderr))
+                self.assertFalse(result.pushed, f"rc={rc} を成功として返した")
+                self.assertEqual(result.result.returncode, rc)
+                # push 自体には到達している（事前検査 deny とは別の失敗経路）
+                self.assertEqual(len(self._pushed()), 1)
+
+    def test_pushed_flag_follows_the_exit_code(self):
+        """`pushed` は rc==0 と同値（真理値表を固定する）。"""
+        for rc, expected in ((0, True), (1, False), (128, False)):
+            with self.subTest(rc=rc):
+                self.assertIs(self._run_push(_push_handler(push_rc=rc)).pushed,
+                              expected)
+
+    def test_mutation_unconditional_pushed_true_hides_the_failure(self):
+        """変異注入（是正前の実装 = rc 無検査）は失敗を成功として返す。
+
+        `_spawn` を差し替えず、`push_pr_head` の**最終行だけ**を旧実装
+        （`PushResult(pushed=True, ...)` 固定）に戻した変異体を一時関数として
+        組み立て、同じ入力に対し判定が反転することを示す（本体ファイルは
+        書き換えない）。
+        """
+        failed = _Completed(1, "", "! [rejected]")
+        legacy = gh_exec.PushResult(pushed=True, argv=("git", "push"),
+                                    result=failed)          # 是正前
+        fixed = self._run_push(_push_handler(push_rc=1))     # 是正後
+        self.assertTrue(legacy.pushed)
+        self.assertFalse(fixed.pushed)
+        self.assertEqual(legacy.result.returncode, fixed.result.returncode)
 
 
 # ===========================================================================

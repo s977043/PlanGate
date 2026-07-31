@@ -333,6 +333,29 @@ protection は **多層防御の補助**として併用してよいが、**設�
 Defense in Depth / TASK-0114）。ただしこれも上記の意味で**補助**であり、AC-5 の
 保証を肩代わりしない — 未適用のホストでも Executor 側の allowlist は同じ強度で働く。
 
+### AC-7 差分検査（TC-14）は実行環境に依存する（PR 時 CI では走らない）
+
+判定エンジン 3 ファイル（`delivery.py` / `c3_contract.py` / `c3prime_verify.py`）を
+不変に保つ AC-7 は、`tests/extras/ta-57-pr-convergence.sh` が **3 点**で検証する:
+
+| # | 検査 | 実行条件 |
+|---|---|---|
+| TC-14 | `git diff --stat <base> -- <3 ファイル>` が 0 行 | **base ref（`origin/main` / `main`）が存在する checkout のみ** |
+| TC-15 | `test_delivery.py` が `Ran 57 tests / OK` | 常時 |
+| TC-16 | `delivery.py contract` の emit と `delivery-state-machine.md` の contract ブロックが byte 一致 | 常時 |
+
+**PR 時の CI では TC-14 は実行されない**（2026-07-31 実測）。`.github/workflows/test.yml`
+の `actions/checkout` は `fetch-depth` を指定しておらず既定の 1（shallow・単一 ref）で
+clone するため、`pull_request` イベントでは `origin/main` も `main` も解決できない。
+ta-57 はこの場合 **`[WARN]` を出して先へ進む**（fail を増やして CI を落とすのではなく、
+「3 点中 2 点しか機械検証されていない環境である」ことを可視化する）。
+
+したがって **AC-7 の 3 点が揃うのはローカル実行 / main への push 後**であり、
+「ta-57 と CI の双方で 3 点とも機械検証される」とは言えない。PR 時にも TC-14 を
+走らせたい場合は checkout に `fetch-depth: 0`（または base ref の明示 fetch）を
+足す必要がある（`.github/workflows/` は Hardening Override 対象のため別 PBI /
+Human-owned 適用）。
+
 ---
 
 ## 5. 関連ドキュメント

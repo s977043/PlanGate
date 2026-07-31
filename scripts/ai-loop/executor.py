@@ -264,6 +264,21 @@ def receipt_ids(entries) -> set:
             if isinstance(e, dict) and e.get("kind") == "receipt"}
 
 
+def is_receipted(action, receipts) -> bool:
+    """当該 action が receipt 済みかの **唯一の判定**（Executor / Reconciler 共用）。
+
+    `reconciler.filter_unexecuted()` と `execute_action()` が同じ判定を別々に
+    書くと（`a.get("action_id") not in receipts` と
+    `action["action_id"] in receipt_ids(entries)`）、片方だけ規則が変わったときに
+    「Reconciler は落としたのに Executor は実行する」/ その逆の drift が起きる。
+    集合の生成（`receipt_ids()`）と 1 件の判定（本関数）を分けているのは、
+    N action × M entry の再走査を避けつつ規則を 1 箇所に保つため。
+
+    `receipts` は `receipt_ids()` の返り値（集合）。
+    """
+    return isinstance(action, dict) and action.get("action_id") in receipts
+
+
 def notice_key(action, repair_commit_sha):
     """通知コメントの**再投稿抑止キー**（R-021 ③ / R1 B-13 で拡幅）。
 
@@ -460,10 +475,19 @@ def push_already_applied(action, ctx: ExecContext):
 
     返り値: `True`（実行済み → skip）/ `False`（未実行）/ `None`（判定不能）。
 
-    判定は「PR head が `expected_parent_sha` と**一致しない** かつ
-    `expected_parent_sha` が PR head の祖先」。`merge-base --is-ancestor X X` は
-    exit 0 のため、等値ガードを外すと初回 push まで skip されて repair が
-    永久に反映されない（module docstring の精密化を参照）。
+    判定は 3 点の AND:
+
+    1. PR head が `expected_parent_sha` と**一致しない**。
+       `merge-base --is-ancestor X X` は exit 0 のため、等値ガードを外すと
+       初回 push まで skip されて repair が永久に反映されない
+       （module docstring の精密化を参照）。
+    2. `expected_parent_sha` が PR head の祖先である（fast-forward の関係）。
+    3. **`ctx.repair_commit_sha` が PR head から到達可能である**（R2 B2-4）。
+       1+2 だけだと「snapshot 採取後に**無関係な commit** が head に載った」
+       ケースを「repair 済み」と誤判定する。誤判定すると `STATUS_SKIPPED` +
+       receipt が記録され、`delivery.py` は receipt 済み intent を再要求
+       しないため **当該 repair は永久に push されない**。押すべき commit
+       そのものの到達可能性を見るのが唯一の正しい「実行済み」判定である。
     """
     expected_parent_sha = action.get("head_sha")
     head, reason = fetch_pr_head_sha(ctx)
@@ -474,7 +498,17 @@ def push_already_applied(action, ctx: ExecContext):
     verdict = is_ancestor(ctx, expected_parent_sha, head)
     if verdict is None:
         return None, "ancestry_unresolved"
-    return bool(verdict), None
+    if not verdict:
+        return False, None
+    repair = ctx.repair_commit_sha
+    if not repair:
+        # 押すべき commit が不明なら「実行済み」と断定しない（安全側 = 再 push を
+        # 試み、最終防衛は `gh_exec.push_pr_head()` の事前検査 4 点に委ねる）。
+        return False, None
+    reached = is_ancestor(ctx, repair, head)
+    if reached is None:
+        return None, "repair_commit_ancestry_unresolved"
+    return bool(reached), None
 
 
 # ---------------------------------------------------------------------------
@@ -482,14 +516,26 @@ def push_already_applied(action, ctx: ExecContext):
 # ---------------------------------------------------------------------------
 
 def perform_push(action, ctx: ExecContext) -> PushOutcome:
-    """`gh_exec.push_pr_head()` 経由で PR head branch へ fast-forward push する。"""
+    """`gh_exec.push_pr_head()` 経由で PR head branch へ fast-forward push する。
+
+    **`perform_comment()` と同じ形で終了コードを検査する**（R2 B2-1）。可逆な
+    コメントだけ検査し不可逆な push を無検査にすると、push 失敗が
+    `STATUS_EXECUTED` + receipt になり `delivery.py` が当該 intent を二度と
+    再要求しない（修正が反映されないまま「repair 済み」として loop が進む）。
+    `gh_exec.push_pr_head()` は非 0 終了時に `PushResult(pushed=False, ...)` を
+    返すため、ここでは `pushed` を **必ず** 見る（未知の返り値型も失敗扱い）。
+    """
     try:
-        ctx.gh.push_pr_head(repo=ctx.repo, branch=ctx.branch,
-                            expected_parent_sha=action["head_sha"], cwd=ctx.cwd)
+        result = ctx.gh.push_pr_head(repo=ctx.repo, branch=ctx.branch,
+                                     expected_parent_sha=action["head_sha"],
+                                     cwd=ctx.cwd)
     except gh_exec.Denied as exc:
         return PushOutcome(False, reason=f"denied:{exc.reason}")
     except Exception as exc:  # noqa: BLE001
         return PushOutcome(False, reason=f"exec_error:{type(exc).__name__}")
+    if not getattr(result, "pushed", False):
+        rc = getattr(getattr(result, "result", None), "returncode", None)
+        return PushOutcome(False, reason=f"rc={rc}")
     return PushOutcome(True)
 
 
@@ -564,7 +610,7 @@ def execute_action(action, ctx: ExecContext, *, entries) -> ActionOutcome:
     if not verify_action_id(action):
         return _fail(action, FLAG_ACTION_ID_MISMATCH, str(action.get("action_id")),
                      flags)
-    if action["action_id"] in receipt_ids(entries):
+    if is_receipted(action, receipt_ids(entries)):
         # AC-3 / TC-07: receipt 済み = 外部作用ゼロで即返す（gh を一度も呼ばない）
         return ActionOutcome(action_id=action["action_id"], action_kind=kind,
                              status=STATUS_ALREADY_RECEIPTED)
@@ -651,6 +697,13 @@ def apply_escalation_flags(snapshot, flags) -> dict:
 
     `collector.build_snapshot()` を変えずに合流させるための薄い合成関数。
     元の snapshot は破壊しない（順序保存・重複排除）。
+
+    ⚠️ **本関数の非テスト呼び出し元をゼロにしない**（`collector.py` の
+    `verify_snapshot_evidence()` と同じ規律 / R2 B2-3）。呼び出し元が
+    テストだけになると「Executor が積んだ理由コードが次 run へ到達する」
+    ことが一度も実証されず、AC-6 で機械固定されているのが Collector 側の
+    素通しだけになる。`tests/extras/ta-57-pr-convergence.sh` の E2E が
+    「Executor の flag → 次 run snapshot → `HUMAN_ESCALATED`」を 1 本通す。
     """
     merged = dict(snapshot or {})
     existing = list(merged.get("escalation_flags") or ())

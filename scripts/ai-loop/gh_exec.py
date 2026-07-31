@@ -594,7 +594,18 @@ _SHA_RE = re.compile(r"[0-9a-f]{7,40}")
 
 @dataclasses.dataclass(frozen=True)
 class PushResult:
-    """`push_pr_head()` の結果。`argv` は実際に組み立てた argv。"""
+    """`push_pr_head()` の結果。`argv` は実際に組み立てた argv。
+
+    `pushed` は **実際に push が成功したか**（`result.returncode == 0`）である。
+    「事前検査を全部通って push を試みた」ではない。reject / 認証失敗 /
+    ネットワーク断で `git push` が非 0 終了したとき `pushed=True` を返すと、
+    `executor.perform_push()` が成功と解釈して receipt を書き、`delivery.py` の
+    `actions = [a for a in actions if a["action_id"] not in receipts]` により
+    **当該 intent が二度と再要求されない**（修正が反映されないまま loop が進む）。
+    可逆な `comment_pr()` 側は `executor.perform_comment()` が
+    `getattr(proc, "returncode", 1) != 0` を検査しており、**不可逆な push だけ
+    無検査**という非対称を作らないための不変条件（R2 B2-1）。
+    """
 
     pushed: bool
     argv: tuple
@@ -643,6 +654,9 @@ def push_pr_head(*, repo: str, branch: str, expected_parent_sha: str, cwd=None):
     4. `expected_parent_sha` が `HEAD` の祖先である（fast-forward である）こと
 
     いずれか 1 つでも不成立なら push に到達せず `Denied` を送出する。
+
+    push に到達した場合は **その終了コードも検査**し、非 0 なら
+    `PushResult(pushed=False, ...)` を返す（成功と誤認させない / R2 B2-1）。
     """
     _require_sha(expected_parent_sha)
     argv = build_push_argv(branch=branch)
@@ -678,4 +692,10 @@ def push_pr_head(*, repo: str, branch: str, expected_parent_sha: str, cwd=None):
                      f"は HEAD の祖先でない / rc={ancestry.returncode}）")
 
     result = _spawn(argv, cwd=cwd)
+    # 実際の push の終了コードを検査する（R2 B2-1）。事前検査 4 点はすべて
+    # `returncode` を見ているのに push 自身だけ無検査だと、reject / 認証失敗 /
+    # ネットワーク断が「成功」として receipt され修正が永久に反映されない。
+    # 検査の形は `executor.perform_comment()` と同一にして対称性を保つ。
+    if getattr(result, "returncode", 1) != 0:
+        return PushResult(pushed=False, argv=tuple(argv), result=result)
     return PushResult(pushed=True, argv=tuple(argv), result=result)
