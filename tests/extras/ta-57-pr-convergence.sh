@@ -221,9 +221,11 @@ def check_run(name, sha, conclusion, status="completed"):
             "completed_at": "2100-01-01T00:00:00Z"}
 
 
-def review(state, sha):
+def review(state, sha, association="MEMBER", login="human"):
+    """R1 B-7: `reduce_review()` は権限不明の APPROVED を候補にしない。"""
     return {"id": 1, "state": state, "commit_id": sha,
-            "submitted_at": "2100-01-01T00:00:00Z"}
+            "submitted_at": "2100-01-01T00:00:00Z",
+            "user": {"login": login}, "author_association": association}
 
 
 # --- Plan Package 6 要素 + c3-prime（sandbox）----------------------------
@@ -243,12 +245,13 @@ RECORD = delivery.record_path(task_dir)
 FAKES = []
 
 
-def collect(fake, *, ci_log_text=""):
+def collect(fake, *, ci_log_text="", findings=()):
+    """`findings` は**明示供給**する（未供給は `findings_unavailable` / R1 B-4）。"""
     FAKES.append(fake)
     return collector.collect(
         task_id=TASK, repo=REPO, pr_number=PR, source_sha=SRC,
         plan_text=PLAN_TEXT, record_path=RECORD, ci_log_text=ci_log_text,
-        gh=fake)
+        findings=list(findings), gh=fake)
 
 
 def assess_cli(snapshot, tag):
@@ -314,8 +317,10 @@ r2 = assess_cli(snap2, "2")
 emit("round2_state", r2["state"])
 emit("round2_actions", ",".join(sorted(a["action_kind"] for a in r2["actions"])))
 
+# R1 B-1: `dod_reevaluate` は実測根拠（evidence_ref）を必須入力にした。
 ctx2 = executor.ExecContext(repo=REPO, branch=BRANCH, task_dir=task_dir, now=NOW,
-                            gh=fake2, repair_commit_sha=H2)
+                            gh=fake2, repair_commit_sha=H2,
+                            evidence_ref="docs/working/%s/evidence/dod.md" % TASK)
 rep2 = executor.execute_actions(r2["actions"], ctx2)
 emit("exec2_statuses", ",".join(o.status for o in rep2.outcomes))
 emit("exec2_writes", fake2.write_calls)

@@ -236,8 +236,10 @@ class TestActionKinds(SandboxCase):
                          [executor.STATUS_EXECUTED] * 6)
         receipts = {e["action_id"] for e in self.entries() if e["kind"] == "receipt"}
         self.assertEqual(receipts, {a["action_id"] for a in actions})
-        # 通知コメントは repair_ci / repair_review の 2 件のみ（新 action_kind ゼロ）
-        self.assertEqual(len(gh.comment_calls), 2)
+        # 通知コメントは NOTIFY_KINDS のみが出す。さらに repair_ci /
+        # repair_review は **同一 push**（同じ pr/head/repair_commit_sha）を
+        # 告げるため run 内で 1 件に集約される（R1 B-13）。
+        self.assertEqual(len(gh.comment_calls), 1)
         # push は 3 種の repair kind のみ
         self.assertEqual(len(gh.push_calls), 3)
 
@@ -579,6 +581,216 @@ class TestExecBoundary(unittest.TestCase):
         self.assertTrue({"comment_pr", "push_pr_head"} <= attrs)
         for forbidden in ("check_call", "Popen", "urlopen", "system"):
             self.assertNotIn(forbidden, attrs)
+
+
+# ---------------------------------------------------------------------------
+# R1 是正の検出力（B-1 / B-5 / B-10 / B-12 / B-13）
+# ---------------------------------------------------------------------------
+
+class TestEvidenceRequiredInputs(SandboxCase):
+    """B-1 / B-5: `dod_reevaluate` / `record_disposition` は `evidence_ref` 必須。"""
+
+    def _dod(self):
+        return _action("dod_reevaluate", {"pr_number": PR, "head_sha": OLD})
+
+    def _disposition(self):
+        return _action("record_disposition", {
+            "pr_number": PR, "head_sha": OLD, "finding_id": "F-2",
+            "finding_type": "readability", "severity": "minor"})
+
+    def test_dod_reevaluate_without_evidence_is_refused(self):
+        """B-1: 必須入力ゼロの rubber stamp を作らせない（receipt も書かない）。"""
+        gh = FakeGh()
+        action = self._dod()
+        self.seed([_intent(action)])
+        report = executor.execute_actions([action], self.ctx(gh))
+        self.assertEqual(report.outcomes[0].status, executor.STATUS_FAILED)
+        self.assertEqual(gh.write_calls, 0)
+        self.assertEqual([e for e in self.entries()
+                          if e["kind"] == "receipt"], [])
+        self.assertTrue(any(f.startswith(executor.FLAG_MISSING_INPUT)
+                            for f in report.escalation_flags))
+
+    def test_dod_reevaluate_receipt_carries_evidence(self):
+        gh = FakeGh()
+        action = self._dod()
+        self.seed([_intent(action)])
+        ctx = self.ctx(gh, evidence_ref="docs/evidence/dod.md")
+        report = executor.execute_actions([action], ctx)
+        self.assertEqual(report.outcomes[0].status, executor.STATUS_EXECUTED)
+        receipt = [e for e in self.entries() if e["kind"] == "receipt"][0]
+        self.assertEqual(
+            collector.receipt_evidence_ref(receipt["result_ref"]),
+            "docs/evidence/dod.md")
+        self.assertTrue(collector.derive_dod_evaluated(
+            self.entries(), PR, OLD))
+
+    def test_record_disposition_does_not_fall_back_to_repair_commit(self):
+        """B-5: 記録要求（minor/info）を 1 個の repair SHA で `adopted` 化しない。"""
+        gh = FakeGh()
+        action = self._disposition()
+        self.seed([_intent(action)])
+        # repair_commit_sha は ctx 既定で入っている（NEW）。それでも拒否する。
+        report = executor.execute_actions([action], self.ctx(gh))
+        self.assertEqual(report.outcomes[0].status, executor.STATUS_FAILED)
+        self.assertEqual(report.outcomes[0].reason,
+                         f"{executor.FLAG_MISSING_INPUT}:record_disposition:"
+                         "evidence_ref")
+        self.assertEqual(gh.write_calls, 0)
+
+    def test_record_disposition_with_evidence_is_rejected_disposition(self):
+        gh = FakeGh()
+        action = self._disposition()
+        self.seed([_intent(action)])
+        ctx = self.ctx(gh, evidence_ref="docs/evidence/f2.md")
+        executor.execute_actions([action], ctx)
+        receipt = [e for e in self.entries() if e["kind"] == "receipt"][0]
+        parsed = executor.parse_result_ref(receipt["result_ref"])
+        self.assertEqual(parsed.get(executor.PART_REJECTED),
+                         "docs/evidence/f2.md")
+        self.assertNotIn(executor.PART_ADOPTED, parsed)
+        self.assertEqual(parsed.get(executor.PART_FINDING), "F-2")
+
+    def test_repair_review_records_finding_to_commit_correspondence(self):
+        """B-5: `adopted` に finding_id を併記し、どの指摘の commit かを残す。"""
+        gh = FakeGh()
+        action = _action("repair_review", {
+            "pr_number": PR, "head_sha": OLD, "round": 1,
+            "finding_id": "F-1", "finding_type": "security",
+            "severity": "critical"})
+        self.seed([_intent(action)])
+        executor.execute_actions([action], self.ctx(gh))
+        receipt = [e for e in self.entries() if e["kind"] == "receipt"][0]
+        parsed = executor.parse_result_ref(receipt["result_ref"])
+        self.assertEqual(parsed[executor.PART_ADOPTED], NEW)
+        self.assertEqual(parsed[executor.PART_FINDING], "F-1")
+
+
+class TestActionIdMutationIsKilled(SandboxCase):
+    """B-10 変異①: `verify_action_id()` を常に True にすると検出力が消える。"""
+
+    def test_tampered_action_id_causes_no_external_effect(self):
+        gh = FakeGh()
+        action = _action("repair_ci", {"pr_number": PR, "head_sha": OLD,
+                                       "round": 1, "taxonomy": "code",
+                                       "failed_checks": ["CI"]})
+        self.seed([_intent(action)])
+        tampered = dict(action)
+        head = tampered["action_id"]
+        # 1 文字だけ書き換える（末尾の hex を別の hex へ）
+        tampered["action_id"] = head[:-1] + ("0" if head[-1] != "0" else "1")
+        self.assertNotEqual(tampered["action_id"], action["action_id"])
+        self.assertFalse(executor.verify_action_id(tampered))
+
+        report = executor.execute_actions([tampered], self.ctx(gh))
+        self.assertEqual(report.outcomes[0].status, executor.STATUS_FAILED)
+        self.assertEqual(gh.write_calls, 0,
+                         "捏造された action_id で外部作用が発生した")
+        self.assertEqual([e for e in self.entries()
+                          if e["kind"] in ("receipt", "notice")], [])
+        self.assertTrue(any(f.startswith(executor.FLAG_ACTION_ID_MISMATCH)
+                            for f in report.escalation_flags))
+
+    def test_mutation_always_true_verifier_lets_it_through(self):
+        """検出力の実証: `verify_action_id` を常に True にすると push が起きる。"""
+        gh = FakeGh()
+        action = _action("repair_ci", {"pr_number": PR, "head_sha": OLD,
+                                       "round": 1, "taxonomy": "code",
+                                       "failed_checks": ["CI"]})
+        self.seed([_intent(action)])
+        tampered = dict(action)
+        tampered["action_id"] = tampered["action_id"][:-1] + "0"
+
+        original = executor.verify_action_id
+        executor.verify_action_id = lambda _action: True
+        try:
+            executor.execute_actions([tampered], self.ctx(gh))
+        finally:
+            executor.verify_action_id = original
+        self.assertGreater(gh.write_calls, 0,
+                           "変異が外部作用を起こさないなら本テストは検出力を持たない")
+
+
+class TestFailPreservesPriorFlags(SandboxCase):
+    """B-12: `_fail()` が先行 `escalation_flag` を落とさない。"""
+
+    def test_ancestry_unknown_and_push_failure_yield_two_flags(self):
+        gh = FakeGh(pr_head=OTHER, ancestor_rc=128,   # 祖先判定不能
+                    push_error=RuntimeError("boom"))  # push 失敗
+        action = _action("repair_ci", {"pr_number": PR, "head_sha": OLD,
+                                       "round": 1, "taxonomy": "code",
+                                       "failed_checks": ["CI"]})
+        self.seed([_intent(action)])
+        report = executor.execute_actions([action], self.ctx(gh))
+        outcome = report.outcomes[0]
+        self.assertEqual(outcome.status, executor.STATUS_FAILED)
+        self.assertEqual(len(outcome.escalation_flags), 2, outcome.escalation_flags)
+        self.assertTrue(any(f.startswith(executor.FLAG_ANCESTRY_UNKNOWN)
+                            for f in outcome.escalation_flags))
+        self.assertTrue(any(f.startswith(executor.FLAG_PUSH_FAILED)
+                            for f in outcome.escalation_flags))
+        # 次 run の snapshot へ両方が伝播する（AC-6 接続点）
+        merged = executor.apply_escalation_flags({"escalation_flags": []},
+                                                 report.escalation_flags)
+        self.assertEqual(len(merged["escalation_flags"]), 2)
+
+
+class TestNoticeDeduplication(SandboxCase):
+    """B-13: 同一 push を告げる通知は run 内で 1 件に集約する。"""
+
+    def _repair_review(self, finding_id):
+        return _action("repair_review", {
+            "pr_number": PR, "head_sha": OLD, "round": 1,
+            "finding_id": finding_id, "finding_type": "security",
+            "severity": "critical"})
+
+    def test_multiple_repair_reviews_post_one_comment(self):
+        gh = FakeGh()
+        actions = [self._repair_review(f"F-{i}") for i in range(1, 4)]
+        self.seed([_intent(a) for a in actions])
+        report = executor.execute_actions(actions, self.ctx(gh))
+        self.assertEqual([o.status for o in report.outcomes],
+                         [executor.STATUS_EXECUTED] * 3)
+        self.assertEqual(len(gh.comment_calls), 1,
+                         "同一 push の通知が finding 数だけ並んだ")
+        # 3 件とも同じコメント URL を receipt に載せる（監査の一貫性）
+        urls = {executor.parse_result_ref(o.result_ref).get(executor.PART_COMMENT)
+                for o in report.outcomes}
+        self.assertEqual(urls, {gh.comment_url})
+
+    def test_different_push_target_posts_a_new_comment(self):
+        """`repair_commit_sha` が変われば別の push なので通知は再投稿する。"""
+        gh = FakeGh()
+        first = self._repair_review("F-1")
+        self.seed([_intent(first)])
+        executor.execute_actions([first], self.ctx(gh))
+        self.assertEqual(len(gh.comment_calls), 1)
+
+        second = self._repair_review("F-2")
+        self.seed([_intent(second)])
+        executor.execute_actions([second], self.ctx(gh, repair_commit_sha=OTHER))
+        self.assertEqual(len(gh.comment_calls), 2)
+
+    def test_mutation_action_id_key_reposts_per_finding(self):
+        """検出力の実証: 抑止キーを `action_id` に戻すと N 件投稿される。
+
+        旧実装（`notice_urls()` を `action_id` で引く）をそのまま再現する。
+        `action_id` は finding ごとに異なるため、同じ push を告げる同内容の
+        コメントが finding 数だけ並ぶ。
+        """
+        gh = FakeGh()
+        actions = [self._repair_review(f"F-{i}") for i in range(1, 4)]
+        self.seed([_intent(a) for a in actions])
+
+        original_key, original_index = executor.notice_key, executor.notice_index
+        executor.notice_key = lambda action, _sha: action["action_id"]
+        executor.notice_index = executor.notice_urls
+        try:
+            executor.execute_actions(actions, self.ctx(gh))
+        finally:
+            executor.notice_key = original_key
+            executor.notice_index = original_index
+        self.assertEqual(len(gh.comment_calls), 3)
 
 
 if __name__ == "__main__":

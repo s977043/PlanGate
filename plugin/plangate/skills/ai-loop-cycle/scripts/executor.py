@@ -41,7 +41,10 @@ plan の文言は「`expected_parent_sha` が既に PR head の祖先なら実�
 
 R-021 ③「同一 `action_id` 由来のコメントが既にあるなら再投稿しない」は、
 `record.jsonl` の **`kind="notice"` entry**（append-only・`delivery.py` の
-`assess()` からは不可視）で追跡する。PR 側のコメント一覧を読む経路は
+`assess()` からは不可視）で追跡する。抑止キーは **`(pr_number, head_sha,
+repair_commit_sha)`**（R1 B-13）: `action_id` は finding ごとに異なるため、
+それを鍵にすると同一 run の `repair_review` N 件が**同じ push を告げる同内容
+コメントを N 件**投稿してしまう。PR 側のコメント一覧を読む経路は
 `gh_exec` の allowlist に **存在しない**（`gh api .../issues/{n}/comments` は
 endpoint allowlist 外・`gh pr view --json comments` は `JSON_FIELDS` 外）ため、
 唯一の決定論的な追跡手段が append-only record である。
@@ -93,8 +96,11 @@ PUSH_KINDS = delivery.REPAIR_KINDS
 FINDING_TYPE_VOCABULARY = collector.FINDING_TYPE_VOCABULARY
 
 # --- result_ref convention（D3: `delivery.py receipt --result-ref` の汎用文字列）
-RESULT_REF_SEP = "|"
-RESULT_REF_KV = ":"
+#: 区切りと `evidence` キーは `collector.py` を**単一ソース**として参照する
+#: （collector は executor を import できない = 循環するため、共有部の置き場を
+#: collector に固定する。同じ理由で `FINDING_TYPE_VOCABULARY` も collector 側）。
+RESULT_REF_SEP = collector.RESULT_REF_SEP
+RESULT_REF_KV = collector.RESULT_REF_KV
 PART_ADOPTED = "adopted"
 PART_REJECTED = "rejected"
 PART_COMMENT = "comment"
@@ -103,9 +109,16 @@ PART_HEAD = "head"
 PART_REFERRAL = "referral"
 PART_DOD = "dod"
 PART_SKIPPED = "skipped"
+#: 実測根拠（`dod_reevaluate` / `record_disposition` の必須入力）。
+PART_EVIDENCE = collector.PART_EVIDENCE
+#: `repair_review` の `adopted` が「どの finding に対する commit か」を残すキー
+#: （単一 `repair_commit_sha` を finding ごとの検証なしに貼ると、critical を
+#: 含む全 finding が一括で `adopted` 化する / R1 B-5）。
+PART_FINDING = "finding"
 #: `parse_result_ref()` が認識する部分キー（未知キーは無視する = 前方互換）。
 RESULT_REF_PARTS = (PART_ADOPTED, PART_REJECTED, PART_COMMENT, PART_BASE,
-                    PART_HEAD, PART_REFERRAL, PART_DOD, PART_SKIPPED)
+                    PART_HEAD, PART_REFERRAL, PART_DOD, PART_SKIPPED,
+                    PART_EVIDENCE, PART_FINDING)
 
 # --- record.jsonl の補助 entry（`assess()` からは不可視 / append-only）
 NOTICE_KIND = "notice"
@@ -233,18 +246,12 @@ def build_result_ref(parts) -> str:
 def parse_result_ref(ref) -> dict:
     """`result_ref` を辞書へ戻す（未知キー / 自由文字列は黙って捨てる）。
 
-    値に `:` を含む URL を壊さないため、区切りは **最初の 1 個**のみで分割する。
+    分割は `collector.parse_result_ref_parts()` に委譲する（同じ規約を 2 箇所で
+    実装すると drift するため。値に `:` を含む URL を壊さないよう区切りは
+    **最初の 1 個**のみ = collector 側の実装が担保する）。
     """
-    if not isinstance(ref, str) or not ref:
-        return {}
-    parsed = {}
-    for chunk in ref.split(RESULT_REF_SEP):
-        key, sep, value = chunk.partition(RESULT_REF_KV)
-        if not sep:
-            continue
-        if key in RESULT_REF_PARTS:
-            parsed[key] = value
-    return parsed
+    return {k: v for k, v in collector.parse_result_ref_parts(ref).items()
+            if k in RESULT_REF_PARTS}
 
 
 # ---------------------------------------------------------------------------
@@ -257,8 +264,31 @@ def receipt_ids(entries) -> set:
             if isinstance(e, dict) and e.get("kind") == "receipt"}
 
 
+def notice_key(action, repair_commit_sha):
+    """通知コメントの**再投稿抑止キー**（R-021 ③ / R1 B-13 で拡幅）。
+
+    抑止キーを `action_id` にすると、同一 run の `repair_review` が finding 数
+    だけ発行された場合に **同じ push を告げる同内容コメントが N 件**並ぶ
+    （`action_id` は finding ごとに異なるため）。通知が伝える事実は
+    「PR `pr_number` の head `head_sha` が `repair_commit_sha` へ進む」であり、
+    この 3 点が一致する通知は run 内で 1 件に集約してよい。
+    """
+    return (action.get("pr_number"), action.get("head_sha"), repair_commit_sha)
+
+
+def notice_index(entries) -> dict:
+    """抑止キー → 既投稿コメント URL（`comment_url` は None もありうる）。"""
+    index = {}
+    for entry in entries or ():
+        if not isinstance(entry, dict) or entry.get("kind") != NOTICE_KIND:
+            continue
+        index[(entry.get("pr_number"), entry.get("head_sha"),
+               entry.get("repair_commit_sha"))] = entry.get("comment_url")
+    return index
+
+
 def notice_urls(entries) -> dict:
-    """`action_id` → 既投稿コメント URL（R-021 ③ の再投稿抑止に使う）。"""
+    """`action_id` → 既投稿コメント URL（監査・後方互換の索引）。"""
     urls = {}
     for entry in entries or ():
         if not isinstance(entry, dict) or entry.get("kind") != NOTICE_KIND:
@@ -268,12 +298,13 @@ def notice_urls(entries) -> dict:
     return urls
 
 
-def notice_entry(action, comment_url) -> dict:
+def notice_entry(action, comment_url, repair_commit_sha=None) -> dict:
     """コメント投稿の事実を append-only に残す entry（`assess()` からは不可視）。"""
     return {"kind": NOTICE_KIND, "action_id": action["action_id"],
             "action_kind": action["action_kind"],
             "pr_number": action.get("pr_number"),
             "head_sha": action.get("head_sha"),
+            "repair_commit_sha": repair_commit_sha,
             "comment_url": comment_url}
 
 
@@ -320,15 +351,28 @@ def verify_action_id(action) -> bool:
 
 
 def _required_inputs(action, ctx: ExecContext):
-    """action_kind ごとの必須入力を検査し、不足なら理由文字列を返す。"""
+    """action_kind ごとの必須入力を検査し、不足なら理由文字列を返す。
+
+    `dod_reevaluate` / `record_disposition` は **`evidence_ref` を必須**にする:
+
+    - `dod_reevaluate`（R1 B-1）: 必須入力ゼロだと Executor は外部作用ゼロで
+      receipt を書き、Collector の `derive_dod_evaluated()` がそれを見て
+      `True` にする＝ **DoD ゲートを AI ループが自分で押せる** rubber stamp に
+      なる。実測根拠の参照を必須にして「判定した事実」を receipt へ束縛する。
+    - `record_disposition`（R1 B-5）: これは minor/info の「**記録**」であって
+      「修正」ではない。`repair_commit_sha` の fallback を残すと run 全体で 1 個
+      の SHA が finding ごとの対応検証なしに全件へ貼られ、記録要求まで
+      `adopted` 化する。不採用根拠（`evidence_ref`）のみを受理する。
+    """
     kind = action["action_kind"]
     if kind in PUSH_KINDS and not ctx.repair_commit_sha:
         return "repair_commit_sha"
     if kind == "resolve_conflict" and not ctx.base_sha:
         return "base_sha"
-    if kind == "record_disposition" and not (ctx.evidence_ref
-                                             or ctx.repair_commit_sha):
-        return "evidence_ref|repair_commit_sha"
+    if kind == "record_disposition" and not ctx.evidence_ref:
+        return "evidence_ref"
+    if kind == "dod_reevaluate" and not ctx.evidence_ref:
+        return "evidence_ref"
     return None
 
 
@@ -455,6 +499,13 @@ def perform_push(action, ctx: ExecContext) -> PushOutcome:
 
 def build_action_result_ref(action, ctx: ExecContext, *, comment_url=None,
                             skipped=False) -> str:
+    """`result_ref` を組み立てる（Reconciler が disposition を再構成する唯一の規約）。
+
+    `repair_review` の `adopted` には **finding_id を併記**する（どの finding に
+    対する commit かを receipt に残さないと、単一 `repair_commit_sha` が
+    critical を含む全 finding へ無検証で貼られたことを後から区別できない /
+    R1 B-5）。`record_disposition` は `rejected:<evidence_ref>` のみ。
+    """
     kind = action["action_kind"]
     parts = []
     if kind == "resolve_conflict":
@@ -463,15 +514,15 @@ def build_action_result_ref(action, ctx: ExecContext, *, comment_url=None,
         parts.append((PART_HEAD, action.get("head_sha")))
     elif kind in PUSH_KINDS:
         parts.append((PART_ADOPTED, ctx.repair_commit_sha))
+        parts.append((PART_FINDING, action.get("finding_id")))
     elif kind == "record_disposition":
-        if ctx.evidence_ref:
-            parts.append((PART_REJECTED, ctx.evidence_ref))
-        else:
-            parts.append((PART_ADOPTED, ctx.repair_commit_sha))
+        parts.append((PART_REJECTED, ctx.evidence_ref))
+        parts.append((PART_FINDING, action.get("finding_id")))
     elif kind == "feedback_loop_referral":
         parts.append((PART_REFERRAL, action.get("finding_type")))
     elif kind == "dod_reevaluate":
         parts.append((PART_DOD, action.get("head_sha")))
+        parts.append((PART_EVIDENCE, ctx.evidence_ref))
     if comment_url:
         parts.append((PART_COMMENT, comment_url))
     if skipped:
@@ -484,12 +535,20 @@ def build_action_result_ref(action, ctx: ExecContext, *, comment_url=None,
 # ---------------------------------------------------------------------------
 
 def _fail(action, flag, detail, flags_out):
+    """失敗 outcome を作る。**先行 flag を落とさない**（R1 B-12）。
+
+    `escalation_flags=(code,)` にすると、直前に積んだ
+    `executor_precheck_ancestry_unknown` 等が次 run の snapshot へ伝播せず
+    `flags_out` が dead write になる（`execute_actions()` は outcome の
+    `escalation_flags` を集約するため）。`code` は直上で append 済みなので
+    `tuple(flags_out)` がその run の全理由コードになる。
+    """
     code = f"{flag}:{detail}" if detail else flag
     flags_out.append(code)
     return ActionOutcome(action_id=action.get("action_id") or "",
                          action_kind=action.get("action_kind") or "",
-                         status=STATUS_FAILED, escalation_flags=(code,),
-                         reason=code)
+                         status=STATUS_FAILED,
+                         escalation_flags=tuple(flags_out), reason=code)
 
 
 def execute_action(action, ctx: ExecContext, *, entries) -> ActionOutcome:
@@ -517,15 +576,23 @@ def execute_action(action, ctx: ExecContext, *, entries) -> ActionOutcome:
         return _fail(action, FLAG_MISSING_INPUT, f"{kind}:{missing}", flags)
 
     # --- ① 通知コメント（R-021 ①: push より先。失敗したら push しない） ---
-    comment_url = notice_urls(entries).get(action["action_id"])
-    if kind in NOTIFY_KINDS and comment_url is None:
-        result = perform_comment(action, ctx)
-        if not result.ok:
-            return _fail(action, FLAG_COMMENT_FAILED, f"{kind}:{result.reason}",
-                         flags)
-        comment_url = result.url
-        # コメントは不可逆でないが、**再投稿抑止のため必ず記録**する（R-021 ③）
-        append(ctx, [notice_entry(action, comment_url)])
+    # 抑止キーは (pr_number, head_sha, repair_commit_sha)。同一 push を告げる
+    # 通知は finding 数だけ重ねない（R1 B-13）。通知を出さない action_kind に
+    # 他 action のコメント URL を貼らないため、参照も NOTIFY_KINDS に限る。
+    comment_url = None
+    if kind in NOTIFY_KINDS:
+        key = notice_key(action, ctx.repair_commit_sha)
+        index = notice_index(entries)
+        comment_url = index.get(key)
+        if key not in index:
+            result = perform_comment(action, ctx)
+            if not result.ok:
+                return _fail(action, FLAG_COMMENT_FAILED,
+                             f"{kind}:{result.reason}", flags)
+            comment_url = result.url
+            # コメントは不可逆でないが、**再投稿抑止のため必ず記録**する（R-021 ③）
+            append(ctx, [notice_entry(action, comment_url,
+                                      ctx.repair_commit_sha)])
 
     # --- ② pre-check（実行済みなら push を skip） ---
     pushed = False

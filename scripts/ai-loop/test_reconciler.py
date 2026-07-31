@@ -88,6 +88,17 @@ def check_run(name, *, head_sha, conclusion="success", status="completed", cid=1
             "conclusion": conclusion, "completed_at": "2026-07-31T00:00:00Z"}
 
 
+def review(state, sha, *, at="2026-07-31T00:00:00Z", login="human",
+           association="MEMBER"):
+    """REST の review 1 件。`author_association` / `user.login` を持つ（R1 B-7）。
+
+    `reduce_review()` は権限不明の `APPROVED` を候補にしない（fail-closed）ため、
+    fixture は実 REST と同じく両フィールドを供給する。
+    """
+    return {"id": 1, "state": state, "commit_id": sha, "submitted_at": at,
+            "user": {"login": login}, "author_association": association}
+
+
 class LoopGh:
     """Collector の REST GET 4 本 + 読み取り系 git + Executor の書き込み 2 経路。
 
@@ -468,6 +479,9 @@ class TestLoopControlContract(SandboxCase):
     """TC-12 / TC-13。**語彙の妥当性は検証しない**（enum は #894 が決める）。"""
 
     def _collect(self, gh, **kw):
+        # `findings` は明示的に空リストを供給する（未供給は
+        # `findings_unavailable` に倒れる契約 / R1 B-4）。
+        kw.setdefault("findings", [])
         return collector.collect(task_id=TASK, repo=REPO, pr_number=PR,
                                  source_sha=SRC, plan_text=PLAN_TEXT,
                                  record_path=self.record(), gh=gh, **kw)
@@ -476,8 +490,7 @@ class TestLoopControlContract(SandboxCase):
         reason = "loop_control:budget_exceeded"
         gh = LoopGh(head_sha=H1,
                     checks=[check_run("CI", head_sha=H1)],
-                    reviews=[{"state": "APPROVED", "commit_id": H1,
-                              "submitted_at": "2026-07-31T00:00:00Z"}])
+                    reviews=[review("APPROVED", H1)])
         snapshot = executor.apply_escalation_flags(self._collect(gh), [reason])
         self.assertEqual(snapshot["escalation_flags"], [reason])
 
@@ -499,8 +512,7 @@ class TestLoopControlContract(SandboxCase):
         for head in (H1, H2):
             gh = LoopGh(head_sha=head,
                         checks=[check_run("CI", head_sha=head)],
-                        reviews=[{"state": "APPROVED", "commit_id": head,
-                                  "submitted_at": "2026-07-31T00:00:00Z"}])
+                        reviews=[review("APPROVED", head)])
             # required checks の取得を失敗させる = pre-check 失敗（fail-closed）
             gh.required = []
 
@@ -558,8 +570,7 @@ class TestFullLoop(SandboxCase):
         # --- run 1: CI 失敗 → CHECKS_FAILED → repair_ci -----------------
         gh = LoopGh(head_sha=H1,
                     checks=[check_run("CI", head_sha=H1, conclusion="failure")],
-                    reviews=[{"state": "APPROVED", "commit_id": H1,
-                              "submitted_at": "2026-07-31T00:00:00Z"}])
+                    reviews=[review("APPROVED", H1)])
         self.seed([{"kind": "ci_taxonomy", "source": "manual", "pr_number": PR,
                     "head_sha": H1, "taxonomy": "code"}])
         snap1 = self._collect(gh)
@@ -580,8 +591,7 @@ class TestFullLoop(SandboxCase):
 
         # --- run 2: 最新 head で再評価 → minor finding の記録要求 --------
         gh.checks.append(check_run("CI", head_sha=H2, conclusion="success", cid=2))
-        gh.reviews.append({"state": "APPROVED", "commit_id": H2,
-                           "submitted_at": "2026-07-31T01:00:00Z"})
+        gh.reviews.append(review("APPROVED", H2, at="2026-07-31T01:00:00Z"))
         raw = {"finding": "変数名が不明瞭", "severity": "minor",
                "evidence": "L1", "location": f"{TOUCHED}:1", "category": "可読性"}
         findings = collector.adapt_findings([raw])
@@ -605,7 +615,8 @@ class TestFullLoop(SandboxCase):
         self.assertEqual(result3["state"], "MERGE_READY_CANDIDATE")
         actions = reconciler.filter_unexecuted(result3["actions"], self.entries())
         self.assertEqual([a["action_kind"] for a in actions], ["dod_reevaluate"])
-        executor.execute_actions(actions, self.ctx(gh))
+        executor.execute_actions(
+            actions, self.ctx(gh, evidence_ref="docs/working/TASK-0917/evidence/dod.md"))
 
         # --- run 4: DoD 判定済み → MERGE_READY（終端）--------------------
         snap4 = self._collect(gh, findings=resolved)
@@ -630,8 +641,7 @@ class TestFullLoop(SandboxCase):
         """TC-09b の 1 周版: push 済み・receipt 未記録で中断 → resume で二重 push しない。"""
         gh = LoopGh(head_sha=H1,
                     checks=[check_run("CI", head_sha=H1, conclusion="failure")],
-                    reviews=[{"state": "APPROVED", "commit_id": H1,
-                              "submitted_at": "2026-07-31T00:00:00Z"}])
+                    reviews=[review("APPROVED", H1)])
         self.seed([{"kind": "ci_taxonomy", "source": "manual", "pr_number": PR,
                     "head_sha": H1, "taxonomy": "code"}])
         result = self._assess(self._collect(gh))

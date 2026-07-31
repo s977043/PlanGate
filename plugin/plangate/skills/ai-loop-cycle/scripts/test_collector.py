@@ -36,6 +36,7 @@ import unittest
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+import c3_contract  # noqa: E402  canonical_hash（旧規則の再現に使う）
 import collector  # noqa: E402
 import delivery  # noqa: E402  判定エンジンの実物（AC-7: 変更しない）
 import gh_exec  # noqa: E402  Denied / 例外型の単一定義
@@ -154,9 +155,17 @@ def _check_runs_payload(runs):
     return {"total_count": len(runs), "check_runs": list(runs)}
 
 
-def _review(state, *, commit_id=H1, submitted_at="2026-07-31T00:00:00Z", rid=1):
+def _review(state, *, commit_id=H1, submitted_at="2026-07-31T00:00:00Z", rid=1,
+            login=None, association="MEMBER"):
+    """REST の review 1 件。`author_association` / `user.login` を持つ（R1 B-7）。
+
+    既定は `MEMBER`（= 承認権限あり）。外部者 approve の検証はテスト側で
+    `association="NONE"` を明示する。
+    """
     return {"id": rid, "state": state, "commit_id": commit_id,
-            "submitted_at": submitted_at}
+            "submitted_at": submitted_at,
+            "user": {"login": login or f"reviewer-{rid}"},
+            "author_association": association}
 
 
 def _rules_payload(contexts):
@@ -185,9 +194,14 @@ def _routes(*, check_runs=None, reviews=None, contexts=("A",),
 
 
 def _collect(routes, *, plan_text=PLAN_TEXT, **kwargs):
-    """既定では `dod_reevaluate` receipt を注入する（record I/O をテストしない回）。"""
+    """既定では `dod_reevaluate` receipt を注入する（record I/O をテストしない回）。
+
+    `findings` は **明示的に空リストを供給**する（未供給は `findings_unavailable`
+    に倒れる契約であり、その挙動は専用テストで検証する / R1 B-4）。
+    """
     if "record_entries" not in kwargs and "record_path" not in kwargs:
         kwargs["record_entries"] = _merge_ready_entries()
+    kwargs.setdefault("findings", [])
     fake = FakeGh(routes)
     snapshot = collector.collect(
         task_id=TASK, repo=REPO, pr_number=PR, source_sha=SRC,
@@ -199,10 +213,36 @@ def _assess(snapshot, entries=()):
     return delivery.assess(snapshot, list(entries))
 
 
-def _merge_ready_entries():
-    """`dod_evaluated=True` を導出させる record entries（dod_reevaluate receipt）。"""
-    return [{"kind": "receipt", "action_kind": "dod_reevaluate",
-             "pr_number": PR, "head_sha": H1, "result_ref": "dod:ok"}]
+DOD_EVIDENCE = "docs/working/TASK-0917/evidence/verification/dod.md"
+
+
+def _dod_action_id(head_sha=H1):
+    """`delivery.assess()` が `dod_reevaluate` に採番するのと同じ stable ID。"""
+    return delivery.action_id({"pr_number": PR, "head_sha": head_sha,
+                               "action_kind": "dod_reevaluate"})
+
+
+def _merge_ready_entries(head_sha=H1, *, evidence=DOD_EVIDENCE, intent=True,
+                         action_id=None):
+    """`dod_evaluated=True` を導出させる record entries。
+
+    受理には **intent 先行**（R1 B-2）と **`evidence:` を載せた result_ref**
+    （R1 B-1）の両方が要る。`intent=False` / `evidence=None` で各条件を外した
+    ケースを作れる。
+    """
+    aid = action_id or _dod_action_id(head_sha)
+    result_ref = f"dod:{head_sha}"
+    if evidence:
+        result_ref += f"|{collector.PART_EVIDENCE}:{evidence}"
+    entries = []
+    if intent:
+        entries.append({"kind": "intent", "action_id": aid,
+                        "action_kind": "dod_reevaluate",
+                        "payload": {"pr_number": PR, "head_sha": head_sha}})
+    entries.append({"kind": "receipt", "action_id": aid,
+                    "action_kind": "dod_reevaluate", "pr_number": PR,
+                    "head_sha": head_sha, "result_ref": result_ref})
+    return entries
 
 
 # ---------------------------------------------------------------------------
@@ -366,13 +406,36 @@ class TestAc2RequiredChecks(unittest.TestCase):
                        "required_checks_cache"):
             self.assertNotIn(banned, names)
 
-    def test_empty_ruleset_means_no_required_checks(self):
-        """required_status_checks ルールが 0 件なら ⊇ は自明に成立（実 config 状態）。"""
+    def test_empty_required_set_is_fail_closed(self):
+        """required 集合が空なら ⊇ 照合は自明成立 = **無音で消える** → 専用 flag。
+
+        R1 B-3: `rules/branches/{ref}` が 200 + `[]` を返す構成（ruleset 未設定 /
+        classic protection / required ルール無し）では
+        `missing_required_checks([], checks) == []` となり、照合が発火しない。
+        「required が無いこと」の証明ではないため fail-closed に倒す。
+        """
         routes = _routes()
         routes["rules"] = _ok([])
         snapshot, _ = _collect(routes)
-        self.assertEqual(snapshot["escalation_flags"], [])
         self.assertEqual(snapshot["required_checks"], [])
+        self.assertIn(collector.FLAG_REQUIRED_CHECKS_EMPTY,
+                      snapshot["escalation_flags"])
+        self.assertEqual(_assess(snapshot, _merge_ready_entries())["state"],
+                         "HUMAN_ESCALATED")
+
+    def test_mutation_empty_required_without_flag_reaches_merge_ready(self):
+        """検出力の実証: 空集合を無音受理すると照合ゼロのまま `MERGE_READY`。"""
+        routes = _routes()
+        routes["rules"] = _ok([])
+        snapshot, _ = _collect(routes)
+        self.assertEqual(collector.missing_required_checks([],
+                                                           snapshot["checks"]), [])
+        mutated = copy.deepcopy(snapshot)
+        mutated["escalation_flags"] = [
+            f for f in mutated["escalation_flags"]
+            if f != collector.FLAG_REQUIRED_CHECKS_EMPTY]
+        self.assertEqual(_assess(mutated, _merge_ready_entries())["state"],
+                         "MERGE_READY")
 
     def test_missing_required_not_flagged_while_checks_in_flight(self):
         """⊇ 照合は check 集合が settled のときだけ発火する（AC-4 の 1 周を殺さない）。
@@ -875,7 +938,7 @@ class TestLayerSeparation(unittest.TestCase):
             changed_files=collector.Fetched(["scripts/ai-loop/collector.py"]),
             ancestry=collector.Fetched(True))
         snapshot = collector.build_snapshot(
-            task_id=TASK, pr_number=PR, head_sha=H1, raw=raw,
+            task_id=TASK, pr_number=PR, head_sha=H1, raw=raw, findings=[],
             plan_text=PLAN_TEXT, record_entries=_merge_ready_entries())
         self.assertEqual(delivery.validate_snapshot(snapshot), [])
         self.assertEqual(_assess(snapshot)["state"], "MERGE_READY")
@@ -924,6 +987,439 @@ class TestLayerSeparation(unittest.TestCase):
                         f"{sorted(callers - collector.IO_LAYER_FUNCTIONS)}")
         for name in collector.PURE_LAYER_FUNCTIONS:
             self.assertNotIn(name, callers)
+
+
+# ---------------------------------------------------------------------------
+# R1 是正の検出力（B-1 / B-2 / B-4 / B-6 / B-7 / B-8 / B-9 / B-10）
+# ---------------------------------------------------------------------------
+
+class TestDodGateCannotBeSelfStamped(unittest.TestCase):
+    """B-1 / B-2: `dod_reevaluate` の receipt だけでは DoD ゲートを通せない。"""
+
+    def test_receipt_without_evidence_is_not_accepted(self):
+        """B-1: 外部作用ゼロの rubber stamp receipt は `dod_evaluated` にしない。"""
+        entries = _merge_ready_entries(evidence=None)
+        self.assertFalse(collector.derive_dod_evaluated(entries, PR, H1))
+        snapshot, _ = _collect(_routes(), record_entries=entries)
+        self.assertFalse(snapshot["dod_evaluated"])
+        result = _assess(snapshot, entries)
+        self.assertEqual(result["state"], "MERGE_READY_CANDIDATE")
+
+    def test_handwritten_receipt_without_intent_is_not_accepted(self):
+        """B-2: `record.jsonl` に receipt を 1 行足すだけでは通らない（intent 突合）。"""
+        entries = _merge_ready_entries(intent=False)
+        self.assertFalse(collector.derive_dod_evaluated(entries, PR, H1))
+        snapshot, _ = _collect(_routes(), record_entries=entries)
+        self.assertFalse(snapshot["dod_evaluated"])
+        self.assertEqual(_assess(snapshot, entries)["state"],
+                         "MERGE_READY_CANDIDATE")
+
+    def test_intent_of_another_action_does_not_authorize(self):
+        """別 action の intent を流用しても受理しない（action_id 突合）。"""
+        entries = _merge_ready_entries(intent=False)
+        entries.insert(0, {"kind": "intent", "action_id": "sha256:other",
+                           "action_kind": "dod_reevaluate",
+                           "payload": {"pr_number": PR, "head_sha": H1}})
+        self.assertFalse(collector.derive_dod_evaluated(entries, PR, H1))
+
+    def test_intent_and_evidence_together_are_accepted(self):
+        """両条件が揃った receipt のみ `True`（正側が壊れていない）。"""
+        entries = _merge_ready_entries()
+        self.assertTrue(collector.derive_dod_evaluated(entries, PR, H1))
+        snapshot, _ = _collect(_routes(), record_entries=entries)
+        self.assertEqual(_assess(snapshot, entries)["state"], "MERGE_READY")
+
+    def test_mutation_ignoring_intent_and_evidence_reaches_merge_ready(self):
+        """検出力の実証: 旧規則（head 一致のみ）に戻すと 1 行足すだけで通る。"""
+        entries = _merge_ready_entries(intent=False, evidence=None)
+
+        def legacy(record_entries, pr_number, head_sha):
+            latest = [e for e in record_entries
+                      if e.get("kind") == "receipt"
+                      and e.get("action_kind") == "dod_reevaluate"
+                      and e.get("pr_number") == pr_number]
+            return bool(latest and latest[-1].get("head_sha") == head_sha)
+
+        original = collector.derive_dod_evaluated
+        collector.derive_dod_evaluated = legacy
+        try:
+            broken, _ = _collect(_routes(), record_entries=entries)
+        finally:
+            collector.derive_dod_evaluated = original
+        self.assertTrue(broken["dod_evaluated"])
+        self.assertEqual(_assess(broken, entries)["state"], "MERGE_READY")
+
+    def test_result_ref_convention_is_shared_with_executor(self):
+        """`evidence:` の規約が Executor の producer と一致している（drift 検出）。"""
+        import executor
+        self.assertEqual(executor.PART_EVIDENCE, collector.PART_EVIDENCE)
+        self.assertEqual(executor.RESULT_REF_SEP, collector.RESULT_REF_SEP)
+        self.assertEqual(executor.RESULT_REF_KV, collector.RESULT_REF_KV)
+        ref = executor.build_result_ref([
+            (executor.PART_DOD, H1),
+            (executor.PART_EVIDENCE, "docs/evidence/x.md"),
+            (executor.PART_COMMENT, "https://example.test/pull/1#c:1")])
+        self.assertEqual(collector.receipt_evidence_ref(ref),
+                         "docs/evidence/x.md")
+        self.assertEqual(collector.parse_result_ref_parts(ref)[
+            executor.PART_COMMENT], "https://example.test/pull/1#c:1")
+
+
+class TestFindingsSupply(unittest.TestCase):
+    """B-4: `findings[]` 未供給を無音受理しない（空リストの明示供給と区別）。"""
+
+    def _collect_raw(self, **kwargs):
+        fake = FakeGh(_routes())
+        return collector.collect(
+            task_id=TASK, repo=REPO, pr_number=PR, source_sha=SRC,
+            plan_text=PLAN_TEXT, record_entries=_merge_ready_entries(),
+            gh=fake, **kwargs)
+
+    def test_unsupplied_findings_are_escalated(self):
+        snapshot = self._collect_raw()
+        self.assertIn(collector.FLAG_FINDINGS_UNAVAILABLE,
+                      snapshot["escalation_flags"])
+        self.assertEqual(_assess(snapshot, _merge_ready_entries())["state"],
+                         "HUMAN_ESCALATED")
+
+    def test_explicit_empty_findings_are_accepted(self):
+        """指摘ゼロの明示供給は正常（`MERGE_READY` に到達する）。"""
+        snapshot = self._collect_raw(findings=[])
+        self.assertNotIn(collector.FLAG_FINDINGS_UNAVAILABLE,
+                         snapshot["escalation_flags"])
+        self.assertEqual(snapshot["findings"], [])
+        self.assertEqual(_assess(snapshot, _merge_ready_entries())["state"],
+                         "MERGE_READY")
+
+    def test_supplied_findings_still_drive_review_repair(self):
+        findings = collector.adapt_findings([
+            {"finding": "認可チェック漏れ", "location": "a.py:1",
+             "category": "セキュリティ", "severity": "critical"}])
+        snapshot = self._collect_raw(findings=findings)
+        self.assertEqual(_assess(snapshot, _merge_ready_entries())["state"],
+                         "REVIEW_REPAIR")
+
+    def test_findings_supplied_flag_can_be_forced(self):
+        """`findings_supplied` の明示指定でも同じ判定になる（API の二形）。"""
+        snapshot = self._collect_raw(findings_supplied=True)
+        self.assertNotIn(collector.FLAG_FINDINGS_UNAVAILABLE,
+                         snapshot["escalation_flags"])
+
+    def test_mutation_silently_accepting_unsupplied_reaches_merge_ready(self):
+        """検出力の実証: 未供給を空リスト扱いすると `REVIEW_REPAIR` が恒久不発。"""
+        snapshot = self._collect_raw()
+        mutated = copy.deepcopy(snapshot)
+        mutated["escalation_flags"] = [
+            f for f in mutated["escalation_flags"]
+            if f != collector.FLAG_FINDINGS_UNAVAILABLE]
+        self.assertEqual(_assess(mutated, _merge_ready_entries())["state"],
+                         "MERGE_READY")
+
+
+class TestFindingIdDerivation(unittest.TestCase):
+    """B-6: 別キー名の finding が同一 id へ潰れない。"""
+
+    ALT = ({"description": "認可チェック漏れ", "file": "a.py",
+            "finding_type": "security", "severity": "critical"},
+           {"description": "N+1 クエリ", "file": "b.py",
+            "finding_type": "security", "severity": "critical"})
+
+    def test_alternate_keys_produce_distinct_ids(self):
+        ids = [f["id"] for f in collector.adapt_findings(self.ALT)]
+        self.assertEqual(len(set(ids)), 2, f"別々の指摘が同一 id に潰れた: {ids}")
+        self.assertNotIn(collector.FINDING_ID_UNDERIVABLE, ids)
+
+    def test_alternate_keys_are_stable_across_runs(self):
+        first = collector.adapt_findings(self.ALT)
+        second = collector.adapt_findings(copy.deepcopy(list(self.ALT)))
+        self.assertEqual([f["id"] for f in first], [f["id"] for f in second])
+
+    def test_all_body_and_location_keys_empty_is_underivable(self):
+        adapted = collector.adapt_finding({"finding_type": "security",
+                                           "severity": "major"})
+        self.assertEqual(adapted["id"], collector.FINDING_ID_UNDERIVABLE)
+        self.assertIn(collector.FLAG_FINDING_ID_UNDERIVABLE,
+                      collector.finding_id_flags([adapted]))
+
+    def test_collision_is_flagged_regardless_of_producer(self):
+        findings = [{"id": "F-dup", "finding_type": "security",
+                     "severity": "critical"},
+                    {"id": "F-dup", "finding_type": "security",
+                     "severity": "critical"}]
+        flags = collector.finding_id_flags(findings)
+        self.assertIn(f"{collector.FLAG_FINDING_ID_COLLISION}:F-dup", flags)
+
+    def test_collapsed_findings_are_escalated_in_snapshot(self):
+        """潰れた findings は snapshot 経由で `HUMAN_ESCALATED` に倒れる。"""
+        collapsed = [dict(collector.adapt_finding(
+            {"finding_type": "security", "severity": "critical"})),
+            dict(collector.adapt_finding(
+                {"finding_type": "security", "severity": "critical"}))]
+        snapshot, _ = _collect(_routes(), findings=collapsed)
+        self.assertIn(collector.FLAG_FINDING_ID_UNDERIVABLE,
+                      snapshot["escalation_flags"])
+        self.assertEqual(_assess(snapshot, _merge_ready_entries())["state"],
+                         "HUMAN_ESCALATED")
+
+    def test_mutation_single_key_derivation_collapses_two_findings(self):
+        """検出力の実証: 本文・位置を単一キーしか読まないと 2 件が 1 id に潰れる。"""
+        legacy_ids = []
+        for raw in self.ALT:
+            core = {"finding": raw.get("finding", ""),
+                    "location": raw.get("location", ""),
+                    "finding_type": collector.normalize_finding_type(
+                        raw.get("finding_type"))}
+            legacy_ids.append(c3_contract.canonical_hash(core))
+        self.assertEqual(len(set(legacy_ids)), 1,
+                         "旧規則で潰れないなら本テストは検出力を持たない")
+
+
+class TestReviewReduction(unittest.TestCase):
+    """B-7 / B-11: 未解消 CHANGES_REQUESTED を後続 APPROVED で上書きしない。"""
+
+    def test_changes_requested_is_not_overwritten_by_later_approval(self):
+        snapshot, _ = _collect(_routes(reviews=[
+            _review("CHANGES_REQUESTED", submitted_at="2026-01-01T00:00:00Z",
+                    rid=1, login="alice"),
+            _review("APPROVED", submitted_at="2026-01-02T00:00:00Z",
+                    rid=2, login="bob"),
+        ]))
+        self.assertEqual(snapshot["review"],
+                         {"state": "changes_requested", "sha": H1})
+        self.assertEqual(_assess(snapshot, _merge_ready_entries())["state"],
+                         "WAITING_FOR_REVIEW")
+
+    def test_same_reviewer_can_resolve_their_own_change_request(self):
+        """同一レビュアが後から approve すれば解消（最新 1 件を取る）。"""
+        snapshot, _ = _collect(_routes(reviews=[
+            _review("CHANGES_REQUESTED", submitted_at="2026-01-01T00:00:00Z",
+                    rid=1, login="alice"),
+            _review("APPROVED", submitted_at="2026-01-02T00:00:00Z",
+                    rid=2, login="alice"),
+        ]))
+        self.assertEqual(snapshot["review"]["state"], "approved")
+
+    def test_dismissed_change_request_does_not_block(self):
+        snapshot, _ = _collect(_routes(reviews=[
+            _review("DISMISSED", submitted_at="2026-01-01T00:00:00Z",
+                    rid=1, login="alice"),
+            _review("APPROVED", submitted_at="2026-01-02T00:00:00Z",
+                    rid=2, login="bob"),
+        ]))
+        self.assertEqual(snapshot["review"]["state"], "approved")
+
+    def test_outsider_approval_is_not_adopted(self):
+        for association in ("NONE", "CONTRIBUTOR", "FIRST_TIME_CONTRIBUTOR"):
+            with self.subTest(association=association):
+                snapshot, _ = _collect(_routes(reviews=[
+                    _review("APPROVED", association=association)]))
+                self.assertEqual(snapshot["review"]["state"], "none")
+                self.assertEqual(
+                    _assess(snapshot, _merge_ready_entries())["state"],
+                    "WAITING_FOR_REVIEW")
+
+    def test_missing_author_association_is_fail_closed(self):
+        raw = _review("APPROVED")
+        del raw["author_association"]
+        self.assertEqual(collector.reduce_review([raw], H1),
+                         {"state": "none", "sha": H1})
+
+    def test_eligible_associations_are_adopted(self):
+        for association in collector.REVIEW_ELIGIBLE_ASSOCIATIONS:
+            with self.subTest(association=association):
+                snapshot, _ = _collect(_routes(reviews=[
+                    _review("APPROVED", association=association)]))
+                self.assertEqual(snapshot["review"]["state"], "approved")
+
+    def test_tie_break_without_submitted_at_is_safe_side(self):
+        """B-11: `submitted_at` 欠落時は配列順に依らず `changes_requested`。"""
+        approve = _review("APPROVED", rid=1, login="alice")
+        request = _review("CHANGES_REQUESTED", rid=2, login="alice")
+        for review in (approve, request):
+            del review["submitted_at"]
+        for order in ([approve, request], [request, approve]):
+            with self.subTest(order=[r["state"] for r in order]):
+                self.assertEqual(collector.reduce_review(order, H1)["state"],
+                                 "changes_requested")
+
+    def test_mutation_latest_wins_lets_approval_override(self):
+        """検出力の実証: 旧規則（最新 1 件が勝つ）だと変更要求が上書きされる。"""
+        reviews = [
+            _review("CHANGES_REQUESTED", submitted_at="2026-01-01T00:00:00Z",
+                    rid=1, login="alice"),
+            _review("APPROVED", submitted_at="2026-01-02T00:00:00Z",
+                    rid=2, login="bob"),
+        ]
+
+        def legacy(raw_reviews, head_sha):
+            candidates = [((r.get("submitted_at") or "", i), r["state"])
+                          for i, r in enumerate(raw_reviews)
+                          if r.get("commit_id") == head_sha
+                          and r["state"] != "DISMISSED"]
+            if not candidates:
+                return {"state": "none", "sha": head_sha}
+            return {"state": max(candidates, key=lambda x: x[0])[1].lower(),
+                    "sha": head_sha}
+
+        self.assertEqual(legacy(reviews, H1)["state"], "approved")
+        self.assertEqual(collector.reduce_review(reviews, H1)["state"],
+                         "changes_requested")
+
+
+class TestRawEvidenceIsBidirectional(unittest.TestCase):
+    """B-8: raw にある failure を `checks[]` から削る fail-open 改竄を検出する。"""
+
+    def _snapshot(self):
+        return _collect(_routes(check_runs=[
+            _check_run("A", run_id=11, conclusion="success"),
+            _check_run("B", run_id=12, conclusion="failure"),
+        ], contexts=("A", "B")))[0]
+
+    def test_deleting_a_failing_check_is_detected(self):
+        snapshot = self._snapshot()
+        tampered = copy.deepcopy(snapshot)
+        tampered["checks"] = [c for c in tampered["checks"] if c["name"] != "B"]
+        flags = collector.verify_snapshot_evidence(tampered)
+        self.assertEqual(flags, [f"{collector.FLAG_RAW_EVIDENCE_OMITTED}:B"])
+
+    def test_supplied_checks_are_verified_against_raw_in_build(self):
+        """外部から `checks` を渡す経路でも照合が効く（恒真にならない）。"""
+        raw = collector.RawInputs(
+            head_sha=H1, base_ref="main",
+            pull=collector.Fetched({"mergeable": True}),
+            check_runs=collector.Fetched([
+                _check_run("A", run_id=11, conclusion="success"),
+                _check_run("B", run_id=12, conclusion="failure")]),
+            reviews=collector.Fetched([_review("APPROVED")]),
+            required_checks=collector.Fetched(["A", "B"]),
+            changed_files=collector.Fetched(["scripts/ai-loop/collector.py"]),
+            ancestry=collector.Fetched(True))
+        snapshot = collector.build_snapshot(
+            task_id=TASK, pr_number=PR, head_sha=H1, raw=raw, findings=[],
+            plan_text=PLAN_TEXT, record_entries=_merge_ready_entries(),
+            checks=[{"name": "A", "sha": H1, "conclusion": "success",
+                     "check_run_id": 11}])
+        self.assertIn(f"{collector.FLAG_RAW_EVIDENCE_OMITTED}:B",
+                      snapshot["escalation_flags"])
+        self.assertEqual(_assess(snapshot, _merge_ready_entries())["state"],
+                         "HUMAN_ESCALATED")
+
+    def test_old_head_raw_entries_are_not_required_in_checks(self):
+        """旧 head の check-run が `checks[]` に無いのは正常（誤検出しない）。"""
+        snapshot, _ = _collect(_routes(check_runs=[
+            _check_run("A", run_id=11),
+            _check_run("stale", head_sha=H0, run_id=12, conclusion="failure")]))
+        self.assertEqual([c["name"] for c in snapshot["checks"]], ["A"])
+        self.assertEqual(collector.verify_snapshot_evidence(snapshot), [])
+
+    def test_mutation_one_way_verification_misses_deletion(self):
+        """検出力の実証: 片方向照合（`checks[]` 側だけ）だと削除を見逃す。"""
+        snapshot = self._snapshot()
+        tampered = copy.deepcopy(snapshot)
+        tampered["checks"] = [c for c in tampered["checks"] if c["name"] != "B"]
+
+        def one_way(checks, raw_entries, head_sha):
+            by_id = {e["id"]: e for e in raw_entries if e.get("id") is not None}
+            flags = []
+            for check in checks:
+                raw = by_id.get(check.get("check_run_id"))
+                if raw is None:
+                    flags.append(f"{collector.FLAG_RAW_EVIDENCE_MISSING}:"
+                                 f"{check.get('name')}")
+            return flags
+
+        self.assertEqual(one_way(tampered["checks"],
+                                 tampered[collector.RAW_CHECK_RUNS_KEY], H1), [])
+        self.assertTrue(collector.verify_snapshot_evidence(tampered))
+
+    def test_verify_snapshot_evidence_has_a_non_test_caller(self):
+        """`collect()` が最終 snapshot に対して必ず呼ぶ（経路をゼロにしない）。"""
+        tree = ast.parse((HERE / "collector.py").read_text(encoding="utf-8"))
+        callers = set()
+        for func in ast.walk(tree):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for node in ast.walk(func):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                        and node.func.id == "verify_snapshot_evidence"):
+                    callers.add(func.name)
+        self.assertIn("collect", callers)
+
+
+class TestChangedFilesEmpty(unittest.TestCase):
+    """B-9: 取得成功かつ 0 件の `changed_files` を無音受理しない。"""
+
+    def test_empty_changed_files_is_flagged(self):
+        snapshot, _ = _collect(_routes(changed=()))
+        self.assertEqual(snapshot["changed_files"], [])
+        self.assertIn(collector.FLAG_CHANGED_FILES_EMPTY,
+                      snapshot["escalation_flags"])
+        self.assertEqual(_assess(snapshot, _merge_ready_entries())["state"],
+                         "HUMAN_ESCALATED")
+
+    def test_non_empty_changed_files_are_not_flagged(self):
+        snapshot, _ = _collect(_routes())
+        self.assertNotIn(collector.FLAG_CHANGED_FILES_EMPTY,
+                         snapshot["escalation_flags"])
+
+    def test_mutation_accepting_empty_diff_reaches_merge_ready(self):
+        """検出力の実証: 空差分を通すと `plan_deviation` が恒久不発になる。"""
+        snapshot, _ = _collect(_routes(changed=()))
+        mutated = copy.deepcopy(snapshot)
+        mutated["escalation_flags"] = [
+            f for f in mutated["escalation_flags"]
+            if f != collector.FLAG_CHANGED_FILES_EMPTY]
+        self.assertEqual(_assess(mutated, _merge_ready_entries())["state"],
+                         "MERGE_READY")
+
+
+class TestSeverityNormalization(unittest.TestCase):
+    """B-10: 未知 severity は安全側 `major` に丸める（変異生存を塞ぐ）。"""
+
+    def test_unknown_severity_falls_back_to_major(self):
+        for value in ("blocker", "P0", "", "  ", "未知", None, 3, ["major"]):
+            with self.subTest(value=value):
+                self.assertEqual(collector.normalize_severity(value),
+                                 collector.SEVERITY_FALLBACK)
+        self.assertEqual(collector.SEVERITY_FALLBACK, "major")
+        self.assertIn(collector.SEVERITY_FALLBACK, delivery.SEVERITY_HARD)
+
+    def test_known_severities_are_preserved(self):
+        for value in delivery.SEVERITY_VALID:
+            with self.subTest(value=value):
+                self.assertEqual(collector.normalize_severity(value.upper()),
+                                 value)
+
+    def test_unknown_severity_requires_a_repair_commit(self):
+        """`major` に丸まるため `record_disposition` ではなく `repair_review`。"""
+        findings = collector.adapt_findings([
+            {"finding": "不明な重大度の指摘", "location": "a.py:1",
+             "severity": "blocker"}])
+        self.assertEqual(findings[0]["severity"], "major")
+        snapshot, _ = _collect(_routes(), findings=findings)
+        result = _assess(snapshot, _merge_ready_entries())
+        self.assertEqual(result["state"], "REVIEW_REPAIR")
+        self.assertEqual([a["action_kind"] for a in result["actions"]],
+                         ["repair_review"])
+
+    def test_mutation_minor_fallback_lets_unknown_severity_skip_repair(self):
+        """検出力の実証: 未知値を `minor` へ倒すと修正要求が記録要求に落ちる。"""
+        original = collector.normalize_severity
+        collector.normalize_severity = lambda value: (
+            value.strip().lower()
+            if isinstance(value, str) and value.strip().lower()
+            in delivery.SEVERITY_VALID else "minor")
+        try:
+            findings = collector.adapt_findings([
+                {"finding": "不明な重大度の指摘", "location": "a.py:1",
+                 "severity": "blocker"}])
+        finally:
+            collector.normalize_severity = original
+        self.assertEqual(findings[0]["severity"], "minor")
+        snapshot, _ = _collect(_routes(), findings=findings)
+        self.assertEqual([a["action_kind"] for a in
+                          _assess(snapshot, _merge_ready_entries())["actions"]],
+                         ["record_disposition"])
 
 
 if __name__ == "__main__":

@@ -87,11 +87,25 @@ FETCH_ATTEMPTS = 2
 #: REST の `state` のうち縮約候補から除外するもの（R-018 ③）。
 REVIEW_STATE_DISMISSED = "DISMISSED"
 
+#: 承認 / 変更要求の REST 値（縮約規則の分岐に使う）。
+REVIEW_STATE_APPROVED = "APPROVED"
+REVIEW_STATE_BLOCKING = "CHANGES_REQUESTED"
+
+#: `APPROVED` を候補として受理する投稿者権限（R1 B-7）。これ以外（`CONTRIBUTOR`
+#: / `FIRST_TIME_CONTRIBUTOR` / `NONE` / bot / 欠落）の approve は縮約に採らない
+#: （外部者の approve で `WAITING_FOR_REVIEW` を抜けさせない fail-closed）。
+REVIEW_ELIGIBLE_ASSOCIATIONS = ("OWNER", "MEMBER", "COLLABORATOR")
+
 #: review 該当ゼロのときの値（キー欠落にして `invalid_snapshot` に落とさない / R-018 ⑤）。
 REVIEW_STATE_NONE = "none"
 
 #: 全件取得のための per_page（`gh api` allowlist の query 形は 3 桁まで）。
 PER_PAGE = 100
+
+#: `findings` の**未供給**を表す番兵（`[]` の明示供給 = 指摘ゼロ と区別する）。
+#: `None` を既定にすると「呼び出し側が明示的に None を渡した」ケースと
+#: 区別できないため、専用オブジェクトを使う（R1 B-4）。
+FINDINGS_UNSUPPLIED = object()
 
 # 理由コード（`escalation_flags` に積む opaque な文字列 / AC-6 の接続点）。
 FLAG_PULL_FETCH_FAILED = "pull_fetch_failed"
@@ -99,12 +113,30 @@ FLAG_CHECK_RUNS_FETCH_FAILED = "check_runs_fetch_failed"
 FLAG_REVIEWS_FETCH_FAILED = "reviews_fetch_failed"
 FLAG_REQUIRED_CHECKS_FETCH_FAILED = "required_checks_fetch_failed"
 FLAG_REQUIRED_CHECKS_MISSING = "required_checks_missing"
+#: required 集合が **空**（ruleset 未設定 / classic protection / required ルール無し）。
+#: 空集合に対する ⊇ 照合は自明に成立するため、flag を積まないと「照合が無音で
+#: 消える」（R1 B-3）。空は「required が無いこと」の証明ではなく「required を
+#: 機械が確認できていないこと」であり fail-closed 側に倒す。
+FLAG_REQUIRED_CHECKS_EMPTY = "required_checks_empty"
 FLAG_CHANGED_FILES_UNAVAILABLE = "changed_files_unavailable"
+#: 取得は成功したが差分が 0 件（PR に差分が無いのは正常状態ではない / R1 B-9）。
+#: 封じないと `plan_deviation` が恒久的に不発になる（`allowed_paths` 0 件と対称）。
+FLAG_CHANGED_FILES_EMPTY = "changed_files_empty"
+#: `findings[]` が **供給されていない**（producer 未接続）。空リストの明示供給
+#: （= 指摘ゼロ）とは区別する（R1 B-4）。
+FLAG_FINDINGS_UNAVAILABLE = "findings_unavailable"
 FLAG_ALLOWED_PATHS_EMPTY = "allowed_paths_empty"
 FLAG_RAW_EVIDENCE_MISMATCH = "raw_evidence_mismatch"
 FLAG_RAW_EVIDENCE_MISSING = "raw_evidence_missing"
+#: raw に存在する head 一致の check-run が `checks[]` から**欠落**している
+#: （failure な check-run を削って green に見せる fail-open 方向の改竄 / R1 B-8）。
+FLAG_RAW_EVIDENCE_OMITTED = "raw_evidence_omitted"
 FLAG_CHECK_RUN_UNPARSABLE = "check_run_unparsable"
 FLAG_RECORD_UNREADABLE = "record_unreadable"
+#: finding から安定 id を導出できない（本文・位置がすべて空 / R1 B-6）。
+FLAG_FINDING_ID_UNDERIVABLE = "finding_id_underivable"
+#: 複数 finding が同一 id に潰れている（1 件直すと N 件消える / R1 B-6）。
+FLAG_FINDING_ID_COLLISION = "finding_id_collision"
 
 # ---------------------------------------------------------------------------
 # finding_type 語彙の**単一定数表**（T-51 / R-034）
@@ -162,7 +194,30 @@ FINDING_ID_DIGEST_LEN = 12
 #: `id` 導出に使うキー（**severity / disposition を含めない**。severity は
 #: run 間で変わりうるため、含めると同一指摘の `id` が run ごとに変化し
 #: `_resolved()` の disposition 突合が壊れて `unresolved_hard` が消えなくなる）。
-FINDING_ID_KEYS = ("finding", "location", "finding_type")
+#:
+#: 本文・位置は **複数キーを受ける**（`finding_type` と同じ扱い / R1 B-6）。
+#: 外部レビューアの実装ごとに `description` / `message` / `title`・`file` /
+#: `path` が使われ、単一キーしか読まないと本文・位置が空文字に潰れて
+#: **別々の指摘が同一 id になる**（`_resolved()` は id 突合であるため 1 件
+#: 直すと N 件消える）。
+FINDING_ID_BODY_KEYS = ("finding", "message", "description", "title")
+FINDING_ID_LOCATION_KEYS = ("location", "file", "path")
+
+#: 本文・位置が**すべて空**のときに与える id（導出しない目印）。同一値になるため
+#: `build_snapshot()` の衝突検出（`FLAG_FINDING_ID_COLLISION`）と併せて
+#: 「潰れ」が必ず flag として観測される。
+FINDING_ID_UNDERIVABLE = FINDING_ID_PREFIX + "unidentified"
+
+# --- result_ref convention の**最小共有部**（`executor.py` が producer）---------
+#
+# `executor.py` は `collector.py` を import する（finding_type 定数表）。したがって
+# 逆向き（collector → executor）の import は循環になるため張れない。`result_ref`
+# の区切りと `evidence` キー名だけを**ここで単一定義**し、`executor.py` 側が
+# 本定数を参照する（drift を test で機械照合する / R1 B-1）。
+RESULT_REF_SEP = "|"
+RESULT_REF_KV = ":"
+#: `dod_reevaluate` / `record_disposition` の receipt が実測根拠を載せるキー。
+PART_EVIDENCE = "evidence"
 
 #: 未知 severity の丸め先（`docs/ai/external-reviewer-interface.md` §3.2:
 #: 「未知 severity は安全側で `major` に丸める」）。
@@ -183,6 +238,7 @@ PURE_LAYER_FUNCTIONS = frozenset({
     "extract_allowed_paths", "build_snapshot",
     "normalize_finding_type", "normalize_severity", "finding_id",
     "adapt_finding", "adapt_findings",
+    "parse_result_ref_parts", "receipt_evidence_ref", "finding_id_flags",
 })
 
 
@@ -516,13 +572,62 @@ def checks_from_raw(raw_entries, head_sha):
     return checks, flags
 
 
-def reduce_review(raw_reviews, head_sha) -> dict:
-    """review 配列 → 単一 dict へ縮約する（R-018 の 6 点規則）。
+def _reviewer_key(review, index):
+    """レビュアの同一性キー。`user.login` が読めない場合は index で分離する。
 
-    ①`commit_id == head_sha` のみ対象 ②`submitted_at` 最新を採用
-    ③`DISMISSED` は除外 ④`state.lower()` へ正規化（`delivery.py:290` は
-    小文字比較）⑤該当ゼロは `{"state": "none", "sha": head_sha}`
+    分離するのは fail-closed のため（login 不明の review を他レビュアの
+    「最新」で上書きさせない）。
+    """
+    user = review.get("user")
+    login = user.get("login") if isinstance(user, dict) else None
+    if isinstance(login, str) and login.strip():
+        return ("login", login.strip())
+    return ("anonymous", index)
+
+
+def _latest_per_reviewer(candidates) -> list:
+    """レビュアごとの**最新 1 件**を選ぶ（同値時は安全側 = CHANGES_REQUESTED）。
+
+    `submitted_at` 欠落時に配列順（ページ順）で結果が反転すると `approved` にも
+    `changes_requested` にもなりうる（R1 B-11）。同値のときは
+    `CHANGES_REQUESTED` を優先し、それも同値なら配列順で後勝ちにする
+    （決定論・安全側固定）。
+    """
+    grouped: dict = {}
+    for item in candidates:
+        grouped.setdefault(item["reviewer"], []).append(item)
+    latest = []
+    for reviewer in sorted(grouped, key=lambda k: (k[0], str(k[1]))):
+        items = grouped[reviewer]
+        newest = max(item["submitted_at"] for item in items)
+        tied = [item for item in items if item["submitted_at"] == newest]
+        blocking = [item for item in tied if item["state"] == REVIEW_STATE_BLOCKING]
+        latest.append((blocking or tied)[-1])
+    return latest
+
+
+def reduce_review(raw_reviews, head_sha) -> dict:
+    """review 配列 → 単一 dict へ縮約する（R-018 の 6 点規則 + R1 B-7 是正）。
+
+    ①`commit_id == head_sha` のみ対象 ③`DISMISSED` は除外
+    ④`state.lower()` へ正規化（`delivery.py:290` は小文字比較）
+    ⑤該当ゼロは `{"state": "none", "sha": head_sha}`
     ⑥全件取得は I/O 層（`per_page` 明示 + `--paginate`）が担う。
+
+    ②（採用規則）は **「最新 1 件が勝つ」から以下へ変更**した（R1 B-7）:
+
+      1. `APPROVED` は投稿者権限が `REVIEW_ELIGIBLE_ASSOCIATIONS` の場合のみ
+         候補に残す（外部者 / bot の approve で承認を成立させない。
+         `author_association` 欠落は fail-closed で除外）
+      2. **レビュアごとの最新**を取る（同値時は安全側 = 変更要求）
+      3. その中に未解消の `CHANGES_REQUESTED` が **1 件でもあれば
+         `changes_requested`**（後続の別レビュアの approve で上書きしない）
+      4. それ以外で `APPROVED` があれば `approved`
+      5. どちらでもなければ最新候補の state をそのまま返す
+
+    「未解消」の判定は `DISMISSED` 除外（③）と「レビュアごとの最新」の合成で
+    行う。GitHub は同一レビュアが再 approve すると前の変更要求を解消するため、
+    レビュアごとの最新が `CHANGES_REQUESTED` であることが未解消と等価である。
     """
     candidates = []
     for index, review in enumerate(raw_reviews or ()):
@@ -531,47 +636,96 @@ def reduce_review(raw_reviews, head_sha) -> dict:
         if review.get("commit_id") != head_sha:
             continue
         state = review.get("state")
-        if not isinstance(state, str) or state.upper() == REVIEW_STATE_DISMISSED:
+        if not isinstance(state, str):
+            continue
+        normalized = state.upper()
+        if normalized == REVIEW_STATE_DISMISSED:
+            continue
+        if normalized == REVIEW_STATE_APPROVED and \
+                review.get("author_association") not in REVIEW_ELIGIBLE_ASSOCIATIONS:
+            # 権限不明 / 外部者の approve は候補にしない（fail-closed）
             continue
         submitted = review.get("submitted_at")
-        candidates.append(((submitted if isinstance(submitted, str) else "", index),
-                           state))
+        candidates.append({
+            "reviewer": _reviewer_key(review, index),
+            "submitted_at": submitted if isinstance(submitted, str) else "",
+            "state": normalized,
+            "index": index,
+        })
     if not candidates:
         return {"state": REVIEW_STATE_NONE, "sha": head_sha}
-    _key, state = max(candidates, key=lambda item: item[0])
-    return {"state": state.lower(), "sha": head_sha}
+
+    latest = _latest_per_reviewer(candidates)
+    if any(item["state"] == REVIEW_STATE_BLOCKING for item in latest):
+        return {"state": REVIEW_STATE_BLOCKING.lower(), "sha": head_sha}
+    if any(item["state"] == REVIEW_STATE_APPROVED for item in latest):
+        return {"state": REVIEW_STATE_APPROVED.lower(), "sha": head_sha}
+    fallback = max(latest, key=lambda item: (item["submitted_at"], item["index"]))
+    return {"state": fallback["state"].lower(), "sha": head_sha}
 
 
-def verify_raw_evidence(checks, raw_entries) -> list:
-    """AC-9: `checks[]` の各要素が raw の対応要素から導出されたことを照合する。
+def _raw_is_parsable(entry) -> bool:
+    """raw check-run が `checks[]` へ導出可能か（`checks_from_raw()` と同じ規則）。"""
+    if not isinstance(entry, dict):
+        return False
+    return isinstance(entry.get("name"), str) and \
+        isinstance(conclusion_for(entry), str)
 
-    raw が無いことを「照合 OK」と扱わない（fail-closed）。改竄・捏造された
-    `checks[]` は `raw_evidence_mismatch:<name>` / `raw_evidence_missing:<name>`
-    を返す。**限界**: 手作り snapshot を `delivery.py` へ直接投入する経路は
-    塞がない（module docstring の scope 明示を参照）。
+
+def verify_raw_evidence(checks, raw_entries, head_sha) -> list:
+    """AC-9: `checks[]` と raw check-run を **双方向**に照合する。
+
+    - **順方向**（`checks[]` → raw）: 各 check が raw の対応要素から導出された
+      ことを確認する。raw が無いことを「照合 OK」と扱わない（fail-closed）。
+      改竄・捏造は `raw_evidence_mismatch:<name>` / `raw_evidence_missing:<name>`。
+    - **逆方向**（raw → `checks[]`）: raw にある **head 一致かつ導出可能**な
+      check-run が `checks[]` に**すべて現れる**ことを要求する。片方向だけだと
+      「raw にある failure な check-run を `checks[]` から削除する」fail-open
+      方向の改竄を検出できない（R1 B-8）。欠落は `raw_evidence_omitted:<name>`。
+      raw に `id` が無い要素は突合できないため同じく omitted に倒す。
+
+    `head_sha` は逆方向の対象を絞るために必須（旧 head の check-run が
+    `checks[]` に無いのは正常であり flag しない）。
+
+    **限界**: 手作り snapshot を `delivery.py` へ直接投入する経路は塞がない
+    （module docstring の scope 明示を参照）。
     """
     by_id = {}
     for entry in raw_entries or ():
         if isinstance(entry, dict) and entry.get("id") is not None:
             by_id[entry["id"]] = entry
     flags = []
+    seen_ids = set()
     for check in checks or ():
         name = check.get("name") if isinstance(check, dict) else None
         raw = by_id.get(check.get("check_run_id")) if isinstance(check, dict) else None
         if raw is None:
             flags.append(f"{FLAG_RAW_EVIDENCE_MISSING}:{name}")
             continue
+        seen_ids.add(check.get("check_run_id"))
         derived = (raw.get("name"), raw.get("head_sha"), conclusion_for(raw))
         actual = (name, check.get("sha"), check.get("conclusion"))
         if derived != actual:
             flags.append(f"{FLAG_RAW_EVIDENCE_MISMATCH}:{name}")
+
+    for entry in raw_entries or ():
+        if not _raw_is_parsable(entry) or entry.get("head_sha") != head_sha:
+            continue
+        if entry.get("id") is None or entry["id"] not in seen_ids:
+            flags.append(f"{FLAG_RAW_EVIDENCE_OMITTED}:{entry.get('name')}")
     return flags
 
 
 def verify_snapshot_evidence(snapshot) -> list:
-    """snapshot 単体に対して AC-9 の導出照合を行う（監査・再検証用）。"""
+    """snapshot 単体に対して AC-9 の導出照合を行う（監査・再検証用）。
+
+    `collect()` が build 後の最終 snapshot に対して**必ず**呼ぶ（`build_snapshot()`
+    内の照合は同一 raw から両者を作った直後で構造的に恒真になりうるため、
+    最終形に対する独立再検証を経路として持たせる / R1 B-8）。
+    """
     return verify_raw_evidence(snapshot.get("checks") or [],
-                               snapshot.get(RAW_CHECK_RUNS_KEY) or [])
+                               snapshot.get(RAW_CHECK_RUNS_KEY) or [],
+                               snapshot.get("head_sha"))
 
 
 def missing_required_checks(required, checks) -> list:
@@ -595,13 +749,53 @@ def normalize_mergeable(value) -> str:
     return "UNKNOWN"
 
 
-def derive_dod_evaluated(entries, pr_number, head_sha) -> bool:
-    """`record.jsonl` から `dod_evaluated` を導出する（D3 (b)）。
+def parse_result_ref_parts(ref) -> dict:
+    """`result_ref`（`k:v|k:v`）を辞書へ戻す **最小パーサ**（キー絞り込みなし）。
 
-    「**直近の** `dod_reevaluate` receipt が現在の `head_sha` に束縛されて
-    存在するか」。不一致・未存在・破損は `False`（`delivery.py` は False を
+    `executor.parse_result_ref()` と同じ規約だが、`collector` は `executor` を
+    import できない（`executor → collector` の import があり循環する）ため
+    ここに最小実装を置く。値に `:` を含む URL を壊さないよう **最初の 1 個**
+    のみで分割する（executor と同一規則）。両者の一致は test が機械照合する。
+    """
+    if not isinstance(ref, str) or not ref:
+        return {}
+    parsed = {}
+    for chunk in ref.split(RESULT_REF_SEP):
+        key, sep, value = chunk.partition(RESULT_REF_KV)
+        if sep:
+            parsed[key] = value
+    return parsed
+
+
+def receipt_evidence_ref(result_ref):
+    """receipt の `result_ref` に載った実測根拠（`evidence:<ref>`）を返す。"""
+    value = parse_result_ref_parts(result_ref).get(PART_EVIDENCE)
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def derive_dod_evaluated(entries, pr_number, head_sha) -> bool:
+    """`record.jsonl` から `dod_evaluated` を導出する（D3 (b) / R1 B-1・B-2 是正）。
+
+    受理条件（**すべて**満たす直近の `dod_reevaluate` receipt が存在するとき
+    のみ `True`）:
+
+      1. `kind == "receipt"` / `action_kind == "dod_reevaluate"` /
+         `pr_number` 一致 / `head_sha` が現在の head と一致
+      2. **同一 `action_id` の `kind=="intent"` entry が存在する**
+         （`delivery.py receipt` CLI は intent 先行を必須にするが、読み手側が
+         intent を見ないと `record.jsonl` に receipt 行を 1 行足すだけで
+         `dod_evaluated=True` → `MERGE_READY` を通せる / R1 B-2）
+      3. `result_ref` に **`evidence:<ref>` が載っている**
+         （外部作用ゼロの rubber stamp を DoD ゲートの根拠にしない / R1 B-1。
+         Executor 側は `evidence_ref` を必須入力にして対称にしている）
+
+    不一致・未存在・破損は `False`（`delivery.py` は False を
     `MERGE_READY_CANDIDATE` 止まりとして扱うため既に fail-closed）。
     """
+    intent_ids = {entry.get("action_id") for entry in entries or ()
+                  if isinstance(entry, dict) and entry.get("kind") == "intent"
+                  and entry.get("action_kind") == "dod_reevaluate"
+                  and entry.get("action_id")}
     latest = None
     for entry in entries or ():
         if not isinstance(entry, dict):
@@ -613,7 +807,11 @@ def derive_dod_evaluated(entries, pr_number, head_sha) -> bool:
         if entry.get("pr_number") != pr_number:
             continue
         latest = entry
-    return bool(latest is not None and latest.get("head_sha") == head_sha)
+    if latest is None or latest.get("head_sha") != head_sha:
+        return False
+    if latest.get("action_id") not in intent_ids:
+        return False
+    return receipt_evidence_ref(latest.get("result_ref")) is not None
 
 
 def extract_allowed_paths(plan_text) -> list:
@@ -664,28 +862,71 @@ def normalize_severity(value) -> str:
     return SEVERITY_FALLBACK
 
 
+def _first_text(source, keys) -> str:
+    """`keys` の先頭優先で最初の非空文字列を返す（無ければ空文字）。"""
+    for key in keys:
+        value = source.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
 def finding_id(raw) -> str:
-    """入力 finding に対して**決定論的**な `id` を導出する（T-51 / R-034）。
+    """入力 finding に対して**決定論的**な `id` を導出する（T-51 / R-034 / B-6）。
 
     入力が既に `id`（例: `review-external.md` の `R-NNN`）を持つ場合はそれを
     尊重する（run 間で最も安定する識別子であるため）。持たない場合は
-    `FINDING_ID_KEYS`（severity / disposition を**含まない**）から
+    本文（`FINDING_ID_BODY_KEYS`）/ 位置（`FINDING_ID_LOCATION_KEYS`）/
+    正規化 `finding_type`（severity / disposition は**含まない**）から
     `c3_contract.canonical_hash()` で導出する。**再実装しない**。
+
+    本文・位置が**両方とも空**のときは `finding_type` しか材料が残らず、
+    別々の指摘が同一 id へ潰れる（`_resolved()` は id 突合であるため 1 件
+    直すと N 件消える / R1 B-6）。この場合は id を**導出せず**
+    `FINDING_ID_UNDERIVABLE` を返し、`build_snapshot()` が
+    `finding_id_underivable` を積んで fail-closed に倒す。
     """
     if isinstance(raw, dict):
         given = raw.get("id")
         if isinstance(given, str) and given.strip():
             return given.strip()
     source = raw if isinstance(raw, dict) else {}
-    core = {}
-    for key in FINDING_ID_KEYS:
-        if key == "finding_type":
-            core[key] = normalize_finding_type(_raw_finding_type(source))
-        else:
-            value = source.get(key)
-            core[key] = value if isinstance(value, str) else ""
+    body = _first_text(source, FINDING_ID_BODY_KEYS)
+    location = _first_text(source, FINDING_ID_LOCATION_KEYS)
+    if not body and not location:
+        return FINDING_ID_UNDERIVABLE
+    core = {
+        "finding": body,
+        "location": location,
+        "finding_type": normalize_finding_type(_raw_finding_type(source)),
+    }
     digest = c3_contract.canonical_hash(core).split(":")[-1]
     return f"{FINDING_ID_PREFIX}{digest[:FINDING_ID_DIGEST_LEN]}"
+
+
+def finding_id_flags(findings) -> list:
+    """`findings[]` の id 健全性を検査する（producer を問わない構造検査 / B-6）。
+
+    - 導出できなかった id（`FINDING_ID_UNDERIVABLE`）→ `finding_id_underivable`
+    - 複数 finding が**同一 id** に潰れている → `finding_id_collision:<id>`
+
+    後者は「1 件直すと N 件消える」を構造的に禁止する（アダプタを経由せず
+    外部から `findings[]` を渡された場合にも効く）。
+    """
+    flags, seen, reported = [], set(), set()
+    for finding in findings or ():
+        if not isinstance(finding, dict):
+            continue
+        fid = finding.get("id")
+        if fid == FINDING_ID_UNDERIVABLE and FLAG_FINDING_ID_UNDERIVABLE not in flags:
+            flags.append(FLAG_FINDING_ID_UNDERIVABLE)
+        if not isinstance(fid, str):
+            continue
+        if fid in seen and fid not in reported:
+            flags.append(f"{FLAG_FINDING_ID_COLLISION}:{fid}")
+            reported.add(fid)
+        seen.add(fid)
+    return flags
 
 
 def adapt_finding(raw) -> dict:
@@ -735,12 +976,18 @@ def _checks_are_settled(checks) -> bool:
 
 
 def build_snapshot(*, task_id, pr_number, head_sha, raw, plan_text,
-                   record_entries=(), record_error=None, findings=(),
-                   conflict_resolution=None, ci_log_text="") -> dict:
+                   record_entries=(), record_error=None,
+                   findings=FINDINGS_UNSUPPLIED, findings_supplied=None,
+                   checks=None, conflict_resolution=None, ci_log_text="") -> dict:
     """raw 入力から snapshot を組み立てる **純関数**（I/O なし・決定論）。
 
     必須 12 キーを必ず埋め、`conflict_resolution` は三点が揃うときのみ出力する。
     pre-check の失敗はすべて `escalation_flags` へ積み、snapshot は破棄しない。
+
+    `checks` を渡すと raw から導出せず**与えられた `checks[]` と raw を突合**
+    する（AC-9 の照合が同一 raw から作った直後の恒真検査にならないようにする
+    ための経路 / R1 B-8）。`findings` は**未供給**（既定）と**空リストの明示
+    供給**を区別し、未供給は `findings_unavailable` に倒す（R1 B-4）。
     """
     flags: list = []
 
@@ -754,10 +1001,13 @@ def build_snapshot(*, task_id, pr_number, head_sha, raw, plan_text,
         flags.append(f"{FLAG_CHECK_RUNS_FETCH_FAILED}:{raw.check_runs.error}")
     embedded = [normalize_raw_check_run(e) for e in raw_runs or ()
                 if isinstance(e, dict)]
-    checks, check_flags = checks_from_raw(raw_runs, head_sha)
-    flags.extend(check_flags)
+    if checks is None:
+        checks, check_flags = checks_from_raw(raw_runs, head_sha)
+        flags.extend(check_flags)
+    else:
+        checks = [dict(c) for c in checks if isinstance(c, dict)]
     # AC-9: 導出照合を Collector 内で**必ず**行う（呼び忘れを設計で許さない）。
-    flags.extend(verify_raw_evidence(checks, embedded))
+    flags.extend(verify_raw_evidence(checks, embedded, head_sha))
 
     if not raw.reviews.ok:
         flags.append(f"{FLAG_REVIEWS_FETCH_FAILED}:{raw.reviews.error}")
@@ -767,6 +1017,10 @@ def build_snapshot(*, task_id, pr_number, head_sha, raw, plan_text,
     if not raw.required_checks.ok:
         flags.append(
             f"{FLAG_REQUIRED_CHECKS_FETCH_FAILED}:{raw.required_checks.error}")
+    elif not required:
+        # 空集合に対する ⊇ 照合は自明に成立し、照合が**無音で消える**（R1 B-3）。
+        # 時間で解消しない構成側の事実であるため settled ゲートを掛けない。
+        flags.append(FLAG_REQUIRED_CHECKS_EMPTY)
     else:
         missing = missing_required_checks(required, checks)
         if missing and _checks_are_settled(checks):
@@ -774,11 +1028,27 @@ def build_snapshot(*, task_id, pr_number, head_sha, raw, plan_text,
 
     if raw.changed_files.ok:
         changed_files = list(raw.changed_files.value)
+        if not changed_files:
+            # 取得成功かつ 0 件。PR に差分が無いのは正常状態ではなく、
+            # 通すと `plan_deviation` が恒久的に不発になる（R1 B-9）。
+            flags.append(FLAG_CHANGED_FILES_EMPTY)
     else:
         # 空リストで通すと `plan_deviation` が恒久的に不発（fail-open）になる。
         changed_files = []
         flags.append(
             f"{FLAG_CHANGED_FILES_UNAVAILABLE}:{raw.changed_files.error}")
+
+    supplied = findings_supplied if isinstance(findings_supplied, bool) else \
+        (findings is not FINDINGS_UNSUPPLIED and findings is not None)
+    if findings is FINDINGS_UNSUPPLIED or findings is None:
+        findings = ()
+    findings_out = [dict(f) for f in findings if isinstance(f, dict)] \
+        if supplied else []
+    if not supplied:
+        # producer 未接続のまま呼ばれると `REVIEW_REPAIR` が恒久不発になる。
+        # 空リストの明示供給（= 指摘ゼロ）とは区別する（R1 B-4）。
+        flags.append(FLAG_FINDINGS_UNAVAILABLE)
+    flags.extend(finding_id_flags(findings_out))
 
     allowed_paths = extract_allowed_paths(plan_text)
     if not allowed_paths:
@@ -795,7 +1065,7 @@ def build_snapshot(*, task_id, pr_number, head_sha, raw, plan_text,
         "mergeable": mergeable,
         "checks": checks,
         "review": review,
-        "findings": [dict(f) for f in findings or ()],
+        "findings": findings_out,
         "changed_files": changed_files,
         "allowed_paths": allowed_paths,
         "escalation_flags": flags,
@@ -819,9 +1089,15 @@ def build_snapshot(*, task_id, pr_number, head_sha, raw, plan_text,
 
 def collect(*, task_id, repo, pr_number, source_sha, plan_text,
             record_path=None, record_entries=None, ci_log_text="",
-            findings=(), conflict_resolution=None, base_ref=None, base_rev=None,
+            findings=FINDINGS_UNSUPPLIED, findings_supplied=None, checks=None,
+            conflict_resolution=None, base_ref=None, base_rev=None,
             expected_head_sha=None, gh=gh_exec, cwd=None) -> dict:
-    """snapshot を 1 つ生成する（`gh` は差し替え可能 = テストは実 API に出ない）。"""
+    """snapshot を 1 つ生成する（`gh` は差し替え可能 = テストは実 API に出ない）。
+
+    `findings` を渡さない呼び出しは **producer 未接続**として
+    `findings_unavailable` を積む（R1 B-4）。指摘ゼロを表明する場合は
+    `findings=[]` を**明示的に**渡すこと。
+    """
     record_error = None
     if record_entries is None:
         record_entries = []
@@ -835,8 +1111,20 @@ def collect(*, task_id, repo, pr_number, source_sha, plan_text,
                            source_sha=source_sha, cwd=cwd,
                            expected_head_sha=expected_head_sha,
                            base_ref=base_ref, base_rev=base_rev)
-    return build_snapshot(
+    snapshot = build_snapshot(
         task_id=task_id, pr_number=pr_number, head_sha=raw.head_sha, raw=raw,
         plan_text=plan_text, record_entries=record_entries,
         record_error=record_error, findings=findings,
+        findings_supplied=findings_supplied, checks=checks,
         conflict_resolution=conflict_resolution, ci_log_text=ci_log_text)
+    # AC-9: 組み上がった**最終 snapshot** に対して独立に再照合する（B-8）。
+    # `build_snapshot()` 内の照合だけだと「同一 raw から両者を作った直後」で
+    # 構造的に恒真になりうるため、後段の合成（taxonomy 付与等）まで含んだ
+    # 最終形を検査する経路を必ず 1 本通す（`verify_snapshot_evidence()` の
+    # 非テスト呼び出し元をゼロにしない）。
+    existing = list(snapshot.get("escalation_flags") or ())
+    for flag in verify_snapshot_evidence(snapshot):
+        if flag not in existing:
+            existing.append(flag)
+    snapshot["escalation_flags"] = existing
+    return snapshot
