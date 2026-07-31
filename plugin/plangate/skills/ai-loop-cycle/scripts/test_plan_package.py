@@ -11,6 +11,7 @@ TC-11 / EC-1 / EC-3（test-cases.md の対応表参照）
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import os
 import pathlib
@@ -290,6 +291,81 @@ class DeriveLoopspecTests(unittest.TestCase):
             s1 = plan_package.derive_loopspec(task_dir, "TASK-9999", maker="a", checker="b")
             s2 = plan_package.derive_loopspec(task_dir, "TASK-9999", maker="a", checker="b")
             self.assertEqual(json.dumps(s1, sort_keys=True), json.dumps(s2, sort_keys=True))
+
+
+class ExtractAllowedPathsTests(unittest.TestCase):
+    """TASK-0917 T-19 / plan.md 論点 D3 `allowed_paths`: `extract_allowed_paths(plan_text)`。
+
+    契約:
+    - **plan テキストだけ**を受け取る純関数（task_dir / maker / checker を取らない
+      = `derive_loopspec()` の presence 検査・maker/checker 検証を巻き込まない）
+    - `## Files / Components to Touch` 節のバッククォート内 `a/b` 形式を抽出
+    - **節が無い / 抽出 0 件は例外ではなく空リスト**を返す（呼び出し側 Collector が
+      `escalation_flags` へ倒せる形。D3「抽出 0 件は `escalation_flags` へ」）
+    - ファイルシステムに触れない（実在しないパスもそのまま返す）
+    """
+
+    def test_signature_takes_plan_text_only(self):
+        # 「plan テキストだけを受け取る純関数」を署名で固定する（derive_loopspec の
+        # maker/checker 検証を巻き込まないことの構造的保証）。
+        params = list(inspect.signature(plan_package.extract_allowed_paths).parameters)
+        self.assertEqual(params, ["plan_text"])
+
+    def test_extracts_paths_from_files_section(self):
+        paths = plan_package.extract_allowed_paths(PLAN_BODY)
+        self.assertEqual(paths,
+                         ["scripts/ai-loop/sandbox_a.py",
+                          "docs/workflows/ai-loop/sandbox.md"])
+
+    def test_missing_section_returns_empty_list_not_exception(self):
+        text = "# PLAN\n\n## Goal\n\nx\n\n## Testing Strategy\n\n- `scripts/a.py`\n"
+        self.assertEqual(plan_package.extract_allowed_paths(text), [])
+
+    def test_section_present_but_no_paths_returns_empty_list(self):
+        text = ("# PLAN\n\n## Files / Components to Touch\n\n"
+                "特に無し（`todo` のような単語だけ・パス形式ではない）\n\n"
+                "## Testing Strategy\n\n- x\n")
+        self.assertEqual(plan_package.extract_allowed_paths(text), [])
+
+    def test_ignores_paths_outside_files_section(self):
+        text = ("# PLAN\n\n## Goal\n\n`docs/outside/goal.md` を触る\n\n"
+                "## Files / Components to Touch\n\n`scripts/ai-loop/inside.py`\n\n"
+                "## Testing Strategy\n\n`tests/outside/after.sh`\n")
+        self.assertEqual(plan_package.extract_allowed_paths(text),
+                         ["scripts/ai-loop/inside.py"])
+
+    def test_does_not_touch_filesystem(self):
+        # 実在しないパスでも抽出結果に現れる（存在検査をしない = 純関数）。
+        text = ("## Files / Components to Touch\n\n"
+                "`no/such/file_does_not_exist.py`\n\n## Testing Strategy\n")
+        self.assertEqual(plan_package.extract_allowed_paths(text),
+                         ["no/such/file_does_not_exist.py"])
+
+    def test_deterministic(self):
+        self.assertEqual(plan_package.extract_allowed_paths(PLAN_BODY),
+                         plan_package.extract_allowed_paths(PLAN_BODY))
+
+    def test_matches_derive_loopspec_allowed_paths(self):
+        # public 化しても `derive_loopspec()` の allowed_paths と同値（単一実装）。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp)
+            spec = plan_package.derive_loopspec(task_dir, "TASK-9999",
+                                                maker="a", checker="b")
+            self.assertEqual(spec["loop"]["scope"]["allowed_paths"],
+                             plan_package.extract_allowed_paths(PLAN_BODY))
+
+    def test_zero_extraction_does_not_block_caller_but_still_blocks_derive(self):
+        # 抽出 0 件: extract は空リスト（呼び出し側が escalation_flags へ倒せる）。
+        # 一方 derive_loopspec は従来どおり PlanPackageError（既存挙動不変）。
+        plan_text = ("# PLAN\n\n## Goal\n\nx\n\n## Testing Strategy\n\n"
+                     "- Verification Automation: `true`\n")
+        self.assertEqual(plan_package.extract_allowed_paths(plan_text), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir = _make_task_dir(tmp)
+            (task_dir / "plan.md").write_text(plan_text, encoding="utf-8")
+            with self.assertRaises(plan_package.PlanPackageError):
+                plan_package.derive_loopspec(task_dir, "TASK-9999",
+                                             maker="a", checker="b")
 
 
 class BuildC3PrimeTests(unittest.TestCase):

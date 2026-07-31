@@ -1,0 +1,40 @@
+[
+  {
+    "message": "[PRECHECK] gh pr view に失敗（rc=1）: 'no pull requests found for branch \"main\"\\n'",
+    "outcome": "Denied",
+    "probe": "check1/2: branch=main（PR の headRefName と一致しない）",
+    "push_argv_spawned": false,
+    "reason": "PRECHECK",
+    "spawns_during_probe": 1
+  },
+  {
+    "message": "[PRECHECK] fast-forward でない（expected_parent_sha='3c1242f0000000000000000000000000000000ff' は HEAD の祖先でない / rc=128）",
+    "outcome": "Denied",
+    "probe": "check4: fast-forward でない expected_parent_sha",
+    "push_argv_spawned": false,
+    "reason": "PRECHECK",
+    "spawns_during_probe": 3
+  },
+  {
+    "message": "[PRECHECK] SHA が許可形式でない: 'HEAD~1'",
+    "outcome": "Denied",
+    "probe": "入力検査: SHA 形式でない expected_parent_sha",
+    "push_argv_spawned": false,
+    "reason": "PRECHECK",
+    "spawns_during_probe": 0
+  },
+  {
+    "message": "[PRECHECK] branch 名が許可形式でない: '../evil'",
+    "outcome": "Denied",
+    "probe": "入力検査: branch 名に '..' を含む",
+    "push_argv_spawned": false,
+    "reason": "PRECHECK",
+    "spawns_during_probe": 0
+  },
+  {
+    "matches_other_repo": false,
+    "matches_target_repo": true,
+    "measured_origin_url": "git@github-s977043:s977043/PlanGate.git",
+    "probe": "check3: origin URL 一致（純関数 _origin_matches を実測値で評価）"
+  }
+]

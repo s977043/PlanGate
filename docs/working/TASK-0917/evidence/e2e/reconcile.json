@@ -1,0 +1,15 @@
+{
+  "conflict_resolution": null,
+  "dispositions": {},
+  "escalation_flags": [],
+  "filter_unexecuted_of_same_action": [],
+  "intent_action_ids": [
+    "sha256:6cc2520b2024d22f228016f50008da1deb45cf8df55398b8cad4b123c57b7456"
+  ],
+  "is_applied": true,
+  "orphan_receipts": [],
+  "pending": [],
+  "receipt_action_ids": [
+    "sha256:6cc2520b2024d22f228016f50008da1deb45cf8df55398b8cad4b123c57b7456"
+  ]
+}

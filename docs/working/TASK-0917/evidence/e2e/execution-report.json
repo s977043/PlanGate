@@ -1,0 +1,15 @@
+{
+  "escalation_flags": [],
+  "outcomes": [
+    {
+      "action_id": "sha256:6cc2520b2024d22f228016f50008da1deb45cf8df55398b8cad4b123c57b7456",
+      "action_kind": "repair_ci",
+      "comment_url": "https://github.com/s977043/PlanGate/pull/940#issuecomment-5140067809",
+      "escalation_flags": [],
+      "pushed": true,
+      "reason": null,
+      "result_ref": "adopted:7b229223b21a40708d1262fa86ff287977621ee4|comment:https://github.com/s977043/PlanGate/pull/940#issuecomment-5140067809",
+      "status": "executed"
+    }
+  ]
+}

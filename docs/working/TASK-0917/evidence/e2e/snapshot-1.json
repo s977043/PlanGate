@@ -1,0 +1,145 @@
+{
+  "allowed_paths": [
+    "scripts/ai-loop/gh_exec.py",
+    "scripts/ai-loop/test_gh_exec.py",
+    "scripts/ai-loop/check_exec_boundary.py",
+    "scripts/ai-loop/test_check_exec_boundary.py",
+    "scripts/ai-loop/collector.py",
+    "scripts/ai-loop/test_collector.py",
+    "scripts/ai-loop/ci_taxonomy.py",
+    "scripts/ai-loop/test_ci_taxonomy.py",
+    "scripts/ai-loop/executor.py",
+    "scripts/ai-loop/test_executor.py",
+    "scripts/ai-loop/reconciler.py",
+    "scripts/ai-loop/test_reconciler.py",
+    "tests/extras/ta-57-pr-convergence.sh",
+    "scripts/ai-loop/plan_package.py",
+    "scripts/ai-loop/test_plan_package.py",
+    "tests/extras/ta-56-delivery.sh",
+    "scripts/sync-plugin-plangate.sh",
+    "docs/workflows/ai-loop/delivery-state-machine.md",
+    "docs/workflows/ai-loop/execution-runbook.md",
+    "plugin/plangate/",
+    "docs/working/TASK-0917/"
+  ],
+  "changed_files": [
+    "docs/working/TASK-0917/evidence/e2e/probe.md"
+  ],
+  "checks": [
+    {
+      "check_run_id": 91090188144,
+      "conclusion": "success",
+      "name": "CodeQL",
+      "sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450"
+    },
+    {
+      "check_run_id": 91090038695,
+      "conclusion": "success",
+      "name": "SKIP_REASON 追認",
+      "sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450"
+    },
+    {
+      "check_run_id": 91090038676,
+      "conclusion": "success",
+      "name": "Markdown lint",
+      "sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450"
+    },
+    {
+      "check_run_id": 91090038638,
+      "conclusion": "success",
+      "name": "settings wiring drift",
+      "sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450"
+    },
+    {
+      "check_run_id": 91090038032,
+      "conclusion": "success",
+      "name": "plangate CLI tests",
+      "sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450"
+    },
+    {
+      "check_run_id": 91090037994,
+      "conclusion": "success",
+      "name": "check",
+      "sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450"
+    },
+    {
+      "check_run_id": 91090037988,
+      "conclusion": "success",
+      "name": "Analyze (python)",
+      "sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450"
+    }
+  ],
+  "dod_evaluated": false,
+  "escalation_flags": [],
+  "findings": [],
+  "head_sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+  "mergeable": "MERGEABLE",
+  "pr_number": 940,
+  "raw_check_runs": [
+    {
+      "completed_at": "2026-07-31T06:31:42Z",
+      "conclusion": "success",
+      "head_sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+      "id": 91090188144,
+      "name": "CodeQL",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-07-31T06:30:47Z",
+      "conclusion": "success",
+      "head_sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+      "id": 91090038695,
+      "name": "SKIP_REASON 追認",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-07-31T06:30:49Z",
+      "conclusion": "success",
+      "head_sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+      "id": 91090038676,
+      "name": "Markdown lint",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-07-31T06:30:48Z",
+      "conclusion": "success",
+      "head_sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+      "id": 91090038638,
+      "name": "settings wiring drift",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-07-31T06:31:24Z",
+      "conclusion": "success",
+      "head_sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+      "id": 91090038032,
+      "name": "plangate CLI tests",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-07-31T06:30:48Z",
+      "conclusion": "success",
+      "head_sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+      "id": 91090037994,
+      "name": "check",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-07-31T06:31:46Z",
+      "conclusion": "success",
+      "head_sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+      "id": 91090037988,
+      "name": "Analyze (python)",
+      "status": "completed"
+    }
+  ],
+  "required_checks": [
+    "Markdown lint"
+  ],
+  "review": {
+    "sha": "fe0abc66d426ce13b18c58d407ecfa6f68808450",
+    "state": "none"
+  },
+  "source_sha_ancestry": true,
+  "task_id": "TASK-0917"
+}

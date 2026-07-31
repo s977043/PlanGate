@@ -1,0 +1,131 @@
+{
+  "allowed_paths": [
+    "scripts/ai-loop/gh_exec.py",
+    "scripts/ai-loop/test_gh_exec.py",
+    "scripts/ai-loop/check_exec_boundary.py",
+    "scripts/ai-loop/test_check_exec_boundary.py",
+    "scripts/ai-loop/collector.py",
+    "scripts/ai-loop/test_collector.py",
+    "scripts/ai-loop/ci_taxonomy.py",
+    "scripts/ai-loop/test_ci_taxonomy.py",
+    "scripts/ai-loop/executor.py",
+    "scripts/ai-loop/test_executor.py",
+    "scripts/ai-loop/reconciler.py",
+    "scripts/ai-loop/test_reconciler.py",
+    "tests/extras/ta-57-pr-convergence.sh",
+    "scripts/ai-loop/plan_package.py",
+    "scripts/ai-loop/test_plan_package.py",
+    "tests/extras/ta-56-delivery.sh",
+    "scripts/sync-plugin-plangate.sh",
+    "docs/workflows/ai-loop/delivery-state-machine.md",
+    "docs/workflows/ai-loop/execution-runbook.md",
+    "plugin/plangate/",
+    "docs/working/TASK-0917/"
+  ],
+  "changed_files": [
+    "docs/working/TASK-0917/evidence/e2e/probe.md"
+  ],
+  "checks": [
+    {
+      "check_run_id": 91090955246,
+      "conclusion": "in_progress",
+      "name": "plangate CLI tests",
+      "sha": "7b229223b21a40708d1262fa86ff287977621ee4"
+    },
+    {
+      "check_run_id": 91090955183,
+      "conclusion": "success",
+      "name": "SKIP_REASON 追認",
+      "sha": "7b229223b21a40708d1262fa86ff287977621ee4"
+    },
+    {
+      "check_run_id": 91090955176,
+      "conclusion": "success",
+      "name": "Markdown lint",
+      "sha": "7b229223b21a40708d1262fa86ff287977621ee4"
+    },
+    {
+      "check_run_id": 91090955129,
+      "conclusion": "success",
+      "name": "settings wiring drift",
+      "sha": "7b229223b21a40708d1262fa86ff287977621ee4"
+    },
+    {
+      "check_run_id": 91090955103,
+      "conclusion": "success",
+      "name": "check",
+      "sha": "7b229223b21a40708d1262fa86ff287977621ee4"
+    },
+    {
+      "check_run_id": 91090954966,
+      "conclusion": "in_progress",
+      "name": "Analyze (python)",
+      "sha": "7b229223b21a40708d1262fa86ff287977621ee4"
+    }
+  ],
+  "dod_evaluated": false,
+  "escalation_flags": [],
+  "findings": [],
+  "head_sha": "7b229223b21a40708d1262fa86ff287977621ee4",
+  "mergeable": "MERGEABLE",
+  "pr_number": 940,
+  "raw_check_runs": [
+    {
+      "completed_at": null,
+      "conclusion": null,
+      "head_sha": "7b229223b21a40708d1262fa86ff287977621ee4",
+      "id": 91090955246,
+      "name": "plangate CLI tests",
+      "status": "in_progress"
+    },
+    {
+      "completed_at": "2026-07-31T06:36:45Z",
+      "conclusion": "success",
+      "head_sha": "7b229223b21a40708d1262fa86ff287977621ee4",
+      "id": 91090955183,
+      "name": "SKIP_REASON 追認",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-07-31T06:36:47Z",
+      "conclusion": "success",
+      "head_sha": "7b229223b21a40708d1262fa86ff287977621ee4",
+      "id": 91090955176,
+      "name": "Markdown lint",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-07-31T06:36:44Z",
+      "conclusion": "success",
+      "head_sha": "7b229223b21a40708d1262fa86ff287977621ee4",
+      "id": 91090955129,
+      "name": "settings wiring drift",
+      "status": "completed"
+    },
+    {
+      "completed_at": "2026-07-31T06:36:46Z",
+      "conclusion": "success",
+      "head_sha": "7b229223b21a40708d1262fa86ff287977621ee4",
+      "id": 91090955103,
+      "name": "check",
+      "status": "completed"
+    },
+    {
+      "completed_at": null,
+      "conclusion": null,
+      "head_sha": "7b229223b21a40708d1262fa86ff287977621ee4",
+      "id": 91090954966,
+      "name": "Analyze (python)",
+      "status": "in_progress"
+    }
+  ],
+  "required_checks": [
+    "Markdown lint"
+  ],
+  "review": {
+    "sha": "7b229223b21a40708d1262fa86ff287977621ee4",
+    "state": "none"
+  },
+  "source_sha_ancestry": true,
+  "task_id": "TASK-0917"
+}
