@@ -38,6 +38,8 @@ tag push
 🚪 TAG-MAIN PARITY 検証 (Iron Law)  ← scripts/check-tag-main-parity.sh
   ↓ 一致
 GitHub Release 作成
+  ↓
+🚪 release-docs-sync run 確認  ← 失敗しても通知されない (#950)
 ```
 
 ### 必須検証手順
@@ -51,6 +53,11 @@ git push origin <tag>
 sh scripts/check-tag-main-parity.sh <tag>
 # → OK: tag '<tag>' (origin 実体) = origin/main (<sha>)  なら次へ
 # → MISMATCH / FAIL なら下記フローで貼り替え
+
+# 3. GitHub Release 作成後: release 起点の自動 workflow の run 結果確認
+#    （失敗しても通知されない。詳細・リカバリは「リリース後の workflow run 結果確認（#950）」節）
+gh run list --workflow=release-docs-sync.yml --event=release --limit 1
+# → conclusion が success なら完了。failure なら同節のリカバリ手順へ
 ```
 
 ## 失敗時のフロー (MISMATCH 検出時)
@@ -143,24 +150,31 @@ release published を起点とする自動 workflow は**失敗しても通知�
 リリース手順の一部として必ず確認する:
 
 ```sh
-# release-docs-sync の直近 run が success であること
-gh run list --workflow=release-docs-sync.yml --limit 1
+# release 起点の直近 run が success であること
+# （--event=release 必須: 本 workflow は workflow_dispatch トリガーも持つため、
+#   素の --limit 1 では手動 dispatch の run を拾い release 起点の失敗を見逃す）
+gh run list --workflow=release-docs-sync.yml --event=release --limit 1
 # → conclusion が failure なら下記リカバリへ
 ```
 
 ### 失敗時のリカバリ
 
 同期ブランチ（`chore/release-docs-sync-*`）は PR 作成前の push まで成功していることが
-多い。その場合は push 済みブランチから手動で PR を作成する（v8.18.0 時の実績: PR #949 方式）:
+多い。その場合は push 済みブランチから手動で PR を作成する（v8.18.0 時の実績: PR #949 方式）。
+`--title` / `--body` は**両方指定する**（どちらか欠けると `gh pr create` はタイトル / 本文の
+入力プロンプトを開き、非対話環境では止まる）。本文は workflow 側
+（`release-docs-sync.yml` L41-43）が渡す内容に揃え、手動作成である旨のみ追記している:
 
 ```sh
 gh pr create --base main --head chore/release-docs-sync-<run_id> \
   --title "chore(docs): リリース時 changelog 同期 (<tag>)" \
-  --body "release-docs-sync run <run_id> が PR 作成権限エラーで失敗したため、生成済み同期ブランチから手動作成（#950 runbook）"
+  --body "release-docs-sync run <run_id> が PR 作成権限エラーで失敗したため、生成済み同期ブランチから手動作成（#950 runbook）。内容は \`scripts/sync-release-docs.sh\` による \`docs/changelog.md\` の冪等生成物。merge は Human-owned（C-4）。"
 ```
 
 > 注: `sync-plugin-plangate.yml` も drift 検知時に自動 PR（`chore/plugin-sync-*`）を
-> 作成する同型 workflow。ただしトリガーは release published ではなく main への push で、
-> PR を作らない drift-check のみの pull_request run が混在する — 確認は
-> `gh run list --workflow=sync-plugin-plangate.yml --event push --limit 1` で
+> 作成する同型 workflow。ただしトリガーは release published ではなく
+> `push`（main）/ `pull_request` / `workflow_dispatch` の 3 種で、PR を作らない
+> drift-check のみの `pull_request` run が混在する（`sync` job は
+> `github.event_name != 'pull_request'` 条件）— 確認は
+> `gh run list --workflow=sync-plugin-plangate.yml --event=push --limit 1` で
 > event=push の run を見ること。
