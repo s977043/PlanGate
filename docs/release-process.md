@@ -133,3 +133,30 @@ v8.16.0 の README_en 漏れ（レビューで水際検出）が実害・ヒヤ�
 
 検証: `tests/extras/ta-28-plugin-version.sh`（2〜4 を機械検査。1・5・6・7 は未カバー —
 リリース準備 PR のレビュー観点として本表で担保する。ta-28 の 1/6 カバー拡張は V2 候補）。
+
+## リリース後の workflow run 結果確認（#950）
+
+release published を起点とする自動 workflow は**失敗しても通知されず、成果物の欠落で
+初めて発覚する**。v8.17.0 / v8.17.1 / v8.18.0 では `release-docs-sync`（version 同期
+マップ #8 の自動 PR）が権限エラーで 3 リリース連続失敗し、`docs/changelog.md` が
+2 世代欠落するまで誰も気づかなかった（issue #950）。GitHub Release 作成後、以下を
+リリース手順の一部として必ず確認する:
+
+```sh
+# release-docs-sync の直近 run が success であること
+gh run list --workflow=release-docs-sync.yml --limit 1
+# → conclusion が failure なら下記リカバリへ
+```
+
+### 失敗時のリカバリ
+
+同期ブランチ（`chore/release-docs-sync-*`）は PR 作成前の push まで成功していることが
+多い。その場合は push 済みブランチから手動で PR を作成する（v8.18.0 時の実績: PR #949 方式）:
+
+```sh
+gh pr create --base main --head chore/release-docs-sync-<run_id> \
+  --title "chore(docs): リリース時 changelog 同期 (<tag>)"
+```
+
+> 注: `sync-plugin-plangate.yml` も drift 検知時に自動 PR（`chore/plugin-sync-*`）を
+> 作成する同型 workflow のため、同じ確認（`--workflow=sync-plugin-plangate.yml`）で兼ねられる。
