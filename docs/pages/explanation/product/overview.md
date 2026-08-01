@@ -8,7 +8,9 @@
 
 PlanGate is a governance-first workflow harness for AI coding agents.
 
-It prevents AI agents from writing production code until a human-approved plan, task list, and acceptance test set exist.
+It prevents AI agents from writing production code until an approved plan, task list, and acceptance test set exist.
+
+It can also wrap post-PR CI and review repair loops until `MERGE_READY` while keeping final merge human-owned.
 
 Unlike agent frameworks that focus primarily on autonomy and speed, PlanGate focuses on approval boundaries, auditability, and Scrum-friendly delivery.
 
@@ -74,7 +76,7 @@ AI は C-3 承認前に本番コードを書けない。実装前に、何を作
 
 Phase 0 ultra-light は導入初日の体験を優先する例外であり、低リスクな作業では plan / C-1〜C-4 を省略できる。チーム運用では Phase 1 以降で C-3 / C-4 と検証を段階的に強める。
 
-ai-loop の eligible run では、C-3 を AI 裁定ゲート C-3' に置き換える場合がある。ただし touches-HO、policy 変更、判定不能、重大な不一致は Human に escalate し、C-4 / merge は Human-owned のままである。
+ai-loop の eligible run では、C-3 を AI 裁定ゲート C-3' に置き換える場合がある。ただし HO 接触（Hardening Override = AI 改変不可ファイル群への接触）、policy 変更、判定不能、重大な不一致は Human に escalate し、C-4 / merge は Human-owned のままである。
 
 ## Core value
 
@@ -114,7 +116,7 @@ PlanGate の価値は、生成量ではなく、採用される作業、検証�
 | C-3 conditional / reject rate | PBI / plan の曖昧さ |
 | V-1 first pass rate | 受入条件と実装の一致度 |
 | C-4 request changes rate | 実装・レビュー品質 |
-| MERGE_READY convergence rate | PR 作成後の CI / review repair が完了した割合 |
+| MERGE_READY convergence rate | PR 作成後の CI / review repair が完了した割合（指標として定義済み。`bin/plangate metrics` による自動計測は未実装） |
 | Hook violation rate | Gate / scope / evidence 違反傾向 |
 | Code Keep Rate | AI が書いたコードが残った割合 |
 | Plan Keep Rate | 承認済 plan が実装後も維持された割合 |

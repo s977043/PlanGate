@@ -27,7 +27,7 @@ PlanGate は、AI コーディングエージェントを使うプロダクト�
 
 AI が本番コードを書く前に、PBI、計画、受入条件、承認を必須化することで、スコープ、Done の定義、検証証拠を守る。
 
-標準フローでは人間が C-3 で計画を承認する。ai-loop の eligible run では C-3' により AI 裁定を使う場合があるが、判定不能・HO 接触・policy 変更は Human に escalate し、C-4 / merge は Human-owned のままである。
+標準フローでは人間が C-3 で計画を承認する。ai-loop の eligible run では C-3' により AI 裁定を使う場合があるが、判定不能・HO 接触（Hardening Override = AI 改変不可ファイル群への接触）・policy 変更は Human に escalate し、C-4 / merge は Human-owned のままである。
 
 自律性や速度を最優先するエージェントフレームワークと異なり、PlanGate は承認境界、監査可能性、スクラム親和性、最終判断の人間所有を重視する。
 

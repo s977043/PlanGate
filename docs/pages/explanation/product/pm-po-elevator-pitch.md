@@ -30,7 +30,7 @@ AI コーディングエージェントは速い一方で、スコープ逸脱�
 
 PlanGate は、AI が実装に入る前に PBI、計画、TODO、テストケースを作らせ、標準フローでは人間が C-3 で承認するまで本番コードを書かせない。
 
-ai-loop の eligible run では C-3' による AI 裁定を使う場合があるが、判定不能・HO 接触・policy 変更は Human に escalate する。C-4 / merge は Human-owned のままである。
+ai-loop の eligible run では C-3' による AI 裁定を使う場合があるが、判定不能・HO 接触（Hardening Override = AI 改変不可ファイル群への接触）・policy 変更は Human に escalate する。C-4 / merge は Human-owned のままである。
 
 つまり、PM / PO が持つ「価値・優先順位・受入条件への責任」を、AI 開発の中でも崩さないためのガードレールである。
 

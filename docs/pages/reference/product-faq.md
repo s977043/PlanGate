@@ -137,7 +137,7 @@ C-4 は実装後のレビュー承認である。
 
 完全になくすものではない。
 
-C-3' は eligible run に限って AI 裁定で進める経路である。touches-HO、policy 変更、判定不能、重大な不一致がある場合は Human に escalate する。
+C-3' は eligible run に限って AI 裁定で進める経路である。HO 接触（Hardening Override = AI 改変不可ファイル群への接触）、policy 変更、判定不能、重大な不一致がある場合は Human に escalate する。
 
 また、C-4 / merge は Human-owned のままで、AI は merge しない。
 
@@ -165,7 +165,7 @@ PlanGate は mode によって軽量化する。
 - C-4 approve / request changes
 - V-1 first pass rate
 - fix loop count
-- MERGE_READY convergence rate
+- MERGE_READY convergence rate（指標として定義済み。`bin/plangate metrics` による自動計測は未実装）
 - hook violation rate
 - Code Keep Rate
 - Plan Keep Rate
