@@ -10,6 +10,77 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.18.0 (2026-07-31)
+
+feat: 実 PR 収束（`MERGE_READY`）の一気通貫 — delivery 判定エンジン + GitHub Collector / Action Executor / Reconciler + Plan-first C-3' 束縛
+
+v8.17.1 タグ以降 main に蓄積した 46 マージ（+49k 行）を反映するリリース。EPIC #870 の close blocker だった「PR 作成後の CI / review repair → `MERGE_READY` 実収束」が実 PR 実走証跡付きで完成し、ai-loop の Delivery 層が動く状態になった。承認境界は不変（NO MERGE BY AI・C-4 / merge は Human-owned 固定）。
+
+### Added
+
+- **MERGE_READY 状態機械 `delivery.py`** — 決定論判定エンジン（純判定器・外部作用ゼロをソース走査で固定・7 状態 + EXITS・`PRIORITY_ORDER`・intent / receipt 2 段・contract ブロックの byte 一致検証）（#873、#905）
+- **実 PR 収束 — GitHub Collector / Action Executor / Reconciler**（#917、#941）— head SHA 束縛 snapshot 取得（stale check 排除・旧 head の APPROVED 不採用）/ `required_checks[]` ⊇ 照合で部分登録 green を fail-closed 拒否 / raw check evidence の自己照合 / intent → 実行 → receipt → reconcile の冪等系 / **実 PR 1 周の実走証跡**（probe PR #940・`evidence/e2e/` に完全保存）
+- **実行境界検査器 + gh / git 実行ラッパ** — 許可サブコマンド allowlist 方式（禁止は補集合として自動成立: `gh pr merge` / `gh pr review --approve` / close / force-push / branch 削除 / 非 GET api。実走 spawn ledger で違反 0 件を実証）（#917 AC-5、#941）
+- **`ci_failure_taxonomy` 供給主体 `ci_taxonomy.py`** — manual entry 優先・`code` を機械が断定しない・未該当は既存 fail-closed に委ねる（#941）
+- **c3-prime 受理器 + Plan-first 束縛** — `c3prime_verify.py`（非 HO 受理器）+ HO patch 群の Human 適用（`ai-loop run TASK-XXXX` の Plan Package 束縛・schema 配置）（#872、#889、#895）
+- **`c3_contract.py` 共通契約層化** — `canonical_hash` 等の検証ロジックを arbiter / c3prime / delivery が共用（#896、#902）
+- **rollout-policy §2 の本体拡張** — plangate 本体の lite / clean / reversible 帯へ適用ドメインを拡張 + **判定基盤 carve-out**（自己改変防止 glob・規範層。機械層強制は #916 で追跡）（#907、#912）
+- **ai-loop 正本定義統合** — `00_concept.md` の正本昇格 + rollout-policy 分離（5 責務・terminal state・C-3' 経路の単一正本化）（#871、#879〜#883）
+
+### Fixed
+
+- **mass-delete safety guard の fail-closed 化** — `guard_fired` → 終端 exit 3 + `PLANGATE_ALLOW_MASS_DELETE=1` override + stale ベース判定で dry-run / 実行の判定一致（#877、#915）。残る 2 経路への適用は #914（plan C-3 待ち）
+- **orphan SKILL.md 7 件の正本移設** — `.agents/skills/` 正本へ移設し sync / drift check の担保下へ（plugin 配布正確性）（#862、#865）
+- **ta-26 の実リポジトリ非破壊化 + sync safety guard**（#861、#875）/ **HO リスト二重管理の整合 + sync CI trigger 拡張**（#842、#860）
+- probe PR #940 マージ後の記述実態訂正・ta-13 の worktree SKIP 差異等は handoff 既知課題として記録
+
+### Changed
+
+- **ai-dev / ai-loop 境界の重心決定を正本化** — 「重心を Delivery へ移す」（C-3' は eligible run 限定の入口最適化に格下げして維持。本体価値 = PR 後の収束 + Evolution）を議論 doc として記録（#926）
+- **schema 配置の横断裁定（案 2 段階方式）** — Phase 1 は `docs/schemas/`（非 HO）で 4 PBI（#894/#874/#869/#908）同側に統一 → 本番接続の C-3 で `schemas/` へ 1 回の HO patch 昇格（#930、#932）
+- **pbi / plan の整備**（多くは 2 レーンレビュー済み）: #914（plan・C-3 待ち）/ #913 / #916 / #921 / #923 / #894 / #874 / #869 / #908 / #867 / #863 / #866 / #868 / #917（plan → exec 完了）
+- **plugin version を 8.18.0 に更新**（marketplace.json / plugin.json。`claude plugin update` での追従を可能にする）
+
+## v8.17.1 (2026-07-13)
+
+fix: plugin bundle の同期漏れを追従（v8.17.0 tag に未収載だった `.claude/` → `plugin/plangate/` 差分の取り込み）
+
+### Fixed
+
+- **plugin bundle 同期** — `arbiter.py`（+37行）/ `decision-table.md`（+20行）/ `test_arbiter.py`（+196行）/ `test_metrics.py` / rules 2 ファイル / README を `.claude/` 正本と同期（plugin-sync 自動検出 run-29216958418 由来）
+- **plugin version を 8.17.1 に更新**（patch。機能追加なし・bundle 完全性の追従のみ）
+
+## v8.17.0 (2026-07-13)
+
+feat: ai-loop Phase 1 移行（導入先実リポジトリ検証の正式化）+ 安全前提の機械層配線 + 計測基盤の実データ稼働 + HOTL 境界正本化
+
+v8.16.0 タグ以降 main に蓄積した ai-loop / HOTL / スキル群の変更を plugin 配布に反映するリリース。plugin bundle（`plugin/plangate/skills/ai-loop-cycle/`）は references 全面更新 + `metrics.py` / `test_metrics.py` / `agentic-six-stage-loop.md` / `stop-rollback.md` を新規同梱する。
+
+### Added
+
+- **ai-loop Phase 1 移行 — 導入先実リポジトリでの検証を正式化**（#807 / #808）
+- **ai-loop 計測基盤** — decision record 集計 `metrics.py`（#780 Slice D 前半、#812）+ arbiter が record に run メタを刻印（Slice D 後半、#815）+ HOTL 健全性メトリクス（escalate / human_intervention / reversal rate、#822 項目3、#831）
+- **ai-loop plan 品質ゲート priority 1.7** — C-1 / breakdown を auto-approve 必要条件に（#780 Slice B、#817）+ gates を provenance に刻む（#819）
+- **size_ok の機械検証** — changed_files 実数で判定 + POLICY_REF @v3（#780 Slice C、#820）
+- **LoopSpec cost_cap** — round 予算超過を arbiter が escalate（#749 C案(2)層、#840）
+- **ai-loop discovery** — D-2 read-only 候補提示 CLI（#824）/ D-3 recommended_next 構造化 + `--emit-next-command`（#826）/ A-1 HO 事前判定強化（HO-plugin 語彙追加、#841）
+- **HOTL 不変条件の回帰テスト**（merge / HO / fail-closed / escalate 自己解決禁止、#822、#830）
+- **スキル新設・改名**: `breakdown-gate`（#802）/ `ref-integrity-scan`（#801）/ `self-review` → `diff-audit` 改名 + Iron Law 8 / Phase 13 正本化（#796）/ `setup-team` → `subagent-team-design` 改名 + 命名ポリシー正本化（#806）
+- **review-gate 拡張** — growth-core 由来 4 観点レーン追加（#795）+ UI/UX パック（レーン5 + UI 専用 V-1、#805）
+- **workflow-conductor plan 再実行ガード**（#676、#845）
+
+### Fixed
+
+- **ai-loop Phase 1 安全前提の機械層配線** — fail-closed + allowed_paths + パス正規化（#809、#813）
+- **plugin bundle の dead link ゼロ自己完結化**（#790、#793）+ `test_metrics.py` の bundle 追加（#821）
+- **check-tag-main-parity をリモート tag 実体照合に変更**（偽 PASS 解消、#787）
+
+### Changed
+
+- **HOTL 境界の正本化** — 非ブロック化部分と Human 固定部分の対応表（#822 項目1、#827）+ stop 条件と巻き戻しの正本化（#832）+ W check = C-3' 命名接続（#828）
+- **ai-loop arbiter の分岐テーブル化 + 責務抽出**（動作不変、#814、#816）
+- **plugin version を 8.17.0 に更新**（marketplace.json / plugin.json。`claude plugin update` での追従を可能にする）
+
 ## v8.16.0 (2026-07-08)
 
 feat: ai-loop 初回実運用 Run-001〜021 の摩擦是正閉ループ + plangate プラグインへの ai-loop 同梱 + Hook Enforcement 物理配線 6/12 → 11/12 + サブエージェント委譲プロトコル正本
