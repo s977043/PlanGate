@@ -18,14 +18,20 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 2. 無ければ plugin root 配下（例: `${CLAUDE_PLUGIN_ROOT}/rules/mode-classification.md`）
 3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない
 
-導入経路ごとの実態（配布対象は `agents` / `skills` / `commands` / `rules` の
-4 ディレクトリのみ）:
+導入経路ごとに配置されるものが違う（**「同じ 4 ディレクトリだけが配られる」わけではない**）:
+
+- **`install.sh` 経由**: コピー対象は `agents` / `skills` / `commands` / `rules` の
+  4 ディレクトリのみ（一次ソース: `install.sh` の `for dir in agents skills commands rules`）
+- **plugin（marketplace）経由**: バンドルは `agents` / `assets` / `commands` / `hooks` /
+  `rules` / `scripts` / `skills` + `README.md` / `.claude-plugin/`。ただし `scripts/` の
+  中身は `install-plangate-skills.sh` のみで、**`ai-dev-workflow` も `bin/plangate` も含まれない**
 
 | 参照 | `install.sh` 経由 | plugin（marketplace）経由 |
 |------|------------------|--------------------------|
 | `rules/*.md` | `.claude/rules/` に着地（解決可） | `${CLAUDE_PLUGIN_ROOT}/rules/` で解決 |
-| `docs/**` | 配布対象外（解決不可） | 配布対象外（解決不可） |
-| `bin/` / `scripts/` | 配布対象外（解決不可） | 配布対象外（解決不可） |
+| `docs/**` | コピー対象外（解決不可） | バンドル対象外（解決不可） |
+| `bin/**` | コピー対象外（解決不可） | バンドル対象外（解決不可） |
+| `scripts/**` | コピー対象外（解決不可） | `${CLAUDE_PLUGIN_ROOT}/scripts/` は存在するが `install-plangate-skills.sh` のみ（目的の CLI は解決不可） |
 
 `docs/**` が解決できない環境では、その正本の内容を **rules と本 skill の記述で代替**
 し、plan.md の Questions / Unknowns に「正本 `<path>` を参照できなかった」旨を記録する。
@@ -127,8 +133,14 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
 ### CLI 不在時のフォールバック（導入先では既定）
 
 `scripts/ai-dev-workflow` と `bin/plangate` は **`install.sh` 経由・plugin 経由の
-どちらでも導入先に配置されない**（配布対象は `agents` / `skills` / `commands` /
-`rules` の 4 ディレクトリのみ）。上記コマンドが存在しない場合は次に従う:
+どちらでも導入先に配置されない**。根拠は経路ごとに異なる:
+
+- `install.sh` 経由: コピー対象が `agents` / `skills` / `commands` / `rules` の
+  4 ディレクトリに限られ、`bin/` も `scripts/` も対象外
+- plugin 経由: `${CLAUDE_PLUGIN_ROOT}/scripts/` は存在するが中身は
+  `install-plangate-skills.sh` のみ。`bin/` はバンドルに無い
+
+上記コマンドが存在しない場合は次に従う:
 
 1. **手動生成に切り替える** — 「Output」の 5 ファイルを skill の手順どおり手で作る。
    B-1 →（事前メトリクス検証）→ B-2 → B-3 の順序と出力契約は **CLI の有無に関わらず不変**
