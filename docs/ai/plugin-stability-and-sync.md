@@ -44,10 +44,10 @@ npm package は採用しない（消費側に submodule 運用 / npm 依存を�
 ```sh
 # 消費側リポジトリで、特定リリースの plugin を固定取得する
 PLANGATE_VERSION=v8.7.0   # 固定したいタグ
-mkdir -p .plangate-plugin
+rm -rf .plangate-plugin && mkdir -p .plangate-plugin
 curl -fsSL "https://github.com/s977043/plangate/archive/refs/tags/${PLANGATE_VERSION}.tar.gz" \
-  | { rm -rf .plangate-plugin/* 2>/dev/null || true; tar -xz --strip-components=3 -C .plangate-plugin \
-    "plangate-${PLANGATE_VERSION#v}/plugin/plangate"; }
+  | tar -xz --strip-components=3 -C .plangate-plugin \
+    "plangate-${PLANGATE_VERSION#v}/plugin/plangate"
 echo "$PLANGATE_VERSION" > .plangate-plugin/.plangate-version
 ```
 
@@ -57,6 +57,12 @@ echo "$PLANGATE_VERSION" > .plangate-plugin/.plangate-version
 > 含むアーカイブは展開しない。リリースの signature / commit を併せて
 > 確認できる場合は確認する。
 
+- 展開先は `rm -rf .plangate-plugin && mkdir -p .plangate-plugin` で
+  **ディレクトリごと作り直す**（`rm -rf .plangate-plugin/*` は使わない）。
+  glob に依存しないため shell 非依存になり、zsh の `nomatch`（対象が空だと
+  `no matches found` でコマンド自体が実行されない）と、`*` が dotfile
+  （`.claude-plugin/` / `.plangate-version`）に一致しない問題の両方を避けられる。
+  取得に失敗した場合は展開先が空のままになるので §2.1 を再実行する。
 - アーカイブ内パスは `plangate-<ver>/plugin/plangate/<kind>/...`。
   `--strip-components=3` で `plangate-<ver>` / `plugin` / `plangate` の
   3 段を除去し、`.plangate-plugin/<kind>/...`（§3/§4 の前提パス）に展開する。
@@ -69,8 +75,8 @@ echo "$PLANGATE_VERSION" > .plangate-plugin/.plangate-version
 1. 更新先タグの CHANGELOG を確認し、影響度タグ（`[BREAKING]` /
    `[MIGRATION REQUIRED]` / `[SAFE UPDATE]`）を判定。
 2. `[SAFE UPDATE]` のみなら §2.1 を新タグで再実行するだけ（§2.1 の
-   取得は展開前に `.plangate-plugin/` を消去するため、旧版で削除された
-   ファイルが残る ghost file は発生しない）。
+   取得は展開前に `.plangate-plugin/` をディレクトリごと作り直すため、
+   旧版で削除されたファイルが残る ghost file は発生しない）。
 3. `[BREAKING]` / `[MIGRATION REQUIRED]` を含む場合は CHANGELOG が指す
    移行手順（[versioning-stability-policy.md](./versioning-stability-policy.md)
    §5）に従ってから再取得する。
