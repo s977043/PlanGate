@@ -2,6 +2,7 @@
 
 > **Status**: Stable
 > **Review cadence**: Monthly
+> **Owner**: Product / Maintainer
 
 ## 目的
 
@@ -30,6 +31,7 @@ PlanGate が誰のどんな課題に効くのかを Value Proposition Canvas と
 - 実装前に受入条件を明確にしたい
 - scope creep を防ぎたい
 - AI 開発の検証証拠を残したい
+- PR 作成後の CI / review repair を `MERGE_READY` まで収束させたい
 - provider / model が変わっても workflow を保ちたい
 
 ### Social jobs
@@ -45,6 +47,7 @@ PlanGate が誰のどんな課題に効くのかを Value Proposition Canvas と
 - PR レビューで初めてズレに気づく状況を減らしたい
 - AI の出力に振り回されず、プロダクト価値を守りたい
 - 開発速度と品質・統制を両立している実感を持ちたい
+- AI が勝手に merge しない境界を確認できる状態にしたい
 
 ## Pains
 
@@ -54,6 +57,7 @@ PlanGate が誰のどんな課題に効くのかを Value Proposition Canvas と
 | スコープ逸脱 | PBI 外の改善や実装を勝手に足す |
 | 受入条件の後付け | 実装後に Done を都合よく解釈する |
 | 実装前レビューがない | plan がないまま code diff だけが出る |
+| PR 後の収束が曖昧 | CI 失敗やレビュー指摘の対応完了が属人的になる |
 | 検証証拠が弱い | test 未実行、失敗、残リスクが曖昧になる |
 | ブラックボックス化 | AI が何を根拠に変更したか追えない |
 | チーム運用のばらつき | 個人ごとに AI の使い方が異なる |
@@ -67,6 +71,7 @@ PlanGate が誰のどんな課題に効くのかを Value Proposition Canvas と
 | Done を明確にする | test-cases が実装前に固定される |
 | レビューしやすくする | plan と diff を比較できる |
 | リリース判断を支援する | 検証証拠と残リスクが残る |
+| PR 後の収束を支援する | CI / review repair を `MERGE_READY` まで状態として扱える |
 | チーム標準化 | 同じ workflow / gate / artifact を使える |
 | 継続改善 | eval、metrics、Keep Rate で改善できる |
 | provider 横断性 | Cursor / Claude Code / Codex などを上位から統制できる |
@@ -79,8 +84,9 @@ PlanGate が誰のどんな課題に効くのかを Value Proposition Canvas と
 | スコープ逸脱 | scope discipline と plan 承認で止める |
 | 受入条件の後付け | test-cases を実装前に作る |
 | 実装前レビューがない | plan / todo / test-cases をレビュー対象にする |
+| PR 後の収束が曖昧 | ai-loop Delivery で CI / review repair を `MERGE_READY` まで扱う |
 | 検証証拠が弱い | verification honesty と evidence を要求する |
-| ブラックボックス化 | plan / review / handoff を残す |
+| ブラックボックス化 | plan / review / handoff / delivery record を残す |
 | チーム運用のばらつき | workflow / mode / gate を定義する |
 | provider 依存 | Model Profile / Tool Policy / Prompt Assembly で吸収する |
 
@@ -88,23 +94,26 @@ PlanGate が誰のどんな課題に効くのかを Value Proposition Canvas と
 
 | Gain | PlanGate creator |
 | --- | --- |
-| 管理可能性 | C-3 / C-4、status、approval artifacts |
+| 管理可能性 | C-3 / C-3' / C-4、status、approval artifacts |
 | 受入条件の明確化 | test-cases artifact |
 | レビューしやすさ | plan、todo、review-self、review-external |
 | 検証可能性 | L-0 / V-1〜V-4、evidence、handoff |
+| PR 後の収束 | ai-loop Delivery、Delivery State Machine、`MERGE_READY` |
 | 継続改善 | Eval Runner、Metrics、Keep Rate |
 | モデル差分への対応 | Model Profile v2、Tool Error Taxonomy |
 | コンテキスト最適化 | Dynamic Context Engine |
 
 ## Value proposition
 
-PlanGate helps product teams using AI coding agents keep scope, acceptance criteria, and review boundaries under control by requiring a human-approved plan and acceptance test set before production code changes.
+PlanGate helps product teams using AI coding agents keep scope, acceptance criteria, and review boundaries under control by requiring an approved plan and acceptance test set before production code changes, and by keeping post-PR delivery loops bounded until `MERGE_READY` while final merge remains human-owned.
 
 日本語では以下。
 
 PlanGate は、AI コーディングエージェントを使うプロダクトチームが、PBI のスコープ、受入条件、レビュー境界を保ったまま開発を進められるようにする。
 
-AI が本番コードを書く前に、人間が承認した計画と受入条件を必須化することで、AI 開発を速いだけでなく、説明可能で、検証可能で、チームで運用可能なものにする。
+AI が本番コードを書く前に、承認済みの計画と受入条件を必須化することで、AI 開発を速いだけでなく、説明可能で、検証可能で、チームで運用可能なものにする。
+
+ai-loop を使う場合は、PR 作成後の CI / review repair を `MERGE_READY` まで収束させる。ただし最終判断と merge は人間が担うため、速度と統制を両立できる。
 
 ## Message fit
 
@@ -127,6 +136,7 @@ AI が本番コードを書く前に、人間が承認した計画と受入条�
 - Pain relievers が誇張になっていないか
 - Roadmap 進捗により新しい gain creator が増えていないか
 - PM / PO / EM / CTO の message fit は適切か
+- C-3 / C-3' / C-4 / `MERGE_READY` / Human-owned merge の責務境界が誤解なく伝わるか
 
 ## 関連ページ
 
