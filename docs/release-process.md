@@ -129,7 +129,7 @@ v8.16.0 の README_en 漏れ（レビューで水際検出）が実害・ヒヤ�
 | 5 | `README_en.md` | 同上（英語） |
 | 6 | `plugin/plangate/README.md` | `**Version**:` 行 |
 | 7 | **`CLAUDE.md`「最新リリース」節** | **HO パスのため AI は apply スクリプト提示まで・適用は Human**（`sh scripts/apply-claude-md-*.sh --apply`。v8.14〜8.16 で 3 世代 stale になった構造原因への対策として本表に常設） |
-| 8 | `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR） |
+| 8 | `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR。**リリース後に run 結果確認 — 本書末尾「リリース後の workflow run 結果確認」参照**） |
 
 検証: `tests/extras/ta-28-plugin-version.sh`（2〜4 を機械検査。1・5・6・7 は未カバー —
 リリース準備 PR のレビュー観点として本表で担保する。ta-28 の 1/6 カバー拡張は V2 候補）。
@@ -155,8 +155,12 @@ gh run list --workflow=release-docs-sync.yml --limit 1
 
 ```sh
 gh pr create --base main --head chore/release-docs-sync-<run_id> \
-  --title "chore(docs): リリース時 changelog 同期 (<tag>)"
+  --title "chore(docs): リリース時 changelog 同期 (<tag>)" \
+  --body "release-docs-sync run <run_id> が PR 作成権限エラーで失敗したため、生成済み同期ブランチから手動作成（#950 runbook）"
 ```
 
 > 注: `sync-plugin-plangate.yml` も drift 検知時に自動 PR（`chore/plugin-sync-*`）を
-> 作成する同型 workflow のため、同じ確認（`--workflow=sync-plugin-plangate.yml`）で兼ねられる。
+> 作成する同型 workflow。ただしトリガーは release published ではなく main への push で、
+> PR を作らない drift-check のみの pull_request run が混在する — 確認は
+> `gh run list --workflow=sync-plugin-plangate.yml --event push --limit 1` で
+> event=push の run を見ること。
