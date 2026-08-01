@@ -54,11 +54,21 @@ sh scripts/check-tag-main-parity.sh <tag>
 # → OK: tag '<tag>' (origin 実体) = origin/main (<sha>)  なら次へ
 # → MISMATCH / FAIL なら下記フローで貼り替え
 
-# 3. GitHub Release 作成後: release 起点の自動 workflow の run 結果確認
+# 3. GitHub Release 発行 (Human-owned。2 が OK になるまで実行しない)
+#    note は AI が用意した確定 release note（例: docs/working/_reports/<version>-release-note-draft.md）
+gh release create <tag> --title "<tag> — <リリース見出し>" --notes-file <確定 release note>
+# → 発行と同時に release published 起点の workflow（release-docs-sync）が発火する
+
+# 4. リリース後: release 起点の自動 workflow の run 結果確認
 #    （失敗しても通知されない。詳細・リカバリは「リリース後の workflow run 結果確認（#950）」節）
 gh run list --workflow=release-docs-sync.yml --event=release --limit 1
 # → conclusion が success なら完了。failure なら同節のリカバリ手順へ
 ```
+
+`gh release create` の実行は
+[`.claude/rules/responsibility-classes.md`](../.claude/rules/responsibility-classes.md)
+「対外公開アーティファクト publish 責務分界」により **Human-owned**（AI は release note
+整備とコマンド提示まで）。
 
 ## 失敗時のフロー (MISMATCH 検出時)
 
