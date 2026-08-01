@@ -9,14 +9,41 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 
 ## Read First
 
+### 参照解決順（導入先で必ずこの順に探す）
+
+本 skill の参照は上流リポジトリ基準の相対パスで書かれている。plugin（marketplace）
+経由で導入した環境では `.claude/rules/` に実体が無いため、**次の順で探索する**:
+
+1. 導入先リポジトリの相対パス（例: `.claude/rules/mode-classification.md`）
+2. 無ければ plugin root 配下（例: `${CLAUDE_PLUGIN_ROOT}/rules/mode-classification.md`）
+3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない
+
+導入経路ごとの実態（配布対象は `agents` / `skills` / `commands` / `rules` の
+4 ディレクトリのみ）:
+
+| 参照 | `install.sh` 経由 | plugin（marketplace）経由 |
+|------|------------------|--------------------------|
+| `rules/*.md` | `.claude/rules/` に着地（解決可） | `${CLAUDE_PLUGIN_ROOT}/rules/` で解決 |
+| `docs/**` | 配布対象外（解決不可） | 配布対象外（解決不可） |
+| `bin/` / `scripts/` | 配布対象外（解決不可） | 配布対象外（解決不可） |
+
+`docs/**` が解決できない環境では、その正本の内容を **rules と本 skill の記述で代替**
+し、plan.md の Questions / Unknowns に「正本 `<path>` を参照できなかった」旨を記録する。
+
+### 読む順序
+
 1. `CLAUDE.md`
 2. `AGENTS.md`
-3. `.claude/rules/working-context.md`（B フェーズ 3 ファイル同時生成・段階別出力・ゲート条件の正本）
-4. `.claude/rules/mode-classification.md`（5 段階 mode + `lite_eligible` 派生属性の正本）
-5. `.claude/rules/hybrid-architecture.md`（Rule 1〜5 / handoff 必須化）
-6. `docs/ai-driven-development.md`
+3. `.claude/rules/working-context.md` → fallback `${CLAUDE_PLUGIN_ROOT}/rules/working-context.md`
+   （B フェーズ 3 ファイル同時生成・段階別出力・ゲート条件の正本）
+4. `.claude/rules/mode-classification.md` → fallback `${CLAUDE_PLUGIN_ROOT}/rules/mode-classification.md`
+   （5 段階 mode + `lite_eligible` 派生属性の正本）
+5. `.claude/rules/hybrid-architecture.md` → fallback `${CLAUDE_PLUGIN_ROOT}/rules/hybrid-architecture.md`
+   （Rule 1〜5 / handoff 必須化）
+6. `docs/ai-driven-development.md`（**配布対象外**。上流リポジトリで作業する場合のみ解決する）
    - 最低限: `## ワークフロー全体像`、`### タスク規模によるモード分岐（5 モード）`、`## ゲート条件`、`### Prompt 1: Plan + ToDo + Test Cases生成`
-7. `docs/working/TASK-XXXX/pbi-input.md`
+   - 解決できない場合は 3〜5 の rules を優先正本とし、本 skill の「Rules」節で代替する
+7. `docs/working/TASK-XXXX/pbi-input.md`（導入先で作成する入力。無ければ plan を開始しない）
 
 ## Output
 
@@ -36,6 +63,7 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 ### 事前メトリクス検証 (B-1 → B-2 mandatory gate / #351 TASK-0117)
 
 > 正本: [`docs/ai/plan-metrics-verification.md`](../../../docs/ai/plan-metrics-verification.md)
+> （`docs/**` は配布対象外。解決できない環境では以下の要約に従い、正本未参照である旨を plan に記録する）
 
 「全部 / 全件 / 残り N 件」系の対象は **実数を取得** してから B-2 へ進む。
 
@@ -95,6 +123,22 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
 
 - 実コマンド: `./scripts/ai-dev-workflow TASK-XXXX plan`
 - 機械検証: `bin/plangate validate TASK-XXXX`（plan_hash 整合）
+
+### CLI 不在時のフォールバック（導入先では既定）
+
+`scripts/ai-dev-workflow` と `bin/plangate` は **`install.sh` 経由・plugin 経由の
+どちらでも導入先に配置されない**（配布対象は `agents` / `skills` / `commands` /
+`rules` の 4 ディレクトリのみ）。上記コマンドが存在しない場合は次に従う:
+
+1. **手動生成に切り替える** — 「Output」の 5 ファイルを skill の手順どおり手で作る。
+   B-1 →（事前メトリクス検証）→ B-2 → B-3 の順序と出力契約は **CLI の有無に関わらず不変**
+2. **`plan_hash` 整合検証はスキップする** — スキップした事実を `decision-log.jsonl` と
+   plan.md に記録し、**「機械検証済み」と書かない**（未検証を検証済みと誤記しない）
+3. **ゲートは人手で維持する** — plan_hash を照合する hook も導入先には配線されないため、
+   C-3 は人間の明示承認記録（`approvals/c3.json` 相当）で成立させる。CLI が無いことを
+   理由に C-3 を省略しない
+4. CLI による機械検証が必要なら、上流リポジトリ（`s977043/plangate`）を clone して
+   そこから実行する
 
 ## 次フェーズへ
 
