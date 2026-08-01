@@ -47,8 +47,8 @@ PLANGATE_VERSION=v8.7.0   # 固定したいタグ
 rm -rf .plangate-plugin && mkdir -p .plangate-plugin
 curl -fsSL "https://github.com/s977043/plangate/archive/refs/tags/${PLANGATE_VERSION}.tar.gz" \
   | tar -xz --strip-components=3 -C .plangate-plugin \
-    "plangate-${PLANGATE_VERSION#v}/plugin/plangate"
-echo "$PLANGATE_VERSION" > .plangate-plugin/.plangate-version
+    "plangate-${PLANGATE_VERSION#v}/plugin/plangate" \
+  && echo "$PLANGATE_VERSION" > .plangate-plugin/.plangate-version
 ```
 
 > **安全性**: 取得は必ず **固定タグ**（`refs/tags/<ver>`、可変ブランチ
@@ -62,7 +62,14 @@ echo "$PLANGATE_VERSION" > .plangate-plugin/.plangate-version
   glob に依存しないため shell 非依存になり、zsh の `nomatch`（対象が空だと
   `no matches found` でコマンド自体が実行されない）と、`*` が dotfile
   （`.claude-plugin/` / `.plangate-version`）に一致しない問題の両方を避けられる。
-  取得に失敗した場合は展開先が空のままになるので §2.1 を再実行する。
+- `.plangate-version` の記録は `&&` で展開の成功に従属させる（無条件に実行しない）。
+  取得に失敗した場合は `.plangate-plugin/` が空・`.plangate-version` が不在の
+  ままになるため、§2.3 の突合で失敗を検知できる。無条件に書くと「plugin 本体が
+  無いのに新タグだけが記録された」状態になり、`.plangate-version` を真とする
+  §2.3 の検証を通過してしまう。失敗時は原因を解消して §2.1 を再実行する。
+- `.plangate-plugin/` は取得のたびにディレクトリごと作り直される。消費側の
+  ファイルをこの配下に置かないこと（追加・上書きは §3.1 のとおり `.claude/`
+  側で行う）。
 - アーカイブ内パスは `plangate-<ver>/plugin/plangate/<kind>/...`。
   `--strip-components=3` で `plangate-<ver>` / `plugin` / `plangate` の
   3 段を除去し、`.plangate-plugin/<kind>/...`（§3/§4 の前提パス）に展開する。
