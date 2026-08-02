@@ -89,17 +89,29 @@ if [ "${PLANGATE_BYPASS_HOOK:-0}" = "1" ]; then
 fi
 
 # 対象コマンド解決: stdin JSON を正本、env は CLI テスト fallback
+#
+# **`head -1` を使ってはならない**。Bash tool の command は複数行になりうる
+# （実害の原文がまさに改行 2 行だった）。jq -r は JSON の \n を実改行へ展開
+# して出力するため、head -1 を挟むと 2 行目以降＝破壊的操作そのものが捨てられ
+# allow に化ける（2026-08-02 のレビューで検出）。
 cmd=""
 if [ ! -t 0 ]; then
   _stdin=$(cat 2>/dev/null || true)
   if [ -n "$_stdin" ]; then
     if command -v jq >/dev/null 2>&1; then
-      cmd=$(printf '%s' "$_stdin" | jq -r '.tool_input.command // .command // empty' 2>/dev/null | head -1)
+      # 複数行をそのまま受け取る（$() が末尾改行だけを落とす）
+      cmd=$(printf '%s' "$_stdin" | jq -r '.tool_input.command // .command // empty' 2>/dev/null)
     fi
     if [ -z "$cmd" ]; then
+      # jq 非搭載時の fallback。JSON 文字列内で改行は必ず `\n`（2 文字）へ
+      # エスケープされる＝値は 1 物理行に収まるため、ここでの head -1 は
+      # 「最初の "command" マッチを選ぶ」意味であって値の切り詰めではない。
+      # `([^"\\]|\\.)*` でエスケープ済み `\"` を跨いで値全体を取る。
+      # 取り出した値は `\n` を literal のまま含むので、後段の正規化で潰す。
       cmd=$(printf '%s' "$_stdin" \
-        | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' \
-        | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+        | grep -oE '"command"[[:space:]]*:[[:space:]]*"([^"\\]|\\.)*"' \
+        | head -1 \
+        | sed -e 's/^"command"[[:space:]]*:[[:space:]]*"//' -e 's/"$//')
     fi
   fi
 fi
@@ -112,12 +124,21 @@ if [ -z "$cmd" ]; then
   exit 0
 fi
 
-# 正規化: tab / クォート除去（EH-9 と同じ緩い吸収）
-norm=$(printf '%s' "$cmd" | tr '\t' ' ' | sed "s/'//g; s/\"//g")
+# --- 正規化: 複数行コマンドを 1 論理行へ平坦化する ---
+# 全ての空白類（実改行 / CR / tab）を空白 1 文字へ落とし、さらに jq 非搭載
+# 経路で残る **literal な `\n` / `\r` / `\t`（バックスラッシュ + 文字）** も
+# 空白へ落とす。これで「; 区切りは検出できるが改行区切りは素通り」という
+# 非対称が消え、以降の空白アンカー（`" reset "` 等）が行をまたいで効く。
+# 併せてクォートを除去（EH-9 と同じ緩い吸収）。
+# 副次的に `\` 行継続・行頭インデント・`$'\n'` 形式も同じ経路で吸収される。
+norm=$(printf '%s' "$cmd" \
+  | tr '\n\r\t' '   ' \
+  | sed -e 's/\\n/ /g' -e 's/\\r/ /g' -e 's/\\t/ /g' \
+        -e "s/'//g; s/\"//g")
 
 # --- 破壊的操作の検出（決定論。git サブコマンド + フラグの同時成立を要求）---
 # 誤検出を避けるため「git トークンが存在」かつ「reset+--hard」または
-# 「push+force 系フラグ」の**両方**が揃ったときだけ destructive と見なす。
+# 「push+force 系」の**両方**が揃ったときだけ destructive と見なす。
 destructive=""
 case " $norm " in
   *" git "*|*"/git "*)
@@ -135,6 +156,8 @@ case " $norm " in
           case "$after" in
             # --force / --force-with-lease / --force-if-includes / -f
             *" --force"*|*" -f "*) destructive="git-push-force" ;;
+            # refspec 先頭 `+` による強制更新（例: git push origin +HEAD:main）
+            *" +"*) destructive="git-push-force-refspec" ;;
           esac
           ;;
       esac

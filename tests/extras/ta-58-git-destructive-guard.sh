@@ -13,6 +13,22 @@
 # current branch は commit を作らず `git symbolic-ref HEAD refs/heads/<name>` で
 # 制御する。
 #
+# ⚠️ 実害コマンドの原文（TC-06）— **改行 2 行** である。`;` に書き換えないこと:
+#
+#     git checkout -q b 2>/dev/null || git checkout -q -b b origin/b
+#     git reset --hard -q origin/b
+#
+# 初版は TC-06 を `;` 区切りで書いてしまい、**回帰テストとして成立していな
+# かった**（`;` は 1 行なので当時のバグを踏まない）。実際 hook 側は
+# `jq -r ... | head -1` で 2 行目を捨てており、**実害そのものの形が allow に
+# なっていた**のをレビューで検出した。改行形（TC-06）と `;` 形（TC-06b）は
+# 別ケースとして両方を必ず残す。
+#
+# JSON の組み立て: `_t58_judge` に渡す文字列中の `\n` は **JSON エスケープ**
+# としてそのまま出力される（printf の %s は引数中のバックスラッシュを解釈
+# しない）。jq 経路ではこれが実改行へ展開され、grep fallback 経路では literal
+# のまま渡る — 両経路とも実運用と同じ入力になる。
+#
 # 隔離・後片付け（tests/extras/README.md §隔離・後始末の規約）:
 #   trap は張らない（source 連鎖で上書きされ発火が保証されないため）。
 #   `register_cleanup` 登録 + 末尾の明示 rm -rf の二重で sandbox を回収する。
@@ -51,16 +67,47 @@ else
 
   _t58_branch() { git -C "$_T58_TMP" symbolic-ref HEAD "refs/heads/$1" >/dev/null 2>&1; }
 
+  # jq 非搭載環境（grep fallback 経路）を再現するための PATH サンドボックス。
+  # hook が使う実行ファイルだけを symlink し、**jq だけを含めない**。
+  # env は継承する（env -i にすると git が動かない環境がある）。
+  _T58_NOJQ="$_T58_TMP/nojq-bin"
+  mkdir -p "$_T58_NOJQ"
+  # `sh` 自身も PATH 解決される（`PATH=... sh "$hook"`）ので必ず含める。
+  for _t58_c in sh env cat grep sed head tr awk date mkdir dirname git sha256sum shasum; do
+    _t58_p=$(command -v "$_t58_c" 2>/dev/null) || continue
+    ln -sf "$_t58_p" "$_T58_NOJQ/$_t58_c" 2>/dev/null || true
+  done
+  # サンドボックス PATH で「jq が消え」「sh が引ける」「git が branch を返す」
+  # の 3 点を事前確認する。満たせない環境では jq-less レーンを黙って PASS
+  # させず SKIP する（false PASS 防止 / README §6 依存ゲート）。
+  _T58_NOJQ_OK=0
+  if ! PATH="$_T58_NOJQ" command -v jq >/dev/null 2>&1 &&
+     PATH="$_T58_NOJQ" command -v sh >/dev/null 2>&1 &&
+     [ -n "$(cd "$_T58_TMP" && PATH="$_T58_NOJQ" git symbolic-ref --quiet --short HEAD 2>/dev/null || true)" ]; then
+    _T58_NOJQ_OK=1
+  fi
+
   # 与えたコマンドを PreToolUse stdin JSON で hook に渡し、判定を返す。
+  # $1 = command（`\n` は JSON エスケープとしてそのまま渡る）
+  # $2 = "nojq" のとき jq 非搭載 PATH で実行（grep fallback 経路）
   # 出力: "block" / "allow" / "rc=<n>"（異常終了）
   _t58_judge() {
     _t58_cmd=$1
+    _t58_mode=${2:-}
     _t58_rc=0
-    _t58_out=$(
-      cd "$_T58_TMP" 2>/dev/null &&
-      printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$_t58_cmd" \
-        | sh "$_T58_HOOK" 2>/dev/null
-    ) || _t58_rc=$?
+    if [ "$_t58_mode" = "nojq" ]; then
+      _t58_out=$(
+        cd "$_T58_TMP" 2>/dev/null &&
+        printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$_t58_cmd" \
+          | PATH="$_T58_NOJQ" sh "$_T58_HOOK" 2>/dev/null
+      ) || _t58_rc=$?
+    else
+      _t58_out=$(
+        cd "$_T58_TMP" 2>/dev/null &&
+        printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$_t58_cmd" \
+          | sh "$_T58_HOOK" 2>/dev/null
+      ) || _t58_rc=$?
+    fi
     if [ "$_t58_rc" -ne 0 ]; then
       printf 'rc=%s' "$_t58_rc"
       return 0
@@ -125,10 +172,45 @@ else
   _t58_expect "TC-05d: feat/x + git push --force-with-lease" "allow" \
     "$(_t58_judge 'git push --force-with-lease origin feat/x')"
 
-  # --- TC-06: 2026-08-02 実害コマンド列の回帰（|| 連結で main に落ちた形）---
+  # --- TC-06: 2026-08-02 実害コマンド列の回帰 ---
+  # ⚠️ **原文は改行 2 行**。`;` に書き換えると当時のバグ（head -1 で 2 行目を
+  # 捨てる）を踏まなくなり回帰テストとして無効になる。`;` 版は TC-06b。
   _t58_branch main
-  _t58_expect "TC-06: main + checkout||checkout -b && reset --hard（実害形）" "block" \
+  _T58_INCIDENT='git checkout -q b 2>/dev/null || git checkout -q -b b origin/b\ngit reset --hard -q origin/b'
+  _t58_expect "TC-06: main + 実害原文（改行 2 行）" "block" \
+    "$(_t58_judge "$_T58_INCIDENT")"
+  _t58_expect "TC-06b: main + 実害形の ; 区切り版" "block" \
     "$(_t58_judge 'git checkout -q b 2>/dev/null || git checkout -q -b b origin/b; git reset --hard -q origin/b')"
+  _t58_expect "TC-06c: main + && 区切り" "block" \
+    "$(_t58_judge 'git status && git reset --hard origin/b')"
+  _t58_branch feat/x
+  _t58_expect "TC-06d: feat/x + 実害原文（改行）" "allow" \
+    "$(_t58_judge "$_T58_INCIDENT")"
+  _t58_branch main
+
+  # --- TC-06e〜j: 改行まわりの取りこぼし形（正規化で平坦化される）---
+  _t58_expect "TC-06e: main + 行頭インデント + 改行" "block" \
+    "$(_t58_judge 'echo hi\n\t  git reset --hard origin/b')"
+  _t58_expect "TC-06f: main + バックスラッシュ行継続" "block" \
+    "$(_t58_judge 'git push --force-with-lease \\\n  origin main')"
+  _t58_expect "TC-06g: main + コメント行を挟む" "block" \
+    "$(_t58_judge '# cleanup\n# forced\ngit reset --hard origin/b')"
+  _t58_expect "TC-06h: main + heredoc 本文" "block" \
+    "$(_t58_judge 'sh <<EOF\ngit reset --hard origin/b\nEOF')"
+  _t58_expect "TC-06i: main + CRLF 改行" "block" \
+    "$(_t58_judge 'git checkout b\r\ngit reset --hard origin/b')"
+  _t58_expect "TC-06j: main + tab 区切り" "block" \
+    "$(_t58_judge 'git\treset\t--hard')"
+
+  # --- TC-06k: refspec 先頭 + による強制 push ---
+  _t58_expect "TC-06k: main + git push origin +HEAD:main" "block" \
+    "$(_t58_judge 'git push origin +HEAD:main')"
+
+  # --- TC-06l/m: 改行を挟んだ無害系は allow のまま（誤検出ゼロ）---
+  _t58_expect "TC-06l: main + 改行区切りの無害コマンド" "allow" \
+    "$(_t58_judge 'git status\ngit log --oneline -5')"
+  _t58_expect "TC-06m: main + 改行 + force なし push" "allow" \
+    "$(_t58_judge 'git add -A\ngit push origin main')"
 
   # --- TC-07: 回避形（env 前置 / git -C / sh -c）も main では block ---
   _t58_expect "TC-07a: main + GIT_DIR=x git reset --hard" "block" \
@@ -237,6 +319,29 @@ else
     t58_fail "TC-13b: settings が scripts/hooks/ を参照している（単一ソース違反）"
   else
     t58_pass "TC-13b: settings の配線先が scripts/check-git-destructive.sh"
+  fi
+
+  # --- TC-15: jq 非搭載経路（grep fallback）でも同じ判定になること ---
+  # hook は jq があれば jq、無ければ grep で command を取り出す。**両経路を
+  # 流さないと片方だけ壊れていても気付けない**（改行バグは jq 経路特有だった）。
+  if [ "$_T58_NOJQ_OK" != "1" ]; then
+    printf '  [SKIP] TC-15: jq-less PATH サンドボックスを構成できない環境\n'
+  else
+    _t58_branch main
+    _t58_expect "TC-15a: [no-jq] main + 実害原文（改行 2 行）" "block" \
+      "$(_t58_judge "$_T58_INCIDENT" nojq)"
+    _t58_expect "TC-15b: [no-jq] main + 単一行 reset --hard" "block" \
+      "$(_t58_judge 'git reset --hard origin/main' nojq)"
+    _t58_expect "TC-15c: [no-jq] main + エスケープ済み \" を含む改行" "block" \
+      "$(_t58_judge 'git commit -m \"a \\\"q\\\" b\"\ngit reset --hard origin/b' nojq)"
+    _t58_expect "TC-15d: [no-jq] main + push +refspec" "block" \
+      "$(_t58_judge 'git push origin +HEAD:main' nojq)"
+    _t58_expect "TC-15e: [no-jq] main + 改行区切りの無害コマンド" "allow" \
+      "$(_t58_judge 'git status\ngit log --oneline -5' nojq)"
+    _t58_branch feat/x
+    _t58_expect "TC-15f: [no-jq] feat/x + 実害原文（改行）" "allow" \
+      "$(_t58_judge "$_T58_INCIDENT" nojq)"
+    _t58_branch main
   fi
 
   # --- 明示 cleanup（register_cleanup と二重）---

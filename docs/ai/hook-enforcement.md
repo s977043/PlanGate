@@ -163,6 +163,13 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
   2 ファイルだけになる
 - **配線**: PreToolUse `matcher: "Bash"`（apply 後）。信頼境界は EH-9 と同じく
   **stdin JSON `tool_input.command` が正本**、env `PLANGATE_HOOK_CMD` は CLI テスト専用
+- **複数行コマンドの扱い（重要）**: Bash tool の command は複数行になりうる。
+  抽出時に **`head -1` を挟んではならない**（`jq -r` は JSON の `\n` を実改行へ
+  展開するため、2 行目以降＝破壊的操作そのものが捨てられ allow に化ける）。
+  実改行 / CR / tab に加え、jq 非搭載時の grep fallback で残る **literal な
+  `\n`** も空白へ平坦化してから検査する。これにより `;` `&&` 改行 `\` 行継続
+  ・行頭インデント・コメント行・heredoc 本文・CRLF が同一に扱われる。
+  **jq あり / なしの両経路を必ずテストすること**（改行バグは jq 経路特有だった）
 - **監査**: `docs/working/_audit/hook-events.log` に `class` + `sha256 hash` のみ記録
   （command 全文は記録しない。EH-9 と同方式）
 - **基盤 / 出自**: 2026-08-02 の実害。
@@ -177,8 +184,13 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 - **既存ガードとの関係**: pre-push hook（TASK-0114 / #360）は main への直接
   **push** を block するが、**ローカルで完結する `reset --hard` は捕捉できない**。
   EH-12 はその隙間を埋める（Defense in Depth の技術層を 1 段追加）
+- **検出対象**: `git reset --hard` / `git push --force|--force-with-lease|
+  --force-if-includes|-f` / `git push <remote> +<refspec>`（先頭 `+` の強制更新）
 - **既知制約**: ユーザー定義 git alias は解決不能。`git -C <other-repo>` は
-  cwd の branch で判定する（安全側＝過剰 block に倒れる）
+  cwd の branch で判定する（安全側＝過剰 block に倒れる）。最初の `git ` 以降を
+  一括で見るため `git status; echo "reset --hard"` のような文字列も
+  **main 上でのみ**過剰 block しうる（安全側・EH-9 と同じ緩さ）。
+  worktree を壊す `git checkout -f` / `git clean -fd` は本 hook の対象外
 - **テスト**: [`tests/extras/ta-58-git-destructive-guard.sh`](../../tests/extras/ta-58-git-destructive-guard.sh)
   （サンドボックス複製 + `git symbolic-ref` で branch を制御し、実 `docs/working/_audit` を汚染しない）
 
