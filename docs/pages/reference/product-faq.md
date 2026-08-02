@@ -2,6 +2,7 @@
 
 > **Status**: Stable
 > **Review cadence**: Monthly
+> **Owner**: Product / Maintainer
 
 ## 基本理解
 
@@ -20,6 +21,14 @@ No approved plan, no code.
 ```
 
 AI がコードを書く前に、計画と受入条件を通す仕組みである。
+
+### Q. Phase 0 では plan や C-3 をスキップできます。No approved plan, no code と矛盾しませんか？
+
+矛盾しない。Phase 0 ultra-light は、PlanGate を初日に体験するための導入モードである。
+
+標準の guarded flow では、AI が実装に入る前に plan / todo / test-cases と C-3 承認を通す。
+
+Phase 0 は低リスク・学習目的の例外であり、チーム運用では Phase 1 以降で承認境界を段階的に強める。
 
 ### Q. 誰向けですか？
 
@@ -89,7 +98,9 @@ CI/CD は主に実装後の検証を扱う。
 
 PlanGate は実装前に、何を作るか、どう作るか、何を満たせば Done かを固定する。
 
-つまり PlanGate は、post-check だけでなく pre-implementation governance を扱う。
+また ai-loop を使う場合は、PR 作成後の CI / review repair を `MERGE_READY` まで収束させる。CI の結果を見るだけではなく、失敗・レビュー指摘・修正反復を delivery state として扱う点が違う。
+
+つまり PlanGate は、post-check だけでなく pre-implementation governance と post-PR delivery convergence を扱う。
 
 ### Q. ただのプロンプト集ですか？
 
@@ -106,6 +117,7 @@ PlanGate は prompt だけでなく、以下を含む。
 - Prompt Assembly
 - Workflow DSL
 - Handoff
+- Delivery State Machine
 
 PlanGate はプロンプトではなく、AI エージェントをチーム開発に組み込むための workflow harness である。
 
@@ -120,6 +132,20 @@ AI が作った plan、todo、test-cases を人間が確認し、承認する。
 C-4 は実装後のレビュー承認である。
 
 実装、検証結果、handoff を確認し、PR / merge に進めるか判断する。
+
+### Q. ai-loop の C-3' は人間承認をなくすものですか？
+
+完全になくすものではない。
+
+C-3' は eligible run に限って AI 裁定で進める経路である。HO 接触（Hardening Override = AI 改変不可ファイル群への接触）、policy 変更、判定不能、重大な不一致がある場合は Human に escalate する。
+
+また、C-4 / merge は Human-owned のままで、AI は merge しない。
+
+### Q. MERGE_READY とは何ですか？
+
+`MERGE_READY` は、ai-loop Delivery が PR 作成後の CI / review repair を完了したと判断する状態である。
+
+AI の責務は `MERGE_READY` までであり、`MERGED` へ進める最終判断と merge は人間が行う。
 
 ### Q. 低リスクな修正でも重くなりませんか？
 
@@ -139,6 +165,7 @@ PlanGate は mode によって軽量化する。
 - C-4 approve / request changes
 - V-1 first pass rate
 - fix loop count
+- MERGE_READY convergence rate（指標として定義済み。`bin/plangate metrics` による自動計測は未実装）
 - hook violation rate
 - Code Keep Rate
 - Plan Keep Rate
@@ -160,6 +187,8 @@ PlanGate では code だけでなく、plan、test-cases、handoff も対象に�
 | 誰向け？ | AI coding agents を使うプロダクトチーム |
 | 何が違う？ | 承認境界、監査可能性、Scrum-friendly delivery を重視する |
 | 競合は？ | Cursor / Claude Code / Codex の代替ではなく補完 |
+| Phase 0 は例外？ | 低リスク・学習目的の導入モードでは plan / C-3 を省略できる |
+| ai-loop は何をする？ | PR 作成後の CI / review repair を `MERGE_READY` まで収束させる |
 | 一番の価値は？ | PM / PO が守るべき価値、スコープ、Done を AI 開発でも守ること |
 
 ## 導入に関する質問

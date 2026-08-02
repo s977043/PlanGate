@@ -9,7 +9,8 @@ PlanGate ドキュメントで頻出する略号の一覧。初見の方はこ�
 | **C-1** | セルフレビュー | 17 項目チェック (Plan 7 + ToDo 5 + TestCases 3 + 結合 2)。AI 自身が plan/todo/test-cases を構造的に検証。 |
 | **C-2** | 外部 AI レビュー | gemini / codex 等の外部モデルが指摘 R-NNN を付与。`bin/plangate review --phase c2` |
 | **C-3** | 人間承認ゲート（plan） | C-1/C-2 を踏まえ人間が APPROVED / CONDITIONAL / REJECT 三値で判定。`approvals/c3.json` 発行。 |
-| **C-4** | 人間承認ゲート（PR） | GitHub 上で PR レビュー。APPROVE / REQUEST CHANGES / REJECT 三値。 |
+| **C-3'** | AI 裁定ゲート（plan） | ai-loop の eligible run に限り C-3 を置き換える AI 裁定経路。HO 接触 / policy 変更 / 判定不能 / 重大な不一致は Human に escalate する。C-3 を撤廃するものではない。 |
+| **C-4** | 人間承認ゲート（PR） | GitHub 上で PR レビュー。APPROVE / REQUEST CHANGES / REJECT 三値。**Human-owned 固定**（AI は merge しない）。 |
 
 ## 検証フェーズ (V-X)
 
@@ -66,6 +67,13 @@ PlanGate の PreToolUse hook 群 (`scripts/hooks/check-*.sh` + `.claude/settings
 |------|------|
 | `lite_eligible` | C-3 を非同期降格してよいかの真偽属性。`C-1 PASS` & `C-2 critical/major=0` & light/standard 相当でのみ true 候補。critical mode は原則 false (AC-11)。判定不能は安全側 false (AC-8)。 |
 | **Hardening Override** | AI 改変不可ファイル群 (`.claude/settings*.json` / `.claude/rules/*.md` / `.claude/agents/*.md` / `.claude/commands/*.md` / `scripts/hooks/*.sh` / `bin/plangate` / `AGENTS.md` / `CLAUDE.md` 等)。Human-owned 適用のみ。 |
+
+## ai-loop / Delivery
+
+| 略号 | 名称 | 説明 |
+|------|------|------|
+| **ai-loop** | ai-loop-workflow | PlanGate Core の artifact / gate / validation / evidence / stop rule を共通利用しつつ、C-3' 裁定と PR 作成後の CI / review repair 収束を扱うワークフロー。適用範囲は rollout policy で段階的に制限される。 |
+| **MERGE_READY** | delivery terminal state | ai-loop Delivery が PR 作成後の CI / review repair を完了したと判定する状態。**AI の責務終点**であり `MERGED` ではない。merge は Human-owned。 |
 
 ## 指摘 ID
 
