@@ -1,20 +1,25 @@
 #!/bin/sh
 # apply-eh-git-destructive-guard.sh — Hook EH-12（protected branch 上の破壊的
-# git 操作 block）の適用スクリプト。
+# git 操作 block）の配線スクリプト。
 #
 # 適用内容:
-#   (a) scripts/check-git-destructive.sh（非 HO の staged source）を
-#       scripts/hooks/check-git-destructive.sh へ設置 + 実行権付与
-#   (b) .claude/settings.example.json（および存在すれば .claude/settings.json）の
-#       hooks.PreToolUse へ matcher="Bash" のエントリを追加
+#   .claude/settings.example.json（および存在すれば .claude/settings.json）の
+#   hooks.PreToolUse へ matcher="Bash" のエントリを追加し、
+#   scripts/check-git-destructive.sh を直接参照させる。
 #
-# scripts/hooks/ と .claude/settings*.json は Hardening Override (HO) 対象
-# （self-mod guard）。**AI は --dry-run 以外で実行してはならない**
-# （docs/ai/ho-change-workflow.md 禁止事項。実害例: apply-ho-followups.sh を
-# AI が誤実行し ci.yml を破損）。--apply 実行は Human-owned、または計画段階で
-# 明示的に y 承認された AI 実行に限る（.claude/rules/responsibility-classes.md）。
+# **hook 本体はコピーしない（単一ソース）**。本体は scripts/ ルート（HO 外）
+# に置いたまま settings から参照する。`scripts/hooks/` は tracked のため、
+# そこへ cp すると同一内容の tracked ファイルが 2 つ並び、両者の drift を
+# 検出する CI も存在しない（#956 の commit 済み drift と同一構造）。
+# 同方式の先例: scripts/check-approval-token-write.sh / scripts/gh-pin-account.sh。
 #
-# 冪等: 設置済み / 配線済みなら各ステップを skip して明示する。
+# .claude/settings*.json は Hardening Override (HO) 対象（self-mod guard）。
+# **AI は --dry-run 以外で実行してはならない**（docs/ai/ho-change-workflow.md
+# 禁止事項。実害例: apply-ho-followups.sh を AI が誤実行し ci.yml を破損）。
+# --apply 実行は Human-owned、または計画段階で明示的に y 承認された AI 実行に
+# 限る（.claude/rules/responsibility-classes.md）。
+#
+# 冪等: 配線済みなら skip して明示する。
 #
 # Usage:
 #   sh scripts/apply-eh-git-destructive-guard.sh --dry-run   # diff プレビュー（書き込みなし）
@@ -22,7 +27,7 @@
 # （引数は必須。無引数 / 不正引数 / 複数引数は exit 1）
 #
 # --apply 後の検証:
-#   git diff scripts/hooks/check-git-destructive.sh .claude/settings.example.json
+#   git diff .claude/settings.example.json .claude/settings.json
 #   sh tests/extras/ta-58-git-destructive-guard.sh
 #   bin/plangate doctor
 #
@@ -51,12 +56,11 @@ esac
 
 command -v python3 >/dev/null 2>&1 || { printf 'ERROR: python3 required\n' >&2; exit 1; }
 
-SRC="$REPO_ROOT/scripts/check-git-destructive.sh"
-DST="$REPO_ROOT/scripts/hooks/check-git-destructive.sh"
+HOOK_REL="scripts/check-git-destructive.sh"
 
-# --- アンカー検証 (1): staged source の存在 ---
-if [ ! -f "$SRC" ]; then
-  printf 'ERROR: staged source not found: %s\n' "$SRC" >&2
+# --- アンカー検証 (1): 参照先 hook 本体の存在（配線先が実在すること）---
+if [ ! -f "$REPO_ROOT/$HOOK_REL" ]; then
+  printf 'ERROR: hook not found: %s\n' "$HOOK_REL" >&2
   exit 1
 fi
 
@@ -78,29 +82,12 @@ fi
 
 if [ "$MODE" = "apply" ]; then
   printf 'WARNING: this script writes to Hardening Override (HO) target files\n' >&2
-  printf '         (scripts/hooks/ + .claude/settings*.json). AI must not run\n' >&2
-  printf '         this with --apply (docs/ai/ho-change-workflow.md). Confirm\n' >&2
-  printf '         this execution is by a Human (or session-explicit approved AI run).\n' >&2
+  printf '         (.claude/settings*.json). AI must not run this with --apply\n' >&2
+  printf '         (docs/ai/ho-change-workflow.md). Confirm this execution is by\n' >&2
+  printf '         a Human (or session-explicit approved AI run).\n' >&2
 fi
 
-# --- (a) hook 本体を scripts/hooks/ へ設置 ---
-if [ -f "$DST" ] && cmp -s "$SRC" "$DST"; then
-  printf '  [skip] scripts/hooks/check-git-destructive.sh (already up to date)\n'
-elif [ "$MODE" = "dry-run" ]; then
-  printf '  [dry-run] scripts/hooks/check-git-destructive.sh would be (re)installed from scripts/%s:\n' "$(basename "$SRC")"
-  if [ -f "$DST" ]; then
-    diff -u "$DST" "$SRC" | sed 's/^/    /' || true
-  else
-    printf '    (new file, %s lines)\n' "$(wc -l < "$SRC" | tr -d ' ')"
-  fi
-else
-  mkdir -p "$REPO_ROOT/scripts/hooks"
-  cp "$SRC" "$DST"
-  chmod +x "$DST"
-  printf '  [applied] scripts/hooks/check-git-destructive.sh installed\n'
-fi
-
-# --- (b) PreToolUse (matcher: Bash) へ配線 ---
+# --- PreToolUse (matcher: Bash) へ配線（hook 本体のコピーは行わない）---
 _DRY=0
 [ "$MODE" = "dry-run" ] && _DRY=1
 
@@ -113,7 +100,8 @@ import sys
 repo, dry, targets = sys.argv[1], sys.argv[2] == "1", sys.argv[3].split()
 
 HOOK_BASENAME = "check-git-destructive.sh"
-CMD = "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/" + HOOK_BASENAME
+# 単一ソース: scripts/hooks/ へは複製せず scripts/ 直下を直接参照する
+CMD = "sh ${CLAUDE_PROJECT_DIR}/scripts/" + HOOK_BASENAME
 COMMENT = (
     "Hook EH-12: protected branch (main/master) 上の破壊的 git 操作 block。"
     "current branch が main/master のときに限り git reset --hard / "
@@ -182,7 +170,7 @@ if [ "$MODE" = "dry-run" ]; then
   printf 'To apply (Human only): sh scripts/apply-eh-git-destructive-guard.sh --apply\n'
 else
   printf '=== apply complete. Verify: ===\n'
-  printf '  git diff scripts/hooks/check-git-destructive.sh .claude/settings.example.json\n'
+  printf '  git diff .claude/settings.example.json .claude/settings.json\n'
   printf '  sh tests/extras/ta-58-git-destructive-guard.sh\n'
   printf '  bin/plangate doctor\n'
 fi

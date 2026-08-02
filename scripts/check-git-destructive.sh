@@ -35,18 +35,23 @@
 #
 # 監査: docs/working/_audit/hook-events.log（command 全文は記録せず class+hash）
 #
+# 配置: scripts/ ルート（HO 外）。`.claude/settings*.json` からこのパスを
+# **直接**参照する（`scripts/hooks/` へ複製しない＝単一ソース）。同じ方式の
+# 先例: scripts/check-approval-token-write.sh / scripts/gh-pin-account.sh。
+# `scripts/hooks/` は tracked のため、そこへ cp すると同一内容の tracked
+# ファイルが 2 つ並び、drift を検出する CI も無い（#956 と同一構造）。
+#
 # 正本: docs/ai/hook-enforcement.md § EH-12
 
 set -eu
 
-# staged source（scripts/）と適用後（scripts/hooks/）の双方で REPO_ROOT を
-# 正しく解決する。サンドボックス複製（tests/extras）でも同様に効く。
+# 本 hook の正規配置は scripts/ ルートの 1 箇所のみ。REPO_ROOT はそこからの
+# 相対で一意に決まる（tests/extras のサンドボックス複製も <tmp>/scripts/ に
+# 置くため同じ解決で通る）。REPO_ROOT の用途は監査ログのパスだけで、
+# log_event は全経路 `|| true` ガード済み＝解決を誤っても allow/block の
+# 判定には一切影響しない（fail-open にならない）。
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-case "$SCRIPT_DIR" in
-  */scripts/hooks) REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd) ;;
-  */scripts)       REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd) ;;
-  *)               REPO_ROOT=$SCRIPT_DIR ;;
-esac
+REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 AUDIT_LOG="$REPO_ROOT/docs/working/_audit/hook-events.log"
 
 # protected branch 一覧（空白区切り）

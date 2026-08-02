@@ -8,8 +8,8 @@
 > 維持し、追加分の詳細はそれぞれの実装 PR / CHANGELOG / `bin/plangate doctor` 出力を参照。
 >
 > **EH-12（追加・配線は Human apply 待ち）**: protected branch 上の破壊的 git 操作
-> block（`check-git-destructive.sh`）。**staged source（非 HO）は実装・テスト済み**だが、
-> `scripts/hooks/` への設置と PreToolUse 配線は
+> block（`check-git-destructive.sh`）。**hook 本体（非 HO の `scripts/` 直下）は
+> 実装・テスト済み**だが、PreToolUse 配線は
 > `scripts/apply-eh-git-destructive-guard.sh --apply`（**Human-owned**）の実行後に
 > 有効化される。番号は **EH-10 / EH-11 が既に予約済み**（#760 PostToolUse 軽量品質
 > チェック / #762 Stop 軽量 verify の「候補」名として
@@ -150,9 +150,17 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
   `--force-if-includes` を含む）を実行しようとした
 - **対応**: **default=block**。protected 以外のブランチ・detached HEAD・非 git
   ディレクトリでは常に allow（誤検出ゼロ優先）。`PLANGATE_BYPASS_HOOK=1` で常時 pass
-- **スクリプト**: `scripts/hooks/check-git-destructive.sh`
-  （staged source は非 HO の [`scripts/check-git-destructive.sh`](../../scripts/check-git-destructive.sh)、
-  設置・配線は [`scripts/apply-eh-git-destructive-guard.sh`](../../scripts/apply-eh-git-destructive-guard.sh)）
+- **スクリプト**: [`scripts/check-git-destructive.sh`](../../scripts/check-git-destructive.sh)
+  （**`scripts/` ルート = HO 外**。配線は
+  [`scripts/apply-eh-git-destructive-guard.sh`](../../scripts/apply-eh-git-destructive-guard.sh)）
+- **単一ソース**: `scripts/hooks/` へ**複製しない**。`.claude/settings*.json` から
+  `scripts/check-git-destructive.sh` を直接参照する。`scripts/hooks/` は tracked
+  （17 ファイル）なので複製すると同一内容の tracked ファイルが 2 つ並び、両者の
+  drift を検出する CI も存在しない（#956 の commit 済み drift と同一構造）。
+  同方式の先例: [`scripts/check-approval-token-write.sh`](../../scripts/check-approval-token-write.sh)
+  / `scripts/gh-pin-account.sh`（いずれも `scripts/` 直下から settings が直参照）。
+  副次効果として apply が触る HO は `settings.json` / `settings.example.json` の
+  2 ファイルだけになる
 - **配線**: PreToolUse `matcher: "Bash"`（apply 後）。信頼境界は EH-9 と同じく
   **stdin JSON `tool_input.command` が正本**、env `PLANGATE_HOOK_CMD` は CLI テスト専用
 - **監査**: `docs/working/_audit/hook-events.log` に `class` + `sha256 hash` のみ記録
@@ -241,7 +249,7 @@ CLI プロセス計数のため CLI 維持）。
 | EHS-3（fix loop 上限超過）| CLI（V-1 fix loop 内で increment / check）| [`scripts/hooks/check-fix-loop.sh`](../../scripts/hooks/check-fix-loop.sh) | #157 / TASK-0048 |
 | **EH-9**（委譲 commit/push 境界検知）| PreToolUse hook（Bash 前）| [`scripts/hooks/check-delegation-commit-boundary.sh`](../../scripts/hooks/check-delegation-commit-boundary.sh) | #239 問題2 / TASK-0073 |
 | **auth-preflight**（exec 前 認証三点検証）| CLI（exec 前で呼び出し）| [`scripts/hooks/check-auth-preflight.sh`](../../scripts/hooks/check-auth-preflight.sh) | #239 問題3 / TASK-0073 |
-| **EH-12**（protected branch 上の破壊的 git 操作 block）| PreToolUse hook（Bash 前・**Human apply 後に有効**）| staged: [`scripts/check-git-destructive.sh`](../../scripts/check-git-destructive.sh) → [`scripts/apply-eh-git-destructive-guard.sh`](../../scripts/apply-eh-git-destructive-guard.sh) | 2026-08-02 main 上 `reset --hard` 実害 |
+| **EH-12**（protected branch 上の破壊的 git 操作 block）| PreToolUse hook（Bash 前・**Human apply 後に有効**）| [`scripts/check-git-destructive.sh`](../../scripts/check-git-destructive.sh)（HO 外・単一ソース）+ 配線 [`scripts/apply-eh-git-destructive-guard.sh`](../../scripts/apply-eh-git-destructive-guard.sh) | 2026-08-02 main 上 `reset --hard` 実害 |
 
 **残未実装**: なし（10/10 完了）。EH-7 の GitHub branch protection 自動連携は別 PBI 候補。
 

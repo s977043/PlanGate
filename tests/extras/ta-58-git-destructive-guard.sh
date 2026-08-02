@@ -2,15 +2,14 @@
 # Sourced by tests/run-tests.sh -- uses $pass / $fail counters
 # Hook EH-12: protected branch 上の破壊的 git 操作 block（2026-08-02 実害由来）
 #
-# 検証対象は **非 HO の staged source** `scripts/check-git-destructive.sh`。
-# `scripts/hooks/` 配下（HO）への設置は Human が
-# `scripts/apply-eh-git-destructive-guard.sh --apply` を実行して初めて起きるため、
-# 適用済みかどうかに関わらずロジックを検証できるよう staged source を回す。
-# 設置済みの場合は staged source との byte 一致（drift 検出）を追加で検証する。
+# 検証対象は hook 本体 `scripts/check-git-destructive.sh`（HO 外・単一ソース）。
+# `.claude/settings*.json` はこのパスを直接参照するため `scripts/hooks/` への
+# 複製は行わない。したがって本テストは Human の `--apply` 前後どちらでも同じ
+# 対象を検証する（複製が無い＝drift も存在しない）。
 #
-# サンドボックス: staged source を <tmp>/scripts/hooks/ へ複製し、<tmp> を
-# git init する。hook 自身の REPO_ROOT 解決（*/scripts/hooks → ../..）が <tmp>
-# を指すため、**実 docs/working/_audit を汚染しない**（ta-39 / ta-50 パターン）。
+# サンドボックス: hook を <tmp>/scripts/ へ複製し、<tmp> を git init する。
+# hook 自身の REPO_ROOT 解決（scripts/ → ..）が <tmp> を指すため、
+# **実 docs/working/_audit を汚染しない**（ta-39 / ta-50 パターン）。
 # current branch は commit を作らず `git symbolic-ref HEAD refs/heads/<name>` で
 # 制御する。
 #
@@ -32,7 +31,7 @@ t58_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t58_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
 if [ ! -f "$_T58_SRC" ]; then
-  t58_fail "staged source scripts/check-git-destructive.sh が存在しない"
+  t58_fail "hook 本体 scripts/check-git-destructive.sh が存在しない"
 elif ! command -v git >/dev/null 2>&1; then
   printf '  [SKIP] git 不在\n'
 else
@@ -43,10 +42,10 @@ else
     register_cleanup "$_T58_OUTSIDE"
   fi
 
-  mkdir -p "$_T58_TMP/scripts/hooks"
-  cp "$_T58_SRC" "$_T58_TMP/scripts/hooks/check-git-destructive.sh"
-  chmod +x "$_T58_TMP/scripts/hooks/check-git-destructive.sh"
-  _T58_HOOK="$_T58_TMP/scripts/hooks/check-git-destructive.sh"
+  mkdir -p "$_T58_TMP/scripts"
+  cp "$_T58_SRC" "$_T58_TMP/scripts/check-git-destructive.sh"
+  chmod +x "$_T58_TMP/scripts/check-git-destructive.sh"
+  _T58_HOOK="$_T58_TMP/scripts/check-git-destructive.sh"
   _T58_LOG="$_T58_TMP/docs/working/_audit/hook-events.log"
   git init -q "$_T58_TMP" >/dev/null 2>&1 || true
 
@@ -198,29 +197,46 @@ else
     fi
   fi
 
-  # --- TC-12: apply --dry-run は書き込まない（HO 未変更）---
-  if [ -f "$_T58_APPLY" ] && command -v python3 >/dev/null 2>&1; then
-    _t58_before=$(ls "$_T58_ROOT/scripts/hooks/" 2>/dev/null | sort | tr '\n' ' ')
+  # --- TC-12: apply --dry-run は HO（settings）を書き換えない ---
+  # 書き込み対象は .claude/settings*.json のみになったので、そのバイト列が
+  # dry-run 前後で不変であることを直接確認する。
+  _T58_EXAMPLE="$_T58_ROOT/.claude/settings.example.json"
+  if [ ! -f "$_T58_APPLY" ] || ! command -v python3 >/dev/null 2>&1; then
+    printf '  [SKIP] TC-12: python3 または apply スクリプト不在\n'
+  elif [ ! -f "$_T58_EXAMPLE" ]; then
+    printf '  [SKIP] TC-12: .claude/settings.example.json 不在\n'
+  else
+    _t58_before=$(cksum < "$_T58_EXAMPLE")
     _t58_rc=0
     sh "$_T58_APPLY" --dry-run >/dev/null 2>&1 || _t58_rc=$?
-    _t58_after=$(ls "$_T58_ROOT/scripts/hooks/" 2>/dev/null | sort | tr '\n' ' ')
+    _t58_after=$(cksum < "$_T58_EXAMPLE")
     if [ "$_t58_rc" -eq 0 ] && [ "$_t58_before" = "$_t58_after" ]; then
-      t58_pass "TC-12: apply --dry-run は exit 0 かつ scripts/hooks/ を変更しない"
+      t58_pass "TC-12: apply --dry-run は exit 0 かつ settings.example.json を書き換えない"
     else
-      t58_fail "TC-12: dry-run rc=$_t58_rc / scripts/hooks 差分あり"
+      t58_fail "TC-12: dry-run rc=$_t58_rc / settings.example.json が変化した"
     fi
-  else
-    printf '  [SKIP] TC-12: python3 または apply スクリプト不在\n'
   fi
 
-  # --- TC-13: 設置済みなら staged source と byte 一致（drift 検出）---
-  _T58_INSTALLED="$_T58_ROOT/scripts/hooks/check-git-destructive.sh"
-  if [ ! -f "$_T58_INSTALLED" ]; then
-    printf '  [SKIP] TC-13: scripts/hooks/check-git-destructive.sh 未設置（Human の --apply 待ち）\n'
-  elif cmp -s "$_T58_SRC" "$_T58_INSTALLED"; then
-    t58_pass "TC-13: 設置済み hook が staged source と byte 一致"
+  # --- TC-13: 単一ソース不変条件（scripts/hooks/ に複製を作らない）---
+  # 本 hook は scripts/ 直下を settings から直接参照する設計。scripts/hooks/
+  # は tracked のため、そこに複製ができると同一内容の tracked ファイルが 2 つ
+  # 並び、drift を検出する CI も存在しない（#956 と同一構造）。複製の出現を
+  # 回帰として検出する。
+  if [ -e "$_T58_ROOT/scripts/hooks/check-git-destructive.sh" ]; then
+    t58_fail "TC-13: scripts/hooks/check-git-destructive.sh が存在する（単一ソース違反）"
   else
-    t58_fail "TC-13: 設置済み hook が staged source と乖離（apply --dry-run で差分確認）"
+    t58_pass "TC-13: 単一ソース維持（scripts/hooks/ に複製なし）"
+  fi
+
+  # --- TC-13b: settings の配線先が scripts/ 直下を指すこと（配線済みの場合）---
+  if [ ! -f "$_T58_EXAMPLE" ]; then
+    printf '  [SKIP] TC-13b: .claude/settings.example.json 不在\n'
+  elif ! grep -q 'check-git-destructive.sh' "$_T58_EXAMPLE"; then
+    printf '  [SKIP] TC-13b: EH-12 未配線（Human の --apply 待ち）\n'
+  elif grep -q 'scripts/hooks/check-git-destructive.sh' "$_T58_EXAMPLE"; then
+    t58_fail "TC-13b: settings が scripts/hooks/ を参照している（単一ソース違反）"
+  else
+    t58_pass "TC-13b: settings の配線先が scripts/check-git-destructive.sh"
   fi
 
   # --- 明示 cleanup（register_cleanup と二重）---
