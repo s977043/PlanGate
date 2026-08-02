@@ -12,7 +12,8 @@ PlanGate の `docs/working/TASK-XXXX/` 配下を **L0〜L3 の Progressive Discl
 ### 参照解決順（導入先で必ずこの順に探す）
 
 本 skill の参照は上流リポジトリ（`s977043/plangate`）基準の相対パスで書かれている。
-本 skill は正本を再掲せず参照するため、**正本が引けないと skill が機能しない**。次の順で探索する:
+本 skill は正本を再掲せず参照するため、**正本が引けないと「正本に基づく運用」はできない**
+（その場合は手順 3 の代替プロトコルに落とし、正本未参照であることを明示する）。次の順で探索する:
 
 1. 導入先リポジトリの相対パス（`.claude/rules/working-context.md`）
 2. 無ければ plugin root 配下（`<plugin_root>/rules/working-context.md`）

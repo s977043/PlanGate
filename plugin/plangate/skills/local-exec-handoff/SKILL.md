@@ -49,10 +49,10 @@ PlanGate は Claude Code / Codex CLI ともローカル実行が原則。本 ski
 
 ## Rules
 
-- C-3 未承認なら exec 再開を拒否（`approvals/c3.json` APPROVED 必須）
+- C-3 未承認なら exec 再開を拒否（`approvals/c3.json` が承認済みであること。**legacy は `c3_status: APPROVED`、c3-prime（`approval_kind: "c3-prime"`）は `decision: "AUTO_APPROVED"` + Plan Package 束縛検証**。判定手順の正本は `ai-dev-exec` skill「前提条件（exec 開始ゲート）」節）
 - handoff packet は **次の担当者が 1 分で再開できる粒度**
 - 機密情報（events.ndjson / 個人情報 / 認証情報）を含めない（EH-8 Privacy 準拠）
-- ツール依存（Claude Code 固有コマンド等）を含めず、PlanGate 共通 CLI（`plangate` / `ai-dev-workflow`）に統一する。**コマンド表記は packet の受け手の実行環境に合わせる**（上流リポジトリの cwd なら `bin/plangate`、導入先で PATH を通しているなら `plangate`、CLI が無いなら手順を文章で書く。「CLI 呼び出し」節参照）
+- ツール依存（Claude Code 固有コマンド等）を含めず、PlanGate 共通 CLI（`plangate` / `./scripts/ai-dev-workflow`）に統一する。**コマンド表記は packet の受け手の実行環境に合わせる**（上流リポジトリの cwd なら `bin/plangate`、導入先で PATH を通しているなら `plangate`、CLI が無いなら手順を文章で書く。「CLI 呼び出し」節参照）。**`ai-dev-workflow` は PATH に載るインストール経路が無い**ため、単体名で書かず必ず `./scripts/ai-dev-workflow TASK-XXXX <sub>` と書く（成立するのは**上流リポジトリの cwd のみ**。`scripts/` は配布対象外なので導入先の packet には書かない）
 
 ## Deliverable
 
