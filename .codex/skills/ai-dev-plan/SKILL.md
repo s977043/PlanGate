@@ -49,13 +49,17 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 
 ### 読む順序
 
+> 下記 3〜5 の fallback にある `<plugin_root>` は、上の「参照解決順」手順 2 のとおり
+> **Bash で `${CLAUDE_PLUGIN_ROOT}` を展開して得た絶対パス**を指す（変数を含む文字列を
+> そのまま Read しない）。
+
 1. `CLAUDE.md`
 2. `AGENTS.md`
-3. `.claude/rules/working-context.md` → fallback `${CLAUDE_PLUGIN_ROOT}/rules/working-context.md`
+3. `.claude/rules/working-context.md` → fallback `<plugin_root>/rules/working-context.md`
    （B フェーズ 3 ファイル同時生成・段階別出力・ゲート条件の正本）
-4. `.claude/rules/mode-classification.md` → fallback `${CLAUDE_PLUGIN_ROOT}/rules/mode-classification.md`
+4. `.claude/rules/mode-classification.md` → fallback `<plugin_root>/rules/mode-classification.md`
    （5 段階 mode + `lite_eligible` 派生属性の正本）
-5. `.claude/rules/hybrid-architecture.md` → fallback `${CLAUDE_PLUGIN_ROOT}/rules/hybrid-architecture.md`
+5. `.claude/rules/hybrid-architecture.md` → fallback `<plugin_root>/rules/hybrid-architecture.md`
    （Rule 1〜5 / handoff 必須化）
 6. `docs/ai-driven-development.md`（**配布対象外**。上流リポジトリで作業する場合のみ解決する）
    - 最低限: `## ワークフロー全体像`、`### タスク規模によるモード分岐（5 モード）`、`## ゲート条件`、`### Prompt 1: Plan + ToDo + Test Cases生成`
@@ -163,7 +167,7 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
    ```sh
    # 算出（sha256sum が無い環境では shasum -a 256 を使う）
    sha256sum docs/working/TASK-XXXX/plan.md | awk '{print $1}'
-   # 突合先: approvals/c3.json の "plan_hash": "sha256:<この値>"
+   # 突合先: docs/working/TASK-XXXX/approvals/c3.json の "plan_hash": "sha256:<この値>"
    ```
 
    **不一致なら C-3 承認後に plan が改変されている** → exec に進まず、再承認
@@ -173,7 +177,8 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
    （未検証を検証済みと誤記しない）
 3. **ゲートは人手で維持する** — plan_hash を照合する hook も導入先には配線されないため、
    item 2 の突合は **exec 開始前に自分で実行する**。C-3 は人間の明示承認記録
-   （`approvals/c3.json` 相当）で成立させ、CLI が無いことを理由に C-3 を省略しない
+   （`docs/working/TASK-XXXX/approvals/c3.json` 相当）で成立させ、CLI が無いことを理由に
+   C-3 を省略しない
 4. CLI による機械検証が必要なら、上流リポジトリ（`s977043/plangate`）を clone して
    そこから実行する
 
