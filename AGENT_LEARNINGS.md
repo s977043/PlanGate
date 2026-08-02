@@ -81,10 +81,13 @@
   - 再利用条件: `git checkout [<branch>] -- path` / `git restore [--source <ref>] path` 等、ファイルを既存 ref の内容へ戻す操作の前に、対象ファイルの未コミット差分を `git diff path` で確認し、「自分が作った変更でない」場合は上書きしない（既存学び「名指し外 tracked 変更は破棄しない」の checkout -- path 形への拡張）
   - 根拠: 2026-07-12 セッション実害。既存 rule（`.claude/rules/responsibility-classes.md` HO 適用は Human-owned）と一貫
 
-- [2026-07-12] ブランチ作成失敗後の commit は current branch を必ず verify する
+- [2026-07-12 初出 / 2026-08-02 追記] ブランチ作成失敗後の commit・破壊的操作は current branch を必ず verify する
   - 事実: `set -e` 付き複合コマンド内で `git checkout -b <branch> origin/main` が untracked ファイル衝突で失敗した後、後続の `git add`/`git commit` が main 上で実行され main へ直接コミットが作られた（push 前に検知し branch 退避 + `reset --hard origin/main` で復旧）
+  - 事実（2026-08-02 追記 / 同型再発）: `git checkout -q <branch> 2>/dev/null || git checkout -q -b <branch> origin/<branch>` の**両側が失敗**（同名ブランチ既存で `-b` が `fatal: already exists`）したが、`||` で連結したため `set -e` が発火せず次行の `git reset --hard -q origin/<branch>` が main 上で実行された。ローカル `main` が別コミットへ移動し、**他セッションの未コミット変更（tracked ファイル）が破棄**された（`git fsck --lost-found` の dangling blob から復旧できたが、stage されていなければ完全に失われていた）
   - 再利用条件: ブランチ作成と後続の変更操作（`git add` / `git commit` 等）を同一複合コマンドに含める場合、最初の変更操作の直前に `[ "$(git rev-parse --abbrev-ref HEAD)" = "<expected>" ] || exit 1` を必ず挟む
-  - 根拠: INC-2026-05-26-001 P-3（push 前 verify）の commit 前 verify への拡張。`.claude/rules/responsibility-classes.md` の Bash 連結コマンド error guard と一貫
+  - 再利用条件（2026-08-02 追記 1・`||` フォールバックは `set -e` を無効化する）: `A || B` の形は A の失敗を `set -e` の対象外にするため、B も失敗したときに**エラーが後段へ伝播せず次行が実行される**。checkout をフォールバック付き（`||`）で書く場合、その同じコマンド列に破壊的操作（`git reset --hard` / `git push --force` 等）を**含めない**。なお上記 verify 行の `|| exit 1` は「失敗時に明示 exit する」ための意図的な `||` であり、この禁止に該当しない（verify 行はそのまま維持する）
+  - 再利用条件（2026-08-02 追記 2・破壊的操作は verify と実行を分ける）: `git reset --hard` / `git push --force` 等の**非可逆操作**は、branch verify と同一コマンド列に詰め込まず、**verify の出力を確認した次のステップで実行する**。`git add` / `git commit` は「作るだけ」で復旧が容易だが、`reset --hard` は他セッションの未コミット変更まで巻き込むため被害が非可逆になる
+  - 根拠: INC-2026-05-26-001 P-3（push 前 verify）の commit 前 verify への拡張。`.claude/rules/responsibility-classes.md` の Bash 連結コマンド error guard と一貫（同節 1「`&&` で連結する」/ 2「`set -e` を冒頭に書く」/ 3「`git push` 前に必ず current branch を verify」を、`||` フォールバックと破壊的操作へ適用した具体化）。2026-08-02 セッションで同型事故が再発したため既存エントリを補強。ファイル単位で戻す操作（`git checkout -- path` / `git restore`）は既存学び［2026-07-12 checkout/restore］が扱い、本エントリはブランチ単位の破壊的操作を扱う
 
 - [2026-06-16] Bash 作成 doc の EH-3 skip は merge 前に追認する
   - 事実: #544 系 doc(rev.3 AEE / TASK-0130)を未追認の EH-3 skip エントリ付きでマージし main CI(`SKIP_REASON 追認`)が累積 RED(1→2)。main 赤は新規 PR 全てに波及
