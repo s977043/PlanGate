@@ -312,5 +312,15 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
 - [`docs/ai/eval-cases/`](../../../docs/ai/eval-cases/) — 観点別詳細 × 8
 - [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — 出力 schema
 - [`docs/ai/contracts/review.md`](../../../docs/ai/contracts/review.md) — review phase contract
-- [`.claude/rules/review-principles.md`](../../rules/review-principles.md) — レビュー原則（CI / ローカル共通）
+- `.claude/rules/review-principles.md` — レビュー原則（CI / ローカル共通）。
+  **導入先での参照解決順**: (1) 導入先の `.claude/rules/review-principles.md` →
+  (2) plugin root 配下 `<plugin_root>/rules/review-principles.md`（`<plugin_root>` は
+  **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した絶対パス**。
+  Read ツールは環境変数を展開しないため `${CLAUDE_PLUGIN_ROOT}/...` をそのまま Read しない。
+  空・未設定ならキャッシュを glob で推測せず (3) へ） →
+  (3) どちらにも無ければ **「正本 review-principles.md を参照できなかった」と明示**し、
+  5 観点・Severity 定義は本 Skill の判定表を代替正本として推測で補わない。
+  Codex 経由の導入は skills のみ配布されるため常に (3) に落ちる。
+  なお相対リンク `../../rules/review-principles.md` は **skills と rules が同一 root 直下に
+  並ぶ配置でのみ**解決する（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）
 - [`docs/ai/plan-review-readiness-gate.md`](../../../docs/ai/plan-review-readiness-gate.md) §7/§8 — ドキュメント変更（D-1〜D-6）/ シェル・Python コード変更（C-1〜C-6）の追加観点
