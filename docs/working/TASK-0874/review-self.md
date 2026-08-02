@@ -3,7 +3,11 @@ task_id: TASK-0874
 artifact_type: review-self
 schema_version: 1
 status: draft
-verdict: FAIL
+verdict: WARN
+verdict_history:
+  - { round: "初回 C-1（25 項目）", target: "388677d", verdict: FAIL, note: "PASS 12 / WARN 8 / FAIL 4 / N/A 1" }
+  - { round: "簡易 C-1 再実行（是正後）", target: "01ebc4a", verdict: WARN, note: "PASS 11 / WARN 1 / FAIL 0" }
+  - { round: "簡易 C-1 再実行（C-2 反映後・3 ラウンド目）", target: "feat/task-0874-plan (C-2 反映コミット)", verdict: WARN, note: "PASS 11 / WARN 1 / FAIL 0。C-2 指摘 22 件反映後も FAIL 0 を維持。WARN は C1-TODO-08（タスク粒度）が継続" }
 created_by: orchestrator
 ---
 
@@ -752,3 +756,94 @@ AC 本文のカバレッジ穴 3 件に TC を追加した（TC 総数 **49 → 
 
 **WARN** — critical=0 / major=0 / minor=1 / **FAIL 0**（C1-TODO-08 の WARN 継続）。**C-3 へ進める状態**（初回 C-1 の「FAIL のため C-3 へ進めない」は解消）。
 ただし **U-10 / U-11 は plan の既定（安全側）を人間が追認するか覆すかで exec の実装内容が変わる**ため、C-3 で明示判断すること。
+
+---
+
+## 簡易 C-1 再実行（C-2 反映後 / 3 ラウンド目）
+
+> 実行日: 2026-08-02
+> 対象: `plan.md` / `todo.md` / `test-cases.md`（C-2 反映後）@ `feat/task-0874-plan`（base = `origin/main` = `a4afacb`）
+> 入力: [`review-external.md`](./review-external.md)（2 レーン・22 件）の確定反映
+> 範囲: **簡易版**（`working-context.md` の「C-3 CONDITIONAL → 1 回確定反映 → 簡易 C-1」規定に従い、
+> **C-2 反映によって影響を受けた項目のみ**を再判定する。初回 25 項目の全再実行は行わない）
+
+### 再実行 12 項目のサマリー
+
+| result | 件数 |
+|--------|------|
+| PASS | 11 |
+| WARN | 1 |
+| FAIL | **0** |
+| **合計** | **12** |
+
+### 是正の機械検証（3 ラウンド目に実測したもの）
+
+すべて C-2 反映後のワーキングツリーで実行。
+
+| # | 検証 | コマンド / 方法 | 結果 |
+|---|------|----------------|------|
+| 1 | **R-C01** `Verification Automation` 抽出 | `plan_package` の抽出正規表現を plan 本文に適用 | **MATCH**（反映前は NOMATCH）。抽出値 = `python3 scripts/ai-loop/test_run_evidence.py && python3 scripts/ai-loop/test_run_evidence_verify.py && sh tests/run-tests.sh` |
+| 2 | **R-C02** 2 matcher 適合 | `plan_package.extract_allowed_paths()` → `arbiter.check_allowed_paths()` / `delivery._path_allowed()` | `allowed_paths` = **15 件**。`arbiter` = `(True, [])` / `delivery` 不適合 = **0 件**（反映前は arbiter が 3 件 violation） |
+| 3 | 依存グラフ | `depends_on` を DFS（GRAY 検出）| **nodes 44 / cycle 0 / 未定義依存 0** |
+| 4 | TC 連番 | `test-cases.md` の表定義行を抽出 | **TC-01 〜 TC-65・欠番 0・重複 0** |
+| 5 | TC 参照整合 | plan / todo / test-cases 横断で `TC-\d+` を突合 | **未定義参照 0 件** |
+| 6 | T 連番 / 参照整合 | 同上（`T-\d+`）| **T-1 〜 T-44・欠番 0・重複 0 / 未定義参照 0 件** |
+| 7 | AC カバレッジ | AC 対応表 16 行に TC 割当があるか | **AC without TC = 0** |
+| 8 | TC の AC 帰属 | `test-cases.md` の `## AC-N:` 見出し配下に全 TC があるか | **孤立 TC = 0**（65/65） |
+| 9 | `rollback:` 記載 | todo の全タスク行 | **未記載 0 件**（44/44） |
+| 10 | markdownlint | `npx markdownlint-cli2 "docs/working/TASK-0874/*.md"` | **exit 0 / 0 issues**（6 files） |
+| 11 | ta 番号の空き | `git ls-tree origin/main --name-only tests/extras/` | main の最大は **58**（`ta-58-git-destructive-guard.sh`）。**`ta-59` は未使用**を確認 |
+| 12 | 件数記述の同時更新 | `56` / `65` の全出現箇所を grep | **TC 総数 65 が plan 3 箇所 / todo 1 箇所 / test-cases 1 箇所 + V-1 手順 1 箇所で一致**。残る `56` は「56 → 65」「56 TC は全緑のまま」の**履歴記述のみ**（意図的） |
+
+> **⚠️ 3 ラウンド目で自己検出し是正した欠陥（重要）**: R-C02 の解説注記を
+> `## Files / Components to Touch` **節の内部**に置いた際、例示パスをバッククォートで囲んだため
+> `extract_allowed_paths()` が **4 件の余計なトークン**（`a.endswith("/")` / 例示 3 パス）まで
+> `allowed_paths` として拾い、**scope が意図せず広がっていた**（検証 #2 の初回実行で検出）。
+> 例示のバッククォートを外して **15 件（= 表 12 行 + dual notation 3 行）に収束**させた。
+> plan 自身が同節に置いていた「バッククォート囲みのパスは機械抽出される」という警告の**実例**である。
+
+### 項目別の再判定（C-2 反映で影響を受けた項目のみ）
+
+| check_id | 初回 | 2R | **3R** | 判定理由 |
+|----------|------|----|--------|---------|
+| **C1-PLAN-01**（受入基準の網羅） | FAIL→是正 | PASS | **PASS** | AC-9 / AC-10 の「Phase 1 は契約層のみ」限定を AC 対応表に明記し（R-007）、DoD 未充足を Stop Condition と T-42 に反映。AC 16 件すべてに TC 割当あり（検証 #7） |
+| **C1-PLAN-02**（Unknowns の処理） | WARN | PASS | **PASS** | U-5 に選択肢 4 案と帰結を追加（R-011）、U-9 に代替案 (a) を追加（R-002）、U-11 に「追認想定」注記（R-009）。U-7 を根拠付きで確定へ降格し **未決 9 → 8 件**。**勝手に決めた降格は U-7 の 1 件のみ**で、根拠（sync 対象外の実測 + Phase 1 = shadow の裁定既決）を確定表に明記した |
+| **C1-PLAN-04**（テスト戦略の実行可能性） | FAIL→是正 | PASS | **PASS** | T-18 の到達不能な完了条件（exit 0）を exit 11 へ是正（R-006）。TC-09 の positive 側の前提も合成 complete EV 限定に明記 |
+| **C1-PLAN-06**（Step ↔ AC ↔ TC の割当） | FAIL→是正 | PASS | **PASS** | 新規 9 TC すべてを AC 対応表と `test-cases.md` の AC 見出し配下に登録（検証 #7 / #8） |
+| **C1-PLAN-09-AEE**（実測根拠） | FAIL→是正 | PASS | **PASS** | Metrics Evidence に **4 行追加**（ta 番号の再実測 / 2 matcher 適合 / `_completed_rounds(None)` / EH-8 の値検査なし）。いずれも本セッションで実コマンド実行済み |
+| **C1-SUP-PLAN-01**（前提の自己整合） | FAIL→是正 | PASS | **PASS** | D1-A の「`git mv` + `$id` 1 行変更」と Step 1 の「`$id` 先固定 = `git mv` 1 手」の食い違いを後者へ統一（R-C10 ①）。D7 の「partial の理由は known-unavailable のみ」を `terminal_state` 依存分類の追加に合わせて是正（R-003） |
+| **C1-TODO-09**（依存関係） | FAIL→是正 | PASS | **PASS** | C-2 反映でタスクの新設・削除・依存変更を行っていない。DFS で cycle 0 / 未定義依存 0 を再確認（検証 #3） |
+| **C1-TEST-13**（AC 本文のカバレッジ） | FAIL→是正 | PASS | **PASS** | D3 の負側 3 本（TC-57 / 58 / 59）、AC-6 の「要求しない」側（TC-63）、値レベル privacy（TC-65）を追加し、C-1 が届かなかった層を塞いだ |
+| **C1-TEST-14**（TC 間の非矛盾） | FAIL→是正 | PASS | **PASS** | TC 総数 65 が 4 ファイル 6 箇所で一致（検証 #12）。fixture 1〜6 の期待 exit `11` と TC-58 の内訳 assert が矛盾しない（exit は同一・`unavailable` 内訳のみ差異） |
+| **C1-TEST-15**（エッジケース） | PASS | PASS | **PASS** | Edge cases 表に 6 行追加（`MERGE_READY` 導出 / `BLOCKED` / `pr_number` 未解決 / corpus 追加時の byte 不変 / 値の絶対パス / 入力ソース allowlist）。「非終端 run」の割当を TC-16 → TC-59 へ付け替え |
+| **C1-B1B2-17**（B-2 アプローチ比較） | WARN | PASS | **PASS** | D6 に受理器の入力契約と再検証対象表を追加（R-004）、rc 対応表に `bin/plangate` の catch-all を追記（R-C07）、D8 に schema 機械束縛節を追加（R-008） |
+| **C1-TODO-08**（タスク粒度） | WARN | WARN | **WARN**（継続） | C-2 反映で **タスクは 44 のまま**（22 件の指摘はすべて既存タスクの内容是正に収まった）。ただし T-4（契約 doc）/ T-10（受理器）/ T-15（producer）の**記述量が増えた**。分割しなかった理由は 2R と同一（4 ファイル横断の T 番号再採番が新たな不整合を生むリスクの方が大きい）。**残る懸念を WARN として明示**し、exec 中に扱いにくいと判明した場合は Replan Trigger（同一ファイルへの修正反復 3 回）で検知して分割する運用に委ねる |
+
+### C-2 反映で確認した「他ファイルとの同時更新」
+
+`working-context.md` の作業規律「件数を変更したら全箇所を同時に更新する」に従い、以下を機械照合した:
+
+| 件数 | 更新前 | 更新後 | 更新箇所（全数） |
+|------|-------|-------|----------------|
+| TC 総数 | 56 | **65** | `plan.md`（Step 12 チェックポイント / Stop Condition / AC 対応表見出し）/ `todo.md`（ヘッダ / T-40）/ `test-cases.md`（ヘッダ / V-1 手順 6） |
+| タスク総数 | 44 | **44（不変）** | 変更なし（`plan.md` Mode 判定 / `todo.md` ヘッダとも据え置き） |
+| C-3 未決 Unknowns | 9 | **8** | `plan.md`（冒頭の C-2 反映注記 / Step 13 / Questions 見出し・本文）/ `todo.md`（T-1 / Human C-3 / 依存関係節） |
+| ta 番号 | 58 | **59** | `plan.md`（D1 検証経路 / Step 9 / Files 表 / Metrics Evidence / Testing Strategy E2E / Stop Condition 注記 / Risks / AC-16 行）/ `todo.md`（T-33 / T-34 / T-42）/ `test-cases.md`（実行系 / AC-16 見出し / TC-46 / V-1 手順 3） |
+| fixture 件数 | 10 | **10（不変）** | 変更なし（issue verbatim の 10 件を維持。TC-48 の `len(glob) == 10` も不変） |
+| AC 件数 | 16 | **16（不変）** | 変更なし |
+
+### 3 ラウンド目で残る C-3 判断事項（Questions / Unknowns）
+
+**未決 8 件**: U-1（`harness_version` の定義）/ U-4（非終端 run の扱い）/ **U-5（`repository` と PR / コメント URL の値レベル privacy — C-2 で選択肢 4 案 + 実データ衝突を追加）** / U-8（adapter IF の最小フィールド）/ **U-9（fixture 6 の vacuity + fixture 9・10 の実質 — C-2 で代替案 (a) を追加）** / U-10（Phase 1 で complete に到達させるか）/ U-11（受理器 exit code の値割当・**追認想定**）/ U-12（`blocked_by[]` の供給元）
+
+**plan 段階で確定 4 件（C-3 は追認のみ）**: U-2（`replan_count` = `unavailable` 固定）/ U-3（`cost_metrics` = `unavailable` 固定）/ U-6（`schemas/` 昇格 PBI を予約起票する）/ **U-7（Phase 1 では plugin 配布しない — C-2 R-009 で降格）**
+
+**C-2 が追加した C-3 判断事項（Unknowns 以外）**: **「本 PBI 完了後も issue #874 を OPEN のまま残す」の追認**（R-007。issue DoD が「効果測定なしでは close しない」と明示し、#869 / #811 未実装のため本 PBI 完了時点で close 条件は充足不能）
+
+### 総合判定（簡易 C-1 再実行 / 3 ラウンド目）
+
+**WARN** — critical=0 / major=0 / minor=1 / **FAIL 0**。**C-3 へ進める状態**。
+
+- C-2 の major 13 件はすべて反映済み（うち R-002 / R-009 / R-C06 / R-C09 は根拠付きの `partial`。disposition は [`review-external.md`](./review-external.md) の監査表が正本）
+- **実測で誤りと判断し反映しなかった指摘が 1 件ある**（R-C06 の `record_path()` 行番号。`review-external.md` の「指摘が誤りだった項目」に根拠を記録）
+- **C-3 での明示判断が必要**: U-5 / U-9 / U-10 / U-11 は **exec の実装内容そのものを変える**。特に **U-5 は TC-51 の判定基準を確定させる**ため、厳格側に倒すと AC-11 の `improvement_refs[]` の表現方法（T-28 / T-30）も併せて改訂が要る
