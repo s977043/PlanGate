@@ -38,6 +38,7 @@ CLI が無い環境での代替手順は「CLI 呼び出し」節を参照する
 |------|---------------------------|----------------------------------|-----------|
 | `rules/*.md`（下記 3〜5） | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
 | `bin/**`（CLI） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+| `scripts/**` | コピー対象外（解決不可） | `<plugin_root>/scripts/` は存在するが `install-plangate-skills.sh` のみ（`ai-dev-workflow` / `codex-guarded.sh` 等は解決不可） | 未配置（解決不可） |
 
 `docs/working/TASK-XXXX/*`（下記 6〜7）は**配布物ではなく導入先で作成する作業成果物**なので、
 導入先リポジトリ内でそのまま解決する（存在しなければ plan フェーズが未完了）。
@@ -77,11 +78,10 @@ CLI が無い環境での代替手順は「CLI 呼び出し」節を参照する
 `scripts/`（の CLI 本体）も配置されない。導入先で PATH を通した場合のコマンド名は
 **`plangate`**（`bin/plangate` ではない）。どちらの環境かを確定してから使う。
 
-| 実行環境 | exec dispatch | plan_hash / artifact 機械検証 |
-|---------|--------------|------------------------------|
-| 上流リポジトリの cwd | `bin/plangate exec TASK-XXXX [--mode <mode>]` | `bin/plangate validate TASK-XXXX` |
-| 導入先 + PATH に `plangate` あり | `plangate exec TASK-XXXX` は**実在するが対象が CLI 側**（下記注意）→ 導入先の TASK には使えず手動で TDD 実行 | `plangate validate --dir docs/working/TASK-XXXX` |
-| 導入先 + PATH に無い（**既定**） | 手動で TDD 実行 | 次節のフォールバック（sha256 突合） |
+| 用途 | 上流リポジトリの cwd | 導入先 + PATH に `plangate` あり | 導入先 + PATH に無い（**既定**） |
+|------|---------------------|----------------------------------|--------------------------------|
+| exec dispatch | `bin/plangate exec TASK-XXXX [--mode <mode>]` | `plangate exec TASK-XXXX` は**実在するが対象が CLI 側**（下記注意）→ 導入先の TASK には使えず手動で TDD 実行 | 手動で TDD 実行 |
+| plan_hash / artifact 機械検証 | `bin/plangate validate TASK-XXXX` | `plangate validate --dir docs/working/TASK-XXXX` | 次節のフォールバック（sha256 突合） |
 
 > **注意: `TASK-XXXX` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**
 > `bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
@@ -103,20 +103,42 @@ CLI が無い環境での代替手順は「CLI 呼び出し」節を参照する
 
 1. **exec 本体は手動で TDD 実行する** — Red → Green → Refactor の順序と「Output」の出力契約は
    **CLI の有無に関わらず不変**
-2. **exec 入口ゲート（前提条件）は自分で確認する** — `approvals/c3.json` の `c3_status` が
+2. **exec 入口ゲート（前提条件）は自分で確認する** — まず `approvals/c3.json` に
+   `approval_kind` キーがあるかを strict JSON で読んで**経路を分ける**
+   （`python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("approval_kind" in d)' <path>`）。
+
+   **(a) legacy c3.json（`approval_kind` キー無し）の場合** — `c3_status` が
    `APPROVED` であることを読んで確認し、続けて plan_hash を突合する。`plangate validate` の
    plan_hash 検査は **`plan.md` の素の sha256**（正規化・前処理なし）と `c3.json` の `plan_hash`
    から `sha256:` prefix を除いた値の単純比較なので、CLI 無しで再現できる:
 
    ```sh
-   # 算出（sha256sum が無い環境では shasum -a 256 を使う）
+   # 算出（sha256sum → shasum -a 256 → openssl → python3 の順に、あるものを使う）
    sha256sum docs/working/TASK-XXXX/plan.md | awk '{print $1}'
+   shasum -a 256 docs/working/TASK-XXXX/plan.md | awk '{print $1}'
+   openssl dgst -sha256 docs/working/TASK-XXXX/plan.md | awk '{print $NF}'
+   python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' docs/working/TASK-XXXX/plan.md
    # 突合先: docs/working/TASK-XXXX/approvals/c3.json の "plan_hash": "sha256:<この値>"
    ```
 
    **不一致なら C-3 承認後に plan が改変されている** → exec に進まず、再承認（`c3.json` の
-   `plan_hash` 更新）または plan の revert を行う。`sha256sum` / `shasum` の**両方とも無い場合に
-   限り**スキップし、その事実を `decision-log.jsonl` に記録して **「機械検証済み」と書かない**
+   `plan_hash` 更新）または plan の revert を行う。上記 **4 手段がすべて無い場合に限り**
+   スキップし、その事実を `decision-log.jsonl` に記録して **「機械検証済み」と書かない**
+   （python3 は PlanGate ツールチェーンの事実上の必須依存なので、実際にはほぼ到達しない）
+
+   **(b) `approval_kind: "c3-prime"` の record の場合** — 上記 (a) の手順は**使えない**。
+   c3-prime は `c3_status` を持たず（契約 §5 で明示禁止）、`plan_hash` は legacy と同じ
+   `sha256:<64hex>` 形式だが top-level と reviewer snapshot に**複数回出現**するため、
+   非アンカーな `grep`/`sed` 抽出は多行マッチして誤動作する（契約 §5。読むなら python3 の
+   strict JSON のみ）。さらに受理には **Plan Package 6 要素（`pbi-input.md` / `plan.md` /
+   `todo.md` / `test-cases.md` / `review-self.md` / `review-external.md`）の `artifact_hashes`
+   全数照合 + `plan_package_hash` + `source_sha`（検証時点の対象 SHA と一致）+ reviewer
+   snapshot の三つ組一致 + `decision=AUTO_APPROVED`** までの束縛検証が必要
+   （正本: `docs/workflows/ai-loop/c3-prime-contract.md` §3〜§5）。
+   **c3-prime を手動 sha256 のみで代替してはならない** — `plan.md` 単体の hash 一致だけで
+   入口ゲート確認済みとして exec に進むと、残り 5 artifact と `source_sha` の stale を見逃す。
+   この場合は item 4 の上流 clone 経由 `plangate validate --dir` で機械検証するか、
+   機械検証できない旨を `decision-log.jsonl` に記録して **exec を保留する**
 3. **hook も配布されない前提で運用する** — plan_hash を照合する hook（EH-3）は導入先には配線され
    ないため、item 2 の突合は **exec 開始前に自分で実行する**。CLI が無いことを理由に C-3 を省略しない
 4. CLI による機械検証が必要なら、上流リポジトリを clone して
