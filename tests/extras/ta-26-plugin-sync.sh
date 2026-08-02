@@ -13,13 +13,14 @@ printf '\n=== TA-26: plugin-sync (TASK-0124) ===\n'
 # standalone 実行時（set -u が無い）に空変数のまま cd して誤ルートを静かに返す。
 #
 # 方針（#877 / R-204）: 新規 extras は PG_HARNESS_SOURCED を使う。
-# FIXTURES_DIR 単独判定を使っている既存 extras の移行と tests/extras/README.md
-# の規約追記は follow-up issue で扱う（本 PBI では touch しない）。
+# FIXTURES_DIR 単独判定を使っていた既存 extras の移行と tests/extras/README.md
+# の規約追記は follow-up の #914 で完了（README 規約 8 / 残存 0 は TC-33 が静的検査）。
 if [ "${PG_HARNESS_SOURCED:-0}" != "1" ] || [ -z "${FIXTURES_DIR:-}" ]; then
   PG_T26_STANDALONE=1
-  # 呼び出し元 env の漏れで guard 検証が無効化されるのを防ぐ（run-tests.sh L15
-  # の規約と対称。standalone 実行にはその防御が効かないため自前で行う）。
-  unset PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+  # 呼び出し元 env の漏れで guard 検証・hook 挙動が歪むのを防ぐ（run-tests.sh
+  # 冒頭の unset 集合と同一の 7 env — TASK-0914 論点 F / README 規約 8。
+  # standalone 実行には harness 側の防御が効かないため自前で行う）。
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
   FIXTURES_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/../fixtures" && pwd)"
   pass=0
   fail=0

@@ -57,7 +57,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
   - 🚩 **チェックポイント**: 複数 skill のうち 1 つだけ空化した sandbox で、当該 skill のみ保留・他 skill は正常同期。**ログを `evidence/verification/` へ保存**（R-308）
   - Owner: agent / `rollback:` `git checkout -- scripts/sync-plugin-plangate.sh`
 
-- [ ] **T-07**: extras 11 本の判別式統一 + standalone env 無害化
+- [x] **T-07**: extras 11 本の判別式統一 + standalone env 無害化
   - 対象: ta-39 / 43 / 44 / 45 / 46 / 47 / 49 / 50 / 51 / 52 / 53
   - `if [ -n "${FIXTURES_DIR:-}" ]; then` → `if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then`
   - **ta-39 のみ例外（R-350）**: 同ファイルは当該文字列を **2 箇所**持つ（L14 = ROOT 解決 / L55 = apply 未適用時の `return`/`exit` 分岐）。**2 箇所とも AND 条件化**するが、`unset` は **L14 側の else 節にのみ**追加する（L55 側は ROOT 解決ではないため無害化対象外）。他 10 本は 1 箇所のみ（実測確認済み）
