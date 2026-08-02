@@ -145,13 +145,25 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
 **呼び出し表記は実行環境で変わる**。相対パス形式（`./scripts/...` / `bin/...`）が成立するのは
 **上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` も
 `scripts/` も配置されない（次節参照）。導入先で PATH を通した場合のコマンド名は
-**`plangate`**（`bin/plangate` ではない）。どちらの環境かを確定してから使う。
+**`plangate`**（`bin/plangate` ではない）。変わるのは**コマンド表記だけでなく
+`TASK-XXXX` の解決先**でもある（表の下の注意）。どちらの環境かを確定してから使う。
 
 | 実行環境 | plan 生成 | plan_hash 機械検証 |
 |---------|----------|-------------------|
 | 上流リポジトリの cwd | `./scripts/ai-dev-workflow TASK-XXXX plan` | `bin/plangate validate TASK-XXXX` |
-| 導入先 + PATH に `plangate` あり | 相当コマンドなし（本 skill の手順で手動生成） | `plangate validate TASK-XXXX` |
+| 導入先 + PATH に `plangate` あり | `plangate plan TASK-XXXX` は**実在するが出力先が CLI 側**（下記注意）→ 導入先の TASK には使えず手動生成 | `plangate validate --dir <導入先の TASK ディレクトリ>` |
 | 導入先 + PATH に無い（**既定**） | 手動生成 | 次節のフォールバック（sha256 突合） |
+
+> **注意: `TASK-XXXX` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**
+> `bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
+> `scripts/ai-dev-workflow` も同じ規則で repo root を求めたうえで、
+> どちらも `<CLI の repo root>/docs/working/TASK-XXXX` を読み書きする。
+> `bin/` は導入先に配置されない（次節）ため、PATH 上の `plangate` は必ず
+> **別の場所にある上流 clone** の実体を指す。つまり導入先のプロジェクトで
+> `plangate plan TASK-XXXX` / `plangate validate TASK-XXXX` を実行しても、
+> 対象は導入先の `docs/working/` ではなく **その clone 側の `docs/working/`** になる。
+> 導入先の TASK を検査したいときは、cwd 非依存でパスを明示できる
+> `validate --dir <パス>` を使う（`plan` 側に相当オプションは無いため手動生成）。
 
 ### CLI 不在時のフォールバック（導入先では既定）
 
@@ -188,7 +200,9 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
    （`docs/working/TASK-XXXX/approvals/c3.json` 相当）で成立させ、CLI が無いことを理由に
    C-3 を省略しない
 4. CLI による機械検証が必要なら、上流リポジトリ（`s977043/plangate`）を clone して
-   その cwd から `bin/plangate validate TASK-XXXX` を実行する
+   `bin/plangate validate --dir <導入先の TASK ディレクトリの絶対パス>` を実行する。
+   **位置引数形式（`validate TASK-XXXX`）は使わない** — 上表の注意のとおり clone 側の
+   `docs/working/TASK-XXXX` を見に行ってしまい、導入先の TASK は検査されない
 
 ## 次フェーズへ
 
