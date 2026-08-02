@@ -20,6 +20,7 @@
 | 2026-08-02 13:05 | T-04 完了 🚩 | 経路1（汎用 references）guard 適用（集計に `[ -L ]` 除外 = R-351）。sandbox 再現: S1 複数 skill 中 skill-A のみ空化 → 当該のみ保留・skill-B は正常同期（break 誤用なし）・exit 3 / S2 正常系 非発火・exit 0。ta-26 16/16 維持 + フルスイート **453 passed / 0 failed**（現 main 基点） |
 | 2026-08-02 13:17 | T-05a 完了 🚩 | 経路2 TC-20〜25 + `_t26_mk_ai_loop_guard_sandbox`（`_ai_loop_link_rewrite.py` 同梱 = R-354）追加。チェックポイント PASS: clean env + `</dev/null` standalone で **22 passed / 0 failed**（既存 16 + 新規 6 全 PASS）・exit 0。evidence: `evidence/test-runs/t05a-tc20-25-standalone.log` |
 | 2026-08-02 13:22 | T-05b 完了 🚩 | 経路1 TC-26〜29/32/34 + `_t26_mk_refs_guard_sandbox`（複数 skill 構成可・skill-B は empty 開始で COPY 実行を継続処理の証拠化 = M-5 検出用）追加。チェックポイント PASS: clean env + `</dev/null` standalone で **28 passed / 0 failed**・exit 0。evidence: `evidence/test-runs/t05b-tc26-34-standalone.log` |
+| 2026-08-02 13:30 | T-05c 完了 🚩（RED 実測） | 静的検査 TC-30/TC-33 追加（件数ハードコードなし）。**検出力証明: T-07 前の実装に対し TC-33 が FAIL**（単独判別残存 = 対象 11 本ちょうど + ta-26 の unset 欠落 6 env = RV-M3 レグも発火）。TC-30 も FAIL（README 規約は T-08 で追記 = 実行順変更による想定内 RED）。TC-13 は子プロセスが TC-30/33 FAIL を含むため連鎖 FAIL（原因は静的 TC の RED のみ）。**27 passed / 3 failed**・rc=1。T-07 後に TC-33 → PASS、T-08 後に TC-30/13 → PASS を対比実測する。evidence: `evidence/test-runs/t05c-tc30-33-pre-t07-fail.log` |
 
 ## 全体構成（PR 一覧）
 

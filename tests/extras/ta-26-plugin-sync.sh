@@ -669,6 +669,58 @@ else
   t26_fail "TC-34 失敗 (rc=$_t26_rc34 期待0 / left=$_t26_left34 期待3 / stale残=$_t26_stale34 期待0 / 保持=$_t26_kept34 期待3): $_t26_out34"
 fi
 
+# TC-30: tests/extras/README.md に harness 判別規約が存在（#914 AC-5 / 静的検査）
+_t26_readme30="$PG_T26_ROOT/tests/extras/README.md"
+if grep -q 'PG_HARNESS_SOURCED' "$_t26_readme30" 2>/dev/null \
+  && grep -q '非 export' "$_t26_readme30" \
+  && grep -q 'AND' "$_t26_readme30" \
+  && grep -q 'standalone 側（安全側）' "$_t26_readme30"; then
+  t26_pass "TC-30 README.md に判別規約（PG_HARNESS_SOURCED / 非 export / AND / standalone 側（安全側））"
+else
+  t26_fail "TC-30 README.md の判別規約が不足（PG_HARNESS_SOURCED / 非 export / AND / standalone 側（安全側） のいずれか欠落）"
+fi
+
+# TC-33: FIXTURES_DIR 単独判別の残存 0 + unset 集合の包含（#914 AC-9 / R-304 / R-306）
+# 「統一」は残存 0 という全体性質であり個別ファイルの置換完了とは別命題。
+# 件数（11 等）をハードコードしない grep ベース検査:
+#   (1) FIXTURES_DIR:- を含み PG_HARNESS_SOURCED を含まない extras = 0 件
+#   (2) run-tests.sh 冒頭の unset 集合 ⊆ FIXTURES_DIR 判別を持つ各 extras
+#       （ta-26 自身も対象）の standalone unset 集合
+_t26_viol33=""
+_t26_incl33=""
+# unset 行 → env 名列への正規化（リスト増減に自動追従・件数非依存）。
+# 先頭の unset と末尾の 2>/dev/null / || true をリダイレクト・演算子ごと落とす。
+# 注意: case の [A-Z]* でのトークン選別は locale collation 下で 'true' 等の
+# 小文字にもマッチし得るため使わない（実測で混入を確認済み）。
+_t26_unset_envs33() {
+  grep -E '^[[:space:]]*unset ' "$1" 2>/dev/null \
+    | sed -e 's/[[:space:]]*2>\/dev\/null.*$//' -e 's/[[:space:]]*||.*$//' \
+          -e 's/^[[:space:]]*unset[[:space:]]*//'
+}
+_t26_hset33=$(_t26_unset_envs33 "$PG_T26_ROOT/tests/run-tests.sh" | tr '\n' ' ')
+for _t26_f33 in "$PG_T26_ROOT/tests/extras/"ta-*.sh; do
+  [ -f "$_t26_f33" ] || continue
+  grep -q 'FIXTURES_DIR:-' "$_t26_f33" || continue
+  # (1) 単独判別の残存（ファイル単位: AND の相方シグナルが 1 度も現れない）
+  if ! grep -q 'PG_HARNESS_SOURCED' "$_t26_f33"; then
+    _t26_viol33="$_t26_viol33 ${_t26_f33##*/}"
+    continue
+  fi
+  # (2) unset 包含（当該ファイルの unset 行群から env 名を収集して照合）
+  _t26_fset33=$(_t26_unset_envs33 "$_t26_f33" | tr '\n' ' ')
+  for _t26_e33 in $_t26_hset33; do
+    case " $_t26_fset33 " in
+      *" $_t26_e33 "*) : ;;
+      *) _t26_incl33="$_t26_incl33 ${_t26_f33##*/}:$_t26_e33" ;;
+    esac
+  done
+done
+if [ -n "$_t26_hset33" ] && [ -z "$_t26_viol33" ] && [ -z "$_t26_incl33" ]; then
+  t26_pass "TC-33 FIXTURES_DIR 単独判別の残存 0 + standalone unset が run-tests.sh の unset 集合を包含"
+else
+  t26_fail "TC-33 失敗 (単独判別残存:${_t26_viol33:- なし} / unset欠落:${_t26_incl33:- なし} / harness集合:${_t26_hset33:- 空})"
+fi
+
 # 単体実行時のみ: cleanup drain + サマリ + exit code（source 時は run-tests.sh が担う）
 if [ "$PG_T26_STANDALONE" = "1" ]; then
   printf '%s' "$_PG_T26_CLEANUP_PATHS" | while IFS= read -r _pg_cp; do

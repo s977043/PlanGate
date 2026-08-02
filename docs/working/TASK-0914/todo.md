@@ -88,7 +88,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
   - 🚩 **チェックポイント**: TC-26〜TC-29 / TC-32 / TC-34 が全 PASS
   - Owner: agent / `rollback:` `git checkout -- tests/extras/ta-26-plugin-sync.sh`
 
-- [ ] **T-05c**: 静的検査 TC 追加（**TC-30 / TC-33**）
+- [x] **T-05c**: 静的検査 TC 追加（**TC-30 / TC-33**）
   - TC-33 は **11 という件数をハードコードしない** grep ベース（AC-9）
   - 🚩 **チェックポイント**: TC-30 / TC-33 が PASS。かつ TC-33 が移行前の実装に対して **FAIL する**ことを確認（静的検査の検出力証明）
   - Owner: agent / `rollback:` `git checkout -- tests/extras/ta-26-plugin-sync.sh`
