@@ -37,7 +37,7 @@ issue #943 が `ai-dev-plan` で報告したこの問題は、`.agents/skills/` 
 ### In scope（現 issue の In scope を基点に具体化。対象はクラス A / C の 2 クラス）
 
 1. **クラス A（rules 参照）**: 対象 skill の rules 参照に「導入先相対 → `${CLAUDE_PLUGIN_ROOT}/rules/` → 解決不能なら明示」のフォールバック順を明記（#955 の `ai-dev-plan` 記述を雛形とする）
-2. **クラス C（上流 docs/** 参照）**: `ai-loop-cycle` 方式（bundled references）で解決するか、A と同じフォールバック明記で解決するかをクラスごとに決定し、判断根拠を記録
+2. **クラス C（上流 `docs/**` 参照）**: `ai-loop-cycle` 方式（bundled references）で解決するか、A と同じフォールバック明記で解決するかをクラスごとに決定し、判断根拠を記録
 3. **正本 `.agents/skills/` のみ手編集**。`.codex/skills/` と `plugin/plangate/skills/` は同期スクリプト経由で再生成（手編集ゼロ）
 4. 導入先での実解決の実測（marketplace 経由の環境で対象 2 クラス各 1 件以上）
 
