@@ -65,7 +65,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
   - **`ta-26-plugin-sync.sh` の standalone unset も 7 env へ拡張（RV-M3）**: 現状 `PLANGATE_ALLOW_MASS_DELETE` 1 件のみ（L22 実測）。AC-9 の包含検査は ta-26 も対象なので、拡張しないと TC-33 が自ファイルで落ちる
   - Owner: agent / `rollback:` `git checkout -- tests/extras/`
 
-- [ ] **T-08**: `tests/extras/README.md` の「隔離・後始末の規約（#530）」節へ項目 8 として判別規約を追記
+- [x] **T-08**: `tests/extras/README.md` の「隔離・後始末の規約（#530）」節へ項目 8 として判別規約を追記
   - 「新規 extras は `PG_HARNESS_SOURCED`（非 export）と `FIXTURES_DIR` の AND で判別する。片方でも欠ければ standalone 側（安全側）へ倒す。standalone 分岐では `PLANGATE_*` / `PG_HARNESS_SOURCED`（7 env）を unset して外部 env 汚染を無害化する」旨
   - **既存規約 7 の是正（RV-m3）**: 規約 7 末尾の「run-tests.sh 冒頭で unset 済みのため extras 側の個別対処は不要」が項目 8 と矛盾する。「harness 実行では unset 済み。standalone 実行はその防御が効かないため項目 8 に従い各 extras が自前で unset する」へ改める（README 1 ファイル内の 1 文修正・ファイル数不変）
   - Owner: agent / `rollback:` `git checkout -- tests/extras/README.md`

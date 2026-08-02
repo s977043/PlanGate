@@ -155,5 +155,27 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
 7. **PLANGATE_* env はスイートが無害化する** — 実 hooks を直接呼ぶ extras
    （ta-11 / ta-12 等）は、呼び出し元 env の `PLANGATE_SKIP_REASON` 等が漏れると
    **実監査ログ（skip-decision-log.jsonl）へ書き込む**（2026-06-11 実害確認）。
-   run-tests.sh 冒頭で unset 済みのため extras 側の個別対処は不要だが、
-   テスト内で意図的に設定する場合はコマンド単位の env 前置に限定する
+   harness 実行では run-tests.sh 冒頭で unset 済み。**standalone 実行ではその
+   防御が効かないため、規約 8 に従い各 extras が standalone 分岐で自前 unset
+   する**（#914）。テスト内で意図的に設定する場合はコマンド単位の env 前置に
+   限定する
+8. **harness/standalone 判別は `PG_HARNESS_SOURCED` と `FIXTURES_DIR` の AND**
+   （#914 / R-204）— 新規 extras は、run-tests.sh が設定する `PG_HARNESS_SOURCED`
+   （**非 export**。source された extras だけに見えるシグナル）と `FIXTURES_DIR`
+   の **AND** で harness 実行を判別する:
+   ```sh
+   if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
+     : # harness（run-tests.sh から source されている）
+   else
+     # standalone — 先に外部 env 汚染を無害化してから自前 fallback を定義する
+     unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
+       PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
+       PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+   fi
+   ```
+   片方でも欠ければ **standalone 側（安全側）へ倒す**。`FIXTURES_DIR` 単独判定は
+   外部 env 漏れだけで harness 実行と誤判定する（実害: `PLANGATE_HOOK_TASK` 漏洩下の
+   ta-39 standalone が 7 件 FAIL のまま exit 0 で素通り）。standalone 分岐
+   （else 節の内側のみ）では `PLANGATE_*` / `PG_HARNESS_SOURCED` =
+   **run-tests.sh 冒頭の unset 集合と同一の 7 env** を unset して外部 env 汚染を
+   無害化する。単独判定の残存ゼロと unset 集合の包含は `ta-26` の TC-33 が静的検査する
