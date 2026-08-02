@@ -65,8 +65,30 @@ PlanGate ワークフローの **brainstorm フェーズ** を Codex / Claude Co
 
 ## CLI 呼び出し
 
-- 実コマンド: `./scripts/ai-dev-workflow TASK-XXXX brainstorm`
+> 下記は **上流リポジトリ（`s977043/plangate`）を clone し、そのリポジトリルートで
+> 実行する場合にのみ成立する**。上の表のとおり `scripts/**` / `bin/**` は 3 経路とも
+> 導入先に配布されないため、plugin 経由・Codex 経由の環境では実行できない。
+
+- 実コマンド: `./scripts/ai-dev-workflow TASK-XXXX brainstorm`（`--dry-run` で生成先の確認のみ）
 - skill 側はプロンプト規約のみ（Rule 2 遵守）
+
+### CLI 不在時のフォールバック（導入先では既定）
+
+CLI が無くても brainstorm は成立する。同コマンドは **作業ディレクトリを作って `status.md`
+スタブを置き、「ai-dev-brainstorm skill を適用せよ」というプロンプトでエージェントを起動する
+だけのランチャ**であり、対話も生成も本 skill の手順が担っている。
+
+1. **本 skill の手順をそのまま実行する** — 「Read First」の読む順序 →「Rules」
+   （1 問ずつ・最大 3 問・plan/todo/test-cases は作らない）→「Output」という順序と
+   出力契約は **CLI の有無に関わらず不変**
+2. **作業ディレクトリは自分で用意する** — CLI が行うのは `docs/working/TASK-XXXX/` の
+   作成と `status.md` スタブ生成だけ。導入先では同じパス（または導入先の working context
+   に相当するパス）を手で作り、`pbi-input.md` と `status.md` をそこに置く
+3. **後続ゲートを省略しない** — brainstorm の出力は `pbi-input.md` までであり、
+   plan / C-1 / C-2 / C-3 は CLI が無くても従来どおり必要。CLI が使えないことを理由に
+   `ai-dev-plan` 以降のゲートを飛ばさない
+4. CLI 実行そのものが必要なら、上流リポジトリ（`s977043/plangate`）を clone して
+   そこから実行する
 
 ## 次フェーズへ
 
