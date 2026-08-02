@@ -71,6 +71,11 @@
 
 ## 計画からの変更点
 
+- **T-05c/T-08 の実行順による一時 RED（想定内・解消済み）**: オーガナイザー指示の実行順（T-05a→b→c→T-07→T-08）では、T-05c コミット時点で TC-33（T-07 待ち）と TC-30（T-08 待ち）+ 連鎖 TC-13 が FAIL する（TDD RED。evidence: `t05c-tc30-33-pre-t07-fail.log`）。T-07 後 TC-33 → PASS、T-08 後 TC-30/TC-13 → PASS を対比実測済み。**branch head（T-08 以降）は 467/0 で green**
+- **TC-33 のトークン抽出は sed 末尾除去方式**: 実装当初の `case [A-Z]*` によるトークン選別は locale collation 下で `true` 等の小文字にも誤マッチする（実測で混入確認）。`_t26_unset_envs33()`（grep + sed で `unset` / `2>/dev/null` / `|| true` を除去）へ是正
+- **test-cases.md V-1-B' スニペットの env 引数順は実行不可（T-09 担当への申し送り）**: `env PG_HARNESS_SOURCED=1 -u FIXTURES_DIR sh "$f"` は BSD/GNU env とも「オプション（-u）は NAME=VALUE 代入より前」の仕様に反し、`-u` 以降が COMMAND 扱いになって **rc=127 で全滅**する（2026-08-02 実測）。正しくは `env -u FIXTURES_DIR PG_HARNESS_SOURCED=1 sh "$f" </dev/null`。同順で 11 本スモーク済み = **64 PASS / NG 0**（evidence: `t07-bprime-smoke-post.log`）
+- **ta-26 冒頭の #877 由来方針コメント 1 文を #914 完了形へ是正**（T-07 内）: 「移行と規約追記は follow-up issue で扱う（本 PBI では touch しない）」が本 PBI 完了後に誤読を招くため
+
 - **exec 基点が main `f25ae8b`**（plan 基点 `90c313d` から前進）。`scripts/sync-plugin-plangate.sh` の 90c313d→f25ae8b 差分は **L342 以降（scripts allowlist 節 = 本 PBI Non-goal 領域）のコメント3+2行と集合拡張のみ**で、本 PBI の対象 3 領域（sync_dir guard L103-113 / 経路1 L173-183 / 経路2 L316-329）は**行番号・内容とも 90c313d と同一**（`git diff 90c313d f25ae8b -- scripts/sync-plugin-plangate.sh` で実測）。plan の行番号参照はそのまま有効
 - **`tests/extras/ta-57-pr-convergence.sh` が新設**（#941）・ta-56 に 1 行変更 → `sh tests/run-tests.sh` の総数 baseline が 430（90c313d）から **453（f25ae8b + T-02〜T-04 適用後、2026-08-02 13:05 実測・0 failed）** へ増加。**RT-6 / AC-6 / T-11 の期待値は 444 ではなく 467（= 453 + 新規 14 TC）に読み替える**こと（T-02〜T-04 は TC を追加しないため 453 が「移行前」相当の現基点値） |
 - 変異注入の復元元 `git show 90c313d:scripts/sync-plugin-plangate.sh`（RV-i1）は、対象 3 領域が同一なため引き続き有効（allowlist 節の差分は変異対象外）
