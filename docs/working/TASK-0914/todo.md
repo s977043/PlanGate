@@ -117,10 +117,12 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
   - **handoff.md「妥協点」へ記録（R-309）**: ①同一 11 ファイルを本 PBI と follow-up で 2 回触る代償 ②AC-6 の代理判定が follow-up 完了まで恒久化 → follow-up 完了時に AC-6 を exit code ベースへ戻す旨を V2 候補に明記
   - Owner: agent / `rollback:` 誤起票時は close
 
-- [ ] **T-11**: 回帰フルテスト
+- [x] **T-11**: 回帰フルテスト
   - `sh tests/run-tests.sh` が **444 passed / 0 failed**（430 + 新規 14 TC）
+    - 実測 467 passed / 0 failed（基点前進による読み替え = status.md「計画からの変更点」。453 + 新規 14）
   - `sh -n scripts/sync-plugin-plangate.sh`
   - `bin/plangate doctor --check-settings` PASS（handoff / V-1 の前提条件）
+    - worktree 内 FAIL（gitignored settings.json 非複製の構造要因）→ main checkout での PASS 実測を Human 待ち事項化（status.md T-11 行）
   - 🚩 **チェックポイント**: 全 exit 0。1 件でも FAIL なら該当 Step へ戻る
   - Owner: agent / `rollback:` 不要（検証のみ）
 

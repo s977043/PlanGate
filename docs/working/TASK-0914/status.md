@@ -1,6 +1,6 @@
 # TASK-0914 作業ステータス
 
-> 最終更新: 2026-08-02 14:15
+> 最終更新: 2026-08-02 14:30
 > 現在フェーズ: exec
 > モード: high-risk
 
@@ -25,6 +25,8 @@
 | 2026-08-02 13:50 | T-08 完了 | `tests/extras/README.md` 規約 8（AND 判別 + 非 export + standalone 側（安全側）+ 7 env unset + TC-33 静的検査の言及）追記 + 規約 7 末尾の 1 文是正（RV-m3: 「extras 側の個別対処は不要」→ harness では unset 済み / standalone は規約 8 で自前 unset）。**TC-30 FAIL→PASS 転化・TC-13 復帰を実測: ta-26 standalone 30 passed / 0 failed・exit 0**（既存 16 + 新規 14 = 30 TC 全 PASS）。フルスイート **467 passed / 0 failed**（= 453 + 14。読み替え後の RT-6 期待値と一致）。evidence: `t08-ta26-all30-pass.log` / `t08-full-suite-467.log` |
 | 2026-08-02 14:08 | T-06 完了 🚩 | 変異注入 8 件（M-1〜M-5 弱体化 / M-6・M-6b 過剰発火 / M-7 override 無効化）**すべてで期待 FAIL TC を実測**（下表マトリクス・空振り fixture なし = RT-3 / Stop Condition 3 発火なし）。M-6 下で TC-25/32 の PASS 維持も実測（RV-M4 の対象限定どおり）。各変異とも `git checkout 1e1c074 --` 復元 → diff 空 → ta-26 standalone 30/0 復帰を確認。evidence: `t06-m{1,2,3,4,5,6,6b,7}-*.log` 8 本（変異 diff 断片つき） |
 | 2026-08-02 14:15 | T-09 完了 🚩 | AC-6（V-1-A）/ AC-7（V-1-B + V-1-B'）/ AC-9 の機械検証**全 PASS**。V-1-A/B/B' とも **64 PASS・NG 0・per-file baseline（T-01 表）全一致**。AC-9 は TC-33 と独立の grep -L / awk 実装で**単独判別残存 0 + 7 env 包含成立**（対象 12 ファイル = 移行 11 本 + ta-26）。V-1-B' の env 引数順は W2 申し送りの読み替えを採用。検証コマンド全文は下記セクション（V-1 で再実行）。evidence: `t09-v1a-clean.log` / `t09-v1b-contaminated.log` / `t09-v1bprime-single.log` / `t09-ac9-static.log` |
+| 2026-08-02 14:25 | T-10 前半（#921 コメント） | issue #921 本文と todo T-10 起票要件を突合（issue-governance 必須セクション = Why/What/AC/Non-goals/Labels/Milestone 全て充足・4 軸ラベルは必須 2 軸 kind=`bug` + `priority:P1` 充足、area/status は任意軸で tests/extras 該当 area ラベルはタクソノミに不存在）→ 欠けていた W1/T-01 実測根拠を**コメント追記**（本文編集なし）: ①汚染 env 下 8 ファイルが `[FAIL]` 4〜9 行を出しつつ全 11 本 rc=0（NG_TOTAL=8）②ta-39/43/44 は `[PASS]`=0（baseline 8/6/5）= 1 件も実行せず exit 0 素通り ③#914 完了で AND 化済み・残るは exit code 伝播のみのスコープ境界 + `Refs #914`。URL: <https://github.com/s977043/PlanGate/issues/921#issuecomment-5155633541> |
+| 2026-08-02 14:30 | T-11 完了 🚩 | 回帰フルテスト（clean env + `</dev/null`）**467 passed / 0 failed・rc=0**（= 453 + 新規 14。worktree + トピックブランチの期待値どおり: ta-13 TC-17 の worktree 素通り #947 と ta-57 TC-14 のトピックブランチ実行 +1 が相殺）+ `sh -n scripts/sync-plugin-plangate.sh` rc=0 + ta-26 standalone **30 passed / 0 failed・rc=0**。`bin/plangate doctor --check-settings` は worktree 内 **FAIL**（gitignored `.claude/settings.json` が worktree に複製されない構造要因。main checkout には 2026-07-23 適用の settings.json 実在を確認 = Shadow Config ではなく worktree 制約）→ **Human 待ち事項: V-1 前に main checkout で PASS 実測**。evidence: `t11-full-suite-clean.log` / `t11-ta26-standalone.log` |
 
 ## 全体構成（PR 一覧）
 
@@ -234,13 +236,13 @@ if [ "$fail" = "0" ]; then echo "AC-9: PASS"; else echo "AC-9: FAIL"; exit 1; fi
 - [x] T-02: `_mass_delete_blocked()` 導入 + `sync_dir` guard 置換 🚩（2026-08-02 12:55 完了）
 - [x] T-03: 経路2（ai-loop references）guard 適用 🚩（2026-08-02 13:00 完了）
 - [x] T-04: 経路1（汎用 references）guard 適用 🚩（2026-08-02 13:05 完了）
-- [ ] T-05a/b/c: TC 追加（別ワーカー担当）
+- [x] T-05a/b/c: TC 追加 🚩（2026-08-02 13:17 / 13:22 / 13:30 完了 — フェーズ履歴参照）
 - [x] T-06: 変異注入 8 件で検出力実証 🚩（2026-08-02 14:08 完了）
-- [ ] T-07: extras 11 本判別式統一 + unset（別ワーカー担当）
-- [ ] T-08: README 規約追記（別ワーカー担当）
+- [x] T-07: extras 11 本判別式統一 + unset 🚩（2026-08-02 13:45 完了）
+- [x] T-08: README 規約追記（2026-08-02 13:50 完了）
 - [x] T-09: AC-6/7/9 機械検証 🚩（2026-08-02 14:15 完了）
-- [ ] T-10: 別 issue 起票 + handoff 妥協点（別ワーカー担当）
-- [ ] T-11: 回帰フルテスト（別ワーカー担当）
+- [ ] T-10: 別 issue 起票（→ #921 コメント追記へ読み替え・2026-08-02 14:25 済）+ handoff 妥協点記録（handoff 起草待ち）
+- [x] T-11: 回帰フルテスト 🚩（2026-08-02 14:30 完了）
 
 ## 計画からの変更点
 
