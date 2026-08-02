@@ -150,3 +150,12 @@ visual evidence: before/after スクリーンショット（PC/SP 2 点）を
   （同一の発火ヒューリスティックを共有・V-1 での evidence 必須化）
 - unavailable 記録の正本: `docs/ai/external-reviewer-interface.md` §10
 - 安全側規則の同型元: `.claude/rules/mode-classification.md` 変更種別軸
+  → fallback `<plugin_root>/rules/mode-classification.md`
+  （`<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
+  絶対パス**。Read ツールは環境変数を展開しないため `${CLAUDE_PLUGIN_ROOT}/...` をそのまま
+  Read しない。空・未設定ならキャッシュを glob で推測しない）。
+  どちらでも解決できない場合（Codex 経由は skills のみ配布のため常にこちら）は
+  **「正本 `mode-classification.md` を参照できなかった」と明示**する。
+  本ファイルの安全側規則（§1「曖昧なら発火側に倒す」）は同型元の有無に依らず成立するため、
+  同型元の内容を推測で補わずそのまま適用する。詳細な解決手順は `../SKILL.md` の
+  「`review-principles.md` の参照解決順」と同じ
