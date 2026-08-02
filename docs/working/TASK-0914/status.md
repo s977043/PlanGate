@@ -1,7 +1,7 @@
 # TASK-0914 作業ステータス
 
-> 最終更新: 2026-08-02 14:30
-> 現在フェーズ: exec
+> 最終更新: 2026-08-02 14:50
+> 現在フェーズ: exec 完了・V-1 待ち
 > モード: high-risk
 
 ## フェーズ履歴
@@ -27,6 +27,8 @@
 | 2026-08-02 14:15 | T-09 完了 🚩 | AC-6（V-1-A）/ AC-7（V-1-B + V-1-B'）/ AC-9 の機械検証**全 PASS**。V-1-A/B/B' とも **64 PASS・NG 0・per-file baseline（T-01 表）全一致**。AC-9 は TC-33 と独立の grep -L / awk 実装で**単独判別残存 0 + 7 env 包含成立**（対象 12 ファイル = 移行 11 本 + ta-26）。V-1-B' の env 引数順は W2 申し送りの読み替えを採用。検証コマンド全文は下記セクション（V-1 で再実行）。evidence: `t09-v1a-clean.log` / `t09-v1b-contaminated.log` / `t09-v1bprime-single.log` / `t09-ac9-static.log` |
 | 2026-08-02 14:25 | T-10 前半（#921 コメント） | issue #921 本文と todo T-10 起票要件を突合（issue-governance 必須セクション = Why/What/AC/Non-goals/Labels/Milestone 全て充足・4 軸ラベルは必須 2 軸 kind=`bug` + `priority:P1` 充足、area/status は任意軸で tests/extras 該当 area ラベルはタクソノミに不存在）→ 欠けていた W1/T-01 実測根拠を**コメント追記**（本文編集なし）: ①汚染 env 下 8 ファイルが `[FAIL]` 4〜9 行を出しつつ全 11 本 rc=0（NG_TOTAL=8）②ta-39/43/44 は `[PASS]`=0（baseline 8/6/5）= 1 件も実行せず exit 0 素通り ③#914 完了で AND 化済み・残るは exit code 伝播のみのスコープ境界 + `Refs #914`。URL: <https://github.com/s977043/PlanGate/issues/921#issuecomment-5155633541> |
 | 2026-08-02 14:30 | T-11 完了 🚩 | 回帰フルテスト（clean env + `</dev/null`）**467 passed / 0 failed・rc=0**（= 453 + 新規 14。worktree + トピックブランチの期待値どおり: ta-13 TC-17 の worktree 素通り #947 と ta-57 TC-14 のトピックブランチ実行 +1 が相殺）+ `sh -n scripts/sync-plugin-plangate.sh` rc=0 + ta-26 standalone **30 passed / 0 failed・rc=0**。`bin/plangate doctor --check-settings` は worktree 内 **FAIL**（gitignored `.claude/settings.json` が worktree に複製されない構造要因。main checkout には 2026-07-23 適用の settings.json 実在を確認 = Shadow Config ではなく worktree 制約）→ **Human 待ち事項: V-1 前に main checkout で PASS 実測**。evidence: `t11-full-suite-clean.log` / `t11-ta26-standalone.log` |
+| 2026-08-02 14:45 | T-10 完了 + handoff 起草 | `handoff.md` 起草（必須 6 要素 + **R-309 妥協点 2 点**〔①同一 11 ファイルを本 PBI と #921 で 2 回触る代償 ②AC-6 代理判定が #921 完了まで恒久化 → V2 候補 High「exit code ベースへ戻す」を明記〕+ **V-1 結果欄はプレースホルダ**・frontmatter `status: draft` = V-1 PASS 後に final 化）→ AC-8 成果物確定・T-10 完了。INDEX.md / current-state.md を「exec 完了・V-1 待ち」へ更新 |
+| 2026-08-02 14:50 | L-0 相当 完了 | 本ブランチ変更 `.md` 6 本（status / todo / INDEX / current-state / handoff / tests/extras/README）へ `npx markdownlint-cli2` → 検出 8 件（handoff MD018 ×1 = 起草分の行頭 `#877` 見出し誤認 / README MD031 ×6 + MD012 ×1 = うち 2 件は W2 追記ブロック・5 件は main 既存）を**全て修正**（抑制なし・whitespace のみ・内容不変）→ 再実行 **0 issues**。README は TC-30/TC-13 の検査対象のため ta-26 standalone を再実測 **30/0** + 最終 tree でフルスイート再実測 **467 passed / 0 failed**（テストした tree = 出荷 tree を保証。PASS のため evidence 省略・ta-26 の evidence ログは再実行で更新） |
 
 ## 全体構成（PR 一覧）
 
@@ -241,7 +243,7 @@ if [ "$fail" = "0" ]; then echo "AC-9: PASS"; else echo "AC-9: FAIL"; exit 1; fi
 - [x] T-07: extras 11 本判別式統一 + unset 🚩（2026-08-02 13:45 完了）
 - [x] T-08: README 規約追記（2026-08-02 13:50 完了）
 - [x] T-09: AC-6/7/9 機械検証 🚩（2026-08-02 14:15 完了）
-- [ ] T-10: 別 issue 起票（→ #921 コメント追記へ読み替え・2026-08-02 14:25 済）+ handoff 妥協点記録（handoff 起草待ち）
+- [x] T-10: 別 issue 起票（→ #921 コメント追記へ読み替え・2026-08-02 14:25）+ handoff 妥協点記録（2026-08-02 14:45 完了）
 - [x] T-11: 回帰フルテスト 🚩（2026-08-02 14:30 完了）
 
 ## 計画からの変更点
@@ -259,12 +261,12 @@ if [ "$fail" = "0" ]; then echo "AC-9: PASS"; else echo "AC-9: FAIL"; exit 1; fi
 
 | ステップ | 結果 |
 |---------|------|
-| L-0 | — |
-| V-1 | — |
-| V-2 | — |
-| V-3 | — |
-| V-4 | — |
+| L-0 | ✅ markdownlint-cli2 **0 issues**（変更 .md 6 本・違反 8 件を修正で解消・2026-08-02 14:50） |
+| V-1 | ⬜ 待ち（acceptance-tester 独立検査。handoff §1 の V-1 欄を確定 → `status: final` 化） |
+| V-2 | ⬜（high-risk のため必須） |
+| V-3 | ⬜（high-risk のため必須） |
+| V-4 | —（critical のみ・対象外） |
 
 ## 次の作業（Claude Code プロンプト）
 
-TASK-0914 exec 続行。T-02（`_mass_delete_blocked()` 共通関数導入 + sync_dir guard L103-113 置換）→ T-03（経路2 L316-329）→ T-04（経路1 L173-183）を todo.md の指示どおり直列実施。チェックポイントは `sh -n` + ta-26 既存 16 TC 全 PASS（T-02）、sandbox 手動再現ログの evidence 保存（T-03/T-04）。
+TASK-0914 は exec 完了（T-01〜T-11 全完了・handoff 起草済み〔draft〕・フルスイート 467/0）。次は **V-1 受け入れ検査**: acceptance-tester が `docs/working/TASK-0914/test-cases.md` を全件突合し、本 status.md「T-09」節の V-1-A / V-1-B / V-1-B' / AC-9 スニペット（コピペで自己判定つき）を再実行する。**全ループ `sh "$f" </dev/null` 必須**（ta-50 が無限ハング = RV-M1）・cwd は repo root。判定は実行結果のみ（推測禁止）。V-1 PASS 後に `handoff.md` §1 の V-1 欄を確定し frontmatter を `status: final` へ。**Human 待ち**: main checkout での `bin/plangate doctor --check-settings` PASS 実測（worktree は構造的 FAIL = T-11 行参照）。その後 V-2 / V-3 → PR 作成 → C-4。

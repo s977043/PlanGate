@@ -110,11 +110,15 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
 
 ### 完了フェーズ
 
-- [ ] **T-10**: 別 issue 起票 + handoff への妥協点記録（AC-8）
+- [x] **T-10**: 別 issue 起票 + handoff への妥協点記録（AC-8）
   - 起票内容: extras 11 本の standalone 実行が内部 FAIL を exit code に反映しない（`exit $fail` 相当の欠落）
+    - **#921 が既に同内容で起票済みのため「#921 への根拠コメント追記」へ読み替え**（オーガナイザー指示・本文編集なし）: [issuecomment-5155633541](https://github.com/s977043/PlanGate/issues/921#issuecomment-5155633541)
   - 根拠として「`PLANGATE_HOOK_TASK` 汚染下の ta-39 が **7 件 FAIL**（PASS 1）しつつ exit 0 で通った」実測を添付（follow-up issue 本文に載る数値なので誤値を持ち込まない — RV-m2）
+    - 本文既載の当該値（plan 時実測）に加え、W1/T-01 の系統実測（8 ファイル `[FAIL]` 4〜9 行で全 11 本 rc=0 / ta-39/43/44 は `[PASS]`=0 素通り）を evidence ログから正確に転記
   - issue-governance.md の必須セクション・4 軸ラベルに準拠
+    - 突合結果: 必須セクション全充足・必須 2 軸（kind=`bug` / `priority:P1`）充足、area/status は任意軸（tests/extras 該当 area ラベル不存在）
   - **handoff.md「妥協点」へ記録（R-309）**: ①同一 11 ファイルを本 PBI と follow-up で 2 回触る代償 ②AC-6 の代理判定が follow-up 完了まで恒久化 → follow-up 完了時に AC-6 を exit code ベースへ戻す旨を V2 候補に明記
+    - handoff.md §4 に 2 点とも記録済み + §3 V2 候補（High / #921）へ明記済み
   - Owner: agent / `rollback:` 誤起票時は close
 
 - [x] **T-11**: 回帰フルテスト

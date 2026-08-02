@@ -1,5 +1,5 @@
 # T-11 ta-26 standalone: clean env (env -u 5 vars) sh tests/extras/ta-26-plugin-sync.sh </dev/null
-# date: 2026-08-02 14:29  head: ef65021
+# date: 2026-08-02 14:39  head: dcd881f
 
 === TA-26: plugin-sync (TASK-0124) ===
   [PASS] TC-01 sync-plugin-plangate.sh 存在・実行可能
