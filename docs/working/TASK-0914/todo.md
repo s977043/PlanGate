@@ -51,7 +51,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
   - 🚩 **チェックポイント**: 「正本 2 ディレクトリ両方が空/消失 → 発火 + exit 3」「1 件だけ正当削除 → 非発火で削除実行」を手動再現し、**実行ログを `evidence/verification/` へ保存**（R-308。本経路は「最も危険な silent failure」に該当）してから T-04 へ
   - Owner: agent / `rollback:` `git checkout -- scripts/sync-plugin-plangate.sh`
 
-- [ ] **T-04**: 経路1（汎用 references・L173-183）へ guard 適用
+- [x] **T-04**: 経路1（汎用 references・L173-183）へ guard 適用
   - **集計条件（R-351 / 論点 D'）**: base / stale の集計ループに**コピーループ L163 と同一の** `[ -L "$_rf" ] && continue` を入れる。集計と削除条件が非対称だと「N 件と数えて M 件消す」= #861 再発型の guard 無効化になる
   - blocked なら**当該 skill の references 削除のみ** skip（`break` ではなく他 skill の処理を継続する制御にする）
   - 🚩 **チェックポイント**: 複数 skill のうち 1 つだけ空化した sandbox で、当該 skill のみ保留・他 skill は正常同期。**ログを `evidence/verification/` へ保存**（R-308）

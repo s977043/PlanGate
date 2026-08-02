@@ -187,15 +187,42 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
       done
     fi
     if [ -d "$_src_refs" ] && [ -d "$_dst_refs" ]; then
+      # mass-delete safety guard（#914 経路1）: src 側 references/ の空化・欠損で
+      # 当該 skill の dst references/ を一括削除する事故を防ぐ。削除実行前に
+      # base（src 側 *.md 残存数）と stale（dst にあって src に同名が無い *.md 数）
+      # を集計し、blocked なら**当該 skill の references 削除のみ** skip する
+      # （他 skill の処理・コピーは継続）。
+      # 集計にはコピーループと同一の [ -L ] 除外を入れる（R-351 / 論点 D'-2。
+      # 集計定義と実削除条件の非対称は「N 件と数えて M 件消す」guard 無効化を招く）。
+      _refs_base_count=0
+      for _rf in "$_src_refs"/*.md; do
+        [ -f "$_rf" ] || continue
+        [ -L "$_rf" ] && continue
+        _refs_base_count=$((_refs_base_count + 1))
+      done
+      _refs_stale_count=0
       for _rf in "$_dst_refs"/*.md; do
         [ -f "$_rf" ] || continue
+        [ -L "$_rf" ] && continue
         _rb="${_rf##*/}"
         if [ ! -f "$_src_refs/$_rb" ]; then
-          if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/$_skill_name/references/$_rb"
-          else rm "$_rf"; _log "DELETE: skills/$_skill_name/references/$_rb"; fi
-          changed=1
+          _refs_stale_count=$((_refs_stale_count + 1))
         fi
       done
+      # 呼び出しを $(...) 内へ置かないこと（guard_fired の global 伝播条件）。
+      # blocked 時は break を使わず if で当該 skill の削除だけを避ける
+      # （break だと後続 skill の同期が落ちる）。
+      if ! _mass_delete_blocked "skills/$_skill_name/references" "$_refs_base_count" "$_refs_stale_count"; then
+        for _rf in "$_dst_refs"/*.md; do
+          [ -f "$_rf" ] || continue
+          _rb="${_rf##*/}"
+          if [ ! -f "$_src_refs/$_rb" ]; then
+            if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/$_skill_name/references/$_rb"
+            else rm "$_rf"; _log "DELETE: skills/$_skill_name/references/$_rb"; fi
+            changed=1
+          fi
+        done
+      fi
     fi
 done
 

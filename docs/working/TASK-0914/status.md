@@ -17,6 +17,7 @@
 | 2026-08-02 12:46 | T-01 完了 | baseline 実測（下表）+ 失敗表記統一確認 + AC-7 検出力証明（NG_TOTAL=8） |
 | 2026-08-02 12:55 | T-02 完了 🚩 | `_mass_delete_blocked()` 導入 + sync_dir guard 置換。チェックポイント PASS: `sh -n` rc=0 + ta-26 standalone **16 passed / 0 failed**（TC-10 exit 3 = guard_fired 非サブシェル実証） |
 | 2026-08-02 13:00 | T-03 完了 🚩 | 経路2（ai-loop references）guard 適用。sandbox 再現 3 系: S1 正本2dir消失=発火+exit3+全残存 / S1b 空化=発火（`[ -d ]` すり抜けなし）/ S2 base=4,stale=1=非発火・削除実行・exit 0。evidence 保存 + ta-26 16/16 維持 + U-2 再確認（`set --` 以降の位置パラメータ使用 0 件） |
+| 2026-08-02 13:05 | T-04 完了 🚩 | 経路1（汎用 references）guard 適用（集計に `[ -L ]` 除外 = R-351）。sandbox 再現: S1 複数 skill 中 skill-A のみ空化 → 当該のみ保留・skill-B は正常同期（break 誤用なし）・exit 3 / S2 正常系 非発火・exit 0。ta-26 16/16 維持 + フルスイート **453 passed / 0 failed**（現 main 基点） |
 
 ## 全体構成（PR 一覧）
 
@@ -54,7 +55,7 @@
 - [x] T-01: baseline 実測（2026-08-02 12:46 完了）
 - [x] T-02: `_mass_delete_blocked()` 導入 + `sync_dir` guard 置換 🚩（2026-08-02 12:55 完了）
 - [x] T-03: 経路2（ai-loop references）guard 適用 🚩（2026-08-02 13:00 完了）
-- [ ] T-04: 経路1（汎用 references）guard 適用 🚩
+- [x] T-04: 経路1（汎用 references）guard 適用 🚩（2026-08-02 13:05 完了）
 - [ ] T-05a/b/c: TC 追加（別ワーカー担当）
 - [ ] T-06: 変異注入（別ワーカー担当）
 - [ ] T-07: extras 11 本判別式統一 + unset（別ワーカー担当）
@@ -66,7 +67,7 @@
 ## 計画からの変更点
 
 - **exec 基点が main `f25ae8b`**（plan 基点 `90c313d` から前進）。`scripts/sync-plugin-plangate.sh` の 90c313d→f25ae8b 差分は **L342 以降（scripts allowlist 節 = 本 PBI Non-goal 領域）のコメント3+2行と集合拡張のみ**で、本 PBI の対象 3 領域（sync_dir guard L103-113 / 経路1 L173-183 / 経路2 L316-329）は**行番号・内容とも 90c313d と同一**（`git diff 90c313d f25ae8b -- scripts/sync-plugin-plangate.sh` で実測）。plan の行番号参照はそのまま有効
-- **`tests/extras/ta-57-pr-convergence.sh` が新設**（#941）・ta-56 に 1 行変更 → `sh tests/run-tests.sh` の総数 baseline は plan 記載の 430 から増えているはず。T-11 実施時に現 main 基点で再実測して「+新規 14 TC」の期待値を再計算する必要あり（RT-6 の 444 固定値は 90c313d 基点の値）
+- **`tests/extras/ta-57-pr-convergence.sh` が新設**（#941）・ta-56 に 1 行変更 → `sh tests/run-tests.sh` の総数 baseline が 430（90c313d）から **453（f25ae8b + T-02〜T-04 適用後、2026-08-02 13:05 実測・0 failed）** へ増加。**RT-6 / AC-6 / T-11 の期待値は 444 ではなく 467（= 453 + 新規 14 TC）に読み替える**こと（T-02〜T-04 は TC を追加しないため 453 が「移行前」相当の現基点値） |
 - 変異注入の復元元 `git show 90c313d:scripts/sync-plugin-plangate.sh`（RV-i1）は、対象 3 領域が同一なため引き続き有効（allowlist 節の差分は変異対象外）
 
 ## V 系ステップ進捗

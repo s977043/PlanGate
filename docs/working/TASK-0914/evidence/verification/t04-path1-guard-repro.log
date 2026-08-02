@@ -1,0 +1,17 @@
+# T-04 verification: path-1 (generic skill references) guard
+# date: 2026-08-02 12:56  sandbox: mktemp -d 配下（repo 非破壊）
+
+## シナリオ1: skill-A 空化（base=0/stale=4）+ skill-B 正常（base=3/stale=1）
+rc=3 (期待 3) / skill-A dst 残存=4 (期待 4) / skill-B refs=3 (期待 3) / skill-B stale 残存=0 (期待 0) / skill-B コピー完了=1 (期待 1)
+  | [sync-plugin] COPY: skills/skill-a/SKILL.md
+  | [sync-plugin] WARN: DELETE skipped for skills/skill-a/references — base=0 / stale=4 (削除候補が src 残存数を上回るため削除を保留 / #861 safety guard)。意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください
+  | [sync-plugin] COPY: skills/skill-b/SKILL.md
+  | [sync-plugin] COPY: skills/skill-b/references/bref-1.md
+  | [sync-plugin] COPY: skills/skill-b/references/bref-2.md
+  | [sync-plugin] COPY: skills/skill-b/references/bref-3.md
+  | [sync-plugin] DELETE: skills/skill-b/references/bstale.md
+=> S1 OK（skill-A のみ保留・skill-B は正常同期・exit 3・break 誤用なし）
+
+## シナリオ2: 正常系（base=3/stale=1）
+rc=0 (期待 0) / refs=3 (期待 3) / stale 残存=0 (期待 0)
+=> S2 OK（非発火・stale 1 件のみ削除・exit 0）
