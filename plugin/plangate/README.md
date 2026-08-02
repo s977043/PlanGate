@@ -37,7 +37,8 @@ sh install.sh --dry-run             # 変更内容を確認（実行しない）
   - コマンド（1）: `/plangate-setup`
   - スキル（9）: `ai-dev-exec`・`ai-dev-plan`・`ai-dev-verify`・`intent-classifier`・`local-exec-handoff`・`plan-review-gate`・`plangate-setup`・`skill-policy-router`・`working-context`
   - エージェント（2）: `setup-coordinator`・`workflow-conductor`
-  - 上記以外の同梱定義は `bin/plangate` を呼び出しません。`skills/ai-loop-cycle/` の同梱 `references/` / `scripts/` にも `bin/plangate` の記述がありますが、これは HO（Hardening Override）パス指定および「本番フローから呼ばれない隔離 PoC」であることの明示であり、CLI 依存ではありません
+  - **カウント対象**: 同梱の **コマンド定義**（`commands/*.md`）/ **スキル本体**（`skills/*/SKILL.md`）/ **エージェント本文**（`agents/*.md`）の 3 種のみ。この範囲で `bin/plangate` を参照するのは上記 12 ファイル（1 + 9 + 2）で全部です。再現コマンド（`plugin/plangate/` 直下で実行 → 12 件）: `grep -rl 'bin/plangate' commands/*.md skills/*/SKILL.md agents/*.md`
+  - **カウント対象外**: 説明用ドキュメント内の言及は CLI 依存に数えません（本 README 自身 / `skills/README.md` / `rules/**` の計 4 ファイル）。また `skills/ai-loop-cycle/` の同梱 `references/`（5 ファイル）/ `scripts/`（6 ファイル）にも `bin/plangate` の記述がありますが、これは HO（Hardening Override）パス指定および「本番フローから呼ばれない隔離 PoC」であることの明示であり、CLI 依存ではありません。この 15 ファイルを含むため、`grep -rl 'bin/plangate' plugin/plangate/` を範囲指定なしで実行すると 27 件（対象 12 + 対象外 15）になります
 
 #### 方法 A: プラグインパスを直接指定（推奨）
 
