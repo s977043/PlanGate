@@ -141,7 +141,51 @@ reason: severity=critical の finding が <N> 件あります。fix 後に再レ
 
 ## Plan Alignment レビュー（#581 要素4）
 
-> 5 観点・Severity・判定基準（`.claude/rules/review-principles.md` §2-4）は**不変**。本ブロックは Plan 正本との突合観点を補う追加レーン（観点数を増やさず C-2 設計妥当性レーン §7-bis と整合）。
+> 5 観点・Severity・判定基準（`.claude/rules/review-principles.md` §2-4。解決順は下記「`review-principles.md` の参照解決順」）は**不変**。本ブロックは Plan 正本との突合観点を補う追加レーン（観点数を増やさず C-2 設計妥当性レーン §7-bis と整合）。
+
+### `review-principles.md` の参照解決順（導入先）
+
+本 Skill は severity 定義・判定基準の正本として `.claude/rules/review-principles.md`
+（§2-4 / §7-bis）を参照する。このパスは上流リポジトリ基準のため、導入先では
+**次の順で探索する**:
+
+1. 導入先リポジトリの `.claude/rules/review-principles.md`。
+   ただし **本 skill が参照する節（例: `review-principles.md` の §3 Severity 定義）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため 2 へ進む
+2. 無ければ plugin root 配下 `<plugin_root>/rules/review-principles.md`。
+   `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
+   絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+   という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず 3 へ進む
+3. どちらにも無い場合は **「正本 `review-principles.md` を参照できなかった」と明示**する
+
+| 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
+|------|---------------------------|----------------------------------|-----------|
+| `rules/*.md` | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
+
+`install.sh --claude` のコピー対象は `agents` / `skills` / `commands` / `rules` の 4 ディレクトリ
+のみ。Codex 経由（`install_codex()`）は `install-plangate-skills.sh` を呼ぶだけで **skills しか
+配置されない**ため、rules 参照は解決順 1・2 とも成立せず必ず手順 3 に落ちる。
+
+> **手順 3 でも Iron Law は緩めない**: `NO MERGE WITHOUT TWO-STAGE REVIEW` と
+> 「severity=critical があれば Completion Gate を通さない」は本 Skill 内で完結する。
+> ただし本 Skill の **6 観点表は finding の分類軸であり severity 基準を含まない**ため、
+> severity 付与の代替正本にはならない。正本未参照時は直下の「severity 定義（4 段階）」を
+> severity 付与基準として用い、定義を推測で書き換えない。参照できなかった事実は
+> EvidenceItem の `outputExcerpt` に併記する。
+
+#### severity 定義（4 段階）
+
+`.claude/rules/review-principles.md` §3「Severity定義（4段階）」の写し。正本を解決できた
+場合は正本を優先し、齟齬があれば正本が勝つ。
+
+| Severity | 定義 | 例 | マージ影響 |
+|----------|------|---|-----------|
+| **critical** | 本番障害・データ不整合・脆弱性 | SQLインジェクション、認可チェック漏れ、データ損失 | ブロッカー |
+| **major** | ロジック誤り・テスト不足・設計違反 | N+1クエリ、レイヤー間依存違反、重要パス未テスト | 修正推奨 |
+| **minor** | 改善提案・命名・コードスタイル | 変数名改善、early return提案、ドキュメント不備 | 任意 |
+| **info** | FYI・将来課題・好みの問題 | 類似パターンの紹介、リファクター候補、補足情報 | 無視可 |
+
+Completion Gate の発火条件（`severity=critical` が 1 件以上あればブロック）は、この
+4 段階定義の `critical` 行を判定基準とする。
 
 ### Plan Alignment
 
