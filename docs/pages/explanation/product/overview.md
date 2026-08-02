@@ -1,4 +1,4 @@
-# Product Overview: PlanGate
+# Product Brief / Overview: PlanGate
 
 > **Status**: Stable
 > **Review cadence**: Monthly
@@ -8,7 +8,9 @@
 
 PlanGate is a governance-first workflow harness for AI coding agents.
 
-It prevents AI agents from writing production code until a human-approved plan, task list, and acceptance test set exist.
+It prevents AI agents from writing production code until an approved plan, task list, and acceptance test set exist.
+
+It can also wrap post-PR CI and review repair loops until `MERGE_READY` while keeping final merge human-owned.
 
 Unlike agent frameworks that focus primarily on autonomy and speed, PlanGate focuses on approval boundaries, auditability, and Scrum-friendly delivery.
 
@@ -18,7 +20,7 @@ PlanGate は、AI コーディングエージェントをプロダクト開発�
 
 AI がいきなりコードを書くのではなく、まず PBI を読み、計画、TODO、テストケースを作り、人間が承認してから実装へ進む。
 
-実装後は検証、レビュー、handoff を残す。これにより、AI 開発を「速いが危ないもの」から、「説明可能で、検証可能で、チームで運用可能なプロダクトデリバリー」に変える。
+実装後は検証、レビュー、handoff を残す。ai-loop を使う場合は、PR 作成後の CI / review repair を `MERGE_READY` まで収束させる。これにより、AI 開発を「速いが危ないもの」から、「説明可能で、検証可能で、チームで運用可能なプロダクトデリバリー」に変える。
 
 ## Problem
 
@@ -68,6 +70,14 @@ No approved plan, no code.
 
 AI は C-3 承認前に本番コードを書けない。実装前に、何を作るか、どう進めるか、何を満たせば Done かを成果物として残す。
 
+### 標準原則と例外
+
+`No approved plan, no code.` は PlanGate の標準・guarded flow の原則である。
+
+Phase 0 ultra-light は導入初日の体験を優先する例外であり、低リスクな作業では plan / C-1〜C-4 を省略できる。チーム運用では Phase 1 以降で C-3 / C-4 と検証を段階的に強める。
+
+ai-loop の eligible run では、C-3 を AI 裁定ゲート C-3' に置き換える場合がある。ただし HO 接触（Hardening Override = AI 改変不可ファイル群への接触）、policy 変更、判定不能、重大な不一致は Human に escalate し、C-4 / merge は Human-owned のままである。
+
 ## Core value
 
 | Value | Description |
@@ -78,10 +88,13 @@ AI は C-3 承認前に本番コードを書けない。実装前に、何を作
 | Verification honesty | 未実行、失敗、残リスクを隠さない |
 | Auditability | plan、review、verification、handoff を残す |
 | Scrum-friendly delivery | PBI、受入条件、Done、handoff と接続する |
+| Delivery convergence | ai-loop により PR 作成後の CI / review repair を `MERGE_READY` まで収束させる |
 | Harness improvement | eval、metrics、Keep Rate により PlanGate 自体を継続改善する |
 | Easy distribution | Claude Code / Codex の両方に marketplace や install.sh で簡単に導入できる（v8.11.0〜） |
 
 ## How it works
+
+標準フローでは、以下のように進む。
 
 1. PM / PO / Developer が PBI または issue を入力する。
 2. AI が `pbi-input.md`、`plan.md`、`todo.md`、`test-cases.md` を作る。
@@ -90,6 +103,8 @@ AI は C-3 承認前に本番コードを書けない。実装前に、何を作
 5. L-0 / V-1〜V-4 で検証する。
 6. 人間が C-4 で実装結果をレビューする。
 7. 変更内容、検証結果、残リスク、次アクションを handoff として残す。
+
+ai-loop を使う eligible run では、PlanGate Core の artifact / gate / validation / evidence / stop rule を共通利用しながら、PR 作成後の CI / review repair を `MERGE_READY` まで回す。AI の責務は `MERGE_READY` までであり、最終判断と merge は人間が担う。
 
 ## Success metrics
 
@@ -101,6 +116,7 @@ PlanGate の価値は、生成量ではなく、採用される作業、検証�
 | C-3 conditional / reject rate | PBI / plan の曖昧さ |
 | V-1 first pass rate | 受入条件と実装の一致度 |
 | C-4 request changes rate | 実装・レビュー品質 |
+| MERGE_READY convergence rate | PR 作成後の CI / review repair が完了した割合（指標として定義済み。`bin/plangate metrics` による自動計測は未実装） |
 | Hook violation rate | Gate / scope / evidence 違反傾向 |
 | Code Keep Rate | AI が書いたコードが残った割合 |
 | Plan Keep Rate | 承認済 plan が実装後も維持された割合 |
@@ -112,7 +128,7 @@ PlanGate の価値は、生成量ではなく、採用される作業、検証�
 PlanGate は以下を目的にしない。
 
 - AI を完全自律でマージ・デプロイさせること
-- C-3 / C-4 の人間判断をなくすこと
+- C-4 / merge の人間判断をなくすこと
 - すべてのタスクに重いプロセスを強制すること
 - 特定 provider 専用 workflow にすること
 - Cursor / Claude Code / Codex の代替になること

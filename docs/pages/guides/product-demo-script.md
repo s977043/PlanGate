@@ -2,6 +2,7 @@
 
 > **Status**: Stable
 > **Review cadence**: Monthly
+> **Owner**: Product / Maintainer
 
 ## 事前準備
 
@@ -10,6 +11,7 @@
 - PlanGate が設定済みのリポジトリが手元にある（または [はじめる](./getting-started.md) で作成）
 - `docs/working/` 配下に TASK ディレクトリのサンプルが 1 件以上ある
 - Claude Code CLI が起動できる状態である
+- `bin/plangate doctor` が実行できる
 
 サンプルがない場合は、デモ前に ultra-light モードで 1 タスクを実行しておくことを推奨します。
 
@@ -27,17 +29,21 @@
 AI がコードを書く前に、必ず「何を作るか」「どう検証するか」が残る。
 ```
 
+補足として、ai-loop を使う場合は PR 作成後の CI / review repair が `MERGE_READY` まで収束し、最終判断と merge は人間が担うことも説明する。
+
 ## Demo story
 
 AI に小さな PBI を渡す。
 
 AI はすぐにコードを書かない。まず plan、todo、test-cases を作る。
 
-人間が C-3 で承認するまで、AI は production code を編集できない。
+標準フローでは、人間が C-3 で承認するまで、AI は production code を編集できない。
 
 承認後、AI は実装し、検証し、handoff を残す。
 
-これにより、AI 開発が単なる自動実装ではなく、計画・承認・検証・引き継ぎを持つプロダクトデリバリーになる。
+ai-loop を使う eligible run では、C-3' による AI 裁定と PR 後の delivery loop により、CI / review repair を `MERGE_READY` まで収束させる。ただし C-4 / merge は Human-owned のままである。
+
+これにより、AI 開発が単なる自動実装ではなく、計画・承認・検証・引き継ぎ・delivery convergence を持つプロダクトデリバリーになる。
 
 ## 5-minute demo
 
@@ -71,12 +77,16 @@ docs/working/TASK-XXXX/test-cases.md
 
 ```text
 docs/working/TASK-XXXX/approvals/c3.json
+bin/plangate render TASK-XXXX --html
+bin/plangate approve TASK-XXXX
 ```
 
 伝えるポイント:
 
 - No approved plan, no code
 - 人間の判断点が実装前にある
+- `render --html` で C-3 レビューを見せやすくできる
+- `approve` で人間ワンアクションの C-3 承認ができる
 - 速さよりも、正しい方向に進むことを優先する
 
 ### Step 4: 実装する
@@ -169,6 +179,25 @@ bin/plangate metrics --report --aggregate
 PlanGate は、AI が何を生成したかではなく、何が採用され残ったかを重視します。
 ```
 
+### ai-loop Delivery / MERGE_READY
+
+見せる内容（advanced demo）:
+
+```text
+PR_CREATED
+→ CI / review repair loop
+→ MERGE_READY
+→ Human C-4 / merge
+```
+
+伝えるポイント:
+
+- ai-dev は PR 作成までを担う
+- ai-loop Delivery は PR 作成後の CI / review repair を `MERGE_READY` まで収束させる
+- AI の終点は `MERGE_READY` であり、`MERGED` ではない
+- C-4 / merge は Human-owned のまま固定される
+- 自動化の強化と承認境界の維持は両立する
+
 ## Audience-specific emphasis
 
 | Audience | Emphasize |
@@ -184,6 +213,8 @@ PlanGate は、AI が何を生成したかではなく、何が採用され残�
 ```text
 PlanGate は AI の速度を否定しません。
 AI が速く動く前に、何を作るか、なぜ作るか、どう検証するかを固定します。
+PR 作成後も、CI とレビュー指摘への対応を MERGE_READY まで収束させます。
+ただし、最後に採用するか、merge するかは人間が判断します。
 だから AI 開発を、速いだけでなく、説明可能で、検証可能で、チームで運用可能なものにできます。
 ```
 
@@ -192,10 +223,13 @@ AI が速く動く前に、何を作るか、なぜ作るか、どう検証す�
 - [ ] PBI がある
 - [ ] plan / todo / test-cases がある
 - [ ] C-3 approval を見せられる
+- [ ] `bin/plangate render TASK-XXXX --html` を説明できる
+- [ ] `bin/plangate approve TASK-XXXX` を説明できる
 - [ ] 承認前に code を書けないことを説明できる
 - [ ] git diff を見せられる
 - [ ] verification evidence を見せられる
 - [ ] C-4 / handoff を見せられる
+- [ ] ai-loop を扱う場合、`MERGE_READY` と Human-owned merge の境界を説明できる
 - [ ] PM / PO 向けの価値に戻して説明できる
 
 ## 関連ページ

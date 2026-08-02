@@ -2,6 +2,7 @@
 
 > **Status**: Stable
 > **Review cadence**: Monthly
+> **Owner**: Product / Maintainer
 
 ## Category
 
@@ -12,30 +13,33 @@ PlanGate is a **governance-first workflow harness for AI coding agents**.
 ## Positioning statement
 
 For product teams using AI coding agents,
-who need to keep scope, acceptance criteria, and review boundaries under control,
+who need to keep scope, acceptance criteria, review boundaries, and PR delivery convergence under control,
 PlanGate is a governance-first workflow harness
-that prevents AI agents from writing production code until a human-approved plan and acceptance tests exist.
+that prevents AI agents from writing production code until an approved plan and acceptance tests exist,
+and keeps post-PR repair loops bounded until `MERGE_READY`.
 
 Unlike autonomous agent frameworks that optimize for speed,
-PlanGate optimizes for approval boundaries, auditability, and Scrum-friendly delivery.
+PlanGate optimizes for approval boundaries, auditability, Scrum-friendly delivery, and human-owned final decisions.
 
 ## 日本語版
 
 PlanGate は、AI コーディングエージェントを使うプロダクトチーム向けの、ガバナンス優先ワークフローハーネスである。
 
-AI が本番コードを書く前に、PBI、計画、受入条件、人間承認を必須化することで、スコープ、Done の定義、検証証拠を守る。
+AI が本番コードを書く前に、PBI、計画、受入条件、承認を必須化することで、スコープ、Done の定義、検証証拠を守る。
 
-自律性や速度を最優先するエージェントフレームワークと異なり、PlanGate は承認境界、監査可能性、スクラム親和性を重視する。
+標準フローでは人間が C-3 で計画を承認する。ai-loop の eligible run では C-3' により AI 裁定を使う場合があるが、判定不能・HO 接触（Hardening Override = AI 改変不可ファイル群への接触）・policy 変更は Human に escalate し、C-4 / merge は Human-owned のままである。
+
+自律性や速度を最優先するエージェントフレームワークと異なり、PlanGate は承認境界、監査可能性、スクラム親和性、最終判断の人間所有を重視する。
 
 ## Differentiation
 
 | Alternative | Optimizes for | PlanGate difference |
 | --- | --- | --- |
 | Cursor / IDE agents | Developer productivity inside IDE | PlanGate adds PBI, approval, verification, and handoff governance around agent work |
-| Claude Code / Codex CLI | Agent execution | PlanGate governs when and how execution is allowed |
-| Autonomous agent frameworks | Autonomy and task completion | PlanGate prioritizes approval boundaries and auditability |
-| Manual process docs | Human-readable guidance | PlanGate aims to make gate, artifact, hook, eval, and metrics operational |
-| CI only | Post-implementation checks | PlanGate adds pre-implementation approval and acceptance clarity |
+| Claude Code / Codex CLI | Agent execution | PlanGate governs when and how execution is allowed, and can wrap execution with delivery convergence through ai-loop |
+| Autonomous agent frameworks | Autonomy and task completion | PlanGate prioritizes approval boundaries, escalation rules, auditability, and human-owned merge |
+| Manual process docs | Human-readable guidance | PlanGate aims to make gate, artifact, hook, eval, metrics, and delivery state operational |
+| CI only | Post-implementation checks | PlanGate adds pre-implementation approval, acceptance clarity, and PR repair convergence toward `MERGE_READY` |
 
 > 競合に関する詳細な Q&A は [Product FAQ](../../reference/product-faq.md#競合代替手段に関する質問) を参照。
 
@@ -54,9 +58,10 @@ AI が本番コードを書く前に、PBI、計画、受入条件、人間承�
 | Pillar | Message |
 | --- | --- |
 | Value alignment | AI が作るものを PBI と受入条件に接続する |
-| Approval boundary | C-3 / C-4 によって人間の判断点を固定する |
+| Approval boundary | C-3 / C-3' / C-4 によって判断点と escalation 条件を固定する |
 | Verification honesty | 未実行、失敗、残リスクを隠さない |
-| Auditability | plan、review、verification、handoff を残す |
+| Delivery convergence | PR 作成後の CI / review repair を `MERGE_READY` まで収束させる |
+| Auditability | plan、review、verification、handoff、delivery record を残す |
 | Continuous harness improvement | eval、metrics、Keep Rate で PlanGate 自体を改善する |
 
 ## What PlanGate is not
@@ -69,6 +74,7 @@ PlanGate is not:
 - a fully autonomous coding agent
 - a CI/CD tool only
 - a prompt collection only
+- a tool that lets AI merge without human C-4
 
 PlanGate is the governance layer that makes AI agent work safer, more reviewable, and more aligned with product delivery.
 
@@ -76,7 +82,8 @@ PlanGate is the governance layer that makes AI agent work safer, more reviewable
 
 ```text
 PlanGate is a governance-first workflow harness for AI coding agents.
-It prevents AI agents from writing production code until a human-approved plan, task list, and acceptance test set exist.
+It prevents AI agents from writing production code until an approved plan, task list, and acceptance test set exist.
+It can also wrap post-PR CI and review repair loops until MERGE_READY while keeping final merge human-owned.
 Unlike agent frameworks that focus on autonomy, PlanGate focuses on approval boundaries, auditability, and Scrum-friendly delivery.
 ```
 
@@ -84,8 +91,9 @@ Unlike agent frameworks that focus on autonomy, PlanGate focuses on approval bou
 
 ```text
 PlanGate は、AI コーディングエージェントをプロダクト開発に安全に組み込むためのゲート型ワークフローハーネスです。
-AI が本番コードを書く前に、PBI、計画、受入条件、人間承認を必須化します。
-これにより、AI 開発でもスコープ、Done の定義、検証証拠を守れます。
+AI が本番コードを書く前に、PBI、計画、受入条件、承認を必須化します。
+ai-loop を使う場合は、PR 作成後の CI / review repair を MERGE_READY まで収束させます。
+最終判断と merge は人間が担うため、AI 開発でもスコープ、Done の定義、検証証拠、承認境界を守れます。
 ```
 
 ## 関連ページ
