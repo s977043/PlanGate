@@ -5,7 +5,7 @@ description: "PBI INPUT PACKAGE から PlanGate の plan.md / todo.md / test-cas
 
 # AI-Driven Plan (PlanGate / Codex 共用)
 
-PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Codex / Claude Code 両方で実行する skill。実行ロジックは `scripts/ai-dev-workflow` / `bin/plangate` CLI 側に集約し、skill は読む順序と入出力規約のみを担う。
+PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Codex / Claude Code 両方で実行する skill。実行ロジックは上流リポジトリの `scripts/ai-dev-workflow` / `bin/plangate` CLI 側に集約し、skill は読む順序と入出力規約のみを担う。
 
 ## Read First
 
@@ -142,8 +142,16 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
 
 ## CLI 呼び出し
 
-- 実コマンド: `./scripts/ai-dev-workflow TASK-XXXX plan`
-- 機械検証: `bin/plangate validate TASK-XXXX`（plan_hash 整合）
+**呼び出し表記は実行環境で変わる**。相対パス形式（`./scripts/...` / `bin/...`）が成立するのは
+**上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` も
+`scripts/` も配置されない（次節参照）。導入先で PATH を通した場合のコマンド名は
+**`plangate`**（`bin/plangate` ではない）。どちらの環境かを確定してから使う。
+
+| 実行環境 | plan 生成 | plan_hash 機械検証 |
+|---------|----------|-------------------|
+| 上流リポジトリの cwd | `./scripts/ai-dev-workflow TASK-XXXX plan` | `bin/plangate validate TASK-XXXX` |
+| 導入先 + PATH に `plangate` あり | 相当コマンドなし（本 skill の手順で手動生成） | `plangate validate TASK-XXXX` |
+| 導入先 + PATH に無い（**既定**） | 手動生成 | 次節のフォールバック（sha256 突合） |
 
 ### CLI 不在時のフォールバック（導入先では既定）
 
@@ -156,7 +164,7 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
   `install-plangate-skills.sh` のみ。`bin/` はバンドルに無い
 - Codex 経由: 配置されるのは skills のみ
 
-上記コマンドが存在しない場合は次に従う:
+上表の「導入先 + PATH に無い（既定）」に該当する場合は次に従う:
 
 1. **手動生成に切り替える** — 「Output」の 5 ファイルを skill の手順どおり手で作る。
    B-1 →（事前メトリクス検証）→ B-2 → B-3 の順序と出力契約は **CLI の有無に関わらず不変**
@@ -180,7 +188,7 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
    （`docs/working/TASK-XXXX/approvals/c3.json` 相当）で成立させ、CLI が無いことを理由に
    C-3 を省略しない
 4. CLI による機械検証が必要なら、上流リポジトリ（`s977043/plangate`）を clone して
-   そこから実行する
+   その cwd から `bin/plangate validate TASK-XXXX` を実行する
 
 ## 次フェーズへ
 
