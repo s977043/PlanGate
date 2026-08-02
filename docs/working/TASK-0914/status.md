@@ -1,6 +1,6 @@
 # TASK-0914 作業ステータス
 
-> 最終更新: 2026-08-02 12:50
+> 最終更新: 2026-08-02 14:15
 > 現在フェーズ: exec
 > モード: high-risk
 
@@ -24,6 +24,7 @@
 | 2026-08-02 13:45 | T-07 完了 🚩 | 11 本の判別式を AND 化（`[ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]`）+ standalone else 節に 7 env unset。ta-39 のみ 2 箇所 AND 化・unset は L14 側のみ（R-350）。ta-26 の standalone unset も 7 env へ拡張（RV-M3）。チェックポイント: ①clean env ループ = **64 PASS / NG 0・per-file 全件 T-01 baseline 一致** ②汚染 env（6 env + `FIXTURES_DIR` 注入・`PG_HARNESS_SOURCED` 非注入）= **64 PASS / NG 0**（T-01 の NG_TOTAL=8 → 0 = AC-7 移行後側成立）③**TC-33 FAIL→PASS 転化を実測**（ta-26 standalone 28 passed / 2 failed。残 FAIL は TC-30 = T-08 待ち + その連鎖 TC-13 のみ）。evidence: `t07-standalone-clean-post.log` / `t07-contaminated-post.log` / `t07-tc33-post-pass.log` |
 | 2026-08-02 13:50 | T-08 完了 | `tests/extras/README.md` 規約 8（AND 判別 + 非 export + standalone 側（安全側）+ 7 env unset + TC-33 静的検査の言及）追記 + 規約 7 末尾の 1 文是正（RV-m3: 「extras 側の個別対処は不要」→ harness では unset 済み / standalone は規約 8 で自前 unset）。**TC-30 FAIL→PASS 転化・TC-13 復帰を実測: ta-26 standalone 30 passed / 0 failed・exit 0**（既存 16 + 新規 14 = 30 TC 全 PASS）。フルスイート **467 passed / 0 failed**（= 453 + 14。読み替え後の RT-6 期待値と一致）。evidence: `t08-ta26-all30-pass.log` / `t08-full-suite-467.log` |
 | 2026-08-02 14:08 | T-06 完了 🚩 | 変異注入 8 件（M-1〜M-5 弱体化 / M-6・M-6b 過剰発火 / M-7 override 無効化）**すべてで期待 FAIL TC を実測**（下表マトリクス・空振り fixture なし = RT-3 / Stop Condition 3 発火なし）。M-6 下で TC-25/32 の PASS 維持も実測（RV-M4 の対象限定どおり）。各変異とも `git checkout 1e1c074 --` 復元 → diff 空 → ta-26 standalone 30/0 復帰を確認。evidence: `t06-m{1,2,3,4,5,6,6b,7}-*.log` 8 本（変異 diff 断片つき） |
+| 2026-08-02 14:15 | T-09 完了 🚩 | AC-6（V-1-A）/ AC-7（V-1-B + V-1-B'）/ AC-9 の機械検証**全 PASS**。V-1-A/B/B' とも **64 PASS・NG 0・per-file baseline（T-01 表）全一致**。AC-9 は TC-33 と独立の grep -L / awk 実装で**単独判別残存 0 + 7 env 包含成立**（対象 12 ファイル = 移行 11 本 + ta-26）。V-1-B' の env 引数順は W2 申し送りの読み替えを採用。検証コマンド全文は下記セクション（V-1 で再実行）。evidence: `t09-v1a-clean.log` / `t09-v1b-contaminated.log` / `t09-v1bprime-single.log` / `t09-ac9-static.log` |
 
 ## 全体構成（PR 一覧）
 
@@ -77,6 +78,156 @@
 - 8 変異すべてで期待 FAIL を実測 = **新規 TC は空振り fixture でない**（RT-3 / Stop Condition 3 の発火なし・TC 側の修正不要）
 - 全サイクルで復元後 `git diff 1e1c074 -- scripts/sync-plugin-plangate.sh` = 空 + ta-26 standalone **30 passed / 0 failed** 復帰を実測（復元漏れなし）
 
+## T-09: AC-6 / AC-7 / AC-9 機械検証（検証コマンド全文 / V-1 再実行用）
+
+実測日時: 2026-08-02 14:09〜14:15 / 実装は head `1e1c074` から不変 / いずれも repo root から `sh <スクリプト>` で実行（コピペで動く自己判定つき・最終行が `PASS`/`FAIL`）。
+結果: **V-1-A / V-1-B / V-1-B' = 64 PASS・NG_TOTAL 0・per-file baseline（T-01 表）全一致 / AC-9 = 単独判別残存 0 + unset 包含成立** → AC-6 / AC-7 / AC-9 すべて PASS。
+evidence: `evidence/test-runs/t09-v1a-clean.log` / `t09-v1b-contaminated.log` / `t09-v1bprime-single.log` / `t09-ac9-static.log`
+
+> **V-1-B' の env 引数順**は「計画からの変更点」の W2 申し送りどおり **`env -u FIXTURES_DIR PG_HARNESS_SOURCED=1 sh "$f" </dev/null`** を採用（test-cases.md 記載の `env PG_HARNESS_SOURCED=1 -u FIXTURES_DIR` は BSD/GNU env の仕様〔オプションは NAME=VALUE 代入より前〕に反し rc=127 で実行不可 — W2/T-09 とも実測）。
+
+### V-1-A: AC-6 — clean env ループ（3 条件 + per-file baseline 照合）
+
+```sh
+#!/bin/sh
+# T-09 V-1-A: AC-6 — clean env での standalone 実行（3 条件 + baseline 照合を自己判定）
+cd "$(git rev-parse --show-toplevel)"
+ng=0
+total=0
+expected="tests/extras/ta-39-eh3-doc-light.sh=8 tests/extras/ta-43-eh2-strict-json.sh=6 tests/extras/ta-44-eh457-cli-wiring.sh=5 tests/extras/ta-45-c3-mode-config.sh=6 tests/extras/ta-46-ehs-wiring.sh=4 tests/extras/ta-47-ehs23-wiring.sh=6 tests/extras/ta-49-bias-export.sh=6 tests/extras/ta-50-precompact-guard.sh=9 tests/extras/ta-51-doctor-w6.sh=5 tests/extras/ta-52-doctor-skill-collision.sh=5 tests/extras/ta-53-doctor-prepush.sh=4"
+for f in tests/extras/ta-39-*.sh tests/extras/ta-43-*.sh tests/extras/ta-44-*.sh \
+         tests/extras/ta-45-*.sh tests/extras/ta-46-*.sh tests/extras/ta-47-*.sh \
+         tests/extras/ta-49-*.sh tests/extras/ta-50-*.sh tests/extras/ta-51-*.sh \
+         tests/extras/ta-52-*.sh tests/extras/ta-53-*.sh; do
+  out=$(env -u PLANGATE_HOOK_TASK -u PLANGATE_HOOK_FILE -u PG_HARNESS_SOURCED \
+            -u FIXTURES_DIR -u PLANGATE_ALLOW_MASS_DELETE sh "$f" </dev/null 2>&1); rc=$?
+  n_pass=$(printf '%s\n' "$out" | grep -c '\[PASS\]' || true)
+  case "$out" in *"[FAIL]"*) echo "NG(FAIL detected): $f"; ng=$((ng+1));; esac   # 条件①
+  [ "$rc" = "0" ] || { echo "NG(rc=$rc): $f"; ng=$((ng+1)); }                     # 条件②
+  case " $expected " in                                                            # 条件③ per-file baseline
+    *" $f=$n_pass "*) : ;;
+    *) echo "NG(baseline mismatch): $f=$n_pass"; ng=$((ng+1)) ;;
+  esac
+  total=$((total+n_pass))
+  echo "COUNT $f=$n_pass"
+done
+echo "TOTAL_PASS=$total NG_TOTAL=$ng"
+if [ "$ng" = "0" ] && [ "$total" = "64" ]; then echo "V-1-A: PASS"; else echo "V-1-A: FAIL"; exit 1; fi
+```
+
+実測結果: `TOTAL_PASS=64 NG_TOTAL=0` / `V-1-A: PASS` / rc=0（COUNT 全 11 行が T-01 baseline と一致）
+
+### V-1-B: AC-7 — 汚染 env ループ（6 env + `FIXTURES_DIR` 注入・`PG_HARNESS_SOURCED` 非注入）
+
+```sh
+#!/bin/sh
+# T-09 V-1-B: AC-7 — 汚染 env（6 env + FIXTURES_DIR 注入・PG_HARNESS_SOURCED 非注入）での standalone 実行
+# V-1-A の env -u を流用しない独立ループ（R-302）/ AND 両側を同時注入しない（RV-M2）
+cd "$(git rev-parse --show-toplevel)"
+ng=0
+total=0
+expected="tests/extras/ta-39-eh3-doc-light.sh=8 tests/extras/ta-43-eh2-strict-json.sh=6 tests/extras/ta-44-eh457-cli-wiring.sh=5 tests/extras/ta-45-c3-mode-config.sh=6 tests/extras/ta-46-ehs-wiring.sh=4 tests/extras/ta-47-ehs23-wiring.sh=6 tests/extras/ta-49-bias-export.sh=6 tests/extras/ta-50-precompact-guard.sh=9 tests/extras/ta-51-doctor-w6.sh=5 tests/extras/ta-52-doctor-skill-collision.sh=5 tests/extras/ta-53-doctor-prepush.sh=4"
+for f in tests/extras/ta-39-*.sh tests/extras/ta-43-*.sh tests/extras/ta-44-*.sh \
+         tests/extras/ta-45-*.sh tests/extras/ta-46-*.sh tests/extras/ta-47-*.sh \
+         tests/extras/ta-49-*.sh tests/extras/ta-50-*.sh tests/extras/ta-51-*.sh \
+         tests/extras/ta-52-*.sh tests/extras/ta-53-*.sh; do
+  out=$(env PLANGATE_SKIP_REASON=x PLANGATE_HOOK_TASK=TASK-9999 \
+            PLANGATE_HOOK_FILE=/nonexistent/x.md PLANGATE_BYPASS_HOOK=1 \
+            PLANGATE_HOOK_STRICT=1 PLANGATE_ALLOW_MASS_DELETE=1 \
+            FIXTURES_DIR=/nonexistent/fixtures sh "$f" </dev/null 2>&1); rc=$?
+  n_pass=$(printf '%s\n' "$out" | grep -c '\[PASS\]' || true)
+  case "$out" in *"[FAIL]"*) echo "NG(FAIL detected): $f"; ng=$((ng+1));; esac   # 条件①
+  [ "$rc" = "0" ] || { echo "NG(rc=$rc): $f"; ng=$((ng+1)); }                     # 条件②
+  case " $expected " in                                                            # 条件③ per-file baseline
+    *" $f=$n_pass "*) : ;;
+    *) echo "NG(baseline mismatch): $f=$n_pass"; ng=$((ng+1)) ;;
+  esac
+  total=$((total+n_pass))
+  echo "COUNT $f=$n_pass"
+done
+echo "TOTAL_PASS=$total NG_TOTAL=$ng"
+if [ "$ng" = "0" ] && [ "$total" = "64" ]; then echo "V-1-B: PASS"; else echo "V-1-B: FAIL"; exit 1; fi
+```
+
+実測結果: `TOTAL_PASS=64 NG_TOTAL=0` / `V-1-B: PASS` / rc=0（T-01 の移行前 NG_TOTAL=8 → 0 = AC-7 成立の再確認）
+
+### V-1-B': AC-7 — `PG_HARNESS_SOURCED` 単独漏れループ（第 3 ループ / RV-M2）
+
+```sh
+#!/bin/sh
+# T-09 V-1-B': AC-7 — PG_HARNESS_SOURCED 単独漏れ（第 3 ループ / RV-M2）
+# env 引数順は W2 申し送りの正しい形（オプション -u は NAME=VALUE 代入より前）:
+#   env -u FIXTURES_DIR PG_HARNESS_SOURCED=1 sh "$f" </dev/null
+cd "$(git rev-parse --show-toplevel)"
+ng=0
+total=0
+expected="tests/extras/ta-39-eh3-doc-light.sh=8 tests/extras/ta-43-eh2-strict-json.sh=6 tests/extras/ta-44-eh457-cli-wiring.sh=5 tests/extras/ta-45-c3-mode-config.sh=6 tests/extras/ta-46-ehs-wiring.sh=4 tests/extras/ta-47-ehs23-wiring.sh=6 tests/extras/ta-49-bias-export.sh=6 tests/extras/ta-50-precompact-guard.sh=9 tests/extras/ta-51-doctor-w6.sh=5 tests/extras/ta-52-doctor-skill-collision.sh=5 tests/extras/ta-53-doctor-prepush.sh=4"
+for f in tests/extras/ta-39-*.sh tests/extras/ta-43-*.sh tests/extras/ta-44-*.sh \
+         tests/extras/ta-45-*.sh tests/extras/ta-46-*.sh tests/extras/ta-47-*.sh \
+         tests/extras/ta-49-*.sh tests/extras/ta-50-*.sh tests/extras/ta-51-*.sh \
+         tests/extras/ta-52-*.sh tests/extras/ta-53-*.sh; do
+  out=$(env -u FIXTURES_DIR PG_HARNESS_SOURCED=1 sh "$f" </dev/null 2>&1); rc=$?
+  n_pass=$(printf '%s\n' "$out" | grep -c '\[PASS\]' || true)
+  case "$out" in *"[FAIL]"*) echo "NG(FAIL detected): $f"; ng=$((ng+1));; esac   # 条件①
+  [ "$rc" = "0" ] || { echo "NG(rc=$rc): $f"; ng=$((ng+1)); }                     # 条件②
+  case " $expected " in                                                            # 条件③ per-file baseline
+    *" $f=$n_pass "*) : ;;
+    *) echo "NG(baseline mismatch): $f=$n_pass"; ng=$((ng+1)) ;;
+  esac
+  total=$((total+n_pass))
+  echo "COUNT $f=$n_pass"
+done
+echo "TOTAL_PASS=$total NG_TOTAL=$ng"
+if [ "$ng" = "0" ] && [ "$total" = "64" ]; then echo "V-1-B': PASS"; else echo "V-1-B': FAIL"; exit 1; fi
+```
+
+実測結果: `TOTAL_PASS=64 NG_TOTAL=0` / `V-1-B': PASS` / rc=0（AND 片側欠けで standalone 側〔安全側〕へ倒れることの回帰確認）
+
+### AC-9: 静的検査の独立再実測（TC-33 と別実装・件数ハードコードなし）
+
+```sh
+#!/bin/sh
+# T-09 AC-9: 静的検査の独立再実測（TC-33 とは別実装 = grep -L / awk 方式・件数ハードコードなし）
+cd "$(git rev-parse --show-toplevel)"
+fail=0
+
+echo "== (1) PG_HARNESS_SOURCED を伴わない FIXTURES_DIR 単独判別の残存 =="
+viol=$(grep -l 'FIXTURES_DIR:-' tests/extras/ta-*.sh | xargs grep -L 'PG_HARNESS_SOURCED')
+if [ -z "$viol" ]; then
+  echo "残存 0 件: OK"
+else
+  echo "残存あり: $viol"
+  fail=1
+fi
+echo "検査対象（FIXTURES_DIR:- を含む extras）:"
+grep -l 'FIXTURES_DIR:-' tests/extras/ta-*.sh
+
+echo "== (2) run-tests.sh の unset 集合 <= 各 extras の standalone unset 集合 =="
+# unset 行の抽出は「行頭第 1 フィールドが unset」の awk（コメント行の 'unset' 言及を拾わない・
+# TC-33 の grep+sed 実装とは独立）。リダイレクト/演算子以降のトークンは打ち切る。
+extract_unset() {
+  awk '$1 == "unset" { for (i = 2; i <= NF; i++) { if ($i ~ /^2>/ || $i == "||") break; print $i } }' "$1"
+}
+hset=$(extract_unset tests/run-tests.sh | sort -u | tr '\n' ' ')
+echo "harness unset 集合: $hset"
+[ -n "$hset" ] || { echo "NG: harness 集合が空"; fail=1; }
+missing=0
+for f in $(grep -l 'FIXTURES_DIR:-' tests/extras/ta-*.sh); do
+  fset=" $(extract_unset "$f" | sort -u | tr '\n' ' ') "
+  for e in $hset; do
+    case "$fset" in
+      *" $e "*) : ;;
+      *) echo "MISSING $f:$e"; missing=$((missing+1)) ;;
+    esac
+  done
+done
+if [ "$missing" = "0" ]; then echo "包含成立（欠落 0）: OK"; else echo "欠落 $missing 件"; fail=1; fi
+
+if [ "$fail" = "0" ]; then echo "AC-9: PASS"; else echo "AC-9: FAIL"; exit 1; fi
+```
+
+実測結果: 残存 **0 件** / 検査対象 **12 ファイル**（ta-26 + 移行 11 本 = `FIXTURES_DIR:-` を含む全 extras、件数はハードコードせず列挙で確認）/ harness unset 集合 = **7 env**（`PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_FILE PLANGATE_HOOK_STRICT PLANGATE_HOOK_TASK PLANGATE_SKIP_REASON` = plan 論点 F と一致）/ 包含欠落 **0** / `AC-9: PASS` / rc=0
+
 ## 残タスク
 
 - [x] T-01: baseline 実測（2026-08-02 12:46 完了）
@@ -87,7 +238,7 @@
 - [x] T-06: 変異注入 8 件で検出力実証 🚩（2026-08-02 14:08 完了）
 - [ ] T-07: extras 11 本判別式統一 + unset（別ワーカー担当）
 - [ ] T-08: README 規約追記（別ワーカー担当）
-- [ ] T-09: AC-6/7/9 機械検証（別ワーカー担当）
+- [x] T-09: AC-6/7/9 機械検証 🚩（2026-08-02 14:15 完了）
 - [ ] T-10: 別 issue 起票 + handoff 妥協点（別ワーカー担当）
 - [ ] T-11: 回帰フルテスト（別ワーカー担当）
 

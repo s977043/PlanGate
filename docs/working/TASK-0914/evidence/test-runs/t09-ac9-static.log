@@ -1,0 +1,19 @@
+== (1) PG_HARNESS_SOURCED を伴わない FIXTURES_DIR 単独判別の残存 ==
+残存 0 件: OK
+検査対象（FIXTURES_DIR:- を含む extras）:
+tests/extras/ta-26-plugin-sync.sh
+tests/extras/ta-39-eh3-doc-light.sh
+tests/extras/ta-43-eh2-strict-json.sh
+tests/extras/ta-44-eh457-cli-wiring.sh
+tests/extras/ta-45-c3-mode-config.sh
+tests/extras/ta-46-ehs-wiring.sh
+tests/extras/ta-47-ehs23-wiring.sh
+tests/extras/ta-49-bias-export.sh
+tests/extras/ta-50-precompact-guard.sh
+tests/extras/ta-51-doctor-w6.sh
+tests/extras/ta-52-doctor-skill-collision.sh
+tests/extras/ta-53-doctor-prepush.sh
+== (2) run-tests.sh の unset 集合 <= 各 extras の standalone unset 集合 ==
+harness unset 集合: PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_FILE PLANGATE_HOOK_STRICT PLANGATE_HOOK_TASK PLANGATE_SKIP_REASON 
+包含成立（欠落 0）: OK
+AC-9: PASS

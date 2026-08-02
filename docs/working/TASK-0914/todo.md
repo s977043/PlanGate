@@ -100,7 +100,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
   - 🚩 **チェックポイント**: 空振り fixture でないことの証明ログを `evidence/test-runs/` へ保存。FAIL が確認できない TC は設計をやり直す
   - Owner: agent / `rollback:` 不要（検証のみ。stash は必ず復元する）
 
-- [ ] **T-09**: AC-6 / AC-7 / AC-9 の機械検証
+- [x] **T-09**: AC-6 / AC-7 / AC-9 の機械検証
   - **AC-6**: V-1-A（clean env ループ）で 3 条件（`[FAIL]` 不在 / exit 0 / `[PASS]` 件数が T-01 baseline と一致）
   - **AC-7**: V-1-B（`FIXTURES_DIR` 漏れ・6 env 注入）+ **V-1-B'**（`PG_HARNESS_SOURCED` 単独漏れ）の 2 ループで AC-6 と同結果。V-1-A の `env -u` を流用しない（R-302）/ AND を両方注入しない（RV-M2）
   - ⚠️ 全ループで **`sh "$f" </dev/null`** と冒頭 `cd "$(git rev-parse --show-toplevel)"` を必須にする（RV-M1 / RV-i1）
