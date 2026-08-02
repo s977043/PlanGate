@@ -312,15 +312,21 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
 - [`docs/ai/eval-cases/`](../../../docs/ai/eval-cases/) — 観点別詳細 × 8
 - [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — 出力 schema
 - [`docs/ai/contracts/review.md`](../../../docs/ai/contracts/review.md) — review phase contract
-- `.claude/rules/review-principles.md` — レビュー原則（CI / ローカル共通）。
-  **導入先での参照解決順**: (1) 導入先の `.claude/rules/review-principles.md` →
+- [`.claude/rules/review-principles.md`](../../rules/review-principles.md) — レビュー原則（CI / ローカル共通）。
+  **導入先での参照解決順**: (1) 導入先の `.claude/rules/review-principles.md`。
+  ただし **本 skill が参照する節（例: `review-principles.md` の §3 Severity 定義）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため (2) へ進む →
   (2) plugin root 配下 `<plugin_root>/rules/review-principles.md`（`<plugin_root>` は
   **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した絶対パス**。
   Read ツールは環境変数を展開しないため `${CLAUDE_PLUGIN_ROOT}/...` をそのまま Read しない。
   空・未設定ならキャッシュを glob で推測せず (3) へ） →
-  (3) どちらにも無ければ **「正本 review-principles.md を参照できなかった」と明示**し、
-  5 観点・Severity 定義は本 Skill の判定表を代替正本として推測で補わない。
+  (3) どちらにも無ければ **「正本 review-principles.md を参照できなかった」と明示**する。
+  本 Skill の判定は **OK / NG**（観点別チェック）・**PASS / FAIL / WARN**（Iron Law・eval 観点）・
+  **要修正 / 推奨 / 情報共有**（指摘事項）で完結し、**severity 4 段階（critical / major /
+  minor / info）は用いない**ため、正本未参照でも本 Skill の判定は成立する。5 観点・Severity
+  定義を本 Skill の判定表で代替したことにせず、推測で補わない。
   Codex 経由の導入は skills のみ配布されるため常に (3) に落ちる。
-  なお相対リンク `../../rules/review-principles.md` は **skills と rules が同一 root 直下に
-  並ぶ配置でのみ**解決する（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）
+  なお上記の相対リンク `../../rules/review-principles.md` は **skills と rules が同一 root
+  直下に並ぶ配置でのみ**解決する（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）。
+  上流リポジトリの `.agents/skills/` と Codex 導入先の `.codex/skills/` には隣接する
+  `rules/` が無いため解決しない
 - [`docs/ai/plan-review-readiness-gate.md`](../../../docs/ai/plan-review-readiness-gate.md) §7/§8 — ドキュメント変更（D-1〜D-6）/ シェル・Python コード変更（C-1〜C-6）の追加観点

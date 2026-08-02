@@ -20,6 +20,9 @@ repository layout):
 
 1. `.claude/rules/review-principles.md` in the host repository (where `install.sh --claude`
    copies it — its copy targets are `agents` / `skills` / `commands` / `rules` only).
+   However, **confirm that the section this skill references (e.g. §3 Severity definitions in
+   `review-principles.md`) actually exists**. A same-named file with different content is not
+   the PlanGate canonical source, so go to step 2.
 2. Otherwise `<plugin_root>/rules/review-principles.md` for the Claude marketplace plugin.
    Resolve `<plugin_root>` by running `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` in Bash — the Read
    tool requires an absolute path and does not expand environment variables, so never Read the

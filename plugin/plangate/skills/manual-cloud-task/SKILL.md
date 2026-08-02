@@ -14,7 +14,8 @@ description: "tracked handoff packet を使って Codex Cloud task を手動起�
 本 skill の参照は上流リポジトリ基準の相対パスで書かれている。導入先ではそのままでは
 解決できないものがあるため、**次の順で探索する**:
 
-1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）
+1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）。
+   ただし **本 skill が参照する節（例: `working-context.md` の「ゲート条件」節）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため 2 へ進む
 2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）。
    `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
    絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
@@ -27,6 +28,7 @@ description: "tracked handoff packet を使って Codex Cloud task を手動起�
 |------|---------------------------|----------------------------------|-----------|
 | `rules/*.md` | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
 | `.codex/**` / `docs/**` | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+| `scripts/**` / `bin/**` | コピー対象外 | 目的の CLI は不在 | 未配置 |
 
 `install.sh --claude` のコピー対象は `agents` / `skills` / `commands` / `rules` の 4 ディレクトリ
 のみ。Codex 経由（`install_codex()`）は `install-plangate-skills.sh` を呼ぶだけで **skills しか

@@ -17,15 +17,18 @@ description: "PlanGate 起動前の intake 判定（mode-classification にか�
 本スキルは規模判定の正本として `.claude/rules/mode-classification.md` を参照する
 （本文中 3 箇所）。このパスは上流リポジトリ基準のため、導入先では **次の順で探索する**:
 
-1. 導入先リポジトリの `.claude/rules/mode-classification.md`
+1. 導入先リポジトリの `.claude/rules/mode-classification.md`。
+   ただし **本 skill が参照する節（例: `mode-classification.md` の「判定基準」節）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため 2 へ進む
 2. 無ければ plugin root 配下 `<plugin_root>/rules/mode-classification.md`。
    `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
    絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
    という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず 3 へ進む
 3. どちらにも無い場合は **「正本 `mode-classification.md` を参照できなかった」と明示**する。
-   本スキルは **mode を決めない**ため判定自体は続行できる — 出力の「分割候補」に
-   「Mode 判定は導入先の規模判定基準に委ねる（正本未参照）」と記録し、5 段階 mode の
-   内容を推測で補わない
+   本スキルは **mode を決めない**ため判定自体は続行できる — 出力フォーマットの常設行
+   `**Mode 判定の正本**: 参照可 / 未参照（理由）` に「未参照（`<探した path>` が
+   どちらにも無い）」と記録し、5 段階 mode の内容を推測で補わない。
+   この行は**分割要否に関わらず必ず出力する**（「分割候補」は分割必要時のみ出る節のため、
+   記録先にしない）
 
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
@@ -111,6 +114,8 @@ description: "PlanGate 起動前の intake 判定（mode-classification にか�
 
 **分割要否**: 不要 / 必要
 
+**Mode 判定の正本**: 参照可 / 未参照（理由）
+
 **分割候補**（分割必要の場合）:
 1. <候補1>（依存: なし）
 2. <候補2>（依存: 候補1完了後）
@@ -121,7 +126,8 @@ description: "PlanGate 起動前の intake 判定（mode-classification にか�
 
 - `.claude/rules/mode-classification.md` → fallback `<plugin_root>/rules/mode-classification.md`
   — 規模判定の正本。本スキルは mode を決めない。どちらでも解決できない場合（Codex 経由等）は
-  上記「参照解決順」手順 3 に従い、正本未参照である旨を出力に記録する
+  上記「参照解決順」手順 3 に従い、出力の常設行 `**Mode 判定の正本**` に正本未参照である
+  旨を記録する
 - `codex-mvp-split`（`.agents/skills/codex-mvp-split/`） — 規模 L 以上の最小 MVP（Phase 1）選定。本スキルの分割要否判定の後段
 - `plan-quality-check`（`.claude/skills/plan-quality-check/`） — plan 生成後の品質スコアリング（本スキルは plan 生成前。変更時は相互参照）
 - [`subagent-driven-development`](../subagent-driven-development/SKILL.md) — 分割後の各タスクをサブエージェントへ委譲する際に使用

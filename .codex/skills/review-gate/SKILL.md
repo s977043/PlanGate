@@ -149,7 +149,8 @@ reason: severity=critical の finding が <N> 件あります。fix 後に再レ
 （§2-4 / §7-bis）を参照する。このパスは上流リポジトリ基準のため、導入先では
 **次の順で探索する**:
 
-1. 導入先リポジトリの `.claude/rules/review-principles.md`
+1. 導入先リポジトリの `.claude/rules/review-principles.md`。
+   ただし **本 skill が参照する節（例: `review-principles.md` の §3 Severity 定義）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため 2 へ進む
 2. 無ければ plugin root 配下 `<plugin_root>/rules/review-principles.md`。
    `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
    絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
@@ -166,8 +167,25 @@ reason: severity=critical の finding が <N> 件あります。fix 後に再レ
 
 > **手順 3 でも Iron Law は緩めない**: `NO MERGE WITHOUT TWO-STAGE REVIEW` と
 > 「severity=critical があれば Completion Gate を通さない」は本 Skill 内で完結する。
-> 正本未参照時は本 Skill の 6 観点表を severity 付与の代替基準とし、severity 定義を
-> 推測で書き換えない。参照できなかった事実は EvidenceItem の `outputExcerpt` に併記する。
+> ただし本 Skill の **6 観点表は finding の分類軸であり severity 基準を含まない**ため、
+> severity 付与の代替正本にはならない。正本未参照時は直下の「severity 定義（4 段階）」を
+> severity 付与基準として用い、定義を推測で書き換えない。参照できなかった事実は
+> EvidenceItem の `outputExcerpt` に併記する。
+
+#### severity 定義（4 段階）
+
+`.claude/rules/review-principles.md` §3「Severity定義（4段階）」の写し。正本を解決できた
+場合は正本を優先し、齟齬があれば正本が勝つ。
+
+| Severity | 定義 | 例 | マージ影響 |
+|----------|------|---|-----------|
+| **critical** | 本番障害・データ不整合・脆弱性 | SQLインジェクション、認可チェック漏れ、データ損失 | ブロッカー |
+| **major** | ロジック誤り・テスト不足・設計違反 | N+1クエリ、レイヤー間依存違反、重要パス未テスト | 修正推奨 |
+| **minor** | 改善提案・命名・コードスタイル | 変数名改善、early return提案、ドキュメント不備 | 任意 |
+| **info** | FYI・将来課題・好みの問題 | 類似パターンの紹介、リファクター候補、補足情報 | 無視可 |
+
+Completion Gate の発火条件（`severity=critical` が 1 件以上あればブロック）は、この
+4 段階定義の `critical` 行を判定基準とする。
 
 ### Plan Alignment
 

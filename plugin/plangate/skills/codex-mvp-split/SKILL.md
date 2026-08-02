@@ -16,7 +16,8 @@ skill は読む順序と入出力規約のみを担う。
 本 skill の参照は上流リポジトリ基準の相対パスで書かれている。導入先ではそのままでは
 解決できないものがあるため、**次の順で探索する**:
 
-1. 導入先リポジトリの相対パス（例: `.claude/rules/mode-classification.md`）
+1. 導入先リポジトリの相対パス（例: `.claude/rules/mode-classification.md`）。
+   ただし **本 skill が参照する節（例: `mode-classification.md` の「判定基準」節）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため 2 へ進む
 2. 無ければ plugin root 配下（例: `<plugin_root>/rules/mode-classification.md`）。
    `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
    絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`

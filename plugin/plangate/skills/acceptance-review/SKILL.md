@@ -21,7 +21,8 @@ WF-05 Verify & Handoff
 本 Skill が参照する `.claude/rules/*.md` と `docs/**` は上流リポジトリ基準の相対パス。
 導入先ではそのままでは解決できないものがあるため、**次の順で探索する**:
 
-1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）
+1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）。
+   ただし **本 skill が参照する節（例: `working-context.md` の「evidence/ の保管ルール」節）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため 2 へ進む
 2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）。
    `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
    絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
@@ -180,10 +181,10 @@ HO（Hardening Override）対象の rule 層に置かれ、UI 版（本規約）
 ## 関連ドキュメント（PlanGate v8.3）
 
 - Workflow: [`docs/workflows/05_verify_and_handoff.md`](../../../docs/workflows/05_verify_and_handoff.md)
-- 親 Rule: Rule 5（最終成果物は handoff に集約）— `.claude/rules/hybrid-architecture.md`
+- 親 Rule: Rule 5（最終成果物は handoff に集約、[`hybrid-architecture.md`](../../rules/hybrid-architecture.md)）
   → fallback `<plugin_root>/rules/hybrid-architecture.md`（上記「参照解決順」）。
-  相対リンク `../../rules/hybrid-architecture.md` は **skills と rules が同一 root 直下に
-  並ぶ配置でのみ**解決する（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）。
+  上記の相対リンク `../../rules/hybrid-architecture.md` は **skills と rules が同一 root
+  直下に並ぶ配置でのみ**解決する（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）。
   上流リポジトリの `.agents/skills/` と Codex 導入先の `.codex/skills/` には隣接する
   `rules/` が無いため解決しない
 - handoff テンプレート: [`docs/working/templates/handoff.md`](../../../docs/working/templates/handoff.md)
