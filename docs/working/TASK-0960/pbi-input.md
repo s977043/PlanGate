@@ -33,11 +33,11 @@ C-1 セルフレビューの項目数が **「17 項目」と宣言されてい�
 | # | issue の主張 | 実測（コマンド / 参照） | 結果 | 判定 |
 |---|------|------|------|------|
 | 1 | テンプレート実体は 25 項目（PLAN 9 / TODO 6 / TEST 3 / B1B2 2 = core 20、SUP 2 / SEC 1 / SCOPE 1 / UI 1 = 後発 5） | `grep -c '^### C1-' docs/working/templates/review-self.md` → **25**。内訳再集計 `grep -o '^### C1-[A-Z0-9]*' … \| sort \| uniq -c` → PLAN **9** / TODO **6** / TEST **3** / B1B2 **2**（core 計 **20**）+ SUP **2** / SEC **1** / SCOPE **1** / UI **1**（後発計 **5**） | issue の実測表と**完全一致**。補足: `C1-UI-01` は見出しに「#579・**is_ui_task 時のみ**」と明記された**条件付き項目**（「25」単純表記の設計論点 — R-6 / U-1） | 一致 |
-| 2 | live な「17項目」言及 = **34 ファイル**（`grep -rln "17 *項目\|17項目" --include="*.md" .` から `docs/working/` 除外） | 同条件を再実行（本環境の `grep -r` は `./` プレフィックスなし出力のため `sed 's\|^\./\|\|'` で正規化後に `grep -v '^docs/working/'`）→ **34** | **総数 34 は一致**。ただし層別の実測は ① **5** / ② **16** / ③ **11** / ④ **2** ＝ 34 で、**issue の ③「12」は 1 過大**（issue の層別合計 35 ≠ 総数 34 の内部不整合）。exec 時は件数をハードコードせず現 main 基点の再走査で全数を機械確定する（TASK-0954 と同じ規律） | 総数一致（③ のみ −1 の軽微乖離） |
+| 2 | live な「17項目」言及 = **34 ファイル**（`grep -rln "17 *項目\|17項目" --include="*.md" .` から `docs/working/` 除外） | 同条件を再実行（本環境の `grep -r` は `./` プレフィックスなし出力のため `sed 's\|^\./\|\|'` で正規化後に `grep -v '^docs/working/'`）→ **34** | **総数 34 は一致**。ただし層別の実測（パス パターンによる機械分類）は ① **5** / ② **16** / ③ **11** / ④ **2** ＝ 34 で、issue の層別合計 35（③=12）と **1 件分の帰属差**がある。③「12」が誤りとは断定できず**層別定義に依存**（例: issue 作者が `docs/changelog.md` を CHANGELOG の sync 派生として ③ にも数えたなら合計が合う — In scope ② 行の注参照）。exec 時は件数をハードコードせず現 main 基点の再走査 + 層別帰属の確定で機械確定する（TASK-0954 と同じ規律） | 総数一致（層別は帰属差 1 — 定義確定は plan） |
 | 3 | ① HO 対象（AI 編集不可）は 5 ファイル | 34 件を Hardening Override 9 カテゴリ（`scripts/hooks/check-plan-hash.sh` の `_override` case 文が正本）と突合 → 該当は `.claude/rules/working-context.md` / `.claude/rules/mode-classification.md` / `.claude/commands/ai-dev-workflow.md` / `.claude/commands/README.md` / `.claude/agents/workflow-conductor.md` の **5 件のみ**。`.claude/skills/acceptance-review/SKILL.md` は case 対象**外**（R-003/R-006 の注記どおり） | issue ① と**完全一致**。EH-3 は HO パスを maintenance 窓内でも**常時 block** → AI は**差分提案（patch）まで・適用は Human-owned**（前例実在を確認: `docs/working/TASK-0871/approvals/ho-apply-approval.md` / `docs/working/TASK-0872/patches/*.patch`） | 一致 |
 | 4 | （補助）現場回避 4 引用が記載行に実在する | `sed -n '46p' / '21p' / '16p' / '13p'` で 4 ファイルを実測 → 4 件とも記載どおりの文言で実在（15 / 15 / 「core 17+8=25」 / 「17項目フル＝全 25」） | 引用は stale 化していない（作成時点 main で行番号・文言とも確認済み） | 一致 |
 | 5 | （補助）mode 別適用が実体と不整合（light = Plan 7 項目のみ、実体 PLAN 9） | `grep -n 'Plan 7項目' .claude/rules/mode-classification.md` → L153「△（Plan 7項目のみ）」/ L170「Plan 7項目（C1-PLAN-01〜07）のみ」が現存 | 「決めるべきこと 2」の前提を live 確認。なお当該ファイル自体が **HO 対象**のため、mode 別適用の再定義（AC-2）も **HO patch 経由**になる | 一致 |
-| 6 | （補助）③ は「正本修正 + sync で自動追従（手編集しない）」 | sync 経路の実測: `.codex/skills/` = `scripts/install-plangate-skills-to-codex.sh`、`plugin/plangate/**` = `scripts/sync-plugin-plangate.sh` が存在。一方 **`.claude/skills/` を再生成する sync スクリプトは `scripts/` に見当たらない**（rename 用 2 本が参照するのみ。TASK-0954 U-3 でも「正本と非同一の別系統」と実測） | ③ 内 `.claude/skills/acceptance-review/SKILL.md` の「sync 経由・手編集ゼロ」（AC-4）の**経路が未確立の可能性** → U-2 として plan で確定 | 要計画（ギャップ検出） |
+| 6 | （補助）③ は「正本修正 + sync で自動追従（手編集しない）」 | sync 経路の実測: `.codex/skills/` = `scripts/install-plangate-skills-to-codex.sh`、`plugin/plangate/**` = `scripts/sync-plugin-plangate.sh` が存在。一方 **`.claude/skills/` を再生成する sync スクリプトは `scripts/` に見当たらない**（`.claude/skills` を参照するのは実測 5 ファイル全数で、**書き換え系は rename 用 2 本のみ**。ほかに読み取り専用 checker 2 本〔`check-skill-name-collisions.py` / `check-stale-skill-refs.py`〕とメッセージ文言 1 件〔`scripts/ai-dev-workflow` L96〕が字句参照するが再生成はしない。TASK-0954 U-3 でも「正本と非同一の別系統」と実測） | ③ 内 `.claude/skills/acceptance-review/SKILL.md` の「sync 経由・手編集ゼロ」（AC-4）の**経路が未確立の可能性** → U-2 として plan で確定 | 要計画（ギャップ検出） |
 
 ## What（Scope）
 
@@ -48,8 +48,8 @@ C-1 セルフレビューの項目数が **「17 項目」と宣言されてい�
 | 層 | 件数（issue → 実測） | 扱い |
 | --- | --- | --- |
 | **① HO 対象（AI 編集不可）** | 5 → **5** | `.claude/rules/{working-context,mode-classification}.md` / `.claude/commands/{ai-dev-workflow,README}.md` / `.claude/agents/workflow-conductor.md` → **差分提案まで AI-owned・適用は Human-owned** |
-| **② 正本（AI 編集可）** | 16 → **16** | `.agents/skills/{plan-review-gate,acceptance-review,README}` / `docs/ai-driven-development.md` / `docs/plangate.md` / `docs/workflows/README.md` / `docs/pages/reference/glossary.md` 等 |
-| **③ 同期派生** | 12 → **11** | `plugin/plangate/**` / `.codex/skills/**` / `.claude/skills/**` → **正本修正 + sync で自動追従**（手編集しない。ただし `.claude/skills/` の sync 経路は U-2） |
+| **② 正本（AI 編集可）** | 16 → **16** | `.agents/skills/{plan-review-gate,acceptance-review,README}` / `docs/ai-driven-development.md` / `docs/plangate.md` / `docs/workflows/README.md` / `docs/pages/reference/glossary.md` 等。**注**: ② に含まれる `docs/changelog.md` は `scripts/sync-release-docs.sh` による**自動同期ファイル**（ヘッダに「手動編集しない」明記）かつ「17項目」hit は**過去リリース記録行（L430 付近）のみ** → 字義どおりの ② 統一は生成ファイル手編集 or 履歴書き換えになるため、**④ 相当の不変更 or CHANGELOG 経由 sync のどちらで扱うかを plan で確定**（U-6 に含める） |
+| **③ 同期派生** | 12 → **11**（差 1 は帰属定義依存 — 裏取り #2） | `plugin/plangate/**` / `.codex/skills/**` / `.claude/skills/**` → **正本修正 + sync で自動追従**（手編集しない。ただし `.claude/skills/` の sync 経路は U-2） |
 | **④ 履歴（不変更）** | 2 → **2** | `CHANGELOG.md` / `examples/eval-fixtures/**` |
 
 ### 決めるべきこと（issue 記載・実装前に確定が必要 → 本 PBI では未確定＝plan 決定事項に送る）
@@ -80,8 +80,8 @@ C-1 セルフレビューの項目数が **「17 項目」と宣言されてい�
 - **AC-1**: 正となる項目数の方針（決めるべきこと 1）が決定され、根拠が記録されている。検証: plan / decision-log.jsonl に選択肢 (a)/(b)/(c) の比較と採用理由が残っている
 - **AC-2**: mode 別適用範囲（決めるべきこと 2）が実体と整合するよう再定義されている。検証: `mode-classification.md`（HO 対象 → patch 提示 + Human 適用）の C-1 行が実体の項目 ID 帯と突合可能な表記になっている
 - **AC-3**: ② 正本 16 ファイルの表記が方針どおりに統一されている。検証: 裏取り #2 と同条件の再走査で、旧表記（「17項目」等）の live 残存が方針で許容した箇所以外 0 件
-- **AC-4**: ③ 同期派生 12 ファイル（実測 11 — 裏取り #2）が **sync スクリプト経由で**追従している（手編集ゼロ）。検証: 同期スクリプト再実行後の `git status` が clean。`.claude/skills/` の sync 経路未確立の場合の扱いは U-2 の決定に従い、逸脱時は handoff に根拠を明示
-- **AC-5**: ① HO 対象 5 ファイルの差分が Human 適用可能な形で提示されている（前例: TASK-0871 `approvals/ho-apply-approval.md` / TASK-0872 `patches/` — 実在確認済み）。検証: patch の `--check` 適用可否 + 適用手順の提示
+- **AC-4**: ③ 同期派生 12 ファイル（実測 11 — 裏取り #2）が **sync スクリプト経由で**追従している（手編集ゼロ）。検証: 同期スクリプト再実行後の `git status` が clean。`.claude/skills/` の sync 経路未確立の場合の扱いは U-2 の決定に従い（**issue AC-4 からの条件付き逸脱**）、逸脱時は handoff に根拠を明示
+- **AC-5**: ① HO 対象 5 ファイルの差分が Human 適用可能な形で提示されている（前例: TASK-0871 `approvals/ho-apply-approval.md` / TASK-0872 `patches/` — 実在確認済み）。検証: sandbox / clean worktree での**実適用テスト**（TASK-0872 の `ho-apply-approval.md` 方式。`--check` 単独は検証と見なさない）+ 適用手順の提示
 - **AC-6**: `docs/working/` 配下が変更されていないこと（`git diff --name-only` で確認）。読み: **既存ファイルの変更ゼロ**。本 TASK 自身の working context（`docs/working/TASK-0960/` 新規追加）と HO patch 提示物は working-context ルール（handoff 必須）上、当然に許容 — この読み替えは plan で明記する
 - **AC-7**: 数の再発防止策（本文直書きをやめる / 機械検査を入れる 等）が決定され記録されている。検証: 決定内容が plan / decision-log に記録され、機械検査を選ぶ場合はその検査が本 PBI の変更に対して PASS する
 
@@ -92,7 +92,7 @@ C-1 セルフレビューの項目数が **「17 項目」と宣言されてい�
 - 定量: live 対象 34 ファイル中、実 PR で変更するのは ② 16 + ③ 11（sync 再生成）= **27 前後**（+ HO patch 提示物）→ 変更ファイル数 16+ で**定量は critical 帯**。AC 7 個 → high 帯
 - 定性: 変更種別は**表記是正（doc 寄り・機械的置換中心）**で、新規設計は「正とする数」の決定（U-1）と再発防止機構（U-4）に限られる
 - ただし **HO パス接触**（① 5 ファイル + AC-2 の `mode-classification.md` 再定義）→ mode-classification 例外ルール「承認境界周辺の変更 → 最低でも高」が優先し、**最低 high-risk + `lite_eligible=false` 強制 + 同期 C-3 固定**。doc-light は HO 対象 `.md` を含むため**無効**
-- 安全側の初期値: **high-risk**（②正本 → ③sync → ①HO patch のスライス分割時）。一括なら **critical 受容**（V-2/V-3/V-4 フル + 同期 C-3）。分割単位は U-5 として plan で確定
+- 安全側の初期値: **high-risk**（②正本 → ③sync → ①HO patch のスライス分割時）。ただし **② 単独でも実測 16 ファイル＝定量基準の critical 帯（16+）**のため、high-risk 初期値が成立するのは **② を 16 未満のスライスに分割することが前提**。分割しない場合は **critical**。一括なら **critical 受容**（V-2/V-3/V-4 フル + 同期 C-3）。分割単位は U-5 として plan で確定
 
 ### HO 分担の前提（本 PBI の構造的制約）
 
@@ -122,11 +122,11 @@ C-1 セルフレビューの項目数が **「17 項目」と宣言されてい�
 - **U-3**: mode 別適用の新定義の具体 — light「Plan 7 項目のみ」を実体（PLAN 9、うち 08/09 は #544 由来の AEE 項目）とどう整合させるか（7 のまま ID 明示 / 9 に拡張 / コア 7 + AEE 別掲 等）
 - **U-4**: 再発防止の機構選択 — 本文直書き廃止（参照化）/ 機械検査（宣言数 vs `grep -c '^### C1-'` 突合の CI・hook）/ 併用
 - **U-5**: スライス分割と適用順序 — ②③① の PR 分割単位、HO patch の Human 適用タイミング、#956 との順序
-- **U-6**: AC-3 の「統一」判定に使う再走査条件の確定 — 「17項目」以外の旧表記（「15 項目」「Plan 7 + ToDo 5 + TestCases 3」等の内訳表記）をどこまで走査対象に含めるか
+- **U-6**: AC-3 の「統一」判定に使う再走査条件の確定 — 「17項目」以外の旧表記（「15 項目」「Plan 7 + ToDo 5 + TestCases 3」等の内訳表記）をどこまで走査対象に含めるか。および `docs/changelog.md` の扱い — **自動同期・履歴ミラー**（`sync-release-docs.sh` 生成・hit は過去リリース記録行 L430 のみ — In scope ② 行の注）のため、**④ 相当の不変更とするか、CHANGELOG 経由 sync で扱うか**を確定
 
 ### Assumptions
 
-- issue の対象・層別が現 main（`a4afacb`）で有効であること（総数 34 は実測一致。③ のみ 12 → 実測 11 の軽微乖離があり、exec 時再走査で機械確定する — 裏取り #2）
+- issue の対象・層別が現 main（`a4afacb`）で有効であること（総数 34 は実測一致。層別は ③ に帰属差 1 があり — 層別定義依存、exec 時再走査 + 帰属確定で機械確定する — 裏取り #2）
 - C-1 項目そのものの追加・削除は行わない（Non-goals。`review-self.md` テンプレートの構造も不変更）
 - `docs/working/` は AC-6 の読みどおり**既存不変更・本 TASK 新規のみ**
 - HO ① 5 ファイルは AI 直接編集不可（EH-3 常時 block が物理強制 — 裏取り #3）であり、patch 提示 + Human 適用の分担が成立すること（前例 TASK-0871 / TASK-0872 実在）
