@@ -16,6 +16,7 @@
 | 2026-08-02 12:44 | D: exec 開始 | ブランチ `fix/914-mass-delete-guard` を origin/main `f25ae8b` から作成 |
 | 2026-08-02 12:46 | T-01 完了 | baseline 実測（下表）+ 失敗表記統一確認 + AC-7 検出力証明（NG_TOTAL=8） |
 | 2026-08-02 12:55 | T-02 完了 🚩 | `_mass_delete_blocked()` 導入 + sync_dir guard 置換。チェックポイント PASS: `sh -n` rc=0 + ta-26 standalone **16 passed / 0 failed**（TC-10 exit 3 = guard_fired 非サブシェル実証） |
+| 2026-08-02 13:00 | T-03 完了 🚩 | 経路2（ai-loop references）guard 適用。sandbox 再現 3 系: S1 正本2dir消失=発火+exit3+全残存 / S1b 空化=発火（`[ -d ]` すり抜けなし）/ S2 base=4,stale=1=非発火・削除実行・exit 0。evidence 保存 + ta-26 16/16 維持 + U-2 再確認（`set --` 以降の位置パラメータ使用 0 件） |
 
 ## 全体構成（PR 一覧）
 
@@ -52,7 +53,7 @@
 
 - [x] T-01: baseline 実測（2026-08-02 12:46 完了）
 - [x] T-02: `_mass_delete_blocked()` 導入 + `sync_dir` guard 置換 🚩（2026-08-02 12:55 完了）
-- [ ] T-03: 経路2（ai-loop references）guard 適用 🚩
+- [x] T-03: 経路2（ai-loop references）guard 適用 🚩（2026-08-02 13:00 完了）
 - [ ] T-04: 経路1（汎用 references）guard 適用 🚩
 - [ ] T-05a/b/c: TC 追加（別ワーカー担当）
 - [ ] T-06: 変異注入（別ワーカー担当）

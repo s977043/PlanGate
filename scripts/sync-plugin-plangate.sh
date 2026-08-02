@@ -329,19 +329,44 @@ if [ -d "$AI_LOOP_SPEC_DIR" ]; then
   fi
 fi
 # plugin 側の skills/ai-loop-cycle/references/ から、正本側に存在しなくなったファイルを削除する
+# mass-delete safety guard（#914 経路2）: 正本 2 ディレクトリ（docs/workflows/ai-loop /
+# docs/ai/ai-loop）の欠損・空化で期待集合（_ai_loop_expected_refs）が空/極小に
+# なったとき references/ を一括削除する事故（#877 実害と同型）を防ぐ。削除実行前に
+# base（期待集合の要素数）と stale（dst にあって期待集合に無い *.md 数）を集計し、
+# blocked なら削除ループ全体を skip する（コピー処理は上で完了済み・阻害しない）。
 if [ -d "$PLUGIN_AI_LOOP_REFS" ]; then
+  # 要素数の算出は意図的な未 quote 展開（スペース区切りのワード分割）。後段に
+  # 位置パラメータの使用（$@ / shift / set --）が無いことは確認済み（U-2。
+  # $1 の --dry-run 判定は冒頭で消費済み）。
+  set -- $_ai_loop_expected_refs
+  _ai_loop_ref_base_count=$#
+  # stale の定義（*.md 実ファイル + 期待集合に無い）は下の削除ループの条件と
+  # **必ず一致させること**。片方だけ変えると「N 件と数えて M 件消す」形で
+  # guard が無効化される（#861 再発型）。
+  _ai_loop_ref_stale_count=0
   for _f in "$PLUGIN_AI_LOOP_REFS"/*.md; do
     [ -f "$_f" ] || continue
     _base="$(basename "$_f")"
     case " $_ai_loop_expected_refs " in
       *" $_base "*) : ;;
-      *)
-        if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/references/$_base"
-        else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/references/$_base"; fi
-        changed=1
-        ;;
+      *) _ai_loop_ref_stale_count=$((_ai_loop_ref_stale_count + 1)) ;;
     esac
   done
+  # 呼び出しを $(...) 内へ置かないこと（guard_fired の global 伝播条件）
+  if ! _mass_delete_blocked "skills/ai-loop-cycle/references" "$_ai_loop_ref_base_count" "$_ai_loop_ref_stale_count"; then
+    for _f in "$PLUGIN_AI_LOOP_REFS"/*.md; do
+      [ -f "$_f" ] || continue
+      _base="$(basename "$_f")"
+      case " $_ai_loop_expected_refs " in
+        *" $_base "*) : ;;
+        *)
+          if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/references/$_base"
+          else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/references/$_base"; fi
+          changed=1
+          ;;
+      esac
+    done
+  fi
 fi
 
 # arbiter 裁定エンジン + テスト + metrics（#780 Slice D 後半: test_arbiter.py の

@@ -45,7 +45,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
   - `guard_fired=1` の代入がサブシェル内に入っていないことを目視 + TC-10（exit 3）で実証
   - Owner: agent / `rollback:` `git checkout -- scripts/sync-plugin-plangate.sh`
 
-- [ ] **T-03**: 経路2（ai-loop references・L316-329）へ guard 適用
+- [x] **T-03**: 経路2（ai-loop references・L316-329）へ guard 適用
   - `_ai_loop_expected_refs` の要素数（base。`set -- $_ai_loop_expected_refs; _n=$#` — U-2 で安全確認済み）と `PLUGIN_AI_LOOP_REFS` 内の非期待 `*.md` 数（stale）を削除実行前に集計
   - blocked なら削除ループ全体を skip（コピー処理は継続）
   - 🚩 **チェックポイント**: 「正本 2 ディレクトリ両方が空/消失 → 発火 + exit 3」「1 件だけ正当削除 → 非発火で削除実行」を手動再現し、**実行ログを `evidence/verification/` へ保存**（R-308。本経路は「最も危険な silent failure」に該当）してから T-04 へ
