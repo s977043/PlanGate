@@ -617,3 +617,138 @@ C1-PLAN-01 / C1-PLAN-02 / C1-PLAN-04 / C1-PLAN-06 / C1-PLAN-09-AEE / C1-SUP-PLAN
 | check_id | 修正内容 | 修正先ファイル |
 |----------|---------|--------------|
 | — | **本 C-1 では plan.md / todo.md / test-cases.md を一切修正していない**（C-1 は指摘の記録まで。是正は指摘確定後に別途実施する運用のため） | — |
+
+---
+
+## 簡易 C-1 再実行（是正後）
+
+> 実行日: 2026-08-02（初回 C-1 と同日・是正コミット後）
+> 対象: `plan.md` / `todo.md` / `test-cases.md` @ `feat/task-0874-plan`
+> 再実行範囲: 初回 C-1 が指定した **12 項目**（PASS 12 項目 + N/A 1 項目は再実行不要）
+> 判定: **WARN**（critical=0 / major=0 / minor=1 / **FAIL 0**）— **FAIL 4 件はすべて解消**、WARN 8 件のうち **7 件解消 / 1 件は WARN 継続（意図的に提案を採らなかった）**。C-3 へ進める状態。
+>
+> ⚠️ **本ファイル冒頭の frontmatter `verdict: FAIL` は初回 C-1 の判定であり、意図的に書き換えていない**（本追記は append-only 運用のため）。
+> 再実行後の判定は本節の値（**WARN**）が最新。frontmatter を更新するかは人間の判断に委ねる（`schemas/review-self.schema.json` の `verdict` enum は `PASS` / `WARN` / `FAIL`）。
+
+### サマリー（再実行 12 項目）
+
+| result | 件数 | check_id |
+|--------|------|---------|
+| PASS | 11 | C1-PLAN-01 / C1-PLAN-02 / C1-PLAN-04 / C1-PLAN-06 / C1-PLAN-09-AEE / C1-SUP-PLAN-01 / C1-SUP-PLAN-02 / C1-TODO-09 / C1-TEST-13 / C1-TEST-14 / C1-B1B2-17 |
+| WARN | 1 | C1-TODO-08（タスク粒度・**提案の一部を採らなかった**。下記に理由） |
+| FAIL | 0 | — |
+
+### 是正の機械検証（再実行時に実測したもの）
+
+```text
+# ① 循環依存の解消（DFS + tsort の二重確認）
+$ python3 - # todo.md の [depends_on: ...] を全抽出 → DFS
+tasks: 44 / min-max: 1-44 / contiguous: True / dupes: False
+DANGLING deps: (none)
+CYCLES: []
+$ tsort <(依存ペア)   # 同じグラフを外部ツールでも確認
+tsort rc: 0   stderr: (none)
+topo order head: ['T-1','T-2','T-3','T-4','T-5','T-6','T-7','T-8']
+sinks（dependent を持たないタスク）: ['T-44']   # 最終タスクのみ = 孤立枝なし
+
+# ② TC / T 番号の連番・重複・欠番
+TC defined: 56 / unique: 56 / contiguous 1..56: True / dup: [] / missing: []
+agent tasks: 44 / no rollback: [] / no files: [] / no depends_on: [] / no Owner: []
+rollback:不要 だが files を持つタスク: []
+
+# ③ plan.md / todo.md が参照する TC 番号がすべて test-cases.md に実在するか
+plan.md が参照する未定義 TC: []
+todo.md が参照する未定義 TC: []
+AC↔TC 対応表の union: 56（定義済みだが表に無い: [] / 表にあるが未定義: []）= 全単射を維持
+
+# ④ markdownlint
+$ npx markdownlint-cli2 "docs/working/TASK-0874/*.md"
+Summary: 0 issues in 0 files      # exit 0
+
+# ⑤ 機械処理可能な形が壊れていないか（Files 節の抽出）
+$ python3 -c "import plan_package; plan_package.extract_allowed_paths(plan_text)"
+12 件（是正前と同一。docs/schemas/... 〜 docs/working/TASK-0874/）
+```
+
+### 項目別の再判定
+
+#### C1-PLAN-04（初回 FAIL → **PASS**）
+
+- **是正**: 論点 **D7** を新設し、「Phase 1 では `routing_decisions` / `replan_count` / `cost_metrics` が構造的に `unavailable` にしかならない → 受理器は必ず partial」を **known-unavailable 3 フィールド**として契約 doc に明記する設計に確定。**fixture 1〜6 の期待受理器 exit を `11`（partial）に統一**し、`terminal_state` の期待値は不変とした（`terminal_state` と `evidence_status` が直交することを明記）。
+- **副次的に解消した穴**: exit 0 の経路が fixture から消えるため、受理器の `0` 判定が**死にコード化**しうる。これを **TC-56（合成 complete EV → exit 0）** で補償した。
+- **`evidence_status` の帰属も確定**: record に格納せず**受理器が導出する語彙**とした（trust boundary = 生成側に自分の証跡の完全性を自己申告させない）。これにより `required` が 20+1 に閉じ、C1-TEST-14 ① の是正と整合する。
+- **C-3 へ**: 代替設計（known-unavailable allowlist / 第 3 status）は下流 2 PBI の受理条件に依存するため **U-10** として残した。plan は安全側（全 partial）を既定に置いている。
+
+#### C1-SUP-PLAN-02（初回 FAIL → **PASS**）
+
+- **是正**: 旧 T-38 の 5 責務を **T-38（R1）/ T-39（R2 収束）/ T-40（56 TC 全件実行 + 不変差分 0）/ T-41（commit 整理 + status/current-state/handoff + AC↔fixture 対応表）** に分割。**各タスクに「完了判定」を単独で書き**、rollback もタスク単位（`git revert` / `git restore -- <path>` / `不要`）に是正した。
+- 分割にあわせて **T-40 の依存に T-24 を明示追加**（`depends_on: T-39, T-24`）。循環解消で T-24 が dependent を持たない枝になるため、完了処理より後ろにずれ込まないよう機械的に束縛した。
+
+#### C1-TODO-09（初回 FAIL → **PASS**）
+
+- **是正**: **T-25 の `depends_on` を T-24 → T-23** に変更。閉路 `T-24 → T-32 → … → T-25 → T-24` が解けた（DFS / `tsort` の両方で確認）。
+- **提案の妥当性を自分で検証した**: T-25 は `c3-prime-contract.md` §7 への additive 追記であり、privacy hook の**実走**（T-24）を前提としない。producer 側で T-25 の直前に完了しているべきは privacy フィルタ実装（T-23）であり、依存の意味としても T-23 が正しい。
+
+#### C1-TEST-14（初回 FAIL → **PASS**）
+
+- **① `required` 20 vs 21**: **21（issue の 20 フィールド + `schema_version`）に統一**（TC-04 / TC-05 / T-5 / T-6 の 4 箇所）。根拠を plan **D8** に明記した: (a) `schema_version` が optional だと version 不明 record を受理してしまい **versioning policy（AC-1）が機械的に無効化される**、(b) 実測で `schemas/*.schema.json` 28 本中 **9 本が `schema_version` を required に持ち、properties にありながら required から外している schema は 0 本**、(c) `evidence_status` は D7-2 により record に持たせないため 20+1 で閉じる。
+- **② TC-43 の恒等式**: 右辺を **`len(run_records)`** に是正し、`run_count`（= `len(grouped)` = distinct `run_id` 数）の assert を **TC-54 に分離**。現データ 28 件では偶然一致して回帰で検出できないため、**1 run に 2 record を持つ合成入力で検証する**ことを TC 本文に明記した。
+- **③ fixture 7 の期待 exit**: 「1 または 10」を廃し **ケースごとに一意**（`tampered` → `1` / `partial` → `11`）に固定した。
+
+#### C1-B1B2-17（初回 WARN → **PASS**）
+
+- **実装を自分で読んで確認した**: `scripts/ai-loop/c3prime_verify.py` L13-15 docstring および L67 `return 10  # legacy → 呼び出し側 shell へ委譲` により **`10` = legacy**。さらに **その `10` を legacy として消費している呼び出し側が 2 箇所実在**する（`scripts/ai-loop/delivery.py` L530 `if rc == 10:` / `bin/plangate` L1010 `# _c3_rc == 10: legacy 経路`）。
+- **是正**: plan D6 を **`10`=legacy / `11`=partial**（前例準拠）に入れ替え、影響箇所（TC-07 / TC-32 / Edge cases / fixture 表 / T-7 / T-10 / Testing Strategy / Risks）を一括更新。`test-cases.md` の **「`c3prime_verify.py` L62-67 の分岐と同型」は事実誤認だった**が、`10`=legacy に是正した結果 **記述どおり同型になった**ため、根拠行を明示したうえで残した。
+- **C-3 へ**: 値割当の最終確定は **U-11** として残した（独自割当を通す選択肢を潰さないため）。plan は前例準拠を既定に置いている。
+
+#### C1-PLAN-01（初回 WARN → **PASS**）
+
+- **①`blocked_by[]` の fail-open**: **供給元は呼び出し側注入**と明記し、**キーが物理的に存在しない（未注入）→ 判定不能として `BLOCKED`**、**明示的に `[]` を注入したときのみ非 BLOCKED** という fail-closed 既定を plan Step 7 / T-28 / **TC-55** に確定。供給責任者そのものは **U-12** として C-3 に上げた。
+- **② DoD 2 項目**: 「issue コメントに 4 link」「#870 Evolution DoD へ evidence link」に対応する **T-42 / T-43** を新設し、plan Step 12 の Output に含めた（当初は Step / T のどこにも対応が無かった）。
+
+#### C1-PLAN-02（初回 WARN → **PASS**）
+
+- **U-2 / U-3 を Unknowns から降格**（plan 段階で確定）。U-2 は「`record.jsonl` に entry kind 追加」が Constraints で既に排除済みであり、残る「Loop Attempts を数える」は *plan ドキュメントの編集回数*であって run の事実ではなく決定論 producer の入力にできない → **`unavailable` 一択**。U-3 は `events.ndjson` が gitignore で参照経路が無い → **`unavailable` 一択**。
+- **U-6 を plan 段階で判断**（裁定 §8-3 の指定どおり）: **予約起票する**と確定し、実施タスク **T-44** を追加（起票は AI-owned / **昇格 patch の適用は HO = Human-owned で不変**）。
+- **ID は振り直さず**（他ファイルから参照されるため）、`## Questions / Unknowns` を「未決 9 件」と「plan 段階で確定 3 件（根拠つき）」の 2 区画に再構成した。
+
+#### C1-PLAN-06（初回 WARN → **PASS**）
+
+AC↔Step 表の **AC-9 / AC-10 を `Step 7・Step 8` の併記**に是正（実装は adapter = Step 7、fixture 供給が Step 8）。是正理由も表直下に残した。
+
+#### C1-PLAN-09-AEE（初回 WARN → **PASS**）
+
+Replan Trigger を**計測コマンドごと**固定: `git diff --name-only origin/main -- ':!plugin/' ':!docs/working/' | wc -l > 24`。除外を書かないと sync 生成 5 ファイル + working context 7〜9 ファイルで**正常進行でも 30 前後に達し即誤発火する**ことを根拠として明記した。
+
+#### C1-SUP-PLAN-01（初回 WARN → **PASS**）
+
+- **① 出力先**: producer は既定で **stdout へ 1 record**、`--out <path>` 指定時のみファイル書き出しで **拡張子が `.json` でなければ reject**、と plan Step 3 / T-15 に確定。Phase 1 で commit するのは golden fixture のみとし、実運用の既定保存先は Phase 2 の課題として切り分けた（`docs/working/**/*.json` が schema-validate の trigger paths に含まれる実測も併記）。
+- **② `^_` 注釈キー**: schema に `additionalProperties: false` **かつ `patternProperties: {"^_": {}}`** を要求（T-5 / **TC-03**）。前例 `schemas/c3-prime.schema.json` の実測（`additionalProperties=False` / `patternProperties=['^_']`）と受理器 allowlist（`c3prime_verify.py` L73）に整合させ、schema と受理器の食い違いを塞いだ。
+
+#### C1-TEST-13（初回 WARN → **PASS**）
+
+AC 本文のカバレッジ穴 3 件に TC を追加した（TC 総数 **49 → 56**）:
+
+| 穴 | 追加 TC |
+|----|--------|
+| AC-3 の "routing" を検査する TC が 0 件 | **TC-50**（`routing_decisions` が同一 `run_id` へ結合されること。Phase 1 は値が `unavailable`） |
+| AC-6 の "account 識別子" を検査する TC が 0 件（EH-8 禁止キー 14 個にも無く機械層を素通り） | **TC-51** |
+| todo T-13 が宣言する挙動（`unavailable` ≠ 空配列 / 未知 `kind` → escalation）に TC が無い | **TC-52 / TC-53**（あわせて T-13 の「対応 TC」ラベルも実体に合わせて是正） |
+
+#### C1-TODO-08（初回 WARN → **WARN 継続**・minor 1 件）
+
+- **採った提案**: T-38 の 4 分割（C1-SUP-PLAN-02 と同一の是正）。
+- **採らなかった提案**: **T-32 の 3 分割**、および T-15 / T-16 / T-33 の分割。
+- **理由**: critical の failure_policy が FAIL とするのは「Task 単位の**検証不能**・**責務混在**・依存不明」であり、T-15（producer 実装）/ T-16（D3 マッピング実装）/ T-32（golden 10 件生成）/ T-33（ta-58 新設）は **いずれも単一責務**で、**単一の検証コマンドで合否が決まる**（例: T-32 = `len(glob) == 10` + golden byte 比較、T-33 = `sh tests/run-tests.sh </dev/null` の PASS 行 grep）。旧 T-38 が FAIL だったのは「敵対レビュー / TC 実行 / 差分確認 / commit 整理 / doc 更新」という**種類の異なる 5 責務**を 1 チェックボックスに束ね、部分状態を表現できなかったためであり、T-32 等はこれに該当しない。
+- **残る懸念（WARN として明示）**: 所要時間の粒度（2〜5 分）は超える。分割は 4 ファイル横断の T 番号再採番を伴い、**再採番自体が新たな不整合（`depends_on` / 「対応 TC」ラベル / plan 側参照の取り違え）を生むリスク**の方が大きいと判断した。exec 中に T-32 が 1 タスクとして扱いにくいと判明した場合は、**Replan Trigger（同一ファイルへの修正反復 3 回）で検知して分割する**運用に委ねる。
+
+### 是正後も残る C-3 判断事項（Questions / Unknowns）
+
+**未決 9 件**: U-1（`harness_version` の定義）/ U-4（非終端 run の扱い）/ U-5（`repository` と privacy §4）/ U-7（schema・fixture の plugin 配布）/ U-8（adapter IF の最小フィールド）/ U-9（fixture 9・10 の実質）/ **U-10（Phase 1 で complete に到達させるか）** / **U-11（受理器 exit code の値割当）** / **U-12（`blocked_by[]` の供給元）**
+
+**plan 段階で確定 3 件（C-3 は追認のみ）**: U-2（`replan_count` = `unavailable` 固定）/ U-3（`cost_metrics` = `unavailable` 固定）/ U-6（`schemas/` 昇格 PBI を予約起票する）
+
+### 総合判定（簡易 C-1 再実行）
+
+**WARN** — critical=0 / major=0 / minor=1 / **FAIL 0**（C1-TODO-08 の WARN 継続）。**C-3 へ進める状態**（初回 C-1 の「FAIL のため C-3 へ進めない」は解消）。
+ただし **U-10 / U-11 は plan の既定（安全側）を人間が追認するか覆すかで exec の実装内容が変わる**ため、C-3 で明示判断すること。
