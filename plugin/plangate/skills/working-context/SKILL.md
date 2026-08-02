@@ -23,11 +23,18 @@ PlanGate の `docs/working/TASK-XXXX/` 配下を **L0〜L3 の Progressive Discl
 3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない。
    L0〜L3 の段取り・出力先は本 skill 本文で代替し、正本未参照である旨を `status.md` に記録する
 
+> **手順 3 に落ちても判定基準は緩めない**: 正本が引けない場合の代替は「L0=`INDEX.md` →
+> `current-state.md`、L1=フェーズ該当ファイル、L2=`evidence/` / `decision-log.jsonl`、
+> L3=`status.md` 全体」の段取りと本 skill「Rules」節（`YYYY-MM-DD HH:mm` 必須・handoff 6 要素
+> 必須・逸脱記録）であって、**省略ではない**。正本を参照できないことを理由に判定基準・
+> ゲートを緩めてはならない。
+
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
 | `rules/*.md`（下記 3） | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
 | `docs/working/templates/*.md` | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 | `bin/**`（CLI） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+| `scripts/**` | コピー対象外（解決不可） | `<plugin_root>/scripts/` は存在するが `install-plangate-skills.sh` のみ（`context-engine.py` 等は解決不可） | 未配置（解決不可） |
 
 `docs/working/TASK-XXXX/*`（下記 4〜5 / Output）は**配布物ではなく導入先で作成する作業成果物**
 なので、導入先リポジトリ内でそのまま解決する。
@@ -65,10 +72,14 @@ PlanGate の `docs/working/TASK-XXXX/` 配下を **L0〜L3 の Progressive Discl
 配置されない。導入先で PATH を通した場合のコマンド名は **`plangate`**（`bin/plangate` ではない）。
 いずれも**補助**であり、本 skill の読み書きはファイルを直接扱えば CLI 無しで完結する。
 
+下表の 2 列目は「導入先 + PATH に `plangate` あり」「導入先 + PATH に無い」で結論が同じ
+（`resume` / `context` / `status` はいずれも `--dir` 相当を持たず導入先の TASK を対象にできない）
+ため、**PATH 有無で差がないので 2 列に統合している**。
+
 | 用途 | 上流リポジトリの cwd | 導入先（PATH の有無を問わず） |
 |------|---------------------|------------------------------|
 | current-state 表示 | `bin/plangate resume TASK-XXXX` | **導入先の TASK には使えない**（下記注意）→ `current-state.md` を直接読む |
-| 動的 context 取得（opt-in / Issue #199） | `bin/plangate context TASK-XXXX --phase <plan\|exec\|review\|status>`（**`--phase` 必須**） | 同上 → L0〜L3 プロトコルに従って手動で読む |
+| 動的 context 取得（opt-in / Issue #199） | `bin/plangate context TASK-XXXX --phase <classify\|plan\|approve-wait\|execute\|review\|verify\|handoff>`（**`--phase` 必須**） | 同上 → L0〜L3 プロトコルに従って手動で読む |
 | 状態確認 | `bin/plangate status TASK-XXXX` | 同上 → `INDEX.md` / `status.md` を直接読む |
 
 > **注意: `TASK-XXXX` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**

@@ -23,10 +23,16 @@ PlanGate は Claude Code / Codex CLI ともローカル実行が原則。本 ski
 3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない
    （packet に「正本 `<path>` を参照できなかった」旨を書く）
 
+> **手順 3 に落ちても判定基準は緩めない**: 正本が引けない場合でも、本 skill「Rules」節
+> （C-3 未承認なら exec 再開を拒否 / EH-8 Privacy 準拠 / 受け手の環境に合わせたコマンド表記）と
+> 「Deliverable」の必須項目は**すべて満たす**。正本を参照できないことを理由に判定基準・
+> ゲートを緩めてはならない（とくに `approvals/c3.json` の APPROVED 確認は省略不可）。
+
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
 | `rules/*.md`（下記 3） | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
 | `bin/**`（CLI） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+| `scripts/**` | コピー対象外（解決不可） | `<plugin_root>/scripts/` は存在するが `install-plangate-skills.sh` のみ（`codex-guarded.sh` 等は解決不可） | 未配置（解決不可） |
 
 `docs/working/TASK-XXXX/*`（下記 4〜7）は**配布物ではなく導入先で作成する作業成果物**なので、
 導入先リポジトリ内でそのまま解決する。
