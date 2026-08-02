@@ -29,7 +29,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
 
 ### 準備フェーズ
 
-- [ ] **T-01**: AC-6 の baseline 実測（R-301 / U-4）
+- [x] **T-01**: AC-6 の baseline 実測（R-301 / U-4）
   - 移行前の 11 本（ta-39/43/44/45/46/47/49/50/51/52/53）について、clean env（`env -u PLANGATE_HOOK_TASK -u PLANGATE_HOOK_FILE -u PG_HARNESS_SOURCED -u FIXTURES_DIR -u PLANGATE_ALLOW_MASS_DELETE`）+ **`sh "$f" </dev/null`** での standalone 実行時の **`[PASS]` 件数**を実測し `status.md` へ表形式で記録（= AC-6 条件③の baseline）
   - ⚠️ **`</dev/null` を必ず付ける（RV-M1）**: 未リダイレクトだと `ta-50-precompact-guard.sh` が `scripts/precompact-memory-guard.sh` の `cat`（非 tty 時に EOF まで読む）でブロックし**無限ハングする**（実測確認済み）
   - 参考値（River Review が clean env で実測。**自ら再実測して確定する**）: `ta-39=8 ta-43=6 ta-44=5 ta-45=6 ta-46=4 ta-47=6 ta-49=6 ta-50=9 ta-51=5 ta-52=5 ta-53=4`（計 64）
