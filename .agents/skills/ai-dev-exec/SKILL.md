@@ -9,13 +9,23 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
 
 ## 前提条件（exec 開始ゲート）
 
-- `docs/working/TASK-XXXX/approvals/c3.json` が存在し `c3_status: APPROVED`
-- `plangate validate` PASS（plan_hash 整合 / artifact 整合 / EH-3 整合）
-- `plangate exec` は APPROVED c3.json のみ受理（CLI 側で機械チェック）
+1. `docs/working/TASK-XXXX/approvals/c3.json` が存在し、**その `approval_kind` に応じた承認条件**を
+   満たすこと。判別は **python3 の strict JSON** で行う（非アンカーな `grep`/`sed` は c3-prime で
+   誤動作する。契約 §5）:
 
-これらが満たされなければ exec を**開始しない**。コマンド表記・`TASK-XXXX` の解決先・
-CLI が無い環境での代替手順は「CLI 呼び出し」節を参照する（**CLI が無いことを理由に
-ゲートを省略しない**）。
+   | record 種別 | 判別 | 承認済みと見なす条件 |
+   |------------|------|--------------------|
+   | **legacy** | `approval_kind` キー **なし** | `c3_status: APPROVED` |
+   | **c3-prime** | `approval_kind: "c3-prime"` | `decision: "AUTO_APPROVED"`（**`c3_status` は契約 §5 で明示禁止**。含まれていたら FAIL）**かつ** Plan Package 束縛の全数検証 PASS（`plan_hash` / `artifact_hashes` 6 要素 / `plan_package_hash` / `source_sha` / reviewer verdict 整合）。正本: `docs/workflows/ai-loop/c3-prime-contract.md` §2〜§5 |
+   | それ以外の値 | — | **受理拒否**（exec 不可） |
+
+2. **validate 相当が PASS**（plan_hash 整合 / artifact 整合 / EH-3 整合）
+3. **exec 入口も上記 1 と同じ分岐で承認済み record のみ受理する**（CLI がある環境では
+   CLI 側が機械チェック済み。CLI が無い環境では自分で確認する）
+
+これらが満たされなければ exec を**開始しない**。実際のコマンド表記（`bin/plangate` /
+`plangate` / CLI 不在）・`TASK-XXXX` の解決先・CLI が無い環境での代替手順は
+「CLI 呼び出し」節を参照する（**CLI が無いことを理由にゲートを省略しない**）。
 
 > **settings タスクロック** (`plangate doctor --check-settings`) は **V-1 / handoff 完了の前提条件**（`.claude/rules/working-context.md` → fallback `<plugin_root>/rules/working-context.md` が正本）。exec 入口では block しない。詳細は `ai-dev-verify` skill。
 
