@@ -10,20 +10,45 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
 ## 前提条件（exec 開始ゲート）
 
 - `docs/working/TASK-XXXX/approvals/c3.json` が存在し `c3_status: APPROVED`
-- `bin/plangate validate TASK-XXXX` PASS（plan_hash 整合 / artifact 整合 / EH-3 整合）
-- `bin/plangate exec TASK-XXXX` は APPROVED c3.json のみ受理（CLI 側で機械チェック）
+- `plangate validate` PASS（plan_hash 整合 / artifact 整合 / EH-3 整合）
+- `plangate exec` は APPROVED c3.json のみ受理（CLI 側で機械チェック）
 
-これらが満たされなければ exec を**開始しない**。
+これらが満たされなければ exec を**開始しない**。コマンド表記・`TASK-XXXX` の解決先・
+CLI が無い環境での代替手順は「CLI 呼び出し」節を参照する（**CLI が無いことを理由に
+ゲートを省略しない**）。
 
-> **settings タスクロック** (`bin/plangate doctor --check-settings`) は **V-1 / handoff 完了の前提条件**（`.claude/rules/working-context.md` 正本）。exec 入口では block しない。詳細は `ai-dev-verify` skill。
+> **settings タスクロック** (`plangate doctor --check-settings`) は **V-1 / handoff 完了の前提条件**（`.claude/rules/working-context.md` → fallback `<plugin_root>/rules/working-context.md` が正本）。exec 入口では block しない。詳細は `ai-dev-verify` skill。
 
 ## Read First
 
+### 参照解決順（導入先で必ずこの順に探す）
+
+本 skill の参照は上流リポジトリ（`s977043/plangate`）基準の相対パスで書かれている。
+導入先ではそのままでは解決できないものがあるため、**次の順で探索する**:
+
+1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）
+2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）
+   - **`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して得た絶対パス**。
+     Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+     という文字列をそのまま Read しても必ず失敗する
+   - **変数が空・未設定なら glob（`~/.claude/plugins/cache/**` 等）で推測せず 3 へ進む**
+3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない
+
+| 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
+|------|---------------------------|----------------------------------|-----------|
+| `rules/*.md`（下記 3〜5） | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
+| `bin/**`（CLI） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+
+`docs/working/TASK-XXXX/*`（下記 6〜7）は**配布物ではなく導入先で作成する作業成果物**なので、
+導入先リポジトリ内でそのまま解決する（存在しなければ plan フェーズが未完了）。
+
+### 読む順序
+
 1. `CLAUDE.md`
 2. `AGENTS.md`
-3. `.claude/rules/working-context.md`（exec phase の出力規約）
-4. `.claude/rules/hybrid-architecture.md`（Rule 1〜5）
-5. `.claude/rules/responsibility-classes.md`（AI-owned / Human-owned 境界）
+3. `.claude/rules/working-context.md` → fallback `<plugin_root>/rules/working-context.md`（exec phase の出力規約）
+4. `.claude/rules/hybrid-architecture.md` → fallback `<plugin_root>/rules/hybrid-architecture.md`（Rule 1〜5）
+5. `.claude/rules/responsibility-classes.md` → fallback `<plugin_root>/rules/responsibility-classes.md`（AI-owned / Human-owned 境界）
 6. `docs/working/TASK-XXXX/plan.md` / `todo.md` / `test-cases.md`
 7. `docs/working/TASK-XXXX/current-state.md`
 
@@ -47,12 +72,57 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
 
 ## CLI 呼び出し
 
-- exec dispatch: `bin/plangate exec TASK-XXXX [--mode <mode>]`（APPROVED c3.json のみ受理）
-- 機械検証: `bin/plangate validate TASK-XXXX`
-- 並行で `./scripts/ai-dev-workflow TASK-XXXX exec` も利用可
-- **Codex CLI 経由の場合は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto` を推奨**（pre-flight で validate + doctor --check-settings 実行、post-flight で plan.md drift 検知）
+**呼び出し表記は実行環境で変わる**。相対パス形式（`bin/plangate` / `./scripts/...`）が成立するのは
+**上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` も
+`scripts/`（の CLI 本体）も配置されない。導入先で PATH を通した場合のコマンド名は
+**`plangate`**（`bin/plangate` ではない）。どちらの環境かを確定してから使う。
 
-> ✅ **Codex CLI 物理 hook 等価達成 (PR #347)**: `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` で EH-1/2/3/6/9 が Codex session 中の Write/Edit/Bash 呼び出しに対しても発火する。`scripts/codex-guarded.sh` の session 前後検知と合わせて Claude Code と等価な強制力。
+| 実行環境 | exec dispatch | plan_hash / artifact 機械検証 |
+|---------|--------------|------------------------------|
+| 上流リポジトリの cwd | `bin/plangate exec TASK-XXXX [--mode <mode>]` | `bin/plangate validate TASK-XXXX` |
+| 導入先 + PATH に `plangate` あり | `plangate exec TASK-XXXX` は**実在するが対象が CLI 側**（下記注意）→ 導入先の TASK には使えず手動で TDD 実行 | `plangate validate --dir docs/working/TASK-XXXX` |
+| 導入先 + PATH に無い（**既定**） | 手動で TDD 実行 | 次節のフォールバック（sha256 突合） |
+
+> **注意: `TASK-XXXX` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**
+> `bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
+> `<CLI の repo root>/docs/working/TASK-XXXX` を読み書きする。`bin/` は導入先に配置されない
+> ため、PATH 上の `plangate` は必ず**別の場所にある上流 clone** の実体を指す。つまり導入先で
+> `plangate exec TASK-XXXX` を実行しても、対象は導入先の `docs/working/` ではなく
+> **その clone 側の `docs/working/`** になる。cwd 非依存でパスを明示できる `--dir` を持つのは
+> `validate` / `validate-schemas` **だけ**で、`exec` / `resume` / `status` / `review` / `eval` /
+> `metrics` / `context` / `render` / `approve` に相当オプションは無い。
+
+- 並行で `./scripts/ai-dev-workflow TASK-XXXX exec` も利用可（**上流リポジトリの cwd のみ**。`scripts/ai-dev-workflow` は配布対象外）
+- **Codex CLI 経由の場合は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto` を推奨**（**上流リポジトリの cwd のみ**。pre-flight で validate + doctor --check-settings 実行、post-flight で plan.md drift 検知）
+
+> ✅ **Codex CLI 物理 hook 等価達成 (PR #347)**: `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` で EH-1/2/3/6/9 が Codex session 中の Write/Edit/Bash 呼び出しに対しても発火する。`scripts/codex-guarded.sh` の session 前後検知と合わせて Claude Code と等価な強制力。**ただしこれらも配布対象外**なので、導入先では下記フォールバックでゲートを人手維持する。
+
+### CLI 不在時のフォールバック（導入先では既定）
+
+上表の「導入先 + PATH に無い（既定）」に該当する場合は次に従う:
+
+1. **exec 本体は手動で TDD 実行する** — Red → Green → Refactor の順序と「Output」の出力契約は
+   **CLI の有無に関わらず不変**
+2. **exec 入口ゲート（前提条件）は自分で確認する** — `approvals/c3.json` の `c3_status` が
+   `APPROVED` であることを読んで確認し、続けて plan_hash を突合する。`plangate validate` の
+   plan_hash 検査は **`plan.md` の素の sha256**（正規化・前処理なし）と `c3.json` の `plan_hash`
+   から `sha256:` prefix を除いた値の単純比較なので、CLI 無しで再現できる:
+
+   ```sh
+   # 算出（sha256sum が無い環境では shasum -a 256 を使う）
+   sha256sum docs/working/TASK-XXXX/plan.md | awk '{print $1}'
+   # 突合先: docs/working/TASK-XXXX/approvals/c3.json の "plan_hash": "sha256:<この値>"
+   ```
+
+   **不一致なら C-3 承認後に plan が改変されている** → exec に進まず、再承認（`c3.json` の
+   `plan_hash` 更新）または plan の revert を行う。`sha256sum` / `shasum` の**両方とも無い場合に
+   限り**スキップし、その事実を `decision-log.jsonl` に記録して **「機械検証済み」と書かない**
+3. **hook も配布されない前提で運用する** — plan_hash を照合する hook（EH-3）は導入先には配線され
+   ないため、item 2 の突合は **exec 開始前に自分で実行する**。CLI が無いことを理由に C-3 を省略しない
+4. CLI による機械検証が必要なら、上流リポジトリを clone して
+   `bin/plangate validate --dir <導入先の TASK ディレクトリの絶対パス>` を実行する。
+   **位置引数形式（`validate TASK-XXXX`）は使わない** — 上表の注意のとおり clone 側の
+   `docs/working/TASK-XXXX` を見に行ってしまい、導入先の TASK は検査されない
 
 ## 次フェーズへ
 

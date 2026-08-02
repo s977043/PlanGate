@@ -11,6 +11,44 @@ description: PlanGate 初期セットアップを対話的に進めるための�
 > カテゴリ: ガイド型セットアップ
 > 役割: 手順テンプレと検証観点を再利用単位で保持する
 
+## 参照解決順（導入先で必ずこの順に探す）
+
+本 skill の参照は上流リポジトリ（`s977043/plangate`）基準の相対パスで書かれている。
+導入先ではそのままでは解決できないものがあるため、**次の順で探索する**:
+
+1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）
+2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）
+   - **`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して得た絶対パス**。
+     Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+     という文字列をそのまま Read しても必ず失敗する
+   - **変数が空・未設定なら glob（`~/.claude/plugins/cache/**` 等）で推測せず 3 へ進む**
+3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない
+   （`status.md` に「正本 `<path>` を参照できなかった」旨を記録する）
+
+| 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
+|------|---------------------------|----------------------------------|-----------|
+| `rules/*.md` | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
+| `bin/**`（CLI） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+| `scripts/**` | コピー対象外（解決不可） | `<plugin_root>/scripts/` は存在するが `install-plangate-skills.sh` のみ（`apply-claude-settings.sh` 等は解決不可） | 未配置（解決不可） |
+
+## CLI 前提（doctor が何を検査するか）
+
+本 skill は `doctor` を単一検証源とするが、**`doctor` は cwd ではなく CLI 本体の位置を基準に
+検査する**。`bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
+`doctor` / `doctor --json` / `doctor --check-settings` はいずれも
+`<CLI の repo root>` 配下（`.claude/settings.json` / `.claude/rules/` / `docs/working/` /
+`schemas/` 等）を対象にする。`--dir` 相当のオプションも無い。
+
+| 実行環境 | doctor の可否 | 対象 |
+|---------|--------------|------|
+| 上流リポジトリの cwd | `bin/plangate doctor [--json] [--check-settings]` | その clone 自身（＝意図どおり） |
+| 導入先 + PATH に `plangate` あり | 実行はできるが**セットアップ検証には使えない** | 別の場所にある上流 clone |
+| 導入先 + PATH に無い（**既定**） | 実行不可（`bin/` は配布されない） | — |
+
+**導入先プロジェクトのセットアップを検証する用途では、doctor の結果を根拠にしてはならない。**
+その場合は下記「5 要素対応」表の「検証」列を**導入先のファイルを直接見て**手動で確認し、
+手動確認である旨を `status.md` に記録する（**未検証を「doctor PASS」と書かない**）。
+
 ## Setup の 5 要素対応
 
 | 5 要素 | 対応物 | 検証 | 不足時の提示文 |
@@ -62,7 +100,7 @@ sh scripts/apply-claude-settings.sh
 
 ## チェックポイント記録
 
-各 Step 完了ごとに `status.md` / `decision-log.jsonl` に追記する（[`working-context.md`](../../../.claude/rules/working-context.md) settings タスクロック準拠）:
+各 Step 完了ごとに `status.md` / `decision-log.jsonl` に追記する（`.claude/rules/working-context.md` → fallback `<plugin_root>/rules/working-context.md` の settings タスクロック準拠。解決手順は「参照解決順」節）:
 
 - `status.md`: Markdown 形式で完了マーカー
 - `decision-log.jsonl`: append-only JSON エントリ（pending → resolved）
@@ -76,10 +114,17 @@ doctor FAIL が環境制約等で解消困難な場合、以下のいずれか�
 
 ## 完了条件
 
-setup が完了したと判定する条件:
+setup が完了したと判定する条件（**doctor が導入先を対象にできる環境＝上流リポジトリの cwd の場合**）:
 
 - `doctor --json` で `overall_pass == true`（`level=fail` の `ok=false` ゼロ）
 - かつ `doctor --check-settings` の出力が `^\[check-settings\] PASS:` で始まる
+- ユーザーが対話内で完了を確認
+
+**doctor が使えない / 別 repo を見てしまう環境**（「CLI 前提」節の 2・3 行目）では、上記 2 条件を
+以下の手動確認で代替する。判定根拠が doctor ではなく手動確認であることを `status.md` に明記する:
+
+- 「5 要素対応」表の各行を導入先のファイルで直接確認（存在確認・`.claude/settings.json` の
+  `hooks.PreToolUse` に必要な hook が配線されているか）
 - ユーザーが対話内で完了を確認
 
 ## 完了サマリのフォーマット
@@ -95,6 +140,17 @@ setup が完了したと判定する条件:
 - 次のアクション候補:
   - 新規 PBI 作成: `/ai-dev-workflow <new-task-id> brainstorm`
   - 既存 PBI 確認: `/working-context <task_id>`（Agent が Step 0 で動的解決した値）
-  - C-3 レビュー確認: `bin/plangate render <task_id>`（v8.14.0〜: HTML でレビュー資料を確認）
-  - C-3 承認: `bin/plangate approve <task_id>`（v8.14.0〜: Human ワンアクション承認）
+  - C-3 レビュー確認: `plangate render <task_id>`（v8.14.0〜: HTML でレビュー資料を確認）
+  - C-3 承認: `plangate approve <task_id>`（v8.14.0〜: Human ワンアクション承認）
 ```
+
+> **CLI 行の表記は実行環境に合わせて書き換える**。上流リポジトリの cwd では `bin/plangate render`
+> / `bin/plangate approve`、導入先で PATH を通しているなら `plangate ...`。ただし
+> `render` / `approve` の `<task_id>` 位置引数も **CLI 本体の位置**を基準に
+> `<CLI の repo root>/docs/working/<task_id>` へ解決され、**どちらのサブコマンドも
+> パスを明示するオプションを公開していない**ため、**導入先の TASK は対象にできない**
+> （上流 clone があれば `python3 scripts/render_review.py --task <id> --work-dir <パス>` で
+> render だけは外部ディレクトリを描画できるが、`approve` に同等の逃げ道は無い）。
+> CLI が導入先を見られない環境では、この 2 行を
+> 「`plan.md` / `review-self.md` を直接読んでレビューし、`approvals/c3.json` を人間が発行」
+> に置き換えて記載する。
