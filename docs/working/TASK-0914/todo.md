@@ -83,7 +83,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
   - 🚩 **チェックポイント**: TC-20〜TC-25 が全 PASS
   - Owner: agent / `rollback:` `git checkout -- tests/extras/ta-26-plugin-sync.sh`
 
-- [ ] **T-05b**: 経路1 の TC 追加（**TC-26 / 27 / 28 / 29 / 32 / 34**）
+- [x] **T-05b**: 経路1 の TC 追加（**TC-26 / 27 / 28 / 29 / 32 / 34**）
   - ヘルパー `_t26_mk_refs_guard_sandbox` を実装（複数 skill を作れる構造にする。TC-26 が skill-A / skill-B を要求）
   - 🚩 **チェックポイント**: TC-26〜TC-29 / TC-32 / TC-34 が全 PASS
   - Owner: agent / `rollback:` `git checkout -- tests/extras/ta-26-plugin-sync.sh`
