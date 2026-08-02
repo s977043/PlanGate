@@ -38,6 +38,8 @@ tag push
 🚪 TAG-MAIN PARITY 検証 (Iron Law)  ← scripts/check-tag-main-parity.sh
   ↓ 一致
 GitHub Release 作成
+  ↓
+🚪 release-docs-sync run 確認  ← 失敗しても通知されない (#950)
 ```
 
 ### 必須検証手順
@@ -51,7 +53,22 @@ git push origin <tag>
 sh scripts/check-tag-main-parity.sh <tag>
 # → OK: tag '<tag>' (origin 実体) = origin/main (<sha>)  なら次へ
 # → MISMATCH / FAIL なら下記フローで貼り替え
+
+# 3. GitHub Release 発行 (Human-owned。2 が OK になるまで実行しない)
+#    note は AI が用意した確定 release note（例: docs/working/_reports/<version>-release-note-draft.md）
+gh release create <tag> --title "<tag> — <リリース見出し>" --notes-file <確定 release note>
+# → 発行と同時に release published 起点の workflow（release-docs-sync）が発火する
+
+# 4. リリース後: release 起点の自動 workflow の run 結果確認
+#    （失敗しても通知されない。詳細・リカバリは「リリース後の workflow run 結果確認（#950）」節）
+gh run list --workflow=release-docs-sync.yml --event=release --limit 1
+# → conclusion が success なら完了。failure なら同節のリカバリ手順へ
 ```
+
+`gh release create` の実行は
+[`.claude/rules/responsibility-classes.md`](../.claude/rules/responsibility-classes.md)
+「対外公開アーティファクト publish 責務分界」により **Human-owned**（AI は release note
+整備とコマンド提示まで）。
 
 ## 失敗時のフロー (MISMATCH 検出時)
 
@@ -129,7 +146,45 @@ v8.16.0 の README_en 漏れ（レビューで水際検出）が実害・ヒヤ�
 | 5 | `README_en.md` | 同上（英語） |
 | 6 | `plugin/plangate/README.md` | `**Version**:` 行 |
 | 7 | **`CLAUDE.md`「最新リリース」節** | **HO パスのため AI は apply スクリプト提示まで・適用は Human**（`sh scripts/apply-claude-md-*.sh --apply`。v8.14〜8.16 で 3 世代 stale になった構造原因への対策として本表に常設） |
-| 8 | `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR） |
+| 8 | `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR。**リリース後に run 結果確認 — 本書末尾「リリース後の workflow run 結果確認」参照**） |
 
 検証: `tests/extras/ta-28-plugin-version.sh`（2〜4 を機械検査。1・5・6・7 は未カバー —
 リリース準備 PR のレビュー観点として本表で担保する。ta-28 の 1/6 カバー拡張は V2 候補）。
+
+## リリース後の workflow run 結果確認（#950）
+
+release published を起点とする自動 workflow は**失敗しても通知されず、成果物の欠落で
+初めて発覚する**。v8.17.0 / v8.17.1 / v8.18.0 では `release-docs-sync`（version 同期
+マップ #8 の自動 PR）が権限エラーで 3 リリース連続失敗し、`docs/changelog.md` が
+2 世代欠落するまで誰も気づかなかった（issue #950）。GitHub Release 作成後、以下を
+リリース手順の一部として必ず確認する:
+
+```sh
+# release 起点の直近 run が success であること
+# （--event=release 必須: 本 workflow は workflow_dispatch トリガーも持つため、
+#   素の --limit 1 では手動 dispatch の run を拾い release 起点の失敗を見逃す）
+gh run list --workflow=release-docs-sync.yml --event=release --limit 1
+# → conclusion が failure なら下記リカバリへ
+```
+
+### 失敗時のリカバリ
+
+同期ブランチ（`chore/release-docs-sync-*`）は PR 作成前の push まで成功していることが
+多い。その場合は push 済みブランチから手動で PR を作成する（v8.18.0 時の実績: PR #949 方式）。
+`--title` / `--body` は**両方指定する**（どちらか欠けると `gh pr create` はタイトル / 本文の
+入力プロンプトを開き、非対話環境では止まる）。本文は workflow 側
+（`release-docs-sync.yml` L41-43）が渡す内容に揃え、手動作成である旨のみ追記している:
+
+```sh
+gh pr create --base main --head chore/release-docs-sync-<run_id> \
+  --title "chore(docs): リリース時 changelog 同期 (<tag>)" \
+  --body "release-docs-sync run <run_id> が PR 作成権限エラーで失敗したため、生成済み同期ブランチから手動作成（#950 runbook）。内容は \`scripts/sync-release-docs.sh\` による \`docs/changelog.md\` の冪等生成物。merge は Human-owned（C-4）。"
+```
+
+> 注: `sync-plugin-plangate.yml` も drift 検知時に自動 PR（`chore/plugin-sync-*`）を
+> 作成する同型 workflow。ただしトリガーは release published ではなく
+> `push`（main）/ `pull_request` / `workflow_dispatch` の 3 種で、PR を作らない
+> drift-check のみの `pull_request` run が混在する（`sync` job は
+> `github.event_name != 'pull_request'` 条件）— 確認は
+> `gh run list --workflow=sync-plugin-plangate.yml --event=push --limit 1` で
+> event=push の run を見ること。
