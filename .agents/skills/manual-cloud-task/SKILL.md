@@ -60,8 +60,40 @@ Cloud task にそのまま貼れる短い実行指示を作成。承認済み内
 
 ## CLI 呼び出し
 
+> 下記は **上流リポジトリ（`s977043/plangate`）を clone し、そのリポジトリルートで
+> 実行する場合にのみ成立する**。上の表のとおり `scripts/**` / `bin/**` は 3 経路とも
+> 導入先に配布されないため、plugin 経由・Codex 経由の環境では実行できない。
+
 - packet 作成: `./scripts/ai-dev-workflow TASK-XXXX prepare-cloud`
 - Cloud task 実行後の同期: `./scripts/ai-dev-workflow TASK-XXXX sync-cloud`
+- どちらも `--dry-run` を付けると前提条件の充足状況だけを表示して終了する
+
+### CLI 不在時のフォールバック（導入先では既定）
+
+CLI が無い環境では **packet を手で作る**。両コマンドの処理内容は固定なので、CLI 無しでも
+同じ成果物に到達できる。**ゲートと停止条件は CLI の有無に関わらず不変**。
+
+1. **`prepare-cloud` 相当を手で行う** — `plan.md` / `todo.md` / `test-cases.md` /
+   `status.md` が揃っていることを確認したうえで、「Deliverable」の転記先に次の節を作り、
+   plan / todo / test-cases / status（あれば review-self / review-external）の内容を
+   転記する: Task（Task ID / branch 名 / C-3 承認状態 / 最終完了の owner = human）/
+   Approved Scope / Constraints / Approved Plan / Todo / Test Cases / Status Notes /
+   Self Review・External Review（存在する場合のみ）/ Open Questions・Non-Goals /
+   Verification Policy / Approval Request Note / Startup Template
+2. **C-3 チェックを省略しない** — CLI は `status.md` に `## C-3 Gate: APPROVED` の行が
+   あるかを完全一致で検査し、無ければ packet を生成せず停止する。CLI が無いと
+   この自動停止も失われるため、**同じ確認を人手で実行してから packet を作る**。
+   未承認なら「Rules」のとおり停止する（CLI の不在は C-3 免除の理由にならない）
+3. **`sync-cloud` 相当を手で行う** — packet の Task ID が対象 TASK と一致することを
+   確認したうえで、packet に残った changed files / verification results / concerns /
+   approval request note を `status.md` へ反映し、**packet に証拠があるものだけ**
+   `todo.md` を完了扱いにする。`plan.md` と実装コードはこの同期では変更しない。
+   Cloud task の完了は **仮完了（人間承認待ち）** である旨を `status.md` に残す
+4. **転記先は導入先のパスに読み替える** — `.codex/manual-cloud-task.md` は配布対象外
+   （「読む順序」4 の注記どおり）。導入先では任意のパスに読み替え、Cloud task には
+   そのファイルの内容を貼る
+5. CLI 実行そのものが必要なら、上流リポジトリ（`s977043/plangate`）を clone して
+   そこから実行する
 
 ## ローカル実行に切り替えるとき
 
