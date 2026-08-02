@@ -44,10 +44,11 @@ npm package は採用しない（消費側に submodule 運用 / npm 依存を�
 ```sh
 # 消費側リポジトリで、特定リリースの plugin を固定取得する
 PLANGATE_VERSION=v8.7.0   # 固定したいタグ
-rm -rf .plangate-plugin && mkdir -p .plangate-plugin
-curl -fsSL "https://github.com/s977043/plangate/archive/refs/tags/${PLANGATE_VERSION}.tar.gz" \
-  | tar -xz --strip-components=3 -C .plangate-plugin \
-    "plangate-${PLANGATE_VERSION#v}/plugin/plangate" \
+rm -rf .plangate-plugin \
+  && mkdir -p .plangate-plugin \
+  && curl -fsSL "https://github.com/s977043/plangate/archive/refs/tags/${PLANGATE_VERSION}.tar.gz" \
+    | tar -xz --strip-components=3 -C .plangate-plugin \
+      "plangate-${PLANGATE_VERSION#v}/plugin/plangate" \
   && echo "$PLANGATE_VERSION" > .plangate-plugin/.plangate-version
 ```
 
@@ -57,19 +58,36 @@ curl -fsSL "https://github.com/s977043/plangate/archive/refs/tags/${PLANGATE_VER
 > 含むアーカイブは展開しない。リリースの signature / commit を併せて
 > 確認できる場合は確認する。
 
+- **表記**: 本書で `.plangate-version` と略記するのは
+  `.plangate-plugin/.plangate-version`（§2.3 の表を参照）のこと。
 - 展開先は `rm -rf .plangate-plugin && mkdir -p .plangate-plugin` で
   **ディレクトリごと作り直す**（`rm -rf .plangate-plugin/*` は使わない）。
   glob に依存しないため shell 非依存になり、zsh の `nomatch`（対象が空だと
   `no matches found` でコマンド自体が実行されない）と、`*` が dotfile
   （`.claude-plugin/` / `.plangate-version`）に一致しない問題の両方を避けられる。
+- `rm` から `.plangate-version` の記録までは **`&&` で 1 つのコマンド列**に
+  つなぐ（行を分けない）。行を分けると `rm` / `mkdir` が権限等で失敗しても
+  次行の `curl | tar` が実行され、**旧ディレクトリへ上書き展開**されて
+  ghost file が残ったまま新タグだけが記録される。`&&` でつないでおけば
+  `rm` / `mkdir` の失敗時に以降が **一切実行されない**ため、上書き展開も
+  `.plangate-version` の新タグ更新も起きない。
+  なお、この手順は対話シェルへのコピペ実行を想定しているため `set -e` は
+  使わない（`set -e` はシェルに残り、以後の無関係なエラーでシェルごと終了する）。
+- `rm -rf` は **失敗前に一部を削除しうる**（削除できた分だけ消え、途中で
+  権限エラーになる）。そのため `rm` 失敗時の `.plangate-plugin/` は
+  「旧版のまま」とは限らず、中途半端な状態になることがある。ただし
+  `.plangate-version` が新タグへ進むことはない（旧タグのまま、または
+  ディレクトリごと空になって不在）ため、§2.3 の突合では必ず
+  期待タグと不一致として検知できる。原因（権限等）を解消して §2.1 を
+  再実行すること。
 - `.plangate-version` の記録は `&&` で展開の成功に従属させる（無条件に実行しない）。
   取得に失敗した場合は `.plangate-plugin/` が空・`.plangate-version` が不在の
   ままになるため、§2.3 の突合で失敗を検知できる。無条件に書くと「plugin 本体が
   無いのに新タグだけが記録された」状態になり、`.plangate-version` を真とする
   §2.3 の検証を通過してしまう。失敗時は原因を解消して §2.1 を再実行する。
-- `.plangate-plugin/` は取得のたびにディレクトリごと作り直される。消費側の
-  ファイルをこの配下に置かないこと（追加・上書きは §3.1 のとおり `.claude/`
-  側で行う）。
+- `.plangate-plugin/` は §2.1 が成功するたびにディレクトリごと作り直される。
+  消費側のファイルをこの配下に置かないこと（追加・上書きは §3.1 のとおり
+  `.claude/` 側で行う）。
 - アーカイブ内パスは `plangate-<ver>/plugin/plangate/<kind>/...`。
   `--strip-components=3` で `plangate-<ver>` / `plugin` / `plangate` の
   3 段を除去し、`.plangate-plugin/<kind>/...`（§3/§4 の前提パス）に展開する。
@@ -81,9 +99,11 @@ curl -fsSL "https://github.com/s977043/plangate/archive/refs/tags/${PLANGATE_VER
 
 1. 更新先タグの CHANGELOG を確認し、影響度タグ（`[BREAKING]` /
    `[MIGRATION REQUIRED]` / `[SAFE UPDATE]`）を判定。
-2. `[SAFE UPDATE]` のみなら §2.1 を新タグで再実行するだけ（§2.1 の
-   取得は展開前に `.plangate-plugin/` をディレクトリごと作り直すため、
-   旧版で削除されたファイルが残る ghost file は発生しない）。
+2. `[SAFE UPDATE]` のみなら §2.1 を新タグで再実行するだけ（§2.1 の取得が
+   成功した場合は展開前に `.plangate-plugin/` をディレクトリごと作り直して
+   いるため、旧版で削除されたファイルが残る ghost file は発生しない。
+   途中で失敗した場合は `&&` により後続が実行されず、`.plangate-version` が
+   新タグへ進まないので §2.3 の突合で検知できる）。
 3. `[BREAKING]` / `[MIGRATION REQUIRED]` を含む場合は CHANGELOG が指す
    移行手順（[versioning-stability-policy.md](./versioning-stability-policy.md)
    §5）に従ってから再取得する。
