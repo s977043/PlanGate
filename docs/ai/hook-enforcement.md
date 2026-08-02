@@ -6,6 +6,16 @@
 > v8.7.0 で **EH-9**（`check-delegation-commit-boundary.sh`、TASK-0073 F2）を追加し、
 > 現状は **EH-1〜EH-9 + EHS-1〜EHS-3 = 12/12**。本書本文の表は v8.5.0 構成のまま
 > 維持し、追加分の詳細はそれぞれの実装 PR / CHANGELOG / `bin/plangate doctor` 出力を参照。
+>
+> **EH-12（追加・配線は Human apply 待ち）**: protected branch 上の破壊的 git 操作
+> block（`check-git-destructive.sh`）。**staged source（非 HO）は実装・テスト済み**だが、
+> `scripts/hooks/` への設置と PreToolUse 配線は
+> `scripts/apply-eh-git-destructive-guard.sh --apply`（**Human-owned**）の実行後に
+> 有効化される。番号は **EH-10 / EH-11 が既に予約済み**（#760 PostToolUse 軽量品質
+> チェック / #762 Stop 軽量 verify の「候補」名として
+> [`.claude/settings.example.json`](../../.claude/settings.example.json) のコメントで使用、
+> かつ EH-10 は [`docs/rfc/ai-self-set-gate-hook-enforcement.md`](../rfc/ai-self-set-gate-hook-enforcement.md)
+> の RFC Draft が保持）のため、衝突しない最小の空き番号として **EH-12** を採番した。
 
 > **実装と物理配線の区別（2026-06-10 棚卸し / 2026-06-27 更新）**: 12/12 は
 > 「スクリプト実装 + 単体テスト済み」を指す。**発火経路（settings.json /
@@ -51,7 +61,7 @@
 
 | 層 | 強制 | 発火契機 | CLI を使わない運用での実態 |
 |----|------|---------|--------------------------|
-| **A. Claude PreToolUse**（自動・bypass 不能）| EH-1 / EH-2 / EH-3 / EH-6 / EH-9 + 承認トークン直書き block（TASK-0123）| Edit / Write / Bash のたび | ✅ 常時発火 |
+| **A. Claude PreToolUse**（自動・bypass 不能）| EH-1 / EH-2 / EH-3 / EH-6 / EH-9 + 承認トークン直書き block（TASK-0123）+ **EH-12**（apply 後）| Edit / Write / Bash のたび | ✅ 常時発火 |
 | **B. CI**（自動・bypass 不能）| EH-8（metrics privacy）/ settings drift / schema-validate / skip-ack / pr-issue-link | PR / push | ✅ 常時発火 |
 | **C. CLI**（`bin/plangate` 実行時のみ）| EH-4 / EH-5 / **EHS-1 / EHS-2 / EHS-3** | `verify` / `handoff --verify` を**実行したときだけ** | 🔴 **休眠**（CLI 未実行なら不発） |
 | **D. 外部設定**| EH-7（マージ 2 段階レビュー）| main へのマージ | 🔶 GitHub branch protection 設定に依存（Human-owned admin）|
@@ -133,6 +143,37 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 - **対応**: **default=block**（bypass・未宣言のみ従来動作=誤検出ゼロ。warn 廃止）。`git -c`/`-C`/env 前置/`command git`/`gh pr merge`/`sh -c` 等の回避形を網羅。信頼境界=stdin JSON 正本
 - **基盤**: #239 問題2（委譲先 Behavior Rule 不遵守）の決定論ガード化
 
+### EH-12: protected branch 上の破壊的 git 操作ブロック
+
+- **トリガー**: **current branch が `main` / `master`** の状態で
+  `git reset --hard` / `git push --force`（`-f` / `--force-with-lease` /
+  `--force-if-includes` を含む）を実行しようとした
+- **対応**: **default=block**。protected 以外のブランチ・detached HEAD・非 git
+  ディレクトリでは常に allow（誤検出ゼロ優先）。`PLANGATE_BYPASS_HOOK=1` で常時 pass
+- **スクリプト**: `scripts/hooks/check-git-destructive.sh`
+  （staged source は非 HO の [`scripts/check-git-destructive.sh`](../../scripts/check-git-destructive.sh)、
+  設置・配線は [`scripts/apply-eh-git-destructive-guard.sh`](../../scripts/apply-eh-git-destructive-guard.sh)）
+- **配線**: PreToolUse `matcher: "Bash"`（apply 後）。信頼境界は EH-9 と同じく
+  **stdin JSON `tool_input.command` が正本**、env `PLANGATE_HOOK_CMD` は CLI テスト専用
+- **監査**: `docs/working/_audit/hook-events.log` に `class` + `sha256 hash` のみ記録
+  （command 全文は記録しない。EH-9 と同方式）
+- **基盤 / 出自**: 2026-08-02 の実害。
+  `git checkout -q <b> 2>/dev/null || git checkout -q -b <b> origin/<b>` の
+  **両側が失敗**（同名ブランチ既存で `-b` が `fatal: already exists`）したにも
+  かかわらず `||` 連結ゆえ `set -e` が発火せず、次行の `git reset --hard` が
+  **main 上で実行され他セッションの未コミット変更を破棄**した
+  （`git fsck --lost-found` の dangling blob から復旧）。同型の学びは
+  `AGENT_LEARNINGS.md` に 2026-07-12 から存在したが防げなかったため、
+  規範層（[`responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)
+  「Bash 連結コマンド時の error guard」）を**技術層で補強**する
+- **既存ガードとの関係**: pre-push hook（TASK-0114 / #360）は main への直接
+  **push** を block するが、**ローカルで完結する `reset --hard` は捕捉できない**。
+  EH-12 はその隙間を埋める（Defense in Depth の技術層を 1 段追加）
+- **既知制約**: ユーザー定義 git alias は解決不能。`git -C <other-repo>` は
+  cwd の branch で判定する（安全側＝過剰 block に倒れる）
+- **テスト**: [`tests/extras/ta-58-git-destructive-guard.sh`](../../tests/extras/ta-58-git-destructive-guard.sh)
+  （サンドボックス複製 + `git symbolic-ref` で branch を制御し、実 `docs/working/_audit` を汚染しない）
+
 ## 3. validation_bias: strict 時の追加条件（EHS）
 
 > **設計ステータス**: **配線・適用済み**（TASK-0145 / 0146 / 0147）。スクリプト実装に
@@ -200,6 +241,7 @@ CLI プロセス計数のため CLI 維持）。
 | EHS-3（fix loop 上限超過）| CLI（V-1 fix loop 内で increment / check）| [`scripts/hooks/check-fix-loop.sh`](../../scripts/hooks/check-fix-loop.sh) | #157 / TASK-0048 |
 | **EH-9**（委譲 commit/push 境界検知）| PreToolUse hook（Bash 前）| [`scripts/hooks/check-delegation-commit-boundary.sh`](../../scripts/hooks/check-delegation-commit-boundary.sh) | #239 問題2 / TASK-0073 |
 | **auth-preflight**（exec 前 認証三点検証）| CLI（exec 前で呼び出し）| [`scripts/hooks/check-auth-preflight.sh`](../../scripts/hooks/check-auth-preflight.sh) | #239 問題3 / TASK-0073 |
+| **EH-12**（protected branch 上の破壊的 git 操作 block）| PreToolUse hook（Bash 前・**Human apply 後に有効**）| staged: [`scripts/check-git-destructive.sh`](../../scripts/check-git-destructive.sh) → [`scripts/apply-eh-git-destructive-guard.sh`](../../scripts/apply-eh-git-destructive-guard.sh) | 2026-08-02 main 上 `reset --hard` 実害 |
 
 **残未実装**: なし（10/10 完了）。EH-7 の GitHub branch protection 自動連携は別 PBI 候補。
 
