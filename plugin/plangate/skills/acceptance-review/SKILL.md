@@ -16,6 +16,32 @@ Review
 
 WF-05 Verify & Handoff
 
+## 参照解決順（導入先で必ずこの順に探す）
+
+本 Skill が参照する `.claude/rules/*.md` と `docs/**` は上流リポジトリ基準の相対パス。
+導入先ではそのままでは解決できないものがあるため、**次の順で探索する**:
+
+1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）
+2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）。
+   `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
+   絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+   という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず 3 へ進む
+3. どちらにも無い場合は **「正本 `<path>` を参照できなかった」と明示**し、推測で内容を補わない
+
+| 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
+|------|---------------------------|----------------------------------|-----------|
+| `rules/*.md` | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
+| `docs/**` / `schemas/**` | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+
+`install.sh --claude` のコピー対象は `agents` / `skills` / `commands` / `rules` の 4 ディレクトリ
+のみ。Codex 経由（`install_codex()`）は `install-plangate-skills.sh` を呼ぶだけで **skills しか
+配置されない**ため、rules 参照は解決順 1・2 とも成立せず必ず手順 3 に落ちる。
+
+> **手順 3 に落ちても判定基準は緩めない**: 本 Skill の「判定基準」「禁止」節が
+> evidence 要件の代替正本になる。**evidence なき PASS は正本を参照できないことを
+> 理由に許容してはならない**（Iron Law #3 / #4）。参照できなかった正本は
+> `handoff.md § 1` に「正本 `<path>` 未参照」として明示する。
+
 ## PlanGate v8.3 整合（必読）
 
 本 Skill は v8.3 eval framework の以下 3 観点と直接結び付く。判定結果はこれらの観点ラベルで分類すること。
@@ -82,10 +108,15 @@ WF-05 Verify & Handoff
 
 UI 変更を含む PR の V-1 では、**PASS 判定でも visual evidence を必須**とする。
 
-> **一般規約への明示的上書き**: `.claude/rules/working-context.md` の evidence
+> **一般規約への明示的上書き**: `.claude/rules/working-context.md`（→ fallback
+> `<plugin_root>/rules/working-context.md`。「参照解決順」参照）の evidence
 > 保管ルール（「PASS 判定: evidence は省略可」）に対する**明示的上書き**である。
 > UI の見た目の正しさはテストログだけでは示せないため、UI 変更に限り PASS でも
 > evidence を要求する。
+>
+> 正本がどちらでも解決できない環境（Codex 経由等）でも、**本節の要求（UI 変更は
+> PASS でも visual evidence 必須）はそれ単体で成立する**。上書き元を確認できなかった
+> 場合は `handoff.md § 1` にその旨を記録したうえで、本節を適用する。
 
 ### 発火条件
 
@@ -119,10 +150,14 @@ unavailable は無効 = FAIL）。
 
 ### doc 専用 V-1 との関係
 
-doc 専用 V-1（`.claude/rules/mode-classification.md` の doc-light モード内）とは
+doc 専用 V-1（`.claude/rules/mode-classification.md` → fallback
+`<plugin_root>/rules/mode-classification.md` の doc-light モード内。「参照解決順」参照）とは
 **発想が対称・placement は意図的に非対称**: doc 版は mode 機構に結線するため
 HO（Hardening Override）対象の rule 層に置かれ、UI 版（本規約）は skill 層 =
 非 HO・ソフト強制として置かれている。
+
+正本を解決できない環境では doc-light 側の詳細を推測で補わず、本節は
+「UI 版は skill 層のソフト強制である」という本 Skill 内で完結する事実のみを根拠に読む。
 
 ### Optional: Figma ↔ 実装の計測突合
 
@@ -145,7 +180,12 @@ HO（Hardening Override）対象の rule 層に置かれ、UI 版（本規約）
 ## 関連ドキュメント（PlanGate v8.3）
 
 - Workflow: [`docs/workflows/05_verify_and_handoff.md`](../../../docs/workflows/05_verify_and_handoff.md)
-- 親 Rule: Rule 5（最終成果物は handoff に集約、[`hybrid-architecture.md`](../../rules/hybrid-architecture.md)）
+- 親 Rule: Rule 5（最終成果物は handoff に集約）— `.claude/rules/hybrid-architecture.md`
+  → fallback `<plugin_root>/rules/hybrid-architecture.md`（上記「参照解決順」）。
+  相対リンク `../../rules/hybrid-architecture.md` は **skills と rules が同一 root 直下に
+  並ぶ配置でのみ**解決する（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）。
+  上流リポジトリの `.agents/skills/` と Codex 導入先の `.codex/skills/` には隣接する
+  `rules/` が無いため解決しない
 - handoff テンプレート: [`docs/working/templates/handoff.md`](../../../docs/working/templates/handoff.md)
 - [`docs/ai/eval-plan.md`](../../../docs/ai/eval-plan.md) — 8 eval 観点（AC coverage / verification honesty / format adherence）
 - [`docs/ai/eval-cases/ac-coverage.md`](../../../docs/ai/eval-cases/ac-coverage.md)

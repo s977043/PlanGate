@@ -12,6 +12,29 @@ description: "PlanGate 起動前の intake 判定（mode-classification にか�
 
 実装着手**前**にタスクの粒度を判定し、粗すぎる場合は分割候補を提示する intake ゲート。growth-core `task-breakdown-gate` から蒸留。
 
+## 参照解決順（導入先で必ずこの順に探す）
+
+本スキルは規模判定の正本として `.claude/rules/mode-classification.md` を参照する
+（本文中 3 箇所）。このパスは上流リポジトリ基準のため、導入先では **次の順で探索する**:
+
+1. 導入先リポジトリの `.claude/rules/mode-classification.md`
+2. 無ければ plugin root 配下 `<plugin_root>/rules/mode-classification.md`。
+   `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
+   絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+   という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず 3 へ進む
+3. どちらにも無い場合は **「正本 `mode-classification.md` を参照できなかった」と明示**する。
+   本スキルは **mode を決めない**ため判定自体は続行できる — 出力の「分割候補」に
+   「Mode 判定は導入先の規模判定基準に委ねる（正本未参照）」と記録し、5 段階 mode の
+   内容を推測で補わない
+
+| 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
+|------|---------------------------|----------------------------------|-----------|
+| `rules/*.md` | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
+
+`install.sh --claude` のコピー対象は `agents` / `skills` / `commands` / `rules` の 4 ディレクトリ
+のみ。Codex 経由（`install_codex()`）は `install-plangate-skills.sh` を呼ぶだけで **skills しか
+配置されない**ため、rules 参照は解決順 1・2 とも成立せず必ず手順 3 に落ちる。
+
 ## Iron Law
 
 `ONE TASK = ONE PURPOSE, ONE PR-SIZED DIFF, ONE VERIFIABLE OUTCOME`
@@ -23,7 +46,7 @@ description: "PlanGate 起動前の intake 判定（mode-classification にか�
 | 段階 | 担当 | 本スキルとの関係 |
 |---|---|---|
 | 起動前 intake | **breakdown-gate（本スキル）** | 5 要素 + 粒度判定 → 分割候補提示 |
-| 起動後の規模判定 | `.claude/rules/mode-classification.md`（正本・不変） | 本スキルは **mode を決めない**（判定基準は参照のみ） |
+| 起動後の規模判定 | `.claude/rules/mode-classification.md`（正本・不変。解決順は上記「参照解決順」） | 本スキルは **mode を決めない**（判定基準は参照のみ） |
 | plan 生成後の粒度検査 | C-1 ToDo チェック「タスク粒度」（不変） | 本スキルは plan 生成**前** |
 | 規模 L 以上の MVP scoping | `codex-mvp-split`（既存・`.agents/skills/codex-mvp-split/`） | 本スキルは**分割要否の判定**まで。規模 L 以上と判明したら codex-mvp-split で最小 MVP（Phase 1）分割へ |
 | plan 生成後の品質スコア | `plan-quality-check`（既存・`.claude/skills/` 専用） | 5 要素は同系だがタイミングが異なる（本スキル=plan **前** / plan-quality-check=plan **後**）。チェックリストの正本は各自 — 変更時は相互参照 |
@@ -67,7 +90,7 @@ description: "PlanGate 起動前の intake 判定（mode-classification にか�
 
 ### Phase 4: 分割候補の提示
 
-分割が必要と判定したタスクについて、各分割候補が Iron Law（1 目的・1 PR 規模・1 検証）を満たす形で列挙し、依存順を明示する。分割後の各タスクは個別に PlanGate（`.claude/rules/mode-classification.md`）の Mode 判定にかける導線を示す。
+分割が必要と判定したタスクについて、各分割候補が Iron Law（1 目的・1 PR 規模・1 検証）を満たす形で列挙し、依存順を明示する。分割後の各タスクは個別に PlanGate（`.claude/rules/mode-classification.md` → fallback `<plugin_root>/rules/mode-classification.md`。上記「参照解決順」）の Mode 判定にかける導線を示す。
 
 ## 出力フォーマット
 
@@ -96,7 +119,9 @@ description: "PlanGate 起動前の intake 判定（mode-classification にか�
 
 ## 関連
 
-- `.claude/rules/mode-classification.md` — 規模判定の正本。本スキルは mode を決めない
+- `.claude/rules/mode-classification.md` → fallback `<plugin_root>/rules/mode-classification.md`
+  — 規模判定の正本。本スキルは mode を決めない。どちらでも解決できない場合（Codex 経由等）は
+  上記「参照解決順」手順 3 に従い、正本未参照である旨を出力に記録する
 - `codex-mvp-split`（`.agents/skills/codex-mvp-split/`） — 規模 L 以上の最小 MVP（Phase 1）選定。本スキルの分割要否判定の後段
 - `plan-quality-check`（`.claude/skills/plan-quality-check/`） — plan 生成後の品質スコアリング（本スキルは plan 生成前。変更時は相互参照）
 - [`subagent-driven-development`](../subagent-driven-development/SKILL.md) — 分割後の各タスクをサブエージェントへ委譲する際に使用
