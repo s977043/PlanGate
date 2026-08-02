@@ -33,7 +33,11 @@ sh install.sh --dry-run             # 変更内容を確認（実行しない）
 
 - Claude Code CLI（最新版推奨）
 - git
-- `bin/plangate` CLI（一部のコマンド/スキル — `/plangate-setup`・`ai-dev-plan`・`ai-dev-exec`・`ai-dev-verify`・`plan-review-gate`・`working-context`・`local-exec-handoff` — が使用）。Plugin 単体導入時は PATH に無いため、リポジトリ clone と PATH への追加が必要です。一時的な追加: `git clone https://github.com/s977043/plangate.git ~/plangate && export PATH="$HOME/plangate/bin:$PATH"`（永続化するには `~/.bashrc` / `~/.zshrc` 等に追記）
+- `bin/plangate` CLI（本プラグイン同梱の一部のコマンド / スキル / エージェントが使用。内訳は下記）。Plugin 単体導入時は PATH に無いため、リポジトリ clone と PATH への追加が必要です。一時的な追加: `git clone https://github.com/s977043/plangate.git ~/plangate && export PATH="$HOME/plangate/bin:$PATH"`（永続化するには `~/.bashrc` / `~/.zshrc` 等に追記）
+  - コマンド（1）: `/plangate-setup`
+  - スキル（9）: `ai-dev-exec`・`ai-dev-plan`・`ai-dev-verify`・`intent-classifier`・`local-exec-handoff`・`plan-review-gate`・`plangate-setup`・`skill-policy-router`・`working-context`
+  - エージェント（2）: `setup-coordinator`・`workflow-conductor`
+  - 上記以外の同梱定義は `bin/plangate` を呼び出しません。`skills/ai-loop-cycle/` の同梱 `references/` / `scripts/` にも `bin/plangate` の記述がありますが、これは HO（Hardening Override）パス指定および「本番フローから呼ばれない隔離 PoC」であることの明示であり、CLI 依存ではありません
 
 #### 方法 A: プラグインパスを直接指定（推奨）
 
