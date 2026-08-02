@@ -93,7 +93,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
   - 🚩 **チェックポイント**: TC-30 / TC-33 が PASS。かつ TC-33 が移行前の実装に対して **FAIL する**ことを確認（静的検査の検出力証明）
   - Owner: agent / `rollback:` `git checkout -- tests/extras/ta-26-plugin-sync.sh`
 
-- [ ] **T-06**: **変異注入で新規 TC の検出力を実証**（M-1〜M-7 + M-6b = 計 8 変異）
+- [x] **T-06**: **変異注入で新規 TC の検出力を実証**（M-1〜M-7 + M-6b = 計 8 変異）
   - guard 弱体化方向（M-1〜M-5）**および過剰発火 / override 無効化方向（M-6 / M-6b / M-7）**について、対応 TC が **FAIL する**ことを確認（R-305 / RV-M4）
   - ⚠️ **M-6 の対象は TC-24 / TC-29 のみ**（TC-25 / TC-32 は guard 発火帯の fixture なので「常に blocked」でも期待どおり PASS になり、期待 FAIL 不出として RT-3 / Stop Condition 3 を誤発火させる）。閾値の 1 段ずれ（`stale >= base`）は専用 fixture **TC-34** を持つ **M-6b** で突く
   - 変異の復元元は **`git show 90c313d:...`** に固定（`HEAD:` は exec 中に移動する — RV-i1）

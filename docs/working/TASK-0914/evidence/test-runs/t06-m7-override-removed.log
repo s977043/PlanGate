@@ -1,0 +1,37 @@
+# T-06 M-7: _mass_delete_blocked 内の PLANGATE_ALLOW_MASS_DELETE 判定ブロックを削除（override 無効化）
+# 実測: 2026-08-02 / 復元元 head 1e1c074 / clean env（env -u PLANGATE_HOOK_TASK -u PLANGATE_HOOK_FILE -u PG_HARNESS_SOURCED -u FIXTURES_DIR -u PLANGATE_ALLOW_MASS_DELETE）+ sh tests/extras/ta-26-plugin-sync.sh </dev/null / cwd=repo root
+# 期待 FAIL: TC-23, TC-28
+
+## 変異 diff (git diff 1e1c074 -- scripts/sync-plugin-plangate.sh)
+diff --git a/scripts/sync-plugin-plangate.sh b/scripts/sync-plugin-plangate.sh
+index b63d548..00756aa 100755
+--- a/scripts/sync-plugin-plangate.sh
++++ b/scripts/sync-plugin-plangate.sh
+@@ -55,12 +55,7 @@ trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_
+ # （上の L27-29 コメントと同じ制約）。本関数の呼び出しを $(...) 内へ置かないこと。
+ _mass_delete_blocked() {
+   [ "$3" -gt "$2" ] || return 1
+-  if [ "${PLANGATE_ALLOW_MASS_DELETE:-0}" = "1" ]; then
+-    # override は Human-owned のローカル操作限定（CI workflow の env: には
+-    # 置かない）。解除したことを必ず記録に残す（#877 AC-2）。
+-    _warn "WARN: mass-delete guard を PLANGATE_ALLOW_MASS_DELETE=1 で解除しました — $1 (base=$2 / stale=$3) の削除を続行します"
+-    return 1
+-  fi
++  # MUTATION M-7: PLANGATE_ALLOW_MASS_DELETE 判定ブロックを削除（override 無効化）
+   _warn "WARN: DELETE skipped for $1 — base=$2 / stale=$3 (削除候補が src 残存数を上回るため削除を保留 / #861 safety guard)。意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください"
+   guard_fired=1
+   return 0
+
+## 変異下の ta-26 standalone: rc=1
+FAIL 行（各行先頭200字）:
+  [FAIL] TC-11 失敗 (rc=3 期待0 / dst=5 期待1): [sync-plugin] COPY (model normalized): agents/keep-1.md
+  [FAIL] TC-13 失敗 (① rc=1 / ② rc=1 / ③ 1)
+  [FAIL] TC-23 失敗 (rc=3 期待0 / left=5 期待0): [sync-plugin] SKIP (src not found): agents
+  [FAIL] TC-28 失敗 (rc=3 期待0 / A left=4 期待0): [sync-plugin] SKIP (src not found): agents
+TA-26 standalone: 26 passed, 4 failed
+→ 期待 FAIL {TC-23,28} 全て実測 FAIL（override 指定でも保留され rc=3・解除ログ不出 = AC-4 の検出力実証）
+→ 副次 FAIL: TC-11(sync_dir 経路の既存 override TC も同時 FAIL = override の全経路一貫性が共通関数 1 箇所で担保されている構造の裏付け)/TC-13(連鎖)
+
+## 復元確認: git checkout 1e1c074 -- scripts/sync-plugin-plangate.sh
+git diff 1e1c074 -- scripts/sync-plugin-plangate.sh = 空（0 行）
+復元後 ta-26 standalone: TA-26 standalone: 30 passed, 0 failed / rc=0

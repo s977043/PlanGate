@@ -1,0 +1,30 @@
+# T-06 M-6b: 閾値を stale > base → stale >= base へ改変（境界の 1 段だけ過剰発火）
+# 実測: 2026-08-02 / 復元元 head 1e1c074 / clean env（env -u PLANGATE_HOOK_TASK -u PLANGATE_HOOK_FILE -u PG_HARNESS_SOURCED -u FIXTURES_DIR -u PLANGATE_ALLOW_MASS_DELETE）+ sh tests/extras/ta-26-plugin-sync.sh </dev/null / cwd=repo root
+# 期待 FAIL: TC-34
+
+## 変異 diff (git diff 1e1c074 -- scripts/sync-plugin-plangate.sh)
+diff --git a/scripts/sync-plugin-plangate.sh b/scripts/sync-plugin-plangate.sh
+index b63d548..2d67e6a 100755
+--- a/scripts/sync-plugin-plangate.sh
++++ b/scripts/sync-plugin-plangate.sh
+@@ -54,7 +54,7 @@ trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_
+ # 注意: guard_fired の global 集約は「サブシェルを介さない呼び出し」に依存する
+ # （上の L27-29 コメントと同じ制約）。本関数の呼び出しを $(...) 内へ置かないこと。
+ _mass_delete_blocked() {
+-  [ "$3" -gt "$2" ] || return 1
++  [ "$3" -ge "$2" ] || return 1 # MUTATION M-6b: 閾値を stale >= base へ 1 段ずらす
+   if [ "${PLANGATE_ALLOW_MASS_DELETE:-0}" = "1" ]; then
+     # override は Human-owned のローカル操作限定（CI workflow の env: には
+     # 置かない）。解除したことを必ず記録に残す（#877 AC-2）。
+
+## 変異下の ta-26 standalone: rc=1
+FAIL 行（各行先頭200字）:
+  [FAIL] TC-13 失敗 (① rc=1 / ② rc=1 / ③ 1)
+  [FAIL] TC-34 失敗 (rc=3 期待0 / left=6 期待3 / stale残=3 期待0 / 保持=3 期待3): [sync-plugin] SKIP (src not found): agents
+TA-26 standalone: 28 passed, 2 failed
+→ 期待 FAIL {TC-34} 実測 FAIL（base=3/stale=3 で発火・rc=3・stale 3 件残存 = 専用 fixture が >= ずれを唯一検出）
+→ 副次 FAIL: TC-13(子プロセス連鎖)のみ。乖離帯 fixture（TC-12/25/32 = stale=base+1）は全て PASS 維持 = TC-34 新設理由（E-3 撤回）の実証
+
+## 復元確認: git checkout 1e1c074 -- scripts/sync-plugin-plangate.sh
+git diff 1e1c074 -- scripts/sync-plugin-plangate.sh = 空（0 行）
+復元後 ta-26 standalone: TA-26 standalone: 30 passed, 0 failed / rc=0
