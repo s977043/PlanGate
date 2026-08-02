@@ -45,6 +45,27 @@ _tmp_rewritten=""
 _tmp_ho=""
 trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_tmp_ho:-}"' EXIT INT TERM
 
+# mass-delete safety guard の共通判定（#861 / #877 / #914）。
+# 判定 + 警告 + guard_fired フラグ立てのみを担う（呼び出し元の制御脱出は含めない
+# — sync_dir は関数 return / 経路1 はループ内 skip / 経路2 はトップレベル if と
+# 制御構造が異なるため、脱出は各呼び出し側が行う）。
+# $1=label $2=base 件数（src 側の残存数）$3=stale 件数（dst 側の削除候補数）
+# 戻り値: 0 = 削除を保留せよ（blocked） / 1 = 削除を続行してよい
+# 注意: guard_fired の global 集約は「サブシェルを介さない呼び出し」に依存する
+# （上の L27-29 コメントと同じ制約）。本関数の呼び出しを $(...) 内へ置かないこと。
+_mass_delete_blocked() {
+  [ "$3" -gt "$2" ] || return 1
+  if [ "${PLANGATE_ALLOW_MASS_DELETE:-0}" = "1" ]; then
+    # override は Human-owned のローカル操作限定（CI workflow の env: には
+    # 置かない）。解除したことを必ず記録に残す（#877 AC-2）。
+    _warn "WARN: mass-delete guard を PLANGATE_ALLOW_MASS_DELETE=1 で解除しました — $1 (base=$2 / stale=$3) の削除を続行します"
+    return 1
+  fi
+  _warn "WARN: DELETE skipped for $1 — base=$2 / stale=$3 (削除候補が src 残存数を上回るため削除を保留 / #861 safety guard)。意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください"
+  guard_fired=1
+  return 0
+}
+
 sync_dir() {
   _src="$1"; _dst="$2"; _label="$3"
   [ -d "$_src" ] || { _log "SKIP (src not found): $_label"; return 0; }
@@ -100,16 +121,11 @@ sync_dir() {
       _stale_count=$((_stale_count + 1))
     fi
   done
-  if [ "$_stale_count" -gt "$_src_count" ]; then
-    if [ "${PLANGATE_ALLOW_MASS_DELETE:-0}" = "1" ]; then
-      # override は Human-owned のローカル操作限定（CI workflow の env: には
-      # 置かない）。解除したことを必ず記録に残す（#877 AC-2）。
-      _warn "WARN: mass-delete guard を PLANGATE_ALLOW_MASS_DELETE=1 で解除しました — $_label (src=${_src_count} / stale=${_stale_count}) の削除を続行します"
-    else
-      _warn "WARN: DELETE skipped for $_label — src=${_src_count} / stale=${_stale_count} (削除候補が src 残存数を上回るため削除を保留 / #861 safety guard)。意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください"
-      guard_fired=1
-      return 0
-    fi
+  # 判定 + 警告 + guard_fired は共通関数へ集約（#914）。blocked のときのみ
+  # sync_dir から脱出して削除ループをスキップする（コピーは阻害しない。
+  # 呼び出し元 for の継続 = 従来挙動を維持）。
+  if _mass_delete_blocked "$_label" "$_src_count" "$_stale_count"; then
+    return 0
   fi
   # 削除条件は上の _stale_count 集計と同一（README.md 除外 + src に同名が無い）。
   # 変更する場合は必ず両方を同時に更新する。

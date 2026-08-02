@@ -15,6 +15,7 @@
 | 2026-08-02 12:40 | C-3 Gate | APPROVED（`approvals/c3.json`・plan_hash 検証済み — オーガナイザー確認） |
 | 2026-08-02 12:44 | D: exec 開始 | ブランチ `fix/914-mass-delete-guard` を origin/main `f25ae8b` から作成 |
 | 2026-08-02 12:46 | T-01 完了 | baseline 実測（下表）+ 失敗表記統一確認 + AC-7 検出力証明（NG_TOTAL=8） |
+| 2026-08-02 12:55 | T-02 完了 🚩 | `_mass_delete_blocked()` 導入 + sync_dir guard 置換。チェックポイント PASS: `sh -n` rc=0 + ta-26 standalone **16 passed / 0 failed**（TC-10 exit 3 = guard_fired 非サブシェル実証） |
 
 ## 全体構成（PR 一覧）
 
@@ -50,7 +51,7 @@
 ## 残タスク
 
 - [x] T-01: baseline 実測（2026-08-02 12:46 完了）
-- [ ] T-02: `_mass_delete_blocked()` 導入 + `sync_dir` guard 置換 🚩
+- [x] T-02: `_mass_delete_blocked()` 導入 + `sync_dir` guard 置換 🚩（2026-08-02 12:55 完了）
 - [ ] T-03: 経路2（ai-loop references）guard 適用 🚩
 - [ ] T-04: 経路1（汎用 references）guard 適用 🚩
 - [ ] T-05a/b/c: TC 追加（別ワーカー担当）

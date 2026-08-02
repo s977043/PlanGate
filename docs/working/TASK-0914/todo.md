@@ -40,7 +40,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
 
 ### 実装フェーズ
 
-- [ ] **T-02**: `_mass_delete_blocked()` を追加し、既存 `sync_dir` 内 guard（**L103-113**。内側 `if`〜対応する `fi` 2 個まで — R-352）を同関数呼び出しへ置換
+- [x] **T-02**: `_mass_delete_blocked()` を追加し、既存 `sync_dir` 内 guard（**L103-113**。内側 `if`〜対応する `fi` 2 個まで — R-352）を同関数呼び出しへ置換
   - 🚩 **チェックポイント**: `sh -n` PASS + `tests/extras/ta-26-plugin-sync.sh` の既存 **16 TC**（TC-14 は欠番）全 PASS（`sync_dir` 経路の挙動不変を証明）
   - `guard_fired=1` の代入がサブシェル内に入っていないことを目視 + TC-10（exit 3）で実証
   - Owner: agent / `rollback:` `git checkout -- scripts/sync-plugin-plangate.sh`
