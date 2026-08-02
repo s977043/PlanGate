@@ -78,7 +78,7 @@ T-06 + T-09 ─→ T-10（別 issue 起票 + handoff 妥協点記録）─→ T-
 > - sandbox は**最小構成**（`CHANGELOG.md` / `.claude-plugin/marketplace.json` を置かない）
 > - rc 捕捉は `_rc=0; _out=$(sh ...) || _rc=$?` の型（`|| true` 直後の `$?` 空振りを書かない）
 
-- [ ] **T-05a**: 経路2 の TC 追加（**TC-20 / 21 / 22 / 23 / 24 / 25**）
+- [x] **T-05a**: 経路2 の TC 追加（**TC-20 / 21 / 22 / 23 / 24 / 25**）
   - ヘルパー `_t26_mk_ai_loop_guard_sandbox` を実装。**`scripts/_ai_loop_link_rewrite.py` を必ず同梱**（python3 で可用性ガードなしに呼ばれ、不在だと guard と無関係な理由で異常終了 — R-354）
   - 🚩 **チェックポイント**: TC-20〜TC-25 が全 PASS
   - Owner: agent / `rollback:` `git checkout -- tests/extras/ta-26-plugin-sync.sh`

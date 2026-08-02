@@ -18,6 +18,7 @@
 | 2026-08-02 12:55 | T-02 完了 🚩 | `_mass_delete_blocked()` 導入 + sync_dir guard 置換。チェックポイント PASS: `sh -n` rc=0 + ta-26 standalone **16 passed / 0 failed**（TC-10 exit 3 = guard_fired 非サブシェル実証） |
 | 2026-08-02 13:00 | T-03 完了 🚩 | 経路2（ai-loop references）guard 適用。sandbox 再現 3 系: S1 正本2dir消失=発火+exit3+全残存 / S1b 空化=発火（`[ -d ]` すり抜けなし）/ S2 base=4,stale=1=非発火・削除実行・exit 0。evidence 保存 + ta-26 16/16 維持 + U-2 再確認（`set --` 以降の位置パラメータ使用 0 件） |
 | 2026-08-02 13:05 | T-04 完了 🚩 | 経路1（汎用 references）guard 適用（集計に `[ -L ]` 除外 = R-351）。sandbox 再現: S1 複数 skill 中 skill-A のみ空化 → 当該のみ保留・skill-B は正常同期（break 誤用なし）・exit 3 / S2 正常系 非発火・exit 0。ta-26 16/16 維持 + フルスイート **453 passed / 0 failed**（現 main 基点） |
+| 2026-08-02 13:17 | T-05a 完了 🚩 | 経路2 TC-20〜25 + `_t26_mk_ai_loop_guard_sandbox`（`_ai_loop_link_rewrite.py` 同梱 = R-354）追加。チェックポイント PASS: clean env + `</dev/null` standalone で **22 passed / 0 failed**（既存 16 + 新規 6 全 PASS）・exit 0。evidence: `evidence/test-runs/t05a-tc20-25-standalone.log` |
 
 ## 全体構成（PR 一覧）
 
