@@ -14,7 +14,9 @@ created_by: orchestrator
 # TASK-0874 セルフレビュー結果（C-1）
 
 > レビュー日: 2026-08-02
-> 対象: `plan.md`（444 行）/ `todo.md`（104 行）/ `test-cases.md`（198 行）@ `feat/task-0874-plan` `388677d`（base = `origin/main` = `a4afacb`）
+> 対象: `plan.md` / `todo.md` / `test-cases.md` @ `feat/task-0874-plan` `388677d`（base = `origin/main` = `a4afacb`）
+>
+> ※ 行数は記載しない。本 artifact は C-2 反映・追記運用で対象ファイルが継続的に伸びるため、固定値を書くと即座に stale 化する（PR #971 Copilot 指摘）。レビュー対象の同一性は上記 commit SHA で特定する。
 > Mode: **critical** → **簡易版でなく全項目版**を実行
 > 実行項目数: **25**（`grep -c "^### C1-" docs/working/templates/review-self.md` = 25。内訳 PLAN 9 / SUP 2 / TODO 6 / TEST 3 / B1B2 2 / SEC 1 / SCOPE 1 / UI 1。`working-context.md` 等の「17 項目」表記は実体と乖離しており（issue #960）、テンプレート実体の 25 項目すべてを実行した）
 > 判定: **FAIL** — critical=0, major=8, minor=4
@@ -631,8 +633,10 @@ C1-PLAN-01 / C1-PLAN-02 / C1-PLAN-04 / C1-PLAN-06 / C1-PLAN-09-AEE / C1-SUP-PLAN
 > 再実行範囲: 初回 C-1 が指定した **12 項目**（PASS 12 項目 + N/A 1 項目は再実行不要）
 > 判定: **WARN**（critical=0 / major=0 / minor=1 / **FAIL 0**）— **FAIL 4 件はすべて解消**、WARN 8 件のうち **7 件解消 / 1 件は WARN 継続（意図的に提案を採らなかった）**。C-3 へ進める状態。
 >
-> ⚠️ **本ファイル冒頭の frontmatter `verdict: FAIL` は初回 C-1 の判定であり、意図的に書き換えていない**（本追記は append-only 運用のため）。
-> 再実行後の判定は本節の値（**WARN**）が最新。frontmatter を更新するかは人間の判断に委ねる（`schemas/review-self.schema.json` の `verdict` enum は `PASS` / `WARN` / `FAIL`）。
+> ℹ️ **frontmatter の `verdict` は最新ラウンドの判定（`WARN`）に更新済み**で、各ラウンドの履歴は `verdict_history` に 3 エントリとして保持している。
+> 本文（本節以降）は append-only で追記し、既存記述を書き換えない運用。**機械可読フィールドである `verdict` を初回結果で固定すると、後続の読み手やゲート判定が誤誘導される**ため、frontmatter のみ最新値へ同期する（`schemas/review-self.schema.json` の `verdict` enum は `PASS` / `WARN` / `FAIL`）。
+>
+> ※ 当初この注記は「frontmatter `verdict: FAIL` は意図的に書き換えていない」と記載していたが、その後 frontmatter を `WARN` + `verdict_history` へ更新したため、記述が実体と矛盾していた（PR #971 Copilot 指摘）。
 
 ### サマリー（再実行 12 項目）
 
