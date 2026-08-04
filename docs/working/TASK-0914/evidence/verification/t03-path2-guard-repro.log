@@ -1,0 +1,17 @@
+# T-03 verification: path-2 (ai-loop references) guard
+# date: 2026-08-02 12:53  sandbox: mktemp -d 配下（repo 非破壊）
+
+## シナリオ1: 正本 2 dir 消失（base=0 / stale=5）
+rc=3 (期待 3) / dst 残存=5 (期待 5)
+  | [sync-plugin] WARN: DELETE skipped for skills/ai-loop-cycle/references — base=0 / stale=5 (削除候補が src 残存数を上回るため削除を保留 / #861 safety guard)。意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください
+  | [sync-plugin] ERROR: mass-delete safety guard が発火したため削除を保留しました (#861 / #877)。正本側の欠損を確認するか、意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください
+=> S1 OK（発火 + exit 3 + 全件残存 + label 出力）
+
+## シナリオ1b: 正本 2 dir 空化（dir 存在・*.md 0 件）
+rc=3 (期待 3) / dst 残存=5 (期待 5)
+=> S1b OK（[ -d ] すり抜けなし）
+
+## シナリオ2: 正当削除（base=4 / stale=1）
+rc=0 (期待 0) / dst 件数=4 (期待 4 = コピー4・stale 削除) / stale 残存=0 (期待 0)
+  | [sync-plugin] DELETE: skills/ai-loop-cycle/references/stale-x.md
+=> S2 OK（非発火・stale 1 件のみ削除・exit 0）

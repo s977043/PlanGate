@@ -1,0 +1,37 @@
+# T-06 M-4: guard_fired=1 の代入をサブシェル $( ) 内へ移動
+# 実測: 2026-08-02 / 復元元 head 1e1c074 / clean env（env -u PLANGATE_HOOK_TASK -u PLANGATE_HOOK_FILE -u PG_HARNESS_SOURCED -u FIXTURES_DIR -u PLANGATE_ALLOW_MASS_DELETE）+ sh tests/extras/ta-26-plugin-sync.sh </dev/null / cwd=repo root
+# 期待 FAIL: TC-22, TC-27
+
+## 変異 diff (git diff 1e1c074 -- scripts/sync-plugin-plangate.sh)
+diff --git a/scripts/sync-plugin-plangate.sh b/scripts/sync-plugin-plangate.sh
+index b63d548..ec6002a 100755
+--- a/scripts/sync-plugin-plangate.sh
++++ b/scripts/sync-plugin-plangate.sh
+@@ -62,7 +62,7 @@ _mass_delete_blocked() {
+     return 1
+   fi
+   _warn "WARN: DELETE skipped for $1 — base=$2 / stale=$3 (削除候補が src 残存数を上回るため削除を保留 / #861 safety guard)。意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください"
+-  guard_fired=1
++  : "$(guard_fired=1)" # MUTATION M-4: 代入をサブシェル $( ) 内へ移動（global へ伝播しない）
+   return 0
+ }
+ 
+
+## 変異下の ta-26 standalone: rc=1
+FAIL 行（各行先頭200字）:
+  [FAIL] TC-10 失敗 (rc=0 期待3 / dst=5 期待5 / stderr): [sync-plugin] WARN: DELETE skipped for agents — base=1 / stale=4 (削除候補が src 残存数を上回るため削除を保留 / #861 safety guard)。意図した一括削除であれば PLANGATE_ALLOW_MASS_DELE
+  [FAIL] TC-12 失敗 (dry: fired=yes rc=0 dst=4 期待 yes/0/4 / run: fired=yes rc=0 dst=7 期待 yes/3/7)
+  [FAIL] TC-13 失敗 (① rc=1 / ② rc=1 / ③ 1)
+  [FAIL] TC-16 失敗 (rc=0 期待3 / WARN=3 期待3 / copied=1)
+  [FAIL] TC-17 失敗 (rc=0 期待3 / stale 残存=2 期待2 — src 側の README 除外が抜けている可能性)
+  [FAIL] TC-22 失敗 (rc=0 期待3 / left=5 期待5): [sync-plugin] SKIP (src not found): agents
+  [FAIL] TC-25 失敗 (dry: fired=yes rc=0 left=7 期待 yes/0/7 / run: fired=yes rc=0 left=7 期待 yes/3/7)
+  [FAIL] TC-27 失敗 (rc=0 期待3 / A left=4 期待4): [sync-plugin] SKIP (src not found): agents
+  [FAIL] TC-32 失敗 (dry: fired=yes rc=0 left=7 期待 yes/0/7 / run: fired=yes rc=0 left=7 期待 yes/3/7)
+TA-26 standalone: 21 passed, 9 failed
+→ 期待 FAIL {TC-22,27} 全て実測 FAIL（exit 3 → 0 の silent failure を rc 検査で捕捉）
+→ 副次 FAIL: rc=3 を検査する TC-10/12/16/17/25/32 も同時 FAIL・TC-20/21/26 は PASS のまま（WARN と保留は残り exit code だけ失われる = silent failure の症状分離を実証）・TC-13 連鎖
+
+## 復元確認: git checkout 1e1c074 -- scripts/sync-plugin-plangate.sh
+git diff 1e1c074 -- scripts/sync-plugin-plangate.sh = 空（0 行）
+復元後 ta-26 standalone: TA-26 standalone: 30 passed, 0 failed / rc=0

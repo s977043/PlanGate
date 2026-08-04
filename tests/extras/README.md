@@ -26,10 +26,12 @@
 ## 新しいテスト追加方法（Issue #170）
 
 1. 新 PBI で対象機能のテストを書きたいとき:
+
    ```sh
    # 例: TA-08 を追加する場合
    touch tests/extras/ta-08-<name>.sh
    ```
+
 2. ファイル冒頭に役割コメントを書く（このファイル末尾の例参照）
 3. ローカルで `sh tests/run-tests.sh` を走らせ、新ブロックが拾われ全 PASS することを確認
 4. **`tests/run-tests.sh` の本体には触れない**（loader が `tests/extras/*.sh` を自動発見する）
@@ -103,7 +105,6 @@ extras はすべて同一 shell プロセスで source されるため、関数�
 - retrospective: `docs/working/retrospective-2026-05-01.md` § P-2 / T-4
 - set -e 書法ガイド追加: `docs/working/retrospective-2026-05-01-s3.md` § P-1 / T-2
 
-
 ## 現行テスト一覧
 
 | File | 内容 |
@@ -134,10 +135,12 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
    run-tests.sh が提供する `register_cleanup <path>...` で一時パスを登録すると、
    全 extras の source 完了後にハーネス末尾の `_pg_drain_cleanup` が一括削除する。
    trap を一切張らないため source 連鎖の上書き問題が起きない（実装例: ta-22）。
+
    ```sh
    PG_TMP=$(mktemp -d)
    register_cleanup "$PG_TMP"   # ハーネス末尾で自動 drain（trap 不要）
    ```
+
    どうしても trap が必要な場合は**サブシェルに閉じ込める**（ta-28 方式）か、
    自前ガード変数で再実行を no-op 化する（ta-09 方式）。親シェルの trap を
    `trap - EXIT` で消さない（他 extras / ハーネスの cleanup を巻き込むため）
@@ -155,5 +158,29 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
 7. **PLANGATE_* env はスイートが無害化する** — 実 hooks を直接呼ぶ extras
    （ta-11 / ta-12 等）は、呼び出し元 env の `PLANGATE_SKIP_REASON` 等が漏れると
    **実監査ログ（skip-decision-log.jsonl）へ書き込む**（2026-06-11 実害確認）。
-   run-tests.sh 冒頭で unset 済みのため extras 側の個別対処は不要だが、
-   テスト内で意図的に設定する場合はコマンド単位の env 前置に限定する
+   harness 実行では run-tests.sh 冒頭で unset 済み。**standalone 実行ではその
+   防御が効かないため、規約 8 に従い各 extras が standalone 分岐で自前 unset
+   する**（#914）。テスト内で意図的に設定する場合はコマンド単位の env 前置に
+   限定する
+8. **harness/standalone 判別は `PG_HARNESS_SOURCED` と `FIXTURES_DIR` の AND**
+   （#914 / R-204）— 新規 extras は、run-tests.sh が設定する `PG_HARNESS_SOURCED`
+   （**非 export**。source された extras だけに見えるシグナル）と `FIXTURES_DIR`
+   の **AND** で harness 実行を判別する:
+
+   ```sh
+   if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
+     : # harness（run-tests.sh から source されている）
+   else
+     # standalone — 先に外部 env 汚染を無害化してから自前 fallback を定義する
+     unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
+       PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
+       PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+   fi
+   ```
+
+   片方でも欠ければ **standalone 側（安全側）へ倒す**。`FIXTURES_DIR` 単独判定は
+   外部 env 漏れだけで harness 実行と誤判定する（実害: `PLANGATE_HOOK_TASK` 漏洩下の
+   ta-39 standalone が 7 件 FAIL のまま exit 0 で素通り）。standalone 分岐
+   （else 節の内側のみ）では `PLANGATE_*` / `PG_HARNESS_SOURCED` =
+   **run-tests.sh 冒頭の unset 集合と同一の 7 env** を unset して外部 env 汚染を
+   無害化する。単独判定の残存ゼロと unset 集合の包含は `ta-26` の TC-33 が静的検査する

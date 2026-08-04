@@ -1,0 +1,23 @@
+# T-01 AC-7 detection proof: contaminated env (V-1-B), PRE-migration
+# inject: PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PLANGATE_ALLOW_MASS_DELETE + FIXTURES_DIR (PG_HARNESS_SOURCED は注入しない)
+# date: 2026-08-02 12:46  head: f25ae8b
+COUNT tests/extras/ta-39-eh3-doc-light.sh=0 rc=0 fail_lines=0
+COUNT tests/extras/ta-43-eh2-strict-json.sh=0 rc=0 fail_lines=0
+COUNT tests/extras/ta-44-eh457-cli-wiring.sh=0 rc=0 fail_lines=0
+NG(FAIL detected): tests/extras/ta-45-c3-mode-config.sh
+COUNT tests/extras/ta-45-c3-mode-config.sh=2 rc=0 fail_lines=4
+NG(FAIL detected): tests/extras/ta-46-ehs-wiring.sh
+COUNT tests/extras/ta-46-ehs-wiring.sh=0 rc=0 fail_lines=4
+NG(FAIL detected): tests/extras/ta-47-ehs23-wiring.sh
+COUNT tests/extras/ta-47-ehs23-wiring.sh=0 rc=0 fail_lines=6
+NG(FAIL detected): tests/extras/ta-49-bias-export.sh
+COUNT tests/extras/ta-49-bias-export.sh=0 rc=0 fail_lines=6
+NG(FAIL detected): tests/extras/ta-50-precompact-guard.sh
+COUNT tests/extras/ta-50-precompact-guard.sh=0 rc=0 fail_lines=9
+NG(FAIL detected): tests/extras/ta-51-doctor-w6.sh
+COUNT tests/extras/ta-51-doctor-w6.sh=0 rc=0 fail_lines=5
+NG(FAIL detected): tests/extras/ta-52-doctor-skill-collision.sh
+COUNT tests/extras/ta-52-doctor-skill-collision.sh=0 rc=0 fail_lines=5
+NG(FAIL detected): tests/extras/ta-53-doctor-prepush.sh
+COUNT tests/extras/ta-53-doctor-prepush.sh=0 rc=0 fail_lines=4
+NG_TOTAL=8 (期待: >0 = 汚染で誤動作する現状の検出力証明)

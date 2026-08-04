@@ -1,0 +1,33 @@
+# T-06 M-2: 経路1 guard 呼び出し削除（if ! _mass_delete_blocked → if true）
+# 実測: 2026-08-02 / 復元元 head 1e1c074 / clean env（env -u PLANGATE_HOOK_TASK -u PLANGATE_HOOK_FILE -u PG_HARNESS_SOURCED -u FIXTURES_DIR -u PLANGATE_ALLOW_MASS_DELETE）+ sh tests/extras/ta-26-plugin-sync.sh </dev/null / cwd=repo root
+# 期待 FAIL: TC-26, TC-27
+
+## 変異 diff (git diff 1e1c074 -- scripts/sync-plugin-plangate.sh)
+diff --git a/scripts/sync-plugin-plangate.sh b/scripts/sync-plugin-plangate.sh
+index b63d548..867174f 100755
+--- a/scripts/sync-plugin-plangate.sh
++++ b/scripts/sync-plugin-plangate.sh
+@@ -212,7 +212,7 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
+       # 呼び出しを $(...) 内へ置かないこと（guard_fired の global 伝播条件）。
+       # blocked 時は break を使わず if で当該 skill の削除だけを避ける
+       # （break だと後続 skill の同期が落ちる）。
+-      if ! _mass_delete_blocked "skills/$_skill_name/references" "$_refs_base_count" "$_refs_stale_count"; then
++      if true; then # MUTATION M-2: 経路1 guard 呼び出し削除
+         for _rf in "$_dst_refs"/*.md; do
+           [ -f "$_rf" ] || continue
+           _rb="${_rf##*/}"
+
+## 変異下の ta-26 standalone: rc=1
+FAIL 行（各行先頭200字）:
+  [FAIL] TC-13 失敗 (① rc=1 / ② rc=1 / ③ 1)
+  [FAIL] TC-26 失敗 (rc=0 / A left=0 期待4 / B left=3 期待3): [sync-plugin] SKIP (src not found): agents
+  [FAIL] TC-27 失敗 (rc=0 期待3 / A left=0 期待4): [sync-plugin] SKIP (src not found): agents
+  [FAIL] TC-28 失敗 (rc=0 期待0 / A left=0 期待0): [sync-plugin] SKIP (src not found): agents
+  [FAIL] TC-32 失敗 (dry: fired=no rc=0 left=7 期待 yes/0/7 / run: fired=no rc=0 left=3 期待 yes/3/7)
+TA-26 standalone: 25 passed, 5 failed
+→ 期待 FAIL {TC-26,27} 全て実測 FAIL（空振り fixture でない）
+→ 副次 FAIL: TC-28(解除ログ不出)/TC-32(fired=no)/TC-13(子プロセス連鎖) = guard 消滅の随伴症状
+
+## 復元確認: git checkout 1e1c074 -- scripts/sync-plugin-plangate.sh
+git diff 1e1c074 -- scripts/sync-plugin-plangate.sh = 空（0 行）
+復元後 ta-26 standalone: TA-26 standalone: 30 passed, 0 failed / rc=0

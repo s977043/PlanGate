@@ -13,13 +13,14 @@ printf '\n=== TA-26: plugin-sync (TASK-0124) ===\n'
 # standalone 実行時（set -u が無い）に空変数のまま cd して誤ルートを静かに返す。
 #
 # 方針（#877 / R-204）: 新規 extras は PG_HARNESS_SOURCED を使う。
-# FIXTURES_DIR 単独判定を使っている既存 extras の移行と tests/extras/README.md
-# の規約追記は follow-up issue で扱う（本 PBI では touch しない）。
+# FIXTURES_DIR 単独判定を使っていた既存 extras の移行と tests/extras/README.md
+# の規約追記は follow-up の #914 で完了（README 規約 8 / 残存 0 は TC-33 が静的検査）。
 if [ "${PG_HARNESS_SOURCED:-0}" != "1" ] || [ -z "${FIXTURES_DIR:-}" ]; then
   PG_T26_STANDALONE=1
-  # 呼び出し元 env の漏れで guard 検証が無効化されるのを防ぐ（run-tests.sh L15
-  # の規約と対称。standalone 実行にはその防御が効かないため自前で行う）。
-  unset PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+  # 呼び出し元 env の漏れで guard 検証・hook 挙動が歪むのを防ぐ（run-tests.sh
+  # 冒頭の unset 集合と同一の 7 env — TASK-0914 論点 F / README 規約 8。
+  # standalone 実行には harness 側の防御が効かないため自前で行う）。
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
   FIXTURES_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/../fixtures" && pwd)"
   pass=0
   fail=0
@@ -376,6 +377,359 @@ if [ "$_t26_ci_hits" = "0" ]; then
   t26_pass "TC-15 PLANGATE_ALLOW_MASS_DELETE が .github/ に存在しない（CI での恒久無効化なし）"
 else
   t26_fail "TC-15 .github/ に PLANGATE_ALLOW_MASS_DELETE が $_t26_ci_hits 件（CI で guard が無効化される）"
+fi
+
+# ── #914: 経路1/経路2（references 削除経路）guard の TC 群 ──────────────────
+# sandbox は #877 TC 群（TC-08〜TC-17）と同じ「最小」構成に固定する
+# （CHANGELOG.md / .claude-plugin/marketplace.json を置かない — フル構成だと
+# version 同期・marketplace 経路（exit 1）が有効化され guard の exit 3 判定を
+# 汚染する）。rc 捕捉は _rc=0; _out=$(sh ...) || _rc=$? の型に統一（README 規約 4）。
+
+_T26_AI_LOOP_REFS_REL="plugin/plangate/skills/ai-loop-cycle/references"
+
+# 経路2（ai-loop references）用 sandbox。_t26_mk_guard_sandbox（上）と同型。
+# _sync_ai_loop_ref_content は python3 "$AI_LOOP_LINK_REWRITER" を可用性ガード
+# なしで呼ぶため、scripts/_ai_loop_link_rewrite.py を必ず同梱する（R-354 —
+# 不在だと guard ロジックと無関係な理由で set -eu が異常終了する）。
+_t26_mk_ai_loop_guard_sandbox() {
+  # $1=sandbox dir / $2=正本（docs/workflows/ai-loop）*.md 件数 / $3=stale 件数
+  # / $4=正本 2 ディレクトリの状態（present=作成（既定） / absent=作らない。
+  #   $2=0 + present が「存在するが空」= TC-21、$2=0 + absent が「両方消失」=
+  #   TC-20。$2>0 は present のみ有効）
+  _t26_al_dir="$1"; _t26_al_src="$2"; _t26_al_stale="$3"; _t26_al_mode="${4:-present}"
+  mkdir -p "$_t26_al_dir/scripts" "$_t26_al_dir/$_T26_AI_LOOP_REFS_REL"
+  [ -f "$_t26_al_dir/scripts/sync-plugin-plangate.sh" ] || cp "$PG_T26_SCRIPT" "$_t26_al_dir/scripts/"
+  [ -f "$_t26_al_dir/scripts/_ai_loop_link_rewrite.py" ] \
+    || cp "$PG_T26_ROOT/scripts/_ai_loop_link_rewrite.py" "$_t26_al_dir/scripts/"
+  if [ "$_t26_al_mode" = "present" ]; then
+    mkdir -p "$_t26_al_dir/docs/workflows/ai-loop" "$_t26_al_dir/docs/ai/ai-loop"
+  fi
+  _t26_al_i=1
+  while [ "$_t26_al_i" -le "$_t26_al_src" ]; do
+    printf 'wf %s\n' "$_t26_al_i" > "$_t26_al_dir/docs/workflows/ai-loop/wf-$_t26_al_i.md"
+    # 期待集合に載る正本ファイルは dst にも同名で置く（同期済み状態の再現）
+    printf 'wf %s\n' "$_t26_al_i" > "$_t26_al_dir/$_T26_AI_LOOP_REFS_REL/wf-$_t26_al_i.md"
+    _t26_al_i=$((_t26_al_i + 1))
+  done
+  _t26_al_i=1
+  while [ "$_t26_al_i" -le "$_t26_al_stale" ]; do
+    printf 'stale %s\n' "$_t26_al_i" > "$_t26_al_dir/$_T26_AI_LOOP_REFS_REL/stale-$_t26_al_i.md"
+    _t26_al_i=$((_t26_al_i + 1))
+  done
+}
+
+# TC-20: 経路2 — 正本 2 ディレクトリ両方が消失 → guard 発火・削除保留
+# （#914 AC-1 負側 / #877 実害と同型: 期待集合が空になっても dst を消さない）
+_t26_t20=$(mktemp -d); register_cleanup "$_t26_t20"
+_t26_mk_ai_loop_guard_sandbox "$_t26_t20" 0 5 absent
+_t26_rc20=0
+_t26_out20=$(sh "$_t26_t20/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc20=$?
+_t26_left20=$(_t26_count_files "$_t26_t20/$_T26_AI_LOOP_REFS_REL")
+rm -rf "$_t26_t20"
+if printf '%s' "$_t26_out20" | grep -q 'DELETE skipped for skills/ai-loop-cycle/references' \
+  && printf '%s' "$_t26_out20" | grep -q 'PLANGATE_ALLOW_MASS_DELETE=1' \
+  && [ "$_t26_left20" = "5" ]; then
+  t26_pass "TC-20 経路2: 正本 2 dir 消失で guard 発火（DELETE skipped + override 案内・dst 5 件残存）"
+else
+  t26_fail "TC-20 失敗 (rc=$_t26_rc20 / left=$_t26_left20 期待5): $_t26_out20"
+fi
+
+# TC-21: 経路2 — 正本 2 ディレクトリが空化（存在するが *.md 0 件）→ guard 発火
+# （ディレクトリ存在の有無で挙動が分岐しない = [ -d ] ガードすり抜けの封鎖）
+_t26_t21=$(mktemp -d); register_cleanup "$_t26_t21"
+_t26_mk_ai_loop_guard_sandbox "$_t26_t21" 0 5
+_t26_rc21=0
+_t26_out21=$(sh "$_t26_t21/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc21=$?
+_t26_left21=$(_t26_count_files "$_t26_t21/$_T26_AI_LOOP_REFS_REL")
+rm -rf "$_t26_t21"
+if printf '%s' "$_t26_out21" | grep -q 'DELETE skipped for skills/ai-loop-cycle/references' \
+  && printf '%s' "$_t26_out21" | grep -q 'PLANGATE_ALLOW_MASS_DELETE=1' \
+  && [ "$_t26_left21" = "5" ]; then
+  t26_pass "TC-21 経路2: 正本 2 dir 空化でも guard 発火（TC-20 と同一挙動）"
+else
+  t26_fail "TC-21 失敗 (rc=$_t26_rc21 / left=$_t26_left21 期待5): $_t26_out21"
+fi
+
+# TC-22: 経路2 — guard 発火時に終端 exit 3
+# （guard_fired の global 伝播をサブシェル問題ごと実証。#914 AC-1）
+_t26_t22=$(mktemp -d); register_cleanup "$_t26_t22"
+_t26_mk_ai_loop_guard_sandbox "$_t26_t22" 0 5 absent
+_t26_rc22=0
+_t26_out22=$(sh "$_t26_t22/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc22=$?
+_t26_left22=$(_t26_count_files "$_t26_t22/$_T26_AI_LOOP_REFS_REL")
+rm -rf "$_t26_t22"
+if [ "$_t26_rc22" -eq 3 ] && [ "$_t26_left22" = "5" ] \
+  && printf '%s' "$_t26_out22" | grep -q 'mass-delete safety guard が発火'; then
+  t26_pass "TC-22 経路2: guard 発火で終端 exit 3（guard_fired の global 伝播）"
+else
+  t26_fail "TC-22 失敗 (rc=$_t26_rc22 期待3 / left=$_t26_left22 期待5): $_t26_out22"
+fi
+
+# TC-23: 経路2 — PLANGATE_ALLOW_MASS_DELETE=1 で override（#914 AC-4）
+_t26_t23=$(mktemp -d); register_cleanup "$_t26_t23"
+_t26_mk_ai_loop_guard_sandbox "$_t26_t23" 0 5 absent
+_t26_rc23=0
+_t26_out23=$(PLANGATE_ALLOW_MASS_DELETE=1 sh "$_t26_t23/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc23=$?
+_t26_left23=$(_t26_count_files "$_t26_t23/$_T26_AI_LOOP_REFS_REL")
+rm -rf "$_t26_t23"
+if [ "$_t26_rc23" -eq 0 ] && [ "$_t26_left23" = "0" ] \
+  && printf '%s' "$_t26_out23" | grep -q '解除しました'; then
+  t26_pass "TC-23 経路2: override で削除実行・exit 0・解除ログ出力（dst 5 件全削除）"
+else
+  t26_fail "TC-23 失敗 (rc=$_t26_rc23 期待0 / left=$_t26_left23 期待0): $_t26_out23"
+fi
+
+# TC-24: 経路2 正常系 — 1 件だけ正当に削除（guard 非発火）
+# （形骸化防止: 正当な削減を block しないことの証明。検出力は M-6 で実証）
+_t26_t24=$(mktemp -d); register_cleanup "$_t26_t24"
+_t26_mk_ai_loop_guard_sandbox "$_t26_t24" 4 1
+_t26_rc24=0
+_t26_out24=$(sh "$_t26_t24/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc24=$?
+_t26_left24=$(_t26_count_files "$_t26_t24/$_T26_AI_LOOP_REFS_REL")
+_t26_stale24=1
+[ -f "$_t26_t24/$_T26_AI_LOOP_REFS_REL/stale-1.md" ] || _t26_stale24=0
+rm -rf "$_t26_t24"
+if [ "$_t26_rc24" -eq 0 ] && [ "$_t26_left24" = "4" ] && [ "$_t26_stale24" = "0" ] \
+  && ! printf '%s' "$_t26_out24" | grep -q 'DELETE skipped'; then
+  t26_pass "TC-24 経路2 正常系: base=4/stale=1 で非発火・stale 1 件のみ削除・exit 0"
+else
+  t26_fail "TC-24 失敗 (rc=$_t26_rc24 期待0 / left=$_t26_left24 期待4 / stale残=$_t26_stale24 期待0): $_t26_out24"
+fi
+
+# TC-25: 経路2 — dry-run と実行の判定一致（乖離帯 base=3/stale=4）
+# （#877 論点 B が正面から潰した性質の経路2 版。dry-run は exit 0 維持・実行は exit 3）
+_t26_t25a=$(mktemp -d); register_cleanup "$_t26_t25a"
+_t26_t25b=$(mktemp -d); register_cleanup "$_t26_t25b"
+_t26_mk_ai_loop_guard_sandbox "$_t26_t25a" 3 4
+_t26_mk_ai_loop_guard_sandbox "$_t26_t25b" 3 4
+_t26_rc25a=0
+_t26_out25a=$(sh "$_t26_t25a/scripts/sync-plugin-plangate.sh" --dry-run 2>&1) || _t26_rc25a=$?
+_t26_left25a=$(_t26_count_files "$_t26_t25a/$_T26_AI_LOOP_REFS_REL")
+_t26_rc25b=0
+_t26_out25b=$(sh "$_t26_t25b/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc25b=$?
+_t26_left25b=$(_t26_count_files "$_t26_t25b/$_T26_AI_LOOP_REFS_REL")
+rm -rf "$_t26_t25a" "$_t26_t25b"
+_t26_fired25a=no; printf '%s' "$_t26_out25a" | grep -q 'safety guard' && _t26_fired25a=yes
+_t26_fired25b=no; printf '%s' "$_t26_out25b" | grep -q 'safety guard' && _t26_fired25b=yes
+if [ "$_t26_fired25a" = "yes" ] && [ "$_t26_fired25b" = "yes" ] \
+  && [ "$_t26_rc25a" -eq 0 ] && [ "$_t26_left25a" = "7" ] \
+  && ! printf '%s' "$_t26_out25a" | grep -q 'WOULD DELETE' \
+  && [ "$_t26_rc25b" -eq 3 ] && [ "$_t26_left25b" = "7" ]; then
+  t26_pass "TC-25 経路2: 乖離帯 base=3/stale=4 で dry-run と実行の guard 判定が一致"
+else
+  t26_fail "TC-25 失敗 (dry: fired=$_t26_fired25a rc=$_t26_rc25a left=$_t26_left25a 期待 yes/0/7 / run: fired=$_t26_fired25b rc=$_t26_rc25b left=$_t26_left25b 期待 yes/3/7)"
+fi
+
+# 経路1（汎用 references）用 sandbox。_t26_mk_guard_sandbox と同型。
+# 複数 skill 構成は skill 名（$4）を変えて同一 sandbox dir へ複数回呼んで構築する
+# （TC-26 が skill-A / skill-B を要求。skill ループは glob 順 = 辞書順で
+#  skill-A → skill-B の順に処理される）。
+_t26_mk_refs_guard_sandbox() {
+  # $1=sandbox dir / $2=src references *.md 件数 / $3=stale 件数
+  # / $4=skill 名（既定 skill-A） / $5=dst 事前状態（mirror=src 同名を旧内容で
+  #   dst にも置く（既定。dst 件数 = $2+$3） / empty=stale のみ置く）
+  _t26_rf_dir="$1"; _t26_rf_src="$2"; _t26_rf_stale="$3"
+  _t26_rf_skill="${4:-skill-A}"; _t26_rf_dst="${5:-mirror}"
+  mkdir -p "$_t26_rf_dir/scripts" \
+    "$_t26_rf_dir/.agents/skills/$_t26_rf_skill/references" \
+    "$_t26_rf_dir/plugin/plangate/skills/$_t26_rf_skill/references"
+  [ -f "$_t26_rf_dir/scripts/sync-plugin-plangate.sh" ] || cp "$PG_T26_SCRIPT" "$_t26_rf_dir/scripts/"
+  printf -- '---\nname: %s\n---\nbody\n' "$_t26_rf_skill" \
+    > "$_t26_rf_dir/.agents/skills/$_t26_rf_skill/SKILL.md"
+  _t26_rf_i=1
+  while [ "$_t26_rf_i" -le "$_t26_rf_src" ]; do
+    printf 'ref %s\n' "$_t26_rf_i" \
+      > "$_t26_rf_dir/.agents/skills/$_t26_rf_skill/references/ref-$_t26_rf_i.md"
+    if [ "$_t26_rf_dst" = "mirror" ]; then
+      # 旧内容で置く（同期対象として COPY による更新が起きる状態を再現）
+      printf 'old %s\n' "$_t26_rf_i" \
+        > "$_t26_rf_dir/plugin/plangate/skills/$_t26_rf_skill/references/ref-$_t26_rf_i.md"
+    fi
+    _t26_rf_i=$((_t26_rf_i + 1))
+  done
+  _t26_rf_i=1
+  while [ "$_t26_rf_i" -le "$_t26_rf_stale" ]; do
+    printf 'stale %s\n' "$_t26_rf_i" \
+      > "$_t26_rf_dir/plugin/plangate/skills/$_t26_rf_skill/references/stale-$_t26_rf_i.md"
+    _t26_rf_i=$((_t26_rf_i + 1))
+  done
+}
+
+# TC-26: 経路1 — _src_refs 空化 → 当該 skill のみ guard 発火（#914 AC-2 負側 + 制御フロー）
+# skill-B の dst は empty で始め、sync による COPY 実行を「skill-A の guard 後も
+# 処理が継続した」証拠にする（break 誤用の封鎖。検出力は M-5 で実証）。
+_t26_t26=$(mktemp -d); register_cleanup "$_t26_t26"
+_t26_mk_refs_guard_sandbox "$_t26_t26" 0 4 skill-A
+_t26_mk_refs_guard_sandbox "$_t26_t26" 3 0 skill-B empty
+_t26_rc26=0
+_t26_out26=$(sh "$_t26_t26/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc26=$?
+_t26_lefta26=$(_t26_count_files "$_t26_t26/plugin/plangate/skills/skill-A/references")
+_t26_leftb26=$(_t26_count_files "$_t26_t26/plugin/plangate/skills/skill-B/references")
+rm -rf "$_t26_t26"
+if printf '%s' "$_t26_out26" | grep -q 'DELETE skipped for skills/skill-A/references' \
+  && [ "$_t26_lefta26" = "4" ] && [ "$_t26_leftb26" = "3" ] \
+  && printf '%s' "$_t26_out26" | grep -q 'COPY: skills/skill-B/references/ref-1.md'; then
+  t26_pass "TC-26 経路1: skill-A のみ guard 発火・dst 4 件残存、skill-B は正常同期（3 件 COPY）"
+else
+  t26_fail "TC-26 失敗 (rc=$_t26_rc26 / A left=$_t26_lefta26 期待4 / B left=$_t26_leftb26 期待3): $_t26_out26"
+fi
+
+# TC-27: 経路1 — guard 発火時に終端 exit 3（#914 AC-2）
+_t26_t27=$(mktemp -d); register_cleanup "$_t26_t27"
+_t26_mk_refs_guard_sandbox "$_t26_t27" 0 4 skill-A
+_t26_mk_refs_guard_sandbox "$_t26_t27" 3 0 skill-B empty
+_t26_rc27=0
+_t26_out27=$(sh "$_t26_t27/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc27=$?
+_t26_lefta27=$(_t26_count_files "$_t26_t27/plugin/plangate/skills/skill-A/references")
+rm -rf "$_t26_t27"
+if [ "$_t26_rc27" -eq 3 ] && [ "$_t26_lefta27" = "4" ] \
+  && printf '%s' "$_t26_out27" | grep -q 'mass-delete safety guard が発火'; then
+  t26_pass "TC-27 経路1: guard 発火で終端 exit 3"
+else
+  t26_fail "TC-27 失敗 (rc=$_t26_rc27 期待3 / A left=$_t26_lefta27 期待4): $_t26_out27"
+fi
+
+# TC-28: 経路1 — PLANGATE_ALLOW_MASS_DELETE=1 で override（#914 AC-4）
+_t26_t28=$(mktemp -d); register_cleanup "$_t26_t28"
+_t26_mk_refs_guard_sandbox "$_t26_t28" 0 4 skill-A
+_t26_mk_refs_guard_sandbox "$_t26_t28" 3 0 skill-B empty
+_t26_rc28=0
+_t26_out28=$(PLANGATE_ALLOW_MASS_DELETE=1 sh "$_t26_t28/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc28=$?
+_t26_lefta28=$(_t26_count_files "$_t26_t28/plugin/plangate/skills/skill-A/references")
+rm -rf "$_t26_t28"
+if [ "$_t26_rc28" -eq 0 ] && [ "$_t26_lefta28" = "0" ] \
+  && printf '%s' "$_t26_out28" | grep -q '解除しました'; then
+  t26_pass "TC-28 経路1: override で削除実行・exit 0・解除ログ出力（skill-A dst 4 件全削除）"
+else
+  t26_fail "TC-28 失敗 (rc=$_t26_rc28 期待0 / A left=$_t26_lefta28 期待0): $_t26_out28"
+fi
+
+# TC-29: 経路1 正常系 — src 3 件・stale 1 件（guard 非発火。検出力は M-6 で実証）
+_t26_t29=$(mktemp -d); register_cleanup "$_t26_t29"
+_t26_mk_refs_guard_sandbox "$_t26_t29" 3 1 skill-A
+_t26_rc29=0
+_t26_out29=$(sh "$_t26_t29/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc29=$?
+_t26_left29=$(_t26_count_files "$_t26_t29/plugin/plangate/skills/skill-A/references")
+_t26_stale29=1
+[ -f "$_t26_t29/plugin/plangate/skills/skill-A/references/stale-1.md" ] || _t26_stale29=0
+rm -rf "$_t26_t29"
+if [ "$_t26_rc29" -eq 0 ] && [ "$_t26_left29" = "3" ] && [ "$_t26_stale29" = "0" ] \
+  && ! printf '%s' "$_t26_out29" | grep -q 'DELETE skipped'; then
+  t26_pass "TC-29 経路1 正常系: base=3/stale=1 で非発火・stale 1 件のみ削除・exit 0"
+else
+  t26_fail "TC-29 失敗 (rc=$_t26_rc29 期待0 / left=$_t26_left29 期待3 / stale残=$_t26_stale29 期待0): $_t26_out29"
+fi
+
+# TC-32: 経路1 — dry-run と実行の判定一致（乖離帯 base=3/stale=4 / R-303b）
+_t26_t32a=$(mktemp -d); register_cleanup "$_t26_t32a"
+_t26_t32b=$(mktemp -d); register_cleanup "$_t26_t32b"
+_t26_mk_refs_guard_sandbox "$_t26_t32a" 3 4 skill-A
+_t26_mk_refs_guard_sandbox "$_t26_t32b" 3 4 skill-A
+_t26_rc32a=0
+_t26_out32a=$(sh "$_t26_t32a/scripts/sync-plugin-plangate.sh" --dry-run 2>&1) || _t26_rc32a=$?
+_t26_left32a=$(_t26_count_files "$_t26_t32a/plugin/plangate/skills/skill-A/references")
+_t26_rc32b=0
+_t26_out32b=$(sh "$_t26_t32b/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc32b=$?
+_t26_left32b=$(_t26_count_files "$_t26_t32b/plugin/plangate/skills/skill-A/references")
+rm -rf "$_t26_t32a" "$_t26_t32b"
+_t26_fired32a=no; printf '%s' "$_t26_out32a" | grep -q 'safety guard' && _t26_fired32a=yes
+_t26_fired32b=no; printf '%s' "$_t26_out32b" | grep -q 'safety guard' && _t26_fired32b=yes
+if [ "$_t26_fired32a" = "yes" ] && [ "$_t26_fired32b" = "yes" ] \
+  && [ "$_t26_rc32a" -eq 0 ] && [ "$_t26_left32a" = "7" ] \
+  && ! printf '%s' "$_t26_out32a" | grep -q 'WOULD DELETE' \
+  && [ "$_t26_rc32b" -eq 3 ] && [ "$_t26_left32b" = "7" ]; then
+  t26_pass "TC-32 経路1: 乖離帯 base=3/stale=4 で dry-run と実行の guard 判定が一致"
+else
+  t26_fail "TC-32 失敗 (dry: fired=$_t26_fired32a rc=$_t26_rc32a left=$_t26_left32a 期待 yes/0/7 / run: fired=$_t26_fired32b rc=$_t26_rc32b left=$_t26_left32b 期待 yes/3/7)"
+fi
+
+# TC-34: 経路1 境界 — base = stale（同数）で guard 非発火（RV-M4 / M-6b 用 fixture）
+# stale > base が偽（3 > 3 不成立）なので削除実行が正しい。閾値を >= へ 1 段
+# ずらす変異（M-6b）はこの fixture でのみ検出できる（乖離帯は stale=base+1）。
+_t26_t34=$(mktemp -d); register_cleanup "$_t26_t34"
+_t26_mk_refs_guard_sandbox "$_t26_t34" 3 3 skill-A
+_t26_rc34=0
+_t26_out34=$(sh "$_t26_t34/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc34=$?
+_t26_left34=$(_t26_count_files "$_t26_t34/plugin/plangate/skills/skill-A/references")
+_t26_stale34=0
+for _t26_n34 in 1 2 3; do
+  [ -f "$_t26_t34/plugin/plangate/skills/skill-A/references/stale-$_t26_n34.md" ] \
+    && _t26_stale34=$((_t26_stale34 + 1))
+done
+_t26_kept34=0
+for _t26_n34 in 1 2 3; do
+  [ -f "$_t26_t34/plugin/plangate/skills/skill-A/references/ref-$_t26_n34.md" ] \
+    && _t26_kept34=$((_t26_kept34 + 1))
+done
+rm -rf "$_t26_t34"
+if [ "$_t26_rc34" -eq 0 ] && [ "$_t26_left34" = "3" ] \
+  && [ "$_t26_stale34" = "0" ] && [ "$_t26_kept34" = "3" ] \
+  && ! printf '%s' "$_t26_out34" | grep -q 'DELETE skipped'; then
+  t26_pass "TC-34 経路1 境界: base=3/stale=3（同数）で非発火・stale 3 件削除・src 一致 3 件保持"
+else
+  t26_fail "TC-34 失敗 (rc=$_t26_rc34 期待0 / left=$_t26_left34 期待3 / stale残=$_t26_stale34 期待0 / 保持=$_t26_kept34 期待3): $_t26_out34"
+fi
+
+# TC-30: tests/extras/README.md に harness 判別規約が存在（#914 AC-5 / 静的検査）
+_t26_readme30="$PG_T26_ROOT/tests/extras/README.md"
+if grep -q 'PG_HARNESS_SOURCED' "$_t26_readme30" 2>/dev/null \
+  && grep -q '非 export' "$_t26_readme30" \
+  && grep -q 'AND' "$_t26_readme30" \
+  && grep -q 'standalone 側（安全側）' "$_t26_readme30"; then
+  t26_pass "TC-30 README.md に判別規約（PG_HARNESS_SOURCED / 非 export / AND / standalone 側（安全側））"
+else
+  t26_fail "TC-30 README.md の判別規約が不足（PG_HARNESS_SOURCED / 非 export / AND / standalone 側（安全側） のいずれか欠落）"
+fi
+
+# TC-33: FIXTURES_DIR 単独判別の残存 0 + unset 集合の包含（#914 AC-9 / R-304 / R-306）
+# 「統一」は残存 0 という全体性質であり個別ファイルの置換完了とは別命題。
+# 件数（11 等）をハードコードしない grep ベース検査:
+#   (1) FIXTURES_DIR:- を含み PG_HARNESS_SOURCED を含まない extras = 0 件
+#   (2) run-tests.sh 冒頭の unset 集合 ⊆ FIXTURES_DIR 判別を持つ各 extras
+#       （ta-26 自身も対象）の standalone unset 集合
+_t26_viol33=""
+_t26_incl33=""
+# unset 行 → env 名列への正規化（リスト増減に自動追従・件数非依存）。
+# 先頭の unset と末尾の 2>/dev/null / || true をリダイレクト・演算子ごと落とす。
+# 注意: case の [A-Z]* でのトークン選別は locale collation 下で 'true' 等の
+# 小文字にもマッチし得るため使わない（実測で混入を確認済み）。
+# 行継続（末尾 `\`）は awk で先に 1 行へ結合してから走査する。旧実装は
+# `grep '^\s*unset '` を直接かけていたため、複数行に折られた unset の 2 行目
+# 以降が不可視になり（かつ末尾 `\` を env 名として収集し）false positive を
+# 出していた（#914 / PR #986 CI 実害。ta-60 が該当）。
+_t26_unset_envs33() {
+  awk '
+    { if (cont) { buf = buf " " $0 } else { buf = $0 } }
+    buf ~ /\\$/ { sub(/\\$/, "", buf); cont = 1; next }
+    { cont = 0; print buf }
+    END { if (cont) print buf }
+  ' "$1" 2>/dev/null \
+    | grep -E '^[[:space:]]*unset ' \
+    | sed -e 's/[[:space:]]*2>\/dev\/null.*$//' -e 's/[[:space:]]*||.*$//' \
+          -e 's/^[[:space:]]*unset[[:space:]]*//'
+}
+_t26_hset33=$(_t26_unset_envs33 "$PG_T26_ROOT/tests/run-tests.sh" | tr '\n' ' ')
+for _t26_f33 in "$PG_T26_ROOT/tests/extras/"ta-*.sh; do
+  [ -f "$_t26_f33" ] || continue
+  grep -q 'FIXTURES_DIR:-' "$_t26_f33" || continue
+  # (1) 単独判別の残存（ファイル単位: AND の相方シグナルが 1 度も現れない）
+  if ! grep -q 'PG_HARNESS_SOURCED' "$_t26_f33"; then
+    _t26_viol33="$_t26_viol33 ${_t26_f33##*/}"
+    continue
+  fi
+  # (2) unset 包含（当該ファイルの unset 行群から env 名を収集して照合）
+  _t26_fset33=$(_t26_unset_envs33 "$_t26_f33" | tr '\n' ' ')
+  for _t26_e33 in $_t26_hset33; do
+    case " $_t26_fset33 " in
+      *" $_t26_e33 "*) : ;;
+      *) _t26_incl33="$_t26_incl33 ${_t26_f33##*/}:$_t26_e33" ;;
+    esac
+  done
+done
+if [ -n "$_t26_hset33" ] && [ -z "$_t26_viol33" ] && [ -z "$_t26_incl33" ]; then
+  t26_pass "TC-33 FIXTURES_DIR 単独判別の残存 0 + standalone unset が run-tests.sh の unset 集合を包含"
+else
+  t26_fail "TC-33 失敗 (単独判別残存:${_t26_viol33:- なし} / unset欠落:${_t26_incl33:- なし} / harness集合:${_t26_hset33:- 空})"
 fi
 
 # 単体実行時のみ: cleanup drain + サマリ + exit code（source 時は run-tests.sh が担う）
