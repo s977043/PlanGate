@@ -1,0 +1,26 @@
+{
+  "boundary_check": "clean",
+  "class_check": "no-merge",
+  "decision": "HUMAN_ESCALATED",
+  "gates": {
+    "breakdown": "pass",
+    "c1": "NOT_EXECUTED"
+  },
+  "ho_paths_source": "/Users/user/Documents/GitHub/plangate/docs/ai/ai-loop/ho-paths.md",
+  "ho_pattern_count": 21,
+  "issued_by": "arbiter-v0.1",
+  "lite_check": true,
+  "policy_ref": "auto-approve-lite-clean@v4",
+  "run": {
+    "round_index": 1,
+    "run_id": "run-027",
+    "task_id": "TASK-0914"
+  },
+  "scope_check": "in_scope",
+  "target_sha": "a4414a9",
+  "timestamp": "2026-08-04T23:09:14Z",
+  "w_check": {
+    "model_a": "approve",
+    "model_b": "approve"
+  }
+}
