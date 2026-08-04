@@ -132,6 +132,26 @@ issue #873 の MERGE_READY 状態機械は c3-prime を**読み取り専用**で
 
 **trust boundary（R-018 / #887 F-4）**: arbiter provenance / c3-prime record の `decision` は「その入力に対する裁定」であり、record の実在 artifact への束縛（§4 の hash / source_sha / verdict 整合検証）を**受理側が再実行して初めて信頼できる**。#873 delivery.py および PR-2 受理側は decision 値を無検証で信頼してはならない（fail-closed 再検証が必須）。record が Plan-first 正規経路（`plan_package.py` 経由）で生成されたことの担保は本再検証 + §4 の全規則で構成する。
 
+### 7-1. #874（RunEvidence producer）への引き渡し
+
+issue #874 の RunEvidence producer（`scripts/ai-loop/run_evidence.py`）も c3-prime を**読み取り専用**で消費する。読むフィールドは #873 と**同一集合の 5 つ**: `task_id` / `decision` / `source_sha` / `plan_hash` / `plan_package_hash`。
+
+| 用途 | 読むフィールド |
+|------|--------------|
+| `task_dir` 束縛 | `task_id` |
+| `terminal_state` の供給元（`BLOCKED` / `HUMAN_ESCALATED`） | `decision` |
+| `EV.source_sha` / `EV.plan_hash` | `source_sha` / `plan_hash` |
+| `EV.c3_prime_decision_ref.plan_package_hash` | `plan_package_hash` |
+
+**trust boundary は #874 にも同一に適用する**（§7 の「`decision` 値を無検証で信頼してはならない」）。producer は `c3prime_verify.main()` を経由して §4 の全規則を再検証し、束縛不整合（hash / artifact / reviewer snapshot）は **fail-closed**（`EV` を発行しない）。
+
+> ⚠️ **`decision` 値だけは検証結果ではなく供給元として扱う**（[`run-evidence-contract.md`](./run-evidence-contract.md) §6-5）。
+> `c3prime_verify` の `rc == 0` は `decision == "AUTO_APPROVED"` を含意するため、`rc == 0` を文字どおり要求すると
+> `terminal_state` が `BLOCKED` / `HUMAN_ESCALATED` の `EV` を構造的に発行できない。
+> `decision` 値のみに起因する NG のときは、`c3prime_verify` が到達しなかった後段の束縛
+> （`source_sha` / `plan_hash` / `artifact_hashes` / `plan_package_hash` / reviewer snapshot）を
+> producer が `c3_contract` の**同一プリミティブを import して**再検証する。検証の総量は減らさない。
+
 ## 8. バージョニング
 
 本契約の破壊的変更（required 追加・型変更・§6 マッピング変更）は #872 / #873 / #874 の 3 issue 合意 + plan Replan を要する。additive な任意フィールド追加は本ファイルの改版のみでよい（`^_` 注釈キーは自由）。
