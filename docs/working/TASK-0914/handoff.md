@@ -29,7 +29,7 @@ v1_release: ""  # C-4 マージ後に commit SHA を記入
 
 ## 1. 要件適合確認結果
 
-exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-tester・2026-08-02 実施）**の結果。V-1 は status.md「T-09」節の V-1-A / V-1-B / V-1-B' / AC-9 スニペットの独立再実行 + test-cases.md 全件突合で判定した（独立再実行の実測: ta-26 standalone **30/0**・V-1-A/B/B' 各 **64 PASS / NG 0**・AC-9 **残存 0 / 包含 MISSING=0**・フルスイート **467/0**・rc すべて 0）。
+exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-tester・2026-08-02 実施）**の結果。V-1 は status.md「T-09」節の V-1-A / V-1-B / V-1-B' / AC-9 スニペットの独立再実行 + test-cases.md 全件突合で判定した（独立再実行の実測: ta-26 standalone **30/0**・V-1-A/B/B' 各 **64 PASS / NG 0**・AC-9 **残存 0 / 包含 MISSING=0**・フルスイート **467/0**・rc すべて 0。いずれも当時の基点 `f25ae8b` での実測値。**2026-08-05 の現基点 `be53897`+本コミットでの再実測は 538 passed / 0 failed**〔§2 鮮度〕）。
 
 | 受入基準 | exec 内判定 | V-1 独立検査 | 根拠 / evidence |
 |---------|------------|--------------|----------------|
@@ -38,10 +38,10 @@ exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-
 | AC-3: 各経路の負側 + 正常系 TC が ta-26 に存在（検出力実証込み） | PASS | PASS（TC 存在は 30/0 内・変異 M 系は evidence-based — WARN ②） | 負側 TC-20/21/22/26/27・正常系 TC-24/29・境界 TC-34・dry-run 一致 TC-25/32 追加。変異 8 件（M-1〜M-7 + M-6b）全てで期待 FAIL 実測・空振り fixture 0（status.md「T-06 変異注入マトリクス」+ `t06-m{1..7,6b}-*.log` 8 本） |
 | AC-4: `PLANGATE_ALLOW_MASS_DELETE=1` override が全経路一貫 | PASS | PASS（ta-26 standalone 30/0 再実行） | TC-23/28 PASS + 既存 TC-11/TC-15 PASS 維持。M-7（override 判定削除）で TC-23/28 + 既存 TC-11 が FAIL = 共通関数 1 箇所で全経路担保の裏付け（`t06-m7-override-removed.log`） |
 | AC-5: `tests/extras/README.md` に判別規約明記 | PASS | PASS（ta-26 30/0 内 TC-30） | 規約 8（AND 判別 / 非 export / standalone 側 = 安全側 / 7 env unset / TC-33 言及）追記 + 規約 7 末尾是正（RV-m3）。TC-30 PASS（`t08-ta26-all30-pass.log`） |
-| AC-6: 11 extras 移行後、フルスイート 0 failed + standalone 3 条件（①`[FAIL]` 不在 ②exit 0 ③`[PASS]` 件数 baseline 一致） | PASS | PASS（V-1-A 64 PASS / NG 0 + フルスイート 467/0・rc 0） | V-1-A: 64 PASS・NG 0・per-file baseline（T-01 表）全一致（`t09-v1a-clean.log`）。フルスイート **467 passed / 0 failed**（T-08 `t08-full-suite-467.log` / T-11 `t11-full-suite-clean.log`。todo 記載 444 は基点前進で 467 へ読み替え = status.md「計画からの変更点」） |
+| AC-6: 11 extras 移行後、フルスイート 0 failed + standalone 3 条件（①`[FAIL]` 不在 ②exit 0 ③`[PASS]` 件数 baseline 一致） | PASS | PASS（V-1-A 64 PASS / NG 0 + フルスイート 0 failed・rc 0） | V-1-A: 64 PASS・NG 0・per-file baseline（T-01 表）全一致（`t09-v1a-clean.log`）。フルスイート **467 passed / 0 failed**（基点 `f25ae8b`。T-08 `t08-full-suite-467.log` / T-11 `t11-full-suite-clean.log`。todo 記載 444 は基点前進で 467 へ読み替え = status.md「計画からの変更点」）。**2026-08-05 再実測（基点 `be53897`+本コミット）= 538 passed / 0 failed・rc 0**。総数は基点依存のため契約値にしない（AC の本体は「0 failed」） |
 | AC-7: 汚染 env 下でも AC-6 と同結果 | PASS | PASS（V-1-B / V-1-B' 各 64 PASS / NG 0・rc 0） | V-1-B（6 env + `FIXTURES_DIR` 注入）+ V-1-B'（`PG_HARNESS_SOURCED` 単独）とも 64 PASS・NG 0・baseline 一致（`t09-v1b-contaminated.log` / `t09-v1bprime-single.log`）。移行前 NG_TOTAL=8 → 移行後 0 の対比で検出力証明（`t01-ac7-contaminated-pre.log`） |
 | AC-8: exit code 伝播欠落の別 issue 起票 + 妥協点記録 | PASS | PASS（V-1-C 成果物確認。等価記述で実質充足 — WARN ①） | [#921](https://github.com/s977043/plangate/issues/921) 起票済（P1）+ W1/T-01 実測根拠を[コメント追記](https://github.com/s977043/PlanGate/issues/921#issuecomment-5155633541)（2026-08-02）。妥協点は本書 §4（R-309 の 2 点） |
-| AC-9: `FIXTURES_DIR` 単独判別の残存 0 + unset 集合の包含（件数ハードコードなし・ta-26 も対象） | PASS | PASS（独立再実行: 残存 0 / 包含 MISSING=0・rc 0） | TC-33 PASS + TC-33 と独立の grep -L / awk 実装で残存 0・harness 7 env 集合の包含成立（対象 12 ファイル。`t09-ac9-static.log`） |
+| AC-9: `FIXTURES_DIR` 単独判別の残存 0 + unset 集合の包含（件数ハードコードなし・ta-26 も対象） | PASS | PASS（独立再実行: 残存 0 / 包含 MISSING=0・rc 0） | TC-33 PASS + TC-33 と独立の grep -L / awk 実装で残存 0・harness 7 env 集合の包含成立（`t09-ac9-static.log`。対象は当時 12 ファイル → **2026-08-05 再実測で 15 ファイル・残存 0**。対象数は main 前進で増えるため契約値にしない） |
 | （不変条件）`sync_dir` 経路の挙動が共通関数化で不変 | PASS | PASS（ta-26 standalone 30/0 再実行） | 既存 TC-08〜TC-17 全 PASS 維持（T-02 チェックポイント 16/16 → 最終 30/30。`t11-ta26-standalone.log`） |
 
 **総合（exec 内）**: 9/9 AC PASS + 不変条件 PASS
@@ -56,16 +56,23 @@ exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-
 | extras standalone の exit code 伝播欠落（`fail > 0` でも exit 0。11 本に限らず extras 全般） | major | open（**#921** で追跡・本 PBI スコープ外 = 案 C） | Yes（#921 完了時に AC-6 判定を exit code ベースへ戻す） |
 | 全変異で TC-13 が副次 FAIL する連鎖構造（TC-13 は子プロセスで ta-26 を再帰実行するため、他 TC の FAIL が必ず伝播する — W3/T-06 観察） | minor | accepted（構造どおりの挙動。単独原因の特定は「期待 FAIL TC」列で行う運用） | No |
 | test-cases.md V-1-B' スニペットの env 引数順が BSD/GNU env 仕様（オプションは NAME=VALUE より前）に反し rc=127 で実行不可 | minor | workaround（status.md「計画からの変更点」の読み替え `env -u FIXTURES_DIR PG_HARNESS_SOURCED=1 sh "$f" </dev/null` で運用。C-3 承認後の plan 変更禁止のため原本未修正） | Yes |
-| フルスイート総数の期待値が環境依存（ベースが 452/453/454 と振れる既知事象 #947・#942。worktree で ta-13 TC-17 が素通り / トピックブランチで ta-57 TC-14 が実行される） | minor | open（#947 / #942 で追跡。本 exec は worktree + トピックブランチで一貫して 453 ベース + 14 = 467/0 を実測） | No |
+| フルスイート総数の期待値が環境依存（ベースが 452/453/454 と振れる既知事象 #947・#942。worktree で ta-13 TC-17 が素通り / トピックブランチで ta-57 TC-14 が実行される） | minor | open（#947 / #942 で追跡。本 exec は worktree + トピックブランチで一貫して 453 ベース + 14 = 467/0 を実測。2026-08-05 の基点更新後は 538/0。**総数を期待値として固定せず「0 failed」で判定する**運用へ是正済み — §2 鮮度） | No |
 | `bin/plangate doctor --check-settings` が worktree 内で構造的 FAIL（gitignored `.claude/settings.json` が worktree に複製されない） | minor | accepted（**Human 待ちは 2026-08-04 に解消**: main checkout で `sh scripts/apply-claude-settings.sh` 適用後に PASS / rc=0 を実測 → AI が独立再実行で確認 → V-1 は PASS 確定・handoff final 化済み。ただし「worktree 内では構造的に FAIL する」という制約自体は仕様どおり残存し、doctor の実測は常に main checkout 側で行う必要がある） | No |
 | 経路1 の stale 集計が dst 側 symlink を `[ -L ]` で除外する一方、削除ループは除外せず非対称（River Review F-1・test-cases E-7 の残穴が実測再現で確定） | minor | open（**#970** で起票済み・follow-up。C-3 plan_hash 束縛下の設計残穴のため本 PBI では変更しない。現リポジトリの該当 references/ に symlink 0 件で顕在化しない） | Yes（#970 で追跡） |
 | `tests/extras/ta-54-ai-loop-link-selfcontained.sh` L43/L63 の `\|\| true` がスクリプト失敗を握りつぶす構造 | minor | accepted（**指示による仕様判断の記録**: ta-54 は #914 の対象 11 本〔ta-39/43/44/45/46/47/49/50/51/52/53〕に含まれず、#947 が追跡する既知の別件。本 PBI では変更しない） | No |
 | guard の発火境界: `stale > base` のみ発火し、`stale == base`（== src）は非発火（正当な全量入れ替え同期を許容） | info | accepted（**仕様として意図した境界**。境界は TC-34 で固定し、`>=` への変異 M-6b が TC-34 で検出されることを実証済み） | No |
 | 経路2 base 算出の未 quote `set --` が pathname 展開に晒される（River Review F-5） | info | accepted（対処不要判定: 対象が repo 管理下 docs ファイル名のため実害窓は無視できる） | No |
+| **経路2 の guard は少数側正本ディレクトリの完全欠損を検出しない**（base が `docs/workflows/ai-loop/` と `docs/ai/ai-loop/` の**合算**であるため、少数側 `docs/ai/ai-loop/` を丸ごと消しても `stale <= base` のままとなり WARN なし・exit 0 で削除が通る。逆向き〔多数側 `docs/workflows/ai-loop/` の欠損〕は正しく block する — sandbox 実測で双方向を確認） | minor | accepted（**実装バグではなく plan 論点 C-2 で Human 承認済みの設計選択**。ディレクトリ単位の完全欠損を検出するには正本ごとに base を分離する必要があり、本 PBI のスコープ外。`scripts/sync-plugin-plangate.sh` の該当コメントを保証範囲どおりに是正済み。follow-up issue **[#991](https://github.com/s977043/PlanGate/issues/991)** 起票済み） | Yes（#991 で追跡） |
 
 **Critical 課題の対応**: critical なし。
 
-**鮮度（River Review F-4 更新・2026-08-04 再確認）**: main 前進（`f25ae8b` → `7bf5f5c`・変更 65 ファイル）とブランチ接触 48 ファイルの交差 **0** を再実測済み（直近の前進 = #972 dependabot workflows bump + #971 TASK-0874 plan。クリーンマージ見込み維持。マージ後のフルスイート総数は main 側変動により 467 から変わりうる）。
+**鮮度（River Review F-4 更新・2026-08-05 是正）**: 従来この節は「main 前進との接触ファイル交差 0」を V-1 PASS の鮮度根拠にしていたが、**この根拠付けは誤りだったため撤回する**。
+
+- **全体量化子を含む AC の鮮度は接触ファイル交差では担保できない。base 更新のたびに機械ゲートを再実行して判定する必要がある。** AC-9（「`FIXTURES_DIR` 単独判別の残存 **0**」「unset 集合の**包含**」）はリポジトリ全体に対する不変条件であり、ブランチが触っていないファイルでも main 側が `tests/extras/` に 1 本追加するだけで破れる。交差 0 が意味するのは「テキスト衝突が起きない」ことだけで、「全体不変条件が保たれている」ことではない。
+- **実害として顕在化**: main に `ta-58-git-destructive-guard.sh`（`c25c022` / #967）と `ta-59-apply-settings-merge.sh`（`a667c0d` / #976）が入った結果、交差 0 のまま AC-9 が破れ、PR #986 の CI 2 failed（ta-26 の TC-33 / TC-13）となった。ta-58 は真の未移行（AND 判別・7 env unset・standalone fallback 欠落）、ta-60 側の検出は TC-33 パーサが行継続 `\` を読めないことによる false positive で、両方を本コミットで是正した。
+- **是正後の運用**: 鮮度判定は接触ファイル交差ではなく、**base 更新のたびに `sh tests/run-tests.sh`（AC-6/7）と AC-9 静的検査スニペットを再実行し、その実測 rc / 件数で行う**。
+
+**再実行の実測（2026-08-05・本コミット tree）**: フルスイート **538 passed / 0 failed**・rc=0（TC-13 / TC-33 を含む全 PASS）。AC-9 静的検査 = 検査対象 **15 ファイル**（`FIXTURES_DIR:-` を含む extras 全件）・単独判別残存 **0**。件数は基点により増えるため契約値として固定しない（検査自体は件数非依存）。
 
 ## 3. V2 候補
 
@@ -91,7 +98,7 @@ exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-
 
 前段の #877（v8.18.0）で `sync_dir` 経路に入った mass-delete guard（fail-closed / exit 3 / `PLANGATE_ALLOW_MASS_DELETE` override）を、`scripts/sync-plugin-plangate.sh` に残っていた 2 つの削除経路 — 経路1（汎用 skill references）/ 経路2（ai-loop references）— へ共通関数 `_mass_delete_blocked()` として拡張した。あわせて R-204（外部 env 漏れによる誤判定）対策として、`tests/extras/` 11 本の harness 判別を `FIXTURES_DIR` 単独から **`PG_HARNESS_SOURCED` AND `FIXTURES_DIR`** へ統一し、standalone 分岐で 7 env を unset（片方欠けは standalone 側 = 安全側へ倒す）。
 
-検証は新規 14 TC（ta-26 は 16 → 30 TC）+ **変異注入 8 件全てで期待 FAIL を実測**（空振り fixture なし）+ AC-6/7/9 の 3 独立ループ機械検証（64 PASS × 3・baseline 全一致）+ フルスイート **467 passed / 0 failed**。現状: **exec 完了・V-1 PASS 確定（2026-08-04 に残条件の doctor PASS が充足。実施時点〔2026-08-02〕は条件付き PASS）・PR 未作成**。
+検証は新規 14 TC（ta-26 は 16 → 30 TC）+ **変異注入 8 件全てで期待 FAIL を実測**（空振り fixture なし）+ AC-6/7/9 の 3 独立ループ機械検証（64 PASS × 3・baseline 全一致）+ フルスイート **538 passed / 0 failed**（2026-08-05・基点 `be53897`+本コミット。exec 当時の基点 `f25ae8b` では 467/0）。現状: **exec 完了・V-1 PASS 確定（2026-08-04 に残条件の doctor PASS が充足。実施時点〔2026-08-02〕は条件付き PASS）・PR 未作成**。
 
 ### c3.json の顛末（承認トークンの保全記録）
 
@@ -100,7 +107,7 @@ exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-
 ### 触れないでほしいファイル
 
 - `scripts/sync-plugin-plangate.sh` の guard 3 箇所と閾値 `stale > base`: M-3（+100）/ M-6b（`>=`）で境界の両側を変異検証済み。閾値・呼び出し位置を動かすと 14 TC + 変異マトリクスの均衡が崩れる
-- `tests/extras/ta-*.sh` の判別式（AND 化済み 12 ファイル）: TC-33 + AC-9 独立検査が静的に守っている。`FIXTURES_DIR` 単独判別へ戻すと即 FAIL する（意図された防御）
+- `tests/extras/ta-*.sh` の判別式（AND 化済み **15 ファイル**・2026-08-05 実測。exec 当時は 12 ファイル）: TC-33 + AC-9 独立検査が静的に守っている。`FIXTURES_DIR` 単独判別へ戻すと即 FAIL する（意図された防御）
 - `docs/working/TASK-0914/plan.md`: C-3 APPROVED の plan_hash 束縛下。編集すると EH-3 が mismatch 検知する
 - `docs/working/TASK-0914/decision-log.jsonl`: append-only（既存行の編集・削除禁止）
 
@@ -122,7 +129,10 @@ exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-
 |---------|------|------|-----------|----------|
 | ta-26 standalone（guard TC: 既存 16 + 新規 14） | 30 | 30 | 0 | — |
 | 移行 11 本 standalone（V-1-A / V-1-B / V-1-B' の 3 独立ループ） | 64 × 3 | 192 | 0 | — |
-| フルスイート `sh tests/run-tests.sh`（T-11 / clean env） | 467 | 467 | 0 | — |
+| フルスイート `sh tests/run-tests.sh`（T-11 / clean env・基点 `f25ae8b`） | 467 | 467 | 0 | — |
+| フルスイート `sh tests/run-tests.sh`（2026-08-05 再実測 / clean env・基点 `be53897`+本コミット） | 0 failed | 538 | 0 | 総数は基点依存のため契約値にしない |
+| `bash tests/extras/ta-58-git-destructive-guard.sh` standalone（2026-08-05） | 0 failed + サマリ/exit code 出力 | 40 | 0 | rc=0。変異注入時は 39/1・**rc=1**（修正前の HEAD 版は同じ変異で 1 FAIL でも rc=0 の素通り）を対比実測 |
+| `bash tests/extras/ta-26-plugin-sync.sh` standalone（2026-08-05） | 0 failed | 30 | 0 | rc=0。修正前の HEAD 版は TC-33 が ta-60 の行継続 `unset` を読めず false positive で 29/1 |
 | 変異注入（M-1〜M-7 + M-6b） | 8 変異 | 8/8 で期待 FAIL 実証 | 空振り 0 | — |
 | 静的検査（TC-30 / TC-33 + AC-9 独立実装） | 3 検査 | 3 | 0 | — |
 
