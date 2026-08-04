@@ -693,8 +693,18 @@ _t26_incl33=""
 # 先頭の unset と末尾の 2>/dev/null / || true をリダイレクト・演算子ごと落とす。
 # 注意: case の [A-Z]* でのトークン選別は locale collation 下で 'true' 等の
 # 小文字にもマッチし得るため使わない（実測で混入を確認済み）。
+# 行継続（末尾 `\`）は awk で先に 1 行へ結合してから走査する。旧実装は
+# `grep '^\s*unset '` を直接かけていたため、複数行に折られた unset の 2 行目
+# 以降が不可視になり（かつ末尾 `\` を env 名として収集し）false positive を
+# 出していた（#914 / PR #986 CI 実害。ta-60 が該当）。
 _t26_unset_envs33() {
-  grep -E '^[[:space:]]*unset ' "$1" 2>/dev/null \
+  awk '
+    { if (cont) { buf = buf " " $0 } else { buf = $0 } }
+    buf ~ /\\$/ { sub(/\\$/, "", buf); cont = 1; next }
+    { cont = 0; print buf }
+    END { if (cont) print buf }
+  ' "$1" 2>/dev/null \
+    | grep -E '^[[:space:]]*unset ' \
     | sed -e 's/[[:space:]]*2>\/dev\/null.*$//' -e 's/[[:space:]]*||.*$//' \
           -e 's/^[[:space:]]*unset[[:space:]]*//'
 }

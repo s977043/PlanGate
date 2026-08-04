@@ -36,12 +36,28 @@
 printf '\n=== TA-58: EH-12 git destructive guard (protected branch) ===\n'
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
+  _T58_STANDALONE=0
   _T58_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
 else
   # standalone 実行: 外部 env 汚染を無害化（tests/extras/README.md 規約 8。
   # unset 集合は run-tests.sh 冒頭と同一の 7 env — TASK-0914 論点 F）
+  _T58_STANDALONE=1
   unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
   _T58_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+  # t58_pass / t58_fail は harness の $pass / $fail を直接インクリメントする。
+  # standalone ではカウンタも register_cleanup も未定義のため自前で用意し、
+  # 末尾でサマリと exit code を出す（無いと FAIL があっても exit 0 で素通り）。
+  pass=0
+  fail=0
+  _T58_CLEANUP_PATHS=""
+  register_cleanup() {
+    for _pg_cp in "$@"; do
+      if [ -n "$_pg_cp" ]; then
+        _T58_CLEANUP_PATHS="${_T58_CLEANUP_PATHS}${_pg_cp}
+"
+      fi
+    done
+  }
 fi
 _T58_SRC="$_T58_ROOT/scripts/check-git-destructive.sh"
 _T58_APPLY="$_T58_ROOT/scripts/apply-eh-git-destructive-guard.sh"
@@ -354,4 +370,14 @@ else
   else
     t58_pass "TC-14: sandbox 明示 cleanup 完了"
   fi
+fi
+
+# standalone 実行時は自前 cleanup を drain して結果を出力
+if [ "$_T58_STANDALONE" -eq 1 ]; then
+  printf '%s' "$_T58_CLEANUP_PATHS" | while IFS= read -r _pg_cp; do
+    [ -n "$_pg_cp" ] || continue
+    rm -rf "$_pg_cp" 2>/dev/null || true
+  done
+  printf '\nResults: %d passed, %d failed\n' "$pass" "$fail"
+  [ "$fail" -eq 0 ] || exit 1
 fi
