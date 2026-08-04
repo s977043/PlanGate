@@ -1,7 +1,7 @@
 # TASK-0914 作業ステータス
 
-> 最終更新: 2026-08-02 14:50
-> 現在フェーズ: exec 完了・V-1 待ち
+> 最終更新: 2026-08-04 09:55
+> 現在フェーズ: V-1 条件付き PASS・handoff 内容確定済み（残条件 = doctor --check-settings PASS の Human 実測 → final 化 → PR 作成）
 > モード: high-risk
 
 ## フェーズ履歴
@@ -29,6 +29,10 @@
 | 2026-08-02 14:30 | T-11 完了 🚩 | 回帰フルテスト（clean env + `</dev/null`）**467 passed / 0 failed・rc=0**（= 453 + 新規 14。worktree + トピックブランチの期待値どおり: ta-13 TC-17 の worktree 素通り #947 と ta-57 TC-14 のトピックブランチ実行 +1 が相殺）+ `sh -n scripts/sync-plugin-plangate.sh` rc=0 + ta-26 standalone **30 passed / 0 failed・rc=0**。`bin/plangate doctor --check-settings` は worktree 内 **FAIL**（gitignored `.claude/settings.json` が worktree に複製されない構造要因。main checkout には 2026-07-23 適用の settings.json 実在を確認 = Shadow Config ではなく worktree 制約）→ **Human 待ち事項: V-1 前に main checkout で PASS 実測**。evidence: `t11-full-suite-clean.log` / `t11-ta26-standalone.log` |
 | 2026-08-02 14:45 | T-10 完了 + handoff 起草 | `handoff.md` 起草（必須 6 要素 + **R-309 妥協点 2 点**〔①同一 11 ファイルを本 PBI と #921 で 2 回触る代償 ②AC-6 代理判定が #921 完了まで恒久化 → V2 候補 High「exit code ベースへ戻す」を明記〕+ **V-1 結果欄はプレースホルダ**・frontmatter `status: draft` = V-1 PASS 後に final 化）→ AC-8 成果物確定・T-10 完了。INDEX.md / current-state.md を「exec 完了・V-1 待ち」へ更新 |
 | 2026-08-02 14:50 | L-0 相当 完了 | 本ブランチ変更 `.md` 6 本（status / todo / INDEX / current-state / handoff / tests/extras/README）へ `npx markdownlint-cli2` → 検出 8 件（handoff MD018 ×1 = 起草分の行頭 `#877` 見出し誤認 / README MD031 ×6 + MD012 ×1 = うち 2 件は W2 追記ブロック・5 件は main 既存）を**全て修正**（抑制なし・whitespace のみ・内容不変）→ 再実行 **0 issues**。README は TC-30/TC-13 の検査対象のため ta-26 standalone を再実測 **30/0** + 最終 tree でフルスイート再実測 **467 passed / 0 failed**（テストした tree = 出荷 tree を保証。PASS のため evidence 省略・ta-26 の evidence ログは再実行で更新） |
+| 2026-08-02 15:26 | #970 起票（PR 前 River Review F-1） | branch diff への PR 前 River Review 指摘 F-1（経路1 stale 集計が dst 側 symlink を除外し削除ループと非対称・実測再現付き）を **#970** として起票（bug / priority:P2）。C-3 plan_hash 束縛下の設計残穴（test-cases E-7 の残穴確定）のため follow-up 化。現リポジトリの該当 references/ に symlink 0 件で顕在化しない |
+| 2026-08-04 09:34 | 再開: F-2 解消 | Human 発行済み c3.json（2026-08-02T03:37:59Z・CLI）を並行セッションの `git stash push -u` 退避から `stash@{0}^3` 非破壊抽出し、コミット `fb443e8` で tracked 化（River Review F-2 解消。教訓: 承認トークンは発行直後に tracked 化） |
+| 2026-08-04 09:48 | freshness 再確認（F-4） | main 前進 `f25ae8b` → `7bf5f5c` の変更 65 ファイルとブランチ接触 48 ファイルの交差 **0** を再実測（直近前進 = #972 dependabot workflows bump + #971 TASK-0874 plan。クリーンマージ見込み維持。マージ後のフルスイート総数は main 側変動で 467 から変わりうる） |
+| 2026-08-04 09:55 | handoff 内容確定 | §1 に V-1 独立検査（acceptance-tester・2026-08-02 実施）の結果を転記し確定: **総合 条件付き PASS**（条件 = doctor --check-settings PASS 待ちのみ・テストケース側 FAIL 0・AC-1〜9 全 PASS・WARN 2 件〔V-1-C 字句は等価記述で充足 / 変異 M 系は evidence-based〕）。§2 に River Review disposition（#970 / ta-54 `\|\| true` 対象外判断 / `stale == base` 境界仕様 / F-5 対処不要 / F-4 鮮度）、§5 に c3.json 顛末 + 残る完了条件を追記。`status: draft` は doctor 待ちのため維持 |
 
 ## 全体構成（PR 一覧）
 
@@ -262,11 +266,11 @@ if [ "$fail" = "0" ]; then echo "AC-9: PASS"; else echo "AC-9: FAIL"; exit 1; fi
 | ステップ | 結果 |
 |---------|------|
 | L-0 | ✅ markdownlint-cli2 **0 issues**（変更 .md 6 本・違反 8 件を修正で解消・2026-08-02 14:50） |
-| V-1 | ⬜ 待ち（acceptance-tester 独立検査。handoff §1 の V-1 欄を確定 → `status: final` 化） |
+| V-1 | ✅ 条件付き PASS（acceptance-tester 独立検査 2026-08-02。テストケース側 FAIL 0・WARN 2。残条件 = doctor --check-settings PASS の Human 実測のみ → 充足後に handoff `status: final` 化。結果は handoff §1 に転記済み 2026-08-04） |
 | V-2 | ⬜（high-risk のため必須） |
 | V-3 | ⬜（high-risk のため必須） |
 | V-4 | —（critical のみ・対象外） |
 
 ## 次の作業（Claude Code プロンプト）
 
-TASK-0914 は exec 完了（T-01〜T-11 全完了・handoff 起草済み〔draft〕・フルスイート 467/0）。次は **V-1 受け入れ検査**: acceptance-tester が `docs/working/TASK-0914/test-cases.md` を全件突合し、本 status.md「T-09」節の V-1-A / V-1-B / V-1-B' / AC-9 スニペット（コピペで自己判定つき）を再実行する。**全ループ `sh "$f" </dev/null` 必須**（ta-50 が無限ハング = RV-M1）・cwd は repo root。判定は実行結果のみ（推測禁止）。V-1 PASS 後に `handoff.md` §1 の V-1 欄を確定し frontmatter を `status: final` へ。**Human 待ち**: main checkout での `bin/plangate doctor --check-settings` PASS 実測（worktree は構造的 FAIL = T-11 行参照）。その後 V-2 / V-3 → PR 作成 → C-4。
+TASK-0914 は exec 完了 + **V-1 条件付き PASS**（acceptance-tester 独立検査 2026-08-02・テストケース側 FAIL 0・WARN 2）+ **handoff 内容確定済み**（2026-08-04。`status: draft` のまま）。残るのは: ① **Human**: `sh scripts/apply-claude-settings.sh` 実行 → main checkout で `bin/plangate doctor --check-settings` PASS 実測（worktree は構造的 FAIL = T-11 行参照） → ② doctor PASS を確認後、`docs/working/TASK-0914/handoff.md` の frontmatter を `status: final` へ更新（本文は確定済み・他の変更不要） → ③ V-2 / V-3（high-risk のため必須） → ④ PR 作成 → C-4。ブランチは `fix/914-mass-delete-guard`（main との交差 0 = 2026-08-04 再確認済み）。
