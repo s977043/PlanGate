@@ -95,7 +95,7 @@
 > `approvals/c3.json` は未 commit の承認記録なので `git add -A` を使わず名指し add する。
 > `scripts/ai-loop/*.py` / `docs/workflows/ai-loop/*.md` を変更したら **sync 再実行が必須**。
 > 検証は `python3 scripts/ai-loop/test_run_evidence.py`（**89 tests**）/
-> `test_run_evidence_verify.py`（**51 tests**）/ `sh tests/run-tests.sh </dev/null`（**RUNEV_TOTAL passed / 0 failed**）。
+> `test_run_evidence_verify.py`（**51 tests**）/ `sh tests/run-tests.sh </dev/null`（**523 passed / 0 failed**）。
 > ⚠️ `sh tests/run-tests.sh` は **未 commit の `docs/workflows/ai-loop/*.md` があると `TA-54 TC-05` が FAIL する**
 > （同 TC は `git status --porcelain -- docs/workflows/ai-loop` の空を要求する）。**commit 後に測定すること**。
 

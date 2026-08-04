@@ -215,7 +215,25 @@
 
 ## 6. テスト結果サマリ
 
-**測定時点**: code HEAD = `52bd791`（R2 反映）。`docs/working/TASK-0874/*.md` のみ未 commit の状態で測定。
+**測定時点（R1 反映後・再測定）**: code HEAD = `e2a196a`（R1 反映 commit）。
+**`docs/working/TASK-0874/*.md` を含め全変更を commit した状態**で測定した。
+⚠️ **`docs/workflows/ai-loop/*.md` を未 commit のまま `sh tests/run-tests.sh` を回すと
+`TA-54 TC-05` が FAIL する**（同 TC は `git status --porcelain -- docs/workflows/ai-loop` の
+空を要求する）。R1 反映途中の実測で 1 度踏んだため明記する。
+
+| コマンド | 結果（exit code） |
+|---------|------------------|
+| `python3 scripts/ai-loop/test_run_evidence.py` | **89 tests / OK（exit 0）**（R1 で +9） |
+| `python3 scripts/ai-loop/test_run_evidence_verify.py` | **51 tests / OK（exit 0）**（R1 で +19） |
+| `sh tests/run-tests.sh </dev/null` | **523 passed / 0 failed（exit 0）** |
+| `sh tests/extras/ta-60-run-evidence.sh` 相当（suite 内） | **pass=9 / fail=0** |
+| `python3 scripts/ai-loop/check_exec_boundary.py` | **clean（30 ファイル / 違反 0）（exit 0）** |
+| `npx markdownlint-cli2 <変更 md 6 本>` | **0 issues（exit 0）** |
+| 不変 7 ファイル + `ai-loop-runs/` + `tests/run-tests.sh` の `git diff --stat origin/main...HEAD` | **0 行** |
+| `git diff --quiet -- plugin/plangate/` | **clean**（R1 反映後に sync 再実行済み・schema を新規同梱） |
+| 変異注入 11 件（C-1 / C-2 / C-3 / M-1 / M-2 / M-3 ×2 / M-5 / m-1 / m-5） | **全件 KILLED** |
+
+### 旧測定（R2 反映時点 `52bd791`・参考）
 
 | コマンド | 結果（exit code） |
 |---------|------------------|
