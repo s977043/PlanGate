@@ -258,7 +258,7 @@
 > 部分状態を表現できない）、rollback も**タスク単位でない**戻し手順になっていた。critical の failure_policy「責務混在は FAIL」に直接該当するため、
 > **独立に検証可能な 4 タスク（T-38 〜 T-41）へ分割**した。
 
-- [ ] 🚩 T-38: **敵対レビュー R1**（複数エージェント・観点: fail-open していないか / `unavailable` と `0`・空配列の混同 / privacy 迂回路 / 下流語彙の乖離）を実施し、**検出された critical / major の全件に「是正 commit」または「却下理由」を 1:1 で対応付ける**。完了判定: R1 レポートが `docs/working/TASK-0874/evidence/` に存在し、**未対応の critical / major が 0 件** [Owner: agent] [depends_on: T-37] [files: docs/working/TASK-0874/evidence/] rollback: R1 起因の是正 commit を `git revert`（push 前なら `git restore`）
+- [x] 🚩 T-38: **敵対レビュー R1**（複数エージェント・観点: fail-open していないか / `unavailable` と `0`・空配列の混同 / privacy 迂回路 / 下流語彙の乖離）を実施し、**検出された critical / major の全件に「是正 commit」または「却下理由」を 1:1 で対応付ける**。完了判定: R1 レポートが `docs/working/TASK-0874/evidence/` に存在し、**未対応の critical / major が 0 件** [Owner: agent] [depends_on: T-37] [files: docs/working/TASK-0874/evidence/] rollback: R1 起因の是正 commit を `git revert`（push 前なら `git restore`）
 
 > **T-38 / T-39 の状態（R2 反映ワーカーによる追記）**: 敵対レビュー R1 / R2 は**統合担当が実施済み**で、
 > R2 の major 5 件 / minor 4 件は本ブランチに反映済み（下記 T-40 完了記録の disposition 表）。
@@ -277,7 +277,7 @@
 > **`.github/workflows/*.yml` が Hardening Override 対象 = Human-owned** のため本 PBI では実施せず
 > **K-12** として handoff の既知課題に記載した（`schemas/` 昇格で自動解消しうる）。
 
-- [ ] 🚩 T-39: **敵対レビュー R2**（R1 是正後の深掘り。**契約層は 1 ラウンドでは表層しか出ない** — #889 / TASK-0917 の教訓）を実施し **critical・major ゼロ収束**まで回す。完了判定: R2 レポートが存在し、**最終ラウンドの critical = 0 かつ major = 0** [Owner: agent] [depends_on: T-38] [files: docs/working/TASK-0874/evidence/] rollback: R2 起因の是正 commit を `git revert`（push 前なら `git restore`）
+- [x] 🚩 T-39: **敵対レビュー R2**（R1 是正後の深掘り。**契約層は 1 ラウンドでは表層しか出ない** — #889 / TASK-0917 の教訓）を実施し **critical・major ゼロ収束**まで回す。完了判定: R2 レポートが存在し、**最終ラウンドの critical = 0 かつ major = 0** [Owner: agent] [depends_on: T-38] [files: docs/working/TASK-0874/evidence/] rollback: R2 起因の是正 commit を `git revert`（push 前なら `git restore`）
 - [x] 🚩 T-40: **全 TC の機械実行 + 不変対象の差分 0 確認**。①`test-cases.md` の **65 TC を全件機械実行**して PASS（**未実行 / SKIP 0 件**。SKIP は環境依存を理由に許容しない）②`git diff --stat origin/main -- scripts/ai-loop/delivery.py scripts/ai-loop/c3_contract.py scripts/ai-loop/c3prime_verify.py scripts/ai-loop/arbiter.py scripts/ai-loop/metrics.py docs/working/ai-loop-runs/ tests/run-tests.sh` が **0 行**。⚠️ **T-24（EH-8 実走）の完了も本タスクの前提**（依存に明示） [Owner: agent] [depends_on: T-39, T-24] [files: -] rollback:不要
 - [x] 🚩 T-41: **完了処理** — コミット整理（1 コミット 1 種類・`Refs:` 付き。**`docs/working/_audit/` への hook 由来追記（`skip-decision-log.jsonl` 等）は本 branch に含めず別 PR に分離**）+ `status.md` / `current-state.md` / `handoff.md` を更新し、**AC↔fixture 対応表**（AC-16 が要求）と V2 候補（`harness_version` 構造検証 TC / `cost_metrics` 収集経路 / schema・fixture の plugin 配布 / U-10 が allowlist 採用に決まった場合の fixture 期待値差し戻し）を記録。完了判定: handoff の**必須 6 要素がすべて非空** [Owner: agent] [depends_on: T-40] [files: docs/working/TASK-0874/] rollback: `git restore -- docs/working/TASK-0874/`
 
