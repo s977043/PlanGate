@@ -1,0 +1,45 @@
+{
+  "candidate": {
+    "baseline_version": {
+      "cli_version": "0.2.0",
+      "corpus_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "plugin_version": "8.18.0"
+    },
+    "blocked_by": [],
+    "canary_scope": "canary:scope-a",
+    "candidate_id": "sha256:96ed24169eed5a17f5a1b9652555cfb7d20fda995ceddb33cc9d299e6f7c7690",
+    "cause_hypothesis": [],
+    "observed_pattern": [
+      "terminal_state=MERGE_READY; repair_rounds=0",
+      "terminal_state=MERGE_READY; repair_rounds=1",
+      "terminal_state=MERGE_READY; repair_rounds=1; unknown_record_kinds=notice"
+    ],
+    "rollback_count": 1,
+    "source_run_ids": [
+      "run-01",
+      "run-02",
+      "run-03"
+    ],
+    "status": "rolled_back"
+  },
+  "provenance": {
+    "blocked_by": [],
+    "canary_scope": "unavailable",
+    "candidate_id": "sha256:96ed24169eed5a17f5a1b9652555cfb7d20fda995ceddb33cc9d299e6f7c7690",
+    "decision": "approve",
+    "evidence_count": 3,
+    "improvement_refs": [
+      {
+        "kind": "pr",
+        "ref": "940"
+      }
+    ],
+    "promoted_to": null,
+    "rollback_count": 1,
+    "source_run_ids": [
+      "run-01",
+      "run-02",
+      "run-03"
+    ]
+  }
+}
