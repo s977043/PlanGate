@@ -694,5 +694,124 @@ class AcceptanceRoundTripTests(unittest.TestCase):
                 self.assertIn(f, verr, f"stderr に {f} が列挙されない: {verr}")
 
 
+class LegacyClassificationTests(unittest.TestCase):
+    """T-19 / AC-15 legacy 4 分類（TC-42 / TC-43 / TC-44 / TC-45 / TC-54）。"""
+
+    RUNS = REPO / "docs" / "working" / "ai-loop-runs"
+
+    @staticmethod
+    def _classify(runs_dir):
+        import run_evidence
+        return run_evidence.classify_records(runs_dir)
+
+    @staticmethod
+    def _write(runs_dir, name, payload):
+        path = pathlib.Path(runs_dir) / name
+        if isinstance(payload, str):
+            path.write_text(payload, encoding="utf-8")
+        else:
+            path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+
+    def test_tc42_real_corpus_matches_metrics_py(self):
+        # TC-42: 実データ 28 件で metrics.py --format json の現行出力と一致。
+        # metrics.py は import せず（不変対象への依存を増やさない）別実装の
+        # 同値性を subprocess の実出力で確認する。
+        cp = subprocess.run([sys.executable, str(HERE / "metrics.py"),
+                             "--format", "json"], capture_output=True, text=True)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        expected = json.loads(cp.stdout)
+        got = self._classify(self.RUNS)
+        for key in ("legacy_count", "invalid_run_meta_count", "run_count",
+                    "skipped_count", "total_records"):
+            self.assertEqual(got[key], expected[key], f"{key} が metrics.py と不一致")
+        self.assertEqual(got["legacy_count"], 25)
+        self.assertEqual(got["run_count"], 3)
+        self.assertEqual(got["invalid_run_meta_count"], 0)
+        self.assertEqual(got["skipped_count"], 0)
+
+    def test_tc43_identity_holds_and_is_not_vacuous(self):
+        # TC-43: total_records == legacy + invalid_meta + run。
+        # 右辺と同じ式で左辺を作ると恒等式が空振りするため、loaded_records を
+        # 「ファイルから読めた record 数」として独立に数えて突き合わせる。
+        got = self._classify(self.RUNS)
+        self.assertEqual(
+            got["total_records"],
+            len(got["legacy_records"]) + len(got["invalid_meta_records"])
+            + len(got["run_records"]))
+        self.assertEqual(got["loaded_records"],
+                         got["total_records"] + got["round_index_skipped"])
+        self.assertEqual(got["loaded_records"], 28)
+
+    def test_tc54_run_count_is_distinct_run_ids_not_record_count(self):
+        # TC-54: 1 run に 2 record を持つ合成入力で run_count と len(run_records)
+        # が別物であることを固定する（実データ 28 件では偶然一致し検出できない）。
+        with tempfile.TemporaryDirectory() as tmp:
+            for i in (1, 2):
+                self._write(tmp, f"r{i}.json", {
+                    "decision": "AUTO_APPROVED",
+                    "run": {"run_id": "same-run", "round_index": i}})
+            got = self._classify(tmp)
+            self.assertEqual(len(got["run_records"]), 2)
+            self.assertEqual(got["run_count"], 1)
+            self.assertNotEqual(got["run_count"], len(got["run_records"]))
+            self.assertEqual(got["total_records"],
+                             len(got["legacy_records"])
+                             + len(got["invalid_meta_records"])
+                             + len(got["run_records"]))
+
+    def test_tc44_broken_inputs_are_skipped_with_a_reason(self):
+        # TC-44: 破損 JSON / 非 dict / decision 欠落 / 不正 round_index。
+        # いずれも例外で落ちず理由文字列付きで skipped に入る（fail-silent 禁止）。
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "a-broken.json", "{not json")
+            self._write(tmp, "b-nonobject.json", [1, 2])
+            self._write(tmp, "c-nodecision.json", {"issued_by": "x"})
+            self._write(tmp, "d-badround.json", {
+                "decision": "AUTO_APPROVED",
+                "run": {"run_id": "r", "round_index": "1"}})
+            got = self._classify(tmp)
+            self.assertEqual(got["skipped_count"], 4, got["skipped"])
+            for item in got["skipped"]:
+                self.assertTrue(item["reason"], f"理由が空: {item}")
+                self.assertFalse(item["file"].startswith("/"),
+                                 f"skipped.file が絶対パス: {item['file']}")
+                self.assertNotIn("/Users/", item["file"])
+
+    def test_tc44_legacy_and_invalid_meta_are_separated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "a-legacy.json", {"decision": "AUTO_APPROVED"})
+            self._write(tmp, "b-invalid.json",
+                        {"decision": "AUTO_APPROVED", "run": {"run_id": ""}})
+            self._write(tmp, "c-run.json", {
+                "decision": "AUTO_APPROVED",
+                "run": {"run_id": "r1", "round_index": 1}})
+            got = self._classify(tmp)
+            self.assertEqual(got["legacy_count"], 1)
+            self.assertEqual(got["invalid_run_meta_count"], 1)
+            self.assertEqual(got["run_count"], 1)
+
+    def test_tc45_existing_arbiter_records_are_untouched(self):
+        # TC-45: RunEvidence は arbiter record の後継ではなく上位 artifact。
+        # 分類・生成を実行しても既存 28 件を 1 バイトも変更しない。
+        self._classify(self.RUNS)
+        cp = subprocess.run(["git", "status", "--porcelain", "--",
+                             "docs/working/ai-loop-runs/"],
+                            cwd=str(REPO), capture_output=True, text=True)
+        self.assertEqual(cp.returncode, 0, cp.stderr)
+        self.assertEqual(cp.stdout.strip(), "",
+                         f"ai-loop-runs/ に差分が出ている: {cp.stdout}")
+
+    def test_classifier_does_not_import_metrics(self):
+        # metrics.py は不変対象。依存を増やさず導出規則のみ転写する。
+        import ast
+        src = PRODUCER.read_text(encoding="utf-8")
+        for node in ast.walk(ast.parse(src)):
+            if isinstance(node, ast.Import):
+                for a in node.names:
+                    self.assertNotEqual(a.name, "metrics")
+            if isinstance(node, ast.ImportFrom):
+                self.assertNotEqual(node.module, "metrics")
+
+
 if __name__ == "__main__":
     unittest.main()

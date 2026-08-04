@@ -311,6 +311,93 @@ def load_arbiter_records(runs_dir, errors) -> list:
 
 
 # ---------------------------------------------------------------------------
+# legacy 互換（AC-15）
+# ---------------------------------------------------------------------------
+
+def _has_valid_run_id(run_meta) -> bool:
+    """run メタが非空文字列の run_id を持つか（metrics.py の同名判定の転写）。"""
+    if not isinstance(run_meta, dict):
+        return False
+    run_id = run_meta.get("run_id")
+    return isinstance(run_id, str) and bool(run_id.strip())
+
+
+def _has_valid_round_index(run_meta) -> bool:
+    """round_index が欠落 or 厳密な int か（bool は int のサブクラスだが不正）。"""
+    if "round_index" not in run_meta:
+        return True
+    return type(run_meta["round_index"]) is int
+
+
+def classify_records(runs_dir) -> dict:
+    """arbiter record を legacy / invalid run meta / run record / skipped に分類する。
+
+    metrics.py の `_load_records()` + `collect()` の分類ロジックを**転写**する
+    （`metrics.py` は不変対象のため import しない = 依存を増やさない）。
+
+    - `total_records`: metrics.py と同じ定義（3 分類の合計）。同値性の照合に使う
+    - `loaded_records`: ファイルから読めた record 数の**独立カウント**。
+      これが無いと `total_records` の恒等式が右辺と同式になり空振りする
+    - `skipped[].file`: **repo 相対パスへ正規化**する（metrics.py の `skipped` は
+      絶対パスになりうるが、キー名が `file` のため EH-8 では捕捉されない）
+    """
+    path = pathlib.Path(runs_dir)
+    loaded = []
+    skipped = []
+    for f in sorted(path.glob("*.json")):
+        rel = _rel_to_repo(f)
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            skipped.append({"file": rel, "reason": f"JSON parse error: {exc}"})
+            continue
+        if not isinstance(data, dict):
+            skipped.append({"file": rel,
+                            "reason": "top-level JSON value is not an object"})
+            continue
+        if "decision" not in data:
+            skipped.append({"file": rel,
+                            "reason": "missing required key 'decision'"})
+            continue
+        loaded.append((rel, data))
+
+    legacy_records, invalid_meta_records, run_records = [], [], []
+    round_index_skipped = 0
+    for rel, record in loaded:
+        if "run" not in record:
+            legacy_records.append(record)
+            continue
+        if not _has_valid_run_id(record.get("run")):
+            invalid_meta_records.append(record)
+            continue
+        if not _has_valid_round_index(record["run"]):
+            bad = record["run"]["round_index"]
+            skipped.append({
+                "file": rel,
+                "reason": (f"invalid round_index type: {type(bad).__name__} "
+                           f"({bad!r}) — int のみ許容")})
+            round_index_skipped += 1
+            continue
+        run_records.append(record)
+
+    run_ids = {r["run"]["run_id"] for r in run_records}
+    return {
+        "total_records": (len(legacy_records) + len(invalid_meta_records)
+                          + len(run_records)),
+        "loaded_records": len(loaded),
+        "round_index_skipped": round_index_skipped,
+        "legacy_count": len(legacy_records),
+        "invalid_run_meta_count": len(invalid_meta_records),
+        "run_count": len(run_ids),
+        "skipped_count": len(skipped),
+        "legacy_records": legacy_records,
+        "invalid_meta_records": invalid_meta_records,
+        "run_records": run_records,
+        "skipped": skipped,
+    }
+
+
+# ---------------------------------------------------------------------------
 # 派生（delivery 層 / c3-prime 層 → RunEvidence）
 # ---------------------------------------------------------------------------
 
