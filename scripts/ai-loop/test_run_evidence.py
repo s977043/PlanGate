@@ -544,6 +544,46 @@ class DeterminismCorpusTests(unittest.TestCase):
             self.assertEqual(before, after,
                              "corpus の増減で EV が変わる（AC-2 / 決定論違反）")
 
+    def test_adding_an_account_bearing_record_does_not_change_the_output(self):
+        # R1 major M-1: TC-60 の record は ACCOUNT_KEYS を 1 つも持たないため、
+        # 「corpus 汚染は quality_metrics だけの問題」に見えていた。実際は
+        # scan_input_privacy が runs_dir 配下を**全件走査**しており、無関係な run の
+        # record が `owner` / `login` 等を 1 つ持つだけで escalation が伸び、
+        # 同一入力・同一注入値の EV の byte が変わる（AC-2 決定論の破れ）。
+        # ⇒ 走査を当該 run の record に絞ることを byte 一致で固定する。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp)
+            rc1, before, err1 = _produce(task_dir, runs_dir)
+            self.assertEqual(rc1, 0, err1)
+            for i, key in enumerate(("owner", "login", "github_user", "author")):
+                (runs_dir / f"zzz-other-{i}.json").write_text(json.dumps({
+                    "decision": "AUTO_APPROVED", "issued_by": "arbiter-v0.1",
+                    "policy_ref": "p@v4", "target_sha": SRC, "timestamp": NOW,
+                    key: "someone-else",
+                    "run": {"run_id": f"other-run-{i}", "round_index": 1},
+                }, sort_keys=True), encoding="utf-8")
+            rc2, after, err2 = _produce(task_dir, runs_dir)
+            self.assertEqual(rc2, 0, err2)
+            self.assertEqual(before, after,
+                             "別 run の record 追加で EV が変わる（AC-2 / M-1）")
+            self.assertNotIn(b"arbiter-record", after,
+                             "別 run 由来の privacy escalation が載っている")
+
+    def test_account_keys_in_the_same_run_record_are_still_escalated(self):
+        # M-1 の絞り込みが「検出そのものを消す」是正になっていないこと。
+        # **当該 run** の arbiter record に account キーがあれば従来どおり記録する。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp)
+            (runs_dir / "this-run.json").write_text(json.dumps({
+                "decision": "AUTO_APPROVED", "issued_by": "arbiter-v0.1",
+                "policy_ref": "p@v4", "target_sha": SRC, "timestamp": NOW,
+                "owner": "someone",
+                "run": {"run_id": RUN_ID, "round_index": 1},
+            }, sort_keys=True), encoding="utf-8")
+            ev = _ev(self, task_dir, runs_dir)
+            details = {e["detail"] for e in ev["escalation"]}
+            self.assertIn("arbiter-record: owner", details, ev["escalation"])
+
     def test_tc60_quality_metrics_has_no_corpus_aggregate(self):
         with tempfile.TemporaryDirectory() as tmp:
             task_dir, runs_dir, _rec = _setup(tmp)
@@ -622,6 +662,54 @@ class C3PrimeReverificationTests(unittest.TestCase):
             self.assertTrue(calls, "c3prime_verify.main() が呼ばれていない")
             self.assertIn(str(task_dir), calls[0])
             self.assertIs(run_evidence.delivery.c3prime_verify, c3prime_verify)
+
+    def test_recheck_bindings_covers_verdict_vocabulary(self):
+        # R1 major M-2: c3_contract.check_snapshot_trio() の docstring 自身が
+        # 「本関数が検査しないもの（呼び出し側残置）: verdict 語彙 /
+        # evidence_ref 独立性」と明示している。decision-only NG 経路
+        # （BLOCKED / HUMAN_ESCALATED）では c3prime_verify がそこへ到達しないため、
+        # producer が引き継がないと検証の総量が減る（契約 §6-5 違反）。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp, decision="BLOCKED",
+                                              with_record=False)
+            self._tamper_reviewer(task_dir, "model_a", "verdict", "banana")
+            rc, _out, err = _produce(task_dir, runs_dir)
+            self.assertNotEqual(rc, 0, "allowlist 外の verdict が素通りした")
+            self.assertIn("verdict", err)
+
+    def test_recheck_bindings_covers_reviewer_independence(self):
+        # M-2 の 2 件目: model_a / model_b の evidence_ref が同一 =
+        # 独立 2 者レビューの偽装（c3prime_verify.py L160 の後段検証）。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp, decision="HUMAN_ESCALATED",
+                                              merge_ready=False,
+                                              last_state="HUMAN_ESCALATED")
+            path = task_dir / "approvals" / "c3.json"
+            data = json.loads(path.read_text(encoding="utf-8"))
+            shared = data["reviewers"]["model_a"]["evidence_ref"]
+            data["reviewers"]["model_b"]["evidence_ref"] = shared
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2,
+                                       sort_keys=True) + "\n", encoding="utf-8")
+            rc, _out, err = _produce(task_dir, runs_dir)
+            self.assertNotEqual(rc, 0, "独立性偽装が素通りした")
+            self.assertIn("evidence_ref", err)
+
+    @staticmethod
+    def _tamper_reviewer(task_dir, model, key, value):
+        path = task_dir / "approvals" / "c3.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["reviewers"][model][key] = value
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2,
+                                   sort_keys=True) + "\n", encoding="utf-8")
+
+    def test_auto_approved_path_still_rejects_bad_verdict(self):
+        # AUTO_APPROVED 経路は c3prime_verify が rc=1 を返すため従来どおり
+        # fail-closed（M-2 の是正が decision-only 経路だけの話であることを固定）。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp)
+            self._tamper_reviewer(task_dir, "model_b", "verdict", "banana")
+            rc, _out, err = _produce(task_dir, runs_dir)
+            self.assertNotEqual(rc, 0, err)
 
     def test_legacy_c3_json_does_not_emit_evidence(self):
         # legacy（approval_kind 無し）の c3.json からは EV を発行しない。
@@ -859,6 +947,31 @@ class PrivacyTests(unittest.TestCase):
                                 f"{label} を検出できていない")
         self.assertEqual(run_evidence.check_output_privacy(
             {"observation": "terminal_state=MERGE_READY"}), [])
+
+    def test_output_privacy_backstop_is_wired_into_build(self):
+        # ⚠️ R1 critical C-2: 上の test は **関数の検出力しか固定していない**。
+        # build() の唯一の call site（errors.extend(check_output_privacy(record))）を
+        # 削除しても全 test が緑になる = 配線が 1 行も守られていない（空振り fixture
+        # と同型）。end-to-end で「backstop が返した理由が build() の拒否理由に
+        # 現れる」ことを固定し、変異注入（call site 削除）で kill されるようにする。
+        import unittest.mock
+
+        import run_evidence
+        sentinel = "SENTINEL-privacy-backstop"
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp)
+            opts = run_evidence._parse_kv(_args(task_dir, runs_dir)[1:])
+            # 正常系（patch なし）は成功することを先に確認する
+            # （patch 後の失敗が「元から失敗」でないことの担保）。
+            run_evidence.build(task_dir, opts)
+            with unittest.mock.patch.object(run_evidence, "check_output_privacy",
+                                            return_value=[sentinel]) as spy:
+                with self.assertRaises(run_evidence.RunEvidenceError) as cm:
+                    run_evidence.build(task_dir, opts)
+            self.assertTrue(spy.called,
+                            "build() が check_output_privacy() を呼んでいない")
+            self.assertIn(sentinel, cm.exception.errors,
+                          f"backstop の理由が拒否理由に現れない: {cm.exception.errors}")
 
     def test_tc63_producer_opens_only_the_allowlisted_sources(self):
         # TC-63: producer 実行中に open される全パスが task_dir / runs_dir 配下
@@ -1214,6 +1327,51 @@ class PromotionProvenanceAdapterTests(unittest.TestCase):
     def test_explicit_empty_blocked_by_proceeds(self):
         got = self._provenance(self._candidate(blocked_by=[]))
         self.assertEqual(got["decision"], "approve")
+
+    def test_falsy_non_list_blocked_by_is_blocked(self):
+        # ⚠️ R1 critical C-3: `"blocked_by" not in candidate or bool(blocked_by)` は
+        # **キーが存在する falsy 値**（None / "" / 0 / {} / ()）を「解決済み」と
+        # 解釈して fail-open する。docstring は「非 BLOCKED と解釈するのは明示的に
+        # [] を注入した場合のみ」と宣言しており実装と矛盾していた。
+        # 実測（是正前）: null / "" / 0 / {} のいずれも decision=PROMOTED かつ
+        # blocked_by='unavailable' — 「promotion 承認済み」と「阻害要因は取得不能」を
+        # 同時に主張する出力が出ていた。null は JSON 往復で最も出やすい値。
+        for label, value in (("null", None), ("empty_str", ""), ("zero", 0),
+                             ("empty_dict", {}), ("empty_tuple", ()),
+                             ("false", False), ("nonempty_str", "issue-866"),
+                             ("nonempty_dict", {"a": 1})):
+            with self.subTest(blocked_by=label):
+                got = self._provenance(self._candidate(blocked_by=value),
+                                       decision="PROMOTED")
+                self.assertEqual(
+                    got["decision"], "BLOCKED",
+                    f"blocked_by={value!r} が非 BLOCKED に倒れた（fail-open）")
+                self.assertIsNone(got["promoted_to"])
+                # 「promotion 承認済み」と「阻害要因は取得不能」を同時に主張しない
+                self.assertNotEqual(
+                    (got["decision"], got["blocked_by"]), ("PROMOTED", "unavailable"))
+
+    def test_blocked_by_list_is_carried_through_verbatim(self):
+        # 明示 [] / 明示非空 list はいずれも list として運ぶ（unavailable にしない）。
+        import run_evidence
+        self.assertEqual(self._provenance(self._candidate(blocked_by=[]))["blocked_by"],
+                         [])
+        got = run_evidence.to_promotion_provenance(
+            self._candidate(blocked_by=["issue-866"]), "PROMOTED")
+        self.assertEqual(got["blocked_by"], ["issue-866"])
+
+    def test_rollback_count_non_numeric_is_a_run_evidence_error(self):
+        # R1 minor m-5: 他の拒否理由は RunEvidenceError に集約されているのに
+        # int() の ValueError だけが素通りしていた。0 に丸めない（fail-closed）。
+        import run_evidence
+        for bad in ("x", None, 1.5, [], True):
+            with self.subTest(rollback_count=bad):
+                with self.assertRaises(run_evidence.RunEvidenceError):
+                    run_evidence.apply_canary_rollback(
+                        {"rollback_count": bad}, {"result": "failed"})
+        ok = run_evidence.apply_canary_rollback(
+            {"rollback_count": 2}, {"result": "failed"})
+        self.assertEqual(ok["rollback_count"], 3)
 
     def test_tc37_no_issue_number_is_hardcoded(self):
         src = PRODUCER.read_text(encoding="utf-8")

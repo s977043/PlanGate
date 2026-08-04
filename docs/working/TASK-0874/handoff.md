@@ -13,18 +13,18 @@
 | AC | 内容 | 判定 | 根拠 |
 |----|------|------|------|
 | AC-1 | RunEvidence schema と versioning policy | **PASS** | `docs/schemas/run-evidence.schema.json`（draft 2020-12・`required` 21）+ 契約 §9。TC-01 〜 TC-05 / TC-61 / TC-62 |
-| AC-2 | 同一入力から同一 EV を再生成できる | **PASS** | TC-10 / TC-11 / TC-12 / TC-60。fixture 10 件の byte 一致（TC-48） |
+| AC-2 | 同一入力から同一 EV を再生成できる | **PASS（R1 M-1 是正後に再測定）** | TC-10 / TC-11 / TC-12 / TC-60。fixture 10 件の byte 一致（TC-48）。⚠️ **R1 で一度破れていた**: `scan_input_privacy` が `runs_dir` を全件走査していたため、無関係な run の record が `owner` / `login` 等を 1 つ持つだけで `escalation` が伸び byte が変わった（実測再現）。走査を当該 `run_id` に絞って是正し、`test_adding_an_account_bearing_record_does_not_change_the_output` で成長耐性を実証（変異注入で kill 確認済み） |
 | AC-3 | plan hash / C-3' / head SHA / CI / review / routing / terminal state の結合 | **PASS（routing はキー存在と run 束縛のみ・値の結合は #868 実装後）** | TC-13 〜 TC-16 / TC-50 / TC-57 〜 TC-59 / TC-64。⚠️ TC-50 は `routing_decisions == "unavailable"` と同一 `EV` 内の run 束縛までで、**routing の値が同一 run に結合されることは Phase 1 では検証していない**（供給元 #868 が OPEN）。→ K-3 |
-| AC-4 | missing / partial / tampered を ready 扱いしない | **PASS** | 受理器 exit 0/1/10/11。TC-06 〜 TC-09 / TC-32 / TC-52 / TC-53 / TC-56 |
+| AC-4 | missing / partial / tampered を ready 扱いしない | **PASS（R1 C-1 / M-3 / M-5 / m-1 是正後に再測定）** | 受理器 exit 0/1/2/10/11。TC-06 〜 TC-09 / TC-32 / TC-52 / TC-53 / TC-56 + `RederivationTests` / `SchemaStructuralValidationTests` / `NestedUnavailableTests`。⚠️ **R1 で 4 クラスの改竄が exit 0 で通っていた**: (1) `terminal_state` を一切検証していなかった（`WAITING_FOR_CHECKS` が complete で通過）/ (2) `ci_outcomes` / `review_findings` / `quality_metrics` を再導出していなかった / (3) schema の `type` / `enum` / `pattern` / `minLength` がどの層からも強制されていなかった / (4) `unavailable` の走査が深さ 1 の dict までで入れ子を見逃した。いずれも受理器が再導出 + subset validator で強制するよう是正（変異注入で個別に kill 確認済み） |
 | AC-5 | observation と cause_hypothesis の分離 | **PASS** | TC-17 / TC-18（producer は推定を自動生成しない） |
-| AC-6 | hidden CoT / raw transcript / secret を要求も保存もしない | **PASS** | TC-19 〜 TC-21 / TC-51 / TC-63 / TC-65 + EH-8 実走（TC-22） |
+| AC-6 | hidden CoT / raw transcript / secret を要求も保存もしない | **PASS（R1 C-2 是正後に再測定）** | TC-19 〜 TC-21 / TC-51 / TC-63 / TC-65 + EH-8 実走（TC-22）+ `test_output_privacy_backstop_is_wired_into_build` / `VerifierPrivacyBackstopTests`。⚠️ **R1 で 2 点が破れていた**: (1) 出力側 backstop の test が**関数の検出力しか固定しておらず配線を 1 行も守っていなかった**（`build()` の call site を削除しても全 test が緑 = 空振り fixture と同型）→ `unittest.mock.patch` で end-to-end 配線を固定し、**実際に call site を削除して FAIL することを確認**（`mutate2.log`）/ (2) 受理器に backstop が無く、producer を通さない EV（owner 付き `repository` / 絶対パス `evidence_refs` / `escalation[].detail` / `@handle` 入り `observation`）が**いずれも exit 0** で通過 → `check_output_privacy()` を受理器から import して同一検査を実施 |
 | AC-7 | #869 が RunEvidence のみから candidate を生成できる | **PASS（契約層のみ）** | TC-23 / TC-24 / TC-33。**実フロー検証は #869 実装後** |
 | AC-8 | candidate が source_run_ids と baseline version を保持 | **PASS** | TC-25 / TC-26 |
 | AC-9 | improvement TASK が通常ゲートを通る | **PASS（記述子レベル）** | TC-27。実フローは #869 実装後 |
 | AC-10 | paired replay / grader / activation check / rollback | **PASS（キー存在レベル）** | TC-34 / TC-35。独立 grader も activation check も本 PBI では実装しない |
 | AC-11 | promotion decision と改善 PR/commit の追跡 | **PASS** | TC-28 / TC-29（PR 番号 + commit SHA へ還元し双方向に辿れる） |
 | AC-12 | active run 中に harness version が変化しない | **PASS** | TC-30 / TC-31（3 値すべての drift で fail-closed）+ **未検査（`--harness-version-end` 未注入）を `escalation.harness_drift_unchecked` に記録し受理器が partial 理由に列挙**（契約 §4-1・R2 MJ-3 反映。追加 4 テスト） |
-| AC-13 | 未解決の正本へ自動 promotion しない fail-closed | **PASS** | TC-36 / TC-37 / TC-55（キー未注入も BLOCKED） |
+| AC-13 | 未解決の正本へ自動 promotion しない fail-closed | **PASS（R1 C-3 是正後に再測定）** | TC-36 / TC-37 / TC-55（キー未注入も BLOCKED）+ `test_falsy_non_list_blocked_by_is_blocked`。⚠️ **R1 で破れていた**: 判定が `"blocked_by" not in candidate or bool(blocked_by)` だったため **`null` / `""` / `0` / `{}` が非 BLOCKED に倒れ**、`decision=PROMOTED` と `blocked_by='unavailable'`（取得不能）を**同時に主張する**出力が出ていた（実測再現。`null` は JSON 往復で最も出やすい値）。`isinstance(x, list)` へ是正し 8 値を parametrized で固定 |
 | AC-14 | c3-prime-contract §7 追記 + §4 全規則の再検証 | **PASS** | TC-38 〜 TC-41。§7 以外の節が不変であることを機械照合 |
 | AC-15 | legacy record の migration / compatibility | **PASS** | TC-42 〜 TC-45 / TC-54（実データ〔T-2 時点 28 件〕で `metrics.py` と同値。**件数の絶対値は assert しない** — corpus 成長で無関係な PR の CI が赤くなるため / R2 MJ-5） |
 | AC-16 | 10 fixture が ta-60 で CI 実行され対応表が残る | **PASS** | TC-46 〜 TC-49 + 下記 §5 の対応表 |
@@ -67,6 +67,8 @@
 | K-9 | **TC-46 / TC-49 に機械 assert が無い**（65 TC 中 2 件） | 「65 TC 全件機械実行」と報告すると虚偽になる | **手動確認**として §5-bis に実行コマンドと実測結果を記録した。機械化は見送り（TC-49 は `git diff origin/main` 依存で、shallow clone の CI では `origin/main` が無く**新たな CI 時限爆弾**になるため — R2 MJ-5 と同じ失敗クラス） |
 | K-10 | `tests/extras/ta-60-run-evidence.sh` の**失敗経路**が `set -eu` 下で harness ごと落ちていた（`"…（exit $_t60_rc）"` が全角括弧を変数名に取り込み unbound variable になる） | テストが 1 件でも FAIL すると **`tests/run-tests.sh` 全体が中断**し、原因が「unbound variable」としか出ない | 本ワーカーが `${_t60_rc}` へ brace 化して修正（4 箇所）。`PLANGATE_PYTHON=false` で全失敗経路を実走させ `exit 1` が正しく出ることを確認済み |
 | K-11 | 同型の `$var` + 全角文字パターンが `scripts/apply-ui-v1-crossref.sh` / `scripts/check-git-destructive.sh` に各 1 件残存 | 当該スクリプトが `set -u` 下で失敗経路に入った場合に同じ事故が起きうる | **本 PBI の scope 外**（報告のみ）。別 PBI で横断是正する |
+| K-12 | **`schema-validate.yml` が `docs/schemas/**` を trigger paths に含まない**（R1 M-5 の②）。`run-evidence.schema.json` 自体の JSON Schema 妥当性は CI で検証されない | schema 側の記述ミス（無効な `$ref`・typo した keyword 等）を CI が検出しない。**受理器の subset validator は「解釈できないキーワードを fail-closed」にするため EV 側は守られる**が、schema の自己健全性は守られない | **別 PBI で対応**（`.github/workflows/*.yml` は Hardening Override 対象 = Human-owned のため AI が編集できない）。①`docs/schemas/**/*.json` を trigger paths に追加、または ② `schemas/` 昇格（V2 候補・T-44 の予約起票）で自動解消する。**②で解消するなら K-12 は独立起票不要**。契約 §10-3 に 3 層の状態表を記載済み |
+| K-13 | 受理器の schema 強制は **本 repo が実際に使う JSON Schema subset のみ**（`type` / `enum` / `const` / `pattern` / `minLength` / `minimum` / `required` / `properties` / `additionalProperties` / `patternProperties` / `items` / `anyOf` / 局所 `$ref`） | schema に未対応キーワード（`oneOf` / `allOf` / `multipleOf` / `dependentRequired` 等）を足すと受理器が **fail-closed で全 EV を reject** する | 意図的な設計（黙って無視すると「検査した」と「検査できていない」が区別できない）。schema を拡張するときは受理器の `_SUPPORTED_KEYWORDS` を同時に更新する。`test_unsupported_schema_keyword_is_fail_closed` が挙動を固定している |
 
 ## 3. V2 候補（今回の scope 外）
 
@@ -80,6 +82,8 @@
 - **TC-46 / TC-49 の機械化**（`origin/main` に依存しない形での代替検証。K-9）
 - `escalation` の「検査未実行」kind の拡張（現状 `harness_drift_unchecked` の 1 種のみ。他の検査も未実行を残す形へ揃えるか）
 - `$var` + 全角文字の unbound variable パターンの横断是正（K-11）
+- `run_evidence.py` への `--expected-sha` 追加（R1 m-4。**信頼済み実行層が解決した値のみ**を受け付ける契約を先に決める必要がある）
+- 受理器の subset validator を jsonschema へ置換（`schemas/` 昇格で CI が jsonschema を持つようになった時点。K-13 の保守コストが消える）
 
 ## 4. 妥協点（採用しなかった選択肢と理由）
 
@@ -316,3 +320,25 @@ AC-12 の drift 未検査は `escalation.harness_drift_unchecked` に残り、�
 
 ⚠️ `scripts/ai-loop/*.py` または `docs/workflows/ai-loop/*.md` を更に変更した場合は
 **`sh scripts/sync-plugin-plangate.sh` の再実行が必須**（CI `sync-plugin-plangate.yml` が drift を検出する）。
+
+### 敵対レビュー R1 の反映結果（本セッション・critical 3 / major 5 / minor 5）
+
+> R1 は「exec + R2 反映まで完了」の状態に対する再レビューであり、**R2 では出ていない
+> 深い層の欠陥**（受理器の再導出範囲・変異注入の空振り・型判定の fail-open）を検出した。
+> 是正は **すべて変異注入で kill を実証**している（`検証コマンドと結果` を参照）。
+
+| ID | 指摘 | disposition |
+|----|------|------------|
+| **C-1** | 受理器が `terminal_state` を一切検証していない（schema の `enum` がどの層からも強制されず、`WAITING_FOR_CHECKS` の EV が exit 0） | **reflected** — `_terminal_state_problems()` で §4 マッピングにより再導出照合。語彙 allowlist だけでは 3 値の中での入れ替えを検出できないため、`c3.json.decision` + `record.jsonl` からの**再導出値との一致**まで要求する |
+| **C-2** | 変異注入 M21 の kill が空振り（backstop の**配線**を 1 行も守っていない）+ 受理器に privacy backstop が無い | **reflected** — `unittest.mock.patch` で `build()` 経由の end-to-end 配線を固定し、**実際に call site を削除して FAIL することを確認**。受理器は `check_output_privacy()` を import して同一検査を実施（R1 の 4 プローブすべてが exit 1 になることを実測） |
+| **C-3** | `to_promotion_provenance` の AC-13 fail-closed が `null` / `""` / `0` / `{}` で破れる（docstring と実装の矛盾・同一関数内の非対称） | **reflected** — `not isinstance(blocked_by, list) or bool(blocked_by)` へ是正。8 値を parametrized で固定 |
+| **M-1** | AC-2 決定論の破れ（無関係 run の record 1 件で EV の byte が変わる） | **reflected** — `records_for_run()` で当該 `run_id` に絞る。**別 run の record を 4 件足しても byte 不変**であることをテストで実証（絞り込みが検出の放棄でないことも対で固定） |
+| **M-2** | `_recheck_bindings` が `verdict` 語彙 / `evidence_ref` 独立性の 2 件を落としている（契約 §6-5「検証の総量も減らさない」違反） | **reflected** — `c3_contract.VALID_VERDICTS` を使って追加（`c3prime_verify` から転写しない）。`c3_contract.check_snapshot_trio` の docstring が「呼び出し側残置」と明示している 2 件と一致 |
+| **M-3** | 受理器が `ci_outcomes` / `review_findings` / `quality_metrics` を再導出しない | **reflected** — producer の純関数（`derive_delivery_fields` / `derive_quality_metrics`）を import して照合（追加 I/O ゼロ・再実装ゼロ） |
+| **M-4** | plugin 同梱の受理器が起動不能（schema 未同梱で**常に exit 1**・stderr に絶対パス） | **reflected** — `SCHEMA_CANDIDATES` に bundled レイアウト（`<skill>/schemas/`）のフォールバックを追加、sync 対象に schema を追加、**schema 読み込み失敗を exit 2（起動不能）へ分離**。⚠️ ta-60 ⑤ の drift 検査は `.py` のみを対象にするため、schema は既存の for ループ / case 文とは**別ブロック**で同期する |
+| **M-5** | schema の `type` / `enum` / `pattern` / `minLength` が 3 層すべてで強制されない | **partially reflected** — ① 受理器に subset validator を実装して**強制**（jsonschema 依存なし。jsonschema 導入環境では golden 6 件 + 変異 6 件で参照実装と同判定であることを照合）。② `schema-validate.yml` の trigger paths 追加は **`.github/workflows/*.yml` が Hardening Override 対象（Human-owned）のため本 PBI では実施しない** → **K-12**（契約 §10-3 に 3 層の状態表を明記）|
+| m-1 | `_unavailable_paths` が深さ 1 の dict までしか降りない | **reflected** — `run_evidence._walk` を再利用して list 内・任意深さまで全数列挙 |
+| m-2 | `classify_records` が `build()` から呼ばれない dead code | **rejected（設計として意図的）** — 本関数の戻り値は `runs_dir` **全件**の corpus 集計値であり、`build()` に配線すると契約 §3-3 が明示的に禁じる corpus 汚染（TC-60 が検出する AC-2 違反）になる。AC-15 は「EV に載せる」ではなく「`metrics.py` と同値かつ既存 record を 1 バイトも変更しない」ことで満たす。**docstring に「検証用の公開 API であり producer 本体には接続しない」ことと理由を明記**して誤読を塞いだ |
+| m-3 | `c3-prime-contract.md` §7-1 の「読むフィールドは 5 つ」が実装と不一致（正本の事実誤り） | **reflected** — 「`EV` へ**値を運ぶ**フィールドは 5 つ」と「**読む**フィールドはそれに閉じない」を分離し、`artifact_hashes` / `reviewers` / record 全体の privacy 走査を表に追加 |
+| m-4 | `verify_c3_prime` が `expected_sha` なしで `delivery.verify_c3` を呼ぶことがコードにも契約にも未明示 | **reflected（判断は維持・明示化）** — producer は純判定器（外部プロセスを呼ばない）であり `expected_sha` の解決には `git rev-parse` 相当が要る。注入値にすると生成側の自己申告になり trust boundary に反する。**docstring と c3-prime-contract §7-1 に理由を明記**し、`--expected-sha` 追加は V2 候補へ |
+| m-5 | `int(candidate.get("rollback_count", 0))` が非数値で `ValueError` | **reflected** — `RunEvidenceError` に集約（0 に丸めない）。`bool` も除外（`True` は `int` のサブクラス） |

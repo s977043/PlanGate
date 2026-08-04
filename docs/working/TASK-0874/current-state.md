@@ -2,13 +2,21 @@
 
 - **フェーズ**: exec 完了（**T-1 〜 T-41**）→ 残りは T-42 〜 T-44（issue 反映・予約起票）と PR / C-4
 - **branch**: `feat/task-0874-exec`（worktree `plangate-wt-0874exec`・base `origin/main` = `a667c0d`）
-- **code HEAD**: `52bd791`（R2 敵対レビューの major 2 件 = MJ-3 / MJ-5 を反映）
+- **code HEAD**: `RUNEV_HEAD`（**敵対レビュー R1 の critical 3 / major 5 / minor 5 を反映**。
+  その前が `52bd791` = R2 の MJ-3 / MJ-5 反映）
 - **Mode**: critical（C-3 APPROVED 済み・`approvals/c3.json` は未 commit の承認記録）
-- **直近の検証**（`52bd791` 実測 / いずれも exit 0）:
-  `sh tests/run-tests.sh </dev/null` = **523 passed / 0 failed** /
-  `test_run_evidence.py` **80 tests OK** / `test_run_evidence_verify.py` **32 tests OK** /
-  `ta-60` pass=9 fail=0 / 不変 7 ファイル + `ai-loop-runs/` + `tests/run-tests.sh` の
-  `git diff --stat origin/main` = **0 行** / `git diff --quiet -- plugin/plangate/` clean
+- **直近の検証**（`RUNEV_HEAD` 実測 / いずれも exit 0）:
+  `sh tests/run-tests.sh </dev/null` = **RUNEV_TOTAL passed / 0 failed** /
+  `test_run_evidence.py` **89 tests OK** / `test_run_evidence_verify.py` **51 tests OK** /
+  `ta-60` pass=9 fail=0 / `check_exec_boundary.py` clean /
+  不変 7 ファイル + `ai-loop-runs/` + `tests/run-tests.sh` の
+  `git diff origin/main...HEAD` = **0 行** / `git diff --quiet -- plugin/plangate/` clean
+- **R1 反映の要点**: 受理器が `terminal_state` / `ci_outcomes` / `review_findings` /
+  `quality_metrics` を **record.jsonl から再導出照合**するようになり、schema の
+  `type` / `enum` / `pattern` を **subset validator で強制**、privacy backstop を
+  受理側にも配置、`blocked_by` の fail-closed を型判定へ是正、
+  plugin 同梱 schema（`<skill>/schemas/`）+ **exit 2 = 起動不能**を追加。
+  是正はすべて**変異注入で kill を実証**済み
 
 ## 次にやること
 

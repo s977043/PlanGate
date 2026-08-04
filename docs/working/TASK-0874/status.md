@@ -71,7 +71,7 @@
 |---------|------|
 | L-0（lint） | ✅ `npx markdownlint-cli2` 0 issues（変更 md 全件） |
 | V-1（受け入れ検査） | ✅ 65 TC 対応表を handoff §5-bis に記載（**機械 63 / 手動 2**・SKIP 0）+ 不変 7 ファイル差分 0 行 |
-| V-2 / V-3 | ✅ 敵対レビュー R1 / R2 実施済み（R2 の major 5 / minor 4 を反映済み）。⚠️ レポート artifact は `evidence/` へ未配置 |
+| V-2 / V-3 | ✅ 敵対レビュー R1 / R2 実施済み（**R1 の critical 3 / major 5 / minor 5** と R2 の major 5 / minor 4 を反映済み。disposition は handoff §7 の 2 表）。⚠️ レポート artifact は `evidence/` へ未配置 |
 | V-4（リリース前チェック） | ⬜ 未（critical モードのため PR 前に統合担当が実施） |
 
 ## 残タスク
@@ -94,8 +94,10 @@
 > ③ T-43（#870 への evidence link）④ T-44（`schemas/` 昇格 PBI の予約起票）⑤ PR 作成 → C-4。
 > `approvals/c3.json` は未 commit の承認記録なので `git add -A` を使わず名指し add する。
 > `scripts/ai-loop/*.py` / `docs/workflows/ai-loop/*.md` を変更したら **sync 再実行が必須**。
-> 検証は `python3 scripts/ai-loop/test_run_evidence.py`（**80 tests**）/
-> `test_run_evidence_verify.py`（**32 tests**）/ `sh tests/run-tests.sh </dev/null`（**523 passed / 0 failed**）。
+> 検証は `python3 scripts/ai-loop/test_run_evidence.py`（**89 tests**）/
+> `test_run_evidence_verify.py`（**51 tests**）/ `sh tests/run-tests.sh </dev/null`（**RUNEV_TOTAL passed / 0 failed**）。
+> ⚠️ `sh tests/run-tests.sh` は **未 commit の `docs/workflows/ai-loop/*.md` があると `TA-54 TC-05` が FAIL する**
+> （同 TC は `git status --porcelain -- docs/workflows/ai-loop` の空を要求する）。**commit 後に測定すること**。
 
 ## 参照ファイル
 
@@ -103,3 +105,14 @@
 - `docs/schemas/run-evidence.schema.json`
 - `docs/working/TASK-0874/{plan,todo,test-cases,review-self,review-external}.md`
 - `docs/working/TASK-0874/handoff.md`
+
+## フェーズ履歴（追記）
+
+| 日時 | フェーズ | 内容 |
+|------|---------|------|
+| 2026-08-05 01:20 | exec（R1 反映） | 敵対レビュー R1 の **critical 3（C-1 受理器の `terminal_state` 未検証 / C-2 変異注入の空振り + 受理側 privacy backstop 欠如 / C-3 `blocked_by` の型 fail-open）・major 5（M-1 AC-2 決定論の破れ / M-2 後段束縛 2 件の欠落 / M-3 受理器の再導出範囲 / M-4 plugin 同梱 schema 欠落 / M-5 schema 非強制）・minor 5** を反映。**M-5 は ① 受理器層のみ在 PR で解消し ②`schema-validate.yml` は HO のため K-12 として handoff へ**、**m-2 は rejected（設計として意図的・docstring に理由を明記）**。是正 11 件すべてを**変異注入で kill 実証**（`scratchpad/mutate.log` / `mutate2.log`） |
+
+## C-3 Gate
+
+C-3 APPROVED 済み（`approvals/c3.json`・未 commit の承認記録）。**本セッションの R1 反映は
+plan.md を一切変更していない**ため `plan_hash` 束縛は維持されている。

@@ -298,12 +298,41 @@ def _recheck_bindings(task_dir, c3) -> list:
     if not isinstance(reviewers, dict) or set(reviewers) != {"model_a", "model_b"}:
         errors.append("reviewers は model_a / model_b のちょうど 2 者")
     else:
-        errors.extend(c3_contract.check_snapshot_trio(c3, reviewers, strict_keys=True))
+        trio = c3_contract.check_snapshot_trio(c3, reviewers, strict_keys=True)
+        errors.extend(trio)
+        # check_snapshot_trio の docstring が「本関数が検査しないもの（呼び出し側
+        # 残置）: verdict 語彙 / evidence_ref 独立性」と明示している 2 件。
+        # c3prime_verify.py はこれを snapshot 検査の**後**に実行するが、decision-only
+        # NG 経路では到達しない。落とすと「検証の総量を減らさない」（契約 §6-5）に
+        # 反し、verdict allowlist 外・独立 2 者レビュー偽装の c3.json から EV が
+        # 発行される（R1 major M-2）。語彙は c3_contract から取り、転写しない。
+        if not trio:
+            for m in ("model_a", "model_b"):
+                if reviewers[m].get("verdict") not in c3_contract.VALID_VERDICTS:
+                    errors.append(
+                        f"reviewers.{m}.verdict が "
+                        f"{'/'.join(c3_contract.VALID_VERDICTS)} 以外: "
+                        f"{reviewers[m].get('verdict')!r}")
+            if reviewers["model_a"].get("evidence_ref") == \
+                    reviewers["model_b"].get("evidence_ref"):
+                errors.append(
+                    "reviewers.model_a と model_b の evidence_ref が同一"
+                    "（独立 2 者レビューの偽装）")
     return errors
 
 
 def verify_c3_prime(task_dir, errors) -> None:
-    """契約 §4 全規則の fail-closed 再検証（delivery.verify_c3 を再利用）。"""
+    """契約 §4 全規則の fail-closed 再検証（delivery.verify_c3 を再利用）。
+
+    ⚠️ **`expected_sha` は意図的に渡さない**（R1 minor m-4 / 契約 §6-5 の注記）。
+    `c3prime_verify` の `expected_sha` は「検証時点の対象 SHA」であり、解決には
+    `git rev-parse HEAD` 相当の外部プロセス実行が要る。producer は純判定器
+    （ネットワーク・外部プロセスを呼ばない / 契約 §3-1）であり、注入値にすると
+    **生成側の自己申告**になって trust boundary（§2-1）に反する。
+    `EV.source_sha` は `c3.json` の値をそのまま運び、**受理器が `task_dir` の
+    `approvals/c3.json` を再読込して照合する**（§6-2）。作業ツリーの実 HEAD との
+    照合は呼び出し側（`delivery.assess()` の `--expected-sha` 必須化）が担う。
+    """
     rc, captured = delivery.verify_c3(task_dir)
     if rc == 10:
         errors.append("legacy c3.json（approval_kind 無し）— EV を発行しない")
@@ -363,6 +392,15 @@ def classify_records(runs_dir) -> dict:
       これが無いと `total_records` の恒等式が右辺と同式になり空振りする
     - `skipped[].file`: **repo 相対パスへ正規化**する（metrics.py の `skipped` は
       絶対パスになりうるが、キー名が `file` のため EH-8 では捕捉されない）
+
+    ⚠️ **`build()` から呼ばない**のは意図的である（R1 minor m-2 の「dead code」指摘
+    への回答）。本関数の戻り値は `runs_dir` 配下の**全 record を横断集計**した
+    corpus 集計値であり、`EV` に載せると「arbiter record が 1 件増えるだけで過去
+    run の `EV` の byte が変わる」（契約 §3-3 が明示的に禁じる AC-2 違反 = TC-60）。
+    AC-15（legacy 4 分類の互換）は「`EV` に載せる」ことではなく「metrics.py の
+    現行分類と同値であり、既存 record を 1 バイトも変更しない」ことで満たす
+    （TC-42 / TC-45）。したがって本関数は**検証用の公開 API** であり、producer
+    本体のデータフローには接続しない。
     """
     path = pathlib.Path(runs_dir)
     loaded = []
@@ -495,6 +533,22 @@ def derive_delivery_fields(entries, record_exists, injected_pr, errors) -> dict:
                 findings.append({"id": ft, "disposition": "repaired"})
         out["review_findings"] = findings
     out["repair_rounds"] = delivery._completed_rounds(entries, pr)
+    return out
+
+
+def records_for_run(arbiter_records, run_id) -> list:
+    """arbiter record を **当該 run のものだけ**に絞る（契約 §3-3 / AC-2）。
+
+    `runs_dir` 配下は当該 run 以外の record も含む corpus であり、走査対象を絞らずに
+    `EV` へ反映すると **無関係な run の record が 1 件増えただけで EV の byte が変わる**
+    （`quality_metrics` で禁じた corpus 汚染と同型 / R1 major M-1）。
+    `derive_human_interventions` が `run.run_id` で絞るのと同一の判定を使う。
+    """
+    out = []
+    for rec in arbiter_records:
+        run = rec.get("run") if isinstance(rec, dict) else None
+        if isinstance(run, dict) and run.get("run_id") == run_id:
+            out.append(rec)
     return out
 
 
@@ -703,7 +757,11 @@ def build(task_dir, opts) -> dict:
     escalation.extend(scan_input_privacy(entries, "record.jsonl"))
     escalation.extend(scan_input_privacy(c3, "c3.json"))
 
-    arbiter_records = load_arbiter_records(opts.get("runs-dir"), errors)
+    # ⚠️ 走査は **当該 run の record のみ**（AC-2 決定論 / R1 M-1）。corpus 全件を
+    # 走査すると、無関係な run の record が 1 件増えただけで escalation が伸びて
+    # EV の byte が変わる。
+    arbiter_records = records_for_run(
+        load_arbiter_records(opts.get("runs-dir"), errors), opts.get("run-id"))
     escalation.extend(scan_input_privacy(arbiter_records, "arbiter-record"))
 
     terminal_state, _last = derive_terminal_state(
@@ -834,7 +892,12 @@ def to_promotion_provenance(candidate, decision=None, *, improvement_refs=(),
     """
     refs = _normalize_improvement_refs(improvement_refs)
     blocked_by = candidate.get("blocked_by")
-    unresolved = "blocked_by" not in candidate or bool(blocked_by)
+    # 型で判定する（R1 critical C-3）。`"blocked_by" not in candidate or bool(...)`
+    # だと `None` / `""` / `0` / `{}` が **falsy かつキー存在**のため非 BLOCKED に倒れ、
+    # 出力が「decision=PROMOTED」と「blocked_by='unavailable'（取得不能）」を
+    # 同時に主張する（`null` は JSON 往復で最も出やすい値）。下の `blocked_by` 行が
+    # `isinstance(..., list)` を要求しているのと同じ判定にそろえる。
+    unresolved = not isinstance(blocked_by, list) or bool(blocked_by)
     final_decision = "BLOCKED" if unresolved else (decision or "BLOCKED")
     return {
         "candidate_id": candidate.get("candidate_id"),
@@ -884,11 +947,19 @@ def to_paired_replay(candidate, baseline_evidences, candidate_evidences,
 
 
 def apply_canary_rollback(candidate, canary_result) -> dict:
-    """failed canary を source candidate へ戻す（AC-10 / AC-13）。純関数（入力不変）。"""
+    """failed canary を source candidate へ戻す（AC-10 / AC-13）。純関数（入力不変）。
+
+    `rollback_count` が非数値のときは素の `ValueError` を投げず `RunEvidenceError` に
+    集約する（本モジュールの拒否理由は全件 `RunEvidenceError` に寄せる契約 / R1 m-5）。
+    """
     updated = dict(candidate)
     if (canary_result or {}).get("result") == "failed":
+        raw = candidate.get("rollback_count", 0)
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            raise RunEvidenceError(
+                [f"rollback_count が整数でない: {raw!r}（0 に丸めない = fail-closed）"])
         updated["status"] = "rolled_back"
-        updated["rollback_count"] = int(candidate.get("rollback_count", 0)) + 1
+        updated["rollback_count"] = raw + 1
         updated["canary_scope"] = (canary_result or {}).get("canary_scope", UNAVAILABLE)
     return updated
 

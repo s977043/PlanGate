@@ -42,21 +42,29 @@ def _schema() -> dict:
     return json.loads(SCHEMA.read_text(encoding="utf-8"))
 
 
-def _setup(tmp, *, with_record=True, merge_ready=True):
-    """sandbox の task_dir（Plan Package 6 要素 + c3-prime + record.jsonl）を作る。"""
+def _setup(tmp, *, with_record=True, merge_ready=True, decision="AUTO_APPROVED",
+           last_state="MERGE_READY"):
+    """sandbox の task_dir（Plan Package 6 要素 + c3-prime + record.jsonl）を作る。
+
+    受理器は `terminal_state` / delivery 層フィールドを **task_dir から再導出**して
+    照合する（R1 C-1 / M-3 の是正）。したがって sandbox は「EV が主張する終端」と
+    「c3.json の decision / record.jsonl の実体」が**整合している**必要がある。
+    `decision` / `last_state` を注入可能にしたのはこのため（producer 側の
+    `test_run_evidence._setup` と同じ形にそろえる）。
+    """
     task_dir = tpp._make_task_dir(tmp)
     rec = plan_package.build_c3_prime(
         task_dir, task_id="TASK-9999", source_sha=SRC, target_sha=SRC,
         verdicts={"model_a": "approve", "model_b": "approve"},
         reviewer_evidence={"model_a": "r#a", "model_b": "r#b"},
-        decision="AUTO_APPROVED", policy_ref="p@v4",
+        decision=decision, policy_ref="p@v4",
         issued_at=NOW, issued_by="arbiter-v0.1")
     (task_dir / "approvals").mkdir(exist_ok=True)
     (task_dir / "approvals" / "c3.json").write_text(
         plan_package.serialize_c3_prime(rec), encoding="utf-8")
     if with_record:
         entries = [
-            {"kind": "state", "state": "MERGE_READY", "head_sha": HEAD,
+            {"kind": "state", "state": last_state, "head_sha": HEAD,
              "pr_number": PR, "reasons": []},
             {"kind": "receipt", "action_id": "a1", "action_kind": "repair_ci",
              "pr_number": PR, "round": 1},
@@ -98,7 +106,9 @@ def _complete_ev(rec, task_dir):
         "replan_count": 0,
         "human_interventions": [],
         "terminal_state": "MERGE_READY",
-        "quality_metrics": {"first_pass": False, "rounds": 1},
+        # producer の derive_quality_metrics は rounds = repair_rounds + 1。
+        # 受理器が再導出照合するようになったため、合成 EV も同じ規則に従う。
+        "quality_metrics": {"first_pass": False, "rounds": 2},
         "cost_metrics": {},
         "evidence_refs": [f"{task_dir.name}/delivery/record.jsonl"],
         "schema_version": "1.0",
@@ -480,32 +490,59 @@ class TamperedAndAllowlistTests(unittest.TestCase):
 class BlockedTerminalStateTests(unittest.TestCase):
     """terminal_state=BLOCKED（record.jsonl 不在）の受理（TC-58 の受理器側）。"""
 
-    def test_blocked_ev_without_record_is_partial_with_seven_unavailable(self):
-        # record.jsonl が存在しない BLOCKED run は delivery 層 4 フィールドが
-        # unavailable。exit 11 で、unavailable の内訳は (a)3 + (b)4 = 7 件。
+    @staticmethod
+    def _blocked_ev(rec, task_dir):
+        """BLOCKED run の EV（契約 §5-1: (a)3 + (b)5 = 8 件が unavailable）。"""
+        ev = _partial_ev(rec, task_dir)
+        ev["terminal_state"] = "BLOCKED"
+        for f in ("final_head_sha", "ci_outcomes", "review_findings",
+                  "repair_rounds", "quality_metrics"):
+            ev[f] = "unavailable"
+        return ev
+
+    def test_blocked_ev_without_record_is_partial_with_eight_unavailable(self):
+        # record.jsonl が存在しない BLOCKED run は delivery 層 4 フィールド +
+        # quality_metrics が unavailable。exit 11 で、内訳は (a)3 + (b)5 = 8 件。
+        # ⚠️ c3.json の decision も BLOCKED でなければならない（受理器が
+        # terminal_state を c3.json / record.jsonl から再導出するため / R1 C-1）。
         with tempfile.TemporaryDirectory() as tmp:
-            task_dir, rec = _setup(tmp, with_record=False)
-            ev = _partial_ev(rec, task_dir)
-            ev["terminal_state"] = "BLOCKED"
-            for f in ("final_head_sha", "ci_outcomes", "review_findings", "repair_rounds"):
-                ev[f] = "unavailable"
-            rc, err = _run(ev, task_dir, tmp)
+            task_dir, rec = _setup(tmp, with_record=False, decision="BLOCKED")
+            rc, err = _run(self._blocked_ev(rec, task_dir), task_dir, tmp)
             self.assertEqual(rc, 11, err)
             for f in ("routing_decisions", "replan_count", "cost_metrics",
-                      "final_head_sha", "ci_outcomes", "review_findings", "repair_rounds"):
+                      "final_head_sha", "ci_outcomes", "review_findings",
+                      "repair_rounds", "quality_metrics"):
                 self.assertIn(f, err, f"stderr に {f} が列挙されない: {err}")
+
+    def test_blocked_ev_whose_c3_decision_is_not_blocked_is_ng(self):
+        # 逆側: c3.json の decision が BLOCKED でないのに terminal_state=BLOCKED を
+        # 名乗る EV は reject（R1 critical C-1 の本体。従来は exit 0 で通っていた）。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            ev = _complete_ev(rec, task_dir)
+            ev["terminal_state"] = "BLOCKED"
+            rc, err = _run(ev, task_dir, tmp)
+            self.assertEqual(rc, 1, f"decision と食い違う terminal_state が通った: {err}")
+            self.assertIn("terminal_state", err)
 
     def test_tc64_unresolvable_pr_number_must_be_unavailable_not_zero(self):
         # TC-64 の受理器側: record.jsonl は存在するが kind=merge_ready が無く
         # PR 番号を解決できないケース。delivery._completed_rounds(entries, None) は
         # 例外にならず 0 を返すため、0 を受理すると「修理 0 回」として
         # #869 の first-pass 判定を汚染する（C-2 R-C04 の fail-open 経路）。
+        # 終端であること自体は最終 kind=state の HUMAN_ESCALATED で成立させる
+        # （producer 側 test_tc64_... と同じ入力形状）。
         with tempfile.TemporaryDirectory() as tmp:
-            task_dir, rec = _setup(tmp, merge_ready=False)
+            task_dir, rec = _setup(tmp, merge_ready=False,
+                                   last_state="HUMAN_ESCALATED")
             entries = delivery.load_entries(delivery.record_path(task_dir))
             self.assertEqual(delivery._completed_rounds(entries, None), 0,
                              "前提: PR 未解決でも 0 が返る（例外にならない）")
             ev = _complete_ev(rec, task_dir)
+            ev["terminal_state"] = "HUMAN_ESCALATED"
+            ev["ci_outcomes"] = "unavailable"
+            ev["review_findings"] = "unavailable"
+            ev["quality_metrics"] = "unavailable"
             ev["repair_rounds"] = 0                    # ← 0 で埋める fail-open
             rc, err = _run(ev, task_dir, tmp)
             self.assertEqual(rc, 1, f"PR 未解決で repair_rounds=0 が通った（{rc}）: {err}")
@@ -520,15 +557,297 @@ class BlockedTerminalStateTests(unittest.TestCase):
         # record.jsonl 不在なのに final_head_sha をダミー sha で埋めたら reject
         # （空文字・ダミー sha・0 で埋めない = fail-open 防止）。
         with tempfile.TemporaryDirectory() as tmp:
-            task_dir, rec = _setup(tmp, with_record=False)
-            ev = _partial_ev(rec, task_dir)
-            ev["terminal_state"] = "BLOCKED"
-            ev["ci_outcomes"] = "unavailable"
-            ev["review_findings"] = "unavailable"
+            task_dir, rec = _setup(tmp, with_record=False, decision="BLOCKED")
+            ev = self._blocked_ev(rec, task_dir)
+            ev["final_head_sha"] = HEAD      # ← ダミー sha で埋める fail-open
             ev["repair_rounds"] = 0          # ← 0 で埋める fail-open
             rc, err = _run(ev, task_dir, tmp)
             self.assertEqual(rc, 1, f"record.jsonl 不在で repair_rounds=0 が通った: {err}")
             self.assertIn("repair_rounds", err)
+            self.assertIn("final_head_sha", err)
+
+
+class RederivationTests(unittest.TestCase):
+    """R1 critical C-1 / major M-3: 受理器が record.jsonl から再導出して照合する。"""
+
+    def test_terminal_state_outside_the_contract_vocabulary_is_ng(self):
+        # C-1: allowed_keys() / required_keys() は schema から**キー名しか**
+        # 取り出さないため、schema の enum は従来どこからも強制されていなかった。
+        # 実測（是正前）: terminal_state="WAITING_FOR_CHECKS" の EV が exit 0。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            for bogus in ("WAITING_FOR_CHECKS", "MERGE_READY_CANDIDATE",
+                          "EXEC_RETURN", "banana", "", "merge_ready"):
+                with self.subTest(terminal_state=bogus):
+                    ev = _complete_ev(rec, task_dir)
+                    ev["terminal_state"] = bogus
+                    rc, err = _run(ev, task_dir, tmp)
+                    self.assertEqual(rc, 1, f"{bogus!r} が受理された（{rc}）: {err}")
+                    self.assertIn("terminal_state", err)
+
+    def test_terminal_state_within_the_vocabulary_but_wrong_is_ng(self):
+        # 語彙 allowlist だけでは足りない: 3 値の中で入れ替えると素通りしてしまう。
+        # record に merge_ready entry があるのに HUMAN_ESCALATED を名乗る EV を弾く。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            ev = _complete_ev(rec, task_dir)
+            ev["terminal_state"] = "HUMAN_ESCALATED"
+            rc, err = _run(ev, task_dir, tmp)
+            self.assertEqual(rc, 1, err)
+            self.assertIn("terminal_state", err)
+
+    def test_m3_ci_outcomes_tamper_is_ng(self):
+        # M-3: CI 失敗を success に書き換えた EV が complete で受理されていた。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            for label, value in (
+                ("conclusion_rewrite", [{"name": "ci", "conclusion": "failure"}]),
+                ("check_dropped", []),
+                ("check_invented", [{"name": "ci", "conclusion": "success"},
+                                    {"name": "ghost", "conclusion": "success"}]),
+            ):
+                with self.subTest(case=label):
+                    ev = _complete_ev(rec, task_dir)
+                    ev["ci_outcomes"] = value
+                    rc, err = _run(ev, task_dir, tmp)
+                    self.assertEqual(rc, 1, f"{label} が受理された（{rc}）: {err}")
+                    self.assertIn("ci_outcomes", err)
+
+    def test_m3_review_findings_tamper_is_ng(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            ev = _complete_ev(rec, task_dir)
+            ev["review_findings"] = [{"id": "F-1", "disposition": "dismissed"}]
+            rc, err = _run(ev, task_dir, tmp)
+            self.assertEqual(rc, 1, err)
+            self.assertIn("review_findings", err)
+
+    def test_m3_quality_metrics_first_pass_tamper_is_ng(self):
+        # 修理 1 回の run を first_pass=true に書き換える = #869 の学習母集団汚染。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            for label, value in (
+                ("first_pass_flipped", {"first_pass": True, "rounds": 2}),
+                ("rounds_reduced", {"first_pass": False, "rounds": 1}),
+                ("unavailable_claimed", "unavailable"),
+            ):
+                with self.subTest(case=label):
+                    ev = _complete_ev(rec, task_dir)
+                    ev["quality_metrics"] = value
+                    rc, err = _run(ev, task_dir, tmp)
+                    self.assertEqual(rc, 1, f"{label} が受理された（{rc}）: {err}")
+                    self.assertIn("quality_metrics", err)
+
+    def test_rederivation_uses_the_producer_pure_functions(self):
+        # 再実装しない（producer と drift させない）ことを構造で固定する。
+        import run_evidence
+        import run_evidence_verify as rev
+        self.assertIs(rev.run_evidence, run_evidence)
+        for name in ("derive_delivery_fields", "derive_quality_metrics",
+                     "derive_terminal_state", "check_output_privacy", "_walk"):
+            self.assertTrue(hasattr(run_evidence, name), name)
+
+
+class VerifierPrivacyBackstopTests(unittest.TestCase):
+    """R1 critical C-2 後半: producer を通さない EV も受理側で privacy を検査する。"""
+
+    def test_owner_prefixed_repository_is_ng(self):
+        # producer の --repository は owner 付きを reject するが、受理器には
+        # 検査が無く「producer 側の検査が唯一の防御線」だった（契約 §7-3）。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            ev = _complete_ev(rec, task_dir)
+            ev["repository"] = "s977043/plangate"
+            rc, err = _run(ev, task_dir, tmp)
+            self.assertEqual(rc, 1, f"owner 付き repository が受理された: {err}")
+            self.assertIn("repository", err)
+
+    def test_absolute_paths_and_account_identifiers_are_ng(self):
+        cases = {
+            "evidence_refs_absolute": ("evidence_refs", ["/Users/user/secret.md"]),
+            "observation_url": (
+                "observation",
+                "https://github.com/s977043/plangate/pull/941 でレビュー"),
+            "observation_handle": ("observation", "@s977043 のレビュー待ち"),
+            "escalation_absolute": (
+                "escalation", [{"kind": "x", "detail": "/Users/user/.ssh/id_rsa"}]),
+            "cause_hypothesis_absolute": ("cause_hypothesis", "/etc/passwd を読んだ"),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            for label, (key, value) in cases.items():
+                with self.subTest(case=label):
+                    ev = _complete_ev(rec, task_dir)
+                    ev[key] = value
+                    rc, err = _run(ev, task_dir, tmp)
+                    self.assertEqual(rc, 1, f"{label} が受理された（{rc}）: {err}")
+
+    def test_forbidden_key_inside_a_nested_object_is_ng(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            ev = _complete_ev(rec, task_dir)
+            ev["human_interventions"] = [{"login": "someone"}]
+            rc, err = _run(ev, task_dir, tmp)
+            self.assertEqual(rc, 1, err)
+
+
+class SchemaStructuralValidationTests(unittest.TestCase):
+    """R1 major M-5: schema の type / enum / pattern / minLength を受理器が強制する。"""
+
+    def test_type_and_pattern_violations_are_ng(self):
+        cases = {
+            "run_id_empty": ("run_id", ""),                       # minLength: 1
+            "run_id_wrong_type": ("run_id", 1),                   # type: string
+            "started_at_not_iso": ("started_at", "2026-08-05"),   # $defs/timestamp
+            "schema_version_bad": ("schema_version", "banana"),   # pattern
+            "repair_rounds_negative": ("repair_rounds", -1),      # minimum: 0
+            "repair_rounds_string": ("repair_rounds", "1"),       # anyOf
+            "harness_corpus_hash_bad": (
+                "harness_version",
+                {"plugin_version": "1", "cli_version": "1", "corpus_hash": "x"}),
+            "cause_hypothesis_wrong_type": ("cause_hypothesis", 1),
+            "escalation_item_missing_kind": ("escalation", [{"detail": "x"}]),
+            "escalation_item_extra_key": (
+                "escalation", [{"kind": "k", "detail": "d", "extra": "e"}]),
+            "evidence_refs_wrong_item_type": ("evidence_refs", [1]),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            for label, (key, value) in cases.items():
+                with self.subTest(case=label):
+                    ev = _complete_ev(rec, task_dir)
+                    ev[key] = value
+                    rc, err = _run(ev, task_dir, tmp)
+                    self.assertEqual(rc, 1, f"{label} が受理された（{rc}）: {err}")
+                    self.assertIn(key, err, err)
+
+    def test_validator_agrees_with_jsonschema_on_the_goldens(self):
+        # 手書き subset validator が jsonschema と乖離していないこと。
+        # jsonschema 未導入環境では skip（CI の schema-validate job だけが導入する）。
+        try:
+            import jsonschema
+        except ImportError:                       # pragma: no cover
+            self.skipTest("jsonschema 未導入の環境")
+        import run_evidence_verify as rev
+        fixtures = sorted(
+            (REPO / "tests" / "fixtures" / "run-evidence").glob("fx-0[1-6]*.json"))
+        self.assertTrue(fixtures, "golden fixture が見つからない")
+        schema = _schema()
+        for path in fixtures:
+            with self.subTest(fixture=path.name):
+                ev = json.loads(path.read_text(encoding="utf-8"))
+                jsonschema.validate(ev, schema)               # 参照実装
+                self.assertEqual(rev.validate_against_schema(ev, schema), [],
+                                 f"{path.name} を subset validator が誤って reject")
+
+    def test_validator_rejects_what_jsonschema_rejects(self):
+        try:
+            import jsonschema
+        except ImportError:                       # pragma: no cover
+            self.skipTest("jsonschema 未導入の環境")
+        import run_evidence_verify as rev
+        schema = _schema()
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            base = _complete_ev(rec, task_dir)
+            mutations = (
+                ("terminal_state", "WAITING_FOR_CHECKS"),
+                ("repository", "s977043/plangate"),
+                ("schema_version", "1"),
+                ("evidence_refs", ["/abs/path.md"]),
+                ("task_id", "TASK-99999"),
+                ("plan_hash", "sha256:zz"),
+            )
+            for key, value in mutations:
+                with self.subTest(field=key):
+                    ev = copy.deepcopy(base)
+                    ev[key] = value
+                    with self.assertRaises(jsonschema.ValidationError):
+                        jsonschema.validate(ev, schema)
+                    self.assertTrue(rev.validate_against_schema(ev, schema),
+                                    f"{key} の違反を subset validator が見逃した")
+
+    def test_unsupported_schema_keyword_is_fail_closed(self):
+        # 「解釈できない schema を黙って通す」は「検査していない」と同義。
+        import run_evidence_verify as rev
+        schema = {"type": "object",
+                  "properties": {"x": {"type": "string", "multipleOf": 2}}}
+        self.assertTrue(rev.validate_against_schema({"x": "a"}, schema))
+
+
+class SchemaResolutionTests(unittest.TestCase):
+    """R1 major M-4: bundled 配置での schema 解決と「起動不能」の exit 分離。"""
+
+    def test_schema_path_falls_back_to_the_bundled_layout(self):
+        import run_evidence_verify as rev
+        names = [p.name for p in rev.SCHEMA_CANDIDATES]
+        self.assertEqual(set(names), {"run-evidence.schema.json"})
+        self.assertGreaterEqual(len(rev.SCHEMA_CANDIDATES), 2,
+                                "bundled レイアウトの候補が無い")
+        # 2 本目は <skill>/schemas/（scripts/ の親 = skill ルート直下）
+        self.assertEqual(rev.SCHEMA_CANDIDATES[1].parent.name, "schemas")
+        self.assertEqual(rev.SCHEMA_CANDIDATES[1].parent.parent,
+                         rev.HERE.parent)
+        self.assertTrue(rev.SCHEMA_PATH.is_file(),
+                        f"schema を解決できていない: {rev.SCHEMA_PATH}")
+
+    def test_plugin_copy_ships_the_schema_next_to_the_verifier(self):
+        # 同梱漏れは導入先で**常に exit 2**（= 検査が一度も走らない）になる。
+        bundled = (REPO / "plugin" / "plangate" / "skills" / "ai-loop-cycle"
+                   / "schemas" / "run-evidence.schema.json")
+        self.assertTrue(bundled.is_file(), f"plugin に schema が同梱されていない: {bundled}")
+        self.assertEqual(json.loads(bundled.read_text(encoding="utf-8")), _schema(),
+                         "同梱 schema が正本と乖離している")
+
+    def test_unreadable_schema_exits_two_not_one(self):
+        # exit 1（NG = 改竄兆候）と exit 2（起動不能）を混ぜない。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            ev_path = pathlib.Path(tmp) / "ev.json"
+            ev_path.write_text(json.dumps(_complete_ev(rec, task_dir)),
+                               encoding="utf-8")
+            harness = pathlib.Path(tmp) / "boom.py"
+            harness.write_text(
+                "import pathlib, sys\n"
+                f"sys.path.insert(0, {str(HERE)!r})\n"
+                "import run_evidence_verify as rev\n"
+                "rev.SCHEMA_PATH = pathlib.Path(sys.argv[3])\n"
+                "sys.exit(rev.main(sys.argv[:3]))\n",
+                encoding="utf-8")
+            cp = subprocess.run(
+                [sys.executable, str(harness), str(ev_path), str(task_dir),
+                 str(pathlib.Path(tmp) / "missing.schema.json")],
+                capture_output=True, text=True)
+            self.assertEqual(cp.returncode, 2,
+                             f"schema 不在の exit が 2 でない: {cp.stderr}")
+            self.assertIn("検査を実行していない", cp.stderr)
+
+
+class NestedUnavailableTests(unittest.TestCase):
+    """R1 minor m-1: unavailable の全数列挙が list 内・深い階層まで届くこと。"""
+
+    def test_unavailable_paths_walks_lists_and_deep_objects(self):
+        import run_evidence_verify as rev
+        data = {
+            "top": "unavailable",
+            "obj": {"a": "unavailable", "b": {"c": "unavailable"}},
+            "arr": ["unavailable", {"d": "unavailable"}],
+            "clean": "ok",
+        }
+        self.assertEqual(
+            rev._unavailable_paths(data),
+            ["arr[0]", "arr[1].d", "obj.a", "obj.b.c", "top"])
+
+    def test_nested_unavailable_makes_the_record_partial_not_complete(self):
+        # routing_decisions は受理器が再導出しない（#868 未実装）ため、
+        # 入れ子 unavailable が exit 0 で通る経路がここに残っていた。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            ev = _complete_ev(rec, task_dir)
+            ev["routing_decisions"] = [{"step": "route", "target": "unavailable"}]
+            rc, err = _run(ev, task_dir, tmp)
+            self.assertEqual(rc, 11, f"入れ子 unavailable が complete で通った: {err}")
+            self.assertIn("routing_decisions[0].target", err)
 
 
 if __name__ == "__main__":

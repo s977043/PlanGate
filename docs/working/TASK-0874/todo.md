@@ -265,6 +265,17 @@
 > ただし **R1 / R2 のレポート artifact が `docs/working/TASK-0874/evidence/` に未配置**であり、
 > 「レポートが evidence/ に存在」という完了判定を本ワーカーは満たせない。**T-38 / T-39 のチェックは
 > 統合担当に残す**（artifact 配置と同時に閉じること）。
+>
+> **R1 反映（2026-08-05・本セッション）**: 敵対レビュー **R1 の critical 3 / major 5 / minor 5** を
+> 反映した（disposition は `handoff.md` §7 の R1 表）。R1 は R2 では出ていない層
+> （受理器の再導出範囲・変異注入の空振り・型判定の fail-open）を検出しており、
+> **「契約層は 1 ラウンドでは表層しか出ない」という T-39 の前提を追認する結果**になった。
+> 是正 11 件はすべて**変異注入で kill を実証**済み（欠陥を入れて FAIL を確認 → 復元）。
+> ⚠️ **依然として R1 / R2 のレポート artifact は未配置**であり、T-38 / T-39 のチェックは
+> 統合担当に残したままである（反映は済んでいるが完了判定は artifact の存在）。
+> ⚠️ M-5 の②（`schema-validate.yml` の trigger paths 追加）は
+> **`.github/workflows/*.yml` が Hardening Override 対象 = Human-owned** のため本 PBI では実施せず
+> **K-12** として handoff の既知課題に記載した（`schemas/` 昇格で自動解消しうる）。
 
 - [ ] 🚩 T-39: **敵対レビュー R2**（R1 是正後の深掘り。**契約層は 1 ラウンドでは表層しか出ない** — #889 / TASK-0917 の教訓）を実施し **critical・major ゼロ収束**まで回す。完了判定: R2 レポートが存在し、**最終ラウンドの critical = 0 かつ major = 0** [Owner: agent] [depends_on: T-38] [files: docs/working/TASK-0874/evidence/] rollback: R2 起因の是正 commit を `git revert`（push 前なら `git restore`）
 - [x] 🚩 T-40: **全 TC の機械実行 + 不変対象の差分 0 確認**。①`test-cases.md` の **65 TC を全件機械実行**して PASS（**未実行 / SKIP 0 件**。SKIP は環境依存を理由に許容しない）②`git diff --stat origin/main -- scripts/ai-loop/delivery.py scripts/ai-loop/c3_contract.py scripts/ai-loop/c3prime_verify.py scripts/ai-loop/arbiter.py scripts/ai-loop/metrics.py docs/working/ai-loop-runs/ tests/run-tests.sh` が **0 行**。⚠️ **T-24（EH-8 実走）の完了も本タスクの前提**（依存に明示） [Owner: agent] [depends_on: T-39, T-24] [files: -] rollback:不要

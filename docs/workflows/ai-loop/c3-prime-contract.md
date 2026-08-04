@@ -134,14 +134,25 @@ issue #873 の MERGE_READY 状態機械は c3-prime を**読み取り専用**で
 
 ### 7-1. #874（RunEvidence producer）への引き渡し
 
-issue #874 の RunEvidence producer（`scripts/ai-loop/run_evidence.py`）も c3-prime を**読み取り専用**で消費する。読むフィールドは #873 と**同一集合の 5 つ**: `task_id` / `decision` / `source_sha` / `plan_hash` / `plan_package_hash`。
+issue #874 の RunEvidence producer（`scripts/ai-loop/run_evidence.py`）も c3-prime を**読み取り専用**で消費する。
+**`EV` へ値を運ぶフィールド**は #873 と同一集合の 5 つ（`task_id` / `decision` / `source_sha` / `plan_hash` / `plan_package_hash`）だが、
+**読むフィールドはこの 5 つに閉じない**（実装後の敵対レビューで是正。当初「同一集合の 5 つ」とだけ書いていたのは事実誤り）。
 
-| 用途 | 読むフィールド |
-|------|--------------|
-| `task_dir` 束縛 | `task_id` |
-| `terminal_state` の供給元（`BLOCKED` / `HUMAN_ESCALATED`） | `decision` |
-| `EV.source_sha` / `EV.plan_hash` | `source_sha` / `plan_hash` |
-| `EV.c3_prime_decision_ref.plan_package_hash` | `plan_package_hash` |
+| 用途 | 読むフィールド | `EV` へ運ぶか |
+|------|--------------|-------------|
+| `task_dir` 束縛 | `task_id` | ✅ |
+| `terminal_state` の供給元（`BLOCKED` / `HUMAN_ESCALATED`） | `decision` | 値ではなくマッピング結果を運ぶ |
+| `EV.source_sha` / `EV.plan_hash` | `source_sha` / `plan_hash` | ✅ |
+| `EV.c3_prime_decision_ref.plan_package_hash` | `plan_package_hash` | ✅ |
+| **decision-only NG 時の後段束縛の再検証**（下記 ⚠️） | `artifact_hashes` / `reviewers`（snapshot 5 キー・`verdict` 語彙・`evidence_ref` 独立性） | ❌（検証にのみ使う） |
+| **入力側 privacy 走査**（禁止キー / account キーの検出） | record **全体**を走査する | ❌（検出結果を `escalation` へ積む） |
+
+> **後段束縛の再検証で読むフィールドを 5 つに数えないと検証の総量が減る**:
+> `c3_contract.check_snapshot_trio()` の docstring 自身が「本関数が検査しないもの
+> （**呼び出し側残置**）: `verdict` 語彙 / `evidence_ref` 独立性」と明示している。
+> `c3prime_verify` はこれを snapshot 検査の**後**に実行するため、decision-only NG 経路
+> （`BLOCKED` / `HUMAN_ESCALATED`）では到達しない。producer が引き継がないと
+> **`verdict` allowlist 外・独立 2 者レビュー偽装の c3.json から `EV` が発行される**（実測）。
 
 **trust boundary は #874 にも同一に適用する**（§7 の「`decision` 値を無検証で信頼してはならない」）。producer は `c3prime_verify.main()` を経由して §4 の全規則を再検証し、束縛不整合（hash / artifact / reviewer snapshot）は **fail-closed**（`EV` を発行しない）。
 
@@ -149,8 +160,18 @@ issue #874 の RunEvidence producer（`scripts/ai-loop/run_evidence.py`）も c3
 > `c3prime_verify` の `rc == 0` は `decision == "AUTO_APPROVED"` を含意するため、`rc == 0` を文字どおり要求すると
 > `terminal_state` が `BLOCKED` / `HUMAN_ESCALATED` の `EV` を構造的に発行できない。
 > `decision` 値のみに起因する NG のときは、`c3prime_verify` が到達しなかった後段の束縛
-> （`source_sha` / `plan_hash` / `artifact_hashes` / `plan_package_hash` / reviewer snapshot）を
+> （`source_sha` / `plan_hash` / `artifact_hashes` / `plan_package_hash` / reviewer snapshot /
+> **`verdict` 語彙 / `evidence_ref` 独立性**）を
 > producer が `c3_contract` の**同一プリミティブを import して**再検証する。検証の総量は減らさない。
+>
+> ⚠️ **`expected_sha` を渡さないのは意図的**（実装後の敵対レビューで明文化）:
+> producer は `delivery.verify_c3(task_dir)` を `expected_sha` **なし**で呼ぶ。
+> `expected_sha`（検証時点の対象 SHA）の解決には `git rev-parse` 相当の外部プロセス実行が必要で、
+> producer は純判定器（[`run-evidence-contract.md`](./run-evidence-contract.md) §3-1: ネットワーク・外部プロセスを呼ばない）である。
+> 注入値にすると**生成側の自己申告**になり trust boundary（§7）に反する。
+> 作業ツリーの実 HEAD との照合は呼び出し側（`delivery.assess()` の `--expected-sha` 必須化）が担い、
+> `EV.source_sha` は受理器が `approvals/c3.json` を再読込して照合する。
+> 将来 producer に `--expected-sha` を追加する場合は、**信頼済み実行層が解決した値のみ**を受け付ける契約を先に決める（V2 候補）。
 
 ## 8. バージョニング
 

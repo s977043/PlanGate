@@ -158,6 +158,12 @@
   - `rounds`: 当該 run の round 数
   - **corpus 集計値（`decision_counts` / `round_distribution` / `hotl_health` / `first_pass_rate`）を格納してはならない**。これらは `metrics.py` の `collect(runs_dir)` が **runs_dir 配下の全 record を横断集計**した値であり、`EV` に載せると **arbiter record が 1 件増えるだけで過去 run の `EV` の byte が変わる**（AC-2 と golden byte 比較が後日 CI で原因不明に赤くなる）。
   - `metrics.py` は **import しない**（不変対象への依存を増やさない）。上記 2 指標の**導出規則のみ転写**する。
+- **`runs_dir` 配下の走査は当該 `run_id` の record に絞る**（`quality_metrics` だけの話ではない）。
+  `escalation` へ積む privacy 走査（`scan_input_privacy`）を corpus 全件に掛けると、
+  **無関係な run の record が `owner` / `login` 等を 1 つ持つだけで `escalation` が伸び、
+  同一入力・同一注入値の `EV` の byte が変わる**（実測で再現。AC-2 の破れ）。
+  `human_interventions` が `run.run_id != run_id` で絞っているのと**同一の述語**を使う。
+  絞り込みは検出の放棄ではない: **当該 run** の record に account キーがあれば従来どおり記録する。
 - **`evidence_refs[]` をディスク走査で列挙しない**。列挙は**注入値または `record.jsonl` 由来の参照のみ**。ディスク走査すると**ファイルの増減で同一 events から異なる `EV`** が出る。
 - 出力先: 既定は **stdout へ 1 record**。`--out <path>` を指定した場合のみファイルへ書き、**拡張子が `.json` でなければ reject** する。
 
@@ -295,7 +301,34 @@ run_evidence_verify.py <ev.json> <task_dir>
 | `task_id` | `task_dir` のディレクトリ名（`c3prime_verify.py` の `task_dir.name != task_id` 束縛と同型） |
 | `plan_hash` / `source_sha` | `<task_dir>/approvals/c3.json` の同名フィールド |
 | `c3_prime_decision_ref` | `<task_dir>/approvals/c3.json` への repo 相対参照として解決可能か |
-| `final_head_sha` / `repair_rounds` | `<task_dir>/delivery/record.jsonl` の**再計算値**（`delivery.load_entries()` の `entry_id` 再計算照合と同型） |
+| `final_head_sha` / `ci_outcomes` / `review_findings` / `repair_rounds` | `<task_dir>/delivery/record.jsonl` の**再導出値**（`run_evidence.derive_delivery_fields()` を import。`delivery.load_entries()` の `entry_id` 再計算照合と同型） |
+| `quality_metrics` | 上の `repair_rounds` 再導出値から `run_evidence.derive_quality_metrics()` で再導出 |
+| `terminal_state` | `c3.json` の `decision` + `record.jsonl` から §4 の正規化マッピングで**再導出**（`run_evidence.derive_terminal_state()`） |
+| 全フィールドの値 | §7 の privacy 検査（`run_evidence.check_output_privacy()` を import）+ schema の `type` / `enum` / `pattern` / `minLength` / `minimum` |
+
+> ⚠️ **`final_head_sha` / `repair_rounds` の 2 つだけを照合すると穴が空く**（実装後の敵対レビューで顕在化）:
+> `ci_outcomes`（CI 失敗 → success）/ `review_findings`（レビュー指摘 → dismissed）/
+> `quality_metrics`（修理 1 回 → `first_pass=true`）/ `terminal_state`（非終端 → `MERGE_READY`）を
+> 書き換えた `EV` が **`complete`（exit 0）で受理された**。いずれも `mr_record` / `entries` は
+> 受理器が既に読んでいるため **追加 I/O ゼロ**で再導出できる。
+>
+> ⚠️ **再導出は producer の純関数を import して行い、受理器側で再実装しない**。
+> 別実装を持つと producer と受理器が静かに drift し、「片方だけが正しい」状態が
+> test 緑のまま成立する。入力は `task_dir` 配下の実ファイルのみであり
+> `EV` の申告値を使わないため、trust boundary（§2-1）は保たれる。
+
+### 6-2-bis. `terminal_state` の enum は受理器が強制する
+
+schema の `enum: ["MERGE_READY", "HUMAN_ESCALATED", "BLOCKED"]` は、受理器が
+`required` / 許可キー集合を **キー名としてしか**取り出さない実装では
+**どの層からも強制されない**（`.github/workflows/schema-validate.yml` は
+`docs/schemas/**` を対象外・§10-2）。したがって受理器は schema の
+`type` / `enum` / `pattern` / `minLength` / `minimum` を **subset validator で機械強制**する。
+
+- 語彙 allowlist だけでは足りない。3 値の**中で**入れ替える改竄（`MERGE_READY` → `BLOCKED`）は
+  enum を通るため、§4 マッピングによる**再導出値との一致**まで要求する。
+- subset validator が**解釈できない schema キーワードを検出したら fail-closed**にする
+  （黙って無視すると「検査した」と「検査できていない」が区別できない）。
 
 > **`evidence_hash` を `EV` 自身に持たせる自己完結型は採らない**。`required` が 21 → 22 になり
 > §9 versioning policy に波及するうえ、「生成側が自分の証跡の完全性を自己申告する」構造となり
@@ -318,8 +351,15 @@ run_evidence_verify.py <ev.json> <task_dir>
 |------|---------------------------|----------------------------------|
 | `0` | c3-prime として受理 | `EV` として受理（`evidence_status=complete`・全束縛整合） |
 | `1` | 検証 NG（fail-closed・理由を stderr） | 同左 |
+| `2` | （未使用） | **起動不能**（schema を読めない = 検査そのものが実行できていない） |
 | `10` | **legacy**（`approval_kind` キーが物理的に無い） | **legacy**（`EV` ではなく 9 キー / 14 キー arbiter record を渡された） |
 | `11` | （未使用） | **partial**（必須フィールドは揃うが `unavailable` **または未検証 `escalation`**（`harness_drift_unchecked`・§4-1）を含む = ready 扱いしない） |
+
+> **`2`（起動不能）を `1`（NG）に混ぜてはならない**（実装後の敵対レビューで顕在化）:
+> 受理器は schema を repo レイアウト（`<repo>/docs/schemas/`）と **plugin の bundled
+> レイアウト**（`<skill>/schemas/`）の順に探索する。同梱が漏れると導入先で
+> **常に検証 NG** に見え、「改竄兆候」と「schema 同梱漏れ」を呼び出し側が区別できない。
+> `2` は additive な追加であり `0` / `1` / `10` / `11` の意味論は変更していない（§9）。
 
 `10` の意味は**両受理器で同一**にする。同一ディレクトリの 2 受理器で `10` の意味が割れると、
 将来 rc を共通ハンドラで扱った時点で **legacy を partial と誤読**する経路が生まれる。
@@ -388,7 +428,16 @@ EH-8 は**キー名の grep のみで値を一切見ない**（実測: `{"file":
 
 - **全フィールドの値**に絶対パス（`^/` または `/Users/` を含む文字列）が **0 件**であること（`evidence_refs` 限定にしない）
 - `evidence_refs[]` は **repo 相対パスのみ**（`/` 始まりは reject）
-- **account 識別子**（GitHub username 等）が出力に現れないこと。EH-8 の禁止キー 14 個に account 系は**含まれない**ため、producer 側の検査が唯一の防御線になる
+- **account 識別子**（GitHub username 等）が出力に現れないこと。EH-8 の禁止キー 14 個に account 系は**含まれない**
+
+> ⚠️ **「producer 側の検査が唯一の防御線」にしてはならない**（実装後の敵対レビューで是正）:
+> trust boundary（§2-1）の設計としては逆であり、producer を通さず手書きした `EV`
+> （owner 付き `repository` / 絶対パスの `evidence_refs` / `escalation[].detail` /
+> `@handle` を含む `observation`）が受理器を**素通り**した。
+> `check_output_privacy()` は純関数なので **受理器も同じ関数を import して掛ける**
+> （再実装しない）。owner 付き `repository` は schema の `pattern: ^[^/]+$` 側でも捕捉する。
+> producer 側の検査は「入力を還元して出力を作る」責務、受理側の検査は「どこから来た
+> `EV` でも privacy 違反を ready 扱いしない」責務であり、両方が必要である。
 
 `metrics.py` の `skipped` は `{"file": str(path), "reason": …}` を記録し `file` は**絶対パスになりうる**が、
 キー名が `file`（`file_path` ではない）ため **EH-8 では捕捉できず素通りする**。
@@ -451,8 +500,18 @@ EH-8 の走査対象は `case "$f" in *.json|*.ndjson)` であり、**`*.jsonl` 
 |-----------|------|
 | `blocked_by` が**非空** | **`BLOCKED`** |
 | `blocked_by` キーが**物理的に存在しない**（未注入） | **`BLOCKED`**（判定不能は安全側へ倒す） |
+| `blocked_by` が **`list` 以外**（`null` / `""` / `0` / `{}` 等） | **`BLOCKED`**（型が違えば判定不能） |
 | `blocked_by == []` を**明示注入** | 非 `BLOCKED`（promotion 判定へ進む） |
 
+> ⚠️ **判定は「キーの有無 + 真偽値」ではなく `isinstance(x, list)` で行う**（実装後の敵対レビューで是正）:
+> `"blocked_by" not in candidate or bool(blocked_by)` と書くと、**キーは存在するが falsy**
+> （`null` / `""` / `0` / `{}`）のときに非 `BLOCKED` へ倒れる。実測で `decision=PROMOTED` かつ
+> `blocked_by="unavailable"` — 「promotion 承認済み」と「阻害要因は取得不能」を**同時に主張する**
+> 出力が生成された。`null` は JSON 往復で最も出やすい値であり、本契約が最も避ける
+> 「`unavailable` を ready 扱い」そのものである。返り値側が
+> `list(blocked_by) if isinstance(blocked_by, list) else "unavailable"` と型を見ているのだから、
+> 判定側も**同じ述語**を使う（同一関数内の非対称を残さない）。
+>
 > **「非空なら BLOCKED」だけを実装すると fail-open する**: 誰も `blocked_by` を埋めない限り常に非 `BLOCKED` になる。
 > 「未解決なし」と解釈するのは **明示的に `[]` を注入した場合のみ**（`unavailable` と空配列を区別する本契約の原則と同型）。
 > **issue 番号をハードコードしてはならない**（実測で #862 は CLOSED / #866 は OPEN であり、番号は CLOSE 時に stale 化する）。
@@ -502,6 +561,18 @@ Phase 1 では schema を `docs/schemas/run-evidence.schema.json` に置く。
 - **privacy CI の走査対象には入る**: `.github/workflows/metrics-privacy.yml` の trigger paths は `**/*.json` であり `docs/schemas/` も走査される（`tests/fixtures/` のみが scan から除外される）。
 
 ⇒ 「`docs/schemas/` は CI に一切乗らない」と読むのは**誤り**。乗らないのは **schema 検証 CI だけ**である。
+
+### 10-3. schema 強制の 3 層と Phase 1 の残ギャップ
+
+| 層 | Phase 1 の状態 |
+|----|--------------|
+| ① 受理器（`run_evidence_verify.py`） | **強制する**（§6-2-bis の subset validator。`type` / `enum` / `pattern` / `minLength` / `minimum` / `required` / `additionalProperties` / `items` / `anyOf` / `$ref`） |
+| ② `schema-validate.yml` | **未強制**。trigger paths が `docs/schemas/**` を含まない。`.github/workflows/*.yml` は Hardening Override 対象（Human-owned）のため本 PBI では変更しない |
+| ③ jsonschema 参照実装との突合 | **jsonschema 導入環境でのみ実行**（未導入環境は skip）。subset validator が jsonschema と同判定であることを golden fixture 6 件 + 変異 6 件で照合する |
+
+②③ は **schema を `schemas/` へ昇格する時点（§10）で解消**する。昇格時に
+`schemas/**/*.json` の trigger に自動的に乗り、`tests/run-tests.sh` 経路でも
+jsonschema が導入された job から実行できる。それまでの実効的な強制は ① が担う。
 
 ## 11. 関連
 

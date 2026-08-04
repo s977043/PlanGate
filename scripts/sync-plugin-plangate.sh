@@ -367,6 +367,38 @@ if [ -d "$PLUGIN_AI_LOOP_SCRIPTS" ]; then
   done
 fi
 
+# bundled schema（TASK-0874 / R1 M-4）: run_evidence_verify.py は schema を
+# 「唯一の正」として読むが、plugin 導入先には REPO_ROOT/docs/schemas/ が存在せず
+# 受理器が**常に起動不能**になっていた（実測 exit 1）。skill 直下の schemas/ へ
+# 同梱し、受理器側の SCHEMA_CANDIDATES 2 本目がここを解決する。
+#
+# ⚠️ 上の scripts/*.py 同期ループ（と対の case 文）には **足さないこと**。
+# tests/extras/ta-60-run-evidence.sh の drift 検査は for ループから `.py` だけを
+# 抽出して case 文と集合比較するため、片方に `.json` が混ざると誤検知する。
+PLUGIN_AI_LOOP_SCHEMAS="$PLUGIN_AI_LOOP_SKILL_DIR/schemas"
+_ai_loop_schema_files="run-evidence.schema.json"
+if [ -d "$REPO_ROOT/docs/schemas" ]; then
+  for _name in $_ai_loop_schema_files; do
+    [ -f "$REPO_ROOT/docs/schemas/$_name" ] || continue
+    _sync_ai_loop_file "$REPO_ROOT/docs/schemas/$_name" "$PLUGIN_AI_LOOP_SCHEMAS" \
+      "skills/ai-loop-cycle/schemas"
+  done
+fi
+if [ -d "$PLUGIN_AI_LOOP_SCHEMAS" ]; then
+  for _f in "$PLUGIN_AI_LOOP_SCHEMAS"/*.json; do
+    [ -f "$_f" ] || continue
+    _base="$(basename "$_f")"
+    case " $_ai_loop_schema_files " in
+      *" $_base "*) : ;;
+      *)
+        if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/schemas/$_base"
+        else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/schemas/$_base"; fi
+        changed=1
+        ;;
+    esac
+  done
+fi
+
 # バージョン番号を CHANGELOG から取得（README.md / plugin.json 共用）
 _ver=""
 if [ -f "$REPO_ROOT/CHANGELOG.md" ]; then
