@@ -251,3 +251,15 @@ ADR-001（`docs/decisions/adr-001-approve-out-of-band.md:1-10`）の節構成と
 5. ⏳ **exec 開始**
 
 > ⚠️ `c3.json` の発行は **確定反映の後**。先に発行すると EH-3 が後続反映を mismatch として検知する。
+
+---
+
+## 訂正追記（簡易 C-1 再実行 2 回目 R-4 / 2026-08-05）
+
+> 本ファイルは**追記専用**のため既存行は書き換えず、末尾に訂正を追記する。
+
+**集計行の訂正**: 上の「集計: 26 件中 reflected 22 件 / acknowledged（是正不要）4 件 / rejected 0 件」は誤り。**正しくは reflected 23 件 / acknowledged 3 件 / rejected 0 件**（総数 26 件・rejected 0 件は不変）。
+
+- 差分の正体は **`R-114`**。監査表では `reflected`（`reflected_in` に反映コミットあり / plan Step 2・todo T-02・TC-01 に反映済み）だが、集計側で acknowledged に数えられていた。
+- **監査表の各行と実体は正しく、誤っていたのは集計行のみ**。指摘の反映漏れは 0 件。
+- 実測: `grep -c '^| R-'` = 27（ヘッダ 1 + データ 26）/ `grep -c '| reflected |'` = **23** / `grep -c '| acknowledged |'` = **3**。

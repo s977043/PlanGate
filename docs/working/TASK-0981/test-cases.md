@@ -89,6 +89,7 @@
   2. 表②が **#981 全体 AC 14 項目すべてを行として持つ**（`grep -c` で表②のデータ行が 14 行）
   3. 表②の**全 14 行で「PR1 で扱う範囲」列が非空**（空欄・`—` のみ・`検討中` が 0 件 / R-001）
 - **種別**: 静的検査（行数は自動 / セルの非空は半自動）
+- ⚠️ **14 は issue 実測に基づく正であり、13 へ下げてはならない**（簡易 C-1 R-3）: `pbi-input.md` の同名テーブルは issue 第 1 項（1 つの Run に複数 ActorSession）と第 2 項（Planner と Executor が異なる Principal でも継続）を **1 行に統合しており 13 データ行**しかない。ADR の表②は issue 本文の 14 項目に合わせて**この 2 項を分割し 14 行で作る**（todo T-03 と同旨）
 - **根拠**: `pbi-input.md:153` / `:164`（#981 本文の受け入れ条件 14 項目は PR1〜PR4 全体の AC であり、PR1 での扱いを行ごとに宣言する必要がある）
 
 ### C. 正本の単一性（AC-2）
@@ -124,6 +125,7 @@
   - (c) sidecar + 新規 `schemas/plan-contract.schema.json`
   - **(d) 既存 `schemas/c3-prime.schema.json` へ型付きプロパティを additive 追加**（`RECORD_OPTIONAL_KEYS` と同時更新）
   - **(e) `docs/schemas/plan-contract.schema.json`（非 HO）に置き、後日 `git mv` で `schemas/` へ昇格**
+- **追加の期待出力（AC-3 の骨格確定条項 / C-2 R-005・簡易 C-1 R-2）**: 採用経路 (c) の sidecar について **「record 数（1 record か 2 record か）」と「必須トップレベルキーの有無」が確定値として記載**されている（「PR2 で決める」「検討中」は不可）。フィールド詳細（timestamp 粒度・任意フィールド）は PR2 へ後送でよい
 - **種別**: 静的検査
 - **根拠**: pbi-input MJ-2 / MJ-3。HO 変更を伴わない経路を見落とすと不要な HO patch を前提に計画してしまう
 
