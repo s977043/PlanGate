@@ -49,8 +49,10 @@ PR1 は「**決めること**」の集合であり、成果物は ADR 1 本と w
 | **D-6** | **legacy 経路（人間 C-3）の preflight 強度**（ギャップ #5 / S-8） | ① 明示的に非対象 / ② 全面的に c3-prime 相当へ強化 / ③ **fail-open の 1 点のみ塞ぐ** | **③**。PR2 で `bin/plangate:2092` の `if [ -n "$recorded_hash" ]` による**無言 skip を BLOCK 化**する patch を提示（`bin/plangate` = HO → **AI は patch 提示まで・適用は Human-owned**）。evidence marker 再検証・`artifact_hashes` 照合の legacy への全面移植は**行わない** | ① は本 TASK-0981 自身を含む本番フロー大多数の穴を恒久化する。② は既存 TASK の `c3.json`（`plan_hash` なし / evidence marker なし）を一斉に invalid 化し**後方互換を破壊**する（AC-6 と #981 全体 AC「既存 artifact・CLI・record の後方互換」に反する）。③ なら「記録があるのに照合しない」fail-open だけを塞げる。なお `bin/plangate:1024` の `validate` は同じ状況で `[WARN] plan_hash not found in c3.json` を出しており、**exec だけが無言**という非対称の是正でもある |
 | **D-7** | **受理側 presence の意味範囲**（EC-1 / U-6） | ① 現状維持 + 明記 / ② 受理側にも非空検査を追加 | **② 補強（PR2）+ ADR に意味範囲を明記** | 受理側は `is_file()` + hash 全数一致（`c3prime_verify.py:131-139`）のみで、**0 byte artifact の hash を持つ record を手書きすれば受理される**（生成側 `plan_package.check_presence()` を通らない偽造経路）。補強先 `scripts/ai-loop/c3prime_verify.py` は **HO 対象外**でコストが小さく、fail-closed 原則と一貫する |
 | **D-8** | `prohibited_actions` / `stop_conditions` の**宣言フィールド**（EC-10 / U-3） | ① 宣言する / ② **宣言しない（実装が正）** | **②**。record 側に `prohibited_actions` / `allowed_actions` を持たせない。ADR に「`NO MERGE BY AI` は実装層で強制され、record 側の宣言は行わない」と明記 | `gh_exec.py:29-46`（allowlist の**補集合**として merge を自動禁止・`graphql` を allowlist に載せない）+ `check_exec_boundary.py`（AST で実行系トークンを機械強制）で既に強制済み。宣言を足すと「宣言と実装のどちらが正か」という**新しい二重正本**が生まれ Constraint 2 に反する。`gh_exec.py:39-46` が自認する「別プロセスからの `gh pr merge` は塞げない」ギャップは**宣言を足しても閉じない**（規範層 + C-4 に残る） |
-| **D-9** | **evidence stale 判定の束縛先**（U-8） | ① `plan.md` 単体を維持 / ② `plan_package_hash` へ拡張 | **① 維持**（②は**原理的に不可能**であることを ADR に根拠付きで記録）。レビュー対象 3 要素（`plan.md` / `todo.md` / `test-cases.md`）の部分集合 hash による束縛は **PR3 の revision 契約の候補**として残す | **循環依存**: `ARTIFACTS`（`c3_contract.py:26-33`）は `review-self.md` / `review-external.md` を**含む**。`plan_package_hash` = `canonical_hash(artifact_hashes)` は 6 要素すべてに依存するため、C-1 marker（`review-self.md` の中身）に `plan_package_hash` を書き込むと自分自身の hash に依存する。したがって②は実装不能であり、「拡張しない」は妥協ではなく**構造的帰結** |
+| **D-9** | **evidence stale 判定の束縛先**（U-8） | ① `plan.md` 単体を維持 / ② `plan_package_hash` へ拡張 | **① 維持**（②は**現行の marker 形式では原理的に不可能**であることを ADR に根拠付きで記録）。レビュー対象 3 要素（`plan.md` / `todo.md` / `test-cases.md`）の部分集合 hash による束縛は **PR3 の revision 契約の候補**として残す | **循環依存**: `ARTIFACTS`（`c3_contract.py:26-33`）は `review-self.md` / `review-external.md` を**含む**。`plan_package_hash` = `canonical_hash(artifact_hashes)` は 6 要素すべてに依存するため、C-1 marker（`review-self.md` の中身）に `plan_package_hash` を書き込むと自分自身の hash に依存する。したがって **marker 埋め込み方式（現行）では②は実装不能**であり、「拡張しない」は妥協ではなく**構造的帰結**。ただし *marker 以外の* 束縛（record 側フィールドでの束縛 / レビュー対象 3 要素の部分集合 hash）は循環しないため不可能ではなく、PR3 候補として残す |
 | **D-10** | `c3-prime-contract.md` **§8 但し書き**（S-9） | ① 追記する / ② ADR にのみ書く | **① 追記する**（1 文追加。ファイル数 +1） | §8（L137）「additive な任意フィールド追加は本ファイルの改版のみでよい」は `^_` 注釈キー以外では**実態と乖離**する: 素の record フィールド追加は `RECORD_OPTIONAL_KEYS`（`c3_contract.py:50-51`）と `schemas/c3-prime.schema.json`（HO 対象）の**同時更新が必須**で、契約だけ改版しても `c3prime_verify.py:73` が reject する。契約正本を D-1 で①に一本化する以上、正本自身の記述が誤っている状態を残せない |
+
+> **pbi-input からの決定の進行（C-1 C1-B1B2-16 是正 / C-3 の確認対象）**: pbi-input の AC-4 は 「`plan_revision` は**任意**・監査表示用の連番」と**起案**していたが、本 plan の **D-2 でこれを 「PR1 では導入しない」へ確定**した（将来導入する場合の唯一の許容形式は `^_plan_revision`（string・注釈キー）で、受理器の判定分岐に使わない）。根拠は、受理器 `c3prime_verify.py:73` の未知キー検査により**素の `plan_revision` は任意キーであっても reject される**ため、pbi-input が想定した「任意フィールドとして足す」形は 現行契約では成立しないこと。**pbi-input は Constraint 6 により改変しない**ので、この差分は本注記で可視化する。
 
 ### D-4 の補足: 3 経路の比較（AC-3 の評価軸）
 
@@ -84,7 +86,7 @@ ADR に以下の**配置表**を置き、同一情報のコピーが 2 箇所以
 | **AC-3** | 新規 schema 追加の必要性が説明されている | ADR に**3 経路（(a) `^_` / (b) `run-event` 既存プロパティ / (c) sidecar + 新規 schema）すべての検討記録**があり、採用理由と不採用理由が HO 接触 / 構造表現力 / CI enforcement / 承認 record の不変性の 4 軸で比較されている |
 | **AC-4** | `plan_version` と hash の役割が決定され、二重正本にならない根拠が記録されている | ADR に「実行同一性の正本 = `plan_hash` / `plan_package_hash`」「`plan_version` は新設しない」「将来 `^_plan_revision`（string）で導入する場合も判定分岐に使わない」が明記され、`grep -rn "plan_version\|plan_revision" scripts/ schemas/ bin/` が **0 件**であること（= 番号で実行許可を判定する経路が存在しないこと）を根拠として示す |
 | **AC-5** | #980 との責務境界が記録されている | ADR に「#981 が担当 / #980 が担当」の分界表があり、**「PR1〜PR3 の ActorSession ID は非検証の opaque string」**が明記されている |
-| **AC-6** | 既存挙動が不変であることが確認できる | `git diff origin/main --stat` の変更が**すべて `.md`**。`sh tests/run-tests.sh` が PR 前後で **`failed == 0` かつ `passed` 同一**（main `7de7baa` の実測 baseline = **514 passed / 0 failed**。絶対値をハードコードしない理由は test-cases TC-16 注記）。`scripts/ai-loop/test_*.py` の **13 本**が各 exit 0。`bin/plangate validate TASK-0981` の FAIL が `approvals/c3.json not found` **のみ**に減る |
+| **AC-6** | 既存挙動が不変であることが確認できる | `git diff origin/main --name-only` に **コード配下（`schemas/` / `bin/` / `scripts/` / `tests/` / `.claude/` / `.github/`）の変更が 0 件**であり、変更ファイルが「Files / Components to Touch」A + B の集合に収まる（**`.md` 限定・ファイル数固定では判定しない** — C-1 F-2 是正。`approvals/c3.json` / `decision-log.jsonl` は `.md` ではないが正規の承認フロー成果物）。`sh tests/run-tests.sh` が PR 前後で **`failed == 0` かつ `passed` 同一**（main `7de7baa` の実測 baseline = **514 passed / 0 failed**。絶対値をハードコードしない理由は test-cases TC-16 注記）。`scripts/ai-loop/test_*.py` の **13 本**が各 exit 0。`bin/plangate validate TASK-0981` の FAIL が `approvals/c3.json not found` **のみ**に減る |
 
 ## Work Breakdown
 
@@ -145,8 +147,9 @@ ADR に以下の**配置表**を置き、同一情報のコピーが 2 箇所以
 - **Output**: ADR に D-6（legacy 経路）/ D-7（受理側 presence）/ D-8（prohibited_actions 宣言）/ D-9（evidence stale 束縛先）の決定と根拠を記録し、PR2 / PR3 のスコープ表へ反映する
 - **Owner**: agent
 - **Risk**: 高（D-6 は HO 対象 `bin/plangate` への変更方針を含む。D-9 は「拡張しない」を妥協と誤読されると PR3 の revision 契約の前提がぶれる）
-- 🚩 **チェックポイント**: **D-9 の循環依存**（`ARTIFACTS` が `review-self.md` / `review-external.md` を含むため C-1 marker に `plan_package_hash` を書き込むと自己参照になる）が `c3_contract.py:26-33` を根拠に明記されていること。「妥協ではなく構造的帰結」であることが読み取れること
+- 🚩 **チェックポイント**: **D-9 の循環依存**（`ARTIFACTS` が `review-self.md` / `review-external.md` を含むため C-1 marker に `plan_package_hash` を書き込むと自己参照になる）が `c3_contract.py:26-33` を根拠に明記され、**「現行の marker 形式では不可能」という限定表現**（record 側束縛・3 要素部分集合は可能）になっていること
 - 🚩 **チェックポイント**: **D-6 の後方互換根拠**（②全面強化は既存 TASK の `c3.json` を一斉 invalid 化する）が明記され、③ の変更範囲が `bin/plangate:2092` の 1 箇所に限定されていること
+- 🚩 **チェックポイント（後段 / todo T-09 対応）**: PR2 / PR3 のスコープ表に **PR1 → PR2 → PR3 → #980 Phase 0〜2 → PR4 の順序制約**が記載され、**U-4 / U-5 / U-7 の送り先が全件明示**されていること
 - `rollback:` `git checkout -- docs/decisions/adr-002-plan-contract-canonical-source.md`
 
 ### Step 8: `c3-prime-contract.md` §8 への但し書き追記（D-10 / S-9）
@@ -162,10 +165,14 @@ ADR に以下の**配置表**を置き、同一情報のコピーが 2 箇所以
 - **Output**: 以下をすべて実行し結果を `status.md` / `evidence/verification/` に記録する。加えて handoff に PR2 の Human 適用タスク（`schemas/plan-contract.schema.json` 新設 / `bin/plangate:2092` の BLOCK 化 patch）を **BLOCKED**（`blocker` / `owner` / `unblock_condition`）として先出しする
 - **Owner**: agent
 - **Risk**: 低（読み取り + 検証のみ）
-- 🚩 **チェックポイント**: `git diff origin/main --stat` の**全行が `.md`** であること。`sh tests/run-tests.sh` が **`failed == 0`** かつ `passed` が exec 開始時に取得した baseline と**同一**であること（実測 baseline = 514）
+- 🚩 **チェックポイント**: `git diff origin/main --name-only` に **コード配下（`schemas/` / `bin/` / `scripts/` / `tests/` / `.claude/` / `.github/`）が 0 件**であり、全変更が Files 表 A + B の集合に収まること。`sh tests/run-tests.sh` が **`failed == 0`** かつ `passed` が exec 開始時に取得した baseline と**同一**であること（実測 baseline = 514）
 - `rollback:` 不要（検証のみ）
 
 ## Files / Components to Touch
+
+> **本節の記載規約（C-1 F-1 是正 / C1-PLAN-03）**: 抽出器 extract_allowed_paths()（実装は scripts/ai-loop/plan_package.py の \_PATH\_RE）は、**本節の本文だけ**を走査し「backtick で囲まれスラッシュを含む語」を allowed_paths として機械抽出する。したがって**本節には「変更してよいファイル」以外を backtick で書かない**（リンク記法も、両側の backtick に挟まれた URL が誤抽出されるため本節では使わない）。変更禁止領域は次節「Scope Boundary」に backtick なしで記載する。
+
+### A. 本 PBI の変更対象（PR1 の成果物）
 
 | ファイル | 変更種別 | Step | HO | carve-out |
 |---------|---------|------|----|-----------|
@@ -179,9 +186,31 @@ ADR に以下の**配置表**を置き、同一情報のコピーが 2 箇所以
 | `docs/working/TASK-0981/handoff.md` | 新規 | Step 9 / WF-05 | 非該当 | 非該当 |
 | `docs/workflows/ai-loop/c3-prime-contract.md` | 追記（1 文） | 8 | 非該当 | **該当**（rollout-policy §2 ②） |
 
-**計 9 ファイル**（すべて `.md`）。`docs/working/TASK-0981/pbi-input.md` は**変更しない**。
+**計 9 ファイル**（すべて Markdown）。これが **Mode 判定の「変更ファイル数」の母数**である。
 
-**触れないもの（明示）**: `schemas/**` / `bin/plangate` / `scripts/**` / `tests/**` / `.claude/**` / `.github/workflows/**` / `CLAUDE.md` / `AGENTS.md`。
+### B. PlanGate 標準 artifact（ワークフローが phase 遷移で生成 / C-1 C1-PLAN-04 是正）
+
+[`working-context.md`](../../../.claude/rules/working-context.md) が標準 artifact と定めるもの。本リポジトリでは git 追跡対象（TASK-0873 等で実測）であり、**本 PBI の差分にも現れる**。許可パスには含めるが、**Mode 判定のファイル数（9）には算入しない**。
+
+| ファイル | 生成主体 / タイミング | 拡張子 |
+|---------|--------------------|-------|
+| `docs/working/TASK-0981/INDEX.md` | ワークフロー（plan 完了時） | `.md` |
+| `docs/working/TASK-0981/current-state.md` | ワークフロー（タスク完了ごと） | `.md` |
+| `docs/working/TASK-0981/decision-log.jsonl` | ワークフロー（判断のたび append） | **`.jsonl`** |
+| `docs/working/TASK-0981/approvals/c3.json` | **Human**（H-01 の `plangate approve`） | **`.json`** |
+| `docs/working/TASK-0981/evidence/verification/**` | agent（Step 9 / T-10 の検証ログ） | 任意 |
+
+**算入しない理由**: これらは PBI の設計判断ではなく **workflow の副産物**であり、算入すると Mode 判定が「どの phase まで進んだか」で揺れる。なお **算入した場合でも計 14 ファイルで high-risk 帯（6-15）に収まり、Mode 判定の結論は変わらない**（安全側の確認）。
+
+## Scope Boundary（変更禁止領域 / allowed_paths 非対象）
+
+> 本節のパスは **backtick で囲まない**。前節の記載規約のとおり、囲むと `extract_allowed_paths()` が許可側として抽出してしまうため（C-1 F-1 の再発防止）。
+
+**変更禁止（読み取りのみ / Hardening Override 対象・Constraint 7）**:
+schemas/ 配下すべて、bin/plangate、scripts/ 配下すべて、tests/ 配下すべて、.claude/ 配下すべて、.github/workflows/ 配下すべて、CLAUDE.md、AGENTS.md
+
+**改変禁止（main マージ済みの入力確定版 / Constraint 6）**:
+docs/working/TASK-0981/pbi-input.md
 
 ## Testing Strategy
 
@@ -198,7 +227,7 @@ PR1 は文書のみのため、検証は「**機械的に確認できる形**」
 | **リンク到達性** | 新規・変更 `.md` 内の相対リンクをすべて抽出し `test -f` で到達確認（TC-20）。doc 専用 V-1 の観点（リンク切れ / 正本整合 / 実行例の到達性） |
 | **Lint** | `npx --no-install markdownlint-cli2 "docs/decisions/*.md" "docs/working/TASK-0981/*.md" "docs/workflows/ai-loop/c3-prime-contract.md"` = **0 issues**（TC-19） |
 | **Regression（非退行 / AC-6）** | `sh tests/run-tests.sh` = **`failed == 0`** + `passed` が PR 前後で同一（main `7de7baa` 実測 baseline = **514 passed / 0 failed**）。`scripts/ai-loop/test_*.py` **13 本**を個別実行し各 exit 0（`unittest` 実装。main `7de7baa` で 13/13 exit 0 を実測済み。CI は `tests/extras/ta-55` 等を経由して `run-tests.sh` に内包）。`bin/plangate validate TASK-0981` の FAIL が `approvals/c3.json` のみ（TC-16〜TC-18） |
-| **差分の性質検査** | `git diff origin/main --name-only` が**すべて `.md`** で、`schemas/` `bin/` `scripts/` `tests/` `.claude/` `.github/` を 1 件も含まない（TC-15） |
+| **差分の性質検査** | `git diff origin/main --name-only` が `schemas/` / `bin/` / `scripts/` / `tests/` / `.claude/` / `.github/` を **1 件も含まず**、全変更が Files 表 A + B の集合に収まる（TC-15。`.md` 限定・ファイル数固定では判定しない） |
 
 > **変異注入は適用しない**: PR1 に新規テストコードは無く（文書のみ）、検証は既存 baseline との同一性確認である。検出力の実証は PR2 の実装テストで行う（handoff へ申し送り）。
 
@@ -241,7 +270,7 @@ pbi-input の U-1〜U-8 を **PR1 で決めるもの / PR2 以降へ送るもの
 2. **HO 対象パスへの変更が PR1 内で必要**になった（現計画は非該当。必要になった時点で C-3 再承認）
 3. **D-1〜D-10 のいずれかで、本 plan の決定を覆す実測根拠**が見つかった（例: `c3-prime-contract.md` を正本にできない構造的制約が判明）
 4. **`sh tests/run-tests.sh` の failed > 0**（文書のみの変更で失敗するなら前提が崩れている）
-5. **`git diff origin/main --name-only` に `.md` 以外が出現**した
+5. **`git diff origin/main --name-only` にコード配下（`schemas/` / `bin/` / `scripts/` / `tests/` / `.claude/` / `.github/`）が 1 件でも出現**した（`.md` 以外＝`approvals/c3.json` / `decision-log.jsonl` の出現は**正常**であり停止条件にしない）
 6. **`pbi-input.md` の改変が必要**と判断された（Constraint 6 違反。ADR 付表での是正に切り替えられない場合のみ停止）
 7. PR2 のスコープが PR1 の ADR で確定できず、**「PR2 で決める」項目が 3 件以上**残った（= PR1 の目的未達）
 
@@ -253,7 +282,7 @@ pbi-input の U-1〜U-8 を **PR1 で決めるもの / PR2 以降へ送るもの
 | RT-2 | D-1〜D-10 のいずれかの決定が exec 中に変更された | 該当決定の根拠を plan に差分反映し、簡易 C-1 を再実行してから続行 |
 | RT-3 | Step 1 の再走査で **根拠アンカーが失われた項目が 1 件以上**（対象コードが main で改廃された） | 該当項目のギャップ判定を再実測し、要件対応表と PR 割当を更新 |
 | RT-4 | `sh tests/run-tests.sh` の `failed > 0`、または `passed` が **exec 開始時に取得した baseline と不一致** | baseline を 2 回取得し直して安定値を確認したうえで、差分原因が本 PR 由来か切り分ける |
-| RT-5 | `git diff origin/main --name-only` に `.md` 以外が **1 件以上** | 混入経路を特定して revert。ブランチ base を `origin/main` から作り直す |
+| RT-5 | `git diff origin/main --name-only` に **コード配下（`schemas/` / `bin/` / `scripts/` / `tests/` / `.claude/` / `.github/`）が 1 件以上**、または Files 表 A + B に無いファイルが 1 件以上 | 混入経路を特定して revert。ブランチ base を `origin/main` から作り直す |
 | RT-6 | markdownlint issues `> 0` が自動修正で解消しない | 該当記法を書き換え、L-0 を再実行 |
 
 ## Mode判定
@@ -264,8 +293,8 @@ pbi-input の U-1〜U-8 を **PR1 で決めるもの / PR2 以降へ送るもの
 
 - **変更ファイル数**: **9**（ADR 1 + working context 7 + `c3-prime-contract.md` 1）→ **high**（6-15）
 - **受入基準数**: **6**（AC-1〜AC-6）→ **high**（6-10）
-- **タスク数（見込み）**: 9 Step / todo で 11 タスク → **high**（11-20）
-- **変更種別**: doc（差分はすべて `.md`）だが、**`doc-light` は適用しない**。除外条件「ドキュメントが API 仕様・契約の正本で、コード側の追従を要する」に該当する（[`c3-prime-contract.md`](../../workflows/ai-loop/c3-prime-contract.md) は契約正本であり、ADR は PR2 の実装先を決定する）→ 通常モードへフォールバック
+- **タスク数（見込み）**: 9 Step / todo で **13 タスク**（T-04 を T-04a / T-04b / T-04c へ 3 分割 — C-1 C1-TODO-08 是正）→ **high**（11-20）
+- **変更種別**: doc（**変更対象 A の 9 ファイルはすべて Markdown**。差分には workflow 標準 artifact B の `approvals/c3.json` / `decision-log.jsonl` も現れるが、これらは PBI の設計判断ではなく承認フローの副産物であり 変更種別判定の対象にしない）。ただし **`doc-light` は適用しない**。除外条件「ドキュメントが API 仕様・契約の正本で、コード側の追従を要する」に該当する（[`c3-prime-contract.md`](../../workflows/ai-loop/c3-prime-contract.md) は契約正本であり、ADR は PR2 の実装先を決定する）→ 通常モードへフォールバック
 - **リスク**: **高**（承認境界に接する設計判断。正本配置を誤ると二重正本が生まれ、承認済み Plan を騙る経路の設計余地を残す）
 - **影響範囲**: 複数レイヤーに波及（PR2 / PR3 / #980 の実装先を規定する）
 - **ロールバック**: 計画的に必要（Step 単位で `git checkout --` 可）

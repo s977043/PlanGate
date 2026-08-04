@@ -15,7 +15,7 @@
 | **AC-3** | 新規 schema 追加の必要性が説明されている | TC-09, TC-10 | 静的検査（成果物構造） |
 | **AC-4** | `plan_version` と hash の役割が決定され、二重正本にならない根拠が記録されている | TC-11, TC-12 | 静的検査 + 実測再現 |
 | **AC-5** | #980 との責務境界が記録されている | TC-22 | 静的検査（成果物構造） |
-| **AC-6** | 既存挙動が不変であることが確認できる | TC-15, TC-16, TC-17, TC-18, TC-25 | 回帰 / 差分検査 |
+| **AC-6** | 既存挙動が不変であることが確認できる（**コード非接触** + Files 表の集合に収まる + baseline 同一） | TC-15, TC-16, TC-17, TC-18, TC-25 | 回帰 / 差分検査 |
 | （PR1 固有）| ADR が並行正本と誤読されない構造で作られている | TC-01, TC-02, TC-03 | 静的検査 |
 | （PR1 固有）| D-6 / D-7 / D-8 / D-9 の 4 判断が根拠付きで記録されている | TC-13, TC-14, TC-23, TC-24 | 静的検査 |
 | （PR1 固有・doc V-1）| doc 専用 V-1 の 3 観点（リンク切れ / 正本整合 / 実行例の到達性）| TC-19, TC-20, TC-21 | 静的検査 |
@@ -81,14 +81,14 @@
 
 #### TC-07: 配置表の全行が埋まっている
 
-- **前提条件**: T-04 完了
+- **前提条件**: T-04a 完了
 - **入力**: `<ADR>` の「配置表」（情報 × 唯一の正本 × 他の場所での扱い）
 - **期待出力**: 表に**最低 6 行**（Plan Package 6 要素の定義 / 実行同一性 / 承認の事実 / 実行主体・実行参照 / `allowed_paths` / merge 禁止）があり、**全行の 3 列すべてが非空**。空欄・`—` のみ・`検討中` が 0 件
 - **種別**: 静的検査
 
 #### TC-08: Plan Contract の正本が単一パスで宣言され、コピー不在が根拠付きで示される
 
-- **前提条件**: T-04 完了
+- **前提条件**: T-04c 完了
 - **入力**: `<ADR>` の Decision 節
 - **期待出力**: Plan Contract の契約正本が **`docs/workflows/ai-loop/c3-prime-contract.md` の 1 パスのみ**として宣言されている（複数パスを「正本」と呼んでいない）。かつ「同一情報のコピーが 2 箇所以上に存在しない」旨の宣言と、その根拠（配置表の「他の場所での扱い」列がすべて「参照のみ / 書かない」であること）が示されている
 - **種別**: 静的検査
@@ -97,7 +97,7 @@
 
 #### TC-09: 3 経路すべての検討記録が存在する
 
-- **前提条件**: T-04 完了
+- **前提条件**: T-04b 完了
 - **入力**: `<ADR>` の Considered Options / D-4 節
 - **期待出力**: **(a) `approvals/c3.json` の `^_` 注釈キー / (b) `run-event.schema.json` の既存未使用プロパティ（`plan_hash` / `agent` / `by`）/ (c) sidecar + 新規 schema** の 3 経路がすべて記載されている。いずれも「検討しなかった」で済ませていない
 - **種別**: 静的検査
@@ -105,7 +105,7 @@
 
 #### TC-10: 3 経路 × 4 軸の比較表が埋まり、採用 / 不採用の理由が付く
 
-- **前提条件**: T-04 完了
+- **前提条件**: T-04b 完了
 - **入力**: `<ADR>` の 3 経路比較表
 - **期待出力**: 軸が **HO 接触 / 構造表現力 / CI enforcement / 承認 record の不変性** の 4 つ揃い、**3 経路 × 4 軸 = 12 セルすべてが非空**。採用（(c)）と併用（(b)）と将来枠（(a)）の判定が明示され、新規 schema が必要な理由（既存 3 経路の限界）と、不要にできる代替が併記されている
 - **種別**: 静的検査
@@ -139,7 +139,7 @@
 
 - **前提条件**: T-07 完了
 - **入力**: `<ADR>` の D-9 節 + `scripts/ai-loop/c3_contract.py` の `ARTIFACTS` 定義
-- **期待出力**: `ARTIFACTS` に `review-self.md` / `review-external.md` が含まれることを根拠に、「C-1 marker（`review-self.md` の内容）に `plan_package_hash` を書き込むと自己参照になるため**原理的に不可能**」と説明されている。「妥協ではなく構造的帰結」と読める。加えて 3 要素部分集合（`plan.md` / `todo.md` / `test-cases.md`）案が **PR3 候補**として残されている
+- **期待出力**: `ARTIFACTS` に `review-self.md` / `review-external.md` が含まれることを根拠に、「C-1 marker（`review-self.md` の内容）に `plan_package_hash` を書き込むと自己参照になるため、**現行の marker 埋め込み方式では原理的に不可能**」と**限定表現**で説明されている（「あらゆる方式で不可能」と書いていない）。「妥協ではなく構造的帰結」と読める。加えて **marker 以外の束縛（record 側フィールド / レビュー対象 3 要素 `plan.md` / `todo.md` / `test-cases.md` の部分集合 hash）は循環しないため可能**であり **PR3 候補**として残されている、と併記されている
 - **種別**: 静的検査 + 実測再現（`ARTIFACTS` の内容を実ファイルで確認）
 
 #### TC-23: D-7（受理側 presence）の意味範囲が明記され、補強が PR2 に割り当たる
@@ -168,12 +168,14 @@
 
 ### H. 非退行（AC-6）
 
-#### TC-15: 差分がすべて `.md` である
+#### TC-15: コード配下に変更が無く、差分が Files 表の集合に収まる
 
 - **前提条件**: T-01〜T-11 完了
 - **入力**: `git diff origin/main --name-only` および `git diff origin/main --stat`
-- **期待出力**: **全行が `.md`**。`schemas/` / `bin/` / `scripts/` / `tests/` / `.claude/` / `.github/` を含む行が **0 件**。ファイル数は **9**（`docs/decisions/adr-002-*.md` 1 + `docs/working/TASK-0981/{plan,todo,test-cases,review-self,review-external,status,handoff}.md` 7 + `docs/workflows/ai-loop/c3-prime-contract.md` 1）
+- **期待出力**: (1) **コード配下（`schemas/` / `bin/` / `scripts/` / `tests/` / `.claude/` / `.github/`）で始まる行が 0 件**、(2) 全変更ファイルが plan「Files / Components to Touch」の **A（変更対象 9 ファイル）+ B（PlanGate 標準 artifact）** の集合に収まる（A 外・B 外のファイルが 0 件）
 - **種別**: 差分検査
+- **注記（`.md` 限定・ファイル数固定にしない理由 / C-1 F-2 是正）**: 本リポジトリの working context は `approvals/c3.json`（**JSON**）/ `decision-log.jsonl` / `INDEX.md` / `current-state.md` / `evidence/**` を **git 追跡している**（TASK-0873 で実測）。H-01（`bin/plangate approve TASK-0981`）が発行する c3.json が同一ブランチに載った時点で「全行が `.md`」「ファイル数 9」は**必ず FAIL** し、同条件を持つ Stop Condition 5 / RT-5（exec 停止・ブランチ作り直し）が**正常な承認フローで誤発火**する。したがって判定は「**コード非接触**」+「**Files 表の集合に収まる**」の 2 条件で行う
+- **許容リスト（`.md` 以外だが正常）**: `docs/working/TASK-0981/approvals/c3.json` / `docs/working/TASK-0981/decision-log.jsonl` / `docs/working/TASK-0981/evidence/**`
 
 #### TC-16: 既存テストスイートが baseline と同一
 
@@ -190,12 +192,13 @@
 - **期待出力**: 列挙された**全件が exit 0**。main `7de7baa` 時点の実測は **13 本 / 13 本 exit 0**（`test_arbiter` / `test_c3_contract` / `test_c3prime_verify` / `test_check_exec_boundary` / `test_ci_taxonomy` / `test_collector` / `test_delivery` / `test_discovery` / `test_executor` / `test_gh_exec` / `test_metrics` / `test_plan_package` / `test_reconciler`）。`unittest` 実装で、CI 上は `tests/extras/ta-55-c3prime-accept.sh` 等を経由して `run-tests.sh` に内包される
 - **種別**: 回帰
 
-#### TC-18: `bin/plangate validate` の FAIL が C-3 未発行のみに減る
+#### TC-18: `bin/plangate validate` が FAIL 0 件になる
 
-- **前提条件**: T-10 実行時（C-3 発行**前**の状態で確認）
+- **前提条件**: T-10 実行時。**H-01（C-3 ゲート）は T-01 より前に完了しているため `approvals/c3.json` は既に存在する**
 - **入力**: `bin/plangate validate TASK-0981`
-- **期待出力**: Required Artifacts の `pbi-input.md` / `plan.md` / `todo.md` / `test-cases.md` / `review-self.md` が **すべて PASS**。FAIL は `approvals/c3.json not found` の **1 件のみ**（PR 作成前の baseline では 5 件 FAIL だったものが 1 件に減る）
+- **期待出力**: **`Result: PASS`（FAIL 0 件）**。Required Artifacts の `pbi-input.md` / `plan.md` / `todo.md` / `test-cases.md` / `review-self.md` が全 PASS、C-3 Gate も PASS（`plan_hash` が現 `plan.md` と一致 = 承認後に plan を変更していないこと）
 - **種別**: 回帰 / 成果物確認
+- **注記（C-1 F-2 是正）**: 旧期待値「FAIL は `approvals/c3.json not found` の 1 件のみ」は、todo の依存順（**H-01 → T-01 → … → T-10**）と両立しなかった。参考として、**plan 生成直後（H-01 前）**の実測は「Required Artifacts 5 件中 `pbi-input.md` のみ PASS、計 5 件 FAIL」であり、これは baseline としてのみ扱う
 
 #### TC-25: `pbi-input.md` が変更されていない
 
@@ -240,7 +243,7 @@
 | **EDGE-4** | ADR が `docs/rfc/` に置かれる、または `adr-003` 以降に飛ぶ | 既存慣行から外れ、後続が ADR を発見できない | TC-01（パスと命名形式） | `docs/decisions/adr-002-<slug>.md` に固定。既存 ADR は `adr-001` の 1 件のみ（実測） |
 | **EDGE-5** | `c3-prime-contract.md` への追記が既存 §8 の破壊的変更手続きを書き換えてしまう | 契約の変更ハードルが無断で下がる（承認境界の実質的な緩和） | TC-21（削除行 0 + 既存記述の残存確認） | 追記のみ。`git diff` で削除行 0 を確認してから次へ進む |
 | **EDGE-6** | sidecar 案を採ったのに `plan_hash` を sidecar にもコピーしてしまう | 承認 record と sidecar の 2 箇所に同一情報 = 二重正本 | TC-07 / TC-08（配置表の「他の場所での扱い」が「参照のみ / 書かない」） | sidecar は `approval_ref.path` で `approvals/c3.json` を**参照**するに留める |
-| **EDGE-7** | 文書のみの PR なのに `sh tests/run-tests.sh` が失敗する | 前提（PR1 はコードに無影響）が崩れている。ブランチ base の取り違え等 | TC-16（`failed == 0` + PR 前後の `passed` 同一）+ Stop Condition 4 / Replan Trigger RT-4 | main の baseline を再取得し、差分原因が本 PR 由来か切り分ける。`.md` 以外の混入は TC-15 で先に検出される |
+| **EDGE-7** | 文書のみの PR なのに `sh tests/run-tests.sh` が失敗する | 前提（PR1 はコードに無影響）が崩れている。ブランチ base の取り違え等 | TC-16（`failed == 0` + PR 前後の `passed` 同一）+ Stop Condition 4 / Replan Trigger RT-4 | main の baseline を再取得し、差分原因が本 PR 由来か切り分ける。コード配下の混入は TC-15 で先に検出される |
 | **EDGE-8** | `pbi-input.md` の誤りを見つけて修正したくなる | main マージ済みの確定版を書き換え、C-2 / C-3 の参照基準がぶれる | TC-25（差分 0） | 是正は ADR の付表で行い、`pbi-input.md` には触れない（plan Constraint 6 / Stop Condition 6） |
 
 ---
