@@ -3,13 +3,20 @@ task_id: TASK-0981
 artifact_type: review-self
 schema_version: 1
 status: draft
-verdict: PASS
+verdict: WARN
 created_by: orchestrator
 ---
 
 # TASK-0981 セルフレビュー結果（C-1）
 
-> **最新の判定は本ファイル末尾の「[簡易 C-1 再実行（是正後・head `117d10e`）](#簡易-c-1-再実行是正後head-117d10e)」を参照**。以下の初回レビュー（head `2d6a5dd` / 総合 FAIL）は**監査のため原文のまま保持**しており、指摘 6 件はすべて是正済み（最終判定 = **PASS**）。
+> **最新の判定は本ファイル末尾の「簡易 C-1 再実行 2 回目（C-2 反映後・head `462b452`）」を参照**（総合 **WARN / 条件付き PASS** — critical 0・major 0・minor 4）。
+> 本ファイルは 3 回分の記録を**追記のみ**で保持する（監査のため過去の判定を書き換えない）:
+>
+> | 回 | 対象 head | 契機 | 総合判定 |
+> |----|----------|------|---------|
+> | 初回 C-1 | `2d6a5dd` | plan 生成直後 | **FAIL**（major 2 / minor 4） |
+> | 簡易 C-1（1 回目） | `117d10e` | C-1 指摘 6 件の是正後 | **PASS**（minor 1） |
+> | **簡易 C-1（2 回目・最新）** | **`462b452`** | **C-2 26 件の 1 回確定反映後** | **WARN（条件付き PASS）**（minor 4） |
 
 ## 初回レビュー（head `2d6a5dd`）
 
@@ -546,3 +553,194 @@ grep -n "すべて \`\.md\`\|全行が \`\.md\`\|\.md\` 以外\|9 ファイル\|
 「全行が `.md`」「ファイル数 9」を**判定条件として**使っている箇所は 0 件。
 
 `bin/plangate` の `cmd_validate` 実読により、TC-18 の新期待値 `Result: PASS` は Required Artifacts 5 件 + C-3 Gate（c3.json 存在 / `c3_status = APPROVED` / `plan_hash` 一致）で構成され、T-10 時点で到達可能であることを確認した。
+
+---
+
+## 簡易 C-1 再実行 2 回目（C-2 反映後・head `462b452`）
+
+> 再実行日: 2026-08-05
+> 対象: `origin/docs/981-c1` head **`462b452`**（前回 `fc60759` + `origin/main`（`73e6a15`）マージ + C-2 26 件の 1 回確定反映）
+> 入力: [`review-external.md`](./review-external.md)（2 レーン / R-001〜R-011・R-101〜R-115・critical 0 / major 9）
+> 範囲: **C1-PLAN-01（受入基準網羅性）と C1-TEST-13（AC→TC 紐付き）の全面再走査**（C-2 設計妥当性レーンの所見「簡易 C-1 が範囲限定だったため R-001 / R-003 / R-006 / R-010 が素通りした」への応答）+ C-2 反映の妥当性 + 反映の副作用
+> 更新後の判定: **WARN（条件付き PASS）** — critical=0, major=0, minor=4（残存 WARN 4 件。**いずれも C-3 のブロッカーではない**）
+
+### 再評価サマリー
+
+| 項目 | 前回 | 今回 | 要旨 |
+|------|------|------|------|
+| **C1-PLAN-01（受入基準網羅性・全面再走査）** | PASS（未再走査） | **WARN** | AC-1〜AC-6 は pbi-input AC / issue PR1 完了条件 3 点 / issue 作業 8 項目を**全数照合して漏れなし**。ただし C-2 反映で**新設された PR1 の確定義務 3 件**が AC のどこにも接続されていない（R-2） |
+| **C1-TEST-13（AC→TC 紐付き・全面再走査）** | PASS（未再走査） | **PASS** | AC-1 の 5 条件 → TC-04/05/06/26 に 1:1 で分解済み。AC-2〜AC-6 の各条項も全件 TC に到達。浮いた TC・未割当 AC はいずれも 0 件 |
+| C1-TEST-14（期待値の正しさ・再々評価） | PASS | **WARN** | TC-26 の「表② **14 行**」が pbi-input の同表（**13 行**）と食い違う。issue 本文の実測では **14 が正**なので TC 側が正しいが、素直に転記すると V-1 で FAIL する（R-3） |
+| C1-PLAN-03 / C1-PLAN-04 / C1-TODO-08 / C1-TODO-10 / C1-B1B2-16（前回是正分の退行確認） | PASS | **PASS** | 退行なし。`extract_allowed_paths()` = 14 件・違反 0 件を再実測 |
+| C-2 反映の妥当性（26 件） | — | **PASS**（1 件の集計誤りを除く） | reflected 23 / acknowledged 3 / rejected 0 を実測。**review-external.md の集計行の「22 / 4」は誤り**（R-4） |
+| 反映の副作用（D-4 3→5 経路 / SC-7 置換 / U-4 仕分け / 基点更新） | — | **PASS** | 退行なし。詳細は下表 |
+
+### C1-PLAN-01: 受入基準網羅性（全面再走査）
+
+- **result**: **WARN**
+- **category**: plan
+- **finding**: **網羅性そのものは充足している**。3 つの入力すべてと突き合わせた:
+  1. **pbi-input の AC-1〜AC-6** → plan AC-1〜AC-6 に 1:1。番号・意味とも保存され、C-2 反映で強化されたのは*判定方法*のみ（AC-1 に表②検査・未対応 3 項目検査を追加 / AC-3 を 3→5 経路 20 セルへ / AC-5 に `agent`・`by` の語彙+所有権を追加 / AC-6 の baseline を絶対値から「その場取得」へ）。AC の削除・弱化は 0 件。
+  2. **issue #981 コメント §4「PR 1 / 完了条件」3 点**（`gh issue view` で実測）→ 「追加実装対象が『未対応差分』だけに限定されている」= AC-1 / 「正本が 1 つに決まっている」= AC-2 / 「新規 schema 追加の必要性が説明されている」= AC-3。**verbatim 一致**。
+  3. **issue コメント §4「作業」8 項目** → 標準 artifact 作成 = Files 表 A / 棚卸し = Step 1 / 要件対応表 = Step 3 / ADR 作成 = Step 2 / `c3-prime-contract.md` との関係明記 = D-1・Step 4・Step 8 / 並行正本にならない旨の明記 = Step 2 冒頭 1 文（TC-02）/ `plan_version` と hash の役割決定 = Step 5 / #980 責務境界 = Step 6。**8/8 が Step Output に到達**。
+- **WARN の理由（R-2）**: C-2 反映により **PR1 の確定義務が 3 件増えた**が、いずれも AC のどこにも接続されていない。とくに 1 件目は R-005 の目的（HO patch の Human 適用を 1 回に抑える）そのものであり、落ちると C-2 が防ごうとした害がそのまま発生する。
+  1. **U-4 の骨格確定**（record 数 1 or 2 + 必須トップレベルキーの有無）— plan L271 / L277 と todo T-09 の本文にはあるが、**AC-1〜AC-6 のどれにも無く、TC も無く、Stop Condition 7 のカウント対象でもない**（SC-7 が数えるのは D-1〜D-10 のみで、U-4 は D 番号を持たない）。T-09 の 🚩 は「U-4（骨格 = PR1 / 詳細 = PR2）の**送り先が明示**されていること」しか要求しないため、**「骨格 = PR1」と書いてあるだけで record 数が未決のままでも 🚩 が通る**。
+  2. **ai-loop 非適用の 1 行**（R-111）— plan Step 2 / todo T-02 の本文にあるが、Step 2 の 🚩 にも TC-01 にも無い。
+  3. **EH-8 privacy の field set 事前制約の PR2 申し送り**（R-108）— plan Step 4 / todo T-04b の本文にあるが TC が無い（同じ Step 4 由来でも `schema_mapping.py` の 1 行（R-103）は TC-10 に落ちている）。
+- **evidence_ref**: 本ファイル §Evidence E-7
+- **impacted_files**: `docs/working/TASK-0981/plan.md`, `docs/working/TASK-0981/test-cases.md`
+- **severity**: minor
+- **suggested_action**: いずれも 1 行の追記で閉じる。(1) AC-3 の機械判定に「sidecar の **record 数**と**必須トップレベルキーの有無**が確定している」を足し、TC-09 の期待出力に同項目を加える（schema 骨格は AC-3 = schema 機構の領域）。(2) TC-01 の期待出力に「ai-loop 非適用の 1 行がある」を足す。(3) TC-10 の期待出力に「EH-8 `FORBIDDEN_KEYS` をキー名に使わない旨が PR2 申し送りにある」を足す。**plan 本体の決定内容は変更不要**。
+- **owner**: agent
+- **resolved**: false
+
+### C1-TEST-13: 受入基準→テストケース網羅性（全面再走査）
+
+- **result**: **PASS**
+- **category**: test
+- **finding**: AC の**条項レベル**まで分解して TC を突き合わせた。C-2 で AC が強化された結果、AC-1 は 5 条件・AC-3 は 3 条件・AC-5 は 4 条件・AC-6 は 4 条件に増えているが、**すべてに対応 TC がある**。
+
+| AC | 条項 | 対応 TC | 判定 |
+|----|------|---------|------|
+| AC-1 | 表① 12 項目に判定 + 根拠アンカー | TC-04 | ✅ |
+| AC-1 | 「既存で満たす」5 項目に PR 割当 0 件 | TC-05 | ✅ |
+| AC-1 | 「一部満たす」3 項目の分離記載 | TC-06 | ✅ |
+| AC-1 | 「未対応」3 項目の PR 割当が全件非空（R-010） | **TC-26 (1)** | ✅ 新設で解消 |
+| AC-1 | 表②が 14 行あり「PR1 で扱う範囲」列が全行非空（R-001） | **TC-26 (2)(3)** | ✅ 新設で解消 |
+| AC-2 | 配置表の全行充足 / 正本の単一パス宣言 | TC-07 / TC-08 | ✅ |
+| AC-3 | 5 経路すべての検討記録 | TC-09 | ✅ 3→5 に追随 |
+| AC-3 | 5 × 4 = 20 セル非空 + 採否理由 | TC-10 | ✅ 12→20 に追随 |
+| AC-3 | `schema_mapping.py` 1 行 = 唯一の強制点の明記（R-103） | TC-10 | ✅ |
+| AC-4 | hash が正本 / `plan_version` 新設しない / `^_plan_revision` 限定 | TC-11 | ✅ |
+| AC-4 | grep 0 件の実測掲載 | TC-12 | ✅ |
+| AC-5 | 分界表 + 「非検証 opaque string」 | TC-22 | ✅ |
+| AC-5 | `agent` / `by` の語彙定義（R-003） | TC-22 追加 (1)(2) | ✅ |
+| AC-5 | writer 所有権（R-003） | TC-22 追加 (3) | ✅ |
+| AC-5 | 「#980 は独自語彙を割り当てない」の分界表行 | TC-22 追加 (4) | ✅ |
+| AC-6 | コード配下 0 件 + Files 表 A+B に収まる | TC-15 | ✅ |
+| AC-6 | `failed == 0` + `passed` 同一 + baseline その場取得 | TC-16 | ✅ |
+| AC-6 | `test_*.py` 全件 exit 0（本数非固定） | TC-17 | ✅ |
+| AC-6 | `validate` = `Result: PASS` | TC-18 | ✅ |
+
+逆方向（TC → AC）も確認し、AC に紐づかない TC は PR1 固有の完了条件（TC-01〜03 / TC-13・14・23・24 / TC-19〜21）として分類済みで、宙に浮いた TC は 0 件。**未割当の AC 条項は 0 件**。
+
+- **evidence_ref**: —
+- **impacted_files**: []
+
+### C1-TEST-14: テストケースの具体性・期待値の正しさ（再々評価）
+
+- **result**: **WARN**
+- **category**: test
+- **finding（R-3 / 新規検出）**: TC-26 (2) は「表②が **#981 全体 AC 14 項目すべてを行として持つ**（`grep -c` で表②のデータ行が **14 行**）」を期待する。**この 14 は正しい**（issue #981 本文の受け入れ条件を `gh issue view` で実測 → チェックボックス **14 件**）。しかし **plan Step 3 / T-03 が表②の下敷きにする `pbi-input.md` の同名テーブルは 13 データ行**しかない（`sed -n '164,182p' | grep '^| '` = 14 行 = ヘッダ 1 + データ 13）。差分は、pbi-input が issue の第 1 項「1 つの Run に複数 ActorSession」と第 2 項「Planner と Executor が異なる Principal でも継続」を**1 行に統合**しているため。exec が pbi-input の表を素直に転記すると **13 行になり TC-26 (2) が FAIL する**。TC-26 は「欠落の検出器」なのでこの FAIL は設計どおりの動作だが、**plan / todo のどこにも「pbi-input の表は 13 行なので分割して 14 行にする」という指示が無い**ため、V-1 で初めて露見し、しかも「TC-26 を 13 に直す」という誤った是正（= R-001 の意図の骨抜き）へ誘導されうる。
+- **evidence_ref**: 本ファイル §Evidence E-8
+- **impacted_files**: `docs/working/TASK-0981/test-cases.md`, `docs/working/TASK-0981/plan.md`, `docs/working/TASK-0981/todo.md`
+- **severity**: minor
+- **suggested_action**: TC-26 (2) の注記、または todo T-03 の該当行に 1 文を足す — 「**pbi-input の同表は issue の第 1 項と第 2 項を 1 行に統合しており 13 行。ADR の表②は issue 本文の 14 項目に合わせて分割して 14 行にする**」。数値 14 は issue 実測に基づく正であり、**TC 側を 13 へ下げてはならない**。
+- **owner**: agent
+- **resolved**: false
+
+### C-2 反映の妥当性（26 件）
+
+**実測**: 監査表のデータ行 = **26 件**（`grep -c '^| R-'` = 27 からヘッダ 1 行を除く）。status 内訳は **reflected 23 / acknowledged 3 / rejected 0**。反映コミット `462b452` の本文末尾に `Refs: R-001 … R-115` として **26 件が全列挙**されており、[`working-context.md`](../../../.claude/rules/working-context.md)「C-2 指摘の差分管理」の要求（1 回確定反映 + `Refs: R-NNN`）を満たす。
+
+> **R-4（集計行の誤り / 新規検出）**: review-external.md の集計行は「26 件中 **reflected 22 件 / acknowledged 4 件**」と書いているが、実測は **23 / 3**。ズレは `R-114`（`Status` を `Accepted` にする）で、監査表では **reflected**（`reflected_in` 欄に反映コミットが入っている）なのに集計側で acknowledged に数えられている。実体（plan Step 2 / todo T-02 / TC-01 に反映済み）と監査表は正しく、**集計行だけが誤り**。監査表の目的は「指摘 → 反映の抜けを機械的に検出できること」なので、集計値の不一致は放置しない方がよい。review-external.md は**追記専用**のため、修正は集計行の書き換えではなく**末尾への訂正追記**（「集計訂正: reflected 23 / acknowledged 3。R-114 は reflected」）で行う。severity = minor・C-3 のブロッカーではない。
+
+依頼された 7 点はすべて**自分で実測**して確認した。
+
+| 検証点 | 結果 | 実測根拠 |
+|--------|------|---------|
+| **R-002 の実測値（80 件 vs 81 件）** | **plan の 80 が正**（訂正不要） | `git ls-files 'docs/working/*/approvals/c3.json' \| wc -l` = **80**。`plan_hash` 欠落は `grep -L '"plan_hash"' docs/working/TASK-*/approvals/c3.json` = **`TASK-0038` の 1 件のみ**（plan と完全一致）。**81 との差の正体は `docs/working/PBI-116/approvals/parent-c3.json`**（親 PBI の統合ゲート承認で、ファイル名も schema も別物。`bin/plangate exec` の legacy preflight が読むのは `approvals/c3.json` だけなので D-6 の母数から外すのが正しい）。参考: リポジトリ全体では 85 件で、差の 5 件は `tests/fixtures/**` の固定具（同じく母数外）。**plan が glob（`docs/working/*/approvals/c3.json`）を明示しているため記述は自己整合しており、是正不要** |
+| **D-6 の「② はほぼ全件を invalid 化する」** | **正しい**（追加検証） | `grep -l '"approval_kind"' docs/working/TASK-*/approvals/c3.json \| wc -l` = **0**。追跡下 80 件は**全件 legacy**で evidence marker も `artifact_hashes` も持たない。したがって ②（全面強化）は 80/80 を invalid 化し、③ は 1/80 に留まる。plan の非対称の主張は実測で裏づけられる |
+| **R-101: `c3-prime-contract.md` §8 の行番号** | **一致** | `grep -n '^## 8\.'` → **L176**（見出し）。`sed -n '176,180p'` で L177 = 空行 / **L178 = 「本契約の破壊的変更…additive な任意フィールド追加は本ファイルの改版のみでよい（`^_` 注釈キーは自由）。」= 追記対象文**。plan L169 / Step 8 の「見出し L176 / 対象文 L178」と一致 |
+| **R-101: `test_*.py` 15 本 / `extras` 57 本** | **一致** | `ls scripts/ai-loop/test_*.py \| wc -l` = **15**、`ls tests/extras/*.sh \| wc -l` = **57** |
+| **R-101: `run-tests.sh` 524 passed** | **一致**（本 worktree で実走） | `sh tests/run-tests.sh` → **`Results: 524 passed, 0 failed`**。plan / test-cases の参考値と完全一致 |
+| **AC-6 / TC-16 / TC-17 からの絶対値撤去** | **完了** | AC-6・TC-16・TC-17・todo T-10・plan Step 9 🚩 のいずれも**期待値は「PR 前後で同一」「全件 exit 0」**で、524 / 15 は「参考値」として併記されるだけ。TC-16 注記に「**baseline は exec 開始時に `origin/main` 最新を取り込んだ状態でその場で 2 回取得**」が明記され、state 依存（初回 513）と基点ドリフト（514→524）の 2 理由が併記されている |
+| **R-003: `agent` / `by` の語彙 + writer 所有権** | **落ちている**（Step 6 / AC-5 / TC-22 + 配置表） | plan Step 6 Output の 3 点目に (i) `agent` 語彙 / (ii) `by` 語彙 / (iii) writer 所有権（`plangate_append_ndjson` の `:1279` / `:2005` / `:2112` のどれが何を書くか）が明記され、専用 🚩 も新設。AC-5 に (1) 語彙定義 (2) writer 所有権 + 「#980 は独自語彙を割り当てない」が入り、TC-22 に追加期待出力 4 点として落ちている。さらに**配置表に「`agent` / `by` の語彙と writer 所有権 → 唯一の正本 = 本 PBI の ADR」の行が新設**されており、#980 側（`docs/working/TASK-0980/pbi-input.md:181` が「#981 PR1 で先に確定する」と委譲）と噛み合う。**info**: D-5 の決定表セル自体には追記されていないが、Step 6 が「D-5 / AC-5」の Step として明示されており、機械検査は TC-22 が担うため実害なし |
+| **R-004: Stop Condition 7 の誤発火** | **解消** | 新定義は「**D-1〜D-10 のうち『PR1 で確定する』と宣言した決定が未確定のまま残った件数が 1 件以上**」で、**カウント対象外**として U-4 のフィールド詳細 / U-5 / U-7 / D-4 の sidecar field set / D-6 の patch 本文が明示列挙されている。加えて Questions / Unknowns 末尾にも「後送は計画済みであり SC-7 のカウント対象ではない」の注記がある。**計画済み後送 3 件では発火しない**ことを条文突合で確認。旧条件が誤発火した経緯も括弧書きで残っており、再発防止の記録になっている |
+| **R-005: U-4 の HO 適用 1 回化** | **反映されているが検査が無い** | plan U-4 行が「PR1 で schema 骨格レベルのみ確定 / フィールド詳細は PR2」へ変更され、理由（PR2 で HO 適用後に record 数が変わると 2 回目の HO patch が要る）が #980 の同型リスク登録（`TASK-0980/pbi-input.md:345`）付きで書かれている。todo T-09 にも骨格確定の指示がある。**ただし AC / TC / Stop Condition のいずれにも接続されていない** → C1-PLAN-01 の WARN（R-2）として計上 |
+| **D-4 の 5 経路** | **完備** | 比較表が (a)〜(e) × 4 軸 = **20 セル**で全埋め。(d) 既存 `c3-prime.schema.json` への型付き additive は「承認 record の不変性を壊す・HO 接触量は (c) と同等」で不採用、(e) `docs/schemas/` 段階昇格は「PR1 は実装を含まないため段階化の利得が無い・sidecar の CI 検証には結局 `schemas/` 昇格が要る（TASK-0874 handoff K-12）」で不採用。AC-3 が「5 × 4 = 20 セル非空」を要求し、TC-09（5 経路の記載）/ TC-10（20 セル + 採否理由 + `schema_mapping.py` の唯一強制点）が検査する。**AC / TC とも 3→5 に追随済み** |
+| **`extract_allowed_paths()` の再確認** | **14 件・混入 0 件** | 反映後の plan.md に対して独立実行（E-9）。A 表 9 件 + B 表 5 件で、禁止パス（`schemas/**` / `bin/plangate` / `scripts/**` / `tests/**` / `.claude/**` / `.github/workflows/**`）と `pbi-input.md`、URL 由来の混入はいずれも 0 件。新設された `## Scope Boundary` 節と `### A.` / `### B.` の構造は反映後も維持されている |
+
+### 反映の副作用検査
+
+| 検査対象 | 結果 | 根拠 |
+|---------|------|------|
+| **D-4 の 3 → 5 経路拡張** | **PASS** | AC-3（20 セル）/ TC-09 / TC-10 / todo T-04b / plan Step 4 Output・🚩 が**すべて 5 経路へ追随**。「3 経路」の残存記述は 0 件。依存関係グラフの T-04b ラベルも「5 経路比較表」へ更新済み |
+| **Stop Condition 7 の置換** | **PASS** | SC-1〜SC-6 は不変。SC-7 のみ置換され、RT-1〜RT-6 との整合も保たれている（RT-2 = 決定変更 → 簡易 C-1 再実行、が SC-7 と役割分担）。旧条件の誤発火は解消され、新条件が新たに誤発火する経路は検出されなかった |
+| **U-4 の仕分け変更（PR2 全送り → 骨格 PR1）** | **PASS（ただし検査欠落 = R-2）** | Questions / Unknowns の集計行が「PR1 で決める = U-1/U-2/U-3/U-6/U-8 + U-4 の骨格部分」「PR2 以降 = U-4 のフィールド詳細 / U-5 / U-7」へ整合的に更新。SC-7 のカウント対象外リストも「U-4 のフィールド詳細」と正しく限定されている。**矛盾は無い**が AC / TC が付いていない |
+| **基点更新（`7de7baa` → `73e6a15`）** | **PASS** | 冒頭の基点表記・D 表のヘッダ・Step 1 / Step 8 / todo T-01 / test-cases 冒頭がすべて `73e6a15` へ更新。**「コードファイルの行番号は不変」という旧断定が、無変更ファイル群とドリフトしたファイル群を列挙する実測表に置き換えられている**（過大な断定の是正として適切）。加えて Step 1 / T-01 に「`origin/main` が進んでいれば先に merge して確定値を取り直す」という**再取得手順**が入り、基点 stale の再発が構造的に抑えられている。**なお本レビュー時点で `origin/main` は既に `0ebb8fe`（#986）へ 1 commit 進行している**が、§8 行番号（L176/L178）・`test_*.py` 15 本・`extras` 57 本はいずれも現状維持で、この再取得手順が正しく働けば吸収できる |
+| **C-1 前回是正分の退行** | **PASS** | F-1（`extract_allowed_paths()` 14 件・混入 0）/ F-2（`.md` 限定・9 固定を判定に使う箇所 0 件）/ C1-PLAN-04（B 節維持）/ C1-TODO-08（T-04a/b/c 維持・「13 タスク」維持）/ C1-TODO-10（T-06・T-09 の 🚩 維持、さらに T-06 の 🚩 は R-003 分が加筆されて強化）/ C1-B1B2-16（pbi-input からの決定の進行の注記が D 表直後に維持）。**いずれも退行なし** |
+| **plan ↔ todo の対称性** | **WARN（軽微）** | todo T-03 の 🚩 は「TC-04 / TC-05 / TC-06 / **TC-26** が PASS（… / 未対応 3 項目の割当全件 / 表② 14 行全存在）」へ更新されたが、**plan Step 3 の 🚩 は「既存で満たす 5 項目 / 一部満たす 3 項目」のままで、未対応 3 項目と表②に触れていない**（前回 C1-TODO-10 で指摘した非対称の逆方向）。AC-1 と TC-26 と todo T-03 が押さえているため実害は小さい。R-5 として計上 |
+| **markdownlint** | **PASS** | `npx --no-install markdownlint-cli2 "docs/working/TASK-0981/*.md"` = **0 issues**（6 ファイル） |
+
+### 残存 WARN（C-3 承認者の判断材料）
+
+いずれも **plan の決定内容（D-1〜D-10）・Mode 判定・スコープには影響しない**。4 件とも exec 中（T-03 / T-09 / V-1）に吸収でき、**C-3 を保留する理由にはならない**と判断する。優先度順:
+
+| # | 内容 | 影響 | 最小の是正 | 遅くとも |
+|---|------|------|-----------|---------|
+| **R-2** | U-4 の骨格確定（record 数 + 必須トップレベルキーの有無）が AC / TC / SC-7 のどこにも接続されていない | R-005 の目的（HO patch の Human 適用を 1 回に抑える）が静かに落ちうる。落ちると PR2 で 2 回目の HO 適用が発生する | AC-3 に 1 条項 + TC-09 に 1 行 | **C-3 前が望ましい**（AC 本文に触れるため） |
+| **R-3** | TC-26 (2) の「表② 14 行」と pbi-input の同表（13 行・issue 第 1・2 項を統合）の食い違い | V-1 で初めて露見し、「TC を 13 に下げる」誤った是正へ誘導されうる | TC-26 注記 or todo T-03 に 1 文（「pbi-input は 13 行なので分割して 14 行にする」） | exec T-03 まで |
+| **R-4** | review-external.md の集計行「reflected 22 / acknowledged 4」が実測（23 / 3）と不一致（`R-114` の数え違い） | 監査表の「抜け検出」機能の信頼性が下がる。指摘の反映漏れそのものは無い | review-external.md 末尾へ**訂正追記**（追記専用のため書き換えない） | C-4 まで |
+| **R-5** | plan Step 3 の 🚩 が AC-1 強化分（未対応 3 項目 / 表②）に追随していない（todo T-03 は追随済み） | 実害小（AC-1 / TC-26 / todo T-03 が押さえる） | plan Step 3 🚩 に 1 行 | exec T-03 まで |
+| （継続）**R-1** | TC-20 の検査対象が「`.md` 9 ファイル」固定で `INDEX.md` / `current-state.md` を含まない（前回指摘・C-2 の範囲外だったため未是正） | INDEX / current-state のリンク切れが doc V-1 で検出されない | TC-20 の入力を「変更 `.md` 全件」に変更 | exec T-10 まで |
+
+#### 情報提供（是正不要 / info）
+
+- **I-3**: D-5 の決定表セル自体には `agent` / `by` の語彙・所有権が書かれていない（Step 6 / AC-5 / TC-22 / 配置表でカバー）。ADR の Decision 節は D 番号ではなく Step 単位で書かれる想定なので実害はない。
+- **I-4**: 本レビュー時点で `origin/main` は `0ebb8fe`（#986 / mass-delete guard）へ 1 commit 進行している。plan の基点は `73e6a15` のままだが、Step 1 / T-01 に再取得手順が入ったため**計画としては正しく吸収できる**。C-3 承認から exec までに間が空く場合、T-01 の再取得を省略しないこと。
+
+### 更新後の総合判定
+
+**WARN（条件付き PASS）** — critical=0 / major=0 / minor=4（+ 継続 1 件）
+
+C-2 の 26 件は **reflected 23 / acknowledged 3 / rejected 0** で、指摘の反映漏れは 0 件。実測値（`c3.json` 80 件中欠落 1 件 / §8 = L176・L178 / `test_*.py` 15 本 / `extras` 57 本 / `run-tests.sh` 524 passed）は**すべて独立実測と一致**し、絶対値のハードコードも撤去されている。今回主眼だった **C1-PLAN-01 は網羅性そのものは充足（pbi-input AC / issue 完了条件 3 点 / issue 作業 8 項目を全数照合）**、**C1-TEST-13 は PASS（AC の全条項に TC が到達）** である。
+
+残る 4 件はいずれも「**C-2 反映で増えた義務のうち 3 件が AC / TC へ伝播しきっていない**」「**期待値と入力ソースの行数差**」「**集計値の誤記**」という記述レベルの穴で、決定内容には影響しない。**C-3 ゲートへ進んでよい**。ただし **R-2 は AC 本文に触れる是正**であり、C-3 承認後に plan を編集すると `plan_hash` が無効化される（承認後の plan 編集は禁止）。**R-2 を反映するなら c3.json 発行の前に行うこと**を強く推奨する。
+
+### Evidence（再実行 2 回目分）
+
+#### E-7: C-2 反映で増えた義務の AC / TC 接続状況（R-2）
+
+```sh
+grep -n "骨格\|record 数" docs/working/TASK-0981/plan.md \
+  docs/working/TASK-0981/todo.md docs/working/TASK-0981/test-cases.md
+```
+
+ヒットは plan L271（U-4 行）/ plan L277（集計行）/ todo L153（T-09 本文）/ todo L157（T-09 🚩・送り先の明示のみ）の **4 箇所で、`test-cases.md` は 0 件**。同様に `ai-loop 非適用` は plan Step 2 / todo T-02 のみ、EH-8 の `FORBIDDEN_KEYS` 制約は plan Step 4 / todo T-04b のみで、いずれも TC に到達していない。
+
+#### E-8: 表② の行数（R-3）
+
+```sh
+gh issue view 981 --repo s977043/plangate --json body -q .body   # 受け入れ条件のチェックボックス = 14 件
+sed -n '164,182p' docs/working/TASK-0981/pbi-input.md | grep -c '^| '   # 14（ヘッダ 1 + データ 13）
+```
+
+issue 本文の受け入れ条件は **14 項目**（第 1 項「1 つの Run に複数の ActorSession を関連付けられる」/ 第 2 項「Planner と Executor が異なる Principal / ActorSession でも同一 Run を継続できる」は**別項目**）。pbi-input の「#981 全体 AC 14 項目と PR1 の関係」表はこの 2 項を 1 行に統合しているため**データ行は 13**。TC-26 (2) の 14 は issue 実測に照らして正しい。
+
+#### E-9: 反映後の `extract_allowed_paths()`（副作用検査）
+
+E-1 / E-5 と同一コマンドを反映後 plan に対して実行:
+
+```text
+count 14
+VIOLATIONS: none
+```
+
+内訳は A 表 9 件（ADR / plan / todo / test-cases / review-self / review-external / status / handoff / c3-prime-contract）+ B 表 5 件（INDEX / current-state / decision-log.jsonl / approvals/c3.json / evidence/verification/**）。
+
+#### E-10: C-2 反映の実測（監査表・基点値）
+
+```sh
+grep -c '^| R-' docs/working/TASK-0981/review-external.md   # 27（ヘッダ 1 + データ 26）
+grep -c '| reflected |' docs/working/TASK-0981/review-external.md      # 23
+grep -c '| acknowledged |' docs/working/TASK-0981/review-external.md   # 3
+git ls-files 'docs/working/*/approvals/c3.json' | wc -l               # 80
+grep -L '"plan_hash"' docs/working/TASK-*/approvals/c3.json           # TASK-0038 のみ
+grep -l '"approval_kind"' docs/working/TASK-*/approvals/c3.json | wc -l  # 0（全件 legacy）
+grep -n '^## 8\.' docs/workflows/ai-loop/c3-prime-contract.md         # 176
+ls scripts/ai-loop/test_*.py | wc -l                                  # 15
+ls tests/extras/*.sh | wc -l                                          # 57
+sh tests/run-tests.sh                                                 # Results: 524 passed, 0 failed
+git rev-parse --short origin/main                                     # 0ebb8fe（73e6a15 から +1 commit）
+```
