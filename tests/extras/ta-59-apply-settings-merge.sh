@@ -20,10 +20,10 @@ printf '\n=== TA-59: apply-claude-settings.sh idempotent hooks merge (#928) ===\
 # の AND で判別し、片方でも欠ければ standalone（安全側）へ倒す。
 if [ "${PG_HARNESS_SOURCED:-0}" != "1" ] || [ -z "${FIXTURES_DIR:-}" ]; then
   _T59_STANDALONE=1
-  # 呼び出し元 env の漏れで hook 挙動が変わるのを防ぐ（run-tests.sh L20 と対称）
-  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
-    PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
-    PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+  # 呼び出し元 env の漏れで hook 挙動が変わるのを防ぐ（run-tests.sh L20 と対称）。
+  # 行継続で折らない: ta-26 TC-33 の静的検査は `^\s*unset ` 行のみを走査するため、
+  # 2 行目以降へ回した env は検出されない（README 規約 8 / #914）
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
   FIXTURES_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/../fixtures" && pwd)"
   pass=0
   fail=0

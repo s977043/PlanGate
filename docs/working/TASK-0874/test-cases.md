@@ -68,9 +68,9 @@
 | **TC-14** | 同上 | 同上 | `final_head_sha` == `REC` の `kind=merge_ready` entry の `record.head_sha`。`ci_outcomes` が `record.check_summary` の全 check 名を含む（件数を `len()` で照合） | Integration |
 | **TC-15** | 同上 | 同上 | `review_findings` が `record.review_disposition` の全 finding id を含む。`repair_rounds` == `delivery._completed_rounds(entries, pr)` の戻り値と**一致**（producer 側で再実装せず import して照合） | Integration |
 | **TC-16** | `REC` の最終 `kind=state` が `HUMAN_ESCALATED` | producer 実行 | `terminal_state == "HUMAN_ESCALATED"` かつ `human_interventions[]` が非空。**`MERGE_READY` にならない**。⚠️ **本 TC は非終端 run を扱わない**（Edge cases の「非終端 run」割当は **TC-59** へ付け替え済み = C-2 R-001） | Integration |
-| **TC-50** | 同 TC-13 の前提 | producer 実行 | 出力 `EV` に `routing_decisions` キーが**存在し**、Phase 1 では値が `"unavailable"`（#868 OPEN のため供給元が無い）。かつ **同一 `EV` 内で `plan_hash` / `final_head_sha` / `terminal_state` と同じ `run_id` に結合されている**（AC-3 の「routing が同一 run へ結合される」を Phase 1 で機械検証できる唯一の形）。⚠️ 当初 AC-3 の割当 TC（TC-13〜16）には **routing を検査する TC が 1 件も無かった**（C1-TEST-13 ① 是正）。⚠️ **Phase 1 では routing の値そのものは検証できない**（#868 OPEN・fixture 6 が fixture 4 と区別不能 = C-2 R-002） | Integration |
+| **TC-50** | 同 TC-13 の前提 | producer 実行 | 出力 `EV` に `routing_decisions` キーが**存在し**、Phase 1 では値が `"unavailable"`（#868 OPEN のため供給元が無い）。かつ **同一 `EV` 内で `plan_hash` / `final_head_sha` / `terminal_state` と同じ `run_id` に結合されている**（AC-3 の「routing が同一 run へ結合される」を Phase 1 で機械検証できる唯一の形）。⚠️ 当初 AC-3 の割当 TC（TC-13〜16）には **routing を検査する TC が 1 件も無かった**（C1-TEST-13 ① 是正）。⚠️ **Phase 1 では routing の値そのものは検証できない**（#868 OPEN・fixture 6 も `routing_decisions` が `"unavailable"` のため routing 値のカバレッジは 0 = C-2 R-002） | Integration |
 | **TC-57** | `C3`（`decision=AUTO_APPROVED`）+ `REC` に **`kind=merge_ready` entry が物理的に存在する** | producer 実行 | `terminal_state == "MERGE_READY"`。**`kind=merge_ready` の物理存在のみが唯一の条件**（記号アンカー = `delivery.assess()` の `state = "MERGE_READY"` 分岐が刻む唯一の経路）。**最終 `kind=state` が `MERGE_READY_CANDIDATE` の `REC` を与えたときに `MERGE_READY` へ丸めない**ことを対で assert する。⚠️ **当初 `MERGE_READY` の導出を検査する TC は 0 件**であり、producer が最終 `kind=state` を見て丸めても 56 TC のどれも落ちなかった（C-2 R-001） | Integration |
-| **TC-58** | `C3.decision == "BLOCKED"`（= exec に到達していない）。**`<task_dir>/delivery/record.jsonl` が存在しない** | producer 実行（fixture 5 相当） | `terminal_state == "BLOCKED"` で **RunEvidence が発行される**。かつ **delivery 層 4 フィールド（`final_head_sha` / `ci_outcomes` / `review_findings` / `repair_rounds`）がすべて `"unavailable"`**（**空文字・ダミー sha・`0` で埋めない**）。受理器は **exit 11**（`unavailable` の内訳が (a) Phase 1 固定 3 + (b) `terminal_state` 依存 4 の計 7 であることを stderr で確認）。⚠️ **当初 D7 は known-unavailable を 3 件と断定しており、`BLOCKED` で `record.jsonl` 不在になる経路が未定義だった**（実装者がダミー値で埋めるか exit 1 に倒すかで、どちらに転んでも plan と矛盾した）= C-2 R-003 | Integration |
+| **TC-58** | `C3.decision == "BLOCKED"`（= exec に到達していない）。**`<task_dir>/delivery/record.jsonl` が存在しない** | producer 実行（fixture 5 相当） | `terminal_state == "BLOCKED"` で **RunEvidence が発行される**。かつ **delivery 層 4 フィールド（`final_head_sha` / `ci_outcomes` / `review_findings` / `repair_rounds`）がすべて `"unavailable"`**（**空文字・ダミー sha・`0` で埋めない**）。受理器は **exit 11**（`unavailable` の内訳が (a) Phase 1 固定 3 + (b) `terminal_state` 依存 **5**〔`quality_metrics` を含む〕の計 **8** であることを stderr で確認 = R2 MN-2 是正）。⚠️ **当初 D7 は known-unavailable を 3 件と断定しており、`BLOCKED` で `record.jsonl` 不在になる経路が未定義だった**（実装者がダミー値で埋めるか exit 1 に倒すかで、どちらに転んでも plan と矛盾した）= C-2 R-003 | Integration |
 | **TC-59** | 非終端 7 状態を **parametrized で全数**（`WAITING_FOR_CHECKS` / `WAITING_FOR_REVIEW` / `CHECKS_FAILED` / `CONFLICT` / `REVIEW_REPAIR` / `MERGE_READY_CANDIDATE` / `EXEC_RETURN`） | 各状態を最終 `kind=state` に持つ `REC` で producer 実行 | **7 件すべてで RunEvidence を発行しない**（発行拒否をエラーとして返す）。**1 件でも `MERGE_READY` / `HUMAN_ESCALATED` / `BLOCKED` を返したら FAIL**。⚠️ plan Risks が「7 状態すべての負側 TC」と書きながら **対応 TC が 1 件も存在しなかった**（C-2 R-001）。**U-4 が `IN_PROGRESS` 採用に決まった場合は本 TC を改訂** | Integration（negative） |
 | **TC-64** | `REC` に `kind=merge_ready` が無く `--pr-number` も未注入 | producer 実行 | `repair_rounds == "unavailable"`。**`0` にならない**。⚠️ 実測で `delivery._pr_receipts(entries, pr)` は `e.get("pr_number") == pr` で絞るため `pr=None` では `pr_number` を持たない entry だけが残り、`_completed_rounds()` は `max(rounds, default=0)` により **例外ではなく `0`（= 修理 0 回）を黙って返す**（実在の一次証跡で `(entries, 940) = 1` / `(entries, None) = 0` を実測）。`0` に倒すと **#869 の first-pass 判定が汚染される**（C-2 R-C04）。`ci_outcomes` / `review_findings` も同様に `unavailable` | Unit（negative） |
 
@@ -133,7 +133,19 @@
 | **TC-30** | producer | run 開始時注入 `harness_version = X`、終了時注入も `X` | 出力 `EV.harness_version == X`・exit 0 | Unit |
 | **TC-31** | 同上 | 開始時 `X` / 終了時 `Y`（≠ X） | **エラー**（fail-closed）。stderr に「harness_version が run 中に変化」と両値を出力。**警告に降格しない** | Unit（negative） |
 
-> **注（U-1 依存）**: 本 2 TC は `harness_version` の**値の意味論に依存しない**（注入値の byte 一致のみを見る）。したがって U-1（定義）が C-3 で未確定でも実装・検証できる。定義が確定したら `harness_version` の**構造**を検証する TC を追加する（V2 候補）。
+> **追加検証（TC 番号外 / R2 MJ-3 由来）**: TC-30 / TC-31 はいずれも `--harness-version-end` が
+> **注入されている**前提であり、**未注入時に drift 検査が走らないこと**を 65 TC のどれも検査していなかった。
+> caller が渡し忘れた run は「検査して同一だった `EV`」と受理側で区別できないため、契約 §4-1 に
+> `escalation.harness_drift_unchecked` を追加し、以下 4 件を追加した（TC 番号は増やさない）:
+>
+> | 追加テスト | 位置 | 期待 |
+> |-----------|------|------|
+> | `test_unchecked_drift_is_recorded_in_escalation` | `test_run_evidence.py` | `--harness-version-end` 未注入 → `escalation` に `harness_drift_unchecked` |
+> | `test_checked_drift_leaves_no_unchecked_escalation` | 同上 | 注入時は積まない（常時付与では情報量 0） |
+> | `test_unchecked_harness_drift_is_partial_not_complete` | `test_run_evidence_verify.py` | 全 available でも `exit 11`（`complete` にしない） |
+> | `test_other_escalation_kinds_do_not_block_complete` | 同上 | `unknown_record_kind` 等は `complete` を妨げない |
+
+**注（U-1 依存）**: 本 2 TC は `harness_version` の**値の意味論に依存しない**（注入値の byte 一致のみを見る）。したがって U-1（定義）が C-3 で未確定でも実装・検証できる。定義が確定したら `harness_version` の**構造**を検証する TC を追加する（V2 候補）。
 
 ## AC-10: paired replay / 独立 grader / activation check / rollback を source candidate へ戻せる
 
@@ -167,11 +179,11 @@
 
 | TC | 前提条件 | 入力 | 期待出力 | 種別 |
 |----|---------|------|---------|------|
-| **TC-42** | 分類関数 | `docs/working/ai-loop-runs/` の**実データ 28 件** | `legacy_count == 25` / `run_count == 3` / `invalid_run_meta_count == 0` / `skipped_count == 0`。**`metrics.py --format json` の現行出力と一致**（`metrics.py` の 4 分類ロジックを転写した結果の同値性） | Integration |
-| **TC-43** | 同上 | 同上 | 恒等式 **`total_records == len(legacy_records) + len(invalid_meta_records) + len(run_records)`** が成立（**記号アンカー = `metrics.py` の `collect()` 末尾の集計ブロック**の構造転写。全件がどれかに帰属し、無言で消えるレコードが 0）。⚠️ **右辺に `run_count` を置かない**（C1-TEST-14 ② 是正）: 実測で `run_count = len(grouped)` は `_group_by_run()` 後の **distinct `run_id` 数**であり、1 run が複数 record を持つ入力では `len(run_records)` と一致しない。現データ 28 件では**偶然一致するため回帰では検出できない**（`run_count=3` かつ run record も 3 件）。**1 run に 2 record を持つ合成入力**で恒等式を検証すること | Unit |
+| **TC-42** | 分類関数 | `docs/working/ai-loop-runs/` の**実データ**（T-2 baseline 時点 28 件） | **`metrics.py --format json` の現行出力と一致**（`legacy_count` / `invalid_run_meta_count` / `run_count` / `skipped_count` / `total_records` の 5 キーを同値照合。`metrics.py` の 4 分類ロジックを転写した結果の同値性）。⚠️ **絶対件数を assert しない**（R2 MJ-5 是正）: `docs/working/ai-loop-runs/` は gitignore 対象外で ai-loop の実運用ごとに record が commit されるため（実測: run-021 / run-023 / run-025 の追加履歴）、`== 25` と書くと次の run 記録が main に入った瞬間に**無関係な PR の CI が赤くなる**。非空振り担保は下限（`legacy_count >= 25` / `run_count >= 3`・T-2 baseline 実測値）で置く | Integration |
+| **TC-43** | 同上 | 同上 | 恒等式 **`total_records == len(legacy_records) + len(invalid_meta_records) + len(run_records)`** が成立（**記号アンカー = `metrics.py` の `collect()` 末尾の集計ブロック**の構造転写。全件がどれかに帰属し、無言で消えるレコードが 0）。⚠️ **右辺に `run_count` を置かない**（C1-TEST-14 ② 是正）: 実測で `run_count = len(grouped)` は `_group_by_run()` 後の **distinct `run_id` 数**であり、1 run が複数 record を持つ入力では `len(run_records)` と一致しない。現データ 28 件では**偶然一致するため回帰では検出できない**（`run_count=3` かつ run record も 3 件）。**1 run に 2 record を持つ合成入力**で恒等式を検証すること。⚠️ 恒等式以外に**件数の絶対値を assert しない**（R2 MJ-5・TC-42 と同じ理由。非空振り担保は `loaded_records > 0`） | Unit |
 | **TC-54** | 同上 | 1 つの `run_id` に **2 件**の run record を持つ合成入力（+ 実データ 28 件） | `run_count == len(set(run_id))`（distinct 数）であり、**`len(run_records)` とは別物**であることを assert。合成入力では `len(run_records)=2` に対し `run_count=1` になる（TC-43 から分離した片割れ） | Unit |
 | **TC-44** | 同上 | 破損 JSON 1 行 / 非 dict / `decision` 欠落 の 3 パターン | いずれも `skipped` に**理由文字列付き**で入る（fail-silent 禁止。**記号アンカー = `metrics.py` の `_load_records()` 内 `skipped.append({"file": …, "reason": …})` 3 分岐**の転写。⚠️ `file` の値は絶対パスになりうるため EV へ転記する際は repo 相対へ正規化する = C-2 R-C09(a)）。例外で落ちない | Unit（negative） |
-| **TC-45** | 位置づけ | producer 実行後の `docs/working/ai-loop-runs/` | 既存 **28 件が 1 バイトも変更されていない**（`git diff --stat docs/working/ai-loop-runs/` が空）。RunEvidence は arbiter record の**後継ではなく上位 artifact**であり、置き換えも移行も行わない | E2E |
+| **TC-45** | 位置づけ | producer 実行後の `docs/working/ai-loop-runs/` | 既存 record が **1 バイトも変更されていない**（件数に依存しない検査）（`git diff --stat docs/working/ai-loop-runs/` が空）。RunEvidence は arbiter record の**後継ではなく上位 artifact**であり、置き換えも移行も行わない | E2E |
 
 ## AC-16: 10 fixture が ta-59 で CI 実行され、AC↔fixture 対応表が残る
 
@@ -194,8 +206,8 @@ issue #874 本文の fixture 定義を verbatim で保持し、各 fixture が�
 | 2 | CI repair あり MERGE_READY | `fx-02-ci-repair.json` | AC-3（`ci_outcomes` / `repair_rounds`） | `MERGE_READY` / **11** |
 | 3 | review repair あり MERGE_READY | `fx-03-review-repair.json` | AC-3（`review_findings`） | `MERGE_READY` / **11** |
 | 4 | HUMAN_ESCALATED | `fx-04-human-escalated.json` | AC-3 / AC-14（trust boundary） | `HUMAN_ESCALATED` / **11** |
-| 5 | BLOCKED | `fx-05-blocked.json` | AC-3（c3-prime 層由来の terminal）**+ TC-58**（delivery 層 4 フィールドが `unavailable`） | `BLOCKED` / **11**（`unavailable` は **(a)3 + (b)4 = 7 件**） |
-| 6 | routing escalation あり | `fx-06-routing-escalation.json` | AC-3（`routing_decisions[]`）⚠️ **Phase 1 では fixture 4 と区別不能**（下記） | `HUMAN_ESCALATED` / **11** |
+| 5 | BLOCKED | `fx-05-blocked.json` | AC-3（c3-prime 層由来の terminal）**+ TC-58**（delivery 層 4 フィールドが `unavailable`） | `BLOCKED` / **11**（`unavailable` は **(a)3 + (b)5 = 8 件**。**(b) は 5** — `final_head_sha` / `ci_outcomes` / `review_findings` / `repair_rounds` に加え `quality_metrics` が従属する。当初記載の「(b)4 = 7 件」は `quality_metrics` の従属を計上していなかった〔実装・契約 §5-1・`test_tc58_blocked_fixture_has_eight_unavailable_fields` はいずれも 8〕= R2 MN-2 是正） |
+| 6 | routing escalation あり | `fx-06-routing-escalation.json` | AC-3（`routing_decisions[]`）⚠️ **Phase 1 では `routing_decisions` の値カバレッジが 0**（下記） | `HUMAN_ESCALATED` / **11** |
 | 7 | partial / tampered evidence | `fx-07-tampered-expected-errors.json`（**期待エラー列**を格納。受理された record ではない） | AC-4 | — / **ケースごとに一意**: `tampered` → **1** / `partial` → **11**（**いずれも 0 を返さない**） |
 | 8 | 3 件以上の同型 Run から shadow candidate 生成 | `fx-08-shadow-candidate-input.json` | AC-7 / AC-8 | — |
 | 9 | baseline / candidate paired replay | `fx-09-paired-replay.json` | AC-10 | — |
@@ -230,8 +242,12 @@ issue #874 本文の fixture 定義を verbatim で保持し、各 fixture が�
 > **fixture 6 が Phase 1 で vacuous であること（C-2 R-002・plan 既定は (b) = 明示して進む）**
 >
 > `routing_decisions[]` は Phase 1 で常に `"unavailable"`（#868 OPEN）であるため、
-> `fx-06-routing-escalation` は `terminal_state=HUMAN_ESCALATED` / exit 11 で **`fx-04-human-escalated` と実質的に区別できない**
-> （routing 次元の実カバレッジ **0** = 実質 9 fixture）。
+> `fx-06-routing-escalation` の `routing_decisions` は `fx-04-human-escalated` と同じ `"unavailable"` であり、
+> **routing 次元の値カバレッジは 0** である。
+> ⚠️ **「fixture 4 と区別不能（実質 9 fixture）」は誤り**（R2 MN-1 是正・実測で反証）: 両 golden を diff すると
+> `escalation`（fixture 6 のみ `privacy_url_reduced` / `unknown_record_kind` を持つ）・`human_interventions`・
+> `observation`（`unknown_record_kinds=notice`）・`run_id` が異なる。fixture 6 は **`kind=notice` を含む入力**の
+> escalation 経路を実際にカバーしており、fixture 数を割り引く必要はない。**欠けているのは routing の値カバレッジだけ**である。
 > In scope 4 の verbatim 要求「#868 の requested/resolved routing と outcome を区別して記録」に対応する **item schema は本 PBI では定義しない**。
 > ⇒ **「10 fixture PASS」を AC-16 / DoD の充足として報告する際に、routing が実質未検証であることを必ず併記する**（T-32 / T-42）。
 > **代替案 (a)**（item schema を暫定定義し fixture 6 を注入値で構成）は **U-9 の C-3 判断**へ上げてある。

@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/run-evidence.schema.json",
+  "title": "RunEvidence Record",
+  "description": "Machine-readable evidence record for one completed ai-loop run (#874). Contract: docs/workflows/ai-loop/run-evidence-contract.md. evidence_status (complete/partial) is NOT stored here: it is derived by run_evidence_verify.py (trust boundary, contract section 2-1).",
+  "type": "object",
+  "required": [
+    "run_id",
+    "task_id",
+    "started_at",
+    "completed_at",
+    "repository",
+    "source_sha",
+    "final_head_sha",
+    "plan_hash",
+    "c3_prime_decision_ref",
+    "harness_version",
+    "routing_decisions",
+    "ci_outcomes",
+    "review_findings",
+    "repair_rounds",
+    "replan_count",
+    "human_interventions",
+    "terminal_state",
+    "quality_metrics",
+    "cost_metrics",
+    "evidence_refs",
+    "schema_version"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the ai-loop run this evidence describes."
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{4}$",
+      "description": "Bound to the task_dir directory name by the verifier."
+    },
+    "started_at": {
+      "$ref": "#/$defs/timestamp",
+      "description": "Injected via --started-at. Never derived from now()."
+    },
+    "completed_at": {
+      "$ref": "#/$defs/timestamp",
+      "description": "Injected via --now. Never derived from now()."
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[^/]+$",
+      "minLength": 1,
+      "description": "Owner-stripped repository name (e.g. plangate, NOT s977043/plangate). Contract section 7-3."
+    },
+    "source_sha": {
+      "$ref": "#/$defs/commitSha",
+      "description": "From approvals/c3.json. Re-verified by the verifier."
+    },
+    "final_head_sha": {
+      "anyOf": [
+        { "$ref": "#/$defs/commitSha" },
+        { "$ref": "#/$defs/unavailable" }
+      ],
+      "description": "unavailable when terminal_state=BLOCKED (delivery/record.jsonl does not exist). Never padded with an empty string or a dummy sha."
+    },
+    "plan_hash": {
+      "$ref": "#/$defs/sha256Hash",
+      "description": "From approvals/c3.json. Re-verified by the verifier against the task_dir."
+    },
+    "c3_prime_decision_ref": {
+      "type": "object",
+      "required": ["path", "plan_package_hash"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repoRelativePath",
+          "description": "Repo-relative reference to approvals/c3.json."
+        },
+        "plan_package_hash": { "$ref": "#/$defs/sha256Hash" }
+      },
+      "additionalProperties": false
+    },
+    "harness_version": {
+      "type": "object",
+      "required": ["plugin_version", "cli_version", "corpus_hash"],
+      "properties": {
+        "plugin_version": { "type": "string", "minLength": 1 },
+        "cli_version": { "type": "string", "minLength": 1 },
+        "corpus_hash": { "$ref": "#/$defs/sha256Hash" }
+      },
+      "additionalProperties": false,
+      "description": "Object of 3 values (contract section 4-1). AC-12 compares all 3 byte-for-byte between run start and run end."
+    },
+    "routing_decisions": {
+      "anyOf": [
+        { "type": "array" },
+        { "$ref": "#/$defs/unavailable" }
+      ],
+      "description": "Phase 1: always unavailable (#868 is OPEN, no producer exists). Never padded with an empty array."
+    },
+    "ci_outcomes": {
+      "anyOf": [
+        { "type": "array" },
+        { "$ref": "#/$defs/unavailable" }
+      ]
+    },
+    "review_findings": {
+      "anyOf": [
+        { "type": "array" },
+        { "$ref": "#/$defs/unavailable" }
+      ]
+    },
+    "repair_rounds": {
+      "anyOf": [
+        { "type": "integer", "minimum": 0 },
+        { "$ref": "#/$defs/unavailable" }
+      ],
+      "description": "delivery._completed_rounds() return value. unavailable when the PR number cannot be resolved: never 0 (contract section 3-2)."
+    },
+    "replan_count": {
+      "anyOf": [
+        { "type": "integer", "minimum": 0 },
+        { "$ref": "#/$defs/unavailable" }
+      ],
+      "description": "Phase 1: always unavailable (no producer exists)."
+    },
+    "human_interventions": {
+      "anyOf": [
+        { "type": "array" },
+        { "$ref": "#/$defs/unavailable" }
+      ]
+    },
+    "terminal_state": {
+      "type": "string",
+      "enum": ["MERGE_READY", "HUMAN_ESCALATED", "BLOCKED"],
+      "description": "Normalized per contract section 4. Non-terminal runs do not emit a RunEvidence record at all."
+    },
+    "quality_metrics": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["first_pass", "rounds"],
+          "properties": {
+            "first_pass": {
+              "anyOf": [
+                { "type": "boolean" },
+                { "$ref": "#/$defs/unavailable" }
+              ]
+            },
+            "rounds": {
+              "anyOf": [
+                { "type": "integer", "minimum": 0 },
+                { "$ref": "#/$defs/unavailable" }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        { "$ref": "#/$defs/unavailable" }
+      ],
+      "description": "Only metrics that close over the events of this single run. Corpus-wide aggregates (decision_counts / round_distribution / hotl_health / first_pass_rate) are forbidden: they would break determinism (contract section 3-3)."
+    },
+    "cost_metrics": {
+      "anyOf": [
+        { "type": "object" },
+        { "$ref": "#/$defs/unavailable" }
+      ],
+      "description": "Phase 1: always unavailable (docs/working/_metrics/events.ndjson is gitignored)."
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/repoRelativePath" },
+      "description": "Repo-relative references only. Enumerated from injected values or record.jsonl: never by scanning the disk (contract section 3-3)."
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "Required, not optional: a record with an unknown version makes the versioning policy mechanically void (contract section 9)."
+    },
+    "observation": {
+      "type": "string",
+      "description": "Observed facts only. Kept separate from cause_hypothesis (AC-5)."
+    },
+    "cause_hypothesis": {
+      "type": ["string", "null"],
+      "description": "Inference. The producer never generates this automatically: null when not injected (AC-5)."
+    },
+    "escalation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "detail"],
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "detail": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Anomalies that must not be swallowed (unknown record kind, privacy-violating input, unclassifiable record, and unperformed checks such as harness_drift_unchecked). Must stay registered here: under additionalProperties=false an unregistered escalation would reject exactly the records that need verification most."
+    }
+  },
+  "additionalProperties": false,
+  "patternProperties": {
+    "^_": {
+      "type": "string",
+      "description": "Annotation-only keys (same convention as schemas/c3-prime.schema.json). String values only: the verifier rejects non-string annotation values."
+    }
+  },
+  "$defs": {
+    "unavailable": {
+      "const": "unavailable",
+      "description": "Explicitly not obtainable. Distinct from 0 and from an empty array."
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "commitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "sha256Hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "repoRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/]",
+      "description": "Absolute paths are forbidden (metrics-privacy.md sections 4 and 5)."
+    }
+  }
+}
