@@ -743,6 +743,136 @@ def build(task_dir, opts) -> dict:
     return record
 
 
+# ---------------------------------------------------------------------------
+# 下流 adapter（provenance の橋渡しのみ。clustering / decision table は作らない）
+# ---------------------------------------------------------------------------
+
+#: shadow candidate を作るために必要な同型 run の最小件数（契約 §8-1）。
+MIN_EVIDENCE_RUNS = 3
+
+#: improvement TASK 記述子のキー allowlist（迂回フラグを構造的に持たせない）。
+IMPROVEMENT_TASK_KEYS = (
+    "task_kind", "candidate_id", "source_run_ids",
+    "plan_package_required", "c3_prime_required", "merge_by_ai",
+)
+
+_PR_REF = re.compile(r"^[0-9]+$")
+_COMMIT_REF = re.compile(r"^[0-9a-f]{7,40}$")
+
+
+def to_shadow_candidate_input(evidences) -> dict:
+    """RunEvidence 群 → shadow candidate 入力（契約 §8-1 / AC-7 / AC-8）。
+
+    **EV 以外の I/O を持たない**（引数が唯一の入力）。clustering は下流の責務で
+    あり本 adapter は provenance の橋渡しのみを行う。
+    """
+    evs = list(evidences)
+    if len(evs) < MIN_EVIDENCE_RUNS:
+        return {"status": "insufficient_evidence",
+                "evidence_count": len(evs),
+                "required_evidence_count": MIN_EVIDENCE_RUNS}
+    baselines = {c3_contract.canonical_hash(e.get("harness_version")) for e in evs}
+    if len(baselines) != 1:
+        # baseline が定義できない run 群から候補を作らない。
+        return {"status": "mixed_baseline", "evidence_count": len(evs)}
+    run_ids = [e.get("run_id") for e in evs]
+    baseline_version = evs[0].get("harness_version")
+    return {
+        "status": "ok",
+        "candidate_id": c3_contract.canonical_hash(
+            {"source_run_ids": sorted(run_ids), "baseline_version": baseline_version}),
+        "source_run_ids": run_ids,
+        "baseline_version": baseline_version,
+        "observed_pattern": sorted({str(e.get("observation") or "") for e in evs}),
+        "cause_hypothesis": sorted({str(e["cause_hypothesis"]) for e in evs
+                                    if e.get("cause_hypothesis")}),
+    }
+
+
+def _normalize_improvement_refs(refs) -> list:
+    """PR 番号 / commit SHA のみを保持する（URL・絶対パスは reject / 契約 §7-3）。"""
+    out = []
+    for ref in refs or ():
+        text = str(ref)
+        if _PR_REF.fullmatch(text):
+            out.append({"kind": "pr", "ref": text})
+        elif _COMMIT_REF.fullmatch(text):
+            out.append({"kind": "commit", "ref": text})
+        else:
+            raise RunEvidenceError(
+                [f"improvement_ref は PR 番号か commit SHA のみ: {text!r}"])
+    return out
+
+
+def to_promotion_provenance(candidate, decision=None, *, improvement_refs=(),
+                            promoted_to=None, canary_scope=None) -> dict:
+    """candidate + promotion 判断 → Trust Ledger provenance（契約 §8-2）。
+
+    **AC-13 fail-closed**: `blocked_by` が非空、または**キーが物理的に存在しない**
+    （未注入 = 判定不能）ときは `BLOCKED`。非 `BLOCKED` と解釈するのは
+    **明示的に `[]` を注入した場合のみ**。issue 番号はハードコードしない。
+    """
+    refs = _normalize_improvement_refs(improvement_refs)
+    blocked_by = candidate.get("blocked_by")
+    unresolved = "blocked_by" not in candidate or bool(blocked_by)
+    final_decision = "BLOCKED" if unresolved else (decision or "BLOCKED")
+    return {
+        "candidate_id": candidate.get("candidate_id"),
+        "decision": final_decision,
+        "promoted_to": None if final_decision == "BLOCKED" else promoted_to,
+        "evidence_count": len(candidate.get("source_run_ids") or []),
+        "canary_scope": canary_scope if canary_scope else UNAVAILABLE,
+        "rollback_count": candidate.get("rollback_count", 0),
+        "improvement_refs": refs,
+        "source_run_ids": list(candidate.get("source_run_ids") or []),
+        "blocked_by": list(blocked_by) if isinstance(blocked_by, list) else UNAVAILABLE,
+    }
+
+
+def to_improvement_task_descriptor(candidate) -> dict:
+    """candidate 由来 improvement TASK の記述子（AC-9 / 契約 §8-3）。
+
+    通常ゲート（Plan-first / C-3' / PR 収束）を迂回するフラグを構造的に持たない。
+    """
+    return {
+        "task_kind": "improvement",
+        "candidate_id": candidate.get("candidate_id"),
+        "source_run_ids": list(candidate.get("source_run_ids") or []),
+        "plan_package_required": True,
+        "c3_prime_required": True,
+        "merge_by_ai": False,
+    }
+
+
+def to_paired_replay(candidate, baseline_evidences, candidate_evidences,
+                     grader_ref=None, activation_check=None) -> dict:
+    """baseline / candidate の paired replay 橋渡し（AC-10 / 契約 §8）。"""
+    baseline_ids = [e.get("run_id") for e in baseline_evidences]
+    candidate_ids = [e.get("run_id") for e in candidate_evidences]
+    overlap = sorted(set(baseline_ids) & set(candidate_ids))
+    if overlap:
+        return {"status": "overlapping_runs", "overlap": overlap,
+                "candidate_id": candidate.get("candidate_id")}
+    return {
+        "status": "ok",
+        "candidate_id": candidate.get("candidate_id"),
+        "baseline_run_ids": baseline_ids,
+        "candidate_run_ids": candidate_ids,
+        "grader_ref": grader_ref if grader_ref else UNAVAILABLE,
+        "activation_check": activation_check if activation_check else UNAVAILABLE,
+    }
+
+
+def apply_canary_rollback(candidate, canary_result) -> dict:
+    """failed canary を source candidate へ戻す（AC-10 / AC-13）。純関数（入力不変）。"""
+    updated = dict(candidate)
+    if (canary_result or {}).get("result") == "failed":
+        updated["status"] = "rolled_back"
+        updated["rollback_count"] = int(candidate.get("rollback_count", 0)) + 1
+        updated["canary_scope"] = (canary_result or {}).get("canary_scope", UNAVAILABLE)
+    return updated
+
+
 def main(argv):
     opts = _parse_kv(argv[1:])
     positional = opts.get("_positional") or []

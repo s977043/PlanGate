@@ -1016,5 +1016,216 @@ class LegacyClassificationTests(unittest.TestCase):
                 self.assertNotEqual(node.module, "metrics")
 
 
+def _evidences(n, *, harness=None):
+    """adapter 入力用の EV 群（run_id だけが異なる同型 run）。"""
+    evs = []
+    for i in range(n):
+        ev = {
+            "run_id": f"run-{i:02d}",
+            "task_id": "TASK-9999",
+            "harness_version": dict(harness or HARNESS),
+            "observation": "terminal_state=MERGE_READY; repair_rounds=1",
+            "cause_hypothesis": None,
+            "terminal_state": "MERGE_READY",
+        }
+        evs.append(ev)
+    return evs
+
+
+class ShadowCandidateAdapterTests(unittest.TestCase):
+    """T-28 / AC-7 / AC-8（TC-23 / TC-24 / TC-25 / TC-26 / TC-33）。"""
+
+    @staticmethod
+    def _adapt(evs):
+        import run_evidence
+        return run_evidence.to_shadow_candidate_input(evs)
+
+    def test_tc23_three_runs_produce_a_candidate_input(self):
+        evs = _evidences(3)
+        got = self._adapt(evs)
+        self.assertEqual(got["status"], "ok", got)
+        self.assertEqual(len(got["source_run_ids"]), 3)
+        self.assertEqual(got["source_run_ids"], [e["run_id"] for e in evs])
+
+    def test_tc25_uses_the_measured_spelling(self):
+        got = self._adapt(_evidences(3))
+        self.assertIn("source_run_ids", got)
+        self.assertIn("baseline_version", got)
+        # baseline_harness_version という綴りは repo にも issue にも 0 件。
+        self.assertNotIn("baseline_harness_version", got)
+        self.assertNotIn("baseline_harness_version",
+                         PRODUCER.read_text(encoding="utf-8"))
+
+    def test_tc26_baseline_version_matches_and_mixed_is_rejected(self):
+        got = self._adapt(_evidences(3))
+        self.assertEqual(got["baseline_version"], HARNESS)
+        mixed = _evidences(3)
+        mixed[1]["harness_version"] = dict(HARNESS, cli_version="9.9.9")
+        rejected = self._adapt(mixed)
+        self.assertEqual(rejected["status"], "mixed_baseline", rejected)
+        self.assertNotIn("baseline_version", rejected)
+
+    def test_tc33_two_runs_are_insufficient(self):
+        for n in (0, 1, 2):
+            with self.subTest(count=n):
+                got = self._adapt(_evidences(n))
+                self.assertEqual(got["status"], "insufficient_evidence", got)
+                self.assertNotIn("source_run_ids", got)
+
+    def test_candidate_id_is_deterministic(self):
+        first = self._adapt(_evidences(3))
+        second = self._adapt(list(reversed(_evidences(3))))
+        self.assertEqual(first["candidate_id"], second["candidate_id"],
+                         "同じ run 集合から異なる candidate_id が出る")
+
+    def test_tc24_adapters_have_no_io(self):
+        # TC-24: adapter は EV 以外の I/O を持たない（AC-7 の構造保証）。
+        # ソース走査（関数本体に open / read_text / Path が無い）+ monkeypatch。
+        import ast
+        import builtins
+        import run_evidence
+        names = ("to_shadow_candidate_input", "to_promotion_provenance",
+                 "to_improvement_task_descriptor", "to_paired_replay",
+                 "apply_canary_rollback")
+        tree = ast.parse(PRODUCER.read_text(encoding="utf-8"))
+        found = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in names:
+                found.add(node.name)
+                for sub in ast.walk(node):
+                    if isinstance(sub, ast.Attribute):
+                        self.assertNotIn(sub.attr,
+                                         {"read_text", "read_bytes", "write_text",
+                                          "glob", "is_file", "is_dir", "iterdir"},
+                                         f"{node.name} が I/O を持つ")
+                    if isinstance(sub, ast.Name):
+                        self.assertNotIn(sub.id, {"open", "Path", "pathlib"},
+                                         f"{node.name} が I/O を持つ")
+        self.assertEqual(found, set(names), f"未実装の adapter: {set(names) - found}")
+
+        def _boom(*a, **kw):
+            raise AssertionError("adapter がファイルを open した")
+
+        real_open = builtins.open
+        builtins.open = _boom
+        try:
+            candidate = run_evidence.to_shadow_candidate_input(_evidences(3))
+            run_evidence.to_promotion_provenance(dict(candidate, blocked_by=[]))
+            run_evidence.to_improvement_task_descriptor(candidate)
+        finally:
+            builtins.open = real_open
+
+
+class PromotionProvenanceAdapterTests(unittest.TestCase):
+    """T-29 / T-30 / AC-9 / AC-10 / AC-11 / AC-13（TC-27〜TC-29 / TC-34〜TC-37 / TC-55）。"""
+
+    @staticmethod
+    def _candidate(**kw):
+        import run_evidence
+        base = run_evidence.to_shadow_candidate_input(_evidences(3))
+        base.update(kw)
+        return base
+
+    @staticmethod
+    def _provenance(candidate, decision="approve", **kw):
+        import run_evidence
+        return run_evidence.to_promotion_provenance(candidate, decision, **kw)
+
+    def test_tc28_trust_ledger_keys_and_evidence_count(self):
+        candidate = self._candidate(blocked_by=[])
+        got = self._provenance(candidate)
+        for key in ("candidate_id", "decision", "promoted_to", "evidence_count",
+                    "canary_scope", "rollback_count", "improvement_refs"):
+            self.assertIn(key, got, key)
+        self.assertEqual(got["evidence_count"], len(candidate["source_run_ids"]))
+        self.assertEqual(got["decision"], "approve")
+
+    def test_tc29_improvement_refs_are_traceable_in_both_directions(self):
+        candidate = self._candidate(blocked_by=[])
+        got = self._provenance(candidate,
+                               improvement_refs=("940", "7b229223b21a407"))
+        kinds = {r["kind"] for r in got["improvement_refs"]}
+        self.assertEqual(kinds, {"pr", "commit"}, got["improvement_refs"])
+        for ref in got["improvement_refs"]:
+            self.assertNotIn("http", ref["ref"])
+        # candidate_id → improvement_refs / improvement_refs → source_run_ids
+        self.assertEqual(got["candidate_id"], candidate["candidate_id"])
+        self.assertEqual(got["source_run_ids"], candidate["source_run_ids"])
+
+    def test_improvement_refs_reject_urls_and_absolute_paths(self):
+        candidate = self._candidate(blocked_by=[])
+        for bad in (COMMENT_URL, "/Users/foo/x", "not-a-ref!"):
+            with self.subTest(ref=bad):
+                with self.assertRaises(Exception):
+                    self._provenance(candidate, improvement_refs=(bad,))
+
+    def test_tc36_non_empty_blocked_by_is_blocked(self):
+        got = self._provenance(self._candidate(blocked_by=["issue-866"]))
+        self.assertEqual(got["decision"], "BLOCKED", got)
+        self.assertNotIn(got["decision"], ("approve", "approve_with_conditions"))
+        self.assertIsNone(got["promoted_to"])
+
+    def test_tc55_missing_blocked_by_key_is_blocked(self):
+        candidate = self._candidate()
+        self.assertNotIn("blocked_by", candidate,
+                         "adapter が blocked_by を勝手に埋めている（fail-open）")
+        self.assertEqual(self._provenance(candidate)["decision"], "BLOCKED")
+
+    def test_explicit_empty_blocked_by_proceeds(self):
+        got = self._provenance(self._candidate(blocked_by=[]))
+        self.assertEqual(got["decision"], "approve")
+
+    def test_tc37_no_issue_number_is_hardcoded(self):
+        src = PRODUCER.read_text(encoding="utf-8")
+        self.assertEqual(len(re.findall(r"#86[0-9]", src)), 0,
+                         "issue 番号がハードコードされている（CLOSE 時に stale 化する）")
+
+    def test_tc27_improvement_task_goes_through_the_normal_gates(self):
+        import run_evidence
+        descriptor = run_evidence.to_improvement_task_descriptor(
+            self._candidate(blocked_by=[]))
+        self.assertIs(descriptor["plan_package_required"], True)
+        self.assertIs(descriptor["c3_prime_required"], True)
+        self.assertIs(descriptor["merge_by_ai"], False)
+        self.assertEqual(set(descriptor),
+                         set(run_evidence.IMPROVEMENT_TASK_KEYS))
+        for bypass in ("skip_c3", "auto_merge", "skip_plan", "force_merge",
+                       "bypass_gate"):
+            self.assertNotIn(bypass, descriptor)
+            self.assertNotIn(bypass, run_evidence.IMPROVEMENT_TASK_KEYS)
+
+    def test_tc34_paired_replay_keeps_the_two_sides_disjoint(self):
+        import run_evidence
+        candidate = self._candidate(blocked_by=[])
+        baseline = _evidences(3)
+        challengers = [dict(e, run_id=f"cand-{i}") for i, e in enumerate(_evidences(3))]
+        got = run_evidence.to_paired_replay(candidate, baseline, challengers,
+                                            grader_ref="grader:v1",
+                                            activation_check="check:v1")
+        self.assertEqual(got["candidate_id"], candidate["candidate_id"])
+        self.assertIn("grader_ref", got)
+        self.assertIn("activation_check", got)
+        self.assertFalse(set(got["baseline_run_ids"])
+                         & set(got["candidate_run_ids"]),
+                         "baseline と candidate に同一 run を数えている")
+        overlapped = run_evidence.to_paired_replay(candidate, baseline, baseline)
+        self.assertEqual(overlapped["status"], "overlapping_runs", overlapped)
+
+    def test_tc35_failed_canary_rolls_the_candidate_back(self):
+        import run_evidence
+        candidate = self._candidate(blocked_by=[], status="approved",
+                                    rollback_count=0)
+        rolled = run_evidence.apply_canary_rollback(
+            candidate, {"result": "failed", "canary_scope": "scope-a"})
+        self.assertEqual(rolled["status"], "rolled_back")
+        self.assertNotEqual(rolled["status"], "approved")
+        self.assertEqual(rolled["rollback_count"], 1)
+        self.assertEqual(candidate["rollback_count"], 0, "入力を破壊している")
+        passed = run_evidence.apply_canary_rollback(
+            candidate, {"result": "passed", "canary_scope": "scope-a"})
+        self.assertEqual(passed["status"], "approved")
+        self.assertEqual(passed["rollback_count"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
