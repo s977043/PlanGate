@@ -56,7 +56,7 @@
 | 9 | `c3_prime_decision_ref` | object `{path, plan_package_hash}` | ✅ | `approvals/c3.json` への **repo 相対参照** + `plan_package_hash`。**§4 全規則の再検証を通過した場合のみ**（§6） | fail-closed |
 | 10 | `harness_version` | object `{plugin_version, cli_version, corpus_hash}` | ✅ | 注入（3 値すべて）。§4 参照 | fail-closed |
 | 11 | `routing_decisions` | array \| `"unavailable"` | ✅ | **#868 未実装**（供給元なし） | **Phase 1 固定 `"unavailable"`** |
-| 12 | `ci_outcomes` | array \| `"unavailable"` | ✅ | `record.jsonl` の `kind=merge_ready` の `record.check_summary` + `kind=state` entry の `reasons` | §5 マトリクス |
+| 12 | `ci_outcomes` | array \| `"unavailable"` | ✅ | `record.jsonl` の `kind=merge_ready` の `record.check_summary` のみ（`kind=state` の `reasons` は `observation` へ回す — 件数照合を壊さないため混ぜない） | §5 マトリクス |
 | 13 | `review_findings` | array \| `"unavailable"` | ✅ | `record.jsonl` の `record.review_disposition` + `kind=receipt` かつ `action_kind=repair_review` の `finding_type` | §5 マトリクス |
 | 14 | `repair_rounds` | integer（`>= 0`）\| `"unavailable"` | ✅ | `delivery._completed_rounds(entries, pr)` の戻り値（**再実装せず import**） | **PR 番号が解決できなければ `"unavailable"`**（§3 の警告） |
 | 15 | `replan_count` | integer \| `"unavailable"` | ✅ | 供給元が main に存在しない | **Phase 1 固定 `"unavailable"`** |
@@ -95,13 +95,23 @@
 1. `docs/working/TASK-XXXX/approvals/c3.json`
 2. `docs/working/TASK-XXXX/delivery/record.jsonl`
 3. `docs/working/ai-loop-runs/*.json`（arbiter record）
-4. 呼び出し側注入値（§3-2 の 5 つ）
+4. 呼び出し側注入値（§3-2）
+
+> ⚠️ **1 に含まれる範囲の明確化（producer 実装で顕在化）**: producer は §6 の
+> fail-closed 再検証で `c3prime_verify.main()` を経由するため、同関数が読む
+> **同一 `task_dir` 配下の Plan Package 6 artifact**（`pbi-input.md` / `plan.md` /
+> `todo.md` / `test-cases.md` / `review-self.md` / `review-external.md`）も
+> 実際には open される。これは「c3-prime 束縛の再検証に必要な読み取り」であり
+> ソース 1 の一部として扱う（**`task_dir` の外へは出ない**）。
+> 入力ソース allowlist の本質は「`task_dir` と `runs_dir` の外を読まない」ことにある。
 
 **transcript / session log / hidden CoT / 環境変数 / ネットワーク / 外部プロセスは読まない**
 （`delivery.py` の「純判定器: ネットワーク・外部プロセスを一切呼ばない」原則の転写）。
 これは AC-6 の「**要求しない**」側の担保であり、出力側の禁止キー検査（§7）とは別の防御線である。
 
-### 3-2. 注入値（5 つで全数）と欠落時の既定
+### 3-2. 注入値と欠落時の既定
+
+**run コンテキストの注入値 5 つ**（当初の「5 つで全数」はこの 5 つを指す）:
 
 | 注入値 | 用途 | 未注入時の既定 |
 |-------|------|--------------|
@@ -109,8 +119,27 @@
 | `--started-at` | `started_at` | **エラー**（fail-closed） |
 | `--repository` | `repository` | **エラー**（fail-closed） |
 | `--run-id` | `run_id` | **エラー**（fail-closed） |
-| `--pr-number` | `repair_rounds` / `ci_outcomes` / `review_findings` の PR 絞り込み | **当該 3 フィールドを `"unavailable"`**（**`0` にしない**） |
+| `--pr-number` | `record` から解決した PR 番号との **cross-check 専用** | **cross-check を行わない**（`repair_rounds` の値は変えない） |
 
+**harness / 任意フィールドの注入値**（§2 の供給元「注入」に対応。producer 実装で追補）:
+
+| 注入値 | 用途 | 未注入時の既定 |
+|-------|------|--------------|
+| `--harness-version` | `harness_version`（object 3 値） | **エラー**（fail-closed。§2 #10 と一致） |
+| `--harness-version-end` | run 終了時の harness を開始時と byte 比較（AC-12） | drift 検査を行わない |
+| `--routing-decisions` | `routing_decisions` の**明示供給**（`[]` を含む） | `"unavailable"`（§5-1 (a)） |
+| `--observation` | `observation` の上書き | events から機械導出 |
+| `--cause-hypothesis` | `cause_hypothesis` | `null`（**自動生成しない** / AC-5） |
+| `--evidence-ref`（repeat 可） | `evidence_refs[]` への追加 | `c3.json` / `record.jsonl` の 2 参照のみ |
+
+> ⚠️ **`--pr-number` は「解決経路」ではなく「cross-check」である**（producer 実装で確定）:
+> 受理器は `kind=merge_ready` entry の `record.pr_number` **からしか** PR を再解決できない
+> （§6-2 の再計算照合）。注入値だけを根拠に `repair_rounds` を実値化すると
+> **受理側が再計算で照合できず**、「生成側の自己申告を信頼する」構造になる（§2-1 の trust boundary と矛盾）。
+> したがって producer は **PR 番号を `kind=merge_ready` entry からのみ解決**し、
+> `--pr-number` は record 由来の値との不一致検出（fail-closed）にのみ使う。
+> 解決できない場合は `repair_rounds` / `ci_outcomes` / `review_findings` を `"unavailable"` に倒す。
+>
 > ⚠️ **`--pr-number` を `0` に倒してはならない（fail-open 経路）**: 実測で
 > `delivery._pr_receipts(entries, pr)` は `e.get("pr_number") == pr` で絞るため、
 > `pr=None` では `pr_number` を持たない entry だけが残り、`_completed_rounds()` は
@@ -118,7 +147,7 @@
 > 実在の一次証跡（TASK-0917 の e2e `record.jsonl`）で
 > `_completed_rounds(entries, 940) = 1` / **`_completed_rounds(entries, None) = 0`** を実測確認した。
 > PR 番号は `kind=merge_ready` entry の `record.pr_number` から解決し、
-> 解決できなければ `--pr-number` の明示注入を要求し、いずれも無ければ `"unavailable"` に倒す。
+> 解決できなければ `"unavailable"` に倒す（`--pr-number` の役割は上表の cross-check）。
 
 ### 3-3. 決定論を壊さないための制約
 
@@ -184,8 +213,15 @@ plugin = `8.18.0` / LoopSpec 派生 hash = run ごとに変動）、**object 3 �
 | `ci_outcomes` | **必須** | 取得できれば必須 / 無ければ `unavailable` | **`unavailable`** |
 | `review_findings` | **必須** | 取得できれば必須 / 無ければ `unavailable` | **`unavailable`** |
 | `repair_rounds` | **必須**（PR 番号解決不能なら `unavailable`） | 同左 | **`unavailable`** |
+| `quality_metrics` | **必須** | `repair_rounds` に従属（不能なら `unavailable`） | **`unavailable`** |
 | `routing_decisions` / `replan_count` / `cost_metrics` | `unavailable` | `unavailable` | `unavailable` |
 
+> **`quality_metrics` が `repair_rounds` に従属する理由**（producer 実装で確定）:
+> Phase 1 の許可指標 `first_pass` / `rounds` はいずれも当該 run の round 数から導出する。
+> `repair_rounds` が `unavailable` の run では round 数が取得不能であり、
+> `{"first_pass": false, "rounds": 0}` と埋めると **`unavailable` を `0` で埋める**ことになる
+> （本契約が最も避ける fail-open）。したがって `quality_metrics` 全体を `"unavailable"` に倒す。
+>
 > **`BLOCKED` が特別な理由**: `BLOCKED` は `c3.json.decision == "BLOCKED"`（= exec に到達していない）で
 > 発行される終端であり、**`delivery/record.jsonl` 自体が存在しない**。したがって delivery 層由来の
 > 4 フィールドが**構造的に取得不能**になる。
@@ -197,7 +233,12 @@ plugin = `8.18.0` / LoopSpec 派生 hash = run ごとに変動）、**object 3 �
 | 分類 | 対象 | 件数 |
 |------|------|------|
 | **(a) Phase 1 固定** | `routing_decisions` / `replan_count` / `cost_metrics` | **3**（`terminal_state` に依存しない） |
-| **(b) `terminal_state` 依存** | `final_head_sha` / `ci_outcomes` / `review_findings` / `repair_rounds` | **最大 4**（`BLOCKED` で 4 件・他は 0〜4 件） |
+| **(b) `terminal_state` 依存** | `final_head_sha` / `ci_outcomes` / `review_findings` / `repair_rounds` / `quality_metrics` | **最大 5**（`BLOCKED` で 5 件・他は 0〜5 件） |
+
+⇒ `BLOCKED` run の `unavailable` は **(a)3 + (b)5 = 8 件**（producer 実装で確定。
+当初の「7 件」は `quality_metrics` の従属を数えていなかった）。
+`HUMAN_ESCALATED` で `kind=merge_ready` entry が無い run は
+`ci_outcomes` / `review_findings` / `repair_rounds` / `quality_metrics` が `unavailable` で **3 + 4 = 7 件**。
 
 ⇒ **Phase 1 の producer 出力は必ず `unavailable` を含み、受理器は必ず `partial` を返す。
 Phase 1 で `evidence_status=complete`（exit 0）は構造的に発生しない**。
@@ -263,9 +304,9 @@ run_evidence_verify.py <ev.json> <task_dir>
 > という **catch-all**（値を判定せず 0/1 以外をすべて legacy にフォールバック）である。
 > ⇒ **本受理器の rc を `_plangate_c3_dispatch` 経路へ流してはならない**（`11` を流すと catch-all が legacy と誤読する）。
 
-### 6-5. ⚠️ 未解決: 「`c3prime_verify` rc==0 を要求する」と §4 マッピングの矛盾
+### 6-5. 「`c3prime_verify` rc==0 を要求する」と §4 マッピングの矛盾（**確定済み**）
 
-**Phase 1 で解決が必要な内部矛盾**（TASK-0874 exec 前半で実測により顕在化。producer 実装タスクで確定させる）。
+**内部矛盾**（TASK-0874 exec 前半で実測により顕在化・**producer 実装で下記のとおり確定**）。
 
 - plan Step 6 は producer に「`c3prime_verify.main([_, task_dir, expected_sha])` を呼び **rc==0 を要求**する」と規定している。
 - 一方 §4 のマッピングは `BLOCKED` を `c3.json.decision == "BLOCKED"` から、`HUMAN_ESCALATED` を `c3.json.decision == "HUMAN_ESCALATED"` から導出すると規定している。
@@ -288,8 +329,18 @@ reviewer snapshot 整合）の再検証が通ること**であり、**`decision`
 - `rc == 10`（legacy） → `EV` を発行しない
 
 **`decision` を無検証で信頼しない**という §7 trust boundary は維持される（束縛検証は全数実施し、
-`decision` の値だけを別扱いする）。**この解釈は Phase 1 の暫定であり、plan 本文と食い違う**ため、
-確定は producer 実装タスクの成果物（実装 + TC）と handoff への記録をもって行う。
+`decision` の値だけを別扱いする）。
+
+> ⚠️ **この解釈だけでは束縛検証に穴が空く（実装で顕在化・是正済み）**:
+> `c3prime_verify` は `decision != "AUTO_APPROVED"` の時点で `return` するため、
+> **その後段の検証（`source_sha` 形式 / `plan_hash` / `artifact_hashes` /
+> `plan_package_hash` / reviewer snapshot 三つ組）が一度も実行されない**。
+> 「decision-only NG は続行」とだけ実装すると、**`decision=BLOCKED` の `c3.json` 経由で
+> 改竄された `plan_hash` が素通りする**。
+> ⇒ producer は decision-only NG のとき、`c3_contract` の**同一プリミティブを import して**
+> （`sha256_of_file` / `canonical_hash` / `check_snapshot_trio` / `ARTIFACTS`）
+> 後段の束縛を再検証する。**検証ロジックを再実装せず、検証の総量も減らさない**。
+> 本経路は変異注入（後段再検証の削除）で kill されることを unit test で実証している。
 
 ## 7. privacy（AC-6）
 
