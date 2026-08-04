@@ -62,7 +62,7 @@ _t59_mksbx() {
   fi
 }
 
-# 現行 .claude/settings.json 相当（PreToolUse は EH-9 + EH-12 の 2 本だけ）
+# 契約 hook がほぼ未配線の settings.json（PreToolUse は EH-9 の 1 本だけ）
 _T59_MINIMAL='{
   "hooks": {
     "PreToolUse": [
@@ -220,9 +220,12 @@ fi
 # === TC-11: 引数なし EH-3 には TASK→FILE の順で 2 引数を付与する（F1）===
 # 位置引数契約は $1=task_id / $2=target_file
 # （scripts/hooks/check-plan-hash.sh: task_id=${PLANGATE_HOOK_TASK:-${1:-}} /
-#  target_file=${PLANGATE_HOOK_FILE:-${2:-}}）。FILE だけ足すと $2 が無く、
-# 引数が実際に渡る呼ばれ方（引用符付き展開・空引数を保持する runner・手動
-# 実行）でファイルパスが $1＝task_id 扱いになり `invalid task_id` → exit 2。
+#  target_file=${PLANGATE_HOOK_FILE:-${2:-}}）。
+# 効果の範囲（実測）: **空引数を保持する runner**（引用符付き展開・手動実行）
+# でのみ位置が保たれる。FILE だけ足した形ではファイルパスが $1＝task_id 扱いに
+# なり `invalid task_id` → exit 2。一方 `sh -c` 経路では未引用 `${VAR:-}` の
+# 空展開が語ごと消えるため、TASK 未設定 + FILE 設定のケースは付与の有無に
+# 関わらず同結果（= example の配線自体が持つ性質。quote 化は #975 follow-up）。
 # 契約検証は部分文字列 grep なのでこの破壊を検知できない（Shadow Config）。
 _t59_mksbx '{
   "hooks": {
@@ -239,7 +242,7 @@ _t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx6/.claude/settings.json" || tru
 if [ "$_t59_rc" -eq 0 ] && [ "$_t59_n" -eq 1 ] \
   && grep -qF 'check-plan-hash.sh ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}' \
        "$_t59_sbx6/.claude/settings.json"; then
-  t59_pass "TC-11 引数なし EH-3 に TASK→FILE の順で 2 引数を付与（位置引数契約を維持）"
+  t59_pass "TC-11 引数なし EH-3 に TASK→FILE の順で 2 引数を付与（example と同形）"
 else
   t59_fail "TC-11 EH-3 の引数位置が壊れている (rc=$_t59_rc / 出現 $_t59_n 回): $_t59_out"
 fi
@@ -351,20 +354,145 @@ else
   t59_fail "TC-16 FAIL 経路で backup が消えた (rc=$_t59_rc / backup $_t59_bak 件)"
 fi
 
-# === TC-17: サンドボックス後片付け（明示 rm -rf の実効確認）===
+# === TC-17: 契約 hook を matcher "*" で配線した状態から収束する（MJ-1）===
+# apply 側の UNIVERSAL 包含判定と check-settings-wiring.sh の matcher 解釈が
+# ずれると、apply は「配線済み」と判断し検証は「不足」と言い続けて
+# **何度実行しても rc=1 のまま収束しない**（= #928/#914 が解こうとした
+# 「doctor が永久に FAIL」の別条件での再生産）。両者の解釈一致を検証する。
+# TC-12 は非契約 hook（approval-token）を題材にしているためこの経路を通らない。
+_t59_mksbx '{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [
+        { "type": "command", "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-exists.sh" },
+        { "type": "command", "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-c3-approval.sh" },
+        { "type": "command", "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-forbidden-files.sh" },
+        { "type": "command", "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}" },
+        { "type": "command", "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-delegation-commit-boundary.sh" }
+      ] }
+    ]
+  }
+}'
+_t59_sbx12="$_t59_sbx"
+_t59_rc=0
+_t59_out=$(sh "$_t59_sbx12/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
+cp "$_t59_sbx12/.claude/settings.json" "$_t59_sbx12/after1.json"
+_t59_rc2=0
+_t59_out2=$(sh "$_t59_sbx12/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc2=$?
+_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx12/.claude/settings.json" || true)
+if [ "$_t59_rc" -eq 0 ] && [ "$_t59_rc2" -eq 0 ] && [ "$_t59_n" -eq 1 ] \
+  && cmp -s "$_t59_sbx12/after1.json" "$_t59_sbx12/.claude/settings.json"; then
+  t59_pass "TC-17 契約 hook が matcher \"*\" でも rc=0 で収束（apply と wiring の matcher 解釈が一致）"
+else
+  t59_fail "TC-17 matcher \"*\" で非収束 (run1 rc=$_t59_rc / run2 rc=$_t59_rc2 / EH-3 $_t59_n 回): $_t59_out2"
+fi
+
+# === TC-18: 同一秒の再実行でも pristine backup を上書きしない（mn-1）===
+# 契約 FAIL → 即再実行は最も自然な操作。backup 名が `$(date +%s)` だと
+# 同一秒に同名 backup へ「適用後の内容」が cp され巻き戻せなくなる。
+_t59_mksbx "$_T59_MINIMAL"
+_t59_sbx13="$_t59_sbx"
+cp "$_t59_sbx13/.claude/settings.json" "$_t59_sbx13/pristine.json"
+python3 - "$_t59_sbx13/.claude/settings.example.json" <<'PY59'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d["hooks"]["PreToolUse"] = [
+    b for b in d.get("hooks", {}).get("PreToolUse", [])
+    if not any("check-plan-hash.sh" in (h.get("command", "") or "")
+               for h in (b.get("hooks") or []))
+]
+json.dump(d, open(p, "w"), ensure_ascii=False, indent=2)
+PY59
+sh "$_t59_sbx13/scripts/apply-claude-settings.sh" >/dev/null 2>&1 || true
+sh "$_t59_sbx13/scripts/apply-claude-settings.sh" >/dev/null 2>&1 || true
+_t59_pris=0
+for _t59_b in "$_t59_sbx13/.claude/"settings.json.bak.*; do
+  if [ -f "$_t59_b" ] && cmp -s "$_t59_b" "$_t59_sbx13/pristine.json"; then
+    _t59_pris=$((_t59_pris + 1))
+  fi
+done
+if [ "$_t59_pris" -ge 1 ]; then
+  t59_pass "TC-18 FAIL→即再実行でも適用前 pristine の backup が残る（巻き戻し可能）"
+else
+  t59_fail "TC-18 pristine backup が適用後の内容で上書きされた（一致 $_t59_pris 件）"
+fi
+
+# === TC-19: 書き込みで mode が拡大しない（mn-2）===
+# os.replace は新規 tmp の mode（umask 由来 0644）を持ち込むため、明示的に
+# 引き継がないと 0600 が 0644 へ拡大する。settings.json は env 等の秘匿値を
+# 持ちうるので可視範囲を広げてはならない。
+_t59_mksbx "$_T59_MINIMAL"
+_t59_sbx14="$_t59_sbx"
+chmod 600 "$_t59_sbx14/.claude/settings.json"
+_t59_rc=0
+_t59_out=$(sh "$_t59_sbx14/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
+_t59_mode=$(python3 -c 'import os,sys;print(oct(os.stat(sys.argv[1]).st_mode & 0o777))' \
+  "$_t59_sbx14/.claude/settings.json" 2>/dev/null || echo "unknown")
+if [ "$_t59_mode" = "0o600" ]; then _t59_modeok=1; else _t59_modeok=0; fi
+if [ "$_t59_rc" -eq 0 ] && [ "$_t59_modeok" -eq 1 ]; then
+  t59_pass "TC-19 適用後も mode 0600 が保持される（秘匿値の可視範囲を広げない）"
+else
+  t59_fail "TC-19 mode が拡大した (rc=$_t59_rc / mode=${_t59_mode} 期待 0o600)"
+fi
+
+# === TC-20: symlink の settings.json を実体へ書く（mn-2）===
+# dotfiles 管理で symlink の場合、実体解決しないと os.replace がリンクを
+# 実ファイルへ置換し、リンク先は旧内容のまま取り残される。
+_t59_mksbx "$_T59_MINIMAL"
+_t59_sbx15="$_t59_sbx"
+mkdir -p "$_t59_sbx15/dotfiles"
+mv "$_t59_sbx15/.claude/settings.json" "$_t59_sbx15/dotfiles/settings.json"
+ln -s "$_t59_sbx15/dotfiles/settings.json" "$_t59_sbx15/.claude/settings.json"
+_t59_rc=0
+_t59_out=$(sh "$_t59_sbx15/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
+_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx15/dotfiles/settings.json" || true)
+if [ "$_t59_rc" -eq 0 ] && [ -L "$_t59_sbx15/.claude/settings.json" ] && [ "$_t59_n" -ge 1 ]; then
+  t59_pass "TC-20 symlink を実体解決して書き込む（リンク維持・リンク先へ反映）"
+else
+  t59_fail "TC-20 symlink が壊れた (rc=$_t59_rc / link=$([ -L "$_t59_sbx15/.claude/settings.json" ] && echo yes || echo no) / リンク先 EH-3 $_t59_n 回)"
+fi
+
+# === TC-21: 単一引用符の literal パスを同一視しない（mn-3）===
+# `sh '${X}/a.sh'` はシェルが変数を展開せず literal パスを起動しようとして
+# 失敗する別物。同一視すると「配線済み」と誤判定し、正規 EH-3 が入らないまま
+# 契約検証（部分文字列 grep）だけ PASS する Shadow Config になる。
+_t59_mksbx '{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Edit|Write", "hooks": [ { "type": "command",
+        "command": "sh '"'"'${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh'"'"' ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}" } ] }
+    ]
+  }
+}'
+_t59_sbx16="$_t59_sbx"
+_t59_rc=0
+_t59_out=$(sh "$_t59_sbx16/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
+_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx16/.claude/settings.json" || true)
+if [ "$_t59_rc" -eq 0 ] && [ "$_t59_n" -eq 2 ] \
+  && grep -qF '"sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh' \
+       "$_t59_sbx16/.claude/settings.json"; then
+  t59_pass "TC-21 単一引用符の literal パスを同一視せず正規 EH-3 を取り込む（出現 2 回）"
+else
+  t59_fail "TC-21 単一引用符を同一視し正規 EH-3 が入らなかった (rc=$_t59_rc / 出現 $_t59_n 回・期待 2)"
+fi
+
+# === TC-22: サンドボックス後片付け（明示 rm -rf の実効確認）===
 rm -rf "$_t59_sbx1" "$_t59_sbx2" "$_t59_sbx3" "$_t59_sbx4" "$_t59_sbx5" \
-  "$_t59_sbx6" "$_t59_sbx7" "$_t59_sbx8" "$_t59_sbx9" "$_t59_sbx10" "$_t59_sbx11"
+  "$_t59_sbx6" "$_t59_sbx7" "$_t59_sbx8" "$_t59_sbx9" "$_t59_sbx10" "$_t59_sbx11" \
+  "$_t59_sbx12" "$_t59_sbx13" "$_t59_sbx14" "$_t59_sbx15" "$_t59_sbx16"
 _t59_left=0
 for _t59_d in "$_t59_sbx1" "$_t59_sbx2" "$_t59_sbx3" "$_t59_sbx4" "$_t59_sbx5" \
-  "$_t59_sbx6" "$_t59_sbx7" "$_t59_sbx8" "$_t59_sbx9" "$_t59_sbx10" "$_t59_sbx11"; do
+  "$_t59_sbx6" "$_t59_sbx7" "$_t59_sbx8" "$_t59_sbx9" "$_t59_sbx10" "$_t59_sbx11" \
+  "$_t59_sbx12" "$_t59_sbx13" "$_t59_sbx14" "$_t59_sbx15" "$_t59_sbx16"; do
   if [ -d "$_t59_d" ]; then
     _t59_left=$((_t59_left + 1))
   fi
 done
 if [ "$_t59_left" -eq 0 ]; then
-  t59_pass "TC-17 サンドボックスを明示削除（実 .claude/ には一切書き込まない）"
+  t59_pass "TC-22 サンドボックスを明示削除（実 .claude/ には一切書き込まない）"
 else
-  t59_fail "TC-17 サンドボックスが $_t59_left 件残存"
+  t59_fail "TC-22 サンドボックスが $_t59_left 件残存"
 fi
 
 fi

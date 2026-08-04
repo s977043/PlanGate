@@ -13,6 +13,10 @@
 #     （mass-delete guard の思想と一貫）
 #   - **同定キー**: (event, matcher, hook が起動するスクリプトパス)。
 #     引数は同定に含めない（EH-3 の引数差分は二重追加でなく後段の引数付与で解消）
+#   - **matcher 解釈は `scripts/check-settings-wiring.sh` の `has()` と一致
+#     させること**。片方だけが `""` / `"*"` を全ツールとみなすと、apply は
+#     「配線済み」と判断し検証は「不足」と言い続けて**永久に収束しない**
+#     （#928 MJ-1）。両者を同時に変更する
 #   - **全 hook event が対象**: settings.json 不在時に example を丸ごと cp する
 #     既存分岐と対称にする（PreToolUse だけだと PostToolUse/Stop/SessionStart の
 #     新規 hook が既存ユーザーにだけ配線されない非対称が残る）
@@ -63,14 +67,22 @@ if [ ! -f "$SJ" ]; then
   [ "$DRY" -eq 1 ] && { printf '[apply] --dry-run: コピーせず\n'; exit 0; }
 else
   [ "$DRY" -eq 1 ] && printf '[apply] --dry-run: 構造マージ内容のみ確認\n'
-  BAK="$SJ.bak.$(date +%s)"
-  [ "$DRY" -eq 1 ] || cp "$SJ" "$BAK"
+  # backup 名は mktemp で一意化する。`$(date +%s)` だと契約 FAIL → 即再実行
+  # （最も自然な操作）で同一秒に同名 backup へ **適用後の内容** が cp され、
+  # 適用前 pristine が失われて巻き戻せなくなる。
+  if [ "$DRY" -eq 0 ]; then
+    BAK=$(mktemp "$SJ.bak.XXXXXX")
+    cp "$SJ" "$BAK"
+  fi
   # rc は `|| rc=$?` で捕捉する。`if ! python3 ...; then rc=$?` は `!` 反転後の
   # 0 を拾ってしまい、無効 JSON 等の失敗時に exit 0（fail-open）になる。
   rc=0
   python3 - "$SJ" "$EX" "$DRY" <<'PY' || rc=$?
 import copy, json, os, re, sys
 SJ, EX, DRY = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
+# symlink（dotfiles 管理）を実体へ解決してから書く。解決しないと os.replace が
+# リンクを実ファイルへ置換し、リンク先は旧内容のまま取り残される。
+SJ = os.path.realpath(SJ)
 try:
     doc = json.load(open(SJ))
 except Exception as e:
@@ -89,13 +101,16 @@ changed = []
 # 防ぐ。引数差分は後段 2) で解消する）。
 #
 # 正規化は「同じファイルを指すと断定できる表記ゆれ」だけに限定する:
-#   - 引用符の有無（`sh "${X}/a.sh"` と `sh ${X}/a.sh`）
+#   - **二重引用符**の有無（`sh "${X}/a.sh"` と `sh ${X}/a.sh` は同じパス）
 #   - `${VAR}` / `$VAR` の brace 有無（同一変数なので同じパス）
 #   - 先頭の `./`
-# **変数名は保持する**。`$SOMEVAR/scripts/hooks/x.sh` と
-# `${CLAUDE_PROJECT_DIR}/scripts/hooks/x.sh` は別ファイルを指しうるため
-# 同一視しない（同一視すると「配線済み」と誤判定して必要な hook が入らず、
-# 契約検証は部分文字列 grep なので PASS してしまう）。
+# **単一引用符は剥がさない**。`sh '${X}/a.sh'` はシェルが変数を展開せず
+# literal パスを起動しようとして `No such file or directory` になる別物で、
+# 同一視すると「配線済み」と誤判定したまま hook が起動しない状態を作る。
+# **変数名も保持する**。`$SOMEVAR/scripts/hooks/x.sh` と
+# `${CLAUDE_PROJECT_DIR}/scripts/hooks/x.sh` は別ファイルを指しうる。
+# いずれも誤同一視すると必要な hook が入らないまま、契約検証は部分文字列
+# grep なので PASS してしまう（Shadow Config）。
 _BRACED_VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _SCRIPT = re.compile(r"\S+\.(?:sh|py)\b")
 
@@ -103,7 +118,7 @@ _SCRIPT = re.compile(r"\S+\.(?:sh|py)\b")
 def _script_paths(cmd):
     out = []
     for tok in _SCRIPT.findall(cmd or ""):
-        tok = tok.strip("\"'")
+        tok = tok.strip('"')
         tok = _BRACED_VAR.sub(r"$\1", tok)
         while tok.startswith("./"):
             tok = tok[2:]
@@ -224,12 +239,18 @@ for blk in hooks.get("PreToolUse", []) or []:
             # （scripts/hooks/check-plan-hash.sh:
             #   task_id=${PLANGATE_HOOK_TASK:-${1:-}} /
             #   target_file=${PLANGATE_HOOK_FILE:-${2:-}}）。
-            # FILE だけを足すと $2 が無く、引数が実際に渡る呼ばれ方
-            # （引用符付き展開・空引数を保持する runner・手動実行）では
-            # ファイルパスが $1＝task_id 扱いになり
-            # `error: invalid task_id` → exit 2 になる（実測）。
-            # 契約検証は部分文字列 grep なのでこの破壊を検知できない。
-            # example と同形になるよう必ず TASK→FILE の順で 2 つ足す。
+            # example と同形になるよう TASK→FILE の順で 2 つ足す。
+            #
+            # 効果の範囲（誇張しないための注記 / 実測済み）:
+            #   **空引数を保持する runner**（引用符付き展開・手動実行）でのみ
+            #   位置が保たれる。FILE だけを足した形ではファイルパスが $1＝
+            #   task_id 扱いになり `error: invalid task_id` → exit 2。
+            #   一方 `sh -c` 経路では未引用 `${VAR:-}` の空展開が語ごと消える
+            #   ため、**TASK 未設定 + FILE 設定**のケースは付与の有無に関わらず
+            #   $1 に FILE が入り同じ結果になる（= example の配線自体が持つ
+            #   性質）。emit の quote 化は settings.example.json（HO 対象）の
+            #   同時変更を要するため follow-up（#975）。
+            # なお契約検証は部分文字列 grep なのでこの破壊を検知できない。
             h["command"] = (c.rstrip()
                             + " ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}")
         changed.append("EH-3 PLANGATE_HOOK_FILE")
@@ -249,6 +270,9 @@ if changed:
     with open(tmp, "w") as f:
         json.dump(doc, f, ensure_ascii=False, indent=2)
         f.write("\n")
+    # mode を引き継ぐ（引き継がないと 0600 が umask 由来の 0644 へ拡大し、
+    # settings.json が持ちうる秘匿値の可視範囲が広がる）
+    os.chmod(tmp, os.stat(SJ).st_mode & 0o7777)
     os.replace(tmp, SJ)
     print(f"[apply] 適用: {changed}")
 else:
