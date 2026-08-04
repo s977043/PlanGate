@@ -3,11 +3,15 @@ task_id: TASK-0981
 artifact_type: review-self
 schema_version: 1
 status: draft
-verdict: FAIL
+verdict: PASS
 created_by: orchestrator
 ---
 
 # TASK-0981 セルフレビュー結果（C-1）
+
+> **最新の判定は本ファイル末尾の「[簡易 C-1 再実行（是正後・head `117d10e`）](#簡易-c-1-再実行是正後head-117d10e)」を参照**。以下の初回レビュー（head `2d6a5dd` / 総合 FAIL）は**監査のため原文のまま保持**しており、指摘 6 件はすべて是正済み（最終判定 = **PASS**）。
+
+## 初回レビュー（head `2d6a5dd`）
 
 > レビュー日: 2026-08-05
 > 対象: `plan.md` / `todo.md` / `test-cases.md`（ブランチ `docs/981-plan` = `2d6a5dd`）
@@ -378,3 +382,167 @@ C-3 へ進む前に **F-1・F-2 の 2 件を修正**すること。いずれも 
 | check_id | 修正内容 | 修正先ファイル |
 |----------|---------|--------------|
 | — | 自動修正なし（本 C-1 はレビューのみ。修正は plan 担当が行う） | — |
+
+---
+
+## 簡易 C-1 再実行（是正後・head `117d10e`）
+
+> 再実行日: 2026-08-05
+> 対象: `origin/docs/981-plan` head **`117d10e`**（前回レビュー時 `2d6a5dd`）
+> 範囲: **初回 FAIL 2 件 + WARN 4 件の再評価 + 是正の副作用検査**（全 25 項目の再実行はしない。[`working-context.md`](../../../.claude/rules/working-context.md) C-3 ゲート「1 回確定反映 → 簡易 C-1 再実行」に相当）
+> 更新後の判定: **PASS（条件なし）** — critical=0, major=0, minor=1（残存 WARN 1 件・C-3 のブロッカーではない）
+
+### 再評価サマリー
+
+| 項目 | 初回 | 再評価 | 備考 |
+|------|------|--------|------|
+| C1-PLAN-03（F-1 スコープ制御） | **FAIL** | **PASS** | 抽出結果を実測で再現。違反 0 件 |
+| C1-TEST-14（F-2 差分判定基準） | **FAIL** | **PASS** | 判定基準の置換が plan / todo / test-cases の全 6 箇所で一貫。TC-18 の順序矛盾も解消 |
+| C1-PLAN-04（標準 artifact の算入） | WARN | **PASS** | B 節新設 + 非算入理由 + 安全側確認（14 でも high-risk 帯）|
+| C1-TODO-08（タスク粒度） | WARN | **PASS** | T-04 → T-04a/b/c。plan の「タスク数 13」と TC 前提条件も追随 |
+| C1-TODO-10（🚩 の対称性） | WARN | **PASS** | T-06 / T-09 に 🚩 追加、plan Step 7 にも後段 🚩 を追加し plan↔todo が対称 |
+| C1-B1B2-16（決定の進行の明示） | WARN | **PASS** | D-1〜D-10 表直後に注記。根拠（受理器の未知キー検査）も併記 |
+| （副作用検査）C1-PLAN-01 / C1-PLAN-06 / C1-TEST-13 / D-9 info | — | **PASS** | 新設 2 節と A/B 分割による退行なし |
+| （新規・残存）C1-TEST-14 内の TC-20 スコープ | — | **WARN**（minor） | 下記 R-1 |
+
+### C1-PLAN-03: スコープ制御（F-1 再評価）
+
+- **result**: **PASS**（FAIL から解消）
+- **finding**: 是正後の `plan.md` に対して `extract_allowed_paths()` を**自分で再実行**し、抽出 **14 件・違反 0 件**を確認した（オーガナイザーの実測と一致）。消えたのは `schemas/**` / `bin/plangate` / `scripts/**` / `tests/**` / `.claude/**` / `.github/workflows/**` / `pbi-input.md` の 7 件。増えたのは B 節の標準 artifact 5 件で、これは Files 表 A + B の集合と一致する意図的な算入である。禁止領域は新設 `## Scope Boundary（変更禁止領域 / allowed_paths 非対象）` へ backtick なしで移され、`_extract_section` の走査範囲（`## Files / Components to Touch` の次 `##` まで）の外にある。
+- **リンク記法の罠の確認**: 節冒頭の記載規約に「リンク記法も、両側の backtick に挟まれた URL が誤抽出されるため本節では使わない」が明文化されている。**規約が本文で守られているかを実測で確認**した。B 節の導入文には ``[`working-context.md`](../../../.claude/rules/working-context.md)`` という backtick 入りリンクが 1 件残るが、抽出結果 14 件に URL 由来の混入は無い（`(` / `)` / `http` を含む要素 0 件）。これは `` `working-context.md` `` にスラッシュが無く、かつ閉じ backtick と次の開き backtick の間に空白があるため `_PATH_RE`（`` `([^`\s]+/[^`\s]+)` ``）が成立しないためで、**実害はない**。ただし「backtick 入りリンクを節内に置かない」という規約の文面とは厳密には不一致なので、次に節を編集する担当が同型の記法を安全と誤認しないよう、当該 1 件も非 backtick 化しておくのが望ましい（info・是正必須ではない）。
+- **evidence_ref**: 本ファイル §Evidence E-5
+- **impacted_files**: []
+- **resolved**: true
+
+### C1-TEST-14: テストケースの具体性（F-2 再評価）
+
+- **result**: **PASS**（FAIL から解消）
+- **finding**: 判定基準の置換が**関連 6 箇所すべてで一貫**していることを差分で確認した — plan AC-6 / plan Testing Strategy「差分の性質検査」/ plan Step 9 🚩 / plan Stop Condition 5 / plan RT-5 / todo T-10 / todo 完了条件 / test-cases TC-15。いずれも「コード配下（`schemas/` `bin/` `scripts/` `tests/` `.claude/` `.github/`）0 件」+「Files 表 A + B の集合に収まる」の 2 条件になっており、「すべて `.md`」「ファイル数 9」を判定に使う記述は**残存 0 件**（grep 実測）。Stop Condition 5 には「`.md` 以外＝`approvals/c3.json` / `decision-log.jsonl` の出現は正常であり停止条件にしない」が明記され、初回指摘の**誤発火経路が塞がれている**。
+- **TC-18 の順序矛盾**: 前提条件が「H-01 は T-01 より前に完了しているため c3.json は既に存在する」へ改められ、期待値が `Result: PASS`（FAIL 0 件）に変更された。**この期待値が実装上到達可能か `bin/plangate` の `cmd_validate` を実読して確認**した: Required Artifacts は `pbi-input.md` / `plan.md` / `todo.md` / `test-cases.md` / `review-self.md` の 5 件（`review-external.md` / `handoff.md` は非必須）、C-3 Gate は c3.json 存在 + legacy 経路の `c3_status = APPROVED` + `plan_hash` と現 `plan.md` の一致。T-10 時点で 5 artifact は揃い、承認後に `plan.md` を変更しない限り hash も一致するため、**`Result: PASS` は到達可能**。旧期待値との差替えは妥当。
+- **evidence_ref**: 本ファイル §Evidence E-6
+- **impacted_files**: []
+- **resolved**: true
+
+### C1-PLAN-04: テスト戦略 / 標準 artifact の算入（WARN 再評価）
+
+- **result**: **PASS**（WARN から解消）
+- **finding**: `### B. PlanGate 標準 artifact` が新設され、`INDEX.md` / `current-state.md` / `decision-log.jsonl` / `approvals/c3.json` / `evidence/verification/**` の 5 行に「生成主体 / タイミング」「拡張子」が付いた。Mode 判定のファイル数（9）へ算入しない方針と理由（workflow の副産物であり算入すると phase 進行で Mode が揺れる）が書かれ、さらに**「算入した場合でも計 14 で high-risk 帯（6-15）に収まり結論不変」という安全側確認**が併記されている。これは [`mode-classification.md`](../../../.claude/rules/mode-classification.md) の「自動推定の安全側」と整合し、Mode 判定が数え方の解釈に依存しないことを示せている。初回指摘の「evidence が Files 表にもファイル数にも算入されていない」も B 節への収容で解消。
+- **impacted_files**: []
+- **resolved**: true
+
+### C1-TODO-08: タスク粒度（WARN 再評価）
+
+- **result**: **PASS**（WARN から解消）
+- **finding**: T-04 が T-04a（配置表 / D-1・D-3 / AC-2）/ T-04b（3 経路比較表 / D-4 / AC-3）/ T-04c（Decision 節の断定文 / AC-2・ブロッキング）へ 3 分割され、各々に独立した 🚩 と成果物が付いた。**追随が漏れていない**ことを確認: 依存グラフ（T-04a → T-04b → T-04c → T-05/T-06/T-07）、⚠️ 注記（ブロッキングが T-04c へ移動・T-08 は T-04c の後）、共通 `rollback:` の明示、完了条件の「計 13 タスク」、plan Mode 判定の「タスク数 13」、test-cases の前提条件（TC-07→T-04a / TC-09・TC-10→T-04b / TC-08→T-04c）。分割後も 11-20 の high 帯に留まり Mode 判定は不変。
+- **impacted_files**: []
+- **resolved**: true
+
+### C1-TODO-10: チェックポイント設定（WARN 再評価）
+
+- **result**: **PASS**（WARN から解消）
+- **finding**: T-06 に 🚩（「非検証」の語の存在 + 分界表が issue コメント §1 を漏れなく含む + PR2 への申し送りが決定事項として明記 / TC-22）、T-09 に 🚩（PR1 → PR2 → PR3 → #980 Phase 0〜2 → PR4 の順序制約 + U-4 / U-5 / U-7 の送り先全件明示）が追加された。加えて**plan 側 Step 7 にも後段 🚩 が追加**され、初回指摘の「plan には Step 6 の 🚩 があるのに todo T-06 に無い」「T-09 には対応 Step が無く検証条件が未定義」という**非対称が両方向で解消**している。依存グラフ上の 🚩 表記も T-06 / T-09 に付与済み。
+- **impacted_files**: []
+- **resolved**: true
+
+### C1-B1B2-16: B-1確認質問（WARN 再評価）
+
+- **result**: **PASS**（WARN から解消）
+- **finding**: D-1〜D-10 表の直後に「pbi-input からの決定の進行（C-1 C1-B1B2-16 是正 / C-3 の確認対象）」の注記が追加され、(1) pbi-input AC-4 は「`plan_revision` は任意」と**起案**していたこと、(2) D-2 で「PR1 では導入しない」へ**確定**したこと、(3) 根拠（`c3prime_verify.py:73` の未知キー検査により素の `plan_revision` は任意キーでも reject されるため、pbi-input が想定した形は現行契約で成立しない）、(4) pbi-input は Constraint 6 により改変せず本注記で可視化する旨、の 4 点が揃った。根拠は初回レビューで実読済みの受理器コードと一致する。C-3 承認者が差分に気づける位置（決定表の直後）に置かれている点も適切。
+- **impacted_files**: []
+- **resolved**: true
+
+### 副作用検査（是正が他項目に与えた影響）
+
+| 検査対象 | 結果 | 根拠 |
+|---------|------|------|
+| **C1-PLAN-01（受入基準網羅）** | **PASS**（退行なし） | AC-1〜AC-6 の Step への到達は不変。AC-6 は判定方法のみが「`.md` 限定 + 9 固定」→「コード非接触 + Files 表 A+B」へ置換され、**AC の意味（既存挙動が不変であることを確認できる）は変わっていない**。test-cases の AC→TC マッピング表も AC-6 の内容説明が追随（TC 割当 TC-15/16/17/18/25 は不変） |
+| **C1-PLAN-06（依存関係）** | **PASS**（退行なし） | T-04 の 3 分割で依存が直列化され（T-04a → T-04b → T-04c）、ブロッキング宣言が T-04c へ正しく移動。T-08 の配置理由も「T-04c の後」へ更新済み。plan Step 1〜9 と todo 13 タスクの対応は保たれており、宙に浮いたタスク・逆順の依存は検出されなかった |
+| **C1-TEST-13（AC→TC 網羅）** | **PASS**（退行なし） | TC の追加・削除は 0 件（TC-01〜TC-25 のまま）。前提条件の T-04 → T-04a/b/c 差替えのみで、AC 未割当は発生していない |
+| **新設 `## Scope Boundary` 節の副作用** | **PASS** | 本節は `## Files / Components to Touch` の**次**に置かれ、`_extract_section` の走査範囲外。禁止パスが backtick なしで書かれているため許可側へ再混入しない（E-5 の抽出結果 14 件で確認）。Constraint 6 / 7 の内容は移動のみで削除されていない |
+| **Files 表 A/B 分割の副作用** | **PASS** | A は 9 行のまま（Mode 判定の母数）、B は 5 行の新設。`extract_allowed_paths()` は A + B の 14 件を返し、**exec が実際に生成するファイル集合と一致**する（承認 record・decision-log・evidence を許可側に含む点は、ai-loop 経路で本 plan を使う場合の逸脱誤検出も防ぐ） |
+| **D-9 の info 対応** | **PASS** | plan D-9 が「**現行の marker 形式では**原理的に不可能」へ限定表現化され、「marker 以外の束縛（record 側フィールド / 3 要素部分集合 hash）は循環しないため不可能ではなく PR3 候補」が併記された。plan Step 7 の 🚩 と test-cases TC-14 の期待値にも「限定表現であること」「あらゆる方式で不可能と書いていないこと」が反映され、3 ファイルで整合している |
+| **markdownlint** | **PASS** | `npx --no-install markdownlint-cli2 "docs/working/TASK-0981/*.md"` = **0 issues**（5 ファイル） |
+
+### 残存 WARN（C-3 承認者の判断材料）
+
+#### R-1: TC-20（相対リンク到達性）の検査対象が A の 9 ファイルに固定されている
+
+- **result**: **WARN**（minor）
+- **finding**: TC-20 の入力が「新規・変更した `.md` **9 ファイル**」のままで、B 節で新たに明記された `INDEX.md` / `current-state.md`（いずれも**新規の `.md`** で相対リンクを含みうる）が**リンク到達性の検査対象から外れている**。是正前は B の存在自体が書かれていなかったため潜在的だったが、B が明文化されたことで「検査対象が実際の変更 `.md` 集合より狭い」ことが可視化された。実害は「INDEX.md / current-state.md にリンク切れが混入しても doc 専用 V-1 で検出されない」に留まり、C-3 のブロッカーではない。
+- **suggested_action**: TC-20 の入力を「`git diff origin/main --name-only` で得た**変更 `.md` 全件**」に変える（件数を固定しない）。TC-17 が「件数をハードコードせず `ls` の全件をループする」方針を既に採っているため、同じ方針に揃えるだけで済む。
+- **owner**: agent
+- **resolved**: false
+- **C-3 への申し送り**: 本 WARN は exec 中（T-10）に検査対象を広げるだけで吸収でき、plan の決定内容には影響しない。**C-3 を保留する理由にはならない**と判断する。
+
+#### 情報提供（是正不要 / info）
+
+- **I-1**: `## Files / Components to Touch` の B 節導入文に backtick 入り Markdown リンクが 1 件残る。実測では誤抽出は発生していない（E-5）が、同節の記載規約の文面とは厳密には不一致。次に当該節を編集する担当が同型の記法を安全と誤認しないよう、非 backtick 化しておくと規約と実体が完全に一致する。
+- **I-2**: TC-18 の「C-3 Gate も PASS」は、legacy 経路で `c3.json` に `plan_hash` が**無い**場合には `[WARN] plan_hash not found` となり failure に計上されないため、`Result: PASS` は成立するが hash 突合は行われない（初回レビューで実読した `bin/plangate` legacy 経路の非対称そのもの。D-6 が PR2 で塞ぐ対象）。`bin/plangate approve` が `plan_hash` を書き込む運用である限り実害はない。
+
+### 更新後の総合判定
+
+**PASS**（critical=0 / major=0 / minor=1）
+
+初回 C-1 の FAIL 2 件（F-1 / F-2）は**いずれも根本原因ごと解消**しており、対症的な文言修正ではなく (a) 抽出器が読む節そのものの構造分離、(b) 判定基準を「コード非接触 + 宣言集合との一致」へ置換、という設計レベルの是正になっている。WARN 4 件もすべて解消し、副作用検査でも退行は検出されなかった。**C-3 ゲートへ進んでよい**。残存 WARN R-1 は exec 中に吸収可能で、承認保留の理由にはならない。
+
+### Evidence（再実行分）
+
+#### E-5: 是正後 `extract_allowed_paths()` の実測（C1-PLAN-03）
+
+再現コマンド（E-1 と同一）:
+
+```sh
+python3 -c "
+import sys; sys.path.insert(0,'scripts/ai-loop')
+import plan_package as pp
+t=open('docs/working/TASK-0981/plan.md').read()
+ap=pp.extract_allowed_paths(t)
+print('count',len(ap))
+for p in ap: print(' -',p)
+bad=[p for p in ap if p.startswith(('schemas/','bin/','scripts/','tests/','.claude/','.github/')) or p.endswith('pbi-input.md') or 'http' in p or '(' in p or ')' in p]
+print('VIOLATIONS:', bad if bad else 'none')
+"
+```
+
+実測出力:
+
+```text
+count 14
+ - docs/decisions/adr-002-plan-contract-canonical-source.md
+ - docs/working/TASK-0981/plan.md
+ - docs/working/TASK-0981/todo.md
+ - docs/working/TASK-0981/test-cases.md
+ - docs/working/TASK-0981/review-self.md
+ - docs/working/TASK-0981/review-external.md
+ - docs/working/TASK-0981/status.md
+ - docs/working/TASK-0981/handoff.md
+ - docs/workflows/ai-loop/c3-prime-contract.md
+ - docs/working/TASK-0981/INDEX.md
+ - docs/working/TASK-0981/current-state.md
+ - docs/working/TASK-0981/decision-log.jsonl
+ - docs/working/TASK-0981/approvals/c3.json
+ - docs/working/TASK-0981/evidence/verification/**
+VIOLATIONS: none
+```
+
+初回（`2d6a5dd`）の 16 件から、禁止領域 6 件（`schemas/**` / `bin/plangate` / `scripts/**` / `tests/**` / `.claude/**` / `.github/workflows/**`）と `pbi-input.md` が消え、B 節の標準 artifact 5 件が加わって 14 件。URL 由来の混入（`(` / `)` / `http` を含む要素）は 0 件。
+
+#### E-6: 判定基準置換の網羅性（C1-TEST-14）
+
+```sh
+grep -n "すべて \`\.md\`\|全行が \`\.md\`\|\.md\` 以外\|9 ファイル\|ファイル数は\|計 9" \
+  docs/working/TASK-0981/plan.md \
+  docs/working/TASK-0981/todo.md \
+  docs/working/TASK-0981/test-cases.md
+```
+
+ヒットはいずれも是正後の正しい文脈のみ:
+
+- 「コード配下 0 件 + Files 表 A + B の集合」に置換済みの判定文（plan Stop Condition 5 / todo 完了条件 / TC-15）
+- 「A = 変更対象 **9 ファイル**」という Mode 判定の母数の説明（plan L189 / L297）
+- 「`.md` 限定・ファイル数固定にしない理由」を説明する注記（TC-15 注記・許容リスト）
+- **例外 1 件** = TC-20 の「`.md` 9 ファイル」（残存 WARN R-1 として指摘）
+
+「全行が `.md`」「ファイル数 9」を**判定条件として**使っている箇所は 0 件。
+
+`bin/plangate` の `cmd_validate` 実読により、TC-18 の新期待値 `Result: PASS` は Required Artifacts 5 件 + C-3 Gate（c3.json 存在 / `c3_status = APPROVED` / `plan_hash` 一致）で構成され、T-10 時点で到達可能であることを確認した。
