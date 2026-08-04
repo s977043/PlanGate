@@ -17,7 +17,7 @@ metrics）** はまだ定義されていない。各 Workflow が個別に停止
 
 実測（2026-07-22 初回 → **2026-08-04 再実測・main `7bf5f5c`**。#873/#905・#917/#941 実装後の現物）:
 
-- **Verifier 実体は 6 層に分散実装済みだが、層間順序と結果語彙の共通契約が無い**（#905/#941 で 6 層目が追加。共通契約の不在は不変）:
+- **Verifier 実体は 6 層に分散実装済みだが、層間順序と結果語彙の共通契約が無い**（#905/#941 で 6 層目が追加。共通契約の不在は不変。**issue の Verifier 階層 5 層〔deterministic / specification / independent model reviewer / policy gate / loop decision〕とは別軸** — issue 側は契約が定めるべき論理階層、本項は現行コードの実装分布）:
   1. LoopSpec 決定論検証（`docs/workflows/ai-loop/loopspec.md` 必須フィールド + I-4 安全側差し戻し）
   2. Plan Package + C-1/breakdown マーカー（`arbiter.py` priority 1.6/1.65/1.7 の `gates.c1 == "PASS"` / `plan_package` 整合）
   3. W チェック + rubric（LLM 判断 Model A/B/C/D。`arbiter.py` L16 が「L2 は決定論のみ・LLM 判断は W チェック」と分離を明記）
@@ -52,11 +52,14 @@ metrics）** はまだ定義されていない。各 Workflow が個別に停止
   `cost` / `token` / `human_minutes` / `accepted_change` フィールドは **0 件**
 - **最重要リスク＝正本断片化（不変・機械検証の正本が 1 つ増えた）**: `loop-safety-gates.md` **§6**（L198「既存正本との不整合防止（再定義しない
   事項の一覧）」）と `stop-rollback.md` **§0**（「本書は既存正本の再定義ではない」）が、ラウンド上限 3 /
-  CB-1〜3 / escalate 予算等の**数値再定義を禁止**している。加えて **`delivery-state-machine.md`（#873 正本）§8 が
-  contract emit（`python3 scripts/ai-loop/delivery.py contract`）との byte 一致を ta-56 で CI 機械検証**しており、
-  状態・優先度語彙を契約側で再宣言すると doc drift として機械検出される。本契約が数値・語彙を再宣言すると
-  正本を増やして断片化する → 「数値は既存正本への参照固定・enum / reason code は additive 正規化層」を
-  設計原則にする（下記 C-3 論点 1）
+  CB-1〜3 / escalate 予算等の**数値再定義を禁止**している。既存の機械検証は
+  **`delivery-state-machine.md`（#873 正本）§8 の contract emit byte 一致**（`python3 scripts/ai-loop/delivery.py contract`）
+  のみで、**その検査対象は当該 doc 1 本に固定されている**（`tests/extras/ta-56-delivery.sh` L139-149:
+  `_t56_doc="$PG_T56_ROOT/docs/workflows/ai-loop/delivery-state-machine.md"` の contract ブロックだけを `cmp`）。
+  したがって **#894 が新設する契約 doc に state / priority を再宣言しても現行 ta-56 は PASS のまま**であり、
+  再宣言を検出する guard は**現時点で存在しない**（作れるようにするのが本 PBI の作業 — Risks 表参照）。
+  本契約が数値・語彙を再宣言すると正本を増やして断片化する →
+  「数値は既存正本への参照固定・enum / reason code は additive 正規化層」を設計原則にする（下記 C-3 論点 1）
 
 ## What（Scope）
 
@@ -90,7 +93,7 @@ issue Non-goals「#873 の PR 状態機械を再実装すること」の具体�
 - **action ID**（canonical payload の sha256＝`c3_contract.canonical_hash`・`delivery.py` `action_id()` L176-177 / `c3_contract.py` L71）と **action_kind 6 種**（`repair_ci` / `resolve_conflict` / `repair_review` / `record_disposition` / `feedback_loop_referral` / `dod_reevaluate`＝`executor.py` docstring L12-14）
 - **intent / receipt の 2 段記録**（一度だけ実行への収束・`delivery.py` L402-424 / L568-600・`delivery-state-machine.md` §6）
 - **round limit = 3**（`delivery.py` `ROUND_LIMIT` L77。数値の正本は runbook §2-(7) / `00_concept.md` — `loop-safety-gates.md` §6 と同じ参照固定の扱い）
-- `delivery-state-machine.md` **§8 contract emit**（`delivery.py contract` と byte 一致であることを ta-56 が CI 機械検証 — 契約側で再宣言すると drift として機械検出される）
+- `delivery-state-machine.md` **§8 contract emit**（`delivery.py contract` と byte 一致であることを ta-56 が CI 機械検証。ただし検査対象は当該 doc 1 本に固定〔`tests/extras/ta-56-delivery.sh` L139-149〕であり、**新設契約 doc での再宣言は現行 guard では検出されない** — 検出**できるようにする**のが本 PBI の作業）
 
 ### 実装済み ↔ 本 PBI 新規追加の分離（2026-08-04 鮮度是正）
 
@@ -102,7 +105,7 @@ issue Non-goals「#873 の PR 状態機械を再実装すること」の具体�
 | 実装済み（固定のみ） | action ID・action_kind 6 種・intent / receipt 2 段記録 | `delivery.py` L176-188 / L402-424 / L568-600・`executor.py` L12-14 |
 | 実装済み（固定のみ） | round 系予算（`ROUND_LIMIT=3` / `cost_cap`＝round 単位） | `delivery.py` L77・`arbiter.py` L697-707 / L992-1009（priority 1.95） |
 | 実装済み（固定のみ） | 同型再発検知（finding_type 単位・`same_type_recurrence`） | `delivery.py` L229-231 / L331-342 |
-| 実装済み（固定のみ） | escalation flag / deny 理由コード群（`<layer>_<reason>` 規約） | `collector.py` L111-143・`executor.py` L133-141・`reconciler.py` L67・`gh_exec.py` L63-71 |
+| 実装済み（**現行は opaque な暫定コード。正規化語彙の定義は本 PBI**） | escalation flag / deny 理由コード群。命名は **3 体系**（`executor.py` = `executor_*`・`reconciler.py` = `reconciler_*` の `<layer>_<reason>` / `collector.py` = 無接頭辞〔`pull_fetch_failed` 等〕/ `gh_exec.py` = 大文字 `REASON_*`〔`EMPTY_ARGV` 等〕） | `collector.py` L110-143（L110「opaque な文字列 / AC-6 の接続点」）・`executor.py` L132-141（L132「**#894 が語彙を決める** / AC-6 接続点」）・`reconciler.py` L66-67・`gh_exec.py` L63-71 |
 | 実装済み（固定のみ） | 供給 / 実行 / 突合の 3 層分離 + 実行境界の機械強制 | `collector.py` / `executor.py` / `reconciler.py` / `check_exec_boundary.py` / `gh_exec.py` |
 | **本 PBI 新規** | **budget**（time / token / cost_usd / 連続失敗の各予算 + enforcement 同時実装） | なし（`loopspec.md` L125 注記の解除側） |
 | **本 PBI 新規** | **no-progress**（evidence delta + blocker 差分の独立 detector） | なし（入力源＝state entry 蓄積は #941 整備済み・`collector.py` L29-30） |
@@ -112,7 +115,7 @@ issue Non-goals「#873 の PR 状態機械を再実装すること」の具体�
 | **本 PBI 新規** | **metrics**（`cost_usd` / `tokens` / `human_minutes` / `accepted_change` の additive 拡張） | なし（`metrics.py` はレート系のみ） |
 | **本 PBI 新規** | **RunEvidence adapter**（#874 への budgets / verifier results / termination / metrics 保存境界） | なし |
 
-新規追加は上記 **7 領域のみ**（issue Scope 8 項目を #873/#917 実装後の残余へ射影した分界）。この表にない新語彙・新 Loop 実装は追加しない（issue 目的「新しい Loop 実装を増やすのではなく、#872 / #873 / #874 / #869 が共有する制御語彙・schema・判定順序・metrics を固定する」と一致）。
+新規に定義する**制御領域**は上記 7 つ。schema / decision enum / reason code / 停止条件棚卸し文書は、この 7 領域を表現する成果物として issue Scope 1・7・8 のとおり実施する（`delivery.py` 語彙の**再定義**のみを禁止する）。すなわち AC-1（decision / termination reason / verifier result schema）・AC-13（task profile 別既定値と override policy）・DoD Close 条件 1（既存停止条件の棚卸し + gap 分析）は本 PBI の範囲内であり、禁止対象は「実装済み `delivery.py` 語彙の再定義」と「新しい Loop 実装の追加」に限る（issue 目的「新しい Loop 実装を増やすのではなく、#872 / #873 / #874 / #869 が共有する制御語彙・schema・判定順序・metrics を固定する」と一致）。
 
 ## 受入基準（issue #894 verbatim・14 項目）
 
@@ -137,12 +140,12 @@ issue verbatim の AC 14 項目は不変。#905/#941 実装により「PR 収束
 
 | AC | 2026-08-04 時点の実装状況 | 実体参照 |
 |----|--------------------------|---------|
-| AC-2（自己申告で success 不可） | PR 収束段で先行成立: receipt は intent 突合必須（記録なき実行は受理しない）・`dod_reevaluate` receipt は intent 突合 + `evidence:` 参照が無ければ `dod_evaluated=true` にしない | `delivery.py` L579-585・`delivery-state-machine.md` §4 追補 8 |
+| AC-2（自己申告で success 不可） | PR 収束段で先行成立: `delivery.py` は receipt の **intent 突合のみ**を担い（記録なき実行は受理しない）、`dod_reevaluate` receipt に intent 突合 + `evidence:<ref>` の両方を要求して `dod_evaluated=true` を導出するのは**供給側 = Collector / Executor**（§4 追補 8 が「`delivery.py` は不変」と明記） | `delivery.py` L579-585（intent 突合）・`collector.py` `derive_dod_evaluated()` L780-812（受理条件 3 = `result_ref` の `evidence:<ref>`）・`executor.py` L389（`dod_reevaluate` は `evidence_ref` 必須）・`delivery-state-machine.md` §4 追補 8 |
 | AC-3（deterministic failure を reviewer PASS で上書き不可） | PR 収束段で先行成立: `ci_failed`（優先度 4）は review 判定より先に評価される固定順序 | `delivery.py` `PRIORITY_ORDER` L48-64 / `assess()` L344-351 |
 | AC-4（unavailable / inconclusive で fail-open しない） | 部分先行: 供給不能系は escalation flag → `HUMAN_ESCALATED`（`findings_unavailable` 等）。verifier status enum としての 4 値は未定義（本 PBI 新規） | `collector.py` L125 / L131・`delivery.py` `assess()` L271-280 |
 | AC-6（`no_progress` を evidence delta と blocker 差分で判定） | 未実装（本 PBI 新規）。ただし入力源＝state entry の append-only 蓄積は #941 が先行整備済み | `collector.py` docstring L29-30 |
 | AC-7（同一失敗 fingerprint） | 部分先行: finding_type 単位の `same_type_recurrence`（粗粒度）。正規化 fingerprint は未実装（本 PBI 新規・置換しない） | `delivery.py` L229-231 / L331-342 |
-| AC-9（terminal decision の hash / SHA 束縛） | PR 収束段で先行成立: `MERGE_READY` record が `head_sha` / `plan_hash` を保持・snapshot は head SHA 束縛（Collector AC-1） | `delivery.py` L389-400・`collector.py` docstring L6 |
+| AC-9（terminal decision の hash / SHA 束縛） | 部分先行: `MERGE_READY` record は `head_sha` / `plan_hash` を保持し snapshot は head SHA 束縛（Collector AC-1）だが、**`source_sha` は record に未収納**（§6 の 6 フィールドに無い）。束縛は `source_sha_ancestry` の真偽値と assess 入口の `expected-sha` 照合のみ。RunEvidence 側での `source_sha` 保持は本 PBI 新規 | `delivery.py` L389-400（record 6 フィールド）/ L140・L277（ancestry 真偽値）/ L522-529（`--expected-sha` 必須）・`delivery-state-machine.md` §6・`collector.py` docstring L6 |
 | AC-10（`MERGE_READY` と矛盾せず共通 decision へ変換） | **変換元が機械可読で確定済み**: `delivery.py contract` emit が正。変換表は「実装済み語彙 → 共通 decision」の一方向で定義する（作成時想定の「#873 実装前に変換表を先行確定し #873 が consume」は失効） | `delivery.py` `contract_dict()` L99-106・`delivery-state-machine.md` §8 |
 | AC-12（active run 中の暗黙変更なし） | 部分先行: record.jsonl は append-only + entry_id 改竄検知（fail-closed）。policy / budget / harness version の束縛は本 PBI 新規 | `delivery.py` `load_entries()` L449-473 |
 
@@ -246,7 +249,7 @@ EPIC #870 DoD へ PR・test・E2E evidence link 反映。
 | リスク | 検証手段 | Fallback |
 |--------|---------|----------|
 | 正本断片化（§6 / §0 の再定義禁止契約と衝突） | 契約 doc に「参照固定フィールド一覧」を持たせ、CI で数値リテラルの再宣言を検出 | 数値を含む節を既存正本への参照のみに縮退 |
-| ~~#873 未実装のまま AC-10 が検証不能~~ →（2026-08-04 是正・#873/#917 実装済みで方向逆転）契約が実装済み `delivery.py` 語彙を再定義・再宣言してしまう | `delivery.py contract` emit との突合 + `delivery-state-machine.md` §8 の byte 一致 CI（ta-56）で再宣言を機械検出 | 変換表は emit 出力を右辺に固定し、契約側 enum は additive のみに縮退 |
+| ~~#873 未実装のまま AC-10 が検証不能~~ →（2026-08-04 是正・#873/#917 実装済みで方向逆転）契約が実装済み `delivery.py` 語彙を再定義・再宣言してしまう | **現行 guard は存在しない**（ta-56 TC-12 の検査対象は `delivery-state-machine.md` 1 本に固定・`tests/extras/ta-56-delivery.sh` L139-149）。**本 PBI の作業として**、新契約 doc を ta-56 の byte 一致対象へ**追加する**、または新契約 doc に state / priority literal が現れないことを走査する test を**新設する** | 変換表は `delivery.py contract` emit 出力を右辺に固定し、契約側 enum は additive のみに縮退 |
 | schema HO 分岐で承認境界の強度が割れる | C-3 論点 3 で #874 と同一配置に確定 | docs/schemas/ + 非 HO validator で AI 完結 |
 | 4 値 status 導入が既存 3 値裁定（exit 0/2/3 契約）を壊す | 変換表 + `test_arbiter.py` 回帰で既存 exit code 不変を機械検証 | verifier status は新規レイヤのみに閉じ、arbiter 裁定語彙に触れない |
 | budget 宣言フィールドだけ先行し enforcement が置き去り（L125 注記の再発） | 宣言 + enforcement + fixture を同一 PR で対にする | enforcement 未了の budget 軸は契約に載せない（additive に後追い） |
@@ -268,9 +271,12 @@ EPIC #870 DoD へ PR・test・E2E evidence link 反映。
 - `scripts/ai-loop/**` は PoC 隔離（本番から呼ばれない）で AI 実装可能（#874 と同前提）。
   **2026-08-04 是正: 隔離前提は一律には成立しない** — `c3prime_verify.py` は #889/#895 以降
   `bin/plangate` から呼ばれる**判定基盤**（`bin/plangate` L887-894 `_plangate_c3_dispatch`）。
-  rollout-policy §2 の**判定基盤 carve-out**（`docs/workflows/ai-loop/rollout-policy.md` L52-57・
-  ai-loop 判定基盤は escalate 固定）に従い、本 PBI の新設 engine / detector が判定基盤へ接続する
-  時点の扱い（carve-out / HO）は plan で再判定する
+  さらに rollout-policy §2 の**判定基盤 carve-out は glob**（`docs/workflows/ai-loop/rollout-policy.md`
+  L52-57: ①`scripts/ai-loop/**` ②`docs/workflows/ai-loop/**`・`docs/ai/ai-loop/**`）であるため、
+  本 PBI の成果物（契約 doc・decision engine / detector＝上記「新設想定」）は**接続の有無に関わらず
+  初日から carve-out ①②に該当し、ai-loop auto-approve 対象外（escalate 固定）**。ただし L57 が明記する
+  とおり arbiter の `boundary_check` は ho-paths.md 由来のため機械層では boundary=clean と判定され、
+  本 carve-out は**規範層**（実行者が escalate する責務を負う）。**HO 化の要否のみ** plan で再判定する
 - **Mode: critical で確定**（`mode-classification.md` 定量基準: **受入基準数 11+ → 超高（critical）が
   決定論的**。本 PBI は issue AC が **14 項目**で 11+ 確定。変更ファイル数も契約 doc + schema +
   engine + validator + detector + metrics 拡張 + 12 fixture + 棚卸し文書で 16+（超高）。
