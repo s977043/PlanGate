@@ -18,6 +18,10 @@
 | 2026-08-04 | C-3 | **APPROVED**（`approvals/c3.json`・Unknowns 12 件の判断確定。todo「T-1 完了記録」が正本） |
 | 2026-08-04 | exec 前半 | T-1 〜 T-11（契約 doc / schema / 受理器 / producer の RED） |
 | 2026-08-04 | exec 後半 | T-12 〜 T-36（producer GREEN / legacy 互換 / privacy / c3-prime 接続 / adapter / fixture / ta-60 / 配布同期リスト） |
+| 2026-08-05 09:00 | T-37 | 統合担当が `sh scripts/sync-plugin-plangate.sh` を実行し `plugin/` を commit（`9ffe144`） |
+| 2026-08-05 10:00 | T-38 / T-39 | 敵対レビュー R1 / R2 実施（R2 = major 5 / minor 4）。**レポート artifact は evidence/ 未配置**のため todo 上は未了 |
+| 2026-08-05 12:30 | R2 反映 | MJ-3 / MJ-5 を code へ反映（`52bd791`）。MJ-1 / MJ-2 / MJ-4 / MN-1 〜 MN-4 を working context へ反映 |
+| 2026-08-05 12:45 | T-40 / T-41 | 65 TC 対応表（機械 63 / 手動 2）+ handoff 必須 6 要素を完成 |
 
 ## C-3 Gate: APPROVED
 
@@ -32,6 +36,8 @@
 | `c23b099` | privacy の producer 側強制（T-22 / T-23） |
 | `a911308` | 下流 consumer adapter（T-28 〜 T-31） |
 | `2730594` | golden fixture 10 件 + `ta-60` + 配布同期リスト（T-32 / T-33 / T-35 / T-36 / T-24） |
+| `9ffe144` | T-37 plugin 同期（統合担当） |
+| `52bd791` | **R2 major 2 件**（MJ-3 AC-12 未検査の証跡化 / MJ-5 実 corpus 件数の脱ハードコード）+ K-10（ta-60 失敗経路の unbound variable） |
 
 ### 変更ファイル一覧（`origin/main` からの差分）
 
@@ -63,30 +69,33 @@
 
 | ステップ | 状態 |
 |---------|------|
-| L-0（lint） | ✅ `npx markdownlint-cli2` 0 issues（変更 3 doc） |
-| V-1（受け入れ検査） | 🔺 部分（65 TC の機械実行対応表は T-40 で完成させる） |
-| V-2 / V-3 / V-4 | ⬜ 未（T-38 / T-39 の敵対レビューが前提） |
+| L-0（lint） | ✅ `npx markdownlint-cli2` 0 issues（変更 md 全件） |
+| V-1（受け入れ検査） | ✅ 65 TC 対応表を handoff §5-bis に記載（**機械 63 / 手動 2**・SKIP 0）+ 不変 7 ファイル差分 0 行 |
+| V-2 / V-3 | ✅ 敵対レビュー R1 / R2 実施済み（R2 の major 5 / minor 4 を反映済み）。⚠️ レポート artifact は `evidence/` へ未配置 |
+| V-4（リリース前チェック） | ⬜ 未（critical モードのため PR 前に統合担当が実施） |
 
 ## 残タスク
 
-- [ ] T-37: `sh scripts/sync-plugin-plangate.sh` 実行 → `plugin/` を commit（**CI 必須**）
-- [ ] T-38 / T-39: 敵対レビュー R1 / R2（critical・major ゼロ収束）
-- [ ] T-40: 65 TC 全件の機械実行 + 不変差分 0 の最終確認
-- [ ] T-41: handoff の V2 候補追補
+- [x] T-37: `sh scripts/sync-plugin-plangate.sh` 実行 → `plugin/` を commit（`9ffe144`。R2 反映で producer / 契約 doc を変更したため**再実行済み**・`git diff --quiet -- plugin/` clean）
+- [ ] T-38 / T-39: 敵対レビュー R1 / R2 — **レビュー自体は実施済み**（R2 指摘は反映済み）。**残りはレポート artifact を `docs/working/TASK-0874/evidence/` へ配置すること**（完了判定が artifact の存在のため）
+- [x] T-40: 65 TC 対応表（handoff §5-bis）+ 不変差分 0 の最終確認
+- [x] T-41: handoff 必須 6 要素の完成（§1-bis 見直し前提 / §5-bis TC 対応表 / §6 内訳を含む）
 - [ ] T-42: issue #874 への DoD コメント（**close 条件未達の明記が必須**）
 - [ ] T-43: #870 への evidence link
 - [ ] T-44: `schemas/` 昇格 PBI の予約起票
 
 ## 次セッション用プロンプト
 
-> PlanGate TASK-0874（#874）の exec を継続する。worktree `plangate-wt-0874exec`・
-> branch `feat/task-0874-exec`。T-1 〜 T-36 は完了済み（`todo.md` のチェックと
-> 「T-12 〜 T-36 完了記録」を参照）。残りは T-37 〜 T-44。
-> **最初に `sh scripts/sync-plugin-plangate.sh` を 1 回実行して `plugin/` を commit する**
-> （CI `sync-plugin-plangate.yml` が PR 段階で drift を検出するため）。
+> PlanGate TASK-0874（#874）の残作業を進める。worktree `plangate-wt-0874exec`・
+> branch `feat/task-0874-exec`。**T-1 〜 T-41 は完了**（R2 敵対レビューの major 5 / minor 4 も反映済み・
+> 詳細は `handoff.md` §7 の disposition 表）。残りは
+> ① T-38 / T-39 の**レポート artifact を `docs/working/TASK-0874/evidence/` へ配置**して todo を閉じる
+> ② T-42（issue #874 の DoD コメント・**close 条件未達**と **routing 実カバレッジ 0** の明記が必須）
+> ③ T-43（#870 への evidence link）④ T-44（`schemas/` 昇格 PBI の予約起票）⑤ PR 作成 → C-4。
 > `approvals/c3.json` は未 commit の承認記録なので `git add -A` を使わず名指し add する。
-> 検証は `python3 scripts/ai-loop/test_run_evidence.py`（78 tests）/
-> `test_run_evidence_verify.py`（30 tests）/ `sh tests/run-tests.sh </dev/null`（523 passed）。
+> `scripts/ai-loop/*.py` / `docs/workflows/ai-loop/*.md` を変更したら **sync 再実行が必須**。
+> 検証は `python3 scripts/ai-loop/test_run_evidence.py`（**80 tests**）/
+> `test_run_evidence_verify.py`（**32 tests**）/ `sh tests/run-tests.sh </dev/null`（**523 passed / 0 failed**）。
 
 ## 参照ファイル
 

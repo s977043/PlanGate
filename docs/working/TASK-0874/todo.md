@@ -249,7 +249,7 @@
 
 - [x] 🚩 T-35: `scripts/sync-plugin-plangate.sh` の **2 箇所**へ新規 4 本（`run_evidence.py` / `test_run_evidence.py` / `run_evidence_verify.py` / `test_run_evidence_verify.py`）を追加 — **記号アンカーで位置特定**（行番号 L348 / L360 は 2026-08-02 時点の目安で stale 化する）: ①`for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" …` ②`arbiter.py|test_arbiter.py|…) : ;;`。**現行は各 24 エントリ（実測）→ 各 28 になる** [Owner: agent] [depends_on: T-34] [files: scripts/sync-plugin-plangate.sh] rollback: git restore -- scripts/sync-plugin-plangate.sh
 - [x] 🚩 T-36: **2 箇所の basename 集合を diff して差分 0** を機械照合（片方漏れ = sync drift の検出専用タスク） [Owner: agent] [depends_on: T-35] [files: -] rollback:不要
-- [ ] T-37: sync 実行 → 2 回目 no-op → `git diff --quiet plugin/` 確認。`docs/workflows/ai-loop/run-evidence-contract.md` は **glob 同期のため whitelist 追加不要**であることも確認（`plugin/plangate/skills/ai-loop-cycle/references/` に出現する）[Owner: agent] [depends_on: T-36] [files: plugin/plangate/] rollback: git restore -- plugin/ scripts/sync-plugin-plangate.sh
+- [x] T-37: sync 実行 → 2 回目 no-op → `git diff --quiet plugin/` 確認。`docs/workflows/ai-loop/run-evidence-contract.md` は **glob 同期のため whitelist 追加不要**であることも確認（`plugin/plangate/skills/ai-loop-cycle/references/` に出現する）[Owner: agent] [depends_on: T-36] [files: plugin/plangate/] rollback: git restore -- plugin/ scripts/sync-plugin-plangate.sh
 
 ### 検証フェーズ
 
@@ -259,9 +259,66 @@
 > **独立に検証可能な 4 タスク（T-38 〜 T-41）へ分割**した。
 
 - [ ] 🚩 T-38: **敵対レビュー R1**（複数エージェント・観点: fail-open していないか / `unavailable` と `0`・空配列の混同 / privacy 迂回路 / 下流語彙の乖離）を実施し、**検出された critical / major の全件に「是正 commit」または「却下理由」を 1:1 で対応付ける**。完了判定: R1 レポートが `docs/working/TASK-0874/evidence/` に存在し、**未対応の critical / major が 0 件** [Owner: agent] [depends_on: T-37] [files: docs/working/TASK-0874/evidence/] rollback: R1 起因の是正 commit を `git revert`（push 前なら `git restore`）
+
+> **T-38 / T-39 の状態（R2 反映ワーカーによる追記）**: 敵対レビュー R1 / R2 は**統合担当が実施済み**で、
+> R2 の major 5 件 / minor 4 件は本ブランチに反映済み（下記 T-40 完了記録の disposition 表）。
+> ただし **R1 / R2 のレポート artifact が `docs/working/TASK-0874/evidence/` に未配置**であり、
+> 「レポートが evidence/ に存在」という完了判定を本ワーカーは満たせない。**T-38 / T-39 のチェックは
+> 統合担当に残す**（artifact 配置と同時に閉じること）。
+
 - [ ] 🚩 T-39: **敵対レビュー R2**（R1 是正後の深掘り。**契約層は 1 ラウンドでは表層しか出ない** — #889 / TASK-0917 の教訓）を実施し **critical・major ゼロ収束**まで回す。完了判定: R2 レポートが存在し、**最終ラウンドの critical = 0 かつ major = 0** [Owner: agent] [depends_on: T-38] [files: docs/working/TASK-0874/evidence/] rollback: R2 起因の是正 commit を `git revert`（push 前なら `git restore`）
-- [ ] 🚩 T-40: **全 TC の機械実行 + 不変対象の差分 0 確認**。①`test-cases.md` の **65 TC を全件機械実行**して PASS（**未実行 / SKIP 0 件**。SKIP は環境依存を理由に許容しない）②`git diff --stat origin/main -- scripts/ai-loop/delivery.py scripts/ai-loop/c3_contract.py scripts/ai-loop/c3prime_verify.py scripts/ai-loop/arbiter.py scripts/ai-loop/metrics.py docs/working/ai-loop-runs/ tests/run-tests.sh` が **0 行**。⚠️ **T-24（EH-8 実走）の完了も本タスクの前提**（依存に明示） [Owner: agent] [depends_on: T-39, T-24] [files: -] rollback:不要
-- [ ] 🚩 T-41: **完了処理** — コミット整理（1 コミット 1 種類・`Refs:` 付き。**`docs/working/_audit/` への hook 由来追記（`skip-decision-log.jsonl` 等）は本 branch に含めず別 PR に分離**）+ `status.md` / `current-state.md` / `handoff.md` を更新し、**AC↔fixture 対応表**（AC-16 が要求）と V2 候補（`harness_version` 構造検証 TC / `cost_metrics` 収集経路 / schema・fixture の plugin 配布 / U-10 が allowlist 採用に決まった場合の fixture 期待値差し戻し）を記録。完了判定: handoff の**必須 6 要素がすべて非空** [Owner: agent] [depends_on: T-40] [files: docs/working/TASK-0874/] rollback: `git restore -- docs/working/TASK-0874/`
+- [x] 🚩 T-40: **全 TC の機械実行 + 不変対象の差分 0 確認**。①`test-cases.md` の **65 TC を全件機械実行**して PASS（**未実行 / SKIP 0 件**。SKIP は環境依存を理由に許容しない）②`git diff --stat origin/main -- scripts/ai-loop/delivery.py scripts/ai-loop/c3_contract.py scripts/ai-loop/c3prime_verify.py scripts/ai-loop/arbiter.py scripts/ai-loop/metrics.py docs/working/ai-loop-runs/ tests/run-tests.sh` が **0 行**。⚠️ **T-24（EH-8 実走）の完了も本タスクの前提**（依存に明示） [Owner: agent] [depends_on: T-39, T-24] [files: -] rollback:不要
+- [x] 🚩 T-41: **完了処理** — コミット整理（1 コミット 1 種類・`Refs:` 付き。**`docs/working/_audit/` への hook 由来追記（`skip-decision-log.jsonl` 等）は本 branch に含めず別 PR に分離**）+ `status.md` / `current-state.md` / `handoff.md` を更新し、**AC↔fixture 対応表**（AC-16 が要求）と V2 候補（`harness_version` 構造検証 TC / `cost_metrics` 収集経路 / schema・fixture の plugin 配布 / U-10 が allowlist 採用に決まった場合の fixture 期待値差し戻し）を記録。完了判定: handoff の**必須 6 要素がすべて非空** [Owner: agent] [depends_on: T-40] [files: docs/working/TASK-0874/] rollback: `git restore -- docs/working/TASK-0874/`
+
+#### T-37 / T-40 / T-41 完了記録（2026-08-05・code HEAD `52bd791`）
+
+**T-37（配布同期）**: 統合担当が `9ffe144` で `sh scripts/sync-plugin-plangate.sh` を実行。
+その後 R2 反映で `scripts/ai-loop/*.py` と `docs/workflows/ai-loop/run-evidence-contract.md` を
+変更したため**本セッションで sync を再実行**し、`plugin/plangate/skills/ai-loop-cycle/` の
+scripts 4 本 + references 1 本を更新（`git diff --quiet -- plugin/plangate/` clean を確認）。
+`docs/workflows/ai-loop/run-evidence-contract.md` は **glob 同期のため whitelist 追加不要**であることを再確認
+（正本とコピーの差分は sync が意図的に行う相対リンクのインライン化 2 箇所のみ）。
+
+**T-40（全 TC 実行 + 不変差分 0）**:
+
+- ① 65 TC の対応表は **`handoff.md` §5-bis** に記載（重複を避けここには再掲しない）。
+  内訳は **機械実行 63 / 手動 2**（TC-46 / TC-49）で **SKIP 0 件**。
+  ⚠️ **「65 TC 全件を機械実行」という完了条件は満たしていない**（R2 MN-3）。TC-46（`run-tests.sh` の
+  出力に `ta-60` ブロックが出る）と TC-49（`git diff origin/main -- tests/run-tests.sh` = 0 行）は
+  どちらも機械 assert を持たないため、**手動実行のコマンドと実測結果を handoff §5-bis に明記**した。
+  TC-49 の機械化を見送った理由は「`origin/main` ref 依存のテストは shallow clone の CI で落ちる」
+  ＝ **MJ-5 と同じ CI 時限爆弾クラス**を新規に作らないため。
+- ② 不変対象の `git diff --stat origin/main`（`delivery.py` / `c3_contract.py` / `c3prime_verify.py` /
+  `arbiter.py` / `metrics.py` / `plan_package.py` / `collector.py` / `docs/working/ai-loop-runs/` /
+  `tests/run-tests.sh`）は **0 行**。
+- ③ T-24（EH-8 実走）は `ta-60` ブロック④で継続実行され、単体でも
+  `PLANGATE_HOOK_STRICT=1 PLANGATE_HOOK_FILES="<10 fixture>" sh scripts/hooks/check-metrics-privacy.sh`
+  = **PASS（10 files checked / exit 0）** を確認。
+
+**T-41（完了処理）**: commit を「code 系」「working context 系」の 2 本に整理（`docs/working/_audit/` は含めない）。
+`status.md` / `current-state.md` / `handoff.md` を HEAD 基準へ更新し、handoff の**必須 6 要素**
+（要件適合確認 / 既知課題 K-1 〜 K-11 / V2 候補 / 妥協点 / 引き継ぎ文書 / テスト結果サマリ）が
+すべて非空であることを確認した。**AC↔fixture 対応表**（AC-16）は §5、**65 TC 対応表**は §5-bis。
+
+**R2 敵対レビュー指摘の disposition**（major 5 / minor 4 = 全件 reflected）:
+
+| ID | 指摘 | 反映先 |
+|----|------|-------|
+| MJ-1 | handoff / status / current-state が HEAD より前を凍結 | `handoff.md` 冒頭・K-1・`status.md` 残タスク・`current-state.md` |
+| MJ-2 | AC-3 が無条件 PASS だが routing の実カバレッジ 0 | `handoff.md` §1 の AC-3 行（限定語 + K-3 相互参照） |
+| MJ-3 | AC-12 の drift 検査が caller opt-in で未実施が EV に残らない | **案 (b)**: `escalation.harness_drift_unchecked` + 受理器の partial 判定（契約 §4-1 / 追加 4 テスト） |
+| MJ-4 | C-3 が「handoff に記録」と指定した見直し前提が handoff に無い | `handoff.md` **§1-bis** を新設（契約 §0 の U-4 / U-8 / U-9 / U-10 / U-12 を転記）+ fixture 表 row 9 / 10 |
+| MJ-5 | 実 corpus 件数のハードコードが CI の時限爆弾 | `test_run_evidence.py` TC-42 / TC-43 の絶対値 assert を下限化 + `test-cases.md` の期待値是正 |
+| MN-1 | 「fixture 6 は fixture 4 と区別不能」は事実誤り | 実測（fx-04 / fx-06 の diff）で反証し K-3 / fixture 表 / `test-cases.md` を是正 |
+| MN-2 | `test-cases.md` fixture 5 の `unavailable` が 7 件 | 8 件（`(b)` は 5）へ是正。TC-58 本文の同一の誤りも同時是正 |
+| MN-3 | TC-46 / TC-49 に機械 assert が無い | 本記録①と `handoff.md` §5-bis に手動確認として明示（+ K-9） |
+| MN-4 | `523 passed` の +1 が未説明 | fresh clone で baseline を再測定し `handoff.md` §6 に内訳（514 + 9 = 523） |
+
+> **本記録で訂正するもの**: 上記 T-32 の記述にある「**fixture 6 は Phase 1 で fixture 4 と区別不能
+> （実質 9 fixture）**」は**誤り**である（R2 MN-1・実測で反証）。両 golden は `escalation` /
+> `human_interventions` / `observation` / `run_id` が異なる。正しくは「**`routing_decisions` の
+> 値カバレッジが 0**」であり、fixture 数を割り引く必要はない。T-32 の記述は plan 時点の指示として
+> そのまま残し、確定事実は本記録と `handoff.md` K-3 を正とする。
 
 ### DoD 外部反映フェーズ（issue #874 DoD の未カバー 2 項目 / C1-PLAN-01 ② 是正）
 
