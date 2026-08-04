@@ -75,6 +75,10 @@ ACCOUNT_KEYS = (
 #: delivery.assess() が生成する既知 kind（これ以外は escalation に記録する）。
 KNOWN_RECORD_KINDS = ("intent", "merge_ready", "receipt", "state")
 
+#: AC-12 の drift 検査が未実行であることを表す escalation kind（契約 §4-1）。
+#: 受理器（run_evidence_verify）はこの kind を partial 理由として列挙する。
+HARNESS_DRIFT_UNCHECKED = "harness_drift_unchecked"
+
 #: Phase 1 で供給元が main に存在しないフィールド（契約 §5-1 (a)）。
 PHASE1_UNAVAILABLE = ("replan_count", "cost_metrics")
 
@@ -564,8 +568,15 @@ def _require_injected(opts, errors):
         errors.append("--run-id は必須（注入値）")
 
 
-def _parse_harness(opts, errors):
-    """harness_version（object 3 値）の注入と run 中不変（AC-12）を検査する。"""
+def _parse_harness(opts, errors, escalation):
+    """harness_version（object 3 値）の注入と run 中不変（AC-12）を検査する。
+
+    `--harness-version-end` 未注入時は drift 検査そのものが実行されない。
+    黙って通すと「検査して同一だった EV」と「検査していない EV」を受理側が
+    区別できず、run 中に harness が入れ替わった EV が下流 shadow mode の
+    学習母集団へ同一 baseline として混入する。**検査していないこと自体を
+    escalation に残す**（受理器はこれを partial 理由として列挙する / 契約 §4-1）。
+    """
     raw = opts.get("harness-version")
     if not raw:
         errors.append("--harness-version は必須（object 3 値の注入 / 契約 §4-1）")
@@ -584,7 +595,11 @@ def _parse_harness(opts, errors):
             f"harness_version.corpus_hash が sha256:+64hex でない: "
             f"{start['corpus_hash']!r}")
     raw_end = opts.get("harness-version-end")
-    if raw_end:
+    if not raw_end:
+        escalation.append({
+            "kind": HARNESS_DRIFT_UNCHECKED,
+            "detail": "--harness-version-end 未注入のため AC-12 の drift 検査を実行していない"})
+    else:
         try:
             end = json.loads(raw_end)
         except ValueError as exc:
@@ -647,7 +662,7 @@ def build(task_dir, opts) -> dict:
     escalation = []
 
     _require_injected(opts, errors)
-    harness = _parse_harness(opts, errors)
+    harness = _parse_harness(opts, errors, escalation)
     routing = _parse_routing(opts, errors)
     injected_pr = _parse_pr_number(opts, errors)
 

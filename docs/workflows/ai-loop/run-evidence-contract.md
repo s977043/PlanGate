@@ -68,7 +68,7 @@
 | 21 | `schema_version` | string | ✅ | 本契約の版（§9） | fail-closed |
 | 22 | `observation` | string | — | **観測事実**（何が起きたか） | 空文字可 |
 | 23 | `cause_hypothesis` | string \| null | — | **推定**（なぜ起きたか）。**注入されたときのみ**格納する | `null` |
-| 24 | `escalation` | array of object `{kind, detail}` | — | 握り潰さずに記録すべき異常（未知 `kind` entry / privacy 違反入力 / 分類不能 record） | 空配列 |
+| 24 | `escalation` | array of object `{kind, detail}` | — | 握り潰さずに記録すべき異常（未知 `kind` entry / privacy 違反入力 / 分類不能 record / **検査未実行** `harness_drift_unchecked`・§4-1） | 空配列 |
 
 ### 2-1. `evidence_status` は `EV` に格納しない
 
@@ -126,7 +126,7 @@
 | 注入値 | 用途 | 未注入時の既定 |
 |-------|------|--------------|
 | `--harness-version` | `harness_version`（object 3 値） | **エラー**（fail-closed。§2 #10 と一致） |
-| `--harness-version-end` | run 終了時の harness を開始時と byte 比較（AC-12） | drift 検査を行わない |
+| `--harness-version-end` | run 終了時の harness を開始時と byte 比較（AC-12） | **drift 検査を実行せず `escalation` に `harness_drift_unchecked` を積む**（受理器は partial 理由として列挙し `complete` にしない。§4-1） |
 | `--routing-decisions` | `routing_decisions` の**明示供給**（`[]` を含む） | `"unavailable"`（§5-1 (a)） |
 | `--observation` | `observation` の上書き | events から機械導出 |
 | `--cause-hypothesis` | `cause_hypothesis` | `null`（**自動生成しない** / AC-5） |
@@ -205,6 +205,30 @@ plugin = `8.18.0` / LoopSpec 派生 hash = run ごとに変動）、**object 3 �
 **AC-12（active run 中に harness version が変化しない）は 3 値すべてについて**、run 開始時注入値と
 終了時の値の **byte 一致**で検証する。1 つでも不一致なら **fail-closed**（警告に降格しない）。
 
+#### 未検査（`--harness-version-end` 未注入）の扱い
+
+drift 検査は `--harness-version-end` の注入が前提であり、**未注入なら検査そのものが走らない**。
+これを黙って通すと、受理器も下流も **「検査して同一だった `EV`」と「検査していない `EV`」を区別できない**。
+`baseline_version` を `EV` から取り `mixed_baseline` で reject する下流（§8-1）にとっては、
+**run 中に harness が入れ替わった `EV` が「同一 baseline」として学習母集団に入る**経路になる。
+
+したがって producer は未注入時に `escalation` へ次を積む（**検査が欠けていること自体を証跡に残す**）:
+
+```json
+{"kind": "harness_drift_unchecked", "detail": "--harness-version-end 未注入のため AC-12 の drift 検査を実行していない"}
+```
+
+受理器は `harness_drift_unchecked` を **partial 理由として stderr に列挙**し、
+他フィールドがすべて available でも **`exit 0`（complete）を返さない**（§6-4）。
+これにより AC-12 は「caller が `--harness-version-end` を渡す善意」ではなく**受理器側で担保**される。
+
+> **注入を必須（fail-closed）にしなかった理由**: `--harness-version` と同様に必須化すると、
+> 終了時 harness を取得できない経路（run が異常終了した後の事後発行等）で `EV` が
+> **一切発行できなくなり**、最も証跡が必要な run の記録が消える。`escalation` 記録は
+> fail-closed の思想（黙って通さない）を保ちつつ証跡を残す。
+> `escalation` に積まれた `kind` は**「検査した結果の記録」と「検査していないことの記録」を区別する**:
+> 前者（`unknown_record_kind` / `privacy_*`）は `complete` を妨げず、後者のみ partial に落とす。
+
 ## 5. `terminal_state` × フィールドの必須 / `unavailable` マトリクス
 
 | field | `MERGE_READY` | `HUMAN_ESCALATED` | `BLOCKED` |
@@ -243,8 +267,9 @@ plugin = `8.18.0` / LoopSpec 派生 hash = run ごとに変動）、**object 3 �
 ⇒ **Phase 1 の producer 出力は必ず `unavailable` を含み、受理器は必ず `partial` を返す。
 Phase 1 で `evidence_status=complete`（exit 0）は構造的に発生しない**。
 
-`partial` の理由は上記 2 分類にまたがるため、**曖昧化しない担保は「理由が 1 種類であること」ではなく
-「`unavailable` フィールド名が stderr に全数列挙されること」に置く**。
+`partial` の理由は上記 2 分類（+ §4-1 の未検証 `escalation`）にまたがるため、**曖昧化しない担保は
+「理由が 1 種類であること」ではなく「理由が機械可読に全数列挙されること」に置く**
+（stderr に `unavailable:<field>` / `unverified:<kind>` の形式で全数出力する）。
 
 受理器の exit 0 経路が死にコード化しないことは、**unit test が合成した「全フィールド available な `EV`」**
 で担保する（fixture では 0 の経路を一度も通らないため）。
@@ -294,7 +319,7 @@ run_evidence_verify.py <ev.json> <task_dir>
 | `0` | c3-prime として受理 | `EV` として受理（`evidence_status=complete`・全束縛整合） |
 | `1` | 検証 NG（fail-closed・理由を stderr） | 同左 |
 | `10` | **legacy**（`approval_kind` キーが物理的に無い） | **legacy**（`EV` ではなく 9 キー / 14 キー arbiter record を渡された） |
-| `11` | （未使用） | **partial**（必須フィールドは揃うが `unavailable` を含む = ready 扱いしない） |
+| `11` | （未使用） | **partial**（必須フィールドは揃うが `unavailable` **または未検証 `escalation`**（`harness_drift_unchecked`・§4-1）を含む = ready 扱いしない） |
 
 `10` の意味は**両受理器で同一**にする。同一ディレクトリの 2 受理器で `10` の意味が割れると、
 将来 rc を共通ハンドラで扱った時点で **legacy を partial と誤読**する経路が生まれる。

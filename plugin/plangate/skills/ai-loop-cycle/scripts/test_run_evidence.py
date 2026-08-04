@@ -483,6 +483,27 @@ class UnavailableSemanticsTests(unittest.TestCase):
             self.assertNotEqual(rc, 0)
             self.assertIn("harness-version", err)
 
+    def test_unchecked_drift_is_recorded_in_escalation(self):
+        # AC-12 の drift 検査は --harness-version-end の注入が前提であり、
+        # 未注入なら検査そのものが走らない。黙って通すと受理側が
+        # 「検査して同一だった EV」と「検査していない EV」を区別できず、
+        # run 中に harness が入れ替わった EV が #869 の baseline に混入する。
+        # 未検査であること自体を escalation に残す（契約 §4-1）。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp)
+            ev = _ev(self, task_dir, runs_dir)          # end 未注入
+            kinds = {e["kind"] for e in ev["escalation"]}
+            self.assertIn("harness_drift_unchecked", kinds, ev["escalation"])
+
+    def test_checked_drift_leaves_no_unchecked_escalation(self):
+        # 検査を実行した run には残さない（常時付与では情報量が 0 になる）。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp)
+            ev = _ev(self, task_dir, runs_dir,
+                     extra=("--harness-version-end", json.dumps(HARNESS)))
+            kinds = {e["kind"] for e in ev["escalation"]}
+            self.assertNotIn("harness_drift_unchecked", kinds, ev["escalation"])
+
 
 class ObservationTests(unittest.TestCase):
     """T-17 / AC-5 observation と cause_hypothesis の分離（TC-18）。"""
@@ -929,9 +950,15 @@ class LegacyClassificationTests(unittest.TestCase):
             path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
 
     def test_tc42_real_corpus_matches_metrics_py(self):
-        # TC-42: 実データ 28 件で metrics.py --format json の現行出力と一致。
-        # metrics.py は import せず（不変対象への依存を増やさない）別実装の
-        # 同値性を subprocess の実出力で確認する。
+        # TC-42: 実データ（docs/working/ai-loop-runs/）で metrics.py --format json
+        # の現行出力と一致。metrics.py は import せず（不変対象への依存を増やさない）
+        # 別実装の同値性を subprocess の実出力で確認する。
+        #
+        # ⚠️ 絶対値で assert しない: docs/working/ai-loop-runs/ は gitignore 対象外で
+        # ai-loop の実運用ごとに record が commit される（実測: run-021 / run-023 /
+        # run-025 の追加履歴）。`== 25` と書くと次の run 記録が main に入った瞬間に
+        # 無関係な PR の CI が赤くなる。下限（T-2 baseline 時点の実測値）だけを固定し、
+        # 「本当に分類できているか」は metrics.py との同値照合で担保する。
         cp = subprocess.run([sys.executable, str(HERE / "metrics.py"),
                              "--format", "json"], capture_output=True, text=True)
         self.assertEqual(cp.returncode, 0, cp.stderr)
@@ -940,15 +967,15 @@ class LegacyClassificationTests(unittest.TestCase):
         for key in ("legacy_count", "invalid_run_meta_count", "run_count",
                     "skipped_count", "total_records"):
             self.assertEqual(got[key], expected[key], f"{key} が metrics.py と不一致")
-        self.assertEqual(got["legacy_count"], 25)
-        self.assertEqual(got["run_count"], 3)
-        self.assertEqual(got["invalid_run_meta_count"], 0)
-        self.assertEqual(got["skipped_count"], 0)
+        # 非空振り担保（corpus は成長するため下限のみ / T-2 baseline = legacy 25・run 3）。
+        self.assertGreaterEqual(got["legacy_count"], 25)
+        self.assertGreaterEqual(got["run_count"], 3)
 
     def test_tc43_identity_holds_and_is_not_vacuous(self):
         # TC-43: total_records == legacy + invalid_meta + run。
         # 右辺と同じ式で左辺を作ると恒等式が空振りするため、loaded_records を
         # 「ファイルから読めた record 数」として独立に数えて突き合わせる。
+        # ⚠️ 件数の絶対値は固定しない（corpus は成長する / TC-42 の注記と同じ理由）。
         got = self._classify(self.RUNS)
         self.assertEqual(
             got["total_records"],
@@ -956,11 +983,11 @@ class LegacyClassificationTests(unittest.TestCase):
             + len(got["run_records"]))
         self.assertEqual(got["loaded_records"],
                          got["total_records"] + got["round_index_skipped"])
-        self.assertEqual(got["loaded_records"], 28)
+        self.assertGreater(got["loaded_records"], 0, "corpus が空では恒等式が空振りする")
 
     def test_tc54_run_count_is_distinct_run_ids_not_record_count(self):
         # TC-54: 1 run に 2 record を持つ合成入力で run_count と len(run_records)
-        # が別物であることを固定する（実データ 28 件では偶然一致し検出できない）。
+        # が別物であることを固定する（実データでは偶然一致し検出できず、件数も成長する）。
         with tempfile.TemporaryDirectory() as tmp:
             for i in (1, 2):
                 self._write(tmp, f"r{i}.json", {
@@ -1008,7 +1035,7 @@ class LegacyClassificationTests(unittest.TestCase):
 
     def test_tc45_existing_arbiter_records_are_untouched(self):
         # TC-45: RunEvidence は arbiter record の後継ではなく上位 artifact。
-        # 分類・生成を実行しても既存 28 件を 1 バイトも変更しない。
+        # 分類・生成を実行しても既存 record を 1 バイトも変更しない（件数に依存しない検査）。
         self._classify(self.RUNS)
         cp = subprocess.run(["git", "status", "--porcelain", "--",
                              "docs/working/ai-loop-runs/"],
@@ -1352,6 +1379,10 @@ def _fx_produce(tmp, name, index):
             "--now", NOW, "--started-at", STARTED_AT,
             "--repository", REPOSITORY, "--run-id", f"run-{index:02d}",
             "--harness-version", json.dumps(HARNESS, sort_keys=True),
+            # AC-12 の drift 検査を実際に走らせる（未注入だと escalation に
+            # harness_drift_unchecked が積まれ「AC-12 を検証した fixture」に
+            # ならない）。fixture 1 の AC 対応表の主張と実体を一致させる。
+            "--harness-version-end", json.dumps(HARNESS, sort_keys=True),
             "--runs-dir", str(runs_dir)]
     if name != "fx-05-blocked":
         argv += ["--pr-number", str(PR)]

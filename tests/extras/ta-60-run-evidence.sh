@@ -51,7 +51,7 @@ _T60_PY="${PLANGATE_PYTHON:-python3}"
 t60_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t60_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
-# --- ① golden fixture 10 件の存在と命名 -------------------------------------
+# --- ① golden fixture 10 件の存在と命名（TC-48 の件数側）--------------------
 _t60_count=$(find "$_T60_FX" -name '*.json' -type f | wc -l | tr -d ' ')
 if [ "$_t60_count" = "10" ]; then
   t60_pass "fixture: golden 10 件（issue verbatim の必須 fixture 数）"
@@ -91,7 +91,7 @@ _t60_rc=0
 if [ "$_t60_rc" = "10" ]; then
   t60_pass "verifier: arbiter record -> exit 10（legacy 委譲・c3prime_verify と同一意味）"
 else
-  t60_fail "verifier: legacy の exit が 10 でない（実測 $_t60_rc）"
+  t60_fail "verifier: legacy の exit が 10 でない（実測 ${_t60_rc}）"
 fi
 
 # 1 = NG（必須キー欠落）。fixture 1 から 1 キー落として渡す。
@@ -110,7 +110,7 @@ if [ "$_t60_rc" = "1" ]; then
     *) t60_fail "verifier: exit 1 だが欠落キー名が stderr に無い" ;;
   esac
 else
-  t60_fail "verifier: 必須キー欠落の exit が 1 でない（実測 $_t60_rc）"
+  t60_fail "verifier: 必須キー欠落の exit が 1 でない（実測 ${_t60_rc}）"
 fi
 
 # fixture 7（期待エラー列）は 0 を期待値に持たない
@@ -128,8 +128,9 @@ else
   t60_fail "fixture 7: 期待 exit の固定が壊れている"
 fi
 
-# --- ③ 新規 unit test 2 本の CI 導線 ----------------------------------------
+# --- ③ 新規 unit test 2 本の CI 導線（TC-47）--------------------------------
 # これが無いと run-tests.sh は python を呼ばないため一度も実行されない。
+# 2 モジュールが 1 PASS 行ずつ現れることが TC-47 の期待出力そのもの。
 for _t60_mod in test_run_evidence test_run_evidence_verify; do
   _t60_rc=0
   _t60_out=$("$_T60_PY" "$_T60_AI_LOOP/$_t60_mod.py" 2>&1) || _t60_rc=$?
@@ -137,11 +138,11 @@ for _t60_mod in test_run_evidence test_run_evidence_verify; do
     t60_pass "unit: $_t60_mod.py（$(printf '%s' "$_t60_out" | sed -n 's/^Ran \([0-9]*\) tests.*/\1/p') tests）"
   else
     printf '%s\n' "$_t60_out" >&2
-    t60_fail "unit: $_t60_mod.py が FAIL（exit $_t60_rc）"
+    t60_fail "unit: $_t60_mod.py が FAIL（exit ${_t60_rc}）"
   fi
 done
 
-# --- ④ EH-8 本体の実走（privacy CI が tests/fixtures/ を除外するため） -------
+# --- ④ EH-8 本体の実走（TC-22 / privacy CI が tests/fixtures/ を除外するため）
 _t60_files=""
 for _t60_f in "$_T60_FX"/*.json; do
   _t60_files="$_t60_files $_t60_f"
@@ -152,7 +153,7 @@ PLANGATE_HOOK_STRICT=1 PLANGATE_HOOK_FILES="$_t60_files" \
 if [ "$_t60_rc" = "0" ]; then
   t60_pass "EH-8: golden fixture 10 件が privacy 検査を通過（自主規制でなく hook で証明）"
 else
-  t60_fail "EH-8: golden fixture が BLOCK された（exit $_t60_rc）"
+  t60_fail "EH-8: golden fixture が BLOCK された（exit ${_t60_rc}）"
 fi
 
 # --- ⑤ plugin 同期リストの drift 検出（2 箇所の basename 集合が一致するか） ---

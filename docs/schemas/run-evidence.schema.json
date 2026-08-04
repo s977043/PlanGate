@@ -195,7 +195,7 @@
         },
         "additionalProperties": false
       },
-      "description": "Anomalies that must not be swallowed (unknown record kind, privacy-violating input, unclassifiable record). Must stay registered here: under additionalProperties=false an unregistered escalation would reject exactly the records that need verification most."
+      "description": "Anomalies that must not be swallowed (unknown record kind, privacy-violating input, unclassifiable record, and unperformed checks such as harness_drift_unchecked). Must stay registered here: under additionalProperties=false an unregistered escalation would reject exactly the records that need verification most."
     }
   },
   "additionalProperties": false,

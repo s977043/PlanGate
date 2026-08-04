@@ -222,6 +222,30 @@ class ExitCodeContractTests(unittest.TestCase):
             for f in ("routing_decisions", "replan_count", "cost_metrics"):
                 self.assertIn(f, err, f"stderr に unavailable フィールド {f} が無い: {err}")
 
+    def test_unchecked_harness_drift_is_partial_not_complete(self):
+        # 全フィールドが available でも「AC-12 の drift 検査が未実行」であることが
+        # escalation に残っている EV は complete にしない（契約 §4-1）。
+        # これが無いと受理器は「検査済み EV」と「未検査 EV」を区別できず、
+        # AC-12 は producer の caller が --harness-version-end を渡す善意に依存する。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            ev = _complete_ev(rec, task_dir)
+            ev["escalation"] = [{"kind": "harness_drift_unchecked",
+                                 "detail": "--harness-version-end 未注入"}]
+            rc, err = _run(ev, task_dir, tmp)
+            self.assertEqual(rc, 11, f"未検査 EV が complete 扱いされた: {err}")
+            self.assertIn("harness_drift_unchecked", err)
+
+    def test_other_escalation_kinds_do_not_block_complete(self):
+        # privacy 還元・未知 kind は「検査した結果の記録」であり未検証ではない。
+        # これらで complete を落とすと escalation を残す動機が消える。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, rec = _setup(tmp)
+            ev = _complete_ev(rec, task_dir)
+            ev["escalation"] = [{"kind": "unknown_record_kind", "detail": "notice"}]
+            rc, err = _run(ev, task_dir, tmp)
+            self.assertEqual(rc, 0, err)
+
     def test_tc07_single_unavailable_field_is_partial(self):
         # TC-07 verbatim: routing_decisions だけが unavailable（他は完備）。
         with tempfile.TemporaryDirectory() as tmp:
@@ -265,7 +289,8 @@ class ExitCodeContractTests(unittest.TestCase):
                     self.assertEqual(rc, 10, f"{label} が legacy(10) でない（{rc}）: {err}")
 
     def test_real_arbiter_records_are_legacy(self):
-        # 実データ 28 件（docs/working/ai-loop-runs/）も legacy 判別できること。
+        # 実データ（docs/working/ai-loop-runs/）も全件 legacy 判別できること。
+        # glob 全件を回すため corpus が成長しても件数を書き換えずに済む。
         runs = sorted((REPO / "docs" / "working" / "ai-loop-runs").glob("*.json"))
         self.assertTrue(runs, "arbiter record が 1 件も無い")
         with tempfile.TemporaryDirectory() as tmp:

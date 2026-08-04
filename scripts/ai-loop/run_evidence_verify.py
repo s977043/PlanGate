@@ -15,7 +15,8 @@ trust boundary: 生成側（run_evidence.py）の申告を信頼せず、受理�
   exit 1  = 検証 NG（fail-closed。理由を stderr に出力）
   exit 10 = legacy（EV ではなく arbiter record を渡された）→ 呼び出し側が legacy 経路へ委譲
             ※ 値・意味は c3prime_verify.py の `return 10  # legacy` と同一
-  exit 11 = partial（必須フィールドは揃うが unavailable を含む = ready 扱いしない）
+  exit 11 = partial（必須フィールドは揃うが unavailable、または「検査そのものが未実行」
+            を示す escalation（harness_drift_unchecked / 契約 §4-1）を含む = ready 扱いしない）
 
 ⚠️ 本受理器の rc を bin/plangate の _plangate_c3_dispatch 経路へ流してはならない
 （同経路は 0/1 以外を catch-all で legacy にフォールバックするため 11 を誤読する）。
@@ -36,6 +37,11 @@ import delivery  # noqa: E402  record.jsonl の再計算照合を再実装しな
 
 # 「取得不能」を表す唯一の語彙。0 とも空配列とも区別する（契約 §5-1）。
 UNAVAILABLE = "unavailable"
+
+# 「検証していない」ことを表す escalation kind（契約 §4-1）。
+# 検査済み EV と未検査 EV を受理側が区別できなければ AC-12 は caller の善意に
+# 依存する。未検査は complete にせず partial 理由として列挙する。
+UNVERIFIED_ESCALATION_KINDS = ("harness_drift_unchecked",)
 
 # legacy 判別子: arbiter record（9 キー世代 / 14 キー世代）の共通キー集合（実測）。
 # EV の properties とは 1 キーも重複しないため、EV から必須キーが欠落しても
@@ -72,9 +78,9 @@ def _fail(msg: str) -> int:
 def _unavailable_paths(data: dict) -> list:
     """unavailable の位置を dotted path で全数列挙する（契約 §5-1）。
 
-    partial の理由は (a) Phase 1 固定 3 件と (b) terminal_state 依存 最大 4 件の
-    2 分類にまたがる。曖昧化しない担保は「理由が 1 種類であること」ではなく
-    「理由が機械可読に全数列挙されること」に置く。
+    partial の理由は (a) Phase 1 固定 3 件と (b) terminal_state 依存 最大 5 件の
+    2 分類（+ §4-1 の未検証 escalation）にまたがる。曖昧化しない担保は
+    「理由が 1 種類であること」ではなく「理由が機械可読に全数列挙されること」に置く。
     """
     out = []
     for key in sorted(data):
@@ -86,6 +92,20 @@ def _unavailable_paths(data: dict) -> list:
                 if value[sub] == UNAVAILABLE:
                     out.append(f"{key}.{sub}")
     return out
+
+
+def _unverified_kinds(data: dict) -> list:
+    """「検査そのものが未実行」を示す escalation kind を列挙する（契約 §4-1）。
+
+    `escalation` は optional のため欠落・非 list も安全側（未検証扱いにしない
+    のではなく、読めた範囲で列挙する）に扱う。
+    """
+    entries = data.get("escalation")
+    if not isinstance(entries, list):
+        return []
+    return sorted({str(e.get("kind")) for e in entries
+                   if isinstance(e, dict)
+                   and e.get("kind") in UNVERIFIED_ESCALATION_KINDS})
 
 
 def _check_c3_binding(data: dict, task_dir: pathlib.Path):
@@ -229,10 +249,11 @@ def main(argv):
     if err:
         return _fail(err)
 
-    unavailable = _unavailable_paths(data)
-    if unavailable:
-        print("run-evidence: partial（unavailable を含むため ready 扱いしない）: "
-              + ", ".join(unavailable), file=sys.stderr)
+    reasons = [f"unavailable:{p}" for p in _unavailable_paths(data)]
+    reasons += [f"unverified:{k}" for k in _unverified_kinds(data)]
+    if reasons:
+        print("run-evidence: partial（unavailable / 未検証を含むため ready 扱いしない）: "
+              + ", ".join(reasons), file=sys.stderr)
         return 11
     return 0
 
