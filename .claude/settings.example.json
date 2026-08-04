@@ -81,6 +81,16 @@
             "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh"
           }
         ]
+      },
+      {
+        "_comment_": "Hook EH-12: protected branch (main/master) 上の破壊的 git 操作 block。current branch が main/master のときに限り git reset --hard / git push --force(-with-lease)/-f を block。それ以外のブランチ・detached HEAD・非 git では allow（誤検出ゼロ優先）。PLANGATE_BYPASS_HOOK=1 で常時 pass。",
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/check-git-destructive.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [

@@ -45,7 +45,14 @@ for blk in pre if isinstance(pre, list) else []:
 def has(substr, matcher_re=None):
     import re
     for m, c in cmds:
-        if substr in c and (matcher_re is None or re.search(matcher_re, m)):
+        # matcher `""`（省略）/ `"*"` は全ツールに発火するため、任意の
+        # matcher_re を満たすものとして扱う。ここを厳密一致にすると
+        # apply-claude-settings.sh 側の包含判定（`*` を全ツール集合とみなす）
+        # と解釈がずれ、apply が「配線済み」と判断したものを本検証が
+        # 「不足」と言い続けて **何度実行しても収束しない**（#928 MJ-1）。
+        if substr in c and (matcher_re is None
+                            or (m or "").strip() in ("", "*")
+                            or re.search(matcher_re, m)):
             return True
     return False
 

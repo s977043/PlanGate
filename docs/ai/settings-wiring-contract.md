@@ -22,12 +22,27 @@
 - **EH-9 wiring が存在する**（委譲 commit 境界 / TASK-0073）。
 - 上記トークンが `.claude/settings.json` の PreToolUse command 群に
   すべて存在すれば `doctor --check-settings` PASS。1 つでも欠落で FAIL。
+- **matcher `""`（省略）/ `"*"` は全ツール発火として契約充足に数える**。
+  この解釈は `scripts/check-settings-wiring.sh` の `has()` と
+  `scripts/apply-claude-settings.sh` の包含判定で**一致させること**。
+  片方だけが `*` を全ツールとみなすと、適用側は「配線済み」・検証側は
+  「不足」となり **何度適用しても収束しない**（#928 で実害化）。
 
 ## 検証・適用
 
 - 検証: `bin/plangate doctor --check-settings`（未適用箇所を列挙し非0）
 - 適用: `sh scripts/apply-claude-settings.sh`（冪等。ユーザーが実行）
 - CI: settings drift check（required）が契約逸脱を fail させる
+
+> ⚠️ **適用スクリプトの副作用（本契約の範囲外）**: `apply-claude-settings.sh`
+> は本契約が定める PreToolUse 6 項目だけでなく、`.claude/settings.example.json`
+> の **全 hook event**（SessionStart / PostToolUse / Stop を含む）を取り込む。
+> そこには契約外かつ副作用の大きい hook が含まれうる（例: SessionStart の
+> `scripts/gh-pin-account.sh` は `gh auth switch` で**マシン全体の gh CLI
+> active account を切り替える**）。また「不足を足すが削除はしない」方針の
+> 裏返しとして、**example から意図的に削除した hook は再実行のたびに復活**
+> する（opt-out 手段は現状なし）。`--all-events` opt-in 化は
+> [#975](https://github.com/s977043/plangate/issues/975) で follow-up。
 
 ## 不変
 
