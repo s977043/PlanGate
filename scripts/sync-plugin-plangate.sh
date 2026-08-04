@@ -356,11 +356,18 @@ if [ -d "$AI_LOOP_SPEC_DIR" ]; then
   fi
 fi
 # plugin 側の skills/ai-loop-cycle/references/ から、正本側に存在しなくなったファイルを削除する
-# mass-delete safety guard（#914 経路2）: 正本 2 ディレクトリ（docs/workflows/ai-loop /
-# docs/ai/ai-loop）の欠損・空化で期待集合（_ai_loop_expected_refs）が空/極小に
-# なったとき references/ を一括削除する事故（#877 実害と同型）を防ぐ。削除実行前に
-# base（期待集合の要素数）と stale（dst にあって期待集合に無い *.md 数）を集計し、
-# blocked なら削除ループ全体を skip する（コピー処理は上で完了済み・阻害しない）。
+# mass-delete safety guard（#914 経路2）: 削除実行前に base（期待集合
+# _ai_loop_expected_refs の要素数）と stale（dst にあって期待集合に無い *.md 数）を
+# 集計し、blocked なら削除ループ全体を skip する（コピー処理は上で完了済み・阻害しない）。
+#
+# 保証範囲（plan 論点 C-2 で Human 承認済みの設計選択）:
+#   base は正本 2 ディレクトリ（docs/workflows/ai-loop / docs/ai/ai-loop）の
+#   **合算**である。したがって本 guard が捕捉するのは「合算 base に対して stale が
+#   上回る」規模の異常（両正本の同時欠損・空化、多数側ディレクトリの消失など）に
+#   限られる。**少数側ディレクトリ（docs/ai/ai-loop）を丸ごと欠損させても
+#   stale <= base のままとなり、WARN なし・exit 0 で削除が通る**（検出しない）。
+#   ディレクトリ単位の完全欠損を個別に検出したい場合は正本ごとに base を
+#   分離する必要があるが、本 PBI では合算方式を採用した。
 if [ -d "$PLUGIN_AI_LOOP_REFS" ]; then
   # 要素数の算出は意図的な未 quote 展開（スペース区切りのワード分割）。後段に
   # 位置パラメータの使用（$@ / shift / set --）が無いことは確認済み（U-2。
