@@ -2,7 +2,7 @@
 task_id: TASK-0914
 artifact_type: handoff
 schema_version: 1
-status: draft
+status: final
 issued_at: 2026-08-02
 author: qa-reviewer
 v1_release: ""
@@ -10,7 +10,7 @@ v1_release: ""
 
 # Handoff Package — TASK-0914
 
-> **status: draft** = `bin/plangate doctor --check-settings` PASS（Human 実施）待ちのみ。V-1 独立検査は実施済み・**条件付き PASS**（§1）。doctor PASS 確定後に `status: final` へ更新する。
+> **status: final**（2026-08-04 確定）= draft に留めていた唯一の残条件 `bin/plangate doctor --check-settings` PASS が充足されたため final 化した。経緯: Human が main checkout で `sh scripts/apply-claude-settings.sh` を実行（AI は self-mod ガードにより実行不可 = Human-owned）→ 同 checkout で `bin/plangate doctor --check-settings` が `PASS: settings wiring 契約準拠(target=user)` / **rc=0** を出力 → AI（オーケストレーター）が同コマンドを独立に再実行して同一結果を確認。V-1 独立検査（2026-08-02）の**条件付き PASS** は、この条件充足により **PASS** へ確定（§1）。
 > mass-delete guard の 3 経路拡張（#877 follow-up）+ R-204: extras harness 判別の AND 統一 + standalone env 無害化。
 
 ## メタ情報
@@ -45,9 +45,9 @@ exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-
 | （不変条件）`sync_dir` 経路の挙動が共通関数化で不変 | PASS | PASS（ta-26 standalone 30/0 再実行） | 既存 TC-08〜TC-17 全 PASS 維持（T-02 チェックポイント 16/16 → 最終 30/30。`t11-ta26-standalone.log`） |
 
 **総合（exec 内）**: 9/9 AC PASS + 不変条件 PASS
-**総合（V-1 独立検査）**: **条件付き PASS**（条件 = `bin/plangate doctor --check-settings` PASS 待ちのみ。テストケース側 FAIL 0）
+**総合（V-1 独立検査）**: **PASS**（2026-08-04 確定）。2026-08-02 の V-1 実施時点では **条件付き PASS**（条件 = `bin/plangate doctor --check-settings` PASS 待ちのみ。テストケース側 FAIL 0）であり、2026-08-04 に Human が main checkout で `sh scripts/apply-claude-settings.sh` を実行 → `bin/plangate doctor --check-settings` が PASS（rc=0）→ AI が独立に再実行して同一結果を確認、をもって唯一の条件が充足されたため PASS へ確定した（条件付きだった経緯は監査連続性のため保持）
 **V-1 WARN 2 件**（いずれも判定を覆さない）: ① V-1-C の確認語「`exit $fail` 欠落」の字句は #921 本文に不存在だが、等価記述（伝播欠落の実測記述）で実質充足 ② 変異 M 系（M-1〜M-7 + M-6b）は evidence-based 検証（検査側のファイル編集禁止制約により、T-06 evidence ログ 8 本の突合で判定）
-**FAIL / WARN の扱い**: テストケース側 FAIL 0（上記 WARN 2 件のみ）。**handoff 完了の前提 `bin/plangate doctor --check-settings` PASS は Human 待ち**（worktree 内は gitignored `.claude/settings.json` 非複製で構造的 FAIL。main checkout に settings.json 実在 2026-07-23 を確認済みのため Shadow Config ではないが、PASS 実測は main checkout 側での実行が必要 — §2）。
+**FAIL / WARN の扱い**: テストケース側 FAIL 0（上記 WARN 2 件のみ）。**handoff 完了の前提 `bin/plangate doctor --check-settings` PASS は 2026-08-04 に充足済み**（Human が main checkout で `sh scripts/apply-claude-settings.sh` 適用 → `PASS: settings wiring 契約準拠(target=user)` / rc=0 を実測、AI が独立再実行で確認。適用後の `.claude/settings.json` PreToolUse は 8 本 = EH-1 / EH-2 / EH-3〔`${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}` 引数付き〕/ EH-6 / approval-token-write ×2 / EH-9 / EH-12。既存の EH-9・EH-12 は保持）。なお worktree 内では gitignored `.claude/settings.json` が非複製のため同コマンドは構造的に FAIL する（環境制約であり Shadow Config ではない。PASS 実測は main checkout 側で行う必要がある — §2）。
 
 ## 2. 既知課題一覧
 
@@ -57,7 +57,7 @@ exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-
 | 全変異で TC-13 が副次 FAIL する連鎖構造（TC-13 は子プロセスで ta-26 を再帰実行するため、他 TC の FAIL が必ず伝播する — W3/T-06 観察） | minor | accepted（構造どおりの挙動。単独原因の特定は「期待 FAIL TC」列で行う運用） | No |
 | test-cases.md V-1-B' スニペットの env 引数順が BSD/GNU env 仕様（オプションは NAME=VALUE より前）に反し rc=127 で実行不可 | minor | workaround（status.md「計画からの変更点」の読み替え `env -u FIXTURES_DIR PG_HARNESS_SOURCED=1 sh "$f" </dev/null` で運用。C-3 承認後の plan 変更禁止のため原本未修正） | Yes |
 | フルスイート総数の期待値が環境依存（ベースが 452/453/454 と振れる既知事象 #947・#942。worktree で ta-13 TC-17 が素通り / トピックブランチで ta-57 TC-14 が実行される） | minor | open（#947 / #942 で追跡。本 exec は worktree + トピックブランチで一貫して 453 ベース + 14 = 467/0 を実測） | No |
-| `bin/plangate doctor --check-settings` が worktree 内で構造的 FAIL（gitignored `.claude/settings.json` が worktree に複製されない） | minor | open（**Human 待ち**: main checkout で PASS 実測 → handoff final 化の前提。V-1 独立検査は実施済み・条件付き PASS の残条件はこの PASS のみ） | No |
+| `bin/plangate doctor --check-settings` が worktree 内で構造的 FAIL（gitignored `.claude/settings.json` が worktree に複製されない） | minor | accepted（**Human 待ちは 2026-08-04 に解消**: main checkout で `sh scripts/apply-claude-settings.sh` 適用後に PASS / rc=0 を実測 → AI が独立再実行で確認 → V-1 は PASS 確定・handoff final 化済み。ただし「worktree 内では構造的に FAIL する」という制約自体は仕様どおり残存し、doctor の実測は常に main checkout 側で行う必要がある） | No |
 | 経路1 の stale 集計が dst 側 symlink を `[ -L ]` で除外する一方、削除ループは除外せず非対称（River Review F-1・test-cases E-7 の残穴が実測再現で確定） | minor | open（**#970** で起票済み・follow-up。C-3 plan_hash 束縛下の設計残穴のため本 PBI では変更しない。現リポジトリの該当 references/ に symlink 0 件で顕在化しない） | Yes（#970 で追跡） |
 | `tests/extras/ta-54-ai-loop-link-selfcontained.sh` L43/L63 の `\|\| true` がスクリプト失敗を握りつぶす構造 | minor | accepted（**指示による仕様判断の記録**: ta-54 は #914 の対象 11 本〔ta-39/43/44/45/46/47/49/50/51/52/53〕に含まれず、#947 が追跡する既知の別件。本 PBI では変更しない） | No |
 | guard の発火境界: `stale > base` のみ発火し、`stale == base`（== src）は非発火（正当な全量入れ替え同期を許容） | info | accepted（**仕様として意図した境界**。境界は TC-34 で固定し、`>=` への変異 M-6b が TC-34 で検出されることを実証済み） | No |
@@ -91,7 +91,7 @@ exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-
 
 前段の #877（v8.18.0）で `sync_dir` 経路に入った mass-delete guard（fail-closed / exit 3 / `PLANGATE_ALLOW_MASS_DELETE` override）を、`scripts/sync-plugin-plangate.sh` に残っていた 2 つの削除経路 — 経路1（汎用 skill references）/ 経路2（ai-loop references）— へ共通関数 `_mass_delete_blocked()` として拡張した。あわせて R-204（外部 env 漏れによる誤判定）対策として、`tests/extras/` 11 本の harness 判別を `FIXTURES_DIR` 単独から **`PG_HARNESS_SOURCED` AND `FIXTURES_DIR`** へ統一し、standalone 分岐で 7 env を unset（片方欠けは standalone 側 = 安全側へ倒す）。
 
-検証は新規 14 TC（ta-26 は 16 → 30 TC）+ **変異注入 8 件全てで期待 FAIL を実測**（空振り fixture なし）+ AC-6/7/9 の 3 独立ループ機械検証（64 PASS × 3・baseline 全一致）+ フルスイート **467 passed / 0 failed**。現状: **exec 完了・V-1 条件付き PASS（残条件 = doctor PASS の Human 実測のみ）・PR 未作成**。
+検証は新規 14 TC（ta-26 は 16 → 30 TC）+ **変異注入 8 件全てで期待 FAIL を実測**（空振り fixture なし）+ AC-6/7/9 の 3 独立ループ機械検証（64 PASS × 3・baseline 全一致）+ フルスイート **467 passed / 0 failed**。現状: **exec 完了・V-1 PASS 確定（2026-08-04 に残条件の doctor PASS が充足。実施時点〔2026-08-02〕は条件付き PASS）・PR 未作成**。
 
 ### c3.json の顛末（承認トークンの保全記録）
 
@@ -106,8 +106,8 @@ exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-
 
 ### 次に手を入れるなら
 
-- **V-1（実施済み・2026-08-02）**: acceptance-tester が test-cases.md 全件突合 + status.md「T-09」節の V-1-A / V-1-B / V-1-B' / AC-9 スニペット再実行で**条件付き PASS**（§1）。再実行時の注意はそのまま有効: **全ループ `sh "$f" </dev/null` 必須**（ta-50 が非 tty stdin 未リダイレクトで無限ハング — RV-M1）
-- **残る完了条件（順に）**: ① `sh scripts/apply-claude-settings.sh` を **Human が実行**（AI は self-mod ガードで不可） → ② `bin/plangate doctor --check-settings` PASS を実測（§2） → ③ handoff frontmatter を `status: final` 化 → ④ PR 作成。high-risk のため V-2 / V-3 も必須（mode-classification フェーズ適用）
+- **V-1（実施済み・2026-08-02 / 2026-08-04 に PASS 確定）**: acceptance-tester が test-cases.md 全件突合 + status.md「T-09」節の V-1-A / V-1-B / V-1-B' / AC-9 スニペット再実行で**条件付き PASS** → 残条件（doctor PASS）充足により **PASS**（§1）。再実行時の注意はそのまま有効: **全ループ `sh "$f" </dev/null` 必須**（ta-50 が非 tty stdin 未リダイレクトで無限ハング — RV-M1）
+- **完了条件の消化状況**: ✅ ① `sh scripts/apply-claude-settings.sh` を **Human が実行**（AI は self-mod ガードで不可・2026-08-04 実施） → ✅ ② `bin/plangate doctor --check-settings` PASS を実測（rc=0・AI が独立再実行で確認。§2） → ✅ ③ handoff frontmatter を `status: final` 化（2026-08-04） → ⬜ ④ PR 作成（未実施）。high-risk のため V-2 / V-3 も必須（mode-classification フェーズ適用）
 - アンチパターン: `scripts/sync-plugin-plangate.sh` の素実行禁止（検証は必ず sandbox 経由 = `_t26_mk_*_sandbox` ヘルパー）/ 変異検証の復元元に `HEAD:` を使わない（exec 中に移動する）/ 汚染注入で `PG_HARNESS_SOURCED` と `FIXTURES_DIR` を同時に立てない（harness 分岐へ入り検証が消える — RV-M2）
 
 ### 参照リンク
