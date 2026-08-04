@@ -45,6 +45,27 @@ _tmp_rewritten=""
 _tmp_ho=""
 trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_tmp_ho:-}"' EXIT INT TERM
 
+# mass-delete safety guard の共通判定（#861 / #877 / #914）。
+# 判定 + 警告 + guard_fired フラグ立てのみを担う（呼び出し元の制御脱出は含めない
+# — sync_dir は関数 return / 経路1 はループ内 skip / 経路2 はトップレベル if と
+# 制御構造が異なるため、脱出は各呼び出し側が行う）。
+# $1=label $2=base 件数（src 側の残存数）$3=stale 件数（dst 側の削除候補数）
+# 戻り値: 0 = 削除を保留せよ（blocked） / 1 = 削除を続行してよい
+# 注意: guard_fired の global 集約は「サブシェルを介さない呼び出し」に依存する
+# （上の L27-29 コメントと同じ制約）。本関数の呼び出しを $(...) 内へ置かないこと。
+_mass_delete_blocked() {
+  [ "$3" -gt "$2" ] || return 1
+  if [ "${PLANGATE_ALLOW_MASS_DELETE:-0}" = "1" ]; then
+    # override は Human-owned のローカル操作限定（CI workflow の env: には
+    # 置かない）。解除したことを必ず記録に残す（#877 AC-2）。
+    _warn "WARN: mass-delete guard を PLANGATE_ALLOW_MASS_DELETE=1 で解除しました — $1 (base=$2 / stale=$3) の削除を続行します"
+    return 1
+  fi
+  _warn "WARN: DELETE skipped for $1 — base=$2 / stale=$3 (削除候補が src 残存数を上回るため削除を保留 / #861 safety guard)。意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください"
+  guard_fired=1
+  return 0
+}
+
 sync_dir() {
   _src="$1"; _dst="$2"; _label="$3"
   [ -d "$_src" ] || { _log "SKIP (src not found): $_label"; return 0; }
@@ -100,16 +121,11 @@ sync_dir() {
       _stale_count=$((_stale_count + 1))
     fi
   done
-  if [ "$_stale_count" -gt "$_src_count" ]; then
-    if [ "${PLANGATE_ALLOW_MASS_DELETE:-0}" = "1" ]; then
-      # override は Human-owned のローカル操作限定（CI workflow の env: には
-      # 置かない）。解除したことを必ず記録に残す（#877 AC-2）。
-      _warn "WARN: mass-delete guard を PLANGATE_ALLOW_MASS_DELETE=1 で解除しました — $_label (src=${_src_count} / stale=${_stale_count}) の削除を続行します"
-    else
-      _warn "WARN: DELETE skipped for $_label — src=${_src_count} / stale=${_stale_count} (削除候補が src 残存数を上回るため削除を保留 / #861 safety guard)。意図した一括削除であれば PLANGATE_ALLOW_MASS_DELETE=1 を付けて再実行してください"
-      guard_fired=1
-      return 0
-    fi
+  # 判定 + 警告 + guard_fired は共通関数へ集約（#914）。blocked のときのみ
+  # sync_dir から脱出して削除ループをスキップする（コピーは阻害しない。
+  # 呼び出し元 for の継続 = 従来挙動を維持）。
+  if _mass_delete_blocked "$_label" "$_src_count" "$_stale_count"; then
+    return 0
   fi
   # 削除条件は上の _stale_count 集計と同一（README.md 除外 + src に同名が無い）。
   # 変更する場合は必ず両方を同時に更新する。
@@ -171,15 +187,42 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
       done
     fi
     if [ -d "$_src_refs" ] && [ -d "$_dst_refs" ]; then
+      # mass-delete safety guard（#914 経路1）: src 側 references/ の空化・欠損で
+      # 当該 skill の dst references/ を一括削除する事故を防ぐ。削除実行前に
+      # base（src 側 *.md 残存数）と stale（dst にあって src に同名が無い *.md 数）
+      # を集計し、blocked なら**当該 skill の references 削除のみ** skip する
+      # （他 skill の処理・コピーは継続）。
+      # 集計にはコピーループと同一の [ -L ] 除外を入れる（R-351 / 論点 D'-2。
+      # 集計定義と実削除条件の非対称は「N 件と数えて M 件消す」guard 無効化を招く）。
+      _refs_base_count=0
+      for _rf in "$_src_refs"/*.md; do
+        [ -f "$_rf" ] || continue
+        [ -L "$_rf" ] && continue
+        _refs_base_count=$((_refs_base_count + 1))
+      done
+      _refs_stale_count=0
       for _rf in "$_dst_refs"/*.md; do
         [ -f "$_rf" ] || continue
+        [ -L "$_rf" ] && continue
         _rb="${_rf##*/}"
         if [ ! -f "$_src_refs/$_rb" ]; then
-          if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/$_skill_name/references/$_rb"
-          else rm "$_rf"; _log "DELETE: skills/$_skill_name/references/$_rb"; fi
-          changed=1
+          _refs_stale_count=$((_refs_stale_count + 1))
         fi
       done
+      # 呼び出しを $(...) 内へ置かないこと（guard_fired の global 伝播条件）。
+      # blocked 時は break を使わず if で当該 skill の削除だけを避ける
+      # （break だと後続 skill の同期が落ちる）。
+      if ! _mass_delete_blocked "skills/$_skill_name/references" "$_refs_base_count" "$_refs_stale_count"; then
+        for _rf in "$_dst_refs"/*.md; do
+          [ -f "$_rf" ] || continue
+          _rb="${_rf##*/}"
+          if [ ! -f "$_src_refs/$_rb" ]; then
+            if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/$_skill_name/references/$_rb"
+            else rm "$_rf"; _log "DELETE: skills/$_skill_name/references/$_rb"; fi
+            changed=1
+          fi
+        done
+      fi
     fi
 done
 
@@ -313,19 +356,44 @@ if [ -d "$AI_LOOP_SPEC_DIR" ]; then
   fi
 fi
 # plugin 側の skills/ai-loop-cycle/references/ から、正本側に存在しなくなったファイルを削除する
+# mass-delete safety guard（#914 経路2）: 正本 2 ディレクトリ（docs/workflows/ai-loop /
+# docs/ai/ai-loop）の欠損・空化で期待集合（_ai_loop_expected_refs）が空/極小に
+# なったとき references/ を一括削除する事故（#877 実害と同型）を防ぐ。削除実行前に
+# base（期待集合の要素数）と stale（dst にあって期待集合に無い *.md 数）を集計し、
+# blocked なら削除ループ全体を skip する（コピー処理は上で完了済み・阻害しない）。
 if [ -d "$PLUGIN_AI_LOOP_REFS" ]; then
+  # 要素数の算出は意図的な未 quote 展開（スペース区切りのワード分割）。後段に
+  # 位置パラメータの使用（$@ / shift / set --）が無いことは確認済み（U-2。
+  # $1 の --dry-run 判定は冒頭で消費済み）。
+  set -- $_ai_loop_expected_refs
+  _ai_loop_ref_base_count=$#
+  # stale の定義（*.md 実ファイル + 期待集合に無い）は下の削除ループの条件と
+  # **必ず一致させること**。片方だけ変えると「N 件と数えて M 件消す」形で
+  # guard が無効化される（#861 再発型）。
+  _ai_loop_ref_stale_count=0
   for _f in "$PLUGIN_AI_LOOP_REFS"/*.md; do
     [ -f "$_f" ] || continue
     _base="$(basename "$_f")"
     case " $_ai_loop_expected_refs " in
       *" $_base "*) : ;;
-      *)
-        if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/references/$_base"
-        else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/references/$_base"; fi
-        changed=1
-        ;;
+      *) _ai_loop_ref_stale_count=$((_ai_loop_ref_stale_count + 1)) ;;
     esac
   done
+  # 呼び出しを $(...) 内へ置かないこと（guard_fired の global 伝播条件）
+  if ! _mass_delete_blocked "skills/ai-loop-cycle/references" "$_ai_loop_ref_base_count" "$_ai_loop_ref_stale_count"; then
+    for _f in "$PLUGIN_AI_LOOP_REFS"/*.md; do
+      [ -f "$_f" ] || continue
+      _base="$(basename "$_f")"
+      case " $_ai_loop_expected_refs " in
+        *" $_base "*) : ;;
+        *)
+          if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/references/$_base"
+          else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/references/$_base"; fi
+          changed=1
+          ;;
+      esac
+    done
+  fi
 fi
 
 # arbiter 裁定エンジン + テスト + metrics（#780 Slice D 後半: test_arbiter.py の

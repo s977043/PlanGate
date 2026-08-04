@@ -1,0 +1,38 @@
+# T-06 M-6: _mass_delete_blocked を常に blocked 返却へ改変（閾値判定除去 = 過剰発火方向）
+# 実測: 2026-08-02 / 復元元 head 1e1c074 / clean env（env -u PLANGATE_HOOK_TASK -u PLANGATE_HOOK_FILE -u PG_HARNESS_SOURCED -u FIXTURES_DIR -u PLANGATE_ALLOW_MASS_DELETE）+ sh tests/extras/ta-26-plugin-sync.sh </dev/null / cwd=repo root
+# 期待 FAIL: TC-24, TC-29 のみ（RV-M4: TC-25/TC-32 には当てない）
+
+## 変異 diff (git diff 1e1c074 -- scripts/sync-plugin-plangate.sh)
+diff --git a/scripts/sync-plugin-plangate.sh b/scripts/sync-plugin-plangate.sh
+index b63d548..7204ff7 100755
+--- a/scripts/sync-plugin-plangate.sh
++++ b/scripts/sync-plugin-plangate.sh
+@@ -54,7 +54,7 @@ trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_
+ # 注意: guard_fired の global 集約は「サブシェルを介さない呼び出し」に依存する
+ # （上の L27-29 コメントと同じ制約）。本関数の呼び出しを $(...) 内へ置かないこと。
+ _mass_delete_blocked() {
+-  [ "$3" -gt "$2" ] || return 1
++  : # MUTATION M-6: 閾値判定を除去し常に blocked（過剰発火方向）
+   if [ "${PLANGATE_ALLOW_MASS_DELETE:-0}" = "1" ]; then
+     # override は Human-owned のローカル操作限定（CI workflow の env: には
+     # 置かない）。解除したことを必ず記録に残す（#877 AC-2）。
+
+## 変異下の ta-26 standalone: rc=1
+FAIL 行（各行先頭200字）:
+  [FAIL] TC-05 失敗 (missing=0 期待0 / rc=3 期待0 — rc=3 なら実 repo 相当で guard が誤発火している)
+  [FAIL] TC-09 DELETE 正常系 失敗 (rc=3 / left=3/2): [sync-plugin] COPY (model normalized): agents/keep-1.md
+  [FAIL] TC-13 失敗 (① rc=1 / ② rc=1 / ③ 1)
+  [FAIL] TC-24 失敗 (rc=3 期待0 / left=5 期待4 / stale残=1 期待0): [sync-plugin] SKIP (src not found): agents
+  [FAIL] TC-29 失敗 (rc=3 期待0 / left=4 期待3 / stale残=1 期待0): [sync-plugin] SKIP (src not found): agents
+  [FAIL] TC-34 失敗 (rc=3 期待0 / left=6 期待3 / stale残=3 期待0 / 保持=3 期待3): [sync-plugin] SKIP (src not found): agents
+TA-26 standalone: 24 passed, 6 failed
+→ 期待 FAIL {TC-24,29} 全て実測 FAIL（正当な 1 件削除が block・rc=3 = 形骸化防止 TC が空振りでない）。かつ TC-25/TC-32 は PASS 維持を実測（発火帯 fixture のため常時 blocked でも判定一致 = RV-M4 の対象限定判断の妥当性を裏付け）
+→ 副次 FAIL: TC-05(実 repo 相当 sandbox で誤発火 rc=3 の見張り TC)/TC-09(sync_dir 正常削除 block)/TC-34(base=stale でも発火)/TC-13(連鎖) = 過剰発火の随伴症状
+
+## 復元確認: git checkout 1e1c074 -- scripts/sync-plugin-plangate.sh
+git diff 1e1c074 -- scripts/sync-plugin-plangate.sh = 空（0 行）
+復元後 ta-26 standalone: TA-26 standalone: 30 passed, 0 failed / rc=0
+
+## TC-25 / TC-32 の PASS 維持（変異下の実測行 / RV-M4 検証）
+  [PASS] TC-25 経路2: 乖離帯 base=3/stale=4 で dry-run と実行の guard 判定が一致
+  [PASS] TC-32 経路1: 乖離帯 base=3/stale=4 で dry-run と実行の guard 判定が一致

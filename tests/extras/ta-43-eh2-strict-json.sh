@@ -14,9 +14,12 @@
 printf '\n=== TA-43: EH-2 strict JSON + stdin fallback (TASK-0141) ===\n'
 
 # ── セットアップ ──────────────────────────────────────────────────
-if [ -n "${FIXTURES_DIR:-}" ]; then
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
   _T43_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
 else
+  # standalone 実行: 外部 env 汚染を無害化（tests/extras/README.md 規約 8。
+  # unset 集合は run-tests.sh 冒頭と同一の 7 env — TASK-0914 論点 F）
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
   _T43_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
 fi
 

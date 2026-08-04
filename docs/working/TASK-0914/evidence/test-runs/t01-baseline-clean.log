@@ -1,0 +1,13 @@
+# T-01 baseline: clean env standalone (env -u 5 vars, sh $f </dev/null)
+# date: 2026-08-02 12:45  head: f25ae8b
+COUNT tests/extras/ta-39-eh3-doc-light.sh=8 rc=0 fail_lines=0
+COUNT tests/extras/ta-43-eh2-strict-json.sh=6 rc=0 fail_lines=0
+COUNT tests/extras/ta-44-eh457-cli-wiring.sh=5 rc=0 fail_lines=0
+COUNT tests/extras/ta-45-c3-mode-config.sh=6 rc=0 fail_lines=0
+COUNT tests/extras/ta-46-ehs-wiring.sh=4 rc=0 fail_lines=0
+COUNT tests/extras/ta-47-ehs23-wiring.sh=6 rc=0 fail_lines=0
+COUNT tests/extras/ta-49-bias-export.sh=6 rc=0 fail_lines=0
+COUNT tests/extras/ta-50-precompact-guard.sh=9 rc=0 fail_lines=0
+COUNT tests/extras/ta-51-doctor-w6.sh=5 rc=0 fail_lines=0
+COUNT tests/extras/ta-52-doctor-skill-collision.sh=5 rc=0 fail_lines=0
+COUNT tests/extras/ta-53-doctor-prepush.sh=4 rc=0 fail_lines=0

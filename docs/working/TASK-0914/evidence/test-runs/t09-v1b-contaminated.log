@@ -1,0 +1,13 @@
+COUNT tests/extras/ta-39-eh3-doc-light.sh=8
+COUNT tests/extras/ta-43-eh2-strict-json.sh=6
+COUNT tests/extras/ta-44-eh457-cli-wiring.sh=5
+COUNT tests/extras/ta-45-c3-mode-config.sh=6
+COUNT tests/extras/ta-46-ehs-wiring.sh=4
+COUNT tests/extras/ta-47-ehs23-wiring.sh=6
+COUNT tests/extras/ta-49-bias-export.sh=6
+COUNT tests/extras/ta-50-precompact-guard.sh=9
+COUNT tests/extras/ta-51-doctor-w6.sh=5
+COUNT tests/extras/ta-52-doctor-skill-collision.sh=5
+COUNT tests/extras/ta-53-doctor-prepush.sh=4
+TOTAL_PASS=64 NG_TOTAL=0
+V-1-B: PASS

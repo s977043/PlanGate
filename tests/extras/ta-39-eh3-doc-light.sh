@@ -11,9 +11,12 @@
 printf '\n=== TA-39: EH-3 doc-light 経路 (#528 TASK-0138) ===\n'
 
 # ── セットアップ ──────────────────────────────────────────────────
-if [ -n "${FIXTURES_DIR:-}" ]; then
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
   _T39_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
 else
+  # standalone 実行: 外部 env 汚染を無害化（tests/extras/README.md 規約 8。
+  # unset 集合は run-tests.sh 冒頭と同一の 7 env — TASK-0914 論点 F）
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
   _T39_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
 fi
 _T39_HOOK_SRC="$_T39_ROOT/scripts/hooks/check-plan-hash.sh"
@@ -52,7 +55,7 @@ if [ "$_T39_SKIP_APPLIED" = "0" ]; then
   printf '  [SKIP] TC-01〜06: apply-eh3-doc-light.sh --apply 実行後に再テストしてください\n'
   rm -rf "$_T39_TMP" 2>/dev/null || true
   # shellcheck disable=SC2317
-  if [ -n "${FIXTURES_DIR:-}" ]; then
+  if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
     return 0 2>/dev/null || exit 0
   else
     exit 0
