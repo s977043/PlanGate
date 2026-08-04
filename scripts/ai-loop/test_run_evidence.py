@@ -809,6 +809,19 @@ class PrivacyTests(unittest.TestCase):
                           {e["kind"] for e in ev["escalation"]},
                           "絶対パスの還元が escalation に記録されていない")
 
+    def test_tc51_account_handles_in_values_are_redacted(self):
+        # @handle は EH-8 の禁止キーにも URL 検出にも掛からない第 3 の経路。
+        # producer が還元しないと出力側の最終検査で fail-closed になり、
+        # 「reviewer が @someone を書いた run」だけ EV が発行できなくなる。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp, extra_entries=(
+                {"kind": "state", "state": "MERGE_READY", "head_sha": HEAD,
+                 "pr_number": PR, "reasons": ["@someone のレビュー待ち"]},))
+            ev = _ev(self, task_dir, runs_dir)
+            self.assertNotIn("@someone", json.dumps(ev, ensure_ascii=False))
+            self.assertIn("privacy_account_handle",
+                          {e["kind"] for e in ev["escalation"]}, ev["escalation"])
+
     def test_output_privacy_backstop_detects_every_violation_class(self):
         # 出力側の最終検査（fail-closed の最後の砦）を直接叩く。
         # 上流の還元が効いている限り本経路は発火しないため、単体で検出力を固定する。

@@ -93,6 +93,7 @@ _URL = re.compile(r"https?://[^\s\"']+")
 _PR_IN_URL = re.compile(r"/pull/([0-9]+)")
 _COMMENT_IN_URL = re.compile(r"#issuecomment-([0-9]+)")
 _ABSOLUTE = re.compile(r"(^/|/Users/)")
+_HANDLE = re.compile(r"(?<![A-Za-z0-9])@[A-Za-z0-9][A-Za-z0-9-]+")
 _ACCOUNT_VALUE = re.compile(r"(github\.com|://|(?<![A-Za-z0-9])@[A-Za-z0-9][A-Za-z0-9-]+)")
 
 
@@ -168,6 +169,10 @@ def _redact(text, escalation):
         escalation.append({"kind": "privacy_absolute_path",
                            "detail": "絶対パスを含む入力値を還元した"})
         reduced = re.sub(r"(?<![A-Za-z0-9])/[^\s\"']*", "path:redacted", reduced)
+    if _HANDLE.search(reduced):
+        escalation.append({"kind": "privacy_account_handle",
+                           "detail": "account handle を含む入力値を還元した"})
+        reduced = _HANDLE.sub("account:redacted", reduced)
     return reduced
 
 
