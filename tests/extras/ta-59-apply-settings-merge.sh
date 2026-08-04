@@ -217,13 +217,154 @@ else
   t59_fail "TC-10 matcher 包含判定に失敗 (rc=$_t59_rc / 出現 $_t59_n 回・期待 2)"
 fi
 
-# === TC-11: サンドボックス後片付け（明示 rm -rf の実効確認）===
-rm -rf "$_t59_sbx1" "$_t59_sbx2" "$_t59_sbx3" "$_t59_sbx4" "$_t59_sbx5"
-if [ ! -d "$_t59_sbx1" ] && [ ! -d "$_t59_sbx2" ] && [ ! -d "$_t59_sbx5" ] \
-  && [ ! -d "$_t59_sbx3" ] && [ ! -d "$_t59_sbx4" ]; then
-  t59_pass "TC-11 サンドボックスを明示削除（実 .claude/ には一切書き込まない）"
+# === TC-11: 引数なし EH-3 には TASK→FILE の順で 2 引数を付与する（F1）===
+# 位置引数契約は $1=task_id / $2=target_file
+# （scripts/hooks/check-plan-hash.sh: task_id=${PLANGATE_HOOK_TASK:-${1:-}} /
+#  target_file=${PLANGATE_HOOK_FILE:-${2:-}}）。FILE だけ足すと $2 が無く、
+# 引数が実際に渡る呼ばれ方（引用符付き展開・空引数を保持する runner・手動
+# 実行）でファイルパスが $1＝task_id 扱いになり `invalid task_id` → exit 2。
+# 契約検証は部分文字列 grep なのでこの破壊を検知できない（Shadow Config）。
+_t59_mksbx '{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Edit|Write", "hooks": [ { "type": "command",
+        "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh" } ] }
+    ]
+  }
+}'
+_t59_sbx6="$_t59_sbx"
+_t59_rc=0
+_t59_out=$(sh "$_t59_sbx6/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
+_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx6/.claude/settings.json" || true)
+if [ "$_t59_rc" -eq 0 ] && [ "$_t59_n" -eq 1 ] \
+  && grep -qF 'check-plan-hash.sh ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}' \
+       "$_t59_sbx6/.claude/settings.json"; then
+  t59_pass "TC-11 引数なし EH-3 に TASK→FILE の順で 2 引数を付与（位置引数契約を維持）"
 else
-  t59_fail "TC-11 サンドボックスが残存"
+  t59_fail "TC-11 EH-3 の引数位置が壊れている (rc=$_t59_rc / 出現 $_t59_n 回): $_t59_out"
+fi
+
+# === TC-12: matcher "*"（全ツール）を包含として扱う（F2(b)）===
+# `"*"` は全ツールに発火する。これを「未知の matcher」として扱うと example の
+# `Edit|Write` / `Bash` の 2 ブロックを追加してしまい 3 重発火になる。
+_t59_mksbx '{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command",
+        "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh" } ] }
+    ]
+  }
+}'
+_t59_sbx7="$_t59_sbx"
+_t59_rc=0
+_t59_out=$(sh "$_t59_sbx7/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
+_t59_n=$(grep -cF 'check-approval-token-write.sh' "$_t59_sbx7/.claude/settings.json" || true)
+if [ "$_t59_rc" -eq 0 ] && [ "$_t59_n" -eq 1 ]; then
+  t59_pass "TC-12 matcher \"*\" を全ツール包含として扱い二重配線しない（出現 1 回）"
+else
+  t59_fail "TC-12 matcher \"*\" の包含判定に失敗 (rc=$_t59_rc / 出現 $_t59_n 回・期待 1)"
+fi
+
+# === TC-13: 引用符付きパスを同一 hook と見なす（F2(c)）===
+# `sh "${X}/a.sh"` と `sh ${X}/a.sh` は同じファイルを起動する。引用符を
+# 剥がさないと別 hook 扱いになり EH-3 が二重発火する（one-shot maintenance
+# token が 1 回目で消費され 2 回目が block される実害）。
+_t59_mksbx '{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Edit|Write", "hooks": [ { "type": "command",
+        "command": "sh \"${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh\" ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}" } ] }
+    ]
+  }
+}'
+_t59_sbx8="$_t59_sbx"
+_t59_rc=0
+_t59_out=$(sh "$_t59_sbx8/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
+_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx8/.claude/settings.json" || true)
+if [ "$_t59_rc" -eq 0 ] && [ "$_t59_n" -eq 1 ]; then
+  t59_pass "TC-13 引用符付きパスを同一 hook と見なす（EH-3 出現 1 回）"
+else
+  t59_fail "TC-13 引用符付きパスが別 hook 扱いになった (rc=$_t59_rc / 出現 $_t59_n 回・期待 1)"
+fi
+
+# === TC-14: 別変数名のパスは同一視しない（F2 逆方向）===
+# `$SOMEVAR/...` と `${CLAUDE_PROJECT_DIR}/...` は別ファイルを指しうる。
+# 変数を除去して同一視すると「配線済み」と誤判定し必要な hook が入らないまま
+# 契約検証（部分文字列 grep）は PASS してしまう。
+_t59_mksbx '{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Edit|Write", "hooks": [ { "type": "command",
+        "command": "sh $SOMEVAR/scripts/hooks/check-plan-hash.sh ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}" } ] }
+    ]
+  }
+}'
+_t59_sbx9="$_t59_sbx"
+_t59_rc=0
+_t59_out=$(sh "$_t59_sbx9/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
+_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx9/.claude/settings.json" || true)
+if [ "$_t59_rc" -eq 0 ] && [ "$_t59_n" -eq 2 ] \
+  && grep -qF '${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh' \
+       "$_t59_sbx9/.claude/settings.json"; then
+  t59_pass "TC-14 別変数名のパスを同一視せず正規の EH-3 を取り込む（出現 2 回）"
+else
+  t59_fail "TC-14 別変数名を同一視して EH-3 が入らなかった (rc=$_t59_rc / 出現 $_t59_n 回・期待 2)"
+fi
+
+# === TC-15: 未知引数は本適用せずエラー終了する（F5）===
+_t59_mksbx "$_T59_MINIMAL"
+_t59_sbx10="$_t59_sbx"
+cp "$_t59_sbx10/.claude/settings.json" "$_t59_sbx10/before.json"
+_t59_rc=0
+_t59_out=$(sh "$_t59_sbx10/scripts/apply-claude-settings.sh" --dryrun 2>&1) || _t59_rc=$?
+if [ "$_t59_rc" -eq 2 ] \
+  && cmp -s "$_t59_sbx10/before.json" "$_t59_sbx10/.claude/settings.json" \
+  && printf '%s' "$_t59_out" | grep -q 'usage:'; then
+  t59_pass "TC-15 未知引数（--dryrun）は usage + exit 2 で本適用しない"
+else
+  t59_fail "TC-15 未知引数が本適用された (rc=$_t59_rc): $_t59_out"
+fi
+
+# === TC-16: 契約検証 FAIL 時は backup を残す（F4）===
+# settings.example.json 側から EH-3 を落とすと、merge 後も契約を満たせず
+# apply は exit 1 する。この経路で backup まで消えると巻き戻せない。
+_t59_mksbx "$_T59_MINIMAL"
+_t59_sbx11="$_t59_sbx"
+python3 - "$_t59_sbx11/.claude/settings.example.json" <<'PY59'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+pre = d.get("hooks", {}).get("PreToolUse", [])
+d["hooks"]["PreToolUse"] = [
+    b for b in pre
+    if not any("check-plan-hash.sh" in (h.get("command", "") or "")
+               for h in (b.get("hooks") or []))
+]
+json.dump(d, open(p, "w"), ensure_ascii=False, indent=2)
+PY59
+_t59_rc=0
+_t59_out=$(sh "$_t59_sbx11/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
+_t59_bak=$(ls "$_t59_sbx11/.claude/" | grep -c 'settings.json.bak.' || true)
+if [ "$_t59_rc" -ne 0 ] && [ "$_t59_bak" -ge 1 ]; then
+  t59_pass "TC-16 契約検証 FAIL 時は backup を残す（巻き戻し可能）"
+else
+  t59_fail "TC-16 FAIL 経路で backup が消えた (rc=$_t59_rc / backup $_t59_bak 件)"
+fi
+
+# === TC-17: サンドボックス後片付け（明示 rm -rf の実効確認）===
+rm -rf "$_t59_sbx1" "$_t59_sbx2" "$_t59_sbx3" "$_t59_sbx4" "$_t59_sbx5" \
+  "$_t59_sbx6" "$_t59_sbx7" "$_t59_sbx8" "$_t59_sbx9" "$_t59_sbx10" "$_t59_sbx11"
+_t59_left=0
+for _t59_d in "$_t59_sbx1" "$_t59_sbx2" "$_t59_sbx3" "$_t59_sbx4" "$_t59_sbx5" \
+  "$_t59_sbx6" "$_t59_sbx7" "$_t59_sbx8" "$_t59_sbx9" "$_t59_sbx10" "$_t59_sbx11"; do
+  if [ -d "$_t59_d" ]; then
+    _t59_left=$((_t59_left + 1))
+  fi
+done
+if [ "$_t59_left" -eq 0 ]; then
+  t59_pass "TC-17 サンドボックスを明示削除（実 .claude/ には一切書き込まない）"
+else
+  t59_fail "TC-17 サンドボックスが $_t59_left 件残存"
 fi
 
 fi

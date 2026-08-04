@@ -17,14 +17,46 @@
 #     既存分岐と対称にする（PreToolUse だけだと PostToolUse/Stop/SessionStart の
 #     新規 hook が既存ユーザーにだけ配線されない非対称が残る）
 #
+# ⚠️ 適用範囲と副作用（敵対レビュー F3 / 契約範囲外の自動配線）:
+#   本スクリプトは example の **全 hook event** を取り込む。一方
+#   `check-settings-wiring.sh` が検証するのは **PreToolUse の 6 項目のみ**で
+#   あり、それ以外（SessionStart / PostToolUse / Stop）は**契約外**である。
+#   契約外 hook には副作用の大きいものが含まれうる（例: SessionStart の
+#   `scripts/gh-pin-account.sh` は `gh auth switch` によりマシン全体の gh CLI
+#   active account を書き換える）。また「削除しない」方針の裏返しとして、
+#   **ユーザーが意図的に削除した hook は再実行のたびに復活する**（opt-out 手段は
+#   現状なし。`--all-events` opt-in 化は follow-up）。
+#
+# ⚠️ 既知の制約:
+#   - **matcher が example より狭い場合は重複ブロックが生じる**（F2(a)）。
+#     例: settings.json 側 `"Edit"` / example 側 `"Edit|Write"` → 包含関係が
+#     成立しないため example ブロックを追加し、Edit で同一 hook が 2 回発火する。
+#     「不足ツールだけ既存ブロックへ足す」設計が要るため follow-up 扱い。
+#   - **`.claude/settings.local.json` は参照しない**（F6）。そちらに EH-3 等を
+#     配線している環境では本スクリプトが二重配線を検知できない（契約検証側も
+#     settings.json のみを見るため同様）。
+#
 #   sh scripts/apply-claude-settings.sh [--dry-run]
 set -eu
+usage() {
+  printf 'usage: sh scripts/apply-claude-settings.sh [--dry-run]\n'
+}
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 SJ="$ROOT/.claude/settings.json"
 EX="$ROOT/.claude/settings.example.json"
-DRY=0; [ "${1:-}" = "--dry-run" ] && DRY=1
+# 未知引数を黙って本適用にしない（`--dryrun` / `-n` の打ち間違い対策 / F5）
+DRY=0
+case "${1:-}" in
+  "") ;;
+  --dry-run) DRY=1 ;;
+  *) printf 'error: unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+esac
+if [ "$#" -gt 1 ]; then
+  printf 'error: too many arguments\n' >&2; usage >&2; exit 2
+fi
 [ -f "$EX" ] || { printf 'error: %s not found\n' "$EX" >&2; exit 2; }
 
+BAK=""
 if [ ! -f "$SJ" ]; then
   printf '[apply] .claude/settings.json 不在 → settings.example.json をコピー\n'
   [ "$DRY" -eq 1 ] || cp "$EX" "$SJ"
@@ -37,7 +69,7 @@ else
   # 0 を拾ってしまい、無効 JSON 等の失敗時に exit 0（fail-open）になる。
   rc=0
   python3 - "$SJ" "$EX" "$DRY" <<'PY' || rc=$?
-import copy, json, re, sys
+import copy, json, os, re, sys
 SJ, EX, DRY = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
 try:
     doc = json.load(open(SJ))
@@ -52,18 +84,27 @@ if not isinstance(doc, dict):
 changed = []
 
 # ── hook 同定キー ─────────────────────────────────────────────────
-# command から「起動するスクリプトパス」を取り出す。`${CLAUDE_PROJECT_DIR}`
-# 等の変数展開を除去して比較するため、変数名の差異では二重追加されない。
-# 引数はキーに含めない（EH-3 の `${PLANGATE_HOOK_FILE:-}` 有無で別 hook と
-# 誤判定し二重配線するのを防ぐ。引数差分は後段 2) で解消する）。
-_VAR = re.compile(r"\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*")
+# command から「起動するスクリプトパス」を取り出す。引数はキーに含めない
+# （EH-3 の `${PLANGATE_HOOK_FILE:-}` 有無で別 hook と誤判定し二重配線するのを
+# 防ぐ。引数差分は後段 2) で解消する）。
+#
+# 正規化は「同じファイルを指すと断定できる表記ゆれ」だけに限定する:
+#   - 引用符の有無（`sh "${X}/a.sh"` と `sh ${X}/a.sh`）
+#   - `${VAR}` / `$VAR` の brace 有無（同一変数なので同じパス）
+#   - 先頭の `./`
+# **変数名は保持する**。`$SOMEVAR/scripts/hooks/x.sh` と
+# `${CLAUDE_PROJECT_DIR}/scripts/hooks/x.sh` は別ファイルを指しうるため
+# 同一視しない（同一視すると「配線済み」と誤判定して必要な hook が入らず、
+# 契約検証は部分文字列 grep なので PASS してしまう）。
+_BRACED_VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 _SCRIPT = re.compile(r"\S+\.(?:sh|py)\b")
 
 
 def _script_paths(cmd):
     out = []
     for tok in _SCRIPT.findall(cmd or ""):
-        tok = _VAR.sub("", tok).lstrip("/")
+        tok = tok.strip("\"'")
+        tok = _BRACED_VAR.sub(r"$\1", tok)
         while tok.startswith("./"):
             tok = tok[2:]
         if tok:
@@ -80,23 +121,37 @@ def hook_key(h):
     return (h.get("type"), scripts or re.sub(r"\s+", " ", cmd.strip()))
 
 
+UNIVERSAL = "<all-tools>"
+
+
 def matcher_tokens(m):
-    """`Edit|Write` のような単純な alternation を集合に分解する。
-    正規表現メタ文字を含む matcher は None（＝文字列一致でのみ同一視）。"""
-    parts = [p.strip() for p in (m or "").split("|")]
-    if all(re.fullmatch(r"[A-Za-z0-9_]*", p) for p in parts):
+    """matcher をツール集合として解釈する。
+    - `""`（matcher 省略）/ `"*"` は **全ツール**（UNIVERSAL）
+    - `Edit|Write` のような単純な alternation は集合
+    - それ以外（正規表現メタ文字を含む）は None ＝文字列一致でのみ同一視"""
+    m = (m or "").strip()
+    if m in ("", "*"):
+        return UNIVERSAL
+    parts = [p.strip() for p in m.split("|")]
+    if parts and all(re.fullmatch(r"[A-Za-z0-9_]+", p) for p in parts):
         return frozenset(parts)
     return None
 
 
 def matcher_covers(existing, wanted):
     """settings.json 側 matcher が example 側 matcher を包含するか。
-    `Edit|Write|MultiEdit`（ローカルで拡張）が `Edit|Write` を包含するケースで
-    二重配線（同じ hook が同じツールで 2 回発火）するのを防ぐ。"""
+    包含していれば example 側ブロックを追加しない（＝同じ hook が同じツールで
+    2 回発火する二重配線を防ぐ）。
+    - `Edit|Write|MultiEdit`（ローカル拡張）⊇ `Edit|Write`
+    - `""` / `"*"`（全ツール）は任意の matcher を包含する"""
     if existing == wanted:
         return True
     et, wt = matcher_tokens(existing), matcher_tokens(wanted)
-    return et is not None and wt is not None and wt <= et
+    if et is UNIVERSAL:
+        return True
+    if et is None or wt is None or wt is UNIVERSAL:
+        return False
+    return wt <= et
 
 
 def hook_label(h):
@@ -165,7 +220,18 @@ for blk in hooks.get("PreToolUse", []) or []:
                 "${PLANGATE_HOOK_TASK:-}",
                 "${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}", 1)
         else:
-            h["command"] = c.rstrip() + " ${PLANGATE_HOOK_FILE:-}"
+            # 位置引数契約は $1=task_id / $2=target_file
+            # （scripts/hooks/check-plan-hash.sh:
+            #   task_id=${PLANGATE_HOOK_TASK:-${1:-}} /
+            #   target_file=${PLANGATE_HOOK_FILE:-${2:-}}）。
+            # FILE だけを足すと $2 が無く、引数が実際に渡る呼ばれ方
+            # （引用符付き展開・空引数を保持する runner・手動実行）では
+            # ファイルパスが $1＝task_id 扱いになり
+            # `error: invalid task_id` → exit 2 になる（実測）。
+            # 契約検証は部分文字列 grep なのでこの破壊を検知できない。
+            # example と同形になるよう必ず TASK→FILE の順で 2 つ足す。
+            h["command"] = (c.rstrip()
+                            + " ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}")
         changed.append("EH-3 PLANGATE_HOOK_FILE")
 
 if DRY:
@@ -177,9 +243,13 @@ if DRY:
     sys.exit(0)
 if changed:
     json.dumps(doc)  # 妥当性
-    with open(SJ, "w") as f:
+    # 非原子的書き込みを避ける: truncate 直後に中断すると壊れた JSON が残り、
+    # 次回実行が「無効 JSON」で止まる。tmp へ書いて os.replace で差し替える。
+    tmp = SJ + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(doc, f, ensure_ascii=False, indent=2)
         f.write("\n")
+    os.replace(tmp, SJ)
     print(f"[apply] 適用: {changed}")
 else:
     # 「変更なし」は「契約準拠」ではない（後段の wiring 検証が判定する）
@@ -192,14 +262,21 @@ PY
     fi
     exit "$rc"
   fi
-  [ "$DRY" -eq 0 ] && [ -f "$BAK" ] && rm -f "$BAK"
+  # backup はここでは消さない。後段の契約検証が PASS するまで残す
+  # （検証 FAIL で exit 1 する経路でも巻き戻せるようにする / F4）。
 fi
 
 [ "$DRY" -eq 1 ] && exit 0
 # 適用後に契約検証（未適用残があれば非0＝「適用済み誤認」防止 / V-3 CR-1）
 if sh "$ROOT/scripts/check-settings-wiring.sh" --target user >/dev/null 2>&1; then
+  if [ -n "$BAK" ] && [ -f "$BAK" ]; then
+    rm -f "$BAK"
+  fi
   printf '[apply] done: settings wiring 契約準拠を確認\n'; exit 0
 fi
 printf '[apply] FAIL: 適用後も契約未準拠が残存（手動確認が必要）\n' >&2
+if [ -n "$BAK" ] && [ -f "$BAK" ]; then
+  printf '[apply] 適用前の backup を残しました: %s\n' "$BAK" >&2
+fi
 sh "$ROOT/scripts/check-settings-wiring.sh" --target user 2>&1 | sed 's/^/  /' >&2
 exit 1
