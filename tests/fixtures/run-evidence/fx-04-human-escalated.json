@@ -1,0 +1,41 @@
+{
+  "c3_prime_decision_ref": {
+    "path": "TASK-9999/approvals/c3.json",
+    "plan_package_hash": "sha256:ce56b3c2b9cf50dff016635239386351ea0446c8c111faa161d1beddf8aa4c6f"
+  },
+  "cause_hypothesis": null,
+  "ci_outcomes": "unavailable",
+  "completed_at": "2100-01-01T00:00:00Z",
+  "cost_metrics": "unavailable",
+  "escalation": [],
+  "evidence_refs": [
+    "TASK-9999/approvals/c3.json",
+    "TASK-9999/delivery/record.jsonl"
+  ],
+  "final_head_sha": "abcdef1234567890abcdef1234567890abcdef12",
+  "harness_version": {
+    "cli_version": "0.2.0",
+    "corpus_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "plugin_version": "8.18.0"
+  },
+  "human_interventions": [
+    {
+      "detail": "HUMAN_ESCALATED",
+      "kind": "delivery_state"
+    }
+  ],
+  "observation": "terminal_state=HUMAN_ESCALATED; repair_rounds=unavailable; reasons=reviewer が判断を要求",
+  "plan_hash": "sha256:b60f4a6e9f1308152d91ed857897ff8822302e6c74de4b7efda208c9a14b93ae",
+  "quality_metrics": "unavailable",
+  "repair_rounds": "unavailable",
+  "replan_count": "unavailable",
+  "repository": "plangate",
+  "review_findings": "unavailable",
+  "routing_decisions": "unavailable",
+  "run_id": "run-04",
+  "schema_version": "1.0",
+  "source_sha": "abc1234",
+  "started_at": "2099-12-31T00:00:00Z",
+  "task_id": "TASK-9999",
+  "terminal_state": "HUMAN_ESCALATED"
+}

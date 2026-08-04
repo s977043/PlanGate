@@ -1227,5 +1227,279 @@ class PromotionProvenanceAdapterTests(unittest.TestCase):
         self.assertEqual(passed["rollback_count"], 0)
 
 
+FIXTURE_DIR = REPO / "tests" / "fixtures" / "run-evidence"
+FIXTURE_NAMES = (
+    "fx-01-first-pass",
+    "fx-02-ci-repair",
+    "fx-03-review-repair",
+    "fx-04-human-escalated",
+    "fx-05-blocked",
+    "fx-06-routing-escalation",
+    "fx-07-tampered-expected-errors",
+    "fx-08-shadow-candidate-input",
+    "fx-09-paired-replay",
+    "fx-10-canary-rollback",
+)
+FX_COMMENT_URL = "https://github.com/s977043/PlanGate/pull/940#issuecomment-5140067809"
+
+#: fixture 7（受理器の期待エラー列）。受理された record ではない。
+#: ケースごとに期待 exit を一意に固定する（「1 または 10」のような二値を残さない）。
+FX07 = {
+    "_note": "expected errors for the RunEvidence verifier (not an accepted record)",
+    "cases": [
+        {
+            "case": "tampered_plan_hash",
+            "mutation": {"field": "plan_hash", "kind": "one_char_rewrite"},
+            "expected_exit": 1,
+            "expected_reason_contains": "plan_hash",
+        },
+        {
+            "case": "tampered_repair_rounds",
+            "mutation": {"field": "repair_rounds", "kind": "replace", "value": 99},
+            "expected_exit": 1,
+            "expected_reason_contains": "repair_rounds",
+        },
+        {
+            "case": "partial_unavailable",
+            "mutation": {"field": "routing_decisions", "kind": "unavailable"},
+            "expected_exit": 11,
+            "expected_reason_contains": "routing_decisions",
+        },
+    ],
+}
+
+
+def _fx_entries(name, plan_hash):
+    """fixture ごとの record.jsonl entries（入力 events は test 内で構築する）。"""
+    state = {"kind": "state", "state": "MERGE_READY", "head_sha": HEAD,
+             "pr_number": PR, "reasons": []}
+    merge_ready = {"kind": "merge_ready", "record": {
+        "pr_number": PR, "head_sha": HEAD, "check_summary": {"CI": "success"},
+        "review_disposition": {}, "round": 1, "plan_hash": plan_hash}}
+    notice = {"kind": "notice", "action_id": "a1", "action_kind": "repair_ci",
+              "pr_number": PR, "head_sha": HEAD, "comment_url": FX_COMMENT_URL}
+    if name == "fx-01-first-pass":
+        return [state, merge_ready]
+    if name == "fx-02-ci-repair":
+        # 入力形状は実在の record.jsonl（intent / notice / receipt）に照らす。
+        return [
+            {"kind": "intent", "action_id": "a1", "action_kind": "repair_ci",
+             "payload": {"failed_checks": ["Markdown lint"], "head_sha": HEAD,
+                         "pr_number": PR, "round": 1, "taxonomy": "code"}},
+            notice,
+            {"kind": "receipt", "action_id": "a1", "action_kind": "repair_ci",
+             "pr_number": PR, "round": 1, "head_sha": HEAD},
+            state,
+            {"kind": "merge_ready", "record": {
+                "pr_number": PR, "head_sha": HEAD,
+                "check_summary": {"Markdown lint": "success"},
+                "review_disposition": {}, "round": 1, "plan_hash": plan_hash}},
+        ]
+    if name == "fx-03-review-repair":
+        return [
+            {"kind": "receipt", "action_id": "a2", "action_kind": "repair_review",
+             "pr_number": PR, "round": 1, "finding_type": "F-2"},
+            state,
+            {"kind": "merge_ready", "record": {
+                "pr_number": PR, "head_sha": HEAD,
+                "check_summary": {"CI": "success"},
+                "review_disposition": {"F-1": "resolved"},
+                "round": 1, "plan_hash": plan_hash}},
+        ]
+    if name == "fx-04-human-escalated":
+        return [{"kind": "state", "state": "HUMAN_ESCALATED", "head_sha": HEAD,
+                 "pr_number": PR, "reasons": ["reviewer が判断を要求"]}]
+    if name == "fx-06-routing-escalation":
+        return [notice,
+                {"kind": "state", "state": "HUMAN_ESCALATED", "head_sha": HEAD,
+                 "pr_number": PR, "reasons": ["routing escalation"]}]
+    raise AssertionError(f"未知の fixture: {name}")
+
+
+def _fx_produce(tmp, name, index):
+    """fixture 1〜6 の EV を producer で生成して bytes で返す。"""
+    decision = "BLOCKED" if name == "fx-05-blocked" else "AUTO_APPROVED"
+    with_record = name != "fx-05-blocked"
+    task_dir = tpp._make_task_dir(pathlib.Path(tmp) / name)
+    rec = plan_package.build_c3_prime(
+        task_dir, task_id="TASK-9999", source_sha=SRC, target_sha=SRC,
+        verdicts={"model_a": "approve", "model_b": "approve"},
+        reviewer_evidence={"model_a": "r#a", "model_b": "r#b"},
+        decision=decision, policy_ref="p@v4",
+        issued_at=NOW, issued_by="arbiter-v0.1")
+    (task_dir / "approvals").mkdir(exist_ok=True)
+    (task_dir / "approvals" / "c3.json").write_text(
+        plan_package.serialize_c3_prime(rec), encoding="utf-8")
+    if with_record:
+        delivery.append_entries(delivery.record_path(task_dir),
+                                _fx_entries(name, rec["plan_hash"]), NOW)
+    runs_dir = pathlib.Path(tmp) / name / "ai-loop-runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    argv = [str(task_dir),
+            "--now", NOW, "--started-at", STARTED_AT,
+            "--repository", REPOSITORY, "--run-id", f"run-{index:02d}",
+            "--harness-version", json.dumps(HARNESS, sort_keys=True),
+            "--runs-dir", str(runs_dir)]
+    if name != "fx-05-blocked":
+        argv += ["--pr-number", str(PR)]
+    cp = subprocess.run([sys.executable, str(PRODUCER), *argv],
+                        capture_output=True)
+    if cp.returncode != 0:
+        raise AssertionError(
+            f"{name} の生成に失敗: {cp.stderr.decode('utf-8', 'replace')}")
+    return cp.stdout, task_dir
+
+
+def regenerate_fixtures(dest):
+    """golden fixture 10 件を決定論的に再生成する（入力 events は test 内で構築）。"""
+    import run_evidence
+    dest = pathlib.Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        evs = []
+        for index, name in enumerate(FIXTURE_NAMES[:6], start=1):
+            payload, _task_dir = _fx_produce(tmp, name, index)
+            (dest / f"{name}.json").write_bytes(payload)
+            evs.append(json.loads(payload.decode("utf-8")))
+    (dest / "fx-07-tampered-expected-errors.json").write_text(
+        run_evidence.serialize(FX07), encoding="utf-8")
+    candidate = run_evidence.to_shadow_candidate_input(evs[:3])
+    (dest / "fx-08-shadow-candidate-input.json").write_text(
+        run_evidence.serialize(candidate), encoding="utf-8")
+    challengers = [dict(e, run_id=f"cand-{e['run_id']}") for e in evs[:3]]
+    replay = run_evidence.to_paired_replay(
+        candidate, evs[:3], challengers,
+        grader_ref="grader:independent-v1", activation_check="activation:v1")
+    (dest / "fx-09-paired-replay.json").write_text(
+        run_evidence.serialize(replay), encoding="utf-8")
+    rolled = run_evidence.apply_canary_rollback(
+        dict(candidate, status="approved", rollback_count=0, blocked_by=[]),
+        {"result": "failed", "canary_scope": "canary:scope-a"})
+    provenance = run_evidence.to_promotion_provenance(
+        rolled, "approve", improvement_refs=("940",))
+    (dest / "fx-10-canary-rollback.json").write_text(
+        run_evidence.serialize({"candidate": rolled, "provenance": provenance}),
+        encoding="utf-8")
+    return sorted(p.name for p in dest.glob("*.json"))
+
+
+class FixtureTests(unittest.TestCase):
+    """T-32 / AC-16 golden fixture 10 件（TC-48 / TC-58）。"""
+
+    def test_tc48_ten_goldens_are_byte_identical_after_regeneration(self):
+        committed = sorted(FIXTURE_DIR.glob("*.json"))
+        self.assertEqual(len(committed), 10,
+                         f"fixture が 10 件でない: {[p.name for p in committed]}")
+        self.assertEqual([p.stem for p in committed], list(FIXTURE_NAMES))
+        with tempfile.TemporaryDirectory() as tmp:
+            regenerate_fixtures(tmp)
+            for path in committed:
+                with self.subTest(fixture=path.name):
+                    fresh = (pathlib.Path(tmp) / path.name).read_bytes()
+                    self.assertEqual(path.read_bytes(), fresh,
+                                     f"{path.name} が再生成結果と byte 一致しない")
+
+    def test_fixture_terminal_states(self):
+        expected = {
+            "fx-01-first-pass": "MERGE_READY",
+            "fx-02-ci-repair": "MERGE_READY",
+            "fx-03-review-repair": "MERGE_READY",
+            "fx-04-human-escalated": "HUMAN_ESCALATED",
+            "fx-05-blocked": "BLOCKED",
+            "fx-06-routing-escalation": "HUMAN_ESCALATED",
+        }
+        for name, state in expected.items():
+            with self.subTest(fixture=name):
+                ev = json.loads((FIXTURE_DIR / f"{name}.json")
+                                .read_text(encoding="utf-8"))
+                self.assertEqual(ev["terminal_state"], state)
+                self.assertEqual(ev["routing_decisions"], "unavailable")
+
+    def test_tc58_blocked_fixture_has_eight_unavailable_fields(self):
+        # 契約 §5-1: (a) Phase 1 固定 3 + (b) terminal_state 依存 5 = 8。
+        # 当初 test-cases.md は 7 と書いていたが quality_metrics の従属を
+        # 数えていなかった（実装で確定・契約 doc を是正済み）。
+        ev = json.loads((FIXTURE_DIR / "fx-05-blocked.json")
+                        .read_text(encoding="utf-8"))
+        unavailable = sorted(k for k, v in ev.items() if v == "unavailable")
+        self.assertEqual(unavailable, [
+            "ci_outcomes", "cost_metrics", "final_head_sha", "quality_metrics",
+            "repair_rounds", "replan_count", "review_findings",
+            "routing_decisions"])
+        self.assertEqual(len(unavailable), 8)
+
+    def test_fixtures_are_accepted_as_partial(self):
+        # fixture 1〜6 の受理器 exit はすべて 11（Phase 1 は exit 0 に到達しない）。
+        with tempfile.TemporaryDirectory() as tmp:
+            for index, name in enumerate(FIXTURE_NAMES[:6], start=1):
+                with self.subTest(fixture=name):
+                    payload, task_dir = _fx_produce(tmp, name, index)
+                    self.assertEqual(
+                        payload, (FIXTURE_DIR / f"{name}.json").read_bytes())
+                    ev_path = pathlib.Path(tmp) / name / "ev.json"
+                    ev_path.write_bytes(payload)
+                    cp = subprocess.run(
+                        [sys.executable, str(HERE / "run_evidence_verify.py"),
+                         str(ev_path), str(task_dir)],
+                        capture_output=True, text=True)
+                    self.assertEqual(cp.returncode, 11,
+                                     f"{name}: exit {cp.returncode} / {cp.stderr}")
+
+    def test_tc48_fixture_07_expected_errors_are_reproduced(self):
+        # fixture 7 は「期待エラー列」。ケースごとに期待 exit が一意であること。
+        spec = json.loads((FIXTURE_DIR / "fx-07-tampered-expected-errors.json")
+                          .read_text(encoding="utf-8"))
+        exits = [c["expected_exit"] for c in spec["cases"]]
+        self.assertNotIn(0, exits, "tampered / partial が exit 0 を期待している")
+        with tempfile.TemporaryDirectory() as tmp:
+            payload, task_dir = _fx_produce(tmp, "fx-01-first-pass", 1)
+            base = json.loads(payload.decode("utf-8"))
+            for case in spec["cases"]:
+                with self.subTest(case=case["case"]):
+                    ev = json.loads(json.dumps(base))
+                    field = case["mutation"]["field"]
+                    kind = case["mutation"]["kind"]
+                    if kind == "one_char_rewrite":
+                        value = ev[field]
+                        ev[field] = value[:-1] + ("0" if value[-1] != "0" else "1")
+                    elif kind == "replace":
+                        ev[field] = case["mutation"]["value"]
+                    else:
+                        ev[field] = "unavailable"
+                    path = pathlib.Path(tmp) / "case.json"
+                    path.write_text(json.dumps(ev, sort_keys=True), encoding="utf-8")
+                    cp = subprocess.run(
+                        [sys.executable, str(HERE / "run_evidence_verify.py"),
+                         str(path), str(task_dir)], capture_output=True, text=True)
+                    self.assertEqual(cp.returncode, case["expected_exit"],
+                                     f"{case['case']}: {cp.stderr}")
+                    self.assertIn(case["expected_reason_contains"], cp.stderr)
+
+    def test_fixtures_validate_against_the_schema(self):
+        # schema を唯一の正として fixture 1〜6 を検証する。
+        # jsonschema は CI に必ずあるとは限らないため、未導入環境では skip する
+        # （本 TC は test-cases.md の 65 TC には含まれない追加検証）。
+        try:
+            import jsonschema
+        except ImportError:                       # pragma: no cover
+            self.skipTest("jsonschema 未導入の環境")
+        schema = json.loads(
+            (REPO / "docs" / "schemas" / "run-evidence.schema.json")
+            .read_text(encoding="utf-8"))
+        for name in FIXTURE_NAMES[:6]:
+            with self.subTest(fixture=name):
+                ev = json.loads((FIXTURE_DIR / f"{name}.json")
+                                .read_text(encoding="utf-8"))
+                jsonschema.validate(ev, schema)
+
+    def test_fixtures_have_no_forbidden_keys(self):
+        for path in sorted(FIXTURE_DIR.glob("*.json")):
+            raw = path.read_text(encoding="utf-8")
+            for key in FORBIDDEN_KEYS:
+                self.assertNotIn(f'"{key}"', raw, f"{path.name} に禁止キー {key}")
+            for token in ("github.com", "s977043", "/Users/"):
+                self.assertNotIn(token, raw, f"{path.name} に {token}")
+
+
 if __name__ == "__main__":
     unittest.main()
