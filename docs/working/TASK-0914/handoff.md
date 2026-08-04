@@ -70,7 +70,11 @@ exec 内機械検証（T-06 / T-09 / T-11）と **V-1 独立検査（acceptance-
 **鮮度（River Review F-4 更新・2026-08-05 是正）**: 従来この節は「main 前進との接触ファイル交差 0」を V-1 PASS の鮮度根拠にしていたが、**この根拠付けは誤りだったため撤回する**。
 
 - **全体量化子を含む AC の鮮度は接触ファイル交差では担保できない。base 更新のたびに機械ゲートを再実行して判定する必要がある。** AC-9（「`FIXTURES_DIR` 単独判別の残存 **0**」「unset 集合の**包含**」）はリポジトリ全体に対する不変条件であり、ブランチが触っていないファイルでも main 側が `tests/extras/` に 1 本追加するだけで破れる。交差 0 が意味するのは「テキスト衝突が起きない」ことだけで、「全体不変条件が保たれている」ことではない。
-- **実害として顕在化**: main に `ta-58-git-destructive-guard.sh`（`c25c022` / #967）と `ta-59-apply-settings-merge.sh`（`a667c0d` / #976）が入った結果、交差 0 のまま AC-9 が破れ、PR #986 の CI 2 failed（ta-26 の TC-33 / TC-13）となった。ta-58 は真の未移行（AND 判別・7 env unset・standalone fallback 欠落）、ta-60 側の検出は TC-33 パーサが行継続 `\` を読めないことによる false positive で、両方を本コミットで是正した。
+- **実害として顕在化（因果は 3 段階。1 つの出来事に圧縮しないこと）**:
+  1. **破れ**: main に `ta-58-git-destructive-guard.sh`（`c25c022` / #967）と `ta-59-apply-settings-merge.sh`（`a667c0d` / #976）が入り、**ブランチが 1 行も触っていないのに AC-9 が破れた**（＝交差 0 が鮮度を担保しない実例。本節の論旨はここで成立する）
+  2. **是正済み**: 上記の破れは **[PR #988](https://github.com/s977043/PlanGate/pull/988)（`7680145`）が解消**した（ta-58 を `PG_HARNESS_SOURCED` AND 判別へ変更 + standalone 分岐に 7 env unset を追加 / ta-59 は判別式が既に AND で、`unset` の行継続を 1 行化）。`be53897` 時点で **ta-58・ta-59 はいずれも規約準拠済み**である
+  3. **別経路での再発**: その後 `ta-60-run-evidence.sh`（#989）が `unset` を行継続（末尾 `\`）で 3 行に分けて持ち込み、**TC-33 のパーサが継続行を読めない**ことによる false positive が発生。これが `be53897` 時点で残っていた CI 2 failed（ta-26 の TC-33 + その TC-13 連鎖）の**直接原因**である（`ta-60` 自体は 7 env すべて unset 済みで修正不要）
+- **本コミット（`7dad6dd`）が実際に直したもの**: ① TC-33 のパーサを awk で行継続結合してから走査するよう是正 ② **ta-58 の standalone fallback**（`pass`/`fail`/`register_cleanup` + 末尾 drain・サマリ・exit code）を追加 — これは #988 の積み残しで、**AND 判別と 7 env unset は #988 で既に入っていた**。fallback が無い間は standalone でカウンタもサマリも未定義のため、FAIL があっても exit 0 で素通りしていた
 - **是正後の運用**: 鮮度判定は接触ファイル交差ではなく、**base 更新のたびに `sh tests/run-tests.sh`（AC-6/7）と AC-9 静的検査スニペット（全文は status.md「T-09」節に収録）を再実行し、その実測 rc / 件数で行う**。
 
 **再実行の実測（2026-08-05・本コミット tree）**: フルスイート **538〜539 passed / 0 failed**・rc=0（TC-13 / TC-33 を含む全 PASS）。3 者独立実測（オーケストレーター + W チェック Model A / Model B）で **0 failed** は完全一致し、総数のみ 538（worktree）/ 539（primary checkout・main 起点 `0ebb8fe`）に振れた＝**#947 の環境依存変動が実測で再現**（`ta-13 TC-17` が worktree では素通りする）。この振れ自体が「総数を契約値にしない」判断の裏付けになっている。AC-9 静的検査 = 検査対象 **15 ファイル**（`FIXTURES_DIR:-` を含む extras 全件）・単独判別残存 **0**。件数は基点により増えるため契約値として固定しない（検査自体は件数非依存）。
