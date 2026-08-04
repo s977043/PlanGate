@@ -12,6 +12,9 @@ node_modules/
 # Claude Code
 .claude/settings.local.json
 .claude/settings.json
+# scripts/apply-claude-settings.sh の作業ファイル（失敗時に backup が残る）
+.claude/settings.json.bak.*
+.claude/settings.json.tmp
 .claude/worktrees/
 
 # PlanGate Hook audit log (Issue #157 — local runtime log, not part of repo)
