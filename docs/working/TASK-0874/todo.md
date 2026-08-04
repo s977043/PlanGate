@@ -13,9 +13,71 @@
 
 ### 準備フェーズ
 
-- [ ] 🚩 T-1: Scope / 受入基準（**AC-1〜AC-16 の 16 件**）と Out of scope（#869 clustering / #811 decision table の再定義・AI merge・active run への hot patch・SaaS 必須化）を再掲し作業範囲を固定。**C-3 で確定した Questions/Unknowns の未決 8 件（U-1 / U-4 / U-5 / U-8 / U-9 / U-10 / U-11 / U-12）の判断結果を反映**してから着手（U-2 / U-3 / U-6 / **U-7** は plan 段階で確定済み・追認のみ）+ **「#874 を OPEN のまま残す」の追認結果**（C-2 R-007） [Owner: agent] [depends_on: -] [files: -] rollback:不要
-- [ ] T-2: **baseline 実測**（固定値を plan から持ち込まない）— 同一 checkout・同一ブランチで `sh tests/run-tests.sh </dev/null` を 1 回実行し PASS/FAIL 件数を `status.md` に記録 / `python3 scripts/ai-loop/metrics.py --format json` の現行出力（`legacy_count` / `run_count` / `invalid_run_meta_count` / `skipped_count`）を記録 / `git diff --stat origin/main -- '不変 7 対象のパスを列挙'` = 0 行を記録（⚠️ 山括弧はシェルのリダイレクト記号として解釈されるため、実行時はプレースホルダを実パスへ置換する） / **新規 ta 番号を再実測**（`git ls-tree origin/main --name-only tests/extras/ | grep -oE 'ta-[0-9]+' | sed 's/ta-//' | sort -n | tail -1`（⚠️ **`sort -u | tail` は辞書順**のため `ta-9` が `ta-58` より後ろに来て最大値を誤認する。数値部分を切り出して `sort -n` すること）。plan の `59` を鵜呑みにせず空き番号を確定する = C-2 追加是正） [Owner: agent] [depends_on: T-1] [files: -] rollback:不要
-- [ ] T-3: 接続点の契約を実測確認（`c3_contract.RECORD_REQUIRED_KEYS` 14 / `ARTIFACTS` 6 / `VALID_DECISIONS` 3 / `delivery.STATES` 7 + `EXITS` 2 / `delivery._completed_rounds()` / `delivery.load_entries()` の `entry_id` 再計算照合 / `c3prime_verify.main()` の exit 0/1/10 / `plan_package.serialize_c3_prime()` の serialization 形式 / `c3_contract.canonical_hash()`）。`delivery._completed_rounds(entries, None)` が **例外でなく `0` を返す**こと / `arbiter.check_allowed_paths()` と `delivery._path_allowed()` が **plan の `allowed_paths` を両方 in-scope と判定する**こと〔C-2 R-C02 / R-C04〕）。**再実装せず import 再利用する対象を確定** [Owner: agent] [depends_on: T-2] [files: -] rollback:不要
+- [x] 🚩 T-1: Scope / 受入基準（**AC-1〜AC-16 の 16 件**）と Out of scope（#869 clustering / #811 decision table の再定義・AI merge・active run への hot patch・SaaS 必須化）を再掲し作業範囲を固定。**C-3 で確定した Questions/Unknowns の未決 8 件（U-1 / U-4 / U-5 / U-8 / U-9 / U-10 / U-11 / U-12）の判断結果を反映**してから着手（U-2 / U-3 / U-6 / **U-7** は plan 段階で確定済み・追認のみ）+ **「#874 を OPEN のまま残す」の追認結果**（C-2 R-007） [Owner: agent] [depends_on: -] [files: -] rollback:不要
+#### T-1 完了記録: C-3 で確定した Questions / Unknowns の判断結果（exec の前提・2026-08-04）
+
+> 本表が exec 実装の唯一の前提。plan.md の「未決」記述より本表が優先する（plan.md は
+> `plan_hash` 束縛のため一行も編集しない — `approvals/c3.json` は legacy 形式で
+> `plan.md` の hash のみを束縛する。実測: `bin/plangate validate TASK-0874` = PASS）。
+
+| ID | 確定内容 |
+|----|---------|
+| **U-1** | `harness_version` は **object 3 値** `{plugin_version, cli_version, corpus_hash}`。単一文字列にしない。schema の型を object にし、AC-12（active run 中に harness version が変化しない）は **3 値すべて**で検証する |
+| **U-2** | `replan_count` は **Phase 1 は `unavailable` 固定**（plan 段階で確定済み・追認） |
+| **U-3** | `cost_metrics` は **Phase 1 は `unavailable` 固定**（同上） |
+| **U-4** | **plan 既定を採用**: 非終端 run は RunEvidence を**発行しない**（安全側。`IN_PROGRESS` の 4 値目を作らない） |
+| **U-5** | **`repository` は owner 除去**（`s977043/plangate` → `plangate`）。**PR / コメント URL は番号のみに還元**（`https://github.com/…/pull/940#issuecomment-5140067809` → PR 番号 `940` + コメント ID `5140067809`）。**TC-51 の判定基準はこれで確定**（値レベルで `github.com` を含む URL・owner 名を保存しない。下流が URL を再構成する前提） |
+| **U-6** | `schemas/` 昇格 PBI は**予約起票する**（plan 段階で確定済み・T-44） |
+| **U-7** | schema / fixture は **Phase 1 では plugin 配布しない**（plan 段階で確定済み・追認） |
+| **U-8** | **plan 既定を採用**: adapter IF は `source_run_ids` + `baseline_version` の**最小 2 フィールドから開始**し、下流が埋める境界を契約 doc に明記する |
+| **U-9** | fixture 9（paired replay）/ 10（canary rollback）は **#874 の最小定義で作る**（Deferred にしない）。`len(glob) == 10` を維持。**#869 / #811 が別定義を採った場合に追従する前提**を handoff に記録する。代替案 (a)（`routing_decisions[]` の item schema 暫定定義）は**採らない** → fixture 6 の vacuity は明示して進む |
+| **U-10** | Phase 1 は **`complete` に到達させない = producer 出力は全件 partial**（plan 既定・安全側）。known-unavailable allowlist は**置かない**。受理器の `exit 0` 経路は**合成 complete EV（TC-56）でのみ検証**する |
+| **U-11** | 受理器 exit code は **前例準拠**（`0`=complete / `1`=NG / `10`=legacy / `11`=partial）（plan 既定の追認） |
+| **U-12** | **plan 既定を採用**: `blocked_by[]` は **fail-closed**（キー欠落 = 判定不能 → `BLOCKED`、明示 `[]` のときのみ非 BLOCKED） |
+| **追加** | **本 PBI 完了後も #874 は OPEN のまま残す**（close 条件は #869 / #811 完了後）— T-42 のコメント文面要件に反映する |
+
+> **U-4 / U-8 / U-12 は「Phase 1 の既定」**であり、下流（#869 / #811）の plan 確定時に
+> 見直す前提。**この見直し前提を契約 doc と handoff の両方に明記すること**（T-4 / T-41）。
+
+- [x] T-2: **baseline 実測**（固定値を plan から持ち込まない）— 同一 checkout・同一ブランチで `sh tests/run-tests.sh </dev/null` を 1 回実行し PASS/FAIL 件数を `status.md` に記録 / `python3 scripts/ai-loop/metrics.py --format json` の現行出力（`legacy_count` / `run_count` / `invalid_run_meta_count` / `skipped_count`）を記録 / `git diff --stat origin/main -- '不変 7 対象のパスを列挙'` = 0 行を記録（⚠️ 山括弧はシェルのリダイレクト記号として解釈されるため、実行時はプレースホルダを実パスへ置換する） / **新規 ta 番号を再実測**（`git ls-tree origin/main --name-only tests/extras/ | grep -oE 'ta-[0-9]+' | sed 's/ta-//' | sort -n | tail -1`（⚠️ **`sort -u | tail` は辞書順**のため `ta-9` が `ta-58` より後ろに来て最大値を誤認する。数値部分を切り出して `sort -n` すること）。plan の `59` を鵜呑みにせず空き番号を確定する = C-2 追加是正） [Owner: agent] [depends_on: T-1] [files: -] rollback:不要
+#### T-2 完了記録: baseline 実測値（worktree `plangate-wt-0874exec` / branch `feat/task-0874-exec` / base `origin/main` = `a667c0d`・2026-08-04）
+
+| 項目 | 実測値 |
+|------|-------|
+| `sh tests/run-tests.sh </dev/null` | **513 passed / 0 failed**（exit 0）。統合担当の実測と再現一致 |
+| `python3 scripts/ai-loop/metrics.py --format json` | `legacy_count=25` / `run_count=3` / `invalid_run_meta_count=0` / `skipped_count=0`（exit 0） |
+| 不変 7 ファイル + `docs/working/ai-loop-runs/` + `tests/run-tests.sh` の `git diff --stat origin/main` | **0 行** |
+| **新規 ta 番号** | **`ta-60`**（⚠️ plan / todo / test-cases が記載する `ta-59` は**使用済み**。`git ls-tree origin/main --name-only tests/extras/ \| grep -oE 'ta-[0-9]+' \| sed 's/ta-//' \| sort -n \| tail -1` = **59** で `ta-59-apply-settings-merge.sh`〔#976〕が実在。自 worktree で再実測して確認済み） |
+
+> ⚠️ **`ta-60` は `plan_package.extract_allowed_paths(plan.md)` の `allowed_paths` に含まれない**（実測）。
+> plan.md は `tests/extras/ta-59-run-evidence.sh` を**リテラルで固定**しているため、
+> `arbiter.check_allowed_paths(["tests/extras/ta-60-run-evidence.sh"], allowed_paths)` = `(False, [...])` /
+> `delivery._path_allowed(...)` = `False` になる（**両 matcher とも out-of-scope 判定**）。
+> plan.md は `plan_hash` 束縛のため編集できない ⇒ **T-33 着手前に人間の scope 判断が必要**（本ワーカーのスコープ外・報告のみ）。
+
+- [x] T-3: 接続点の契約を実測確認（`c3_contract.RECORD_REQUIRED_KEYS` 14 / `ARTIFACTS` 6 / `VALID_DECISIONS` 3 / `delivery.STATES` 7 + `EXITS` 2 / `delivery._completed_rounds()` / `delivery.load_entries()` の `entry_id` 再計算照合 / `c3prime_verify.main()` の exit 0/1/10 / `plan_package.serialize_c3_prime()` の serialization 形式 / `c3_contract.canonical_hash()`）。`delivery._completed_rounds(entries, None)` が **例外でなく `0` を返す**こと / `arbiter.check_allowed_paths()` と `delivery._path_allowed()` が **plan の `allowed_paths` を両方 in-scope と判定する**こと〔C-2 R-C02 / R-C04〕）。**再実装せず import 再利用する対象を確定** [Owner: agent] [depends_on: T-2] [files: -] rollback:不要
+
+#### T-3 完了記録: 接続点の契約実測（2026-08-04・すべて plan 記述と一致）
+
+| 接続点 | 実測値 | 再利用方針 |
+|--------|-------|-----------|
+| `c3_contract.RECORD_REQUIRED_KEYS` | **14**（`approval_kind` / `artifact_hashes` / `c1_evidence_ref` / `c2_evidence_ref` / `decision` / `issued_at` / `issued_by` / `phase` / `plan_hash` / `plan_package_hash` / `policy_ref` / `reviewers` / `source_sha` / `task_id`） | import 再利用 |
+| `c3_contract.ARTIFACTS` | **6**（`pbi-input.md` / `plan.md` / `todo.md` / `test-cases.md` / `review-self.md` / `review-external.md`） | import 再利用 |
+| `c3_contract.VALID_DECISIONS` | **3**（`AUTO_APPROVED` / `HUMAN_ESCALATED` / `BLOCKED`） | import 再利用 |
+| `c3_contract.canonical_hash(obj)` | `-> str`・`sha256:` prefix 付き | **import 再利用**（独自 hash 実装ゼロ） |
+| `delivery.STATES` / `EXITS` / `TERMINAL` | **7** / **2** / `MERGE_READY` | import 再利用（D3 の非終端 7 = STATES 6 + EXITS の `EXEC_RETURN`） |
+| `delivery._completed_rounds(entries, None)` | **`0` を返す（例外にならない）** — 実 record（TASK-0917 e2e・3 行）で `(entries, 940) = 1` / `(entries, None) = 0` を再実測 | **`0` に倒さず `unavailable`**（C-2 R-C04 の fail-open 経路を塞ぐ） |
+| `delivery.load_entries()` | 保存 `entry_id` を信用せず `entry_id(row)` で再計算照合し、不一致は `RecordError` | 受理器の tampered 検出に同型転写 |
+| `delivery.entry_id(entry)` | `at` / `entry_id` を除いた core の `canonical_hash` | 同上 |
+| `delivery.verify_c3(task_dir, expected_sha)` | `redirect_stderr(buf)` で `c3prime_verify.main(argv)` を呼び `(rc, stderr)` を返す | **実装形をそのまま転写**（検証ロジックを再実装しない） |
+| `c3prime_verify.main()` exit | `0` 受理 / `1` NG（`_fail()` が stderr へ理由） / `10` legacy（`approval_kind` キーが**物理的に無い**場合のみ。未知値・型違いは `_fail`） | rc 意味論を本受理器に整合させる |
+| `c3prime_verify` の未知キー allowlist | `unknown = [k for k in data if k not in ALLOWED_KEYS and not k.startswith("_")]` + `if k.startswith("_") and not isinstance(v, str): return _fail(...)` | 転写 |
+| `c3prime_verify` の task_dir 束縛 | `if task_dir.name != task_id: return _fail(...)` | 転写 |
+| `plan_package.serialize_c3_prime()` | `json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n"` | 転写 |
+| `plan_package.PlanPackageError` | `Exception` 直下・errors リスト保持 | `RunEvidenceError(errors)` として同型実装 |
+| `arbiter.check_allowed_paths()` / `delivery._path_allowed()` | 本 PBI の新規 6 ファイルは**両 matcher とも in-scope**（`(True, [])` / 全 `True`） | — |
+| `schemas/c3-prime.schema.json`（構造前例） | `$schema` = draft 2020-12 / `$id` = `https://github.com/s977043/plangate/schemas/…` / `additionalProperties: false` / `patternProperties: {"^_": {"type": "string", "description": …}}` / `required` **14** / **`schema_version` を properties にも required にも持たない** | schema の構造前例（`schema_version` の非対称は契約 doc に明記） |
+| `docs/schemas/` の現況 | 実在ファイルは **`child-pbi.yaml` 1 件のみ**（JSON Schema は 0 件） | `docs/schemas/run-evidence.schema.json` が同ディレクトリ初の JSON Schema |
 
 ### 契約 / schema フェーズ（AC-1 / AC-5）
 
