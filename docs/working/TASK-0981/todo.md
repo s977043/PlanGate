@@ -12,23 +12,26 @@ H-01（👤 C-3 ゲート）
   └→ T-01（基点更新・棚卸し 2 表の再実測）🚩
         └→ T-02（ADR 新規作成 + 冒頭 1 文）🚩
               └→ T-03（要件対応表の確定）🚩
-                    └→ T-04（正本配置 D-1 / D-3 / D-4）🚩 ← PR1 の中核
-                          ├→ T-05（plan_version D-2）🚩
-                          ├→ T-06（#980 境界 D-5）
-                          └→ T-07（4 判断 D-6/D-7/D-8/D-9）🚩
-                                └→ T-08（c3-prime-contract §8 追記 D-10）🚩
-                                      └→ T-09（PR2/PR3 スコープ表の反映）
-                                            └→ T-10（非退行確認 AC-6）🚩
-                                                  └→ T-11（handoff: BLOCKED 先出し）🚩
-                                                        └→ [L-0 / V-1 / V-3 / PR 作成]
-                                                              └→ H-02（👤 C-4 ゲート）
+                    └→ T-04a（配置表 D-1 / D-3）🚩 ← PR1 の中核
+                          └→ T-04b（3 経路比較表 D-4）🚩
+                                └→ T-04c（Decision 節の断定文）🚩 ← ブロッキング
+                                      ├→ T-05（plan_version D-2）🚩
+                                      ├→ T-06（#980 境界 D-5）🚩
+                                      └→ T-07（4 判断 D-6/D-7/D-8/D-9）🚩
+                                            └→ T-08（c3-prime-contract §8 追記 D-10）🚩
+                                                  └→ T-09（PR2/PR3 スコープ表の反映）🚩
+                                                        └→ T-10（非退行確認 AC-6）🚩
+                                                              └→ T-11（handoff: BLOCKED 先出し）🚩
+                                                                    └→ [L-0 / V-1 / V-3 / PR 作成]
+                                                                          └→ H-02（👤 C-4 ゲート）
 ```
 
 - **H-01（👤 human・T-01 の前）**: C-3 ゲート判断。**high-risk のため必須**（autonomous APPROVE 不可）。`plan.md` / `todo.md` / `test-cases.md` / `review-self.md` / `review-external.md` を確認 → `bin/plangate approve TASK-0981` で APPROVED な `c3.json` を発行
 - **H-02（👤 human・PR 作成後）**: C-4 ゲート（GitHub 上でレビュー → **マージは Human-owned**。`NO MERGE BY AI`）
 - ⚠️ **T-02 → T-07 は同一ファイル（ADR）を編集するため並行不可**。T-01 は読み取りのみで T-02 の入力になる
-- ⚠️ **T-04 は PR1 のブロッキング完了条件**（AC-2）。T-04 の 🚩 が通るまで T-05 以降へ進まない
-- ⚠️ **T-08 は別ファイル**（`docs/workflows/ai-loop/c3-prime-contract.md`）だが、追記内容が D-4 の結論に依存するため T-04 の後に置く
+- ⚠️ **T-04a〜T-04c は PR1 のブロッキング完了条件**（AC-2 / AC-3）。**T-04c の 🚩 が通るまで T-05 以降へ進まない**
+- ⚠️ **T-04 は 3 分割**（C-1 C1-TODO-08 是正）。ADR は 1 ファイルのため分割してもコミット単位は分かれないが、**中断時の再開点**が「どの表まで書けたか」で確定する
+- ⚠️ **T-08 は別ファイル**（`docs/workflows/ai-loop/c3-prime-contract.md`）だが、追記内容が D-4 の結論に依存するため T-04c の後に置く
 
 ---
 
@@ -67,14 +70,28 @@ H-01（👤 C-3 ゲート）
   - 🚩 **チェックポイント**: TC-04 / TC-05 / TC-06 が PASS（根拠アンカー全行 / 既存充足への割当 0 件 / 分離記載）
   - Owner: agent / `rollback:` `git checkout -- docs/decisions/adr-002-plan-contract-canonical-source.md`
 
-- [ ] **T-04**: 正本配置と schema 機構を ADR に確定（plan Step 4 / D-1・D-3・D-4 / **AC-2・AC-3**）
+> **T-04 は 3 分割**（C-1 C1-TODO-08 是正）。3 タスクは plan Step 4 に対応し、成果物はいずれも同一 ADR ファイル内の別セクション。共通の `rollback:` は `git checkout -- docs/decisions/adr-002-plan-contract-canonical-source.md`。
+
+- [ ] **T-04a**: 配置表を ADR に作成（D-1 / D-3 / **AC-2**）
   - **D-1**: Plan Contract の契約正本 = `docs/workflows/ai-loop/c3-prime-contract.md`（単一）。新規契約ファイルを作らない
   - **D-3**: execution reference の物理的な置き場 = sidecar `docs/working/TASK-XXXX/execution/plan-contract.json`。`approvals/c3.json` へ execution 情報を追加しない（承認 record は**承認時点の不変スナップショット**。`bin/plangate` の approve は `--force` なしの上書きを block する。**1 承認 : N 実行**を 1 ファイルで表現できない）
+  - 成果物: 「配置表」（情報 × 唯一の正本 × 他の場所での扱い。最低 6 行）
+  - 🚩 **チェックポイント**: 配置表の**全行 3 列が非空**（空欄・`—` のみ・「検討中」が 0 件）。TC-07 が PASS
+  - Owner: agent / `rollback:` 上記共通
+
+- [ ] **T-04b**: 3 経路比較表を ADR に作成（D-4 / **AC-3**）
   - **D-4**: schema 機構は (c) sidecar + 新規 `schemas/plan-contract.schema.json`（PR2 で **HO patch 提示 → Human 適用**）を採用。(b) `run-event.schema.json` の既存未使用プロパティ（`plan_hash` / `agent` / `by`）を PR2 の最小差分として**併用**。(a) `^_` 注釈キーは D-2 の将来拡張枠としてのみ残す
-  - **必須の 2 表**を掲載: ①「配置表」（情報 × 唯一の正本 × 他の場所での扱い）②「3 経路比較表」（(a)/(b)/(c) × HO 接触 / 構造表現力 / CI enforcement / 承認 record の不変性）
-  - 🚩 **チェックポイント（PR1 のブロッキング条件）**: 配置表の**全行**に「唯一の正本」と「他の場所での扱い」が埋まり、3 経路比較表の**全経路 × 全 4 軸**が埋まっている（空欄・「検討中」・`TBD` が 0 件）。TC-07 / TC-08 / TC-09 / TC-10 が PASS
+  - 成果物: 「3 経路比較表」（(a)/(b)/(c) × HO 接触 / 構造表現力 / CI enforcement / 承認 record の不変性）
+  - 🚩 **チェックポイント**: **3 経路 × 4 軸 = 12 セルすべてが非空**で、採用 / 併用 / 将来枠の判定が明示されている。TC-09 / TC-10 が PASS
+  - Owner: agent / `rollback:` 上記共通
+
+- [ ] **T-04c**: Decision 節に正本の断定文を書く（**AC-2 / PR1 のブロッキング条件**）
+  - Plan Contract の契約正本を **1 パスのみ**（`docs/workflows/ai-loop/c3-prime-contract.md`）として断定する。複数パスを「正本」と呼ばない
+  - 「同一情報のコピーが 2 箇所以上に存在しない」旨の宣言と、その根拠（配置表の「他の場所での扱い」列がすべて「参照のみ / 書かない」であること）を書く
+  - 代替案（②・③）は Considered Options 節に**不採用**として置く（Decision 節に両論併記しない）
+  - 🚩 **チェックポイント（PR1 のブロッキング条件）**: TC-08 が PASS。かつ ADR 全体に `TBD` / `TODO` / `検討中` / `後で決める` / `必要に応じて` が **0 件**（TC-03 の前倒し確認）
   - **この 🚩 が通るまで T-05 以降へ進まない**
-  - Owner: agent / `rollback:` `git checkout -- docs/decisions/adr-002-plan-contract-canonical-source.md`
+  - Owner: agent / `rollback:` 上記共通
 
 - [ ] **T-05**: `plan_version` と hash の役割を ADR に確定（plan Step 5 / D-2 / AC-4）
   - 「実行同一性の正本 = `plan_hash`（`plan.md` 単体）+ `plan_package_hash`（6 要素の正規化集合）」
@@ -87,6 +104,7 @@ H-01（👤 C-3 ゲート）
   - 「#981 が担当するもの / #980 が担当するもの」の分界表（issue コメント §1 に 1:1 対応）
   - 「**PR1〜PR3 の ActorSession ID は非検証の opaque string** であり、主体の真正性は #980 まで保証されない」を明記
   - 「PR2 で追加する record の説明文にも同旨を残す」ことを ADR の決定事項として書く（PR2 への申し送り）
+  - 🚩 **チェックポイント**（C-1 C1-TODO-10 是正 / plan Step 6 と対称化）: ADR 本文に**「非検証」の語が存在**し、分界表が issue コメント §1 の項目を漏れなく含み、**PR2 への申し送りが決定事項として明記**されていること。TC-22 が PASS
   - Owner: agent / `rollback:` `git checkout -- docs/decisions/adr-002-plan-contract-canonical-source.md`
 
 - [ ] **T-07**: 現状維持 / 補強の 4 判断を ADR に記録（plan Step 7 / D-6・D-7・D-8・D-9）
@@ -109,16 +127,18 @@ H-01（👤 C-3 ゲート）
   - U-4（`ExecutionRequested` / `ExecutionStarted` の粒度）/ U-7（maker・checker の field set）を PR2 の未決事項として明示
   - U-5（`plangate resume`）/ D-9 の 3 要素部分集合案を PR3 候補として明示
   - issue コメント §8 の順序制約（PR1 → PR2 → PR3 → #980 Phase 0〜2 → PR4）を記載し、「PR1 の ADR で正本が決まるまで PR2 に着手しない」を明記
+  - 🚩 **チェックポイント**（C-1 C1-TODO-10 是正 / plan Step 7 の後段 🚩 に対応）: スコープ表に **PR1 → PR2 → PR3 → #980 Phase 0〜2 → PR4 の順序制約**が記載され、**U-4 / U-5 / U-7 の送り先が全件明示**（1 件も未記載でない）であること
   - Owner: agent / `rollback:` `git checkout -- docs/decisions/adr-002-plan-contract-canonical-source.md`
 
 ### 検証フェーズ
 
 - [ ] **T-10**: 非退行確認（plan Step 9 / AC-6）
-  - `git diff origin/main --name-only` → **全行が `.md`**。`schemas/` / `bin/` / `scripts/` / `tests/` / `.claude/` / `.github/` を 1 件も含まない
+  - `git diff origin/main --name-only` → **コード配下（`schemas/` / `bin/` / `scripts/` / `tests/` / `.claude/` / `.github/`）が 0 件**、かつ全変更が plan「Files / Components to Touch」A + B の集合に収まる
+  - ⚠️ **`.md` 限定・ファイル数固定では判定しない**（C-1 F-2 是正）。H-01 で発行される `approvals/c3.json` と `decision-log.jsonl` は `.md` ではないが**正規の承認フロー成果物**であり、これらの出現を停止条件にしてはならない
   - `git diff origin/main --stat` を `status.md` に記録
   - `sh tests/run-tests.sh` → **`failed == 0`** かつ `passed` が **T-01 で取得した baseline と同一**（main `7de7baa` の実測 baseline = **514 passed / 0 failed**。絶対値をハードコードしない — test-cases TC-16 注記を参照）
   - `scripts/ai-loop/test_*.py` の **13 本**（`test_arbiter` / `test_c3_contract` / `test_c3prime_verify` / `test_check_exec_boundary` / `test_ci_taxonomy` / `test_collector` / `test_delivery` / `test_discovery` / `test_executor` / `test_gh_exec` / `test_metrics` / `test_plan_package` / `test_reconciler`）を `python3 <path>` で個別実行し**各 exit 0**（main `7de7baa` で 13/13 exit 0 を実測済み。**件数をハードコードせず `ls scripts/ai-loop/test_*.py` の全件をループする**）
-  - `bin/plangate validate TASK-0981` → FAIL が `approvals/c3.json not found` **のみ**（C-3 発行前の期待状態）
+  - `bin/plangate validate TASK-0981` → **`Result: PASS`（FAIL 0 件）**。H-01 で c3.json が発行済みのため C-3 Gate も PASS する（C-1 F-2 是正: 旧記述「FAIL は c3.json not found のみ」は H-01 → T-10 の依存順と両立しなかった）
   - `npx --no-install markdownlint-cli2 "docs/decisions/*.md" "docs/working/TASK-0981/*.md" "docs/workflows/ai-loop/c3-prime-contract.md"` → **0 issues**
   - 新規・変更 `.md` 内の相対リンクをすべて抽出し `test -f` で到達確認 → **未到達 0 件**
   - 実行ログを `evidence/verification/` に保存
@@ -156,8 +176,8 @@ H-01（👤 C-3 ゲート）
 
 ## 完了条件
 
-- [ ] T-01〜T-11 のすべてが完了し、各 🚩 チェックポイントが PASS
+- [ ] T-01〜T-11（**T-04 は T-04a / T-04b / T-04c の 3 分割** = 計 13 タスク）のすべてが完了し、各 🚩 チェックポイントが PASS
 - [ ] `test-cases.md` の TC-01〜TC-25 がすべて PASS（V-1 受け入れ検査）
 - [ ] AC-1〜AC-6 がすべて充足（handoff の要件適合確認結果に PASS / FAIL / WARN で記載）
-- [ ] `git diff origin/main --name-only` が **9 ファイル・すべて `.md`**
+- [ ] `git diff origin/main --name-only` に **コード配下（`schemas/` / `bin/` / `scripts/` / `tests/` / `.claude/` / `.github/`）が 0 件**で、全変更が plan「Files / Components to Touch」A + B の集合に収まる（変更対象 A = 9 ファイル + workflow 標準 artifact B）
 - [ ] `pbi-input.md` が**変更されていない**（`git diff origin/main -- docs/working/TASK-0981/pbi-input.md` が空）
