@@ -157,6 +157,20 @@ def _reduce_refs(text, escalation):
     return _URL.sub(_repl, text)
 
 
+def _redact(text, escalation):
+    """入力由来の文字列を出力に載せる前に還元する（契約 §7-2 / §7-3）。
+
+    URL は番号参照へ還元し、絶対パスは token へ置換する。**握り潰さず**
+    `escalation` に記録する（黙って落とすと privacy 違反の入力が検出されない）。
+    """
+    reduced = _reduce_refs(str(text), escalation)
+    if _ABSOLUTE.search(reduced):
+        escalation.append({"kind": "privacy_absolute_path",
+                           "detail": "絶対パスを含む入力値を還元した"})
+        reduced = re.sub(r"(?<![A-Za-z0-9])/[^\s\"']*", "path:redacted", reduced)
+    return reduced
+
+
 def _walk(node, prefix=""):
     """(dotted path, key, value) を深さ優先で列挙する。"""
     if isinstance(node, dict):
@@ -484,7 +498,7 @@ def derive_human_interventions(decision, entries, arbiter_records, run_id, escal
         if e.get("kind") == "state" and e.get("state") == "HUMAN_ESCALATED":
             items.append({"kind": "delivery_state", "detail": "HUMAN_ESCALATED"})
         if e.get("kind") not in KNOWN_RECORD_KINDS:
-            detail = _reduce_refs(str(e.get("comment_url") or ""), escalation)
+            detail = _redact(e.get("comment_url") or "", escalation)
             items.append({"kind": "record_notice", "detail": detail})
     for rec in arbiter_records:
         run = rec.get("run")
@@ -505,11 +519,13 @@ def derive_quality_metrics(terminal_state, repair_rounds):
     }
 
 
-def derive_observation(terminal_state, delivery_fields, entries, unknown_kinds):
-    """観測事実のみ（推定を混ぜない / AC-5）。"""
+def derive_observation(terminal_state, delivery_fields, entries, unknown_kinds,
+                       escalation):
+    """観測事実のみ（推定を混ぜない / AC-5）。入力由来の文字列は還元して載せる。"""
     parts = [f"terminal_state={terminal_state}",
              f"repair_rounds={delivery_fields['repair_rounds']}"]
-    reasons = sorted({str(r) for e in entries if e.get("kind") == "state"
+    reasons = sorted({_redact(r, escalation) for e in entries
+                      if e.get("kind") == "state"
                       for r in (e.get("reasons") or [])})
     if reasons:
         parts.append("reasons=" + ",".join(reasons))
@@ -705,8 +721,9 @@ def build(task_dir, opts) -> dict:
         "cost_metrics": UNAVAILABLE,
         "evidence_refs": _evidence_refs(opts, task_dir, record_exists, errors),
         "schema_version": SCHEMA_VERSION,
-        "observation": opts.get("observation") or derive_observation(
-            terminal_state, delivery_fields, entries, unknown_kinds),
+        "observation": _redact(opts["observation"], escalation)
+        if opts.get("observation") else derive_observation(
+            terminal_state, delivery_fields, entries, unknown_kinds, escalation),
         # 推定は自動生成しない（AC-5）。注入されたときのみ格納する。
         "cause_hypothesis": opts.get("cause-hypothesis"),
         "escalation": sorted(

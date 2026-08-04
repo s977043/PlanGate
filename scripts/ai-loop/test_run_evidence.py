@@ -694,6 +694,209 @@ class AcceptanceRoundTripTests(unittest.TestCase):
                 self.assertIn(f, verr, f"stderr に {f} が列挙されない: {verr}")
 
 
+FORBIDDEN_KEYS = (
+    "file_path", "file_paths", "stack_trace", "stacktrace", "command_output",
+    "stdout", "stderr", "raw_response", "raw_request", "api_key",
+    "user_prompt", "system_prompt", "prompt_text", "absolute_path",
+)
+COMMENT_URL = "https://github.com/s977043/PlanGate/pull/940#issuecomment-5140067809"
+
+
+class PrivacyTests(unittest.TestCase):
+    """T-22 / AC-6（TC-19 / TC-20 / TC-21 / TC-51 / TC-63 / TC-65）。"""
+
+    def test_tc19_forbidden_keys_never_reach_the_output(self):
+        # TC-19: 禁止キー 14 個を含む events を入力しても出力に 0 件。
+        # 握り潰さず入力側の異常として escalation に記録する。
+        polluted = {"kind": "notice", "action_id": "a1"}
+        for key in FORBIDDEN_KEYS:
+            polluted[key] = "x"
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp, extra_entries=(polluted,))
+            rc, out, err = _produce(task_dir, runs_dir)
+            self.assertEqual(rc, 0, err)
+            text = out.decode("utf-8")
+            ev = json.loads(text)
+            for key in FORBIDDEN_KEYS:
+                self.assertNotIn(f'"{key}"', text, f"禁止キー {key} が出力に現れた")
+            details = {e["detail"] for e in ev["escalation"]}
+            for key in FORBIDDEN_KEYS:
+                self.assertIn(f"record.jsonl: {key}", details,
+                              f"{key} が escalation に記録されていない")
+
+    def test_tc20_absolute_evidence_ref_is_rejected(self):
+        # TC-20: evidence_refs に絶対パスを注入 → reject
+        # （metrics-privacy.md §5「絶対パスは FORBIDDEN」）。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp)
+            for ref in ("/Users/foo/bar.json", "/var/folders/x/y.json"):
+                with self.subTest(ref=ref):
+                    rc, _out, err = _produce(task_dir, runs_dir,
+                                             extra=("--evidence-ref", ref))
+                    self.assertNotEqual(rc, 0, f"絶対パス {ref} が素通りした")
+                    self.assertIn("絶対パス", err)
+                    # 入力側で reject する（出力側の最終検査に頼らない）
+                    self.assertIn("--evidence-ref", err, err)
+
+    def test_tc20_relative_evidence_ref_is_accepted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp)
+            ev = _ev(self, task_dir, runs_dir,
+                     extra=("--evidence-ref", "docs/working/x/y.json"))
+            self.assertIn("docs/working/x/y.json", ev["evidence_refs"])
+            for ref in ev["evidence_refs"]:
+                self.assertFalse(ref.startswith("/"), ref)
+
+    def test_tc21_output_extension_must_be_json(self):
+        # TC-21: .jsonl は EH-8 の走査対象（*.json|*.ndjson）に**マッチしない**ため
+        # privacy 検査を素通りする。拡張子を .json に固定する。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp)
+            bad = pathlib.Path(tmp) / "ev.jsonl"
+            rc, _out, err = _produce(task_dir, runs_dir, extra=("--out", str(bad)))
+            self.assertNotEqual(rc, 0, ".jsonl 出力が通った")
+            self.assertIn(".json", err)
+            self.assertFalse(bad.exists(), "reject したのにファイルを書いている")
+            good = pathlib.Path(tmp) / "ev.json"
+            rc, out, err = _produce(task_dir, runs_dir, extra=("--out", str(good)))
+            self.assertEqual(rc, 0, err)
+            self.assertTrue(good.is_file())
+            self.assertEqual(out, b"", "--out 指定時に stdout へも書いている")
+
+    def test_tc51_account_identifiers_are_reduced_to_numbers(self):
+        # TC-51: 実 record 由来の comment_url（owner 名 + URL）を保存せず
+        # PR 番号 / コメント ID へ還元する（U-5 の C-3 結論）。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp, extra_entries=(
+                {"kind": "notice", "action_id": "a1", "action_kind": "repair_ci",
+                 "pr_number": PR, "comment_url": COMMENT_URL},))
+            rc, out, err = _produce(task_dir, runs_dir)
+            self.assertEqual(rc, 0, err)
+            text = out.decode("utf-8")
+            for token in ("github.com", "s977043", "https://", "PlanGate/pull"):
+                self.assertNotIn(token, text, f"account 由来の値 {token} が残っている")
+            self.assertIn("pr:940", text, "PR 番号へ還元されていない")
+            self.assertIn("comment:5140067809", text, "コメント ID へ還元されていない")
+
+    def test_tc51_account_keys_in_input_are_escalated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp, extra_entries=(
+                {"kind": "notice", "action_id": "a1", "login": "someone",
+                 "github_user": "someone"},))
+            ev = _ev(self, task_dir, runs_dir)
+            kinds = {e["kind"] for e in ev["escalation"]}
+            self.assertIn("privacy_account_key", kinds, ev["escalation"])
+            self.assertNotIn("someone", json.dumps(ev))
+
+    def test_tc65_absolute_paths_in_any_field_are_zero(self):
+        # TC-65: evidence_refs 以外の任意フィールドに絶対パスが載る経路
+        # （state entry の reasons → observation）でも出力に 0 件。
+        # EH-8 はキー名の grep のみで値を見ないため producer 側が唯一の防御線。
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp, extra_entries=(
+                {"kind": "state", "state": "MERGE_READY", "head_sha": HEAD,
+                 "pr_number": PR,
+                 "reasons": ["/Users/foo/x.json が壊れている",
+                             "/var/folders/ab/tmpX/y.json"]},))
+            rc, out, err = _produce(task_dir, runs_dir)
+            self.assertEqual(rc, 0, err)
+            ev = json.loads(out.decode("utf-8"))
+            for path, key, value in _walk_values(ev):
+                if isinstance(value, str):
+                    self.assertNotRegex(value, r"(^/|/Users/)",
+                                        f"{path} に絶対パスが残っている: {value!r}")
+            self.assertIn("privacy_absolute_path",
+                          {e["kind"] for e in ev["escalation"]},
+                          "絶対パスの還元が escalation に記録されていない")
+
+    def test_output_privacy_backstop_detects_every_violation_class(self):
+        # 出力側の最終検査（fail-closed の最後の砦）を直接叩く。
+        # 上流の還元が効いている限り本経路は発火しないため、単体で検出力を固定する。
+        import run_evidence
+        cases = {
+            "forbidden_key": {"escalation": [{"kind": "x", "stdout": "y"}]},
+            "account_key": {"human_interventions": [{"login": "someone"}]},
+            "absolute_value": {"observation": "/Users/foo/x.json"},
+            "url_value": {"observation": COMMENT_URL},
+        }
+        for label, record in cases.items():
+            with self.subTest(case=label):
+                self.assertTrue(run_evidence.check_output_privacy(record),
+                                f"{label} を検出できていない")
+        self.assertEqual(run_evidence.check_output_privacy(
+            {"observation": "terminal_state=MERGE_READY"}), [])
+
+    def test_tc63_producer_opens_only_the_allowlisted_sources(self):
+        # TC-63: producer 実行中に open される全パスが task_dir / runs_dir 配下
+        # （AC-6 の「要求しない」側）。transcript / session log / CoT / 環境変数 /
+        # ネットワーク / 外部プロセスを読まないことを monkeypatch + ソース走査で固定。
+        import builtins
+        import run_evidence
+        opened = []
+        real_open = builtins.open
+        real_read_text = pathlib.Path.read_text
+
+        def _spy_open(file, *a, **kw):
+            opened.append(str(file))
+            return real_open(file, *a, **kw)
+
+        def _spy_read_text(self, *a, **kw):
+            opened.append(str(self))
+            return real_read_text(self, *a, **kw)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            task_dir, runs_dir, _rec = _setup(tmp)
+            builtins.open = _spy_open
+            pathlib.Path.read_text = _spy_read_text
+            try:
+                rc, _out, err = _produce_inproc(task_dir, runs_dir)
+            finally:
+                builtins.open = real_open
+                pathlib.Path.read_text = real_read_text
+            self.assertEqual(rc, 0, err)
+            self.assertTrue(opened, "1 ファイルも open していない（spy が効いていない）")
+            allowed = (str(pathlib.Path(task_dir).resolve()),
+                       str(pathlib.Path(runs_dir).resolve()))
+            for path in opened:
+                resolved = str(pathlib.Path(path).resolve())
+                self.assertTrue(resolved.startswith(allowed),
+                                f"allowlist 外を open した: {path}")
+            self.assertIs(run_evidence.UNAVAILABLE, "unavailable")
+
+    def test_tc63_producer_source_has_no_environment_or_network_access(self):
+        import ast
+        src = PRODUCER.read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        banned_modules = {"os", "urllib", "http", "requests", "socket",
+                          "subprocess", "importlib", "shutil"}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for a in node.names:
+                    self.assertNotIn(a.name.split(".")[0], banned_modules, a.name)
+            if isinstance(node, ast.ImportFrom) and node.module:
+                self.assertNotIn(node.module.split(".")[0], banned_modules,
+                                 node.module)
+        # docstring / コメントは「読まない」と宣言する記述を含むため実コードのみ検査。
+        body = re.sub(r'"""(?:.|\n)*?"""', "", src)
+        body = re.sub(r"#.*", "", body)
+        for token in ("environ", "getenv", "transcript", "session_log",
+                      "session-log"):
+            self.assertNotIn(token, body, f"{token} が producer の実コードに現れる")
+
+
+def _walk_values(node, prefix=""):
+    if isinstance(node, dict):
+        for key in sorted(node):
+            path = f"{prefix}.{key}" if prefix else key
+            yield path, key, node[key]
+            yield from _walk_values(node[key], path)
+    elif isinstance(node, list):
+        for i, item in enumerate(node):
+            path = f"{prefix}[{i}]"
+            yield path, None, item
+            yield from _walk_values(item, path)
+
+
 class LegacyClassificationTests(unittest.TestCase):
     """T-19 / AC-15 legacy 4 分類（TC-42 / TC-43 / TC-44 / TC-45 / TC-54）。"""
 
