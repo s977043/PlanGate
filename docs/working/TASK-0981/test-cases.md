@@ -1,7 +1,7 @@
 # テストケース定義 — TASK-0981（#981 PR1）
 
 > Plan: [`plan.md`](./plan.md) / ToDo: [`todo.md`](./todo.md) / 入力: [`pbi-input.md`](./pbi-input.md)
-> 基点: main `7de7baa`。baseline `sh tests/run-tests.sh` = **514 passed / 0 failed**（本ブランチで 4 回連続実測。**判定は絶対値ではなく PR 前後の同一性**で行う — 下記 TC-16 注記）
+> 基点: main **`73e6a15`**（C-2 R-101 で `7de7baa` から更新）。baseline `sh tests/run-tests.sh` = **524 passed / 0 failed**（C-2 反映時に実測。旧基点では 514）。**判定は絶対値ではなく PR 前後の同一性**で行い、baseline は **exec 開始時に `origin/main` 最新でその場取得**する（下記 TC-16 注記）
 > **PR1 は文書のみの変更**（コードを 1 行も変更しない）。したがって全 TC は **成果物の構造検査 / 根拠の実測再現 / 既存 baseline との同一性確認** のいずれかであり、新規のコードテストは追加しない
 > 検査対象 ADR: `docs/decisions/adr-002-plan-contract-canonical-source.md`（以下 `<ADR>` と表記）
 > **番号空間**: 本ファイルの `TC-NN` / `EDGE-N` は、pbi-input のギャップ `#1`〜`#12` および実行条件 `EC-1`〜`EC-10` とは別空間
@@ -10,7 +10,7 @@
 
 | AC | 内容 | 対応 TC | 種別 |
 |----|------|---------|------|
-| **AC-1** | 追加実装対象が「未対応差分」だけに限定されている | TC-04, TC-05, TC-06 | 静的検査（成果物構造） |
+| **AC-1** | 追加実装対象が「未対応差分」だけに限定されている | TC-04, TC-05, TC-06, **TC-26** | 静的検査（成果物構造） |
 | **AC-2** | 正本が 1 つに決まっている | TC-07, TC-08 | 静的検査（成果物構造） |
 | **AC-3** | 新規 schema 追加の必要性が説明されている | TC-09, TC-10 | 静的検査（成果物構造） |
 | **AC-4** | `plan_version` と hash の役割が決定され、二重正本にならない根拠が記録されている | TC-11, TC-12 | 静的検査 + 実測再現 |
@@ -32,7 +32,7 @@
 
 - **前提条件**: T-02 完了
 - **入力**: `ls docs/decisions/` および `<ADR>` の見出し抽出（`grep -n "^#\{1,3\} " <ADR>`）
-- **期待出力**: `docs/decisions/adr-002-plan-contract-canonical-source.md` が存在し、ファイル名が `adr-NNN-<slug>.md` 形式（既存 `adr-001-approve-out-of-band.md` と同形式）。見出しに `Context` / `Problem Statement` / `Decision Drivers` / `Considered Options` / `Decision` / `Consequences` / `Related` が**すべて**含まれる。冒頭メタに `Status` / `Date` / `PBI` / `Decision Makers` が含まれる
+- **期待出力**: `docs/decisions/adr-002-plan-contract-canonical-source.md` が存在し、ファイル名が `adr-NNN-<slug>.md` 形式（既存 `adr-001-approve-out-of-band.md` と同形式）。見出しに `Context` / `Problem Statement` / `Decision Drivers` / `Considered Options` / `Decision` / `Consequences` / `Related` が**すべて**含まれる。冒頭メタに `Status` / `Date` / `PBI` / `Decision Makers` が含まれる。**`Status` の値が `Accepted`**（C-2 R-114。ADR-001 の `Proposed` をそのまま踏襲すると PR2 が「まだ決まっていない」と読む余地が残るため）。**`Related` 節に「本 ADR が `adr-002` を占有する / #980 は `adr-003` 以降を使う」の採番予約がある**（C-2 R-107）
 - **種別**: 静的検査
 
 #### TC-02: 並行正本の誤読を防ぐ 1 文が本文冒頭に存在する
@@ -46,10 +46,11 @@
 #### TC-03: 決定事項 D-1〜D-10 が漏れなく記録されている
 
 - **前提条件**: T-02〜T-07 完了
-- **入力**: `grep -c "^#\{3,4\} D-[0-9]\+" <ADR>`（または決定事項表の行数カウント）
-- **期待出力**: **`D-1`〜`D-10` の 10 件がすべて存在**し、各件に「決定」と「根拠」が付いている。`TBD` / `TODO` / `検討中` / `後で決める` / `必要に応じて` が **0 件**（`grep -cE "TBD|TODO|検討中|後で決める|必要に応じて" <ADR>` = 0）
+- **入力**: `grep -c "^#\{3,4\} D-[0-9]\+" <ADR>`（または決定事項表の行数カウント）+ `<ADR>` の **`Decision` 節のみ**を切り出したテキスト
+- **期待出力**: **`D-1`〜`D-10` の 10 件がすべて存在**し、各件に「決定」と「根拠」が付いている。**`Decision` 節**に `TBD` / `TODO` / `検討中` / `後で決める` / `必要に応じて` が **0 件**
+- **注記（適用範囲を `Decision` 節に限る理由 / C-2 R-008 是正）**: 旧期待値は「ADR **全体**で 0 件」だったが、T-09 は PR2 / PR3 スコープ表に **U-4 のフィールド詳細 / U-5 / U-7 を未決事項として明示せよ**と要求しており、未決事項を素直に書くと禁止語に触れる。**同一ファイル上で T-04c と T-09 の要求が衝突する**ため、禁止語検査は「決定を断定する節」= `Decision` 節に限定する。PR2 / PR3 スコープ表・Consequences・Related は対象外
 - **種別**: 静的検査
-- **根拠**: Stop Condition 7（「PR2 で決める」項目が 3 件以上残ったら PR1 の目的未達）の前段防御
+- **根拠**: Stop Condition 7（PR1 で確定と宣言した決定が未確定のまま残ったら目的未達）の前段防御
 
 ### B. 要件対応表（AC-1）
 
@@ -77,6 +78,19 @@
 - **種別**: 静的検査
 - **根拠**: pbi-input MJ-1。「一部」を「既存で満たす」に丸めると legacy 経路が構造的にスコープ外へ落ちる
 
+#### TC-26: 「未対応」3 項目の PR 割当が全件存在し、要件対応表②が 14 行揃っている
+
+> **C-2 R-001 / R-010 で新設**。旧 TC 群は表①の「過剰（既存充足への割当）」しか検査しておらず、**「欠落（行そのものが落ちる）」を検出できなかった**。表②に至っては AC / TC のいずれからも参照されておらず、**空表でも全 TC が PASS した**。
+
+- **前提条件**: T-03 完了
+- **入力**: `<ADR>` の要件対応表①（「未対応」3 項目 = `#8`（Planner / Executor 分離）/ `#9`（execution reference）/ `#10`（revision / resume））および要件対応表②（#981 全体 AC × PR1 で扱う範囲）
+- **期待出力**:
+  1. 表①の「未対応」3 項目それぞれに **PR 割当欄が非空**で、PR2 / PR3 / PR4 のいずれかが割り当たっている（欠落の抑制 / R-010）
+  2. 表②が **#981 全体 AC 14 項目すべてを行として持つ**（`grep -c` で表②のデータ行が 14 行）
+  3. 表②の**全 14 行で「PR1 で扱う範囲」列が非空**（空欄・`—` のみ・`検討中` が 0 件 / R-001）
+- **種別**: 静的検査（行数は自動 / セルの非空は半自動）
+- **根拠**: `pbi-input.md:153` / `:164`（#981 本文の受け入れ条件 14 項目は PR1〜PR4 全体の AC であり、PR1 での扱いを行ごとに宣言する必要がある）
+
 ### C. 正本の単一性（AC-2）
 
 #### TC-07: 配置表の全行が埋まっている
@@ -90,24 +104,37 @@
 
 - **前提条件**: T-04c 完了
 - **入力**: `<ADR>` の Decision 節
-- **期待出力**: Plan Contract の契約正本が **`docs/workflows/ai-loop/c3-prime-contract.md` の 1 パスのみ**として宣言されている（複数パスを「正本」と呼んでいない）。かつ「同一情報のコピーが 2 箇所以上に存在しない」旨の宣言と、その根拠（配置表の「他の場所での扱い」列がすべて「参照のみ / 書かない」であること）が示されている
+- **期待出力**: Plan Contract の契約正本が **`docs/workflows/ai-loop/c3-prime-contract.md` の 1 パスのみ**として宣言されている（複数パスを「正本」と呼んでいない）。かつ「同一情報のコピーが 2 箇所以上に存在しない」旨の宣言と、その根拠が示されている
+- **根拠の判定条件（C-2 R-007 是正）**: 旧期待値は「『他の場所での扱い』列が**すべて**『参照のみ / 書かない』」だったが、D-4(b) は `plan_hash` を `run.ndjson` にも刻むため、その行が「刻む」となった瞬間に**判定不能**になっていた。判定条件を以下へ具体化する:
+  1. 各行の「唯一の正本」列が**単一パス / 単一 record** を指す（複数を「正本」と呼ぶ行が 0 件）
+  2. 非正本側に複製が存在する行（= `run.ndjson` の `plan_hash`）には、**「非正本のトレース複製であり、不一致時は正本が勝つ」「判定・受理に使わない」旨が明記**されている
 - **種別**: 静的検査
 
 ### D. schema 機構の評価（AC-3）
 
-#### TC-09: 3 経路すべての検討記録が存在する
+#### TC-09: 5 経路すべての検討記録が存在する
+
+> **C-2 R-006 / R-102 で 3 → 5 経路へ拡張**。旧 3 経路には「既存 schema への型付き additive」と「`docs/schemas/`（非 HO）配置 → 後日昇格」が欠けており、後者は #874（`73e6a15`）が実績として確立している経路だったため、AC-3 の「新規 schema が必要である」ことの論証が不十分だった。
 
 - **前提条件**: T-04b 完了
 - **入力**: `<ADR>` の Considered Options / D-4 節
-- **期待出力**: **(a) `approvals/c3.json` の `^_` 注釈キー / (b) `run-event.schema.json` の既存未使用プロパティ（`plan_hash` / `agent` / `by`）/ (c) sidecar + 新規 schema** の 3 経路がすべて記載されている。いずれも「検討しなかった」で済ませていない
+- **期待出力**: 以下 **5 経路がすべて記載**されている。いずれも「検討しなかった」で済ませていない
+  - (a) `approvals/c3.json` の `^_` 注釈キー
+  - (b) `run-event.schema.json` の既存未使用プロパティ（`plan_hash` / `agent` / `by`）
+  - (c) sidecar + 新規 `schemas/plan-contract.schema.json`
+  - **(d) 既存 `schemas/c3-prime.schema.json` へ型付きプロパティを additive 追加**（`RECORD_OPTIONAL_KEYS` と同時更新）
+  - **(e) `docs/schemas/plan-contract.schema.json`（非 HO）に置き、後日 `git mv` で `schemas/` へ昇格**
 - **種別**: 静的検査
 - **根拠**: pbi-input MJ-2 / MJ-3。HO 変更を伴わない経路を見落とすと不要な HO patch を前提に計画してしまう
 
-#### TC-10: 3 経路 × 4 軸の比較表が埋まり、採用 / 不採用の理由が付く
+#### TC-10: 5 経路 × 4 軸の比較表が埋まり、採用 / 不採用の理由が付く
 
 - **前提条件**: T-04b 完了
-- **入力**: `<ADR>` の 3 経路比較表
-- **期待出力**: 軸が **HO 接触 / 構造表現力 / CI enforcement / 承認 record の不変性** の 4 つ揃い、**3 経路 × 4 軸 = 12 セルすべてが非空**。採用（(c)）と併用（(b)）と将来枠（(a)）の判定が明示され、新規 schema が必要な理由（既存 3 経路の限界）と、不要にできる代替が併記されている
+- **入力**: `<ADR>` の 5 経路比較表
+- **期待出力**: 軸が **HO 接触 / 構造表現力 / CI enforcement / 承認 record の不変性** の 4 つ揃い、**5 経路 × 4 軸 = 20 セルすべてが非空**。採用（(c)）/ 併用（(b)）/ 将来枠（(a)）/ **不採用（(d)・(e)）** の判定が明示され、新規 schema が必要な理由（既存 4 経路の限界）が示されている。特に:
+  - (d) の不採用理由が「承認 record の不変性を壊す（D-3 と同じ帰属の誤り）」で、**HO 接触量が (c) と同等**であることに触れている
+  - (e) の不採用理由が「PR1 は実装を含まないため段階化の利得が無い」「sidecar インスタンスの CI 検証には結局 `schemas/` 昇格が要る（TASK-0874 handoff K-12）」で、**HO 適用回数は減らない**ことに触れている
+  - (c) の CI enforcement 欄に「**`scripts/schema_mapping.py` への 1 行登録が唯一の強制点で、忘れると `SKIP` = 沈黙 PASS**」が明記されている（C-2 R-103）
 - **種別**: 静的検査
 
 ### E. `plan_version` と hash（AC-4）
@@ -132,8 +159,12 @@
 
 - **前提条件**: T-07 完了
 - **入力**: `<ADR>` の D-6 節
-- **期待出力**: (1) PR2 の変更範囲が `bin/plangate` legacy 経路の **fail-open 1 点**（`plan_hash` 不在時の無言 skip）に限定されている、(2) 全面強化（evidence marker 再検証・`artifact_hashes` 照合の移植）を採らない理由として「既存 TASK の `c3.json` を一斉 invalid 化し後方互換を壊す」が明記されている、(3) `bin/plangate` が **HO 対象**であり **AI は patch 提示まで**であることが明記されている — の 3 点すべて
-- **種別**: 静的検査
+- **期待出力**: (1) PR2 の変更範囲が `bin/plangate` legacy 経路の **fail-open 1 点**（`plan_hash` が**記録されていない**ときの無言 skip）に限定されている、(2) 全面強化（evidence marker 再検証・`artifact_hashes` 照合の移植）を採らない理由として「既存 TASK の `c3.json` を一斉 invalid 化し後方互換を壊す」が明記されている、(3) `bin/plangate` が **HO 対象**であり **AI は patch 提示まで**であることが明記されている — の 3 点すべて
+- **追加の期待出力（C-2 R-002 / R-106 是正）**:
+  4. 塞ぐ対象が「**記録が無いから照合しない**」と書かれている（「記録があるのに照合しない」という**論理が反転した記述になっていない**。記録がある場合は `bin/plangate:2098` で既に mismatch 判定される）
+  5. ③ が ② より後方互換に安全である根拠が**実測値で定量化**されている（追跡下の `docs/working/*/approvals/c3.json` の**総数**と `plan_hash` **欠落件数**。C-2 反映時の実測 = 80 件中 1 件（`TASK-0038`）。exec 時に再実測して一致を確認する）
+  6. 穴の大きさが**多層防御の層**として書かれている（`plangate approve` の書き込み / `c3-approval.schema.json` の `required` / schema-validate CI / exec preflight の 4 層のうち**最後の 1 層のみが抜けている**。「本番フロー大多数の穴」という過大表現になっていない）
+- **種別**: 静的検査 + 実測再現（4. の欠落件数）
 
 #### TC-14: D-9（evidence stale）の「拡張しない」が循環依存を根拠に説明されている
 
@@ -158,11 +189,17 @@
 
 ### G. #980 との責務境界（AC-5）
 
-#### TC-22: 分界表と「非検証 opaque string」の明記
+#### TC-22: 分界表と「非検証 opaque string」の明記、および `agent` / `by` の語彙・所有権の確定
 
 - **前提条件**: T-06 完了
 - **入力**: `<ADR>` の #980 境界節
 - **期待出力**: 「#981 が担当するもの / #980 が担当するもの」の分界表が存在し（issue コメント §1 の項目を漏れなく含む）、「**PR1〜PR3 の ActorSession ID は非検証の opaque string** であり主体の真正性は #980 まで保証されない」が明記されている。加えて「PR2 で追加する record の説明文にも同旨を残す」が申し送りとして書かれている
+- **追加の期待出力（C-2 R-003 / 新規）**: `run-event.schema.json` の `agent` / `by` について以下 4 点がすべて記載されている
+  1. **`agent` の語彙定義**（何を入れるか。現行 `bin/plangate:2037` の `PLANGATE_IMPL_AGENT` 由来の**ツール種別**文字列を継続するのか、Executor 主体識別子へ意味を移すのか）
+  2. **`by` の語彙定義**（gate イベントの Human / Agent 識別子として何を入れるか）
+  3. **writer 所有権**（`plangate_append_ndjson` の 3 呼び出し `bin/plangate:1279` / `:2005` / `:2112` のどれが何を書くか）
+  4. 分界表に「**#980 は `agent` / `by` / `plan_hash` に独自語彙を割り当てない**」の行がある
+- **根拠（追加分）**: `docs/working/TASK-0980/pbi-input.md:181` が本論点を「**#981 PR1 の ADR で先に確定する。本 PBI は決めない。**」と明示的に委譲しており、同 `:190` は #980 の Non-goal、`:223` の AC-P2(b) は本 ADR を参照して検査する。`schemas/run-event.schema.json:77` が `additionalProperties: false` かつ `^_` の patternProperties も無いため、**1 フィールドに 2 語彙が入ると是正が HO patch になる**
 - **種別**: 静的検査
 - **根拠**: pbi-input Risks「opaque string を『検証済み主体』と誤読し、職務分離が担保されていないのに担保されたと report する」
 
@@ -181,15 +218,19 @@
 
 - **前提条件**: T-10 実行時
 - **入力**: `sh tests/run-tests.sh`
-- **期待出力**: **`failed == 0`** かつ **`passed` が PR 直前に取得した baseline と同一**。main `7de7baa` の実測 baseline は **`514 passed, 0 failed`**（4 回連続で再現）
-- **注記（絶対値をハードコードしない理由）**: 新規 worktree での初回実行時に **513 passed** を 1 度観測しており、以後 4 回はいずれも 514（`docs/working/_audit/hook-events.log` の有無・本 PR の新規 `.md` の有無いずれとも無関係であることを実測で切り分け済み）。**初回実行に state 依存の TC が 1 件存在する**とみられるため、絶対値固定にすると exec 開始直後に無関係な理由で FAIL する。判定は「PR 前後で `passed` が同一」+「`failed == 0`」とし、baseline は exec 開始時に**その場で 2 回取得して安定値を採用**する
+- **期待出力**: **`failed == 0`** かつ **`passed` が PR 直前に取得した baseline と同一**
+- **注記（絶対値をハードコードしない理由 / C-2 R-101 で強化）**: 理由は 2 つある。
+  1. **state 依存**: 新規 worktree での初回実行時に **513 passed** を 1 度観測しており、以後は安定していた（`docs/working/_audit/hook-events.log` の有無・本 PR の新規 `.md` の有無いずれとも無関係であることを実測で切り分け済み）。**初回実行に state 依存の TC が 1 件存在する**とみられる。
+  2. **基点ドリフト**: 旧基点 `7de7baa` の baseline は **514** だったが、`73e6a15`（#989 = TASK-0874）で **524** に増えた。**main が進むたびに絶対値は変わる**ため、ハードコードすると基点更新のたびに無関係な FAIL が出る。
+  したがって判定は「PR 前後で `passed` が同一」+「`failed == 0`」とし、**baseline は exec 開始時（T-01）に `origin/main` 最新を取り込んだ状態でその場で 2 回取得して安定値を採用**する。参考値: `73e6a15` で **524 passed / 0 failed**
 - **種別**: 回帰
 
 #### TC-17: ai-loop の Python 単体テストが全 exit 0
 
 - **前提条件**: T-10 実行時
 - **入力**: `ls scripts/ai-loop/test_*.py` で列挙した**全件**を `python3 <path>` で個別実行する（**件数をハードコードしない**。新規テスト追加時に検査が空振りするのを防ぐ）
-- **期待出力**: 列挙された**全件が exit 0**。main `7de7baa` 時点の実測は **13 本 / 13 本 exit 0**（`test_arbiter` / `test_c3_contract` / `test_c3prime_verify` / `test_check_exec_boundary` / `test_ci_taxonomy` / `test_collector` / `test_delivery` / `test_discovery` / `test_executor` / `test_gh_exec` / `test_metrics` / `test_plan_package` / `test_reconciler`）。`unittest` 実装で、CI 上は `tests/extras/ta-55-c3prime-accept.sh` 等を経由して `run-tests.sh` に内包される
+- **期待出力**: 列挙された**全件が exit 0**。参考値: 基点 `73e6a15` で **15 本**（旧基点 `7de7baa` の 13 本 = `test_arbiter` / `test_c3_contract` / `test_c3prime_verify` / `test_check_exec_boundary` / `test_ci_taxonomy` / `test_collector` / `test_delivery` / `test_discovery` / `test_executor` / `test_gh_exec` / `test_metrics` / `test_plan_package` / `test_reconciler` に、#989 で `test_run_evidence` / `test_run_evidence_verify` が追加された）。`unittest` 実装で、CI 上は `tests/extras/ta-55-c3prime-accept.sh` 等を経由して `run-tests.sh` に内包される
+- **注記（本数をハードコードしない理由 / C-2 R-101）**: 旧記述は「13 本」を期待値に書いていたが、基点更新で 15 本になった。**本数は `ls` の結果を母数とし、期待値は「列挙された全件が exit 0」**とする（新規テスト追加時に検査が空振りするのも防ぐ）
 - **種別**: 回帰
 
 #### TC-18: `bin/plangate validate` が FAIL 0 件になる
@@ -252,7 +293,7 @@
 
 | TC | 自動化 | 手段 |
 |----|--------|------|
-| TC-01, TC-03, TC-04（アンカー有無）, TC-12, TC-15, TC-16, TC-17, TC-18, TC-19, TC-20, TC-21, TC-25 | **可** | `grep` / `git diff` / 既存テストランナー / markdownlint / リンク到達スクリプト |
-| TC-02, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-13, TC-14, TC-22, TC-23, TC-24 | **半自動** | 存在・件数・空欄 0 は `grep` で機械判定し、意味の妥当性（分離記載が実質的か等）は V-1 実施者が表と突合して判定する |
+| TC-01, TC-03, TC-04（アンカー有無）, TC-12, TC-15, TC-16, TC-17, TC-18, TC-19, TC-20, TC-21, TC-25, TC-26（行数部分） | **可** | `grep` / `git diff` / 既存テストランナー / markdownlint / リンク到達スクリプト |
+| TC-02, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-13, TC-14, TC-22, TC-23, TC-24, TC-26（セル非空部分） | **半自動** | 存在・件数・空欄 0 は `grep` で機械判定し、意味の妥当性（分離記載が実質的か等）は V-1 実施者が表と突合して判定する |
 
 > **半自動 TC の判定規約**: 「該当語が存在する」だけで PASS にしない。V-1 実施者は対象表のセルを**全数**確認し、空欄・`—` のみ・`検討中` が 1 件でもあれば FAIL とする。FAIL 時は evidence を `evidence/verification/` に必須保存する（[`.claude/rules/working-context.md`](../../../.claude/rules/working-context.md) evidence 保管ルール）。
