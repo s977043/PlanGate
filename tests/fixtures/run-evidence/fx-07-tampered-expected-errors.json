@@ -1,0 +1,33 @@
+{
+  "_note": "expected errors for the RunEvidence verifier (not an accepted record)",
+  "cases": [
+    {
+      "case": "tampered_plan_hash",
+      "expected_exit": 1,
+      "expected_reason_contains": "plan_hash",
+      "mutation": {
+        "field": "plan_hash",
+        "kind": "one_char_rewrite"
+      }
+    },
+    {
+      "case": "tampered_repair_rounds",
+      "expected_exit": 1,
+      "expected_reason_contains": "repair_rounds",
+      "mutation": {
+        "field": "repair_rounds",
+        "kind": "replace",
+        "value": 99
+      }
+    },
+    {
+      "case": "partial_unavailable",
+      "expected_exit": 11,
+      "expected_reason_contains": "routing_decisions",
+      "mutation": {
+        "field": "routing_decisions",
+        "kind": "unavailable"
+      }
+    }
+  ]
+}

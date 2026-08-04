@@ -1,0 +1,16 @@
+{
+  "activation_check": "activation:v1",
+  "baseline_run_ids": [
+    "run-01",
+    "run-02",
+    "run-03"
+  ],
+  "candidate_id": "sha256:96ed24169eed5a17f5a1b9652555cfb7d20fda995ceddb33cc9d299e6f7c7690",
+  "candidate_run_ids": [
+    "cand-run-01",
+    "cand-run-02",
+    "cand-run-03"
+  ],
+  "grader_ref": "grader:independent-v1",
+  "status": "ok"
+}

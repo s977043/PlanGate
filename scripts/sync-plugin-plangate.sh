@@ -413,7 +413,7 @@ if [ -d "$AI_LOOP_SCRIPTS_DIR" ]; then
   # gh_exec / check_exec_boundary / collector / ci_taxonomy / executor / reconciler
   # （TASK-0917 / R-011: 実 PR 収束レーン。本 for ループと下の case 許可判定は
   # **同一集合**でなければならない（片方漏れ = sync drift。T-39 で機械照合する））
-  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py" "$AI_LOOP_SCRIPTS_DIR/metrics.py" "$AI_LOOP_SCRIPTS_DIR/test_metrics.py" "$AI_LOOP_SCRIPTS_DIR/plan_package.py" "$AI_LOOP_SCRIPTS_DIR/test_plan_package.py" "$AI_LOOP_SCRIPTS_DIR/c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/test_c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/delivery.py" "$AI_LOOP_SCRIPTS_DIR/test_delivery.py" "$AI_LOOP_SCRIPTS_DIR/gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/test_gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/test_check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/collector.py" "$AI_LOOP_SCRIPTS_DIR/test_collector.py" "$AI_LOOP_SCRIPTS_DIR/ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/test_ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/executor.py" "$AI_LOOP_SCRIPTS_DIR/test_executor.py" "$AI_LOOP_SCRIPTS_DIR/reconciler.py" "$AI_LOOP_SCRIPTS_DIR/test_reconciler.py"; do
+  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py" "$AI_LOOP_SCRIPTS_DIR/metrics.py" "$AI_LOOP_SCRIPTS_DIR/test_metrics.py" "$AI_LOOP_SCRIPTS_DIR/plan_package.py" "$AI_LOOP_SCRIPTS_DIR/test_plan_package.py" "$AI_LOOP_SCRIPTS_DIR/c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/test_c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/delivery.py" "$AI_LOOP_SCRIPTS_DIR/test_delivery.py" "$AI_LOOP_SCRIPTS_DIR/gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/test_gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/test_check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/collector.py" "$AI_LOOP_SCRIPTS_DIR/test_collector.py" "$AI_LOOP_SCRIPTS_DIR/ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/test_ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/executor.py" "$AI_LOOP_SCRIPTS_DIR/test_executor.py" "$AI_LOOP_SCRIPTS_DIR/reconciler.py" "$AI_LOOP_SCRIPTS_DIR/test_reconciler.py" "$AI_LOOP_SCRIPTS_DIR/run_evidence.py" "$AI_LOOP_SCRIPTS_DIR/test_run_evidence.py" "$AI_LOOP_SCRIPTS_DIR/run_evidence_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_run_evidence_verify.py"; do
     [ -f "$_f" ] || continue
     _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_SCRIPTS" "skills/ai-loop-cycle/scripts"
   done
@@ -425,10 +425,42 @@ if [ -d "$PLUGIN_AI_LOOP_SCRIPTS" ]; then
     case "$_base" in
       # 上の for ループ（コピー元列挙）と **同一集合** に保つこと。片方漏れは
       # sync drift（TASK-0917 / R-011）。T-39 の機械照合で差分 0 を確認する。
-      arbiter.py|test_arbiter.py|metrics.py|test_metrics.py|plan_package.py|test_plan_package.py|c3prime_verify.py|test_c3prime_verify.py|c3_contract.py|test_c3_contract.py|delivery.py|test_delivery.py|gh_exec.py|test_gh_exec.py|check_exec_boundary.py|test_check_exec_boundary.py|collector.py|test_collector.py|ci_taxonomy.py|test_ci_taxonomy.py|executor.py|test_executor.py|reconciler.py|test_reconciler.py) : ;;
+      arbiter.py|test_arbiter.py|metrics.py|test_metrics.py|plan_package.py|test_plan_package.py|c3prime_verify.py|test_c3prime_verify.py|c3_contract.py|test_c3_contract.py|delivery.py|test_delivery.py|gh_exec.py|test_gh_exec.py|check_exec_boundary.py|test_check_exec_boundary.py|collector.py|test_collector.py|ci_taxonomy.py|test_ci_taxonomy.py|executor.py|test_executor.py|reconciler.py|test_reconciler.py|run_evidence.py|test_run_evidence.py|run_evidence_verify.py|test_run_evidence_verify.py) : ;;
       *)
         if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/scripts/$_base"
         else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/scripts/$_base"; fi
+        changed=1
+        ;;
+    esac
+  done
+fi
+
+# bundled schema（TASK-0874 / R1 M-4）: run_evidence_verify.py は schema を
+# 「唯一の正」として読むが、plugin 導入先には REPO_ROOT/docs/schemas/ が存在せず
+# 受理器が**常に起動不能**になっていた（実測 exit 1）。skill 直下の schemas/ へ
+# 同梱し、受理器側の SCHEMA_CANDIDATES 2 本目がここを解決する。
+#
+# ⚠️ 上の scripts/*.py 同期ループ（と対の case 文）には **足さないこと**。
+# tests/extras/ta-60-run-evidence.sh の drift 検査は for ループから `.py` だけを
+# 抽出して case 文と集合比較するため、片方に `.json` が混ざると誤検知する。
+PLUGIN_AI_LOOP_SCHEMAS="$PLUGIN_AI_LOOP_SKILL_DIR/schemas"
+_ai_loop_schema_files="run-evidence.schema.json"
+if [ -d "$REPO_ROOT/docs/schemas" ]; then
+  for _name in $_ai_loop_schema_files; do
+    [ -f "$REPO_ROOT/docs/schemas/$_name" ] || continue
+    _sync_ai_loop_file "$REPO_ROOT/docs/schemas/$_name" "$PLUGIN_AI_LOOP_SCHEMAS" \
+      "skills/ai-loop-cycle/schemas"
+  done
+fi
+if [ -d "$PLUGIN_AI_LOOP_SCHEMAS" ]; then
+  for _f in "$PLUGIN_AI_LOOP_SCHEMAS"/*.json; do
+    [ -f "$_f" ] || continue
+    _base="$(basename "$_f")"
+    case " $_ai_loop_schema_files " in
+      *" $_base "*) : ;;
+      *)
+        if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/schemas/$_base"
+        else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/schemas/$_base"; fi
         changed=1
         ;;
     esac
