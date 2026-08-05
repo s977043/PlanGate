@@ -1,0 +1,131 @@
+# PBI INPUT PACKAGE — TASK-1012
+
+> 対象 issue: [#1012](https://github.com/s977043/plangate/issues/1012)（enhancement / P2）
+> 由来: PR #986 の **V-2 事後補完（H-1）**。証跡は `docs/working/TASK-0914/review-external.md` **R-407**。
+
+## Context / Why
+
+`tests/extras/ta-26-plugin-sync.sh` の **TC-13 が実行時間の支配項**になっている。TC-13 は ta-26 自身を子プロセスとして再実行するため、#914 で追加した TC-20〜TC-34 が **親 1 回 + 子 2 回 = 計 3 回**実行される。
+
+### 実測（V-2 事後補完・sandbox）
+
+| 項目 | 実測 |
+|---|---|
+| `ta-26` standalone 全体 | 54.5s（別測定で 57.1s / 82.0s。負荷でぶれる） |
+| **TC-13（子プロセス 2 本の再実行）** | **42.2s / 全体 78.3s = 54%** |
+| #914 追加 TC 群（TC-20〜34）親のみ | 8.1s（sync 実行 15 回） |
+| 同・TC-13 の子 2 本を含む実効コスト | **≈ 24s** |
+| 交互 A/B（プロトタイプ適用後） | **BASE 57.1s / 82.0s → OPT 47.5s / 47.8s / 41.7s** |
+
+### 既存パターンのミラーである
+
+同ファイルは **TC-03 / TC-04 に対してすでに同じ処置を行っている**（`tests/extras/ta-26-plugin-sync.sh` L62-68）。
+
+```sh
+# TC-03 / TC-04 は実リポジトリに対して sync を計 3 回走らせるため、このファイル
+# 内で最も重い（実測 合計 約 13 秒）。TC-13 が起動する再帰防止モードの子プロセス
+# （PG_T26_NO_RECURSE=1）では省略する — 子の目的は standalone fallback が機能して
+# サマリ行を出すことの証明に限られ、TC-03/04 は必ず親プロセス側で実行されるため
+# カバレッジは変わらない。
+if [ "${PG_T26_NO_RECURSE:-0}" = "1" ]; then
+  printf '  [SKIP] TC-03/TC-04（再帰防止の子プロセスでは省略・親で実行済み）\n'
+else
+```
+
+本 PBI は **この既存イディオムを TC-20〜TC-34 ブロックへ適用するだけ**であり、新規設計を持ち込まない。
+
+## What (Scope)
+
+### In scope
+
+`tests/extras/ta-26-plugin-sync.sh` の #914 TC 群（TC-20〜TC-34）を、既存の `PG_T26_NO_RECURSE` ゲートで包む。
+
+```sh
+if [ "${PG_T26_NO_RECURSE:-0}" = "1" ]; then
+  printf '  [SKIP] TC-20〜TC-34（再帰防止の子プロセスでは省略・親で実行済み）\n'
+else
+  ...（既存ブロックそのまま）...
+fi
+```
+
+### Out of scope
+
+| 項目 | 追跡先 |
+|------|--------|
+| `ta-26` TC-03/04 の `find \| xargs cat \| md5sum` 4 回実行（≈16s）/ sync 内の refs 1 本ごとの `python3` 起動（≈23 回） | **#914 diff 外**（#771 / #790 由来）。実行時間の最大の伸びしろだが別 PBI |
+| TC-13 の連鎖 FAIL 構造そのもの | **#1011**（V3-06） |
+| 経路2 guard の fail-open | **#1009** |
+| guard を弱める変異 2 種が通り抜ける | **#1010** |
+| `test_run_evidence.py::test_tc45` が dirty tree で誤 FAIL | **#997** |
+| production code（`scripts/sync-plugin-plangate.sh`）への変更 | 本 PBI では**一切行わない** |
+
+## 受入基準
+
+- [ ] **AC-1**: TC-13 の子プロセス（`PG_T26_NO_RECURSE=1`）で**ゲート対象 TC**（20-29 / 32 / 34 / 35 / 36）がスキップされ、`[SKIP]` 行が出力される
+  - **成立の静的前提**: ゲート内で定義されゲート外から参照される shell 関数・変数が **0 件**であること（`set -e` が無いため、越境があると子は `command not found` のまま継続 FAIL し、TC-13 の `0 failed` 判定を壊す）。検証は TC-A6a（静的）/ TC-A6b・TC-A6c（変異）
+  - **ゲート対象は「#914 の TC」と一致しない**。#914 の TC-30 / TC-33 は静的検査で軽量なためゲート外に残す
+- [ ] **AC-2**: **親プロセスの TC 総数・PASS 数が変更前と一致する**（カバレッジ不変）
+- [ ] **AC-3**: `ta-26` standalone が **0 failed**（総数は基点実測に従う。契約値として固定しない）
+- [ ] **AC-4**: フルスイート `sh tests/run-tests.sh` が **0 failed**
+- [ ] **AC-5**: 実行時間の短縮を**交互 A/B で実測**して status に記録する（単発測定にしない — 負荷でぶれるため）
+
+## Notes from Refinement
+
+- **本 PBI はテスト意味論の変更を伴う**: 子プロセスのカバレッジが狭まる。ただし TC-13 の判定は「子が `TA-26 standalone: … 0 failed` を出すこと」＝ **standalone fallback がサマリ行を出すことの証明**に限られ、同ファイルが TC-03/04 に対して既に同じ根拠を採用している（L62-68）
+- **親側のカバレッジは不変**（AC-2 で固定する）
+- `scripts/sync-plugin-plangate.sh` の**素実行は禁止**（TASK-0914 `handoff.md:129` の既存規約）。検証は sandbox 経由
+- extras の standalone preamble・判別式には**触らない**（TC-33 が静的走査するため）
+
+## Estimation Evidence
+
+### Risks
+
+| リスク | 内容 | 緩和 |
+|-------|------|------|
+| **中** | 子のカバレッジが狭まることで、将来「親では通るが子で落ちる」退行を見逃す | TC-13 の判定目的が standalone fallback の証明に限られることを根拠とし、AC-2 で親のカバレッジ不変を固定 |
+| **低** | ゲートの範囲を誤ると TC-20〜34 が親でもスキップされる | AC-1（子で SKIP）と AC-2（親で全実行）を対で検証 |
+| **低** | 実行時間の改善が測定ノイズに埋もれる | AC-5 で交互 A/B を要求 |
+
+### Unknowns
+
+- なし（プロトタイプ実装と検証は V-2 事後補完で完了済み。`ta-26` 30 passed / 0 failed・フルスイート非回帰を sandbox で確認済み）
+
+### Assumptions
+
+- `PG_T26_NO_RECURSE` は TC-13 が起動する子プロセスにしか付かない（実装で確認済み: L298 / L301）
+- `tests/extras/` は Hardening Override 対象パス**外**（`scripts/hooks/*.sh` 等の 9 カテゴリに含まれない）
+- ai-loop の判定基盤 carve-out（`scripts/ai-loop/**` / `docs/workflows/ai-loop/**` / `docs/ai/ai-loop/**` / `*/skills/ai-loop-cycle/**`）にも**非接触**
+
+## Mode 判定（暫定・plan で確定）
+
+判定結果: **standard**
+
+| 判定軸 | 値 | 根拠 |
+|-------|---|------|
+| 変更ファイル数 | **1**（実装）+ working context | 超低〜低 |
+| 受入基準数 | **5** | 中 |
+| 変更種別 | **code**（test のみ・production code 不変） | 低〜中 |
+| リスク | **中** | テスト意味論の変更を伴う |
+| 影響範囲 | 当該ファイルのみ | 低 |
+
+定量（AC 5 件 → 中）× 定性（リスク中）の最大値で **standard**。承認境界パス**外**のため例外ルールによる引き上げなし。
+
+### lite_eligible 判定
+
+| 軸 | 値 | 根拠 |
+|----|---|------|
+| 変更ファイル数 | ✅ **1**（≤ 2） | 実装は `ta-26-plugin-sync.sh` のみ |
+| 新規設計の有無 | ✅ **なし** | L62-68 の既存ゲートのミラー |
+| 既存パターン踏襲 | ✅ **あり** | 同一ファイル内の同一イディオム・同一論拠 |
+| 可逆性 | ✅ **あり** | `git revert` 1 手 |
+
+→ **`lite_eligible=true`**。ai-loop の **C-3' 裁定（`/ai-loop-cycle`）を Human C-3 の代わりに用いる**。
+
+`.claude/rules/working-context.md` の Hardening Override は非該当（対象 9 カテゴリのいずれにも触れない）。
+
+## 参照
+
+- issue: [#1012](https://github.com/s977043/plangate/issues/1012)
+- 証跡: `docs/working/TASK-0914/review-external.md` **R-407**（V-2 H-1 の実測と プロトタイプ検証）
+- 既存イディオム: `tests/extras/ta-26-plugin-sync.sh` L62-68（TC-03/04 の同型処置）
+- 関連: #914 / #1009 / #1010 / #1011 / #997 / #921
