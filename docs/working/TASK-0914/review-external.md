@@ -121,3 +121,82 @@ ta-49=6  ta-50=9  ta-51=5  ta-52=5  ta-53=4      計 64
 3. ✅ 簡易 C-1 再実行 → `review-self.md`
 4. ⏳ **Human が C-3 三値判断 → APPROVED `c3.json` を発行**（`bin/plangate approve` は対話 TTY 必須。AI 実行不可）
 5. ⏳ exec（T-01 から）
+
+## 第 4 ラウンド: V-2 / V-3 事後補完（2026-08-05・マージ後）
+
+> **経緯**: TASK-0914 は Mode=high-risk のため `.claude/rules/mode-classification.md` のフェーズ適用マトリクスにより **V-2（コード最適化）と V-3（実装後外部レビュー）が必須**だったが、[PR #986](https://github.com/s977043/plangate/pull/986)（`0ebb8fe`）は**両方を実施しないままマージ**された（`handoff.md` §5 に事実として記録済み）。本ラウンドはその事後補完である。
+>
+> レビュー対象は **マージ済みの実装差分**（`git diff 73e6a15 0ebb8fe -- scripts/ tests/`）。指摘は follow-up issue / PR として扱う（ブロッカー判定は行わない）。
+> 検証はすべて sandbox（`mktemp -d` + `git archive 0ebb8fe`）で実施し、リポジトリ本体は無改変。
+
+### V-3（実装後外部レビュー）— critical 0 / major 1 / minor 4 / info 1
+
+| ID | severity | 指摘 | status | reflected_in | notes |
+|----|----------|------|--------|--------------|-------|
+| R-401 | **major** | 経路2 の base 算出（アンカー `set -- $_ai_loop_expected_refs`）が未 quote 展開のため、正本ファイル名にスペースがあると base が過大化し guard が **fail-open**（WARN なし・exit 0 で削除が通る） | open | **[#1009](https://github.com/s977043/plangate/issues/1009)** → TASK-1009 | **River Review F-5「info / 対処不要」の判定を撤回**（§追補 参照） |
+| R-402 | minor | 経路1 の base 集計の `[ -L ]` 除外が削除条件 `[ ! -f "$_src_refs/$_rb" ]` と**逆向きに**非対称。src 側 symlink は削除から守るのに base に数えられず、**fail-closed 方向の誤検知**（exit 3 で CI を落とす）。#970 は dst 側・fail-open 方向で別事象 | open | **[#1011](https://github.com/s977043/plangate/issues/1011)** | 実測: `find .agents/skills -type l` = 0 件 → 現状は非発火 |
+| R-403 | minor | **30 TC を全 PASS させたまま guard を弱められる変異が 2 種存在する**（`nolink` = base ループの `[ -L ]` 除外削除 / `basewiden` = base glob を `*.md` → `*` へ拡大）。原因は経路1 fixture が `.md` 実ファイルしか置かないこと。`baseinf` の検出も TC-25 の 1 本のみに依存 | open | **[#1010](https://github.com/s977043/plangate/issues/1010)** | 同時に **kill を確認した変異**: M5（guard 全無効化・16 FAIL）/ argswap（TC-05/26/27/29/32）/ stale0（TC-20/21/22/23/25）/ staleoff1（TC-26/27/28/32）/ baseinf（TC-25） ＝ **3 経路の等価性の実証** |
+| R-404 | minor | `_mass_delete_blocked()` の `[ "$3" -gt "$2" ] \|\| return 1` が `$2`/`$3` 不正時に **fail-open**（`[` の rc=2 を `\|\|` が拾う）。`.claude/rules/working-context.md` AC-8 安全側と逆向き | open | **[#1011](https://github.com/s977043/plangate/issues/1011)** | **現 3 呼び出し元は必ず算術で数値を作るため到達不能**（全呼び出し元を確認済み） |
+| R-405 | minor | 3 経路統合により `PLANGATE_ALLOW_MASS_DELETE` の blast radius が拡大。1 経路の誤発火を解除すると全経路の guard が同一 run で無効化される。TC-15 は CI での恒久無効化を防ぐが、ローカル 1 回実行の粒度は担保しない | open | **[#1011](https://github.com/s977043/plangate/issues/1011)** | R-402 の誤発火がこの解除操作を誘発する導線になっている |
+| R-406 | info | TC-13 は ta-26 を再帰実行して rc=0 を期待するため、**無関係な TC が 1 件でも落ちると必ず巻き添えで FAIL**（変異 6 種すべてで同時 FAIL を実測）。原因特定時のノイズ | open | **[#1011](https://github.com/s977043/plangate/issues/1011)** | #921 の解決で前提が変わりうる |
+
+**V-3 で「新規指摘なし」と明示的に確認された箇所**（再調査不要）:
+
+- **3 経路の等価性 / 制御脱出**: 呼び出し位置・`return` / `if` skip・`break` 不使用は設計どおり。`$( )` 経由の呼び出しは 0 件（`guard_fired` の global 伝播が成立）。argswap / staleoff1 / stale0 変異の kill で実証
+- **`skills/ai-loop-cycle/scripts/` と `schemas/` の削除ループ**は**静的 allowlist 駆動**で src 欠損では発火しないため、「無ガードの src 駆動経路の取りこぼし」に**該当しない** ＝ **#914 の scope 主張は正しい**
+- **extras 11 本の AND 化**: `grep -n 'FIXTURES_DIR:-' tests/extras/*.sh | grep -v PG_HARNESS_SOURCED` は TC-33 自身の grep 文字列 1 件のみヒット ＝ **行単位で残存 0・混在なし**（ta-39 の 2 箇所も両方 AND 化済み）
+
+### V-2（コード最適化・分析のみ / 適用なし）
+
+すべて sandbox でプロトタイプ実装し、**ta-26 30 passed / 0 failed + 実 dry-run 出力が原本と完全一致**まで検証済み。
+
+| ID | 価値 | 提案 | status | reflected_in |
+|----|------|------|--------|--------------|
+| R-407 | 高 | **H-1**: TC-13 の子プロセスで #914 TC 群（TC-20〜34）をスキップ。`ta-26` は TC-13 が全体の **54%**（42.2s / 78.3s）を占め、#914 TC 群は親 1 + 子 2 = 3 回実行されている。交互実測 **BASE 57.1s / 82.0s → OPT 47.5s / 47.8s / 41.7s** | open | **[#1012](https://github.com/s977043/plangate/issues/1012)** |
+| R-408 | 高 | **H-2**: 経路1 の base 集計をコピーループへ統合（2 重走査の排除）。現行は同一フィルタの 2 ループが**コメントによる約束**でしか整合を担保していない | open | **TASK-1009**（#1009 と統合） |
+| R-409 | 高 | **H-3**: `set -- $var` を関数スコープのカウンタへ置換し**位置パラメータ破壊**を除去。現行は「以降で `$@` を使わない」という不可視の前提を 3 行のコメントで守っている。`/bin/sh`(bash 3.2) / `/bin/dash` / `/bin/bash` の 3 実装で位置パラメータ保存を実測（`count=4 / caller_$1=--dry-run / caller_$#=2`） | open | **TASK-1009**（#1009 と統合） |
+
+**V-2 が「やらない方がよい」と明示した項目**（再検討不要・根拠つき）:
+
+| 項目 | 判定理由 |
+|------|---------|
+| `basename` → `${_f##*/}`（2 箇所） | 交互 A/B 実測で **有意差なし**（orig 7.6s / new 7.4s。sync 1 回は `python3` 約 23 回起動が支配項）。かつ `basename` は本ファイルの多数派イディオム（8 箇所）で、2 箇所だけ変えると一貫性が落ちる |
+| sandbox ヘルパー 3 本の統合 | 共通なのは実質 2 行のみ。src/dst レイアウト・SKILL.md frontmatter の要否・`_ai_loop_link_rewrite.py` 同梱の要否がすべて異なり、統合するとモード分岐の塊になって**各経路の fixture が何を再現しているのか読めなくなる** |
+| extras 11 本の standalone preamble の共通ファイル化 | **構造的に不可**。(i) 共通ファイルの source には path 解決が要り、本 PBI が堅牢化した判別ロジックを逆行させる (ii) **TC-33 が各ファイル内の `unset` 行を静的走査するため共通化すると FAIL する**。重複は意図的な設計 |
+| 集計ループと削除ループの 1 パス化 | guard は削除前に判定する必要があるため 2 パスは本質的。文字列リスト共有は空白・改行を含む名前で挙動が変わる（＝動作変更） |
+
+**V-2 が検出したが #970 と重複していたもの**: 経路1 の dst 側 symlink 非対称（X-1）。**新規起票せず #970 に集約**。
+
+### 追補: River Review F-5 判定の撤回（R-401）
+
+`handoff.md` §2 の既知課題「経路2 base 算出の未 quote `set --` が pathname 展開に晒される（River Review F-5）」は **info / accepted（対処不要判定: 対象が repo 管理下 docs ファイル名のため実害窓は無視できる）** と記録されていた。
+
+**この判定を撤回する。** 理由は 2 点:
+
+1. F-5 は **glob メタ文字だけを見ていた**。glob は CWD 依存だが、**スペースは CWD に依存せず常に効く**。実害窓は当時の評価より広い
+2. F-5 は **base 算出しか見ていない**。同じ根本原因（期待集合のスペース区切り文字列表現）は**メンバシップ判定 `case " $_ai_loop_expected_refs " in *" $_base "*` も壊す**（stale 過小 → 削除ループもスキップ）
+
+A/B 実測（`git archive 0ebb8fe` の sandbox・正本を最小構成にし plugin 側 references に stale 3 件を配置）:
+
+| 正本ファイル名 | 実 base | 算出 base | rc | WARN | stale 3 件 |
+|---|---|---|---|---|---|
+| `ab.md` / `cd.md`（対照） | 2 | 2 | **3** | 発火 | **3/3 保全** |
+| `a b.md` / `c d.md` | 2 | **4** | **0** | **なし** | **0/3（全削除）** |
+
+メンバシップ判定の実測:
+
+```sh
+$ sh -c 'exp=" foo bar.md 00_concept.md"; for b in bar.md foo nope.md; do
+    case " $exp " in *" $b "*) echo "HIT : $b";; *) echo "miss: $b";; esac; done'
+HIT : bar.md      # 期待集合に無いのに「期待済み」扱い
+HIT : foo         # 同上
+miss: nope.md
+```
+
+**影響の限定**: 現行 main の正本 2 ディレクトリにスペース / glob 文字を含む名前は**存在しない**（実測）。したがって**進行中のデータ損失は無く、潜在バグである**。
+
+**教訓**: 「実害窓は無視できる」という判定は、想定した攻撃面（この場合 glob）だけでなく、**同じ欠陥から生じる他の面（スペース）と、同じ原因を共有する他の消費箇所（メンバシップ判定）まで数えてから**出す必要がある。
+
+### 本ラウンドの位置づけ
+
+本ラウンドは **マージ後の事後補完**であり、TASK-0914 の C-3 / C-4 判定を遡って変更するものではない。指摘は R-401〜R-409 として上記 issue / TASK-1009 へ委譲する。TASK-0914 の完了資産（`handoff.md`）は §2 に **追記型 addendum** で F-5 撤回を記録する（当時の判定行は監査連続性のため保持する）。
