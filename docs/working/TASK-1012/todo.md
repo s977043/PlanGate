@@ -1,6 +1,6 @@
 # EXECUTION TODO — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 3** = C-1 ラウンド 1〜4 反映済み）/ Mode: **standard**（`lite_eligible=true`）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 4** = C-1 ラウンド 1〜5 反映済み）/ Mode: **standard**（`lite_eligible=true`）
 > ゲート: Human C-3 の代わりに **ai-loop C-3' 裁定**（`/ai-loop-cycle`）
 
 ## 👤 Human タスク

@@ -3,7 +3,7 @@
 > issue: [#1012](https://github.com/s977043/plangate/issues/1012)
 > 入力: `docs/working/TASK-1012/pbi-input.md`
 > 由来: PR #986 の V-2 事後補完 H-1（証跡 = `docs/working/TASK-0914/review-external.md` R-407）
-> **改訂 3**: C-1 を 4 ラウンド実施し、計 21 件の指摘を反映した。
+> **改訂 4**: C-1 を 5 ラウンド実施し、計 30 件の指摘を反映した。
 
 ## Goal
 
@@ -150,7 +150,14 @@ fi
 
 ### T-01 のシンボル越境検査の実装（C-1 R4 指摘 G）
 
-ゲート範囲は**行番号でなくゲート構文から動的に導出**する（ゲート適用でインデントと 8 行が入り、行番号が動くため）。検査は適用前（T-01）と適用後（TC-A6a / 変異③）の両方で走る。
+> ⚠️ **適用前と適用後で入力の取り方が違う**（C-1 R5 指摘 N-3 の是正）。改訂 3 まで「ゲート構文から動的に導出」を**両方に適用**すると書いていたが、**T-01 の時点でゲート A / B はまだ存在しない**。実測すると awk は既存 2 ゲート（`67-92` / `293-321`）しか返さず、T-01 の 🚩「越境 0 件」は**ゲート A / B を一度も検査せずに PASS する** = fail-open だった。
+
+| フェーズ | 範囲の入力 | 備考 |
+|---------|-----------|------|
+| **T-01（適用前）** | **Approach Overview の図が示す予定行範囲を明示入力**する（ゲート A = TC-20 開始行〜TC-25 終端 / ゲート B = TC-26 開始行〜TC-36 終端） | 動的導出は使えない。範囲は plan の図と `grep -nE '^# TC-'` の実測で確定する |
+| **T-02 適用後（TC-A6a / 変異③）** | **ゲート構文から動的に導出**（下記 awk） | 適用でインデントと行が入り行番号が動くため |
+
+適用後の動的導出:
 
 ```sh
 F=tests/extras/ta-26-plugin-sync.sh
@@ -162,7 +169,7 @@ awk '
 #   範囲外の行からの参照（$名 / 名 の呼び出し）を全数照合する。ヒット 0 件が期待値。
 ```
 
-> ⚠️ **既存ゲート（TC-03/04 の L67・TC-13 の L293）も同じ構文**なので、上記は 4 ゲートを拾う。検査対象は**新規 2 ゲート**に絞ること（変異①の適用範囲と同じ注意）。
+> ⚠️ **既存ゲート（TC-03/04 の L67・TC-13 の L293）も同じ構文**なので、適用後の上記 awk は **4 ゲート**を返す。**新規 2 ゲートの特定は SKIP 文言で行う**（`TC-20〜TC-25` / `TC-26〜29/32/34〜36` を含むブロックが新規）。T-01 / TC-A6a の 🚩 には「**導出件数が 4 であること**」と「**うち新規 2 件を文言で特定した根拠**」を含める（2 件しか返らなければ適用漏れ、4 件を超えれば想定外のゲート追加）。
 
 ### T-05 の BASE/OPT 切替手順（退避コピー方式）
 
@@ -224,7 +231,7 @@ git diff --quiet -- "$F" && echo "OPT restored (index と一致)"
 
 → **`lite_eligible=true`**（**計画時の C-3' 裁定に限る**）
 
-> **成立範囲の注記**: `size_ok` が成立するのは **計画時の裁定のみ**。実装後の再裁定では実差分（実装 1 + working context 一式 + evidence）が `SIZE_OK_MAX_FILES`=2 を超えるため **priority 1.9 で human escalate する見込み**。これは仕様どおりの挙動であり、再裁定は Human 判断を前提とする。handoff にも明記する。
+> **成立範囲の注記**: `size_ok` が成立するのは **計画時の裁定のみ**。実装後の再裁定では実差分（実装 1 + working context 一式 + evidence）が `SIZE_OK_MAX_FILES`=2 を超える。SKILL.md の「虚偽宣言禁止・判定不能なら false」に従い **`size_ok=false` を申告する**ため、発火するのは **priority 2（lite=false）** であり priority 1.9 ではない（1.9 は「申告 true ∧ 実測超過」でのみ発火 — `_declared_size_ok()` の実装で確認。C-1 R5 指摘 N-5）。終端状態は同じ human escalate で、再裁定は Human 判断を前提とする。handoff にも明記する。
 
 ### 境界チェック
 
@@ -252,10 +259,13 @@ Human C-3 の代わりに **ai-loop の C-3' 裁定（`/ai-loop-cycle`）** を�
 ### 実行順序（plan_hash 束縛のため順序厳守）
 
 1. plan / todo / test-cases を**確定**する（以降 plan を編集しない — `feedback_no_plan_edit_after_c3_approval`）
-2. **C-1** を実施 → PASS なら `review-self.md` に `C1-VERDICT: PASS plan=sha256:<確定後 plan の hash>` を 1 行だけ記録
+2. **C-1** を実施 → PASS なら `review-self.md` に `C1-VERDICT: PASS plan=sha256:<確定後 plan の hash>` を 1 行だけ記録。この結果を **`gates.c1="PASS"`** として C-3' 入力へ渡す
 3. **C-2** を 1 本実施（観点固定・`critical/major=0` を要求）→ `review-external.md` に指摘を `R-NNN` で集約し、`C2-VERDICT: approve plan=sha256:<同 hash>` を 1 行だけ記録
-4. **C-3'**（`/ai-loop-cycle`）を実行
-5. `arbiter.py` が `HUMAN_ESCALATED`（exit 2）を返した場合は**停止して人間へ提示**し、AI が自己解決しない
+4. **Step 0: `breakdown-gate` スキルで粒度判定** → 理想 / 許容なら **`gates.breakdown="pass"`**、分割必須ならそれ以外の値
+5. **C-3'**（`/ai-loop-cycle`）を実行。入力に **`gates` を必ず含める**
+6. `arbiter.py` が `HUMAN_ESCALATED`（exit 2）を返した場合は**停止して人間へ提示**し、AI が自己解決しない
+
+> ⚠️ **`gates` の省略は入力エラーにならないが決定論的に escalate する**（C-1 R5 指摘 N-2）。`ai-loop-cycle/SKILL.md` は「gates 自体を省略した場合も入力エラーにはならないが、**priority 1.7 で human escalate に倒れる**」と明記しており、`arbiter.py` の priority table にも 1.7 が実在する。改訂 3 までの実行順序には **Step 0 が無く `gates` の受け渡しも書いていなかった**ため、順序どおり実行すると `lite_eligible=true` の目的（auto-approve）が**達成不能**だった。R4-B（前提列挙の不完全）と同一クラスの再発が、B の是正節そのものの中で起きていた。
 
 ### production / 非 production の別
 
