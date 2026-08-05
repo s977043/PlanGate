@@ -192,8 +192,10 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
       # base（src 側 *.md 残存数）と stale（dst にあって src に同名が無い *.md 数）
       # を集計し、blocked なら**当該 skill の references 削除のみ** skip する
       # （他 skill の処理・コピーは継続）。
-      # 集計にはコピーループと同一の [ -L ] 除外を入れる（R-351 / 論点 D'-2。
-      # 集計定義と実削除条件の非対称は「N 件と数えて M 件消す」guard 無効化を招く）。
+      # dst 側 stale 集計は**削除ループと同一条件**で数える（[ -L ] 除外は入れない
+      # / #970）。集計が削除より狭い（集計 ⊊ 削除）と「N 件と数えて M 件消す」
+      # ことになり guard が無効化されるため、集計の正は常に削除ループ側に置く。
+      # src 側 base 集計はコピーループ（[ -L ] 除外あり）と対を成すため除外を維持する。
       _refs_base_count=0
       for _rf in "$_src_refs"/*.md; do
         [ -f "$_rf" ] || continue
@@ -203,7 +205,6 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
       _refs_stale_count=0
       for _rf in "$_dst_refs"/*.md; do
         [ -f "$_rf" ] || continue
-        [ -L "$_rf" ] && continue
         _rb="${_rf##*/}"
         if [ ! -f "$_src_refs/$_rb" ]; then
           _refs_stale_count=$((_refs_stale_count + 1))

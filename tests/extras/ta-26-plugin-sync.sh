@@ -670,6 +670,40 @@ else
   t26_fail "TC-34 失敗 (rc=$_t26_rc34 期待0 / left=$_t26_left34 期待3 / stale残=$_t26_stale34 期待0 / 保持=$_t26_kept34 期待3): $_t26_out34"
 fi
 
+# TC-35: 経路1 — 解決可能 symlink stale を集計に含める（#970 / 集計 = 削除の厳密一致）
+# base=3/stale=3 の非発火 fixture へ「解決可能 symlink stale」2 件を追加注入し、
+# 集計が symlink を含む（stale=5 > base=3 → 発火）ことを guard ログの文字列で直接固定する。
+# 集計が symlink を除外する実装（修正前 = 変異 M-1）では stale=3 と数えて 3 > 3 が偽 →
+# 非発火のまま 5 件を削除する（「N 件と数えて M 件消す」guard 無効化）。
+# 副次検査: target が存在しない symlink（dangling-1.md）は [ -f ] が偽のため集計に入らない
+#（`base=3 / stale=5` の文字列一致が変わらないことで固定 / 変異 M-2 を検出する）。
+# ヘルパーのシグネチャは変更せず、通常呼び出しの**後**に sandbox へ symlink を追加注入する。
+# symlink の target は同期の走査対象外である sandbox 直下 targets/ に置く。
+_t26_t35=$(mktemp -d); register_cleanup "$_t26_t35"
+_t26_mk_refs_guard_sandbox "$_t26_t35" 3 3 skill-A
+_t26_refs35="$_t26_t35/plugin/plangate/skills/skill-A/references"
+mkdir -p "$_t26_t35/targets"
+for _t26_n35 in 1 2; do
+  printf 'linked target %s\n' "$_t26_n35" > "$_t26_t35/targets/target-$_t26_n35.md"
+  ln -s "$_t26_t35/targets/target-$_t26_n35.md" "$_t26_refs35/link-$_t26_n35.md"
+done
+ln -s "$_t26_t35/targets/missing.md" "$_t26_refs35/dangling-1.md"
+_t26_rc35=0
+_t26_out35=$(sh "$_t26_t35/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc35=$?
+_t26_left35=$(_t26_count_files "$_t26_refs35")
+_t26_tgt35=0
+for _t26_n35 in 1 2; do
+  [ -f "$_t26_t35/targets/target-$_t26_n35.md" ] && _t26_tgt35=$((_t26_tgt35 + 1))
+done
+rm -rf "$_t26_t35"
+if [ "$_t26_rc35" -eq 3 ] && [ "$_t26_left35" = "9" ] && [ "$_t26_tgt35" = "2" ] \
+  && printf '%s' "$_t26_out35" | grep -q 'base=3 / stale=5' \
+  && printf '%s' "$_t26_out35" | grep -q 'DELETE skipped for skills/skill-A/references'; then
+  t26_pass "TC-35 経路1: 解決可能 symlink stale 2 件が集計に入り base=3/stale=5 で発火・9 件全残存・target 非破壊"
+else
+  t26_fail "TC-35 失敗 (rc=$_t26_rc35 期待3 / left=$_t26_left35 期待9 / target残=$_t26_tgt35 期待2 / 期待文字列 'base=3 / stale=5'): $_t26_out35"
+fi
+
 # TC-30: tests/extras/README.md に harness 判別規約が存在（#914 AC-5 / 静的検査）
 _t26_readme30="$PG_T26_ROOT/tests/extras/README.md"
 if grep -q 'PG_HARNESS_SOURCED' "$_t26_readme30" 2>/dev/null \
