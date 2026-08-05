@@ -308,26 +308,30 @@ TC-12 の assert を **(a) probe なし → rc=0 / (b) probe あり × target �
 
 | R-NNN | status | reflected_in(commit) | notes |
 |-------|--------|----------------------|-------|
-| R-001 | open | | 設計 / major / AC↔TC 写像の二重正本 |
-| R-002 | open | | 設計 / major / exit 3 意味レイヤー不在（最優先の実害経路） |
-| R-003 | open | | 設計 / major / 層 0 の 4 本が起点集合から欠落 |
-| R-004 | open | | 設計 / major / Mode 判定根拠不在・D-5 未裁定 |
-| R-005 | open | | 設計 / major / todo に `rollback:` 0 件 |
-| R-006 | open | | 設計 / major / TC-14 ファイル名ハードコード |
-| R-007 | open | | 設計 / minor / D-2（層 C）裁定の未明文化 |
-| R-008 | open | | 設計 / minor / handoff writeback の append-only 規定不足 |
-| R-009 | open | | 設計 / minor / AC-5 / AC-6 の機械検査不在 |
-| R-010 | open | | 設計 / minor / runner helper source の要否再検証 |
-| R-011 | open | | 設計 / info / AC-7（pre-fix FAIL 実証）の evidence 追加 |
-| R-012 | open | | 整合 / major / 元 F-1 / ta-45 が finalizer trap を消す |
-| R-013 | open | | 整合 / major / 元 F-2 / ta-26 TC-33 の FAIL または空振り |
-| R-014 | open | | 整合 / major / 元 F-3 / #914 E-1 棄却の反転が未認識 |
-| R-015 | open | | 整合 / major / 元 F-4 / summary 書式束縛 + probe env 再帰汚染 |
-| R-016 | open | | 整合 / major / 元 F-5 / ta-14 重複で test-id が非一意 |
-| R-017 | open | | 整合 / minor / 元 F-6 / CI 実行時間 2 倍超 |
-| R-018 | open | | 整合 / minor / 元 F-7 / 案 C の第一根拠が現存事例で不成立 |
-| R-019 | open | | 整合 / info / 元 F-8 / `set -eu` 耐性・`register_cleanup` 非再定義 |
-| R-020 | open | | 整合 / info / 元 F-9 / rc=2 と hook BLOCK の名前空間 |
+| R-001 | reflected | `__REFLECT_SHA__` | 設計 / major / AC↔TC 写像の二重正本 → plan `### Success Criteria` を削除し test-cases `## Traceability` を単一正本化 |
+| R-002 | reflected | `__REFLECT_SHA__` | 設計 / major / exit 3 意味レイヤー不在（最優先の実害経路）→ plan `### rc 意味レイヤー` 新設 / RC Table に rc=3 追加 / TC-17 を rc=3 へ反転（ta-43・ta-44 を対象化） |
+| R-003 | reflected | `__REFLECT_SHA__` | 設計 / major / 層 0 の 4 本が起点集合から欠落 → plan Context・前提の実測検証・Task 5 / todo T-01・T-05 へ 4 本と 2 系統 footer を明記。件数（53/57）は劣化なしのため不変 |
+| R-004 | reflected | `__REFLECT_SHA__` | 設計 / major / Mode 判定根拠不在・D-5 未裁定 → plan `## Mode判定` 新設（定量 3 軸 + 定性 4 軸 + critical 非引き上げ根拠）。D-5 = スライス分割で確定 |
+| R-005 | reflected | `__REFLECT_SHA__` | 設計 / major / todo に `rollback:` 0 件 → T-01〜T-08 全件に付与。T-04/T-05 → T-03 の revert 依存順を明記。plan C-1 チェックの自己申告乖離も解消 |
+| R-006 | reflected | `__REFLECT_SHA__` | 設計 / major / TC-14 ファイル名ハードコード → TC-14 を runtime `ls tests/extras/ta-*.sh \| tail -1` 解決へ書換。plan Task 6 / todo T-06 も同文言 |
+| R-007 | reflected | `__REFLECT_SHA__` | 設計 / minor / D-2（層 C）裁定 → plan In Scope に「D-2 = (c) 採用」を明記。todo T-04 の対象を 41 本に |
+| R-008 | reflected | `__REFLECT_SHA__` | 設計 / minor / handoff writeback → plan に append-only 規約節を新設（記号アンカー・行番号非記載・対象 2 行） |
+| R-009 | reflected | `__REFLECT_SHA__` | 設計 / minor / AC-5 / AC-6 の機械検査 → TC-19（README grep）追加。AC-6 の handoff CLOSED マーカー grep を Exit Criteria へ |
+| R-010 | reflected | `__REFLECT_SHA__` | 設計 / minor / runner helper source の要否 → plan Task 3 / todo T-03 に bootstrap 単独代替の比較検証項目。Files 表を「要否は Task 3 で確定」に |
+| R-011 | reflected | `__REFLECT_SHA__` | 設計 / info / AC-7 → Verification Plan に pre-fix HEAD 実行行を追加。Mutation Matrix 冒頭に「別物」注記 |
+| R-012 | resolved-by-design | `__REFLECT_SHA__` | 整合 / major / 元 F-1 / 案 D（末尾 explicit finalize）採用により trap を張らないため競合が消滅。検出式の教訓は Replan Triggers 節に保持 |
+| R-013 | reflected | `__REFLECT_SHA__` | 整合 / major / 元 F-2 → plan に「`ta-26` TC-33 の扱い」節を新設し検査対象を helper 側へ差し替え。AC-8 新設 + TC-22 + M-09 で空振り化を禁止 |
+| R-014 | reflected | `__REFLECT_SHA__` | 整合 / major / 元 F-3 → plan に「先行決定の反転」節を新設（#914 §4 引用 + 反転根拠 + glob 非混入の実測対置）。Human Approval Boundary に項目追加 |
+| R-015 | reflected | `__REFLECT_SHA__` | 整合 / major / 元 F-4 → (a) summary 書式維持を Global Constraints + TC-18 + M-11 へ / (b) probe 再帰ガードを Contract Design + TC-23 + M-12 へ |
+| R-016 | reflected | `__REFLECT_SHA__` | 整合 / major / 元 F-5 → test-id を basename 定義へ。TC-10/11/12 を basename ベース化。TC-20（一意性検査）を contract TA へ追加 |
+| R-017 | reflected | `__REFLECT_SHA__` | 整合 / minor / 元 F-6 → Verification Plan に CI 時間見積 + 裁定節（既定でフルスイート・opt-in スキップ不採用・3 連続の読み替え）。Out of Scope に CI 時間予算を追記 |
+| R-018 | resolved-by-design | `__REFLECT_SHA__` | 整合 / minor / 元 F-7 / 案 C 不採用により「案 C の根拠」記述が消滅。実測（top-level `exit N` = 0 件 / ta-39 の fail 構造 0）は plan `## 前提の実測検証` に replan 根拠として保持 |
+| R-019 | reflected | `__REFLECT_SHA__` | 整合 / info / 元 F-8 → Global Constraints に 2 制約（`set -eu` source-safe / `register_cleanup` 非再定義）。TC-21 追加 |
+| R-020 | reflected | `__REFLECT_SHA__` | 整合 / info / 元 F-9 → README 規約項目として plan Task 7 / todo T-07 に明記。TC-19 の grep 対象にも含めた |
+
+> **status 値の追加**（本反映時点）: 上記凡例の `open` / `reflected` / `rejected` に加え、
+> **`resolved-by-design`**（設計変更により指摘の前提そのものが消滅した）を用いる。
+> `wont-fix`（反映しないと判断）は **0 件**。
 
 ## 次ステップ（本ファイル外）
 
