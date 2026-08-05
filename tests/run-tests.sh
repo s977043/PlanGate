@@ -4,7 +4,7 @@
 #
 # 構成:
 #   - 本体（base tests）: 下記 TA-01 / TA-02 / TA-03 + plangate validate --dir
-#   - 拡張テスト: tests/extras/*.sh を順次 source（Issue #170 で導入）
+#   - 拡張テスト: tests/extras/ta-*.sh を順次 source（Issue #170 で導入）
 #     新規テストブロック追加時は tests/extras/ にファイルを置くこと。
 #     詳細は tests/extras/README.md 参照。
 
@@ -152,7 +152,7 @@ if [ "${created_gate_test:-0}" -eq 1 ]; then
 fi
 rm -rf "$TMPDIR_TASK"
 
-# ── Extras: tests/extras/*.sh を順番に source（Issue #170）─────────────────────
+# ── Extras: tests/extras/ta-*.sh を順番に source（Issue #170）─────────────────────
 # 新規 TA-NN を追加するときは tests/extras/ にファイルを置くだけでよい。
 # 本体（このファイル）の編集は不要 → PBI 連続実装時の衝突を回避。
 #
