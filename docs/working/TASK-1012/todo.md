@@ -1,6 +1,6 @@
 # EXECUTION TODO — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 2** = C-1 ラウンド 1〜3 反映済み）/ Mode: **standard**（`lite_eligible=true`）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 3** = C-1 ラウンド 1〜4 反映済み）/ Mode: **standard**（`lite_eligible=true`）
 > ゲート: Human C-3 の代わりに **ai-loop C-3' 裁定**（`/ai-loop-cycle`）
 
 ## 👤 Human タスク
@@ -10,6 +10,8 @@
 | **H-1** | **C-4: PR レビュー**（GitHub 上・三値）。merge は Human-owned 固定 | A-6 完了後 |
 
 > **C-3 は ai-loop の C-3' 裁定に置換**（`lite_eligible=true`）。`arbiter.py` が `HUMAN_ESCALATED`（exit 2）を返した場合のみ Human 判断を仰ぐ。
+>
+> ⚠️ **C-3' には前提がある**（C-1 R4 指摘 B）: Lite ゲートでも **C-2 外部レビュー 1 本**が必要で、Plan Package は **6 要素**（+ `C1-VERDICT` / `C2-VERDICT` マーカー各 1 回）。順序は **plan 確定 → C-1 → C-2 → C-3'**。詳細は plan の「ゲート運用」節。これらは workflow-conductor が制御するゲート工程であり、本 ToDo の Agent タスクには含めない。
 
 ## 🤖 Agent タスク
 
@@ -19,8 +21,8 @@
 | **A-2**（T-02） | ゲート A / B を適用（L62-68 と同型）。ヘルパー定義は移動しない。**適用後に `git add` して index に載せる** | A-1 | 🚩 `sh -n` rc=0 + `git diff -w` の変化がゲート追加分のみ + `git diff --cached --stat` に当該ファイルが載る | `git checkout HEAD -- tests/extras/ta-26-plugin-sync.sh`（**HEAD 指定**。index ごと戻す） |
 | **A-3**（T-03） | **受入検証**: AC-1 / AC-2 / AC-3 / AC-4 | A-2 | 🚩 AC-1〜AC-4 すべて PASS | 不要（読取のみ） |
 | **A-4**（T-04） | **変異検証 3 種**（1 つずつ入れて戻す）。①条件反転 → AC-2 が FAIL ②ゲート B 終端を TC-36 手前へ → AC-1 が FAIL ③**ゲート外にゲート A 内変数 `_t26_t20` を参照する 1 行を注入** → 越境検査が ≥1 件 | A-3 | 🚩 3 変異すべてで期待 FAIL + 各復元後に再 PASS | 各変異ごとに `git checkout -- tests/extras/ta-26-plugin-sync.sh`（**HEAD を付けない**。index = 実装適用済みへ戻る） |
-| **A-5**（T-05） | **AC-5**: 交互 A/B で実行時間を実測（BASE / OPT を交互に各 2 回以上） | A-3 | 🚩 交互測定であること | 不要（読取のみ） |
-| **A-6**（T-06） | handoff / status / current-state / INDEX を整備。handoff に「**ゲート境界の直後に TC を足すときは越境検査を再実行する**」旨を明記 | A-3, A-4, A-5 | 🚩 handoff 6 要素 + 再発防止の申し送り | 不要 |
+| **A-5**（T-05） | **AC-5**: 交互 A/B で実行時間を実測（BASE / OPT を交互に各 2 回以上）。**退避コピー方式**で切替（plan の該当節）。**A-4 の後に直列実行** | **A-4** | 🚩 交互測定 + 測定後に OPT が index と一致 | `cp /tmp/ta26.opt <file>` で OPT へ復帰 |
+| **A-6**（T-06） | handoff / status / current-state / INDEX を整備。handoff に「**ゲート境界の直後に TC を足すときは越境検査を再実行する**」旨を明記 | A-5 | 🚩 handoff 6 要素 + 再発防止の申し送り | 不要 |
 
 ## ⚠️ 変異の復元セマンティクス（C-1 R3 N-3 の是正・**厳守**）
 
@@ -40,14 +42,16 @@
 ## ⚠️ 依存関係
 
 ```text
-A-1 → A-2 → A-3 → ┬→ A-4（変異 3 種・1 つずつ入れて戻す）
-                  └→ A-5（A/B 計測）
+A-1 → A-2 → A-3 → A-4（変異 3 種・1 つずつ入れて戻す）
+                          ↓
+                        A-5（A/B 計測・退避コピー方式）
                           ↓
                         A-6 → 【PR 作成】 → H-1（C-4）
 ```
 
 - **A-1 が最重要**。ここを行境界だけで済ませると、初版 plan が踏んだ「ゲート内定義をゲート外が参照して子が壊れる」欠陥を再現する
 - **A-4 は 1 変異ずつ**。同時に入れない。復元後に対応する検証（AC-2 / AC-1 / 越境検査）を再実行して PASS を確認するまでが各変異
+- **A-5 は A-4 の後に直列**（C-1 R4 指摘 D）。並行させると、変異の index 復元と A/B の `cp` 上書きが同一ファイルを奪い合う。A-5 では **`git checkout HEAD -- <file>` を使わない**（index ごと OPT を壊し復帰不能になる）
 
 ## 完了条件
 
