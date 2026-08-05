@@ -16,8 +16,11 @@ created_by: independent-reviewer
 > Mode: `standard`（フル評価。簡易版は用いない）
 > C-1 項目数: **25**（`grep -c '^### C1-' docs/working/templates/review-self.md` の実測値）
 > 判定: **PASS** — critical=0, major=0, minor=3
-
-C1-VERDICT: PASS plan=sha256:bcc5daeb2be923b1b80c57f5be9b45e6194ce69d16b77e435d15445916470508
+>
+> **【初回マーカーは STALE・無効】** 初回レビュー時の受理マーカーは
+> `plan=sha256:bcc5daeb…70508` を指していたが、C-2 指摘（R-001〜R-004）の 1 回確定反映により
+> `plan.md` が変更され `plan_hash` が更新されたため **無効**である。受理器が誤って拾わないよう
+> マーカー行そのものは削除した。**有効なマーカーは §簡易 C-1 再実行（C-2 反映後・head `f8c4217`）に 1 本だけ存在する**。
 
 ## サマリー
 
@@ -427,7 +430,7 @@ allowed: ['scripts/sync-plugin-plangate.sh', 'tests/extras/ta-26-plugin-sync.sh'
 | `gates.c1` | **`PASS`** |
 | C-1 項目数（テンプレート実測） | 25 |
 | critical / major / minor | 0 / 0 / 3 |
-| 受理マーカー | `C1-VERDICT: PASS plan=sha256:bcc5daeb…70508`（本ファイル冒頭に 1 回のみ） |
+| 受理マーカー（初回・**現在は STALE / 削除済み**） | `plan=sha256:bcc5daeb…70508` を指していた。有効なマーカーは §簡易 C-1 再実行 を参照 |
 | plan_hash 照合 | 本レビュー時点の `plan.md` sha256 と一致（plan を変更していないため stale 化しない） |
 
 `plan_package.check_evidence()` は C-1 の受理値を `("PASS",)` のみに限定しており
@@ -448,3 +451,159 @@ allowed: ['scripts/sync-plugin-plangate.sh', 'tests/extras/ta-26-plugin-sync.sh'
 | check_id | 修正内容 | 修正先ファイル |
 |----------|---------|--------------|
 | — | 自動修正なし（本 C-1 は独立レビューであり、plan / todo / test-cases / pbi-input を一切変更していない） | — |
+
+---
+
+## 簡易 C-1 再実行（C-2 反映後・head `f8c4217`）
+
+> 再実行日: 2026-08-05
+> レビュアー: 初回と同一の独立レビュアー（plan 非作成者）
+> 対象: `origin/docs/970-plan` head `f8c4217`（初回 `3f1196c` + C-2 反映コミット）
+> 実測基点: `origin/main` = `4448420`（`git rev-parse origin/main` で実測）
+> 契機: C-2（`review-external.md`）が critical 0 / major 1（R-001）で `request-changes` となり、
+> R-001〜R-004 を 1 回確定反映 → `plan_hash` 変化 → 初回マーカーが stale 化したため
+> 範囲: [`working-context.md`](../../../.claude/rules/working-context.md)「C-2 指摘の差分管理」(3) の
+> **簡易 C-1**。全 25 項目の再実行ではなく、反映の影響を受ける項目に限定する
+
+C1-VERDICT: PASS plan=sha256:a32d837fbd4208bce7c556e27f22f0cb6ea3ab3a88c9d28a7b8d25a3f259b1a1
+
+### 再実行サマリー
+
+| 再評価項目 | 初回 | 今回 | 判定 |
+|-----------|------|------|------|
+| 1. `size_ok` の WARN 解消（旧 C1-PLAN-03） | WARN | **PASS** | **解消** |
+| 2. R-002 / R-003 の反映妥当性 | — | **PASS** | 新規 |
+| 3. 反映の副作用（AC / TC / lite / scope） | — | **PASS** | 新規 |
+| 4-a. C1-PLAN-05（Work Breakdown 節の不在） | WARN | WARN | 継続 |
+| 4-b. C1-TODO-10（A-10 の強化セルフレビュー checkpoint） | WARN | WARN | 継続 |
+| 5. `Verification Automation:` 行の書式 | PASS | **PASS** | 維持 |
+
+**更新後の総合判定**: **PASS** — critical=0, major=0, **minor=2**（初回 3 → 1 件解消）。
+`gates.c1` へ渡す値は **`PASS`**。
+
+### 1. `size_ok` の WARN 解消（初回 WARN の主対象）
+
+`plan_package.extract_allowed_paths()` と `arbiter` の各判定を**自分で再実行**した:
+
+```text
+allowed_paths / changed_files: ['scripts/sync-plugin-plangate.sh',
+                                'tests/extras/ta-26-plugin-sync.sh']  len=2
+SIZE_OK_MAX_FILES = 2
+machine_size_check = True
+check_allowed_paths = (True, [])
+boundary_check       = ('clean', [])
+```
+
+- Files to Touch の 3 行目（`docs/working/TASK-0970/**`）が削除され、**機械抽出は 2 件**になった。
+- したがって `.claude/skills/ai-loop-cycle/SKILL.md` の規定どおり「計画時 = plan の Files to Touch」を
+  そのまま `changed_files` に渡しても `machine_size_check = True`。申告 `size_ok=true` と実数が
+  **正本の手順どおりに一致**する（plan 側の自作 carve-out に依存しない）。
+- 初回 WARN の本質（「申告者自身がフィルタした集合を機械ガードへ渡す」構造）が構造的に除去された。
+  plan L216 の lite 表の根拠も「Files to Touch から機械抽出される `changed_files` は 2 件」という
+  検証可能な記述に置き換わっている。
+- 残る 3 軸（`no_new_design` / `follows_pattern` / `reversible`）は初回 PASS のまま。`no_new_design` の
+  根拠に「直上コメント文言の追従」が追記されたが、コメント変更は関数・制御フローの新設ではないため判定は不変。
+
+**判定: PASS（WARN 解消）**。
+
+> info（残存する既知の性質・plan の記述と矛盾しない）: 再裁定時（実装後・PR 前）に
+> `git diff --name-only <base>...HEAD` を使う場合は作業コンテキストが差分へ入るため、実数は 2 を超え
+> `size_ok=true` 申告は priority 1.9 で escalate する。plan は主張を「計画時の `changed_files`」に
+> 明示的に限定しており、この点で不正確な断定はしていない。再裁定を行う場合は `size_ok=false` を申告すること。
+
+### 2. R-002 / R-003 の反映妥当性（独立実測）
+
+**R-002（baseline の記号化 + 基点更新）**:
+
+| 検証 | 実測 | 結果 |
+|------|------|------|
+| `origin/main` = `4448420` か | `git rev-parse origin/main` = `4448420cb48261aefa9fd274e498f140ab5e4cf7` | 一致 |
+| 対象 2 ファイルが `a952872` と `4448420` で同一か | `git diff --stat a952872 4448420 -- <2 ファイル>` = 空 | 同一（plan の行番号実測値は不変） |
+| L206 が `-L` 行、L195-196 が該当コメントか（`4448420` 時点） | `git show 4448420:scripts/sync-plugin-plangate.sh` で該当行を直接確認 | 一致 |
+| 絶対値の残存 | plan / todo / test-cases / pbi-input に `537` / `538` / `539` の残存 **0 件** | 記号化は徹底されている |
+| `a952872` の残存 2 箇所 | plan L6（両 commit で同一である旨の確認記録）/ pbi-input L20（sandbox 実測再現の取得基点） | いずれも「baseline 件数」ではなく履歴参照であり、上記の同一性確認により有効 |
+
+記号化は plan（前提の実測表 / Testing Strategy / AC-4）・test-cases（ヘッダ / TC-B）・pbi-input（AC-4）・
+todo（A-1 Output / A-8 checkpoint）の **全箇所で一貫**しており、取り残しはない。
+
+> info（部分記号化の妥当性）: `sh tests/run-tests.sh` の passed 数のみを記号化し、AC-3 / TC-R の
+> 「31 PASS」（ta-26 単体）は絶対値のまま残っている。これは**適切**である。R-002 が検出した環境差の原因である
+> `TC-17 not a git repo` の SKIP は `tests/extras/ta-13-plangate-setup.sh:159-170` にあり、
+> `tests/extras/ta-26-plugin-sync.sh` の TC-17（L346-365「README.md を src/dst 対称に除外」）とは別物で、
+> ta-26 は全 TC が sandbox 完結のため環境非依存。既存 30 本も `grep -c 't26_pass "TC-'` で実測確認済み。
+
+**R-003（コメント追従）**: `scripts/sync-plugin-plangate.sh` の L195-196 を `4448420` 時点で直接読み、
+review-external の引用（「集計にはコピーループと同一の `[ -L ]` 除外を入れる（R-351 / 論点 D'-2。
+集計定義と実削除条件の非対称は『N 件と数えて M 件消す』guard 無効化を招く）」）と**逐語一致**することを確認した。
+L206 削除後にこのコメントが実装と正反対になるという指摘は妥当であり、再発ベクタの指摘として正しい。
+
+反映は **3 箇所で整合**している:
+
+| 箇所 | 記述 |
+|------|------|
+| Constraints（plan L35-37） | 「集計ループ 1 行の削除 + 直上コメント（L195-196）の追従（同一ファイル・同一 hunk）」 |
+| Files to Touch #1（plan L95） | 「1 行を削除（L206）+ 直上コメント L195-196 を実装へ追従（同一 hunk / R-003）」 |
+| todo A-5 Output | 「同 hunk の L195-196 コメントを『削除ループと同一条件で集計する（`-L` 除外は入れない）』へ書き換える」 |
+
+**判定: PASS**（両指摘とも反映が事実に基づき、記述箇所間で矛盾しない）。
+
+### 3. 反映の副作用（AC / TC / lite / scope が壊れていないか）
+
+| 観点 | 検証 | 結果 |
+|------|------|------|
+| `check_allowed_paths()` の scope 逸脱 | `changed_files`（2 件）が `allowed_paths`（同 2 件）に完全一致 → `(True, [])` を実行で確認 | 逸脱なし |
+| `boundary_check()` | `('clean', [])`。HO 表 21 行のいずれにも一致せず、初回判定から不変 | 不変 |
+| AC-1 / AC-2 | 変更なし。コメント追従は削除ループに触れないため AC-1 の「削除ループ無改変」制約と両立する | 破壊なし |
+| AC-3（31 PASS） | ta-26 は環境非依存（上記 info）。TC-R の期待値は有効 | 破壊なし |
+| AC-4 | 記号化により「A-1 実測値 +1」へ統一。todo A-8 checkpoint も同期して更新済み | 整合 |
+| 変異注入 M-1 / M-2 | M-1 は L206 の復元、M-2 は存在判定の削除であり、いずれもコメント文言に依存しない。初回の論理検証（期待 FAIL 成立）はそのまま有効 | 不変 |
+| RT-1（実装差分 > 2 で再計画） | コメント追従は同一ファイル同一 hunk のためファイル数は 2 のまま。plan も「RT-1 に影響しない」と明記 | 整合 |
+| Mode 判定 | 変更ファイル数 2 / 受入基準 4 / タスク 10 は不変 → `standard` のまま妥当 | 不変 |
+| 作業コンテキストの書込み可否 | R-001 の実測（`scripts/ai-loop/check_exec_boundary.py` は実行系トークンの AST 検査であり `allowed_paths` によるファイル書込み制御ではない）を確認。Files to Touch から外しても status / handoff の生成は阻害されない | 副作用なし |
+
+**判定: PASS**（新規の FAIL 要因は生じていない）。
+
+### 4. 初回の残 WARN 2 件の現況
+
+| ID | 現況 | 判定 |
+|----|------|------|
+| C1-PLAN-05（Work Breakdown 節） | plan の第 2 レベル見出しを再列挙したが `## Work Breakdown` は**依然として不在**（Goal / Constraints / Approach Overview / Files to Touch / 変更しない領域 / Testing Strategy / Risks / Questions / Loop Scope / Stop / Resume / Replan / 受入基準 / Mode 判定 / ai-loop run との関係）。todo.md A-1〜A-10 が実質を満たす点も不変 | **WARN 継続**（機械要件には非抵触。本 run では todo.md を Work Breakdown の正本として扱う旨を C-3' 記録へ残す） |
+| C1-TODO-10（A-10 の checkpoint） | todo A-10 は `handoff.md` 発行 → PR 作成のままで 🚩 checkpoint がなく、`execution-runbook.md` §2-(6) の強化セルフレビュー 5 観点は todo 上に現れていない | **WARN 継続**（runbook 側の規定で手順としては担保。C-3' 実行者が A-10 直前に実施し status.md へ記録すること） |
+
+いずれも C-2 の反映対象外（R-006 が todo の規約ずれを info で acknowledged したのみ）であり、
+反映によって悪化してもいない。severity は minor のままで総合判定を PASS から動かさない。
+
+### 5. `Verification Automation:` 行の書式（再確認）
+
+`derive_loopspec('docs/working/TASK-0970', 'TASK-0970', maker, checker)` を実行し、**成功**を確認した
+（初回は `review-self.md` / `review-external.md` の presence 未充足で失敗していたが、両ファイルが揃ったため通過）:
+
+```text
+derive OK
+det: [{'cmd': 'sh tests/extras/ta-26-plugin-sync.sh', 'expect_exit': 0},
+      {'cmd': 'sh tests/run-tests.sh', 'expect_exit': 0}]
+scope: {'allowed_paths': ['scripts/sync-plugin-plangate.sh',
+                          'tests/extras/ta-26-plugin-sync.sh']}
+```
+
+`plan_package.py` L216-218 の正規表現に合致し、LoopSpec が決定論的に派生する。**PASS**。
+
+### 更新後の ai-loop への引き渡し
+
+| 項目 | 値 |
+|------|----|
+| `gates.c1` | **`PASS`** |
+| 有効な受理マーカー | `plan=sha256:a32d837f…9b1a1`（本節冒頭に **1 本のみ**。初回の stale マーカーは削除済み） |
+| マーカー実測 | `plan_package._C1_MARKER_RE` の完全マッチ **1 件** / `_C1_PREFIX_RE` の行数 **1 件**（一致 = fail-closed に落ちない） |
+| plan_hash 照合 | 本ファイルのマーカー値が現 `plan.md` の sha256 と一致（`check_evidence` の stale 判定を通過） |
+| critical / major / minor | 0 / 0 / **2** |
+| 新規に生じた問題 | **なし**（FAIL 該当なし） |
+
+**C-3' 実行者への申し送り（更新版・優先度順）**:
+
+1. **計画時の C-3' 入力**は Files to Touch をそのまま `changed_files`（2 件）として渡してよい。
+   実測で `machine_size_check=True` / `check_allowed_paths=(True, [])` / `boundary_check='clean'` を確認済み。
+   **実装後の再裁定を行う場合のみ** `size_ok=false` を申告すること（作業コンテキストが差分に入るため）。
+2. **C1-TODO-10 WARN**: PR 作成前に `execution-runbook.md` §2-(6) の強化セルフレビュー 5 観点を実施する。
+3. **C1-PLAN-05 WARN**: 本 run では todo.md を Work Breakdown の正本として扱う旨を記録する。
+4. **info**: AC-3 の「31 PASS」は TC-35 が `t26_pass` 行 1 本である前提。副次検査を別行にすると RT-4 が発火する。
