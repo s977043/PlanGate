@@ -65,7 +65,7 @@ exec は承認 plan に忠実に実装した。本件は **plan 側の設計残�
 - [ ] AC-1: 経路1 の stale 集計集合と削除ループの削除集合が厳密一致する（symlink の扱いが両者で同一）
 - [ ] AC-2: symlink stale 混入 fixture の TC が追加され、**修正前実装に対して FAIL する**（検出力証明）
 - [ ] AC-3: 既存 ta-26 全 TC（30 本）が PASS を維持する
-- [ ] AC-4: `sh tests/run-tests.sh` が baseline を維持する（baseline は exec 開始時に現 main で再実測した値。本 PBI 作成時点の実測値は **537 passed / 0 failed**）
+- [ ] AC-4: `sh tests/run-tests.sh` が baseline を維持する（baseline は exec 開始時に現 main で再実測した値 = 記号 `baseline`。期待値は `baseline+1` passed / 0 failed。**絶対値は本 PBI に固定しない**。実数の正本は `evidence/test-runs/` の A-1 ログ / R-002）
 
 ## Notes from Refinement
 

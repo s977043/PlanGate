@@ -2,7 +2,8 @@
 
 > 入力: [`pbi-input.md`](./pbi-input.md) / Issue [#970](https://github.com/s977043/plangate/issues/970)
 > 実行方式: ai-loop（C-3' 裁定ループ）
-> 基点: `origin/main` = `a952872`（本 plan の実測値はすべてこの commit で取得）
+> 基点: `origin/main` = `4448420`（本 plan の行番号・件数の実測値はすべてこの commit で取得。
+> 対象 2 ファイルは前基点 `a952872` と内容同一であることを `git diff --stat` = 空で確認済み）
 
 ## 前提の実測（B-1 / 裏取り済み）
 
@@ -14,7 +15,7 @@
 | guard 呼び出し | L215 | 同上 |
 | 削除ループ（`-L` 除外なし） | L216-224 | 同上 |
 | ta-26 の既存 TC 数 | **30**（最大番号 TC-34） | `grep -c 't26_pass "TC-'` |
-| `sh tests/run-tests.sh` baseline | **537 passed / 0 failed** | clean env で実走 |
+| `sh tests/run-tests.sh` baseline | **`baseline`（記号）** — 実数は A-1 で現 main を再実測して確定 | A-1 で clean env 実走。ログは `evidence/test-runs/` を正とする（R-002） |
 | ta-26 standalone 実走 | **rc=0** | clean env で実走 |
 | リポジトリ内の該当 symlink | **0 件** | `find ... -name '*.md' -type l` |
 
@@ -31,8 +32,9 @@
 
 ### Constraints
 
-- 変更は **`scripts/sync-plugin-plangate.sh` の集計ループ 1 行の削除** と
-  **`tests/extras/ta-26-plugin-sync.sh` への TC 1 本追加** に限定する
+- 変更は **`scripts/sync-plugin-plangate.sh` の集計ループ 1 行の削除 + 直上コメント（L195-196）の追従
+  （同一ファイル・同一 hunk）** と **`tests/extras/ta-26-plugin-sync.sh` への TC 1 本追加** に限定する
+  （コメント追従は R-003。ファイル数は 2 のままで RT-1 に影響しない）
 - **既存の削除挙動を変えない**（削除ループには手を入れない）
 - 既存 30 TC を非退行で維持する
 - 変更対象は Hardening Override 表に非該当（実測済み。§ai-loop run との関係を参照）
@@ -90,13 +92,19 @@
 
 | # | パス | 変更 |
 |---|------|------|
-| 1 | `scripts/sync-plugin-plangate.sh` | dst 側 stale 集計ループの symlink 除外 1 行を削除（L206） |
+| 1 | `scripts/sync-plugin-plangate.sh` | dst 側 stale 集計ループの symlink 除外 1 行を削除（L206）+ 直上コメント L195-196 を実装へ追従（同一 hunk / R-003） |
 | 2 | `tests/extras/ta-26-plugin-sync.sh` | TC-35 追加（symlink stale 混入で「集計 = 削除」を検証） |
-| 3 | `docs/working/TASK-0970/**` | 作業コンテキスト（status / current-state / handoff 等）。**実装差分には数えない** |
 
-実装差分としてカウントするのは #1 / #2 の **2 ファイル**である（lite の `size_ok` はこの 2 件で判定する。
-`SIZE_OK_MAX_FILES`=2 に一致）。#3 は run の作業コンテキストであり、
-scope 逸脱 escalate を避けるため allowed_paths に含めるが `changed_files` の実装差分計上からは除く。
+本節から機械抽出される allowed\_paths は上記 **2 件**であり、計画時の `changed_files`（＝本節）も
+同じ 2 件である。申告 `size_ok=true` は arbiter が `changed_files` 実数で機械検証する
+（`SIZE_OK_MAX_FILES`=2）。
+
+作業コンテキスト（docs/working/TASK-0970/ 配下の status / current-state / handoff 等）は
+**本節に載せない**。ai-loop の allowed\_paths はファイル書込みの制御機構ではなく
+（実行系境界検査器 scripts/ai-loop/check\_exec\_boundary.py は実行系トークンの AST 検査であり
+書込みパスを制御しない）、作業コンテキストの生成に本節への記載は不要であることを実測で確認した。
+「集計対象から plan 自作の carve-out で除く」構成は、#780 slice C が申告制 `size_ok` の
+虚偽宣言を検出するために導入した機械ガードへ**申告者自身がフィルタした集合を渡す**ことになるため採らない（R-001）。
 
 ## 変更しない領域（禁止領域 / backtick を付けない）
 
@@ -116,7 +124,8 @@ scope 逸脱 escalate を避けるため allowed_paths に含めるが `changed_
 - Unit: 該当なし（POSIX sh。判定は sandbox 実走で担保）
 - Integration: `tests/extras/ta-26-plugin-sync.sh` — 新規 TC-35（symlink stale 混入・乖離帯）
   および既存 TC-26〜TC-34（経路1 guard 群）の非退行
-- E2E: `tests/run-tests.sh` 全系で baseline 維持（537 → 538 passed / 0 failed を期待）
+- E2E: `tests/run-tests.sh` 全系で baseline 維持（`baseline` → `baseline+1` passed / 0 failed を期待。
+  `baseline` は A-1 で現 main を再実測した実数であり、絶対値を plan に固定しない / R-002）
 - Edge cases:
   - 解決可能 symlink stale（`[ -f ]` 真）→ 集計・削除の両方に入る（本 PBI の是正対象）
   - ダングリング symlink（`[ -f ]` 偽）→ 両ループから対称に除外される（現状も是正後も不変）。
@@ -175,7 +184,7 @@ stop 後の再開は、原因・修正方針・検証手順を本 plan に追記
 | AC-1 | 経路1 の stale 集計集合と削除ループの削除集合が厳密一致する（symlink の扱いが両者で同一） | TC-35（自動）+ 差分レビュー（集計ループと削除ループの条件式が同一であること）。**削除ループ側の条件式は guard 発火帯の fixture では結果に現れないため、この部分のみ手動レビュー依存であることを明示する**（非発火帯の対称性 TC は V2 候補） |
 | AC-2 | symlink stale 混入 fixture の TC が追加され、**修正前実装に対して FAIL する** | TC-35 + 変異注入 M-1 の実測ログ |
 | AC-3 | 既存 ta-26 全 TC（30 本）が PASS を維持する | `sh tests/extras/ta-26-plugin-sync.sh` = 31 PASS / 0 FAIL |
-| AC-4 | `sh tests/run-tests.sh` が baseline を維持する | baseline 537 → 538 passed / 0 failed |
+| AC-4 | `sh tests/run-tests.sh` が baseline を維持する | `baseline` → `baseline+1` passed / 0 failed（`baseline` = A-1 で現 main を再実測した実数。実数の正本は `evidence/test-runs/` の A-1 ログ / R-002） |
 
 ## Mode 判定
 
@@ -207,8 +216,8 @@ stop 後の再開は、原因・修正方針・検証手順を本 plan に追記
 
 | 軸 | 判定 | 根拠（実測） |
 |----|------|------------|
-| 変更規模（`size_ok`） | **true** | 実装差分 2 ファイル = `SIZE_OK_MAX_FILES`（2）以内。申告と `changed_files` 実数が一致する |
-| 新規設計の有無（`no_new_design`） | **true**（＝新規設計なし） | #914 で導入済みの guard 構造・#877 の閾値仕様をそのまま使う。関数・変数・制御フローの新設ゼロ。差分は既存 1 行の削除のみ |
+| 変更規模（`size_ok`） | **true** | Files to Touch から機械抽出される `changed_files` は 2 件 = `SIZE_OK_MAX_FILES`（2）以内。plan 側で集合を絞る carve-out は行わない（R-001） |
+| 新規設計の有無（`no_new_design`） | **true**（＝新規設計なし） | #914 で導入済みの guard 構造・#877 の閾値仕様をそのまま使う。関数・変数・制御フローの新設ゼロ。差分は既存 1 行の削除 + 直上コメント文言の追従のみ |
 | 既存パターン踏襲（`follows_pattern`） | **true** | TC-35 は既存 TC-26〜TC-34 と同型（`_t26_mk_refs_guard_sandbox` + `mktemp -d` + `register_cleanup` + 早期 `rm -rf`）。ヘルパーのシグネチャを変更しない |
 | 可逆性（`reversible`） | **true** | 1 行削除 + TC 1 本追加。`git revert` 一発で完全復元。不可逆操作（外部公開・データ削除・課金・破壊的マイグレーション）を一切含まない |
 
@@ -244,6 +253,12 @@ AC-8 安全側の適用: 4 軸のいずれかが判定不能・根拠不足・�
 | ai-loop-cycle スキル配下（.agents / .claude 側とも） | 変更しない | 非該当 |
 
 → Phase 1 の **適用対象（eligible run）**。
+
+**W チェック 2 体への申し送り（R-004）**: 変更対象 `scripts/sync-plugin-plangate.sh` は、
+rollout-policy §2 が「配布派生は正本を carve-out することで実質的に保護される」と述べている当の同期エンジンであり、
+同一ファイル L358-402 に carve-out 対象の配布コピーを守る経路2 guard を持つ。
+本 PBI の変更は**経路1 のみ・fail-closed 方向のみ**であり経路2 に触れないため escalate 要件には当たらないが、
+判定基盤の配布経路を持つファイルであることを明示しておく。
 
 ### 予測される裁定
 

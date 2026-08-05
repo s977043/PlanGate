@@ -17,7 +17,8 @@
 
 - [ ] A-1: baseline 再実測 — clean env で `sh tests/run-tests.sh` と
       `sh tests/extras/ta-26-plugin-sync.sh` を 1 回ずつ実行し passed/failed を記録
-  - Output: baseline 件数（plan の 537 / 30+1 と突合）
+  - Output: baseline 件数（= plan の記号 `baseline` の実数を確定。ta-26 は 30 → 31 を期待）。
+        実測ログを `evidence/test-runs/` へ残し、以降の期待値はこの実数を正とする（R-002）
   - rollback: 不要（読取のみ）
 - [ ] A-2: **C-1 セルフレビュー** → `review-self.md`（`C1-VERDICT: PASS plan=sha256:<hash>` マーカー付き）
   - depends_on: A-1
@@ -37,7 +38,9 @@
 
 - [ ] A-5: 集計と削除の非対称を解消 — dst 側 stale 集計ループの
       `[ -L "$_rf" ] && continue`（L206）を削除
-  - Output: `scripts/sync-plugin-plangate.sh` の 1 行削除差分
+  - Output: `scripts/sync-plugin-plangate.sh` の 1 行削除差分 +
+        **同 hunk の L195-196 コメントを「削除ループと同一条件で集計する（`-L` 除外は入れない）」へ書き換える**
+        （R-003。旧コメントは修正後の実装と正反対になり、「コメントどおりに `-L` を戻す」再発ベクタになる）
   - 🚩 checkpoint: `sh -n scripts/sync-plugin-plangate.sh` が syntax OK・
         実リポジトリ `--dry-run` で guard が発火しないこと
   - rollback: `git checkout -- scripts/sync-plugin-plangate.sh`
@@ -58,7 +61,7 @@
 - [ ] A-8: Verification Automation 実行 —
       `sh tests/extras/ta-26-plugin-sync.sh && sh tests/run-tests.sh` が exit 0
   - depends_on: A-7
-  - 🚩 checkpoint: baseline+1（538 passed / 0 failed）と一致すること。不一致なら RT-4
+  - 🚩 checkpoint: A-1 実測値 +1（`baseline+1` passed / 0 failed）と一致すること。不一致なら RT-4
   - rollback: 不要（読取のみ）
 
 ### 完了

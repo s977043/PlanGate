@@ -2,7 +2,8 @@
 
 > 入力: [`plan.md`](./plan.md)
 > 実装先: `tests/extras/ta-26-plugin-sync.sh`（既存 TC-01〜TC-34 の 30 本は非退行。新規は **TC-35** の 1 本）
-> 基点: `origin/main` = `a952872`（baseline: `sh tests/run-tests.sh` = 537 passed / 0 failed）
+> 基点: `origin/main` = `4448420`（baseline: `sh tests/run-tests.sh` の passed 実数 = 記号 `baseline`。
+> 絶対値は plan に固定せず、A-1 で現 main を再実測した値を正とする / R-002）
 
 ## 共通の実装規約
 
@@ -67,9 +68,9 @@
 |------|------|
 | 前提 | 修正後の作業ツリー |
 | 入力 | `sh tests/run-tests.sh` |
-| 期待 | **538 passed / 0 failed**（baseline 537 + 新規 1）・exit 0 |
+| 期待 | **`baseline+1` passed / 0 failed**・exit 0 |
 | 種別 | E2E（自動） |
-| 特記 | baseline は exec 開始時に現 main で再実測した値を正とする（ドリフト時は再測値 +1 が期待値） |
+| 特記 | `baseline` は **A-1（exec 開始時）に現 main で再実測した passed 実数**であり、plan / test-cases に絶対値を固定しない（R-002）。実数の正本は `evidence/test-runs/` の A-1 ログ。測定は同一条件（通常 checkout / clean env / `</dev/null`）で行うこと（pristine detached worktree では TC-17 が SKIP に落ちて 1 件少なく出る実測差がある） |
 
 ## 変異注入（AC-2 の検出力証明）
 
