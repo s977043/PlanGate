@@ -195,7 +195,9 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
       # dst 側 stale 集計は**削除ループと同一条件**で数える（[ -L ] 除外は入れない
       # / #970）。集計が削除より狭い（集計 ⊊ 削除）と「N 件と数えて M 件消す」
       # ことになり guard が無効化されるため、集計の正は常に削除ループ側に置く。
-      # src 側 base 集計はコピーループ（[ -L ] 除外あり）と対を成すため除外を維持する。
+      # src 側 base 集計はコピーループ（[ -L ] 除外あり）と対を成すため除外を維持する
+      # （ただし stale 判定の [ ! -f "$_src_refs/$_rb" ] は symlink を辿るため、base の
+      #  集合とは一致しない。安全側＝過剰 block に倒れるため許容 / #970 Non-goal）。
       _refs_base_count=0
       for _rf in "$_src_refs"/*.md; do
         [ -f "$_rf" ] || continue
@@ -214,6 +216,8 @@ for _skill_dir in "$SKILLS_DIR"/*/; do
       # blocked 時は break を使わず if で当該 skill の削除だけを避ける
       # （break だと後続 skill の同期が落ちる）。
       if ! _mass_delete_blocked "skills/$_skill_name/references" "$_refs_base_count" "$_refs_stale_count"; then
+        # 削除条件は上の _refs_stale_count 集計と同一（[ -L ] 除外を足さない +
+        # src に同名が無い）。変更する場合は必ず両方を同時に更新する。
         for _rf in "$_dst_refs"/*.md; do
           [ -f "$_rf" ] || continue
           _rb="${_rf##*/}"

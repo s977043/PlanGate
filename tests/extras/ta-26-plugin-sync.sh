@@ -704,6 +704,31 @@ else
   t26_fail "TC-35 失敗 (rc=$_t26_rc35 期待3 / left=$_t26_left35 期待9 / target残=$_t26_tgt35 期待2 / 期待文字列 'base=3 / stale=5'): $_t26_out35"
 fi
 
+# TC-36: 経路1 非発火帯 — 解決可能 symlink stale が実際に削除される（#970 逆方向）
+# TC-35 は guard 発火帯のため削除ループが実行されず、「削除ループにだけ [ -L ] 除外を
+# 足す」変異（M-1'）を検出できない。本 TC は非発火帯（stale == base）で symlink が
+# 実削除されることを DELETE ログで固定し、集計 = 削除の**逆方向**を塞ぐ。
+# base=3 / stale=2 + 解決可能 symlink 1 件 = stale 3 → 3 > 3 が偽で非発火 → 3 件削除。
+_t26_t36=$(mktemp -d); register_cleanup "$_t26_t36"
+_t26_mk_refs_guard_sandbox "$_t26_t36" 3 2 skill-A
+_t26_refs36="$_t26_t36/plugin/plangate/skills/skill-A/references"
+mkdir -p "$_t26_t36/targets"
+printf 'linked target 1\n' > "$_t26_t36/targets/target-1.md"
+ln -s "$_t26_t36/targets/target-1.md" "$_t26_refs36/link-1.md"
+_t26_rc36=0
+_t26_out36=$(sh "$_t26_t36/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc36=$?
+_t26_left36=$(_t26_count_files "$_t26_refs36")
+_t26_tgt36=0
+[ -f "$_t26_t36/targets/target-1.md" ] && _t26_tgt36=1
+rm -rf "$_t26_t36"
+if [ "$_t26_rc36" -eq 0 ] && [ "$_t26_left36" = "3" ] && [ "$_t26_tgt36" = "1" ] \
+  && printf '%s' "$_t26_out36" | grep -q 'DELETE: skills/skill-A/references/link-1.md' \
+  && ! printf '%s' "$_t26_out36" | grep -q 'DELETE skipped'; then
+  t26_pass "TC-36 経路1 非発火帯: 解決可能 symlink stale が実削除される（集計 = 削除の逆方向・target 非破壊）"
+else
+  t26_fail "TC-36 失敗 (rc=$_t26_rc36 期待0 / left=$_t26_left36 期待3 / target残=$_t26_tgt36 期待1 / 期待ログ 'DELETE: skills/skill-A/references/link-1.md'): $_t26_out36"
+fi
+
 # TC-30: tests/extras/README.md に harness 判別規約が存在（#914 AC-5 / 静的検査）
 _t26_readme30="$PG_T26_ROOT/tests/extras/README.md"
 if grep -q 'PG_HARNESS_SOURCED' "$_t26_readme30" 2>/dev/null \

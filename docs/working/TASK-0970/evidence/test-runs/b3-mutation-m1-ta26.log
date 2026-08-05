@@ -1,0 +1,48 @@
+
+=== TA-26: plugin-sync (TASK-0124) ===
+  [PASS] TC-01 sync-plugin-plangate.sh 存在・実行可能
+  [PASS] TC-02 sh -n syntax check
+  [PASS] TC-03 --dry-run が exit 0 で正常終了（exit code を実検証）
+  [PASS] TC-04 --dry-run がファイルを変更しない
+  [PASS] TC-05 sandbox 実行後 .claude/agents/ の全 .md が plugin に存在・exit 0（guard 誤発火なし / 実 repo 非破壊）
+  [PASS] TC-06 plugin/plangate/README.md に Version 行あり
+  [PASS] TC-07 apply-task-0124-patches.sh 存在・syntax OK
+  [PASS] TC-08 safety guard 発火（WARN 出力 + dst 4 件を削除せず保持）
+  [PASS] TC-09 DELETE 正常系（src=2/stale=1 → stale 削除・guard 非発火・exit 0）
+  [PASS] TC-10 guard 発火で exit 3・stderr に label と override 手順を出力
+  [PASS] TC-11 override で削除実行・exit 0・解除ログ出力
+  [PASS] TC-12 乖離帯 src=3/stale=4 で dry-run と実行の guard 判定が一致
+  [FAIL] TC-13 失敗 (① rc=1 / ② rc=1 / ③ 1)
+  [PASS] TC-16 複数 label 同時発火（WARN 3 行・exit 3 は 1 回・コピーは全 label 実行）
+  [PASS] TC-17 README.md を src/dst 対称に除外（src 実体1/stale2 で発火）
+  [PASS] TC-15 PLANGATE_ALLOW_MASS_DELETE が .github/ に存在しない（CI での恒久無効化なし）
+  [PASS] TC-20 経路2: 正本 2 dir 消失で guard 発火（DELETE skipped + override 案内・dst 5 件残存）
+  [PASS] TC-21 経路2: 正本 2 dir 空化でも guard 発火（TC-20 と同一挙動）
+  [PASS] TC-22 経路2: guard 発火で終端 exit 3（guard_fired の global 伝播）
+  [PASS] TC-23 経路2: override で削除実行・exit 0・解除ログ出力（dst 5 件全削除）
+  [PASS] TC-24 経路2 正常系: base=4/stale=1 で非発火・stale 1 件のみ削除・exit 0
+  [PASS] TC-25 経路2: 乖離帯 base=3/stale=4 で dry-run と実行の guard 判定が一致
+  [PASS] TC-26 経路1: skill-A のみ guard 発火・dst 4 件残存、skill-B は正常同期（3 件 COPY）
+  [PASS] TC-27 経路1: guard 発火で終端 exit 3
+  [PASS] TC-28 経路1: override で削除実行・exit 0・解除ログ出力（skill-A dst 4 件全削除）
+  [PASS] TC-29 経路1 正常系: base=3/stale=1 で非発火・stale 1 件のみ削除・exit 0
+  [PASS] TC-32 経路1: 乖離帯 base=3/stale=4 で dry-run と実行の guard 判定が一致
+  [PASS] TC-34 経路1 境界: base=3/stale=3（同数）で非発火・stale 3 件削除・src 一致 3 件保持
+  [FAIL] TC-35 失敗 (rc=0 期待3 / left=4 期待9 / target残=2 期待2 / 期待文字列 'base=3 / stale=5'): [sync-plugin] SKIP (src not found): agents
+[sync-plugin] SKIP (src not found): rules
+[sync-plugin] SKIP (src not found): commands
+[sync-plugin] COPY: skills/skill-A/SKILL.md
+[sync-plugin] COPY: skills/skill-A/references/ref-1.md
+[sync-plugin] COPY: skills/skill-A/references/ref-2.md
+[sync-plugin] COPY: skills/skill-A/references/ref-3.md
+[sync-plugin] DELETE: skills/skill-A/references/link-1.md
+[sync-plugin] DELETE: skills/skill-A/references/link-2.md
+[sync-plugin] DELETE: skills/skill-A/references/stale-1.md
+[sync-plugin] DELETE: skills/skill-A/references/stale-2.md
+[sync-plugin] DELETE: skills/skill-A/references/stale-3.md
+[sync-plugin] Sync complete — changes detected
+  [PASS] TC-36 経路1 非発火帯: 解決可能 symlink stale が実削除される（集計 = 削除の逆方向・target 非破壊）
+  [PASS] TC-30 README.md に判別規約（PG_HARNESS_SOURCED / 非 export / AND / standalone 側（安全側））
+  [PASS] TC-33 FIXTURES_DIR 単独判別の残存 0 + standalone unset が run-tests.sh の unset 集合を包含
+
+TA-26 standalone: 30 passed, 2 failed
