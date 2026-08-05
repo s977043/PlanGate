@@ -10,7 +10,14 @@
 | Slice | 対象 | ファイル数 | 対応 Task |
 |---|---|---:|---|
 | **Slice 1** | 層 A 12 本 + helper + contract TA + README | **15** | T-01, T-02, T-03, T-05, T-06, T-07（README 部分）, T-08 |
-| **Slice 2** | 層 B 36 + 層 C 5 = 41 本 + `TASK-0914/handoff.md` writeback | **42** | T-04, T-07（writeback 部分） |
+| **Slice 2** | 層 B 36 + 層 C 5 = 41 本 + **層 0 の 4 本** + `TASK-0914/handoff.md` writeback | **46** | T-04, **T-04b**, T-07（writeback 部分） |
+
+> **層 0（`ta-26` / `ta-58` / `ta-59` / `ta-60`）は Human 決定 3 により Slice 2 へ繰り延べ**。
+> Slice 1 に含めると 19 ファイル = critical 帯に入るため。**`ta-*.sh` 57 本の内訳は
+> 12（層 A / Slice 1）+ 4 + 36 + 5（Slice 2）で過不足なし**（plan の「57 本のスライス帰属」節）。
+>
+> **DoD の正本は [`test-cases.md`](./test-cases.md) の `## Exit Criteria`**（Slice 1 / Slice 2 に
+> 分離済み）。**Slice 1 PR の V-1 は Slice 1 節のみを突合する**。
 
 ## Dependency Graph
 
@@ -33,7 +40,7 @@ T-08 verification（pre-fix HEAD FAIL 実証を含む）
   ↓
 H-02 Human C-4 / merge（Slice 1）
   ↓
-H-04 Slice 2 の Mode 再判定 → T-04 + T-07 writeback
+H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
 ```
 
 > **案 D 採用により削除**: 旧 `T-01 → conflict → REPLAN (explicit finalizer)` 分岐は
@@ -43,9 +50,12 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-07 writeback
 
 - [ ] **H-01**: 案 D（末尾 explicit finalize）+ 共有 helper `_extra-contract.sh`（#914 E-1 反転）+
       スライス分割の C-3
-- [ ] **H-02**: Slice 1 PR の C-4 / merge
-- [ ] **H-04**: **Slice 2 着手時の Mode 再判定**（42 ファイル = 定量 critical 帯）と、
+- [ ] **H-02**: Slice 1 PR の C-4 / merge。
+      **判定対象は [`test-cases.md`](./test-cases.md) `## Exit Criteria` の Slice 1 節のみ**
+- [ ] **H-04**: **Slice 2 着手時の Mode 再判定**（46 ファイル = 定量 critical 帯）と、
       別 PBI へ切り出すか否かの判断
+- [ ] **H-05**: **AC-8 を pbi-input の受入基準へ追記するか否かの裁定**（Slice 2 着手時 / C-1 MN-5）。
+      AC-8 は C-2（R-013）由来の派生 AC で pbi-input 正本には存在しない
 
 ## Agent Tasks
 
@@ -66,7 +76,8 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-07 writeback
   - harness mode no-op（**probe env を読まない**ことを含む）
   - harness-only direct → exit2 before body
   - standalone pass → 0 / fail → 1
-  - **prerequisite missing → 3**（R-002）
+  - **prerequisite missing → 3**（R-002）。**`pg_extra_contract_skip` が唯一の表明経路**であり、
+    skip を経ずに rc3 が出ないこと（C-1 MN-4）
   - original nonzero rc preservation
   - 末尾 finalize 未呼出の検出（案 D の弱点補償）
   - cleanup drain / **`register_cleanup` 非再定義**（R-019b）
@@ -86,7 +97,8 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-07 writeback
   - synthetic tests GREEN
   - checkpoint commit
   - `rollback:` helper 追加 commit と（残す場合の）runner source 行 commit を `git revert <sha>`
-    （未 push なら `git reset --hard`）。**T-04 / T-05 を戻す場合は本 Task の revert が最後**（依存順）
+    （未 push なら `git reset --hard`）。**T-04 / T-04b / T-05 / T-06 を戻す場合は本 Task の
+    revert が最後**（依存順。contract TA（T-06）も helper API を参照する / C-1 MN-3）
 
 ### Migration
 
@@ -101,35 +113,59 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-07 writeback
     **helper 導入前まで戻す場合は T-03 の revert が前提**（helper 不在で marker/init だけ残ると
     全 harness-only ファイルが起動時に落ちる）。revert 順序は **T-04 → T-03**
 
-- [ ] **T-05: standalone-capable migration（Slice 1 中核）**
+- [ ] **T-04b: 層 0 migration（Slice 2）**
+  - 対象は層 0 の 4 本（`ta-26` / `ta-58` / `ta-59` / `ta-60`）。
+    **Human 決定 3 により Slice 1 から繰り延べ**
   - marker + init + **末尾 explicit finalize**（案 D）
-  - file固有root fallbackを保持
   - **legacy footer の 2 系統を helper へ吸収**（R-003）:
     `ta-26` の `[ "$fail" != "0" ]` 形 / `ta-59` `ta-60` の `[ "$fail" -eq 0 ] || exit 1` 形
-  - **`ta-39` / `ta-43` / `ta-44` の prerequisite 経路を rc=3 へ**（R-002）
-  - **`ta-26` TC-33 の検査対象を helper 側へ差し替える**（R-013 / AC-8）。空振り化させない
-  - **summary 書式 `TA-<NN> standalone: N passed, M failed` を維持**（R-015a）
-  - ta-26は最後に移行
-  - 各batch後full suite
+  - **`ta-26` TC-33 の検査対象を helper 側へ差し替える**（R-013 / AC-8 / TC-22 / M-09）。
+    空振り化させない。**着手前に plan の `### ta-26 TC-33 の扱い` を再読する**
+  - **summary 書式 `TA-<NN> standalone: N passed, M failed` の等価性を前後比較**（R-015a / TC-18）
+  - `ta-26` は Slice 2 の最後に移行し、既存 heavy tests を前後比較
+  - **移行完了で contract TA の移行期間 allowlist が空になることを確認**（TC-24 / AC-5）
   - `rollback:` batch 単位 commit を `git revert <sha>`（未 push なら `git reset --hard`）。
     **helper 導入前まで戻す場合は T-03 の revert が前提**。`ta-26` は最終 batch なので単独 revert 可。
-    revert 順序は **T-05 → T-03**
+    revert 順序は **T-04b → T-03**
+
+- [ ] **T-05: 層 A migration（Slice 1 中核）**
+  - 対象は**層 A 12 本のみ**。**層 0 の 4 本は対象外**（T-04b / Slice 2）
+  - marker + init + **末尾 explicit finalize**（案 D）
+  - file固有root fallbackを保持
+  - **層 A 12 本は全数がカウンタ未初期化**（pbi-input A-1'）→ helper の `pass=0` / `fail=0` に載せる
+  - **`ta-39` / `ta-43` / `ta-44` の prerequisite 経路を `pg_extra_contract_skip` 経由の rc=3 へ**（R-002）。
+    3 本とも層 A で本 Slice の対象
+  - helper の summary 書式を `TA-<NN> standalone: N passed, M failed` に確定（R-015a）。
+    **`<NN>` は test-id から `^ta-([0-9]+)` を抽出して導出**（C-1 MN-2）。
+    `ta-26`（層 0 / Slice 2）の TC-13 が将来この literal を grep するため Slice 1 で確定させる
+  - 各batch後full suite
+  - `rollback:` batch 単位 commit を `git revert <sha>`（未 push なら `git reset --hard`）。
+    **helper 導入前まで戻す場合は T-03 の revert が前提**。revert 順序は **T-05 → T-03**
 
 ### Regression / Evidence
 
 - [ ] **T-06: contract TA**
+  - **検査対象は移行済みファイル**（Slice 1 は層 A 12 本）。未移行分は
+    **移行期間 allowlist**（「helper bootstrap を持たない」述語で解決。ファイル名を列挙しない）。
+    **Slice 2 完了時に allowlist 空**（TC-24 / AC-5）
   - marker exactly-one / marker・init 一致（**basename test-id**）
-  - **test-id 一意性**（R-016 / TC-20）
-  - harness-only dynamic all-files（rc2）
-  - standalone dynamic all-files: **probe なし rc0 と probe あり rc1 の差分**（裁定 ②）
-  - **prerequisite 未充足 → rc3**（R-002 / TC-17）
+  - **test-id 一意性**（R-016 / TC-20。移行状態に依存しないため **allowlist 対象外で全件検査**）
+  - harness-only dynamic all-files（rc2 / **Slice 2**）
+  - standalone dynamic: **段 1 で probe なし 1 回実行し前提充足 / 未充足へ分類**（rc0 / rc3。
+    それ以外は分類不能 = 即 FAIL）→ **前提充足クラスのみ** probe なし rc0 と probe あり rc1 の
+    差分を要求（裁定 ② / C-1 MN-4）
+  - **prerequisite 未充足 → rc3**（R-002 / TC-17）。**rc=3 は `pg_extra_contract_skip` 由来で
+    あることを併せて assert**（テスト本体の直接 `exit 3` を許さない）
   - source path full suite completion marker（**`ls tests/extras/ta-*.sh | tail -1` を runtime 解決。
     ファイル名をハードコードしない** / R-006）
   - **README grep 検査**（rc 0/1/2/3・marker・probe・rc2 名前空間 / R-009 / R-020 / TC-19）
   - self-recursion prevention（**probe env 再帰ガードを含む** / R-015b / TC-23）
-  - helper mutation M-01〜M-12
-  - `rollback:` contract TA ファイル追加 commit を `git revert <sha>`（単独 revert 可。
-    ただし revert すると回帰検出力を失うため、revert する場合は理由を status に記録）
+  - helper mutation M-01〜M-13（各 M の Slice は `test-cases.md` の Mutation Matrix に従う）
+  - `rollback:` contract TA ファイル追加 commit を `git revert <sha>`。
+    **helper 導入前まで戻す場合は T-03 の revert が前提**（contract TA も helper API
+    （`pg_extra_contract_init` / `pg_extra_contract_skip` / probe env）を参照するため）。
+    revert 順序は **T-06 → T-03**（C-1 MN-3）。
+    revert すると回帰検出力を失うため、revert する場合は理由を status に記録
 
 - [ ] **T-07: docs/writeback**
   - README **rc table 0/1/2/3**
@@ -162,15 +198,26 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-07 writeback
 
 1. `test: add RED tests for extras execution contract`
 2. `feat(tests): add shared extras standalone contract`
-3. `fix(tests): propagate standalone-capable failures`（Slice 1・複数reviewable commits可）
-4. `test: enforce extras capability inventory`
+3. `fix(tests): propagate 層 A standalone failures`（Slice 1・複数reviewable commits可）
+4. `test: enforce extras capability inventory`（**移行期間 allowlist 付き**）
 5. `docs: define extras execution contract`
 6. `fix(tests): reject direct execution of harness-only extras`（**Slice 2**・複数reviewable commits可）
+7. `fix(tests): fold 層 0 standalone footers into the shared contract`（**Slice 2** / T-04b）
 
-各commitは単独でfull suiteを壊さない順序にする。helper導入後、file migration中は未移行fileをcontract TA対象外にする暫定allowlistを置かず、contract TAは全移行と同commitまたは最後に追加する。中間commitをPR上でcheckout可能にする必要がある場合、migration status markerを明示し最終commitで0件を要求する。
+各commitは単独でfull suiteを壊さない順序にする。中間commitをPR上でcheckout可能にする必要がある場合、migration status markerを明示する。
 
-**revert 依存順**: T-04 / T-05 の batch commit → T-03（helper）の順で戻す。
-helper だけ先に revert すると marker/init が残った extras が起動時に落ちる。
+**移行期間 allowlist の扱い（スライス分割に伴う変更 / C-1 MJ-C）**: Slice 1 は
+**単独 PR として merge される**ため、「contract TA は全移行と同 commit または最後に追加する」
+方針は成立しない（Slice 1 merge 時点で 45 本が未移行）。したがって contract TA は
+**移行期間 allowlist を持った状態で Slice 1 に載せる**。allowlist は
+**「helper bootstrap を持たない」述語で解決し、ファイル名を列挙しない**（自動的に縮む）。
+**Slice 2 完了時に allowlist が空になることを TC-24 / AC-5 で機械検証**し、恒久化を防ぐ。
+これは pbi-input AC-5 の「修正前の allowlist は移行期間のみ保持し恒久化しない」が
+**明示的に許容する形態**である。
+
+**revert 依存順**: T-04 / T-04b / T-05 / T-06 の commit → T-03（helper）の順で戻す。
+helper だけ先に revert すると marker/init が残った extras が起動時に落ち、
+contract TA（T-06）も helper API を解決できなくなる（C-1 MN-3）。
 
 ## Stop / Escalation
 
@@ -178,17 +225,33 @@ helper だけ先に revert すると marker/init が残った extras が起動�
 - [ ] source経路でexitが発火したら停止
 - [ ] standalone正常実行がhangしたらprocessを止め、stdin/外部dependencyを分類
 - [ ] cleanupがrepo内pathを対象にしたら停止
-- [ ] ta-26 regression（rc / summary 書式 / TC-33 検出力）がhelperで解消できなければreplan
+- [ ] ta-26 regression（rc / summary 書式 / TC-33 検出力）がhelperで解消できなければreplan（Slice 2）
 - [ ] broad migration中にmainのextras変更と競合したらrebase後inventory再実測
 - [ ] **Slice 2 を Mode 再判定なしに着手しようとしたら停止**
+- [ ] **Slice 1 の exec 中に層 0（`ta-26` / `ta-58` / `ta-59` / `ta-60`）へ触る必要が生じたら停止**
+      （15 ファイル / high-risk 判定の前提が崩れる → Mode 再判定 → 人間へエスカレーション）
+- [ ] **段 1 の分類で rc 0 / 3 のいずれでもない値を返す層 A ファイルがあれば停止**（MN-4）
+- [ ] **フルスイートで flaky が観測されたら「フルスイート 1 回」への緩和を撤回**（MN-6）
 - [ ] **`TASK-0914/handoff.md` §3 の writeback 対象行が消失していたら停止**
 
 ## Completion
 
-- [ ] test-cases TC-01〜TC-23 PASS
-- [ ] mutation M-01〜M-12が期待どおりFAIL
-- [ ] pre-fix HEAD で contract TA が FAIL する evidence
-- [ ] all files classified dynamically / test-id 重複 0
+> **DoD の正本は [`test-cases.md`](./test-cases.md) の `## Exit Criteria`**（Slice 1 / Slice 2 に
+> 分離済み）。本節は要約であり、判定は正本側で行う。
+
+### Slice 1（本 PR の完了条件）
+
+- [ ] test-cases `## Exit Criteria` の **Slice 1 節**を全項目充足
+- [ ] pre-fix HEAD で contract TA が FAIL する evidence（AC-7）
+- [ ] 層 A 12 本が dynamic に分類され、test-id（basename）重複 0（TC-20 は全 57 本）
 - [ ] harness suite 0 failed
-- [ ] Issue / handoff writeback（append-only）
+- [ ] 移行期間 allowlist が述語解決であり、ファイル名のハードコード列でない
+- [ ] Human C-4（H-02）
+
+### Slice 2
+
+- [ ] test-cases `## Exit Criteria` の **Slice 2 節**を全項目充足
+- [ ] TC-01〜TC-24 を通しで再実行して PASS（Slice 1 DoD の非退行）
+- [ ] 移行期間 allowlist が空（TC-24 / AC-5）
+- [ ] Issue / `TASK-0914/handoff.md` writeback（append-only / AC-6）
 - [ ] Human C-4

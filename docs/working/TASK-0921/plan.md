@@ -28,8 +28,9 @@ created_by: orchestrator
   この 4 本である（R-003）。書式は 2 系統:
   - `ta-26`: `[ "$fail" != "0" ]` 形
   - `ta-59` / `ta-60`: `[ "$fail" -eq 0 ] || exit 1` 形
-  - この 2 系統をどちらも helper へ吸収する（Task 5）
-- **移行対象（層 A）は 12 本**で、`ta-40` を含む（R-003）
+  - この 2 系統をどちらも helper へ吸収する（**Task 4b / Slice 2**。
+    層 0 は Human 決定 3 により Slice 1 から繰り延べられた）
+- **Slice 1 の移行対象（層 A）は 12 本**で、`ta-40` を含む（R-003）
 - Harness: `tests/run-tests.sh` は `PG_HARNESS_SOURCED=1` を非 export で設定し、各 extras を source。集計後に `fail > 0` なら exit 1
 - Current failure: standalone では内部 `[FAIL]` があっても exit 0。harness 専用 file は未定義 fixture 前提のまま走って exit 0 になりうる
 - Current inventory count is mutable. pbi-input 作成時は 53、本 backlog 監査時は 57 との実測があるため、**件数を仕様へ固定しない**
@@ -193,8 +194,23 @@ pbi-input の **D-5（スライス分割・未裁定）を以下で確定する*
 
 | Slice | 対象 | ファイル数 | Mode |
 |---|---|---:|---|
-| **Slice 1**（本 plan の直接対象） | 層 A 12 本 + helper `_extra-contract.sh` + 検査基盤（contract TA）+ `tests/extras/README.md` | **15** | **high-risk** |
-| **Slice 2**（本 PBI スコープ内・後続） | 層 B 36 本 + 層 C 5 本（＝ harness-only 化 41 本）+ `docs/working/TASK-0914/handoff.md` writeback | **42** | **着手時に再判定**（定量 16+ のため critical 帯の見込み） |
+| **Slice 1**（本 plan の直接対象） | 層 A 12 本 + helper `_extra-contract.sh` + 検査基盤（contract TA）1 本 + `tests/extras/README.md` | **15** | **high-risk** |
+| **Slice 2**（本 PBI スコープ内・後続） | 層 B 36 本 + 層 C 5 本（＝ harness-only 化 41 本）+ **層 0 の 4 本**（`ta-26` / `ta-58` / `ta-59` / `ta-60`）+ `docs/working/TASK-0914/handoff.md` writeback | **46** | **着手時に再判定**（定量 16+ のため critical 帯の見込み） |
+
+#### `ta-*.sh` 57 本のスライス帰属（過不足なし検証）
+
+| 層 | 本数 | 帰属 Slice | 根拠 |
+|---|---:|---|---|
+| 層 0（`ta-26` / `ta-58` / `ta-59` / `ta-60`） | **4** | **Slice 2** | 既存 standalone 契約を helper へ吸収する移行。Slice 1 に入れると 19 ファイル = critical 帯に入るため **Human 決定 3 で Slice 2 へ繰り延べ** |
+| 層 A | **12** | **Slice 1** | 本 plan の中核（Task 5） |
+| 層 B | **36** | **Slice 2** | harness-only 化（Task 4） |
+| 層 C | **5** | **Slice 2** | D-2 (c) により層 B と同一クラスで harness-only 化（Task 4） |
+| **合計** | **4 + 12 + 36 + 5 = 57** | — | `ls tests/extras/ta-*.sh \| wc -l` の実測 57 と一致。**どのスライスにも属さない `ta-*.sh` は 0 本** |
+
+> **本表のファイル数は現時点（base commit）の実測値であり、Mode 判定の根拠として記載する。
+> exec 開始時に Task 1（runtime inventory）で再実測し、差異があればスライス表と Mode を
+> 再判定する**（`file count / ta番号一覧を正本としてハードコードしない` の制約は
+> **test 実装側**に掛かるものであり、plan の Mode 判定根拠の記載を禁じるものではない）。
 
 - **Slice 2 は本 PBI のスコープに含めたまま「後続スライス」として扱う**。別 PBI へ切り出すか
   否かは **Slice 1 完了時に判断**し、本時点では決めない。
@@ -202,13 +218,32 @@ pbi-input の **D-5（スライス分割・未裁定）を以下で確定する*
   必要と判断された場合 Slice 1 は 16 ファイルとなるが、その時点で Mode を再判定する
   （定量 16+ = critical 帯に触れるため、安全側で人間へエスカレーションする）。
 
+#### 層 0 を Slice 1 の contract TA 対象から外す扱い（移行期間 allowlist）
+
+Slice 1 時点では 57 本中 **12 本（層 A）のみ**が helper へ移行済みであり、
+残り **45 本（層 0 の 4 + 層 B 36 + 層 C 5）は未移行**である。したがって
+**Slice 1 の contract TA は「全 `ta-*.sh`」ではなく「移行済みファイル」を対象**とし、
+未移行の 45 本を **移行期間 allowlist** として除外する。
+
+- allowlist は **pbi-input AC-5 の「修正前の allowlist は移行期間のみ保持し恒久化しない」が
+  明示的に許容する形態**であり、恒久的な検査除外ではない
+- **allowlist が Slice 2 完了時に空になることを AC-5 の Slice 2 側条件として固定する**
+  （検証は TC-24）
+- allowlist は **ファイル名のハードコード列ではなく「helper bootstrap を持たないファイル」
+  という述語**で解決し、移行が進むと自動的に縮む形にする（件数を契約値にしない）
+- `ta-*.sh` の basename 一意性検査（TC-20）は移行状態に依存しないため、
+  **Slice 1 でも全 57 本を対象**とする（allowlist の対象外）
+
+> 層 0 の 4 本は移行前でも標準的な standalone 伝播（`fail > 0 → exit 1`）を既に備えているため、
+> allowlist 期間中も AC-1 の実害（exit 0 で失敗を隠す）を新たに生まない。
+
 ### 判定根拠（定量）
 
 | 判定軸 | Slice 1 実測 / 見込み | モード |
 |---|---|---|
-| 変更ファイル数 | **15**（層 A 12 + helper 1 + contract TA 1 + README 1） | **high-risk**（6-15） |
-| 受入基準数 | **8**（AC-1〜AC-8。AC-8 は R-013 由来で本反映により追加） | **high-risk**（6-10 の上限） |
-| タスク数（見込み） | **12-18**（T-01〜T-08 + 層 A の batch 分割 + contract TA の TC 追加分） | **high-risk**（11-20） |
+| 変更ファイル数 | **15**（層 A 12 + helper 1 + contract TA 1 + README 1）。**層 0 の 4 本は Slice 2 へ繰り延べ**（Human 決定 3） | **high-risk**（6-15） |
+| 受入基準数 | **7**（AC-1〜AC-7 = pbi-input 正本と 1:1。**AC-8 は R-013 由来の派生 AC で Slice 2 の受入基準**） | **high-risk**（6-10） |
+| タスク数（見込み） | **11-16**（T-01, T-02, T-03, T-05, T-06, T-07（README 部分）, T-08 + 層 A の batch 分割） | **high-risk**（11-20） |
 
 ### 判定根拠（定性）
 
@@ -227,14 +262,19 @@ pbi-input の **D-5（スライス分割・未裁定）を以下で確定する*
 
 **critical へ引き上げない根拠**:
 
-1. 変更ファイル数 15 は `mode-classification.md` 定量基準の high-risk 帯（6-15）に収まる
+1. 変更ファイル数 15 は `mode-classification.md` 定量基準の high-risk 帯（6-15）に収まる。
+   **これは層 0 の 4 本を Slice 2 へ繰り延べた結果である**（Human 決定 3）。層 0 を Slice 1 に
+   含めた場合は 19 ファイル = **critical 帯（16+）**となり本判定は成立しない。したがって
+   「層 0 を Slice 1 で触らない」ことは Mode 判定の**前提条件**であり、exec 中に層 0 へ
+   1 ファイルでも触れる必要が生じた時点で **Stop Condition に該当し Mode を再判定する**
 2. 影響範囲は `tests/` に閉じ、プロダクトコード・hooks・CI 定義には波及しない
 3. **Hardening Override 対象パス（`check-plan-hash.sh` の 9 カテゴリ）に 1 件も該当しない**
    （C-2 実測で確認済み）。`tests/run-tests.sh` は `scripts/hooks/*.sh` にも `bin/plangate` にも
    一致せず HO 非該当
 4. アーキテクチャ変更・横断的リファクタリング・公開 API の破壊的変更のいずれにも当たらない
 
-**Slice 2 の扱い**: 42 ファイルは定量 16+ = **critical 帯**に入る。Slice 2 着手時に
+**Slice 2 の扱い**: 46 ファイル（層 B 36 + 層 C 5 + **層 0 4** + `TASK-0914/handoff.md` 1）は
+定量 16+ = **critical 帯**に入る。Slice 2 着手時に
 本節と同じ形式で Mode を再判定し、critical となる場合は詳細 plan + 複数観点 C-2 +
 詳細 C-3 + V-4 を適用する。**Slice 1 の high-risk 判定を Slice 2 へ流用しない**。
 
@@ -301,6 +341,31 @@ _PG_EXTRA_CLEANUP_PATHS=
 _PG_EXTRA_ORIGINAL_RC=0
 _PG_EXTRA_PREREQ_MISSING=0
 ```
+
+#### summary の `<NN>` 導出規則（C-1 MN-2）
+
+helper が受け取るのは **basename ベースの test-id のみ**（R-016）だが、summary 書式は
+`TA-<NN> standalone: ...` という**番号ベース**である（R-015a により書式は維持が必須）。
+両者を橋渡しする導出規則を helper 内に固定する:
+
+```text
+<NN> = test-id の先頭から正規表現 ^ta-([0-9]+) で捕捉した数字列を、そのまま大文字接頭辞 TA- に連結
+       例: ta-26-plugin-sync      → TA-26
+           ta-14-codex-guarded    → TA-14
+           ta-14-skip-acknowledge → TA-14
+```
+
+- 捕捉に失敗した test-id（`^ta-[0-9]+` に一致しない）は **fail-closed**（診断 + 非ゼロ）とし、
+  番号なしの summary を黙って出さない
+- **`<NN>` は summary 書式のためだけに使い、識別子としては使わない**。
+  `PG_EXTRA_CONTRACT_TARGET`・診断メッセージ・contract TA のループはすべて basename（R-016）
+- **既知の非一意性**: `ta-14` 対の 2 本は同じ `TA-14 standalone:` を出力する。
+  **2 本とも層 B（harness-only 想定）であり Slice 1 の standalone summary 経路に乗らないため
+  Slice 1 では実害がない**。層 B を移行する **Slice 2 の検討事項**として残す
+  （harness-only は summary を出さないため Slice 2 でも実害が出ない見込みだが、
+  Slice 2 着手時に再確認する）
+- **summary 書式を basename ベースへ変える案は採らない**。`ta-26` の TC-13 が
+  `TA-26 standalone:` を literal grep しており（R-015a）、書式変更は rc ではなく grep 側を壊す
 
 ### Mode resolution
 
@@ -393,6 +458,43 @@ sh "$file" </dev/null
 で実行し **rc=1** を要求する。加えて **probe なしの実行で rc=0 になること**も取り、
 両者の差分を要求する（裁定 ②。(b) 単独では「元から常に rc=1」なファイルを検出できない）。
 
+#### prerequisite 充足の判別手順 — 実行 → 分類 → assert の 2 段構成（C-1 MN-4）
+
+上記の「probe なし → rc=0」は **prerequisite が充足しているファイルにしか成立しない**。
+前提未充足のファイルは rc=3 を返すためである（rc 意味レイヤー）。したがって contract TA は
+「前提が充足しているか」を assert の**前に**判別する必要があるが、
+**rc=3 を分類にも合否判定にも使うと循環定義になる**（rc=3 を「前提未充足だから正しい」と
+読むなら、実装が常に rc=3 を返しても検出できない）。
+
+これを次の 2 段構成で解く:
+
+1. **prerequisite 表明の唯一経路を固定する**: 前提未充足の表明は
+   **`pg_extra_contract_skip <reason>` の呼出のみ**とする。helper は skip 呼出を受けたときだけ
+   `_PG_EXTRA_PREREQ_MISSING=1` を立て、finalize で rc=3 を返す。
+   **skip を経ずに rc=3 が出る経路を作らない**（rc=3 は helper が発行する唯一の値であり、
+   テスト本体が直接 `exit 3` してはならない）
+2. **段 1（実行と分類）**: contract TA は各 standalone-capable を **probe なしで 1 回実行**し、
+   その rc で 2 クラスへ分類する:
+   - rc=3 → **前提未充足クラス**
+   - rc=0 → **前提充足クラス**
+   - **それ以外（1 / 2 / その他）→ 分類不能 = 即 FAIL**（fail-closed。
+     rc=3 を「常に正しい」と読ませないための対置条件）
+3. **段 2（クラス別 assert）**:
+   - **前提充足クラス** → TC-12 が (a) probe なし rc=0 / (b) probe あり rc=1 の**差分**を assert
+   - **前提未充足クラス** → **TC-17** が rc=3 を assert し、あわせて
+     **その rc=3 が `pg_extra_contract_skip` 由来であること**（skip 診断メッセージの出現）を
+     assert する。probe あり rc=1 は要求しない（前提がないので検査できない）
+
+段 1 の実行結果（各ファイルのクラス）は evidence へ記録する。
+**クラス分けの内訳は evidence に出すが、件数を test の期待値へ埋め込まない**。
+
+> **base 時点の実測（C-1 検証）**: `ta-43-eh2-strict-json.sh` は
+> `scripts/hooks/check-plan-hash.sh` に `_eh2_stdin` が **0 件**であるため `_T43_APPLIED=0` となり
+> `ta-43:43-56` の早期 SKIP 経路に入る＝**前提未充足クラス**。一方 `ta-39-eh3-doc-light.sh` の
+> 前提（`EH-3_DOC_LIGHT_SKIP`）は **充足している**。すなわち層 A 12 本は
+> **前提充足クラスと前提未充足クラスが混在**しており、TC-12 を全件一律 rc=0 で書くと
+> `ta-43` で確定的に FAIL する。クラス分けは exec 開始時に段 1 で再実測する。
+
 ### Harness-only direct execution
 
 helper initがtest bodyより前に:
@@ -403,7 +505,17 @@ helper initがtest bodyより前に:
 
 をstderrへ出しexit 2。fixture参照・tmp生成・hook実行より前でなければならない。
 
-### `ta-26` TC-33 の扱い（R-013）
+### `ta-26` TC-33 の扱い（R-013 / **Slice 2 の必須前提**）
+
+> **スライス帰属（Human 決定 3 / C-1 MJ-A）**: `ta-26` は**層 0 = Slice 2** であり、
+> **Slice 1 では `ta-26` を触らないため TC-33 は Slice 1 では壊れない**。
+> したがって本節の設計制約と **AC-8 / TC-22 / M-09 は Slice 2 の受入基準**である。
+> **R-013 の指摘自体は失効していない**: helper へ 7 env unset を集約する設計を採る限り、
+> 層 0 移行時に TC-33 は必ず本節の分岐に到達する。**Slice 2 着手前に本節を再読し、
+> 差し替え設計が未確定のまま層 0 の移行に入らないこと**（Stop Condition）。
+> なお helper 自体は Slice 1 で作られるため、**helper 側の unset 集合を
+> 「`run-tests.sh` の 7 env を包含する」形で Slice 1 のうちに実装しておく**こと
+> （Slice 2 での差し替えを可能にする前提条件）。
 
 `ta-26` の TC-33 は「`FIXTURES_DIR:-` を含む各 `ta-*.sh`」に対し
 (1) `PG_HARNESS_SOURCED` の存在 (2) **そのファイル自身の inline `unset` 行**が
@@ -420,8 +532,8 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 - 検査対象を「各 `ta-*.sh` の inline unset」から
   「`_extra-contract.sh` の standalone 分岐の unset 集合が `run-tests.sh` の 7 env を包含する」
   および「各 `ta-*.sh` が helper bootstrap + init を持つ」へ移す
-- **移行後も空振りせず同等以上の検出力を保つこと**を **AC-8** として立てる
-- **変異注入で FAIL することを実証する**（Verification Plan の Mutation 行）
+- **移行後も空振りせず同等以上の検出力を保つこと**を **AC-8（Slice 2 の受入基準）** として立てる
+- **変異注入で FAIL することを実証する**（Verification Plan の Mutation 行 / M-09。**Slice 2**）
 
 ## Files / Interfaces
 
@@ -429,7 +541,9 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 |---|---|---|
 | `tests/extras/_extra-contract.sh` | create | shared mode/finalization/cleanup/probe contract（#914 E-1 の意図的反転） |
 | `tests/run-tests.sh` | **modify（要否は Task 3 で確定 / R-010）** | helperをextras loop前にsource。集計ロジックは不変。bootstrap 単独で代替可能なら本行を落とす |
-| `tests/extras/ta-*.sh` | modify | marker + init + 末尾 finalize。standalone対応fileのlegacy footer移行 |
+| `tests/extras/ta-*.sh`（層 A 12 / **Slice 1**） | modify | marker + init + 末尾 finalize |
+| `tests/extras/ta-*.sh`（層 B 36 + 層 C 5 / **Slice 2**） | modify | marker + init（harness-only 化。body side effect 前に exit 2） |
+| `tests/extras/ta-*.sh`（**層 0 の 4 本 / Slice 2**） | modify | marker + init + 末尾 finalize。**legacy footer 2 系統の helper 吸収**（R-003）と **TC-33 差し替え**（R-013 / AC-8） |
 | `tests/extras/ta-XX-extra-contract.sh` | create | inventory/dynamic contract regression test。番号はexec時inventoryで採番 |
 | `tests/extras/README.md` | modify | capability/rc 0-3/probe/new-file規約 + 共有ファイル例外の境界 |
 | `docs/working/TASK-0914/handoff.md` | **modify（append-only / Slice 2）** | V2候補のクローズ writeback（下記規約に従う） |
@@ -481,7 +595,8 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 - harness-only standaloneはbody marker実行前にexit2
 - standalone-capable pass=0 → rc0
 - fail>0 → rc1
-- **prerequisite missing → rc3**（R-002）
+- **prerequisite missing → rc3**（R-002）。**表明経路は `pg_extra_contract_skip` のみ**であり、
+  skip を経ずに rc3 が出る経路がないこと（MN-4）
 - original rc3 + fail0 → rc3
 - original rc3 + fail>0 → rc3
 - 末尾 finalize 未呼出の file は contract TA が検出する（案 D の弱点補償）
@@ -509,7 +624,8 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 
 **rollback**: helper 追加 commit と（残す場合の）runner source 行 commit を
 `git revert <sha>`。未 push なら `git reset --hard`。extras migration 前なので影響なし。
-**T-04 / T-05 を revert する場合は本 Task の revert が最後になる**（依存順）。
+**T-04 / T-04b / T-05 / T-06 を revert する場合は本 Task の revert が最後になる**
+（依存順。contract TA（T-06）も helper API を参照する / C-1 MN-3）。
 
 ### Task 4: Migrate harness-only files（Slice 2）
 
@@ -524,32 +640,60 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 **helper 導入前まで戻す場合は Task 3 の revert が前提**（helper 未導入で marker/init だけ
 残ると全 harness-only ファイルが起動時に落ちる）。revert 順序は T-04 → T-03。
 
-### Task 5: Migrate standalone-capable files（Slice 1 中核）
+### Task 4b: Migrate 層 0 files（Slice 2）
 
-**Purpose**: 全終了経路のfail propagation。
+**Purpose**: 既存 standalone 契約を持つ層 0 の 4 本（`ta-26` / `ta-58` / `ta-59` / `ta-60`）を
+helper へ吸収する。**Human 決定 3 により Slice 1 から繰り延べられた**（Slice 1 に含めると
+19 ファイル = critical 帯に入るため）。
+
+- [ ] marker/bootstrap/init + **末尾 explicit finalize** を追加（案 D）
+- [ ] **legacy standalone counter/cleanup/footer の 2 系統を helper へ吸収**（R-003）:
+      `ta-26` の `[ "$fail" != "0" ]` 形と `ta-59` / `ta-60` の `[ "$fail" -eq 0 ] || exit 1` 形
+- [ ] **`ta-26` TC-33 の検査対象を helper 側へ差し替える**（R-013 / AC-8 / TC-22 / M-09）。
+      空振り化させない。**着手前に plan の `### ta-26 TC-33 の扱い` を再読する**
+- [ ] **summary 書式 `TA-<NN> standalone: N passed, M failed` の等価性を前後比較で確認**
+      （R-015a / `ta-26` TC-13 の literal grep / TC-18）
+- [ ] `ta-26` migration は Slice 2 の最後に行い、既存 heavy tests を前後比較（TC-18）
+- [ ] **移行完了をもって contract TA の移行期間 allowlist が空になることを確認**（TC-24 / AC-5）
+
+**rollback**: batch 単位 commit を `git revert <sha>`（未 push なら `git reset --hard`）。
+**helper 導入前まで戻す場合は Task 3 の revert が前提**。`ta-26` は最終 batch なので
+単独 revert が可能。revert 順序は T-04b → T-03。
+
+### Task 5: Migrate 層 A files（Slice 1 中核）
+
+**Purpose**: 層 A **12 本**の全終了経路の fail propagation。
+**層 0 の 4 本は本 Task の対象外**（Task 4b / Slice 2）。
 
 - [ ] marker/bootstrap/init + **末尾 explicit finalize** を追加（案 D）
 - [ ] file固有root fallbackは保持
-- [ ] **legacy standalone counter/cleanup/footer の 2 系統を helper へ吸収**（R-003）:
-      `ta-26` の `[ "$fail" != "0" ]` 形と `ta-59` / `ta-60` の `[ "$fail" -eq 0 ] || exit 1` 形
-- [ ] **`ta-39` / `ta-43` / `ta-44` の prerequisite 経路を `pg_extra_contract_skip` 経由の rc=3 へ移す**（R-002）
-- [ ] **`ta-26` TC-33 の検査対象を helper 側へ差し替える**（R-013 / AC-8）。空振り化させない
-- [ ] **summary 書式 `TA-<NN> standalone: N passed, M failed` を維持**（R-015a / `ta-26` TC-13 の grep）
-- [ ] ta-26 migrationは最後に行い、既存heavy testsを前後比較
+- [ ] **層 A 12 本は全数がカウンタ未初期化**（pbi-input A-1'）のため、helper 側の
+      `pass=0` / `fail=0` 初期化に確実に載せる
+- [ ] **`ta-39` / `ta-43` / `ta-44` の prerequisite 経路を `pg_extra_contract_skip` 経由の rc=3 へ移す**（R-002）。
+      3 本とも層 A であり本 Slice の対象
+- [ ] helper が出力する summary 書式は `TA-<NN> standalone: N passed, M failed` に固定する
+      （R-015a。`ta-26`（層 0 / Slice 2）の TC-13 が将来この literal を grep するため、
+      **helper 側の書式は Slice 1 の時点で確定させておく**）
 
 **rollback**: batch 単位 commit を `git revert <sha>`（未 push なら `git reset --hard`）。
-**helper 導入前まで戻す場合は Task 3 の revert が前提**。`ta-26` は最後の batch なので
-単独 revert が可能。revert 順序は T-05 → T-03。
+**helper 導入前まで戻す場合は Task 3 の revert が前提**。revert 順序は T-05 → T-03。
 
 ### Task 6: Add inventory + dynamic regression test
 
 **Purpose**: future file追加時の契約漏れを自動検出。
 
-- [ ] 全ta fileがexactly one marker
+- [ ] **検査対象は「移行済みファイル」= 移行期間 allowlist の外側**（Slice 1 は層 A 12 本）。
+      allowlist は「helper bootstrap を持たないファイル」という述語で解決し、
+      ファイル名をハードコードしない。**Slice 2 完了時に allowlist が空**（TC-24 / AC-5）
+- [ ] 対象 ta file が exactly one marker
 - [ ] markerとinit capability一致（**basename ベースの test-id** / R-016）
-- [ ] **全 `ta-*.sh` の test-id が一意**（R-016 / TC-20）
-- [ ] harness-only全件standalone rc2
-- [ ] standalone-capable全件 **probe なし rc0 / probe あり rc1 の両方**（裁定 ②）
+- [ ] **全 `ta-*.sh` の test-id が一意**（R-016 / TC-20。**移行状態に依存しないため
+      allowlist の対象外で全 57 本を検査**）
+- [ ] harness-only全件standalone rc2（**Slice 2**）
+- [ ] standalone-capable: **段 1 で probe なし 1 回実行して前提充足 / 未充足へ分類**し、
+      **前提充足クラスのみ** (a) probe なし rc0 / (b) probe あり rc1 の両方を要求する（裁定 ②）。
+      **前提未充足クラスは rc3 を TC-17 で assert する**（rc0 を要求しない）。
+      分類不能な rc（1 / 2 / その他）は fail-closed で即 FAIL（MN-4 の 2 段構成）
 - [ ] normal standalone-capable: **prerequisite 充足時 rc0、prerequisite 未充足時 rc3**
       （unexpected `[FAIL]` 不可）（R-002）
 - [ ] harness full suite完走。**`ls tests/extras/ta-*.sh | tail -1` で runtime に決定した
@@ -560,6 +704,10 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 
 **rollback**: contract TA ファイルの追加 commit を `git revert <sha>`。
 検査基盤のみなので単独 revert 可（ただし revert すると回帰検出力を失う）。
+**helper 導入前まで戻す場合は Task 3 の revert が前提**（contract TA も helper API
+（`pg_extra_contract_init` / `pg_extra_contract_skip` / probe env）を参照するため、
+helper だけ先に revert すると contract TA が解決不能になる）。
+revert 順序は **T-06 → T-03**（C-1 MN-3）。
 
 ### Task 7: Documentation and #914 closure writeback
 
@@ -583,7 +731,8 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 ### Task 8: Final verification
 
 - [ ] `sh -n` 全件
-- [ ] full suite 3 runs
+- [ ] **contract TA を含むフルスイート 1 回 + contract TA 単独 2 回**（R-017 の CI 時間裁定。
+      「full suite 3 runs」からの読み替え。副作用の受容根拠は `### CI 実行時間の裁定` 参照）
 - [ ] dirty environment run
 - [ ] interrupted standalone cleanup check
 - [ ] **pre-fix HEAD（helper 導入前）で contract TA を実行し FAIL する evidence**（R-011 / AC-7）
@@ -598,14 +747,15 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 |---|---|---|---|
 | Syntax | `sh -n tests/extras/_extra-contract.sh tests/run-tests.sh tests/extras/ta-*.sh` | exit0 | `evidence/verification/syntax.log` |
 | Inventory | new contract TA | unclassified=0, marker mismatch=0, test-id 重複=0 | `evidence/test-runs/contract-inventory.log` |
-| Harness-only | loop direct execution `</dev/null` | all rc2 + message | `evidence/test-runs/harness-only.log` |
-| Standalone forced fail | probe loop（target 一致） | all rc1 | `evidence/test-runs/standalone-force-fail.log` |
-| Standalone probe absent | probe なしループ | all rc0（差分要求） | `evidence/test-runs/standalone-normal.log` |
+| Harness-only（**Slice 2**） | loop direct execution `</dev/null` | all rc2 + message | `evidence/test-runs/harness-only.log` |
+| Prerequisite 分類（段 1 / MN-4） | 対象 standalone-capable を probe なしで 1 回実行し rc で分類 | rc0 = 前提充足クラス / rc3 = 前提未充足クラス / **それ以外は分類不能 = FAIL** | `evidence/test-runs/prereq-classification.log` |
+| Standalone forced fail | probe loop（target 一致）。**前提充足クラスのみ** | all rc1 | `evidence/test-runs/standalone-force-fail.log` |
+| Standalone probe absent | probe なしループ | **前提充足クラス = rc0**（(b) との差分要求はこのクラスで取る）/ **前提未充足クラス = rc3**（下段 Prerequisite SKIP 行が assert）。**全件一律 rc0 を要求しない** | `evidence/test-runs/standalone-normal.log` |
 | Probe fail-closed | `PG_EXTRA_CONTRACT_PROBE=force-fail` かつ TARGET 未設定 | 診断 + 非ゼロ rc（no-op でない） | `evidence/test-runs/probe-fail-closed.log` |
-| Prerequisite SKIP | `ta-39` / `ta-43` / `ta-44` を前提未充足で standalone 実行 | **rc3**（rc0 でないこと） | `evidence/test-runs/prereq-rc3.log` |
+| Prerequisite SKIP | `ta-39` / `ta-43` / `ta-44` を前提未充足で standalone 実行 | **rc3**（rc0 でないこと）+ **`pg_extra_contract_skip` 由来の診断が出ること** | `evidence/test-runs/prereq-rc3.log` |
 | Harness regression | `sh tests/run-tests.sh` | baseline remeasured at exec start, 0 failed。`ls tests/extras/ta-*.sh \| tail -1` の `[PASS]` がログに出現 | `evidence/test-runs/full-suite.log` |
 | **Pre-fix FAIL 実証（AC-7 / R-011）** | **helper 導入前の HEAD に contract TA だけを載せて実行** | **contract TA が FAIL する**（修正前実装で検出力があることの実証。Mutation Matrix は修正後 helper への変異であり別物） | `evidence/mutations/pre-fix-head.log` |
-| TC-33 差し替えの検出力（AC-8 / R-013） | helper の unset 集合から 1 env を削る変異 | 差し替え後の TC-33 相当が FAIL（空振りしない） | `evidence/mutations/tc33-substitute.log` |
+| TC-33 差し替えの検出力（AC-8 / R-013 / **Slice 2**） | helper の unset 集合から 1 env を削る変異（M-09） | 差し替え後の TC-33 相当が FAIL（空振りしない） | `evidence/mutations/tc33-substitute.log` |
 | Helper mutation | remove fail branch / finalize call / target check in temp copy | contract tests FAIL | `evidence/mutations/` |
 | **CI 実行時間（R-017）** | 反映後のフルスイート計測 | **baseline 231s に対し +250〜280s（2 倍超）を許容する**（裁定は下記） | `evidence/verification/ci-duration.log` |
 
@@ -620,6 +770,28 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 - **緩和**: Exit Criteria の「three consecutive full suite runs」は **contract TA を含む
   フルスイート 1 回 + contract TA 単独 2 回**に読み替え、乗算を避ける
 - スイート全体の高速化そのものは Out of Scope（別 PBI）
+
+#### 緩和の副作用と、それを受容する裁定根拠（C-1 MN-6）
+
+上記の読み替えにより、**harness（source）経路のサンプル数は 3 → 1 に落ちる**。
+本 PBI の最重大リスク **R-1（source 経路への `exit` 漏れで `run-tests.sh` が途中終了し、
+少ない件数で 0 failed を返す）は harness 経路でしか観測できない**ため、この低下は
+リスク最大の観測点を薄くする方向に効く。受容する根拠を明示しておく:
+
+1. **R-1 は決定論的欠陥である**。source された extras が `exit` すれば `run-tests.sh` は
+   **毎回同じ位置で必ず途中終了**する。確率的に現れる欠陥ではないため、
+   検出に反復は不要であり **1 回のフルスイートで観測できる**
+2. **1 回でも検出力が落ちないよう検査を強化してある**。TC-14 は「0 failed」だけでなく
+   **`ls tests/extras/ta-*.sh | tail -1` で runtime に決めた最終ファイルの `[PASS]` が
+   ログに出現すること**を assert する。途中終了は件数ではなく**到達点**で検出されるため、
+   反復回数に依存しない
+3. **「3 連続」が本来守っていたのは別クラスの欠陥**である。すなわち tmp path 衝突・
+   実行順依存・タイミング由来の **flaky**（試行ごとに結果が変わる非決定論）であり、
+   これは R-1 とは別物。この帯は **contract TA 単独 2 回**（全 standalone-capable を
+   実走し tmp 生成・cleanup を繰り返す最も flaky が出やすい経路）で引き続き 3 サンプル
+   相当を確保する
+4. **不足が判明した場合の戻し**: フルスイートで flaky が 1 件でも観測されたら、
+   本緩和を撤回して「フルスイート 3 連続」へ戻す（Replan Trigger）
 
 ## Review Lanes
 
@@ -641,9 +813,12 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 
 **Slice 1**: 層 A 12 本が明示 capability を持ち、rc 0/1/2/3 契約と harness regression が
 機械検証され、contract TA が新規ファイルの契約漏れを検出できるところまで。
+**未移行 45 本は移行期間 allowlist として contract TA の対象外**（恒久化しない）。
+**Slice 1 の DoD は [`test-cases.md`](./test-cases.md) の `## Exit Criteria` の Slice 1 節を正本とする**。
 
-**Slice 2**（後続）: 層 B + 層 C 41 本の harness-only 化と `TASK-0914/handoff.md` writeback。
-着手時に Mode を再判定する。
+**Slice 2**（後続）: 層 B + 層 C 41 本の harness-only 化、**層 0 の 4 本の helper 吸収**
+（`ta-26` TC-33 差し替え = AC-8 を含む）、`TASK-0914/handoff.md` writeback、
+**移行期間 allowlist の解消**。着手時に Mode を再判定する。
 
 個別test内容、framework刷新、README一覧修正、CI 実行時間の最適化は含まない。
 
@@ -664,6 +839,10 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 - migration対象fileがplan時inventoryから増減し、未分類が生じる
 - full suite baselineがmainで既に赤
 - ta-26 cleanup behavior / summary 書式をhelperで等価にできない
+- **フルスイートで flaky が 1 件でも観測された**（CI 時間裁定の「フルスイート 1 回」への
+  緩和を撤回し「フルスイート 3 連続」へ戻す / C-1 MN-6）
+- **層 A の中に、段 1 の分類で rc 0 / 3 のいずれでもない値を返すファイルがある**
+  （前提充足の判別が 2 値で表現できない / MN-4）
 - **`TASK-0914/handoff.md` の §3 対象行が消失している**（writeback 先の不在）
 
 ### Replan Trigger を書くときの教訓（R-012 由来 / 案 D 採用後も保持）
@@ -685,13 +864,18 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 - 新規dependency/bash化が必要
 - Slice 1 の migrationをreview可能なcommitへ分割できない
 - **Slice 2 着手時に Mode 再判定を行わずに進めようとした場合**
+- **Slice 1 の exec 中に層 0（`ta-26` / `ta-58` / `ta-59` / `ta-60`）へ触る必要が生じた場合**
+  （Slice 1 = 15 ファイル / high-risk 判定の前提が崩れる。Mode 再判定 → 人間へエスカレーション）
+- **`ta-26` TC-33 の差し替え設計が未確定のまま Slice 2 の層 0 移行へ入ろうとした場合**（R-013 / AC-8）
 
 ## Human Approval Boundary
 
 - **案 D（末尾 explicit finalize）への replan の承認**（案 C 不採用）
 - **共有ファイル `tests/extras/_extra-contract.sh` の導入 = #914 §4 で棄却された E-1 の
   意図的反転の承認**（前掲「先行決定の反転」節の根拠に対する判断）
-- **スライス分割（Slice 1 = 15 ファイル / high-risk、Slice 2 = 42 ファイル / 着手時再判定）の承認**
+- **スライス分割（Slice 1 = 15 ファイル / high-risk、Slice 2 = 46 ファイル / 着手時再判定）の承認**。
+  **層 0 の 4 本を Slice 2 へ繰り延べる裁定**（Human 決定 3）と、それに伴う
+  **Slice 1 の contract TA の移行期間 allowlist（未移行 45 本）の承認**を含む
 - `tests/run-tests.sh` helper source変更（Task 3 の比較検証で必要と確定した場合のみ）
 - broad extras migrationのC-3
 - contract probe envの採否
@@ -706,10 +890,17 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 - [x] source経路exit禁止を明示
 - [x] negative controls / mutation evidenceを定義
 - [x] **broad migrationのrollback/replanを定義**（`todo.md` 全実装タスクに `rollback:` を付与し、
-      T-04 / T-05 → T-03 の revert 依存順を明記。自己申告と実体の乖離を解消）
+      **T-04 / T-04b / T-05 / T-06 → T-03** の revert 依存順を明記。自己申告と実体の乖離を解消）
 - [x] **Mode判定を判定根拠つきで明記**（D-5 裁定 = スライス分割）
 - [x] **AC↔TC 写像を test-cases.md の単一正本へ集約**
+- [x] **スライス帰属が `ta-*.sh` 全 57 本を過不足なく覆う**（12 + 4 + 36 + 5 = 57。
+      層 0 がどのスライスにも属さない漏れを是正）
+- [x] **Slice 1 単独 PR の DoD を定義**（`test-cases.md` の Exit Criteria を Slice 別に分離）
+- [x] **rc=3 反転を TC-12 / Task 6 / Verification Plan へ伝播**（前提充足クラスのみ rc0 を要求）
 - [ ] runtime inventoryをexec開始時に取得
 - [ ] C-2 independent review（**完了。`review-external.md` R-001〜R-020 を本版で確定反映**）
-- [ ] 簡易 C-1 再実行
+- [x] 簡易 C-1 再実行（**FAIL: major 3 / minor 6 → 本版で全件是正**。
+      MJ-A = 層 0 を Slice 2 へ繰り延べ（Human 決定 3）/ MJ-B = rc=3 反転の未伝播 /
+      MJ-C = Slice 1 単独 PR の DoD 未定義 / MN-1〜MN-6）
+- [ ] 簡易 C-1 再々実行（本是正版に対して）
 - [ ] Human C-3
