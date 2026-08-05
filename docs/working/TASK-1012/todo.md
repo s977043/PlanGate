@@ -1,6 +1,6 @@
 # EXECUTION TODO — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 4** = C-1 ラウンド 1〜5 反映済み）/ Mode: **standard**（`lite_eligible=true`）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 5** = C-1 ラウンド 1〜6 反映済み）/ Mode: **standard**（`lite_eligible=true`）
 > ゲート: Human C-3 の代わりに **ai-loop C-3' 裁定**（`/ai-loop-cycle`）
 
 ## 👤 Human タスク
@@ -11,14 +11,14 @@
 
 > **C-3 は ai-loop の C-3' 裁定に置換**（`lite_eligible=true`）。`arbiter.py` が `HUMAN_ESCALATED`（exit 2）を返した場合のみ Human 判断を仰ぐ。
 >
-> ⚠️ **C-3' には前提がある**（C-1 R4 指摘 B）: Lite ゲートでも **C-2 外部レビュー 1 本**が必要で、Plan Package は **6 要素**（+ `C1-VERDICT` / `C2-VERDICT` マーカー各 1 回）。順序は **plan 確定 → C-1 → C-2 → C-3'**。詳細は plan の「ゲート運用」節。これらは workflow-conductor が制御するゲート工程であり、本 ToDo の Agent タスクには含めない。
+> ⚠️ **C-3' には前提と後処理がある**（C-1 R4 指摘 B / R5 N-2 / R6 M-2）: Lite ゲートでも **C-2 外部レビュー 1 本**が必要で、Plan Package は **6 要素**（+ `C1-VERDICT` / `C2-VERDICT` マーカー各 1 回）。順序は **Step 0（breakdown-gate）→ plan 確定 → C-1 → C-2 → C-3'**。**`AUTO_APPROVED` が返ったら `approvals/c3.json` を c3-prime 形式で発行する**（発行しないと `bin/plangate exec` が停止する。`source_sha` は HEAD 束縛のため **exec 直前に発行し、以降コミットを作らない**）。詳細は plan の「ゲート運用」節。これらは workflow-conductor が制御するゲート工程であり、本 ToDo の Agent タスクには含めない。
 
 ## 🤖 Agent タスク
 
 | ID | 内容 | depends_on | 🚩 | rollback |
 |----|------|-----------|----|----------|
 | **A-1**（T-01） | baseline 実測（TC 総数 / PASS 数 / rc + 実行時間 2 回）+ ゲート A / B の範囲確定 + **シンボル越境検査** | — | 🚩 baseline 記録 + **越境 0 件を機械確認** | 不要（読取のみ） |
-| **A-2**（T-02） | ゲート A / B を適用（L62-68 と同型）。ヘルパー定義は移動しない。**適用後に `git add` して index に載せる** | A-1 | 🚩 `sh -n` rc=0 + `git diff -w` の変化がゲート追加分のみ + `git diff --cached --stat` に当該ファイルが載る | `git checkout HEAD -- tests/extras/ta-26-plugin-sync.sh`（**HEAD 指定**。index ごと戻す） |
+| **A-2**（T-02） | ゲート A / B を適用（L62-68 と同型）。ヘルパー定義は移動しない。**適用後に `git add` して index に載せる** | A-1 | 🚩 `sh -n` rc=0 + **`git diff -w HEAD -- <file>`** の変化がゲート追加分のみ（**`HEAD` 必須**・M-1）+ `git diff --cached --stat` に当該ファイルが載る | `git checkout HEAD -- tests/extras/ta-26-plugin-sync.sh`（**HEAD 指定**。index ごと戻す） |
 | **A-3**（T-03） | **受入検証**: AC-1 / AC-2 / AC-3 / AC-4 | A-2 | 🚩 AC-1〜AC-4 すべて PASS | 不要（読取のみ） |
 | **A-4**（T-04） | **変異検証 3 種**（1 つずつ入れて戻す）。①条件反転 → AC-2 が FAIL ②ゲート B 終端を TC-36 手前へ → AC-1 が FAIL ③**ゲート外にゲート A 内変数 `_t26_t20` を参照する 1 行を注入** → 越境検査が ≥1 件 | A-3 | 🚩 3 変異すべてで期待 FAIL + 各復元後に再 PASS | 各変異ごとに `git checkout -- tests/extras/ta-26-plugin-sync.sh`（**HEAD を付けない**。index = 実装適用済みへ戻る） |
 | **A-5**（T-05） | **AC-5**: 交互 A/B で実行時間を実測（BASE / OPT を交互に各 2 回以上）。**退避コピー方式**で切替（plan の該当節）。**A-4 の後に直列実行** | **A-4** | 🚩 交互測定 + 測定後に OPT が index と一致 | `cp /tmp/ta26.opt <file>` で OPT へ復帰 |
@@ -57,7 +57,7 @@ A-1 → A-2 → A-3 → A-4（変異 3 種・1 つずつ入れて戻す）
 
 - AC-1〜AC-5 がすべて PASS（AC-1 は静的前提＝シンボル越境 0 件を含む）
 - A-4 の 3 変異でそれぞれ期待どおり FAIL し、各復元後に再 PASS
-- `git diff -w` が `tests/extras/ta-26-plugin-sync.sh` の**ゲート追加分のみ**（+ working context）
+- **`git diff -w HEAD -- tests/extras/ta-26-plugin-sync.sh`** が**ゲート追加分のみ**（+ working context）。**`HEAD` を省くと `git add` 済みのため常に空になり fail-open**（C-1 R6 指摘 M-1）
 
 > L-0（リンター）/ V-1（受け入れ検査）/ V-3（外部レビュー）/ PR 作成は workflow-conductor が制御するため本 ToDo には含めない。
 > Mode=standard のため **V-2 / V-4 は適用外**（`.claude/rules/mode-classification.md` フェーズ適用マトリクス）。

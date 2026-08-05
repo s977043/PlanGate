@@ -3,7 +3,7 @@
 > issue: [#1012](https://github.com/s977043/plangate/issues/1012)
 > 入力: `docs/working/TASK-1012/pbi-input.md`
 > 由来: PR #986 の V-2 事後補完 H-1（証跡 = `docs/working/TASK-0914/review-external.md` R-407）
-> **改訂 4**: C-1 を 5 ラウンド実施し、計 30 件の指摘を反映した。
+> **改訂 5**: C-1 を 6 ラウンド実施し、計 36 件の指摘を反映した。
 
 ## Goal
 
@@ -105,7 +105,7 @@ fi
 | Step | 内容 | Output | Owner | Risk | 🚩 |
 |------|------|--------|-------|------|----|
 | **T-01** | baseline 実測（TC 総数 / PASS 数 / rc + 実行時間 2 回）+ ゲート A / B の範囲確定 + **シンボル越境検査**（実装は下記「T-01 のシンボル越境検査の実装」）+ **V-A 行の抽出検証** | `evidence/test-runs/t01-baseline.log` / `evidence/verification/t01-symbol-scope.log` | agent | **高** | 🚩 越境 **0 件**を機械確認（行境界の一致だけでは不十分）+ V-A 行の抽出結果が L130 の実コマンドと一致 |
-| **T-02** | ゲート A / B を適用（L62-68 と同型）。ヘルパー定義は移動しない。**適用後に `git add` して index に載せる**（T-04 の変異復元が実装を消さないため） | 差分 | agent | 中 | 🚩 `sh -n` rc=0 + `git diff -w` の変化がゲート追加分のみ + `git diff --cached --stat` に当該ファイルが載る |
+| **T-02** | ゲート A / B を適用（L62-68 と同型）。ヘルパー定義は移動しない。**適用後に `git add` して index に載せる**（T-04 の変異復元が実装を消さないため） | 差分 | agent | 中 | 🚩 `sh -n` rc=0 + **`git diff -w HEAD -- <file>`** の変化がゲート追加分のみ（**`HEAD` 必須** — `git add` 後は `HEAD` 無しだと常に空になり fail-open。C-1 R6 指摘 M-1）+ `git diff --cached --stat` に当該ファイルが載る |
 | **T-03** | **受入検証**: AC-1（子で `[SKIP]` 2 本 + ゲート対象 TC の非実行 + ゲート外 TC-30/33 は実行）/ AC-2（親のカバレッジが baseline と完全一致）/ AC-3・AC-4（ta-26 standalone・フルスイートとも 0 failed） | `evidence/test-runs/t03-acceptance.log` | agent | 中 | 🚩 AC-1〜AC-4 すべて PASS |
 | **T-04** | **変異検証 3 種**（1 つずつ入れて戻す）。①条件反転（**新規 2 ゲート限定**）→ AC-2 が FAIL ②ゲート B 終端を TC-36 手前へ → AC-1 が FAIL ③**ゲート外にゲート A 内変数 `_t26_t20` を参照する 1 行を注入** → T-01 の越境検査が ≥1 件 | `evidence/test-runs/t04-mutations.log` | agent | **高** | 🚩 3 変異すべてで期待 FAIL + 各復元後に再 PASS |
 | **T-05** | **AC-5**: 交互 A/B（BASE / OPT を交互に各 2 回以上）で実行時間を実測。**BASE/OPT の切替は退避コピー方式**（下記）。**T-04 の後に直列で実行**する | `evidence/test-runs/t05-ab-timing.log` | agent | 中 | 🚩 交互測定であること + 測定後に OPT が index と一致していること |
@@ -131,7 +131,15 @@ fi
 
 > **上の V-A 行について**（C-1 R4 指摘 A の是正）: `derive_loopspec()`（`scripts/ai-loop/plan_package.py` の L188）は当該ラベルを `re.search`＝**最初の一致**で抽出する。ラベル文字列をバッククォートで囲んで本文中に書くと、**閉じバッククォートが抽出の開始デリミタとして消費され、以降の本文がコマンドとして黙って採用される**（例外が出ないので **fail-open**）。改訂 2 まで実際にこの状態で、抽出結果は `' + バッククォート囲みの行が無い | 追加（下記 Testing Strategy） |'` だった（実測）。
 >
-> したがって本 plan では **V-A 行より前でラベルを literal 表記しない**。ラベルを話題にする箇所はすべて「V-A 行」と呼ぶ。検証は `python3 -c "import re; print(re.search(r'Verification Automation:\s*\`([^\`]+)\`', open('docs/working/TASK-1012/plan.md').read()).group(1))"` の出力が L130 の実コマンド列と一致することで行う（T-01 のチェックポイント）。
+> したがって本 plan では **V-A 行より前でラベルを literal 表記しない**。ラベルを話題にする箇所はすべて「V-A 行」と呼ぶ。検証は下記フェンスのコマンド（出力が V-A 行の実コマンド列と一致すること）で行う（T-01 のチェックポイント）。
+
+```sh
+python3 - <<'EOF'
+import re
+t = open('docs/working/TASK-1012/plan.md').read()
+print(re.search(r'Verification Automation:\s*`([^`]+)`', t).group(1))
+EOF
+```
 
 ## Risks & Mitigations
 
@@ -258,12 +266,30 @@ Human C-3 の代わりに **ai-loop の C-3' 裁定（`/ai-loop-cycle`）** を�
 
 ### 実行順序（plan_hash 束縛のため順序厳守）
 
-1. plan / todo / test-cases を**確定**する（以降 plan を編集しない — `feedback_no_plan_edit_after_c3_approval`）
-2. **C-1** を実施 → PASS なら `review-self.md` に `C1-VERDICT: PASS plan=sha256:<確定後 plan の hash>` を 1 行だけ記録。この結果を **`gates.c1="PASS"`** として C-3' 入力へ渡す
-3. **C-2** を 1 本実施（観点固定・`critical/major=0` を要求）→ `review-external.md` に指摘を `R-NNN` で集約し、`C2-VERDICT: approve plan=sha256:<同 hash>` を 1 行だけ記録
-4. **Step 0: `breakdown-gate` スキルで粒度判定** → 理想 / 許容なら **`gates.breakdown="pass"`**、分割必須ならそれ以外の値
+1. **Step 0: `breakdown-gate` スキルで粒度判定** → 理想 / 許容なら **`gates.breakdown="pass"`**、分割必須ならそれ以外の値。**最初に行う**（C-1 R6 指摘 m-4: 後置すると分割必須が返ったとき C-1/C-2 が無駄になり、再計画で `plan_hash` が変わって両 evidence が stale 化する）
+2. plan / todo / test-cases を**確定**する（以降 plan を編集しない — `feedback_no_plan_edit_after_c3_approval`）
+3. **C-1** を実施 → PASS なら `review-self.md` に `C1-VERDICT: PASS plan=sha256:<確定後 plan の hash>` を 1 行だけ記録。この結果を **`gates.c1="PASS"`** として C-3' 入力へ渡す
+4. **C-2** を 1 本実施（観点固定・`critical/major=0` を要求）→ `review-external.md` に指摘を `R-NNN` で集約し、`C2-VERDICT: approve plan=sha256:<同 hash>` を 1 行だけ記録
 5. **C-3'**（`/ai-loop-cycle`）を実行。入力に **`gates` を必ず含める**
 6. `arbiter.py` が `HUMAN_ESCALATED`（exit 2）を返した場合は**停止して人間へ提示**し、AI が自己解決しない
+7. **`AUTO_APPROVED`（exit 0）が返った場合は `approvals/c3.json` を c3-prime 形式で発行する**（下記）。これが無いと `bin/plangate exec` が停止する
+
+### AUTO_APPROVED 後の c3.json 発行（C-1 R6 指摘 M-2 の是正）
+
+改訂 4 までの実行順序は「6. HUMAN_ESCALATED なら停止」で終わっており、**AUTO_APPROVED が返ったときに何を発行すれば exec に進めるのかが無かった**。実装側は次を要求する（実読で確認）:
+
+| 要求元 | 内容 |
+|--------|------|
+| `bin/plangate`（exec preflight） | `approvals/c3.json` の `c3_status` を読み、`APPROVED` でなければ `error: C-3 gate not approved` で**停止** |
+| `scripts/ai-loop/c3prime_verify.py` | `approval_kind == "c3-prime"` / `decision=AUTO_APPROVED` / `phase="C-3'"` / `plan_hash` が現 plan.md の sha256 と一致 / `artifact_hashes` が Plan Package **6 要素**と全数一致 / **`source_sha` が exec 時の `git rev-parse HEAD` と prefix 一致** |
+| `scripts/ai-loop/plan_package.py` L262 | 発行は `build_c3_prime(task_dir, task_id, source_sha, target_sha, verdicts, ...)`。**`source_sha != target_sha` は R-011 で拒否** |
+
+**発行手順と順序の制約**:
+
+1. C-3' が `AUTO_APPROVED` を返したら、**その時点の HEAD** を `source_sha` / `target_sha` として `build_c3_prime()` で `approvals/c3.json` を生成する
+2. **発行後に plan / 6 artifact を一切編集しない**（`plan_hash` / `artifact_hashes` の全数照合で即 BLOCK される）
+3. ⚠️ **`source_sha` は HEAD 束縛**なので、「c3.json を発行 → コミット → HEAD が動く」で自壊する。**c3.json は exec 直前に発行し、exec までの間に新しいコミットを作らない**。やむを得ず HEAD が動いたら**再発行**する（`c3prime_verify.py` は不一致を「BLOCK・再 C-1/C-2/C-3' が必要」と扱う）
+4. ⚠️ **本リポジトリに c3-prime 形式の `c3.json` は現時点で 0 件**（`grep -rln 'c3-prime' docs/working/*/approvals/*.json` = 0）。**初回経路**であり、`build_c3_prime()` が期待どおり動くかを exec 前に確認すること
 
 > ⚠️ **`gates` の省略は入力エラーにならないが決定論的に escalate する**（C-1 R5 指摘 N-2）。`ai-loop-cycle/SKILL.md` は「gates 自体を省略した場合も入力エラーにはならないが、**priority 1.7 で human escalate に倒れる**」と明記しており、`arbiter.py` の priority table にも 1.7 が実在する。改訂 3 までの実行順序には **Step 0 が無く `gates` の受け渡しも書いていなかった**ため、順序どおり実行すると `lite_eligible=true` の目的（auto-approve）が**達成不能**だった。R4-B（前提列挙の不完全）と同一クラスの再発が、B の是正節そのものの中で起きていた。
 
