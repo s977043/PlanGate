@@ -34,7 +34,7 @@
 
 2. ファイル冒頭に役割コメントを書く（このファイル末尾の例参照）
 3. ローカルで `sh tests/run-tests.sh` を走らせ、新ブロックが拾われ全 PASS することを確認
-4. **`tests/run-tests.sh` の本体には触れない**（loader が `tests/extras/*.sh` を自動発見する）
+4. **`tests/run-tests.sh` の本体には触れない**（loader が `tests/extras/ta-*.sh` を自動発見する）
 
 これにより PBI 連続実装時の `tests/run-tests.sh` 末尾領域コンフリクトを回避する（Issue #170 / retrospective P-2 対応）。
 

@@ -4,7 +4,7 @@
 # 新規 unit test 2 本の CI 導線 / EH-8 実走
 #
 # 背景:
-#   1. run-tests.sh は python を一切呼ばず tests/extras/*.sh を glob source する
+#   1. run-tests.sh は python を一切呼ばず tests/extras/ta-*.sh を glob source する
 #      だけなので、導線が無いと新規 unit test が CI で一度も実行されない
 #      （TASK-0917 R-020 の実害型）。③ で 2 モジュールを 1 PASS 行ずつ実行する。
 #   2. .github/workflows/metrics-privacy.yml の scan 対象は
