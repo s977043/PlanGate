@@ -1,0 +1,27 @@
+{
+  "boundary_check": "clean",
+  "class_check": "no-merge",
+  "decision": "BLOCKED",
+  "gates": {
+    "breakdown": "pass",
+    "c1": "PASS"
+  },
+  "ho_paths_source": "/Users/user/Documents/GitHub/plangate/docs/ai/ai-loop/ho-paths.md",
+  "ho_pattern_count": 21,
+  "issued_by": "arbiter-v0.1",
+  "lite_check": true,
+  "policy_ref": "auto-approve-lite-clean@v4",
+  "run": {
+    "round_index": 1,
+    "run_id": "run-030",
+    "task_id": "TASK-0921-followup"
+  },
+  "scope_check": "in_scope",
+  "target_sha": "cc70a91",
+  "timestamp": "2026-08-05T05:33:34Z",
+  "w_check": {
+    "model_a": "reject",
+    "model_b": "reject",
+    "reject_category": "documentation"
+  }
+}
