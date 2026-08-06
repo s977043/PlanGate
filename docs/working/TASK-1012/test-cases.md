@@ -1,6 +1,6 @@
 # テストケース定義 — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 8** = C-1 ラウンド 1〜9 反映）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 9** = C-1 ラウンド 1〜9 + **C-2 R-001/002/004/005/006/008/009** 反映）
 > 対象: `tests/extras/ta-26-plugin-sync.sh`
 
 ## 記法規約（C-1 R5 指摘 N-1）
@@ -8,6 +8,18 @@
 **実行可能な判定式は、必ずコードフェンスに置く。表セルに書かない。本規約は plan / todo / test-cases / pbi-input の 4 文書すべてに適用する**（C-1 R6 指摘 m-1: R5 では test-cases にしか適用しておらず、plan 側にインラインコードスパンの壊れた式が残っていた）。 markdown の表セルでは `|` を `\|` にエスケープする必要があり、raw から複写した実行者が `\|` のまま実行すると **ERE では literal pipe として扱われ常に 0 = 確定的な誤 FAIL** に倒れる（実測: 表セル版 0 / 素の pipe 版 2）。
 
 R4 でこの是正を TC-A1b にだけ適用し **TC-A1a に残していた**ため、AC-1 の主判定が壊れる状態だった。以後は本規約で兄弟の取りこぼしを断つ。
+
+**C-2 R-005 / R-001 でさらに兄弟の取りこぼしが再発した**（TC-A1c / TC-A2a に fence 無し・TC-A6a が散文のみ）。本改訂で **判定式を持つ全 TC にフェンスを入れ切った**。以後、新規 TC を足すときは「判定式を書いたらフェンスに置く」を **TC 追加とセットで**行う。
+
+### 判定用ログの出力先（C-2 R-008）
+
+判定用ログは **`docs/working/TASK-1012/evidence/test-runs/` 配下に固定**する。**リポジトリルートに生成しない**（untracked が残り、#1021「テストが repo 内へ実ファイルを残す」と同クラスの汚染になる）。本書では以下を参照名とする:
+
+```sh
+# 全 TC 共通のログ出力先（採取前に 1 度だけ作成する）
+EV=docs/working/TASK-1012/evidence/test-runs
+mkdir -p "$EV"
+```
 
 ## ゲート対象 TC の定義（本書の基準）
 
@@ -44,11 +56,12 @@ R4 でこの是正を TC-A1b にだけ適用し **TC-A1a に残していた**た
 
 ```sh
 # ログ採取（TC-A1a / TC-A1b / TC-A1c 共通の入力）
-PG_T26_NO_RECURSE=1 sh tests/extras/ta-26-plugin-sync.sh </dev/null > t26-child.log 2>&1
+EV=docs/working/TASK-1012/evidence/test-runs; mkdir -p "$EV"
+PG_T26_NO_RECURSE=1 sh tests/extras/ta-26-plugin-sync.sh </dev/null > "$EV/t26-child.log" 2>&1
 echo "rc=$?"
 
 # TC-A1a の判定コマンド（この行をそのまま使う）
-grep -cE '\[SKIP\] (TC-20〜TC-25|TC-26〜29/32/34〜36)' t26-child.log   # → 2 が期待値
+grep -cE '\[SKIP\] (TC-20〜TC-25|TC-26〜29/32/34〜36)' "$EV/t26-child.log"   # → 2 が期待値
 ```
 
 **備考**: `grep -c '[SKIP]'` で**総数を数えないこと**（C-1 R2 指摘 B-5）。現行 tree には既に `[SKIP]` が **2 本**（TC-03/04 と TC-13）あり、ゲート適用後は **4 本**になる。総数で判定すると誤 FAIL する。**新規 2 本を名指しする式に固定**する。
@@ -66,7 +79,7 @@ grep -cE '\[SKIP\] (TC-20〜TC-25|TC-26〜29/32/34〜36)' t26-child.log   # → 
 
 ```sh
 # TC-A1b の判定コマンド（この行をそのまま使う）
-grep -cE '\[(PASS|FAIL)\] TC-(2[0-9]|32|34|35|36)' t26-child.log   # → 0 が期待値
+grep -cE '\[(PASS|FAIL)\] TC-(2[0-9]|32|34|35|36)' "$EV/t26-child.log"   # → 0 が期待値
 ```
 
 ### TC-A1c — ゲート外 TC は子でも実行される（AC-1 の対偶）
@@ -74,19 +87,49 @@ grep -cE '\[(PASS|FAIL)\] TC-(2[0-9]|32|34|35|36)' t26-child.log   # → 0 が�
 | 項目 | 内容 |
 |------|------|
 | 入力 | TC-A1a と同じ出力 |
-| 期待出力 | `TC-30` と `TC-33` の `[PASS]` が**それぞれ 1 件**存在する |
+| 期待出力 | `TC-30` と `TC-33` の `[PASS]` が**それぞれ 1 件**存在する（下記フェンスが `TC-30: 1` / `TC-33: 1` を出す） |
 | 種別 | Integration |
-| 備考 | ゲートが広すぎて静的検査まで飛ばしていないことの確認 |
+| 備考 | ゲートが広すぎて静的検査まで飛ばしていないことの確認。**判定式は必ず下記フェンスから取る**（C-2 R-005。素直に表セルへ書くと `\|` エスケープ事故を再発させる形になる） |
+
+```sh
+# TC-A1c の判定コマンド（この 2 行をそのまま使う）
+for n in 30 33; do printf 'TC-%s: ' "$n"; grep -cE '^ *\[PASS\] TC-'"$n"'( |$)' "$EV/t26-child.log"; done
+# → TC-30: 1 / TC-33: 1 が期待値
+```
+
+**実測**（適用前 tree・`PG_T26_NO_RECURSE=1` の実ログに対して実行）: `TC-30: 1` / `TC-33: 1`。
+**なぜ `grep -oE ... | sort | uniq -c` にしないか**: `[PASS] TC-3` で始まる TC が将来増えたときに数え上げが崩れないよう、**TC ごとに `-c` で独立に数える**形に固定した（`( |$)` の後続境界は、`t26_pass()` が出力する `[PASS] TC-30 README.md…` 形式〔先頭 2 スペースのインデント付き〕に対して実測で確認済み）。
 
 ### TC-A2a — 親のカバレッジが baseline と完全一致（AC-2）
 
 | 項目 | 内容 |
 |------|------|
-| 前提 | A-1 で baseline（変更前 tree）の TC 総数・PASS 数を採取済み |
+| 前提 | A-1 で baseline（変更前 tree）の**親ログ**を `$EV/t26-parent-base.log` として採取済み |
 | 入力 | `sh tests/extras/ta-26-plugin-sync.sh </dev/null`（`PG_T26_NO_RECURSE` を**設定しない**） |
-| 期待出力 | `TA-26 standalone: N passed, 0 failed` の **N が baseline と一致**。`[PASS] TC-` の件数も一致 |
+| 期待出力 | 下記フェンスの 2 判定がいずれも成立（**サマリ N の一致** + **PASS した TC ID 集合の同一性**） |
 | 種別 | Integration |
-| 備考 | **総数 N を契約値としてハードコードしない**（baseline との同値比較） |
+| 備考 | **総数 N を契約値としてハードコードしない**（baseline との同値比較）。**判定式は必ず下記フェンスから取る**（C-2 R-005） |
+
+```sh
+# TC-A2a の判定コマンド（この塊をそのまま使う）
+EV=docs/working/TASK-1012/evidence/test-runs; mkdir -p "$EV"
+sh tests/extras/ta-26-plugin-sync.sh </dev/null > "$EV/t26-parent-opt.log" 2>&1
+echo "rc=$?"
+
+# (1) サマリ行の同値比較（N をハードコードしない）
+grep -oE 'TA-26 standalone: [0-9]+ passed, [0-9]+ failed' "$EV/t26-parent-base.log" > "$EV/summary-base.txt"
+grep -oE 'TA-26 standalone: [0-9]+ passed, [0-9]+ failed' "$EV/t26-parent-opt.log"  > "$EV/summary-opt.txt"
+diff "$EV/summary-base.txt" "$EV/summary-opt.txt" && echo "SUMMARY IDENTICAL"
+
+# (2) PASS した TC ID 集合の同一性（件数一致より強い / C-2 R-009）
+grep -oE '\[PASS\] TC-[0-9]+' "$EV/t26-parent-base.log" | sort > "$EV/ids-base.txt"
+grep -oE '\[PASS\] TC-[0-9]+' "$EV/t26-parent-opt.log"  | sort > "$EV/ids-opt.txt"
+diff "$EV/ids-base.txt" "$EV/ids-opt.txt" && echo "TC-ID SET IDENTICAL"
+# → 両方の diff が rc=0（無出力）であることが期待値
+```
+
+**(2) を追加した理由**（C-2 R-009）: 改訂 8 までは「TC 総数・PASS 件数の一致」だけを見ており、**同数のまま別の TC が入れ替わる**変化を検出できなかった。本変更では件数が減る方向にしか動かないため実害は無いが、**件数一致より強い検査**へ格上げする。
+**実測**（`grep -oE '\[PASS\] TC-[0-9]+' | sort` を実ログへ適用）: `[PASS] TC-01 … [PASS] TC-36` の 29 要素が得られ、同一ログ同士の `diff` は rc=0（無出力）。抽出パターンが実出力フォーマット（`t26_pass()` の `[PASS] TC-NN <説明>`）に一致することを確認済み。
 
 ### TC-A2b — 変異①: ゲート条件を反転すると TC-A2a が FAIL する（AC-2 の検出力）
 
@@ -128,20 +171,109 @@ grep -cE '\[(PASS|FAIL)\] TC-(2[0-9]|32|34|35|36)' t26-child.log   # → 0 が�
 | 条件 | 判定 |
 |------|------|
 | OPT 中央値 ≤ BASE 中央値 × **0.85**（= 15% 以上の短縮） | **PASS** |
-| 0.85 < OPT/BASE ≤ 1.0（短縮はしているが小さい） | **WARN**。もう 1 往復（BASE/OPT 各 1 回）追加して再判定。それでも同じなら WARN のまま受理し、handoff に実測値と「期待した ≈40% に届かなかった」事実を記録する |
+| 0.85 < OPT/BASE ≤ 1.0（短縮はしているが小さい） | **WARN**。もう 1 往復（BASE/OPT 各 1 回）追加して再判定。それでも同じなら **下記「WARN 継続時の取り消し判断ゲート」へ進む**（AI が自動受理しない） |
 | OPT 中央値 > BASE 中央値 | **FAIL**。ゲート範囲が想定どおり効いていない可能性があるため **AC-1（TC-A1b）を再確認**する |
 
-- **測定は最大 4 往復まで**（BASE/OPT 各 4 回）。それを超えて基準を満たさない場合は測定を打ち切り、WARN として handoff に残す（exec を無限に引き延ばさない）
+**WARN 継続時の取り消し判断ゲート（C-2 R-004・必須）**:
+
+本 PBI は **恒久コスト（子プロセスのカバレッジ縮小＝テスト意味論の変更）が確定する一方、便益（≈40% 短縮）が未達でも完了できる**という非対称を持つ。改訂 8 までは短縮率 0〜15% が WARN のまま自動受理され、**取り消しを判断するゲートがどこにも無かった**。したがって:
+
+- WARN が継続した場合、**AI は AC-5 を PASS 扱いにしない**。`## AC-5: WARN（人間判断待ち）` として status に記録し、**C-4（`H-1`）で人間に「このカバレッジ縮小を受け入れるか」を明示的に判断させる**
+- 人間へ提示する材料（handoff / PR 本文に必須）:
+  1. BASE / OPT の全実測値と中央値・短縮率
+  2. **恒久コストの明示**: 子プロセスで `ta-26` の TC-20〜25 / 26〜29 / 32 / 34 / 35 / 36 が実行されなくなること（TC-13 の判定目的の範囲では影響しないという論拠付き）
+  3. **取り消し手順**: `git revert` 1 手で戻せること
+- **人間が「受け入れない」と判断した場合は revert する**。AI が「短縮はしているので有益」と自己判断して押し切らない
+
+- **測定は最大 4 往復まで**（BASE/OPT 各 4 回）。それを超えて基準を満たさない場合は測定を打ち切り、**上記の取り消し判断ゲートへ回す**（exec を無限に引き延ばさない）
 - 参考値: V-2 事後補完の交互実測は BASE 57.1s / 82.0s → OPT 47.5s / 47.8s / 41.7s（≈ 40% 短縮）。ただし**当時の tree には TC-35/36 が無い**ため、本 PBI の実測値とは直接比較できない
 
 ### TC-A6a — シンボル越境が 0 件（**AC-1 の静的前提** / 静的）
 
 | 項目 | 内容 |
 |------|------|
-| 入力 | ゲート内で定義される shell 関数・変数を列挙し、**ゲート外の行から参照されていないか**を機械照合する |
-| 期待出力 | **越境 0 件** |
+| 入力 | 下記フェンスのスクリプト。ゲート範囲を引数で受け、**範囲導出の内包 assert → 識別子収集 → 範囲外参照の全数照合 → 件数出力**まで通しで行う |
+| 期待出力 | `containment_violations=0` かつ `crossings=0`。rc=0 |
 | 種別 | 静的検査 |
 | 備考 | **C-1 が初版で検出した欠陥の再発防止**。初版は `_t26_mk_refs_guard_sandbox`（L527 定義）を TC-35（L683）/ TC-36（L713）が参照する構造を見落としていた。`set -e` が無いため子は停止せず `command not found` のまま継続し、TC-13 の `0 failed` 判定を壊す |
+
+**改訂 9 での是正**（C-2 R-001 / R-002a / R-006）: 改訂 8 までは本 TC に**実行可能な判定式が無く散文だけ**で、記法規約（本書冒頭）の自己違反だった。AC-1 の静的前提を担保する**唯一の検査**が exec 時に実装者の再設計に委ねられる状態だったため、**そのまま `sh` で実行できる 1 本のスクリプトとして固定**する。
+
+```sh
+#!/bin/sh
+# TC-A6a: シンボル越境検査（AC-1 の静的前提）
+# 使い方:
+#   T-01（適用前・ゲート未作成）: sh tc-a6a.sh "421-521" "558-730"   ← plan の図と grep -nE '^# TC-' で確定した予定範囲
+#   T-02 以降（適用後）:          sh tc-a6a.sh "$(動的導出したゲート A 範囲)" "$(同 B 範囲)"
+# 動的導出は plan「T-01 のシンボル越境検査の実装」の awk を使い、**必ず本スクリプトの
+# 内包アサーションを通す**（awk 単体は桁 0 の `fi` で範囲を黙って打ち切る fail-open）。
+F=tests/extras/ta-26-plugin-sync.sh
+A="$1"; B="$2"
+
+# ---- (1) 範囲の内包アサーション（C-2 R-002a）------------------------------
+# 導出件数が 4 であることだけでは範囲の打ち切りを検出できない。範囲そのものを検証する。
+_in() { lo=${1%-*}; hi=${1#*-}; [ "$2" -ge "$lo" ] && [ "$2" -le "$hi" ]; }
+miss=0
+for pair in "A:$A:20 21 22 23 24 25" "B:$B:26 27 28 29 32 34 35 36"; do
+  g=${pair%%:*}; rest=${pair#*:}; rng=${rest%%:*}; tcs=${rest#*:}
+  for n in $tcs; do
+    ln=$(grep -nE "^[[:space:]]*# TC-$n:" "$F" | head -1 | cut -d: -f1)
+    if [ -z "$ln" ]; then echo "MISSING header TC-$n"; miss=$((miss + 1)); continue; fi
+    _in "$rng" "$ln" || { echo "OUT-OF-RANGE gate $g: TC-$n at L$ln not in $rng"; miss=$((miss + 1)); }
+  done
+done
+echo "containment_violations=$miss"
+[ "$miss" -eq 0 ] || { echo "FAIL: ゲート範囲が期待 TC を内包していない（範囲導出が打ち切られた可能性）"; exit 1; }
+
+# ---- (2) 識別子収集 + (3) 範囲外参照の全数照合 -----------------------------
+# 収集パターンは POSIX 文字クラスのみで書く（\s / \w は POSIX ERE 外・非可搬 / C-2 R-006）。
+# 変数は行頭でない代入（`… || 名=$?` 等）も拾う。
+awk -v ranges="$A $B" '
+  function inside(l,  i){ for(i=1;i<=nr;i++) if(l>=lo[i]&&l<=hi[i]) return 1; return 0 }
+  BEGIN{
+    nr=split(ranges,R,/ +/)
+    for(i=1;i<=nr;i++){ split(R[i],P,"-"); lo[i]=P[1]+0; hi[i]=P[2]+0 }
+  }
+  { L[NR]=$0; IN[NR]=inside(NR) }
+  END{
+    ndef=0
+    for(i=1;i<=NR;i++){
+      if(!IN[i]) continue
+      s=L[i]
+      while(match(s,/(^|;|\|\||&&)[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/)){
+        tok=substr(s,RSTART,RLENGTH)
+        sub(/^(;|\|\||&&)?[[:space:]]*/,"",tok); sub(/=$/,"",tok)
+        if(tok!="" && !(tok in def)){ def[tok]=i; ndef++ }
+        s=substr(s,RSTART+RLENGTH)
+      }
+      if(match(L[i],/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*\(\)/)){
+        fn=substr(L[i],RSTART,RLENGTH)
+        sub(/^[[:space:]]*/,"",fn); sub(/\(\)$/,"",fn)
+        if(!(fn in def)){ def[fn]=i; ndef++ }
+        isfn[fn]=1
+      }
+    }
+    hits=0
+    for(k in def){
+      for(i=1;i<=NR;i++){
+        if(IN[i]) continue
+        if(k in isfn) pat="(^|[^A-Za-z0-9_$])" k "([^A-Za-z0-9_]|$)"
+        else          pat="\\$[{]?" k "([^A-Za-z0-9_]|$)"
+        if(L[i] ~ pat){ printf "CROSS %s (def L%d) <- L%d: %s\n", k, def[k], i, L[i]; hits++ }
+      }
+    }
+    printf "identifiers=%d crossings=%d\n", ndef, hits
+    exit (hits>0)?1:0
+  }
+' "$F"
+```
+
+**実測**（適用前 tree・`sh tc-a6a.sh "421-521" "558-730"`）:
+
+- `containment_violations=0`
+- `identifiers=77 crossings=0` / rc=0（C-2 が独立に数えた「ゲート A 内 31 + ゲート B 内 46 = 77 識別子・越境 0 件」と一致）
+- 範囲を偽装して打ち切った場合（ゲート B を `558-700`）: `OUT-OF-RANGE gate B: TC-36 at L707 not in 558-700` / rc=1 で **fail-open を検出**
+- 変異③（`: "$_t26_tgt36"` をファイル末尾に注入）: `CROSS _t26_tgt36 (def L721) <- L806` / `crossings=1` / rc=1
 
 ### TC-A6b — 変異②: ゲート B を縮めると TC-A1b が FAIL する（**AC-1** の検出力）
 
@@ -157,11 +289,24 @@ grep -cE '\[(PASS|FAIL)\] TC-(2[0-9]|32|34|35|36)' t26-child.log   # → 0 が�
 
 | 項目 | 内容 |
 |------|------|
-| 変異 | **ゲートより後ろの行に、ゲート A 内で定義される変数 `_t26_t20`（L423）を参照する 1 行を注入**する（例: `: "$_t26_t20"`） |
+| 変異 | **ゲートより後ろの行に、ゲート B 終端付近で定義される変数 `_t26_tgt36`（L721 / TC-36 ブロック内）を参照する 1 行を注入**する（例: 末尾へ `: "$_t26_tgt36"` を追記） |
 | 期待出力 | **TC-A6a が越境 ≥ 1 件を報告して FAIL** する |
 | 種別 | 変異注入 |
 | 事後 | 復元し、**TC-A6a が再 PASS（越境 0 件）することを確認するまでが本 TC** |
-| 備考 | **C-1 R3 N-1 の是正**。当初は「`_t26_mk_refs_guard_sandbox` の定義をゲート B の内側へ移す」としていたが、**同関数の参照は 562〜713 とすべてゲート B（558-731）の内側**にあるため定義を中へ入れても越境は発生せず、**変異が構造的に空振り**だった（実測で確認）。人工的な外部参照の注入に変えることで、検査そのものの検出力を直接実証する |
+| 備考 | 下記「注入対象を変えた理由」を必ず読むこと。**`_t26_t20` に戻さない** |
+
+**C-1 R3 N-1 の是正**: 当初は「`_t26_mk_refs_guard_sandbox` の定義をゲート B の内側へ移す」としていたが、**同関数の参照は 562〜713 とすべてゲート B（558-731）の内側**にあるため定義を中へ入れても越境は発生せず、**変異が構造的に空振り**だった（実測で確認）。人工的な外部参照の注入に変えることで、検査そのものの検出力を直接実証する。
+
+**注入対象を変えた理由（C-2 R-002b）**: 改訂 8 まで注入対象は `_t26_t20`（**ゲート A の先頭付近・L423**）だった。しかし範囲導出 awk は桁 0 の `fi` に一致して **範囲を黙って打ち切る fail-open** を持つ。切り詰められた範囲にも `_t26_t20` は入ってしまうため、**この変異は「範囲全体が検査されていること」を一切実証しない**（打ち切りが起きていても変異は検出され、検査は健全に見える）。
+
+注入対象を **`_t26_tgt36`（ゲート B 終端付近 L721）** へ変更することで:
+
+| 状態 | 変異③の結果 | 意味 |
+|------|-------------|------|
+| 範囲導出が正常 | `crossings=1` で FAIL（期待どおり） | 範囲が TC-36 まで届いている＝範囲全体が検査対象 |
+| 範囲が打ち切られている | 定義が拾われず `crossings=0` で**空振り** | 変異③自体が異常を露出させる（TC-A6a の内包アサーションと二重で検出） |
+
+**実測**: `: "$_t26_tgt36"` をファイル末尾へ注入 → `CROSS _t26_tgt36 (def L721) <- L806: : "$_t26_tgt36"` / `identifiers=77 crossings=1` / rc=1。復元後は `crossings=0` / rc=0。
 
 ### TC-INV — ゲート以外の内容変化がない（不変条件）
 
