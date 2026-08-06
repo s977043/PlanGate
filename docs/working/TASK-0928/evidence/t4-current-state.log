@@ -1,0 +1,43 @@
+# T-4 現状実測（2026-08-06）
+
+## bin/plangate doctor --check-settings
+```
+[check-settings] PASS: settings wiring 契約準拠(target=user)
+exit=0
+```
+
+## .claude/settings.json hooks 構成 / permissions
+```
+== SessionStart ( 1 entries )
+   matcher=None               sh ${CLAUDE_PROJECT_DIR}/scripts/gh-pin-account.sh
+== PostToolUse ( 1 entries )
+   matcher='Edit|Write|MultiEdit' sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-post-edit-diff.sh
+== Stop ( 1 entries )
+   matcher=None               sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-stop-diff-status.sh
+== PreToolUse ( 8 entries )
+   matcher='Bash'             sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-delegation-commit-boundary.sh
+   matcher='Bash'             sh ${CLAUDE_PROJECT_DIR}/scripts/check-git-destructive.sh
+   matcher='Edit|Write'       sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-exists.sh
+   matcher='Edit|Write'       sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-c3-approval.sh
+   matcher='Edit|Write'       sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}
+   matcher='Edit|Write'       sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-forbidden-files.sh
+   matcher='Edit|Write'       sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh
+   matcher='Bash'             sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh
+permissions: "<absent>"
+```
+
+## ruleset id=14939019
+```
+name: Protect default branch | enforcement: active | target: branch
+conditions: {"ref_name": {"exclude": [], "include": ["~DEFAULT_BRANCH"]}}
+- deletion {}
+- non_fast_forward {}
+- pull_request {"required_approving_review_count": 0, "dismiss_stale_reviews_on_push": false, "required_reviewers": [], "require_code_owner_review": false, "require_last_push_approval": false, "required_review_thread_resolution": true, "allowed_merge_methods": ["merge", "squash", "rebase"]}
+- required_status_checks {"strict_required_status_checks_policy": true, "do_not_enforce_on_create": false, "required_status_checks": [{"context": "Markdown lint", "integration_id": 15368}]}
+bypass_actors: [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}]
+```
+
+## grep -rn "pr review --approve" scripts/hooks/
+```
+exit=1 (1 = ヒット 0 件 = ガード不在)
+```

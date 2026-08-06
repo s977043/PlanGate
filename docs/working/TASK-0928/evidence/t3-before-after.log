@@ -1,0 +1,17 @@
+# T-3 before/after 比較（exit code。2=blocking, 1=non-blocking error, 0=allow）
+before token-write (HOOK_FILE unset)   rc=1
+before token-write (HOOK_FILE set)     rc=0
+before gh pr review --approve           rc=0
+before approve w/ SKIP_TOKEN_GUARD=1   rc=0
+before approve w/o jq in PATH           rc=0
+after token-write (HOOK_FILE unset)   rc=2
+after token-write (HOOK_FILE set)     rc=2
+after gh pr review --approve           rc=2
+after approve w/ SKIP_TOKEN_GUARD=1   rc=2
+after approve w/o jq in PATH           rc=2
+
+# after の block メッセージ
+[EH-token-guard] BLOCK: AI による PR 自己承認（gh pr review --approve 相当）は禁止されています [SELF_APPROVE]
+  検出: gh pr review --approve 928
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+  C-4（PR 承認 / merge）は Human-owned です（.claude/rules/responsibility-classes.md）。

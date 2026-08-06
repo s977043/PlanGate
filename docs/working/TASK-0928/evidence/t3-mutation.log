@@ -1,0 +1,62 @@
+# T-3 変異注入（call site 破壊）
+
+== MUTANT M1 : call site: _hit=$(_scan_self_approve "$_CMD" | head -1) -> _hit=""
+FAIL_COUNT=23
+FAIL  P01 long form                rc=0 blocked=False expect=True
+FAIL  P02 short -a                 rc=0 blocked=False expect=True
+FAIL  P03 flag interleave          rc=0 blocked=False expect=True
+FAIL  P04 positional+body          rc=0 blocked=False expect=True
+FAIL  P05 multi space + tab        rc=0 blocked=False expect=True
+FAIL  P06 --approve=true           rc=0 blocked=False expect=True
+FAIL  P07 env prefix               rc=0 blocked=False expect=True
+FAIL  P08 command builtin          rc=0 blocked=False expect=True
+FAIL  P09 absolute path            rc=0 blocked=False expect=True
+FAIL  P10 sh -c nesting            rc=0 blocked=False expect=True
+FAIL  P11 eval                     rc=0 blocked=False expect=True
+FAIL  P12 && chain                 rc=0 blocked=False expect=True
+FAIL  P13 ; chain                  rc=0 blocked=False expect=True
+FAIL  P14 command substitution     rc=0 blocked=False expect=True
+FAIL  P15 var indirection          rc=0 blocked=False expect=True
+FAIL  P16 bundled shorthand -ab    rc=0 blocked=False expect=True
+FAIL  P17 REST direct              rc=0 blocked=False expect=True
+FAIL  P18 GraphQL direct           rc=0 blocked=False expect=True
+FAIL  P19 newline separated        rc=0 blocked=False expect=True
+FAIL  P20 bare (fail-closed)       rc=0 blocked=False expect=True
+FAIL  P21 quoted tokens            rc=0 blocked=False expect=True
+FAIL  P22 xargs                    rc=0 blocked=False expect=True
+FAIL  P23 backticks                rc=0 blocked=False expect=True
+
+== MUTANT M4 : call site: _is_api_approve() の elif 分岐を削除
+FAIL_COUNT=2
+FAIL  P17 REST direct              rc=0 blocked=False expect=True
+FAIL  P18 GraphQL direct           rc=0 blocked=False expect=True
+
+== MUTANT M2 : call site: _CMD=$(_json_get ...) -> _CMD=""
+FAIL_COUNT=24
+FAIL  P01 long form                rc=0 blocked=False expect=True
+FAIL  P02 short -a                 rc=0 blocked=False expect=True
+FAIL  P03 flag interleave          rc=0 blocked=False expect=True
+FAIL  P04 positional+body          rc=0 blocked=False expect=True
+FAIL  P05 multi space + tab        rc=0 blocked=False expect=True
+FAIL  P06 --approve=true           rc=0 blocked=False expect=True
+FAIL  P07 env prefix               rc=0 blocked=False expect=True
+FAIL  P08 command builtin          rc=0 blocked=False expect=True
+FAIL  P09 absolute path            rc=0 blocked=False expect=True
+FAIL  P10 sh -c nesting            rc=0 blocked=False expect=True
+FAIL  P11 eval                     rc=0 blocked=False expect=True
+FAIL  P12 && chain                 rc=0 blocked=False expect=True
+FAIL  P13 ; chain                  rc=0 blocked=False expect=True
+FAIL  P14 command substitution     rc=0 blocked=False expect=True
+FAIL  P15 var indirection          rc=0 blocked=False expect=True
+FAIL  P16 bundled shorthand -ab    rc=0 blocked=False expect=True
+FAIL  P17 REST direct              rc=0 blocked=False expect=True
+FAIL  P18 GraphQL direct           rc=0 blocked=False expect=True
+FAIL  P19 newline separated        rc=0 blocked=False expect=True
+FAIL  P20 bare (fail-closed)       rc=0 blocked=False expect=True
+FAIL  P21 quoted tokens            rc=0 blocked=False expect=True
+FAIL  P22 xargs                    rc=0 blocked=False expect=True
+FAIL  P23 backticks                rc=0 blocked=False expect=True
+FAIL  R01 token write blocked      rc=0 blocked=False expect=True
+
+== RESTORED ==
+TOTAL FAILURES: 0

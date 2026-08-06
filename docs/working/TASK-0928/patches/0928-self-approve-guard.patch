@@ -1,0 +1,188 @@
+diff --git a/scripts/check-approval-token-write.sh b/scripts/check-approval-token-write.sh
+index 083764a..2730c46 100755
+--- a/scripts/check-approval-token-write.sh
++++ b/scripts/check-approval-token-write.sh
+@@ -1,18 +1,141 @@
+ #!/bin/sh
+-# check-approval-token-write.sh — 承認トークン系ファイルへの AI 直接書き込みを block
++# check-approval-token-write.sh — 承認境界ガード（AI 自己承認の物理 block）
+ # TASK-0123 (#420) + TASK-0128 R-002 (Bash matcher) + #546 Codex review (書込検出強化/読み取り誤検知解消)
++#   + #928 (AC-5/AC-6: `gh pr review --approve` 系の自己承認 block / stdin 読み取り是正 / exit code 是正)
+ # hook として .claude/settings.json に登録する（Human-owned）
+ # 配置: scripts/ ルート（HO 外）
+ #
+ # 対応 matcher:
+ #   Edit|Write … PLANGATE_HOOK_FILE env もしくは stdin JSON .tool_input.file_path
+-#   Bash       … stdin JSON .tool_input.command 中の token path + 「書き込み意図」を検出
+-#                （cat>/tee/cp/mv/ln/install/dd/truncate/sed -i/python write_text・open(...,"w") 等）
+-#                読み取り（cat/open(...).read 等）は block しない。
++#   Bash       … stdin JSON .tool_input.command に対し 2 系統を検査
++#                (a) 承認トークンファイルへの書き込み意図
++#                    （cat>/tee/cp/mv/ln/install/dd/truncate/sed -i/python write_text 等）
++#                    読み取り（cat/open(...).read 等）は block しない。
++#                (b) **AI 自己承認**（`gh pr review --approve` / `-a` / REST/GraphQL 直叩き）
++#                    C-4 は Human-owned（.claude/rules/responsibility-classes.md）であり
++#                    AI は自分の PR に APPROVE を発行できない。
++#
++# 設計メモ（#928）:
++#   - (b) は `PLANGATE_SKIP_TOKEN_GUARD` の **前** に評価する（承認境界は env で
++#     緩和させない = fail-closed）。
++#   - stdin は **無条件に 1 回だけ**読む。旧実装は `PLANGATE_HOOK_FILE` が
++#     env に設定されていると stdin を一切読まず、Bash matcher 側の検査が
++#     silent に無効化されていた（EH-3 の運用上 `PLANGATE_HOOK_FILE` は
++#     セッション起動時に設定されることがあるため実害あり）。
++#   - block は **exit 2**（Claude Code の PreToolUse blocking error）。
++#     旧実装の exit 1 は "non-blocking error" 扱いで **実際には止まらない**。
+ 
+ set -eu
++set -f  # コマンド文字列のトークン走査で glob 展開させない
++
++# --- stdin を 1 回だけ読む（TTY 直叩き時はハングさせない） ---
++_stdin=""
++if [ ! -t 0 ]; then
++  _stdin=$(cat 2>/dev/null || true)
++fi
+ 
+-# PLANGATE_SKIP_TOKEN_GUARD=1 で全スキップ（緊急/テスト用）
++_json_get() {
++  # $1: jq path / $2: jq 不在時の grep フォールバック用キー名
++  # jq が無い環境で **guard が fail-open しない**ようフォールバックを持つ
++  # （EH-9 check-delegation-commit-boundary.sh と同方式）。
++  _v=""
++  if [ -n "$_stdin" ] && command -v jq >/dev/null 2>&1; then
++    _v=$(printf '%s' "$_stdin" | jq -r "$1 // empty" 2>/dev/null || true)
++  fi
++  if [ -z "$_v" ] && [ -n "$_stdin" ] && [ -n "${2:-}" ]; then
++    _v=$(printf '%s' "$_stdin" \
++      | grep -o "\"$2\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" \
++      | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
++  fi
++  printf '%s' "$_v"
++}
++
++_block() {
++  printf '[EH-token-guard] BLOCK: %s\n' "$2" >&2
++  printf '  検出: %s\n' "$1" >&2
++  printf '  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start\n' >&2
++  printf '  C-4（PR 承認 / merge）は Human-owned です（.claude/rules/responsibility-classes.md）。\n' >&2
++  exit 2
++}
++
++# ===========================================================================
++# (b) AI 自己承認ガード（#928 AC-5 / AC-6）— env で緩和しない
++# ===========================================================================
++
++# 承認相当の REST/GraphQL 直叩きパターン
++_is_api_approve() {
++  printf '%s' "$1" | grep -qiE 'addpullrequestreview' && return 0
++  printf '%s' "$1" | grep -qiE '(^|[^a-z])api([^a-z]|$)|graphql|/pulls/[^ ]*/reviews' || return 1
++  printf '%s' "$1" | grep -qiE 'event[=:][[:space:]]*"?approve' && return 0
++  return 1
++}
++
++# 1 セグメント（; | & () で分割済み・引用符除去済み）を検査
++# 戻り: 0=違反, 1=問題なし
++_seg_is_self_approve() {
++  _seg=$1
++  _st=0        # 0: 'pr' 未検出 / 1: 'pr' 検出 / 2: 'pr review' 検出
++  _apr=0       # --approve / -a
++  _other=0     # --comment / --request-changes（明示的な非承認 verdict）
++  _skip=0      # 直前が値を取るフラグ
++  for _t in $_seg; do
++    if [ "$_skip" = "1" ]; then _skip=0; continue; fi
++    case "$_t" in
++      -h|--help) return 1 ;;                       # help は常に許可
++      -b|--body|-F|--body-file|-R|--repo) _skip=1; continue ;;
++      --approve|--approve=*) _apr=1; continue ;;
++      --comment|--comment=*|--request-changes|--request-changes=*) _other=1; continue ;;
++      --*) continue ;;
++      -*)
++        # 短縮フラグ束（pflag は -ab のような結合を許す）
++        case "$_t" in *a*) _apr=1 ;; esac
++        case "$_t" in *c*|*r*) _other=1 ;; esac
++        continue ;;
++    esac
++    # 位置引数
++    if [ "$_st" = "0" ] && [ "$_t" = "pr" ]; then _st=1; continue; fi
++    if [ "$_st" = "1" ] && [ "$_t" = "review" ]; then _st=2; continue; fi
++  done
++  [ "$_st" = "2" ] || return 1
++  # 明示 approve → 違反 / verdict 無指定（対話モードで approve 可能）→ 安全側で違反
++  if [ "$_apr" = "1" ] || [ "$_other" = "0" ]; then return 0; fi
++  return 1
++}
++
++_scan_self_approve() {
++  _cmd=$1
++  [ -n "$_cmd" ] || return 0
++  # 正規化: タブ/CR → 空白、引用符除去、コマンド区切りを改行化
++  _norm=$(printf '%s' "$_cmd" \
++    | tr '\t\r' '  ' \
++    | sed "s/['\"\`]//g" \
++    | tr ';|&()' '\n\n\n\n\n')
++  printf '%s\n' "$_norm" | while IFS= read -r _line; do
++    [ -n "$_line" ] || continue
++    if _seg_is_self_approve "$_line"; then
++      printf 'SELF_APPROVE\t%s\n' "$_line"
++    elif _is_api_approve "$_line"; then
++      printf 'API_APPROVE\t%s\n' "$_line"
++    fi
++  done
++}
++
++_CMD=$(_json_get '.tool_input.command' 'command')
++if [ -z "$_CMD" ]; then
++  _CMD="${PLANGATE_HOOK_CMD:-}"
++fi
++if [ -n "$_CMD" ]; then
++  _hit=$(_scan_self_approve "$_CMD" | head -1)
++  if [ -n "$_hit" ]; then
++    _block "$_CMD" "AI による PR 自己承認（gh pr review --approve 相当）は禁止されています [${_hit%%	*}]"
++  fi
++fi
++
++# ===========================================================================
++# (a) 承認トークンファイルへの書き込みガード（既存）
++# ===========================================================================
++
++# PLANGATE_SKIP_TOKEN_GUARD=1 で (a) をスキップ（緊急/テスト用）
+ if [ "${PLANGATE_SKIP_TOKEN_GUARD:-0}" = "1" ]; then
+   exit 0
+ fi
+@@ -39,32 +162,18 @@ _has_write_intent() {
+   return 1
+ }
+ 
+-_block() {
+-  printf '[EH-token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。\n' >&2
+-  printf '  検出: %s\n' "$1" >&2
+-  printf '  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start\n' >&2
+-  exit 1
+-}
+-
+ # --- 1) Edit|Write: env 優先、無ければ stdin JSON の file_path ---
+ TARGET="${PLANGATE_HOOK_FILE:-}"
+-_stdin=""
+ if [ -z "$TARGET" ]; then
+-  _stdin=$(cat 2>/dev/null || true)
+-fi
+-if [ -z "$TARGET" ] && [ -n "$_stdin" ] && command -v jq >/dev/null 2>&1; then
+-  TARGET=$(printf '%s' "$_stdin" | jq -r '.tool_input.file_path // .file_path // empty' 2>/dev/null || true)
++  TARGET=$(_json_get '.tool_input.file_path' 'file_path')
+ fi
+ if [ -n "$TARGET" ] && _is_token_path "$TARGET"; then
+-  _block "file_path=$TARGET"
++  _block "file_path=$TARGET" "承認トークン系ファイルへの AI 直接書き込みは禁止されています。"
+ fi
+ 
+ # --- 2) Bash: command 文字列を解析（token path かつ 書き込み意図） ---
+-if [ -n "$_stdin" ] && command -v jq >/dev/null 2>&1; then
+-  _cmd=$(printf '%s' "$_stdin" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+-  if [ -n "$_cmd" ] && _is_token_path "$_cmd" && _has_write_intent "$_cmd"; then
+-    _block "Bash command writes token path: $_cmd"
+-  fi
++if [ -n "$_CMD" ] && _is_token_path "$_CMD" && _has_write_intent "$_CMD"; then
++  _block "Bash command writes token path: $_CMD" "承認トークン系ファイルへの AI 直接書き込みは禁止されています。"
+ fi
+ 
+ exit 0

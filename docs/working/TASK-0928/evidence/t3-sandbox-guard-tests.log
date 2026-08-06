@@ -1,0 +1,52 @@
+========================================================================
+POSITIVE (must block)
+========================================================================
+PASS  P01 long form                rc=2 blocked=True expect=True
+PASS  P02 short -a                 rc=2 blocked=True expect=True
+PASS  P03 flag interleave          rc=2 blocked=True expect=True
+PASS  P04 positional+body          rc=2 blocked=True expect=True
+PASS  P05 multi space + tab        rc=2 blocked=True expect=True
+PASS  P06 --approve=true           rc=2 blocked=True expect=True
+PASS  P07 env prefix               rc=2 blocked=True expect=True
+PASS  P08 command builtin          rc=2 blocked=True expect=True
+PASS  P09 absolute path            rc=2 blocked=True expect=True
+PASS  P10 sh -c nesting            rc=2 blocked=True expect=True
+PASS  P11 eval                     rc=2 blocked=True expect=True
+PASS  P12 && chain                 rc=2 blocked=True expect=True
+PASS  P13 ; chain                  rc=2 blocked=True expect=True
+PASS  P14 command substitution     rc=2 blocked=True expect=True
+PASS  P15 var indirection          rc=2 blocked=True expect=True
+PASS  P16 bundled shorthand -ab    rc=2 blocked=True expect=True
+PASS  P17 REST direct              rc=2 blocked=True expect=True
+PASS  P18 GraphQL direct           rc=2 blocked=True expect=True
+PASS  P19 newline separated        rc=2 blocked=True expect=True
+PASS  P20 bare (fail-closed)       rc=2 blocked=True expect=True
+PASS  P21 quoted tokens            rc=2 blocked=True expect=True
+PASS  P22 xargs                    rc=2 blocked=True expect=True
+PASS  P23 backticks                rc=2 blocked=True expect=True
+========================================================================
+NEGATIVE (must pass)
+========================================================================
+PASS  N01 --comment                rc=0 blocked=False expect=False
+PASS  N02 -c -b                    rc=0 blocked=False expect=False
+PASS  N03 --request-changes        rc=0 blocked=False expect=False
+PASS  N04 -r -b                    rc=0 blocked=False expect=False
+PASS  N05 pr view                  rc=0 blocked=False expect=False
+PASS  N06 pr list                  rc=0 blocked=False expect=False
+PASS  N07 pr create                rc=0 blocked=False expect=False
+PASS  N08 pr diff                  rc=0 blocked=False expect=False
+PASS  N09 review --help            rc=0 blocked=False expect=False
+PASS  N10 git commit               rc=0 blocked=False expect=False
+PASS  N11 api read reviews         rc=0 blocked=False expect=False
+PASS  N12 pr comment               rc=0 blocked=False expect=False
+PASS  N13 repo flag + comment      rc=0 blocked=False expect=False
+PASS  N14 pr checks                rc=0 blocked=False expect=False
+PASS  N15 grep for approve         rc=0 blocked=False expect=False
+PASS  N16 body mentions -a         rc=0 blocked=False expect=False
+========================================================================
+REGRESSION (token write)
+========================================================================
+PASS  R01 token write blocked      rc=2 blocked=True expect=True
+PASS  R02 token read allowed       rc=0 blocked=False expect=False
+
+TOTAL FAILURES: 0

@@ -1,0 +1,16 @@
+# T-1: EH-9 (check-delegation-commit-boundary.sh) 発火実証
+
+matcher: PreToolUse[0] matcher="Bash" -> sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-delegation-commit-boundary.sh
+入力仕様: stdin JSON .tool_input.command（jq 優先 / grep フォールバック）。env PLANGATE_HOOK_CMD は stdin 不在時のみ。
+判定出力: stdout JSON {"continue":false,"stopReason":...} / exit code は常に 0
+
+[PLANGATE_DELEGATION_NOCOMMIT=1] gh pr merge 928 --squash         -> {"continue":false,"stopReason":"EH-9: 委譲境界違反 — 委譲先は commit/push しない（完了フェーズは親が実施）"}
+[PLANGATE_DELEGATION_NOCOMMIT=1] git commit -m x                  -> {"continue":false,"stopReason":"EH-9: 委譲境界違反 — 委譲先は commit/push しない（完了フェーズは親が実施）"}
+[PLANGATE_DELEGATION_NOCOMMIT=1] git push origin HEAD             -> {"continue":false,"stopReason":"EH-9: 委譲境界違反 — 委譲先は commit/push しない（完了フェーズは親が実施）"}
+[PLANGATE_DELEGATION_NOCOMMIT=1] gh pr review --approve 928       -> {"continue":true}
+[PLANGATE_DELEGATION_NOCOMMIT=1] gh pr view 928                   -> {"continue":true}
+[PLANGATE_DELEGATION_NOCOMMIT=0] gh pr merge 928 --squash         -> {"continue":true}
+[PLANGATE_DELEGATION_NOCOMMIT=0] git commit -m x                  -> {"continue":true}
+[PLANGATE_DELEGATION_NOCOMMIT=0] git push origin HEAD             -> {"continue":true}
+[PLANGATE_DELEGATION_NOCOMMIT=0] gh pr review --approve 928       -> {"continue":true}
+[PLANGATE_DELEGATION_NOCOMMIT=0] gh pr view 928                   -> {"continue":true}
