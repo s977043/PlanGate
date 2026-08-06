@@ -10,7 +10,8 @@
 | standalone-capable, all pass | 0 |
 | standalone-capable, internal fail > 0 | 1 |
 | harness-only, direct invocation | 2 |
-| **standalone-capable, prerequisite absent（検査していない）** | **3** |
+| **standalone-capable, prerequisite absent かつ `fail = 0`（検査していない）** | **3** |
+| **standalone-capable, prerequisite absent かつ `fail > 0`（検査して失敗した）** | **1** |
 | standalone-capable, original command exits nonzero | preserve original rc |
 | harness source, any individual extras | no process exit; runner decides final rc |
 
@@ -32,6 +33,8 @@ Given `PG_HARNESS_SOURCED=1` and valid `FIXTURES_DIR`, when init is called, then
 ### TC-02 Harness-only direct misuse
 
 Given no valid harness marker, when a `harness-only` script is invoked, then body sentinel is not created, stderr names the test (basename test-id) and canonical runner, and rc=2.
+
+**Slice 1 では synthetic fixture を対象とする**（実 `ta-*.sh` の harness-only 移行は Slice 2 / TC-11）. Traceability and M-05 already treat this case as the synthetic instantiation; the wording here is aligned with TC-23, which splits Slice 1 (synthetic) / Slice 2 (real) explicitly.
 
 ### TC-03 Standalone pass
 
@@ -59,21 +62,50 @@ Given unknown capability string, helper fails closed before body with nonzero rc
 
 ## Inventory / Dynamic Cases
 
+> **Migration scope (shared by TC-09 / TC-10 / TC-11 / TC-12 / TC-13)**
+>
+> 対象は**移行済み集合**（＝移行期間 allowlist（`evidence/migration-allowlist.txt`）に列挙されて
+> いないファイル）。**ただし TC-20（basename 一意性）は移行状態に依存しないため全件を対象とする**。
+>
+> In English, for the test implementation: the *migrated set* = every runtime-discovered `ta-*.sh`
+> whose basename is **not listed** in the migration-period allowlist
+> `docs/working/TASK-0921/evidence/migration-allowlist.txt`. The allowlist is an **explicit ledger
+> generated from the Task 1 inventory**, never a predicate such as "has no helper bootstrap": a
+> predicate would silently swallow a newly added file that has neither marker nor init, which is
+> exactly what TC-16 and M-06 must catch, and it would violate the second clause of pbi-input AC-5
+> ("将来の追加ファイルが黙って除外されない構造にする"). The ledger's **line count is never used as
+> an expected value**; only membership is.
+>
+> 本定義は `plan.md` の Task 6 および `todo.md` の T-06 と**字面を一致**させてある。
+
 ### TC-09 Exactly one capability marker
 
-For every runtime-discovered `ta-*.sh`, marker count is exactly 1 and value is one of `standalone-capable`, `harness-only`.
+**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not listed** in the
+migration-period allowlist (`evidence/migration-allowlist.txt`).
+
+For every file in scope, marker count is exactly 1 and value is one of `standalone-capable`, `harness-only`.
 
 ### TC-10 Marker and init agree
 
-For every file, marker value and `pg_extra_contract_init` second argument agree, and the first argument equals the file's **basename without extension**. Comment-only token elsewhere does not satisfy this test.
+**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not listed** in the
+migration-period allowlist (`evidence/migration-allowlist.txt`).
+
+For every file in scope, marker value and `pg_extra_contract_init` second argument agree, and the first argument equals the file's **basename without extension**. Comment-only token elsewhere does not satisfy this test.
 
 ### TC-11 Harness-only all-file execution
 
-For every marker=harness-only file (resolved by **basename test-id**), `sh "$file" </dev/null` returns 2, emits standard diagnostic naming that basename, and creates no body sentinel/tmp/audit evidence.
+**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not listed** in the
+migration-period allowlist (`evidence/migration-allowlist.txt`).
+
+For every in-scope marker=harness-only file (resolved by **basename test-id**), `sh "$file" </dev/null` returns 2, emits standard diagnostic naming that basename, and creates no body sentinel/tmp/audit evidence.
 
 ### TC-12 Standalone-capable all-file force-fail (differential)
 
-Scope: every marker=standalone-capable file **whose prerequisites are satisfied**, resolved by **basename test-id**. Prerequisite class is decided by stage 1 of the two-stage procedure (see below), not assumed.
+**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not listed** in the
+migration-period allowlist (`evidence/migration-allowlist.txt`) — restricted further to
+marker=standalone-capable files **whose prerequisites are satisfied**, resolved by
+**basename test-id**. Prerequisite class is decided by stage 1 of the two-stage procedure
+(see below), not assumed.
 
 For each such file, assert **both**:
 
@@ -82,11 +114,11 @@ For each such file, assert **both**:
 
 Both must hold; the difference between (a) and (b) is what proves the file reaches finalize. (b) alone cannot detect a file that always returns 1. Non-target file behavior is unchanged.
 
-**Prerequisite-absent files are excluded from this case and are asserted by TC-17 (rc=3) instead.** Requiring rc=0 from every standalone-capable file would fail deterministically: at the base commit, `ta-43-eh2-strict-json` takes its early SKIP path (`scripts/hooks/check-plan-hash.sh` contains no `_eh2_stdin`, so `_T43_APPLIED=0`) and therefore returns rc=3 after migration, not rc=0. `ta-39-eh3-doc-light`'s prerequisite is satisfied at the same commit, so the two classes genuinely coexist within 層 A.
+**Prerequisite-absent files are excluded from this case and are asserted by TC-17 (rc=3) instead.** Hardcoding rc=0 for every standalone-capable file is nevertheless forbidden, because prerequisite satisfaction depends on repository state (which hooks/scripts are applied) and can flip between the plan, exec and CI environments. Measured at the base commit (C-1 round 2), `ta-39-eh3-doc-light`, `ta-43-eh2-strict-json` and `ta-44-eh457-cli-wiring` **all** return rc=0, i.e. all three are prerequisite-satisfied and the prerequisite-absent class is currently empty; `ta-43`'s prerequisite is checked against `scripts/hooks/check-c3-approval.sh` (which does contain `_eh2_stdin`), not `check-plan-hash.sh`. The class split must therefore be **re-measured by stage 1 at exec start** and never written into the test as a fixed list.
 
 Two-stage procedure (execute → classify → assert):
 
-1. **Stage 1 — classify**: run each target once **with no probe**. rc=0 → prerequisite-satisfied class; rc=3 → prerequisite-absent class; **any other rc (1 / 2 / …) is unclassifiable and is an immediate FAIL** (fail-closed, so an implementation that always returns 3 cannot pass).
+1. **Stage 1 — classify**: run each target once **with no probe**. rc=0 → prerequisite-satisfied class; rc=3 → prerequisite-absent class; **any other rc (1 / 2 / …) is unclassifiable and is an immediate FAIL** (fail-closed, so an implementation that always returns 3 cannot pass). Note that under the Finalize precedence a prerequisite-absent file that already has `fail > 0` returns **rc=1**, so it lands in the unclassifiable branch and FAILs — this is intended: a clean run that records a real assertion failure is a defect regardless of prerequisite state.
 2. **Stage 2 — assert**: prerequisite-satisfied class → (a)/(b) above; prerequisite-absent class → TC-17.
 
 The class split is recorded in evidence; **the number of files in each class is not baked into the test as an expected value**.
@@ -95,7 +127,10 @@ Additionally: with `PG_EXTRA_CONTRACT_PROBE=force-fail` set but `PG_EXTRA_CONTRA
 
 ### TC-13 Standalone-capable normal execution
 
-For every marker=standalone-capable file whose prerequisites are satisfied, clean direct execution with `</dev/null` returns 0 and output contains no `[FAIL]`. Files whose prerequisites are absent are asserted by TC-17 (rc=3), not by this case.
+**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not listed** in the
+migration-period allowlist (`evidence/migration-allowlist.txt`).
+
+For every in-scope marker=standalone-capable file whose prerequisites are satisfied, clean direct execution with `</dev/null` returns 0 and output contains no `[FAIL]`. Files whose prerequisites are absent are asserted by TC-17 (rc=3), not by this case.
 
 ### TC-14 Harness regression (no hardcoded filename)
 
@@ -109,6 +144,8 @@ With the seven guarded env values pre-set, runner and standalone-capable normal 
 
 Adding a temporary `ta-zz-probe.sh` without marker/init makes contract TA fail. Adding only a marker but no matching init also fails. Adding marker + init but **no tail `pg_extra_contract_finalize`** also fails (case D has no trap safety net).
 
+This case is the reason the migration-period allowlist must be an **explicit ledger** and not a predicate: `ta-zz-probe.sh` has no helper bootstrap, so a predicate-based allowlist would exempt it and this case would silently pass. Because the ledger is generated from the Task 1 inventory at the base commit, the newly added file is absent from it, falls inside the migrated set, and is caught by TC-09 / TC-10.
+
 ## Early Exit / Prerequisite Cases
 
 ### TC-17 Prerequisite-absent files return rc=3
@@ -117,7 +154,9 @@ In a sandbox where the prerequisite is absent, `ta-39-eh3-doc-light`, `ta-43-*`,
 
 The rc=3 must additionally be shown to originate from `pg_extra_contract_skip` (its diagnostic appears in the output). A file that reaches rc=3 by any other route is a FAIL — `pg_extra_contract_skip` is the sole channel for declaring "prerequisite absent", and the test body must never `exit 3` directly.
 
-This case also covers every file that stage 1 of TC-12 sorts into the prerequisite-absent class, which at the base commit includes `ta-43-eh2-strict-json` under the repository's own state (not only in a constructed sandbox).
+This case also covers every file that stage 1 of TC-12 sorts into the prerequisite-absent class. At the base commit that class is **empty under the repository's own state** (`ta-39`, `ta-43` and `ta-44` all return rc=0 — measured in C-1 round 2), so at present TC-17 is exercised **only in a constructed sandbox**; the class must be re-measured by stage 1 at exec start.
+
+**Out of scope for TC-17**: a prerequisite-absent run that also has `fail > 0`. Under the Finalize precedence that case returns **rc=1**, not rc=3 ("前提未充足だが既に失敗している" is "検査して失敗した", not "検査していない"). It is asserted as an ordinary failure (TC-04 / TC-12 stage 1 unclassifiable branch), not here.
 
 ### TC-18 ta-26 parity including summary literal
 
@@ -128,6 +167,10 @@ Before/after migration, `ta-26` clean standalone rc, forced-failure rc, cleanup,
 Contract TA greps `tests/extras/README.md` and asserts it documents: rc **0 / 1 / 2 / 3** meanings, the capability marker convention, the probe's five required statements, and the note that extras rc=2 is a **different namespace** from the hook BLOCK `exit 2` (R-009 / R-020).
 
 ### TC-20 test-id uniqueness
+
+**Scope**: **every** runtime-discovered `ta-*.sh`, **including files listed in the migration-period
+allowlist** — basename uniqueness does not depend on migration state, so this case is explicitly
+exempt from the migrated-set restriction that TC-09 / TC-10 / TC-11 / TC-12 / TC-13 carry.
 
 Contract TA asserts every `ta-*.sh` has a **unique basename test-id**. (Numeric prefixes are known to collide — `ta-14` appears twice — so a number-based id would silently conflate two files.)
 
@@ -148,11 +191,13 @@ Two instantiations, in different slices:
 
 ### TC-24 Migration allowlist is empty at Slice 2 completion
 
-The contract TA's migration-period allowlist (files exempted because they have not yet been migrated to the helper) is resolved by the predicate "has no helper bootstrap", never by a hardcoded filename list. At Slice 2 completion the allowlist must resolve to **zero files**, i.e. the contract TA's per-file loops cover every runtime-discovered `ta-*.sh`.
+The contract TA's migration-period allowlist (files exempted because they have not yet been migrated to the helper) is an **explicit ledger** at `docs/working/TASK-0921/evidence/migration-allowlist.txt`, generated from the Task 1 inventory and shrunk by deleting a line each time a file is migrated. It is **never** resolved by a predicate such as "has no helper bootstrap" — a predicate would auto-exempt any newly added file that carries neither marker nor init, which is precisely the leak pbi-input AC-5's second clause forbids ("将来の追加ファイルが黙って除外されない構造にする") and which TC-16 / M-06 must catch.
 
-A test that reports an empty allowlist because its discovery glob matched nothing is itself a FAIL: the case must assert both "allowlist is empty" and "the covered set is non-empty and equals the discovered set".
+At Slice 2 completion the ledger must be **empty (zero lines)**, i.e. the contract TA's per-file loops cover every runtime-discovered `ta-*.sh`.
 
-This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only for the migration period and never made permanent.
+A test that reports an empty allowlist because its discovery glob matched nothing is itself a FAIL: the case must assert both "the ledger is empty" and "the covered set is non-empty and equals the discovered set". The ledger's line count is only ever compared against zero at this point; it is **not** used as an expected value anywhere else (the "件数を契約値にしない" constraint applies to test expectations, and the ledger is an input to the exclusion set, not an expectation).
+
+This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only for the migration period and never made permanent, and satisfies its second clause by making the exclusion set explicit.
 
 ## Mutation Matrix
 
@@ -176,7 +221,7 @@ This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only fo
 | M-10 | return rc 0 instead of 3 on prerequisite-absent | TC-17 FAIL | 1 |
 | M-11 | change the standalone summary literal format | TC-18 FAIL | **2** |
 | M-12 | export probe env from finalize instead of unsetting it | TC-23 FAIL | 1（synthetic）/ 2（`ta-26` 実地） |
-| M-13 | make the allowlist a hardcoded filename list that still contains a migrated file | TC-24 FAIL | **2** |
+| M-13 | leave an already-migrated file in the allowlist ledger, **or** resolve the allowlist by the predicate "has no helper bootstrap" instead of the ledger | TC-24 FAIL (stale ledger entry) / TC-16 FAIL (predicate auto-exempts a marker-less new file) | **2**（ledger 側）/ **1**（predicate 側は TC-16 で Slice 1 から検出可能） |
 
 ## Traceability
 
@@ -192,7 +237,7 @@ This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only fo
 
 | AC | 内容（要約） | Tests | Slice |
 |---|---|---|---|
-| AC-1 | standalone で `fail > 0` / 誤動作でも exit 0 を返すものが 0 件（実行ベース判定・件数非固定） | TC-09, TC-10, TC-11, TC-12, TC-13, TC-16, TC-20 | **1（層 A 12 本の範囲）/ 2（全 57 本）** |
+| AC-1 | standalone で `fail > 0` / 誤動作でも exit 0 を返すものが 0 件（実行ベース判定・件数非固定） | TC-09, TC-10, TC-11, TC-12, TC-13, TC-16, TC-20 | **1（層 A 12 本の範囲）/ 2（runtime discovery で得た全 `ta-*.sh`）** |
 | AC-2 (a) | 層 A の fail 注入 standalone が exit 1 | TC-04, TC-05, TC-12 | 1 |
 | AC-2 (b) | 同じ fail 注入状態で source 経路が完走し集計される | TC-01, TC-14, TC-15 | 1 |
 | AC-2 (c) | 前提未充足 SKIP の rc が「検査していない」を表明（**rc=3**、rc=0 不可） | **TC-17**, TC-13 | 1 |
@@ -201,7 +246,7 @@ This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only fo
 | AC-4 | `sh tests/run-tests.sh` が回帰しない + **runtime `tail -1`** 最終ファイルの `[PASS]` 出現 | **TC-14**, TC-15, TC-21 | 1（Slice 2 でも再実行） |
 | AC-5 | 検査が回帰テスト化され、新規追加の伝播漏れを将来も検出（正規述語）。**移行期間 allowlist を恒久化しない** | TC-09, TC-10, TC-16, TC-20, **TC-24** | **1（allowlist 付きで成立）/ 2（TC-24 で allowlist 空）** |
 | AC-6 | README 規約 9（rc 0/1/2/3・marker・probe・rc2 名前空間）+ #914 handoff writeback | **TC-19**（README）+ handoff CLOSED マーカーの grep（DoD） | **1（TC-19）/ 2（writeback）** |
-| AC-7 | 追加した検査が **修正前実装で FAIL** することの実証 | Verification Plan の pre-fix HEAD evidence + M-01〜M-13（各 M の Slice は Mutation Matrix に従う） | 1（Slice 1 で走る M）/ 2（M-09 / M-11 / M-13） |
+| AC-7 | 追加した検査が **修正前実装で FAIL** することの実証 | Verification Plan の pre-fix HEAD evidence + M-01〜M-13（各 M の Slice は Mutation Matrix に従う） | 1（Slice 1 で走る M。**M-13 の predicate 側を含む**）/ 2（M-09 / M-11 / M-13 の ledger 側） |
 | **AC-8**（派生・pbi-input 正本外） | `ta-26` TC-33（#914 AC-9 ゲート）が移行後も**空振りせず**同等以上の検出力を保つ | **TC-22**, M-09 | **2** |
 
 補助的な設計制約の紐付け（AC 直属ではないが Exit Criteria に含む）:
@@ -226,28 +271,35 @@ This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only fo
 
 - [ ] **TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-12,
       TC-13, TC-14, TC-15, TC-16, TC-17, TC-19, TC-20, TC-21, TC-23（synthetic 側）PASS**
-- [ ] **M-01〜M-08, M-10, M-12（synthetic 側）が期待どおり FAIL**
+- [ ] **M-01〜M-08, M-10, M-12（synthetic 側）, M-13（predicate 側）が期待どおり FAIL**。
+      **M-13 の predicate 側は Slice 1 の必須ゲート**: allowlist を台帳から
+      「helper bootstrap を持たない」述語へ差し替える変異を入れ、**TC-16 が FAIL する**ことを
+      実証する。これは MJ-E の是正（明示台帳）が実効を持つことの唯一の実行ベース証拠であり、
+      Slice 2 へ繰り延べてはならない
 - [ ] **AC-2 (a)(b)(c)(d), AC-4, AC-7 を充足**
-- [ ] **AC-1 を層 A 12 本の範囲で充足**（全 57 本の充足は Slice 2）
+- [ ] **AC-1 を層 A 12 本の範囲で充足**（全件の充足は Slice 2）
 - [ ] **AC-3 を TC-02（synthetic）で充足**（層 B + 層 C 41 本の全件充足は Slice 2）
 - [ ] **AC-5 を移行期間 allowlist 付きで充足**（allowlist 空の証明は Slice 2 / TC-24）
 - [ ] **AC-6 を TC-19（README）で充足**（`TASK-0914/handoff.md` writeback は Slice 2）
 - [ ] **pre-fix HEAD で contract TA が FAIL する evidence が存在する**（AC-7 / R-011）
-- [ ] runtime inventory unclassified=0、test-id（basename）重複=0（**TC-20 は全 57 本を対象**）
+- [ ] runtime inventory unclassified=0、test-id（basename）重複=0（**TC-20 は runtime discovery で得た全 `ta-*.sh` を対象（allowlist 対象外）**）
 - [ ] **contract TA を含むフルスイート 1 回 + contract TA 単独 2 回が 0 failed**
       （R-017 の CI 時間裁定により「フルスイート 3 連続」から読み替え。
       副作用の受容根拠は plan の `### 緩和の副作用と、それを受容する裁定根拠` 参照）
 - [ ] evidence includes actual file count but test does not hardcode it
 - [ ] evidence includes measured CI duration (baseline 231s との差分)
-- [ ] **移行期間 allowlist が「helper bootstrap を持たない」述語で解決され、
-      ファイル名のハードコード列になっていない**
+- [ ] **移行期間 allowlist が `evidence/migration-allowlist.txt` の明示台帳で解決され、
+      「helper bootstrap を持たない」等の述語解決になっていない**（述語だと新規追加ファイルが
+      黙って除外され TC-16 / M-06 が空振りする）
+- [ ] **台帳が Task 1 の inventory から機械生成され、生成コマンドが evidence に残っている**
 
 ### Slice 2 の DoD（Slice 2 着手時に Mode 再判定のうえ適用）
 
 - [ ] **TC-11, TC-18, TC-22, TC-23（`ta-26` 実地側）, TC-24 PASS**
-- [ ] **M-09, M-11, M-13 が期待どおり FAIL**
+- [ ] **M-09, M-11, M-13（ledger 側 = 移行済みファイルが台帳に残存）が期待どおり FAIL**
+      （M-13 の predicate 側は Slice 1 で実証済み）
 - [ ] **AC-3 を層 B + 層 C 41 本の全件で充足**（TC-11）
-- [ ] **AC-1 を全 57 本で充足**（allowlist 空の状態で再評価）
+- [ ] **AC-1 を runtime discovery で得た全 `ta-*.sh` で充足**（allowlist 空の状態で再評価）
 - [ ] **AC-5 を allowlist 空の状態で充足**（TC-24）
 - [ ] **AC-6 の writeback 側**: `TASK-0914/handoff.md` §3 の対象 2 行に CLOSED マーカーが
       grep で確認できる

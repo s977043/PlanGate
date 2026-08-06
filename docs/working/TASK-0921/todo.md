@@ -66,6 +66,8 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - capability候補、fallback、counter、top-level exit/return、cleanup、stdin readを表にする
   - **層 0 の 4 本（`ta-26` / `ta-58` / `ta-59` / `ta-60`）と層 A の 12 本（`ta-40` 含む）を再確認**（R-003）
   - **basename ベース test-id の一覧を作り重複 0 を確認**（R-016）
+  - **移行期間 allowlist の台帳 `evidence/migration-allowlist.txt` を inventory から機械生成**
+    （「inventory 全件 − 層 A」の basename を 1 行 1 件。手書きしない / MJ-E）
   - exact countはstatusへ記録するがtest期待値に埋め込まない
   - unclassifiedが1件でもあれば停止
   - `rollback:` **不要**（読取・分類のみ。ファイルを変更しない）
@@ -78,6 +80,8 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - standalone pass → 0 / fail → 1
   - **prerequisite missing → 3**（R-002）。**`pg_extra_contract_skip` が唯一の表明経路**であり、
     skip を経ずに rc3 が出ないこと（C-1 MN-4）
+  - **prerequisite missing かつ `fail > 0` → 1**（rc3 へ丸めない / C-1 第 2 ラウンド MN-2）。
+    診断に「既に立っている fail」が出ること
   - original nonzero rc preservation
   - 末尾 finalize 未呼出の検出（案 D の弱点補償）
   - cleanup drain / **`register_cleanup` 非再定義**（R-019b）
@@ -122,8 +126,12 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - **`ta-26` TC-33 の検査対象を helper 側へ差し替える**（R-013 / AC-8 / TC-22 / M-09）。
     空振り化させない。**着手前に plan の `### ta-26 TC-33 の扱い` を再読する**
   - **summary 書式 `TA-<NN> standalone: N passed, M failed` の等価性を前後比較**（R-015a / TC-18）
+  - **`ta-58` / `ta-59` / `ta-60` の現行 summary 書式を grep する消費者が存在しないことを
+    移行前に実測確認**（C-1 第 2 ラウンド MN-6）。実測では R-015a の書式に一致するのは
+    `ta-26` のみで、`ta-58` / `ta-59` は `Results: %d passed, %d failed`、`ta-60` は
+    `TA-60 standalone: pass=%s fail=%s`。TC-18 は `ta-26` のパリティしか要求していない
   - `ta-26` は Slice 2 の最後に移行し、既存 heavy tests を前後比較
-  - **移行完了で contract TA の移行期間 allowlist が空になることを確認**（TC-24 / AC-5）
+  - **移行完了で contract TA の移行期間 allowlist 台帳が空（0 行）になることを確認**（TC-24 / AC-5）
   - `rollback:` batch 単位 commit を `git revert <sha>`（未 push なら `git reset --hard`）。
     **helper 導入前まで戻す場合は T-03 の revert が前提**。`ta-26` は最終 batch なので単独 revert 可。
     revert 順序は **T-04b → T-03**
@@ -134,7 +142,11 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - file固有root fallbackを保持
   - **層 A 12 本は全数がカウンタ未初期化**（pbi-input A-1'）→ helper の `pass=0` / `fail=0` に載せる
   - **`ta-39` / `ta-43` / `ta-44` の prerequisite 経路を `pg_extra_contract_skip` 経由の rc=3 へ**（R-002）。
-    3 本とも層 A で本 Slice の対象
+    3 本とも層 A で本 Slice の対象。**`ta-39` / `ta-43` / `ta-44` の早期 `exit 0`
+    （早期 exit 3 件）も同時に除去される**
+  - **移行前に `ta-43` の SKIP 分岐で `fail>0` かつ rc=0 になる現状を実測記録**
+    （C-1 第 2 ラウンド MN-1 / AC-1 の実害の一次証跡）。
+    evidence: `evidence/verification/pre-migration-fail-swallow.log`
   - helper の summary 書式を `TA-<NN> standalone: N passed, M failed` に確定（R-015a）。
     **`<NN>` は test-id から `^ta-([0-9]+)` を抽出して導出**（C-1 MN-2）。
     `ta-26`（層 0 / Slice 2）の TC-13 が将来この literal を grep するため Slice 1 で確定させる
@@ -145,11 +157,17 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
 ### Regression / Evidence
 
 - [ ] **T-06: contract TA**
-  - **検査対象は移行済みファイル**（Slice 1 は層 A 12 本）。未移行分は
-    **移行期間 allowlist**（「helper bootstrap を持たない」述語で解決。ファイル名を列挙しない）。
-    **Slice 2 完了時に allowlist 空**（TC-24 / AC-5）
+  - **検査対象は移行済み集合＝移行期間 allowlist（`evidence/migration-allowlist.txt`）に
+    列挙されていないファイル**（Slice 1 は層 A 12 本）。allowlist は **base commit 時点の
+    未移行ファイルを列挙した明示台帳**であり、**述語で解決しない**（述語だと marker/init を
+    持たない新規追加ファイルが黙って除外され TC-16 / M-06 が空振りする / MJ-E）。
+    **Slice 2 完了時に台帳が空**（TC-24 / AC-5）
+  - **contract TA 自身の集合帰属**: inventory に含める / allowlist には載せない /
+    marker・init 検査の対象に含める。自己再帰の回避は per-file 実走ループで自分の
+    test-id を skip することで行う（集合から外さない）
   - marker exactly-one / marker・init 一致（**basename test-id**）
-  - **test-id 一意性**（R-016 / TC-20。移行状態に依存しないため **allowlist 対象外で全件検査**）
+  - **test-id 一意性**（R-016 / TC-20。移行状態に依存しないため **allowlist 対象外で
+    runtime discovery した全件を検査**）
   - harness-only dynamic all-files（rc2 / **Slice 2**）
   - standalone dynamic: **段 1 で probe なし 1 回実行し前提充足 / 未充足へ分類**（rc0 / rc3。
     それ以外は分類不能 = 即 FAIL）→ **前提充足クラスのみ** probe なし rc0 と probe あり rc1 の
@@ -210,10 +228,12 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
 **単独 PR として merge される**ため、「contract TA は全移行と同 commit または最後に追加する」
 方針は成立しない（Slice 1 merge 時点で 45 本が未移行）。したがって contract TA は
 **移行期間 allowlist を持った状態で Slice 1 に載せる**。allowlist は
-**「helper bootstrap を持たない」述語で解決し、ファイル名を列挙しない**（自動的に縮む）。
-**Slice 2 完了時に allowlist が空になることを TC-24 / AC-5 で機械検証**し、恒久化を防ぐ。
+**`evidence/migration-allowlist.txt` の明示台帳**（base commit 時点の未移行ファイルを列挙。
+T-01 が inventory から機械生成）であり、**述語で解決しない**。移行のたびに行を削除して縮める。
+**Slice 2 完了時に台帳が空になることを TC-24 / AC-5 で機械検証**し、恒久化を防ぐ。
 これは pbi-input AC-5 の「修正前の allowlist は移行期間のみ保持し恒久化しない」が
-**明示的に許容する形態**である。
+**明示的に許容する形態**であり、同 AC 後半の「allowlist を明示し、将来の追加ファイルが
+黙って除外されない構造にする」も同時に満たす（新規追加ファイルは台帳に無い＝検査対象）。
 
 **revert 依存順**: T-04 / T-04b / T-05 / T-06 の commit → T-03（helper）の順で戻す。
 helper だけ先に revert すると marker/init が残った extras が起動時に落ち、
@@ -243,15 +263,15 @@ contract TA（T-06）も helper API を解決できなくなる（C-1 MN-3）。
 
 - [ ] test-cases `## Exit Criteria` の **Slice 1 節**を全項目充足
 - [ ] pre-fix HEAD で contract TA が FAIL する evidence（AC-7）
-- [ ] 層 A 12 本が dynamic に分類され、test-id（basename）重複 0（TC-20 は全 57 本）
+- [ ] 層 A 12 本が dynamic に分類され、test-id（basename）重複 0（TC-20 は runtime discovery した全件）
 - [ ] harness suite 0 failed
-- [ ] 移行期間 allowlist が述語解決であり、ファイル名のハードコード列でない
+- [ ] 移行期間 allowlist が `evidence/migration-allowlist.txt` の明示台帳で解決され、述語解決になっていない
 - [ ] Human C-4（H-02）
 
 ### Slice 2
 
 - [ ] test-cases `## Exit Criteria` の **Slice 2 節**を全項目充足
 - [ ] TC-01〜TC-24 を通しで再実行して PASS（Slice 1 DoD の非退行）
-- [ ] 移行期間 allowlist が空（TC-24 / AC-5）
+- [ ] 移行期間 allowlist 台帳が空（0 行）（TC-24 / AC-5）
 - [ ] Issue / `TASK-0914/handoff.md` writeback（append-only / AC-6）
 - [ ] Human C-4

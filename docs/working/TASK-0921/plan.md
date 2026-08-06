@@ -96,8 +96,8 @@ created_by: orchestrator
 | standalone exit伝播の前例 | 層 0 の 4 本 | `ta-26` / `ta-58` / `ta-59` / `ta-60` が `pass=0` / `fail=0` を自前初期化（R-003） | ✅ |
 | layer A file に early exit がありうる | ta-39 | prerequisite未適用時にreturn/exit 0 | ✅ |
 | current file countは変動する | pbi-inputと最新監査 | 53→57 | ✅。runtime inventory必須 |
-| **top-level `exit N`（列 0-2）の現存件数** | 全 `ta-*.sh` の grep（C-2 実測） | **0 件** | ✅。**案 C（共有 trap）が守ろうとしていた早期 exit ケースは現存しない**（R-018） |
-| **`ta-39` の早期 SKIP は failure を落としうるか** | `tests/extras/ta-39-eh3-doc-light.sh` の SKIP 分岐 | 「カウンタは更新しない」と明記。早期 exit 時点で `fail` は構造上必ず 0 | ✅。**早期 exit で fail を握り潰す実例は存在しない**（R-018） |
+| **早期 `exit 0` を持つ `ta-*.sh` の現存件数** | 全 `ta-*.sh` の grep（**C-1 第 2 ラウンドで再実測し C-2 の「0 件」を訂正**。**列位置で絞り込まない** — 前版の「列 0-2」という条件付き grep が、インデントされた `exit 0` を持つ `ta-39` を取りこぼしていた） | **3 件**: `ta-39-eh3-doc-light.sh`（`return 0 2>/dev/null \|\| exit 0` と裸の `exit 0` の両方）/ `ta-43-eh2-strict-json.sh` / `ta-44-eh457-cli-wiring.sh`（後 2 者は `return 0 2>/dev/null \|\| exit 0`） | ✅。**3 件とも層 A = Slice 1 の移行対象**であり、案 D の `pg_extra_contract_skip` 置換（Task 5）で解消される |
+| **早期 exit で fail を握り潰す実例があるか** | 上記 3 本の SKIP 分岐（記号アンカー: `_T39_SKIP_APPLIED=0` / `_T43_APPLIED=0` / `_T44_APPLIED=0` の分岐）を読む | **存在する（`ta-43` / `ta-44` の 2 本）**。両者は分岐内で `tXX_fail "apply-script が期待差分を生成しない: ..."` を**呼びうる**まま直後の `return 0 2>/dev/null \|\| exit 0` へ到達する。standalone では `return` が失敗して `exit 0` になるため **`fail>0` かつ rc=0**（harness では `return 0` が成功するため顕在化しない）。**`ta-39` は SKIP 分岐でカウンタを更新しない**ため握り潰しは起きない（早期 exit 自体は持つ） | ✅。**AC-1 が塞ごうとしている実害そのものの一次証跡**。案 D の `pg_extra_contract_skip` 置換（Task 5）で解消する |
 | top-level `trap ... EXIT` を持つ extras | 全 `ta-*.sh` の grep（C-2 実測） | 5 本（`ta-07` / `ta-09` / `ta-24` / `ta-28` / `ta-45`）。standalone-capable 候補は `ta-45` のみ | ✅。**案 D では trap を張らないため競合しない**（R-012） |
 | test-id の一意性 | `ta-*.sh` の番号 | **`ta-14` が 2 本**（`ta-14-codex-guarded.sh` / `ta-14-skip-acknowledge.sh`）→ 番号は一意でない | ❌。**test-id は basename ベースにする**（R-016） |
 | `_extra-contract.sh` の glob 混入 | `tests/run-tests.sh` の extras loop（`ta-*.sh` glob） | `_extra-contract.sh` は `ta-*.sh` に一致しない → inventory へ混入しない | ✅（R-014 の反証材料） |
@@ -140,11 +140,14 @@ created_by: orchestrator
    `trap - EXIT` を実行する。合成実証で **制御群 rc=1 / ta-45 パターン rc=0**（finalizer 未発火・
    `fail=1` が握り潰される）を確認した。案 C は standalone-capable 候補の中で唯一
    top-level trap を持つファイルに対して成立しない。
-2. **案 C が守ろうとしていたケースが現存しない**（R-018）: 案 C の第一根拠は
-   「`ta-39` のような早期 `exit 0` で fail を落とす経路」だったが、
-   `ta-39` の SKIP 分岐は「カウンタは更新しない」と明記されており早期 exit 時点で
-   `fail` は構造上必ず 0。加えて全 `ta-*.sh` の **top-level `exit N`（列 0-2）は 0 件**。
-   すなわち **trap でしか救えない現存事例は 1 件も存在しない**。
+2. **案 C が守ろうとしていたケースは案 D でも解消できる**（C-1 第 2 ラウンド実測により
+   R-018 の「現存しない」を訂正）: 案 C の第一根拠は「早期 `exit 0` で fail を落とす経路」
+   だった。この経路は **実在する**（早期 `exit 0` を持つのは `ta-39` / `ta-43` / `ta-44` の 3 件、うち `fail` を握り潰しうるのは `ta-43` / `ta-44` の 2 件。前掲「前提の実測検証」表）。
+   しかし **3 件とも層 A = Slice 1 の移行対象**であり、Task 5 で当該分岐を
+   `pg_extra_contract_skip` 呼出へ置換すれば rc=3（または `fail>0` を伴う場合は rc=1）として
+   表明されるため解消する。すなわち **trap でしか救えない事例は存在しない**。
+   trap が救うのは「移行し忘れたファイル」だが、その役割は contract TA の動的 probe
+   （TC-12 / TC-16）が実行ベースで担う。
 
 案 D の弱点（早期 return/exit 漏れを静的に完全検出できない）は、**contract TA の
 動的 probe（全 standalone-capable を force-fail probe 付きで実走し rc=1 を要求）**で
@@ -218,30 +221,57 @@ pbi-input の **D-5（スライス分割・未裁定）を以下で確定する*
   必要と判断された場合 Slice 1 は 16 ファイルとなるが、その時点で Mode を再判定する
   （定量 16+ = critical 帯に触れるため、安全側で人間へエスカレーションする）。
 
-#### 層 0 を Slice 1 の contract TA 対象から外す扱い（移行期間 allowlist）
+#### 未移行 45 本を Slice 1 の contract TA 対象から外す扱い（移行期間 allowlist）
 
 Slice 1 時点では 57 本中 **12 本（層 A）のみ**が helper へ移行済みであり、
 残り **45 本（層 0 の 4 + 層 B 36 + 層 C 5）は未移行**である。したがって
 **Slice 1 の contract TA は「全 `ta-*.sh`」ではなく「移行済みファイル」を対象**とし、
 未移行の 45 本を **移行期間 allowlist** として除外する。
 
-- allowlist は **pbi-input AC-5 の「修正前の allowlist は移行期間のみ保持し恒久化しない」が
-  明示的に許容する形態**であり、恒久的な検査除外ではない
-- **allowlist が Slice 2 完了時に空になることを AC-5 の Slice 2 側条件として固定する**
-  （検証は TC-24）
-- allowlist は **ファイル名のハードコード列ではなく「helper bootstrap を持たないファイル」
-  という述語**で解決し、移行が進むと自動的に縮む形にする（件数を契約値にしない）
-- `ta-*.sh` の basename 一意性検査（TC-20）は移行状態に依存しないため、
-  **Slice 1 でも全 57 本を対象**とする（allowlist の対象外）
+**pbi-input AC-5 の全文（実測引用）**:
 
-> 層 0 の 4 本は移行前でも標準的な standalone 伝播（`fail > 0 → exit 1`）を既に備えているため、
-> allowlist 期間中も AC-1 の実害（exit 0 で失敗を隠す）を新たに生まない。
+> **AC-5**: AC-1 の検査が**回帰テストとして `tests/extras/` に追加**され、**新規スクリプト追加時の
+> 伝播漏れを将来も検出できる**。**修正後は「standalone 分岐で `pass`/`fail` を自前初期化して
+> いるか」を正規述語として自動判定する**（判定コマンド C）。**修正前の allowlist は移行期間のみ
+> 保持し恒久化しない**。除外集合を残す場合は allowlist を明示し、将来の追加ファイルが黙って
+> 除外されない構造にする（MJ-6 / D-4）
+
+**後半条項（「allowlist を明示し、将来の追加ファイルが黙って除外されない構造にする」）を
+どう満たすか**:
+
+- allowlist は **述語ではなく明示リスト**とする。「helper bootstrap を持たないファイル」という
+  述語で解決すると、**marker も init も持たない新規追加ファイルがちょうどその述語に一致して
+  自動的に除外される**ため、AC-5 後半条項（黙って除外されない）に真っ向から反する
+  （TC-16 / M-06 も同じ理由で空振りする）
+- したがって allowlist を **base commit 時点の未移行ファイルを列挙した明示台帳**として定義する。
+  配置は **`docs/working/TASK-0921/evidence/migration-allowlist.txt`**（1 行 1 basename）
+- 台帳は **Task 1 の runtime inventory から生成**する（手書きしない）。生成手順:
+  Task 1 の `find tests/extras -maxdepth 1 -type f -name 'ta-*.sh'` 結果から
+  **層 A 12 本を差し引いた 45 本**の basename を出力する
+- **新規追加ファイルは台帳に存在しない → allowlist に落ちない → contract TA の検査対象になる**。
+  これにより TC-16（marker/init なしの `ta-zz-probe.sh` 追加で contract TA が FAIL）と
+  M-06 が成立し、AC-5 後半条項を満たす
+- **これは「件数を契約値にしない」制約（Global Constraints）に抵触しない**。抵触するのは
+  *test の期待値*としての件数であり、移行台帳は **除外集合の生成入力**（データ）であって
+  期待値ではない。contract TA は台帳の**行数を検査しない**
+- 移行が進むたびに台帳から該当行を削除する。**Slice 2 完了時に台帳が空になることを TC-24 が
+  検証する**（TC-24 の趣旨は不変。検証対象を「述語の結果が空」から「台帳が空」へ読み替える）
+- `ta-*.sh` の basename 一意性検査（TC-20）は移行状態に依存しないため、
+  **Slice 1 でも runtime discovery で得た全 `ta-*.sh` を対象**とする（allowlist の対象外）
+
+> 層 0 の 4 本は移行前でも標準的な standalone 伝播（`fail > 0 → exit 1`）を既に備えている
+> （実測: `ta-26` / `ta-58` / `ta-59` / `ta-60` の standalone 分岐末尾にいずれも
+> `fail` 非 0 で `exit 1` する分岐が実在する）ため、allowlist 期間中も AC-1 の実害
+> （exit 0 で失敗を隠す）を新たに生まない。
+> **層 B / 層 C 41 本**については、allowlist 期間中は**移行前の既存状態が Slice 2 まで継続する
+> のみ**であり、**Slice 1 が新たな実害を作るわけではない**（AC-1 の Slice 1 範囲は
+> Traceability で層 A 12 本へ明示縮約済み）。
 
 ### 判定根拠（定量）
 
 | 判定軸 | Slice 1 実測 / 見込み | モード |
 |---|---|---|
-| 変更ファイル数 | **15**（層 A 12 + helper 1 + contract TA 1 + README 1）。**層 0 の 4 本は Slice 2 へ繰り延べ**（Human 決定 3） | **high-risk**（6-15） |
+| 変更ファイル数 | **15**（層 A 12 + helper 1 + contract TA 1 + README 1）。**層 0 の 4 本は Slice 2 へ繰り延べ**（Human 決定 3）。**`docs/working/TASK-0921/` 配下の作業コンテキスト（plan / todo / test-cases / evidence — 移行期間 allowlist 台帳 `evidence/migration-allowlist.txt` を含む）は PBI アーティファクトであり、本節でも従来どおり算入しない** | **high-risk**（6-15） |
 | 受入基準数 | **7**（AC-1〜AC-7 = pbi-input 正本と 1:1。**AC-8 は R-013 由来の派生 AC で Slice 2 の受入基準**） | **high-risk**（6-10） |
 | タスク数（見込み） | **11-16**（T-01, T-02, T-03, T-05, T-06, T-07（README 部分）, T-08 + 層 A の batch 分割） | **high-risk**（11-20） |
 
@@ -412,11 +442,19 @@ precedence:
 
 | prerequisite | original rc | fail | final rc | 備考 |
 |---|---:|---:|---:|---|
-| missing | any | any | **3** | 前提未充足が最優先。検査していないので pass/fail を主張しない |
+| missing | any | **>0** | **1** | **`fail > 0` が前提未充足より優先**。既にアサーションが落ちているので「検査していない」ではない |
+| missing | any | 0 | **3** | 前提未充足。検査していないので pass/fail を主張しない |
 | present | 0 | 0 | 0 | |
 | present | 0 | >0 | 1 | |
 | present | nonzero | 0 | original rc | |
 | present | nonzero | >0 | original rc | 既存のより具体的なfailureを保持 |
+
+> **原則（C-1 第 2 ラウンド MN-2）**: **「前提未充足だが既に失敗している」は「検査していない」
+> ではなく「検査して失敗した」である**。したがって `pg_extra_contract_skip` 呼出時点で
+> `fail > 0` なら、helper は診断（どの fail が既に立っているか）を出したうえで **rc=1 を優先**し、
+> rc=3 へ丸めない。丸めると `ta-43` / `ta-44` の SKIP 分岐にある
+> `tXX_fail "apply-script が期待差分を生成しない: ..."` という**本物のアサーション失敗が
+> 「検査していない」へ格下げされ**、本 PBI の主題（失敗を隠さない）と逆向きになる。
 
 exit 2はharness-only misuse専用であり、standalone-capableの内部test failure（1）とも
 prerequisite未充足（3）とも区別する。
@@ -478,7 +516,10 @@ sh "$file" </dev/null
    - rc=3 → **前提未充足クラス**
    - rc=0 → **前提充足クラス**
    - **それ以外（1 / 2 / その他）→ 分類不能 = 即 FAIL**（fail-closed。
-     rc=3 を「常に正しい」と読ませないための対置条件）
+     rc=3 を「常に正しい」と読ませないための対置条件）。
+     **Finalize precedence の `missing + fail>0 → 1` はここで rc=1 として現れ、
+     分類不能 = FAIL になる**。これは正しい: clean run で本物のアサーション失敗を
+     出しているファイルは前提の有無に関わらず欠陥であり、握り潰さない
 3. **段 2（クラス別 assert）**:
    - **前提充足クラス** → TC-12 が (a) probe なし rc=0 / (b) probe あり rc=1 の**差分**を assert
    - **前提未充足クラス** → **TC-17** が rc=3 を assert し、あわせて
@@ -488,12 +529,20 @@ sh "$file" </dev/null
 段 1 の実行結果（各ファイルのクラス）は evidence へ記録する。
 **クラス分けの内訳は evidence に出すが、件数を test の期待値へ埋め込まない**。
 
-> **base 時点の実測（C-1 検証）**: `ta-43-eh2-strict-json.sh` は
-> `scripts/hooks/check-plan-hash.sh` に `_eh2_stdin` が **0 件**であるため `_T43_APPLIED=0` となり
-> `ta-43:43-56` の早期 SKIP 経路に入る＝**前提未充足クラス**。一方 `ta-39-eh3-doc-light.sh` の
-> 前提（`EH-3_DOC_LIGHT_SKIP`）は **充足している**。すなわち層 A 12 本は
-> **前提充足クラスと前提未充足クラスが混在**しており、TC-12 を全件一律 rc=0 で書くと
-> `ta-43` で確定的に FAIL する。クラス分けは exec 開始時に段 1 で再実測する。
+> **base 時点の実測（C-1 第 2 ラウンドで再測定し、前版の記述を訂正）**:
+> 早期 SKIP 経路を持つ 3 本を base commit で standalone 実行した結果は
+> **`ta-39` / `ta-43` / `ta-44` いずれも rc=0（前提充足）**である
+> （`ta-43` の前提判定先は `scripts/hooks/check-c3-approval.sh` であり、
+> 記号アンカー `_T43_APPLIED=1` の分岐に入る。前版が挙げていた
+> 「`check-plan-hash.sh` に `_eh2_stdin` が 0 件」は**参照ファイルを取り違えた誤り**で、
+> 実際には `check-c3-approval.sh` に `_eh2_stdin` が存在する）。
+> すなわち **base commit 時点では前提未充足クラスは空**である。
+>
+> **それでも 2 段構成を外さない理由**: 前提の充足はリポジトリ状態（hook 適用状況）に依存し、
+> **exec 時点や CI 実行環境で反転しうる**。TC-12 を全件一律 rc=0 で固定すると、前提が外れた
+> 瞬間に確定的 FAIL になる。**クラス分けは exec 開始時に段 1 で必ず再実測**し、
+> どのファイルがどのクラスかを plan に固定しない。TC-17 は前提未充足を構成した sandbox で
+> 常に検査できる（実リポジトリ状態に依存しない）。
 
 ### Harness-only direct execution
 
@@ -546,6 +595,7 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 | `tests/extras/ta-*.sh`（**層 0 の 4 本 / Slice 2**） | modify | marker + init + 末尾 finalize。**legacy footer 2 系統の helper 吸収**（R-003）と **TC-33 差し替え**（R-013 / AC-8） |
 | `tests/extras/ta-XX-extra-contract.sh` | create | inventory/dynamic contract regression test。番号はexec時inventoryで採番 |
 | `tests/extras/README.md` | modify | capability/rc 0-3/probe/new-file規約 + 共有ファイル例外の境界 |
+| `docs/working/TASK-0921/evidence/migration-allowlist.txt` | **create（Slice 1）→ 段階的に行削除 → Slice 2 で空** | 移行期間 allowlist の**明示台帳**。Task 1 の inventory から機械生成。contract TA が除外集合の入力として読む（MJ-E / AC-5 後半条項） |
 | `docs/working/TASK-0914/handoff.md` | **modify（append-only / Slice 2）** | V2候補のクローズ writeback（下記規約に従う） |
 
 ### `TASK-0914/handoff.md` writeback 規約（R-008）
@@ -571,6 +621,9 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
 - [ ] standalone-capable / harness-only candidateを表にする
 - [ ] **層 0 の 4 本（`ta-26` / `ta-58` / `ta-59` / `ta-60`）と層 A の 12 本（`ta-40` 含む）を現mainで再確認**（R-003）
 - [ ] **basename ベースの test-id 一覧を作り重複がないことを確認**（R-016）
+- [ ] **移行期間 allowlist の台帳 `evidence/migration-allowlist.txt` を生成する**（MJ-E）。
+      内容は「inventory 全件 − Slice 1 の移行対象（層 A）」の basename を 1 行 1 件で列挙。
+      **手書きせず inventory から機械生成**し、生成コマンドを evidence に残す
 
 > **注（案 D 採用により削除）**: 旧 Task 1 の「top-level trap 競合監査」は不要になった。
 > 案 D は trap を張らないため既存 trap と競合しない。
@@ -653,8 +706,15 @@ helper へ吸収する。**Human 決定 3 により Slice 1 から繰り延べ�
       空振り化させない。**着手前に plan の `### ta-26 TC-33 の扱い` を再読する**
 - [ ] **summary 書式 `TA-<NN> standalone: N passed, M failed` の等価性を前後比較で確認**
       （R-015a / `ta-26` TC-13 の literal grep / TC-18）
+- [ ] **`ta-58` / `ta-59` / `ta-60` の現行 summary 書式を grep する消費者が存在しないことを
+      移行前に実測確認する**（MN-6）。実測: 層 0 の 4 本のうち R-015a の
+      `TA-<NN> standalone: N passed, M failed` 書式に一致するのは **`ta-26` のみ**であり、
+      `ta-58` / `ta-59` は `Results: %d passed, %d failed`、`ta-60` は
+      `TA-60 standalone: pass=%s fail=%s`。TC-18 は `ta-26` のパリティしか要求していないため、
+      **helper 集約で書式が変わる 3 本について、その literal を grep する箇所が
+      リポジトリ内に無いことを確認してから移行する**（無ければ書式統一してよい）
 - [ ] `ta-26` migration は Slice 2 の最後に行い、既存 heavy tests を前後比較（TC-18）
-- [ ] **移行完了をもって contract TA の移行期間 allowlist が空になることを確認**（TC-24 / AC-5）
+- [ ] **移行完了をもって contract TA の移行期間 allowlist（台帳）が空になることを確認**（TC-24 / AC-5）
 
 **rollback**: batch 単位 commit を `git revert <sha>`（未 push なら `git reset --hard`）。
 **helper 導入前まで戻す場合は Task 3 の revert が前提**。`ta-26` は最終 batch なので
@@ -670,7 +730,15 @@ helper へ吸収する。**Human 決定 3 により Slice 1 から繰り延べ�
 - [ ] **層 A 12 本は全数がカウンタ未初期化**（pbi-input A-1'）のため、helper 側の
       `pass=0` / `fail=0` 初期化に確実に載せる
 - [ ] **`ta-39` / `ta-43` / `ta-44` の prerequisite 経路を `pg_extra_contract_skip` 経由の rc=3 へ移す**（R-002）。
-      3 本とも層 A であり本 Slice の対象
+      3 本とも層 A であり本 Slice の対象。**このとき `ta-43` / `ta-44` の
+      `return 0 2>/dev/null || exit 0` と `ta-39` の裸の `exit 0`（早期 exit 3 件）も同時に除去される**
+- [ ] **移行前に `ta-43` の SKIP 分岐で `fail>0` かつ rc=0 になる現状を実測記録する**
+      （MN-1 / AC-1 の実害の一次証跡。変異注入に依らない実証）。
+      手順: `_T43_APPLIED=0` 分岐へ入る sandbox を構成し、さらに apply-script の dry-run 出力が
+      期待差分を含まない状態にして `t43_fail` を発火させ、
+      `sh tests/extras/ta-43-eh2-strict-json.sh </dev/null` の rc が **0** であることと
+      出力に `[FAIL]` が出ていることを同時に記録する。
+      evidence: `evidence/verification/pre-migration-fail-swallow.log`
 - [ ] helper が出力する summary 書式は `TA-<NN> standalone: N passed, M failed` に固定する
       （R-015a。`ta-26`（層 0 / Slice 2）の TC-13 が将来この literal を grep するため、
       **helper 側の書式は Slice 1 の時点で確定させておく**）
@@ -682,13 +750,21 @@ helper へ吸収する。**Human 決定 3 により Slice 1 から繰り延べ�
 
 **Purpose**: future file追加時の契約漏れを自動検出。
 
-- [ ] **検査対象は「移行済みファイル」= 移行期間 allowlist の外側**（Slice 1 は層 A 12 本）。
-      allowlist は「helper bootstrap を持たないファイル」という述語で解決し、
-      ファイル名をハードコードしない。**Slice 2 完了時に allowlist が空**（TC-24 / AC-5）
+- [ ] **検査対象は移行済み集合＝移行期間 allowlist（`evidence/migration-allowlist.txt`）に
+      列挙されていないファイル**（Slice 1 は層 A 12 本）。allowlist は **base commit 時点の
+      未移行ファイルを列挙した明示台帳**であり、**述語で解決しない**（述語にすると
+      marker/init を持たない新規追加ファイルが黙って除外され TC-16 / M-06 が空振りする）。
+      台帳は Task 1 の runtime inventory から生成し、移行のたびに行を削除する。
+      **Slice 2 完了時に台帳が空**（TC-24 / AC-5）
+- [ ] **contract TA 自身（`ta-XX-extra-contract.sh`）の集合帰属**:
+      **inventory（runtime discovery）には含める / allowlist には載せない /
+      marker・init 検査の対象に含める**（＝自身も `standalone-capable` marker と init を持つ）。
+      **自己再帰の回避は「集合から外す」ことではなく、per-file の実走ループで
+      自分の test-id を skip する**ことで行う（marker/init 検査は自身にも掛ける）
 - [ ] 対象 ta file が exactly one marker
 - [ ] markerとinit capability一致（**basename ベースの test-id** / R-016）
 - [ ] **全 `ta-*.sh` の test-id が一意**（R-016 / TC-20。**移行状態に依存しないため
-      allowlist の対象外で全 57 本を検査**）
+      allowlist の対象外で runtime discovery した全件を検査**）
 - [ ] harness-only全件standalone rc2（**Slice 2**）
 - [ ] standalone-capable: **段 1 で probe なし 1 回実行して前提充足 / 未充足へ分類**し、
       **前提充足クラスのみ** (a) probe なし rc0 / (b) probe あり rc1 の両方を要求する（裁定 ②）。
@@ -753,6 +829,8 @@ revert 順序は **T-06 → T-03**（C-1 MN-3）。
 | Standalone probe absent | probe なしループ | **前提充足クラス = rc0**（(b) との差分要求はこのクラスで取る）/ **前提未充足クラス = rc3**（下段 Prerequisite SKIP 行が assert）。**全件一律 rc0 を要求しない** | `evidence/test-runs/standalone-normal.log` |
 | Probe fail-closed | `PG_EXTRA_CONTRACT_PROBE=force-fail` かつ TARGET 未設定 | 診断 + 非ゼロ rc（no-op でない） | `evidence/test-runs/probe-fail-closed.log` |
 | Prerequisite SKIP | `ta-39` / `ta-43` / `ta-44` を前提未充足で standalone 実行 | **rc3**（rc0 でないこと）+ **`pg_extra_contract_skip` 由来の診断が出ること** | `evidence/test-runs/prereq-rc3.log` |
+| **`fail>0` は skip より優先（MN-2）** | `pg_extra_contract_skip` 呼出前に `fail=1` を立てた synthetic fixture を standalone 実行 | **rc1**（rc3 でないこと）+ 既に立っている fail を示す診断 | `evidence/test-runs/skip-with-fail.log` |
+| **移行前の fail 握り潰しの実測（MN-1 / AC-1 一次証跡）** | 移行前 HEAD で `ta-43` の `_T43_APPLIED=0` 分岐かつ `t43_fail` 発火状態を構成し standalone 実行 | **rc=0 かつ出力に `[FAIL]`**（＝失敗が隠れている現状の実証） | `evidence/verification/pre-migration-fail-swallow.log` |
 | Harness regression | `sh tests/run-tests.sh` | baseline remeasured at exec start, 0 failed。`ls tests/extras/ta-*.sh \| tail -1` の `[PASS]` がログに出現 | `evidence/test-runs/full-suite.log` |
 | **Pre-fix FAIL 実証（AC-7 / R-011）** | **helper 導入前の HEAD に contract TA だけを載せて実行** | **contract TA が FAIL する**（修正前実装で検出力があることの実証。Mutation Matrix は修正後 helper への変異であり別物） | `evidence/mutations/pre-fix-head.log` |
 | TC-33 差し替えの検出力（AC-8 / R-013 / **Slice 2**） | helper の unset 集合から 1 env を削る変異（M-09） | 差し替え後の TC-33 相当が FAIL（空振りしない） | `evidence/mutations/tc33-substitute.log` |
@@ -813,7 +891,8 @@ revert 順序は **T-06 → T-03**（C-1 MN-3）。
 
 **Slice 1**: 層 A 12 本が明示 capability を持ち、rc 0/1/2/3 契約と harness regression が
 機械検証され、contract TA が新規ファイルの契約漏れを検出できるところまで。
-**未移行 45 本は移行期間 allowlist として contract TA の対象外**（恒久化しない）。
+**未移行 45 本は移行期間 allowlist 台帳（`evidence/migration-allowlist.txt`）に列挙して
+contract TA の対象外とする**（恒久化しない。**新規追加ファイルは台帳に無いため検査対象に入る**）。
 **Slice 1 の DoD は [`test-cases.md`](./test-cases.md) の `## Exit Criteria` の Slice 1 節を正本とする**。
 
 **Slice 2**（後続）: 層 B + 層 C 41 本の harness-only 化、**層 0 の 4 本の helper 吸収**
@@ -875,7 +954,8 @@ revert 順序は **T-06 → T-03**（C-1 MN-3）。
   意図的反転の承認**（前掲「先行決定の反転」節の根拠に対する判断）
 - **スライス分割（Slice 1 = 15 ファイル / high-risk、Slice 2 = 46 ファイル / 着手時再判定）の承認**。
   **層 0 の 4 本を Slice 2 へ繰り延べる裁定**（Human 決定 3）と、それに伴う
-  **Slice 1 の contract TA の移行期間 allowlist（未移行 45 本）の承認**を含む
+  **Slice 1 の contract TA の移行期間 allowlist（未移行 45 本を列挙した明示台帳
+  `evidence/migration-allowlist.txt`）の承認**を含む
 - `tests/run-tests.sh` helper source変更（Task 3 の比較検証で必要と確定した場合のみ）
 - broad extras migrationのC-3
 - contract probe envの採否
@@ -899,8 +979,23 @@ revert 順序は **T-06 → T-03**（C-1 MN-3）。
 - [x] **rc=3 反転を TC-12 / Task 6 / Verification Plan へ伝播**（前提充足クラスのみ rc0 を要求）
 - [ ] runtime inventoryをexec開始時に取得
 - [ ] C-2 independent review（**完了。`review-external.md` R-001〜R-020 を本版で確定反映**）
-- [x] 簡易 C-1 再実行（**FAIL: major 3 / minor 6 → 本版で全件是正**。
+- [x] 簡易 C-1 再実行（**FAIL: major 3 / minor 6 → 是正済**。
       MJ-A = 層 0 を Slice 2 へ繰り延べ（Human 決定 3）/ MJ-B = rc=3 反転の未伝播 /
       MJ-C = Slice 1 単独 PR の DoD 未定義 / MN-1〜MN-6）
-- [ ] 簡易 C-1 再々実行（本是正版に対して）
+- [x] 簡易 C-1 第 2 ラウンド（**FAIL: major 2 / minor 7 → 本版で全件是正**。
+      MJ-E = allowlist 述語が TC-16 と両立せず AC-5 後半条項に違反 → **明示台帳へ変更** /
+      MJ-D = allowlist の一般化が TC 本文へ未伝播 → **TC-09〜TC-13 へ scope 節を追加** /
+      MN-1 = 早期 `exit 0` は実測 3 件（`ta-39` / `ta-43` / `ta-44`）・うち fail 握り潰しの実例は 2 件（記述を訂正） /
+      MN-2 = `fail>0` は prerequisite missing より優先（precedence に行追加） /
+      MN-3 = 「全 57 本」を runtime discovery へ置換 + contract TA の集合帰属を明記 /
+      MN-4 = TC-02 に synthetic 限定を追記 / MN-5 = 見出しを「未移行 45 本」へ /
+      MN-6 = 層 0 の summary 書式 3 系統の消費者確認を T-04b へ追加 /
+      MN-7 = `ta-43` への行番号アンカーを記号アンカー（`_T43_APPLIED` 分岐）へ置換。
+      本 3 文書に残る行番号アンカーは grep で 0 件）
+- [x] **付随是正（第 2 ラウンド指摘外・実測により発見）**: 前版が
+      「`ta-43` は `check-plan-hash.sh` に `_eh2_stdin` が 0 件で前提未充足クラス」と
+      記していたが、参照ファイルの取り違えであり実測では `ta-39` / `ta-43` / `ta-44` とも
+      base commit で rc=0（前提充足）。plan / test-cases の該当記述を訂正した
+      （2 段構成そのものは維持。理由は「前提は環境依存で反転しうる」へ差し替え）
+- [ ] 簡易 C-1 第 3 ラウンド（本是正版に対して）
 - [ ] Human C-3
