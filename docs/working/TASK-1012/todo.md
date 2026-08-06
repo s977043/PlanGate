@@ -1,6 +1,6 @@
 # EXECUTION TODO — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 7** = C-1 ラウンド 1〜8 反映）/ Mode: **standard**（`lite_eligible=true`）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 8** = C-1 ラウンド 1〜9 反映）/ Mode: **standard**（`lite_eligible=true`）
 > ゲート: **Human C-3**（承認）+ **ai-loop C-3' 裁定**（裁定記録・承認トークンは発行しない）
 
 ## 👤 Human タスク
@@ -14,7 +14,7 @@
 
 ### H-0 の前提（`bin/plangate approve` の実装を読んで確認・C-1 R8 指摘 P-3）
 
-`bin/plangate approve` は 4 つの条件で止まる。**知らずに実行すると必ず失敗する**ので事前に読むこと。
+`bin/plangate approve` は **5 つ**の条件で止まる。**知らずに実行すると必ず失敗する**ので事前に読むこと。
 
 | # | 条件 | 実装 | 意味 |
 |---|------|------|------|
@@ -34,7 +34,7 @@
 | **A-2**（T-02） | ゲート A / B を適用（L62-68 と同型）。ヘルパー定義は移動しない。**適用後に `git add` して index に載せる** | A-1 | 🚩 `sh -n` rc=0 + **`git diff -w HEAD -- <file>`** の変化がゲート追加分のみ（**`HEAD` 必須**・M-1）+ `git diff --cached --stat` に当該ファイルが載る | `git checkout HEAD -- tests/extras/ta-26-plugin-sync.sh`（**HEAD 指定**。index ごと戻す） |
 | **A-3**（T-03） | **受入検証**: AC-1 / AC-2 / AC-3 / AC-4 | A-2 | 🚩 AC-1〜AC-4 すべて PASS | 不要（読取のみ） |
 | **A-4**（T-04） | **変異検証 3 種**（1 つずつ入れて戻す）。①条件反転 → AC-2 が FAIL ②ゲート B 終端を TC-36 手前へ → AC-1 が FAIL ③**ゲート外にゲート A 内変数 `_t26_t20` を参照する 1 行を注入** → 越境検査が ≥1 件 | A-3 | 🚩 3 変異すべてで期待 FAIL + 各復元後に再 PASS | 各変異ごとに `git checkout -- tests/extras/ta-26-plugin-sync.sh`（**HEAD を付けない**。index = 実装適用済みへ戻る） |
-| **A-5**（T-05） | **AC-5**: 交互 A/B で実行時間を実測（BASE / OPT を交互に各 2 回以上）。**退避コピー方式**で切替（plan の該当節）。**A-4 の後に直列実行** | **A-4** | 🚩 交互測定 + 測定後に OPT が index と一致 | `cp /tmp/ta26.opt <file>` で OPT へ復帰 |
+| **A-5**（T-05） | **AC-5**: 交互 A/B で実行時間を実測（BASE / OPT を交互に各 2 回以上）。**退避コピー方式**で切替（plan の該当節）。**A-4 の後に直列実行**。⚠️ **A-5 完了まで実装を commit しない**（commit すると `git show HEAD:` で取る BASE がゲート適用後になり BASE == OPT で AC-5 が無言で無意味化する — C-1 R9 指摘 N-2。plan の BASE 健全性アサーションで検出する） | **A-4** | 🚩 交互測定 + 測定後に OPT が index と一致 + BASE アサーション通過 | `cp /tmp/ta26.opt <file>` で OPT へ復帰 |
 | **A-6**（T-06） | handoff / status / current-state / INDEX を整備。handoff に「**ゲート境界の直後に TC を足すときは越境検査を再実行する**」旨を明記 | A-5 | 🚩 handoff 6 要素 + 再発防止の申し送り | 不要 |
 
 ## ⚠️ 変異の復元セマンティクス（C-1 R3 N-3 の是正・**厳守**）

@@ -3,13 +3,15 @@
 > issue: [#1012](https://github.com/s977043/plangate/issues/1012)
 > 入力: `docs/working/TASK-1012/pbi-input.md`
 > 由来: PR #986 の V-2 事後補完 H-1（証跡 = `docs/working/TASK-0914/review-external.md` R-407）
-> **改訂 7**: C-1 を 8 ラウンド実施し、計 49 件の指摘を反映。ゲート戦略は **C-3'（非 production・裁定記録）+ Human C-3（承認）**。
+> **改訂 8**: C-1 を 9 ラウンド実施し、計 55 件の指摘を反映。ゲート戦略は **C-3'（非 production・裁定記録）+ Human C-3（承認）**。
 
 ## Goal
 
 `tests/extras/ta-26-plugin-sync.sh` の TC-13 が起動する再帰防止モードの子プロセス（`PG_T26_NO_RECURSE=1`）で、**sandbox 実行を伴う重い TC 群**をスキップし、`ta-26` の実行時間を短縮する。**親プロセスのカバレッジは変えない。**
 
-## C-1 指摘の反映
+## C-1 指摘の反映（ラウンド 1〜3 の台帳。**R4 以降は各節の脚注に記載**）
+
+> 本表は R1〜R3 の 16 件のみを収載する。R4〜R8 の 33 件は、該当する記述の直近に脚注（「C-1 R◯ 指摘 ◯ の是正」）として置いた（C-1 R9 指摘 N-6）。
 
 ### ラウンド 1（major 4 件）
 
@@ -66,6 +68,8 @@
 `scripts/sync-plugin-plangate.sh` / `tests/extras/` の他のスクリプト全て / `tests/extras/README.md` / `tests/run-tests.sh`
 
 > ⚠️ 本項を Files 節に置くと `extract_allowed_paths()` が**禁止パスを allowed_paths に取り込み**、C-3' の scope 逸脱検査（priority 1.5）が無効化される（C-1 R1 が実測で検出）。そのため Constraints 側に置く。
+>
+> ただし **本 run（非 production）ではこの hazard は発火しない**（C-1 R9 指摘 N-4）。`extract_allowed_paths()` の呼び出し元は `derive_loopspec()` のみで、非 production では呼ばれず `allowed_paths` は手入力する。配置方針は**将来 production 化したときの予防**として維持する。
 
 ## Approach Overview
 
@@ -192,6 +196,14 @@ F=tests/extras/ta-26-plugin-sync.sh
 cp "$F" /tmp/ta26.opt                 # OPT を退避
 git show HEAD:"$F" > /tmp/ta26.base   # BASE を取得（index には触れない）
 
+# ⚠️ BASE 健全性アサーション（C-1 R9 指摘 N-2）
+# 実装を commit 済みだと HEAD がゲート適用後になり BASE == OPT で AC-5 が無言で無意味化する
+# （OPT/BASE ≈ 1.0 → WARN 受理となり、誤った実測値が handoff に残る）
+if grep -q 'TC-20〜TC-25' /tmp/ta26.base; then
+  echo "FAIL: BASE にゲートが含まれる（実装が commit 済み）。A-5 完了まで commit しないこと"
+  return 1 2>/dev/null || exit 1
+fi
+
 # 以降、cp で入れ替えて交互に計測する
 cp /tmp/ta26.base "$F"; time sh "$F" </dev/null    # BASE 1
 cp /tmp/ta26.opt  "$F"; time sh "$F" </dev/null    # OPT 1
@@ -241,7 +253,7 @@ git diff --quiet -- "$F" && echo "OPT restored (index と一致)" || { echo "FAI
 | 既存パターン踏襲 | ✅ **あり** | 同一ファイル内の同一イディオム・同一論拠 |
 | 可逆性 | ✅ **あり** | `git revert` 1 手 |
 
-→ **`lite_eligible=true`**（**判定としては成立するが、承認経路には使わない** — 上記「ゲート運用」参照）
+→ **`lite_eligible=true`**（**判定としては成立するが、承認経路には使わない** — **下記**「ゲート運用」節を参照）
 
 > **成立範囲の注記**: `size_ok` が成立するのは **計画時の裁定のみ**。実装後の再裁定では実差分（実装 1 + working context 一式 + evidence）が `SIZE_OK_MAX_FILES`=2 を超える。SKILL.md の「虚偽宣言禁止・判定不能なら false」に従い **`size_ok=false` を申告する**ため、発火するのは **priority 2（lite=false）** であり priority 1.9 ではない（1.9 は「申告 true ∧ 実測超過」でのみ発火 — `_declared_size_ok()` の実装で確認。C-1 R5 指摘 N-5）。終端状態は同じ human escalate で、再裁定は Human 判断を前提とする。handoff にも明記する。
 
@@ -286,5 +298,5 @@ git diff --quiet -- "$F" && echo "OPT restored (index と一致)" || { echo "FAI
 - C-3' が `HUMAN_ESCALATED` を返したら、`w_check` / `boundary_check` / `lite_check` を人間へ提示する。**AI が自己解決しない**
 - **C-3' run は「非 production」で回す**（C-1 R8 指摘 P-2）。`production` / `plan_package` フィールドは**入力に含めない**。
   - 理由: 承認は Human C-3（legacy `c3.json`）で行うため Plan Package 束縛が不要。`production: true` にすると `plan_package.check_evidence()` が `C1-VERDICT` / `C2-VERDICT` マーカーを**完全文法でちょうど 1 回**要求し（fail-closed）、「マーカーは付けなくてよい」という本節の方針と**二律背反**になる
-  - 帰結: `derive_loopspec()` は**呼ばれない**。したがって Testing Strategy の **V-A 行は本 run では消費されない**（下記注記参照）
+  - 帰結: `derive_loopspec()` は**呼ばれない**。したがって Testing Strategy の **V-A 行は本 run では消費されない**（**上記** Testing Strategy の注記を参照）
   - 入力に含めるもの: `changed_files` / `allowed_paths` / `lite` 4 軸 / `class` / `verdicts` / `target_sha` / `gates` / **`run`（`run_id` = 既存連番の続き・`round_index`=1・`task_id`=TASK-1012）**。`run` を省略すると metrics 集計対象外になる（C-1 R8 指摘 P-4）
