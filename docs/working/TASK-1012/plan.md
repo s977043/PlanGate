@@ -3,7 +3,7 @@
 > issue: [#1012](https://github.com/s977043/plangate/issues/1012)
 > 入力: `docs/working/TASK-1012/pbi-input.md`
 > 由来: PR #986 の V-2 事後補完 H-1（証跡 = `docs/working/TASK-0914/review-external.md` R-407）
-> **改訂 6**: C-1 を 7 ラウンド実施し、計 42 件の指摘を反映。**R7 の実測を受けてゲート戦略を変更**（C-3' は裁定記録・承認は Human C-3）。
+> **改訂 7**: C-1 を 8 ラウンド実施し、計 49 件の指摘を反映。ゲート戦略は **C-3'（非 production・裁定記録）+ Human C-3（承認）**。
 
 ## Goal
 
@@ -104,7 +104,7 @@ fi
 
 | Step | 内容 | Output | Owner | Risk | 🚩 |
 |------|------|--------|-------|------|----|
-| **T-01** | baseline 実測（TC 総数 / PASS 数 / rc + 実行時間 2 回）+ ゲート A / B の範囲確定 + **シンボル越境検査**（実装は下記「T-01 のシンボル越境検査の実装」）+ **V-A 行の抽出検証** | `evidence/test-runs/t01-baseline.log` / `evidence/verification/t01-symbol-scope.log` | agent | **高** | 🚩 越境 **0 件**を機械確認（行境界の一致だけでは不十分）+ V-A 行の抽出結果が L130 の実コマンドと一致 |
+| **T-01** | baseline 実測（TC 総数 / PASS 数 / rc + 実行時間 2 回）+ ゲート A / B の範囲確定 + **シンボル越境検査**（実装は下記「T-01 のシンボル越境検査の実装」）+ **V-A 行の抽出検証** | `evidence/test-runs/t01-baseline.log` / `evidence/verification/t01-symbol-scope.log` | agent | **高** | 🚩 越境 **0 件**を機械確認（行境界の一致だけでは不十分）+ V-A 行の抽出結果が実コマンドと一致（**参考** — 非 production では消費されない。将来 production へ切り替えたときの回帰検知として実施） |
 | **T-02** | ゲート A / B を適用（L62-68 と同型）。ヘルパー定義は移動しない。**適用後に `git add` して index に載せる**（T-04 の変異復元が実装を消さないため） | 差分 | agent | 中 | 🚩 `sh -n` rc=0 + **`git diff -w HEAD -- <file>`** の変化がゲート追加分のみ（**`HEAD` 必須** — `git add` 後は `HEAD` 無しだと常に空になり fail-open。C-1 R6 指摘 M-1）+ `git diff --cached --stat` に当該ファイルが載る |
 | **T-03** | **受入検証**: AC-1（子で `[SKIP]` 2 本 + ゲート対象 TC の非実行 + ゲート外 TC-30/33 は実行）/ AC-2（親のカバレッジが baseline と完全一致）/ AC-3・AC-4（ta-26 standalone・フルスイートとも 0 failed） | `evidence/test-runs/t03-acceptance.log` | agent | 中 | 🚩 AC-1〜AC-4 すべて PASS |
 | **T-04** | **変異検証 3 種**（1 つずつ入れて戻す）。①条件反転（**新規 2 ゲート限定**）→ AC-2 が FAIL ②ゲート B 終端を TC-36 手前へ → AC-1 が FAIL ③**ゲート外にゲート A 内変数 `_t26_t20` を参照する 1 行を注入** → T-01 の越境検査が ≥1 件 | `evidence/test-runs/t04-mutations.log` | agent | **高** | 🚩 3 変異すべてで期待 FAIL + 各復元後に再 PASS |
@@ -129,6 +129,10 @@ fi
 
 - Verification Automation: `sh tests/extras/ta-26-plugin-sync.sh </dev/null && PG_T26_NO_RECURSE=1 sh tests/extras/ta-26-plugin-sync.sh </dev/null && sh tests/run-tests.sh`
 
+> ⚠️ **本 run（非 production）では V-A 行は消費されない**（C-1 R8 指摘 P-2）。`derive_loopspec()` は `production: true` の
+> Plan Package 経路でしか呼ばれず、その本番呼び出し元は repo 内に存在しない（テスト fixture のみ）。**将来 production で回す
+> 場合に備えた宣言として残す**。以下は当該行を書く際の注意で、記述自体は正しい。
+>
 > **上の V-A 行について**（C-1 R4 指摘 A の是正）: `derive_loopspec()`（`scripts/ai-loop/plan_package.py` の L188）は当該ラベルを `re.search`＝**最初の一致**で抽出する。ラベル文字列をバッククォートで囲んで本文中に書くと、**閉じバッククォートが抽出の開始デリミタとして消費され、以降の本文がコマンドとして黙って採用される**（例外が出ないので **fail-open**）。改訂 2 まで実際にこの状態で、抽出結果は `' + バッククォート囲みの行が無い | 追加（下記 Testing Strategy） |'` だった（実測）。
 >
 > したがって本 plan では **V-A 行より前でラベルを literal 表記しない**。ラベルを話題にする箇所はすべて「V-A 行」と呼ぶ。検証は下記フェンスのコマンド（出力が V-A 行の実コマンド列と一致すること）で行う（T-01 のチェックポイント）。
@@ -196,7 +200,7 @@ cp /tmp/ta26.opt  "$F"; time sh "$F" </dev/null    # OPT 2
 
 # 終了時は必ず OPT へ戻し、index と一致することを確認する
 cp /tmp/ta26.opt "$F"
-git diff --quiet -- "$F" && echo "OPT restored (index と一致)"
+git diff --quiet -- "$F" && echo "OPT restored (index と一致)" || { echo "FAIL: OPT が index と一致しない"; exit 1; }
 ```
 
 **T-05 は T-04（変異検証）の後に直列で実行する**。並行させると、変異の index 復元と A/B の cp 上書きが同一ファイルを奪い合う。
@@ -280,3 +284,7 @@ git diff --quiet -- "$F" && echo "OPT restored (index と一致)"
 - **`C1-VERDICT` / `C2-VERDICT` マーカーは付けなくてよい**。あれは c3-prime（Plan Package 束縛）経路の要求であり、legacy 承認では `bin/plangate` が `c3_status` + `plan_hash` を見る。ただし C-1 / C-2 の結果は `review-self.md` / `review-external.md` に**通常どおり記録する**（`working-context.md` の要求）
 - **Mode=standard のフェーズ適用マトリクスでは C-2 = `-`** だが、本 PBI は C-3' を回す都合と、`lite_eligible` を主張した経緯の説明責任から **C-2 を 1 本実施する**（省略しない）
 - C-3' が `HUMAN_ESCALATED` を返したら、`w_check` / `boundary_check` / `lite_check` を人間へ提示する。**AI が自己解決しない**
+- **C-3' run は「非 production」で回す**（C-1 R8 指摘 P-2）。`production` / `plan_package` フィールドは**入力に含めない**。
+  - 理由: 承認は Human C-3（legacy `c3.json`）で行うため Plan Package 束縛が不要。`production: true` にすると `plan_package.check_evidence()` が `C1-VERDICT` / `C2-VERDICT` マーカーを**完全文法でちょうど 1 回**要求し（fail-closed）、「マーカーは付けなくてよい」という本節の方針と**二律背反**になる
+  - 帰結: `derive_loopspec()` は**呼ばれない**。したがって Testing Strategy の **V-A 行は本 run では消費されない**（下記注記参照）
+  - 入力に含めるもの: `changed_files` / `allowed_paths` / `lite` 4 軸 / `class` / `verdicts` / `target_sha` / `gates` / **`run`（`run_id` = 既存連番の続き・`round_index`=1・`task_id`=TASK-1012）**。`run` を省略すると metrics 集計対象外になる（C-1 R8 指摘 P-4）

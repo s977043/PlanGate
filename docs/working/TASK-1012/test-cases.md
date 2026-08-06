@@ -1,6 +1,6 @@
 # テストケース定義 — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 6** = C-1 ラウンド 1〜7 反映 + ゲート戦略変更）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 7** = C-1 ラウンド 1〜8 反映）
 > 対象: `tests/extras/ta-26-plugin-sync.sh`
 
 ## 記法規約（C-1 R5 指摘 N-1）

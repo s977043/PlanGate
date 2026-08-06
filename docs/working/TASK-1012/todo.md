@@ -1,18 +1,30 @@
 # EXECUTION TODO — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 6** = C-1 ラウンド 1〜7 反映 + ゲート戦略変更）/ Mode: **standard**（`lite_eligible=true`）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 7** = C-1 ラウンド 1〜8 反映）/ Mode: **standard**（`lite_eligible=true`）
 > ゲート: **Human C-3**（承認）+ **ai-loop C-3' 裁定**（裁定記録・承認トークンは発行しない）
 
 ## 👤 Human タスク
 
 | ID | 内容 | 依存 |
 |----|------|------|
-| **H-0** | **C-3: 承認**（`bin/plangate approve TASK-1012` で legacy 形式の `approvals/c3.json` を発行）。**AI は実行不可**（承認トークン書込ガード + presence gate） | C-1 / C-2 / C-3' 完了後・A-1 開始前 |
+| **H-0** | **C-3: 承認**（`bin/plangate approve TASK-1012`）。**AI は実行不可**。実行条件は下記「H-0 の前提」を必ず読むこと | C-1 / C-2 / C-3' 完了後・A-1 開始前 |
 | **H-1** | **C-4: PR レビュー**（GitHub 上・三値）。merge は Human-owned 固定 | A-6 完了後 |
 
-> **C-3 は ai-loop の C-3' 裁定に置換**（`lite_eligible=true`）。`arbiter.py` が `HUMAN_ESCALATED`（exit 2）を返した場合のみ Human 判断を仰ぐ。
->
 > ⚠️ **ゲート戦略を変更した**（C-1 R7 / Human 判断）: **承認は Human C-3**。C-3' は「裁定記録」として回すが承認トークンの発行元にはしない。理由は plan「ゲート運用」節（①`size_ok` を誠実に申告すると `AUTO_APPROVED` に到達しない ②`check-approval-token-write.sh` が配線済みで **AI は `approvals/*.json` を書けない** ③c3-prime の発行 CLI が存在しない）。順序は **Step 0 → plan 確定 → C-1 → C-2 → C-3'（記録）→ Human C-3（`bin/plangate approve`）→ exec**。これらは workflow-conductor が制御するゲート工程であり、本 ToDo の Agent タスクには含めない。
+
+### H-0 の前提（`bin/plangate approve` の実装を読んで確認・C-1 R8 指摘 P-3）
+
+`bin/plangate approve` は 4 つの条件で止まる。**知らずに実行すると必ず失敗する**ので事前に読むこと。
+
+| # | 条件 | 実装 | 意味 |
+|---|------|------|------|
+| a | **presence gate L3**: `ps -p $PPID -o comm=` が `claude` / `codex` / `cursor` に一致すると **reject** | `_plangate_presence_gate()` | ⚠️ **Claude Code 内のターミナルで打つと必ず弾かれる**。**別のターミナル**（AI エージェントの子プロセスでない場所）で実行すること |
+| b | **presence gate L1/L2**: stdin が TTY であること / `CI`・`CLAUDE_AGENT`・`CURSOR_AGENT`・`PLANGATE_BYPASS_HOOK` がすべて未設定 | 同上 | 非対話実行・スクリプト化は不可 |
+| c | **L4 nonce**: 8 桁 hex を対話で打ち返す | 同上 | 自動化できない（意図的） |
+| d | **APPROVED 時は内部で `cmd_validate` が走る**。`pbi-input.md` / `plan.md` / `todo.md` / `test-cases.md` / **`review-self.md`** の 5 点が必須 | `cmd_approve` → `cmd_validate` | **`review-self.md` が無いまま approve すると、c3.json は生成済み・コマンドは rc=1** で終わり、以後 `--force` が必要になる |
+| e | **既存 `approvals/c3.json` があると `--force` 無しで `return 2`** | `cmd_approve` | 再承認時は `--force` を付ける |
+
+> ✅ **承認後に `review-external.md` / handoff を書くのは安全**。`cmd_exec` の preflight が照合するのは `plan.md` の hash のみで、これらは hash 対象外。ただし **`plan.md` は承認後に一切編集しない**（`plan_hash mismatch` で exec が止まる）。
 
 ## 🤖 Agent タスク
 
