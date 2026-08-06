@@ -66,8 +66,11 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - capability候補、fallback、counter、top-level exit/return、cleanup、stdin readを表にする
   - **層 0 の 4 本（`ta-26` / `ta-58` / `ta-59` / `ta-60`）と層 A の 12 本（`ta-40` 含む）を再確認**（R-003）
   - **basename ベース test-id の一覧を作り重複 0 を確認**（R-016）
-  - **移行期間 allowlist の台帳 `evidence/migration-allowlist.txt` を inventory から機械生成**
-    （「inventory 全件 − 層 A」の basename を 1 行 1 件。手書きしない / MJ-E）
+  - **移行期間 allowlist の内容を inventory から機械生成**
+    （「inventory 全件 − 層 A」の basename を 1 行 1 件。手書きしない / MJ-E）。
+    **別ファイルは作らず T-06 で contract TA 本体の `_pending_migration` heredoc へ転記**し、
+    生成物と転記結果を `diff` で照合する（Human 決定 4 / MJ-F / MJ-G）。
+    evidence: `evidence/test-runs/pending-migration-gen.log`
   - exact countはstatusへ記録するがtest期待値に埋め込まない
   - unclassifiedが1件でもあれば停止
   - `rollback:` **不要**（読取・分類のみ。ファイルを変更しない）
@@ -131,7 +134,7 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
     `ta-26` のみで、`ta-58` / `ta-59` は `Results: %d passed, %d failed`、`ta-60` は
     `TA-60 standalone: pass=%s fail=%s`。TC-18 は `ta-26` のパリティしか要求していない
   - `ta-26` は Slice 2 の最後に移行し、既存 heavy tests を前後比較
-  - **移行完了で contract TA の移行期間 allowlist 台帳が空（0 行）になることを確認**（TC-24 / AC-5）
+  - **移行完了で contract TA の `_pending_migration` が 0 行になることを確認し、関数ごと削除**（TC-24 / AC-5）
   - `rollback:` batch 単位 commit を `git revert <sha>`（未 push なら `git reset --hard`）。
     **helper 導入前まで戻す場合は T-03 の revert が前提**。`ta-26` は最終 batch なので単独 revert 可。
     revert 順序は **T-04b → T-03**
@@ -145,7 +148,9 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
     3 本とも層 A で本 Slice の対象。**`ta-39` / `ta-43` / `ta-44` の早期 `exit 0`
     （早期 exit 3 件）も同時に除去される**
   - **移行前に `ta-43` の SKIP 分岐で `fail>0` かつ rc=0 になる現状を実測記録**
-    （C-1 第 2 ラウンド MN-1 / AC-1 の実害の一次証跡）。
+    （C-1 第 2 ラウンド MN-1 / AC-1 の実害の一次証跡）。sandbox 構成は plan の
+    `#### TC-17 / M-10 の sandbox 構成手順`。**`[FAIL]` は `>&2`（stderr）へ出る**ため
+    記録は `... </dev/null > <log> 2>&1` とする（MN-B。`ta-39` / `ta-44` も同一形と実測）。
     evidence: `evidence/verification/pre-migration-fail-swallow.log`
   - helper の summary 書式を `TA-<NN> standalone: N passed, M failed` に確定（R-015a）。
     **`<NN>` は test-id から `^ta-([0-9]+)` を抽出して導出**（C-1 MN-2）。
@@ -157,11 +162,21 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
 ### Regression / Evidence
 
 - [ ] **T-06: contract TA**
-  - **検査対象は移行済み集合＝移行期間 allowlist（`evidence/migration-allowlist.txt`）に
-    列挙されていないファイル**（Slice 1 は層 A 12 本）。allowlist は **base commit 時点の
-    未移行ファイルを列挙した明示台帳**であり、**述語で解決しない**（述語だと marker/init を
-    持たない新規追加ファイルが黙って除外され TC-16 / M-06 が空振りする / MJ-E）。
-    **Slice 2 完了時に台帳が空**（TC-24 / AC-5）
+  - **検査対象は移行済み集合＝移行期間 allowlist（contract TA 本体に内蔵した
+    `_pending_migration`）が返さないファイル**（Slice 1 は層 A 12 本）。allowlist は
+    **base commit 時点の未移行ファイルを列挙した明示リスト**であり、**述語で解決しない**
+    （述語だと marker/init を持たない新規追加ファイルが黙って除外され
+    TC-16 / M-06 が空振りする / MJ-E）。**Slice 2 完了時に 0 行**になり関数ごと削除する
+    （TC-24 / AC-5）
+  - **`_pending_migration` の各行の健全性を検査**（TC-25 / M-14 / MN-E）:
+    各行が `tests/extras/` に**実在**し、helper bootstrap / init を**持たない**こと。
+    加えて**検査対象集合（discovered − pending）が空でない**ことを assert し、
+    allowlist 過大化による 0 件ループの黙認 PASS を塞ぐ
+  - **TC-17 / M-10 を sandbox で Slice 1 のうちに実走**（Human 決定 5）。
+    手順は plan の `#### TC-17 / M-10 の sandbox 構成手順`（repo 実コピー → 述語文字列除去 →
+    コピー側 standalone 実行）。**`FIXTURES_DIR` でルート差し替え不可**のため実コピーが必須。
+    **destructive な操作は `mktemp` fixture 内のみ**で行い repo 本体を書き換えない。
+    evidence: `evidence/test-runs/prereq-rc3.log`
   - **contract TA 自身の集合帰属**: inventory に含める / allowlist には載せない /
     marker・init 検査の対象に含める。自己再帰の回避は per-file 実走ループで自分の
     test-id を skip することで行う（集合から外さない）
@@ -217,7 +232,7 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
 1. `test: add RED tests for extras execution contract`
 2. `feat(tests): add shared extras standalone contract`
 3. `fix(tests): propagate 層 A standalone failures`（Slice 1・複数reviewable commits可）
-4. `test: enforce extras capability inventory`（**移行期間 allowlist 付き**）
+4. `test: enforce extras capability inventory`（**移行期間 allowlist `_pending_migration` を内蔵**）
 5. `docs: define extras execution contract`
 6. `fix(tests): reject direct execution of harness-only extras`（**Slice 2**・複数reviewable commits可）
 7. `fix(tests): fold 層 0 standalone footers into the shared contract`（**Slice 2** / T-04b）
@@ -228,12 +243,15 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
 **単独 PR として merge される**ため、「contract TA は全移行と同 commit または最後に追加する」
 方針は成立しない（Slice 1 merge 時点で 45 本が未移行）。したがって contract TA は
 **移行期間 allowlist を持った状態で Slice 1 に載せる**。allowlist は
-**`evidence/migration-allowlist.txt` の明示台帳**（base commit 時点の未移行ファイルを列挙。
-T-01 が inventory から機械生成）であり、**述語で解決しない**。移行のたびに行を削除して縮める。
-**Slice 2 完了時に台帳が空になることを TC-24 / AC-5 で機械検証**し、恒久化を防ぐ。
+**contract TA 本体に内蔵した `_pending_migration`（明示リスト）**（base commit 時点の
+未移行ファイルを列挙。T-01 が inventory から機械生成した内容を heredoc へ転記）であり、
+**述語で解決しない**。**別ファイルを作らないため Slice 1 = 15 ファイルが維持される**
+（Human 決定 4）。移行のたびに行を削除して縮める。
+**Slice 2 完了時に 0 行になることを TC-24 / AC-5 で機械検証**し、恒久化を防ぐ
+（0 行になった時点で `_pending_migration` 関数ごと削除する）。
 これは pbi-input AC-5 の「修正前の allowlist は移行期間のみ保持し恒久化しない」が
 **明示的に許容する形態**であり、同 AC 後半の「allowlist を明示し、将来の追加ファイルが
-黙って除外されない構造にする」も同時に満たす（新規追加ファイルは台帳に無い＝検査対象）。
+黙って除外されない構造にする」も同時に満たす（新規追加ファイルは `_pending_migration` に無い＝検査対象）。
 
 **revert 依存順**: T-04 / T-04b / T-05 / T-06 の commit → T-03（helper）の順で戻す。
 helper だけ先に revert すると marker/init が残った extras が起動時に落ち、
@@ -265,13 +283,15 @@ contract TA（T-06）も helper API を解決できなくなる（C-1 MN-3）。
 - [ ] pre-fix HEAD で contract TA が FAIL する evidence（AC-7）
 - [ ] 層 A 12 本が dynamic に分類され、test-id（basename）重複 0（TC-20 は runtime discovery した全件）
 - [ ] harness suite 0 failed
-- [ ] 移行期間 allowlist が `evidence/migration-allowlist.txt` の明示台帳で解決され、述語解決になっていない
+- [ ] 移行期間 allowlist が contract TA 本体の `_pending_migration`（明示リスト）で解決され、述語解決になっていない
+- [ ] `_pending_migration` の各行が実在かつ未移行であり、検査対象集合が空でない（TC-25 / M-14）
+- [ ] TC-17 / M-10 が sandbox 実走済み（Slice 2 へ繰り延べていない）
 - [ ] Human C-4（H-02）
 
 ### Slice 2
 
 - [ ] test-cases `## Exit Criteria` の **Slice 2 節**を全項目充足
-- [ ] TC-01〜TC-24 を通しで再実行して PASS（Slice 1 DoD の非退行）
-- [ ] 移行期間 allowlist 台帳が空（0 行）（TC-24 / AC-5）
+- [ ] TC-01〜TC-25 を通しで再実行して PASS（Slice 1 DoD の非退行）
+- [ ] `_pending_migration` が 0 行になり関数ごと削除されている（TC-24 / AC-5）
 - [ ] Issue / `TASK-0914/handoff.md` writeback（append-only / AC-6）
 - [ ] Human C-4

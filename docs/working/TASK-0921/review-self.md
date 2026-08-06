@@ -6,7 +6,7 @@ Review date: 2026-08-05
 
 `NEEDS_REVISION_BEFORE_C3`
 
-#914 完了後のscope、2層能力モデル、early exit、negative control、rollbackは具体化した。C-3前にruntime inventoryとtop-level trap競合監査、独立C-2が必要。
+`#914` 完了後のscope、2層能力モデル、early exit、negative control、rollbackは具体化した。C-3前にruntime inventoryとtop-level trap競合監査、独立C-2が必要。
 
 ## Review Matrix
 

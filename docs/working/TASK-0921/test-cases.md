@@ -64,45 +64,50 @@ Given unknown capability string, helper fails closed before body with nonzero rc
 
 > **Migration scope (shared by TC-09 / TC-10 / TC-11 / TC-12 / TC-13)**
 >
-> 対象は**移行済み集合**（＝移行期間 allowlist（`evidence/migration-allowlist.txt`）に列挙されて
-> いないファイル）。**ただし TC-20（basename 一意性）は移行状態に依存しないため全件を対象とする**。
+> The *migrated set* = every runtime-discovered `ta-*.sh` whose basename is **not returned by
+> `_pending_migration`**, the migration-period allowlist embedded **inside the contract TA itself**
+> (`tests/extras/ta-XX-extra-contract.sh`) as a heredoc-returning shell function. **TC-20 (basename
+> uniqueness) is exempt from this restriction and covers every discovered file**, because basename
+> uniqueness does not depend on migration state.
 >
-> In English, for the test implementation: the *migrated set* = every runtime-discovered `ta-*.sh`
-> whose basename is **not listed** in the migration-period allowlist
-> `docs/working/TASK-0921/evidence/migration-allowlist.txt`. The allowlist is an **explicit ledger
-> generated from the Task 1 inventory**, never a predicate such as "has no helper bootstrap": a
-> predicate would silently swallow a newly added file that has neither marker nor init, which is
-> exactly what TC-16 and M-06 must catch, and it would violate the second clause of pbi-input AC-5
-> ("将来の追加ファイルが黙って除外されない構造にする"). The ledger's **line count is never used as
-> an expected value**; only membership is.
+> The allowlist is an **explicit list generated from the Task 1 inventory**, never a predicate such
+> as "has no helper bootstrap": a predicate would silently swallow a newly added file that has
+> neither marker nor init, which is exactly what TC-16 and M-06 must catch, and it would violate the
+> second clause of pbi-input AC-5 ("将来の追加ファイルが黙って除外されない構造にする"). Keeping the
+> list inside the contract TA also removes any runtime dependency on `docs/working/` and makes the
+> "allowlist file missing / unreadable / mis-pathed" failure modes structurally impossible. The
+> list's **line count is never used as an expected value**; only membership is (and, at Slice 2
+> completion only, its emptiness — TC-24).
 >
-> 本定義は `plan.md` の Task 6 および `todo.md` の T-06 と**字面を一致**させてある。
+> This block is intentionally **English-only**. The Japanese wording of the same definition lives in
+> `plan.md` Task 6, and the **字面一致 (literal-agreement) requirement holds between `plan.md`
+> (Japanese) and `todo.md` (Japanese) only** — this file is not a party to that agreement.
 
 ### TC-09 Exactly one capability marker
 
-**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not listed** in the
-migration-period allowlist (`evidence/migration-allowlist.txt`).
+**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not returned by**
+`_pending_migration` (the migration-period allowlist embedded in the contract TA).
 
 For every file in scope, marker count is exactly 1 and value is one of `standalone-capable`, `harness-only`.
 
 ### TC-10 Marker and init agree
 
-**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not listed** in the
-migration-period allowlist (`evidence/migration-allowlist.txt`).
+**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not returned by**
+`_pending_migration` (the migration-period allowlist embedded in the contract TA).
 
 For every file in scope, marker value and `pg_extra_contract_init` second argument agree, and the first argument equals the file's **basename without extension**. Comment-only token elsewhere does not satisfy this test.
 
 ### TC-11 Harness-only all-file execution
 
-**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not listed** in the
-migration-period allowlist (`evidence/migration-allowlist.txt`).
+**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not returned by**
+`_pending_migration` (the migration-period allowlist embedded in the contract TA).
 
 For every in-scope marker=harness-only file (resolved by **basename test-id**), `sh "$file" </dev/null` returns 2, emits standard diagnostic naming that basename, and creates no body sentinel/tmp/audit evidence.
 
 ### TC-12 Standalone-capable all-file force-fail (differential)
 
-**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not listed** in the
-migration-period allowlist (`evidence/migration-allowlist.txt`) — restricted further to
+**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not returned by**
+`_pending_migration` (the migration-period allowlist embedded in the contract TA) — restricted further to
 marker=standalone-capable files **whose prerequisites are satisfied**, resolved by
 **basename test-id**. Prerequisite class is decided by stage 1 of the two-stage procedure
 (see below), not assumed.
@@ -127,8 +132,8 @@ Additionally: with `PG_EXTRA_CONTRACT_PROBE=force-fail` set but `PG_EXTRA_CONTRA
 
 ### TC-13 Standalone-capable normal execution
 
-**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not listed** in the
-migration-period allowlist (`evidence/migration-allowlist.txt`).
+**Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not returned by**
+`_pending_migration` (the migration-period allowlist embedded in the contract TA).
 
 For every in-scope marker=standalone-capable file whose prerequisites are satisfied, clean direct execution with `</dev/null` returns 0 and output contains no `[FAIL]`. Files whose prerequisites are absent are asserted by TC-17 (rc=3), not by this case.
 
@@ -144,7 +149,17 @@ With the seven guarded env values pre-set, runner and standalone-capable normal 
 
 Adding a temporary `ta-zz-probe.sh` without marker/init makes contract TA fail. Adding only a marker but no matching init also fails. Adding marker + init but **no tail `pg_extra_contract_finalize`** also fails (case D has no trap safety net).
 
-This case is the reason the migration-period allowlist must be an **explicit ledger** and not a predicate: `ta-zz-probe.sh` has no helper bootstrap, so a predicate-based allowlist would exempt it and this case would silently pass. Because the ledger is generated from the Task 1 inventory at the base commit, the newly added file is absent from it, falls inside the migrated set, and is caught by TC-09 / TC-10.
+This case is the reason the migration-period allowlist must be an **explicit list** and not a predicate: `ta-zz-probe.sh` has no helper bootstrap, so a predicate-based allowlist would exempt it and this case would silently pass. Because `_pending_migration` is generated from the Task 1 inventory at the base commit, the newly added file is absent from it and therefore **falls inside the migrated set** — which is the property MJ-E requires, and it holds for all three patterns below.
+
+Which assertion actually catches each pattern differs, and TC-16 must be read that way:
+
+| Pattern added by the case | Detected by |
+|---|---|
+| A: no marker, no init | **TC-09** (marker count ≠ 1) and **TC-10** (no init to agree with) |
+| B: marker only, no matching init | **TC-10** (marker / init disagree) |
+| C: marker (`standalone-capable`) + matching init but **no tail `pg_extra_contract_finalize`** | **TC-12's probe differential** — stage 1 classifies it as prerequisite-satisfied (it ends normally with rc=0), then (b) probe-present fails to return 1 because finalize is never reached (cf. **M-07**). It passes TC-09 (exactly one marker) and TC-10 (marker and init agree), so neither of those can catch it. With a `harness-only` marker the file would instead be caught by TC-11 in Slice 2, finalize being irrelevant there |
+
+Set membership (i.e. "the new file is in scope at all") is established for all three patterns identically; only the detecting assertion differs.
 
 ## Early Exit / Prerequisite Cases
 
@@ -155,6 +170,8 @@ In a sandbox where the prerequisite is absent, `ta-39-eh3-doc-light`, `ta-43-*`,
 The rc=3 must additionally be shown to originate from `pg_extra_contract_skip` (its diagnostic appears in the output). A file that reaches rc=3 by any other route is a FAIL — `pg_extra_contract_skip` is the sole channel for declaring "prerequisite absent", and the test body must never `exit 3` directly.
 
 This case also covers every file that stage 1 of TC-12 sorts into the prerequisite-absent class. At the base commit that class is **empty under the repository's own state** (`ta-39`, `ta-43` and `ta-44` all return rc=0 — measured in C-1 round 2), so at present TC-17 is exercised **only in a constructed sandbox**; the class must be re-measured by stage 1 at exec start.
+
+**The sandbox construction procedure is normative and lives in `plan.md` `#### TC-17 / M-10 の sandbox 構成手順`** (copy the repo into a temp dir, strip the measured predicate string, run the copy's `ta-*.sh` standalone). It is required because these three files resolve their root from `$0` on the standalone path after unsetting `PG_HARNESS_SOURCED`, so **`FIXTURES_DIR` cannot redirect the root** — a real tree copy is mandatory. **TC-17 and M-10 stay in Slice 1**; they are not deferred to Slice 2. Every destructive step (predicate removal, apply-script execution) happens **inside the `mktemp` fixture only** — the repository itself is read-only for this case.
 
 **Out of scope for TC-17**: a prerequisite-absent run that also has `fail > 0`. Under the Finalize precedence that case returns **rc=1**, not rc=3 ("前提未充足だが既に失敗している" is "検査して失敗した", not "検査していない"). It is asserted as an ordinary failure (TC-04 / TC-12 stage 1 unclassifiable branch), not here.
 
@@ -191,13 +208,49 @@ Two instantiations, in different slices:
 
 ### TC-24 Migration allowlist is empty at Slice 2 completion
 
-The contract TA's migration-period allowlist (files exempted because they have not yet been migrated to the helper) is an **explicit ledger** at `docs/working/TASK-0921/evidence/migration-allowlist.txt`, generated from the Task 1 inventory and shrunk by deleting a line each time a file is migrated. It is **never** resolved by a predicate such as "has no helper bootstrap" — a predicate would auto-exempt any newly added file that carries neither marker nor init, which is precisely the leak pbi-input AC-5's second clause forbids ("将来の追加ファイルが黙って除外されない構造にする") and which TC-16 / M-06 must catch.
+The contract TA's migration-period allowlist (files exempted because they have not yet been migrated to the helper) is an **explicit list embedded in the contract TA itself** — the shell function `_pending_migration`, which returns one basename per line from a heredoc. It is generated from the Task 1 inventory and shrunk by deleting a line each time a file is migrated. It is **never** resolved by a predicate such as "has no helper bootstrap" — a predicate would auto-exempt any newly added file that carries neither marker nor init, which is precisely the leak pbi-input AC-5's second clause forbids ("将来の追加ファイルが黙って除外されない構造にする") and which TC-16 / M-06 must catch.
 
-At Slice 2 completion the ledger must be **empty (zero lines)**, i.e. the contract TA's per-file loops cover every runtime-discovered `ta-*.sh`.
+At Slice 2 completion **`_pending_migration` must return zero lines**, i.e. the contract TA's per-file loops cover every runtime-discovered `ta-*.sh`. Once that holds, the function itself is deleted rather than left in place as an empty stub.
 
-A test that reports an empty allowlist because its discovery glob matched nothing is itself a FAIL: the case must assert both "the ledger is empty" and "the covered set is non-empty and equals the discovered set". The ledger's line count is only ever compared against zero at this point; it is **not** used as an expected value anywhere else (the "件数を契約値にしない" constraint applies to test expectations, and the ledger is an input to the exclusion set, not an expectation).
+A test that reports an empty allowlist because its discovery glob matched nothing is itself a FAIL: the case must assert both "`_pending_migration` returns zero lines" and "the covered set is non-empty and equals the discovered set". The list's line count is only ever compared against zero at this point; it is **not** used as an expected value anywhere else (the "件数を契約値にしない" constraint applies to test expectations, and the allowlist is an input to the exclusion set, not an expectation).
+
+Because the list now lives inside the contract TA, the failure modes "allowlist file is missing", "allowlist file is unreadable" and "allowlist path is wrong" **cannot occur** — there is no separate file and no runtime read of `docs/working/`. A dedicated "does `_pending_migration` exist?" guard is deliberately **not** added: if the function disappears or returns nothing, the allowlist is empty, the 45 unmigrated files enter scope, and TC-09 / TC-10 fail loudly. The dangerous direction is the opposite one — an over-broad list (e.g. a broken heredoc terminator) shrinking the covered set to zero and letting the contract TA pass on an empty loop — and that is asserted by **TC-25**, not by an existence check.
 
 This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only for the migration period and never made permanent, and satisfies its second clause by making the exclusion set explicit.
+
+### TC-25 Migration allowlist entries are sound, and the covered set is non-empty
+
+**Slice**: 1 (this case must run from the first slice; it is the reverse-direction counterpart of
+TC-16 and must not wait for TC-24 in Slice 2).
+
+The contract TA asserts, for **every line returned by `_pending_migration`**:
+
+1. the line names a file that **actually exists** as `tests/extras/<line>` and matches the
+   `ta-*.sh` glob — a stale or misspelled entry that names nothing is a FAIL;
+2. that file **does not carry** helper bootstrap / `pg_extra_contract_init` — i.e. it is genuinely
+   unmigrated. An **already-migrated file left in the list** is a FAIL.
+
+And, independently of the per-line checks:
+
+1. the **covered set** (runtime-discovered files minus the ones `_pending_migration` returns) is
+   **non-empty**. An allowlist that has grown to swallow everything would otherwise leave TC-09 /
+   TC-10 / TC-12 / TC-13 iterating over zero files and passing silently — the exact class of defect
+   this PBI exists to close.
+
+Rationale: TC-16 closes the leak where a **newly added** file is silently excluded. The reverse leak
+— an **already-migrated** file left in the allowlist — removes that one file from every per-file
+check with no other case noticing, and until this addition it was detectable only by TC-24 at Slice
+2 completion. TC-25 moves that detection into Slice 1. The corresponding mutation is **M-14**.
+
+Note that the line count of `_pending_migration` is **not** an expected value here; only per-line
+soundness and the non-emptiness of the covered set are asserted.
+
+The "has no helper bootstrap" predicate appears in check 2 above, which may look like it contradicts
+the rule that the allowlist is **never resolved by a predicate**. It does not: the predicate is used
+here only as an **assertion about an independently authored list**, never to *derive* membership.
+Deriving membership from the predicate is what silently exempts a marker-less new file (M-13's
+predicate side, caught by TC-16); asserting the predicate over an explicit list is what catches a
+migrated file that was left behind (M-14, caught here). The two directions are complementary.
 
 ## Mutation Matrix
 
@@ -221,7 +274,13 @@ This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only fo
 | M-10 | return rc 0 instead of 3 on prerequisite-absent | TC-17 FAIL | 1 |
 | M-11 | change the standalone summary literal format | TC-18 FAIL | **2** |
 | M-12 | export probe env from finalize instead of unsetting it | TC-23 FAIL | 1（synthetic）/ 2（`ta-26` 実地） |
-| M-13 | leave an already-migrated file in the allowlist ledger, **or** resolve the allowlist by the predicate "has no helper bootstrap" instead of the ledger | TC-24 FAIL (stale ledger entry) / TC-16 FAIL (predicate auto-exempts a marker-less new file) | **2**（ledger 側）/ **1**（predicate 側は TC-16 で Slice 1 から検出可能） |
+| M-13 | leave an already-migrated file in `_pending_migration`, **or** resolve the allowlist by the predicate "has no helper bootstrap" instead of the explicit list | TC-24 FAIL (list is not empty at Slice 2 completion) / TC-16 FAIL (predicate auto-exempts a marker-less new file) | **2**（list 側は TC-24 の完了時判定）/ **1**（predicate 側は TC-16 で Slice 1 から検出可能） |
+| M-14 | (a) leave an already-migrated file's basename in `_pending_migration`; (b) put a name that does not exist under `tests/extras/` in it; (c) widen `_pending_migration` (e.g. break the heredoc terminator) so the covered set becomes empty | **TC-25 FAIL** — (a) migrated file still listed / (b) non-existent entry / (c) covered set empty | **1** |
+
+> **M-13 と M-14 の関係**: 同じ「移行済みファイルが allowlist に残る」欠陥クラスを、
+> M-13 は **Slice 2 完了時点の allowlist 空判定（TC-24）**で、M-14 は **Slice 1 の各行健全性
+> 判定（TC-25）**で検出する。M-14 は M-13 を置き換えるのではなく、検出時期を Slice 1 まで
+> 前倒しする（MN-E）。(b)(c) は M-13 が扱っていなかった追加の欠陥形態である。
 
 ## Traceability
 
@@ -244,9 +303,9 @@ This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only fo
 | AC-2 (d) | カウンタ初期化の存在（helper が担保。層 A 12 本は全数が未初期化） | TC-03, TC-04 | 1 |
 | AC-3 | 層 B + 層 C 41 本の standalone が明示メッセージ付き exit 2 | TC-02（synthetic）, TC-11（全件） | **1（TC-02 のみ）/ 2（TC-11 で充足）** |
 | AC-4 | `sh tests/run-tests.sh` が回帰しない + **runtime `tail -1`** 最終ファイルの `[PASS]` 出現 | **TC-14**, TC-15, TC-21 | 1（Slice 2 でも再実行） |
-| AC-5 | 検査が回帰テスト化され、新規追加の伝播漏れを将来も検出（正規述語）。**移行期間 allowlist を恒久化しない** | TC-09, TC-10, TC-16, TC-20, **TC-24** | **1（allowlist 付きで成立）/ 2（TC-24 で allowlist 空）** |
+| AC-5 | 検査が回帰テスト化され、新規追加の伝播漏れを将来も検出（正規述語）。**移行期間 allowlist を恒久化しない** | TC-09, TC-10, TC-16, TC-20, **TC-25**, **TC-24** | **1（allowlist 付きで成立。逆向きリークは TC-25 が Slice 1 で担保）/ 2（TC-24 で allowlist 空）** |
 | AC-6 | README 規約 9（rc 0/1/2/3・marker・probe・rc2 名前空間）+ #914 handoff writeback | **TC-19**（README）+ handoff CLOSED マーカーの grep（DoD） | **1（TC-19）/ 2（writeback）** |
-| AC-7 | 追加した検査が **修正前実装で FAIL** することの実証 | Verification Plan の pre-fix HEAD evidence + M-01〜M-13（各 M の Slice は Mutation Matrix に従う） | 1（Slice 1 で走る M。**M-13 の predicate 側を含む**）/ 2（M-09 / M-11 / M-13 の ledger 側） |
+| AC-7 | 追加した検査が **修正前実装で FAIL** することの実証 | Verification Plan の pre-fix HEAD evidence + M-01〜M-14（各 M の Slice は Mutation Matrix に従う） | 1（Slice 1 で走る M。**M-13 の predicate 側と M-14 を含む**）/ 2（M-09 / M-11 / M-13 の list 側） |
 | **AC-8**（派生・pbi-input 正本外） | `ta-26` TC-33（#914 AC-9 ゲート）が移行後も**空振りせず**同等以上の検出力を保つ | **TC-22**, M-09 | **2** |
 
 補助的な設計制約の紐付け（AC 直属ではないが Exit Criteria に含む）:
@@ -270,11 +329,12 @@ This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only fo
 ### Slice 1 の DoD（Slice 1 PR の V-1 / C-4 の判定対象）
 
 - [ ] **TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-12,
-      TC-13, TC-14, TC-15, TC-16, TC-17, TC-19, TC-20, TC-21, TC-23（synthetic 側）PASS**
-- [ ] **M-01〜M-08, M-10, M-12（synthetic 側）, M-13（predicate 側）が期待どおり FAIL**。
-      **M-13 の predicate 側は Slice 1 の必須ゲート**: allowlist を台帳から
+      TC-13, TC-14, TC-15, TC-16, TC-17, TC-19, TC-20, TC-21, TC-23（synthetic 側）, TC-25 PASS**
+- [ ] **M-01〜M-08, M-10, M-12（synthetic 側）, M-13（predicate 側）, M-14 が期待どおり FAIL**。
+      **M-13 の predicate 側は Slice 1 の必須ゲート**: allowlist を `_pending_migration` から
       「helper bootstrap を持たない」述語へ差し替える変異を入れ、**TC-16 が FAIL する**ことを
-      実証する。これは MJ-E の是正（明示台帳）が実効を持つことの唯一の実行ベース証拠であり、
+      実証する。これは MJ-E の是正（contract TA 内蔵の明示リスト `_pending_migration`）が
+      実効を持つことの唯一の実行ベース証拠であり、
       Slice 2 へ繰り延べてはならない
 - [ ] **AC-2 (a)(b)(c)(d), AC-4, AC-7 を充足**
 - [ ] **AC-1 を層 A 12 本の範囲で充足**（全件の充足は Slice 2）
@@ -288,20 +348,23 @@ This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only fo
       副作用の受容根拠は plan の `### 緩和の副作用と、それを受容する裁定根拠` 参照）
 - [ ] evidence includes actual file count but test does not hardcode it
 - [ ] evidence includes measured CI duration (baseline 231s との差分)
-- [ ] **移行期間 allowlist が `evidence/migration-allowlist.txt` の明示台帳で解決され、
+- [ ] **移行期間 allowlist が contract TA 本体の `_pending_migration`（明示リスト）で解決され、
       「helper bootstrap を持たない」等の述語解決になっていない**（述語だと新規追加ファイルが
       黙って除外され TC-16 / M-06 が空振りする）
-- [ ] **台帳が Task 1 の inventory から機械生成され、生成コマンドが evidence に残っている**
+- [ ] **`_pending_migration` の内容が Task 1 の inventory から機械生成され、生成コマンド・生成物・
+      heredoc への転記との `diff` 照合結果が evidence に残っている**
+- [ ] **TC-17 / M-10 が sandbox（repo 実コピー + 述語文字列除去）で実走済み**
+      （Slice 2 へ繰り延べていない / plan `#### TC-17 / M-10 の sandbox 構成手順`）
 
 ### Slice 2 の DoD（Slice 2 着手時に Mode 再判定のうえ適用）
 
 - [ ] **TC-11, TC-18, TC-22, TC-23（`ta-26` 実地側）, TC-24 PASS**
-- [ ] **M-09, M-11, M-13（ledger 側 = 移行済みファイルが台帳に残存）が期待どおり FAIL**
-      （M-13 の predicate 側は Slice 1 で実証済み）
+- [ ] **M-09, M-11, M-13（list 側 = 移行済みファイルが `_pending_migration` に残存）が期待どおり FAIL**
+      （M-13 の predicate 側と M-14 は Slice 1 で実証済み）
 - [ ] **AC-3 を層 B + 層 C 41 本の全件で充足**（TC-11）
 - [ ] **AC-1 を runtime discovery で得た全 `ta-*.sh` で充足**（allowlist 空の状態で再評価）
-- [ ] **AC-5 を allowlist 空の状態で充足**（TC-24）
+- [ ] **AC-5 を allowlist 空の状態で充足**（TC-24）。**`_pending_migration` 関数ごと削除されている**
 - [ ] **AC-6 の writeback 側**: `TASK-0914/handoff.md` §3 の対象 2 行に CLOSED マーカーが
       grep で確認できる
 - [ ] **AC-8 を充足**（TC-22 / M-09。`ta-26` TC-33 の検出力が空振りしない）
-- [ ] **TC-01〜TC-24 を通しで再実行して PASS**（Slice 1 の DoD が Slice 2 の変更で退行していないこと）
+- [ ] **TC-01〜TC-25 を通しで再実行して PASS**（Slice 1 の DoD が Slice 2 の変更で退行していないこと）
