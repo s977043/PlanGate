@@ -83,11 +83,19 @@ Given unknown capability string, helper fails closed before body with nonzero rc
 > `plan.md` Task 6 and `todo.md` T-06, and the **字面一致 (literal-agreement) requirement holds
 > between those two Japanese blocks only** — this file is not a party to that agreement.
 >
+> The agreement covers **the first bullet of each block only — 第 1 項（移行 scope 定義）**, i.e.
+> "検査対象は移行済み集合＝移行期間 allowlist …" through "… `_pending_migration` 関数ごと削除する
+> （TC-24 / AC-5）". The **second bullet**, which states TC-25's three assertions, is deliberately
+> **not** covered: `plan.md` carries additional explanatory sentences there, so requiring
+> byte-identity would force either duplicated prose into `todo.md` or the removal of the
+> explanation from `plan.md`.
+>
 > "Literal agreement" is defined mechanically: after stripping the list marker (`-` or `- [ ]`),
 > the leading indentation, the line breaks introduced by wrapping, and all remaining whitespace,
-> the two blocks must be **byte-identical**. The two were confirmed identical under that
+> the two first bullets must be **byte-identical**. They were confirmed identical under that
 > normalization in the C-1 fourth round (they previously differed — `述語にすると` vs `述語だと`,
-> and `plan.md` carried one extra sentence — so the agreement was being asserted without holding).
+> and `plan.md` carried one extra sentence — so the agreement was being asserted without holding),
+> and re-confirmed in the fifth round after the second bullet was edited.
 
 ### TC-09 Exactly one capability marker
 
@@ -265,16 +273,22 @@ And, independently of the per-line checks, **three further assertions** that mus
 3. the per-file execution loop that drives **TC-12 / TC-13** (stage 1 of the two-stage procedure —
    it runs each covered standalone-capable file once and classifies it as prerequisite-satisfied or
    prerequisite-absent) **actually executed at least one file**. The contract TA records how many
-   files that loop entered and asserts the count is **not zero**; **no expected count is stated** —
-   only "not zero". This catches the case where the covered set passes the set arithmetic above but
-   the loops still iterate over nothing (e.g. a filter applied inside the loop).
+   files that loop **actually started executing** — the counter is incremented at the point where
+   stage 1's single run of the file begins (`sh "$file" </dev/null`), i.e. **after** every filter
+   the loop body applies, **not** when the loop is entered — and asserts the count is **not zero**;
+   **no expected count is stated** — only "not zero". This catches the case where the covered set
+   passes the set arithmetic above but the loops still iterate over nothing. Counting at loop entry
+   would let the very counter-example this assertion exists for slip through: a filter placed at the
+   top of the loop body that `continue`s on every file leaves the entry count non-zero while nothing
+   is ever run.
 
-   The count deliberately measures **files the loop entered**, not files that reached the
-   prerequisite-satisfied branch. Counting only the satisfied branch would turn "every covered file
+   The count deliberately measures **files whose execution was started**, not files that reached the
+   prerequisite-satisfied branch: **a file that then falls into the prerequisite-absent branch (rc=3)
+   is still counted**, because counting only the satisfied branch would turn "every covered file
    happens to have its prerequisites absent in this environment" — a legitimate state that TC-17
-   asserts with rc=3 — into a hard FAIL, i.e. a new environment-dependent false failure. Files that
-   land in the prerequisite-absent branch still prove the loop is not empty, which is the property
-   being asserted here.
+   asserts with rc=3 — into a hard FAIL, i.e. a new environment-dependent false failure. Once its
+   execution has started, a file proves the loop is not empty regardless of how it is classified,
+   which is the property being asserted here.
 
 The three are deliberately redundant. The failure mode being closed — an over-broad allowlist
 shrinking the checked set to nothing, so that TC-09 / TC-10 pass on the contract TA alone and
@@ -320,7 +334,7 @@ migrated file that was left behind (M-14, caught here). The two directions are c
 | M-11 | change the standalone summary literal format | TC-18 FAIL | **2** |
 | M-12 | export probe env from finalize instead of unsetting it | TC-23 FAIL | 1（synthetic）/ 2（`ta-26` 実地） |
 | M-13 | leave an already-migrated file in `_pending_migration`, **or** resolve the allowlist by the predicate "has no helper bootstrap" instead of the explicit list | TC-24 FAIL (list is not empty at Slice 2 completion) / TC-16 FAIL (predicate auto-exempts a marker-less new file) | **2**（list 側は TC-24 の完了時判定）/ **1**（predicate 側は TC-16 で Slice 1 から検出可能） |
-| M-14 | (a) leave an already-migrated file's basename in `_pending_migration`; (b) put a name that does not exist under `tests/extras/` in it; (c) make `_pending_migration` emit the **entire runtime inventory** (i.e. replace the heredoc body with the discovery output, keeping the function syntactically valid) so the covered set collapses | **TC-25 FAIL** — (a) migrated file still listed / (b) non-existent entry / (c) all three set/execution assertions fire: covered-set-minus-self is empty, `_pending_migration` is no longer a proper subset (it equals the discovered set), and TC-12 / TC-13 report zero executed files | **1** |
+| M-14 | (a) leave an already-migrated file's basename in `_pending_migration`; (b) put a name that does not exist under `tests/extras/` in it; (c) make `_pending_migration` emit the **entire runtime inventory** (i.e. replace the heredoc body with the discovery output, keeping the function syntactically valid) so the covered set collapses | **TC-25 FAIL** — (a) migrated file still listed / (b) non-existent entry / (c) **all three** set/execution assertions must fire **individually**: covered-set-minus-self is empty, `_pending_migration` is no longer a proper subset (it equals the discovered set), and TC-12 / TC-13 report zero executed files. Because (c) is killed by four independent paths (per-line check 2 also fires on every entry), the evidence must record **which assertion fired**: the contract TA prints one line per failing assertion, and the mutation is only counted as killed by ①②③ when **all three lines are present in the log**. A kill by per-line check 2 alone does **not** demonstrate ①②③ | **1** |
 
 > **M-13 と M-14 の関係**: 同じ「移行済みファイルが allowlist に残る」欠陥クラスを、
 > M-13 は **Slice 2 完了時点の allowlist 空判定（TC-24）**で、M-14 は **Slice 1 の各行健全性

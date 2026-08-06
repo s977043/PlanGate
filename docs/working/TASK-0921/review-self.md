@@ -1,10 +1,20 @@
 # C-1 SELF REVIEW — TASK-0921
 
-Review date: 2026-08-05（初版） / 2026-08-06（第 4 ラウンド是正まで反映）
+Review date: 2026-08-05（初版） / 2026-08-06（第 5 ラウンド PASS まで反映）
 
 ## Verdict
 
-`CONDITIONAL_PASS_PENDING_C1_R5`
+`PASS`
+
+**critical 0 / major 0**（第 5 ラウンド実測）。`.claude/rules/working-context.md` の C-1 判定語彙は
+**PASS / WARN / FAIL の三値**であり、PASS の定義は critical 0 かつ major 0 である。
+第 4 ラウンド時点の中間語彙 `CONDITIONAL_PASS_PENDING_C1_R5` は「第 5 ラウンドの結果待ち」を
+表すためだけの暫定表現だったため、結果が出た本版で三値へ収束させた。
+**PASS は minor の残存と両立する**（第 5 ラウンドの minor 2 / info 3 は本版で全件解消済み。
+`## Minor Findings` 参照）。
+
+C-1 は第 5 ラウンド（2026-08-06 / 検証のみ）で PASS に到達した。以降の計画変更は
+C-3 承認前に限り、**承認後の plan 編集は `plan_hash` を無効化するため禁止**する。
 
 初版（2026-08-05）の Verdict は `NEEDS_REVISION_BEFORE_C3` であり、その根拠は
 「runtime inventory」「**top-level trap 競合監査**」「**独立 C-2**」の 3 点だった。
@@ -19,10 +29,8 @@ Review date: 2026-08-05（初版） / 2026-08-06（第 4 ラウンド是正ま�
   **reflected 18 / resolved-by-design 2 = 全 20 件処理済み**
 
 残る未了は **runtime inventory の exec 開始時取得**（`plan.md` の `## C-1 Self Review Checklist`
-で未チェック）と、**C-1 第 5 ラウンド（検証のみ）の結果**である。したがって現時点の Verdict は
-**PASS でも NEEDS_REVISION でもなく、第 5 ラウンド検証待ちの条件付き**とする。
-**Human C-3 は第 5 ラウンドの結果が出てから**が正しい順序であり、本ファイルの
-Verdict をもって C-3 を通してはならない。
+で未チェック）のみであり、これは **exec の Task 1 で確定する設計上の未了**であって
+C-1 の指摘ではない。
 
 ## C-1 ラウンド履歴
 
@@ -34,8 +42,8 @@ Verdict をもって C-3 を通してはならない。
 | R1（簡易 C-1 再実行） | FAIL | major 3 / minor 6 | 是正済（MJ-A 層 0 の Slice 2 繰り延べ / MJ-B rc=3 反転の未伝播 / MJ-C Slice 1 単独 PR の DoD 未定義 ほか） |
 | R2（第 2 ラウンド） | FAIL | major 2 / minor 7 | 是正済（MJ-E allowlist 述語が AC-5 後半条項に違反 → 明示台帳へ / MJ-D scope 節の未伝播 ほか） |
 | R3（第 3 ラウンド） | FAIL | major 3 / minor 5 | 是正済（MJ-F / MJ-G 台帳の実行時依存と異常系 → contract TA 本体へ内蔵 / MJ-H TC-17 sandbox 手順の未定義 ほか） |
-| R4（第 4 ラウンド） | FAIL | major 2 / minor 3 / info 2 | 是正済（本コミット。MJ-I TC-25 の非空 assert が恒真 / MJ-J 本ファイルの stale / MN-G sandbox の `git archive` / MN-H M-14 (c) が再現不能 / MN-I 字面一致が不成立 / INFO-1 TC-11 を Slice 1 へ / INFO-2 decision-log の未 append） |
-| R5（第 5 ラウンド） | 未実施 | — | 検証のみの見込み。**結果が出るまで本欄は空のままとする** |
+| R4（第 4 ラウンド） | FAIL | major 2 / minor 3 / info 2 | 是正済（`9f8af02`。MJ-I TC-25 の非空 assert が恒真 / MJ-J 本ファイルの stale / MN-G sandbox の `git archive` / MN-H M-14 (c) が再現不能 / MN-I 字面一致が不成立 / INFO-1 TC-11 を Slice 1 へ / INFO-2 decision-log の未 append） |
+| R5（第 5 ラウンド） | **PASS** | critical 0 / major 0 / **minor 2 + info 3** | **収束（新規クラスなし）**。R1〜R4 で摘出された欠陥クラスの再発 0・新規クラス 0。minor / info は本コミットで全件解消（MN-K TC-25 assert ③ の計数点 / MN-L チェックボックス不一致 / info-1 sandbox の cwd 前提 / info-2 M-14 (c) の発火 assert 記録 / info-3 字面一致の対象項の明示） |
 
 ## Review Matrix
 
@@ -78,6 +86,25 @@ finalize 後の unset（TC-23）**を契約として明文化済み。
 
 ## Minor Findings
 
+### 第 5 ラウンド（minor 2 / info 3）— **すべて本コミットで解消済み**
+
+| ID | 種別 | 内容 | 状態 |
+|---|---|---|---|
+| MN-K | minor | TC-25 の assert ③ が計数点を「ループ**進入**時」に置いており、自らが反例として挙げる「ループ本体の先頭でフィルタして全件 `continue` する実装」を捕捉できない（英文の `entered` と plan 和文の「実際に実行した」も意味がずれていた） | **解消済み**。計数点を「フィルタ通過後、段 1 の実行（`sh "$file" </dev/null` の 1 回）を開始した時点」へ移動。**前提未充足（rc=3）に落ちる分は引き続き計数に含める**（TC-17 が正しく扱う正当な状態を確定 FAIL にしないため）。`test-cases.md` TC-25 ③ / `plan.md` Task 6 / `todo.md` T-06 の 3 箇所を同時修正 |
+| MN-L | minor | `plan.md` の C-1 Self Review Checklist で C-2 項が本文「完了」に対し `[ ]` のままで、本ファイルの C-3 Readiness（`[x]`）と C-3 が読む 2 ファイル間で表示が食い違っていた | **解消済み**。`[x]` へ是正。あわせてチェックリスト全体を走査（結果は本節末尾） |
+| info-1 | info | sandbox step 1 のコード片が cwd = repo ルートを暗黙に前提していた（`git ls-files` はサブディレクトリ実行で当該サブツリーしか返さない） | **解消済み**。`( cd "$(git rev-parse --show-toplevel)" && … )` をサブシェル内に追加し、呼び出し元の cwd を変えない旨と理由を併記 |
+| info-2 | info | M-14 (c) は 4 経路で kill されるため、per-line 検査 2 単独の kill を ①②③ の動作証明と誤読しうる | **解消済み**。Mutation Matrix の期待値を「①②③ が**個別に**発火し、その 3 行が log に出力されていること」へ具体化 |
+| info-3 | info | 字面一致は plan Task 6 **第 1 項** ↔ todo T-06 **第 1 項**でのみ成立し、第 2 項は plan 側の補足文により一致しない | **解消済み**。`test-cases.md` の合意対象を「第 1 項（移行 scope 定義）」と明示し、第 2 項が対象外である理由を記載 |
+
+**MN-L の走査結果**: `plan.md` の `## C-1 Self Review Checklist` の**全項目**を確認し、
+本文と box の不一致は **C-2 項の 1 件のみ**だった。ほかに是正したのは
+「簡易 C-1 第 5 ラウンド」項で、これは本ラウンドの完了に伴い `[ ]` → `[x]`（結果を本文に追記）
+としたもので、不一致の是正ではなく**状態の前進**である。
+`runtime inventory をexec開始時に取得` と `Human C-3` は**実際に未了なので `[ ]` のまま**
+残した（虚偽の完了申告をしない）。
+
+### 恒常的な minor（設計上の留意点）
+
 - capability marker と init argument の二重記述は drift しうる。marker から init を導出できない
   shell 構造のため、TC-10 で一致を強制する設計は妥当
 - `ta-26` 移行は最も重いため最後にする。**Human 決定 3 により層 0（`ta-26` を含む 4 本）は
@@ -110,5 +137,6 @@ finalize 後の unset（TC-23）**を契約として明文化済み。
       3 分割は、`review-principles.md` §7-bis の 2 レーン責務契約（設計妥当性 / コードベース整合）
       へ置き換わっている
 - [x] Human choice: shared trap vs explicit finalizer — **決着済み**（Human 決定 1 = 案 D）
-- [ ] C-1 第 5 ラウンド（検証のみの見込み）の完了
+- [x] C-1 第 5 ラウンドの完了 — **PASS**（critical 0 / major 0 / minor 2 / info 3）。
+      minor / info は本コミットで全件解消。`## C-1 ラウンド履歴` の R5 行を正本とする
 - [ ] Human C-3

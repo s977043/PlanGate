@@ -618,9 +618,17 @@ TC-17（前提未充足で rc=3）と M-10（rc 0 を返す変異を TC-17 が�
 
    ```sh
    command -v git >/dev/null 2>&1 || { printf '  [FAIL] git unavailable: sandbox cannot be built\n' >&2; exit 1; }
-   git ls-files -z | tar --null -T - -cf "$SANDBOX/tree.tar" &&
+   ( cd "$(git rev-parse --show-toplevel)" && git ls-files -z | tar --null -T - -cf "$SANDBOX/tree.tar" ) &&
      tar -xf "$SANDBOX/tree.tar" -C "$SANDBOX/repo"
    ```
+
+   - **cwd を repo ルートへ明示する**: `git ls-files` はサブディレクトリから実行すると
+     **そのサブツリーの追跡ファイルしか返さない**。contract TA は `tests/extras/` から
+     起動されうるため、cwd 依存のまま走ると sandbox が不完全になり
+     （`scripts/hooks/` や `bin/plangate` が欠けて 2 の述語除去が空振りする）、
+     TC-17 / M-10 が偽の結果を返す。`cd` と `git ls-files | tar` を**同一のサブシェル**に
+     包み、呼び出し元の cwd を変えないこと（`tar --null -T -` も cwd 相対でパスを
+     解決するため、`cd` は tar 側にも掛かっている必要がある）
 
    **`git archive HEAD` を使ってはならない**。`git archive HEAD` は **commit 済みツリー**を
    出力するため、(a) 未 commit の移行が worktree に乗っている TDD ループ中は
@@ -895,7 +903,11 @@ helper へ吸収する。**Human 決定 3 により Slice 1 から繰り延べ�
       （**自己を除外しない非空判定は恒真で発火しない** — contract TA は inventory に含み
       allowlist には載せないため / MJ-I）**② `pending ⊊ discovered`（真部分集合。等しければ FAIL）**
       **③ TC-12 / TC-13 を駆動する per-file 実走ループ（段 1 の分類実行）が 1 件以上を実際に
-      実行した**（期待件数は置かず「0 でない」のみ）。件数は**ループに入ったファイル数**で数える
+      実行した**（期待件数は置かず「0 でない」のみ）。件数は**ループ進入時ではなく、
+      ループ本体のフィルタを通過して段 1 の実行（`sh "$file" </dev/null` の 1 回）を
+      開始した時点**で数える（ループ進入時に数えると、ループ本体の先頭でフィルタして
+      全件 `continue` する実装が非 0 のまま通ってしまう）。
+      **前提未充足（rc=3）に落ちる分も計数に含める**
       （前提充足クラスに落ちた数で数えると、「全件の前提が未充足」という TC-17 が rc=3 で
       正しく扱う正当な状態を確定 FAIL にしてしまうため）
 - [ ] **contract TA 自身（`ta-XX-extra-contract.sh`）の集合帰属**:
@@ -980,7 +992,7 @@ revert 順序は **T-06 → T-03**（C-1 MN-3）。
 | Standalone probe absent | probe なしループ | **前提充足クラス = rc0**（(b) との差分要求はこのクラスで取る）/ **前提未充足クラス = rc3**（下段 Prerequisite SKIP 行が assert）。**全件一律 rc0 を要求しない** | `evidence/test-runs/standalone-normal.log` |
 | Probe fail-closed | `PG_EXTRA_CONTRACT_PROBE=force-fail` かつ TARGET 未設定 | 診断 + 非ゼロ rc（no-op でない） | `evidence/test-runs/probe-fail-closed.log` |
 | Prerequisite SKIP（TC-17 / M-10 / **Slice 1**） | `ta-39` / `ta-43` / `ta-44` を前掲 `#### TC-17 / M-10 の sandbox 構成手順`（repo コピー → 述語文字列除去 → コピー側 standalone 実行）で前提未充足にして実行。`> <log> 2>&1` で stderr を合流 | **rc3**（rc0 でないこと）+ **`pg_extra_contract_skip` 由来の診断が出ること** | `evidence/test-runs/prereq-rc3.log` |
-| **allowlist 健全性（TC-25 / M-14 / MN-E）** | contract TA が `_pending_migration` の各行を検査 | 各行が **実在**する `ta-*.sh` かつ **helper bootstrap / init を持たない**。加えて **① 検査対象集合から contract TA 自身を除いた集合が非空 ② `pending ⊊ discovered` ③ TC-12 / TC-13 を駆動する per-file 実走ループが 1 件以上を実行（ループに入った数で計数）** | `evidence/test-runs/pending-migration-integrity.log` |
+| **allowlist 健全性（TC-25 / M-14 / MN-E）** | contract TA が `_pending_migration` の各行を検査 | 各行が **実在**する `ta-*.sh` かつ **helper bootstrap / init を持たない**。加えて **① 検査対象集合から contract TA 自身を除いた集合が非空 ② `pending ⊊ discovered` ③ TC-12 / TC-13 を駆動する per-file 実走ループが 1 件以上を実行（**フィルタ通過後、段 1 の実行を開始した時点**で計数。rc=3 に落ちる分も含める）** | `evidence/test-runs/pending-migration-integrity.log` |
 | **allowlist 生成（MJ-E / Human 決定 4）** | inventory から生成 → contract TA の heredoc へ転記 → `diff` で照合 | 生成物と転記結果が一致（手書きでない） | `evidence/test-runs/pending-migration-gen.log` |
 | **`fail>0` は skip より優先（MN-2）** | `pg_extra_contract_skip` 呼出前に `fail=1` を立てた synthetic fixture を standalone 実行 | **rc1**（rc3 でないこと）+ 既に立っている fail を示す診断 | `evidence/test-runs/skip-with-fail.log` |
 | **移行前の fail 握り潰しの実測（MN-1 / AC-1 一次証跡）** | 移行前 HEAD で `ta-43` の `_T43_APPLIED=0` 分岐かつ `t43_fail` 発火状態を構成し standalone 実行。**記録は `... </dev/null > <log> 2>&1`** で stderr を合流させる（`t43_fail` は `>&2` へ出すため stdout のみでは捕捉できない） | **rc=0 かつ stderr に `[FAIL]`**（＝失敗が隠れている現状の実証） | `evidence/verification/pre-migration-fail-swallow.log` |
@@ -1131,7 +1143,7 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
 - [x] **Slice 1 単独 PR の DoD を定義**（`test-cases.md` の Exit Criteria を Slice 別に分離）
 - [x] **rc=3 反転を TC-12 / Task 6 / Verification Plan へ伝播**（前提充足クラスのみ rc0 を要求）
 - [ ] runtime inventoryをexec開始時に取得
-- [ ] C-2 independent review（**完了。`review-external.md` R-001〜R-020 を本版で確定反映**）
+- [x] C-2 independent review（**完了。`review-external.md` R-001〜R-020 を本版で確定反映**）
 - [x] 簡易 C-1 再実行（**FAIL: major 3 / minor 6 → 是正済**。
       MJ-A = 層 0 を Slice 2 へ繰り延べ（Human 決定 3）/ MJ-B = rc=3 反転の未伝播 /
       MJ-C = Slice 1 単独 PR の DoD 未定義 / MN-1〜MN-6）
@@ -1189,5 +1201,14 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
       **対象 0 件の PASS は evidence に「対象 0 件」と明示記録**する）/
       INFO-2 = Human 決定 3 / 4 / 5 を `decision-log.jsonl` へ append（`D-0921-06`〜`D-0921-08`。
       mode=high-risk の human decision のため `alternatives_rejected` 必須）
-- [ ] 簡易 C-1 第 5 ラウンド（検証のみの見込み）
+- [x] 簡易 C-1 第 5 ラウンド（**PASS: critical 0 / major 0 / minor 2 / info 3**。
+      MN-K = TC-25 の assert ③ の計数点が「ループ進入時」だと、自ら挙げる反例
+      （ループ本体先頭のフィルタで全件 `continue`）を捕捉できない → **段 1 の実行を
+      開始した時点**へ移動（rc=3 に落ちる分は計数に含める） /
+      MN-L = 本チェックリストの C-2 項が「完了」と本文で述べながら未チェックで、
+      `review-self.md` の C-3 Readiness と表示が食い違っていた → `[x]` へ /
+      INFO-1 = sandbox step 1 に `cd "$(git rev-parse --show-toplevel)"` を追加（cwd 前提の明示）/
+      INFO-2 = M-14 (c) の期待値を「①②③ が個別に発火したことを log 出力」へ具体化 /
+      INFO-3 = 字面一致の対象が **第 1 項（移行 scope 定義）**であることを test-cases に明記。
+      **本ラウンドで解消しない残 minor / info は存在しない**）
 - [ ] Human C-3
