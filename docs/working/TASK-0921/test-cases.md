@@ -80,8 +80,14 @@ Given unknown capability string, helper fails closed before body with nonzero rc
 > completion only, its emptiness — TC-24).
 >
 > This block is intentionally **English-only**. The Japanese wording of the same definition lives in
-> `plan.md` Task 6, and the **字面一致 (literal-agreement) requirement holds between `plan.md`
-> (Japanese) and `todo.md` (Japanese) only** — this file is not a party to that agreement.
+> `plan.md` Task 6 and `todo.md` T-06, and the **字面一致 (literal-agreement) requirement holds
+> between those two Japanese blocks only** — this file is not a party to that agreement.
+>
+> "Literal agreement" is defined mechanically: after stripping the list marker (`-` or `- [ ]`),
+> the leading indentation, the line breaks introduced by wrapping, and all remaining whitespace,
+> the two blocks must be **byte-identical**. The two were confirmed identical under that
+> normalization in the C-1 fourth round (they previously differed — `述語にすると` vs `述語だと`,
+> and `plan.md` carried one extra sentence — so the agreement was being asserted without holding).
 
 ### TC-09 Exactly one capability marker
 
@@ -103,6 +109,20 @@ For every file in scope, marker value and `pg_extra_contract_init` second argume
 `_pending_migration` (the migration-period allowlist embedded in the contract TA).
 
 For every in-scope marker=harness-only file (resolved by **basename test-id**), `sh "$file" </dev/null` returns 2, emits standard diagnostic naming that basename, and creates no body sentinel/tmp/audit evidence.
+
+**Slice**: the loop **runs from Slice 1**, not only from Slice 2. In Slice 1 no real file carries the
+`harness-only` marker yet, so the loop is **vacuous** and its full-coverage value for AC-3 still only
+arrives in Slice 2. Running it in Slice 1 anyway is cheap and closes a real window: if a **new file
+with a `harness-only` marker plus matching init** is added during Slice 1, TC-09 / TC-10 would check
+its marker/init **statically** but nothing would check that it actually **rejects direct execution
+with rc=2** until Slice 2. AC-5 is not violated by that window (the file does belong to the covered
+set, so it is not silently excluded), but the window exists and is closed here.
+
+**A vacuous pass must not read as a real pass**: when the in-scope harness-only set is empty, TC-11
+passes, but the contract TA must **state the count and the fact that it was zero in the evidence**
+(`evidence/test-runs/harness-only.log`). A silent green over zero files is precisely the defect class
+this PBI exists to close, so it is recorded rather than hidden. The count is written to evidence as
+an observation; it is **not** an expected value.
 
 ### TC-12 Standalone-capable all-file force-fail (differential)
 
@@ -218,7 +238,7 @@ Because the list now lives inside the contract TA, the failure modes "allowlist 
 
 This fixes pbi-input AC-5's requirement that a pre-fix allowlist be held only for the migration period and never made permanent, and satisfies its second clause by making the exclusion set explicit.
 
-### TC-25 Migration allowlist entries are sound, and the covered set is non-empty
+### TC-25 Migration allowlist entries are sound, and the covered set is non-empty excluding self
 
 **Slice**: 1 (this case must run from the first slice; it is the reverse-direction counterpart of
 TC-16 and must not wait for TC-24 in Slice 2).
@@ -230,12 +250,37 @@ The contract TA asserts, for **every line returned by `_pending_migration`**:
 2. that file **does not carry** helper bootstrap / `pg_extra_contract_init` — i.e. it is genuinely
    unmigrated. An **already-migrated file left in the list** is a FAIL.
 
-And, independently of the per-line checks:
+And, independently of the per-line checks, **three further assertions** that must all hold:
 
-1. the **covered set** (runtime-discovered files minus the ones `_pending_migration` returns) is
-   **non-empty**. An allowlist that has grown to swallow everything would otherwise leave TC-09 /
-   TC-10 / TC-12 / TC-13 iterating over zero files and passing silently — the exact class of defect
-   this PBI exists to close.
+1. the **covered set with the contract TA itself removed** — i.e. (runtime-discovered files) minus
+   (the ones `_pending_migration` returns) minus (the contract TA's own basename) — is
+   **non-empty**. The contract TA is deliberately in the inventory and deliberately never on the
+   allowlist (`plan.md` Task 6), so a covered set that merely "contains the contract TA" proves
+   nothing: asserting non-emptiness **without** excluding self would be **vacuously true** and could
+   never fire. Excluding self is what makes this assertion falsifiable;
+2. `_pending_migration`'s output is a **proper subset** of the discovered set: every returned line is
+   a discovered basename (already implied per-line by check 1 of the per-line block, restated here as
+   a set property) **and** the two sets are **not equal**. An allowlist that has grown to equal the
+   inventory is a FAIL even before any loop runs;
+3. the per-file execution loop that drives **TC-12 / TC-13** (stage 1 of the two-stage procedure —
+   it runs each covered standalone-capable file once and classifies it as prerequisite-satisfied or
+   prerequisite-absent) **actually executed at least one file**. The contract TA records how many
+   files that loop entered and asserts the count is **not zero**; **no expected count is stated** —
+   only "not zero". This catches the case where the covered set passes the set arithmetic above but
+   the loops still iterate over nothing (e.g. a filter applied inside the loop).
+
+   The count deliberately measures **files the loop entered**, not files that reached the
+   prerequisite-satisfied branch. Counting only the satisfied branch would turn "every covered file
+   happens to have its prerequisites absent in this environment" — a legitimate state that TC-17
+   asserts with rc=3 — into a hard FAIL, i.e. a new environment-dependent false failure. Files that
+   land in the prerequisite-absent branch still prove the loop is not empty, which is the property
+   being asserted here.
+
+The three are deliberately redundant. The failure mode being closed — an over-broad allowlist
+shrinking the checked set to nothing, so that TC-09 / TC-10 pass on the contract TA alone and
+TC-12 / TC-13 pass on a zero-iteration loop, with everything green and nothing checked — is the
+exact class of defect this PBI exists to close, so it is sealed at the set level (1, 2) *and* at
+the execution level (3).
 
 Rationale: TC-16 closes the leak where a **newly added** file is silently excluded. The reverse leak
 — an **already-migrated** file left in the allowlist — removes that one file from every per-file
@@ -243,7 +288,7 @@ check with no other case noticing, and until this addition it was detectable onl
 2 completion. TC-25 moves that detection into Slice 1. The corresponding mutation is **M-14**.
 
 Note that the line count of `_pending_migration` is **not** an expected value here; only per-line
-soundness and the non-emptiness of the covered set are asserted.
+soundness, the set relations above, and "the loop count is not zero" are asserted.
 
 The "has no helper bootstrap" predicate appears in check 2 above, which may look like it contradicts
 the rule that the allowlist is **never resolved by a predicate**. It does not: the predicate is used
@@ -275,12 +320,22 @@ migrated file that was left behind (M-14, caught here). The two directions are c
 | M-11 | change the standalone summary literal format | TC-18 FAIL | **2** |
 | M-12 | export probe env from finalize instead of unsetting it | TC-23 FAIL | 1（synthetic）/ 2（`ta-26` 実地） |
 | M-13 | leave an already-migrated file in `_pending_migration`, **or** resolve the allowlist by the predicate "has no helper bootstrap" instead of the explicit list | TC-24 FAIL (list is not empty at Slice 2 completion) / TC-16 FAIL (predicate auto-exempts a marker-less new file) | **2**（list 側は TC-24 の完了時判定）/ **1**（predicate 側は TC-16 で Slice 1 から検出可能） |
-| M-14 | (a) leave an already-migrated file's basename in `_pending_migration`; (b) put a name that does not exist under `tests/extras/` in it; (c) widen `_pending_migration` (e.g. break the heredoc terminator) so the covered set becomes empty | **TC-25 FAIL** — (a) migrated file still listed / (b) non-existent entry / (c) covered set empty | **1** |
+| M-14 | (a) leave an already-migrated file's basename in `_pending_migration`; (b) put a name that does not exist under `tests/extras/` in it; (c) make `_pending_migration` emit the **entire runtime inventory** (i.e. replace the heredoc body with the discovery output, keeping the function syntactically valid) so the covered set collapses | **TC-25 FAIL** — (a) migrated file still listed / (b) non-existent entry / (c) all three set/execution assertions fire: covered-set-minus-self is empty, `_pending_migration` is no longer a proper subset (it equals the discovered set), and TC-12 / TC-13 report zero executed files | **1** |
 
 > **M-13 と M-14 の関係**: 同じ「移行済みファイルが allowlist に残る」欠陥クラスを、
 > M-13 は **Slice 2 完了時点の allowlist 空判定（TC-24）**で、M-14 は **Slice 1 の各行健全性
 > 判定（TC-25）**で検出する。M-14 は M-13 を置き換えるのではなく、検出時期を Slice 1 まで
 > 前倒しする（MN-E）。(b)(c) は M-13 が扱っていなかった追加の欠陥形態である。
+>
+> **既知の限界（構文破損は変異として使えない / MN-H）**: 第 3 ラウンド版の (c) は
+> 「heredoc 終端を壊してリストを過大化する」だったが、**実測で再現しない**。終端を壊すと
+> `cat <<'EOF'` が関数の `}` ごと飲み込み、contract TA は **parse error（`syntax error:
+> unexpected end of file`）で rc=2** になる。TC-25 は実行すらされないので「TC-25 が検出する」
+> という帰属自体が誤りだった。さらに **rc=2 は本 contract の harness-only 誤用の名前空間**
+> であり、構文破損を「harness-only が正しく拒否された」と読み違えうる。**構文破損は
+> shell の parse エラーとして扱い、変異による検出力の実証には用いない**（(c) を
+> 構文的に妥当な「全件出力」変異へ差し替えた理由）。この読み違いの余地は本 PBI の
+> scope では解消せず、既知の限界として記録するにとどめる。
 
 ## Traceability
 
@@ -301,7 +356,7 @@ migrated file that was left behind (M-14, caught here). The two directions are c
 | AC-2 (b) | 同じ fail 注入状態で source 経路が完走し集計される | TC-01, TC-14, TC-15 | 1 |
 | AC-2 (c) | 前提未充足 SKIP の rc が「検査していない」を表明（**rc=3**、rc=0 不可） | **TC-17**, TC-13 | 1 |
 | AC-2 (d) | カウンタ初期化の存在（helper が担保。層 A 12 本は全数が未初期化） | TC-03, TC-04 | 1 |
-| AC-3 | 層 B + 層 C 41 本の standalone が明示メッセージ付き exit 2 | TC-02（synthetic）, TC-11（全件） | **1（TC-02 のみ）/ 2（TC-11 で充足）** |
+| AC-3 | 層 B + 層 C 41 本の standalone が明示メッセージ付き exit 2 | TC-02（synthetic）, TC-11（全件。**ループは Slice 1 から回すが対象 0 件で vacuous**） | **1（TC-02 のみ）/ 2（TC-11 で充足）** |
 | AC-4 | `sh tests/run-tests.sh` が回帰しない + **runtime `tail -1`** 最終ファイルの `[PASS]` 出現 | **TC-14**, TC-15, TC-21 | 1（Slice 2 でも再実行） |
 | AC-5 | 検査が回帰テスト化され、新規追加の伝播漏れを将来も検出（正規述語）。**移行期間 allowlist を恒久化しない** | TC-09, TC-10, TC-16, TC-20, **TC-25**, **TC-24** | **1（allowlist 付きで成立。逆向きリークは TC-25 が Slice 1 で担保）/ 2（TC-24 で allowlist 空）** |
 | AC-6 | README 規約 9（rc 0/1/2/3・marker・probe・rc2 名前空間）+ #914 handoff writeback | **TC-19**（README）+ handoff CLOSED マーカーの grep（DoD） | **1（TC-19）/ 2（writeback）** |
@@ -328,8 +383,11 @@ migrated file that was left behind (M-14, caught here). The two directions are c
 
 ### Slice 1 の DoD（Slice 1 PR の V-1 / C-4 の判定対象）
 
-- [ ] **TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-12,
-      TC-13, TC-14, TC-15, TC-16, TC-17, TC-19, TC-20, TC-21, TC-23（synthetic 側）, TC-25 PASS**
+- [ ] **TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-12,
+      TC-13, TC-14, TC-15, TC-16, TC-17, TC-19, TC-20, TC-21, TC-23（synthetic 側）, TC-25 PASS**。
+      **TC-11 は Slice 1 では対象 0 件の vacuous PASS でよい**が、その場合は
+      `evidence/test-runs/harness-only.log` に **「対象 0 件」を明示記録**すること
+      （空振りを黙って PASS にしない / INFO-1）。AC-3 の全件充足は Slice 2
 - [ ] **M-01〜M-08, M-10, M-12（synthetic 側）, M-13（predicate 側）, M-14 が期待どおり FAIL**。
       **M-13 の predicate 側は Slice 1 の必須ゲート**: allowlist を `_pending_migration` から
       「helper bootstrap を持たない」述語へ差し替える変異を入れ、**TC-16 が FAIL する**ことを
@@ -358,7 +416,8 @@ migrated file that was left behind (M-14, caught here). The two directions are c
 
 ### Slice 2 の DoD（Slice 2 着手時に Mode 再判定のうえ適用）
 
-- [ ] **TC-11, TC-18, TC-22, TC-23（`ta-26` 実地側）, TC-24 PASS**
+- [ ] **TC-11（Slice 1 では対象 0 件で vacuous。ここで初めて実対象を持って実効になる）,
+      TC-18, TC-22, TC-23（`ta-26` 実地側）, TC-24 PASS**
 - [ ] **M-09, M-11, M-13（list 側 = 移行済みファイルが `_pending_migration` に残存）が期待どおり FAIL**
       （M-13 の predicate 側と M-14 は Slice 1 で実証済み）
 - [ ] **AC-3 を層 B + 層 C 41 本の全件で充足**（TC-11）

@@ -165,13 +165,17 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - **検査対象は移行済み集合＝移行期間 allowlist（contract TA 本体に内蔵した
     `_pending_migration`）が返さないファイル**（Slice 1 は層 A 12 本）。allowlist は
     **base commit 時点の未移行ファイルを列挙した明示リスト**であり、**述語で解決しない**
-    （述語だと marker/init を持たない新規追加ファイルが黙って除外され
-    TC-16 / M-06 が空振りする / MJ-E）。**Slice 2 完了時に 0 行**になり関数ごと削除する
-    （TC-24 / AC-5）
+    （述語にすると marker/init を持たない新規追加ファイルが黙って除外され
+    TC-16 / M-06 が空振りする / MJ-E）。内容は Task 1 の runtime inventory から生成した
+    結果を **contract TA の heredoc へ転記**し、移行のたびに行を削除する。
+    **Slice 2 完了時に 0 行**になり `_pending_migration` 関数ごと削除する（TC-24 / AC-5）
   - **`_pending_migration` の各行の健全性を検査**（TC-25 / M-14 / MN-E）:
     各行が `tests/extras/` に**実在**し、helper bootstrap / init を**持たない**こと。
-    加えて**検査対象集合（discovered − pending）が空でない**ことを assert し、
-    allowlist 過大化による 0 件ループの黙認 PASS を塞ぐ
+    加えて次の 3 点を assert し、allowlist 過大化による 0 件ループの黙認 PASS を塞ぐ:
+    **① 検査対象集合（discovered − pending）から contract TA 自身を除いた集合が非空**
+    （**自己を除外しないと恒真で発火しない** / MJ-I）**② `pending ⊊ discovered`（真部分集合）**
+    **③ TC-12 / TC-13 を駆動する per-file 実走ループが 1 件以上を実行した**
+    （期待件数は置かない。件数は**ループに入った数**で数える）
   - **TC-17 / M-10 を sandbox で Slice 1 のうちに実走**（Human 決定 5）。
     手順は plan の `#### TC-17 / M-10 の sandbox 構成手順`（repo 実コピー → 述語文字列除去 →
     コピー側 standalone 実行）。**`FIXTURES_DIR` でルート差し替え不可**のため実コピーが必須。
@@ -183,7 +187,9 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - marker exactly-one / marker・init 一致（**basename test-id**）
   - **test-id 一意性**（R-016 / TC-20。移行状態に依存しないため **allowlist 対象外で
     runtime discovery した全件を検査**）
-  - harness-only dynamic all-files（rc2 / **Slice 2**）
+  - harness-only dynamic all-files（rc2 / TC-11）。**ループは Slice 1 から回す**が
+    Slice 1 の対象は 0 件（vacuous PASS）。**対象 0 件であることを evidence に明示記録**し、
+    Slice 1 中に追加された harness-only ファイルを捕捉する（INFO-1）。**実効は Slice 2**
   - standalone dynamic: **段 1 で probe なし 1 回実行し前提充足 / 未充足へ分類**（rc0 / rc3。
     それ以外は分類不能 = 即 FAIL）→ **前提充足クラスのみ** probe なし rc0 と probe あり rc1 の
     差分を要求（裁定 ② / C-1 MN-4）
@@ -284,8 +290,9 @@ contract TA（T-06）も helper API を解決できなくなる（C-1 MN-3）。
 - [ ] 層 A 12 本が dynamic に分類され、test-id（basename）重複 0（TC-20 は runtime discovery した全件）
 - [ ] harness suite 0 failed
 - [ ] 移行期間 allowlist が contract TA 本体の `_pending_migration`（明示リスト）で解決され、述語解決になっていない
-- [ ] `_pending_migration` の各行が実在かつ未移行であり、検査対象集合が空でない（TC-25 / M-14）
+- [ ] `_pending_migration` の各行が実在かつ未移行であり、**自己を除いた**検査対象集合が非空・`pending ⊊ discovered`・TC-12 / TC-13 の実行件数が 0 でない（TC-25 / M-14）
 - [ ] TC-17 / M-10 が sandbox 実走済み（Slice 2 へ繰り延べていない）
+- [ ] TC-11 を Slice 1 でも実行済み（対象 0 件なら「対象 0 件」を evidence に明示記録 / INFO-1）
 - [ ] Human C-4（H-02）
 
 ### Slice 2

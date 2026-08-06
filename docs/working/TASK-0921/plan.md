@@ -294,7 +294,12 @@ EOF
     **TC-09 / TC-10 が大量 FAIL する**（fail-loud。黙って通る経路ではない）
   - heredoc 終端の破損等でリストが**過大**になる → 検査対象集合が空になり contract TA が
     0 件ループで**黙って PASS** しうる。これは本 PBI が塞ごうとしている症状そのものなので、
-    **TC-25 に「検査対象集合（discovered − pending）が空でないこと」の assert を置いて塞ぐ**。
+    **TC-25 に 3 つの assert（① 検査対象集合から contract TA 自身を除いた集合が非空
+    ② `pending ⊊ discovered`（真部分集合） ③ TC-12 / TC-13 を駆動する per-file 実走ループが
+    1 件以上を実行）
+    を置いて塞ぐ**。**① で自己を除外するのが要点**で、contract TA は inventory に含み
+    allowlist には載せない（後述 Task 6）ため、自己を除外しない非空判定は**恒真**になり
+    発火しない（C-1 第 4 ラウンド MJ-I）。
     検出点は「関数が存在するか」ではなく「**検査が空振りしていないか**」に置くのが正しい
 - **これは「件数を契約値にしない」制約（Global Constraints）に抵触しない**。抵触するのは
   *test の期待値*としての件数であり、移行 allowlist は **除外集合の生成入力**（データ）であって
@@ -609,9 +614,31 @@ TC-17（前提未充足で rc=3）と M-10（rc 0 を返す変異を TC-17 が�
 **手順**:
 
 1. **repo を temp へコピー**する。`SANDBOX="$(mktemp -d)"` を取り、`mkdir -p "$SANDBOX/repo"`
-   したうえで **repo ツリーの実コピー**（追跡ファイルのみ。例:
-   `git archive HEAD | tar -x -C "$SANDBOX/repo"`）を `$SANDBOX/repo` へ展開する。
-   symlink ではなく実体コピーであること（`$0` からルートを解決するため）
+   したうえで **追跡ファイルの「作業ツリー」コピー**を `$SANDBOX/repo` へ展開する:
+
+   ```sh
+   command -v git >/dev/null 2>&1 || { printf '  [FAIL] git unavailable: sandbox cannot be built\n' >&2; exit 1; }
+   git ls-files -z | tar --null -T - -cf "$SANDBOX/tree.tar" &&
+     tar -xf "$SANDBOX/tree.tar" -C "$SANDBOX/repo"
+   ```
+
+   **`git archive HEAD` を使ってはならない**。`git archive HEAD` は **commit 済みツリー**を
+   出力するため、(a) 未 commit の移行が worktree に乗っている TDD ループ中は
+   **HEAD 側の未移行 `ta-39` / `ta-43` / `ta-44`** を実行することになり
+   （未移行の `ta-39` は述語不在時に `exit 0` を返すので rc=0 となり、rc=3 を期待する
+   TC-17 が**偽 FAIL** する＝ローカルで RED/GREEN が回らない）、
+   (b) 逆に「commit 済みの移行を worktree で戻した」状態では HEAD 側が緑を返し
+   **退行を見逃す**。判定対象は常に**いま編集している作業ツリー**でなければならない。
+   symlink ではなく実体コピーであること（`$0` からルートを解決するため）。
+   **中間 tar ファイルを経由する**のは、`tar -cf - | tar -x` のパイプ直結が
+   macOS の bsdtar で producer 側に `tar: Write error` を出す（第 4 ラウンドで実測。
+   内容は一致するが `set -o pipefail` 下で誤 FAIL になる）ためである
+   - **git への依存と fail-closed**: 本手順は **git バイナリと git checkout 内であること**に
+     依存する。これは sandbox 構成（テスト側の足場）に限った依存であり、allowlist のような
+     検査データの実行時依存ではない。**git が使えない場合は SKIP せず fail-closed** とし、
+     診断メッセージを stderr へ出して **rc=1** で落とす（`3`＝前提未充足 SKIP でも
+     `2`＝harness-only 誤用でもない。sandbox が組めないことを SKIP に丸めると
+     TC-17 / M-10 が黙って空振りする）
 2. **コピー側から対象述語文字列を除去**して前提未充足を成立させる
    （**実測済みの述語**。除去はコピー側のみで行い、repo 本体には触れない）:
 
@@ -858,13 +885,19 @@ helper へ吸収する。**Human 決定 3 により Slice 1 から繰り延べ�
       `_pending_migration`）が返さないファイル**（Slice 1 は層 A 12 本）。allowlist は
       **base commit 時点の未移行ファイルを列挙した明示リスト**であり、**述語で解決しない**
       （述語にすると marker/init を持たない新規追加ファイルが黙って除外され
-      TC-16 / M-06 が空振りする）。内容は Task 1 の runtime inventory から生成した結果を
-      **本ファイルの heredoc へ転記**し、移行のたびに行を削除する。
+      TC-16 / M-06 が空振りする / MJ-E）。内容は Task 1 の runtime inventory から生成した
+      結果を **contract TA の heredoc へ転記**し、移行のたびに行を削除する。
       **Slice 2 完了時に 0 行**になり `_pending_migration` 関数ごと削除する（TC-24 / AC-5）
 - [ ] **`_pending_migration` の各行の健全性を検査する**（TC-25 / MN-E）:
       各行が `tests/extras/` に**実在**し、かつ helper bootstrap / init を**持たない**こと。
-      あわせて **検査対象集合（discovered − pending）が空でないこと**を assert し、
-      allowlist 過大化による 0 件ループの黙認 PASS を塞ぐ
+      あわせて次の 3 点を assert し、allowlist 過大化による 0 件ループの黙認 PASS を塞ぐ:
+      **① 検査対象集合（discovered − pending）から contract TA 自身を除いた集合が非空**
+      （**自己を除外しない非空判定は恒真で発火しない** — contract TA は inventory に含み
+      allowlist には載せないため / MJ-I）**② `pending ⊊ discovered`（真部分集合。等しければ FAIL）**
+      **③ TC-12 / TC-13 を駆動する per-file 実走ループ（段 1 の分類実行）が 1 件以上を実際に
+      実行した**（期待件数は置かず「0 でない」のみ）。件数は**ループに入ったファイル数**で数える
+      （前提充足クラスに落ちた数で数えると、「全件の前提が未充足」という TC-17 が rc=3 で
+      正しく扱う正当な状態を確定 FAIL にしてしまうため）
 - [ ] **contract TA 自身（`ta-XX-extra-contract.sh`）の集合帰属**:
       **inventory（runtime discovery）には含める / allowlist には載せない /
       marker・init 検査の対象に含める**（＝自身も `standalone-capable` marker と init を持つ）。
@@ -874,7 +907,11 @@ helper へ吸収する。**Human 決定 3 により Slice 1 から繰り延べ�
 - [ ] markerとinit capability一致（**basename ベースの test-id** / R-016）
 - [ ] **全 `ta-*.sh` の test-id が一意**（R-016 / TC-20。**移行状態に依存しないため
       allowlist の対象外で runtime discovery した全件を検査**）
-- [ ] harness-only全件standalone rc2（**Slice 2**）
+- [ ] harness-only全件standalone rc2（TC-11）。**ループ自体は Slice 1 から回す**
+      （Slice 1 時点の実 harness-only は 0 本なので **vacuous PASS**。ただし Slice 1 中に
+      harness-only marker + init を持つファイルが追加されたら即座に捕捉できる / INFO-1）。
+      **対象 0 件の PASS は evidence に「対象 0 件」と明示記録する**（空振りを PASS と
+      区別できないまま通さない）。**実効的な全件充足（AC-3）は Slice 2**
 - [ ] standalone-capable: **段 1 で probe なし 1 回実行して前提充足 / 未充足へ分類**し、
       **前提充足クラスのみ** (a) probe なし rc0 / (b) probe あり rc1 の両方を要求する（裁定 ②）。
       **前提未充足クラスは rc3 を TC-17 で assert する**（rc0 を要求しない）。
@@ -937,13 +974,13 @@ revert 順序は **T-06 → T-03**（C-1 MN-3）。
 |---|---|---|---|
 | Syntax | `sh -n tests/extras/_extra-contract.sh tests/run-tests.sh tests/extras/ta-*.sh` | exit0 | `evidence/verification/syntax.log` |
 | Inventory | new contract TA | unclassified=0, marker mismatch=0, test-id 重複=0 | `evidence/test-runs/contract-inventory.log` |
-| Harness-only（**Slice 2**） | loop direct execution `</dev/null` | all rc2 + message | `evidence/test-runs/harness-only.log` |
+| Harness-only（**Slice 1 から実行 / 実効は Slice 2**） | loop direct execution `</dev/null` | all rc2 + message。**Slice 1 は対象 0 件の vacuous PASS で可。その場合は log に「対象 0 件」を明示記録する** | `evidence/test-runs/harness-only.log` |
 | Prerequisite 分類（段 1 / MN-4） | 対象 standalone-capable を probe なしで 1 回実行し rc で分類 | rc0 = 前提充足クラス / rc3 = 前提未充足クラス / **それ以外は分類不能 = FAIL** | `evidence/test-runs/prereq-classification.log` |
 | Standalone forced fail | probe loop（target 一致）。**前提充足クラスのみ** | all rc1 | `evidence/test-runs/standalone-force-fail.log` |
 | Standalone probe absent | probe なしループ | **前提充足クラス = rc0**（(b) との差分要求はこのクラスで取る）/ **前提未充足クラス = rc3**（下段 Prerequisite SKIP 行が assert）。**全件一律 rc0 を要求しない** | `evidence/test-runs/standalone-normal.log` |
 | Probe fail-closed | `PG_EXTRA_CONTRACT_PROBE=force-fail` かつ TARGET 未設定 | 診断 + 非ゼロ rc（no-op でない） | `evidence/test-runs/probe-fail-closed.log` |
 | Prerequisite SKIP（TC-17 / M-10 / **Slice 1**） | `ta-39` / `ta-43` / `ta-44` を前掲 `#### TC-17 / M-10 の sandbox 構成手順`（repo コピー → 述語文字列除去 → コピー側 standalone 実行）で前提未充足にして実行。`> <log> 2>&1` で stderr を合流 | **rc3**（rc0 でないこと）+ **`pg_extra_contract_skip` 由来の診断が出ること** | `evidence/test-runs/prereq-rc3.log` |
-| **allowlist 健全性（TC-25 / M-14 / MN-E）** | contract TA が `_pending_migration` の各行を検査 | 各行が **実在**する `ta-*.sh` かつ **helper bootstrap / init を持たない**。加えて **検査対象集合（discovered − pending）が空でない** | `evidence/test-runs/pending-migration-integrity.log` |
+| **allowlist 健全性（TC-25 / M-14 / MN-E）** | contract TA が `_pending_migration` の各行を検査 | 各行が **実在**する `ta-*.sh` かつ **helper bootstrap / init を持たない**。加えて **① 検査対象集合から contract TA 自身を除いた集合が非空 ② `pending ⊊ discovered` ③ TC-12 / TC-13 を駆動する per-file 実走ループが 1 件以上を実行（ループに入った数で計数）** | `evidence/test-runs/pending-migration-integrity.log` |
 | **allowlist 生成（MJ-E / Human 決定 4）** | inventory から生成 → contract TA の heredoc へ転記 → `diff` で照合 | 生成物と転記結果が一致（手書きでない） | `evidence/test-runs/pending-migration-gen.log` |
 | **`fail>0` は skip より優先（MN-2）** | `pg_extra_contract_skip` 呼出前に `fail=1` を立てた synthetic fixture を standalone 実行 | **rc1**（rc3 でないこと）+ 既に立っている fail を示す診断 | `evidence/test-runs/skip-with-fail.log` |
 | **移行前の fail 握り潰しの実測（MN-1 / AC-1 一次証跡）** | 移行前 HEAD で `ta-43` の `_T43_APPLIED=0` 分岐かつ `t43_fail` 発火状態を構成し standalone 実行。**記録は `... </dev/null > <log> 2>&1`** で stderr を合流させる（`t43_fail` は `>&2` へ出すため stdout のみでは捕捉できない） | **rc=0 かつ stderr に `[FAIL]`**（＝失敗が隠れている現状の実証） | `evidence/verification/pre-migration-fail-swallow.log` |
@@ -1128,4 +1165,29 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
       非空 assert に置換）/ MN-E = **逆向きリーク**（移行済みファイルが allowlist に残存）を
       **TC-25 / M-14** で Slice 1 から検出 / MN-F = `review-self.md` の `## Verdict` 節冒頭行
       （`#914 完了後のscope…`）の MD018 を解消（`#914` をコード表記にして ATX 見出し誤認を除去）
+- [x] 簡易 C-1 第 4 ラウンド（**FAIL: major 2 / minor 3 / info 2 → 本版で全件是正**）:
+      **MJ-I = TC-25 の非空 assert が恒真で発火不能**（contract TA 自身は inventory に含み
+      allowlist に載せないため covered set は常に非空。allowlist 過大化時に TC-12 / TC-13 が
+      0 件ループ、TC-09 / TC-10 が自分 1 件だけで PASS し TC-25 も PASS する＝本 PBI が塞ごうと
+      している欠陥そのもの）→ **① 自己を除いた covered set が非空 ② `pending ⊊ discovered`
+      ③ TC-12 / TC-13 の実走件数が 0 でない**の 3 assert へ差し替え（件数は契約値にしない）/
+      **MJ-J = `review-self.md` が C-3 入力として stale**（案 C 前提・C-2 BLOCKED・trap 監査必須の
+      いずれも現状と不一致で、読むと C-2 未実施と誤認する）→ Verdict / Review Matrix /
+      C-3 Readiness を実態へ同期し、**C-1 ラウンド履歴表**を追加 /
+      MN-G = TC-17 sandbox の `git archive HEAD` は **commit 済みツリー**を出力するため
+      作業ツリーの移行が反映されず TDD ループで RED/GREEN が回らない（逆向きに退行も見逃す）→
+      **追跡ファイルの作業ツリーコピー**（`git ls-files -z | tar --null -T -`）へ変更し、
+      **git 不在時は SKIP せず rc=1 で fail-closed** と明記 /
+      MN-H = M-14 (c)「heredoc 終端破損」は**実測で再現しない**（`}` ごと飲み込み
+      parse error rc=2。TC-25 は実行すらされない）→ **構文的に妥当な「inventory 全件出力」変異**へ
+      差し替え、「構文破損の rc=2 は harness-only 誤用と区別できない」を既知の限界として記録 /
+      MN-I = 主張していた plan ↔ todo の**字面一致が実際には不成立**（`述語にすると` vs
+      `述語だと` / plan 側だけ転記文あり）→ **両ブロックを実際に一致させ**、一致の判定方法
+      （リストマーカー・インデント・改行・空白を正規化して byte 一致）を test-cases に明記 /
+      INFO-1 = **TC-11 を Slice 1 でも実行**（Slice 1 の実 harness-only は 0 本＝vacuous だが、
+      Slice 1 中に追加された harness-only ファイルの rc=2 拒否を Slice 2 まで待たずに捕捉できる。
+      **対象 0 件の PASS は evidence に「対象 0 件」と明示記録**する）/
+      INFO-2 = Human 決定 3 / 4 / 5 を `decision-log.jsonl` へ append（`D-0921-06`〜`D-0921-08`。
+      mode=high-risk の human decision のため `alternatives_rejected` 必須）
+- [ ] 簡易 C-1 第 5 ラウンド（検証のみの見込み）
 - [ ] Human C-3
