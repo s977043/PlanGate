@@ -1,17 +1,18 @@
 # EXECUTION TODO — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 5** = C-1 ラウンド 1〜6 反映済み）/ Mode: **standard**（`lite_eligible=true`）
-> ゲート: Human C-3 の代わりに **ai-loop C-3' 裁定**（`/ai-loop-cycle`）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 6** = C-1 ラウンド 1〜7 反映 + ゲート戦略変更）/ Mode: **standard**（`lite_eligible=true`）
+> ゲート: **Human C-3**（承認）+ **ai-loop C-3' 裁定**（裁定記録・承認トークンは発行しない）
 
 ## 👤 Human タスク
 
 | ID | 内容 | 依存 |
 |----|------|------|
+| **H-0** | **C-3: 承認**（`bin/plangate approve TASK-1012` で legacy 形式の `approvals/c3.json` を発行）。**AI は実行不可**（承認トークン書込ガード + presence gate） | C-1 / C-2 / C-3' 完了後・A-1 開始前 |
 | **H-1** | **C-4: PR レビュー**（GitHub 上・三値）。merge は Human-owned 固定 | A-6 完了後 |
 
 > **C-3 は ai-loop の C-3' 裁定に置換**（`lite_eligible=true`）。`arbiter.py` が `HUMAN_ESCALATED`（exit 2）を返した場合のみ Human 判断を仰ぐ。
 >
-> ⚠️ **C-3' には前提と後処理がある**（C-1 R4 指摘 B / R5 N-2 / R6 M-2）: Lite ゲートでも **C-2 外部レビュー 1 本**が必要で、Plan Package は **6 要素**（+ `C1-VERDICT` / `C2-VERDICT` マーカー各 1 回）。順序は **Step 0（breakdown-gate）→ plan 確定 → C-1 → C-2 → C-3'**。**`AUTO_APPROVED` が返ったら `approvals/c3.json` を c3-prime 形式で発行する**（発行しないと `bin/plangate exec` が停止する。`source_sha` は HEAD 束縛のため **exec 直前に発行し、以降コミットを作らない**）。詳細は plan の「ゲート運用」節。これらは workflow-conductor が制御するゲート工程であり、本 ToDo の Agent タスクには含めない。
+> ⚠️ **ゲート戦略を変更した**（C-1 R7 / Human 判断）: **承認は Human C-3**。C-3' は「裁定記録」として回すが承認トークンの発行元にはしない。理由は plan「ゲート運用」節（①`size_ok` を誠実に申告すると `AUTO_APPROVED` に到達しない ②`check-approval-token-write.sh` が配線済みで **AI は `approvals/*.json` を書けない** ③c3-prime の発行 CLI が存在しない）。順序は **Step 0 → plan 確定 → C-1 → C-2 → C-3'（記録）→ Human C-3（`bin/plangate approve`）→ exec**。これらは workflow-conductor が制御するゲート工程であり、本 ToDo の Agent タスクには含めない。
 
 ## 🤖 Agent タスク
 

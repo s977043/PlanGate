@@ -3,7 +3,7 @@
 > issue: [#1012](https://github.com/s977043/plangate/issues/1012)
 > 入力: `docs/working/TASK-1012/pbi-input.md`
 > 由来: PR #986 の V-2 事後補完 H-1（証跡 = `docs/working/TASK-0914/review-external.md` R-407）
-> **改訂 5**: C-1 を 6 ラウンド実施し、計 36 件の指摘を反映した。
+> **改訂 6**: C-1 を 7 ラウンド実施し、計 42 件の指摘を反映。**R7 の実測を受けてゲート戦略を変更**（C-3' は裁定記録・承認は Human C-3）。
 
 ## Goal
 
@@ -124,7 +124,7 @@ fi
 |------|------|
 | **Integration** | 親（`PG_T26_NO_RECURSE` 未設定）と子相当（`=1`）の 2 系統 |
 | **Regression** | フルスイート `sh tests/run-tests.sh` で 0 failed |
-| **静的検査** | T-01 のシンボル越境検査 / TC-INV（`git diff -w` でゲート以外の内容変化 0） |
+| **静的検査** | T-01 のシンボル越境検査 / TC-INV（**`git diff -w HEAD --`** でゲート以外の内容変化 0） |
 | **検出力の実証** | **変異 3 系統**（T-04）。①条件反転 → AC-2 が FAIL ②ゲート B 終端の縮小 → AC-1 が FAIL ③**ゲート外からゲート A 内変数を参照する 1 行を注入** → 越境検査が ≥1 件。③は当初「ヘルパー定義をゲート内へ移す」としていたが、**同関数の参照はすべてゲート B の内側（562-713）にあるため越境が発生せず空振り**だった（C-1 R3 が実測で検出）。人工的な外部参照の注入に変更し、検査そのものの検出力を直接実証する |
 
 - Verification Automation: `sh tests/extras/ta-26-plugin-sync.sh </dev/null && PG_T26_NO_RECURSE=1 sh tests/extras/ta-26-plugin-sync.sh </dev/null && sh tests/run-tests.sh`
@@ -153,7 +153,7 @@ EOF
 | **変異①の一括置換が TC-13 のゲートまで反転させ孫プロセスを無限 spawn する** | 適用を**新規 2 ゲートに限定**（todo に明記） |
 | 子のカバレッジが狭まることで将来の退行を見逃す | TC-13 の判定目的が standalone fallback の証明に限られることを根拠とし、handoff に**既知の妥協点**として明記 |
 | 実行時間の改善が測定ノイズに埋もれる | T-05 で**交互 A/B**（連続測定にしない） |
-| インデント調整で意図せず中身が変わる | T-02 の 🚩 で `git diff -w` の変化がゲート追加分のみであることを機械確認 |
+| インデント調整で意図せず中身が変わる | T-02 の 🚩 で **`git diff -w HEAD -- <file>`** の変化がゲート追加分のみであることを機械確認 |
 | **今後 TC が追加され、またゲート範囲と依存が食い違う** | handoff の申し送りに、**ゲート境界の直後に TC を足すときは越境検査を再実行する**旨を明記 |
 
 ### T-01 のシンボル越境検査の実装（C-1 R4 指摘 G）
@@ -237,7 +237,7 @@ git diff --quiet -- "$F" && echo "OPT restored (index と一致)"
 | 既存パターン踏襲 | ✅ **あり** | 同一ファイル内の同一イディオム・同一論拠 |
 | 可逆性 | ✅ **あり** | `git revert` 1 手 |
 
-→ **`lite_eligible=true`**（**計画時の C-3' 裁定に限る**）
+→ **`lite_eligible=true`**（**判定としては成立するが、承認経路には使わない** — 上記「ゲート運用」参照）
 
 > **成立範囲の注記**: `size_ok` が成立するのは **計画時の裁定のみ**。実装後の再裁定では実差分（実装 1 + working context 一式 + evidence）が `SIZE_OK_MAX_FILES`=2 を超える。SKILL.md の「虚偽宣言禁止・判定不能なら false」に従い **`size_ok=false` を申告する**ため、発火するのは **priority 2（lite=false）** であり priority 1.9 ではない（1.9 は「申告 true ∧ 実測超過」でのみ発火 — `_declared_size_ok()` の実装で確認。C-1 R5 指摘 N-5）。終端状態は同じ human escalate で、再裁定は Human 判断を前提とする。handoff にも明記する。
 
@@ -249,50 +249,34 @@ git diff --quiet -- "$F" && echo "OPT restored (index と一致)"
 | ai-loop 判定基盤 carve-out | **非接触**（`scripts/ai-loop/**` / `docs/workflows/ai-loop/**` / `docs/ai/ai-loop/**` / `*/skills/ai-loop-cycle/**` のいずれでもない） |
 | rollout-policy #780 slice C 前提 | **充足**。`scripts/ai-loop/arbiter.py` に `SIZE_OK_MAX_FILES = 2` の機械検証が実装済み。加えて**本変更は test のみで「実機能」ではない** |
 
-## ゲート運用（C-3' の前提条件・C-1 R4 指摘 B の是正）
+## ゲート運用（**改訂 6 で戦略変更** — C-1 R7 の実測を受けて）
 
-Human C-3 の代わりに **ai-loop の C-3' 裁定（`/ai-loop-cycle`）** を用いる。ただし**この選択には前提条件があり、改訂 2 まで計画に含めていなかった**。
+**承認は Human C-3。C-3' は「裁定記録」として回すが、承認トークンの発行元にはしない。**
 
-### 前提条件（実測で確認済み）
+改訂 5 まで「Human C-3 の代わりに C-3' 裁定を用いる」としていたが、C-1 ラウンド 7 の実測で **その戦略は成立しない**ことが確定した（Human 判断で戦略変更）。
 
-| 要求元 | 内容 |
-|--------|------|
-| `.claude/rules/mode-classification.md` L99（**Lite ゲート構成**） | Lite でも **C-2 外部レビュー 1 本**（`critical/major=0` 要求・観点固定）が必要。「Lite は**強度の選択**であり 5 レビュー観点を変更しない」 |
-| `.claude/skills/ai-loop-cycle/SKILL.md` 前提 | **C-1 PASS・C-2 完了済み**であること |
-| `scripts/ai-loop/c3_contract.py` `ARTIFACTS` | Plan Package は **6 要素**（pbi-input / plan / todo / test-cases / **review-self** / **review-external**） |
-| `docs/workflows/ai-loop/c3-prime-contract.md` L24-28 | `review-self.md` に `C1-VERDICT: PASS plan=sha256:<64hex>` / `review-external.md` に `C2-VERDICT: approve plan=sha256:<64hex>` を**行頭・ちょうど 1 回**。0 回も 2 回以上も **fail-closed** |
+### なぜ C-3' を承認経路にできないか（実測）
 
-> ⚠️ Mode=standard のフェーズ適用マトリクスは「C-2 = `-`」だが、それは**通常フローの standard** に対する規定であり、**Lite ゲートを選ぶなら C-2 は必要**。改訂 2 まで前者だけを根拠に C-2 を計画から落としていた（C-1 R4 が検出）。
+| # | 事実 | 実測 |
+|---|------|------|
+| 1 | **`AUTO_APPROVED` は誠実には到達できない** | `changed_files` を Plan Package の実 doc 6 件で渡すと `HUMAN_ESCALATED / priority 1.9`「size_ok 申告=true だが実ファイル数 6 が閾値 2 を超過（**申告と blast-radius 不一致**）」。glob `docs/working/TASK-1012/**` を「1 ファイル」と数えれば `AUTO_APPROVED` になるが、それは arbiter が防ごうとしている不一致そのもので **`size_ok` の虚偽申告**にあたる（SKILL.md 禁止事項）。安全側に `size_ok=false` を申告すると `priority 2`（lite=false）で escalate |
+| 2 | **AI は `approvals/c3.json` を書けない** | `scripts/check-approval-token-write.sh` が `*/approvals/*.json` / `*c3.json*` への書込を block。`.claude/settings.json` の **Edit\|Write と Bash の両方に配線済み**（L102 / L111）。`AUTO_APPROVED` が返っても AI は承認トークンを発行できない |
+| 3 | **c3-prime の発行 CLI が存在しない** | `build_c3_prime` / `serialize_c3_prime` の呼び出し元は**テスト fixture のみ**。`plan_package.main()` は read-only 検証しか持たない。リポジトリ内の c3-prime 形式 `c3.json` は **0 件**（初回経路） |
 
-### 実行順序（plan_hash 束縛のため順序厳守）
+> ⚠️ 改訂 5 の記述「`bin/plangate` は `c3_status` を読む」は **c3-prime に対しては誤り**だった。`_plangate_c3_dispatch()` は `approval_kind` キーが**無い場合のみ** legacy（`c3_status` grep）経路へ落ちる。c3-prime record に `c3_status` を入れると `plan_package.py:341` と `c3prime_verify.py:71-72` が**契約 §5 違反として拒否**する（C-1 R7 指摘 N-2）。
 
-1. **Step 0: `breakdown-gate` スキルで粒度判定** → 理想 / 許容なら **`gates.breakdown="pass"`**、分割必須ならそれ以外の値。**最初に行う**（C-1 R6 指摘 m-4: 後置すると分割必須が返ったとき C-1/C-2 が無駄になり、再計画で `plan_hash` が変わって両 evidence が stale 化する）
-2. plan / todo / test-cases を**確定**する（以降 plan を編集しない — `feedback_no_plan_edit_after_c3_approval`）
-3. **C-1** を実施 → PASS なら `review-self.md` に `C1-VERDICT: PASS plan=sha256:<確定後 plan の hash>` を 1 行だけ記録。この結果を **`gates.c1="PASS"`** として C-3' 入力へ渡す
-4. **C-2** を 1 本実施（観点固定・`critical/major=0` を要求）→ `review-external.md` に指摘を `R-NNN` で集約し、`C2-VERDICT: approve plan=sha256:<同 hash>` を 1 行だけ記録
-5. **C-3'**（`/ai-loop-cycle`）を実行。入力に **`gates` を必ず含める**
-6. `arbiter.py` が `HUMAN_ESCALATED`（exit 2）を返した場合は**停止して人間へ提示**し、AI が自己解決しない
-7. **`AUTO_APPROVED`（exit 0）が返った場合は `approvals/c3.json` を c3-prime 形式で発行する**（下記）。これが無いと `bin/plangate exec` が停止する
+### 採用する運用
 
-### AUTO_APPROVED 後の c3.json 発行（C-1 R6 指摘 M-2 の是正）
+| 工程 | 担当 | 成果物 |
+|------|------|--------|
+| Step 0: `breakdown-gate` で粒度判定 | AI | `gates.breakdown` |
+| plan / todo / test-cases の**確定** | AI | 以降 plan を編集しない（`feedback_no_plan_edit_after_c3_approval`） |
+| **C-1** | AI | `review-self.md`。この結果を `gates.c1` へ |
+| **C-2**（1 本・観点固定・`critical/major=0`） | AI | `review-external.md` に `R-NNN` 集約 |
+| **C-3'（裁定記録）** | AI | `docs/working/ai-loop-runs/<ts>-<sha>.json`。**`HUMAN_ESCALATED` が返るのが想定どおり**であり、これは失敗ではない。W チェック 2 体の verdict と `boundary_check` / `scope_check` を記録として残すことが目的 |
+| **C-3（承認）** | **Human** | `bin/plangate approve TASK-1012` で **legacy 形式**の `approvals/c3.json` を発行（`c3_status=APPROVED` + `plan_hash`）。AI は実行できない（②のガード + presence gate） |
+| exec | AI | — |
 
-改訂 4 までの実行順序は「6. HUMAN_ESCALATED なら停止」で終わっており、**AUTO_APPROVED が返ったときに何を発行すれば exec に進めるのかが無かった**。実装側は次を要求する（実読で確認）:
-
-| 要求元 | 内容 |
-|--------|------|
-| `bin/plangate`（exec preflight） | `approvals/c3.json` の `c3_status` を読み、`APPROVED` でなければ `error: C-3 gate not approved` で**停止** |
-| `scripts/ai-loop/c3prime_verify.py` | `approval_kind == "c3-prime"` / `decision=AUTO_APPROVED` / `phase="C-3'"` / `plan_hash` が現 plan.md の sha256 と一致 / `artifact_hashes` が Plan Package **6 要素**と全数一致 / **`source_sha` が exec 時の `git rev-parse HEAD` と prefix 一致** |
-| `scripts/ai-loop/plan_package.py` L262 | 発行は `build_c3_prime(task_dir, task_id, source_sha, target_sha, verdicts, ...)`。**`source_sha != target_sha` は R-011 で拒否** |
-
-**発行手順と順序の制約**:
-
-1. C-3' が `AUTO_APPROVED` を返したら、**その時点の HEAD** を `source_sha` / `target_sha` として `build_c3_prime()` で `approvals/c3.json` を生成する
-2. **発行後に plan / 6 artifact を一切編集しない**（`plan_hash` / `artifact_hashes` の全数照合で即 BLOCK される）
-3. ⚠️ **`source_sha` は HEAD 束縛**なので、「c3.json を発行 → コミット → HEAD が動く」で自壊する。**c3.json は exec 直前に発行し、exec までの間に新しいコミットを作らない**。やむを得ず HEAD が動いたら**再発行**する（`c3prime_verify.py` は不一致を「BLOCK・再 C-1/C-2/C-3' が必要」と扱う）
-4. ⚠️ **本リポジトリに c3-prime 形式の `c3.json` は現時点で 0 件**（`grep -rln 'c3-prime' docs/working/*/approvals/*.json` = 0）。**初回経路**であり、`build_c3_prime()` が期待どおり動くかを exec 前に確認すること
-
-> ⚠️ **`gates` の省略は入力エラーにならないが決定論的に escalate する**（C-1 R5 指摘 N-2）。`ai-loop-cycle/SKILL.md` は「gates 自体を省略した場合も入力エラーにはならないが、**priority 1.7 で human escalate に倒れる**」と明記しており、`arbiter.py` の priority table にも 1.7 が実在する。改訂 3 までの実行順序には **Step 0 が無く `gates` の受け渡しも書いていなかった**ため、順序どおり実行すると `lite_eligible=true` の目的（auto-approve）が**達成不能**だった。R4-B（前提列挙の不完全）と同一クラスの再発が、B の是正節そのものの中で起きていた。
-
-### production / 非 production の別
-
-本 run は **production（Plan-first 正式入口）として扱う**。したがって上記 6 要素と 2 マーカーを揃える。非 production の PoC run なら `plan_package` を省略できるが、その場合 Testing Strategy の V-A 行に関する注記（derive 前提）と矛盾するため、**どちらか一方に統一する**必要がある — 本 plan は production を選ぶ。
+- **`C1-VERDICT` / `C2-VERDICT` マーカーは付けなくてよい**。あれは c3-prime（Plan Package 束縛）経路の要求であり、legacy 承認では `bin/plangate` が `c3_status` + `plan_hash` を見る。ただし C-1 / C-2 の結果は `review-self.md` / `review-external.md` に**通常どおり記録する**（`working-context.md` の要求）
+- **Mode=standard のフェーズ適用マトリクスでは C-2 = `-`** だが、本 PBI は C-3' を回す都合と、`lite_eligible` を主張した経緯の説明責任から **C-2 を 1 本実施する**（省略しない）
+- C-3' が `HUMAN_ESCALATED` を返したら、`w_check` / `boundary_check` / `lite_check` を人間へ提示する。**AI が自己解決しない**

@@ -128,7 +128,7 @@ fi
 | 既存パターン踏襲 | ✅ **あり** | 同一ファイル内の同一イディオム・同一論拠 |
 | 可逆性 | ✅ **あり** | `git revert` 1 手 |
 
-→ **`lite_eligible=true`**。ai-loop の **C-3' 裁定（`/ai-loop-cycle`）を Human C-3 の代わりに用いる**。
+→ **`lite_eligible=true`**（判定としては成立）。ただし **承認経路には使わない** — C-1 R7 の実測でゲート戦略を変更し、**承認は Human C-3 / C-3' は裁定記録**とした（plan「ゲート運用」節が正本）。
 
 `.claude/rules/working-context.md` の Hardening Override は非該当（対象 9 カテゴリのいずれにも触れない）。
 
