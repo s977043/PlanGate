@@ -25,7 +25,7 @@
 |---|---|---|---|---|---|
 | R-001 | **major** | `test-cases.md` TC-A6a / `plan.md` 越境検査 | AC-1 の静的前提を担保する**唯一の検査に実行可能な判定式が無い**（範囲導出までが fence、識別子収集と全数照合は fence 外の散文）。記法規約 §8 の自己違反 | 反映 | (pending) |
 | R-002 | **major** | `plan.md` 適用後 awk / `test-cases.md` 変異③ | 範囲導出 awk が **fail-open**。桁 0 の `fi` に一致するため、ゲート内の `fi` が 1 行でも未インデントだと範囲が黙って打ち切られる。`sh -n` は通り、TC-INV は `-w` で空白差を無視し、🚩「導出件数 4」も通過する。さらに変異③の注入対象 `_t26_t20` は**ゲート A 先頭付近**なので切り詰め後の範囲にも入り、この経路を一切実証しない | 反映 | (pending) |
-| R-003 | **major** | `plan.md` Mode 判定 / `test-cases.md` | **Mode=standard が 2 つの計数規約に依存**。① AC 6→5 の畳み込み動機として「high-risk 帯に入り Mode 判定が変わる」と**帯回避を明記** ② 変更ファイル数を「1」とする一方、同 plan が arbiter 向けには「実差分は 2 を超える」と**逆の計数**を採る。リポジトリ内の先例も割れている（TASK-0970 は実装のみ / TASK-0981 は working context 7 を母数に含めて high） | **Human 判断待ち** | — |
+| R-003 | **major** | `plan.md` Mode 判定 / `test-cases.md` | **Mode=standard が 2 つの計数規約に依存**。① AC 6→5 の畳み込み動機として「high-risk 帯に入り Mode 判定が変わる」と**帯回避を明記** ② 変更ファイル数を「1」とする一方、同 plan が arbiter 向けには「実差分は 2 を超える」と**逆の計数**を採る。リポジトリ内の先例も割れている（TASK-0970 は実装のみ / TASK-0981 は working context 7 を母数に含めて high） | 反映 | (pending-r003) |
 | R-004 | **major** | `test-cases.md` TC-A5 / `pbi-input.md` AC-5 | **AC-5 に拘束力が無い**。FAIL 条件が「OPT 中央値 > BASE 中央値」だけで、短縮率 0〜15% は WARN で受理して完了できる。恒久コスト（子のカバレッジ縮小＝テスト意味論の変更）は確定する一方、便益未達でも完了する非対称。取り消し判断ゲートが plan / todo のどこにも無い | 反映 | (pending) |
 | R-005 | minor | `test-cases.md` TC-A1c / TC-A2a | 記法規約の**兄弟取りこぼしが再発**（TC-A1b / TC-INV に fence を入れた際の対象漏れ）。TC-A1c は素直に書くと `\|` エスケープ事故を起こす形 | 反映 | (pending) |
 | R-006 | minor | `plan.md` 越境検査の収集パターン | `^\s*(\w+)=` は**行頭でない代入を拾わない**（範囲内に 6 箇所）。`\s` / `\w` は **POSIX ERE 外**で非可搬。※現時点では 6 変数すべてが行頭代入も併存するため false negative は **0 件** | 反映 | (pending) |
@@ -75,3 +75,26 @@ awk '
 5. exec
 
 **R-003 は 2 の対象外**。Mode を standard のままとするか high-risk へ引き上げるかは承認境界に関わる判断であり、Human C-3 の判断事項として保留する（差分は実質 V-2 の要否）。
+
+## 追記: R-003 の決着（2026-08-10 / 追記専用）
+
+> 本節は**追記**であり、上記 R-001〜R-009 の記述は書き換えていない（監査表の R-003 行の `status` / `reflected_in` のみ、規約どおり更新した）。
+
+| 項目 | 内容 |
+|------|------|
+| **決定** | **B. Mode を high-risk へ引き上げる**（Human 決定 2026-08-10） |
+| **決定者** | Human（C-3 の承認境界に関わる判断のため AI は決定しない） |
+| **反映** | `.claude/rules/working-context.md`「C-2 指摘の差分管理」に従い **1 回だけ確定反映**（コミットに `Refs: R-003`）。plan.md 改訂 10 / pbi-input.md / test-cases.md / todo.md |
+
+反映内容（詳細な台帳は `plan.md`「C-2 指摘の反映」節）:
+
+1. **Mode = high-risk**。判定表を書き直し、定量軸（変更ファイル数 ≥ 6 / 受入基準数 6）で high-risk に到達することを示した
+2. **計数規約を明示・統一**（指摘 2 の解消）: Mode 判定の母数は **PR の実差分に載る全ファイル**。arbiter の `size_ok` は `changed_files` の実数（`SIZE_OK_MAX_FILES`=2）で機械検証される**別レイヤ**であり、**両者の母数は本改訂で一致**した
+3. **帯回避の記述を撤回**（指摘 1）: 「AC 数 6 は high-risk 帯に入るので畳む」という動機の記述を plan / test-cases から除去し、**AC-6 を独立の受入基準へ復帰**（TC-A6a / A6c を AC-6 へ、TC-A6b は AC-1 のまま）
+4. **`lite_eligible=false`**
+5. **V-2 / V-3 を必須化**（standard との実質差分は V-2）。V-4 は `critical` のみなので適用外
+6. **C-2 の充足判定は「不足」と明記**した。high-risk では Lite の 1 本枠（AC-12）ではなく Standard 枠で読むべきであり、`review-principles.md` §7-bis の**コードベース整合レーンが未実施**のまま残る。追加 1 本を実施するか不足を許容するかは **Human C-3 の判断事項**として提示する（AI は「充足」と書き換えない）
+
+**ゲート戦略は不変**（C-3' は非 production の裁定記録 / 承認は Human C-3。`bin/plangate exec` は APPROVED の `c3.json` のみ受理）。
+
+**未反映の指摘は 0 件**（R-001〜R-009 すべて反映済み）。

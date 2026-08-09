@@ -1,6 +1,6 @@
 # EXECUTION TODO — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 9** = C-1 ラウンド 1〜9 + **C-2 R-001/002/004/005/006/007/008/009** 反映）/ Mode: **standard**（`lite_eligible=true`）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 10** = C-1 ラウンド 1〜9 + C-2 R-001/002/004/005/006/007/008/009 反映 + **R-003 反映**）/ Mode: **high-risk**（**`lite_eligible=false`** / Human C-3 決定 2026-08-10）
 > ゲート: **Human C-3**（承認）+ **ai-loop C-3' 裁定**（裁定記録・承認トークンは発行しない）
 
 ## 👤 Human タスク
@@ -32,7 +32,7 @@
 |----|------|-----------|----|----------|
 | **A-1**（T-01） | baseline 実測（TC 総数 / PASS 数 / rc + 実行時間 2 回）+ ゲート A / B の範囲確定 + **シンボル越境検査** | — | 🚩 baseline 記録 + **越境 0 件を機械確認** | 不要（読取のみ） |
 | **A-2**（T-02） | ゲート A / B を適用（L62-68 と同型）。ヘルパー定義は移動しない。**適用後に `git add` して index に載せる** | A-1 | 🚩 `sh -n` rc=0 + **`git diff -w HEAD -- <file>`** の変化がゲート追加分のみ（**`HEAD` 必須**・M-1）+ `git diff --cached --stat` に当該ファイルが載る | `git checkout HEAD -- tests/extras/ta-26-plugin-sync.sh`（**HEAD 指定**。index ごと戻す） |
-| **A-3**（T-03） | **受入検証**: AC-1 / AC-2 / AC-3 / AC-4 | A-2 | 🚩 AC-1〜AC-4 すべて PASS | 不要（読取のみ） |
+| **A-3**（T-03） | **受入検証**: AC-1 / AC-2 / AC-3 / AC-4 / **AC-6（適用後の tree に対して TC-A6a を再実行）** | A-2 | 🚩 AC-1〜AC-4 + AC-6 すべて PASS | 不要（読取のみ） |
 | **A-4**（T-04） | **変異検証 3 種**（1 つずつ入れて戻す）。①条件反転 → AC-2 が FAIL ②ゲート B 終端を TC-36 手前へ → AC-1 が FAIL ③**ゲート外に、ゲート B 終端付近で定義される変数 `_t26_tgt36`（L721）を参照する 1 行を注入** → 越境検査が ≥1 件（**`_t26_t20` に戻さない** — C-2 R-002b。ゲート A 先頭付近の変数では範囲導出の fail-open を実証できない） | A-3 | 🚩 3 変異すべてで期待 FAIL + 各復元後に再 PASS | 各変異ごとに `git checkout -- tests/extras/ta-26-plugin-sync.sh`（**HEAD を付けない**。index = 実装適用済みへ戻る） |
 | **A-5**（T-05） | **AC-5**: 交互 A/B で実行時間を実測（BASE / OPT を交互に各 2 回以上）。**退避コピー方式**で切替（plan の該当節）。**A-4 の後に直列実行**。⚠️ **A-5 完了まで実装を commit しない**（commit すると `git show HEAD:` で取る BASE がゲート適用後になり BASE == OPT で AC-5 が無言で無意味化する — C-1 R9 指摘 N-2。plan の BASE 健全性アサーションで検出する） | **A-4** | 🚩 交互測定 + 測定後に OPT が index と一致 + BASE アサーション通過 | `cp /tmp/ta26.opt <file>` で OPT へ復帰 |
 | **A-6**（T-06） | handoff / status / current-state / INDEX を整備。handoff に「**ゲート境界の直後に TC を足すときは越境検査を再実行する**」旨を明記 | A-5 | 🚩 handoff 6 要素 + 再発防止の申し送り | 不要 |
@@ -68,8 +68,8 @@ A-1 → A-2 → A-3 → A-4（変異 3 種・1 つずつ入れて戻す）
 
 ## 完了条件
 
-- AC-1〜AC-5 がすべて PASS（AC-1 は静的前提＝シンボル越境 0 件を含む）
-  - AC-1 の静的前提は **TC-A6a のフェンスのスクリプトをそのまま実行**して `containment_violations=0` かつ `crossings=0` であること。**範囲導出 awk の出力を目視で信用しない**（桁 0 の `fi` で範囲が黙って打ち切られる fail-open がある — C-2 R-002a）
+- **AC-1〜AC-6 がすべて PASS**（**AC-6 = シンボル越境 0 件**。改訂 9 まで「AC-1 の静的前提」として畳んでいたものを改訂 10 で独立 AC へ復帰 — C-2 R-003 / Human C-3 決定）
+  - AC-6 は **TC-A6a のフェンスのスクリプトをそのまま実行**して `containment_violations=0` かつ `crossings=0` であること。**範囲導出 awk の出力を目視で信用しない**（桁 0 の `fi` で範囲が黙って打ち切られる fail-open がある — C-2 R-002a）
 - A-4 の 3 変異でそれぞれ期待どおり FAIL し、各復元後に再 PASS
 - **`git diff -w HEAD -- tests/extras/ta-26-plugin-sync.sh`** が**ゲート追加分のみ**（+ working context）。**`HEAD` を省くと `git add` 済みのため常に空になり fail-open**（C-1 R6 指摘 M-1）
 - **判定用ログを repo ルートに残さない**（C-2 R-008）。ログはすべて `docs/working/TASK-1012/evidence/test-runs/` 配下に出力する。完了前に `git status --porcelain` で **想定外の untracked が 0 件**であることを確認する（#1021 と同クラスの repo 汚染を作らない）
@@ -83,5 +83,10 @@ A-1 → A-2 → A-3 → A-4（変異 3 種・1 つずつ入れて戻す）
   - 本 PBI は **恒久コスト（テスト意味論の変更）が確定する一方、便益未達でも完了できる**非対称を持つ。AI が「短縮はしているので有益」と自己判断して押し切らない
   - handoff / PR 本文に **(1) BASE/OPT の全実測値と短縮率 (2) 恒久コストの明示 (3) `git revert` 1 手で取り消せること** を必ず載せる。人間が「受け入れない」と判断した場合は revert する
 
-> L-0（リンター）/ V-1（受け入れ検査）/ V-3（外部レビュー）/ PR 作成は workflow-conductor が制御するため本 ToDo には含めない。
-> Mode=standard のため **V-2 / V-4 は適用外**（`.claude/rules/mode-classification.md` フェーズ適用マトリクス）。
+- **V-2（コード最適化）/ V-3（外部モデルレビュー）を通過していること**（改訂 10 / Mode = high-risk。`.claude/rules/mode-classification.md` フェーズ適用マトリクス）
+  - **V-2**: 追加したゲート 2 組を対象に、**動作を変えずに**可読性を確認する。⚠️ **TC-INV（`git diff -w HEAD --` がゲート追加分のみ）を壊す変更は行わない**ため改変余地は極小。**「最適化なし」と判断した場合もその判定と根拠を evidence に残す**（未実施と、実施して変更なしを区別する）。変更した場合は **AC-1〜AC-4 を再実行**して回帰なしを確認する
+  - **V-3**: 実装後の外部レビュー。指摘は `review-external.md` へ**追記専用**で `R-NNN` 採番して集約する（既存 R-001〜R-009 は書き換えない）
+  - **V-4 は適用外**（`critical` のみ）
+- **C-2 の充足は AI が判定しない**（改訂 10）。high-risk の C-2 は `○`（必須）だが、実施済みの 1 本は Lite ゲート（AC-12）を根拠としたものであり、`review-principles.md` §7-bis の**コードベース整合レーンが未実施**のまま残る。plan「C-2 の充足判定」の結論は **不足**。追加 1 本を exec 前に実施するか、この不足を許容して APPROVE するかは **H-0（Human C-3）の判断事項**として提示する
+
+> L-0（リンター）/ V-1（受け入れ検査）/ **V-2** / **V-3** / PR 作成は workflow-conductor が制御するため、本 ToDo の Agent タスク（A-1〜A-6）には工程として並べない（完了条件としては上記に含める）。
