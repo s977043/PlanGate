@@ -344,3 +344,484 @@ TC-12 の assert を **(a) probe なし → rc=0 / (b) probe あり × target �
 5. exec
 
 > 反映時は本監査表の `status` / `reflected_in(commit)` を追記更新する（既存行の削除・書き換えはしない）。
+
+---
+
+# 追補: 別レーン群（4 レーン独立レビュー）由来の固有指摘（R-021〜R-037）
+
+> **追記日**: 2026-08-10 / **追記者**: worker（オーガナイザー委託）
+> **本節は追記専用の追補である。上の R-001〜R-020 の記述は 1 文字も変更していない。**
+>
+> **出典**: 本 PBI の C-2 は **2 系統が独立に実施**された。
+>
+> | 系統 | レーン構成 | 基点 | 指摘 ID 体系 | 本ファイルでの扱い |
+> |---|---|---|---|---|
+> | 系統 A（既出・上記） | 2 レーン（設計妥当性 / コードベース整合） | `origin/main` = `516e2f7` | `R-001`〜`R-020` | **正本**（PR #1020 で main へ反映済み） |
+> | 系統 B（本追補） | 4 レーン（Lane 1 POSIX shell / Lane 2 test architecture / Lane 3 workflow boundary / Lane 4 maintainability） | `origin/main` = `4448420` | `R-001`〜`R-005` / `R-101`〜`R-113` / `R-201`〜`R-217` / `R-401`〜`R-413`（計 32 件） | **R 番号が系統 A と衝突するため再採番**。本追補で `R-021` 以降へ採番し直す |
+>
+> **系統 B の元 ID は各項目の `出典` と監査表の `notes` に併記**して追跡可能にしてある。
+> 系統 A が既に取り込んでいる指摘（`register_cleanup` の無条件再定義禁止 / test-id の basename 化 /
+> `ta-43`・`ta-44` の fail 握り潰し 等）は**重複追記しない**。除外判断は「重複除外表」に全件記録した。
+
+## 追補サマリー
+
+| severity | 件数 | R-NNN |
+|----------|-----:|-------|
+| critical | 1 | R-021 |
+| major | 9 | R-022〜R-030 |
+| minor | 5 | R-031〜R-035 |
+| info | 2 | R-036, R-037 |
+| **合計** | **17** | R-021〜R-037 |
+
+> **判定への影響（重要）**: 上記 R-001〜R-020 のサマリーは `critical = 0` としていたが、
+> **本追補の R-021 は critical**（Human 決定 1 で採用した案 D が **CI 実行環境では成立しない**）。
+> [`review-principles.md`](../../../.claude/rules/review-principles.md) §4 に従い、
+> 本 PBI 全体の C-2 判定は **Human review required（critical ≥ 1）** へ引き上げられる。
+
+## R-021 `|| true` 型の早期脱出 4 件により案 D の末尾 finalize が CI（dash）で到達しない
+
+- **severity**: **critical**
+- **出典**: 系統 B Lane 1 `R-101` / `R-107` / `R-108`、Lane 4 `R-405`（Lane 2 `R-202` は対象範囲を誤っていたため不採用）
+- **該当**:
+  - `tests/extras/ta-45-c3-mode-config.sh:52`
+  - `tests/extras/ta-46-ehs-wiring.sh:23`
+  - `tests/extras/ta-47-ehs23-wiring.sh:23`
+  - `tests/extras/ta-49-bias-export.sh:72`
+  - （参考・分岐内のみ）`tests/extras/ta-31-codex-plugin-status.sh:43,56,72,73` — `mktemp` 失敗時にだけ通る経路。`ta-31` は harness-only 想定のため Slice 1 の対象外
+  - 対置: `plan.md` `## 前提の実測検証`「早期 `exit 0` を持つ `ta-*.sh` の現存件数 = **3 件**」
+- **指摘**: 現行 plan は早期脱出を `return 0 2>/dev/null || exit 0` 型の **3 件**（`ta-39` / `ta-43` / `ta-44`）
+  としか列挙していないが、**`return 0 2>/dev/null || true` 型が別に 4 件存在する**。
+  この 2 型は**シェル実装で挙動が分かれる**。
+
+  | 型 | 該当 | `/bin/dash`（= CI の `sh`） | `/bin/sh`（macOS = bash 3.2.57） | `/bin/zsh` |
+  |---|---|---|---|---|
+  | `\|\| exit 0` | `ta-39` / `ta-43` / `ta-44` | 終了 | 終了 | 終了 |
+  | `\|\| true` | `ta-45` / `ta-46` / `ta-47` / `ta-49` | **終了** | **継続（本体が走る）** | 終了 |
+
+  `.github/workflows/test.yml:19`（`runs-on: ubuntu-latest`）+ `:28`（`run: sh tests/run-tests.sh`）より
+  **CI の `/bin/sh` は dash**。したがって二重の破綻が起きる。
+
+  1. **CI（dash）**: skip 経路で top-level `return 0` が成功しスクリプトが終了するため、
+     案 D の**末尾 explicit finalize に到達しない**。contract TA の force-fail probe（rc=1 を要求）が
+     当該 4 件で rc=0 を返し **恒常 RED**。plan の Verification Plan
+     「Standalone forced fail → all rc1」「Standalone normal → rc0」が**両方とも成立しない**。
+  2. **開発機（bash）**: `return` が失敗して skip guard を素通りし、**前提未充足のまま本体が走る**
+     （spurious FAIL）。すなわち **ローカル GREEN が CI の正しさを保証しない**。
+
+  4 件はいずれも **層 A（Slice 1 の移行対象 12 本）に含まれる**
+  （`pbi-input.md` の層 A 一覧 = `ta-39`/`ta-43`/`ta-44`/`ta-45`/`ta-46`/`ta-47`/`ta-49`/`ta-50`/`ta-51`/`ta-52`/`ta-53` + `ta-40`）。
+  よって **Slice 1 の直接スコープ内の未反映 blocker** であり、Slice 2 へ繰り延べられない。
+- **一次実測（本追補の作成時に worktree 内で再現）**:
+
+  ```console
+  # A) 素の 2 型（printf 'A ' → 脱出行 → printf 'B: still running'）
+  /bin/sh   or-true : A B: still running   (rc=0)   ← 継続
+  /bin/dash or-true : A                    (rc=0)   ← 終了
+  /bin/zsh  or-true : A                    (rc=0)   ← 終了
+  /bin/sh   or-exit : A                    (rc=0)   ← 終了
+  /bin/dash or-exit : A                    (rc=0)   ← 終了
+  /bin/zsh  or-exit : A                    (rc=0)   ← 終了
+
+  # B) ta-45/46/47/49 の skip guard 形 + 案 D の末尾 explicit finalize（fail=1 を立てた最悪ケース）
+  /bin/dash : "[SKIP] prerequisite absent"                                  rc=0
+              ← FINALIZE REACHED が出ない ＝ 末尾 finalize 到達不能
+  /bin/sh   : "[SKIP] prerequisite absent" / "BODY RAN" / "FINALIZE REACHED" rc=1
+              ← skip guard を素通りして本体が走る
+  ```
+
+- **是正案**:
+  1. `plan.md` `## 前提の実測検証` の「早期 `exit 0` … **3 件**」行を、
+     **「早期脱出は 2 型 7 件（`|| exit 0` 型 3 件 + `|| true` 型 4 件）」**へ是正する。
+     grep 式は `exit 0` ではなく **`return 0 2>/dev/null`** を起点にする（`|| true` を取りこぼさないため）。
+  2. Global Constraints に
+     **「standalone 経路の脱出手段として `return 0 2>/dev/null || …` を型を問わず禁止する。
+     skip 経路も必ず `pg_extra_contract_skip` を経由させる」**を追加する。
+  3. Task 5 の置換対象を 3 本 → **7 本**（`ta-39` / `ta-43` / `ta-44` / `ta-45` / `ta-46` / `ta-47` / `ta-49`）へ拡大する。
+  4. TC-17（前提未充足 → rc=3）の対象へ `ta-45` / `ta-46` / `ta-47` / `ta-49` を追加し、
+     **dash と bash の双方**で実走する。変異 = skip guard を旧イディオムへ戻す →
+     **dash 実行で probe が rc=0**、**bash 実行で本体が走る**の両方が FAIL として現れること。
+- **関連**: R-022（`sh` 実体の固定）と対で解かないと、片方のシェルでしか検証されない状態が残る。
+
+## R-022 CI とローカルで `sh` の実体が固定されておらず、検証系が環境依存になっている
+
+- **severity**: major
+- **出典**: 系統 B Lane 1 `R-101` / decision `D-0921-10`
+- **該当**: `.github/workflows/test.yml:19`（`runs-on: ubuntu-latest`）/ `:28`（`run: sh tests/run-tests.sh`）
+- **指摘**: CI は `sh` としか書いておらず **shell 実体を固定していない**。
+  ubuntu-latest では dash、macOS 開発機では bash 3.2.57 になり、R-021 のとおり
+  `return` のセマンティクスが分岐する。「どちらか一方でしか検証していない」状態が構造的に発生し、
+  本 PBI が導入する契約（rc 0/1/2/3）そのものが環境で意味を変える。
+- **是正案**: contract TA と CI で `sh` 実体を固定する。案は 2 つ。
+  (a) CI を dash 明示（`run: dash tests/run-tests.sh` 相当）にする / (b) **dash + bash の matrix 実行**にする。
+  Lane 1 の推奨は (b)（(a) 単独では macOS 開発機での素通りを検出できないままになる）。
+- **責務分界（重要）**: `.github/workflows/**` は
+  [`mode-classification.md`](../../../.claude/rules/mode-classification.md) の **Hardening Override 対象パス**である。
+  **AI は適用せず patch 提示に留める**。採否と適用は Human-owned。
+  なお本追補は plan の Files 表を変更しない（確定反映は別ステップ）。
+- **未確定事項**: matrix 化した場合の CI 時間増（R-026 と乗算される）は未見積り。
+
+## R-023 偽 PASS 3 件（`ta-11` / `ta-32` / `ta-38`）を contract TA が「健全」と太鼓判を押す
+
+- **severity**: major
+- **出典**: 系統 B Lane 2 `R-213`（系統 B Phase 1 inventory の新規検出）
+- **該当**: `tests/extras/ta-11-*.sh` / `tests/extras/ta-32-*.sh` / `tests/extras/ta-38-*.sh`
+  （系統 B 実測: standalone 実行で `[PASS]` 0 件かつ `[FAIL]` 0 件かつ rc=0。証跡 `evidence/baseline/standalone-current.log`）
+- **指摘**: この 3 件は **1 件もアサーションを実行していないのに rc=0** を返す。
+  本 PBI の contract TA は「rc が契約どおりか」を見るため、**この 3 件を合格させる**。
+  すなわち #921 の主題（失敗を隠さない）に対し、**「何も検査していない」という別クラスの隠蔽が
+  検査済みの体裁で通過する**。現行 plan にはこの 3 件への言及が一切ない（grep 0 件）。
+  根本原因は exit code 伝播ではなく **ROOT 解決**（`//` や `tests/` へ解決してしまい fixture が見つからない）
+  であり、これは #914 の後継領域。
+- **是正案（2 段構え）**:
+  1. **#921 スコープ内（推奨）**: helper の init に **ROOT sentinel 検査**を持たせ、
+     `[ -x "$ROOT/bin/plangate" ] && [ -d "$ROOT/schemas" ]` を満たさなければ **fail-closed**。
+     件数も allowlist も持たないため「件数を契約値にしない」制約に抵触せず、
+     `//` へも `tests/` へも解決した場合の両方が落ちる。
+  2. **別 issue**: 3 件自体の修理。`plan.md` Out of Scope「各 extras のテスト内容・期待値の見直し」に
+     正面から抵触するため本 PBI では扱わない。
+  加えて **harness モードでの偽 PASS は #921 では一切解消しない**ことを handoff に明記する。
+- **Human 判断項目**: 上記 1 を #921 スコープに含めるか、2 と併せて別 issue にするか。
+
+## R-024 finalize が harness 経路で非 0 を返すと `set -e` でスイート全体が即死する
+
+- **severity**: major
+- **出典**: 系統 B Lane 1 `R-103`
+- **該当**: `tests/run-tests.sh:11`（`set -eu`）/ `plan.md` Global Constraints
+  「sourceされた extras から `exit` して harness 全体を終了させない」
+- **指摘**: 現行 Global Constraints は **`exit` しか禁じていない**。
+  `set -e` 下では **source 経路で非 0 を `return` するだけでも**後続の extras が丸ごとスキップされ、
+  `_pg_drain_cleanup`（`tests/run-tests.sh:174`）も `Results:` 行も出ない。
+  runner は最終的に exit 1 するため、**「テストが赤い」ようにしか見えず途中打ち切りに気づけない**
+  （系統 B は合成 harness で sh / dash 同一の挙動を実測）。実装ミス形
+  （finalize 末尾が `[ "$fail" -gt 0 ]` のような test で終わる）でも同じ事故になる。
+  helper の source 時 source-safe 性は R-019a が既に制約しているが、**finalize 呼出時**は未制約。
+- **是正案**: Global Constraints を
+  **「source 経路で `exit` も非 0 `return` もしない」**へ拡張し、
+  `pg_extra_contract_finalize` は **harness mode では末尾で常に明示 `return 0`**、
+  standalone mode でのみ `exit` する、と Helper interface へ明記する。
+  TC として「fail>0 の standalone-capable 相当を含む合成 harness を source し、
+  **後続ファイルのマーカー行と `Results:` 行が両方出る**」を追加する。
+
+## R-025 bootstrap の `.` 失敗と runner source 行の単独 revert が、いずれもスイート即死を招く
+
+- **severity**: major
+- **出典**: 系統 B Lane 1 `R-105` / Lane 4 `R-404`
+- **該当**: `tests/run-tests.sh:11`（`set -eu`）/ `plan.md` Task 3（runner への helper source）/ 各 extras の defensive bootstrap
+- **指摘**: harness 経路では `$0` = `tests/run-tests.sh` であるため、
+  bootstrap が `dirname "$0"` を起点に helper を解決すると **`tests/_extra-contract.sh`（不在）** を指す。
+  `set -e` 下で `.` が失敗すると **1 ファイルの失敗ではなく suite 全滅**になり、
+  しかも原因が bootstrap にあることが表示から読み取れない。同じ理由で
+  **runner の helper source 行だけを revert すると全 suite が即死**する。
+  現行 plan の rollback（R-005 で T-01〜T-08 に付与済み）は **タスク単位**であり、
+  この **runner ↔ extras 間の適用順序・revert 順序の原子性**を規定していない。
+- **是正案**:
+  1. bootstrap のアンカーを `$0` ではなく **`${EXTRAS_DIR:-<script dir>}`** にする
+     （harness 経路では runner が `EXTRAS_DIR` を持つため正しく解決する）。
+  2. plan の Rollback へ **「適用は runner 先行、revert は適用の逆順のみ」**という順序制約を明記する。
+  3. 「runner の helper source」と「各 extras の bootstrap 追加」が**同一 commit / 同一 PR で原子的に入る**
+     ことを DoD 化する（分離すると中間状態で full suite が全滅する）。
+- **補足**: R-010（runner 変更の要否を Task 3 で比較検証）と連動する。
+  runner 変更を落とせるなら本指摘の (2)(3) は不要になる。
+
+## R-026 contract TA の per-file timeout が未定義で、`ta-26` は偽 FAIL しうる
+
+- **severity**: major
+- **出典**: 系統 B Lane 2 `R-208` / Lane 4 `R-407`
+- **該当**: `plan.md` Verification Plan（R-017 反映済みの CI 時間見積 節）
+- **指摘**: R-017 の反映で **総量の見積り**（フルスイート baseline 231s / 増加分の裁定）は入ったが、
+  **contract TA が各ファイルを実走するループの per-file timeout が未定義**のまま。
+  系統 B 実測では `ta-26` 単独が **54〜58 秒**（自己再帰起動 2 回分。ファイル内コメントは「約 13 秒」と
+  書かれており drift している）で、**60 秒 timeout では偽 FAIL** する。
+  さらに本 repo の環境には **`timeout(1)` が存在しない**ため、素朴に `timeout` を書くと
+  コマンド不在で rc=127 になる。
+- **是正案**:
+  1. per-file timeout を **最低 180s** と明記する。
+  2. timeout の実装手段を規定する（`timeout(1)` 不在のため `perl -e 'alarm N; exec @ARGV'` 等）。
+  3. **timeout 発火は SKIP ではなく FAIL** とする（SKIP にすると本 PBI が塞ごうとしている
+     「静かに通る」クラスを新設することになる）。
+  4. `ta-26` のコメント drift（13 秒 → 実測 54 秒）は Slice 2 の対象として handoff へ残す。
+
+## R-027 capability marker の検出に 4 経路の空振りがあり、正規表現仕様が未定義
+
+- **severity**: major
+- **出典**: 系統 B Lane 2 `R-205`
+- **該当**: `plan.md` Contract Design（capability marker）/ `test-cases.md` TC-09（marker count == 1）
+- **指摘**: marker は**コメント行**として置かれるため、系統 B は以下 4 経路の空振りを実測した。
+  1. **1 行に 2 つの marker** が書かれると count が 2 になる／書き方次第で 1 に見える
+  2. **行末スペース**があると厳格アンカー（`$` 固定）の grep が **0 件**になる
+  3. **heredoc の中**に marker 文字列があると誤カウントする
+  4. **contract TA 自身**が marker 文字列を持つため自己マッチする
+  現行 TC-09 は「marker count が正確に 1」としか書いておらず、**どの正規表現でどの範囲を走査するか**が
+  仕様化されていないため、実装者ごとに上記のどれかを踏む。
+- **是正案**: marker の**正規表現を仕様として plan に明記**し、
+  **探索範囲をファイル先頭 20 行に限定**、カウントが 1 以外なら FAIL とする
+  （実測: `ta-*.sh` は 57/57 が shebang を持たず 2 行目が `# Sourced by tests/run-tests.sh …` で統一されているため、
+  先頭 20 行への限定は構造的に安全 — 系統 A 実測サマリと整合）。
+  contract TA 自身の自己マッチは、既に採用済みの「自己を除外する」規律（C-1 第 4 ラウンド MJ-I）と同じ扱いにする。
+
+## R-028 TC-16 が実 `tests/extras/` に `ta-zz-probe.sh` を作る設計になっている
+
+- **severity**: major
+- **出典**: 系統 B Lane 2 `R-210`
+- **該当**: `test-cases.md` `### TC-16 New file without contract`
+  （"Adding a temporary `ta-zz-probe.sh` without marker/init …"）
+- **指摘**: `tests/run-tests.sh:165` は **無条件に全 `ta-*.sh` を source** する。
+  TC-16 が実 `tests/extras/` へ `ta-zz-probe.sh` を作る方式だと、
+  **中断・異常終了時の残留が以後すべての run を汚染する**（残留ファイルは marker も init も持たないため
+  contract TA が恒常 FAIL になり、原因が「前回の中断」であることが判らない）。
+- **是正案**: TC-16 を **サンドボックス方式**（`mktemp -d` した repo コピー配下で実施）へ変更し、
+  **実 `tests/extras/` への書き込み禁止**を Global Constraints へ明記する。
+  TC-17 / M-10 が既に採用している「repo 実コピー sandbox」（`plan.md` `#### TC-17 / M-10 の sandbox 構成手順`）
+  と同じ構成を流用できる。
+
+## R-029 probe の合格条件が `rc=1` のみで、他要因の rc と区別できない
+
+- **severity**: major
+- **出典**: 系統 B Lane 2 `R-203`（+ `R-204` の rc=2 衝突分）
+- **該当**: `test-cases.md` TC-12（差分 assert に強化済み）/ TC-11（rc=2 の assert）
+- **指摘**: R-016 / 裁定② の反映で TC-12 は
+  **(a) probe なし → rc=0 / (b) probe あり → rc=1** の差分 assert へ強化されたが、
+  合格条件は依然 **rc の値だけ**である。
+  - **rc=1 側**: 層 0 の 4 本は legacy の `[ "$fail" -eq 0 ] || exit 1` を持つため、
+    **finalize が一度も呼ばれなくても他要因で rc=1 になりうる**。
+    「finalize に到達し `fail>0` が rc=1 へ写像された」ことを証明できない。
+  - **rc=2 側**: shell の**構文エラーも rc=2**（コマンド不在は rc=127）。
+    構文を壊されたファイルは harness-only guard が実行されていなくても TC-11 を PASS しうる。
+- **是正案**:
+  1. TC-12 を **`rc == 1` AND 出力に probe 固有の一意文字列**（例 `PG_EXTRA_CONTRACT_PROBE_FIRED:<basename-id>`）
+     を含む、の AND にする。probe message に capability と test-id を載せる。
+     （plan の Contract probe 節は「区別可能なメッセージ」までは規定済みだが、**TC 側の assert 条件になっていない**）
+  2. TC-11 を **`rc == 2` AND `[ERROR] <basename-id> is harness-only`** の id 込み照合にする
+     （現行 TC-11 の "emits standard diagnostic naming that basename" を **合格条件**として明文化する）。
+  3. `sh -n` の独立 TC を置き、構文破壊が rc=2 に化けて紛れないようにする
+     （`plan.md` の Verification Plan には `sh -n` 実行があるが、**TC としては独立していない**）。
+
+## R-030 案 D における `original rc` の捕捉規約が未定義
+
+- **severity**: major
+- **出典**: 系統 B Lane 1 `R-104`
+- **該当**: `plan.md` `### Finalize precedence` の precedence 表
+  （`present / nonzero / …` → `original rc` を保持する 2 行）
+- **指摘**: precedence 表は「元の rc を保持する」ケースを持つが、
+  **案 D（末尾で明示呼出）では `$?` は直前の 1 コマンドで容易に失われる**。
+  系統 B 実測: `fail=0; false; printf 'summary'; fin "$?"` → `orig=0`（rc 1 が消える）。
+  既存 4 件（層 0）は **summary を printf してから** `[ "$fail" -eq 0 ] || exit 1` を実行する形であり、
+  この形をそのまま helper 化すると「保持しているつもりで常に 0」になる。
+  なお `original rc` を保持する 2 行は、案 C（trap が `$?` を受け取る）でしか自然に成立しない設計だった。
+- **是正案**: いずれかを選ぶ。
+  - (a) **2 値化**: `fail>0 → 1` / `fail==0 → 0` とし、precedence 表から `original rc` 行を落とす（Lane 1 推奨）
+  - (b) **保持する**: 「`pg_extra_contract_finalize` 呼び出しの**直前に他コマンドを挟まない**」を規約化し、
+    `tests/extras/README.md` の新規ファイル checklist に入れる。summary 出力は helper 内部で行う
+  どちらを採るかで README 規約と Task 5 の置換テンプレートが変わるため、**C-3 前に確定**する。
+
+## R-031 helper が env unset / ROOT 解決を所有すると `ta-26` TC-33 が空洞化する（現行方針との相違点）
+
+- **severity**: minor
+- **出典**: 系統 B Lane 4 `R-401`
+- **該当**: `plan.md`「`ta-26` TC-33 の扱い」節（R-013 反映済み）
+- **指摘**: R-013 の反映で「TC-33 の検査対象を helper 側へ差し替える」方針が確定し、
+  さらに「Slice 1 では `ta-26` を触らないため TC-33 は Slice 1 では壊れない」と整理されている。
+  系統 B Lane 4 は**これと異なる結論**に到達しており、相違点を記録しておく。
+  - TC-33（`ta-26:684-735`）は「各ファイル**自身の** unset 行が harness 7 env を包含すること」を
+    **extras 横断で静的走査**する唯一の箇所（`ta-26:712`）である。
+  - 検査対象を helper 1 ファイルへ差し替えると、**#914 の「残存 0」という全体性質の検証が消える**。
+    「helper の unset 集合が 7 env を包含する」ことは、
+    「**全 `ta-*.sh` が helper を通っている**」ことと合わせて初めて等価になる。
+  - Lane 4 の代案: **helper は env unset と ROOT 解決を所有しない**（各ファイルの既存 unset ブロックは維持し、
+    helper の責務を capability 判定 / counter 初期化 / cleanup registry / finalize / exit code / probe に限定）。
+- **是正案**: 現行方針（helper 側へ差し替え）を維持する場合は、
+  **「全 `ta-*.sh` が helper bootstrap + init を持つ」ことの検査が TC-33 の代替として等価である**根拠を
+  plan に明記する（`test-cases.md` の TC-33 再ターゲット記述は既にこの 2 条件を書いているため、
+  **等価性の主張を明示するだけで足りる**可能性が高い）。Slice 2 で層 0 を移行する時点で再評価する。
+- **注**: 本項は「main の方針が誤っている」という指摘ではなく、**独立レーンが別解に到達した事実の記録**。
+
+## R-032 `tests/run-tests.sh` のコメントと実 glob が不一致で、将来 helper が混入しうる
+
+- **severity**: minor
+- **出典**: 系統 B Lane 3 `R-003`
+- **該当**: `tests/run-tests.sh:7` / `:155`（コメント: 「`tests/extras/*.sh` を順次 source」）vs `:165`（実装: `for extra in "$EXTRAS_DIR"/ta-*.sh`）
+- **指摘**: 実装は `ta-*.sh` glob なので `_extra-contract.sh` は現状混入しない
+  （`plan.md` `## 前提の実測検証` の判定 ✅ は正しい）。
+  しかし**コメント 2 箇所が `*.sh` と書いており実装と食い違う**。
+  将来この不一致を「コメントが正」と読んで glob を `*.sh` へ「修正」すると、
+  **helper が 1 個の extras として source され**、`pg_extra_contract_init` 未呼出のまま runner の集計に混入する。
+  本 PBI が導入する helper が、この既存の罠の**引き金**になる。
+- **是正案**: 本 PBI のスコープに「`tests/run-tests.sh` の当該コメント 2 箇所を実装（`ta-*.sh`）へ合わせる」を追加する。
+  Out of Scope は「集計アルゴリズム変更」であり、コメント是正は抵触しない。
+  あわせて `tests/extras/README.md` の新規ファイル規約に
+  「`ta-` プレフィクスを持つファイルのみが test として収集される」を明記する。
+  検証: `grep -n 'extras/\*\.sh' tests/run-tests.sh` が 0 件。
+- **注**: R-010 で「runner 変更を落とせるか」を Task 3 で比較検証することになっているため、
+  **runner 変更をゼロにする判断を採る場合はこのコメント是正も落ちる**。その場合は README 側だけで対応する。
+
+## R-033 helper 実装の 3 つの未規定事項（`local` / mode 解決タイミング / 対話シェル source）
+
+- **severity**: minor
+- **出典**: 系統 B Lane 1 `R-110` / `R-113` / `R-112`
+- **指摘**: Global Constraints は「helper は POSIX `sh` で動作し bash 専用構文を使わない」としか書いておらず、
+  以下 3 点が **未規定のまま実装に委ねられている**。いずれも「動いてしまうため検出されない」型。
+  1. **`local` は POSIX 外**（`R-110`）。dash / bash / zsh のいずれも受け付けるため
+     **どのシェルでも検出されず**、より厳格な `sh` 実装で初めて壊れる。明示禁止が要る。
+  2. **mode（harness / standalone）の解決タイミング**（`R-113`）。
+     **mode は `pg_extra_contract_init` 呼出時に毎回解決**し、**source 時にキャッシュしない**こと。
+     キャッシュすると runner が helper を先に source する設計（Task 3）で mode が固定される。
+  3. **対話シェルへ source した場合**（`R-112`）、standalone finalize の `exit` が
+     **ユーザのシェルを落とす**。`tests/extras/README.md` に「対話シェルへ source しない」を明記する。
+- **是正案**: 上記 3 点を Global Constraints / Helper interface / README 規約へそれぞれ 1 行ずつ追加する。
+
+## R-034 TC-15 の `seven`（env 数）がハードコードされている
+
+- **severity**: minor
+- **出典**: 系統 B Lane 2 `R-214`
+- **該当**: `test-cases.md` TC-15（"With the **seven** guarded env values pre-set, …"）
+- **指摘**: `ta-26` の TC-33 は **まさに件数固定を避けるため** `awk` で `run-tests.sh` から
+  動的に env 名を導出している（`ta-26:700-711`）。TC-15 の `seven` はそれに逆行し、
+  runner の unset 列が増減したときに**テスト文言だけが stale**になる
+  （Global Constraints「file count / ta 番号一覧を正本としてハードコードしない」の精神とも整合しない）。
+- **是正案**: TC-15 の記述を「**`run-tests.sh` の unset 列から動的に導出した全 env**」へ書き換え、
+  件数を文言から落とす。
+
+## R-035 「発見集合 == runner の source 集合」を保証する TC がない
+
+- **severity**: minor
+- **出典**: 系統 B Lane 2 `R-215`（+ `R-216`）
+- **指摘**: contract TA は自前の runtime discovery で `ta-*.sh` を列挙するが、
+  **その集合が runner が実際に source する集合と一致する保証**がテストされていない。
+  片方の glob だけが変わると、contract TA が「全件検査した」と言いながら
+  runner が source する一部を見ていない状態になりうる（本 PBI が塞ごうとしている空振りと同型）。
+  関連して、`ta-40` は `FIXTURES_DIR:-` を参照しないため **`ta-26` TC-33 の網にそもそも掛からない**
+  （`ta-40` が層 A に含まれることは R-003 で反映済みだが、TC-33 側の網羅性は別問題）。
+- **是正案**: 「contract TA の discovery 集合 == `tests/run-tests.sh` の extras loop が source する集合」
+  を assert する TC を追加する（両者が同じ glob 定義を参照する構造にするのが最も安価）。
+
+## R-036 移行 PR の生存中に marker 無しの新規 `ta-NN` が着地するリスク
+
+- **severity**: info
+- **出典**: 系統 B Lane 4 `R-412`
+- **指摘**: 系統 B 実測時点で `tests/` に触れる open PR は **#1013 のみ**で、当該 PR は `tests/` を変更していない。
+  したがって競合の直接リスクは低い。真のリスクは
+  **移行 PR の生存中に marker を持たない新規 `ta-NN` が main へ着地する**こと。
+  `tests/extras/` の追加ペース実測: 2026-05 = 21 本 / 06 = 26 本 / 07 = 8 本 / 08（5 日時点）= 3 本。
+- **是正案**: 移行 PR は **7 日以内に merge** することを運用目標として plan の Risks へ記載する。
+  着地してしまった場合は `_pending_migration`（移行期間 allowlist）に**載っていない**ため
+  TC-09 / TC-10 が FAIL する ＝ **検出はされる**（silent leak にはならない）。是正コストのみの問題。
+
+## R-037 移行の作業設計に関する 3 提案（batch 基準 / bootstrap 縮小 / `ta-26` legacy adapter）
+
+- **severity**: info
+- **出典**: 系統 B Lane 4 `R-402` / `R-403` / `R-408`
+- **指摘・提案**:
+  1. **batch 基準（`R-402`）**: 「10〜15 files/batch」はファイル数基準であり、
+     系統 B の risk 分布（high 1 / medium 9 / low 47）と無関係。
+     **ハザードはファイル数でなく個別に偏在**しているため、batch は risk 単位で切るほうが安全。
+     （現行 plan は Human 決定 3 で Slice 1 = 層 A 12 本に確定済みのため、**Slice 2 の分割設計への提案**として残す）
+  2. **bootstrap の縮小（`R-403`）**: runner の extras loop に `PG_EXTRA_FILE="$extra"` の 1 行を足し、
+     bootstrap を `EXTRAS_DIR` アンカー + marker 単一正本にすると **7 行 → 2 行**へ縮小でき、
+     「marker と init の不一致」という故障クラス自体が消える。
+     `git diff -U0 | grep '^+' | sort -u` が少数行に収束するため、レビュー量が **O(41) → O(1)** になる。
+     ただし runner 変更を増やす方向であり、**R-010（runner 変更を落とせるか）と正面から競合**する。
+  3. **`ta-26` の扱い（`R-408`）**: `ta-26` は既に `fail>0 → exit 1` が成立しているため、
+     helper へ移行しても **#921 への behavioral gain がゼロ**。
+     さらに移行すると TC-13 が「helper の出力フォーマット検証」に変質し、
+     **規約を取り締まる側（TC-33 / TC-13）が取り締まられる機構（helper）に依存する循環**が生じる。
+     → legacy adapter のまま残す案を Slice 2 の選択肢として保持する。
+     （現行 plan は層 0 を Slice 2 へ繰り延べ済みのため、**Slice 2 の判断材料**として記録）
+
+## 重複除外表（系統 B の 32 件のうち、本追補へ採録しなかった 15 件）
+
+> 「main 版（R-001〜R-020 反映後の plan / todo / test-cases）に**既にある**」と判断した根拠を 1 行で記す。
+> 実測は `origin/main` = `9f9af94` 時点の `docs/working/TASK-0921/` に対して行った。
+
+| 系統 B の元 ID | 要旨 | 除外根拠（1 行） |
+|---|---|---|
+| `R-001` / `R-102` | helper の `register_cleanup` が harness の同名関数を上書き | **既出**: 系統 A `R-019` として反映済み。`plan.md` Global Constraints に「helper は `register_cleanup` を無条件再定義しない（R-019b）」が実在 |
+| `R-002` | AC-1 の充足方法が「全件伝播」→「伝播 or 拒否」へ再解釈 | **既出**: `plan.md` In Scope の 2 層モデル + `test-cases.md` Traceability の AC-1 行が「層 A 12 本の範囲 / 全 `ta-*.sh`」と Slice 別に明示済み。Human 承認対象であることも Human Approval Boundary に記載済み |
+| `R-004` | probe env を runner 冒頭の既存 unset 行へ載せる | **既出・別裁定**: 系統 A の委譲裁定 ① で **internal-only（helper 側で harness mode なら probe を読まない）** を採用し、`plan.md` Questions の「解決済み」表に確定記録済み。runner の unset 列は触らない方針が確定している |
+| `R-005` | #530-3 の trap 禁止規約と案 C の関係を明記 | **失効**: Human 決定 1 で案 D（trap を張らない）を採用したため前提消滅。`plan.md` Global Constraints に「README 規約 1–2 に例外を作らない」として反映済み |
+| `R-106` | helper は `set -u` clean でなければならない | **既出**: 系統 A `R-019a`。`plan.md` Global Constraints「helper は `set -eu` 下で source-safe」に反映済み |
+| `R-107` | early-exit の対象は 8 サイト | **部分採録**: 対象範囲の是正は **R-021 に統合**して採録した。件数の数え方の議論そのものは重複のため個別採録しない |
+| `R-109` | standalone 時の `register_cleanup` 定義順序 | **既出の系**: `R-019b` の「standalone mode でのみ未定義時の fallback として定義する」で順序も含めて規定済み |
+| `R-111` | `ta-50` の stdin ハング（`</dev/null`） | **既出**: `plan.md` Global Constraints「direct invocation probe は必ず `</dev/null` を付け、ta-50 等の stdin 待ちを防ぐ」が実在 |
+| `R-201` | plan 本体が案 C 専用で案 D が未定義 | **解消済み**: Human 決定 1 で案 D 採用、`plan.md` の Approach Comparison / Finalize precedence / Task 5 が案 D 前提へ全面改訂済み |
+| `R-202` | 早期 `exit 0` が finalizer を飛ばす | **既出 + 部分採録**: `|| exit 0` 型 3 件は `plan.md` `## 前提の実測検証` に実測付きで反映済み。**対象範囲の誤り（`\|\| true` 型の見落とし）だけ R-021 として採録** |
+| `R-204` | `exit 2` が構文エラー rc=2 と衝突 | **部分採録**: id 込み照合の要求は **R-029 に統合**。`sh -n` 自体は `plan.md` Verification Plan に実在するため、独立 TC 化のみ R-029 で扱う |
+| `R-206` | marker↔init 一致検査が静的だと `if false` 包囲で回避可能 | **既出**: `test-cases.md` TC-10 に「Comment-only token elsewhere does not satisfy this test」が明記済み。加えて TC-12 の probe 差分が実行ベース検証を担う |
+| `R-207` | test-id が一意でない（`ta-14` が 2 本） | **既出**: 系統 A `R-016`。`plan.md` が test-id を basename ベースへ改訂済み、TC-20（一意性）も追加済み |
+| `R-209` | contract TA の自己再帰は `harness-only` 宣言が唯一の安全解 | **既出・別解**: `plan.md` が「自己再帰の回避は集合から外すことではなく per-file 実走ループで自分を除外する」形で解決済み（C-1 第 4 ラウンド MJ-I）。安全性は等価 |
+| `R-211` | `[FAIL]` が stderr / stdout に混在（`2>&1` 必須） | **既出**: `plan.md` の記録コマンド仕様（`> <log> 2>&1`）/ Task 5 の `t43_fail` は stderr 出力である旨 / Verification Plan の各行に反映済み |
+| `R-212` | probe は `[FAIL]` → `fail` の配線を検証しない | **既出の系**: `test-cases.md` TC-16 パターン C（marker + init はあるが末尾 finalize が無い）と M-07 が同じ穴を突いており、TC-12 の probe 差分で検出される |
+| `R-214` | `seven` と「ta-39 の後」のハードコード | **部分採録**: 「ta-39 の後」は系統 A `R-006` で解消済み（TC-14 を runtime 解決へ）。**`seven` だけ未解消のため R-034 として採録** |
+| `R-216` | `ta-40` が TC-33 の網に掛からない | **部分採録**: `ta-40` が層 A に含まれることは `R-003` で反映済み。TC-33 側の網羅性の論点だけ **R-035 に統合** |
+| `R-217` | M-02 / M-06 が案 D で意味を失う | **解消済み**: `test-cases.md` の M-02 は「make the helper act on probe env in harness mode」、M-06 は「hardcode current file count and add probe file」へ書き換え済みで、いずれも案 D で意味を持つ |
+| `R-405` | `\|\| true` 型で TC 期待値が apply 適用状態に依存（flaky） | **統合採録**: R-021 の故障モード (2)（bash で本体が走る）と同一原因のため R-021 へ統合 |
+| `R-406` | fail 加算後に `exit 0` する経路が実在（`ta-43` / `ta-44`） | **既出**: `plan.md` `## 前提の実測検証`「早期 exit で fail を握り潰す実例があるか」行に記号アンカー付きで反映済み |
+| `R-407` | probe の timeout が未定義（`ta-26` 54〜58 秒） | **統合採録**: R-026 へ統合（`R-208` と同一論点） |
+| `R-409` | 「RED commit」と「各 commit は full suite を壊さない」の自己矛盾 | **解消済み**: 現行 `todo.md` / `plan.md` は Slice 1 を「helper + contract TA + 層 A 12 本」の単位で設計しており、RED を作らず allowlist で covered set を絞る構造になっている |
+| `R-410` | README の追加手順に marker が無くコピペで落ちる | **既出の系**: `plan.md` Task 7 / Files 表が `tests/extras/README.md` の「capability / rc 0-3 / probe / new-file 規約」更新を明示済み。文言レベルの提案は確定反映時に取り込めば足りる |
+| `R-411` | README の現行テスト一覧が stale（12 件 vs 実測 57 件） | **明示的に Out of Scope**: `plan.md` Out of Scope に「README の現行テスト一覧ドリフト修正」が明記されている |
+| `R-413` | Alternative C（intrinsic predicate による 2 フェーズ） | **明示的に不採用**: `test-cases.md` が「allowlist は **述語で解決しない**（述語だと marker も init も持たない新規ファイルを自動免除してしまい、pbi-input AC-5 の第 2 節に反する）」と理由付きで否定済み。M-13 / M-14 が述語化・allowlist 過大化を変異として殺す |
+
+> 除外 15 件（表の「既出」「解消済み」「明示的に Out of Scope」「明示的に不採用」）+ 統合 6 件
+> （`R-107` / `R-202` / `R-204` / `R-214` / `R-216` / `R-405` / `R-407` のうち R-021 / R-026 / R-029 / R-034 / R-035 へ統合）
+> = 系統 B の 32 件のうち **本追補で新規採録したのは 17 件（R-021〜R-037）**。
+
+## 追補の監査表（追記専用 / squash・rebase 耐性）
+
+> `status`: `open`（未反映）/ `reflected`（計画本体へ反映済み）/ `rejected`（不採用・理由を notes へ）/
+> `resolved-by-design`（設計変更により前提が消滅）
+> 本追補は working-context「(1) review-external に R-NNN 集約」までを完了させた状態であり、
+> **計画本体（plan / todo / test-cases）は一切変更していない**。したがって全件 `open`。
+
+| R-NNN | status | reflected_in(commit) | notes |
+|-------|--------|----------------------|-------|
+| R-021 | open | — | **critical** / 系統 B Lane 1 `R-101`+`R-107`+`R-108` / Lane 4 `R-405` / `\|\| true` 型 4 件（`ta-45`/`ta-46`/`ta-47`/`ta-49`）のシェル依存早期脱出。CI(dash) で末尾 finalize 到達不能・bash で skip guard 素通り。**Slice 1 スコープ内** |
+| R-022 | open | — | major / 系統 B Lane 1 `R-101` / `D-0921-10` / CI の `sh` 実体が未固定。**`.github/workflows/**` は HO 対象のため AI は patch 提示のみ** |
+| R-023 | open | — | major / 系統 B Lane 2 `R-213` / 偽 PASS 3 件（`ta-11`/`ta-32`/`ta-38`）を contract TA が合格させる。ROOT sentinel の fail-closed を提案。**Human 判断項目（スコープ内 / 別 issue）** |
+| R-024 | open | — | major / 系統 B Lane 1 `R-103` / harness 経路での非 0 `return` が `set -e` でスイート即死。Global Constraints は `exit` しか禁じていない |
+| R-025 | open | — | major / 系統 B Lane 1 `R-105` / Lane 4 `R-404` / bootstrap の `.` 失敗と runner source 行の単独 revert が suite 即死。`EXTRAS_DIR` アンカー + 適用/revert の順序制約 |
+| R-026 | open | — | major / 系統 B Lane 2 `R-208` / Lane 4 `R-407` / per-file timeout 未定義。`ta-26` 実測 54〜58 秒 / `timeout(1)` 不在 / timeout 発火は SKIP でなく FAIL |
+| R-027 | open | — | major / 系統 B Lane 2 `R-205` / marker 検出の空振り 4 経路（1 行 2 marker / 行末スペース / heredoc 内 / 自己マッチ）。正規表現仕様化 + 先頭 20 行限定 |
+| R-028 | open | — | major / 系統 B Lane 2 `R-210` / TC-16 が実 `tests/extras/` に `ta-zz-probe.sh` を作る設計。sandbox 化 + 実ディレクトリ書込禁止 |
+| R-029 | open | — | major / 系統 B Lane 2 `R-203`+`R-204` / probe 合格条件が rc 値のみ。一意文字列 AND / rc=2 の id 込み照合 / `sh -n` 独立 TC |
+| R-030 | open | — | major / 系統 B Lane 1 `R-104` / precedence 表の `original rc` を案 D でどう捕捉するかが未定義。2 値化 or 「finalize 直前にコマンドを挟まない」規約 |
+| R-031 | open | — | minor / 系統 B Lane 4 `R-401` / helper が env unset / ROOT 解決を所有すると TC-33 が空洞化。**現行方針との相違点の記録**（等価性の明示を提案） |
+| R-032 | open | — | minor / 系統 B Lane 3 `R-003` / `tests/run-tests.sh:7,155` のコメント（`extras/*.sh`）が実装（`ta-*.sh`）と不一致。将来 helper 混入の引き金 |
+| R-033 | open | — | minor / 系統 B Lane 1 `R-110`+`R-113`+`R-112` / `local` は POSIX 外 / mode は init 毎回解決（source 時キャッシュ禁止）/ 対話シェル source 禁止を README へ |
+| R-034 | open | — | minor / 系統 B Lane 2 `R-214`（`seven` 部分のみ） / TC-15 の env 件数ハードコード。`run-tests.sh` から動的導出へ |
+| R-035 | open | — | minor / 系統 B Lane 2 `R-215`+`R-216` / 「contract TA の discovery 集合 == runner の source 集合」を assert する TC が無い |
+| R-036 | open | — | info / 系統 B Lane 4 `R-412` / 移行 PR 生存中の marker 無し新規ファイル着地。検出はされる（TC-09/TC-10 FAIL）ため是正コストのみ。7 日以内 merge を推奨 |
+| R-037 | open | — | info / 系統 B Lane 4 `R-402`+`R-403`+`R-408` / batch 基準を risk 分布へ / bootstrap 7 行→2 行（`PG_EXTRA_FILE`）/ `ta-26` は legacy adapter。**Slice 2 の判断材料** |
+
+## 系統 B の実測サマリ（証跡は `evidence/` 配下）
+
+> 基点 `origin/main` = `4448420`。系統 A（基点 `516e2f7`）の実測と**別採取**であり、
+> 値が食い違う箇所は下表に併記した。
+
+| 項目 | 系統 B 実測 | 系統 A 実測（既出） | 証跡 |
+|---|---|---|---|
+| `ta-*.sh` 総数 | **57**（`ta-48` 欠番 / `ta-14` 同番 2 本） | 57（同上） | [`evidence/inventory/extras-files.txt`](./evidence/inventory/extras-files.txt) |
+| standalone-capable / harness-only | **16 / 41** | 候補 15（層 0 の 4 + 層 A の 12 = 16 と整合） | [`evidence/inventory/extras-inventory.md`](./evidence/inventory/extras-inventory.md) |
+| フルスイート baseline | rc=0 / **231 秒** / **539 passed, 0 failed** | rc=0 / 231 秒 / **541 passed**, 0 failed（基点差） | [`evidence/baseline/full-suite.log`](./evidence/baseline/full-suite.log) |
+| 構文チェック | 58 ファイル **エラー 0** | — | [`evidence/baseline/syntax.log`](./evidence/baseline/syntax.log) |
+| `[FAIL]` を出しながら rc=0 | **35 件 / `[FAIL]` 合計 256 / 伝播 0 件** | 走査範囲（ta-04〜ta-25）で全件 rc=0 | [`evidence/baseline/standalone-current.log`](./evidence/baseline/standalone-current.log) |
+| **偽 PASS**（`[PASS]` 0 かつ `[FAIL]` 0 かつ rc=0） | **3 件**（`ta-11` / `ta-32` / `ta-38`）+ `ta-06` / `ta-08` | 未検出（観点外） | 同上（R-023） |
+| top-level `trap ... EXIT` | **4 件**（うち standalone-capable は `ta-45`） | **5 件**（`ta-07`/`ta-09`/`ta-24`/`ta-28`/`ta-45`。うち standalone-capable は `ta-45`） | [`evidence/inventory/trap-cleanup-audit.md`](./evidence/inventory/trap-cleanup-audit.md) |
+| `ta-26` の standalone 実行時間 | **54〜58 秒**（ファイル内コメントは「約 13 秒」= drift） | 76 秒 | 同上（R-026） |
+| `register_cleanup` 使用ファイル | **21 件** | — | 同上 |
+
+> **trap の件数差（4 vs 5）について**: 系統 A は `ta-28` を含めて 5 件、系統 B は 4 件としている。
+> **本追補では判定していない**（採取条件の差か走査条件の差かを特定していない）。
+> 案 D 採用により trap 競合そのものが論点から外れているため実害はないが、
+> **数値としてどちらが正かは未確定**であることを明示しておく。
+
+## 追補の次ステップ（本ファイル外）
+
+1. **完了**: review-external に `R-021`〜`R-037` を集約（本追補）
+2. 計画本体（`plan.md` / `todo.md` / `test-cases.md`）へ **1 回だけ確定反映**（反映コミットに `Refs: R-021` 〜）
+   — **R-022 の `.github/workflows/**` 部分は AI が適用せず patch 提示に留める**
+3. 簡易 C-1 再実行
+4. 人間が最終 `approvals/c3.json`（`c3_status=APPROVED`・確定後 plan の `plan_hash`）を発行
+5. exec
+
+> **注意**: 本追補時点で C-3 承認済みの `approvals/c3.json` は**存在しない**（`docs/working/TASK-0921/approvals/` 自体が未作成）。
+> R-021 が critical であるため、**確定反映前の c3.json 発行は行わない**こと。
