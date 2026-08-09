@@ -25,7 +25,7 @@
 |---|---|---|---|---|---|
 | R-001 | **major** | `test-cases.md` TC-A6a / `plan.md` 越境検査 | AC-1 の静的前提を担保する**唯一の検査に実行可能な判定式が無い**（範囲導出までが fence、識別子収集と全数照合は fence 外の散文）。記法規約 §8 の自己違反 | 反映 | (pending) |
 | R-002 | **major** | `plan.md` 適用後 awk / `test-cases.md` 変異③ | 範囲導出 awk が **fail-open**。桁 0 の `fi` に一致するため、ゲート内の `fi` が 1 行でも未インデントだと範囲が黙って打ち切られる。`sh -n` は通り、TC-INV は `-w` で空白差を無視し、🚩「導出件数 4」も通過する。さらに変異③の注入対象 `_t26_t20` は**ゲート A 先頭付近**なので切り詰め後の範囲にも入り、この経路を一切実証しない | 反映 | (pending) |
-| R-003 | **major** | `plan.md` Mode 判定 / `test-cases.md` | **Mode=standard が 2 つの計数規約に依存**。① AC 6→5 の畳み込み動機として「high-risk 帯に入り Mode 判定が変わる」と**帯回避を明記** ② 変更ファイル数を「1」とする一方、同 plan が arbiter 向けには「実差分は 2 を超える」と**逆の計数**を採る。リポジトリ内の先例も割れている（TASK-0970 は実装のみ / TASK-0981 は working context 7 を母数に含めて high） | 反映 | (pending-r003) |
+| R-003 | **major** | `plan.md` Mode 判定 / `test-cases.md` | **Mode=standard が 2 つの計数規約に依存**。① AC 6→5 の畳み込み動機として「high-risk 帯に入り Mode 判定が変わる」と**帯回避を明記** ② 変更ファイル数を「1」とする一方、同 plan が arbiter 向けには「実差分は 2 を超える」と**逆の計数**を採る。リポジトリ内の先例も割れている（TASK-0970 は実装のみ / TASK-0981 は working context 7 を母数に含めて high） | 反映 | `8216339` |
 | R-004 | **major** | `test-cases.md` TC-A5 / `pbi-input.md` AC-5 | **AC-5 に拘束力が無い**。FAIL 条件が「OPT 中央値 > BASE 中央値」だけで、短縮率 0〜15% は WARN で受理して完了できる。恒久コスト（子のカバレッジ縮小＝テスト意味論の変更）は確定する一方、便益未達でも完了する非対称。取り消し判断ゲートが plan / todo のどこにも無い | 反映 | (pending) |
 | R-005 | minor | `test-cases.md` TC-A1c / TC-A2a | 記法規約の**兄弟取りこぼしが再発**（TC-A1b / TC-INV に fence を入れた際の対象漏れ）。TC-A1c は素直に書くと `\|` エスケープ事故を起こす形 | 反映 | (pending) |
 | R-006 | minor | `plan.md` 越境検査の収集パターン | `^\s*(\w+)=` は**行頭でない代入を拾わない**（範囲内に 6 箇所）。`\s` / `\w` は **POSIX ERE 外**で非可搬。※現時点では 6 変数すべてが行頭代入も併存するため false negative は **0 件** | 反映 | (pending) |
@@ -85,6 +85,7 @@ awk '
 | **決定** | **B. Mode を high-risk へ引き上げる**（Human 決定 2026-08-10） |
 | **決定者** | Human（C-3 の承認境界に関わる判断のため AI は決定しない） |
 | **反映** | `.claude/rules/working-context.md`「C-2 指摘の差分管理」に従い **1 回だけ確定反映**（コミットに `Refs: R-003`）。plan.md 改訂 10 / pbi-input.md / test-cases.md / todo.md |
+| **reflected_in** | `82163397dfe39f6d8d1e635fc4d8d3ce9cd465ec`（監査表の R-003 行は短縮 SHA `8216339`） |
 
 反映内容（詳細な台帳は `plan.md`「C-2 指摘の反映」節）:
 
