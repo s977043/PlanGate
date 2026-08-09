@@ -8,11 +8,11 @@
 
 ## 現在のフェーズ
 
-C-2待ち
+Human C-3待ち
 
 ## 次のアクション
 
-Claude Code等で設計妥当性・コードベース整合の2独立C-2を実施し、指摘を1回確定反映して簡易C-1を再実行する。その後Human C-3へ提出する。
+初回C-2指摘R-001〜R-025を確定反映し、更新版は両独立レーンAPPROVE。Plan hash `24fcdf9f...53de1` をHuman C-3へ提出する。
 
 ## ファイルマップ
 
@@ -30,4 +30,3 @@ Claude Code等で設計妥当性・コードベース整合の2独立C-2を実�
 ## 変更ファイル一覧
 
 実装scopeは`check-approval-token-write.sh`と`ta-25-approval-token-guard.sh`。現時点の差分はPlan Packageのみ。
-
