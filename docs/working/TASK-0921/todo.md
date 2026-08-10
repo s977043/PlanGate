@@ -1,7 +1,10 @@
 # EXECUTION TODO — TASK-0921
 
 > Plan: [`plan.md`](./plan.md) / Tests: [`test-cases.md`](./test-cases.md)
-> C-2: [`review-external.md`](./review-external.md)（`Refs: R-001`〜`R-020` を本版で確定反映）
+> C-2: [`review-external.md`](./review-external.md)（`Refs: R-001`〜`R-020` +
+> **別系統 C-2（4 レーン）由来の `R-021`〜`R-037`** を確定反映。
+> **R-032 は `resolved-by-design` につき反映せず**。未確定 5 件は plan の
+> `## Human C-3 の判断事項`＝**HJ-1 / HJ-2 / HJ-3 / HJ-4 / HJ-5**）
 > Mode: **high-risk（Slice 1）**（全extrasの実行制御とexit contractを変更するためC-3必須）
 > **Slice 2 は本 PBI スコープ内の後続スライス。着手時に Mode を再判定する**（plan `## Mode判定`）
 
@@ -56,6 +59,21 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
       別 PBI へ切り出すか否かの判断
 - [ ] **H-05**: **AC-8 を pbi-input の受入基準へ追記するか否かの裁定**（Slice 2 着手時 / C-1 MN-5）。
       AC-8 は C-2（R-013）由来の派生 AC で pbi-input 正本には存在しない
+- [ ] **H-06**: **HJ-1〜HJ-5 の裁定**（C-3 時 / plan `## Human C-3 の判断事項`）
+  - **HJ-1**: CI の `sh` 実体固定（R-022）。**`.github/workflows/**` は HO 対象のため
+    AI は適用せず patch 提示のみ**。案 (a) dash 明示 / 案 (b) dash + bash matrix
+  - **HJ-2**: 層 C の ROOT sentinel を **Slice 1 へ前倒しするか / Slice 2 の D-2 (c) に委ねるか**（R-023）
+  - **HJ-3**: `timeout-minutes: 10` の再見積り（R-026）。**HO 対象・patch 提示のみ**
+  - **HJ-4**: 案 D における `original rc` の捕捉規約（R-030）。
+    **(a) 2 値化を採ると TC-06 の再定義を伴う** / (b) 保持 + 「finalize 直前に他コマンドを
+    挟まない」規約化。**Task 5 の置換テンプレートと README 規約が変わるため C-3 で確定する**
+  - **HJ-5**: **AC-2 (c) の対象を 3 本 → 7 本（rc=3 の対象は 6 本 + 節スキップ 1 本）へ
+    改める旨を `pbi-input.md` の受入基準（正本）へ反映するか**（F3）。
+    R-021 の実測で早期脱出が 7 本と判明したが、**AC の正本は `pbi-input.md`** であり
+    Traceability は写像のみを持つ。**AI は正本を書き換えず本項として提示する**
+    （H-05「AC-8 を pbi-input へ追記するか否か」と同型）。
+    **裁定まで `pbi-input.md` の「層 A の 3 本」は stale のまま**であり、
+    `plan.md` から辿ると 3 と 7 が食い違う（既知の未確定点）
 
 ## Agent Tasks
 
@@ -85,6 +103,10 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
     skip を経ずに rc3 が出ないこと（C-1 MN-4）
   - **prerequisite missing かつ `fail > 0` → 1**（rc3 へ丸めない / C-1 第 2 ラウンド MN-2）。
     診断に「既に立っている fail」が出ること
+  - **harness mode の finalize は必ず明示 `return 0`**（R-024）。合成 harness を source して
+    **後続ファイルのマーカー行と `Results:` 行が両方出る**ことを RED で固定（TC-26）
+  - **helper に `local` を使わない / mode を source 時にキャッシュしない**（R-033-1 / R-033-2）
+  - **probe message が `PG_EXTRA_CONTRACT_PROBE_FIRED:<basename-id>` を含む**（R-029-1）
   - original nonzero rc preservation
   - 末尾 finalize 未呼出の検出（案 D の弱点補償）
   - cleanup drain / **`register_cleanup` 非再定義**（R-019b）
@@ -100,6 +122,19 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
     成立するなら `tests/run-tests.sh` の変更を落とし Files 表と Human Approval Boundary から除去。
     落とせない場合は「なぜ bootstrap だけでは不足か」を根拠付きで記載
   - runner を残す場合、runner diffはhelper sourceに限定
+  - **bootstrap は mode 判定（`PG_HARNESS_SOURCED` AND `FIXTURES_DIR`）で分岐**し、
+    **harness 経路のみ `EXTRAS_DIR` を読む**（R-025-1 / F5）。harness 経路の `$0` は
+    `tests/run-tests.sh` を指すため `tests/_extra-contract.sh`（不在）へ解決してしまう。
+    一方 **`${EXTRAS_DIR:-…}` を存在判定に使わない** — `EXTRAS_DIR` は runner の
+    unset 7 env に含まれず、standalone 実行時に外部 export で別ツリーの helper を
+    source しうる（TC-15 では検出できない新しい汚染面）
+  - **helper 解決失敗は `.` の前に `[ -r "$helper" ]` で検出する**（R-025-1 / F1）。
+    **`. "$helper" || { 診断 }` は成立しない**（`.` は special built-in。失敗すると
+    非対話シェルは `||` の中でも即終了。実測 dash rc=2 / bash rc=1・**`set -e` 非依存**）。
+    失敗時は診断 + `fail` 加算のうえ **harness は `return 0` / standalone は `exit 1`**
+  - **runner を残す場合、「helper source」と「各 extras の bootstrap 追加」は同一 commit /
+    同一 PR**（forward 側の原子性 / R-025-2）
+  - **`local` 不使用を機械確認**（`grep -n '\blocal\b' tests/extras/_extra-contract.sh` = 0 件 / R-033-1）
   - POSIX `sh -n`
   - synthetic tests GREEN
   - checkpoint commit
@@ -115,7 +150,10 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - helper bootstrap/initをbody side effect前へ配置
   - direct execution loop: all rc2 + standard error（**basename test-id** を名乗る）
   - tmp/audit side effectがないこと
-  - 10〜15 files単位のreviewable commits
+  - **`ta-31-codex-plugin-status.sh` の分岐内 `return 0 2>/dev/null || true` 4 箇所を除去**
+    （R-021 の残余。`mktemp` 失敗時にだけ通る経路だが同じシェル依存を持つ）
+  - 10〜15 files単位のreviewable commits（**batch を risk 単位で切る案は R-037-1 の
+    Slice 2 判断材料。plan `#### Slice 2 着手時の判断材料` 参照**）
   - `rollback:` batch 単位 commit を `git revert <sha>`（未 push なら `git reset --hard`）。
     **helper 導入前まで戻す場合は T-03 の revert が前提**（helper 不在で marker/init だけ残ると
     全 harness-only ファイルが起動時に落ちる）。revert 順序は **T-04 → T-03**
@@ -144,9 +182,26 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - marker + init + **末尾 explicit finalize**（案 D）
   - file固有root fallbackを保持
   - **層 A 12 本は全数がカウンタ未初期化**（pbi-input A-1'）→ helper の `pass=0` / `fail=0` に載せる
-  - **`ta-39` / `ta-43` / `ta-44` の prerequisite 経路を `pg_extra_contract_skip` 経由の rc=3 へ**（R-002）。
-    3 本とも層 A で本 Slice の対象。**`ta-39` / `ta-43` / `ta-44` の早期 `exit 0`
-    （早期 exit 3 件）も同時に除去される**
+  - **早期脱出 7 本のイディオムを除去する。ただし構造が 2 種類あるので扱いを分ける**
+    （R-002 / **R-021 により 3 本 → 7 本へ拡大**。詳細は plan `#### 7 本は同質ではない`）:
+    - **ファイル全体ガード 6 本 → `pg_extra_contract_skip` 経由の rc=3**:
+      `ta-39` / `ta-43` / `ta-44`（`|| exit 0` 型。`ta-39` は裸の `exit 0` も除去）+
+      `ta-45` / `ta-46` / `ta-47`（`|| true` 型）。
+      **ガード到達前にカウンタ更新が 1 件も実行されていない**ことを実測済み
+    - **節スキップ 1 本 → `pg_extra_contract_skip` を使わない**: **`ta-49`**。
+      **層 A の TC-01 / TC-02 / TC-04 / TC-06 がガード前に実走・集計済み**のため
+      rc=3（＝検査していない）は誤表明。**フラグを立てて末尾 finalize へ落とし、
+      rc は先行 TC の結果（0 or 1）に従わせる + SKIP 診断**。
+      層 A fail 時に precedence（`missing` かつ `fail>0` → rc=1）と矛盾させない
+    **7 本とも層 A で本 Slice の対象**（ファイル集合は不変＝Mode 判定に影響しない）。
+    **特定は `grep -rn 'return 0 2>/dev/null' tests/extras/` を起点にする**
+    （`exit 0` 起点では `|| true` 型を取りこぼす）。
+    **`ta-31` の 4 箇所は分岐内かつ層 B のため Slice 1 の対象外**
+  - **移行後に `grep -rn 'return 0 2>/dev/null' tests/extras/` が層 A について 0 件**（R-021）
+  - **dash と bash の双方で 7 本を standalone 実走**し rc が一致することを確認（TC-29 / R-021）。
+    **期待値は 6 本 = rc3 / `ta-49` = 先行 TC の結果（0 or 1）+ SKIP 診断**。
+    **`dash` が解決できない場合は SKIP せず FAIL**（R-026 の timeout 裁定と対称 / F6）。
+    evidence: `evidence/test-runs/dual-shell-skip.log`
   - **移行前に `ta-43` の SKIP 分岐で `fail>0` かつ rc=0 になる現状を実測記録**
     （C-1 第 2 ラウンド MN-1 / AC-1 の実害の一次証跡）。sandbox 構成は plan の
     `#### TC-17 / M-10 の sandbox 構成手順`。**`[FAIL]` は `>&2`（stderr）へ出る**ため
@@ -201,8 +256,22 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - source path full suite completion marker（**`ls tests/extras/ta-*.sh | tail -1` を runtime 解決。
     ファイル名をハードコードしない** / R-006）
   - **README grep 検査**（rc 0/1/2/3・marker・probe・rc2 名前空間 / R-009 / R-020 / TC-19）
+  - **marker 検出は plan の `#### marker 検出の正規表現仕様`（ERE + 先頭 20 行限定）に従う**
+    （R-027 / M-17。1 行 2 marker / 行末スペース / heredoc 内 / 自己マッチ の 4 空振りを塞ぐ）
+  - **per-file timeout**（R-026）: **最低 180s**（`ta-26` 実測 54〜58s）/
+    `command -v timeout` があれば `timeout(1)`・無ければ `perl -e 'alarm …; exec @ARGV'` へ
+    フォールバック（**macOS 開発機には `timeout(1)` が無い / CI にはある**）/
+    **timeout 発火は SKIP でなく FAIL**
+  - **discovery 集合 == runner の source 集合を assert**（R-035 / TC-28 / M-19）。
+    両者が同じ glob 定義を参照する構造にする
+  - **TC-16 は sandbox（repo 実コピー）で行い実 `tests/extras/` へ書き込まない**（R-028）
+  - **TC-11 の合格条件を `rc == 2` AND `[ERROR] <basename-id> is harness-only` の
+    id 込み照合にする**（R-029-2）。**TC-12 の (b) は `rc == 1` AND
+    `PG_EXTRA_CONTRACT_PROBE_FIRED:<basename-id>` の AND**（R-029-1）
+  - **`sh -n` を独立 TC 化**（TC-27 / R-029-3）。構文破壊の rc=2 が harness-only 誤用と
+    紛れないようにする
   - self-recursion prevention（**probe env 再帰ガードを含む** / R-015b / TC-23）
-  - helper mutation M-01〜M-13（各 M の Slice は `test-cases.md` の Mutation Matrix に従う）
+  - helper mutation M-01〜M-19（各 M の Slice は `test-cases.md` の Mutation Matrix に従う）
   - `rollback:` contract TA ファイル追加 commit を `git revert <sha>`。
     **helper 導入前まで戻す場合は T-03 の revert が前提**（contract TA も helper API
     （`pg_extra_contract_init` / `pg_extra_contract_skip` / probe env）を参照するため）。
@@ -217,6 +286,11 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - **probe を test section 限定で公開**（必須 5 項目: test-only / 失敗を増やすだけ /
     CI・開発シェル・`.env` に設定しない / harness mode では無視 / 通常 `[FAIL]` と区別可能）
   - **rc=2 は harness-only 誤実行専用であり hook BLOCK とは別名前空間**（R-020）
+  - **`return 0 2>/dev/null || …` を型を問わず使わない**／**skip は `pg_extra_contract_skip` 経由**
+    （R-021。理由として **dash は終了・bash は継続**という 2 型のシェル依存を併記）
+  - **helper を対話シェルへ source しない**（R-033-3。standalone finalize の `exit` が
+    ユーザのシェルを落とす）
+  - **`ta-` プレフィクスを持つファイルのみが test として収集される**（R-032 の残余の任意項目）
   - `</dev/null` rule
   - **`TASK-0914/handoff.md` §3 の 2 行を append-only で CLOSED マーク**（Slice 2 / R-008）:
     `**#921 完了時に AC-6 の判定を exit code ベースへ戻す**` 行と
@@ -278,6 +352,12 @@ contract TA（T-06）も helper API を解決できなくなる（C-1 MN-3）。
 - [ ] **Slice 1 の exec 中に層 0（`ta-26` / `ta-58` / `ta-59` / `ta-60`）へ触る必要が生じたら停止**
       （15 ファイル / high-risk 判定の前提が崩れる → Mode 再判定 → 人間へエスカレーション）
 - [ ] **段 1 の分類で rc 0 / 3 のいずれでもない値を返す層 A ファイルがあれば停止**（MN-4）
+- [ ] **HJ-1〜HJ-5 が未確定のまま exec へ入ろうとしたら停止**（とくに **HJ-4 = `original rc` の
+      捕捉規約**は Task 5 の置換テンプレートと README 規約を決めるため / R-030）
+- [ ] **CI が `timeout-minutes: 10` 超過で落ちたら停止**（R-026。**HO 対象のため AI は適用せず
+      Human へ patch 適用を依頼**）
+- [ ] **`|| true` 型の早期脱出が dash / bash で異なる rc を返す状態のまま T-06 の検証へ
+      入ろうとしたら停止**（R-021 / issue #1026）
 - [ ] **フルスイートで flaky が観測されたら「フルスイート 1 回」への緩和を撤回**（MN-6）
 - [ ] **`TASK-0914/handoff.md` §3 の writeback 対象行が消失していたら停止**
 
@@ -295,13 +375,21 @@ contract TA（T-06）も helper API を解決できなくなる（C-1 MN-3）。
 - [ ] 移行期間 allowlist が contract TA 本体の `_pending_migration`（明示リスト）で解決され、述語解決になっていない
 - [ ] `_pending_migration` の各行が実在かつ未移行であり、**自己を除いた**検査対象集合が非空・`pending ⊊ discovered`・TC-12 / TC-13 の実行件数が 0 でない（TC-25 / M-14）
 - [ ] TC-17 / M-10 が sandbox 実走済み（Slice 2 へ繰り延べていない）
+- [ ] **TC-26 / TC-27 / TC-28 / TC-29 PASS**（R-024 / R-029-3 / R-035 / R-021）
+- [ ] **M-15〜M-19 が期待どおり FAIL**（R-021 / R-024 / R-027 / R-029 / R-035）
+- [ ] **早期脱出 7 本のイディオムが除去され `grep -rn 'return 0 2>/dev/null' tests/extras/` が
+      層 A について 0 件**（R-021）。**内訳: ファイル全体ガード 6 本 = `pg_extra_contract_skip`
+      経由 / `ta-49` = 節スキップで rc=3 を要求しない**（F2）
+- [ ] **HJ-1〜HJ-5 が C-3 で裁定済み**（plan `## Human C-3 の判断事項`）
 - [ ] TC-11 を Slice 1 でも実行済み（対象 0 件なら「対象 0 件」を evidence に明示記録 / INFO-1）
 - [ ] Human C-4（H-02）
 
 ### Slice 2
 
 - [ ] test-cases `## Exit Criteria` の **Slice 2 節**を全項目充足
-- [ ] TC-01〜TC-25 を通しで再実行して PASS（Slice 1 DoD の非退行）
+- [ ] TC-01〜TC-29 を通しで再実行して PASS（Slice 1 DoD の非退行）
+- [ ] **`ta-31` の分岐内 `return 0 2>/dev/null || true` 4 箇所が解消され、
+      `grep -rn 'return 0 2>/dev/null' tests/extras/` が全件 0 件**（R-021 の残余 / 層 B）
 - [ ] `_pending_migration` が 0 行になり関数ごと削除されている（TC-24 / AC-5）
 - [ ] Issue / `TASK-0914/handoff.md` writeback（append-only / AC-6）
 - [ ] Human C-4
