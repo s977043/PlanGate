@@ -5,7 +5,8 @@
 > 本ファイルの `## Traceability` が **AC↔TC 写像の単一正本**である（R-001）。
 >
 > **R-032 は `resolved-by-design` につき反映していない**。未確定の 4 件（R-022 / R-023 /
-> R-026 の `timeout-minutes` / R-030）は plan の `## Human C-3 の判断事項`（HJ-1〜HJ-4）に集約した。
+> R-026 の `timeout-minutes` / R-030）+ **AC-2 (c) の対象本数（F3）** は
+> plan の `## Human C-3 の判断事項`（**HJ-1〜HJ-5**）に集約した。
 > **HJ-4（`original rc` の捕捉規約）の裁定により TC-06 が再定義されうる**点に注意。
 
 ## Contract RC Table
@@ -244,17 +245,23 @@ Set membership (i.e. "the new file is in scope at all") is established for all t
 
 ### TC-17 Prerequisite-absent files return rc=3
 
-In a sandbox where the prerequisite is absent, **all seven early-exit files** — `ta-39-eh3-doc-light`,
-`ta-43-eh2-strict-json`, `ta-44-eh457-cli-wiring` (the `|| exit 0` form) and
-`ta-45-c3-mode-config`, `ta-46-ehs-wiring`, `ta-47-ehs23-wiring`, `ta-49-bias-export`
-(the **`|| true` form**, added by R-021) — each return **rc=3** on normal standalone execution
-(**rc=0 is a FAIL**); with a matching force-fail probe they return 1 only when the prerequisite is
-present. Under harness source they skip without terminating the suite.
+In a sandbox where the prerequisite is absent, the **six whole-file-guard** files —
+`ta-39-eh3-doc-light`, `ta-43-eh2-strict-json`, `ta-44-eh457-cli-wiring` (the `|| exit 0` form) and
+`ta-45-c3-mode-config`, `ta-46-ehs-wiring`, `ta-47-ehs23-wiring` (the **`|| true` form**, added by
+R-021) — each return **rc=3** on normal standalone execution (**rc=0 is a FAIL**); with a matching
+force-fail probe they return 1 only when the prerequisite is present. Under harness source they skip
+without terminating the suite.
 
-**All seven must be exercised under both `dash` and `bash` (R-021 / TC-29).** Before migration the two
-early-exit idioms diverge by shell — `|| true` terminates under dash but **falls through and runs the
-body** under bash — so a single-shell run cannot distinguish "the skip guard works" from "the skip
-guard was skipped". After migration both shells must produce the same rc.
+**`ta-49-bias-export` is deliberately excluded from the rc=3 assertion.** It is the seventh early-exit
+file but its guard is **section-scoped, not file-scoped**: the file declares two layers in its header
+(layer A runs unconditionally, layer B is skipped when the HO wiring is unapplied), and by the time the
+guard is reached **layer A's TC-01 / TC-02 / TC-04 / TC-06 have already run and updated the counters
+eight times** (measured). Asserting rc=3 there would (i) misstate "not inspected" for a file that did
+inspect, and (ii) **contradict this plan's own Finalize precedence**, which requires **rc=1** when a
+prerequisite is absent *and* `fail > 0`. Its expectation is therefore **rc follows the preceding TCs
+(0 or 1), plus the SKIP diagnostic** — asserted by TC-29, not here. The six above are confirmed to have
+**no executed counter update before their guard** (the apparent matches in `ta-39` / `ta-44` are the
+`tXX_pass()` / `tXX_fail()` **function definitions**, not executions).
 
 The rc=3 must additionally be shown to originate from `pg_extra_contract_skip` (its diagnostic appears in the output). A file that reaches rc=3 by any other route is a FAIL — `pg_extra_contract_skip` is the sole channel for declaring "prerequisite absent", and the test body must never `exit 3` directly.
 
@@ -430,10 +437,21 @@ by R-003, but TC-33's own coverage is a separate matter, which this case covers.
 **Slice**: 1. **Origin**: R-021 (critical) / issue
 [#1026](https://github.com/s977043/PlanGate/issues/1026).
 
-For each of the **seven** early-exit files (`ta-39`, `ta-43`, `ta-44`, `ta-45`, `ta-46`, `ta-47`,
-`ta-49`), run the prerequisite-absent sandbox (TC-17's construction) under **both `dash` and `bash`**
-and assert the rc is **identical and equal to 3**, and that the `pg_extra_contract_skip` diagnostic
-appears in both.
+For each of the **seven** early-exit files, run the prerequisite-absent sandbox (TC-17's construction)
+under **both `dash` and `bash`** and assert that the rc is **identical across the two shells**. The
+expected value differs by structure (see `plan.md` `#### 7 本は同質ではない`):
+
+| Group | Files | Expected under both shells |
+|---|---|---|
+| Whole-file guard (6) | `ta-39`, `ta-43`, `ta-44`, `ta-45`, `ta-46`, `ta-47` | **rc=3**, with the `pg_extra_contract_skip` diagnostic present |
+| **Section-scoped skip (1)** | **`ta-49`** | **rc follows the preceding layer-A TCs (0 or 1)** — never 3 — with the layer-B SKIP diagnostic present. If layer A recorded a failure, the Finalize precedence requires **rc=1** |
+
+Cross-shell **identity** is the property under test in both groups; only the expected value differs.
+
+**If `dash` cannot be resolved, this case FAILs — it must not be skipped (F6).** This mirrors the R-026
+ruling that a timeout firing is a FAIL rather than a SKIP, and for the same reason: running only one
+shell and reporting green would reproduce the very "silently passes" class this PBI exists to close.
+The contract TA records which shells it actually ran in the evidence.
 
 Rationale (measured): top-level `return` is undefined behaviour in POSIX. `dash` treats
 `return 0 2>/dev/null` as succeeding and **ends the script**; `bash` treats it as failing, so
@@ -504,19 +522,33 @@ directions (dash: probe returns rc=0; bash: the body runs).
 >
 > **Slice 列**: `1` = Slice 1 で充足 / `2` = Slice 2 で充足 / `1(部分)/2(全体)` = 全体量化子を
 > 含むため Slice 1 では対象範囲を限定して充足し、Slice 2 完了時に全体で充足する。
+>
+> **注記 1（AC-2 (c) の対象本数 — 本表では確定しない / F3）**: R-021 の実測により、
+> 早期脱出は **`ta-39` / `ta-43` / `ta-44` の 3 本ではなく 7 本**（うち rc=3 の対象は
+> **ファイル全体ガード 6 本**、`ta-49` は節スキップ）であることが判明した。
+> しかし **AC-2 (c) の正本は `pbi-input.md` の受入基準節**であり、そこでは現在も
+> **3 本**のままである。**本表は写像のみを持つ**という宣言に従い、
+> **本表で対象を 7 本（または 6 本）へ拡張して確定しない**。
+> **正本の更新可否は Human 裁定事項 `HJ-5`**（`todo.md` の `H-06`）として提示している。
+> **`pbi-input.md` は本反映で編集していない**ため、
+> `pbi-input.md` 側の「層 A の 3 本」という記述は **HJ-5 の裁定まで stale のまま**である
+> （`plan.md` は層 A の一覧について pbi-input を参照するため、辿ると 3 と 7 が食い違う。
+> これは**既知の未確定点であり隠していない**）。
+> 裁定が済むまで、TC-17 / TC-29 は plan の
+> `#### 7 本は同質ではない` を実装上の対象定義として用いる。
 
 | AC | 内容（要約） | Tests | Slice |
 |---|---|---|---|
 | AC-1 | standalone で `fail > 0` / 誤動作でも exit 0 を返すものが 0 件（実行ベース判定・件数非固定） | TC-09, TC-10, TC-11, TC-12, TC-13, TC-16, TC-20, **TC-28**（検査集合 == runner の source 集合 / R-035）, **TC-29**（`\|\| true` 型が CI で finalize に到達しない経路 / R-021） | **1（層 A 12 本の範囲）/ 2（runtime discovery で得た全 `ta-*.sh`）** |
 | AC-2 (a) | 層 A の fail 注入 standalone が exit 1 | TC-04, TC-05, TC-12 | 1 |
 | AC-2 (b) | 同じ fail 注入状態で source 経路が完走し集計される | TC-01, TC-14, TC-15, **TC-26**（非 0 `return` でも途中打ち切りしない / R-024） | 1 |
-| AC-2 (c) | 前提未充足 SKIP の rc が「検査していない」を表明（**rc=3**、rc=0 不可） | **TC-17**（対象は早期脱出 **7 本** / R-021）, **TC-29**（dash / bash 双方）, TC-13 | 1 |
+| AC-2 (c) | 前提未充足 SKIP の rc が「検査していない」を表明（**rc=3**、rc=0 不可） | **TC-17**, **TC-29**（dash / bash 双方）, TC-13 ※**対象本数は注記 1 を参照（正本は `pbi-input.md`・裁定待ち）** | 1 |
 | AC-2 (d) | カウンタ初期化の存在（helper が担保。層 A 12 本は全数が未初期化） | TC-03, TC-04 | 1 |
 | AC-3 | 層 B + 層 C 41 本の standalone が明示メッセージ付き exit 2 | TC-02（synthetic）, TC-11（全件。**ループは Slice 1 から回すが対象 0 件で vacuous**） | **1（TC-02 のみ）/ 2（TC-11 で充足）** |
 | AC-4 | `sh tests/run-tests.sh` が回帰しない + **runtime `tail -1`** 最終ファイルの `[PASS]` 出現 | **TC-14**, TC-15, TC-21 | 1（Slice 2 でも再実行） |
 | AC-5 | 検査が回帰テスト化され、新規追加の伝播漏れを将来も検出（正規述語）。**移行期間 allowlist を恒久化しない** | TC-09, TC-10, TC-16, TC-20, **TC-25**, **TC-24** | **1（allowlist 付きで成立。逆向きリークは TC-25 が Slice 1 で担保）/ 2（TC-24 で allowlist 空）** |
 | AC-6 | README 規約 9（rc 0/1/2/3・marker・probe・rc2 名前空間）+ #914 handoff writeback | **TC-19**（README）+ handoff CLOSED マーカーの grep（DoD） | **1（TC-19）/ 2（writeback）** |
-| AC-7 | 追加した検査が **修正前実装で FAIL** することの実証 | Verification Plan の pre-fix HEAD evidence + M-01〜M-14（各 M の Slice は Mutation Matrix に従う） | 1（Slice 1 で走る M。**M-13 の predicate 側と M-14 を含む**）/ 2（M-09 / M-11 / M-13 の list 側） |
+| AC-7 | 追加した検査が **修正前実装で FAIL** することの実証 | Verification Plan の pre-fix HEAD evidence + **M-01〜M-19**（各 M の Slice は Mutation Matrix に従う） | 1（Slice 1 で走る M。**M-13 の predicate 側 / M-14 / M-15〜M-19（全 Slice 1）を含む**）/ 2（M-09 / M-11 / M-13 の list 側） |
 | **AC-8**（派生・pbi-input 正本外） | `ta-26` TC-33（#914 AC-9 ゲート）が移行後も**空振りせず**同等以上の検出力を保つ | **TC-22**, M-09 | **2** |
 
 補助的な設計制約の紐付け（AC 直属ではないが Exit Criteria に含む）:
@@ -581,15 +613,17 @@ directions (dash: probe returns rc=0; bash: the body runs).
 - [ ] **M-15〜M-19 が期待どおり FAIL**（R-021 / R-024 / R-027 / R-029 / R-035）。
       **M-15 は dash と bash の両方で kill されたことが evidence に記録されている**
       （片方だけの kill は不十分 / R-021）
-- [ ] **早期脱出 7 本（`ta-39` / `ta-43` / `ta-44` / `ta-45` / `ta-46` / `ta-47` / `ta-49`）が
-      `pg_extra_contract_skip` へ移行済みで、`grep -rn 'return 0 2>/dev/null' tests/extras/` が
-      層 A について 0 件**（R-021。`ta-31` の分岐内 4 箇所は層 B のため Slice 2 で解消）
+- [ ] **早期脱出 7 本のイディオムが除去され、`grep -rn 'return 0 2>/dev/null' tests/extras/` が
+      層 A について 0 件**（R-021。`ta-31` の分岐内 4 箇所は層 B のため Slice 2 で解消）。
+      **内訳**: ファイル全体ガード **6 本**（`ta-39` / `ta-43` / `ta-44` / `ta-45` / `ta-46` /
+      `ta-47`）は `pg_extra_contract_skip` 経由へ移行 / **`ta-49` は節スキップ**のため
+      `pg_extra_contract_skip` を使わず末尾 finalize へ落とす（**rc=3 を要求しない** / F2）
 - [ ] **TC-16 が実 `tests/extras/` へ書き込まず sandbox で実行されている**（R-028）
 - [ ] **per-file timeout が 180s 以上で実装され、`timeout(1)` 不在環境でも動くフォールバックを
       持ち、timeout 発火が FAIL（SKIP ではない）として扱われる**（R-026）
 - [ ] **`seven` 等の env 件数がテスト文言に残っていない**（R-034。TC-15 / TC-22 とも
       `run-tests.sh` から動的導出）
-- [ ] **HJ-1〜HJ-4 が C-3 で裁定済み**（plan `## Human C-3 の判断事項`）
+- [ ] **HJ-1〜HJ-5 が C-3 で裁定済み**（plan `## Human C-3 の判断事項`）
 
 ### Slice 2 の DoD（Slice 2 着手時に Mode 再判定のうえ適用）
 

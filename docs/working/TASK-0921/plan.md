@@ -163,8 +163,38 @@ bash は「失敗（`return: can only return from a function or sourced script` 
   必ず `pg_extra_contract_skip` を経由」** を追加した
 - **Task 5 の置換対象を 3 本 → 7 本**（`ta-39` / `ta-43` / `ta-44` / `ta-45` / `ta-46` /
   `ta-47` / `ta-49`）へ拡大した
-- **TC-17 の対象へ `ta-45` / `ta-46` / `ta-47` / `ta-49` を追加**し、**dash と bash の双方**で
-  実走することを Verification Plan / test-cases に固定した（**TC-29** / **M-15**）
+- **TC-17 の rc=3 対象へ `ta-45` / `ta-46` / `ta-47` を追加**し（`ta-49` は節スキップのため
+  **除外** — 後掲 `#### 7 本は同質ではない`）、**dash と bash の双方**で実走することを
+  Verification Plan / test-cases に固定した（**TC-29** / **M-15**。**`dash` 不在は FAIL**）
+
+#### 7 本は同質ではない — ファイル全体ガード 6 本 + 節スキップ 1 本（`ta-49`）
+
+**早期脱出 7 本のうち `ta-49-bias-export.sh` だけは構造が異なる**（本反映時に実物で確認）。
+7 本を一律 rc=3 として扱うと **plan 自身の Finalize precedence と矛盾する**ため分離する。
+
+| 区分 | 対象 | ガードの位置 | 移行後の期待 rc |
+|---|---|---|---|
+| **ファイル全体ガード（6 本）** | `ta-39` / `ta-43` / `ta-44` / `ta-45` / `ta-46` / `ta-47` | ガード到達時点で **カウンタ更新が 1 件も実行されていない**（実測: `ta-39:40-41` / `ta-44:27-28` 等の一致は `tXX_pass()` / `tXX_fail()` の**関数定義**であり実行された加算ではない） | **rc=3**（`pg_extra_contract_skip` 経由） |
+| **節スキップ（1 本）** | **`ta-49`** | ファイル冒頭に「**2 層: A. …（常時実行）/ B. `bin/plangate` 配線テスト（HO 未適用時は SKIP）**」と明記され、`:72` の直前は `# ---- 層 B: bin/plangate 配線（未適用なら SKIP）----`。**ガード到達前に層 A の TC-01 / TC-02 / TC-04 / TC-06 が実走し `pass` / `fail` を 8 回更新している**（実測） | **先行 TC の結果に従う（0 または 1）+ SKIP 診断** |
+
+**`ta-49` を rc=3 にしてはならない理由**:
+
+1. rc=3 は本 plan の定義上 **「前提未充足＝検査していない」**を意味するが、`ta-49` は
+   **実際に検査した TC を持つ**ため誤表明になる
+2. `ta-49` の層 A TC が fail した状態で層 B の前提が未充足だと、
+   **本 plan の Finalize precedence（`missing` かつ `fail > 0` → **rc=1**。rc=3 へ丸めない /
+   C-1 第 2 ラウンド MN-2）が rc=1 を要求する**のに、7 本一律 rc=3 の TC は rc=3 を要求する。
+   **TC が仕様と正面から矛盾する**
+
+**移行方針**:
+
+- **6 本**: guard を `pg_extra_contract_skip <reason>` 呼出へ置換（`_PG_EXTRA_PREREQ_MISSING=1`
+  を立て、末尾 finalize で rc=3）
+- **`ta-49`**: `pg_extra_contract_skip` を**使わない**。**節スキップ**（層 B をスキップした
+  ことを示すフラグを立て、`return 0 2>/dev/null || true` を除去して**末尾 finalize へ落とす**）。
+  rc は先行 TC の集計結果に従う。SKIP 診断は従来どおり出力する
+- **早期脱出イディオムの除去は 7 本すべてで行う**（Global Constraints の禁止は型・構造に
+  依らず適用される）。**分岐するのは「rc の意味」だけ**である
 
 **残る依存**: 本項は **R-022（CI の `sh` 実体固定）と対で解かないと、片方のシェルでしか
 検証されない状態が残る**。R-022 は `.github/workflows/**`＝Hardening Override 対象のため
@@ -515,26 +545,68 @@ tests/extras/_extra-contract.sh
 `ta-*.sh` globに一致させず、runnerのtest inventoryへ混入させない（実測確認済み）。
 本ファイルの導入は #914 §4 で棄却された E-1 の意図的反転である（前掲）。
 
-#### bootstrap のアンカーは `$0` ではなく `EXTRAS_DIR`（R-025-1）
+#### bootstrap の helper 解決規約（R-025-1）— アンカーは `$0` にせず、mode で分岐する
 
-各 extras の defensive bootstrap が helper を解決する際、**アンカーを `$0` にしてはならない**。
-harness 経路では `$0` = `tests/run-tests.sh` であるため、`dirname "$0"` を起点にすると
-**`tests/_extra-contract.sh`（不在）** を指す。`set -eu` 下で `.`（source）が失敗すると
-**1 ファイルの失敗ではなく suite 全滅**になり、しかも原因が bootstrap にあることが
-表示から読み取れない。
+各 extras の defensive bootstrap が helper を解決する際、**harness 経路で `$0` をアンカーに
+してはならない**。harness 経路では `$0` = `tests/run-tests.sh` であるため、`dirname "$0"` を
+起点にすると **`tests/_extra-contract.sh`（不在）** を指し、**suite 全滅**を招く（後述）。
 
 ```sh
-# アンカーは EXTRAS_DIR（harness 経路では runner が設定済み）→ 無ければ自分の位置へフォールバック
-_pg_extra_dir="${EXTRAS_DIR:-$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)}"
-. "$_pg_extra_dir/_extra-contract.sh"
+# mode 判定は既存 extras と同一イディオム（例: ta-45-c3-mode-config.sh の harness 判定）
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
+  _pg_extra_dir="$EXTRAS_DIR"                                    # harness: runner が設定
+else
+  _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"   # standalone: 自分の位置
+fi
+_pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
+[ -r "$_pg_extra_helper" ] || {
+  printf '  [FAIL] helper unresolved: %s\n' "$_pg_extra_helper" >&2
+  fail=$((fail + 1))
+  return 0 2>/dev/null || exit 1
+}
+. "$_pg_extra_helper"
 ```
 
-- **harness 経路**では `EXTRAS_DIR` が正しい `tests/extras` を指すため解決に成功する
-- **standalone 経路**では `EXTRAS_DIR` が未設定なので `$0`（＝当該 `ta-*.sh` 自身）から解決する
-- 解決に失敗した場合は **黙って続行せず診断 + 非ゼロで落とす**（fail-closed）。ただし
-  harness 経路では Global Constraints（source 経路で非 0 `return` しない / R-024）と
-  衝突するため、**harness 経路での bootstrap 失敗は「診断を出したうえで当該ファイルを
-  fail としてカウントし `return 0`」**とする（suite を止めない）
+##### なぜ「`.` してから失敗を検知する」書き方にできないか（実測）
+
+`.`（source）は POSIX の **special built-in** であり、**失敗すると非対話シェルは
+`||` や `if` の中にあっても即座に終了する**。したがって
+`. "$helper" || { 診断; ... }` という形は **診断に到達しない**。本反映時の実測:
+
+| シェル | `. /nonexistent/_extra-contract.sh \|\| printf 'DIAG '` の後に `printf 'AFTER'` |
+|---|---|
+| **`/bin/dash`（= CI の `sh`）** | **rc=2 で即終了。`DIAG` も `AFTER` も出ない** |
+| **`/bin/sh`（macOS = bash 3.2）** | **rc=1 で即終了。同上** |
+| `/bin/zsh` | 継続（`DIAG` / `AFTER` とも出る。rc=0） |
+
+- **これは `set -e` の有無に依らない**。special built-in の失敗はそれ自体が
+  非対話シェルの終了要因であり、「`set -eu` 下で `.` が失敗すると」という説明は**不正確**
+  （前版の記述を本反映で是正した）
+- したがって **source する前に `[ -r "$helper" ]` で可読性を確認する**のが唯一成立する形である。
+  probe が失敗したときのみ診断を出し、`fail` を 1 加算して **harness 経路では `return 0`**
+  （Global Constraints「source 経路で非 0 `return` しない」/ R-024 と両立させ、suite を
+  止めずに赤くする）、**standalone 経路では `exit 1`** とする
+- 残る競合条件（probe と source の間にファイルが消える）は無視できる。実害があるのは
+  「helper を配り忘れた」「revert 順序を誤った」という**恒常的な不在**であり、probe で捕捉できる
+
+##### mode で分岐する理由（R-025-1 + 汚染耐性）
+
+**存在判定を `${EXTRAS_DIR:-}` に寄せてはならない**。実測: `tests/run-tests.sh` が
+standalone 実行時の汚染除去のために unset する env は **7 個**（`PLANGATE_SKIP_REASON` /
+`PLANGATE_HOOK_TASK` / `PLANGATE_HOOK_FILE` / `PLANGATE_BYPASS_HOOK` /
+`PLANGATE_HOOK_STRICT` / `PG_HARNESS_SOURCED` / `PLANGATE_ALLOW_MASS_DELETE`）であり、
+**`EXTRAS_DIR` / `FIXTURES_DIR` は含まれていない**（両者は runner 内で `export` なしに
+代入されるだけ）。
+
+- `${EXTRAS_DIR:-…}` を存在判定に使うと、**standalone 実行時に外部から `EXTRAS_DIR` が
+  export されていれば別ツリーの helper を source しうる**。TC-15（External env
+  contamination）は guarded な env しか汚染しないため**この経路を検出できない**
+- **env 汚染耐性が主題の本 PBI が、解決策として新しい汚染面を開けることは許されない**
+- `PG_HARNESS_SOURCED` は **runner が冒頭で unset し（汚染除去済み）、extras loop の直前で
+  自ら設定する**ため汚染耐性がある。`FIXTURES_DIR` との AND も既存の harness 判定
+  （Global Constraints）と同一であり、**新しい依存を増やさない**
+- **`EXTRAS_DIR` は harness 経路でのみ読む**。harness 経路では runner が代入済みの値に
+  上書きされているため、外部の汚染値は届かない
 
 #### 適用（forward）側の原子性（R-025-2）
 
@@ -621,8 +693,9 @@ harness判定:
 `scripts/apply-eh3-doc-light.sh` が案内する `sh tests/extras/ta-39-eh3-doc-light.sh` は、
 適用失敗時こそ早期 SKIP で `rc=0` を返し続ける。従来 plan の
 「prerequisite SKIP は 0 可」は **誤り**であり本反映で是正した。
-対象は **早期脱出の 2 型 7 本**（`ta-39` / `ta-43` / `ta-44` / `ta-45` / `ta-46` / `ta-47` /
-`ta-49`。前版の「3 本」は `|| true` 型 4 本を取りこぼした誤りであり **R-021 で是正**）。
+対象は **早期脱出のうち「ファイル全体ガード」6 本**（`ta-39` / `ta-43` / `ta-44` / `ta-45` /
+`ta-46` / `ta-47`）。前版の「3 本」は `|| true` 型を取りこぼした誤りであり **R-021 で是正**した。
+**`ta-49` は 7 本目だが節スキップのため rc=3 の対象外**（前掲 `#### 7 本は同質ではない`）。
 
 ### Finalize precedence
 
@@ -1029,9 +1102,16 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
       Files 表と Human Approval Boundary から除去する。落とせない場合は
       **「なぜ bootstrap だけでは不足か」を根拠付きで記載**する
 - [ ] runner を残す場合、helper source以外のdiffが0であることを確認
-- [ ] **bootstrap のアンカーを `${EXTRAS_DIR:-<script dir>}` にする**（`$0` にしない / R-025-1）。
-      harness 経路で `$0` は `tests/run-tests.sh` を指すため `tests/_extra-contract.sh`（不在）へ
-      解決し、`set -eu` 下の `.` 失敗で **suite 全滅**する
+- [ ] **bootstrap を前掲 `#### bootstrap の helper 解決規約` のとおり実装する**（R-025-1 / F5）:
+      **mode 判定（`PG_HARNESS_SOURCED` AND `FIXTURES_DIR`）で分岐**し、harness 経路のみ
+      `EXTRAS_DIR` を読む。**`${EXTRAS_DIR:-…}` を存在判定に使わない**
+      （`EXTRAS_DIR` は runner の unset 7 env に含まれず、standalone 実行時に外部 export で
+      別ツリーの helper を source しうる＝新しい汚染面。TC-15 では検出できない）
+- [ ] **helper の解決失敗は `.` の前に `[ -r "$helper" ]` で検出する**（R-025-1 / F1）。
+      **`. "$helper" || { 診断 }` は成立しない** — `.` は special built-in であり、
+      失敗すると非対話シェルは `||` の中でも即終了する（実測: dash rc=2 / bash rc=1 で
+      いずれも診断に到達しない。**`set -e` の有無に依らない**）。
+      probe 失敗時は診断 + `fail` 加算のうえ **harness では `return 0` / standalone では `exit 1`**
 - [ ] **runner を残す場合、「helper source」と「各 extras の bootstrap 追加」を
       同一 commit / 同一 PR に入れる**（forward 側の原子性 / R-025-2）。helper source だけが
       先に入った中間 commit を作らない
@@ -1100,15 +1180,22 @@ helper へ吸収する。**Human 決定 3 により Slice 1 から繰り延べ�
 - [ ] file固有root fallbackは保持
 - [ ] **層 A 12 本は全数がカウンタ未初期化**（pbi-input A-1'）のため、helper 側の
       `pass=0` / `fail=0` 初期化に確実に載せる
-- [ ] **早期脱出 7 本の prerequisite 経路を `pg_extra_contract_skip` 経由の rc=3 へ移す**
-      （R-002 / **R-021 により 3 本 → 7 本へ拡大**）。対象と型:
-      - `|| exit 0` 型 **3 本**: `ta-39-eh3-doc-light` / `ta-43-eh2-strict-json` / `ta-44-eh457-cli-wiring`
-        （`ta-39` は裸の `exit 0` も併せて除去）
-      - **`|| true` 型 4 本**: `ta-45-c3-mode-config` / `ta-46-ehs-wiring` /
-        `ta-47-ehs23-wiring` / `ta-49-bias-export`
-      **7 本とも層 A であり本 Slice の対象**（ファイル集合は不変なので Mode 判定に影響しない）。
+- [ ] **早期脱出 7 本（= ファイル全体ガード 6 本 + 節スキップ 1 本）のイディオムを除去する**
+      （R-002 / **R-021 により 3 本 → 7 本へ拡大**。**構造が 2 種類ある**ので扱いを分ける。
+      詳細は前掲 `#### 7 本は同質ではない`）。
       **置換対象の特定は `grep -rn 'return 0 2>/dev/null' tests/extras/` を起点にする**
-      （`exit 0` 起点では `|| true` 型を取りこぼす / R-021）。
+      （`exit 0` 起点では `|| true` 型を取りこぼす / R-021）:
+      - **ファイル全体ガード 6 本 → `pg_extra_contract_skip` 経由の rc=3**:
+        `ta-39-eh3-doc-light` / `ta-43-eh2-strict-json` / `ta-44-eh457-cli-wiring`
+        （ここまで `|| exit 0` 型。`ta-39` は裸の `exit 0` も併せて除去）+
+        `ta-45-c3-mode-config` / `ta-46-ehs-wiring` / `ta-47-ehs23-wiring`（`|| true` 型）
+      - **節スキップ 1 本 → `pg_extra_contract_skip` を使わない**:
+        **`ta-49-bias-export`**（`|| true` 型）。**層 A の TC-01 / TC-02 / TC-04 / TC-06 が
+        ガード到達前に実走・集計済み**のため rc=3（＝検査していない）は誤表明になり、
+        層 A が fail した場合は **precedence が rc=1 を要求する**。
+        イディオムだけ除去してフラグを立て、**末尾 finalize へ落として先行 TC の結果に
+        従わせる**（期待 rc = 0 または 1 + SKIP 診断）
+      **7 本とも層 A であり本 Slice の対象**（ファイル集合は不変なので Mode 判定に影響しない）。
       **`ta-31` の 4 箇所は分岐内（`mktemp` 失敗時）かつ harness-only 想定＝層 B のため対象外**
 - [ ] **移行後、`grep -rn 'return 0 2>/dev/null' tests/extras/` が層 A について 0 件になることを
       確認する**（R-021 の恒久ガード。Global Constraints の禁止事項の実測点）
@@ -1210,7 +1297,10 @@ helper へ吸収する。**Human 決定 3 により Slice 1 から繰り延べ�
       `ta-zz-probe.sh` を作る方式は中断時の残留が以後すべての run を汚染する
 - [ ] **TC-17 / TC-29 を dash と bash の双方で実走する**（R-021）。
       `|| true` 型 4 本の skip guard がシェルによって逆の挙動を示すため、片方だけでは
-      検証にならない
+      検証にならない。**`dash` が解決できない場合は SKIP せず FAIL とする**
+      （R-026 の「timeout 発火は SKIP でなく FAIL」と対称。片シェルだけ回して PASS すると
+      本 PBI が塞ごうとしている「静かに通る」クラスの再生産になる / F6）。
+      **実際に走らせたシェルを evidence に記録する**
 - [ ] contract test自身の再帰をmarker/IDで回避
 
 **rollback**: contract TA ファイルの追加 commit を `git revert <sha>`。
@@ -1280,7 +1370,7 @@ revert 順序は **T-06 → T-03**（C-1 MN-3）。
 | **Pre-fix FAIL 実証（AC-7 / R-011）** | **helper 導入前の HEAD に contract TA だけを載せて実行** | **contract TA が FAIL する**（修正前実装で検出力があることの実証。Mutation Matrix は修正後 helper への変異であり別物） | `evidence/mutations/pre-fix-head.log` |
 | TC-33 差し替えの検出力（AC-8 / R-013 / **Slice 2**） | helper の unset 集合から 1 env を削る変異（M-09） | 差し替え後の TC-33 相当が FAIL（空振りしない） | `evidence/mutations/tc33-substitute.log` |
 | Helper mutation | remove fail branch / finalize call / target check in temp copy | contract tests FAIL | `evidence/mutations/` |
-| **早期脱出の 2 型 / dual-shell（TC-29 / M-15 / R-021）** | 早期脱出 7 本を **dash と bash の双方**で standalone 実走。移行後は `pg_extra_contract_skip` 経由 | **両シェルで同一 rc**（前提未充足なら rc=3 / 充足なら rc=0）。probe あり → rc=1。**変異（skip guard を `\|\| true` 型へ戻す）で dash は rc=0、bash は本体が走る、の両方が FAIL として現れる** | `evidence/test-runs/dual-shell-skip.log` |
+| **早期脱出の 2 型 / dual-shell（TC-29 / M-15 / R-021）** | 早期脱出 7 本を **dash と bash の双方**で standalone 実走 | **両シェルで rc が同一**であること。期待値は構造で分かれる: **ファイル全体ガード 6 本 = rc3**（前提未充足時。probe あり → rc=1）/ **`ta-49`（節スキップ）= 先行 TC の結果（0 or 1）+ SKIP 診断**（rc3 を要求しない）。**変異（skip guard を `\|\| true` 型へ戻す）で dash は rc=0、bash は本体が走る、の両方が FAIL として現れる**。**`dash` 不在は SKIP でなく FAIL**（F6） | `evidence/test-runs/dual-shell-skip.log` |
 | **早期脱出イディオムの残存 0（R-021）** | `grep -rn 'return 0 2>/dev/null' tests/extras/` | 層 A（Slice 1 の移行対象）について **0 件**。`ta-31` の分岐内 4 箇所は層 B のため Slice 1 の対象外（Slice 2 で解消） | `evidence/verification/early-exit-idiom.log` |
 | **source 経路の非 0 return（TC-26 / M-16 / R-024）** | `fail>0` の standalone-capable 相当を含む合成 harness を source して完走させる | **後続ファイルのマーカー行と `Results:` 行が両方出る**（途中打ち切りしない） | `evidence/test-runs/harness-nonzero-return.log` |
 | **`sh -n` 独立 TC（TC-27 / R-029-3）** | `sh -n` を contract TA の独立 case として実行 | 全件 syntax OK。構文破壊は **rc=2（harness-only 誤用）と区別して報告される** | `evidence/test-runs/syntax-case.log` |
@@ -1303,9 +1393,18 @@ revert 順序は **T-06 → T-03**（C-1 MN-3）。
 #### CI の時間予算と `timeout-minutes`（R-026 / **HO 対象・patch 提示のみ**）
 
 `.github/workflows/test.yml` の当該 job は **`timeout-minutes: 10`（600 秒）**である
-（本反映時に実測）。plan は baseline **231 秒** + contract TA の増加分 **+250〜280 秒**
-＝約 **480〜510 秒**を織り込み済みだが、ここに **per-file 180 秒 timeout**（R-026）や
-**R-022 の dash + bash matrix** が乗ると **600 秒を超えうる**。
+（本反映時に実測）。
+
+**時間の軸を 2 つに分けて扱う（前版は両者を混同していた / F7）**:
+
+| 軸 | 影響するもの | matrix 化の影響 |
+|---|---|---|
+| **per-job wall clock**（`timeout-minutes` が効くのはこちら） | baseline 231 秒 + contract TA の増加分 +250〜280 秒 ＝ 約 **480〜510 秒**。加えて **per-file 180 秒 timeout が発火した場合の最悪ケース** | **増えない**。`strategy.matrix` は**独立した job へ展開**され、`timeout-minutes` は **job 単位**に適用されるため、dash / bash は並列の別 job になる |
+| **総 CI 分（課金・キュー）** | 上記 × job 数 | **2 倍になる**（dash + bash） |
+
+したがって **`timeout-minutes` 引き上げの根拠は「480〜510 秒 + per-file timeout の
+最悪ケース」のみ**であり、**matrix 化は根拠にならない**。
+per-file 180 秒も**上限であって加算値ではない**（正常時は `ta-26` の 54〜58 秒で完了する）。
 
 **`.github/workflows/**` は [`mode-classification.md`](../../../.claude/rules/mode-classification.md)
 の Hardening Override 対象パスであるため、AI は適用せず patch 提示に留める**。
@@ -1442,7 +1541,7 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
 - **Slice 1 の exec 中に層 0（`ta-26` / `ta-58` / `ta-59` / `ta-60`）へ触る必要が生じた場合**
   （Slice 1 = 15 ファイル / high-risk 判定の前提が崩れる。Mode 再判定 → 人間へエスカレーション）
 - **`ta-26` TC-33 の差し替え設計が未確定のまま Slice 2 の層 0 移行へ入ろうとした場合**（R-013 / AC-8）
-- **`## Human C-3 の判断事項`（HJ-1〜HJ-4）のいずれかが未確定のまま exec へ入ろうとした場合**
+- **`## Human C-3 の判断事項`（HJ-1〜HJ-5）のいずれかが未確定のまま exec へ入ろうとした場合**
   （とくに **HJ-4 = `original rc` の捕捉規約**は Task 5 の置換テンプレートと README 規約を
   決めるため、未確定のまま移行に入ると後戻りが発生する / R-030）
 - **CI が `timeout-minutes: 10` の超過で落ちた場合**（R-026）。
@@ -1472,7 +1571,8 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
   # 案 (b): dash + bash の matrix（適用は Human-owned）
    jobs:
      plangate-cli:
-       name: plangate CLI tests
+  -    name: plangate CLI tests
+  +    name: plangate CLI tests (${{ matrix.shell }})
        runs-on: ubuntu-latest
   -    timeout-minutes: 10
   +    timeout-minutes: 20
@@ -1487,8 +1587,18 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
   +        run: ${{ matrix.shell }} tests/run-tests.sh
   ```
 
-- **未確定事項**: matrix 化した場合の CI 時間増（R-026 の per-file timeout と乗算される）は
-  **未見積り**。`timeout-minutes` の引き上げ幅は実測後に確定する必要がある
+- **適用前の前提条件（Human 向け / 確度 medium）**: **required status checks の設定を確認すること**。
+  matrix 化すると check context 名が `plangate CLI tests` から
+  **`plangate CLI tests (dash)` / `plangate CLI tests (bash)`** へ変わる。
+  旧名が required に設定されている場合、**適用直後に全 PR が「待機中の required check」で
+  ブロックされる**。ruleset / branch protection 側の required check 名の更新を
+  同時に行う必要がある（**この点は未実測のため確度 medium** — 適用前に設定画面で確認されたい）
+- **`timeout-minutes: 20` の根拠**: **per-job wall clock のみ**（480〜510 秒 +
+  per-file 180 秒 timeout が発火した場合の余裕）。**matrix 化は per-job wall clock を
+  増やさない**（別 job へ並列展開されるため）。増えるのは**総 CI 分**であり、
+  それは `timeout-minutes` の対象ではない（前掲の 2 軸表）
+- **未確定事項**: per-file timeout が実際に発火したときの最悪 wall clock は
+  contract TA 実装後の実測で確定する。20 分は暫定値である
 - **本 PBI での扱い**: **Slice 1 では `.github/workflows/**` を変更しない**（HO 非該当が
   Mode = high-risk 判定の根拠の 1 つであるため）。R-022 の適用は Human の別作業とし、
   未適用のままでも Slice 1 の contract TA は **dash と bash の双方でローカル実走する**
@@ -1536,6 +1646,28 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
 いずれかを C-3 で確定する。(a) を採る場合は **TC-06 の削除または再定義**を伴うため、
 受入基準側（補助的な設計制約表）の変更も同時に承認する必要がある。
 
+### HJ-5 AC-2 (c) の対象本数を正本（`pbi-input.md`）へ反映するか（F3）
+
+- **問題**: R-021 の実測により、AC-2 (c) が扱う早期脱出は **`ta-39` / `ta-43` / `ta-44` の
+  3 本ではなく 7 本**（rc=3 の対象は**ファイル全体ガード 6 本**、`ta-49` は**節スキップ**）
+  であることが判明した。しかし **AC-1〜AC-7 の正本は `pbi-input.md` の受入基準節**であり、
+  そこは現在も **3 本**のままである
+- **AI が確定しなかった理由**: `test-cases.md` の Traceability は自ら
+  「**AC-1〜AC-7 は `pbi-input.md` を正本とし、本表は写像のみ**」と宣言している。
+  本表の中で対象範囲を 7 本へ広げることは、**本来 Human が決めるべき AC の変更を
+  AI が黙って確定する**ことに等しい。**H-05（AC-8 を pbi-input へ追記するか否かの裁定）と
+  同型の扱い**とし、本項として提示するに留めた
+- **Human 判断**: `pbi-input.md` の AC-2 (c)（および層 A の内訳記述）を
+  **7 本 / 6+1 構造へ更新するか**、それとも **AC は 3 本のまま据え置き、残る 4 本は
+  AC-1（standalone で exit 0 を返すものが 0 件）で回収する**か
+- **本反映での扱い（正直に記す）**: **`pbi-input.md` は編集していない**。
+  したがって **`pbi-input.md` の「層 A の 3 本」という記述は HJ-5 の裁定まで stale** であり、
+  本 plan が層 A の一覧について pbi-input を参照する箇所から辿ると **3 と 7 が食い違う**。
+  これは**既知の未確定点として明示するもの**であり、AI が正本を書き換えて解消することはしない
+- **実装上の対象定義**: 裁定が済むまで、TC-17 / TC-29 / Task 5 は前掲
+  `#### 7 本は同質ではない` を対象定義として用いる（AC の文言とは独立に、
+  **実装対象は 7 本で確定している**）
+
 ## Human Approval Boundary
 
 - **案 D（末尾 explicit finalize）への replan の承認**（案 C 不採用）
@@ -1548,11 +1680,12 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
 - `tests/run-tests.sh` helper source変更（Task 3 の比較検証で必要と確定した場合のみ）
 - broad extras migrationのC-3
 - contract probe envの採否
-- **HJ-1〜HJ-4 の裁定**（`## Human C-3 の判断事項`）:
+- **HJ-1〜HJ-5 の裁定**（`## Human C-3 の判断事項`）:
   **HJ-1** CI の `sh` 実体固定（R-022 / **HO 対象・patch 提示のみ**）/
   **HJ-2** 層 C の ROOT sentinel を Slice 1 へ前倒しするか（R-023）/
   **HJ-3** `timeout-minutes` の再見積り（R-026 / **HO 対象・patch 提示のみ**）/
-  **HJ-4** 案 D における `original rc` の捕捉規約（R-030。(a) 2 値化なら **TC-06 の再定義**を伴う）
+  **HJ-4** 案 D における `original rc` の捕捉規約（R-030。(a) 2 値化なら **TC-06 の再定義**を伴う）/
+  **HJ-5** AC-2 (c) の対象本数（3 本 → 7 本）を `pbi-input.md`（正本）へ反映するか（F3）
 - PR C-4 / merge
 
 ## C-1 Self Review Checklist
@@ -1660,4 +1793,25 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
       HJ-2 = R-023 / HJ-3 = R-026 の `timeout-minutes` / HJ-4 = R-030）**。
       **R-032 は `resolved-by-design`（`516e2f7` / PR #1017）につき反映せず**（README の
       `ta-` プレフィクス規約の 1 行のみ Task 7 へ取り込み）
+- [x] **確定反映への独立 river-review（major 3 / minor 4）を是正**（`F1`〜`F7`。同一ブランチ内の追補）:
+      **F1 = bootstrap の「診断 + fail カウント + `return 0`」が掲載スニペットでは実装不能**
+      （`.` は special built-in であり失敗すると非対話シェルは `||` の中でも即終了。
+      **実測: dash rc=2 / bash rc=1 とも診断へ到達しない・`set -e` 非依存**）→
+      **source 前の `[ -r "$helper" ]` 可読性プローブへ差し替え**、原因記述も是正 /
+      **F2 = `ta-49` は節スキップであり 7 本一律 rc=3 は precedence と矛盾**
+      （実測: `ta-49` は層 A の TC-01/02/04/06 がガード前に実走し **カウンタを 8 回更新**。
+      他 6 本の一致は `tXX_pass()` / `tXX_fail()` の**関数定義**で実行された加算ではない）→
+      **ファイル全体ガード 6 本（rc=3）と節スキップ 1 本（先行 TC の結果に従う）へ分離** /
+      **F3 = Traceability が AC-2 (c) の対象を 3 本 → 7 本へ独断拡張**（正本は `pbi-input.md`）→
+      **セルを注記参照に戻し `HJ-5` として Human へ委譲**（`pbi-input.md` は編集せず、
+      3 と 7 の食い違いを既知の未確定点として明示）/
+      F4 = Traceability の AC-7 を `M-01〜M-19` へ追随 /
+      **F5 = `EXTRAS_DIR` アンカーが guard 外 env への依存を新設**（実測: runner の unset 7 env に
+      `EXTRAS_DIR` / `FIXTURES_DIR` は**含まれない**）→ **mode 判定（`PG_HARNESS_SOURCED` AND
+      `FIXTURES_DIR`）で分岐し harness 経路のみ `EXTRAS_DIR` を読む**形へ /
+      F6 = **`dash` 不在時は SKIP でなく FAIL**（R-026 の timeout 裁定と対称）を TC-29 へ /
+      **F7 = `timeout-minutes` の時間モデルが誤り**（`strategy.matrix` は**独立 job へ展開**され
+      `timeout-minutes` は **job 単位**＝matrix は per-job wall clock を増やさない）→
+      **per-job wall clock と総 CI 分を分離**し 20 分の根拠を前者のみに置き直し、
+      HJ-1 の patch に **check context 名の変更（required status checks の確認）**を追記
 - [ ] Human C-3
