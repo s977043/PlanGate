@@ -553,19 +553,46 @@ tests/extras/_extra-contract.sh
 
 ```sh
 # mode 判定は既存 extras と同一イディオム（例: ta-45-c3-mode-config.sh の harness 判定）
+# 判定結果を _pg_extra_mode に保持し、脱出経路でも再利用する（後述の理由により必須）
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
+  _pg_extra_mode=harness
   _pg_extra_dir="$EXTRAS_DIR"                                    # harness: runner が設定
 else
+  _pg_extra_mode=standalone
   _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"   # standalone: 自分の位置
 fi
 _pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
-[ -r "$_pg_extra_helper" ] || {
+if [ ! -r "$_pg_extra_helper" ]; then
   printf '  [FAIL] helper unresolved: %s\n' "$_pg_extra_helper" >&2
-  fail=$((fail + 1))
-  return 0 2>/dev/null || exit 1
-}
+  if [ "$_pg_extra_mode" = harness ]; then
+    fail=$((fail + 1))
+    return 0            # harness: suite を止めずに当該ファイルだけ赤くする
+  fi
+  exit 1                # standalone: 非 0 を rc へ伝播する
+fi
 . "$_pg_extra_helper"
 ```
+
+##### なぜ脱出に `return 0 2>/dev/null || …` を使わないか（自己整合）
+
+本 plan の Global Constraints は **`return 0 2>/dev/null || …` を型を問わず禁止**している（R-021）。
+bootstrap の脱出も**この禁止の例外にしない**。理由は 2 つある。
+
+1. **禁止の根拠がそのまま当てはまる**。このイディオムは「`return` が成功するか否か」が
+   shell 実体で割れるため挙動が環境依存になる（`|| true` 型は dash 終了 / bash 継続）。
+   bootstrap は **suite 全滅を防ぐための経路**であり、そこに環境依存を持ち込むと
+   「開発機では通るが CI では止まる」という本 PBI が塞ごうとしている失敗形そのものになる
+2. **機械検査と両立しない**。Slice 1 DoD は層 A に対し
+   `grep -rn 'return 0 2>/dev/null' tests/extras/` が **0 件**であることを要求する。
+   bootstrap が例外を持つと、この grep は「例外を除いて 0 件」という**人手の判断を含む検査**へ
+   退化し、検査器としての価値を失う
+
+したがって脱出は **mode 判定の結果（`_pg_extra_mode`）で `return 0` と `exit 1` を書き分ける**。
+mode は helper 解決の前に一度だけ判定済みなので追加コストは無い。
+
+> **この節の経緯**: 前版の bootstrap スニペットは脱出に `return 0 2>/dev/null || exit 1` を
+> 使っており、**plan 自身の禁止条項に違反していた**。独立 river-review の F1 是正を反映した
+> 版でこの矛盾が持ち込まれ、**是正を担当したワーカー自身が申告して発見された**。
 
 ##### なぜ「`.` してから失敗を検知する」書き方にできないか（実測）
 
