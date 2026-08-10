@@ -433,3 +433,303 @@ pbi-input を正本として参照している**ためで、ポインタを辿�
   同じ分岐が起きることは `/bin/sh` = dash という前提からの推論であり、**実走では確認していない**
   （TC-29 がこれを exec 時に埋める設計になっている）
 - R-036（open PR 状況）は監査表自身が「**未再確認**」と記録しており、本 C-1 でも再確認していない
+
+---
+
+# river-review 是正後の再確認（R7 / 独立レビュアー）
+
+> **R6 までの記述は一切書き換えていない**（C-1 の履歴保全）。本節は R6（`949bae6`）の後に
+> 入った 2 コミットに対する**再確認**である。
+
+- **レビュー日**: 2026-08-10
+- **レビュアー**: R6 と同一の独立 C-1（maker / checker 分離を維持）
+- **対象 head**: **`5d6db49ab5b1909ddb982531f5c2880a577b257f`**
+- **検証した差分**:
+  - `77f3730` — 独立 river-review の **F1〜F7**（major 3 / minor 4）の是正
+  - `5d6db49` — オーガナイザーによる追加修正（F1 是正が持ち込んだ禁止条項違反の解消）
+- **対応ラウンド**: **3 回目**（R6 → river-review F1〜F7 → 本 R7）
+
+## Verdict（R7）
+
+**`PASS`** — critical 0 / major 0 / **minor 2** / info 0。
+
+**新規に major 以上は検出していない。** F1〜F7 の 7 件はいずれも**形式的な字面合わせではなく
+実質が解消**されており、独立に再測定・再現できた範囲ではすべて実物と整合した。
+オーガナイザーの追加修正（`5d6db49`）も**妥当**であり、異論はない。
+
+新規の minor 2 件（**MN-O** / **MN-P**）はいずれも
+**設計判断・AC・TC の結論を変えない**（記述の過度な一般化 1 件 + 狭い条件でのみ成立する
+エッジケース 1 件）。
+
+## 収束判定
+
+`pr-watch` の収束ルール（新規指摘が **minor / info のみ**になった時点で merge-ready 判定へ
+進んでよい / 上限 3 を超えたら human escalate）に照らして:
+
+| 判定軸 | 結果 |
+|---|---|
+| 本ラウンドの新規指摘 severity | **minor 2 / major 0 / critical 0** |
+| 収束ルールの充足 | **充足**（新規は minor のみ）→ **merge-ready 判定へ進んでよい** |
+| ラウンド数 | **3 回目 = 上限ちょうど**（超過していないため escalate 条件には未達） |
+| **escalate の要否** | **不要**（major 以上の新規なし） |
+
+> ただし**ラウンド上限に到達している**ため、MN-O / MN-P を**さらに 1 ラウンド回して直すことは
+> 推奨しない**。どちらも C-3 の裁定事項（後掲 **HR-3** / **HR-4**）として Human に渡し、
+> **`c3.json` 発行前に直すか受容するかを 1 回で決める**のが順序規約と整合する。
+
+## 前ラウンド（R6）の指摘の disposition
+
+| ID | R6 での指摘 | disposition | 根拠 |
+|---|---|---|---|
+| **MN-M** | `dash` 不在環境での TC-29 の扱いが未定義（`timeout(1)` 不在とは非対称） | **解消済み**（F6 として独立 river-review も同一指摘に到達） | `test-cases.md:451`「**If `dash` cannot be resolved, this case FAILs — it must not be skipped (F6).**」が **TC-29 の本体**に入った。R-026 の timeout 裁定との対称性まで明記（`:451-453`）。`plan.md:1327` / `:1400`（Verification 表）/ `todo.md:203` にも伝播。**私が求めた「TC の spec に入れる」形で入っている**（plan / todo だけの記載に留まっていない） |
+| **MN-N** | `pbi-input.md` の「層 A の 3 本」が stale | **方式変更のうえ解決（私の案より良い）** | 私は「(a) pbi-input を人間が是正 / (b) plan 側に注記」を提示したが、**採られたのは HJ-5 = 裁定事項として Human へ委譲**。`pbi-input.md` は**未編集**（`git diff` で確認）。`plan.md:1691` は「**HJ-5 の裁定まで stale であり…3 と 7 が食い違う**」と**隠さず明記**し、`test-cases.md:534` にも同じ注記がある。**AC 正本を AI が書き換えない**という責務分界を保ったまま矛盾を可視化しており、私の案 (b)（plan 側に「plan を正本とする」と書く）より正しい — (b) は AC 正本の所在を AI 側にずらす副作用があった |
+
+## F1〜F7 の再確認（実行コマンドと結果）
+
+### F1（major）: `.` 失敗は `||` / `if` で捕捉できない — **解消・実測で確認**
+
+主張が強い（POSIX special built-in の挙動）ため、**スクリプトファイルを渡して自分で再現**した
+（`-c` 経路では再現しないため）。検証後 `rm -rf .c1probe2` 済み。
+
+`. /nonexistent/helper.sh || { echo "DIAG-REACHED"; }` の後に `echo AFTER`:
+
+| シェル | 結果 | rc |
+|---|---|---|
+| `/bin/dash`（= CI の `sh`） | `BEFORE` のみ。**DIAG も AFTER も出ない**（即終了） | **2** |
+| `/bin/sh`（macOS = bash 3.2 の **POSIX mode**） | `BEFORE` のみ。**同上** | **1** |
+| `/bin/zsh` | `BEFORE` / `DIAG-REACHED` / `AFTER`（継続） | 0 |
+| `/bin/bash`（**非 POSIX mode**） | `BEFORE` / `DIAG-REACHED` / `AFTER`（**継続**） | 0 |
+
+`if . /nonexistent/helper.sh; then … else …; fi` 形でも dash rc=2 / `/bin/sh` rc=1 で
+**診断に到達しない**ことを別途確認した（`||` 固有ではない）。
+
+- **`plan.md:603-607` の表は正確**である。表は `/bin/dash` / **`/bin/sh`（macOS = bash 3.2）** /
+  `/bin/zsh` の 3 行であり、**「`/bin/sh`」と書いてあって「`bash`」とは書いていない**。
+  私が追加で測った `/bin/bash`（非 POSIX mode）の挙動は表の主張と矛盾しない
+- 差し替え後の `[ -r "$helper" ]` 先行プローブは **4 シェルすべてで診断に到達**することを確認
+  （`/bin/dash` で `DIAG-REACHED: helper unreadable` + `AFTER` / rc=0）。**是正は実質的に有効**
+- 原因記述の是正（「`set -eu` 下で」→「special built-in の失敗は `set -e` に依らない」）も
+  `plan.md:609-611` に入っている。**ただしこの一文には過度な一般化がある** → **MN-O**
+
+### F2（major）: `ta-49` は節単位の部分 SKIP — **解消・実測で確認**
+
+```console
+$ head -8 tests/extras/ta-49-bias-export.sh
+…
+# 2 層:
+#   A. _resolve_validation_bias.py の機能テスト（常時実行・AI-owned ヘルパー）
+#   B. bin/plangate 配線テスト（HO 未適用時は SKIP）
+$ grep -n "return 0 2>/dev/null" tests/extras/ta-49-bias-export.sh
+72:  return 0 2>/dev/null || true
+$ awk 'NR<72 && (/pass=\$\(\(pass/ || /fail=\$\(\(fail/)' tests/extras/ta-49-bias-export.sh | wc -l
+       8
+```
+
+- ファイル冒頭が **2 層構造を明示**し、`:72` の guard 直前は
+  `# ---- 層 B: bin/plangate 配線（未適用なら SKIP）----`、SKIP 診断も
+  **`[SKIP] TC-03/TC-05`** と**一部の TC のみ**を名指ししている
+- **guard 到達前に `pass` / `fail` が 8 回更新される**ことを実測（`awk` で行番号 72 未満を計数）。
+  指摘元・是正側の「8 箇所」と一致
+- したがって **`ta-49` に一律 rc=3 を要求すると `fail>0` 時に precedence（rc=1）と衝突する**という
+  F2 の指摘は**正しい**
+- **是正の伝播も追随漏れなし**（私が R6 で最も事故りやすいと指摘した箇所）:
+  `plan.md:170-193`（`#### 7 本は同質ではない` 新設・6 本 / 1 本の構造表 + カウンタ未更新の実測根拠）/
+  `plan.md:723-725`（TC-17 の対象を 6 本へ）/ `plan.md:1210-1219`（Task 5 を 6+1 で分岐）/
+  `plan.md:1400`（Verification 表の期待値を構造別へ）/
+  `todo.md:187-202`・`:381-382` / `test-cases.md:444-449`（TC-29 を表形式へ）・`:618-619`（DoD 内訳）
+- **TC-29 の再設計が適切**（`test-cases.md:444-449`）: 「**クロスシェルの rc 一致**が両群共通の
+  検査対象で、期待値だけが構造で分かれる」と整理されており、`ta-49` は
+  「**先行 TC の結果（0 or 1）— never 3**」。TC-17 側も `:272` で
+  「前提未充足 + `fail>0` は rc=1 であり TC-17 の対象外」と既に整合している
+
+### F3（major）: AC-2 (c) の対象を AI が独断拡張 — **解消（HJ-5 へ委譲）**
+
+- `test-cases.md:545` の AC-2 (c) セルは
+  「**対象本数は注記 1 を参照（正本は `pbi-input.md`・裁定待ち）**」へ戻され、
+  **7 本という確定記述が撤去**されている
+- **`HJ-5` が新設**され、plan（`:1676-1697`）/ todo（`H-06` = `:62`, `:70`）/
+  test-cases（`:9`, `:532-534`, `:626`）へ一貫して伝播。`HJ-1〜HJ-5` の表記も
+  plan `:1571` / `:1710-1715`、todo `:355` / `:383` で揃っている
+- **`pbi-input.md` は未編集**（`git diff --name-only 949bae6..5d6db49` に含まれない）
+- **実装対象と AC 文言を分離**した点が良い（`plan.md:1695-1697`）:
+  「裁定が済むまで TC-17 / TC-29 / Task 5 は `#### 7 本は同質ではない` を対象定義として用いる
+  （**AC の文言とは独立に、実装対象は 7 本で確定している**）」。
+  これにより **exec がブロックされないまま AC 正本の書き換えだけを Human に残せる**
+
+### F4: Traceability の AC-7 — **解消**
+
+`test-cases.md:551` が **`M-01〜M-19`** へ是正され、Slice 列も
+「**M-15〜M-19（全 Slice 1）を含む**」と具体化。`todo.md:274` も `M-01〜M-19` へ追随。
+
+### F5: `EXTRAS_DIR` への新規 env 依存 — **解消・実測で確認**
+
+```console
+$ grep -n "^unset" tests/run-tests.sh
+20:unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+$ grep -n "FIXTURES_DIR=\|EXTRAS_DIR=\|PG_HARNESS_SOURCED" tests/run-tests.sh
+23:FIXTURES_DIR="…/fixtures"
+24:EXTRAS_DIR="…/extras"
+163:PG_HARNESS_SOURCED=1
+```
+
+- **plan の主張どおり**: unset は **7 個**で、**`EXTRAS_DIR` / `FIXTURES_DIR` は含まれない**
+  （23-24 行で `export` なしに代入）。一方 **`PG_HARNESS_SOURCED` は 20 行で unset され
+  163 行で自ら設定**されるため汚染耐性がある
+- 是正後の mode 判定は **`PG_HARNESS_SOURCED` AND `FIXTURES_DIR`**（`plan.md:555`）で、
+  **既存 extras と同一イディオム**（`ta-49:71` が実際に同じ判定式）。
+  **新しい guarded 外 env 依存を増やしていない**
+- `EXTRAS_DIR` は **harness 経路でのみ読む**（`plan.md:635-636`）ため、
+  standalone で外部から `EXTRAS_DIR` を export されても届かない。**F5 の是正は有効**
+- なお本 mode 判定には**狭いエッジケース**が残る → **MN-P**
+
+### F6: `dash` 不在時の TC-29 — **解消**（R6 の MN-M と同一指摘）
+
+前掲「MN-M の disposition」を参照。**TC-29 の本体**に入っている点が重要。
+
+### F7: `timeout-minutes` の時間モデル — **解消**
+
+- `plan.md:1429-1430` が **per-job wall clock**（`timeout-minutes` が効く軸）と
+  **総 CI 分**（課金・キュー）の 2 軸表へ分離され、
+  「`strategy.matrix` は**独立した job へ展開**され、`timeout-minutes` は **job 単位**」
+  と明記。**GitHub Actions の実際のセマンティクスとして正しい**
+- 20 分の根拠が **per-job wall clock のみ**に置き直され（`:1623-1625`）、
+  「matrix 化は per-job wall clock を増やさない / 増えるのは総 CI 分」と結論も是正
+- HJ-1 patch に `name:` 明示と **required checks の設定確認**を Human 前提条件として追記
+  （matrix 化で job 名が変わり required check が外れる、という運用事故を先回りしている）
+
+### `5d6db49`（オーガナイザー追加修正）の妥当性 — **妥当。異論なし**
+
+```console
+$ grep -n "return 0 2>/dev/null" docs/working/TASK-0921/plan.md
+（該当は grep コマンド文字列・禁止条項の記述・是正の経緯注記のみ。
+  tests/extras/ へ着地する規範スニペットには 1 件も残っていない）
+```
+
+- 差し替え後の bootstrap（`plan.md:565-572`）は
+  **`_pg_extra_mode` を再利用して `return 0`（harness）と `exit 1`（standalone）を書き分ける**形で、
+  **禁止イディオムを含まない**
+- **`5d6db49` の判断根拠 (2) は特に妥当**である: 「Slice 1 DoD の
+  `grep -rn 'return 0 2>/dev/null' tests/extras/` = 0 件という**機械検査が、例外を持つと
+  人手判断を含む検査へ退化する**」— これは R6 で私が MN-M について述べた
+  「黙って半分だけ実行して PASS になる」と同じ論理であり、**検査器の価値を保つ判断として正しい**
+- 経緯が `plan.md:593-595` に**隠さず記録**されている（「是正を担当したワーカー自身が申告して
+  発見された」）点も、監査可能性の観点で適切
+
+## 新規 Minor Findings（R7 / 2 件）
+
+### MN-O（minor / C1-PLAN-04）: 「`set -e` の有無に依らない」は非 POSIX mode の `bash` で成立しない
+
+`plan.md:609-610` は F1 の原因記述を是正して
+「**これは `set -e` の有無に依らない**。special built-in の失敗はそれ自体が非対話シェルの
+終了要因であり、『`set -eu` 下で `.` が失敗すると』という説明は**不正確**」としている。
+**結論（`[ -r ]` 先行プローブ）は全シェルで正しい**が、**この一文自体が過度な一般化**である。
+
+実測（`. /nonexistent` → 診断到達と rc）:
+
+| シェル | `set -eu` なし | `set -eu` あり |
+|---|---|---|
+| `/bin/dash` | 終了 / rc=2（診断に到達しない） | 終了 / rc=2 |
+| `/bin/sh`（bash の POSIX mode） | 終了 / rc=1（同上） | — |
+| **`/bin/bash`（非 POSIX mode）** | **継続 / rc=0（診断に到達する）** | **終了 / rc=1（到達しない）** |
+
+- **`set -e` に依らない**のは **dash と POSIX mode の bash** のみ。
+  **非 POSIX mode の `bash` では `set -e` の有無が結果を分ける**
+- これが無視できない理由: **`tests/extras/` の対象ファイルは `set -eu` を持たない**
+  （実測: `grep -c "set -eu" tests/extras/ta-39…/ta-45…/ta-49…` = **0 / 0 / 0**）。
+  かつ **TC-29 は `bash` での実走を明示的に要求している**。したがって
+  「`bash` で `. || 診断` は診断に到達しない」と読むと**実測と食い違う**組合せが
+  本 PBI のテスト経路の中に実在する
+- **影響範囲**: 設計判断・AC・TC の結論は**変わらない**（`[ -r ]` プローブは 4 シェルすべてで
+  正しく動くことを確認済み）。影響するのは **plan の説明文の正確さ**のみ
+- **提案**: `plan.md:609` を
+  「**dash と POSIX mode の `sh`（= CI 経路）では `set -e` に依らず終了する**。
+  非 POSIX mode の `bash` では `set -e` の有無で分かれるが、いずれにせよ
+  `. → 失敗検知` は**移植可能な形にならない**」へ 1 文で精密化する
+- **severity 判断**: **minor**。ただし本 plan は R-021 で
+  「シェル挙動の過度な一般化」により critical を出した経緯があり、**同じクラスの誤りが
+  是正文の中に再発している**点は記録に値する
+
+### MN-P（minor / C1-TEST-15）: bootstrap の mode 判定は「env 由来」であり、汚染時に真 standalone で `return 0` を実行しうる
+
+是正後の bootstrap（`plan.md:555-572`）は **env（`PG_HARNESS_SOURCED` AND `FIXTURES_DIR`）から
+mode を導出**し、helper 未解決時にその mode で `return 0` / `exit 1` を選ぶ。
+しかし **「実際に source されているか」は env ではなく起動方法の性質**であり、両者は乖離しうる。
+
+**発火条件（3 つの同時成立が必要）**:
+1. **standalone 実行**（真に `sh ta-XX.sh` として起動）
+2. 外部環境から **`PG_HARNESS_SOURCED=1` かつ `FIXTURES_DIR` 非空**が継承されている
+3. **helper が読めない**（配り忘れ / revert 順序誤り）
+
+このとき bootstrap は **harness 分岐**を選び、`fail=$((fail+1))` の後に
+**top-level の `return 0`** を実行する。実測（`fail=1` を立てた後に bare `return 0`）:
+
+| シェル | 挙動 | rc |
+|---|---|---|
+| `/bin/dash` | **script がそこで終了** | **0** |
+| `/bin/bash` / `/bin/sh` | `return: can only 'return' from a function or sourced script` を stderr へ出し **本体を継続** | **0** |
+
+- **3 シェルとも rc=0**。すなわち **`fail>0` なのに rc=0** という、
+  **本 PBI（issue #921）が塞ごうとしている「静かに通る」クラスそのもの**が再現する
+  （`[FAIL] helper unresolved:` の診断は stderr に出るため完全な無音ではない）
+- **なぜ既存 extras より悪化するか**: 既存 extras も同じ mode 判定イディオムを使うため
+  **汚染窓自体は新規ではない**（`plan.md:633` の「新しい依存を増やさない」は正しい）。
+  新規なのは、**その分岐の中に top-level `return 0` が置かれた**点である。
+  `plan.md:576-591` は「禁止の根拠（shell 実体で挙動が割れる）が bootstrap にも当てはまる」と
+  正しく述べているが、**bare `return 0` も真 standalone では同じく shell 実体で割れる**
+- **提案（いずれか。exec 前に 1 行で解消可能）**:
+  - (a) helper 未解決の分岐では **mode を信用せず常に `exit 1`** にする（harness でも
+    suite は止まるが、helper 不在は**恒常的な配布事故**であり全滅させて気付く方が安全）
+  - (b) `_pg_extra_mode=harness` の分岐で **`EXTRAS_DIR` の非空も AND 条件に加える**
+    （発火条件 2 を潰す。`EXTRAS_DIR` は runner が必ず設定する）
+  - (c) 受容する。ただし **`plan.md` の既知の残存リスクとして明記**し、handoff へ引き継ぐ
+- **severity 判断**: **minor**。発火に 3 条件の同時成立を要し、`PG_HARNESS_SOURCED` は
+  guarded env（TC-15 の対象）であるため通常運用では踏まない
+
+## Human C-3 の判断事項（最終一覧）
+
+> **HJ-1〜HJ-5 は plan 側で AI が未裁定としたもの**、**HR-1〜HR-4 は独立 C-1（R6 / R7）が
+> Human 判断へ回すもの**。いずれも **AI は決めていない**。
+
+| ID | 論点 | 選択肢 | 出典 | 状態 |
+|---|---|---|---|---|
+| **HJ-1** | CI の `sh` 実体を固定するか（**HO 対象・patch 提示のみ**） | (a) dash 明示 / (b) dash + bash matrix | R-022 / `plan.md:1478` | 未裁定。**適用は Human-owned**。patch に `name:` 明示 + **required checks 再設定の確認**が前提条件として付いた（F7） |
+| **HJ-2** | 層 C の ROOT sentinel を Slice 1 へ前倒しするか | 前倒し / Slice 2 の D-2 (c) に委ねる | R-023 | 未裁定 |
+| **HJ-3** | `timeout-minutes` の再見積り（**HO 対象・patch 提示のみ**） | HJ-1 の patch に同梱 / 別途 | R-026 | 未裁定。**20 分の根拠が per-job wall clock のみに是正済み**（F7） |
+| **HJ-4** | 案 D における `original rc` の捕捉規約 | (a) 2 値化（**TC-06 の削除 / 再定義を伴う**）/ (b) 保持 + 規約化 | R-030 | 未裁定 |
+| **HJ-5**（F3 で新設） | **AC-2 (c) の対象本数（3 本 → 7 本 = 全体ガード 6 + 節スキップ 1）を `pbi-input.md`（正本）へ反映するか** | (a) pbi-input を 7 本 / 6+1 構造へ更新 / (b) AC は 3 本のまま据え置き、残り 4 本は AC-1 で回収 | F3 / `plan.md:1676` | 未裁定。**`pbi-input.md` は未編集**。裁定まで pbi-input の「層 A の 3 本」は **stale であると明示済み**。**実装対象は 7 本で確定**しており exec はブロックされない |
+| **HR-1**（R6） | `dash` 不在環境での TC-29 の扱い | — | R6 MN-M | **解決済み**（F6 で「SKIP せず FAIL」に確定。裁定不要） |
+| **HR-2**（R6） | `pbi-input.md` の stale な「層 A の 3 本」 | — | R6 MN-N | **HJ-5 に統合**（重複のため本項は閉じる） |
+| **HR-3**（R7 で追加） | `plan.md:609`「`set -e` の有無に依らない」の精密化 | (a) 1 文で精密化 / (b) 受容 | **MN-O** | 未裁定（**AI は書き換えていない**。plan 編集は `c3.json` 発行前に限る） |
+| **HR-4**（R7 で追加） | bootstrap の helper 未解決分岐が汚染時に真 standalone で `return 0` を実行しうる | (a) 常に `exit 1` / (b) `EXTRAS_DIR` 非空を AND 条件に追加 / (c) 既知リスクとして受容し handoff へ | **MN-P** | 未裁定（同上） |
+
+**注**: HR-3 / HR-4 の修正はいずれも `plan.md` の編集を伴う。
+**C-3 承認後の plan 編集は `plan_hash` を無効化するため、直すなら `c3.json` 発行前**に行うこと。
+受容する場合は plan / handoff に既知リスクとして残せばよく、**exec はブロックされない**。
+
+## C-3 Readiness（R7 時点）
+
+- [x] C-2（別系統 4 レーン）R-021〜R-037 の 1 回確定反映（`0597b53`）
+- [x] 簡易 C-1 再実行（R6 / `949bae6`）— PASS / minor 2
+- [x] **独立 river-review F1〜F7 の是正**（`77f3730`）+ **自己矛盾の追加修正**（`5d6db49`）
+- [x] **是正後の再確認（R7 / 本節）— PASS / critical 0 / major 0 / minor 2**
+- [x] **収束**（新規は minor のみ = merge-ready 判定へ進んでよい。**escalate 不要**）
+- [x] 承認境界の不侵犯を再確認（`git diff --name-only 949bae6..5d6db49` = plan / test-cases / todo の
+      3 ファイルのみ。**`approvals/` / `pbi-input.md` / `review-external.md` / `tests/` / `scripts/` /
+      `bin/` / `.github/` はいずれも不変**）
+- [ ] **HJ-1〜HJ-5（+ HR-3 / HR-4）の Human 裁定** — C-3 の判断対象
+- [ ] **Human C-3 による `c3.json` 発行** — 順序規約 (4)。**本 C-1 は承認トークンを発行していない**
+- [ ] runtime inventory の exec 開始時取得（Task 1 で確定する設計上の未了。R5 から不変）
+
+## 本 R7 の限界
+
+- 検証したのは **plan / todo / test-cases の記述と実ファイル（`tests/extras/*` /
+  `tests/run-tests.sh` / `.github/workflows/test.yml`）の突合**、および
+  **シェル挙動のローカル再現**まで。**contract TA / helper は未実装**であり、
+  TC-01〜29 の実検出力は exec で初めて検証される
+- シェル再現はすべて **macOS 26.6 のローカル実測**。`ubuntu-latest` 実 CI 上での再現は
+  **確認していない**（`/bin/sh` = dash という前提からの推論）
+- F1〜F7 の指摘元である river-review の**出力そのものは読んでいない**。
+  本 R7 が確認したのは「**是正後の最終形が実物と整合するか**」であり、
+  river-review が**見落とした指摘がないか**は本 R7 の保証範囲外である
+  （ただし R7 で独自に MN-O / MN-P の 2 件を新規検出しており、
+  **是正後の版に対する独立探索は行っている**）
