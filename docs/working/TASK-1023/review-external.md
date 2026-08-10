@@ -215,3 +215,80 @@ plan / todo / pbi-input / current-state / INDEX / review-self の該当箇所を
 |---|---|---|---|
 | R-030 | **re-reflected** | 0352c68 | AC から絶対件数を削除。plan 側にコマンド + 単位 + 測定日付きスナップショットとして保持。3 者の数値差が集計単位差である旨を明記 |
 | （訂正）| corrected | 0352c68 | 「既発行 c3.json が stale / 再発行」→「**未承認 / 初回発行**」へ全ファイル訂正（実測 3 点で確認）|
+
+---
+
+## 追記 2-b: 独立 river-review（2026-08-10 / major 3 / minor 4 / info 1）
+
+> 追記専用。上の記述は残し、本節で是正内容を記録する。
+> **8 件すべて成立**と判定し反映した（反証なし）。前節「追記 2」で私が書いた
+> **closure 4 surface 宣言そのものが M-1 で否定された**。
+
+### M-1（major）: 「settings patch 不要」の判断は誤りだった
+
+前節で「本反映は settings 変更を要求しない」と報告したが、実測すると:
+
+| 実測対象 | 値 |
+|---|---|
+| `docs/ai/settings-wiring-contract.md` §EH-10 | 「**`PreToolUse(Edit\|Write)` に配線する**」＝契約自体が `Edit\|Write` |
+| `.claude/settings.example.json:68,78` | token guard は `Edit\|Write` と `Bash` の **2 matcher のみ** |
+| 私が追加した `plan.md` 否定宣言 | 「閉じるのは **4 surface**（MultiEdit 含む）」 |
+
+**配線されていない surface を「閉じた」と宣言していた**。実害は 2 つ:
+
+1. AC-11 / TC-21 / T-09 が **MultiEdit の実 E2E 証跡**を要求するが、hook が発火しないなら取得できず、
+   AC-11 の「未取得なら BLOCKED」で **PBI が自分の AC で恒久 BLOCKED**になる
+2. `Edit|Write` が MultiEdit にマッチしないなら、**MultiEdit 経由の承認 artifact 書き込みは本 PBI 完了後も無防備** —
+   否定宣言に列挙していない **4 つ目の残存経路**
+
+**反映**: 否定宣言を**到達性依存の分岐**へ書き換え / Verification Plan に **MultiEdit 到達性の実測**を追加 /
+**G-9**（到達しない場合の (i) AC から外す・(ii) settings patch 提示）を新設 / TC-21b 追加 / T-09 に順序注意を明記。
+
+> **HO 境界の非対称性**（レビュー指摘どおり）: `.claude/settings*.json` は HO 9 カテゴリ内で**適用は Human-owned**、
+> 一方 `docs/ai/settings-wiring-contract.md` は **9 カテゴリ外なので AI が書ける**。
+> ただし §EH-10 の書き換えは **G-6（採番）と G-9(ii)（配線対象）の両方に依存**するため、
+> 未決の Human 判断を先取りしないよう **本反映では行わない**（Out of Scope として plan に明示）。
+
+### M-2（major）: R-030 の反映が AC 文言止まりで TC-19 に届いていなかった
+
+AC-09 は起点・3 区分・集計単位併記を要求するが、**TC-19 は無変更**だった。
+旧起点（2026-06-02）で inventory を作っても TC-19 が PASS し V-1 で落ちない
+＝ **R-026 で私が批判した「どちらに解釈しても AC が PASS する」構造を、R-030 の反映側で再生産していた**。
+AC-09 は本 PBI で唯一「実行時に機械判定されない AC」なので、TC に書かなければ検出力ゼロ。
+
+**反映**: TC-19 の期待結果に (1) 起点 `2026-04-27` (2) (a)(b)(c) 3 区分 (3) 集計単位・測定日・base SHA の併記
+を**欠落で FAIL** として追加。
+
+### M-3（major）: `edits[]` の path field 未特定 → 実装が二択になる
+
+`grep -rn 'tool_input.edits\|\.edits\[' scripts/ tests/ docs/` は**本 TASK 以外 0 件**（実測）。
+定義 artifact が無いまま実装すると (i) 存在しない field を見て自作 payload にだけ緑（**vacuous AC の再生産**）か、
+(ii) 任意文字列マッチに緩めて誤 block、の二択。しかも (ii) では
+**本 plan 自身が本文に `docs/working/TASK-1023/approvals/c3.json` を含むため、この plan の MultiEdit 編集が block される**。
+
+**反映**: `edits[]` 評価を**落とし** `tool_input.file_path` のみに限定（理由を plan に明記）。TC-22b(ii) を削除し、
+**誤 block 方向の負 TC（TC-22c: 本文に token path 文字列を含む通常ファイル → rc=0）**を追加。
+`edits[]` の実 payload が確認できたら再検討（handoff の V2 候補）。
+
+### minor / info
+
+| ID | 反映 |
+|---|---|
+| m-1 | 変異 **6**（`parsed-safe` から `MultiEdit` 除去 → TC-22a が kill）/ **7**（top-level fallback 除去 → TC-02b が kill）を追加し **5 種 → 7 種**。「新規 TC に対応する変異を持たないものを残さない」を Exit Criteria へ |
+| m-2 | G-7 の論点を「TTY 限定」から **「stdin 未供給の手実行全般」**へ訂正（AC-03 により `< /dev/null` でも block）。選択肢に **(c) 既存 `PLANGATE_SKIP_TOKEN_GUARD=1` の文書化のみ（追加実装ゼロ）** を追加 |
+| m-3 | Decision Table の TTY 行の根拠を「env 評価が先だから」→**「`[ -t 0 ]` 判定を `cat` より前に置くため」**へ訂正（設計自体の非ハング性は成立） |
+| m-4 | 「7 割以上が集中」を根拠から外し、**「起点より前は保護が 0 だった」という時間不変の性質**へ言い換え。比率は 2026-08-10 時点の参考スナップショットと明示 |
+| i-1 | `AC-33` → **`R-033`** のタイポ訂正 / `pbi-input` 既存行の「EH-10 を追加する」を**「採番は G-6 の決定に従う」**へ / `INDEX` `current-state` の更新時刻を **UTC 表記に戻し**、記述対象の最後の判断より後の時刻へ |
+
+### 監査表（追記 2-b 分）
+
+| ID | status | reflected_in(commit) | notes |
+|---|---|---|---|
+| M-1 | reflected | pending | closure を到達性依存へ / 到達性実測ステップ / G-9 / TC-21b / HO 非対称性。契約文書の追随は G-6・G-9 決定後（Out of Scope 宣言） |
+| M-2 | reflected | pending | TC-19 に起点・3 区分・集計単位の機械検査を追加 |
+| M-3 | reflected | pending | `edits[]` 評価を削除し `file_path` のみに限定 / TC-22b(ii) 削除 / TC-22c 追加 |
+| m-1 | reflected | pending | 変異 6・7 を追加（5 種 → 7 種）/ TC-17d・17e |
+| m-2 | reflected | pending | G-7 を「stdin 未供給の手実行全般」へ / 選択肢 (c) 追加 |
+| m-3 | reflected | pending | TTY 行の非ハング根拠を訂正 |
+| m-4 | reflected | pending | 比率を根拠から外し時間不変の性質へ |
+| i-1 | reflected | pending | R-033 タイポ / EH-10 前提 / 時刻表記 |

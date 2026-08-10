@@ -70,3 +70,28 @@ C1-VERDICT: PASS plan=sha256:24fcdf9f703728f8e8ff4d544ac98628af72b727aeacdb4d2f1
    スナップショットとして plan 側に置いた。
 
 C1-VERDICT-2: PASS-with-WARN（WARN は c3.json の初回発行が未了である点のみ。plan_hash は反映確定後に再計算する）
+
+---
+
+## 簡易 C-1 再実行 その 2（2026-08-10 / 独立 river-review の是正後）
+
+| 観点 | 判定 | 根拠 |
+|---|---|---|
+| closure 宣言の正確性 | PASS | 「配線された surface のみ」へ縮小し、MultiEdit は**到達性実測（TC-21b）まで宣言しない**分岐構造へ（M-1）|
+| AC → TC の検出力 | PASS | AC-09 の機械検査を TC-19 へ落とした（M-2）。新規 TC は全て対応する変異を持つ（m-1・変異 7 種）|
+| vacuous AC の再生産 | PASS | `edits[]` 評価を落として推測実装の余地を消し、誤 block 方向の負 TC（TC-22c）を追加（M-3）|
+| 未決事項の分離 | PASS | G-6 / G-7 / G-8 に **G-9（MultiEdit 到達性の分岐）** を追加。契約文書の追随は G-6・G-9 依存のため Out of Scope と明示 |
+| 時間依存の主張 | PASS | 件数に続き**比率も**根拠から外し、時間不変の性質（起点より前は保護 0）へ置換（m-4）|
+| スコープ制御 | PASS | `scripts` / `tests` / `.claude` / `bin` 不変を実測。`docs/ai/settings-wiring-contract.md` は HO 外だが本反映では触れない |
+
+### Minor Findings（追加）
+
+7. **自分の前回反映（追記 2）に 3 件の major が出た**。とくに M-2 は「R-026 で自分が批判した
+   vacuous 構造を、R-030 の反映側で再生産していた」もので、**指摘した基準を自分の成果物へ
+   適用していなかった**。M-1 も「settings patch 不要」と断定した自己申告が誤りだった。
+   → 以後、**closure / 網羅性を宣言するときは配線・実行経路まで遡って確認する**。
+8. MultiEdit 到達性は**本セッションでは実測不能**（configured Claude Code の実挙動が要る）。
+   plan には実測ステップとして残し、結果に応じた分岐を先に確定させた。
+
+C1-VERDICT-3: PASS-with-WARN（WARN は (1) c3.json 初回発行が未了 (2) MultiEdit 到達性が未実測で
+G-9 が未確定 の 2 点。いずれも Human C-3 / exec 時に解消する設計にしてある）
