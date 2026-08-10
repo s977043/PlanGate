@@ -3,8 +3,8 @@
 > Plan: [`plan.md`](./plan.md) / Tests: [`test-cases.md`](./test-cases.md)
 > C-2: [`review-external.md`](./review-external.md)（`Refs: R-001`〜`R-020` +
 > **別系統 C-2（4 レーン）由来の `R-021`〜`R-037`** を確定反映。
-> **R-032 は `resolved-by-design` につき反映せず**。未確定 4 件は plan の
-> `## Human C-3 の判断事項`＝**HJ-1 / HJ-2 / HJ-3 / HJ-4**）
+> **R-032 は `resolved-by-design` につき反映せず**。未確定 5 件は plan の
+> `## Human C-3 の判断事項`＝**HJ-1 / HJ-2 / HJ-3 / HJ-4 / HJ-5**）
 > Mode: **high-risk（Slice 1）**（全extrasの実行制御とexit contractを変更するためC-3必須）
 > **Slice 2 は本 PBI スコープ内の後続スライス。着手時に Mode を再判定する**（plan `## Mode判定`）
 
