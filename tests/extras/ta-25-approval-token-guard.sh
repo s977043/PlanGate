@@ -421,10 +421,10 @@ fi
 # T1023-TC-12: 代表 write surface（apply_patch / patch / node / perl / ruby）→ 各 rc=2（AC-05）
 t25_mk p_sf_apply_patch '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"apply_patch <<PATCH\n*** Update File: docs/working/TASK-0001/approvals/c3.json\n+{}\nPATCH"}}'
 t25_mk p_sf_patch '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"patch docs/working/TASK-0001/approvals/c3.json <<EOF\n@@\nEOF"}}'
-t25_mk p_sf_node '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"node -e \"require('fs').writeFileSync('docs/working/TASK-0001/approvals/c3.json','{}')\""}}'
-t25_mk p_sf_perl_open '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"perl -e \"open(F, '>', 'docs/working/TASK-0001/approvals/c3.json'); print F 1;\""}}'
+t25_mk p_sf_node '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"node -e \"require('\''fs'\'').writeFileSync('\''docs/working/TASK-0001/approvals/c3.json'\'','\''{}'\'')\""}}'
+t25_mk p_sf_perl_open '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"perl -e \"open(F, '\''>'\'', '\''docs/working/TASK-0001/approvals/c3.json'\''); print F 1;\""}}'
 t25_mk p_sf_perl_pi '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"perl -pi -e \"s/REJECTED/APPROVED/\" docs/working/TASK-0001/approvals/c3.json"}}'
-t25_mk p_sf_ruby '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ruby -e \"File.write('docs/working/TASK-0001/approvals/c3.json', '{}')\""}}'
+t25_mk p_sf_ruby '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ruby -e \"File.write('\''docs/working/TASK-0001/approvals/c3.json'\'', '\''{}'\'')\""}}'
 _t25_ok=1
 for _t25_p in p_sf_apply_patch p_sf_patch p_sf_node p_sf_perl_open p_sf_perl_pi p_sf_ruby; do
   t25_guard "$T25_TMP/$_t25_p"
