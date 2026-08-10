@@ -858,23 +858,47 @@ TC-12 の assert を **(a) probe なし → rc=0 / (b) probe あり × target �
 
 | R-NNN | status | reflected_in(commit) | notes |
 |-------|--------|----------------------|-------|
-| R-021 | open | — | **critical** / 系統 B Lane 1 `R-101`+`R-107`+`R-108` / Lane 4 `R-405` / `\|\| true` 型 4 件（`ta-45`/`ta-46`/`ta-47`/`ta-49`）のシェル依存早期脱出。CI(dash) で末尾 finalize 到達不能・bash で skip guard 素通り。**Slice 1 スコープ内** |
-| R-022 | open | — | major / 系統 B Lane 1 `R-101` / `D-0921-10` / CI の `sh` 実体が未固定。**`.github/workflows/**` は HO 対象のため AI は patch 提示のみ** |
-| R-023 | open | — | **minor**（当初 major → 独立 river-review により引き下げ） / 系統 B Lane 2 `B/R-213` / 層 C の空振り PASS 自体は `pbi-input.md:20,98,193` + `plan.md:48,210,818,820` + 系統 A `R-007` で**裁定済み（D-2 (c)）**。**新規要素は「ROOT sentinel を Slice 1 へ前倒しするか」の 1 点のみ**。判定式は「rc=0 かつ `[FAIL]`=0 かつ ROOT 誤解決で assertion が空振り」（**`[PASS]` 0 ではない** — `ta-11` P4 / `ta-32` P1 / `ta-38` P1）。**Human 判断項目（前倒し / Slice 2 に委ねる）** |
-| R-024 | open | — | major / 系統 B Lane 1 `R-103` / harness 経路での非 0 `return` が `set -e` でスイート即死。Global Constraints は `exit` しか禁じていない |
-| R-025 | open | — | major / 系統 B Lane 1 `B/R-105` / Lane 4 `B/R-404` / bootstrap の `.` 失敗が suite 即死。**revert 順序は `plan.md:854,886` で既に規定済み**のため、新規要素は **(1) bootstrap アンカーを `$0` → `EXTRAS_DIR`** と **(2) 適用（forward）側の同一 commit 原子性** の 2 点に限定 |
-| R-026 | open | — | major / 系統 B Lane 2 `B/R-208` / Lane 4 `B/R-407` / per-file timeout 未定義。`ta-26` 実測 54〜58 秒 / **`timeout(1)` は macOS 開発機のみ不在（CI にはある）** / timeout 発火は SKIP でなく FAIL / **`timeout-minutes: 10` の再見積り（HO 対象・patch 提示のみ）** |
-| R-027 | open | — | major / 系統 B Lane 2 `R-205` / marker 検出の空振り 4 経路（1 行 2 marker / 行末スペース / heredoc 内 / 自己マッチ）。正規表現仕様化 + 先頭 20 行限定 |
-| R-028 | open | — | major / 系統 B Lane 2 `R-210` / TC-16 が実 `tests/extras/` に `ta-zz-probe.sh` を作る設計。sandbox 化 + 実ディレクトリ書込禁止 |
-| R-029 | open | — | major / 系統 B Lane 2 `R-203`+`R-204` / probe 合格条件が rc 値のみ。一意文字列 AND / rc=2 の id 込み照合 / `sh -n` 独立 TC |
-| R-030 | open | — | major / 系統 B Lane 1 `R-104` / precedence 表の `original rc` を案 D でどう捕捉するかが未定義。2 値化 or 「finalize 直前にコマンドを挟まない」規約 |
-| R-031 | open | — | minor / 系統 B Lane 4 `R-401` / helper が env unset / ROOT 解決を所有すると TC-33 が空洞化。**現行方針との相違点の記録**（等価性の明示を提案） |
+| R-021 | reflected | `0597b53` | **critical** / 系統 B Lane 1 `R-101`+`R-107`+`R-108` / Lane 4 `R-405` / `\|\| true` 型 4 件（`ta-45`/`ta-46`/`ta-47`/`ta-49`）のシェル依存早期脱出。CI(dash) で末尾 finalize 到達不能・bash で skip guard 素通り。**Slice 1 スコープ内** |
+| R-022 | reflected | `0597b53` | major / 系統 B Lane 1 `R-101` / `D-0921-10` / CI の `sh` 実体が未固定。**`.github/workflows/**` は HO 対象のため AI は patch 提示のみ** |
+| R-023 | reflected | `0597b53` | **minor**（当初 major → 独立 river-review により引き下げ） / 系統 B Lane 2 `B/R-213` / 層 C の空振り PASS 自体は `pbi-input.md:20,98,193` + `plan.md:48,210,818,820` + 系統 A `R-007` で**裁定済み（D-2 (c)）**。**新規要素は「ROOT sentinel を Slice 1 へ前倒しするか」の 1 点のみ**。判定式は「rc=0 かつ `[FAIL]`=0 かつ ROOT 誤解決で assertion が空振り」（**`[PASS]` 0 ではない** — `ta-11` P4 / `ta-32` P1 / `ta-38` P1）。**Human 判断項目（前倒し / Slice 2 に委ねる）** |
+| R-024 | reflected | `0597b53` | major / 系統 B Lane 1 `R-103` / harness 経路での非 0 `return` が `set -e` でスイート即死。Global Constraints は `exit` しか禁じていない |
+| R-025 | reflected | `0597b53` | major / 系統 B Lane 1 `B/R-105` / Lane 4 `B/R-404` / bootstrap の `.` 失敗が suite 即死。**revert 順序は `plan.md:854,886` で既に規定済み**のため、新規要素は **(1) bootstrap アンカーを `$0` → `EXTRAS_DIR`** と **(2) 適用（forward）側の同一 commit 原子性** の 2 点に限定 |
+| R-026 | reflected | `0597b53` | major / 系統 B Lane 2 `B/R-208` / Lane 4 `B/R-407` / per-file timeout 未定義。`ta-26` 実測 54〜58 秒 / **`timeout(1)` は macOS 開発機のみ不在（CI にはある）** / timeout 発火は SKIP でなく FAIL / **`timeout-minutes: 10` の再見積り（HO 対象・patch 提示のみ）** |
+| R-027 | reflected | `0597b53` | major / 系統 B Lane 2 `R-205` / marker 検出の空振り 4 経路（1 行 2 marker / 行末スペース / heredoc 内 / 自己マッチ）。正規表現仕様化 + 先頭 20 行限定 |
+| R-028 | reflected | `0597b53` | major / 系統 B Lane 2 `R-210` / TC-16 が実 `tests/extras/` に `ta-zz-probe.sh` を作る設計。sandbox 化 + 実ディレクトリ書込禁止 |
+| R-029 | reflected | `0597b53` | major / 系統 B Lane 2 `R-203`+`R-204` / probe 合格条件が rc 値のみ。一意文字列 AND / rc=2 の id 込み照合 / `sh -n` 独立 TC |
+| R-030 | reflected | `0597b53` | major / 系統 B Lane 1 `R-104` / precedence 表の `original rc` を案 D でどう捕捉するかが未定義。2 値化 or 「finalize 直前にコマンドを挟まない」規約 |
+| R-031 | reflected | `0597b53` | minor / 系統 B Lane 4 `R-401` / helper が env unset / ROOT 解決を所有すると TC-33 が空洞化。**現行方針との相違点の記録**（等価性の明示を提案） |
 | R-032 | **resolved-by-design** | `516e2f7` | minor / 系統 B Lane 3 `B/R-003` / **本追補の時点で既に解消済み・反映不要**。`516e2f7`（PR #1017「extras loader の記述を実 glob（ta-*.sh）へ是正」/ 2026-08-05 17:24）で修正され、`git merge-base --is-ancestor 516e2f7 origin/main` = exit 0。`origin/main`（`9f9af94`）で `grep -n 'extras/\*\.sh' tests/run-tests.sh` = **0 件**（R-032 自身の検証コマンドが既に PASS）。**系統 B の記述を再検証せず転記した唯一の項目**（本追補の反省点として明記） |
-| R-033 | open | — | minor / 系統 B Lane 1 `R-110`+`R-113`+`R-112` / `local` は POSIX 外 / mode は init 毎回解決（source 時キャッシュ禁止）/ 対話シェル source 禁止を README へ |
-| R-034 | open | — | minor / 系統 B Lane 2 `B/R-214`（`seven` 部分のみ） / env 件数ハードコード。**対象は `test-cases.md:174`（TC-15）と `:228`（TC-33 再ターゲット）の 2 箇所**。`run-tests.sh` から動的導出へ |
-| R-035 | open | — | minor / 系統 B Lane 2 `R-215`+`R-216` / 「contract TA の discovery 集合 == runner の source 集合」を assert する TC が無い |
-| R-036 | open | — | info / 系統 B Lane 4 `R-412` / 移行 PR 生存中の marker 無し新規ファイル着地。検出はされる（TC-09/TC-10 FAIL）ため是正コストのみ。7 日以内 merge を推奨 |
-| R-037 | open | — | info / 系統 B Lane 4 `R-402`+`R-403`+`R-408` / batch 基準を risk 分布へ / bootstrap 7 行→2 行（`PG_EXTRA_FILE`）/ `ta-26` は legacy adapter。**Slice 2 の判断材料** |
+| R-033 | reflected | `0597b53` | minor / 系統 B Lane 1 `R-110`+`R-113`+`R-112` / `local` は POSIX 外 / mode は init 毎回解決（source 時キャッシュ禁止）/ 対話シェル source 禁止を README へ |
+| R-034 | reflected | `0597b53` | minor / 系統 B Lane 2 `B/R-214`（`seven` 部分のみ） / env 件数ハードコード。**対象は `test-cases.md:174`（TC-15）と `:228`（TC-33 再ターゲット）の 2 箇所**。`run-tests.sh` から動的導出へ |
+| R-035 | reflected | `0597b53` | minor / 系統 B Lane 2 `R-215`+`R-216` / 「contract TA の discovery 集合 == runner の source 集合」を assert する TC が無い |
+| R-036 | reflected | `0597b53` | info / 系統 B Lane 4 `R-412` / 移行 PR 生存中の marker 無し新規ファイル着地。検出はされる（TC-09/TC-10 FAIL）ため是正コストのみ。7 日以内 merge を推奨 |
+| R-037 | reflected | `0597b53` | info / 系統 B Lane 4 `R-402`+`R-403`+`R-408` / batch 基準を risk 分布へ / bootstrap 7 行→2 行（`PG_EXTRA_FILE`）/ `ta-26` は legacy adapter。**Slice 2 の判断材料** |
+
+> **確定反映の記録（2026-08-10 / 追記専用）**: 上表の `status` / `reflected_in(commit)` 列を
+> 更新した。**本表より上の記述（表の直前の凡例・注記を含む）は 1 文字も変更していない**ため、
+> 「本追補は計画本体を一切変更していない／したがって全件 `open`」という記述は
+> **本追補作成時点（反映前）の状態を述べたもの**として読むこと。
+>
+> - **反映コミット**: `0597b53`（`Refs: R-021`〜`R-037`）。plan / todo / test-cases の 3 ファイルのみ変更。
+>   **`tests/` `scripts/` `bin/` `.github/` は 1 ファイルも変更していない**（実装は C-3 承認後）
+> - **R-032 は `resolved-by-design` のまま**（`516e2f7` / PR #1017 で解消済み。反映不要）。
+>   README の「`ta-` プレフィクスを持つファイルのみが test として収集される」という
+>   任意の残余項目だけを plan Task 7 / todo T-07 へ取り込んだ
+> - **`reflected` の意味**: R-022 / R-023 / R-026 の `timeout-minutes` / R-030 の 4 件は
+>   **AI が裁定・適用しなかった**が、plan の `## Human C-3 の判断事項`（**HJ-1 / HJ-2 /
+>   HJ-3 / HJ-4**）へ選択肢・patch 案・影響範囲つきで**明示的に載せた**ことをもって
+>   `reflected` としている。**裁定は C-3 で行う**
+>   - **HJ-1（R-022）/ HJ-3（R-026 の `timeout-minutes`）は `.github/workflows/**`＝
+>     Hardening Override 対象**のため、plan に **patch 案の提示のみ**を置き
+>     **AI は適用していない**（適用は Human-owned）
+> - **R-021 の一次実測は本反映時に再測定した**: `grep -rn 'return 0 2>/dev/null' tests/extras/`
+>   → `|| exit 0` 型 3 件（`ta-39:59` / `ta-43:56` / `ta-44:49`）+ `|| true` 型 4 件
+>   （`ta-45:52` / `ta-46:23` / `ta-47:23` / `ta-49:72`）+ `ta-31:43,56,72,73`（分岐内）。
+>   シェル依存も再現済み（`/bin/sh`＝bash のみ本体が継続、`/bin/dash` / `/bin/zsh` は終了）
+> - **R-036 の open PR 状況を再測定した**: 2026-08-10 時点で `gh pr list --state open` は
+>   **0 件**（`tests/` に触れる open PR も 0 件）
 
 ## 採録側の現存スイープ（`origin/main` = `9f9af94` で全 17 件を再検証）
 
