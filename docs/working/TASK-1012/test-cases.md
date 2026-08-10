@@ -9,7 +9,17 @@
 
 R4 でこの是正を TC-A1b にだけ適用し **TC-A1a に残していた**ため、AC-1 の主判定が壊れる状態だった。以後は本規約で兄弟の取りこぼしを断つ。
 
-**C-2 R-005 / R-001 でさらに兄弟の取りこぼしが再発した**（TC-A1c / TC-A2a に fence 無し・TC-A6a が散文のみ）。本改訂で **判定式を持つ全 TC にフェンスを入れ切った**。以後、新規 TC を足すときは「判定式を書いたらフェンスに置く」を **TC 追加とセットで**行う。
+**C-2 R-005 / R-001 でさらに兄弟の取りこぼしが再発した**（TC-A1c / TC-A2a に fence 無し・TC-A6a が散文のみ）。
+
+**改訂 10 で規約の適用範囲を確定した**（river-review minor。C-1 R5 → C-2 R-005 と **2 度**再発しており、「入れ切った」という完了宣言と実体がずれたままだと 3 度目を招くため）。改訂 10 の初版時点でも TC-A3 / TC-A4 / TC-A5 がセルのみで残っていた（いずれも `|` を含まないため実害は無かったが、宣言とは食い違っていた）。
+
+| 対象 | 規約 | 理由 |
+|------|------|------|
+| **`\|` を含む式** | **フェンス必須・例外なし**（表セルに書いた時点で欠陥） | セルでは `\|` エスケープが要り、raw から複写した実行者が `\|` のまま実行すると **ERE では literal pipe = 常に 0 = 確定的な誤 FAIL** に倒れる（実測: 表セル版 0 / 素の pipe 版 2） |
+| **`\|` を含まない実行コマンド**（TC-A3 / A4 / A5 等） | **本書（test-cases）ではフェンスに置く**。改訂 10 で入れ切った | 「判定式はフェンスから取る」を例外なしの単純規則にして、兄弟の取りこぼし判断そのものを無くす |
+| **`todo.md` の 🚩 / rollback 列** | **本規約の対象外**（参照的記載であり判定式の正本ではない） | 判定式の正本は本書のフェンス。todo 側は「どの検査を通すか」の索引であり、実行者は本書から複写する |
+
+以後、新規 TC を足すときは「判定式を書いたらフェンスに置く」を **TC 追加とセットで**行う。
 
 ### 判定用ログの出力先（C-2 R-008）
 
@@ -39,7 +49,7 @@ mkdir -p "$EV"
 | **AC-3**: `ta-26` standalone 0 failed | TC-A3 |
 | **AC-4**: フルスイート 0 failed | TC-A4 |
 | **AC-5**: 交互 A/B で実行時間を実測 | TC-A5 |
-| **AC-6**: シンボル越境が 0 件 | TC-A6a（静的）/ **TC-A6c**（変異③） |
+| **AC-6**: シンボル越境が 0 件 | TC-A6a（静的）/ **TC-A6c**（変異③・越境の検出力）/ **TC-A6d**（変異④・範囲が広がる側の検出力） |
 | （不変条件）ゲート以外の内容変化がない | TC-INV |
 
 > **AC-6 は改訂 10 で独立 AC へ復帰した**（C-2 R-003 / Human C-3 決定 2026-08-10）。改訂 2〜9 は C-1 再レビュー B-1 に従って「AC-1 が成立するための静的前提」として AC-1 配下へ畳んでいたが、その動機が **「AC 数 6 は `.claude/rules/mode-classification.md` の定量基準で high-risk 帯に入る」という帯回避**だったため撤回した。Mode は high-risk を受け入れる。**TC の構成・判定式は畳んでいた期間を通じて一切変えていない**（マッピングの帰属先だけが戻った）。
@@ -81,8 +91,10 @@ grep -cE '\[SKIP\] (TC-20〜TC-25|TC-26〜29/32/34〜36)' "$EV/t26-child.log"   
 
 ```sh
 # TC-A1b の判定コマンド（この行をそのまま使う）
-grep -cE '\[(PASS|FAIL)\] TC-(2[0-9]|32|34|35|36)' "$EV/t26-child.log"   # → 0 が期待値
+grep -cE '\[(PASS|FAIL)\] TC-(2[0-9]|32|34|35|36)' "$EV/t26-child.log" || true   # → 0 が期待値
 ```
+
+> ⚠️ **本 TC だけ期待値と rc の向きが逆転する**: `grep -c` は**マッチ 0 件のとき rc=1** を返す（POSIX 挙動。実測: `printf 'a\nb\n' | grep -cE 'zzz'` → 出力 `0` / rc=1、`grep -cE 'a'` → 出力 `1` / rc=0）。TC-A1a（期待 2）/ TC-A1c（期待 1）は rc=0 なので、**A-3 を `set -e` や `&&` 連結でまとめると、この TC が成功したときに限って中断する**。上記のとおり `|| true` で受けるか、rc ではなく**出力値 `0`** で判定すること。
 
 ### TC-A1c — ゲート外 TC は子でも実行される（AC-1 の対偶）
 
@@ -146,27 +158,44 @@ diff "$EV/ids-base.txt" "$EV/ids-opt.txt" && echo "TC-ID SET IDENTICAL"
 
 | 項目 | 内容 |
 |------|------|
-| 入力 | `sh tests/extras/ta-26-plugin-sync.sh </dev/null; echo $?` |
+| 入力 | 下記フェンスの判定コマンド |
 | 期待出力 | `0 failed` かつ **rc=0** |
 | 種別 | Integration |
+
+```sh
+# TC-A3 の判定コマンド（この 2 行をそのまま使う）
+EV=docs/working/TASK-1012/evidence/test-runs; mkdir -p "$EV"
+sh tests/extras/ta-26-plugin-sync.sh </dev/null > "$EV/t26-standalone.log" 2>&1; echo "rc=$?"
+```
 
 ### TC-A4 — フルスイートが 0 failed（AC-4）
 
 | 項目 | 内容 |
 |------|------|
-| 入力 | `sh tests/run-tests.sh` |
+| 入力 | 下記フェンスの判定コマンド |
 | 期待出力 | `Results: N passed, **0 failed**` かつ rc=0 |
 | 種別 | Regression |
 | 備考 | **総数 N は基点依存のため契約値にしない**（#947 / #942 の既知変動） |
+
+```sh
+# TC-A4 の判定コマンド（この 2 行をそのまま使う）
+EV=docs/working/TASK-1012/evidence/test-runs; mkdir -p "$EV"
+sh tests/run-tests.sh > "$EV/full-suite.log" 2>&1; echo "rc=$?"
+```
 
 ### TC-A5 — 交互 A/B による実行時間の実測（AC-5）
 
 | 項目 | 内容 |
 |------|------|
-| 入力 | BASE（変更前）と OPT（変更後）を**交互に各 2 回以上**、`time sh tests/extras/ta-26-plugin-sync.sh </dev/null` |
+| 入力 | BASE（変更前）と OPT（変更後）を**交互に各 2 回以上**測定する。切替と測定の手順は **plan「T-05 の BASE/OPT 切替手順（退避コピー方式）」のフェンスが正本**。単発の測定コマンドは下記フェンス |
 | 期待出力 | **下記の判定基準**を満たす。数値を status に記録 |
 | 種別 | Verification |
 | 備考 | **連続測定にしない**（V-2 事後補完でも 54.5s / 57.1s / 82.0s と振れた） |
+
+```sh
+# TC-A5 の 1 回分の測定コマンド（BASE / OPT の切替は plan の退避コピー方式に従う）
+time sh tests/extras/ta-26-plugin-sync.sh </dev/null
+```
 
 **判定基準と停止条件**（C-1 R5 指摘 N-8）:
 
@@ -224,8 +253,25 @@ for pair in "A:$A:20 21 22 23 24 25" "B:$B:26 27 28 29 32 34 35 36"; do
     _in "$rng" "$ln" || { echo "OUT-OF-RANGE gate $g: TC-$n at L$ln not in $rng"; miss=$((miss + 1)); }
   done
 done
+
+# ---- (1b) 範囲の排他アサーション（**広がる側**の fail-open / river-review major）--
+# (1) は「範囲が狭すぎる」方向しか捕まえない。**広すぎる**方向も塞ぐ。
+# ゲート B の閉じ `fi` を誤ってインデントすると、範囲導出 awk（/^fi$/ = 桁 0 のみ一致）は
+# 次の桁 0 `fi`（TC-30 ブロックの末尾等）まで範囲を延ばす。すると本検査が TC-30/33 領域を
+# 「ゲート内」と誤認し、そこからゲート B へのシンボル参照を越境として数えなくなる。
+# `sh -n` は通り、TC-INV は `git diff -w` が空白差（= インデント）を無視し、
+# 🚩「導出件数が 4」も 4 のままなので、**この経路は他のどの検査でも見えない**。
+for n in 30 33; do
+  ln=$(grep -nE "^[[:space:]]*# TC-$n:" "$F" | head -1 | cut -d: -f1)
+  if [ -z "$ln" ]; then echo "MISSING header TC-$n"; miss=$((miss + 1)); continue; fi
+  for pair in "A:$A" "B:$B"; do
+    g=${pair%%:*}; rng=${pair#*:}
+    ! _in "$rng" "$ln" || { echo "IN-RANGE gate $g: TC-$n at L$ln is inside $rng (ゲート外に残すべき TC)"; miss=$((miss + 1)); }
+  done
+done
+
 echo "containment_violations=$miss"
-[ "$miss" -eq 0 ] || { echo "FAIL: ゲート範囲が期待 TC を内包していない（範囲導出が打ち切られた可能性）"; exit 1; }
+[ "$miss" -eq 0 ] || { echo "FAIL: ゲート範囲が期待 TC を内包していない / ゲート外に残すべき TC を飲み込んでいる"; exit 1; }
 
 # ---- (2) 識別子収集 + (3) 範囲外参照の全数照合 -----------------------------
 # 収集パターンは POSIX 文字クラスのみで書く（\s / \w は POSIX ERE 外・非可搬 / C-2 R-006）。
@@ -270,12 +316,18 @@ awk -v ranges="$A $B" '
 ' "$F"
 ```
 
-**実測**（適用前 tree・`sh tc-a6a.sh "421-521" "558-730"`）:
+**実測**（適用前 tree・`origin/main` の `ta-26-plugin-sync.sh` に対して 4 通りの範囲入力で実行）:
 
-- `containment_violations=0`
-- `identifiers=77 crossings=0` / rc=0（C-2 が独立に数えた「ゲート A 内 31 + ゲート B 内 46 = 77 識別子・越境 0 件」と一致）
-- 範囲を偽装して打ち切った場合（ゲート B を `558-700`）: `OUT-OF-RANGE gate B: TC-36 at L707 not in 558-700` / rc=1 で **fail-open を検出**
-- 変異③（`: "$_t26_tgt36"` をファイル末尾に注入）: `CROSS _t26_tgt36 (def L721) <- L806` / `crossings=1` / rc=1
+| 範囲入力（ゲート B） | 出力 | rc | 意味 |
+|---|---|---|---|
+| `558-730`（正常） | `containment_violations=0` / `identifiers=77 crossings=0` | **0** | C-2 が独立に数えた「ゲート A 内 31 + ゲート B 内 46 = 77 識別子・越境 0 件」と一致 |
+| `558-700`（**狭める**側） | `OUT-OF-RANGE gate B: TC-36 at L707 not in 558-700` / `containment_violations=1` | **1** | (1) 内包アサーションが打ち切りを検出（C-2 R-002a の是正が有効） |
+| `558-741`（**広げる**側・現実的な誤り） | `IN-RANGE gate B: TC-30 at L732 is inside 558-741` / `containment_violations=1` | **1** | **(1b) 排他アサーションが検出**（下記 TC-A6d） |
+| `558-791`（**広げる**側・さらに拡大） | `IN-RANGE gate B: TC-30 at L732 …` + `IN-RANGE gate B: TC-33 at L743 …` / `containment_violations=2` | **1** | 同上（2 件とも検出） |
+
+変異③（`: "$_t26_tgt36"` をファイル末尾に注入）: `CROSS _t26_tgt36 (def L721) <- L806` / `crossings=1` / rc=1。
+
+> **(1b) を追加した経緯（river-review major）**: 改訂 10 の初版は (1) の内包アサーションしか持たず、**広げる側で `containment_violations=0` / `identifiers=83 crossings=0` / rc=0 = PASS** していた（`558-791` で実測）。変異③を重ねても `crossings=1` を返すため**変異③もこの広がりを検出しない**。C-2 R-002 が閉じた fail-open と**同クラス・逆方向**の穴だったため、排他アサーションで塞いだ。
 
 ### TC-A6b — 変異②: ゲート B を縮めると TC-A1b が FAIL する（**AC-1** の検出力）
 
@@ -310,6 +362,30 @@ awk -v ranges="$A $B" '
 
 **実測**: `: "$_t26_tgt36"` をファイル末尾へ注入 → `CROSS _t26_tgt36 (def L721) <- L806: : "$_t26_tgt36"` / `identifiers=77 crossings=1` / rc=1。復元後は `crossings=0` / rc=0。
 
+### TC-A6d — 変異④: ゲート範囲を**広げる**と TC-A6a の排他アサーションが FAIL する（**AC-6** の検出力・広がる側）
+
+| 項目 | 内容 |
+|------|------|
+| 変異 | **ファイルを書き換えない**。TC-A6a の**呼び出し側（call site）＝範囲入力そのもの**を壊す。ゲート B の終端を、ゲート外に残すべき TC-30 のヘッダ（L732）を飲み込む位置まで広げて渡す |
+| 期待出力 | `IN-RANGE gate B: TC-30 at L732 is inside <範囲>` を報告し `containment_violations` ≥ 1 / **rc=1** |
+| 種別 | 変異注入（**範囲入力の変異**） |
+| 事後 | 正しい範囲で再実行し、`containment_violations=0` / `crossings=0` / rc=0 に戻ることを確認するまでが本 TC |
+| 備考 | **変異対象は関数定義ではなく call site**。TC-A6a 本体を書き換えると「検査を壊して検査が落ちた」だけになり検出力を実証しない。**ファイル無改変なので復元不要**（`git checkout` を伴わない唯一の変異） |
+
+```sh
+# TC-A6d の判定コマンド（この 2 行をそのまま使う。適用後は A / B とも動的導出値を使う）
+sh tc-a6a.sh "421-521" "558-741"   # → IN-RANGE gate B: TC-30 … / rc=1 が期待値（変異）
+sh tc-a6a.sh "421-521" "558-730"   # → containment_violations=0 / crossings=0 / rc=0 が期待値（復元）
+```
+
+**なぜこの変異が要るか**: 範囲導出 awk の終端判定 `/^fi$/` は**桁 0 の `fi` にしか一致しない**。ゲート適用時に閉じ `fi` を誤ってインデントすると、範囲は次の桁 0 `fi` まで**黙って延びる**。このとき:
+
+- ランタイム TC（TC-A1a / A1b / A1c）は**ゲートが実際には正しく閉じている**ため全 PASS する
+- `sh -n` は通り、TC-INV は `git diff -w` が空白差（= インデント）を無視するため見えない
+- 🚩「導出件数が 4」も 4 のまま
+
+→ **AC-6 の唯一の静的検査だけが誤認し、しかも他のどの検査でも見えない**。変異④はこの経路に対する検出力を直接実証する。
+
 ### TC-INV — ゲート以外の内容変化がない（不変条件）
 
 | 項目 | 内容 |
@@ -342,6 +418,7 @@ git diff -w HEAD -- tests/extras/ta-26-plugin-sync.sh
 
 | TC | 自動化 |
 |----|-------|
-| TC-A1a / A1b / A1c / A2a / A3 / A4 / A6a / TC-INV | ✅ シェル 1 行で判定可能 |
+| TC-A1a / A1b / A1c / A2a / A3 / A4 / A6a / TC-INV | ✅ シェル 1 行で判定可能（TC-A1b は **rc ではなく出力値**で判定する — 上記の rc 逆転に注意） |
+| **TC-A6d** | ✅ **ファイル無改変**（範囲入力を変えて TC-A6a を 2 回実行するだけ）。復元操作を伴わない |
 | TC-A2b / TC-A6b / TC-A6c | ⚠️ 変異注入のため手順化（置換 → 実行 → `git checkout -- <file>` で **index**〔= 実装適用済み〕へ復元）。**復元確認まで含めて 1 TC**。復元セマンティクスは todo.md の該当節を参照 |
 | TC-A5 | ⚠️ 時間測定のため実行環境依存。交互 A/B の手順を evidence に残す |

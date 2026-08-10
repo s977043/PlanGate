@@ -140,7 +140,13 @@ fi
 
 ### high-risk で必須になるフェーズ
 
-`.claude/rules/mode-classification.md` フェーズ適用マトリクスにより **C-2 = ○ / V-2 = ○ / V-3 = ○**（standard との実質差分は **V-2**）。**V-4 は `critical` のみ**なので適用外。C-2 の充足判定（現状 **不足**）は plan の該当節を正本とする。
+`.claude/rules/mode-classification.md` L149-163 のフェーズ適用マトリクスで **中 → 高 の差分は 4 行**: `brainstorm` △→**○** / `C-2` -→**○** / `exec` TDD→**TDD + 並列** / `V-2` -→**○**。V-3 は中でも `○` で既に必須、**V-4 は `critical` のみ**なので適用外。
+
+- **brainstorm**: R-407 で対象・方式・プロトタイプ検証まで確定済みの派生 PBI であり新規設計を持ち込まないため **該当なし**
+- **exec 並列**: A-1〜A-6 が全て直列依存のため **並列化しない**
+- **C-2**: 現状 **不足**（§7-bis コードベース整合レーン未実施）
+
+いずれも判定の正本は plan の該当節。**brainstorm 該当なし / exec 非並列 / C-2 不足の 3 点はいずれも Human C-3 の確認事項**とし、AI が単独で確定しない。
 
 `.claude/rules/working-context.md` の Hardening Override は非該当（対象 9 カテゴリのいずれにも触れない）。
 
