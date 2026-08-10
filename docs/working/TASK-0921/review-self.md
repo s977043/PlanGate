@@ -482,7 +482,8 @@ pbi-input を正本として参照している**ためで、ポインタを辿�
 | ID | R6 での指摘 | disposition | 根拠 |
 |---|---|---|---|
 | **MN-M** | `dash` 不在環境での TC-29 の扱いが未定義（`timeout(1)` 不在とは非対称） | **解消済み**（F6 として独立 river-review も同一指摘に到達） | `test-cases.md:451`「**If `dash` cannot be resolved, this case FAILs — it must not be skipped (F6).**」が **TC-29 の本体**に入った。R-026 の timeout 裁定との対称性まで明記（`:451-453`）。`plan.md:1327` / `:1400`（Verification 表）/ `todo.md:203` にも伝播。**私が求めた「TC の spec に入れる」形で入っている**（plan / todo だけの記載に留まっていない） |
-| **MN-N** | `pbi-input.md` の「層 A の 3 本」が stale | **方式変更のうえ解決（私の案より良い）** | 私は「(a) pbi-input を人間が是正 / (b) plan 側に注記」を提示したが、**採られたのは HJ-5 = 裁定事項として Human へ委譲**。`pbi-input.md` は**未編集**（`git diff` で確認）。`plan.md:1691` は「**HJ-5 の裁定まで stale であり…3 と 7 が食い違う**」と**隠さず明記**し、`test-cases.md:534` にも同じ注記がある。**AC 正本を AI が書き換えない**という責務分界を保ったまま矛盾を可視化しており、私の案 (b)（plan 側に「plan を正本とする」と書く）より正しい — (b) は AC 正本の所在を AI 側にずらす副作用があった |
+| **MN-N** | `pbi-input.md` の「層 A の 3 本」が stale | **方式変更のうえ解決（私の案より良い）** | 私は「(a) pbi-input を人間が是正 / (b) plan 側に注記」を提示したが、**採られたのは HJ-5 = 裁定事項として Human へ委譲**。`pbi-input.md` は**未編集**（**R6 時点＝`949bae6..5d6db49` のスコープでの確認**。
+その後 **2026-08-10 の Human C-3 裁定 HJ-5 = (a) により `pbi-input.md` は更新済み**）。`plan.md:1691` は「**HJ-5 の裁定まで stale であり…3 と 7 が食い違う**」と**隠さず明記**し、`test-cases.md:534` にも同じ注記がある。**AC 正本を AI が書き換えない**という責務分界を保ったまま矛盾を可視化しており、私の案 (b)（plan 側に「plan を正本とする」と書く）より正しい — (b) は AC 正本の所在を AI 側にずらす副作用があった |
 
 ## F1〜F7 の再確認（実行コマンドと結果）
 
@@ -550,7 +551,9 @@ $ awk 'NR<72 && (/pass=\$\(\(pass/ || /fail=\$\(\(fail/)' tests/extras/ta-49-bia
 - **`HJ-5` が新設**され、plan（`:1676-1697`）/ todo（`H-06` = `:62`, `:70`）/
   test-cases（`:9`, `:532-534`, `:626`）へ一貫して伝播。`HJ-1〜HJ-5` の表記も
   plan `:1571` / `:1710-1715`、todo `:355` / `:383` で揃っている
-- **`pbi-input.md` は未編集**（`git diff --name-only 949bae6..5d6db49` に含まれない）
+- **`pbi-input.md` は未編集**（`git diff --name-only 949bae6..5d6db49` に含まれない。
+  **本判定は当該 commit 範囲にスコープされた事実**であり、その後 **HJ-5 = (a) 裁定（2026-08-10）
+  により `pbi-input.md` は Human 裁定に基づいて更新済み**である）
 - **実装対象と AC 文言を分離**した点が良い（`plan.md:1695-1697`）:
   「裁定が済むまで TC-17 / TC-29 / Task 5 は `#### 7 本は同質ではない` を対象定義として用いる
   （**AC の文言とは独立に、実装対象は 7 本で確定している**）」。
@@ -689,14 +692,19 @@ mode を導出**し、helper 未解決時にその mode で `return 0` / `exit 1
 
 > **HJ-1〜HJ-5 は plan 側で AI が未裁定としたもの**、**HR-1〜HR-4 は独立 C-1（R6 / R7）が
 > Human 判断へ回すもの**。いずれも **AI は決めていない**。
+>
+> **更新（2026-08-10 Human C-3）**: **HJ-2 / HJ-4 / HJ-5 / HR-4 の 4 件が裁定済み**となり、
+> 内容は plan / todo / test-cases / pbi-input へ反映済み。**未裁定として残るのは HJ-1 / HJ-3 の
+> 2 件のみ**（いずれも `.github/workflows/**` = Hardening Override 対象のため **patch 提示まで**
+> で、適用は Human-owned）。本表の「状態」列は**この更新後の値**である。
 
 | ID | 論点 | 選択肢 | 出典 | 状態 |
 |---|---|---|---|---|
 | **HJ-1** | CI の `sh` 実体を固定するか（**HO 対象・patch 提示のみ**） | (a) dash 明示 / (b) dash + bash matrix | R-022 / `plan.md:1478` | 未裁定。**適用は Human-owned**。patch に `name:` 明示 + **required checks 再設定の確認**が前提条件として付いた（F7） |
-| **HJ-2** | 層 C の ROOT sentinel を Slice 1 へ前倒しするか | 前倒し / Slice 2 の D-2 (c) に委ねる | R-023 | 未裁定 |
+| **HJ-2** | 層 C の ROOT sentinel を Slice 1 へ前倒しするか | 前倒し / Slice 2 の D-2 (c) に委ねる | R-023 | **裁定済み（2026-08-10 Human C-3）— Slice 2 の D-2 (c) に委ねる**（Slice 1 へ前倒ししない）。`plan.md` へ反映済み |
 | **HJ-3** | `timeout-minutes` の再見積り（**HO 対象・patch 提示のみ**） | HJ-1 の patch に同梱 / 別途 | R-026 | 未裁定。**20 分の根拠が per-job wall clock のみに是正済み**（F7） |
-| **HJ-4** | 案 D における `original rc` の捕捉規約 | (a) 2 値化（**TC-06 の削除 / 再定義を伴う**）/ (b) 保持 + 規約化 | R-030 | 未裁定 |
-| **HJ-5**（F3 で新設） | **AC-2 (c) の対象本数（3 本 → 7 本 = 全体ガード 6 + 節スキップ 1）を `pbi-input.md`（正本）へ反映するか** | (a) pbi-input を 7 本 / 6+1 構造へ更新 / (b) AC は 3 本のまま据え置き、残り 4 本は AC-1 で回収 | F3 / `plan.md:1676` | 未裁定。**`pbi-input.md` は未編集**。裁定まで pbi-input の「層 A の 3 本」は **stale であると明示済み**。**実装対象は 7 本で確定**しており exec はブロックされない |
+| **HJ-4** | 案 D における `original rc` の捕捉規約 | (a) 2 値化（**TC-06 の削除 / 再定義を伴う**）/ (b) 保持 + 規約化 | R-030 | **裁定済み（2026-08-10 Human C-3）— (b) `original rc` 保持 + 規約化を採用**（**TC-06 は維持**。2 値化しない）。`plan.md` / `todo.md` へ反映済み |
+| **HJ-5**（F3 で新設） | **AC-2 (c) の対象本数（3 本 → 7 本 = 全体ガード 6 + 節スキップ 1）を `pbi-input.md`（正本）へ反映するか** | (a) pbi-input を 7 本 / 6+1 構造へ更新 / (b) AC は 3 本のまま据え置き、残り 4 本は AC-1 で回収 | F3 / `plan.md` の `### HJ-5 …` 節 | **裁定済み（2026-08-10 Human C-3）— (a) `pbi-input.md`（AC の正本）を 3 本 → 7 本（全体ガード 6 + 節スキップ 1）へ更新する**を採用。**`pbi-input.md` は本ブランチで反映済み**（更新前の「未編集 / 層 A の 3 本は stale」という記述は本裁定で解消した）。**実装対象は 7 本で確定**しており exec はブロックされない |
 | **HR-1**（R6） | `dash` 不在環境での TC-29 の扱い | — | R6 MN-M | **解決済み**（F6 で「SKIP せず FAIL」に確定。裁定不要） |
 | **HR-2**（R6） | `pbi-input.md` の stale な「層 A の 3 本」 | — | R6 MN-N | **HJ-5 に統合**（重複のため本項は閉じる） |
 | ~~**HR-3**（R7 で追加）~~ | ~~`plan.md:609`「`set -e` の有無に依らない」の精密化~~ | (a) 1 文で精密化 | **MN-O** | **裁定不要 — 案 (a) で是正済み（`a0e864b` / オーガナイザー）**。表に `/bin/bash`（非 POSIX モード = 継続 / rc=0）行を追加し、原因帰属を「**POSIX 準拠モードか否か**」へ是正。オーガナイザーが `/bin/bash` で独立再現したうえで反映。**結論・設計・AC・TC は不変**のため C-3 の裁定対象から外す |
@@ -705,6 +713,10 @@ mode を導出**し、helper 未解決時にその mode で `return 0` / `exit 1
 **注**: HR-3 / HR-4 の修正はいずれも `plan.md` の編集を伴う。
 **C-3 承認後の plan 編集は `plan_hash` を無効化するため、直すなら `c3.json` 発行前**に行うこと。
 受容する場合は plan / handoff に既知リスクとして残せばよく、**exec はブロックされない**。
+> **状態（2026-08-10）**: HR-3 は案 (a) で是正済み・HR-4 は (b) 裁定を反映済みであり、
+> **その反映により既存 `approvals/c3.json` の `plan_hash` は既に無効化されている**。
+> したがって **Human による c3.json の再発行が必須**であり、以後の plan 編集も
+> 「再発行前に済ませる」という同じ順序規約に従う（`c3.json` は AI が発行しない）。
 
 ## C-3 Readiness（R7 時点）
 
@@ -716,7 +728,9 @@ mode を導出**し、helper 未解決時にその mode で `return 0` / `exit 1
 - [x] 承認境界の不侵犯を再確認（`git diff --name-only 949bae6..5d6db49` = plan / test-cases / todo の
       3 ファイルのみ。**`approvals/` / `pbi-input.md` / `review-external.md` / `tests/` / `scripts/` /
       `bin/` / `.github/` はいずれも不変**）
-- [ ] **HJ-1〜HJ-5（+ HR-3 / HR-4）の Human 裁定** — C-3 の判断対象
+- [x] **HJ-2 / HJ-4 / HJ-5 / HR-4 の Human 裁定**（2026-08-10 Human C-3）— 反映済み
+- [ ] **HJ-1 / HJ-3 の Human 裁定** — **残る唯一の裁定対象**（`.github/workflows/**` = HO 対象。
+      AI は patch 提示まで、適用は Human-owned）。HR-3 は裁定不要（案 (a) で是正済み）
 - [ ] **Human C-3 による `c3.json` 発行** — 順序規約 (4)。**本 C-1 は承認トークンを発行していない**
 - [ ] runtime inventory の exec 開始時取得（Task 1 で確定する設計上の未了。R5 から不変）
 

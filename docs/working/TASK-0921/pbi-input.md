@@ -229,7 +229,7 @@ CI は harness 経由のみ（裏取り #5）だが、**`apply-*.sh` 系（Human
 
 > mode-classification の「定量と定性の高い方を採用」により、**層 B+C を一括で扱うと定量 16+ で critical 固定**になる（初版 R-104 の指摘を維持）。
 >
-> **River Review 反映による見積り変化（MJ-2 / MJ-4）**: タスク数は **12-20 → 16-24**、定性「変更種別」は **standard 相当 → high-risk**（exit 3 の意味レイヤーが新規設計）、Slice 2 以降の総量は **36 → 41 本**（D-2 (c) 採用時）。**Slice 1 の 14 本という規模は変わらないが、1 本あたりの変更量が「末尾ブロック追加」から「フラグ + 初期化 + 末尾ブロック（+ **7 本**は rc 設計 — HJ-5 裁定により 3 本 → 7 本）」へ増える**。判定案自体（Slice 1 = high-risk / 一括 = critical）は維持。
+> **River Review 反映による見積り変化（MJ-2 / MJ-4）**: タスク数は **12-20 → 16-24**、定性「変更種別」は **standard 相当 → high-risk**（exit 3 の意味レイヤーが新規設計）、Slice 2 以降の総量は **36 → 41 本**（D-2 (c) 採用時）。**Slice 1 の 14 本という規模は変わらないが、1 本あたりの変更量が「末尾ブロック追加」から「フラグ + 初期化 + 末尾ブロック（+ 7 本は rc 設計 — HJ-5 裁定により 3 本 → 7 本）」へ増える**。判定案自体（Slice 1 = high-risk / 一括 = critical）は維持。
 
 **Hardening Override**: **非該当**。変更対象 `tests/extras/**` / `tests/extras/README.md` は `scripts/hooks/check-plan-hash.sh` の override 9 カテゴリ（`.claude/rules/` / `.claude/settings*.json` / `.claude/commands/` / `.claude/agents/` / `scripts/hooks/` / `bin/plangate` / `schemas/` / `.github/workflows/` / `AGENTS.md`・`CLAUDE.md`）の**いずれにも該当しない** → `lite_eligible` 強制 false や Standard 同期 C-3 の強制は**発生しない**。ただし **`high-risk` 以上のため C-3 は人間必須**（autonomous APPROVE 不可）であり、実質 `lite_eligible=false`。
 

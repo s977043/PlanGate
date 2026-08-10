@@ -95,7 +95,8 @@ created_by: orchestrator
 - helperはPOSIX `sh` で動作し、bash専用構文を使わない
 - file count / ta番号一覧を正本としてハードコードしない
 - direct invocation probe は必ず `</dev/null` を付け、ta-50等のstdin待ちを防ぐ
-- 外部env汚染により harness mode と誤認しない。`PG_HARNESS_SOURCED=1` と有効な `FIXTURES_DIR` のANDを維持
+- 外部env汚染により harness mode と誤認しない。**harness 判定述語（正本 = `### Mode resolution`）
+  の 3 条件 AND を維持**する（HR-4 = (b) 裁定により `EXTRAS_DIR` 非空を含む）
 - cleanupは repository外の登録済みtmpのみを削除し、未検証pathを `rm -rf` しない
 - contract test の故障注入は fail-safe（テストを余分に失敗させる方向）とし、successを偽装しない
 - #994のTC-33 observation gapを前提にせず、本Taskのcontract testは対象condition/markerを直接検査する
@@ -661,7 +662,9 @@ standalone 実行時の汚染除去のために unset する env は **7 個**�
   **harness 分岐を選び top-level `return 0` を実行して `fail>0` のまま rc=0** になる
   （MN-P 実測: dash / bash / sh とも rc=0）。**本 PBI が塞ごうとしている「静かに通る」クラス**
 - **判定を厳しくしても正規経路は影響を受けない**（実測）: `tests/run-tests.sh` は
-  **`:23` で `FIXTURES_DIR`・`:24` で `EXTRAS_DIR`** を代入するため、harness 経路では
+  **`FIXTURES_DIR=` の代入行・`EXTRAS_DIR=` の代入行**（いずれも冒頭の unset 7 env ブロック直後。
+  記号アンカーで指す — 行番号は上流に 1 行入るだけで stale 化するため使わない / C-1 R10 F-3）
+  で両 dir を代入するため、harness 経路では
   3 条件が常に同時に成立する。したがって **AND 追加で harness 判定が偽になることはない**
 - **効果は「窓を狭める」ことであり閉じ切ることではない**（正直に記す）。3 変数すべてが
   汚染された環境では依然として harness 分岐へ落ちる。完全に閉じるのは (a) だが、
@@ -732,7 +735,16 @@ helper が受け取るのは **basename ベースの test-id のみ**（R-016）
 
 ### Mode resolution
 
-harness判定（**bootstrap と同一述語**。HR-4 = (b) 採用により `EXTRAS_DIR` 非空を AND に含む）:
+> **本節が harness 判定述語（以下「**harness 判定述語（正本）**」）の唯一の正本である**
+> （C-1 R10 / F-1 是正）。plan / todo / test-cases の他箇所は **本節を名前で参照し、
+> 条件式を literal 複製しない**。唯一の例外は
+> **`#### bootstrap の helper 解決規約` の実装スニペット**で、そこは
+> 「実装が書くべきコードそのもの」であるため条件式を書き下す（**本節と常に同一**であること
+> が Slice 1 DoD で検査される）。過去に 4 箇所へ literal 複製した結果、HR-4 の
+> `EXTRAS_DIR` 追加が 2 条件のまま取り残された箇所が生じたため、この規約を置く。
+
+harness判定（**bootstrap と同一述語**。HR-4 = (b) 採用により `EXTRAS_DIR` 非空を AND に含む
+＝**3 条件 AND**）:
 
 ```sh
 [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]
@@ -1004,6 +1016,15 @@ TC-17（前提未充足で rc=3）と M-10（rc 0 を返す変異を TC-17 が�
    | `ta-39` | `EH-3_DOC_LIGHT_SKIP` | `scripts/hooks/check-plan-hash.sh` |
    | `ta-43` | `_eh2_stdin` | **`scripts/hooks/check-c3-approval.sh`** |
    | `ta-44` | `check-test-cases.sh` と `check-verification-evidence.sh` の**両方** | `bin/plangate` |
+   | `ta-45` | `_read_plangate_config`（`bin/plangate`）/ `C3_CONVERSATION_SKIP`（`check-plan-hash.sh`）/ `schemas/plangate-config.schema.json` の**存在**（3 条件 AND のため**いずれか 1 つの除去で前提未充足が成立**）| `bin/plangate` + `scripts/hooks/check-plan-hash.sh` + `schemas/plangate-config.schema.json` |
+   | `ta-46` | `EHS-1 BLOCK` | `bin/plangate` |
+   | `ta-47` | `EHS-3` と `EHS-2`（`!… \|\| !…` の OR ガードのため**いずれか一方の除去で成立**）| `bin/plangate` |
+
+   > **本表は全体ガード 6 本すべてを覆う**（C-1 R10 F-5 是正）。以前は `ta-39` / `ta-43` /
+   > `ta-44` の 3 行のみで、**HJ-5 裁定で「7 本（rc=3 対象は全体ガード 6 本）」が AC 正本へ
+   > 昇格した後も 3 行のままだった**ため、Slice 1 DoD「TC-17 / M-10 が sandbox で実走済み」の
+   > 充足根拠が 6 本中 3 本しか無かった。述語文字列は exec 開始時に**再実測して確定**する
+   > （上流の実装変更で文字列は動きうる。**行番号ではなく文字列で指す**のは F-3 と同じ理由）。
 
 3. **コピー側の `ta-*.sh` を standalone 実行**する:
    `sh "$SANDBOX/repo/tests/extras/ta-43-eh2-strict-json.sh" </dev/null`。
@@ -1185,7 +1206,7 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
       **「なぜ bootstrap だけでは不足か」を根拠付きで記載**する
 - [ ] runner を残す場合、helper source以外のdiffが0であることを確認
 - [ ] **bootstrap を前掲 `#### bootstrap の helper 解決規約` のとおり実装する**（R-025-1 / F5）:
-      **mode 判定（`PG_HARNESS_SOURCED` AND `FIXTURES_DIR`）で分岐**し、harness 経路のみ
+      **mode 判定（harness 判定述語（正本 = `### Mode resolution`）の 3 条件 AND）で分岐**し、harness 経路のみ
       `EXTRAS_DIR` を読む。**`${EXTRAS_DIR:-…}` を存在判定に使わない**
       （`EXTRAS_DIR` は runner の unset 7 env に含まれず、standalone 実行時に外部 export で
       別ツリーの helper を source しうる＝新しい汚染面。TC-15 では検出できない）

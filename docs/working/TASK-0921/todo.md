@@ -91,7 +91,8 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
   - [x] **HR-4（裁定済み / C-1 R7 の MN-P 由来）**: **(b) `EXTRAS_DIR` 非空を harness 判定の
     AND 条件へ追加**（2026-08-10）。bootstrap スニペットと helper の `Mode resolution` を
     同一述語（`PG_HARNESS_SOURCED=1` AND `FIXTURES_DIR` 非空 AND `EXTRAS_DIR` 非空）に揃える。
-    `tests/run-tests.sh` は `:23` / `:24` で両 dir を設定するため**正規の harness 経路は不変**。
+    `tests/run-tests.sh` は **`FIXTURES_DIR=` / `EXTRAS_DIR=` の代入行**（記号アンカー。
+    行番号では指さない — C-1 R10 F-3）で両 dir を設定するため**正規の harness 経路は不変**。
     **残存**（3 変数すべてが汚染された場合は依然 harness 分岐へ落ちる）を handoff へ記載する
 
 ## Agent Tasks
@@ -141,7 +142,8 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
     成立するなら `tests/run-tests.sh` の変更を落とし Files 表と Human Approval Boundary から除去。
     落とせない場合は「なぜ bootstrap だけでは不足か」を根拠付きで記載
   - runner を残す場合、runner diffはhelper sourceに限定
-  - **bootstrap は mode 判定（`PG_HARNESS_SOURCED` AND `FIXTURES_DIR`）で分岐**し、
+  - **bootstrap は mode 判定（harness 判定述語の正本 = `plan.md` の `### Mode resolution`。
+    HR-4 = (b) 裁定により `EXTRAS_DIR` 非空を含む 3 条件 AND）で分岐**し、
     **harness 経路のみ `EXTRAS_DIR` を読む**（R-025-1 / F5）。harness 経路の `$0` は
     `tests/run-tests.sh` を指すため `tests/_extra-contract.sh`（不在）へ解決してしまう。
     一方 **`${EXTRAS_DIR:-…}` を存在判定に使わない** — `EXTRAS_DIR` は runner の

@@ -40,7 +40,10 @@
 
 ### TC-01 Harness mode is non-invasive
 
-Given `PG_HARNESS_SOURCED=1` and valid `FIXTURES_DIR`, when init is called, then pass/fail are not reset, no exit trap is installed, **probe env vars are not read**, and helper returns 0.
+Given the **harness 判定述語（正本 = `plan.md` の `### Mode resolution`）が真**になる env
+（HR-4 = (b) 裁定により **`PG_HARNESS_SOURCED=1` / 非空 `FIXTURES_DIR` / 非空 `EXTRAS_DIR` の
+3 条件 AND**。`EXTRAS_DIR` を欠く 2 条件のみの env は **standalone 分岐へ解決されるため
+本 TC の Given を満たさない**）, when init is called, then pass/fail are not reset, no exit trap is installed, **probe env vars are not read**, and helper returns 0.
 
 ### TC-02 Harness-only direct misuse
 
@@ -529,7 +532,7 @@ directions (dash: probe returns rc=0; bash: the body runs).
 > **Slice 列**: `1` = Slice 1 で充足 / `2` = Slice 2 で充足 / `1(部分)/2(全体)` = 全体量化子を
 > 含むため Slice 1 では対象範囲を限定して充足し、Slice 2 完了時に全体で充足する。
 >
-> **注記 1（AC-2 (c) の対象本数 — **HJ-5 裁定済み・正本へ反映済み** / F3）**: R-021 の実測により、
+> **注記 1（AC-2 (c) の対象本数 — HJ-5 裁定済み・正本へ反映済み / F3）**: R-021 の実測により、
 > 早期脱出は **`ta-39` / `ta-43` / `ta-44` の 3 本ではなく 7 本**（うち rc=3 の対象は
 > **ファイル全体ガード 6 本**、`ta-49` は節スキップ）であることが判明していた。
 > **2026-08-10 Human C-3 裁定 HJ-5 により `pbi-input.md`（AC の正本）を 3 本 → 7 本へ更新済み**
@@ -625,10 +628,13 @@ directions (dash: probe returns rc=0; bash: the body runs).
       層 0 の 4 本の現行形をテンプレートとして複製していない）
       **(3)** 規約遵守は静的検査に依らず **contract TA の force-fail probe（TC-12）が
       各ファイルで rc=1 を返す**ことで実行ベースに担保されている
-- [ ] **bootstrap と helper の harness 判定が同一述語であり、`EXTRAS_DIR` 非空を AND 条件に含む**
-      （HR-4 = (b) 裁定 / C-1 R7 MN-P）。**`sh tests/run-tests.sh` の正規経路が回帰しない**ことを
-      TC-14 / TC-21 で確認する（`tests/run-tests.sh` は `:23` / `:24` で
-      `FIXTURES_DIR` / `EXTRAS_DIR` を設定するため harness 判定は 3 条件とも成立する）
+- [ ] **bootstrap と helper の harness 判定が、harness 判定述語の正本（`plan.md` の
+      `### Mode resolution`）と文字単位で同一**であり、**`EXTRAS_DIR` 非空を AND 条件に含む
+      3 条件 AND** になっている（HR-4 = (b) 裁定 / C-1 R7 MN-P）。
+      **`sh tests/run-tests.sh` の正規経路が回帰しない**ことを
+      TC-14 / TC-21 で確認する（`tests/run-tests.sh` は **`FIXTURES_DIR=` /
+      `EXTRAS_DIR=` の代入行**（記号アンカー。行番号では指さない — C-1 R10 F-3）で
+      両 dir を設定するため harness 判定は 3 条件とも成立する）
 - [ ] **TC-16 が実 `tests/extras/` へ書き込まず sandbox で実行されている**（R-028）
 - [ ] **per-file timeout が 180s 以上で実装され、`timeout(1)` 不在環境でも動くフォールバックを
       持ち、timeout 発火が FAIL（SKIP ではない）として扱われる**（R-026）
