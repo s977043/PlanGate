@@ -213,5 +213,5 @@ plan / todo / pbi-input / current-state / INDEX / review-self の該当箇所を
 
 | R-NNN | status | reflected_in(commit) | notes |
 |---|---|---|---|
-| R-030 | **re-reflected** | pending | AC から絶対件数を削除。plan 側にコマンド + 単位 + 測定日付きスナップショットとして保持。3 者の数値差が集計単位差である旨を明記 |
-| （訂正）| corrected | pending | 「既発行 c3.json が stale / 再発行」→「**未承認 / 初回発行**」へ全ファイル訂正（実測 3 点で確認）|
+| R-030 | **re-reflected** | 0352c68 | AC から絶対件数を削除。plan 側にコマンド + 単位 + 測定日付きスナップショットとして保持。3 者の数値差が集計単位差である旨を明記 |
+| （訂正）| corrected | 0352c68 | 「既発行 c3.json が stale / 再発行」→「**未承認 / 初回発行**」へ全ファイル訂正（実測 3 点で確認）|
