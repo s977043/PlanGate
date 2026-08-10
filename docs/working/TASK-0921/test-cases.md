@@ -7,7 +7,13 @@
 > **R-032 は `resolved-by-design` につき反映していない**。未確定の 4 件（R-022 / R-023 /
 > R-026 の `timeout-minutes` / R-030）+ **AC-2 (c) の対象本数（F3）** は
 > plan の `## Human C-3 の判断事項`（**HJ-1〜HJ-5**）に集約した。
-> **HJ-4（`original rc` の捕捉規約）の裁定により TC-06 が再定義されうる**点に注意。
+>
+> **2026-08-10 Human C-3 裁定を反映済み**: **HJ-4 = (b) 保持 + 規約化** につき
+> **TC-06 は維持され再定義されない** / **HJ-5 = `pbi-input.md` へ反映**（AC-2 (c) が
+> **3 本 → 7 本**へ更新され、**正本の stale は解消**）/ **HJ-2 = Slice 2 の D-2 (c) に委ねる** /
+> **HR-4 = `EXTRAS_DIR` 非空を harness 判定の AND 条件へ**。
+> **HJ-1 / HJ-3 は未裁定のまま**（HO 対象・patch 提示のみ・**exec をブロックしない**）。
+> **本反映で `plan_hash` は無効化される。Human による再承認（`c3.json` 再発行）が必要。**
 
 ## Contract RC Table
 
@@ -34,7 +40,10 @@
 
 ### TC-01 Harness mode is non-invasive
 
-Given `PG_HARNESS_SOURCED=1` and valid `FIXTURES_DIR`, when init is called, then pass/fail are not reset, no exit trap is installed, **probe env vars are not read**, and helper returns 0.
+Given the **harness 判定述語（正本 = `plan.md` の `### Mode resolution`）が真**になる env
+（HR-4 = (b) 裁定により **`PG_HARNESS_SOURCED=1` / 非空 `FIXTURES_DIR` / 非空 `EXTRAS_DIR` の
+3 条件 AND**。`EXTRAS_DIR` を欠く 2 条件のみの env は **standalone 分岐へ解決されるため
+本 TC の Given を満たさない**）, when init is called, then pass/fail are not reset, no exit trap is installed, **probe env vars are not read**, and helper returns 0.
 
 ### TC-02 Harness-only direct misuse
 
@@ -523,26 +532,21 @@ directions (dash: probe returns rc=0; bash: the body runs).
 > **Slice 列**: `1` = Slice 1 で充足 / `2` = Slice 2 で充足 / `1(部分)/2(全体)` = 全体量化子を
 > 含むため Slice 1 では対象範囲を限定して充足し、Slice 2 完了時に全体で充足する。
 >
-> **注記 1（AC-2 (c) の対象本数 — 本表では確定しない / F3）**: R-021 の実測により、
+> **注記 1（AC-2 (c) の対象本数 — HJ-5 裁定済み・正本へ反映済み / F3）**: R-021 の実測により、
 > 早期脱出は **`ta-39` / `ta-43` / `ta-44` の 3 本ではなく 7 本**（うち rc=3 の対象は
-> **ファイル全体ガード 6 本**、`ta-49` は節スキップ）であることが判明した。
-> しかし **AC-2 (c) の正本は `pbi-input.md` の受入基準節**であり、そこでは現在も
-> **3 本**のままである。**本表は写像のみを持つ**という宣言に従い、
-> **本表で対象を 7 本（または 6 本）へ拡張して確定しない**。
-> **正本の更新可否は Human 裁定事項 `HJ-5`**（`todo.md` の `H-06`）として提示している。
-> **`pbi-input.md` は本反映で編集していない**ため、
-> `pbi-input.md` 側の「層 A の 3 本」という記述は **HJ-5 の裁定まで stale のまま**である
-> （`plan.md` は層 A の一覧について pbi-input を参照するため、辿ると 3 と 7 が食い違う。
-> これは**既知の未確定点であり隠していない**）。
-> 裁定が済むまで、TC-17 / TC-29 は plan の
-> `#### 7 本は同質ではない` を実装上の対象定義として用いる。
+> **ファイル全体ガード 6 本**、`ta-49` は節スキップ）であることが判明していた。
+> **2026-08-10 Human C-3 裁定 HJ-5 により `pbi-input.md`（AC の正本）を 3 本 → 7 本へ更新済み**
+> であり、**正本の stale と「3 と 7 の食い違い」は解消した**。
+> 本表は引き続き**写像のみ**を持ち、AC の文言は `pbi-input.md` を正本とする。
+> 実装上の対象定義は plan の `#### 7 本は同質ではない`（rc=3 の対象 = 全体ガード 6 本 /
+> `ta-49` = 節スキップで先行 TC の結果に従う）を用いる。**AC 文言と実装対象は 7 本で一致した。**
 
 | AC | 内容（要約） | Tests | Slice |
 |---|---|---|---|
 | AC-1 | standalone で `fail > 0` / 誤動作でも exit 0 を返すものが 0 件（実行ベース判定・件数非固定） | TC-09, TC-10, TC-11, TC-12, TC-13, TC-16, TC-20, **TC-28**（検査集合 == runner の source 集合 / R-035）, **TC-29**（`\|\| true` 型が CI で finalize に到達しない経路 / R-021） | **1（層 A 12 本の範囲）/ 2（runtime discovery で得た全 `ta-*.sh`）** |
 | AC-2 (a) | 層 A の fail 注入 standalone が exit 1 | TC-04, TC-05, TC-12 | 1 |
 | AC-2 (b) | 同じ fail 注入状態で source 経路が完走し集計される | TC-01, TC-14, TC-15, **TC-26**（非 0 `return` でも途中打ち切りしない / R-024） | 1 |
-| AC-2 (c) | 前提未充足 SKIP の rc が「検査していない」を表明（**rc=3**、rc=0 不可） | **TC-17**, **TC-29**（dash / bash 双方）, TC-13 ※**対象本数は注記 1 を参照（正本は `pbi-input.md`・裁定待ち）** | 1 |
+| AC-2 (c) | 前提未充足 SKIP の rc が「検査していない」を表明（**rc=3**、rc=0 不可） | **TC-17**, **TC-29**（dash / bash 双方）, TC-13 ※**対象本数は注記 1 を参照。HJ-5 裁定により正本 `pbi-input.md` へ 7 本を反映済み**（rc=3 の対象 = 全体ガード 6 本 / `ta-49` は節スキップ） | 1 |
 | AC-2 (d) | カウンタ初期化の存在（helper が担保。層 A 12 本は全数が未初期化） | TC-03, TC-04 | 1 |
 | AC-3 | 層 B + 層 C 41 本の standalone が明示メッセージ付き exit 2 | TC-02（synthetic）, TC-11（全件。**ループは Slice 1 から回すが対象 0 件で vacuous**） | **1（TC-02 のみ）/ 2（TC-11 で充足）** |
 | AC-4 | `sh tests/run-tests.sh` が回帰しない + **runtime `tail -1`** 最終ファイルの `[PASS]` 出現 | **TC-14**, TC-15, TC-21 | 1（Slice 2 でも再実行） |
@@ -555,7 +559,7 @@ directions (dash: probe returns rc=0; bash: the body runs).
 
 | 制約 | Tests | Slice |
 |---|---|---|
-| **original の nonzero rc を握り潰さない（Finalize precedence の保持）** | **TC-06** ※ **HJ-4（R-030）の裁定次第で再定義されうる**。案 (a) 2 値化を採ると本行は落ちる | 1 |
+| **original の nonzero rc を握り潰さない（Finalize precedence の保持）** | **TC-06** ※ **HJ-4 = (b) 保持 + 規約化の裁定（2026-08-10）により本行は確定・維持**（(a) 2 値化なら落ちていたが採用されなかった） | 1 |
 | **早期脱出イディオムの禁止**（`return 0 2>/dev/null \|\| …` を型を問わず使わない / R-021） | **TC-17**, **TC-29**, M-15 | 1 |
 | **source 経路で非 0 `return` しない**（R-024） | **TC-26**, M-16 | 1 |
 | **marker 検出の正規表現仕様 + 先頭 20 行限定**（R-027） | **TC-09**, M-17 | 1 |
@@ -580,8 +584,8 @@ directions (dash: probe returns rc=0; bash: the body runs).
 - [ ] **TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-12,
       TC-13, TC-14, TC-15, TC-16, TC-17, TC-19, TC-20, TC-21, TC-23（synthetic 側）, TC-25,
       TC-26, TC-27, TC-28, TC-29 PASS**（TC-26〜TC-29 は R-024 / R-029-3 / R-035 / R-021 由来）。
-      **TC-06 は HJ-4（R-030）の裁定次第で再定義されうる**ため、C-3 で (a) 2 値化が選ばれた
-      場合は本行から TC-06 を外し precedence 表と併せて改訂する。
+      **TC-06 は HJ-4 = (b) 保持 + 規約化の裁定（2026-08-10）により本行に確定して残る**
+      （(a) 2 値化が選ばれていれば本行から外す必要があったが、採用されなかった）。
       **TC-11 は Slice 1 では対象 0 件の vacuous PASS でよい**が、その場合は
       `evidence/test-runs/harness-only.log` に **「対象 0 件」を明示記録**すること
       （空振りを黙って PASS にしない / INFO-1）。AC-3 の全件充足は Slice 2
@@ -618,12 +622,28 @@ directions (dash: probe returns rc=0; bash: the body runs).
       **内訳**: ファイル全体ガード **6 本**（`ta-39` / `ta-43` / `ta-44` / `ta-45` / `ta-46` /
       `ta-47`）は `pg_extra_contract_skip` 経由へ移行 / **`ta-49` は節スキップ**のため
       `pg_extra_contract_skip` を使わず末尾 finalize へ落とす（**rc=3 を要求しない** / F2）
+- [ ] **`original rc` 捕捉規約（HJ-4 = (b) 裁定 / R-030）が層 A 12 本すべてで守られている**:
+      **(1)** 各ファイルの最終行が `pg_extra_contract_finalize` の呼出のみで、**直前に他コマンドが無い**
+      **(2)** **呼び出し側に summary の `printf` が無い**（summary 出力は helper 内部。
+      層 0 の 4 本の現行形をテンプレートとして複製していない）
+      **(3)** 規約遵守は静的検査に依らず **contract TA の force-fail probe（TC-12）が
+      各ファイルで rc=1 を返す**ことで実行ベースに担保されている
+- [ ] **bootstrap と helper の harness 判定が、harness 判定述語の正本（`plan.md` の
+      `### Mode resolution`）と文字単位で同一**であり、**`EXTRAS_DIR` 非空を AND 条件に含む
+      3 条件 AND** になっている（HR-4 = (b) 裁定 / C-1 R7 MN-P）。
+      **`sh tests/run-tests.sh` の正規経路が回帰しない**ことを
+      TC-14 / TC-21 で確認する（`tests/run-tests.sh` は **`FIXTURES_DIR=` /
+      `EXTRAS_DIR=` の代入行**（記号アンカー。行番号では指さない — C-1 R10 F-3）で
+      両 dir を設定するため harness 判定は 3 条件とも成立する）
 - [ ] **TC-16 が実 `tests/extras/` へ書き込まず sandbox で実行されている**（R-028）
 - [ ] **per-file timeout が 180s 以上で実装され、`timeout(1)` 不在環境でも動くフォールバックを
       持ち、timeout 発火が FAIL（SKIP ではない）として扱われる**（R-026）
 - [ ] **`seven` 等の env 件数がテスト文言に残っていない**（R-034。TC-15 / TC-22 とも
       `run-tests.sh` から動的導出）
-- [ ] **HJ-1〜HJ-5 が C-3 で裁定済み**（plan `## Human C-3 の判断事項`）
+- [x] **HJ-2 / HJ-4 / HJ-5 / HR-4 が C-3 で裁定済み・plan / pbi-input / todo / test-cases へ反映済み**
+      （plan `## Human C-3 の判断事項` の裁定状況表 / 2026-08-10）。
+      **HJ-1 / HJ-3 は未裁定のままでよい**（HO 対象・patch 提示のみ・exec 非ブロック）
+- [ ] **裁定反映で無効化された `plan_hash` に対する Human の再承認（`c3.json` 再発行）が済んでいる**
 
 ### Slice 2 の DoD（Slice 2 着手時に Mode 再判定のうえ適用）
 

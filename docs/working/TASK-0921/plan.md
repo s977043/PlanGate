@@ -17,6 +17,13 @@ created_by: orchestrator
 > **R-021〜R-037 の反映で確定しなかった項目は `## Human C-3 の判断事項` に集約した**
 > （R-022 / R-023 / R-026 の `timeout-minutes` / R-030）。**R-032 は `resolved-by-design`
 > （`516e2f7` / PR #1017 で解消済み）につき反映していない**。
+>
+> **2026-08-10 Human C-3 裁定の反映済み**: **HJ-2**（Slice 2 の D-2 (c) に委ねる）/
+> **HJ-4**（(b) `original rc` 保持 + 規約化。**TC-06 維持**）/ **HJ-5**（`pbi-input.md` を
+> 3 本 → 7 本へ更新）/ **HR-4**（(b) `EXTRAS_DIR` 非空を harness 判定の AND 条件へ）。
+> **HJ-1 / HJ-3 は未裁定のまま**（`.github/workflows/**` = HO 対象・**patch 提示のみ**。
+> **exec をブロックしない**）。裁定状況の一覧は `## Human C-3 の判断事項` 冒頭の表。
+> **本裁定反映により `plan_hash` は無効化される。Human による再承認（`c3.json` 再発行）が必要。**
 
 ## Goal
 
@@ -88,7 +95,8 @@ created_by: orchestrator
 - helperはPOSIX `sh` で動作し、bash専用構文を使わない
 - file count / ta番号一覧を正本としてハードコードしない
 - direct invocation probe は必ず `</dev/null` を付け、ta-50等のstdin待ちを防ぐ
-- 外部env汚染により harness mode と誤認しない。`PG_HARNESS_SOURCED=1` と有効な `FIXTURES_DIR` のANDを維持
+- 外部env汚染により harness mode と誤認しない。**harness 判定述語（正本 = `### Mode resolution`）
+  の 3 条件 AND を維持**する（HR-4 = (b) 裁定により `EXTRAS_DIR` 非空を含む）
 - cleanupは repository外の登録済みtmpのみを削除し、未検証pathを `rm -rf` しない
 - contract test の故障注入は fail-safe（テストを余分に失敗させる方向）とし、successを偽装しない
 - #994のTC-33 observation gapを前提にせず、本Taskのcontract testは対象condition/markerを直接検査する
@@ -552,9 +560,10 @@ tests/extras/_extra-contract.sh
 起点にすると **`tests/_extra-contract.sh`（不在）** を指し、**suite 全滅**を招く（後述）。
 
 ```sh
-# mode 判定は既存 extras と同一イディオム（例: ta-45-c3-mode-config.sh の harness 判定）
+# mode 判定は既存 extras と同一イディオム（例: ta-45-c3-mode-config.sh の harness 判定）に
+# **`EXTRAS_DIR` 非空の AND 条件を 1 つ足した形**（HR-4 = (b) 採用 / 2026-08-10 Human C-3 裁定）。
 # 判定結果を _pg_extra_mode に保持し、脱出経路でも再利用する（後述の理由により必須）
-if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
   _pg_extra_dir="$EXTRAS_DIR"                                    # harness: runner が設定
 else
@@ -642,6 +651,32 @@ standalone 実行時の汚染除去のために unset する env は **7 個**�
 - **`EXTRAS_DIR` は harness 経路でのみ読む**。harness 経路では runner が代入済みの値に
   上書きされているため、外部の汚染値は届かない
 
+##### `EXTRAS_DIR` 非空を AND 条件へ加える（HR-4 = (b) 採用 / 2026-08-10 Human C-3 裁定）
+
+**裁定: (b) `EXTRAS_DIR` 非空を AND 条件へ追加する**（選択肢は (a) 常に `exit 1` /
+**(b) `EXTRAS_DIR` 非空を AND 条件へ** / (c) 既知リスクとして受容）。出典は独立 C-1 R7 の
+**MN-P**（`review-self.md`）。
+
+- **塞ぐ経路**: 真 standalone 実行なのに外部から `PG_HARNESS_SOURCED=1` かつ
+  `FIXTURES_DIR` 非空が継承されており、かつ helper が読めない場合、bootstrap が
+  **harness 分岐を選び top-level `return 0` を実行して `fail>0` のまま rc=0** になる
+  （MN-P 実測: dash / bash / sh とも rc=0）。**本 PBI が塞ごうとしている「静かに通る」クラス**
+- **判定を厳しくしても正規経路は影響を受けない**（実測）: `tests/run-tests.sh` は
+  **`FIXTURES_DIR=` の代入行・`EXTRAS_DIR=` の代入行**（いずれも冒頭の unset 7 env ブロック直後。
+  記号アンカーで指す — 行番号は上流に 1 行入るだけで stale 化するため使わない / C-1 R10 F-3）
+  で両 dir を代入するため、harness 経路では
+  3 条件が常に同時に成立する。したがって **AND 追加で harness 判定が偽になることはない**
+- **効果は「窓を狭める」ことであり閉じ切ることではない**（正直に記す）。3 変数すべてが
+  汚染された環境では依然として harness 分岐へ落ちる。完全に閉じるのは (a) だが、
+  (a) は helper 不在時に harness でも suite 全滅を招くため採らない
+- **前段の「存在判定を `${EXTRAS_DIR:-}` に寄せてはならない」と矛盾しない**。禁止されているのは
+  **`EXTRAS_DIR` を helper のパス解決アンカーとして standalone 経路でも使うこと**であり、
+  本裁定が足すのは **harness 判定の AND 条件**（`EXTRAS_DIR` を「読む」のは harness 経路でのみ、
+  という規律は不変）である
+- **helper 側の `### Mode resolution` も同一述語へ揃える**。bootstrap と helper で判定式が
+  食い違うと「bootstrap は standalone・helper は harness」という mode 分裂が起きうるため、
+  **両者は常に同一の 3 条件 AND**とする（本裁定の適用範囲に含める）
+
 #### 適用（forward）側の原子性（R-025-2）
 
 revert 順序（`T-05 → T-03` / `T-04b → T-03`）は既に規定済みだが、**適用側の原子性**は
@@ -700,10 +735,19 @@ helper が受け取るのは **basename ベースの test-id のみ**（R-016）
 
 ### Mode resolution
 
-harness判定:
+> **本節が harness 判定述語（以下「**harness 判定述語（正本）**」）の唯一の正本である**
+> （C-1 R10 / F-1 是正）。plan / todo / test-cases の他箇所は **本節を名前で参照し、
+> 条件式を literal 複製しない**。唯一の例外は
+> **`#### bootstrap の helper 解決規約` の実装スニペット**で、そこは
+> 「実装が書くべきコードそのもの」であるため条件式を書き下す（**本節と常に同一**であること
+> が Slice 1 DoD で検査される）。過去に 4 箇所へ literal 複製した結果、HR-4 の
+> `EXTRAS_DIR` 追加が 2 条件のまま取り残された箇所が生じたため、この規約を置く。
+
+harness判定（**bootstrap と同一述語**。HR-4 = (b) 採用により `EXTRAS_DIR` 非空を AND に含む
+＝**3 条件 AND**）:
 
 ```sh
-[ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]
+[ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]
 ```
 
 - true: helperはcounter/cleanup/trapを変更しない。**probe 変数も読まない**（internal-only / 裁定 ①）
@@ -767,25 +811,41 @@ precedence:
 exit 2はharness-only misuse専用であり、standalone-capableの内部test failure（1）とも
 prerequisite未充足（3）とも区別する。
 
-#### `original rc` の捕捉規約は **未確定**（R-030 / Human C-3 の判断事項）
+#### `original rc` の捕捉規約（R-030 / **裁定済み: (b) 保持 + 規約化** / 2026-08-10 Human C-3）
 
-上表の `original rc` を保持する 2 行は、**案 C（trap が `$?` を受け取る）でしか自然に成立しない
-設計**だった。**案 D（末尾で明示呼出）では `$?` は直前の 1 コマンドで容易に失われる**。
+**裁定: (b) `original rc` を保持し、捕捉規約を明文化する**（(a) 2 値化は採らない）。
+したがって上表の `original rc` 2 行は **確定仕様**であり、**TC-06 は維持される**
+（(a) を採った場合に必要だった TC-06 の削除・再定義は**発生しない**）。
 
-別系統 C-2 の実測: `fail=0; false; printf 'summary'; fin "$?"` → `orig=0`（rc 1 が消える）。
-既存の層 0 の 4 本は **summary を printf してから** `[ "$fail" -eq 0 ] || exit 1` を実行する形で
-あり、この形をそのまま helper 化すると **「保持しているつもりで常に 0」**になる。
+**問題の所在（実測）**: `original rc` を保持する 2 行は、**案 C（trap が `$?` を受け取る）で
+しか自然に成立しない設計**だった。**案 D（末尾で明示呼出）では `$?` は直前の 1 コマンドで
+容易に失われる**。別系統 C-2 の実測: `fail=0; false; printf 'summary'; fin "$?"` → `orig=0`
+（rc 1 が消える）。既存の層 0 の 4 本は **summary を printf してから**
+`[ "$fail" -eq 0 ] || exit 1` を実行する形であり、**この形をそのまま helper 化すると
+「保持しているつもりで常に 0」になる**。
 
-**選択肢（どちらを採るかで README 規約と Task 5 の置換テンプレートが変わる）**:
+##### 捕捉規約（確定 / 以後これを正本とする）
 
-| 案 | 内容 | 影響 |
-|---|---|---|
-| **(a) 2 値化**（別系統 Lane 1 の推奨） | `fail>0 → 1` / `fail==0 → 0` とし、precedence 表から `original rc` 行を落とす | TC-06（original の nonzero rc を握り潰さない）と **正面から衝突**。TC-06 の削除または再定義が必要 |
-| **(b) 保持する** | 「`pg_extra_contract_finalize` 呼出の**直前に他コマンドを挟まない**」を規約化し、summary 出力は helper 内部で行う。`tests/extras/README.md` の新規ファイル checklist に入れる | TC-06 を維持できるが、**規約違反が静的に検出しにくい**（案 D の弱点と同型） |
+1. **`pg_extra_contract_finalize` 呼出の直前に他コマンドを挟まない**。
+   finalize 呼出は各 `ta-*.sh` の**最終行**であり、その直前行が `$?` を上書きしてはならない
+2. **summary 出力は helper 内部で行う**。呼び出し側で `printf 'summary'` してから
+   finalize を呼ぶ形（＝層 0 の 4 本の現行形）を**禁止**する。これが 1 の最頻の違反形であり、
+   違反すると `$?` が `printf` の rc（常に 0）で上書きされ **`original rc` が黙って 0 になる**
+3. **層 0 の 4 本（`ta-26` / `ta-58` / `ta-59` / `ta-60`）を helper 化する際に
+   現行形をそのまま持ち込まない**。現行形は「summary を printf してから
+   `[ "$fail" -eq 0 ] || exit 1`」であり、規約 2 の禁止形そのものである
+   （層 0 の移行自体は Slice 2 = Task 4b。本規約は **Slice 1 の時点で確定させておく**）
+4. **`tests/extras/README.md` の新規ファイル checklist に本規約を追加する**
+   （Task 7 / 規約 9 の一部。**README 本体の編集は実装フェーズの作業**であり本反映では行わない）
 
-**本反映では裁定しない**。TC-06 が既に Slice 1 の DoD に入っているため (a) を選ぶと
-受入基準側の変更を伴う。**Human C-3 で確定する**（`## Human C-3 の判断事項` 参照）。
-それまで上表の `original rc` 2 行は **暫定**として扱い、exec 開始前に確定させる。
+##### (b) の弱点と、その補償
+
+(b) の弱点は **規約違反が静的に検出しにくい**ことである（案 D 全体の弱点と同型）。
+これは本 plan が既に持つ **contract TA の動的 probe** で担保する:
+全 standalone-capable を **force-fail probe 付きで実走して rc=1 を要求する**（TC-12）ため、
+規約 1–2 に違反して `$?` を潰した実装は **probe rc≠1 として実行ベースで検出される**。
+すなわち「静的に検出できない」ことを「実行ベースで検出する」で置き換える構造であり、
+案 D を採用した際の論法（`### Recommended Approach`）と同一である。
 
 ### Contract probe
 
@@ -956,6 +1016,15 @@ TC-17（前提未充足で rc=3）と M-10（rc 0 を返す変異を TC-17 が�
    | `ta-39` | `EH-3_DOC_LIGHT_SKIP` | `scripts/hooks/check-plan-hash.sh` |
    | `ta-43` | `_eh2_stdin` | **`scripts/hooks/check-c3-approval.sh`** |
    | `ta-44` | `check-test-cases.sh` と `check-verification-evidence.sh` の**両方** | `bin/plangate` |
+   | `ta-45` | `_read_plangate_config`（`bin/plangate`）/ `C3_CONVERSATION_SKIP`（`check-plan-hash.sh`）/ `schemas/plangate-config.schema.json` の**存在**（3 条件 AND のため**いずれか 1 つの除去で前提未充足が成立**）| `bin/plangate` + `scripts/hooks/check-plan-hash.sh` + `schemas/plangate-config.schema.json` |
+   | `ta-46` | `EHS-1 BLOCK` | `bin/plangate` |
+   | `ta-47` | `EHS-3` と `EHS-2`（`!… \|\| !…` の OR ガードのため**いずれか一方の除去で成立**）| `bin/plangate` |
+
+   > **本表は全体ガード 6 本すべてを覆う**（C-1 R10 F-5 是正）。以前は `ta-39` / `ta-43` /
+   > `ta-44` の 3 行のみで、**HJ-5 裁定で「7 本（rc=3 対象は全体ガード 6 本）」が AC 正本へ
+   > 昇格した後も 3 行のままだった**ため、Slice 1 DoD「TC-17 / M-10 が sandbox で実走済み」の
+   > 充足根拠が 6 本中 3 本しか無かった。述語文字列は exec 開始時に**再実測して確定**する
+   > （上流の実装変更で文字列は動きうる。**行番号ではなく文字列で指す**のは F-3 と同じ理由）。
 
 3. **コピー側の `ta-*.sh` を standalone 実行**する:
    `sh "$SANDBOX/repo/tests/extras/ta-43-eh2-strict-json.sh" </dev/null`。
@@ -1137,7 +1206,7 @@ Task 5 で 7 env unset を helper へ移すと、TC-33 は次のどちらかに�
       **「なぜ bootstrap だけでは不足か」を根拠付きで記載**する
 - [ ] runner を残す場合、helper source以外のdiffが0であることを確認
 - [ ] **bootstrap を前掲 `#### bootstrap の helper 解決規約` のとおり実装する**（R-025-1 / F5）:
-      **mode 判定（`PG_HARNESS_SOURCED` AND `FIXTURES_DIR`）で分岐**し、harness 経路のみ
+      **mode 判定（harness 判定述語（正本 = `### Mode resolution`）の 3 条件 AND）で分岐**し、harness 経路のみ
       `EXTRAS_DIR` を読む。**`${EXTRAS_DIR:-…}` を存在判定に使わない**
       （`EXTRAS_DIR` は runner の unset 7 env に含まれず、standalone 実行時に外部 export で
       別ツリーの helper を source しうる＝新しい汚染面。TC-15 では検出できない）
@@ -1248,6 +1317,17 @@ helper へ吸収する。**Human 決定 3 により Slice 1 から繰り延べ�
 - [ ] helper が出力する summary 書式は `TA-<NN> standalone: N passed, M failed` に固定する
       （R-015a。`ta-26`（層 0 / Slice 2）の TC-13 が将来この literal を grep するため、
       **helper 側の書式は Slice 1 の時点で確定させておく**）
+- [ ] **`original rc` 捕捉規約に沿った置換テンプレートを使う**（HJ-4 = (b) 裁定 / R-030。
+      正本は前掲 `#### original rc の捕捉規約`）:
+      - **各ファイルの最終行は `pg_extra_contract_finalize` の呼出のみ**とし、
+        **その直前に他コマンドを置かない**（直前行が `$?` を上書きすると
+        `original rc` が黙って 0 になる）
+      - **summary の `printf` を呼び出し側に書かない**。summary 出力は **helper 内部**で行う。
+        **層 0 の 4 本の現行形（`printf` で summary → `[ "$fail" -eq 0 ] || exit 1`）を
+        テンプレートとして複製しない**（この形が規約違反の最頻形。層 0 の移行自体は Slice 2 だが、
+        **層 A 12 本の置換で同じ形を作らない**ことが Slice 1 の要件）
+      - 規約違反は静的に検出しにくいため、**contract TA の force-fail probe（TC-12）が
+        rc=1 を返すこと**を移行後の各ファイルで確認する（実行ベースの担保）
 
 **rollback**: batch 単位 commit を `git revert <sha>`（未 push なら `git reset --hard`）。
 **helper 導入前まで戻す場合は Task 3 の revert が前提**。revert 順序は T-05 → T-03。
@@ -1575,9 +1655,14 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
 - **Slice 1 の exec 中に層 0（`ta-26` / `ta-58` / `ta-59` / `ta-60`）へ触る必要が生じた場合**
   （Slice 1 = 15 ファイル / high-risk 判定の前提が崩れる。Mode 再判定 → 人間へエスカレーション）
 - **`ta-26` TC-33 の差し替え設計が未確定のまま Slice 2 の層 0 移行へ入ろうとした場合**（R-013 / AC-8）
-- **`## Human C-3 の判断事項`（HJ-1〜HJ-5）のいずれかが未確定のまま exec へ入ろうとした場合**
-  （とくに **HJ-4 = `original rc` の捕捉規約**は Task 5 の置換テンプレートと README 規約を
-  決めるため、未確定のまま移行に入ると後戻りが発生する / R-030）
+- **~~`## Human C-3 の判断事項`（HJ-1〜HJ-5）のいずれかが未確定のまま exec へ入ろうとした場合~~**
+  → **2026-08-10 の Human C-3 裁定により、本停止条件は次のとおり縮約された**:
+  **HJ-2 / HJ-4 / HJ-5 / HR-4 は裁定済み**（反映済み）。
+  **HJ-1 / HJ-3 は未裁定のままだが exec をブロックしない** — 両者は
+  `.github/workflows/**`＝**HO 対象**であり本 PBI は **patch 提示のみ**、Slice 1 は
+  当該パスを変更しないため成果物に依存しない（`## Human C-3 の判断事項` の裁定状況表）。
+  したがって**残る停止条件は「HJ-1 / HJ-3 の patch を AI が適用しようとした場合」**であり、
+  その場合は即停止して Human へ回す
 - **CI が `timeout-minutes: 10` の超過で落ちた場合**（R-026）。
   `.github/workflows/**` は HO 対象のため AI は適用せず、Human へ patch 適用を依頼する
 - **`|| true` 型の早期脱出が dash / bash で異なる rc を返す状態のまま Task 6 の
@@ -1586,7 +1671,24 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
 ## Human C-3 の判断事項（R-021〜R-037 の反映で AI が確定しなかった項目）
 
 > 別系統 C-2（4 レーン）の指摘のうち、**AI が裁定してはならない / 適用してはならない**ものを
-> 本節に集約する。**C-3 でこれらを確定してから exec に入る**。
+> 本節に集約する。
+
+### 裁定状況（2026-08-10 Human C-3）
+
+| ID | 状態 | 裁定 | exec への影響 |
+|---|---|---|---|
+| **HJ-1** | **未裁定** | — | **exec をブロックしない**（`.github/workflows/**` = HO 対象・**patch 提示のみ**。適用は Human の別作業） |
+| **HJ-2** | **裁定済み** | **Slice 2 の D-2 (c) に委ねる**（Slice 1 へ前倒ししない） | 反映済み |
+| **HJ-3** | **未裁定** | — | **exec をブロックしない**（HJ-1 と同じく HO 対象・**patch 提示のみ**） |
+| **HJ-4** | **裁定済み** | **(b) 保持 + 規約化**（`original rc` を保持。TC-06 維持） | 反映済み |
+| **HJ-5** | **裁定済み** | **`pbi-input.md` へ反映する**（AC-2 (c) を 3 本 → 7 本へ） | 反映済み（正本更新済み） |
+| **HR-4** | **裁定済み** | **(b) `EXTRAS_DIR` 非空を AND 条件へ** | 反映済み |
+
+> **HJ-1 / HJ-3 が未裁定のままでも exec は開始できる**。両者は `.github/workflows/**`＝
+> **Hardening Override 対象**であり、本 PBI は **patch 案の提示に留め AI は適用しない**と
+> 確定済みだからである（`### HJ-1` 内「**本 PBI での扱い**」）。Slice 1 は
+> `.github/workflows/**` を一切変更しないため、HJ-1 / HJ-3 の採否は Slice 1 の成果物に
+> 依存関係を持たない。ローカルでの二重検証（dash / bash）は **TC-29** が独立に担保する。
 
 ### HJ-1 CI の `sh` 実体を固定するか（R-022 / major / **HO 対象・patch 提示のみ**）
 
@@ -1638,7 +1740,12 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
   未適用のままでも Slice 1 の contract TA は **dash と bash の双方でローカル実走する**
   （TC-29）ことで最低限の二重検証を確保する
 
-### HJ-2 層 C の ROOT sentinel を Slice 1 へ前倒しするか（R-023 / minor）
+### HJ-2 層 C の ROOT sentinel を Slice 1 へ前倒しするか（R-023 / minor / **裁定済み**）
+
+> **裁定（2026-08-10 Human C-3）: Slice 2 の D-2 (c) に委ねる。Slice 1 へ前倒ししない。**
+> したがって **Slice 1 の helper（`pg_extra_contract_init`）に ROOT sentinel 検査は追加しない**。
+> 下記の前倒し案は**採用しない選択肢の記録**として残す。
+> **`### 明示すべき残存リスク` は handoff 記載事項として確定**（本節末尾）。
 
 - **既に裁定済みの部分**: 層 C（空振り PASS）の論点そのものは
   **`pbi-input.md` の層 C 定義 + D-2 (c) + 本 plan の In Scope「D-2 = (c) 採用」+ 系統 A `R-007`**
@@ -1662,45 +1769,67 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
   これらは **README 規約 6 に沿った正当な SKIP** で誤検出してはならない。
   **「PASS 0 件」を判定式に入れると、名指しした 3 本を 1 件も検出できず正当な 2 本だけを
   誤検出する検出器**になる（本 PBI が塞ごうとしている「静かに通る」クラスの再生産）
-- **Human 判断**: 前倒しする / Slice 2 の D-2 (c) に委ねる
+- **Human 判断（確定）**: **Slice 2 の D-2 (c) に委ねる**（前倒ししない / 2026-08-10）
 - **どちらでも変わらないこと**: 層 C 3 本自体の修理は Out of Scope
   （「各 extras のテスト内容・期待値の見直し」）であり、本 PBI では扱わない
-- **明示すべき残存リスク（handoff 記載事項）**: D-2 (c) が塞ぐのは **standalone 実行**のみ。
-  **harness モードでの層 C の空振り PASS は本 PBI では一切解消しない**
+- **明示すべき残存リスク（handoff 必須記載事項 / 裁定により確定）**: D-2 (c) が塞ぐのは
+  **standalone 実行**のみ。**harness モードでの層 C の空振り PASS は本 PBI では一切解消しない**
   （harness では `run-tests.sh` が正しい ROOT を与えるため本来の assertion を実行するが、
-  「空振りしていないこと」を機械保証する仕組みは本 PBI に無い）
+  「空振りしていないこと」を機械保証する仕組みは本 PBI に無い）。
+  **前倒ししない裁定により、さらに次も残存する**: 将来追加されるファイルが同種の
+  ROOT 誤解決による空振りを再生産しても、**Slice 1 の時点では機械検出されない**
+  （検出は Slice 2 の harness-only 化 = exit 2 まで待つ）。
+  **上記 2 点は `handoff.md` の「既知課題一覧」へ必ず記載する**
 
 ### HJ-3 `timeout-minutes` の再見積り（R-026 / **HO 対象・patch 提示のみ**）
 
 前掲 `#### CI の時間予算と timeout-minutes` を参照。HJ-1 の patch に含めて適用するのが自然。
 
-### HJ-4 案 D における `original rc` の捕捉規約（R-030 / major）
+### HJ-4 案 D における `original rc` の捕捉規約（R-030 / major / **裁定済み**）
 
-前掲 `#### original rc の捕捉規約は未確定` を参照。**(a) 2 値化** と **(b) 保持 + 規約化** の
-いずれかを C-3 で確定する。(a) を採る場合は **TC-06 の削除または再定義**を伴うため、
-受入基準側（補助的な設計制約表）の変更も同時に承認する必要がある。
+> **裁定（2026-08-10 Human C-3）: (b) 保持 + 規約化。**（(a) 2 値化は採らない）
 
-### HJ-5 AC-2 (c) の対象本数を正本（`pbi-input.md`）へ反映するか（F3）
+前掲 `#### original rc の捕捉規約` を正本とする。確定した内容:
 
-- **問題**: R-021 の実測により、AC-2 (c) が扱う早期脱出は **`ta-39` / `ta-43` / `ta-44` の
-  3 本ではなく 7 本**（rc=3 の対象は**ファイル全体ガード 6 本**、`ta-49` は**節スキップ**）
-  であることが判明した。しかし **AC-1〜AC-7 の正本は `pbi-input.md` の受入基準節**であり、
-  そこは現在も **3 本**のままである
-- **AI が確定しなかった理由**: `test-cases.md` の Traceability は自ら
-  「**AC-1〜AC-7 は `pbi-input.md` を正本とし、本表は写像のみ**」と宣言している。
-  本表の中で対象範囲を 7 本へ広げることは、**本来 Human が決めるべき AC の変更を
-  AI が黙って確定する**ことに等しい。**H-05（AC-8 を pbi-input へ追記するか否かの裁定）と
-  同型の扱い**とし、本項として提示するに留めた
-- **Human 判断**: `pbi-input.md` の AC-2 (c)（および層 A の内訳記述）を
-  **7 本 / 6+1 構造へ更新するか**、それとも **AC は 3 本のまま据え置き、残る 4 本は
-  AC-1（standalone で exit 0 を返すものが 0 件）で回収する**か
-- **本反映での扱い（正直に記す）**: **`pbi-input.md` は編集していない**。
-  したがって **`pbi-input.md` の「層 A の 3 本」という記述は HJ-5 の裁定まで stale** であり、
-  本 plan が層 A の一覧について pbi-input を参照する箇所から辿ると **3 と 7 が食い違う**。
-  これは**既知の未確定点として明示するもの**であり、AI が正本を書き換えて解消することはしない
-- **実装上の対象定義**: 裁定が済むまで、TC-17 / TC-29 / Task 5 は前掲
-  `#### 7 本は同質ではない` を対象定義として用いる（AC の文言とは独立に、
-  **実装対象は 7 本で確定している**）
+- precedence 表の `original rc` 2 行は **確定仕様**（「暫定」ではない）
+- **TC-06 は維持**。(a) を採った場合に必要だった **TC-06 の削除・再定義は発生しない**
+- 捕捉規約 = 「finalize 呼出の直前に他コマンドを挟まない」+「summary 出力は helper 内部で行う」。
+  **層 0 の 4 本の現行形（summary を printf してから `[ "$fail" -eq 0 ] || exit 1`）を
+  そのまま helper 化しない**
+- (b) の弱点（規約違反が静的に検出しにくい）は **contract TA の動的 probe（TC-12）** で補償する
+- 規約は `tests/extras/README.md` の新規ファイル checklist に追加する（Task 7 / 実装フェーズ）
+
+### HJ-5 AC-2 (c) の対象本数を正本（`pbi-input.md`）へ反映するか（F3 / **裁定済み**）
+
+> **裁定（2026-08-10 Human C-3）: `pbi-input.md` へ反映する**（AC-2 (c) の対象を
+> **3 本 → 7 本**へ更新）。**正本は更新済みであり、stale は解消した。**
+
+- **問題（解消済み）**: R-021 の実測により、AC-2 (c) が扱う早期脱出は
+  **`ta-39` / `ta-43` / `ta-44` の 3 本ではなく 7 本**（rc=3 の対象は**ファイル全体ガード 6 本**、
+  `ta-49` は**節スキップ**）であることが判明していたが、AC 正本である `pbi-input.md` は
+  **3 本**のままだった
+- **裁定に基づく反映（本コミットで実施）**:
+  - `pbi-input.md` の **AC-2 (c)** を **早期脱出 2 型 7 件**（`|| exit 0` 型 3 =
+    `ta-39` / `ta-43` / `ta-44`、`|| true` 型 4 = `ta-45` / `ta-46` / `ta-47` / `ta-49`）へ更新。
+    **rc=3 の対象はファイル全体ガードの 6 本**、**`ta-49` は節スキップのため先行 TC の結果に従う**
+    ことを明記した
+  - `pbi-input.md` の **層 A の内訳記述（「うち 3 本は早期 `exit 0` 経路を持つ」/ A-2' の見出し）**
+    も併せて 7 本へ是正した（C-1 R6 の **MN-N** / R7 の **HR-2** が指摘した stale 箇所）
+- **結果**: `plan.md` から `pbi-input.md` を辿ったときの **3 と 7 の食い違いは解消**した
+- **実装上の対象定義**: 従来どおり前掲 `#### 7 本は同質ではない` を用いる（**AC 文言と
+  実装対象が 7 本で一致した**ため、両者が乖離した状態はなくなった）
+
+### HR-4 bootstrap の harness 判定に `EXTRAS_DIR` 非空を加えるか（C-1 R7 / MN-P / **裁定済み**）
+
+> **裁定（2026-08-10 Human C-3）: (b) `EXTRAS_DIR` 非空を AND 条件へ追加する。**
+> （選択肢: (a) 常に `exit 1` / **(b) AND 条件へ追加** / (c) 受容し handoff へ）
+
+- 反映先は前掲 **`#### bootstrap の helper 解決規約（R-025-1）`** のスニペットと
+  **`### Mode resolution`**（両者を同一述語に揃える）
+- 詳細と「正規経路が影響を受けない」実測根拠は
+  前掲 `##### EXTRAS_DIR 非空を AND 条件へ加える（HR-4 = (b) 採用）` を参照
+- **残存**: 3 変数すべてが汚染された環境では依然 harness 分岐へ落ちる（窓は狭まるが閉じない）。
+  **handoff の既知課題へ記載する**
 
 ## Human Approval Boundary
 
@@ -1714,12 +1843,14 @@ contract TA の対象外とする**（恒久化しない。**新規追加ファ�
 - `tests/run-tests.sh` helper source変更（Task 3 の比較検証で必要と確定した場合のみ）
 - broad extras migrationのC-3
 - contract probe envの採否
-- **HJ-1〜HJ-5 の裁定**（`## Human C-3 の判断事項`）:
-  **HJ-1** CI の `sh` 実体固定（R-022 / **HO 対象・patch 提示のみ**）/
-  **HJ-2** 層 C の ROOT sentinel を Slice 1 へ前倒しするか（R-023）/
-  **HJ-3** `timeout-minutes` の再見積り（R-026 / **HO 対象・patch 提示のみ**）/
-  **HJ-4** 案 D における `original rc` の捕捉規約（R-030。(a) 2 値化なら **TC-06 の再定義**を伴う）/
+- **HJ-1〜HJ-5 / HR-4 の裁定**（`## Human C-3 の判断事項`。**2026-08-10 に 4 件裁定済み**）:
+  **HJ-1** CI の `sh` 実体固定（R-022 / **HO 対象・patch 提示のみ**）→ **未裁定**（exec 非ブロック）/
+  **HJ-2** 層 C の ROOT sentinel を Slice 1 へ前倒しするか（R-023）→ **裁定済み: Slice 2 の D-2 (c) に委ねる** /
+  **HJ-3** `timeout-minutes` の再見積り（R-026 / **HO 対象・patch 提示のみ**）→ **未裁定**（exec 非ブロック）/
+  **HJ-4** 案 D における `original rc` の捕捉規約（R-030）→ **裁定済み: (b) 保持 + 規約化（TC-06 維持）** /
   **HJ-5** AC-2 (c) の対象本数（3 本 → 7 本）を `pbi-input.md`（正本）へ反映するか（F3）
+  → **裁定済み: 反映する（正本更新済み）** /
+  **HR-4** bootstrap の harness 判定（C-1 R7 / MN-P）→ **裁定済み: (b) `EXTRAS_DIR` 非空を AND 条件へ**
 - PR C-4 / merge
 
 ## C-1 Self Review Checklist
