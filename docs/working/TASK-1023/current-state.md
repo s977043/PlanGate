@@ -1,9 +1,15 @@
 # TASK-1023 Current State
 
-> 更新: 2026-08-10 19:05 UTC（exec 最終化）
+> 更新: 2026-08-10 19:30 UTC（V-3 + river-review 反映・handoff 発行）
 
-## フェーズ: exec 完了（T-04〜T-07 done）/ T-08〜T-10 オーガナイザー待ち
-## 進捗: branch `fix/1023-exec`（base `5e630f9`）にコミット済み。full suite 577 passed / 0 failed
+## フェーズ: V-3/river 反映済み・handoff 発行済み / T-08〜T-10 オーガナイザー待ち
+## 進捗: branch `fix/1023-exec`（base `5e630f9`）。TA-25 standalone 47/0（V-3 反映後）・full suite 577/0（反映前）
+
+## V-3 ラウンド（2026-08-10 19:30 UTC）
+
+- ed/ex・git 復元系（checkout/restore/checkout-index/update-index）の実測 bypass 2 系統を封鎖（TC-25/26/27 追加、mutation アンカー不変）
+- doc 追随: approval-token-guard.md（EH-13 / 実体パス）・hook-enforcement.md（総数注記）・guard コメント統一
+- 詳細 disposition は handoff.md / decision-log D-017 / status 変更点 #6
 
 ## 直近の完了タスク
 
