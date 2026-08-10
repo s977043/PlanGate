@@ -31,6 +31,13 @@ fi
 . "$_pg_extra_helper"
 pg_extra_contract_init ta-61-extra-contract standalone-capable
 
+# ta-26 TC-33（静的検査 / README 規約 8）準拠: FIXTURES_DIR:- を含む extras は
+# standalone 経路で runner と同一の 7 env unset を自ファイル内に持つ必要がある。
+# helper init が既に unset 済みのため機能的には冪等（静的包含要件のための明示行）。
+if pg_extra_contract_is_standalone; then
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+fi
+
 printf '\n=== TA-61: extras execution contract (#921 Slice 1) ===\n'
 
 t61_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
