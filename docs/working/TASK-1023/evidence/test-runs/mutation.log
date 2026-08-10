@@ -1,0 +1,9 @@
+  [PASS] T1023-TC-15pre mutation baseline (original guard) all focused TCs PASS
+  [PASS] T1023-TC-15 mutant killed by real TC (T1023-TC-01 FAILs)
+  [PASS] T1023-TC-16 mutant killed by real TC (T1023-TC-03 FAILs)
+  [PASS] T1023-TC-17 mutant killed by real TC (T1023-TC-05 FAILs)
+  [PASS] T1023-TC-17b mutant killed by real TC (T1023-TC-23 FAILs)
+  [PASS] T1023-TC-17c mutant killed by real TC (T1023-TC-13c-file FAILs)
+  [PASS] T1023-TC-17d mutant killed by real TC (T1023-TC-22a FAILs)
+  [PASS] T1023-TC-17e mutant killed by real TC (T1023-TC-02b FAILs)
+  [PASS] T1023-TC-17post restore (original guard) all focused TCs PASS
