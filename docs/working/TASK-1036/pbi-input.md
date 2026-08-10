@@ -4,6 +4,8 @@
 > `fix(tests): PG_T26_NO_RECURSE が呼び出し元 env の漏れから保護されておらず、親実行でも TC が黙って消える`
 > Base: `origin/main` = **`408cebb`**（2026-08-10 時点。#1039 = TASK-1012 の exec は**マージ済み**）
 > Labels: `bug` / `priority:P2` / Milestone: `v8.19.0`
+>
+> **本ファイル中の行番号（`L###`）はすべて base `408cebb` 時点の実測値**であり、後続コミットで陳腐化する。判断に使うときは併記した**記号アンカー（grep 文字列）で再取得**すること。
 
 ---
 
@@ -59,7 +61,7 @@
 
 - [ ] **AC-1（harness 経路の無害化）**: `PG_T26_NO_RECURSE=1` を export した状態で `sh tests/run-tests.sh` を実行しても、`ta-26` セクションの**実行 TC 件数が env 無し実行と一致**する（同一 tree・同一コマンドの 2 回実行を比較する形で判定。`ta-26` セクションに再帰防止起因の `[SKIP]` 行が出ないことでも確認できる）
 - [ ] **AC-2（回帰テストと変異注入による検出力の実証）**: AC-1 を検証する TC が追加され、**修正前の実装に対して変異注入を行い、その TC が実際に FAIL する**ことをログ付きで実証している。TC は件数のハードコードではなく**通常実行との同値照合**で書く。変異は「修正の call site を壊す」形にする（関数の中身だけ壊して空振りさせない）
-- [ ] **AC-3（正規経路の非退行）**: TC-13 が起動する子プロセス（`PG_T26_NO_RECURSE=1` を**コマンド単位の env 前置で明示的に渡す** 2 系統 = `ta-26-plugin-sync.sh` L298 / L301）が**従来どおりゲートを発火**させ、#1012 の AC-1（子でゲート対象 TC がスキップされ `[SKIP]` 行が出る）が**引き続き PASS** する
+- [ ] **AC-3（正規経路の非退行）**: TC-13 が起動する子プロセス（`PG_T26_NO_RECURSE=1` を**コマンド単位の env 前置で明示的に渡す** 2 系統 = `ta-26-plugin-sync.sh` L298 / L301。記号アンカー: `_t26_out13a=` / `_t26_out13b=` の代入行）が**従来どおりゲートを発火**させ、#1012 の AC-1（子でゲート対象 TC がスキップされ `[SKIP]` 行が出る）が**引き続き PASS** する
 - [ ] **AC-4（既存静的検査の非退行）**: 修正後に `ta-26` が 3 系統すべてで `0 failed` になる — (i) harness 実行、(ii) 直接 standalone 実行、(iii) `PG_T26_NO_RECURSE=1` 前置の子相当実行。とくに **`ta-26` TC-33（`run-tests.sh` の unset 集合 ⊆ 各 extras の standalone unset 集合）が PASS のまま**であること（後述 Notes N-1 の衝突を回避できていることの機械的な証拠）
 - [ ] **AC-5（規約の明文化）**: `tests/extras/README.md` の規約 7（および必要なら規約 8）に、**本 env が harness 側で無害化される対象であること**と、**`ta-26` の standalone 分岐では意図的に unset しない**（そこで unset するとガード自体が壊れる）ことが読み取れる形で記載されている
 
@@ -71,7 +73,7 @@
 
 ### N-1（最重要）: issue が「最小一手・推奨」とする案 (a) は、そのままでは `ta-26` TC-33 を壊す
 
-`ta-26` の **TC-33** は次を静的検査している（`tests/extras/ta-26-plugin-sync.sh` L~770 付近）:
+`ta-26` の **TC-33** は次を静的検査している（`tests/extras/ta-26-plugin-sync.sh` L761 = `grep -n 'TC-33: FIXTURES_DIR 単独判別' tests/extras/ta-26-plugin-sync.sh`）:
 
 > `run-tests.sh` 冒頭の unset 集合 ⊆ `FIXTURES_DIR:-` 判別を持つ各 extras の standalone unset 集合（**`ta-26` 自身も対象**）
 
@@ -105,9 +107,9 @@
 ### N-4: 呼び出し経路の実測
 
 - `ta-26` の呼び出し口は **(1) `run-tests.sh` の `ta-*.sh` glob source**、**(2) 直接 standalone 起動** の 2 経路のみ。`.github/` / `scripts/` / `bin/` を grep しても `ta-26` への直接参照は無い（CHANGELOG / 他 extras のコメント内言及のみ）
-- `PG_T26_NO_RECURSE` を渡すのは **TC-13 の 2 箇所のみ**（L298 / L301。いずれも**コマンド単位の env 前置**）
+- `PG_T26_NO_RECURSE` を渡すのは **TC-13 の 2 箇所のみ**（L298 / L301。いずれも**コマンド単位の env 前置**。記号アンカー: `_t26_out13a=` / `_t26_out13b=` の代入行）
 - `run-tests.sh` の呼び出し口には `.github/workflows/test.yml:28`（`run: sh tests/run-tests.sh`）と `scripts/run-tests-safe.sh` がある。**CI 本線は harness 経路**なので、harness を塞げば CI 上の実害面は閉じる
-- `ta-26` 内の `PG_T26_NO_RECURSE` ゲートは現在 **4 箇所**（L67 = TC-03/04、L293 = TC-13、L427 / L572 = #1039 で追加された 2 組）
+- `ta-26` 内の `PG_T26_NO_RECURSE` ゲートは現在 **4 箇所**（L67 = TC-03/04、L293 = TC-13、L427 / L572 = #1039 で追加された 2 組。記号アンカー: `grep -n 'PG_T26_NO_RECURSE:-0' tests/extras/ta-26-plugin-sync.sh` が 4 件）
 
 ### N-5: 依存関係と時期
 
@@ -149,7 +151,7 @@
 |---|---|---|
 | A-1 | `PG_T26_NO_RECURSE` を読むのは `ta-26` のみ | repo 全体 grep（`docs/working/` の記録を除くと `tests/extras/ta-26-plugin-sync.sh` のみ） |
 | A-2 | `PG_T26_NO_RECURSE` を設定するのは TC-13 の 2 箇所のみ、いずれもコマンド単位 env 前置 | L298 / L301 を実物確認 |
-| A-3 | `run-tests.sh` は `PG_HARNESS_SOURCED=1` を **export しない** | `tests/run-tests.sh` L159-163 のコメント + 代入行 |
+| A-3 | `run-tests.sh` は `PG_HARNESS_SOURCED=1` を **export しない** | `tests/run-tests.sh` L159-163 のコメント + 代入行（記号アンカー: `grep -n '^PG_HARNESS_SOURCED=1' tests/run-tests.sh`） |
 | A-4 | CI（`.github/workflows/test.yml`）は harness 経路でのみ `ta-26` を実行する | `.github/` grep で `ta-26` 直接参照なし・`run: sh tests/run-tests.sh` のみ |
 | A-5 | この env を export する運用は現存しない（＝進行中の損失なし・潜在バグ） | issue 記載。反証は見つからなかった |
 | A-6 | 本 PBI の変更は `tests/` に閉じ、Hardening Override 対象パスを含まない | N-5 参照。含む場合は Mode / ゲートを引き上げる |
