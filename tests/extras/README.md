@@ -184,3 +184,81 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
    （else 節の内側のみ）では `PLANGATE_*` / `PG_HARNESS_SOURCED` =
    **run-tests.sh 冒頭の unset 集合と同一の 7 env** を unset して外部 env 汚染を
    無害化する。単独判定の残存ゼロと unset 集合の包含は `ta-26` の TC-33 が静的検査する
+
+## 実行契約（execution contract / #921 TASK-0921）
+
+### rc 意味レイヤー（standalone 実行時）
+
+| rc | 意味 |
+|---:|---|
+| **rc=0** | standalone-capable が全件 pass（検査した結果、問題なし） |
+| **rc=1** | 内部テスト失敗（`fail > 0`）。**前提未充足でも `fail > 0` なら rc=1 が優先** |
+| **rc=2** | 実行方法エラー（harness-only を直接実行した / capability 宣言が不正） |
+| **rc=3** | **前提未充足＝検査していない**（prerequisite absent。rc=0 で成功を装ってはならない） |
+
+**rc=2 は harness-only 誤実行専用の値であり、hook の BLOCK（`exit 2`）とは別名前空間**。
+extras 自身のトップレベル終了コードと、テスト対象 hook のサブプロセス戻り値を混同しないこと。
+
+### capability marker（inventory の機械正本）
+
+各 `ta-*.sh` は**先頭 20 行以内**に次のコメントを **exactly 1 行**置く:
+
+```sh
+# PG_EXTRA_CAPABILITY: standalone-capable
+# （または）
+# PG_EXTRA_CAPABILITY: harness-only
+```
+
+marker は説明ではなく契約回帰テスト（`ta-61-extra-contract.sh`）が読む機械正本。
+ファイル名リストを正本にしない。
+
+### 共有 helper `_extra-contract.sh`（唯一の例外）
+
+`tests/extras/_extra-contract.sh` は exit 契約の一元化のためだけに置かれた**唯一の共有ファイル**
+（extras 自己完結の慣習に対する意図的な例外 / #914 E-1 の反転）。**exit 契約 helper 以外の
+共有ファイルを `tests/extras/` に増やしてはならない**。`_` 接頭辞のため runner の
+`ta-*.sh` glob には拾われない。**対話シェルへ source しないこと** — standalone finalize は
+`exit` するため、対話シェルごと終了する。
+
+### 新規ファイル checklist
+
+1. 先頭 20 行以内に `PG_EXTRA_CAPABILITY:` marker を exactly 1 行
+2. bootstrap（既存の移行済みファイルの `extras execution contract bootstrap` ブロックを複製）
+   → `pg_extra_contract_init <basename-id> <capability>` を **body の副作用より前**に呼ぶ
+   （test-id は**拡張子なし basename**。番号は `ta-14` が 2 本あるため一意でない）
+3. **ファイルの最終行は `pg_extra_contract_finalize` の呼出のみ**とし、直前に他コマンドを
+   挟まない（直前行が `$?` を上書きすると original rc が黙って 0 になる）
+4. **summary の printf を呼び出し側に書かない** — summary（`TA-<NN> standalone: N passed,
+   M failed`）は helper 内部が出力する
+5. **`return 0 2>/dev/null || …` を型を問わず使わない** — top-level `return` は POSIX 未定義で
+   **dash は終了 / bash は継続**と挙動が逆転する（#1026）。前提未充足の skip は必ず
+   `pg_extra_contract_skip <reason>` を経由する（standalone では rc=3 で exit、harness では
+   skip の後に素の `return 0` で source 元へ戻る）
+6. standalone 実行の検証は必ず `sh tests/extras/ta-NN-*.sh </dev/null` と **stdin を遮断**する
+   （ta-50 等の stdin 待ちハング防止）
+7. **`ta-` プレフィクスを持つファイルのみが runner にテストとして収集される**
+   （`"$EXTRAS_DIR"/ta-*.sh` glob）
+
+### contract probe（test section 限定の test-only seam）
+
+`PG_EXTRA_CONTRACT_PROBE=force-fail` + `PG_EXTRA_CONTRACT_TARGET=<basename-id>` は
+契約回帰テストが「各ファイルが finalize に到達し fail を伝播すること」を実行ベースで
+検証するための seam。次の 5 点を厳守:
+
+1. **test-only** であり、テスト以外の用途に使わない
+2. **失敗を増やすことしかできない**（fail-safe。成功を偽装する経路は無い）
+3. **CI 設定・開発シェル・`.env` に設定してはならない**
+4. **harness mode では無視される**（run-tests.sh 経由の実行には影響しない）
+5. probe 由来の失敗は `PG_EXTRA_CONTRACT_PROBE_FIRED:<basename-id>` という
+   **通常の `[FAIL]` と区別可能なメッセージ**で出力される
+
+`PG_EXTRA_CONTRACT_PROBE` を設定して `PG_EXTRA_CONTRACT_TARGET` を未設定にした場合は
+fail-closed（診断 + 非ゼロ終了）。probe env は init 時に捕捉・unset され、テスト本体が
+起動する子プロセスへは伝播しない。
+
+### 案 D（末尾 explicit finalize）
+
+本契約は trap を張らない（**規約 1–2 に例外を作らない**）。終了経路は各ファイル末尾の
+`pg_extra_contract_finalize` に一元化され、finalize は harness では必ず `return 0`、
+standalone でのみ `exit` する。finalize 未到達（早期 exit の混入）は契約回帰テストの
+force-fail probe が rc≠1 として検出する。
