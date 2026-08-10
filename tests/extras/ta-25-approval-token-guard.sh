@@ -439,6 +439,63 @@ else
   t25_fail "T1023-TC-12 some representative write surface not blocked"
 fi
 
+# T1023-TC-25: ed / ex 経由の token 書込 → 各 rc=2（V-3 実測 bypass の封鎖）
+t25_mk p_v3_ed '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf \",s/REJECTED/APPROVED/\\nw\\nq\\n\" | ed -s docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_v3_ex '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ex -sc \"%s/REJECTED/APPROVED/|wq\" docs/working/TASK-0001/approvals/c3.json"}}'
+_t25_ok=1
+for _t25_p in p_v3_ed p_v3_ex; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (TC-25 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-25 ed/ex token writes blocked (exit 2)"
+else
+  t25_fail "T1023-TC-25 some ed/ex token write not blocked"
+fi
+
+# T1023-TC-26: git checkout/restore/checkout-index/update-index 経由の token 復元 → 各 rc=2
+# （V-3 実測 bypass の封鎖。-C 等の中間オプションも捕捉）
+t25_mk p_v3_git_co '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git checkout HEAD~1 -- docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_v3_git_restore '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git restore --source=HEAD~1 -- docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_v3_git_coidx '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git checkout-index -f -- docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_v3_git_upidx '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git update-index --cacheinfo 100644,deadbeef,docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_v3_git_c_opt '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git -C . checkout HEAD~1 -- docs/working/TASK-0001/approvals/c3.json"}}'
+_t25_ok=1
+for _t25_p in p_v3_git_co p_v3_git_restore p_v3_git_coidx p_v3_git_upidx p_v3_git_c_opt; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (TC-26 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-26 git checkout/restore/checkout-index/update-index token writes blocked (exit 2)"
+else
+  t25_fail "T1023-TC-26 some git token-restore path not blocked"
+fi
+
+# T1023-TC-27: 負ケース — token パス非参照の ed / git は誤 block しない（各 rc=0）
+t25_mk p_v3_neg_git_main '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git checkout main"}}'
+t25_mk p_v3_neg_git_file '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git restore -- src/index.ts"}}'
+t25_mk p_v3_neg_ed_file '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf \"w\\nq\\n\" | ed -s src/index.ts"}}'
+t25_mk p_v3_neg_git_log '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git log --oneline -- docs/working/TASK-0001/approvals/c3.json"}}'
+_t25_ok=1
+for _t25_p in p_v3_neg_git_main p_v3_neg_git_file p_v3_neg_ed_file p_v3_neg_git_log; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (TC-27 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-27 non-token ed/git commands pass; token-path read-only git log passes (exit 0)"
+else
+  t25_fail "T1023-TC-27 negative ed/git cases incorrectly blocked"
+fi
+
 # T1023-TC-13a: env 空 + $1=token + parsed-safe normal stdin → fallback target で rc=2（AC-06）
 T25_ENV_FILE=""
 t25_guard "$T25_TMP/p_normal_write" "$T25_TOKEN"

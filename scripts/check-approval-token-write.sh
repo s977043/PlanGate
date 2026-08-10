@@ -16,10 +16,11 @@
 # 配置: scripts/ ルート（HO 外）
 #
 # 対応 matcher:
-#   Edit|Write … PLANGATE_HOOK_FILE env / $1 / stdin JSON .tool_input.file_path
+#   Edit|Write|MultiEdit … PLANGATE_HOOK_FILE env / $1 / stdin JSON .tool_input.file_path
 #                （legacy 互換のみ top-level .file_path fallback）
 #   Bash       … stdin JSON .tool_input.command 中の token path + 「書き込み意図」を検出
 #                （> / cp/mv/ln/install/dd/tee/truncate/patch/apply_patch /
+#                  ed/ex / git checkout|restore|checkout-index|update-index /
 #                  sed -i / perl -i / python write_text・open(...,"w") /
 #                  node writeFileSync / ruby File.write 等）
 #                読み取り（cat / open(...).read 等）は block しない。
@@ -47,6 +48,14 @@ _has_write_intent() {
   printf '%s' "$_wc" | grep -q '>' && return 0
   # 書き込み系コマンドが語境界で出現（行頭・; & | ( 直後・空白区切り）
   printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(cp|mv|ln|install|dd|tee|truncate|patch|apply_patch)([[:space:]]|$)' && return 0
+  # ed / ex（stdin スクリプトの w コマンドで書込可能。語境界で検出 / TASK-1023 V-3 実測 bypass）
+  printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(ed|ex)([[:space:]]|$)' && return 0
+  # git の作業ツリー復元系（checkout / restore / checkout-index / update-index。
+  # ref から token path を復元・上書きできる / TASK-1023 V-3 実測 bypass。
+  # git と subcommand の間の -C <dir> 等のオプションも許容）
+  # git と subcommand の間は「- で始まるオプション（引数 1 個まで随伴可: -C <dir> 等）」のみ許容。
+  # 非オプション語（log 等）が先に来る場合は subcommand と見なさない（読取系の誤 block 防止）
+  printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+(checkout|restore|checkout-index|update-index)([[:space:]]|$)' && return 0
   # sed -i / perl -i（in-place 書き込み。perl -pi / -0pi 等も -[A-Za-z]*i で捕捉）
   printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(sed|perl)([[:space:]]+-[A-Za-z]*i|[[:space:]]+--in-place)' && return 0
   # python / ruby の書き込み: write_text / write_bytes / .write( （ruby File.write( を含む）
