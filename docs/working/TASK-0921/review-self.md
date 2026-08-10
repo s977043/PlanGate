@@ -700,7 +700,7 @@ mode を導出**し、helper 未解決時にその mode で `return 0` / `exit 1
 | **HR-1**（R6） | `dash` 不在環境での TC-29 の扱い | — | R6 MN-M | **解決済み**（F6 で「SKIP せず FAIL」に確定。裁定不要） |
 | **HR-2**（R6） | `pbi-input.md` の stale な「層 A の 3 本」 | — | R6 MN-N | **HJ-5 に統合**（重複のため本項は閉じる） |
 | ~~**HR-3**（R7 で追加）~~ | ~~`plan.md:609`「`set -e` の有無に依らない」の精密化~~ | (a) 1 文で精密化 | **MN-O** | **裁定不要 — 案 (a) で是正済み（`a0e864b` / オーガナイザー）**。表に `/bin/bash`（非 POSIX モード = 継続 / rc=0）行を追加し、原因帰属を「**POSIX 準拠モードか否か**」へ是正。オーガナイザーが `/bin/bash` で独立再現したうえで反映。**結論・設計・AC・TC は不変**のため C-3 の裁定対象から外す |
-| **HR-4**（R7 で追加） | bootstrap の helper 未解決分岐が汚染時に真 standalone で `return 0` を実行しうる | (a) 常に `exit 1` / (b) `EXTRAS_DIR` 非空を AND 条件に追加 / (c) 既知リスクとして受容し handoff へ | **MN-P** | 未裁定（同上） |
+| **HR-4**（R7 で追加） | bootstrap の helper 未解決分岐が汚染時に真 standalone で `return 0` を実行しうる | (a) 常に `exit 1` / **(b) `EXTRAS_DIR` 非空を AND 条件に追加** / (c) 既知リスクとして受容し handoff へ | **MN-P** | **裁定済み（2026-08-10 Human C-3）— (b) を採用**。`plan.md` の bootstrap スニペットと `### Mode resolution` を同一述語（`PG_HARNESS_SOURCED=1` AND `FIXTURES_DIR` 非空 AND `EXTRAS_DIR` 非空）へ反映済み。`tests/run-tests.sh:23` / `:24` が両 dir を設定するため**正規の harness 経路は不変**。**残存**: 3 変数すべてが汚染された場合は依然 harness 分岐へ落ちる（窓は狭まるが閉じない）→ handoff の既知課題へ記載 |
 
 **注**: HR-3 / HR-4 の修正はいずれも `plan.md` の編集を伴う。
 **C-3 承認後の plan 編集は `plan_hash` を無効化するため、直すなら `c3.json` 発行前**に行うこと。

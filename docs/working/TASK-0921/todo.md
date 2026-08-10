@@ -5,6 +5,9 @@
 > **別系統 C-2（4 レーン）由来の `R-021`〜`R-037`** を確定反映。
 > **R-032 は `resolved-by-design` につき反映せず**。未確定 5 件は plan の
 > `## Human C-3 の判断事項`＝**HJ-1 / HJ-2 / HJ-3 / HJ-4 / HJ-5**）
+> **2026-08-10 Human C-3 裁定を反映済み**: **HJ-2 / HJ-4 / HJ-5 / HR-4 = 裁定済み** /
+> **HJ-1 / HJ-3 = 未裁定（HO 対象・patch 提示のみ・exec をブロックしない）**。
+> **本反映で `plan_hash` は無効化される。Human による再承認（`c3.json` 再発行）が必要。**
 > Mode: **high-risk（Slice 1）**（全extrasの実行制御とexit contractを変更するためC-3必須）
 > **Slice 2 は本 PBI スコープ内の後続スライス。着手時に Mode を再判定する**（plan `## Mode判定`）
 
@@ -59,21 +62,37 @@ H-04 Slice 2 の Mode 再判定 → T-04 + T-04b + T-07 writeback
       別 PBI へ切り出すか否かの判断
 - [ ] **H-05**: **AC-8 を pbi-input の受入基準へ追記するか否かの裁定**（Slice 2 着手時 / C-1 MN-5）。
       AC-8 は C-2（R-013）由来の派生 AC で pbi-input 正本には存在しない
-- [ ] **H-06**: **HJ-1〜HJ-5 の裁定**（C-3 時 / plan `## Human C-3 の判断事項`）
-  - **HJ-1**: CI の `sh` 実体固定（R-022）。**`.github/workflows/**` は HO 対象のため
-    AI は適用せず patch 提示のみ**。案 (a) dash 明示 / 案 (b) dash + bash matrix
-  - **HJ-2**: 層 C の ROOT sentinel を **Slice 1 へ前倒しするか / Slice 2 の D-2 (c) に委ねるか**（R-023）
-  - **HJ-3**: `timeout-minutes: 10` の再見積り（R-026）。**HO 対象・patch 提示のみ**
-  - **HJ-4**: 案 D における `original rc` の捕捉規約（R-030）。
-    **(a) 2 値化を採ると TC-06 の再定義を伴う** / (b) 保持 + 「finalize 直前に他コマンドを
-    挟まない」規約化。**Task 5 の置換テンプレートと README 規約が変わるため C-3 で確定する**
-  - **HJ-5**: **AC-2 (c) の対象を 3 本 → 7 本（rc=3 の対象は 6 本 + 節スキップ 1 本）へ
-    改める旨を `pbi-input.md` の受入基準（正本）へ反映するか**（F3）。
-    R-021 の実測で早期脱出が 7 本と判明したが、**AC の正本は `pbi-input.md`** であり
-    Traceability は写像のみを持つ。**AI は正本を書き換えず本項として提示する**
-    （H-05「AC-8 を pbi-input へ追記するか否か」と同型）。
-    **裁定まで `pbi-input.md` の「層 A の 3 本」は stale のまま**であり、
-    `plan.md` から辿ると 3 と 7 が食い違う（既知の未確定点）
+- [x] **H-06**: **HJ-1〜HJ-5 / HR-4 の裁定**（C-3 時 / plan `## Human C-3 の判断事項`）。
+      **2026-08-10 に 4 件裁定済み・2 件は未裁定のまま据え置き（exec 非ブロック）**。
+      **本裁定の反映により `plan_hash` は無効化されるため、Human による再承認（`c3.json` 再発行）が必要**
+  - [ ] **HJ-1（未裁定・exec をブロックしない）**: CI の `sh` 実体固定（R-022）。
+    **`.github/workflows/**` は HO 対象のため AI は適用せず patch 提示のみ**。
+    案 (a) dash 明示 / 案 (b) dash + bash matrix。
+    **Slice 1 は当該パスを変更しないため成果物に依存しない**。ローカルの dash / bash 二重検証は
+    **TC-29** が独立に担保する
+  - [x] **HJ-2（裁定済み）**: **Slice 2 の D-2 (c) に委ねる**（Slice 1 へ前倒ししない / 2026-08-10）。
+    **Slice 1 の helper に ROOT sentinel 検査は追加しない**。
+    残存リスク（**harness モードでの層 C の空振り PASS は本 PBI では一切解消しない** /
+    将来ファイルの同種再生産は Slice 1 では機械検出されない）を **handoff の既知課題へ記載する**
+  - [ ] **HJ-3（未裁定・exec をブロックしない）**: `timeout-minutes: 10` の再見積り（R-026）。
+    **HO 対象・patch 提示のみ**（HJ-1 と同じ理由で Slice 1 の成果物に依存しない）
+  - [x] **HJ-4（裁定済み）**: **(b) 保持 + 規約化**（2026-08-10）。`original rc` を保持し、
+    **TC-06 は維持**（(a) 2 値化を採った場合の TC-06 削除・再定義は発生しない）。
+    規約 = 「**finalize 呼出の直前に他コマンドを挟まない**」+「**summary 出力は helper 内部で行う**」。
+    **層 0 の 4 本の現行形（printf で summary → `[ "$fail" -eq 0 ] || exit 1`）を
+    置換テンプレートとして複製しない**。規約違反は静的検出が難しいため
+    **contract TA の動的 probe（TC-12）** で担保する。
+    **`tests/extras/README.md` の新規ファイル checklist へ規約を追加するのは T-07（実装フェーズ）**
+  - [x] **HJ-5（裁定済み）**: **`pbi-input.md` へ反映する**（2026-08-10）。
+    AC-2 (c) の対象を **3 本 → 早期脱出 2 型 7 件**（`|| exit 0` 型 3 + `|| true` 型 4）へ更新し、
+    **rc=3 の対象はファイル全体ガード 6 本 / `ta-49` は節スキップのため先行 TC の結果に従う**ことを明記。
+    **`pbi-input.md` の層 A 内訳（A-2' ほか）の stale な「3 本」も是正済み**。
+    **3 と 7 の食い違いは解消した**
+  - [x] **HR-4（裁定済み / C-1 R7 の MN-P 由来）**: **(b) `EXTRAS_DIR` 非空を harness 判定の
+    AND 条件へ追加**（2026-08-10）。bootstrap スニペットと helper の `Mode resolution` を
+    同一述語（`PG_HARNESS_SOURCED=1` AND `FIXTURES_DIR` 非空 AND `EXTRAS_DIR` 非空）に揃える。
+    `tests/run-tests.sh` は `:23` / `:24` で両 dir を設定するため**正規の harness 経路は不変**。
+    **残存**（3 変数すべてが汚染された場合は依然 harness 分岐へ落ちる）を handoff へ記載する
 
 ## Agent Tasks
 
@@ -352,8 +371,11 @@ contract TA（T-06）も helper API を解決できなくなる（C-1 MN-3）。
 - [ ] **Slice 1 の exec 中に層 0（`ta-26` / `ta-58` / `ta-59` / `ta-60`）へ触る必要が生じたら停止**
       （15 ファイル / high-risk 判定の前提が崩れる → Mode 再判定 → 人間へエスカレーション）
 - [ ] **段 1 の分類で rc 0 / 3 のいずれでもない値を返す層 A ファイルがあれば停止**（MN-4）
-- [ ] **HJ-1〜HJ-5 が未確定のまま exec へ入ろうとしたら停止**（とくに **HJ-4 = `original rc` の
-      捕捉規約**は Task 5 の置換テンプレートと README 規約を決めるため / R-030）
+- [ ] **~~HJ-1〜HJ-5 が未確定のまま exec へ入ろうとしたら停止~~ → 2026-08-10 の裁定により縮約**:
+      **HJ-2 / HJ-4 / HJ-5 / HR-4 は裁定済み**（反映済み）。
+      **HJ-1 / HJ-3 は未裁定のままだが `.github/workflows/**`＝HO 対象で patch 提示のみのため
+      exec をブロックしない**（Slice 1 は当該パスを変更しない）。
+      **残る停止条件 = 「HJ-1 / HJ-3 の patch を AI が適用しようとした場合」**（即停止し Human へ回す）
 - [ ] **CI が `timeout-minutes: 10` 超過で落ちたら停止**（R-026。**HO 対象のため AI は適用せず
       Human へ patch 適用を依頼**）
 - [ ] **`|| true` 型の早期脱出が dash / bash で異なる rc を返す状態のまま T-06 の検証へ
@@ -380,7 +402,10 @@ contract TA（T-06）も helper API を解決できなくなる（C-1 MN-3）。
 - [ ] **早期脱出 7 本のイディオムが除去され `grep -rn 'return 0 2>/dev/null' tests/extras/` が
       層 A について 0 件**（R-021）。**内訳: ファイル全体ガード 6 本 = `pg_extra_contract_skip`
       経由 / `ta-49` = 節スキップで rc=3 を要求しない**（F2）
-- [ ] **HJ-1〜HJ-5 が C-3 で裁定済み**（plan `## Human C-3 の判断事項`）
+- [x] **HJ-2 / HJ-4 / HJ-5 / HR-4 が C-3 で裁定済み・plan / pbi-input / todo / test-cases へ反映済み**
+      （plan `## Human C-3 の判断事項` の裁定状況表 / 2026-08-10）。
+      **HJ-1 / HJ-3 は未裁定のままでよい**（HO 対象・patch 提示のみ・exec 非ブロック）
+- [ ] **裁定反映で無効化された `plan_hash` に対する Human の再承認（`c3.json` 再発行）が済んでいる**
 - [ ] TC-11 を Slice 1 でも実行済み（対象 0 件なら「対象 0 件」を evidence に明示記録 / INFO-1）
 - [ ] Human C-4（H-02）
 
