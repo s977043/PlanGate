@@ -284,11 +284,11 @@ AC-09 は本 PBI で唯一「実行時に機械判定されない AC」なので
 
 | ID | status | reflected_in(commit) | notes |
 |---|---|---|---|
-| M-1 | reflected | pending | closure を到達性依存へ / 到達性実測ステップ / G-9 / TC-21b / HO 非対称性。契約文書の追随は G-6・G-9 決定後（Out of Scope 宣言） |
-| M-2 | reflected | pending | TC-19 に起点・3 区分・集計単位の機械検査を追加 |
-| M-3 | reflected | pending | `edits[]` 評価を削除し `file_path` のみに限定 / TC-22b(ii) 削除 / TC-22c 追加 |
-| m-1 | reflected | pending | 変異 6・7 を追加（5 種 → 7 種）/ TC-17d・17e |
-| m-2 | reflected | pending | G-7 を「stdin 未供給の手実行全般」へ / 選択肢 (c) 追加 |
-| m-3 | reflected | pending | TTY 行の非ハング根拠を訂正 |
-| m-4 | reflected | pending | 比率を根拠から外し時間不変の性質へ |
-| i-1 | reflected | pending | R-033 タイポ / EH-10 前提 / 時刻表記 |
+| M-1 | reflected | 6abefad | closure を到達性依存へ / 到達性実測ステップ / G-9 / TC-21b / HO 非対称性。契約文書の追随は G-6・G-9 決定後（Out of Scope 宣言） |
+| M-2 | reflected | 6abefad | TC-19 に起点・3 区分・集計単位の機械検査を追加 |
+| M-3 | reflected | 6abefad | `edits[]` 評価を削除し `file_path` のみに限定 / TC-22b(ii) 削除 / TC-22c 追加 |
+| m-1 | reflected | 6abefad | 変異 6・7 を追加（5 種 → 7 種）/ TC-17d・17e |
+| m-2 | reflected | 6abefad | G-7 を「stdin 未供給の手実行全般」へ / 選択肢 (c) 追加 |
+| m-3 | reflected | 6abefad | TTY 行の非ハング根拠を訂正 |
+| m-4 | reflected | 6abefad | 比率を根拠から外し時間不変の性質へ |
+| i-1 | reflected | 6abefad | R-033 タイポ / EH-10 前提 / 時刻表記 |
