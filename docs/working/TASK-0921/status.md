@@ -13,7 +13,7 @@
 | 系統 | 内容 | 到達点 |
 |---|---|---|
 | **系統 A** | 2 レーン C-2（設計妥当性 / コードベース整合）= `R-001`〜`R-020` | **PR [#1020](https://github.com/s977043/PlanGate/pull/1020) で main へマージ済み**。plan / todo / test-cases へ 1 回確定反映済み |
-| **系統 B** | 4 レーン C-2（POSIX shell / test architecture / workflow boundary / maintainability）= 32 件 | 成果が未コミットだったため退避 → **本ブランチで `R-021`〜`R-037` として review-external へ集約**（計画本体は未反映） |
+| **系統 B** | 4 レーン C-2（POSIX shell / test architecture / workflow boundary / maintainability）= **元 ID 48 個**（系統 B 文書は「32 件」と自称するが実際の採番 ID は 48 個。会計の分母は 48） | 成果が未コミットだったため退避 → **本ブランチで `R-021`〜`R-037` として review-external へ集約**（計画本体は未反映） |
 
 ## フェーズ履歴
 
@@ -30,7 +30,8 @@
 | 2026-08-05 10:35 | 系統 B C-2 Lane 1/2/4 委託 | POSIX shell / mutation 検出力 / 移行リスクの 3 レーンを独立レビュアーへ委託（**案 D を対象**） |
 | 2026-08-05（時刻不詳） | 系統 A C-2（2 レーン） | 設計妥当性 + コードベース整合。critical 0 / major 11 / minor 6 / info 3 = **R-001〜R-020**。基点 `origin/main` = `516e2f7` |
 | 2026-08-06 18:27 | **系統 A の確定反映（1 回）** | PR [#1020](https://github.com/s977043/PlanGate/pull/1020) `76a91c3` が main へマージ。`R-001`〜`R-020` を plan / todo / test-cases へ 1 回確定反映し、**Slice 1 を C-3 提出可能な状態**にした。C-1 は 5 ラウンド実施済み |
-| 2026-08-10 09:00 | **系統 B の集約（本ブランチ）** | 系統 B の 32 件を main 版と突合し、**未反映の固有指摘 17 件を `R-021`〜`R-037` として `review-external.md` へ追記専用で集約**。重複 15 件・統合 6 件は「重複除外表」に根拠付きで記録。`decision-log.jsonl` に `D-0921-09` / `D-0921-10` を append（`status=proposed`）。**計画本体（plan / todo / test-cases / review-self）は変更していない** |
+| 2026-08-10 09:00 | **系統 B の集約（本ブランチ）** | 系統 B の**元 ID 48 個**を main 版と突合し、**未反映の固有指摘 17 件を `R-021`〜`R-037` として `review-external.md` へ追記専用で集約**。純粋除外 20 個・部分/統合 8 個は「重複除外表」＋「会計」に根拠付きで記録。`decision-log.jsonl` に `D-0921-09` / `D-0921-10` を append（`status=proposed`）。**計画本体（plan / todo / test-cases / review-self）は変更していない** |
+| 2026-08-10 12:00 | **独立 river-review の反映（本ブランチ）** | critical 0 / major 4 / minor 5。**F-1** R-023 の前提誤り（層 C / D-2 (c) は既出）→ severity を minor へ引き下げ残余 1 点へ縮小 / **F-2** 「偽 PASS」判定式が evidence と矛盾（`[PASS]` は 0 ではない）→ 判定式を是正 / **F-3** 元 ID の会計不整合（32 → **48**）→ 全数照合表を新設 / **F-4** R-032 は `516e2f7`（PR #1017）で解消済み → `resolved-by-design` へ。あわせて採録側 17 件を `origin/main` = `9f9af94` で**現存スイープ**（stale は R-032 のみ）。trap 件数差は「未確定」→「**定義（数え方）の差**」として決着 |
 
 ## 現在の判定
 
@@ -47,8 +48,8 @@
 | severity | 系統 A（R-001〜R-020） | 系統 B 追補（R-021〜R-037） | 合算 |
 |---|---:|---:|---:|
 | critical | 0 | **1** | **1** |
-| major | 11 | 9 | 20 |
-| minor | 6 | 5 | 11 |
+| major | 11 | 8 | 19 |
+| minor | 6 | 6 | 12 |
 | info | 3 | 2 | 5 |
 
 > [`review-principles.md`](../../../.claude/rules/review-principles.md) §4 より、**critical ≥ 1 = Human review required**。
@@ -74,7 +75,7 @@
 
 - [x] C-2 系統 A（2 レーン）→ `R-001`〜`R-020`
 - [x] 系統 A の確定反映（1 回）→ PR #1020
-- [x] C-2 系統 B（4 レーン）→ 32 件
+- [x] C-2 系統 B（4 レーン）→ 元 ID 48 個
 - [x] 系統 B の `review-external.md` への集約（`R-021`〜`R-037`）
 - [ ] **`R-021`〜`R-037` の計画本体への確定反映（1 回）**（反映コミットに `Refs: R-0NN`）
       — **`R-022` の `.github/workflows/**` 部分は AI が適用せず patch 提示に留める**
@@ -90,7 +91,7 @@
 |---|---|---|
 | `D-0921-09` | 案 D の skip 経路を `pg_extra_contract_skip` 経由へ書き換え、Task 5 の対象を 3 本 → **7 本**へ拡大するか（R-021） | **未判断** |
 | `D-0921-10` | contract TA と CI で `sh` 実体を固定するか（dash 明示 / dash + bash matrix）（R-022） | **未判断・HO 対象** |
-| 未採番 | **偽 PASS 3 件（`ta-11` / `ta-32` / `ta-38`）を #921 スコープに含めるか別 issue か**（R-023） | **未判断** |
+| 未採番 | **層 C の空振り PASS に対する ROOT sentinel を Slice 1 へ前倒しするか、D-2 (c) の Slice 2 に委ねるか**（R-023）。※層 C の扱い自体は `plan.md:48` で **D-2 (c) 採用**として裁定済み。3 件自体の修理は Out of Scope | **未判断** |
 | 未採番 | `original rc` の扱い: 2 値化するか「finalize 直前にコマンドを挟まない」規約にするか（R-030） | **未判断** |
 | `D-0921-01`〜`05` | 2 層能力モデル / 共通 helper / runtime inventory 正本化 / probe seam（Plan Package 由来） | `proposed` のまま |
 
@@ -111,8 +112,8 @@
 | full-suite baseline | **539 passed / 0 failed / rc=0**（231 秒） | [`evidence/baseline/full-suite.log`](./evidence/baseline/full-suite.log) |
 | 構文チェック | 58 ファイル **エラー 0** | [`evidence/baseline/syntax.log`](./evidence/baseline/syntax.log) |
 | `[FAIL]` を出して rc=0 | **35 件 / `[FAIL]` 合計 256 / 伝播 0 件** | [`evidence/baseline/standalone-current.log`](./evidence/baseline/standalone-current.log) |
-| **偽 PASS**（PASS 0 / FAIL 0 / rc=0） | **3 件**（`ta-11` / `ta-32` / `ta-38`） | 同上（R-023） |
-| top-level trap 保有 | **4 件**（うち standalone-capable 1 = `ta-45`）※系統 A は 5 件と実測。**差は未決着** | [`evidence/inventory/trap-cleanup-audit.md`](./evidence/inventory/trap-cleanup-audit.md) |
+| **空振り PASS（`vacuous`）**＝ rc=0 かつ `[FAIL]`=0 かつ **ROOT 誤解決で assertion が空振り**（**`[PASS]` は 0 とは限らない**） | **3 件**: `ta-11`(**P4** F0) / `ta-32`(**P1**+WARN1 F0) / `ta-38`(**P1** F0)。**別クラス**として `ta-06` / `ta-08` = P0 F0 **S1**（正当な SKIP・誤検出禁止） | 同上 `:21,43,49` / `:106,108`（R-023） |
+| `trap` 文字列を含むファイル | **5 件**（`ta-07` / `ta-09` / `ta-24` / `ta-28` / `ta-45`）。うち**行頭**（関数・分岐の外）は **2 件**（`ta-09:23` / `ta-45:76`）。系統 A の「5 件」と系統 B の「4 件」の差は**数え方の差**として決着済み | [`evidence/inventory/trap-cleanup-audit.md`](./evidence/inventory/trap-cleanup-audit.md) |
 | 早期脱出イディオム | `\|\| exit 0` 型 **3 件**（`ta-39` / `ta-43` / `ta-44`）+ `\|\| true` 型 **4 件**（`ta-45` / `ta-46` / `ta-47` / `ta-49`）※`ta-31` は分岐内のみ | [`review-external.md`](./review-external.md) R-021 |
 
 ### 本ブランチで再現した一次実測（R-021 の根拠）
@@ -138,11 +139,12 @@
 
 | 項目 | 内容 |
 |---|---|
-| ツリー汚染 | 系統 B のセッションで `tests/docs/working/_audit/hook-events.log`（未追跡）の残留が観測された。standalone 実行時に ROOT が `tests/` へ解決される `ta-09` 由来で、`.gitignore` 対象外。**R-023 の ROOT sentinel 検査で構造的に塞がる**が、既存の残留は Human が判断して削除する |
+| ツリー汚染 | 系統 B のセッションで `tests/docs/working/_audit/hook-events.log`（未追跡）の残留が観測された。standalone 実行時に ROOT が `tests/` へ解決される `ta-09` 由来で、`.gitignore` 対象外。**R-023 の ROOT sentinel 検査を Slice 1 へ前倒しすれば構造的に塞がる**（前倒ししない場合は D-2 (c) の Slice 2 まで残る）。既存の残留は Human が判断して削除する |
 | 破壊的テスト | `ta-54:129` が `$REPO_ROOT/plugin/plangate`（git tracked）を `rm -rf` し **trap なしで** `cp -r` 復元。中断時はツリー汚染。#921 のスコープ外だが follow-up 候補 |
 | 固定名 tmp | `ta-49` が `/tmp/ta49_err{,2}` を固定名で作成し削除しない |
 | コメント drift | `ta-26` の実行時間コメント「約 13 秒」に対し実測 **54〜58 秒**。contract TA の timeout 設計に影響（R-026） |
-| trap 件数の不一致 | 系統 A = 5 件 / 系統 B = 4 件。**どちらが正かは未確定**。案 D 採用で実害はないが数値としては未決着 |
+| ~~trap 件数の不一致~~ **（決着済み）** | 系統 A = 5 件 / 系統 B = 4 件の差は **定義（数え方）の差**。実測: `trap` 文字列を含むファイル = **5**、行頭（関数・分岐の外）の `trap` = **2**（`ta-09:23` / `ta-45:76`）、`ta-28:87,114` はサブシェル内。どの数え方でも「standalone-capable かつ trap 保有は `ta-45` のみ」は不変 |
+| evidence の基点 SHA 表記差 | 同梱ログのヘッダ（`syntax.log:1` = `1242420` / `full-suite.log:5` = `ded2b4c`）が宣言（`4448420`）と不一致。**コード側（`tests` / `bin` / `scripts` / `.github`）の差分は空**で測定値に影響しないことを実測済み。注記を `evidence/baseline/baseline-summary.md:4` に追加した |
 
 ## 次の作業（Claude Code プロンプト）
 
@@ -152,7 +154,10 @@
 
 制約:
 
-- **`R-022` の `.github/workflows/**` 変更は AI が適用しない**（Hardening Override 対象。patch 提示のみ）
+- **`.github/workflows/**` 変更は AI が適用しない**（Hardening Override 対象。patch 提示のみ）。
+  対象は **`R-022`（`sh` 実体の固定 / dash + bash matrix）** と
+  **`R-026`（`timeout-minutes: 10` の再見積り）** の 2 件
+- **`R-032` は `resolved-by-design`（`516e2f7` / PR #1017 で解消済み）のため反映不要**
 - 反映後に**簡易 C-1 を再実行**し、その**後で** Human が `approvals/c3.json`（`c3_status=APPROVED` +
   確定後 plan の `plan_hash`）を発行する。**順序を逆にしない**（先に発行すると EH-3 が後続反映を mismatch 検知する）
 - `decision-log.jsonl` の `status` を AI が `approved` へ変更しない

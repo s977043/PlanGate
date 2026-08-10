@@ -4,6 +4,25 @@
 > 基点: `origin/main` = `4448420cb48261aefa9fd274e498f140ab5e4cf7`
 > 取得者: オーガナイザー（full-suite / syntax）+ 独立ワーカー（standalone 全 57 件）
 > **実装コードは 1 行も変更していない**（`git diff -- tests scripts bin .github` が空であることを確認）
+>
+> **【2026-08-10 追記 — 基点 SHA の表記差について】**
+> 同梱ログのヘッダが記録している HEAD は本文の宣言（`4448420`）と一致しない:
+> `syntax.log:1` = `HEAD=1242420` / `full-suite.log:5` = `HEAD=ded2b4c`。
+> これは採取が dirty worktree 上の複数ステップで行われたことによる表記差であり、
+> **検査対象コードは同一**である。独立検証（2026-08-10）:
+>
+> ```console
+> $ git diff --stat 1242420 ded2b4c
+>  docs/working/TASK-1009/pbi-input.md | 2 +-        ← 差分はこの 1 ファイルのみ
+> $ git diff --stat 4448420 ded2b4c
+>  docs/working/TASK-1009/pbi-input.md | 125 +++++   ← 同上（新規追加）
+> $ git diff --stat 4448420 ded2b4c -- tests bin scripts .github
+>                                                    ← 空（コード側は完全に同一）
+> ```
+>
+> したがって本 baseline の測定値（539 passed / 0 failed / rc=0 / 231 秒、
+> 構文チェック 58 ファイル エラー 0、standalone 全 57 件）は
+> **`4448420` の測定値として扱ってよい**。
 
 ## 1. 対象の確定（runtime inventory / 件数はハードコードしない）
 
