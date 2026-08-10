@@ -117,9 +117,45 @@
 - #1039 の PR タイトルには `**AC-5 は未達・Human 受入裁定済**` とある。本 PBI は #1012 の AC 群を再オープンするものではなく、**#1012 が前提としていた「この env は TC-13 の子にしか付かない」という仮定の穴**（＝呼び出し元からの漏れ）だけを塞ぐ
 - 本 PBI の変更対象は `tests/` 配下（+ `tests/extras/README.md`）に閉じる想定で、**Hardening Override 対象パス（`.claude/rules/*` / `bin/plangate` / `scripts/hooks/*` / `.github/workflows/*` 等）を含まない**。ただし `.github/workflows/test.yml` に触る必要が生じた場合は **Hardening Override に該当し Standard・同期 C-3 固定**になる点に注意
 
+### N-7: 案 (d) の実走検証（2026-08-10 追加 / U-1・U-3・R-6 の決着）
+
+pbi-input 初版では未検証だった 3 点（案 (d) の実走 / harness レベルの AC-1 実測 / 判定方法）を、`git archive` で作ったリポジトリ外 sandbox で実走して埋めた。**リポジトリ本体は無変更**。
+
+適用した案 (d) の差分（sandbox のみ）:
+
+```sh
+else
+  PG_T26_STANDALONE=0
+  # harness 分岐でのみ呼び出し元 env の漏れを無害化する
+  unset PG_T26_NO_RECURSE 2>/dev/null || true
+fi
+```
+
+| # | 条件 | 結果 | 意味 |
+|---|---|---|---|
+| D-A | 案 (d) + `PG_T26_NO_RECURSE=1` を前置して `ta-26` を直接起動（TC-13 の子相当） | `15 passed, 0 failed` / rc=0 | **ガードは従来どおり効く**（AC-3 の前提が壊れない） |
+| D-B | 案 (d) + env なしで `ta-26` を直接起動 | `32 passed, 0 failed` / rc=0 | standalone の全 TC 実行が保たれる |
+| D-C | 案 (d) + `PG_T26_NO_RECURSE=1` を export して `sh tests/run-tests.sh` | `Results: 538 passed, 1 failed` | **harness で無害化される**（AC-1） |
+| D-D | 案 (d) + env なしで `sh tests/run-tests.sh`（対照） | `Results: 538 passed, 1 failed` | D-C と一致 |
+| **BASE** | **未修正** + `PG_T26_NO_RECURSE=1` を export して `sh tests/run-tests.sh` | **`Results: 521 passed, 1 failed`** | **17 件が黙って消える**（`538 - 521 = 17`）。しかも **failed は 1 のまま**＝件数を見ない限り気づけない |
+
+- D-C と D-D の **`ta-26` セクションは `diff` で完全一致（byte-identical・`[SKIP]` 0 行）**。→ AC-1 の判定方法として「セクション切り出し + `diff`」が使える（U-3 解決）
+- BASE の `ta-26` セクションは `15 [PASS]` + `[SKIP]` 4 行（TC-03/04・TC-13・TC-20〜25・TC-26〜29/32/34〜36）
+- 3 実行に共通の `1 failed` は `test_run_evidence.py`（sandbox が git リポジトリでないことに起因、`ta-26` と無関係）。**全条件で同一のため比較のノイズは相殺される**
+- 案 (d) 適用下で TC-33 の包含検査を再現実行 → `TC-33: PASS`（`run-tests.sh` の unset 集合を増やさないため波及しない）
+
+> ⚠️ ここでも `538` / `521` / `17` は**測定時点のスナップショットで契約値ではない**。AC は D-C と D-D の**同値照合**で書く。
+
 ### N-6: 想定 Mode
 
-**standard**（暫定・plan で確定）。根拠: 変更ファイル数 2〜3（`tests/run-tests.sh` / `tests/extras/ta-26-plugin-sync.sh` / `tests/extras/README.md`）、受入基準 5、変更種別 = code（テストハーネス）、影響範囲 = テストスイート全体（TC-33 経由で全 extras に波及しうる = N-1）。N-1 の波及を踏まえ、**安全側に倒すなら high-risk への引き上げも妥当**。
+**方式によって変わるため、条件付きで確定する**（最終確定は C-3）。
+
+| 採用方式 | 変更ファイル | 波及 | Mode |
+|---|---|---|---|
+| **案 (d)**（推奨 / N-7 で実証） | `tests/extras/ta-26-plugin-sync.sh` + `tests/extras/README.md` + 追加 TC の置き場 | `run-tests.sh` の unset 集合を増やさないため **TC-33 に波及しない**（実測 PASS） | **standard** |
+| 案 (a)+TC-33 carve-out | 上記 + `tests/run-tests.sh` + TC-33 本体 | TC-33 の包含検査を緩める＝**全 extras の env 無害化契約に触る** | **high-risk**（承認境界に準じ安全側） |
+
+共通の根拠: 受入基準 5、変更種別 = code（テストハーネス）、リスク = mass-delete guard 回帰テストの検出力。いずれも Hardening Override 対象パス（`.claude/rules/*` / `bin/plangate` / `scripts/hooks/*` / `.github/workflows/*` 等）を含まないため、Mode による強制引き上げは発生しない。
 
 ---
 
@@ -134,15 +170,15 @@
 | R-3 | 追加した TC が**空振り**する（漏れを検出しない） | 「静かに通る失敗」を塞いだつもりで塞げていない | AC-2 の変異注入で検出力を実証。変異は call site を壊す形にする |
 | R-4 | AC を絶対件数で書くと、`ta-26` の TC 増減で**無関係 PR が AC を壊す** | 時限爆弾化 | AC はすべて同値照合。実測値は本ファイルのスナップショット節に測定日 + base SHA 付きで隔離 |
 | R-5 | **直接 standalone 起動の経路は塞がらない**（案 (b) 以外） | 開発者ローカルでの誤検知は残る | Out of scope として明示。handoff に既知の残存リスクとして記載（AC 外） |
-| R-6 | 案 (d) が `ta-26` の harness / standalone 判別ロジックに依存する（`PG_HARNESS_SOURCED` 非 export 前提） | 将来 export に変えられると静かに壊れる | plan で「`PG_HARNESS_SOURCED` を export しない」ことへの依存を明記。既存 TC-30 / TC-13 が判別規約を静的に固定している |
+| R-6 | 案 (d) が `ta-26` の harness / standalone 判別ロジックに依存する（`PG_HARNESS_SOURCED` 非 export 前提） | 将来 export に変えられると静かに壊れる | plan で「`PG_HARNESS_SOURCED` を export しない」ことへの依存を明記。既存 TC-30 / TC-13 が判別規約を静的に固定している。**2026-08-10 に案 (d) を実走検証し、子のガード保持・harness の無害化・TC-33 非波及をすべて確認済み（N-7）** |
 
 ### Unknowns
 
 | ID | 不明点 | 解消方法 |
 |---|---|---|
-| U-1 | 案 (a)+carve-out と案 (d) のどちらを採るか | plan フェーズで決定（N-1 / N-2 の実測を入力とする） |
+| ~~U-1~~ **RESOLVED** | 案 (a)+carve-out と案 (d) のどちらを採るか | **案 (d) を推奨として決着**（2026-08-10 の追加実走。N-7 参照）。最終確定は C-3 |
 | U-2 | 追加 TC を `ta-26` 内に置くか、別 extras（新規 `ta-NN`）に置くか。`ta-26` 内に置くと**再帰防止ゲートで自分自身が消える**位置に置いてしまう危険がある | plan で配置を決める。どこに置いても AC-1 の同値照合が env 漏れ下で成立することを実測で確認する |
-| U-3 | AC-1 の「件数一致」をどう機械判定するか（`ta-26` セクションの PASS 行数を数える / `[SKIP]` 行の有無 / サマリ差分） | plan / test-cases で判定方法を 1 つに固定する。件数のハードコードは禁止 |
+| ~~U-3~~ **RESOLVED** | AC-1 の「件数一致」をどう機械判定するか | **`ta-26` セクション（`=== TA-26` 〜 次の `=== TA-` 直前）を env あり / なしの 2 回実行から切り出し `diff` で完全一致を見る**方式が有効と実測（N-7 D-C/D-D で byte-identical）。件数ハードコード不要 |
 | U-4 | 変異注入の具体形（修正行の削除 / 条件反転 / env 名の改名） | plan で「call site を壊す」形を選定。#1012 todo.md L53 の警告（ゲート一括反転で孫プロセス無限 spawn）を踏襲し、変異範囲を限定する |
 
 ### Assumptions
