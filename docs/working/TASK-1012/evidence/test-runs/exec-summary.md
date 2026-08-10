@@ -51,7 +51,7 @@
 | ① | 新規 2 ゲートのみ条件反転（L427 / L572） | AC-2 が FAIL | 親サマリ `18 passed`（baseline 32）→ summary diff rc=1 | `git checkout --` 後に `32 passed` で一致（再 PASS） |
 | ② | ゲート B の終端 `fi` を TC-36 の手前へ移動 | AC-1（TC-A1b）が FAIL | TC-A1b=**1**（`[PASS] TC-36` が子で実行された） | 復元後 TC-A1b=**0**（再 PASS） |
 | ③ | ファイル末尾へ `: "$_t26_tgt36"` を注入 | AC-6 が越境 ≥1 | `CROSS _t26_tgt36 (def L738) <- L824` / `crossings=1` / rc=1 | 復元後 `crossings=0` / rc=0 |
-| ④ | 範囲入力（call site）を広げる。ファイル無改変 | (1b) 排他アサーションが `IN-RANGE` | `572-759` → `IN-RANGE gate B: TC-30 at L750` / violations=1 / rc=1<br>`572-810` → TC-30 + TC-33 の 2 件 / violations=2 / rc=1 | 正しい範囲 `572-748` で violations=0 / crossings=0 / rc=0 |
+| ④ | 範囲入力（call site）を広げる。ファイル無改変 | (1b) 排他アサーションが `IN-RANGE` | `572-759` → `IN-RANGE gate B: TC-30 at L750` / violations=1 / rc=1。`572-810` → TC-30 + TC-33 の 2 件 / violations=2 / rc=1 | 正しい範囲 `572-748` で violations=0 / crossings=0 / rc=0 |
 
 **④ の範囲値について**: plan の値（`558-741` / `558-791`）は **適用前 tree の推定値**。適用でファイル行がずれるため、
 適用後の実測（TC-30 = L750 / TC-33 = L761 / ゲート B 終端 `fi` の次の桁 0 `fi` = L759）から
