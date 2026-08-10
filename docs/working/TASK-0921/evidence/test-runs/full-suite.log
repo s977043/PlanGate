@@ -1,0 +1,307 @@
+=== plangate validate --dir ===
+[PASS] complete-task: all artifacts + valid c3.json → PASS
+[PASS] missing-approval: no approvals/c3.json → FAIL
+[PASS] stale-plan-hash: plan.md modified after approval → FAIL
+[PASS] broken-pbi: pbi-input.md missing → FAIL
+
+=== TA-01: validate --mode ===
+[PASS] validate --mode standard: complete-task passes
+[PASS] validate --mode standard: missing-approval fails
+error: Unknown mode: unknown-xyz (no /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/workflows/unknown-xyz.yaml)
+[PASS] validate --mode unknown-xyz: non-existent mode returns error
+
+=== TA-02: review command ===
+Usage: plangate review <TASK-XXXX> [--phase c2|v3] [--file <path>]
+[PASS] review: no args shows usage (exit 1)
+[PASS] review: no args emits Usage text
+
+=== TA-03: exec command gate enforcement ===
+[PASS] exec: missing approvals/c3.json → C-3 gate not cleared
+
+=== TA-04: check-pr-issue-link.sh ===
+[PASS] pass: closes #N present — got PASS
+[PASS] warn: no closing keyword — got WARN
+[PASS] skip-label: documentation label — got SKIP
+[PASS] skip-marker: HTML comment marker — got SKIP
+
+=== TA-05: validate-schemas (Issue #158) ===
+[PASS] valid/c3.json passes c3-approval schema
+[PASS] invalid/c3.json fails c3-approval schema (exit non-zero)
+[PASS] validate-schemas: no args emits Usage text
+[SKIP] F-8: schemas/c3-prime.schema.json が既に配置済み (PR-2 適用後)
+
+=== TA-06: hooks (Issue #157) ===
+[PASS] tests/hooks/run-tests.sh — all hook unit tests
+
+=== TA-07: eval-runner (Issue #156) ===
+[PASS] eval: sample task → exit 0 (no blockers)
+[PASS] eval: stdout contains AC coverage line
+[PASS] eval: no args emits Usage text
+
+=== TA-08: codex log parser (Issue #168) ===
+[PASS] codex_log_parser: latency_seconds extracted
+[PASS] codex_log_parser: completion_tokens extracted
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-08-codex-log-parser.sh: line 44: printf: write error: Broken pipe
+[PASS] eval-runner: --session-log produces PASS + latency value
+
+=== TA-09: metrics (Issue #195) ===
+[PASS] metrics: collect appended events to events.ndjson
+[PASS] metrics: events.ndjson lines are valid JSON
+[PASS] metrics: events conform to plangate-event.schema.json
+[PASS] metrics: c3_decided event with APPROVED verdict emitted
+[PASS] metrics: v1_completed with PASS verdict (AC counts derived)
+[PASS] metrics: report --json shows c3 APPROVED count
+[PASS] metrics: --aggregate report works
+[PASS] metrics: usage shown on no args
+[PASS] metrics (C-2): emitted events contain no forbidden fields (privacy §4)
+[PASS] metrics (D-1): schema rejects forbidden field (additionalProperties:false)
+[PASS] metrics (A-1): hook_violation auto-derived 2 events from audit log (filters PASS/BYPASS/other-task)
+[PASS] metrics (A-1): hook_name to hook_id mapping (check-c3-approval → EH-2)
+[PASS] metrics (A-1): hook_result mapping (VIOLATION→block, WARNING→warn)
+[PASS] metrics (A-1): events.ndjson remains valid JSON after hook events appended
+[PASS] metrics (A-1): hook_violation events conform to schema
+[PASS] metrics (D-2): 2026-05-04-baseline.json conforms to eval-baseline.schema.json
+[PASS] metrics (D-2): baseline schema rejects forbidden field at task level
+[PASS] metrics (H-1): --validate command checks events against schema
+[PASS] metrics (H-1): --validate exits 1 on schema violation (forbidden field)
+[PASS] metrics (J-1): schema_mapping.py includes eval-baseline.schema.json
+[PASS] metrics (F-3): plangate doctor includes v8.6.0 metrics health check
+[PASS] metrics (H-3): aggregate report includes by-mode section
+[PASS] metrics (H-3): --json output includes by_mode
+[PASS] metrics (K-1): --markdown-section produces handoff §7 table
+[PASS] metrics (K-2): --since 2030 filters out all old events (was 7)
+[PASS] metrics (K-2): --since 2026-01-01 keeps all in-range events (7)
+[PASS] metrics (K-3): doctor --json emits valid v8.6.0 JSON status
+[PASS] metrics (C-3): baseline-snapshot.py --dry-run output is schema-valid
+
+=== TA-10: doctor --fix (TASK-0069) ===
+[PASS] doctor-fix TC-2: dry-run does not create settings.json / .bak
+[PASS] doctor-fix TC-3a: --apply creates settings.json, no .bak, --check passes
+[PASS] doctor-fix TC-3b: existing .bak rotated to .bak.<epoch>, new .bak created
+[PASS] doctor-fix TC-3c: pre-existing .bak.<epoch> never overwritten
+[PASS] doctor-fix TC-4: existing keys preserved, example merged (no dup)
+[PASS] doctor-fix TC-5: second --apply is byte-identical no-op
+[PASS] doctor-fix TC-E1: invalid JSON aborts, no overwrite, no .bak
+[PASS] doctor-fix TC-E2: only missing blocks appended, double-list preserved
+[PASS] doctor-fix TC-E3: read-only dir → explicit error, no partial write
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-10-doctor-fix.sh: line 241: printf: write error: Broken pipe
+[PASS] doctor-fix TC-1: unwired env emits Hook Wiring section + FAIL + exit 1
+[PASS] doctor-fix TC-6: missing gh/codex -> guidance only, no auto-install (AC-6)
+[PASS] doctor-fix TC-7: --json --scope hooks has hook-wiring item; default byte-identical; no leak
+
+=== TA-11: plan_hash util ↔ EH-3 shell 契約 ===
+[PASS] 正常 c3.json — shell≡python (abc123def4567890abcdef1234567890abcdef1234567890abcdef1234567890)
+[PASS] 偽プロパティ注入 — shell≡python (abc123def4567890abcdef1234567890abcdef1234567890abcdef1234567890)
+[PASS] plan_hash 無 — shell≡python (<empty>)
+[PASS] 不正JSON(末尾カンマ・#282後 strict parity) — shell≡python (<empty>)
+
+=== TA-12: TASK-0106 maintenance + EH-3 v2 ===
+  [PASS] TC-25 L1 isatty reject (non-tty)
+  [PASS] stop noop
+ok
+  [PASS] schema v1/v2/additionalProperties:false
+  [PASS] TC-24 Hardening Override 10 パターン全 block
+  [PASS] TC-33 target_file 表記揺れ block (./ 有無/絶対パス)
+  [PASS] TC-12 v1 後方互換 (Override 対象以外 PASS)
+  [PASS] TC-03 one_shot 1 回目 consume + SKIP
+  [PASS] TC-03 consumed_at atomically 書込
+  [PASS] TC-04 2 回目 block (fall-through)
+  [PASS] TC-06 out of scope block
+  [PASS] TC-08 TTL expired block
+  [PASS] TC-10 env 経由有効化不可 (ファイル不在=block 維持)
+  [PASS] TC-34 doctor --json (no maint, present:false)
+  [PASS] TC-34 doctor --json (active v2 fixture)
+
+=== TA-13: TASK-0107 plangate-setup (Command + Agent + Skill) ===
+  [PASS] TC-01 Command file exists with Agent reference
+  [PASS] TC-02 doctor --json mock B extracts 2 unmet items, overall_pass=False
+  [PASS] TC-03 doctor --json mock A: unmet=0, overall_pass=True (skip extraction)
+  [PASS] TC-04 Agent does NOT execute apply-claude-settings.sh (prohibition context excluded)
+  [PASS] TC-05 Agent has '実行しない|提示のみ|Human-owned' wording
+  [PASS] TC-09 Skill has 5-element mapping (count=5)
+  [PASS] TC-10 Rule 1: no new workflow file added
+  [PASS] TC-11 Rule 2: Skill has no project-specific terms
+  [PASS] TC-12 Rule 3: Agent description has single responsibility
+  [PASS] TC-13 Rule 4: Agent references contract-notes (CLAUDE.md/working ref pattern)
+  [PASS] TC-14 Rule 5: handoff.md will be generated at T-08 (deferred)
+  [PASS] TC-15 handoff.md has 6 elements
+  [PASS] TC-16 Agent frontmatter keys match acceptance-tester
+  [SKIP] TC-17 not a git repo
+  [PASS] TC-18 status.md has completion marker
+  [PASS] TC-19 decision-log.jsonl has valid JSON entries
+  [PASS] TC-20 Agent has doctor --check-settings gate description (static check, AC-12)
+  [INFO] TC-20-runtime doctor --check-settings not PASS (CI/ephemeral env expected)
+  [PASS] TC-21/22 Agent has escape path for unsolvable FAIL
+  [PASS] Contract notes exist with doctor --json schema
+=== TA-13 done ===
+
+
+=== TA-14: codex-guarded.sh (Gap 4 / #336) ===
+  [PASS] TC-01 codex-guarded.sh exists and is executable
+  [PASS] TC-02 shell syntax OK
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-14-codex-guarded.sh: line 29: printf: write error: Broken pipe
+  [PASS] TC-03 --help shows Usage line
+  [PASS] TC-04 missing TASK ID exits with code 1
+  [PASS] TC-05 invalid TASK ID format exits with code 1
+  [PASS] TC-06 settings-wiring-contract has Codex CLI parity section
+  [PASS] TC-07 ai-dev-exec skill references codex-guarded.sh
+  [PASS] TC-08 local-exec-handoff skill references codex-guarded.sh
+
+=== TA-14: batch-acknowledge-skip-decisions (#301 TASK-0110) ===
+  [PASS] TC-01 script 存在 + 実行可能
+  [PASS] TC-02 dry-run で 3 件検出
+  [PASS] TC-02b reason 集計に generic-edit 表示
+  [PASS] TC-03 apply で 3 件更新
+  [PASS] TC-03b .bak ファイル保持
+  [PASS] TC-04 raw-line-preserving: 他 field 完全保持
+  [PASS] TC-05 acknowledged_at が ISO 8601 UTC (YYYY-MM-DDTHH:MM:SSZ)
+  [PASS] TC-06 --acknowledged-by 空文字 reject
+  [PASS] TC-07 既 ack 済 entry に触らない (idempotent)
+  [PASS] TC-08 EH-3_SKIP のみ対象 (1 件)、他 event は無視
+  [PASS] TC-09 空 jsonl no-op
+  [PASS] TC-10 apply 後 unack 0 件 (check-skip-acknowledged.sh PASS 相当)
+
+=== TA-15: .codex/hooks/eh-bridge.sh (Gap 4 / #336) ===
+  [PASS] TC-01 eh-bridge.sh exists and is executable
+  [PASS] TC-02 eh-bridge.sh shell syntax OK
+  [PASS] TC-03 .codex/hooks.json is valid JSON
+  [PASS] TC-04 hooks.json wires all 5 PlanGate hooks (EH-1/2/3/6/9)
+  [PASS] TC-05 bridge with missing hook name returns allow (safety default)
+  [PASS] TC-06 bridge with nonexistent hook returns deny
+  [PASS] TC-07 bridge outputs valid Codex hookSpecificOutput JSON
+
+=== TA-16: ai-memory-pollution-guard (#355 TASK-0113) ===
+  [PASS] TC-01 check-ai-memory-pollution.sh 存在 + 実行可能
+  [PASS] TC-01b template 存在 + 実行可能
+  [PASS] TC-02 hook sh -n syntax check
+  [PASS] TC-02b install sh -n syntax check
+  [PASS] TC-03 doc 存在 + 主要 section
+  [PASS] TC-04 .plangate-pollution-patterns.yaml + schema 存在
+  [PASS] TC-05 schema validation (PyYAML 不在環境では SKIP 扱い)
+  [PASS] TC-06 allowlist marker サポート (R-004)
+  [PASS] TC-07 auto-revert mode + unstaged guard (R-002)
+  [PASS] TC-08 skip 条件 (binary / 巨大 file) 実装 (R-005)
+  [PASS] TC-09 ta-15 衝突回避 (本 file は ta-16、ta-15 は codex-hook-bridge / R-007)
+  [PASS] TC-10 git pre-commit 専用 scope 明記 (R-009)
+  [PASS] TC-11 claude-mem-context pattern が hook + config + doc に一貫
+  [PASS] TC-12 scripts/templates/ に pre-commit + pre-push 並列構造 (Gemini R-008)
+
+=== TA-17: pre-push-guard (INC P-1 / TASK-0114) ===
+  [PASS] TC-01 pre-push.sample 存在 + 実行可能
+  [PASS] TC-01b install-pre-push.sh 存在 + 実行可能
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-17-pre-push-guard.sh: line 29: echo: write error: Broken pipe
+  [PASS] TC-02 main push block + エラーメッセージ
+  [PASS] TC-03 feature branch push 通過
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-17-pre-push-guard.sh: line 46: echo: write error: Broken pipe
+  [PASS] TC-04 release/* glob で release/v1.0.0 block
+  [PASS] TC-05 env override (release のみ) で main 通過
+  [PASS] TC-06 branch delete SHA-1 (40-char zero) は protected でも許可
+  [PASS] TC-06b branch delete SHA-256 (64-char zero) は protected でも許可
+  [PASS] TC-06c refs/tags/ push は本 hook 対象外 (skip 通過)
+  [PASS] TC-06d refs/tags/release/v1.0 は branch 判定外で release/* glob にマッチしない
+  [PASS] TC-07 doc 存在 + 主要 section (install / bypass / Defense in Depth)
+  [PASS] TC-08 install --dry-run 動作 (配置予定 message)
+  [PASS] TC-09 pre-push.sample sh -n syntax check
+  [PASS] TC-09b install-pre-push.sh sh -n syntax check
+
+=== TA-18: tag-main-parity (#354 TASK-0116) ===
+  [PASS] TC-01 check-tag-main-parity.sh 存在 + 実行可能
+  [PASS] TC-01b syntax check
+  [PASS] TC-02 annotated tag ^{commit} = origin/main (peel ロジック確認)
+  [PASS] TC-03 lightweight tag ^{commit} = origin/main
+  [PASS] TC-04 tag 不在時 exit 1 + メッセージ
+  [PASS] TC-05 tag 引数なし時 exit 1 + usage
+  [PASS] TC-06 docs/release-process.md に Iron Law 記述
+  [PASS] TC-07 doc に --force-with-lease + ref 明示 (R-002)
+  [PASS] TC-08 script に git fetch origin main (stale 防止 / R-001)
+  [PASS] TC-09 responsibility-classes.md §publish に link 追記 (R-003)
+  [PASS] TC-10 リモート tag (annotated) = origin/main → exit 0 (OK)
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-18-tag-main-parity.sh: line 187: printf: write error: Broken pipe
+  [PASS] TC-11 リモート tag 古い + ローカル tag 新しい (実害シナリオ) → exit 1 + 不一致明示
+  [PASS] TC-12 ローカルのみ tag (未push) → exit 1 (push 忘れ検出)
+  [PASS] TC-13 lightweight リモート tag = origin/main → exit 0 (fallback parse)
+  [PASS] TC-14 remote=main + ローカル tag 古い → exit 1 + fetch 同期案内 (push 案内なし)
+
+=== TA-19: plan-metrics-verification (#351 TASK-0117) ===
+  [PASS] TC-01 skill に事前メトリクス検証セクション存在
+  [PASS] TC-02 skill に検証コマンド例 (grep/find/rg) 明記
+  [PASS] TC-03 判定基準数値 (3 倍 / 1〜3 倍 / < 1 倍) 明記 (skill + doc)
+  [PASS] TC-04 PocketEitan 実例 (1697 file / 17 group) 記載
+  [PASS] TC-05 TASK-0112 / mode-classification 相互参照
+  [PASS] TC-06 ta-19 が tests/run-tests.sh から自動 discovery + 実行
+  [PASS] TC-07 skill + doc ファイル存在 (markdownlint は CI で別検証)
+  [PASS] TC-08 plan.md template に Metrics Evidence 欄 (AC-8)
+  [PASS] TC-09 未取得時の安全側分岐 (Mode 引き上げ側)
+  [PASS] TC-10 grep 対象が skill + doc に拡張 (本テスト自体が R-005 実装)
+
+=== TA-20: codex review wiring (#315 TASK-0109) ===
+  [PASS] TC-01 codex review placeholder 削除済
+  [PASS] TC-02 codex exec に --sandbox read-only (R-005 CRITICAL)
+  [PASS] TC-03 timeout 600 で codex exec wrap (R-006)
+  [PASS] TC-03b gtimeout (macOS coreutils) fallback (Gemini HIGH 反映)
+  [PASS] TC-04 --output-last-message でクリーン出力 (R-007)
+  [PASS] TC-05 codex CLI 未 install error handling (R-010)
+  [PASS] TC-06 .codex/hooks.json で EH-1/2/3/6/9 全 5 hook 配線済 (CX-2)
+  [PASS] TC-07 eh-bridge.sh 存在 + shim symlink 解決 (R-009)
+  [PASS] TC-08 provider-codex.md 存在 + 主要 section
+  [PASS] TC-08b Role Mapping 表存在 (Gemini R-010)
+  [PASS] TC-09 bin/plangate syntax check (sh -n PASS)
+
+=== TA-21: codex-mvp-split (#352 TASK-0118) ===
+  [PASS] TC-01 .claude/commands/codex-mvp-split.md 存在
+  [PASS] TC-02 skill 存在 + frontmatter (name/description)
+  [PASS] TC-03 質問テンプレ 4 選択肢 (A/B/C/D) 存在
+  [PASS] TC-03b 工数 S/M/L + 判断材料 3 軸 (価値/独立性/拡張性)
+  [PASS] TC-04 Phase 分割表 template 記述
+  [PASS] TC-05 TASK-0117 (#351) 連携明記
+  [PASS] TC-06 PocketEitan 実例 2 件 (例文音読カード / TASK-srs-unification)
+  [PASS] TC-07 doc 正本構造 (目的/質問テンプレ/採用後)
+  [PASS] TC-08 skill が薄い設計 (doc 正本参照、ai-dev-plan と同 pattern)
+
+=== TA-22: git-add-scope-guard (TASK-0119) ===
+  [PASS] TC-01 check-git-add-scope.sh 存在 + 実行可能
+  [PASS] TC-02 sh -n syntax check
+  [PASS] TC-03 doc 存在 + 主要 section
+  [PASS] TC-04 PLANGATE_SKIP_SCOPE_CHECK=1 でスキップ (exit 0)
+  [PASS] TC-05 空 staging area → 通過 (exit 0)
+  [PASS] TC-06 skip-log 未追認 → 検知 + exit 1
+  [PASS] TC-07 異 TASK eval-result → 検知 + exit 1
+  [PASS] TC-08 同 TASK eval-result → 通過 (exit 0)
+
+=== TA-23: gh-account-pin wrapper (TASK-0120) ===
+  [PASS] TC-01 gh-s977043.sh 存在 + 実行可能
+  [PASS] TC-01b switch ロジック (gh auth switch --user s977043) 検出
+  [PASS] TC-02 冪等ロジック (current != DESIRED_USER 時のみ switch) 検出
+  [PASS] TC-03 doc 存在 + 運用 section
+  [PASS] TC-04 SessionStart hook (gh-pin-account) との責務整理記述
+  [PASS] TC-06 sh -n syntax OK
+  [PASS] TC-06b gh 不在時 error メッセージ
+
+=== TA-24: parallel-review (TASK-0122 / #424) ===
+  [PASS] TC-01 schema v2.0: version enum に '2.0' 存在
+  [PASS] TC-02 v1.0 設定が v2.0 schema で valid（後方互換）
+  [PASS] TC-03 v2.0 配列形式 example が schema で valid
+  [PASS] TC-04 .plangate-reviewers.yaml なし → レガシーフォールバック（Task dir not found 含む）
+filter logic OK
+  [PASS] TC-05 mode_threshold=high-risk, task_mode=light → フィルタロジックでスキップ確認
+filter logic OK (threshold met)
+  [PASS] TC-06 mode_threshold=high-risk, task_mode=high-risk → 実行される（フィルタ通過）
+  [PASS] TC-06b R-001 と R-002 が review-external.md に存在
+  [PASS] TC-06b 両 provider の出力が集約
+  [PASS] TC-06c shlex.quote で spec ファイルのスペース含みコマンドが正常 eval
+  [PASS] TC-07 markdownlint エラー数(2) が許容範囲内(60 以下)
+
+=== TA-25: TASK-0123 approval-token-guard ===
+  [PASS] TC-01 check-approval-token-write.sh exists and is executable
+  [PASS] TC-02 check-approval-token-write.sh syntax ok
+  [PASS] TC-03 maintenance.json path blocked (exit 1)
+  [PASS] TC-04 approvals/c3.json path blocked (exit 1)
+  [PASS] TC-05 normal file passes (exit 0)
+  [SKIP] TC-06 hmac_signature not yet in schema (HO patch unapplied — SKIP)
+  [PASS] TC-07 apply-task-0123-patches.sh exists and syntax ok
+
+=== TA-26: plugin-sync (TASK-0124) ===
+  [PASS] TC-01 sync-plugin-plangate.sh 存在・実行可能
+  [PASS] TC-02 sh -n syntax check
+  [PASS] TC-03 --dry-run が exit 0 で正常終了（exit code を実検証）
+  [PASS] TC-04 --dry-run がファイルを変更しない
