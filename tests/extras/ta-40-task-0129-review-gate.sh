@@ -1,6 +1,27 @@
 # tests/extras/ta-40-task-0129-review-gate.sh
+# PG_EXTRA_CAPABILITY: standalone-capable
 # Sourced by tests/run-tests.sh
 # TASK-0129 (#543): Plan Review Gate 判定連携テスト（TC-01〜TC-09）
+
+# ---- extras execution contract bootstrap (#921) ----------------------------
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
+  _pg_extra_mode=harness
+  _pg_extra_dir="$EXTRAS_DIR"
+else
+  _pg_extra_mode=standalone
+  _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+fi
+_pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
+if [ ! -r "$_pg_extra_helper" ]; then
+  printf '  [FAIL] helper unresolved: %s\n' "$_pg_extra_helper" >&2
+  if [ "$_pg_extra_mode" = harness ]; then
+    fail=$((fail + 1))
+    return 0
+  fi
+  exit 1
+fi
+. "$_pg_extra_helper"
+pg_extra_contract_init ta-40-task-0129-review-gate standalone-capable
 
 printf '\n=== TA-40: TASK-0129 Review Gate Decision Mapping ===\n'
 
@@ -149,3 +170,5 @@ if grep -q 'high-risk\|高リスク\|Standard 同期\|Standard C-3' "$_t40_doc" 
 else
   printf '[FAIL] TA-40 AC06: 承認境界整合の記述が見つからない\n'; fail=$((fail + 1))
 fi
+
+pg_extra_contract_finalize
