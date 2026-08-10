@@ -3,7 +3,7 @@
 > issue: [#1012](https://github.com/s977043/plangate/issues/1012)
 > 入力: `docs/working/TASK-1012/pbi-input.md`
 > 由来: PR #986 の V-2 事後補完 H-1（証跡 = `docs/working/TASK-0914/review-external.md` R-407）
-> **改訂 10**: C-1 を 9 ラウンド実施し、計 55 件の指摘を反映。C-2 の指摘を 1 回確定反映（`Refs: R-001 R-002 R-004 R-005 R-006 R-007 R-008 R-009`）。さらに保留していた **R-003 を Human C-3 の決定（2026-08-10）に従って 1 回確定反映**（`Refs: R-003`）＝ **Mode を high-risk へ引き上げ / AC-6 を独立 AC へ復帰 / `lite_eligible=false` / V-2・V-3 を必須化**。ゲート戦略は **不変**（C-3' は非 production の裁定記録・承認は Human C-3）。
+> **改訂 11**: C-1 を 9 ラウンド実施し、計 55 件の指摘を反映。C-2 の指摘を 1 回確定反映（`Refs: R-001 R-002 R-004 R-005 R-006 R-007 R-008 R-009`）。さらに保留していた **R-003 を Human C-3 の決定（2026-08-10）に従って 1 回確定反映**（`Refs: R-003`）＝ **Mode を high-risk へ引き上げ / AC-6 を独立 AC へ復帰 / `lite_eligible=false` / V-2・V-3 を必須化**（改訂 10）。その後 **独立 river-review の指摘 R-010〜R-014 を反映**（`Refs: R-010 R-012 R-013 R-014`）＝ **TC-A6a に (1b) 排他アサーションを追加**（ゲート範囲が**広がる**側の fail-open を封鎖）/ **TC-A6d を新設**（変異 3 種 → 4 種）/ 「standard との差分は V-2 の 1 点」を **4 行**へ訂正 / 記法規約の適用範囲を確定 / TC-A1b の rc 逆転を注記。ゲート戦略は **不変**（C-3' は非 production の裁定記録・承認は Human C-3）。
 
 ## Goal
 

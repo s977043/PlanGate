@@ -1,6 +1,6 @@
 # EXECUTION TODO — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 10** = C-1 ラウンド 1〜9 + C-2 R-001/002/004/005/006/007/008/009 反映 + **R-003 反映**）/ Mode: **high-risk**（**`lite_eligible=false`** / Human C-3 決定 2026-08-10）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 11** = C-1 ラウンド 1〜9 + C-2 R-001/002/004/005/006/007/008/009 反映 + **R-003 反映** + **独立 river-review R-010〜R-014 反映**）/ Mode: **high-risk**（**`lite_eligible=false`** / Human C-3 決定 2026-08-10）
 > ゲート: **Human C-3**（承認）+ **ai-loop C-3' 裁定**（裁定記録・承認トークンは発行しない）
 
 ## 👤 Human タスク

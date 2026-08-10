@@ -1,6 +1,6 @@
 # テストケース定義 — TASK-1012
 
-> plan: `docs/working/TASK-1012/plan.md`（**改訂 10** = C-1 ラウンド 1〜9 + C-2 R-001/002/004/005/006/007/008/009 反映 + **R-003 反映**〔Mode = high-risk / **AC-6 を独立 AC へ復帰**〕）
+> plan: `docs/working/TASK-1012/plan.md`（**改訂 11** = C-1 ラウンド 1〜9 + C-2 R-001/002/004/005/006/007/008/009 反映 + **R-003 反映**〔Mode = high-risk / **AC-6 を独立 AC へ復帰**〕+ **独立 river-review R-010〜R-014 反映**〔TC-A6a に (1b) 排他アサーション追加 / **TC-A6d 新設**〕）
 > 対象: `tests/extras/ta-26-plugin-sync.sh`
 
 ## 記法規約（C-1 R5 指摘 N-1）
