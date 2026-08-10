@@ -1,33 +1,34 @@
 # TASK-1023 Current State
 
-> 更新: 2026-08-10 04:45 UTC（従来表記に合わせ UTC で統一。直近の判断 `D-010` = 04:40 UTC より後）
+> 更新: 2026-08-10 19:05 UTC（exec 最終化）
 
-## フェーズ: Human C-3待ち（C-2 追記 2 + 追記 2-b 反映済み / plan_hash 再計算要）
-## 進捗: T-01〜T-03b完了 / production code未変更
+## フェーズ: exec 完了（T-04〜T-07 done）/ T-08〜T-10 オーガナイザー待ち
+## 進捗: branch `fix/1023-exec`（base `5e630f9`）にコミット済み。full suite 577 passed / 0 failed
 
 ## 直近の完了タスク
 
-- main `9f9af945`でIssueの2欠陥を再現
-- 導入履歴を`a7c3805f` / `82137332`まで特定
-- Plan PackageとC-1を作成
-- **T-03b: PR #1024 敵対的レビュー（major 5 / minor 3 / info 1）を R-026〜R-034 として集約し 1 回確定反映**（base `fac3445`）。R-033 は Human 判断へ分離
+- T-04 RED（`1b9c81a`）/ T-05 実装（`d0fecd1`: exit 2・stdin 常時独立評価・parse-unknown fail-closed）
+- T-06 mutation 7 種 all kill（実 TC の FAIL で実証）+ no-jq / TTY / MultiEdit TC
+- T-07 syntax=0 / TA-25 standalone 44/0 / full suite 577/0 + read-only 監査（evidence/verification/approval-audit.md）
+- Human 裁定 G-6=(b)→**EH-13** / G-7=(a) / G-8=(a) を反映（decision-log D-013/D-014）。契約 2 docs（hook-enforcement / settings-wiring-contract）を EH-13 へ追随
+- **G-9=(i) 確定**（D-015）: MultiEdit は Claude Code 2.1.226 に tool 自体が無く到達経路なし。settings patch 不要。closure は Edit/Write/Bash の 3 surface
 
 ## 現在のタスク
 
-- H-01: **再計算後の**plan hashに対するHuman C-3待ち
+- なし（ワーカー側 exec は完了。成果物は worktree にコミット済み・未 push）
 
-## ブロッカー
+## ブロッカー / 待ち
 
-- Human C-3未承認。C-3'は使用禁止
-- **TASK-1023 は未承認**。`docs/working/TASK-1023/approvals/` は tracked・worktree ともに不在で、`git log --all` にも痕跡なし（2026-08-10 実測 / base `fac3445`）。exec には確定後plan_hashに対する**c3.json の初回発行（Human-owned）**が必要。AIは承認トークンを作成しない
-- **H-04 / H-05 / H-06 未決**: EH-10採番衝突（G-6）/ **stdin未供給の手実行が一律exit 2になる副作用**（G-7・選択肢(c)=既存bypassの文書化のみ を含む）/ parsed-safe tool集合の導出方式（G-8）/ **MultiEdit到達性の実測結果を受けた分岐**（G-9）
-- **MultiEditは現行matcherに配線されていない可能性がある**（`Edit|Write`が`MultiEdit`にマッチするか未確定）。到達性実測（TC-21b）までclosureを4 surfaceと宣言しない
-- `gh` CLIなし。公開時はGitHub App経路を使用する
+- T-08: push + Draft PR 更新（オーガナイザー実施。本ワーカーは push しない）
+- T-09: configured Claude Code での Edit/Write/Bash PreToolUse E2E（TC-21。MultiEdit は G-9(i) で対象外）
+- T-10: evidence push 後の CI / CodeQL / review 再確認
+- L-0 / V-1〜V-4 はオーガナイザー統制下で実施
+
+## 既知課題
+
+- TA-25 TC-06（hmac_signature）は HO patch 未適用の既知 SKIP
+- `$1` fallback は実運用 dead code（適用済み settings は引数なし配線）→ 契約 drift は #928 に残存（R-031）
 
 ## 次のアクション
 
-- Human C-3（新plan_hash）APPROVE後にT-04 RED coverageへ進む
-
-## 計画からの乖離
-
-初回Planの完全防止主張を撤回し、tactical fix + #928までC-3'停止へreplan。Modeをhigh-riskからcriticalへ引き上げた。
+- オーガナイザー: T-08（push / Draft PR）→ T-09（E2E）→ T-10 → V 系 → handoff
