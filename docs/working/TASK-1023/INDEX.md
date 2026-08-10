@@ -16,8 +16,9 @@ Human C-3待ち
 （major 5 / minor 3 / info 1）を **R-026〜R-034** として `review-external.md`「追記 2」へ集約し、
 plan / todo / test-cases / pbi-input へ **1 回確定反映**した。
 
-**既発行 `c3.json`（plan `24fcdf9f...53de1`）は本反映により stale**。再計算後の plan_hash に対する
-**c3.json 再発行（Human-owned）** のうえで Human C-3 判断を仰ぐ。未決の Human 判断は
+**TASK-1023 は未承認**（`approvals/` が tracked・worktree ともに不在 / git 履歴 0 件・2026-08-10 実測）。
+`24fcdf9f...53de1` は PR #1024 本文記載の plan hash であって承認トークンの hash ではない。
+確定後 plan_hash に対する **c3.json の初回発行（Human-owned）** のうえで Human C-3 判断を仰ぐ。未決の Human 判断は
 G-6（EH-10 採番衝突）/ G-7（TTY block 統一の副作用）/ G-8（parsed-safe tool 集合の導出方式）。
 
 ## ファイルマップ

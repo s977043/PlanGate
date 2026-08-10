@@ -6,7 +6,7 @@
 ## Dependency Graph
 
 ```text
-T-01 Plan evidence → T-02 C-1 → T-03 C-2 → T-03b 追記2(R-026〜034)の1回確定反映 + 簡易C-1 → H-01 Human C-3（要 c3.json 再発行）
+T-01 Plan evidence → T-02 C-1 → T-03 C-2 → T-03b 追記2(R-026〜034)の1回確定反映 + 簡易C-1 → H-01 Human C-3（c3.json 初回発行。TASK-1023 は未承認）
 → T-04 RED → T-05 fix → T-06 mutation/compat → T-07 full verification
 → T-08 Draft PR更新 → T-09 Hook E2E → T-10 evidence push/CI再確認
 → MERGE_READY → H-02 Human C-4/merge
@@ -14,7 +14,7 @@ T-01 Plan evidence → T-02 C-1 → T-03 C-2 → T-03b 追記2(R-026〜034)の1�
 
 ## Human Tasks
 
-- [ ] **H-01**: **再計算後の**確定plan hash、AC-01〜11、案B、critical、C-3'停止を確認してC-3判断。既発行`c3.json`（plan `24fcdf9f…`）はC-2追記2の反映で**stale**のため、**新plan_hashに対するc3.json再発行が必要**（AI は発行しない）
+- [ ] **H-01**: **再計算後の**確定plan hash、AC-01〜11、案B、critical、C-3'停止を確認してC-3判断。**TASK-1023 は未承認**（`approvals/` が tracked・worktree ともに不在。git 履歴も 0 件）のため、確定後 plan_hash に対する **c3.json の初回発行**が必要（AI は発行しない）
 - [ ] **H-02**: Draft PRのsecurity closure・CI・reviewを確認しC-4/merge判断。**closureはEdit/Write/MultiEdit/Bashの4 surfaceに限定**（R-034 否定宣言）
 - [ ] **H-03**: 既存approval artifact監査結果に基づき再承認範囲を決定（**母集団は全体・保護状態3区分** / R-030）
 - [ ] **H-04**: `EH-10` の採番衝突（`settings-wiring-contract.md:152` ↔ `hook-enforcement.md:10-18` ↔ `settings.example.json:98`）の寄せ先を決定（plan「Human C-3 の判断事項」G-6）

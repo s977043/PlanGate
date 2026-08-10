@@ -19,7 +19,7 @@
 ## ブロッカー
 
 - Human C-3未承認。C-3'は使用禁止
-- **既発行`approvals/c3.json`（plan `24fcdf9f…`）はC-2追記2（R-026〜R-034）の確定反映によりstale**。exec には新plan_hashに対する**c3.json再発行（Human-owned）**が必要。AIは承認トークンを作成しない
+- **TASK-1023 は未承認**。`docs/working/TASK-1023/approvals/` は tracked・worktree ともに不在で、`git log --all` にも痕跡なし（2026-08-10 実測 / base `fac3445`）。exec には確定後plan_hashに対する**c3.json の初回発行（Human-owned）**が必要。AIは承認トークンを作成しない
 - **H-04 / H-05 未決**: EH-10採番衝突（G-6）/ TTY block統一の副作用（G-7）/ parsed-safe tool集合の導出方式（G-8）
 - `gh` CLIなし。公開時はGitHub App経路を使用する
 

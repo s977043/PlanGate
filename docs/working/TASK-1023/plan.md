@@ -155,15 +155,37 @@ configured Claude Code EH-10における既知のexit/env/stdin/parse欠陥をfa
 - git履歴/all refsを含む**既存approval artifact全体**（起点はリポジトリ初出＝実測`2026-04-27`）とdecision/RunEvidenceをread-onlyで列挙し、actor/provenance、plan hash、source SHA、後続変更、利用停止/再承認基準をhandoffへ記録する。**`2026-06-02`を起点にしない**（R-030）。
 - 母集団は**保護状態で3区分**して列挙する。区分ごとに信頼度と再承認要否の判断材料が異なる。
 
-  | 区分 | 期間 | 保護状態 | 実測（distinct path 初出ベース）|
-  |---|---|---|---|
-  | (a) ガード不在期間 | 〜2026-06-01 | ガードのファイル自体が存在しない | **66 件** |
-  | (b) ガード存在・配線不在期間 | 2026-06-02（`a7c3805f`）〜06-11 | ファイルはあるがsettingsへ未配線で一度も発火しない | (c) と合わせて **22 件** |
-  | (c) 配線済み・3欠陥で無効な期間 | 2026-06-12（`82137332`）〜本PBI修正まで | 配線済みだがexit 1 / env時stdin bypass / parse fail-openで実効ゼロ | 同上 |
+  | 区分 | 期間 | 保護状態 |
+  |---|---|---|
+  | (a) ガード不在期間 | 〜2026-06-01 | ガードのファイル自体が存在しない |
+  | (b) ガード存在・配線不在期間 | 2026-06-02（`a7c3805f`）〜06-11 | ファイルはあるがsettingsへ未配線で一度も発火しない |
+  | (c) 配線済み・3欠陥で無効な期間 | 2026-06-12（`82137332`）〜本PBI修正まで | 配線済みだがexit 1 / env時stdin bypass / parse fail-openで実効ゼロ |
 
-  - 実測コマンド: `git log --all --diff-filter=A --format='C %ad' --date=short --name-only -- '*/approvals/*.json'`
-  - 追加イベント総数163（`< 2026-06-02` が132 / `>= 2026-06-02` が31）、distinct path 88（66 / 22）。
-  - **起点を2026-06-02にすると distinct 88 件中 66 件（75%）が母集団から落ちる**。落ちるのは保護が 0 だった期間の artifact であり、監査目的に対して切り方が逆を向く。
+- **件数は契約値にしない**。`docs/working/**/approvals/` は運用で承認のたびに増える成長ディレクトリであり、
+  絶対件数をACやplanの契約に固定すると**本PBIと無関係なPRがACを壊す**。件数は監査実施時に下記コマンドで
+  導出し、**集計単位を必ず併記**する。
+
+  ```sh
+  # (1) 追加イベント数（commit×file 単位・同一 path が複数 ref で再出現するとその都度カウント）
+  git log --all --diff-filter=A --format='C %ad' --date=short --name-only -- '*/approvals/*.json'
+  # (2) distinct path 数（path ごとに初出日で 1 回だけカウント）… (1) の出力を path で uniq する
+  ```
+
+  | 測定 | 集計単位 | 値 | 測定日 |
+  |---|---|---|---|
+  | 本PBI（スナップショット）| 追加イベント | 163（`< 2026-06-02` 132 / `>=` 31）| 2026-08-10 / base `fac3445` |
+  | 本PBI（スナップショット）| distinct path 初出 | 88（66 / 22）| 同上 |
+  | オーガナイザー（参考）| `--format='%ad'` のみ・name-only無し | 153（`< 2026-06-02` 126）| 2026-08-10 |
+  | C-2 レビュー本文（参考）| 不明 | 約 120（`< 2026-06-02`）| 2026-08-10 |
+
+  > ⚠️ **同日に 3 者で数値が一致していない**。原因は**集計単位の差**（commit 単位 / commit×file 単位 /
+  > distinct path 単位）と ref 範囲の差であり、母集団の実体が動いたわけではない。次に測る人は
+  > **どの単位で数えたかを必ず明記する**こと。上表はいずれも**測定時点のスナップショットで契約値ではない**。
+
+  - 単位が何であれ **母集団の 7 割以上が `< 2026-06-02` に集中する**（本PBI測定では distinct 88 件中 66 件）。
+    起点を 2026-06-02 に置くとこの塊が丸ごと落ちる。落ちるのは保護が 0 だった期間の artifact であり、
+    監査目的（どの承認 artifact を信頼してよいか）に対して切り方が逆を向く。**この非対称性が起点変更の根拠**であり、
+    根拠は件数の絶対値ではなく分布の偏りに依る。
   - 起点の決め方（なぜ「ファイル誕生日」ではなく母集団全体か）を**根拠付きでhandoffに残す**。
 - **`$1` fallbackが実行時 dead code である事実をhandoffに明記する**（R-031）。`.claude/settings.example.json:72,81` の`check-approval-token-write.sh`呼出はいずれも**引数なし**で、契約 `docs/ai/settings-wiring-contract.md:157` との drift は本PBIでは解消せず **#928 に残存**する。AC-06 の `$1` 経路は実装後も TC だけが緑になる。
 - rollback: 文書は履歴を消さずaddendumで訂正する。
@@ -248,9 +270,19 @@ configured Claude Code EH-10における既知のexit/env/stdin/parse欠陥をfa
 
 ### 承認状態への影響（重要）
 
-本反映により **plan.md の内容が変わるため、既発行の `approvals/c3.json`
-（plan `24fcdf9f…`）は stale** になる。exec 着手には **確定後 plan_hash に対する
-c3.json の再発行（Human-owned）** が必要。AI は承認トークンを作成しない。
+**TASK-1023 は未承認である**。`docs/working/TASK-1023/approvals/` は
+**tracked にも worktree にも存在せず**、`git log --all -- 'docs/working/TASK-1023/approvals/*'`
+も 0 件（2026-08-10 実測 / base `fac3445`）。したがって exec 着手に必要なのは
+**c3.json の「初回発行」**（再発行ではない）。
+
+`24fcdf9f…` は **C-1 / C-2 と PR #1024 本文に記載された plan hash** であって、
+**承認トークンに刻まれた hash ではない**。本反映で plan.md が変わったため、
+Human C-3 は **確定後の plan_hash** に対して初回発行する。AI は承認トークンを作成しない。
+
+> なお issue #1023 の進捗コメントには「別 worktree に untracked の `c3.json` が存在する」
+> という記述があるが、**本 worktree からは検証できず、git 履歴上も痕跡が無い**。
+> もし当該ファイルが存在する場合でも、それは反映前 plan（`24fcdf9f…`）に対するもので
+> **本 plan には使えない**（EH-3 が plan_hash mismatch を検知する）。実体の有無の確認は Human 側で行う。
 
 ## Mode判定
 

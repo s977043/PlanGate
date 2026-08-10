@@ -53,7 +53,7 @@ C1-VERDICT: PASS plan=sha256:24fcdf9f703728f8e8ff4d544ac98628af72b727aeacdb4d2f1
 | 双方向テスト（正 / 負）| PASS | MultiEdit は正（rc=0）・負（rc=2）を両方追加。TTY は env normal / env token の 2 形＋非ハング assert |
 | 未決事項の分離 | PASS | R-033（EH-10 採番衝突）は AI が決めず G-6 として Human C-3 へ。G-7 / G-8 も選択肢付きで提示 |
 | スコープ制御 | PASS | 変更は `docs/working/TASK-1023/` 内のみ。`scripts` / `tests` / `.claude` / `bin` は不変（`git status --porcelain` で実測）|
-| 承認状態の整合 | **WARN** | plan 変更により既発行 `c3.json`（plan `24fcdf9f…`）が **stale**。新 plan_hash に対する **c3.json 再発行は Human-owned**。AI は発行しない |
+| 承認状態の整合 | **WARN** | **TASK-1023 は未承認**（`approvals/` 不在・`git log --all` 0 件を実測）。確定後 plan_hash に対する **c3.json の初回発行は Human-owned**。AI は発行しない |
 
 ### Minor Findings（追加）
 
@@ -62,4 +62,11 @@ C1-VERDICT: PASS plan=sha256:24fcdf9f703728f8e8ff4d544ac98628af72b727aeacdb4d2f1
 4. G-7 の副作用（端末からの手実行が `exit 2` になる）は fail-closed 側の既定として採ったが、
    運用影響の受容は Human 判断に委ねている。
 
-C1-VERDICT-2: PASS-with-WARN（WARN は c3.json 再発行が必要な点のみ。plan_hash は反映確定後に再計算する）
+5. 当初「既発行 c3.json が stale」と記載したが、これは**事実誤認**だった。TASK-1023 は未承認で
+   `approvals/` が存在しない（オーガナイザー指摘 → `git ls-tree` / `git log --all` / `ls` で再実測し確認）。
+   「再発行」と「初回発行」は Human の作業も意味も異なるため、全ファイルで **初回発行**へ訂正した。
+6. AC-09 から絶対件数を外した。`approvals/` は成長ディレクトリであり、件数を AC の契約値にすると
+   本 PBI と無関係な承認・PR が AC を壊す（既往の教訓）。件数は集計コマンド + 単位併記の
+   スナップショットとして plan 側に置いた。
+
+C1-VERDICT-2: PASS-with-WARN（WARN は c3.json の初回発行が未了である点のみ。plan_hash は反映確定後に再計算する）

@@ -155,6 +155,63 @@ git log --all --diff-filter=A --format='C %ad' --date=short --name-only -- '*/ap
 > 変更しない（Out of Scope / #928）。settings 側の追随が要る場合も **AI は patch 提示のみ**で、
 > 適用は Human-owned。
 
-C2-VERDICT-2: conditional（major 5 / minor 3 / info 1 を 1 回確定反映。plan_hash は再計算が必要で、
-既発行 `approvals/c3.json`（plan `24fcdf9f…`）は**本反映により stale となる**。
-新 plan_hash に対する **c3.json の再発行は Human-owned**。AI は発行しない）
+C2-VERDICT-2: conditional（major 5 / minor 3 / info 1 を 1 回確定反映。plan_hash は再計算が必要。
+確定後 plan_hash に対する **c3.json の発行は Human-owned**。AI は発行しない）
+
+---
+
+## 追記 2-a: 上記 2 点の訂正（2026-08-10 / オーガナイザー照合）
+
+> 追記専用のため上の記述は残し、本節で訂正する。
+
+### 訂正 1（major）: 監査母集団の件数を AC の契約値から外した
+
+「追記 2」の R-030 節で **「本節の実測値を正本とする」** と書いたが、この表現は誤りだった。
+`docs/working/**/approvals/` は**承認のたびに増える成長ディレクトリ**であり、絶対件数を AC / plan の
+契約値に置くと **本 PBI と無関係な承認や PR が AC を壊す時限爆弾**になる（本リポジトリの既往教訓）。
+
+- `pbi-input.md` の **AC-09 から絶対件数を削除**し、区分（(a)/(b)/(c)）と起点の決め方だけを AC に残した。
+- 件数は `plan.md` 側で **集計コマンド + 集計単位 + 測定日 + base SHA を併記したスナップショット**として保持し、
+  「契約値ではない」と明記した。
+- 起点 `2026-04-27` は**リポジトリ初出という性質**で成長しないため AC に残した。
+
+さらに、**同日に 3 者で数値が一致していない**ことが判明した。原因は母集団の変動ではなく**集計単位の差**:
+
+| 測定者 | 集計単位 | 総数 | `< 2026-06-02` |
+|---|---|---|---|
+| C-2 レビュー本文 | 不明 | — | 約 120 |
+| 本ワーカー | 追加イベント（commit×file / `--name-only`）| 163 | 132 |
+| 本ワーカー | distinct path 初出 | 88 | 66 |
+| オーガナイザー | commit 単位（`--format='%ad'` のみ）| 153 | 126 |
+
+**どの単位でも「母集団の 7 割以上が `< 2026-06-02` に集中する」点は不変**であり、
+R-030（起点変更）の根拠は**件数の絶対値ではなく分布の偏り**に依る。次に測る人が同じ混乱をしないよう、
+plan.md に単位明記の要求を残した。
+
+### 訂正 2（minor）: 「既発行 c3.json が stale」は事実誤認
+
+「追記 2」末尾および完了報告で「既発行 `approvals/c3.json`（plan `24fcdf9f…`）は stale。**再発行**が必要」と
+書いたが、**TASK-1023 に c3.json は存在しない**。以下を実測（2026-08-10 / base `fac3445`）:
+
+| 確認 | コマンド | 結果 |
+|---|---|---|
+| tracked | `git ls-tree -r --name-only origin/main -- docs/working/TASK-1023` | `.md` 8 件 + `decision-log.jsonl` のみ。`approvals/` **なし** |
+| 全 ref の履歴 | `git log --all --oneline -- 'docs/working/TASK-1023/approvals/*'` | **0 件** |
+| worktree | `ls -la docs/working/TASK-1023/approvals` | **No such file or directory** |
+
+`24fcdf9f…` は **C-1 / C-2 と PR #1024 本文に記載された plan hash** であって、承認トークンに刻まれた
+hash ではない。PR #1024 本文も「Human C-3: 未承認」と明記していた。
+したがって必要なのは **c3.json の「初回発行」**であり「再発行」ではない
+（前者は「まだ承認していない」、後者は「承認をやり直す」で Human の作業も意味も異なる）。
+plan / todo / pbi-input / current-state / INDEX / review-self の該当箇所をすべて訂正した。
+
+> issue #1023 の進捗コメントには「別 worktree に untracked の `c3.json` が存在する」旨の記述があるが、
+> **本 worktree からは検証できず git 履歴にも痕跡が無い**。仮に存在しても反映前 plan に対するもので
+> 本 plan には使えない（plan_hash mismatch）。実体確認は Human 側で行う。
+
+### 監査表（訂正分）
+
+| R-NNN | status | reflected_in(commit) | notes |
+|---|---|---|---|
+| R-030 | **re-reflected** | pending | AC から絶対件数を削除。plan 側にコマンド + 単位 + 測定日付きスナップショットとして保持。3 者の数値差が集計単位差である旨を明記 |
+| （訂正）| corrected | pending | 「既発行 c3.json が stale / 再発行」→「**未承認 / 初回発行**」へ全ファイル訂正（実測 3 点で確認）|
