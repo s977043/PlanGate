@@ -16,6 +16,12 @@
 > [`.claude/settings.example.json`](../../.claude/settings.example.json) のコメントで使用、
 > かつ EH-10 は [`docs/rfc/ai-self-set-gate-hook-enforcement.md`](../rfc/ai-self-set-gate-hook-enforcement.md)
 > の RFC Draft が保持）のため、衝突しない最小の空き番号として **EH-12** を採番した。
+>
+> **EH-13（採番のみ・配線済み）**: 承認トークン直書き block
+> （[`scripts/check-approval-token-write.sh`](../../scripts/check-approval-token-write.sh)、TASK-0123 で導入・TASK-1023 #1023 で
+> fail-closed 化）。`settings-wiring-contract.md` 旧記載の「EH-10」は上記予約
+> （#760 / #762）と衝突していたため、TASK-1023 G-6（Human 裁定 2026-08-10）で
+> 衝突しない最小の空き番号 **EH-13** へ改番した。
 
 > **実装と物理配線の区別（2026-06-10 棚卸し / 2026-06-27 更新）**: 12/12 は
 > 「スクリプト実装 + 単体テスト済み」を指す。**発火経路（settings.json /
@@ -61,7 +67,7 @@
 
 | 層 | 強制 | 発火契機 | CLI を使わない運用での実態 |
 |----|------|---------|--------------------------|
-| **A. Claude PreToolUse**（自動・bypass 不能）| EH-1 / EH-2 / EH-3 / EH-6 / EH-9 + 承認トークン直書き block（TASK-0123）+ **EH-12**（apply 後）| Edit / Write / Bash のたび | ✅ 常時発火 |
+| **A. Claude PreToolUse**（自動・bypass 不能）| EH-1 / EH-2 / EH-3 / EH-6 / EH-9 + **EH-13**（承認トークン直書き block / TASK-0123・TASK-1023）+ **EH-12**（apply 後）| Edit / Write / Bash のたび | ✅ 常時発火 |
 | **B. CI**（自動・bypass 不能）| EH-8（metrics privacy）/ settings drift / schema-validate / skip-ack / pr-issue-link | PR / push | ✅ 常時発火 |
 | **C. CLI**（`bin/plangate` 実行時のみ）| EH-4 / EH-5 / **EHS-1 / EHS-2 / EHS-3** | `verify` / `handoff --verify` を**実行したときだけ** | 🔴 **休眠**（CLI 未実行なら不発） |
 | **D. 外部設定**| EH-7（マージ 2 段階レビュー）| main へのマージ | 🔶 GitHub branch protection 設定に依存（Human-owned admin）|
