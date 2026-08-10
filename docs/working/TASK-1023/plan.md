@@ -48,7 +48,8 @@ configured Claude Code EH-10における既知のexit/env/stdin/parse欠陥をfa
 - target取得はenv→`$1`、stdin file_path/commandは独立に評価し、いずれかがprotected writeならblockする
 - 明示bypass以外をfail-openにしない
 - parse結果を`protected-write / parsed-safe / parse-unknown`の3値として扱い、parse-unknownはblockする
-- `parsed-safe`は`hook_event_name=PreToolUse`、`tool_name`がEdit/Write/Bash、`tool_input`がobject、Edit/Writeは非空string `tool_input.file_path`（legacy互換のみtop-level `.file_path` fallback）、Bashはstring `tool_input.command`を満たす場合だけとする。欠落・null・配列・数値・未知toolはparse-unknown
+- `parsed-safe`は`hook_event_name=PreToolUse`、`tool_name`が**Edit / Write / MultiEdit / Bash**、`tool_input`がobject、Edit/Writeは非空string `tool_input.file_path`（legacy互換のみtop-level `.file_path` fallback）、**MultiEditは非空string `tool_input.file_path` に加えて `tool_input.edits[]` の各要素が持ちうるpath fieldも評価対象**、Bashはstring `tool_input.command`を満たす場合だけとする。欠落・null・配列・数値・未知toolはparse-unknown（R-026）
+- **stdinがTTYまたは読み取り不能な場合は`parse-unknown`として`exit 2`にする**。`[ ! -t 0 ]`でガードして**スキップ**してはならない（スキップするとdefect #2がTTY経路で復活する）。また無条件`cat`にもしない（TTY時にhookがハングする）。判定は「TTYならreadせず即block」であり、**block側で統一かつ非ハング**を同時に満たす（R-027）
 - token pathと別writeが同一commandに混在する場合は相関解析をせず安全側blockする
 - bypassはHuman-owned emergency/test-onlyで、通常test invocationは明示`0`にする
 - 実承認artifactを作成・更新・削除しない
@@ -91,6 +92,10 @@ configured Claude Code EH-10における既知のexit/env/stdin/parse欠陥をfa
 | normal/空 | normal/空 | token file_pathまたはtoken write command | protected-write → exit 2 |
 | normal/空 | normal/空 | read-only/normal operation | parsed-safe → exit 0 |
 | 任意 | 任意 | jq不在、malformed/truncated、empty/read error | parse-unknown → exit 2 |
+| normal/空 | normal/空 | **stdinがTTY / stdinが存在しない** | **parse-unknown → exit 2。かつstdinをreadせず即座に終了する（ハングしない）**（R-027） |
+| token | 任意 | **stdinがTTY** | protected-write → exit 2（env評価はstdin読取より先に行うためTTYでもハングしない）|
+| normal/空 | normal/空 | `tool_name=MultiEdit` + `tool_input.file_path`または`edits[]`がtoken path | protected-write → exit 2（R-026）|
+| normal/空 | normal/空 | `tool_name=MultiEdit` + 通常file | parsed-safe → exit 0（R-026）|
 
 > 既存TA-25 TC-05（env normal、stdinなし、exit 0）は目的を保持しつつvalid normal
 > PreToolUse JSONを渡す形へmigrationする。empty stdinを許可する旧期待値は安全側契約と
@@ -110,15 +115,19 @@ configured Claude Code EH-10における既知のexit/env/stdin/parse欠陥をfa
 
 - TA-25既存TASK-0123 TC-01〜07/HMAC checksを削除せず保持する。
 - legacy TC-03/04の期待rcを1→2へ、TC-05の入力をvalid normal stdin付きへmigrationし、各testの回帰目的は維持する。
+- legacy TC-03/04/05のinvocationで**stdinを明示的にリダイレクトする**（TC-03/04は`< /dev/null`、TC-05はvalid normal payloadのpipe）。現行TA-25はstdinをリダイレクトしておらず、実装で無条件`cat`にすると端末実行時にsuiteが無限ハングする（CIはstdinが`/dev/null`のため再現せず緑で出荷される）。R-027。
 - 新規IDを`T1023-TC-*`とし、env+arg+stdin競合、Bash write、exit 2、parse-unknown、negative controlを追加する。
+- **`PG_T25_GUARD`をenv overrideできるようにする**（`PG_T25_GUARD="${PG_T25_GUARD:-$PG_T25_ROOT/scripts/check-approval-token-write.sh}"`）。現行の`tests/extras/ta-25-approval-token-guard.sh:9`はハードコードで、これが無いとmutation TCは実TCではなくmutation script内のインラインassertをFAILさせることになり、「そのTCがその変異を検出する」ことが一度も実証されない（#874と同型）。R-029。
+- **MultiEditの正負TC**（T1023-TC-22a / 22b）と**TTY非ハングTC**（T1023-TC-23）を追加する。R-026 / R-027。
 - standalone counter/finalizerを追加し、FAIL表示時のrc=0を解消する。source時は親processをexitしない。
 - pre-fix HEADで新規casesが期待どおりFAILする証跡を保存する。
 - rollback: test commitのみを`git revert <sha>`。実装commitより先に戻さない。
 
 ### Task 2: Minimal boundary fix
 
-- stdinを常時1回captureする。
-- env→`$1` targetとstdin file pathを独立評価する。
+- stdinを常時1回captureする。ただし**stdinがTTYのときはreadせずparse-unknownとして`exit 2`**にする（`[ ! -t 0 ]`でのスキップは禁止。R-027）。
+- env→`$1` targetとstdin file pathを独立評価する。**stdin file_pathの抽出を`[ -z "$TARGET" ]`でgateしない**（gateするとdefect #2のEdit/Write側がそのまま残る。R-028）。
+- **`MultiEdit`をparsed-safeのtool集合に含め、`tool_input.file_path`と`tool_input.edits[]`の双方をtoken path判定にかける**（R-026）。
 - stdin commandをenvの有無に関係なく評価する。
 - `_block`を`exit 2`へ変更する。
 - jq不在/malformed/emptyをparse-unknownとしてblockする。
@@ -129,7 +138,13 @@ configured Claude Code EH-10における既知のexit/env/stdin/parse欠陥をfa
 
 ### Task 3: Mutation and compatibility verification
 
-- `exit 2→1`、stdin常時capture撤去、parse-unknown block撤去をtmp複製へ1箇所ずつ注入し、置換件数=1・mutant `sh -n` PASS・baseline PASS・指定TC FAIL・復元PASSを確認する。
+- **mutationは5種**とする。tmp複製へ1箇所ずつ注入し、置換件数=1・mutant `sh -n` PASS・baseline PASS・指定TC FAIL・復元PASSを確認する。
+  1. `exit 2→1`
+  2. stdin常時capture撤去（旧`[ -z "$TARGET" ]`分岐へ戻す）
+  3. parse-unknown block撤去
+  4. **`[ ! -t 0 ]`ガードを追加してTTY時にstdin評価をスキップさせる**（R-027）
+  5. **stdin file_path抽出を`[ -z "$TARGET" ] &&`でenv-gatedに戻す**（stdin captureは常時のまま残す変異。R-028）
+- **kill判定は`PG_T25_GUARD`をmutantへoverrideしたうえで、実TC（T1023-TC-01 / 03 / 05 / 13c-file / 23）そのものがFAILすることで行う**。mutation script内のインラインassertのFAILをkillと申告してはならない（R-029 / #874既往）。
 - token read、normal write、明示bypass、Human CLI文字列が通ることを確認する。
 - non-TTY CLIは`mktemp -d`内へbinと最小TASKを複製して実行し、実repoのtracked/ignored audit artifactのbefore/after不変を確認する。
 - rollback: verification artifactのみなら削除せずstatusへ失敗として記録し、修正はTask 1/2へ戻す。
@@ -137,7 +152,20 @@ configured Claude Code EH-10における既知のexit/env/stdin/parse欠陥をfa
 ### Task 4: Full verification and audit handoff
 
 - `sh -n`、TA-25、full suite、diff scopeを確認する。
-- git履歴/all refsを含む2026-06-02以降の既存approval artifactとdecision/RunEvidenceをread-onlyで列挙し、actor/provenance、plan hash、source SHA、後続変更、利用停止/再承認基準をhandoffへ記録する。
+- git履歴/all refsを含む**既存approval artifact全体**（起点はリポジトリ初出＝実測`2026-04-27`）とdecision/RunEvidenceをread-onlyで列挙し、actor/provenance、plan hash、source SHA、後続変更、利用停止/再承認基準をhandoffへ記録する。**`2026-06-02`を起点にしない**（R-030）。
+- 母集団は**保護状態で3区分**して列挙する。区分ごとに信頼度と再承認要否の判断材料が異なる。
+
+  | 区分 | 期間 | 保護状態 | 実測（distinct path 初出ベース）|
+  |---|---|---|---|
+  | (a) ガード不在期間 | 〜2026-06-01 | ガードのファイル自体が存在しない | **66 件** |
+  | (b) ガード存在・配線不在期間 | 2026-06-02（`a7c3805f`）〜06-11 | ファイルはあるがsettingsへ未配線で一度も発火しない | (c) と合わせて **22 件** |
+  | (c) 配線済み・3欠陥で無効な期間 | 2026-06-12（`82137332`）〜本PBI修正まで | 配線済みだがexit 1 / env時stdin bypass / parse fail-openで実効ゼロ | 同上 |
+
+  - 実測コマンド: `git log --all --diff-filter=A --format='C %ad' --date=short --name-only -- '*/approvals/*.json'`
+  - 追加イベント総数163（`< 2026-06-02` が132 / `>= 2026-06-02` が31）、distinct path 88（66 / 22）。
+  - **起点を2026-06-02にすると distinct 88 件中 66 件（75%）が母集団から落ちる**。落ちるのは保護が 0 だった期間の artifact であり、監査目的に対して切り方が逆を向く。
+  - 起点の決め方（なぜ「ファイル誕生日」ではなく母集団全体か）を**根拠付きでhandoffに残す**。
+- **`$1` fallbackが実行時 dead code である事実をhandoffに明記する**（R-031）。`.claude/settings.example.json:72,81` の`check-approval-token-write.sh`呼出はいずれも**引数なし**で、契約 `docs/ai/settings-wiring-contract.md:157` との drift は本PBIでは解消せず **#928 に残存**する。AC-06 の `$1` 経路は実装後も TC だけが緑になる。
 - rollback: 文書は履歴を消さずaddendumで訂正する。
 
 ## Verification Plan
@@ -146,7 +174,9 @@ configured Claude Code EH-10における既知のexit/env/stdin/parse欠陥をfa
 |---|---|---|---|
 | Syntax | `sh -n scripts/check-approval-token-write.sh tests/extras/ta-25-approval-token-guard.sh` | exit 0 | `evidence/test-runs/syntax.log` |
 | Focused | `sh tests/run-tests.sh`のTA-25区間およびstandalone helper | AC-01〜07、AC-10 PASS | `evidence/test-runs/ta-25.log` |
-| Mutation | anchor置換数=1、mutant syntax PASS、指定TCのみFAIL、復元PASS | 3 mutant kill | `evidence/test-runs/mutation.log` |
+| Mutation | anchor置換数=1、mutant syntax PASS、`PG_T25_GUARD` overrideで**実TC**のみFAIL、復元PASS | **5 mutant kill**（R-027 / R-028 / R-029）| `evidence/test-runs/mutation.log` |
+| TTY | stdinを疑似端末（`script` 等）にしたinvocationを**timeout付き**で実行 | rc=2 かつ timeout到達せず（非ハング）| `evidence/test-runs/tty.log` |
+| MultiEdit | `tool_name=MultiEdit` の正（通常file）・負（token path / `edits[]`）payload | 正 rc=0 / 負 rc=2 | `evidence/test-runs/multiedit.log` |
 | Full | `sh tests/run-tests.sh` | 0 failed / exit 0 | `evidence/test-runs/full-suite.log` |
 | No-jq | required `cat`/`grep`等だけをtemp binへsymlinkしjqを除外、absolute `/bin/sh`で実行 | `command -v jq`失敗かつparse-unknown rc=2 | `evidence/test-runs/no-jq.log` |
 | Audit | `git log --all`、tree walk、tracked working artifactsのread-only棚卸し | provenanceと再承認判定が追跡可能 | `evidence/verification/approval-audit.md` |
@@ -170,6 +200,57 @@ configured Claude Code EH-10における既知のexit/env/stdin/parse欠陥をfa
 - Claude Code実セッションで`exit 2`でも書き込みが停止しない
 - plan更新後にC-3 artifactのplan hashが一致しない
 - settings/Codex配線へscopeを広げる必要が生じる
+
+## C-2 追記 2（PR #1024 敵対的レビュー）の反映
+
+> 集約先: [`review-external.md`](./review-external.md) 「追記 2」（R-026〜R-034）。
+> PR #1024 は merge 済みだがレビュー着弾が merge の 13 秒後だったため、
+> **実装未着手のうちに本 plan へ 1 回確定反映**した。
+
+| R-NNN | 反映箇所 |
+|---|---|
+| R-026（MultiEdit）| Global Constraints の `parsed-safe` 定義 / Input Decision Table 2 行 / Task 1・2 / Verification Plan |
+| R-027（TTY・stdin不在）| Global Constraints / Input Decision Table 2 行 / Task 1（legacy stdin 明示）/ Task 2 / mutation 4 / Verification Plan |
+| R-028（stdin の env 再従属）| Task 2 / mutation 5 / test-cases の TC-13c 分割 |
+| R-029（mutation が実 TC を kill しない）| Task 1（`PG_T25_GUARD` override）/ Task 3（kill 判定の定義）|
+| R-030（監査母集団の起点）| Task 4（3 区分 + 実測値）|
+| R-031（`$1` dead code）| Task 4 / AC-06 |
+| R-032（TC-02 の payload 同居）| test-cases の TC-02a / 02b 分割 |
+| R-033（EH-10 ID 衝突）| **未確定。下記「Human C-3 の判断事項」G-6** |
+| R-034（closure 表現）| 下記「security closure の否定宣言」/ AC-11 |
+
+### security closure の否定宣言（R-034）
+
+本 PBI が閉じるのは **configured Claude Code の PreToolUse に配線された
+`Edit` / `Write` / `MultiEdit` / `Bash` の 4 surface のみ**である。以下は**閉じない**:
+
+- `NotebookEdit` およびその他の built-in write tool
+- MCP 由来の write tool（`mcp__*`）
+- Codex CLI 経路（`.codex/hooks.json` に EH-10 相当のエントリが無く、`eh-bridge.sh` は
+  `$REPO_ROOT/scripts/hooks/$HOOK_NAME` しか解決しないため、`scripts/` 直下の本ガードは
+  **構造的に到達不能**）
+- `PLANGATE_SKIP_TOKEN_GUARD=1` の発行元検証（AI が env を付ければ全スキップ可能）
+
+したがって AC-11 の E2E 取得をもって「承認境界が閉じた」とは主張しない。
+残存は #928 の残存 P0 として扱う。
+
+### Human C-3 の判断事項（AI が決めない）
+
+| ID | 論点 | 選択肢 | 備考 |
+|---|---|---|---|
+| **G-6** | `EH-10` の採番が正本間で衝突している。`docs/ai/settings-wiring-contract.md:152` は EH-10 = 承認トークンガード、`docs/ai/hook-enforcement.md:10-18` は EH-10 / EH-11 を #760 / #762 用に**予約済み**として EH-12 を採番、`.claude/settings.example.json:98` も別 hook に「EH-10 候補」と付けている | (a) EH-10 = 本ガードで確定し `hook-enforcement.md` 側を是正 / (b) #760 側の予約を優先し本ガードへ別番号を採番 / (c) 本 PBI では確定せず handoff に衝突として記録し別 PBI へ分離 | **正本間の矛盾**であり AI は正本を書き換えない |
+| **G-7** | TTY 起動を block 側で統一すると、端末から env のみで hook を手実行した場合も `exit 2` になる | (a) 承認境界では可用性より fail-closed を優先し許容（本 plan の既定）/ (b) 手実行用の明示 opt-in を別途設ける | R-027 の副作用 |
+| **G-8** | `parsed-safe` の許容 tool 集合をどこまで正本から導出するか | (a) `Edit` / `Write` / `MultiEdit` / `Bash` の固定 4 種（本 plan の既定）/ (b) `settings.example.json` の matcher と `apply-claude-settings.sh` の `matcher_covers()` 包含規則から機械導出 | (b) は Out of Scope の settings 依存が増える |
+
+> `.claude/settings*.json` は **Hardening Override 対象**。本 PBI は settings を変更しない
+> （Out of Scope / #928）。settings 側の追随が必要になっても **AI は patch 提示のみ**、
+> 適用は Human-owned。
+
+### 承認状態への影響（重要）
+
+本反映により **plan.md の内容が変わるため、既発行の `approvals/c3.json`
+（plan `24fcdf9f…`）は stale** になる。exec 着手には **確定後 plan_hash に対する
+c3.json の再発行（Human-owned）** が必要。AI は承認トークンを作成しない。
 
 ## Mode判定
 

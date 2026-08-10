@@ -38,3 +38,28 @@ created_by: codex
 - [ ] Human C-3
 
 C1-VERDICT: PASS plan=sha256:24fcdf9f703728f8e8ff4d544ac98628af72b727aeacdb4d2f16a7e86f953de1
+
+---
+
+## 簡易 C-1 再実行（2026-08-10 / C-2 追記 2 の確定反映後）
+
+> 対象: `review-external.md`「追記 2」（R-026〜R-034）の 1 回確定反映後の Plan Package。
+> base: `fac3445b9a882803b740b5004ab22d176ad0695d`。
+
+| 観点 | 判定 | 根拠 |
+|---|---|---|
+| 受入基準網羅性 | PASS | AC-01 / 03 / 04 / 06 / 07 / 09 / 11 を更新。新規 TC は全て Traceability に接続（TC-22a/22b → AC-04 / AC-01,05、TC-23 → AC-03、TC-17b/17c → AC-07、TC-24 → AC-10）|
+| 検出力（mutation）| PASS | 3 種 → **5 種**。kill 判定を「`PG_T25_GUARD` override 下で実 TC が FAIL」と定義し、インライン assert による kill 申告を明示禁止（#874 既往への対処）|
+| 双方向テスト（正 / 負）| PASS | MultiEdit は正（rc=0）・負（rc=2）を両方追加。TTY は env normal / env token の 2 形＋非ハング assert |
+| 未決事項の分離 | PASS | R-033（EH-10 採番衝突）は AI が決めず G-6 として Human C-3 へ。G-7 / G-8 も選択肢付きで提示 |
+| スコープ制御 | PASS | 変更は `docs/working/TASK-1023/` 内のみ。`scripts` / `tests` / `.claude` / `bin` は不変（`git status --porcelain` で実測）|
+| 承認状態の整合 | **WARN** | plan 変更により既発行 `c3.json`（plan `24fcdf9f…`）が **stale**。新 plan_hash に対する **c3.json 再発行は Human-owned**。AI は発行しない |
+
+### Minor Findings（追加）
+
+3. R-030 の実測値がレビュー本文の概数と一致しない（132 / 16 vs 約 120 / 12）。結論は不変のため
+   採用したうえで、**本 worktree の実測値を正本**とし集計コマンドを併記した。
+4. G-7 の副作用（端末からの手実行が `exit 2` になる）は fail-closed 側の既定として採ったが、
+   運用影響の受容は Human 判断に委ねている。
+
+C1-VERDICT-2: PASS-with-WARN（WARN は c3.json 再発行が必要な点のみ。plan_hash は反映確定後に再計算する）

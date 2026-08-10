@@ -42,17 +42,17 @@ PreToolUse hook である。しかし、現在の main では次の 2 経路が�
 
 ## 受入基準
 
-- [ ] **AC-01**: envまたはstdinのEdit/Write targetがtoken pathなら、hookは診断をstderrへ出し`exit 2`で終了する
+- [ ] **AC-01**: envまたはstdinのEdit/Write/**MultiEdit** targetがtoken pathなら、hookは診断をstderrへ出し`exit 2`で終了する。MultiEditは`tool_input.file_path`と`tool_input.edits[]`の双方を評価する（R-026）
 - [ ] **AC-02**: `PLANGATE_HOOK_FILE`が通常pathを指していても、stdin Bash commandがtoken pathへ書く場合は`exit 2`になる
-- [ ] **AC-03**: jq不在、malformed/truncated JSON、stdin空/読取不能は診断付き`exit 2`となり、parse-unknownをfail-openにしない
-- [ ] **AC-04**: jq利用可能なparsed-safe経路では、token artifactのread-only command、通常ファイル操作、正規Human CLI呼出文字列は誤blockしない。token pathと別writeを混在させたcommandは安全側blockを仕様とする
+- [ ] **AC-03**: jq不在、malformed/truncated JSON、stdin空/読取不能、**stdinがTTY / stdin不在**は診断付き`exit 2`となり、parse-unknownをfail-openにしない。**TTY時はstdinをreadせず即終了しハングしない**（`[ ! -t 0 ]`でのスキップは禁止 / R-027）
+- [ ] **AC-04**: jq利用可能なparsed-safe経路では、token artifactのread-only command、通常ファイル操作（**`MultiEdit`での通常ファイル編集を含む**）、正規Human CLI呼出文字列は誤blockしない。token pathと別writeを混在させたcommandは安全側blockを仕様とする
 - [ ] **AC-05**: Edit/Write/Bashの空白・複数行・`./`・quoteに加え、`apply_patch` / `patch` / Node / Perl / Rubyの代表write形がblockされる。ただしshell文字列matcherによる包括防止は本ACで主張しない
-- [ ] **AC-06**: target pathはenv→`$1`の優先順で取得しつつstdinを独立評価する。`PLANGATE_SKIP_TOKEN_GUARD=1`はHuman-owned emergency/test-onlyとして診断され、通常testでは明示`0`に固定される
-- [ ] **AC-07**: `exit 2→1`、stdin常時読取の撤去、parse-unknown blockの撤去の各mutationで少なくとも1テストがFAILする
+- [ ] **AC-06**: target pathはenv→`$1`の優先順で取得しつつstdinを独立評価する（**stdin file_pathの抽出をenvの有無でgateしない** / R-028）。なお`$1` fallbackは現行の実配線（`.claude/settings.example.json:72,81` は引数なし）に接続されないため**実行時dead code**であり、契約`docs/ai/settings-wiring-contract.md:157`とのdriftは#928に残存する（R-031）。`PLANGATE_SKIP_TOKEN_GUARD=1`はHuman-owned emergency/test-onlyとして診断され、通常testでは明示`0`に固定される
+- [ ] **AC-07**: `exit 2→1`、stdin常時読取の撤去、parse-unknown blockの撤去、**`[ ! -t 0 ]`ガードの追加**、**stdin file_path抽出のenv-gated化**の**5 mutation**それぞれで、`PG_T25_GUARD` overrideのもと**実TCが少なくとも1件FAIL**する（mutation script内のインラインassertのFAILはkillと認めない / R-027・R-028・R-029）
 - [ ] **AC-08**: `sh -n`、TA-25単体、`sh tests/run-tests.sh`が0 failedで完了する
-- [ ] **AC-09**: git履歴・全refを含め、2026-06-02以降の既存`c3.json` / `maintenance.json` / C-3' decision/RunEvidenceを対象にしたread-only監査手順、provenance不明時の利用停止・再Human C-3基準が記録される
+- [ ] **AC-09**: git履歴・全refを含め、**既存`c3.json` / `maintenance.json` / C-3' decision/RunEvidenceの母集団全体**（起点はリポジトリ初出＝実測`2026-04-27`。**`2026-06-02`起点にしない**）を対象にしたread-only監査手順、provenance不明時の利用停止・再Human C-3基準が記録される。母集団は (a) ガード不在期間（〜06-01 / distinct 66 件）(b) ガード存在・配線不在期間（06-02〜06-11）(c) 配線済みだが3欠陥で無効な期間（06-12〜）の**3区分**で列挙し、起点の決め方の根拠をhandoffに残す（R-030）
 - [ ] **AC-10**: TA-25既存TASK-0123 TC-01〜07/HMAC回帰を保持し、新規testは`T1023-TC-*`で分離する。standalone実行はFAIL表示時に非0を返し、harness source時は親processをexitしない
-- [ ] **AC-11**: 実Claude Code PreToolUseでEdit/Write/Bashが`exit 2`により非実行となりartifactが不変である証跡をMERGE_READY前に取得する。未取得ならBLOCKEDのままにする
+- [ ] **AC-11**: 実Claude Code PreToolUseでEdit/Write/**MultiEdit**/Bashが`exit 2`により非実行となりartifactが不変である証跡をMERGE_READY前に取得する。未取得ならBLOCKEDのままにする。**本ACはこの4 surfaceのみを証明対象とし、`NotebookEdit` / MCP系write tool / Codex経路（`.codex/hooks.json`未配線・`eh-bridge.sh`が`scripts/hooks/`しか解決しないため構造的に到達不能）/ `PLANGATE_SKIP_TOKEN_GUARD`の発行元検証は対象外**である。したがって本AC充足をもって「承認境界のsecurity closure」とは主張しない（R-034）
 
 ## Notes from Refinement
 
@@ -63,6 +63,13 @@ PreToolUse hook である。しかし、現在の main では次の 2 経路が�
 - `PLANGATE_SKIP_TOKEN_GUARD=1`はHuman-owned emergency/test-only。利用理由・期間を記録し、C-3'運用では禁止する。
 - #928 AC-1/AC-2のsettings wiring対象へEH-10を追加する追記を行い、Codex配線・間接実行の多層防御も残存P0として同Issueへ移管する。#1023 mergeだけではC-3'を再開せず、#928完了後に別Human判断を要する。
 - テストは実リポジトリの承認artifactを作成せず、stdin文字列と`mktemp -d`内のscript複製のみを使う。
+- 2026-08-10: PR #1024（Plan Package）は merge 済みだが、敵対的レビューの着弾が merge の
+  13 秒後だったため **major 5 / minor 3 / info 1 が未反映のまま main に入った**。実装未着手の
+  うちに `review-external.md`「追記 2」（R-026〜R-034）へ集約し、AC-01 / 03 / 04 / 06 / 07 /
+  09 / 11 を 1 回確定反映した。**AC-33 相当の `EH-10` 採番衝突は AI が決めず Human C-3 判断
+  （plan.md「Human C-3 の判断事項」G-6）へ回す**。
+- 本反映で plan.md が変わるため、既発行 `approvals/c3.json`（plan `24fcdf9f…`）は **stale**。
+  exec には確定後 plan_hash に対する **c3.json 再発行（Human-owned）** が必要。
 
 ## Estimation Evidence
 
