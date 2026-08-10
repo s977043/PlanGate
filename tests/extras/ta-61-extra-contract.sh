@@ -398,7 +398,7 @@ pg_extra_contract_finalize
 exit 0
 FX01
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc01.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc01.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" = "0" ]; then
   t61_pass "TC-01: harness-mode init/finalize is non-invasive and ignores probe env"
 else
@@ -421,14 +421,14 @@ pass=$((pass + 1))
 pg_extra_contract_finalize
 FX01B
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" T61_PHS=0 T61_EXD="$_T61_FX" sh "$_T61_FX/tc01b.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" T61_PHS=0 T61_EXD="$_T61_FX" sh "$_T61_FX/tc01b.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" = "0" ]; then
   t61_pass "TC-01b: PG_HARNESS_SOURCED!=1 (FIXTURES/EXTRAS set) resolves to standalone"
 else
   t61_fail "TC-01b: partial predicate resolved to harness (rc=$_t61_rc): $_t61_out"
 fi
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" T61_PHS=1 T61_EXD= sh "$_T61_FX/tc01b.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" T61_PHS=1 T61_EXD= sh "$_T61_FX/tc01b.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" = "0" ]; then
   t61_pass "TC-01c: empty EXTRAS_DIR (PG_HARNESS_SOURCED=1 + FIXTURES_DIR set) resolves to standalone (HR-4)"
 else
@@ -442,7 +442,7 @@ pg_extra_contract_init ta-91-fxho harness-only
 : > "$T61_FXDIR/tc02-body-sentinel"
 FX02
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc02.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc02.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" = "2" ] && printf '%s\n' "$_t61_out" | grep -Fq '[ERROR] ta-91-fxho is harness-only' && [ ! -f "$_T61_FX/tc02-body-sentinel" ]; then
   t61_pass "TC-02: harness-only direct misuse -> rc=2 with message, before any body side effect"
 else
@@ -457,7 +457,7 @@ pass=$((pass + 1))
 pg_extra_contract_finalize
 FX03
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" sh "$_T61_FX/tc03.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" sh "$_T61_FX/tc03.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" = "0" ] && printf '%s\n' "$_t61_out" | grep -Fq 'TA-92 standalone: 1 passed, 0 failed'; then
   t61_pass "TC-03: standalone all-pass -> rc=0 with summary literal"
 else
@@ -475,14 +475,14 @@ fi
 pg_extra_contract_finalize
 FX04
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" sh "$_T61_FX/tc04.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" sh "$_T61_FX/tc04.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" = "1" ] && printf '%s\n' "$_t61_out" | grep -Fq 'TA-93 standalone: 0 passed, 1 failed'; then
   t61_pass "TC-04: standalone internal fail -> rc=1"
 else
   t61_fail "TC-04: standalone fail propagation broken (rc=$_t61_rc): $_t61_out"
 fi
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" T61_ALT_PATH=1 sh "$_T61_FX/tc04.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_ALT_PATH=1 sh "$_T61_FX/tc04.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" = "1" ]; then
   t61_pass "TC-05: alternate body path still reaches tail finalize -> rc=1"
 else
@@ -498,9 +498,9 @@ sh -c 'exit 3'
 pg_extra_contract_finalize
 FX06
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" sh "$_T61_FX/tc06.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" sh "$_T61_FX/tc06.sh" </dev/null 2>&1) || _t61_rc=$?
 _t61_rc2=0
-_t61_out2=$(T61_HELPER="$_T61_HELPER" T61_WITH_FAIL=1 sh "$_T61_FX/tc06.sh" </dev/null 2>&1) || _t61_rc2=$?
+_t61_out2=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_WITH_FAIL=1 sh "$_T61_FX/tc06.sh" </dev/null 2>&1) || _t61_rc2=$?
 if [ "$_t61_rc" = "3" ] && [ "$_t61_rc2" = "3" ]; then
   t61_pass "TC-06: specific nonzero original rc (3) preserved with fail=0 and fail>0"
 else
@@ -517,7 +517,7 @@ pass=$((pass + 1))
 pg_extra_contract_finalize
 FX07
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc07.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc07.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" = "0" ] && [ ! -d "$_T61_FX/tc07-reg1" ] && [ ! -d "$_T61_FX/tc07-reg2" ] && [ -d "$_T61_FX/tc07-sentinel" ]; then
   t61_pass "TC-07: standalone finalize drains registered paths only; unregistered sentinel survives"
 else
@@ -532,7 +532,7 @@ pg_extra_contract_init ta-96-fx totally-bogus
 : > "$T61_FXDIR/tc08-body-sentinel"
 FX08
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc08.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc08.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" != "0" ] && [ ! -f "$_T61_FX/tc08-body-sentinel" ]; then
   t61_pass "TC-08: invalid capability fails closed before body (rc=$_t61_rc)"
 else
@@ -541,7 +541,7 @@ fi
 
 # Probe fail-closed: PROBE set + TARGET unset -> diagnostic + nonzero (裁定 ②)
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" PG_EXTRA_CONTRACT_PROBE=force-fail sh "$_T61_FX/tc03.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" PG_EXTRA_CONTRACT_PROBE=force-fail sh "$_T61_FX/tc03.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" != "0" ] && printf '%s\n' "$_t61_out" | grep -q 'PG_EXTRA_CONTRACT_TARGET'; then
   t61_pass "TC-12(fail-closed): probe with unset TARGET is a diagnostic nonzero, not a no-op (rc=$_t61_rc)"
 else
@@ -556,9 +556,9 @@ pg_extra_contract_init ta-97-fx standalone-capable
 pg_extra_contract_skip "fixture prerequisite absent"
 FXSK
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" sh "$_T61_FX/tcskip.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" sh "$_T61_FX/tcskip.sh" </dev/null 2>&1) || _t61_rc=$?
 _t61_rc2=0
-_t61_out2=$(T61_HELPER="$_T61_HELPER" T61_PRE_FAIL=1 sh "$_T61_FX/tcskip.sh" </dev/null 2>&1) || _t61_rc2=$?
+_t61_out2=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_PRE_FAIL=1 sh "$_T61_FX/tcskip.sh" </dev/null 2>&1) || _t61_rc2=$?
 if [ "$_t61_rc" = "3" ] && printf '%s\n' "$_t61_out" | grep -Fq 'PG_EXTRA_CONTRACT_SKIP:ta-97-fx'; then
   t61_pass "TC-17(synthetic): pg_extra_contract_skip with fail=0 -> rc=3 with diagnostic"
 else
@@ -571,7 +571,7 @@ else
 fi
 # probe on a prerequisite-absent run must NOT force rc=1
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET=ta-97-fx sh "$_T61_FX/tcskip.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET=ta-97-fx sh "$_T61_FX/tcskip.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" = "3" ]; then
   t61_pass "TC-17(probe): force-fail probe does not fire on a prerequisite-absent run (rc=3)"
 else
@@ -594,7 +594,7 @@ pg_extra_contract_finalize
 exit 0
 FX21
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc21.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc21.sh" </dev/null 2>&1) || _t61_rc=$?
 if [ "$_t61_rc" = "0" ] && printf '%s\n' "$_t61_out" | grep -Fq 'harness-def:probe-path'; then
   t61_pass "TC-21: harness register_cleanup untouched; helper sources cleanly under set -eu"
 else
@@ -610,7 +610,7 @@ pass=$((pass + 1))
 pg_extra_contract_finalize
 FX23
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET=ta-88-fx sh "$_T61_FX/tc23.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET=ta-88-fx sh "$_T61_FX/tc23.sh" </dev/null 2>&1) || _t61_rc=$?
 if printf '%s\n' "$_t61_out" | grep -Fq 'child-sees:none:none' && [ "$_t61_rc" = "1" ] && printf '%s\n' "$_t61_out" | grep -Fq 'PG_EXTRA_CONTRACT_PROBE_FIRED:ta-88-fx'; then
   t61_pass "TC-23(synthetic): probe env does not leak into children, yet the probe still fires at finalize"
 else
@@ -644,7 +644,7 @@ _pg_drain_cleanup
 printf 'Results: %d passed, %d failed\n' "$pass" "$fail"
 FX26R
 _t61_rc=0
-_t61_out=$(T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc26-runner.sh" </dev/null 2>&1) || _t61_rc=$?
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" T61_FXDIR="$_T61_FX" sh "$_T61_FX/tc26-runner.sh" </dev/null 2>&1) || _t61_rc=$?
 if printf '%s\n' "$_t61_out" | grep -Fq 'mini-marker: file2-after-failing-file' && printf '%s\n' "$_t61_out" | grep -Fq 'Results: 0 passed, 1 failed'; then
   t61_pass "TC-26: a failing sourced file does not truncate the set -eu harness (marker + Results both present)"
 else
