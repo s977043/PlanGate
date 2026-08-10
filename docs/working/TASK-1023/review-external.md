@@ -133,15 +133,15 @@ git log --all --diff-filter=A --format='C %ad' --date=short --name-only -- '*/ap
 
 | R-NNN | status | reflected_in(commit) | notes |
 |---|---|---|---|
-| R-026 | reflected | pending | `parsed-safe` に MultiEdit 追加 / TC-22a・22b 新設 / 許容 tool 集合を正本由来に |
-| R-027 | reflected | pending | TTY・stdin 不在を parse-unknown（block）へ統一 / TC-23 非ハング / 第 4 変異 / legacy stdin 明示 |
-| R-028 | reflected | pending | TC-13c を 13c-file / 13c-cmd へ分割 / 第 5 変異（stdin 抽出の env 再従属） |
-| R-029 | reflected | pending | `PG_T25_GUARD` override を実装要件化 / TC-15〜17 を実 TC kill 方式へ書き換え |
-| R-030 | reflected | pending | AC-09 母集団を全体へ / 保護状態 3 区分 / 実測値を plan へ記載 |
-| R-031 | reflected | pending | AC-06 と plan に dead code 明記 / handoff 必須記載を Task 4 へ |
-| R-032 | reflected | pending | TC-02 を TC-02a / TC-02b へ分割 |
-| R-033 | **deferred-to-human** | pending（提示のみ） | EH-10 ID 衝突は**正本間の矛盾**。採番の確定は Human C-3 判断事項として plan へ記載。AI は正本を書き換えない |
-| R-034 | reflected | pending | AC-11 に negative declaration（NotebookEdit / MCP write / Codex 経路は対象外）を併記 |
+| R-026 | reflected | 4edf501 | `parsed-safe` に MultiEdit 追加 / TC-22a・22b 新設 / 許容 tool 集合を正本由来に |
+| R-027 | reflected | 4edf501 | TTY・stdin 不在を parse-unknown（block）へ統一 / TC-23 非ハング / 第 4 変異 / legacy stdin 明示 |
+| R-028 | reflected | 4edf501 | TC-13c を 13c-file / 13c-cmd へ分割 / 第 5 変異（stdin 抽出の env 再従属） |
+| R-029 | reflected | 4edf501 | `PG_T25_GUARD` override を実装要件化 / TC-15〜17 を実 TC kill 方式へ書き換え |
+| R-030 | reflected | 4edf501 | AC-09 母集団を全体へ / 保護状態 3 区分 / 実測値を plan へ記載 |
+| R-031 | reflected | 4edf501 | AC-06 と plan に dead code 明記 / handoff 必須記載を Task 4 へ |
+| R-032 | reflected | 4edf501 | TC-02 を TC-02a / TC-02b へ分割 |
+| R-033 | **deferred-to-human** | 4edf501（提示のみ） | EH-10 ID 衝突は**正本間の矛盾**。採番の確定は Human C-3 判断事項として plan へ記載。AI は正本を書き換えない |
+| R-034 | reflected | 4edf501 | AC-11 に negative declaration（NotebookEdit / MCP write / Codex 経路は対象外）を併記 |
 
 ### Human C-3 の判断事項（AI が決めない）
 
