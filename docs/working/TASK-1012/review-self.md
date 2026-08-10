@@ -60,6 +60,7 @@ Mode = **high-risk** のため、`.claude/rules/mode-classification.md` のフ�
 - **evidence_ref**: —（`pbi-input.md:77` / `test-cases.md:52` / `git log -1 e22053e` で照合）
 - **impacted_files**: `docs/working/TASK-1012/pbi-input.md`
 - **suggested_action**: pbi-input.md AC-6 の検証手段に TC-A6d を追記する（承認後の plan_hash 対象外ファイルだが、C-3 前の是正が望ましい）
+- **disposition**: **反映済み `929e9f6`**（オーガナイザーが是正。`pbi-input.md:77` の AC-6 に「検出力の実証は **TC-A6c**（変異③・越境そのもの）と **TC-A6d**（変異④・ゲート範囲が広がる側の fail-open）」を追記。AC の充足条件は不変）
 - **owner**: agent
 - **resolved**: false
 
@@ -341,7 +342,7 @@ Mode = **high-risk** のため、`.claude/rules/mode-classification.md` のフ�
 | # | severity | 内容 |
 |---|----------|------|
 | S-1 | minor | **Risks & Mitigations に「範囲が広がる側の fail-open」行が無い**（重点観点 4 参照）。river-review が major と判定した新規 failure mode がリスク表に転記されていない。緩和策自体は TC-A6d / (1b) として存在するため実害は小さいが、リスク表だけを見る読者はこの経路を知り得ない |
-| S-2 | minor | **改訂番号ラベルが `改訂 10` のまま**。plan.md:6 / todo.md:3 / test-cases.md:3 がいずれも「改訂 10」だが、実体は river-review（R-010〜R-014）を `e22053e` で反映した後の**改訂 11 相当**（`grep -rn '改訂 11' docs/working/TASK-1012/` → **0 件**）。承認者が「改訂 10 を承認した」と記録した場合、実際に承認した内容と版番号が食い違う |
+| S-2 | minor | **改訂番号ラベルが `改訂 10` のまま**。plan.md:6 / todo.md:3 / test-cases.md:3 がいずれも「改訂 10」だが、実体は river-review（R-010〜R-014）を `e22053e` で反映した後の**改訂 11 相当**（`grep -rn '改訂 11' docs/working/TASK-1012/` → **0 件**）。承認者が「改訂 10 を承認した」と記録した場合、実際に承認した内容と版番号が食い違う。**→ 反映済み `929e9f6`**（plan.md:6 / todo.md:3 / test-cases.md:3 を **改訂 11** へ更新し、改訂 11 で何が変わったか〔(1b) 排他アサーション / TC-A6d 新設 / 差分 4 行への訂正 / 記法規約の適用範囲 / TC-A1b の rc 逆転〕を plan.md の改訂記述に明記） |
 | S-3 | minor | **`plan.md:41`（C-1 R3 の台帳）が変異③の注入対象を `_t26_t20` のまま記載**している。この記述は後に C-2 R-002b で `_t26_tgt36` へ変更され、`todo.md:36` は「**`_t26_t20` に戻さない**」と明示的に警告している。台帳行は履歴なので誤りではないが、**注記が無いため台帳だけを参照した実行者が旧仕様を実装しうる**。`plan.md:56`（R-002 行）と `plan.md:149` に経緯があるので追跡は可能 |
 | S-4 | info | **「1 回だけ確定反映」が 3 コミットに分かれている**（`16cd2a4` = R-001〜R-009 の R-003 以外 / `8216339` = R-003 / `e22053e` = R-010〜R-014）。`working-context.md`「C-2 指摘の差分管理」は反映を 1 回に限定するが、3 回はそれぞれ**別のレビュー事象**（C-2 / Human C-3 決定 / 独立 river-review）に対応しており、各コミットに `Refs: R-NNN` も付いている（実確認済み）。運用上は妥当。**ただし `c3.json` の `plan_hash` は必ず `8254837` 以降の plan.md に対して発行すること**（現時点で c3.json は未発行なので順序は守られている） |
 | S-5 | info | **TC-A6a のシンボル越境検査は「範囲の和集合の外からの参照」だけを越境として数える**。したがって「ゲート A 内で定義 → ゲート B 内から参照」は越境として報告されない。本設計では**子プロセスで両ゲートとも skip されるため実行時の破綻は起きず**、この扱いは正しい。ヘルパー定義（L388 / L394 / L527）がゲート範囲へ飲み込まれるケースも同様に検出されないが、Constraints「ヘルパー定義を移動しない」＋ TC-INV（`git diff -w HEAD --`）で間接的に担保される。**設計上の穴ではないが、検査の意味論として handoff に残す価値がある** |
