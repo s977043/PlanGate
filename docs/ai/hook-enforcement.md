@@ -4,7 +4,7 @@
 > **Hook 数の現状（v8.7.0 以降）**: 本書は **v8.5.0 時点の 10/10 hooks** スナップショット。
 > v8.6.0 で **EH-8**（`check-metrics-privacy.sh`、metrics privacy 強制）、
 > v8.7.0 で **EH-9**（`check-delegation-commit-boundary.sh`、TASK-0073 F2）を追加し、
-> 現状は **EH-1〜EH-9 + EHS-1〜EHS-3 = 12/12**。本書本文の表は v8.5.0 構成のまま
+> 現状は **EH-1〜EH-9 + EHS-1〜EHS-3 = 12/12**（+ **EH-12 / EH-13**（追加分・別記、下記注記参照））。本書本文の表は v8.5.0 構成のまま
 > 維持し、追加分の詳細はそれぞれの実装 PR / CHANGELOG / `bin/plangate doctor` 出力を参照。
 >
 > **EH-12（追加・配線は Human apply 待ち）**: protected branch 上の破壊的 git 操作
