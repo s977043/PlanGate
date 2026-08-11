@@ -1,71 +1,270 @@
 # tests/extras/ta-25-approval-token-guard.sh
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
-# TASK-0123: EH-token-guard + HMAC schema tests
-# NOTE: TC-01/02/03/04/05/06 require patch to be applied first (Human: sh scripts/apply-task-0123-patches.sh)
+# TASK-0123: EH-token-guard + HMAC schema tests（legacy TC-01〜07 保持）
+# TASK-1023 (#1023): 二重無効化（exit 1 / env 時 stdin bypass / parse fail-open）封鎖の
+#   RED/GREEN coverage（T1023-TC-*）+ mutation 7 種 + standalone rc 伝播。
+#   - PG_T25_GUARD は env override 可能（mutation kill 判定用 / R-029）
+#   - 全 non-bypass assertion は command-scoped PLANGATE_SKIP_TOKEN_GUARD=0（TC-14c）
+#   - stdin を redirect しない guard 起動を残さない（端末実行ハング防止 / R-027 / TC-24）
+#   - legacy TC-03/04 は exit 1→2 へ migration（回帰目的 = token path block は維持）
+#   - legacy TC-05 は valid normal payload の supply へ migration（回帰目的 = normal 許可は維持）
 
-printf '\n=== TA-25: TASK-0123 approval-token-guard ===\n'
+printf '\n=== TA-25: TASK-0123/TASK-1023 approval-token-guard ===\n'
+
+# 単体実行 fallback（#861 / #877 F3 / ta-26 と同方式）: run-tests.sh から source されず
+# 直接実行された場合、FIXTURES_DIR / pass / fail / register_cleanup を自前定義する。
+# 判別は PG_HARNESS_SOURCED=1 と FIXTURES_DIR の AND（片方でも欠ければ standalone 側 = 安全側）。
+if [ "${PG_HARNESS_SOURCED:-0}" != "1" ] || [ -z "${FIXTURES_DIR:-}" ]; then
+  PG_T25_STANDALONE=1
+  # 呼び出し元 env の漏れ防止（run-tests.sh 冒頭の unset 集合と同一 + 本ガード固有の 1 env）
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+  unset PLANGATE_SKIP_TOKEN_GUARD 2>/dev/null || true
+  FIXTURES_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/../fixtures" && pwd)"
+  pass=0
+  fail=0
+  _PG_T25_CLEANUP_PATHS=""
+  register_cleanup() {
+    for _pg_cp in "$@"; do
+      if [ -n "$_pg_cp" ]; then
+        _PG_T25_CLEANUP_PATHS="${_PG_T25_CLEANUP_PATHS}${_pg_cp}
+"
+      fi
+    done
+  }
+else
+  PG_T25_STANDALONE=0
+fi
 
 PG_T25_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
-PG_T25_GUARD="$PG_T25_ROOT/scripts/check-approval-token-write.sh"
+# R-029: mutation kill 判定は PG_T25_GUARD を mutant へ override して「実 TC が FAIL する」
+# ことで行う。ハードコードだと mutation はインライン assert しか壊せず検出力が実証されない。
+PG_T25_GUARD="${PG_T25_GUARD:-$PG_T25_ROOT/scripts/check-approval-token-write.sh}"
 PG_T25_SCHEMA="$PG_T25_ROOT/schemas/maintenance.schema.json"
 PG_T25_PATCH="$PG_T25_ROOT/scripts/apply-task-0123-patches.sh"
+PG_T25_SELF="$PG_T25_ROOT/tests/extras/ta-25-approval-token-guard.sh"
+
+# focused mode: mutation 子プロセス（PG_T25_MUTATION_CHILD=1）は kill 対象 TC のみ実行
+PG_T25_FOCUSED="${PG_T25_MUTATION_CHILD:-0}"
 
 t25_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t25_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
+
+# ── 共通ヘルパー ─────────────────────────────────────────────
+# t25_guard <stdin-file> [args...]
+#   env: T25_ENV_FILE が set なら PLANGATE_HOOK_FILE として渡す（空文字も「set」扱い）。
+#        unset なら env から除去して起動する。
+#   出力: _t25_rc（exit code）/ $T25_ERR（stderr）
+#   TC-14c: すべて command-scoped PLANGATE_SKIP_TOKEN_GUARD=0 で起動（親 env=1 でも無効化されない）
+T25_TMP=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25.XXXXXX")
+register_cleanup "$T25_TMP"
+T25_ERR="$T25_TMP/stderr.out"
+t25_guard() {
+  _t25_in="$1"; shift
+  _t25_rc=0
+  if [ "${T25_ENV_FILE+x}" = "x" ]; then
+    env PLANGATE_SKIP_TOKEN_GUARD=0 PLANGATE_HOOK_FILE="$T25_ENV_FILE" sh "$PG_T25_GUARD" "$@" < "$_t25_in" 2>"$T25_ERR" || _t25_rc=$?
+  else
+    env -u PLANGATE_HOOK_FILE PLANGATE_SKIP_TOKEN_GUARD=0 sh "$PG_T25_GUARD" "$@" < "$_t25_in" 2>"$T25_ERR" || _t25_rc=$?
+  fi
+}
+
+# 固定 payload（テスト専用の架空 path。実 approvals には一切触れない）
+T25_TOKEN="docs/working/TASK-0001/approvals/c3.json"
+T25_MAINT="docs/working/_maintenance/maintenance.json"
+
+t25_mk() { printf '%s' "$2" > "$T25_TMP/$1"; }
+
+t25_mk p_normal_write '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"src/index.ts","content":"x"}}'
+t25_mk p_edit_token '{"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"docs/working/TASK-0001/approvals/c3.json","old_string":"a","new_string":"b"}}'
+t25_mk p_toplevel_token '{"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"old_string":"a","new_string":"b"},"file_path":"docs/working/TASK-0001/approvals/c3.json"}'
+t25_mk p_bash_token_write '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x > docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_bash_tee_maint '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo start\n  printf x | tee \"docs/working/_maintenance/maintenance.json\"\necho done"}}'
+t25_mk p_bash_token_read '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_bash_mixed '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json && echo hi > /tmp/other.txt"}}'
+t25_mk p_bash_normal_write '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x > src/out.txt"}}'
+t25_mk p_escaped_token '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"docs\/working\/TASK-0001\/approvals\/c3.json","content":"x"}}'
+t25_mk p_multiedit_normal '{"hook_event_name":"PreToolUse","tool_name":"MultiEdit","tool_input":{"file_path":"src/index.ts","edits":[{"old_string":"a","new_string":"b"}]}}'
+t25_mk p_multiedit_token '{"hook_event_name":"PreToolUse","tool_name":"MultiEdit","tool_input":{"file_path":"docs/working/TASK-0001/approvals/c3.json","edits":[{"old_string":"a","new_string":"b"}]}}'
+t25_mk p_multiedit_token_in_body '{"hook_event_name":"PreToolUse","tool_name":"MultiEdit","tool_input":{"file_path":"docs/working/TASK-1023/plan.md","edits":[{"old_string":"a","new_string":"see docs/working/TASK-1023/approvals/c3.json"}]}}'
+t25_mk p_edit_token_in_body '{"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"docs/working/TASK-1023/plan.md","old_string":"a","new_string":"see docs/working/TASK-1023/approvals/c3.json"}}'
+t25_mk p_bash_env_bypass_string '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"PLANGATE_SKIP_TOKEN_GUARD=1 printf x > docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_malformed 'this is not json'
+t25_mk p_truncated '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_pa'
+t25_mk p_empty ''
+t25_mk p_empty_obj '{}'
+t25_mk p_no_tool_input '{"hook_event_name":"PreToolUse","tool_name":"Write"}'
+t25_mk p_null_fp '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":null}}'
+t25_mk p_array_fp '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":["a"]}}'
+t25_mk p_number_fp '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":5}}'
+t25_mk p_unknown_tool '{"hook_event_name":"PreToolUse","tool_name":"NotebookEdit","tool_input":{"file_path":"src/index.ts"}}'
+t25_mk p_wrong_event '{"hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"src/index.ts"}}'
+
+# ── focused kill TC 群（mutation 子プロセスでも常に実行）───────────────────
+
+# T1023-TC-01: env target = maintenance.json → BLOCK rc=2（AC-01）
+T25_ENV_FILE="$T25_MAINT"
+t25_guard "$T25_TMP/p_normal_write"
+if [ "$_t25_rc" = "2" ] && grep -q 'BLOCK' "$T25_ERR" && grep -q 'target=' "$T25_ERR"; then
+  t25_pass "T1023-TC-01 env=maintenance.json blocked (exit 2)"
+else
+  t25_fail "T1023-TC-01 env=maintenance.json not blocked with exit 2 (exit $_t25_rc)"
+fi
+unset T25_ENV_FILE
+
+# T1023-TC-02b: top-level .file_path のみ（legacy fallback）→ BLOCK rc=2（AC-01）
+# 検出 detail（file_path=）まで assert する: fallback 除去 mutation では parse-unknown に
+# 化けて rc は 2 のままになるため、rc だけでは変異 7 を kill できない。
+t25_guard "$T25_TMP/p_toplevel_token"
+if [ "$_t25_rc" = "2" ] && grep -q 'file_path=' "$T25_ERR" && ! grep -q 'parse-unknown' "$T25_ERR"; then
+  t25_pass "T1023-TC-02b top-level legacy file_path token blocked as protected-write (exit 2)"
+else
+  t25_fail "T1023-TC-02b top-level legacy file_path not blocked as protected-write (exit $_t25_rc)"
+fi
+
+# T1023-TC-03: env=normal + stdin Bash token write → BLOCK rc=2（AC-02 / defect #2 封鎖）
+T25_ENV_FILE="src/index.ts"
+t25_guard "$T25_TMP/p_bash_token_write"
+if [ "$_t25_rc" = "2" ] && grep -q 'BLOCK' "$T25_ERR"; then
+  t25_pass "T1023-TC-03 env-normal + stdin Bash token write blocked (exit 2)"
+else
+  t25_fail "T1023-TC-03 env-normal + stdin Bash token write not blocked (exit $_t25_rc)"
+fi
+unset T25_ENV_FILE
+
+# T1023-TC-05: jq 不在 PATH → parse-unknown rc=2（AC-03）
+_t25_nojq="$T25_TMP/nojq-bin"
+mkdir -p "$_t25_nojq"
+for _t25_c in cat grep sh; do
+  _t25_src=$(command -v "$_t25_c" 2>/dev/null || true)
+  [ -n "$_t25_src" ] && ln -s "$_t25_src" "$_t25_nojq/$_t25_c" 2>/dev/null || true
+done
+_t25_rc=0
+env -u PLANGATE_HOOK_FILE PLANGATE_SKIP_TOKEN_GUARD=0 PATH="$_t25_nojq" /bin/sh "$PG_T25_GUARD" < "$T25_TMP/p_normal_write" 2>"$T25_ERR" || _t25_rc=$?
+if [ "$_t25_rc" = "2" ] && grep -q 'parse-unknown' "$T25_ERR"; then
+  t25_pass "T1023-TC-05 no-jq PATH fails closed (parse-unknown, exit 2)"
+else
+  t25_fail "T1023-TC-05 no-jq PATH did not fail closed (exit $_t25_rc)"
+fi
+
+# T1023-TC-13c-file: env=normal + $1=token + stdin file_path=token → stdin 独立評価で rc=2（AC-06）
+T25_ENV_FILE="src/index.ts"
+t25_guard "$T25_TMP/p_edit_token" "$T25_TOKEN"
+if [ "$_t25_rc" = "2" ] && grep -q 'file_path=' "$T25_ERR"; then
+  t25_pass "T1023-TC-13c-file stdin file_path evaluated independently of env target (exit 2)"
+else
+  t25_fail "T1023-TC-13c-file stdin file_path not evaluated independently (exit $_t25_rc)"
+fi
+unset T25_ENV_FILE
+
+# T1023-TC-22a: MultiEdit + 通常 file → rc=0（AC-04 / 誤 block しない）
+t25_guard "$T25_TMP/p_multiedit_normal"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1023-TC-22a MultiEdit normal file passes (exit 0)"
+else
+  t25_fail "T1023-TC-22a MultiEdit normal file incorrectly blocked (exit $_t25_rc)"
+fi
+
+# T1023-TC-23: TTY stdin は read せず即 rc=2（非ハング）（AC-03 / R-027）
+# `script` で疑似端末を与え、watchdog（10 秒）で非ハングを assert する。
+# 注意: この 1 箇所だけは stdin redirect を意図的に付けない（TTY を与えるため）— TC-24 で除外。
+_t25_tty_run() {
+  # $1: PLANGATE_HOOK_FILE value ("" = unset), $2: rc 出力 file
+  _t25_tty_rc_file="$2"
+  rm -f "$_t25_tty_rc_file"
+  cat > "$T25_TMP/tty-runner.sh" <<'EOF_T25_RUNNER'
+#!/bin/sh
+rc=0
+if [ -n "${T25_TTY_ENVFILE:-}" ]; then
+  env PLANGATE_SKIP_TOKEN_GUARD=0 PLANGATE_HOOK_FILE="$T25_TTY_ENVFILE" sh "$T25_TTY_GUARD" 2>"$T25_TTY_ERR" || rc=$?  # t25:tty-ok
+else
+  env -u PLANGATE_HOOK_FILE PLANGATE_SKIP_TOKEN_GUARD=0 sh "$T25_TTY_GUARD" 2>"$T25_TTY_ERR" || rc=$?  # t25:tty-ok
+fi
+printf '%s' "$rc" > "$T25_TTY_RC"
+EOF_T25_RUNNER
+  if script --version 2>/dev/null | grep -q util-linux; then
+    env T25_TTY_GUARD="$PG_T25_GUARD" T25_TTY_ENVFILE="$1" T25_TTY_ERR="$T25_TMP/tty-err.out" T25_TTY_RC="$_t25_tty_rc_file" \
+      script -q -e -c "sh $T25_TMP/tty-runner.sh" /dev/null >/dev/null 2>&1 &
+  else
+    env T25_TTY_GUARD="$PG_T25_GUARD" T25_TTY_ENVFILE="$1" T25_TTY_ERR="$T25_TMP/tty-err.out" T25_TTY_RC="$_t25_tty_rc_file" \
+      script -q /dev/null sh "$T25_TMP/tty-runner.sh" >/dev/null 2>&1 &
+  fi
+  _t25_tty_pid=$!
+  _t25_i=0
+  _t25_tty_timeout=0
+  while [ "$_t25_i" -lt 50 ]; do
+    kill -0 "$_t25_tty_pid" 2>/dev/null || break
+    sleep 0.2
+    _t25_i=$((_t25_i + 1))
+  done
+  if kill -0 "$_t25_tty_pid" 2>/dev/null; then
+    kill "$_t25_tty_pid" 2>/dev/null || true
+    _t25_tty_timeout=1
+  fi
+  wait "$_t25_tty_pid" 2>/dev/null || true
+}
+if command -v script >/dev/null 2>&1; then
+  _t25_tty_run "" "$T25_TMP/tty-rc-normal"
+  _t25_rc_a=$(cat "$T25_TMP/tty-rc-normal" 2>/dev/null || printf 'none')
+  _t25_to_a="$_t25_tty_timeout"
+  _t25_tty_run "$T25_TOKEN" "$T25_TMP/tty-rc-token"
+  _t25_rc_b=$(cat "$T25_TMP/tty-rc-token" 2>/dev/null || printf 'none')
+  _t25_to_b="$_t25_tty_timeout"
+  if [ "$_t25_rc_a" = "2" ] && [ "$_t25_rc_b" = "2" ] && [ "$_t25_to_a" = "0" ] && [ "$_t25_to_b" = "0" ]; then
+    t25_pass "T1023-TC-23 TTY stdin fails closed without hanging (exit 2 / exit 2)"
+  else
+    t25_fail "T1023-TC-23 TTY stdin not fail-closed or hung (rc_normal=$_t25_rc_a rc_token=$_t25_rc_b timeout=$_t25_to_a/$_t25_to_b)"
+  fi
+else
+  t25_fail "T1023-TC-23 'script' command unavailable — TTY non-hang cannot be verified"
+fi
+
+# ── ここから通常モード限定（mutation 子プロセスでは skip）───────────────────
+if [ "$PG_T25_FOCUSED" = "0" ]; then
+
+# ── legacy TC-01〜07（TASK-0123。回帰目的を保持、TC-03/04/05 は migration 済み）──
 
 # TC-01: check-approval-token-write.sh が存在・実行可能
 if [ -f "$PG_T25_GUARD" ] && [ -x "$PG_T25_GUARD" ]; then
   t25_pass "TC-01 check-approval-token-write.sh exists and is executable"
 else
-  t25_fail "TC-01 check-approval-token-write.sh missing or not executable (run: sh scripts/apply-task-0123-patches.sh)"
+  t25_fail "TC-01 check-approval-token-write.sh missing or not executable"
 fi
 
 # TC-02: syntax check
 if [ -f "$PG_T25_GUARD" ] && sh -n "$PG_T25_GUARD" 2>/dev/null; then
   t25_pass "TC-02 check-approval-token-write.sh syntax ok"
-elif [ ! -f "$PG_T25_GUARD" ]; then
-  t25_fail "TC-02 check-approval-token-write.sh not found (run patch first)"
 else
-  t25_fail "TC-02 check-approval-token-write.sh syntax error"
+  t25_fail "TC-02 check-approval-token-write.sh missing or syntax error"
 fi
 
-# TC-03: maintenance.json パスへの write を検知して exit 1
-if [ -f "$PG_T25_GUARD" ]; then
-  _tc03_exit=0
-  PLANGATE_HOOK_FILE="docs/working/_maintenance/maintenance.json" "$PG_T25_GUARD" 2>/dev/null || _tc03_exit=$?
-  if [ "$_tc03_exit" = "1" ]; then
-    t25_pass "TC-03 maintenance.json path blocked (exit 1)"
-  else
-    t25_fail "TC-03 maintenance.json path not blocked (exit $_tc03_exit)"
-  fi
+# TC-03: maintenance.json パスへの write を検知して block
+# migration（TASK-1023 / R-027）: 期待 rc 1→2、stdin は < /dev/null を明示
+_tc03_exit=0
+env PLANGATE_SKIP_TOKEN_GUARD=0 PLANGATE_HOOK_FILE="docs/working/_maintenance/maintenance.json" sh "$PG_T25_GUARD" < /dev/null 2>/dev/null || _tc03_exit=$?
+if [ "$_tc03_exit" = "2" ]; then
+  t25_pass "TC-03 maintenance.json path blocked (exit 2)"
 else
-  t25_fail "TC-03 SKIP: check-approval-token-write.sh not found (run patch first)"
+  t25_fail "TC-03 maintenance.json path not blocked with exit 2 (exit $_tc03_exit)"
 fi
 
-# TC-04: approvals/c3.json パスへの write を検知して exit 1
-if [ -f "$PG_T25_GUARD" ]; then
-  _tc04_exit=0
-  PLANGATE_HOOK_FILE="docs/working/TASK-0001/approvals/c3.json" "$PG_T25_GUARD" 2>/dev/null || _tc04_exit=$?
-  if [ "$_tc04_exit" = "1" ]; then
-    t25_pass "TC-04 approvals/c3.json path blocked (exit 1)"
-  else
-    t25_fail "TC-04 approvals/c3.json not blocked (exit $_tc04_exit)"
-  fi
+# TC-04: approvals/c3.json パスへの write を検知して block（migration: rc 1→2、< /dev/null）
+_tc04_exit=0
+env PLANGATE_SKIP_TOKEN_GUARD=0 PLANGATE_HOOK_FILE="docs/working/TASK-0001/approvals/c3.json" sh "$PG_T25_GUARD" < /dev/null 2>/dev/null || _tc04_exit=$?
+if [ "$_tc04_exit" = "2" ]; then
+  t25_pass "TC-04 approvals/c3.json path blocked (exit 2)"
 else
-  t25_fail "TC-04 SKIP: check-approval-token-write.sh not found (run patch first)"
+  t25_fail "TC-04 approvals/c3.json not blocked with exit 2 (exit $_tc04_exit)"
 fi
 
 # TC-05: 通常ファイルは通過（exit 0）
-if [ -f "$PG_T25_GUARD" ]; then
-  _tc05_exit=0
-  PLANGATE_HOOK_FILE="src/index.ts" "$PG_T25_GUARD" 2>/dev/null || _tc05_exit=$?
-  if [ "$_tc05_exit" = "0" ]; then
-    t25_pass "TC-05 normal file passes (exit 0)"
-  else
-    t25_fail "TC-05 normal file incorrectly blocked (exit $_tc05_exit)"
-  fi
+# migration（TASK-1023）: empty stdin 許可は安全側契約と両立しないため、valid normal
+# PreToolUse payload を supply する形へ変更（normal file を許可する回帰目的は維持）
+_tc05_exit=0
+env PLANGATE_SKIP_TOKEN_GUARD=0 PLANGATE_HOOK_FILE="src/index.ts" sh "$PG_T25_GUARD" < "$T25_TMP/p_normal_write" 2>/dev/null || _tc05_exit=$?
+if [ "$_tc05_exit" = "0" ]; then
+  t25_pass "TC-05 normal file passes (exit 0)"
 else
-  t25_fail "TC-05 SKIP: check-approval-token-write.sh not found (run patch first)"
+  t25_fail "TC-05 normal file incorrectly blocked (exit $_tc05_exit)"
 fi
 
 # TC-06: schemas/maintenance.schema.json に hmac_signature フィールド存在
@@ -93,4 +292,409 @@ if [ -f "$PG_T25_PATCH" ] && sh -n "$PG_T25_PATCH" 2>/dev/null; then
   t25_pass "TC-07 apply-task-0123-patches.sh exists and syntax ok"
 else
   t25_fail "TC-07 apply-task-0123-patches.sh missing or syntax error"
+fi
+
+# ── T1023 追加 TC（通常モード）───────────────────────────────
+
+# T1023-TC-02a: stdin .tool_input.file_path=token のみ → rc=2（AC-01）
+t25_guard "$T25_TMP/p_edit_token"
+if [ "$_t25_rc" = "2" ] && grep -q 'file_path=' "$T25_ERR"; then
+  t25_pass "T1023-TC-02a tool_input.file_path token blocked (exit 2)"
+else
+  t25_fail "T1023-TC-02a tool_input.file_path token not blocked (exit $_t25_rc)"
+fi
+
+# T1023-TC-04: env=normal + 複数行/quote 混じり tee maintenance.json → rc=2（AC-02,05）
+T25_ENV_FILE="docs/notes/readme.md"
+t25_guard "$T25_TMP/p_bash_tee_maint"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1023-TC-04 multiline tee maintenance.json blocked (exit 2)"
+else
+  t25_fail "T1023-TC-04 multiline tee maintenance.json not blocked (exit $_t25_rc)"
+fi
+unset T25_ENV_FILE
+
+# T1023-TC-06a: malformed / truncated / empty stdin → 各 parse-unknown rc=2（AC-03）
+_t25_ok=1
+for _t25_p in p_malformed p_truncated p_empty; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ] || ! grep -q 'parse-unknown' "$T25_ERR"; then
+    _t25_ok=0
+    printf '    (TC-06a detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-06a malformed/truncated/empty stdin fail closed (exit 2)"
+else
+  t25_fail "T1023-TC-06a malformed/truncated/empty stdin not fail-closed"
+fi
+
+# T1023-TC-06b: stdin read error → rc=2（AC-03）
+# 刺激はディレクトリを stdin にする（cat が決定論的に read error / EISDIR になる）。
+# `0<&-`（fd close）は closed fd0 が後続 open に再割当されて guard がハングする
+# 環境があるため使わない（本 worktree で実測ハング）。
+_t25_rc=0
+env -u PLANGATE_HOOK_FILE PLANGATE_SKIP_TOKEN_GUARD=0 sh "$PG_T25_GUARD" < "$T25_TMP" 2>"$T25_ERR" || _t25_rc=$?
+if [ "$_t25_rc" = "2" ] && grep -q 'parse-unknown' "$T25_ERR"; then
+  t25_pass "T1023-TC-06b unreadable stdin (directory) fails closed (exit 2)"
+else
+  t25_fail "T1023-TC-06b unreadable stdin not fail-closed (exit $_t25_rc)"
+fi
+
+# T1023-TC-07: JSON escaped slash payload → decode 後の実 path で判定 rc=2（AC-03）
+t25_guard "$T25_TMP/p_escaped_token"
+if [ "$_t25_rc" = "2" ] && grep -q 'file_path=' "$T25_ERR"; then
+  t25_pass "T1023-TC-07 escaped-slash token path decoded and blocked (exit 2)"
+else
+  t25_fail "T1023-TC-07 escaped-slash token path not blocked (exit $_t25_rc)"
+fi
+
+# T1023-TC-07b: {} / tool_input 欠落 / null / array / number / 未知 tool / 別 event → 各 rc=2（AC-03）
+_t25_ok=1
+for _t25_p in p_empty_obj p_no_tool_input p_null_fp p_array_fp p_number_fp p_unknown_tool p_wrong_event; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ] || ! grep -q 'parse-unknown' "$T25_ERR"; then
+    _t25_ok=0
+    printf '    (TC-07b detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-07b structurally invalid payloads fail closed (exit 2)"
+else
+  t25_fail "T1023-TC-07b structurally invalid payloads not fail-closed"
+fi
+
+# T1023-TC-08: token path の read-only cat → rc=0（AC-04）
+t25_guard "$T25_TMP/p_bash_token_read"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1023-TC-08 read-only cat of token path passes (exit 0)"
+else
+  t25_fail "T1023-TC-08 read-only cat of token path incorrectly blocked (exit $_t25_rc)"
+fi
+
+# T1023-TC-09: token read + 別 file write の混在 → 保守的 rc=2（AC-04 / 相関解析しない仕様）
+t25_guard "$T25_TMP/p_bash_mixed"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1023-TC-09 mixed token-read + other-write conservatively blocked (exit 2)"
+else
+  t25_fail "T1023-TC-09 mixed command not conservatively blocked (exit $_t25_rc)"
+fi
+
+# T1023-TC-10: normal file への Edit / Write / Bash write → 各 rc=0（AC-04）
+_t25_ok=1
+for _t25_p in p_normal_write p_bash_normal_write; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (TC-10 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-10 normal writes pass (exit 0)"
+else
+  t25_fail "T1023-TC-10 normal writes incorrectly blocked"
+fi
+
+# T1023-TC-11: 非 TTY での bin/plangate approve / maintenance start は CLI 側で拒否（AC-04）
+# sandbox（mktemp）へ bin と最小 TASK を複製して実行し、実 repo の audit artifact 不変を確認
+_t25_sbx=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-sbx.XXXXXX")
+register_cleanup "$_t25_sbx"
+mkdir -p "$_t25_sbx/bin" "$_t25_sbx/docs/working/TASK-0001"
+cp "$PG_T25_ROOT/bin/plangate" "$_t25_sbx/bin/plangate"
+chmod +x "$_t25_sbx/bin/plangate"
+printf '# minimal plan\n' > "$_t25_sbx/docs/working/TASK-0001/plan.md"
+_t25_audit_before=$(find "$PG_T25_ROOT/docs/working/_audit" -type f -exec cat {} + 2>/dev/null | cksum)
+_t25_rc_ap=0
+( cd "$_t25_sbx" && env -u PLANGATE_BYPASS_HOOK sh bin/plangate approve TASK-0001 < /dev/null ) >/dev/null 2>&1 || _t25_rc_ap=$?
+_t25_rc_mt=0
+( cd "$_t25_sbx" && env -u PLANGATE_BYPASS_HOOK sh bin/plangate maintenance start --reason t --paths x --minutes 5 < /dev/null ) >/dev/null 2>&1 || _t25_rc_mt=$?
+_t25_audit_after=$(find "$PG_T25_ROOT/docs/working/_audit" -type f -exec cat {} + 2>/dev/null | cksum)
+if [ "$_t25_rc_ap" != "0" ] && [ "$_t25_rc_mt" != "0" ] \
+  && [ ! -f "$_t25_sbx/docs/working/TASK-0001/approvals/c3.json" ] \
+  && [ ! -f "$_t25_sbx/docs/working/_maintenance/maintenance.json" ] \
+  && [ "$_t25_audit_before" = "$_t25_audit_after" ]; then
+  t25_pass "T1023-TC-11 non-TTY approve/maintenance rejected by CLI, no artifact, real audit unchanged"
+else
+  t25_fail "T1023-TC-11 non-TTY CLI check failed (approve=$_t25_rc_ap maint=$_t25_rc_mt)"
+fi
+
+# T1023-TC-12: 代表 write surface（apply_patch / patch / node / perl / ruby）→ 各 rc=2（AC-05）
+t25_mk p_sf_apply_patch '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"apply_patch <<PATCH\n*** Update File: docs/working/TASK-0001/approvals/c3.json\n+{}\nPATCH"}}'
+t25_mk p_sf_patch '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"patch docs/working/TASK-0001/approvals/c3.json <<EOF\n@@\nEOF"}}'
+t25_mk p_sf_node '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"node -e \"require('\''fs'\'').writeFileSync('\''docs/working/TASK-0001/approvals/c3.json'\'','\''{}'\'')\""}}'
+t25_mk p_sf_perl_open '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"perl -e \"open(F, '\''>'\'', '\''docs/working/TASK-0001/approvals/c3.json'\''); print F 1;\""}}'
+t25_mk p_sf_perl_pi '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"perl -pi -e \"s/REJECTED/APPROVED/\" docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_sf_ruby '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ruby -e \"File.write('\''docs/working/TASK-0001/approvals/c3.json'\'', '\''{}'\'')\""}}'
+_t25_ok=1
+for _t25_p in p_sf_apply_patch p_sf_patch p_sf_node p_sf_perl_open p_sf_perl_pi p_sf_ruby; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (TC-12 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-12 representative write surfaces blocked per-surface (exit 2)"
+else
+  t25_fail "T1023-TC-12 some representative write surface not blocked"
+fi
+
+# T1023-TC-25: ed / ex 経由の token 書込 → 各 rc=2（V-3 実測 bypass の封鎖）
+t25_mk p_v3_ed '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf \",s/REJECTED/APPROVED/\\nw\\nq\\n\" | ed -s docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_v3_ex '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ex -sc \"%s/REJECTED/APPROVED/|wq\" docs/working/TASK-0001/approvals/c3.json"}}'
+_t25_ok=1
+for _t25_p in p_v3_ed p_v3_ex; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (TC-25 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-25 ed/ex token writes blocked (exit 2)"
+else
+  t25_fail "T1023-TC-25 some ed/ex token write not blocked"
+fi
+
+# T1023-TC-26: git checkout/restore/checkout-index/update-index 経由の token 復元 → 各 rc=2
+# （V-3 実測 bypass の封鎖。-C 等の中間オプションも捕捉）
+t25_mk p_v3_git_co '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git checkout HEAD~1 -- docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_v3_git_restore '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git restore --source=HEAD~1 -- docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_v3_git_coidx '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git checkout-index -f -- docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_v3_git_upidx '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git update-index --cacheinfo 100644,deadbeef,docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_v3_git_c_opt '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git -C . checkout HEAD~1 -- docs/working/TASK-0001/approvals/c3.json"}}'
+_t25_ok=1
+for _t25_p in p_v3_git_co p_v3_git_restore p_v3_git_coidx p_v3_git_upidx p_v3_git_c_opt; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (TC-26 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-26 git checkout/restore/checkout-index/update-index token writes blocked (exit 2)"
+else
+  t25_fail "T1023-TC-26 some git token-restore path not blocked"
+fi
+
+# T1023-TC-27: 負ケース — token パス非参照の ed / git は誤 block しない（各 rc=0）
+t25_mk p_v3_neg_git_main '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git checkout main"}}'
+t25_mk p_v3_neg_git_file '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git restore -- src/index.ts"}}'
+t25_mk p_v3_neg_ed_file '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf \"w\\nq\\n\" | ed -s src/index.ts"}}'
+t25_mk p_v3_neg_git_log '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git log --oneline -- docs/working/TASK-0001/approvals/c3.json"}}'
+_t25_ok=1
+for _t25_p in p_v3_neg_git_main p_v3_neg_git_file p_v3_neg_ed_file p_v3_neg_git_log; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (TC-27 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-27 non-token ed/git commands pass; token-path read-only git log passes (exit 0)"
+else
+  t25_fail "T1023-TC-27 negative ed/git cases incorrectly blocked"
+fi
+
+# T1023-TC-13a: env 空 + $1=token + parsed-safe normal stdin → fallback target で rc=2（AC-06）
+T25_ENV_FILE=""
+t25_guard "$T25_TMP/p_normal_write" "$T25_TOKEN"
+if [ "$_t25_rc" = "2" ] && grep -q 'target=' "$T25_ERR"; then
+  t25_pass "T1023-TC-13a empty env + \$1 token blocked via fallback (exit 2)"
+else
+  t25_fail "T1023-TC-13a \$1 fallback target not blocked (exit $_t25_rc)"
+fi
+unset T25_ENV_FILE
+
+# T1023-TC-13b: env=normal + $1=token + normal stdin → env 優先で rc=0（AC-06）
+T25_ENV_FILE="src/index.ts"
+t25_guard "$T25_TMP/p_normal_write" "$T25_TOKEN"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1023-TC-13b env target takes precedence over \$1 (exit 0)"
+else
+  t25_fail "T1023-TC-13b env precedence broken (exit $_t25_rc)"
+fi
+unset T25_ENV_FILE
+
+# T1023-TC-13c-cmd: env=normal + $1=token + stdin Bash token write → rc=2（AC-06 / Bash レーン独立評価）
+T25_ENV_FILE="src/index.ts"
+t25_guard "$T25_TMP/p_bash_token_write" "$T25_TOKEN"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1023-TC-13c-cmd stdin Bash command evaluated independently (exit 2)"
+else
+  t25_fail "T1023-TC-13c-cmd stdin Bash command not evaluated independently (exit $_t25_rc)"
+fi
+unset T25_ENV_FILE
+
+# T1023-TC-14a: hook process への bypass=1 継承 → rc=0 + secret 非表示の診断（AC-06）
+_t25_rc=0
+env PLANGATE_SKIP_TOKEN_GUARD=1 PLANGATE_HOOK_FILE="$T25_TOKEN" sh "$PG_T25_GUARD" < "$T25_TMP/p_edit_token" 2>"$T25_ERR" || _t25_rc=$?
+if [ "$_t25_rc" = "0" ] && grep -q 'bypass' "$T25_ERR" && ! grep -q "$T25_TOKEN" "$T25_ERR"; then
+  t25_pass "T1023-TC-14a inherited bypass allows with diagnostic, no secret echo (exit 0)"
+else
+  t25_fail "T1023-TC-14a bypass diagnostic contract broken (exit $_t25_rc)"
+fi
+
+# T1023-TC-14b: command 文字列内の bypass 代入は無効（hook env は 0）→ rc=2（AC-06）
+t25_guard "$T25_TMP/p_bash_env_bypass_string"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1023-TC-14b in-command bypass string does not bypass (exit 2)"
+else
+  t25_fail "T1023-TC-14b in-command bypass string bypassed the guard (exit $_t25_rc)"
+fi
+
+# T1023-TC-14c: 親 env に bypass=1 が漏れていても command-scoped =0 の assertion は無効化されない
+_t25_rc=0
+(
+  PLANGATE_SKIP_TOKEN_GUARD=1
+  export PLANGATE_SKIP_TOKEN_GUARD
+  env PLANGATE_SKIP_TOKEN_GUARD=0 PLANGATE_HOOK_FILE="$T25_MAINT" sh "$PG_T25_GUARD" < /dev/null 2>/dev/null
+) || _t25_rc=$?
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1023-TC-14c command-scoped SKIP=0 overrides inherited bypass (exit 2)"
+else
+  t25_fail "T1023-TC-14c inherited bypass leaked into assertion (exit $_t25_rc)"
+fi
+
+# T1023-TC-22b: MultiEdit + token file_path → rc=2（AC-01）
+t25_guard "$T25_TMP/p_multiedit_token"
+if [ "$_t25_rc" = "2" ] && grep -q 'file_path=' "$T25_ERR"; then
+  t25_pass "T1023-TC-22b MultiEdit token file_path blocked (exit 2)"
+else
+  t25_fail "T1023-TC-22b MultiEdit token file_path not blocked (exit $_t25_rc)"
+fi
+
+# T1023-TC-22c: 本文に token path 文字列を含む通常ファイル編集（MultiEdit / Edit）→ 各 rc=0（AC-04 / M-3）
+_t25_ok=1
+for _t25_p in p_multiedit_token_in_body p_edit_token_in_body; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (TC-22c detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1023-TC-22c token-path string in body does not block normal-file edits (exit 0)"
+else
+  t25_fail "T1023-TC-22c content-based false positive detected"
+fi
+
+# T1023-TC-24: stdin を redirect しない guard 起動が残っていない（AC-10 / R-027 静的検査）
+# 対象 = このファイル内の `sh "$PG_T25_GUARD"` 起動行。TTY TC（# t25:tty-ok）だけを除外。
+_t25_viol=$(grep -n 'sh "\$PG_T25_GUARD"' "$PG_T25_SELF" | grep -v 't25:tty-ok' | grep -v 't25:stdin-ok' | grep -v '< ' || true)
+if [ -z "$_t25_viol" ]; then
+  t25_pass "T1023-TC-24 no guard invocation without stdin redirect"
+else
+  t25_fail "T1023-TC-24 unredirected guard invocations remain: $_t25_viol"
+fi
+
+# T1023-TC-20: legacy 保持 + standalone rc 伝播（AC-10）
+_t25_ok=1
+for _t25_id in "TC-01 " "TC-02 " "TC-03 " "TC-04 " "TC-05 " "TC-06 " "TC-07 "; do
+  grep -q "$_t25_id" "$PG_T25_SELF" || _t25_ok=0
+done
+if [ "${PG_T25_NO_RECURSE:-0}" = "1" ]; then
+  printf '  [SKIP] T1023-TC-20 standalone-rc 子プロセス（再帰防止モードでは省略）\n'
+  pass=$((pass + 1))
+else
+  _t25_child_out="$T25_TMP/tc20-child.out"
+  _t25_child_rc=0
+  env -u PG_HARNESS_SOURCED -u FIXTURES_DIR PG_T25_MUTATION_CHILD=1 PG_T25_NO_RECURSE=1 \
+    PG_T25_GUARD="$T25_TMP/nonexistent-guard.sh" sh "$PG_T25_SELF" > "$_t25_child_out" 2>&1 || _t25_child_rc=$?
+  if [ "$_t25_ok" = "1" ] && [ "$_t25_child_rc" != "0" ] && grep -q 'TA-25 standalone:' "$_t25_child_out"; then
+    t25_pass "T1023-TC-20 legacy TCs retained + standalone failure propagates non-zero rc"
+  else
+    t25_fail "T1023-TC-20 legacy retention or standalone rc propagation broken (child rc=$_t25_child_rc legacy=$_t25_ok)"
+  fi
+fi
+
+# ── T1023-TC-15〜17e: mutation 7 種（AC-07 / R-029: 実 TC の FAIL で kill を判定）──
+if [ "${PG_T25_NO_RECURSE:-0}" = "1" ]; then
+  printf '  [SKIP] T1023-TC-15..17e mutation（再帰防止モードでは省略・親で実行）\n'
+  pass=$((pass + 1))
+else
+  _t25_mut_dir=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-mut.XXXXXX")
+  register_cleanup "$_t25_mut_dir"
+  # baseline: 原本 guard で focused kill TC 群が全 PASS すること（復元 PASS も同一原本で担保）
+  _t25_base_out="$_t25_mut_dir/baseline.out"
+  _t25_base_rc=0
+  env -u PG_HARNESS_SOURCED -u FIXTURES_DIR PG_T25_MUTATION_CHILD=1 PG_T25_NO_RECURSE=1 \
+    PG_T25_GUARD="$PG_T25_ROOT/scripts/check-approval-token-write.sh" sh "$PG_T25_SELF" > "$_t25_base_out" 2>&1 || _t25_base_rc=$?
+  if [ "$_t25_base_rc" = "0" ] && ! grep -q '\[FAIL\]' "$_t25_base_out"; then
+    t25_pass "T1023-TC-15pre mutation baseline (original guard) all focused TCs PASS"
+  else
+    t25_fail "T1023-TC-15pre mutation baseline failed (rc=$_t25_base_rc) — mutation kill判定は無効"
+  fi
+  # _t25_mutate <tc-id> <sed-expr> <anchor-grep> <kill-tc-label>
+  _t25_mutate() {
+    _t25_mid="$1"; _t25_sed="$2"; _t25_anchor="$3"; _t25_kill="$4"
+    _t25_mut="$_t25_mut_dir/mutant-$_t25_mid.sh"
+    cp "$PG_T25_ROOT/scripts/check-approval-token-write.sh" "$_t25_mut"
+    chmod +x "$_t25_mut"
+    _t25_before=$(grep -c "$_t25_anchor" "$_t25_mut" || true)
+    sed "$_t25_sed" "$_t25_mut" > "$_t25_mut.new" && mv "$_t25_mut.new" "$_t25_mut"
+    chmod +x "$_t25_mut"
+    _t25_changed=0
+    cmp -s "$_t25_mut" "$PG_T25_ROOT/scripts/check-approval-token-write.sh" 2>/dev/null || _t25_changed=$?
+    if [ "$_t25_before" != "1" ]; then
+      t25_fail "T1023-$_t25_mid mutation anchor not unique (count=$_t25_before)"
+      return 0
+    fi
+    if [ "$_t25_changed" = "0" ]; then
+      t25_fail "T1023-$_t25_mid mutation produced no change (sed miss)"
+      return 0
+    fi
+    if ! sh -n "$_t25_mut" 2>/dev/null; then
+      t25_fail "T1023-$_t25_mid mutant has syntax error"
+      return 0
+    fi
+    _t25_mo="$_t25_mut_dir/out-$_t25_mid.txt"
+    _t25_mrc=0
+    env -u PG_HARNESS_SOURCED -u FIXTURES_DIR PG_T25_MUTATION_CHILD=1 PG_T25_NO_RECURSE=1 \
+      PG_T25_GUARD="$_t25_mut" sh "$PG_T25_SELF" > "$_t25_mo" 2>&1 || _t25_mrc=$?
+    if grep -q "\[FAIL\] $_t25_kill" "$_t25_mo" && [ "$_t25_mrc" != "0" ]; then
+      t25_pass "T1023-$_t25_mid mutant killed by real TC ($_t25_kill FAILs)"
+    else
+      t25_fail "T1023-$_t25_mid mutant NOT killed by $_t25_kill (child rc=$_t25_mrc)"
+    fi
+  }
+  # 変異 1: block の exit 2 → exit 1（kill: T1023-TC-01）
+  _t25_mutate "TC-15" 's/  exit 2 # t1023-block-exit/  exit 1 # t1023-block-exit/' 't1023-block-exit' 'T1023-TC-01'
+  # 変異 2: stdin 常時 capture → env-present 時 skip（kill: T1023-TC-03）
+  _t25_mutate "TC-16" 's/if true; then # t1023-stdin-always/if [ -z "$TARGET" ]; then # t1023-stdin-always/' 't1023-stdin-always' 'T1023-TC-03'
+  # 変異 3: parse-unknown block 撤去（exit 2 → exit 0）（kill: T1023-TC-05）
+  _t25_mutate "TC-17" 's/  exit 2 # t1023-parse-unknown-exit/  exit 0 # t1023-parse-unknown-exit/' 't1023-parse-unknown-exit' 'T1023-TC-05'
+  # 変異 4: TTY 時に stdin 評価を skip（exit 0）（kill: T1023-TC-23）
+  _t25_mutate "TC-17b" 's/if \[ -t 0 \]; then _parse_unknown "stdin is a TTY (no hook payload)"; fi # t1023-tty-check/if [ -t 0 ]; then exit 0; fi # t1023-tty-check/' 't1023-tty-check' 'T1023-TC-23'
+  # 変異 5: stdin file_path 抽出を env-gated に戻す（kill: T1023-TC-13c-file）
+  _t25_mutate "TC-17c" 's/if true; then # t1023-file-lane/if [ -z "$TARGET" ]; then # t1023-file-lane/' 't1023-file-lane' 'T1023-TC-13c-file'
+  # 変異 6: parsed-safe tool 集合から MultiEdit を除去（kill: T1023-TC-22a）
+  _t25_mutate "TC-17d" 's/ or \.tool_name=="MultiEdit"//' 'or \.tool_name=="MultiEdit"' 'T1023-TC-22a'
+  # 変異 7: top-level .file_path legacy fallback を除去（kill: T1023-TC-02b）
+  _t25_mutate "TC-17e" 's/^.*# t1023-legacy-fallback$/        : # t1023-legacy-fallback/' 't1023-legacy-fallback' 'T1023-TC-02b'
+  # 復元 PASS: mutation 群の後に原本 guard で再度 focused kill TC 群が全 PASS すること
+  _t25_rest_out="$_t25_mut_dir/restore.out"
+  _t25_rest_rc=0
+  env -u PG_HARNESS_SOURCED -u FIXTURES_DIR PG_T25_MUTATION_CHILD=1 PG_T25_NO_RECURSE=1 \
+    PG_T25_GUARD="$PG_T25_ROOT/scripts/check-approval-token-write.sh" sh "$PG_T25_SELF" > "$_t25_rest_out" 2>&1 || _t25_rest_rc=$?
+  if [ "$_t25_rest_rc" = "0" ] && ! grep -q '\[FAIL\]' "$_t25_rest_out"; then
+    t25_pass "T1023-TC-17post restore (original guard) all focused TCs PASS"
+  else
+    t25_fail "T1023-TC-17post restore run failed (rc=$_t25_rest_rc)"
+  fi
+fi
+
+fi # PG_T25_FOCUSED
+
+# 単体実行時のみ: cleanup drain + サマリ + exit code（source 時は run-tests.sh が担う）
+if [ "$PG_T25_STANDALONE" = "1" ]; then
+  printf '%s' "$_PG_T25_CLEANUP_PATHS" | while IFS= read -r _pg_cp; do
+    if [ -n "$_pg_cp" ]; then
+      rm -rf "$_pg_cp" 2>/dev/null || true
+    fi
+  done
+  printf '\nTA-25 standalone: %s passed, %s failed\n' "$pass" "$fail"
+  if [ "$fail" != "0" ]; then
+    exit 1
+  fi
 fi

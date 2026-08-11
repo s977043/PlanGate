@@ -32,19 +32,19 @@ T-01 Plan evidence → T-02 C-1 → T-03 C-2 → T-03b 追記2(R-026〜034)の1�
   - rollback: review-externalはappend-only。誤りは追記で訂正
 - [x] **T-03b**: PR #1024 敵対的レビュー（major 5 / minor 3 / info 1）を `review-external.md`「追記 2」へ R-026〜R-034 として集約し、plan / todo / test-cases / pbi-input へ **1 回確定反映**。R-033（EH-10 ID 衝突）は Human 判断へ回し AI は正本を書き換えない
   - rollback: review-external は append-only。誤りは追記で訂正
-- [ ] **T-04**: TA-25 legacy TC-01〜07を保持し、`T1023-TC-*` RED casesとstandalone rc伝播を追加
+- [x] **T-04**: TA-25 legacy TC-01〜07を保持し、`T1023-TC-*` RED casesとstandalone rc伝播を追加
   - **`PG_T25_GUARD` の env override を実装**（`tests/extras/ta-25-approval-token-guard.sh:9` のハードコード解消 / R-029）
   - **legacy TC-03/04 を `< /dev/null`、TC-05 を valid normal payload の pipe に変更**（stdin未リダイレクトTCの根絶 / R-027）
   - **TC-02a/02b 分割・TC-13c-file/13c-cmd 分割・TC-22a/22b（MultiEdit）・TC-23（TTY非ハング）・TC-24 を追加**（R-026 / R-027 / R-028 / R-032）
   - depends_on: H-01
   - rollback: test commitを`git revert <sha>`。T-05より先に戻さない
-- [ ] **T-05**: stdin常時capture・env/`$1`/stdin独立評価・exit 2・parse-unknown block・代表write surfaceを最小実装
+- [x] **T-05**: stdin常時capture・env/`$1`/stdin独立評価・exit 2・parse-unknown block・代表write surfaceを最小実装
   - depends_on: T-04
   - rollback: 実装commitを`git revert <sha>`。脆弱性復活中はC-3'停止を維持
-- [ ] **T-06**: **mutation 7種**（exit / stdin capture / parse-unknown / `[ ! -t 0 ]`追加 / stdin抽出のenv再従属 / **`parsed-safe`から`MultiEdit`除去** / **top-level `.file_path` fallback除去**）、決定論的no-jq PATH、positive/negative/non-TTY CLIを実行。**kill は `PG_T25_GUARD` override 下で実TCがFAILすることで示す**（インラインassertのFAILはkillと認めない / R-029）
+- [x] **T-06**: **mutation 7種**（exit / stdin capture / parse-unknown / `[ ! -t 0 ]`追加 / stdin抽出のenv再従属 / **`parsed-safe`から`MultiEdit`除去** / **top-level `.file_path` fallback除去**）、決定論的no-jq PATH、positive/negative/non-TTY CLIを実行。**kill は `PG_T25_GUARD` override 下で実TCがFAILすることで示す**（インラインassertのFAILはkillと認めない / R-029）
   - depends_on: T-05
   - rollback: FAIL時はT-05へ戻し、テストを弱めない
-- [ ] **T-07**: syntax/focused/full suite/V-1〜V-4とgit履歴を含むread-only artifact監査（**母集団全体・保護状態3区分・起点根拠をhandoffへ** / R-030。**`$1` dead code と #928 drift の明記も必須** / R-031）
+- [x] **T-07**: syntax/focused/full suite/V-1〜V-4とgit履歴を含むread-only artifact監査（**母集団全体・保護状態3区分・起点根拠をhandoffへ** / R-030。**`$1` dead code と #928 drift の明記も必須** / R-031）
   - depends_on: T-06
   - rollback: evidenceを消さずFAILとして記録
 - [ ] **T-08**: 明示fileだけcommit/pushしDraft PRを更新
