@@ -11,40 +11,40 @@
   [INFO] TC-11: harness-only in-scope count is 0 — vacuous PASS (recorded, not hidden; full coverage arrives in Slice 2)
   [PASS] TC-15: guarded env set derived at runtime from the runner's unset list
   [PASS] TC-12(a)/TC-13: ta-39-eh3-doc-light clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-39-eh3-doc-light force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-39-eh3-doc-light probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-39-eh3-doc-light contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-40-task-0129-review-gate clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-40-task-0129-review-gate force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-40-task-0129-review-gate probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-40-task-0129-review-gate contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-43-eh2-strict-json clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-43-eh2-strict-json force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-43-eh2-strict-json probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-43-eh2-strict-json contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-44-eh457-cli-wiring clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-44-eh457-cli-wiring force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-44-eh457-cli-wiring probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-44-eh457-cli-wiring contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-45-c3-mode-config clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-45-c3-mode-config force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-45-c3-mode-config probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-45-c3-mode-config contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-46-ehs-wiring clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-46-ehs-wiring force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-46-ehs-wiring probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-46-ehs-wiring contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-47-ehs23-wiring clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-47-ehs23-wiring force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-47-ehs23-wiring probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-47-ehs23-wiring contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-49-bias-export clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-49-bias-export force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-49-bias-export probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-49-bias-export contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-50-precompact-guard clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-50-precompact-guard force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-50-precompact-guard probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-50-precompact-guard contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-51-doctor-w6 clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-51-doctor-w6 force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-51-doctor-w6 probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-51-doctor-w6 contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-52-doctor-skill-collision clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-52-doctor-skill-collision force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-52-doctor-skill-collision probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-52-doctor-skill-collision contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-53-doctor-prepush clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-53-doctor-prepush force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-53-doctor-prepush probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-53-doctor-prepush contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-25(3): per-file execution loop started 12 file run(s) (non-zero)
   [PASS] TC-19: README documents rc 0/1/2/3, marker convention, probe and the rc=2 namespace note
@@ -53,8 +53,8 @@
   [PASS] TC-01c: empty EXTRAS_DIR (PG_HARNESS_SOURCED=1 + FIXTURES_DIR set) resolves to standalone (HR-4)
   [PASS] TC-02: harness-only direct misuse -> rc=2 with message, before any body side effect
   [PASS] TC-03: standalone all-pass -> rc=0 with summary literal
-  [PASS] TC-04: standalone internal fail -> rc=1
-  [PASS] TC-05: alternate body path still reaches tail finalize -> rc=1
+  [FAIL] TC-04: standalone fail propagation broken (rc=0): TA-93 standalone: 0 passed, 1 failed
+  [FAIL] TC-05: alternate path lost the failure (rc=0)
   [PASS] TC-06: specific nonzero original rc (3) preserved with fail=0 and fail>0
   [PASS] TC-07: standalone finalize drains registered paths only; unregistered sentinel survives
   [PASS] TC-08: invalid capability fails closed before body (rc=2)
@@ -63,14 +63,9 @@
   [PASS] TC-17(precedence): fail>0 before skip -> rc=1 takes precedence over rc=3
   [PASS] TC-17(probe): force-fail probe does not fire on a prerequisite-absent run (rc=3)
   [PASS] TC-21: harness register_cleanup untouched; helper sources cleanly under set -eu
-  [PASS] TC-23(synthetic): probe env does not leak into children, yet the probe still fires at finalize
+  [FAIL] TC-23(synthetic): probe env leaked or probe lost (rc=0): child-sees:none:none
+  [FAIL] PG_EXTRA_CONTRACT_PROBE_FIRED:ta-88-fx (test-only force-fail probe)
+TA-88 standalone: 1 passed, 1 failed
   [PASS] TC-26: a failing sourced file does not truncate the set -eu harness (marker + Results both present)
-  [INFO] TC-29 shells: dash=/bin/dash bash=/bin/bash
-  [PASS] TC-17/TC-29: ta-39-eh3-doc-light prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-43-eh2-strict-json prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-44-eh457-cli-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-45-c3-mode-config prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-46-ehs-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-47-ehs23-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
-  [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
+  [FAIL] sandbox: repo worktree copy failed under /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.DXnQzg8886/sandbox (fail-closed)
+TA-61 standalone: 49 passed, 16 failed

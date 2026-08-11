@@ -1,0 +1,7 @@
+# non-zero return on the source path never truncates the suite (TC-26 / R-024) — 2026-08-11 04:19
+## synthetic set -eu harness sourcing a failing file then a second file:
+mini-marker: file1
+mini-marker: file2-after-failing-file
+Results: 0 passed, 1 failed
+runner rc=0
+## expected: file2 marker AND Results line both present (no truncation); Results shows 1 failed

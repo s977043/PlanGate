@@ -38,7 +38,7 @@
   [PASS] TC-12(b): ta-50-precompact-guard force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-50-precompact-guard contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-51-doctor-w6 clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-51-doctor-w6 force-fail probe propagates to rc=1 with probe marker
+  [FAIL] TC-12(b): ta-51-doctor-w6 probe differential failed (rc=0; finalize not reached or marker missing)
   [PASS] TC-15: ta-51-doctor-w6 contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-52-doctor-skill-collision clean standalone run rc=0 with no [FAIL]
   [PASS] TC-12(b): ta-52-doctor-skill-collision force-fail probe propagates to rc=1 with probe marker
@@ -65,12 +65,5 @@
   [PASS] TC-21: harness register_cleanup untouched; helper sources cleanly under set -eu
   [PASS] TC-23(synthetic): probe env does not leak into children, yet the probe still fires at finalize
   [PASS] TC-26: a failing sourced file does not truncate the set -eu harness (marker + Results both present)
-  [INFO] TC-29 shells: dash=/bin/dash bash=/bin/bash
-  [PASS] TC-17/TC-29: ta-39-eh3-doc-light prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-43-eh2-strict-json prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-44-eh457-cli-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-45-c3-mode-config prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-46-ehs-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-47-ehs23-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
-  [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
+  [FAIL] sandbox: repo worktree copy failed under /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.7EXhxslC4G/sandbox (fail-closed)
+TA-61 standalone: 63 passed, 2 failed

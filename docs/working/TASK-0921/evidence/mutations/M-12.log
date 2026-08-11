@@ -63,14 +63,9 @@
   [PASS] TC-17(precedence): fail>0 before skip -> rc=1 takes precedence over rc=3
   [PASS] TC-17(probe): force-fail probe does not fire on a prerequisite-absent run (rc=3)
   [PASS] TC-21: harness register_cleanup untouched; helper sources cleanly under set -eu
-  [PASS] TC-23(synthetic): probe env does not leak into children, yet the probe still fires at finalize
+  [FAIL] TC-23(synthetic): probe env leaked or probe lost (rc=1): child-sees:force-fail:ta-88-fx
+  [FAIL] PG_EXTRA_CONTRACT_PROBE_FIRED:ta-88-fx (test-only force-fail probe)
+TA-88 standalone: 1 passed, 1 failed
   [PASS] TC-26: a failing sourced file does not truncate the set -eu harness (marker + Results both present)
-  [INFO] TC-29 shells: dash=/bin/dash bash=/bin/bash
-  [PASS] TC-17/TC-29: ta-39-eh3-doc-light prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-43-eh2-strict-json prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-44-eh457-cli-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-45-c3-mode-config prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-46-ehs-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-17/TC-29: ta-47-ehs23-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
-  [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
-  [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
+  [FAIL] sandbox: repo worktree copy failed under /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.KTozDRfkg3/sandbox (fail-closed)
+TA-61 standalone: 63 passed, 2 failed
