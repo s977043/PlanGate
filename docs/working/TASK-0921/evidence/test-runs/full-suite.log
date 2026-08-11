@@ -41,6 +41,7 @@ Usage: plangate review <TASK-XXXX> [--phase c2|v3] [--file <path>]
 === TA-08: codex log parser (Issue #168) ===
 [PASS] codex_log_parser: latency_seconds extracted
 [PASS] codex_log_parser: completion_tokens extracted
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-08-codex-log-parser.sh: line 44: printf: write error: Broken pipe
 [PASS] eval-runner: --session-log produces PASS + latency value
 
 === TA-09: metrics (Issue #195) ===
@@ -83,7 +84,9 @@ Usage: plangate review <TASK-XXXX> [--phase c2|v3] [--file <path>]
 [PASS] doctor-fix TC-E1: invalid JSON aborts, no overwrite, no .bak
 [PASS] doctor-fix TC-E2: only missing blocks appended, double-list preserved
 [PASS] doctor-fix TC-E3: read-only dir → explicit error, no partial write
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-10-doctor-fix.sh: line 241: printf: write error: Broken pipe
 [PASS] doctor-fix TC-1: unwired env emits Hook Wiring section + FAIL + exit 1
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-10-doctor-fix.sh: line 280: printf: write error: Broken pipe
 [PASS] doctor-fix TC-6: missing gh/codex -> guidance only, no auto-install (AC-6)
 [PASS] doctor-fix TC-7: --json --scope hooks has hook-wiring item; default byte-identical; no leak
 
@@ -137,6 +140,7 @@ ok
 === TA-14: codex-guarded.sh (Gap 4 / #336) ===
   [PASS] TC-01 codex-guarded.sh exists and is executable
   [PASS] TC-02 shell syntax OK
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-14-codex-guarded.sh: line 29: printf: write error: Broken pipe
   [PASS] TC-03 --help shows Usage line
   [PASS] TC-04 missing TASK ID exits with code 1
   [PASS] TC-05 invalid TASK ID format exits with code 1
@@ -186,6 +190,7 @@ ok
 === TA-17: pre-push-guard (INC P-1 / TASK-0114) ===
   [PASS] TC-01 pre-push.sample 存在 + 実行可能
   [PASS] TC-01b install-pre-push.sh 存在 + 実行可能
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-17-pre-push-guard.sh: line 29: echo: write error: Broken pipe
   [PASS] TC-02 main push block + エラーメッセージ
   [PASS] TC-03 feature branch push 通過
   [PASS] TC-04 release/* glob で release/v1.0.0 block
@@ -211,6 +216,7 @@ ok
   [PASS] TC-08 script に git fetch origin main (stale 防止 / R-001)
   [PASS] TC-09 responsibility-classes.md §publish に link 追記 (R-003)
   [PASS] TC-10 リモート tag (annotated) = origin/main → exit 0 (OK)
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-18-tag-main-parity.sh: line 187: printf: write error: Broken pipe
   [PASS] TC-11 リモート tag 古い + ローカル tag 新しい (実害シナリオ) → exit 1 + 不一致明示
   [PASS] TC-12 ローカルのみ tag (未push) → exit 1 (push 忘れ検出)
   [PASS] TC-13 lightweight リモート tag = origin/main → exit 0 (fallback parse)
@@ -306,6 +312,8 @@ filter logic OK (threshold met)
   [PASS] TC-09 DELETE 正常系（src=2/stale=1 → stale 削除・guard 非発火・exit 0）
   [PASS] TC-10 guard 発火で exit 3・stderr に label と override 手順を出力
   [PASS] TC-11 override で削除実行・exit 0・解除ログ出力
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-26-plugin-sync.sh: line 277: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-26-plugin-sync.sh: line 278: printf: write error: Broken pipe
   [PASS] TC-12 乖離帯 src=3/stale=4 で dry-run と実行の guard 判定が一致
   [PASS] TC-13 PG_HARNESS_SOURCED で harness/standalone を判別（FIXTURES_DIR 汚染にも耐える）
   [PASS] TC-16 複数 label 同時発火（WARN 3 行・exit 3 は 1 回・コピーは全 label 実行）
@@ -314,11 +322,14 @@ filter logic OK (threshold met)
   [PASS] TC-20 経路2: 正本 2 dir 消失で guard 発火（DELETE skipped + override 案内・dst 5 件残存）
   [PASS] TC-21 経路2: 正本 2 dir 空化でも guard 発火（TC-20 と同一挙動）
   [PASS] TC-22 経路2: guard 発火で終端 exit 3（guard_fired の global 伝播）
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-26-plugin-sync.sh: line 485: printf: write error: Broken pipe
   [PASS] TC-23 経路2: override で削除実行・exit 0・解除ログ出力（dst 5 件全削除）
   [PASS] TC-24 経路2 正常系: base=4/stale=1 で非発火・stale 1 件のみ削除・exit 0
   [PASS] TC-25 経路2: 乖離帯 base=3/stale=4 で dry-run と実行の guard 判定が一致
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-26-plugin-sync.sh: line 586: printf: write error: Broken pipe
   [PASS] TC-26 経路1: skill-A のみ guard 発火・dst 4 件残存、skill-B は正常同期（3 件 COPY）
   [PASS] TC-27 経路1: guard 発火で終端 exit 3
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-26-plugin-sync.sh: line 618: printf: write error: Broken pipe
   [PASS] TC-28 経路1: override で削除実行・exit 0・解除ログ出力（skill-A dst 4 件全削除）
   [PASS] TC-29 経路1 正常系: base=3/stale=1 で非発火・stale 1 件のみ削除・exit 0
   [PASS] TC-32 経路1: 乖離帯 base=3/stale=4 で dry-run と実行の guard 判定が一致
@@ -388,6 +399,7 @@ filter logic OK (threshold met)
 === TA-34: CLI min coverage — init/status/handoff/verify/eval (#515) ===
 [PASS] TA-34 TC-01: init が期待ファイル一式を生成
 [PASS] TA-34 TC-02: init 引数なしで Usage 表示
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-34-cli-min-coverage.sh: line 34: printf: write error: Broken pipe
 [PASS] TA-34 TC-03: status が exit 0 で Task 情報を表示
 [PASS] TA-34 TC-04: handoff が handoff.md を生成し 6 要素を案内
 [PASS] TA-34 TC-05: verify/eval 引数なしで Usage 表示
@@ -403,8 +415,10 @@ filter logic OK (threshold met)
 === TA-37: CLI coverage batch2 — timeline/keep-rate/resume/context/exec/brainstorm (#515) ===
 [PASS] TA-37 TC-01: timeline/keep-rate/resume/context/brainstorm 引数なしで Usage
 [PASS] TA-37 TC-02: timeline が run.ndjson 不在を案内
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-37-cli-coverage-batch2.sh: line 40: printf: write error: Broken pipe
 [PASS] TA-37 TC-03: keep-rate --no-write がレポートを stdout のみに出力
 [PASS] TA-37 TC-04: resume が現在状態を表示
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-37-cli-coverage-batch2.sh: line 58: printf: write error: Broken pipe
 [PASS] TA-37 TC-05: context --no-write が manifest を stdout のみに出力
 [PASS] TA-37 TC-06: exec が C-3 未承認をブロックし非ゼロ終了（rc=1）
 [PASS] TA-37 TC-07: fixture を完全削除（汚染なし）
@@ -430,6 +444,7 @@ filter logic OK (threshold met)
 [PASS] TA-40 TC-05: Risk=high → autonomous APPROVE 無効化が定義されている
 [PASS] TA-40 TC-06: C1-LOOP-01/02 が plan-quality-check SKILL.md に定義されている
 [PASS] TA-40 TC-07: 5 機械トリガーすべてが対応表に定義されている
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-40-task-0129-review-gate.sh: line 110: printf: write error: Broken pipe
 [PASS] TA-40 TC-08: apply-script --dry-run が差分またはSKIPを出力（本体未変更）
 [PASS] TA-40 TC-09: 既存 c3.json が拡張後 schema でも valid（後方互換）
 [PASS] TA-40 TC-09b: lite_eligible=false 強制がドキュメントに明記されている
@@ -451,6 +466,7 @@ filter logic OK (threshold met)
 === TA-42: bin/plangate CLI subcommand coverage (TASK-0140 / #515) ===
   [PASS] TC-01 AC-01: init creates task dir + pbi-input.md + approvals/ + evidence/
   [PASS] TC-02 AC-01: init on existing task exits 0 with 'already exists' message
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-42-cli-subcommands.sh: line 53: printf: write error: Broken pipe
   [PASS] TC-03 AC-02: status exits 0 and shows 'Task:' line for existing task
   [PASS] TC-04 AC-02: status exits non-zero with error message for missing task
   [PASS] TC-05 AC-03: handoff exits 0 and creates handoff.md
@@ -472,7 +488,9 @@ filter logic OK (threshold met)
   [PASS] TC-01: apply 適用済み (bin/plangate に check-test-cases.sh 配線あり)
   [PASS] TC-02 AC-01: EH-4 strict, test-cases.md なし → exit 1
   [PASS] TC-03 AC-01: EH-4, test-cases.md あり → exit 0
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-44-eh457-cli-wiring.sh: line 114: printf: write error: Broken pipe
   [PASS] TC-04 AC-07: doctor 出力に 'CLI Hook Wiring' セクションあり
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-44-eh457-cli-wiring.sh: line 121: printf: write error: Broken pipe
   [PASS] TC-05 AC-07: doctor が check-test-cases.sh を認識
 
 === TA-45: C-3 Approval Mode Config (TASK-0144) ===
@@ -518,6 +536,7 @@ filter logic OK (threshold met)
 
 === TA-51: doctor W-6 introduction gap detection (#720) ===
   [PASS] TC-01: not introduced + no record -> ok=true (no WARN)
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-51-doctor-w6.sh: line 93: printf: write error: Broken pipe
   [PASS] TC-02: not introduced + record exists -> WARN (ok=false, task listed)
   [PASS] TC-03: introduced + record exists -> ok=true (no WARN)
   [PASS] TC-04: introduced + no record -> ok=true (no WARN)
@@ -526,8 +545,10 @@ filter logic OK (threshold met)
 === TA-52: doctor skill name collision integration (#721) ===
   [PASS] TC-01: no skill roots -> ok=true (no collision)
   [PASS] TC-02: repo-local only skill -> ok=true (no collision)
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-52-doctor-skill-collision.sh: line 97: printf: write error: Broken pipe
   [PASS] TC-03: repo-local + plugin collision -> ok=false (WARN with detail)
   [PASS] TC-04: collision check is level=warn (does not count toward failures)
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-52-doctor-skill-collision.sh: line 119: printf: write error: Broken pipe
   [PASS] TC-05: collision script missing -> ok=true skip (no crash)
 
 === TA-53: doctor pre-push guard installation verification (#722) ===
@@ -674,10 +695,109 @@ filter logic OK (threshold met)
   [PASS] TA-61 discovery: runtime inventory non-empty (58 files)
   [PASS] TC-28: contract discovery glob (ta-*.sh) equals the runner's source glob
   [PASS] TC-25: every _pending_migration entry exists and is genuinely unmigrated (45 entries)
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
   [PASS] TC-25(1): covered set minus self is non-empty (12 files)
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 185: printf: write error: Broken pipe
   [PASS] TC-25(2): _pending_migration is a proper subset of the discovered set
   [PASS] TC-20: every discovered ta-*.sh has a unique basename test-id
   [PASS] TC-27: sh -n clean for helper, runner and every ta-*.sh
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 144: printf: write error: Broken pipe
   [PASS] TC-09/TC-10: covered files carry exactly one marker and a matching basename init
   [INFO] TC-11: harness-only in-scope count is 0 — vacuous PASS (recorded, not hidden; full coverage arrives in Slice 2)
   [PASS] TC-15: guarded env set derived at runtime from the runner's unset list
@@ -688,9 +808,11 @@ filter logic OK (threshold met)
   [PASS] TC-12(b): ta-40-task-0129-review-gate force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-40-task-0129-review-gate contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-43-eh2-strict-json clean standalone run rc=0 with no [FAIL]
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 327: printf: write error: Broken pipe
   [PASS] TC-12(b): ta-43-eh2-strict-json force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-43-eh2-strict-json contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-44-eh457-cli-wiring clean standalone run rc=0 with no [FAIL]
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 327: printf: write error: Broken pipe
   [PASS] TC-12(b): ta-44-eh457-cli-wiring force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-44-eh457-cli-wiring contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-45-c3-mode-config clean standalone run rc=0 with no [FAIL]
@@ -744,7 +866,13 @@ filter logic OK (threshold met)
   [PASS] TC-17/TC-29: ta-46-ehs-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
   [PASS] TC-17/TC-29: ta-47-ehs23-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
   [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 768: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 769: printf: write error: Broken pipe
+/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-61-extra-contract.sh: line 770: printf: write error: Broken pipe
   [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
   [INFO] TC-14/TC-15(runner): asserted in standalone contract-TA runs; this harness run is itself the TC-14 subject (see full-suite evidence)
 
 Results: 612 passed, 0 failed
+
+# ---- run metadata ----
+# date: 2026-08-12  HEAD: 1b28b66  rc=0  Results: 612 passed, 0 failed  duration=282s

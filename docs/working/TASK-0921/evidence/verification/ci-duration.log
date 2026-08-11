@@ -1,7 +1,8 @@
-# CI duration measurement (R-017 / R-026) — 2026-08-11 04:29
+# CI duration measurement (R-017 / R-026) — 2026-08-12, HEAD 1b28b66
 # machine: macOS (darwin), local dev — baseline 231s was measured on the same class of machine (evidence/baseline/baseline-summary.md)
-full-suite (sh tests/run-tests.sh, contract TA 込み): rc=0, 612 passed 0 failed, duration=264s
+full-suite (sh tests/run-tests.sh, contract TA 込み): rc=0, 612 passed 0 failed, duration=282s
 baseline (origin/main 相当): 231s
-delta: +33s（許容帯 +250〜280s を大きく下回る。ta-61 の suite 内実行は per-file ループ + sandbox のみで、nested full-suite は harness では走らないため）
-timeout-minutes: 10 (600s) に対する余裕: 600 - 264 = 336s
-注: ta-61 standalone 実行（TC-14/TC-15 で suite を 2 回子実行）は CI の job では走らない（CI は harness 経路のみ）
+delta: +51s (ta-61 の suite 内 sandbox ケース込み。nested full-suite は harness では走らない)
+timeout-minutes: 10 (600s) に対する余裕: 600 - 282 = 318s
+参考: ta-61 standalone 単独は 569s（TC-14/TC-15 で suite を 2 回子実行するため。CI job では走らない — CI は harness 経路のみ）
+# 旧計測 (2026-08-11 04:29): 264s / delta +33s — 本計測で supersede
