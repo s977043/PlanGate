@@ -1,0 +1,67 @@
+
+=== TA-25: TASK-0123/TASK-1023 approval-token-guard ===
+  [FAIL] T1023-TC-01 env=maintenance.json not blocked with exit 2 (exit 1)
+  [FAIL] T1023-TC-02b top-level legacy file_path not blocked as protected-write (exit 1)
+  [FAIL] T1023-TC-03 env-normal + stdin Bash token write not blocked (exit 0)
+  [FAIL] T1023-TC-05 no-jq PATH did not fail closed (exit 0)
+  [FAIL] T1023-TC-13c-file stdin file_path not evaluated independently (exit 0)
+  [PASS] T1023-TC-22a MultiEdit normal file passes (exit 0)
+  [FAIL] T1023-TC-23 TTY stdin not fail-closed or hung (rc_normal=0 rc_token=1 timeout=0/0)
+  [PASS] TC-01 check-approval-token-write.sh exists and is executable
+  [PASS] TC-02 check-approval-token-write.sh syntax ok
+  [FAIL] TC-03 maintenance.json path not blocked with exit 2 (exit 1)
+  [FAIL] TC-04 approvals/c3.json not blocked with exit 2 (exit 1)
+  [PASS] TC-05 normal file passes (exit 0)
+  [SKIP] TC-06 hmac_signature not yet in schema (HO patch unapplied — SKIP)
+  [PASS] TC-07 apply-task-0123-patches.sh exists and syntax ok
+  [FAIL] T1023-TC-02a tool_input.file_path token not blocked (exit 1)
+  [FAIL] T1023-TC-04 multiline tee maintenance.json not blocked (exit 0)
+    (TC-06a detail: p_malformed exit=0)
+    (TC-06a detail: p_truncated exit=0)
+    (TC-06a detail: p_empty exit=0)
+  [FAIL] T1023-TC-06a malformed/truncated/empty stdin not fail-closed
+  [FAIL] T1023-TC-06b unreadable stdin not fail-closed (exit 0)
+  [FAIL] T1023-TC-07 escaped-slash token path not blocked (exit 1)
+    (TC-07b detail: p_empty_obj exit=0)
+    (TC-07b detail: p_no_tool_input exit=0)
+    (TC-07b detail: p_null_fp exit=0)
+    (TC-07b detail: p_array_fp exit=0)
+    (TC-07b detail: p_number_fp exit=0)
+    (TC-07b detail: p_unknown_tool exit=0)
+    (TC-07b detail: p_wrong_event exit=0)
+  [FAIL] T1023-TC-07b structurally invalid payloads not fail-closed
+  [PASS] T1023-TC-08 read-only cat of token path passes (exit 0)
+  [FAIL] T1023-TC-09 mixed command not conservatively blocked (exit 1)
+  [PASS] T1023-TC-10 normal writes pass (exit 0)
+  [PASS] T1023-TC-11 non-TTY approve/maintenance rejected by CLI, no artifact, real audit unchanged
+tests/extras/ta-25-approval-token-guard.sh: line 425: , docs/working/TASK-0001/approvals/c3.json); print F 1;\""}}: No such file or directory
+    (TC-12 detail: p_sf_apply_patch exit=0)
+    (TC-12 detail: p_sf_patch exit=0)
+    (TC-12 detail: p_sf_node exit=0)
+tests/extras/ta-25-approval-token-guard.sh: line 67: /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T//pg-t25.WLPZGV/p_sf_perl_open: No such file or directory
+    (TC-12 detail: p_sf_perl_open exit=1)
+    (TC-12 detail: p_sf_perl_pi exit=0)
+    (TC-12 detail: p_sf_ruby exit=1)
+  [FAIL] T1023-TC-12 some representative write surface not blocked
+  [FAIL] T1023-TC-13a $1 fallback target not blocked (exit 0)
+  [PASS] T1023-TC-13b env target takes precedence over $1 (exit 0)
+  [FAIL] T1023-TC-13c-cmd stdin Bash command not evaluated independently (exit 0)
+  [FAIL] T1023-TC-14a bypass diagnostic contract broken (exit 0)
+  [FAIL] T1023-TC-14b in-command bypass string bypassed the guard (exit 1)
+  [FAIL] T1023-TC-14c inherited bypass leaked into assertion (exit 1)
+  [FAIL] T1023-TC-22b MultiEdit token file_path not blocked (exit 1)
+  [PASS] T1023-TC-22c token-path string in body does not block normal-file edits (exit 0)
+  [PASS] T1023-TC-24 no guard invocation without stdin redirect
+  [PASS] T1023-TC-20 legacy TCs retained + standalone failure propagates non-zero rc
+  [FAIL] T1023-TC-15pre mutation baseline failed (rc=1) — mutation kill判定は無効
+  [FAIL] T1023-TC-15 mutation anchor not unique (count=0)
+  [FAIL] T1023-TC-16 mutation anchor not unique (count=0)
+  [FAIL] T1023-TC-17 mutation anchor not unique (count=0)
+  [FAIL] T1023-TC-17b mutation anchor not unique (count=0)
+  [FAIL] T1023-TC-17c mutation anchor not unique (count=0)
+  [FAIL] T1023-TC-17d mutation anchor not unique (count=0)
+  [FAIL] T1023-TC-17e mutation anchor not unique (count=0)
+  [FAIL] T1023-TC-17post restore run failed (rc=1)
+
+TA-25 standalone: 13 passed, 31 failed
+TA25_EXIT=1

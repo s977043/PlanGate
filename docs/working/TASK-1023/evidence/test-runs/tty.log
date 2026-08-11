@@ -1,0 +1,2 @@
+  [PASS] T1023-TC-23 TTY stdin fails closed without hanging (exit 2 / exit 2)
+  [PASS] T1023-TC-17b mutant killed by real TC (T1023-TC-23 FAILs)
