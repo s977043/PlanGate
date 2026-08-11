@@ -66,5 +66,15 @@ TA-97 standalone: 0 passed, 0 failed
   [PASS] TC-21: harness register_cleanup untouched; helper sources cleanly under set -eu
   [PASS] TC-23(synthetic): probe env does not leak into children, yet the probe still fires at finalize
   [PASS] TC-26: a failing sourced file does not truncate the set -eu harness (marker + Results both present)
-  [FAIL] sandbox: repo worktree copy failed under /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.ZjQY0kPBf4/sandbox (fail-closed)
-TA-61 standalone: 62 passed, 3 failed
+  [INFO] TC-29 shells: dash=/bin/dash bash=/bin/bash
+  [FAIL] TC-17/TC-29: ta-39-eh3-doc-light dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [FAIL] TC-17/TC-29: ta-43-eh2-strict-json dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [FAIL] TC-17/TC-29: ta-44-eh457-cli-wiring dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [FAIL] TC-17/TC-29: ta-45-c3-mode-config dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [FAIL] TC-17/TC-29: ta-46-ehs-wiring dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [FAIL] TC-17/TC-29: ta-47-ehs23-wiring dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
+  [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
+TA-61 standalone: 64 passed, 8 failed
+# ---- driver verdict (M-10) ----
+rc=1

@@ -74,3 +74,9 @@
   [PASS] TC-17/TC-29: ta-47-ehs23-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
   [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
   [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
+  [PASS] TC-14: harness regression — suite rc=0, 0 failed, runtime-resolved last file (ta-61-extra-contract.sh) reached
+  [PASS] TC-15: contaminated-env harness run (guarded envs + probe vars) matches clean baseline
+TA-61 standalone: 74 passed, 0 failed
+
+# ---- run metadata (appended by exec worker) ----
+# date: 2026-08-12  HEAD: 8335fa1  rc=0  summary: 74 passed, 0 failed

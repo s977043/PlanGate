@@ -2,17 +2,14 @@
 === TA-61: extras execution contract (#921 Slice 1) ===
   [PASS] TA-61 discovery: runtime inventory non-empty (58 files)
   [PASS] TC-28: contract discovery glob (ta-*.sh) equals the runner's source glob
-  [PASS] TC-25: every _pending_migration entry exists and is genuinely unmigrated (45 entries)
-  [PASS] TC-25(1): covered set minus self is non-empty (12 files)
+  [FAIL] TC-25: already-migrated file still listed in _pending_migration: ta-39-eh3-doc-light.sh
+  [PASS] TC-25(1): covered set minus self is non-empty (11 files)
   [PASS] TC-25(2): _pending_migration is a proper subset of the discovered set
   [PASS] TC-20: every discovered ta-*.sh has a unique basename test-id
   [PASS] TC-27: sh -n clean for helper, runner and every ta-*.sh
   [PASS] TC-09/TC-10: covered files carry exactly one marker and a matching basename init
   [INFO] TC-11: harness-only in-scope count is 0 — vacuous PASS (recorded, not hidden; full coverage arrives in Slice 2)
   [PASS] TC-15: guarded env set derived at runtime from the runner's unset list
-  [PASS] TC-12(a)/TC-13: ta-39-eh3-doc-light clean standalone run rc=0 with no [FAIL]
-  [PASS] TC-12(b): ta-39-eh3-doc-light force-fail probe propagates to rc=1 with probe marker
-  [PASS] TC-15: ta-39-eh3-doc-light contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-40-task-0129-review-gate clean standalone run rc=0 with no [FAIL]
   [PASS] TC-12(b): ta-40-task-0129-review-gate force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-40-task-0129-review-gate contaminated-env standalone run matches clean baseline (rc=0)
@@ -38,7 +35,7 @@
   [PASS] TC-12(b): ta-50-precompact-guard force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-50-precompact-guard contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-51-doctor-w6 clean standalone run rc=0 with no [FAIL]
-  [FAIL] TC-12(b): ta-51-doctor-w6 probe differential failed (rc=0; finalize not reached or marker missing)
+  [PASS] TC-12(b): ta-51-doctor-w6 force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-51-doctor-w6 contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-52-doctor-skill-collision clean standalone run rc=0 with no [FAIL]
   [PASS] TC-12(b): ta-52-doctor-skill-collision force-fail probe propagates to rc=1 with probe marker
@@ -46,7 +43,7 @@
   [PASS] TC-12(a)/TC-13: ta-53-doctor-prepush clean standalone run rc=0 with no [FAIL]
   [PASS] TC-12(b): ta-53-doctor-prepush force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-53-doctor-prepush contaminated-env standalone run matches clean baseline (rc=0)
-  [PASS] TC-25(3): per-file execution loop started 12 file run(s) (non-zero)
+  [PASS] TC-25(3): per-file execution loop started 11 file run(s) (non-zero)
   [PASS] TC-19: README documents rc 0/1/2/3, marker convention, probe and the rc=2 namespace note
   [PASS] TC-01: harness-mode init/finalize is non-invasive and ignores probe env
   [PASS] TC-01b: PG_HARNESS_SOURCED!=1 (FIXTURES/EXTRAS set) resolves to standalone
@@ -74,6 +71,6 @@
   [PASS] TC-17/TC-29: ta-47-ehs23-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
   [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
   [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
-TA-61 standalone: 71 passed, 1 failed
-# ---- driver verdict (M-07) ----
+TA-61 standalone: 68 passed, 1 failed
+# ---- driver verdict (M-14a) ----
 rc=1

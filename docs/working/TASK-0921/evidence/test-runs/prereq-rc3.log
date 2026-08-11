@@ -1,0 +1,11 @@
+# TC-17 prerequisite-absent rc=3 sandbox evidence (R-002 / Human 決定 5) — 2026-08-12, HEAD 8335fa1
+# sandbox: repo real-copy + predicate strings stripped; rc=3 must originate from pg_extra_contract_skip
+  [INFO] TC-29 shells: dash=/bin/dash bash=/bin/bash
+  [PASS] TC-17/TC-29: ta-39-eh3-doc-light prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
+  [PASS] TC-17/TC-29: ta-43-eh2-strict-json prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
+  [PASS] TC-17/TC-29: ta-44-eh457-cli-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
+  [PASS] TC-17/TC-29: ta-45-c3-mode-config prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
+  [PASS] TC-17/TC-29: ta-46-ehs-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
+  [PASS] TC-17/TC-29: ta-47-ehs23-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
+  [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
+# synthetic precedence cases (skip-with-fail.log): fail>0 -> rc=1 precedence / probe on prereq-absent stays rc=3

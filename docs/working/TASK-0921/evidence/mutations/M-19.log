@@ -1,7 +1,7 @@
 
 === TA-61: extras execution contract (#921 Slice 1) ===
   [PASS] TA-61 discovery: runtime inventory non-empty (58 files)
-  [PASS] TC-28: contract discovery glob (ta-*.sh) equals the runner's source glob
+  [FAIL] TC-28: runner extras loop does not use "$EXTRAS_DIR"/ta-[0-9]*.sh — discovery set != source set (see /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.C99znJkBmF/repo/tests/run-tests.sh)
   [PASS] TC-25: every _pending_migration entry exists and is genuinely unmigrated (45 entries)
   [PASS] TC-25(1): covered set minus self is non-empty (12 files)
   [PASS] TC-25(2): _pending_migration is a proper subset of the discovered set
@@ -38,7 +38,7 @@
   [PASS] TC-12(b): ta-50-precompact-guard force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-50-precompact-guard contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-51-doctor-w6 clean standalone run rc=0 with no [FAIL]
-  [FAIL] TC-12(b): ta-51-doctor-w6 probe differential failed (rc=0; finalize not reached or marker missing)
+  [PASS] TC-12(b): ta-51-doctor-w6 force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-51-doctor-w6 contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-52-doctor-skill-collision clean standalone run rc=0 with no [FAIL]
   [PASS] TC-12(b): ta-52-doctor-skill-collision force-fail probe propagates to rc=1 with probe marker
@@ -75,5 +75,5 @@
   [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
   [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
 TA-61 standalone: 71 passed, 1 failed
-# ---- driver verdict (M-07) ----
+# ---- driver verdict (M-19) ----
 rc=1

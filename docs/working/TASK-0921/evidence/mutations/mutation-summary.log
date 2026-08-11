@@ -1,13 +1,34 @@
-# TASK-0921 Slice 1 mutation evidence (2026-08-11 04:48)
-# driver: scratchpad/mutation-driver.sh; each mutation runs in a fresh mktemp sandbox copy
-M-01 SURVIVED rc=0 pattern-hit=1 (\[FAIL\] TC-(04|12))
-M-02 KILLED rc=1 expected-detector-fired: \[FAIL\] TC-01
-M-03 KILLED rc=1 expected-detector-fired: \[FAIL\] TC-(01|15)
-M-04 KILLED rc=1 expected-detector-fired: \[FAIL\] TC-08
-M-05 KILLED rc=1 expected-detector-fired: \[FAIL\] TC-02
-M-06 KILLED rc=1 expected-detector-fired: \[FAIL\] TC-09.*ta-96-m06-probe
-M-07 KILLED rc=1 expected-detector-fired: \[FAIL\] TC-12\(b\).*ta-51-doctor-w6
-M-08 KILLED rc=1 expected-detector-fired: \[FAIL\] TC-12\(fail-closed\)
-M-10 KILLED rc=1 expected-detector-fired: \[FAIL\] TC-17
-M-12 KILLED rc=1 expected-detector-fired: \[FAIL\] TC-23
-M-13 SURVIVED rc=1 pattern-hit=0 (\[FAIL\] TC-16)
+# TASK-0921 Slice 1 mutation evidence — full re-run 2026-08-12 against HEAD 8335fa1
+# driver: fresh local git clone of fix/0921-exec per mutation (so ta-61's own
+#   git-ls-files sandbox works); run: PG_T61_SKIP_SUITE=1 sh tests/extras/ta-61-extra-contract.sh
+#   (test-only knob skips only the nested full-suite children; sandbox cases TC-16/TC-17/TC-29 run)
+# control: M-00-control.log = unmutated clone, rc=0, "TA-61 standalone: 72 passed, 0 failed"
+# supersedes the 2026-08-11 04:48 summary (mixed-vintage: some runs predated commits 746a1b6/023da07;
+#   M-14ab.log split into M-14a/M-14b and re-run)
+M-01 KILLED  (dual-channel) standalone: rc=0 BUT detector fired ([FAIL] TC-04) — the mutated
+             finalizer masks ta-61's own standalone rc (self-referential swallow);
+             harness channel (M-01-harness.log): sh tests/run-tests.sh rc=1,
+             Results: 596 passed, 16 failed — runner aggregation is helper-independent,
+             so the CI detection path kills the mutant
+M-02 KILLED rc=1 detector: [FAIL] TC-01
+M-03 KILLED rc=1 detector: [FAIL] TC-01b
+M-04 KILLED rc=1 detector: [FAIL] TC-08
+M-05 KILLED rc=1 detector: [FAIL] TC-02
+M-06 KILLED rc=1 detector: [FAIL] TC-09 (ta-96-m06-probe: marker count 0)
+M-07 KILLED rc=1 detector: [FAIL] TC-12(b) ta-51-doctor-w6
+M-08 KILLED rc=1 detector: [FAIL] TC-12(fail-closed)
+M-10 KILLED rc=1 detector: [FAIL] TC-17
+M-12 KILLED rc=1 detector: [FAIL] TC-23
+M-13 KILLED rc=1 detector: [FAIL] TC-16 (predicate side: allowlist as "has no helper bootstrap")
+M-14a KILLED rc=1 detector: [FAIL] TC-25 already-migrated file still listed (ta-39-eh3-doc-light.sh)
+M-14b KILLED rc=1 detector: [FAIL] TC-25 entry does not exist (ta-77-does-not-exist.sh)
+M-14c KILLED rc=1 ALL THREE assertions fired individually:
+             TC-25(1) covered set minus self is EMPTY /
+             TC-25(2) not a proper subset / TC-25(3) loop executed ZERO files
+M-15 KILLED rc=1 detector: [FAIL] TC-17/TC-29 ta-39-eh3-doc-light dual-shell mismatch
+             (dash=0 bash=1, want 3/3) — BOTH shells recorded in one assertion (R-021)
+M-16 KILLED rc=1 detector: [FAIL] TC-26 (source-path truncation)
+M-17 KILLED rc=1 detector: [FAIL] TC-09 (head-20 restriction dropped -> heredoc marker counted)
+M-18 KILLED rc=1 detector: [FAIL] TC-12(b) (rc=1 alone no longer passes without the probe id string)
+M-19 KILLED rc=1 detector: [FAIL] TC-28 (glob ta-[0-9]*.sh != runner glob)
+# Slice 2 only (not run here): M-09 / M-11 / M-13 list side (TC-24)

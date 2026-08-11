@@ -38,7 +38,7 @@
   [PASS] TC-12(b): ta-50-precompact-guard force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-50-precompact-guard contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-51-doctor-w6 clean standalone run rc=0 with no [FAIL]
-  [FAIL] TC-12(b): ta-51-doctor-w6 probe differential failed (rc=0; finalize not reached or marker missing)
+  [PASS] TC-12(b): ta-51-doctor-w6 force-fail probe propagates to rc=1 with probe marker
   [PASS] TC-15: ta-51-doctor-w6 contaminated-env standalone run matches clean baseline (rc=0)
   [PASS] TC-12(a)/TC-13: ta-52-doctor-skill-collision clean standalone run rc=0 with no [FAIL]
   [PASS] TC-12(b): ta-52-doctor-skill-collision force-fail probe propagates to rc=1 with probe marker
@@ -74,6 +74,6 @@
   [PASS] TC-17/TC-29: ta-47-ehs23-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
   [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
   [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
-TA-61 standalone: 71 passed, 1 failed
-# ---- driver verdict (M-07) ----
-rc=1
+TA-61 standalone: 72 passed, 0 failed
+# ---- driver verdict (M-00) ----
+rc=0
