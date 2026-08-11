@@ -27,12 +27,17 @@ ai-loopの現在状態と未完了actionをプロセス外へ永続化し、Huma
 
 ### In Scope
 
-- JSON stateとhash-chain付きappend-only recordの契約
-- revision compare-and-swap、atomic replace、read-time validation
+- Git common-dir上のJSON state、hash-chain付きappend-only record、task-wide action lifecycle / receipt consumption ledger、全artifactを束縛するtask manifestの契約
+- task単位inter-process lock、revision compare-and-swap、redo型WAL、atomic replace、read-time recovery / validation
 - `RUNNING` / `WAITING_HUMAN` / `WAITING_EXTERNAL` / `BLOCKED` / `COMPLETED`
 - Human / External requestのstable action IDと冪等再提示
-- Human C-3 artifactとExternal receiptのread-only検証
-- restart / duplicate / tamper / binding mismatch / stale writerのunit tests
+- Human C-3 artifactとExternal receiptのcanonical pathからのread-only / no-follow検証
+- 実plan bytes・実git HEADの内部解決とcaller supplied bindingの禁止
+- restart / duplicate / tamper / binding mismatch / true concurrent writer / crash window / rollbackのunit tests
+- `tests/run-tests.sh`から新unit suiteへ到達するextras導線
+- explicit `block_run` / `unblock_run` / `complete_run`、recoverable `BLOCKED`、`COMPLETED`だけのterminal idempotency、receipt消費後requestの完了済み冪等再提示
+- 既存`gh_exec` read-only Git境界のisolated environment / required argv拡張
+- 正規plugin syncによるcontract / runtime / testsのbundle同期
 - Durable Run Contract文書
 
 ### Out of Scope
@@ -41,25 +46,89 @@ ai-loopの現在状態と未完了actionをプロセス外へ永続化し、Huma
 - c3.json、Human approval receipt、C-4、mergeの生成
 - GitHub API / CI polling / daemon
 - RunEvidence producerや#869 Evolution実装への直接配線
+- plugin bundle内のcopyを直接target repositoryへ接続するoperational adapter（生成copyは配布ミラー。v1 mutation/status入口ではない）
 - 過去TASK stateのmigration
+- 別clone / 別machineへのruntime state同期
+- native Windows locking（v1 operational CLIはLinux/WSLの`/usr/bin/python3 -I -S -B`、`/usr/bin/git`、POSIX `fcntl.flock`を前提）
 
 ## Global Constraints
 
 - C-3成立前にproduction fileを変更しない。
 - Python標準ライブラリ以外を追加しない。
 - `scripts/ai-loop/durable_run.py`は`approvals/**`へ書き込まない。
-- mutationは`expected_revision`不一致を拒否し、暗黙のlast-write-winsを許さない。
-- state / recordの未知キー、未知enum、chain不一致、binding不一致はfail-closedにする。
+- mutationはtask単位のinter-process lock内でstate / ledgerを再読込し、`expected_revision`不一致を拒否する。暗黙のlast-write-winsを許さない。
+- state / record / ledger / manifest / transaction / External receiptの未知キー、未知enum、chain不一致、cross-binding不一致はfail-closedにする。legacy C-3だけは`schemas/c3-approval.schema.json`と同じ既知propertyに加えてトップレベルの`^_`注釈キーを受理し、それ以外の未知キーを拒否する。全JSON readerはUTF-8 strict、`object_pairs_hook`によるduplicate key拒否、`parse_constant`による`NaN` / `Infinity` / `-Infinity`拒否を共通化する。
 - timestampはCLI入力で注入し、純粋な判定関数内で現在時刻を取得しない。
-- stateは同一directoryへの一時write + flush + fsync + `os.replace`で更新する。
-- action IDはtimestampを含まないcanonical payloadから生成する。
+- v1 mutation/status operational interfaceはcanonical sourceを`/usr/bin/python3 -I -S -B scripts/ai-loop/durable_run.py`でmain実行するCLIだけとする。起動直後に`sys.flags.isolated` / `no_site` / `dont_write_bytecode` / `safe_path`、`__main__.__spec__ is None`、canonical `__file__`、root-owned `/usr/bin/python3` realpathをartifact I/O前に検証し、不一致は`unsafe_python_runtime`とする。canonical hashはself-contained実装とし、runtime repo importは`gh_exec.py`だけを許可する。
+- `gh_exec` import前に同名moduleが`sys.modules`にあれば拒否する。`/tmp`へmode 0700の空private bytecode-cache directoryを作り、`sys.pycache_prefix`をそこへ固定してからcanonical ai-loop directoryをstdlib pathの末尾へ1回だけ追加し、static importする。import後は`__file__` / `__spec__.origin` / `SourceFileLoader.path`が同じcanonical sourceであること、source bytesがimport前後で不変であること、`__cached__`が当該private directory配下であることを検証し、directoryを空のまま除去する。これによりtimestamp-valid ignored `__pycache__`、shadow package、`PYTHONPATH` / `PYTHONHOME` / `sitecustomize` / preloaded fake moduleをruntime候補にしない。
+- operational commandは`__file__`がcanonical `<repo>/scripts/ai-loop/durable_run.py` layoutにある場合だけ許可する。正規syncで生成する`plugin/plangate/.../scripts/durable_run.py`はbyte-identical distribution mirrorだが、bundle内からの直接mutation/statusはcaller CWDをrepo authorityへ昇格させず、artifact I/O前に`unsupported_runtime_layout`。`contract`とpure test metadataだけを許可し、direct plugin adapterは別PBIとする。
+- repository anchorはmain scriptの`Path(__file__).resolve()`が指す`<root>/scripts/ai-loop/durable_run.py`から導出し、既存唯一境界`gh_exec.run_git(..., isolated_env=True)`の`cwd=<anchor>`で`rev-parse --show-toplevel`を実行して同じreal pathを返すことを検証する。caller cwd / repo rootとambient environmentを権威入力にしない。
+- production moduleは直接`subprocess` / `multiprocessing`をimportしない。`gh_exec.run_git(..., isolated_env=True, binary_output=True)`だけが、caller argvを既存read-only ruleで認可した後にroot-owned `/usr/bin/git`と固定global optionを組み立てて実行する。既存callerの既定`isolated_env=False, binary_output=False`は維持する。isolated環境はcaller `PATH` / `HOME` / `XDG_*` / 全`GIT_*`を継承せず、`PATH=/usr/bin:/bin`, `HOME=/dev/null`, `XDG_CONFIG_HOME=/dev/null`, `LC_ALL=C`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=/dev/null`, `GIT_OPTIONAL_LOCKS=0`, `GIT_PAGER=cat`, `GIT_TERMINAL_PROMPT=0`のallowlistから再構成する。
+- isolated Git argvはcallerから指定できない`--no-pager`と`-c core.fsmonitor=false`, `-c core.untrackedCache=false`, `-c core.worktree=<verified anchor>`, `-c core.bare=false`, `-c status.showUntrackedFiles=all`, `-c diff.external=`, `-c core.attributesFile=/dev/null`をsubcommand前へ固定挿入する。`gh_exec`のread-only allowlistへ本機能が必要な`rev-parse --path-format=absolute --show-toplevel|--git-common-dir`、`status --porcelain --null --untracked-files=all --no-renames`、`diff --name-only --null --no-renames --no-ext-diff`だけをexact追加し、path outputはbytesのNUL単位 + filesystem `surrogateescape`で解釈する。残るGit object/index/common-dir/worktree configを含むlocal admin metadataは明示TCBであり、悪意あるrepo administratorへの隔離はv1保証に含めない。
+- runtime rootはsanitized `git -C <anchor> rev-parse --path-format=absolute --git-common-dir`から解決する。未対応Gitでは`git -C <anchor> rev-parse --git-common-dir`をanchor基準でabsolute化し、両方式ともreal pathとdirectory性を検証して`<common-dir>/plangate/durable-run/<TASK>/`へ置く。tracked worktreeへstate/record/ledger/WALを書かない。write / file fsync / directory fsync不能は`runtime_unwritable`でartifact mutation前に停止する。
+- runtime storeはrun directoryを作らないflat layoutとし、task root内は`manifest.json` / `ledger.jsonl` / `transaction.json` / `run--<RUN_ID>--state.json` / `run--<RUN_ID>--record.jsonl` / `external-receipt--<ACTION_HEX>.json`だけを許可する。task IDはlegacy C-3/schemaと同じ`TASK-[0-9]{4}`、run IDは`RUN-[A-Z0-9][A-Z0-9_-]{0,63}`、action ID/digestは`sha256:[0-9a-f]{64}`をexact grammarとし、filenameではaction prefixを除く64 hexだけを使う。caller supplied filenameを受け取らない。
+- task lockはswappable task root外のheld Git common-dir直下`plangate-durable-run-lock--<TASK>.lock`へ置く。common-dir dirfdからno-follow create/openしてdev/inoを記録し、`fcntl.flock`後に同じcommon-dir fdから再openして一致確認してからbootstrap/recoveryへ進む。
+- bootstrapはlock取得後、held common-dir dirfdから`plangate`→`durable-run`→task rootを`mkdirat`相当 + parent directory fsyncで順に作る。manifest/transaction不存在時に再利用できるprestateは空task rootだけ。各lock create/common-dir fsync/mkdir/parent fsyncでcrashしても同じcommon-dir lock domainへretryでき、それ以外のfile・symlink・orphan siblingは`bootstrap_conflict`で拒否する。
+- mutationはprepare transactionを先にatomic write + fsyncし、run record→task-wide ledger（action reserve/consume時）→run state→task manifestの順でroll-forward可能にcommitする。各targetは同一directoryへのtemporary write + flush + fsync + dirfd `os.replace` + directory fsyncで更新する。
+- recoveryはlock内で各targetがtransactionのold digestまたはnew digestのどちらかであることを確認し、oldのみnewへ進める。第三のdigestは`transaction_conflict`で停止する。
+- task manifestは単調`generation`、`last_committed_tx_id`、全run state/record digest・count・tail・tx、ledger digest・count・tailを保持する。全mutationでmanifestを最後に更新し、load時に全artifactを一括照合する。proper subset rollbackは拒否し、全保存領域の同時rollbackだけをtrust limitとする。
+- manifestはruntime rootのcanonical inventoryでもある。active transaction / 規定temp / pendingまたはledger参照済みのstrict-name External receiptを除き、未参照state / record / receipt / ledger / 未知fileをdirectory censusで拒否する。run directoryは存在しない。temp名は`transaction.json.tmp`と`<target>.tmp--<TX_HEX>`だけとする。active transactionに紐づくtarget temp以外は拒否し、active transaction不存在時の`transaction.json.tmp`だけはregular/no-follow、strict JSON、task/base generation/current old digests一致を検証してからpromote、truncatedなら未commit操作としてunlink + directory fsyncしてretry可能にする。
+- CLIはrepo root、Git common-dir、canonical task dir、plan bytes、実git HEAD、receipt path、action bindingを内部解決する。task dir / plan hash / source SHA / receipt pathを権威入力として受け取らない。module importによるin-process mutation APIはv1非対応で、将来adapterはcanonical CLI subprocessを使用する。
+- directory traversalはstrict task/run/action ID allowlistとdirfd `openat`相当（`O_DIRECTORY|O_NOFOLLOW`、leaf `O_NOFOLLOW` + `fstat`）で行い、lstat→openを分離しない。common-dir / `plangate` / `durable-run` / task-root / lockのdev+inoを保持し、lock取得後・recovery前・各replace前後・unlock前にheld common-dirから全chainを再走査して一致を要求する。rename/replacementは`runtime_path_changed`で停止し、別lock/ledger domainへ入らない。
+- C-3は正規schema相当のrequired / type / phase / status / allowed-key検証を同一fdから読んだraw bytesに行う。semantic authority IDをtask-wide ledgerへ一度だけ記録し、raw digest、run/action、`request_source_sha`、`actual_resume_head`へ束縛する。
+- request作成時にledgerへ`action_reserved` eventを同じtransactionで1件追加し、resume時はそのreservationを参照する`action_consumed` eventをappend-onlyで最大1件追加する。全kind共通で`action_id`はtask-wideにreserved 1件 / consumed最大1件、Humanはconsumed event内のauthority IDをtask-wide一度、Externalは同event内のreceipt IDをtask-wide一度だけ許可する。duplicate requestは既存reservationを返し、ledgerを増やさない。消費済みactionの同一request再提示は`action_already_completed`として既存完了結果を返し、state / record / ledger / manifest generationを変えず再WAITINGへ遷移しない。同じaction IDへraw digest / semantic ID / result digestが異なる2件目は`receipt_conflict`で拒否する。
+- Human resumeはNUL解析したdirty/untracked pathがcanonical `docs/working/<TASK>/approvals/c3.json`のsubsetであることを常に要求する。その上で、内部観測した`actual_resume_head == request_source_sha`ならrelation=`same`、request SHAがancestorでcommit diffとdirty/untracked pathの和集合がcanonical C-3 pathだけならrelation=`c3_only_descendant`を許可する。ledgerには両SHAとrelationを別fieldで保存する。External resumeは`actual_resume_head == request_source_sha` + clean worktreeを要求する。Human / Externalとも初回検証後、task lock内のWAL prepare直前にsanitized Gitで`HEAD-before → status/diff/ancestor → HEAD-after`を再観測し、前後HEAD一致かつ初回snapshotと同一であることを要求する。この最終安定snapshotをsource relationの線形化点とし、差異は`source_context_changed`でtransaction作成前に全artifact不変のまま拒否する。線形化点後のGit変更は後続eventであり、v1が防止・排他すると主張しない。
+- External receiptはtask root直下`external-receipt--<ACTION_HEX>.json`をcanonical pathとし、strict schemaに`task_id` / `run_id` / `action_id` / `plan_hash` / `request_source_sha` / `resume_head` / `status=SUCCEEDED` / `result_digest`を必須化する。semantic receipt IDとaction IDを同じtask-wide ledgerで一度だけ消費する。
+- C-3 / External receiptは同一fdからvalidate+digestし、prepare直前にcanonical pathのdev/ino/raw digestを再照合して差替えraceを拒否する。同じprepare直前区間でsource relationの最終安定snapshotも再取得し、receiptとsourceの両snapshotが初回検証結果と一致した場合だけprepare transactionを作る。
+- `harness_fingerprint`は実際に実行/ロードする`gh_exec.py`, `durable_run.py`のcanonical relative path + source bytes SHA-256と、root-owned Python/Git executableのfixed invoked path + realpath + bytes SHA-256を固定順で束縛する。各CLI invocationでsource / loader identity / executable ownership・mode・digestを再検証し、active runのいずれかが変われば`harness_drift`で拒否する。stdlib・shared library・Git object/index/local admin metadataはroot/OS・local repository TCBとして別途明記する。
+- action / Human authority / External receipt IDとharness fingerprintは下記「Canonical ID Contract」のdomain/version付きexact payloadをself-contained canonical hashで生成し、testだけが`c3_contract.canonical_hash`とのbyte-for-byte parityを検証する。timestamp / approved_at / annotationを含めない。
+- `block_run`は`RUNNING`またはWAITING状態からのみ許可し、`blocked_context`へ直前status / pending action / blockerを保存する。本Durable Runの`BLOCKED`は`.claude/rules/working-context.md`の外部依存taskに対応する**回復可能なorchestration status**で、arbiterの同名terminal decisionとは別語彙である。同一block再実行はno-op、明示`unblock_run`だけが保存済みstatus/pendingへ復帰し、blocker不一致・complete・通常request/resumeは拒否する。store integrity errorは安全にstateを書けないため`BLOCKED`へ変換しない。
 - C-3 / C-4 / merge / HO / policyのHuman-owned境界を変更しない。
+- legacy C-3がrun/action/sourceを署名しないこと、`source=cli`がprovenance証明でないこと、Human/External identityを暗号学的に検証しないこと、保存領域全体の同時rollbackと別clone同期は提供しないことをv1 trust limitとして隠さない。OS-owned `/usr/bin/python3` / `/usr/bin/git`とGit local admin metadataはtrusted computing baseとし、root/OS compromiseは対象外とする。
+
+## Canonical ID Contract
+
+canonicalizationは`json.dumps(payload, sort_keys=True, separators=(",", ":"))`のUTF-8 bytesに対するSHA-256で、戻り値は`sha256:<64 lowercase hex>`とする。payloadのkey集合とdomain/versionはexactであり、余剰keyをID入力へ取り込まない。
+
+| ID | exact payload fields |
+|---|---|
+| action ID | `domain="plangate.durable-run.action/v1"`, `task_id`, `run_id`, `action_kind`, `plan_hash`, `request_source_sha`, `harness_fingerprint`, `instructions_ref` |
+| Human authority ID | `domain="plangate.durable-run.human-plan-authority/v1"`, `task_id`, `phase="C-3"`, `c3_status="APPROVED"`, `source="cli"`, `plan_hash` |
+| External receipt ID | `domain="plangate.durable-run.external-receipt/v1"`, `task_id`, `run_id`, `action_id`, `plan_hash`, `request_source_sha`, `resume_head`, `status="SUCCEEDED"`, `result_digest` |
+| harness fingerprint | `domain="plangate.durable-run.harness/v1"`, `executables=[python, git]`, `files=[gh_exec.py, durable_run.py]`。各executableは`role`, `invoked_path`, `real_path`, `sha256`、各fileは`path`, `sha256`をexact fieldとし、この配列順を固定する |
+
+Golden vectors:
+
+- action: `TASK-1025`, `RUN-0001`, `WAITING_HUMAN_C3`, plan=`sha256:` + `11`×32、source=`a`×40、harness=`sha256:` + `22`×32、instructions=`docs/working/TASK-1025/plan.md#human-gate` → `sha256:633231d2247a07c0b9f64bfe2681458d775f3455ad2b6280d8611c9f4cf99e8e`
+- Human authority: 同task/plan、`C-3` / `APPROVED` / `cli` → `sha256:a3246e6c017b29d629a9a7dea0cd15bcbb1e8ecc5b89c276cb6b820f80d05ecb`
+- External receipt: 同task/run/plan/source、action=`sha256:` + `44`×32、resume=`a`×40、result=`sha256:` + `33`×32、`SUCCEEDED` → `sha256:e074b8948dec9573f31cf4cf194be32a315beac25e902f005b86542d17320c53`
+- harness: Python invoked=`/usr/bin/python3`, real=`/usr/bin/python3.12`, digest=`sha256:` + `88`×32、Git invoked/real=`/usr/bin/git`, digest=`sha256:` + `99`×32、`gh_exec.py`=`sha256:` + `66`×32、`durable_run.py`=`sha256:` + `77`×32 → `sha256:4370171c049d97a07d8598c34ec9512a5126d37be3ef587072f98cf037b96285`
+
+Golden canonical bytes（改行なし）:
+
+```text
+action={"action_kind":"WAITING_HUMAN_C3","domain":"plangate.durable-run.action/v1","harness_fingerprint":"sha256:2222222222222222222222222222222222222222222222222222222222222222","instructions_ref":"docs/working/TASK-1025/plan.md#human-gate","plan_hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","request_source_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","run_id":"RUN-0001","task_id":"TASK-1025"}
+human={"c3_status":"APPROVED","domain":"plangate.durable-run.human-plan-authority/v1","phase":"C-3","plan_hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","source":"cli","task_id":"TASK-1025"}
+external={"action_id":"sha256:4444444444444444444444444444444444444444444444444444444444444444","domain":"plangate.durable-run.external-receipt/v1","plan_hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","request_source_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","result_digest":"sha256:3333333333333333333333333333333333333333333333333333333333333333","resume_head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","run_id":"RUN-0001","status":"SUCCEEDED","task_id":"TASK-1025"}
+harness={"domain":"plangate.durable-run.harness/v1","executables":[{"invoked_path":"/usr/bin/python3","real_path":"/usr/bin/python3.12","role":"python","sha256":"sha256:8888888888888888888888888888888888888888888888888888888888888888"},{"invoked_path":"/usr/bin/git","real_path":"/usr/bin/git","role":"git","sha256":"sha256:9999999999999999999999999999999999999999999999999999999999999999"}],"files":[{"path":"scripts/ai-loop/gh_exec.py","sha256":"sha256:6666666666666666666666666666666666666666666666666666666666666666"},{"path":"scripts/ai-loop/durable_run.py","sha256":"sha256:7777777777777777777777777777777777777777777777777777777777777777"}]}
+```
+
+## Crash and Anti-False-Pass Contract
+
+- bootstrap fault labels（8）: `bootstrap_after_create_common_lock`, `bootstrap_after_fsync_common_dir_for_lock`, `bootstrap_after_mkdir_plangate`, `bootstrap_after_fsync_common_dir_for_plangate`, `bootstrap_after_mkdir_durable_run`, `bootstrap_after_fsync_plangate`, `bootstrap_after_mkdir_task`, `bootstrap_after_fsync_durable_run`
+- WAL fault labels（17）: `tx_after_temp_fsync`, `tx_after_replace`, `tx_after_dir_fsync`, `record_after_temp_fsync`, `record_after_replace`, `record_after_dir_fsync`, `ledger_after_temp_fsync`, `ledger_after_replace`, `ledger_after_dir_fsync`, `state_after_temp_fsync`, `state_after_replace`, `state_after_dir_fsync`, `manifest_after_temp_fsync`, `manifest_after_replace`, `manifest_after_dir_fsync`, `tx_after_unlink`, `tx_after_unlink_dir_fsync`
+- 初回transactionで空ledgerを含む4 targetの17 WAL labelを全列挙する。request updateは`action_reserved`、Human / External resume updateは`action_consumed` + authority/receiptをledgerへ追加するため、3 fixtureとも4 targetの17 labelを全列挙する。bootstrap 8と合わせ、fault injection subcaseは最低76（8 + 17 + 17×3）とする。
+- proper subset rollbackは同一generationの`state`, `record`, `ledger`, `manifest`の非空proper subset全14組（$2^4-2$）を列挙する。
+- unit対象は`TC-01`〜`TC-38`と`TC-43`〜`TC-46`のexact 42 ID。`test_durable_run.py`はmodule定数`COVERAGE_MANIFEST`で42 ID→`test-cases.md`記載のexact method nameを一対一mappingし、重複/欠落/余剰を禁止する。さらに`test_gh_exec.py`のisolated mode新規4 methodを`GH_EXEC_REQUIRED_METHODS`へexact固定する。`-I`ではcwdがimport pathから外れるため各test fileを直接実行し、ta-61は両runのloader resultを合算して最低46 tests、42 manifest method + 4 boundary methodが実際にloadされたことを照合する。
+- shell/route対象`TC-39`〜`TC-42`はta-61内の`SHELL_COVERAGE_MANIFEST`へexact command / expected exit / sentinelを一対一mappingする。TC-39=isolated unit+manifest、TC-40=`tests/run-tests.sh`からta-61 sentinel 1回、TC-41=delivery/run_evidence regression、TC-42=`git diff --check`と固定する。
+- ta-61は両manifest、GH boundary 4 method、合算件数、fault subcase=76、rollback subcase=14を独立照合し、成功時だけ`TA-61-DURABLE-RUN: PASS tests=<N> unit_tc=42 gh_boundary=4 fault=76 rollback=14`を出す。`tests/run-tests.sh`経由でも同sentinelが1回到達しなければFAILとする。
 
 ## 前提の実測検証（#786）
 
 | 前提 | 検証コマンド | 実測結果 | 判定 |
 |---|---|---|---|
-| mainの正本SHA | `git rev-parse HEAD` | `9f9af9451e396eec52b7a737ac3db3166ff60fb1` | ✅ |
+| mainの正本SHA | `git rev-parse origin/main` | `5e630f9d28e6db93f0133c8cef5cbdb39d51e8c2` | ✅ |
+| common-dir absolute/fallback | `git rev-parse --path-format=absolute --git-common-dir` / `git rev-parse --git-common-dir` | `/workspace/scratch/a0ce72931a7c/plangate-task-1025/.git` / `.git` | ✅ anchor基準absolute化が必要 |
 | intent / receiptの既存実装 | `rg -n "def action_id|def entry_id|def append_entries" scripts/ai-loop/delivery.py` | 3関数とreceipt抑止ロジックを確認 | ✅ |
 | ai-loop script数 | `rg --files scripts/ai-loop | wc -l` | 30 | ✅ |
 | ai-loop contract文書数 | `rg --files docs/workflows/ai-loop | wc -l` | 16 | ✅ |
@@ -67,182 +136,171 @@ ai-loopの現在状態と未完了actionをプロセス外へ永続化し、Huma
 
 ## Questions / Unknowns（#786）
 
-- 該当なし。`bin/plangate`への正式統合、JSON Schema昇格、Human receiptの署名強化は別PBIで判断する。
+- Human refinement R-003: **Aを採用（2026-08-09）**。HOを変更せず、legacy C-3をPlan authorityとして読み取り、task-wide ledgerで消費する。Round 2 findingへのchecker-driven refinementとしてserialization非依存のsemantic authority IDを全Run一度だけ消費し、raw digestは証拠としてrun/action/sourceへ束縛するが一意キーにはしない。この精緻化は確定PlanのHuman C-3承認待ちである。
+- 既知の保証限界: legacy artifact自体のaction-bound署名、Human identity、保存領域全体のrollback検出は提供しない。`bin/plangate`への正式統合、JSON Schema昇格、署名付きHuman receiptは別PBIで判断する。
 
 ## 確認事項（B-1）
 
-- Q1: 自己改善全体を一括実装するか。A: しない。今回の実害を直接防ぐDurable Runの最小縦切りに限定する。
+- Q1: 自己改善全体を一括実装するか。A: しない。今回の実害を防ぐためのDurable Run contract基盤の最小縦切りに限定し、既存TTY producer接続はfollow-upとする。
 - Q2: Human承認を会話経由に変更するか。A: 変更しない。既存CLI artifactをread-onlyで消費する。
 - Q3: stateの正本をMarkdownにするか。A: しない。JSONを機械正本、Markdownを人間向けviewとする。
+- Q4: legacy C-3へrun/action/source fieldを追加するか。A: 追加しない。semantic Plan authorityのtask-wide consumption ledger方式を採用し、非暗号学的trust limitを明記する。
 
 ## Metrics Evidence
 
 | 指標 | 見積り | 実測 / 計画値 | ratio | 判定 |
 |---|---:|---:|---:|---|
-| production変更ファイル | 3 | 3 | 1.0 | 採用 |
+| production変更ファイル | 12 | 12 | 1.0 | 採用 |
 | 新規module | 1 | 1 | 1.0 | 採用 |
 | 新規unit test file | 1 | 1 | 1.0 | 採用 |
-| 既存関連module | 2 | `delivery.py` / `c3_contract.py` | 1.0 | read-only再利用 |
+| CI extras file | 1 | 1 | 1.0 | 採用 |
+| 既存関連module変更 | 2 | `gh_exec.py` / `test_gh_exec.py` | 1.0 | isolated read-only Git境界 |
+| plugin派生成果物 | 5 | reference 1 / scripts 4 | 1.0 | sync生成のみ |
 
-「全件」系の対象はない。scopeはproduction 3ファイルに固定する。
+「全件」系の対象はない。scopeはproduction 12ファイルに固定する。
 
 ## Approach Comparison
 
 | 案 | 内容 | メリット | デメリット | 判定 |
 |---|---|---|---|---|
 | A | `delivery.py`へpre-PR stateを直接統合 | intent / receiptを即再利用 | PR後の収束責務とpre-PR run責務が混在し、回帰範囲が広い | 不採用 |
-| B | 独立`durable_run.py`でcontractを実証し、既存canonical hashだけ再利用 | 最小差分、単体検証可能、将来adapterで段階統合可能 | v1では`plangate resume`へ未接続 | 採用 |
+| B | 独立`durable_run.py` CLIでcontractを実証し、既存`gh_exec`境界をisolated modeで再利用 | 既存exec boundaryを維持し、canonical hashはself-contained + parity testで単体検証可能 | v1では`plangate resume`へ未接続、Linux/WSL isolated runner限定 | 採用 |
 | C | `bin/plangate`とschemasへ最初から統合 | UXが一つのCLIに揃う | HO 3層を同時変更しblast radiusが大きい | 不採用 |
 
 ### Recommended Approach
 
-案Bを採用する。state transitionとI/Oを独立moduleで固定し、既存`c3_contract.canonical_hash`を再利用する。Human承認は既存artifactをread-onlyで検証し、本moduleからは発行しない。初回PRでrestart・idempotency・tamper・bindingを十分に検証後、CLI adapter / schema昇格を別Human判断へ分離する。
+実装アーキテクチャ案Bを採用する（Human refinementの選択Aとは別軸）。state transitionとI/Oを独立moduleへ固定し、canonical hashはself-contained、Git観測は唯一の外部process境界`gh_exec`のisolated modeを再利用する。operational CLIはroot-owned isolated Pythonでcanonical sourceをmain実行し、private empty pycache prefixを介してcanonical `gh_exec.py` sourceだけをstatic importする。task lockはswappable task root外のcommon-dirへ置く。flat runtime storeの安全なempty bootstrap後、全mutationをtask manifest・redo型WALへ通し、state / record / receipt ledgerのpartial commitを決定論的にroll-forwardする。実loaded source 2件 + executable 2件のharness fingerprintをactive runへ束縛する。Human承認はcanonical pathの既存artifactをread-only / no-followで正規schema相当検証し、serialization非依存のPlan authority IDを全Run一度だけ消費する。raw digestはsnapshot証拠として束縛する。本moduleから承認artifactは発行せず、`source=cli`を署名provenanceとは扱わない。正規syncでplugin bundleも同一PRへ含め、初回PRでrestart・recoverable BLOCKED・request idempotency・concurrency・resume固有WAL crash・proper subset rollback・linked worktree共有・runtime injection・bindingを検証する。
 
 ## Files / Components to Touch
 
 | ファイル | 操作 | 目的 | 公開インターフェース / 依存 |
 |---|---|---|---|
-| `scripts/ai-loop/durable_run.py` | create | state transition、atomic I/O、intent / receipt、CLI | `init_run`, `request_wait`, `resume_run`, `load_state`, `load_record` |
-| `scripts/ai-loop/test_durable_run.py` | create | AC-01〜AC-09のunit / regression | `unittest` |
+| `scripts/ai-loop/durable_run.py` | create | state transition/hash、atomic I/O、manifest / intent / receipt | operational CLI `contract|init|request|status|resume|block|unblock|complete` |
+| `scripts/ai-loop/test_durable_run.py` | create | AC-01〜AC-10のunit / regression | `unittest` |
+| `scripts/ai-loop/gh_exec.py` | modify | isolated Git env・binary path output・必要最小read-only argv | `run_git(..., isolated_env=True, binary_output=True)`（既定互換） |
+| `scripts/ai-loop/test_gh_exec.py` | modify | env除去とallowlist拡張の負側検証 | existing unittest |
 | `docs/workflows/ai-loop/durable-run-contract.md` | create | 状態・遷移・binding・責務境界の正本 | implementation contract |
+| `tests/extras/ta-61-durable-run.sh` | create | 新unit suiteを標準CI入口へ接続 | `tests/run-tests.sh`からsource |
+| `scripts/sync-plugin-plangate.sh` | modify | durable runtime/testをbundle allowlistへ追加 | 正本sync |
+| `plugin/plangate/skills/ai-loop-cycle/references/durable-run-contract.md` | generate | contract配布コピー | sync派生 |
+| `plugin/plangate/skills/ai-loop-cycle/scripts/durable_run.py` | generate | runtime配布ミラー（direct operational mutationはfail-closed） | sync派生 |
+| `plugin/plangate/skills/ai-loop-cycle/scripts/test_durable_run.py` | generate | test配布ミラー | sync派生 |
+| `plugin/plangate/skills/ai-loop-cycle/scripts/gh_exec.py` | generate | Git境界配布コピー | sync派生 |
+| `plugin/plangate/skills/ai-loop-cycle/scripts/test_gh_exec.py` | generate | Git境界test配布コピー | sync派生 |
 
 ## Work Breakdown
 
-### Task 1: Contract-first failing tests
+### Task 1: Contract-first adversarial tests
 
-**Purpose**: restart・idempotency・binding・tamperの期待を実装前に固定する。
+**Purpose**: restart、block/unblock/terminal transition、真の並行CAS、bootstrapと全durable syscall後のcrash、semantic ledger再利用、proper subset rollback、canonical path/HEAD/harness bindingを実装前に固定する。
 
-**Files**:
+**Files**: Create `scripts/ai-loop/test_durable_run.py`.
 
-- Create: `scripts/ai-loop/test_durable_run.py`
-- Test target: `scripts/ai-loop/durable_run.py`
-
-**Interfaces**:
-
-- Consumes: `c3_contract.canonical_hash`
-- Produces: AC-01〜AC-09を表すfailing tests
+**Interfaces**: isolated operational CLI、self-contained canonical hash（test-only `c3_contract` parity）、`gh_exec` read-only Git境界、AC-01〜AC-10・C-2全findingを破るfixtureを先に作る。
 
 **Steps**:
 
-- [ ] state初期化 / 別process読込 / revision CASのtestsを追加する
-- [ ] Human / External requestのstable action ID / duplicate抑止testsを追加する
-- [ ] c3 receipt / external receipt / binding mismatch testsを追加する
-- [ ] state / record tamper / unknown enum / chain break testsを追加する
-- [ ] `python3 -m unittest scripts/ai-loop/test_durable_run.py` がmodule未実装理由でFAILすることを記録する
+- [ ] `subprocess` + `sys.executable`のbarrierを使う2 writer testを追加し、禁止`multiprocessing`を使わない
+- [ ] Human / External両requestの別process復元・pending再提示と、消費後requestの完了済み冪等応答を追加する
+- [ ] 8 bootstrap fault label、初回17、request/Human resume/External resume更新各17のfault pointを固定する
+- [ ] state/record/ledger/manifestの非空proper subset 14組を旧snapshotへ戻すrollback・truncation・transaction conflictを追加する
+- [ ] C-3 semantic authorityの同一Run再消費 / 別Run流用 / JSON再整形、duplicate key / non-standard number、実plan / 実HEAD / parent no-follow / loaded-source + executable harness driftを追加する
+- [ ] External receiptのsame-run / cross-run / same-action-different-result replayとprovenance trust limitを追加する
+- [ ] recoverable `BLOCKED`のblock/unblock復帰と`COMPLETED` terminal idempotencyを追加する
+- [ ] hostile pyc/PYTHONPATH/sitecustomize/sys.modules、plugin direct operational layout、PATH/HOME/XDG/Git config、NUL含みpath、task-root rename/replacement、actual linked worktreeのcommon-dir / external lock inode / ledger共有、absolute fallback、unwritable preflightを追加する
+- [ ] Canonical ID Contractの4 golden vectorをliteral期待値で追加する
+- [ ] REDがmodule / interface不存在だけであることを記録する
 
-**Completion Criteria**:
+**Completion Criteria**: `test-cases.md`の全functional / adversarial caseが具体的test methodへ対応し、RED理由が期待どおりである。
 
-- [ ] 各ACが具体的なtest methodへ対応している
-- [ ] RED理由が「module不存在またはinterface不存在」に限定される
+**Rollback**: 新規test fileだけをrevertする。
 
-**Rollback**:
+### Task 2: Locked durable state and redo transaction core
 
-- 新規test fileのみを当該commitのrevertで除去する。既存testは変更しない。
+**Purpose**: 全mutationをtask単位lockで直列化し、task manifestで全artifactを一括束縛してpartial commit / proper subset rollbackを検出・回復する。
 
-### Task 2: Durable state core
+**Files**: Create `scripts/ai-loop/durable_run.py`; modify its tests.
 
-**Purpose**: state / recordの検証、stable ID、atomic persistence、CASを最小実装する。
-
-**Files**:
-
-- Create: `scripts/ai-loop/durable_run.py`
-- Test: `scripts/ai-loop/test_durable_run.py`
-
-**Interfaces**:
-
-- Consumes: `c3_contract.canonical_hash`
-- Produces: `contract_dict`, `init_run`, `load_state`, `load_record`, `request_wait`
+**Interfaces**: `contract_dict`, `init_run`, `load_state`, `load_record`, `request_wait`, `block_run`, `unblock_run`, `complete_run`, internal `recover_transaction`.
 
 **Steps**:
 
-- [ ] enum / required keys / transition表と純粋validatorを実装する
-- [ ] self digest付きstateとprev-entry chain付きrecordを実装する
-- [ ] temporary file + fsync + replaceのatomic writerを実装する
-- [ ] expected revisionのcompare-and-swapを実装する
-- [ ] stable request payload / action IDと同一pending requestの冪等返却を実装する
-- [ ] core testsをGREENにする
+- [ ] strict enum / key / transition / error validatorとduplicate-key / non-standard-number拒否JSON loaderを実装する
+- [ ] isolated/no-site/no-bytecode main runner、private empty pycache prefix、preloaded module拒否、exact SourceFileLoader identity、self-contained hash + test-only `c3_contract` parity、2 source + 2 executable harness fingerprintを実装する
+- [ ] `gh_exec.run_git(..., isolated_env=True, binary_output=True)`へfixed binary / clean allowlist env / caller非指定global config override / 必要最小read-only argvを追加し、既定callerを不変に保ったままmodule位置からrepository anchor、absolute/fallback common-dir、bytes NUL path parserを解決する
+- [ ] common-dir external task lock取得後にflat runtime rootをstrict ID + dirfd traversalで安全にbootstrapし、全ancestor/lock inodeをheld common-dirから各critical boundaryで再照合する。`fcntl` unavailableは`unsupported_platform`、write/fsync不能は`runtime_unwritable`でfail-closedにする
+- [ ] task単位`fcntl.flock`取得後にmanifestと全参照artifactを再読込してCASする
+- [ ] record hash chain、ledger hash chain、state digestをtask manifestのgeneration / digest / count / tail / txへ一括束縛する
+- [ ] manifest inventoryとflat runtime directory censusを照合し、安全なempty/lock-only bootstrap以外の未参照/未知artifactを拒否する
+- [ ] target allowlist、absent sentinel、task/run/base-next generation、full new payload、old/new digestを持つ単一prepare transactionを先にfsyncする
+- [ ] record→ledger（変更時）→state→manifestの順でatomic replaceし、次回取得時にoldのみnewへroll-forwardする
+- [ ] 8 bootstrap、初回17、request/Human resume/External resume各17の全crash recoveryを実装する
+- [ ] Human / External stable request / action ID、task-wide `action_reserved`→`action_consumed` lifecycle、pending duplicate no-op、消費済みactionの完了済み冪等応答を実装する
+- [ ] explicit block / unblock / completeを実装する。BLOCKEDはprior status/pending/blockerを保持して明示unblockだけで復帰可能、COMPLETEDだけをterminalとし、integrity errorはstateへ書けない制御errorと区別する
 
-**Completion Criteria**:
+**Completion Criteria**: concurrent writerは成功1 / conflict 1、8 bootstrap + 初回17 + 更新51の全crash windowは安全なbootstrap retryまたは同一new generationへ収束し、14 proper subset rollback / third digestは上書きされない。primary/linked worktreeはcommon-dir直下の同一lock inode / ledgerを観測し、task-root rename/replacementは別domainを作らず停止する。
 
-- [ ] restart後にstate / pending actionを復元できる
-- [ ] stale writer、corrupt state、record chain不一致が制御されたerrorになる
+**Rollback**: module / test commitをrevertする。既存state migrationはない。
 
-**Rollback**:
+### Task 3: Canonical receipt verification and one-shot resume
 
-- moduleと対応testを同一commitのrevertで戻す。既存state形式へのmigrationはない。
+**Purpose**: caller値に依存せず実repo状態を検証し、legacy C-3をtask-wide ledgerで一度だけ消費する。
 
-### Task 3: Receipt verification and resume
+**Files**: Modify `scripts/ai-loop/durable_run.py` and tests.
 
-**Purpose**: Human / External receiptをread-onlyで検証し、pending actionを一度だけ消費する。
-
-**Files**:
-
-- Modify: `scripts/ai-loop/durable_run.py`
-- Modify: `scripts/ai-loop/test_durable_run.py`
-
-**Interfaces**:
-
-- Consumes: pending action、legacy Human C-3 JSON、external receipt JSON
-- Produces: `resume_run`、receipt entry、`RUNNING` state
+**Interfaces**: `resume_run`; canonical repository context; legacy C-3 raw bytes; external receipt.
 
 **Steps**:
 
-- [ ] Human C-3 receiptをstrict JSONでtask / status / plan hash / source=cliへ束縛する
-- [ ] current source SHAをstateへ照合し、driftを拒否する
-- [ ] External receiptをtask / plan / source / action ID / success statusへ束縛する
-- [ ] receipt entryをintentへ束縛し、receipt済みactionの再消費を拒否する
-- [ ] binding mismatch / duplicate /別Run流用testsをGREENにする
+- [ ] operational CLIをtask ID・run ID・非権威action入力だけに限定し、repo/task/plan/HEAD/receipt/action bindingを内部解決する。in-process mutation entrypointをexportしない
+- [ ] canonical `approvals/c3.json`をdirfd traversal + no-follow regular-fileとして同一fdからread/digestする
+- [ ] legacy schemaのrequired/type/phase/status/plan hash/allowed keyと`source=cli`をstrict検証し、トップレベル`^_`注釈キーは受理、その他の未知キーとduplicate key / `NaN` / `Infinity`は拒否する
+- [ ] task+planのsemantic authority IDをledgerへrun/action/request source/actual HEAD/raw digestとともに一度だけ記録する
+- [ ] Human resumeは内部観測したsame HEADまたはcanonical C-3だけのdescendant/dirty差分に限定し、`request_source_sha` / `actual_resume_head` / relationを別fieldで保存する。Human / External両経路で、初回検証後かつprepare前にHEAD-before / status・diff・ancestor / HEAD-afterを再観測し、安定かつ初回snapshot同一の最終snapshotを線形化点として保存する
+- [ ] canonical External receiptをrun / task / plan / exact HEAD / action / successへ束縛し、semantic receipt ID + action IDを同じledgerで一度だけ消費する
+- [ ] receiptのdev/ino/raw digestとsource relation最終snapshotをprepare直前に再照合し、一致時のみledger、record、pending clear、RUNNING state、manifestを1 prepared transactionで確定する
+- [ ] Human / External resume transactionを17 fault pointずつ検証し、回復後にledger delta=`action_consumed` 1件（lifecycle total 2件）+ RUNNINGへ一意収束させる。初回source検証とprepare直前再観測のbarrierでHEAD/dirtyを変更した場合はtransaction未作成・全artifact不変を検証する
+- [ ] 異なる2 runの同一Human authority同時消費を成功1 / replay拒否1へ直列化する
+- [ ] loaded-source / loader identity / Python+Git executable fingerprintを全CLI operationで再照合する
 
-**Completion Criteria**:
+**Completion Criteria**: Human / External両経路で正規receiptだけが一度消費され、C-3 JSON再整形・同一Plan authorityの全Run再利用・External replay・caller path/hash/SHA注入・approval writeはharness内で不可能である。Human/External provenance自体は保証済みと主張しない。
 
-- [ ] Human / External両経路で正規receiptのみ一度消費できる
-- [ ] 本moduleが`approvals/**`へwriteするコードを持たない
+**Rollback**: Task 3 commitをrevertし、WAITING state生成だけへ戻す。
 
-**Rollback**:
+### Task 4: Contract and standard CI route
 
-- Task 3のcommitをrevertし、Task 2のWAITING state生成のみへ戻す。
+**Purpose**: 実装契約・保証限界を正本化し、新suiteをGitHub Actionsの標準入口へ接続する。
 
-### Task 4: Contract documentation and verification
+**Files**: Create contract / ta-61; modify `scripts/sync-plugin-plangate.sh`; generate plugin bundle.
 
-**Purpose**: 実装と利用者の責務境界を一意にし、回帰を検証する。
-
-**Files**:
-
-- Create: `docs/workflows/ai-loop/durable-run-contract.md`
-- Verify: `scripts/ai-loop/test_durable_run.py`
-
-**Interfaces**:
-
-- Consumes: Task 2 / 3のcontract output
-- Produces: 状態表、遷移表、request / receipt binding、CLI examples、non-goals
+**Interfaces**: `durable_run.py contract`; `tests/run-tests.sh` extras loader.
 
 **Steps**:
 
-- [ ] state / record / transition / failure codeを文書化する
-- [ ] Human-owned境界と`approvals/**` read-only制約を明記する
-- [ ] restart・duplicate・tamper・binding fixtureを文書のAC表へ対応させる
-- [ ] targeted regressionと`git diff --check`を実行する
+- [ ] isolated Python、`gh_exec`境界、common-dir external lock、flat runtime/bootstrap、state / record / ledger / manifest / transaction layout、write order、recovery、error codeを文書化する
+- [ ] Human-owned境界、read-only approval、trust limitを明記する
+- [ ] ta-61をharness/standalone両対応で追加し、各test fileをisolated direct実行する。最低46 tests・unit TC 42件のexact coverage manifest・gh_exec boundary 4 method・shell TC 4件・exact sentinel・plugin copy byte parity + direct operational fail-closedを独立検証する
+- [ ] `sync-plugin-plangate.sh`のscripts allowlistを対称更新して正規syncを実行し、plugin reference/runtime/tests/Git境界の派生差分を含める
+- [ ] targeted regression、full suite、boundary scan、`git diff --check`を実行する
 
-**Completion Criteria**:
+**Completion Criteria**: contract outputと文書が一致し、全automated verificationが必須method集合・最低件数・ta-61 sentinel付きでPASSする。
 
-- [ ] contract outputと文書のenum / transitionが一致する
-- [ ] AC-01〜AC-10のevidenceを保存できる
-
-**Rollback**:
-
-- contract文書とmodule / testをPR単位でrevertする。外部state migrationはない。
+**Rollback**: contract / ta-61をmodule / testとともにPR単位でrevertする。
 
 ## Verification Plan
 
-Verification Automation: `python3 -m unittest scripts/ai-loop/test_durable_run.py && python3 -m unittest scripts/ai-loop/test_delivery.py scripts/ai-loop/test_run_evidence.py && git diff --check`
+Verification Automation: `/usr/bin/python3 -I -S -B scripts/ai-loop/test_durable_run.py && /usr/bin/python3 -I -S -B scripts/ai-loop/test_gh_exec.py && sh tests/extras/ta-61-durable-run.sh && sh scripts/sync-plugin-plangate.sh && git diff --exit-code -- plugin/plangate/ && sh tests/run-tests.sh && /usr/bin/python3 -I -S -B scripts/ai-loop/test_delivery.py && /usr/bin/python3 -I -S -B scripts/ai-loop/test_run_evidence.py && /usr/bin/python3 -I -S -B scripts/ai-loop/test_check_exec_boundary.py && git diff --check`
 
 | 種別 | コマンド / 確認方法 | 期待結果 | Evidence保存先 |
 |---|---|---|---|
-| RED | `python3 -m unittest scripts/ai-loop/test_durable_run.py` | 実装前はexpected import/interface failure | `evidence/tdd/red.log` |
-| Unit | `python3 -m unittest scripts/ai-loop/test_durable_run.py` | 0 failed | `evidence/tdd/green.log` |
-| Regression | `python3 -m unittest scripts/ai-loop/test_delivery.py scripts/ai-loop/test_run_evidence.py` | 0 failed | `evidence/verification/ai-loop-regression.log` |
-| Contract | `python3 scripts/ai-loop/durable_run.py contract` | 文書と同一enum / transition | `evidence/verification/contract.json` |
-| Static boundary | `rg -n "approvals.*write|merge|c4" scripts/ai-loop/durable_run.py` + code review | approval write / merge経路0 | `evidence/verification/boundary.log` |
+| RED | `/usr/bin/python3 -I -S -B scripts/ai-loop/test_durable_run.py`、同`test_gh_exec.py` | 実装前はexpected source/interface failure | `evidence/tdd/red.log` |
+| Unit | 上記2 test fileをisolated direct実行 | 合算≥46 tests、unit TC 42件 + gh boundary 4件のexact method全load、0 failed | `evidence/tdd/green.log` |
+| CI route | `sh tests/extras/ta-61-durable-run.sh` | exit 0、unit/shell両manifestと`TA-61-DURABLE-RUN: PASS tests=<N> unit_tc=42 gh_boundary=4 fault=76 rollback=14`を1回出力 | `evidence/verification/ta-61.log` |
+| Plugin sync | `sh scripts/sync-plugin-plangate.sh && git diff --exit-code -- plugin/plangate/` | root正本から生成した5 fileがplugin bundleと一致し、未同期差分0 | `evidence/verification/plugin-sync.log` |
+| Full suite | `sh tests/run-tests.sh` | exit 0、同ta-61 sentinelが1回到達 | `evidence/verification/full-suite.log` |
+| Regression | `/usr/bin/python3 -I -S -B scripts/ai-loop/test_delivery.py`、同`test_run_evidence.py`、同`test_check_exec_boundary.py` | 各0 failed、productionのdirect subprocess/multiprocessing import 0 | `evidence/verification/ai-loop-regression.log` |
+| Contract | `/usr/bin/python3 -I -S -B scripts/ai-loop/durable_run.py contract` | 文書と同一enum / transition / runtime boundary | `evidence/verification/contract.json` |
+| Boundary | CLI実行前後のapproval tree・Git refs snapshot + write instrumentation + static allowlist | moduleによるapproval write / commit / merge経路0 | `evidence/verification/boundary.log` |
 | Diff | `git diff --check` | exit 0 | `evidence/verification/diff-check.log` |
 
 ### レビューレーン計画（#786）
@@ -256,24 +314,24 @@ Verification Automation: `python3 -m unittest scripts/ai-loop/test_durable_run.p
 
 ### Success Criteria
 
-- AC: `test-cases.md` TC-01〜TC-15
-- Completion boundary: 独立module・tests・contract文書・evidenceをPRへ含める。CLI/schema/Evolution接続は別PBI。
+- AC: `test-cases.md`の全case
+- Completion boundary: 独立module・tests・`gh_exec`のisolated read-only境界・contract文書・CI extras・plugin生成5 fileのbyte parity/direct operational fail-closed・evidenceをPRへ含める。`bin/plangate` / schema / action-bound署名receipt / plugin direct adapter / Evolution接続は別PBI。
 
 ### Review Criteria
 
 - Design alignment: #873/#917のintent / receipt / deterministic / fail-closedを踏襲し、pre-PR責務を分離する。
-- Test expectations: restart、same-request idempotency、stale writer、tamper、binding mismatch、duplicate receiptを値レベルで検証する。
-- Security: approval artifactはread-only、source=cli、APPROVED、task / plan / current source bindingを必須にする。
-- Maintainability: standard libraryのみ、pure validationとI/Oを分離し、error codeをenum化する。
-- Backward compatibility: 既存CLI / state / delivery recordを変更せずadditiveに導入する。
-- Operational risk: v1は手動adapterであり、正式入口へ未接続であることを明記する。
+- Test expectations: restart、true concurrent CAS、8 bootstrap + 初回17 + request更新17 + Human resume更新17 + External resume更新17のfault 76 subcase、14 proper subset rollback、request/消費後request idempotency、actual linked worktree、task-root replacement、Python/Git injection、actual plan/HEAD/path binding、source初回検証→prepare前のHEAD/dirty競合、record/ledger strict JSON負側、same-action result replay、4 golden ID、unit TC 42件 + gh_exec boundary 4 method・最低46 testsを値レベルで検証する。
+- Security: approval artifactはdirfd canonical pathからread-only / no-followで正規schema相当検証し、schema予約の`^_`注釈だけを許可してsemantic Plan authorityをtask-wide ledgerで一度だけ消費する。raw digestとprepare直前の最終安定source snapshotはrun/action/request source/actual HEADへ証拠束縛するが、`source=cli`を署名provenanceとは扱わない。
+- Maintainability: standard libraryのみ、runtime repo importはcontrolled canonical `gh_exec` sourceだけ、canonical hashはself-contained + test parity、productionのdirect subprocess/multiprocessing import 0、pure validationとI/Oを分離し、error codeをenum化する。
+- Backward compatibility: 既存CLI / state / delivery recordを変更せずadditiveに導入し、`gh_exec`は既存callの既定挙動を維持したoptional isolated modeとexact read-only allowlistだけを追加する。
+- Operational risk: v1はrepository canonical sourceの独立CLIであり`bin/plangate`のnonce producerとplugin direct adapterへ未接続。AC-09はmodule-level duplicate suppression contractに限定し、既存TTY経路の実害解消はfollow-up integrationが必要。Human/External provenance、whole-storage rollback、cross-clone durabilityは保証外である。
 
 ### Required Context
 
 - Referenced issues: #870 / #873 / #874 / #869 / #920 / #923 / #938 / #945 / #981 / #982 / #1023 / #1025
 - ADR / docs: `docs/workflows/ai-loop/rollout-policy.md`、`docs/workflows/ai-loop/delivery-state-machine.md`
-- Existing implementation: `scripts/ai-loop/delivery.py`、`scripts/ai-loop/c3_contract.py`
-- Related tests: `scripts/ai-loop/test_delivery.py`、`scripts/ai-loop/test_run_evidence.py`
+- Existing implementation: `scripts/ai-loop/delivery.py`（pattern）、`scripts/ai-loop/c3_contract.py`（canonical hash）、`scripts/ai-loop/gh_exec.py`（唯一のexternal process境界）
+- Related tests: `scripts/ai-loop/test_delivery.py`、`scripts/ai-loop/test_run_evidence.py`、`scripts/ai-loop/test_gh_exec.py`、`scripts/ai-loop/test_check_exec_boundary.py`
 - Constraints: ai-loop判定基盤carve-out、C-3/C-4/merge Human-owned、HO path変更禁止
 
 ### Non-goals and Scope Boundary
@@ -286,13 +344,15 @@ Verification Automation: `python3 -m unittest scripts/ai-loop/test_durable_run.p
 
 以下に該当した場合はexecを止め、plan更新・C-1/C-2再実行・C-3再承認を行う。
 
-- production変更が3ファイルを超える
+- production変更がPlan列挙の12ファイルを超える
 - `bin/plangate` / schema / hook / policy / HOへの変更が必要になる
 - existing `delivery.py`または`run_evidence.py`の変更が必要になる
+- `check_exec_boundary.py`自体の変更、またはproduction moduleでdirect `subprocess` / `multiprocessing` importが必要になる
+- `gh_exec.py` / `test_gh_exec.py` / `sync-plugin-plangate.sh`でPlan列挙外の挙動変更が必要になる
 - Human C-3 artifactの追加fieldまたは生成経路変更が必要になる
 - targeted baseline testに1件以上のFAILがある
 - receiptをapproval artifactへ安全に束縛できずAC-04/05/07が同時成立しない
-- atomic write / CASを標準ライブラリだけで成立させられない
+- task lock / redo recovery / canonical no-follow readを標準ライブラリだけで成立させられない
 
 ## Stop Condition
 
@@ -315,4 +375,4 @@ Verification Automation: `python3 -m unittest scripts/ai-loop/test_durable_run.p
 
 - mode: `critical`
 - lite_eligible: `false`
-- 根拠: production変更は3ファイルで可逆だが、`scripts/ai-loop/**`と`docs/workflows/ai-loop/**`がrollout-policy §2の判定基盤carve-outに該当し、approval / resume境界へ隣接する。Human C-3へ固定escalateする。
+- 根拠: production変更はroot正本7ファイル + plugin生成5ファイルの計12ファイルで可逆だが、`scripts/ai-loop/**`と`docs/workflows/ai-loop/**`がrollout-policy §2の判定基盤carve-outに該当し、approval / resume境界へ隣接する。Human C-3へ固定escalateする。

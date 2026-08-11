@@ -1,33 +1,37 @@
 # Current State — TASK-1025
 
-> 更新: 2026-08-09
+> 更新: 2026-08-11
 
 ## フェーズ
 
-`PLAN_REVIEW / C-2_REJECT / HUMAN_REFINEMENT_WAITING`
+`READY_FOR_C3 / C-1_ROUND8_PASS / C-2_ROUND8_APPROVE`
 
 ## 現在地
 
 - branch: `feature/TASK-1025-durable-run`
-- base SHA: `9f9af9451e396eec52b7a737ac3db3166ff60fb1`
+- base SHA: `5e630f9d28e6db93f0133c8cef5cbdb39d51e8c2`
 - mode: `critical` / `lite_eligible=false`
+- latest main `5e630f9d28e6db93f0133c8cef5cbdb39d51e8c2`をbranchへmerge済み。旧基点からの11 commitでplanned production 12 filesの直接変更は0件、関連変更は`tests/extras/ta-26-plugin-sync.sh`とCI action pinのみ
 - Issue #1025とEpic #870のdependency writebackは完了
-- Plan Package 6要素は存在するが、C-2=`reject`のためintegrity gateは意図どおりBLOCK
-- C-1: PASS（critical 0 / major 0 / minor 0）
-- C-2: reject（critical 1 / major 6 / minor 1）
+- Human refinement R-003はA（legacy C-3 + task-wide ledger + HO不変更）で確定。semantic ID精緻化とmodule-level AC-09は確定PlanのC-3待ち
+- Round 1〜4 C-2 findings（supplement R-126〜R-131を含む）をflat bootstrap、`gh_exec` isolated Git、task manifest/redo WAL、dirfd、task-wide `action_reserved`→`action_consumed` lifecycle、recoverable BLOCKED、loaded source/executable harness、linked worktree、resume固有fault 76、TC42+GH4 exact coverage、plugin sync/direct fail-closedへ反映済み
+- Round 7 C-2 findings R-132〜R-134をsource relation線形化、record/ledger strict JSON、canonical C-3注釈key契約へ反映済み
+- current Plan hash: `sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d516`
+- C-1 Round 8: PASS（latest main再照合、targeted 337 PASS / skip 1）
+- C-2 Round 4: reject / addressed
+- C-2 Round 7: reject / addressed
+- C-2 Round 8: APPROVE（design / codebase両lane critical 0 / major 0 / minor 0）
 - production changed files: 0
 
 ## ブロッカー
 
-R-003のHuman refinement。正規legacy C-3 artifactにはrun/action/source binding fieldがなく、HOを変更しない消費ledger方式か、Human-owned CLI/schema拡張かの選択が必要。
+Human C-3未承認。production実装は引き続き0ファイルで、Plan hash一致のC-3成立前に開始しない。
 
 ## 次のアクション
 
-1. HumanがR-003のrefinement方針を選ぶ
-2. R-001〜R-007をPlan / TODO / Test Casesへ反映する
-3. 新Plan SHAでC-1 / 独立C-2を再実行する
-4. Plan Package integrity / LoopSpecを検証してPlan-only commitをpushする
-5. Human C-3を取得し、一致確認後にのみT-01から実装する
+1. Plan Package integrityを検証してPlan-only commit / Draft PRを作成する
+2. Humanが`bin/plangate approve TASK-1025`を実行し、C-3 artifactをcommit / pushする
+3. Claude CodeがC-3のPlan hash一致を確認し、T-01から実装する
 
 ## 禁止事項
 

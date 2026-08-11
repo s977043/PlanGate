@@ -1,0 +1,27 @@
+# A-5 交互 A/B 実測（退避コピー方式）— zsh `time` の実出力を転記
+# 手順: cp /tmp/ta26.{base,opt} tests/extras/ta-26-plugin-sync.sh; time sh tests/extras/ta-26-plugin-sync.sh </dev/null > /dev/null 2>&1
+
+# BASE 健全性アサーション
+$ grep -c 'TC-20〜TC-25' /tmp/ta26.base
+0
+BASE OK: ゲート未含有（実装は未 commit）
+
+BASE 1: sh tests/extras/ta-26-plugin-sync.sh < /dev/null > /dev/null 2>&1  11.00s user 19.93s system 57% cpu 53.669 total
+OPT  1: sh tests/extras/ta-26-plugin-sync.sh < /dev/null > /dev/null 2>&1   9.41s user 17.29s system 56% cpu 47.433 total
+BASE 2: sh tests/extras/ta-26-plugin-sync.sh < /dev/null > /dev/null 2>&1  10.83s user 18.86s system 59% cpu 50.162 total
+OPT  2: sh tests/extras/ta-26-plugin-sync.sh < /dev/null > /dev/null 2>&1   9.31s user 16.28s system 59% cpu 43.306 total
+BASE 3: sh tests/extras/ta-26-plugin-sync.sh < /dev/null > /dev/null 2>&1  10.73s user 18.39s system 59% cpu 48.994 total
+OPT  3: sh tests/extras/ta-26-plugin-sync.sh < /dev/null > /dev/null 2>&1   9.07s user 15.53s system 59% cpu 41.251 total
+BASE 4: sh tests/extras/ta-26-plugin-sync.sh < /dev/null > /dev/null 2>&1  10.79s user 18.80s system 59% cpu 49.416 total
+OPT  4: sh tests/extras/ta-26-plugin-sync.sh < /dev/null > /dev/null 2>&1   9.17s user 15.76s system 59% cpu 42.112 total
+
+BASE median = 49.789 / OPT median = 42.709 / OPT/BASE = 0.8578 (-14.22%)
+判定: WARN（基準 <= 0.85 に未達 / 最大 4 往復まで実施済み）→ C-4 で人間の取り消し判断ゲートへ
+
+# 測定後の復帰確認
+$ git diff --quiet -- tests/extras/ta-26-plugin-sync.sh && echo "OPT restored (index と一致)"
+OPT restored (index と一致)
+
+# 参考: A-1 の baseline 単発測定（交互ではない）
+BASE(A-1) 1: 52.224 total
+BASE(A-1) 2: 50.783 total

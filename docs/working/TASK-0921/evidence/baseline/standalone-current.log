@@ -1,0 +1,123 @@
+# standalone-current — TASK-0921 Phase 3
+# 基点 HEAD: 4448420cb48261aefa9fd274e498f140ab5e4cf7
+# 実行条件: 7 env unset 済み clean env / sh "$f" </dev/null / perl alarm による timeout
+#
+# 【導出元】全 57 件の standalone 実走は Phase 1 の独立ワーカーが実施済み。
+#   本ログはその per-file 実測値を extras-inventory.md から機械抽出したもの。
+# 【再実行しない理由】ta-54 が $REPO_ROOT/plugin/plangate を rm -rf して cp -r 復元する
+#   （trap なし・中断時はツリー汚染。ta-54:125-133 のコメント自身が要手動復旧と明記）。
+#   証跡ファイル 1 個のために破壊的テストへの曝露を 2 倍にしない判断。
+# 【独立検証】オーガナイザーが ta-05 / ta-13 を再実行し一致を確認（末尾に記載）。
+#
+# 凡例: rc / P=PASS件数 / F=FAIL件数 / S=SKIP件数 / capability
+# ---------------------------------------------------------------
+ta-04-check-pr-issue-link.sh	rc=0 / P0 F4	harness-only
+ta-05-validate-schemas.sh	rc=0 / P2 F2	harness-only
+ta-06-hooks.sh	rc=0 / P0 F0 S1	harness-only
+ta-07-eval-runner.sh	rc=0 / P0 F3	harness-only
+ta-08-codex-log-parser.sh	rc=0 / P0 F0 S1	harness-only
+ta-09-metrics.sh	rc=0 / P2 F21 S2	harness-only
+ta-10-doctor-fix.sh	rc=0 / P2 F10	harness-only
+ta-11-plan-hash-contract.sh	rc=0 / **P4 F0（vacuous）**	harness-only
+ta-12-maintenance.sh	rc=0 / P1 F13	harness-only
+ta-13-plangate-setup.sh	rc=0 / P7 F10 S1	harness-only
+ta-14-codex-guarded.sh	rc=0 / **P0** F8	harness-only
+ta-14-skip-acknowledge.sh	rc=0 / P1 F11	harness-only
+ta-15-codex-hook-bridge.sh	rc=0 / **P0** F7	harness-only
+ta-16-pollution-guard.sh	rc=0 / P2 F12	harness-only
+ta-17-pre-push-guard.sh	rc=0 / P1 F13	harness-only
+ta-18-tag-main-parity.sh	rc=0 / P4 F11	harness-only
+ta-19-plan-metrics-verification.sh	rc=0 / P2 F8	harness-only
+ta-20-codex-review.sh	rc=0 / P1 F9	harness-only
+ta-21-codex-mvp-split.sh	rc=0 / **P0** F9	harness-only
+ta-22-git-add-scope.sh	rc=0 / **P0** F8	harness-only
+ta-23-gh-account-pin.sh	rc=0 / **P0** F7	harness-only
+ta-24-parallel-review.sh	rc=0 / P6 F4	harness-only
+ta-25-approval-token-guard.sh	rc=0 / **P0** F7	harness-only
+ta-26-plugin-sync.sh	**rc=0 / P30 F0**（実行 54 秒。alarm 60 では TC-12 で打ち切られる）	standalone-capable
+ta-27-codex-commands.sh	rc=0 / P2 F3	harness-only
+ta-28-plugin-version.sh	rc=0 / P1 F10	harness-only
+ta-29-committed-pollution.sh	rc=0 / P1 F4	harness-only
+ta-30-install-skills.sh	rc=0 / **P0** F9	harness-only
+ta-31-codex-plugin-status.sh	rc=0 / **P0** F7	harness-only
+ta-32-real-ssot-pollution.sh	rc=0 / **P1(+WARN1) F0（vacuous）**	harness-only
+ta-33-agent-model-tier.sh	rc=0 / P2 F2	harness-only
+ta-34-cli-min-coverage.sh	rc=0 / P1 F5	harness-only
+ta-35-yaml-schema.sh	rc=0 / P1 F1	harness-only
+ta-36-fixloop-event.sh	rc=0 / **P0** F1	harness-only
+ta-37-cli-coverage-batch2.sh	rc=0 / P1 F6	harness-only
+ta-38-agent-tools.sh	rc=0 / **P1 F0（vacuous）**	harness-only
+ta-39-eh3-doc-light.sh	**rc=0 / P8 F0**	standalone-capable
+ta-40-task-0129-review-gate.sh	**rc=0 / P12 F0**	standalone-capable
+ta-41-approve-hardening.sh	rc=0 / P1 F6 S1	harness-only
+ta-42-cli-subcommands.sh	rc=0 / P1 F9	harness-only
+ta-43-eh2-strict-json.sh	**rc=0 / P6 F0**	standalone-capable
+ta-44-eh457-cli-wiring.sh	**rc=0 / P5 F0**	standalone-capable
+ta-45-c3-mode-config.sh	**rc=0 / P6 F0**	standalone-capable
+ta-46-ehs-wiring.sh	**rc=0 / P4 F0**	standalone-capable
+ta-47-ehs23-wiring.sh	**rc=0 / P6 F0**	standalone-capable
+ta-49-bias-export.sh	**rc=0 / P6 F0**	standalone-capable
+ta-50-precompact-guard.sh	`</dev/null` あり: **rc=0 / P9 F0** / **stdin 未リダイレクトで無限ハング（alarm 20s で rc=142・出力はヘッダのみ）**	standalone-capable
+ta-51-doctor-w6.sh	**rc=0 / P5 F0**	standalone-capable
+ta-52-doctor-skill-collision.sh	**rc=0 / P5 F0**	standalone-capable
+ta-53-doctor-prepush.sh	**rc=0 / P4 F0**	standalone-capable
+ta-54-ai-loop-link-selfcontained.sh	rc=0 / P2 F7	harness-only
+ta-55-c3prime-accept.sh	rc=0 / **P0** F1	harness-only
+ta-56-delivery.sh	rc=0 / **P0** F1	harness-only
+ta-57-pr-convergence.sh	rc=0 / P1 F11	harness-only
+ta-58-git-destructive-guard.sh	**rc=0 / P40 F0**	standalone-capable
+ta-59-apply-settings-merge.sh	**rc=0 / P22 F0**	standalone-capable
+ta-60-run-evidence.sh	**rc=0 / P9 F0**	standalone-capable
+| 1 | `ta-05-validate-schemas.sh` | 2 | 2 |
+| 2 | `ta-07-eval-runner.sh` | 3 | 0 |
+| 3 | `ta-09-metrics.sh` | **21** | 2 |
+| 4 | `ta-10-doctor-fix.sh` | 10 | 2 |
+| 5 | `ta-12-maintenance.sh` | 13 | 1 |
+| 6 | `ta-13-plangate-setup.sh` | 10 | 7 |
+| 7 | `ta-14-codex-guarded.sh` | 8 | 0 |
+| 8 | `ta-14-skip-acknowledge.sh` | 11 | 1 |
+| 9 | `ta-15-codex-hook-bridge.sh` | 7 | 0 |
+| 10 | `ta-16-pollution-guard.sh` | 12 | 2 |
+| 11 | `ta-17-pre-push-guard.sh` | 13 | 1 |
+| 12 | `ta-18-tag-main-parity.sh` | 11 | 4 |
+| 13 | `ta-19-plan-metrics-verification.sh` | 8 | 2 |
+| 14 | `ta-20-codex-review.sh` | 9 | 1 |
+| 15 | `ta-21-codex-mvp-split.sh` | 9 | 0 |
+| 16 | `ta-22-git-add-scope.sh` | 8 | 0 |
+| 17 | `ta-23-gh-account-pin.sh` | 7 | 0 |
+| 18 | `ta-24-parallel-review.sh` | 4 | 6 |
+| 19 | `ta-25-approval-token-guard.sh` | 7 | 0 |
+| 20 | `ta-27-codex-commands.sh` | 3 | 2 |
+| 21 | `ta-28-plugin-version.sh` | 10 | 1 |
+| 22 | `ta-29-committed-pollution.sh` | 4 | 1 |
+| 23 | `ta-30-install-skills.sh` | 9 | 0 |
+| 24 | `ta-31-codex-plugin-status.sh` | 7 | 0 |
+| 25 | `ta-33-agent-model-tier.sh` | 2 | 2 |
+| 26 | `ta-34-cli-min-coverage.sh` | 5 | 1 |
+| 27 | `ta-35-yaml-schema.sh` | 1 | 1 |
+| 28 | `ta-36-fixloop-event.sh` | 1 | 0 |
+| 29 | `ta-37-cli-coverage-batch2.sh` | 6 | 1 |
+| 30 | `ta-41-approve-hardening.sh` | 6 | 1 |
+| 31 | `ta-42-cli-subcommands.sh` | 9 | 1 |
+| 32 | `ta-54-ai-loop-link-selfcontained.sh` | 7 | 2 |
+| 33 | `ta-55-c3prime-accept.sh` | 1 | 0 |
+| 34 | `ta-56-delivery.sh` | 1 | 0 |
+| 35 | `ta-57-pr-convergence.sh` | 11 | 1 |
+| 1 | `ta-06-hooks.sh` | 0 | 0 | 1 | **FAIL すら出ず SKIP のみで完全素通り** |
+| 2 | `ta-07-eval-runner.sh` | 0 | 3 | 0 | 全 FAIL |
+| 3 | `ta-08-codex-log-parser.sh` | 0 | 0 | 1 | **FAIL すら出ず SKIP のみで完全素通り** |
+| 4 | `ta-14-codex-guarded.sh` | 0 | 8 | 0 | 全 FAIL |
+| 5 | `ta-15-codex-hook-bridge.sh` | 0 | 7 | 0 | 全 FAIL |
+| 6 | `ta-21-codex-mvp-split.sh` | 0 | 9 | 0 | 全 FAIL |
+| 7 | `ta-22-git-add-scope.sh` | 0 | 8 | 0 | 全 FAIL |
+| 8 | `ta-23-gh-account-pin.sh` | 0 | 7 | 0 | 全 FAIL |
+| 9 | `ta-25-approval-token-guard.sh` | 0 | 7 | 0 | 全 FAIL |
+| 10 | `ta-30-install-skills.sh` | 0 | 9 | 0 | 全 FAIL |
+| 11 | `ta-31-codex-plugin-status.sh` | 0 | 7 | 0 | 全 FAIL |
+| 12 | `ta-36-fixloop-event.sh` | 0 | 1 | 0 | 全 FAIL |
+| 13 | `ta-55-c3prime-accept.sh` | 0 | 1 | 0 | 全 FAIL |
+| 14 | `ta-56-delivery.sh` | 0 | 1 | 0 | 全 FAIL |
+
+# --- オーガナイザーによる独立再実行（サンプル照合） ---
+ta-05-validate-schemas.sh	rc=0 P2 F2	（独立再現）
+ta-13-plangate-setup.sh	rc=0 P7 F10	（独立再現）

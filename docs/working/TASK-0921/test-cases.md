@@ -1,7 +1,19 @@
 # TEST CASES — TASK-0921
 
-> **C-2 反映済み**（`Refs: R-001`〜`R-020`）。指摘の正本は [`review-external.md`](./review-external.md)。
+> **C-2 反映済み**（`Refs: R-001`〜`R-020` / **別系統 C-2（4 レーン）由来の `R-021`〜`R-037`**）。
+> 指摘の正本は [`review-external.md`](./review-external.md)。
 > 本ファイルの `## Traceability` が **AC↔TC 写像の単一正本**である（R-001）。
+>
+> **R-032 は `resolved-by-design` につき反映していない**。未確定の 4 件（R-022 / R-023 /
+> R-026 の `timeout-minutes` / R-030）+ **AC-2 (c) の対象本数（F3）** は
+> plan の `## Human C-3 の判断事項`（**HJ-1〜HJ-5**）に集約した。
+>
+> **2026-08-10 Human C-3 裁定を反映済み**: **HJ-4 = (b) 保持 + 規約化** につき
+> **TC-06 は維持され再定義されない** / **HJ-5 = `pbi-input.md` へ反映**（AC-2 (c) が
+> **3 本 → 7 本**へ更新され、**正本の stale は解消**）/ **HJ-2 = Slice 2 の D-2 (c) に委ねる** /
+> **HR-4 = `EXTRAS_DIR` 非空を harness 判定の AND 条件へ**。
+> **HJ-1 / HJ-3 は未裁定のまま**（HO 対象・patch 提示のみ・**exec をブロックしない**）。
+> **本反映で `plan_hash` は無効化される。Human による再承認（`c3.json` 再発行）が必要。**
 
 ## Contract RC Table
 
@@ -28,7 +40,10 @@
 
 ### TC-01 Harness mode is non-invasive
 
-Given `PG_HARNESS_SOURCED=1` and valid `FIXTURES_DIR`, when init is called, then pass/fail are not reset, no exit trap is installed, **probe env vars are not read**, and helper returns 0.
+Given the **harness 判定述語（正本 = `plan.md` の `### Mode resolution`）が真**になる env
+（HR-4 = (b) 裁定により **`PG_HARNESS_SOURCED=1` / 非空 `FIXTURES_DIR` / 非空 `EXTRAS_DIR` の
+3 条件 AND**。`EXTRAS_DIR` を欠く 2 条件のみの env は **standalone 分岐へ解決されるため
+本 TC の Given を満たさない**）, when init is called, then pass/fail are not reset, no exit trap is installed, **probe env vars are not read**, and helper returns 0.
 
 ### TC-02 Harness-only direct misuse
 
@@ -104,6 +119,19 @@ Given unknown capability string, helper fails closed before body with nonzero rc
 
 For every file in scope, marker count is exactly 1 and value is one of `standalone-capable`, `harness-only`.
 
+**Detection is specified, not left to the implementer (R-027).** The normative regex, search range and
+pass condition live in `plan.md` `#### marker 検出の正規表現仕様`:
+
+```text
+ERE     : ^[[:space:]]*#[[:space:]]*PG_EXTRA_CAPABILITY:[[:space:]]*(standalone-capable|harness-only)[[:space:]]*$
+Range   : first 20 lines of the file only
+Pass    : exactly 1 matching line (0 or ≥2 is a FAIL)
+```
+
+Four vacuity routes are closed by that spec and must stay closed: two markers on one line, a
+**trailing space** defeating a strict `$` anchor, a marker string **inside a heredoc**, and the
+contract TA **matching itself**. The corresponding mutation is **M-17**.
+
 ### TC-10 Marker and init agree
 
 **Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not returned by**
@@ -116,7 +144,17 @@ For every file in scope, marker value and `pg_extra_contract_init` second argume
 **Scope**: the migrated set — every runtime-discovered `ta-*.sh` **not returned by**
 `_pending_migration` (the migration-period allowlist embedded in the contract TA).
 
-For every in-scope marker=harness-only file (resolved by **basename test-id**), `sh "$file" </dev/null` returns 2, emits standard diagnostic naming that basename, and creates no body sentinel/tmp/audit evidence.
+For every in-scope marker=harness-only file (resolved by **basename test-id**), `sh "$file" </dev/null` must satisfy **both** conditions — rc alone is not a pass (R-029-2):
+
+- `rc == 2`, **AND**
+- the output contains `[ERROR] <basename-id> is harness-only` with the **file's own basename id**
+
+and it creates no body sentinel/tmp/audit evidence.
+
+**Why the id-bearing message is part of the pass condition**: a shell **syntax error also exits 2**
+(a missing command exits 127). A file whose syntax was broken would pass an rc-only assertion without
+the harness-only guard having run at all. The id match proves the guard executed and identified the
+right file. The independent `sh -n` case (**TC-27**) is the second layer of that defence.
 
 **Slice**: the loop **runs from Slice 1**, not only from Slice 2. In Slice 1 no real file carries the
 `harness-only` marker yet, so the loop is **vacuous** and its full-coverage value for AC-3 still only
@@ -144,8 +182,17 @@ For each such file, assert **both**:
 
 - (a) **probe absent** → `sh "$file" </dev/null` returns 0
 - (b) **probe present with matching `PG_EXTRA_CONTRACT_TARGET=<basename>`** → returns 1
+  **AND** the output contains the probe's unique marker `PG_EXTRA_CONTRACT_PROBE_FIRED:<basename-id>`
 
 Both must hold; the difference between (a) and (b) is what proves the file reaches finalize. (b) alone cannot detect a file that always returns 1. Non-target file behavior is unchanged.
+
+**Why (b) is an AND rather than an rc check (R-029-1)**: rc=1 can arise from causes other than the
+probe. The 層 0 files still carry the legacy `[ "$fail" -eq 0 ] || exit 1` footer, so they can return 1
+**without finalize ever being called** — an rc-only assertion cannot prove "finalize was reached and
+mapped `fail>0` onto rc=1", which is the entire property this case exists to prove. The plan already
+required the probe message to be distinguishable; R-029 makes that message a **pass condition** and
+fixes its format so the test can grep it. The mutation that removes the unique string / test-id from
+the probe message is **M-18**.
 
 **Prerequisite-absent files are excluded from this case and are asserted by TC-17 (rc=3) instead.** Hardcoding rc=0 for every standalone-capable file is nevertheless forbidden, because prerequisite satisfaction depends on repository state (which hooks/scripts are applied) and can flip between the plan, exec and CI environments. Measured at the base commit (C-1 round 2), `ta-39-eh3-doc-light`, `ta-43-eh2-strict-json` and `ta-44-eh457-cli-wiring` **all** return rc=0, i.e. all three are prerequisite-satisfied and the prerequisite-absent class is currently empty; `ta-43`'s prerequisite is checked against `scripts/hooks/check-c3-approval.sh` (which does contain `_eh2_stdin`), not `check-plan-hash.sh`. The class split must therefore be **re-measured by stage 1 at exec start** and never written into the test as a fixed list.
 
@@ -171,11 +218,25 @@ For every in-scope marker=standalone-capable file whose prerequisites are satisf
 
 ### TC-15 External env contamination
 
-With the seven guarded env values pre-set, runner and standalone-capable normal loop behave as clean baseline; harness-only still exits 2 directly. Contract probe env vars are additionally set and must have **no effect on the harness run** (internal-only).
+With **every guarded env value derived at runtime from `tests/run-tests.sh`'s unset list** pre-set, runner and standalone-capable normal loop behave as clean baseline; harness-only still exits 2 directly. Contract probe env vars are additionally set and must have **no effect on the harness run** (internal-only).
+
+**The env count is never written into this case (R-034).** `ta-26`'s TC-33 already derives the env
+names dynamically from `run-tests.sh` with `awk` precisely to avoid a fixed count; hardcoding "seven"
+here would go the other way and leave the test wording **stale** the moment the runner's unset list
+grows or shrinks. It also conflicts with the Global Constraint "file count / ta 番号一覧を正本として
+ハードコードしない". Derive the set, do not count it.
 
 ### TC-16 New file without contract
 
 Adding a temporary `ta-zz-probe.sh` without marker/init makes contract TA fail. Adding only a marker but no matching init also fails. Adding marker + init but **no tail `pg_extra_contract_finalize`** also fails (case D has no trap safety net).
+
+**The probe file is created inside a sandbox, never in the real `tests/extras/` (R-028).** Use the
+same real-tree copy construction as TC-17 / M-10 (`plan.md` `#### TC-17 / M-10 の sandbox 構成手順`):
+`mktemp -d`, copy the tracked worktree in, add `ta-zz-probe.sh` **to the copy**, run the copy's contract
+TA. `tests/run-tests.sh` sources **every** `ta-*.sh` unconditionally, so a probe file left behind by an
+interrupted or crashed run would poison every subsequent run — it carries neither marker nor init, so
+the contract TA would fail permanently and the cause ("a previous run was interrupted") would be
+invisible. Writing to the real `tests/extras/` is forbidden by Global Constraints for this reason.
 
 This case is the reason the migration-period allowlist must be an **explicit list** and not a predicate: `ta-zz-probe.sh` has no helper bootstrap, so a predicate-based allowlist would exempt it and this case would silently pass. Because `_pending_migration` is generated from the Task 1 inventory at the base commit, the newly added file is absent from it and therefore **falls inside the migrated set** — which is the property MJ-E requires, and it holds for all three patterns below.
 
@@ -193,7 +254,23 @@ Set membership (i.e. "the new file is in scope at all") is established for all t
 
 ### TC-17 Prerequisite-absent files return rc=3
 
-In a sandbox where the prerequisite is absent, `ta-39-eh3-doc-light`, `ta-43-*`, and `ta-44-*` each return **rc=3** on normal standalone execution (**rc=0 is a FAIL**); with a matching force-fail probe they return 1 only when the prerequisite is present. Under harness source they skip without terminating the suite.
+In a sandbox where the prerequisite is absent, the **six whole-file-guard** files —
+`ta-39-eh3-doc-light`, `ta-43-eh2-strict-json`, `ta-44-eh457-cli-wiring` (the `|| exit 0` form) and
+`ta-45-c3-mode-config`, `ta-46-ehs-wiring`, `ta-47-ehs23-wiring` (the **`|| true` form**, added by
+R-021) — each return **rc=3** on normal standalone execution (**rc=0 is a FAIL**); with a matching
+force-fail probe they return 1 only when the prerequisite is present. Under harness source they skip
+without terminating the suite.
+
+**`ta-49-bias-export` is deliberately excluded from the rc=3 assertion.** It is the seventh early-exit
+file but its guard is **section-scoped, not file-scoped**: the file declares two layers in its header
+(layer A runs unconditionally, layer B is skipped when the HO wiring is unapplied), and by the time the
+guard is reached **layer A's TC-01 / TC-02 / TC-04 / TC-06 have already run and updated the counters
+eight times** (measured). Asserting rc=3 there would (i) misstate "not inspected" for a file that did
+inspect, and (ii) **contradict this plan's own Finalize precedence**, which requires **rc=1** when a
+prerequisite is absent *and* `fail > 0`. Its expectation is therefore **rc follows the preceding TCs
+(0 or 1), plus the SKIP diagnostic** — asserted by TC-29, not here. The six above are confirmed to have
+**no executed counter update before their guard** (the apparent matches in `ta-39` / `ta-44` are the
+`tXX_pass()` / `tXX_fail()` **function definitions**, not executions).
 
 The rc=3 must additionally be shown to originate from `pg_extra_contract_skip` (its diagnostic appears in the output). A file that reaches rc=3 by any other route is a FAIL — `pg_extra_contract_skip` is the sole channel for declaring "prerequisite absent", and the test body must never `exit 3` directly.
 
@@ -225,7 +302,12 @@ After sourcing the helper inside a harness-like context, `register_cleanup` stil
 
 ### TC-22 TC-33 substitute keeps its detection power
 
-The `ta-26` TC-33 gate (#914 AC-9) is re-targeted at the helper: the helper's standalone unset set must be a superset of the runner's seven guarded env vars, and every `ta-*.sh` must carry helper bootstrap + init. Removing one env from the helper's unset set makes this case FAIL (no silent skip). A `continue`-only loop that inspects zero files is itself a FAIL (R-013).
+The `ta-26` TC-33 gate (#914 AC-9) is re-targeted at the helper: the helper's standalone unset set must be a superset of **the runner's guarded env vars, derived at runtime from `tests/run-tests.sh` — the count is not stated (R-034)**, and every `ta-*.sh` must carry helper bootstrap + init. Removing one env from the helper's unset set makes this case FAIL (no silent skip). A `continue`-only loop that inspects zero files is itself a FAIL (R-013).
+
+The equivalence claim behind this re-targeting — that `(1) helper's unset set ⊇ runner's guarded set`
+**AND** `(2) every ta-*.sh carries helper bootstrap + init` is equivalent to the original whole-repo
+property — is stated explicitly in `plan.md` `#### 差し替えの等価性の明示` (R-031). Note that (2) only
+holds once the migration allowlist is empty, which is why this case is a **Slice 2** acceptance criterion.
 
 ### TC-23 Probe env does not leak into child processes
 
@@ -311,6 +393,88 @@ Deriving membership from the predicate is what silently exempts a marker-less ne
 predicate side, caught by TC-16); asserting the predicate over an explicit list is what catches a
 migrated file that was left behind (M-14, caught here). The two directions are complementary.
 
+### TC-26 A non-zero `return` on the source path never truncates the suite
+
+**Slice**: 1. **Origin**: R-024.
+
+Global Constraints previously forbade only `exit` on the source path. Under `set -eu`
+(`tests/run-tests.sh`), a sourced extras file that merely **`return`s non-zero** also aborts the run:
+every subsequent extras file is skipped, `_pg_drain_cleanup` never drains, and the `Results:` line is
+never printed. The runner still exits 1, so the run looks like "tests are red" and **the truncation is
+invisible**. The same accident happens by implementation slip — a `finalize` whose last statement is a
+test such as `[ "$fail" -gt 0 ]` returns non-zero implicitly.
+
+Source a synthetic harness that includes a standalone-capable-equivalent fixture with `fail > 0`, then
+assert **both**:
+
+- the **marker line of a file ordered after the failing one** appears in the output, and
+- the `Results:` line appears.
+
+Both are required: either one alone can be satisfied by an unrelated code path. The helper must
+therefore end `pg_extra_contract_finalize` with an explicit `return 0` in harness mode and `exit` only
+in standalone mode. The mutation is **M-16**.
+
+### TC-27 Syntax check is an independent case
+
+**Slice**: 1. **Origin**: R-029-3.
+
+`sh -n` over the helper, `tests/run-tests.sh` and every `ta-*.sh` is asserted as its **own case**, not
+only as a step in the Verification Plan. Reason: a shell **syntax error exits 2**, which is exactly the
+rc this contract assigns to "harness-only invoked directly". Without an independent syntax case, a
+file broken at parse time can satisfy TC-11's rc while its guard never ran. TC-11's id-bearing message
+(R-029-2) and this case together remove that ambiguity. Failures here must be reported as **syntax
+errors**, distinctly from the harness-only namespace.
+
+### TC-28 The contract TA's discovery set equals the runner's source set
+
+**Slice**: 1. **Origin**: R-035.
+
+The contract TA performs its own runtime discovery of `ta-*.sh`. Nothing currently asserts that this
+set is **the same set `tests/run-tests.sh` actually sources**. If one glob changes and the other does
+not, the contract TA reports "every file checked" while some file the runner does source is never
+looked at — the same vacuity class this PBI exists to close.
+
+Assert set equality between (a) the contract TA's discovered set and (b) the set the runner's extras
+loop sources. The cheapest sound implementation is to have both read the **same glob definition**
+rather than to re-derive it in two places. Related observation: `ta-40` does not reference
+`FIXTURES_DIR:-` and therefore never enters `ta-26`'s TC-33 scan at all — its 層 A membership was fixed
+by R-003, but TC-33's own coverage is a separate matter, which this case covers. The mutation is
+**M-19**.
+
+### TC-29 Early-exit skip guards behave identically under dash and bash
+
+**Slice**: 1. **Origin**: R-021 (critical) / issue
+[#1026](https://github.com/s977043/PlanGate/issues/1026).
+
+For each of the **seven** early-exit files, run the prerequisite-absent sandbox (TC-17's construction)
+under **both `dash` and `bash`** and assert that the rc is **identical across the two shells**. The
+expected value differs by structure (see `plan.md` `#### 7 本は同質ではない`):
+
+| Group | Files | Expected under both shells |
+|---|---|---|
+| Whole-file guard (6) | `ta-39`, `ta-43`, `ta-44`, `ta-45`, `ta-46`, `ta-47` | **rc=3**, with the `pg_extra_contract_skip` diagnostic present |
+| **Section-scoped skip (1)** | **`ta-49`** | **rc follows the preceding layer-A TCs (0 or 1)** — never 3 — with the layer-B SKIP diagnostic present. If layer A recorded a failure, the Finalize precedence requires **rc=1** |
+
+Cross-shell **identity** is the property under test in both groups; only the expected value differs.
+
+**If `dash` cannot be resolved, this case FAILs — it must not be skipped (F6).** This mirrors the R-026
+ruling that a timeout firing is a FAIL rather than a SKIP, and for the same reason: running only one
+shell and reporting green would reproduce the very "silently passes" class this PBI exists to close.
+The contract TA records which shells it actually ran in the evidence.
+
+Rationale (measured): top-level `return` is undefined behaviour in POSIX. `dash` treats
+`return 0 2>/dev/null` as succeeding and **ends the script**; `bash` treats it as failing, so
+`|| true` swallows the failure and **the body runs anyway** while `|| exit 0` still ends the script.
+CI runs `sh tests/run-tests.sh` on `ubuntu-latest`, where `/bin/sh` is dash. Consequently, before
+migration, the four `|| true` files never reach the tail `pg_extra_contract_finalize` in CI (case D's
+core mechanism) and silently run their bodies on a bash developer machine — **local GREEN does not
+imply CI correctness**. The mutation that restores the old idiom is **M-15**; it must fail in **both**
+directions (dash: probe returns rc=0; bash: the body runs).
+
+> This case gives local two-shell coverage regardless of whether the CI workflow itself is pinned to a
+> shell. Pinning CI (R-022) touches `.github/workflows/**`, a **Hardening Override** path, so it is
+> proposed as a patch for Human application only — see `plan.md` `## Human C-3 の判断事項` HJ-1.
+
 ## Mutation Matrix
 
 > Mutation Matrix は **修正後 helper への変異**である。pbi-input AC-7 が要求する
@@ -334,6 +498,11 @@ migrated file that was left behind (M-14, caught here). The two directions are c
 | M-11 | change the standalone summary literal format | TC-18 FAIL | **2** |
 | M-12 | export probe env from finalize instead of unsetting it | TC-23 FAIL | 1（synthetic）/ 2（`ta-26` 実地） |
 | M-13 | leave an already-migrated file in `_pending_migration`, **or** resolve the allowlist by the predicate "has no helper bootstrap" instead of the explicit list | TC-24 FAIL (list is not empty at Slice 2 completion) / TC-16 FAIL (predicate auto-exempts a marker-less new file) | **2**（list 側は TC-24 の完了時判定）/ **1**（predicate 側は TC-16 で Slice 1 から検出可能） |
+| M-15 | restore the old early-exit idiom in one migrated file — replace its `pg_extra_contract_skip` call with `return 0 2>/dev/null \|\| true` | **TC-29 FAIL in both directions**: under **dash** the file ends before the tail finalize, so the force-fail probe returns **rc=0** instead of 1; under **bash** the guard falls through and the **body runs** (prerequisite-absent output plus a spurious `[FAIL]`). A kill observed in only one shell does **not** count — the evidence must record both (R-021) | **1** |
+| M-16 | make `pg_extra_contract_finalize` return the computed rc in harness mode instead of an explicit `return 0` (equivalently: end it with a bare `[ "$fail" -gt 0 ]`) | **TC-26 FAIL** — the sourced suite truncates: the marker line of the file after the failing one and the `Results:` line are both absent (R-024) | **1** |
+| M-17 | weaken the marker detection spec — anchor strictly on `$` with no trailing-space tolerance, **or** drop the first-20-lines restriction so heredoc bodies are scanned | **TC-09 FAIL** — the strict anchor yields 0 matches on a marker line with a trailing space; the unrestricted scan counts a heredoc occurrence as a second marker (R-027) | **1** |
+| M-18 | drop the unique string / test-id from the probe message (keep the `fail` increment) | **TC-12 FAIL** — (b) still returns rc=1 but `PG_EXTRA_CONTRACT_PROBE_FIRED:<basename-id>` is absent, so the AND condition fails. This is the mutation that proves the pass condition is not rc-only (R-029-1) | **1** |
+| M-19 | change the contract TA's discovery glob (e.g. to `ta-[0-9]*.sh`) so it no longer equals the runner's extras glob | **TC-28 FAIL** — the two sets differ. Note TC-09 / TC-10 would still pass over the narrowed set, which is why the equality is asserted separately (R-035) | **1** |
 | M-14 | (a) leave an already-migrated file's basename in `_pending_migration`; (b) put a name that does not exist under `tests/extras/` in it; (c) make `_pending_migration` emit the **entire runtime inventory** (i.e. replace the heredoc body with the discovery output, keeping the function syntactically valid) so the covered set collapses | **TC-25 FAIL** — (a) migrated file still listed / (b) non-existent entry / (c) **all three** set/execution assertions must fire **individually**: covered-set-minus-self is empty, `_pending_migration` is no longer a proper subset (it equals the discovered set), and TC-12 / TC-13 report zero executed files. Because (c) is killed by four independent paths (per-line check 2 also fires on every entry), the evidence must record **which assertion fired**: the contract TA prints one line per failing assertion, and the mutation is only counted as killed by ①②③ when **all three lines are present in the log**. A kill by per-line check 2 alone does **not** demonstrate ①②③ | **1** |
 
 > **M-13 と M-14 の関係**: 同じ「移行済みファイルが allowlist に残る」欠陥クラスを、
@@ -362,26 +531,41 @@ migrated file that was left behind (M-14, caught here). The two directions are c
 >
 > **Slice 列**: `1` = Slice 1 で充足 / `2` = Slice 2 で充足 / `1(部分)/2(全体)` = 全体量化子を
 > 含むため Slice 1 では対象範囲を限定して充足し、Slice 2 完了時に全体で充足する。
+>
+> **注記 1（AC-2 (c) の対象本数 — HJ-5 裁定済み・正本へ反映済み / F3）**: R-021 の実測により、
+> 早期脱出は **`ta-39` / `ta-43` / `ta-44` の 3 本ではなく 7 本**（うち rc=3 の対象は
+> **ファイル全体ガード 6 本**、`ta-49` は節スキップ）であることが判明していた。
+> **2026-08-10 Human C-3 裁定 HJ-5 により `pbi-input.md`（AC の正本）を 3 本 → 7 本へ更新済み**
+> であり、**正本の stale と「3 と 7 の食い違い」は解消した**。
+> 本表は引き続き**写像のみ**を持ち、AC の文言は `pbi-input.md` を正本とする。
+> 実装上の対象定義は plan の `#### 7 本は同質ではない`（rc=3 の対象 = 全体ガード 6 本 /
+> `ta-49` = 節スキップで先行 TC の結果に従う）を用いる。**AC 文言と実装対象は 7 本で一致した。**
 
 | AC | 内容（要約） | Tests | Slice |
 |---|---|---|---|
-| AC-1 | standalone で `fail > 0` / 誤動作でも exit 0 を返すものが 0 件（実行ベース判定・件数非固定） | TC-09, TC-10, TC-11, TC-12, TC-13, TC-16, TC-20 | **1（層 A 12 本の範囲）/ 2（runtime discovery で得た全 `ta-*.sh`）** |
+| AC-1 | standalone で `fail > 0` / 誤動作でも exit 0 を返すものが 0 件（実行ベース判定・件数非固定） | TC-09, TC-10, TC-11, TC-12, TC-13, TC-16, TC-20, **TC-28**（検査集合 == runner の source 集合 / R-035）, **TC-29**（`\|\| true` 型が CI で finalize に到達しない経路 / R-021） | **1（層 A 12 本の範囲）/ 2（runtime discovery で得た全 `ta-*.sh`）** |
 | AC-2 (a) | 層 A の fail 注入 standalone が exit 1 | TC-04, TC-05, TC-12 | 1 |
-| AC-2 (b) | 同じ fail 注入状態で source 経路が完走し集計される | TC-01, TC-14, TC-15 | 1 |
-| AC-2 (c) | 前提未充足 SKIP の rc が「検査していない」を表明（**rc=3**、rc=0 不可） | **TC-17**, TC-13 | 1 |
+| AC-2 (b) | 同じ fail 注入状態で source 経路が完走し集計される | TC-01, TC-14, TC-15, **TC-26**（非 0 `return` でも途中打ち切りしない / R-024） | 1 |
+| AC-2 (c) | 前提未充足 SKIP の rc が「検査していない」を表明（**rc=3**、rc=0 不可） | **TC-17**, **TC-29**（dash / bash 双方）, TC-13 ※**対象本数は注記 1 を参照。HJ-5 裁定により正本 `pbi-input.md` へ 7 本を反映済み**（rc=3 の対象 = 全体ガード 6 本 / `ta-49` は節スキップ） | 1 |
 | AC-2 (d) | カウンタ初期化の存在（helper が担保。層 A 12 本は全数が未初期化） | TC-03, TC-04 | 1 |
 | AC-3 | 層 B + 層 C 41 本の standalone が明示メッセージ付き exit 2 | TC-02（synthetic）, TC-11（全件。**ループは Slice 1 から回すが対象 0 件で vacuous**） | **1（TC-02 のみ）/ 2（TC-11 で充足）** |
 | AC-4 | `sh tests/run-tests.sh` が回帰しない + **runtime `tail -1`** 最終ファイルの `[PASS]` 出現 | **TC-14**, TC-15, TC-21 | 1（Slice 2 でも再実行） |
 | AC-5 | 検査が回帰テスト化され、新規追加の伝播漏れを将来も検出（正規述語）。**移行期間 allowlist を恒久化しない** | TC-09, TC-10, TC-16, TC-20, **TC-25**, **TC-24** | **1（allowlist 付きで成立。逆向きリークは TC-25 が Slice 1 で担保）/ 2（TC-24 で allowlist 空）** |
 | AC-6 | README 規約 9（rc 0/1/2/3・marker・probe・rc2 名前空間）+ #914 handoff writeback | **TC-19**（README）+ handoff CLOSED マーカーの grep（DoD） | **1（TC-19）/ 2（writeback）** |
-| AC-7 | 追加した検査が **修正前実装で FAIL** することの実証 | Verification Plan の pre-fix HEAD evidence + M-01〜M-14（各 M の Slice は Mutation Matrix に従う） | 1（Slice 1 で走る M。**M-13 の predicate 側と M-14 を含む**）/ 2（M-09 / M-11 / M-13 の list 側） |
+| AC-7 | 追加した検査が **修正前実装で FAIL** することの実証 | Verification Plan の pre-fix HEAD evidence + **M-01〜M-19**（各 M の Slice は Mutation Matrix に従う） | 1（Slice 1 で走る M。**M-13 の predicate 側 / M-14 / M-15〜M-19（全 Slice 1）を含む**）/ 2（M-09 / M-11 / M-13 の list 側） |
 | **AC-8**（派生・pbi-input 正本外） | `ta-26` TC-33（#914 AC-9 ゲート）が移行後も**空振りせず**同等以上の検出力を保つ | **TC-22**, M-09 | **2** |
 
 補助的な設計制約の紐付け（AC 直属ではないが Exit Criteria に含む）:
 
 | 制約 | Tests | Slice |
 |---|---|---|
-| **original の nonzero rc を握り潰さない（Finalize precedence の保持）** | **TC-06** | 1 |
+| **original の nonzero rc を握り潰さない（Finalize precedence の保持）** | **TC-06** ※ **HJ-4 = (b) 保持 + 規約化の裁定（2026-08-10）により本行は確定・維持**（(a) 2 値化なら落ちていたが採用されなかった） | 1 |
+| **早期脱出イディオムの禁止**（`return 0 2>/dev/null \|\| …` を型を問わず使わない / R-021） | **TC-17**, **TC-29**, M-15 | 1 |
+| **source 経路で非 0 `return` しない**（R-024） | **TC-26**, M-16 | 1 |
+| **marker 検出の正規表現仕様 + 先頭 20 行限定**（R-027） | **TC-09**, M-17 | 1 |
+| **probe / harness-only の合格条件を rc 単独にしない**（R-029） | **TC-11**, **TC-12**, **TC-27**, M-18 | 1 |
+| **検査集合 == runner の source 集合**（R-035） | **TC-28**, M-19 | 1 |
+| **`seven` を書かず runner から動的導出する**（R-034） | TC-15, TC-22 | 1（TC-15）/ 2（TC-22） |
 | **登録済み tmp のみ削除し未登録 path を消さない（cleanup の既存パターン制約）** | **TC-07** | 1 |
 | **capability 宣言の不正を fail-closed で拒否する（AC-5 の「契約未宣言なら fail」の裏面）** | **TC-08**, M-04 | 1 |
 | summary 書式の維持（`ta-26` TC-13 の literal grep） | TC-18, M-11 | **2**（`ta-26` は層 0） |
@@ -398,7 +582,10 @@ migrated file that was left behind (M-14, caught here). The two directions are c
 ### Slice 1 の DoD（Slice 1 PR の V-1 / C-4 の判定対象）
 
 - [ ] **TC-01, TC-02, TC-03, TC-04, TC-05, TC-06, TC-07, TC-08, TC-09, TC-10, TC-11, TC-12,
-      TC-13, TC-14, TC-15, TC-16, TC-17, TC-19, TC-20, TC-21, TC-23（synthetic 側）, TC-25 PASS**。
+      TC-13, TC-14, TC-15, TC-16, TC-17, TC-19, TC-20, TC-21, TC-23（synthetic 側）, TC-25,
+      TC-26, TC-27, TC-28, TC-29 PASS**（TC-26〜TC-29 は R-024 / R-029-3 / R-035 / R-021 由来）。
+      **TC-06 は HJ-4 = (b) 保持 + 規約化の裁定（2026-08-10）により本行に確定して残る**
+      （(a) 2 値化が選ばれていれば本行から外す必要があったが、採用されなかった）。
       **TC-11 は Slice 1 では対象 0 件の vacuous PASS でよい**が、その場合は
       `evidence/test-runs/harness-only.log` に **「対象 0 件」を明示記録**すること
       （空振りを黙って PASS にしない / INFO-1）。AC-3 の全件充足は Slice 2
@@ -427,6 +614,36 @@ migrated file that was left behind (M-14, caught here). The two directions are c
       heredoc への転記との `diff` 照合結果が evidence に残っている**
 - [ ] **TC-17 / M-10 が sandbox（repo 実コピー + 述語文字列除去）で実走済み**
       （Slice 2 へ繰り延べていない / plan `#### TC-17 / M-10 の sandbox 構成手順`）
+- [ ] **M-15〜M-19 が期待どおり FAIL**（R-021 / R-024 / R-027 / R-029 / R-035）。
+      **M-15 は dash と bash の両方で kill されたことが evidence に記録されている**
+      （片方だけの kill は不十分 / R-021）
+- [ ] **早期脱出 7 本のイディオムが除去され、`grep -rn 'return 0 2>/dev/null' tests/extras/` が
+      層 A について 0 件**（R-021。`ta-31` の分岐内 4 箇所は層 B のため Slice 2 で解消）。
+      **内訳**: ファイル全体ガード **6 本**（`ta-39` / `ta-43` / `ta-44` / `ta-45` / `ta-46` /
+      `ta-47`）は `pg_extra_contract_skip` 経由へ移行 / **`ta-49` は節スキップ**のため
+      `pg_extra_contract_skip` を使わず末尾 finalize へ落とす（**rc=3 を要求しない** / F2）
+- [ ] **`original rc` 捕捉規約（HJ-4 = (b) 裁定 / R-030）が層 A 12 本すべてで守られている**:
+      **(1)** 各ファイルの最終行が `pg_extra_contract_finalize` の呼出のみで、**直前に他コマンドが無い**
+      **(2)** **呼び出し側に summary の `printf` が無い**（summary 出力は helper 内部。
+      層 0 の 4 本の現行形をテンプレートとして複製していない）
+      **(3)** 規約遵守は静的検査に依らず **contract TA の force-fail probe（TC-12）が
+      各ファイルで rc=1 を返す**ことで実行ベースに担保されている
+- [ ] **bootstrap と helper の harness 判定が、harness 判定述語の正本（`plan.md` の
+      `### Mode resolution`）と文字単位で同一**であり、**`EXTRAS_DIR` 非空を AND 条件に含む
+      3 条件 AND** になっている（HR-4 = (b) 裁定 / C-1 R7 MN-P）。
+      **`sh tests/run-tests.sh` の正規経路が回帰しない**ことを
+      TC-14 / TC-21 で確認する（`tests/run-tests.sh` は **`FIXTURES_DIR=` /
+      `EXTRAS_DIR=` の代入行**（記号アンカー。行番号では指さない — C-1 R10 F-3）で
+      両 dir を設定するため harness 判定は 3 条件とも成立する）
+- [ ] **TC-16 が実 `tests/extras/` へ書き込まず sandbox で実行されている**（R-028）
+- [ ] **per-file timeout が 180s 以上で実装され、`timeout(1)` 不在環境でも動くフォールバックを
+      持ち、timeout 発火が FAIL（SKIP ではない）として扱われる**（R-026）
+- [ ] **`seven` 等の env 件数がテスト文言に残っていない**（R-034。TC-15 / TC-22 とも
+      `run-tests.sh` から動的導出）
+- [x] **HJ-2 / HJ-4 / HJ-5 / HR-4 が C-3 で裁定済み・plan / pbi-input / todo / test-cases へ反映済み**
+      （plan `## Human C-3 の判断事項` の裁定状況表 / 2026-08-10）。
+      **HJ-1 / HJ-3 は未裁定のままでよい**（HO 対象・patch 提示のみ・exec 非ブロック）
+- [ ] **裁定反映で無効化された `plan_hash` に対する Human の再承認（`c3.json` 再発行）が済んでいる**
 
 ### Slice 2 の DoD（Slice 2 着手時に Mode 再判定のうえ適用）
 
@@ -440,4 +657,6 @@ migrated file that was left behind (M-14, caught here). The two directions are c
 - [ ] **AC-6 の writeback 側**: `TASK-0914/handoff.md` §3 の対象 2 行に CLOSED マーカーが
       grep で確認できる
 - [ ] **AC-8 を充足**（TC-22 / M-09。`ta-26` TC-33 の検出力が空振りしない）
-- [ ] **TC-01〜TC-25 を通しで再実行して PASS**（Slice 1 の DoD が Slice 2 の変更で退行していないこと）
+- [ ] **TC-01〜TC-29 を通しで再実行して PASS**（Slice 1 の DoD が Slice 2 の変更で退行していないこと）
+- [ ] **`ta-31` の分岐内 `return 0 2>/dev/null || true` 4 箇所が解消され、
+      `grep -rn 'return 0 2>/dev/null' tests/extras/` が全件 0 件**（R-021 の残余）

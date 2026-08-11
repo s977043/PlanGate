@@ -1,0 +1,73 @@
+# A-4 変異検証 4 種（1 つずつ入れて戻す）— 実出力の転記
+# 復元は `git checkout -- tests/extras/ta-26-plugin-sync.sh`（HEAD を付けない = index = 実装適用済みへ戻す）
+
+=== 変異① 条件反転（新規 2 ゲート限定: L427 / L572 のみ）=========================
+mutation1 applied to L427,L572
+$ sh tests/extras/ta-26-plugin-sync.sh </dev/null > mut1-parent.log 2>&1 ; rc=0
+$ diff summary-base.txt summary-mut1.txt
+1c1
+< TA-26 standalone: 32 passed, 0 failed
+---
+> TA-26 standalone: 18 passed, 0 failed
+diff rc=1   → TC-A2a FAIL（期待どおり）
+
+# 復元
+$ git checkout -- tests/extras/ta-26-plugin-sync.sh
+$ grep -nE '^if \[ "\$\{PG_T26_NO_RECURSE:-0\}" (=|!=) "1" \]; then' tests/extras/ta-26-plugin-sync.sh
+67 / 293 / 427 / 572 いずれも `= "1"`
+$ diff summary-base.txt summary-mut1-restore.txt
+RE-PASS: SUMMARY IDENTICAL
+
+=== 変異② ゲート B 終端 `fi` を TC-36 の手前へ ==================================
+mutation2 applied: gate B fi moved before TC-36
+$ sh -n tests/extras/ta-26-plugin-sync.sh ; rc=0
+$ PG_T26_NO_RECURSE=1 sh ... > mut2-child.log ; rc=0
+$ grep -cE '\[(PASS|FAIL)\] TC-(2[0-9]|32|34|35|36)' mut2-child.log
+1        → TC-A1b FAIL（期待値 0 に対し 1）
+$ grep -E '\[(PASS|FAIL)\] TC-36' mut2-child.log
+  [PASS] TC-36 経路1 非発火帯: 解決可能 symlink stale が実削除される（集計 = 削除の逆方向・target 非破壊）
+  （= ヘルパーがゲート外にあるため TC-36 は正常実行される＝空振りしていない）
+
+# 復元
+$ git checkout -- tests/extras/ta-26-plugin-sync.sh
+$ grep -cE '\[(PASS|FAIL)\] TC-(2[0-9]|32|34|35|36)' mut2-restore-child.log
+0        → TC-A1b 再 PASS
+
+=== 変異③ ゲート外から `_t26_tgt36` を参照する 1 行を注入 =======================
+mutation3 applied（ファイル末尾に `: "$_t26_tgt36"` を追記）
+$ sh tc-a6a.sh "427-531" "572-748"
+containment_violations=0
+CROSS _t26_tgt36 (def L738) <- L824: : "$_t26_tgt36"
+identifiers=77 crossings=1
+rc=1     → TC-A6a FAIL（期待どおり・注入対象は _t26_t20 ではなくゲート B 終端付近の変数）
+
+# 復元
+$ git checkout -- tests/extras/ta-26-plugin-sync.sh
+$ sh tc-a6a.sh "427-531" "572-748"
+containment_violations=0
+identifiers=77 crossings=0
+rc=0     → TC-A6a 再 PASS
+
+=== 変異④ 範囲入力（call site）を広げる — ファイル無改変 ========================
+# 適用後 tree の実測: TC-30 = L750 / TC-33 = L761 / ゲート B の `fi` = L748 /
+# その次の桁 0 `fi` = L759（= 閉じ `fi` を誤インデントしたときに awk が延ばす先）
+# → plan の推定値 558-741 / 558-791 を適用後の実測へ置き換えて実施
+
+$ sh tc-a6a.sh "427-531" "572-759"
+IN-RANGE gate B: TC-30 at L750 is inside 572-759 (ゲート外に残すべき TC)
+containment_violations=1
+FAIL: ゲート範囲が期待 TC を内包していない / ゲート外に残すべき TC を飲み込んでいる
+rc=1
+
+$ sh tc-a6a.sh "427-531" "572-810"
+IN-RANGE gate B: TC-30 at L750 is inside 572-810 (ゲート外に残すべき TC)
+IN-RANGE gate B: TC-33 at L761 is inside 572-810 (ゲート外に残すべき TC)
+containment_violations=2
+FAIL: ...
+rc=1
+
+# 復元（正しい範囲での再実行）
+$ sh tc-a6a.sh "427-531" "572-748"
+containment_violations=0
+identifiers=77 crossings=0
+rc=0
