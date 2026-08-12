@@ -12,3 +12,7 @@
   （拡大所見 — 修正位置を mode 判定本体とする根拠）
 - **重要決定**: 直接実行ガードは `${0##*/}` の `ta-*.sh` glob（バイト一致 DoD 維持）/
   新正本 = 本 plan「### Mode resolution v2」/ F-3 In scope
+- **river-review 反映済み（F-1〜F-5 / 2026-08-12）**: F-1 = helper は関数内 `$0` 非評価の
+  **変数消費形**へ設計変更（zsh FUNCTION_ARGZERO 対策）。sandbox 4 シェル再実測:
+  helper 存在 + 3 env 漏出 + 直接実行 = dash/zsh/bash/sh 全 rc=3 + summary、
+  helper 欠落 = 全 rc=1、runner source（dash/bash/sh）非 exit、清浄 env = 全 rc=3

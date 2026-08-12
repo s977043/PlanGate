@@ -24,7 +24,10 @@
 - 再実測済み（2026-08-12 / main `48f6971`）: helper 欠落 = dash/zsh rc=0、
   **helper 存在でも 4 シェル rc=0**（実測 2 / issue 未記載の拡大所見）
 - 修正 = harness 判定へ direct-exec ガード（`${0##*/}` の `ta-*.sh` glob）を AND。
-  issue 案のファイル名 literal は 15 出現バイト一致 DoD を壊すため不採用
+  issue 案のファイル名 literal はバイト一致 DoD を壊すため不採用。
+  **`$0` 評価は bootstrap トップレベル 1 回のみ・helper は変数消費形**
+  （zsh FUNCTION_ARGZERO で関数内 `$0` = 関数名 → 関数内評価はガード不発 —
+  river-review F-1 是正、変数消費形を 4 シェル再実測済み）
 - F-3（finalize 既定値非対称）は **In scope**（fail-closed 化。Q-1 = C-3 裁定事項）
 - 正本管理: TASK-0921 plan「### Mode resolution」は不変のまま、本 plan
   「### Mode resolution v2」が新正本

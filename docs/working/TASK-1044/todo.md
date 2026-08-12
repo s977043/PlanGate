@@ -19,15 +19,16 @@
       TC-31（env 漏出 + helper 存在 + dash 直接実行 → standalone 契約有効: summary 出力 +
       rc 契約）を追加し、**現実装で red を確認**（AC-5 (a)）
       （owner: agent / depends_on: T-02 / rollback: ta-61 の追加 TC hunk を revert） 🚩
-- [ ] T-04: helper `_pg_extra_resolve_mode` へ direct-exec ガード（Mode resolution v2 の
-      判定 2 行）+ F-3 明示検査（init 前 finalize → stderr 診断 + exit 4）+
-      ヘッダコメント正本参照の更新
+- [ ] T-04: helper `_pg_extra_resolve_mode` を**変数消費形**（`${_pg_extra_direct:-1}` を
+      消費・関数内で `$0` を再評価しない / F-1）へ変更 + F-3 明示検査
+      （init 前 finalize → stderr 診断 + exit 4）+ ヘッダコメント正本参照の更新
       （owner: agent / depends_on: T-03 / rollback: `_extra-contract.sh` の当該 hunk revert） 🚩
 - [ ] T-05: bootstrap 14 箇所（層 A 12 + ta-61 本体 + ta-61 fixture 複製）を
       Mode resolution v2 ブロックへ同型置換。**T-04 と同一 commit**（述語分裂の中間状態禁止）
       （owner: agent / depends_on: T-04 / rollback: `git checkout origin/main -- tests/extras/` 後に T-03 の TC を再適用） 🚩
-- [ ] T-06: ta-61 の述語機械照合 TC を新述語 2 行 × 15 出現へ更新 + TC-32
-      （init 前 finalize → exit 4 + 診断）追加
+- [ ] T-06: 述語機械照合 TC-35 を ta-61 へ**新設**（bootstrap 2 行 × 14 箇所・行頭空白
+      正規化 + helper 変数消費形の分離照合）+ TC-32（init 前 finalize → exit 4 + 診断）追加
+      + harness 模擬 fixture（tc01.sh 等）へ `_pg_extra_direct=0` 明示設定
       （owner: agent / depends_on: T-05 / rollback: ta-61 の当該 hunk revert）
 
 ### 検証
@@ -35,9 +36,10 @@
 - [ ] T-07: green 確認 — TC-30/31/32 PASS + ta-61 全 TC PASS + フルスイート rc=0 +
       層 A 12 本の清浄 env standalone 実行（AC-3 / AC-7）
       （owner: agent / depends_on: T-06 / rollback: 不要（読取のみ）） 🚩
-- [ ] T-08: 変異注入（AC-5 (b)）— (a) case 行（call site）除去変異で TC-30/31 が dash で
-      FAIL（kill）、(b) F-3 検査除去変異で TC-32 が FAIL。ログを
-      `evidence/test-runs/mutation-*.log` へ
+- [ ] T-08: 変異注入（AC-5 (b)）— (a) M-1: case 行（call site）除去変異で TC-30/31 が
+      dash で FAIL（kill）、(b) M-2: helper を変数消費から独自判定へ退行させる変異で
+      TC-31 が **zsh を含めて** FAIL（zsh FUNCTION_ARGZERO 問題の恒久検出 / F-1）、
+      (c) M-3: F-3 検査除去変異で TC-32 が FAIL。ログを `evidence/test-runs/mutation-*.log` へ
       （owner: agent / depends_on: T-07 / rollback: 変異は sandbox 複製上でのみ実施し本体に触れない） 🚩
 - [ ] T-09: 4 シェル最終マトリクス（dash/zsh/bash/sh × 実測 1/2 シナリオ）実測 → AC-1/AC-2 evidence
       （owner: agent / depends_on: T-07 / rollback: 不要（読取のみ））

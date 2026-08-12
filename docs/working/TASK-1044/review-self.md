@@ -71,3 +71,42 @@ created_by: claude
 - pre-fix evidence は scratchpad 実測のみ。exec S1/T-01 で `evidence/test-runs/` へ正式採取
 
 C1-VERDICT: PASS plan=sha256:586f8a919a253f854f616282b18b2fef774bb0c73e4a04cdaa4390a2eea0f3a4
+
+---
+
+## 簡易 C-1 再実行（2026-08-12 / river-review F-1〜F-5 確定反映後）
+
+> 反映元: river-review（major 1 / minor 3 / info 1・実測裏取り済み）。c3 未発行 =
+> plan 編集可能期間内の確定反映。
+
+### 反映内容の整合確認
+
+| F | 反映 | 判定 |
+|---|---|---|
+| F-1（major） | helper を変数消費形へ設計変更（関数内 `$0` 非評価・未設定 = direct 既定）。DoD を「bootstrap 2 行 × 14 箇所バイト一致 + helper 分離定義」へ再定義。挙動マトリクスへ zsh 直接実行行を追加。M-2 変異の恒久的役割（zsh 問題再発検出）を明記。**帰結（harness 模擬 fixture の `_pg_extra_direct=0` 明示化）も S5/T-06/TC-36 へ展開** | PASS |
+| F-2（minor） | TC-35 の「更新」→「**新設**」へ修正（plan S5 / 正本管理表 / test-cases / todo T-06） | PASS |
+| F-3（minor） | AC-4 に「行頭空白を除去して比較」の正規化規約を明記 + helper を照合対象から分離定義（F-1 の変数消費形と整合） | PASS |
+| F-4（minor） | 反転案棄却理由を「source 経路で runner カウンタ流用の summary + exit 0 を出し得る = suite silent truncation。exit 4 も exit する点は同じだが診断つき fail-closed」へ書き直し | PASS |
+| F-5（info） | S8 に旧 handoff「14 箇所」と新分母（bootstrap 14 = fixture 複製含む / helper 別枠）の差異注記タスクを追加 | PASS |
+
+### F-1 新設計の sandbox 4 シェル再実測（2026-08-12）
+
+| 経路 | dash | zsh | bash | sh |
+|---|---|---|---|---|
+| (A) helper 存在 + 3 env 漏出 + 直接実行 | rc=3 + summary | **rc=3 + summary** | rc=3 + summary | rc=3 + summary |
+| (B) helper 欠落 + 3 env 漏出 + 直接実行 | rc=1 | **rc=1** | rc=1 | rc=1 |
+| (C) runner 型 source（sh 系） | 非 exit・counters 維持 | —（runner は sh 前提） | 非 exit | 非 exit |
+| (D) 清浄 env + 直接実行 | rc=3 | rc=3 | rc=3 | rc=3 |
+
+全経路で期待どおり（関数内評価形で zsh のみ rc=0 だった F-1 経路が是正）。
+
+### 判定
+
+- Plan 7 / ToDo 5 / TestCases 3 / 補足 2 の全 17 項目: 反映後も PASS 維持
+  （C1-PLAN-01: AC-4 の再定義は TC-35 と双方向に更新済み / C1-SUP-02: 「述語常に同一」
+  制約を「確定値の消費 + 残り 3 条件同一」へ首尾一貫して書き換え、plan 内矛盾なし）
+- 旧「15 出現」表記の残存: plan / pbi-input / test-cases / todo / INDEX で 0 件を grep 確認
+  （本ファイルの初回 C-1 記録内の言及は履歴として保持）
+- Minor 1（TC-32 の Q-1 依存）/ Minor 2（zsh runner 非強制）: 不変
+
+C1-VERDICT-2: PASS plan=sha256:64337b7f45dbb069c0f91bb7706cff661a6c521ca00d517511bc9e04cadc025f

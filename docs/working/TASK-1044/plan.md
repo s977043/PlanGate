@@ -17,7 +17,9 @@ tests/extras の bootstrap / helper の harness 判定に**直接実行検知**�
 - **harness source 経路で非 0 return / exit しない**（R-024 継承。runner は `set -eu`）
 - summary 書式 `TA-<NN> standalone: N passed, M failed` 不変（R-015a。ta-26 TC-13 が literal grep）
 - mode は init 毎に解決・キャッシュしない（R-033-2 継承）
-- bootstrap と helper の判定述語は**常に同一**（TASK-0921 plan L676-678 の mode 分裂禁止を継承）
+- bootstrap と helper の mode 判定は**分裂させない**（TASK-0921 plan L676-678 継承。
+  本 PBI では「helper が bootstrap の確定した `_pg_extra_direct` を消費し、残り 3 条件は
+  同一述語」の形で実現 — helper 関数内での `$0` 再評価は zsh で分裂を生むため禁止 / F-1）
 - `tests/run-tests.sh` は変更しない（Non-goal。bootstrap / helper 側で完結）
 - runner の起動シェルは sh（dash/bash 系）前提を維持。zsh runner のサポートは Non-goal
   （zsh は FUNCTION_ARGZERO により source 先で `$0` が変わるため、本ガードの前提外）
@@ -37,7 +39,8 @@ issue #1044 の修正案（ファイル名 literal の case）は採らず、**`
 
 - literal 埋め込みはファイルごとに 1 トークン異なり、TASK-0921 が確立した
   「全出現バイト一致」の機械照合 DoD を人手判断つき検査へ退化させる
-- glob 照合なら 15 出現すべてが同一バイト列のまま（AC-4）
+- glob 照合なら bootstrap 14 箇所すべてが同一バイト列のまま（AC-4。helper は
+  変数消費形の分離定義 — 後掲 Mode resolution v2）
 - 修正位置も issue 案（helper 欠落 FAIL 分岐のみ）でなく **mode 判定そのもの**とする。
   実測 2（helper 存在でも 4 シェル rc=0）が示すとおり、FAIL 分岐だけ直しても
   harness 誤判定による standalone 契約の無効化（rc=3 消失・env unset 不発）が残るため
@@ -46,19 +49,46 @@ issue #1044 の修正案（ファイル名 literal の case）は採らず、**`
 
 > **本節が bootstrap / helper harness 判定述語の唯一の正本である**。
 > TASK-0921 plan「### Mode resolution」（3 条件 AND）を**置換**する（同 plan は承認済み
-> 歴史文書として編集しない。照合先の切替は本節 + ta-61 の機械照合 TC で行う）。
+> 歴史文書として編集しない。照合先の切替は本節 + ta-61 の機械照合 TC（TC-35 **新設** —
+> base の ta-61 に述語バイト一致 TC は存在しない）+ helper ヘッダ参照更新で行う）。
 > 他箇所は本節を名前で参照し、条件式を literal 複製しない（TASK-0921 の複製禁止規約を継承）。
 
-harness 判定 = **直接実行でない AND 3 env AND**（4 条件）:
+harness 判定 = **直接実行でない AND 3 env AND**（4 条件）。ただし **`$0` の評価は
+bootstrap トップレベルの 1 回のみ**とし、helper は評価済み変数を消費する（F-1）:
 
-```sh
-case "${0##*/}" in ta-*.sh) _pg_extra_direct=1 ;; *) _pg_extra_direct=0 ;; esac
-if [ "$_pg_extra_direct" = "0" ] && [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
-```
+- **bootstrap（トップレベル / 14 箇所バイト一致）**: `$0` を case で評価し
+  `_pg_extra_direct` を確定してから 4 条件で分岐
 
-bootstrap 全体（15 出現の照合単位は上記 2 行。ブロックは層 A 12 + ta-61 本体 +
-ta-61 fixture 複製の 14 箇所で全体バイト一致、helper は `_pg_extra_resolve_mode`
-関数内に同 2 行を持つ）:
+  ```sh
+  case "${0##*/}" in ta-*.sh) _pg_extra_direct=1 ;; *) _pg_extra_direct=0 ;; esac
+  if [ "$_pg_extra_direct" = "0" ] && [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
+  ```
+
+- **helper `_pg_extra_resolve_mode`（変数消費形 / 照合対象から分離定義）**:
+  **関数内で `$0` を再評価しない**。zsh は FUNCTION_ARGZERO（既定 ON）により
+  **関数内の `$0` = 関数名**となり、関数内評価のガードは zsh 直接実行で不発になる
+  （river-review F-1 実測: 関数内評価形は dash/bash/sh が rc=3 + summary、
+  **zsh のみ rc=0・summary 無し = mode 分裂の再発**）。未設定は安全側 = direct 扱い:
+
+  ```sh
+  if [ "${_pg_extra_direct:-1}" = "0" ] && [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
+    _PG_EXTRA_STANDALONE=0
+  else
+    _PG_EXTRA_STANDALONE=1
+  fi
+  ```
+
+**DoD（AC-4 の照合規約）**: (1) bootstrap の判定 2 行（case 行 + if 行）が
+**14 箇所**（層 A 12 + ta-61 本体 + ta-61 fixture 複製）で**行頭空白を除去した上で
+バイト一致**。(2) helper は照合対象から**分離定義**とし、上掲の変数消費形 literal と
+一致することを別途照合する。
+
+**帰結（exec で必ず対応）**: helper init を harness mode で通したい fixture
+（ta-61 の tc01.sh / tc01b.sh 等、bootstrap を持たず helper を直接 source する形）は
+`_pg_extra_direct` 未設定 → 既定 direct=1 → standalone に落ちるため、
+**harness を模す fixture は `_pg_extra_direct=0` を明示設定する更新が必要**（S5 / TC-36）。
+
+bootstrap 全体（14 箇所で全体バイト一致）:
 
 ```sh
 # ---- extras execution contract bootstrap (#921 / #1044) --------------------
@@ -88,15 +118,16 @@ helper の**ディレクトリ解決**に `$0` を使うと harness 経路で `t
 `ta-*.sh` に一致しない」ことを判定に使うもので、ディレクトリ解決には従来どおり
 mode 分岐（harness=`$EXTRAS_DIR`）を用いる。矛盾しない。
 
-**挙動マトリクス（ガード後）**:
+**挙動マトリクス（変数消費形ガード / sandbox 4 シェル実測済み 2026-08-12）**:
 
-| 経路 | `$0` basename | 3 env | mode |
+| 経路 | `$0` basename | 3 env | mode / 実測 rc |
 |---|---|---|---|
-| runner source（正規 harness） | run-tests.sh | set | harness（不変） |
-| 直接実行・清浄 env | ta-XX-*.sh | unset | standalone（不変） |
-| 直接実行・3 env 漏出 + helper 欠落 | ta-XX-*.sh | set | **standalone → exit 1**（実測 1 是正） |
-| 直接実行・3 env 漏出 + helper 存在 | ta-XX-*.sh | set | **standalone**（7 env unset・rc 契約有効。実測 2 是正） |
-| ta-61 fixture（tc01.sh 等 非 ta-* 名） | tc01.sh | 任意 | env どおり（既存 TC 不変） |
+| runner source（正規 harness / sh 系） | run-tests.sh | set | harness（不変。runner 型 fixture で dash/bash/sh とも非 exit・counters 維持を実測） |
+| 直接実行・清浄 env | ta-XX-*.sh | unset | standalone（不変。dash/zsh/bash/sh とも rc=3 実測） |
+| 直接実行・3 env 漏出 + helper 欠落 | ta-XX-*.sh | set | **standalone → exit 1**（実測 1 是正。**dash=1 / zsh=1 / bash=1 / sh=1 実測**） |
+| 直接実行・3 env 漏出 + helper 存在 | ta-XX-*.sh | set | **standalone**（実測 2 是正。**dash=3 / zsh=3 / bash=3 / sh=3 + summary 出力を 4 シェルで実測**） |
+| **zsh 直接実行（F-1 対象経路）** | ta-XX-*.sh | set | **standalone rc=3 + summary（変数消費形で是正済み実測）**。関数内 `$0` 評価形では FUNCTION_ARGZERO により rc=0・summary 無し = 不発だった |
+| ta-61 fixture（tc01.sh 等 非 ta-* 名・bootstrap 無し） | tc01.sh | 任意 | 既定 direct=1 → standalone。**harness 模擬 fixture は `_pg_extra_direct=0` 明示設定へ更新**（前掲「帰結」） |
 | ta-61 sandbox probe（ta-97〜99） | ta-9X-*.sh | unset | standalone（不変） |
 
 ### F-3 是正（finalize 既定値非対称の fail-closed 化）
@@ -114,9 +145,12 @@ if [ -z "${_PG_EXTRA_STANDALONE:-}" ]; then
 fi
 ```
 
-- 既定値を `:-1` に反転すると、init 前 finalize が harness source 経路で `exit` し
-  runner を殺す（R-024 違反）。明示検査 + `exit 4` は「probe 配線ミス」と同じ
-  fail-closed チャネル（TASK-0921 裁定 ② と同型）で、契約違反を静かに通さない
+- 既定値を `:-1` に反転すると、init 前 finalize が source 経路で **runner のカウンタを
+  流用した standalone summary + `exit 0`（fail=0 時）を出し得る** — runner が途中で
+  静かに正常終了し、後続 extras が走らないまま緑に見える（suite の silent truncation）。
+  `exit 4` 案も source 経路で exit する点は同じだが、**診断つき fail-closed**（非 0 rc +
+  stderr で原因を指す）であり「静かに緑」にはならない。明示検査 + `exit 4` は
+  「probe 配線ミス」と同じ fail-closed チャネル（TASK-0921 裁定 ② と同型）
 - init 前 finalize は TC-10（top-level init 必須の静的検査）が CI で block 済み。
   runtime で到達する時点で既に異常であり、runner 巻き添え（source 経路で exit 4）は
   「静かに緑」より安全側 — **この取り扱いは C-3 で人間裁定を求める設計判断**（Q-1）
@@ -130,7 +164,7 @@ fi
 |---|---|
 | 新正本 | **本 plan「### Mode resolution v2」**（bootstrap 全体 + 判定 2 行） |
 | 旧正本 | TASK-0921 plan「### Mode resolution」— 承認後 plan のため**編集しない**（歴史文書化） |
-| 参照の切替 | ta-61 の機械照合（AC-4 の 15 出現一致 TC）と `_extra-contract.sh` ヘッダコメントの正本参照を本 plan へ向ける |
+| 参照の切替 | **TC-35 新設**（base の ta-61 に述語バイト一致 TC は存在しないため「更新」ではなく新設。AC-4 の bootstrap 14 箇所一致 + helper 分離照合）+ `_extra-contract.sh` ヘッダコメントの正本参照を本 plan へ更新 |
 | handoff 連鎖 | TASK-0921 handoff 既知課題 2 / 2-bis は本 PBI の handoff で「解消（PR #）」を追記参照できるよう、本 PBI handoff に対応表を持つ |
 
 ## Work Breakdown
@@ -139,12 +173,12 @@ fi
 |---|---|---|---|---|---|
 | S1 | pre-fix evidence 採取: 現 HEAD で実測 1 / 実測 2 の 4 シェルマトリクスをログ化（AC-5 (a) の前段） | `evidence/test-runs/pre-fix-*.log` | agent | 低 | 🚩 |
 | S2 | 新 TC を ta-61 へ追加（TC-30: env 漏出 + helper 欠落 直接実行 dash → rc=1 / TC-31: env 漏出 + helper 存在 直接実行 dash → standalone 契約有効）。**この時点で走らせ FAIL を確認**（TDD red / AC-5 (a)） | ta-61 差分 + red ログ | agent | 中 | 🚩 |
-| S3 | helper `_pg_extra_resolve_mode` へ direct-exec ガード追加 + F-3 明示検査追加。ヘッダコメントの正本参照を本 plan へ更新。rollback: 当該 2 hunk revert | `_extra-contract.sh` 差分 | agent | 中 | 🚩 |
+| S3 | helper `_pg_extra_resolve_mode` を**変数消費形**（`${_pg_extra_direct:-1}` を読む・関数内で `$0` を再評価しない / F-1）へ変更 + F-3 明示検査追加。ヘッダコメントの正本参照を本 plan へ更新。rollback: 当該 2 hunk revert | `_extra-contract.sh` 差分 | agent | 中 | 🚩 |
 | S4 | bootstrap 14 箇所（層 A 12 + ta-61 本体 + ta-61 fixture 複製）を Mode resolution v2 ブロックへ同型置換。rollback: `git checkout origin/main -- tests/extras/`（S3 と同一 PR 内で原子的に） | 14 ファイル差分 | agent | 中 | 🚩 |
-| S5 | 機械照合 TC 更新（ta-61 の述語一致検査を 15 出現 / 新述語へ）+ F-3 用 TC-32（init 前 finalize → exit 4 + 診断） | ta-61 差分 | agent | 低 | |
+| S5 | 述語機械照合 TC-35 を**新設**（base の ta-61 に述語バイト一致 TC は存在しない。bootstrap 2 行 × 14 箇所 + helper 変数消費形の分離照合）+ F-3 用 TC-32（init 前 finalize → exit 4 + 診断）+ **harness 模擬 fixture（tc01.sh 等）へ `_pg_extra_direct=0` 明示設定** | ta-61 差分 | agent | 低 | |
 | S6 | green 確認: 新 TC + ta-61 全 TC + フルスイート `sh tests/run-tests.sh` rc=0 + 層 A 12 本の清浄 env standalone 実行 | `evidence/test-runs/post-fix-*.log` | agent | 低 | 🚩 |
 | S7 | 変異注入（AC-5 (b)）: ガードの call site（case 行）を除去した変異体で TC-30/31 が dash で FAIL することを実証。F-3 検査除去変異で TC-32 FAIL を実証 | `evidence/test-runs/mutation-*.log` | agent | 低 | 🚩 |
-| S8 | 4 シェルマトリクス最終実測（dash/zsh/bash/sh × 実測 1/2 シナリオ）+ handoff 対応表 | evidence + handoff 素材 | agent | 低 | |
+| S8 | 4 シェルマトリクス最終実測（dash/zsh/bash/sh × 実測 1/2 シナリオ）+ handoff 対応表（**TASK-0921 handoff の「14 箇所」と本 plan の分母差 — 旧 14 = 層 A 12 + ta-61 本体 + helper、新 = bootstrap 14（fixture 複製を含む）+ helper 別枠 — を 1 行注記**） | evidence + handoff 素材 | agent | 低 | |
 
 依存: S1→S2→S3→S4→S5→S6→S7→S8（S3/S4 は同一 commit 推奨 — 述語分裂の中間状態を作らない。
 TASK-0921 R-025-2 の原子性要求と同型）。
@@ -168,15 +202,20 @@ TASK-0921 R-025-2 の原子性要求と同型）。
 - **変異注入**: (a) pre-fix HEAD で新 TC red（検出力の事前実証）。
   (b) call site 破壊変異（case 行除去 / F-3 検査除去）を dash で走らせ kill 実証
   — 変異は関数でなく call site を壊す（#874 教訓）
-- **機械照合**: 新述語 2 行の 15 出現バイト一致を grep ベースで TC 化（AC-4。
-  絶対件数でなく「照合対象リストとの同値」で書き、成長ディレクトリの件数固定を避ける）
+- **機械照合（TC-35 新設）**: bootstrap 判定 2 行の **14 箇所**バイト一致
+  （**行頭空白を除去して比較** — fixture 複製はインデント差がありうるため正規化規約を固定）
+  + helper 変数消費形の**分離照合**を grep ベースで TC 化（AC-4。絶対件数でなく
+  「照合対象リストとの同値」で書き、成長ディレクトリの件数固定を避ける）
+- **変異 M-2 の恒久的役割（F-1）**: helper 側述語のみを壊す M-2 変異は、F-1 是正後は
+  「helper が bootstrap の確定値を消費せず独自判定へ退行する」クラス
+  （= zsh FUNCTION_ARGZERO 問題の再発形）を恒久検出する
 
 ## Risks & Mitigations
 
 | リスク | 影響 | 緩和 |
 |---|---|---|
 | ta-61 sandbox 系 TC（TC-14〜17/29）が旧 bootstrap 前提で fixture を照合しており、置換で赤くなる | 中 | S2 前に ta-61 全走 baseline。fixture 複製も同時置換（S4 に含む） |
-| zsh が runner として使われた場合 FUNCTION_ARGZERO で source 先 `$0` が変わり harness 判定が standalone へ落ちる | 低（runner は sh 前提） | Constraints に明記 + README 規約に 1 行追記検討。挙動は「余計に standalone に倒れる」= fail-safe 方向 |
+| zsh が runner として使われた場合、FUNCTION_ARGZERO により source 先ファイルのトップレベル `$0` = ファイル名となり、bootstrap が direct=1 → standalone へ落ちて runner のカウンタを流用初期化しうる | 低（runner は sh 前提。CI 実体 dash） | Constraints に「runner は sh 系必須」を明記 + README 規約に 1 行追記検討。失敗方向は「suite が赤くなる / 打ち切られる」であり silent pass 側ではない |
 | `ta-*.sh` 命名規約外の将来ファイルにはガードが効かない | 低 | 規約は ta-61 の marker 検査が既に強制。README 規約に依存を明記 |
 | 述語変更の中間 commit で bootstrap / helper が分裂 | 中 | S3/S4 同一 commit（原子性、R-025-2 同型） |
 | exit 4（init 前 finalize）が harness source 経路で runner を止める | 低（TC-10 が CI で静的 block 済） | Q-1 として C-3 裁定に明示。代替案（return 0 + fail 加算）との比較を提示済み |

@@ -39,8 +39,11 @@ standalone rc 契約が丸ごと無効化される（本 plan 作成時に新規
 
 1. **bootstrap の harness 判定に直接実行ガードを追加**する（`$0` basename ベース）。
    対象 = 層 A 12 本 + `ta-61-extra-contract.sh` 本体 bootstrap + ta-61 内 heredoc fixture
-   （ta-99-probe-c 複製）+ helper `_pg_extra_resolve_mode`（bootstrap と helper の述語は
-   常に同一 — TASK-0921 plan L676-678 の mode 分裂禁止を継承）
+   （ta-99-probe-c 複製）の 14 箇所。**helper `_pg_extra_resolve_mode` は関数内で `$0` を
+   再評価せず、bootstrap がトップレベルで確定した `_pg_extra_direct` を消費する**
+   （zsh FUNCTION_ARGZERO により関数内 `$0` = 関数名となりガードが不発になるため —
+   river-review F-1 実測反映。未設定は安全側 = direct 扱い。mode 分裂禁止
+   — TASK-0921 plan L676-678 — は「同一の確定値を両者が使う」形で継承）
 2. **変更後スニペットの正本を本 PBI の plan.md「### Mode resolution v2」へ移す**
    （TASK-0921 plan は承認済み歴史文書として不変。DoD の機械照合先を新正本へ切替）
 3. **F-3（`_extra-contract.sh` L34/L117 の standalone 既定値非対称）の是正**:
@@ -67,7 +70,7 @@ standalone rc 契約が丸ごと無効化される（本 plan 作成時に新規
 | AC-1 | 3 env 漏出 + helper 欠落 + 直接実行が **dash / zsh / bash / sh の 4 シェルすべてで rc=1**（実測 1 の是正） |
 | AC-2 | 3 env 漏出 + helper 存在 + 直接実行が **standalone として動作**する（7 env unset・カウンタ初期化・summary 出力・rc 0/1/3 契約が有効。実測 2 の是正） |
 | AC-3 | 正規経路の無回帰: `sh tests/run-tests.sh` フルスイートが rc=0 / fail=0、かつ層 A 12 本の standalone 直接実行（清浄 env）が従来どおりの rc を返す |
-| AC-4 | 述語の同一性: direct-exec ガードを含む新述語が **15 出現**（層 A 12 + ta-61 本体 + ta-61 fixture 複製 + helper）で本 PBI plan「### Mode resolution v2」と文字単位同一（機械照合） |
+| AC-4 | 述語の同一性: bootstrap の判定 2 行（case 行 + if 行）が **14 箇所**（層 A 12 + ta-61 本体 + ta-61 fixture 複製）で本 PBI plan「### Mode resolution v2」と**行頭空白を除去した比較で**文字単位同一（機械照合）。helper は照合対象から**分離定義**とし、変数消費形 literal（`${_pg_extra_direct:-1}` 消費・関数内 `$0` 非評価）との一致を別途照合 |
 | AC-5 | **変異注入**: (a) 修正前 HEAD で新 TC を走らせ FAIL を実証（pre-fix evidence）。(b) 修正後、ガードの call site を壊す変異（直接実行検知行の除去）を dash で走らせ、新 TC が FAIL（kill）することを実証 |
 | AC-6 | F-3 是正: `pg_extra_contract_finalize` が `_PG_EXTRA_STANDALONE` 未設定（init 前呼出）のとき silent に harness 扱いへ落ちず、fail-closed（stderr 診断 + exit 4）となる。既存 TC-10（静的検出）は不変で PASS |
 | AC-7 | ta-61 既存 TC（TC-01〜TC-29）が全 PASS（ガード追加による fixture 回帰なし） |
@@ -75,8 +78,12 @@ standalone rc 契約が丸ごと無効化される（本 plan 作成時に新規
 ## Notes from Refinement
 
 - 修正案の `$0` アンカーは issue 記載のファイル名 literal 埋め込み（`*ta-46-ehs-wiring.sh)`）
-  ではなく **`${0##*/}` の `ta-*.sh` glob 照合**とする。literal 埋め込みは 15 出現の
-  バイト一致 DoD（TASK-0921 が確立した機械照合可能性）を壊すため
+  ではなく **`${0##*/}` の `ta-*.sh` glob 照合**とする。literal 埋め込みは bootstrap
+  14 箇所のバイト一致 DoD（TASK-0921 が確立した機械照合可能性）を壊すため
+- **`$0` の評価位置は bootstrap トップレベル 1 回のみ**（F-1）: zsh は
+  FUNCTION_ARGZERO（既定 ON）で関数内 `$0` = 関数名になるため、helper 関数内での
+  再評価は zsh 直接実行でガード不発（実測: 関数内評価形は zsh のみ rc=0・summary 無し）。
+  helper は確定済み変数 `${_pg_extra_direct:-1}` を消費する
 - TASK-0921 plan「#### bootstrap の helper 解決規約」の「`$0` をアンカーにしてはならない」は
   **helper のディレクトリ解決**に対する禁止（harness では `$0`=run-tests.sh のため）。
   本 PBI の `$0` 利用は**直接実行の検知**であり、`$0`=run-tests.sh が `ta-*.sh` に一致しない

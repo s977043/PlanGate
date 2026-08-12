@@ -11,7 +11,7 @@
 | AC-1（helper 欠落 + env 漏出 + 直接実行 → 4 シェル rc=1） | TC-30 + EV-1 |
 | AC-2（helper 存在 + env 漏出 + 直接実行 → standalone 契約有効） | TC-31 + EV-2 |
 | AC-3（正規経路無回帰） | TC-33 / TC-34 |
-| AC-4（新述語 15 出現バイト一致） | TC-35 |
+| AC-4（bootstrap 14 箇所バイト一致 + helper 分離照合） | TC-35 |
 | AC-5（変異注入で検出力実証） | EV-3（pre-fix red）/ EV-4（call site 変異 kill） |
 | AC-6（F-3 fail-closed） | TC-32 |
 | AC-7（ta-61 既存 TC 無回帰） | TC-36 |
@@ -53,10 +53,13 @@
 - 期待出力: 各本の従来 rc（0 または 3 — 前提未充足の本は rc=3）と summary 書式不変
 - 種別: 自動
 
-### TC-35: 新述語の 15 出現バイト一致（自動 / ta-61 の照合 TC 更新）
+### TC-35: 新述語のバイト一致照合（自動 / ta-61 へ**新設** — base の ta-61 に述語バイト一致 TC は存在しない）
 
-- 入力: Mode resolution v2 の判定 2 行を canonical 文字列として、層 A 12 +
-  ta-61 本体 + ta-61 fixture 複製 + helper `_pg_extra_resolve_mode` を grep 照合
+- 入力: Mode resolution v2 の判定 2 行（case 行 + if 行）を canonical 文字列として、
+  bootstrap **14 箇所**（層 A 12 + ta-61 本体 + ta-61 fixture 複製）を照合。
+  比較は**行頭空白を除去して**行う（fixture 複製のインデント差を正規化）。
+  helper `_pg_extra_resolve_mode` は**分離定義**として、変数消費形 literal
+  （`${_pg_extra_direct:-1}` 消費・関数内 `$0` 非評価）との一致を別途照合
 - 期待出力: 照合対象リストの全ファイルで一致（bad=0）。**絶対件数を契約値にせず**、
   対象リストとの同値で判定（成長ディレクトリ対策）
 - 種別: 自動
@@ -64,8 +67,10 @@
 ### TC-36: ta-61 既存 TC（TC-01〜29）全 PASS（自動）
 
 - 入力: `sh tests/extras/ta-61-extra-contract.sh`（清浄 env）+ harness 経由
-- 期待出力: 全 PASS（特に TC-01 系 harness fixture（tc01.sh 名 = 非 ta-* のため
-  ガード非発火）と sandbox 系 TC-14〜17/29 の無回帰）
+- 期待出力: 全 PASS。**harness を模す fixture（tc01.sh / tc01b.sh 等、bootstrap を
+  持たず helper を直接 source する形）は `_pg_extra_direct=0` の明示設定へ更新した上で**
+  無回帰（変数消費形では未設定 = direct 既定のため更新必須 — plan「帰結」参照）。
+  sandbox 系 TC-14〜17/29 も無回帰
 - 種別: 自動
 
 ## Evidence 実測（TA 外・ログ必須）
@@ -89,8 +94,9 @@
 
 - 変異 M-1: bootstrap の case 行（direct-exec ガードの call site）を除去 →
   TC-30/31 が dash で FAIL（kill）
-- 変異 M-2: helper resolve_mode 側のガードのみ除去（bootstrap 側は残す）→
-  TC-31 が FAIL（mode 分裂検出）
+- 変異 M-2: helper resolve_mode 側を「変数消費」から独自判定（3 env のみ / または
+  関数内 `$0` 再評価）へ退行させる → TC-31 が **zsh を含めて** FAIL（mode 分裂検出）。
+  F-1 是正後の M-2 は **zsh FUNCTION_ARGZERO 問題の再発形を恒久検出**する役割を持つ
 - 変異 M-3: F-3 明示検査を除去 → TC-32 が FAIL
 - 変異は sandbox 複製上でのみ実施（本体 checkout を汚さない）
 
