@@ -590,6 +590,14 @@ C-3 で人間がこの範囲を承認したことをもって、`N>&-` の除外
 | `docs/working/TASK-1045/test-cases.md` | テストケース定義 | AI-owned |
 | `docs/working/TASK-1045/status.md` | フェーズ履歴 | AI-owned |
 | `docs/working/TASK-1045/handoff.md` | 完了時引き継ぎ（WF-05 / Rule 5） | AI-owned |
+| `docs/working/TASK-1045/evidence/` | Step 1 / 1b / 6 / 7 / 8 の検証証跡（verification 配下の md と test-runs 配下のログ） | AI-owned |
+| `docs/working/TASK-1045/decision-log.jsonl` | 判断履歴（append-only）。Stop Condition / Replan Trigger の共通規約が記録を必須にしている | AI-owned |
+| `docs/working/TASK-1045/current-state.md` | 現在状態スナップショット（タスク完了ごとに更新） | AI-owned |
+
+> **上記 3 行は C-3 裁定 `Q-3` により追加**（`review-external.md` の `R-019`）。
+> `extract_allowed_paths(plan.md)` が **7 → 10 パス**になり、
+> **ai-loop 経路の exec で evidence / decision-log / current-state の書き込みが
+> `allowed_paths` 内**に収まる。**設計・AC・TC は変更していない。**
 
 ---
 
@@ -717,6 +725,22 @@ C-3 で人間がこの範囲を承認したことをもって、`N>&-` の除外
 |---|---|---|---|
 | **Q-1** | **Mode を `critical` とするか `high-risk` へ引き下げるか** | `critical` | `mode-classification.md` の判定ロジック（定量各軸の最大値）を literal に適用すると **受入基準 13 件 → 超高** となる一方、実際の変更規模は **コード 2 ファイル**。「AC 件数は粒度細分化の産物であり規模実態ではない」と人間が判断するなら `high-risk` への引き下げが妥当。**引き下げで「実施しなくなる」フェーズは V-4（リリース前チェック）のみ**（`mode-classification.md` §フェーズ適用マトリクスを 13 行照合し、`○ → -` になる行は V-4 の 1 行だけ。他の差は強度表現のみ＝詳細 plan / C-2 複数観点 / exec 段階的 / C-4 複数レビュアー推奨で、実施有無は変わらない）。**承認境界に関わる `lite_eligible=false` / 同期 C-3 / autonomous APPROVE 不可 / V-2 / V-3 はいずれも不変**（R-004） |
 | **Q-2** | **U-2（`&>` / `&>>`）を block 維持でよいか** | block 維持 | `&>/dev/null` 付きの読み取りコマンドは**引き続き誤 block される**（残存誤検知）。除外面を増やさない安全側を採ったが、運用上の頻度によっては除外に含める判断もありうる |
+
+さらに River Review 由来で `todo.md` の H-1 に **`Q-3`**（`Files / Components to Touch` へ
+evidence 等を追加して `plan_hash` を取り直すか）を追加していた。
+
+### C-3 裁定結果（**確定済み / 人間が判断**）
+
+**Q-1〜Q-3 の 3 件はいずれも C-3 で人間が裁定済み**。以後 exec 中に再解釈しない。
+
+| # | 裁定 | plan への帰結 |
+|---|---|---|
+| **Q-1** | **`critical` のまま**（plan の既定を維持） | **設計変更なし**。`lite_eligible=false` / 同期 C-3 / autonomous APPROVE 不可 に加え、**V-4（リリース前チェック）と C-4 複数レビュアー推奨が適用される** |
+| **Q-2** | **block 維持**（plan の既定＝安全側を維持） | **設計変更なし**。`&>` / `&>>` は除外に含めない。**残存誤検知は `T1045-TC-14 (3)` で意図的に固定**しており、**handoff の既知課題へ必ず記載する** |
+| **Q-3** | **追加して `plan_hash` を取り直す** | **`Files / Components to Touch` へ 3 パスを追加**（evidence / decision-log / current-state）。`extract_allowed_paths(plan.md)` は **7 → 10 パス**。**`plan_hash` は再算出され、Human が新 hash に対して `c3.json` を再発行する**（詳細は `review-external.md` の `R-019`） |
+
+> **AC・TC・Work Breakdown・Stop Condition / Replan Trigger はいずれも本裁定で変更していない。**
+> 変更したのは `Files / Components to Touch` の 3 行追加と本節の裁定記録のみ。
 
 ---
 
