@@ -1,0 +1,60 @@
+# T-06 変異注入検証（TASK-1036 / plan M-1〜M-3）
+# date: 2026-08-12 / 対象 tree: fix/1036-exec（base origin/main d86eef9 + T-03/T-04/T-05）
+# sandbox: git archive HEAD をリポジトリ外 scratchpad へ展開（実 tree 非破壊）
+# kill 判定はすべて実 TC（T1036-TC-D / T1036-TC-S / 既存 TC-33）の FAIL で示す
+#（検証スクリプト内のインライン assert を kill と申告しない / plan T-06 checkpoint）
+
+## M-1: 修正行削除（動的 kill / T1036-TC-M1）
+
+- 変異: sandbox 複製の ta-26 から harness 分岐の
+  `unset PG_T26_NO_RECURSE 2>/dev/null || true` を削除（diff = `45d44` の 1 行のみ
+  = 置換件数 1）。mutant `sh -n` PASS。
+- 実行: `sh $SB/tests/extras/ta-62-t26-recurse-env-guard.sh </dev/null`
+- 結果: **rc=1（kill）**
+  - `[FAIL] TC-D 同値照合不成立 (rc_leak=0 rc_clean=0 期待0/0 / diff一致=0 期待1 /
+    leak側再帰防止SKIP=4 期待0 / clean側PASS行=32 期待>=1)` — leak 実行に再帰防止
+    [SKIP] が 4 箇所出現し diff 不一致（**動的 kill**。修正前実装への RED 実走
+    = red.log と同値）
+  - `[FAIL] TC-S 配置検査不成立 (harness分岐に存在=0 期待1 ...)`（随伴 kill）
+- 復元後: rc=0 / `TA-62 standalone: 2 passed, 0 failed`
+
+## M-2: unset を preamble 無条件経路へ移動（案 (c) 型 / 静的 kill のみ / T1036-TC-M2）
+
+- 変異: sandbox 複製の ta-26 で else 節の unset を削除し、preamble 無条件経路
+  （L6）へ `unset PG_T26_NO_RECURSE ...` を挿入（移動 = 1 箇所）。mutant `sh -n` PASS。
+- **動的実行禁止の遵守**: sandbox から `tests/fixtures/` を除去して実行。
+  TC-D は前提不在チェック（`[ -d fixtures ]`）で FAIL を記録するだけで
+  **mutant ta-26 を一度も source / 実行しない**（孫 spawn の再入ループ回避）。
+  ログ実測: `[FAIL] TC-D 前提不在: .../ta-26-plugin-sync.sh / .../tests/fixtures`
+  （mutant の動的実行 0 回であることの証跡）
+- 結果: **rc=1（kill）**
+  - `[FAIL] TC-S 配置検査不成立 (harness分岐に存在=0 期待1 / ブロック外0件=0 期待1 /
+    runner非混入=1 期待1)` — 配置検査 (1)(2) 不成立（**静的 kill**）
+- 復元後（ta-26 復元 + fixtures 再展開）: rc=0 / `TA-62 standalone: 2 passed, 0 failed`
+
+## M-3: run-tests.sh の unset 集合へ PG_T26_NO_RECURSE を追加（案 (a) 型 / sandbox 実走 / T1036-TC-M3）
+
+- 変異: sandbox の run-tests.sh L20 unset 行末尾へ `PG_T26_NO_RECURSE` を 1 語追加
+  （diff = L20 の 1 行のみ = 置換件数 1）。mutant `sh -n` PASS。
+- 実行 1: `sh $SB/tests/extras/ta-26-plugin-sync.sh </dev/null` → **rc=1（kill）**
+  - `[FAIL] TC-33 失敗 (... unset欠落: ta-25...:PG_T26_NO_RECURSE 〜
+    ta-62-t26-recurse-env-guard.sh:PG_T26_NO_RECURSE ...)` — **既存 TC-33 が
+    18 ファイルの unset 欠落を検出**（pbi-input N-1 の 15 ファイル波及が現 main
+    +ta-62 で 18 に増えた形。件数は測定日スナップショットであり契約値にしない）
+  - 随伴: `[FAIL] TC-13 失敗 (① rc=1 / ② rc=1 / ③ 1)` — TC-13 の子プロセス内でも
+    TC-33 が FAIL し子 rc=1 になるため（下流波及であり独立 kill には数えない）
+- 実行 2: `sh $SB/tests/extras/ta-62-t26-recurse-env-guard.sh </dev/null` → **rc=1（kill）**
+  - `[FAIL] TC-S 配置検査不成立 (harness分岐に存在=1 期待1 / ブロック外0件=1 期待1 /
+    runner非混入=0 期待1)` — T1036-TC-S (3) が混入を検出
+- 復元後: ta-26 子相当 `15 passed, 0 failed` rc=0（TC-33 PASS 含む）/
+  ta-62 `2 passed, 0 failed` rc=0
+
+## 判定
+
+| 変異 | kill した実 TC | 動的実行 | 復元後 |
+|---|---|---|---|
+| M-1 | T1036-TC-D（+随伴 TC-S） | あり（設計どおり） | PASS |
+| M-2 | T1036-TC-S | **なし**（fixtures 除去で前提不在化・証跡あり） | PASS |
+| M-3 | 既存 TC-33 + T1036-TC-S(3) | あり（sandbox のみ） | PASS |
+
+3 変異すべて survivor なし。plan S-4（M-1 survivor で停止）非該当。
