@@ -591,3 +591,83 @@ C1-VERDICT-2: WARN plan=sha256:d859a66c2d446b7fce9c862e456db8b5d6aba1bf17fa29e8b
 > **注意**（`feedback_no_plan_edit_after_c3_approval`）: `c3.json` は
 > **上記 `plan_hash` に対して発行**すること。発行後に plan を 1 文字でも編集すると
 > EH-3 が mismatch を検知する。
+
+---
+
+## 簡易 C-1 再実行 #2（C-2 Round 2 確定反映後 / 追記専用）
+
+> 実施: plan maker（自己再確認）。**C-1 本体および簡易 C-1 #1 の記述は一切変更していない**（追記のみ）。
+> 対象: **R-009〜R-012**（C-2 Round 2）の 1 回確定反映後の plan / todo / test-cases。
+
+### 反映の網羅性（機械確認）
+
+| 指摘 | severity | 反映先 | 確認方法と結果 |
+|---|---|---|---|
+| **R-009** | major | `GC-8` に「要件 ↔ 検出 TC の対応」表 + 組合せ行列 / `T1045-TC-22b` 新設 / `SC-9` を TC-22 **または** TC-22b へ拡張 / `R-12` 更新 / test-cases:181 の over-claim 解消 / 両 TC に reason 文字列 assert | TC 定義 **23 件**（`TC-22b` 追加）。`SC-9` は plan・todo 双方で「いずれかが FAIL」表現。Exit Criteria が要件別に分離 |
+| **R-010** | minor | `GC-8` の 2 に**挿入位置を 1 文で固定** | plan に「`_parse_unknown()` 定義の後（`:81` 以降）・`# --- 1) target:`（`:83`）の直前」と明記。`rc=127` 非 block の失敗様式も記載。todo A-5a にも同記載 |
+| **R-011** | minor | `plan.md` `SC-1` に第 2 発火条件 / `todo.md` `RT-2` を (a)(b) へ | `plan` の `SC-1` に「RED ウィンドウ…期待 FAIL 6 件**以外**が FAIL」を追記（**本表が正本**と明記）。`todo` の旧文言「同一判定コードを共有していると判明」は **`grep` で 0 件** |
+| **R-012** | info | `A-14` handoff 必須記載へ「`sed` 不在環境での挙動変更」 | 記載あり |
+
+**未反映（`status` が `reflected` / `acknowledged` 以外）の指摘 = 0 件**
+（Round 2 監査表 5 行: `reflected` 4 / `acknowledged` 1）。
+
+### 機械チェック結果（本再実行で実行したコマンド）
+
+| # | コマンド | 結果 |
+|---|---|---|
+| S2-1 | `npx markdownlint-cli2 "docs/working/TASK-1045/*.md"` | **0 issues in 0 files**（7 ファイル。途中 5 件を修正後） |
+| S2-2 | `extract_allowed_paths(plan.md)` | **7 パス**・禁止パス混入なし |
+| S2-3 | `Verification Automation:` 行の抽出 | 抽出可 |
+| S2-4 | TC 定義の自数え | **23 件**（`TC-01`〜`TC-22` + `TC-22b`） |
+| S2-5 | Traceability の AC 行数 | **13 件**（AC-01〜13・不変） |
+| S2-6 | `comm` による双方向 orphan 検査 | **両方向とも差分 0 件** |
+| S2-7 | `diff` による `SC-*` / `RT-*` の plan ↔ todo 突合 | **SC 一致 / RT 一致**（SC-1〜9 / RT-1〜5） |
+| S2-8 | `todo` の `RT-2` 旧文言検査 | **0 件**（R-011 解消） |
+
+### 本再実行で新たに発見・修正した掃き残し（自己検出）
+
+1. **`test-cases.md` に旧 4 列テーブルのヘッダが孤立して残存**（`TC-22` を 5 列表へ拡張した際の残骸）。
+   markdownlint の `MD058` で検出し削除。
+2. **`<u>` タグ 3 件**を強調記法へ置換（`MD033` inline HTML）。
+3. **`review-external.md` の Round 2 見出しが `#`**（`MD025` 複数 h1）→ `##` へ修正。
+
+### 判定サマリ
+
+| 項目 | 結果 |
+|---|---|
+| C-2 Round 2 major 1 件（R-009） | **反映済み**。**筆者が独立に組合せ行列を実走再現**したうえで反映 |
+| C-2 Round 2 minor 2 件 + info 1 件 | **反映済み** |
+| 新規に持ち込まれた FAIL | **0 件** |
+| 残 WARN | **1 件**（W-6 を更新。下記） |
+
+#### W-6（更新）[minor] `GC-8` の実装可否は依然として実装前のため未実証
+
+前回の W-6 は「(i)(ii) の実装可否が未実証」だった。**C-2 Round 2 で
+(ii) の実装形と `T1023-TC-05` 非破壊は実走で確認済み**となり、**この部分は解消**。
+残るのは **(i) と (ii) を guard 本体へ同時統合した状態の実測**（`UV-2` の範囲）。
+**`T1045-TC-22` + `T1045-TC-22b` + `SC-9`** で exec 時に機械検出される経路は確保済み。
+
+#### C-3 へ引き継ぐ人間判断（更新）
+
+| # | 論点 | 状態 |
+|---|---|---|
+| H-Q1 | Mode `critical` / `high-risk` | **未決（人間判断）**。実施しなくなるのは V-4 のみ |
+| H-Q2 | `&>` / `&>>` を block 維持か | **未決（人間判断）**。C-2 は「既定のままで良い」と判定 |
+| H-Q3〜H-Q6 | — | **すべて解消済み**（前回の簡易 C-1 で確認） |
+
+---
+
+C1-VERDICT-3: WARN plan=sha256:c7b3bf70b7cab8e372e858cd468518db4ecc4834b2b3b3b81b16c95437153e46
+
+> 判定内訳: critical=0 / major=0 / minor(WARN)=1（W-6 更新版）/ FAIL=0
+> **C-2 Round 1 の major 2 件と Round 2 の major 1 件はいずれも反映により解消**。
+> 残 WARN は「実装前のため実証不能」に起因し、`UV-2` + `T1045-TC-22` + `TC-22b` + `SC-9`
+> で exec 時に機械検出される。**plan は C-3 に諮れる状態**（最終判断は Human-owned）。
+>
+> 参考ハッシュ（同時対象）:
+> todo=sha256:75e7424ff43d5dce34069520de78646f9ee49a65fa1bdaa53bbd1c811a6a43c4
+> test-cases=sha256:1dcdd9d5c8dc906deb400f3f19186ce4e61492622cc93c41a6a2fb703667c806
+> review-external=sha256:16d760303800807d986250ff6accd6b4876a8fdb73bc225668bb57d0141df69f
+> base=`6089e23` / C-2 R1 反映 head=`e3b4a3e`
+>
+> **`c3.json` は上記 `C1-VERDICT-3` の `plan_hash` に対して発行すること。**

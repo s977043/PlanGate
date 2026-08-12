@@ -1,6 +1,7 @@
 # CURRENT STATE — TASK-1045
 
-> 更新: C-2 指摘（R-001〜R-008）の 1 回確定反映 + 簡易 C-1 再実行の完了時点
+> 更新: **C-2 Round 2（R-009〜R-012）の 1 回確定反映 + 簡易 C-1 再実行 #2** の完了時点
+> （Round 1 = R-001〜R-008 は前段で反映済み）
 
 ## 今どこにいるか
 
@@ -8,8 +9,9 @@
 
 ```text
 A pbi-input ✅ → B plan/todo/test-cases ✅ → C-1 ✅(WARN) → W-1..W-5 反映 ✅
-  → C-2 2 レーン ✅(major 2 / minor 6) → R-001..R-008 確定反映 ✅
-  → 簡易 C-1 ✅(C1-VERDICT-2: WARN) → 【👤 C-3 ここで待ち】 → exec
+  → C-2 R1 ✅(major 2) → R-001..R-008 確定反映 ✅ → 簡易 C-1 ✅(C1-VERDICT-2)
+  → C-2 R2 ✅(major 1) → R-009..R-012 確定反映 ✅ → 簡易 C-1 #2 ✅(C1-VERDICT-3: WARN)
+  → 【👤 C-3 ここで待ち】 → exec
 ```
 
 ## 次に何をするか
@@ -18,7 +20,7 @@ A pbi-input ✅ → B plan/todo/test-cases ✅ → C-1 ✅(WARN) → W-1..W-5 �
 
 ```text
 c3_status : APPROVED
-plan_hash : sha256:d859a66c2d446b7fce9c862e456db8b5d6aba1bf17fa29e8bc084a7c638e16f2
+plan_hash : sha256:c7b3bf70b7cab8e372e858cd468518db4ecc4834b2b3b3b81b16c95437153e46
 ```
 
 **判断が要る論点**（詳細は `review-self.md` の C-3 引き継ぎ表）:
@@ -31,10 +33,10 @@ plan_hash : sha256:d859a66c2d446b7fce9c862e456db8b5d6aba1bf17fa29e8bc084a7c638e1
 
 | ファイル | sha256 |
 |---|---|
-| `plan.md` | `d859a66c2d446b7fce9c862e456db8b5d6aba1bf17fa29e8bc084a7c638e16f2` |
-| `todo.md` | `a4944afaf958ac691526d346d51394384ec93f42210ebda14c3dad8a2a9fdc0a` |
-| `test-cases.md` | `5167fb90ed56b0ab102086a076e89911a788614b958e723efe6e6fa848c4ac01` |
-| `review-external.md` | `9ea1826c187b0fc68d7e760611143613e4b6abc38b42cf39165ae5664931b8a2` |
+| `plan.md` | `c7b3bf70b7cab8e372e858cd468518db4ecc4834b2b3b3b81b16c95437153e46` |
+| `todo.md` | `75e7424ff43d5dce34069520de78646f9ee49a65fa1bdaa53bbd1c811a6a43c4` |
+| `test-cases.md` | `1dcdd9d5c8dc906deb400f3f19186ce4e61492622cc93c41a6a2fb703667c806` |
+| `review-external.md` | `16d760303800807d986250ff6accd6b4876a8fdb73bc225668bb57d0141df69f` |
 
 ⚠️ **`c3.json` 発行後に plan を 1 文字でも編集すると EH-3 が mismatch を検知する**
 （`feedback_no_plan_edit_after_c3_approval`）。**反映は c3.json 発行より前に完了済み**。
@@ -50,7 +52,7 @@ plan_hash : sha256:d859a66c2d446b7fce9c862e456db8b5d6aba1bf17fa29e8bc084a7c638e1
 ## 確定事項サマリ
 
 - **Mode**: `critical` / `lite_eligible=false` / autonomous APPROVE **不可**
-- **AC↔TC**: AC 13 / TC 22・**双方向 orphan 0**（`comm` で機械確認）
+- **AC↔TC**: AC 13 / **TC 23**・**双方向 orphan 0**（`comm` で機械確認）
 - **変更対象**: `scripts/check-approval-token-write.sh` + `tests/extras/ta-25-approval-token-guard.sh` + 本 working context
 - **Stop / Replan**: `SC-1`〜`SC-9` / `RT-1`〜`RT-5`（plan・todo で一致）
 - **未検証**: `UV-1`（GNU / CI）/ `UV-2`（`GC-8` の実装可否）/ `UV-3`（focused 実走）/ `UV-4`（`_t25_mutate` 互換）

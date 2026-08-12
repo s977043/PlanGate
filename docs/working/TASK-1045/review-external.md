@@ -206,9 +206,170 @@ guard-with-failing-helper rc = 0   ← 2(block) でも 1 でもなく 0 = ALLOW 
 | INFO-1 | info | 整合 | acknowledged | — | 設計方向の変更不要。反映不要 |
 | i-1 | info | 設計 + 整合 | reflected | 同上 | `A-1` の調査項目へ稼働 settings の実測を 1 行追加 |
 
-**指摘ゼロではない**（critical 0 / major 2 / minor 6・info 2）。
+**Round 1 の集計**: critical 0 / major 2 / minor 6・info 2。
 
 **反映状況の実測**: 監査表の `status` 列は `reflected` 8 件 + `acknowledged` 1 件 +
 `reflected`（i-1）1 件の計 10 行で、**未反映を表す status の行は 0 件**
 （`grep -c 'reflected' review-external.md` と行数の突合で確認）。
 `R-001`〜`R-008` の 8 件すべてを **1 回で確定反映済み**。
+
+---
+
+## C-2 Round 2（R-001〜R-008 反映後の再レビュー）
+
+> 対象 head: `e3b4a3e` / plan=`sha256:d859a66c…`
+> **上記 Round 1 の記述（R-001〜R-008 / 監査表の該当行）は 1 文字も変更していない**（追記専用）。
+
+## レーン別判定（Round 2）
+
+| レーン | 判定 | 内訳 |
+|---|---|---|
+| **設計妥当性レーン** | **APPROVE** | major 1（R-009）/ minor 2（R-011・R-012） |
+| **コードベース整合レーン** | **REJECT** | major 1（R-009）/ minor 1（R-010） |
+| **統合判定** | **CONDITIONAL**（R-009 / R-010 を確定反映のうえ簡易 C-1 → Human C-3） | critical 0 / major 1 / minor 2 / info 1 |
+
+**両レーンが独立に R-009 へ到達**し、整合レーンが**組合せ行列を実走して証明**した。
+
+## Round 1 指摘の解消確認（再対応不要 / 反映不要）
+
+| 項目 | 確認内容 |
+|---|---|
+| **R-001** | `GC-4-C` の期待 FAIL 6 件が**整合レーンの実走結果と機構レベルで一致**。`SC-4` のラベル列挙化 / Step 3 の復帰 CP / `A-4` のラベル単位判定 / `R-13` すべて反映済み |
+| **R-002** | `GC-8` は原因（**`if` 条件内で `set -e` 無効**）まで正確。「到達経路は未実証」も**追試どおりに正しく留保**（誇張なし） |
+| **R-003〜R-008** | すべて解消 |
+| `SC-4` の 7 ラベル | `ta-25` の `_t25_mutate` 呼び出し 7 件の mid を機械抽出した結果と**完全一致** |
+| 旧表記 `TC-01〜07` | plan / test-cases / todo の 3 ファイルで **0 hits** |
+| AC / TC 検算 | AC 13 / TC 22・連番で全出現 / 双方向 orphan 0 / focused 7 + 通常 15 |
+
+> 設計レーンが Round 1 の自分の見落とし（`ta-25:621-626` だけ読み `:676-684` の restore 側を
+> 見ていなかった）を認め、整合レーンの訂正を「私の指摘より 1 件広い範囲で正しい」と受け入れている。
+
+## 前 round の未実測 2 点は**両方とも実走で成立**（代案不要 / INFO-2）
+
+| 未実測点（筆者申告） | 実走結果 |
+|---|---|
+| `T1045-TC-22` の実装形（`sed` だけ外した PATH が POSIX sh の内部処理を壊さないか） | **成立**。`cat`/`grep`/`sh`/`jq` を symlink した PATH で **rc=2** / `BLOCK (parse-unknown): sed not available`。`printf` / `case` / `command -v` / `[` は builtin で外部 `sed` に非依存。guard が外部起動するのは `cat` / `jq` / `grep` / `sed` のみ |
+| `GC-8 (ii)` が `T1023-TC-05`（jq 不在）を壊さないか | **壊さない**。`ta-25:143` の assert は `[ "$_t25_rc" = "2" ] && grep -q 'parse-unknown'` であり **「jq」という語は assert していない**。`jq` も `sed` も無い PATH → rc=2 / `sed not available` → assert PASS。**実ハーネスでも確認**: GC-8 (i)(ii)(iii) 適用済み guard で full suite **`47 passed, 0 failed` / EXIT=0** |
+
+---
+
+## 指摘一覧（Round 2）
+
+### R-009 [major] `T1045-TC-22` は `GC-8` の (ii) しか撃っておらず、**(i) が欠けた実装を素通しする**
+
+- **レーン**: 設計妥当性 + コードベース整合（**両レーンが独立に到達**）
+- **観点**: セキュリティ / 保守性
+
+**組合せ行列（整合レーンが実走。筆者も独立に再現）**:
+
+| 実装 | `sed` **不在**（= TC-22 の入力） | `sed` **存在するが実行時に失敗** |
+|---|---|---|
+| (i)+(ii)+(iii) 全部 | rc=2 fail-closed | **rc=2 fail-closed** |
+| **(ii)+(iii) のみ（(i) 欠落）** | **rc=2 → TC-22 は PASS** | **rc=0 ＝ FAIL-OPEN** |
+| (i)+(iii) のみ | rc=2 | rc=2 |
+| どちらも無し（Round 1 の形） | rc=0 | rc=0 |
+
+**決定的な実測**:
+
+```text
+=== does T1045-TC-22 (sed ABSENT) detect the missing-(i) build? ===
+  TC-22 form vs no_i build: rc=2 -> TC-22 PASSES (hole NOT detected)
+```
+
+**(i) を落とした build に TC-22 を当てると rc=2 で PASS する。**
+したがって **`SC-9`（TC-22 が FAIL したら停止）は発火しない**。
+
+**over-claim**: `test-cases.md:181` は「**`sed` 不在 / 失敗 で `rc=2`。`T1045-TC-22`**」と書いており、
+**TC-22 が実際にはカバーしていない「失敗」ブランチまで担保したと明記**している。
+
+**なぜ重大か**: **`GC-8` 自身が「変異では検出されないので専用 TC が必要」と正しく述べているのに、
+その専用 TC が要件 3 件中 1 件しか撃っていない。**
+
+> 設計レーン: **plan が最も警戒している #874 型の失敗様式そのもの（TC はあるが検出力が無い）が、
+> #874 対策として追加された節の中で再発している構図**
+>
+> 整合レーン: repo の既往教訓「**1 原因が複数箇所を壊すと片側だけ直して AC が PASS**」そのもの。
+> 実装者が (i) を書き忘れても **TC-22 は緑、`SC-9` も沈黙、変異 (b) も無反応**で、
+> `AC-04` は PASS のまま通過する
+
+**是正（両レーンの案が一致・設計変更不要）**:
+
+1. **`T1045-TC-22b` を通常群へ追加**: **`sed` が存在するが必ず失敗する PATH** で `rc=2` を要求
+   - **レシピは実証済み**: 一時 PATH に `cat`/`grep`/`sh`/`jq` を symlink し、
+     そこへ **`#!/bin/sh` + `exit 1` の `sed` シム**を置いて `printf x > <TOKEN>` を投げる
+   - **(i) が無ければ `rc=0` で落ちる**ので、**これで初めて (i) の検出力が実証される**
+2. **`SC-9` の発火条件を「`T1045-TC-22` または `TC-22b` が FAIL」へ拡張**
+3. **`test-cases.md:181` の「不在 / 失敗」を TC-22（不在）と TC-22b（失敗）へ分けて紐付ける**
+
+**AC 紐付けは TC-22 と同じ `AC-04` で orphan は増えない**（TC 総数 22 → 23、focused 7 + 通常 16）。
+
+> 設計レーン補足: **TC-22 も stub 方式へ寄せてよい**。**少なくとも TC-22 は stderr に
+> 「`sed` 起因である」根拠（`parse-unknown` の reason 文字列）まで assert する**ことを推奨。
+> 現状は理由を assert していないため、**外部依存を 1 つ列挙し漏らすと別の `parse-unknown` で
+> rc=2 になり偽 PASS**になる。
+
+### R-010 [minor だが実装を壊す] `command -v sed` の挿入位置が未指定。上部に置くと `rc=127`（＝**非 block**）
+
+- **レーン**: コードベース整合
+
+plan は「guard **起動時に**」としか書いていないが、
+**`_parse_unknown()` の定義は `check-approval-token-write.sh:76-81`**（**筆者も実測確認**）。
+
+「起動時」を素直に読んで **bypass ブロック直後（`:32` 付近＝関数定義より前）** に置くと:
+
+```text
+guard_gc8_early.sh  (sed check placed BEFORE _parse_unknown definition)
+  TC-22 form → rc=127 (exp 2) *** MISMATCH ***
+  TC-05 form → rc=127 / assert grep -q 'parse-unknown' : FAIL   ← TC-05 も巻き添えで落ちる
+```
+
+**`_parse_unknown` が未定義で `command not found` → `rc=127`。
+127 は PreToolUse の block（2）ではないので非 block。**
+
+**是正**: `GC-8` の 2 に **「`_parse_unknown()` 定義の後（`:81` 以降）かつ
+`PLANGATE_SKIP_TOKEN_GUARD` bypass ブロックの後、`# --- 1) target:` の直前に置く」**
+と位置を 1 文で固定（**この位置は full suite 47/0 で実証済み**）。
+
+### R-011 [minor] 正本と写しが逆転している
+
+- **レーン**: 設計妥当性（m-5）
+
+| 箇所 | 状態 |
+|---|---|
+| **`plan.md:620` の `SC-1` 行** | 「Step 1 の baseline が `0 failed` でない」のまま。**`GC-4-C` と Step 2 CP が言う「RED 中に期待 FAIL 6 件以外が FAIL したら SC-1 発火」という第 2 の発火条件が正本の表に無い** |
+| **`todo.md` の `SC-1` 行** | **入っている**（＝正本と写しが逆転） |
+| **`todo.md` の `RT-2` 行** | **R-003 前の旧文言**（「同一判定コードを共有していると判明」）のまま。plan 側の (a)/(b) 判定可能化と食い違う |
+
+**SC / RT 表だけを見て動く実行者（まさに todo を手元に置く exec エージェント）に、
+R-001・R-003 の是正効果が届かない。**
+
+**是正**: `plan.md` の `SC-1` 行に「**または RED ウィンドウ（GC-4-C）で期待 FAIL 6 件以外が FAIL**」を
+追記し、`todo.md` の `RT-2` 行を **(a) invoke/source / (b) settings 実配線**へ差し替え（各 1 行）。
+
+### R-012 [info] `GC-8` の挙動変更を handoff の既知課題へ
+
+- **レーン**: 設計妥当性
+
+`N>&-` には「AC の適用範囲宣言」を新設した一方、**`GC-8` は宣言なしで `AC-04` に相乗り**している。
+**方向が「厳格化」なので承認範囲上の危険は無く是正不要**だが、
+**`command -v sed` は `sed` 不在環境で token パス関連の全 Bash 呼び出しを block する挙動変更**でもあるため、
+**handoff の既知課題に 1 行**あると C-4 / 運用側に親切
+（`jq` と同契約なので新規クラスではない）。
+
+---
+
+## 監査表（Round 2 / 追記専用）
+
+| R-NNN | severity | lane | status | reflected_in | notes |
+|---|---|---|---|---|---|
+| R-009 | major | 設計 + 整合 | reflected | `docs/1045-plan` C-2 R2 反映 commit | `T1045-TC-22b` 追加（stub 方式で (i) を撃つ）/ `SC-9` を TC-22 **または** TC-22b へ拡張 / `GC-8` に要件↔TC 対応表 / test-cases:181 の over-claim 解消 / TC-22・22b とも reason 文字列を assert |
+| R-010 | minor | 整合 | reflected | 同上 | `GC-8` の 2 に挿入位置を固定（`_parse_unknown()` 定義後 `:81` 以降・`# --- 1) target:` 直前）。`rc=127` 非 block の失敗様式を明記 |
+| R-011 | minor | 設計 | reflected | 同上 | `plan.md` `SC-1` に第 2 発火条件を追記 / `todo.md` `RT-2` を (a)(b) へ差し替え |
+| R-012 | info | 設計 | reflected | 同上 | `A-14` handoff 必須記載へ「`sed` 不在環境での挙動変更」を追加 |
+| INFO-2 | info | 整合 | acknowledged | — | 前 round の未実測 2 点が実走で成立。代案不要 |
+
+**Round 2 の集計**: critical 0 / major 1 / minor 2 / info 1。
+
+**反映状況の実測**: Round 2 監査表 5 行の `status` は `reflected` 4 / `acknowledged` 1。
+**未反映を表す status の行は 0 件。**
+`R-009`〜`R-012` の 4 件すべてを **1 回で確定反映済み**。

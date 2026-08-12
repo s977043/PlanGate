@@ -19,9 +19,9 @@
 | **SC-6** | 停止 | 境界 TC + **`T1045-TC-07 (1)`** が `rc=0` になる（ガード弱体化 / GC-1 違反） | A-7 / A-11 |
 | **SC-7** | 停止 | 変更が許可 3 領域の外へ及ぶ | 全タスク |
 | **SC-8** | 停止 | `PLANGATE_SKIP_TOKEN_GUARD=1` が必要になる（Human-owned） | 全タスク |
-| **SC-9** | 停止 | **`sed` 不在 / 失敗時に guard が `rc=0`（ALLOW）**（`T1045-TC-22` が FAIL / GC-8） | A-5a / A-6a |
+| **SC-9** | 停止 | **`sed` 不在 / 失敗時に guard が `rc=0`（ALLOW）** = **`T1045-TC-22`（不在）または `T1045-TC-22b`（失敗）のいずれかが FAIL**（GC-8 / R-009） | A-5a / A-6a |
 | **RT-1** | 差し戻し | BSD / GNU `sed` で 26 ケースの分類が割れる | **A-1b** |
-| **RT-2** | 差し戻し | 他の稼働ガードが同一判定コードを共有していると判明 | A-1 |
+| **RT-2** | 差し戻し | **(a)** 他の稼働ガードが本ガードを **invoke / source** している / **(b)** 本ガードの**複製が `.claude/settings*.json` に実配線**されている（実測では (a)(b) とも該当なし） | A-1 |
 | **RT-3** | 差し戻し | 既存 TC がメッセージ本文を assert していると判明 | A-1 / A-8 |
 | **RT-4** | 差し戻し | `_t25_mutate` への引数追加が既存互換を壊す | A-8b |
 | **RT-5** | 差し戻し | 列挙的 allowlist のまま AC-01〜03 を満たせない | A-5a / A-5b |
@@ -158,11 +158,15 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
   （`>&` の直後が **数字列 or `-`** のときのみ除去。`>&<file>` は除去しない / R-4）。
   **同時に GC-8 の必須実装 3 件を入れる**（**後回しにしない** / R-002）:
   (i) `_wc_n=$(…) || _wc_n="$_wc"` の fail-closed フォールバック、
-  (ii) 起動時の `command -v sed` 検査（`jq` と同契約）、
+  (ii) `command -v sed` 検査（`jq` と同契約）を
+  **`_parse_unknown()` 定義の後（`:81` 以降）・`# --- 1) target:`（`:83`）の直前**に置く
+  （**関数定義より前に置くと `rc=127` = 非 block になり `T1023-TC-05` も巻き添えで落ちる** / R-010）、
   (iii) 正規化パイプラインの `LC_ALL=C` 固定
 - 🚩 **チェックポイント**: `sh -n` PASS。単体で `2>&1` / `>&2` / `3>&-` が除去され、
   `>& /tmp/o` が**除去されない**ことをスクラッチで確認。
-  **`sed` 不在 PATH で `rc=2`（ALLOW にならない）**ことを確認 → ならなければ **SC-9 で即停止**
+  **`sed` 不在 PATH で `rc=2`**（要件 (ii)）**かつ `sed` シム（`exit 1`）PATH でも `rc=2`**（要件 (i)）を
+  確認 → **どちらかが `rc=0` なら SC-9 で即停止**（R-009。**不在だけの確認では (i) の欠落を見逃す**）。
+  **`T1023-TC-05` が PASS を維持**することも確認（R-010 の巻き添え検出）
 - `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
 
 #### A-5b: GREEN — `/dev/null` 破棄の除去を追加（plan Step 3-1）
@@ -183,7 +187,8 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
   - **`T1023-TC-08` / `TC-09` が PASS を維持**（plan GC-3。FAIL なら **SC-5 で即停止**）
   - **`T1023-TC-15pre` / `T1023-TC-17post` が PASS へ戻る**（GC-4-C。
     **RED ウィンドウが閉じたことの機械的確認**。戻らなければ即停止）
-  - **`T1045-TC-22`（`sed` 不在 PATH → `rc=2`）が PASS**（GC-8。FAIL なら **SC-9 で即停止**）
+  - **`T1045-TC-22`（`sed` 不在 / 要件 (ii)）と `T1045-TC-22b`（`sed` 失敗 / 要件 (i)）が両方 PASS**
+    （GC-8 / R-009。いずれかが FAIL なら **SC-9 で即停止**）
 - `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
 
 #### A-6b: 一意アンカー 2 種を付与し `grep -c` == 1 を実測（plan Step 3-3）
@@ -198,6 +203,7 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 
 - Owner: agent / depends_on: A-6b
 - 内容: `T1045-TC-11`〜`15` / `TC-19` を通常群へ追加
+  （**`TC-22` / `TC-22b` は A-5a で先に追加済み**。GC-8 の実装と同時に検出力を確保するため）
 - 🚩 **チェックポイント**: 全 **rc=2**（除外が広がりすぎていないことの機械確認）
 - `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
 
@@ -284,6 +290,9 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
   - **`apply-task-0123-patches.sh` の複製導線**（`67-88` 行が `scripts/hooks/` へ `cp` し
     既存時はスキップ＝**過去に適用した環境へ修正が伝播しない古い fork が残る**。
     `origin/main` に当該ファイルは**不在**で実害ゼロ。**follow-up issue を起票**して番号を記載 / R-008 / R-14）
+  - **`GC-8 (ii)` による挙動変更**（R-012）: **`command -v sed` は `sed` 不在環境で
+    token パス関連の全 Bash 呼び出しを block する**。方向は「厳格化」なので承認範囲上の危険は無く、
+    `jq` と同契約のため新規クラスでもないが、**C-4 / 運用側が挙動差を把握できるよう 1 行残す**
   - U-6 横断調査で follow-up issue を起票した場合はその番号
 - 🚩 **チェックポイント**: AC-01〜13 ごとに PASS / FAIL / WARN を記載。
   `bin/plangate doctor --check-settings` が PASS していること（settings タスクロック）
@@ -299,7 +308,9 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 - [ ] **`_t25_mutate` の既存 7 呼び出しが無変更**で、既存 mutation 7 種が全 PASS（`T1045-TC-21`）
 - [ ] 新規 TC が **focused 子プロセスで実行されている**ことを実測確認済み（GC-4-A の 7 件）
 - [ ] **GNU `sed` 等価性が A-1b で先行検証済み**（UV-1 の解消・**`LC_ALL=C` 固定を実験条件に含む**）
-- [ ] **正規化ヘルパが fail-closed**（GC-8 の 3 件が実装され `T1045-TC-22` が PASS）
+- [ ] **正規化ヘルパが fail-closed**（GC-8 の 3 件が実装され
+      **`T1045-TC-22`（不在 / 要件 (ii)）と `T1045-TC-22b`（失敗 / 要件 (i)）が両方 PASS**）
+- [ ] **`command -v sed` が `_parse_unknown()` 定義の後に置かれている**（R-010。`rc=127` 非 block の回避）
 - [ ] **RED ウィンドウが GC-4-C の 6 件と一致**し、GREEN 後に
       `T1023-TC-15pre` / `T1023-TC-17post` が **PASS へ戻っている**
 - [ ] **Stop Condition / Replan Trigger が 1 件も未処理で残っていない**
