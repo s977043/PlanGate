@@ -110,3 +110,59 @@ C1-VERDICT: PASS plan=sha256:586f8a919a253f854f616282b18b2fef774bb0c73e4a04cdaa4
 - Minor 1（TC-32 の Q-1 依存）/ Minor 2（zsh runner 非強制）: 不変
 
 C1-VERDICT-2: PASS plan=sha256:64337b7f45dbb069c0f91bb7706cff661a6c521ca00d517511bc9e04cadc025f
+
+---
+
+## 簡易 C-1 再実行 #2（2026-08-12 / C-2 指摘 R-001〜R-013 の 1 回確定反映後）
+
+> 反映元: **C-2 外部レビュー**（`review-external.md` / 2 レーンとも REJECT・
+> 統合 major 7 / minor 5 / info 1）。plan パッケージは PR #1049 で main へマージ済み
+> （`6089e23`）だが C-2 未実施だったため、branch `docs/1044-c2-reflect` で追補実施。
+> **`approvals/c3.json` 未発行** = plan 編集可能期間内の確定反映（EH-3 mismatch なし）。
+
+### 反映内容の整合確認（R-001〜R-013 全 13 件）
+
+| R | severity | 反映 | 判定 |
+|---|---|---|---|
+| R-001 | major | 「帰結」節を全面書き換え — 空振り 4 本の実測表 / fixture 更新規約 3 点（**standalone 期待の `tc01b.sh` にも `_pg_extra_direct=0`**）/ **AC-8 新設**（未設定 fixture 0 件の静的検査）/ **変異 M-4 追加**（3 env → 1 条件退行で TC-01b/01c kill）/ **TC-37 新設** / test-cases エッジケース「不変」記述の**訂正** | PASS |
+| R-002 | major | 更新対象 fixture を **4 本完全列挙**（`tc01.sh` `:383` / `tc01b.sh` `:410` / `tc21.sh` `:582` / `tc26-runner.sh` `:631`）+ 導出根拠（`grep -n 'PG_HARNESS_SOURCED=1'`）を plan 帰結節・TC-36・T-06 へ展開。**AC-4 の照合網が fixture を含まない**ことを明記 | PASS |
+| R-003 | major | 正本管理表に **evidence 継承行**を追加し **(b) superseded 宣言を採用**（(a) 18 本再走は不採用・理由明記）+ **AC-9 新設** + **TC-38 新設** + **T-11 新設**（TASK-0921 handoff への追記タスク） | PASS |
+| R-004 | major | AC-2 を **AC-2a / 2b / 2c / 2d** へ分割（rc 契約 / summary 書式 / **7 env unset の実測** / カウンタ初期化）+ TC-31 の期待出力を 4 点へ拡張 + Testing Strategy に AC-2c の実測手順 | PASS |
+| R-005 | major | AC-4 を **bootstrap marker 由来の動的導出**へ書き換え（**絶対件数を契約値にしない**・14 は実測値）+ plan DoD / TC-35 / S5 / T-06 を同期。先例 `ta-26` TC-33 を明記 | PASS |
+| R-006 | major | pbi-input Out of scope に **「残存エクスポージャ」節を新設**（5 本を表で明示列挙 + 各々 2 env AND）+ 正本管理表 + S8 / T-10 に handoff 必須行 | PASS |
+| R-007 | major | Constraints に **R-024 の明示 carve-out** を追記（init 前 finalize に限定）+ AC-6 に carve-out 併記 + **Q-1 を 2 段の設問へ拡張**（方式 / carve-out 可否）+ H-01 に反映 | PASS |
+| R-008 | minor | pbi-input Notes に新漏出面の明記 + **TC-30b 新設**（`_pg_extra_direct=0` を export しても standalone = **無条件代入の pin**）+ Risks 行追加 | PASS |
+| R-009 | minor | EV-1 / EV-2 に **シェル実体・測定ホストの記録を必須化**（`ls -l /bin/sh` / `$BASH_VERSION` / `dash --version` / `zsh --version` / `uname -a`）+ S8 / T-09 / Testing Strategy へ展開 | PASS |
+| R-010 | minor | Mode 節に **「working context 成果物は分母に含めない」**を明記（例外 = 他 PBI 完了資産への追記 = `TASK-0921/handoff.md`） | PASS |
+| R-011 | minor | F-3 節に **挿入位置 = `_PG_EXTRA_ORIGINAL_RC=$?` の直後**を固定（前置は `$?` を潰し TC-06 が壊れる旨つき）+ T-04 へ展開 | PASS |
+| R-012 | minor | **Q-2 を「README 規約 8 へ追記する」で決着** + Files 節へ `tests/extras/README.md` を追加 + S5 / T-06 / エッジケースへ展開（AC-8 の静的 TC で担保） | PASS |
+| R-013 | info | AC-5(b) を **M-1 / M-2 / M-3 / M-4 の列挙形**へ + S7 / T-08 / EV-4 を同期 | PASS |
+
+### 17 項目の再判定
+
+| 区分 | 判定 | 根拠 |
+|---|---|---|
+| C1-PLAN-01（受入基準網羅性） | PASS | AC↔TC マッピングを再構築し **orphan 0 件**を確認 — AC-1→TC-30 / AC-2a〜2d→TC-31 (1)〜(4) / AC-3→TC-33・34 / AC-4→TC-35 / AC-5→EV-3・EV-4 / AC-6→TC-32 / AC-7→TC-36 / AC-8→TC-37・EV-4(M-4) / AC-9→TC-38。TC-30b のみ AC 非対応だが「R-008 の pin」として表に明示 |
+| C1-PLAN-02（Unknowns 処理） | PASS | Q-1 を 2 段設問へ拡張・Q-2 を決着・**Q-3 を新設**（AC 分割に伴う mode 件数の読み替えを AI 解釈のまま通さず C-3 追認へ回した） |
+| C1-PLAN-03（スコープ制御） | PASS | **残存エクスポージャ節**で「塞ぐ範囲 = bootstrap 系 13 本 + helper / 未塞ぎ = 5 本」を明示。Files 節に `README.md` と `TASK-0921/handoff.md` を追加し、scope 拡大分を可視化 |
+| C1-PLAN-04（テスト戦略） | PASS | 空振り対策が **fixture 完全列挙（規約）+ AC-8（静的）+ M-4（変異）** の 3 層になり、単層依存が解消 |
+| C1-PLAN-05（WBS Output） | PASS | S5 / S7 / S8 の Output を更新。S8 に 🚩 を追加（handoff 追記を伴うため） |
+| C1-PLAN-06（依存関係） | PASS | **T-06 fixture 更新 ↔ T-08 (d) M-4 の対**、T-11 は T-08 後 を ⚠️ 節へ明記 |
+| C1-PLAN-07（動作検証自動化） | PASS | TC-30b / TC-37 は自動。TC-38 のみ手動（V-1 チェックリスト）と**明示区分**した（`tests/` から `docs/working/` を assert する結合を避けるため） |
+| C1-TODO-01〜05 | PASS | T-11 追加で 11 タスク。T-11 の rollback は「追記行の revert（既存行は編集しない）」と明記。他 PBI 資産への追記であるため append-only 規律を明示 |
+| C1-TC-01〜03 | PASS | AC↔TC 双方向更新済。エッジケースは「不変」の誤りを訂正し、`_pg_extra_direct` 漏出 / 同一シェル連続 source の 2 件を追加 |
+| C1-SUP-01（Mode 妥当性） | **WARN** | 変更ファイル数 15（README 追加）で high-risk 帯を維持するが、**AC 行数 12 は定量表で critical 帯（11+）に触れる**。plan は実質 9 と読み替えて high-risk を維持している。安全側原則（判定不能なら引き上げ）に照らすと **AI 単独で確定してよい判断ではない**ため **Q-3 として C-3 追認へ回した**。HO 9 カテゴリは引き続き非該当（`tests/extras/` / `docs/working/` のみ） |
+| C1-SUP-02（正本・既存ルール整合） | PASS | R-024 の carve-out を Constraints 側にも明記し **plan 内の自己矛盾を解消**（従来は Constraints 無条件 vs AC-6 無条件で衝突）。TASK-0921 は **handoff への追記のみ**で plan.md は不変（承認済み歴史文書）。C-2 反映順序は `working-context.md`（集約 → 1 回確定反映 → 簡易 C-1 → c3.json）に準拠 |
+
+### 判定
+
+- **PASS（WARN 1 / C1-SUP-01）**。WARN は Q-3 として C-3 裁定へ委譲済みでブロッカーではない
+- 「14 箇所」を**契約値**として書いた箇所の残存: `grep -n '14 箇所'` で全件を再点検し、
+  DoD / 述語見出し / 正本管理表 / S4 / T-05 / pbi-input In-scope の**計 6 箇所を
+  「marker 由来の照合対象すべて（実測母数 14・契約値ではない）」へ書き換え済み**。
+  残存する `14` の言及は「実測母数」「旧 handoff との分母差の注記」のみ = 意図どおり
+- AC 行数の表記ゆれ（11 / 12）: plan Mode 節・Q-3・todo H-01・current-state を
+  **12 行（実質要件 9）**へ統一済み
+- Minor 1（TC-32 の Q-1 依存）: 不変。Minor 2（zsh runner 非強制）: 不変
+
+C1-VERDICT-3: PASS plan=sha256:9c93cbf9268cfe4f6665b2b5a5baf47db91ac6482a64dad925c427608982e920

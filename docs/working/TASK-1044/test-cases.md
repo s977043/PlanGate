@@ -9,12 +9,18 @@
 | AC | TC |
 |---|---|
 | AC-1（helper 欠落 + env 漏出 + 直接実行 → 4 シェル rc=1） | TC-30 + EV-1 |
-| AC-2（helper 存在 + env 漏出 + 直接実行 → standalone 契約有効） | TC-31 + EV-2 |
+| AC-2a（rc 契約 0/1/3） | TC-31 (1) + EV-2 |
+| AC-2b（summary 書式） | TC-31 (2) + EV-2 |
+| AC-2c（7 env unset の実測） | TC-31 (3) + EV-2 |
+| AC-2d（カウンタ初期化） | TC-31 (4) + EV-2 |
 | AC-3（正規経路無回帰） | TC-33 / TC-34 |
-| AC-4（bootstrap 14 箇所バイト一致 + helper 分離照合） | TC-35 |
-| AC-5（変異注入で検出力実証） | EV-3（pre-fix red）/ EV-4（call site 変異 kill） |
+| AC-4（bootstrap marker 由来の動的リストでバイト一致 + helper 分離照合） | TC-35 |
+| AC-5（変異注入で検出力実証） | EV-3（pre-fix red）/ EV-4（M-1〜M-4 の kill） |
 | AC-6（F-3 fail-closed） | TC-32 |
 | AC-7（ta-61 既存 TC 無回帰） | TC-36 |
+| AC-8（fixture の `_pg_extra_direct` 明示 / 未設定 0 件） | **TC-37** + EV-4（M-4） |
+| AC-9（TASK-0921 handoff への解消・evidence 継承の追記） | **TC-38** |
+| （R-008 の pin: 無条件代入の維持） | **TC-30b** |
 
 ## テストケース一覧
 
@@ -25,12 +31,30 @@
 - 期待出力: **rc=1** + stderr に `helper unresolved`
 - 種別: 自動（contract TA）。現 HEAD では rc=0（実測済み）= pre-fix red の根拠
 
+### TC-30b: `_pg_extra_direct=0` を export しても層 A は standalone（自動 / ta-61 追加 / R-008）
+
+- 前提: sandbox に層 A 1 本 + `_extra-contract.sh` を複製
+- 入力: **`_pg_extra_direct=0` を export した状態**（+ 3 env 漏出）で `dash $SBX/ta-XX-*.sh`
+- 期待出力: **それでも standalone**（bootstrap の `case … esac` が**無条件代入**で
+  環境値を上書きするため）。summary 出力 + standalone rc 契約
+- 目的: `_pg_extra_direct` を新たな env 漏出面にしないこと＝**無条件代入を pin** する。
+  将来 bootstrap が `: ${_pg_extra_direct:=…}` へ「最適化」されると本 TC が FAIL する
+- 種別: 自動
+
 ### TC-31: env 漏出 + helper 存在 + 直接実行は standalone 契約有効（自動 / ta-61 追加）
 
 - 前提: sandbox に層 A 1 本 + `_extra-contract.sh` を複製
 - 入力: 3 env 漏出状態で `dash $SBX/ta-XX-*.sh`
-- 期待出力: standalone として動作 — summary 行 `TA-<NN> standalone:` が出力され、
-  rc が standalone 契約（0/1/3）に従う（現 HEAD では summary 無し・rc=0 = red）
+- 期待出力: standalone として動作。**AC-2a〜2d の 4 点をすべて検証する**（R-004。
+  従来案は (1)(2) のみで、**7 env unset とカウンタ初期化を誰も検証していなかった**）:
+  1. **(AC-2a)** rc が standalone 契約（0 / 1 / 3）に従う
+  2. **(AC-2b)** summary 行 `TA-<NN> standalone: N passed, M failed` が出力される
+  3. **(AC-2c)** 契約下で起動した子プロセスで
+     `env | grep -c '^PLANGATE_\|^PG_HARNESS_SOURCED'` が **0**
+     （漏出 env が子へ伝播しないことの実測。**この検証が無いと、漏出 env が
+     子プロセスへ伝播したままでも TC-31 は緑になる**）
+  4. **(AC-2d)** init 直後に `pass=0` / `fail=0`（カウンタ初期化）
+- 現 HEAD では summary 無し・rc=0 = red
 - 種別: 自動
 
 ### TC-32: init 前 finalize は fail-closed（自動 / ta-61 追加 / F-3）
@@ -56,34 +80,84 @@
 ### TC-35: 新述語のバイト一致照合（自動 / ta-61 へ**新設** — base の ta-61 に述語バイト一致 TC は存在しない）
 
 - 入力: Mode resolution v2 の判定 2 行（case 行 + if 行）を canonical 文字列として、
-  bootstrap **14 箇所**（層 A 12 + ta-61 本体 + ta-61 fixture 複製）を照合。
+  **bootstrap marker（`# ---- extras execution contract bootstrap`）を含む
+  `tests/extras/` 全ファイルを対象リストとして動的に導出**し照合する（R-005）。
   比較は**行頭空白を除去して**行う（fixture 複製のインデント差を正規化）。
   helper `_pg_extra_resolve_mode` は**分離定義**として、変数消費形 literal
   （`${_pg_extra_direct:-1}` 消費・関数内 `$0` 非評価）との一致を別途照合
-- 期待出力: 照合対象リストの全ファイルで一致（bad=0）。**絶対件数を契約値にせず**、
-  対象リストとの同値で判定（成長ディレクトリ対策）
+- 期待出力: 導出された対象リストの全ファイルで一致（bad=0）。
+  **絶対件数を assert しない**（現時点の実測母数 14 はログ出力のみ）。
+  固定リストにすると Slice 2 が旧述語で新ファイルを足しても緑（偽陰性）、
+  件数を固定すると無関係 PR が層 A に 1 本足しただけで CI が落ちる（偽陽性）
+- 先例: `ta-26` TC-33（件数ハードコードなしの grep ベース検査）
 - 種別: 自動
 
 ### TC-36: ta-61 既存 TC（TC-01〜29）全 PASS（自動）
 
 - 入力: `sh tests/extras/ta-61-extra-contract.sh`（清浄 env）+ harness 経由
-- 期待出力: 全 PASS。**harness を模す fixture（tc01.sh / tc01b.sh 等、bootstrap を
-  持たず helper を直接 source する形）は `_pg_extra_direct=0` の明示設定へ更新した上で**
-  無回帰（変数消費形では未設定 = direct 既定のため更新必須 — plan「帰結」参照）。
-  sandbox 系 TC-14〜17/29 も無回帰
+- 期待出力: 全 PASS。ただし**「空振りでも PASS」は無回帰と見なさない**（R-001）。
+  bootstrap を持たず helper を直接 source する fixture は、変数消費形では
+  `_pg_extra_direct` 未設定 = direct 既定 → standalone に落ち、**多くが赤くならず
+  静かに PASS する**ため、以下の **4 本を完全列挙**して
+  `_pg_extra_direct=0` を明示設定した上で無回帰を判定する
+  （導出根拠: `grep -n 'PG_HARNESS_SOURCED=1' tests/extras/ta-61-extra-contract.sh`
+  の fixture heredoc）:
+
+  | fixture | 行 | 未対応時の落ち方 |
+  |---|---|---|
+  | `tc01.sh` | `:383` | 空振り PASS（finalize が exit → 後続 counters 検証行に未到達） |
+  | `tc01b.sh`（TC-01b / TC-01c 兼用） | `:410` | 空振り PASS（期待値 `pass=0` が standalone と同値） |
+  | `tc21.sh` | `:582` | 空振り PASS |
+  | `tc26-runner.sh`（`tc26-file1.sh` を source） | `:631`（`:621`） | loud FAIL（rc=1・`mini-marker: file2` 消失） |
+
+  **standalone 期待の fixture（`tc01b.sh`）にも `_pg_extra_direct=0` を入れる**こと。
+  そうして初めて env 述語が唯一の判別子として残り、TC-01b / TC-01c が
+  元の意味（3 env AND の検証）を回復する。sandbox 系 TC-14〜17/29 も無回帰
+- 検出力の担保: 本 TC 単体では空振りを検出できないため、**TC-37（静的）と
+  EV-4 の M-4（変異）と対で判定する**
 - 種別: 自動
 
+### TC-37: helper 直接 source fixture の `_pg_extra_direct` 明示（自動 / ta-61 新設 / AC-8）
+
+- 入力: `ta-61-extra-contract.sh` 内の fixture heredoc を走査し、
+  **bootstrap marker を持たず `. "$T61_HELPER"` を含む fixture** を列挙。
+  各 fixture がトップレベルで `_pg_extra_direct=` を設定しているかを静的検査
+- 期待出力: **未設定の fixture が 0 件**
+- 目的: **AC-4 の照合網（bootstrap + helper）は fixture を含まない**ため、
+  本 TC が将来の fixture 追加漏れに対する唯一の機械検出点になる（R-001 / R-012）
+- 種別: 自動（静的検査）
+
+### TC-38: TASK-0921 handoff への解消・evidence 継承の追記（静的 / AC-9）
+
+- 入力: `docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis
+- 期待出力: 本 PR による解消、および **変異 evidence 18 本の HEAD 整合失効と
+  後継（本 PBI の M-1〜M-4 = superseded）** が 1 行で追記されている
+- 実施: V-1 受け入れ検査での静的確認（grep + 目視）。TA 化はしない
+  （`tests/` から `docs/working/` の内容を assert すると別クラスの結合を生むため）
+- 種別: 手動（V-1 チェックリスト項目）
+
 ## Evidence 実測（TA 外・ログ必須）
+
+> **シェル実体の記録は必須（R-009）**: EV-1 / EV-2 のログ冒頭に
+> **各シェルの実体と測定ホスト**を必ず記録する —
+> `ls -l /bin/sh` / `sh -c 'echo ${BASH_VERSION:-not-bash}'` / `dash --version` /
+> `bash --version` / `zsh --version` / `uname -a`。
+> pre-fix 表で `sh` が bash と同じ rc=1・dash のみ rc=0 という分布は、測定ホストの
+> `/bin/sh` が bash 3.2（macOS）であること＝**「4 シェル」が実質 3 実装**である
+> ことを示唆する。この記録が無いと **CI 実体（dash）と `sh` の対応が evidence から
+> 復元できない**。
 
 ### EV-1: 4 シェルマトリクス（helper 欠落）
 
 - dash / zsh / bash / sh × TC-30 シナリオ → 修正後すべて rc=1（AC-1）。
   pre-fix 値（dash=0 / zsh=0 / bash=1 / sh=1）と対で記録
+- **各シェルの実体・ホストを併記**（上記）
 
 ### EV-2: 4 シェルマトリクス（helper 存在）
 
-- dash / zsh / bash / sh × TC-31 シナリオ → 修正後すべて standalone 契約（AC-2）。
-  pre-fix 値（4 シェル rc=0）と対で記録
+- dash / zsh / bash / sh × TC-31 シナリオ → 修正後すべて standalone 契約
+  （AC-2a〜2d の 4 点すべて）。pre-fix 値（4 シェル rc=0）と対で記録
+- **各シェルの実体・ホストを併記**（上記）
 
 ### EV-3: pre-fix red（AC-5 (a)）
 
@@ -98,6 +172,12 @@
   関数内 `$0` 再評価）へ退行させる → TC-31 が **zsh を含めて** FAIL（mode 分裂検出）。
   F-1 是正後の M-2 は **zsh FUNCTION_ARGZERO 問題の再発形を恒久検出**する役割を持つ
 - 変異 M-3: F-3 明示検査を除去 → TC-32 が FAIL
+- **変異 M-4（新規 / R-001・AC-8）**: helper の 3 env 述語を
+  **`PG_HARNESS_SOURCED` 単独へ退行**させる（`FIXTURES_DIR` / `EXTRAS_DIR` の
+  条件を落とす）→ **TC-01b / TC-01c が FAIL（kill）**。
+  **本 PR で fixture へ `_pg_extra_direct=0` を入れていない状態ではこの変異が生存する**
+  （レビュアー実測: TC-01c は rc=0 で PASS）＝ HR-4 回帰テストの検出力が失われている
+  ことの証明であり、M-4 は fixture 更新の有効性を担保する対の証跡である
 - 変異は sandbox 複製上でのみ実施（本体 checkout を汚さない）
 
 ## エッジケース
@@ -108,4 +188,18 @@
   `$0` はいずれも `run-tests.sh` に終わる → 非発火（TC-33 に包含）
 - ta-61 sandbox の ta-97/98/99 fixture: `ta-*.sh` 名だが清浄 env での直接実行のため
   従来から standalone → 挙動不変（TC-36 に包含）
-- 2 env のみ漏出（部分汚染）: 既存 TC-01b/01c が standalone 解決を検証済み → 不変
+- **2 env のみ漏出（部分汚染）: 「不変」は誤り — 訂正（R-001）**。
+  従来記述は「既存 TC-01b/01c が standalone 解決を検証済み → 不変」としていたが、
+  **本 plan 適用後は成立しない**。`tc01b.sh` は bootstrap を持たず helper を直接
+  source するため、`_pg_extra_direct` 未設定 → direct 既定 → **3 env の値に関わらず
+  standalone** となり、TC-01b / TC-01c は「期待値 `pass=0` = standalone 側」と
+  一致して **rc=0 で空振り PASS** する（＝ HR-4 の検証力が消える）。
+  **`tc01b.sh` に `_pg_extra_direct=0` を明示設定して初めて env 述語が唯一の
+  判別子として残り、TC-01b / TC-01c が元の意味を回復する**（TC-36 / TC-37 / M-4 で担保）
+- `_pg_extra_direct=0` の環境漏出: bootstrap は無条件代入のため層 A では上書きされ
+  standalone 維持（TC-30b で pin）。ただし bootstrap を持たない fixture では
+  漏出値がそのまま効くため、fixture 側のトップレベル明示設定が必須（AC-8 / TC-37）
+- 同一シェルでの連続 source（runner 経路）: `_pg_extra_direct` は**非 export の
+  グローバル**であり、bootstrap を持たないファイルは**直前ファイルの値を継承**しうる。
+  非 export のため子プロセスへは漏れないが、README 規約 8（トップレベル設定必須）と
+  TC-37 で担保する（R-012）

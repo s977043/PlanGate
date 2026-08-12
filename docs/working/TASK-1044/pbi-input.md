@@ -39,7 +39,8 @@ standalone rc 契約が丸ごと無効化される（本 plan 作成時に新規
 
 1. **bootstrap の harness 判定に直接実行ガードを追加**する（`$0` basename ベース）。
    対象 = 層 A 12 本 + `ta-61-extra-contract.sh` 本体 bootstrap + ta-61 内 heredoc fixture
-   （ta-99-probe-c 複製）の 14 箇所。**helper `_pg_extra_resolve_mode` は関数内で `$0` を
+   （ta-99-probe-c 複製）— **本 PR 時点の実測母数 14**（AC-4 の照合対象は件数でなく
+   bootstrap marker 由来で導出する）。**helper `_pg_extra_resolve_mode` は関数内で `$0` を
    再評価せず、bootstrap がトップレベルで確定した `_pg_extra_direct` を消費する**
    （zsh FUNCTION_ARGZERO により関数内 `$0` = 関数名となりガードが不発になるため —
    river-review F-1 実測反映。未設定は安全側 = direct 扱い。mode 分裂禁止
@@ -63,23 +64,53 @@ standalone rc 契約が丸ごと無効化される（本 plan 作成時に新規
 - `tests/run-tests.sh` 本体の変更（bootstrap / helper 側のみで完結させる）
 - zsh を harness runner として公式サポートすること（runner は sh 前提を維持）
 
+#### 残存エクスポージャ（本 PBI マージ後も塞がらない範囲 / R-006）
+
+> issue #1044 のタイトル・AC はいずれも「塞ぐ」と読めるため、マージ後に
+> 「extras 全体で塞がった」と誤読されうる。**塞ぐ範囲は bootstrap 系に限られる**
+> ことを明示記録する（Out of scope の「移行作業」という言い方では、
+> 残存する脆弱性そのものが読み取れないため）。
+
+以下 **5 本は本 PBI 適用後も同一クラスの脆弱述語を保持する**。しかも
+**2 env AND（`PG_HARNESS_SOURCED` + `FIXTURES_DIR`）で、層 A の 3 env AND より
+条件が 1 つ少ないぶん更に破りやすい**（本 PBI 反映時に実測確認済み）:
+
+| ファイル | 述語 | 直接実行ガード |
+|---|---|---|
+| `tests/extras/ta-25-approval-token-guard.sh` | 2 env AND | なし |
+| `tests/extras/ta-26-plugin-sync.sh` | 2 env AND | なし |
+| `tests/extras/ta-58-git-destructive-guard.sh` | 2 env AND（肯定形） | なし |
+| `tests/extras/ta-59-apply-settings-merge.sh` | 2 env AND | なし |
+| `tests/extras/ta-60-run-evidence.sh` | 2 env AND | なし |
+
+- 塞ぐ範囲 = **bootstrap 系 13 本**（層 A 12 + ta-61 本体。fixture 複製を含めた
+  照合母数は AC-4 参照）+ helper
+- 未塞ぎ = **上記 5 本**（Slice 2 で bootstrap へ移行する際に同時解消）
+- 本 PBI では**是正しない**（scope 外）が、**handoff に記録することを AC-9 で義務化**する
+  （記録を AC 化しないと落ちる）
+
 ## 受入基準
 
 | AC | 内容 |
 |---|---|
 | AC-1 | 3 env 漏出 + helper 欠落 + 直接実行が **dash / zsh / bash / sh の 4 シェルすべてで rc=1**（実測 1 の是正） |
-| AC-2 | 3 env 漏出 + helper 存在 + 直接実行が **standalone として動作**する（7 env unset・カウンタ初期化・summary 出力・rc 0/1/3 契約が有効。実測 2 の是正） |
+| AC-2a | 3 env 漏出 + helper 存在 + 直接実行で **rc が standalone 契約（0 / 1 / 3）に従う**（実測 2 の是正） |
+| AC-2b | 同シナリオで **summary 書式 `TA-<NN> standalone: N passed, M failed` が出力される**（R-015a 不変） |
+| AC-2c | 同シナリオで **7 env unset が実測される** — 契約下で起動した子プロセスにおいて `env \| grep -c '^PLANGATE_\|^PG_HARNESS_SOURCED'` が **0**（漏出 env が子へ伝播しないことを実測する。「漏出環境で直接実行」という本 PBI のシナリオと同じ土俵にあるため必須） |
+| AC-2d | 同シナリオで **カウンタが初期化される**（init 直後に `pass=0` / `fail=0`） |
 | AC-3 | 正規経路の無回帰: `sh tests/run-tests.sh` フルスイートが rc=0 / fail=0、かつ層 A 12 本の standalone 直接実行（清浄 env）が従来どおりの rc を返す |
-| AC-4 | 述語の同一性: bootstrap の判定 2 行（case 行 + if 行）が **14 箇所**（層 A 12 + ta-61 本体 + ta-61 fixture 複製）で本 PBI plan「### Mode resolution v2」と**行頭空白を除去した比較で**文字単位同一（機械照合）。helper は照合対象から**分離定義**とし、変数消費形 literal（`${_pg_extra_direct:-1}` 消費・関数内 `$0` 非評価）との一致を別途照合 |
-| AC-5 | **変異注入**: (a) 修正前 HEAD で新 TC を走らせ FAIL を実証（pre-fix evidence）。(b) 修正後、ガードの call site を壊す変異（直接実行検知行の除去）を dash で走らせ、新 TC が FAIL（kill）することを実証 |
-| AC-6 | F-3 是正: `pg_extra_contract_finalize` が `_PG_EXTRA_STANDALONE` 未設定（init 前呼出）のとき silent に harness 扱いへ落ちず、fail-closed（stderr 診断 + exit 4）となる。既存 TC-10（静的検出）は不変で PASS |
-| AC-7 | ta-61 既存 TC（TC-01〜TC-29）が全 PASS（ガード追加による fixture 回帰なし） |
+| AC-4 | 述語の同一性: **bootstrap marker（`# ---- extras execution contract bootstrap`）を含む `tests/extras/` 全ファイル**で、判定 2 行（case 行 + if 行）が本 PBI plan「### Mode resolution v2」と**行頭空白を除去した比較で**文字単位同一（機械照合）。**対象は marker 由来で動的に導出し、絶対件数を契約値にしない**（`tests/extras/` は成長ディレクトリ。現時点の実測母数は 14 = 層 A 12 + ta-61 本体 + ta-61 fixture 複製 だが、これは契約値ではなく実測値である）。helper は照合対象から**分離定義**とし、変数消費形 literal（`${_pg_extra_direct:-1}` 消費・関数内 `$0` 非評価）との一致を別途照合 |
+| AC-5 | **変異注入**: (a) 修正前 HEAD で新 TC を走らせ FAIL を実証（pre-fix evidence）。(b) 修正後、**M-1 / M-2 / M-3 / M-4 の全変異**で対応 TC が FAIL（kill）することを dash（M-2 は zsh も）で実証する — M-1: bootstrap の case 行（ガードの call site）除去 / M-2: helper を変数消費から独自判定へ退行 / M-3: F-3 明示検査の除去 / **M-4: helper の 3 env 述語を `PG_HARNESS_SOURCED` 単独へ退行させ TC-01b / TC-01c が FAIL すること**。変異は関数でなく call site を壊す（#874 教訓） |
+| AC-6 | F-3 是正: `pg_extra_contract_finalize` が `_PG_EXTRA_STANDALONE` 未設定（init 前呼出）のとき silent に harness 扱いへ落ちず、fail-closed（stderr 診断 + exit 4）となる。既存 TC-10（静的検出）は不変で PASS。**本 AC は Constraints「harness source 経路で非 0 return / exit しない（R-024）」に対する明示 carve-out である**（対象は init 前 finalize = 契約違反の mis-wire に限定。carve-out を設けること自体の可否は Q-1 で C-3 裁定） |
+| AC-7 | ta-61 既存 TC（TC-01〜TC-29）が全 PASS（ガード追加による fixture 回帰なし）。**ただし「空振りでも PASS」は AC-7 充足と見なさない** — 検出力の維持は AC-8 と AC-5 の M-4 で担保する |
+| AC-8 | **fixture の `_pg_extra_direct` 明示化**: ta-61 内で bootstrap を持たず helper を直接 source する **全 fixture**（harness 模擬・standalone 期待の双方）が `_pg_extra_direct` を**トップレベルで明示設定**しており、**未設定の fixture が 0 件**であることを**静的検査 TC** で機械検出する。将来の fixture 追加漏れもこの TC で検出する |
+| AC-9 | **evidence 継承の明示**: `docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis に、本 PR による解消および **変異 evidence 18 本の HEAD 整合の扱い**（本 PBI の M-1〜M-4 が後継 = superseded）が 1 行で追記されている |
 
 ## Notes from Refinement
 
 - 修正案の `$0` アンカーは issue 記載のファイル名 literal 埋め込み（`*ta-46-ehs-wiring.sh)`）
   ではなく **`${0##*/}` の `ta-*.sh` glob 照合**とする。literal 埋め込みは bootstrap
-  14 箇所のバイト一致 DoD（TASK-0921 が確立した機械照合可能性）を壊すため
+  照合対象全件のバイト一致 DoD（TASK-0921 が確立した機械照合可能性）を壊すため
 - **`$0` の評価位置は bootstrap トップレベル 1 回のみ**（F-1）: zsh は
   FUNCTION_ARGZERO（既定 ON）で関数内 `$0` = 関数名になるため、helper 関数内での
   再評価は zsh 直接実行でガード不発（実測: 関数内評価形は zsh のみ rc=0・summary 無し）。
@@ -91,6 +122,18 @@ standalone rc 契約が丸ごと無効化される（本 plan 作成時に新規
 - runner が zsh で起動された場合 zsh の FUNCTION_ARGZERO により source 先で `$0` が
   変わりうるが、runner は `sh tests/run-tests.sh` 前提（CI 実体 dash / README 規約）であり
   制約として明記する
+- **`_pg_extra_direct` は新たな env 漏出面である（R-008）**: bootstrap は
+  **無条件代入**（`case … esac`）なので層 A は安全だが、helper を直接 source する
+  consumer が `_pg_extra_direct=0` を明示設定する方針である以上、
+  「`_pg_extra_direct=0` が環境から漏れていれば harness と誤判定」という
+  **#1044 と同型の窓**が新設される。将来 bootstrap の代入が
+  `: ${_pg_extra_direct:=…}` へ「最適化」されると即座に回帰するため、
+  **無条件代入を TC-30b で pin する**
+- **`_pg_extra_direct` は非 export のグローバル（R-012）**: `run-tests.sh` は同一
+  シェルで extras を順次 source するため、bootstrap を持たないファイルは
+  **直前ファイルの値を継承**しうる。非 export のため子プロセスへは漏れない
+  （設計として正しい）が、**「トップレベル設定必須」を規約化**する
+  （`tests/extras/README.md` 規約 8 への 1 行 + AC-8 の静的 TC で担保）
 
 ## Estimation Evidence
 
