@@ -1033,10 +1033,10 @@ sha256 を照合して**不一致なら stale エラー**にするため、
 
 | R-NNN | severity | lane | status | reflected_in(commit) | notes |
 |---|---|---|---|---|---|
-| R-032 | major | river | reflected | （本 commit・後段で実 SHA へ確定） | AC-3 / TC-34 に **contract TA 自身の除外**を明記 + S6 / T-07 を動的表現へ |
-| R-033 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | AC-2c / TC-31 (3) を `_T61_GUARDED_ENVS` の実行時導出消費へ（名前・件数・行番号を非契約化） |
-| R-034 | minor | river | **not-applied（意図的 / (b) を選択）** | （本 commit・後段で実 SHA へ確定） | review-self 冒頭に非対称の注記 + frontmatter コメントから誘導。理由は上記 |
-| R-035 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | frontmatter `verdict` を schema enum 準拠の `PASS` へ |
+| R-032 | major | river | reflected | `ed19f31` | AC-3 / TC-34 に **contract TA 自身の除外**を明記 + S6 / T-07 を動的表現へ |
+| R-033 | minor | river | reflected | `ed19f31` | AC-2c / TC-31 (3) を `_T61_GUARDED_ENVS` の実行時導出消費へ（名前・件数・行番号を非契約化） |
+| R-034 | minor | river | **not-applied（意図的 / (b) を選択）** | `ed19f31` | review-self 冒頭に非対称の注記 + frontmatter コメントから誘導。理由は上記 |
+| R-035 | minor | river | reflected | `ed19f31` | frontmatter `verdict` を schema enum 準拠の `PASS` へ |
 
 > Round 1〜3 および 1 回目 River Review の監査表は**編集していない**。
 
