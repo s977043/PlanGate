@@ -1,0 +1,9 @@
+# T-03 RED: ta-62 standalone on pre-fix tree (case (d) NOT applied)
+# date: 2026-08-12 18:53 / HEAD: d86eef90516ae3c1b19d79db26b29e459a8dc9b4
+# command: sh tests/extras/ta-62-t26-recurse-env-guard.sh </dev/null
+
+=== TA-62: t26 recurse env guard (#1036) ===
+  [FAIL] TC-S 配置検査不成立 (harness分岐に存在=0 期待1 / ブロック外0件=1 期待1 / runner非混入=1 期待1): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-ab772d42087e2a812/tests/extras/ta-26-plugin-sync.sh
+  [FAIL] TC-D 同値照合不成立 (rc_leak=0 rc_clean=0 期待0/0 / diff一致=0 期待1 / leak側再帰防止SKIP=4 期待0 / clean側PASS行=32 期待>=1): 5c5,6;<   [SKIP] TC-03/TC-04（再帰防止の子プロセスでは省略・親で実行済み）;---;>   [PASS] TC-03 --dry-run が exit 0 で正常終了（exit code を実検証）;>   [PASS] TC-04 --dry-run がファイルを変更しない;14c15;<   [SKIP] TC-13 再帰防止（PG_T26_NO_RECURSE=1）;---;>   [PASS] TC-13 PG_HARNESS_SOURCED で harness/standalone を判別（FIXTURES_DIR 汚染にも耐える）;18,19c19,32;
+TA-62 standalone: 0 passed, 2 failed
+EXIT_CODE=1
