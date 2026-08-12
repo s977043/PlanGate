@@ -3,7 +3,7 @@
 PlanGate — a governance OS for AI-assisted coding.
 Provides Intent/Mode classification, a 4-Gate approval system, and an agent control layer as a Claude Code plugin.
 
-- **Version**: v8.18.0
+- **Version**: v8.19.0
 - **Source**: <https://github.com/s977043/plangate>
 
 ## Install
