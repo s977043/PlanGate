@@ -161,7 +161,11 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
    harness 実行では run-tests.sh 冒頭で unset 済み。**standalone 実行ではその
    防御が効かないため、規約 8 に従い各 extras が standalone 分岐で自前 unset
    する**（#914）。テスト内で意図的に設定する場合はコマンド単位の env 前置に
-   限定する
+   限定する。**テスト個別の再帰防止シグナル（例: `ta-26` の `PG_T26_NO_RECURSE`）
+   は run-tests.sh の unset 集合に足さない**（足すと本規約の包含検査 = `ta-26`
+   TC-33 が全 extras に波及する）。代わりに**当該 extras 自身の harness 分岐で
+   unset して呼び出し元 env の漏れを無害化する**（#1036。実装例: `ta-26` の
+   harness 分岐 else 節。配置は `ta-62` の TC-S が静的検査する）
 8. **harness/standalone 判別は `PG_HARNESS_SOURCED` と `FIXTURES_DIR` の AND**
    （#914 / R-204）— 新規 extras は、run-tests.sh が設定する `PG_HARNESS_SOURCED`
    （**非 export**。source された extras だけに見えるシグナル）と `FIXTURES_DIR`
@@ -187,7 +191,12 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
    **#921 以降の bootstrap（実行契約 helper `_extra-contract.sh` を source する形）では、
    後段「実行契約」節の harness 判定述語＝3 条件 AND（`EXTRAS_DIR` 非空を含む /
    HR-4 = (b)）が本規約の 2 条件 AND より優先する**（本項のコード例は移行前形の
-   参考であり、契約移行済みファイルの判定式の正本ではない）
+   参考であり、契約移行済みファイルの判定式の正本ではない）。
+   **再帰防止シグナルの unset 位置（#1036）**: テスト個別の再帰防止シグナル
+   （`PG_T26_NO_RECURSE` 等）は **harness 分岐（else 節）でのみ** unset する。
+   **standalone 分岐では意図的に unset しない** — standalone 分岐は TC-13 型の
+   子プロセス（シグナルをコマンド単位前置で受け取る側）も通る経路であり、
+   そこで unset すると再帰防止ガード自体が壊れて孫 spawn の再入ループになる
 
 ## 実行契約（execution contract / #921 TASK-0921）
 
