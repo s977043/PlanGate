@@ -15,11 +15,11 @@
 | AC-2d（カウンタ初期化） | TC-31 (4) + EV-2 |
 | AC-3（正規経路無回帰） | TC-33 / TC-34 |
 | AC-4（bootstrap marker 由来の動的リストでバイト一致 + helper 分離照合） | TC-35 |
-| AC-5（変異注入で検出力実証） | EV-3（pre-fix red）/ EV-4（M-1〜M-4 の kill） |
+| AC-5（変異注入で検出力実証） | EV-3（pre-fix red）/ EV-4（M-1〜M-4 + M-4b の kill） |
 | AC-6（F-3 fail-closed） | TC-32 |
 | AC-7（ta-61 既存 TC 無回帰） | TC-36 |
-| AC-8（fixture の `_pg_extra_direct` 明示 / 未設定 0 件） | **TC-37** + EV-4（M-4） |
-| AC-9（TASK-0921 handoff への解消・evidence 継承の追記） | **TC-38** |
+| AC-8（fixture の `_pg_extra_direct` 明示 / 未設定 0 件） | **TC-37** + EV-4（M-4 / M-4b） |
+| AC-9（TASK-0921 handoff への解消・evidence 継承の追記 + 本 PBI handoff の「未塞ぎ 5 本」行） | **TC-38**（確認対象 2 点） |
 | （R-008 の pin: 無条件代入の維持） | **TC-30b** |
 
 ## テストケース一覧
@@ -98,17 +98,25 @@
 - 期待出力: 全 PASS。ただし**「空振りでも PASS」は無回帰と見なさない**（R-001）。
   bootstrap を持たず helper を直接 source する fixture は、変数消費形では
   `_pg_extra_direct` 未設定 = direct 既定 → standalone に落ち、**多くが赤くならず
-  静かに PASS する**ため、以下の **4 本を完全列挙**して
-  `_pg_extra_direct=0` を明示設定した上で無回帰を判定する
-  （導出根拠: `grep -n 'PG_HARNESS_SOURCED=1' tests/extras/ta-61-extra-contract.sh`
-  の fixture heredoc）:
+  静かに PASS する**ため、**helper を直接 source する全 fixture（`. "$T61_HELPER"` 由来で
+  動的導出・本 PR 時点の実測 12 本）**に `_pg_extra_direct=0` を明示設定した上で
+  無回帰を判定する。うち **`PG_HARNESS_SOURCED` を明示設定するため挙動が変わるのは
+  以下の 4 本（部分集合）**である（導出根拠:
+  `grep -n 'PG_HARNESS_SOURCED=1' tests/extras/ta-61-extra-contract.sh` の fixture heredoc。
+  **この 4 本は TC-37 の走査母数ではない** / R-014）:
 
   | fixture | 行 | 未対応時の落ち方 |
   |---|---|---|
   | `tc01.sh` | `:383` | 空振り PASS（finalize が exit → 後続 counters 検証行に未到達） |
   | `tc01b.sh`（TC-01b / TC-01c 兼用） | `:410` | 空振り PASS（期待値 `pass=0` が standalone と同値） |
   | `tc21.sh` | `:582` | 空振り PASS |
-  | `tc26-runner.sh`（`tc26-file1.sh` を source） | `:631`（`:621`） | loud FAIL（rc=1・`mini-marker: file2` 消失） |
+  | `tc26-file1.sh`（`tc26-runner.sh` `:631` から source される） | `:621`（runner `:631`） | loud FAIL（rc=1・`mini-marker: file2` 消失） |
+
+  **`tc26` の置き場所（R-014）**: TC-37 の literal フィルタ（`. "$T61_HELPER"`）に
+  マッチするのは **`tc26-file1.sh`** であり `tc26-runner.sh` ではない。
+  `_pg_extra_direct=0` は同一シェル継承によりどちらに置いても機能するが、
+  **TC-37 が検査する `tc26-file1.sh` 側に置く**（runner 側だけだと TC-37 が未設定と判定する）。
+  なお `tc26-file2.sh` は helper を source しないため走査対象外（自動除外）。
 
   **standalone 期待の fixture（`tc01b.sh`）にも `_pg_extra_direct=0` を入れる**こと。
   そうして初めて env 述語が唯一の判別子として残り、TC-01b / TC-01c が
@@ -122,16 +130,29 @@
 - 入力: `ta-61-extra-contract.sh` 内の fixture heredoc を走査し、
   **bootstrap marker を持たず `. "$T61_HELPER"` を含む fixture** を列挙。
   各 fixture がトップレベルで `_pg_extra_direct=` を設定しているかを静的検査
-- 期待出力: **未設定の fixture が 0 件**
+- **走査母数は動的導出（件数を assert しない / R-014）**: 本 PR 時点の実測は
+  `grep -c '\. "\$T61_HELPER"'` = **12**（`tc01` / `tc01b` / `tc02` / `tc03` / `tc04` /
+  `tc06` / `tc07` / `tc08` / `tcskip` / `tc21` / `tc23` / `tc26-file1`。行 `:391` `:416`
+  `:440` `:454` `:468` `:494` `:512` `:530` `:553` `:590` `:606` `:623`）。
+  **plan「帰結」節の 4 本は挙動が変わる部分集合であって本 TC の母数ではない** —
+  4 本の固定リストへ狭めると AC-8 が手書きリストへ退化し R-001 / R-002 が実質復活する
+- 期待出力: **未設定の fixture が 0 件**（母数の絶対件数は assert せずログ出力のみ）
 - 目的: **AC-4 の照合網（bootstrap + helper）は fixture を含まない**ため、
   本 TC が将来の fixture 追加漏れに対する唯一の機械検出点になる（R-001 / R-012）
 - 種別: 自動（静的検査）
 
-### TC-38: TASK-0921 handoff への解消・evidence 継承の追記（静的 / AC-9）
+### TC-38: handoff 追記の静的確認（**確認対象 2 点** / AC-9）
 
-- 入力: `docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis
-- 期待出力: 本 PR による解消、および **変異 evidence 18 本の HEAD 整合失効と
-  後継（本 PBI の M-1〜M-4 = superseded）** が 1 行で追記されている
+- 入力 (1): `docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis **および L43 / L119**
+- 期待出力 (1): 本 PR による解消、および **変異 evidence 18 本の HEAD 整合失効と
+  その扱い（14 本 = superseded・後継は本 PBI の M-1〜M-4b / 4 本 = M-01・M-02・M-03・M-16
+  は新 HEAD で再走し kill 再確認）** が 1 行で追記されており、**L43（AC-7 PASS 根拠）と
+  L119（テスト結果サマリ）の「18/18 KILL」行から当該注記への参照が張られている**
+  （既知課題への追記だけでは根拠行が古い主張のまま残るため / R-017）
+- 入力 (2): `docs/working/TASK-1044/handoff.md`（本 PBI handoff）
+- 期待出力 (2): **「未塞ぎ = 5 本（`ta-25` / `ta-26` / `ta-58` / `ta-59` / `ta-60`・
+  2 env AND・Slice 2 へ）」の行が存在する**（R-016。pbi-input 残存エクスポージャ節の
+  「AC-9 で義務化」を実際に検証する）
 - 実施: V-1 受け入れ検査での静的確認（grep + 目視）。TA 化はしない
   （`tests/` から `docs/working/` の内容を assert すると別クラスの結合を生むため）
 - 種別: 手動（V-1 チェックリスト項目）
@@ -172,12 +193,19 @@
   関数内 `$0` 再評価）へ退行させる → TC-31 が **zsh を含めて** FAIL（mode 分裂検出）。
   F-1 是正後の M-2 は **zsh FUNCTION_ARGZERO 問題の再発形を恒久検出**する役割を持つ
 - 変異 M-3: F-3 明示検査を除去 → TC-32 が FAIL
-- **変異 M-4（新規 / R-001・AC-8）**: helper の 3 env 述語を
+- **変異 M-4（新規 / R-001・AC-8。期待値は R-018 で訂正）**: helper の 3 env 述語を
   **`PG_HARNESS_SOURCED` 単独へ退行**させる（`FIXTURES_DIR` / `EXTRAS_DIR` の
-  条件を落とす）→ **TC-01b / TC-01c が FAIL（kill）**。
-  **本 PR で fixture へ `_pg_extra_direct=0` を入れていない状態ではこの変異が生存する**
-  （レビュアー実測: TC-01c は rc=0 で PASS）＝ HR-4 回帰テストの検出力が失われている
-  ことの証明であり、M-4 は fixture 更新の有効性を担保する対の証跡である
+  条件を落とす）→ **TC-01c が FAIL（kill・rc=65）**。
+  **TC-01b は rc=0 で生存する（＝ M-4 の設計上ヒットしない）** — TC-01b の判別子は
+  `PG_HARNESS_SOURCED=0` であり M-4 は同条件を保持するため**原理的に検出できない**
+  （レビュアー実測）。旧記述「TC-01b / TC-01c が FAIL」は**半分外れ**であり訂正する
+- **変異 M-4b（新規 / R-018）**: helper の述語から **`PG_HARNESS_SOURCED` 条件を落とし
+  `FIXTURES_DIR && EXTRAS_DIR` のみ**へ退行させる → **TC-01b が FAIL（kill）**。
+  M-4 と対称に置くことで **3 env AND の 3 条件すべてに検出力があること**を示す
+- **fixture 更新との対**: **本 PR で fixture へ `_pg_extra_direct=0` を入れていない
+  状態では M-4 / M-4b が生存する**（レビュアー実測: TC-01c は rc=0 で PASS）＝
+  HR-4 回帰テストの検出力が失われていることの証明であり、
+  M-4 / M-4b は fixture 更新の有効性を担保する対の証跡である
 - 変異は sandbox 複製上でのみ実施（本体 checkout を汚さない）
 
 ## エッジケース

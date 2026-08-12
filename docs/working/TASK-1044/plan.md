@@ -119,9 +119,11 @@ source する ta-61 fixture は、`_pg_extra_direct` 未設定 → 既定 direct
 2. **standalone 期待の fixture も `_pg_extra_direct=0` を明示設定**し、
    **env 述語を唯一の判別子として残す**（`tc01b.sh` に `_pg_extra_direct=0` を
    入れて初めて TC-01b / TC-01c は元の意味を回復する）
-3. **更新対象 fixture の完全列挙**（`grep -n 'PG_HARNESS_SOURCED=1'
+3. **挙動が変わる fixture（部分集合）の完全列挙**（`grep -n 'PG_HARNESS_SOURCED=1'
    tests/extras/ta-61-extra-contract.sh` の fixture heredoc から導出。本 plan 反映時の
-   実測: `:384` / `:584` / `:638` の 3 群 + `tc01b.sh` の可変形）:
+   実測: `:384` / `:584` / `:638` の 3 群 + `tc01b.sh` の可変形）。
+   **これは「`PG_HARNESS_SOURCED` を明示設定するため挙動が変わる」部分集合であって、
+   AC-8 / TC-37 の走査母数ではない**（R-014）:
 
    | fixture | 行 | 未対応時 |
    |---|---|---|
@@ -133,9 +135,34 @@ source する ta-61 fixture は、`_pg_extra_direct` 未設定 → 既定 direct
 4. 将来の fixture 追加漏れは **AC-8 の静的検査 TC**（`_pg_extra_direct` 未設定の
    fixture が 0 件）で担保する。**AC-4 の機械照合は bootstrap + helper が対象であり
    fixture は照合網の外**であるため、AC-8 が無いと網が開く
-5. 検出力の維持は **変異 M-4**（helper の 3 env 述語を 1 条件へ退行 → TC-01b / TC-01c が
-   kill されること）で実証する。これが無いと AC-7（既存 TC 無回帰）は
-   「空振りでも PASS」を許容してしまう
+5. 検出力の維持は **変異 M-4**（helper の 3 env 述語を `PG_HARNESS_SOURCED` 単独へ退行
+   → **TC-01c が kill**）で実証する。これが無いと AC-7（既存 TC 無回帰）は
+   「空振りでも PASS」を許容してしまう。
+   **期待値の訂正（R-018 / レビュアー実測）**: M-4 で kill されるのは **TC-01c（rc=65）**
+   のみで、**TC-01b は rc=0 で生存**する — TC-01b の判別子は `PG_HARNESS_SOURCED=0`
+   であり、M-4 は同条件を保持するため **原理的に検出できない**。
+   TC-01b の検出力も証明するには **M-4b**（`PG_HARNESS_SOURCED` 条件を落とし
+   `FIXTURES_DIR && EXTRAS_DIR` のみへ退行）を対称に追加し、**TC-01b が kill される**
+   ことを実証する
+
+**規約 3-bis（R-014）**: **`_pg_extra_direct` の明示設定は helper を直接 source する
+   全 fixture（本 PR 時点の実測 12 本）に適用する。件数は契約値でなく
+   `. "$T61_HELPER"` 由来で動的導出する**（AC-4 と同じ規約に揃える）。本 PR 時点の実測内訳:
+   `tc01` / `tc01b` / `tc02` / `tc03` / `tc04` / `tc06` / `tc07` / `tc08` / `tcskip` /
+   `tc21` / `tc23` / `tc26-file1`（`grep -c '\. "\$T61_HELPER"'` = **12**・
+   行 `:391` `:416` `:440` `:454` `:468` `:494` `:512` `:530` `:553` `:590` `:606` `:623`）。
+   **上記 3 の 4 本（`tc26` は runner 側）は挙動が変わる部分集合、12 本は走査母数**であり、
+   「完全列挙 = 4」を TC-37 の母数と読むと **残り 8 本が未設定として TC-37 が FAIL** する。
+   逆に TC-37 の走査対象を 4 本の固定リストへ狭めると **AC-8 が謳う「将来の追加漏れに
+   対する唯一の機械検出点」が手書きリストへ退化**し R-001 / R-002 が実質復活する。
+
+**規約 3-ter（R-014）**: **`tc26` の 2 ファイル構造に対する TC-37 フィルタの精度**:
+   TC-37 の literal フィルタ（`. "$T61_HELPER"` を含む fixture）にマッチするのは
+   **`tc26-file1.sh` であって `tc26-runner.sh` ではない**（runner は
+   `. "$T61_FXDIR/tc26-file1.sh"` を source するだけで helper を直接読まない）。
+   `_pg_extra_direct=0` はどちらに置いても機能する（runner → file1 は同一シェルで
+   非 export グローバルを継承するため）が、**TC-37 が検査する側（`tc26-file1.sh`）に
+   置く**こと。runner 側だけに置くと「置いたのに未設定と言われる」齟齬が出る。
 
 反映先: S5 / S7 / T-06 / T-08 / TC-36 / TC-37 / EV-4。
 
@@ -223,7 +250,7 @@ exec 実装者は「冒頭」を「関数の 1 行目」と読み違えてはな
 | 旧正本 | TASK-0921 plan「### Mode resolution」— 承認後 plan のため**編集しない**（歴史文書化） |
 | 参照の切替 | **TC-35 新設**（base の ta-61 に述語バイト一致 TC は存在しないため「更新」ではなく新設。AC-4 の bootstrap marker 由来リストでの一致 + helper 分離照合）+ `_extra-contract.sh` ヘッダコメントの正本参照を本 plan へ更新 |
 | handoff 連鎖 | TASK-0921 handoff 既知課題 2 / 2-bis は本 PBI の handoff で「解消（PR #）」を追記参照できるよう、本 PBI handoff に対応表を持つ |
-| **evidence 継承（R-003）** | **(b) superseded 宣言を採用**。TASK-0921 の変異 evidence **18 本は本 PBI で HEAD 整合が失効**し、**本 PBI の M-1〜M-4 が後継**である旨を宣言する。**(a) の 18 本再走は採らない**（コスト大かつ、失効の原因が「helper の意図的な設計変更」であって回帰ではないため、再走しても同じ evidence を別 HEAD で作り直すだけになる）。追記先 = `docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis（**AC-9** で義務化・S8 / T-10 で実施） |
+| **evidence 継承（R-003 / R-017 で精密化）** | **(b) superseded 宣言を基本とするが、全 18 本一律ではない**。**14 本 = superseded**（失効の原因が「helper の意図的な設計変更」であって回帰ではなく、再走しても同じ evidence を別 HEAD で作り直すだけ）。**ただし detector が本 PBI の書換対象そのものである 4 本 — M-01（detector = standalone 側 TC-04 + harness 経路。TC-04 fixture も helper 直接 source 対象）/ M-02（detector = **TC-01**）/ M-03（detector = **TC-01b**）/ M-16（detector = **TC-26** 単独）— は「同じ evidence を作り直すだけ」が成立しない**（新 M-1〜M-4b は 3 env 述語に特化しており、旧 18 本の marker / rc レイヤ / allowlist / dual-shell を包含しない）ため、**新 HEAD で再走し kill を再確認する**（既存ドライバ `PG_T61_SKIP_SUITE=1 sh tests/extras/ta-61-extra-contract.sh` がそのまま使える）。追記先 = `docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis（**AC-9** で義務化・S8 / T-10 / T-11 で実施）。**あわせて同 handoff の L43（AC-7 PASS 根拠）/ L119（テスト結果サマリ）の「18/18 KILL」行から superseded 注記への参照を張る** — 既知課題への追記だけでは根拠行が古い主張のまま残るため |
 | 残存エクスポージャ | 本 PBI で塞ぐのは **bootstrap 系 13 本 + helper**。`ta-25` / `ta-26` / `ta-58` / `ta-59` / `ta-60` の **5 本は 2 env AND のまま残る**（`pbi-input.md`「残存エクスポージャ」節が正本。S8 の handoff 対応表に必須行として載せる / R-006） |
 
 ## Work Breakdown
@@ -234,10 +261,10 @@ exec 実装者は「冒頭」を「関数の 1 行目」と読み違えてはな
 | S2 | 新 TC を ta-61 へ追加（TC-30: env 漏出 + helper 欠落 直接実行 dash → rc=1 / TC-31: env 漏出 + helper 存在 直接実行 dash → standalone 契約有効）。**この時点で走らせ FAIL を確認**（TDD red / AC-5 (a)） | ta-61 差分 + red ログ | agent | 中 | 🚩 |
 | S3 | helper `_pg_extra_resolve_mode` を**変数消費形**（`${_pg_extra_direct:-1}` を読む・関数内で `$0` を再評価しない / F-1）へ変更 + F-3 明示検査追加。ヘッダコメントの正本参照を本 plan へ更新。rollback: 当該 2 hunk revert | `_extra-contract.sh` 差分 | agent | 中 | 🚩 |
 | S4 | bootstrap の全対象（**本 PR 時点の実測母数 14** = 層 A 12 + ta-61 本体 + ta-61 fixture 複製。件数は契約値でなく AC-4 は marker 由来で導出）を Mode resolution v2 ブロックへ同型置換。rollback: `git checkout origin/main -- tests/extras/`（S3 と同一 PR 内で原子的に） | 14 ファイル差分 | agent | 中 | 🚩 |
-| S5 | 述語機械照合 TC-35 を**新設**（base の ta-61 に述語バイト一致 TC は存在しない。bootstrap 2 行 × **marker 由来の動的導出**リスト + helper 変数消費形の分離照合 / R-005）+ F-3 用 TC-32（init 前 finalize → exit 4 + 診断）+ **fixture 4 本（`tc01.sh` / `tc01b.sh` / `tc21.sh` / `tc26-runner.sh`）へ `_pg_extra_direct=0` を明示設定**（harness 模擬・standalone 期待の双方 / R-001・R-002）+ **AC-8 静的検査 TC-37 を新設**（`_pg_extra_direct` 未設定 fixture = 0 件）+ TC-30b（`_pg_extra_direct=0` を export しても層 A は standalone / R-008）+ `tests/extras/README.md` 規約 8 へ 1 行追記（トップレベル設定必須 / R-012。Q-2 を「追記する」で確定） | ta-61 差分 + README 差分 | agent | 低 | |
+| S5 | 述語機械照合 TC-35 を**新設**（base の ta-61 に述語バイト一致 TC は存在しない。bootstrap 2 行 × **marker 由来の動的導出**リスト + helper 変数消費形の分離照合 / R-005）+ F-3 用 TC-32（init 前 finalize → exit 4 + 診断）+ **helper を直接 source する全 fixture（本 PR 時点の実測 12 本・`. "$T61_HELPER"` 由来で動的導出）へ `_pg_extra_direct=0` を明示設定**（うち挙動が変わるのは `tc01.sh` / `tc01b.sh` / `tc21.sh` / `tc26`（file1 側）の部分集合。harness 模擬・standalone 期待の双方 / R-001・R-002・R-014）+ **AC-8 静的検査 TC-37 を新設**（`_pg_extra_direct` 未設定 fixture = 0 件）+ TC-30b（`_pg_extra_direct=0` を export しても層 A は standalone / R-008）+ `tests/extras/README.md` 規約 8 へ 1 行追記（トップレベル設定必須 / R-012。Q-2 を「追記する」で確定） | ta-61 差分 + README 差分 | agent | 低 | |
 | S6 | green 確認: 新 TC + ta-61 全 TC + フルスイート `sh tests/run-tests.sh` rc=0 + 層 A 12 本の清浄 env standalone 実行 | `evidence/test-runs/post-fix-*.log` | agent | 低 | 🚩 |
-| S7 | 変異注入（AC-5 (b)）: **M-1**（bootstrap の case 行 = ガードの call site 除去）→ TC-30/31 が dash で FAIL / **M-2**（helper を変数消費から独自判定へ退行）→ TC-31 が zsh を含めて FAIL / **M-3**（F-3 検査除去）→ TC-32 が FAIL / **M-4（新規 / R-001）**（helper の 3 env 述語を `PG_HARNESS_SOURCED` 単独へ退行）→ **TC-01b / TC-01c が FAIL（kill）**。M-4 は fixture 更新後にのみ kill されるため、AC-8 と対で検出力を保証する | `evidence/test-runs/mutation-*.log` | agent | 低 | 🚩 |
-| S8 | 4 シェルマトリクス最終実測（dash/zsh/bash/sh × 実測 1/2 シナリオ。**各シェルの実体と測定ホストを併記** — `ls -l /bin/sh` / `$BASH_VERSION` / `dash --version` / `zsh --version` / `uname -a`。CI 実体（dash）と `sh` の対応が evidence から復元できるようにする / R-009）+ handoff 対応表（(1) **TASK-0921 handoff の「14 箇所」と本 plan の分母差** — 旧 14 = 層 A 12 + ta-61 本体 + helper、新 = bootstrap 14（fixture 複製を含む）+ helper 別枠 — を 1 行注記 / (2) **「#1044 で塞いだ範囲 = bootstrap 系 13 本 + helper、未塞ぎ = 5 本（`ta-25`/`ta-26`/`ta-58`/`ta-59`/`ta-60`・2 env AND・Slice 2 へ）」を必須行として記載**（R-006） / (3) **TASK-0921 handoff 既知課題 2 / 2-bis へ「本 PR で解消 + 変異 evidence 18 本は superseded（後継 = M-1〜M-4）」を追記**（AC-9 / R-003）） | evidence + handoff 素材 + TASK-0921 handoff 追記 | agent | 低 | 🚩 |
+| S7 | 変異注入（AC-5 (b)）: **M-1**（bootstrap の case 行 = ガードの call site 除去）→ TC-30/31 が dash で FAIL / **M-2**（helper を変数消費から独自判定へ退行）→ TC-31 が zsh を含めて FAIL / **M-3**（F-3 検査除去）→ TC-32 が FAIL / **M-4（新規 / R-001）**（helper の 3 env 述語を `PG_HARNESS_SOURCED` 単独へ退行）→ **TC-01c が FAIL（kill・rc=65）**。**TC-01b は M-4 の設計上ヒットしない**（判別子が `PG_HARNESS_SOURCED=0` で M-4 は同条件を保持 / R-018）ため、**M-4b**（`PG_HARNESS_SOURCED` 条件を落とし `FIXTURES_DIR && EXTRAS_DIR` のみへ退行）→ **TC-01b が FAIL（kill）** を対称に追加する。M-4 / M-4b は fixture 更新後にのみ kill されるため、AC-8 と対で検出力を保証する | `evidence/test-runs/mutation-*.log` | agent | 低 | 🚩 |
+| S8 | 4 シェルマトリクス最終実測（dash/zsh/bash/sh × 実測 1/2 シナリオ。**各シェルの実体と測定ホストを併記** — `ls -l /bin/sh` / `$BASH_VERSION` / `dash --version` / `zsh --version` / `uname -a`。CI 実体（dash）と `sh` の対応が evidence から復元できるようにする / R-009）+ handoff 対応表（(1) **TASK-0921 handoff の「14 箇所」と本 plan の分母差** — 旧 14 = 層 A 12 + ta-61 本体 + helper、新 = bootstrap 14（fixture 複製を含む）+ helper 別枠 — を 1 行注記 / (2) **「#1044 で塞いだ範囲 = bootstrap 系 13 本 + helper、未塞ぎ = 5 本（`ta-25`/`ta-26`/`ta-58`/`ta-59`/`ta-60`・2 env AND・Slice 2 へ）」を必須行として記載**（R-006） / (3) **TASK-0921 handoff 既知課題 2 / 2-bis へ「本 PR で解消 + 変異 evidence 18 本のうち 14 本は superseded（後継 = M-1〜M-4b）/ 4 本（M-01 / M-02 / M-03 / M-16）は新 HEAD で再走し kill 再確認」を追記** + 同 handoff **L43 / L119 の「18/18 KILL」行から superseded 注記への参照**を張る（AC-9 / R-003・R-017） / (4) **本 PBI handoff に「未塞ぎ = 5 本」の行**（AC-9 後段 / R-016。上記 (2) と同一内容を本 PBI handoff 側にも必須行として置く）） | evidence + handoff 素材 + TASK-0921 handoff 追記 | agent | 低 | 🚩 |
 
 依存: S1→S2→S3→S4→S5→S6→S7→S8（S3/S4 は同一 commit 推奨 — 述語分裂の中間状態を作らない。
 TASK-0921 R-025-2 の原子性要求と同型）。
@@ -251,11 +278,16 @@ TASK-0921 R-025-2 の原子性要求と同型）。
   追加 + TC-35 / TC-37 新設 + **fixture 4 本への `_pg_extra_direct=0` 明示**）
 - `tests/extras/README.md`（規約 8 へ 1 行: bootstrap を持たず helper を直接 source する
   ファイルは `_pg_extra_direct` を**トップレベルで明示設定**すること。非 export の
-  グローバルであり直前 source ファイルの値を継承しうるため / R-012。**Q-2 を「追記する」で確定**）
+  グローバルであり直前 source ファイルの値を継承しうるため / R-012。**Q-2 を「追記する」で確定**。
+  **追記のみ・既存文言を編集しない** — `ta-26` TC-30（`:750-758`）が README に対し
+  `PG_HARNESS_SOURCED` / `非 export` / `AND` / `standalone 側（安全側）` の **4 語を静的 grep**
+  しており、既存文言の書き換えは TC-30 を落とす / R-020）
 - `docs/working/TASK-1044/*`（本パッケージ）
-- `docs/working/TASK-0921/handoff.md`（**既知課題 2 / 2-bis への追記のみ**。
-  本 PR での解消 + 変異 evidence 18 本の superseded 宣言 / AC-9・R-003。
-  TASK-0921 の **plan.md は承認済み歴史文書として編集しない**）
+- `docs/working/TASK-0921/handoff.md`（**既知課題 2 / 2-bis への追記 + L43 / L119 の
+  「18/18 KILL」行への superseded 注記参照の付加**。本 PR での解消 + 変異 evidence
+  18 本のうち 14 本 superseded / 4 本再走 / AC-9・R-003・R-017。
+  TASK-0921 の **plan.md は承認済み歴史文書として編集しない**。追記のみで既存文言は
+  書き換えない）
 - 触れない: `tests/run-tests.sh`（Non-goal）
 
 ## Testing Strategy
@@ -275,7 +307,7 @@ TASK-0921 R-025-2 の原子性要求と同型）。
   `env | grep -c '^PLANGATE_\|^PG_HARNESS_SOURCED'` が 0 であることを TC-31 で検証する。
   これが無いと**漏出 env が子へ伝播したままでも TC-31 が緑**になる（R-004）
 - **変異注入**: (a) pre-fix HEAD で新 TC red（検出力の事前実証）。
-  (b) **M-1 / M-2 / M-3 / M-4 の全変異**で kill 実証（AC-5(b) / R-013）
+  (b) **M-1 / M-2 / M-3 / M-4 / M-4b の全変異**で kill 実証（AC-5(b) / R-013・R-018）
   — 変異は関数でなく call site を壊す（#874 教訓）
 - **機械照合（TC-35 新設）**: bootstrap 判定 2 行のバイト一致を、
   **bootstrap marker を含む extras 全ファイル（marker 由来の動的導出）**に対して行う
@@ -284,6 +316,9 @@ TASK-0921 R-025-2 の原子性要求と同型）。
   しない**。現時点の実測母数 14 はログに残すが assert しない。先例 = `ta-26` TC-33 / R-005）
 - **静的検査（TC-37 新設 / AC-8）**: ta-61 内で bootstrap を持たず helper を直接 source
   する全 fixture heredoc が `_pg_extra_direct` を明示設定していること（未設定 = 0 件）。
+  **走査母数は `. "$T61_HELPER"` 由来で動的導出**し、**件数（本 PR 時点の実測 12）を
+  契約値にしない**（R-014。固定 4 本リストへ狭めると AC-8 が手書きリストへ退化する）。
+  `tc26-file2.sh` は helper を source しないため自動除外される。
   **AC-4 の照合網は bootstrap + helper のみで fixture を含まない**ため、本 TC が
   将来の fixture 追加漏れに対する唯一の機械検出点になる（R-001・R-012）
 - **変異 M-2 の恒久的役割（F-1）**: helper 側述語のみを壊す M-2 変異は、F-1 是正後は
@@ -319,13 +354,31 @@ TASK-0921 R-025-2 の原子性要求と同型）。
      plan は「init 前 finalize = 契約違反の mis-wire に限定した carve-out」を推奨
 - **Q-2（決着済 / R-012）**: README 規約 8 への追記は **「追記する」で確定**
   （`_pg_extra_direct` の非 export グローバル継承を規約化するため。S5 / T-06 に含む）
-- **Q-3（要 C-3 追認 / R-004 の副作用）**: AC-2 を AC-2a〜2d へ分割した結果、AC 総数が
-  **12** となり `mode-classification.md` の定量表では **11+ = critical 帯**に触れる。
-  plan は「分割は 1 要件を検証可能単位へ割ったものであり要件総量は不変（実質 9）」と
-  読み替えて **high-risk を維持**しているが、これは AI の解釈である。
-  **critical へ引き上げる（= V-4 追加・複数レビュアー）判断は人間が行う**。
-  安全側原則（判定不能なら引き上げ）に従うなら critical が既定であるため、
-  **C-3 で明示的に「high-risk 維持」を追認するか、critical へ引き上げるかを裁定**されたい
+- **Q-3（要 C-3 追認 / 2 軸 — R-004 の副作用 + R-015 で第 2 軸を追加）**:
+  **critical 帯に触れる定量軸は 2 本ある。どちらも AI の解釈で high-risk 側に
+  留めているため、両方を C-3 が裁定する**（片方だけ escalate すると、
+  同じ節の隣の軸を AI が独自に下げたまま通ることになる / R-015）:
+
+  1. **AC 行数 12**（`mode-classification.md` 定量表で **11+ = critical 帯**）。
+     plan は「分割は 1 要件を検証可能単位へ割ったものであり要件総量は不変（実質 9）」
+     と読み替えて **high-risk を維持**している。
+     → **「high-risk 維持」を追認するか critical へ引き上げるかを裁定**されたい
+  2. **変更ファイル数の分母定義（15 か 16 か）**（`15 → high-risk（6-15）` /
+     `16 → critical（16+）`）。plan は「working context 成果物および他 PBI の完了資産
+     （`TASK-0921/handoff.md`）は規模軸に算入しない」と定義して **15 = high-risk** と
+     している。→ **この分母定義を追認するか、`TASK-0921/handoff.md` を算入して
+     16 = critical とするかを裁定**されたい
+
+  **安全側の向きに関する両論（R-019 / C-2 Round 2 でレーン間不一致）**:
+
+  | 立場 | 主張 |
+  |---|---|
+  | **整合レーン**（既定を critical に置くべき） | `mode-classification.md`「判定不能／該当不確実なら**引き上げる側**」・`working-context.md` AC-8「判定不能なら安全側」に照らせば、規定どおりの向きは **既定 critical → 人間が根拠を確認して high-risk へ引き下げ**。現状は plan の最終判定に high-risk を書き、人間に**引き上げ**を求めており向きが逆。ただし **C-3 が明示裁定する限りガバナンス上の穴にはならない**ため REJECT 理由には数えない |
+  | **設計レーン**（high-risk 維持を支持） | 上記 1・2 はいずれも「解釈の余地」であって「判定不能」ではない（AC 分割は要件総量を増やしていない / working context を分母に入れると規模軸が影響範囲を表さなくなる）。substance としては **high-risk 維持が妥当** |
+
+  → plan は **暫定的に high-risk（両論併記のうえ Q-3 で確定）** としている。
+  C-3 が「既定 critical」の向きを採る場合は、最終判定を critical へ書き換えたうえで
+  V-4 追加・複数レビュアーを適用すること
 
 ## Mode 判定
 
@@ -334,12 +387,17 @@ TASK-0921 R-025-2 の原子性要求と同型）。
 **判定根拠**（`.claude/rules/mode-classification.md` 準拠）:
 
 - 変更ファイル数: 15（helper 1 + 層 A 12 + ta-61 + `tests/extras/README.md`）→ **high-risk**（6-15）
-  - **分母の定義（R-010）**: **working context 成果物（`docs/working/**` の
-    plan / status / current-state / handoff / evidence 等）は Mode 判定の分母に
-    含めない**。含めると exec PR が常に 16+（critical 帯）へ届き、規模軸が
-    「実装の影響範囲」を表さなくなるため。**例外は「他 PBI の完了資産への追記」**で、
-    本 PBI では `docs/working/TASK-0921/handoff.md`（AC-9）が該当するが、
-    1 ファイル・追記 1 行のため判定を動かさない
+  - **分母の定義（R-010 / R-015 で確定）**: **working context 成果物
+    （`docs/working/**` の plan / status / current-state / handoff / evidence 等）は
+    Mode 判定の分母に含めない**。含めると exec PR が常に 16+（critical 帯）へ届き、
+    規模軸が「実装の影響範囲」を表さなくなるため。
+    **他 PBI の完了資産への追記（`docs/working/TASK-0921/handoff.md`）も規模軸には
+    算入せず、Files 節での可視化と AC-9 での検証に委ねる**（＝ **例外規定を作らない**。
+    旧記述は「例外は他 PBI の完了資産への追記」としつつ「該当するが判定を動かさない」
+    と続き、分母 15 と 16 のどちらとも読める自己矛盾だった / R-015）。
+    したがって**分母は 15 で確定**する。**この分母定義自体が AI の解釈である**ため、
+    **Q-3 の第 2 軸として C-3 の追認を求める**（AC 行数 12 と同じ扱いにし、
+    「AI が独自に下げた mode 軸」を 1 つも残さない）
 - 受入基準数: 12（AC-1 / AC-2a〜2d / AC-3〜AC-9）→ 形式上 **critical 帯（11+）**だが、
   AC-2a〜2d は**元 AC-2 の 1 要件を検証可能単位へ分割**したもの（R-004）であり、
   要件の総量は増えていない。**分割前の実質要件数は 9**（AC-1 / AC-2 / AC-3〜AC-9）→
@@ -352,8 +410,11 @@ TASK-0921 R-025-2 の原子性要求と同型）。
 - Hardening Override 対象パス: **非該当**（`tests/extras/` / `docs/working/` のみ。
   9 カテゴリのいずれにも一致しない）
 - セキュリティ / スキーマ / 破壊的変更: 非該当
-- **最終判定**: **high-risk**（定量・定性とも high-risk。オーバーライドなし。
-  ただし AC 分割に伴う件数の読み替えは **Q-3 として C-3 で追認**を求める）
+- **最終判定**: **high-risk（暫定 / Q-3 で確定）**。定量・定性とも high-risk で
+  オーバーライドなし。ただし **critical 帯に触れる 2 軸（AC 行数 12 / 変更ファイル数の
+  分母定義 15 か 16 か）はいずれも AI の解釈**であり、**Q-3 として C-3 の追認**を求める
+  （安全側の向きについてはレーン間で両論あり — Q-3 の表を参照 / R-015・R-019）。
+  C-3 が critical を採る場合は本行を critical へ書き換え、V-4 追加・複数レビュアーを適用する
 
 high-risk のため: C-2 外部レビュー必須・**人間 C-3 必須（autonomous APPROVE 不可）**・
 V-2 / V-3 実行・todo の実装タスクに rollback 必須。

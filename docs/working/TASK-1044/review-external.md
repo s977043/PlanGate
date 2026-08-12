@@ -332,3 +332,223 @@ AC-5 本文が「ガードの call site を壊す変異」**単数形**なので
 5. exec 開始
 
 **c3.json は未発行**であり、本反映は plan 編集可能期間内に行われた（EH-3 mismatch なし）。
+
+---
+
+## C-2 Round 2（追記専用 / R-014 以降）
+
+> レビュー日: 2026-08-12 / 対象 branch: `docs/1044-c2-reflect`（head `853a443`・base `6089e23`）
+> 対象 plan_hash（レビュー時点）: `sha256:9c93cbf9268cfe4f6665b2b5a5baf47db91ac6482a64dad925c427608982e920`
+> **上記 Round 1（R-001〜R-013）の記述は一切編集していない**（追記専用規約）。
+
+## Round 2 判定
+
+| レーン | verdict | critical | major | minor | info |
+|---|---|---|---|---|---|
+| 設計妥当性レーン | **REJECT** | 0 | 1 | 1 | 1 |
+| コードベース整合レーン | **REJECT** | 0 | 1 | 3 | 0 |
+| **統合** | **REJECT** | **0** | **2** | **4** | **1** |
+
+**Round 1 の major 7 件（R-001〜R-007）はすべて実質解消**と両レーンが確認
+（後掲「Round 2 で実質解消を確認した項目」）。Round 2 の新規指摘は
+**major 2 / minor 4 / info 1** で、いずれも 1 文〜1 行の是正。
+
+## Round 2 指摘一覧（R-014〜R-020）
+
+### R-014 [major / コードベース整合レーン] 「完全列挙 = 4 本」と AC-8 / TC-37 の走査母数（12 本）が矛盾
+
+**対象**: `plan.md`「帰結」節 規約 3 / `test-cases.md` TC-36・TC-37 / `todo.md` T-06
+
+実測（オーガナイザー裏取り済み・反映担当も再実行）:
+`grep -c '\. "\$T61_HELPER"' tests/extras/ta-61-extra-contract.sh` → **12**。
+内訳（行番号）: `:391` / `:416` / `:440` / `:454` / `:468` / `:494` / `:512` / `:530` /
+`:553` / `:590` / `:606` / `:623`
+（= `tc01` / `tc01b` / `tc02` / `tc03` / `tc04` / `tc06` / `tc07` / `tc08` / `tcskip` /
+`tc21` / `tc23` / `tc26-file1`）。
+
+plan の 4 本（`tc01` / `tc01b` / `tc21` / `tc26-runner`）は
+**「`PG_HARNESS_SOURCED` を明示設定する部分集合」**であって **TC-37 の走査母数ではない**。
+
+**失敗シナリオ**:
+
+- exec が「完全列挙 = 4」に従うと **TC-37 が残り 8 本を未設定として FAIL**
+- 逆に TC-37 を green にするため走査対象を 4 本の固定リストへ狭めると、
+  **AC-8 が謳う「将来の追加漏れに対する唯一の機械検出点」が手書きリストへ退化**し
+  **R-001 / R-002 が実質復活**する
+
+**AC-4 で「絶対件数を契約値にしない」を徹底した本 plan が、AC-8 側で「4 本」という
+件数契約を残しているのは自己矛盾である。**
+
+**是正要求**:
+
+1. 規約 3 の見出しを「**挙動が変わる fixture（部分集合）**」へ改める
+2. 「**`_pg_extra_direct` の明示設定は helper を直接 source する全 fixture
+   （本 PR 時点の実測 12 本）に適用する。件数は契約値でなく `. "$T61_HELPER"` 由来で
+   動的導出**」を 1 行追加（AC-4 と同じ規約に揃える）
+3. **`tc26` の 2 ファイル構造に対する TC-37 フィルタの精度**を併記: literal フィルタに
+   マッチするのは **`tc26-file1.sh` であって `tc26-runner.sh` ではない**。
+   `_pg_extra_direct=0` はどちらに置いても機能するが、**TC-37 が検査する側に置く**ことを
+   明記しないと「置いたのに未設定と言われる」齟齬が出る
+
+### R-015 [major / 設計妥当性レーン] Mode 節の分母定義が自己矛盾し、critical 帯に触れる 2 本目の軸が Q-3 に載っていない
+
+**対象**: `plan.md:336-343`（Mode 判定）/ `plan.md` Q-3 / `todo.md` H-01
+
+実測（オーガナイザー裏取り済み）— 旧記述:
+
+> 変更ファイル数: **15**（helper 1 + 層 A 12 + ta-61 + `tests/extras/README.md`）→ high-risk（6-15）
+> **例外は「他 PBI の完了資産への追記」**で、本 PBI では `docs/working/TASK-0921/handoff.md`
+> （AC-9）が**該当する**が、1 ファイル・追記 1 行のため**判定を動かさない**
+
+「例外」＝除外規定の例外＝**分母に含める** → **15 + 1 = 16 → critical 帯（16+）**。
+「該当する」と「判定を動かさない」は**両立しない**。
+
+より重大なのは構造である:
+
+| 定量軸 | 状態 | 扱い |
+|---|---|---|
+| AC 行数 12 | critical 帯（11+）に触れる | **Q-3 として escalate** ✅ |
+| **変更ファイル数 16** | critical 帯（16+）に触れる | **AI が独自に下げている** 🔴 |
+
+**Q-3 を立てた判断基準（「AI の解釈だから人間が裁定する」）が、同じ節の隣の軸に
+適用されていない。**
+
+**是正要求**（いずれも 1〜2 行。AC / TC / 実装には影響しない）:
+
+1. 分母定義を「**working context 成果物は分母外。他 PBI の完了資産への追記
+   （`TASK-0921/handoff.md`）も規模軸には算入せず、Files 節での可視化と AC-9 での
+   検証に委ねる**」と**書き切る**（＝ 15 のまま、**例外規定を作らない**）。
+   **設計レーンはこちらを substance として推奨**
+2. **Q-3 の設問を「AC 行数 12」+「変更ファイル数の分母定義（15 か 16 か）」の 2 軸へ拡張**し、
+   todo H-01 へ反映。**「AI が独自に下げた mode 軸が 1 つも残っていない」状態にすることが眼目**
+
+### R-016 [minor / 設計妥当性レーン] 残存エクスポージャの handoff 記録が AC-9 本文に落ちていない
+
+**対象**: `pbi-input.md` 残存エクスポージャ節 / AC-9 / `test-cases.md` TC-38
+
+`pbi-input.md` の残存エクスポージャ節は「**handoff に記録することを AC-9 で義務化する**」と
+締めているが、**AC-9 の本文は「TASK-0921 handoff 既知課題 2 / 2-bis への解消 +
+evidence superseded 宣言」しか要求しておらず、残存 5 本の記録に触れていない**。TC-38 も同範囲。
+実際に載っているのは S8(2) / T-10(2) という **Work Breakdown 側**であり、
+**V-1 が突合する AC ではない**。
+
+**是正要求**: **AC-9 に 1 句追加** — 「**および本 PBI handoff に『未塞ぎ = 5 本
+（`ta-25`/`ta-26`/`ta-58`/`ta-59`/`ta-60`・2 env AND・Slice 2 へ）』の行が存在すること**」。
+TC-38 の確認対象も 2 点へ。
+
+### R-017 [minor / コードベース整合レーン] (b) superseded の理由づけが過大 — 4 本は再走が要る
+
+**対象**: `plan.md` 正本管理表 evidence 継承行 / AC-9 / `docs/working/TASK-0921/handoff.md` L43・L119
+
+「再走は同じ evidence を別 HEAD で作り直すだけ」は、**detector が本 PBI の書換対象
+そのものである 4 本には当てはまらない**:
+
+| 旧変異 | detector | 備考 |
+|---|---|---|
+| **M-01** | standalone 側 TC-04 + harness 経路 | helper / TC-04 fixture とも書換対象 |
+| **M-02** | **TC-01** | 書換対象 |
+| **M-03** | **TC-01b** | 書換対象 |
+| **M-16** | **TC-26 単独** | 書換対象 |
+
+（反映担当が `docs/working/TASK-0921/evidence/mutations/mutation-summary.log` で
+detector 行を一次確認。M-01 のみレビュー原文の「harness 経路 / helper」に加え
+**standalone 側 detector が TC-04** であることを追加確認した — 指摘の趣旨を強める方向）
+
+カバレッジの包含関係も成立していない（新 4 本は 3 env 述語に特化、旧 18 本は
+marker / rc レイヤ / allowlist / dual-shell まで及ぶ）。
+
+**是正要求**: **全 18 本でも 0 本でもなく、M-01 / M-02 / M-03 / M-16 の 4 本のみ
+新 HEAD で再走**（既存ドライバ `PG_T61_SKIP_SUITE=1 sh tests/extras/ta-61-extra-contract.sh`
+がそのまま使える）。**AC-9 の文言を「18 本のうち 14 本は superseded / 4 本は新 HEAD で
+再走し kill を再確認」へ精密化**。あわせて **`docs/working/TASK-0921/handoff.md` の
+L43 / L119 の「18/18 KILL」行**（AC-7 PASS の根拠として引用されている 2 箇所）
+**から superseded 注記への参照を張る**（既知課題への追記だけでは根拠行が古い主張のまま残る）。
+
+### R-018 [minor / コードベース整合レーン] M-4 の期待値「TC-01b / TC-01c が FAIL」は半分外れ
+
+**対象**: `pbi-input.md` AC-5 / `plan.md` S7・帰結節 5 / `test-cases.md` EV-4 / `todo.md` T-08
+
+レビュアー実測: **TC-01c → rc=65 で KILL** / **TC-01b → rc=0 で生存**。
+TC-01b の判別子は `PG_HARNESS_SOURCED=0` であり、M-4（3 env 述語を
+`PG_HARNESS_SOURCED` 単独へ退行）は**同条件を保持するため原理的に検出できない**。
+
+**是正要求**: 期待値を「**TC-01c が kill（TC-01b は M-4 の設計上ヒットしない）**」へ訂正。
+TC-01b の検出力も証明するなら **M-4b**（`PG_HARNESS_SOURCED` 条件を落として
+`FIXTURES_DIR && EXTRAS_DIR` のみ）を追加するのが対称的。
+
+### R-019 [minor / コードベース整合レーン] Q-3 の「安全側の向き」が逆（ただしレーン間で両論）
+
+**対象**: `plan.md` Q-3 / Mode 最終判定
+
+`mode-classification.md`「判定不能／該当不確実なら**引き上げる側**」・
+`working-context.md` AC-8「判定不能なら安全側」に照らすと、
+**既定を critical に置き、人間が根拠を確認して high-risk へ引き下げる**のが規定どおりの向き。
+現状は plan の最終判定に high-risk を書き**人間に引き上げを求める**形。
+
+※ **整合レーンは「現状のままでも C-3 が明示裁定する限りガバナンス上の穴にはならない」として
+REJECT 理由には数えていない**。**設計レーンは high-risk 維持を substance として支持**している。
+
+**是正要求**: **両論を Q-3 に併記**する。
+
+### R-020 [info / 設計妥当性レーン] README 追記は「追記のみ・既存文言を編集しない」
+
+**対象**: `todo.md` T-06 / `plan.md` Files 節
+
+`ta-26` TC-30（`tests/extras/ta-26-plugin-sync.sh:750-758`）が `tests/extras/README.md` に対し
+`PG_HARNESS_SOURCED` / `非 export` / `AND` / `standalone 側（安全側）` の **4 語を静的 grep**
+している（反映担当が実測確認）。
+
+**是正要求**: T-06 のメモに「**追記のみ・既存文言を編集しない**」を 1 語添える。
+
+---
+
+## Round 2 で実質解消を確認した項目（再検証不要）
+
+- **MJ-1〜4 / MAJOR-1〜3 / MINOR-1〜2 / mn-1〜3 / info-1（= Round 1 の R-001〜R-013 系）は
+  すべて実質解消**
+- とくに **R-001 系は整合レーンが自分の複製で実測**し、**fixture 修正で
+  TC-01/01b/01c/21/26 が全復旧**、**M-4 が TC-01c を rc=65 で kill**
+  （Round 1 では同変異が rc=0 で生存）することを確認。**AC-8 + M-4 の設計は機能する**
+- **TC-37 の静的検査は ta-61 の heredoc 構造で成立する**（実ファイル走査が単純で堅い。
+  `tc26-file2.sh` は helper を source しないため自動除外）
+- **`14` の全 9 箇所を個別確認し、契約値として書かれた箇所は 0 件**
+- **scope +2 ファイルは妥当**（`TASK-0921/handoff.md` は追記しないと誤った前提を主張し続ける
+  stale な正本になる。放置のほうが監査上有害）
+- 監査表・反映順序・HO 判定・R-011 の挿入位置はいずれも実物と一致
+
+## Round 2 反証・独立検証（反映担当ワーカーによる一次確認）
+
+| 指摘 | 独立確認の内容 | 結果 |
+|---|---|---|
+| R-014 | `grep -c '\. "\$T61_HELPER"' tests/extras/ta-61-extra-contract.sh` → **12**、行番号もオーガナイザー提示と完全一致。`tc26-runner.sh` は `. "$T61_FXDIR/tc26-file1.sh"` を source するのみで helper を直接読まないことを heredoc（`:634-645`）で確認 | 指摘どおり |
+| R-015 | `plan.md:336-343` の旧文言を逐語確認（「例外は…該当する」「判定を動かさない」の併存） | 指摘どおり |
+| R-017 | `mutation-summary.log` の detector 行を確認 — `M-01 KILLED (dual-channel) standalone: … [FAIL] TC-04` / `M-02 … [FAIL] TC-01` / `M-03 … [FAIL] TC-01b` / `M-16 … [FAIL] TC-26`。`handoff.md` の「18/18 KILL」は **L43 / L119 の 2 箇所**で実在 | 指摘どおり（M-01 の standalone detector = TC-04 を追加特定） |
+| R-020 | `ta-26-plugin-sync.sh:752-755` で README に対する 4 語の `grep -q` を確認 | 指摘どおり |
+
+**反証に至った指摘は 0 件**（R-014〜R-020 の 7 件すべてを採用）。
+
+## Round 2 監査表（追記専用）
+
+| R-NNN | severity | lane | status | reflected_in(commit) | notes |
+|---|---|---|---|---|---|
+| R-014 | major | 整合 | reflected | （本 commit） | 規約 3 を「部分集合」へ + 走査母数 12 の動的導出 + `tc26-file1` 側へ置く注記 |
+| R-015 | major | 設計 | reflected | （本 commit） | 分母定義を 15 で書き切る（例外規定を作らない）+ Q-3 を 2 軸へ拡張 |
+| R-016 | minor | 設計 | reflected | （本 commit） | AC-9 に「本 PBI handoff の未塞ぎ 5 本の行」を追加 + TC-38 を 2 点へ |
+| R-017 | minor | 整合 | reflected | （本 commit） | superseded を 14 本 / 再走 4 本へ精密化 + L43・L119 参照 + T-11b 新設 |
+| R-018 | minor | 整合 | reflected | （本 commit） | M-4 期待値を TC-01c のみへ訂正 + **M-4b 新設**（TC-01b kill） |
+| R-019 | minor | 整合 | reflected | （本 commit） | Q-3 に安全側の向きの両論を併記（最終判定は暫定 high-risk のまま） |
+| R-020 | info | 設計 | reflected | （本 commit） | T-06 / Files 節に「追記のみ・既存文言を編集しない」（ta-26 TC-30 の 4 語 grep） |
+
+> `reflected_in` は本 Round 2 反映 commit。squash / rebase で SHA が変わった場合は
+> commit message 末尾の `Refs: R-014 … R-020` が二次証跡になる。
+> Round 1 の監査表（R-001〜R-013）は**編集していない**。
+
+## Round 2 反映順序
+
+1. 本ファイルへ R-014〜R-020 を追記集約（本 commit）
+2. plan / pbi-input / test-cases / todo へ **1 回確定反映**（`Refs: R-014 … R-020`・本 commit）
+3. 簡易 C-1 再実行 #3 → `review-self.md` へ追記し `C1-VERDICT-4` を新 plan_hash で更新（本 commit）
+4. 人間が最終 `approvals/c3.json`（`c3_status=APPROVED`・確定後 plan_hash）を発行
+5. exec 開始
+
+**`approvals/c3.json` は依然未発行**であり、本反映も plan 編集可能期間内（EH-3 mismatch なし）。

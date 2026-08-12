@@ -166,3 +166,50 @@ C1-VERDICT-2: PASS plan=sha256:64337b7f45dbb069c0f91bb7706cff661a6c521ca00d51751
 - Minor 1（TC-32 の Q-1 依存）: 不変。Minor 2（zsh runner 非強制）: 不変
 
 C1-VERDICT-3: PASS plan=sha256:9c93cbf9268cfe4f6665b2b5a5baf47db91ac6482a64dad925c427608982e920
+
+---
+
+## 簡易 C-1 再実行 #3（2026-08-12 / C-2 Round 2 指摘 R-014〜R-020 の 1 回確定反映後）
+
+> 反映元: **C-2 Round 2**（`review-external.md`「C-2 Round 2」節 / 2 レーンとも REJECT・
+> 統合 major 2 / minor 4 / info 1）。**Round 1 の major 7 件はすべて実質解消**と両レーンが確認。
+> `approvals/c3.json` は依然未発行 = plan 編集可能期間内の確定反映（EH-3 mismatch なし）。
+
+### 反映内容の整合確認（R-014〜R-020 全 7 件）
+
+| R | severity | 反映 | 判定 |
+|---|---|---|---|
+| R-014 | major | plan「帰結」規約 3 の見出しを **「挙動が変わる fixture（部分集合）」**へ改題 + **規約 3-bis**（走査母数 = `. "$T61_HELPER"` 由来で動的導出・本 PR 実測 12 本・件数は契約値にしない）+ **規約 3-ter**（`tc26` は TC-37 が検査する `tc26-file1.sh` 側へ置く）+ S5 / Testing Strategy / TC-36 / TC-37 / T-06 / AC-8 を同期 | PASS |
+| R-015 | major | Mode 節の分母定義を **「他 PBI の完了資産も規模軸に算入しない = 15 で確定・例外規定を作らない」**へ書き切り（自己矛盾解消）+ **Q-3 を 2 軸へ拡張**（AC 行数 12 / 分母定義 15 か 16 か）+ 最終判定を **「high-risk（暫定 / Q-3 で確定）」**へ + todo H-01 に Q-3 (1)(2) を展開 | PASS |
+| R-016 | minor | **AC-9 に 1 句追加** — 「本 PBI handoff に『未塞ぎ = 5 本』の行が存在すること」+ **TC-38 を確認対象 2 点**へ + T-10 (2) に「AC-9 後段 / TC-38 (2) の検証対象」を明記 | PASS |
+| R-017 | minor | 正本管理表の evidence 継承行を **「14 本 superseded / 4 本（M-01・M-02・M-03・M-16）は新 HEAD で再走」**へ精密化 + **AC-9 の文言を同期** + **`TASK-0921/handoff.md` L43 / L119 への参照付加**を Files / S8 / T-11 へ + **T-11b（旧 4 本再走）を新設** | PASS |
+| R-018 | minor | M-4 の期待値を **「TC-01c が kill（rc=65）/ TC-01b は原理的にヒットしない」**へ訂正 + **M-4b を新設**（`PG_HARNESS_SOURCED` 条件を落とす対称変異で TC-01b を kill）+ AC-5 / S7 / 帰結節 5 / EV-4 / T-08 / Testing Strategy を同期 | PASS |
+| R-019 | minor | Q-3 に **安全側の向きの両論**（整合レーン = 既定 critical が規定どおりの向き・ただし C-3 明示裁定なら穴ではない / 設計レーン = high-risk 維持が substance）を表で併記 + 最終判定を「暫定」と明示 | PASS |
+| R-020 | info | T-06 と Files 節に **「追記のみ・既存文言を編集しない」**を明記（`ta-26` TC-30 が README の 4 語を静的 grep するため） | PASS |
+
+### 17 項目の再判定
+
+| 区分 | 判定 | 根拠 |
+|---|---|---|
+| C1-PLAN-01（受入基準網羅性） | PASS | AC↔TC マッピングを再点検し **orphan 0 件**を維持。AC-9 の追加要件（本 PBI handoff の 5 本行）は TC-38 (2) に対応づけ済み。AC-5 の M-4b 追加は EV-4 に反映 |
+| C1-PLAN-02（Unknowns 処理） | PASS | **Q-3 を 2 軸へ拡張**し、「critical 帯に触れる定量軸のうち AI が独自に下げたものが 1 つも残っていない」状態にした。安全側の向きの両論も併記済み |
+| C1-PLAN-03（スコープ制御） | PASS | scope 不変（`tests/extras/` + `docs/working/`）。T-11b は既存 evidence の再走であり新規ファイル追加を伴わない |
+| C1-PLAN-04（テスト戦略） | PASS | 走査母数の動的導出化で **AC-8 が手書きリストへ退化するリスクを解消**。M-4 / M-4b の対称化で **3 env AND の 3 条件すべてに検出力**が付いた |
+| C1-PLAN-05（WBS Output） | PASS | S8 の Output に (4) 本 PBI handoff の 5 本行を追加。T-11b の Output = `mutation-0921-rerun-*.log` |
+| C1-PLAN-06（依存関係） | PASS | **T-11b（T-08 後）→ T-11** の順序を ⚠️ 節へ明記。T-06 ↔ T-08 (d)(e) の対も更新 |
+| C1-PLAN-07（動作検証自動化） | PASS | TC-37 の母数は動的導出（自動）。TC-38 は引き続き手動（V-1 チェックリスト）で確認対象が 2 点へ |
+| C1-TODO-01〜05 | PASS | T-11b 追加で 12 タスク。T-11b の rollback は「変異は sandbox 複製上でのみ実施し本体に触れない」 |
+| C1-TC-01〜03 | PASS | TC-36 の表を `tc26-file1.sh` 基準へ訂正し、TC-37 の母数注記と整合。EV-4 に M-4b を追加 |
+| C1-SUP-01（Mode 妥当性） | **WARN** | 分母定義を 15 で書き切り自己矛盾は解消したが、**critical 帯に触れる 2 軸（AC 行数 12 / 分母定義）はいずれも AI の解釈**であるため **Q-3 (1)(2) として C-3 追認へ回した**（前回 WARN の継続・範囲を 1 軸から 2 軸へ拡大）。最終判定は **high-risk（暫定）**。HO 9 カテゴリは引き続き非該当 |
+| C1-SUP-02（正本・既存ルール整合） | PASS | R-014 の是正で **AC-4（件数を契約値にしない）と AC-8 の規約が一致**し、plan 内の自己矛盾がもう 1 つ解消。R-020 で `ta-26` TC-30 の既存契約との衝突を予防。追記専用規約（review-external Round 1 / TASK-0921 handoff）を遵守 |
+
+### 判定
+
+- **PASS（WARN 1 / C1-SUP-01）**。WARN は Q-3 (1)(2) として C-3 裁定へ委譲済みでブロッカーではない
+- 「4 本」を **TC-37 の母数**として書いた箇所の残存: plan 規約 3 / S5 / test-cases TC-36 /
+  todo T-06 を再点検し、**すべて「挙動が変わる部分集合」と明示するか 12 本の動的導出へ
+  書き換え済み**
+- Round 1 の R-001〜R-013 記述および TASK-0921 の plan.md は**不変**
+- Minor 1（TC-32 の Q-1 依存）: 不変。Minor 2（zsh runner 非強制）: 不変
+
+C1-VERDICT-4: PASS plan=sha256:cce20c06ba273a6d4297f63f47fab4e0837519f394012b5a0b3aa2a0866f0352

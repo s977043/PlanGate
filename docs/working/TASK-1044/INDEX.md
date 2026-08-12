@@ -11,6 +11,9 @@
 > 未実施**だった。本追補（branch `docs/1044-c2-reflect`）で C-2 を実施し、
 > **統合 verdict = REJECT（major 7 / minor 5 / info 1）**を `review-external.md` へ
 > R-001〜R-013 として集約 → 1 回確定反映 → 簡易 C-1 再実行 まで完了。
+> さらに **C-2 Round 2**（統合 verdict = REJECT / major 2 / minor 4 / info 1。
+> Round 1 の major 7 件は両レーンが実質解消と確認）を **R-014〜R-020** として
+> 同ファイルへ**追記集約** → 1 回確定反映 → 簡易 C-1 再実行 #3（`C1-VERDICT-4`）まで完了。
 > **`approvals/c3.json` は未発行**。承認は本追補のマージ後に行うこと。
 
 ## ファイル
@@ -19,10 +22,10 @@
 |---|---|
 | [pbi-input.md](pbi-input.md) | PBI INPUT PACKAGE（Context / Scope / 受入基準 AC-1〜7 / Risks） |
 | [plan.md](plan.md) | EXECUTION PLAN（**### Mode resolution v2 = bootstrap 述語の新正本** / F-3 是正 / Mode 判定） |
-| [todo.md](todo.md) | EXECUTION TODO（T-01〜T-10 / H-01〜02） |
-| [test-cases.md](test-cases.md) | TC-30〜36 + EV-1〜4（変異注入） |
-| [review-self.md](review-self.md) | C-1 セルフレビュー（17 項目 + 簡易再実行 ×2） |
-| [review-external.md](review-external.md) | **C-2 外部レビュー（2 レーン / R-001〜R-013・監査表つき・追記専用）** |
+| [todo.md](todo.md) | EXECUTION TODO（T-01〜T-11b / H-01〜02） |
+| [test-cases.md](test-cases.md) | TC-30〜38 + EV-1〜4（変異注入 M-1〜M-4b） |
+| [review-self.md](review-self.md) | C-1 セルフレビュー（17 項目 + 簡易再実行 ×3） |
+| [review-external.md](review-external.md) | **C-2 外部レビュー（2 レーン / R-001〜R-013 + Round 2 R-014〜R-020・監査表つき・追記専用）** |
 | [current-state.md](current-state.md) | 現在状態スナップショット |
 | [decision-log.jsonl](decision-log.jsonl) | 判断履歴（append-only） |
 
@@ -46,4 +49,5 @@
   `ta-25` / `ta-26` / `ta-58` / `ta-59` / `ta-60` の **5 本は 2 env AND のまま残る**
   （Slice 2 へ。`pbi-input.md`「残存エクスポージャ」節が正本）
 - **C-3 で裁定すべき項目**: Q-1 (1) F-3 の方式 / Q-1 (2) R-024 carve-out の可否 /
-  Q-3 AC 分割に伴う mode 件数の読み替え追認
+  Q-3 (1) AC 行数 12 の読み替え追認 / **Q-3 (2) 変更ファイル数の分母定義（15 か 16 か）**
+  （Round 2 R-015 で追加。安全側の向きの両論を Q-3 に併記済み）
