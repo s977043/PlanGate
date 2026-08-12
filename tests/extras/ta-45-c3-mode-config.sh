@@ -1,4 +1,5 @@
 # tests/extras/ta-45-c3-mode-config.sh
+# PG_EXTRA_CAPABILITY: standalone-capable
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
 # TASK-0144 AC-01〜06: C-3 approval mode (cli/conversation) テスト
 #
@@ -8,6 +9,26 @@
 # TC-04: AI 生成 c3.json に source: conversation フィールドの schema 検証
 # TC-05: doctor が C-3 Approval Mode セクションを出力
 # TC-06: plangate-config.schema.json が mode enum を検証（valid/invalid）
+
+# ---- extras execution contract bootstrap (#921) ----------------------------
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
+  _pg_extra_mode=harness
+  _pg_extra_dir="$EXTRAS_DIR"
+else
+  _pg_extra_mode=standalone
+  _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+fi
+_pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
+if [ ! -r "$_pg_extra_helper" ]; then
+  printf '  [FAIL] helper unresolved: %s\n' "$_pg_extra_helper" >&2
+  if [ "$_pg_extra_mode" = harness ]; then
+    fail=$((fail + 1))
+    return 0
+  fi
+  exit 1
+fi
+. "$_pg_extra_helper"
+pg_extra_contract_init ta-45-c3-mode-config standalone-capable
 
 printf '\n=== TA-45: C-3 Approval Mode Config (TASK-0144) ===\n'
 
@@ -49,7 +70,10 @@ if [ "$_T45_APPLIED" = "0" ]; then
   else
     printf '  [SKIP] TC-01~06: apply-script 未存在 (%s)\n' "$_T45_APPLY_SH"
   fi
-  return 0 2>/dev/null || true
+  # #921: standalone では skip が rc=3 で exit、harness では skip 後の
+  # top-level return 0 で source 元へ戻る（R-021: 旧 || true 型はシェル依存）
+  pg_extra_contract_skip "C-3 mode config が未適用 (apply-task-0144-c3-mode.sh --apply)"
+  return 0
 fi
 
 # ── サンドボックス用一時タスク ───────────────────────────────────
@@ -222,3 +246,5 @@ fi
 
 cleanup_t45
 trap - EXIT
+
+pg_extra_contract_finalize

@@ -1,0 +1,8 @@
+# early-exit idiom residue check (R-021) — 2026-08-11 04:19
+## grep -rn 'return 0 2>/dev/null' tests/extras/
+tests/extras/README.md:233:5. **`return 0 2>/dev/null || …` を型を問わず使わない** — top-level `return` は POSIX 未定義で
+tests/extras/ta-31-codex-plugin-status.sh:43:_t31_tmp=$(mktemp -d) || { t31_fail "TC-05 mktemp 失敗"; return 0 2>/dev/null || true; }
+tests/extras/ta-31-codex-plugin-status.sh:56:_t31_home=$(mktemp -d) || { t31_fail "TC-06 mktemp 失敗"; return 0 2>/dev/null || true; }
+tests/extras/ta-31-codex-plugin-status.sh:72:_t31_bin=$(mktemp -d) || { t31_fail "TC-07 mktemp 失敗"; return 0 2>/dev/null || true; }
+tests/extras/ta-31-codex-plugin-status.sh:73:_t31_home7=$(mktemp -d) || { rm -rf "$_t31_bin"; t31_fail "TC-07 mktemp 失敗"; return 0 2>/dev/null || true; }
+## verdict: 層 A（Slice 1 対象 12 本）は 0 件。残存は ta-31（層 B・分岐内 4 箇所 / Slice 2 で解消）と README.md（イディオム禁止を記述するドキュメント行）のみ

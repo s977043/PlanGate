@@ -1,4 +1,5 @@
 # tests/extras/ta-49-bias-export.sh
+# PG_EXTRA_CAPABILITY: standalone-capable
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
 # TASK-0147 (#527 follow-up): validation_bias の conductor export 配線
 #
@@ -6,6 +7,26 @@
 #   A. _resolve_validation_bias.py の機能テスト（常時実行・AI-owned ヘルパー）
 #   B. bin/plangate 配線テスト（HO 未適用時は SKIP）
 #      前提: scripts/apply-task-0147-bias-export.sh --apply で適用済み。
+
+# ---- extras execution contract bootstrap (#921) ----------------------------
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
+  _pg_extra_mode=harness
+  _pg_extra_dir="$EXTRAS_DIR"
+else
+  _pg_extra_mode=standalone
+  _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+fi
+_pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
+if [ ! -r "$_pg_extra_helper" ]; then
+  printf '  [FAIL] helper unresolved: %s\n' "$_pg_extra_helper" >&2
+  if [ "$_pg_extra_mode" = harness ]; then
+    fail=$((fail + 1))
+    return 0
+  fi
+  exit 1
+fi
+. "$_pg_extra_helper"
+pg_extra_contract_init ta-49-bias-export standalone-capable
 
 printf '\n=== TA-49: validation_bias conductor export (#527 TASK-0147) ===\n'
 
@@ -67,22 +88,31 @@ rm -f /tmp/ta49_err /tmp/ta49_err2 2>/dev/null
 
 # ---- 層 B: bin/plangate 配線（未適用なら SKIP）---------------------------
 
-if ! grep -q "TASK-0147" "$_T49_PG" 2>/dev/null; then
+# #921: 節スキップ（section skip）— 層 A の TC は既に実走・集計済みのため、
+# 未適用でも rc=3（検査していない）にはせず、フラグで層 B だけを飛ばして
+# 末尾 finalize へ落とす（rc は先行 TC の結果に従う。plan「7 本は同質ではない」）
+if grep -q "TASK-0147" "$_T49_PG" 2>/dev/null; then
+  _T49_LAYER_B=1
+else
+  _T49_LAYER_B=0
   printf '  [SKIP] TC-03/TC-05 bin/plangate 未適用（sh scripts/apply-task-0147-bias-export.sh --apply で適用後に PASS）\n'
-  return 0 2>/dev/null || true
 fi
 
-# TC-03: env 既設定を上書きしない（明示注入尊重）— 配線コードに既定尊重ガードが存在
-if grep -q 'PLANGATE_VALIDATION_BIAS:-}" ] && \[ -n' "$_T49_PG" 2>/dev/null \
-   || grep -q '\[ -z "${PLANGATE_VALIDATION_BIAS:-}" \]' "$_T49_PG" 2>/dev/null; then
-  printf '  [PASS] TC-03 env 既設定尊重ガード（上書きしない）配線\n'; pass=$((pass + 1))
-else
-  printf '  [FAIL] TC-03 env 尊重ガードの配線欠落\n'; fail=$((fail + 1))
+if [ "$_T49_LAYER_B" = "1" ]; then
+  # TC-03: env 既設定を上書きしない（明示注入尊重）— 配線コードに既定尊重ガードが存在
+  if grep -q 'PLANGATE_VALIDATION_BIAS:-}" ] && \[ -n' "$_T49_PG" 2>/dev/null \
+     || grep -q '\[ -z "${PLANGATE_VALIDATION_BIAS:-}" \]' "$_T49_PG" 2>/dev/null; then
+    printf '  [PASS] TC-03 env 既設定尊重ガード（上書きしない）配線\n'; pass=$((pass + 1))
+  else
+    printf '  [FAIL] TC-03 env 尊重ガードの配線欠落\n'; fail=$((fail + 1))
+  fi
+
+  # TC-05: patched bin/plangate 構文健全
+  if sh -n "$_T49_PG" 2>/dev/null; then
+    printf '  [PASS] TC-05 patched bin/plangate 構文健全\n'; pass=$((pass + 1))
+  else
+    printf '  [FAIL] TC-05 構文エラー\n'; fail=$((fail + 1))
+  fi
 fi
 
-# TC-05: patched bin/plangate 構文健全
-if sh -n "$_T49_PG" 2>/dev/null; then
-  printf '  [PASS] TC-05 patched bin/plangate 構文健全\n'; pass=$((pass + 1))
-else
-  printf '  [FAIL] TC-05 構文エラー\n'; fail=$((fail + 1))
-fi
+pg_extra_contract_finalize

@@ -1,4 +1,5 @@
 # tests/extras/ta-44-eh457-cli-wiring.sh
+# PG_EXTRA_CAPABILITY: standalone-capable
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
 # TASK-0143 AC-01/02/04/07: EH-4/5/7 CLI 配線テスト
 #
@@ -10,6 +11,26 @@
 #
 # hook スクリプトは REPO_ROOT/docs/working/ を内部計算するため
 # サンドボックスも同 REPO 配下に一時 TASK ディレクトリを作成する
+
+# ---- extras execution contract bootstrap (#921) ----------------------------
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
+  _pg_extra_mode=harness
+  _pg_extra_dir="$EXTRAS_DIR"
+else
+  _pg_extra_mode=standalone
+  _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+fi
+_pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
+if [ ! -r "$_pg_extra_helper" ]; then
+  printf '  [FAIL] helper unresolved: %s\n' "$_pg_extra_helper" >&2
+  if [ "$_pg_extra_mode" = harness ]; then
+    fail=$((fail + 1))
+    return 0
+  fi
+  exit 1
+fi
+. "$_pg_extra_helper"
+pg_extra_contract_init ta-44-eh457-cli-wiring standalone-capable
 
 printf '\n=== TA-44: EH-4/5/7 CLI Wiring (TASK-0143) ===\n'
 
@@ -46,7 +67,10 @@ if [ "$_T44_APPLIED" = "0" ]; then
   else
     printf '  [SKIP] TC-02~05: apply-script 未作成\n'
   fi
-  return 0 2>/dev/null || exit 0
+  # #921: standalone では skip が rc=3（fail>0 なら rc=1 優先）で exit する。
+  # harness では skip が return 0 した後、下の top-level return 0 で戻る
+  pg_extra_contract_skip "EH-4/5/7 CLI 配線が未適用 (apply-task-0143-eh457-wiring.sh --apply)"
+  return 0
 fi
 
 # ── TC-01: 適用済み確認 ──────────────────────────────────────────
@@ -104,3 +128,5 @@ fi
 if ! command -v register_cleanup >/dev/null 2>&1; then
   rm -rf "$_T44_WDIR/$_T44_TASK_NONE" "$_T44_WDIR/$_T44_TASK_OK" 2>/dev/null || true
 fi
+
+pg_extra_contract_finalize

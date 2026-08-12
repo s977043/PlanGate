@@ -1,7 +1,7 @@
 # TASK-0921 作業ステータス
 
-> 最終更新: 2026-08-10 09:00
-> 現在フェーズ: **C-2 完了 → 確定反映（1 回）待ち**。**Human C-3 未承認・実装未着手**
+> 最終更新: 2026-08-12 07:45
+> 現在フェーズ: **exec（Slice 1）完了 → V-1 / PR 作成 / C-4 待ち**（詳細は末尾「exec（Slice 1）実施記録」）
 > モード: `high-risk`（Slice 1 = 層 A 12 本 + helper + contract TA + README = 15 ファイル）
 > 関連 Issue: [#921](https://github.com/s977043/PlanGate/issues/921) / 親: [#1005](https://github.com/s977043/PlanGate/issues/1005) Reliability Recovery
 
@@ -177,3 +177,99 @@
 - [`decision-log.jsonl`](./decision-log.jsonl) — `D-0921-01`〜`D-0921-10`
 - [`evidence/`](./evidence/) — 系統 B の baseline / inventory 証跡
 - [`../TASK-0914/handoff.md`](../TASK-0914/handoff.md) — writeback 対象（§3 V2 候補表）
+
+---
+
+## exec（Slice 1）実施記録（2026-08-10 19:00 〜 2026-08-12 07:50）
+
+> ブランチ `fix/0921-exec`（base = origin/main `5e630f9`）。exec は 3 セッションのリレー
+> （前任 2 体が transcript 肥大 stall で停止 → 本セッションが引き継ぎ完遂）。
+> C-3 は 2026-08-10 裁定反映後に Human が承認記録（APPROVED）を再発行済み（validate PASS 実測済み）。
+
+### フェーズ履歴（追記）
+
+| 日時 (YYYY-MM-DD HH:mm) | フェーズ | 結果 / メモ |
+|------------------------|---------|------------|
+| 2026-08-10 19:30 | exec 開始 / 前任成果保全 | 未コミット exec 成果物を論理 4 コミットで保全（D-0921-19: `3f67741` helper / `95c70a1` 層 A 12 本 / `bbcfae8` contract TA / `1f6325a` README） |
+| 2026-08-11 04:24 | TC-14 FAIL 是正 | ta-61 に TC-33 準拠 unset 行を追加（`746a1b6` / D-0921-20）。ta-40 も同型（D-0921-21） |
+| 2026-08-11 05:20 | TC-15(runner) FAIL 是正 | ta-61 synthetic fixture へ probe env 明示クリア前置（`023da07` / D-0921-22） |
+| 2026-08-12 07:06 | evidence 保全 | 前任の未コミット evidence 24 ファイルをコミット（`8335fa1`）。テスト残骸 5 ディレクトリは削除（D-0921-25、コミット非混入） |
+| 2026-08-12 07:35 | 変異全数再実測 | Slice 1 の 18 変異を現 HEAD の fresh clone sandbox で再実測 → **18/18 KILL**（`1b28b66` / D-0921-23・24。M-01 は harness 経路 rc=1 / M-15 は dash=0・bash=1 の両建て記録） |
+| 2026-08-12 07:50 | T-08 最終検証 | full-suite **612 passed / 0 failed / rc=0 / 282s**（baseline 231s → +51s、timeout 600s へ余裕 318s）+ ta-61 単独 2 回 **74 passed / 0 failed / rc=0**（`db1c0bd`） |
+
+### 実測サマリ（Slice 1 exec）
+
+| 項目 | 実測値 | 証跡 |
+|---|---|---|
+| RED（helper 不在） | rc=1 | `evidence/test-runs/red-ta61-no-helper.log` |
+| RED（層 A 未移行） | rc=1 / [FAIL] 30 件 | `evidence/test-runs/red-ta61-pre-migration.log` |
+| pre-fix HEAD（AC-7） | contract TA FAIL 多発（TC-09×12 / TC-19×4 / TC-25(3)） | `evidence/mutations/pre-fix-head.log` |
+| GREEN（ta-61 単独） | rc=0 / 74 passed / 0 failed × 2 回 | `evidence/test-runs/ta61-standalone-run{1,2}.log` |
+| GREEN（full suite） | rc=0 / 612 passed / 0 failed / 282s | `evidence/test-runs/full-suite.log` + `verification/ci-duration.log` |
+| 変異 | 18/18 KILL（M-01〜M-08 / M-10 / M-12 / M-13 predicate / M-14a・b・c / M-15〜M-19） | `evidence/mutations/mutation-summary.log` |
+| 早期脱出イディオム | 層 A 0 件（残余は ta-31 の分岐内 4 箇所 = 層 B / Slice 2） | `grep -rn 'return 0 2>/dev/null' tests/extras/` |
+| 述語パリティ | 層 A 12 + ta-61 + helper = 14 箇所すべて plan `### Mode resolution` と文字単位同一 | 本記録（機械照合 bad=0） |
+| TC-11 | Slice 1 対象 0 件の vacuous PASS を明示記録（INFO-1） | `evidence/test-runs/harness-only.log` |
+| TC-29 dual-shell | 6 本 rc=3/3・ta-49 は rc 同値(0) + SKIP 診断 | `evidence/test-runs/dual-shell-skip.log` |
+
+### 計画からの変更点（exec 中）
+
+1. **ta-61 / ta-40 への TC-33 準拠 unset 行の追加**（plan 想定外の接触だが層 A / 新規ファイル内。D-0921-20・21）
+2. **ta-61 synthetic fixture への probe env 明示クリア前置**（裁定①の帰結。D-0921-22）
+3. **M-01 の kill 判定チャネル**: standalone rc は self-referential swallow で rc=0 のため、**harness 経路（runner 集計は helper 非依存）で kill を確定**（D-0921-24）。plan の Mutation Matrix の期待検出子（TC-04）は発火しており矛盾しない
+4. **mutation-summary の supersede**: 2026-08-11 04:48 版は mixed-vintage のため全数再実測で置換（D-0921-23）
+5. **ta61-standalone-run1.log の差し替え**: 旧 run1 は summary 行を欠く不完全ログ（knob 実行または途中打ち切り）だったため、現 HEAD のフル実行ログへ置換（run metadata 追記）
+
+### HJ-1 / HJ-3（未裁定・HO 対象 — patch 提示のみ / AI は適用しない）
+
+**HJ-1（R-022: CI の sh 実体固定）** — 対象 `.github/workflows/test.yml`:
+
+案 (a) dash 明示（ubuntu-latest は dash 同梱）:
+
+```diff
+       - name: Run CLI tests
+-        run: sh tests/run-tests.sh
++        run: dash tests/run-tests.sh
+```
+
+案 (b) dash + bash matrix:
+
+```diff
+ jobs:
+   plangate-cli:
+-    name: plangate CLI tests
++    name: plangate CLI tests (${{ matrix.shell }})
+     runs-on: ubuntu-latest
+     timeout-minutes: 10
++    strategy:
++      matrix:
++        shell: [dash, bash]
+     steps:
+@@
+       - name: Run CLI tests
+-        run: sh tests/run-tests.sh
++        run: ${{ matrix.shell }} tests/run-tests.sh
+```
+
+**HJ-3（R-026: `timeout-minutes: 10` の再見積り）** — 実測 282s（+51s vs baseline 231s）で
+600s に対し余裕 318s。**現行 10 分のままで実測上は安全**。マージン 2 倍を望む場合のみ:
+
+```diff
+-    timeout-minutes: 10
++    timeout-minutes: 15
+```
+
+### 残タスク（Slice 1 / 更新）
+
+- [x] T-01〜T-08（Agent タスク全完了）
+- [x] 変異 18/18 KILL・evidence 完備
+- [ ] **V-1 受け入れ検査**（test-cases `## Exit Criteria` Slice 1 節との全件突合）→ PR 作成
+- [ ] **H-02: Human C-4 / merge**（push / PR 作成は本 exec セッションのスコープ外）
+- [ ] HJ-1 / HJ-3 の patch 採否（裁定・適用とも Human-owned）
+
+### BLOCKED（更新）
+
+| タスク | blocker | owner | unblock_condition |
+|---|---|---|---|
+| HJ-1 / HJ-3 の CI 変更適用 | `.github/workflows/**` は HO 対象 | human | 上記 patch の採否判断と適用 |
+| worktree での `doctor --check-settings` | worktree に untracked settings が複製されない（環境事由。本体 checkout は PASS 実測済み） | human/環境 | 本体 checkout で運用（対処不要の認識で可） |
