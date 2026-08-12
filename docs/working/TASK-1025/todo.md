@@ -141,9 +141,9 @@
 - [ ] T-20 標準CI extras / plugin sync導線追加
   - Owner: agent
   - depends_on: [T-18, T-19]
-  - files: `tests/extras/ta-61-durable-run.sh`, `scripts/sync-plugin-plangate.sh`, `plugin/plangate/skills/ai-loop-cycle/references/durable-run-contract.md`, `plugin/plangate/skills/ai-loop-cycle/scripts/durable_run.py`, `plugin/plangate/skills/ai-loop-cycle/scripts/test_durable_run.py`, `plugin/plangate/skills/ai-loop-cycle/scripts/gh_exec.py`, `plugin/plangate/skills/ai-loop-cycle/scripts/test_gh_exec.py`
-  - checkpoint: standalone/source両対応、isolated direct test実行、unit TC 42 + gh_exec boundary 4 exact method + shell TC 4、最低46 tests、fault 76/rollback 14、exact sentinel 1回、敵対Python/Git case、正規sync後plugin差分0、plugin direct operational `unsupported_runtime_layout`を確認
-  - rollback: ta-61 / sync allowlist / plugin生成差分を同時revert
+  - files: `tests/extras/ta-62-durable-run.sh`, `scripts/sync-plugin-plangate.sh`, `plugin/plangate/skills/ai-loop-cycle/references/durable-run-contract.md`, `plugin/plangate/skills/ai-loop-cycle/scripts/durable_run.py`, `plugin/plangate/skills/ai-loop-cycle/scripts/test_durable_run.py`, `plugin/plangate/skills/ai-loop-cycle/scripts/gh_exec.py`, `plugin/plangate/skills/ai-loop-cycle/scripts/test_gh_exec.py`
+  - checkpoint: #1046共有exit契約準拠（`# PG_EXTRA_CAPABILITY: standalone-capable`を先頭20行にちょうど1個 / `pg_extra_contract_init ta-62-durable-run standalone-capable` / rc layer 0/1/2/3 / 末尾`pg_extra_contract_finalize`）かつ`sh tests/extras/ta-61-extra-contract.sh` exit 0、standalone/source両対応、isolated direct test実行、unit TC 42 + gh_exec boundary 4 exact method + shell TC 4、最低46 tests、fault 76/rollback 14、exact sentinel 1回、敵対Python/Git case、正規sync後plugin差分0、plugin direct operational `unsupported_runtime_layout`を確認
+  - rollback: ta-62 / sync allowlist / plugin生成差分を同時revert
 - [ ] T-21 GREEN unit/adversarial evidence
   - Owner: agent
   - depends_on: [T-18]
@@ -154,7 +154,7 @@
   - Owner: agent
   - depends_on: [T-20, T-21]
   - files: `docs/working/TASK-1025/evidence/verification/full-suite.log`
-  - checkpoint: `sh tests/run-tests.sh` exit 0、ta-61 sentinel到達
+  - checkpoint: `sh tests/run-tests.sh` exit 0、ta-62 sentinel到達
   - rollback: evidenceのみrevert
 - [ ] T-23 targeted ai-loop regression evidence
   - Owner: agent

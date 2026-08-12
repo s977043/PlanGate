@@ -13,7 +13,7 @@ created_by: orchestrator
 > 判定: **PASS** — critical=0, major=0, minor=0
 > 対象Plan SHA-256: `c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d516`
 
-C1-VERDICT: PASS plan=sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d516
+Historical C-1 Round 8 verdict: PASS plan=sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d516
 
 ## サマリー
 
@@ -101,3 +101,48 @@ C1-VERDICT: PASS plan=sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6c
 ## 結論
 
 Round 8独立C-2へ送付可能。approve前にC-3へ進めない。
+
+---
+
+# TASK-1025 セルフレビュー結果（C-1 / Round 9・簡易再実行）
+
+> レビュー日: 2026-08-12
+> 判定: **PASS** — critical=0, major=0, minor=0
+> 対象Plan SHA-256: `sha256:8b0a5018aacb1008d83615c725a1107c627d7e44521d29854dc2445b3d449c55`
+
+C1-VERDICT: PASS plan=sha256:8b0a5018aacb1008d83615c725a1107c627d7e44521d29854dc2445b3d449c55
+
+## 対象と範囲
+
+Round 8（`sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d516`）に対し、**base drift 起因の R-135〜R-137 を 1 回確定反映した差分のみ**を対象とする簡易 C-1（working-context「C-2 指摘の差分管理」(3) 簡易 C-1 再実行）。Round 8 の 25 項目 PASS 判定は、反映で触れていない領域についてはそのまま有効とする。
+
+## 反映差分の検査（実測）
+
+| # | 検査 | 実測コマンド / 方法 | 結果 |
+|---|---|---|---|
+| 1 | 改名の横断完全性 | `grep -rn "ta-61\|TA-61" docs/working/TASK-1025/` で `extra-contract` 文脈を除く残存を数える | **残存 0**（plan / todo / test-cases / status / evidence path / sentinel すべて `ta-62` / `TA-62-DURABLE-RUN`） |
+| 2 | AC↔TC traceability の非退行 | レンジ展開して集合演算 | AC-01〜10 全件 / 定義 46 = 被覆 46 / orphan 0 / 未定義参照 0（Round 8 と同値） |
+| 3 | 契約準拠の落とし込み | `PG_EXTRA_CAPABILITY` / `pg_extra_contract_init` / `_extra-contract` の出現箇所 | Global Constraints・Task 4 step・T-20 checkpoint・Verification Plan・test-cases Verification 節の **5 箇所**（反映前は 0 箇所） |
+| 4 | 前提表の鮮度 | `git rev-parse origin/main` / `git ls-tree` で再実測 | main = `48f69713f2b651e6788bf075d64628630c74fad4`（旧 base から 2 commit 前進）を表へ反映。`scripts/ai-loop`=30 / `docs/workflows/ai-loop`=16 は**現 main でも一致**（再実測済み） |
+| 5 | markdownlint | `markdownlint-cli2 docs/working/TASK-1025/*.md` を反映前後で実行し件数比較（104 → 106） | 反映で **MD025（複数 H1）が 2 件増**（`review-external.md` の C-4 節・`review-self.md` の Round 9 節）。いずれも**各ファイルの既存慣行と同型**（review-external は round ごとに H1 を並べる構造で既に 4 件）。一度混入した MD012（連続空行）1 件は**是正済み**。既存の MD022/MD032 は反映前から存在。**CI の lint glob（`.github/workflows/ci.yml`）は `docs/working/` を含まないため CI 影響なし** |
+| 6 | production 変更 | `git diff --stat` | **0 ファイル**（Plan Package のみ） |
+
+## 25 項目のうち再判定した項目
+
+| check_id | result | finding |
+|---|---|---|
+| C1-PLAN-03 | PASS | 変更ファイル集合は root 正本 7 + plugin 生成 5 の 12 で不変。改名は集合の要素名の変更のみで件数に影響しない |
+| C1-PLAN-07 | PASS | Verification に extras 契約回帰（`ta-61-extra-contract.sh`）を追加。sentinel は `TA-62-DURABLE-RUN` で一意 |
+| C1-PLAN-09-AEE | PASS | Replan Trigger に「extras 契約準拠で解消できない場合」「EH-13 で evidence 収集不能」を追加 |
+| C1-TODO-10 | PASS | T-20 checkpoint に契約準拠 4 条件と `ta-61-extra-contract.sh` exit 0 を追加 |
+| C1-TEST-13 | PASS | traceability 非退行を実測（上表 #2） |
+| 他 20 項目 | 不変 | 反映が触れていないため Round 8 判定を維持 |
+
+## 残存リスク（C-3 へ持ち越す）
+
+- **C-2 Round 9 が未実施**。本追補は maker（本セッション）が行ったため、同一主体は独立 C-2 レーンになれない。`C2-VERDICT:` の live マーカーは意図的に不在（fail-closed）。
+- R-137 の EH-13 制約は **exec 時の実運用で初めて確定**する。Plan は回避方針を記述したが、実際に evidence を採れるかは exec で実測が要る。
+
+## 結論
+
+反映差分は PASS。**C-2 Round 9 を経てから Human C-3 へ進む**こと。現時点で C-3 承認を発行してはならない。

@@ -17,7 +17,7 @@
 
 ## Machine Coverage Manifest
 
-`scripts/ai-loop/test_durable_run.py::COVERAGE_MANIFEST`は次の42組とbyte-for-byte同じID/method mappingを持つ。ta-61はunittest loaderの実method IDへ照合し、欠落・重複・余剰mappingを拒否する。
+`scripts/ai-loop/test_durable_run.py::COVERAGE_MANIFEST`は次の42組とbyte-for-byte同じID/method mappingを持つ。ta-62はunittest loaderの実method IDへ照合し、欠落・重複・余剰mappingを拒否する。
 
 | TC | exact unittest method |
 |---|---|
@@ -64,12 +64,12 @@
 | TC-45 | `test_tc45_common_dir_fallback_and_unwritable_preflight` |
 | TC-46 | `test_tc46_consumed_request_idempotency` |
 
-`tests/extras/ta-61-durable-run.sh::SHELL_COVERAGE_MANIFEST`は次の4組を固定する。
+`tests/extras/ta-62-durable-run.sh::SHELL_COVERAGE_MANIFEST`は次の4組を固定する。
 
 | TC | exact command / evidence |
 |---|---|
-| TC-39 | isolated direct unit commands exit 0 + unit manifest 42 + GH boundary 4 + ≥46 tests + exact ta-61 sentinel |
-| TC-40 | `sh tests/run-tests.sh` exit 0 + ta-61 sentinel exactly once |
+| TC-39 | isolated direct unit commands exit 0 + unit manifest 42 + GH boundary 4 + ≥46 tests + exact ta-62 sentinel |
+| TC-40 | `sh tests/run-tests.sh` exit 0 + ta-62 sentinel exactly once |
 | TC-41 | isolated delivery/run_evidence unittest command exit 0 |
 | TC-42 | `git diff --check` exit 0 |
 
@@ -222,13 +222,14 @@
 ## Automated verification / anti-false-pass
 
 ### TC-38: unit/adversarial suite
-- `/usr/bin/python3 -I -S -B scripts/ai-loop/test_durable_run.py`と同`test_gh_exec.py`を直接実行する。ta-61が両loader resultを合算して最低46 tests、`COVERAGE_MANIFEST`のunit TC 42 ID→exact methodと`GH_EXEC_REQUIRED_METHODS` 4件を重複/欠落/余剰なく全loadし、0 failure。
+- `/usr/bin/python3 -I -S -B scripts/ai-loop/test_durable_run.py`と同`test_gh_exec.py`を直接実行する。ta-62が両loader resultを合算して最低46 tests、`COVERAGE_MANIFEST`のunit TC 42 ID→exact methodと`GH_EXEC_REQUIRED_METHODS` 4件を重複/欠落/余剰なく全loadし、0 failure。
 
 ### TC-39: standalone extras
-- `sh tests/extras/ta-61-durable-run.sh`がexit 0、unit 42 / GH boundary 4 / shell 4 coverage、最低46 tests、fault 76、rollback 14を独立確認し、`TA-61-DURABLE-RUN: PASS tests=<N> unit_tc=42 gh_boundary=4 fault=76 rollback=14`を成功時だけ1回出す。敵対Python/Git env caseも含む。
+- `sh tests/extras/ta-62-durable-run.sh`がexit 0、unit 42 / GH boundary 4 / shell 4 coverage、最低46 tests、fault 76、rollback 14を独立確認し、`TA-62-DURABLE-RUN: PASS tests=<N> unit_tc=42 gh_boundary=4 fault=76 rollback=14`を成功時だけ1回出す。敵対Python/Git env caseも含む。
 
 ### TC-40: standard CI entry
-- `sh tests/run-tests.sh`がexit 0、ta-61固有sentinelをちょうど1回出力する。
+- `sh tests/run-tests.sh`がexit 0、ta-62固有sentinelをちょうど1回出力する。
+- `sh tests/extras/ta-61-extra-contract.sh`がexit 0。TC-09/TC-10が新規`ta-62-durable-run.sh`のcapability marker（先頭20行にちょうど1個）とbasename一致initを検証し、TC-20がbasename一意性を検証する（#1046共有exit契約 / R-135）。
 
 ### TC-41: existing ai-loop regression
 - `/usr/bin/python3 -I -S -B`で`test_delivery.py` / `test_run_evidence.py` / `test_check_exec_boundary.py`を各file直接実行し、全て0 failure。

@@ -1,10 +1,10 @@
 # STATUS — TASK-1025
 
-Last updated: 2026-08-11 02:45
+Last updated: 2026-08-12 02:05
 
 ## Current Phase
 
-`READY_FOR_C3 / C-1_ROUND8_PASS / C-2_ROUND8_APPROVE`
+`BLOCKED_ON_C2_ROUND9 / C-1_ROUND9_PASS / C-2_ROUND8_SUPERSEDED`
 
 コード実装、C-3、C-4、mergeは未実施。
 
@@ -36,6 +36,10 @@ Last updated: 2026-08-11 02:45
 | C-3 | awaiting Human | `bin/plangate approve TASK-1025`。AI artifact生成禁止 |
 | production実装 | blocked | C-3成立まで0ファイル |
 | PR / CI / C-4 | not started | 実装後 |
+| C-4 / base drift review | conditional / addressed | 2026-08-12 独立レーン。R-135（#1046 extras 共有 exit 契約 未対応）/ R-136（ta-61 番号占有）/ R-137（EH-13 token-guard）|
+| R-135〜R-137 反映 | done | ta-62 へ改名・契約準拠・Runtime Guard Constraints・Replan Trigger 2 件・前提表再実測 |
+| C-1 Round 9（簡易） | PASS | Plan `8b0a5018aa…449c55` / 改名残存 0・traceability 46-46 非退行 |
+| **C-2 Round 9** | **未実施** | plan hash 変更で Round 8 APPROVE は supersede。live `C2-VERDICT:` 不在＝fail-closed |
 
 ## Scope Snapshot
 
@@ -44,7 +48,7 @@ Last updated: 2026-08-11 02:45
 - modify `scripts/ai-loop/gh_exec.py`
 - modify `scripts/ai-loop/test_gh_exec.py`
 - create `docs/workflows/ai-loop/durable-run-contract.md`
-- create `tests/extras/ta-61-durable-run.sh`
+- create `tests/extras/ta-62-durable-run.sh`
 - modify `scripts/sync-plugin-plangate.sh`
 - generate plugin reference/runtime/tests/Git-boundary 5 files
 - working evidence / status files
@@ -57,4 +61,14 @@ Last updated: 2026-08-11 02:45
 
 ## Deviations
 
-C-2 Round 1〜4およびRound 7の全findingをHuman選択AのHO不変更境界内でPlanへ反映。Round 7はmajor 2/minor 1でrejectし、R-132〜R-134を反映済み。production変更前のため実装差分への逸脱はない。
+C-2 Round 1〜4およびRound 7の全findingをHuman選択AのHO不変更境界内でPlanへ反映。2026-08-12 に base drift 由来の R-135〜R-137 を追加反映（Plan の設計判断は不変、対象ファイル名と契約準拠・guard 制約の追記のみ）。Round 7はmajor 2/minor 1でrejectし、R-132〜R-134を反映済み。production変更前のため実装差分への逸脱はない。
+
+## フェーズ履歴（追記）
+
+| 日時 | フェーズ | 内容 |
+|---|---|---|
+| 2026-08-12 01:20 | C-4 | PR #1043 へ独立レビュー（spec-writer レーン）。major 2 / minor 1 を検出 |
+| 2026-08-12 01:35 | rebase相当 | `origin/main`(`48f6971`) を branch へ merge し `BEHIND` を解消 |
+| 2026-08-12 01:40 | plan-revision | R-135〜R-137 を 1 回確定反映 |
+| 2026-08-12 01:55 | C-1 | Round 9（簡易）PASS |
+| 2026-08-12 02:00 | C-2 | Round 8 APPROVE を Historical へ降格（supersede）。Round 9 待ち |

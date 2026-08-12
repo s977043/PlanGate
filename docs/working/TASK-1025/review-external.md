@@ -338,7 +338,7 @@ Round 8 approve前はproduction変更を行わない。
 > Lane B: codebase / policy fit — approve（critical 0 / major 0 / minor 0 / info 0）
 > 総合: **approve**（critical 0 / major 0 / minor 0 / info 0）。Human C-3へ進行可能。
 
-C2-VERDICT: APPROVE plan=sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d516
+Historical C-2 Round 8 verdict: APPROVE plan=sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d516
 
 ## Round 8 verification
 
@@ -349,3 +349,53 @@ C2-VERDICT: APPROVE plan=sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208
 | R-134 canonical C-3 annotations | resolved | schema/CLIとPlan/TODO/Testが`^_`注釈key受理、非注釈未知key拒否、注釈のsemantic authority ID除外で一致 |
 
 両laneとも指定文書および既存契約をread-onlyで検証した。production実装・C-3 artifact生成・C-4・mergeは未実施。
+
+---
+
+# C-4 / base drift review（2026-08-12・PR #1043 に対する独立レビュー）
+
+> レビュー日: 2026-08-12
+> 対象Plan SHA-256（レビュー時点）: `sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d516`
+> レーン: 設計妥当性 / codebase 整合（maker-context 非共有・spec-writer レーン）
+> 総合: **conditional** — Plan 内部の整合は critical 0 / major 0。**base drift 起因の major 2 / minor 1** を検出。
+
+Historical C-4 base-drift verdict: conditional plan=sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d516
+
+## 機械照合できた項目（指摘なしを明示記録）
+
+| 検証 | 方法 | 結果 |
+|---|---|---|
+| Canonical ID golden vector 4 本 | 記載 canonical bytes を SHA-256 で再計算 | 4/4 一致 |
+| payload 表 → canonical bytes | 表の field 定義から `json.dumps(sort_keys=True, separators=(",",":"))` を再構成し byte 比較 | 4/4 一致 |
+| AC↔TC traceability | レンジ展開して集合演算 | AC-01〜10 全件 / 定義 46 = 被覆 46 / orphan 0 / 未定義参照 0 |
+| 件数整合 | 12=7+5 / fault 76=8+17+17×3 / rollback 14=2⁴−2 / 46=42+4 / WAL label 17・bootstrap label 8 の実列挙 | すべて一致 |
+| 抽出器契約 | `## Files / Components to Touch` / `Verification Automation:` 行 | 両方あり |
+| ゲート鎖の同一性 | PR head の plan.md を `shasum -a 256` | `sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d516` = C-1/C-2 Round 8 の宣言ハッシュと一致 |
+
+## R-135 — major — 新規 extras が #1046「extras 共有 exit 契約」に未対応
+
+- evidence: `main@48f6971`（PR #1046 / TASK-0921 Slice 1）で `tests/extras/_extra-contract.sh` と `ta-61-extra-contract.sh` が発効。TC-09/TC-10 の covered set は全 `ta-*.sh` から `_pending_migration()` の**リテラル列挙**のみを除外するため、**新規ファイルは即 covered set に入り契約準拠が必須**。旧 Plan / test-cases 内の `PG_EXTRA_CAPABILITY` / `_extra-contract` / `pg_extra_contract_init` 出現数は **0 件 / 0 件**だった。
+- impact: 計画どおり新規 extras を作ると TC-09 が FAIL する（exec 時に CI レッド）。
+- required: capability marker（先頭 20 行にちょうど 1 個）・basename 一致 init・rc layer 0/1/2/3・末尾 finalize を Plan / TODO / test-cases へ落とす。移行期 allowlist へは追加しない。
+- disposition in revised Plan: Global Constraints に契約準拠を明記、Task 4 step と T-20 checkpoint を更新、Verification Plan に `sh tests/extras/ta-61-extra-contract.sh` 行を追加、test-cases の Verification 節に TC-09/TC-10/TC-20 の検証を追記。
+
+## R-136 — minor — `ta-61` 番号の占有
+
+- evidence: `ta-61-extra-contract.sh` が既に存在。ただし TC-20 の一意性判定は番号でなく **basename 全体**のため、衝突しても TC-20 は FAIL しない（過大評価しない）。
+- required: 番号規約と可読性のため次番へ振り替える。
+- disposition in revised Plan: 新規 extras を **`tests/extras/ta-62-durable-run.sh`** へ改名。sentinel も `TA-62-DURABLE-RUN` へ横断更新（plan / todo / test-cases / status / evidence path）。
+
+## R-137 — minor（exec 時は major 化しうる） — EH-13 token-guard が evidence 収集を block しうる
+
+- evidence: `scripts/check-approval-token-write.sh`（#1042 / `15b0c16`）は `*c3.json*` / `*/approvals/*.json` を含み、かつ `_has_write_intent`（`>` 等）に該当する Bash を exit 2 で block する。**`2>&1` も `>` を含むためマッチ**し、読み取り専用コマンドでも発火する（本レビュー中に実測）。
+- impact: 本 PBI は C-3 artifact 検証が主題で、とくに Verification Plan の Boundary 行（approval tree snapshot を log へ書く）が該当しやすい。
+- required: Risks / Replan Trigger へ明記し、evidence 収集で token path を literal で書かない運用にする。`PLANGATE_SKIP_TOKEN_GUARD` は Human-owned のため AI の bypass に使わない。
+- disposition in revised Plan: `## Runtime Guard Constraints（R-137）` を新設し、Replan Triggers に 1 行追加。
+
+## Round 9 entry conditions
+
+1. R-135〜R-137 を Plan / TODO / test-cases / status へ反映する（**本 PR で反映済み**）。
+2. 新 Plan hash `sha256:8b0a5018aacb1008d83615c725a1107c627d7e44521d29854dc2445b3d449c55` で **C-1 を再実行する**（本 PR で Round 9 として実行済み・PASS）。
+3. **maker-context 非共有の design / codebase 2 lane で C-2 Round 9 を実行し、critical/major 0 にする**（**未実施**）。
+
+> **重要**: 本追補により Round 8 の C-2 APPROVE は対象 Plan hash が変わって失効した。したがって `C2-VERDICT:` の live マーカーは**意図的に存在しない**（`plan_package.check_evidence` は「完全一致 0 回」で fail-closed になる）。これは異常ではなく、**C-2 Round 9 未実施を機械可読に表現した状態**である。Round 9 approve 前に production 変更と C-3 へ進まない。
