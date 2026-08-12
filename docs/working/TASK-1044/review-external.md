@@ -880,14 +880,14 @@ decision-log 24 行すべて valid JSON）
 
 | R-NNN | severity | lane | status | reflected_in(commit) | notes |
 |---|---|---|---|---|---|
-| R-024 | major | river | reflected | （本 commit・後段で実 SHA へ確定） | 照合単位を marker の**出現**へ / base 12 出現・適用後 14 出現(13 ファイル) / ta-61 は S4 で marker 行ごと追加 |
-| R-025 | major | river | reflected | （本 commit・後段で実 SHA へ確定） | 分母を実測 19 へ（18 は stale）/ 15 superseded + 4 再走で全件分類 / TC-38 に数え直し手順 |
-| R-026 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | INDEX / current-state の L0 層を掃除 + 量化子の母数を 8 ファイルへ |
-| R-027 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | current-state の「裁定 4 件」→「5 件」 |
-| R-028 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | Q-1 / Q-3 にも EH-3 順序注記 + exec ゲート依存へ Q-4 追加 |
-| R-029 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | AC-2c を 7 env の名前指定へ（`^PLANGATE_` 全数 0 を撤回） |
-| R-030 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | AC-3 / TC-34 を marker 由来の動的導出へ（件数 assert しない） |
-| R-031 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | frontmatter を approve へ + 末尾に `C2-VERDICT` を 1 行 |
+| R-024 | major | river | reflected | `e82e510` | 照合単位を marker の**出現**へ / base 12 出現・適用後 14 出現(13 ファイル) / ta-61 は S4 で marker 行ごと追加 |
+| R-025 | major | river | reflected | `e82e510` | 分母を実測 19 へ（18 は stale）/ 15 superseded + 4 再走で全件分類 / TC-38 に数え直し手順 |
+| R-026 | minor | river | reflected | `e82e510` | INDEX / current-state の L0 層を掃除 + 量化子の母数を 8 ファイルへ |
+| R-027 | minor | river | reflected | `e82e510` | current-state の「裁定 4 件」→「5 件」 |
+| R-028 | minor | river | reflected | `e82e510` | Q-1 / Q-3 にも EH-3 順序注記 + exec ゲート依存へ Q-4 追加 |
+| R-029 | minor | river | reflected | `e82e510` | AC-2c を 7 env の名前指定へ（`^PLANGATE_` 全数 0 を撤回） |
+| R-030 | minor | river | reflected | `e82e510` | AC-3 / TC-34 を marker 由来の動的導出へ（件数 assert しない） |
+| R-031 | minor | river | reflected | `e82e510` | frontmatter を approve へ + 末尾に `C2-VERDICT` を 1 行 |
 
 > Round 1 / Round 2 / Round 3 の監査表は**編集していない**。
 
