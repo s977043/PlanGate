@@ -1155,9 +1155,9 @@ INDEX が「これで発行すると EH-3 mismatch」と警告している旧 ha
 
 | R-NNN | severity | lane | status | reflected_in(commit) | notes |
 |---|---|---|---|---|---|
-| R-036 | major | river | reflected | （本 commit・後段で実 SHA へ確定） | plan Testing Strategy の AC-2c を guarded env の実行時導出へ（否定済み判定式を除去） |
-| R-037 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | R-034 注記から特定の N を除去（`C1-VERDICT-N` = 常に末尾 1 本） |
-| R-038 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | `head -1` の制約と実装時の必須確認を TC-31 (3) へ / TC-15 の表明を弱める / ラベルの `7 env` 残差を掃除 |
+| R-036 | major | river | reflected | `84dfc8f` | plan Testing Strategy の AC-2c を guarded env の実行時導出へ（否定済み判定式を除去） |
+| R-037 | minor | river | reflected | `84dfc8f` | R-034 注記から特定の N を除去（`C1-VERDICT-N` = 常に末尾 1 本） |
+| R-038 | minor | river | reflected | `84dfc8f` | `head -1` の制約と実装時の必須確認を TC-31 (3) へ / TC-15 の表明を弱める / ラベルの `7 env` 残差を掃除 |
 
 > Round 1〜3 および River Review 1・2 回目の監査表は**編集していない**。
 
