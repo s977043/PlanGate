@@ -45,7 +45,10 @@ else
   # してはならない — TC-13 の子（PG_T26_NO_RECURSE=1 前置）でも走り再帰防止ガード
   # 自体が壊れる（孫 spawn の再入ループ）。この経路が親（harness で source された
   # ta-26）だけを通る前提は「PG_HARNESS_SOURCED は非 export」（run-tests.sh /
-  # README 規約 8。TC-30 が静的固定）に依存する。配置は ta-62 TC-S が静的検査する。
+  # README 規約 8）に依存する。この前提は ta-62 TC-S(4) が run-tests.sh の実装を
+  # 直接 grep して静的固定する（ta-26 TC-30 は README 文言の存在検査のみで実装は
+  # 見ていないため、TC-30 では前提を守れない）。unset の配置自体は ta-62 TC-S(1)〜(3)
+  # が静的検査する。
   unset PG_T26_NO_RECURSE 2>/dev/null || true
 fi
 

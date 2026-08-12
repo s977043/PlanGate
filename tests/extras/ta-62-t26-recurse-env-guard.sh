@@ -11,7 +11,9 @@
 #         clean 側 [PASS] >= 1（非空下限。絶対件数ではない）を assert
 #   TC-S: 静的配置検査 — unset が ta-26 の harness 分岐（else 節）にのみ存在し、
 #         preamble / standalone 分岐（案 (c) 型）にも run-tests.sh の unset 集合
-#         （案 (a) 型 = TC-33 波及）にも存在しないことを grep で固定
+#         （案 (a) 型 = TC-33 波及）にも存在しないことを grep で固定。加えて
+#         run-tests.sh が PG_HARNESS_SOURCED を export していないこと（ta-26
+#         harness 分岐の前提）を固定する
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -65,13 +67,24 @@ fi
 #       存在しない — 案 (c) 型は TC-13 の子のガードを破壊し孫 spawn 再入ループ
 #   (3) run-tests.sh の unset 集合（行継続を結合して走査）に PG_T26_NO_RECURSE が
 #       混入していない — 案 (a) 型は TC-33 の包含検査で全 extras に波及する
+#   (4) run-tests.sh が PG_HARNESS_SOURCED を export していない — export すると
+#       TC-13 の子（FIXTURES_DIR 明示 + PG_T26_NO_RECURSE=1 前置）が ta-26 の
+#       harness 分岐へ落ち、自らガードを unset して TC-13 を再実行 → 孫を同条件
+#       で spawn する無限再帰（fork bomb）になる。ta-26 の unset 配置は
+#       「PG_HARNESS_SOURCED は非 export」を前提としており、その前提をここで固定
+#       する（ta-26 TC-30 は README 文言の存在検査のみで実装は見ていない）
+#
+# 注意: (1)/(2) の grep は行頭アンカー付き（^[[:space:]]*unset[[:space:]]+…）。
+# アンカーなしだと ta-26 の禁止理由コメントに文字列が現れるだけで (1) が成立し、
+# 実コード行の削除（M-1 型変異）を取り逃がす。(1)(2) は同一式で相対比較する。
 if [ -f "$_T62_TA26" ] && [ -f "$_T62_RUNNER" ]; then
   # else 節ブロック = PG_T26_STANDALONE=0 の行から直近のトップレベル fi まで
   _t62_else_blk=$(awk '/PG_T26_STANDALONE=0/{f=1} f{print} f&&/^fi$/{exit}' "$_T62_TA26")
+  _t62_re_unset='^[[:space:]]*unset[[:space:]]+PG_T26_NO_RECURSE'
+  _t62_total=$(grep -cE "$_t62_re_unset" "$_T62_TA26" 2>/dev/null || true)
+  _t62_inblk=$(printf '%s\n' "$_t62_else_blk" | grep -cE "$_t62_re_unset" 2>/dev/null || true)
   _t62_s1=0
-  printf '%s\n' "$_t62_else_blk" | grep -q 'unset PG_T26_NO_RECURSE' && _t62_s1=1
-  _t62_total=$(grep -c 'unset PG_T26_NO_RECURSE' "$_T62_TA26" 2>/dev/null || true)
-  _t62_inblk=$(printf '%s\n' "$_t62_else_blk" | grep -c 'unset PG_T26_NO_RECURSE' 2>/dev/null || true)
+  [ "${_t62_inblk:-0}" -ge 1 ] && _t62_s1=1
   _t62_s2=0
   [ "$_t62_total" = "$_t62_inblk" ] && _t62_s2=1
   # run-tests.sh: 行継続（末尾 \）を 1 行へ結合してから unset 行の env 名を走査
@@ -89,10 +102,15 @@ if [ -f "$_T62_TA26" ] && [ -f "$_T62_RUNNER" ]; then
   case " $(printf '%s' "$_t62_runner_unsets" | tr '\n' ' ') " in
     *" PG_T26_NO_RECURSE "*) _t62_s3=0 ;;
   esac
-  if [ "$_t62_s1" = "1" ] && [ "$_t62_s2" = "1" ] && [ "$_t62_s3" = "1" ]; then
-    t62_pass "TC-S unset PG_T26_NO_RECURSE は ta-26 harness 分岐にのみ存在（無条件経路 0 / runner unset 集合に混入なし）"
+  # (4) runner が PG_HARNESS_SOURCED を export していない（前提の静的固定）
+  _t62_s4=1
+  if grep -Eq '^[[:space:]]*export[[:space:]]+PG_HARNESS_SOURCED|^[[:space:]]*PG_HARNESS_SOURCED=1[[:space:]]*;?[[:space:]]*export' "$_T62_RUNNER"; then
+    _t62_s4=0
+  fi
+  if [ "$_t62_s1" = "1" ] && [ "$_t62_s2" = "1" ] && [ "$_t62_s3" = "1" ] && [ "$_t62_s4" = "1" ]; then
+    t62_pass "TC-S unset PG_T26_NO_RECURSE は ta-26 harness 分岐にのみ存在（無条件経路 0 / runner unset 集合に混入なし / runner は PG_HARNESS_SOURCED 非 export）"
   else
-    t62_fail "TC-S 配置検査不成立 (harness分岐に存在=$_t62_s1 期待1 / ブロック外0件=$_t62_s2 期待1 / runner非混入=$_t62_s3 期待1): $_T62_TA26"
+    t62_fail "TC-S 配置検査不成立 (harness分岐に存在=$_t62_s1 期待1 / ブロック外0件=$_t62_s2 期待1 / runner非混入=$_t62_s3 期待1 / runner非export=$_t62_s4 期待1): $_T62_TA26 / $_T62_RUNNER"
   fi
 else
   t62_fail "TC-S 検査対象が不在: $_T62_TA26 / $_T62_RUNNER"

@@ -1,3 +1,8 @@
+# full-suite run #1（V-1 / ta-62 込みの全 suite green 確認・オーガナイザー実測）
+# date: 2026-08-12
+# command: sh tests/run-tests.sh </dev/null > docs/working/TASK-1036/evidence/test-runs/full-suite-1.log 2>&1
+# note: 本ログは run #1 の実行出力。run #1 / #2 は byte 同一（同一 suite・同一 tree のため決定論的に一致）
+
 === plangate validate --dir ===
 [PASS] complete-task: all artifacts + valid c3.json → PASS
 [PASS] missing-approval: no approvals/c3.json → FAIL
@@ -795,3 +800,4 @@ filter logic OK (threshold met)
   [PASS] TC-D leak/clean の harness 実行出力が完全一致（再帰防止 [SKIP] 0・非空実行）
 
 Results: 657 passed, 0 failed
+EXIT_CODE=0

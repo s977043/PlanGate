@@ -1,4 +1,7 @@
-# PARTIAL — killed mid-run. NOT valid for Results judgment (see status.md V系ステップ進捗).
+# full-suite run #3（F2/F3 反映後の再検証・本ワーカー実測）
+# date: 2026-08-13 00:04
+# command: sh tests/run-tests.sh </dev/null > docs/working/TASK-1036/evidence/test-runs/full-suite-3-post-f2f3.log 2>&1
+
 === plangate validate --dir ===
 [PASS] complete-task: all artifacts + valid c3.json → PASS
 [PASS] missing-approval: no approvals/c3.json → FAIL
@@ -788,3 +791,12 @@ filter logic OK (threshold met)
   [PASS] TC-17/TC-29: ta-46-ehs-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
   [PASS] TC-17/TC-29: ta-47-ehs23-wiring prerequisite-absent -> rc=3 with skip diagnostic under BOTH dash and bash
   [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
+  [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
+  [INFO] TC-14/TC-15(runner): asserted in standalone contract-TA runs; this harness run is itself the TC-14 subject (see full-suite evidence)
+
+=== TA-62: t26 recurse env guard (#1036) ===
+  [PASS] TC-S unset PG_T26_NO_RECURSE は ta-26 harness 分岐にのみ存在（無条件経路 0 / runner unset 集合に混入なし / runner は PG_HARNESS_SOURCED 非 export）
+  [PASS] TC-D leak/clean の harness 実行出力が完全一致（再帰防止 [SKIP] 0・非空実行）
+
+Results: 657 passed, 0 failed
+EXIT_CODE=0

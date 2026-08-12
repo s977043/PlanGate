@@ -52,6 +52,7 @@
 ## 既知の残存リスク（handoff.md §2/§3 参照）
 
 - K-1: 直接 standalone 起動時の env 漏れは本修正の対象外（harness 経路・CI は保護済み）
-- K-2: ta-61 が standalone-capable ファイルを suite ごと最大 3 回実走するため TC-D の suite 追加時間は plan R-P7 想定より増幅（**S-5 は未計測のまま**。正確な計測には ta-62 有無の 2 条件比較が要るため follow-up）
+- K-2: ta-61 が standalone-capable ファイルを suite ごと複数回実走するため TC-D の suite 追加時間は plan R-P7 想定より増幅する。**「最大 3 回」は過小だった**（River Review 実測での訂正）— ta-62 の suite 内実行回数は **7 回**（harness source 1 + ta-61 per-file ループ 3 + ta-61 TC-16 sandbox 3）。**S-5（+120 秒）の 2 条件比較を実測した結果、超過が確定した**: ta-62 あり = `657 passed, 0 failed` / **7:05.64**、baseline（ta-62 を commit 削除）= `652 passed, 0 failed` / **2:00.96** → 差分 **+305 秒（+252%）**。**S-5 停止条件の 2.5 倍超過**であり、対処方針（`ta-62` を `harness-only` 化する等）は **plan が `standalone-capable` を明記しているため C-3 承認済み範囲の変更にあたり、Human C-3 判断事項**として PR 本文で上げる（本ブランチでは方式変更しない）
 - **K-3（新規 / オーガナイザー観測）**: full suite を `| tail -30` 経由で 1 回実行した際に **`656 passed, 1 failed`** を観測した。**該当 TC は特定できていない**（パイプで出力を切り詰め証跡を失ったため）。**その後にパイプなしで実行した 2 回はいずれも `657 passed, 0 failed`** で再現していない。**flaky（タイミング依存 TC）か測定条件起因かは未確定**。次に full suite を回す担当者は、**必ずファイル出力（パイプなし）で全ログを保存**し、再現したら該当 TC を特定すること
+  - **最有力仮説** = `ta-61` per-file ループでの `ta-62` タイムアウト（**180 秒キャップに対し実測 43.9 秒 = 24%**）。再現時は FAIL 行の **`rc_leak=124|142`** と **`TC-12: … TIMED OUT`** を確認すること
 - V2: `PG_T61_NO_RECURSE` 同型クラス（plan P-10）
