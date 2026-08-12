@@ -1,0 +1,10 @@
+# N-1 反映後: ta-62 standalone
+# date: 2026-08-13 00:27
+# command: sh tests/extras/ta-62-t26-recurse-env-guard.sh </dev/null
+
+
+=== TA-62: t26 recurse env guard (#1036) ===
+  [PASS] TC-S unset PG_T26_NO_RECURSE は ta-26 harness 分岐にのみ存在（無条件経路 0 / runner unset 集合に混入なし / runner は PG_HARNESS_SOURCED 非 export = export 行・set -a・;export 形を検査）
+  [PASS] TC-D leak/clean の harness 実行出力が完全一致（再帰防止 [SKIP] 0・非空実行）
+TA-62 standalone: 2 passed, 0 failed
+EXIT_CODE=0

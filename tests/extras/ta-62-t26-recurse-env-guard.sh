@@ -103,12 +103,19 @@ if [ -f "$_T62_TA26" ] && [ -f "$_T62_RUNNER" ]; then
     *" PG_T26_NO_RECURSE "*) _t62_s3=0 ;;
   esac
   # (4) runner が PG_HARNESS_SOURCED を export していない（前提の静的固定）
+  # 検査形: (a) export 行に PG_HARNESS_SOURCED が含まれる（複数名 export
+  # `export FIXTURES_DIR PG_HARNESS_SOURCED` を含む）/ (b) `set -a`（allexport）
+  # による暗黙 export / (c) `PG_HARNESS_SOURCED=1; export …` の同一行結合形。
+  # 1 名目位置しか見ない grep は (a) の複数名形と (b) を survivor にする。
+  # コメント行（^ の直後が #）は除外する。
   _t62_s4=1
-  if grep -Eq '^[[:space:]]*export[[:space:]]+PG_HARNESS_SOURCED|^[[:space:]]*PG_HARNESS_SOURCED=1[[:space:]]*;?[[:space:]]*export' "$_T62_RUNNER"; then
-    _t62_s4=0
-  fi
+  awk '/^[[:space:]]*#/ {next}
+       /^[[:space:]]*export[[:space:]]/ && /PG_HARNESS_SOURCED/ {f=1}
+       /^[[:space:]]*set[[:space:]]+-[a-zA-Z]*a([[:space:]]|$)/ {f=1}
+       /PG_HARNESS_SOURCED[[:space:]]*=[^;]*;[[:space:]]*export/ {f=1}
+       END{exit f?0:1}' "$_T62_RUNNER" && _t62_s4=0
   if [ "$_t62_s1" = "1" ] && [ "$_t62_s2" = "1" ] && [ "$_t62_s3" = "1" ] && [ "$_t62_s4" = "1" ]; then
-    t62_pass "TC-S unset PG_T26_NO_RECURSE は ta-26 harness 分岐にのみ存在（無条件経路 0 / runner unset 集合に混入なし / runner は PG_HARNESS_SOURCED 非 export）"
+    t62_pass "TC-S unset PG_T26_NO_RECURSE は ta-26 harness 分岐にのみ存在（無条件経路 0 / runner unset 集合に混入なし / runner は PG_HARNESS_SOURCED 非 export = export 行・set -a・;export 形を検査）"
   else
     t62_fail "TC-S 配置検査不成立 (harness分岐に存在=$_t62_s1 期待1 / ブロック外0件=$_t62_s2 期待1 / runner非混入=$_t62_s3 期待1 / runner非export=$_t62_s4 期待1): $_T62_TA26 / $_T62_RUNNER"
   fi
