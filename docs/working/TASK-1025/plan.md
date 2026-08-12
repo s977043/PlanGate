@@ -49,6 +49,10 @@ ai-loopの現在状態と未完了actionをプロセス外へ永続化し、Huma
 - plugin bundle内のcopyを直接target repositoryへ接続するoperational adapter（生成copyは配布ミラー。v1 mutation/status入口ではない）
 - 過去TASK stateのmigration
 - 別clone / 別machineへのruntime state同期
+- **issue #1025 Scope 1 の`phase` / `current_node`（workflow位置のstate永続fields）**（R-141）。v1 stateはrun status / pending action / revision / bindingだけを持ち、workflow node座標を持たない。
+- **issue #1025 Scope 1 の`last_error`（観測事実と原因仮説の分離）**（R-141）。v1はerror codeを戻り値enumとしてのみ返し、stateへ永続化しない。**観測事実と原因仮説を分離するfield設計は後付けが難しい構造要件**であり、v2で最初から設計する。
+- **issue #1025 Scope 4 の`approval_session_lost` / `external_wait_resumed` incident event語彙**（R-141）。v1 recordは`action_reserved` / `action_consumed`のlifecycle eventだけを持ち、incident evidence語彙を定義しない。
+- 上記4項目は**v1で「触れない」のではなく明示的にv1対象外と宣言**し、**follow-up issueをHumanが起票する**（本PBIでは起票しない）。
 - native Windows locking（v1 operational CLIはLinux/WSLの`/usr/bin/python3 -I -S -B`、`/usr/bin/git`、POSIX `fcntl.flock`を前提）
 
 ## Global Constraints
@@ -83,13 +87,28 @@ ai-loopの現在状態と未完了actionをプロセス外へ永続化し、Huma
 - `harness_fingerprint`は実際に実行/ロードする`gh_exec.py`, `durable_run.py`のcanonical relative path + source bytes SHA-256と、root-owned Python/Git executableのfixed invoked path + realpath + bytes SHA-256を固定順で束縛する。各CLI invocationでsource / loader identity / executable ownership・mode・digestを再検証し、active runのいずれかが変われば`harness_drift`で拒否する。stdlib・shared library・Git object/index/local admin metadataはroot/OS・local repository TCBとして別途明記する。
 - action / Human authority / External receipt IDとharness fingerprintは下記「Canonical ID Contract」のdomain/version付きexact payloadをself-contained canonical hashで生成し、testだけが`c3_contract.canonical_hash`とのbyte-for-byte parityを検証する。timestamp / approved_at / annotationを含めない。
 - `block_run`は`RUNNING`またはWAITING状態からのみ許可し、`blocked_context`へ直前status / pending action / blockerを保存する。本Durable Runの`BLOCKED`は`.claude/rules/working-context.md`の外部依存taskに対応する**回復可能なorchestration status**で、arbiterの同名terminal decisionとは別語彙である。同一block再実行はno-op、明示`unblock_run`だけが保存済みstatus/pendingへ復帰し、blocker不一致・complete・通常request/resumeは拒否する。store integrity errorは安全にstateを書けないため`BLOCKED`へ変換しない。
-- 新規extras `tests/extras/ta-62-durable-run.sh`は#1046の共有exit契約に準拠する。先頭20行に`# PG_EXTRA_CAPABILITY: standalone-capable`をちょうど1個置き、`. "$_pg_extra_dir/_extra-contract.sh"`をsourceして`pg_extra_contract_init ta-62-durable-run standalone-capable`をbasename一致で呼び、rc layer 0/1/2/3と末尾`pg_extra_contract_finalize`を守る。移行期allowlist`_pending_migration()`へは追加しない（新規ファイルは契約準拠が既定）。
+- 新規extras `tests/extras/ta-62-durable-run.sh`は#1046の共有exit契約に準拠する。先頭20行に`# PG_EXTRA_CAPABILITY: standalone-capable`をちょうど1個置き、`. "$_pg_extra_dir/_extra-contract.sh"`をsourceして`pg_extra_contract_init ta-62-durable-run standalone-capable`をbasename一致で呼び、rc layer 0/1/2/3と末尾`pg_extra_contract_finalize`を守る。移行期allowlist`_pending_migration()`へは追加しない（新規ファイルは契約準拠が既定）。次の**静的追加要件**を満たす（R-145 / R-146）:
+  - `pg_extra_contract_init`は**行頭（インデント無し）**に置く。`ta-61:239`の`grep -E '^pg_extra_contract_init[[:space:]]'`がTC-10の判定に使われるため、インデントすると「init呼び出し無し」と判定される。
+  - preambleは`PG_HARNESS_SOURCED=1` / `FIXTURES_DIR` non-empty / `EXTRAS_DIR` non-emptyの**3条件ANDでharness判定**し、harnessなら`_pg_extra_dir="$EXTRAS_DIR"`、standaloneなら`dirname -- "$0"`を使う（`ta-61:15-21`と同型）。harness実行では`$0`が`run-tests.sh`のため`dirname $0`だけではhelperへ到達しない。
+  - `FIXTURES_DIR:-`を参照するため、`ta-26` TC-33の静的検査に合わせ、**自ファイル内に`run-tests.sh:20`と同一の7 env unset行**（`PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE`）を持つ。helper initが既にunset済みで機能的には冗長だが、**静的検査のため明示行が必須**（`ta-61:34-39`が実例）。
+- `ta-62`は`ta-61`の**per-file実行ループ（`ta-61:282-355`）に1ファイルにつき3回叩かれる**前提で設計し、次の**実行時契約**を満たす（R-138 / R-148）。静的なmarker / init一致（TC-09 / TC-10）だけでは不足する。
+  - **実行時間予算: 単体実行60秒未満を目安**とする。`ta-61`のper-file timeoutは180秒で、**timeoutはSKIPでなくFAIL**（`ta-61:58-63,311-314`）。予算を超えて180秒枠に余裕を作れない場合はReplan Triggerとする。
+  - **stage-1 clean runのrcは0か3だけ**にする（`ta-61:315-353`はそれ以外をfail-closedでFAIL）。かつ**rc=0のrunは`[FAIL]`文字列を出力しない**（`ta-61:319-321`）。
+  - force-fail probeで**rc=1かつ`PG_EXTRA_CONTRACT_PROBE_FIRED:ta-62-durable-run`を出力**する（`ta-61:325-330`）。そのため`ta-62`は**独自の`exit`で終端せず**、失敗を共有`fail`カウンタ経由で末尾`pg_extra_contract_finalize`へ伝播させる。
+  - 汚染env（`PG_HARNESS_SOURCED=1` + 全guarded envにjunk）でも**rc=0**にする（`ta-61:332-338`）。
+  - **prerequisite未充足（`/usr/bin/python3`不在・`git`不在等）は必ず`pg_extra_contract_skip`経由でrc=3**にする。`ta-61:341-349`は診断出力を伴わないrc=3を「forbidden route」としてFAILにするため、素のrc=3で抜けてはならない。
+- `ta-62`は**`tests/run-tests.sh`を実行しない**（R-139）。`ta-61`のper-file実行ループは`PG_T61_NO_RECURSE`を子へ渡さない（`ta-61:310,327,334`。nested full-suite `:766,792,800`とは非対称）ため、`ta-62`がsuiteを起動すると`run-tests.sh → ta-61 → ta-62 → run-tests.sh`で無限再帰し180秒timeoutでTC-12がFAILする。`ta-62`はTC-40のmappingとsentinel出力だけを持ち、**「run-tests.sh経由でsentinelがちょうど1回」の実行主体はVerification PlanのFull suite行**とする（`ta-61:781-783,806-807`の「harness実行時は囲っているrun自体が証拠」という既存の割り切りを踏襲）。
+- `ta-62`は**自身専用の失敗カウンタ`_t62_fail`**で成否を判定し、sentinelはそれでgateする（R-140）。`tests/run-tests.sh:26-27`の`pass` / `fail`は全extras共有のグローバル集計で、harnessパスの`pg_extra_contract_finalize`は`return 0`して runnerへ委ねるため、`[ "$fail" -eq 0 ]`で判定すると**`ta-62`より前にsourceされた無関係extrasの失敗でsentinelが抑止され、TC-40が実行順序依存で非決定**になる。共有`fail`へは自身の失敗のみ加算する。
+- **書き込み系Git fixtureは`ta-62`（シェル層）で構築し、Python側は生成済みrepoに対する読み取りと`sys.executable`経由のCLI起動だけにする**（R-142）。`scripts/ai-loop/check_exec_boundary.py`は`test_*.py`の`subprocess` argv先頭を`sys.executable`かリテラル`"git"` + 読み取り専用サブコマンド7種（`status` / `rev-parse` / `diff` / `log` / `merge-base` / `ls-remote` / `show`）に限定し、絶対パスは`CODE_ARGV_HEAD`、変数経由は`CODE_ARGV_UNRESOLVED`でfail-closedにする。検査対象は`base.glob("*.py")`で`scripts/ai-loop/`全`.py`、強制点は`tests/extras/ta-57-pr-convergence.sh:80`のcorpus scan（exit 0必須）である。したがって`git init` / `add` / `commit` / `worktree add`（TC-43）と、canonical interpreter以外での起動（TC-33負側）は**Pythonテストから実行できない**。`GRANDFATHER_ARGV_EXCEPTIONS`は「1件から増やさない」と凍結されており、`check_exec_boundary.py`自体の変更はReplan Triggerに該当する。
+  - `ta-62`が一時Git repoとlinked worktreeを構築し、`PG_T62_GIT_FIXTURE_ROOT` / `PG_T62_LINKED_WORKTREE`をenvで渡す。`test_durable_run.py`の当該subcaseは**env未設定時にskipせず「fixture依存subcase実行数=0」を明示出力**し、`ta-62`がその件数の下限をassertする（静かなskipによるfalse passを作らない）。
+  - `ta-62`が**unit suiteの正規実行入口**である。Verification Planの直接実行行はfixture非依存部分のRED / GREEN確認用途に限定する。
+- `ta-62`は**リポジトリ全体状態に依存するassertionを内包しない**（R-143）。`git diff --check`（TC-42）を`ta-62`内で実行すると無関係な作業ツリーの空白エラーで`ta-62`がrc=1になり、`ta-61:352`の「rcが0でも3でもない」でfail-closed→full suite赤になる。TC-41（delivery / run_evidence regression）も3回実行前提では重複コストにしかならない。TC-40 / TC-41 / TC-42は**Verification Plan（PR単位の実行）が実行主体**とし、`ta-62`は`SHELL_COVERAGE_MANIFEST`のmapping保持のみを担う。`ta-62`内でplugin parityを見る場合は**`ta-26`のsandboxパターン（`ta-26:95-99` / #861 実リポジトリ非破壊化）を踏襲**し、`mktemp -d`配下にsandbox repoを構築してそこでsyncを実行する（実`plugin/`へは書き込まない）。
 - C-3 / C-4 / merge / HO / policyのHuman-owned境界を変更しない。
 - legacy C-3がrun/action/sourceを署名しないこと、`source=cli`がprovenance証明でないこと、Human/External identityを暗号学的に検証しないこと、保存領域全体の同時rollbackと別clone同期は提供しないことをv1 trust limitとして隠さない。OS-owned `/usr/bin/python3` / `/usr/bin/git`とGit local admin metadataはtrusted computing baseとし、root/OS compromiseは対象外とする。
 
 ## Canonical ID Contract
 
-canonicalizationは`json.dumps(payload, sort_keys=True, separators=(",", ":"))`のUTF-8 bytesに対するSHA-256で、戻り値は`sha256:<64 lowercase hex>`とする。payloadのkey集合とdomain/versionはexactであり、余剰keyをID入力へ取り込まない。
+canonicalizationは`json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)`のUTF-8 bytesに対するSHA-256で、戻り値は`sha256:<64 lowercase hex>`とする。payloadのkey集合とdomain/versionはexactであり、余剰keyをID入力へ取り込まない。**`ensure_ascii=True`はcontractの一部**であり、`c3_contract.canonical_hash`（`scripts/ai-loop/c3_contract.py:71-74`）の既定と一致させる（R-147）。`instructions_ref`は非ASCIIを含みうるため、下記golden vectorに**非ASCII 1本を必ず含める**（全ASCIIのvectorだけでは`ensure_ascii=False`実装との差が出ずparity testが空振りする）。
 
 | ID | exact payload fields |
 |---|---|
@@ -104,6 +123,7 @@ Golden vectors:
 - Human authority: 同task/plan、`C-3` / `APPROVED` / `cli` → `sha256:a3246e6c017b29d629a9a7dea0cd15bcbb1e8ecc5b89c276cb6b820f80d05ecb`
 - External receipt: 同task/run/plan/source、action=`sha256:` + `44`×32、resume=`a`×40、result=`sha256:` + `33`×32、`SUCCEEDED` → `sha256:e074b8948dec9573f31cf4cf194be32a315beac25e902f005b86542d17320c53`
 - harness: Python invoked=`/usr/bin/python3`, real=`/usr/bin/python3.12`, digest=`sha256:` + `88`×32、Git invoked/real=`/usr/bin/git`, digest=`sha256:` + `99`×32、`gh_exec.py`=`sha256:` + `66`×32、`durable_run.py`=`sha256:` + `77`×32 → `sha256:4370171c049d97a07d8598c34ec9512a5126d37be3ef587072f98cf037b96285`
+- **action（非ASCII / R-147）**: 上記actionと同一fieldで`instructions_ref`だけを`docs/working/TASK-1025/plan.md#人間ゲート`にしたもの → `sha256:229416de0910d27876291933936c445e8a57969ae8513030e350d23405d17b88`。`ensure_ascii=False`実装では`sha256:20c5bd76fb362d88c08bef2786df9d7c8c4be3a18f6c29dc69482bb397e8f395`となり**一致しない**（実測）。golden vectorは計**5本**とする。
 
 Golden canonical bytes（改行なし）:
 
@@ -112,7 +132,10 @@ action={"action_kind":"WAITING_HUMAN_C3","domain":"plangate.durable-run.action/v
 human={"c3_status":"APPROVED","domain":"plangate.durable-run.human-plan-authority/v1","phase":"C-3","plan_hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","source":"cli","task_id":"TASK-1025"}
 external={"action_id":"sha256:4444444444444444444444444444444444444444444444444444444444444444","domain":"plangate.durable-run.external-receipt/v1","plan_hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","request_source_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","result_digest":"sha256:3333333333333333333333333333333333333333333333333333333333333333","resume_head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","run_id":"RUN-0001","status":"SUCCEEDED","task_id":"TASK-1025"}
 harness={"domain":"plangate.durable-run.harness/v1","executables":[{"invoked_path":"/usr/bin/python3","real_path":"/usr/bin/python3.12","role":"python","sha256":"sha256:8888888888888888888888888888888888888888888888888888888888888888"},{"invoked_path":"/usr/bin/git","real_path":"/usr/bin/git","role":"git","sha256":"sha256:9999999999999999999999999999999999999999999999999999999999999999"}],"files":[{"path":"scripts/ai-loop/gh_exec.py","sha256":"sha256:6666666666666666666666666666666666666666666666666666666666666666"},{"path":"scripts/ai-loop/durable_run.py","sha256":"sha256:7777777777777777777777777777777777777777777777777777777777777777"}]}
+action_nonascii(ensure_ascii=True の実バイト列)={"action_kind":"WAITING_HUMAN_C3","domain":"plangate.durable-run.action/v1","harness_fingerprint":"sha256:2222222222222222222222222222222222222222222222222222222222222222","instructions_ref":"docs/working/TASK-1025/plan.md#\u4eba\u9593\u30b2\u30fc\u30c8","plan_hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","request_source_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","run_id":"RUN-0001","task_id":"TASK-1025"}
 ```
+
+> `action_nonascii`の`instructions_ref`は原文`docs/working/TASK-1025/plan.md#人間ゲート`で、上記canonical bytesは`ensure_ascii=True`による`\uXXXX`エスケープ後の実バイト列である（この差そのものがR-147のregression対象）。
 
 ## Crash and Anti-False-Pass Contract
 
@@ -121,8 +144,16 @@ harness={"domain":"plangate.durable-run.harness/v1","executables":[{"invoked_pat
 - 初回transactionで空ledgerを含む4 targetの17 WAL labelを全列挙する。request updateは`action_reserved`、Human / External resume updateは`action_consumed` + authority/receiptをledgerへ追加するため、3 fixtureとも4 targetの17 labelを全列挙する。bootstrap 8と合わせ、fault injection subcaseは最低76（8 + 17 + 17×3）とする。
 - proper subset rollbackは同一generationの`state`, `record`, `ledger`, `manifest`の非空proper subset全14組（$2^4-2$）を列挙する。
 - unit対象は`TC-01`〜`TC-38`と`TC-43`〜`TC-46`のexact 42 ID。`test_durable_run.py`はmodule定数`COVERAGE_MANIFEST`で42 ID→`test-cases.md`記載のexact method nameを一対一mappingし、重複/欠落/余剰を禁止する。さらに`test_gh_exec.py`のisolated mode新規4 methodを`GH_EXEC_REQUIRED_METHODS`へexact固定する。`-I`ではcwdがimport pathから外れるため各test fileを直接実行し、ta-62は両runのloader resultを合算して最低46 tests、42 manifest method + 4 boundary methodが実際にloadされたことを照合する。
-- shell/route対象`TC-39`〜`TC-42`はta-62内の`SHELL_COVERAGE_MANIFEST`へexact command / expected exit / sentinelを一対一mappingする。TC-39=isolated unit+manifest、TC-40=`tests/run-tests.sh`からta-62 sentinel 1回、TC-41=delivery/run_evidence regression、TC-42=`git diff --check`と固定する。
-- ta-62は両manifest、GH boundary 4 method、合算件数、fault subcase=76、rollback subcase=14を独立照合し、成功時だけ`TA-62-DURABLE-RUN: PASS tests=<N> unit_tc=42 gh_boundary=4 fault=76 rollback=14`を出す。`tests/run-tests.sh`経由でも同sentinelが1回到達しなければFAILとする。
+- shell/route対象`TC-39`〜`TC-42`はta-62内の`SHELL_COVERAGE_MANIFEST`へexact command / expected exit / sentinel / **実行主体**を一対一mappingする。実行主体を明示するのはR-139 / R-143の是正であり、mappingは4件のまま維持してcoverage orphanを作らない。
+
+| TC | mapping内容 | 実行主体 |
+|---|---|---|
+| TC-39 | isolated direct unit実行 + 両manifest + GH boundary 4 + ≥46 tests + fixture依存subcase件数 + exact sentinel | **ta-62 in-file** |
+| TC-40 | `sh tests/run-tests.sh` exit 0 + ta-62 sentinelちょうど1回 | **Verification PlanのFull suite行**（ta-62はmapping保持のみ・自身では実行しない / R-139） |
+| TC-41 | isolated delivery / run_evidence / check_exec_boundary regression exit 0 | **Verification PlanのRegression行**（ta-62はmapping保持のみ / R-143） |
+| TC-42 | `git diff --check` exit 0 | **Verification PlanのDiff行**（ta-62内で実行するとリポジトリ全体状態に依存しrc=1→fail-closed / R-143） |
+
+- ta-62は両manifest、GH boundary 4 method、合算件数、fault subcase=76、rollback subcase=14、fixture依存subcase件数の下限を独立照合し、**自身専用カウンタ`_t62_fail`が0のときだけ**`TA-62-DURABLE-RUN: PASS tests=<N> unit_tc=42 gh_boundary=4 fault=76 rollback=14`を出す（共有`fail`でgateしない / R-140）。`tests/run-tests.sh`経由で同sentinelがちょうど1回到達することは**Verification PlanのFull suite行**が検証する。
 
 ## 前提の実測検証（#786）
 
@@ -212,7 +243,8 @@ harness={"domain":"plangate.durable-run.harness/v1","executables":[{"invoked_pat
 - [ ] External receiptのsame-run / cross-run / same-action-different-result replayとprovenance trust limitを追加する
 - [ ] recoverable `BLOCKED`のblock/unblock復帰と`COMPLETED` terminal idempotencyを追加する
 - [ ] hostile pyc/PYTHONPATH/sitecustomize/sys.modules、plugin direct operational layout、PATH/HOME/XDG/Git config、NUL含みpath、task-root rename/replacement、actual linked worktreeのcommon-dir / external lock inode / ledger共有、absolute fallback、unwritable preflightを追加する
-- [ ] Canonical ID Contractの4 golden vectorをliteral期待値で追加する
+- [ ] Canonical ID Contractの**5 golden vector**（非ASCII `instructions_ref` 1本を含む）をliteral期待値で追加し、`ensure_ascii=False`実装では不一致になることをassertする（R-147）
+- [ ] **書き込み系Git fixtureをPythonから作らない**。TC-43のrepo/linked worktreeとTC-33負側の非canonical interpreter起動はta-62（シェル層）が構築・駆動し、Python側は`PG_T62_GIT_FIXTURE_ROOT` / `PG_T62_LINKED_WORKTREE`の読み取りと`sys.executable`経由のCLI起動だけを行う。env未設定時はskipせず「fixture依存subcase実行数=0」を明示出力する（R-142）
 - [ ] REDがmodule / interface不存在だけであることを記録する
 
 **Completion Criteria**: `test-cases.md`の全functional / adversarial caseが具体的test methodへ対応し、RED理由が期待どおりである。
@@ -283,7 +315,12 @@ harness={"domain":"plangate.durable-run.harness/v1","executables":[{"invoked_pat
 
 - [ ] isolated Python、`gh_exec`境界、common-dir external lock、flat runtime/bootstrap、state / record / ledger / manifest / transaction layout、write order、recovery、error codeを文書化する
 - [ ] Human-owned境界、read-only approval、trust limitを明記する
-- [ ] ta-62を#1046共有exit契約（capability marker 1個 / basename一致init / rc layer 0/1/2/3 / 末尾finalize）に準拠させて追加し、各test fileをisolated direct実行する。最低46 tests・unit TC 42件のexact coverage manifest・gh_exec boundary 4 method・shell TC 4件・exact sentinel・plugin copy byte parity + direct operational fail-closedを独立検証する
+- [ ] ta-62を#1046共有exit契約（capability marker 1個 / **行頭**basename一致init / 3条件AND preamble / 7 env unset行 / rc layer 0/1/2/3 / 末尾finalize）に準拠させて追加し、各test fileをisolated direct実行する。最低46 tests・unit TC 42件のexact coverage manifest・gh_exec boundary 4 method・shell TC 4件のmapping・exact sentinel・plugin copy byte parity + direct operational fail-closedを独立検証する（R-145 / R-146）
+- [ ] ta-62の**実行時契約**を満たす: 単体60秒未満の予算、clean run rc=0/3のみかつ`[FAIL]`非出力、force-fail probeのrc=1 + `PG_EXTRA_CONTRACT_PROBE_FIRED:ta-62-durable-run`伝播（独自`exit`禁止）、汚染env下でもrc=0、prerequisite未充足は`pg_extra_contract_skip`経由rc=3（R-138 / R-148）
+- [ ] ta-62から`tests/run-tests.sh`を実行しない。TC-40 / TC-41 / TC-42はmapping保持のみとし、実行主体をVerification Planへ一本化する（R-139 / R-143）
+- [ ] ta-62内の判定を専用カウンタ`_t62_fail`へ分離し、sentinelをそれでgateする。共有`fail`へは自身の失敗のみ加算する（R-140）
+- [ ] ta-62が書き込み系Git fixture（一時repo + `git worktree add --detach`）を構築して`PG_T62_GIT_FIXTURE_ROOT` / `PG_T62_LINKED_WORKTREE`をenvで渡し、fixture依存subcase件数の下限をassertする（R-142）
+- [ ] plugin parityをta-62で見る場合は`ta-26`のsandboxパターン（`mktemp -d`配下にsandbox repoを構築）を踏襲し、実`plugin/`へ書き込まない（R-143）
 - [ ] `sync-plugin-plangate.sh`のscripts allowlistを対称更新して正規syncを実行し、plugin reference/runtime/tests/Git境界の派生差分を含める
 - [ ] targeted regression、full suite、boundary scan、`git diff --check`を実行する
 
@@ -293,7 +330,9 @@ harness={"domain":"plangate.durable-run.harness/v1","executables":[{"invoked_pat
 
 ## Verification Plan
 
-Verification Automation: `/usr/bin/python3 -I -S -B scripts/ai-loop/test_durable_run.py && /usr/bin/python3 -I -S -B scripts/ai-loop/test_gh_exec.py && sh tests/extras/ta-62-durable-run.sh && sh tests/extras/ta-61-extra-contract.sh && sh scripts/sync-plugin-plangate.sh && git diff --exit-code -- plugin/plangate/ && sh tests/run-tests.sh && /usr/bin/python3 -I -S -B scripts/ai-loop/test_delivery.py && /usr/bin/python3 -I -S -B scripts/ai-loop/test_run_evidence.py && /usr/bin/python3 -I -S -B scripts/ai-loop/test_check_exec_boundary.py && git diff --check`
+Verification Automation: `/usr/bin/python3 -I -S -B scripts/ai-loop/test_durable_run.py && /usr/bin/python3 -I -S -B scripts/ai-loop/test_gh_exec.py && sh tests/extras/ta-62-durable-run.sh && sh tests/extras/ta-61-extra-contract.sh && sh scripts/sync-plugin-plangate.sh && git diff --exit-code -- plugin/plangate/ && sh tests/run-tests.sh && /usr/bin/python3 -I -S -B scripts/ai-loop/test_delivery.py && /usr/bin/python3 -I -S -B scripts/ai-loop/test_run_evidence.py && /usr/bin/python3 -I -S -B scripts/ai-loop/test_check_exec_boundary.py && python3 scripts/ai-loop/check_exec_boundary.py && git diff --check`
+
+> 直接実行する2 test fileはfixture非依存部分のRED / GREEN確認であり、**fixture依存subcaseを含むunit suiteの正規入口は`sh tests/extras/ta-62-durable-run.sh`**である（R-142）。直接実行時は当該subcase実行数が0であることを明示出力し、静かなskipによるfalse passを作らない。
 
 | 種別 | コマンド / 確認方法 | 期待結果 | Evidence保存先 |
 |---|---|---|---|
@@ -301,12 +340,13 @@ Verification Automation: `/usr/bin/python3 -I -S -B scripts/ai-loop/test_durable
 | Unit | 上記2 test fileをisolated direct実行 | 合算≥46 tests、unit TC 42件 + gh boundary 4件のexact method全load、0 failed | `evidence/tdd/green.log` |
 | CI route | `sh tests/extras/ta-62-durable-run.sh` | exit 0、unit/shell両manifestと`TA-62-DURABLE-RUN: PASS tests=<N> unit_tc=42 gh_boundary=4 fault=76 rollback=14`を1回出力 | `evidence/verification/ta-62.log` |
 | Plugin sync | `sh scripts/sync-plugin-plangate.sh && git diff --exit-code -- plugin/plangate/` | root正本から生成した5 fileがplugin bundleと一致し、未同期差分0 | `evidence/verification/plugin-sync.log` |
-| Full suite | `sh tests/run-tests.sh` | exit 0、同ta-62 sentinelが1回到達 | `evidence/verification/full-suite.log` |
-| Regression | `/usr/bin/python3 -I -S -B scripts/ai-loop/test_delivery.py`、同`test_run_evidence.py`、同`test_check_exec_boundary.py` | 各0 failed、productionのdirect subprocess/multiprocessing import 0 | `evidence/verification/ai-loop-regression.log` |
+| Full suite（**TC-40の実行主体** / R-139） | `sh tests/run-tests.sh` | exit 0、ta-62 sentinelが**ちょうど1回**到達（log上のgrep件数で判定） | `evidence/verification/full-suite.log` |
+| Regression（**TC-41の実行主体** / R-143） | `/usr/bin/python3 -I -S -B scripts/ai-loop/test_delivery.py`、同`test_run_evidence.py`、同`test_check_exec_boundary.py` | 各0 failed、productionのdirect subprocess/multiprocessing import 0 | `evidence/verification/ai-loop-regression.log` |
+| **Boundary corpus scan（R-142）** | `python3 scripts/ai-loop/check_exec_boundary.py`（`ta-57-pr-convergence.sh:80`と同経路） | exit 0 / `clean`。`test_durable_run.py`が`sys.executable`以外のargv頭や書き込み系Git subcommandを持たないこと | `evidence/verification/exec-boundary-scan.log` |
 | Contract | `/usr/bin/python3 -I -S -B scripts/ai-loop/durable_run.py contract` | 文書と同一enum / transition / runtime boundary | `evidence/verification/contract.json` |
-| Boundary | CLI実行前後のapproval tree・Git refs snapshot + write instrumentation + static allowlist | moduleによるapproval write / commit / merge経路0 | `evidence/verification/boundary.log` |
+| Boundary | CLI実行前後のapproval tree・Git refs snapshot + write instrumentation + static allowlist（**収集コマンドは §Runtime Guard Constraints（R-137）に従いtoken pathをliteralで書かない** / R-144） | moduleによるapproval write / commit / merge経路0 | `evidence/verification/boundary.log` |
 | **extras契約** | `sh tests/extras/ta-61-extra-contract.sh` | exit 0（TC-09/TC-10でta-62のmarker/init一致を検証。新規extras追加の回帰） | `evidence/verification/ta-61-contract.log` |
-| Diff | `git diff --check` | exit 0 | `evidence/verification/diff-check.log` |
+| Diff（**TC-42の実行主体** / R-143） | `git diff --check` | exit 0 | `evidence/verification/diff-check.log` |
 
 ### レビューレーン計画（#786）
 
@@ -325,7 +365,7 @@ Verification Automation: `/usr/bin/python3 -I -S -B scripts/ai-loop/test_durable
 ### Review Criteria
 
 - Design alignment: #873/#917のintent / receipt / deterministic / fail-closedを踏襲し、pre-PR責務を分離する。
-- Test expectations: restart、true concurrent CAS、8 bootstrap + 初回17 + request更新17 + Human resume更新17 + External resume更新17のfault 76 subcase、14 proper subset rollback、request/消費後request idempotency、actual linked worktree、task-root replacement、Python/Git injection、actual plan/HEAD/path binding、source初回検証→prepare前のHEAD/dirty競合、record/ledger strict JSON負側、same-action result replay、4 golden ID、unit TC 42件 + gh_exec boundary 4 method・最低46 testsを値レベルで検証する。
+- Test expectations: restart、true concurrent CAS、8 bootstrap + 初回17 + request更新17 + Human resume更新17 + External resume更新17のfault 76 subcase、14 proper subset rollback、request/消費後request idempotency、actual linked worktree、task-root replacement、Python/Git injection、actual plan/HEAD/path binding、source初回検証→prepare前のHEAD/dirty競合、record/ledger strict JSON負側、same-action result replay、**5 golden ID（非ASCII 1本を含む / R-147）**、unit TC 42件 + gh_exec boundary 4 method・最低46 testsを値レベルで検証する。fixture依存subcase（TC-43 / TC-33負側）はta-62が構築したGit fixture上でのみ実行し、未設定時は0件であることを明示出力する（R-142）。
 - Security: approval artifactはdirfd canonical pathからread-only / no-followで正規schema相当検証し、schema予約の`^_`注釈だけを許可してsemantic Plan authorityをtask-wide ledgerで一度だけ消費する。raw digestとprepare直前の最終安定source snapshotはrun/action/request source/actual HEADへ証拠束縛するが、`source=cli`を署名provenanceとは扱わない。
 - Maintainability: standard libraryのみ、runtime repo importはcontrolled canonical `gh_exec` sourceだけ、canonical hashはself-contained + test parity、productionのdirect subprocess/multiprocessing import 0、pure validationとI/Oを分離し、error codeをenum化する。
 - Backward compatibility: 既存CLI / state / delivery recordを変更せずadditiveに導入し、`gh_exec`は既存callの既定挙動を維持したoptional isolated modeとexact read-only allowlistだけを追加する。
@@ -365,7 +405,9 @@ Verification Automation: `/usr/bin/python3 -I -S -B scripts/ai-loop/test_durable
 - targeted baseline testに1件以上のFAILがある
 - receiptをapproval artifactへ安全に束縛できずAC-04/05/07が同時成立しない
 - task lock / redo recovery / canonical no-follow readを標準ライブラリだけで成立させられない
-- `tests/extras/ta-61-extra-contract.sh`のTC-09/TC-10/TC-20が新規ta-62に対してFAILし、共有exit契約準拠だけでは解消できない
+- `tests/extras/ta-61-extra-contract.sh`の**TC-09 / TC-10 / TC-12 / TC-13 / TC-15 / TC-17 / TC-20 / TC-25(3)**が新規ta-62に対してFAILし、共有exit契約準拠（静的4条件 + 実行時契約5条件）だけでは解消できない（R-138）
+- ta-62単体の実行時間が**60秒予算を超え、`ta-61`のper-file 180秒timeoutに対する余裕を確保できない**（R-138）
+- `check_exec_boundary.py`の`GRANDFATHER_ARGV_EXCEPTIONS`追加や`READ_ONLY`サブコマンド拡張なしには、shell層へ責務分割してもTC-43 / TC-33負側が成立しない（R-142。検査器自体の変更は既存Replan Triggerにも該当する）
 - EH-13 token-guardによりVerification Planのevidence収集がbypassなしに実行できない
 
 ## Stop Condition

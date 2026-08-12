@@ -110,7 +110,7 @@ Round 8独立C-2へ送付可能。approve前にC-3へ進めない。
 > 判定: **PASS** — critical=0, major=0, minor=0
 > 対象Plan SHA-256: `sha256:8b0a5018aacb1008d83615c725a1107c627d7e44521d29854dc2445b3d449c55`
 
-C1-VERDICT: PASS plan=sha256:8b0a5018aacb1008d83615c725a1107c627d7e44521d29854dc2445b3d449c55
+Historical C-1 Round 9 verdict: PASS plan=sha256:8b0a5018aacb1008d83615c725a1107c627d7e44521d29854dc2445b3d449c55（C-2 Round 9 の R-138〜R-149 反映で対象 Plan hash が変わったため live マーカーから降格）
 
 ## 対象と範囲
 
@@ -146,3 +146,57 @@ Round 8（`sha256:c864c06ab1b52b68a298756b7c0050904ba8ed3713faa208b6cb637da949d5
 ## 結論
 
 反映差分は PASS。**C-2 Round 9 を経てから Human C-3 へ進む**こと。現時点で C-3 承認を発行してはならない。
+
+---
+
+# TASK-1025 セルフレビュー結果（C-1 / Round 10・簡易再実行）
+
+> レビュー日: 2026-08-12
+> 判定: **PASS** — critical=0, major=0, minor=0
+> 対象 Plan SHA-256: `sha256:44361114b3a736f5a3c6c56a3fe894be95a4dc76e48f4247ec8311f9bde9d3ce`
+
+C1-VERDICT: PASS plan=sha256:44361114b3a736f5a3c6c56a3fe894be95a4dc76e48f4247ec8311f9bde9d3ce
+
+## 対象と範囲
+
+Round 9（`sha256:8b0a5018aa…449c55`）に対し、**C-2 Round 9（2 lane reject / major 6・minor 6）の R-138〜R-149 を 1 回確定反映した差分のみ**を対象とする簡易 C-1（working-context「C-2 指摘の差分管理」(3) 簡易 C-1 再実行）。Round 8 の 25 項目 PASS 判定は、反映で触れていない領域についてはそのまま有効とする。
+
+## 反映差分の検査（実測）
+
+| # | 検査 | 実測コマンド / 方法 | 結果 |
+|---|---|---|---|
+| 1 | AC↔TC traceability の非退行 | `grep -c "^### TC-" test-cases.md` / unit mapping 行数 | TC heading **46**、unit mapping **42**（Round 8/9 と同値・orphan 0） |
+| 2 | TODO 件数の非退行 | `grep -c "^- \[ \] T-" todo.md` | **26**（T-01〜T-26・不変） |
+| 3 | 契約件数の非退行 | 本文の実列挙 | fault **76** / rollback **14** / gh boundary **4** / shell TC mapping **4** / 最低 **46** tests（いずれも不変。実行主体の付替えのみで件数は変えていない） |
+| 4 | golden vector 件数 | Canonical ID Contract の列挙 | **4 → 5**（非 ASCII 1 本追加 / R-147）。`plan.md` / `test-cases.md` / Review Criteria / Task 1 step を横断更新 |
+| 5 | golden hash の再計算 | `json.dumps(..., sort_keys, separators, ensure_ascii=True)` → SHA-256 | 追加 vector = `sha256:229416de…`、`ensure_ascii=False` では `sha256:20c5bd76…` で**不一致になること**を実測（空振りしない） |
+| 6 | `ta-61` 実測の裏取り | `tests/extras/ta-61-extra-contract.sh` の該当行を直接確認 | per-file ループ `:282-355` が再帰ガードを渡さないこと（`:310/:327/:334`）、nested full-suite は渡すこと（`:766/:792/:800`）、`run-tests.sh:20` の unset 7 変数に `PG_T61_NO_RECURSE` が**含まれない**ことを確認 |
+| 7 | boundary 検査器の実測 | `scripts/ai-loop/check_exec_boundary.py` の allowlist / glob / grandfather | 読み取り専用 7 subcommand（`:156`）、`GRANDFATHER_ARGV_EXCEPTIONS`（`:169`）は「1 件から増やさない」（`:275`）、対象は `base.glob("*.py")`（`:1142`）。強制点 `ta-57-pr-convergence.sh:80` を確認 |
+| 8 | `ensure_ascii` の実測 | `scripts/ai-loop/c3_contract.py:71-74` | `json.dumps(obj, sort_keys=True, separators=(",", ":"))`＝既定 `ensure_ascii=True`。契約へ明記 |
+| 9 | `ta-61\|TA-61` の残存 | `grep -rn "ta-61\|TA-61" docs/working/TASK-1025/` から **extra-contract 文脈・`ta-61` 実ファイル挙動への参照・Round 8 以前の履歴行を除外** | **誤って `ta-62` を指すべき残存 0**。除外条件を Round 9 の記述より正確化した（R-149。Round 9 節の記述は append-only のため書き換えない） |
+| 10 | production 変更 | `git status --porcelain -- scripts tests bin .github schemas .claude` | **0 ファイル**（Plan Package のみ） |
+
+## 25 項目のうち再判定した項目
+
+| check_id | result | finding |
+|---|---|---|
+| C1-PLAN-01 | PASS | AC↔TC は不変。R-141 は AC を増やさず **Out of Scope 明示**で解消（issue 要求↔AC の orphan を「未宣言」から「明示除外」へ移した） |
+| C1-PLAN-03 | PASS | 変更ファイル集合は root 正本 7 + plugin 生成 5 の 12 で不変。責務分割（R-142）は既存 2 ファイル内の役割配分の変更であり、集合を増やさない |
+| C1-PLAN-04 | PASS | `ta-62` 実行時契約 5 条件・専用カウンタ・再帰回避・fixture 責務分割を Global Constraints へ追加 |
+| C1-PLAN-07 | PASS | Verification Plan に boundary corpus scan 行を独立追加。TC-40/41/42 の実行主体を明記し `ta-62` の in-file 実行から外した |
+| C1-PLAN-09-AEE | PASS | Replan Trigger に TC 列挙拡張・60 秒予算超過・boundary 検査器変更なしでは成立しない場合の 3 件を追加 |
+| C1-TODO-10 | PASS | T-07 / T-20 / T-23 / T-25 checkpoint を更新（T-20 は静的 4 条件・実行時 5 条件・再帰・カウンタ・fixture・plugin sandbox の 6 checkpoint へ分解） |
+| C1-TEST-13 | PASS | traceability 非退行を実測（上表 #1） |
+| C1-SCOPE-DISC-01 | PASS | R-141 の 4 項目は Out of Scope へ明記し、**follow-up issue 起票は Human 側の未了タスク**として Round 10 entry conditions に残した |
+| 他 17 項目 | 不変 | 反映が触れていないため Round 8 判定を維持 |
+
+## 残存リスク（C-3 へ持ち越す）
+
+- **C-2 Round 10 が未実施**。本反映は maker（本セッション）が行ったため、同一主体は独立 C-2 レーンになれない。`C2-VERDICT:` の live マーカーは意図的に不在（fail-closed）。
+- **R-141 の follow-up issue が未起票**。`phase` / `current_node` / `last_error` / `approval_session_lost` / `external_wait_resumed` は v1 対象外を宣言しただけで、v2 での取り込み先が未確定。とくに `last_error` の「観測事実と原因仮説の分離」は後付けが難しい構造要件である。
+- **`ta-62` の 60 秒予算は目標値であり未実測**。46+ tests / fault 76 / rollback 14 / `git worktree add` を含むスイートが `ta-61` に 3 回叩かれるため、exec 時に予算超過が判明したら Replan Trigger に該当する。
+- R-137 の EH-13 制約は exec 時の実運用で初めて確定する（Round 9 から継続）。
+
+## 結論
+
+反映差分は PASS。**C-2 Round 10 を経てから Human C-3 へ進む**こと。現時点で C-3 承認を発行してはならない。

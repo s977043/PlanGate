@@ -55,7 +55,7 @@
   - Owner: agent
   - depends_on: [T-01]
   - files: `scripts/ai-loop/test_durable_run.py`
-  - checkpoint: proper subset 14組、parent symlink/traversal/TOCTOU、hostile valid pyc/shadow/preloaded module/PYTHONPATH/sitecustomize、PATH/HOME/XDG/global+local Git config、loaded-source/loader/Python+Git fingerprint drift、linked worktree共有を拒否/確認
+  - checkpoint: proper subset 14組、parent symlink/traversal/TOCTOU、hostile valid pyc/shadow/preloaded module/PYTHONPATH/sitecustomize、PATH/HOME/XDG/global+local Git config、loaded-source/loader/Python+Git fingerprint drift、linked worktree共有を拒否/確認。**書き込み系Git fixtureとcanonical interpreter以外の起動はPythonから実行せず、ta-62が構築・駆動して`PG_T62_GIT_FIXTURE_ROOT` / `PG_T62_LINKED_WORKTREE`で受け渡す。env未設定時はskipせずfixture依存subcase実行数0を明示出力する（R-142）**
   - rollback: T-07差分をrevert
 - [ ] T-08 RED evidence保存
   - Owner: agent
@@ -142,7 +142,12 @@
   - Owner: agent
   - depends_on: [T-18, T-19]
   - files: `tests/extras/ta-62-durable-run.sh`, `scripts/sync-plugin-plangate.sh`, `plugin/plangate/skills/ai-loop-cycle/references/durable-run-contract.md`, `plugin/plangate/skills/ai-loop-cycle/scripts/durable_run.py`, `plugin/plangate/skills/ai-loop-cycle/scripts/test_durable_run.py`, `plugin/plangate/skills/ai-loop-cycle/scripts/gh_exec.py`, `plugin/plangate/skills/ai-loop-cycle/scripts/test_gh_exec.py`
-  - checkpoint: #1046共有exit契約準拠（`# PG_EXTRA_CAPABILITY: standalone-capable`を先頭20行にちょうど1個 / `pg_extra_contract_init ta-62-durable-run standalone-capable` / rc layer 0/1/2/3 / 末尾`pg_extra_contract_finalize`）かつ`sh tests/extras/ta-61-extra-contract.sh` exit 0、standalone/source両対応、isolated direct test実行、unit TC 42 + gh_exec boundary 4 exact method + shell TC 4、最低46 tests、fault 76/rollback 14、exact sentinel 1回、敵対Python/Git case、正規sync後plugin差分0、plugin direct operational `unsupported_runtime_layout`を確認
+  - checkpoint: #1046共有exit契約の**静的4条件**（`# PG_EXTRA_CAPABILITY: standalone-capable`を先頭20行にちょうど1個 / **行頭**`pg_extra_contract_init ta-62-durable-run standalone-capable` / rc layer 0/1/2/3 / 末尾`pg_extra_contract_finalize`）+ **3条件AND preamble**（R-146）+ **自ファイル内7 env unset行**（R-145）かつ`sh tests/extras/ta-61-extra-contract.sh` exit 0
+  - checkpoint: #1046共有exit契約の**実行時5条件**（R-138 / R-148）— 単体60秒未満、stage-1 clean run rc=0/3のみかつrc=0時`[FAIL]`非出力、force-fail probeでrc=1 + `PG_EXTRA_CONTRACT_PROBE_FIRED:ta-62-durable-run`（独自`exit`禁止）、汚染env下rc=0、prerequisite未充足は`pg_extra_contract_skip`経由rc=3
+  - checkpoint: `ta-62`は`tests/run-tests.sh`を実行しない（R-139）。TC-40/TC-41/TC-42はmapping保持のみで実行主体はVerification Plan（R-143）
+  - checkpoint: sentinelは専用カウンタ`_t62_fail`でgateし、共有`fail`へは自身の失敗のみ加算（R-140）
+  - checkpoint: 書き込み系Git fixture構築とenv受け渡し、fixture依存subcase件数下限のassert（R-142）。plugin parityは`ta-26` sandboxパターンで実`plugin/`非破壊（R-143）
+  - checkpoint: standalone/source両対応、isolated direct test実行、unit TC 42 + gh_exec boundary 4 exact method + shell TC 4 mapping、最低46 tests、fault 76/rollback 14、exact sentinel 1回、敵対Python/Git case、正規sync後plugin差分0、plugin direct operational `unsupported_runtime_layout`を確認
   - rollback: ta-62 / sync allowlist / plugin生成差分を同時revert
 - [ ] T-21 GREEN unit/adversarial evidence
   - Owner: agent
@@ -160,7 +165,7 @@
   - Owner: agent
   - depends_on: [T-21]
   - files: `docs/working/TASK-1025/evidence/verification/ai-loop-regression.log`
-  - checkpoint: delivery / run_evidence / check_exec_boundary 0 failures
+  - checkpoint: delivery / run_evidence / check_exec_boundary 0 failures、および`python3 scripts/ai-loop/check_exec_boundary.py`（ta-57と同じcorpus scan経路）exit 0 / `clean`（R-142）
   - rollback: evidenceのみrevert
 - [ ] T-24 boundary / refs / approval tree / diff evidence
   - Owner: agent
@@ -172,7 +177,7 @@
   - Owner: checker
   - depends_on: [T-24]
   - files: `docs/working/TASK-1025/review-external.md`, `docs/working/TASK-1025/status.md`
-  - checkpoint: R-001〜R-007 / R-101〜R-131 / N-001〜N-004の全findingがdiff+testへ紐付き、critical/major 0
+  - checkpoint: R-001〜R-007 / R-101〜R-149 / N-001〜N-004の全findingがdiff+testへ紐付き、critical/major 0（R-141はOut of Scope宣言 + follow-up issue起票がHuman側で完了していること）
   - rollback: 監査記録はappend訂正し履歴を消さない
 - [ ] T-26 evidence / handoff / Draft PR整備
   - Owner: agent

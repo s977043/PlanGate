@@ -4,7 +4,7 @@ Last updated: 2026-08-12 02:05
 
 ## Current Phase
 
-`BLOCKED_ON_C2_ROUND9 / C-1_ROUND9_PASS / C-2_ROUND8_SUPERSEDED`
+`BLOCKED_ON_C2_ROUND10 / C-1_ROUND10_PASS / C-2_ROUND9_REJECT_ADDRESSED`
 
 コード実装、C-3、C-4、mergeは未実施。
 
@@ -39,7 +39,11 @@ Last updated: 2026-08-12 02:05
 | C-4 / base drift review | conditional / addressed | 2026-08-12 独立レーン。R-135（#1046 extras 共有 exit 契約 未対応）/ R-136（ta-61 番号占有）/ R-137（EH-13 token-guard）|
 | R-135〜R-137 反映 | done | ta-62 へ改名・契約準拠・Runtime Guard Constraints・Replan Trigger 2 件・前提表再実測 |
 | C-1 Round 9（簡易） | PASS | Plan `8b0a5018aa…449c55` / 改名残存 0・traceability 46-46 非退行 |
-| **C-2 Round 9** | **未実施** | plan hash 変更で Round 8 APPROVE は supersede。live `C2-VERDICT:` 不在＝fail-closed |
+| C-2 Round 9 | reject / addressed | 2026-08-12 2 lane（design / codebase）。critical 0 / major 6 / minor 6。R-138〜R-149 |
+| R-138〜R-149 反映 | done | `ta-62` 実行時契約 5 条件 / 再帰回避（run-tests.sh 非実行）/ 専用カウンタ `_t62_fail` / R-141 は Out of Scope 宣言 (b) / 書き込み系 Git fixture の shell 層責務分割 / TC-40・41・42 の実行主体を Verification Plan へ / minor 6 件 |
+| C-1 Round 10（簡易） | PASS | Plan `44361114b3…e9d3ce` / TC 46・unit 42・T 26・fault 76・rollback 14 非退行 / golden vector 4→5 |
+| **C-2 Round 10** | **未実施** | plan hash 変更で Round 9 の判定は supersede。live `C2-VERDICT:` 不在＝fail-closed |
+| **R-141 follow-up issue** | **未起票** | `phase` / `current_node` / `last_error` / `approval_session_lost` / `external_wait_resumed` の v2 取り込み。Human 起票待ち |
 
 ## Scope Snapshot
 
@@ -72,3 +76,6 @@ C-2 Round 1〜4およびRound 7の全findingをHuman選択AのHO不変更境界�
 | 2026-08-12 01:40 | plan-revision | R-135〜R-137 を 1 回確定反映 |
 | 2026-08-12 01:55 | C-1 | Round 9（簡易）PASS |
 | 2026-08-12 02:00 | C-2 | Round 8 APPROVE を Historical へ降格（supersede）。Round 9 待ち |
+| 2026-08-12 11:30 | C-2 | Round 9（design / codebase 2 lane）**reject**。major 6 / minor 6 を R-138〜R-149 として集約 |
+| 2026-08-12 11:50 | plan-revision | R-138〜R-149 を 1 回確定反映（`Refs: R-138 … R-149`） |
+| 2026-08-12 12:00 | C-1 | Round 10（簡易）PASS。Plan `44361114b3…e9d3ce` |

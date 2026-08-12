@@ -399,3 +399,137 @@ Historical C-4 base-drift verdict: conditional plan=sha256:c864c06ab1b52b68a2987
 3. **maker-context 非共有の design / codebase 2 lane で C-2 Round 9 を実行し、critical/major 0 にする**（**未実施**）。
 
 > **重要**: 本追補により Round 8 の C-2 APPROVE は対象 Plan hash が変わって失効した。したがって `C2-VERDICT:` の live マーカーは**意図的に存在しない**（`plan_package.check_evidence` は「完全一致 0 回」で fail-closed になる）。これは異常ではなく、**C-2 Round 9 未実施を機械可読に表現した状態**である。Round 9 approve 前に production 変更と C-3 へ進まない。
+
+---
+
+# C-2 Round 9（R-135〜R-137 反映後 / 2 lane）
+
+> レビュー日: 2026-08-12
+> 対象 Plan SHA-256: `sha256:8b0a5018aacb1008d83615c725a1107c627d7e44521d29854dc2445b3d449c55`
+> Lane A: 設計妥当性（plan / todo / test-cases / pbi-input・maker-context 非共有） — **reject**（critical 0 / major 4 / minor 3）
+> Lane B: コードベース整合（既存パターン該当箇所） — **reject**（critical 0 / major 3 / minor 4）
+> 統合: **reject**（critical 0 / major 6 / minor 6）。production 変更および C-3 移行を継続停止した。
+
+Historical C-2 Round 9 verdict: reject plan=sha256:8b0a5018aacb1008d83615c725a1107c627d7e44521d29854dc2445b3d449c55
+
+## 両レーンが「問題なし」と確認した項目（指摘なしを明示記録）
+
+| 検証 | 方法 | 結果 |
+|---|---|---|
+| AC↔TC 網羅 | レンジ展開して集合演算（レビュアーが独自に再計数） | AC-01〜10 全件 / 定義 46 = 被覆 46 / orphan 0 |
+| `_pending_migration()` へ `ta-62` を追加しない判断 | `ta-61` TC-25 の "already-migrated file still listed" 経路 | 正しく、かつ機械的に強制される |
+| R-136 の改名 | `ta-61\|TA-61` 残存の内訳確認 | 横断的に完了（残存 5 件はすべて `extra-contract` 文脈か履歴行） |
+| R-137 の EH-13 記述 | `_is_token_path` / `_has_write_intent` 実装との突合 | 正確 |
+| 承認権限 | issue Non-goals との突合 | 増やしていない |
+| `ta-62` の番号 | `ta-04`〜`ta-61` の使用状況・リポジトリ全体の参照 | 空き（参照 0 件） |
+| HO 境界 | 9 カテゴリ / carve-out / `mode: critical` / `lite_eligible: false` | 判定は妥当 |
+| `delivery.py` の独立実装 | `append_entries` が plain append（fsync / atomic replace なし） | 耐久性要件を満たさないため独立実装は妥当 |
+
+## Round 9 findings
+
+### R-138 — major（両レーン一致） — #1046 契約の「実行時半分」が Plan に未反映
+
+- lane: 設計妥当性 + コードベース整合
+- evidence: R-135 で反映した準拠条件（marker 1 個 / basename 一致 init / rc layer / 末尾 finalize）は `ta-61` の **TC-09 / TC-10（静的 grep）にしか対応しない**。`tests/extras/ta-61-extra-contract.sh:282-355` の per-file 実行ループは covered な standalone-capable ファイルを **1 ファイルにつき 3 回実行**し、(1) stage-1 clean run の rc が **0 か 3 のみ**（`:315-353` / それ以外は fail-closed で FAIL）、(2) **180 秒 timeout・timeout は SKIP でなく FAIL**（`:58-63`, `:311-314`）、(3) rc=0 の run が `[FAIL]` を出力しない（`:319-321`）、(4) force-fail probe で rc=1 かつ `PG_EXTRA_CONTRACT_PROBE_FIRED:ta-62-durable-run` を出力（`:325-330`）、(5) 汚染 env（`PG_HARNESS_SOURCED=1` + 全 guarded env に junk）でも rc=0（`:332-338`）を要求する。Plan / TODO / test-cases にこの 5 要求は一言も無い。
+- impact: `ta-62` は 46+ tests / fault injection 76 subcase / rollback 14 subcase / `git worktree add` を伴う TC-43 / 2-writer 並行の TC-21 を含む重量スイートであり、これが **3 回 × 180 秒枠**で走る。予算・probe 伝播・skip 経路が未定義のまま exec すると CI レッドになる。
+- required: Global Constraints へ (a) `ta-62` 単体の実行時間予算（整合レーン提示: **60 秒未満**を目安）、(b) clean run が `[FAIL]` を出さないこと、(c) probe 差分が rc=1 へ伝播すること（＝独自 `exit` 禁止・共有 `fail` カウンタ経由）、(d) prerequisite 未充足（`/usr/bin/python3` 不在等）は必ず `pg_extra_contract_skip` 経由で rc=3（`:341-349` が診断なしの rc=3 を FAIL にする）を明記する。Replan Trigger の TC 列挙を `TC-09/TC-10/TC-20` → `TC-09/TC-10/TC-12/TC-13/TC-15/TC-17/TC-20/TC-25(3)` へ拡張する。
+- disposition in revised Plan: Global Constraints に `ta-62` 実行時契約 4 項目を追加、Replan Trigger の TC 列挙を拡張し実行時間予算超過を追加、TODO T-20 checkpoint と test-cases TC-39 / TC-40 へ反映。R-148 を本 finding に統合。
+
+### R-139 — major（両レーン一致） — 無限再帰。`PG_T62_NO_RECURSE` が存在しない
+
+- lane: 設計妥当性 + コードベース整合（オーガナイザーが実物で裏取り）
+- evidence: `ta-61` の nested full-suite（`:766` / `:792` / `:800`）は `PG_T61_NO_RECURSE=1` を渡すが、**per-file 実行ループ（`:310` / `:327` / `:334`）は再帰ガードを渡さない**。Plan `:125` の「`tests/run-tests.sh` 経由でも同 sentinel が 1 回到達しなければ FAIL」を「`ta-62` が `run-tests.sh` を実行する」と読むと `run-tests.sh → ta-61 → per-file ループが ta-62 を standalone 実行（ガードなし）→ ta-62 が run-tests.sh を実行 → …` で無限再帰し、180 秒 timeout で切れて TC-12 が FAIL する。実測: `PG_T61_NO_RECURSE=1 sh tests/run-tests.sh` = **255 秒 / 644 passed**（ガードで重い子を skip した下限値）であり、`ta-62` が suite を起動すれば単体で 180s 超は確実。
+- required: (a) 推奨 = `ta-62` は `run-tests.sh` を実行しない（mapping と sentinel 出力のみ）と 1 行で明記し、**TC-40 の実行主体を Verification Plan の Full suite 行へ一本化**する（`ta-61:781-783,806-807` の「harness 実行時は囲っている run 自体が TC-14 の証拠」という既存の割り切りの踏襲）。(b) 実行させるなら `PG_T62_NO_RECURSE` を導入（`run-tests.sh:20` の unset 7 変数に含まれないため子へ伝播する）+ `pg_extra_contract_is_standalone` による二重ガード。
+- disposition in revised Plan: **(a) を採用**。Global Constraints へ「`ta-62` は `tests/run-tests.sh` を実行しない」を明記し、`SHELL_COVERAGE_MANIFEST` の TC-40 を「実行主体 = Verification Plan Full suite 行 / `ta-62` は mapping 保持のみ」へ変更。test-cases TC-39 / TC-40 と TODO T-20 も同期。
+
+### R-140 — major（設計妥当性レーン） — sentinel が共有 `fail` カウンタに依存し実行順序で非決定になる
+
+- lane: 設計妥当性
+- evidence: `tests/run-tests.sh:26-27` の `pass` / `fail` は全 extras 共有のグローバル集計カウンタで、`_extra-contract.sh` の harness パスはこれをそのまま使う（`pg_extra_contract_finalize` は harness では `return 0` して runner に委ねる）。Plan は「成功時だけ sentinel を出す」と要求するが `ta-62` ローカルの成否カウンタを定義していない。素直に `[ "$fail" -eq 0 ]` で判定すると、`ta-62` より前に source された無関係な extras の失敗で sentinel が抑止され、TC-40（ちょうど 1 回）が実行順序依存で非決定になる。
+- impact: #1046 が封じようとした「静かに通る／静かに落ちる」の再導入。
+- required: Global Constraints へ「`ta-62` は自身の判定に専用カウンタ（例 `_t62_fail`）を用い、sentinel はそれで gate する。共有 `fail` へは自身の失敗のみ加算する」を明記する。
+- disposition in revised Plan: Global Constraints へ専用カウンタ契約を追加、TODO T-20 checkpoint と test-cases TC-39 へ反映。
+
+### R-141 — major（設計妥当性レーン） — issue #1025 Scope の一部が Plan Package 全体で 0 件
+
+- lane: 設計妥当性
+- evidence: 各ファイル grep 実測 0 件。`phase` / `current_node`（Scope 1・state の永続フィールド）、`last_error`（Scope 1・観測事実と原因仮説を分離）、`approval_session_lost`（Scope 4）、`external_wait_resumed`（Scope 4）が plan / todo / test-cases / pbi-input のいずれにも出現せず、Out of Scope 宣言も無い。AC-01〜10 は「Durable Run State の完全性」を語るが、**state の永続フィールド集合そのものを一度も列挙していない**（`run--<RUN_ID>--state.json` の存在は書くがスキーマを書かない）。AC↔TC の orphan ではなく **issue 要求↔AC の orphan**。とくに `last_error` の「観測事実と原因仮説の分離」は issue が明示的に括弧書きした設計要求で、後付けが難しい構造要件。
+- 注記: Round 9 の追補が持ち込んだものではなく **pbi-input 起点の既存ギャップ**で、Round 1〜8 の C-2 でも検出されていない。`plan_hash` が失効している今が是正の適時。
+- required: (a) Global Constraints に state.json の必須フィールド集合を列挙し Incident Evidence 5 event の語彙を固定して AC-06 または新 TC に紐付ける、または (b) v1 では扱わないと Out of Scope に明記し follow-up issue を起票する。「触れない」は不可。
+- disposition in revised Plan: **(b) を採用**。Scope / Out of Scope に 4 項目を名指しで追加し、`last_error` の retrofit 困難性と follow-up issue 起票が必須である旨を明記。**follow-up issue はまだ未起票**（Human 判断待ち）。
+
+### R-142 — major（コードベース整合レーン） — TC-43 / TC-33 負側が `check_exec_boundary.py` の test 規約で実装不能
+
+- lane: コードベース整合（設計妥当性レーンでは出せない指摘）
+- evidence: `scripts/ai-loop/check_exec_boundary.py` は `test_*.py` の `subprocess` について argv 先頭が `sys.executable` か リテラル `"git"` + 読み取り専用サブコマンド 7 種（`status` / `rev-parse` / `diff` / `log` / `merge-base` / `ls-remote` / `show`、`:156`）のみ許可し、絶対パス（`"/usr/bin/git"`）は `CODE_ARGV_HEAD`、変数経由は `CODE_ARGV_UNRESOLVED` で fail-closed。`GRANDFATHER_ARGV_EXCEPTIONS`（`:169`）は「1 件から増やさない」と明記（`:275`）。TC-43 の `git init` / `add` / `commit` / `worktree add --detach` はすべて allowlist 外、TC-33 の「root-owned `/usr/bin/python3 -I -S -B` 以外で起動する」負側も argv[0] が `sys.executable` でないため同じく violation。検査は `base.glob("*.py")`（`:1142`）で `scripts/ai-loop/` 全 .py が自動対象、強制点は `tests/extras/ta-57-pr-convergence.sh:80` の corpus scan（exit 0 必須）。Plan の Regression 行が回す `test_check_exec_boundary.py` は**検査器自身のテストであり corpus scan ではない**。既存 ai-loop テストで実 Git repo を作っているものは 0 件（全て `git status/show/diff` かスパイ）。回避のため `check_exec_boundary.py` を触ると `plan.md:362` の Replan Trigger が発火する。
+- required: 書き込み系 Git fixture を `ta-62`（シェル層・boundary scan の対象外）で構築し、Python 側は生成済み repo に対する読み取り＋`sys.executable` 経由の CLI 起動だけにする責務分割を Work Breakdown へ明記する。あわせて Verification Plan へ `python3 scripts/ai-loop/check_exec_boundary.py` exit 0（ta-57 経路）を**独立行**として追加する。
+- disposition in revised Plan: Global Constraints へ責務分割契約と fixture env 受け渡し（`PG_T62_GIT_FIXTURE_ROOT` / `PG_T62_LINKED_WORKTREE`）を追加、Task 1 / Task 4 step と TODO T-07 / T-20 を更新、Verification Plan へ boundary corpus scan 行を独立追加、test-cases TC-33 / TC-43 / TC-39 を更新。
+
+### R-143 — major（コードベース整合レーン） — `ta-62` がリポジトリ全体状態に依存する assertion を内包している
+
+- lane: コードベース整合
+- evidence: `plan.md:124` は `SHELL_COVERAGE_MANIFEST` に TC-41 / TC-42 を含める。`git diff --check`（TC-42）を `ta-62` 内で実行すると無関係な作業ツリーの空白エラーで `ta-62` が rc=1 → `ta-61:352` の「rc が 0 でも 3 でもない」で fail-closed → full suite 赤になる。TC-41（delivery / run_evidence regression）も `ta-62` が 3 回実行される前提では純粋な重複コスト。plugin sync を実リポジトリに対して走らせる場合の既存パターンは `ta-26` の sandbox 構築（`ta-26:95-99` / #861「実リポジトリ非破壊化」）か `ta-54` の `plugin/plangate` バックアップ（`ta-54:39-44`）だが、Plan はどちらに従うか書いていない。
+- required: TC-41 / TC-42 は Verification Plan（PR 単位の実行）に残し `ta-62` の in-file 実行からは外す。plugin parity を `ta-62` で見るなら `ta-26` / `ta-54` のどちらの非破壊パターンを踏襲するか明記する。
+- disposition in revised Plan: `SHELL_COVERAGE_MANIFEST` を「実行主体」列付きへ変更し TC-40 / TC-41 / TC-42 を Verification Plan 実行・`ta-62` は mapping 保持のみへ変更（coverage の orphan を作らない）。plugin parity は **`ta-26` の sandbox パターン踏襲**を Global Constraints と Task 4 へ明記。
+
+### R-144 — minor — `plan.md:307` の Boundary 行本体が未修正
+
+- evidence: EH-13 回避策は `:348-353` の新設節（Runtime Guard Constraints）にしかなく、Verification Plan の表だけを見た実装者は block される。
+- required: Boundary 行に「§Runtime Guard Constraints 参照」の相互参照を 1 語入れる。
+- disposition in revised Plan: Verification Plan の Boundary 行へ相互参照を追加。
+
+### R-145 — minor — `ta-26` TC-33 の静的要件が準拠条件に入っていない
+
+- evidence: `FIXTURES_DIR:-` を含む extras は自ファイル内に `run-tests.sh` と同一の 7 env unset 行を持つことが**静的に**要求される（helper が unset していても静的検査のため冗長行が必須。`ta-61:34-39` が実例）。
+- required: `plan.md:86` の準拠条件へ追記する。
+- disposition in revised Plan: Global Constraints の `ta-62` 準拠条件へ 7 env unset 行を追加、TODO T-20 checkpoint へ反映。
+
+### R-146 — minor — init 呼び出しの行頭必須と harness 実行時の `$0` 差
+
+- evidence: `ta-61:239` の `grep -E '^pg_extra_contract_init[[:space:]]'` により init 呼び出しは行頭（インデント無し）必須。かつ harness 実行では `$0` が `run-tests.sh` なので `dirname $0` では helper に到達しない。
+- required: preamble（`PG_HARNESS_SOURCED` / `FIXTURES_DIR` / `EXTRAS_DIR` の 3 条件 AND による mode 判定 + `EXTRAS_DIR` 分岐）を `ta-62` の必須要素として明記する。
+- disposition in revised Plan: Global Constraints の準拠条件へ preamble 契約と行頭 init を追加。
+
+### R-147 — minor — canonical hash の `ensure_ascii` が契約に無い
+
+- evidence: `c3_contract.canonical_hash`（`scripts/ai-loop/c3_contract.py:71-74`）は `json.dumps(..., sort_keys=True, separators=(",", ":"))` で `ensure_ascii` 既定 `True` だが、`plan.md:92` に明示が無い。`instructions_ref` は日本語パスやアンカーが入りうるのに golden vector 4 本は全 ASCII なので、実装が `ensure_ascii=False` でも TC-44 parity が空振りする。
+- required: 契約に `ensure_ascii=True` を明記し、非 ASCII を含む golden vector を 1 本追加する。
+- disposition in revised Plan: Canonical ID Contract に `ensure_ascii=True` を明記し、非 ASCII `instructions_ref` の 5 本目 golden vector を追加（実測: `ensure_ascii=True` → `sha256:229416de…` / `ensure_ascii=False` → `sha256:20c5bd76…` で差が出る＝空振りしない）。golden vector 件数を 4 → 5 へ横断更新。
+
+### R-148 — minor — `/usr/bin/python3` 不在時の rc=3 経路が未定義
+
+- evidence: `ta-61:341-349` は診断なしの rc=3 を「forbidden route」として FAIL にする。
+- required: prerequisite 未充足は必ず `pg_extra_contract_skip` 経由で rc=3 にする。
+- disposition in revised Plan: **R-138 の是正へ統合**（Global Constraints の `ta-62` 実行時契約 (d)）。
+
+### R-149 — minor — `review-self.md:123` の自己申告が自ファイルで反証されている
+
+- evidence: 「`ta-61|TA-61` の残存 0（extra-contract 文脈を除く）」に対し、同ファイル `:39` に「fault 76 の ta-61 exact sentinel」が残っている。append-only の履歴行なので実害は小さいが、自己申告が自ファイルで反証されている。
+- required: 除外条件を「extra-contract 文脈および Round 8 以前の履歴行を除く」と正確化する。
+- disposition in revised Plan: `review-self.md` の Round 10 節で除外条件を正確化して再申告（Round 9 節の既存記述は append-only のため書き換えない）。
+
+## Round 10 entry conditions
+
+1. R-138〜R-149 を Plan / TODO / test-cases / status へ 1 回で確定反映する（**本コミットで反映済み**）。
+2. 新 Plan hash で簡易 C-1（Round 10）を再実行する（**本コミットで実行済み**）。
+3. maker-context 非共有の design / codebase 2 lane で C-2 Round 10 を実行し、critical / major 0 にする（**未実施**）。
+4. R-141 の follow-up issue（`phase` / `current_node` / `last_error` / `approval_session_lost` / `external_wait_resumed` の v2 取り込み）を Human が起票する（**未起票**）。
+
+Round 10 approve 前に production 変更と C-3 へ進まない。live `C2-VERDICT:` マーカーは引き続き**意図的に不在**（fail-closed）。
+
+## 監査表（追記専用）
+
+| R-NNN | severity | lane | status | reflected_in(commit) | notes |
+|---|---|---|---|---|---|
+| R-138 | major | 両レーン | reflected | 本コミット | `ta-62` 実行時契約 4 項目 + Replan Trigger TC 列挙拡張。R-148 を統合 |
+| R-139 | major | 両レーン | reflected | 本コミット | 選択肢 (a) 採用: `ta-62` は `run-tests.sh` を実行しない |
+| R-140 | major | 設計 | reflected | 本コミット | 専用カウンタ `_t62_fail` で sentinel を gate |
+| R-141 | major | 設計 | reflected (b) | 本コミット | Out of Scope へ明記。**follow-up issue は未起票**（Human 判断） |
+| R-142 | major | 整合 | reflected | 本コミット | 書き込み系 Git fixture を shell 層へ責務分割 + boundary corpus scan 行追加 |
+| R-143 | major | 整合 | reflected | 本コミット | TC-41 / TC-42 を `ta-62` in-file 実行から除外。plugin parity は `ta-26` パターン |
+| R-144 | minor | 設計 | reflected | 本コミット | Boundary 行に相互参照 |
+| R-145 | minor | 整合 | reflected | 本コミット | 7 env unset 行を準拠条件へ |
+| R-146 | minor | 整合 | reflected | 本コミット | 行頭 init + preamble 契約 |
+| R-147 | minor | 整合 | reflected | 本コミット | `ensure_ascii=True` 明記 + 非 ASCII golden vector 追加（4 → 5 本） |
+| R-148 | minor | 整合 | merged into R-138 | 本コミット | prerequisite 未充足は `pg_extra_contract_skip` 経由 rc=3 |
+| R-149 | minor | 設計 | reflected | 本コミット | `review-self.md` Round 10 で除外条件を正確化 |
