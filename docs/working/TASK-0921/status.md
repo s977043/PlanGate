@@ -273,3 +273,20 @@
 |---|---|---|---|
 | HJ-1 / HJ-3 の CI 変更適用 | `.github/workflows/**` は HO 対象 | human | 上記 patch の採否判断と適用 |
 | worktree での `doctor --check-settings` | worktree に untracked settings が複製されない（環境事由。本体 checkout は PASS 実測済み） | human/環境 | 本体 checkout で運用（対処不要の認識で可） |
+
+## Slice 2 サブスライス 3 分割設計（2026-08-12 15:10）
+
+**D-5 Human 裁定（2026-08-12 / issue #921 05:49 コメント）**: Slice 2（46 ファイル）は**サブスライス 3 分割**（1 本 13-15 ファイル = high-risk 帯・C-3 サブスライスごと発行）。critical 一括は不採用。
+
+- 分割設計書: [`slice2-split.md`](./slice2-split.md)（plan.md 本体は不変）
+- 実ファイル再列挙（origin/main `6089e23`）: `ta-*.sh` 58 本 = plan 時点 57 + **ta-61（Slice 1 帰属の contract TA）のみ増**。ta-61 `_pending_migration` = 45 行 = 層 B 36 + 層 C 5 + 層 0 4 と完全一致。**Slice 2 対象に増減なし**。ta-62 以降は存在しない
+- 割当: **SS-2-1** = 層 B 前半 15 / **SS-2-2** = 層 B 後半 15（ta-31 の `|| true` ×4 を固有リスクとして明記）/ **SS-2-3** = 層 B 残 6 + 層 C 5 + 層 0 4 + ta-61 allowlist 関数削除 + TASK-0914 handoff writeback
+- **依存**: 全サブスライス exec は **TASK-1044 の C-3 決着が前提**（bootstrap 述語 = 現行形 / Mode resolution v2 のどちらを複製するかが依存。複製元は各 exec 開始時に main 実体から再実測）
+
+### BLOCKED（Slice 2 追加）
+
+| タスク | blocker | owner | unblock_condition |
+|---|---|---|---|
+| SS-2-1〜2-3 exec 開始 | TASK-1044 C-3 未決着（複製すべき bootstrap 述語が未確定） | human | TASK-1044 の C-3 発行（APPROVE の場合はその merge 後） |
+| 管理方式の確定（G-1） | plan L338 は「Slice 1 完了時に判断」と Human に留保・D-5 裁定も未指定 | human | 案 A（同一 TASK 内）/ 案 B（新 TASK ×3）の選択（slice2-split.md §4） |
+| 分割案の承認（G-3）/ Mode 算入方針（G-2） | サブスライスごとの C-3 発行が裁定要件 | human | slice2-split.md §5 の裁定 |
