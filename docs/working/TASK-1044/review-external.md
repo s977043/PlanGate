@@ -531,13 +531,13 @@ REJECT 理由には数えていない**。**設計レーンは high-risk 維持�
 
 | R-NNN | severity | lane | status | reflected_in(commit) | notes |
 |---|---|---|---|---|---|
-| R-014 | major | 整合 | reflected | （本 commit） | 規約 3 を「部分集合」へ + 走査母数 12 の動的導出 + `tc26-file1` 側へ置く注記 |
-| R-015 | major | 設計 | reflected | （本 commit） | 分母定義を 15 で書き切る（例外規定を作らない）+ Q-3 を 2 軸へ拡張 |
-| R-016 | minor | 設計 | reflected | （本 commit） | AC-9 に「本 PBI handoff の未塞ぎ 5 本の行」を追加 + TC-38 を 2 点へ |
-| R-017 | minor | 整合 | reflected | （本 commit） | superseded を 14 本 / 再走 4 本へ精密化 + L43・L119 参照 + T-11b 新設 |
-| R-018 | minor | 整合 | reflected | （本 commit） | M-4 期待値を TC-01c のみへ訂正 + **M-4b 新設**（TC-01b kill） |
-| R-019 | minor | 整合 | reflected | （本 commit） | Q-3 に安全側の向きの両論を併記（最終判定は暫定 high-risk のまま） |
-| R-020 | info | 設計 | reflected | （本 commit） | T-06 / Files 節に「追記のみ・既存文言を編集しない」（ta-26 TC-30 の 4 語 grep） |
+| R-014 | major | 整合 | reflected | `8e861af` | 規約 3 を「部分集合」へ + 走査母数 12 の動的導出 + `tc26-file1` 側へ置く注記 |
+| R-015 | major | 設計 | reflected | `8e861af` | 分母定義を 15 で書き切る（例外規定を作らない）+ Q-3 を 2 軸へ拡張 |
+| R-016 | minor | 設計 | reflected | `8e861af` | AC-9 に「本 PBI handoff の未塞ぎ 5 本の行」を追加 + TC-38 を 2 点へ |
+| R-017 | minor | 整合 | reflected | `8e861af` | superseded を 14 本 / 再走 4 本へ精密化 + L43・L119 参照 + T-11b 新設 |
+| R-018 | minor | 整合 | reflected | `8e861af` | M-4 期待値を TC-01c のみへ訂正 + **M-4b 新設**（TC-01b kill） |
+| R-019 | minor | 整合 | reflected | `8e861af` | Q-3 に安全側の向きの両論を併記（最終判定は暫定 high-risk のまま） |
+| R-020 | info | 設計 | reflected | `8e861af` | T-06 / Files 節に「追記のみ・既存文言を編集しない」（ta-26 TC-30 の 4 語 grep） |
 
 > `reflected_in` は本 Round 2 反映 commit。squash / rebase で SHA が変わった場合は
 > commit message 末尾の `Refs: R-014 … R-020` が二次証跡になる。
