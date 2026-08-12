@@ -21,43 +21,138 @@
       （owner: agent / depends_on: T-02 / rollback: ta-61 の追加 TC hunk を revert） 🚩
 - [ ] T-04: helper `_pg_extra_resolve_mode` を**変数消費形**（`${_pg_extra_direct:-1}` を
       消費・関数内で `$0` を再評価しない / F-1）へ変更 + F-3 明示検査
-      （init 前 finalize → stderr 診断 + exit 4）+ ヘッダコメント正本参照の更新
+      （init 前 finalize → stderr 診断 + exit 4）+ ヘッダコメント正本参照の更新。
+      **F-3 検査の挿入位置は `_PG_EXTRA_ORIGINAL_RC=$?`（現 `_extra-contract.sh:116`）の
+      直後で固定**（前に入れると `[ -z … ]` が `$?` を潰し rc 伝播 TC-06 が壊れる / R-011）
       （owner: agent / depends_on: T-03 / rollback: `_extra-contract.sh` の当該 hunk revert） 🚩
-- [ ] T-05: bootstrap 14 箇所（層 A 12 + ta-61 本体 + ta-61 fixture 複製）を
+- [ ] T-05: bootstrap の全対象を（**base の marker は 12 出現 / 12 ファイル = 層 A のみ。
+      ta-61 本体 `:15` と fixture 複製 `:745` は marker を持たないため
+      **marker 行ごと置換して照合網へ載せる** → 適用後 **14 出現 / 13 ファイル**。
+      件数は契約値でない — AC-4 は **marker の出現**から導出し、**ファイル単位ループに
+      しない**（ta-61 は 1 ファイル 2 出現）/ R-024）
       Mode resolution v2 ブロックへ同型置換。**T-04 と同一 commit**（述語分裂の中間状態禁止）
       （owner: agent / depends_on: T-04 / rollback: `git checkout origin/main -- tests/extras/` 後に T-03 の TC を再適用） 🚩
-- [ ] T-06: 述語機械照合 TC-35 を ta-61 へ**新設**（bootstrap 2 行 × 14 箇所・行頭空白
-      正規化 + helper 変数消費形の分離照合）+ TC-32（init 前 finalize → exit 4 + 診断）追加
-      + harness 模擬 fixture（tc01.sh 等）へ `_pg_extra_direct=0` 明示設定
-      （owner: agent / depends_on: T-05 / rollback: ta-61 の当該 hunk revert）
+- [ ] T-06: 述語機械照合 TC-35 を ta-61 へ**新設**（bootstrap 2 行 × **marker 由来の
+      動的導出**リスト・行頭空白正規化・**絶対件数を assert しない** + helper 変数消費形の
+      分離照合 / R-005）+ TC-32（init 前 finalize → exit 4 + 診断）追加
+      + **helper を直接 source する全 fixture（`. "$T61_HELPER"` 由来で動的導出・
+      本 PR 時点の実測 12 本）へ `_pg_extra_direct=0` を明示設定**
+      （`tc01` / `tc01b` / `tc02` / `tc03` / `tc04` / `tc06` / `tc07` / `tc08` / `tcskip` /
+      `tc21` / `tc23` / `tc26-file1`。うち**挙動が変わるのは `tc01.sh` `:383` /
+      `tc01b.sh` `:410` / `tc21.sh` `:582` / `tc26-file1.sh` `:621` の部分集合**。
+      harness 模擬だけでなく **standalone 期待の `tc01b.sh` にも入れる** — 入れないと
+      TC-01b/01c が空振り PASS 化し HR-4 の検出力が消える / R-001・R-002。
+      **`tc26` は TC-37 が検査する `tc26-file1.sh` 側に置く**（runner 側だけだと
+      未設定判定になる / R-014））+ **TC-37 新設**（AC-8: `_pg_extra_direct` 未設定
+      fixture = 0 件の静的検査。**走査母数は動的導出し件数を assert しない** / R-014）
+      + **TC-30b 追加**（`_pg_extra_direct=0` を export しても
+      層 A は standalone = 無条件代入の pin / R-008）。
+      **TC-35 は marker の各出現（`file:line`）を走査する実装にする** — ファイル単位
+      ループだと ta-61 の 2 つ目の出現（fixture 複製）が照合網から外れ、旧述語が
+      残っても緑になる（R-024）+ **`tests/extras/README.md` 規約 8 へ
+      1 行追記**（トップレベル設定必須 / R-012・Q-2 決着。**追記のみ・既存文言を編集しない**
+      — `ta-26` TC-30 が README に対し `PG_HARNESS_SOURCED` / `非 export` / `AND` /
+      `standalone 側（安全側）` の 4 語を静的 grep しているため / R-020）
+      （owner: agent / depends_on: T-05 / rollback: ta-61 と README の当該 hunk revert）
 
 ### 検証
 
-- [ ] T-07: green 確認 — TC-30/31/32 PASS + ta-61 全 TC PASS + フルスイート rc=0 +
-      層 A 12 本の清浄 env standalone 実行（AC-3 / AC-7）
+- [ ] T-07: green 確認 — TC-30/30b/31/32/35/37 PASS + ta-61 全 TC PASS + フルスイート rc=0 +
+      **marker を含む `tests/extras/ta-*.sh` 全件 − contract TA 自身**（動的導出・件数 assert なし。本 PR 時点の実測 12 ファイル / R-030・R-032） の清浄 env standalone 実行
+      （**ta-61 自身は除外**。含めると入れ子フルスイート再走で再帰し、回避しても
+      per-file `timeout 180` を超過して FAIL 扱いになる / R-032）（AC-3 / AC-7 / AC-8）
       （owner: agent / depends_on: T-06 / rollback: 不要（読取のみ）） 🚩
 - [ ] T-08: 変異注入（AC-5 (b)）— (a) M-1: case 行（call site）除去変異で TC-30/31 が
       dash で FAIL（kill）、(b) M-2: helper を変数消費から独自判定へ退行させる変異で
       TC-31 が **zsh を含めて** FAIL（zsh FUNCTION_ARGZERO 問題の恒久検出 / F-1）、
-      (c) M-3: F-3 検査除去変異で TC-32 が FAIL。ログを `evidence/test-runs/mutation-*.log` へ
+      (c) M-3: F-3 検査除去変異で TC-32 が FAIL、
+      **(d) M-4（新規 / R-001）: helper の 3 env 述語を `PG_HARNESS_SOURCED` 単独へ
+      退行させる変異で TC-01c が FAIL（kill・rc=65）**（**TC-01b は判別子が
+      `PG_HARNESS_SOURCED=0` のため M-4 では原理的にヒットしない** / R-018）、
+      **(e) M-4b（新規 / R-018）: `PG_HARNESS_SOURCED` 条件を落とし
+      `FIXTURES_DIR && EXTRAS_DIR` のみへ退行させる変異で TC-01b が FAIL（kill）** —
+      fixture 更新前はこれらの変異が生存する（＝ HR-4 検出力喪失の証明）ため、
+      T-06 の fixture 更新と対で実施する。ログを `evidence/test-runs/mutation-*.log` へ
       （owner: agent / depends_on: T-07 / rollback: 変異は sandbox 複製上でのみ実施し本体に触れない） 🚩
-- [ ] T-09: 4 シェル最終マトリクス（dash/zsh/bash/sh × 実測 1/2 シナリオ）実測 → AC-1/AC-2 evidence
+- [ ] T-09: 4 シェル最終マトリクス（dash/zsh/bash/sh × 実測 1/2 シナリオ）実測 →
+      AC-1 / AC-2a〜2d evidence。**各シェルの実体と測定ホストを併記**
+      （`ls -l /bin/sh` / `$BASH_VERSION` / `dash --version` / `zsh --version` / `uname -a`。
+      CI 実体 dash と `sh` の対応を evidence から復元可能にする / R-009）
       （owner: agent / depends_on: T-07 / rollback: 不要（読取のみ））
 
 ### 完了
 
-- [ ] T-10: status.md / current-state.md 更新 + handoff 素材（TASK-0921 既知課題 2 / 2-bis
-      対応表を含む）整備
+- [ ] T-10: status.md / current-state.md 更新 + handoff 素材整備。必須要素:
+      (1) TASK-0921 既知課題 2 / 2-bis 対応表、
+      (2) **「#1044 で塞いだ範囲 = bootstrap 系 13 本 + helper、未塞ぎ = 5 本
+      （`ta-25`/`ta-26`/`ta-58`/`ta-59`/`ta-60`・2 env AND・Slice 2 へ）」の行**
+      （R-006。**AC-9 後段 / TC-38 (2) の検証対象**であり任意ではない / R-016）、
+      (3) 旧 handoff「14 箇所」と新分母の差異注記（F-5。**新分母は marker の出現単位で
+      base 12 出現 / 適用後 14 出現・13 ファイル** / R-024）
       （owner: agent / depends_on: T-08, T-09 / rollback: 不要（docs のみ））
+- [ ] T-11: **`docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis へ追記**（AC-9 / R-003・R-017・R-025）—
+      本 PR による解消、および **変異 evidence は実測 19 本**（`grep -cE '^M-'
+      mutation-summary.log` で数え直す。handoff の「18」は `M-14ab` 分割再走後に
+      更新されなかった stale 値 = **TASK-0921 側の誤り** / R-025）で、
+      **うち 15 本は superseded（後継 = 本 PBI の M-1〜M-4b）/ 4 本（M-01 / M-02 / M-03 /
+      M-16）は新 HEAD で再走し kill を再確認**（15 + 4 = 19 の全件分類）を 1 行で記載。
+      **あわせて同 handoff で「18/18 KILL」を主張する全行から superseded 注記への参照を
+      張る** — **行番号でなく意味ラベルで特定**（**AC-7 PASS の根拠行 / 引き継ぎ文書の
+      状態行 / テスト結果サマリ行の 3 箇所**。本反映時の実測は L43 / L104 / L119 だが
+      **本タスクの追記自体で行番号がずれる**）。既知課題への追記だけでは根拠行が
+      古い主張のまま残る（R-017）。
+      **TASK-0921 の「18」表記そのものの是正は本 PBI scope 外**とし、follow-up として
+      本 PBI handoff に記録する。TASK-0921 の **plan.md は編集しない**
+      （承認済み歴史文書）。TC-38 が V-1 でこの追記を静的確認する
+      （owner: agent / depends_on: T-08, T-11b / rollback: 当該追記行を revert（追記のみ・既存行は編集しない））
+- [ ] T-11b: **旧変異 4 本（M-01 / M-02 / M-03 / M-16）を新 HEAD で再走**し kill を再確認
+      （R-017）。detector がいずれも本 PBI の書換対象そのもの（M-01 = standalone 側 TC-04
+      + harness 経路 / M-02 = TC-01 / M-03 = TC-01b / M-16 = TC-26）であり、
+      「同じ evidence を別 HEAD で作り直すだけ」が成立しないため superseded にしない。
+      既存ドライバ `PG_T61_SKIP_SUITE=1 sh tests/extras/ta-61-extra-contract.sh` を使用。
+      ログを `evidence/test-runs/mutation-0921-rerun-*.log` へ
+      （owner: agent / depends_on: T-08 / rollback: 変異は sandbox 複製上でのみ実施し本体に触れない） 🚩
 
 ## 👤 Human タスク
 
-- [ ] H-01: **C-3 ゲート**（high-risk = 人間必須）。併せて **Q-1 裁定**
-      （F-3 init 前 finalize: exit 4 fail-closed 案 vs harness 保護案）
+- [ ] H-01: **C-3 ゲート**（high-risk = 人間必須）。併せて以下を裁定:
+      - **Q-1 (1)**: F-3 init 前 finalize の方式（exit 4 fail-closed 案 vs harness 保護案）
+      - **Q-1 (2)**: 上記が前者の場合、**Constraints R-024 に carve-out を設けること自体の
+        可否**（方式選択とは別レイヤの論点 / R-007）
+      - **Q-3 (1)**: AC 分割（AC-2 → AC-2a〜2d）で AC 行数が 12 となり定量表では critical 帯
+        （11+）に触れる件（実質要件数は 9）。**high-risk 維持の追認 or critical への
+        引き上げ**（R-004 の副作用）
+      - **Q-3 (2)**: **変更ファイル数の分母定義（15 か 16 か）**。plan は「working context
+        成果物および他 PBI の完了資産（`TASK-0921/handoff.md`）は規模軸に算入しない」と
+        定義して 15（high-risk 帯）としている。算入すると 16 = critical 帯。
+        **critical 帯に触れる 2 本目の軸であり、AI が独自に下げたまま残さない**ため
+        Q-3 (1) と同じく C-3 が裁定する（R-015）
+      - **Q-3 補足（安全側の向き / R-019）**: 整合レーンは「規定どおりなら既定 critical →
+        人間が引き下げ」、設計レーンは「high-risk 維持が substance として妥当」と両論。
+        plan は暫定 high-risk を書いているが、C-3 が向きを含めて確定する
+        （plan Q-3 の表を参照）。**裁定の実質的影響は V-4 追加と C-4 複数レビュアー推奨
+        のみ**（C-2 必須 / 人間 C-3 必須 / `lite_eligible=false` は両モード共通 / R-023）
+      - **Q-4（scope 判断 / R-022）**: **`FIXTURES_DIR` 単独条件を落とす退行（`M-4c`）を
+        kill できる TC が base の `ta-61` に 1 本も無い**（整合レーン実測: TC-01b / TC-01c
+        とも rc=0 で生存）。**本 PBI 由来ではなく base の既存穴**。
+        **(a) 本 PBI で塞ぐ**（`tc01b.sh` の `FIXTURES_DIR` を上書き可能にし `TC-01d` +
+        変異 `M-4c` を追加。整合レーン評価では追加コストはほぼゼロ）か
+        **(b) V2 候補として送る**かを裁定されたい。
+        **AC を増やす = scope 拡大のため AI は実装していない**。(a) なら AC-5 / test-cases
+        への確定反映後に承認トークンを発行すること（EH-3 順序）
+      - ⚠️ **本 C-3（`approve TASK-1044` / `c3.json` 発行）は C-2 確定反映の完了後に行うこと**。
+        反映前に承認すると C-2 REJECT の plan を承認した状態になる
 - [ ] H-02: C-4 PR レビュー（GitHub 上）
 
 ## ⚠️ 依存関係
 
-- T-03 以降のすべては H-01（C-3 APPROVED + Q-1 裁定）後に開始（exec ゲート）
+- T-03 以降のすべては H-01（C-3 APPROVED + **Q-1 / Q-3 / Q-4 の全裁定**）後に開始
+  （exec ゲート。**Q-4 の欠落を補正 / R-028**）
+- **裁定結果が plan 変更を伴う場合は「確定反映 → 承認トークン発行」の順**を守る
+  （Q-1 / Q-3 / Q-4 のいずれも同じ。先に発行すると EH-3 が後続反映を mismatch 検知 / R-028）
 - T-04/T-05 は同一 commit（原子性）
+- **T-06 の fixture 更新と T-08 (d)(e) の M-4 / M-4b は対**（更新なしでは変異が生存し、
+  更新の有効性を証明できない）
+- T-11b は T-08 後、T-11 は T-11b 後（superseded / 再走の宣言根拠 = M-1〜M-4b の実測
+  および旧 4 本の再走結果が揃ってから追記する）
 - H-02 は V 系完了 + PR 作成後
