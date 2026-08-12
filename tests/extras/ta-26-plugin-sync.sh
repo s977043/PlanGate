@@ -35,6 +35,14 @@ if [ "${PG_HARNESS_SOURCED:-0}" != "1" ] || [ -z "${FIXTURES_DIR:-}" ]; then
   }
 else
   PG_T26_STANDALONE=0
+  # harness 分岐でのみ呼び出し元 env の漏れを無害化する（#1036）。run-tests.sh
+  # 冒頭の unset 集合に PG_T26_NO_RECURSE を足すと TC-33 の包含検査が全 extras に
+  # 波及するため、ta-26 自身のこの経路で消す。preamble / standalone 分岐で unset
+  # してはならない — TC-13 の子（PG_T26_NO_RECURSE=1 前置）でも走り再帰防止ガード
+  # 自体が壊れる（孫 spawn の再入ループ）。この経路が親（harness で source された
+  # ta-26）だけを通る前提は「PG_HARNESS_SOURCED は非 export」（run-tests.sh /
+  # README 規約 8。TC-30 が静的固定）に依存する。配置は ta-62 TC-S が静的検査する。
+  unset PG_T26_NO_RECURSE 2>/dev/null || true
 fi
 
 PG_T26_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
