@@ -11,6 +11,17 @@
 （`ta-25` の `72-73` 行。テスト専用の架空 path。実 approvals には一切触れない）を用い、
 **トークンパス literal を地の文に書かない**。
 
+**⚠ `route=…`（`route=parse-unknown` / `route=normal-block`）は
+本文書および `plan.md` 内で経路を指すための **説明用ラベル** であり、
+guard が stderr へ出力する文字列ではない**（R-017）。
+**実測でも guard の `_block()` / `_parse_unknown()`（`check-approval-token-write.sh:70-88`）に
+`route=` は存在しない。** したがって
+**`route=` を assert 対象の文字列として使ってはならない**。
+assert すべき実文字列は各 TC の「期待結果」欄に書かれたもの
+（`sed not available` / `Bash command writes token path` / `parse-unknown`）のみ。
+**誤って `route=` を assert すると、正しい実装で `TC-22b` が FAIL し
+`SC-9`（critical / 即停止）を誤発火させる**（R-013 と同一の失敗様式）。
+
 ## Contract
 
 | rc | 意味 |

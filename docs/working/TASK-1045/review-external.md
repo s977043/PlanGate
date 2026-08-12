@@ -513,3 +513,177 @@ if [ "$_t25_rc" = "2" ] && grep -q 'file_path=' "$T25_ERR" && ! grep -q 'parse-u
 **反映状況の実測**: Round 3 監査表 2 行の `status` はいずれも `reflected`。
 **未反映を表す status の行は 0 件。**
 `R-013` と `INFO-3` を **1 回で確定反映済み**。
+
+---
+
+## River Review（PR 作成前レビュー / R-014〜R-018）
+
+> 対象 head: `5847e69` / plan=`sha256:744b3c4f…`
+> **判定: PR 作成「可」**。ただし **`plan_hash` を変えずに直せる major 1 件**あり。
+> **Round 1〜3 の記述（R-001〜R-013 / INFO-3 / 各監査表）は 1 文字も変更していない**（追記専用）。
+
+### 大前提: 本ラウンドの是正は `plan_hash` に影響しない
+
+**EH-3（`scripts/hooks/check-plan-hash.sh:89`）の照合対象は
+`*/plan.md|plan.md)` = `plan.md` 単体**（**筆者も実測確認**）。
+したがって **`todo.md` / `test-cases.md` / `INDEX.md` / `decision-log.jsonl` /
+`review-*.md` / `current-state.md` をいくら直しても
+`plan_hash = sha256:744b3c4f…` は不変**であり、**C-3 のやり直しも再ハッシュも不要**。
+
+**R-014〜R-018 の是正は `plan.md` を一切編集していない。**
+
+### R-014 [major] `TC-22` / `TC-22b` を `ta-25` へ追加する owner がどのタスクにも無い
+
+- **観点**: 保守性 / セキュリティ
+
+**実測**: `todo.md` 全体で **`TC-22` を「追加せよ」と指示する行は存在しない**。
+
+```text
+todo.md:209   （**`TC-22` / `TC-22b` は A-5a で先に追加済み**。…）  ← 括弧書きの前提のみ
+todo.md:22    SC-9 …（参照のみ）
+todo.md:193 / :315   … 両方 PASS（完了条件のみ）
+```
+
+**`A-5a`（`todo.md:154-173`）の「内容」は guard 本体の実装のみ**で、テスト追加の指示が無い
+（🚩 は「**スクラッチで確認**」）。一方 **`plan.md:465` は Step 2（RED）で
+「… + `TC-22` + `TC-22b` は通常群へ追加」**と書いており、**plan と todo が矛盾**している。
+todo 側の分解（A-2/A-3 / A-7 / A-8 / A-8b / A-9/A-10）では
+**`TC-22` / `TC-22b` が誰にも割り当てられていない**。
+
+**Impact**: `TC-22b` は **plan 自身が「`R-12`（critical / fail-open）の唯一の機械的担保」
+「(i) の検出力を担う唯一の TC」と宣言**しているもの。
+
+> exec エージェントが A-7 の括弧書きを信じると、**(i) の検出はスクラッチでの 1 回限りの目視に退化し、
+> コミットされたスイートには残らない**。これは**本 plan が最も警戒している #874 型
+> （「TC はあるのに検出力が無い」）の、しかも対策節そのものでの再発**
+
+**同クラスの派生**: `plan.md:465` は **`TC-07` / `TC-17` も Step 2 で `ta-25` へ追加**と書くが、
+**todo `A-11`（`:257-264`）/ `A-12` は `rollback: 不要（読み取り・記録のみ）` = ファイル変更なしの
+evidence タスク**として定義されている（**筆者も実測確認**）。
+**`SC-6` は `T1045-TC-07 (1)` の rc をスイート条件として参照**している（`plan.md:688`）ので、
+**`TC-07` が `ta-25` に入らないと GC-1 の機械担保が 1 本細る**。
+
+**是正（`todo.md` のみ）**: **plan の Step 2 記述と一致する側に寄せ**、
+**通常群 16 件すべてに owner を割り当てる**（`A-5a` に `TC-22` / `TC-22b`、
+`A-7` に残余 `TC-07` / `TC-16` / `TC-17` / `TC-18` を追加）。
+
+### R-015 [minor] `INDEX.md` / `decision-log.jsonl` が Plan Package に含まれていない
+
+**実測**（`git ls-tree origin/main` / **筆者も再確認**）:
+
+```text
+TASK-1044（main）: INDEX.md  current-state.md  decision-log.jsonl  pbi-input.md  plan.md  review-self.md  test-cases.md  todo.md
+TASK-1045（現状）:            current-state.md                      pbi-input.md  plan.md  review-external.md  review-self.md  test-cases.md  todo.md
+```
+
+`.claude/rules/working-context.md` は `INDEX.md` =「B: plan 完了時に自動生成」、
+`decision-log.jsonl` =「B〜: plan 完了時に初期化」と定めており、
+**直前の同型 PBI TASK-1044 は両方を含む**。
+
+**Impact**: **L0 の読み込みプロトコル（`INDEX.md` → `current-state.md`）が旧形式フォールバックに落ちる。**
+SC / RT 発火時の追記先（append-only 監査証跡）が exec 時に新規作成扱いになる。
+
+**是正**: **`INDEX.md` と空初期化の `decision-log.jsonl` を追加**（**`plan.md` 不変 = `plan_hash` 影響なし**）。
+
+### R-016 [minor] `GC-8` の要件 (iii)（`LC_ALL=C`）だけ欠落を落とせる検査が無い
+
+`plan.md:230` の要件↔検出 TC 表は (iii) の「撃つ TC」を
+**「Step 1b の方言 / locale 実験」**としているが、**Step 1b が回すのは scratchpad の
+プロトタイプであって出荷される guard 本体ではない**。
+一方 `plan.md:165` は「**GC-8 の 3 要件はすべて必須**」、`todo.md:314` の完了条件は
+「**GC-8 の 3 件が実装され TC-22/22b が両方 PASS**」と書く。
+→ **(iii) を実装し忘れても `TC-22` も `TC-22b` も `SC-9` も緑のまま通る。**
+
+> (iii) 欠落の帰結は fail-open ではなく「BSD + UTF-8 locale で誤 block 増」なので**安全側**だが、
+> 「**3 件すべて必須**」という契約が **(iii) について機械的に成立せず、完了条件が人手申告に依存**する
+
+**是正（`todo.md` のみ）**: `A-5a` の 🚩 に**静的検査を 1 行**
+（`grep -c 'LC_ALL=C' scripts/check-approval-token-write.sh` が 1 以上、
+**かつ正規化パイプライン行に付いていること**）。
+
+### R-017 [minor] `route=` はリポジトリ内に先例が無い記法
+
+**実測**: `grep -rn 'route=' docs/ scripts/ tests/ bin/`（TASK-1045 除外）→
+**guard 出力としては 0 hits**（**筆者も再実測**。唯一の他ヒットは
+`scripts/ai-loop/test_check_exec_boundary.py:1303` の Python `subTest(route=label)` で無関係）。
+**guard は `route=` を一切出力しない**（`check-approval-token-write.sh:70-88` の
+`_block` / `_parse_unknown` に該当文字列なし）。
+
+**Impact**: 実装者が「実測経路 = `route=normal-block`」を **stderr に含まれるべきトークン**と
+誤読して assert すると、**正しい実装で `TC-22b` が FAIL → `SC-9`（critical / 即停止）を誤発火**。
+**R-013 が塞いだのと同一の失敗様式。**
+
+**是正（`test-cases.md` のみ = `plan_hash` 不変）**: 記法規約に 1 行
+（「**`route=` は本文書内の経路ラベルであり guard の出力文字列ではない**」）。
+**`plan.md:254-255, 273` の `route=` もこの規約で読めるため `plan.md` は触らない。**
+
+### R-018 [minor] Round 1 集計の内部不一致
+
+```text
+review-external.md:17     統合判定  critical 0 / major 2 / minor 4
+review-external.md:15-16  レーン内訳 設計 minor 4（R-003〜006）+ 整合 minor 2（R-007/008）= 6
+review-external.md:209    Round 1 集計 minor 6
+```
+
+**`:17` だけが 4**。C-3 / C-4 が「Round 1 の minor は 4 件」と読むと
+**R-007（`LC_ALL=C`）/ R-008（複製導線）の 2 件が集計から落ちる**
+（指摘本体と監査表は 8 件そろっているので**反映漏れには至っていない**）。
+
+**是正**: **追記専用ファイルなので既存行は書き換えず、本節末尾に訂正 1 行を追記**（下記）。
+
+> **【訂正 / R-018】`review-external.md:17` の Round 1 統合判定の minor 件数は
+> `4` ではなく `6` が正**（設計レーン minor 4 = R-003〜R-006 ＋ 整合レーン minor 2 = R-007・R-008）。
+> `:209` の「Round 1 の集計: critical 0 / major 2 / minor 6・info 2」および
+> Round 1 監査表（R-001〜R-008 の 8 行）が正しい。**`:17` は追記専用方針により原文を保持する。**
+
+### Human C-3 へ諮る 1 件（本ラウンドでは実装しない）
+
+**`plan.md:582-593` の `Files / Components to Touch` から
+`evidence/` / `decision-log.jsonl` / `current-state.md` が欠けている。**
+
+```text
+extract_allowed_paths(plan.md) → 7 パス（guard / ta-25 / plan / todo / test-cases / status / handoff）
+```
+
+しかし **Step 1 / 1b / 6 / 7 / 8 の Output は `evidence/verification/*.md` と `evidence/test-runs/`**、
+**Stop / Replan の共通規約は `decision-log.jsonl` への記録を必須**にしている。
+
+> **ai-loop 経路で exec すると evidence / decision-log の書き込みが `allowed_paths` 外となり
+> escalation ないし「plan に無いファイルを作った」逸脱扱いになる**
+> （`SC-7` は `docs/working/TASK-1045/` 単位なので停止はしない）
+
+**これは `plan.md` 編集 = `plan_hash` 再計算が必要**なため、
+**`todo.md` の H-1 に `Q-3` として追加**した（本ラウンドでは plan を編集しない）。
+
+### River Review が「問題なし」と判定した項目（対応不要）
+
+| 項目 | 判定 |
+|---|---|
+| maker 自己申告 1（`rule=` 付与後の部分一致） | **問題なし**。`plan.md:368` が detail 形式を確定し「`writes token path` を残す」ことを明文で拘束。**「文言そのものを変える」設計を許す記述は plan 内に無い** |
+| maker 自己申告 2（簡略プロトタイプ） | **許容**。`plan.md:182` で明示され `UV-2` → `RT-5` に接続済み。**「未実証を実証済みと書いていない」点が重要で、それが守られている** |
+| maker 自己申告 3（(ii) 未測定） | **info 級・是正不要**。`SC-9` は**いずれか**の FAIL で発火するので停止条件は緩まない |
+| 量化子 | **全数照合してすべて実測と一致。over-claim は検出されず** |
+| 絶対件数の固定 | **無し**。`47 passed` は参考値と明示され、退行判定は「0 failed かつ pass 数 ≥ baseline」 |
+| 未裁定 Question の配線 | **素通り経路なし**。UV-1〜UV-4 も RT-1 / RT-5 / SC-3 / RT-4 へ 1 対 1 接続 |
+| `review-external.md` | **実質追記専用**。数値・severity・R-NNN・監査表は不変 |
+
+**総評**: 「実測に基づく行番号・件数の正確さ、量化子の全数照合、絶対件数を契約にしない扱い、
+未検証事項の SC/RT への全接続は、**この repo の既往教訓を正面から満たしている**」
+
+---
+
+### 監査表（River Review / 追記専用）
+
+| R-NNN | severity | lane | status | reflected_in | notes |
+|---|---|---|---|---|---|
+| R-014 | major | River Review | reflected | `docs/1045-plan` RR 反映 commit | `todo` に**通常群 16 件の owner 表**を新設。`A-5a` へ `TC-22` / `TC-22b`、`A-7` へ `TC-07` / `TC-16` / `TC-17` / `TC-18` を割当。`A-5a` / `A-7` の `rollback:` も更新。`A-11` / `A-12` は evidence 専任と明記。**`plan.md` 不変** |
+| R-015 | minor | River Review | reflected | 同上 | `INDEX.md` 新規作成 + `decision-log.jsonl` を初期化 |
+| R-016 | minor | River Review | reflected | 同上 | `A-5a` の 🚩 に `LC_ALL=C` の静的検査を追加（(iii) の欠落検出） |
+| R-017 | minor | River Review | reflected | 同上 | `test-cases.md` の記法規約へ「`route=` は文書内ラベルで guard 出力ではない」を追加 |
+| R-018 | minor | River Review | reflected | 同上 | 本節末尾に訂正 1 行を追記（`:17` の minor は 6 が正）。**既存行は書き換えていない** |
+| Q-3 | — | River Review | **deferred（Human C-3 裁定へ）** | `todo.md` H-1 の `Q-3` | `Files / Components to Touch` へ `evidence/` 等を追加して `plan_hash` を取り直すか、現状受容か。**AI は裁定しない** |
+
+**River Review の集計**: critical 0 / major 1 / minor 4 / Human 裁定 1。
+
+**反映状況の実測**: 監査表 6 行のうち `reflected` 5 / `deferred`（Human 裁定）1。
+**`plan.md` は本ラウンドで 1 文字も編集していない**（`plan_hash` = `744b3c4f…` 不変を実測確認）。

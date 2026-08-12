@@ -1,8 +1,9 @@
 # CURRENT STATE — TASK-1045
 
-> 更新: **C-2 Round 3（R-013 / INFO-3）の 1 回確定反映 + 簡易 C-1 再実行 #3** の完了時点
-> （Round 1 = R-001〜R-008 / Round 2 = R-009〜R-012 は前段で反映済み）
-> **C-2 Round 3 は両レーンとも `C2-VERDICT: APPROVE`。C-2 は完了。**
+> 更新: **River Review（R-014〜R-018）の 1 回反映 + 簡易 C-1 再実行 #4** の完了時点
+> （C-2 Round 1 = R-001〜R-008 / Round 2 = R-009〜R-012 / Round 3 = R-013 は前段で反映済み）
+> **C-2 は 3 ラウンドとも両レーン `C2-VERDICT: APPROVE` で完了。River Review は「PR 作成: 可」。**
+> **本ラウンドは `plan.md` を編集していないため `plan_hash` は不変。**
 
 ## 今どこにいるか
 
@@ -12,8 +13,9 @@
 A pbi-input ✅ → B plan/todo/test-cases ✅ → C-1 ✅(WARN) → W-1..W-5 反映 ✅
   → C-2 R1 ✅(major 2) → R-001..R-008 確定反映 ✅ → 簡易 C-1 ✅(C1-VERDICT-2)
   → C-2 R2 ✅(major 1) → R-009..R-012 確定反映 ✅ → 簡易 C-1 #2 ✅(C1-VERDICT-3)
-  → C-2 R3 ✅(両レーン APPROVE / major 1) → R-013 確定反映 ✅ → 簡易 C-1 #3 ✅(C1-VERDICT-4: WARN)
-  → 【👤 C-3 ここで待ち】 → exec
+  → C-2 R3 ✅(両レーン APPROVE / major 1) → R-013 確定反映 ✅ → 簡易 C-1 #3 ✅(C1-VERDICT-4)
+  → River Review ✅(PR 可 / major 1) → R-014..R-018 反映 ✅ → 簡易 C-1 #4 ✅(C1-VERDICT-5: WARN)
+  → 【👤 C-3 ここで待ち: Q-1 / Q-2 / Q-3】 → exec
 ```
 
 ## 次に何をするか
@@ -30,15 +32,23 @@ plan_hash : sha256:744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2
 - **H-Q1**: Mode を `critical` のままか `high-risk` へ引き下げるか
   （引き下げで実施しなくなるのは **V-4 のみ**。`lite_eligible=false` / 同期 C-3 は不変）
 - **H-Q2**: `&>` / `&>>` を block 維持でよいか（`&>/dev/null` 付き読み取りは残存誤検知）
+- **Q-3（新設 / River Review 由来）**: `plan.md` の `Files / Components to Touch` に
+  `evidence/` / `decision-log.jsonl` / `current-state.md` を**追加して `plan_hash` を取り直すか**、
+  **現状を受容して exec 時に「plan 記載の Output に含まれる」と解釈するか**
+  （**追加する場合のみ `plan_hash` 再計算が必要**。詳細は `todo.md` の H-1）
 
 ## 現在のハッシュ（C-3 発行対象）
 
 | ファイル | sha256 |
 |---|---|
 | `plan.md` | `744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2c7f` |
-| `todo.md` | `620a825ca34f9da85ab51f4b962b32da7d6112334383fdfe1f2ec788abc933fd` |
-| `test-cases.md` | `93710dd04f41572283e32ac42e4c01dc85d70f50bf4a0e69a4042af8a27fe9da` |
-| `review-external.md` | `0cc7fdf736679b7739052c99a0f7afe3ca1108bc8fd540a99f009ca0cfe7cb94` |
+| `todo.md` | `48a2081b52ab5bd60bc0fc9f378ada8047419c0e73ee73351c63762a5d78e2e9` |
+| `test-cases.md` | `a3d451a37abddabf794f673e758f5267a6f88015456ff9c21557eb0989bd5541` |
+| `review-external.md` | `8d105996063be89b0edac996eca129542431cb4090f0c27762259372ed454978` |
+
+> **`plan_hash` は River Review 反映（R-014〜R-018）を経ても不変**。
+> **EH-3 の照合対象は `plan.md` 単体**（`check-plan-hash.sh:89`）で、
+> 当該ラウンドは `plan.md` を編集していないため。
 
 ⚠️ **`c3.json` 発行後に plan を 1 文字でも編集すると EH-3 が mismatch を検知する**
 （`feedback_no_plan_edit_after_c3_approval`）。**反映は c3.json 発行より前に完了済み**。
@@ -63,5 +73,6 @@ plan_hash : sha256:744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2
 ## 参照
 
 - 計画: [`plan.md`](./plan.md) / [`todo.md`](./todo.md) / [`test-cases.md`](./test-cases.md)
-- レビュー: [`review-self.md`](./review-self.md)（C-1 + 簡易 C-1）/ [`review-external.md`](./review-external.md)（C-2 / R-001〜008）
+- 索引: [`INDEX.md`](./INDEX.md)（L0）/ 判断履歴: [`decision-log.jsonl`](./decision-log.jsonl)（append-only / D-1〜D-9）
+- レビュー: [`review-self.md`](./review-self.md)（C-1 + 簡易 C-1 #1〜#4）/ [`review-external.md`](./review-external.md)（C-2 3 ラウンド + River Review / **R-001〜018**）
 - 入力: [`pbi-input.md`](./pbi-input.md)

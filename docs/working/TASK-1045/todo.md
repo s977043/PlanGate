@@ -53,6 +53,19 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
     （引き下げても `lite_eligible=false` と同期 C-3 は維持）
   - **Q-2**: U-2（`&>` / `&>>` を block 維持）でよいか
     （`&>/dev/null` 付き読み取りは**残存誤検知**になる）
+  - **Q-3（新設 / River Review 由来・要 C-3 裁定）**:
+    **`plan.md` の `Files / Components to Touch` に `evidence/` /
+    `decision-log.jsonl` / `current-state.md` を追加して `plan_hash` を取り直すか、
+    それとも現状を受容して exec 時に「plan 記載の Output に含まれる」と解釈するか。**
+    - **背景**: `extract_allowed_paths(plan.md)` は **7 パス**を返すが、
+      **Step 1 / 1b / 6 / 7 / 8 の Output は `evidence/verification/*.md` と `evidence/test-runs/`**、
+      **Stop / Replan の共通規約は `decision-log.jsonl` への記録を必須**にしている
+    - **影響**: **ai-loop 経路で exec すると evidence / decision-log の書き込みが
+      `allowed_paths` 外**となり、escalation ないし「plan に無いファイルを作った」逸脱扱いになる
+      （**`SC-7` は `docs/working/TASK-1045/` 単位なので停止はしない**）
+    - **コスト**: 追加する場合は **`plan.md` の編集 = `plan_hash` の再計算**が必要
+      （本ラウンドの R-014〜R-018 は `plan.md` を触っていないため `plan_hash` は不変）
+    - **AI は裁定しない**（Human-owned）
 - 🚩 **チェックポイント**: `critical` かつセキュリティ関連のため
   **autonomous APPROVE は不可**（`working-context.md` §C-3 Autonomous APPROVE）
 - 出力: `docs/working/TASK-1045/approvals/c3.json`（**Human-owned**）+ `status.md` へゲート記録
@@ -113,6 +126,27 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 > **focused 群へ置く TC は plan §GC-4-A の 7 件**
 > （`T1045-TC-01`〜`06` + `TC-20`）。それ以外は通常群。
 
+### TC 追加の owner 表（**全 23 件に owner を割り当てる** / R-014）
+
+> **plan `Step 2` は「`TC-07`〜`TC-19` + `TC-21` + `TC-22` + `TC-22b` を通常群へ追加」と
+> 書いている。本表は plan のその記述と一致する側へ寄せ、todo 側の分解に落としたもの。**
+> **owner の無い TC が 1 件でもあると、その TC は `ta-25` に入らずスクラッチ確認に退化する**
+> （#874 型「TC はあるのに検出力が無い」の再発）。
+
+| TC | 追加する owner タスク | 群 |
+|---|---|---|
+| `TC-01` / `TC-02` / `TC-03` / `TC-20` | **A-2** | focused |
+| `TC-04` / `TC-05` / `TC-06` | **A-3** | focused |
+| **`TC-22` / `TC-22b`** | **A-5a**（GC-8 実装と同一タスク） | 通常 |
+| `TC-11` / `TC-12` / `TC-13` / `TC-14` / `TC-15` / `TC-19` / **`TC-07`** / **`TC-16`** / **`TC-17`** / **`TC-18`** | **A-7** | 通常 |
+| `TC-08` | **A-8** | 通常 |
+| `TC-21` | **A-8b** | 通常 |
+| `TC-09` / `TC-10`（`_t25_mutate` 呼び出し） | **A-9** / **A-10** | 通常 |
+
+**合計 23 件（focused 7 + 通常 16）で owner 未割当は 0 件。**
+**`A-11` / `A-12` は evidence 専任**（`TC-07` / `TC-17` の**追加は A-7** が行い、
+A-11 / A-12 は**実測ログの採取のみ**。したがって `rollback: 不要` のまま）。
+
 #### A-2: RED — 誤検知解消 TC を focused 群へ追加（plan Step 2）
 
 - Owner: agent / depends_on: A-1b, **H-1**
@@ -162,15 +196,23 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
   **`_parse_unknown()` 定義の後（`:81` 以降）・`# --- 1) target:`（`:83`）の直前**に置く
   （**関数定義より前に置くと `rc=127` = 非 block になり `T1023-TC-05` も巻き添えで落ちる** / R-010）、
   (iii) 正規化パイプラインの `LC_ALL=C` 固定
+  - **`T1045-TC-22` / `T1045-TC-22b` を `ta-25` の通常群へ追加する**（**R-014 / 本タスクの owner**）。
+    **スクラッチ確認で代替しない**（コミットされたスイートに残さないと
+    `R-12`（critical / fail-open）の機械的担保が消える）。
+    GC-8 の実装と同一タスク内で **RED（未実装で FAIL）→ GREEN** を確認する
 - 🚩 **チェックポイント**: `sh -n` PASS。単体で `2>&1` / `>&2` / `3>&-` が除去され、
   `>& /tmp/o` が**除去されない**ことをスクラッチで確認。
+  **要件 (iii) の静的検査**（R-016。**(iii) だけは TC で落とせないため静的に確認する**）:
+  `grep -c 'LC_ALL=C' scripts/check-approval-token-write.sh` が **1 以上**、
+  **かつ正規化パイプライン行に付いている**こと（別行に付いていても (iii) を満たさない）。
   **`sed` 不在 PATH で `rc=2`**（要件 (ii)）**かつ `sed` シム（`exit 1`）PATH でも `rc=2`**（要件 (i)）を
   確認 → **どちらかが `rc=0` なら SC-9 で即停止**（R-009。**不在だけの確認では (i) の欠落を見逃す**）。
   **reason の期待値は TC ごとに異なる**（R-013）: **不在 → `sed not available`** /
   **シム → `Bash command writes token path` かつ `parse-unknown` を含まない**。
   **シム側に `sed` 起因の reason を期待しない**（フォールバックは設計上サイレント）。
   **`T1023-TC-05` が PASS を維持**することも確認（R-010 の巻き添え検出）
-- `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
+- `rollback:` `git checkout -- scripts/check-approval-token-write.sh tests/extras/ta-25-approval-token-guard.sh`
+  （**R-014 により本タスクは `ta-25` も変更する**ため両方を戻す）
 
 #### A-5b: GREEN — `/dev/null` 破棄の除去を追加（plan Step 3-1）
 
@@ -205,8 +247,12 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 #### A-7: 除外条件の境界 TC を追加（plan Step 2 / R-3・R-4・U-1・U-2・GC-2）
 
 - Owner: agent / depends_on: A-6b
-- 内容: `T1045-TC-11`〜`15` / `TC-19` を通常群へ追加
-  （**`TC-22` / `TC-22b` は A-5a で先に追加済み**。GC-8 の実装と同時に検出力を確保するため）
+- 内容: **通常群の残余をすべて追加する**（R-014 / owner 表）:
+  `T1045-TC-11`〜`15` / `TC-19`（除外条件の境界）
+  **＋ `TC-07`**（併記回避。**`SC-6` がスイート条件として rc を参照する**ため
+  `ta-25` に入っていないと GC-1 の機械担保が 1 本細る）
+  **＋ `TC-16` / `TC-17` / `TC-18`**（既存スイート突合 / AC-12 監査 / 静的検査）
+  （**`TC-22` / `TC-22b` は A-5a が追加済み**。GC-8 の実装と同時に検出力を確保するため）
 - 🚩 **チェックポイント**: 全 **rc=2**（除外が広がりすぎていないことの機械確認）
 - `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
 
@@ -258,7 +304,8 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 
 - Owner: agent / depends_on: A-10
 - 内容: `T1045-TC-07` の 4 形が**各 exit 2** であることを本 PBI 内で再実測
-  （起票時実測を根拠にしない）
+  （起票時実測を根拠にしない）。
+  **本タスクは evidence 専任**で、**`TC-07` の `ta-25` への追加は A-7 が行う**（R-014 / owner 表）
 - 出力: `evidence/verification/multi-defense.md`
 - 🚩 **チェックポイント**: 4 形すべて exit 2
 - `rollback:` 不要（読み取り・記録のみ）
@@ -266,7 +313,8 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 #### A-12: AC-12 — 起点そのものの解消を実測（plan Step 7）
 
 - Owner: agent / depends_on: A-10
-- 内容: `<TOKEN>` 対象の read-only 監査コマンド群（`2>/dev/null` を伴う）が通過することを実測
+- 内容: `<TOKEN>` 対象の read-only 監査コマンド群（`2>/dev/null` を伴う）が通過することを実測。
+  **本タスクは evidence 専任**で、**`TC-17` の `ta-25` への追加は A-7 が行う**（R-014 / owner 表）
 - 出力: `evidence/verification/ac12-readonly-audit.md`
 - 🚩 **チェックポイント**: 各 exit 0
 - `rollback:` 不要（読み取り・記録のみ）
@@ -314,6 +362,8 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 - [ ] **正規化ヘルパが fail-closed**（GC-8 の 3 件が実装され
       **`T1045-TC-22`（不在 / 要件 (ii)）と `T1045-TC-22b`（失敗 / 要件 (i)）が両方 PASS**）
 - [ ] **`command -v sed` が `_parse_unknown()` 定義の後に置かれている**（R-010。`rc=127` 非 block の回避）
+- [ ] **`LC_ALL=C` が正規化パイプライン行に付いている**（R-016。要件 (iii) の静的検査）
+- [ ] **owner 表の 23 件がすべて `ta-25` に入っている**（R-014。**スクラッチ確認で代替した TC が 0 件**）
 - [ ] **RED ウィンドウが GC-4-C の 6 件と一致**し、GREEN 後に
       `T1023-TC-15pre` / `T1023-TC-17post` が **PASS へ戻っている**
 - [ ] **Stop Condition / Replan Trigger が 1 件も未処理で残っていない**

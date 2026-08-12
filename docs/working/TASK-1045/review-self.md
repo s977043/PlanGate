@@ -774,3 +774,92 @@ C1-VERDICT-4: WARN plan=sha256:744b3c4f0cb05e10dc756e43e89ff263743c571c526838757
 > base=`6089e23` / C-2 R2 反映 head=`4c4fc53`
 >
 > **`c3.json` は上記 `C1-VERDICT-4` の `plan_hash` に対して発行すること。**
+
+---
+
+## 簡易 C-1 再実行 #4（River Review / R-014〜R-018 反映後 / 追記専用）
+
+> 実施: plan maker（自己再確認）。**C-1 本体および簡易 C-1 #1〜#3 の記述は一切変更していない**（追記のみ）。
+> 対象: **R-014〜R-018**（River Review）の 1 回反映後の todo / test-cases / INDEX / decision-log。
+> **River Review の判定は「PR 作成: 可」。R-014 が `plan_hash` を変えずに直せる最後の major。**
+
+### 🔑 `plan_hash` 不変の実測（本ラウンドの最重要確認）
+
+**EH-3（`scripts/hooks/check-plan-hash.sh:89`）の照合対象は `*/plan.md|plan.md)` = `plan.md` 単体**
+（**筆者が実測確認**）。本ラウンドは **`plan.md` を 1 文字も編集していない**。
+
+| 検査 | 結果 |
+|---|---|
+| `shasum -a 256 plan.md` | **`744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2c7f`**（`C1-VERDICT-4` と**完全一致**） |
+| `git status --porcelain -- docs/working/TASK-1045/plan.md` | **空**（未編集） |
+
+→ **`C1-VERDICT-4` で発行対象とした `plan_hash` は有効なまま。C-3 のやり直し・再ハッシュは不要。**
+
+### 反映の網羅性（機械確認）
+
+| 指摘 | severity | 反映先 | 確認方法と結果 |
+|---|---|---|---|
+| **R-014** | major | `todo` に **TC 追加の owner 表**を新設（全 23 件）。`A-5a` へ `TC-22` / `TC-22b`、`A-7` へ `TC-07` / `TC-16` / `TC-17` / `TC-18`。`A-5a` / `A-7` の `rollback:` 更新。`A-11` / `A-12` を evidence 専任と明記 | **owner 表 23 件 = 定義 23 件で完全一致。owner 未割当 0 / 定義に無い owner 0**（Python で集合照合） |
+| **R-015** | minor | `INDEX.md` 新規作成 / `decision-log.jsonl` 初期化（D-1〜D-9） | 両ファイル作成。**`decision-log.jsonl` は 9 行すべて valid JSON** と実測 |
+| **R-016** | minor | `A-5a` の 🚩 へ `LC_ALL=C` の静的検査 | 「`grep -c 'LC_ALL=C' …` が 1 以上**かつ正規化パイプライン行に付いている**」を追記 |
+| **R-017** | minor | `test-cases.md` 記法規約へ「`route=` は文書内ラベルで guard 出力ではない」 | 追記済み。**誤 assert すると `SC-9` を誤発火させる**旨も明記 |
+| **R-018** | minor | Round 1 集計の訂正 1 行を **River Review 節末尾へ追記**（既存行は書き換えない） | 追記済み（`:17` の minor は **6** が正） |
+| **Q-3** | — | `todo` H-1 の裁定項目へ新設（**AI は裁定しない**） | 背景・影響・コストを明記して Human C-3 へ |
+
+**未反映（`status` が `reflected` / `deferred` 以外）の指摘 = 0 件**
+（River Review 監査表 6 行: `reflected` 5 / `deferred`（Human 裁定）1）。
+
+### 機械チェック結果（本再実行で実行したコマンド）
+
+| # | コマンド | 結果 |
+|---|---|---|
+| S4-1 | `npx markdownlint-cli2 "docs/working/TASK-1045/*.md"` | **0 issues in 0 files**（**8 ファイル**。途中 1 件を修正後） |
+| S4-2 | `shasum -a 256 plan.md` + `git status -- plan.md` | **`plan_hash` 不変・未編集**（上表） |
+| S4-3 | `python3 -c json.loads` で `decision-log.jsonl` を全行検証 | **9 行すべて valid JSON** |
+| S4-4 | **owner 表 ↔ TC 定義の集合照合**（Python） | **23 = 23 / 未割当 0 / 余剰 0** |
+| S4-5 | `comm` による双方向 orphan 検査 | **両方向とも差分 0 件**（23 = 23） |
+| S4-6 | `grep -rn 'route=' docs/ scripts/ tests/ bin/`（TASK-1045 除外） | guard 出力としては **0 hits**（唯一の他ヒットは Python の `subTest(route=label)` で無関係）→ R-017 の前提を裏取り |
+| S4-7 | `git ls-tree origin/main docs/working/TASK-1044/` | `INDEX.md` / `decision-log.jsonl` を含むことを確認（R-015 の先例） |
+| S4-8 | `grep -n 'plan\.md)' scripts/hooks/check-plan-hash.sh` | **`:89` の case パターン（`*/plan.md` と `plan.md` の 2 分岐）** = 照合対象は plan.md 単体 |
+
+### 本再実行で新たに発見・修正した掃き残し（自己検出）
+
+1. **owner 表の範囲表記 `TC-11`〜`TC-15` が機械照合に乗らず、`TC-12` / `TC-13` / `TC-14` が
+   「owner 未割当」と判定された**。**R-014 が問題にしていた「owner の所在が曖昧」そのもの**なので、
+   **範囲表記をやめて明示列挙**に変更（再照合で 23 = 23 に一致）。
+2. inline HTML（`<b>`）1 件を強調記法へ置換。
+
+### 判定サマリ
+
+| 項目 | 結果 |
+|---|---|
+| River Review major 1 件（R-014） | **反映済み**。owner 表を機械照合可能な形で新設 |
+| River Review minor 4 件（R-015〜R-018） | **反映済み** |
+| Human C-3 裁定 1 件（Q-3） | **`todo` H-1 へ委譲**（AI は裁定しない） |
+| 新規に持ち込まれた FAIL | **0 件** |
+| 残 WARN | **1 件**（W-6。内容は #2 から不変） |
+
+#### C-3 へ引き継ぐ人間判断（Q-3 追加）
+
+| # | 論点 | 状態 |
+|---|---|---|
+| H-Q1 / Q-1 | Mode `critical` / `high-risk` | **未決**。実施しなくなるのは V-4 のみ |
+| H-Q2 / Q-2 | `&>` / `&>>` を block 維持か | **未決**。C-2 は「既定のままで良い」と判定 |
+| **Q-3（新設）** | `Files / Components to Touch` に `evidence/` / `decision-log.jsonl` / `current-state.md` を追加して `plan_hash` を取り直すか、現状受容か | **未決**。**追加する場合のみ `plan_hash` 再計算が必要** |
+
+---
+
+C1-VERDICT-5: WARN plan=sha256:744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2c7f
+
+> **`plan_hash` は `C1-VERDICT-4` から不変**（`plan.md` を編集していないため）。
+> 判定内訳: critical=0 / major=0 / minor(WARN)=1（W-6）/ FAIL=0
+> **C-2 Round 1〜3 の major 4 件 + River Review の major 1 件はすべて反映により解消**。
+> **plan は Human C-3 へ渡せる状態**（Q-1 / Q-2 / Q-3 の 3 件が裁定待ち）。
+>
+> 参考ハッシュ（本ラウンドで更新されたもの）:
+> todo=sha256:48a2081b52ab5bd60bc0fc9f378ada8047419c0e73ee73351c63762a5d78e2e9
+> test-cases=sha256:a3d451a37abddabf794f673e758f5267a6f88015456ff9c21557eb0989bd5541
+> review-external=sha256:8d105996063be89b0edac996eca129542431cb4090f0c27762259372ed454978
+> base=`6089e23` / C-2 R3 反映 head=`5847e69`
+>
+> **`c3.json` は上記 `plan_hash`（`744b3c4f…`）に対して発行すること。**
