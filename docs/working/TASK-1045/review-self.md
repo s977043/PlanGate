@@ -863,3 +863,72 @@ C1-VERDICT-5: WARN plan=sha256:744b3c4f0cb05e10dc756e43e89ff263743c571c526838757
 > base=`6089e23` / C-2 R3 反映 head=`5847e69`
 >
 > **`c3.json` は上記 `plan_hash`（`744b3c4f…`）に対して発行すること。**
+
+---
+
+## 簡易 C-1 再実行 #5（C-3 裁定 3 件の反映後 / `R-019`）
+
+> 対象: **Human C-3 が下した裁定 3 件（Q-1 / Q-2 / Q-3）の 1 回確定反映**。
+> **本ラウンドで初めて `plan.md` を編集したため `plan_hash` が変わる**（#1〜#4 と異なる点）。
+> 変更は **`Files / Components to Touch` 3 行追加 + 注記** と **`Questions / Unknowns` への裁定記録**のみ。
+
+### 反映内容と裁定の一致確認
+
+| Q | Human 裁定 | 反映結果 | 一致 |
+|---|---|---|---|
+| Q-1 | `critical` のまま | `plan.md` の Mode 判定行（`:764`）は `critical` のまま（**未編集**） | ✅ |
+| Q-2 | block 維持 | 除外条件は未編集。`&>` / `&>>` は block のまま | ✅ |
+| Q-3 | 追加して `plan_hash` を取り直す | Files 節へ 3 行追加 + `plan_hash` 再算出 | ✅ |
+
+**AI は裁定内容を変更していない**（Q-1 / Q-2 は「既定どおり」＝設計変更ゼロ、
+記録のみ。Q-3 のみが plan の実変更を伴う）。
+
+### Plan 7 項目（簡易 C-1）
+
+| # | 項目 | 判定 | 根拠（実測） |
+|---|---|---|---|
+| C1-PLAN-01 | 受入基準の網羅性 | **PASS** | `AC-NN` の一意集合は plan で **10**（`origin/main` 版と**同数・同一**）、`test-cases.md` で **13**。**AC は 1 件も増減していない** |
+| C1-PLAN-02 | Unknowns の処理 | **PASS** | `UV-1`〜`UV-4` は未編集で `RT-1` / `RT-5` / `SC-3` / `RT-4` へ接続されたまま。**新たな未決は発生していない**（Q-1〜Q-3 が裁定済みになり**未決 Question は 0 件**） |
+| C1-PLAN-03 | スコープ制御 | **PASS** | `git diff --stat` は **3 ファイル**（plan / todo / review-external）。`scripts/` `tests/` `approvals/` および HO 対象パスへの変更は **0 件** |
+| C1-PLAN-04 | テスト戦略 | **PASS** | Testing Strategy 節は**未編集**。TC 一意集合 **23 件**で不変 |
+| C1-PLAN-05 | Work Breakdown Output | **PASS** | Work Breakdown 節は**未編集**。Step 1 / 1b / 6 / 7 / 8 の Output（evidence 配下）が **`allowed_paths` 内に収まるようになった**＝Output と Files 節の整合が**改善**した |
+| C1-PLAN-06 | 依存関係 | **PASS** | `todo.md` の依存記述（`H-1` 必須先行）は未編集。H-1 の内容が「裁定待ち」→「裁定済み + 承認トークン再発行待ち」に更新されただけ |
+| C1-PLAN-07 | 動作検証の自動化 | **PASS** | `extract_allowed_paths()` を**実際に import して実走**し 7 → 10 を実測（推測ではない） |
+
+### 機械検査の実測
+
+| 検査 | コマンド | 結果 |
+|---|---|---|
+| S1 | `extract_allowed_paths(plan.md)` の実走 | **10 パス**（反映前 7） |
+| S2 | allowed_paths への HO 9 カテゴリ混入 | **0 件** |
+| S3 | plan の `AC-NN` 一意数（base 比較） | **10 → 10（不変）** |
+| S4 | `test-cases.md` の TC 一意数 | **23（不変）** |
+| S5 | plan の Mode 行 | **`critical`（不変）** |
+| S6 | `git diff -U0 -- plan.md` の hunk | **2 hunk・いずれも純追加**（`+593` = Files 節 / `+729` = Questions 節）。**削除行 0** |
+
+### 残 WARN
+
+| ID | 内容 | 状態 |
+|---|---|---|
+| W-6 | （#2 から不変） | **残置**。本ラウンドで悪化なし |
+| **W-7（新規 / info 相当）** | **Q-2 の裁定により `&>/dev/null` 付き読み取りの誤 block が残存する** | **意図的な受容**。`T1045-TC-14 (3)` で固定し、**handoff の既知課題へ記載することが裁定の条件** |
+
+### 新規 FAIL
+
+**0 件。**
+
+---
+
+C1-VERDICT-6: WARN plan=sha256:30261b118da7761f7a78d9090c4fcda9f1d1dbd07af27cbff58ddd436029e681
+
+> **🔑 `plan_hash` は本ラウンドで更新された**
+> （`744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2c7f`
+> → **`30261b118da7761f7a78d9090c4fcda9f1d1dbd07af27cbff58ddd436029e681`**）。
+> **`C1-VERDICT-5` までの `plan_hash` は無効**。
+> 判定内訳: critical=0 / major=0 / minor(WARN)=2（W-6 / W-7）/ FAIL=0
+> **未裁定の Question は 0 件**（Q-1 / Q-2 / Q-3 すべて C-3 で確定）。
+>
+> **次の 1 手は 👤 Human による承認トークンの再発行**（Human-owned。AI は作成しない）。
+> **上記 `C1-VERDICT-6` の `plan_hash` に対して発行すること。**
+> 発行後に `plan.md` を 1 文字でも編集すると EH-3 が mismatch を検知する
+> （`feedback_no_plan_edit_after_c3_approval`）。
