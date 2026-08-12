@@ -27,7 +27,7 @@ standalone rc 契約が丸ごと無効化される（本 plan 作成時に新規
 
 | shell | rc |
 |---|---|
-| dash / zsh / bash / sh | **すべて 0**（SKIP 経路が rc=3 でなく rc=0。カウンタ未初期化・summary 未出力・7 env unset 不発） |
+| dash / zsh / bash / sh | **すべて 0**（SKIP 経路が rc=3 でなく rc=0。カウンタ未初期化・summary 未出力・guarded env unset 不発） |
 
 つまり根本原因は「helper 欠落分岐の脱出」ではなく **harness 判定述語が『実際に source
 されているか』を見ていない**ことにあり、修正は mode 判定そのものに直接実行検知を

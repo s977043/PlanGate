@@ -1051,4 +1051,125 @@ sha256 を照合して**不一致なら stale エラー**にするため、
 
 ---
 
-C2-VERDICT: approve plan=sha256:53ed25957c9c89ad02dbfb715cf90cdf53d66d14492b9ebd8e060b7b69d7bd5e
+## PR 作成前 River Review 3 回目（追記専用 / R-036 以降）
+
+> レビュー日: 2026-08-12 / 対象 branch: `docs/1044-c2-reflect`（head `4a65be7`）
+> 対象 plan_hash（レビュー時点）: `sha256:53ed25957c9c89ad02dbfb715cf90cdf53d66d14492b9ebd8e060b7b69d7bd5e`
+> **収束判定**: 「**1 回目→2 回目のような『是正が新たな major を生む』連鎖は止まっている**。
+> 新規 major は 1 件のみで、しかも今回の反映が生んだ副作用ではなく **R-029（1 回目）の
+> 取りこぼし**」。**R-001〜R-035 の記述は一切編集していない**（追記専用規約）。
+
+### River Review 3 回目 判定
+
+| 区分 | critical | major | minor | info |
+|---|---|---|---|---|
+| **統合** | 0 | **1（PR ブロッカー）** | **2** | 0 |
+
+### R-036 [major / PR ブロッカー] `plan.md` の Testing Strategy が AC-2c の否定済み判定式を今も指示している
+
+**対象**: `plan.md` Testing Strategy（AC-2c 節）
+
+**実測**: `plan.md` 内の AC-2c 言及は **Testing Strategy の 1 行だけ**であり、
+そこに **`env | grep -c '^PLANGATE_\|^PG_HARNESS_SOURCED'` が 0** という
+**R-029 で否定した判定式**が残っていた。つまり **R-029（全数 0 を判定に使わない）も
+R-033（`_T61_GUARDED_ENVS` 消費）も `plan.md` には一度も反映されていなかった**
+（対立先の `pbi-input.md` AC-2c / `test-cases.md` TC-31 (3) は是正済み）。
+
+**Impact**: exec 実装者が **plan の Testing Strategy を正として** TC-31 (3) を
+`env | grep -c '^PLANGATE_…' = 0` で実装すると、**`PLANGATE_BIN` / `PLANGATE_PYTHON` /
+`PLANGATE_REPO_ROOT` を export した開発者環境・CI で落ちる** =
+**R-029 が防ごうとした「無関係な PR の CI 落ち」をそのまま再現**する。
+**承認後は plan 編集不可（plan_hash 無効化）**なので、この矛盾を抱えたまま承認トークンを
+発行すると、**exec 中に「AC と plan のどちらに従うか」の裁定が必要**になる。
+
+**是正要求**: 見出しを「**guarded env unset**」へ、本文を
+「`tests/run-tests.sh` の `^unset` 行から実行時導出した guarded env 集合
+（`_T61_GUARDED_ENVS`）の全名が子プロセスで未設定であることを TC-31 (3) で検証する。
+**`^PLANGATE_` の全数 0 は判定に使わない**（R-029・R-033）」へ置換。
+
+### R-037 [minor だが承認事故を招く] stale を可視化するために足した注記が、それ自身 stale
+
+**対象**: `review-self.md` 冒頭の R-034 注記
+
+注記が「最新の C-1 判定は末尾の **`C1-VERDICT-6`** を正とする」と**特定の N を固定**して
+いたが、その時点の最新は `C1-VERDICT-7` であり、**`C1-VERDICT-6` の hash（`442b272a…`）は
+INDEX が「これで発行すると EH-3 mismatch」と警告している旧 hash** だった。
+
+**C-3 の人間がこの注記だけを読んで承認トークンを発行すると stale hash になる**
+（方向は fail-closed なので事故ではないが、**承認 → mismatch → 再発行の空振り 1 往復**が発生）。
+**R-034 と同型の失敗**（「番号固定をやめる」という教訓を書いた直後に注記自体で番号を固定した）。
+
+**是正要求**: 注記から**特定の N を消す**（`C1-VERDICT-N` = 常にファイル末尾の 1 本、と書く）。
+
+### R-038 [minor] 委譲先 `_T61_GUARDED_ENVS` は `| head -1` で先頭 1 行しか読まない
+
+**対象**: `pbi-input.md` AC-2c / `test-cases.md` TC-31 (3) / マッピング行
+
+**実測**: `ta-61:286` の実体は
+`_T61_GUARDED_ENVS=$(sed -n 's/^unset \(.*\) 2>\/dev\/null.*$/\1/p' "$_T61_RUNNER" | head -1)`
+であり、**契約文が引用している sed には `| head -1` が含まれていない**。
+
+**Impact**:
+
+- (a) 将来 8 個目の guarded env が **2 行目の `unset` 行**として（あるいは末尾の
+  `2>/dev/null` を欠いた形で）追加されると、**`head -1` / sed パターンが静かに落とす** =
+  **R-033 が閉じたはずの偽陰性クラスがそのまま残る**
+- (b) 「**TC-15 がこの導出自体を検査済み**」は**過大表明** —
+  **TC-15 は `[ -n … ]`（空でないこと）しか見ておらず、集合の完全性は検査していない**
+
+**是正要求**: TC-31 (3) に「**`head -1` を外すか、`^unset` で始まる行が 1 行であることを
+併せて assert する**」を追記し、**TC-15 の記述を「導出が空でないことを検査済み」へ弱める**。
+**同族の残差**: マッピング行の `AC-2c（7 env unset の実測）` と本文の `7 env 契約の外` =
+**R-033 で非契約化した件数がラベルに残存**。
+
+### 全数照合手順に 3 段目を追加（River Review の指摘 / 本ラウンドで実証済み）
+
+> **改善点**: 「短形で全ヒットを出して個別分類」は正しい方向。接尾辞違いですり抜けた
+> R-032 の直接原因は塞がっている。
+> **残る穴（実証あり）**: **短形パターン集合が手選びで、しかも「過去ラウンドで否定した
+> 概念」から作られている。当該ラウンドで非契約化した語**（今回なら `7 env` / `7 個` /
+> `全数 0` / `grep -c '^PLANGATE_`）**が候補に入らない**ため、
+> **R-036（`plan.md` の Testing Strategy）と マッピング行は 2 段手順を通過してしまった**。
+
+**3 段目（本ラウンドで明文化）**:
+
+1. **反映ラウンドごとに「この反映で否定・非契約化した語」を先に列挙**し、短形で
+   live claim 6 ファイルへ流す
+2. **AC ID を軸にした横断照合** — `grep -n 'AC-XX' plan.md pbi-input.md test-cases.md todo.md`
+   で**全ヒットを読む**。**「反映したファイル」ではなく「AC ごとに全ファイル」を母数にする**
+
+> 今回これを 1 回やれば R-036 は捕まった（plan.md の AC-2c 言及は 1 行だけで、
+> そこに R-029 も R-033 も付いていなかった）。
+
+### River Review 3 回目 反証・独立検証（反映担当ワーカーによる一次確認）
+
+| 指摘 | 独立確認の内容 | 結果 |
+|---|---|---|
+| R-036 | `grep -n 'AC-2c' plan.md` → **ヒット 1 行のみ**で、そこに `env \| grep -c '^PLANGATE_\|^PG_HARNESS_SOURCED'` が 0 という否定済み判定式が残っていることを実物で確認 | 指摘どおり |
+| R-037 | `review-self.md` 冒頭注記が `C1-VERDICT-6` を名指しし、その hash が `442b272a…`（INDEX が旧 hash と警告しているもの）であることを確認 | 指摘どおり |
+| R-038 | `ta-61:286` の末尾に付く `head -1`（パイプ経由）と、直後 TC-15 の判定が `[ -n "$_T61_GUARDED_ENVS" ]`（空でないことのみ）であることを実物で確認 | 指摘どおり（(a)(b) とも） |
+
+**反証に至った指摘は 0 件**（R-036〜R-038 の 3 件すべてを採用）。
+
+### River Review 3 回目 監査表（追記専用）
+
+| R-NNN | severity | lane | status | reflected_in(commit) | notes |
+|---|---|---|---|---|---|
+| R-036 | major | river | reflected | （本 commit・後段で実 SHA へ確定） | plan Testing Strategy の AC-2c を guarded env の実行時導出へ（否定済み判定式を除去） |
+| R-037 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | R-034 注記から特定の N を除去（`C1-VERDICT-N` = 常に末尾 1 本） |
+| R-038 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | `head -1` の制約と実装時の必須確認を TC-31 (3) へ / TC-15 の表明を弱める / ラベルの `7 env` 残差を掃除 |
+
+> Round 1〜3 および River Review 1・2 回目の監査表は**編集していない**。
+
+### River Review 3 回目 反映順序
+
+1. 本ファイルへ R-036〜R-038 を追記集約（本 commit）
+2. plan / pbi-input / test-cases へ **1 回確定反映**（`Refs: R-036 R-037 R-038`・本 commit）
+3. **3 段の全数照合**（短形 / 非契約化語 / **AC ID 軸の横断照合**）を実行し C-1 #7 に記録
+4. 簡易 C-1 再実行 #7 → `review-self.md` へ追記し `C1-VERDICT-8` を新 plan_hash で更新（本 commit）
+5. 人間が最終承認トークン（`c3_status=APPROVED`・**本反映後の plan_hash**）を発行
+6. exec 開始
+
+---
+
+C2-VERDICT: approve plan=sha256:24f3faf99c427637f377e6580dc7f0667d2e103aa2f2fd0ee7adb461183f8bb4

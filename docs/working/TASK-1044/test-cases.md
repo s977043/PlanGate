@@ -11,7 +11,7 @@
 | AC-1（helper 欠落 + env 漏出 + 直接実行 → 4 シェル rc=1） | TC-30 + EV-1 |
 | AC-2a（rc 契約 0/1/3） | TC-31 (1) + EV-2 |
 | AC-2b（summary 書式） | TC-31 (2) + EV-2 |
-| AC-2c（7 env unset の実測） | TC-31 (3) + EV-2 |
+| AC-2c（guarded env unset の実測 / 集合は実行時導出・件数は非契約） | TC-31 (3) + EV-2 |
 | AC-2d（カウンタ初期化） | TC-31 (4) + EV-2 |
 | AC-3（正規経路無回帰） | TC-33 / TC-34 |
 | AC-4（bootstrap marker の**各出現**でバイト一致 + helper 分離照合） | TC-35 |
@@ -46,14 +46,22 @@
 - 前提: sandbox に層 A 1 本 + `_extra-contract.sh` を複製
 - 入力: 3 env 漏出状態で `dash $SBX/ta-XX-*.sh`
 - 期待出力: standalone として動作。**AC-2a〜2d の 4 点をすべて検証する**（R-004。
-  従来案は (1)(2) のみで、**7 env unset とカウンタ初期化を誰も検証していなかった**）:
+  従来案は (1)(2) のみで、**guarded env unset とカウンタ初期化を誰も検証していなかった**）:
   1. **(AC-2a)** rc が standalone 契約（0 / 1 / 3）に従う
   2. **(AC-2b)** summary 行 `TA-<NN> standalone: N passed, M failed` が出力される
   3. **(AC-2c)** 契約下で起動した子プロセスで、**`tests/run-tests.sh` の `^unset` で始まる行から
      実行時導出した env 集合の全名**がいずれも未設定であること。
      **導出には既存の `_T61_GUARDED_ENVS`（`ta-61:286` /
      `sed -n 's/^unset \(.*\) 2>\/dev\/null.*$/\1/p'`）をそのまま消費する**
-     （TC-15 がこの導出自体を検査済み）。**名前も件数も契約値にせず、行番号でも
+     （**TC-15 は「導出結果が空でないこと」（`[ -n … ]`）を検査しているのみで、
+     集合の完全性は検査していない** — 「導出自体を検査済み」は過大表明だった / R-038）。
+     ⚠️ **委譲先の制約（R-038 / exec 実装時の必須確認）**: `_T61_GUARDED_ENVS` の実体は
+     末尾に **`| head -1`** が付いており **`^unset` 行の先頭 1 行しか読まない**。
+     さらに sed パターンは行末の `2>/dev/null` を前提にしている。
+     **guarded env が 2 行目の `unset` 行として、あるいは `2>/dev/null` を欠いた形で
+     追加されると導出が静かに不完全になる**（= R-033 が閉じたはずの偽陰性がそのまま残る）。
+     したがって **TC-31 (3) 実装時に `head -1` を外すか、`^unset` で始まる行が
+     1 行であることを併せて assert する**こと。**名前も件数も契約値にせず、行番号でも
      アンカーしない（R-033）** — 7 名を固定すると **8 個目の guarded env が
      追加されたとき静かに検査対象から落ちる**（R-030 が潰した偽陰性と同クラス）。
      現時点の実測は 7 名（`PLANGATE_SKIP_REASON` / `PLANGATE_HOOK_TASK` /
@@ -61,7 +69,7 @@
      `PG_HARNESS_SOURCED` / `PLANGATE_ALLOW_MASS_DELETE`）だがログ出力のみ。
      **`env | grep -c '^PLANGATE_'` の全数 0 は判定に使わない（R-029）** —
      repo 内の `PLANGATE_*` は実測 **52 種**で、`PLANGATE_BIN` / `PLANGATE_PYTHON` /
-     `PLANGATE_REPO_ROOT` 等は 7 env 契約の外。全数 0 にすると**開発者環境や CI が
+     `PLANGATE_REPO_ROOT` 等は guarded 集合の外。全数 0 にすると**開発者環境や CI が
      無関係な `PLANGATE_*` を export しているだけで TC-31 (3) が落ちる**
      （「無関係な PR の CI 落ち」と同型）。
      漏出 env が子へ伝播しないことの実測。**この検証が無いと、漏出 env が

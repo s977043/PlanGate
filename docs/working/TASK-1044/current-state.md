@@ -1,9 +1,11 @@
 # TASK-1044 current-state
 
-- **今どこ**: **PR 作成前 River Review 2 回目（major 1 / minor 3）を R-032〜R-035 として
-  1 回確定反映 + 簡易 C-1 再実行 #6 まで完了**（`C1-VERDICT-7` / plan_hash =
-  `sha256:53ed25957c9c89ad02dbfb715cf90cdf53d66d14492b9ebd8e060b7b69d7bd5e`）。**River Review は「新規 critical なし・
-  反映後の PR 作成を推奨」と判定**。直前は River Review 1 回目（R-024〜R-031 /
+- **今どこ**: **PR 作成前 River Review 3 回目（major 1 = PR ブロッカー / minor 2）を
+  R-036〜R-038 として 1 回確定反映 + 簡易 C-1 再実行 #7 まで完了**（`C1-VERDICT-8` /
+  plan_hash = `sha256:24f3faf99c427637f377e6580dc7f0667d2e103aa2f2fd0ee7adb461183f8bb4`）。
+  **PR ブロッカーは解消**（River Review 判定: 是正が新たな major を生む連鎖は止まっている）。
+  **承認トークンはこの最新 hash で発行すること**。直前は River Review 2 回目
+  （R-032〜R-035 / `C1-VERDICT-7`）。直前は River Review 1 回目（R-024〜R-031 /
   `C1-VERDICT-6`）。
   **承認トークンはこの最新 hash で発行すること**（`cce20c06…` / `d1f6c5ea…` など
   過去 hash で発行すると EH-3 が後続反映を mismatch 検知）。
@@ -79,3 +81,11 @@
   **R-033** = AC-2c を `_T61_GUARDED_ENVS` の実行時導出消費へ（7 名固定・行番号アンカーを撤回）。
   **R-034** = C-1 マーカーの stale は **(b) 対応しない**を選択し review-self 冒頭へ注記。
   **R-035** = frontmatter `verdict` を schema enum 準拠の `PASS` へ
+- **PR 作成前 River Review 3 回目（2026-08-12 / major 1 = PR ブロッカー / minor 2）**:
+  R-036〜R-038 を追記集約し反映。**R-036（PR ブロッカー）** = `plan.md` の Testing Strategy
+  だけが AC-2c の否定済み判定式（`env | grep -c '^PLANGATE_…' = 0`）を指示し続けており、
+  R-029 / R-033 が plan へ一度も反映されていなかった → **guarded env の実行時導出**へ書き換え。
+  **R-037** = stale 可視化のための注記自体が `C1-VERDICT-6` を名指しして stale 化 →
+  特定の N を除去。**R-038** = 委譲先 `_T61_GUARDED_ENVS` は `head -1` で先頭 1 行しか
+  読まないため実装時の追加 assert を TC-31 (3) に明記し、TC-15 の過大表明を是正。
+  **全数照合を 3 段へ拡張**（過去否定語 / **本ラウンド非契約化語** / **AC ID 軸の横断照合**）

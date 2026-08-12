@@ -19,8 +19,10 @@
 > さらに **PR 作成前 River Review（major 2 / minor 6）** を **R-024〜R-031** として
 > 追記集約 → 1 回確定反映 → 簡易 C-1 再実行 #5（`C1-VERDICT-6`）まで完了。
 > さらに **River Review 2 回目（major 1 / minor 3）** を **R-032〜R-035** として
-> 追記集約 → 1 回確定反映 → 簡易 C-1 再実行 #6（`C1-VERDICT-7` /
-> plan_hash `sha256:53ed2595…`）まで完了。
+> 追記集約 → 1 回確定反映 → 簡易 C-1 再実行 #6（`C1-VERDICT-7`）まで完了。
+> さらに **River Review 3 回目（major 1 = PR ブロッカー / minor 2）** を
+> **R-036〜R-038** として追記集約 → 1 回確定反映 → 簡易 C-1 再実行 #7
+> （`C1-VERDICT-8` / plan_hash `sha256:24f3faf9…`）まで完了し、**PR ブロッカーは解消**。
 > **承認トークンはこの最新 hash で発行すること**（過去 hash で発行すると EH-3 mismatch）。
 > **`approvals/c3.json` は未発行**。承認は本追補のマージ後に行うこと。
 
@@ -32,8 +34,8 @@
 | [plan.md](plan.md) | EXECUTION PLAN（**### Mode resolution v2 = bootstrap 述語の新正本** / F-3 是正 / Mode 判定） |
 | [todo.md](todo.md) | EXECUTION TODO（T-01〜T-11b / H-01〜02） |
 | [test-cases.md](test-cases.md) | TC-30〜38 + EV-1〜4（変異注入 M-1〜M-4b） |
-| [review-self.md](review-self.md) | C-1 セルフレビュー（17 項目 + 簡易再実行 ×6・冒頭に `C1-VERDICT` 非対称の注記 / R-034） |
-| [review-external.md](review-external.md) | **外部レビュー集約（C-2 Round 1〜3 = R-001〜R-023 + PR 前 River Review 1・2 回目 = R-024〜R-035・監査表つき・追記専用・末尾に `C2-VERDICT` 1 行）** |
+| [review-self.md](review-self.md) | C-1 セルフレビュー（17 項目 + 簡易再実行 ×7・冒頭に `C1-VERDICT` 非対称の注記 / R-034・R-037） |
+| [review-external.md](review-external.md) | **外部レビュー集約（C-2 Round 1〜3 = R-001〜R-023 + PR 前 River Review 1〜3 回目 = R-024〜R-038・監査表つき・追記専用・末尾に `C2-VERDICT` 1 行）** |
 | [current-state.md](current-state.md) | 現在状態スナップショット |
 | [decision-log.jsonl](decision-log.jsonl) | 判断履歴（append-only） |
 
