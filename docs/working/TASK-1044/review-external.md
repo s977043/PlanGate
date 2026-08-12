@@ -552,3 +552,121 @@ REJECT 理由には数えていない**。**設計レーンは high-risk 維持�
 5. exec 開始
 
 **`approvals/c3.json` は依然未発行**であり、本反映も plan 編集可能期間内（EH-3 mismatch なし）。
+
+---
+
+## C-2 Round 3（追記専用 / R-021 以降）
+
+> レビュー日: 2026-08-12 / 対象 branch: `docs/1044-c2-reflect`（head `7caa37b`）
+> 対象 plan_hash（レビュー時点）: `sha256:cce20c06ba273a6d4297f63f47fab4e0837519f394012b5a0b3aa2a0866f0352`
+> **Round 1（R-001〜R-013）/ Round 2（R-014〜R-020）の記述は一切編集していない**（追記専用規約）。
+
+### Round 3 判定
+
+| レーン | verdict | critical | major | minor | info |
+|---|---|---|---|---|---|
+| 設計妥当性レーン | **APPROVE** | 0 | 0 | 2 | 0 |
+| コードベース整合レーン | **APPROVE** | 0 | 0 | 2 | 0 |
+| **統合** | **APPROVE** | **0** | **0** | **3**（重複統合後） | **0** |
+
+**Round 2 の反映は全件受理**。残るのは minor 3 件の掃除のみ。
+**mn-D（Mode 表記）は「両論併記 + 暫定 high-risk のままで承認可」と両レーンが判定**したため
+**現状維持で確定**（書き換えなし）。
+
+### R-021 [minor / 両レーンが独立に検出] R-014 / R-018 の是正漏れ 3 箇所
+
+**対象**: `plan.md` Files 節 / `plan.md` Risks 表 / `pbi-input.md` AC-7
+
+| 箇所 | 漏れていた内容 |
+|---|---|
+| `plan.md`（Files 節・旧 `:278`） | **R-014** で「4 本は挙動が変わる部分集合 / 走査母数は 12（動的導出）」に確定したのに Files 節だけ旧「fixture 4 本」のまま |
+| `plan.md`（Risks 表の緩和列・旧 `:337`） | **R-014 と R-018 の両方**が未反映。とくに **「TC-01b/01c が kill」は R-018 が実測で誤りと確定した主張**が残存 |
+| `pbi-input.md` AC-7（旧 `:105`） | M-4b 新設後は **M-4 / M-4b** が正 |
+
+> 設計レーンの指摘: 簡易 C-1 #3 が「**すべて書き換え済み**」と書いたが、
+> **Files 節と Risks 表が掃き残されており全数照合になっていない**。
+> この repo が繰り返している「**量化子の主張は全数照合してから書く**」クラス。
+> **掃いた後に `grep` で 0 件を実測してから「すべて」と書くこと。**
+
+**是正要求**（整合レーン提示）:
+
+- Files 節 →「**helper 直接 source の全 fixture（実測 12 本・動的導出）**への `_pg_extra_direct=0` 明示」
+- Risks 表 →「fixture の走査母数を**動的導出**（規約 3-bis）+ AC-8 静的 TC +
+  **M-4（TC-01c kill）/ M-4b（TC-01b kill）**」
+- AC-7 →「AC-5 の **M-4 / M-4b**」
+
+### R-022 [minor / コードベース整合レーン] 「3 条件すべてに検出力」は実測で 2/3
+
+**対象**: `plan.md` 帰結節 5 / `test-cases.md` EV-4
+
+**整合レーンが `M-4c` を自分で作って複製上で実測**:
+
+| 変異 | 落とす条件 | TC-01b | TC-01c |
+|---|---|---|---|
+| **M-4** | `FIXTURES_DIR` + `EXTRAS_DIR` | rc=0（生存） | **rc=65 KILL** |
+| **M-4b** | `PG_HARNESS_SOURCED` | **rc=65 KILL** | rc=0 |
+| **M-4c**（参考・未 plan） | **`FIXTURES_DIR` のみ** | rc=0 | rc=0 → **生存** |
+
+**`FIXTURES_DIR` 条件だけを落とす退行を kill できる TC が 1 本も存在しない**
+（`tc01b.sh` が `FIXTURES_DIR` を常に非空で固定しているため）。
+
+**これは本 PBI が持ち込んだ穴ではなく base の `ta-61` に元からある穴**だが、
+**plan の新文言が「3 条件すべて」と言い切っている**ため監査上「証明済み」と誤読される。
+
+**是正要求**:
+
+1. **文言の最小是正（必須）**: 「M-4 / M-4b で **`PG_HARNESS_SOURCED` と `EXTRAS_DIR` の
+   2 条件**に検出力があることを示す。**`FIXTURES_DIR` 単独条件の検出力は base の `ta-61`
+   にも TC が無く、本 PBI の scope 外**」へ書き換え（plan 帰結節 5 / test-cases EV-4）
+2. **Q-4 を新設して C-3 へ回す（scope 判断は Human-owned）**: 「**`TC-01d` + `M-4c` を
+   追加して 3 条件目を塞ぐか**（`tc01b.sh` の `FIXTURES_DIR="$T61_FXDIR"` を
+   `FIXTURES_DIR="${T61_FXD-$T61_FXDIR}"` へ変え、`T61_PHS=1 T61_FXD= T61_EXD=$FX` の
+   `TC-01d` を追加。整合レーン評価では **`tc01b.sh` は既に更新対象なので追加コストは
+   ほぼゼロ**）、それとも V2 候補として送るか」。
+   **AI は (2) を実装しない**（AC 追加 = scope 拡大 = Human 裁定事項）
+
+### R-023 [minor / 設計妥当性レーン・反映は任意] Q-3 へ裁定の実質的影響を 1 行
+
+Q-3 の表に「**high-risk / critical のいずれでも C-2 必須・人間 C-3 必須・
+autonomous APPROVE 不可・`lite_eligible=false` は同一で、差分は V-4 と複数レビュアー推奨のみ**」
+を添えると、人間が**判断の実質的影響を把握したうえで**裁定できる。
+
+### mn-D（Mode 表記）の最終裁定 — 現状維持で確定
+
+- 整合レーン: 「AI がレーン間不一致を独断で決着させず、両軸を逐語で C-3 へ
+  エスカレーションし、**適用手順まで書いている**のは正しい振る舞い」
+- 設計レーン: 「`critical（暫定）` を**推奨**するが、**REJECT 理由には数えない**。
+  実体判断としては high-risk 維持を支持」
+
+→ **Round 2 の判断（両論併記 + 暫定 high-risk）を維持**。書き換えなし。
+
+### Round 3 反証・独立検証（反映担当ワーカーによる一次確認）
+
+| 指摘 | 独立確認の内容 | 結果 |
+|---|---|---|
+| R-021 | `grep -n 'fixture 4 本\|4 本の完全列挙\|TC-01b/01c'` を `docs/working/TASK-1044/*.md` に対し実行し、plan Files 節 / plan Risks 表 / pbi-input AC-7 の 3 箇所が未是正であることを確認 | 指摘どおり（3 箇所） |
+| R-022 | `grep -n '3 条件'` で `test-cases.md` EV-4 の「3 env AND の 3 条件すべてに検出力」を確認。`tc01b.sh` の heredoc（ta-61 `:409-412`）が `FIXTURES_DIR="$T61_FXDIR"` を**上書き不能な固定値**で置いており、`FIXTURES_DIR` を空にする経路が TC 側に存在しないことを確認 | 指摘どおり（M-4c 生存は構造上必然） |
+
+**反証に至った指摘は 0 件**（R-021〜R-023 の 3 件すべてを採用。R-023 は「任意」だが反映した）。
+
+### Round 3 監査表（追記専用）
+
+| R-NNN | severity | lane | status | reflected_in(commit) | notes |
+|---|---|---|---|---|---|
+| R-021 | minor | 両レーン | reflected | （本 commit・後段で実 SHA へ確定） | Files 節 / Risks 表 / AC-7 の 3 箇所を R-014・R-018 準拠へ。掃除後に grep で残存 0 件を実測 |
+| R-022 | minor | 整合 | reflected | （本 commit・後段で実 SHA へ確定） | 「3 条件すべて」→「2 条件（`PG_HARNESS_SOURCED` / `EXTRAS_DIR`）」へ最小是正 + **Q-4 新設**（実装はしない） |
+| R-023 | minor | 設計 | reflected | （本 commit・後段で実 SHA へ確定） | Q-3 に「差分は V-4 と複数レビュアー推奨のみ」を追記 |
+
+> Round 1 / Round 2 の監査表は**編集していない**。
+
+### Round 3 反映順序
+
+1. 本ファイルへ R-021〜R-023 を追記集約（本 commit）
+2. plan / pbi-input / test-cases / todo へ **1 回確定反映**（`Refs: R-021 R-022 R-023`・本 commit）
+3. **掃除後の残存 0 件を `grep` で実測**（後掲の C-1 #4 に記録）
+4. 簡易 C-1 再実行 #4 → `review-self.md` へ追記し `C1-VERDICT-5` を新 plan_hash で更新（本 commit）
+5. 人間が最終承認トークン（`c3_status=APPROVED`・**掃除後の plan_hash**）を発行
+6. exec 開始
+
+**掃除前の plan_hash（`cce20c06…`）で承認トークンを発行すると EH-3 が後続の掃除を
+mismatch 検知する**ため、**必ず本 Round 3 反映後の hash を使うこと**（設計レーン申し送り）。

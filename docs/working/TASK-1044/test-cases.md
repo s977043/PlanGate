@@ -201,7 +201,14 @@
   （レビュアー実測）。旧記述「TC-01b / TC-01c が FAIL」は**半分外れ**であり訂正する
 - **変異 M-4b（新規 / R-018）**: helper の述語から **`PG_HARNESS_SOURCED` 条件を落とし
   `FIXTURES_DIR && EXTRAS_DIR` のみ**へ退行させる → **TC-01b が FAIL（kill）**。
-  M-4 と対称に置くことで **3 env AND の 3 条件すべてに検出力があること**を示す
+  M-4 と対称に置くことで **`PG_HARNESS_SOURCED` と `EXTRAS_DIR` の 2 条件に検出力が
+  あること**を示す。
+  **`FIXTURES_DIR` 単独条件は本 PBI の scope 外（R-022）**: 整合レーンが `M-4c`
+  （`FIXTURES_DIR` 条件のみを落とす退行）を作って実測したところ **TC-01b / TC-01c
+  とも rc=0 で生存**した（`tc01b.sh` が `FIXTURES_DIR` を常に非空で固定しているため）。
+  **これは base の `ta-61` に元からある穴**であり本 PBI が持ち込んだものではない。
+  **「3 条件すべてに検出力」とは書かない**（実測は 2/3）。
+  塞ぐか V2 へ送るかは **Q-4 で C-3 が裁定**する
 - **fixture 更新との対**: **本 PR で fixture へ `_pg_extra_direct=0` を入れていない
   状態では M-4 / M-4b が生存する**（レビュアー実測: TC-01c は rc=0 で PASS）＝
   HR-4 回帰テストの検出力が失われていることの証明であり、
@@ -223,7 +230,8 @@
   standalone** となり、TC-01b / TC-01c は「期待値 `pass=0` = standalone 側」と
   一致して **rc=0 で空振り PASS** する（＝ HR-4 の検証力が消える）。
   **`tc01b.sh` に `_pg_extra_direct=0` を明示設定して初めて env 述語が唯一の
-  判別子として残り、TC-01b / TC-01c が元の意味を回復する**（TC-36 / TC-37 / M-4 で担保）
+  判別子として残り、TC-01b / TC-01c が元の意味を回復する**
+  （TC-36 / TC-37 / **M-4（TC-01c）/ M-4b（TC-01b）** で担保 / R-021）
 - `_pg_extra_direct=0` の環境漏出: bootstrap は無条件代入のため層 A では上書きされ
   standalone 維持（TC-30b で pin）。ただし bootstrap を持たない fixture では
   漏出値がそのまま効くため、fixture 側のトップレベル明示設定が必須（AC-8 / TC-37）

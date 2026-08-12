@@ -213,3 +213,72 @@ C1-VERDICT-3: PASS plan=sha256:9c93cbf9268cfe4f6665b2b5a5baf47db91ac6482a64dad92
 - Minor 1（TC-32 の Q-1 依存）: 不変。Minor 2（zsh runner 非強制）: 不変
 
 C1-VERDICT-4: PASS plan=sha256:cce20c06ba273a6d4297f63f47fab4e0837519f394012b5a0b3aa2a0866f0352
+
+---
+
+## 簡易 C-1 再実行 #4（2026-08-12 / C-2 Round 3 指摘 R-021〜R-023 の 1 回確定反映後）
+
+> 反映元: **C-2 Round 3**（`review-external.md`「C-2 Round 3」節 / **2 レーンとも APPROVE・
+> major 0**）。Round 2 の反映は全件受理され、残っていたのは minor 3 件の掃除のみ。
+> 承認トークンは依然未発行 = plan 編集可能期間内の確定反映（EH-3 mismatch なし）。
+
+### 反映内容の整合確認（R-021〜R-023 全 3 件）
+
+| R | severity | 反映 | 判定 |
+|---|---|---|---|
+| R-021 | minor | **是正漏れ 3 箇所**を掃除 — plan Files 節「fixture 4 本」→「helper 直接 source の全 fixture（実測 12 本・動的導出）」/ plan Risks 表「fixture 4 本の完全列挙 + M-4（TC-01b/01c が kill）」→「走査母数を動的導出（規約 3-bis）+ AC-8 静的 TC + M-4（TC-01c kill）/ M-4b（TC-01b kill）」/ pbi-input AC-7「AC-5 の M-4」→「M-4 / M-4b」。**追加で test-cases エッジケース末尾の「M-4 で担保」も M-4 / M-4b へ**（全数 grep で自ら検出） | PASS |
+| R-022 | minor | 「3 env AND の 3 条件すべてに検出力」→ **「`PG_HARNESS_SOURCED` と `EXTRAS_DIR` の 2 条件」**へ最小是正（plan 帰結節 5 / test-cases EV-4）。`M-4c`（`FIXTURES_DIR` のみ落とす）が TC-01b / TC-01c とも生存する事実と、**base の `ta-61` に元からある穴**であることを明記。**Q-4 を新設**して C-3 へ回し、**(a) `TC-01d` + `M-4c` で塞ぐ / (b) V2 送り**の選択肢とコスト評価を提示。**AI は実装していない**（AC 追加 = scope 拡大 = Human 裁定事項） | PASS |
+| R-023 | minor | Q-3 に **「high-risk / critical のいずれでも C-2 必須・人間 C-3 必須・autonomous APPROVE 不可・`lite_eligible=false` は同一。差分は V-4 と C-4 複数レビュアー推奨のみ」**を追記（todo H-01 にも展開）。任意反映だが採用 | PASS |
+
+### 全数照合の実測（R-021 の再発防止 / 「すべて」と書く前の必須手順）
+
+掃除後に `docs/working/TASK-1044/{plan,pbi-input,test-cases,todo}.md` を対象へ
+以下 6 パターンを `grep -rn` で走査し、**合計 0 件**（exit=1）を実測した:
+
+| パターン | 件数 |
+|---|---|
+| `fixture 4 本` | 0 |
+| `4 本の完全列挙` | 0 |
+| `TC-01b/01c が kill` | 0 |
+| `AC-5 の M-4 で` | 0 |
+| `M-4 で担保` | 0 |
+| `3 条件すべてに検出力があること` | 0 |
+
+> 「4 本」「TC-01b/01c」の語自体は **帰結節の部分集合表・R-018 の訂正文・
+> 過去ラウンドの引用**として残るが、いずれも**契約値や現行主張ではない**ことを
+> 文脈で明示済み。**簡易 C-1 #3 の「すべて書き換え済み」は Files 節 / Risks 表を
+> 掃き残しており誤りだった**（R-021 で是正。#3 の記述は履歴として残す）。
+
+### 過去記録の訂正（履歴は書き換えない）
+
+- **簡易 C-1 #3 の C1-PLAN-04 に「M-4 / M-4b の対称化で 3 env AND の 3 条件すべてに
+  検出力が付いた」とあるのは誤り**（実測 2/3）。R-022 で確定した正は
+  **「`PG_HARNESS_SOURCED` と `EXTRAS_DIR` の 2 条件。`FIXTURES_DIR` 単独条件は
+  base の `ta-61` にも TC が無く本 PBI の scope 外（Q-4 で裁定）」**。
+  #3 の本文は履歴として保持し、本節を正とする
+
+### 17 項目の再判定
+
+| 区分 | 判定 | 根拠 |
+|---|---|---|
+| C1-PLAN-01（受入基準網羅性） | PASS | AC↔TC の orphan 0 件を維持。Q-4 は **AC を増やさない**（裁定次第で AC-5 / test-cases へ追加反映）ため現時点のマッピングは不変 |
+| C1-PLAN-02（Unknowns 処理） | PASS | **Q-4 を新設**し、scope 拡大判断を AI が独断しない形で C-3 へ提示（選択肢 (a)/(b) + コスト評価 + EH-3 順序の注記つき）。Q-1 (1)(2) / Q-3 (1)(2) と合わせ **裁定事項は 5 件** |
+| C1-PLAN-03（スコープ制御） | PASS | Q-4 の (a) を採る場合のみ scope が増えることを明示。AI 側では **scope 不変**（実装していない） |
+| C1-PLAN-04（テスト戦略） | PASS | 検出力の主張を**実測どおり 2/3 へ縮小**。過大主張が消え、残る穴は Q-4 として可視化された |
+| C1-PLAN-05（WBS Output） | PASS | Work Breakdown は不変（R-021〜023 は文言是正と Questions 追加のみ） |
+| C1-PLAN-06（依存関係） | PASS | 不変（T-11b → T-11 / T-06 ↔ T-08 (d)(e) を維持） |
+| C1-PLAN-07（動作検証自動化） | PASS | 不変 |
+| C1-TODO-01〜05 | PASS | H-01 に Q-3 補足（実質的影響）と **Q-4** を追加。タスク数は 12 で不変 |
+| C1-TC-01〜03 | PASS | EV-4 の M-4b 記述を 2 条件へ是正。エッジケース末尾の担保先を M-4 / M-4b へ |
+| C1-SUP-01（Mode 妥当性） | **WARN** | 前回と同じ（Q-3 (1)(2) へ委譲）。**mn-D は両レーンが「両論併記 + 暫定 high-risk で承認可」と裁定したため書き換えなし**。R-023 で裁定の実質的影響（差分は V-4 と複数レビュアー推奨のみ）を明記 |
+| C1-SUP-02（正本・既存ルール整合） | PASS | 追記専用規約（review-external Round 1 / 2）を遵守。量化子の主張は**全数 grep で 0 件を実測してから**書いた（本節の実測表） |
+
+### 判定
+
+- **PASS（WARN 1 / C1-SUP-01）**。WARN は Q-3 として C-3 裁定へ委譲済みでブロッカーではない
+- C-2 は Round 3 で **2 レーンとも APPROVE（major 0）**
+- C-3 で裁定すべき項目: **Q-1 (1) / Q-1 (2) / Q-3 (1) / Q-3 (2) / Q-4** の 5 件
+- **承認トークンは本反映後の plan_hash（下記）で発行すること**（掃除前の
+  `cce20c06…` で発行すると EH-3 が後続の掃除を mismatch 検知する）
+
+C1-VERDICT-5: PASS plan=sha256:d1f6c5ea5da23ace73cedf1270e3159faac717ab52d3847216e231f2850fbffe

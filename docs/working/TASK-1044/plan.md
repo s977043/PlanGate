@@ -143,7 +143,14 @@ source する ta-61 fixture は、`_pg_extra_direct` 未設定 → 既定 direct
    であり、M-4 は同条件を保持するため **原理的に検出できない**。
    TC-01b の検出力も証明するには **M-4b**（`PG_HARNESS_SOURCED` 条件を落とし
    `FIXTURES_DIR && EXTRAS_DIR` のみへ退行）を対称に追加し、**TC-01b が kill される**
-   ことを実証する
+   ことを実証する。
+   **検出力の範囲は 3 条件中 2 条件（R-022 / 整合レーンが `M-4c` を作って実測）**:
+   M-4 / M-4b で示せるのは **`PG_HARNESS_SOURCED` と `EXTRAS_DIR` の 2 条件**であり、
+   **`FIXTURES_DIR` 単独条件を落とす退行（M-4c）は TC-01b / TC-01c とも rc=0 で生存**する
+   （`tc01b.sh` が `FIXTURES_DIR` を常に非空で固定しているため）。
+   **これは base の `ta-61` に元からある穴であり本 PBI が持ち込んだものではない。
+   `FIXTURES_DIR` 単独条件の検出力は本 PBI の scope 外**とし、塞ぐか V2 へ送るかは
+   **Q-4 で C-3 が裁定**する。**「3 条件すべてに検出力」とは書かない**
 
 **規約 3-bis（R-014）**: **`_pg_extra_direct` の明示設定は helper を直接 source する
    全 fixture（本 PR 時点の実測 12 本）に適用する。件数は契約値でなく
@@ -275,7 +282,9 @@ TASK-0921 R-025-2 の原子性要求と同型）。
 - 層 A 12 本: `ta-39` `ta-40` `ta-43` `ta-44` `ta-45` `ta-46` `ta-47` `ta-49` `ta-50`
   `ta-51` `ta-52` `ta-53`（bootstrap ブロック同型置換のみ）
 - `tests/extras/ta-61-extra-contract.sh`（本体 bootstrap + fixture 複製 + TC-30/30b/31/32
-  追加 + TC-35 / TC-37 新設 + **fixture 4 本への `_pg_extra_direct=0` 明示**）
+  追加 + TC-35 / TC-37 新設 + **helper 直接 source の全 fixture（実測 12 本・
+  `. "$T61_HELPER"` 由来の動的導出）への `_pg_extra_direct=0` 明示**（R-014・R-021。
+  うち挙動が変わるのは `tc01` / `tc01b` / `tc21` / `tc26-file1` の部分集合））
 - `tests/extras/README.md`（規約 8 へ 1 行: bootstrap を持たず helper を直接 source する
   ファイルは `_pg_extra_direct` を**トップレベルで明示設定**すること。非 export の
   グローバルであり直前 source ファイルの値を継承しうるため / R-012。**Q-2 を「追記する」で確定**。
@@ -334,7 +343,7 @@ TASK-0921 R-025-2 の原子性要求と同型）。
 | `ta-*.sh` 命名規約外の将来ファイルにはガードが効かない | 低 | 規約は ta-61 の marker 検査が既に強制。README 規約に依存を明記 |
 | 述語変更の中間 commit で bootstrap / helper が分裂 | 中 | S3/S4 同一 commit（原子性、R-025-2 同型） |
 | exit 4（init 前 finalize）が harness source 経路で runner を止める | 低（TC-10 が CI で静的 block 済） | Q-1 として C-3 裁定に明示。代替案（return 0 + fail 加算）との比較を提示済み。Constraints に R-024 carve-out を明記済（R-007） |
-| **fixture 更新漏れで既存 TC が「空振り PASS」化し、HR-4 回帰テストの検出力が消える** | **高**（本 PBI の目的と正面衝突） | fixture 4 本の完全列挙（帰結節）+ **AC-8 静的 TC**（未設定 0 件）+ **変異 M-4**（3 env → 1 条件退行で TC-01b/01c が kill）の 3 点セット（R-001） |
+| **fixture 更新漏れで既存 TC が「空振り PASS」化し、HR-4 回帰テストの検出力が消える** | **高**（本 PBI の目的と正面衝突） | fixture の走査母数を**動的導出**（規約 3-bis・実測 12 本）+ **AC-8 静的 TC**（未設定 0 件）+ **変異 M-4（`PG_HARNESS_SOURCED` 単独へ退行 → TC-01c kill）/ M-4b（`PG_HARNESS_SOURCED` 条件を落とす → TC-01b kill）** の 3 点セット（R-001・R-014・R-018・R-021） |
 | `_pg_extra_direct=0` の env 漏出で harness と誤判定される（#1044 と同型の新窓） | 中 | bootstrap は**無条件代入**（`: ${…:=}` 形にしない）。**TC-30b でこれを pin**（R-008） |
 | 直前 source ファイルの `_pg_extra_direct` を継承して誤判定 | 低（非 export のため子へは漏れない） | README 規約 8 で「トップレベル設定必須」を規約化 + AC-8 の静的 TC（R-012） |
 | TASK-0921 の変異 evidence 18 本の HEAD 整合が本 PR で失効 | 中（監査の連続性） | **(b) superseded 宣言**（正本管理表）+ AC-9 で TASK-0921 handoff への追記を義務化（R-003） |
@@ -376,9 +385,29 @@ TASK-0921 R-025-2 の原子性要求と同型）。
   | **整合レーン**（既定を critical に置くべき） | `mode-classification.md`「判定不能／該当不確実なら**引き上げる側**」・`working-context.md` AC-8「判定不能なら安全側」に照らせば、規定どおりの向きは **既定 critical → 人間が根拠を確認して high-risk へ引き下げ**。現状は plan の最終判定に high-risk を書き、人間に**引き上げ**を求めており向きが逆。ただし **C-3 が明示裁定する限りガバナンス上の穴にはならない**ため REJECT 理由には数えない |
   | **設計レーン**（high-risk 維持を支持） | 上記 1・2 はいずれも「解釈の余地」であって「判定不能」ではない（AC 分割は要件総量を増やしていない / working context を分母に入れると規模軸が影響範囲を表さなくなる）。substance としては **high-risk 維持が妥当** |
 
+  **裁定の実質的影響（R-023）**: **high-risk / critical のいずれでも
+  「C-2 必須 / 人間 C-3 必須（autonomous APPROVE 不可）/ `lite_eligible=false`」は同一**で、
+  **差分は V-4（リリース前チェック）の追加と C-4 の複数レビュアー推奨のみ**
+  （`mode-classification.md` フェーズ適用マトリクス）。裁定はこの差分に対して行われる。
+
   → plan は **暫定的に high-risk（両論併記のうえ Q-3 で確定）** としている。
   C-3 が「既定 critical」の向きを採る場合は、最終判定を critical へ書き換えたうえで
   V-4 追加・複数レビュアーを適用すること
+
+- **Q-4（要 C-3 裁定 / scope 判断 — R-022）**: **`FIXTURES_DIR` 単独条件を落とす退行
+  （`M-4c`）を kill できる TC が base の `ta-61` に 1 本も存在しない**
+  （整合レーンが `M-4c` を作って実測: TC-01b / TC-01c とも rc=0 で生存。
+  `tc01b.sh` が `FIXTURES_DIR` を常に非空で固定しているため）。
+  **本 PBI が持ち込んだ穴ではなく base の既存穴**である。
+
+  | 選択肢 | 内容 | コスト評価 |
+  |---|---|---|
+  | (a) 本 PBI で塞ぐ | `tc01b.sh` の `FIXTURES_DIR="$T61_FXDIR"` を `FIXTURES_DIR="${T61_FXD-$T61_FXDIR}"` へ変え、`T61_PHS=1 T61_FXD= T61_EXD=$FX` の **`TC-01d` を追加** + **変異 `M-4c` を追加** | 整合レーン評価: **`tc01b.sh` は既に更新対象なので追加コストはほぼゼロ** |
+  | (b) V2 候補として送る | 本 PBI は 2 条件（`PG_HARNESS_SOURCED` / `EXTRAS_DIR`）の検出力実証に留め、handoff の V2 候補へ記録 | scope 不変 |
+
+  **AC を増やす = scope 拡大であり Human 裁定事項**のため、AI は実装しない。
+  (a) を採る場合は **AC-5 に `M-4c` を、test-cases に `TC-01d` を確定反映してから**
+  承認トークンを発行すること（EH-3 順序）
 
 ## Mode 判定
 
