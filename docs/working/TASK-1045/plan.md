@@ -1,0 +1,529 @@
+# EXECUTION PLAN — TASK-1045
+
+> Issue: [#1045](https://github.com/s977043/plangate/issues/1045)
+> 入力: [`pbi-input.md`](./pbi-input.md)（266 行 / 受入基準 13 件）
+> base: `origin/main` = `6089e23`
+> 由来: **#1042 の後続**（EH-13 導入直後に検出） / 関連: **#1023**（EH-13 実装元）
+
+## 記法規約（pbi-input N-8 の踏襲）
+
+本 PBI の修正がマージされるまでは、**本ドキュメント自身が誤 block の対象になりうる**。
+したがって以下を用いる。
+
+- `<TOKEN>` … `scripts/check-approval-token-write.sh` の `_is_token_path()` が一致と判定する
+  パス（承認 artifact / maintenance artifact / 親 PBI 承認 artifact の JSON 群）。
+- トークンパスの **literal は地の文に書かない**。test-cases 側で **フィクスチャ変数**として扱う。
+- 調査コマンドは「トークンパス literal」と「`2>/dev/null` 等」を**同一コマンドに書かない**
+  （書くと調査コマンド自体が block される＝本件の症状）。
+
+---
+
+## Goal
+
+`scripts/check-approval-token-write.sh` の `_has_write_intent()` が
+**「コマンド文字列に `>` が 1 文字でも含まれれば書き込み意図あり」**と判定している欠陥を修正し、
+**fd 複製（`N>&M` / `>&N` / `N>&-`）と `/dev/null` への破棄** を write intent から除外する。
+その結果として `<TOKEN>` を対象とする **読み取り専用コマンド（`2>/dev/null` / `2>&1` / `>&2` 付き）が
+guard を通過**し、かつ **ファイル宛リダイレクトを含む真の書き込みは引き続き block される**状態にする。
+併せて block メッセージに **一致したルールの識別子**を機械可読な形で載せる。
+
+---
+
+## Global Constraints（最上位制約）
+
+> 本節は Work Breakdown / test-cases より**上位**であり、いずれの Step もこれに反してはならない。
+
+### GC-1: ガードを弱めるのではなく「判定を正確にする」
+
+本 PBI の目的は **判定精度の是正**であり、**防御範囲の縮小ではない**。
+**除外を追加した結果として、書き込み可能な記法が 1 つでも通るようになってはならない。**
+これは pbi-input の Non-goals と一致し、R-1（ガード弱体化 = critical）に対する最上位の歯止めである。
+機械的な担保は AC-04〜07 の退行 TC と **AC-09 の「弱める側の変異」**（§Testing Strategy）で行う。
+
+### GC-2: 完全なシェル構文解析は行わない（保守的側に倒したまま除外する）
+
+クォート・変数展開・`eval`・ヒアドキュメント・プロセス置換まで正確に解釈するのは
+**コストに見合わず、パーサ自体が新たな bypass 面になる**。
+したがって本 PBI は **fail-closed（保守的側）に倒したまま、
+「明らかに書き込みではない記法」だけを列挙的に除外する**方針を採る。
+
+**取りこぼし（block されたままでよい＝誤検知として扱わない）**:
+
+- 文字列リテラル中の `>`（例: `echo 'a > b'`）
+- ヒアドキュメント本文中の `>`
+- 変数展開の結果として現れる `>`
+
+**除外の設計原則**: 「除外リストへの追加は列挙的（allowlist）であり、
+判定の緩和（`>` の一般的な無効化）ではない」。
+
+### GC-3: T1023-TC-09 が設計方向を拘束する（pbi-input N-4）
+
+既存 `T1023-TC-09` のフィクスチャは `cat <TOKEN> && echo hi > /tmp/other.txt` であり、
+**`cp` / `tee` / `mv` を含まないため `>` 検査だけが唯一の捕捉経路**である
+（実測: `tests/extras/ta-25-approval-token-guard.sh:83`, `375-381`）。
+
+したがって、
+
+- ❌ **禁止方針**: 「`>` を token path 宛のときだけ block する」→ **TC-09 が退行 FAIL する**
+- ✅ **採る方針**: 「**任意のファイル宛リダイレクトは block 維持**、
+  **fd 複製と `/dev/null` 破棄のみ除外**」
+
+### GC-4: `_t25_mutate` の 2 つの機構制約（pbi-input N-3 / #874 と同型の失敗回避）
+
+`tests/extras/ta-25-approval-token-guard.sh` の `_t25_mutate`（`629-660` 行）は次を要求する。
+
+| 制約 | 内容 | 破ったときの症状 |
+|---|---|---|
+| **(a) アンカー一意** | 変異対象アンカーの `grep -c` が **ちょうど 1**（`634` / `639-642` 行） | `[FAIL] ... mutation anchor not unique` |
+| **(b) focused 群配置** | kill 判定は `PG_T25_MUTATION_CHILD=1` の子プロセスで **focused kill TC 群のみ**を実行する（`47` / `102-219` / `222` 行の `if [ "$PG_T25_FOCUSED" = "0" ]`）。**focused 群の外に置いた TC は子プロセスで実行されず kill が実証されない** | `mutant NOT killed by <label>`（= 検出力の空振り。#874 既往と同型） |
+
+**したがって AC-01〜AC-05 に対応する新規 TC は、`ta-25` の
+`222` 行 `if [ "$PG_T25_FOCUSED" = "0" ]` より前（focused 群）に置く。**
+
+補足制約（同 N-3 の 3 / 4）:
+
+- 新 TC も `t25_guard` ヘルパ経由で起動し、guard パスをハードコードしない（`PG_T25_GUARD` override 方式を壊さない）
+- **stdin を redirect しない guard 起動を残さない**（`T1023-TC-24` が静的検査する / R-027）
+
+### GC-5: #1023 / #1042 で確定した契約を変更しない（pbi-input N-7）
+
+`exit 2`（PreToolUse block 契約）/ stdin 常時独立評価 / `parse-unknown` fail-closed /
+TTY 即 fail-closed / `PLANGATE_SKIP_TOKEN_GUARD`（Human-owned escape hatch）/
+`_is_token_path()` の一致範囲 / `Edit`・`Write`・`MultiEdit` レーン
+は **本 PBI では一切変更しない**。
+
+### GC-6: POSIX `sh` + BSD/GNU 双方で同一挙動（R-5）
+
+guard は `#!/bin/sh` + `set -eu`。実装は **POSIX BRE / ERE の範囲に留める**。
+GNU 拡張（`sed` の `\|` / `\+` / `\b`、`grep -P`）は**使用禁止**。
+ローカル（macOS / BSD）と CI（Linux / GNU）の双方で実行結果を evidence に残す。
+
+### GC-7: 変更対象の限定
+
+変更は **`scripts/check-approval-token-write.sh`** と
+**`tests/extras/ta-25-approval-token-guard.sh`** の 2 本 + 本 PBI の working context に限る。
+`.claude/` 配下（settings 含む・Human-owned）/ `bin/plangate` / `.github/workflows/` / `schemas/`
+は触らない。
+
+---
+
+## Non-goals
+
+- ガードを弱めること（GC-1）
+- コマンド文字列の完全なシェル構文解析（GC-2）
+- `_is_token_path()` の判定範囲の変更
+- 他の write intent ルール（`cp` / `mv` / `ln` / `install` / `dd` / `tee` / `truncate` /
+  `patch` / `apply_patch` / `ed` / `ex` / `git checkout|restore|checkout-index|update-index` /
+  `sed -i` / `perl -i` / python・node・ruby の書き込み API）の見直し
+- EH-13 の採番・配線そのもの（#1042 で確定済み）
+- `.claude/settings*.json` への配線変更（Human-owned）
+
+---
+
+## Approach Overview
+
+`_has_write_intent()` の先頭にある
+
+```text
+printf '%s' "$_wc" | grep -q '>' && return 0
+```
+
+を、**「非書き込みリダイレクト記法を除去してから残った `>` を見る」**2 段構成へ置き換える。
+
+1. **正規化**（新規ヘルパ `_strip_nonwrite_redirects()`）
+   - (1) **fd 複製 / fd クローズ**を除去: `N>&M`（`2>&1`）/ `>&M`（`>&2`）/ `N>&-`（`3>&-`）
+     - **`>&` の直後が「数字列」または `-` の場合のみ**除去する。
+       `>&<ファイル名>`（例: `>& /tmp/x`）は **除去しない = block 維持**（R-4）
+   - (2) **`/dev/null` への破棄**を除去: `N>` / `N>>` の直後（空白許容）が `/dev/null` で、
+     **かつ後続が語境界**（空白 / `;` / `&` / `|` / `)` / 文字列末尾）のとき
+     - `>/dev/nullX` / `>/dev/null/../<TOKEN>` は語境界を満たさず **除去されない = block 維持**（R-3）
+     - **直前の文字が `&` のときは除去しない**（`&>` / `&>>` は U-2 の決定により block 維持）
+2. **判定**: 正規化後の文字列に `>` が残っていれば **ファイル宛リダイレクト**とみなし write intent。
+
+**この方向は GC-3 を満たす**: `cat <TOKEN> && echo hi > /tmp/other.txt` は
+`> /tmp/other.txt` が `/dev/null` でも fd 複製でもないため `>` が残り、**block が維持される**。
+
+### 実現可能性の実測（plan 段階の feasibility 検証 / `scripts/` は未変更）
+
+正規化ロジックだけをスクラッチパッドの独立スクリプトへ切り出し、
+**macOS / BSD `sed` + POSIX BRE のみ**で 26 ケースを実行した結果、
+**期待どおりの分類 26/26**（誤検知 10 件がすべて `nowrite`、退行防止 16 件がすべて `write`）。
+`/dev/nullX` / `/dev/null/../<TOKEN>` / `&>` / `>&<file>` / `/dev/stdout` / `/dev/stderr` /
+`/dev/fd/3` / 文字列リテラル中の `>` はすべて `write`（block 維持）側に落ちた。
+実装は exec で改めて TDD で行い、本結果は**方向の妥当性の裏付け**として扱う（実装確定ではない）。
+
+### block メッセージのルール識別子（AC-10 / U-3）
+
+`_has_write_intent()` を **「真偽を返す」から「一致したルール ID を副作用変数に置いて真偽を返す」**へ拡張し、
+`_block()` の detail に `rule=<id>` を付与する。ID は以下の**短い機械可読タグ**とする。
+
+| rule ID | 対応ルール |
+|---|---|
+| `file-redirect` | 正規化後に残ったファイル宛 `>` / `>>` |
+| `copy-like` | `cp` / `mv` / `ln` / `install` / `dd` / `tee` / `truncate` / `patch` / `apply_patch` |
+| `line-editor` | `ed` / `ex` |
+| `git-restore` | `git checkout` / `restore` / `checkout-index` / `update-index` |
+| `inplace-edit` | `sed -i` / `perl -i` |
+| `lang-write` | python / ruby / node の書き込み API |
+
+detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形とする
+（`writes token path` を**残す**ことで既存の読解性を保ちつつ根拠を追加。
+読み取りコマンドは AC-01〜03 により **そもそも block されなくなる**ため N-6 の問題は解消する）。
+
+---
+
+## 未決事項の確定（pbi-input Unknowns の処理）
+
+| ID | 未確定事項 | **plan での確定** | 根拠 / 備考 |
+|---|---|---|---|
+| **U-1** | `/dev/stdout` / `/dev/stderr` / `/dev/fd/N` を除外に含めるか | **含めない（block 維持）。除外は `/dev/null` のみ** | `/dev/stdout` 等はリダイレクト文脈によっては実ファイルを指しうる。GC-1（弱体化禁止）の安全側。TC-1045-11 で固定 |
+| **U-2** | `&>` / `&>>`（bash 拡張の全出力リダイレクト）の扱い | **書き込みとして block 維持**（宛先が `/dev/null` でも除外しない） | pbi-input の既定を採用。除外面を最小化し bypass 面を増やさない。**残存誤検知（`&>/dev/null` 付き読み取り）は既知の制約として handoff に明記**し、必要なら follow-up issue |
+| **U-3** | ルール識別子の具体フォーマット | **`rule=<id>` を既存 detail に追記**（上表の 6 ID） | **実測確認済み**: `grep -rn "writes token path" tests/ docs/ scripts/` の結果、`tests/` にヒットは **0 件**（メッセージ本文を assert している既存 TC は存在しない）。既存の assert は `BLOCK` / `target=` / `file_path=` / `parse-unknown` / `bypass` のみ。よって detail 文字列の変更は既存 TC を壊さない |
+| **U-4** | 最終 Mode / `lite_eligible` | **`critical` / `lite_eligible=false`**（§Mode 判定） | 定量軸（受入基準 13 件）+ 安全側 |
+| **U-5** | settings 配線への反映に再適用が要るか | **不要**。`.claude/settings.example.json:72,81` は `sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh` と**スクリプトパスを呼ぶ**配線のため、スクリプト本体の修正は**再適用なしで即時反映**される。settings 自体は変更しない（Human-owned / GC-7） | 実測: `grep -n "check-approval-token-write" .claude/settings.example.json docs/ai/settings-wiring-contract.md` |
+| **U-6** | 同種の粗い `>` 判定が他の `scripts/` に存在するか | **存在しない（実測 1 件のみ）**。`scripts/` / `bin/` 横断で `grep -q '>'` 相当は `scripts/check-approval-token-write.sh:48` の **1 箇所のみ**。`tool_input.command` を解析する他の 3 本（`scripts/check-git-destructive.sh` / `scripts/hooks/check-delegation-commit-boundary.sh` / `.codex/hooks/eh-bridge.sh`）に `>` ベースの write-intent ヒューリスティクスは **無い** | Step 1 で **base 更新時に再実行**して確定させる（横断調査は Work Breakdown の Step 1 に配置）。**万一検出された場合も本 PBI の scope には入れず follow-up issue として起票**する |
+
+---
+
+## Work Breakdown
+
+> 各 Step の `rollback:` は **high-risk / critical の実装タスクで必須**（working-context.md）。
+> Mode = `critical` のため **全実装タスクに記載**する。
+
+### Step 1: 現状固定と横断調査（RED の前提整備）
+
+- **Output**: `evidence/verification/baseline.md`（`ta-25` の pass/fail・誤検知再現表・U-6 横断調査結果）
+- **Owner**: agent
+- **Risk**: low
+- **内容**:
+  1. `sh tests/extras/ta-25-approval-token-guard.sh` を実行し **baseline を実測記録**
+     （起票時実測は **47 passed / 0 failed**。**絶対件数は契約値にせず**、
+     「**0 failed かつ pass 数が baseline 以上**」を退行判定条件とする）
+  2. `PreToolUse` payload で guard を直接起動し、pbi-input の A〜K 表を **本 PBI 内で再現**
+     （payload 生成は「トークン literal を含むが `>` を含まない」スクリプト経由。
+     literal とリダイレクトを同一コマンドに書かない）
+  3. **U-6 横断調査**: `scripts/` / `bin/` / `.codex/` を対象に、
+     コマンド文字列に対する粗い `>` 判定・write-intent ヒューリスティクスを列挙する。
+     検出時は **scope に入れず follow-up issue を起票**して plan には記録のみ
+  4. **U-3 再確認**: `grep -rn "writes token path" tests/` が 0 件であることを再実測
+- **🚩チェックポイント**: baseline が 0 failed であること。0 failed でなければ **exec を止めて人間へ**
+- `rollback:` 不要（読み取り・記録のみ。ファイル変更なし）
+
+### Step 2: RED — 新規 TC を focused 群へ追加（実装前に FAIL することを確認）
+
+- **Output**: `tests/extras/ta-25-approval-token-guard.sh` に `T1045-TC-01`〜`T1045-TC-07`
+  を **`222` 行の `if [ "$PG_T25_FOCUSED" = "0" ]` より前（focused 群）** に追加
+- **Owner**: agent
+- **Risk**: medium（GC-4(b) を破ると検出力が空振りする）
+- **内容**:
+  - 誤検知解消 TC（`T1045-TC-01`〜`03`）と退行防止 TC（`T1045-TC-04`〜`06`）と
+    併記回避 TC（`T1045-TC-07`）を追加
+  - 全 TC を `t25_guard` ヘルパ経由で起動（guard パスをハードコードしない / GC-4）
+  - `T1023-TC-24`（stdin 未 redirect の静的検査）に**新たな違反を作らない**
+- **🚩チェックポイント**:
+  - この時点で **`T1045-TC-01`〜`03` が FAIL**、`T1045-TC-04`〜`07` が PASS すること（RED 確認）
+  - **focused 子プロセス**（`PG_T25_MUTATION_CHILD=1`）でも新 TC が**実行されている**ことを
+    出力で目視確認する（GC-4(b) の空振り防止 / #874 同型の失敗回避）
+- `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
+
+### Step 3: GREEN — `_has_write_intent()` のリダイレクト検査を置換
+
+- **Output**: `scripts/check-approval-token-write.sh` の `_has_write_intent()` を修正
+- **Owner**: agent
+- **Risk**: **high**（GC-1 に直結。誤ると承認境界が突破されうる）
+- **内容**:
+  1. ヘルパ `_strip_nonwrite_redirects()` を追加（fd 複製 → `/dev/null` 破棄 の順に除去）
+  2. 正規化呼び出し行に **一意アンカー `# t1045-redirect-normalize`** を付す
+  3. 残存 `>` 判定行に **一意アンカー `# t1045-file-redirect`** を付す
+  4. POSIX BRE のみを使用（GC-6）。`sh -n` が通ること
+- **🚩チェックポイント**:
+  - **アンカー 2 種が `grep -c` == 1 であることを実測**（GC-4(a) / R-6）
+  - `T1045-TC-01`〜`07` が全 PASS へ転じる（GREEN）
+  - **`T1023-TC-08` / `TC-09` / `TC-12` / `TC-25` / `TC-26` / `TC-27` が PASS を維持**（GC-3 / AC-11）
+- `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
+  （guard は他ファイルに依存を持たない単体スクリプトのため、単独 revert で完全に復元可能）
+
+### Step 4: block メッセージへルール識別子を付与（AC-10）
+
+- **Output**: `_has_write_intent()` がルール ID を返し、`_block()` detail に `rule=<id>` が載る
+- **Owner**: agent
+- **Risk**: medium（既存 assert への影響 → U-3 で 0 件確認済み）
+- **内容**: `rule=` 6 ID の付与 + `T1045-TC-08`（block ケースでの `rule=` assert）を追加
+- **🚩チェックポイント**: 既存 TC（`BLOCK` / `target=` / `file_path=` / `parse-unknown` / `bypass` を
+  assert する群）が **すべて PASS を維持**
+- `rollback:` `git checkout -- scripts/check-approval-token-write.sh tests/extras/ta-25-approval-token-guard.sh`
+
+### Step 5: 変異注入 2 方向の追加（AC-08 / AC-09 — 検出力の実証）
+
+- **Output**: `_t25_mutate` 呼び出しを 2 件追加（`T1045-TC-09` / `T1045-TC-10`）
+- **Owner**: agent
+- **Risk**: **high**（ここが空振りすると「テストがあるのに検出力ゼロ」になる / #874 同型）
+- **内容**:
+  1. **(a) 修正前へ戻す変異**（`# t1045-redirect-normalize` を no-op 化）
+     → kill 対象 = `T1045-TC-01`（誤検知解消 TC）
+  2. **(b) 弱める側の変異**（`# t1045-file-redirect` の残存 `>` 判定を常に false 化）
+     → kill 対象 = `T1045-TC-04`（退行防止 TC）
+  3. `_t25_mutate` の sed 式も **POSIX BRE のみ**（GC-6）
+- **🚩チェックポイント**:
+  - 各変異で **`[FAIL] <kill 対象ラベル>` が実際に出力され、子プロセス rc が非 0** であることを
+    出力で確認する（「kill した」の申告ではなく **実出力を evidence に残す**）
+  - `T1023-TC-15pre`（baseline）/ `T1023-TC-17post`（復元）が PASS を維持
+- `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
+
+### Step 6: 併記回避の多重防御を再実測（AC-07 / pbi-input N-5）
+
+- **Output**: `evidence/verification/multi-defense.md`
+- **Owner**: agent
+- **Risk**: medium
+- **内容**: `ls > /dev/null ; cp <TOKEN> /tmp/x` に加え、**`>` を含まない単独形**
+  （`cp <TOKEN> /tmp/x` / `tee <TOKEN>` / `mv /tmp/x <TOKEN>`）が**各 exit 2** であることを
+  **本 PBI 内で再実測**する（起票時実測を根拠にしない）
+- **🚩チェックポイント**: 4 形すべて exit 2
+- `rollback:` 不要（読み取り・記録のみ）
+
+### Step 7: AC-12 — 起点そのものの解消を実測
+
+- **Output**: `evidence/verification/ac12-readonly-audit.md`
+- **Owner**: agent
+- **Risk**: low
+- **内容**: `<TOKEN>` を対象とする **read-only 監査コマンド**（#1023 AC-09 相当。
+  `find` / `grep` / `jq` による列挙で `2>/dev/null` を伴うもの）が guard を通過することを
+  実測ログとして残す
+- **🚩チェックポイント**: 監査コマンド群が exit 0
+- `rollback:` 不要（読み取り・記録のみ）
+
+### Step 8: 全体検証（AC-11 / AC-13）と evidence 整理
+
+- **Output**: `evidence/test-runs/` に full suite 実行ログ（ローカル + CI）
+- **Owner**: agent
+- **Risk**: medium
+- **内容**:
+  1. `sh -n scripts/check-approval-token-write.sh`（AC-13）
+  2. `sh tests/extras/ta-25-approval-token-guard.sh`（standalone / 0 failed）
+  3. `sh tests/run-tests.sh`（source 経路 / 0 failed）
+  4. **CI（Linux / GNU）実行結果を evidence に残す**（GC-6 / R-5）
+- **🚩チェックポイント**: すべて 0 failed。**pass 数が baseline 以上**（絶対件数は契約にしない）
+- `rollback:` 不要（検証のみ）
+
+---
+
+## Files / Components to Touch
+
+| パス | 変更内容 | 責務 |
+|---|---|---|
+| `scripts/check-approval-token-write.sh` | `_has_write_intent()` のリダイレクト検査置換 + `_strip_nonwrite_redirects()` 追加 + `rule=<id>` 付与 + 一意アンカー 2 種 | AI-owned |
+| `tests/extras/ta-25-approval-token-guard.sh` | `T1045-TC-01`〜`08` を **focused 群**へ追加 + `_t25_mutate` 2 件追加 | AI-owned |
+| `docs/working/TASK-1045/plan.md` | 本ファイル | AI-owned |
+| `docs/working/TASK-1045/todo.md` | 実行 ToDo | AI-owned |
+| `docs/working/TASK-1045/test-cases.md` | テストケース定義 | AI-owned |
+| `docs/working/TASK-1045/status.md` | フェーズ履歴 | AI-owned |
+| `docs/working/TASK-1045/handoff.md` | 完了時引き継ぎ（WF-05 / Rule 5） | AI-owned |
+
+---
+
+## Files NOT to Touch（禁止 / GC-7）
+
+> **注意**: 本節は `## Files / Components to Touch` の**外**に置く。
+> 同節内に禁止パスを書くと `extract_allowed_paths()`（`scripts/ai-loop/plan_package.py:170-185`、
+> 抽出正規表現 `` `([^`\s]+/[^`\s]+)` ``）が**禁止パスまで allowed_paths として抽出してしまう**ため
+> （plan 作成時に実測して検出・是正済み）。
+
+以下は本 PBI で **変更しない**:
+
+- .claude/settings.json / .claude/settings.example.json / .claude/settings.local.json
+  （**Human-owned**。U-5 により **本修正の反映に再適用は不要**）
+- .claude/rules/ 配下（HO 対象）
+- bin/plangate（HO 対象）
+- schemas/ 配下（HO 対象）
+- .github/workflows/ 配下（HO 対象）
+- scripts/hooks/ 配下（HO 対象）
+- docs/working/TASK-1045/pbi-input.md（確定物・編集しない）
+
+---
+
+## Testing Strategy
+
+### Unit（guard の挙動 = `PreToolUse` payload に対する exit code）
+
+全 AC は `scripts/check-approval-token-write.sh` を `PreToolUse` payload（stdin JSON）で
+起動した**実コマンドの exit code** で判定する（`0` = 通過 / `2` = block）。
+テストケース本体は [`test-cases.md`](./test-cases.md)。
+
+### Integration（既存スイートとの共存）
+
+- `tests/extras/ta-25-approval-token-guard.sh` を **standalone** と
+  **`tests/run-tests.sh` からの source** の両経路で実行する
+- 退行判定の契約は **「0 failed」かつ「pass 数が baseline 以上」**。
+  **`ta-25` の TC 総数（起票時 47）は増減するため絶対件数を契約値にしない**
+
+### Mutation（検出力の実証 / AC-08 / AC-09）
+
+`_t25_mutate` の既存機構（アンカー一意 + focused 群での実 TC FAIL）に**適合させて** 2 方向を注入する。
+
+| 変異 | 変異内容 | kill 対象 TC | 意味 |
+|---|---|---|---|
+| **(a) 修正前へ戻す** | `# t1045-redirect-normalize` の正規化を no-op 化（= 旧 `grep -q '>'` 相当） | `T1045-TC-01` | 誤検知解消の TC が **本当に修正を検出している**ことの証明 |
+| **(b) 弱める側** | `# t1045-file-redirect` の残存 `>` 判定を常に false 化 | `T1045-TC-04` | **ガードを弱める変更が機械検出される**ことの証明（GC-1 の担保） |
+
+**kill は「実 TC の `[FAIL]` 出力 + 子プロセス rc 非 0」で判定する**（インライン assert の FAIL は kill と認めない。
+`ta-25` の `655` 行の既存契約に従う）。**kill した旨の申告ではなく実出力を evidence に残す。**
+
+### E2E
+
+本 PBI の scope 外。実 Claude Code セッションでの hook 発火は **#1023 で確定済み**の契約であり、
+本 PBI は判定精度のみを変更する（GC-5）。
+
+### Verification Automation: `sh -n scripts/check-approval-token-write.sh && sh tests/extras/ta-25-approval-token-guard.sh && sh tests/run-tests.sh`
+
+---
+
+## Risks & Mitigations
+
+| ID | リスク | 影響 | 緩和 | 対応 Step |
+|---|---|---|---|---|
+| **R-1** | 除外を広げすぎ、実際に書き込める記法が通る（ガード弱体化） | **critical** | GC-1 を最上位制約化。除外は fd 複製 + `/dev/null` の**列挙的 allowlist に限定**。AC-04〜07 の退行 TC + **AC-09 の弱める側変異**で機械検出 | Step 3 / 5 |
+| **R-2** | 「`>` を token path 宛のみ」に絞る誤実装 → `T1023-TC-09` が FAIL | major | **GC-3 として plan の Constraints に明記**。AC-11 で既存 TC 全 PASS を要求 | GC-3 / Step 3 |
+| **R-3** | `/dev/null` 除外を悪用（`>/dev/nullX` / `>/dev/null/../<TOKEN>`） | major | 除外を **`/dev/null` の直後が語境界**である場合に限定。細工パターンを edge case TC 化（`T1045-TC-12`/`13`） | Step 2 / 3 |
+| **R-4** | `>&` 除外が実書き込み（`>&<file>` / `&>file`）を巻き込む | major | `>&` の直後が **数字列 or `-` のときのみ**除去。`&>` / `&>>` は U-2 で **block 維持**。edge case TC 化（`T1045-TC-14`/`15`） | Step 3 |
+| **R-5** | POSIX `sh` + BSD/GNU `grep`/`sed` 差異でローカルと CI が割れる | major | GC-6（POSIX 範囲厳守・GNU 拡張禁止）。**CI 実行結果を evidence に残す** | GC-6 / Step 8 |
+| **R-6** | 変異アンカーの一意性が壊れ `_t25_mutate` が anchor-not-unique で FAIL | minor | アンカーを `t1045-` prefix で新規採番。**Step 3 のチェックポイントで `grep -c` == 1 を実測** | Step 3 |
+| **R-7** | 新 TC を focused 群の外に置き kill が実証されない（#874 同型） | **major** | **GC-4(b) を制約化**し、Step 2 のチェックポイントで**子プロセス出力に新 TC が現れることを目視確認** | GC-4 / Step 2 / 5 |
+| **R-8** | Mode を軽く見積もり C-3 が不適切に緩む | major | §Mode 判定で **`critical` / `lite_eligible=false`** を確定。autonomous APPROVE 不可 | Mode 判定 |
+| **R-9** | 本 PBI の作業自体が誤 block に阻害される（自己参照） | minor | 記法規約（冒頭）+ トークン literal を含む調査を分割実行。必要時は `PLANGATE_SKIP_TOKEN_GUARD=1`（**Human-owned**）を人間へ依頼 | 全 Step |
+| **R-10** | `rule=<id>` 付与が既存 assert を壊す | minor | **U-3 で実測確認済み**（`tests/` に `writes token path` のヒット 0 件）。Step 4 のチェックポイントで再確認 | Step 4 |
+| **R-11** | 残存誤検知（`&>/dev/null` 付き読み取り）が運用で問題化する | minor | U-2 の意図的な判断。**既知の制約として handoff に明記**し、実害が出たら follow-up issue | handoff |
+
+---
+
+## Questions / Unknowns（C-3 での人間判断事項）
+
+すべての Unknowns は §未決事項の確定 で **plan 側の既定を確定済み**。
+そのうえで **C-3 で人間の明示判断を仰ぐ**のは次の 2 点。
+
+| # | 論点 | plan の既定 | 人間へ問う理由 |
+|---|---|---|---|
+| **Q-1** | **Mode を `critical` とするか `high-risk` へ引き下げるか** | `critical` | `mode-classification.md` の判定ロジック（定量各軸の最大値）を literal に適用すると **受入基準 13 件 → 超高** となる一方、実際の変更規模は **コード 2 ファイル**。「AC 件数は粒度細分化の産物であり規模実態ではない」と人間が判断するなら `high-risk` への引き下げが妥当。**引き下げても `lite_eligible=false` と同期 C-3 は維持**（承認境界ガードのため） |
+| **Q-2** | **U-2（`&>` / `&>>`）を block 維持でよいか** | block 維持 | `&>/dev/null` 付きの読み取りコマンドは**引き続き誤 block される**（残存誤検知）。除外面を増やさない安全側を採ったが、運用上の頻度によっては除外に含める判断もありうる |
+
+---
+
+## Mode 判定
+
+**モード**: `critical`
+**`lite_eligible`**: `false`
+**C-3**: **人間 C-3 必須・同期**（autonomous APPROVE **不可**）
+
+### Hardening Override（HO）9 カテゴリ該当性 — 機械判定
+
+`.claude/rules/mode-classification.md` の「承認境界周辺の変更 → 最低でも「高」」節が
+参照する正本 = `scripts/hooks/check-plan-hash.sh` の `case` 文（**L124-134**）を literal で確認した。
+
+| 変更対象 | HO パターン | 判定 |
+|---|---|---|
+| `scripts/check-approval-token-write.sh` | `scripts/hooks/*.sh` | **非該当**（`scripts/` 直下であり `scripts/hooks/` ではない） |
+| `tests/extras/ta-25-approval-token-guard.sh` | （`tests/` は 9 カテゴリに無い） | **非該当** |
+| `docs/working/TASK-1045/*.md` | （`docs/` は 9 カテゴリに無い） | **非該当** |
+
+→ **HO 9 カテゴリには該当しない**（pbi-input N-1 と一致。guard 冒頭コメントの
+「配置: `scripts/` ルート（HO 外）」とも一致）。
+したがって **HO 由来の「最低でも高」の強制適用は発生しない**。
+
+### それでも引き上げる根拠（安全側判断）
+
+`mode-classification.md`「自動推定の安全側」:
+> 上記例外条件のいずれかが該当不確実な場合は **該当扱い**（Mode を引き上げる側）にする
+
+- 変更対象は **承認境界そのものを守るガード**であり、HO パスの literal には落ちないが
+  **保護対象は承認境界（C-3 / maintenance トークン）**である
+- 同節の例外ルール「**セキュリティ関連の変更 → 最低でも「中」**」に該当する
+- 誤ると `review-principles.md` §3 の **critical**（「本番障害・データ不整合・脆弱性」＝承認境界の突破）に至る
+
+### 定量基準（`mode-classification.md` §定量基準 を引用）
+
+| 判定軸 | 実測値 | 基準行 | 判定 |
+|---|---|---|---|
+| 変更ファイル数 | **7**（コード 2 + working context 5） | 「6-15 → 高」 | **高** |
+| （参考）コードのみ | 2 | 「1-2 → 低」 | 低 |
+| **受入基準数** | **13**（AC-01〜13） | 「**11+ → 超高**」 | **超高** |
+| タスク数（見込み） | **8 Step / 実タスク 14** | 「11-20 → 高」 | **高** |
+
+→ **定量の最大値 = 超高（`critical`）**（受入基準 13 件が支配）
+
+### 定性基準（`mode-classification.md` §定性基準 を引用）
+
+| 判定軸 | 実態 | 基準行 | 判定 |
+|---|---|---|---|
+| 変更種別 | 承認境界ガードの判定ロジック置換（バグ修正だが判定コアの書き換え） | 「機能追加/リファクタ → 高」 | **高** |
+| リスク | 誤ると承認境界突破（R-1 = critical） | 「高 → 高」 | **高** |
+| 影響範囲 | guard 1 本だが、**全 `Bash` tool call の PreToolUse で発火**する（Edit/Write/MultiEdit レーンと共有） | 「複数レイヤーに波及 → 高」 | **高** |
+| ロールバック | 単体スクリプトの revert で復元可（Step 3 `rollback:`） | 「計画的に必要 → 高」 | **高** |
+
+→ **定性の最大値 = 高（`high-risk`）**
+
+### 最終判定
+
+`mode-classification.md` §判定ロジック:
+
+> 1. 定量基準の各軸でモードを判定（最大値を採用）
+> 2. 定性基準の各軸でモードを判定（最大値を採用）
+> 3. **定量と定性の高い方を最終モードとする**
+
+定量 = 超高 / 定性 = 高 → **高い方 = 超高（`critical`）**。
+
+**最終判定: `critical`**（pbi-input の想定 `high-risk` から**安全側へ引き上げ**）。
+
+**補足（Q-1 として C-3 へ提示）**: 引き上げの支配要因は **受入基準 13 件**という単一軸であり、
+これは AC を細粒度に分解した結果でもある。**人間が「規模実態は `high-risk`」と判断するなら
+Q-1 で引き下げてよい。** ただしその場合も以下は**維持する**（緩和しない）:
+
+- `lite_eligible = false`
+- **同期 C-3（人間必須）**
+- V-2 / V-3 の実施
+
+### `lite_eligible` 判定（`mode-classification.md` §lite_eligible）
+
+| 軸 | 実態 | 判定 |
+|---|---|---|
+| 変更ファイル数 | コード 2 + docs 5 | 候補外（light 相当を超える） |
+| 新規設計の有無 | **あり**（`_strip_nonwrite_redirects()` は新規の正規化ロジック） | 候補外 |
+| 既存パターン踏襲 | 部分的（`_t25_mutate` 機構は踏襲、正規化は新規） | 候補外 |
+
+- **AC-11（`mode-classification.md`）**: 「`critical` mode は原則 `lite_eligible=false`」
+- **AC-8 安全側不変条件**: 新規設計ありのため必ず `false`
+
+→ **`lite_eligible = false`**
+
+### autonomous APPROVE 可否（`working-context.md` §C-3 Autonomous APPROVE）
+
+| 条件 | 該当 | 可否 |
+|---|---|---|
+| Mode = high-risk / critical | **該当** | **❌ 不可（人間 C-3 必須）** |
+| セキュリティ関連 | **該当** | **❌ 不可** |
+
+→ **autonomous APPROVE 不可。人間 C-3 必須。**
+
+### フェーズ適用（`critical`）
+
+| フェーズ | 適用 |
+|---|---|
+| C-1 セルフレビュー | ○（17 項目） |
+| C-2 外部 AI レビュー | ○（複数観点） |
+| C-3 人間レビュー | ○（詳細レビュー・**同期**） |
+| exec | TDD + 段階的 |
+| L-0 / V-1 | ○ |
+| V-2 コード最適化 | ○ |
+| V-3 外部レビュー | ○ |
+| V-4 リリース前チェック | ○ |
+| PR / C-4 | ○（複数レビュアー推奨） |
+
+---
+
+## 責務分界（`.claude/rules/responsibility-classes.md`）
+
+| 操作 | 責務 |
+|---|---|
+| guard / テストの実装・検証・evidence 作成 | **AI-owned** |
+| C-3 / C-4 の承認判断、`approvals/c3.json` の発行 | **Human-owned**（AI は承認トークンを作成しない / A-6） |
+| `.claude/settings*.json` の適用 | **Human-owned**（本 PBI では変更なし / U-5 により再適用も不要） |
+| `PLANGATE_SKIP_TOKEN_GUARD=1` の使用 | **Human-owned**（R-9） |
+| merge | **Human-owned 固定** |
