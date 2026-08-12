@@ -533,3 +533,70 @@ Round 10 approve 前に production 変更と C-3 へ進まない。live `C2-VERD
 | R-147 | minor | 整合 | reflected | 本コミット | `ensure_ascii=True` 明記 + 非 ASCII golden vector 追加（4 → 5 本） |
 | R-148 | minor | 整合 | merged into R-138 | 本コミット | prerequisite 未充足は `pg_extra_contract_skip` 経由 rc=3 |
 | R-149 | minor | 設計 | reflected | 本コミット | `review-self.md` Round 10 で除外条件を正確化 |
+
+> **R-141 の disposition 更新（追記）**: 監査表の「**follow-up issue は未起票（Human 判断）**」は反映時点の記述。その後 **[#1047](https://github.com/s977043/PlanGate/issues/1047) をオーガナイザーが起票済み**（OPEN / `enhancement` + `priority:P2` / 4 項目をタイトルに明記）。`plan.md:52-54` の Out of Scope 4 bullet からの参照追加は **R-152** として exec 中の是正事項に回した。
+
+---
+
+# C-2 Round 10（2026-08-12 / plan_hash `sha256:44361114b3a736f5a3c6c56a3fe894be95a4dc76e48f4247ec8311f9bde9d3ce`）
+
+> **maker-context 非共有の 2 lane で実施**。Round 9 で REJECT を出した同じ 2 レーンが、**自分の指摘が実質解消されたか**を再検証した（追補の maker は別主体のため独立性は保たれる）。
+
+## 判定
+
+| レーン | 判定 | 内訳 |
+|---|---|---|
+| **設計妥当性** | **APPROVE** | critical 0 / major 0 / minor 2 / info 1 |
+| **コードベース整合** | **APPROVE** | critical 0 / major 0 / minor 2 |
+
+`review-principles.md` §4 の auto-approve 条件（**critical 0 / major 0**）を両レーンとも満たす。
+
+## Round 9 の major 7 件（重複排除後 6 件）はすべて実質解消
+
+両レーンとも「**回避策の宣言ではなく、既存実装の該当行を引いた構造的な設計変更**」と評価した。設計妥当性レーンの判断根拠:
+
+> 是正がいずれも「〜に準拠する」ではなく、**発火する検査ファイルの行番号 + 期待 rc + 期待文字列**まで降りている。exec 実装者が何をすれば準拠なのかが一意に読める。
+
+### レビュアーが独立に再現した検証
+
+| 検証 | 結果 |
+|---|---|
+| **golden vector 6 値**（R-147） | **両レーンが独立に再計算し全件一致**。非 ASCII の `ensure_ascii=True` → `229416de…` / `False` → `20c5bd76…` の**差が出ることまで実証**。canonical bytes も byte-for-byte 一致 |
+| `PG_T61_NO_RECURSE` の非対称性（R-139 の根拠） | `ta-61:766,792,800` は伝播 / `:310,327,334` は非伝播を実測再確認 |
+| 実行時契約 5 条件 ↔ `ta-61` の実アサーション | `:315-353` / `:319-321` / `:325-330` / `:332-338` / `:341-349` と **1 対 1 で対応**を確認 |
+| MJ-2 の責務分割が allowlist に収まるか | `_argv_verdict` は argv[0] が `sys.executable` なら無条件 OK、リテラル `"git"` + 読み取り 7 サブコマンドなら OK。分割後の Python 側はこの 2 形にしか触れないため **violation は発生しない** |
+| AC↔TC 非退行 | マッピング表は **diff 0 行**。定義 46（unit 42 + shell 4）/ AC-01〜10 全被覆 / **orphan 0** |
+
+### maker が自己申告した 2 判断への評価
+
+- **M-F（manifest から削除せず「実行主体」列を追加）** → **「削除より、採った形のほうが正しい」**（設計レーン）。削除していれば **AC-10 に coverage orphan が生まれ `shell TC 4` の件数契約も壊れていた**＝それこそ「是正が新しい違反を持ち込む」事故になっていた
+- **M-E（fixture 受け渡し）** → 設計は妥当。「**静かな skip を作らず実行数 0 を明示出力**する」形は #921 が戦ってきた「静かに通る失敗」を再導入しない正しい設計。残存リスクの自己申告も正確
+
+## Round 10 の findings（**exec 中の是正事項**。plan_hash を再失効させないため本ラウンドでは plan へ反映しない）
+
+| ID | Sev | 出典 | 内容 |
+|---|---|---|---|
+| **R-150** | **minor** | 設計 | **R-145 の「7 env unset 行」に standalone ガードの明記が無い**。実例として引いた `ta-61:34-39` は実物では `if pg_extra_contract_is_standalone; then … fi` で**ガードされており、この `if` は load-bearing**。ガード無しに top-level で書くと harness 実行で `PG_HARNESS_SOURCED` が消え、**以降に source される extras が全て standalone 誤判定 → `run-tests.sh` のプロセスごと落ちる**。plan 本文が「機能的には冗長」と書いているため実装者が素の unset を置く確率は低くない。**現時点の blast radius は 0**（`ta-62` が `ta-*.sh` の最後尾）だが **`ta-63` 以降が追加された瞬間に full suite が丸ごと死ぬ**潜伏型 |
+| **R-151** | **minor** | 整合 | **`sys.flags.safe_path` は Python 3.11+ 限定**。本機の `/usr/bin/python3` は **3.9.6** で当該属性が存在せず、無防備に参照すると `AttributeError` → **rc=1**（`ta-61` の許容 rc {0,3} 外）になり、**R-138 が用意した `pg_extra_contract_skip` 経由 rc=3 の経路に乗らない**。CI（ubuntu / py3.12）では緑だが、本リポジトリは macOS 開発を明確に支援している（`ta-61` の `perl alarm` fallback / `ta-54` の `md5sum\|\|cksum` 等）。→ **「canonical interpreter は Python ≥ 3.11。未満は `fcntl` 不在と同じ `unsupported_platform`」を Global Constraints に 1 行**、実行時契約 (5) の prerequisite 例にバージョンを明記 |
+| **R-152** | minor | 設計 | Verification Plan **Unit 行**に fixture 依存 subcase の in-row 注記が無い（Round 9 の Boundary 行は in-row 相互参照へ是正済みなので**非対称**）。直接実行時は TC-43 / TC-33 負側の中身が 0 件でも「46 tests / 0 failed」が成立する。あわせて Out of Scope 4 bullet 末尾に **`→ #1047`** を添える |
+| **R-153** | minor | 整合 | **60 秒予算の検証が Task 4（最後）に置かれている**。超過時の是正は「`harness-only` 化 / unit suite の正規入口変更」といった**設計変更**で Task 1〜3 の成果物に波及する。→ **Task 1（RED）または Task 2 完了時点に `time sh tests/extras/ta-62-durable-run.sh` の骨組み計測チェックポイント**を置く。参考実測: interpreter start **0.082s/回**（warm）/ git fixture 一式 **0.68s** / full suite **255s**（644 tests）。**60 秒は達成不能ではないが余裕は小さい** |
+| R-154 | info | 設計 | follow-up issue **#1047** の番号が Plan Package に未記録（R-152 に統合） |
+
+## 監査表（Round 10）
+
+| ID | Sev | 出典 | status | reflected_in | notes |
+|---|---|---|---|---|---|
+| R-150 | minor | 設計 | **open（exec 中に是正）** | — | standalone ガード必須。**T-20（ta-62 作成時）に対処** |
+| R-151 | minor | 整合 | **open（exec 中に是正）** | — | Python ≥ 3.11 を契約化。**T-20 / Global Constraints** |
+| R-152 | minor | 設計 | **open（exec 中に是正）** | — | Unit 行の in-row 注記 + `→ #1047` |
+| R-153 | minor | 整合 | **open（exec 中に是正）** | — | 骨組み計測を Task 1/2 へ前倒し |
+| R-154 | info | 設計 | merged into R-152 | — | — |
+
+> **本ラウンドで plan へ反映しない理由**: `plan.md` を編集すると `plan_hash` が再失効し、両レーンの APPROVE も失効して Round 11 が必要になる。両レーンとも「**含められるなら含める、含めない場合も exec 中の是正で足りる**」（`review-principles.md` §4: critical 0 / major 0）と判断しており、**minor 4 件のために承認サイクルをもう 1 周する費用対効果が見合わない**ため、exec 中の是正事項として登録する。
+
+## Human C-3 への申し送り
+
+- **R-150 は潜伏型で最も注意が要る**。C-3 承認時に「**`ta-62` の 7 env unset 行は `pg_extra_contract_is_standalone` ガード必須**」を条件として付帯するか、C-4 で確認すること
+- 本 APPROVE は **C-2 の判定**であり、`bin/plangate exec` の解錠には引き続き **Human C-3 の APPROVED `c3.json`（plan_hash = `sha256:44361114b3a736f5a3c6c56a3fe894be95a4dc76e48f4247ec8311f9bde9d3ce`）** が必要
+
+C2-VERDICT: APPROVE plan=sha256:44361114b3a736f5a3c6c56a3fe894be95a4dc76e48f4247ec8311f9bde9d3ce
