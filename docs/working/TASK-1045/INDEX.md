@@ -7,10 +7,14 @@
 
 ## 現在フェーズ
 
-**B 完了（plan パッケージ + C-1 + C-2 3 ラウンド + River Review 済）→ 👤 Human C-3 待ち**
-（mode: **`critical`** = 人間 C-3 必須・同期。autonomous APPROVE **不可**）
+**B 完了（plan パッケージ + C-1 + C-2 3 ラウンド + River Review + C-3 裁定反映済）
+→ 👤 Human の承認トークン再発行待ち**
+（mode: **`critical`**（C-3 で確定）= 人間 C-3 必須・同期。autonomous APPROVE **不可**）
 
-**確定 `plan_hash`**: `sha256:744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2c7f`
+**確定 `plan_hash`**: `sha256:30261b118da7761f7a78d9090c4fcda9f1d1dbd07af27cbff58ddd436029e681`
+
+> ⚠️ **`R-019`（C-3 裁定の反映）で `plan.md` を編集したため更新された**。
+> 旧値 `sha256:744b3c4f…` に対する承認は**無効**。
 
 ## ファイル
 
@@ -20,8 +24,8 @@
 | [plan.md](plan.md) | EXECUTION PLAN（**GC-1〜GC-8 の制約階層** / Step 1〜8 / **SC-1〜9・RT-1〜5** / Mode 判定） |
 | [todo.md](todo.md) | EXECUTION TODO（A-1〜A-14 / H-1・H-2 / **TC 追加の owner 表**） |
 | [test-cases.md](test-cases.md) | T1045-TC-01〜22 + TC-22b（**23 件** / 変異注入 2 方向） |
-| [review-self.md](review-self.md) | C-1 セルフレビュー（独立 checker）+ 簡易 C-1 #1〜#3 |
-| [review-external.md](review-external.md) | C-2（2 レーン × 3 ラウンド）+ River Review（**R-001〜R-018**・追記専用） |
+| [review-self.md](review-self.md) | C-1 セルフレビュー（独立 checker）+ 簡易 C-1 #1〜**#5** |
+| [review-external.md](review-external.md) | C-2（2 レーン × 3 ラウンド）+ River Review + **C-3 裁定**（**R-001〜R-019**・追記専用） |
 | [current-state.md](current-state.md) | 現在状態スナップショット |
 | [decision-log.jsonl](decision-log.jsonl) | 判断履歴（append-only） |
 
@@ -43,6 +47,8 @@
   `TC-22b`（要件 i）の 2 本**。**`TC-22` 単独では (i) 欠落を素通しする**（R-009 実測）
 - **記法**: トークンパス literal を地の文に書かない（本 PBI の欠陥が文書作業自体を阻害するため）。
   **`route=` は文書内の説明ラベルで guard 出力ではない**（R-017）
-- **C-3 の裁定事項**: **Q-1**（Mode を `high-risk` へ引き下げるか）/
-  **Q-2**（`&>` を block 維持でよいか）/ **Q-3**（`Files / Components to Touch` に
-  `evidence/` 等を追加して `plan_hash` を取り直すか）
+- **C-3 の裁定事項（3 件とも確定済み / `R-019`）**:
+  **Q-1** → **`critical` のまま** / **Q-2** → **`&>` は block 維持**（残存誤検知は
+  `T1045-TC-14 (3)` で固定・**handoff の既知課題へ記載**）/
+  **Q-3** → **`Files / Components to Touch` へ 3 パス追加し `plan_hash` を再算出**
+  （`extract_allowed_paths` 実走で **7 → 10 パス**）

@@ -48,24 +48,27 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 
 - Owner: **human**
 - 内容: `plan.md` / `todo.md` / `test-cases.md` + C-1 / C-2 結果を確認し三値判定
-- **判断を要する論点**（plan §Questions / Unknowns）:
+- **判断を要する論点**（plan §Questions / Unknowns）: **Q-1 / Q-2 / Q-3 は 3 件とも裁定済み**
   - **Q-1**: Mode を `critical` のままとするか `high-risk` へ引き下げるか
-    （引き下げても `lite_eligible=false` と同期 C-3 は維持）
+    → ✅ **裁定済み: `critical` のまま**（plan の既定を維持）。
+    V-4 と C-4 複数レビュアー推奨が適用される。`lite_eligible=false` / 同期 C-3 は元から不変。
+    **plan の設計変更なし**
   - **Q-2**: U-2（`&>` / `&>>` を block 維持）でよいか
-    （`&>/dev/null` 付き読み取りは**残存誤検知**になる）
-  - **Q-3（新設 / River Review 由来・要 C-3 裁定）**:
-    **`plan.md` の `Files / Components to Touch` に `evidence/` /
-    `decision-log.jsonl` / `current-state.md` を追加して `plan_hash` を取り直すか、
-    それとも現状を受容して exec 時に「plan 記載の Output に含まれる」と解釈するか。**
-    - **背景**: `extract_allowed_paths(plan.md)` は **7 パス**を返すが、
-      **Step 1 / 1b / 6 / 7 / 8 の Output は `evidence/verification/*.md` と `evidence/test-runs/`**、
-      **Stop / Replan の共通規約は `decision-log.jsonl` への記録を必須**にしている
-    - **影響**: **ai-loop 経路で exec すると evidence / decision-log の書き込みが
-      `allowed_paths` 外**となり、escalation ないし「plan に無いファイルを作った」逸脱扱いになる
-      （**`SC-7` は `docs/working/TASK-1045/` 単位なので停止はしない**）
-    - **コスト**: 追加する場合は **`plan.md` の編集 = `plan_hash` の再計算**が必要
-      （本ラウンドの R-014〜R-018 は `plan.md` を触っていないため `plan_hash` は不変）
-    - **AI は裁定しない**（Human-owned）
+    → ✅ **裁定済み: block 維持**（安全側）。`&>/dev/null` 付き読み取りは**残存誤検知**のまま。
+    **`T1045-TC-14 (3)` で意図的に固定し、handoff の既知課題へ必ず記載する**。
+    **plan の設計変更なし**
+  - **Q-3（River Review 由来）**:
+    `plan.md` の `Files / Components to Touch` に `evidence/` /
+    `decision-log.jsonl` / `current-state.md` を追加して `plan_hash` を取り直すか
+    → ✅ **裁定済み: 追加して `plan_hash` を取り直す**
+    - **反映済み**: `plan.md` の `Files / Components to Touch` へ 3 行追加。
+      `extract_allowed_paths(plan.md)` を実走し **7 → 10 パス**を実測確認
+    - **効果**: ai-loop 経路で exec しても evidence / decision-log / current-state の
+      書き込みが `allowed_paths` **内**に収まる（逸脱扱いにならない）
+    - **`plan_hash` は再算出済み**（`744b3c4f…` → `30261b11…`）。
+      詳細は `review-external.md` の **`R-019`**
+- **裁定後に残る Human タスク**: **新 `plan_hash` に対する承認トークンの再発行**（**Human-owned**。
+  AI は作成しない）。順序は **plan 編集 → 簡易 C-1 → 新 hash 算出 → 👤 承認 → exec**
 - 🚩 **チェックポイント**: `critical` かつセキュリティ関連のため
   **autonomous APPROVE は不可**（`working-context.md` §C-3 Autonomous APPROVE）
 - 出力: `docs/working/TASK-1045/approvals/c3.json`（**Human-owned**）+ `status.md` へゲート記録
