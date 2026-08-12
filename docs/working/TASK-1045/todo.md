@@ -4,6 +4,30 @@
 > Mode: **`critical`** / `lite_eligible=false` / **人間 C-3 必須・同期**
 > L-0 / V-1〜V-4 / PR 作成は `workflow-conductor` が自動制御するため本 ToDo には含めない。
 
+## Stop Conditions / Replan Triggers（**正本は [`plan.md`](./plan.md)**）
+
+> 各タスクの 🚩 チェックポイントは、失敗時に下表の ID へ接続する。
+> **「様子を見る」「回避策を探す」は禁止**（AI 運用 4 原則 第 2: 迂回禁止）。
+
+| ID | 種別 | 要約 | 接続先タスク |
+|---|---|---|---|
+| **SC-1** | 停止 | baseline が 0 failed でない | A-1 |
+| **SC-2** | 停止 | 変異アンカーの `grep -c` が 1 でない | A-6b |
+| **SC-3** | 停止 | 変異が kill されない / 新 TC が focused 子で走らない | A-4 / A-9 / A-10 |
+| **SC-4** | 停止 | 既存 mutation 7 種のいずれかが kill されなくなる | A-4 / A-8b / A-13 |
+| **SC-5** | 停止 | `T1023-TC-09` が FAIL（GC-3 違反） | A-6a |
+| **SC-6** | 停止 | 境界 TC が `rc=0` になる（ガード弱体化 / GC-1 違反） | A-7 |
+| **SC-7** | 停止 | 変更が許可 3 領域の外へ及ぶ | 全タスク |
+| **SC-8** | 停止 | `PLANGATE_SKIP_TOKEN_GUARD=1` が必要になる（Human-owned） | 全タスク |
+| **RT-1** | 差し戻し | BSD / GNU `sed` で 26 ケースの分類が割れる | **A-1b** |
+| **RT-2** | 差し戻し | 他の稼働ガードが同一判定コードを共有していると判明 | A-1 |
+| **RT-3** | 差し戻し | 既存 TC がメッセージ本文を assert していると判明 | A-1 / A-8 |
+| **RT-4** | 差し戻し | `_t25_mutate` への引数追加が既存互換を壊す | A-8b |
+| **RT-5** | 差し戻し | 列挙的 allowlist のまま AC-01〜03 を満たせない | A-5a / A-5b |
+
+**発火時の必須記録**: 発火 ID・判定に使った**実出力**・停止時点の **HEAD SHA** を
+`decision-log.jsonl`（append-only）と `status.md` に記録してから停止する。
+
 ## 依存関係（Agent ↔ Human）
 
 ```text
@@ -57,25 +81,41 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
      → 検出時は **scope 外・follow-up issue 起票**
   4. **U-3 再確認**: `grep -rn "writes token path" tests/` が 0 件
 - 出力: `evidence/verification/baseline.md`
-- 🚩 **チェックポイント**: baseline が **0 failed**。そうでなければ **exec を止めて人間へ**
+- 🚩 **チェックポイント**: baseline が **0 failed**。そうでなければ **SC-1 で即停止**して人間へ
 - `rollback:` 不要（読み取り・記録のみ）
+
+#### A-1b: GNU `sed` 等価性の**先行**検証（plan Step 1b / W-2 で Step 8 から前倒し）
+
+- Owner: agent / depends_on: A-1
+- 内容: 正規化ロジックの **26 ケースのプロトタイプ**を
+  **BSD `sed`（macOS）と GNU `sed`（Linux コンテナまたは CI）の双方**で実行し、
+  分類が一致することを確認する（`scripts/` は変更しない）
+- 出力: `evidence/verification/sed-dialect-parity.md`
+- 🚩 **チェックポイント**: **26/26 が両方言で一致**。
+  1 件でも異なれば **RT-1 を発火させ C-3 へ差し戻す**（実装に着手しない）
+- **前倒しの理由**: plan の feasibility 検証は **BSD `sed` のみ**（UV-1）。
+  実装後に割れると Step 3 以降が全て手戻りになる
+- `rollback:` 不要（スクラッチのみ）
 
 ---
 
 ### フェーズ 2: 実装（**H-1 承認後にのみ開始**）
 
+> **focused 群へ置く TC は plan §GC-4-A の 7 件**
+> （`T1045-TC-01`〜`06` + `TC-20`）。それ以外は通常群。
+
 #### A-2: RED — 誤検知解消 TC を focused 群へ追加（plan Step 2）
 
-- Owner: agent / depends_on: A-1, **H-1**
+- Owner: agent / depends_on: A-1b, **H-1**
 - 内容: `T1045-TC-01` / `TC-02` / `TC-03` / `TC-20` を
   **`ta-25` の `222` 行より前（focused 群）**へ追加
-- 🚩 **チェックポイント**: この時点で **`T1045-TC-01`〜`03` が FAIL する**（RED 成立）
+- 🚩 **チェックポイント**: この時点で **`T1045-TC-01`〜`03` + `TC-20` が FAIL する**（RED 成立）
 - `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
 
 #### A-3: RED — 退行防止 TC を focused 群へ追加（plan Step 2）
 
 - Owner: agent / depends_on: A-2
-- 内容: `T1045-TC-04` / `TC-05` / `TC-06` を **focused 群**へ追加
+- 内容: `T1045-TC-04` / `TC-05` / `TC-06` を **focused 群**へ追加（合計 7 件で GC-4-A と一致）
 - 🚩 **チェックポイント**: この時点で **PASS**（修正前でも通るべき TC＝退行防止の基準線）
 - `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
 
@@ -83,62 +123,99 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 
 - Owner: agent / depends_on: A-3
 - 内容: `PG_T25_MUTATION_CHILD=1` で `ta-25` を子プロセス実行し、
-  **`T1045-TC-01`〜`06` / `TC-20` のラベルが出力に現れる**ことを目視確認
-- 🚩 **チェックポイント**: 1 件でも現れなければ **focused 群外に置かれている**
-  → 配置を修正するまで先へ進まない（#874 同型の空振り防止）
+  **GC-4-A の 7 件（`T1045-TC-01`〜`06` / `TC-20`）のラベルが出力に現れる**ことを目視確認
+  （UV-3 の解消）
+- 🚩 **チェックポイント**:
+  - 1 件でも現れなければ **focused 群外に置かれている** → **SC-3 で即停止**し、
+    配置を修正するまで先へ進まない（#874 同型の空振り防止）
+  - **既存 mutation 7 種が引き続き PASS**（focused 群拡張の副作用確認。
+    変異 1 の子で `T1045-TC-04`〜`06` も FAIL するが `T1023-TC-15` の kill 判定は成立する）。
+    壊れれば **SC-4 で即停止**
 - `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
 
-#### A-5: GREEN — `_strip_nonwrite_redirects()` 実装（plan Step 3）
+> **W-5 対応**: 旧 A-5 / A-6 は 1 タスクあたり 2〜5 分の粒度基準を超過していたため、
+> **A-5a / A-5b / A-6a / A-6b の 4 タスクへ分割**した（各 2〜5 分・独立に rollback 可能）。
+
+#### A-5a: GREEN — fd 複製 / クローズの除去のみ実装（plan Step 3-1）
 
 - Owner: agent / depends_on: A-4
-- 内容: `scripts/check-approval-token-write.sh` に正規化ヘルパを追加
-  - (1) fd 複製 / クローズ除去（`>&` の直後が **数字列 or `-`** のときのみ）
-  - (2) `/dev/null` 破棄除去（**語境界**必須 / **直前が `&` なら除去しない**）
-  - **POSIX BRE のみ**（GNU 拡張禁止 / plan GC-6）
-- 🚩 **チェックポイント**: `sh -n` PASS
+- 内容: `_strip_nonwrite_redirects()` を新設し、**(1) fd 複製 / クローズ除去のみ**を実装
+  （`>&` の直後が **数字列 or `-`** のときのみ除去。`>&<file>` は除去しない / R-4）
+- 🚩 **チェックポイント**: `sh -n` PASS。単体で `2>&1` / `>&2` / `3>&-` が除去され、
+  `>& /tmp/o` が**除去されない**ことをスクラッチで確認
 - `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
 
-#### A-6: GREEN — `_has_write_intent()` のリダイレクト検査を置換（plan Step 3）
+#### A-5b: GREEN — `/dev/null` 破棄の除去を追加（plan Step 3-1）
 
-- Owner: agent / depends_on: A-5
-- 内容: `48` 行の `grep -q '>'` を「正規化 → 残存 `>` 判定」の 2 段へ置換し、
-  一意アンカー **`# t1045-redirect-normalize`** / **`# t1045-file-redirect`** を付す
+- Owner: agent / depends_on: A-5a
+- 内容: 同ヘルパへ **(2) `/dev/null` 破棄除去**を追加
+  （**語境界**必須 / **直前が `&` なら除去しない**。**POSIX BRE のみ** / plan GC-6）
+- 🚩 **チェックポイント**: `sh -n` PASS。`/dev/nullX` / `/dev/null/../…` / `&>/dev/null` が
+  **除去されない**ことをスクラッチで確認（R-3 / U-2）
+- `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
+
+#### A-6a: GREEN — `_has_write_intent()` の `>` 検査を 2 段構成へ置換（plan Step 3-2）
+
+- Owner: agent / depends_on: A-5b
+- 内容: `48` 行の `grep -q '>'` を「正規化 → 残存 `>` 判定」の 2 段へ置換
 - 🚩 **チェックポイント**:
-  - **アンカー 2 種が各 `grep -c` == 1**（実測 / R-6）
   - `T1045-TC-01`〜`06` / `TC-20` が **全 PASS へ転じる**
-  - **`T1023-TC-08` / `TC-09` が PASS を維持**（plan GC-3）
+  - **`T1023-TC-08` / `TC-09` が PASS を維持**（plan GC-3。FAIL なら **SC-5 で即停止**）
+- `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
+
+#### A-6b: 一意アンカー 2 種を付与し `grep -c` == 1 を実測（plan Step 3-3）
+
+- Owner: agent / depends_on: A-6a
+- 内容: **`# t1045-redirect-normalize`** / **`# t1045-file-redirect`** を付す
+- 🚩 **チェックポイント**: **アンカー 2 種が各 `grep -c` == 1**（実測 / R-6）。
+  1 でなければ **SC-2 で即停止**
 - `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
 
 #### A-7: 除外条件の境界 TC を追加（plan Step 2 / R-3・R-4・U-1・U-2・GC-2）
 
-- Owner: agent / depends_on: A-6
+- Owner: agent / depends_on: A-6b
 - 内容: `T1045-TC-11`〜`15` / `TC-19` を通常群へ追加
 - 🚩 **チェックポイント**: 全 **rc=2**（除外が広がりすぎていないことの機械確認）
 - `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
 
 #### A-8: block メッセージへ `rule=<id>` を付与（plan Step 4）
 
-- Owner: agent / depends_on: A-6
+- Owner: agent / depends_on: A-6b
 - 内容: `_has_write_intent()` が一致ルール ID を返し `_block()` detail に載せる（6 ID）。
   併せて `T1045-TC-08` を追加
 - 🚩 **チェックポイント**: `BLOCK` / `target=` / `file_path=` / `parse-unknown` / `bypass` を
   assert する**既存 TC がすべて PASS を維持**
 - `rollback:` `git checkout -- scripts/check-approval-token-write.sh tests/extras/ta-25-approval-token-guard.sh`
 
-#### A-9: 変異 (a)「修正前へ戻す」を追加（plan Step 5 / AC-08）
+#### A-8b: `_t25_mutate` に label prefix 引数を追加（plan GC-4-B 採用案 (a) / W-4）
 
 - Owner: agent / depends_on: A-8
-- 内容: `_t25_mutate` 呼び出しを追加（`t1045-redirect-normalize` を no-op 化 / kill 対象 `T1045-TC-01`）
+- 内容: シグネチャを `_t25_mutate <tc-id> <sed> <anchor> <kill-label> [prefix]` へ拡張し、
+  内部 5 箇所（`ta-25:640, 644, 648, 656, 658`）の `T1023-` ハードコードを
+  **`${5:-T1023}` 由来へ置換**する。**既存 7 呼び出し（`662, 664, 666, 668, 670, 672, 674`）は無変更**
+- 🚩 **チェックポイント**: **既存 mutation 7 種が全 PASS**、かつ出力ラベルが **`T1023-` のまま**
+  （`T1045-TC-21`）。壊れれば **RT-4 で C-3 へ差し戻す**
+- `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
+
+#### A-9: 変異 (a)「修正前へ戻す」を追加（plan Step 5 / AC-08）
+
+- Owner: agent / depends_on: A-8b
+- 内容: `_t25_mutate` 呼び出しを追加（`t1045-redirect-normalize` を no-op 化 /
+  kill 対象 `T1045-TC-01` / **第 5 引数 `T1045`**）
 - 🚩 **チェックポイント**: **`[FAIL] T1045-TC-01` が実出力に現れ、子プロセス rc が非 0**
-  （申告ではなく実出力を evidence に残す）
+  （申告ではなく実出力を evidence に残す）。**出力ラベルが `T1045-TC-09`**
+  （`T1023-TC-09` と衝突しない）。kill しなければ **SC-3 で即停止**
 - `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
 
 #### A-10: 変異 (b)「弱める側」を追加（plan Step 5 / AC-09）
 
 - Owner: agent / depends_on: A-9
-- 内容: `_t25_mutate` 呼び出しを追加（`t1045-file-redirect` を常に false 化 / kill 対象 `T1045-TC-04`）
+- 内容: `_t25_mutate` 呼び出しを追加（`t1045-file-redirect` を常に false 化 /
+  kill 対象 `T1045-TC-04` / **第 5 引数 `T1045`**）
 - 🚩 **チェックポイント**: **`[FAIL] T1045-TC-04` が実出力に現れ、子プロセス rc が非 0**。
+  **出力ラベルが `T1045-TC-10`**。
   **これが plan GC-1（弱体化禁止）の機械的担保**であり、空振りしたまま先へ進まない
+  （kill しなければ **SC-3 で即停止**）
 - `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
 
 ---
@@ -192,7 +269,11 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 
 - [ ] AC-01〜13 がすべて PASS（`test-cases.md` の Traceability で orphan 0）
 - [ ] 変異 2 方向がともに **実 TC の `[FAIL]` 出力**で kill されている
-- [ ] 新規 TC が **focused 子プロセスで実行されている**ことを実測確認済み
+- [ ] **新変異の出力ラベルが `T1045-TC-09` / `T1045-TC-10`**（`T1023-TC-09` と衝突しない）
+- [ ] **`_t25_mutate` の既存 7 呼び出しが無変更**で、既存 mutation 7 種が全 PASS（`T1045-TC-21`）
+- [ ] 新規 TC が **focused 子プロセスで実行されている**ことを実測確認済み（GC-4-A の 7 件）
+- [ ] **GNU `sed` 等価性が A-1b で先行検証済み**（UV-1 の解消）
+- [ ] **Stop Condition / Replan Trigger が 1 件も未処理で残っていない**
 - [ ] `T1023-TC-08` / `TC-09` を含む既存 TC が **0 failed**、pass 数 ≥ baseline
 - [ ] ローカル（BSD）と CI（GNU）双方の実行結果が evidence にある
 - [ ] `handoff.md` の必須 6 要素が揃い、残存誤検知が既知課題に明記されている
