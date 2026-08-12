@@ -43,6 +43,7 @@ EH-13 は `.claude/settings.example.json` の **PreToolUse（層 A・常時発�
 ### Fixed
 
 - `[MIGRATION REQUIRED]` **EH-13 承認トークン書き込みガードの二重無効化を封鎖**（#1023、#1042）— block を `exit 1` → `exit 2` / stdin を env target の有無に関係なく常時・独立に評価（env 供給時の stdin bypass を封鎖）/ jq 不在・malformed・空・TTY・read error を parse-unknown として fail-closed。採番を EH-13 に確定（旧記載の EH-10 は #760 / #762 と衝突していた）。**導入側の対応は上記「⚠️ 更新前に必ずお読みください」を参照**
+- **EH-13 の読み取り誤 block を解消**（#1045）— `2>/dev/null` / `2>&1` / `>&2` / `N>&-` は fd 複製・クローズ・破棄であってファイルへの書き込みではないため、書き込み意図の判定から除外した。従来は `>` を 1 文字でも含めば書き込みと判定していたため、承認トークンのパス名を含む**純粋な読み取りコマンドが block されていた**（`grep -c '<token path>' .gitignore 2>/dev/null` / `cat <token path> 2>/dev/null` が `exit 2`）。実ファイルへのリダイレクト（`> <token path>` / `>> <token path>`）の block は維持。除外は列挙的な allowlist であり `>` 判定の一般的な緩和ではないため、**`&>` / `&>>` を伴う読み取りと、文字列リテラル中に `>` を含むコマンド（例: `python3 -c "print('a -> b')"`）は引き続き block される**（完全なシェル構文解析は新たな bypass 面になるため採らない）。あわせて block メッセージに `rule=<id>`（例: `rule=file-redirect`）を付与し、どの判定で止まったかを追えるようにした
 - **mass-delete safety guard を src 駆動の無ガード削除 2 経路へ適用**（#914、#986）+ harness 判別規約の統一。v8.18.0 で残課題としていた 2 経路をこれで塞いだ
 - **`#970` 経路 1 guard の集計と削除の厳密一致**（#1014）— 集計値と実削除対象がずれる余地を解消
 - **plugin skill の参照解決を導入先で成立させる**（#954、#964、#965、#955、#959）— 13 の SKILL.md で `.claude/rules/*.md` への相対リンクが「skills と rules が同一 root 直下」の配置でしか解決せず、**Codex 経由導入（`.codex/skills/`）では常に解決不能**だった。3 段フォールバック（導入先 rules → `${CLAUDE_PLUGIN_ROOT}/rules/`（Bash で実展開）→ 参照不可を明示）を各 skill に明記し、**正本を読めないときに推測で補うことを禁止**した
@@ -60,7 +61,6 @@ EH-13 は `.claude/settings.example.json` の **PreToolUse（層 A・常時発�
 ### Notes（既知課題）
 
 - **#1012 AC-5 未達**（#1039）— ta-26 の実行時間短縮は目標に届かず **14.22%**（AC-5 の目標値未達）。**Human が受入裁定済み**でマージされている。継続改善は #1036 系で追跡
-- **#1045（EH-13 の読み取り誤 block）** — `2>/dev/null` / `2>&1` / `>&2` は fd 複製・破棄であってファイル書き込みではないが、`_has_write_intent()` が `>` を 1 文字でも含めば書き込みと判定するため、**承認トークンのパス名を含む純粋な読み取りコマンドが block される**（例: `grep -c '<token path>' .gitignore 2>/dev/null` / `cat <token path> 2>/dev/null` が `exit 2`）。回避策は当該コマンドから stderr リダイレクトを外すこと
 
 ## v8.18.0 (2026-07-31)
 
