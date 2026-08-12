@@ -285,7 +285,7 @@
 
 ### BLOCKED（Slice 2 追加）
 
-> **2026-08-12 更新（Human 裁定・AskUserQuestion）**: **G-1 = 案 B 確定**（サブスライスごとに新 TASK ×3 起票・各 TASK が plan_hash / c3.json を保持）/ **G-3 = 分割案承認** → 両行を BLOCKED から解除。**G-2（ta-61 縮約・writeback の定量算入）は各サブスライスの C-3 で確定**（据え置き）。詳細: [`slice2-split.md`](./slice2-split.md) §4-5
+> **2026-08-12 16:00 更新（Human 裁定・AskUserQuestion）**: **G-1 = 案 B 確定**（サブスライスごとに新 TASK ×3 起票・各 TASK が plan_hash / c3.json を保持）/ **G-3 = 分割案承認** → 両行を BLOCKED から解除。**G-2（ta-61 縮約・writeback の定量算入）は各サブスライスの C-3 で確定**（据え置き）。詳細: [`slice2-split.md`](./slice2-split.md) §4-5
 
 | タスク | blocker | owner | unblock_condition |
 |---|---|---|---|

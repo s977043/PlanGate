@@ -21,7 +21,7 @@ plan.md の Slice 2 対象を現 main で再実測した結果。
 **結論: Slice 2 の移行対象は plan 時点から増減なし（45 本 + writeback 1 = 46）。**
 plan の層帰属（層 B 36 / 層 C 5 / 層 0 4）はそのまま有効。
 
-### 層別の実ファイル一覧（plan L96-98 / pbi-input 層表を現 main で照合済み）
+### 層別の実ファイル一覧（pbi-input L93-98 層表 / plan L318-330 層帰属サマリを現 main で照合済み）
 
 - **層 0（4 本 / 既存 standalone 契約の helper 吸収）**: `ta-26-plugin-sync.sh` / `ta-58-git-destructive-guard.sh` / `ta-59-apply-settings-merge.sh` / `ta-60-run-evidence.sh`
 - **層 B（36 本 / harness-only 化 = fail-fast exit 2）**: `ta-04` `ta-05` `ta-07` `ta-09` `ta-10` `ta-12` `ta-13` `ta-14-codex-guarded` `ta-14-skip-acknowledge` `ta-15` `ta-16` `ta-17` `ta-18` `ta-19` `ta-20` `ta-21` `ta-22` `ta-23` `ta-24` `ta-25` `ta-27` `ta-28` `ta-29` `ta-30` `ta-31` `ta-33` `ta-34` `ta-35` `ta-36` `ta-37` `ta-41` `ta-42` `ta-54` `ta-55` `ta-56` `ta-57`
