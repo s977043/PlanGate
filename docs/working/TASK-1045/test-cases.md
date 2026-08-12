@@ -112,8 +112,8 @@
 
 | ID | 対応 AC | 撃つ要件 | 入力 / 前提 | 期待結果 |
 |---|---|---|---|---|
-| **T1045-TC-22** | AC-04（GC-8） | **(ii) `command -v sed`** | **`T1023-TC-05`（jq 不在 PATH）と同型**: **`sed` を含まない**一時 PATH（`cat` / `grep` / `sh` / `jq` のみを symlink）で guard を起動し、payload = `printf x > <TOKEN>` | **rc=2**、**かつ stderr が `sed` 起因である reason 文字列**（`sed not available`）を含む。**rc だけを assert すると、別要因の `parse-unknown` でも `rc=2` になり偽 PASS になる** |
-| **T1045-TC-22b** | AC-04（GC-8） | **(i) fail-closed フォールバック** | 一時 PATH に `cat` / `grep` / `sh` / `jq` を symlink し、そこへ **`#!/bin/sh` + `exit 1` の `sed` シム**を置く（**`sed` は存在するが必ず失敗する**）。payload = `printf x > <TOKEN>` | **rc=2**（fail-closed）。**(i) が無ければ `rc=0`（FAIL-OPEN）で落ちる** → **これで初めて (i) の検出力が実証される**。stderr の reason も assert する |
+| **T1045-TC-22** | AC-04（GC-8） | **(ii) `command -v sed`** | **`T1023-TC-05`（jq 不在 PATH）と同型**: **`sed` を含まない**一時 PATH（`cat` / `grep` / `sh` / `jq` のみを symlink）で guard を起動し、payload = `printf x > <TOKEN>` | **`rc==2`** **かつ** stderr に **`sed not available`** を含む（実測経路 = **`route=parse-unknown`**）。**rc だけを assert すると、別要因の `parse-unknown` でも `rc=2` になり偽 PASS になる** |
+| **T1045-TC-22b** | AC-04（GC-8） | **(i) fail-closed フォールバック** | 一時 PATH に `cat` / `grep` / `sh` / `jq` を symlink し、そこへ **`#!/bin/sh` + `exit 1` の `sed` シム**を置く（**`sed` は存在するが必ず失敗する**）。payload = `printf x > <TOKEN>` | **`rc==2`** **かつ** stderr に **`Bash command writes token path`** を含み、**かつ `parse-unknown` を含まない**（実測経路 = **`route=normal-block`**。要件 (i) のフォールバックは**設計上サイレント**なので `sed` 起因の reason は出ない / R-013）。**(i) が無ければ `rc=0`（FAIL-OPEN）で落ちる** → **これで初めて (i) の検出力が実証される** |
 
 **実測による裏付け**（C-2 整合レーンが実走 / **筆者も独立に再現**）:
 
@@ -123,11 +123,27 @@
 | **(ii)+(iii) のみ（(i) 欠落）** | **rc=2 → TC-22 は PASS（穴を検出できない）** | **rc=0 ＝ FAIL-OPEN → TC-22b が検出** |
 | どちらも無し（反映前の形） | rc=0 | rc=0 |
 
-**`TC-22` を stub 方式へ寄せない理由**: C-2 設計レーンは「TC-22 も stub 方式へ寄せてよい」と
-補足したが、**stub を置くと `sed` が存在してしまい `command -v sed` が成功するため、
+**`TC-22` を stub 方式へ寄せない理由**: C-2 設計レーンは Round 2 で「TC-22 も stub 方式へ
+寄せてよい」と補足したが、**stub を置くと `sed` が存在してしまい `command -v sed` が成功するため、
 要件 (ii) を撃てなくなる**。(ii) を撃つには **`sed` が実際に不在の PATH が必須**。
-よって **TC-22 は「不在」方式を維持**し、**TC-22b で「存在するが失敗」を撃つ**という
-2 本立てにする（設計レーンの「少なくとも reason 文字列まで assert する」推奨は**両 TC に採用**）。
+よって **TC-22 は「不在」方式を維持**し、**TC-22b で「存在するが失敗」を撃つ**という 2 本立てにする。
+**Round 3 で設計レーンがこの棄却を受理**（「**maker の棄却理由が正しく、私の補足が誤りでした**」）し、
+整合レーンも「シム PATH では FULL build と NO-(ii) build が出力レベルで区別不能」と実走で裏付けた。
+
+**reason 文字列の assert は両 TC に採用するが、期待する reason は TC ごとに異なる**（R-013）。
+**「両 TC 共通で `sed` 起因の reason を assert する」のは誤り**で、そう実装すると
+**正しい実装で `TC-22b` が FAIL し、`SC-9`（critical / 即停止）を誤発火させる**。
+
+| 入力 | rc | 実測経路 | `sed not available` | `writes token path` | `parse-unknown` |
+|---|---|---|---|---|---|
+| `TC-22`（`sed` 不在） | 2 | `route=parse-unknown` | **YES** | no | **YES** |
+| `TC-22b`（`sed` 存在するが失敗） | 2 | **`route=normal-block`** | no | **YES** | **no** |
+
+**`TC-22b` の「`parse-unknown` を含まない」は必須**（これが無いと、外部依存の列挙漏れ等で
+別経路の `parse-unknown` に落ちても `rc=2` + 文字列一致で**偽 PASS** になり、
+**(i) の検出力という `TC-22b` 唯一の存在理由が失われる**）。
+**二重条件は `ta-25:118` の既存パターン**
+（`[ rc = 2 ] && grep -q 'file_path=' && ! grep -q 'parse-unknown'`）**を踏襲する**。
 
 ---
 
@@ -201,6 +217,9 @@
 - **正規化ヘルパが fail-closed である**（plan GC-8）。**要件ごとに撃つ TC を分けて確認する**:
   - **`sed` 不在** → `rc=2`（要件 (ii)）: **`T1045-TC-22`**
   - **`sed` 存在するが失敗** → `rc=2`（要件 (i)）: **`T1045-TC-22b`**
-  - いずれも **stderr の reason 文字列が `sed` 起因である**ことまで assert 済み
+  - **reason 文字列まで assert 済み。ただし期待 reason は TC ごとに異なる**（R-013）:
+    **`TC-22` は `sed not available`** / **`TC-22b` は `Bash command writes token path`
+    かつ `parse-unknown` を含まない**。
+    **`TC-22b` に `sed` 起因の reason を期待してはならない**（フォールバックはサイレント）
 - **RED ウィンドウの期待 FAIL 集合が GC-4-C の 6 件と一致**し、
   **Step 3 完了後に `T1023-TC-15pre` / `T1023-TC-17post` が PASS へ戻っている**

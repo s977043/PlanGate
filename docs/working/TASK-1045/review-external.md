@@ -373,3 +373,143 @@ R-001・R-003 の是正効果が届かない。**
 **反映状況の実測**: Round 2 監査表 5 行の `status` は `reflected` 4 / `acknowledged` 1。
 **未反映を表す status の行は 0 件。**
 `R-009`〜`R-012` の 4 件すべてを **1 回で確定反映済み**。
+
+---
+
+## C-2 Round 3（R-009〜R-012 反映後の再レビュー）
+
+> 対象 head: `4c4fc53` / plan=`sha256:c7b3bf70…`
+> **Round 1・Round 2 の記述（R-001〜R-012 / 監査表の該当行）は 1 文字も変更していない**（追記専用）。
+
+### レーン別判定（Round 3）
+
+| レーン | 判定 | 内訳 |
+|---|---|---|
+| **設計妥当性レーン** | **`C2-VERDICT: APPROVE`** | major 1（R-013 / M-3）+ info 1 |
+| **コードベース整合レーン** | **`C2-VERDICT: APPROVE`** | 同一事象を MINOR-4 として検出 |
+| **統合判定** | **APPROVE**（R-013 を確定反映すれば C-3 へ渡せる） | critical 0 / major 1 / minor 0 / info 1 |
+
+**R-009〜R-012 の反映は全件受理。** severity は両レーンで割れた（設計 = major / 整合 = minor）が
+**是正内容は完全に一致**しており、**設計レーンの評価（major）を採る**。
+
+### 棄却判断（`TC-22` を stub 方式へ寄せない）は両レーンに支持された
+
+> 設計レーン（**補足を出した当人**）: **maker の棄却理由が正しく、私の補足が誤りでした。**
+> Round 2 で (i) と (ii) を 1 本の TC に畳めると考えたが、**両者は入力条件
+> （`sed` 不在 / `sed` 存在かつ失敗）が排他**なので原理的に 1 本では撃てない。
+> **2 本立ては私が提案した形より厳密**
+
+整合レーンも実走で「**シム PATH では FULL build と NO-(ii) build が出力レベルで区別不能**」を示し、
+棄却を裏付けた。
+
+### Round 2 指摘の解消確認（再対応不要）
+
+**M-2 / MAJOR-3**（要件↔TC 表・組合せ行列・`SC-9` 拡張・over-claim 分離）/
+**m-5 / R-011**（`SC-1` の 2 発火条件 + 「本表が正本であり todo はその写し」/ `RT-2` 差し替え）/
+**R-010**（挿入位置。**設計レーンが行番号を独立実測して一致**: bypass `:32-35` /
+`_parse_unknown()` `:76-81` / `# --- 1) target:` `:83`）/ **R-012** — **すべて解消**。
+
+**AC / TC の検算も両レーンが独立実施**:
+**AC 13 / TC 23（`TC-01`〜`22` + `TC-22b`）/ 双方向 orphan 0 / focused 7 + 通常 16**、
+件数表記の 4 箇所同期も一致。
+
+設計レーンは「**(ii) が load-bearing でない**」ことの Mode / AC への影響も評価し、
+**「影響なし・(ii) を必須要件に残す判断は妥当**（`jq` と同契約に揃えるのは `GC-5` に沿った
+defense-in-depth で診断品質も上がる）」と判定した。
+
+---
+
+### R-013 [major] `GC-8` の reason assert 指示が `TC-22b` の実測経路と正面から矛盾している
+
+- **レーン**: 設計妥当性（M-3 / major）+ コードベース整合（MINOR-4）
+- **観点**: 保守性 / セキュリティ
+
+**症状**: `plan.md:243-247` は
+
+```text
+**reason 文字列の assert（両 TC 共通・R-009 設計レーン補足）**:
+（`sed not available` 等の reason 文字列）まで assert する**。
+```
+
+と **両 TC 共通で `sed` 起因の reason を assert せよ**と指示している。
+しかし整合レーンが実走で確定した **`TC-22b` の正しい（FULL 実装での）経路**は:
+
+```text
+rc=2  route=normal-block
+detail: 検出: Bash command writes token path: printf x > <TOKEN>
+```
+
+**要件 (i) のフォールバック `_wc_n=$(…) || _wc_n="$_wc"` は設計上サイレント**であり、
+**`sed` 起因の reason はどこにも出ない**。
+
+**さらに実測経路が文書に未記録**: `test-cases.md` を grep したところ
+**`normal-block` / `route=` の記載は 0 件**（**筆者も再実測して 0 件を確認**）。つまり
+**正本が誤った assert 対象を積極的に指示しており、`TC-22b` の正しい期待 reason はどこにも無い**。
+
+**筆者による独立実走（FULL 実装 (i)+(ii)+(iii) のプロトタイプ）**:
+
+| 入力 | rc | stderr | `sed not available` | `writes token path` | `parse-unknown` |
+|---|---|---|---|---|---|
+| **TC-22**（`sed` 不在） | 2 | `BLOCK (parse-unknown): sed not available` | **YES** | no | **YES** |
+| **TC-22b**（`sed` 存在するが失敗） | 2 | `BLOCK: … 検出: Bash command writes token path: …` | **no** | **YES** | **no** |
+
+→ **C-2 の指摘どおり。現行の `GC-8` に素直に従うと `TC-22b` は必ず FAIL する。**
+
+**なぜ major か（設計レーンの評価を採用）**:
+
+> **未指定なら実装者の裁量だが、現状は正本が誤った assert 対象を積極的に指示している。
+> 対称性から `parse-unknown` を書く以前に、素直に `GC-8` に従うだけで踏む**
+
+**帰結**:
+
+- **`TC-22b` の FAIL は `SC-9` に配線され、`SC-9` は critical / 即停止**
+  → **正しい実装が critical 停止を引き起こす**（`R-13` と同じ「正しいのに落ちる」失敗様式が、
+  **今度は最上位の停止条件で再演**）
+- **実行者が停止を「誤発火」と判断して `SC-9` を緩めると、本物の fail-open を見逃す経路が開く**。
+  `SC-9` は **`R-12`（critical）の唯一の機械的担保**であり、ここの感度を落とすのは最も避けたい
+- **C-3 承認後は `plan_hash` が凍結**され、正本の矛盾は「exec 時の逸脱記録」としてしか処理できない
+
+**是正（両レーンの案が一致・plan 1 文 + test-cases 2 セル・設計変更ゼロ）**:
+
+| TC | 撃つ要件 | 期待 assert |
+|---|---|---|
+| **`TC-22`** | (ii) | `rc==2` **かつ** stderr に **`sed not available`** を含む |
+| **`TC-22b`** | (i) | `rc==2` **かつ** stderr に **`Bash command writes token path`** を含み、**かつ `parse-unknown` を含まない** |
+
+**`TC-22b` の「`parse-unknown` を含まない」は必須**:
+
+> これが無いと、**外部依存の列挙漏れ等で別経路の `parse-unknown` に落ちても
+> `rc=2` + 文字列一致で偽 PASS** になり、**(i) の検出力という `TC-22b` 唯一の存在理由が失われる**
+
+**この二重条件はリポジトリ内の既存パターン**（**筆者も `ta-25:118` を実測確認**）:
+
+```sh
+if [ "$_t25_rc" = "2" ] && grep -q 'file_path=' "$T25_ERR" && ! grep -q 'parse-unknown' "$T25_ERR"; then
+```
+
+**新規発明ではないのでそのまま踏襲する。**
+
+### INFO-3 [info] `SC-9` の説明欄に原因切り分けの 1 行を（R-013 のついでに）
+
+`SC-9` は `TC-22` / `TC-22b` どちらの FAIL も一律「**fail-open（GC-1 違反 = critical）**」と
+説明しているが、**(ii) は安全性では load-bearing ではない**
+（整合レーンが「(i)+(iii) のみ」の build を測り、`sed` 不在・シムとも `rc=2` を確認）。
+
+> **`TC-22` 単独の FAIL は「fail-open」ではなく「診断契約の破壊」**。
+> `SC-9` の説明欄に「**TC-22 の FAIL は (ii) の契約破壊、TC-22b の FAIL が真の fail-open**」と
+> 1 行あると、**停止時の原因切り分けが速くなる**
+
+---
+
+### 監査表（Round 3 / 追記専用）
+
+| R-NNN | severity | lane | status | reflected_in | notes |
+|---|---|---|---|---|---|
+| R-013 | major | 設計（M-3）+ 整合（MINOR-4） | reflected | `docs/1045-plan` C-2 R3 反映 commit | `GC-8` の「両 TC 共通」を「**期待 reason は TC ごとに異なる**」へ改訂 + 実測経路表（`route`）を明記 / `test-cases.md` の `TC-22`・`TC-22b` 期待結果セルを確定（`TC-22b` は `parse-unknown` を**含まない**の二重条件・`ta-25:118` 踏襲）/ `todo` A-5a の CP も同期 |
+| INFO-3 | info | 設計 | reflected | 同上 | `SC-9` 説明欄へ「TC-22 = 診断契約の破壊 / TC-22b = 真の fail-open」を 1 行追加 |
+
+**Round 3 の集計**: critical 0 / major 1 / minor 0 / info 1。
+
+**反映状況の実測**: Round 3 監査表 2 行の `status` はいずれも `reflected`。
+**未反映を表す status の行は 0 件。**
+`R-013` と `INFO-3` を **1 回で確定反映済み**。

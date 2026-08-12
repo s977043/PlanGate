@@ -241,10 +241,36 @@ Step 1b の方言比較実験も **`LC_ALL=C` を実験条件に含める**。
 > repo の既往教訓「**1 原因が複数箇所を壊すと片側だけ直して AC が PASS**」に該当する。
 > **`T1045-TC-22` だけでは `SC-9` が沈黙し、`AC-04` が PASS のまま (i) 欠落が通過する。**
 
-**reason 文字列の assert（両 TC 共通・R-009 設計レーン補足）**:
+**reason 文字列の assert（R-013。⚠ 期待 reason は TC ごとに異なる）**:
+
 `rc=2` だけを assert すると、**外部依存を 1 つ列挙し漏らした場合に別の `parse-unknown` で
-`rc=2` になり偽 PASS** になる。したがって **stderr が `sed` 起因であること
-（`sed not available` 等の reason 文字列）まで assert する**。
+`rc=2` になり偽 PASS** になる。したがって **stderr の reason まで assert する**。
+ただし **2 つの TC は経路が異なるため、期待する reason も異なる**。
+**「両 TC 共通で `sed` 起因の reason を assert する」のは誤りであり、
+そう実装すると正しい実装で `TC-22b` が FAIL する**（R-013）。
+
+| TC | 撃つ要件 | 実測経路 | 期待 assert |
+|---|---|---|---|
+| **`T1045-TC-22`** | (ii) `command -v sed` | `route=parse-unknown` / `BLOCK (parse-unknown): sed not available` | `rc==2` **かつ** stderr に **`sed not available`** を含む |
+| **`T1045-TC-22b`** | (i) fail-closed フォールバック | **`route=normal-block`** / `検出: Bash command writes token path: …` | `rc==2` **かつ** stderr に **`Bash command writes token path`** を含み、**かつ `parse-unknown` を含まない** |
+
+**なぜ `TC-22b` に `sed` 起因の reason が出ないか**: 要件 (i) のフォールバック
+`_wc_n=$(…) || _wc_n="$_wc"` は **設計上サイレント**であり、
+正規化に失敗しても**元文字列で判定を続行して通常の block 経路に入る**。
+これは意図した挙動（fail-closed）であって欠陥ではない。
+
+**`TC-22b` の「`parse-unknown` を含まない」は必須**: これが無いと、
+**外部依存の列挙漏れ等で別経路の `parse-unknown` に落ちても `rc=2` + 文字列一致で偽 PASS** になり、
+**(i) の検出力という `TC-22b` 唯一の存在理由が失われる**。
+**この二重条件はリポジトリ内の既存パターン**（`ta-25:118` の
+`[ rc = 2 ] && grep -q 'file_path=' && ! grep -q 'parse-unknown'`）**であり新規発明ではない**。
+
+**実測（FULL 実装 (i)+(ii)+(iii) で確認済み）**:
+
+| 入力 | rc | `sed not available` | `writes token path` | `parse-unknown` |
+|---|---|---|---|---|
+| `TC-22`（`sed` 不在） | 2 | **YES** | no | **YES** |
+| `TC-22b`（`sed` 存在するが失敗） | 2 | no | **YES** | **no** |
 
 ### GC-7: 変更対象の限定
 
@@ -660,7 +686,7 @@ C-3 で人間がこの範囲を承認したことをもって、`N>&-` の除外
 | **SC-4** | **既存 mutation 7 種のいずれかが kill されなくなる**。対象は**次の 7 ラベルの列挙**（範囲表現ではない / R-001）: `T1023-TC-15` / `T1023-TC-16` / `T1023-TC-17` / `T1023-TC-17b` / `T1023-TC-17c` / `T1023-TC-17d` / `T1023-TC-17e`。**`T1023-TC-15pre` と `T1023-TC-17post` は明示的に対象外**（RED ウィンドウでは FAIL するのが正常 / GC-4-C） | 既存の検出力を壊した可能性。即停止して原因特定を人間へ報告 |
 | **SC-5** | **`T1023-TC-09` が FAIL する** | GC-3 違反（`>` を token path 宛に限定する誤実装に陥っている）。即停止 |
 | **SC-6** | **`>` 除外を入れた結果、`T1045-TC-11`〜`15` / `TC-19` / **`T1045-TC-07 (1)`**（`ls > /dev/null ; cp <TOKEN> /tmp/x`）のいずれかが `rc=0` になる** | **ガードが弱体化した**（GC-1 違反 = critical）。即停止し、除外条件を C-3 へ差し戻す。**`TC-07 (1)` は `/dev/null` 除外を入れる本 PBI で最も直接的な弱体化シナリオ**（AC-07 の中核 / R-005） |
-| **SC-9** | **`sed` 不在 / 失敗時に guard が `rc=0`（ALLOW）を返す** = **`T1045-TC-22`（不在 / 要件 (ii)）または `T1045-TC-22b`（存在するが失敗 / 要件 (i)）の**いずれか**が FAIL**（R-009。**TC-22 単独では (i) 欠落を検出できない**ため両方を発火条件に含める） | **fail-open**（GC-8 / GC-1 違反 = critical）。即停止 |
+| **SC-9** | **`sed` 不在 / 失敗時に guard が `rc=0`（ALLOW）を返す** = **`T1045-TC-22`（不在 / 要件 (ii)）または `T1045-TC-22b`（存在するが失敗 / 要件 (i)）の**いずれか**が FAIL**（R-009。**TC-22 単独では (i) 欠落を検出できない**ため両方を発火条件に含める） | **fail-open**（GC-8 / GC-1 違反 = critical）。即停止。**原因切り分け（INFO-3）**: **`TC-22` 単独の FAIL は「(ii) の診断契約の破壊」**（(ii) は安全性では load-bearing ではない。`(i)+(iii)` のみの build でも `sed` 不在・シムとも `rc=2` になることを実測）。**`TC-22b` の FAIL が真の fail-open**（`R-12` の唯一の機械的担保）|
 | **SC-7** | **変更が `scripts/check-approval-token-write.sh` / `tests/extras/ta-25-approval-token-guard.sh` / `docs/working/TASK-1045/` の外へ及ぶ**（`git status --porcelain` で実測） | GC-7 違反。即停止 |
 | **SC-8** | **`PLANGATE_SKIP_TOKEN_GUARD=1` が必要になる場面に遭遇** | **Human-owned**。AI は自分で設定せず、人間へ依頼して停止（R-9） |
 

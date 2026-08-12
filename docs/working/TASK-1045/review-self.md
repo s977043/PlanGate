@@ -671,3 +671,106 @@ C1-VERDICT-3: WARN plan=sha256:c7b3bf70b7cab8e372e858cd468518db4ecc4834b2b3b3b81
 > base=`6089e23` / C-2 R1 反映 head=`e3b4a3e`
 >
 > **`c3.json` は上記 `C1-VERDICT-3` の `plan_hash` に対して発行すること。**
+
+---
+
+## 簡易 C-1 再実行 #3（C-2 Round 3 確定反映後 / 追記専用）
+
+> 実施: plan maker（自己再確認）。**C-1 本体および簡易 C-1 #1 / #2 の記述は一切変更していない**（追記のみ）。
+> 対象: **R-013 / INFO-3**（C-2 Round 3）の 1 回確定反映後の plan / todo / test-cases。
+> **C-2 Round 3 は両レーンとも `C2-VERDICT: APPROVE`。R-013 が最後の 1 件。**
+
+### 反映の網羅性（機械確認）
+
+| 指摘 | severity | 反映先 | 確認方法と結果 |
+|---|---|---|---|
+| **R-013** | major | `GC-8` の reason assert 節を「**期待 reason は TC ごとに異なる**」へ改訂 + 実測経路表 / `test-cases.md` の `TC-22`・`TC-22b` 期待結果セル確定 / `todo` A-5a CP 同期 / Exit Criteria 分離 | `plan` / `test-cases` とも **`TC-22` = `sed not available`** / **`TC-22b` = `Bash command writes token path` かつ `parse-unknown` を含まない** で一致。**「両 TC 共通で `sed` 起因」を指示する生きた記述は 0 件**（残存 4 件はすべて**否定文または監査引用**） |
+| **INFO-3** | info | `SC-9` 説明欄へ原因切り分けの 1 行 | 「**TC-22 の FAIL は (ii) の診断契約の破壊 / TC-22b の FAIL が真の fail-open**」を追記 |
+
+**未反映（`status` が `reflected` 以外）の指摘 = 0 件**（Round 3 監査表 2 行とも `reflected`）。
+
+### 筆者による独立実走（R-013 の裏取り）
+
+FULL 実装 (i)+(ii)+(iii) のプロトタイプで**実測**（C-2 の主張と完全一致）:
+
+| 入力 | rc | `sed not available` | `writes token path` | `parse-unknown` |
+|---|---|---|---|---|
+| `TC-22`（`sed` 不在） | 2 | **YES** | no | **YES** |
+| `TC-22b`（`sed` 存在するが失敗） | 2 | **no** | **YES** | **no** |
+
+→ **改訂前の `GC-8` に素直に従うと `TC-22b` は必ず FAIL し、`SC-9`（critical / 即停止）を誤発火させる**
+ことを自分で確認したうえで反映した。
+
+### 機械チェック結果（本再実行で実行したコマンド）
+
+| # | コマンド | 結果 |
+|---|---|---|
+| S3-1 | `npx markdownlint-cli2 "docs/working/TASK-1045/*.md"` | **0 issues in 0 files**（7 ファイル。途中 5 件 + 派生 2 件を修正後） |
+| S3-2 | `extract_allowed_paths(plan.md)` | **7 パス**・禁止パス混入なし |
+| S3-3 | `Verification Automation:` 行の抽出 | 抽出可 |
+| S3-4 | TC 定義の自数え | **23 件**（`TC-01`〜`TC-22` + `TC-22b`・不変） |
+| S3-5 | Traceability の AC 行数 | **13 件**（AC-01〜13・不変） |
+| S3-6 | `comm` による双方向 orphan 検査 | **両方向とも差分 0 件** |
+| S3-7 | `diff` による `SC-*` / `RT-*` の plan ↔ todo 突合 | **SC 一致（SC-1〜9）/ RT 一致（RT-1〜5）** |
+| S3-8 | **否定語の短形 sweep**（`両 TC 共通` / `起因`） | 生きた指示は **0 件**。残存はすべて否定文・監査引用 |
+| S3-9 | **AC ID 軸の横断照合**（`grep -n 'AC-04' plan.md pbi-input.md test-cases.md todo.md` の**全ヒットを読了**） | 矛盾 0。Traceability の `AC-04` = **8 件**が定義側 8 件と一致 |
+| S3-10 | HTML / 入れ子強調の残骸検査（`<strong>` / `<br>` / `****`） | 3 ファイルとも **0 件** |
+
+### 本再実行で新たに発見・修正した掃き残し（自己検出）
+
+1. **`test-cases.md` の Exit Criteria に否定済みの記述が残存**
+   （「**いずれも stderr の reason 文字列が `sed` 起因である**ことまで assert 済み」）。
+   **これは R-013 で否定した内容そのもの**であり、
+   **TASK-1044 の教訓（否定語の短形 sweep）を適用して自己検出**した。TC 別の記述へ修正。
+2. **inline HTML（`<strong>` / `<br>`）5 件**を markdownlint が検出 → 置換。
+   置換で **入れ子強調（`****`）が 2 件**派生したためこれも修正。
+
+### AC ID 軸の横断照合結果（S3-9・全ヒット読了）
+
+- `pbi-input.md` の `AC-04` 関連 5 ヒット: **未編集・本反映と矛盾なし**
+- `plan.md` 3 ヒット / `todo.md` 1 ヒット: `AC-04〜07` の集合参照のみ。矛盾なし
+- `test-cases.md` 10 ヒット: 定義 8 件（`TC-04` / `12` / `13` / `14` / `15` / `19` / `22` / `22b`）が
+  Traceability の **8 件**と一致
+- **`TC-08`（AC-10 / `rule=` 検査）との整合も確認**: AC-10 適用後の detail は
+  `Bash command writes token path (rule=<id>): <cmd>` となるため、
+  **`TC-22b` の `grep 'Bash command writes token path'` は部分一致で成立**し衝突しない
+
+### 判定サマリ
+
+| 項目 | 結果 |
+|---|---|
+| C-2 Round 3 major 1 件（R-013） | **反映済み**。**筆者が独立に実走再現**したうえで反映 |
+| C-2 Round 3 info 1 件（INFO-3） | **反映済み** |
+| 新規に持ち込まれた FAIL | **0 件** |
+| 残 WARN | **1 件**（W-6。内容は #2 から不変） |
+
+#### W-6（据え置き）[minor] `GC-8` の実装可否は実装前のため未実証
+
+**内容は簡易 C-1 #2 から変更なし**。(i)(ii) を guard 本体へ同時統合した状態の実測は
+`UV-2` の範囲であり、**`T1045-TC-22` + `T1045-TC-22b` + `SC-9`** で exec 時に機械検出される。
+
+#### C-3 へ引き継ぐ人間判断（不変）
+
+| # | 論点 | 状態 |
+|---|---|---|
+| H-Q1 | Mode `critical` / `high-risk` | **未決（人間判断）**。実施しなくなるのは V-4 のみ |
+| H-Q2 | `&>` / `&>>` を block 維持か | **未決（人間判断）**。C-2 は「既定のままで良い」と判定 |
+| H-Q3〜H-Q6 | — | **すべて解消済み** |
+
+---
+
+C1-VERDICT-4: WARN plan=sha256:744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2c7f
+
+> 判定内訳: critical=0 / major=0 / minor(WARN)=1（W-6）/ FAIL=0
+> **C-2 Round 1〜3 の major 計 4 件（R-001 / R-002 / R-009 / R-013）はすべて反映により解消**。
+> **C-2 Round 3 は両レーンとも `C2-VERDICT: APPROVE`**。
+> 残 WARN は「実装前のため実証不能」に起因し、`UV-2` + `T1045-TC-22` + `TC-22b` + `SC-9`
+> で exec 時に機械検出される。**plan は Human C-3 へ渡せる状態**。
+>
+> 参考ハッシュ（同時対象）:
+> todo=sha256:620a825ca34f9da85ab51f4b962b32da7d6112334383fdfe1f2ec788abc933fd
+> test-cases=sha256:93710dd04f41572283e32ac42e4c01dc85d70f50bf4a0e69a4042af8a27fe9da
+> review-external=sha256:0cc7fdf736679b7739052c99a0f7afe3ca1108bc8fd540a99f009ca0cfe7cb94
+> base=`6089e23` / C-2 R2 反映 head=`4c4fc53`
+>
+> **`c3.json` は上記 `C1-VERDICT-4` の `plan_hash` に対して発行すること。**

@@ -1,7 +1,8 @@
 # CURRENT STATE — TASK-1045
 
-> 更新: **C-2 Round 2（R-009〜R-012）の 1 回確定反映 + 簡易 C-1 再実行 #2** の完了時点
-> （Round 1 = R-001〜R-008 は前段で反映済み）
+> 更新: **C-2 Round 3（R-013 / INFO-3）の 1 回確定反映 + 簡易 C-1 再実行 #3** の完了時点
+> （Round 1 = R-001〜R-008 / Round 2 = R-009〜R-012 は前段で反映済み）
+> **C-2 Round 3 は両レーンとも `C2-VERDICT: APPROVE`。C-2 は完了。**
 
 ## 今どこにいるか
 
@@ -10,7 +11,8 @@
 ```text
 A pbi-input ✅ → B plan/todo/test-cases ✅ → C-1 ✅(WARN) → W-1..W-5 反映 ✅
   → C-2 R1 ✅(major 2) → R-001..R-008 確定反映 ✅ → 簡易 C-1 ✅(C1-VERDICT-2)
-  → C-2 R2 ✅(major 1) → R-009..R-012 確定反映 ✅ → 簡易 C-1 #2 ✅(C1-VERDICT-3: WARN)
+  → C-2 R2 ✅(major 1) → R-009..R-012 確定反映 ✅ → 簡易 C-1 #2 ✅(C1-VERDICT-3)
+  → C-2 R3 ✅(両レーン APPROVE / major 1) → R-013 確定反映 ✅ → 簡易 C-1 #3 ✅(C1-VERDICT-4: WARN)
   → 【👤 C-3 ここで待ち】 → exec
 ```
 
@@ -20,7 +22,7 @@ A pbi-input ✅ → B plan/todo/test-cases ✅ → C-1 ✅(WARN) → W-1..W-5 �
 
 ```text
 c3_status : APPROVED
-plan_hash : sha256:c7b3bf70b7cab8e372e858cd468518db4ecc4834b2b3b3b81b16c95437153e46
+plan_hash : sha256:744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2c7f
 ```
 
 **判断が要る論点**（詳細は `review-self.md` の C-3 引き継ぎ表）:
@@ -33,10 +35,10 @@ plan_hash : sha256:c7b3bf70b7cab8e372e858cd468518db4ecc4834b2b3b3b81b16c95437153
 
 | ファイル | sha256 |
 |---|---|
-| `plan.md` | `c7b3bf70b7cab8e372e858cd468518db4ecc4834b2b3b3b81b16c95437153e46` |
-| `todo.md` | `75e7424ff43d5dce34069520de78646f9ee49a65fa1bdaa53bbd1c811a6a43c4` |
-| `test-cases.md` | `1dcdd9d5c8dc906deb400f3f19186ce4e61492622cc93c41a6a2fb703667c806` |
-| `review-external.md` | `16d760303800807d986250ff6accd6b4876a8fdb73bc225668bb57d0141df69f` |
+| `plan.md` | `744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2c7f` |
+| `todo.md` | `620a825ca34f9da85ab51f4b962b32da7d6112334383fdfe1f2ec788abc933fd` |
+| `test-cases.md` | `93710dd04f41572283e32ac42e4c01dc85d70f50bf4a0e69a4042af8a27fe9da` |
+| `review-external.md` | `0cc7fdf736679b7739052c99a0f7afe3ca1108bc8fd540a99f009ca0cfe7cb94` |
 
 ⚠️ **`c3.json` 発行後に plan を 1 文字でも編集すると EH-3 が mismatch を検知する**
 （`feedback_no_plan_edit_after_c3_approval`）。**反映は c3.json 発行より前に完了済み**。

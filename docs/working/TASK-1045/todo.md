@@ -166,6 +166,9 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
   `>& /tmp/o` が**除去されない**ことをスクラッチで確認。
   **`sed` 不在 PATH で `rc=2`**（要件 (ii)）**かつ `sed` シム（`exit 1`）PATH でも `rc=2`**（要件 (i)）を
   確認 → **どちらかが `rc=0` なら SC-9 で即停止**（R-009。**不在だけの確認では (i) の欠落を見逃す**）。
+  **reason の期待値は TC ごとに異なる**（R-013）: **不在 → `sed not available`** /
+  **シム → `Bash command writes token path` かつ `parse-unknown` を含まない**。
+  **シム側に `sed` 起因の reason を期待しない**（フォールバックは設計上サイレント）。
   **`T1023-TC-05` が PASS を維持**することも確認（R-010 の巻き添え検出）
 - `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
 
