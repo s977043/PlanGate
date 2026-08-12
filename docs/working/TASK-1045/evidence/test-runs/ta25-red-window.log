@@ -1,0 +1,58 @@
+
+=== TA-25: TASK-0123/TASK-1023 approval-token-guard ===
+  [PASS] T1023-TC-01 env=maintenance.json blocked (exit 2)
+  [PASS] T1023-TC-02b top-level legacy file_path token blocked as protected-write (exit 2)
+  [PASS] T1023-TC-03 env-normal + stdin Bash token write blocked (exit 2)
+  [PASS] T1023-TC-05 no-jq PATH fails closed (parse-unknown, exit 2)
+  [PASS] T1023-TC-13c-file stdin file_path evaluated independently of env target (exit 2)
+  [PASS] T1023-TC-22a MultiEdit normal file passes (exit 0)
+  [PASS] T1023-TC-23 TTY stdin fails closed without hanging (exit 2 / exit 2)
+  [FAIL] T1045-TC-01 read-only with 2>/dev/null falsely blocked (exit 2)
+  [FAIL] T1045-TC-02 read-only with 2>&1 falsely blocked (exit 2)
+  [FAIL] T1045-TC-03 read-only with >&2 falsely blocked (exit 2)
+  [FAIL] T1045-TC-20 read-only with 3>&- falsely blocked (exit 2)
+  [PASS] T1045-TC-04 file redirect > token blocked (exit 2)
+  [PASS] T1045-TC-05 append redirect >> token blocked (exit 2)
+  [PASS] T1045-TC-06 numbered fd redirect 1> token blocked (exit 2)
+  [PASS] TC-01 check-approval-token-write.sh exists and is executable
+  [PASS] TC-02 check-approval-token-write.sh syntax ok
+  [PASS] TC-03 maintenance.json path blocked (exit 2)
+  [PASS] TC-04 approvals/c3.json path blocked (exit 2)
+  [PASS] TC-05 normal file passes (exit 0)
+  [SKIP] TC-06 hmac_signature not yet in schema (HO patch unapplied — SKIP)
+  [PASS] TC-07 apply-task-0123-patches.sh exists and syntax ok
+  [PASS] T1023-TC-02a tool_input.file_path token blocked (exit 2)
+  [PASS] T1023-TC-04 multiline tee maintenance.json blocked (exit 2)
+  [PASS] T1023-TC-06a malformed/truncated/empty stdin fail closed (exit 2)
+  [PASS] T1023-TC-06b unreadable stdin (directory) fails closed (exit 2)
+  [PASS] T1023-TC-07 escaped-slash token path decoded and blocked (exit 2)
+  [PASS] T1023-TC-07b structurally invalid payloads fail closed (exit 2)
+  [PASS] T1023-TC-08 read-only cat of token path passes (exit 0)
+  [PASS] T1023-TC-09 mixed token-read + other-write conservatively blocked (exit 2)
+  [PASS] T1023-TC-10 normal writes pass (exit 0)
+  [PASS] T1023-TC-11 non-TTY approve/maintenance rejected by CLI, no artifact, real audit unchanged
+  [PASS] T1023-TC-12 representative write surfaces blocked per-surface (exit 2)
+  [PASS] T1023-TC-25 ed/ex token writes blocked (exit 2)
+  [PASS] T1023-TC-26 git checkout/restore/checkout-index/update-index token writes blocked (exit 2)
+  [PASS] T1023-TC-27 non-token ed/git commands pass; token-path read-only git log passes (exit 0)
+  [PASS] T1023-TC-13a empty env + $1 token blocked via fallback (exit 2)
+  [PASS] T1023-TC-13b env target takes precedence over $1 (exit 0)
+  [PASS] T1023-TC-13c-cmd stdin Bash command evaluated independently (exit 2)
+  [PASS] T1023-TC-14a inherited bypass allows with diagnostic, no secret echo (exit 0)
+  [PASS] T1023-TC-14b in-command bypass string does not bypass (exit 2)
+  [PASS] T1023-TC-14c command-scoped SKIP=0 overrides inherited bypass (exit 2)
+  [PASS] T1023-TC-22b MultiEdit token file_path blocked (exit 2)
+  [PASS] T1023-TC-22c token-path string in body does not block normal-file edits (exit 0)
+  [PASS] T1023-TC-24 no guard invocation without stdin redirect
+  [PASS] T1023-TC-20 legacy TCs retained + standalone failure propagates non-zero rc
+  [FAIL] T1023-TC-15pre mutation baseline failed (rc=1) — mutation kill判定は無効
+  [PASS] T1023-TC-15 mutant killed by real TC (T1023-TC-01 FAILs)
+  [PASS] T1023-TC-16 mutant killed by real TC (T1023-TC-03 FAILs)
+  [PASS] T1023-TC-17 mutant killed by real TC (T1023-TC-05 FAILs)
+  [PASS] T1023-TC-17b mutant killed by real TC (T1023-TC-23 FAILs)
+  [PASS] T1023-TC-17c mutant killed by real TC (T1023-TC-13c-file FAILs)
+  [PASS] T1023-TC-17d mutant killed by real TC (T1023-TC-22a FAILs)
+  [PASS] T1023-TC-17e mutant killed by real TC (T1023-TC-02b FAILs)
+  [FAIL] T1023-TC-17post restore run failed (rc=1)
+
+TA-25 standalone: 48 passed, 6 failed

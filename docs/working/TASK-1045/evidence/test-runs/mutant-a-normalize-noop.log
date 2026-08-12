@@ -1,0 +1,18 @@
+
+=== TA-25: TASK-0123/TASK-1023 approval-token-guard ===
+  [PASS] T1023-TC-01 env=maintenance.json blocked (exit 2)
+  [PASS] T1023-TC-02b top-level legacy file_path token blocked as protected-write (exit 2)
+  [PASS] T1023-TC-03 env-normal + stdin Bash token write blocked (exit 2)
+  [PASS] T1023-TC-05 no-jq PATH fails closed (parse-unknown, exit 2)
+  [PASS] T1023-TC-13c-file stdin file_path evaluated independently of env target (exit 2)
+  [PASS] T1023-TC-22a MultiEdit normal file passes (exit 0)
+  [PASS] T1023-TC-23 TTY stdin fails closed without hanging (exit 2 / exit 2)
+  [FAIL] T1045-TC-01 read-only with 2>/dev/null falsely blocked (exit 2)
+  [FAIL] T1045-TC-02 read-only with 2>&1 falsely blocked (exit 2)
+  [FAIL] T1045-TC-03 read-only with >&2 falsely blocked (exit 2)
+  [FAIL] T1045-TC-20 read-only with 3>&- falsely blocked (exit 2)
+  [PASS] T1045-TC-04 file redirect > token blocked (exit 2)
+  [PASS] T1045-TC-05 append redirect >> token blocked (exit 2)
+  [PASS] T1045-TC-06 numbered fd redirect 1> token blocked (exit 2)
+
+TA-25 standalone: 10 passed, 4 failed
