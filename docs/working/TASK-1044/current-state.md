@@ -1,8 +1,10 @@
 # TASK-1044 current-state
 
-- **今どこ**: **PR 作成前 River Review（major 2 / minor 6）を R-024〜R-031 として
-  1 回確定反映 + 簡易 C-1 再実行 #5 まで完了**（`C1-VERDICT-6` / plan_hash =
-  `sha256:442b272a66978bfdc8e8783a756a3f41c4434f3f56436063860858690243c86c`）。
+- **今どこ**: **PR 作成前 River Review 2 回目（major 1 / minor 3）を R-032〜R-035 として
+  1 回確定反映 + 簡易 C-1 再実行 #6 まで完了**（`C1-VERDICT-7` / plan_hash =
+  `sha256:53ed25957c9c89ad02dbfb715cf90cdf53d66d14492b9ebd8e060b7b69d7bd5e`）。**River Review は「新規 critical なし・
+  反映後の PR 作成を推奨」と判定**。直前は River Review 1 回目（R-024〜R-031 /
+  `C1-VERDICT-6`）。
   **承認トークンはこの最新 hash で発行すること**（`cce20c06…` / `d1f6c5ea…` など
   過去 hash で発行すると EH-3 が後続反映を mismatch 検知）。
   直前は C-2 Round 3 完了（2 レーンとも APPROVE / major 0）→ R-021〜R-023 反映
@@ -68,3 +70,12 @@
   未更新の stale 値 = TASK-0921 側の誤り）→ **15 superseded + 4 再走で全件分類**。
   minor 6 件（L0 層の掃除 / 裁定件数 / EH-3 順序 / AC-2c を 7 env へ / AC-3 の動的導出 /
   frontmatter + `C2-VERDICT` 1 行）も反映
+- **PR 作成前 River Review 2 回目（2026-08-12 / major 1 / minor 3 / info 1）**:
+  R-032〜R-035 を追記集約し反映。**R-032（major）は R-030 の副作用** — AC-3 の
+  marker 由来集合に `ta-61` 自身が入り、TC-34 を素直に実装すると**入れ子フルスイート
+  再走で無限再帰 / per-file `timeout 180` 超過 FAIL** になる。
+  → **contract TA 自身（`$_T61_SELF_ID`）を除外**（`ta-61:304` の既存パターンに合わせる）+
+  S6 / T-07 の「層 A 12 本」を動的表現へ。
+  **R-033** = AC-2c を `_T61_GUARDED_ENVS` の実行時導出消費へ（7 名固定・行番号アンカーを撤回）。
+  **R-034** = C-1 マーカーの stale は **(b) 対応しない**を選択し review-self 冒頭へ注記。
+  **R-035** = frontmatter `verdict` を schema enum 準拠の `PASS` へ

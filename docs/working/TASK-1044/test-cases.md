@@ -49,11 +49,16 @@
   従来案は (1)(2) のみで、**7 env unset とカウンタ初期化を誰も検証していなかった**）:
   1. **(AC-2a)** rc が standalone 契約（0 / 1 / 3）に従う
   2. **(AC-2b)** summary 行 `TA-<NN> standalone: N passed, M failed` が出力される
-  3. **(AC-2c)** 契約下で起動した子プロセスで、**`tests/run-tests.sh:20` の unset 行に
-     列挙された 7 個の名前がいずれも未設定**であること
-     （`PLANGATE_SKIP_REASON` / `PLANGATE_HOOK_TASK` / `PLANGATE_HOOK_FILE` /
-     `PLANGATE_BYPASS_HOOK` / `PLANGATE_HOOK_STRICT` / `PG_HARNESS_SOURCED` /
-     `PLANGATE_ALLOW_MASS_DELETE`）。
+  3. **(AC-2c)** 契約下で起動した子プロセスで、**`tests/run-tests.sh` の `^unset` で始まる行から
+     実行時導出した env 集合の全名**がいずれも未設定であること。
+     **導出には既存の `_T61_GUARDED_ENVS`（`ta-61:286` /
+     `sed -n 's/^unset \(.*\) 2>\/dev\/null.*$/\1/p'`）をそのまま消費する**
+     （TC-15 がこの導出自体を検査済み）。**名前も件数も契約値にせず、行番号でも
+     アンカーしない（R-033）** — 7 名を固定すると **8 個目の guarded env が
+     追加されたとき静かに検査対象から落ちる**（R-030 が潰した偽陰性と同クラス）。
+     現時点の実測は 7 名（`PLANGATE_SKIP_REASON` / `PLANGATE_HOOK_TASK` /
+     `PLANGATE_HOOK_FILE` / `PLANGATE_BYPASS_HOOK` / `PLANGATE_HOOK_STRICT` /
+     `PG_HARNESS_SOURCED` / `PLANGATE_ALLOW_MASS_DELETE`）だがログ出力のみ。
      **`env | grep -c '^PLANGATE_'` の全数 0 は判定に使わない（R-029）** —
      repo 内の `PLANGATE_*` は実測 **52 種**で、`PLANGATE_BIN` / `PLANGATE_PYTHON` /
      `PLANGATE_REPO_ROOT` 等は 7 env 契約の外。全数 0 にすると**開発者環境や CI が
@@ -81,12 +86,23 @@
 ### TC-34: 清浄 env での standalone 直接実行が従来 rc を維持（自動）
 
 - 前提: 清浄 env（3 env unset）
-- 入力: **bootstrap marker を含む `tests/extras/ta-*.sh` 全件**（**動的導出・件数は
-  assert しない** / R-030。本 PR 時点の実測は層 A 12 + ta-61 = 13 ファイル）を
-  `sh tests/extras/ta-XX-*.sh` で直接実行
+- 入力: **bootstrap marker を含む `tests/extras/ta-*.sh` 全件から
+  contract TA 自身（`$_T61_SELF_ID` = `ta-61-extra-contract`）を除いた集合**
+  （**動的導出・件数は assert しない** / R-030・R-032。本 PR 時点の実測は
+  13 ファイル − 自己 1 = **12 ファイル**）を `sh tests/extras/ta-XX-*.sh` で直接実行
 - 期待出力: 各本の従来 rc（0 または 3 — 前提未充足の本は rc=3）と summary 書式不変
+- **自己除外は必須（R-032 / 実装上の必須条件）**: S4 適用後は `ta-61` も marker を
+  持つため導出集合に入る。しかし **`ta-61` の直接実行は `tests/run-tests.sh` を
+  入れ子で 2 回走らせる**（`ta-61:784-800`。`PG_T61_NO_RECURSE=1` /
+  `PG_T61_SKIP_SUITE=1` のときだけスキップ）ため、**TC-34 を ta-61 内の自動 TC として
+  素直に実装すると ta-61 が ta-61 を起動 → 孫が再びフルスイート → 無限再帰**になる。
+  回避できても **per-file `timeout 180` を FAIL 扱いにする既存ループ**（`ta-61:60-62` /
+  `:312-314`）で **ta-61 は確実に 180s 超過**し、さらに TASK-0921 実測
+  （フルスイート 282s / CI timeout 600s / 余裕 318s）を食い潰す。
+  **`ta-61:304` の既存 standalone ループが `[ "$_t61_id" = "$_T61_SELF_ID" ] && continue`
+  で自己除外しているのが repo の確立パターン**であり、AC-3 / TC-34 もこれに揃える
 - **固定件数にしない理由（R-030）**: AC-4 / AC-8 が「絶対件数を契約値にしない」と
-  定めているのに AC-3 / TC-34 だけ「層 A 12 本」を固定すると、Slice 2 が追加した
+  定めているのに AC-3 / TC-34 だけ件数を固定すると、Slice 2 が追加した
   層 A ファイルが**静かに対象から漏れる**（偽陰性）
 - 種別: 自動
 

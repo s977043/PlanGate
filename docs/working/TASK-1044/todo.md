@@ -58,7 +58,9 @@
 ### 検証
 
 - [ ] T-07: green 確認 — TC-30/30b/31/32/35/37 PASS + ta-61 全 TC PASS + フルスイート rc=0 +
-      層 A 12 本の清浄 env standalone 実行（AC-3 / AC-7 / AC-8）
+      **marker を含む `tests/extras/ta-*.sh` 全件 − contract TA 自身**（動的導出・件数 assert なし。本 PR 時点の実測 12 ファイル / R-030・R-032） の清浄 env standalone 実行
+      （**ta-61 自身は除外**。含めると入れ子フルスイート再走で再帰し、回避しても
+      per-file `timeout 180` を超過して FAIL 扱いになる / R-032）（AC-3 / AC-7 / AC-8）
       （owner: agent / depends_on: T-06 / rollback: 不要（読取のみ）） 🚩
 - [ ] T-08: 変異注入（AC-5 (b)）— (a) M-1: case 行（call site）除去変異で TC-30/31 が
       dash で FAIL（kill）、(b) M-2: helper を変数消費から独自判定へ退行させる変異で

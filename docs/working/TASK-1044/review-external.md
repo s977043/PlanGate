@@ -3,13 +3,18 @@ task_id: TASK-1044
 artifact_type: review-external
 schema_version: 1
 status: reflected
-verdict: approve
+verdict: PASS
 created_by: claude
 ---
 
-<!-- verdict は最終ラウンド（C-2 Round 3 = 2 レーンとも APPROVE）の判定を表す。
-     Round 1 / Round 2 は REJECT だったが、いずれも 1 回確定反映で解消済み。
-     機械可読な判定は末尾の `C2-VERDICT:` 行（ちょうど 1 本）を正とする / R-031。 -->
+<!-- verdict は `schemas/review-external.schema.json` の enum（PASS / WARN / FAIL）に
+     従い、最終ラウンド（C-2 Round 3 = 2 レーンとも APPROVE / major 0）を PASS として
+     表現する（R-031 で approve へ更新後、R-035 で schema enum 準拠の PASS へ是正）。
+     Round 1 / Round 2 は REJECT 相当だったが、いずれも 1 回確定反映で解消済み。
+     C-2 の機械可読な判定は末尾の `C2-VERDICT:` 行（ちょうど 1 本。値はレビューア語彙の
+     `approve`）を正とする / R-031・R-035。
+     なお **C-1 側のマーカーは Round 1 hash に固定されている**（採番規約 `C1-VERDICT-N`
+     のため）。この非対称は意図的で、理由は `review-self.md` 冒頭の注記を参照 / R-034。 -->
 
 # TASK-1044 外部レビュー結果（C-2 / 追記専用集約）
 
@@ -903,4 +908,147 @@ decision-log 24 行すべて valid JSON）
 
 ---
 
-C2-VERDICT: approve plan=sha256:442b272a66978bfdc8e8783a756a3f41c4434f3f56436063860858690243c86c
+## PR 作成前 River Review 2 回目（追記専用 / R-032 以降）
+
+> レビュー日: 2026-08-12 / 対象 branch: `docs/1044-c2-reflect`（head `19a13a6`）
+> 対象 plan_hash（レビュー時点）: `sha256:442b272a66978bfdc8e8783a756a3f41c4434f3f56436063860858690243c86c`
+> **前回の major 2 件（R-024 / R-025）は両方とも実質解消**。
+> **R-001〜R-031 の記述は一切編集していない**（追記専用規約。frontmatter の
+> `verdict` 値のみ R-035 に従って更新）。
+
+### River Review 2 回目 判定
+
+| 区分 | critical | major | minor | info |
+|---|---|---|---|---|
+| **統合** | 0 | **1** | **3** | 1 |
+
+**新規 major 1 件は R-030（AC-3 の件数固定を外す）の反映が生んだ副作用**である。
+River Review の総括: 「新規 critical なし。major-A は 1 行修正で閉じられるので、
+反映してからの PR 作成を推奨」。
+
+### R-032 [major] AC-3 / TC-34 の marker 由来集合に `ta-61` 自身が入り自己実行（再帰）を招く
+
+**対象**: `pbi-input.md` AC-3 / `test-cases.md` TC-34 / `plan.md` S6 / `todo.md` T-07
+
+**機構**: **S4 適用後、`ta-61-extra-contract.sh` は marker を 2 つ持つ = AC-3 の集合に入る。**
+ところが **`ta-61:784-800` は ta-61 の直接実行時に `tests/run-tests.sh` を入れ子で 2 回
+走らせる**（`PG_T61_NO_RECURSE=1` / `PG_T61_SKIP_SUITE=1` のときだけスキップ）。
+
+→ **TC-34 を ta-61 内の自動 TC として素直に実装すると、ta-61 が ta-61 を起動 →
+孫が再びフルスイート → 無限再帰**する。回避できても **既存の per-file ループは
+`timeout 180` を FAIL 扱いにする**（`ta-61:60-62` / `:312-314`）ため **ta-61 は確実に
+180s 超過**し、さらに **TASK-0921 handoff の実測（フルスイート 282s / CI timeout 600s /
+余裕 318s）を食い潰す**。
+
+**既存パターンに反している**: `ta-61:304` の standalone ループは
+`[ "$_t61_id" = "$_T61_SELF_ID" ] && continue` で**自己を明示除外**している。
+**repo の確立パターンが既に「自己除外」なのに AC-3 だけがそれを持っていない。**
+
+**併発**: **S6 / T-07 は「層 A 12 本」のまま**で、契約（AC-3 / TC-34 = 13 ファイル）と
+食い違っている。
+
+**是正要求（最小一手）**:
+
+1. **AC-3 / TC-34 の導出を「marker を含む `tests/extras/ta-*.sh` 全件から contract TA
+   自身（`$_T61_SELF_ID`）を除く」に 1 行で限定**
+2. **S6 / T-07 の「層 A 12 本」を同じ動的表現へ揃える**
+
+#### なぜ前回の全数照合をすり抜けたか（再発防止の要点）
+
+C-1 #5 の全数照合はパターン **`層 A 12 本の standalone`** を使ったため、
+実文字列 **`層 A 12 本の清浄 env standalone`** に **1 語差で当たらず**残骸が生存した。
+**母数（6 ファイル）ではなくパターン設計が弱点だった。**
+
+→ **以後は「否定したい概念」を接尾辞なしの短い形**
+（`層 A 12 本` / `18 本` / `4 本` / `tc26-runner`）**で流す**。
+
+### R-033 [minor] AC-2c が 7 env を名前で固定 + `run-tests.sh:20` の行番号アンカー
+
+**R-029 で入れた是正が、別の偽陰性を作っている。**
+`ta-61:286` は `sed -n 's/^unset \(.*\) 2>\/dev\/null.*$/\1/p' | head -1` で
+`_T61_GUARDED_ENVS` を**行番号なしで実行時導出**しており（TC-15 がこの導出自体を検査）、
+**既存の仕組みをそのまま消費できる**。
+
+**Impact**: 将来 guarded env が **8 個目**を得たとき、**AC-2c の 7 名固定は静かに
+新 env を検査対象から落とす**（**R-030 が潰した偽陰性と同クラス**）。
+`:20` の行番号アンカーも、**本 PBI 自身が「行番号は stale 化する」と結論した規律と逆行**する。
+
+**是正要求**: AC-2c / TC-31 (3) の判定対象を「**`run-tests.sh` の `^unset` で始まる行から
+実行時導出した env 集合の全名**（現時点の実測 7 名・**件数は assert しない**）」へ。
+
+### R-034 [minor] 機械可読マーカーが C-2 だけ最新・C-1 は 5 ラウンド前の hash に固定
+
+`^C1-VERDICT:` に一致するのは冒頭ラウンドの 1 本のみで hash は `586f8a91…` に固定。
+以降は `C1-VERDICT-2` 〜 `C1-VERDICT-6` と採番され**一致しない**。
+`scripts/ai-loop/plan_package.py` の `check_evidence` はマーカー内 hash と現 plan.md の
+sha256 を照合して**不一致なら stale エラー**にするため、
+**現状 C-2 は一致・C-1 は不一致**という非対称がある。
+
+**⚠️ `^C1-VERDICT:` が 2 本になると fail-closed** なので二択:
+
+- **(a)** 末尾に最新 `C1-VERDICT:` を追加し、冒頭を `C1-VERDICT-1:` へ**改番**する
+- **(b)** **対応しない**（本 PBI は人間 C-3 経路なので正当な選択）+ review-self 冒頭に 1 行注記
+
+### R-035 [minor] frontmatter `verdict: approve` が schema の enum 外
+
+`schemas/review-external.schema.json` の `verdict` は `["PASS","WARN","FAIL"]`。
+`REJECT` も enum 外だったので悪化はしていないが、**`PASS` を選べば schema 準拠と
+最終判定の両方を同時に満たせる**（frontmatter の md 検証は CI 未配線なので即時影響なし）。
+
+**是正要求**: `verdict: PASS` へ（**`C2-VERDICT` 行の `approve` はレビューア語彙なので
+現状のまま**）。
+
+### info（finding ではない / 対応は任意）
+
+`TASK-0921/handoff.md` の既知課題 2-bis 本文に **4 つ目の stale「18」**がある
+（「変異 evidence **18 本**の HEAD 整合が失効する」）。AC-9 / TC-38 が列挙するのは
+「**18/18 KILL**」を主張する 3 行なので**文言パターンが違い列挙から外れる**。
+ただし **T-11 の追記先が既知課題 2 / 2-bis そのもの**なので**同じ段落に 19 本の注記が
+並ぶ**＝実害小。
+
+### River Review 2 回目 反証・独立検証（反映担当ワーカーによる一次確認）
+
+| 指摘 | 独立確認の内容 | 結果 |
+|---|---|---|
+| R-032 | `ta-61:47` に `_T61_SELF_ID=ta-61-extra-contract`、`:304` に `[ "$_t61_id" = "$_T61_SELF_ID" ] && continue` を実物で確認（**自己除外は既存パターン**）。`:59-63` の `_t61_to()` が `timeout 180` / `perl alarm 180`、`:312-314` が rc=124/142 を **SKIP でなく FAIL** として扱うことを確認。`:784-800` が `pg_extra_contract_is_standalone` 成立時に `sh "$_T61_RUNNER"` を **2 回**起動することを確認 | 指摘どおり |
+| R-033 | `ta-61:286` の `_T61_GUARDED_ENVS` 実行時導出と、直後の TC-15 がその導出自体を検査していることを確認 | 指摘どおり |
+| R-034 | `plan_package.py` の `_C1_MARKER_RE` / `_C1_PREFIX_RE` と「完全一致数 = プレフィックス行数 = ちょうど 1」の fail-closed 仕様を確認。本ファイルの `C1-VERDICT-N` 採番が `^C1-VERDICT:` に一致しないことを正規表現で再現確認 | 指摘どおり |
+| R-035 | `schemas/review-external.schema.json` の `verdict` enum = `["PASS","WARN","FAIL"]` を確認 | 指摘どおり |
+
+**反証に至った指摘は 0 件**（R-032〜R-035 の 4 件すべてを採用。R-034 は後述の理由で **(b)** を選択）。
+
+**R-034 の選択と理由（反映担当の判断）**: **(b) 対応しない + 注記**を採った。
+
+1. 本 PBI は**人間 C-3 経路**であり ai-loop の機械 gate（`check_evidence`）を通さない。
+   方向も **fail-closed（安全側）**で、誤って通る側に倒れない
+2. (a) は冒頭ラウンドの `C1-VERDICT:` 行を `C1-VERDICT-1:` へ**改番する = 過去ラウンドの
+   記録行を書き換える**ことになり、本 PBI が一貫して守ってきた
+   **「履歴は書き換えず新節で訂正する」規律**（C-1 #4 / #5 の「過去記録の訂正」節）と衝突する
+3. 代わりに **`review-self.md` 冒頭に非対称の明示注記**を置き、
+   「最新の C-1 判定は末尾の `C1-VERDICT-6` を正とする」「ai-loop 経路へ載せる後続 PBI では
+   採番せず末尾 1 本を更新し続ける運用を推奨」まで書いた。
+   `review-external.md` の frontmatter コメントからも同注記へ誘導している
+
+### River Review 2 回目 監査表（追記専用）
+
+| R-NNN | severity | lane | status | reflected_in(commit) | notes |
+|---|---|---|---|---|---|
+| R-032 | major | river | reflected | （本 commit・後段で実 SHA へ確定） | AC-3 / TC-34 に **contract TA 自身の除外**を明記 + S6 / T-07 を動的表現へ |
+| R-033 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | AC-2c / TC-31 (3) を `_T61_GUARDED_ENVS` の実行時導出消費へ（名前・件数・行番号を非契約化） |
+| R-034 | minor | river | **not-applied（意図的 / (b) を選択）** | （本 commit・後段で実 SHA へ確定） | review-self 冒頭に非対称の注記 + frontmatter コメントから誘導。理由は上記 |
+| R-035 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | frontmatter `verdict` を schema enum 準拠の `PASS` へ |
+
+> Round 1〜3 および 1 回目 River Review の監査表は**編集していない**。
+
+### River Review 2 回目 反映順序
+
+1. 本ファイルへ R-032〜R-035 を追記集約（本 commit）
+2. plan / pbi-input / test-cases / todo へ **1 回確定反映**（`Refs: R-032 … R-035`・本 commit）
+3. **「否定したい概念」を接尾辞なしの短い形**で live claim 6 ファイルへ grep し 0 件を実測
+4. 簡易 C-1 再実行 #6 → `review-self.md` へ追記し `C1-VERDICT-7` を新 plan_hash で更新（本 commit）
+5. 人間が最終承認トークン（`c3_status=APPROVED`・**本反映後の plan_hash**）を発行
+6. exec 開始
+
+---
+
+C2-VERDICT: approve plan=sha256:53ed25957c9c89ad02dbfb715cf90cdf53d66d14492b9ebd8e060b7b69d7bd5e
