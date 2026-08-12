@@ -41,28 +41,51 @@ _is_token_path() {
   esac
 }
 
+# 非書き込みリダイレクト記法だけを列挙的に除去する（TASK-1045 / #1045）。
+# 方針（plan GC-2）: 完全なシェル構文解析は行わない。これは allowlist 的な除去であり
+# `>` 判定の一般的な緩和ではない。除去対象は次の 2 種のみ:
+#   (1) fd 複製 / fd クローズ: N>&M / >&M / N>&-（`>&` の直後が数字列 or `-` のときのみ）
+#   (2) /dev/null への破棄: N> / N>> の直後（空白許容）が /dev/null かつ後続が語境界
+# `&>` / `&>>`（bash 拡張の全出力リダイレクト）は block 維持（plan U-2）。
+# POSIX BRE のみを使用し GNU 拡張（\| / \+ / \b）は使わない（plan GC-6）。
+# LC_ALL=C 固定: UTF-8 locale では不正バイト列で sed が rc=1 になる（plan GC-6 / R-007 実測）。
+_strip_nonwrite_redirects() {
+  # (0) `&>` を保護（後段の /dev/null 規則に巻き込ませない）。`>` は残すので block 維持。
+  printf '%s' "$1" | LC_ALL=C sed \
+    -e 's|&>|\&>#|g' \
+    -e 's|[0-9]*>&[0-9][0-9]*||g' \
+    -e 's|[0-9]*>&-||g' \
+    -e 's|[0-9]*>>*[[:space:]]*/dev/null$||' \
+    -e 's|[0-9]*>>*[[:space:]]*/dev/null\([^A-Za-z0-9_./-]\)|\1|g'
+}
+
 # Bash コマンド文字列に「書き込み意図」があるか（読み取りは false を返す）
+# 一致したルールの識別子（TASK-1045 AC-10）。真を返す直前に必ず設定する。
+_wi_rule=""
 _has_write_intent() {
   _wc="$1"
-  # リダイレクト > / >>
-  printf '%s' "$_wc" | grep -q '>' && return 0
+  _wi_rule=""
+  # リダイレクト > / >>: 非書き込み記法を除去してから残存 `>` を見る。
+  # 正規化に失敗したら元文字列で判定する = fail-closed（block 維持 / plan GC-8 (i)）。
+  _wc_n=$(_strip_nonwrite_redirects "$_wc") || _wc_n="$_wc" # t1045-redirect-normalize
+  printf '%s' "$_wc_n" | grep -q '>' && { _wi_rule=file-redirect; return 0; } # t1045-file-redirect
   # 書き込み系コマンドが語境界で出現（行頭・; & | ( 直後・空白区切り）
-  printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(cp|mv|ln|install|dd|tee|truncate|patch|apply_patch)([[:space:]]|$)' && return 0
+  printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(cp|mv|ln|install|dd|tee|truncate|patch|apply_patch)([[:space:]]|$)' && { _wi_rule=copy-like; return 0; }
   # ed / ex（stdin スクリプトの w コマンドで書込可能。語境界で検出 / TASK-1023 V-3 実測 bypass）
-  printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(ed|ex)([[:space:]]|$)' && return 0
+  printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(ed|ex)([[:space:]]|$)' && { _wi_rule=line-editor; return 0; }
   # git の作業ツリー復元系（checkout / restore / checkout-index / update-index。
   # ref から token path を復元・上書きできる / TASK-1023 V-3 実測 bypass。
   # git と subcommand の間の -C <dir> 等のオプションも許容）
   # git と subcommand の間は「- で始まるオプション（引数 1 個まで随伴可: -C <dir> 等）」のみ許容。
   # 非オプション語（log 等）が先に来る場合は subcommand と見なさない（読取系の誤 block 防止）
-  printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+(checkout|restore|checkout-index|update-index)([[:space:]]|$)' && return 0
+  printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+(checkout|restore|checkout-index|update-index)([[:space:]]|$)' && { _wi_rule=git-restore; return 0; }
   # sed -i / perl -i（in-place 書き込み。perl -pi / -0pi 等も -[A-Za-z]*i で捕捉）
-  printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(sed|perl)([[:space:]]+-[A-Za-z]*i|[[:space:]]+--in-place)' && return 0
+  printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(sed|perl)([[:space:]]+-[A-Za-z]*i|[[:space:]]+--in-place)' && { _wi_rule=inplace-edit; return 0; }
   # python / ruby の書き込み: write_text / write_bytes / .write( （ruby File.write( を含む）
-  printf '%s' "$_wc" | grep -qE 'write_text|write_bytes|\.write\(' && return 0
+  printf '%s' "$_wc" | grep -qE 'write_text|write_bytes|\.write\(' && { _wi_rule=lang-write; return 0; }
   # node の書き込み: fs.writeFileSync / writeFile( / appendFile
-  printf '%s' "$_wc" | grep -qE 'writeFileSync|writeFile\(|appendFile' && return 0
-  printf '%s' "$_wc" | grep -qE "open\([^)]*,[^)]*['\"][^'\"]*[wax+]" && return 0
+  printf '%s' "$_wc" | grep -qE 'writeFileSync|writeFile\(|appendFile' && { _wi_rule=lang-write; return 0; }
+  printf '%s' "$_wc" | grep -qE "open\([^)]*,[^)]*['\"][^'\"]*[wax+]" && { _wi_rule=lang-write; return 0; }
   return 1
 }
 
@@ -79,6 +102,11 @@ _parse_unknown() {
   printf '  診断/手実行時の escape hatch は PLANGATE_SKIP_TOKEN_GUARD=1（Human-owned）。\n' >&2
   exit 2 # t1023-parse-unknown-exit
 }
+
+# 外部依存の存在検査（jq と同契約 / plan GC-8 (ii)）。
+# 配置は _parse_unknown() 定義の後・target 判定の前でなければならない
+# （関数定義より前だと command not found → rc=127 = 非 block になる / R-010）。
+command -v sed >/dev/null 2>&1 || _parse_unknown "sed not available"
 
 # --- 1) target: env 優先、無ければ $1 fallback ---
 # 注意: 現行 settings（.claude/settings.example.json）は引数なしで呼び出すため
@@ -134,7 +162,9 @@ if true; then # t1023-stdin-always
     if [ -z "$_cmd" ]; then _parse_unknown "empty command"; fi
     # token path と別 write が同一 command に混在する場合も相関解析せず安全側 block
     if _is_token_path "$_cmd" && _has_write_intent "$_cmd"; then
-      _block "Bash command writes token path: $_cmd"
+      # rule=<id> で一致ルールの根拠を機械可読に示す（TASK-1045 AC-10）。
+      # 既存の可読性を壊さないよう "writes token path" は残す。
+      _block "Bash command writes token path (rule=${_wi_rule:-unknown}): $_cmd"
     fi
   fi
 fi

@@ -99,6 +99,17 @@ t25_mk p_number_fp '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_in
 t25_mk p_unknown_tool '{"hook_event_name":"PreToolUse","tool_name":"NotebookEdit","tool_input":{"file_path":"src/index.ts"}}'
 t25_mk p_wrong_event '{"hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"src/index.ts"}}'
 
+# ── TASK-1045 (#1045) fixtures: 読み取り専用コマンドの誤 block 解消 / 退行防止 ──
+# 誤検知側（fd 複製・fd クローズ・/dev/null 破棄を伴う read-only）
+t25_mk p_t1045_read_2devnull '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"grep -c docs/working/TASK-0001/approvals/c3.json .gitignore 2>/dev/null"}}'
+t25_mk p_t1045_read_2and1 '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json 2>&1"}}'
+t25_mk p_t1045_read_gt2 '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json >&2"}}'
+t25_mk p_t1045_read_fdclose '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json 3>&-"}}'
+# 退行防止側（真のファイル宛リダイレクト）
+t25_mk p_t1045_w_gt '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1045_w_append '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x >> docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1045_w_fd1 '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x 1> docs/working/TASK-0001/approvals/c3.json"}}'
+
 # ── focused kill TC 群（mutation 子プロセスでも常に実行）───────────────────
 
 # T1023-TC-01: env target = maintenance.json → BLOCK rc=2（AC-01）
@@ -216,6 +227,64 @@ if command -v script >/dev/null 2>&1; then
   fi
 else
   t25_fail "T1023-TC-23 'script' command unavailable — TTY non-hang cannot be verified"
+fi
+
+# ── TASK-1045: 誤検知の解消（focused 群 / plan GC-4-A）──────────────────
+# T1045-TC-01: read-only + 2>/dev/null → rc=0（AC-01）。mutation (a) の kill 対象
+t25_guard "$T25_TMP/p_t1045_read_2devnull"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1045-TC-01 read-only with 2>/dev/null passes (exit 0)"
+else
+  t25_fail "T1045-TC-01 read-only with 2>/dev/null falsely blocked (exit $_t25_rc)"
+fi
+
+# T1045-TC-02: read-only + 2>&1 → rc=0（AC-02）
+t25_guard "$T25_TMP/p_t1045_read_2and1"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1045-TC-02 read-only with 2>&1 passes (exit 0)"
+else
+  t25_fail "T1045-TC-02 read-only with 2>&1 falsely blocked (exit $_t25_rc)"
+fi
+
+# T1045-TC-03: read-only + >&2（fd 複製）→ rc=0（AC-03）
+t25_guard "$T25_TMP/p_t1045_read_gt2"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1045-TC-03 read-only with >&2 fd duplication passes (exit 0)"
+else
+  t25_fail "T1045-TC-03 read-only with >&2 falsely blocked (exit $_t25_rc)"
+fi
+
+# T1045-TC-20: read-only + 3>&-（fd クローズ）→ rc=0（AC-03 適用範囲宣言）
+t25_guard "$T25_TMP/p_t1045_read_fdclose"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1045-TC-20 read-only with 3>&- fd close passes (exit 0)"
+else
+  t25_fail "T1045-TC-20 read-only with 3>&- falsely blocked (exit $_t25_rc)"
+fi
+
+# ── TASK-1045: 退行防止 — 真の書き込みは block 維持（focused 群 / plan GC-1）──
+# T1045-TC-04: `> <TOKEN>` → rc=2（AC-04）。mutation (b) の kill 対象
+t25_guard "$T25_TMP/p_t1045_w_gt"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1045-TC-04 file redirect > token blocked (exit 2)"
+else
+  t25_fail "T1045-TC-04 file redirect > token not blocked (exit $_t25_rc)"
+fi
+
+# T1045-TC-05: `>> <TOKEN>` → rc=2（AC-05）
+t25_guard "$T25_TMP/p_t1045_w_append"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1045-TC-05 append redirect >> token blocked (exit 2)"
+else
+  t25_fail "T1045-TC-05 append redirect >> token not blocked (exit $_t25_rc)"
+fi
+
+# T1045-TC-06: `1> <TOKEN>`（fd 番号付き）→ rc=2（AC-06）
+t25_guard "$T25_TMP/p_t1045_w_fd1"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1045-TC-06 numbered fd redirect 1> token blocked (exit 2)"
+else
+  t25_fail "T1045-TC-06 numbered fd redirect 1> token not blocked (exit $_t25_rc)"
 fi
 
 # ── ここから通常モード限定（mutation 子プロセスでは skip）───────────────────
@@ -608,6 +677,211 @@ else
   fi
 fi
 
+# ── TASK-1045: 除外条件の細工・境界（通常群 / plan R-3・R-4・U-1・U-2・GC-2）──
+# 除外は「fd 複製 / クローズ」と「/dev/null 破棄（語境界つき）」の列挙のみ。
+# 下記はいずれも除外に該当せず block 維持でなければならない（GC-1 の機械担保）。
+t25_mk p_t1045_b_devstdout '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json > /dev/stdout"}}'
+t25_mk p_t1045_b_devstderr '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json > /dev/stderr"}}'
+t25_mk p_t1045_b_devfd3 '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json > /dev/fd/3"}}'
+t25_mk p_t1045_b_nullx '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json 2>/dev/nullX"}}'
+t25_mk p_t1045_b_nullpath '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json > /dev/null/../docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1045_b_amp_file '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json &> /tmp/o"}}'
+t25_mk p_t1045_b_amp_append '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json &>> /tmp/o"}}'
+t25_mk p_t1045_b_amp_null '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json &> /dev/null"}}'
+t25_mk p_t1045_b_gtamp_file '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json >& /tmp/o"}}'
+t25_mk p_t1045_b_literal '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo (a > b) docs/working/TASK-0001/approvals/c3.json"}}'
+
+# T1045-TC-11: /dev/stdout / /dev/stderr / /dev/fd/N は除外しない（AC-06 / U-1）
+_t25_ok=1
+for _t25_p in p_t1045_b_devstdout p_t1045_b_devstderr p_t1045_b_devfd3; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1045-TC-11 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1045-TC-11 pseudo-device redirects remain blocked (exit 2)"
+else
+  t25_fail "T1045-TC-11 pseudo-device redirect not blocked"
+fi
+
+# T1045-TC-12: /dev/nullX（語境界を満たさない類似名）→ rc=2（AC-04 / R-3）
+t25_guard "$T25_TMP/p_t1045_b_nullx"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1045-TC-12 /dev/nullX lookalike remains blocked (exit 2)"
+else
+  t25_fail "T1045-TC-12 /dev/nullX lookalike not blocked (exit $_t25_rc)"
+fi
+
+# T1045-TC-13: /dev/null/../<TOKEN>（パス細工）→ rc=2（AC-04 / R-3）
+t25_guard "$T25_TMP/p_t1045_b_nullpath"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1045-TC-13 /dev/null path-traversal trick remains blocked (exit 2)"
+else
+  t25_fail "T1045-TC-13 /dev/null path-traversal trick not blocked (exit $_t25_rc)"
+fi
+
+# T1045-TC-14: &> / &>> は /dev/null 宛でも block 維持（AC-04 / U-2 の確定）
+# (3) の &> /dev/null は「残存誤検知」を意図的に固定するケース（handoff の既知課題）
+_t25_ok=1
+for _t25_p in p_t1045_b_amp_file p_t1045_b_amp_append p_t1045_b_amp_null; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1045-TC-14 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1045-TC-14 &> / &>> remain blocked incl. /dev/null target (exit 2)"
+else
+  t25_fail "T1045-TC-14 some &> form not blocked"
+fi
+
+# T1045-TC-15: `>&` の直後がファイル名なら除外しない（AC-04 / R-4）
+t25_guard "$T25_TMP/p_t1045_b_gtamp_file"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1045-TC-15 >& <file> remains blocked (exit 2)"
+else
+  t25_fail "T1045-TC-15 >& <file> not blocked (exit $_t25_rc)"
+fi
+
+# T1045-TC-19: 文字列リテラル中の `>` は保守的 block を維持（AC-04 / GC-2 取りこぼしの明示固定）
+t25_guard "$T25_TMP/p_t1045_b_literal"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1045-TC-19 '>' inside a string literal remains conservatively blocked (exit 2)"
+else
+  t25_fail "T1045-TC-19 literal '>' not conservatively blocked (exit $_t25_rc)"
+fi
+
+# ── TASK-1045: 併記による回避の非成立（通常群 / plan N-5 / AC-07）──
+# (2)(3)(4) は `>` を含まないため copy-like ルールが単独で捕捉していることを示す
+t25_mk p_t1045_m_nullthen_cp '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls > /dev/null ; cp docs/working/TASK-0001/approvals/c3.json /tmp/x"}}'
+t25_mk p_t1045_m_cp '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp docs/working/TASK-0001/approvals/c3.json /tmp/x"}}'
+t25_mk p_t1045_m_tee '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1045_m_mv '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"mv /tmp/x docs/working/TASK-0001/approvals/c3.json"}}'
+_t25_ok=1
+for _t25_p in p_t1045_m_nullthen_cp p_t1045_m_cp p_t1045_m_tee p_t1045_m_mv; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1045-TC-07 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1045-TC-07 multi-defense: /dev/null discard does not enable copy-like evasion (exit 2)"
+else
+  t25_fail "T1045-TC-07 multi-defense broken — a copy-like evasion passed"
+fi
+
+# ── TASK-1045: AC-12 起点の read-only 監査コマンドが通過する（通常群）──
+t25_mk p_t1045_ro_find '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"find docs/working -name c3.json -type f 2>/dev/null"}}'
+t25_mk p_t1045_ro_grep '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"grep -l c3_status docs/working/TASK-0001/approvals/c3.json 2>/dev/null"}}'
+t25_mk p_t1045_ro_jq '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"jq -r .c3_status docs/working/TASK-0001/approvals/c3.json 2>/dev/null"}}'
+t25_mk p_t1045_ro_gitlog '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git log --oneline -- docs/working/TASK-0001/approvals/c3.json 2>/dev/null"}}'
+t25_mk p_t1045_ro_maint '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/_maintenance/maintenance.json 2>/dev/null"}}'
+_t25_ok=1
+for _t25_p in p_t1045_ro_find p_t1045_ro_grep p_t1045_ro_jq p_t1045_ro_gitlog p_t1045_ro_maint; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (T1045-TC-17 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1045-TC-17 read-only audit commands with 2>/dev/null pass (exit 0)"
+else
+  t25_fail "T1045-TC-17 some read-only audit command still falsely blocked"
+fi
+
+# T1045-TC-08: block メッセージのルール識別子（AC-10）
+# 読み取りコマンドは AC-01〜03 で通過するため block ケースで assert する。
+_t25_ok=1
+t25_guard "$T25_TMP/p_t1045_w_gt"
+if [ "$_t25_rc" != "2" ] || ! grep -q 'rule=file-redirect' "$T25_ERR" || ! grep -q 'BLOCK' "$T25_ERR"; then
+  _t25_ok=0
+  printf '    (T1045-TC-08 detail: file-redirect exit=%s)\n' "$_t25_rc" >&2
+fi
+for _t25_p in p_t1045_m_cp p_t1045_m_tee p_t1045_m_mv; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ] || ! grep -q 'rule=copy-like' "$T25_ERR"; then
+    _t25_ok=0
+    printf '    (T1045-TC-08 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1045-TC-08 block detail carries rule=<id> (file-redirect / copy-like)"
+else
+  t25_fail "T1045-TC-08 block detail missing or wrong rule=<id>"
+fi
+
+# T1045-TC-18: guard の syntax / 実行可能属性（AC-13）
+if [ -x "$PG_T25_GUARD" ] && sh -n "$PG_T25_GUARD" 2>/dev/null; then
+  t25_pass "T1045-TC-18 guard is executable and syntax-clean"
+else
+  t25_fail "T1045-TC-18 guard not executable or has syntax error"
+fi
+
+# T1045-TC-16: 既存スイート突合（AC-11）
+# (a) 退行検出のため既存 TC ラベルの存在を静的に確認
+# (b) 原本 guard で通常群フル実行（PG_T25_NO_RECURSE=1 の子）が 0 failed であること
+_t25_ok=1
+for _t25_id in "T1023-TC-08 " "T1023-TC-09 " "T1023-TC-12 " "T1023-TC-25 " "T1023-TC-26 " "T1023-TC-27 " "T1023-TC-15pre " "T1023-TC-17post "; do
+  grep -q "$_t25_id" "$PG_T25_SELF" || _t25_ok=0
+done
+if [ "${PG_T25_NO_RECURSE:-0}" = "1" ]; then
+  printf '  [SKIP] T1045-TC-16 suite cross-check（再帰防止モードでは省略）\n'
+  pass=$((pass + 1))
+else
+  _t1045_s16_out="$T25_TMP/t1045-tc16-child.out"
+  _t1045_s16_rc=0
+  env -u PG_HARNESS_SOURCED -u FIXTURES_DIR PG_T25_NO_RECURSE=1 \
+    PG_T25_GUARD="$PG_T25_ROOT/scripts/check-approval-token-write.sh" sh "$PG_T25_SELF" > "$_t1045_s16_out" 2>&1 || _t1045_s16_rc=$?
+  if [ "$_t25_ok" = "1" ] && [ "$_t1045_s16_rc" = "0" ] && ! grep -q '\[FAIL\]' "$_t1045_s16_out"; then
+    t25_pass "T1045-TC-16 existing suite labels retained and full non-mutation run is 0 failed"
+  else
+    t25_fail "T1045-TC-16 suite cross-check failed (labels=$_t25_ok child rc=$_t1045_s16_rc)"
+  fi
+fi
+
+# ── TASK-1045: 正規化ヘルパの fail-closed（通常群 / plan GC-8 / R-002・R-009・R-013）──
+# 1 要件 1 TC: TC-22 は (ii) command -v sed のみ、TC-22b は (i) fail-closed フォールバックのみを撃つ。
+# (i) が欠けた build では TC-22 は rc=2 で PASS してしまうため、TC-22b が (i) の唯一の担保。
+_t1045_mkpath() {
+  # $1: 作成先 dir。cat/grep/sh/jq のみを symlink する（sed は入れない）
+  mkdir -p "$1"
+  for _t1045_c in cat grep sh jq; do
+    _t1045_src=$(command -v "$_t1045_c" 2>/dev/null || true)
+    [ -n "$_t1045_src" ] && ln -s "$_t1045_src" "$1/$_t1045_c" 2>/dev/null || true
+  done
+}
+
+# T1045-TC-22: sed 不在 PATH → parse-unknown "sed not available" rc=2（要件 (ii)）
+_t1045_nosed="$T25_TMP/nosed-bin"
+_t1045_mkpath "$_t1045_nosed"
+_t25_rc=0
+env -u PLANGATE_HOOK_FILE PLANGATE_SKIP_TOKEN_GUARD=0 PATH="$_t1045_nosed" /bin/sh "$PG_T25_GUARD" < "$T25_TMP/p_bash_token_write" 2>"$T25_ERR" || _t25_rc=$?
+if [ "$_t25_rc" = "2" ] && grep -q 'sed not available' "$T25_ERR"; then
+  t25_pass "T1045-TC-22 no-sed PATH fails closed with 'sed not available' (exit 2)"
+else
+  t25_fail "T1045-TC-22 no-sed PATH did not fail closed with expected reason (exit $_t25_rc)"
+fi
+
+# T1045-TC-22b: sed は存在するが必ず失敗するシム → 元文字列で判定して通常 block rc=2（要件 (i)）
+# フォールバックは設計上サイレントなので sed 起因の reason は出ない（R-013）。
+# parse-unknown を含まないことまで assert しないと、別経路の rc=2 で偽 PASS になる（ta-25:118 と同型）。
+_t1045_shimsed="$T25_TMP/shimsed-bin"
+_t1045_mkpath "$_t1045_shimsed"
+printf '#!/bin/sh\nexit 1\n' > "$_t1045_shimsed/sed"
+chmod +x "$_t1045_shimsed/sed"
+_t25_rc=0
+env -u PLANGATE_HOOK_FILE PLANGATE_SKIP_TOKEN_GUARD=0 PATH="$_t1045_shimsed" /bin/sh "$PG_T25_GUARD" < "$T25_TMP/p_bash_token_write" 2>"$T25_ERR" || _t25_rc=$?
+if [ "$_t25_rc" = "2" ] && grep -q 'Bash command writes token path' "$T25_ERR" && ! grep -q 'parse-unknown' "$T25_ERR"; then
+  t25_pass "T1045-TC-22b failing-sed shim falls back to raw string and blocks (exit 2, no parse-unknown)"
+else
+  t25_fail "T1045-TC-22b failing-sed shim did not fail closed via normal block (exit $_t25_rc)"
+fi
+
 # ── T1023-TC-15〜17e: mutation 7 種（AC-07 / R-029: 実 TC の FAIL で kill を判定）──
 if [ "${PG_T25_NO_RECURSE:-0}" = "1" ]; then
   printf '  [SKIP] T1023-TC-15..17e mutation（再帰防止モードでは省略・親で実行）\n'
@@ -625,9 +899,11 @@ else
   else
     t25_fail "T1023-TC-15pre mutation baseline failed (rc=$_t25_base_rc) — mutation kill判定は無効"
   fi
-  # _t25_mutate <tc-id> <sed-expr> <anchor-grep> <kill-tc-label>
+  # _t25_mutate <tc-id> <sed-expr> <anchor-grep> <kill-tc-label> [label-prefix]
+  # TASK-1045 GC-4-B (a): 出力ラベルの prefix を第 5 引数で切替可能にする。
+  # 既存 7 呼び出しは 4 引数のまま `${5:-T1023}` にフォールバックし互換を保つ。
   _t25_mutate() {
-    _t25_mid="$1"; _t25_sed="$2"; _t25_anchor="$3"; _t25_kill="$4"
+    _t25_mid="$1"; _t25_sed="$2"; _t25_anchor="$3"; _t25_kill="$4"; _t25_pfx="${5:-T1023}"
     _t25_mut="$_t25_mut_dir/mutant-$_t25_mid.sh"
     cp "$PG_T25_ROOT/scripts/check-approval-token-write.sh" "$_t25_mut"
     chmod +x "$_t25_mut"
@@ -637,15 +913,15 @@ else
     _t25_changed=0
     cmp -s "$_t25_mut" "$PG_T25_ROOT/scripts/check-approval-token-write.sh" 2>/dev/null || _t25_changed=$?
     if [ "$_t25_before" != "1" ]; then
-      t25_fail "T1023-$_t25_mid mutation anchor not unique (count=$_t25_before)"
+      t25_fail "$_t25_pfx-$_t25_mid mutation anchor not unique (count=$_t25_before)"
       return 0
     fi
     if [ "$_t25_changed" = "0" ]; then
-      t25_fail "T1023-$_t25_mid mutation produced no change (sed miss)"
+      t25_fail "$_t25_pfx-$_t25_mid mutation produced no change (sed miss)"
       return 0
     fi
     if ! sh -n "$_t25_mut" 2>/dev/null; then
-      t25_fail "T1023-$_t25_mid mutant has syntax error"
+      t25_fail "$_t25_pfx-$_t25_mid mutant has syntax error"
       return 0
     fi
     _t25_mo="$_t25_mut_dir/out-$_t25_mid.txt"
@@ -653,9 +929,9 @@ else
     env -u PG_HARNESS_SOURCED -u FIXTURES_DIR PG_T25_MUTATION_CHILD=1 PG_T25_NO_RECURSE=1 \
       PG_T25_GUARD="$_t25_mut" sh "$PG_T25_SELF" > "$_t25_mo" 2>&1 || _t25_mrc=$?
     if grep -q "\[FAIL\] $_t25_kill" "$_t25_mo" && [ "$_t25_mrc" != "0" ]; then
-      t25_pass "T1023-$_t25_mid mutant killed by real TC ($_t25_kill FAILs)"
+      t25_pass "$_t25_pfx-$_t25_mid mutant killed by real TC ($_t25_kill FAILs)"
     else
-      t25_fail "T1023-$_t25_mid mutant NOT killed by $_t25_kill (child rc=$_t25_mrc)"
+      t25_fail "$_t25_pfx-$_t25_mid mutant NOT killed by $_t25_kill (child rc=$_t25_mrc)"
     fi
   }
   # 変異 1: block の exit 2 → exit 1（kill: T1023-TC-01）
@@ -672,6 +948,26 @@ else
   _t25_mutate "TC-17d" 's/ or \.tool_name=="MultiEdit"//' 'or \.tool_name=="MultiEdit"' 'T1023-TC-22a'
   # 変異 7: top-level .file_path legacy fallback を除去（kill: T1023-TC-02b）
   _t25_mutate "TC-17e" 's/^.*# t1023-legacy-fallback$/        : # t1023-legacy-fallback/' 't1023-legacy-fallback' 'T1023-TC-02b'
+
+  # ── TASK-1045 変異 2 方向（出力ラベル prefix = T1045 / plan GC-4-B (a)）──
+  # T1045-TC-09 / 変異 (a): 正規化を no-op 化して修正前（生の `>` 判定）へ戻す
+  #   → 誤検知解消 TC（T1045-TC-01）が FAIL することで「修正を本当に検出している」ことを示す
+  _t25_mutate "TC-09" 's@^.*# t1045-redirect-normalize$@  _wc_n="$_wc" # t1045-redirect-normalize@' \
+    't1045-redirect-normalize' 'T1045-TC-01' 'T1045'
+  # T1045-TC-10 / 変異 (b): 残存 `>` 判定を常に false 化してガードを弱める
+  #   → 退行防止 TC（T1045-TC-04）が FAIL することで「弱体化が機械検出される」ことを示す（GC-1 の担保）
+  _t25_mutate "TC-10" 's@^.*# t1045-file-redirect$@  false # t1045-file-redirect@' \
+    't1045-file-redirect' 'T1045-TC-04' 'T1045'
+
+  # T1045-TC-21: _t25_mutate 後方互換 — 既存 7 呼び出しは 4 引数のままで出力ラベルが T1023- のこと
+  _t1045_c21=$(grep -c '_t25_mutate "TC-1[567]' "$PG_T25_SELF" || true)
+  _t1045_c21b=$(grep -c "_t25_pfx=\"\${5:-T1023}\"" "$PG_T25_SELF" || true)
+  if [ "$_t1045_c21" = "7" ] && [ "$_t1045_c21b" = "1" ]; then
+    t25_pass "T1045-TC-21 legacy _t25_mutate calls unchanged (7 x 4-arg) with T1023 prefix fallback"
+  else
+    t25_fail "T1045-TC-21 _t25_mutate backward compatibility broken (legacy=$_t1045_c21 fallback=$_t1045_c21b)"
+  fi
+
   # 復元 PASS: mutation 群の後に原本 guard で再度 focused kill TC 群が全 PASS すること
   _t25_rest_out="$_t25_mut_dir/restore.out"
   _t25_rest_rc=0
