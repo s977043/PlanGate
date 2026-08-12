@@ -74,7 +74,8 @@ plugin 同期の 1 ファイルが CI 要件として追加になった（規模
 
 | 検証 | コマンド | 結果 |
 |---|---|---|
-| ベースライン | `sh tests/run-tests.sh`（変更前） | 実 FAIL 0（`[FAIL]` の 13 件は PASS 行の本文に含まれる文字列） |
+| ベースライン | `sh tests/run-tests.sh`（変更前） | rc=0 / **656 passed, 0 failed**（ログ中の `[FAIL]` 13 件は PASS 行の本文に含まれる文字列） |
+| 変更後フルスイート | `sh tests/run-tests.sh`（変更後） | rc=0 / **676 passed, 0 failed**。増分 +20 = TA-63 の 17 + ta-61 per-file ループの 3（clean / force-fail probe / contaminated-env） |
 | RED | `sh tests/extras/ta-63-outcome-contract.sh </dev/null`（スクリプト退避時） | rc=1 / 4 passed, 13 failed |
 | GREEN | 同上（実装後） | rc=0 / 17 passed, 0 failed |
 | 変異注入 | M1〜M4（`test-cases.md`「検出力の実証」） | **4/4 kill**（M1→TC-12 / M2→TC-13 / M3→TC-16 / M4→TC-17 が FAIL） |
@@ -82,6 +83,10 @@ plugin 同期の 1 ファイルが CI 要件として追加になった（規模
 | plugin 同期 | `diff .agents/... plugin/...` | rc=0 |
 | 名前衝突 | `python3 scripts/check-skill-name-collisions.py` | rc=1（変更前も rc=1）。衝突 23 → 24 件。**24/24 が repo-local ↔ plugin:plangate のミラー型**で、新規分も既存 23 件と同型 |
 | stale ref | `python3 scripts/check-stale-skill-refs.py` | rc=1（変更前と同一の既存 6 件）。新 skill 由来の stale 参照 **0** |
+| Rule 2 / Rule 4 検出 | `grep -nE "プロジェクト固有\|このプロジェクト\|TASK-"` / `grep -nE "Laravel\|PostgreSQL\|ECS\|Cloudflare\|PlanGate"` | いずれも 0 件（`hybrid-architecture.md`「違反時の検出」準拠） |
+| HO 非該当の一次確認 | `scripts/hooks/check-plan-hash.sh` L124-133 の case 文を実読 | 9 カテゴリに `skills` / `scripts/check-` の言及 **0 件**（`grep` 実測） |
+| ドッグフーディング | 本 PBI の完了報告を `check-outcome-contract.sh` に通す | rc=0（項目 3・4・5 充足） |
+| I/F 経路 | ファイル引数 / stdin / 不在ファイル / 空入力 | それぞれ rc=0 / rc=0 / **rc=2** / rc=1 |
 
 ## 残タスク
 
