@@ -40,16 +40,18 @@
 - [x] T-04 案 (d) 本体
 - [x] T-05 README 規約 7/8
 - [x] T-06 変異注入 3 種
-- [x] T-07 3 系統 + TC-33/TC-30 非破壊（full suite Results + T1036-TC-E1 + S-5 はオーガナイザー担当）
+- [x] T-07 3 系統 + TC-33/TC-30 非破壊（**full suite Results + T1036-TC-E1 はオーガナイザーが実測完了 / S-5 のみ未計測 = K-2**）
 - [x] T-08 handoff / status 最終化
 
 ## V 系ステップ進捗
 
 - **L-0 / V-1〜V-3 / PR**: workflow-conductor / オーガナイザー制御（standard のため V-2/V-4 スキップ）
 - `evidence/test-runs/t07-suite-clean.log` は本ワーカーが起動した competing フルスイートの**途中出力**（完了前に kill）。**完全な Results はオーガナイザーの background 実行が正**。本ファイルは partial として残す（削除しない）が、Results 判定には使わない
+- **オーガナイザー実測（2026-08-12）**: `full-suite-1.log` / `full-suite-2.log` — **2 回とも `657 passed, 0 failed` / `EXIT=0`**。ta-62 の TC-S / TC-D は両回 PASS。**T1036-TC-E1（ta-26 セクションの 2 回実走 diff）は IDENTICAL（35 行）**。実行は `sh tests/run-tests.sh </dev/null > <log> 2>&1` でパイプを介さず exit code を直接取得（`| tail` 経由だと exit code が `tail` のものになるため）
 
 ## 既知の残存リスク（handoff.md §2/§3 参照）
 
 - K-1: 直接 standalone 起動時の env 漏れは本修正の対象外（harness 経路・CI は保護済み）
-- K-2: ta-61 が standalone-capable ファイルを suite ごと最大 3 回実走するため TC-D の suite 追加時間は plan R-P7 想定より増幅（S-5 実測はオーガナイザー転記）
+- K-2: ta-61 が standalone-capable ファイルを suite ごと最大 3 回実走するため TC-D の suite 追加時間は plan R-P7 想定より増幅（**S-5 は未計測のまま**。正確な計測には ta-62 有無の 2 条件比較が要るため follow-up）
+- **K-3（新規 / オーガナイザー観測）**: full suite を `| tail -30` 経由で 1 回実行した際に **`656 passed, 1 failed`** を観測した。**該当 TC は特定できていない**（パイプで出力を切り詰め証跡を失ったため）。**その後にパイプなしで実行した 2 回はいずれも `657 passed, 0 failed`** で再現していない。**flaky（タイミング依存 TC）か測定条件起因かは未確定**。次に full suite を回す担当者は、**必ずファイル出力（パイプなし）で全ログを保存**し、再現したら該当 TC を特定すること
 - V2: `PG_T61_NO_RECURSE` 同型クラス（plan P-10）

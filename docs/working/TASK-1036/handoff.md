@@ -8,10 +8,10 @@
 
 | AC | 判定 | 根拠 |
 |---|---|---|
-| AC-1（leak 下 harness で ta-26 セクションが env なしと一致） | **PASS（TC-D 内蔵で実証）** | TC-D = ミニ harness で leak/clean 2 回 source の出力 diff 完全一致 + leak 側再帰防止 [SKIP] 0（`green.log`）。実 run-tests.sh 2 回実走の ta-26 セクション diff（T1036-TC-E1）はオーガナイザーが別途実行中のフルスイートで確定 |
+| AC-1（leak 下 harness で ta-26 セクションが env なしと一致） | **PASS（TC-D 内蔵 + T1036-TC-E1 実測で確定）** | TC-D = ミニ harness で leak/clean 2 回 source の出力 diff 完全一致 + leak 側再帰防止 [SKIP] 0（`green.log`）。**T1036-TC-E1 = 実 `run-tests.sh` 2 回実走の ta-26 セクション diff が IDENTICAL（35 行完全一致）**（`full-suite-1.log` / `full-suite-2.log`・オーガナイザー実測） |
 | AC-2（回帰 TC + 変異注入で FAIL 実証） | **PASS** | RED: `red.log`（TC-D/TC-S とも FAIL・leak 側 [SKIP] 4）。変異 M-1/M-2/M-3 すべて実 TC の FAIL で kill・復元後 PASS（`mutation.log`） |
 | AC-3（TC-13 の子ガード継続 / #1012 AC-1 継続） | **PASS** | `t04-child-guard.log`: `PG_T26_NO_RECURSE=1` 前置直接起動で再帰防止 [SKIP] 4・15 passed, 0 failed・rc=0 |
-| AC-4（3 系統 0 failed・TC-33 PASS のまま） | **PASS（3 系統実測済み・full suite はオーガナイザー担当）** | (i) harness = ta-62 が harness 分岐で TC-D/TC-S 実行（フルスイート内で PASS・オーガナイザー転記）、(ii) standalone = `ta-62 </dev/null` rc=0 2 passed（`green.log`）、(iii) 子相当前置 = ta-26 15 passed, 0 failed rc=0（`t04-child-guard.log`）。TC-33 非破壊は M-3 で「修正では壊れない・案 (a) 型混入時のみ FAIL」を実証（`mutation.log`） |
+| AC-4（3 系統 0 failed・TC-33 PASS のまま） | **PASS（3 系統 + full suite 2 回とも実測）** | (i) harness = **フルスイート 2 回とも `657 passed, 0 failed` / `EXIT=0`、その中で ta-62 の TC-S / TC-D が PASS**（`full-suite-1.log` / `full-suite-2.log`・オーガナイザー実測）、(ii) standalone = `ta-62 </dev/null` rc=0 2 passed（`green.log`）、(iii) 子相当前置 = ta-26 15 passed, 0 failed rc=0（`t04-child-guard.log`）。TC-33 非破壊は M-3 で「修正では壊れない・案 (a) 型混入時のみ FAIL」を実証（`mutation.log`）<br>**⚠️ 観測 1 件**: 上記 2 回の前に `\| tail -30` 経由で 1 回実行した際に **`656 passed, 1 failed`** を観測した。**該当 TC は特定できていない**（パイプで出力を切り詰めたため証跡なし・exit code も `tail` のものだった）。**その後の 2 回はいずれも clean で再現せず**。flaky か測定条件起因かは未確定のため、**既知課題 K-3 として残す** |
 | AC-5（README 規約 7/8 追記） | **PASS** | 規約 7 に「再帰防止シグナルは runner の unset 集合に足さず当該 extras の harness 分岐で無害化」、規約 8 に「standalone 分岐では意図的に unset しない（理由 = ガード破壊・孫 spawn）」を追記。TC-30 の grep 対象 4 文言の残存を実測確認 |
 
 ## 2. 既知課題一覧
@@ -68,6 +68,9 @@ TC-S = unset の配置検査（harness 分岐に有・無条件経路に無・ru
 | 変異 M-1（修正行削除 / 動的） | kill = TC-D FAIL（leak 側 [SKIP] 4・diff 不一致）。復元後 PASS | `mutation.log` |
 | 変異 M-2（案 (c) 型 / 静的のみ・動的実行 0 回） | kill = TC-S FAIL（配置不成立）。fixtures 除去で mutant source 0 回を証跡化。復元後 PASS | `mutation.log` |
 | 変異 M-3（案 (a) 型 / sandbox 実走） | kill = 既存 TC-33 FAIL（18 ファイル unset 欠落）+ TC-S(3) FAIL。復元後 PASS | `mutation.log` |
-| フルスイート（`sh tests/run-tests.sh`）Results + T1036-TC-E1（実 run-tests.sh 2 回実走の ta-26 セクション diff）+ S-5 実測 | **オーガナイザーが別途 background 実行し転記**（本ワーカーは再実行しない） | — |
+| フルスイート（`sh tests/run-tests.sh`）2 回実走 | **2 回とも `657 passed, 0 failed` / `EXIT=0`**（`</dev/null` 付き・パイプなしで exit code を直接取得） | `full-suite-1.log` / `full-suite-2.log` |
+| **T1036-TC-E1**（実 run-tests.sh 2 回実走の ta-26 セクション diff） | **IDENTICAL（35 行が完全一致）** — leak なし条件下で ta-26 セクションが 2 回実走で同一 | 同上（`awk` で TA-26 セクション抽出後 `diff`） |
+| ta-62 の 2 TC（フルスイート内） | **TC-S PASS / TC-D PASS**（`=== TA-62: t26 recurse env guard (#1036) ===`） | `full-suite-1.log` / `full-suite-2.log` |
+| S-5（TC-D の suite 追加時間） | **未計測**（ta-62 有無の 2 条件比較が必要。既知課題 K-2 として残す） | — |
 
 **変異結論**: 3 変異すべて survivor なし。kill はすべて実 TC（T1036-TC-D / T1036-TC-S / 既存 TC-33）の FAIL で示し、インライン assert の FAIL を kill に数えていない（plan T-06 checkpoint 遵守 / #874 既往回避）。plan S-4（M-1 survivor で停止）非該当。

@@ -35,7 +35,11 @@ if [ "${PG_HARNESS_SOURCED:-0}" != "1" ] || [ -z "${FIXTURES_DIR:-}" ]; then
   }
 else
   PG_T26_STANDALONE=0
-  # harness 分岐でのみ呼び出し元 env の漏れを無害化する（#1036）。run-tests.sh
+  # harness 分岐でのみ呼び出し元 env の漏れを無害化する（#1036）。
+  # 実害: PG_T26_NO_RECURSE が外部から export されていると、harness 経路
+  # （sh tests/run-tests.sh）で本ファイルの TC 群（mass-delete guard 回帰
+  # #877 / #914 / #970 を含む）が黙って [SKIP] され、回帰検出力が失われる。
+  # run-tests.sh
   # 冒頭の unset 集合に PG_T26_NO_RECURSE を足すと TC-33 の包含検査が全 extras に
   # 波及するため、ta-26 自身のこの経路で消す。preamble / standalone 分岐で unset
   # してはならない — TC-13 の子（PG_T26_NO_RECURSE=1 前置）でも走り再帰防止ガード
