@@ -3,9 +3,13 @@ task_id: TASK-1044
 artifact_type: review-external
 schema_version: 1
 status: reflected
-verdict: REJECT
+verdict: approve
 created_by: claude
 ---
+
+<!-- verdict は最終ラウンド（C-2 Round 3 = 2 レーンとも APPROVE）の判定を表す。
+     Round 1 / Round 2 は REJECT だったが、いずれも 1 回確定反映で解消済み。
+     機械可読な判定は末尾の `C2-VERDICT:` 行（ちょうど 1 本）を正とする / R-031。 -->
 
 # TASK-1044 外部レビュー結果（C-2 / 追記専用集約）
 
@@ -670,3 +674,233 @@ autonomous APPROVE 不可・`lite_eligible=false` は同一で、差分は V-4 �
 
 **掃除前の plan_hash（`cce20c06…`）で承認トークンを発行すると EH-3 が後続の掃除を
 mismatch 検知する**ため、**必ず本 Round 3 反映後の hash を使うこと**（設計レーン申し送り）。
+
+---
+
+## PR 作成前 River Review（追記専用 / R-024 以降）
+
+> レビュー日: 2026-08-12 / 対象 branch: `docs/1044-c2-reflect`（head `8b70404`）
+> 対象 plan_hash（レビュー時点）: `sha256:d1f6c5ea5da23ace73cedf1270e3159faac717ab52d3847216e231f2850fbffe`
+> 実施根拠: PR 作成前のセルフ + 多エージェントレビュー（`.claude/rules` 運用規律）。
+> **C-2 Round 1〜3（R-001〜R-023）の記述は一切編集していない**（追記専用規約）。
+>
+> ⚠️ **ID 衝突の注意**: 本ラウンドの指摘 ID `R-024` は、plan Constraints / AC-6 /
+> Q-1 で参照される **TASK-0921 の制約 ID「R-024（harness source 経路で非 0
+> return / exit しない）」とは別物**である。plan 本文中の「R-024 継承」「R-024 の
+> carve-out」はすべて **TASK-0921 側の制約**を指す。本ファイルの `R-024` は
+> **本 PBI の指摘 ID**（AC-4 の母数問題）。混同しないこと。
+
+### River Review 判定
+
+| 区分 | critical | major | minor | info |
+|---|---|---|---|---|
+| **統合** | 0 | **2** | **6** | 0 |
+
+**C-2 の 3 ラウンドとオーガナイザーの照合が両方とも見逃していた**指摘群。
+オーガナイザーが全件を独立に実測して裏取り済み。
+
+### R-024 [major] AC-4 の「marker 由来 = 実測母数 14」が base で成立しない
+
+**対象**: `plan.md` DoD / Mode resolution v2 見出し / bootstrap 全体 / S4 / Testing Strategy /
+`pbi-input.md` In scope・AC-4 / `todo.md` T-05
+
+**実測**:
+
+```text
+base の marker 出現数             : 12
+base の marker を含むファイル数   : 12   ← 層 A のみ
+ta-61-extra-contract.sh 内の marker: 0   ← 本体 :15 も fixture 複製 :745 も marker 行を持たない
+```
+
+**「14」は marker からは導出できない。** S4 で **marker 行ごと置換した後**にしか
+成立しない数値を「**現時点の実測**」と書いている。
+
+**さらに単位が混在している**: 適用後も **marker を含むファイル数は 13**
+（**ta-61 は本体 + heredoc 複製で 2 出現**）。AC-4 / TC-35 は「全**ファイル**」と
+書きながら、母数 14 は**出現**数である。
+
+**本 PBI の目的と正面衝突する**: TC-35 を AC-4 の文言どおり「marker を含む**ファイル**を
+列挙し、各ファイルで判定 2 行をバイト比較」と実装すると:
+
+- (a) **現 base では ta-61 が対象外**
+- (b) **適用後もファイル単位ループだと ta-61 内 2 つ目の出現（fixture 複製 `:745` 付近）が
+  照合網から外れる**
+
+→ **fixture 複製が旧述語のまま残っても TC-35 は緑**。
+**本 PBI が潰そうとしている「静かに通る」形をそのまま作る。**
+
+**是正要求**:
+
+1. 「**照合単位は marker の出現（`file:line`）であり、1 ファイル内の複数出現をすべて
+   照合する**」
+2. 「**ta-61 本体・fixture 複製は base に marker が無いため S4 で marker 行ごと置換する**」
+3. 「実測母数 14」→「**base 実測 = 12 出現 / 適用後 = 14 出現（13 ファイル）**」
+
+### R-025 [major] 「変異 evidence 18 本」の分母が一次証跡と一致しない（実測 19）
+
+**対象**: `plan.md` 正本管理表 evidence 継承行 / `pbi-input.md` AC-9 / `test-cases.md` TC-38 /
+`todo.md` T-11
+
+**実測**: `grep -cE '^M-' docs/working/TASK-0921/evidence/mutations/mutation-summary.log` → **19**。
+
+**`14 本 superseded + 4 本 再走 = 18 ≠ 19`。1 本がどちらのバケットにも属していない。**
+「18」は **TASK-0921 handoff の申告値をそのまま継承**しており、本 PBI で数え直されていない。
+
+**Impact**:
+
+- **TC-38 は「18 本…」という文字列の存在しか見ない**ので、**誤った分母のまま PASS** する
+- 監査上「全件の扱いが決まっている」と誤読される
+- **superseded は「再走しない」判断**なので、**未分類の 1 本は事実上どこにも記録されずに消える**
+
+**是正要求**: evidence 継承行に「**分母は `grep -cE '^M-' mutation-summary.log` で
+数え直す**」を加え、**実測（19）に基づいて superseded / 再走の内訳を確定**する。
+18 を継承するなら **18 と 19 の差分がどれかを 1 行で明示**する。
+
+### R-026 [minor] 「全数照合」のスコープが 4 ファイルに限定されていた
+
+`review-self.md` の全数照合は **`{plan,pbi-input,test-cases,todo}.md` の 4 ファイルに限定**して
+「0 件」を宣言しているが、`review-external.md` Round 3 の反証欄は
+「**`docs/working/TASK-1044/*.md` に対し実行**」と**より広いスコープを主張**している。
+
+**8 ファイル全体へ同じ 6 パターンを流すと残存する**:
+
+```text
+INDEX.md      - **C-2 反映の主眼（R-001）**: … ta-61 の fixture 4 本
+current-state.md （本 PBI の修正が ta-61 fixture 4 本を「静かに通るテスト」化し …）
+```
+
+併せて `INDEX.md` に 3 件:
+
+- **`tc26-runner.sh`** と書いている → **R-014 / 規約 3-ter で `tc26-file1.sh` に確定済み**
+- 「変異 **M-4**」のみ → **R-018 の M-4b が欠落**
+- 「受入基準 **AC-1〜7**」のまま → 現在は **AC-1 / 2a-2d / 3〜9 の 12 行**
+  （同じ表の todo / test-cases / review-self 行だけ更新されている）
+
+**Impact**: **L0（INDEX → current-state）は `working-context.md` でセッション開始時に
+最初に読む層**。ここが Round 1 時点の主張のままだと、次の担当者が「4 本の固定リスト」を
+母数と誤読し、**R-014 が指摘した「TC-37 が残り 8 本を未設定として FAIL」を再現**する。
+
+**是正要求**: 上記を掃除し、**以後の量化子宣言は 8 ファイル全体を母数**にする。
+
+### R-027 [minor] `current-state.md` 内で裁定件数が自己矛盾
+
+`current-state.md` の「**裁定 4 件**」が **Q-4 追加前の残骸**（同ファイル内の後段と
+`INDEX.md` は「計 5 件」で正）。**C-3 の裁定漏れ（Q-4 = scope 判断）を誘発**する。
+
+### R-028 [minor] Q-4 だけに EH-3 順序注記があり Q-1 / Q-3 に無い
+
+Q-4 は「**確定反映してから承認トークンを発行**（EH-3 順序）」と明記しているが、
+Q-1 と Q-3 には同じ注記が無い。**Q-1 / Q-3 も裁定結果が plan 変更を伴う。**
+また **`todo.md` の exec ゲート依存が「H-01（C-3 APPROVED + Q-1 / Q-3 裁定）後」で
+Q-4 が欠落**している。
+
+> **素通り経路そのものは無い**（Q-1〜Q-4 はすべて H-01 に載っており、exec は
+> APPROVED な c3.json を要求）。問題は「**裁定結果を plan に反映する順序**」の側。
+
+### R-029 [minor] AC-2c の `^PLANGATE_` 全数 0 が 7 env 契約より広い
+
+契約されている unset は **7 個**（`tests/run-tests.sh:20`）だが、AC-2c は子プロセスで
+`env | grep -c '^PLANGATE_\|^PG_HARNESS_SOURCED'` = **0** を要求する。
+repo 内の `PLANGATE_*` は**実測 52 種**（`PLANGATE_BIN` / `PLANGATE_PYTHON` /
+`PLANGATE_REPO_ROOT` 等、7 env に含まれないものが多数）。
+
+**開発者環境や CI が無関係な `PLANGATE_*` を export しているだけで TC-31 (3) が落ちる** —
+**「無関係な PR の CI 落ち」と同型**。
+
+**是正要求**: AC-2c の判定を「**7 env の各名について子プロセスで未設定**」
+（名前を明示列挙、または `run-tests.sh:20` の unset 行から導出）に限定する。
+
+### R-030 [minor] AC-3 / TC-34 が「層 A 12 本」を絶対件数として固定
+
+**AC-4 / AC-8 は「絶対件数を契約値にしない・動的導出」と明文化しているのに、
+AC-3 と TC-34 だけ「層 A 12 本」を受入基準本文に固定**している。
+`tests/extras/` は plan 自身が「成長ディレクトリ」と認めており、
+**Slice 2 が層 B/C を移行した時点で 12 は古くなる**。
+失敗方向は**偽陰性**（新規追加された層 A ファイルが清浄 env 実行の対象から静かに漏れる）。
+
+**是正要求**: AC-3 / TC-34 の対象を「**bootstrap marker を含む `tests/extras/ta-*.sh`
+全件（件数は assert しない）**」へ揃える。
+
+### R-031 [minor] frontmatter が最終判定と食い違い + `C2-VERDICT` マーカーが 0 本
+
+frontmatter が `status: reflected` / **`verdict: REJECT`** のまま（Round 3 は**両レーン APPROVE**）。
+さらに **機械可読の `C2-VERDICT: <verdict> plan=sha256:<hash>` 行が 0 本**
+（同種の C-2 記録は TASK-0877 / 0970 / 1023 / 1025 いずれも 1 本持ち、
+`scripts/ai-loop/plan_package.py` の `_C2_MARKER_RE` は「ちょうど 1 回」でなければ fail-closed）。
+**本 PBI は人間 C-3 経路なので即時の gate 影響はない**が、
+**C-2 判定が機械可読な形で残らない**。
+
+**是正要求**: frontmatter を最終判定へ更新し、末尾に
+`C2-VERDICT: approve plan=sha256:<新 hash>` を **1 行**追加
+（**指摘本文に触れないので追記専用規約と両立**）。
+
+> `status` / `verdict` の enum ドリフト自体は repo 全体の既知問題
+> （TASK-1025 等も同様、CI 強制なし）なので、本 PR では frontmatter の値を
+> 最終判定に合わせるだけとする。
+
+### 追加の注意（finding に数えないが伝達価値あり）
+
+- **`TASK-0921/handoff.md` には「変異 18/18 KILL」を主張する行が 3 箇所ある**
+  （AC-7 PASS の根拠行 / 引き継ぎ文書の状態行 / テスト結果サマリ行 =
+  本反映時の実測 L43 / L104 / L119）。AC-9 の従来列挙（L43 / L119）は
+  **引き継ぎ文書の状態行を漏らしていた**
+- **T-11 は既知課題節に追記するため、その後の行番号はずれる**
+
+→ **行番号アンカーは stale 化する。AC-9 / TC-38 は行番号ではなく意味ラベル
+（内容アンカー）で検証する形へ寄せた**（本反映で対応済み）。
+
+### River Review が実測で「問題なし」を確認した項目（再検証不要）
+
+`plan_hash d1f6c5ea…` の一致 / helper 直接 source 12 本と全行番号 /
+`PG_HARNESS_SOURCED=1` の 3 群 + tc01b 可変形 / fixture 定義行 5 箇所 /
+**残存 5 本以外に取りこぼしが無いこと（`tests/extras/` 60 ファイル全走査）** /
+`_extra-contract.sh` の F-3 挿入位置 / `ta-26` TC-30・TC-33 / **AC↔TC orphan 0** /
+**追記専用規約の遵守**（review-external 672/0・review-self 純追記・
+decision-log 24 行すべて valid JSON）
+
+### River Review 反証・独立検証（反映担当ワーカーによる一次確認）
+
+| 指摘 | 独立確認の内容 | 結果 |
+|---|---|---|
+| R-024 | `grep -r '# ---- extras execution contract bootstrap' tests/extras/ \| wc -l` → **12 出現 / 12 ファイル**。`grep -n` で `ta-61-extra-contract.sh` にヒット **0**（exit=1）。同ファイル `:15`（本体）と `:745`（`ta-99-probe-c.sh` heredoc 複製）はいずれも `if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] …` の述語のみで marker 行を持たないことを実物で確認 | 指摘どおり |
+| R-025 | `grep -cE '^M-' mutation-summary.log` → **19**。ID 実測 = M-01〜M-08 / M-10 / M-12 / M-13 / **M-14a / M-14b / M-14c** / M-15〜M-19（M-09 / M-11 は「Slice 2 only」として末尾コメントに明記）。**同ファイルのヘッダに「`M-14ab.log` split into `M-14a`/`M-14b` and re-run」と明記**されており、**分割前は 18 行 → 分割後 19 行**になったことが一次証跡から追跡できる | 指摘どおり。**19 が正**（後述の帰属判断を参照） |
+| R-026 | 6 パターンを 8 ファイル全体へ流し、`INDEX.md` / `current-state.md` の 2 箇所が残存することを確認 | 指摘どおり |
+| R-029 | `tests/run-tests.sh:20` の unset 行が **7 個ちょうど**であることを確認。repo 全体の `PLANGATE_[A-Z0-9_]+` 一意数 = **52** | 指摘どおり（52 種 ≥ 40 種） |
+| R-031 | `scripts/ai-loop/plan_package.py` の `_C2_MARKER_RE` / `_C2_PREFIX_RE` と「完全マッチ数 = プレフィックス行数 = ちょうど 1」の fail-closed 仕様を実物で確認。`TASK-1023/review-external.md` に `C2-VERDICT: approve plan=sha256:…` の実例 1 本を確認 | 指摘どおり |
+
+**R-025 の帰属判断（本ワーカーの結論）**: **一次証跡（`mutation-summary.log` = 19 行）が正**であり、
+**TASK-0921 handoff の「18 本 / 18-18 KILL」が stale**（`M-14ab` 分割再走の後に更新されなかった）。
+本 PBI は **19 を採り、15 本 superseded + 4 本 再走で全件を分類**する。
+**TASK-0921 側の「18」表記そのものの是正は本 PBI の scope 外**とし、
+**follow-up として本 PBI handoff に記録**する（T-11 に明記）。
+
+**反証に至った指摘は 0 件**（R-024〜R-031 の 8 件すべてを採用）。
+
+### River Review 監査表（追記専用）
+
+| R-NNN | severity | lane | status | reflected_in(commit) | notes |
+|---|---|---|---|---|---|
+| R-024 | major | river | reflected | （本 commit・後段で実 SHA へ確定） | 照合単位を marker の**出現**へ / base 12 出現・適用後 14 出現(13 ファイル) / ta-61 は S4 で marker 行ごと追加 |
+| R-025 | major | river | reflected | （本 commit・後段で実 SHA へ確定） | 分母を実測 19 へ（18 は stale）/ 15 superseded + 4 再走で全件分類 / TC-38 に数え直し手順 |
+| R-026 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | INDEX / current-state の L0 層を掃除 + 量化子の母数を 8 ファイルへ |
+| R-027 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | current-state の「裁定 4 件」→「5 件」 |
+| R-028 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | Q-1 / Q-3 にも EH-3 順序注記 + exec ゲート依存へ Q-4 追加 |
+| R-029 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | AC-2c を 7 env の名前指定へ（`^PLANGATE_` 全数 0 を撤回） |
+| R-030 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | AC-3 / TC-34 を marker 由来の動的導出へ（件数 assert しない） |
+| R-031 | minor | river | reflected | （本 commit・後段で実 SHA へ確定） | frontmatter を approve へ + 末尾に `C2-VERDICT` を 1 行 |
+
+> Round 1 / Round 2 / Round 3 の監査表は**編集していない**。
+
+### River Review 反映順序
+
+1. 本ファイルへ R-024〜R-031 を追記集約（本 commit）
+2. plan / pbi-input / test-cases / todo / INDEX / current-state へ **1 回確定反映**
+   （`Refs: R-024 … R-031`・本 commit）
+3. **8 ファイル全体**で残存 0 件を `grep` 実測（後掲の C-1 #5 に記録）
+4. 簡易 C-1 再実行 #5 → `review-self.md` へ追記し `C1-VERDICT-6` を新 plan_hash で更新（本 commit）
+5. 人間が最終承認トークン（`c3_status=APPROVED`・**本反映後の plan_hash**）を発行
+6. exec 開始
+
+---
+
+C2-VERDICT: approve plan=sha256:442b272a66978bfdc8e8783a756a3f41c4434f3f56436063860858690243c86c

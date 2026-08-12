@@ -25,8 +25,11 @@
       **F-3 検査の挿入位置は `_PG_EXTRA_ORIGINAL_RC=$?`（現 `_extra-contract.sh:116`）の
       直後で固定**（前に入れると `[ -z … ]` が `$?` を潰し rc 伝播 TC-06 が壊れる / R-011）
       （owner: agent / depends_on: T-03 / rollback: `_extra-contract.sh` の当該 hunk revert） 🚩
-- [ ] T-05: bootstrap の全対象（**実測母数 14** = 層 A 12 + ta-61 本体 + ta-61 fixture 複製。
-      件数は契約値でない — AC-4 は marker 由来で導出）を
+- [ ] T-05: bootstrap の全対象を（**base の marker は 12 出現 / 12 ファイル = 層 A のみ。
+      ta-61 本体 `:15` と fixture 複製 `:745` は marker を持たないため
+      **marker 行ごと置換して照合網へ載せる** → 適用後 **14 出現 / 13 ファイル**。
+      件数は契約値でない — AC-4 は **marker の出現**から導出し、**ファイル単位ループに
+      しない**（ta-61 は 1 ファイル 2 出現）/ R-024）
       Mode resolution v2 ブロックへ同型置換。**T-04 と同一 commit**（述語分裂の中間状態禁止）
       （owner: agent / depends_on: T-04 / rollback: `git checkout origin/main -- tests/extras/` 後に T-03 の TC を再適用） 🚩
 - [ ] T-06: 述語機械照合 TC-35 を ta-61 へ**新設**（bootstrap 2 行 × **marker 由来の
@@ -43,7 +46,10 @@
       未設定判定になる / R-014））+ **TC-37 新設**（AC-8: `_pg_extra_direct` 未設定
       fixture = 0 件の静的検査。**走査母数は動的導出し件数を assert しない** / R-014）
       + **TC-30b 追加**（`_pg_extra_direct=0` を export しても
-      層 A は standalone = 無条件代入の pin / R-008）+ **`tests/extras/README.md` 規約 8 へ
+      層 A は standalone = 無条件代入の pin / R-008）。
+      **TC-35 は marker の各出現（`file:line`）を走査する実装にする** — ファイル単位
+      ループだと ta-61 の 2 つ目の出現（fixture 複製）が照合網から外れ、旧述語が
+      残っても緑になる（R-024）+ **`tests/extras/README.md` 規約 8 へ
       1 行追記**（トップレベル設定必須 / R-012・Q-2 決着。**追記のみ・既存文言を編集しない**
       — `ta-26` TC-30 が README に対し `PG_HARNESS_SOURCED` / `非 export` / `AND` /
       `standalone 側（安全側）` の 4 語を静的 grep しているため / R-020）
@@ -79,14 +85,22 @@
       (2) **「#1044 で塞いだ範囲 = bootstrap 系 13 本 + helper、未塞ぎ = 5 本
       （`ta-25`/`ta-26`/`ta-58`/`ta-59`/`ta-60`・2 env AND・Slice 2 へ）」の行**
       （R-006。**AC-9 後段 / TC-38 (2) の検証対象**であり任意ではない / R-016）、
-      (3) 旧 handoff「14 箇所」と新分母の差異注記（F-5）
+      (3) 旧 handoff「14 箇所」と新分母の差異注記（F-5。**新分母は marker の出現単位で
+      base 12 出現 / 適用後 14 出現・13 ファイル** / R-024）
       （owner: agent / depends_on: T-08, T-09 / rollback: 不要（docs のみ））
-- [ ] T-11: **`docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis へ追記**（AC-9 / R-003・R-017）—
-      本 PR による解消、および **変異 evidence 18 本のうち 14 本は superseded（後継 = 本 PBI の
-      M-1〜M-4b）/ 4 本（M-01 / M-02 / M-03 / M-16）は新 HEAD で再走し kill を再確認** を
-      1 行で記載。**あわせて同 handoff の L43（AC-7 PASS 根拠）/ L119（テスト結果サマリ）の
-      「18/18 KILL」行から superseded 注記への参照を張る**（既知課題への追記だけでは
-      根拠行が古い主張のまま残る / R-017）。TASK-0921 の **plan.md は編集しない**
+- [ ] T-11: **`docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis へ追記**（AC-9 / R-003・R-017・R-025）—
+      本 PR による解消、および **変異 evidence は実測 19 本**（`grep -cE '^M-'
+      mutation-summary.log` で数え直す。handoff の「18」は `M-14ab` 分割再走後に
+      更新されなかった stale 値 = **TASK-0921 側の誤り** / R-025）で、
+      **うち 15 本は superseded（後継 = 本 PBI の M-1〜M-4b）/ 4 本（M-01 / M-02 / M-03 /
+      M-16）は新 HEAD で再走し kill を再確認**（15 + 4 = 19 の全件分類）を 1 行で記載。
+      **あわせて同 handoff で「18/18 KILL」を主張する全行から superseded 注記への参照を
+      張る** — **行番号でなく意味ラベルで特定**（**AC-7 PASS の根拠行 / 引き継ぎ文書の
+      状態行 / テスト結果サマリ行の 3 箇所**。本反映時の実測は L43 / L104 / L119 だが
+      **本タスクの追記自体で行番号がずれる**）。既知課題への追記だけでは根拠行が
+      古い主張のまま残る（R-017）。
+      **TASK-0921 の「18」表記そのものの是正は本 PBI scope 外**とし、follow-up として
+      本 PBI handoff に記録する。TASK-0921 の **plan.md は編集しない**
       （承認済み歴史文書）。TC-38 が V-1 でこの追記を静的確認する
       （owner: agent / depends_on: T-08, T-11b / rollback: 当該追記行を revert（追記のみ・既存行は編集しない））
 - [ ] T-11b: **旧変異 4 本（M-01 / M-02 / M-03 / M-16）を新 HEAD で再走**し kill を再確認
@@ -130,7 +144,10 @@
 
 ## ⚠️ 依存関係
 
-- T-03 以降のすべては H-01（C-3 APPROVED + Q-1 / Q-3 裁定）後に開始（exec ゲート）
+- T-03 以降のすべては H-01（C-3 APPROVED + **Q-1 / Q-3 / Q-4 の全裁定**）後に開始
+  （exec ゲート。**Q-4 の欠落を補正 / R-028**）
+- **裁定結果が plan 変更を伴う場合は「確定反映 → 承認トークン発行」の順**を守る
+  （Q-1 / Q-3 / Q-4 のいずれも同じ。先に発行すると EH-3 が後続反映を mismatch 検知 / R-028）
 - T-04/T-05 は同一 commit（原子性）
 - **T-06 の fixture 更新と T-08 (d)(e) の M-4 / M-4b は対**（更新なしでは変異が生存し、
   更新の有効性を証明できない）

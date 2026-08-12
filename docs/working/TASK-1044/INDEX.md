@@ -15,20 +15,23 @@
 > Round 1 の major 7 件は両レーンが実質解消と確認）を **R-014〜R-020** として
 > 同ファイルへ**追記集約** → 1 回確定反映 → 簡易 C-1 再実行 #3（`C1-VERDICT-4`）まで完了。
 > **C-2 Round 3 は 2 レーンとも APPROVE（major 0 / minor 3）**。
-> **R-021〜R-023** を追記集約 → 1 回確定反映 → 簡易 C-1 再実行 #4（`C1-VERDICT-5` /
-> plan_hash `sha256:d1f6c5ea…`）まで完了。**承認トークンはこの hash で発行すること**。
+> **R-021〜R-023** を追記集約 → 1 回確定反映 → 簡易 C-1 再実行 #4（`C1-VERDICT-5`）まで完了。
+> さらに **PR 作成前 River Review（major 2 / minor 6）** を **R-024〜R-031** として
+> 追記集約 → 1 回確定反映 → 簡易 C-1 再実行 #5（`C1-VERDICT-6` /
+> plan_hash `sha256:442b272a…`）まで完了。
+> **承認トークンはこの最新 hash で発行すること**（過去 hash で発行すると EH-3 mismatch）。
 > **`approvals/c3.json` は未発行**。承認は本追補のマージ後に行うこと。
 
 ## ファイル
 
 | ファイル | 内容 |
 |---|---|
-| [pbi-input.md](pbi-input.md) | PBI INPUT PACKAGE（Context / Scope / 受入基準 AC-1〜7 / Risks） |
+| [pbi-input.md](pbi-input.md) | PBI INPUT PACKAGE（Context / Scope / **受入基準 12 行 = AC-1 / AC-2a〜2d / AC-3〜AC-9**（実質要件 9）/ 残存エクスポージャ / Risks） |
 | [plan.md](plan.md) | EXECUTION PLAN（**### Mode resolution v2 = bootstrap 述語の新正本** / F-3 是正 / Mode 判定） |
 | [todo.md](todo.md) | EXECUTION TODO（T-01〜T-11b / H-01〜02） |
 | [test-cases.md](test-cases.md) | TC-30〜38 + EV-1〜4（変異注入 M-1〜M-4b） |
-| [review-self.md](review-self.md) | C-1 セルフレビュー（17 項目 + 簡易再実行 ×4） |
-| [review-external.md](review-external.md) | **C-2 外部レビュー（2 レーン / R-001〜R-013 + Round 2 R-014〜R-020 + Round 3 R-021〜R-023・監査表つき・追記専用）** |
+| [review-self.md](review-self.md) | C-1 セルフレビュー（17 項目 + 簡易再実行 ×5） |
+| [review-external.md](review-external.md) | **外部レビュー集約（C-2 Round 1〜3 = R-001〜R-023 + PR 前 River Review = R-024〜R-031・監査表つき・追記専用・末尾に `C2-VERDICT` 1 行）** |
 | [current-state.md](current-state.md) | 現在状態スナップショット |
 | [decision-log.jsonl](decision-log.jsonl) | 判断履歴（append-only） |
 
@@ -44,10 +47,14 @@
 - F-3（finalize 既定値非対称）は **In scope**（fail-closed 化。Q-1 = C-3 裁定事項）
 - 正本管理: TASK-0921 plan「### Mode resolution」は不変のまま、本 plan
   「### Mode resolution v2」が新正本
-- **C-2 反映の主眼（R-001）**: 本 PBI の修正は、放置すると ta-61 の fixture 4 本
-  （`tc01.sh` / `tc01b.sh` / `tc21.sh` / `tc26-runner.sh`）を「静かに通るテスト」化し、
-  **HR-4 回帰テストの検出力を消す**。fixture への `_pg_extra_direct=0` 明示
-  （standalone 期待側も含む）+ **AC-8 静的 TC** + **変異 M-4** の 3 点で塞ぐ
+- **C-2 反映の主眼（R-001 / R-014・R-018 で確定）**: 本 PBI の修正は、放置すると
+  ta-61 の fixture を「静かに通るテスト」化し **HR-4 回帰テストの検出力を消す**。
+  **`_pg_extra_direct=0` は helper を直接 source する全 fixture（`. "$T61_HELPER"` 由来で
+  動的導出・本 PR 時点の実測 12 本）へ明示設定**する（standalone 期待側も含む）。
+  うち**挙動が変わるのは `tc01.sh` / `tc01b.sh` / `tc21.sh` / `tc26-file1.sh` の部分集合**
+  であって **TC-37 の走査母数ではない**（4 本の固定リストにすると AC-8 が手書きリストへ
+  退化する / R-014）。担保は **AC-8 静的 TC（TC-37）** + **変異 M-4（TC-01c kill）/
+  M-4b（TC-01b kill）** の 3 点セット
 - **残存エクスポージャ（R-006）**: 本 PBI で塞ぐのは bootstrap 系 13 本 + helper。
   `ta-25` / `ta-26` / `ta-58` / `ta-59` / `ta-60` の **5 本は 2 env AND のまま残る**
   （Slice 2 へ。`pbi-input.md`「残存エクスポージャ」節が正本）

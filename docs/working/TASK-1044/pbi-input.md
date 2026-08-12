@@ -39,8 +39,10 @@ standalone rc 契約が丸ごと無効化される（本 plan 作成時に新規
 
 1. **bootstrap の harness 判定に直接実行ガードを追加**する（`$0` basename ベース）。
    対象 = 層 A 12 本 + `ta-61-extra-contract.sh` 本体 bootstrap + ta-61 内 heredoc fixture
-   （ta-99-probe-c 複製）— **本 PR 時点の実測母数 14**（AC-4 の照合対象は件数でなく
-   bootstrap marker 由来で導出する）。**helper `_pg_extra_resolve_mode` は関数内で `$0` を
+   （ta-99-probe-c 複製）— **照合単位は marker の出現**で、**base = 12 出現 / 12 ファイル
+   （層 A のみ。ta-61 は本体・fixture 複製とも marker を持たないため S4 で marker 行ごと
+   置換して載せる）→ 適用後 = 14 出現 / 13 ファイル**（R-024。AC-4 の照合対象は件数でなく
+   bootstrap marker の出現から導出する）。**helper `_pg_extra_resolve_mode` は関数内で `$0` を
    再評価せず、bootstrap がトップレベルで確定した `_pg_extra_direct` を消費する**
    （zsh FUNCTION_ARGZERO により関数内 `$0` = 関数名となりガードが不発になるため —
    river-review F-1 実測反映。未設定は安全側 = direct 扱い。mode 分裂禁止
@@ -96,15 +98,15 @@ standalone rc 契約が丸ごと無効化される（本 plan 作成時に新規
 | AC-1 | 3 env 漏出 + helper 欠落 + 直接実行が **dash / zsh / bash / sh の 4 シェルすべてで rc=1**（実測 1 の是正） |
 | AC-2a | 3 env 漏出 + helper 存在 + 直接実行で **rc が standalone 契約（0 / 1 / 3）に従う**（実測 2 の是正） |
 | AC-2b | 同シナリオで **summary 書式 `TA-<NN> standalone: N passed, M failed` が出力される**（R-015a 不変） |
-| AC-2c | 同シナリオで **7 env unset が実測される** — 契約下で起動した子プロセスにおいて `env \| grep -c '^PLANGATE_\|^PG_HARNESS_SOURCED'` が **0**（漏出 env が子へ伝播しないことを実測する。「漏出環境で直接実行」という本 PBI のシナリオと同じ土俵にあるため必須） |
+| AC-2c | 同シナリオで **7 env unset が実測される** — 契約下で起動した子プロセスで、**`tests/run-tests.sh:20` の unset 行に列挙された 7 個の名前がいずれも未設定**であること（`PLANGATE_SKIP_REASON` / `PLANGATE_HOOK_TASK` / `PLANGATE_HOOK_FILE` / `PLANGATE_BYPASS_HOOK` / `PLANGATE_HOOK_STRICT` / `PG_HARNESS_SOURCED` / `PLANGATE_ALLOW_MASS_DELETE`）。**`^PLANGATE_` の全数 0 は要求しない**（repo 内の `PLANGATE_*` は実測 52 種で、`PLANGATE_BIN` / `PLANGATE_PYTHON` / `PLANGATE_REPO_ROOT` 等は 7 env に含まれない。開発者環境や CI が無関係な `PLANGATE_*` を export しているだけで落ちる = 「無関係な PR の CI 落ち」と同型 / R-029）。漏出 env が子へ伝播しないことを実測する（「漏出環境で直接実行」という本 PBI のシナリオと同じ土俵にあるため必須） |
 | AC-2d | 同シナリオで **カウンタが初期化される**（init 直後に `pass=0` / `fail=0`） |
-| AC-3 | 正規経路の無回帰: `sh tests/run-tests.sh` フルスイートが rc=0 / fail=0、かつ層 A 12 本の standalone 直接実行（清浄 env）が従来どおりの rc を返す |
-| AC-4 | 述語の同一性: **bootstrap marker（`# ---- extras execution contract bootstrap`）を含む `tests/extras/` 全ファイル**で、判定 2 行（case 行 + if 行）が本 PBI plan「### Mode resolution v2」と**行頭空白を除去した比較で**文字単位同一（機械照合）。**対象は marker 由来で動的に導出し、絶対件数を契約値にしない**（`tests/extras/` は成長ディレクトリ。現時点の実測母数は 14 = 層 A 12 + ta-61 本体 + ta-61 fixture 複製 だが、これは契約値ではなく実測値である）。helper は照合対象から**分離定義**とし、変数消費形 literal（`${_pg_extra_direct:-1}` 消費・関数内 `$0` 非評価）との一致を別途照合 |
+| AC-3 | 正規経路の無回帰: `sh tests/run-tests.sh` フルスイートが rc=0 / fail=0、かつ **bootstrap marker を含む `tests/extras/ta-*.sh` 全件**の standalone 直接実行（清浄 env）が従来どおりの rc を返す。**件数は assert しない**（AC-4 / AC-8 と同じ動的導出規約に揃える。本 PR 時点の実測は層 A 12 本 + ta-61 = 13 ファイルだが、`tests/extras/` は成長ディレクトリであり固定件数にすると Slice 2 が追加した層 A ファイルが**静かに対象から漏れる**偽陰性を生む / R-030） |
+| AC-4 | 述語の同一性: **bootstrap marker（`# ---- extras execution contract bootstrap`）の各出現**（`file:line` 単位。**1 ファイル内の複数出現をすべて照合する** — `ta-61` は本体 + fixture 複製で 2 出現を持つため、**ファイル単位ループにすると 2 つ目が照合網から外れる** / R-024）で、判定 2 行（case 行 + if 行）が本 PBI plan「### Mode resolution v2」と**行頭空白を除去した比較で**文字単位同一（機械照合）。**対象は marker 出現から動的に導出し、絶対件数を契約値にしない**（`tests/extras/` は成長ディレクトリ。実測は **base = 12 出現 / 12 ファイル → 適用後 = 14 出現 / 13 ファイル** だが、これは契約値ではなく実測値である。**base に ta-61 の marker は存在せず、S4 で marker 行ごと置換して初めて照合網に載る**）。helper は照合対象から**分離定義**とし、変数消費形 literal（`${_pg_extra_direct:-1}` 消費・関数内 `$0` 非評価）との一致を別途照合 |
 | AC-5 | **変異注入**: (a) 修正前 HEAD で新 TC を走らせ FAIL を実証（pre-fix evidence）。(b) 修正後、**M-1 / M-2 / M-3 / M-4 / M-4b の全変異**で対応 TC が FAIL（kill）することを dash（M-2 は zsh も）で実証する — M-1: bootstrap の case 行（ガードの call site）除去 / M-2: helper を変数消費から独自判定へ退行 / M-3: F-3 明示検査の除去 / **M-4: helper の 3 env 述語を `PG_HARNESS_SOURCED` 単独へ退行させ TC-01c が FAIL（kill）すること**（**TC-01b は判別子が `PG_HARNESS_SOURCED=0` であり M-4 が同条件を保持するため原理的にヒットしない** / R-018）/ **M-4b: `PG_HARNESS_SOURCED` 条件を落とし `FIXTURES_DIR && EXTRAS_DIR` のみへ退行させ TC-01b が FAIL（kill）すること**。変異は関数でなく call site を壊す（#874 教訓） |
 | AC-6 | F-3 是正: `pg_extra_contract_finalize` が `_PG_EXTRA_STANDALONE` 未設定（init 前呼出）のとき silent に harness 扱いへ落ちず、fail-closed（stderr 診断 + exit 4）となる。既存 TC-10（静的検出）は不変で PASS。**本 AC は Constraints「harness source 経路で非 0 return / exit しない（R-024）」に対する明示 carve-out である**（対象は init 前 finalize = 契約違反の mis-wire に限定。carve-out を設けること自体の可否は Q-1 で C-3 裁定） |
 | AC-7 | ta-61 既存 TC（TC-01〜TC-29）が全 PASS（ガード追加による fixture 回帰なし）。**ただし「空振りでも PASS」は AC-7 充足と見なさない** — 検出力の維持は AC-8 と AC-5 の **M-4 / M-4b** で担保する（R-021） |
 | AC-8 | **fixture の `_pg_extra_direct` 明示化**: ta-61 内で bootstrap を持たず helper を直接 source する **全 fixture**（harness 模擬・standalone 期待の双方）が `_pg_extra_direct` を**トップレベルで明示設定**しており、**未設定の fixture が 0 件**であることを**静的検査 TC** で機械検出する。将来の fixture 追加漏れもこの TC で検出する。**走査母数は `. "$T61_HELPER"` 由来で動的導出し、件数（本 PR 時点の実測 12）を契約値にしない**（AC-4 と同じ規約。plan「帰結」節の 4 本は「`PG_HARNESS_SOURCED` を明示設定するため挙動が変わる部分集合」であって走査母数ではない / R-014） |
-| AC-9 | **evidence 継承の明示**: `docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis に、本 PR による解消および **変異 evidence 18 本の HEAD 整合の扱い**（**18 本のうち 14 本は superseded（後継 = 本 PBI の M-1〜M-4b）/ 4 本（M-01 / M-02 / M-03 / M-16）は新 HEAD で再走し kill を再確認** / R-017）が 1 行で追記され、**同 handoff の L43 / L119 の「18/18 KILL」行から当該注記への参照が張られている**。**および本 PBI handoff に「未塞ぎ = 5 本（`ta-25` / `ta-26` / `ta-58` / `ta-59` / `ta-60`・2 env AND・Slice 2 へ）」の行が存在すること**（R-016。残存エクスポージャ節の「AC-9 で義務化する」を実際に AC 本文へ落とす） |
+| AC-9 | **evidence 継承の明示**: `docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis に、本 PR による解消および **変異 evidence の HEAD 整合の扱い**が 1 行で追記されている。**分母は申告値を継承せず `grep -cE '^M-' mutation-summary.log` で数え直す（本 PBI 実測 = 19 本。handoff の「18」は `M-14ab` 分割後に未更新の stale 値 / R-025）**。内訳 = **15 本 superseded（後継 = 本 PBI の M-1〜M-4b）/ 4 本（M-01 / M-02 / M-03 / M-16）は新 HEAD で再走し kill を再確認**（15 + 4 = 19 で全件分類）。**同 handoff で「18/18 KILL」を主張する全行（AC-7 PASS の根拠行 / 引き継ぎ文書の状態行 / テスト結果サマリ行）から当該注記への参照が張られている**（**行番号ではなく意味ラベルで検証する** — T-11 の追記で行番号はずれるため）。**および本 PBI handoff に「未塞ぎ = 5 本（`ta-25` / `ta-26` / `ta-58` / `ta-59` / `ta-60`・2 env AND・Slice 2 へ）」の行が存在すること**（R-016。残存エクスポージャ節の「AC-9 で義務化する」を実際に AC 本文へ落とす） |
 
 ## Notes from Refinement
 

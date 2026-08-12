@@ -1,10 +1,12 @@
 # TASK-1044 current-state
 
-- **今どこ**: **C-2 Round 3 完了（2 レーンとも APPROVE / major 0）→ R-021〜R-023 の
-  1 回確定反映 + 簡易 C-1 再実行 #4 まで完了**（`C1-VERDICT-5` / plan_hash =
-  `sha256:d1f6c5ea5da23ace73cedf1270e3159faac717ab52d3847216e231f2850fbffe`）。
-  **承認トークンはこの hash で発行すること**（掃除前の `cce20c06…` で発行すると
-  EH-3 が mismatch 検知）。Round 2 は REJECT → 全件反映済（`C1-VERDICT-4` /
+- **今どこ**: **PR 作成前 River Review（major 2 / minor 6）を R-024〜R-031 として
+  1 回確定反映 + 簡易 C-1 再実行 #5 まで完了**（`C1-VERDICT-6` / plan_hash =
+  `sha256:442b272a66978bfdc8e8783a756a3f41c4434f3f56436063860858690243c86c`）。
+  **承認トークンはこの最新 hash で発行すること**（`cce20c06…` / `d1f6c5ea…` など
+  過去 hash で発行すると EH-3 が後続反映を mismatch 検知）。
+  直前は C-2 Round 3 完了（2 レーンとも APPROVE / major 0）→ R-021〜R-023 反映
+  （`C1-VERDICT-5` / `d1f6c5ea…`）。Round 2 は REJECT → 全件反映済（`C1-VERDICT-4` /
   `cce20c06…`）。
   Round 1 の major 7 件は両レーンが実質解消と確認。
   以下は Round 1 時点の記録（履歴として保持）: **C-2 完了（REJECT）→ 1 回確定反映 + 簡易 C-1 再実行まで完了**
@@ -13,7 +15,7 @@
 - **mode**: high-risk（人間 C-3 必須・autonomous APPROVE 不可）
 - **次にやること**:
   1. 本追補のマージ（オーガナイザーが PR 作成）
-  2. 👤 C-3 人間レビュー + 裁定 4 件 — **Q-1 (1)** F-3 の方式（exit 4 案 vs harness 保護案）/
+  2. 👤 C-3 人間レビュー + **裁定 5 件** — **Q-1 (1)** F-3 の方式（exit 4 案 vs harness 保護案）/
      **Q-1 (2)** R-024 carve-out の可否 / **Q-3 (1)** AC 行数 12 の読み替え追認 /
      **Q-3 (2)** 変更ファイル数の分母定義（15 か 16 か）— Round 2 R-015 で追加 /
      **Q-4** `FIXTURES_DIR` 単独条件の検出力（`TC-01d` + `M-4c` で塞ぐか V2 送りか）
@@ -26,7 +28,9 @@
   C-2 REJECT の plan を承認した状態になる（現時点で `c3.json` は未発行）
 - **C-2 結果（2026-08-12 / 2 レーンとも REJECT）**: 統合 major 7 / minor 5 / info 1 を
   `review-external.md` に R-001〜R-013 として集約し全件反映。最重要 = **R-001**
-  （本 PBI の修正が ta-61 fixture 4 本を「静かに通るテスト」化し HR-4 検出力を消す）→
+  （本 PBI の修正が ta-61 の helper 直接 source fixture を「静かに通るテスト」化し
+  HR-4 検出力を消す。**対象は動的導出の 12 本**で、`tc01` / `tc01b` / `tc21` /
+  `tc26-file1` は**挙動が変わる部分集合**であって TC-37 の母数ではない / R-014）→
   AC-8（静的 TC）+ 変異 M-4 + fixture 完全列挙で封鎖。
   AC は 7 → 12 行（AC-2 を 2a〜2d へ分割 + AC-8 / AC-9 新設。実質要件数は 9）、
   TC は TC-30b / TC-37 / TC-38 を追加
@@ -54,3 +58,13 @@
   **R-022** = 「3 条件すべてに検出力」は実測 2/3（`FIXTURES_DIR` 単独条件を kill する
   TC が base の `ta-61` に無い）→ 文言を 2 条件へ縮小し **Q-4 を新設**（実装はしない）。
   **R-023** = Q-3 に裁定の実質的影響を追記。**mn-D は現状維持で確定**（書き換えなし）
+- **PR 作成前 River Review 結果（2026-08-12 / major 2 / minor 6）**:
+  `review-external.md`「PR 作成前 River Review」節へ R-024〜R-031 を追記集約し全件反映。
+  **R-024** = AC-4 の「marker 由来 = 母数 14」が base で不成立（base は 12 出現 / 12 ファイル・
+  ta-61 は marker 非保持）→ **照合単位を marker の「出現」へ確定**し
+  **ファイル単位ループを禁止**（ta-61 は 1 ファイル 2 出現で、ファイル単位だと
+  fixture 複製が照合網から外れ「静かに通る」）。
+  **R-025** = 変異 evidence の分母は **実測 19**（handoff の 18 は `M-14ab` 分割後に
+  未更新の stale 値 = TASK-0921 側の誤り）→ **15 superseded + 4 再走で全件分類**。
+  minor 6 件（L0 層の掃除 / 裁定件数 / EH-3 順序 / AC-2c を 7 env へ / AC-3 の動的導出 /
+  frontmatter + `C2-VERDICT` 1 行）も反映

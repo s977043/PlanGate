@@ -282,3 +282,77 @@ C1-VERDICT-4: PASS plan=sha256:cce20c06ba273a6d4297f63f47fab4e0837519f394012b5a0
   `cce20c06…` で発行すると EH-3 が後続の掃除を mismatch 検知する）
 
 C1-VERDICT-5: PASS plan=sha256:d1f6c5ea5da23ace73cedf1270e3159faac717ab52d3847216e231f2850fbffe
+
+---
+
+## 簡易 C-1 再実行 #5（2026-08-12 / PR 作成前 River Review の R-024〜R-031 を 1 回確定反映後）
+
+> 反映元: **PR 作成前 River Review**（`review-external.md`「PR 作成前 River Review」節 /
+> major 2 / minor 6）。**C-2 の 3 ラウンドとオーガナイザーの照合が両方とも見逃していた**
+> 指摘群。承認トークンは依然未発行 = plan 編集可能期間内の確定反映（EH-3 mismatch なし）。
+
+### 反映内容の整合確認（R-024〜R-031 全 8 件）
+
+| R | severity | 反映 | 判定 |
+|---|---|---|---|
+| R-024 | major | AC-4 / TC-35 / DoD の**照合単位を「marker の出現（`file:line`）」へ確定**し、**ファイル単位ループ禁止**（ta-61 は 1 ファイル 2 出現）を明記。母数を **base = 12 出現 / 12 ファイル → 適用後 = 14 出現 / 13 ファイル**へ訂正し、**ta-61 は base に marker が無いため S4 で marker 行ごと置換して照合網に載せる**ことを plan DoD / S4 / T-05 / pbi-input In scope・AC-4 / TC-35 へ展開 | PASS |
+| R-025 | major | evidence 継承の**分母を申告値の継承から実測へ**（`grep -cE '^M-' mutation-summary.log` = **19**）。**15 本 superseded + 4 本再走 = 19 で全件分類**へ確定。TC-38 に「**文字列一致で済ませず分母を数え直す**」手順を追加。plan Risks / AC-9 / T-11 も同期 | PASS |
+| R-026 | minor | **L0 層（INDEX / current-state）の Round 1 時点の主張を掃除** — 「fixture 4 本 = 母数」の誤読を生む記述、`tc26-runner.sh`（→ `tc26-file1.sh`）、変異 M-4 のみ（→ M-4 / M-4b）、受入基準「AC-1〜7」（→ 12 行）。**以後の量化子は 8 ファイル全体を母数**にする規律を採用（本節の実測表） | PASS |
+| R-027 | minor | `current-state.md` の「裁定 4 件」→**「裁定 5 件」**（Q-4 追加後の正） | PASS |
+| R-028 | minor | **Q-1 / Q-3 にも EH-3 順序注記**（確定反映 → 承認トークン発行）を追加。`todo.md` の exec ゲート依存を「**Q-1 / Q-3 / Q-4 の全裁定後**」へ是正し、順序規律を ⚠️ 節に明文化 | PASS |
+| R-029 | minor | AC-2c を「**`run-tests.sh:20` の 7 env 各名が子で未設定**」へ限定し、**`^PLANGATE_` 全数 0 を撤回**（repo 実測 52 種。無関係な `PLANGATE_*` の export で落ちる = 「無関係な PR の CI 落ち」同型）。TC-31 (3) も同期 | PASS |
+| R-030 | minor | AC-3 / TC-34 の対象を「**bootstrap marker を含む `tests/extras/ta-*.sh` 全件（件数を assert しない）**」へ。偽陰性（Slice 2 追加分が静かに漏れる）を封鎖し AC-4 / AC-8 の動的導出規約と統一 | PASS |
+| R-031 | minor | frontmatter `verdict` を最終判定（**approve**）へ更新し由来をコメントで明示 + 末尾に **`C2-VERDICT: approve plan=sha256:<新 hash>` を 1 行**追加（`_C2_MARKER_RE` の「完全一致 1 / プレフィックス 1」を実測確認済み） | PASS |
+
+### 全数照合の実測（R-026 の是正 = 母数を 8 ファイルへ拡張）
+
+**live claim を持つ 6 ファイル**（`plan` / `pbi-input` / `test-cases` / `todo` /
+**`INDEX`** / **`current-state`**）へ **11 パターン**を `grep -rn` し、**合計 0 件（exit=1）**
+を実測した:
+
+| パターン | 件数 | 由来 |
+|---|---|---|
+| `fixture 4 本` | 0 | R-021 |
+| `4 本の完全列挙` | 0 | R-021 |
+| `TC-01b/01c が kill` | 0 | R-021 |
+| `AC-5 の M-4 で` | 0 | R-021 |
+| `M-4 で担保` | 0 | R-021 |
+| `3 条件すべてに検出力があること` | 0 | R-022 |
+| `実測母数 14` | 0 | **R-024** |
+| `変異 evidence 18 本` | 0 | **R-025** |
+| `18 本のうち` | 0 | **R-025** |
+| `層 A 12 本の standalone` | 0 | **R-030** |
+| `裁定 4 件` | 0 | **R-027** |
+
+> **`review-external.md` / `review-self.md` の 2 ファイルは母数から除外し、
+> 除外理由を明示する**（R-026 の再発防止）: 両者は**追記専用の監査記録**であり、
+> 指摘本文・パターン表・過去ラウンドの引用として**古い文言を意図的に保持する**。
+> ここを 0 件にすることは追記専用規約と両立しない。
+> **live claim（現行の主張）を持つのは上記 6 ファイル**であり、量化子はこの母数で宣言する。
+
+### 17 項目の再判定
+
+| 区分 | 判定 | 根拠 |
+|---|---|---|
+| C1-PLAN-01（受入基準網羅性） | PASS | AC↔TC の orphan 0 件を維持。AC-2c / AC-3 / AC-4 / AC-9 の**文言変更は判定条件の精密化**であり TC 側（TC-31 (3) / TC-34 / TC-35 / TC-38）へ双方向に反映済み |
+| C1-PLAN-02（Unknowns 処理） | PASS | 裁定事項は 5 件（Q-1 (1)(2) / Q-3 (1)(2) / Q-4）で不変。**全 Q に EH-3 順序注記**が付き、裁定 → 反映 → 承認の順序が Q 間で非対称でなくなった（R-028） |
+| C1-PLAN-03（スコープ制御） | PASS | scope 不変。**TASK-0921 の「18」表記の是正は明示的に scope 外**とし follow-up として T-11 に記録（R-025） |
+| C1-PLAN-04（テスト戦略） | PASS | **TC-35 の実装単位が「出現」に確定**したことで、fixture 複製が旧述語のまま緑になる穴（本 PBI の目的と正面衝突する形）が閉じた。TC-38 は文字列一致から**分母の数え直し**へ強化 |
+| C1-PLAN-05（WBS Output） | PASS | S4 の Output を「13 ファイル差分（14 出現）」へ、S8 (3) を実測 19 本ベースへ更新 |
+| C1-PLAN-06（依存関係） | PASS | exec ゲート依存に **Q-4 を追加**（R-028）。T-11b → T-11 は不変 |
+| C1-PLAN-07（動作検証自動化） | PASS | TC-34 / TC-35 / TC-37 はいずれも動的導出で自動。TC-38 のみ手動（V-1）で、**数え直しコマンドを明記**したので手動でも再現可能 |
+| C1-TODO-01〜05 | PASS | タスク数 12 で不変（T-05 / T-06 / T-10 / T-11 の記述精密化のみ）。rollback 記載も不変 |
+| C1-TC-01〜03 | PASS | TC-31 (3) / TC-34 / TC-35 / TC-38 を AC と双方向更新。エッジケースは不変 |
+| C1-SUP-01（Mode 妥当性） | **WARN** | 前回と同じ（Q-3 (1)(2) へ委譲）。**変更ファイル数の分母は 15 のまま**（本反映は docs のみで `tests/` の touch 対象を増やしていない）。HO 9 カテゴリは引き続き非該当 |
+| C1-SUP-02（正本・既存ルール整合） | PASS | 追記専用規約（review-external Round 1〜3）を遵守（本ラウンドは純追記 + frontmatter 値 + 末尾マーカーのみ）。**`_C2_MARKER_RE` の「ちょうど 1 回」制約を実測確認**してから 1 行追加（R-031）。**指摘 ID `R-024` と TASK-0921 制約 ID `R-024` の衝突**を review-external 冒頭で明示注記 |
+
+### 判定
+
+- **PASS（WARN 1 / C1-SUP-01）**。WARN は Q-3 として C-3 裁定へ委譲済みでブロッカーではない
+- **R-025 の帰属判断**: 一次証跡（`mutation-summary.log` = 19 行 + ヘッダの
+  「`M-14ab.log` split into `M-14a`/`M-14b` and re-run」）に基づき **19 を正**とし、
+  **TASK-0921 handoff の「18」を stale と判定**した。TASK-0921 側の是正は scope 外 follow-up
+- C-3 で裁定すべき項目: **Q-1 (1) / Q-1 (2) / Q-3 (1) / Q-3 (2) / Q-4** の 5 件（不変）
+- **承認トークンは本反映後の plan_hash（下記）で発行すること**
+
+C1-VERDICT-6: PASS plan=sha256:442b272a66978bfdc8e8783a756a3f41c4434f3f56436063860858690243c86c

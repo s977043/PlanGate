@@ -14,7 +14,7 @@
 | AC-2c（7 env unset の実測） | TC-31 (3) + EV-2 |
 | AC-2d（カウンタ初期化） | TC-31 (4) + EV-2 |
 | AC-3（正規経路無回帰） | TC-33 / TC-34 |
-| AC-4（bootstrap marker 由来の動的リストでバイト一致 + helper 分離照合） | TC-35 |
+| AC-4（bootstrap marker の**各出現**でバイト一致 + helper 分離照合） | TC-35 |
 | AC-5（変異注入で検出力実証） | EV-3（pre-fix red）/ EV-4（M-1〜M-4 + M-4b の kill） |
 | AC-6（F-3 fail-closed） | TC-32 |
 | AC-7（ta-61 既存 TC 無回帰） | TC-36 |
@@ -49,10 +49,18 @@
   従来案は (1)(2) のみで、**7 env unset とカウンタ初期化を誰も検証していなかった**）:
   1. **(AC-2a)** rc が standalone 契約（0 / 1 / 3）に従う
   2. **(AC-2b)** summary 行 `TA-<NN> standalone: N passed, M failed` が出力される
-  3. **(AC-2c)** 契約下で起動した子プロセスで
-     `env | grep -c '^PLANGATE_\|^PG_HARNESS_SOURCED'` が **0**
-     （漏出 env が子へ伝播しないことの実測。**この検証が無いと、漏出 env が
-     子プロセスへ伝播したままでも TC-31 は緑になる**）
+  3. **(AC-2c)** 契約下で起動した子プロセスで、**`tests/run-tests.sh:20` の unset 行に
+     列挙された 7 個の名前がいずれも未設定**であること
+     （`PLANGATE_SKIP_REASON` / `PLANGATE_HOOK_TASK` / `PLANGATE_HOOK_FILE` /
+     `PLANGATE_BYPASS_HOOK` / `PLANGATE_HOOK_STRICT` / `PG_HARNESS_SOURCED` /
+     `PLANGATE_ALLOW_MASS_DELETE`）。
+     **`env | grep -c '^PLANGATE_'` の全数 0 は判定に使わない（R-029）** —
+     repo 内の `PLANGATE_*` は実測 **52 種**で、`PLANGATE_BIN` / `PLANGATE_PYTHON` /
+     `PLANGATE_REPO_ROOT` 等は 7 env 契約の外。全数 0 にすると**開発者環境や CI が
+     無関係な `PLANGATE_*` を export しているだけで TC-31 (3) が落ちる**
+     （「無関係な PR の CI 落ち」と同型）。
+     漏出 env が子へ伝播しないことの実測。**この検証が無いと、漏出 env が
+     子プロセスへ伝播したままでも TC-31 は緑になる**
   4. **(AC-2d)** init 直後に `pass=0` / `fail=0`（カウンタ初期化）
 - 現 HEAD では summary 無し・rc=0 = red
 - 種別: 自動
@@ -73,20 +81,35 @@
 ### TC-34: 清浄 env での standalone 直接実行が従来 rc を維持（自動）
 
 - 前提: 清浄 env（3 env unset）
-- 入力: 層 A 12 本を `sh tests/extras/ta-XX-*.sh` で直接実行
+- 入力: **bootstrap marker を含む `tests/extras/ta-*.sh` 全件**（**動的導出・件数は
+  assert しない** / R-030。本 PR 時点の実測は層 A 12 + ta-61 = 13 ファイル）を
+  `sh tests/extras/ta-XX-*.sh` で直接実行
 - 期待出力: 各本の従来 rc（0 または 3 — 前提未充足の本は rc=3）と summary 書式不変
+- **固定件数にしない理由（R-030）**: AC-4 / AC-8 が「絶対件数を契約値にしない」と
+  定めているのに AC-3 / TC-34 だけ「層 A 12 本」を固定すると、Slice 2 が追加した
+  層 A ファイルが**静かに対象から漏れる**（偽陰性）
 - 種別: 自動
 
 ### TC-35: 新述語のバイト一致照合（自動 / ta-61 へ**新設** — base の ta-61 に述語バイト一致 TC は存在しない）
 
 - 入力: Mode resolution v2 の判定 2 行（case 行 + if 行）を canonical 文字列として、
-  **bootstrap marker（`# ---- extras execution contract bootstrap`）を含む
-  `tests/extras/` 全ファイルを対象リストとして動的に導出**し照合する（R-005）。
+  **bootstrap marker（`# ---- extras execution contract bootstrap`）の各出現
+  （`file:line`）を対象として動的に導出**し照合する（R-005・R-024）。
   比較は**行頭空白を除去して**行う（fixture 複製のインデント差を正規化）。
   helper `_pg_extra_resolve_mode` は**分離定義**として、変数消費形 literal
   （`${_pg_extra_direct:-1}` 消費・関数内 `$0` 非評価）との一致を別途照合
-- 期待出力: 導出された対象リストの全ファイルで一致（bad=0）。
-  **絶対件数を assert しない**（現時点の実測母数 14 はログ出力のみ）。
+- **照合単位は「出現」であり「ファイル」ではない（R-024 / 必須）**:
+  `ta-61-extra-contract.sh` は**本体 bootstrap と heredoc fixture 複製で marker を
+  2 回持つ**。**ファイル単位ループで実装すると 2 つ目の出現が照合網から外れ、
+  fixture 複製が旧述語のまま残っても TC-35 は緑**になる（＝本 PBI が潰そうとしている
+  「静かに通る」形をそのまま作る）。**1 ファイル内の全出現を照合すること**
+- **base では ta-61 に marker が無い（R-024）**: base 実測 = **12 出現 / 12 ファイル
+  （層 A のみ）**。ta-61 本体 `:15` と fixture 複製 `:745` は述語のみで marker 行を
+  持たないため、**S4 で marker 行ごと置換して初めて本 TC の対象になる**。
+  適用後 = **14 出現 / 13 ファイル**
+- 期待出力: 導出された全出現で一致（bad=0）。
+  **絶対件数を assert しない**（実測母数 = base 12 出現 / 適用後 14 出現・13 ファイルは
+  ログ出力のみ）。
   固定リストにすると Slice 2 が旧述語で新ファイルを足しても緑（偽陰性）、
   件数を固定すると無関係 PR が層 A に 1 本足しただけで CI が落ちる（偽陽性）
 - 先例: `ta-26` TC-33（件数ハードコードなしの grep ベース検査）
@@ -143,12 +166,21 @@
 
 ### TC-38: handoff 追記の静的確認（**確認対象 2 点** / AC-9）
 
-- 入力 (1): `docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis **および L43 / L119**
-- 期待出力 (1): 本 PR による解消、および **変異 evidence 18 本の HEAD 整合失効と
-  その扱い（14 本 = superseded・後継は本 PBI の M-1〜M-4b / 4 本 = M-01・M-02・M-03・M-16
-  は新 HEAD で再走し kill 再確認）** が 1 行で追記されており、**L43（AC-7 PASS 根拠）と
-  L119（テスト結果サマリ）の「18/18 KILL」行から当該注記への参照が張られている**
-  （既知課題への追記だけでは根拠行が古い主張のまま残るため / R-017）
+- 入力 (1): `docs/working/TASK-0921/handoff.md` 既知課題 2 / 2-bis、および
+  **同ファイル内で「18/18 KILL」を主張する全行**
+  （**行番号でなく意味ラベルで特定する**: **AC-7 PASS の根拠行 / 引き継ぎ文書の状態行 /
+  テスト結果サマリ行**。本 PBI 反映時の実測は L43 / L104 / L119 だが、**T-11 の追記で
+  行番号はずれる**ため行番号をアンカーにしない）
+- 期待出力 (1): 本 PR による解消、および **変異 evidence の HEAD 整合失効とその扱い**が
+  1 行で追記されており、**上記の全行から当該注記への参照が張られている**
+  （既知課題への追記だけでは根拠行が古い主張のまま残るため / R-017）。
+  **分母は実測 19 本**（`grep -cE '^M-' docs/working/TASK-0921/evidence/mutations/mutation-summary.log`。
+  handoff の「18」は `M-14ab` を `M-14a` / `M-14b` へ分割再走した後に更新されなかった
+  stale 値 / R-025）で、**15 本 = superseded（後継は本 PBI の M-1〜M-4b）/
+  4 本 = M-01・M-02・M-03・M-16 は新 HEAD で再走し kill 再確認**（15 + 4 = 19 の全件分類）
+- **検証手順（R-025）**: TC-38 は「18 本…」という文字列の存在だけを見てはならない。
+  **`grep -cE '^M-' mutation-summary.log` を実行して分母を数え直し、
+  handoff の記載と一致することを確認する**（申告値の素通しを禁止）
 - 入力 (2): `docs/working/TASK-1044/handoff.md`（本 PBI handoff）
 - 期待出力 (2): **「未塞ぎ = 5 本（`ta-25` / `ta-26` / `ta-58` / `ta-59` / `ta-60`・
   2 env AND・Slice 2 へ）」の行が存在する**（R-016。pbi-input 残存エクスポージャ節の
