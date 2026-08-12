@@ -1,0 +1,27 @@
+# T-04 checkpoint (AC-3 即時確認): PG_T26_NO_RECURSE=1 前置の直接起動（TC-13 の子相当）
+# 期待: ゲート発火（再帰防止 [SKIP] 4 箇所）+ 0 failed + rc=0（修正後もガード継続）
+# command: PG_T26_NO_RECURSE=1 sh tests/extras/ta-26-plugin-sync.sh </dev/null
+
+=== TA-26: plugin-sync (TASK-0124) ===
+  [PASS] TC-01 sync-plugin-plangate.sh 存在・実行可能
+  [PASS] TC-02 sh -n syntax check
+  [SKIP] TC-03/TC-04（再帰防止の子プロセスでは省略・親で実行済み）
+  [PASS] TC-05 sandbox 実行後 .claude/agents/ の全 .md が plugin に存在・exit 0（guard 誤発火なし / 実 repo 非破壊）
+  [PASS] TC-06 plugin/plangate/README.md に Version 行あり
+  [PASS] TC-07 apply-task-0124-patches.sh 存在・syntax OK
+  [PASS] TC-08 safety guard 発火（WARN 出力 + dst 4 件を削除せず保持）
+  [PASS] TC-09 DELETE 正常系（src=2/stale=1 → stale 削除・guard 非発火・exit 0）
+  [PASS] TC-10 guard 発火で exit 3・stderr に label と override 手順を出力
+  [PASS] TC-11 override で削除実行・exit 0・解除ログ出力
+  [PASS] TC-12 乖離帯 src=3/stale=4 で dry-run と実行の guard 判定が一致
+  [SKIP] TC-13 再帰防止（PG_T26_NO_RECURSE=1）
+  [PASS] TC-16 複数 label 同時発火（WARN 3 行・exit 3 は 1 回・コピーは全 label 実行）
+  [PASS] TC-17 README.md を src/dst 対称に除外（src 実体1/stale2 で発火）
+  [PASS] TC-15 PLANGATE_ALLOW_MASS_DELETE が .github/ に存在しない（CI での恒久無効化なし）
+  [SKIP] TC-20〜TC-25（再帰防止の子プロセスでは省略・親で実行済み）
+  [SKIP] TC-26〜29/32/34〜36（再帰防止の子プロセスでは省略・親で実行済み）
+  [PASS] TC-30 README.md に判別規約（PG_HARNESS_SOURCED / 非 export / AND / standalone 側（安全側））
+  [PASS] TC-33 FIXTURES_DIR 単独判別の残存 0 + standalone unset が run-tests.sh の unset 集合を包含
+
+TA-26 standalone: 15 passed, 0 failed
+EXIT_CODE=0

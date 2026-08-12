@@ -1,0 +1,22 @@
+# F2/F3 変異注入: TC-S(4) と TC-S(1) 行頭アンカーの検出力実証
+# date: 2026-08-12 23:57
+# command: sandbox（tests/ を tmp へ複製・実 repo は不変）で ta-62 standalone を変異ごとに実行
+# sandbox: /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.QYwXlldFNr/root
+
+--- baseline (no mutation) ---
+  [PASS] TC-S unset PG_T26_NO_RECURSE は ta-26 harness 分岐にのみ存在（無条件経路 0 / runner unset 集合に混入なし / runner は PG_HARNESS_SOURCED 非 export）
+
+--- M-A: run-tests.sh:163 -> "export PG_HARNESS_SOURCED=1" ---
+  [FAIL] TC-S 配置検査不成立 (harness分岐に存在=1 期待1 / ブロック外0件=1 期待1 / runner非混入=1 期待1 / runner非export=0 期待1): /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.QYwXlldFNr/root/tests/extras/ta-26-plugin-sync.sh / /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.QYwXlldFNr/root/tests/run-tests.sh
+
+--- M-A2: run-tests.sh:163 -> "PG_HARNESS_SOURCED=1; export PG_HARNESS_SOURCED" ---
+  [FAIL] TC-S 配置検査不成立 (harness分岐に存在=1 期待1 / ブロック外0件=1 期待1 / runner非混入=1 期待1 / runner非export=0 期待1): /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.QYwXlldFNr/root/tests/extras/ta-26-plugin-sync.sh / /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.QYwXlldFNr/root/tests/run-tests.sh
+
+--- M-1prime: ta-26 の実 unset 行を削除し、同じ文字列をコメントに残す ---
+  [FAIL] TC-S 配置検査不成立 (harness分岐に存在=0 期待1 / ブロック外0件=1 期待1 / runner非混入=1 期待1 / runner非export=1 期待1): /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.QYwXlldFNr/root/tests/extras/ta-26-plugin-sync.sh / /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.QYwXlldFNr/root/tests/run-tests.sh
+  [ref] 旧実装（アンカー無し grep -q）: s1=1 -> 変異を取り逃がす
+  [ref] 新実装（行頭アンカー）: inblk=0 -> 変異を検出
+
+--- restore + final ---
+  [PASS] TC-S unset PG_T26_NO_RECURSE は ta-26 harness 分岐にのみ存在（無条件経路 0 / runner unset 集合に混入なし / runner は PG_HARNESS_SOURCED 非 export）
+EXIT_CODE=0
