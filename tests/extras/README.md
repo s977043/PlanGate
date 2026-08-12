@@ -183,7 +183,11 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
    ta-39 standalone が 7 件 FAIL のまま exit 0 で素通り）。standalone 分岐
    （else 節の内側のみ）では `PLANGATE_*` / `PG_HARNESS_SOURCED` =
    **run-tests.sh 冒頭の unset 集合と同一の 7 env** を unset して外部 env 汚染を
-   無害化する。単独判定の残存ゼロと unset 集合の包含は `ta-26` の TC-33 が静的検査する
+   無害化する。単独判定の残存ゼロと unset 集合の包含は `ta-26` の TC-33 が静的検査する。
+   **#921 以降の bootstrap（実行契約 helper `_extra-contract.sh` を source する形）では、
+   後段「実行契約」節の harness 判定述語＝3 条件 AND（`EXTRAS_DIR` 非空を含む /
+   HR-4 = (b)）が本規約の 2 条件 AND より優先する**（本項のコード例は移行前形の
+   参考であり、契約移行済みファイルの判定式の正本ではない）
 
 ## 実行契約（execution contract / #921 TASK-0921）
 
@@ -253,7 +257,7 @@ marker は説明ではなく契約回帰テスト（`ta-61-extra-contract.sh`）
    **通常の `[FAIL]` と区別可能なメッセージ**で出力される
 
 `PG_EXTRA_CONTRACT_PROBE` を設定して `PG_EXTRA_CONTRACT_TARGET` を未設定にした場合は
-fail-closed（診断 + 非ゼロ終了）。probe env は init 時に捕捉・unset され、テスト本体が
+fail-closed（診断 + **rc=4** で終了。mis-wired probe を no-op にしない）。probe env は init 時に捕捉・unset され、テスト本体が
 起動する子プロセスへは伝播しない。
 
 ### 案 D（末尾 explicit finalize）

@@ -50,7 +50,14 @@ head: db1c0bd
 1. **層 C の空振り PASS は本 PBI では一切解消しない**（HJ-2 裁定＝Slice 2 の D-2 (c) に委譲。
    harness モードでの層 C 空振り・将来ファイルの同種再生産は Slice 1 では機械検出されない）
 2. **HR-4 残存**: 3 変数（PG_HARNESS_SOURCED / FIXTURES_DIR / EXTRAS_DIR）すべてが
-   汚染された場合は依然 harness 分岐へ落ちる（裁定時に受容済みの残存リスク）
+   汚染された場合は依然 harness 分岐へ落ちる（裁定時に受容済みの残存リスク。
+   **follow-up は issue #1044 起票済み**）
+2-bis. **F-3: finalize 側既定値の非対称**（river-review info）: `_extra-contract.sh` の
+   `pg_extra_contract_is_standalone`（`${_PG_EXTRA_STANDALONE:-1}`）と
+   `pg_extra_contract_finalize`（`${_PG_EXTRA_STANDALONE:-0}`）で未初期化時の既定が
+   非対称。**init 前に finalize を呼ぶ契約違反ファイルでのみ発現**し、その形は TC-10
+   （top-level init 必須）が静的検出する。**helper を変更すると変異 evidence 18 本の
+   HEAD 整合が失効するため本 PR では修正しない**。#1044 と同族の follow-up 対象
 3. **helper 変異の self-referential swallow**: helper を壊す変異は contract TA 自身の
    standalone rc も同経路で壊しうる（M-01 で顕在化）。standalone チャネル単独では
    kill を偽陰性にしうるため、helper 変異クラスの検証は harness 経路（runner 集計）併用が必要
