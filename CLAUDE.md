@@ -11,9 +11,9 @@
 - ワークフロー詳細: [`docs/ai-driven-development.md`](docs/ai-driven-development.md) / Orchestrator: [`docs/orchestrator-mode.md`](docs/orchestrator-mode.md)
 - サブエージェント委譲プロトコル: [`docs/ai/subagent-delegation/README.md`](docs/ai/subagent-delegation/README.md)（派遣プロンプト必須8要素 / OUTCOME契約 / 行動規範 / PlanGateフロー接続。既存の C-3/C-4 ゲートおよび orchestrator-mode の Gate 不変条件は変更しない）
 
-## v8.18.0 実 PR 収束（MERGE_READY）の一気通貫（最新リリース機能）
+## v8.19.0 承認境界ガードの fail-closed 化（最新リリース機能）
 
-> 最新リリース: **v8.18.0**（2026-07-31）v8.17.1 タグ以降に main へ蓄積した 46 マージ（+49k 行）を反映。主要変更: MERGE_READY 状態機械 `delivery.py`＝決定論判定エンジン（#873/#905）・**実 PR 収束＝GitHub Collector / Action Executor / Reconciler + 実行境界検査器 + gh/git 実行ラッパ（allowlist 方式）**（#917/#941・実 PR 1 周の実走証跡付き）・c3-prime 受理器 + Plan-first 束縛（#872/#889/#895）・rollout-policy §2 本体拡張 + 判定基盤 carve-out（#907/#912）・mass-delete guard の fail-closed 化（#877/#915）。**PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。v8.17.x で ai-loop Phase 1 移行 + 計測基盤、v8.16.0 で ai-loop 初実運用 + plugin 同梱。リリース履歴の正本は [`CHANGELOG.md`](CHANGELOG.md)。
+> 最新リリース: **v8.19.0**（2026-08-13）v8.18.0 タグ以降に main へ蓄積した 65 マージ（+65.5k 行）を反映。主要変更: **EH-13 承認トークン書き込みガードの fail-closed 化**（#1023/#1042。block を exit 1 → **exit 2**・stdin 常時独立評価・jq 不在 / malformed を parse-unknown として block。**`jq` が実質必須**）・**EH-13 の読み取り誤 block の解消**（#1045/#1069。`2>/dev/null` 等の fd 複製・破棄を書き込み判定から除外）・**EH-12 protected branch 上の破壊的 git 操作ガード**（#967/#985。配線は `scripts/apply-eh-git-destructive-guard.sh --apply` = Human-owned）・**tests/extras 共有 exit 契約**による「静かに通る失敗」の封鎖（#921 Slice 1 / #1046）・**plugin skill 参照解決の 3 段フォールバック化**（#954 系。Codex 経由導入で解決不能だった相対リンクを是正）。**PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。リリース履歴の正本は [`CHANGELOG.md`](CHANGELOG.md)。
 
 - **Metrics v1**（v8.6.0 初出）: [`docs/ai/metrics.md`](docs/ai/metrics.md) — `bin/plangate metrics <TASK> --collect|--report|--validate`
 - **Reporting & Retrospective v1**（v8.9.0 / #200）: [`docs/ai/reporting.md`](docs/ai/reporting.md) — events.ndjson 由来で sprint retrospective を導出、retrospective テンプレート [`docs/working/templates/retrospective-template.md`](docs/working/templates/retrospective-template.md)
