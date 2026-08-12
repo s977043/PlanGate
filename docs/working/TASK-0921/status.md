@@ -285,8 +285,8 @@
 
 ### BLOCKED（Slice 2 追加）
 
+> **2026-08-12 更新（Human 裁定・AskUserQuestion）**: **G-1 = 案 B 確定**（サブスライスごとに新 TASK ×3 起票・各 TASK が plan_hash / c3.json を保持）/ **G-3 = 分割案承認** → 両行を BLOCKED から解除。**G-2（ta-61 縮約・writeback の定量算入）は各サブスライスの C-3 で確定**（据え置き）。詳細: [`slice2-split.md`](./slice2-split.md) §4-5
+
 | タスク | blocker | owner | unblock_condition |
 |---|---|---|---|
 | SS-2-1〜2-3 exec 開始 | TASK-1044 C-3 未決着（複製すべき bootstrap 述語が未確定） | human | TASK-1044 の C-3 発行（APPROVE の場合はその merge 後） |
-| 管理方式の確定（G-1） | plan L338 は「Slice 1 完了時に判断」と Human に留保・D-5 裁定も未指定 | human | 案 A（同一 TASK 内）/ 案 B（新 TASK ×3）の選択（slice2-split.md §4） |
-| 分割案の承認（G-3）/ Mode 算入方針（G-2） | サブスライスごとの C-3 発行が裁定要件 | human | slice2-split.md §5 の裁定 |
