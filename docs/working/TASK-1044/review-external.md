@@ -304,23 +304,24 @@ AC-5 本文が「ガードの call site を壊す変異」**単数形**なので
 
 | R-NNN | severity | lane | status | reflected_in(commit) | notes |
 |---|---|---|---|---|---|
-| R-001 | major | 整合 | reflected | `<this-commit>` | AC-8 新設 + fixture 規約 + M-4 + エッジケース訂正 |
-| R-002 | major | 整合 | reflected | `<this-commit>` | 4 fixture 完全列挙（plan S5 / TC-36） |
-| R-003 | major | 整合 | reflected | `<this-commit>` | **(b) superseded 宣言**を採用 + AC-9 新設 |
-| R-004 | major | 設計 | reflected | `<this-commit>` | AC-2 → AC-2a/2b/2c/2d、TC-31 を 4 点へ拡張 |
-| R-005 | major | 設計 | reflected | `<this-commit>` | AC-4 を marker 由来の動的導出へ、14 は実測母数 |
-| R-006 | major | 設計 | reflected | `<this-commit>` | Out of scope に「残存エクスポージャ」節 + S8 handoff 行 |
-| R-007 | major | 設計 | reflected | `<this-commit>` | Constraints に carve-out、AC-6 併記、Q-1 設問拡張 |
-| R-008 | minor | 設計 | reflected | `<this-commit>` | TC-30b（`_pg_extra_direct=0` export でも standalone） |
-| R-009 | minor | 設計 | reflected | `<this-commit>` | EV-1 / EV-2 にシェル実体 + ホスト記録を必須化 |
-| R-010 | minor | 設計 | reflected | `<this-commit>` | Mode 節に「working context 成果物は分母外」1 行 |
-| R-011 | minor | 整合 | reflected | `<this-commit>` | F-3 挿入位置を `_PG_EXTRA_ORIGINAL_RC=$?` 直後に固定 |
-| R-012 | minor | 整合 | reflected | `<this-commit>` | README 規約 8 追記を Q-2 から確定化 + AC-8 で担保 |
-| R-013 | info | 設計 | reflected | `<this-commit>` | AC-5(b) を M-1〜M-4 の列挙形へ |
+| R-001 | major | 整合 | reflected | `46416aa` | AC-8 新設 + fixture 規約 + M-4 + エッジケース訂正 |
+| R-002 | major | 整合 | reflected | `46416aa` | 4 fixture 完全列挙（plan S5 / TC-36） |
+| R-003 | major | 整合 | reflected | `46416aa` | **(b) superseded 宣言**を採用 + AC-9 新設 |
+| R-004 | major | 設計 | reflected | `46416aa` | AC-2 → AC-2a/2b/2c/2d、TC-31 を 4 点へ拡張 |
+| R-005 | major | 設計 | reflected | `46416aa` | AC-4 を marker 由来の動的導出へ、14 は実測母数 |
+| R-006 | major | 設計 | reflected | `46416aa` | Out of scope に「残存エクスポージャ」節 + S8 handoff 行 |
+| R-007 | major | 設計 | reflected | `46416aa` | Constraints に carve-out、AC-6 併記、Q-1 設問拡張 |
+| R-008 | minor | 設計 | reflected | `46416aa` | TC-30b（`_pg_extra_direct=0` export でも standalone） |
+| R-009 | minor | 設計 | reflected | `46416aa` | EV-1 / EV-2 にシェル実体 + ホスト記録を必須化 |
+| R-010 | minor | 設計 | reflected | `46416aa` | Mode 節に「working context 成果物は分母外」1 行 |
+| R-011 | minor | 整合 | reflected | `46416aa` | F-3 挿入位置を `_PG_EXTRA_ORIGINAL_RC=$?` 直後に固定 |
+| R-012 | minor | 整合 | reflected | `46416aa` | README 規約 8 追記を Q-2 から確定化 + AC-8 で担保 |
+| R-013 | info | 設計 | reflected | `46416aa` | AC-5(b) を M-1〜M-4 の列挙形へ |
 
-> `<this-commit>`: 本ファイル作成と 1 回確定反映を同一 commit で行うため、
-> commit SHA は本 commit（`git log --oneline -1` で解決可能）。以後の追記は
-> 別 commit で行い、本表へ行を追加する（既存行は編集しない）。
+> `46416aa`: 本ファイル作成と 1 回確定反映を同一 commit で行った（監査表の SHA は
+> 同 commit を直後に追記して確定。rebase / squash で SHA が変わった場合は
+> commit message 末尾の `Refs: R-001 … R-013` が対応関係の二次証跡になる）。
+> 以後の追記は別 commit で行い、本表へ行を追加する（既存行は編集しない）。
 
 ## 反映順序（`.claude/rules/working-context.md` C-2 差分管理）
 
