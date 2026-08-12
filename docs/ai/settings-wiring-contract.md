@@ -149,10 +149,19 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 - これにより「スクリプトは存在するが settings に配線されておらず動かない幽霊ガバナンス」を
   構造的に排除する。
 
-### EH-10: 承認トークン書込みガードの採番・配線
+### EH-13: 承認トークン書込みガードの採番・配線
+
+> **採番改訂（TASK-1023 G-6 / Human 裁定 2026-08-10）**: 本節は当初 **EH-10** として
+> 採番していたが、[`hook-enforcement.md`](./hook-enforcement.md) 側で **EH-10 / EH-11 は
+> #760 / #762 用に予約済み**、**EH-12 は protected branch 破壊的 git 操作ブロック
+> （`check-git-destructive.sh`）に採番済み**であり衝突していた（R-033）。予約体系を
+> 尊重し、衝突しない最小の空き番号 **EH-13** へ改番する（G-6=(b)）。
 
 - `scripts/check-approval-token-write.sh`（c3.json / maintenance.json 等の承認トークンへの
-  AI 書込みガード）を **EH-10** として正規採番し、`PreToolUse(Edit|Write)` に配線する。
+  AI 書込みガード）を **EH-13** として正規採番し、`PreToolUse(Edit|Write)` と
+  `PreToolUse(Bash)` に配線する（Bash matcher は TASK-0128 R-002 / 実配線済み。
+  MultiEdit は現行 Claude Code 2.1.226 に tool 自体が存在せず到達経路がない —
+  TASK-1023 到達性実測 / G-9=(i)）。
 - #420（maintenance.json 発行元検証ギャップ / R-012）と直結。provenance 検証はそちらと協調。
 - **配線方式（重要）**: Claude Code のフック実行環境は env `PLANGATE_HOOK_FILE` を自動 export しないため、`.claude/settings.json` の配線で `${PLANGATE_HOOK_FILE:-}` を **引数として明示的に渡す**（EH-3 と同様）。`check-approval-token-write.sh` は引数 `$1` をターゲットファイルパスの fallback として受け取れるよう実装する（env のみ参照だと Claude Code 環境下でガードがスルーされる）。
 
@@ -171,7 +180,7 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 HO 適用は Human）:
 
 1. **EH-2 strict 化 + EH-1/EH-2 stdin fallback**（hooks 堅牢化・最小単位・回帰リスク低）
-2. **EH-10 採番・配線 + check-approval-token-write 統合**（#420 と協調）。配線時は既存の契約検証スクリプト `scripts/check-settings-wiring.sh` の `checks` リストにも EH-10（`check-approval-token-write.sh`）を追加し、CI / ローカルの契約ドリフト検知（`--target example`）に組み込んで配線漏れを防ぐ
+2. **EH-13 採番・配線 + check-approval-token-write 統合**（#420 と協調。旧記載 EH-10 は TASK-1023 G-6 裁定で EH-13 へ改番）。配線時は既存の契約検証スクリプト `scripts/check-settings-wiring.sh` の `checks` リストにも EH-13（`check-approval-token-write.sh`）を追加し、CI / ローカルの契約ドリフト検知（`--target example`）に組み込んで配線漏れを防ぐ
 3. **doctor Wiring Integrity Enforcement**（Governance Contract 定義 + exit 1）
 4. **hooks 回帰テスト拡充**（maintenance verdict fixture + ta-06 ログ解消）
 

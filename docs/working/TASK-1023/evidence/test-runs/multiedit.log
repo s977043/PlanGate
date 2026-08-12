@@ -1,0 +1,4 @@
+  [PASS] T1023-TC-22a MultiEdit normal file passes (exit 0)
+  [PASS] T1023-TC-22b MultiEdit token file_path blocked (exit 2)
+  [PASS] T1023-TC-22c token-path string in body does not block normal-file edits (exit 0)
+  [PASS] T1023-TC-17d mutant killed by real TC (T1023-TC-22a FAILs)

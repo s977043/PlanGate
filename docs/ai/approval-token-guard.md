@@ -6,7 +6,7 @@
 
 TASK-0123 で導入された2つの防御層:
 
-1. **EH-token-guard** (`check-approval-token-write.sh`): AI が承認ファイルに直接 Write/Edit/Bash するのを block するプリフックス
+1. **EH-13 token-guard** (`scripts/check-approval-token-write.sh`): AI が承認ファイルに直接 Write/Edit/Bash するのを block するプリフックス（採番は TASK-1023 G-6 裁定で **EH-13**。stderr プレフィックスは `[EH-13 token-guard] BLOCK:`）
 2. **HMAC 署名検証** (EH-3 拡張): `maintenance.json` が人間によって正規に発行されたことを HMAC-SHA256 署名で検証
 
 ## PLANGATE_MAINTENANCE_KEY の設定
@@ -72,7 +72,7 @@ bin/plangate maintenance start --reason "hook 整備" [--paths "scripts/hooks/fo
         "hooks": [
           {
             "type": "command",
-            "command": "sh scripts/hooks/check-approval-token-write.sh"
+            "command": "sh scripts/check-approval-token-write.sh"
           }
         ]
       }
@@ -83,7 +83,7 @@ bin/plangate maintenance start --reason "hook 整備" [--paths "scripts/hooks/fo
 
 ## トラブルシューティング
 
-### `[EH-token-guard] 承認トークン系ファイルへの AI 直接書き込みは禁止されています。`
+### `[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。`
 
 AI が承認ファイルを直接書き込もうとしています。人間が `bin/plangate maintenance start` を実行してください。
 
