@@ -653,9 +653,9 @@ autonomous APPROVE 不可・`lite_eligible=false` は同一で、差分は V-4 �
 
 | R-NNN | severity | lane | status | reflected_in(commit) | notes |
 |---|---|---|---|---|---|
-| R-021 | minor | 両レーン | reflected | （本 commit・後段で実 SHA へ確定） | Files 節 / Risks 表 / AC-7 の 3 箇所を R-014・R-018 準拠へ。掃除後に grep で残存 0 件を実測 |
-| R-022 | minor | 整合 | reflected | （本 commit・後段で実 SHA へ確定） | 「3 条件すべて」→「2 条件（`PG_HARNESS_SOURCED` / `EXTRAS_DIR`）」へ最小是正 + **Q-4 新設**（実装はしない） |
-| R-023 | minor | 設計 | reflected | （本 commit・後段で実 SHA へ確定） | Q-3 に「差分は V-4 と複数レビュアー推奨のみ」を追記 |
+| R-021 | minor | 両レーン | reflected | `7ea3302` | Files 節 / Risks 表 / AC-7 の 3 箇所を R-014・R-018 準拠へ。掃除後に grep で残存 0 件を実測 |
+| R-022 | minor | 整合 | reflected | `7ea3302` | 「3 条件すべて」→「2 条件（`PG_HARNESS_SOURCED` / `EXTRAS_DIR`）」へ最小是正 + **Q-4 新設**（実装はしない） |
+| R-023 | minor | 設計 | reflected | `7ea3302` | Q-3 に「差分は V-4 と複数レビュアー推奨のみ」を追記 |
 
 > Round 1 / Round 2 の監査表は**編集していない**。
 
