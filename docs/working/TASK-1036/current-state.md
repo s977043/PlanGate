@@ -11,7 +11,7 @@
 - 追加事実 4 点を plan に反映: ta-26 は #921 契約未移行（挿入点無傷）/ 新規 extras は #921 checklist 準拠必須 / ta-26 standalone 実測 約44 秒（TC-D コスト設計）/ ta-61 に同型 `PG_T61_NO_RECURSE`（V2 候補）
 - 方式決着: **案 (d)**・TC 配置 = 新規 `ta-62`・変異 M-1（動的）/M-2（静的のみ・実行禁止）/M-3（sandbox）
 - Mode 判定: **standard / lite_eligible=false**（pbi-input N-6 の条件付き確定と一致）
-- C-1 セルフレビュー 17 項目実施（`review-self.md`）
+- C-1 セルフレビュー 25 項目実施（テンプレート全項目: Plan 7 + AEE 2 + SUP 2 + ToDo 6 + Test 3 + B1B2 2 + SEC/SCOPE/UI 3。`review-self.md`）
 
 ## ブロッカー / 待ち
 

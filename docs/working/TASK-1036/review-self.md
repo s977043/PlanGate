@@ -17,10 +17,12 @@ created_by: claude-worker
 
 | result | 件数 |
 |--------|------|
-| PASS | 20 |
-| WARN | 2 |
+| PASS | 23 |
+| WARN | 0 |
 | FAIL | 0 |
 | N/A | 2 |
+
+> WARN 2 件（C1-WARN-A/B）はチェック項目の result ではなく**独立 findings（チェック result 外）**として下記「WARN Findings」に記載。
 
 - 受入基準 5 件（pbi-input の AC 正本の写像・拡張なし）は T1036-TC-D/S/M1-M3/R1-R2/E1-E2 へ全件マッピング済み（test-cases Traceability）。
 - pbi-input（base `408cebb`）の前提を現 main `48f6971` で全数再実測し、すべて再現を確認（plan P-1〜P-6）。追加事実 4 点（P-7〜P-10）を plan に反映。
@@ -235,4 +237,21 @@ created_by: claude-worker
 - [ ] C-2（任意 — standard のフェーズ適用マトリクスでは C-2 は「-」。実施要否は運用判断）
 - [ ] Human C-3（c3.json **初回発行**が必要 — `approvals/` 不在）
 
-C1-VERDICT: PASS plan=sha256:8c0f5155bb1fdffa8754bdd0546f4aaacd21805757cf0fb7c000f1f12f78034d
+C1-VERDICT: PASS plan=sha256:8c0f5155bb1fdffa8754bdd0546f4aaacd21805757cf0fb7c000f1f12f78034d（初版・下記再実行で更新）
+
+---
+
+## 簡易 C-1 再実行（2026-08-12 / river-review minor 4 の反映後）
+
+> 対象: オーガナイザー経由 river-review（critical/major 0・minor 4）の反映後 Plan Package。
+> 反映内容: (1) サマリー表を実体（PASS 23 / N/A 2）へ修正 + WARN 2 は独立 findings と注記 + current-state の項目数を 25 へ訂正、(2) plan H-01 の確認事項を 4 点に統一（todo / INDEX と一致）、(3) T1036-TC-D に非空実行の下限条件（clean 実行に `[PASS]` 1 行以上 — 空出力の自明一致という偽陽性の排除。絶対件数ではない）を追加、(4) S-5 の閾値測定方法を固定（user+sys 合計の 3 回中央値 + 測定環境注記。wall は 43.7s → 56.4s の負荷依存揺れを実測）。
+
+| 観点 | 判定 | 根拠 |
+|---|---|---|
+| 受入基準網羅性 | PASS | AC 正本・Traceability は不変。TC-D への追加条件は判定の厳格化のみ（期待値の変更なし） |
+| 件数ハードコード回避 | PASS | 追加した「`[PASS]` 1 行以上」は下限（非空性）であり絶対件数の契約化ではない旨を TC 内に明記 |
+| H-01 整合 | PASS | plan / todo / INDEX / current-state の 4 ファイルで確認事項 4 点が一致 |
+| 停止条件の機械性 | PASS | S-5 が測定方法（user+sys 3 回中央値）まで固定され再現可能に |
+| スコープ制御 | PASS | 差分は docs/working/TASK-1036/ 内のみ。approvals/ / HO パス不接触 |
+
+C1-VERDICT-2: PASS plan=sha256:638498e97a831f87204266298717e0a6f9a67660fb03a1a8e804b822123a74a6

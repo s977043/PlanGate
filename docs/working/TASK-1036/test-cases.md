@@ -7,7 +7,7 @@
 
 | ID | 対応 AC | 前提 / 入力 | 期待結果 | 種別 |
 |---|---|---|---|---|
-| T1036-TC-D | AC-1, AC-2 | ミニ harness ラッパ（`pass/fail/register_cleanup` + 実 `FIXTURES_DIR` + `PG_HARNESS_SOURCED=1`）で `ta-26` を source。(1) `PG_T26_NO_RECURSE=1` export 下の leak 実行、(2) env なしの clean 実行 | 2 実行の出力が `diff` で完全一致、かつ leak 実行に再帰防止起因の `[SKIP]` 行が 0 | 動的 / `ta-62` 内 |
+| T1036-TC-D | AC-1, AC-2 | ミニ harness ラッパ（`pass/fail/register_cleanup` + 実 `FIXTURES_DIR` + `PG_HARNESS_SOURCED=1`）で `ta-26` を source。(1) `PG_T26_NO_RECURSE=1` export 下の leak 実行、(2) env なしの clean 実行 | 2 実行の出力が `diff` で完全一致、かつ leak 実行に再帰防止起因の `[SKIP]` 行が 0、かつ clean 実行の出力に `[PASS]` 行が 1 行以上（両実行が空出力で自明一致する偽陽性の排除。非空実行の下限であり絶対件数ではない） | 動的 / `ta-62` 内 |
 | T1036-TC-S | AC-2, AC-4 | `ta-26` と `run-tests.sh` の実ファイルを grep 検査 | (1) `ta-26` harness 分岐（`PG_T26_STANDALONE=0` の else 節ブロック）に `unset PG_T26_NO_RECURSE` が存在、(2) preamble 無条件経路 / standalone 分岐に存在しない、(3) `run-tests.sh` の unset 集合に `PG_T26_NO_RECURSE` が混入していない | 静的 / `ta-62` 内 |
 | T1036-TC-M1 | AC-2 | tmp 複製の `ta-26` から修正行（harness 分岐の unset）を削除（置換件数=1・mutant `sh -n` PASS） | **T1036-TC-D そのものが FAIL**（leak 実行に `[SKIP]` 出現・diff 不一致）。復元後 PASS | 変異（動的）/ 検証手順 |
 | T1036-TC-M2 | AC-2 | tmp 複製で unset を preamble 無条件経路へ移動（案 (c) 型・置換件数=1・`sh -n` PASS）。**動的実行禁止**（孫 spawn 再入ループ） | **T1036-TC-S そのものが FAIL**（配置検査 (1)(2) 不成立）。復元後 PASS | 変異（静的のみ）/ 検証手順 |
