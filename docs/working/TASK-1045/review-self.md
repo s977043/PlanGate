@@ -500,3 +500,94 @@ C1-VERDICT: WARN plan=sha256:fe541d0f3585e6411da3f6d1d65042c5a29156a5f1fb75098e2
 > todo=sha256:5151289f6b9edd983b98cd3afd4bbbab4efcf440306073a5ef4243f1b4573cd1
 > test-cases=sha256:7e3597a2e0c7184b1226f76ff8b056ac5fccb24a82a4f89583c4d3a80d0e1298
 > base=`6089e23` / head=`195db5c`
+
+---
+
+## 簡易 C-1 再実行（C-2 確定反映後 / 追記専用）
+
+> 実施: plan maker（自己再確認）。**上記 C-1 本体（独立 checker）の記述は一切変更していない**（追記のみ）。
+> 対象: W-1〜W-5（C-1）+ R-001〜R-008（C-2）の **1 回確定反映後**の plan / todo / test-cases。
+> 位置づけ: [`working-context.md`](../../../.claude/rules/working-context.md) の順序規約
+> 「(1) R-NNN 集約 → (2) 1 回確定反映 → **(3) 簡易 C-1** → (4) 人間が c3.json → (5) exec」の (3)。
+
+## 反映の網羅性（機械確認）
+
+| 指摘 | severity | 反映先 | 確認方法と結果 |
+|---|---|---|---|
+| **R-001** | major | `GC-4-C` 新設 / `SC-4` を 7 ラベル列挙化 / Step 2・Step 3 CP / `A-4` 判定方式 | `grep -o '^### GC-'` に **`GC-4-C` 存在**。`SC-4` 行に **`TC-15pre` / `TC-17post` の明示除外**あり |
+| **R-002** | major | `GC-8` 新設 / Step 3 必須実装 3 件 / `T1045-TC-22` / `SC-9` / `R-12` | `GC-8` 存在。`SC-9` は plan・todo 双方に存在。`T1045-TC-22` 定義済 |
+| **R-003** | minor | `RT-2` を (a) invoke・source / (b) settings 実配線 の 2 条件へ | `RT-2` 行に **(a)(b) の明記**と「実測では該当なし」 |
+| **R-004** | minor | `Q-1` に「失うのは V-4 のみ / 承認境界は不変」 | `Q-1` 行に記載。**マトリクス 13 行を照合し `○ → -` は V-4 の 1 行のみ**と実測表現 |
+| **R-005** | minor | `SC-6` に `T1045-TC-07 (1)` を追加 | `SC-6` 行に含有 |
+| **R-006** | minor | plan §AC の適用範囲宣言（AC-03 = fd 複製 **+ fd クローズ**） | 新節あり。test-cases の Traceability AC-03 行も同期 |
+| **R-007** | minor | `GC-6` に `LC_ALL=C` 固定 / Step 1b 実験条件 | `GC-6` に実測値（UTF-8 で rc=1 / `LC_ALL=C` で rc=0）付きで記載 |
+| **R-008** | minor | `R-14` / `A-1` 調査項目 7 / `A-14` handoff 必須記載 | 3 箇所すべてに記載 |
+| **i-1** | info | `A-1` 調査項目 6（稼働 settings の実測） | 記載あり |
+
+**未反映（`status` が `reflected` / `acknowledged` 以外）の指摘 = 0 件**
+（`review-external.md` の監査表 10 行を `grep -o` で集計: `reflected` 9 / `acknowledged` 1）。
+
+## 機械チェック結果（本再実行で実行したコマンド）
+
+| # | コマンド | 結果 |
+|---|---|---|
+| S-1 | `npx markdownlint-cli2 "docs/working/TASK-1045/*.md"` | **0 issues in 0 files**（6 ファイル） |
+| S-2 | `extract_allowed_paths(plan.md)`（`scripts/ai-loop/plan_package.py`） | **7 パス**。禁止パスの混入なし |
+| S-3 | `Verification Automation:` 行の正規表現抽出 | 抽出可（`derive_loopspec()` の fail-closed を回避） |
+| S-4 | TC 定義の自数え | **22 件**（`TC-01`〜`TC-22`・欠番なし） |
+| S-5 | Traceability の AC 行数 | **13 件**（AC-01〜13） |
+| S-6 | `comm` による双方向 orphan 検査（定義集合 ↔ 追跡集合） | **両方向とも差分 0 件**（orphan 0 を機械確認） |
+| S-7 | `SC-*` / `RT-*` の plan ↔ todo 突合 | **SC-1〜9 / RT-1〜5 が両文書で一致** |
+| S-8 | 旧 TC 範囲表記の掃き残し検査 | plan / todo / test-cases とも **0 件** |
+
+### 本再実行で新たに発見・修正した掃き残し（自己検出）
+
+- **`plan.md` Step 3 のチェックポイントに `T1045-TC-01`〜`07` という旧表記が残存**していた
+  （W-3 の反映時に見落とし。C-2 ではどちらのレーンも指摘していない）。
+  **`GC-4-A` の 7 件表記へ修正済み**。S-8 で 0 件を再確認。
+
+## 判定サマリ
+
+| 項目 | 結果 |
+|---|---|
+| C-2 major 2 件（R-001 / R-002） | **反映済み**。いずれも**筆者が独立に実走再現**したうえで反映 |
+| C-2 minor 6 件 | **反映済み** |
+| 新規に持ち込まれた FAIL | **0 件** |
+| 残 WARN | **1 件**（下記 W-6） |
+
+### W-6 [minor] `GC-8` の実装可否は未実証のまま残る
+
+`_wc_n=$(…) || _wc_n="$_wc"` と `command -v sed` 検査は**設計上 fail-closed になる**が、
+**guard 本体へ統合した状態での実測は未実施**（実装前のため）。
+→ **`UV-2` の範囲内**として扱い、**`T1045-TC-22` + `SC-9`** で exec 時に機械検出する経路を確保済み。
+plan の記述としてはこれ以上詰められないため WARN 据え置き。
+
+### C-3 へ引き継ぐ人間判断（前回 H-Q1〜H-Q6 の更新）
+
+| # | 論点 | 状態 |
+|---|---|---|
+| H-Q1 | Mode `critical` / `high-risk` | **未決（人間判断）**。R-004 反映で「失うのは V-4 のみ」が明示された |
+| H-Q2 | `&>` / `&>>` を block 維持か | **未決（人間判断）**。C-2 は「既定のままで良い」と判定 |
+| H-Q3 | W-3（focused 群の不一致） | **解消済み**（`GC-4-A` で 7 件に一本化・4 箇所同期） |
+| H-Q4 | W-4（ラベル衝突） | **解消済み**（案 A 相当 = `GC-4-B` (a) prefix 引数を採用） |
+| H-Q5 | GNU sed の前倒し | **解消済み**（Step 1b / A-1b として実装前に前倒し + `RT-1` 接続） |
+| H-Q6 | W-1 / W-5 | **解消済み**（`SC-1〜9` / `RT-1〜5` 新設・A-5/A-6 を 4 分割） |
+
+---
+
+C1-VERDICT-2: WARN plan=sha256:d859a66c2d446b7fce9c862e456db8b5d6aba1bf17fa29e8bc084a7c638e16f2
+
+> 判定内訳: critical=0 / major=0 / minor(WARN)=1（W-6）/ FAIL=0
+> **C-2 の major 2 件は反映により解消**。残 WARN は「実装前のため実証不能」に起因するもので、
+> いずれも `UV-2` + `T1045-TC-22` + `SC-9` で exec 時に機械検出される。
+> **plan は C-3 に諮れる状態**（最終判断は Human-owned）。
+>
+> 参考ハッシュ（同時対象）:
+> todo=sha256:a4944afaf958ac691526d346d51394384ec93f42210ebda14c3dad8a2a9fdc0a
+> test-cases=sha256:5167fb90ed56b0ab102086a076e89911a788614b958e723efe6e6fa848c4ac01
+> review-external=sha256:9ea1826c187b0fc68d7e760611143613e4b6abc38b42cf39165ae5664931b8a2
+> base=`6089e23` / C-1 head=`bd0fa82`
+>
+> **注意**（`feedback_no_plan_edit_after_c3_approval`）: `c3.json` は
+> **上記 `plan_hash` に対して発行**すること。発行後に plan を 1 文字でも編集すると
+> EH-3 が mismatch を検知する。

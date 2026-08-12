@@ -91,15 +91,52 @@ guard を通過**し、かつ **ファイル宛リダイレクトを含む真の
 ＝変異 (a)(b) の kill 対象（`TC-01` / `TC-04`）と、**同一コードパスを共有し変異で連鎖 FAIL する
 ことを実測確認する対象**（`TC-02` / `TC-03` / `TC-05` / `TC-06` / `TC-20`）である。
 
-**通常群に置く TC = `T1045-TC-07`〜`TC-19` + `TC-21` の 14 件**（変異の kill 対象ではない）。
+**通常群に置く TC = `T1045-TC-07`〜`TC-19` + `TC-21` + `TC-22` の 15 件**（変異の kill 対象ではない）。
 とくに `TC-07`（併記回避）は変異 (b) 適用下でも `copy-like` ルールで block され続けるため
 **kill 対象になり得ず、focused 群に置く必要がない**。
 
 **副作用の確認（安全性）**: focused 群の TC は既存 mutation 7 種の子プロセスでも実行される。
 うち **変異 1（`TC-15`: block を `exit 2`→`exit 1`）では `T1045-TC-04`〜`06` も併せて FAIL する**が、
 `_t25_mutate` の kill 判定は **`grep -q "[FAIL] $_t25_kill"`（特定ラベルの存在）**であり
-「当該ラベルのみが FAIL」を要求しないため（`ta-25:655`）、**既存 mutation の判定は壊れない**。
+「当該ラベルのみが FAIL」を要求しないため（`ta-25:655`）、**既存 mutation 7 種の判定は壊れない**。
 この点は Step 2 のチェックポイントで実測確認する。
+
+### GC-4-C: RED ウィンドウの期待 FAIL 集合（**R-001 / C-2 両レーン一致**）
+
+> **C-2 の重要な訂正**: 筆者は当初「壊れるのは既存 mutation 7 種」を警戒していたが、
+> **RED 中に実際に FAIL するのは `T1023-TC-15pre` / `T1023-TC-17post` の 2 件**である。
+> 整合レーンが実走で再現した（`45 passed, 3 failed` / EXIT=1）。
+
+**機構**: `ta-25:621-627`（baseline）と `ta-25:676-684`（restore）は
+**原本 guard で focused 群を子実行し「rc==0 かつ `[FAIL]` 0 件」を要求**する。
+RED ウィンドウでは focused 群に FAIL する TC が存在するため、**この 2 件が必ず FAIL する**。
+
+#### RED ウィンドウ（Step 2 完了〜Step 3 完了の間）の**期待 FAIL 集合 = 6 件**
+
+| ラベル | RED 中の期待 | 根拠 |
+|---|---|---|
+| `T1045-TC-01` | FAIL | 誤検知解消 TC（未実装のため落ちるのが正しい） |
+| `T1045-TC-02` | FAIL | 同上 |
+| `T1045-TC-03` | FAIL | 同上 |
+| `T1045-TC-20` | FAIL | 同上 |
+| **`T1023-TC-15pre`** | **FAIL** | baseline が focused 群の `[FAIL]` を検出するため（`ta-25:623`） |
+| **`T1023-TC-17post`** | **FAIL** | restore が同様に検出するため（`ta-25:680`） |
+
+**この 6 件は RED ウィンドウにおいて `SC-1` / `SC-4` の対象外**とする（誤発火防止）。
+**それ以外のラベルが FAIL したら `SC-1` を発火**させる。
+
+#### 設計制約の言語化
+
+**「focused 群には、無変異 guard 下で恒久的に FAIL する TC を置けない」。**
+`ta-25:621-627` / `676-684` が focused 群の全 PASS を前提にしているため。
+**本 PBI は Step 3（GREEN）完了後に focused 群が全 PASS へ戻るので設計自体は成立している**が、
+将来 focused 群へ TC を追加する際はこの制約を満たすこと。
+
+#### 判定方式（`A-4` / Step 2）
+
+**suite 全体の rc / `0 failed` で判定してはならない**（RED 中は必ず exit 1 になる）。
+**`grep -q "[FAIL] <ラベル>"` のラベル単位判定**へ置き換える
+（ハーネスの kill 契約 `ta-25:655` と同じ土俵に乗せる）。
 
 補足制約（同 N-3 の 3 / 4）:
 
@@ -118,6 +155,60 @@ TTY 即 fail-closed / `PLANGATE_SKIP_TOKEN_GUARD`（Human-owned escape hatch）/
 guard は `#!/bin/sh` + `set -eu`。実装は **POSIX BRE / ERE の範囲に留める**。
 GNU 拡張（`sed` の `\|` / `\+` / `\b`、`grep -P`）は**使用禁止**。
 ローカル（macOS / BSD）と CI（Linux / GNU）の双方で実行結果を evidence に残す。
+
+**locale も固定する（R-007 / C-2 整合レーン）**: 方言だけでなく **locale も挙動を変える**。
+BSD `sed` は UTF-8 locale 下で不正バイト列に対し
+`RE error: illegal byte sequence` を返して**失敗する**（**実測 rc=1**）。
+一方 `LC_ALL=C` では**同入力で rc=0**（実測）。
+したがって **正規化パイプラインは `LC_ALL=C` 固定で実行する**。
+これは GC-8 の fail-closed 要件を**発火させにくくする緩和**でもある
+（ただし `LC_ALL=C` は緩和であって代替ではない。**GC-8 の 3 要件はすべて必須**）。
+Step 1b の方言比較実験も **`LC_ALL=C` を実験条件に含める**。
+
+### GC-8: 正規化ヘルパは **fail-closed** で持ち込む（**R-002 / C-2 整合レーン・実走再現**）
+
+> **GC-1（弱体化禁止）の具体化**。本節に反する実装は critical 相当として扱う。
+
+**問題**: 現行 `_has_write_intent()` は全ルールが
+`printf … | grep -q … && return 0` の **AND-list** で、`grep` の非 0 は「不一致」という
+**正しい意味**を持つ。一方、plan の正規化方式は
+`_wc_n=$(printf … | sed …)` という**コマンド置換の代入**であり、意味論が異なる。
+
+呼び出し側は `check-approval-token-write.sh:136` の
+`if _is_token_path "$_cmd" && _has_write_intent "$_cmd"; then` であるため、
+**`if` 条件内では `set -e` が無効**。したがって
+**`sed` の失敗は「異常終了」ではなく「書き込み意図なし」として静かに扱われ、ALLOW になる**。
+
+**実測（本 plan 反映時に筆者が独立再現。scratchpad のみ・`scripts/` 未変更）**:
+
+| 条件 | 結果 |
+|---|---|
+| `sed` 相当が失敗する状態で `printf x > <TOKEN>` を判定 | **ALLOW（rc=0）/ stderr 出力なし**。`set -e` でも中断しない |
+| `LC_ALL=en_US.UTF-8` + 不正バイト列を BSD `sed` へ | **rc=1** `sed: RE error: illegal byte sequence` |
+| `LC_ALL=C` + 同入力 | **rc=0**（成功） |
+
+**この repo の確立パターンからの逸脱**: 外部依存はすべて `command -v` で守られ、
+不在は明示処理される（`check-approval-token-write.sh:97` の `jq` /
+`check-plan-hash.sh:35` / `check-delegation-commit-boundary.sh:114`）。
+**`sed` にだけこの守りが無い状態は、#1023 が塞いだ「parse fail-open」と同一クラス**であり、
+**GC-5（#1023 契約を変更しない）にも抵触**する。
+
+**到達経路について**: stdin レーンからの誘発は **未実証**
+（`jq -r` が不正 UTF-8 を U+FFFD へサニタイズするため。整合レーンが追試）。
+**しかし守るべきは「到達経路が今は無い」ではなく「弱める側へ倒れる形をそもそも作らない」**
+であり、これは GC-1 が最上位制約として掲げている内容である。
+
+#### 必須実装事項（Step 3 / A-5a・A-5b で満たすこと）
+
+1. **正規化の失敗は元文字列へフォールバック（fail-closed）**:
+   `_wc_n=$(…) || _wc_n="$_wc"` の形にし、
+   **正規化できなければ元文字列で判定する = block 維持**とする
+2. **`sed` の存在検査を `jq` と同じ契約に揃える**:
+   guard 起動時に `command -v sed >/dev/null 2>&1 || _parse_unknown "sed not available"` を追加
+3. **正規化パイプラインは `LC_ALL=C` 固定で実行する**（R-007。locale 依存の失敗を除去）
+
+**変異では検出されない点に注意**: 変異 (b) は `# t1045-file-redirect` の判定行しか壊さず、
+`SC-6` も境界 TC の rc=0 しか見ていない。**したがって専用の TC（`T1045-TC-22`）が必要**。
 
 ### GC-7: 変更対象の限定
 
@@ -218,6 +309,22 @@ detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形�
 
 ---
 
+## AC の適用範囲宣言（**R-006 / `pbi-input.md` は確定物のため編集しない**）
+
+C-2 設計レーンの指摘: **Goal と Approach は `N>&-`（fd クローズ）を除外対象に含むが、
+`pbi-input.md` の AC-03 の文面は「`>&2`（fd 複製）」止まり**である。
+**除外面（＝危険な方向）が AC の外側で拡張**されており、
+このままでは **C-4 レビュアーが「何を承認したのか」を判別できない**。
+
+`pbi-input.md` は main に確定済みで編集しないため、**plan 側で適用範囲を宣言する**:
+
+> **AC-03 の適用範囲を「fd 複製（`N>&M` / `>&N`）**および**fd クローズ（`N>&-`）」と読む。**
+> 対応 TC は `T1045-TC-03`（fd 複製）と **`T1045-TC-20`（fd クローズ）**の 2 件。
+
+**この宣言は AC を緩めるものではなく、除外面を AC の内側へ引き戻して
+承認範囲を可視化するもの**である（緩和ではなく明示化）。
+C-3 で人間がこの範囲を承認したことをもって、`N>&-` の除外が承認範囲に入る。
+
 ## 未決事項の確定（pbi-input Unknowns の処理）
 
 | ID | 未確定事項 | **plan での確定** | 根拠 / 備考 |
@@ -251,7 +358,17 @@ detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形�
   3. **U-6 横断調査**: `scripts/` / `bin/` / `.codex/` を対象に、
      コマンド文字列に対する粗い `>` 判定・write-intent ヒューリスティクスを列挙する。
      検出時は **scope に入れず follow-up issue を起票**して plan には記録のみ
-  4. **U-3 再確認**: `grep -rn "writes token path" tests/` が 0 件であることを再実測
+  4. **U-3 再確認**: `grep -rn "writes token path" tests/` が 0 件
+  5. **RT-2 の (a)(b) を実測**: (a) 他ガードが本ガードを invoke / source していないか、
+     (b) 本ガードの複製が `.claude/settings*.json` に実配線されていないか（R-003）
+  6. **稼働 settings の実測（i-1）**: `.claude/settings.json`（**Human-owned・gitignore 対象で
+     worktree には存在しない**）が `scripts/` 直下を直接呼んでいること、
+     および `scripts/hooks/` 側の複製が存在しないことを、**メイン checkout 側で実測**して
+     A-1 の調査ログへ 1 行残す（U-5「再適用不要」の根拠を example だけでなく稼働側でも固める）
+  7. **R-008 の複製導線を確認**: `scripts/apply-task-0123-patches.sh`（`67-88` 行）が
+     `scripts/check-approval-token-write.sh` → `scripts/hooks/…` へ `cp` し
+     **既存時はスキップして更新しない**ことを記録（**`GC-7` は維持し本 PBI では触らない**。
+     handoff の既知課題 + follow-up issue 起票へ回す）であることを再実測
 - **🚩チェックポイント**: baseline が 0 failed であること。0 failed でなければ **exec を止めて人間へ**
 - `rollback:` 不要（読み取り・記録のみ。ファイル変更なし）
 
@@ -262,7 +379,10 @@ detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形�
 - **Risk**: medium（ここで割れると設計方針そのものが変わる）
 - **内容**: 正規化ロジックの **26 ケースのプロトタイプ**を、
   **BSD `sed`（macOS ローカル）と GNU `sed`（Linux コンテナまたは CI）の双方**で実行し、
-  **全 26 ケースの分類が一致する**ことを確認する。`scripts/` は変更せずスクラッチで行う
+  **26 ケースすべての分類が一致する**ことを確認する。`scripts/` は変更せずスクラッチで行う。
+  **実験条件に `LC_ALL=C` 固定を含める**（R-007。locale 差を実験の交絡から外す）。
+  併せて **`LC_ALL` 未固定時に不正バイト列で `sed` が rc≠0 になること**も観測し、
+  GC-8 の fail-closed が必要な根拠として evidence に残す
 - **🚩チェックポイント**: **26/26 が両方言で一致**。
   1 件でも異なれば **RT-1 を発火させて exec を停止し C-3 へ差し戻す**（§Stop Conditions）
 - **前倒しの理由**: plan 段階の feasibility 検証は **BSD `sed` のみ**で行っており
@@ -280,18 +400,23 @@ detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形�
 - **内容**:
   - 誤検知解消 TC（`T1045-TC-01`〜`03` + `TC-20`）と
     退行防止 TC（`T1045-TC-04`〜`06`）を **focused 群**へ追加
-  - **`T1045-TC-07`〜`TC-19` + `TC-21` は通常群**へ追加（GC-4-A。kill 対象ではない）
+  - **`T1045-TC-07`〜`TC-19` + `TC-21` + `TC-22` は通常群**へ追加（GC-4-A。kill 対象ではない）
   - 全 TC を `t25_guard` ヘルパ経由で起動（guard パスをハードコードしない / GC-4）
   - `T1023-TC-24`（stdin 未 redirect の静的検査）に**新たな違反を作らない**
-- **🚩チェックポイント**:
-  - この時点で **`T1045-TC-01`〜`03` + `TC-20` が FAIL**、
-    **`T1045-TC-04`〜`06` が PASS** すること（RED 確認）
+- **🚩チェックポイント**（**判定は `grep -q "[FAIL] <ラベル>"` のラベル単位**で行う。
+  **suite 全体の rc / `0 failed` で判定してはならない** — RED 中は必ず exit 1 になる / GC-4-C）:
+  - **RED ウィンドウの期待 FAIL 集合が下記 6 件と完全一致**すること（GC-4-C）:
+    `T1045-TC-01` / `T1045-TC-02` / `T1045-TC-03` / `T1045-TC-20` /
+    **`T1023-TC-15pre`** / **`T1023-TC-17post`**
+    → **この 6 件は `SC-1` / `SC-4` の対象外**。**6 件以外のラベルが FAIL したら `SC-1` を発火**
+  - **`T1045-TC-04`〜`06` が PASS** すること（退行防止の基準線）
   - **focused 子プロセス**（`PG_T25_MUTATION_CHILD=1`）で
     **GC-4-A の 7 件すべてのラベルが出力に現れる**ことを目視確認する
     （GC-4(b) の空振り防止 / #874 同型の失敗回避）
-  - **既存 mutation 7 種が引き続き PASS** すること（GC-4-A の副作用確認。
+  - **既存 mutation 7 種が引き続き PASS** すること
+    （**`SC-4` の 7 ラベル列挙**で判定。`TC-15pre` / `TC-17post` は除外）。
     変異 1 の子プロセスで `T1045-TC-04`〜`06` が併せて FAIL しても
-    `T1023-TC-15` の kill 判定は成立する）
+    `T1023-TC-15` の kill 判定は成立する（`ta-25:655` はラベル存在判定）
 - `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
 
 ### Step 3: GREEN — `_has_write_intent()` のリダイレクト検査を置換
@@ -304,10 +429,19 @@ detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形�
   2. 正規化呼び出し行に **一意アンカー `# t1045-redirect-normalize`** を付す
   3. 残存 `>` 判定行に **一意アンカー `# t1045-file-redirect`** を付す
   4. POSIX BRE のみを使用（GC-6）。`sh -n` が通ること
+  5. **GC-8 の必須実装 3 件**（**省略不可** / R-002）:
+     (i) `_wc_n=$(…) || _wc_n="$_wc"` の **fail-closed フォールバック**、
+     (ii) 起動時の **`command -v sed` 検査**（`jq` と同契約 = `_parse_unknown`）、
+     (iii) 正規化パイプラインの **`LC_ALL=C` 固定**（R-007）
 - **🚩チェックポイント**:
   - **アンカー 2 種が `grep -c` == 1 であることを実測**（GC-4(a) / R-6）
-  - `T1045-TC-01`〜`07` が全 PASS へ転じる（GREEN）
+  - **`T1045-TC-01`〜`06` + `TC-20`（GC-4-A の 7 件）が全 PASS へ転じる**（GREEN）
   - **`T1023-TC-08` / `TC-09` / `TC-12` / `TC-25` / `TC-26` / `TC-27` が PASS を維持**（GC-3 / AC-11）
+  - **`T1023-TC-15pre` / `T1023-TC-17post` が PASS へ戻る**（GC-4-C。
+    **RED ウィンドウが閉じたことの機械的確認**。戻らなければ focused 群に
+    恒久 FAIL の TC が残っている＝設計制約違反として即停止）
+  - **`T1045-TC-22`（`sed` 不在 PATH → `rc=2`）が PASS**（GC-8。
+    fail-open が残っていれば `rc=0` で落ちる → **`SC-9` を発火**）
 - `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
   （guard は他ファイルに依存を持たない単体スクリプトのため、単独 revert で完全に復元可能）
 
@@ -387,7 +521,7 @@ detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形�
 | パス | 変更内容 | 責務 |
 |---|---|---|
 | `scripts/check-approval-token-write.sh` | `_has_write_intent()` のリダイレクト検査置換 + `_strip_nonwrite_redirects()` 追加 + `rule=<id>` 付与 + 一意アンカー 2 種 | AI-owned |
-| `tests/extras/ta-25-approval-token-guard.sh` | **`T1045-TC-01`〜`06` + `TC-20` を focused 群へ**（GC-4-A・7 件）/ **`TC-07`〜`TC-19` + `TC-21` を通常群へ**（14 件）追加 + **`_t25_mutate` に label prefix 引数を追加**（GC-4-B (a)。既存 7 呼び出しは無変更）+ `_t25_mutate` 呼び出し 2 件追加 | AI-owned |
+| `tests/extras/ta-25-approval-token-guard.sh` | **`T1045-TC-01`〜`06` + `TC-20` を focused 群へ**（GC-4-A・7 件）/ **`TC-07`〜`TC-19` + `TC-21` + `TC-22` を通常群へ**（15 件）追加 + **`_t25_mutate` に label prefix 引数を追加**（GC-4-B (a)。既存 7 呼び出しは無変更）+ `_t25_mutate` 呼び出し 2 件追加 | AI-owned |
 | `docs/working/TASK-1045/plan.md` | 本ファイル | AI-owned |
 | `docs/working/TASK-1045/todo.md` | 実行 ToDo | AI-owned |
 | `docs/working/TASK-1045/test-cases.md` | テストケース定義 | AI-owned |
@@ -469,6 +603,9 @@ detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形�
 | **R-9a** | **同上の実地再現（本 PBI 進行中に発生）**: C-1 レビュアーの最初の commit が EH-13 に block された。**コミットメッセージに承認トークンのパス名と、`Co-Authored-By:` 行の `<...>` に含まれる `>` が同居した**ため `_has_write_intent()` が発火した。**1 バイトも書き込まないコミット操作が止まった実例**であり、本 PBI が修正しようとしている誤検知そのもの | minor（実害は作業遅延だが**説得力の高い実例**） | 修正までの回避として、**コミットメッセージにトークンパス literal と `>` を同居させない**（本 PBI の記法規約をコミットメッセージにも適用）。修正後は解消される見込みで、AC-12 の実測対象に含める | 全 Step / handoff |
 | **R-10** | `rule=<id>` 付与が既存 assert を壊す | minor | **U-3 で実測確認済み**（`tests/` に `writes token path` のヒット 0 件）。Step 4 のチェックポイントで再確認 | Step 4 |
 | **R-11** | 残存誤検知（`&>/dev/null` 付き読み取り）が運用で問題化する | minor | U-2 の意図的な判断。**既知の制約として handoff に明記**し、実害が出たら follow-up issue | handoff |
+| **R-12** | **正規化ヘルパの失敗が fail-open（ALLOW）になる**（`sed` 不在 / locale 起因の失敗 / `if` 条件内で `set -e` 無効） | **critical**（真の token 書き込みが無言で通過。**実走再現済み**） | **GC-8 の必須実装 3 件**（fail-closed フォールバック / `command -v sed` / `LC_ALL=C`）+ **`T1045-TC-22`**（`sed` 不在 PATH → `rc=2`）+ **`SC-9`**。変異 (b) では検出できないため**専用 TC が必須** | GC-8 / Step 3 / A-5a |
+| **R-13** | **RED ウィンドウで `T1023-TC-15pre` / `TC-17post` が FAIL することを「無視してよい」と学習し、本物の baseline 破壊を見逃す**（#874 同型の感度低下） | **major** | **GC-4-C で期待 FAIL 集合を 6 件に固定**し、それ以外の FAIL は `SC-1` 発火。`SC-4` を 7 ラベル列挙にして誤発火を除去。Step 3 で **PASS へ戻ることを別チェックポイント化** | GC-4-C / Step 2 / Step 3 |
+| **R-14** | **`apply-task-0123-patches.sh` が過去に適用された環境に、修正が伝播しない guard の古い複製が残る**（`67-88` 行が `scripts/hooks/` へ `cp` し既存時はスキップ） | minor（`origin/main` に当該ファイルは**不在**＝実害ゼロ） | **`GC-7` は維持**し本 PBI では触らない。**handoff の既知課題へ 1 行 + follow-up issue 起票**（A-1 で確認・A-14 で記載） | A-1 / A-14 / handoff |
 
 ---
 
@@ -483,9 +620,10 @@ detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形�
 | **SC-1** | **Step 1 の baseline が `0 failed` でない**（`ta-25` に既存 FAIL がある） | 退行判定の基準線が成立しないため即停止。base の健全性を人間へ報告 |
 | **SC-2** | **アンカー `t1045-redirect-normalize` / `t1045-file-redirect` の `grep -c` が 1 でない**（Step 3 / A-6b） | `_t25_mutate` が anchor-not-unique で FAIL するため即停止。アンカー設計をやり直す前に人間へ報告 |
 | **SC-3** | **変異 (a) または (b) が kill されない**（`[FAIL] <kill 対象>` が出ない、または子プロセス rc = 0） | **検出力ゼロのまま先へ進まない**（#874 同型）。GC-1 の機械的担保が不成立のため即停止 |
-| **SC-4** | **既存 mutation 7 種のいずれかが kill されなくなる**（`T1023-TC-15`〜`17e` のいずれかが FAIL） | 既存の検出力を壊した可能性。即停止して原因特定を人間へ報告 |
+| **SC-4** | **既存 mutation 7 種のいずれかが kill されなくなる**。対象は**次の 7 ラベルの列挙**（範囲表現ではない / R-001）: `T1023-TC-15` / `T1023-TC-16` / `T1023-TC-17` / `T1023-TC-17b` / `T1023-TC-17c` / `T1023-TC-17d` / `T1023-TC-17e`。**`T1023-TC-15pre` と `T1023-TC-17post` は明示的に対象外**（RED ウィンドウでは FAIL するのが正常 / GC-4-C） | 既存の検出力を壊した可能性。即停止して原因特定を人間へ報告 |
 | **SC-5** | **`T1023-TC-09` が FAIL する** | GC-3 違反（`>` を token path 宛に限定する誤実装に陥っている）。即停止 |
-| **SC-6** | **`>` 除外を入れた結果、`T1045-TC-11`〜`15` / `TC-19` のいずれかが `rc=0` になる** | **ガードが弱体化した**（GC-1 違反 = critical）。即停止し、除外条件を C-3 へ差し戻す |
+| **SC-6** | **`>` 除外を入れた結果、`T1045-TC-11`〜`15` / `TC-19` / **`T1045-TC-07 (1)`**（`ls > /dev/null ; cp <TOKEN> /tmp/x`）のいずれかが `rc=0` になる** | **ガードが弱体化した**（GC-1 違反 = critical）。即停止し、除外条件を C-3 へ差し戻す。**`TC-07 (1)` は `/dev/null` 除外を入れる本 PBI で最も直接的な弱体化シナリオ**（AC-07 の中核 / R-005） |
+| **SC-9** | **`sed` 不在 / 失敗時に guard が `rc=0`（ALLOW）を返す**（`T1045-TC-22` が FAIL） | **fail-open**（GC-8 / GC-1 違反 = critical）。即停止 |
 | **SC-7** | **変更が `scripts/check-approval-token-write.sh` / `tests/extras/ta-25-approval-token-guard.sh` / `docs/working/TASK-1045/` の外へ及ぶ**（`git status --porcelain` で実測） | GC-7 違反。即停止 |
 | **SC-8** | **`PLANGATE_SKIP_TOKEN_GUARD=1` が必要になる場面に遭遇** | **Human-owned**。AI は自分で設定せず、人間へ依頼して停止（R-9） |
 
@@ -498,7 +636,7 @@ detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形�
 | ID | 発火条件（機械判定） | 差し戻す理由 |
 |---|---|---|
 | **RT-1** | **Step 1b で、正規化プロトタイプ 26 ケースのいずれかが BSD `sed` と GNU `sed` で異なる分類になる** | 「POSIX 範囲で単一実装が両方言で等価に動く」という **plan の中核前提（GC-6）が崩れる**。方言差の吸収方法（実装分岐 / 別アプローチ）は設計判断であり C-3 の再承認を要する |
-| **RT-2** | **U-6 の横断調査で、同種の粗い `>` 判定が他の稼働ガードにも存在すると判明**し、かつ**それが本 PBI の修正と同一の判定コードを共有している** | scope（1 ファイル修正）の前提が崩れる。**共有していない場合は follow-up issue で scope 外**（§U-6 の既定どおり）＝ RT-2 は発火しない |
+| **RT-2** | **次のいずれかが成立する**（R-003 で判定可能化）: **(a)** 他の稼働ガードが本ガードを **invoke / source** している / **(b)** 本ガードの**複製が `.claude/settings*.json` に実配線**されている | scope（1 ファイル修正）の前提が崩れ、修正が一部経路へ伝播しない。**実測では (a)(b) とも該当なし**（`scripts/hooks/check-approval-token-write.sh` は `origin/main` に**不在**＝ `git ls-tree` で 0 件を確認）→ **現時点では発火しない**。旧文言「同一の判定コードを共有」は POSIX `sh` の独立スクリプト群では構造上ほぼ常に偽で**実質判定不能**だったため差し替えた |
 | **RT-3** | **U-3 の再確認で、既存 TC がメッセージ本文（`writes token path`）を assert していると判明** | AC-10 の実装方針（detail 文字列の変更）が既存 TC を壊す前提になるため、メッセージ設計を C-3 で再確定する |
 | **RT-4** | **GC-4-B の採用案 (a) が実装できない**（`_t25_mutate` への引数追加が既存 7 呼び出しの互換を壊す） | 変異ドライバの設計前提が崩れる。案 (b)(c) への切替は設計判断のため C-3 の再承認を要する |
 | **RT-5** | **除外条件を「fd 複製 + `/dev/null`」の列挙に収めたまま AC-01〜03 を満たせない**と判明 | GC-2（列挙的 allowlist で足りる）という方針前提が崩れる。構文解析寄りの設計へ移るなら C-3 の再承認が必須（bypass 面が増えるため） |
@@ -514,7 +652,7 @@ detail 文字列は `Bash command writes token path (rule=<id>): <cmd>` の形�
 
 | # | 論点 | plan の既定 | 人間へ問う理由 |
 |---|---|---|---|
-| **Q-1** | **Mode を `critical` とするか `high-risk` へ引き下げるか** | `critical` | `mode-classification.md` の判定ロジック（定量各軸の最大値）を literal に適用すると **受入基準 13 件 → 超高** となる一方、実際の変更規模は **コード 2 ファイル**。「AC 件数は粒度細分化の産物であり規模実態ではない」と人間が判断するなら `high-risk` への引き下げが妥当。**引き下げても `lite_eligible=false` と同期 C-3 は維持**（承認境界ガードのため） |
+| **Q-1** | **Mode を `critical` とするか `high-risk` へ引き下げるか** | `critical` | `mode-classification.md` の判定ロジック（定量各軸の最大値）を literal に適用すると **受入基準 13 件 → 超高** となる一方、実際の変更規模は **コード 2 ファイル**。「AC 件数は粒度細分化の産物であり規模実態ではない」と人間が判断するなら `high-risk` への引き下げが妥当。**引き下げで「実施しなくなる」フェーズは V-4（リリース前チェック）のみ**（`mode-classification.md` §フェーズ適用マトリクスを 13 行照合し、`○ → -` になる行は V-4 の 1 行だけ。他の差は強度表現のみ＝詳細 plan / C-2 複数観点 / exec 段階的 / C-4 複数レビュアー推奨で、実施有無は変わらない）。**承認境界に関わる `lite_eligible=false` / 同期 C-3 / autonomous APPROVE 不可 / V-2 / V-3 はいずれも不変**（R-004） |
 | **Q-2** | **U-2（`&>` / `&>>`）を block 維持でよいか** | block 維持 | `&>/dev/null` 付きの読み取りコマンドは**引き続き誤 block される**（残存誤検知）。除外面を増やさない安全側を採ったが、運用上の頻度によっては除外に含める判断もありうる |
 
 ---

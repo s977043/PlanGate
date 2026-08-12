@@ -11,14 +11,15 @@
 
 | ID | 種別 | 要約 | 接続先タスク |
 |---|---|---|---|
-| **SC-1** | 停止 | baseline が 0 failed でない | A-1 |
+| **SC-1** | 停止 | baseline が 0 failed でない / **RED 中に GC-4-C の期待 FAIL 6 件以外が FAIL** | A-1 / A-4 |
 | **SC-2** | 停止 | 変異アンカーの `grep -c` が 1 でない | A-6b |
 | **SC-3** | 停止 | 変異が kill されない / 新 TC が focused 子で走らない | A-4 / A-9 / A-10 |
-| **SC-4** | 停止 | 既存 mutation 7 種のいずれかが kill されなくなる | A-4 / A-8b / A-13 |
+| **SC-4** | 停止 | 既存 mutation 7 種のいずれかが kill されなくなる（**7 ラベル列挙で判定。`TC-15pre` / `TC-17post` は対象外**） | A-4 / A-8b / A-13 |
 | **SC-5** | 停止 | `T1023-TC-09` が FAIL（GC-3 違反） | A-6a |
-| **SC-6** | 停止 | 境界 TC が `rc=0` になる（ガード弱体化 / GC-1 違反） | A-7 |
+| **SC-6** | 停止 | 境界 TC + **`T1045-TC-07 (1)`** が `rc=0` になる（ガード弱体化 / GC-1 違反） | A-7 / A-11 |
 | **SC-7** | 停止 | 変更が許可 3 領域の外へ及ぶ | 全タスク |
 | **SC-8** | 停止 | `PLANGATE_SKIP_TOKEN_GUARD=1` が必要になる（Human-owned） | 全タスク |
+| **SC-9** | 停止 | **`sed` 不在 / 失敗時に guard が `rc=0`（ALLOW）**（`T1045-TC-22` が FAIL / GC-8） | A-5a / A-6a |
 | **RT-1** | 差し戻し | BSD / GNU `sed` で 26 ケースの分類が割れる | **A-1b** |
 | **RT-2** | 差し戻し | 他の稼働ガードが同一判定コードを共有していると判明 | A-1 |
 | **RT-3** | 差し戻し | 既存 TC がメッセージ本文を assert していると判明 | A-1 / A-8 |
@@ -80,6 +81,14 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
   3. **U-6 横断調査**: `scripts/` / `bin/` / `.codex/` の粗い `>` 判定を列挙
      → 検出時は **scope 外・follow-up issue 起票**
   4. **U-3 再確認**: `grep -rn "writes token path" tests/` が 0 件
+  5. **RT-2 の (a)(b) を実測**（R-003）: (a) 他ガードが本ガードを invoke / source していないか、
+     (b) 本ガードの複製が `.claude/settings*.json` に実配線されていないか
+  6. **稼働 settings の実測（i-1）**: `.claude/settings.json`（**gitignore 対象で worktree には
+     存在しない**）が `scripts/` 直下を直接呼び、`scripts/hooks/` 側の複製が無いことを
+     **メイン checkout 側で実測**して 1 行残す（U-5「再適用不要」の根拠を稼働側でも固める）
+  7. **R-008 の複製導線を記録**: `scripts/apply-task-0123-patches.sh`（`67-88` 行）が
+     `scripts/hooks/` へ `cp` し**既存時はスキップして更新しない**ことを確認
+     （**GC-7 維持・本 PBI では触らない**。handoff + follow-up issue へ）
 - 出力: `evidence/verification/baseline.md`
 - 🚩 **チェックポイント**: baseline が **0 failed**。そうでなければ **SC-1 で即停止**して人間へ
 - `rollback:` 不要（読み取り・記録のみ）
@@ -125,11 +134,17 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 - 内容: `PG_T25_MUTATION_CHILD=1` で `ta-25` を子プロセス実行し、
   **GC-4-A の 7 件（`T1045-TC-01`〜`06` / `TC-20`）のラベルが出力に現れる**ことを目視確認
   （UV-3 の解消）
+- **判定方式（R-001）**: **suite 全体の rc / `0 failed` で判定しない**
+  （RED 中は必ず exit 1 になる）。**`grep -q "[FAIL] <ラベル>"` のラベル単位判定**で行う
 - 🚩 **チェックポイント**:
   - 1 件でも現れなければ **focused 群外に置かれている** → **SC-3 で即停止**し、
     配置を修正するまで先へ進まない（#874 同型の空振り防止）
-  - **既存 mutation 7 種が引き続き PASS**（focused 群拡張の副作用確認。
-    変異 1 の子で `T1045-TC-04`〜`06` も FAIL するが `T1023-TC-15` の kill 判定は成立する）。
+  - **RED ウィンドウの FAIL が GC-4-C の 6 件と完全一致**すること:
+    `T1045-TC-01` / `TC-02` / `TC-03` / `TC-20` / **`T1023-TC-15pre`** / **`T1023-TC-17post`**。
+    **この 6 件は SC-1 / SC-4 の対象外**。**6 件以外が FAIL したら SC-1 で即停止**
+  - **既存 mutation 7 種が引き続き PASS**（**SC-4 の 7 ラベル列挙**で判定。
+    `TC-15pre` / `TC-17post` は除外）。
+    変異 1 の子で `T1045-TC-04`〜`06` も FAIL するが `T1023-TC-15` の kill 判定は成立する。
     壊れれば **SC-4 で即停止**
 - `rollback:` `git checkout -- tests/extras/ta-25-approval-token-guard.sh`
 
@@ -140,9 +155,14 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 
 - Owner: agent / depends_on: A-4
 - 内容: `_strip_nonwrite_redirects()` を新設し、**(1) fd 複製 / クローズ除去のみ**を実装
-  （`>&` の直後が **数字列 or `-`** のときのみ除去。`>&<file>` は除去しない / R-4）
+  （`>&` の直後が **数字列 or `-`** のときのみ除去。`>&<file>` は除去しない / R-4）。
+  **同時に GC-8 の必須実装 3 件を入れる**（**後回しにしない** / R-002）:
+  (i) `_wc_n=$(…) || _wc_n="$_wc"` の fail-closed フォールバック、
+  (ii) 起動時の `command -v sed` 検査（`jq` と同契約）、
+  (iii) 正規化パイプラインの `LC_ALL=C` 固定
 - 🚩 **チェックポイント**: `sh -n` PASS。単体で `2>&1` / `>&2` / `3>&-` が除去され、
-  `>& /tmp/o` が**除去されない**ことをスクラッチで確認
+  `>& /tmp/o` が**除去されない**ことをスクラッチで確認。
+  **`sed` 不在 PATH で `rc=2`（ALLOW にならない）**ことを確認 → ならなければ **SC-9 で即停止**
 - `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
 
 #### A-5b: GREEN — `/dev/null` 破棄の除去を追加（plan Step 3-1）
@@ -161,6 +181,9 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 - 🚩 **チェックポイント**:
   - `T1045-TC-01`〜`06` / `TC-20` が **全 PASS へ転じる**
   - **`T1023-TC-08` / `TC-09` が PASS を維持**（plan GC-3。FAIL なら **SC-5 で即停止**）
+  - **`T1023-TC-15pre` / `T1023-TC-17post` が PASS へ戻る**（GC-4-C。
+    **RED ウィンドウが閉じたことの機械的確認**。戻らなければ即停止）
+  - **`T1045-TC-22`（`sed` 不在 PATH → `rc=2`）が PASS**（GC-8。FAIL なら **SC-9 で即停止**）
 - `rollback:` `git checkout -- scripts/check-approval-token-write.sh`
 
 #### A-6b: 一意アンカー 2 種を付与し `grep -c` == 1 を実測（plan Step 3-3）
@@ -258,6 +281,9 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 - 内容: `handoff.md` を必須 6 要素で作成。以下を**既知課題として必ず明記**:
   - **`&>/dev/null` 付き読み取りの残存誤検知**（U-2 の意図的判断 / plan R-11）
   - **完全なシェル構文解析を行わないことによる取りこぼし**（リテラル / heredoc / 変数展開 / plan GC-2）
+  - **`apply-task-0123-patches.sh` の複製導線**（`67-88` 行が `scripts/hooks/` へ `cp` し
+    既存時はスキップ＝**過去に適用した環境へ修正が伝播しない古い fork が残る**。
+    `origin/main` に当該ファイルは**不在**で実害ゼロ。**follow-up issue を起票**して番号を記載 / R-008 / R-14）
   - U-6 横断調査で follow-up issue を起票した場合はその番号
 - 🚩 **チェックポイント**: AC-01〜13 ごとに PASS / FAIL / WARN を記載。
   `bin/plangate doctor --check-settings` が PASS していること（settings タスクロック）
@@ -272,8 +298,12 @@ A-14 (handoff) ──> H-2 (C-4 PR レビュー) ──> merge (Human-owned)
 - [ ] **新変異の出力ラベルが `T1045-TC-09` / `T1045-TC-10`**（`T1023-TC-09` と衝突しない）
 - [ ] **`_t25_mutate` の既存 7 呼び出しが無変更**で、既存 mutation 7 種が全 PASS（`T1045-TC-21`）
 - [ ] 新規 TC が **focused 子プロセスで実行されている**ことを実測確認済み（GC-4-A の 7 件）
-- [ ] **GNU `sed` 等価性が A-1b で先行検証済み**（UV-1 の解消）
+- [ ] **GNU `sed` 等価性が A-1b で先行検証済み**（UV-1 の解消・**`LC_ALL=C` 固定を実験条件に含む**）
+- [ ] **正規化ヘルパが fail-closed**（GC-8 の 3 件が実装され `T1045-TC-22` が PASS）
+- [ ] **RED ウィンドウが GC-4-C の 6 件と一致**し、GREEN 後に
+      `T1023-TC-15pre` / `T1023-TC-17post` が **PASS へ戻っている**
 - [ ] **Stop Condition / Replan Trigger が 1 件も未処理で残っていない**
+- [ ] **`review-external.md` の監査表に `status = open` が 0 件**
 - [ ] `T1023-TC-08` / `TC-09` を含む既存 TC が **0 failed**、pass 数 ≥ baseline
 - [ ] ローカル（BSD）と CI（GNU）双方の実行結果が evidence にある
 - [ ] `handoff.md` の必須 6 要素が揃い、残存誤検知が既知課題に明記されている
