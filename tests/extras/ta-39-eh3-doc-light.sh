@@ -1,4 +1,5 @@
 # tests/extras/ta-39-eh3-doc-light.sh
+# PG_EXTRA_CAPABILITY: standalone-capable
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
 # TASK-0138 (#528): EH-3 doc-light 経路（非 HO .md ファイル自動 SKIP）の検証
 #
@@ -7,6 +8,26 @@
 #
 # サンドボックス方式: check-plan-hash.sh を一時ディレクトリにコピーして
 # 実 audit ログを汚染しない（ta-12 方式に準拠）
+
+# ---- extras execution contract bootstrap (#921) ----------------------------
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
+  _pg_extra_mode=harness
+  _pg_extra_dir="$EXTRAS_DIR"
+else
+  _pg_extra_mode=standalone
+  _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+fi
+_pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
+if [ ! -r "$_pg_extra_helper" ]; then
+  printf '  [FAIL] helper unresolved: %s\n' "$_pg_extra_helper" >&2
+  if [ "$_pg_extra_mode" = harness ]; then
+    fail=$((fail + 1))
+    return 0
+  fi
+  exit 1
+fi
+. "$_pg_extra_helper"
+pg_extra_contract_init ta-39-eh3-doc-light standalone-capable
 
 printf '\n=== TA-39: EH-3 doc-light 経路 (#528 TASK-0138) ===\n'
 
@@ -54,12 +75,10 @@ if [ "$_T39_SKIP_APPLIED" = "0" ]; then
   # 未適用時は TC-01〜06 をスキップ（カウンタは更新しない）
   printf '  [SKIP] TC-01〜06: apply-eh3-doc-light.sh --apply 実行後に再テストしてください\n'
   rm -rf "$_T39_TMP" 2>/dev/null || true
-  # shellcheck disable=SC2317
-  if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
-    return 0 2>/dev/null || exit 0
-  else
-    exit 0
-  fi
+  # #921: standalone では skip が rc=3 で exit する。harness では skip が
+  # return 0 した後、下の top-level return 0 で source 元へ戻る（R-021/R-024）
+  pg_extra_contract_skip "doc-light 経路が未適用 (apply-eh3-doc-light.sh --apply)"
+  return 0
 fi
 
 # ── hook テスト用共通関数 ─────────────────────────────────────────
@@ -134,3 +153,5 @@ fi
 
 # ── cleanup ─────────────────────────────────────────────────────
 rm -rf "$_T39_TMP" 2>/dev/null || true
+
+pg_extra_contract_finalize

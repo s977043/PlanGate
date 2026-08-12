@@ -1,0 +1,11 @@
+# fail>0 takes precedence over skip (MN-2) — synthetic fixture direct demo (2026-08-11 04:19)
+## with fail=1 before skip:
+  [FAIL] pre-existing assertion failure
+  [SKIP] PG_EXTRA_CONTRACT_SKIP:ta-97-fx: fixture prerequisite absent
+TA-97 standalone: 0 passed, 1 failed
+  [INFO] prerequisite absent but 1 failure(s) already recorded — rc=1 takes precedence over rc=3
+rc=1 (expected 1, NOT 3)
+## with fail=0 before skip:
+  [SKIP] PG_EXTRA_CONTRACT_SKIP:ta-97-fx: fixture prerequisite absent
+TA-97 standalone: 0 passed, 0 failed
+rc=3 (expected 3)

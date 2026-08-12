@@ -1,0 +1,8 @@
+# pre-fix (origin/main) ta-43 fail-swallow evidence (2026-08-10 19:18)
+# sandbox: origin/main tree; _eh2_stdin stripped from check-c3-approval.sh;
+# apply-task-0141-eh2-strict.sh replaced by 'exit 0' so the dry-run emits no diff
+# command: sh <sandbox>/tests/extras/ta-43-eh2-strict-json.sh </dev/null (stderr merged)
+
+=== TA-43: EH-2 strict JSON + stdin fallback (TASK-0141) ===
+  [FAIL] apply-script が期待差分を生成しない: 
+rc=0

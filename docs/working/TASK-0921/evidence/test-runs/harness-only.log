@@ -1,0 +1,4 @@
+# TC-11 vacuous-PASS record (INFO-1) — 2026-08-12, HEAD 8335fa1
+# source: ta-61 standalone full run (see ta61-standalone-run1.log)
+# Slice 1 covered set contains 0 harness-only files — the all-file rc=2 loop ran with 0 targets.
+  [INFO] TC-11: harness-only in-scope count is 0 — vacuous PASS (recorded, not hidden; full coverage arrives in Slice 2)

@@ -1,0 +1,61 @@
+
+=== TA-61: extras execution contract (#921 Slice 1) ===
+  [PASS] TA-61 discovery: runtime inventory non-empty (58 files)
+  [PASS] TC-28: contract discovery glob (ta-*.sh) equals the runner's source glob
+  [PASS] TC-25: every _pending_migration entry exists and is genuinely unmigrated (45 entries)
+  [PASS] TC-25(1): covered set minus self is non-empty (12 files)
+  [PASS] TC-25(2): _pending_migration is a proper subset of the discovered set
+  [PASS] TC-20: every discovered ta-*.sh has a unique basename test-id
+  [PASS] TC-27: sh -n clean for helper, runner and every ta-*.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-39-eh3-doc-light.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-40-task-0129-review-gate.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-43-eh2-strict-json.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-44-eh457-cli-wiring.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-45-c3-mode-config.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-46-ehs-wiring.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-47-ehs23-wiring.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-49-bias-export.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-50-precompact-guard.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-51-doctor-w6.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-52-doctor-skill-collision.sh
+  [FAIL] TC-09: marker count is 0 (want exactly 1 in first 20 lines): /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras/ta-53-doctor-prepush.sh
+  [INFO] TC-11: harness-only in-scope count is 0 — vacuous PASS (recorded, not hidden; full coverage arrives in Slice 2)
+  [PASS] TC-15: guarded env set derived at runtime from the runner's unset list
+  [FAIL] TC-25(3): per-file execution loop executed ZERO files — contract checks are vacuous (covered set collapsed in /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a27d97ccf2a96bf4f/tests/extras)
+  [FAIL] TC-19: README lacks required token: rc=1
+  [FAIL] TC-19: README lacks required token: rc=2
+  [FAIL] TC-19: README lacks required token: rc=3
+  [FAIL] TC-19: README lacks required token: PG_EXTRA_CAPABILITY
+  [FAIL] TC-19: README lacks required token: pg_extra_contract_skip
+  [FAIL] TC-19: README lacks required token: PG_EXTRA_CONTRACT_PROBE
+  [FAIL] TC-19: README lacks required token: 別名前空間
+  [FAIL] TC-19: README lacks required token: standalone-capable
+  [FAIL] TC-19: README lacks required token: harness-only
+  [PASS] TC-01: harness-mode init/finalize is non-invasive and ignores probe env
+  [PASS] TC-02: harness-only direct misuse -> rc=2 with message, before any body side effect
+  [PASS] TC-03: standalone all-pass -> rc=0 with summary literal
+  [PASS] TC-04: standalone internal fail -> rc=1
+  [PASS] TC-05: alternate body path still reaches tail finalize -> rc=1
+  [PASS] TC-06: specific nonzero original rc (3) preserved with fail=0 and fail>0
+  [PASS] TC-07: standalone finalize drains registered paths only; unregistered sentinel survives
+  [PASS] TC-08: invalid capability fails closed before body (rc=2)
+  [PASS] TC-12(fail-closed): probe with unset TARGET is a diagnostic nonzero, not a no-op (rc=4)
+  [PASS] TC-17(synthetic): pg_extra_contract_skip with fail=0 -> rc=3 with diagnostic
+  [PASS] TC-17(precedence): fail>0 before skip -> rc=1 takes precedence over rc=3
+  [PASS] TC-17(probe): force-fail probe does not fire on a prerequisite-absent run (rc=3)
+  [PASS] TC-21: harness register_cleanup untouched; helper sources cleanly under set -eu
+  [PASS] TC-23(synthetic): probe env does not leak into children, yet the probe still fires at finalize
+  [PASS] TC-26: a failing sourced file does not truncate the set -eu harness (marker + Results both present)
+  [INFO] TC-29 shells: dash=/bin/dash bash=/bin/bash
+  [FAIL] TC-17/TC-29: ta-39-eh3-doc-light dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [FAIL] TC-17/TC-29: ta-43-eh2-strict-json dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [FAIL] TC-17/TC-29: ta-44-eh457-cli-wiring dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [FAIL] TC-17/TC-29: ta-45-c3-mode-config dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [FAIL] TC-17/TC-29: ta-46-ehs-wiring dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [FAIL] TC-17/TC-29: ta-47-ehs23-wiring dual-shell mismatch or wrong rc (dash=0 bash=0, want 3/3)
+  [PASS] TC-29: ta-49-bias-export section skip -> identical rc=0 (0/1, never 3) + SKIP diagnostic under both shells
+  [PASS] TC-16: sandbox contract TA fails on all three contract-less new-file patterns (rc=1)
+  [FAIL] TC-14: harness regression failed (rc=1, last=ta-61-extra-contract.sh)
+  [FAIL] TC-15: contaminated-env harness run diverged (rc=1)
+TA-61 standalone: 25 passed, 30 failed
+ta-61 standalone rc=1

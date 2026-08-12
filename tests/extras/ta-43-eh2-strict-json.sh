@@ -1,4 +1,5 @@
 # tests/extras/ta-43-eh2-strict-json.sh
+# PG_EXTRA_CAPABILITY: standalone-capable
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
 # TASK-0141 AC-1/AC-2/AC-4: EH-2 strict JSON + stdin fallback の自動テスト
 #
@@ -10,6 +11,26 @@
 # TC-06: stdin なし + env なし → SKIP（allow）
 #
 # サンドボックス: check-c3-approval.sh を tmp に複製し実 audit ログ汚染なし
+
+# ---- extras execution contract bootstrap (#921) ----------------------------
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
+  _pg_extra_mode=harness
+  _pg_extra_dir="$EXTRAS_DIR"
+else
+  _pg_extra_mode=standalone
+  _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+fi
+_pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
+if [ ! -r "$_pg_extra_helper" ]; then
+  printf '  [FAIL] helper unresolved: %s\n' "$_pg_extra_helper" >&2
+  if [ "$_pg_extra_mode" = harness ]; then
+    fail=$((fail + 1))
+    return 0
+  fi
+  exit 1
+fi
+. "$_pg_extra_helper"
+pg_extra_contract_init ta-43-eh2-strict-json standalone-capable
 
 printf '\n=== TA-43: EH-2 strict JSON + stdin fallback (TASK-0141) ===\n'
 
@@ -53,7 +74,10 @@ if [ "$_T43_APPLIED" = "0" ]; then
     printf '  [SKIP] TC-01〜06: apply-script が未作成 (apply-task-0141-eh2-strict.sh)\n'
   fi
   rm -rf "$_T43_TMP" 2>/dev/null || true
-  return 0 2>/dev/null || exit 0
+  # #921: standalone では skip が rc=3（fail>0 なら rc=1 優先）で exit する。
+  # harness では skip が return 0 した後、下の top-level return 0 で戻る
+  pg_extra_contract_skip "EH-2 strict JSON 未適用 (apply-task-0141-eh2-strict.sh --apply)"
+  return 0
 fi
 
 # ── サンドボックス構築 ─────────────────────────────────────────
@@ -150,3 +174,5 @@ fi
 
 # ── クリーンアップ ─────────────────────────────────────────────
 rm -rf "$_T43_TMP" 2>/dev/null || true
+
+pg_extra_contract_finalize
