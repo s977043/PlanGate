@@ -687,3 +687,63 @@ extract_allowed_paths(plan.md) → 7 パス（guard / ta-25 / plan / todo / test
 
 **反映状況の実測**: 監査表 6 行のうち `reflected` 5 / `deferred`（Human 裁定）1。
 **`plan.md` は本ラウンドで 1 文字も編集していない**（`plan_hash` = `744b3c4f…` 不変を実測確認）。
+
+---
+
+## C-3 裁定の反映（R-019 / 追記専用）
+
+> 本節は **C-3 で人間が下した裁定 3 件を記録し、plan への 1 回確定反映を追跡する**。
+> **R-001〜R-018 および既存の全監査表は 1 文字も変更していない**（追記専用方針）。
+
+### R-019 [—] C-3 裁定 3 件（Q-1 / Q-2 / Q-3）の確定反映
+
+**入力**: Human による C-3 裁定。**AI は裁定内容を変更していない。**
+
+| Q | 裁定 | plan への帰結 | plan 編集 |
+|---|---|---|---|
+| **Q-1**（Mode を `critical` か `high-risk` か） | **`critical` のまま** | V-4（リリース前チェック）と C-4 複数レビュアー推奨が適用される。`lite_eligible=false` / 同期 C-3 / autonomous APPROVE 不可 は元から不変 | **不要**（既定どおり。裁定の事実のみ Questions 節へ記録） |
+| **Q-2**（`&>` / `&>>` を除外に含めるか） | **block 維持**（安全側） | 除外面を増やさない。**残存誤検知は `T1045-TC-14 (3)` で意図的に固定**し、**handoff の既知課題へ記載する** | **不要**（既定どおり。裁定の事実のみ Questions 節へ記録） |
+| **Q-3**（`Files / Components to Touch` へ evidence 等を追加するか） | **追加して `plan_hash` を取り直す** | `Files / Components to Touch` へ 3 行追加。ai-loop 経路の exec で evidence / decision-log / current-state の書き込みが `allowed_paths` 内に収まる | **必要**（Files 節 3 行追加 → `plan_hash` 再算出） |
+
+### `extract_allowed_paths()` の実測（反映前 / 反映後）
+
+`scripts/ai-loop/plan_package.py` の `extract_allowed_paths()` を実際に import して実行した結果。
+
+| タイミング | パス数 | 内訳 |
+|---|---|---|
+| **反映前** | **7** | guard / ta-25 / plan / todo / test-cases / status / handoff |
+| **反映後** | **10** | 上記 7 ＋ **evidence 配下 / decision-log.jsonl / current-state.md** |
+
+**禁止パスの混入は 0 件**。`Files NOT to Touch` は `## Files / Components to Touch` の**外**に
+あり `_extract_section()` が拾わないため、反映後も **10 パスちょうど**で HO 対象パスは 1 件も含まれない。
+
+### `plan_hash` の遷移（**Human が承認トークン再発行に使う値**）
+
+| | sha256 |
+|---|---|
+| **反映前**（`C1-VERDICT-5` 時点） | `744b3c4f0cb05e10dc756e43e89ff263743c571c526838757fc9dee270fe2c7f` |
+| **反映後（確定値）** | **`30261b118da7761f7a78d9090c4fcda9f1d1dbd07af27cbff58ddd436029e681`** |
+
+**`plan.md` の変更は `Files / Components to Touch` 節の 3 行追加 + 注記と、
+`Questions / Unknowns` 節への裁定記録のみ。設計・AC・TC・Work Breakdown・
+Stop Condition / Replan Trigger はいずれも不変。**
+
+### 順序（EH-3 / `working-context.md` §C-3 ゲート）
+
+```text
+(1) plan 編集 ✅ → (2) 簡易 C-1 ✅ → (3) 新 plan_hash 算出 ✅
+  → (4) 👤 Human が承認トークンを再発行（Human-owned・AI は作成しない）
+  → (5) exec（別ワーカー）
+```
+
+**(4) より前に (1)〜(3) を完了させている**ため、EH-3 の mismatch は発生しない。
+本ラウンドの担当ワーカーは **(1)〜(3) のみ**を実施し、承認トークンには一切触れていない。
+
+### 監査表（C-3 裁定 / 追記専用）
+
+| R-NNN | severity | lane | status | reflected_in | notes |
+|---|---|---|---|---|---|
+| R-019 | — | Human C-3 裁定 | reflected | `docs/1045-c3-verdict` C-3 裁定反映 commit | Q-1 = `critical` 維持 / Q-2 = block 維持 / Q-3 = **3 パス追加 + `plan_hash` 再算出**。`plan.md` は Files 節と Questions 節のみ変更 |
+| Q-3 | — | River Review | **resolved（R-019 で反映）** | 同上 | 前ラウンドで `deferred` としていた 1 件を Human が裁定し、本ラウンドで確定反映 |
+
+**C-3 裁定の集計**: 裁定 3 件（うち plan 編集を伴うもの 1 件）/ 新規指摘 0 件 / 未裁定の残 0 件。
