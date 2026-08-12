@@ -28,6 +28,60 @@ annotated tag を打った後、tag が指す commit と `origin/main` の最新
 
 これらは「リリース完了」報告後に発覚すると rollback / tag 削除 / 再 push の手戻りが発生し、本番障害の温床になる。
 
+## リリース判定とオーケストレータの役割（定期リリースを回すため）
+
+> 「どう出すか」（以降の節）の前段。**「いつ出すか」を毎回その場の勘で決めない**ための判定基準と担当。
+> 実例: [`docs/working/_merge/v8.19.0-release-runbook.md`](working/_merge/v8.19.0-release-runbook.md)。
+
+### 判定サイクルと判定基準
+
+**前回タグから 7 日経過するごとに、オーケストレータが「リリース要否」を 1 回判定する**（判定であってリリース確定ではない）。7 日は実測の中央値: v8.6.0〜v8.18.0 の minor 間隔（同日リリースを除く 10 区間）は 13 / 10 / 5 / 2 / 4 / 4 / 9 / 13 / 4 / 18 日で、median 7 日・mean 8.2 日・max 18 日。
+
+判定は以下で行う。**時間だけでトリガーしない**（空リリースが出る）:
+
+| 判定 | 条件 | 備考 |
+|------|------|------|
+| **出す** | 前回タグから **14 日以上**経過 かつ `plugin/` 配下に未リリース変更あり | 実測 max（18 日）と median（7 日）の間。滞留の上限 |
+| **出す** | 導入側の挙動が変わる変更がマージされた（hook の fail-closed 化・既定 ON の新規 hook・schema / CLI の互換性に触れる変更） | 経過日数によらず即。semver 判定も同時に要る |
+| **出す** | 機能単位の区切り（EPIC / 親 PBI の完了、まとまった機能群の main 収束） | 日数より区切りを優先 |
+| **見送る** | `plugin/` 配下の未リリース変更が 0、かつ差分が doc-only | [`mode-classification.md`](../.claude/rules/mode-classification.md) doc-light「doc-only で単独 tag / Release を切らない」と整合 |
+
+> **`plugin/` 変更の有無を単独のトリガーにはしない**（実測: plugin 同梱後の v8.11.0 以降 **9 区間すべて**で `plugin/` に変更あり = ほぼ常に真）。**空リリース防止のガード**としてだけ機能させ、発火軸は経過日数と機能の区切りに置く。
+
+### オーケストレータの責務（AI-owned）
+
+| # | 責務 | 具体 |
+|---|------|------|
+| 1 | **要否判定** | 上表を `git log <前回タグ>..origin/main` / `git diff --stat <前回タグ>..origin/main -- plugin/` の実測に当てて判定し、見送る場合も理由を残す |
+| 2 | **収録内容の決定** | 未リリース差分から CHANGELOG エントリを起こし、導入側に影響する変更を「⚠️ 更新前に必ずお読みください」相当の警告節に切り出す |
+| 3 | **semver の材料提示** | [`docs/ai/versioning-stability-policy.md`](ai/versioning-stability-policy.md) §2 に照らし major / minor / patch の**材料**を提示する（決定はしない → 下記） |
+| 4 | **準備一式** | 「version 同期マップ」の全箇所 bump（HO パスは apply スクリプト提示まで）、リリース手順書の作成、Human が実行するコマンドの提示 |
+| 5 | **調整** | 未マージで収録したい PR の洗い出し、リリース前に入れる / 入れないの切り分け、CHANGELOG の分岐記述 |
+
+### Human-owned の境界（再定義しない）
+
+`git push origin <tag>` / `gh release create` / HO パスの適用 / **semver の最終決定** は
+[`.claude/rules/responsibility-classes.md`](../.claude/rules/responsibility-classes.md)
+§対外公開アーティファクト publish 責務分界 に従い **Human-owned**。本節はその分界を変えず、
+**「誰がいつ判定して準備するか」だけ**を足す。
+
+### semver で規約と裁定が食い違った場合
+
+規約（`versioning-stability-policy.md` §2）が major を示す変更に対し Human が minor と裁定することがある。このとき:
+
+1. **規約を書き換えて辻褄を合わせない**（規約改定は当該リリースの越権）
+2. リリース手順書に **裁定の経緯**（規約の該当行 / 提示した材料 / 判定者 / 判定日 / 裁定内容）を記録する
+3. **残る不整合を明示**し、解消方法（例外条項を設ける / 一度きりの裁定として以後は規約どおり）を follow-up として残す
+4. 緩和措置（CHANGELOG の警告節・`[MIGRATION REQUIRED]` タグ付与）を実施する
+
+実例: v8.19.0（EH-13 の `exit 1` → `exit 2` fail-closed 化は §2.2 で major、Human 裁定は minor。runbook §1 に記録）。
+
+### 判定を怠るとどうなるか
+
+`plugin/` 配下は **リリース版（`marketplace.json` の version）で配布される**。version bump のない更新は導入側で no-op となるため、**未リリースの plugin 改善は自分たちでも次リリースまで使えない**。
+
+実測（2026-08-13 時点 / `origin/main` = `9289ba7`）: v8.18.0（2026-07-31）から **13 日 / 72 マージ / 430 ファイル**、うち **`plugin/` 配下 25 ファイル**が未リリースで滞留した。これは実測 median（7 日）の約 2 倍で、滞留中に作った plugin skill の改善を作業側が使えない状態が続いた。リリース判定を定期化するのは、この滞留を検出可能にするため。
+
 ## release プロセス (Human オペレーション)
 
 ```text
