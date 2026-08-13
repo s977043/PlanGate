@@ -84,11 +84,11 @@ def read(path):
 def atomic_write(path, text):
     # 元ファイルの mode を保存して復元する（os.replace は新しい inode を作るため、
     # 復元しないと実行ビットが落ちる = check-plan-hash.sh の 100755 → 100644）
-    mode = os.stat(path).st_mode
+    file_mode = os.stat(path).st_mode
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(text)
-    os.chmod(tmp, mode & 0o7777)
+    os.chmod(tmp, file_mode & 0o7777)
     os.replace(tmp, path)
 
 

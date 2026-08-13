@@ -10,7 +10,7 @@ rules 未変更 OK
 flag 残存 OK
 
 ===== A3: アンカー検証（base から drift）→ exit 1 かつ部分適用なし =====
-  error: anchor validation failed in /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.TGLTBrc4AI/a3/scripts/hooks/check-plan-hash.sh: expected exactly 1 occurrence of the in-branch Hardening Override block, found 0 (has the file drifted from the base commit?)
+  error: anchor validation failed in /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.QyizXtk1ac/a3/scripts/hooks/check-plan-hash.sh: expected exactly 1 occurrence of the in-branch Hardening Override block, found 0 (has the file drifted from the base commit?)
 anchor-drift rc=1  (期待 1)
 hook 未変更 OK
 rules 未変更 OK（部分適用なし）
