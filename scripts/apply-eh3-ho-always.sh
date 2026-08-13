@@ -11,6 +11,10 @@
 #   (2) .claude/rules/mode-classification.md 行番号アンカー L124-134 → 記号アンカー【HO パス】
 #   (3) tests/fixtures/eh3-known-gap-1089.flag  KNOWN-GAP 宣言を削除【非 HO】
 #
+#   ※ plugin/plangate/rules/mode-classification.md は (2) の**生成ミラー**であり
+#     本スクリプトは触らない。適用後に `sh scripts/sync-plugin-plangate.sh` を
+#     実行してミラーへ反映すること（未実行だと CI の plugin drift-check が落ちる）。
+#
 #   (3) を同時に行わないと `tests/extras/ta-65-eh3-ho-task-context.sh` が
 #   「stale KNOWN-GAP 宣言」として FAIL する（黙って緑にならない設計）。
 #
@@ -277,7 +281,10 @@ if not rules_applied:
 if flag_present:
     os.remove(flag_path)
     print("  removed: %s" % flag_path)
-print("[apply-eh3-ho-always] done. 次に検証すること:")
+print("[apply-eh3-ho-always] done. 次に実行・検証すること:")
+print("  sh scripts/sync-plugin-plangate.sh   # plugin/plangate/ ミラーへ (2) を反映")
+print("      ※ plugin/plangate/rules/mode-classification.md は .claude/rules/ の")
+print("         生成ミラー。適用後は sync を実行しないと CI の drift-check が落ちる")
 print("  sh tests/extras/ta-65-eh3-ho-task-context.sh </dev/null   # mode=fixed で PASS")
 print("  sh tests/run-tests.sh")
 PY
