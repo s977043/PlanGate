@@ -50,7 +50,10 @@ else
 fi
 rm -rf "$_t31_tmp"
 
-# TC-06: cache 登録済み環境で registered:YES + cache version を出力（positive / レビュー major）
+# TC-06: marketplace cache だけの環境は registered:NO（#1085 AC-5 / 旧実装の false-green）
+# 旧実装は「marketplace cache ディレクトリの存在」だけで registered:YES を返していた。
+# marketplace add は plugin を install しない（`codex plugin add` が別に要る）ため、
+# この状態で YES を返すと「plugin が 1 件もロードされていないのに doctor が緑」になる。
 # /tmp 配下のみを使うため trap は使わない（sourced 元 run-tests.sh の trap を
 # 破壊しないため）。中断時の tmp 残留は OS 側で掃除されるため許容する。
 _t31_home=$(mktemp -d) || { t31_fail "TC-06 mktemp 失敗"; return 0 2>/dev/null || true; }
@@ -58,13 +61,44 @@ mkdir -p "$_t31_home/.tmp/marketplaces/plangate/.claude-plugin"
 printf '{"name":"plangate","plugins":[{"name":"plangate","version":"9.9.9"}]}\n' \
   > "$_t31_home/.tmp/marketplaces/plangate/.claude-plugin/marketplace.json"
 _t31_out6=$(CODEX_HOME="$_t31_home" sh "$PG_T31_SCRIPT" 2>/dev/null || printf '')
-if printf '%s' "$_t31_out6" | grep -q 'registered: YES' && \
+if printf '%s' "$_t31_out6" | grep -q 'registered: NO' && \
+   printf '%s' "$_t31_out6" | grep -q 'marketplace cache: FOUND' && \
    printf '%s' "$_t31_out6" | grep -q 'cache version: 9.9.9'; then
-  t31_pass "TC-06 cache 登録済みで registered:YES + cache version 出力"
+  t31_pass "TC-06 marketplace cache のみは registered:NO（cache 状態は別行で報告）"
 else
-  t31_fail "TC-06 registered:YES / cache version が出ない"
+  t31_fail "TC-06 marketplace cache のみで registered:NO にならない（出力: $(printf '%s' "$_t31_out6" | tr '\n' '|'))"
 fi
 rm -rf "$_t31_home"
+
+# TC-08: install 済み環境（config.toml の enabled 宣言 + plugins/cache 実体）で
+#        registered:YES + plugin root + 「installed != repo」NOTE を出力
+#        （positive / #1085 AC-5）
+# fixture の version は 9.9.9、repo は別 version なので NOTE 分岐を必ず通る。
+# NOTE を assert しないと `_inst_ver`/`_repo_ver` の取り違えや条件反転を注入しても
+# 緑のままになる（この分岐が「installed が古い」唯一の通知経路）。
+_t31_home8=$(mktemp -d) || { t31_fail "TC-08 mktemp 失敗"; return 0 2>/dev/null || true; }
+printf '[plugins."plangate@plangate"]\nenabled = true\n' > "$_t31_home8/config.toml"
+mkdir -p "$_t31_home8/plugins/cache/plangate/plangate/9.9.9/skills/sample-skill"
+_t31_out8=$(CODEX_HOME="$_t31_home8" sh "$PG_T31_SCRIPT" 2>/dev/null || printf '')
+_t31_repo_ver8=$(printf '%s' "$_t31_out8" | sed -n 's/^\[codex-plugin\] repo manifest: version=\([^ ]*\).*/\1/p')
+if printf '%s' "$_t31_out8" | grep -q 'registered: YES' && \
+   printf '%s' "$_t31_out8" | grep -q 'plugin root: .*plugins/cache/plangate/plangate/9.9.9' && \
+   printf '%s' "$_t31_out8" | grep -q "NOTE: installed(9.9.9) != repo(${_t31_repo_ver8})"; then
+  t31_pass "TC-08 install 済みで registered:YES + plugin root + version 乖離 NOTE を出力"
+else
+  t31_fail "TC-08 install 済み検出 or 乖離 NOTE が欠落（出力: $(printf '%s' "$_t31_out8" | tr '\n' '|'))"
+fi
+
+# TC-09: enabled 宣言だけで cache 実体が無い場合は registered:NO（片側成立を YES にしない）
+_t31_home9=$(mktemp -d) || { t31_fail "TC-09 mktemp 失敗"; return 0 2>/dev/null || true; }
+printf '[plugins."plangate@plangate"]\nenabled = true\n' > "$_t31_home9/config.toml"
+_t31_out9=$(CODEX_HOME="$_t31_home9" sh "$PG_T31_SCRIPT" 2>/dev/null || printf '')
+if printf '%s' "$_t31_out9" | grep -q 'registered: NO'; then
+  t31_pass "TC-09 config 宣言のみ（cache 実体なし）は registered:NO"
+else
+  t31_fail "TC-09 cache 実体が無いのに registered:YES（出力: $(printf '%s' "$_t31_out9" | tr '\n' '|'))"
+fi
+rm -rf "$_t31_home8" "$_t31_home9"
 
 # TC-07: --online で gh 不在時に「gh CLI 不在のためスキップ」（#476 / coverage 補完）
 # gh だけを除外した PATH（python3/dirname のみリンク）で実行し、ネットワーク非依存で

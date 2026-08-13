@@ -511,7 +511,9 @@ if [ -n "$_ver" ] && [ -f "$PLUGIN_README" ]; then
 fi
 
 # plugin.json の version フィールドを更新
-PLUGIN_JSON="$PLUGIN_DIR/.claude-plugin/plugin.json"
+# #1085: Claude 用と Codex 用の 2 マニフェストを同時に更新する。片方だけ上がると
+# scripts/check-plugin-manifest-parity.sh が version 乖離として FAIL する。
+for PLUGIN_JSON in "$PLUGIN_DIR/.claude-plugin/plugin.json" "$PLUGIN_DIR/.codex-plugin/plugin.json"; do
 if [ -n "$_ver" ] && [ -f "$PLUGIN_JSON" ] && command -v python3 >/dev/null 2>&1; then
   _pcur=$(python3 - "$PLUGIN_JSON" << 'PYJSON' 2>/dev/null || true
 import json, sys
@@ -536,11 +538,12 @@ with open(path, 'w', encoding='utf-8') as f:
     json.dump(d, f, indent=2, ensure_ascii=False)
     f.write('\n')
 PYEOF
-      _log "UPDATE plugin.json version: $_pcur -> $_ver_noprefix"
+      _log "UPDATE ${PLUGIN_JSON#"$REPO_ROOT/"} version: $_pcur -> $_ver_noprefix"
     fi
     changed=1
   fi
 fi
+done
 
 # marketplace.json の plugins[].version を更新（plugin.json と同期 / #456）
 MARKETPLACE_JSON="$REPO_ROOT/.claude-plugin/marketplace.json"

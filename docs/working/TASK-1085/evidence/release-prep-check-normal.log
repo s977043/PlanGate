@@ -1,0 +1,11 @@
+=== release readiness 検査 ===
+OK: plugin version 一致 (8.19.0)
+OK: plugin マニフェスト整合（.claude-plugin / .codex-plugin）
+NG: 適用待ち apply あり（Human 実行が必要）: apply-ai-loop-workflow-command.sh apply-quality-command-gate.sh apply-reviewer-silence-gate.sh apply-task-0123-patches.sh apply-task-0146-ehs23-wiring.sh apply-ui-v1-crossref.sh
+OK: docs/changelog.md 同期済み
+NG: plugin キャッシュ未同期 — 実行: sh scripts/sync-plugin-installed.sh
+=== 手動確認 TODO（機械化対象外） ===
+- README / README_en の最新リリース行（散文）が対象 version か
+- CLAUDE.md の最新リリース節（HO — apply スクリプトで Human 適用）
+- テスト実行: sh tests/run-tests.sh && sh tests/hooks/run-tests.sh
+NOT READY

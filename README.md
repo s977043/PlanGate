@@ -144,11 +144,14 @@ OS: macOS / Linux（POSIX shell が動作する環境）。Windows は WSL 推�
 claude plugin marketplace add s977043/PlanGate
 claude plugin install plangate
 
-# Codex（marketplace 登録）
+# Codex（marketplace 登録 → plugin 導入の 2 段階）
 codex plugin marketplace add s977043/PlanGate
+codex plugin add plangate@plangate
 ```
 
-> Codex には `plugin install` サブコマンドはありません。`marketplace add` で marketplace を登録します。スキルを `.codex/skills/` に直接展開する場合は **Option B**（clone + `install.sh --codex`）を使用してください。
+> **`marketplace add` は marketplace を登録するだけで、plugin はまだロードされません。** 続けて `codex plugin add plangate@plangate` を実行してください（Codex のサブコマンド名は `install` ではなく `add` です）。導入後は `codex plugin list` が `installed, enabled` を示し、`bin/plangate doctor` の Codex Plugin セクションが `registered: YES` になります。`marketplace add` だけで止めると `registered: NO` のままです。
+>
+> スキルを `.codex/skills/` に直接展開する場合は **Option B**（clone + `install.sh --codex`）を使用してください。**`install.sh --codex` は `.codex/skills/` へのコピーのみを行い、`codex plugin add` は実行しません**（Option A と Option B は別経路です）。
 
 ### Option B: clone + install スクリプト
 
