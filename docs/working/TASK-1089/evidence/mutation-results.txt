@@ -1,0 +1,156 @@
+===== M1: patched + call site 破壊 (if [ "$_override" = "1" ] → "9") =====
+1
+
+=== TA-65: EH-3 Hardening Override × TASK 文脈 (#1089) ===
+  [PASS] TC-00: HO カテゴリを hook の case 文から導出 (15 パターン)
+  [INFO] HO 判定は task_id 分岐の前 (L94 < L119) → fixed を期待
+    mismatch: .claude/rules/x.md → rc=0 (expected rc=2)
+    mismatch: .claude/settings.json → rc=0 (expected rc=2)
+    mismatch: .claude/settings.local.json → rc=0 (expected rc=2)
+    mismatch: .claude/settings.example.json → rc=0 (expected rc=2)
+    mismatch: .claude/commands/x.md → rc=0 (expected rc=2)
+    mismatch: .claude/commands/x/x.md → rc=0 (expected rc=2)
+    mismatch: .claude/agents/x.md → rc=0 (expected rc=2)
+    mismatch: .claude/agents/x/x.md → rc=0 (expected rc=2)
+    mismatch: scripts/hooks/x.sh → rc=0 (expected rc=2)
+    mismatch: bin/plangate → rc=0 (expected rc=2)
+    mismatch: schemas/x.schema.json → rc=0 (expected rc=2)
+    mismatch: .github/workflows/x.yml → rc=0 (expected rc=2)
+    mismatch: .github/workflows/x.yaml → rc=0 (expected rc=2)
+    mismatch: AGENTS.md → rc=0 (expected rc=2)
+    mismatch: CLAUDE.md → rc=0 (expected rc=2)
+  [FAIL] TC-01: TASK 文脈あり × HO パターン不一致 15/15 (mode=fixed)
+    doc mismatch: .claude/agents/x.md → rc=0 (expected rc=2)
+    doc mismatch: .claude/commands/x.md → rc=0 (expected rc=2)
+    doc mismatch: .claude/rules/x.md → rc=0 (expected rc=2)
+    doc mismatch: .claude/settings.example.json → rc=0 (expected rc=2)
+    doc mismatch: .claude/settings.json → rc=0 (expected rc=2)
+    doc mismatch: .claude/settings.local.json → rc=0 (expected rc=2)
+    doc mismatch: .github/workflows/x.yaml → rc=0 (expected rc=2)
+    doc mismatch: .github/workflows/x.yml → rc=0 (expected rc=2)
+    doc mismatch: AGENTS.md → rc=0 (expected rc=2)
+    doc mismatch: bin/plangate → rc=0 (expected rc=2)
+    doc mismatch: CLAUDE.md → rc=0 (expected rc=2)
+    doc mismatch: schemas/x.schema.json → rc=0 (expected rc=2)
+    doc mismatch: scripts/hooks/check-plan-hash.sh → rc=0 (expected rc=2)
+    doc mismatch: scripts/hooks/x.sh → rc=0 (expected rc=2)
+  [FAIL] TC-01b (AC-7): 正本と実装の乖離 14/14 (mode=fixed)
+  [FAIL] TC-02: stdin JSON 期待 rc=2, got rc=0
+    no-task mismatch: .claude/rules/x.md → rc=0
+    no-task mismatch: .claude/settings.json → rc=2
+    no-task mismatch: .claude/settings.local.json → rc=2
+    no-task mismatch: .claude/settings.example.json → rc=2
+    no-task mismatch: .claude/commands/x.md → rc=0
+    no-task mismatch: .claude/commands/x/x.md → rc=0
+    no-task mismatch: .claude/agents/x.md → rc=0
+    no-task mismatch: .claude/agents/x/x.md → rc=0
+    no-task mismatch: scripts/hooks/x.sh → rc=2
+    no-task mismatch: bin/plangate → rc=2
+    no-task mismatch: schemas/x.schema.json → rc=2
+    no-task mismatch: .github/workflows/x.yml → rc=2
+    no-task mismatch: .github/workflows/x.yaml → rc=2
+    no-task mismatch: AGENTS.md → rc=0
+    no-task mismatch: CLAUDE.md → rc=0
+  [FAIL] TC-03 (AC-3): TASK 未設定時の block が退行 (15 件)
+    ok: plan.md 不在 → SKIP (rc=0)
+    ok: c3.json 不在 → SKIP (rc=0)
+    ok: plan_hash 未記録 → SKIP (rc=0)
+    ok: plan_hash 一致 → PASS (rc=0)
+    ok: mismatch (default) → WARNING (rc=0)
+    ok: mismatch (STRICT) → rc=1 BLOCK
+  [PASS] TC-04 (AC-4): 非 HO パスの plan_hash 検証 6 経路すべて不変
+  [PASS] TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）
+TA-65 standalone: 3 passed, 4 failed
+M1_RC=1
+
+===== M2: patched + 1 カテゴリ削除 (bin/plangate) =====
+
+=== TA-65: EH-3 Hardening Override × TASK 文脈 (#1089) ===
+  [PASS] TC-00: HO カテゴリを hook の case 文から導出 (14 パターン)
+  [INFO] HO 判定は task_id 分岐の前 (L94 < L118) → fixed を期待
+  [PASS] TC-01: TASK 文脈あり × HO 14 パターン すべて期待どおり (mode=fixed / rc=2)
+    doc mismatch: bin/plangate → rc=0 (expected rc=2)
+  [FAIL] TC-01b (AC-7): 正本と実装の乖離 1/14 (mode=fixed)
+  [PASS] TC-02: stdin JSON (CLAUDE.md) × TASK 文脈 → rc=2 (mode=fixed)
+  [PASS] TC-03 (AC-3): TASK 未設定 × HO 14 パターン すべて rc=2 + HARDENING_OVERRIDE
+    ok: plan.md 不在 → SKIP (rc=0)
+    ok: c3.json 不在 → SKIP (rc=0)
+    ok: plan_hash 未記録 → SKIP (rc=0)
+    ok: plan_hash 一致 → PASS (rc=0)
+    ok: mismatch (default) → WARNING (rc=0)
+    ok: mismatch (STRICT) → rc=1 BLOCK
+  [PASS] TC-04 (AC-4): 非 HO パスの plan_hash 検証 6 経路すべて不変
+  [PASS] TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）
+TA-65 standalone: 6 passed, 1 failed
+M2_RC=1
+
+===== M3: 未適用 hook + PG_T65_EXPECT=fixed (pin) =====
+
+=== TA-65: EH-3 Hardening Override × TASK 文脈 (#1089) ===
+  [PASS] TC-00: HO カテゴリを hook の case 文から導出 (15 パターン)
+  [INFO] 期待値を pin: PG_T65_EXPECT=fixed
+  [INFO] HO 判定は task_id 分岐の前 (L123 < L83) → fixed を期待
+    mismatch: .claude/rules/x.md → rc=0 (expected rc=2)
+    mismatch: .claude/settings.json → rc=0 (expected rc=2)
+    mismatch: .claude/settings.local.json → rc=0 (expected rc=2)
+    mismatch: .claude/settings.example.json → rc=0 (expected rc=2)
+    mismatch: .claude/commands/x.md → rc=0 (expected rc=2)
+    mismatch: .claude/commands/x/x.md → rc=0 (expected rc=2)
+    mismatch: .claude/agents/x.md → rc=0 (expected rc=2)
+    mismatch: .claude/agents/x/x.md → rc=0 (expected rc=2)
+    mismatch: scripts/hooks/x.sh → rc=0 (expected rc=2)
+    mismatch: bin/plangate → rc=0 (expected rc=2)
+    mismatch: schemas/x.schema.json → rc=0 (expected rc=2)
+    mismatch: .github/workflows/x.yml → rc=0 (expected rc=2)
+    mismatch: .github/workflows/x.yaml → rc=0 (expected rc=2)
+    mismatch: AGENTS.md → rc=0 (expected rc=2)
+    mismatch: CLAUDE.md → rc=0 (expected rc=2)
+  [FAIL] TC-01: TASK 文脈あり × HO パターン不一致 15/15 (mode=fixed)
+    doc mismatch: .claude/agents/x.md → rc=0 (expected rc=2)
+    doc mismatch: .claude/commands/x.md → rc=0 (expected rc=2)
+    doc mismatch: .claude/rules/x.md → rc=0 (expected rc=2)
+    doc mismatch: .claude/settings.example.json → rc=0 (expected rc=2)
+    doc mismatch: .claude/settings.json → rc=0 (expected rc=2)
+    doc mismatch: .claude/settings.local.json → rc=0 (expected rc=2)
+    doc mismatch: .github/workflows/x.yaml → rc=0 (expected rc=2)
+    doc mismatch: .github/workflows/x.yml → rc=0 (expected rc=2)
+    doc mismatch: AGENTS.md → rc=0 (expected rc=2)
+    doc mismatch: bin/plangate → rc=0 (expected rc=2)
+    doc mismatch: CLAUDE.md → rc=0 (expected rc=2)
+    doc mismatch: schemas/x.schema.json → rc=0 (expected rc=2)
+    doc mismatch: scripts/hooks/check-plan-hash.sh → rc=0 (expected rc=2)
+    doc mismatch: scripts/hooks/x.sh → rc=0 (expected rc=2)
+  [FAIL] TC-01b (AC-7): 正本と実装の乖離 14/14 (mode=fixed)
+  [FAIL] TC-02: stdin JSON 期待 rc=2, got rc=0
+  [PASS] TC-03 (AC-3): TASK 未設定 × HO 15 パターン すべて rc=2 + HARDENING_OVERRIDE
+    ok: plan.md 不在 → SKIP (rc=0)
+    ok: c3.json 不在 → SKIP (rc=0)
+    ok: plan_hash 未記録 → SKIP (rc=0)
+    ok: plan_hash 一致 → PASS (rc=0)
+    ok: mismatch (default) → WARNING (rc=0)
+    ok: mismatch (STRICT) → rc=1 BLOCK
+  [PASS] TC-04 (AC-4): 非 HO パスの plan_hash 検証 6 経路すべて不変
+  [PASS] TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）
+TA-65 standalone: 4 passed, 3 failed
+M3_RC=1
+
+===== M4: patched + no-task 経路の破壊 (case ラベルの .claude/rules を除去) =====
+
+=== TA-65: EH-3 Hardening Override × TASK 文脈 (#1089) ===
+  [PASS] TC-00: HO カテゴリを hook の case 文から導出 (15 パターン)
+  [INFO] HO 判定は task_id 分岐の前 (L94 < L119) → fixed を期待
+  [PASS] TC-01: TASK 文脈あり × HO 15 パターン すべて期待どおり (mode=fixed / rc=2)
+    doc mismatch: .claude/rules/x.md → rc=0 (expected rc=2)
+  [FAIL] TC-01b (AC-7): 正本と実装の乖離 1/14 (mode=fixed)
+  [PASS] TC-02: stdin JSON (CLAUDE.md) × TASK 文脈 → rc=2 (mode=fixed)
+  [PASS] TC-03 (AC-3): TASK 未設定 × HO 15 パターン すべて rc=2 + HARDENING_OVERRIDE
+    ok: plan.md 不在 → SKIP (rc=0)
+    ok: c3.json 不在 → SKIP (rc=0)
+    ok: plan_hash 未記録 → SKIP (rc=0)
+    ok: plan_hash 一致 → PASS (rc=0)
+    ok: mismatch (default) → WARNING (rc=0)
+    ok: mismatch (STRICT) → rc=1 BLOCK
+  [PASS] TC-04 (AC-4): 非 HO パスの plan_hash 検証 6 経路すべて不変
+  [PASS] TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）
+TA-65 standalone: 6 passed, 1 failed
+M4_RC=1

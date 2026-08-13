@@ -129,6 +129,23 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 - **対応**: Hook が次の operation を block。再承認を要求
 - **基盤**: Iron Law #5（承認済 plan と実装差分の整合性）
 
+> **⚠️ 既知の制限 — Hardening Override は `PLANGATE_HOOK_TASK` 設定時に発火しない（#1089 / patch 未適用）**
+>
+> EH-3 は plan_hash 検知に加え **Hardening Override（HO）9 カテゴリの常時 block**
+> （正本: [`.claude/rules/mode-classification.md`](../../.claude/rules/mode-classification.md)
+> 承認境界周辺の変更節）を担う **唯一のガード**である
+> （`check-forbidden-files.sh` は HO パスを守らない）。しかし現行実装では
+> HO 判定が `task_id` 未設定分岐の内側にあるため、**`PLANGATE_HOOK_TASK` が
+> 設定されたセッションでは 9 カテゴリすべてが block されない**（実測 9/9 で
+> `rc=2 → rc=0`）。`PLANGATE_HOOK_TASK` は `plan.md` 編集の正規経路であり、
+> **PlanGate 作業中のセッションこそ HO 保護が外れる**。
+>
+> - 是正 patch（Human-owned 適用）: `docs/working/TASK-1089/patches/check-plan-hash.ho-always.patch`
+> - 回帰テスト: `tests/extras/ta-65-eh3-ho-task-context.sh`（2 値表明。未適用時は
+>   KNOWN-GAP を明示、適用後は block を実測表明。`PG_T65_EXPECT=fixed` で pin 可能）
+> - `.claude/settings*.json` は Claude Code 自身の self-mod ガード（harness 層）でも
+>   守られるが、**残る 8 カテゴリに同等の別ガードは確認されていない**
+
 ### EH-4: test-cases.md なし V-1 ブロック
 
 - **トリガー**: V-1（受入検査）を試みたが `test-cases.md` が存在しない

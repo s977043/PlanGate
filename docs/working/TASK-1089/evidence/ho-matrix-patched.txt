@@ -1,0 +1,10 @@
+TARGET                                     no-task  task=TASK-1078
+.claude/rules/working-context.md           rc=2     rc=2     | [Hook EH-3] HARDENING_OVERRIDE: .claude/rules/working-context.md は maintenance 窓内でも常時 block (R-003/R-015)
+.claude/settings.json                      rc=2     rc=2     | [Hook EH-3] HARDENING_OVERRIDE: .claude/settings.json は maintenance 窓内でも常時 block (R-003/R-015)
+.claude/commands/x.md                      rc=2     rc=2     | [Hook EH-3] HARDENING_OVERRIDE: .claude/commands/x.md は maintenance 窓内でも常時 block (R-003/R-015)
+.claude/agents/x.md                        rc=2     rc=2     | [Hook EH-3] HARDENING_OVERRIDE: .claude/agents/x.md は maintenance 窓内でも常時 block (R-003/R-015)
+scripts/hooks/check-plan-hash.sh           rc=2     rc=2     | [Hook EH-3] HARDENING_OVERRIDE: scripts/hooks/check-plan-hash.sh は maintenance 窓内でも常時 block (R-003/R-015)
+bin/plangate                               rc=2     rc=2     | [Hook EH-3] HARDENING_OVERRIDE: bin/plangate は maintenance 窓内でも常時 block (R-003/R-015)
+schemas/x.schema.json                      rc=2     rc=2     | [Hook EH-3] HARDENING_OVERRIDE: schemas/x.schema.json は maintenance 窓内でも常時 block (R-003/R-015)
+.github/workflows/ci.yml                   rc=2     rc=2     | [Hook EH-3] HARDENING_OVERRIDE: .github/workflows/ci.yml は maintenance 窓内でも常時 block (R-003/R-015)
+CLAUDE.md                                  rc=2     rc=2     | [Hook EH-3] HARDENING_OVERRIDE: CLAUDE.md は maintenance 窓内でも常時 block (R-003/R-015)
