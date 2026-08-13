@@ -1,0 +1,62 @@
+{
+  "request": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "clientInfo": {
+          "name": "probe",
+          "title": "probe",
+          "version": "0.0.1"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "method": "initialized",
+      "params": {}
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "hooks/list",
+      "params": {
+        "cwd": "/Users/user/Documents/GitHub/plangate"
+      }
+    }
+  ],
+  "response": {
+    "id": 2,
+    "result": {
+      "data": [
+        {
+          "cwd": "/Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a61d32d296c5ec867",
+          "hooks": [
+            {
+              "key": "river-review@river-review-marketplace:hooks/hooks.json:post_tool_use:0:0",
+              "eventName": "postToolUse",
+              "handlerType": "command",
+              "matcher": "Write|Edit|MultiEdit",
+              "command": "bash \"/Users/user/.codex/plugins/cache/river-review-marketplace/river-review/1.76.1/scripts/plugin-format-hook.sh\"",
+              "timeoutSec": 30,
+              "statusMessage": null,
+              "sourcePath": "/Users/user/.codex/plugins/cache/river-review-marketplace/river-review/1.76.1/hooks/hooks.json",
+              "source": "plugin",
+              "pluginId": "river-review@river-review-marketplace",
+              "displayOrder": 0,
+              "enabled": true,
+              "isManaged": false,
+              "currentHash": "sha256:07b5dc321d5295db2d809d7e7e667cdad429c731bf238e8c0f3eee274573d54f",
+              "trustStatus": "trusted"
+            }
+          ],
+          "warnings": [
+            "failed to parse hooks config /Users/user/Documents/GitHub/plangate/.codex/hooks.json: unknown field `$schema_note`, expected `description` or `hooks` at line 2 column 16"
+          ],
+          "errors": []
+        }
+      ]
+    }
+  }
+}

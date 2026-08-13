@@ -105,7 +105,7 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
 - 並行で `./scripts/ai-dev-workflow TASK-XXXX exec` も利用可（**上流リポジトリの cwd のみ**。`scripts/ai-dev-workflow` は配布対象外）
 - **Codex CLI 経由の場合は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto` を推奨**（**上流リポジトリの cwd のみ**。pre-flight で validate + doctor --check-settings 実行、post-flight で plan.md drift 検知）
 
-> ✅ **Codex CLI 物理 hook 等価達成 (PR #347)**: `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` で EH-1/2/3/6/9 が Codex session 中の Write/Edit/Bash 呼び出しに対しても発火する。`scripts/codex-guarded.sh` の session 前後検知と合わせて Claude Code と等価な強制力。**ただしこれらも配布対象外**なので、導入先では下記フォールバックでゲートを人手維持する。
+> ❌ ~~**Codex CLI 物理 hook 等価達成 (PR #347)**~~ **未達成（2026-08-13 実測）**: `.codex/hooks.json` は設定ファイル全体が parse 拒否されており、**hook は 1 件も登録されていない**。**EH-1/2/3/6/9 は Codex session で一度も発火していない**。`scripts/codex-guarded.sh` の session 前後検知は正規入口を経由した場合のみ機能する（入口を強制する機械ゲートは無い）。**Codex session 中の write は物理 block されないものとして扱い、ゲートは人手で維持すること。** 上流リポジトリでの詳細は `docs/ai/settings-wiring-contract.md` §Codex CLI parity を参照。**これらは配布対象外**でもあるため、導入先では下記フォールバックでゲートを人手維持する。
 
 ### CLI 不在時のフォールバック（導入先では既定）
 

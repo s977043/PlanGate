@@ -456,7 +456,7 @@ PlanGateのゲートは**PBI(チケット)1枚の中**に置きます。判断�
 | v5 | L-0リンター自動修正ループ | ハーネスエンジニアリング(フィードバック設計) |
 | v6(予定) | 決定論的フック+ガベージコレクション+段階的ルール昇格 | ハーネスエンジニアリング(運用設計) |
 | v8.9 | **Reporting & Retrospective v1 — events.ndjson 由来のスプリントレトロスペクティブ導出 (#200)** | — |
-| v8.10 | **Codex CLI 物理 hook 等価達成 (PR #347)** | OpenAI Codex CLI PreToolUse hook API |
+| v8.10 | ~~**Codex CLI 物理 hook 等価達成 (PR #347)**~~ **❌ 未達成（#1078 実測: 登録 0 件）** | OpenAI Codex CLI PreToolUse hook API |
 
 ---
 
@@ -497,20 +497,33 @@ PlanGateのゲートは**PBI(チケット)1枚の中**に置きます。判断�
 skill 一覧は `.agents/skills/README.md` を参照。
 
 
-## Codex CLI parity (PR #347 達成済)
+## Codex CLI parity ~~(PR #347 達成済)~~ — **未達成（Codex 側 hook は 1 件も登録されていない）**
 
-Claude Code の `.claude/settings.json` hooks (EH-1〜EH-9) と等価な強制力を、Codex CLI session でも実現:
+> **是正（2026-08-13 / [#1078](https://github.com/s977043/plangate/issues/1078)）**: 本節は
+> PR #347 以来「達成済」と記載していたが、**実測で `.codex/hooks.json` が parse 拒否されており、
+> PlanGate の hook が 1 件も登録されていない**ことが判明した（**強制力 0 / 11**）。
+> **EH-1/2/3/6/9 は Codex セッションで一度も発火していない。**
+> **注記キー 2 行を消すだけの是正は禁止**: 消すと `hooks/list` 上は 5 件が登録され
+> 「parity 回復」に見えるが、bridge の stdin 非転送により hook は空入力で PASS し続け
+> **強制力は 0 のまま**（実測: HO パスを含む 12/12 が `allow`）。**bridge の stdin 転送を
+> 先に実装し、実際に block される証跡を得てから**除去すること。
+> 3 軸の数え方・根本原因・後続スライスの正本は
+> [settings-wiring-contract.md](ai/settings-wiring-contract.md) §Codex CLI parity を参照。
 
-- **`.codex/hooks.json`** + **`.codex/hooks/eh-bridge.sh`**: PreToolUse hook bridge。`apply_patch|Edit|Write` で EH-1/2/3/6、`Bash` で EH-9 が Codex session 中にも発火。
+Claude Code の `.claude/settings.json` hooks (EH-1〜EH-9) と等価な強制力を、Codex CLI session でも実現~~する~~**しようとした設計**（**現況は未達成**）:
+
+- **`.codex/hooks.json`** + **`.codex/hooks/eh-bridge.sh`**: PreToolUse hook bridge。~~`apply_patch|Edit|Write` で EH-1/2/3/6、`Bash` で EH-9 が Codex session 中にも発火。~~ **← 実際には登録されておらず発火しない。** また `Edit` / `Write` は Codex に存在しないツール名で、matcher 中では死に文字列。
 - **`scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto`**: Codex CLI の正規入口。pre-flight (validate + doctor) / post-flight (plan_hash drift 検知) を自動実行。
 
 OpenAI Codex CLI 公式 hook 仕様: https://developers.openai.com/codex/hooks
 
 ### 強制マトリクス
 
-| 強制 | Claude Code | Codex CLI |
-|------|-------------|-----------|
-| EH-1 plan-exists / EH-2 c3-approval / EH-3 plan_hash / EH-6 forbidden_files | ✅ `.claude/settings.json` PreToolUse | ✅ `.codex/hooks.json` PreToolUse |
-| EH-9 delegation-commit-boundary | ✅ PreToolUse Bash | ✅ 同上 |
+> ⚠️ Codex 列の記号は **「設定ファイルに書かれているか」** を表す。**「効いているか」ではない。**
+
+| 強制 | Claude Code | Codex CLI（記述） | Codex CLI（実際の登録・強制力） |
+|------|-------------|------------------|------------------------------|
+| EH-1 plan-exists / EH-2 c3-approval / EH-3 plan_hash / EH-6 forbidden_files | ✅ `.claude/settings.json` PreToolUse | 記述あり `.codex/hooks.json` | ❌ **未登録・発火 0**（parse 拒否） |
+| EH-9 delegation-commit-boundary | ✅ PreToolUse Bash | 記述あり 同上 | ❌ **未登録・発火 0**（同上） |
 
 詳細: [docs/ai/settings-wiring-contract.md](ai/settings-wiring-contract.md) §Codex CLI parity。
