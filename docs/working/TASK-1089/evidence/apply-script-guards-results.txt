@@ -1,0 +1,36 @@
+===== A1: 引数 strict 検証（未知引数 / 引数過多）=====
+unknown-arg rc=1  (期待 1)
+too-many-args rc=1  (期待 1)
+
+===== A2: --dry-run（既定）は 1 バイトも書かない =====
+default(no arg) rc=0  (期待 0)
+--dry-run rc=0  (期待 0)
+hook 未変更 OK
+rules 未変更 OK
+flag 残存 OK
+
+===== A3: アンカー検証（base から drift）→ exit 1 かつ部分適用なし =====
+  error: anchor validation failed in /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.ewhEr18aTn/a3/scripts/hooks/check-plan-hash.sh: expected exactly 1 occurrence of the in-branch Hardening Override block, found 0 (has the file drifted from the base commit?)
+anchor-drift rc=1  (期待 1)
+hook 未変更 OK
+rules 未変更 OK（部分適用なし）
+flag 残存 OK（部分適用なし）
+
+===== A4: 冪等性（--apply を 2 回 / 適用後の --dry-run）=====
+1st --apply rc=0  (期待 0)
+2nd --apply rc=0  (期待 0)
+  出力: [apply-eh3-ho-always] already applied — nothing to do (idempotent)
+適用後 --dry-run rc=0  (期待 0)
+  出力: [apply-eh3-ho-always] already applied — nothing to do (idempotent)
+2 回目以降に hook を書き換えない OK
+
+===== A5: 適用でファイル mode（実行ビット）が落ちない =====
+hook mode: -rwxr-xr-x@ → -rwxr-xr-x@
+mode 保存 OK
+
+===== A6: apply の出力が参考 patch の適用結果と一致する =====
+apply スクリプト == 参考 patch の適用結果 OK
+
+===== A7: flag 削除が index に反映され、ta-61 の sandbox 構築を壊さない =====
+D  tests/fixtures/eh3-known-gap-1089.flag
+ta-61 相当の sandbox 複製 OK（tar 成功）

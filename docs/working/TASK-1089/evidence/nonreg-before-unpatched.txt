@@ -1,0 +1,19 @@
+T1 task/plan.md absent                               rc=0   [Hook EH-3 SKIP] plan.md not found: /private/tmp/claude-502/-Users-user-Documents-GitHub-p
+T2 task/c3.json absent                               rc=0   [Hook EH-3 SKIP] c3.json not found: /private/tmp/claude-502/-Users-user-Documents-GitHub-p
+T3 task/plan_hash unrecorded                         rc=0   [Hook EH-3 SKIP] plan_hash not found in c3.json
+T4 task/plan_hash match                              rc=0   [Hook EH-3 PASS] plan_hash matches current plan.md
+T5 task/mismatch default                             rc=0   [Hook EH-3 WARNING] plan_hash mismatch (plan.md modified post-C-3)
+T6 task/mismatch STRICT                              rc=1   [Hook EH-3 BLOCK] plan.md was modified after C-3 approval.
+T7 invalid task id                                   rc=2   error: invalid task_id: NOPE
+T8 task/target=own plan.md                           rc=0   [Hook EH-3 WARNING] plan_hash mismatch (plan.md modified post-C-3)
+T9 BYPASS=1 + HO + task                              rc=0   [Hook EH-3] BYPASS
+N1 no-task/plan.md                                   rc=2   [Hook EH-3] BLOCK: plan.md edited without TASK context.
+N2 no-task/non-HO .md (doc-light)                    rc=0   [Hook EH-3 DOC_LIGHT_SKIP] DOC_LIGHT_SKIP: non-HO .md target (docs/some/readme.md) -- auto
+N3 no-task/non-HO non-md no SKIP_REASON              rc=2   [Hook EH-3] SKIP 拒否: SKIP_REASON 未設定。
+N4 no-task/non-HO non-md SKIP_REASON                 rc=0   [Hook EH-3 SKIP] no task_id; non-plan target (src/app.py) — skipped (SKIP_REASON 記録済・要人間追認
+N5 no-task/STRICT                                    rc=2   Usage: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd
+N6 no-task/maintenance window non-HO                 rc=0   [Hook EH-3 SKIP] MAINTENANCE_SKIP: non-plan src/app.py (VALID|legacy 30min window (one_sho
+N7 no-task/maintenance window HO                     rc=2   [Hook EH-3] HARDENING_OVERRIDE: bin/plangate は maintenance 窓内でも常時 block (R-003/R-015)
+N8 task/maintenance window non-HO                    rc=0   [Hook EH-3 WARNING] plan_hash mismatch (plan.md modified post-C-3)
+S1 stdin json HO + task                              rc=0   [Hook EH-3 WARNING] plan_hash mismatch (plan.md modified post-C-3)
+S2 stdin json non-HO + task                          rc=0   [Hook EH-3 WARNING] plan_hash mismatch (plan.md modified post-C-3)

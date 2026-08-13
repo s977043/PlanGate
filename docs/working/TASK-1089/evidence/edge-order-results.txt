@@ -1,0 +1,14 @@
+--- BEFORE (unpatched main 8f57e59) ---
+E1 no-task + HO + STRICT=1                     rc=2   Usage: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f0
+E2 no-task + HO path named plan.md             rc=2   [Hook EH-3] BLOCK: plan.md edited without TASK context.
+E3 no-task + HO + SKIP_REASON                  rc=2   [Hook EH-3] HARDENING_OVERRIDE: bin/plangate は maintenance 窓内でも常時 block (R-003/R
+E4 no-task + empty target                      rc=2   [Hook EH-3] SKIP 拒否: SKIP_REASON 未設定。
+E5 task + empty target                         rc=0   [Hook EH-3 SKIP] plan.md not found: /private/tmp/claude-502/-Users-user-Document
+E6 task + non-HO .md                           rc=0   [Hook EH-3 SKIP] plan.md not found: /private/tmp/claude-502/-Users-user-Document
+--- AFTER (patch applied) ---
+E1 no-task + HO + STRICT=1                     rc=2   [Hook EH-3] HARDENING_OVERRIDE: bin/plangate は maintenance 窓内でも常時 block (R-003/R
+E2 no-task + HO path named plan.md             rc=2   [Hook EH-3] HARDENING_OVERRIDE: .claude/rules/plan.md は maintenance 窓内でも常時 block
+E3 no-task + HO + SKIP_REASON                  rc=2   [Hook EH-3] HARDENING_OVERRIDE: bin/plangate は maintenance 窓内でも常時 block (R-003/R
+E4 no-task + empty target                      rc=2   [Hook EH-3] SKIP 拒否: SKIP_REASON 未設定。
+E5 task + empty target                         rc=0   [Hook EH-3 SKIP] plan.md not found: /private/tmp/claude-502/-Users-user-Document
+E6 task + non-HO .md                           rc=0   [Hook EH-3 SKIP] plan.md not found: /private/tmp/claude-502/-Users-user-Document

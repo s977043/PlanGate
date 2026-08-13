@@ -1,0 +1,10 @@
+TARGET                                     no-task  task=TASK-1078
+.claude/rules/working-context.md           rc=2     rc=0     | [Hook EH-3 SKIP] plan.md not found: /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a994472de700000d3/docs/working/TASK-1078/plan.md
+.claude/settings.json                      rc=2     rc=0     | [Hook EH-3 SKIP] plan.md not found: /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a994472de700000d3/docs/working/TASK-1078/plan.md
+.claude/commands/x.md                      rc=2     rc=0     | [Hook EH-3 SKIP] plan.md not found: /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a994472de700000d3/docs/working/TASK-1078/plan.md
+.claude/agents/x.md                        rc=2     rc=0     | [Hook EH-3 SKIP] plan.md not found: /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a994472de700000d3/docs/working/TASK-1078/plan.md
+scripts/hooks/check-plan-hash.sh           rc=2     rc=0     | [Hook EH-3 SKIP] plan.md not found: /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a994472de700000d3/docs/working/TASK-1078/plan.md
+bin/plangate                               rc=2     rc=0     | [Hook EH-3 SKIP] plan.md not found: /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a994472de700000d3/docs/working/TASK-1078/plan.md
+schemas/x.schema.json                      rc=2     rc=0     | [Hook EH-3 SKIP] plan.md not found: /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a994472de700000d3/docs/working/TASK-1078/plan.md
+.github/workflows/ci.yml                   rc=2     rc=0     | [Hook EH-3 SKIP] plan.md not found: /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a994472de700000d3/docs/working/TASK-1078/plan.md
+CLAUDE.md                                  rc=2     rc=0     | [Hook EH-3 SKIP] plan.md not found: /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a994472de700000d3/docs/working/TASK-1078/plan.md

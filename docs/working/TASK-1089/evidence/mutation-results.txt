@@ -1,0 +1,84 @@
+===== M1: 是正適用後に判定 call site を破壊 ($_override = "1" → "9") =====
+  [PASS] TC-00: HO カテゴリを hook の case 文から導出 (15 パターン)
+  [FAIL] TC-01: TASK 文脈あり × HO パターン不一致 15/15 (mode=fixed)
+  [FAIL] TC-01b (AC-7): 正本と実装の乖離 14/14 (mode=fixed)
+  [FAIL] TC-02: stdin JSON 期待 rc=2, got rc=0
+  [FAIL] TC-03 (AC-3): TASK 未設定時の block が退行 (15 件)
+  [PASS] TC-04 (AC-4): 非 HO パスの plan_hash 検証 6 経路すべて不変
+  [PASS] TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）
+  [PASS] TC-06: HO 近傍の非 HO パス 10 件が両文脈で HO block されない（偽陽性なし）
+  [PASS] TC-07 (KNOWN-GAP): .. / 大小文字 / 末尾空白 の正規化は未実装 — 4 ケースを固定（別 PBI 候補）
+TA-65 standalone: 5 passed, 4 failed
+M1_RC=1
+
+===== M2: 是正適用後に HO カテゴリを 1 件削除 (bin/plangate) =====
+  [PASS] TC-00: HO カテゴリを hook の case 文から導出 (14 パターン)
+  [PASS] TC-01: TASK 文脈あり × HO 14 パターン すべて期待どおり (mode=fixed / rc=2)
+  [FAIL] TC-01b (AC-7): 正本と実装の乖離 1/14 (mode=fixed)
+  [PASS] TC-02: stdin JSON (CLAUDE.md) × TASK 文脈 → rc=2 (mode=fixed)
+  [PASS] TC-03 (AC-3): TASK 未設定 × HO 14 パターン すべて rc=2 + HARDENING_OVERRIDE
+  [PASS] TC-04 (AC-4): 非 HO パスの plan_hash 検証 6 経路すべて不変
+  [PASS] TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）
+  [PASS] TC-06: HO 近傍の非 HO パス 10 件が両文脈で HO block されない（偽陽性なし）
+  [PASS] TC-07 (KNOWN-GAP): .. / 大小文字 / 末尾空白 の正規化は未実装 — 4 ケースを固定（別 PBI 候補）
+TA-65 standalone: 8 passed, 1 failed
+M2_RC=1
+
+===== M3: 是正適用後に HO カテゴリを改名 (.claude/rules/*.md → NOPE.md) =====
+  [PASS] TC-00: HO カテゴリを hook の case 文から導出 (15 パターン)
+  [PASS] TC-01: TASK 文脈あり × HO 15 パターン すべて期待どおり (mode=fixed / rc=2)
+  [FAIL] TC-01b (AC-7): 正本と実装の乖離 1/14 (mode=fixed)
+  [PASS] TC-02: stdin JSON (CLAUDE.md) × TASK 文脈 → rc=2 (mode=fixed)
+  [PASS] TC-03 (AC-3): TASK 未設定 × HO 15 パターン すべて rc=2 + HARDENING_OVERRIDE
+  [PASS] TC-04 (AC-4): 非 HO パスの plan_hash 検証 6 経路すべて不変
+  [PASS] TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）
+  [PASS] TC-06: HO 近傍の非 HO パス 10 件が両文脈で HO block されない（偽陽性なし）
+  [PASS] TC-07 (KNOWN-GAP): .. / 大小文字 / 末尾空白 の正規化は未実装 — 4 ケースを固定（別 PBI 候補）
+TA-65 standalone: 8 passed, 1 failed
+M3_RC=1
+
+===== M4 (#1089 再発): 是正適用後に hook を元の構造へ revert（flag は戻さない）=====
+  [PASS] TC-00: HO カテゴリを hook の case 文から導出 (15 パターン)
+  [FAIL] TC-01: TASK 文脈あり × HO パターン不一致 15/15 (mode=fixed)
+  [FAIL] TC-01b (AC-7): 正本と実装の乖離 14/14 (mode=fixed)
+  [FAIL] TC-02: stdin JSON 期待 rc=2, got rc=0
+  [PASS] TC-03 (AC-3): TASK 未設定 × HO 15 パターン すべて rc=2 + HARDENING_OVERRIDE
+  [PASS] TC-04 (AC-4): 非 HO パスの plan_hash 検証 6 経路すべて不変
+  [PASS] TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）
+  [PASS] TC-06: HO 近傍の非 HO パス 10 件が両文脈で HO block されない（偽陽性なし）
+  [PASS] TC-07 (KNOWN-GAP): .. / 大小文字 / 末尾空白 の正規化は未実装 — 4 ケースを固定（別 PBI 候補）
+TA-65 standalone: 6 passed, 3 failed
+M4_RC=1
+
+===== M5: patch のみ手動適用し KNOWN-GAP flag を残す（stale 宣言）=====
+  [PASS] TC-00: HO カテゴリを hook の case 文から導出 (15 パターン)
+  [FAIL] TC-00b: stale KNOWN-GAP 宣言 — 実装は既に fixed (L94 < L119) なのに tests/fixtures/eh3-known-gap-1089.flag が残っている。flag を削除すること（scripts/apply-eh3-ho-always.sh --apply が自動で削除する）
+  [PASS] TC-01: TASK 文脈あり × HO 15 パターン すべて期待どおり (mode=fixed / rc=2)
+  [PASS] TC-01b (AC-7): 正本由来 14 パス すべて期待どおり (mode=fixed / rc=2)
+  [PASS] TC-02: stdin JSON (CLAUDE.md) × TASK 文脈 → rc=2 (mode=fixed)
+  [PASS] TC-03 (AC-3): TASK 未設定 × HO 15 パターン すべて rc=2 + HARDENING_OVERRIDE
+  [PASS] TC-04 (AC-4): 非 HO パスの plan_hash 検証 6 経路すべて不変
+  [PASS] TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）
+  [PASS] TC-06: HO 近傍の非 HO パス 10 件が両文脈で HO block されない（偽陽性なし）
+  [PASS] TC-07 (KNOWN-GAP): .. / 大小文字 / 末尾空白 の正規化は未実装 — 4 ケースを固定（別 PBI 候補）
+TA-65 standalone: 9 passed, 1 failed
+M5_RC=1
+
+===== M6: 未適用のまま PG_T65_EXPECT=fixed で pin =====
+  [PASS] TC-00: HO カテゴリを hook の case 文から導出 (15 パターン)
+  [FAIL] TC-01: TASK 文脈あり × HO パターン不一致 15/15 (mode=fixed)
+  [FAIL] TC-01b (AC-7): 正本と実装の乖離 14/14 (mode=fixed)
+  [FAIL] TC-02: stdin JSON 期待 rc=2, got rc=0
+  [PASS] TC-03 (AC-3): TASK 未設定 × HO 15 パターン すべて rc=2 + HARDENING_OVERRIDE
+  [PASS] TC-04 (AC-4): 非 HO パスの plan_hash 検証 6 経路すべて不変
+  [PASS] TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）
+  [PASS] TC-06: HO 近傍の非 HO パス 10 件が両文脈で HO block されない（偽陽性なし）
+  [PASS] TC-07 (KNOWN-GAP): .. / 大小文字 / 末尾空白 の正規化は未実装 — 4 ケースを固定（別 PBI 候補）
+TA-65 standalone: 6 passed, 3 failed
+M6_RC=1
+
+===== 対照: 未適用（flag あり）/ 適用後（flag なし）はいずれも rc=0 =====
+BASE_UNPATCHED_RC=0
+BASE_PATCHED_RC=0
+
+SUMMARY: M1=killed M2=killed M3=killed M4=killed M5=killed M6=killed 
