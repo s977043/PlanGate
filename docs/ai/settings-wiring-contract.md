@@ -76,7 +76,7 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
    扱いしない）違反。
 2. **`doctor --check-settings`**: 構造検証で未適用箇所を決定論的に列挙。
 
-> ~~既知の限界（V2 候補）~~: ~~完全な PreToolUse-hook レベルの機械 block~~ — **解消済 (PR #347)**。`.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` で Codex CLI 側にも EH-1/2/3/6/9 が物理 PreToolUse block として配線済。Claude Code 側は従来通り `.claude/settings.json` で配線。詳細は本ファイル後段の §Codex CLI parity 参照。
+> ~~既知の限界（V2 候補）~~: ~~完全な PreToolUse-hook レベルの機械 block~~ — ~~**解消済 (PR #347)**。`.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` で Codex CLI 側にも EH-1/2/3/6/9 が物理 PreToolUse block として配線済。~~ **❌ 未解消（#1078 実測 2026-08-13）**: `.codex/hooks.json` は parse 拒否され **Codex 側の hook 登録は 0 件**。EH-1/2/3/6/9 は Codex セッションで一度も発火していない。Claude Code 側は従来通り `.claude/settings.json` で配線。詳細は本ファイル後段の §Codex CLI parity 参照。
 
 
 ## Codex CLI parity (#336 / Gap 4) — ~~達成済~~ ~~部分達成（5 / 11 wiring）・強制力は未検証~~ **強制力 0 / 11（Codex 側 hook は 1 件も登録されていない）**
@@ -114,16 +114,25 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 **「何件配線したか」と「何件効いているか」は別の数**である。本節では以下 3 軸を分けて数える。
 過去 2 回の誤りは、いずれも **軸 A の数を軸 C の主張に流用した**ことで起きた。
 
-| 軸 | 定義 | 数え方 | 現況 |
-|----|------|--------|------|
-| **A. 記述（declared）** | 設定ファイルに hook として**書かれている**件数 | `.claude/settings.example.json` と `.codex/hooks.json` の静的差分 | Claude 11 / **Codex 5** |
-| **B. 登録（registered）** | Codex ランタイムが実際に**読み込んで登録した**件数 | `hooks/list` の `hooks[]` を数える | **Codex 0** |
-| **C. 強制力（enforced）** | 実際に**発火して block した**実走証跡がある件数 | 実走ログ（未取得） | **Codex 0** |
+| 軸 | 定義 | 数え方 | Claude Code | Codex CLI |
+|----|------|--------|-------------|-----------|
+| **A. 記述（declared）** | 設定ファイルに hook として**書かれている**件数 | `.claude/settings.example.json` / `.codex/hooks.json` を静的にパース | **11** | **5** |
+| **B. 登録（registered）** | ランタイムが実際に**読み込んで登録した**件数 | Codex は `hooks/list`。Claude は同等の問い合わせ経路を**本 PBI では使っていない** | **未測定** | **0** |
+| **C. 強制力（enforced）** | 実際に**発火して block した**件数（**上限は軸 B**） | 軸 B が上限を与える。下限は実走ログで確認（未取得） | **未測定** | **0**（軸 B = 0 より上限 0） |
 
-- **軸 B = 0 が軸 C = 0 を含意する**。登録されていない hook は原理的に発火し得ないため、
-  軸 C の 0 は「実走証跡が無い（未検証）」ではなく **論理的帰結として確定**している。
-- 軸 A の 5 は **依然として正しい**が、**これを「5 件は効いている」と読んではならない**。
+- **見出しの分母 11 は軸 A（Claude 側の記述数）**である。強制力の分母ではない。
+- **軸 B = 0 が軸 C = 0 を含意する**（登録されていない hook は原理的に発火し得ない）。
+  したがって Codex の軸 C は「実走証跡が無い＝未検証」ではなく **上限 0 として確定**。
+  ただし「発火して block した実績がある」という**下限の確認は未取得**である。
+- 軸 A の Codex 5 は **依然として正しい**が、**「5 件は効いている」と読んではならない**。
 - **Codex 側の parity を語るときは軸 C（0 / 11）で語る。** 軸 A の数を単独で見出しに置かない。
+
+> ⚠️ **Claude 側の B / C を「11」と読み替えないこと。** 本 PBI は Claude 側について
+> **ランタイム登録状態を問い合わせていない**（`.claude/settings.json` は gitignore で
+> リポジトリに存在せず、`bin/plangate doctor --check-settings` は**構造・契約の検証**で
+> あって「harness が hook を登録したか」の問い合わせではない）。
+> **「設定の存在は動作の証拠ではない」という本節の教訓は Claude 側にも等しく効く。**
+> Codex で起きたことが Claude で起きないと結論づける根拠は、本 PBI の範囲では無い。
 
 ### 設定ファイル全体が parse 拒否されている（#1078 実測・根本原因）
 
@@ -149,17 +158,63 @@ failed to parse hooks config <repo>/.codex/hooks.json: unknown field `$schema_no
 
 なお **project trust は本件の原因ではない**（本リポジトリは trusted 済み）。原因は parse 拒否である。
 
-### 🚨 注記キーの単独除去は禁止（Codex が使用不能になる）
+### 🚨 注記キーの単独除去は禁止（「登録された」が「効いている」に化けるため）
 
 > **この 2 行を消すだけの PR を作ってはならない。**
 > 「top-level の `$schema_note` / `$note` を消せば直る」は **誤り**である。
-> 2 行を消すと **hook が登録され、動き出す**。しかし `eh-bridge.sh` には後述の構造欠陥
-> （パス解決 / stdin 非転送 / matcher 死に文字列）があるため、**動き出した瞬間に
-> Codex の操作が deny され続け、Codex CLI が使用不能になる**。
+>
+> **2 行を消すと `hooks/list` 上は PlanGate hook 5 件が登録され、`trustStatus` も付く。
+> 外形上は「parity 回復」に見える。しかし `eh-bridge.sh` の欠陥により hook は
+> 空入力で PASS し続け、強制力は 0 のままである。**
+>
+> **これは「Codex が使えなくなる」より危険である。** 本節が潰そうとしている
+> 「**登録 ≠ 強制力**」という誤りを、**是正行為そのものが再生産する**経路になる。
+> 「登録 5 件・warnings 空」という緑のシグナルだけが増え、実態は 0 のまま据え置かれる。
 >
 > **除去は `eh-bridge.sh` の I/O 契約修正と同一 PR でなければならない。**
-> 順序としては **bridge を先に直し、注記キー除去を同じ PR に含める**。
-> 単独除去は「3 年間 silent に無効だったガードが、いきなり全 deny になる」変更である。
+> 順序は **stdin 転送の実装を先行必須とし、実際に block される証跡が取れて初めて
+> 注記キーを除去する**。**受入基準に「`hooks/list` に登録された」を使ってはならない**
+> （登録は前提条件であって成果ではない）。受入基準は **deny が実際に返ること**に置く。
+
+#### 実測: bridge は deny ではなく allow に倒れる（#1078 / 2 度目の是正で判明）
+
+当初この節には「除去すると全操作が deny され Codex が使用不能になる」と書いていたが、
+**実測で否定された**。`eh-bridge.sh` に PreToolUse payload を直接投入した結果:
+
+| 対象ファイル | hook | rc | decision |
+|---|---|---|---|
+| `bin/plangate` | check-plan-exists / c3-approval / forbidden-files / plan-hash | 0 | **allow** |
+| `docs/working/TASK-1078/plan.md` | 同上 4 本 | 0 | **allow** |
+| **`.claude/settings.json`（HO パス）** | 同上 4 本 | 0 | **allow** |
+
+**12 / 12 が `allow`。Hardening Override パスですら通る。**
+
+理由は 2 つで、**いずれも「deny 側」ではなく「allow 側」に倒れる**:
+
+1. **stdin 非転送**（`eh-bridge.sh` L33 で `INPUT=$(cat)` により吸い切り、L69 の
+   hook 起動へ渡していない）。hook は `PLANGATE_HOOK_FILE` / `PLANGATE_HOOK_TASK` の
+   env のみという**縮退した文脈**で走り、判定材料が無いため **rc=0（PASS）を返す**
+2. **未知 exit code を allow に落とす**（L86-89 の `*)` 分岐）。deny になるのは
+   **rc が 1 または 2 のときだけ**
+
+> **「パス解決の not-found → deny」は配線済み 5 本には効かない。** 配線されている
+> 5 本は実体が `scripts/hooks/` に**実在する**ため not-found 分岐に入らない。
+> not-found deny が発火するのは **未配線の hook（EH-12 / EH-13 — 実体が `scripts/`
+> 直下）を名前だけ足したとき**であり、その場合もそもそも現状は呼ばれない。
+
+#### `eh-bridge.sh` の構造欠陥 一覧（**本表を唯一の正本とする**）
+
+他ファイルはこの表を参照すること（個数・内容を各所で書き下すと不一致が生じる）。
+
+| # | 欠陥 | 位置 | 倒れる向き |
+|---|------|------|-----------|
+| **B-1** | **stdin を吸い切り hook へ渡さない**（Codex の入力経路は stdin のみ） | L33 / L69 | **allow**（判定材料が無く rc=0） |
+| **B-2** | **未知 exit code を allow に落とす**（deny は rc 1 / 2 のみ） | L86-89 | **allow**（fail-open） |
+| **B-3** | hook パスを `scripts/hooks/` 固定で解決 → not-found で deny | L26 / L28-29 | deny（**ただし未配線 hook を足したときのみ**） |
+| **B-4** | matcher に Codex に存在しないツール名（`Edit` / `Write`）を含む | `.codex/hooks.json` | 死に文字列（実質 `apply_patch` のみ一致） |
+
+**現況で支配的なのは B-1 / B-2＝ allow 側**。B-3 は将来 EH-12 / EH-13 を配線する
+ときに初めて効く。**「bridge は deny 側に厳しい」という読みは誤り**である。
 
 ### 「設定ファイルの存在は動作の証拠ではない」（構造原因）
 
@@ -192,6 +247,44 @@ failed to parse hooks config <repo>/.codex/hooks.json: unknown field `$schema_no
   `hooks.json` を編集するたび hash が変わる。**「編集 → 再 trust」が運用フローに要る**
   （hash は **hook 単位**。同一ファイル内の別 matcher group を個別に trust できる）。
 
+### 「達成済」主張の残存箇所 一覧（#1078 / 全数照合 2026-08-13）
+
+`git grep` による全数照合の結果。**本 PR で是正した箇所と、未是正のまま残る箇所を
+明示的に区別する**（未是正箇所を書き残さないと網羅性が担保できないため）。
+
+#### 本 PR で是正済み
+
+| ファイル | 箇所 |
+|---|---|
+| `docs/ai/settings-wiring-contract.md` | 本節見出し / L79 既知の限界 / 三層表 / 等価強制マトリクス前文 / bridge 動作 / U-3 |
+| `docs/plangate.md` | §Codex CLI parity 見出し・本文・強制マトリクス / v8.10 年表行 |
+| `docs/ai/harness-improvement-roadmap.md` | v8.10.0 Codex CLI parity 行 / 完了確認の注記 |
+| `docs/ai/hook-enforcement.md` | 物理配線 11/12 の注記・配線状態表の Codex 列 |
+| `.agents/skills/ai-dev-exec/SKILL.md` | 「物理 hook 等価達成」ブロック |
+| `.agents/skills/local-exec-handoff/SKILL.md` | 「EH-1/2/3/6/9 が自動発火する」 |
+| `plugin/plangate/skills/{ai-dev-exec,local-exec-handoff}/SKILL.md` | 上記の同期先（`scripts/sync-plugin-plangate.sh` により生成） |
+
+#### 未是正（**Human 適用待ち / 別 PBI**）
+
+| ファイル:行 | 残存主張 | 理由 |
+|---|---|---|
+| **`CLAUDE.md:34`** | 「EH-1/2/3/6/9 を Codex session 中 … 物理発火」 | **HO パス**。patch を `docs/working/TASK-1078/patches/CLAUDE.md.codex-parity.patch` に用意（適用は Human） |
+| **`AGENTS.md:18` / `AGENTS.md:48`** | 「物理 hook bridge を有効化」「Codex 側でも発火」 | **HO パス**。patch を `docs/working/TASK-1078/patches/AGENTS.md.codex-parity.patch` に用意（適用は Human）。**Codex セッションが読む側の正本**のため実害が最大 |
+| `README.md:450` | 「完全対応（物理 hook parity 達成済）」 | 本 PR スコープ外（別 PBI で是正） |
+| `README.md:90` | 「物理配線は 11/12」 | 同上。`hook-enforcement.md` と同じ数え方に依存 |
+| `docs/ai-driven-development.md:312` | 「等価な物理 hook 強制が有効化されている (#347)」 | 同上 |
+| `.codex/README.md:43` | 「.codex/hooks 物理 hook で強制」 | **`.codex/` は本 PBI で変更しない**（bridge 修正 PBI で扱う） |
+| `.codex/hooks.json:3` | `$note` 内の「等価な強制力を Codex セッションで実現する」 | 同上（**この行の除去自体が上記「単独除去は禁止」の対象**） |
+| `.codex/skills/{ai-dev-exec,local-exec-handoff}/SKILL.md` | `.agents/skills` と同文 | **`.codex/` は変更しない**。`scripts/install-plangate-skills-to-codex.sh` による同期で追従させる |
+| `tests/extras/README.md:14` | 「Codex CLI 物理 hook parity 検証 (#347)」 | テスト説明。別 PBI |
+| `CHANGELOG.md` v8.10.0 節 | 「Codex CLI parity 完成（100% 達成）」 | **履歴のため不改変**（当時の記録）。誤読防止の注記追加は別 PBI |
+
+> **Human 適用待ちの patch**: `docs/working/TASK-1078/patches/` 配下。
+> **HO パスのため AI は適用できない**（`CLAUDE.md` / `AGENTS.md`）。
+> 適用コマンド: `git apply docs/working/TASK-1078/patches/<name>.patch`
+> 追跡は [`docs/working/TASK-1078/status.md`](../working/TASK-1078/status.md) の BLOCKED 項目。
+> 本節の実測根拠: [`docs/working/TASK-1078/evidence/hooks-list-reverify.md`](../working/TASK-1078/evidence/hooks-list-reverify.md)
+
 **判明事項** (2026-05-25 PR #347): OpenAI Codex CLI は `PreToolUse` / `PostToolUse` hook API を公式提供しており、Claude Code の hook 仕様と直接互換 (matcher / stdin JSON / exit 2 で deny / `hookSpecificOutput.permissionDecision`)。公式仕様: https://developers.openai.com/codex/hooks
 
 ### 三層の強制機構
@@ -207,7 +300,12 @@ failed to parse hooks config <repo>/.codex/hooks.json: unknown field `$schema_no
 > **実測では層 2 はまったく機能していない**。`.codex/hooks.json` は parse 拒否され
 > **hook が 1 件も登録されていない**（上記「設定ファイル全体が parse 拒否されている」）。
 > **層 2 は現時点で存在しないものとして扱うこと。**
-> 層 1 / 層 3（`scripts/codex-guarded.sh` の pre/post-flight）は本件と独立に機能する。
+>
+> **層 1 / 層 3 の但し書き**: `scripts/codex-guarded.sh` の pre/post-flight は本件と
+> 独立に機能するが、**それは正規入口（`scripts/codex-guarded.sh`）を経由した場合に
+> 限る**。**正規入口の使用を強制する機械ゲートは存在しない**（`.github/workflows/`
+> 配下に `codex-guarded` の参照は 0 件＝規範層の運用に依存）。素の `codex` /
+> `codex exec` を直接起動した場合、**層 1 / 層 2 / 層 3 のいずれも働かない**。
 
 ### 等価強制マトリクス（全 wiring / #1078 で全数化）
 
@@ -255,9 +353,15 @@ Codex に存在しない**（0.144.1 バイナリ埋め込みの JSON Schema と
 働いている」ことの根拠にならない**。文言・状態表は実走証跡が得られるまで
 「未検証」のまま扱う。
 
-> **U-1 / U-2 の結果を先取りして書かないこと。** 両者は別途実走で確定作業中であり、
-> 確定するまで本節に結論を書き込んではならない。なお **U-1 / U-2 がどちらに転んでも
-> 軸 C（強制力 0 / 11）は変わらない** — 登録 0 件が上位の制約だからである。
+> **U-1 / U-2 のステータスは「観測あり・因果未確定」**（「未観測」ではない）。
+> 別走で **bare `allow` は無害**（弾かれず実害が出ていない）、**空 reason の `deny` は
+> fail-open が再現**との観測が得られているが、**`permission_mode=bypassPermissions` の
+> 交絡**があり、観測された挙動が hook 応答の解釈によるものか permission_mode による
+> ものか**切り分けられていない**。したがって **因果は未確定**であり、確定するまで
+> 本節に結論を書き込んではならない。
+>
+> なお **U-1 / U-2 がどちらに転んでも軸 C（強制力 0 / 11）は変わらない** —
+> 登録 0 件が上位の制約だからである。
 
 | ID | 未検証事項 | 分かっていること（実測） | 分かっていないこと |
 |----|-----------|------------------------|------------------|

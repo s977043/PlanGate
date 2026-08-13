@@ -456,7 +456,7 @@ PlanGateのゲートは**PBI(チケット)1枚の中**に置きます。判断�
 | v5 | L-0リンター自動修正ループ | ハーネスエンジニアリング(フィードバック設計) |
 | v6(予定) | 決定論的フック+ガベージコレクション+段階的ルール昇格 | ハーネスエンジニアリング(運用設計) |
 | v8.9 | **Reporting & Retrospective v1 — events.ndjson 由来のスプリントレトロスペクティブ導出 (#200)** | — |
-| v8.10 | **Codex CLI 物理 hook 等価達成 (PR #347)** | OpenAI Codex CLI PreToolUse hook API |
+| v8.10 | ~~**Codex CLI 物理 hook 等価達成 (PR #347)**~~ **❌ 未達成（#1078 実測: 登録 0 件）** | OpenAI Codex CLI PreToolUse hook API |
 
 ---
 
@@ -503,7 +503,10 @@ skill 一覧は `.agents/skills/README.md` を参照。
 > PR #347 以来「達成済」と記載していたが、**実測で `.codex/hooks.json` が parse 拒否されており、
 > PlanGate の hook が 1 件も登録されていない**ことが判明した（**強制力 0 / 11**）。
 > **EH-1/2/3/6/9 は Codex セッションで一度も発火していない。**
-> **注記キー 2 行を消すだけの是正は禁止**（bridge 修正と同一 PR でないと Codex が使用不能になる）。
+> **注記キー 2 行を消すだけの是正は禁止**: 消すと `hooks/list` 上は 5 件が登録され
+> 「parity 回復」に見えるが、bridge の stdin 非転送により hook は空入力で PASS し続け
+> **強制力は 0 のまま**（実測: HO パスを含む 12/12 が `allow`）。**bridge の stdin 転送を
+> 先に実装し、実際に block される証跡を得てから**除去すること。
 > 3 軸の数え方・根本原因・後続スライスの正本は
 > [settings-wiring-contract.md](ai/settings-wiring-contract.md) §Codex CLI parity を参照。
 

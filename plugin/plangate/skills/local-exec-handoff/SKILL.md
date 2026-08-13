@@ -91,5 +91,5 @@ packet 自体は手動構築。専用 CLI は環境を問わず未提供（CLI �
 
 ## ツール別読み替え
 
-- **Codex CLI**: `.codex/` 配下にパケットを置く必要なし。`plangate resume` 出力（無ければ `current-state.md`）と本 skill Deliverable で十分。**上流リポジトリで作業する場合の exec 再開は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto`** を推奨（pre/post-flight で plan_hash 整合・settings タスクロック検証）。session 中の物理 hook は `.codex/hooks.json` で EH-1/2/3/6/9 が自動発火する (PR #347)。**`scripts/codex-guarded.sh` と `.codex/hooks.json` はどちらも配布対象外**なので、Codex への導入経路（skills のみ配置）ではこれらは存在せず、ゲートは packet 内の手順で人手維持する。
+- **Codex CLI**: `.codex/` 配下にパケットを置く必要なし。`plangate resume` 出力（無ければ `current-state.md`）と本 skill Deliverable で十分。**上流リポジトリで作業する場合の exec 再開は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto`** を推奨（pre/post-flight で plan_hash 整合・settings タスクロック検証）。~~session 中の物理 hook は `.codex/hooks.json` で EH-1/2/3/6/9 が自動発火する (PR #347)。~~ **← 誤り。2026-08-13 の実測で `.codex/hooks.json` は parse 拒否され hook が 1 件も登録されていないことが判明した（EH-1/2/3/6/9 は未発火）。session 中の物理 block は無いものとして扱うこと。****`scripts/codex-guarded.sh` と `.codex/hooks.json` はどちらも配布対象外**なので、Codex への導入経路（skills のみ配置）ではこれらは存在せず、ゲートは packet 内の手順で人手維持する。
 - **Claude Code**: `/working-context` skill と組み合わせて利用。上流リポジトリでは `PreToolUse:Write/Edit` hook が EH-3/EH-6/EH-9 を強制するため wrapper 不要。**導入先では hook が配線されているとは限らない**ため、packet に「plan_hash 突合を exec 開始前に自分で実行する」旨を明記する。
