@@ -31,6 +31,17 @@
 > [#500 Wiring Integrity Enforcement](https://github.com/s977043/plangate/issues/500)
 > （仕様策定済み）の実装範囲。
 >
+> ⚠️ **上記の「物理配線」は Claude Code 側（`.claude/settings*.json`）を数えた値であり、
+> `.codex/hooks.json` を配線済みとして数えてはならない（#1078 実測 2026-08-13）**:
+> `.codex/hooks.json` は top-level の仕様外キーにより **JSON 全体が parse 拒否**され、
+> **Codex 側の hook 登録は 0 件**（`hooks/list` 実測）。**EH-1/2/3/6/9 は Codex
+> セッションで一度も発火していない**。本注記の「発火経路」列挙に
+> `.codex/hooks.json` を含めるのは**現時点では誤り**である。
+> 正本: [`settings-wiring-contract.md`](./settings-wiring-contract.md) §Codex CLI parity。
+> **一般則**: 配線の記述件数を「配線済み」と数える運用は、今回と同型の silent failure
+> （設定は正しいがランタイムが受理していない）を見逃す。**ランタイム側の登録状態を
+> 問い合わせた証跡**を伴って初めて配線済みと数えること。
+>
 > **発火条件の供給（EPIC #527 follow-up・配線済み）**: EHS-1/2/3 の発火条件
 > `PLANGATE_VALIDATION_BIAS=strict` は、`bin/plangate verify` / `handoff --verify` が
 > `--profile <key>` を受理し `model-profiles.yaml` の `validation_bias` を解決して内部
@@ -40,7 +51,7 @@
 >
 > | 配線状態 | Hook | 発火経路 |
 > |---------|------|---------|
-> | ✅ 配線済み（6） | EH-1 / EH-2 / EH-3 / EH-6 / EH-9 | Claude PreToolUse + Codex hooks.json |
+> | ✅ 配線済み（6） | EH-1 / EH-2 / EH-3 / EH-6 / EH-9 | Claude PreToolUse ~~+ Codex hooks.json~~（**Codex 側は登録 0 件・未発火 / #1078**） |
 > | | EH-8 | CI（metrics-privacy.yml）+ doctor + codex-guarded |
 > | ✅ CLI 配線（5、apply 後） | EH-4 / EH-5 | `bin/plangate verify` —EH-4: V-1 前 strict / EH-5: V-1 後 warn（TASK-0143） |
 > | | EHS-1 | `bin/plangate verify` —V-3 不合格時に `validation_bias=strict` で block（TASK-0145 増分1） |

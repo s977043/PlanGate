@@ -1,0 +1,21 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 9cd5f77..85a4a72 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -15,7 +15,7 @@
+ - PlanGate のワークフロー / 設定 / 運用ドキュメント管理
+ - `package.json` なし → 一般的な lint / test / typecheck コマンドは未定義
+ - 実行入口: `./scripts/ai-dev-workflow` / `./scripts/codex-local.sh` / `bin/plangate`
+-- **推奨ガード入口**: `scripts/codex-guarded.sh` (PR #343 / #347。session 前後の plan_hash drift 検知と物理 hook bridge を有効化)
++- **推奨ガード入口**: `scripts/codex-guarded.sh` (PR #343 / #347。session 前後の plan_hash drift 検知を有効化。⚠️ **物理 hook bridge は現在機能していない** — #1078 実測。下記「Codex 固有参照」参照)
+ 
+ ## Cursor 固有参照
+ 
+@@ -45,5 +45,6 @@
+ ## Codex CLI 固有参照 (PR #343/#347)
+ 
+ - 正規入口: `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto`
+-- 物理 hook: `.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` (EH-1/2/3/6/9 を Codex 側でも発火)
++- ⚠️ **物理 hook は現在機能していない（#1078 / 2026-08-13 実測）**: `.codex/hooks.json` は top-level の仕様外キー（`$schema_note` / `$note`）により **JSON 全体が parse 拒否**され、**hook が 1 件も登録されていない**（`hooks/list` 実測）。**EH-1/2/3/6/9 は Codex session で一度も発火していない**（強制力 0 / 11）。**Codex session 中の write は物理 block されないものとして扱い、ゲートは人手で維持すること。**
++- **注記キー 2 行の単独除去は禁止**: 除去すると hook は登録されるが、`.codex/hooks/eh-bridge.sh` が stdin を hook へ転送しないため hook は空入力で PASS し続け、**強制力は 0 のまま「登録済み」に見えるようになる**（実測: HO パスを含む 12/12 が `allow`）。**bridge の stdin 転送を先に実装し、実際に block される証跡を得てから**除去すること
+ - 強制等価: `docs/ai/settings-wiring-contract.md` §Codex CLI parity

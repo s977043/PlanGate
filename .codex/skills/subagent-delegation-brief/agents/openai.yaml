@@ -1,0 +1,7 @@
+interface:
+  display_name: "subagent-delegation-brief"
+  short_description: "サブエージェントへの派遣プロンプトを必須 8 要素で組み立て、OUTCOME 契約付きの完了報告を受け取るための薄い実行入..."
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $subagent-delegation-brief to assist with this project."
+  brand_color: "#1A56DB"
