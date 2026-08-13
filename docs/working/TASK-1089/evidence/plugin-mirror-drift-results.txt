@@ -1,11 +1,13 @@
-===== D1: ミラーだけを編集した場合（= 当初のレビュー指摘どおりの是正）=====
-drift-check 相当 (git diff --quiet -- plugin/plangate/) rc=1  (1 = CI RED)
+===== D1: ミラーだけを編集して**コミット**（= レビュー指摘どおりの是正）=====
+  ミラー編集: 適用済み
+  drift-check rc=1   → 1 なら CI RED（期待 1）
  plugin/plangate/rules/mode-classification.md | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 ===== D2: 現ブランチの状態（ミラー未編集）=====
-drift-check 相当 rc=1  (0 = CI GREEN)
+  drift-check rc=0   → 0 なら CI GREEN（期待 0）
 
-===== D3: HO 側を apply したうえで sync（= 正しい経路）=====
-sync 後のミラーに記号アンカーが伝播 OK
-sync 実行後の drift-check 相当 rc=0  (0 = commit すれば GREEN)
+===== D3: HO 側を apply → sync（= 正しい経路）=====
+  apply 直後の drift-check rc=1   → 1（sync 結果の commit が必要）
+  sync 後のミラーに記号アンカーが伝播: OK
+  sync 結果を commit した後の drift-check rc=0   → 0（期待 0）
