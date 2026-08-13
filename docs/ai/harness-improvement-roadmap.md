@@ -75,11 +75,17 @@ PlanGate にはすでに以下が存在する。
 | v8.9.0 候補 | Reporting & Retrospective | スプリント改善に接続する | metrics report / retrospective template | ✅ Done (v8.9.0 / #200 / PR #274) |
 | - | Issue/Label/Milestone Governance | Issue 運用ルール固定 | issue-governance.md / Issue Form | ✅ Done (v8.6.0 / #201) |
 | - | Metrics Privacy Policy | metrics 公開・秘匿境界 | metrics-privacy.md | ✅ Done (v8.6.0 / #202) |
-| **v8.10.0** | **Codex CLI parity** | Claude Code / Codex CLI 間の Hook・Guard・Skill 強制等価を達成する | `.codex/hooks.json` / `eh-bridge.sh` / `codex-guarded.sh` / `settings-wiring-contract.md` | ✅ Done (v8.10.0 / EPIC #338) |
+| **v8.10.0** | **Codex CLI parity** | Claude Code / Codex CLI 間の Hook・Guard・Skill 強制等価を達成する | `.codex/hooks.json` / `eh-bridge.sh` / `codex-guarded.sh` / `settings-wiring-contract.md` | ~~✅ Done (v8.10.0 / EPIC #338)~~ **❌ 未達成（#1078 で是正）** — Codex 側 hook は **登録 0 件・強制力 0 / 11**（`.codex/hooks.json` が parse 拒否）。層 1 / 層 3（`codex-guarded.sh`）のみ機能 |
 | **v8.10.0** | **Hook/Guard 拡充** | EH-9（plan-hash）・pre-push guard・check-tag-main-parity 等を追加し Hook enforcement を強化する | `scripts/hooks/*.sh` / `bin/plangate doctor` 拡張 | ✅ Done (v8.10.0 / TASK-0114/#360, TASK-0115, TASK-0116/#354) |
 | **v8.10.0** | **Skill/Agent 拡充** | gh account pinning helper・CI review enhancement 等の Skill/Agent を整備する | `.claude/agents/*.md` / `.claude/skills/` | ✅ Done (v8.10.0 / TASK-0120/#408) |
 
-**注**: v8.9.0 スコープは v8.8.0 完了後に確定（2026-05-17 v8.9.0 リリース完了・確認済）。v8.10.0 は EPIC #338 Codex CLI parity を中心に完遂（2026-05-26 完了確認済）。
+**注**: v8.9.0 スコープは v8.8.0 完了後に確定（2026-05-17 v8.9.0 リリース完了・確認済）。~~v8.10.0 は EPIC #338 Codex CLI parity を中心に完遂（2026-05-26 完了確認済）。~~
+
+> **是正（2026-08-13 / [#1078](https://github.com/s977043/plangate/issues/1078)）**: 上記の
+> 「2026-05-26 完了確認済」は **設定ファイルの記述を確認しただけ**で、**ランタイムの登録状態を
+> 確認していなかった**。実測では Codex 側 hook は **登録 0 件**であり、**Codex CLI parity は未達成**。
+> 以後、parity 系の Done 判定には **`hooks/list` 等によるランタイム登録状態の証跡を必須**とする。
+> 詳細は [`settings-wiring-contract.md`](./settings-wiring-contract.md) §Codex CLI parity。
 
 ## 6. Phase 0: Baseline alignment
 

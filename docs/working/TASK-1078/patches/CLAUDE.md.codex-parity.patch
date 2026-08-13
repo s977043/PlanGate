@@ -1,0 +1,14 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index b74d04c..b2f27be 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -31,7 +31,8 @@
+ ## Codex CLI 固有参照 (PR #343/#347)
+ 
+ - 正規入口: `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto` (pre/post-flight 強制)
+-- 物理 hook 配線: [`.codex/hooks.json`](.codex/hooks.json) + [`.codex/hooks/eh-bridge.sh`](.codex/hooks/eh-bridge.sh) — EH-1/2/3/6/9 を Codex session 中の `apply_patch|Edit|Write|Bash` に対し物理発火
++- ⚠️ **物理 hook 配線は現在機能していない（#1078 / 2026-08-13 実測）**: [`.codex/hooks.json`](.codex/hooks.json) は top-level の仕様外キー（`$schema_note` / `$note`）により **JSON 全体が parse 拒否**され、**PlanGate の hook は 1 件も登録されていない**。**EH-1/2/3/6/9 は Codex session で一度も発火していない**（強制力 0 / 11）。**注記キー 2 行の単独除去は禁止** — 除去すると hook が動き出し、[`.codex/hooks/eh-bridge.sh`](.codex/hooks/eh-bridge.sh) の構造欠陥（パス解決 / stdin 非転送）により全操作が deny されて Codex が使用不能になるため、**bridge 修正と同一 PR で行うこと**。正本: [`docs/ai/settings-wiring-contract.md`](docs/ai/settings-wiring-contract.md) §Codex CLI parity
++- **Codex session の安全性を `.codex/hooks.json` の存在に依拠して評価しないこと**。現時点で機能しているのは `scripts/codex-guarded.sh` の pre/post-flight（層 1 / 層 3）のみ
+ - Codex 用 agent: [`.codex/agents/*.toml`](.codex/agents/) (Claude `.claude/agents/<name>.md` への thin pointer)
+ - 強制等価マトリクス: [`docs/ai/settings-wiring-contract.md`](docs/ai/settings-wiring-contract.md) §Codex CLI parity
+ 

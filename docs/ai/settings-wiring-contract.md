@@ -79,9 +79,23 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 > ~~既知の限界（V2 候補）~~: ~~完全な PreToolUse-hook レベルの機械 block~~ — **解消済 (PR #347)**。`.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` で Codex CLI 側にも EH-1/2/3/6/9 が物理 PreToolUse block として配線済。Claude Code 側は従来通り `.claude/settings.json` で配線。詳細は本ファイル後段の §Codex CLI parity 参照。
 
 
-## Codex CLI parity (#336 / Gap 4) — ~~達成済~~ 部分達成（5 / 11 wiring）・強制力は未検証
+## Codex CLI parity (#336 / Gap 4) — ~~達成済~~ ~~部分達成（5 / 11 wiring）・強制力は未検証~~ **強制力 0 / 11（Codex 側 hook は 1 件も登録されていない）**
 
-> **是正記録（2026-08-13 / [#1078](https://github.com/s977043/plangate/issues/1078)）**:
+> **是正記録 2（2026-08-13 / [#1078](https://github.com/s977043/plangate/issues/1078) / 本節で 2 度目の是正）**:
+> 直下の「是正記録 1」で **「部分達成（5 / 11 wiring）・強制力は未検証」** へ書き換えたが、
+> **これもまだ実態より甘かった**。`codex app-server` の JSON-RPC **`hooks/list`**（モデル呼び出しを
+> 伴わない＝課金ゼロ）で実測したところ、**`.codex/hooks.json` は JSON 全体が parse 拒否されており、
+> PlanGate の hook は 1 件も登録されていない**。すなわち **EH-1 / EH-2 / EH-3 / EH-6 / EH-9 は
+> Codex セッションで一度も発火していない**（「未検証」ではなく **0 件で確定**）。
+> 「5 / 11」は **設定ファイルに記述されている件数**であって、**登録数でも強制力でもない**。
+> 3 軸を分けた現況は下表「parity の 3 軸」を参照。過去の記述は削除せず残す。
+>
+> **本節では「達成済」も「部分達成」も強制力については使わない。** Codex 側の強制力は
+> **0 / 11** であり、これは実測（`hooks/list` の `warnings` / 登録 0 件）に基づく確定値である。
+>
+> ---
+>
+> **是正記録 1（2026-08-13 / [#1078](https://github.com/s977043/plangate/issues/1078)）**:
 > 本節の見出しは 2026-05-25 の PR #347 以来 **「達成済」** と記載していたが、
 > #1078 の実測で **`.claude/settings.example.json` 側 11 wiring のうち Codex 側に
 > あるのは 5 件**（EH-1 / EH-2 / EH-3 / EH-6 / EH-9）で、**6 件が欠落**している
@@ -95,6 +109,89 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 > `model_reasoning_effort`（low/medium）で同一の 2 tier を表現する。対応表の
 > 正本は [`model-profiles.md`](./model-profiles.md) §11。
 
+### parity の 3 軸（混同禁止 / #1078 実測）
+
+**「何件配線したか」と「何件効いているか」は別の数**である。本節では以下 3 軸を分けて数える。
+過去 2 回の誤りは、いずれも **軸 A の数を軸 C の主張に流用した**ことで起きた。
+
+| 軸 | 定義 | 数え方 | 現況 |
+|----|------|--------|------|
+| **A. 記述（declared）** | 設定ファイルに hook として**書かれている**件数 | `.claude/settings.example.json` と `.codex/hooks.json` の静的差分 | Claude 11 / **Codex 5** |
+| **B. 登録（registered）** | Codex ランタイムが実際に**読み込んで登録した**件数 | `hooks/list` の `hooks[]` を数える | **Codex 0** |
+| **C. 強制力（enforced）** | 実際に**発火して block した**実走証跡がある件数 | 実走ログ（未取得） | **Codex 0** |
+
+- **軸 B = 0 が軸 C = 0 を含意する**。登録されていない hook は原理的に発火し得ないため、
+  軸 C の 0 は「実走証跡が無い（未検証）」ではなく **論理的帰結として確定**している。
+- 軸 A の 5 は **依然として正しい**が、**これを「5 件は効いている」と読んではならない**。
+- **Codex 側の parity を語るときは軸 C（0 / 11）で語る。** 軸 A の数を単独で見出しに置かない。
+
+### 設定ファイル全体が parse 拒否されている（#1078 実測・根本原因）
+
+`.codex/hooks.json` の **top-level に仕様外キーが 2 つある**:
+
+| 行 | キー | 扱い |
+|----|------|------|
+| 2 | `$schema_note` | **仕様外**（JSON にコメント構文が無いため注記として置かれたもの） |
+| 3 | `$note` | **仕様外**（同上） |
+
+Codex CLI の hooks config パーサは top-level に **`description` と `hooks` の 2 キーしか許容しない**
+（`deny_unknown_fields`）。**1 キーの違反でファイル全体が捨てられる**（部分適用ではない）。
+
+`hooks/list`（cwd = 本リポジトリ）の実応答 warning（verbatim）:
+
+```text
+failed to parse hooks config <repo>/.codex/hooks.json: unknown field `$schema_note`, expected `description` or `hooks` at line 2 column 16
+```
+
+このとき登録されたのは **river-review plugin の PostToolUse 1 件のみ**で、
+**PlanGate の PreToolUse 5 件は 0 件**。サンドボックスで**双方向に再現済み**
+（注記キーを足すと `hooks[]` が空・外すと登録される＝決定論的）。
+
+なお **project trust は本件の原因ではない**（本リポジトリは trusted 済み）。原因は parse 拒否である。
+
+### 🚨 注記キーの単独除去は禁止（Codex が使用不能になる）
+
+> **この 2 行を消すだけの PR を作ってはならない。**
+> 「top-level の `$schema_note` / `$note` を消せば直る」は **誤り**である。
+> 2 行を消すと **hook が登録され、動き出す**。しかし `eh-bridge.sh` には後述の構造欠陥
+> （パス解決 / stdin 非転送 / matcher 死に文字列）があるため、**動き出した瞬間に
+> Codex の操作が deny され続け、Codex CLI が使用不能になる**。
+>
+> **除去は `eh-bridge.sh` の I/O 契約修正と同一 PR でなければならない。**
+> 順序としては **bridge を先に直し、注記キー除去を同じ PR に含める**。
+> 単独除去は「3 年間 silent に無効だったガードが、いきなり全 deny になる」変更である。
+
+### 「設定ファイルの存在は動作の証拠ではない」（構造原因）
+
+本件の本質は **配線の記述を動作の証拠として扱っていた**ことにある。
+
+- `.codex/hooks.json` が存在し・中身が意図どおりに書かれていたため、
+  **レビューでも doctor でも「配線済み」と判定され続けた**。
+- **`codex doctor` は hook を一切報告しない**（config / auth / sandbox / mcp のみ）。
+  したがって doctor の PASS は **hook が登録されていることの根拠にならない**。
+- 結果として **parse 拒否という silent failure が長期間検出されなかった**。
+
+> **一般則**: 「設定ファイルが存在する / 正しく書けている」は **ランタイムがそれを受理した
+> ことを意味しない**。強制力を主張するには **ランタイム側の登録状態を問い合わせた証跡**が要る。
+> これは Shadow Config（本ファイル後段「Wiring Integrity Enforcement（#500）」）の
+> Codex 版であり、同じ検出原理（実体への問い合わせ）で塞ぐ。
+
+### 後続の必須スライス: `hooks/list` による機械検出
+
+**課金ゼロで登録状態を機械検出できる**ため、これを doctor / CI に組み込むことを **必須スライス**とする。
+
+- 経路: `codex app-server`（stdio JSON-RPC）の **`hooks/list`** メソッド。**モデル呼び出しを伴わない**。
+- 応答: `hooks[] { key, eventName, matcher, command, source, currentHash, trustStatus, enabled }`
+  \+ **`warnings[]` / `errors[]`**。`trustStatus` の enum は `managed` / `untrusted` / `trusted` / `modified`。
+- **検査すべき不変条件**:
+  1. PlanGate 由来の hook が**期待件数だけ登録されている**
+  2. **`warnings[]` が空**（parse 拒否・trust 警告を見逃さない）
+  3. 各 hook の `enabled` が true
+- これがあれば **今回の silent failure 型（parse 拒否）を機械検出できる**。
+- **`trusted_hash` の運用も併せて必要**: project hooks は既定 `untrusted` で登録され、
+  `hooks.json` を編集するたび hash が変わる。**「編集 → 再 trust」が運用フローに要る**
+  （hash は **hook 単位**。同一ファイル内の別 matcher group を個別に trust できる）。
+
 **判明事項** (2026-05-25 PR #347): OpenAI Codex CLI は `PreToolUse` / `PostToolUse` hook API を公式提供しており、Claude Code の hook 仕様と直接互換 (matcher / stdin JSON / exit 2 で deny / `hookSpecificOutput.permissionDecision`)。公式仕様: https://developers.openai.com/codex/hooks
 
 ### 三層の強制機構
@@ -102,18 +199,24 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 | 層 | 機構 | カバー範囲 |
 |----|------|----------|
 | 1. Session 前 | `scripts/codex-guarded.sh` (PR #343) | validate / doctor / EH-8 privacy / plan.md hash snapshot |
-| 2. **Session 中 (物理 pre-Write block)** | **`.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` (PR #347)** | **EH-1 / EH-2 / EH-3 / EH-6 / EH-9 を Codex 側でも発火** |
+| 2. **Session 中 (物理 pre-Write block)** | ~~`.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` (PR #347)~~ **機能していない** | ~~EH-1 / EH-2 / EH-3 / EH-6 / EH-9 を Codex 側でも発火~~ **登録 0 件・発火 0 件（#1078 実測）** |
 | 3. Session 後 | `scripts/codex-guarded.sh` post-flight | plan.md hash drift 検知 + validate 再実行 |
 
-> **層 2 の但し書き（#1078）**: 「Codex 側でも発火」は **`.codex/hooks.json` に
-> 配線されている**ことを指す。**Codex ランタイムが実際に当該 hook を起動し
-> deny を尊重したことの実走証跡は無い**（後述「未検証事項」の U-3）。
+> **層 2 の但し書き（#1078 / 2 度目の是正で強化）**: 当初「Codex 側でも発火」と書き、
+> 1 度目の是正で「配線されていることを指す（実走証跡は無い）」に緩めたが、
+> **実測では層 2 はまったく機能していない**。`.codex/hooks.json` は parse 拒否され
+> **hook が 1 件も登録されていない**（上記「設定ファイル全体が parse 拒否されている」）。
+> **層 2 は現時点で存在しないものとして扱うこと。**
+> 層 1 / 層 3（`scripts/codex-guarded.sh` の pre/post-flight）は本件と独立に機能する。
 
 ### 等価強制マトリクス（全 wiring / #1078 で全数化）
 
 比較対象は **`.claude/settings.example.json`**（`.claude/settings.json` は
 gitignore でリポジトリに存在しないため）と **`.codex/hooks.json`** の全数差分。
-**11 wiring 中 Codex 側にあるのは 5 件、欠落 6 件**。
+
+> ⚠️ **本表は「軸 A（記述）」の表である。** 11 wiring 中 Codex 側に**記述**があるのは 5 件・
+> 欠落 6 件。**ただし記述のある 5 件も含め、Codex 側の登録数は 0・強制力は 0**
+> （上記「parity の 3 軸」）。**本表の ✅ は「効いている」ではなく「書かれている」を意味する。**
 
 | # | 強制 | event / matcher | Claude Code (`settings.example.json`) | Codex CLI (`.codex/hooks.json`) |
 |---|------|-----------------|---------------------------------------|--------------------------------|
@@ -147,20 +250,26 @@ Codex に存在しない**（0.144.1 バイナリ埋め込みの JSON Schema と
 
 ### 未検証事項（**「検証済み」と書いてはならない項目**）
 
-以下 3 件は **`codex exec` の実走を伴う確認が未実施**であり、**現時点では
-「Codex 側の強制力が働いている」ことの根拠にならない**。文言・状態表は
-実走証跡が得られるまで「未検証」のまま扱う。
+以下のうち **U-3 は #1078 の `hooks/list` 実測で決着した**（ただし **想定と別の原因**で。
+下表参照）。**U-1 / U-2 は引き続き未検証**であり、**現時点では「Codex 側の強制力が
+働いている」ことの根拠にならない**。文言・状態表は実走証跡が得られるまで
+「未検証」のまま扱う。
+
+> **U-1 / U-2 の結果を先取りして書かないこと。** 両者は別途実走で確定作業中であり、
+> 確定するまで本節に結論を書き込んではならない。なお **U-1 / U-2 がどちらに転んでも
+> 軸 C（強制力 0 / 11）は変わらない** — 登録 0 件が上位の制約だからである。
 
 | ID | 未検証事項 | 分かっていること（実測） | 分かっていないこと |
 |----|-----------|------------------------|------------------|
 | **U-1** | bridge の `allow` 応答が受理されるか | CLI バイナリに `PreToolUse hook returned unsupported permissionDecision:allow` という文字列が**実在**する。`eh-bridge.sh` は正常系で bare `permissionDecision: "allow"` を返している | 実行時に実際に `allow` が unsupported として弾かれるか。弾かれた場合の Codex 側の既定挙動（allow 継続 / エラー停止） |
 | **U-2** | reason 空文字の deny が deny として通るか | 同じく `deny without a non-empty permissionDecisionReason` という文字列が**実在**する。PlanGate hook が無出力で終了した場合、bridge の `reason` は空文字になりうる | 空 reason の deny が無視される（= fail-open）か否か |
-| **U-3** | hook trust により**既存 5 hook がそもそも発火しているか** | Codex の hooks config は `trusted_hash` を持つ仕様で、`--dangerously-bypass-hook-trust` フラグが実在する。**`.codex/hooks.json` にも `.codex/config.toml` にも `trusted_hash` は無い**（実測 0 件） | trust 未登録の hooks が実行時に skip されるのか、初回に信頼確認が入るのか。**skip されるなら EH-1/2/3/6/9 も一度も発火していない** |
+| ~~**U-3**~~ **解決済** | ~~hook trust により既存 5 hook がそもそも発火しているか~~ | **`hooks/list` 実測で決着。発火していない。ただし原因は trust ではなく `.codex/hooks.json` の parse 拒否**（上記「設定ファイル全体が parse 拒否されている」）。**EH-1/2/3/6/9 は登録 0 件＝一度も発火していない** | — （**「trust が原因」という当初の仮説は否定された**。trust は本件の原因ではないが、parse 拒否を直した後には別途 `trusted_hash` 運用が必要になる） |
 
-> 実走はモデル API 呼び出しを伴うため、実施可否は **Human 判断**（#1078）。
-> 実走証跡が得られるまでは、**Codex セッションの安全性を `.codex/hooks.json` の
-> 存在に依拠して評価しない**こと。Session 前後の `scripts/codex-guarded.sh`
-> （層 1 / 層 3）は本件と独立に機能する。
+> **U-1 / U-2 の実走はモデル API 呼び出しを伴う**ため、実施可否は **Human 判断**（#1078）。
+> 一方 **登録状態の確認は `hooks/list` で課金ゼロ**に行える（上記「後続の必須スライス」）。
+> **Codex セッションの安全性を `.codex/hooks.json` の存在に依拠して評価しないこと** —
+> 存在していても **現に登録されていない**というのが本件の実測結果である。
+> Session 前後の `scripts/codex-guarded.sh`（層 1 / 層 3）は本件と独立に機能する。
 
 ### なぜ「達成済」のまま気づかれなかったか（構造原因）
 
@@ -171,7 +280,16 @@ PostToolUse / Stop）を `.claude/settings*.json` に追加した際に
 機械チェックも存在しない**。結果、追加のたびに parity のギャップが静かに広がり、
 見出しの「達成済」だけが残った。機械検出の追加は #1078 の後続スライス候補。
 
-### Codex bridge の動作
+> **さらに深い原因（2 度目の是正で判明）**: 上の説明は **軸 A（記述）の集合差**しか
+> 見ていない。**軸 A を全数化しても、記述された 5 件が実は 0 件しか登録されていない
+> ことは検出できなかった**。集合差の機械チェックを足すだけでは不十分であり、
+> **ランタイムの登録状態（`hooks/list`）を問い合わせる検査が要る**。
+> 「マトリクスを全数化する」ことと「強制力を確認する」ことは別作業である。
+
+### Codex bridge の動作（**設計上の意図**。現在この経路は動いていない）
+
+> ⚠️ 以下 1〜6 は **PR #347 時点の設計意図**であり、**現況の記述ではない**。
+> 手順 1 の時点で `.codex/hooks.json` が parse 拒否されるため、**2 以降は 1 度も実行されていない**。
 
 1. Codex CLI が `apply_patch` / `Edit` / `Write` / `Bash` 呼び出し前に `.codex/hooks.json` を参照
 2. 該当 matcher の `command` (= `.codex/hooks/eh-bridge.sh <HOOK_NAME>`) が起動

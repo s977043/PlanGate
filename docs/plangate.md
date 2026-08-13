@@ -497,20 +497,30 @@ PlanGateのゲートは**PBI(チケット)1枚の中**に置きます。判断�
 skill 一覧は `.agents/skills/README.md` を参照。
 
 
-## Codex CLI parity (PR #347 達成済)
+## Codex CLI parity ~~(PR #347 達成済)~~ — **未達成（Codex 側 hook は 1 件も登録されていない）**
 
-Claude Code の `.claude/settings.json` hooks (EH-1〜EH-9) と等価な強制力を、Codex CLI session でも実現:
+> **是正（2026-08-13 / [#1078](https://github.com/s977043/plangate/issues/1078)）**: 本節は
+> PR #347 以来「達成済」と記載していたが、**実測で `.codex/hooks.json` が parse 拒否されており、
+> PlanGate の hook が 1 件も登録されていない**ことが判明した（**強制力 0 / 11**）。
+> **EH-1/2/3/6/9 は Codex セッションで一度も発火していない。**
+> **注記キー 2 行を消すだけの是正は禁止**（bridge 修正と同一 PR でないと Codex が使用不能になる）。
+> 3 軸の数え方・根本原因・後続スライスの正本は
+> [settings-wiring-contract.md](ai/settings-wiring-contract.md) §Codex CLI parity を参照。
 
-- **`.codex/hooks.json`** + **`.codex/hooks/eh-bridge.sh`**: PreToolUse hook bridge。`apply_patch|Edit|Write` で EH-1/2/3/6、`Bash` で EH-9 が Codex session 中にも発火。
+Claude Code の `.claude/settings.json` hooks (EH-1〜EH-9) と等価な強制力を、Codex CLI session でも実現~~する~~**しようとした設計**（**現況は未達成**）:
+
+- **`.codex/hooks.json`** + **`.codex/hooks/eh-bridge.sh`**: PreToolUse hook bridge。~~`apply_patch|Edit|Write` で EH-1/2/3/6、`Bash` で EH-9 が Codex session 中にも発火。~~ **← 実際には登録されておらず発火しない。** また `Edit` / `Write` は Codex に存在しないツール名で、matcher 中では死に文字列。
 - **`scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto`**: Codex CLI の正規入口。pre-flight (validate + doctor) / post-flight (plan_hash drift 検知) を自動実行。
 
 OpenAI Codex CLI 公式 hook 仕様: https://developers.openai.com/codex/hooks
 
 ### 強制マトリクス
 
-| 強制 | Claude Code | Codex CLI |
-|------|-------------|-----------|
-| EH-1 plan-exists / EH-2 c3-approval / EH-3 plan_hash / EH-6 forbidden_files | ✅ `.claude/settings.json` PreToolUse | ✅ `.codex/hooks.json` PreToolUse |
-| EH-9 delegation-commit-boundary | ✅ PreToolUse Bash | ✅ 同上 |
+> ⚠️ Codex 列の記号は **「設定ファイルに書かれているか」** を表す。**「効いているか」ではない。**
+
+| 強制 | Claude Code | Codex CLI（記述） | Codex CLI（実際の登録・強制力） |
+|------|-------------|------------------|------------------------------|
+| EH-1 plan-exists / EH-2 c3-approval / EH-3 plan_hash / EH-6 forbidden_files | ✅ `.claude/settings.json` PreToolUse | 記述あり `.codex/hooks.json` | ❌ **未登録・発火 0**（parse 拒否） |
+| EH-9 delegation-commit-boundary | ✅ PreToolUse Bash | 記述あり 同上 | ❌ **未登録・発火 0**（同上） |
 
 詳細: [docs/ai/settings-wiring-contract.md](ai/settings-wiring-contract.md) §Codex CLI parity。
