@@ -105,6 +105,18 @@ sh tests/run-tests.sh
 `docs/working/_audit/hook-events.log` を `VIOLATION` 分類で集計している分析が
 あれば (b) の影響を受ける（`HARDENING_OVERRIDE` へ移る）。
 
+## レビュー指摘への対応で判明した事実（前提の訂正 2 件・自己検出欠陥 2 件）
+
+| # | 内容 | 実測根拠 |
+|---|------|---------|
+| 訂正 1 | **`plugin/plangate/rules/mode-classification.md` は本 PR で編集できない**。`.claude/rules/` の生成ミラーであり、ミラーだけを commit すると CI の plugin drift-check（`sync-plugin-plangate.sh` 実行後に `git diff --quiet -- plugin/plangate/`）が **exit 1 = RED**。記号アンカー化は HO 正本（apply スクリプト）→ `sync` で伝播させる経路のみが整合する | `evidence/plugin-mirror-drift-results.txt`（D1 rc=1 / D2 rc=0 / D3 sync 後 rc=0） |
+| 訂正 2 | **CI env（`PG_T65_EXPECT=fixed`）の配線は不要**。期待値の既定を fixed にし gap を flag による opt-in にしたため、`.github/workflows/*`（HO）に触れずに再発検知が成立する | `evidence/mutation-results.txt` M4（適用後 revert → rc=1） |
+| 欠陥 1 | apply スクリプトが **hook の実行ビットを落としていた**（`os.replace` が新 inode を作るため 100755 → 100644）。mode を保存・復元する実装に修正 | `evidence/apply-script-guards-results.txt` A5 |
+| 欠陥 2 | apply スクリプトが tracked な flag を **作業ツリーからだけ削除**していたため、`ta-61` の sandbox 構築（`git ls-files -c -o \| tar`）が `Cannot stat` で落ち、**適用後の full suite が 719 passed / 1 failed** になっていた。`git rm -f` で index にも反映する実装に修正 | `evidence/apply-script-guards-results.txt` A7 / `evidence/run-tests-patched.txt` |
+
+いずれも **スイートでは検出できない**（hook の実行ビットを assert するテストは存在せず、
+欠陥 2 は適用後にしか現れない）。適用済みツリーで full suite を実走したことで顕在化した。
+
 ## Notes / 既知の制限
 
 - `.claude/settings*.json` は Claude Code の self-mod ガード（harness 層）でも
