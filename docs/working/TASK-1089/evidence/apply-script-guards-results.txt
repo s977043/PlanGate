@@ -10,7 +10,7 @@ rules 未変更 OK
 flag 残存 OK
 
 ===== A3: アンカー検証（base から drift）→ exit 1 かつ部分適用なし =====
-  error: anchor validation failed in /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.i2Jye5QXFo/a3/scripts/hooks/check-plan-hash.sh: expected exactly 1 occurrence of the in-branch Hardening Override block, found 0 (has the file drifted from the base commit?)
+  error: anchor validation failed in /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.TGLTBrc4AI/a3/scripts/hooks/check-plan-hash.sh: expected exactly 1 occurrence of the in-branch Hardening Override block, found 0 (has the file drifted from the base commit?)
 anchor-drift rc=1  (期待 1)
 hook 未変更 OK
 rules 未変更 OK（部分適用なし）
@@ -23,3 +23,10 @@ flag 残存 OK（部分適用なし）
 適用後 --dry-run rc=0  (期待 0)
   出力: [apply-eh3-ho-always] already applied — nothing to do (idempotent)
 2 回目以降に hook を書き換えない OK
+
+===== A5: 適用でファイル mode（実行ビット）が落ちない =====
+hook mode: -rwxr-xr-x@ → -rwxr-xr-x@
+mode 保存 OK
+
+===== A6: apply の出力が参考 patch の適用結果と一致する =====
+apply スクリプト == 参考 patch の適用結果 OK

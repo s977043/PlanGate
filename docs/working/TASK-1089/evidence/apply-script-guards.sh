@@ -64,4 +64,25 @@ echo "  出力: $out"
 h1=$(sha "$W/a4/$HOOK")
 [ "$h0" = "$h1" ] && echo "2 回目以降に hook を書き換えない OK" || echo "NG: 再適用で変化した"
 
+echo
+echo "===== A5: 適用でファイル mode（実行ビット）が落ちない ====="
+mkrepo "$W/a5"
+m0=$(ls -l "$W/a5/$HOOK" | awk '{print $1}')
+sh "$W/a5/$APPLY" --apply >/dev/null 2>&1
+m1=$(ls -l "$W/a5/$HOOK" | awk '{print $1}')
+echo "hook mode: $m0 → $m1"
+[ "$m0" = "$m1" ] && echo "mode 保存 OK" || echo "NG: mode が変わった（100755 → 100644 等）"
+
+echo
+echo "===== A6: apply の出力が参考 patch の適用結果と一致する ====="
+mkrepo "$W/a6a"; mkrepo "$W/a6b"
+sh "$W/a6a/$APPLY" --apply >/dev/null 2>&1
+( cd "$W/a6b" && git apply "$SRC/docs/working/TASK-1089/patches/check-plan-hash.ho-always.patch" ) 2>/dev/null \
+  || ( cd "$W/a6b" && git init -q . && git apply "$SRC/docs/working/TASK-1089/patches/check-plan-hash.ho-always.patch" )
+if diff -q "$W/a6a/$HOOK" "$W/a6b/$HOOK" >/dev/null 2>&1; then
+  echo "apply スクリプト == 参考 patch の適用結果 OK"
+else
+  echo "NG: apply スクリプトと参考 patch の結果が異なる"
+fi
+
 rm -rf "$W"
