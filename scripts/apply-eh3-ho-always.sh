@@ -279,8 +279,28 @@ if not rules_applied:
     atomic_write(rules_path, rules_after)
     print("  applied: %s" % rules_path)
 if flag_present:
-    os.remove(flag_path)
-    print("  removed: %s" % flag_path)
+    # tracked ファイルを「作業ツリーからだけ」消すと、git ls-files -c が実体の無い
+    # パスを返し続ける。tests/extras/ta-61 の sandbox 構築（git ls-files | tar）が
+    # これで落ちるため、git 管理下では削除を index にも反映する（git rm）。
+    removed_via_git = False
+    try:
+        import subprocess
+
+        rel_flag = os.path.relpath(flag_path, repo_root)
+        proc = subprocess.run(
+            ["git", "-C", repo_root, "rm", "-q", "-f", "--", rel_flag],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        removed_via_git = proc.returncode == 0 and not os.path.exists(flag_path)
+    except Exception:
+        removed_via_git = False
+    if removed_via_git:
+        print("  removed (git rm, 削除を index に反映): %s" % flag_path)
+    else:
+        os.remove(flag_path)
+        print("  removed: %s" % flag_path)
+        print("    注意: git 管理外だったため index には反映していない")
 print("[apply-eh3-ho-always] done. 次に実行・検証すること:")
 print("  sh scripts/sync-plugin-plangate.sh   # plugin/plangate/ ミラーへ (2) を反映")
 print("      ※ plugin/plangate/rules/mode-classification.md は .claude/rules/ の")

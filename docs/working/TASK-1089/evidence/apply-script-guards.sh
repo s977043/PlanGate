@@ -85,4 +85,19 @@ else
   echo "NG: apply スクリプトと参考 patch の結果が異なる"
 fi
 
+echo
+echo "===== A7: flag 削除が index に反映され、ta-61 の sandbox 構築を壊さない ====="
+# ta-61 は `git ls-files -c -o | tar` で worktree を複製する。tracked ファイルを
+# 作業ツリーからだけ消すと ls-files が実体の無いパスを返し tar が落ちる
+# （実測: 適用後の full suite が 719 passed / 1 failed になった）。
+_a7=$(mktemp -d)
+git clone --quiet --local "$SRC" "$_a7/repo" 2>/dev/null
+cp "$SRC/$APPLY" "$_a7/repo/scripts/"
+sh "$_a7/repo/$APPLY" --apply >/dev/null 2>&1
+( cd "$_a7/repo" && git status --short -- "$FLAG" )
+_a7ok=1
+( cd "$_a7/repo" && git ls-files -z -c -o --exclude-standard | tar --null -T - -cf "$_a7/tree.tar" ) 2>/dev/null || _a7ok=0
+[ "$_a7ok" = "1" ] && echo "ta-61 相当の sandbox 複製 OK（tar 成功）" || echo "NG: tar が失敗（ta-61 が RED になる）"
+rm -rf "$_a7"
+
 rm -rf "$W"
