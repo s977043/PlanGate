@@ -81,7 +81,8 @@ issue #1078 が潰そうとしている「**登録 ≠ 強制力**」の誤り�
 - [ ] **AC-10**: **複数ファイルを含む `apply_patch` payload** で、**2 件目以降のパスも検査される**（無害なパスを先頭に置いて HO パスを後続に隠す入力が **deny される**）。
       全件評価が困難な場合の代替は「複数パスを含む `apply_patch` は deny」（fail-closed）とし、**allow に倒す実装は不可**
 - [ ] **AC-11**: `.codex/hooks.json` が **Codex に受理される形**である（**top-level キーが `description` / `hooks` のみ**）ことと、
-      matcher に **Codex に存在しないツール名（`Edit` / `Write`）が含まれない**ことが機械的に検査される（JSON 構文 valid だけでは不十分）
+      matcher に **Codex に存在しないツール名（`Edit` / `Write`）が含まれない**ことが機械的に検査される（JSON 構文 valid だけでは不十分）。
+      検査は **stage 依存 2 値**（有効化前は「kill switch が効いている」を assert）とし、**どの段階でもスイートが RED にならない**こと
 - [ ] **AC-12**: hook 実体の解決が **`scripts/hooks/<name>` → `scripts/<name>` の順にフォールバック**し、
       どちらにも無い場合のみ **deny（reason 非空）** になる（stub による課金ゼロ検証）
 

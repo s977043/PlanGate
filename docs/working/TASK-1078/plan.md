@@ -202,6 +202,7 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 | `.codex/hooks/eh-bridge.sh` | modify | I/O 契約修正 | 入力: Codex PreToolUse JSON (stdin) / 出力: `hookSpecificOutput.permissionDecision` |
 | `.codex/hooks.json` | modify | matcher 整理 → 注記キー除去 | top-level は `description` / `hooks` のみ |
 | `tests/extras/ta-65-codex-bridge-io.sh` | create | fixture 駆動テスト（**フラット配置必須**・下記 ❗） | `tests/extras` 共有 exit 契約（`_extra-contract.sh`）に従う |
+| `tests/extras/ta-15-codex-hook-bridge.sh` | modify | 既存の同一対象テストの棚卸し（Task 1b） | TC-03 を 2 値化 / TC-04 の「wires」断定を除去 |
 | `tests/fixtures/codex-bridge/*.json` | create | 実 payload 形状 fixture | 既存慣行に一致（`FIXTURES_DIR="tests/fixtures"` / `tests/run-tests.sh:23`。`tests/extras/` 配下に fixture ディレクトリを新設しない） |
 | `tests/extras/README.md` | modify | 一覧表に ta-65 を追記（既存規約） | — |
 | `docs/ai/settings-wiring-contract.md` | modify | 責務分界のパス単位明確化 + S-2 の限界明記 | — |
@@ -253,8 +254,13 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 - [ ] Step 3: テストが bridge を呼び、`permissionDecision` を抽出して期待値と突合する。**`PLANGATE_HOOK_TASK` / `PLANGATE_HOOK_STRICT` / `PLANGATE_DELEGATION_NOCOMMIT` を必ず明示設定**する（継承禁止 / `env -u` で明示 unset）
 - [ ] Step 4: bridge 呼び出しは必ず **stdin を明示的に与える**（`printf '%s' "$payload" | ...`）。stdin 無しで呼ぶと `INPUT=$(cat)` がハングしうる
 - [ ] Step 5: 期待値は**転記ではなく実行結果で確定**し、本 plan「前提の実測検証」表との差分があれば **plan 側を訂正**する
-- [ ] Step 6: `sh tests/run-tests.sh` を **全体実行**して PASS することを確認する（**単体実行だけで済ませない**。loader に拾われたことの唯一の証明）
-- [ ] Step 7: 実行ログを `evidence/verification/` に commit する
+- [ ] Step 6: **`tests/extras/README.md` の一覧表に `ta-65` の行を追記する**（既存規約。README は Files 表に挙がっているが Step が無かった＝ R2-4）
+- [ ] Step 7: `sh tests/run-tests.sh` を **全体実行**して PASS することを確認する（**単体実行だけで済ませない**。loader に拾われたことの唯一の証明）
+- [ ] Step 8: 実行ログを `evidence/verification/` に commit する
+
+> **stage 依存 TC の導入タイミング**（R2-1）: 本タスクで導入するのは **TC-22a（2 値 assertion）まで**。
+> **TC-22b（matcher に `Edit`/`Write` が無い）は Task 3（todo T-04）のコミットで導入する**。
+> T-01 の時点では matcher に `Edit|Write` が残っているため、ここで入れると **T-01〜T-03 の完了条件（スイート全体 GREEN）を満たせなくなる**。
 
 **テストサンドボックス設計**（R-F13。**`scripts/` に stub を置かないための唯一の経路**）:
 
@@ -287,12 +293,19 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 
 - [ ] Step 1: ta-15 の 7 TC を実行して現行の PASS 内容を記録する（`evidence/verification/`）
 - [ ] Step 2: 責務分界を決めて明記する — **ta-15 = ファイル存在・構文・配線の静的検査 / ta-65 = I/O 契約の振る舞い検査**
-- [ ] Step 3: TC-03 の**表明を実態に合わせる**: 「JSON として valid」に加え **top-level キーが `description` / `hooks` のみ**であることを検査する（＝ Codex に受理される形かを見る）。
-      **Stage 3 の前は意図的に FAIL するため、Stage 3（todo T-06）と同一コミットで有効化する**か、`hooks.json` の状態に応じた 2 値表明にする（実装時に決める）
+- [ ] Step 3: TC-03 の**表明を実態に合わせる**: 「JSON として valid」に加え **top-level キー集合**を検査する。
+      🔴 **実装は TC-22a と同じ「stage 依存 2 値 assertion」に統一する**（`{description, hooks}` に一致 → `enabled` 分岐 /
+      それ以外 → `disabled` 分岐で「未知キーが実在する＝ kill switch が効いている」を assert）。
+      **どちらの分岐でも必ず 1 つ以上 assert する**。
+      **2 値にすることで T-06 とのコミット同期が不要になる**（旧案の「同一コミットで有効化」は採らない。
+      別タスク間のコミット同期は T-00 の `depends_on` を T-06 まで引き延ばし、依存グラフを壊すため＝ R2-6）
 - [ ] Step 4: TC-04 の表明文言から「**wires**（配線済み）」の断定を外し、「hooks.json に 5 hook の**記述**がある」ことのみを述べる文言に直す
-- [ ] Step 5: Task 2 実施後に ta-15 の TC-05/06/07 が **PASS のままである**ことを確認する（回帰チェック）
 
-**Completion Criteria**: ta-15 と ta-65 の責務が重複せず、**登録されていない状態で「配線済み」と読める表明が残っていない**
+> **Task 2 実施後の ta-15 回帰確認（TC-05/06/07 が PASS のまま）は Task 2（todo T-02）のチェックポイントで行う**。
+> 本タスクの完了条件に含めない（**T-00 は `depends_on: なし` であり、他タスクの完了を待つ要件を持たせない**＝ R2-6）。
+
+**Completion Criteria**: ta-15 と ta-65 の責務が重複せず、**登録されていない状態で「配線済み」と読める表明が残っていない** /
+**他タスクの完了を待たずに単独で GREEN になる**
 
 **Rollback**: `git checkout -- tests/extras/ta-15-codex-hook-bridge.sh`
 
@@ -309,7 +322,10 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 - [ ] Step 3: hook の **stdout と stderr を別ファイルに分離**して捕捉する。
       一時ファイルは **`mktemp` で作る**（現行 `eh-bridge.sh:69` の `/tmp/eh-bridge-out.$$` は**予測可能な名前**であり、
       判定入力が第三者に先回りして作成・改変されうる。Step 3 でファイルが 2 本に増えるため必ず対処する）。
-      作成した一時ファイルは **成功・失敗いずれの経路でも削除**する
+      作成した一時ファイルは **成功・失敗いずれの経路でも削除**する。
+      🔴 **検証は `TMPDIR` に依存させない**: `darwin` の BSD `mktemp` は **`TMPDIR` を無視する**ことを実測済み
+      （bare も `-t` も `/var/folders/.../T/` を返す）。**stub hook が `$PPID` から予測可能名の不在を観測する方式**を使う
+      （設計と実測は `test-cases.md` の E-9 設計根拠を参照。**簡略化しない**）
 - [ ] Step 4: **判定は stdout と exit code の 2 つで行う**（`"continue":false` / `permissionDecision:"deny"` → deny、`rc=2|1` → deny）。**stderr は判定に使わず reason 素材に限定**する
 - [ ] Step 5: 未知 exit code を **deny** にする（fail-closed）。reason に rc を含める
 - [ ] Step 6: hook 実体の解決を `scripts/hooks/<name>` → `scripts/<name>` の順にフォールバックさせる。どちらにも無ければ従来どおり deny
@@ -332,13 +348,15 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 
 | 入力 | 判定 | 根拠 |
 |---|---|---|
-| stdin が**壊れた JSON** | **deny**（fail-closed） | v8.19.0 の EH-13 が parse-unknown を block 扱いにした先例と同じ向き。**壊れた JSON はパスを隠せる**ため allow は危険 |
+| stdin が**壊れた JSON**（構文エラー） | **deny**（fail-closed） | v8.19.0 の EH-13 が parse-unknown を block 扱いにした先例と同じ向き。**壊れた JSON はパスを隠せる**ため allow は危険 |
+| stdin が **valid JSON だが object でない**（`null` / 配列 / 文字列 / 数値） | **deny**（fail-closed） | 上と同じ情報欠落側（R2-8）。**現行は `AttributeError` で python が rc=1 終了し、シェルの `2>/dev/null \|\| echo ""` により黙って「パス不明」レーンへ落ちている**（実測）。`isinstance(d, dict)` を明示判定し、偽なら診断つき deny にする（例外任せにしない） |
 | stdin が**空** | **allow** | 評価対象のツール入力が存在しない（Codex 経由では起こらない）。ここを deny にすると **Codex 以外からの誤起動でセッションを壊す**副作用が勝る |
 | `tool_input` にパスが無い（E-1） | **hook に委譲**（`PLANGATE_HOOK_FILE` 未設定で起動し hook の判定に従う） | bridge が独自に allow を返すのではなく、判定権を hook 側に残す |
 
 > **この 3 行は「allow のままにする」判断を含むため、根拠を plan 本文に固定する**（レビューで再燃させない）。
 
-**Completion Criteria**: `sh tests/run-tests.sh` GREEN / `.codex/hooks.json` 未変更 / `scripts/**` 未変更 / 一時ファイルが残らない
+**Completion Criteria**: `sh tests/run-tests.sh` GREEN / `.codex/hooks.json` 未変更 / `scripts/**` 未変更 / 一時ファイルが残らない /
+**既存 `ta-15` の TC-05・TC-06・TC-07 が PASS のまま**（Task 1b から移した回帰確認＝ R2-6）
 
 **Rollback**: `git checkout -- .codex/hooks/eh-bridge.sh`。**この時点では Codex ランタイムに影響が出ていない**ため無害
 
@@ -351,16 +369,21 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 - [ ] Step 1: 変異 1 — **bridge の stdin 転送の call site を修正前へ戻す** → **EH-9 ケース（TC-01 / TC-02）が FAIL** することを確認
 - [ ] Step 2: 変異 2 — **bridge の stdout 判定ブロックを削除する** → **EH-1 / EH-2 ケース（TC-04 / TC-17）が FAIL** することを確認
 - [ ] Step 3: 変異 3 — **複数パス抽出を `re.search` に戻す** → **TC-19 が FAIL** することを確認
-- [ ] Step 4: 各変異を戻し、**GREEN** を再確認する
+- [ ] Step 4: 変異 4a — **一時ファイル名を `/tmp/eh-bridge-out.$$` に戻す** → **E-9a が FAIL** することを確認（TC-23）
+- [ ] Step 5: 変異 4b — **一時ファイルの `rm -f` を除去する** → **E-9b が FAIL** することを確認（TC-23）
+- [ ] Step 6: 各変異を戻し、**GREEN** を再確認する
 
+> **変異 4a / 4b は plan 作成時にサンドボックスで実測済み**（未修正 bridge に対し `predictable_present=YES` /
+> `rm` 除去時に `/tmp/eh-bridge-out.<pid>` にマーカーが残存）。**この 2 つが kill できないなら E-9 は空振り**である。
+>
 > **変異は bridge の call site を壊す**（関数の中身ではなく呼び出し箇所）。**テスト側の期待値を書き換えて FAIL を作らない**。
 > 変異が FAIL を起こさない TC は「空振り」であり、その TC は**乖離帯として handoff に記録**する。
 
-**Completion Criteria**: 3 変異すべてで**想定した TC が FAIL** / 復帰後に GREEN
+**Completion Criteria**: **5 変異（1 / 2 / 3 / 4a / 4b）すべて**で**想定した TC が FAIL** / 復帰後に GREEN
 
 **Rollback**: 変異は一時適用のみ。`git checkout -- .codex/hooks/eh-bridge.sh`
 
-### Task 3（todo T-04）: matcher の死に文字列除去（挙動不変）
+### Task 3（todo T-04）: matcher の死に文字列除去（**マッチを減らさない／ランタイム影響なし**）
 
 **Purpose**: `apply_patch|Edit|Write` から Codex に存在しない `Edit` / `Write` を除く。
 
@@ -369,8 +392,15 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 **Steps**:
 
 - [ ] Step 1: matcher を `apply_patch` に変更する（`Bash` group は不変）
-- [ ] Step 2: **注記キーが残っている**こと（top-level に未知キーがあり Codex に読まれない状態）を確認する
-- [ ] Step 3: `hooks/list` が **依然として PlanGate hook 0 件・同一 warning** であることを確認する（＝有効化されていないことの確認）
+- [ ] Step 2: **同一コミットで TC-22b（matcher に `Edit`/`Write` が無い）を ta-65 に追加する**（R2-1。**本タスクが TC-22b の所有者**）
+- [ ] Step 3: **注記キーが残っている**こと（top-level に未知キーがあり Codex に読まれない状態）を確認する
+- [ ] Step 4: `hooks/list` が **依然として PlanGate hook 0 件・同一 warning** であることを確認する（＝有効化されていないことの確認）
+- [ ] Step 5: `sh tests/run-tests.sh` 全体 GREEN を確認する
+
+> ⚠️ **「挙動不変」という表現は使わない**（R2-9）。matcher を**リテラル完全一致**として解釈する semantics では、
+> 現行の `apply_patch|Edit|Write` は**どのツール名にもマッチしない**。その場合、本変更は「不変」ではなく
+> **0 → 1 の有効化**になる。正確には「**`apply_patch` へのマッチを減らさない / この時点ではランタイム影響なし**」
+> （注記キーが残っているため未登録）。
 
 **Completion Criteria**: `hooks/list` が依然として PlanGate hook **0 件**・同一 warning（＝有効化されていない）/ `.codex/hooks.json` の差分が matcher 1 箇所のみ
 
@@ -474,7 +504,7 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 | **スイート全体（必須）** | **`sh tests/run-tests.sh`** | **exit 0 かつ出力に `TA-65` が現れる**（= loader に拾われた証明） | `evidence/verification/` |
 | Unit（bridge I/O） | `sh tests/extras/ta-65-codex-bridge-io.sh`（standalone 経路） | 共有 exit 契約どおり（0 / 1 / 2 / 3） | `evidence/verification/` |
 | 既存テスト非回帰 | `sh tests/run-tests.sh` の `TA-15` セクション | Task 2 実施後も PASS | `evidence/verification/` |
-| 変異注入 | Task 2b の 3 変異を個別適用 | **想定した TC が FAIL** する | `evidence/verification/` |
+| 変異注入 | Task 2b の **5 変異**（1 / 2 / 3 / 4a / 4b）を個別適用 | **想定した TC が FAIL** する | `evidence/verification/` |
 | 登録状態（**前提条件 P-1**） | `codex app-server` の `hooks/list` | 5 件 / `warnings` 空 / `enabled` / `trustStatus` | `evidence/verification/` |
 | ランタイム block | `codex exec` 1 回（Human 承認時のみ・**bypass フラグ無し**） | stderr に `Command blocked by PreToolUse hook:` / 対象ファイル不在 | `evidence/verification/` |
 | 非回帰（Claude 側） | `git diff $(git merge-base HEAD origin/main) -- scripts/hooks .claude` | 差分 0 | `evidence/verification/` |
@@ -550,13 +580,19 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 
 ## 段階導入の要約
 
+> 🔴 **本表は可読化であり、実行順の正本は [`todo.md`](./todo.md) の各タスク定義の `depends_on`**（R2-5）。
+> **本表と `depends_on` が食い違った場合も `depends_on` を正とする。**
+> （旧版は本表が `G(Task 4) → 3a(Task 5a)` の順で、todo の `T-05 → H-01` と逆だった。
+> 正しくは **T-05 が先**である — plan Task 4 Step 3 が「`trusted_hash` の付与手順を**提示する**」と定めており、
+> 手順が存在しないとゲートの判断材料が揃わないため。以下は修正済みの順序。）
+
 | Stage | plan Task | todo | Codex ランタイムへの影響 | rollback |
 |---|---|---|---|---|
 | 0 | Task 1 / 1b | T-01 / T-00 | **なし**（テスト追加・既存テスト是正のみ） | ファイル削除 / `git checkout` |
 | 1 | Task 2 / 2b | T-02 / T-03 | **なし**（top-level 未知キーにより未読込＝未登録） | `git checkout` |
-| 2 | Task 3 | T-04 | **なし**（同上） | `git checkout` |
-| G | Task 4 | **H-01** | — | 判断のみ |
-| 3a | Task 5a | T-05 | なし（文書のみ） | 不要 |
+| 2 | Task 3 | T-04 | **なし**（同上。TC-22b を同一コミットで導入） | `git checkout` |
+| 3a | Task 5a | **T-05** | なし（文書のみ） | 不要 |
+| **G** | **Task 4** | **H-01** | — | 判断のみ（**T-05 の後**） |
 | 3b | **Task 5b** | **T-06** | 🔴 **あり（唯一の有効化）** | **top-level に未知キーを 1 行足して全件無効化** / `git revert` / `PLANGATE_BYPASS_HOOK=1` |
 | 4 | Task 6 | T-07 | なし（doc） | `git checkout` |
 
@@ -584,7 +620,9 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 ### Success Criteria
 
 - **AC-01〜AC-05・AC-07〜AC-12**（[`pbi-input.md`](./pbi-input.md)。**AC-06 は前提条件 P-1 へ移動・欠番**）
-  ↔ [`test-cases.md`](./test-cases.md) の **TC-01〜TC-20**（TC-13 は P-1 の確認手順・AC 対応なし）
+  ↔ [`test-cases.md`](./test-cases.md) の **TC-01〜TC-23**（TC-22 は **TC-22a / TC-22b** に分割）
+  - **AC 対応を持たない TC**: **TC-13**（前提条件 P-1 の確認手順）/ **TC-20**（#1089 の限界を現状固定・**あるべき挙動ではない**）
+  - **エッジケース**: E-1〜E-10（**E-3'** / **E-9a・E-9b** を含む）
 - Completion boundary（「S-2 の完了の定義」の再掲）:
   - **必達**: **bridge が deny すべき入力に deny を返す**ことを課金ゼロで実証（L-A）
   - **前提**: `hooks/list` の登録（P-1。成果として主張しない）

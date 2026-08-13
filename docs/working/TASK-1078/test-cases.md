@@ -29,16 +29,18 @@
 |---|---|---|
 | AC-01 | deny すべきケースで deny | TC-01・TC-02・TC-03・TC-04・**TC-17**・**TC-18** |
 | AC-02 | allow すべきケースで allow | TC-05・TC-06・TC-07 |
-| AC-03 | 変異注入で FAIL する | TC-08・TC-09・**TC-21** |
+| AC-03 | 変異注入で FAIL する | TC-08・TC-09・**TC-21**・**TC-23** |
 | AC-04 | stderr は判定に使わない | TC-10 |
 | AC-05 | 未知 rc は deny / reason 非空 | TC-11・TC-12 |
 | ~~AC-06~~ | **欠番**（前提条件 P-1 へ移動） | （TC-13 は P-1 の確認手順） |
 | AC-07 | ランタイム block 証跡（**bypass 無し**） | TC-14 |
 | AC-08 | Claude 側非回帰 | TC-15 |
 | AC-09 | 責務分界の一意性 + 限界 4 点の明記 | TC-16 |
-| **AC-10** | **複数パス `apply_patch` の全件評価** | **TC-19** |
-| **AC-11** | **hooks.json が Codex 受理形 / matcher に死に文字列なし** | **TC-22** |
+| **AC-10** | **複数パス `apply_patch` の全件評価** | **TC-19**・E-10 |
+| **AC-11** | **hooks.json が Codex 受理形 / matcher に死に文字列なし** | **TC-22a**（T-01 所有）・**TC-22b**（T-04 所有） |
 | **AC-12** | **hook 解決のフォールバック** | **E-4 / E-5**（自動化・下記） |
+| **—（AC 対応なし）** | **一時ファイルの予測可能性と leak**（AC-05 の付随・R-9 の再発防止） | **E-9a / E-9b**（TC-23 が検出力を担保） |
+| **—（AC 対応なし）** | **#1089 の限界を現状固定**（R-8。**あるべき挙動ではない**） | **TC-20** |
 
 > **EH-1 / EH-6 の deny が 0 件だった問題（R-F07）**: 旧版は plan `:97` 自身が「5 hook すべての挙動が変わる」と書きながら
 > **EH-1（plan-exists）と EH-6（forbidden-files）の deny 側 TC が 1 件も無かった**。TC-17 / TC-18 で埋める。
@@ -219,17 +221,51 @@
 - 期待: **TC-19 が FAIL**、他は PASS のまま
 - 種別: Mutation（手動適用 + 自動判定）
 
-### TC-22: `.codex/hooks.json` が Codex 受理形であり matcher に死に文字列が無い
+### TC-23: 変異 4 — 一時ファイルの是正を戻すと E-9a / E-9b が FAIL する
+
+- 変異 4a: bridge の一時ファイルを **`/tmp/eh-bridge-out.$$`（予測可能名）へ戻す** → **E-9a が FAIL**
+- 変異 4b: bridge の **`rm -f`（削除）を除去する** → **E-9b が FAIL**
+- 種別: Mutation（手動適用 + 自動判定）
+- 備考: **どちらも plan 作成時にサンドボックスで実測済み**（E-9 の設計根拠を参照）。
+  4a は `predictable_present=YES` を、4b は `/tmp/eh-bridge-out.<pid>` にマーカーが残ることを確認した
+- ⚠️ **この 2 変異のどちらかが FAIL を起こせなかった場合、その E-9 は空振り**である。
+  修正できない場合は**乖離帯として handoff に記録**する（黙って PASS のままにしない）
+
+### TC-22: `.codex/hooks.json` の stage 別 assertion（**TC-22a / TC-22b に分割**）
+
+> 🔴 **本 TC を「T-06 適用後にだけ成立する単一 assertion」にしてはならない**（R2-1）。
+> ta-65 は **T-01 で導入**され、T-01〜T-05 の各チェックポイントの完了条件は **`sh tests/run-tests.sh` の全体 GREEN** である。
+> 「T-06 後にだけ真」の assertion を T-01 で入れると、**T-01〜T-05 の間ずっとスイートが RED** になり、
+> 完了条件を満たせないか、**期待値を緩めて空振りテストへ退行**する。以下の 2 分割でこれを構造的に回避する。
+
+#### TC-22a: top-level キー集合の **stage 依存 2 値 assertion**（T-01 で導入）
 
 - 手順（課金ゼロ・静的）:
-  1. `python3` で読み込み、**top-level のキー集合が `{description, hooks}` に一致**することを確認する
-  2. matcher 文字列に **`Edit` / `Write`** が含まれないことを確認する
-  3. PlanGate 5 hook（`check-plan-exists` / `check-c3-approval` / `check-plan-hash` / `check-forbidden-files` / `check-delegation-commit-boundary`）の**記述**があることを確認する
-- 期待: 3 点すべて成立（**T-06 適用後**）
+  1. `python3` で `.codex/hooks.json` を読み、**top-level のキー集合**を取得する
+  2. **stage を判定する**: キー集合が `{description, hooks}` に一致 → `enabled` / それ以外 → `disabled`
+  3. 分岐して assert する:
+     - **`enabled` 分岐**: キー集合が `{description, hooks}` に**厳密一致**（余分なキーが 1 つも無い）
+     - **`disabled` 分岐**: **未知キーが実在する**（＝ kill switch が効いていること）かつ、その未知キーが
+       想定どおり（`$schema_note` / `$note` 等）であること
+  4. **どちらの分岐でも 5 hook の記述が存在する**ことを assert する（stage 非依存の不変条件）
+- 期待: 現在の stage に対応する分岐が成立
 - 種別: Unit（自動 / 静的）
-- ⚠️ **「JSON として valid」だけでは不十分**。既存 `ta-15` TC-03 は `python3 -m json.tool` で PASS しており、
-  **Codex が受理していない設定に対して緑を出していた**（R-F04）。本 TC は top-level キー集合まで見ることでその穴を塞ぐ
-- ⚠️ **表明文言に「配線済み（wires）」を使わない**。ファイルに記述があることと Codex に登録されていることは別
+- 🔴 **どちらの分岐でも必ず 1 つ以上 assert する**。分岐の片側を「検査しない」にすると空振りになる
+- **所有**: T-01 で導入。**T-06 のチェックポイントで「`enabled` 分岐に遷移したこと」を確認する**（テスト側の変更は不要）
+
+#### TC-22b: matcher に死に文字列が無い（**T-04 のコミットで導入**）
+
+- 手順: matcher 文字列に **`Edit` / `Write`** が含まれないことを確認する
+- 期待: 含まれない
+- 種別: Unit（自動 / 静的）
+- 🔴 **T-04（matcher 除去）より前は偽であるため、T-04 と同一コミットで導入する**（**所有: T-04**）。
+  T-01 の時点で入れるとスイートが RED になる。stage 検出でごまかさない（matcher 自身が唯一の観測点で、
+  「T-04 の前か後か」を matcher 以外から判定する手段が無い＝ stage 依存にすると循環する）
+
+> ⚠️ **「JSON として valid」だけでは不十分**。既存 `ta-15` TC-03 は `python3 -m json.tool` で PASS しており、
+> **Codex が受理していない設定に対して緑を出していた**（R-F04）。TC-22a は top-level キー集合まで見ることでその穴を塞ぐ。
+> ⚠️ **表明文言に「配線済み（wires）」を使わない**。ファイルに記述があることと Codex に登録されていることは別。
+> ⚠️ **`ta-15` TC-03 にも TC-22a と同じ 2 値方式を適用する**（T-00 が所有）。こうすると T-06 との**コミット同期が不要**になる。
 
 ## エッジケース
 
@@ -242,22 +278,78 @@
 |---|---|---|---|
 | E-1 | `tool_input` にファイルパスが無い `apply_patch`（Add/Delete/Update いずれの行も無い） | **hook に委譲**（`PLANGATE_HOOK_FILE` 未設定で起動し hook の判定に従う）。**crash しない** | bridge が独自に allow を返すのではなく、判定権を hook に残す |
 | E-2 | stdin が空（Codex 以外からの起動） | **allow**。**bridge 自体が異常終了しない** | 評価対象のツール入力が存在しない。Codex 経由では発生しない。deny にすると誤起動でセッションを壊す副作用が勝る |
-| E-3 | stdin が**壊れた JSON** | 🔴 **deny**（fail-closed）/ reason 非空・stderr に診断 | **壊れた JSON はパスを隠せる**。v8.19.0 の EH-13 が parse-unknown を block 扱いにした先例と同じ向き（**旧版の allow から変更**） |
+| E-3 | stdin が**壊れた JSON**（構文エラー） | 🔴 **deny**（fail-closed）/ reason 非空・stderr に診断 | **壊れた JSON はパスを隠せる**。v8.19.0 の EH-13 が parse-unknown を block 扱いにした先例と同じ向き（**旧版の allow から変更**） |
+| **E-3'** | **JSON としては valid だが object でない**（`null` / 配列 / 文字列 / 数値） | 🔴 **deny**（fail-closed）/ reason 非空 | **E-3 と同じ情報欠落側**。「object でない＝ツール入力を評価できない」。下記 ❗ の実測を参照 |
 | E-4 | hook 名が `scripts/` 直下にのみ実在（EH-13 相当） | フォールバックで解決され、not-found deny にならない（**AC-12**） | stub で自動検証可能 |
 | E-5 | hook 名がどちらにも無い | 従来どおり `deny` / reason 非空（**AC-12**） | 既存挙動の維持 |
 | E-6 | hook が 15 秒を超える | Codex の timeout 設定に従う。**bridge 側では扱わない**（挙動を変えない） | scope 外 |
 | E-7 | `PLANGATE_BYPASS_HOOK=1` | 全 hook が allow を返す（既存 escape hatch が生きていること） | 緊急 rollback 手段の生存確認 |
 | E-8 | 同一 matcher group の複数 hook のうち 1 本が deny | Codex 側の打ち切り仕様は U-6（未確定）。**bridge の期待値は hook 単位で判定する** | bridge は 1 プロセス 1 hook |
-| **E-9** | **一時ファイルが残らない** | bridge 実行後にサンドボックス内へ `eh-bridge-out.*` 等が残っていない | `mktemp` 化と確実な削除（現行は `/tmp/eh-bridge-out.$$` ＝ 予測可能名で、判定入力を外部から先回りできる） |
+| **E-9a** | **予測可能な名前の一時ファイルを作らない**（詳細は下記 ❗） | stub hook が実行中に `/tmp/eh-bridge-out.$PPID` の**不在**を観測する | 是正対象の性質は「残る/残らない」ではなく **名前が予測可能かどうか**。ここを直接検査する |
+| **E-9b** | **一時ファイルが残らない**（leak） | bridge 終了後、**hook stdout に出したユニークマーカーを含むファイル**が候補ディレクトリのどこにも無い | 削除漏れの検出。マーカー検索なのでファイル名の実装に依存しない |
 | **E-10** | **`apply_patch` に 3 件以上のパス**（うち 1 件が HO） | `deny`（TC-19 の一般化） | 「先頭 1 件のみ検査」の取りこぼしが 2 件目に限らないこと |
+
+❗ **E-3' の実測（R2-8）**: 現行の抽出器は **`try/except` が `json.loads` しか包んでいない**ため、
+object 以外の valid JSON では `d.get(...)` が `AttributeError` を送出して **python が rc=1 で異常終了**する:
+
+```text
+printf '%s' '[1,2]' | python3 -c '... ti = d.get("tool_input") or {} ...'
+  AttributeError: 'list' object has no attribute 'get'
+  PY_EXIT=1
+```
+
+シェル側は `2>/dev/null || echo ""` で受けるため **`FILE_PATH` が空**になり、結果として
+**E-1（パス不明 → hook に委譲）と同じレーンへ黙って落ちる**。
+「例外を握って `sys.exit(0)` している」わけではない（送出は捕捉されていない）。
+**新契約では E-3 と同じく deny に倒す**。実装時は `isinstance(d, dict)` を明示的に判定し、
+偽なら**診断を stderr に出して deny を返す**（例外任せにしない）。
+
+❗ **E-9 の設計根拠（R2-2 / 実測で 2 度作り直した箇所。実装時にここを読まずに簡略化しない）**
+
+**却下: 「サンドボックス内に残っていないこと」だけを見る方式**（旧 E-9）
+→ bridge は `/tmp` に書くため、**修正前でも修正後もサンドボックス内には何も残らない**。**常に PASS する空振り**。
+
+**却下: 「`TMPDIR=<sandbox>` を明示すれば `mktemp` がそこに書くので assertion が意味を持つ」方式**
+→ 🔴 **実測で否定された**。`darwin`（BSD `mktemp`）では **`TMPDIR` を設定しても無視される**:
+
+```text
+TMPDIR=<sandbox> sh -c 'echo "$TMPDIR"; mktemp; mktemp -t ehprobe'
+  TMPDIR inside = <sandbox>                                  ← 環境変数は伝播している
+  bare  = /var/folders/.../T/tmp.pauTRMnvjW                   ← TMPDIR を無視
+  -t    = /var/folders/.../T/ehprobe.iPaX4yy6Ct               ← -t でも無視
+```
+
+GNU coreutils（CI の Linux）は `TMPDIR` に従うため、**この方式は「CI では効くが開発者の macOS では空振り」という
+プラットフォーム依存の穴**になる。**採用しない。**
+
+**採用する方式** — stub hook を観測点にする（プラットフォーム非依存・実測で検証済み）:
+
+- bridge は hook を `sh "$HOOK_SCRIPT" > <capture> 2>&1` で起動するため、**hook の `$PPID` は bridge シェルの PID** であり、
+  現行実装の `/tmp/eh-bridge-out.$$` の `$$` と**同じ値**になる。
+- したがって **stub hook が実行中に `/tmp/eh-bridge-out.$PPID` の存在を見れば、名前が予測可能かどうかを直接判定できる**。
+- **実測（現行の未修正 bridge をサンドボックス複製して実行）**:
+
+  ```text
+  ppid=33964
+  tmpdir=<sandbox>
+  predictable_present=YES      ← 現行実装では予測可能名のファイルが実在する
+  ```
+
+  → **修正前は FAIL / `mktemp` 化後は PASS** となり、assertion が実際に効く。
+- **E-9b（leak）**: stub の stdout にユニークマーカー（例 `PG_MARKER_<random>`）を出し、bridge 終了後に
+  候補ディレクトリ（`/tmp`・`${TMPDIR:-}`・`$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null)`）を
+  **マーカー文字列で検索**する。ファイル名の実装に依存せず leak を検出できる。
+- **実測（`rm -f` を除去した変異を適用した場合）**: `grep -l '<marker>' /tmp/eh-bridge-out.*` が
+  `/tmp/eh-bridge-out.34164` を返した（**変異 4 は kill できる**）。
+- 検索対象は**実行前後の差分**に限定し、他プロセスの残骸を拾わないようにする（マーカーが一意なので実務上は十分）。
 
 ## 自動化可否
 
 | 種別 | 対象 | 自動化 |
 |---|---|---|
-| Unit（bridge I/O） | TC-01〜TC-07・TC-10〜TC-12・**TC-17〜TC-20** + E-1〜E-5・E-7・**E-9・E-10** | ✅ 完全自動・課金ゼロ |
-| Unit（静的） | **TC-22** | ✅ 完全自動・課金ゼロ |
-| Mutation | TC-08・TC-09・**TC-21** | ⚠️ 変異適用は手動、判定は自動 |
+| Unit（bridge I/O） | TC-01〜TC-07・TC-10〜TC-12・**TC-17〜TC-20** + E-1〜E-5・**E-3'**・E-7・**E-9a・E-9b・E-10** | ✅ 完全自動・課金ゼロ |
+| Unit（静的） | **TC-22a**（T-01 所有）・**TC-22b**（T-04 所有） | ✅ 完全自動・課金ゼロ |
+| Mutation | TC-08・TC-09・**TC-21**・**TC-23（4a / 4b）** | ⚠️ 変異適用は手動、判定は自動 |
 | Manual（課金ゼロ） | TC-13（**前提条件 P-1**）・TC-15・TC-16 | ⚠️ TC-13 は S-3 で自動化予定 |
 | E2E（課金あり） | TC-14 | ❌ Human 承認が必要・1 回限り・**bypass フラグ禁止** |
 

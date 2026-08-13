@@ -6,8 +6,9 @@
 
 ## 依存関係
 
-> 🔴 **正本は各タスク定義の `depends_on` フィールド**（下記の図はその可読化にすぎない）。
-> **図と `depends_on` が食い違った場合は `depends_on` を正とする**。
+> 🔴 **実行順の正本は各タスク定義の `depends_on` フィールド**（下記の図はその可読化にすぎない）。
+> **下記の図・[`plan.md`](./plan.md) の「段階導入の要約」表・plan の Task 番号のいずれと食い違った場合も、
+> `depends_on` を正とする**（R2-5。優先規定を todo 内部だけでなく **plan 側の表にも及ぼす**）。
 > 旧版では図（`T-03 → H-01 → T-04`）とタスク定義（`T-04 ← T-03` / `T-05 ← T-04` / `H-01 ← T-05`）が
 > **逆順に矛盾**しており、かつ警告文が**別のタスク ID を名指し**していた。本節はその是正版。
 
@@ -42,13 +43,17 @@ H-02(👤 C-3) は exec 開始前・H-03(👤 C-4) は全タスク完了後
   - `tests/extras/ta-15-codex-hook-bridge.sh` の 7 TC を実行し、**現行の PASS 内容**を `evidence/verification/` に記録する
   - **TC-03（`valid JSON`）と TC-04（`wires all 5 PlanGate hooks`）は、Codex が受理していない設定に対して PASS している**（緑の誤シグナル）
   - 責務分界を決める: **ta-15 = 静的検査（存在 / 構文 / top-level キー / 記述）/ ta-65 = I/O 契約の振る舞い検査**
-  - TC-03 に **top-level キーが `description` / `hooks` のみ**の検査を足す（**T-06 と同一コミットで有効化**、または状態に応じた 2 値表明）
+  - TC-03 に **top-level キー集合**の検査を足す。🔴 **実装は「stage 依存 2 値 assertion」に統一する**
+    （`{description, hooks}` 一致 → enabled 分岐 / それ以外 → 「未知キーが実在する＝ kill switch が効いている」を assert。
+    **どちらの分岐でも必ず 1 つ以上 assert する**）。**2 値にすることで T-06 とのコミット同期が不要**になり、
+    **`depends_on: なし` のまま単独で GREEN になる**（R2-6）
   - TC-04 の文言から「wires（配線済み）」の断定を外す
-  - 🚩 チェックポイント: **「登録されていない状態で配線済みと読める表明」がゼロ**
+  - ⚠️ **他タスクの完了を待つ要件を本タスクに持たせない**。Task 2 実施後の ta-15 回帰確認（TC-05/06/07）は **T-02 のチェックポイント**で行う
+  - 🚩 チェックポイント: **「登録されていない状態で配線済みと読める表明」がゼロ** / **単独で `sh tests/run-tests.sh` GREEN**
   - `rollback:` `git checkout -- tests/extras/ta-15-codex-hook-bridge.sh`
 
 - [ ] **T-01**: fixture と baseline テストの導入
-  - owner: agent / depends_on: なし / AC: AC-01 の土台
+  - owner: agent / depends_on: なし / AC: AC-01 の土台・**AC-11（TC-22a のみ。TC-22b は T-04 が所有）**
   - 実 payload 形状の fixture（`apply_patch` / `Bash`。実物は `evidence/codex-exec-spike.md` 追記 1・追記 2）
   - 🔴 **配置は `tests/extras/ta-65-codex-bridge-io.sh`（フラット）**。loader は `tests/run-tests.sh:165` の
     **`"$EXTRAS_DIR"/ta-*.sh` フラット glob** であり、**サブディレクトリは永久に実行されない**。
@@ -59,6 +64,11 @@ H-02(👤 C-3) は exec 開始前・H-03(👤 C-4) は全タスク完了後
   - **env（`PLANGATE_HOOK_TASK` / `PLANGATE_HOOK_STRICT` / `PLANGATE_DELEGATION_NOCOMMIT`）を必ず明示設定**する（継承禁止・unset は `env -u`）
   - bridge 呼び出しは **必ず stdin を与える**（`INPUT=$(cat)` のハング回避）
   - 期待値は **実行結果で確定**する（plan の実測表からの転記で固定しない。差分が出たら plan 側を訂正）
+  - **`tests/extras/README.md` の一覧表に `ta-65` を追記**する（既存規約 / R2-4）
+  - 🔴 **本タスクで入れる stage 依存 TC は TC-22a（2 値）まで。TC-22b（matcher に `Edit`/`Write` 無し）は T-04 が所有**する。
+    T-01 で TC-22b を入れると **T-01〜T-03 の完了条件（スイート全体 GREEN）を満たせなくなる**（R2-1）
+  - 🔴 **E-9（一時ファイル）の検査は `TMPDIR` に依存させない**。`darwin` の BSD `mktemp` は `TMPDIR` を無視することを実測済み。
+    **stub hook が `$PPID` から予測可能名の不在を観測する方式**を使う（設計と実測は `test-cases.md` の E-9 設計根拠）
   - 🚩 チェックポイント: **`sh tests/run-tests.sh` の出力に `TA-65` が現れる**こと / `.codex/` と `scripts/` に差分が無いこと
   - `rollback:` `git rm tests/extras/ta-65-codex-bridge-io.sh` + fixtures — ランタイム影響なし
 
@@ -75,8 +85,13 @@ H-02(👤 C-3) は exec 開始前・H-03(👤 C-4) は全タスク完了後
     (e) `scripts/hooks/` → `scripts/` フォールバック（無ければ deny）
     (f) deny の reason 常時非空
     (g) **`apply_patch` の複数パス全件評価**（`re.search` → 全件。1 件でも deny なら deny。困難なら「複数パスは deny」の fail-closed 代替。**allow に倒さない**）
-    (h) **壊れた JSON → deny / 空 stdin → allow**（根拠は plan の「fail 方向の contract」）
-  - 🚩 チェックポイント: `scripts/**` と `.claude/**` に差分が無いこと（HO 不可侵）/ 一時ファイルが残らないこと
+    (h) **壊れた JSON → deny / valid だが object でない JSON（`null`・配列・文字列）→ deny / 空 stdin → allow**
+    （根拠は plan の「fail 方向の contract」。**`isinstance(d, dict)` を明示判定する**。
+    現行は `AttributeError` で python が rc=1 終了し、シェルの `2>/dev/null || echo ""` により
+    **黙って「パス不明」レーンへ落ちている**ことを実測済み＝ R2-8）
+    (i) **一時ファイルの `mktemp` 化は `TMPDIR` に依存させない**（BSD `mktemp` が `TMPDIR` を無視することを実測済み）
+  - 🚩 チェックポイント: `scripts/**` と `.claude/**` に差分が無いこと（HO 不可侵）/ 一時ファイルが残らないこと /
+    **既存 `ta-15` の TC-05・TC-06・TC-07 が PASS のままであること**（T-00 から移した回帰確認＝ R2-6）
   - `rollback:` `git checkout -- .codex/hooks/eh-bridge.sh` — **この時点では Codex 未登録のため無害**
 
 - [ ] **T-03**: 変異注入によるテスト検出力の実証
@@ -84,14 +99,20 @@ H-02(👤 C-3) は exec 開始前・H-03(👤 C-4) は全タスク完了後
   - 変異 1: stdin 転送を戻す → **EH-9 ケース（TC-01 / TC-02）が FAIL** すること
   - 変異 2: stdout 判定を戻す → **EH-1 / EH-2 ケース（TC-04 / TC-17）が FAIL** すること
   - 変異 3: 複数パス抽出を `re.search` に戻す → **TC-19 が FAIL** すること
+  - 変異 4a: 一時ファイル名を `/tmp/eh-bridge-out.$$` に戻す → **E-9a が FAIL** すること（TC-23）
+  - 変異 4b: 一時ファイルの `rm -f` を除去する → **E-9b が FAIL** すること（TC-23）
   - 変異は **call site（bridge の該当行）を壊す**。テスト側の期待値を書き換えて FAIL を作らない
   - **FAIL を起こせなかった TC は「空振り」として handoff の乖離帯に記録する**
-  - 🚩 チェックポイント: 3 変異とも FAIL を確認し、**元に戻したうえで GREEN** を再確認する
+  - 🚩 チェックポイント: **5 変異（1 / 2 / 3 / 4a / 4b）とも FAIL** を確認し、**元に戻したうえで GREEN** を再確認する
   - `rollback:` 変異は一時適用のみ。`git checkout -- .codex/hooks/eh-bridge.sh` で復帰
 
 - [ ] **T-04**: matcher の死に文字列除去（**可逆・H-01 不要**）
-  - owner: agent / depends_on: T-03 / AC: AC-11 の前段
+  - owner: agent / depends_on: T-03 / AC: AC-11
   - `apply_patch|Edit|Write` → `apply_patch`。`Bash` group は不変。**注記キーは残す**（＝未登録のまま）
+  - 🔴 **同一コミットで TC-22b（matcher に `Edit`/`Write` が無い）を ta-65 に追加する**（**本タスクが TC-22b の所有者** / R2-1）
+  - ⚠️ **「挙動不変」と書かない**（R2-9）。matcher をリテラル完全一致として解釈する semantics では
+    現行の `apply_patch|Edit|Write` は**何にもマッチしない**ため、本変更は「不変」ではなく **0→1 の有効化**になりうる。
+    正確には「**`apply_patch` へのマッチを減らさない / この時点ではランタイム影響なし**」
   - **U-7（matcher の一致仕様）はこのタスクの gating ではない**: alternation の 1 項を残す変更のため、
     完全一致・部分一致のいずれでも `apply_patch` へのマッチは減らない
   - 🚩 チェックポイント: `hooks/list` が依然 PlanGate hook **0 件** + 同一 warning（＝未有効化のまま）。
@@ -112,6 +133,7 @@ H-02(👤 C-3) は exec 開始前・H-03(👤 C-4) は全タスク完了後
   - owner: agent / depends_on: **H-01（承認）** / AC: AC-07・AC-11 + 前提条件 P-1
   - top-level を `description` / `hooks` の 2 キーのみにする
   - `hooks/list` で 登録 5 件・`warnings[]` 空・`enabled` true・`trustStatus` を確認する（**P-1 の確認。成果ではない**）
+  - **TC-22a が `enabled` 分岐に遷移したことを確認する**（テスト側の変更は不要。stage 依存 2 値のため自動で切り替わる）
   - matcher 文字列と件数を記録する（U-7 の観測。**gate ではない**）
   - H-01 で承認された場合のみ `codex exec` を **1 回**実行し、block 証跡（stderr の `Command blocked by PreToolUse hook:` + 対象ファイル不在）を保存する
   - 🔴 **必須条件: `--dangerously-bypass-hook-trust` を付けない**（非 `--ephemeral` / deny 対象を先 / retry 禁止を prompt に明示）。
