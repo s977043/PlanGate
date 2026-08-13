@@ -1,0 +1,35 @@
+=== BEFORE (未適用 / origin/main と同一の hook) ===
+### /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a994472de700000d3
+occurrences of _override=0 : 1
+line of _override=0        : 123
+--- extracted case block ---
+  case "$_norm_target" in
+    .claude/rules/*.md) _override=1 ;;
+    .claude/settings.json|.claude/settings.local.json|.claude/settings.example.json) _override=1 ;;
+    .claude/commands/*.md|.claude/commands/*/*.md) _override=1 ;;
+    .claude/agents/*.md|.claude/agents/*/*.md) _override=1 ;;
+    scripts/hooks/*.sh) _override=1 ;;
+    bin/plangate) _override=1 ;;
+    schemas/*.schema.json) _override=1 ;;
+    .github/workflows/*.yml|.github/workflows/*.yaml) _override=1 ;;
+    AGENTS.md|CLAUDE.md) _override=1 ;;
+--- category count ---
+9
+
+=== AFTER (apply-eh3-ho-always.sh --apply 済み) ===
+### /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/applied
+occurrences of _override=0 : 1
+line of _override=0        : 94
+--- extracted case block ---
+case "$_norm_target" in
+  .claude/rules/*.md) _override=1 ;;
+  .claude/settings.json|.claude/settings.local.json|.claude/settings.example.json) _override=1 ;;
+  .claude/commands/*.md|.claude/commands/*/*.md) _override=1 ;;
+  .claude/agents/*.md|.claude/agents/*/*.md) _override=1 ;;
+  scripts/hooks/*.sh) _override=1 ;;
+  bin/plangate) _override=1 ;;
+  schemas/*.schema.json) _override=1 ;;
+  .github/workflows/*.yml|.github/workflows/*.yaml) _override=1 ;;
+  AGENTS.md|CLAUDE.md) _override=1 ;;
+--- category count ---
+9

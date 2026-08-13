@@ -4,14 +4,18 @@
 # #1089 / TASK-1089: EH-3 Hardening Override が PLANGATE_HOOK_TASK 設定時にも
 # 発火することの回帰テスト。
 #
-# 【2 値表明】patch 未適用でも CI を RED にしない設計:
-#   - 構造検査（HO 判定が task_id 分岐より前にあるか）で期待値を選ぶ
-#     fixed = TASK 文脈でも全 HO パス block / gap = 全 HO パス素通り
-#   - どちらの状態でも「全 HO カテゴリが同一挙動であること」を実測で表明する
+# 【期待値は既定 fixed / gap は明示 opt-in】(#1089 レビュー MAJOR-1 対応)
+#   - **既定の期待値は fixed**（HO は TASK 文脈でも常時 block）。
+#     被検査コードの構造から期待値を導かないため、**コードが元の構造へ戻ると
+#     CI が RED になる**（#1089 の再発をテスト自身が検知する）。
+#   - gap（既知ギャップの受理）は **tests/fixtures/eh3-known-gap-1089.flag の
+#     存在という明示 opt-in でのみ**成立する。flag は tracked ファイルであり、
+#     再追加はレビュー可能な差分として現れる。
+#   - flag があるのに実装が fixed（＝ patch は当たったが flag 未削除）なら
+#     **stale 宣言として FAIL** する（黙って緑にならない）。
+#   - どちらの mode でも「全 HO カテゴリが同一挙動」を実測表明する
 #     → 部分適用・カテゴリ取りこぼし・判定 call site の破壊は必ず FAIL
-#   - gap は KNOWN-GAP (#1089) として明示出力する（沈黙しない）
-#   - PG_T65_EXPECT=fixed|gap で期待値を pin できる（patch 適用後に CI へ
-#     PG_T65_EXPECT=fixed を設定すれば再退行が FAIL になる）。この seam は
+#   - PG_T65_EXPECT=fixed|gap で期待値を pin できる（デバッグ用）。この seam は
 #     失敗を増やすことしかできない（成功を偽装する経路はない）
 #
 # HO カテゴリは絶対件数を assert せず hook 本体の case 文から導出する
@@ -105,29 +109,43 @@ if [ "$_T65_ABORT" = "0" ]; then
   fi
 fi
 
-# ── 期待値の決定（構造検査 / pin 可能）───────────────────────────
+# ── 期待値の決定（既定 fixed / gap は flag による明示 opt-in）──────
 if [ "$_T65_ABORT" = "0" ]; then
+  # 構造は「期待値の決定」には使わず、診断と stale 宣言の検出にだけ使う。
   _T65_LN_TASKBRANCH=$(grep -n 'if \[ -z "\$task_id" \]' "$_T65_HOOK_SRC" | head -1 | cut -d: -f1)
   _T65_LN_OVERRIDE=$(grep -n '_override=0' "$_T65_HOOK_SRC" | head -1 | cut -d: -f1)
+  if [ -n "$_T65_LN_TASKBRANCH" ] && [ -n "$_T65_LN_OVERRIDE" ] && \
+     [ "$_T65_LN_OVERRIDE" -lt "$_T65_LN_TASKBRANCH" ]; then
+    _T65_STRUCT=fixed
+  else
+    _T65_STRUCT=gap
+  fi
+  _T65_FLAG="$_T65_ROOT/tests/fixtures/eh3-known-gap-1089.flag"
+
   if [ -n "${PG_T65_EXPECT:-}" ]; then
     _T65_MODE="$PG_T65_EXPECT"
-    printf '  [INFO] 期待値を pin: PG_T65_EXPECT=%s\n' "$_T65_MODE"
-  elif [ -n "$_T65_LN_TASKBRANCH" ] && [ -n "$_T65_LN_OVERRIDE" ] && \
-       [ "$_T65_LN_OVERRIDE" -lt "$_T65_LN_TASKBRANCH" ]; then
-    _T65_MODE=fixed
-  else
+    printf '  [INFO] 期待値を pin: PG_T65_EXPECT=%s（既定判定を上書き）\n' "$_T65_MODE"
+  elif [ -f "$_T65_FLAG" ]; then
     _T65_MODE=gap
+  else
+    _T65_MODE=fixed
+  fi
+
+  # stale 宣言の検出: flag があるのに実装は既に fixed → 宣言を削除すべき
+  if [ -z "${PG_T65_EXPECT:-}" ] && [ -f "$_T65_FLAG" ] && [ "$_T65_STRUCT" = fixed ]; then
+    t65_fail "TC-00b: stale KNOWN-GAP 宣言 — 実装は既に fixed (L$_T65_LN_OVERRIDE < L$_T65_LN_TASKBRANCH) なのに tests/fixtures/eh3-known-gap-1089.flag が残っている。flag を削除すること（scripts/apply-eh3-ho-always.sh --apply が自動で削除する）"
+    _T65_MODE=fixed
   fi
 
   case "$_T65_MODE" in
     fixed)
-      printf '  [INFO] HO 判定は task_id 分岐の前 (L%s < L%s) → fixed を期待\n' \
-        "${_T65_LN_OVERRIDE:-?}" "${_T65_LN_TASKBRANCH:-?}"
+      printf '  [INFO] 期待 = fixed（既定。KNOWN-GAP flag なし）/ 構造: %s (L%s vs L%s)\n' \
+        "$_T65_STRUCT" "${_T65_LN_OVERRIDE:-?}" "${_T65_LN_TASKBRANCH:-?}"
       _T65_EXP_RC=2
       ;;
     gap)
-      printf '  [INFO] HO 判定が task_id 分岐の内側 (L%s > L%s) → KNOWN-GAP (#1089) を期待\n' \
-        "${_T65_LN_OVERRIDE:-?}" "${_T65_LN_TASKBRANCH:-?}"
+      printf '  [KNOWN-GAP #1089] tests/fixtures/eh3-known-gap-1089.flag により gap を受理（構造: %s / L%s vs L%s）\n' \
+        "$_T65_STRUCT" "${_T65_LN_OVERRIDE:-?}" "${_T65_LN_TASKBRANCH:-?}"
       printf '  [KNOWN-GAP #1089] PLANGATE_HOOK_TASK 設定時、HO パスは block されない（patch 未適用）\n'
       _T65_EXP_RC=0
       ;;
@@ -276,6 +294,65 @@ if [ "$_T65_ABORT" = "0" ]; then
     t65_pass "TC-05: PLANGATE_BYPASS_HOOK=1 は HO より優先（既存挙動不変）"
   else
     t65_fail "TC-05: BYPASS 優先順が退行 (rc=$_t65_rc)"
+  fi
+
+  # === TC-06 (偽陽性の否定表明): HO 近傍の非 HO パスは block されない ===
+  # patch は HO block を「no-task のみ」→「全 TASK セッション」へ広げるため、
+  # 偽陽性方向（本来触れてよいパスまで塞ぐ）の表明を明示的に持つ。
+  # `.claude/skills/` と `scripts/_*.py` は HO 対象**外**（R-003/R-006）。
+  # 両 mode で共通に成立する（block されないことの表明）。
+  _t65_bad=0
+  for _t65_p in \
+    ".claude/rules/x.txt" \
+    ".claude/skills/x/SKILL.md" \
+    "scripts/hooks/x.py" \
+    "scripts/_helper.py" \
+    "scripts/x.sh" \
+    "bin/other" \
+    "schemas/x.json" \
+    ".github/workflows/x.json" \
+    "docs/AGENTS.md" \
+    "docs/working/TASK-T65/CLAUDE.md.bak"; do
+    # TASK 文脈: block されない（rc≠2 かつ HARDENING_OVERRIDE を出さない）
+    _t65_rc=0
+    _t65_out=$(_t65_hook "$_T65_TASK" "$_t65_p") || _t65_rc=$?
+    if [ "$_t65_rc" = "2" ] || printf '%s' "$_t65_out" | grep -q 'HARDENING_OVERRIDE'; then
+      _t65_bad=$((_t65_bad + 1))
+      printf '    false positive (task): %s → rc=%s\n' "$_t65_p" "$_t65_rc" >&2
+    fi
+    # no-task 文脈: rc は経路依存（SKIP_REASON 拒否等で 2 になりうる）が、
+    # HO 判定として拾われてはならない
+    _t65_rc=0
+    _t65_out=$(_t65_hook "" "$_t65_p") || _t65_rc=$?
+    if printf '%s' "$_t65_out" | grep -q 'HARDENING_OVERRIDE'; then
+      _t65_bad=$((_t65_bad + 1))
+      printf '    false positive (no-task): %s → HARDENING_OVERRIDE\n' "$_t65_p" >&2
+    fi
+  done
+  if [ "$_t65_bad" = "0" ]; then
+    t65_pass "TC-06: HO 近傍の非 HO パス 10 件が両文脈で HO block されない（偽陽性なし）"
+  else
+    t65_fail "TC-06: 非 HO パスが HO 扱いされている (${_t65_bad} 件)"
+  fi
+
+  # === TC-07 (INFO-2 / KNOWN-GAP 固定): 正規化の穴を明示的に固定する ===
+  # `..` 解決 / 大小文字 / 末尾空白の正規化は **patch 適用後も未実装**。
+  # 未適用 main の no-task 経路でも同じ rc=0 であり本 PR が作った穴ではないが、
+  # 「常時 block」の文言が文字どおりには成立しないことを検査で固定しておく。
+  # 将来これらを塞いだ時点で本 TC が RED になり、更新が強制される（意図的）。
+  _t65_bad=0
+  for _t65_p in "docs/../CLAUDE.md" "CLAUDE.MD" "CLAUDE.md " "bin/../bin/plangate"; do
+    _t65_rc=0
+    _t65_out=$(_t65_hook "$_T65_TASK" "$_t65_p") || _t65_rc=$?
+    if printf '%s' "$_t65_out" | grep -q 'HARDENING_OVERRIDE'; then
+      _t65_bad=$((_t65_bad + 1))
+      printf '    normalization now covered (更新が必要): %s\n' "$_t65_p" >&2
+    fi
+  done
+  if [ "$_t65_bad" = "0" ]; then
+    t65_pass "TC-07 (KNOWN-GAP): .. / 大小文字 / 末尾空白 の正規化は未実装 — 4 ケースを固定（別 PBI 候補）"
+  else
+    t65_fail "TC-07: 正規化が実装された（${_t65_bad} 件が block）— KNOWN-GAP 記述と ta-65 TC-07 を更新すること"
   fi
 
   rm -rf "$_T65_TMP" 2>/dev/null || true

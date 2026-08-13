@@ -49,5 +49,7 @@ HO パスの変更を伴う PBI は以下に分割する:
 ## 関連
 
 - 責務4分類正本: [`responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)
-- HO パターン定義: `check-plan-hash.sh` L124-134（9 カテゴリ正本）
+- HO パターン定義: `check-plan-hash.sh` の **`_override=0` 直後の `case` ブロック**（`esac` まで。9 カテゴリ正本）。
+  **行番号で参照しない** — 行番号アンカーは実装の移動で黙って別ブロックを指す（#1089 / 記号アンカー化）。
+  機械抽出: `awk '/_override=0/{g=1;next} g&&/^[[:space:]]*esac/{exit} g' scripts/hooks/check-plan-hash.sh`
 - WF-04 Build & Refine / WF-05 Verify & Handoff

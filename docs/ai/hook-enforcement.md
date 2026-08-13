@@ -140,11 +140,24 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 > `rc=2 → rc=0`）。`PLANGATE_HOOK_TASK` は `plan.md` 編集の正規経路であり、
 > **PlanGate 作業中のセッションこそ HO 保護が外れる**。
 >
-> - 是正 patch（Human-owned 適用）: `docs/working/TASK-1089/patches/check-plan-hash.ho-always.patch`
-> - 回帰テスト: `tests/extras/ta-65-eh3-ho-task-context.sh`（2 値表明。未適用時は
->   KNOWN-GAP を明示、適用後は block を実測表明。`PG_T65_EXPECT=fixed` で pin 可能）
+> - **是正の適用（Human-owned）**: `sh scripts/apply-eh3-ho-always.sh --dry-run` →
+>   `--apply`（冪等 / アンカー検証つき。hook 変更 + 正本の行番号アンカー除去 +
+>   KNOWN-GAP 宣言の削除を 1 オペレーションで行う）。参考差分は
+>   `docs/working/TASK-1089/patches/check-plan-hash.ho-always.patch`
+> - 回帰テスト: `tests/extras/ta-65-eh3-ho-task-context.sh`。**期待値の既定は
+>   「TASK 文脈でも block される」**で、gap の受理は
+>   `tests/fixtures/eh3-known-gap-1089.flag` という明示 opt-in を要する。
+>   適用後にコードが元の構造へ戻ると CI が RED になる
 > - `.claude/settings*.json` は Claude Code 自身の self-mod ガード（harness 層）でも
 >   守られるが、**残る 8 カテゴリに同等の別ガードは確認されていない**
+> - **適用後も「常時 block」は文字どおりには成立しない**: `docs/../CLAUDE.md`（`..` 未解決）/
+>   `CLAUDE.MD`（大小文字）/ `"CLAUDE.md "`（末尾空白）の正規化は未実装で通過する
+>   （未適用の no-task 経路でも同じ挙動。#1089 が作った穴ではない）。ta-65 TC-07 が
+>   KNOWN-GAP として固定しており、塞いだ時点で RED になる。**別 PBI 候補**
+>
+> **本注記の退役条件**: 上記 apply スクリプトの適用後は本注記ブロックを削除し、
+> EH-3 の説明を「HO は TASK 文脈の有無に依らず常時 block（正規化の穴を除く）」へ
+> 更新すること。削除し忘れても ta-65 は fixed を要求するため CI は正しく動く。
 
 ### EH-4: test-cases.md なし V-1 ブロック
 

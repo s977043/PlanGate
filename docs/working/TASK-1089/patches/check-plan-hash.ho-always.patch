@@ -1,3 +1,23 @@
+# #1089 / TASK-1089: EH-3 Hardening Override を task_id 分岐の前へ移動する。
+#
+# 【正規の適用手順は本 patch ではなく apply スクリプト】
+#   sh scripts/apply-eh3-ho-always.sh --dry-run   # 差分確認（既定・書き込みなし）
+#   sh scripts/apply-eh3-ho-always.sh --apply     # 適用（Human-owned）
+# apply スクリプトは (1) 本 patch と同じ hook 変更 (2) .claude/rules/
+# mode-classification.md の行番号アンカー除去 (3) tests/fixtures/
+# eh3-known-gap-1089.flag の削除 を 1 オペレーションで行い、冪等・アンカー検証つき。
+# 本 patch を単独で当てると (2)(3) が欠け、ta-65 が stale KNOWN-GAP 宣言として FAIL する。
+#
+# 本 patch は「apply スクリプトが何をするか」を人間が読むための参考差分。
+# 単独で使う場合は必ず `git apply --check` を先に通すこと（patch(1) は既定で
+# fuzz とオフセット探索を行い、承認境界の判定ブロックを意図しない位置へ
+# 無言で挿入しうる。`patch -p1` の使用は推奨しない）。
+#
+#   base commit : 8f57e59367e4a97a9be236d9285aafe0e88df26d
+#                 （2026-08-14 時点の origin/main 5286fea でも hook は同一）
+#   sha256(適用前 scripts/hooks/check-plan-hash.sh) =
+#     644c23bf02f74a6a067f1bf47229940b4446e70dbad459c7881ba666b5d15597
+#
 --- a/scripts/hooks/check-plan-hash.sh
 +++ b/scripts/hooks/check-plan-hash.sh
 @@ -72,6 +72,42 @@
