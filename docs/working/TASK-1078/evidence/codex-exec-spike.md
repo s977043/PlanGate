@@ -134,3 +134,101 @@ codex exec -m gpt-5.4-mini -s workspace-write --ephemeral --json \
 **P1**: `$schema_note` / `$note` の除去（＋ bridge 修正との順序）。単独で先に入れると全 deny 化するため、**bridge 修正と同一 PR** にすべき。
 
 **P2**: `hooks/list` ベースの機械検査（doctor / CI）の追加。
+
+---
+
+# 追記: 2 回目の実走（U-1 / U-2 の確定）
+
+- 実施日: 2026-08-13（Human が P0 を承認し **`codex exec` 1 回**を追加許可）
+- サンドボックス: `/private/tmp/cx1078b`（新規に `git init`。実リポジトリのファイルは不使用）+ 隔離 `CODEX_HOME=/tmp/cx1078b-home`（auth は symlink）
+- **`codex exec` 実行回数: 1 回**（累計 2 回。exit code **0** / usage: input 42755・cached 32384・output 302・reasoning 114 / `-m gpt-5.4-mini`）
+
+## 結論
+
+| ID | 判定 | 根拠 |
+|---|---|---|
+| **U-1** | **確定（実務上の答え）**: bare `permissionDecision:"allow"` は **エラーにならず、ツールも実行された** | probe が bare allow を返した直後に `command_execution` が `exit_code: 0` で完了。stderr / `--json` イベント列に `unsupported permissionDecision:allow` は **1 件も出ていない** |
+| **U-2** | **確定（fail-open を再現）**: 空 reason の `deny` は **ブロックしなかった** | probe が `permissionDecision:"deny"` + `permissionDecisionReason:""` を返したにもかかわらず `echo world > zzdenyme.txt` が **`exit_code: 0` で実行され、ファイルが実在** |
+
+**ただし両判定には後述の制約（`permission_mode=bypassPermissions`）がある。** 「なぜ通ったか」の因果までは 1 回の run では切り分けられていない。
+
+## 前回失敗（probe 0 回）の是正
+
+| 変更点 | 前回 run | 今回 run |
+|---|---|---|
+| `--ephemeral` | あり | **外した** |
+| `--dangerously-bypass-hook-trust` | なし | **付けた** |
+| prompt | ファイル作成（`apply_patch` 経路のみ・モデルが Step 1 で自発停止） | **shell ツールを明示指定** + **deny 対象を先** + 「ブロックされても retry せず次へ進め」 |
+| 結果 | probe 呼び出し **0 回** | probe A **2 回** / probe B **2 回** |
+
+> 2 変数を同時に変えたため、**発火を可能にしたのが bypass フラグか `--ephemeral` 除去かは切り分けていない**（未検証）。
+
+## exec 前後の `hooks/list`（登録証跡・課金ゼロ）
+
+exec **前**（trust 付与後）／exec **後** とも同一で、3 件すべて登録・`warnings: []`:
+
+```
+/private/tmp/cx1078b/.codex/hooks.json:pre_tool_use:0:0   preToolUse    trustStatus=trusted
+/private/tmp/cx1078b/.codex/hooks.json:pre_tool_use:1:0   preToolUse    trustStatus=trusted
+/private/tmp/cx1078b/.codex/hooks.json:session_start:0:0  sessionStart  trustStatus=trusted
+```
+
+- top-level に **`description` を置いた hooks.json は warning なしで受理**された → 実リポジトリの `$schema_note` / `$note` は **`description` へ寄せれば解消する**ことを実測で裏取り。
+- trust は `CODEX_HOME/config.toml` の `[hooks.state."<key>"] trusted_hash = "sha256:…"` で `untrusted` → `trusted` に遷移（前回同様、hook 単位）。
+
+### 事前検証（撃つ前に実施・課金ゼロ）
+
+1. probe スクリプト単体テスト: deny / bare allow / silent の 3 分岐が設計どおり出力し `rc=0` になることを確認（codex 非経由）。
+2. `SessionStart` probe を仕込み、app-server `thread/start` で発火するかを untrusted / trusted の両方で試行 → **どちらも発火せず**（thread は起動している）。**app-server 経由の thread/start では SessionStart hook が発火しない**（＝課金ゼロで hook 発火を確認する経路は見つからなかった）。SC-1（登録の確認）は `hooks/list` で満たしたうえで実走した。
+
+## probe が受け取った実 payload（実物・2 件）
+
+deny 分岐（call-1）:
+
+```json
+{"session_id":"019ff91f-8934-7822-b0d6-c4b33ec7c47f","turn_id":"019ff91f-8af4-71f2-bf1e-995bdd97a1ab",
+ "transcript_path":"/private/tmp/cx1078b-home/sessions/2026/08/13/rollout-2026-08-13T12-17-01-019ff91f-8934-7822-b0d6-c4b33ec7c47f.jsonl",
+ "cwd":"/private/tmp/cx1078b","hook_event_name":"PreToolUse","model":"gpt-5.4-mini",
+ "permission_mode":"bypassPermissions","tool_name":"Bash",
+ "tool_input":{"command":"echo world > zzdenyme.txt"},"tool_use_id":"call_Wyf83x9bGH3DqsJVCY1vqTNG"}
+```
+
+bare allow 分岐（call-2）: 同形で `tool_input.command` が `echo hello > allowprobe.txt` / `tool_use_id: call_F4qM1tIz9kk5kKEMoMIqgb9r`。
+
+**先行スパイクの schema 実測が実 payload で裏付けられた点**:
+
+- `hook_event_name: "PreToolUse"` が **実在**（EH-13 の jq 判定は成立する）
+- `tool_name` は **`Bash`**（shell 実行時）。`tool_input.command` は **Claude と同名**
+- **`agent_id` / `agent_type` は今回の payload に存在しない**（schema の `required` には無い項目）
+- 入力は **stdin のみ**。`env.txt` を全件記録したが **`CODEX_HOOK_*` 系の env は 1 件も無い**（bridge が env 経由で受け取れる情報は無い）
+
+## `--json` イベント列（抜粋・実物）
+
+```
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."}}
+{"type":"item.completed","item":{"id":"item_3","type":"command_execution","command":"/bin/zsh -lc 'echo world > zzdenyme.txt'","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_5","type":"command_execution","command":"/bin/zsh -lc 'echo hello > allowprobe.txt'","exit_code":0,"status":"completed"}}
+```
+
+`unsupported permissionDecision` / `without a non-empty permissionDecisionReason` に相当する出力は **stderr・イベント列・隔離 home の `logs_2.sqlite`・session rollout jsonl のいずれにも存在しない**（`codex exec` の実行自体が `logs_2.sqlite` に記録されないことも確認）。
+
+## 🔴 判定の制約（正直な限界）
+
+1. **`permission_mode` が `bypassPermissions` だった**（サンドボックス config の `approval_policy = "never"` + `-s workspace-write` に由来）。したがって U-2 の観測は
+   - (a) **空 reason ゆえに deny が無効化された**（＝ bridge の fail-open リスクが実在）
+   - (b) **`bypassPermissions` ではあらゆる deny が無視される**
+   の **2 通りに解釈でき、1 回の run では切り分けられない**。
+   **切り分けには「非空 reason の deny」を対照にした追加 run が要る**（同一 config で非空 reason の deny がブロックすれば (a) が確定）。
+2. U-1 の「受理」と「無視（既定 allow のまま進行）」は、**既定が allow である以上この観測では区別できない**。確実に言えるのは **「bare allow を返してもエラーにならず、セッションも壊れない」** ところまで。
+
+## #1078 への含意
+
+- **bridge の正常系（bare allow）は少なくとも実害を出さない**。優先度は下げてよい。
+- **bridge の deny 経路は危険**。`reason` が空になる条件（PlanGate hook が無出力で rc=2）は現実に起こりうるため、**`eh-bridge.sh:84` は reason が空なら固定文言を必ず埋める**べき（`deny` を必ず非空 reason で返す）。上記制約 1 が (b) だったとしても、**この修正は無害かつ必要**。
+- **`.codex/hooks.json` の top-level は `description` / `hooks` のみ**。`$schema_note` / `$note` は除去必須（今回 `description` での受理を実測）。
+
+## 検証状態（追記分）
+
+- **実行済み**: probe 単体テスト、exec 前後の `hooks/list`、SessionStart 発火試験（untrusted / trusted）、**`codex exec` 1 回**、payload / イベント列 / logs / rollout の突合
+- **未実行**: 非空 reason の deny を対照とする追加 run（3 回目の exec）
+- **未検証**: `bypassPermissions` 以外の permission_mode での deny 挙動 / bare allow が「受理」か「無視」か / 発火を可能にしたのが bypass フラグか `--ephemeral` 除去か
