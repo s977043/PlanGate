@@ -36,8 +36,10 @@ PlanGate は当初、`.claude/` ディレクトリを含むリポジトリ配布
 
 # CLI から
 claude plugin marketplace add s977043/PlanGate && claude plugin install plangate
-codex plugin marketplace add s977043/PlanGate   # スキル展開は clone 後に sh install.sh --codex
+codex plugin marketplace add s977043/PlanGate && codex plugin add plangate@plangate
 ```
+
+> **Codex は 2 段階**: `marketplace add`（marketplace 登録）だけでは plugin はロードされません。`codex plugin add plangate@plangate` まで実行してください。`codex plugin list` が `installed, enabled` になれば完了です。`.codex/skills/` へ直接展開したい場合は clone 後に `sh install.sh --codex`（別経路。`codex plugin add` は実行されません）。
 
 ### install.sh を使う
 
@@ -146,7 +148,7 @@ cp plangate/.claude/agents/backend-specialist.md your-project/.claude/agents/
 本 plugin は **Claude Code と Codex の両方に対応**しています。
 
 - **Claude Code**: `plugin/plangate/` 配下の agents / skills / commands / rules を使用
-- **Codex**: `install.sh --codex` または `codex plugin marketplace add s977043/PlanGate` でスキルをインストール
+- **Codex**: `codex plugin marketplace add s977043/PlanGate` **＋** `codex plugin add plangate@plangate`（2 段階。marketplace 登録だけでは plugin はロードされない）。または `install.sh --codex` で `.codex/skills/` へ直接展開
 
 詳細は [plugin/plangate/README.md の Codex インストール手順](../plugin/plangate/README.md) を参照してください。
 
@@ -274,7 +276,7 @@ plugin の安定性を十分確認後、以下を段階的に実施:
 
 ### Q. Codex CLI でも使える？
 
-**A.** はい。`codex plugin marketplace add s977043/PlanGate` または `sh install.sh --codex` でインストールできます。Claude Code と Codex 両対応の `.claude-plugin/marketplace.json` が含まれています。
+**A.** はい。`codex plugin marketplace add s977043/PlanGate` **に続けて** `codex plugin add plangate@plangate` を実行してください（marketplace 登録だけでは plugin はロードされません）。`.codex/skills/` へ直接展開する場合は `sh install.sh --codex` を使います。Claude Code と Codex 両対応の `.claude-plugin/marketplace.json` と、Codex 用の `plugin/plangate/.codex-plugin/plugin.json` が含まれています。
 
 ### Q. 既存の `ai-dev-workflow` command がどう動くか分からない
 

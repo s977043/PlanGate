@@ -1,0 +1,5 @@
+[codex-plugin] repo manifest: version=8.19.0 skills=39
+[codex-plugin] registered: YES (installed: plangate@plangate v8.19.0 skills=39)
+[codex-plugin] plugin root: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-git/codex_home/plugins/cache/plangate/plangate/8.19.0
+[codex-plugin] marketplace cache: FOUND (/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-git/codex_home/.tmp/marketplaces/plangate)
+[codex-plugin] cache version: 8.19.0
