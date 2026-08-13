@@ -10,6 +10,62 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.19.0 (2026-08-13)
+
+feat: 承認境界ガードの fail-closed 化（EH-13）+ protected branch 上の破壊的 git 操作ガード（EH-12）+ テスト「静かに通る失敗」の封鎖（#921 Slice 1）+ plugin skill の参照解決是正
+
+v8.18.0 タグ以降 main に蓄積した 65 マージ（+65.5k 行。うち `docs/working/` の PBI 作業成果物が +47.3k 行）を反映するリリース。主題は **「これまで黙って素通りしていた失敗を、止まる形に変える」** — 承認トークン直書きガード EH-13 の fail-closed 化 / テスト extras の共有 exit 契約 / protected branch 上の `git reset --hard` `git push --force` の block（EH-12）。承認境界は不変（NO MERGE BY AI・C-4 / merge は Human-owned 固定）。`schemas/*.json` と `bin/plangate` は本リリースで変更なし（Schema / CLI の互換性は不変）。
+
+### ⚠️ 更新前に必ずお読みください（EH-13 の挙動変更）
+
+**`jq` が実質的な必須依存になりました。** EH-13（`scripts/check-approval-token-write.sh`）は従来、判定できない入力を**素通り**させていましたが、本リリースから **fail-closed（block）** に変わります。具体的には以下がすべて block（`exit 2`）になります:
+
+- **`jq` が PATH に無い**
+- stdin に PreToolUse の JSON payload が来ていない（TTY 直実行 / 空 stdin / 読み取り失敗）
+- payload が malformed、または `tool_name` が `Edit` / `Write` / `MultiEdit` / `Bash` 以外
+
+EH-13 は `.claude/settings.example.json` の **PreToolUse（層 A・常時発火）** に配線済みです。したがって **`jq` を導入していない環境でこの設定を取り込んでいると、Edit / Write / MultiEdit / Bash の呼び出しがすべて止まります。**
+
+**対応（推奨順）:**
+
+1. **`jq` を導入する**（推奨。例: `brew install jq` / `apt-get install -y jq`）。EH-13 が閉じている穴（承認トークンの AI 直書き）は残したまま、誤 block だけを解消できます。
+2. EH-13 の配線を `.claude/settings.json` から外す。**非推奨** — 承認境界の技術層ガードが無くなり、規範層（`responsibility-classes.md`）だけに戻ります。
+3. `PLANGATE_SKIP_TOKEN_GUARD=1` で全スキップ。**緊急・診断専用（Human-owned）**。恒常運用に使わないでください。
+
+あわせて block の終了コードが `exit 1` → **`exit 2`** に変わりました（PreToolUse で block として扱われるのは `2`。従来の `1` は非 block だったため、**検出していたが止めていなかった**）。書き込み意図の検出範囲も `ed` / `ex` / `git checkout|restore|checkout-index|update-index` / `perl -i` / `patch` / `apply_patch` / node / ruby へ拡大しています。
+
+> **semver の注記**: [`versioning-stability-policy.md`](docs/ai/versioning-stability-policy.md) §2.2 は「EH-x の既定挙動の変更（SKIP → BLOCK 等）」を major と定めています。本リリースは Human 裁定により **minor（8.19.0）** としました。裁定の経緯と残る不整合は [`docs/working/_merge/v8.19.0-release-runbook.md`](docs/working/_merge/v8.19.0-release-runbook.md) §semver 裁定の記録に記録しています。
+
+### Added
+
+- **EH-12: protected branch 上の破壊的 git 操作ガード**（#967、#985）— current branch が `main` / `master` のときに限り `git reset --hard` / `git push --force`（`-f` / `--force-with-lease` / `--force-if-includes` / `+<refspec>`）を block。それ以外のブランチ・detached HEAD・非 git では常に allow（誤検出ゼロ優先）。`PLANGATE_BYPASS_HOOK=1` で pass。pre-push hook（#360）が捕捉できない**ローカル完結の `reset --hard`** の隙間を埋める（2026-08-02 に他セッションの未コミット変更が失われた実害が出自）
+  - **配線は opt-in**: `.claude/settings.example.json` には同梱済みだが、実環境への適用は `sh scripts/apply-eh-git-destructive-guard.sh --apply`（**Human-owned**）の実行後に有効化される
+- **RunEvidence 契約の producer / 受理器 / fixture**（#874 exec、#989）— `run_evidence.py` / `run_evidence_verify.py` + fixture 10 件 + `run-evidence.schema.json` + 契約 doc。**plugin bundle（`skills/ai-loop-cycle/`）にも同梱**され、plugin 単体で契約検証できる
+- **tests/extras の共有 exit 契約**（#921 Slice 1、#1046）— `_extra-contract.sh` を新設し、層 A 12 本と `|| true` 型 4 件（#1026 由来）が **失敗しても exit 0 で通っていた**問題を封鎖。回帰テスト `ta-61`（契約自体の検証）/ `ta-58`（EH-12）/ `ta-59`（settings merge）/ `ta-60`（RunEvidence）/ `ta-62`（`PG_T26_NO_RECURSE`）を追加
+- **`scripts/run-tests-safe.sh`**（#968）— `tests/run-tests.sh` の安全実行ラッパ
+
+### Fixed
+
+- `[MIGRATION REQUIRED]` **EH-13 承認トークン書き込みガードの二重無効化を封鎖**（#1023、#1042）— block を `exit 1` → `exit 2` / stdin を env target の有無に関係なく常時・独立に評価（env 供給時の stdin bypass を封鎖）/ jq 不在・malformed・空・TTY・read error を parse-unknown として fail-closed。採番を EH-13 に確定（旧記載の EH-10 は #760 / #762 と衝突していた）。**導入側の対応は上記「⚠️ 更新前に必ずお読みください」を参照**
+- **EH-13 の読み取り誤 block を解消**（#1045）— `2>/dev/null` / `2>&1` / `>&2` / `N>&-` は fd 複製・クローズ・破棄であってファイルへの書き込みではないため、書き込み意図の判定から除外した。従来は `>` を 1 文字でも含めば書き込みと判定していたため、承認トークンのパス名を含む**純粋な読み取りコマンドが block されていた**（`grep -c '<token path>' .gitignore 2>/dev/null` / `cat <token path> 2>/dev/null` が `exit 2`）。実ファイルへのリダイレクト（`> <token path>` / `>> <token path>`）の block は維持。除外は列挙的な allowlist であり `>` 判定の一般的な緩和ではないため、**`&>` / `&>>` を伴う読み取りと、文字列リテラル中に `>` を含むコマンド（例: `python3 -c "print('a -> b')"`）は引き続き block される**（完全なシェル構文解析は新たな bypass 面になるため採らない）。あわせて block メッセージに `rule=<id>`（例: `rule=file-redirect`）を付与し、どの判定で止まったかを追えるようにした
+- **mass-delete safety guard を src 駆動の無ガード削除 2 経路へ適用**（#914、#986）+ harness 判別規約の統一。v8.18.0 で残課題としていた 2 経路をこれで塞いだ
+- **`#970` 経路 1 guard の集計と削除の厳密一致**（#1014）— 集計値と実削除対象がずれる余地を解消
+- **plugin skill の参照解決を導入先で成立させる**（#954、#964、#965、#955、#959）— 13 の SKILL.md で `.claude/rules/*.md` への相対リンクが「skills と rules が同一 root 直下」の配置でしか解決せず、**Codex 経由導入（`.codex/skills/`）では常に解決不能**だった。3 段フォールバック（導入先 rules → `${CLAUDE_PLUGIN_ROOT}/rules/`（Bash で実展開）→ 参照不可を明示）を各 skill に明記し、**正本を読めないときに推測で補うことを禁止**した
+- **plugin README の CLI 依存列挙を実測へ是正**（#958）— `bin/plangate` を要するのは 7 件ではなく **12 件**（コマンド 1 + スキル 9 + エージェント 2）。カウント対象 / 対象外の定義と再現 grep コマンドを併記
+- **plugin pin 手順の glob 依存を除去**（#953）— 取得失敗時に silent failure していた手順を修正
+- **`apply-claude-settings.sh` を example hooks の冪等 merge へ拡張**（#976）— `doctor` ブロッカーを解消（#928 AC-1 の前提）
+
+### Changed
+
+- **リリース手順に「リリース後の workflow run 結果確認」を常設**（#950、#952）— `release-docs-sync` は release published 起点で**失敗しても通知されず**、v8.17.0 / v8.17.1 / v8.18.0 の 3 連続失敗で `docs/changelog.md` が 2 世代欠落した。失敗時のリカバリ（push 済み同期ブランチからの手動 PR 作成）も runbook 化
+- **製品説明ドキュメントの刷新**（#951）— overview / positioning / value-proposition-canvas / elevator-pitch / demo script / glossary / FAQ
+- **GitHub Actions 依存の更新**（#972、#1027、計 10 件）
+- **plugin version を 8.19.0 に更新**（marketplace.json / plugin.json。`claude plugin update` での追従を可能にする）
+
+### Notes（既知課題）
+
+- **#1012 AC-5 未達**（#1039）— ta-26 の実行時間短縮は目標に届かず **14.22%**（AC-5 の目標値未達）。**Human が受入裁定済み**でマージされている。継続改善は #1036 系で追跡
+
 ## v8.18.0 (2026-07-31)
 
 feat: 実 PR 収束（`MERGE_READY`）の一気通貫 — delivery 判定エンジン + GitHub Collector / Action Executor / Reconciler + Plan-first C-3' 束縛
