@@ -1,0 +1,28 @@
+=== marketplace add s977043/plangate (git) ===
+Added marketplace `plangate` from https://github.com/s977043/plangate.git.
+Installed marketplace root: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-git/codex_home/.tmp/marketplaces/plangate
+rc=0
+=== plugin list (before add) ===
+Marketplace `plangate`
+/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-git/codex_home/.tmp/marketplaces/plangate/.claude-plugin/marketplace.json
+
+PLUGIN             STATUS         VERSION  PATH                                                                                                                                                                       
+plangate@plangate  not installed           /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-git/codex_home/.tmp/marketplaces/plangate/plugin/plangate
+rc=0
+=== plugin add plangate@plangate ===
+Added plugin `plangate` from marketplace `plangate`.
+Installed plugin root: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-git/codex_home/plugins/cache/plangate/plangate/8.19.0
+rc=0
+=== plugin list (after add) ===
+Marketplace `plangate`
+/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-git/codex_home/.tmp/marketplaces/plangate/.claude-plugin/marketplace.json
+
+PLUGIN             STATUS              VERSION  PATH                                                                                                                                                                       
+plangate@plangate  installed, enabled  8.19.0   /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-git/codex_home/.tmp/marketplaces/plangate/plugin/plangate
+=== prompt-input from empty cwd ===
+rc=0
+roots:
+   `r0` = `/Users/user/.agents/skills`
+   `r1` = `/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-git/codex_home/skills/.system`
+   `r2` = `/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-git/codex_home/plugins/cache/plangate/plangate/8.19.0/skills`
+plangate: skill entries = 39

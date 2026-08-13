@@ -1,0 +1,83 @@
+[probe] stashed .codex-plugin/plugin.json
+[probe] src tree (top):
+.
+..
+.claude-plugin
+.codex-plugin
+agents
+assets
+commands
+hooks
+README.md
+rules
+scripts
+skills
+[probe] === marketplace add ===
+Added marketplace `plangate` from /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/src.
+Installed marketplace root: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/src
+[probe] rc=0
+[probe] === plugin list ===
+Marketplace `plangate`
+/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/src/.claude-plugin/marketplace.json
+
+PLUGIN             STATUS         VERSION  PATH                                                                                                                                                      
+plangate@plangate  not installed           /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/src/plugin/plangate
+[probe] rc=0
+[probe] === plugin add plangate@plangate ===
+Added plugin `plangate` from marketplace `plangate`.
+Installed plugin root: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/codex_home/plugins/cache/plangate/plangate/8.19.0
+[probe] rc=0
+[probe] === cache tree ===
+/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/codex_home/plugins
+/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/codex_home/plugins/cache
+/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/codex_home/plugins/cache/plangate
+/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/codex_home/plugins/cache/plangate/plangate
+/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/codex_home/plugins/cache/plangate/plangate/8.19.0
+[probe] === prompt-input (cwd outside repo) ===
+[probe] prompt-input rc=0
+[probe] === skill roots in prompt-input ===
+---- lines mentioning plangate ----
+- `r1` = `/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/codex_home/skills/.system`
+- `r2` = `/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/codex_home/plugins/cache/plangate/plangate/8.19.0/skills`
+- plangate:acceptance-criteria-build: 要件とエッジケースから受け入れ条件（AC）を明文化し、チェックリスト形式で整理する。Use when: WF-02 で AC を確定したい時、Definition of Done を明確化したい時、テストケース設計の前提を整えたい時。 (file: r2/acceptance-criteria-build/SKILL.md)
+- plangate:acceptance-review: 実装結果を受け入れ条件（AC）と照合し、適合 / 不足を明確化する。Use when: WF-05 Verify & Handoff で要件適合確認が必要な時、PR の受入基準チェックを網羅的に実施したい時。 (file: r2/acceptance-review/SKILL.md)
+- plangate:ai-dev-brainstorm: アイデアや曖昧な要件を PlanGate の PBI INPUT PACKAGE に対話的に整理する。Use when: docs/working/TASK-XXXX/pbi-input.md を新規作成したい時、要件をブレストして PBI に落としたい時。 (file: r2/ai-dev-brainstorm/SKILL.md)
+- plangate:ai-dev-exec: PlanGate の exec フェーズを TDD で実行する。Use when: C-3 APPROVED 後にコード実装を開始したい時、workflow-conductor 配下で実装タスクを進めたい時。 (file: r2/ai-dev-exec/SKILL.md)
+- plangate:ai-dev-plan: PBI INPUT PACKAGE から PlanGate の plan.md / todo.md / test-cases.md を B-1→B-2→B-3 フローで作成する。Use when: docs/working/TASK-XXXX/pbi-input.md を元に実行計画を作りたい時。 (file: r2/ai-dev-plan/SKILL.md)
+- plangate:ai-dev-verify: PlanGate の V-1〜V-4 受け入れ検査と handoff.md 発行を行う。Use when: exec 完了後に受け入れ検査を実行し PR 準備したい時。 (file: r2/ai-dev-verify/SKILL.md)
+- plangate:ai-loop-cycle: ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行する。Use when: 「ai-loop で回して」「C-3' 裁定を実行」「arbiter で裁定して」「ai-loop 初回実走」。恒久定義（責務・terminal state・C-3' 経路）の正本 = 同梱 references/00_concept.md、適用制限（Phase 1 rollout eligibility）の正本 = 同梱 references/rollout-policy.md（導入先が独自正本を保持する場合はそちらを優先）。 (file: 
+- plangate:architecture-sketch: 確定した仕様を、モジュール境界・データフロー・状態管理・失敗時挙動を持つ設計案に落とし込む。Use when: WF-03 Solution Design で設計の叩き台を作りたい時、実装前にアーキテクチャの骨子を固めたい時。 (file: r2/architecture-sketch/SKILL.md)
+- plangate:brainstorming: アイデアや要件を対話的に設計書（PBI INPUT PACKAGE）へ昇華する。Use when: 「こういう機能を作りたい」「どう実装すればいい？」「要件を整理したい」「設計を考えたい」「ブレスト」「アイデア出し」「what if」「どういうアプローチがある？」「PBI INPUT PACKAGEを作りたい」「技術調査の方向性を決めたい」。実装計画の作成にはai-dev-workflowを使用。 (file: r2/brainstorming/SKILL.md)
+- plangate:breakdown-gate: PlanGate 起動前の intake 判定（mode-classification にかける前の分割要否）。実装着手前にタスク粒度を5要素で判定し、必要なら分割候補を提示する。Use when: PlanGate を起動すべきか迷う軽量タスクの判定時、PBI 化の前に分割要否を確かめたい時、「タスクを分割して」「粒度が大きすぎる」「1 PRに複数目的が入っている」。出典: growth-core task-breakdown-gate 由来（#799）。 (file: r2/breakdown-gate/SKILL.md)
+- plangate:codex-multi-agent: マルチエージェントでタスク分解・委譲・並列実行・結果統合を行うための共通運用スキル。Use when: 「マルチエージェントで進めたい」「並列で進めたい」「サブエージェントに任せたい」「複数 agent で調査/実装/レビューしたい」。Claude Code / Codex のどちらでも使える共通原則を定義し、末尾にツール別の読み替えを置く。 (file: r2/codex-multi-agent/SKILL.md)
+- plangate:codex-mvp-split: 規模 L 以上の機能の最小 MVP (Phase 1) を Codex に選定相談し Phase 分割表を作る。Use when: A フェーズ前段で規模 L 機能の MVP を決めたい時 / 事前メトリクス検証で実数 ≥ 3 倍判定時。 (file: r2/codex-mvp-split/SKILL.md)
+- plangate:context-load: AGENTS.md と依頼文から案件の前提・制約・品質基準を抽出し、context artifact としてサマライズする。Use when: 新しい TASK に着手する前、WF-01 Context Bootstrap 開始時、前提情報を整理したい時。 (file: r2/context-load/SKILL.md)
+- plangate:context-packager: タスク委譲前に Allowed Context を構造化して出力する。対象ファイル・仕様・既存テスト・変更制約・実行コマンド・禁止スコープを整理し、サブエージェントに渡す文脈を最小化する。 (file: r2/context-packager/SKILL.md)
+- plangate:design-gate: Design Gate を実施し、設計書（Design Artifact）を生成・評価する。Use when: high-risk 以上のタスクで実装前に設計を整理したい時。「設計書を作りたい」「Design Gate を通したい」「実装前に設計レビューをしたい」。 (file: r2/design-gate/SKILL.md)
+- plangate:diff-audit: 変更差分を多段フェーズで精査し、構造化された監査レポートを出力する。Use when: 「差分監査したい」「コミット・PR前に変更を精査したい」「コード品質を確認したい」「変更のレビューをして」。旧 self-review（plangate 版）の後継。 (file: r2/diff-audit/SKILL.md)
+- plangate:edgecase-enumeration: 境界条件・例外条件・異常系を体系的に列挙し、エッジケース一覧を作成する。Use when: WF-02 でエッジケース検討時、テスト観点の網羅性を高めたい時、失敗パス/異常系の抜けを防ぎたい時。 (file: r2/edgecase-enumeration/SKILL.md)
+- plangate:evidence-ledger: 完了主張を証拠付きで記録し、EvidenceLedger を出力する。Use when: 「完了した」「修正した」「テストが通った」と言う前に証拠を記録したい時。/pg verify の出力先として使用。「証拠を残したい」「完了判定をしたい」「TDD証跡を残したい」「Completion Gateに渡したい」。 (file: r2/evidence-ledger/SKILL.md)
+- plangate:feature-implement: design artifact に従って、最小単位で実装・テスト・自己レビューを繰り返し、動作するコード差分を生成する。Use when: WF-04 Build & Refine で実装する時、TDD で差分ごとに着実に進めたい時。 (file: r2/feature-implement/SKILL.md)
+- plangate:intent-classifier: ユーザーの依頼文から開発 Intent を 7 分類し、structured JSON で返す。Use when: ユーザーの依頼を受け取った直後に意図を分類したい時。「この依頼は何を求めているか判定して」「Intent を分類して」「依頼の種別を教えて」。 (file: r2/intent-classifier/SKILL.md)
+- plangate:known-issues-log: 妥協点・既知不具合・V2 候補を文書化し、次の担当者が再開可能な形に整備する。Use when: WF-05 Verify & Handoff で handoff パッケージを仕上げる時、今回のスコープ外を明示的に残したい時。 (file: r2/known-issues-log/SKILL.md)
+- plangate:local-exec-handoff: PlanGate のローカル実行（Codex CLI / Claude Code）で exec を再開・引き継ぐための短い指示パケットを作る。Use when: セッション断後に exec を再開したい時、別エージェント・別ツールに作業を引き継ぎたい時。 (file: r2/local-exec-handoff/SKILL.md)
+- plangate:manual-cloud-task: tracked handoff packet を使って Codex Cloud task を手動起動するための指示を組み立てる。Use when: Codex Cloud で exec 相当の作業を手動で進めたい時（PlanGate ではローカル実行が原則・本 skill は optional）。 (file: r2/manual-cloud-task/SKILL.md)
+- plangate:nonfunctional-check: 性能・保守性・安全性・アクセシビリティなど非機能要件を体系的にチェックし、明示すべき非機能要件を一覧化する。Use when: WF-02 で非機能要件を確認したい時、性能/セキュリティ/保守性の要件を見落としなく整理したい時。 (file: r2/nonfunctional-check/SKILL.md)
+- plangate:plan-review-gate: PlanGate の C-1 / C-2 / C-3 ゲートを確認し、exec 開始可否を判定する。Use when: plan レビュー通過済みか確認したい時、c3.json を発行したい時。 (file: r2/plan-review-gate/SKILL.md)
+- plangate:plangate-setup: PlanGate 初期セットアップを対話的に進めるためのチェックリスト、5 要素対応観点、Human-owned 操作の script 提示テンプレ。doctor を単一検証源とする。Use when: 「PlanGate をセットアップして」「導入したい」「初期設定」「doctor が FAIL する」と依頼された時、または導入直後の環境検証時。 (file: r2/plangate-setup/SKILL.md)
+- plangate:pr-decision: gate status + evidence status + review findings + unresolved risks + rollback plan から PR 可否を判定する。判定根拠を structured output で出力し、マージ可能かどうかを明示する。 (file: r2/pr-decision/SKILL.md)
+- plangate:ref-integrity-scan: ファイル（スキル/ルール/フック/設定/ドキュメント）を削除・移動・改名する前後に、リポジトリ内の被参照（ダングリング参照）を全走査して修正候補を提示する。Use when: PlanGate 資産（4 配置 sync を持つスキル/ルール/コマンド）の削除・移動・改名時、git rm / git mv の前後、スキル・ルールのパス変更時、『削除前にチェックして』『参照切れを探して』。出典: growth-core deletion-reference-scan 由来（#798）。 (file: r2/ref-integrity-s
+- plangate:requirement-gap-scan: 初期要求から抜け漏れ・曖昧さ・対象外を体系的に洗い出し、追加要件候補をリストアップする。Use when: WF-02 Requirement Expansion で仕様の抜け漏れを検出したい時、PBI の In scope/Out of scope を締めたい時。 (file: r2/requirement-gap-scan/SKILL.md)
+- plangate:review-gate: Review Gate を実施し、実装の仕様準拠・品質・セキュリティを 6 観点でレビューする（アーキ設計思想・ロジック正確性・アンチパターン・claim-vs-actual・UI/UX の追加観点レーン付き）。Use when: 実装完了後にレビューをしたい時。「Review Gate を通したい」「コードレビューをして」「実装の品質確認をしたい」「severity を確認したい」。 (file: r2/review-gate/SKILL.md)
+- plangate:risk-assessment: 制約・未確定要素・技術的リスクを洗い出し、severity と mitigation を付けて一覧化する。Use when: WF-02/WF-03 でリスク評価が必要な時、Unknown を可視化して判断を促したい時、影響範囲を明確化したい時。 (file: r2/risk-assessment/SKILL.md)
+- plangate:skill-creator: Design a new repo-owned skill from a concrete use case and produce a repo-ready skill package. Use when the user asks to create a new skill, define a skill's responsibility, draft SKILL.md, choose frontmatter, design supporting files, or prepare eval criteria for a new skil
+- plangate:skill-policy-router: Intent と Mode を受け取り、必要な Skill・ゲート要件（GatePolicy）を返す。Use when: 依頼の Intent と Mode が確定した後、どの Skill とゲートが必要かを決定したい時。「どのスキルが必要か教えて」「ゲートポリシーを決めて」「Mode に応じた手順を教えて」。 (file: r2/skill-policy-router/SKILL.md)
+- plangate:subagent-delegation-brief: サブエージェントへの派遣プロンプトを必須 8 要素で組み立て、OUTCOME 契約付きの完了報告を受け取るための薄い実行入口。Use when: 「サブエージェントに委託する」「Agent を起動する」「派遣プロンプトを書く」「委託の完了報告を受け取った」「並列でワーカーを走らせる」。Do not use when: 委譲するか否かの判断そのもの（codex-multi-agent）／ロール割当・依存グラフ生成・並列 dispatch（subagent-dispatch）／実装品質の 2 段階レビュー手法（subage
+- plangate:subagent-dispatch: high-risk/critical モードでタスクをロール別エージェントに分配する。依存関係グラフを生成し、並列実行可能タスクを特定して Allowed Context と共に dispatch する。 (file: r2/subagent-dispatch/SKILL.md)
+- plangate:subagent-driven-development: 実装計画のタスクをサブエージェントに委譲し、spec準拠+品質の2段階レビューで品質を担保する。Use when: 「この実装をエージェントに任せたい」「サブエージェントで実装して」「タスクを分割して並列実行したい」「大きな実装タスクの分割実行」「並列開発」。計画作成にはai-dev-workflowを使用。 (file: r2/subagent-driven-development/SKILL.md)
+- plangate:subagent-team-design: PlanGate のエージェント群（orchestrator / workflow-conductor / implementer 等）を前提としたチーム設計。タスクに応じたマルチエージェントチームを設計・構成する（旧 setup-team（plangate 版）の後継）。Use when: 「エージェントチームを組んで」「複数エージェントで実行したい」「並列実行チームを設計して」「どのエージェントを使うか決めて」「チームでこのタスクを進めて」。1エージェントで完結する小タスクには不要。 (file: r2/subagent-t
+- plangate:systematic-debugging: バグや障害を体系的に調査し、エビデンスに基づいて根本原因を特定する。Use when: 「動かない」「エラーが出る」「なぜか失敗する」「原因がわからない」「デバッグしたい」「テストが落ちる」「本番で問題が起きている」「再現できない」。一般的なコードレビューにはfind-bugsを使用。 (file: r2/systematic-debugging/SKILL.md)
+- plangate:working-context: PlanGate の TASK-XXXX 作業コンテキストを Progressive Disclosure で読込・更新する。Use when: セッション再開時、フェーズ遷移時、status.md/current-state.md/handoff.md を更新したい時。 (file: r2/working-context/SKILL.md)
+  <cwd>/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/cwd</cwd>
+  <filesystem><workspace_roots><root>/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed/cwd</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><specia
+[probe] done: /private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/53b845af-f03d-448c-bd9c-0fdfcc4cc6f1/scratchpad/iso-ac2-manifest-stashed

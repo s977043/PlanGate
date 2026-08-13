@@ -1,0 +1,5 @@
+[codex-plugin] repo manifest: version=8.19.0 skills=39
+[codex-plugin] registered: NO (plugin が Codex に install されていない)
+[codex-plugin] 導入: codex plugin marketplace add s977043/plangate && codex plugin add plangate@plangate
+[codex-plugin] marketplace cache: FOUND (/Users/user/.codex/.tmp/marketplaces/plangate)
+[codex-plugin] cache version: 8.19.0

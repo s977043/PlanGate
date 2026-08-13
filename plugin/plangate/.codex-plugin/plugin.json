@@ -1,0 +1,38 @@
+{
+  "name": "plangate",
+  "version": "8.19.0",
+  "description": "PlanGate — AI coding governance OS for Claude Code and Codex. Provides 4-Gate approval system, Intent/Mode classification, Skill Policy Router, Evidence Ledger, and agent control layer.",
+  "author": {
+    "name": "PlanGate contributors",
+    "url": "https://github.com/s977043/plangate"
+  },
+  "homepage": "https://github.com/s977043/plangate",
+  "repository": "https://github.com/s977043/plangate",
+  "license": "MIT",
+  "keywords": [
+    "plangate",
+    "ai-coding",
+    "governance",
+    "claude-code",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PlanGate",
+    "shortDescription": "AI coding governance OS: 4-Gate approval, mode classification, evidence ledger",
+    "longDescription": "PlanGate is an AI coding governance OS for Claude Code and Codex. It provides a 4-Gate approval system (C-1 self review, C-2 external review, C-3 plan approval, C-4 PR approval), Intent/Mode classification, a Skill Policy Router, an Evidence Ledger, and an agent control layer so that humans keep the approval boundary while agents do the implementation work.",
+    "developerName": "PlanGate contributors",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/s977043/plangate",
+    "defaultPrompt": [
+      "Create a PlanGate execution plan for this task.",
+      "Run the C-1 self review on the current plan.",
+      "Check whether this change needs a human C-3 gate."
+    ],
+    "composerIcon": "./assets/plangate-small.svg"
+  }
+}

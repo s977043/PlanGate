@@ -96,7 +96,10 @@ assert m and m.group(1).strip(), "Unreleased が空（リリース対象なし�
 s = s.replace("## Unreleased\n", f"## Unreleased\n\n## v{v} - {date}\n", 1)
 open(p, "w", encoding="utf-8").write(s)
 print(f"OK CHANGELOG: v{v} セクション化（サマリ文は手動で追記）")
+# .codex-plugin/plugin.json も同時に bump する（#1085）。片方だけ上がると
+# scripts/check-plugin-manifest-parity.sh が version 乖離として FAIL する。
 for f in [f"{root}/plugin/plangate/.claude-plugin/plugin.json",
+          f"{root}/plugin/plangate/.codex-plugin/plugin.json",
           f"{root}/.claude-plugin/marketplace.json"]:
     s2 = open(f, encoding="utf-8").read()
     s3 = re.sub(r'"version":\s*"[0-9.]+"', f'"version": "{v}"', s2)
