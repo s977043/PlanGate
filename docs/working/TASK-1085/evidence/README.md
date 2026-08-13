@@ -60,6 +60,42 @@ marketplace cache ディレクトリの存在だけで `registered: YES` を返�
 - なお **この 70 件は本ブランチが作った不具合ではなく、マニフェスト不在で
   validator が bail out していたため見えていなかった既存の状態**。
 
+## 誤起票の根本原因（PR 前レビュー major / 2 巡目で是正）
+
+`README.md` の Codex セクションが **「`marketplace add` で marketplace を登録します」で終わっていた**（`codex plugin add` への言及はリポジトリ全体の利用者向け `.md` に 0 件）。
+このとおり導入すると **「marketplace add 済み・plugin 未 install」** に着地し、
+まさに本 issue の false green の原因だった状態になる。#1085 の誤起票もこの記述が出発点。
+
+是正（本ブランチ）:
+
+- `README.md`: `codex plugin add plangate@plangate` を追記。注記を「**`marketplace add` は marketplace 登録のみ。plugin のロードには `codex plugin add` が別途必要**」へ書き換え（「`plugin install` は無い」という否定で終わらせず、何をすればよいかを書く）。`install.sh --codex` は `codex plugin add` を実行しない旨も明記
+- `docs/plangate-plugin-migration.md`: 3 箇所（Marketplace 1 コマンド節 / Codex CLI 対応節 / FAQ）を同様に是正
+
+## 2 巡目で追加した検出（no-op / 空振りの封鎖）
+
+| 指摘 | 是正 | 実証 |
+|---|---|---|
+| `release-prep.sh --check` が `.codex-plugin` を見ない | `check_manifest_parity` を `run_checks` に追加 | 正常系 rc=1（**baseline と同一**。既存 2 NG に由来し本追加は `OK`）/ codex 側を `9.9.9` に変異させると `NG: plugin マニフェスト不整合` を出す一方、旧 `check_versions` は `OK: plugin version 一致 (8.19.0)` のままだった＝片側だけ見る判定の実害を再現 |
+| parity checker が「両方に無いフィールド」を一致扱い | 比較前に name/version/skills の必須検査（rc=2） | `ta-66` TC-09（両マニフェストから `skills` を削除 → rc=2） |
+| 「installed != repo」NOTE 分岐が未 assert | `ta-31` TC-08 に NOTE の grep を追加 | 変異 2 種で kill 確認（下記） |
+
+### 変異注入による kill 実証（`ta-31` TC-08）
+
+1. **変数取り違え**: `printf ... "$_inst_ver" "$_repo_ver"` → `"$_repo_ver" "$_inst_ver"`
+   → 出力が `NOTE: installed(8.19.0) != repo(9.9.9)`（左右反転）になり **TC-08 FAIL**
+2. **条件反転**: `[ "$_inst_ver" != "$_repo_ver" ]` → `=`
+   → NOTE 行が消え **TC-08 FAIL**
+
+いずれも変異前後で他 TC は緑のまま＝この assert が当該分岐だけを捕捉している。変異はすべて revert 済み（`git diff scripts/check-codex-plugin-status.sh` が空）。
+
+### テスト ID の改番
+
+`tests/extras/ta-65-codex-plugin-manifest.sh` → **`ta-66-codex-plugin-manifest.sh`**。
+別ブランチ `fix/1089-ho-bypass` が `tests/extras/ta-65-eh3-ho-task-context.sh` を先に origin へ push
+済みのため（`git ls-tree -r origin/fix/1089-ho-bypass` で確認）、origin 先着側を正とした。
+機能上の衝突は無い（loader は basename を test-id にする）が、「TA-65」がログ上で 2 つの別物を
+指す状態を避ける。
+
 ## ドキュメントと実装の食い違い（validator が SSoT）
 
 `references/plugin-json-spec.md` は top-level `hooks` をサンプルに載せているが、

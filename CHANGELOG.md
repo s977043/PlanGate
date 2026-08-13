@@ -6,6 +6,10 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+- fix(plugin): Codex 用 plugin マニフェスト `plugin/plangate/.codex-plugin/plugin.json` を追加し、Claude 用 `.claude-plugin/plugin.json` との name / version / skills 一致を `scripts/check-plugin-manifest-parity.sh` で機械検出（`sync-plugin-plangate.sh` / `release-prep.sh` の version bump と readiness 検査にも配線）(#1085)
+- fix(doctor): `scripts/check-codex-plugin-status.sh` の `registered:` 判定を「marketplace cache ディレクトリの存在」から「plugin が install されているか（`config.toml` の `enabled` 宣言 + `plugins/cache` 実体）」へ差し替え。`codex plugin add` 未実行の環境で `registered: YES` を返す false green を解消 (#1085)
+- docs: Codex 導入手順を 2 段階（`codex plugin marketplace add` → `codex plugin add plangate@plangate`）に修正。`marketplace add` だけで導入完了と読める記述が #1085 の誤起票の原因だった (#1085)
+
 ## v8.19.0 (2026-08-13)
 
 feat: 承認境界ガードの fail-closed 化（EH-13）+ protected branch 上の破壊的 git 操作ガード（EH-12）+ テスト「静かに通る失敗」の封鎖（#921 Slice 1）+ plugin skill の参照解決是正

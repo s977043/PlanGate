@@ -6,6 +6,11 @@
 # skills パスが黙って乖離し、「片方だけ古い plugin が配布される」状態になる。
 # 本スクリプトは 3 フィールド（name / version / skills）の一致を機械検出する。
 #
+# `description` は**比較対象に含めない**。現状 2 マニフェストは同文だが、Codex 側は
+# `interface.longDescription` など UI 向けの記述を別に持つ設計であり、配布の正しさ
+# （どの version の・どの名前の plugin が・どこの skills を配るか）に影響しない。
+# 表現の揺れで FAIL する偽陽性のほうが害が大きいため、意図的に対象外とする。
+#
 # Usage:
 #   sh scripts/check-plugin-manifest-parity.sh [PLUGIN_DIR]
 #     PLUGIN_DIR 既定: <repo-root>/plugin/plangate
@@ -49,6 +54,16 @@ try:
 except (OSError, json.JSONDecodeError) as exc:
     print('[manifest-parity] unreadable manifest: %s' % exc, file=sys.stderr)
     raise SystemExit(2)
+
+# 「両方に無い」を一致扱いにしない（no-op 退行の封鎖）。
+# 単純な != 比較だけだと両マニフェストから skills が消えたとき None == None で
+# rc=0 になり、検査が黙って空振りする。
+for path, manifest in zip(paths, manifests):
+    absent = [f for f in ('name', 'version', 'skills') if not manifest.get(f)]
+    if absent:
+        print('[manifest-parity] MISSING FIELD(S) in %s: %s' % (path, ', '.join(absent)),
+              file=sys.stderr)
+        raise SystemExit(2)
 
 mismatches = []
 for field, transform in (('name', lambda v: v), ('version', lambda v: v), ('skills', norm_skills)):

@@ -35,6 +35,19 @@ print(vs.pop() if len(vs) == 1 else 'INCONSISTENT:' + ','.join(sorted(vs)))
   if [ "$v1" = "$v2" ]; then ok "plugin version 一致 ($v1)"; else ng "plugin version 不一致: plugin.json=$v1 marketplace=$v2"; fi
 }
 
+# #1085: 2 マニフェスト（.claude-plugin / .codex-plugin）の整合。
+# check_versions は .claude-plugin 側しか読まないため、Codex 用マニフェストだけ
+# 古い状態でも「plugin version 一致」で緑になる（片側の事実だけ見て緑を出す構造）。
+# ここを readiness 検査に配線し、release 経路でも AC-4 の機械検出を成立させる。
+check_manifest_parity() {
+  out="$(sh "$ROOT/scripts/check-plugin-manifest-parity.sh" 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok "plugin マニフェスト整合（.claude-plugin / .codex-plugin）"
+  else
+    ng "plugin マニフェスト不整合 (rc=$rc): $(printf '%s' "$out" | tr '\n' ' ')"
+  fi
+}
+
 check_pending_applies() {
   pending=""
   for f in "$ROOT"/scripts/apply-*.sh; do
@@ -67,6 +80,7 @@ check_plugin_cache_sync() {
 run_checks() {
   note "=== release readiness 検査 ==="
   check_versions
+  check_manifest_parity
   check_pending_applies
   check_changelog_sync
   check_plugin_cache_sync

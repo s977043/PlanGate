@@ -71,16 +71,22 @@ fi
 rm -rf "$_t31_home"
 
 # TC-08: install 済み環境（config.toml の enabled 宣言 + plugins/cache 実体）で
-#        registered:YES + plugin root を出力（positive / #1085 AC-5）
+#        registered:YES + plugin root + 「installed != repo」NOTE を出力
+#        （positive / #1085 AC-5）
+# fixture の version は 9.9.9、repo は別 version なので NOTE 分岐を必ず通る。
+# NOTE を assert しないと `_inst_ver`/`_repo_ver` の取り違えや条件反転を注入しても
+# 緑のままになる（この分岐が「installed が古い」唯一の通知経路）。
 _t31_home8=$(mktemp -d) || { t31_fail "TC-08 mktemp 失敗"; return 0 2>/dev/null || true; }
 printf '[plugins."plangate@plangate"]\nenabled = true\n' > "$_t31_home8/config.toml"
 mkdir -p "$_t31_home8/plugins/cache/plangate/plangate/9.9.9/skills/sample-skill"
 _t31_out8=$(CODEX_HOME="$_t31_home8" sh "$PG_T31_SCRIPT" 2>/dev/null || printf '')
+_t31_repo_ver8=$(printf '%s' "$_t31_out8" | sed -n 's/^\[codex-plugin\] repo manifest: version=\([^ ]*\).*/\1/p')
 if printf '%s' "$_t31_out8" | grep -q 'registered: YES' && \
-   printf '%s' "$_t31_out8" | grep -q 'plugin root: .*plugins/cache/plangate/plangate/9.9.9'; then
-  t31_pass "TC-08 install 済みで registered:YES + plugin root 出力"
+   printf '%s' "$_t31_out8" | grep -q 'plugin root: .*plugins/cache/plangate/plangate/9.9.9' && \
+   printf '%s' "$_t31_out8" | grep -q "NOTE: installed(9.9.9) != repo(${_t31_repo_ver8})"; then
+  t31_pass "TC-08 install 済みで registered:YES + plugin root + version 乖離 NOTE を出力"
 else
-  t31_fail "TC-08 install 済みを検出できない（出力: $(printf '%s' "$_t31_out8" | tr '\n' '|'))"
+  t31_fail "TC-08 install 済み検出 or 乖離 NOTE が欠落（出力: $(printf '%s' "$_t31_out8" | tr '\n' '|'))"
 fi
 
 # TC-09: enabled 宣言だけで cache 実体が無い場合は registered:NO（片側成立を YES にしない）
