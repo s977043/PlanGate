@@ -79,8 +79,17 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 > ~~既知の限界（V2 候補）~~: ~~完全な PreToolUse-hook レベルの機械 block~~ — **解消済 (PR #347)**。`.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` で Codex CLI 側にも EH-1/2/3/6/9 が物理 PreToolUse block として配線済。Claude Code 側は従来通り `.claude/settings.json` で配線。詳細は本ファイル後段の §Codex CLI parity 参照。
 
 
-## Codex CLI parity (#336 / Gap 4) — 達成済
+## Codex CLI parity (#336 / Gap 4) — ~~達成済~~ 部分達成（5 / 11 wiring）・強制力は未検証
 
+> **是正記録（2026-08-13 / [#1078](https://github.com/s977043/plangate/issues/1078)）**:
+> 本節の見出しは 2026-05-25 の PR #347 以来 **「達成済」** と記載していたが、
+> #1078 の実測で **`.claude/settings.example.json` 側 11 wiring のうち Codex 側に
+> あるのは 5 件**（EH-1 / EH-2 / EH-3 / EH-6 / EH-9）で、**6 件が欠落**している
+> ことが判明した。さらに **配線済み 5 件についても「実際に発火し block している」
+> 実走証跡が無い**（後述「未検証事項」）。過去の記述は削除せず、実測に基づく
+> 現況を以下に追記する。**「達成済」は EH-1/2/3/6/9 の *設定ファイル上の配線*
+> に限った記述として読むこと。強制力の等価は本節時点では主張しない。**
+>
 > **model tier の parity**: Claude Code は `.claude/agents/*.md` frontmatter の
 > `model:`（inherit/sonnet）、Codex は `.codex/agents/*.toml` の
 > `model_reasoning_effort`（low/medium）で同一の 2 tier を表現する。対応表の
@@ -96,15 +105,71 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 | 2. **Session 中 (物理 pre-Write block)** | **`.codex/hooks.json` + `.codex/hooks/eh-bridge.sh` (PR #347)** | **EH-1 / EH-2 / EH-3 / EH-6 / EH-9 を Codex 側でも発火** |
 | 3. Session 後 | `scripts/codex-guarded.sh` post-flight | plan.md hash drift 検知 + validate 再実行 |
 
-### 等価強制マトリクス
+> **層 2 の但し書き（#1078）**: 「Codex 側でも発火」は **`.codex/hooks.json` に
+> 配線されている**ことを指す。**Codex ランタイムが実際に当該 hook を起動し
+> deny を尊重したことの実走証跡は無い**（後述「未検証事項」の U-3）。
 
-| 強制 | Claude Code | Codex CLI |
-|------|-------------|-----------|
-| EH-1 plan-exists | ✅ `.claude/settings.json` PreToolUse | ✅ `.codex/hooks.json` PreToolUse |
-| EH-2 c3-approval | ✅ 同上 | ✅ 同上 |
-| EH-3 plan_hash | ✅ 同上 | ✅ 同上 |
-| EH-6 forbidden_files | ✅ 同上 | ✅ 同上 |
-| EH-9 delegation-commit-boundary | ✅ PreToolUse Bash | ✅ PreToolUse Bash |
+### 等価強制マトリクス（全 wiring / #1078 で全数化）
+
+比較対象は **`.claude/settings.example.json`**（`.claude/settings.json` は
+gitignore でリポジトリに存在しないため）と **`.codex/hooks.json`** の全数差分。
+**11 wiring 中 Codex 側にあるのは 5 件、欠落 6 件**。
+
+| # | 強制 | event / matcher | Claude Code (`settings.example.json`) | Codex CLI (`.codex/hooks.json`) |
+|---|------|-----------------|---------------------------------------|--------------------------------|
+| 1 | EH-1 plan-exists | PreToolUse `Edit\|Write` | ✅ | ✅ (matcher `apply_patch\|Edit\|Write`) |
+| 2 | EH-2 c3-approval | PreToolUse `Edit\|Write` | ✅ | ✅ 同上 |
+| 3 | EH-3 plan_hash | PreToolUse `Edit\|Write` | ✅（引数 `${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}` を渡す） | ⚠️ 配線あり・**引数を渡さず env のみ**（引数 / env / stdin の 3 系統が hook ごとに不統一） |
+| 4 | EH-6 forbidden_files | PreToolUse `Edit\|Write` | ✅ | ✅ 同上 |
+| 5 | EH-9 delegation-commit-boundary | PreToolUse `Bash` | ✅ | ✅ |
+| 6 | **EH-13 approval-token-write（Edit/Write 系）** | PreToolUse `Edit\|Write` | ✅ `scripts/check-approval-token-write.sh` | **❌ 未配線** |
+| 7 | **EH-13 approval-token-write（Bash 系）** | PreToolUse `Bash` | ✅ 同上 | **❌ 未配線** |
+| 8 | **EH-12 git-destructive guard** | PreToolUse `Bash` | ✅ `scripts/check-git-destructive.sh` | **❌ 未配線** |
+| 9 | **gh-pin-account** | SessionStart | ✅ `scripts/gh-pin-account.sh` | **❌ 未配線**（Codex 側に SessionStart 配線が無い） |
+| 10 | **check-post-edit-diff** | PostToolUse `Edit\|Write\|MultiEdit` | ✅ `scripts/hooks/check-post-edit-diff.sh` | **❌ 未配線**（Codex 側に PostToolUse 配線が無い） |
+| 11 | **check-stop-diff-status** | Stop | ✅ `scripts/hooks/check-stop-diff-status.sh` | **❌ 未配線**（Codex 側に Stop 配線が無い） |
+
+**欠落 6 件を「単に名前を足せば直る」と読んではならない**。#6〜#9 の hook 実体は
+`scripts/` **直下**にあり、`eh-bridge.sh` は `scripts/hooks/<NAME>` を**ハードコード**
+で解決するため、名前だけ足すと **not-found 分岐で無条件 `deny`** になる（実測）。
+是正には bridge の I/O 契約変更（パス解決 / stdin 転送 / payload 正規化）が要り、
+**実装は本節の範囲外**（#1078 の別スライス）。
+
+### matcher の死に文字列（#1078 実測）
+
+`.codex/hooks.json` の matcher は `apply_patch|Edit|Write` だが、**Codex CLI が送る
+`tool_name` は `apply_patch` / `Bash` のみ**で、**`Edit` / `Write` / `MultiEdit` は
+Codex に存在しない**（0.144.1 バイナリ埋め込みの JSON Schema と
+[公式仕様](https://developers.openai.com/codex/hooks) の一致で確認）。
+したがって matcher 中の **`Edit` / `Write` は Codex 側では一致し得ない死に文字列**であり、
+実質 `apply_patch` のみが一致する。また **`apply_patch` は `file_path` を持たない**
+ため、bridge は `*** Update/Add/Delete File:` を正規表現で抽出している。
+
+### 未検証事項（**「検証済み」と書いてはならない項目**）
+
+以下 3 件は **`codex exec` の実走を伴う確認が未実施**であり、**現時点では
+「Codex 側の強制力が働いている」ことの根拠にならない**。文言・状態表は
+実走証跡が得られるまで「未検証」のまま扱う。
+
+| ID | 未検証事項 | 分かっていること（実測） | 分かっていないこと |
+|----|-----------|------------------------|------------------|
+| **U-1** | bridge の `allow` 応答が受理されるか | CLI バイナリに `PreToolUse hook returned unsupported permissionDecision:allow` という文字列が**実在**する。`eh-bridge.sh` は正常系で bare `permissionDecision: "allow"` を返している | 実行時に実際に `allow` が unsupported として弾かれるか。弾かれた場合の Codex 側の既定挙動（allow 継続 / エラー停止） |
+| **U-2** | reason 空文字の deny が deny として通るか | 同じく `deny without a non-empty permissionDecisionReason` という文字列が**実在**する。PlanGate hook が無出力で終了した場合、bridge の `reason` は空文字になりうる | 空 reason の deny が無視される（= fail-open）か否か |
+| **U-3** | hook trust により**既存 5 hook がそもそも発火しているか** | Codex の hooks config は `trusted_hash` を持つ仕様で、`--dangerously-bypass-hook-trust` フラグが実在する。**`.codex/hooks.json` にも `.codex/config.toml` にも `trusted_hash` は無い**（実測 0 件） | trust 未登録の hooks が実行時に skip されるのか、初回に信頼確認が入るのか。**skip されるなら EH-1/2/3/6/9 も一度も発火していない** |
+
+> 実走はモデル API 呼び出しを伴うため、実施可否は **Human 判断**（#1078）。
+> 実走証跡が得られるまでは、**Codex セッションの安全性を `.codex/hooks.json` の
+> 存在に依拠して評価しない**こと。Session 前後の `scripts/codex-guarded.sh`
+> （層 1 / 層 3）は本件と独立に機能する。
+
+### なぜ「達成済」のまま気づかれなかったか（構造原因）
+
+等価強制マトリクスは **EH-1/2/3/6/9 の 5 行のみ**で、**行単位では正しいが
+集合として不完全**だった。新しい hook（EH-12 / EH-13 / SessionStart /
+PostToolUse / Stop）を `.claude/settings*.json` に追加した際に
+**本マトリクスへ追記することを求める運用ルールも、両者の集合差を検出する
+機械チェックも存在しない**。結果、追加のたびに parity のギャップが静かに広がり、
+見出しの「達成済」だけが残った。機械検出の追加は #1078 の後続スライス候補。
 
 ### Codex bridge の動作
 
@@ -114,6 +179,14 @@ V-1/handoff 完了の DoD（[`docs/workflows/05_verify_and_handoff.md`](../workf
 4. `PLANGATE_HOOK_FILE` / `PLANGATE_HOOK_TASK` を設定し `scripts/hooks/<HOOK_NAME>` を起動
 5. exit code を Codex の `hookSpecificOutput.permissionDecision` (`allow` / `deny`) に翻訳
 6. Codex CLI が deny 時は write を物理 block
+
+> **手順 3〜4 の実測補足（#1078）**: bridge は stdin を `INPUT=$(cat)` で**吸い切り**、
+> 手順 4 の hook 起動時に**その stdin を hook へ渡していない**（渡すのは
+> `PLANGATE_HOOK_FILE` / `PLANGATE_HOOK_TASK` の env のみ）。**Codex の hook 入力経路は
+> stdin のみ**（`CODEX_HOOK_*` 系 env はバイナリ内に 0 件）であるため、
+> **stdin で判定する hook（例: v8.19.0 で stdin 常時独立評価・fail-closed 化された EH-13）は
+> この bridge 経由では正しく判定できない**。手順 6 の「物理 block」も
+> 上記「未検証事項」U-1〜U-3 の成立が前提であり、実走証跡は未取得。
 
 ### 責務分界 (継続)
 
