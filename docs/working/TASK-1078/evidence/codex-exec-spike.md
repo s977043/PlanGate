@@ -232,3 +232,84 @@ bare allow 分岐（call-2）: 同形で `tool_input.command` が `echo hello > 
 - **実行済み**: probe 単体テスト、exec 前後の `hooks/list`、SessionStart 発火試験（untrusted / trusted）、**`codex exec` 1 回**、payload / イベント列 / logs / rollout の突合
 - **未実行**: 非空 reason の deny を対照とする追加 run（3 回目の exec）
 - **未検証**: `bypassPermissions` 以外の permission_mode での deny 挙動 / bare allow が「受理」か「無視」か / 発火を可能にしたのが bypass フラグか `--ephemeral` 除去か
+
+---
+
+# 追記 2: 3 回目の実走（交絡の切り分け・U-1 / U-2 の因果確定）
+
+- 実施日: 2026-08-13（Human が 3 回目の `codex exec` を 1 回だけ承認）
+- サンドボックス: `/private/tmp/cx1078c` + 隔離 `CODEX_HOME=/tmp/cx1078c-home`（auth は symlink）
+- **`codex exec` 実行回数: 1 回**（累計 3 回。exit code **0** / usage: input 57399・cached 46592・output 415・reasoning 129）
+- **run #2 と同一 config**（`approval_policy="never"` / `-s workspace-write` / `--dangerously-bypass-hook-trust`）＝ **同一条件下の対照実験**
+
+## 結論（交絡は解消した）
+
+| ID | 判定 | 根拠 |
+|---|---|---|
+| **U-2** | **(a) が確定**: **空 reason 固有の fail-open**。`bypassPermissions` が deny を一律無視しているのではない | **同一セッション・同一 config** で、**非空 reason の deny は BLOCK し**、**空 reason の deny は BLOCK しなかった** |
+| **U-1** | **確定: allow は「無視」ではなく「受理」されている** | allow に `updatedInput` を添えたところ、**実行されたコマンドが書き換え後の内容だった**（`echo C > allowupdated.txt` → **`echo REWRITTEN > allowaccepted.txt`**）。hook の判定が確実に消費されている |
+
+## 1 回の run で 3 分岐を観測（probe A が 3 回呼ばれた）
+
+| # | ツール入力 | probe が返した判定 | 結果 |
+|---|---|---|---|
+| 1 | `echo A > zznonempty.txt` | `deny` + **非空** reason | **ブロックされた**（`command_execution` イベントが**発生していない** / `zznonempty.txt` は**存在しない**）|
+| 2 | `echo B > zzemptyreason.txt` | `deny` + **空** reason | **実行された**（`exit_code: 0` / ファイル実在）|
+| 3 | `echo C > allowupdated.txt` | `allow` + `updatedInput` | **書き換えられて実行**（`/bin/zsh -lc 'echo REWRITTEN > allowaccepted.txt'`）|
+
+### 決定的証跡（stderr 実物）
+
+```text
+2026-08-13T04:29:18.329123Z ERROR codex_core::tools::router:
+error=Command blocked by PreToolUse hook: PlanGate probe: blocked by policy (non-empty reason control).
+Command: echo A > zznonempty.txt
+```
+
+- **非空 reason の deny は `codex_core::tools::router` で確実にブロックされ、reason がそのままエラー文言に載る。**
+- **空 reason の deny については、対応するエラー行が 1 件も出ていない**（＝**黙って握り潰されている**）。ログ・イベント列・stderr のいずれにも警告なし。
+
+### `--json` イベント列（抜粋・実物）
+
+```
+{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"The first command was blocked, so I'm moving to the second command without retrying the first."}}
+{"type":"item.completed","item":{"id":"item_4","type":"command_execution","command":"/bin/zsh -lc 'echo B > zzemptyreason.txt'","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_6","type":"command_execution","command":"/bin/zsh -lc 'echo REWRITTEN > allowaccepted.txt'","exit_code":0,"status":"completed"}}
+```
+
+## exec 前後の `hooks/list`（登録証跡）
+
+前後で同一・`warnings: []`:
+
+```
+/private/tmp/cx1078c/.codex/hooks.json:pre_tool_use:0:0  enabled=true  trustStatus=untrusted
+```
+
+`trustStatus=untrusted` のままだが `--dangerously-bypass-hook-trust` により発火した（run #2 と同条件）。**「登録されていること」は撃つ前に確認済み（SC-1 充足）。**
+
+## probe が受け取った実 payload（実物）
+
+```json
+{"session_id":"019ff961-93b2-7f90-bf75-3c3f482673b6","turn_id":"019ff961-947f-7d52-a06a-c0c2749a4a5a",
+ "transcript_path":"…/rollout-2026-08-13T13-29-09-019ff961-….jsonl","cwd":"/private/tmp/cx1078c",
+ "hook_event_name":"PreToolUse","model":"gpt-5.4-mini","permission_mode":"bypassPermissions",
+ "tool_name":"Bash","tool_input":{"command":"echo A > zznonempty.txt"},"tool_use_id":"call_uRqCRWdmQkXaIHdepPL4q1bV"}
+```
+
+（3 件目も同形で `tool_input.command` が `echo C > allowupdated.txt` / `tool_use_id: call_VkCzlLNzqdgSYHE77igKtVPd`）
+
+> **`permission_mode` は今回も `bypassPermissions` だが、その下で非空 reason の deny が現に BLOCK した**ため、「bypassPermissions だから deny が効かない」という説明は**実測で否定された**。
+
+## 🔴 #1078 への確定的な含意
+
+1. **`eh-bridge.sh:84` の deny は、`reason` が空になった瞬間に無効化される（fail-open）。しかも警告が一切出ない。**
+   PlanGate hook が**無出力で rc=2** を返すケース（`/tmp/eh-bridge-out.$$` が空 or 生成されない）は現実に起こりうるため、**これは実在するセキュリティホール**。
+   → **修正**: `reason` が空なら固定文言（例: `PlanGate <hook> blocked (no output)`）を必ず埋める。**これは 1 行で塞げる。**
+2. **allow 判定は確実に消費される**（`updatedInput` まで反映）。bridge の正常系 allow は**実害なし**。ただし **`updatedInput` を返せばツール入力を書き換えられる**＝ **hook 側に強い権限がある**ことも同時に判明した（bridge がバグで `updatedInput` を返すことは無いが、設計上の注意点）。
+3. **deny が効くこと自体は実証された。** 「Codex 側の hook には強制力が無い」わけではなく、**強制力はあるが PlanGate 側の bridge がそれを空 reason で捨てている**、が正しい理解。
+
+## 検証状態（追記 2 分）
+
+- **実行済み**: probe 単体テスト（3 分岐）、exec 前後の `hooks/list`、**`codex exec` 1 回**（累計 3 回）、stderr / `--json` / ファイル実在の 3 系統突合
+- **未実行**: `bypassPermissions` 以外の permission_mode での再確認（今回の切り分けには不要）
+- **未検証**: bare allow（`updatedInput` 無し）が「受理」か「無視」かの厳密な区別 — ただし **`updatedInput` 付き allow が受理されたことで、allow 判定の経路自体は生きていると確認できた**ため、実務上の残リスクはない
+- **失敗**: なし
