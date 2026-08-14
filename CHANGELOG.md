@@ -10,7 +10,9 @@ PlanGate の主要リリース履歴。
 
 fix: 配布経路（Codex plugin / skill frontmatter）の false green を実測で潰し、Codex CLI parity の誇大記述を「強制力 0/11」へ是正
 
-v8.19.0 タグ以降 main に蓄積した 7 マージを反映する小規模リリース。主題は
+v8.19.0 タグ以降 main に蓄積した **8 コミット**（実測: `git log --oneline v8.19.0..0559781 | wc -l`。
+squash merge 運用のため `--merges` は 0 件。うち `0e9ee8f` は v8.19.0 のリリース後 changelog
+同期であり、本リリースの実質的な変更は 7 件）を反映する小規模リリース。主題は
 **「緑を出していた検出器が、実際には別のものを測っていた」箇所を実測で潰す**こと —
 Codex plugin の `registered: YES` false green（cache ディレクトリの存在だけで緑）・
 skill frontmatter 破損の 4 root 同時是正・Codex CLI parity 記述の再是正。
@@ -19,6 +21,11 @@ skill frontmatter 破損の 4 root 同時是正・Codex CLI parity 記述の再�
 → Schema / CLI / Hook の挙動は不変。承認境界も不変（NO MERGE BY AI・C-4 / merge は Human-owned 固定）。
 
 ### ⚠️ 既知の未解消ギャップ（EH-3 / #1089）
+
+> **対象: 本リポジトリを clone して `scripts/hooks/` を `.claude/settings.json` へ配線している利用者。**
+> `scripts/hooks/check-plan-hash.sh`（EH-3 本体）と `scripts/apply-eh3-ho-always.sh` /
+> `tests/fixtures/eh3-known-gap-1089.flag` は **plugin 配布物に含まれません**。
+> `plangate` プラグインを `plugin marketplace` 経由で導入しているだけの場合、本節は影響しません。
 
 **`PLANGATE_HOOK_TASK` を設定した状態では、EH-3 の Hardening Override block が
 9 カテゴリすべてで発火しません**（実測 9/9 で `rc=2` → `rc=0`）。HO 判定が
@@ -34,9 +41,9 @@ sh scripts/apply-eh3-ho-always.sh --dry-run   # 差分確認
 sh scripts/apply-eh3-ho-always.sh --apply     # 適用（Human-owned）
 ```
 
-適用後は `tests/fixtures/eh3-known-gap-1089.flag` を削除してください
-（このフラグが存在する間だけ `ta-65` が gap を受理します。削除後は
-「TASK 文脈でも block」が既定の期待値となり、元構造へ戻すと CI が RED になります）。
+`tests/fixtures/eh3-known-gap-1089.flag` の削除は **apply スクリプトが同時に行います**
+（手動作業は不要）。このフラグが存在する間だけ `ta-65` が gap を受理し、削除後は
+「TASK 文脈でも block」が既定の期待値になるため、元構造へ戻すと CI が RED になります。
 
 ### Added
 
