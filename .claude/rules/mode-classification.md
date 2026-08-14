@@ -46,7 +46,7 @@
 - データベーススキーマ変更 → 最低でも「高」
 - 公開 API の破壊的変更 → 最低でも「超高」
 - **承認境界周辺の変更 → 最低でも「高」** (TASK-0106 Retrospective Try 由来 / TASK-0112)
-  - 対象パス (Hardening Override 対象と完全一致 / [`scripts/hooks/check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) L124-134 case 文 = **9 カテゴリ** 正本):
+  - 対象パス (Hardening Override 対象と完全一致 / [`scripts/hooks/check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) の **`_override=0` 直後の `case` ブロック**（`esac` まで）= **9 カテゴリ** 正本。行番号で参照しないこと — 行番号アンカーは実装の移動で黙って別ブロックを指す / #1089):
     - `.claude/rules/*.md`
     - `.claude/settings.json` / `.claude/settings.local.json` / `.claude/settings.example.json`
     - `.claude/commands/*.md`
