@@ -74,6 +74,42 @@ if [ -z "$target_file" ] && [ ! -t 0 ]; then
   fi
 fi
 
+# ===== Hardening Override 判定（#1089 / TASK-1089）=====
+# TASK 文脈（PLANGATE_HOOK_TASK / $1）の有無に依存せず評価する。TASK-0106 では
+# 本判定が no-task 分岐の内側にあったため、TASK 設定時は plan_hash 検証パスへ
+# 抜けて 9 カテゴリすべてが一度も評価されなかった（#1089）。
+# 判定内容・9 カテゴリ・「maintenance 窓内でも常時 block」は不変（R-003/R-015）。
+# 優先順は BYPASS > Override > (no-task: maintenance/doc-light/SKIP_REASON,
+# task: plan_hash 検証)。
+# (i) target_file 正規化（R-028）
+_norm_target="${target_file:-}"
+case "$_norm_target" in
+  ./*) _norm_target="${_norm_target#./}" ;;
+esac
+case "$_norm_target" in
+  "$REPO_ROOT"/*) _norm_target="${_norm_target#$REPO_ROOT/}" ;;
+esac
+
+# (ii) Hardening Override 物理先頭判定（R-003/R-015、maintenance より上）
+_override=0
+case "$_norm_target" in
+  .claude/rules/*.md) _override=1 ;;
+  .claude/settings.json|.claude/settings.local.json|.claude/settings.example.json) _override=1 ;;
+  .claude/commands/*.md|.claude/commands/*/*.md) _override=1 ;;
+  .claude/agents/*.md|.claude/agents/*/*.md) _override=1 ;;
+  scripts/hooks/*.sh) _override=1 ;;
+  bin/plangate) _override=1 ;;
+  schemas/*.schema.json) _override=1 ;;
+  .github/workflows/*.yml|.github/workflows/*.yaml) _override=1 ;;
+  AGENTS.md|CLAUDE.md) _override=1 ;;
+esac
+if [ "$_override" = "1" ]; then
+  reason="HARDENING_OVERRIDE: ${_norm_target} は maintenance 窓内でも常時 block (R-003/R-015)"
+  log_event "HARDENING_OVERRIDE" "$reason"
+  printf '[Hook EH-3] %s\n' "$reason" >&2
+  exit 2
+fi
+
 # P4(d) ファイルパス感応型ガード（TASK-0070 / C-3 F1-b 採用 / Gemini レビュー）:
 #   - TASK 文脈なし & 対象が plan.md → BLOCK（C-3 承認後の plan 改変を
 #     TASK 文脈を消して通す攻撃を阻止。Gemini 相談 Case 1）
@@ -102,43 +138,14 @@ if [ -z "$task_id" ]; then
 
   # ===== TASK-0106: メンテモード v2（承認ファイル方式 + 多層 + Override 物理先頭）=====
   # 判定順序 (R-020):
-  #   (i)   target_file 正規化（./ 除去等・R-028）
-  #   (ii)  Hardening Override 物理先頭判定（R-003/R-015、10 パターン、maintenance より上）
+  #   (i)   target_file 正規化（./ 除去等・R-028）        ← #1089 で task_id 分岐の前へ移動
+  #   (ii)  Hardening Override 物理先頭判定（R-003/R-015） ← #1089 で task_id 分岐の前へ移動
   #   (iii) maintenance ファイル valid 判定（v1=30分窓、v2=allowed_paths/one_shot/consumed_at）
   #   (iv)  allowed_paths スコープ判定（指定なし=Override 対象以外を許可、後方互換）
   #   (v)   flock(LOCK_EX|LOCK_NB) → 再 open(path) で inode 比較 → consumed_at 未消費なら os.replace（R-002/R-017/R-027/R-031）
   # 優先順 BYPASS(上記) > Override(block) > maintenance(SKIP) > 通常(SKIP_REASON)。
   # env では maintenance 有効化しない（承認ファイルのみ=AI自己付与不可・R-011）。
-  #
-  # (i) target_file 正規化
-  _norm_target="${target_file:-}"
-  case "$_norm_target" in
-    ./*) _norm_target="${_norm_target#./}" ;;
-  esac
-  case "$_norm_target" in
-    "$REPO_ROOT"/*) _norm_target="${_norm_target#$REPO_ROOT/}" ;;
-  esac
-
-  # (ii) Hardening Override 物理先頭判定（R-003/R-015、maintenance より上）
-  _override=0
-  case "$_norm_target" in
-    .claude/rules/*.md) _override=1 ;;
-    .claude/settings.json|.claude/settings.local.json|.claude/settings.example.json) _override=1 ;;
-    .claude/commands/*.md|.claude/commands/*/*.md) _override=1 ;;
-    .claude/agents/*.md|.claude/agents/*/*.md) _override=1 ;;
-    scripts/hooks/*.sh) _override=1 ;;
-    bin/plangate) _override=1 ;;
-    schemas/*.schema.json) _override=1 ;;
-    .github/workflows/*.yml|.github/workflows/*.yaml) _override=1 ;;
-    AGENTS.md|CLAUDE.md) _override=1 ;;
-  esac
-  if [ "$_override" = "1" ]; then
-    reason="HARDENING_OVERRIDE: ${_norm_target} は maintenance 窓内でも常時 block (R-003/R-015)"
-    log_event "HARDENING_OVERRIDE" "$reason"
-    printf '[Hook EH-3] %s\n' "$reason" >&2
-    exit 2
-  fi
-
+  # (i)(ii) は本分岐に入る前に評価済み（#1089）。_norm_target はそこで確定する。
 
   # [TASK-0144] C-3 conversation mode: c3.json auto-generate path
   # approvals/c3.json + conversation mode -> SKIP (通す。中身検証は EH-2 と AI 生成コードに委ねる)
