@@ -6,9 +6,65 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-- fix(plugin): Codex 用 plugin マニフェスト `plugin/plangate/.codex-plugin/plugin.json` を追加し、Claude 用 `.claude-plugin/plugin.json` との name / version / skills 一致を `scripts/check-plugin-manifest-parity.sh` で機械検出（`sync-plugin-plangate.sh` / `release-prep.sh` の version bump と readiness 検査にも配線）(#1085)
-- fix(doctor): `scripts/check-codex-plugin-status.sh` の `registered:` 判定を「marketplace cache ディレクトリの存在」から「plugin が install されているか（`config.toml` の `enabled` 宣言 + `plugins/cache` 実体）」へ差し替え。`codex plugin add` 未実行の環境で `registered: YES` を返す false green を解消 (#1085)
-- docs: Codex 導入手順を 2 段階（`codex plugin marketplace add` → `codex plugin add plangate@plangate`）に修正。`marketplace add` だけで導入完了と読める記述が #1085 の誤起票の原因だった (#1085)
+## v8.20.0 (2026-08-14)
+
+fix: 配布経路（Codex plugin / skill frontmatter）の false green を実測で潰し、Codex CLI parity の誇大記述を「強制力 0/11」へ是正
+
+v8.19.0 タグ以降 main に蓄積した **8 コミット**（実測: `git log --oneline v8.19.0..0559781 | wc -l`。
+squash merge 運用のため `--merges` は 0 件。うち `0e9ee8f` は v8.19.0 のリリース後 changelog
+同期であり、本リリースの実質的な変更は 7 件）を反映する小規模リリース。主題は
+**「緑を出していた検出器が、実際には別のものを測っていた」箇所を実測で潰す**こと —
+Codex plugin の `registered: YES` false green（cache ディレクトリの存在だけで緑）・
+skill frontmatter 破損の 4 root 同時是正・Codex CLI parity 記述の再是正。
+**`schemas/*.json` / `bin/plangate` / `scripts/hooks/*.sh` / `.github/workflows/*` は本リリースで変更ゼロ**
+（実測: `git diff v8.19.0..0559781 --stat -- schemas/ bin/ scripts/hooks/ .github/workflows/` が空）
+→ Schema / CLI / Hook の挙動は不変。承認境界も不変（NO MERGE BY AI・C-4 / merge は Human-owned 固定）。
+
+### ⚠️ 既知の未解消ギャップ（EH-3 / #1089）
+
+> **対象: 本リポジトリを clone して `scripts/hooks/` を `.claude/settings.json` へ配線している利用者。**
+> `scripts/hooks/check-plan-hash.sh`（EH-3 本体）と `scripts/apply-eh3-ho-always.sh` /
+> `tests/fixtures/eh3-known-gap-1089.flag` は **plugin 配布物に含まれません**。
+> `plangate` プラグインを `plugin marketplace` 経由で導入しているだけの場合、本節は影響しません。
+
+**`PLANGATE_HOOK_TASK` を設定した状態では、EH-3 の Hardening Override block が
+9 カテゴリすべてで発火しません**（実測 9/9 で `rc=2` → `rc=0`）。HO 判定が
+`if [ -z "$task_id" ]` 分岐の内側にあり、TASK 文脈では plan_hash 検証パスへ抜けて
+一度も評価されないためです。`check-forbidden-files.sh` は HO パスを守らないため、
+EH-3 が唯一の HO ガードです。
+
+本リリースには **patch と回帰テストのみが含まれ、hook 本体の修正は含まれません**
+（`scripts/hooks/*.sh` は HO パスのため適用は Human-owned）。解消するには:
+
+```sh
+sh scripts/apply-eh3-ho-always.sh --dry-run   # 差分確認
+sh scripts/apply-eh3-ho-always.sh --apply     # 適用（Human-owned）
+```
+
+`tests/fixtures/eh3-known-gap-1089.flag` の削除は **apply スクリプトが同時に行います**
+（手動作業は不要）。このフラグが存在する間だけ `ta-65` が gap を受理し、削除後は
+「TASK 文脈でも block」が既定の期待値になるため、元構造へ戻すと CI が RED になります。
+
+### Added
+
+- **Codex 用 plugin マニフェスト `plugin/plangate/.codex-plugin/plugin.json`**（#1085）— Claude 用 `.claude-plugin/plugin.json` との name / version / skills 一致を `scripts/check-plugin-manifest-parity.sh` で機械検出。`sync-plugin-plangate.sh` の同期と `release-prep.sh --check` の readiness 検査の双方へ配線した。従来は `.claude-plugin` 側しか見ておらず、Codex 用マニフェストだけ古い状態でも「plugin version 一致」で緑になっていた
+- **`scripts/check-skill-frontmatter.py` と `tests/extras/ta-64-skill-frontmatter.sh`**（#1084）— SKILL.md の YAML frontmatter を実際にパースして検査する。破損しても誰も気づかない状態を CI 経路で塞いだ
+- **EH-3 HO 迂回（#1089）の apply スクリプトと回帰検知テスト**（#1091）— `scripts/apply-eh3-ho-always.sh`（HO パス外）+ `tests/extras/ta-65-eh3-ho-task-context.sh`。期待値の既定は **fixed**（TASK 文脈でも block）で、gap の受理は tracked な明示 opt-in（`tests/fixtures/eh3-known-gap-1089.flag`）に限定した。HO カテゴリは hook の `case` 文と正本 `mode-classification.md` の双方から導出し、絶対件数は assert しない
+
+### Fixed
+
+- **skill frontmatter 破損を 4 root で同時是正**（#1084）— `plangate-setup` の SKILL.md frontmatter が `.agents/` / `.claude/` / `.codex/` / `plugin/plangate/` の 4 root で破損しており、**導入先で skill が読み込まれない状態**だった。配布物（`plugin/plangate/skills/plangate-setup/SKILL.md`）を含むため導入側に影響する
+- **`scripts/check-codex-plugin-status.sh` の `registered:` false green**（#1085 / #1090）— 判定を「marketplace cache ディレクトリの存在」から「plugin が install されているか（`config.toml` の `enabled` 宣言 + `plugins/cache` 実体）」へ差し替えた。従来は `codex plugin add` 未実行の環境でも `registered: YES` を返していた
+
+### Changed
+
+- **`docs/ai/settings-wiring-contract.md` §Codex CLI parity を実測へ再是正**（#1078 / #1080 / #1083）— Codex CLI 側の hook 強制力は **0 / 11**（parity なし）であることを実走スパイクで確認し、記述を 2 度にわたり実測へ寄せた。証跡は #1082（U-1/U-2/U-3 実走）と #1088（hook payload 形状の実測）
+- **README / `docs/plangate-plugin-migration.md` の Codex 導入導線を 2 段階に修正**（#1085 / #1090）— `codex plugin marketplace add` → `codex plugin add plangate@plangate`。`marketplace add` だけで導入完了と読める記述が #1085 の誤起票の原因だった
+
+### Notes（既知課題）
+
+- **EH-3 HO 迂回（#1089）は hook 本体未適用のまま出荷**。上記「⚠️ 既知の未解消ギャップ」を参照
+- **`release-prep.sh --check` の「適用待ち apply」判定は現状 fail-open**。各 `scripts/apply-*.sh` の `--dry-run` 標準出力に `[dry-run]` が含まれるかだけで判定するため、(a) スクリプトが ERROR 終了すると「適用待ちなし」に落ちる（`2>/dev/null || true` で握り潰される）、(b) 無条件にヘッダで `[dry-run]` を印字するスクリプトは適用済みでも「適用待ち」に出る、(c) `.claude/settings.json` を読むスクリプトは worktree（settings 未配置）と通常 checkout で結果が変わる、(d) リテラル `[dry-run]` を印字しないスクリプト（`apply-eh3-ho-always.sh`）は**本当に未適用でもリストに現れない**。検出器側の是正は follow-up（分析は `docs/working/_merge/v8.20.0-release-runbook.md` §6）
 
 ## v8.19.0 (2026-08-13)
 
