@@ -66,23 +66,39 @@ issue #1078 が潰そうとしている「**登録 ≠ 強制力**」の誤り�
 - [ ] **AC-03**: AC-01 のテストが **修正前の bridge では FAIL する**ことを、変異注入（stdin 転送の除去 / stdout 解釈の除去 を個別に戻す）で示す（テストの検出力の実証）
 - [ ] **AC-04**: hook が **stderr にのみ** block 相当の文字列を出した場合に **deny にならない**
       （**判定に使うのは stdout と exit code の 2 つで、stderr は使わない**。「stdout のみ」と短縮すると EH-3 の `rc=2` deny を落とすため使わない）
-- [ ] **AC-05**: 未知 exit code（例 `127`）で **deny** が返る（fail-closed）。かつ deny の `permissionDecisionReason` が**常に非空**である
+- [ ] **AC-05**: 未知 exit code（例 `127`）で **deny** が返る（fail-closed）。かつ deny の `permissionDecisionReason` が**常に非空**であり、
+      🔴 **bridge の出力が常に valid JSON である**（reason 素材に `\` / 制御文字 / 日本語が入っても壊れない。
+      切り詰めは**文字境界**を守る）。**全 deny TC で `json.loads` 可能性を検査する**（部分文字列一致だけで PASS にしない）
 - [ ] ~~**AC-06**~~ **欠番**。「`hooks/list` への登録」は**受入基準ではなく前提条件 P-1 へ移動**した（下記「前提条件（Preconditions）」）。
       理由: **AC は定義上 完了ゲートである**ため、免責文を添えても「登録できたら 1 項目クリア」と読める構造が残る。
       本 PBI が潰そうとしている誤り（**登録 ≠ 強制力**）を受入基準の形で再生産しないよう、AC の外に出す。番号は再採番せず欠番のままにする
 - [ ] **AC-07**: **Codex セッションで実際に block された証跡**（stderr の `Command blocked by PreToolUse hook:` + 対象ファイルが生成されていないこと）が 1 件取得される。
+      🔴 **取得は「実リポジトリの kill switch を撤去する前に、サンドボックスで」行う**
+      （実リポジトリの `eh-bridge.sh` と `scripts/hooks/*.sh` をそのまま複製し、hooks.json は有効化後の目標形と同一内容にする）。
+      🔴 **本 AC の判定が「注記キー除去（不可逆な有効化）を実行してよいか」を決める**。
+      **PASS のときのみ有効化してよく、WARN なら有効化しない**（EIC 不変条件）。
       **必須条件: 当該実走で `--dangerously-bypass-hook-trust` を使わない**（使った場合は PASS にしない）。
       取得には `codex exec` の実走 1 回を要するため **Human の明示承認**を前提とする。
       承認が得られない場合、または **bypass 無しでは発火しなかった場合**は AC-07 を **WARN（未達・理由記録）** とし、
       `settings-wiring-contract.md` の軸 C を「**bridge 単体では deny を返すところまで実証／ランタイム発火は未実証（U-4）**」と明記する
-- [ ] **AC-08**: `.claude` 側の hook 挙動が**無傷**である（`scripts/hooks/*.sh` および `.claude/settings*.json` に差分が無いことを diff で示す。**基点は `git merge-base HEAD origin/main` で固定**する）
+- [ ] **AC-08**: `.claude` 側の hook 挙動が**無傷**である（**`scripts` 全体**および `.claude` に差分が無いことを diff で示す。
+      🔴 **`scripts/hooks` に絞らない** — `scripts/` 直下フォールバックを新設するため。**基点は `git merge-base HEAD origin/main` で固定**する）
 - [ ] **AC-09**: `docs/ai/settings-wiring-contract.md` の「既存 hook 改変は Human-owned」の適用範囲が**パス単位で一意に読める**記述になる。
-      あわせて **S-2 の強制力の限界 4 点**（bridge 単体 / ランタイム発火の状態 / **`trusted_hash` 未設定環境は対象外** / **TASK 文脈下の HO block は #1089 のため効かない**）が明記される
+      あわせて **S-2 の強制力の限界**が明記される:
+      (a) bridge 単体 / (b) ランタイム発火の状態（**終端 A なら実証済み・終端 B なら「未有効化・現状維持」**）/
+      (c) **`trusted_hash` 未設定環境は対象外** / (d) **TASK 文脈下の HO block は #1089 のため効かない** /
+      (e) 🔴 **`trusted_hash` に bridge 内容が含まれるかの実測結果**（含まれないなら「trusted 済み環境では AI が bridge 改変で強制力を消せる」）/
+      (f) **`$(git rev-parse --show-toplevel)` の CWD 依存**（ネスト repo / submodule / 別 worktree で別リポジトリの bridge が解決されうる）/
+      (g) **`PLANGATE_BYPASS_HOOK=1` は被規制主体の agent 自身が設定できる**（強制力の主張から除外する）/
+      (h) **現時点で Codex 側が実際に止められるものの列挙**（EH-9 は `NOCOMMIT=1` 時のみ / EH-1・EH-2・EH-6 は STRICT 既定 warning のため 0）。
+      **「11 wiring 分の強制力が揃った」とは書かない**
 - [ ] **AC-10**: **複数ファイルを含む `apply_patch` payload** で、**2 件目以降のパスも検査される**（無害なパスを先頭に置いて HO パスを後続に隠す入力が **deny される**）。
       全件評価が困難な場合の代替は「複数パスを含む `apply_patch` は deny」（fail-closed）とし、**allow に倒す実装は不可**
 - [ ] **AC-11**: `.codex/hooks.json` が **Codex に受理される形**である（**top-level キーが `description` / `hooks` のみ**）ことと、
       matcher に **Codex に存在しないツール名（`Edit` / `Write`）が含まれない**ことが機械的に検査される（JSON 構文 valid だけでは不十分）。
-      検査は **stage 依存 2 値**（有効化前は「kill switch が効いている」を assert）とし、**どの段階でもスイートが RED にならない**こと
+      検査は **「テスト内に宣言した期待 stage」と「実体」の drift 検出**とし、
+      **有効化後に kill switch を戻された場合も、未有効化のまま誤って有効化された場合も FAIL** になること。
+      かつ **どの段階でもスイートが RED にならない**こと（宣言は該当タスクのコミットで更新する）
 - [ ] **AC-12**: hook 実体の解決が **`scripts/hooks/<name>` → `scripts/<name>` の順にフォールバック**し、
       どちらにも無い場合のみ **deny（reason 非空）** になる（stub による課金ゼロ検証）
 
@@ -99,7 +115,11 @@ issue #1078 が潰そうとしている「**登録 ≠ 強制力**」の誤り�
 
 - **AC-01〜AC-05・AC-08〜AC-12 が PASS**
 - **AC-07 が PASS、または WARN（理由・代替・未充足リスクを記録）**
-- **前提条件 P-1 が充足**（成果としては報告しない）
+- 🔴 **EIC 不変条件: 「AC-07 が WARN かつ 注記キー除去（有効化）を実行済み」は完了条件違反（FAIL）**。
+  終端は次の 2 つのいずれかでなければならない:
+  - **終端 A**: AC-07 = PASS / 有効化済み / `hooks/list` 5 件 / 宣言 stage = `enabled`
+  - **終端 B**: AC-07 = WARN / **未有効化** / `hooks/list` **0 件**（kill switch 保持）/ 宣言 stage = `disabled`
+- **前提条件 P-1 は終端 A の場合のみ充足**（成果としては報告しない）
 - `scripts/**` / `.claude/**` に差分 0
 - `handoff.md` が必須 6 要素を満たして発行済み
 

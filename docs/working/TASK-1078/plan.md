@@ -38,7 +38,46 @@ created_by: orchestrator
 
 **L-A が全て PASS すれば S-2 の主要価値（bridge の I/O 契約が正しい）は達成**である。
 L-C は「S-2 で確定できれば望ましい」が、**確定できなかったこと自体が S-4（`trusted_hash` 運用）の前提条件を確定させる成果**として扱う。
-**L-A を満たさないまま L-B / L-C に進むことだけを禁止する**（順序の逆転禁止）。
+
+### 🔴 不可逆な有効化は「証拠の後」に置く（順序不変条件 / R3-F1）
+
+> **旧版の構造欠陥**: `todo T-06`（注記キー除去＝ kill switch 撤去）が **AC-07 より前**にあり、
+> AC-07 が WARN でも T-06 を巻き戻す要件が無かった。その結果、**計画どおり進めた既定の着地**が
+> 「**11 AC PASS・`hooks/list` 5 件・warnings 空・スイート GREEN — 実効 block は 0**」になっていた。
+> これは本 PBI が潰そうとしている「登録 ≠ 強制力」と**同型の終端状態**である。
+
+**是正の核**: **L-C の証明を、実リポジトリの kill switch を撤去せずに取得する**。
+
+- **AC-07 は「サンドボックス実走」で取得する**（`todo T-05b`）。
+  サンドボックスは **実リポジトリの `eh-bridge.sh` と `scripts/hooks/*.sh` をそのまま複製**し、
+  hooks.json は **T-06 適用後の目標形と同一内容**にする。**実リポジトリの `.codex/hooks.json` は一切変更しない**。
+  この方式は既に実績がある（`evidence/codex-exec-spike.md` の 3 回の実走はすべて隔離サンドボックス）。
+- **`todo T-06`（不可逆な有効化）の実行条件は「AC-07 が PASS」**。
+- **AC-07 が WARN なら T-06 を実行しない**。kill switch を保持したまま **L-A のみで S-2 を閉じる**。
+- **`H-01` は「実走の可否」と「有効化の可否」を分離して答えられない形にする**（片方だけの承認を成立させない）。
+
+**順序不変条件（EIC: Evidence-before-Irreversible-Change）**:
+
+```text
+T-06（不可逆）を実行してよい ⇔ AC-07 が PASS（bypass 無しの block 証跡が存在する）
+AC-07 が WARN → T-06 は実行しない → kill switch 保持 → Codex 側は「強制力なし（現状維持）」
+```
+
+### 「AC 全 PASS で実効 block 0」が構成できない理由
+
+本 plan で到達しうる終端状態は次の 2 つだけであり、**どちらも「緑だが実効 0」にならない**:
+
+| 終端 | AC-07 | T-06 | `hooks/list` | doc の記述 | 実効 |
+|---|---|---|---|---|---|
+| **終端 A** | **PASS**（bypass 無しの block 証跡あり） | 実行 | 5 件 | 「trusted 済み環境で block する」 | **block する**（証跡つき） |
+| **終端 B** | **WARN** | **実行しない** | **0 件**（kill switch 保持） | 「**Codex 側に強制力は無い（現状維持）**」 | 0 だが **緑のシグナルも 0** |
+
+- **終端 B では `hooks/list` が 0 件のまま**なので、「登録されているのに効かない」という誤認シグナルが**そもそも発生しない**。
+- **完了条件で明示的に禁止する**: **「AC-07 が WARN かつ T-06 実行済み」は完了条件違反（FAIL）**とする。
+  この 1 行により「AC 全 PASS ＋ 登録済み ＋ 実効 0」は**定義上構成不能**になる。
+- 残る「登録されているが実効が薄い」懸念（EH-1/2/6 が STRICT 既定 warning で 0、EH-3 が #1089 で TASK 文脈では死ぬ、
+  EH-9 は `NOCOMMIT=1` 限定）は **doc に「現時点で Codex 側が実際に止められるのは何か」を列挙して明記**する（AC-09）。
+  **「11 wiring 分の強制力が揃った」とは書かない。**
 
 ## Context
 
@@ -201,10 +240,10 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 |---|---|---|---|
 | `.codex/hooks/eh-bridge.sh` | modify | I/O 契約修正 | 入力: Codex PreToolUse JSON (stdin) / 出力: `hookSpecificOutput.permissionDecision` |
 | `.codex/hooks.json` | modify | matcher 整理 → 注記キー除去 | top-level は `description` / `hooks` のみ |
-| `tests/extras/ta-65-codex-bridge-io.sh` | create | fixture 駆動テスト（**フラット配置必須**・下記 ❗） | `tests/extras` 共有 exit 契約（`_extra-contract.sh`）に従う |
+| `tests/extras/ta-67-codex-bridge-io.sh` | create | fixture 駆動テスト（**フラット配置必須**・下記 ❗） | `tests/extras` 共有 exit 契約（`_extra-contract.sh`）に従う |
 | `tests/extras/ta-15-codex-hook-bridge.sh` | modify | 既存の同一対象テストの棚卸し（Task 1b） | TC-03 を 2 値化 / TC-04 の「wires」断定を除去 |
 | `tests/fixtures/codex-bridge/*.json` | create | 実 payload 形状 fixture | 既存慣行に一致（`FIXTURES_DIR="tests/fixtures"` / `tests/run-tests.sh:23`。`tests/extras/` 配下に fixture ディレクトリを新設しない） |
-| `tests/extras/README.md` | modify | 一覧表に ta-65 を追記（既存規約） | — |
+| `tests/extras/README.md` | modify | 一覧表に新規テストの行を追記（既存規約） | — |
 | `docs/ai/settings-wiring-contract.md` | modify | 責務分界のパス単位明確化 + S-2 の限界明記 | — |
 | `docs/working/TASK-1078/status.md` | modify | フェーズ履歴追記（**既存記述は改変しない**） | — |
 
@@ -214,12 +253,37 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
   サブディレクトリ配下のファイルは**永久に発見されず、CI で 1 度も実行されない**（＝静かに通る失敗）。
 - extras は **実行されるのではなく `.` で source される**（`tests/run-tests.sh:169`）。
   よって独立した `run.sh` ではなく、**`pass` / `fail` カウンタを共有する `ta-NN-*.sh`** として書く。
-- 命名は `ta-NN-<short-name>.sh`（`tests/extras/README.md:7`）。**現行の最大は `ta-64` なので `ta-65` を採る**
-  （採番衝突時は `ls tests/extras/` を再確認して次の空き番号にする。番号は本 plan の契約値ではない）。
-- `pg_extra_contract_init "ta-65" <standalone-capable|harness-only>` を先頭で呼び、共有 exit 契約に載せる（#921 / `ta-61` 参照）。
+- 命名は `ta-NN-<short-name>.sh`（`tests/extras/README.md:7`）。
+- 🔴 **番号は契約値ではない。exec 開始時に必ず実測してから決める**（R3-F5）:
+
+  ```sh
+  git fetch origin main && git ls-tree --name-only origin/main tests/extras/
+  ```
+
+  - **本 plan 作成時（2026-08-14）の実測**: `ta-65-eh3-ho-task-context.sh`（#1089）と
+    `ta-66-codex-plugin-manifest.sh`（#1090）が **`origin/main`（`0559781`）に既に存在**する。**次の空きは `ta-67`**。
+  - ⚠️ **前版は「最大は ta-64 なので ta-65」と書いていたが、その後 main が進んで stale 化した**。
+    **exec 時点でさらに進んでいる可能性があるため、上記コマンドの結果を正とする**（本文の `ta-67` は暫定値）。
+- `pg_extra_contract_init "ta-<NN>" <standalone-capable|harness-only>` を先頭で呼び、共有 exit 契約に載せる（#921 / `ta-61` 参照）。
+
+🔴 **到達性 assertion は「番号」ではなく「一意な識別子文字列」に対して行う**（R3-F5）:
+
+- 旧版は「`sh tests/run-tests.sh` の出力に **`TA-65`** が現れること」を到達性の証明にしていたが、
+  **`ta-65-eh3-ho-task-context.sh` が `=== TA-65: EH-3 Hardening Override × TASK 文脈 (#1089) ===` を出力する**ため、
+  **新規テストが未配置・誤配置でも assertion が真になる**（自らが封じたはずの穴が別経路で再び開いていた）。
+  さらに証跡・失敗ログ上で `TA-65` が **2 つの別物**を指してしまう。
+- **是正**: テスト本体に **番号を含まない一意なマーカー文字列**を出力させ、それを検索する。
+
+  ```text
+  出力するマーカー（例）: PG_TA_CODEX_BRIDGE_IO_V1
+  到達性の検証        : sh tests/run-tests.sh の出力に PG_TA_CODEX_BRIDGE_IO_V1 が現れること
+  ```
+
+- マーカーは **リポジトリ全体で一意**であること（導入時に `grep -r` で衝突が無いことを確認する）。
+- **番号（`TA-67` 等）は表示上のラベルとしてのみ使い、機械判定には使わない**。
 - **fixture は `tests/fixtures/codex-bridge/` に置く**（既存 12 ディレクトリと同じ慣行。`FIXTURES_DIR` = `tests/fixtures`）。
   harness 経由では `$FIXTURES_DIR` で参照でき、standalone 実行を残す場合はスクリプト位置からの相対で解決する
-  （解決できないなら `pg_extra_contract_init "ta-65" harness-only` を宣言して standalone 経路を持たない）。
+  （解決できないなら `pg_extra_contract_init "ta-<NN>" harness-only` を宣言して standalone 経路を持たない）。
 
 ## Work Breakdown
 
@@ -227,14 +291,15 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 >
 > | plan | todo | 内容 | 不可逆性 |
 > |---|---|---|---|
-> | Task 1 | **T-01** | fixture + baseline テスト（ta-65） | 可逆 |
+> | Task 1 | **T-01** | fixture + baseline テスト（新規 extras・番号は実測） | 可逆 |
 > | Task 1b | **T-00** | 既存 `ta-15` の棚卸しと責務分界 | 可逆 |
 > | Task 2 | **T-02** | bridge の I/O 契約修正 | 可逆（Codex 未到達） |
 > | Task 2b | **T-03** | 変異注入によるテスト検出力の実証 | 可逆 |
 > | Task 3 | **T-04** | **matcher の死に文字列除去**（`Edit`/`Write`） | 可逆 |
 > | Task 4 | **H-01** | 👤 有効化前ゲート（Human 判断） | — |
-> | Task 5a | **T-05** | `trusted_hash` 手順の確立 | 可逆（文書のみ） |
-> | Task 5b | **T-06** | **注記キー除去＝有効化** | 🔴 **唯一の不可逆ステップ** |
+> | Task 5a | **T-05** | `trusted_hash` 手順の確立 + hash 範囲の実測 | 可逆（文書のみ） |
+> | Task 5a-2 | **T-05b** | **サンドボックス実走で AC-07 を確定** | 可逆（実リポジトリ無変更） |
+> | Task 5b | **T-06** | **注記キー除去＝有効化**（**AC-07 PASS 時のみ**） | 🔴 **唯一の不可逆ステップ** |
 > | Task 6 | **T-07** | 責務分界 doc の是正 | 可逆 |
 > | — | T-08 / T-09 | 非回帰の証明 / status・handoff | 可逆 |
 >
@@ -245,7 +310,7 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 
 **Purpose**: 実 payload 形状の fixture を固定し、**現行 bridge の挙動をテストで固定**する。以後の変更差分を機械的に可視化する。
 
-**Files**: Create `tests/extras/ta-65-codex-bridge-io.sh`, `tests/fixtures/codex-bridge/*.json`
+**Files**: Create `tests/extras/ta-67-codex-bridge-io.sh`, `tests/fixtures/codex-bridge/*.json`
 
 **Steps**:
 
@@ -254,7 +319,7 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 - [ ] Step 3: テストが bridge を呼び、`permissionDecision` を抽出して期待値と突合する。**`PLANGATE_HOOK_TASK` / `PLANGATE_HOOK_STRICT` / `PLANGATE_DELEGATION_NOCOMMIT` を必ず明示設定**する（継承禁止 / `env -u` で明示 unset）
 - [ ] Step 4: bridge 呼び出しは必ず **stdin を明示的に与える**（`printf '%s' "$payload" | ...`）。stdin 無しで呼ぶと `INPUT=$(cat)` がハングしうる
 - [ ] Step 5: 期待値は**転記ではなく実行結果で確定**し、本 plan「前提の実測検証」表との差分があれば **plan 側を訂正**する
-- [ ] Step 6: **`tests/extras/README.md` の一覧表に `ta-65` の行を追記する**（既存規約。README は Files 表に挙がっているが Step が無かった＝ R2-4）
+- [ ] Step 6: **`tests/extras/README.md` の一覧表に新規テストの行を追記する**（既存規約。README は Files 表に挙がっているが Step が無かった＝ R2-4）
 - [ ] Step 7: `sh tests/run-tests.sh` を **全体実行**して PASS することを確認する（**単体実行だけで済ませない**。loader に拾われたことの唯一の証明）
 - [ ] Step 8: 実行ログを `evidence/verification/` に commit する
 
@@ -271,9 +336,10 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 - **bridge 側に「hook ルートを差し替える環境変数」を新設しない**。新設すると *guard の解決先を実行時に上書きできる* 穴を作る（是正が新しい穴を作る典型）。
 - サンドボックスは `mktemp -d` で作り、**末尾で明示削除**する（`register_cleanup` を使う。trap は張らない＝`tests/extras/README.md` の規約）。
 
-**Completion Criteria**: `sh tests/run-tests.sh` が PASS（ta-65 が実際に実行されたことをテスト名の出力で確認）/ `.codex/` に差分が無い / `scripts/**` に差分が無い
+**Completion Criteria**: `sh tests/run-tests.sh` が PASS **かつ出力に一意マーカー `PG_TA_CODEX_BRIDGE_IO_V1` が現れる**
+（＝ loader に拾われた証明。**番号で判定しない**）/ `.codex/` に差分が無い / `scripts/**` に差分が無い
 
-**Rollback**: 追加ファイルを削除（`git rm tests/extras/ta-65-codex-bridge-io.sh` + fixtures）。**ランタイム影響なし**
+**Rollback**: 追加ファイルを削除（`git rm tests/extras/ta-67-codex-bridge-io.sh` + fixtures）。**ランタイム影響なし**
 
 ### Task 1b（todo T-00）: 既存 `ta-15` の棚卸しと責務分界
 
@@ -292,7 +358,7 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 **Steps**:
 
 - [ ] Step 1: ta-15 の 7 TC を実行して現行の PASS 内容を記録する（`evidence/verification/`）
-- [ ] Step 2: 責務分界を決めて明記する — **ta-15 = ファイル存在・構文・配線の静的検査 / ta-65 = I/O 契約の振る舞い検査**
+- [ ] Step 2: 責務分界を決めて明記する — **ta-15 = ファイル存在・構文・配線の静的検査 / 新規 extras = I/O 契約の振る舞い検査**
 - [ ] Step 3: TC-03 の**表明を実態に合わせる**: 「JSON として valid」に加え **top-level キー集合**を検査する。
       🔴 **実装は TC-22a と同じ「stage 依存 2 値 assertion」に統一する**（`{description, hooks}` に一致 → `enabled` 分岐 /
       それ以外 → `disabled` 分岐で「未知キーが実在する＝ kill switch が効いている」を assert）。
@@ -304,7 +370,7 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 > **Task 2 実施後の ta-15 回帰確認（TC-05/06/07 が PASS のまま）は Task 2（todo T-02）のチェックポイントで行う**。
 > 本タスクの完了条件に含めない（**T-00 は `depends_on: なし` であり、他タスクの完了を待つ要件を持たせない**＝ R2-6）。
 
-**Completion Criteria**: ta-15 と ta-65 の責務が重複せず、**登録されていない状態で「配線済み」と読める表明が残っていない** /
+**Completion Criteria**: ta-15 と新規 extras の責務が重複せず、**登録されていない状態で「配線済み」と読める表明が残っていない** /
 **他タスクの完了を待たずに単独で GREEN になる**
 
 **Rollback**: `git checkout -- tests/extras/ta-15-codex-hook-bridge.sh`
@@ -313,7 +379,7 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 
 **Purpose**: 入力・出力の両契約を直す。**注記キーが残っているため Codex ランタイムには一切影響しない**。
 
-**Files**: Modify `.codex/hooks/eh-bridge.sh`, `tests/extras/ta-65-codex-bridge-io.sh`
+**Files**: Modify `.codex/hooks/eh-bridge.sh`, `tests/extras/ta-67-codex-bridge-io.sh`
 
 **Steps**:
 
@@ -330,9 +396,48 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 - [ ] Step 5: 未知 exit code を **deny** にする（fail-closed）。reason に rc を含める
 - [ ] Step 6: hook 実体の解決を `scripts/hooks/<name>` → `scripts/<name>` の順にフォールバックさせる。どちらにも無ければ従来どおり deny
 - [ ] Step 7: deny 時の reason が**常に非空**であることを保証する（空なら固定文言を埋める）
+- [ ] Step 7b: 🔴 **bridge の出力を「必ず valid JSON になる方法」で生成する**（R3-F2。下記 ❗）
+- [ ] Step 7c: 🔴 **`PLANGATE_HOOK_FILE` を毎回明示的に確定させる**（R3-F7b。下記 ❗❗）
 - [ ] Step 8: **`apply_patch` の複数ファイル patch を全件評価する**（下記 ❗）
 - [ ] Step 9: **stdin の異常系の fail 方向を確定する**（下記「fail 方向の contract」）
 - [ ] Step 10: **GREEN** を確認する（`sh tests/run-tests.sh` の全体実行）
+
+❗ **deny の reason が JSON エスケープされていない（R3-F2 / 実測）**
+
+現行の生成経路は**文字列連結**であり、**有効化と同時に穴が出荷される**:
+
+```sh
+eh-bridge.sh:75  reason=$(tail -n 5 … | tr '\n' ' ' | tr '"' "'" | head -c 400)
+eh-bridge.sh:84  printf '…"permissionDecisionReason":"PlanGate %s blocked: %s"…' "$HOOK_NAME" "$reason"
+```
+
+| 欠陥 | 内容 |
+|---|---|
+| **エスケープ不足** | サニタイズは **`"` → `'` のみ**。**バックスラッシュ・制御文字は素通り**し、JSON を壊す |
+| **バイト単位の切り詰め** | `head -c 400` は**バイト単位**。hook の reason は**日本語**（例: `HARDENING_OVERRIDE: … は maintenance 窓内でも常時 block`）なので、**UTF-8 の途中で切れて不正バイト列**になりうる |
+| **入力の由来** | reason 素材には **agent が影響できる文字列**が入る（`check-c3-approval.sh` の `$c3_file` は `PLANGATE_HOOK_TASK` 由来。検証は `case "$task_id" in TASK-*)` だけ） |
+| **新契約で悪化** | 修正後は reason 素材が hook の **stdout JSON**（`{"continue":false,"stopReason":"…"}`）そのものになるため、**`\` の出現確率が上がる** |
+
+**帰結**: bridge が不正 JSON を出す → Codex が decision を読めない → **既知の「空 reason の fail-open」と同種の、黙った allow**。
+**現状 AC-05 は「非空」しか要求しておらず、JSON として valid かを誰も検査していない。**
+
+**是正（すべて必須）**:
+
+- (a) **reason を文字列連結で埋め込まない**。`python3 -c 'import json,sys; print(json.dumps(...))'` 等で
+  **出力 JSON 全体をシリアライザに生成させる**（`printf` によるテンプレート組み立てをやめる）
+- (b) **切り詰めは文字境界を守る**（バイト単位で切らない。例: python 側で文字数指定）
+- (c) **全 deny TC の assertion に「bridge の stdout が `json.loads` できること」を追加**する
+- (d) **変異 5: reason 素材に `\` と制御文字を注入する stub hook** を変異注入セットへ（下記 Task 2b）
+
+❗❗ **`PLANGATE_HOOK_FILE` の unset 漏れ（R3-F7b / 実測）**
+
+`eh-bridge.sh:55-65` は `FILE_PATH` が空のとき **export しないだけ**で、**既存の env をクリアしない**。
+Codex セッションが `PLANGATE_HOOK_FILE` を持っていると、**パスを抽出できなかった呼び出しで
+「セッションが持つ古いパス」を対象に hook が判定する**（誤 allow / 誤 deny の両方向）。
+`PLANGATE_HOOK_TASK` についても同様の継承問題を R-4 で認識していたが、**テストの問題としてしか扱っていなかった**。
+
+**是正**: bridge は毎回 **`PLANGATE_HOOK_FILE` を「抽出値で export」または「明示的に unset」**する（中間状態を残さない）。
+`PLANGATE_HOOK_TASK` の自動導出（`:57-64`）も同じ規律にする。**TC を 1 件追加**（E-11）。
 
 ❗ **複数ファイル `apply_patch` の取りこぼし（R-F15 / 実測）**: 現行の抽出は
 `eh-bridge.sh:50` の **`re.search`** ＝ **先頭 1 件のみ**を返す。`apply_patch` は 1 コマンドで複数ファイルを扱えるため、
@@ -371,7 +476,9 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 - [ ] Step 3: 変異 3 — **複数パス抽出を `re.search` に戻す** → **TC-19 が FAIL** することを確認
 - [ ] Step 4: 変異 4a — **一時ファイル名を `/tmp/eh-bridge-out.$$` に戻す** → **E-9a が FAIL** することを確認（TC-23）
 - [ ] Step 5: 変異 4b — **一時ファイルの `rm -f` を除去する** → **E-9b が FAIL** することを確認（TC-23）
-- [ ] Step 6: 各変異を戻し、**GREEN** を再確認する
+- [ ] Step 6: 変異 5 — **reason のシリアライザ生成を文字列連結に戻す** →
+      **`\` / 制御文字を出す stub hook のケース（TC-24）が FAIL** することを確認（R3-F2）
+- [ ] Step 7: 各変異を戻し、**GREEN** を再確認する
 
 > **変異 4a / 4b は plan 作成時にサンドボックスで実測済み**（未修正 bridge に対し `predictable_present=YES` /
 > `rm` 除去時に `/tmp/eh-bridge-out.<pid>` にマーカーが残存）。**この 2 つが kill できないなら E-9 は空振り**である。
@@ -379,7 +486,7 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 > **変異は bridge の call site を壊す**（関数の中身ではなく呼び出し箇所）。**テスト側の期待値を書き換えて FAIL を作らない**。
 > 変異が FAIL を起こさない TC は「空振り」であり、その TC は**乖離帯として handoff に記録**する。
 
-**Completion Criteria**: **5 変異（1 / 2 / 3 / 4a / 4b）すべて**で**想定した TC が FAIL** / 復帰後に GREEN
+**Completion Criteria**: **6 変異（1 / 2 / 3 / 4a / 4b / 5）すべて**で**想定した TC が FAIL** / 復帰後に GREEN
 
 **Rollback**: 変異は一時適用のみ。`git checkout -- .codex/hooks/eh-bridge.sh`
 
@@ -392,7 +499,7 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 **Steps**:
 
 - [ ] Step 1: matcher を `apply_patch` に変更する（`Bash` group は不変）
-- [ ] Step 2: **同一コミットで TC-22b（matcher に `Edit`/`Write` が無い）を ta-65 に追加する**（R2-1。**本タスクが TC-22b の所有者**）
+- [ ] Step 2: **同一コミットで TC-22b（matcher に `Edit`/`Write` が無い）を新規 extras に追加する**（R2-1。**本タスクが TC-22b の所有者**）
 - [ ] Step 3: **注記キーが残っている**こと（top-level に未知キーがあり Codex に読まれない状態）を確認する
 - [ ] Step 4: `hooks/list` が **依然として PlanGate hook 0 件・同一 warning** であることを確認する（＝有効化されていないことの確認）
 - [ ] Step 5: `sh tests/run-tests.sh` 全体 GREEN を確認する
@@ -419,8 +526,22 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 - [ ] Step 2: Stage 3 で発生する deny の範囲（本 plan の実測表 + Task 1 で再現済みのログ）を提示する
 - [ ] Step 3: `trusted_hash` の付与手順（編集後に hash が変わるため再 trust が要る）を提示する
 - [ ] Step 4: **U-4 の未解決状態と、AC-07 が WARN に終わりうること**を明示して提示する
-- [ ] Step 5: **AC-07 の実走 1 回（課金あり・`--dangerously-bypass-hook-trust` を付けない）の可否**について Human の判断を得る
-- [ ] Step 6: 🚩 **チェックポイント**: Human の承認が得られるまで **todo T-06**（注記キー除去）に進まない
+- [ ] Step 5: **TC-18（EH-6 の deny）が課金ゼロで再現できたか**を提示する。
+      再現できていない場合は「**配線 5 本のうち 1 本は deny 経路が未検証のまま有効化することになる**」旨を判断材料に含める（Model A 補足）
+- [ ] Step 6: 🔴 **一体の設問として**可否を得る（**分割して答えられない形にする** / R3-F1）
+- [ ] Step 7: 🚩 **チェックポイント**: 上記の一体承認が得られるまで **`todo T-05b` にも `todo T-06` にも進まない**
+
+**H-01 の設問（この形で 1 回だけ問う）**:
+
+> **「サンドボックス実走 1 回（課金あり・bypass 無し）を許可し、その結果が PASS だった場合に限り
+> `.codex/hooks.json` の注記キー除去（不可逆な有効化）まで進めてよいか？」**
+>
+> - **Yes** → `todo T-05b` を実行 →（AC-07 = PASS のときのみ）`todo T-06`
+> - **No** → **実走も有効化も行わない**。AC-07 = WARN で終端 B に着地させる
+>
+> 🔴 **「有効化は可・実走は不可」という承認を成立させない**（R3-F1）。
+> それを許すと **証拠ゼロのまま不可逆な有効化だけが実行される**（旧版で成立していた最悪経路）。
+> 逆の「実走は可・有効化は不可」は**許される**（AC-07 を確定させて終端 B に着地する選択であり、安全側）。
 
 **Completion Criteria**: Human の可否判断が `status.md` に記録されている
 
@@ -435,6 +556,23 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 - [ ] Step 1: `CODEX_HOME/config.toml` の `[hooks.state."<abs>/.codex/hooks.json:pre_tool_use:<i>:<j>"] trusted_hash` の書式を記す
 - [ ] Step 2: **hash は hook 単位**（同一ファイル内の別 matcher group は個別）である点を明記する（evidence L74 実測）
 - [ ] Step 3: **`trusted_hash` は `CODEX_HOME` ごとのローカル状態であり、リポジトリに乗らない**ことを明記する（下記 ❗）
+- [ ] Step 4: 🔴 **`trusted_hash` の対象範囲を実測する**（R3-F4。**書式を書き写すだけで終わらせない**）:
+      1. サンドボックスで hook を `trusted` にする
+      2. **`.codex/hooks.json` を変更せず `.codex/hooks/eh-bridge.sh` の内容だけを 1 行変更**する
+      3. `hooks/list` を再取得し、`trustStatus` が `trusted` のままか `untrusted` に落ちるかを観測する
+- [ ] Step 5: 結果を doc に反映する
+      - **`untrusted` に落ちる** → bridge 内容も hash 対象。**再 trust プロンプトが AI 改変の検出層になる**
+      - **`trusted` のまま** → 🔴 **bridge 内容は hash 対象外**。すなわち
+        **trusted 済み環境では、AI が `eh-bridge.sh` を 1 行書き換えるだけで、再 trust も HO block も無しに
+        Codex 側の全強制力を無効化できる**。これを**限界として doc に明記**する（AC-09）
+
+❗ **なぜ実測が要るか（R3-F4）**: `trusted_hash` の鍵は
+`…/.codex/hooks.json:pre_tool_use:<i>:<j>` 単位で、指しているのは hooks.json の **`command` 文字列**である
+（実測: `command` は `sh "$(git rev-parse --show-toplevel)/.codex/hooks/eh-bridge.sh" <hook>.sh`）。
+**bridge スクリプトの内容が hash に含まれるかは、どの証跡にも書かれていない**。
+一方 `todo T-06` 以後、この bridge は**強制力の実体そのもの**であり、Task 6（AC-09）は
+「`.codex/hooks/*.sh` は既存改変も **AI-owned**・技術層の強制なし」と確定させる。
+**この 2 つが同時に成り立つと、AI が単独で強制力を消せる経路が残る**。実測して doc に書く。
 
 ❗ **配布境界（R-F17 / AC-09 に含める）**: `trusted_hash` は各利用者の `CODEX_HOME/config.toml` にあり、**git 管理下にない**。
 したがって **main にマージした時点で、著者以外の全クローンは「hook は登録される / 発火するかは不明」状態に入る**。
@@ -445,7 +583,42 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 
 **Rollback**: 不要（文書のみ）
 
-### Task 5b（todo T-06）: 注記キー除去＝有効化（🔴 唯一の不可逆ステップ）
+### Task 5a-2（todo T-05b）: 🔴 サンドボックス実走で AC-07 を確定（**不可逆ステップの前**）
+
+**Purpose**: **実リポジトリの kill switch を撤去せずに L-C（ランタイム発火）を確定する**。
+これが `todo T-06` の実行可否を決める唯一の判断材料になる（EIC 不変条件）。
+
+**Files**: なし（サンドボックスは `mktemp -d` / 実リポジトリは読み取りのみ）
+
+**Steps**:
+
+- [ ] Step 1: `mktemp -d` に **git init 済みサンドボックス**を作り、隔離 `CODEX_HOME` を用意する（既存 spike と同方式）
+- [ ] Step 2: **実リポジトリの `.codex/hooks/eh-bridge.sh`（T-02 修正後）と `scripts/hooks/*.sh` をそのまま複製**する（改変しない）
+- [ ] Step 3: サンドボックスの `.codex/hooks.json` を **`todo T-06` 適用後の目標形と同一内容**にする。
+      🔴 **手で書き起こさず、実リポジトリの `.codex/hooks.json` から「top-level の未知キーを除去する」変換だけで機械的に導出する**
+      （`todo T-04` 適用済みなので matcher は既に目標形。**差分は top-level キーのみ**であり、同値性が検証可能になる）。
+      導出に使ったコマンドと生成物の diff を evidence に残す
+- [ ] Step 4: `hooks/list` で 5 件・`warnings[]` 空・`trustStatus` を確認し、`trusted_hash` を付与する
+- [ ] Step 5: **`codex exec` を 1 回**実行する。🔴 **`--dangerously-bypass-hook-trust` を付けない** /
+      非 `--ephemeral` / deny 対象を先 / 「ブロックされても retry しない」を prompt に明示
+- [ ] Step 6: 判定する
+      - **block を観測 → AC-07 = PASS**（`todo T-06` に進んでよい）
+      - **block を観測できない → AC-07 = WARN**（🔴 **`todo T-06` に進まない**。**bypass を付けて再走しない**）
+- [ ] Step 7: いずれの場合も証跡（コマンド全文 / `hooks/list` の `trustStatus` / stderr / `--json` / ファイル実在）を
+      `evidence/verification/` に保存する
+
+**Completion Criteria**: AC-07 が **PASS または WARN** として確定し、**その判定が `todo T-06` の実行可否として `status.md` に記録されている**
+
+**Rollback**: サンドボックスを削除するだけ（**実リポジトリは無変更**）
+
+> **なぜサンドボックスで足りるか**: 実リポジトリとの差分は「hooks.json の内容」と「trust エントリのパス」だけであり、
+> 前者は **TC-22a / TC-22b が静的に同値性を検査**し、後者は **どの環境でも個別に必要**（R-7 として doc 明記済み）。
+> bridge と hook 本体は**同一ファイルを複製**しているため、L-C の成立条件は移送できる。
+>
+> **なぜ実リポジトリで先に有効化しないか**: 有効化は**不可逆**（kill switch の撤去）であり、
+> AC-07 が WARN に終わった場合に「登録済み・実効 0」という**本 PBI が潰そうとしている状態そのもの**を作るため。
+
+### Task 5b（todo T-06）: 注記キー除去＝有効化（🔴 唯一の不可逆ステップ / **AC-07 PASS が前提**）
 
 **Purpose**: `$schema_note` / `$note` を `description` に寄せ、hook を登録・発火させる。
 
@@ -453,16 +626,17 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 
 **Steps**:
 
+- [ ] Step 0: 🔴 **ゲート**: **`todo T-05b` で AC-07 が PASS** かつ **`H-01` の承認済み**であることを確認する。
+      **どちらか一方でも欠けていれば本タスクを実行しない**（EIC 不変条件）
 - [ ] Step 1: top-level を `description` / `hooks` の 2 キーのみにする
-- [ ] Step 2: `hooks/list` で **登録件数 5・`warnings[]` 空・`enabled` true** を確認する（**前提条件 P-1 の確認であって成果ではない**）
-- [ ] Step 3: `matcher` 文字列と件数を記録する（U-7 の観測。**gate ではない**）
-- [ ] Step 4: `trustStatus` を確認し、`trusted` でなければ `trusted_hash` を付与して再確認する
-- [ ] Step 5: Task 4（H-01）で承認された場合のみ、`codex exec` を **1 回**実行して block 証跡を取得する。
-      **必須条件**: **`--dangerously-bypass-hook-trust` を付けない** / 非 `--ephemeral` / deny 対象を先 / 「ブロックされても retry しない」を prompt に明示
-- [ ] Step 6: stderr に `Command blocked by PreToolUse hook:` が出ていること、**対象ファイルが生成されていないこと**の 2 点を証跡として保存する
-- [ ] Step 7: **block が観測できなかった場合**は「AC-07 = WARN」として、以下を記録する（**PASS にしない・再走で bypass を付けない**）:
-      (a) 使用したコマンドと `hooks/list` の `trustStatus` / (b) **U-4 が「否定」側に動いた**こと /
-      (c) `trusted_hash` の実行時有効性の検証を **S-4 の前提**として申し送ること
+- [ ] Step 2: **同一コミットで TC-22a の宣言 stage を `disabled` → `enabled` に更新する**（R3-F3。下記 ❗）
+- [ ] Step 3: `hooks/list` で **登録件数 5・`warnings[]` 空・`enabled` true** を確認する（**前提条件 P-1 の確認であって成果ではない**）
+- [ ] Step 4: `matcher` 文字列と件数を記録する（U-7 の観測。**gate ではない**）
+- [ ] Step 5: `trustStatus` を確認し、`trusted` でなければ `trusted_hash` を付与して再確認する
+- [ ] Step 6: `sh tests/run-tests.sh` 全体 GREEN を確認する（TC-22a が `enabled` 分岐で PASS すること）
+
+❗ **宣言 stage（`PG_EXPECTED_STAGE`）の更新は本タスクの一部**である。更新を忘れるとスイートが RED になるため、
+**「有効化したのに宣言を直し忘れる」ことが機械的に検出される**（＝ 宣言と実体の drift 検出。R3-F3）。
 
 > 🔴 **bypass 付きの block 観測を AC-07 の根拠にしてはならない**（R-F01）。
 > `evidence/codex-exec-spike.md` の 3 回の実走で block が観測できたのは **すべて `--dangerously-bypass-hook-trust` 付き**であり、
@@ -470,7 +644,14 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 > bypass 付きの結果は「bridge の deny が Codex に正しく伝わる」ことの証明にはなるが、
 > **「通常運用で強制力がある」ことの証明にはならない**。両者を混同した記述を handoff / doc に書かない。
 
-**Completion Criteria**: AC-01〜AC-05・AC-10〜AC-12 が PASS / **前提条件 P-1 が充足** / AC-07 が PASS または **WARN（理由・代替・未充足リスクを記録）**
+**Completion Criteria**: **AC-07 が PASS である**（WARN のまま本タスクを完了させることはできない）/
+AC-01〜AC-05・AC-10〜AC-12 が PASS / **前提条件 P-1 が充足** / 宣言 stage が `enabled` に更新済み
+
+**本タスクを実行しない場合（AC-07 = WARN）の終端処理**:
+
+- `.codex/hooks.json` は **注記キーを保持したまま**（kill switch 継続）。宣言 stage は `disabled` のまま。
+- **完了条件は「AC-01〜05・08〜12 が PASS ＋ AC-07 が WARN ＋ T-06 未実行」で満たされる**（これが終端 B）。
+- doc（AC-09）と handoff に「**Codex 側の強制力は未有効化（現状維持）。理由は U-4 未解決**」と明記する。
 
 **Rollback**:
 
@@ -501,13 +682,13 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 
 | 種別 | コマンド / 確認方法 | 期待結果 | Evidence 保存先 |
 |---|---|---|---|
-| **スイート全体（必須）** | **`sh tests/run-tests.sh`** | **exit 0 かつ出力に `TA-65` が現れる**（= loader に拾われた証明） | `evidence/verification/` |
-| Unit（bridge I/O） | `sh tests/extras/ta-65-codex-bridge-io.sh`（standalone 経路） | 共有 exit 契約どおり（0 / 1 / 2 / 3） | `evidence/verification/` |
+| **スイート全体（必須）** | **`sh tests/run-tests.sh`** | **exit 0 かつ出力に一意マーカー `PG_TA_CODEX_BRIDGE_IO_V1` が現れる**（= loader に拾われた証明。**番号で判定しない** / R3-F5） | `evidence/verification/` |
+| Unit（bridge I/O） | `sh tests/extras/ta-67-codex-bridge-io.sh`（standalone 経路） | 共有 exit 契約どおり（0 / 1 / 2 / 3） | `evidence/verification/` |
 | 既存テスト非回帰 | `sh tests/run-tests.sh` の `TA-15` セクション | Task 2 実施後も PASS | `evidence/verification/` |
-| 変異注入 | Task 2b の **5 変異**（1 / 2 / 3 / 4a / 4b）を個別適用 | **想定した TC が FAIL** する | `evidence/verification/` |
+| 変異注入 | Task 2b の **6 変異**（1 / 2 / 3 / 4a / 4b / 5）を個別適用 | **想定した TC が FAIL** する | `evidence/verification/` |
 | 登録状態（**前提条件 P-1**） | `codex app-server` の `hooks/list` | 5 件 / `warnings` 空 / `enabled` / `trustStatus` | `evidence/verification/` |
 | ランタイム block | `codex exec` 1 回（Human 承認時のみ・**bypass フラグ無し**） | stderr に `Command blocked by PreToolUse hook:` / 対象ファイル不在 | `evidence/verification/` |
-| 非回帰（Claude 側） | `git diff $(git merge-base HEAD origin/main) -- scripts/hooks .claude` | 差分 0 | `evidence/verification/` |
+| 非回帰（Claude 側） | `git diff $(git merge-base HEAD origin/main) -- scripts .claude`（🔴 **`scripts` 全体**。`scripts/hooks` だけにしない / R3-F7d） | 差分 0 | `evidence/verification/` |
 | Lint | `npx markdownlint-cli2 docs/working/TASK-1078/*.md` | 本 PBI 由来 0 件 | `evidence/verification/` |
 
 > **非回帰 diff の基点（R-F14）**: `git diff origin/main` は **origin/main が進むたびに結果が変わる動く基点**であり、
@@ -546,6 +727,12 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 | **R-8** | **`PLANGATE_HOOK_TASK` が設定された Codex セッションでは EH-3 の HO block が発火しない**（[#1089](https://github.com/s977043/plangate/issues/1089)。HO 判定が `if [ -z "$task_id" ]` の内側） | 本 PBI では**直さない**（`scripts/hooks/*.sh` = HO / Human-owned）。**限界として doc と handoff に明記**し、TC で現状挙動を固定する（TC-20） |
 | **R-9** | **複数ファイル `apply_patch` で 2 件目以降のパスが検査されない**（`eh-bridge.sh:50` の `re.search`）。有効化と同時に「穴の空いたガード」を出荷する | Task 2 Step 8 で**全件抽出 + 1 件でも deny なら deny**。実装困難時は「複数パスは deny」の fail-closed 代替。**allow に倒さない**（TC-19 / AC-10） |
 | **R-10** | 是正が新しい穴を作る（hook 解決先を env で差し替え可能にする等） | **bridge に解決先 override を新設しない**。テストは**サンドボックスへ bridge を複製**して `REPO_ROOT` を移す方式で行う（Task 1 の設計） |
+| 🔴 **R-11** | **不可逆な有効化が証拠より先に来る**（旧版の既定の着地が「AC 全 PASS・登録済み・実効 0」だった） | **EIC 不変条件**: AC-07 は**サンドボックス実走**（T-05b）で取得し、**PASS のときのみ T-06 を実行**。WARN なら kill switch 保持で終端 B。**「AC-07 WARN かつ T-06 実行済み」を完了条件違反と明記**（R3-F1） |
+| 🔴 **R-12** | **deny の reason が JSON エスケープされず、不正 JSON → 黙った allow** に化ける（`\`・制御文字が素通り / `head -c` がバイト単位で日本語を割る） | 出力 JSON を**シリアライザで生成**・**文字境界を守る切り詰め**・**全 deny TC に `json.loads` 可能性の assertion**・**変異 5** で検出力を実証（R3-F2 / AC-05 を拡張） |
+| 🔴 **R-13** | **kill switch がテストから不可視**で、マージ後に誰かが top-level へ 1 行足すと**全 AC 緑のまま Codex 側強制力が全滅**する | TC-22a を **「宣言 stage（`PG_EXPECTED_STAGE`）vs 実体」の drift 検出**に変える。**どちらの向きの乖離も FAIL**（R3-F3） |
+| 🔴 **R-14** | **`trusted_hash` に bridge 内容が含まれない**なら、trusted 済み環境で **AI が bridge を 1 行書き換えるだけで強制力を消せる**（Task 6 は `.codex/hooks/*.sh` を AI-owned と確定させる） | **T-05 Step 4 で実測**し、含まれないなら**限界として doc に明記**（AC-09）。含まれるなら再 trust プロンプトが検出層になる（R3-F4） |
+| **R-15** | **`$(git rev-parse --show-toplevel)` は CWD 依存**（hooks.json の `command` 実測）。ネスト repo / submodule / 別 worktree では**別リポジトリの bridge が解決されうる** | 本 PBI では**挙動を変えない**（hooks.json の command を書き換えるとスコープが広がるため）。**限界として doc に明記**し、**S-3 の doctor / CI 検査項目候補**として申し送る（R3-F7a） |
+| **R-16** | **`PLANGATE_BYPASS_HOOK=1` は被規制主体である agent 自身が設定できる**。強制力回復の主張の強度を下げる | 本 PBI では**escape hatch を維持**（緊急 rollback 手段として必要）。ただし **E-7 は「生存確認」であって安全性の証明ではない**と doc に明記し、**強制力の主張から除外**する（R3-F7c） |
 
 ## 責務分界（本 PBI の提案）
 
@@ -591,9 +778,10 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 | 0 | Task 1 / 1b | T-01 / T-00 | **なし**（テスト追加・既存テスト是正のみ） | ファイル削除 / `git checkout` |
 | 1 | Task 2 / 2b | T-02 / T-03 | **なし**（top-level 未知キーにより未読込＝未登録） | `git checkout` |
 | 2 | Task 3 | T-04 | **なし**（同上。TC-22b を同一コミットで導入） | `git checkout` |
-| 3a | Task 5a | **T-05** | なし（文書のみ） | 不要 |
-| **G** | **Task 4** | **H-01** | — | 判断のみ（**T-05 の後**） |
-| 3b | **Task 5b** | **T-06** | 🔴 **あり（唯一の有効化）** | **top-level に未知キーを 1 行足して全件無効化** / `git revert` / `PLANGATE_BYPASS_HOOK=1` |
+| 3a | Task 5a | **T-05** | なし（文書のみ + `trusted_hash` 範囲の実測） | 不要 |
+| **G** | **Task 4** | **H-01** | — | 判断のみ（**T-05 の後・実走と有効化を一体で承認**） |
+| **3a-2** | **Task 5a-2** | **T-05b** | **なし**（サンドボックス実走。実リポジトリ無変更） | サンドボックス削除 |
+| 3b | **Task 5b** | **T-06** | 🔴 **あり（唯一の有効化）**。**AC-07 PASS のときのみ実行** | **top-level に未知キーを 1 行足して全件無効化** / `git revert` / `PLANGATE_BYPASS_HOOK=1` |
 | 4 | Task 6 | T-07 | なし（doc） | `git checkout` |
 
 ## 後続への申し送り（S-2 に含めない理由つき）
@@ -612,6 +800,14 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 - **`scripts/` フォールバック（本 PBI で実装するが到達しない経路）**: EH-13 / EH-12 を配線しないため、
   `scripts/hooks/` に無く `scripts/` にある hook は**当面存在しない**。本 PBI では **S-7 の前準備として実装し、stub で AC-12 として検証**する
   （実配線時に「解決できず全 deny」になる事故を先に潰す）。**実配線は S-7**。
+- **`$(git rev-parse --show-toplevel)` の CWD 依存（S-3 候補 / R3-F7a）**: `.codex/hooks.json` の 5 つの `command` は
+  すべて `sh "$(git rev-parse --show-toplevel)/.codex/hooks/eh-bridge.sh" <hook>.sh` の形（実測）。
+  **ネスト repo / submodule / 別 worktree では別リポジトリの bridge が解決されうる**。
+  本 PBI では **`command` 文字列を変更しない**（変更するとスコープが広がり、`trusted_hash` も全件無効化される）。
+  **限界として doc に明記し、doctor / CI 検査の候補として S-3 へ申し送る**。
+- **`PLANGATE_BYPASS_HOOK=1` の悪用面（R3-F7c）**: 本 escape hatch は**被規制主体である agent 自身が設定できる**。
+  緊急 rollback 手段として**維持する**が、**E-7 は「生存確認」であって安全性の証明ではない**。
+  **強制力の主張から明示的に除外**する（doc に明記）。恒久的な扱いは別 PBI。
 - **`PLANGATE_HOOK_STRICT` の既定**: 現状 warning 既定であるため、EH-1 / EH-2 / EH-6 は本 PBI 完了後も
   **Codex 側で block しない**。「11 wiring 分の強制力が揃った」とは主張できない。この差は別 PBI で扱う。
 
@@ -620,9 +816,10 @@ L-C は「S-2 で確定できれば望ましい」が、**確定できなかっ�
 ### Success Criteria
 
 - **AC-01〜AC-05・AC-07〜AC-12**（[`pbi-input.md`](./pbi-input.md)。**AC-06 は前提条件 P-1 へ移動・欠番**）
-  ↔ [`test-cases.md`](./test-cases.md) の **TC-01〜TC-23**（TC-22 は **TC-22a / TC-22b** に分割）
+  ↔ [`test-cases.md`](./test-cases.md) の **TC-01〜TC-24**（TC-22 は **TC-22a / TC-22b** に分割）
   - **AC 対応を持たない TC**: **TC-13**（前提条件 P-1 の確認手順）/ **TC-20**（#1089 の限界を現状固定・**あるべき挙動ではない**）
-  - **エッジケース**: E-1〜E-10（**E-3'** / **E-9a・E-9b** を含む）
+  - **エッジケース**: E-1〜E-12（**E-3'** / **E-9a・E-9b** / **E-11・E-12** を含む）
+- **終端条件**: 上記に加え **EIC 不変条件**（AC-07 = WARN なら `todo T-06` 未実行）を満たすこと
 - Completion boundary（「S-2 の完了の定義」の再掲）:
   - **必達**: **bridge が deny すべき入力に deny を返す**ことを課金ゼロで実証（L-A）
   - **前提**: `hooks/list` の登録（P-1。成果として主張しない）
