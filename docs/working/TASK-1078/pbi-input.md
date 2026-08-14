@@ -77,7 +77,14 @@ issue #1078 が潰そうとしている「**登録 ≠ 強制力**」の誤り�
       （実リポジトリの `eh-bridge.sh` と `scripts/hooks/*.sh` をそのまま複製し、hooks.json は有効化後の目標形と同一内容にする）。
       🔴 **本 AC の判定が「注記キー除去（不可逆な有効化）を実行してよいか」を決める**。
       **PASS のときのみ有効化してよく、WARN なら有効化しない**（EIC 不変条件）。
-      **必須条件: 当該実走で `--dangerously-bypass-hook-trust` を使わない**（使った場合は PASS にしない）。
+      **必須条件 1: 当該実走で `--dangerously-bypass-hook-trust` を使わない**（使った場合は PASS にしない）。
+      🔴 **必須条件 2（env の固定）: `PLANGATE_HOOK_STRICT` を本番既定（未設定）のままにする**。
+      **STRICT を上げれば EH-1 / EH-2 が広く deny するため block は容易に取れるが、
+      plan 自身が「STRICT 既定 warning のため S-2 完了後も EH-1/2/6 は Codex で block しない」と書いている以上、
+      それは「サンドボックスで PASS・本番で実効ゼロ」を意味する**。**STRICT を上げないと block が取れないなら AC-07 = WARN**。
+      deny 対象は **実運用に実在する条件**（EH-9 × `NOCOMMIT=1`、または EH-3 HO × `HOOK_TASK` 未設定）に固定し、
+      **使用 env 一式を evidence に逐語で残す**。
+      **AC-07 = PASS は「常に block する」ではなく「その運用条件で block する」を意味し、条件を doc に列挙する**。
       取得には `codex exec` の実走 1 回を要するため **Human の明示承認**を前提とする。
       承認が得られない場合、または **bypass 無しでは発火しなかった場合**は AC-07 を **WARN（未達・理由記録）** とし、
       `settings-wiring-contract.md` の軸 C を「**bridge 単体では deny を返すところまで実証／ランタイム発火は未実証（U-4）**」と明記する
@@ -85,7 +92,8 @@ issue #1078 が潰そうとしている「**登録 ≠ 強制力**」の誤り�
       🔴 **`scripts/hooks` に絞らない** — `scripts/` 直下フォールバックを新設するため。**基点は `git merge-base HEAD origin/main` で固定**する）
 - [ ] **AC-09**: `docs/ai/settings-wiring-contract.md` の「既存 hook 改変は Human-owned」の適用範囲が**パス単位で一意に読める**記述になる。
       あわせて **S-2 の強制力の限界**が明記される:
-      (a) bridge 単体 / (b) ランタイム発火の状態（**終端 A なら実証済み・終端 B なら「未有効化・現状維持」**）/
+      (a) bridge 単体 / (b) ランタイム発火の状態（**終端 A1 = 実リポジトリで実測 / 終端 A2 = サンドボックス実測・実リポジトリ未観測 /
+      終端 B = 未有効化・現状維持**。**A2 を「実リポジトリで block する」と書かない**）/
       (c) **`trusted_hash` 未設定環境は対象外** / (d) **TASK 文脈下の HO block は #1089 のため効かない** /
       (e) 🔴 **`trusted_hash` に bridge 内容が含まれるかの実測結果**（含まれないなら「trusted 済み環境では AI が bridge 改変で強制力を消せる」）/
       (f) **`$(git rev-parse --show-toplevel)` の CWD 依存**（ネスト repo / submodule / 別 worktree で別リポジトリの bridge が解決されうる）/
@@ -116,9 +124,11 @@ issue #1078 が潰そうとしている「**登録 ≠ 強制力**」の誤り�
 - **AC-01〜AC-05・AC-08〜AC-12 が PASS**
 - **AC-07 が PASS、または WARN（理由・代替・未充足リスクを記録）**
 - 🔴 **EIC 不変条件: 「AC-07 が WARN かつ 注記キー除去（有効化）を実行済み」は完了条件違反（FAIL）**。
-  終端は次の 2 つのいずれかでなければならない:
-  - **終端 A**: AC-07 = PASS / 有効化済み / `hooks/list` 5 件 / 宣言 stage = `enabled`
-  - **終端 B**: AC-07 = WARN / **未有効化** / `hooks/list` **0 件**（kill switch 保持）/ 宣言 stage = `disabled`
+  終端は次のいずれかでなければならない:
+  - **終端 A1**: AC-07 = PASS / 有効化済み / **実リポジトリでの発火を観測**（確認実走 2 回目）/ `hooks/list` 5 件
+  - **終端 A2**: AC-07 = PASS / 有効化済み / **実リポジトリ未観測**（doc に「サンドボックス実測／実リポジトリ未観測」と明記）/ `hooks/list` 5 件
+  - **終端 B**: AC-07 = WARN / **未有効化** / `hooks/list` **0 件**（kill switch 保持）/ 宣言 stage = `disabled` /
+    **回復経路（U-4 の観測結果と再開条件）が issue として起票済み**
 - **前提条件 P-1 は終端 A の場合のみ充足**（成果としては報告しない）
 - `scripts/**` / `.claude/**` に差分 0
 - `handoff.md` が必須 6 要素を満たして発行済み

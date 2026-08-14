@@ -14,9 +14,11 @@
 
 ```text
 T-00 ─┐
-T-01 ─┴→ T-02 ─→ T-03 ─→ T-04 ─→ T-05 ─→ H-01(👤 Gate) ─→ T-05b ─[AC-07 PASS のみ]→ T-06 ─→ T-08 ─→ T-09
-                                                              └─[AC-07 WARN]→ T-06 を実行せず T-08 へ（終端 B）
-T-07（doc）は T-02 完了後いつでも可・H-01 に依存しない
+T-01 ─┴→ T-02 ─→ T-03 ─→ T-04 ─→ T-05 ─→ H-01(👤 Gate) ─→ T-05b ─[AC-07 PASS]→ T-06 ─→ T-06b* ─→ T-08 ─→ T-09
+        │                                                     └─[AC-07 WARN]→ T-06 を実行せず T-08 へ（終端 B）
+        └→ T-05b は T-02 にも直接依存（複製する bridge は T-02 修正後のもの / R4-F6）
+T-07（doc）は T-02, T-05, T-05b に依存（AC-09 の記述が AC-07 と hash 範囲の結果に依存するため）
+*T-06b は H-01 で「合計 2 回」が承認された場合のみ（未承認なら終端 A2）
 H-02(👤 C-3) は exec 開始前・H-03(👤 C-4) は全タスク完了後
 ```
 
@@ -121,7 +123,9 @@ AC-07 が WARN → T-06 を実行しない → kill switch 保持 → 「Codex �
   - 変異は **call site（bridge の該当行）を壊す**。テスト側の期待値を書き換えて FAIL を作らない
   - **FAIL を起こせなかった TC は「空振り」として handoff の乖離帯に記録する**
   - 変異 5: reason のシリアライザ生成を文字列連結に戻す → **TC-24 が FAIL** すること（R3-F2）
-  - 🚩 チェックポイント: **6 変異（1 / 2 / 3 / 4a / 4b / 5）とも FAIL** を確認し、**元に戻したうえで GREEN** を再確認する
+  - 変異 6: 静的リテラルへの退避経路を削る（生成器失敗時に空出力）→ **TC-25 の deny ケースが FAIL**（R4-F5）
+  - 変異 7: hook 解決の探索順を入れ替える（`scripts/` を先に）→ **E-4 / AC-12 が FAIL**（Model A 残指摘。AC-12 に変異が無かった）
+  - 🚩 チェックポイント: **8 変異（1 / 2 / 3 / 4a / 4b / 5 / 6 / 7）とも FAIL** を確認し、**元に戻したうえで GREEN** を再確認する
   - `rollback:` 変異は一時適用のみ。`git checkout -- .codex/hooks/eh-bridge.sh` で復帰
 
 - [ ] **T-04**: matcher の死に文字列除去（**可逆・H-01 不要**）
@@ -148,12 +152,19 @@ AC-07 が WARN → T-06 を実行しない → kill switch 保持 → 「Codex �
   - `rollback:` 不要（手順記述のみ・`CODEX_HOME` 側の設定変更は Human が実施）
 
 - [ ] **T-05b**: 🔴 サンドボックス実走で **AC-07 を確定**（**T-06 の前**・課金あり 1 回）
-  - owner: agent / depends_on: **H-01（承認）** / AC: AC-07
+  - owner: agent / depends_on: **H-01（承認）, T-02**（🔴 **T-02 を直接エッジにする** / R4-F6。
+    「複製する bridge は T-02 修正後のもの」が実質前提だが、旧版は `H-01` のみで**未修正 bridge で AC-07 を取る余地**が形式上残っていた。
+    **未修正 bridge でも EH-3 の rc=2 経路だけは deny する＝ PASS が取れてしまう**）/ AC: AC-07
+  - 🔴 **複製した bridge の SHA-256 を evidence に残す**（どの bridge で AC-07 を取ったかを事後に検証可能にする / R4-F6）
   - `mktemp -d` の git init 済みサンドボックス + 隔離 `CODEX_HOME` を用意する
   - **実リポジトリの `.codex/hooks/eh-bridge.sh`（T-02 修正後）と `scripts/hooks/*.sh` をそのまま複製**する（改変しない）
-  - サンドボックスの `hooks.json` を **T-06 適用後の目標形と同一内容**にする（実リポジトリの `.codex/hooks.json` は**変更しない**）
+  - サンドボックスの `hooks.json` は **導出スクリプトで機械生成**し、**`diff` が空であることを assertion にする**（TC-26 / R4-F2）。
+    実リポジトリの `.codex/hooks.json` は**変更しない**
   - `hooks/list` で 5 件・`warnings[]` 空を確認し `trusted_hash` を付与する
   - `codex exec` を **1 回**。🔴 **`--dangerously-bypass-hook-trust` を付けない** / 非 `--ephemeral` / deny 対象を先 / retry 禁止を明示
+  - 🔴 **env を TC-14 の表どおりに固定する**（R4-F1）: **`PLANGATE_HOOK_STRICT` は未設定**（本番既定）/ `PLANGATE_BYPASS_HOOK` 未設定 /
+    ケース α（`NOCOMMIT=1` で EH-9）またはケース β（`HOOK_TASK` 未設定で EH-3 HO）のいずれかに固定。
+    **STRICT を上げて取った block は AC-07 の根拠にできない**（取れても WARN）
   - **block を観測 → AC-07 = PASS（T-06 へ進んでよい）** / **観測できない → AC-07 = WARN（T-06 に進まない・bypass で再走しない）**
   - 🚩 チェックポイント: 判定を **T-06 の実行可否として `status.md` に記録**する
   - `rollback:` サンドボックスを削除するだけ（**実リポジトリは無変更**）
@@ -170,7 +181,9 @@ AC-07 が WARN → T-06 を実行しない → kill switch 保持 → 「Codex �
   - ⚠️ **本タスクで `codex exec` は実行しない**（実走は T-05b で完了済み。**課金実走は S-2 全体で 1 回**）
   - 🔴 **bypass 付きで得た block を AC-07 の根拠にしない**（既存 evidence の block はすべて bypass 付き＝ U-4 未解決）
   - **参考: T-05b で block が観測できなかった場合**は AC-07 を **WARN** とし、(a) 使用コマンドと `trustStatus` /
-    (b) **U-4 が否定側に確定したこと** / (c) `trusted_hash` の実行時有効性検証を **S-4 の前提**とすること、を記録する。
+    (b) **「サンドボックス条件下では未発火。U-4 は依然未解決（trust 付与経路の差が残る）」**
+    （🔴 **「U-4 が否定に確定」と書かない** — 過剰主張 / R4-F3）/
+    (c) `trusted_hash` の実行時有効性検証を **S-4 の前提**とすること、を記録する。
     **bypass を付けて再走しない**
   - 🚩 チェックポイント: **登録件数を成果として報告しない**
   - `rollback:`
@@ -179,8 +192,19 @@ AC-07 が WARN → T-06 を実行しない → kill switch 保持 → 「Codex �
     2. `git revert <T-06 commit>`
     3. 緊急時は `PLANGATE_BYPASS_HOOK=1`
 
+- [ ] **T-06b**: 実リポジトリでの確認実走（**終端 A1 にするための 2 回目・Human 承認時のみ**）
+  - owner: agent / depends_on: **T-06** / AC: AC-07 の強度向上（**AC の合否は変えない**）
+  - **TC-14 と同一の env・同一の deny 対象**で `codex exec` を 1 回（bypass 無し / 非 `--ephemeral` / retry 禁止）
+  - block を観測 → **終端 A1** / 観測できず → **終端 A2 の文言 + 「実リポジトリでは未発火」を明記**
+  - ⚠️ **H-01 で「合計 2 回まで」が承認された場合のみ実施**。承認が 1 回のみなら**本タスクをスキップし終端 A2 で閉じる**
+  - **EIC に反しない**: EIC は「証拠より先に不可逆操作をしない」ための不変条件であり、**不可逆操作の後に証拠を増やすことは禁じていない**
+  - `rollback:` 不要（観測のみ）
+
 - [ ] **T-07**: 責務分界の曖昧さ解消（doc）
-  - owner: agent / depends_on: T-02 / AC: AC-09
+  - owner: agent / depends_on: **T-02, T-05, T-05b**（🔴 Model A 残指摘。
+    AC-09 の **(b) ランタイム発火の状態は AC-07（T-05b）**、**(e) `trusted_hash` の hash 範囲は T-05 Step 4** の結果に依存する。
+    `depends_on` を正本と宣言している以上、**早期完了させると未確定事項を断定した doc が残る**）/ AC: AC-09
+  - **T-06b を実施した場合は、その結果（終端 A1 / A2）を doc の文言に反映してから最終化する**
   - `docs/ai/settings-wiring-contract.md` の責務分界節を**パス単位の表**へ置換し、機械判定（HO 9 カテゴリに `.codex` が無いこと）との一致を明記する
   - **軸 C（強制力）に S-2 の限界 4 点を書く**:
     (a) bridge 単体の deny は実証済み / (b) ランタイム発火は AC-07 の結果に従う（WARN なら「未実証」と書く）/
@@ -201,8 +225,13 @@ AC-07 が WARN → T-06 を実行しない → kill switch 保持 → 「Codex �
 - [ ] **T-09**: status.md 追記 / handoff.md 発行
   - owner: agent / depends_on: T-08
   - `status.md` は**既存記述を改変せずフェーズ履歴を追記**する（S-1 の記録は別ワーカーの成果）
-  - **どちらの終端に着地したかを明記**する: **終端 A**（AC-07 PASS・T-06 実行・有効化済み）/
-    **終端 B**（AC-07 WARN・T-06 未実行・**kill switch 保持＝ Codex 側は現状維持**）
+  - **どちらの終端に着地したかを明記**する: **終端 A1**（実リポジトリで発火観測あり）/ **終端 A2**（サンドボックスのみ・実リポジトリ未観測）/
+    **終端 B**（AC-07 WARN・T-06 未実行・**kill switch 保持＝ Codex 側は現状維持**）。**plan の終端表の文言をそのまま使う**
+  - 🔴 **終端 B の場合、回復経路を「実体」にする**（R4-F7。**申し送り文だけにしない**）:
+    1. **U-4 の否定的観測（サンドボックス条件下で未発火）と再開条件を issue に反映する**
+       （S-4 の受入基準へ追記、または新規 issue を起票して S-4 から参照する）
+    2. **再開条件を明記**する: 「`trusted_hash` の実行時有効性が確認できたら T-06 から再開」
+    3. **本作業の完了をもって T-09 の完了条件とする**（issue 番号を handoff に記載）
   - AC-07 が WARN の場合は理由・代替・未充足リスクを handoff に必須記載する
   - **「現時点で Codex 側が実際に止められるもの」を列挙**する（EH-9 は `NOCOMMIT=1` 時のみ / EH-3 は TASK 未設定時のみかつ #1089 の制約下 /
     EH-1・EH-2・EH-6 は STRICT 既定 warning のため **0**）。**「11 wiring 分の強制力が揃った」とは書かない**
@@ -215,9 +244,11 @@ AC-07 が WARN → T-06 を実行しない → kill switch 保持 → 「Codex �
   - 🔴 **一体の設問**（**分割して答えられない形にする** / R3-F1）:
 
     > **「サンドボックス実走 1 回（課金あり・bypass 無し）を許可し、その結果が PASS だった場合に限り
-    > `.codex/hooks.json` の注記キー除去（不可逆な有効化）まで進めてよいか？」**
+    > `.codex/hooks.json` の注記キー除去（不可逆な有効化）まで進めてよいか？
+    > また、有効化後の確認実走（実リポジトリ・2 回目）まで許可するか？」**
     >
-    > - **Yes** → T-05b を実行 →（AC-07 = PASS のときのみ）T-06
+    > - **Yes（2 回まで）** → T-05b →（PASS のときのみ）T-06 → T-06b → **終端 A1**
+    > - **Yes（1 回のみ）** → T-05b →（PASS のときのみ）T-06 → **終端 A2**（実リポジトリ未観測と doc に明記）
     > - **No** → **実走も有効化も行わない**。AC-07 = WARN で終端 B に着地
 
   - ⚠️ **「有効化は可・実走は不可」という承認は成立させない**。
@@ -247,9 +278,13 @@ AC-07 が WARN → T-06 を実行しない → kill switch 保持 → 「Codex �
 - **AC-01〜AC-05・AC-08〜AC-12 が PASS**（**AC-06 は欠番** — 登録は前提条件 P-1 へ移動）
 - **AC-07 が PASS、または WARN（理由・代替・未充足リスクを記録）**
 - 🔴 **EIC 不変条件**: **「AC-07 が WARN かつ T-06 実行済み」は完了条件違反（FAIL）**。
-  終端は次の 2 つのいずれかでなければならない:
-  - **終端 A**: AC-07 = PASS / T-06 実行済み / `hooks/list` 5 件 / 宣言 stage = `enabled`
-  - **終端 B**: AC-07 = WARN / **T-06 未実行** / `hooks/list` **0 件**（kill switch 保持）/ 宣言 stage = `disabled`
+  終端は次のいずれかでなければならない:
+  - **終端 A1**: AC-07 = PASS / T-06 実行済み / **T-06b で実リポジトリの発火を観測** / `hooks/list` 5 件 / 宣言 stage = `enabled`
+  - **終端 A2**: AC-07 = PASS / T-06 実行済み / **実リポジトリ未観測**（doc に明記）/ `hooks/list` 5 件 / 宣言 stage = `enabled`
+  - **終端 B**: AC-07 = WARN / **T-06 未実行** / `hooks/list` **0 件**（kill switch 保持）/ 宣言 stage = `disabled` /
+    **回復経路が issue として起票済み**
+- 🔴 **AC-07 の PASS 条件**: **`PLANGATE_HOOK_STRICT` を上げずに** block が観測できたこと。
+  **STRICT=1 で取った block は PASS の根拠にできない**（＝ WARN。R4-F1）
 - **前提条件 P-1（`hooks/list` の登録）は終端 A の場合のみ充足**（成果としては報告しない）
 - **`sh tests/run-tests.sh` が全体 PASS**（出力に **一意マーカー `PG_TA_CODEX_BRIDGE_IO_V1`** と `TA-15` が現れること。**番号で判定しない**）
 - `scripts/**` / `.claude/**` に差分 0（基点は `git merge-base HEAD origin/main`）
