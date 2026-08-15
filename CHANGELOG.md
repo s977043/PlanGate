@@ -6,6 +6,10 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+### Fixed
+
+- **EH-3 の Hardening Override を `task_id` 文脈に依存せず評価**（#1089 / PR #1097）— HO 判定が `task_id` 未設定分岐の内側にあったため、**`PLANGATE_HOOK_TASK` が設定されたセッションでは HO 9 カテゴリすべてが block されなかった**（`PLANGATE_HOOK_TASK` は `plan.md` 編集の正規経路であり、**PlanGate 作業中のセッションこそ HO 保護が外れる**状態だった）。判定を `task_id` 分岐より前へ移動し、TASK 文脈の有無に依らず block する。回帰は `tests/extras/ta-65-eh3-ho-task-context.sh`。**v8.20.0 タグには含まれない**（タグ作成後にマージ）
+
 ## v8.20.0 (2026-08-14)
 
 fix: 配布経路（Codex plugin / skill frontmatter）の false green を実測で潰し、Codex CLI parity の誇大記述を「強制力 0/11」へ是正

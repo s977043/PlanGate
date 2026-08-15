@@ -129,35 +129,56 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 - **対応**: Hook が次の operation を block。再承認を要求
 - **基盤**: Iron Law #5（承認済 plan と実装差分の整合性）
 
-> **⚠️ 既知の制限 — Hardening Override は `PLANGATE_HOOK_TASK` 設定時に発火しない（#1089 / patch 未適用）**
+> **Hardening Override（HO）9 カテゴリの常時 block（#1089 是正済み・`9043536`）**
 >
-> EH-3 は plan_hash 検知に加え **Hardening Override（HO）9 カテゴリの常時 block**
+> EH-3 は plan_hash 検知に加え **HO 9 カテゴリの常時 block**
 > （正本: [`.claude/rules/mode-classification.md`](../../.claude/rules/mode-classification.md)
 > 承認境界周辺の変更節）を担う **唯一のガード**である
-> （`check-forbidden-files.sh` は HO パスを守らない）。しかし現行実装では
-> HO 判定が `task_id` 未設定分岐の内側にあるため、**`PLANGATE_HOOK_TASK` が
-> 設定されたセッションでは 9 カテゴリすべてが block されない**（実測 9/9 で
-> `rc=2 → rc=0`）。`PLANGATE_HOOK_TASK` は `plan.md` 編集の正規経路であり、
-> **PlanGate 作業中のセッションこそ HO 保護が外れる**。
+> （`check-forbidden-files.sh` は HO パスを守らない）。
 >
-> - **是正の適用（Human-owned）**: `sh scripts/apply-eh3-ho-always.sh --dry-run` →
->   `--apply`（冪等 / アンカー検証つき。hook 変更 + 正本の行番号アンカー除去 +
->   KNOWN-GAP 宣言の削除を 1 オペレーションで行う）。参考差分は
->   `docs/working/TASK-1089/patches/check-plan-hash.ho-always.patch`
+> **HO 判定は `task_id` 分岐より前で行われるため、TASK 文脈の有無に依らず block される**
+> （PR #1097 で是正。それ以前は `PLANGATE_HOOK_TASK` 設定時に 9 カテゴリすべてが
+> 素通りしていた = #1089）。
+>
 > - 回帰テスト: `tests/extras/ta-65-eh3-ho-task-context.sh`。**期待値の既定は
->   「TASK 文脈でも block される」**で、gap の受理は
->   `tests/fixtures/eh3-known-gap-1089.flag` という明示 opt-in を要する。
->   適用後にコードが元の構造へ戻ると CI が RED になる
+>   「TASK 文脈でも block される」**。コードが元の構造へ戻ると CI が RED になる
 > - `.claude/settings*.json` は Claude Code 自身の self-mod ガード（harness 層）でも
 >   守られるが、**残る 8 カテゴリに同等の別ガードは確認されていない**
-> - **適用後も「常時 block」は文字どおりには成立しない**: `docs/../CLAUDE.md`（`..` 未解決）/
->   `CLAUDE.MD`（大小文字）/ `"CLAUDE.md "`（末尾空白）の正規化は未実装で通過する
->   （未適用の no-task 経路でも同じ挙動。#1089 が作った穴ではない）。ta-65 TC-07 が
->   KNOWN-GAP として固定しており、塞いだ時点で RED になる。**別 PBI 候補**
+> - **「常時 block」は文字どおりには成立しない（既知の残存）**: `..` / 大小文字 / 末尾空白の
+>   正規化が未実装で通過する。ta-65 TC-07 が **4 ケース**を KNOWN-GAP として固定している
+>   （`docs/../CLAUDE.md` / `CLAUDE.MD` / `"CLAUDE.md "` / **`bin/../bin/plangate`**）。
+>   **`.md` の表記揺れに限らず、`..` 経由で CLI 本体 `bin/plangate` の HO も迂回できる**点に注意
+>   （実測 rc=0）。塞いだ時点で TC-07 が RED になり更新が強制される。**別 PBI 候補**
+
+> **`PLANGATE_HOOK_TASK` 未設定セッションの正規経路（#1095）**
 >
-> **本注記の退役条件**: 上記 apply スクリプトの適用後は本注記ブロックを削除し、
-> EH-3 の説明を「HO は TASK 文脈の有無に依らず常時 block（正規化の穴を除く）」へ
-> 更新すること。削除し忘れても ta-65 は fixed を要求するため CI は正しく動く。
+> EH-3 の no-task 経路は、コメント上「非 plan.md は SKIP」と読めるが、
+> **実装は SKIP の前に `PLANGATE_SKIP_REASON` を必須とする**（空なら `exit 2`）。
+> 実際の挙動は次のとおり（判定順に評価される）:
+>
+> | 対象 | 条件 | 挙動 |
+> |------|------|------|
+> | `plan.md` | 有無を問わず | **block**（TASK 文脈を消した plan 改変の阻止） |
+> | 任意 | **メンテ窓が有効** | **MAINTENANCE_SKIP**（`allowed_paths` の範囲内。HO は除く） |
+> | 非 HO の `.md` | **メンテ承認ファイル不在時のみ** | **DOC_LIGHT_SKIP**（自動 SKIP・`skip-decision-log.jsonl` に記録 / TASK-0138） |
+> | 上記以外 | `PLANGATE_SKIP_REASON` 未設定 | **block**（`SKIP 拒否: SKIP_REASON 未設定`） |
+> | 上記以外 | `PLANGATE_SKIP_REASON` 設定済み | SKIP（`skip-decision-log.jsonl` へ記録・**人間の追認が要る**） |
+>
+> **doc-light はメンテ承認ファイルが存在しないときだけ発火する**
+> （失効済み・one_shot 消費済みのファイルが残っていても発火しない。
+> 実装は doc-light 分岐をメンテ承認ファイル不在の条件で囲っている）。
+>
+> したがって no-task セッションで編集する正規経路は 3 つ:
+>
+> | # | 経路 | 副作用 |
+> |---|------|--------|
+> | A | `PLANGATE_HOOK_TASK=TASK-XXXX` を**起動時に**設定 | HO は #1089 是正済みのため保護は維持される |
+> | B | `PLANGATE_SKIP_REASON="..."` を**起動時に**設定 | skip が記録され **`acknowledged_by` の人間追認が要る**（CI が未追認を fail） |
+> | C | メンテ承認ファイルを**人間が発行**（[`maintenance-cli.md`](./maintenance-cli.md)） | 窓つき / one_shot。AI は発行できない |
+>
+> **A / B は起動時固定の env であり、実行中のセッションからは変更できない。**
+> **C はディスク上の承認ファイルを hook が起動ごとに読むため、セッション再起動を要しない**
+> （正本: [`maintenance-cli.md`](./maintenance-cli.md)）。
 
 ### EH-4: test-cases.md なし V-1 ブロック
 
