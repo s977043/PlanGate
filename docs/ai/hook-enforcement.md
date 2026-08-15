@@ -144,22 +144,29 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >   「TASK 文脈でも block される」**。コードが元の構造へ戻ると CI が RED になる
 > - `.claude/settings*.json` は Claude Code 自身の self-mod ガード（harness 層）でも
 >   守られるが、**残る 8 カテゴリに同等の別ガードは確認されていない**
-> - **「常時 block」は文字どおりには成立しない（既知の残存）**: `docs/../CLAUDE.md`（`..` 未解決）/
->   `CLAUDE.MD`（大小文字）/ `"CLAUDE.md "`（末尾空白）の正規化は未実装で通過する。
->   ta-65 TC-07 が KNOWN-GAP として固定しており、塞いだ時点で RED になる。**別 PBI 候補**
+> - **「常時 block」は文字どおりには成立しない（既知の残存）**: `..` / 大小文字 / 末尾空白の
+>   正規化が未実装で通過する。ta-65 TC-07 が **4 ケース**を KNOWN-GAP として固定している
+>   （`docs/../CLAUDE.md` / `CLAUDE.MD` / `"CLAUDE.md "` / **`bin/../bin/plangate`**）。
+>   **`.md` の表記揺れに限らず、`..` 経由で CLI 本体 `bin/plangate` の HO も迂回できる**点に注意
+>   （実測 rc=0）。塞いだ時点で TC-07 が RED になり更新が強制される。**別 PBI 候補**
 
 > **`PLANGATE_HOOK_TASK` 未設定セッションの正規経路（#1095）**
 >
 > EH-3 の no-task 経路は、コメント上「非 plan.md は SKIP」と読めるが、
 > **実装は SKIP の前に `PLANGATE_SKIP_REASON` を必須とする**（空なら `exit 2`）。
-> 3 分岐の実際の挙動は次のとおり:
+> 実際の挙動は次のとおり（判定順に評価される）:
 >
-> | 対象 | `PLANGATE_SKIP_REASON` | 挙動 |
-> |------|----------------------|------|
+> | 対象 | 条件 | 挙動 |
+> |------|------|------|
 > | `plan.md` | 有無を問わず | **block**（TASK 文脈を消した plan 改変の阻止） |
-> | 非 HO の `.md` | 不要 | **DOC_LIGHT_SKIP**（自動 SKIP・`skip-decision-log.jsonl` に記録 / TASK-0138） |
-> | 上記以外 | 未設定 | **block**（`SKIP 拒否: SKIP_REASON 未設定`） |
-> | 上記以外 | 設定済み | SKIP（`skip-decision-log.jsonl` へ記録・**人間の追認が要る**） |
+> | 任意 | **メンテ窓が有効** | **MAINTENANCE_SKIP**（`allowed_paths` の範囲内。HO は除く） |
+> | 非 HO の `.md` | **メンテ承認ファイル不在時のみ** | **DOC_LIGHT_SKIP**（自動 SKIP・`skip-decision-log.jsonl` に記録 / TASK-0138） |
+> | 上記以外 | `PLANGATE_SKIP_REASON` 未設定 | **block**（`SKIP 拒否: SKIP_REASON 未設定`） |
+> | 上記以外 | `PLANGATE_SKIP_REASON` 設定済み | SKIP（`skip-decision-log.jsonl` へ記録・**人間の追認が要る**） |
+>
+> **doc-light はメンテ承認ファイルが存在しないときだけ発火する**
+> （失効済み・one_shot 消費済みのファイルが残っていても発火しない。
+> 実装は doc-light 分岐をメンテ承認ファイル不在の条件で囲っている）。
 >
 > したがって no-task セッションで編集する正規経路は 3 つ:
 >
@@ -167,9 +174,11 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 > |---|------|--------|
 > | A | `PLANGATE_HOOK_TASK=TASK-XXXX` を**起動時に**設定 | HO は #1089 是正済みのため保護は維持される |
 > | B | `PLANGATE_SKIP_REASON="..."` を**起動時に**設定 | skip が記録され **`acknowledged_by` の人間追認が要る**（CI が未追認を fail） |
-> | C | maintenance 承認ファイルを**人間が発行** | 窓つき / one_shot。AI は発行できない |
+> | C | メンテ承認ファイルを**人間が発行**（[`maintenance-cli.md`](./maintenance-cli.md)） | 窓つき / one_shot。AI は発行できない |
 >
-> **いずれも起動時固定の env であり、実行中のセッションからは設定できない。**
+> **A / B は起動時固定の env であり、実行中のセッションからは変更できない。**
+> **C はディスク上の承認ファイルを hook が起動ごとに読むため、セッション再起動を要しない**
+> （正本: [`maintenance-cli.md`](./maintenance-cli.md)）。
 
 ### EH-4: test-cases.md なし V-1 ブロック
 
