@@ -78,3 +78,31 @@ diff out-sh.txt out-zsh.txt    # 差分なし
 3. **小文字化は `A`〜`Z` のみを 1 文字ずつ `case` で写像**し、マルチバイトは素通し。
    `${v,,}` は `sh`(bash 3.2)/`dash` で `bad substitution`、`tr`/`sed` は fork 増になるため使わない。
    さらに **大文字を含まない入力は写像ループ自体を回さない**（`case *[A-Z]*`）。
+
+## ⚠️ 是正（PR 前レビュー / AC-1 未達）— (4) と (5) の順序入れ替え
+
+上表は**是正前**の測定値。PR 前レビューで
+**「repo root 除去が大小文字を区別するため、root 前置部だけ大文字にした絶対パスで
+HO を素通りできる」**欠陥が確定し、**(4) repo root 除去 → (5) 小文字化**を
+**(4) 小文字化（`_pf_final` と `_pf_root` の両方）→ (5) repo root 除去**へ入れ替えた。
+
+詳細と実測: [`prereview-ac1-root-case.md`](./prereview-ac1-root-case.md)
+
+### 是正後の 4 シェル直接評価（**root 大文字入力を追加**）
+
+`sh` / `dash` / `bash` / `zsh` すべて rc=0・`diff` 3 本とも差分ゼロ・
+`LANG=ja_JP.UTF-8` でも byte 一致（**是正前と同じ可搬性を維持**）。
+
+| 入力 | 出力 | rc |
+|---|---|---|
+| `$REPO_ROOT_UPPER/CLAUDE.md` | `claude.md` | 0 |
+| `$REPO_ROOT_UPPER/CLAUDE.MD` | `claude.md` | 0 |
+| `$REPO_ROOT_UPPER/./bin/plangate` | `bin/plangate` | 0 |
+| `$REPO_ROOT_UPPER/BIN/PLANGATE` | `bin/plangate` | 0 |
+| `$REPO_ROOT_UPPER//CLAUDE.md` | `claude.md` | 0 |
+| `$REPO_ROOT_UPPER/x/../CLAUDE.md` | `claude.md` | 0 |
+| **`$REPO_ROOT_UPPER/CLAUDE.md`（`$3=0`＝小文字化なし）** | **入力そのまま**（root を剥がさない） | 0 |
+| `/PRIVATE/TMP/x/NOTE.md` | `/private/tmp/x/note.md`（**絶対のまま**＝非 HO） | 0 |
+
+> `$3=0` で root 比較が従来どおり大小文字厳密であることが、
+> **`_norm_target` 側の意味論を変えていない**ことの裏付けになる。

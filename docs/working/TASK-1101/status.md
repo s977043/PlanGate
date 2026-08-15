@@ -29,6 +29,8 @@
 | 2026-08-15 21:30 | D | **Step 3-4 完了**: ta-65 に `--emit` 経由の patch 済み sandbox 複製と TC-06 拡充 / TC-07 反転 / TC-08〜TC-12 を追加。**ta-65 = 16 passed / 0 failed** |
 | 2026-08-15 21:50 | D | **Step 5 完了**: 変異 9 種（7 + 第 8 + 順序）を注入し **9/9 kill** を実測 |
 | 2026-08-15 22:05 | D | **Step 0 T-01 確定**: pristine clone `73ac1db` で `Results: 741 passed, 0 failed / rc=0` |
+| 2026-08-15 22:30 | C-2''' | **PR 前レビュー（独立 2 体 + オーガナイザー再現）で AC-1 未達を検出** — `_pg_fold_path` の repo root 除去が大小文字厳密で、root 前置部だけ大文字にした絶対パス（`/USERS/.../CLAUDE.md`）が素通り。macOS の case-insensitive FS で**同一実体に到達し書き込みが成立する**。Human 判断「**本 PBI 内で是正**」 |
+| 2026-08-15 22:45 | D | **是正完了**: 先に `ta-65` TC-08 に root 大文字 2 形を追加し**是正前の実装で 30/195 FAIL** を確認 → `_pg_fold_path` の (4)/(5) を入れ替え → 直積 **195 件すべて rc=2**。変異 **M10** を追加し 10/10 kill |
 
 ## モード判定結果
 
@@ -114,6 +116,9 @@
 | 3 | 実装細部の確定 | **末尾 `/` を保持**（`CLAUDE.md/` の偽陽性回避 / エッジケース表と整合）。**絶対パスの `..` は root で clamp し fail-closed にしない**（TC-11b と両立） |
 | 4 | 追加 | apply スクリプトに **`--emit`**（書き込みなし・stdout のみ）を追加。AI が `--apply` を実行せずに Step 3 の sandbox 検証を成立させるため |
 | 5 | 測定手順 | baseline は **pristine clone** で測る（worktree で測ると測定中の編集が混入する。1 回目の実行が実際に汚染された） |
+| 6 | **AC-1 未達の是正**（PR 前レビュー） | `_pg_fold_path` の適用順を **(4) repo root 除去 → (5) 小文字化** から **(4) 小文字化 → (5) repo root 除去**（root 側にも同じ写像）へ入れ替えた。plan §Approach の順序記述と異なるが、plan の順序のままでは **AC-1（repo root 跨ぎ × 大小文字の 2 種複合）を満たせない**。`$3=0` では従来どおり大小文字厳密で `_norm_target` 側の意味論は不変。詳細: [`evidence/test-runs/prereview-ac1-root-case.md`](./evidence/test-runs/prereview-ac1-root-case.md) |
+| 7 | 直積の規模 | TC-08 の変換形を **11 形 → 13 形**（165 件 → **195 件**）。追加は repo root 形への大小文字変換 2 形 |
+| 8 | 変異の本数 | **9 種 → 10 種**（M10: root 比較を大小文字厳密に戻す）。M7 のアンカーも新ブロックへ更新（旧アンカーは `anchor count=0` で**当たっていなかった**） |
 
 ## スコープ外で検出した問題（本 PBI では手を出していない）
 

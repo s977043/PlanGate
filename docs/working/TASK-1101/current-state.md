@@ -42,8 +42,9 @@ bin/plangate validate TASK-1101 → C-3 Gate 全 PASS
 | **T-03** `_pg_fold_path()` | ✅ `tests/fixtures/pg-fold-path.sh`（正本）。**4 シェル + `LANG=ja_JP.UTF-8` で出力 byte 一致**を本体組み込み前に確認 |
 | **T-04/T-05** patch + apply | ✅ `scripts/apply-1101-ho-normalization.sh`（`--dry-run` / `--apply` / `--revert` / `--emit` / smoke + 自動 revert）。**AI が実 repo に対して実行したのは `--dry-run` と `--emit` のみ** |
 | **T-06** 旧 apply の stale 対処 | ✅ 削除せず**退役注記**。#1101 適用後に両者とも **no-op（byte 一致で不変）**を sandbox で実測 |
-| **T-07〜T-13** ta-65 拡充 | ✅ **16 passed / 0 failed**。TC-08 直積 **165 件すべて rc=2** |
-| **T-14** 変異注入 | ✅ **9 種（7 + 第 8 + 順序）すべて kill** |
+| **T-07〜T-13** ta-65 拡充 | ✅ **16 passed / 0 failed**。TC-08 直積 **195 件すべて rc=2** |
+| **T-14** 変異注入 | ✅ **10 種（7 + 第 8 + 順序 + M10）すべて kill** |
+| **PR 前レビュー是正** | ✅ **AC-1 未達（repo root 除去の大小文字依存）を是正**。是正前の実装で新 TC が 30/195 FAIL することを先に確認済み。詳細: [`evidence/test-runs/prereview-ac1-root-case.md`](./evidence/test-runs/prereview-ac1-root-case.md) |
 
 ### 次にやること（**Step 6 から**）
 
