@@ -22,6 +22,13 @@
 | 2026-08-15 19:30 | C-3 | **`approve --force` で再承認** → 三点照合（v4 draft / c3.json / plan.md）が一致・`validate` PASS |
 | 2026-08-15 19:31 | D | **exec 開始**。T-01（baseline）/ T-02（迂回面再測定）完了 |
 | 2026-08-15 19:45 | D | **T-03 で中断** — `.sh` への書き込みが no-task セッションの EH-3 で block（`SKIP 拒否: SKIP_REASON 未設定`） |
+| 2026-08-15 20:35 | D | **exec 再開**（worktree `plangate-wt-1101` / branch `feat/1101-ho-normalization` / base `73ac1db`）。Step 0〜5 を実施 |
+| 2026-08-15 20:50 | D | **Step 0 完了**: T-02 迂回面を `73ac1db` で再実測（C-2 時点から変化なし）。T-01 baseline は **pristine clone で測り直し**（1 回目の worktree 実行は測定中に ta-65 を編集したため無効） |
+| 2026-08-15 21:00 | D | **Step 1 完了**: `tests/fixtures/pg-fold-path.sh` に `_pg_fold_path` を実装。**4 シェル + `LANG=ja_JP.UTF-8` で出力 byte 一致**を本体組み込み前に確認 |
+| 2026-08-15 21:15 | D | **Step 2 完了**: `scripts/apply-1101-ho-normalization.sh`（`--dry-run` / `--apply` / `--revert` / `--emit` / smoke + 自動 revert）。T-06 は旧 apply 2 本に**退役注記**（no-op を実測） |
+| 2026-08-15 21:30 | D | **Step 3-4 完了**: ta-65 に `--emit` 経由の patch 済み sandbox 複製と TC-06 拡充 / TC-07 反転 / TC-08〜TC-12 を追加。**ta-65 = 16 passed / 0 failed** |
+| 2026-08-15 21:50 | D | **Step 5 完了**: 変異 9 種（7 + 第 8 + 順序）を注入し **9/9 kill** を実測 |
+| 2026-08-15 22:05 | D | **Step 0 T-01 確定**: pristine clone `73ac1db` で `Results: 741 passed, 0 failed / rc=0` |
 
 ## モード判定結果
 
@@ -58,12 +65,30 @@
 
 ### 🤖 Agent
 
-- [ ] T-01〜T-19（`todo.md` 参照）— **C-3 承認後に着手**
+- [x] **T-01** baseline 再測定（pristine clone `73ac1db` → 741 passed / 0 failed / rc=0）
+- [x] **T-02** 迂回面の再実測（C-2 時点から変化なし）
+- [x] **T-03** `_pg_fold_path()` 単体実装 + 4 シェル直接評価
+- [x] **T-04** `check-plan-hash.sh` への patch（`_ho_key` 新設 / `_norm_target` 据え置き / log を生パスへ）
+- [x] **T-05** `scripts/apply-1101-ho-normalization.sh`
+- [x] **T-06** 旧 apply スクリプト 2 本の stale 対処（退役注記 + no-op 実測）
+- [x] **T-07** sandbox 検証環境（`--emit` による patch 済み複製）
+- [x] **T-08** TC-07 の反転（既定 fixed + PENDING-APPLY flag）
+- [x] **T-09** TC-06 拡充（変換適用 5 件）
+- [x] **T-10** 直積検証（TC-08 / 165 件）
+- [x] **T-11** `_norm_target` 不変の回帰表明（TC-10 / 3 経路）
+- [x] **T-12** fail-closed（TC-09）+ 絶対パス非 block（TC-09b）
+- [x] **T-13** 監査ログの生パス保持（TC-11）
+- [x] **T-14** 変異注入 9 種 → **9/9 kill**
+- [ ] **T-15** 4 シェル可搬性の実証（Step 6）— **Step 1 の🚩として先行実測済み**。正式な TC 化は未
+- [ ] **T-16** 性能実測（Step 7 / fork 数 + 実行時間）
+- [ ] **T-17** 既存 4 本の回帰確認（Step 8）
+- [ ] **T-18** `docs/ai/hook-enforcement.md` の更新（Step 9）
+- [ ] **T-19** handoff.md
 
 ### 👤 Human
 
-- [ ] **H-01: C-3 ゲート** ← **次はここ**
-- [ ] H-02: patch 適用（`sh scripts/apply-1101-ho-normalization.sh --apply`）
+- [x] **H-01: C-3 ゲート** — APPROVED（2026-08-15T10:30:43Z）
+- [ ] H-02: patch 適用（`sh scripts/apply-1101-ho-normalization.sh --apply`）※ Step 9 完了後
 - [ ] H-03: C-4 ゲート（PR レビューとマージ）
 
 ## V 系ステップ進捗
@@ -77,6 +102,23 @@
 1. **`plan.md` は AI が編集できない**（EH-3）。v1 / v2 とも draft → Human が `cp` で設置した
 2. **`scripts/hooks/check-plan-hash.sh` は AI が適用できない**（HO 対象パス）。patch + apply スクリプトまでが AI-owned
 3. ただし **sandbox 複製 + patch により、Human 適用を待たずに検証を先行できる**（plan Step 3）
+
+## 計画からの変更点（exec / Step 0〜5）
+
+> 正本は `decision-log.jsonl`。以下は要約。
+
+| # | 逸脱・訂正 | 内容 |
+|---|---|---|
+| 1 | **事実訂正** | plan / test-cases の「**第 8 変異で `ta-45` が FAIL する**」は**再現しなかった**（M8 注入時も rc=0 / 6 passed）。`ta-45` TC-01 は TASK 文脈で EH-3 を起動し C-3 conversation 分岐（no-task 経路の内側）に到達せず、判定も `grep -qiE 'SKIP\|PASS'` と緩い。**AC-2 の担保は新設 `ta-65` TC-10 に置く**。todo T-17 の🚩「`ta-45` が PASS することが AC-2 の実質的な担保」は成立しない |
+| 2 | **機構の逸脱** | TC-07 を「fixed 固定」ではなく「**既定 fixed + PENDING-APPLY flag による明示 opt-in**」にした。単純反転だと Human が `--apply` するまで CI が RED になり PR がマージ不能。#1089 の KNOWN-GAP flag と同一機構（tracked flag / `--apply` が自動削除 / 適用済みで残れば stale FAIL）。**patch の内容自体は TC-08〜TC-12 が patch 済み複製に対して常時検査する** |
+| 3 | 実装細部の確定 | **末尾 `/` を保持**（`CLAUDE.md/` の偽陽性回避 / エッジケース表と整合）。**絶対パスの `..` は root で clamp し fail-closed にしない**（TC-11b と両立） |
+| 4 | 追加 | apply スクリプトに **`--emit`**（書き込みなし・stdout のみ）を追加。AI が `--apply` を実行せずに Step 3 の sandbox 検証を成立させるため |
+| 5 | 測定手順 | baseline は **pristine clone** で測る（worktree で測ると測定中の編集が混入する。1 回目の実行が実際に汚染された） |
+
+## スコープ外で検出した問題（本 PBI では手を出していない）
+
+- `tests/extras/ta-45-c3-mode-config.sh` TC-01 は名前に反して **C-3 conversation 分岐を一度も通っていない**（TASK 文脈起動 + 緩い grep 判定）。`_norm_target` を破壊しても緑のまま。**別 issue 化候補**
+- 前セッション baseline の 2 件 FAIL（TA-60 / TA-42）は **clean checkout では再現しない**（dirty tree 起因 = #997 と整合）
 
 ## 次セッション用プロンプト
 

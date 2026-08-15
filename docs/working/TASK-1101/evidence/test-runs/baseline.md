@@ -76,3 +76,62 @@ AC-6 の文言は「`sh tests/run-tests.sh` が rc=0」だが、**着手前か�
 1 回目の baseline は **`rc=` を書かずに 372 行で停止**した。`run_in_background` の内側でさらに `&` を使い、**二重背景化でプロセスが孤児化**したため。取得できたのは TA-01〜TA-26 のみで、**AC-6 の対象 4 本に到達していなかった**。
 
 → **背景実行は harness 側の機構のみを使う**こと。ログの末尾に完了マーカー（`Results:` 行）があることを確認してから baseline として採用する。
+
+---
+
+## exec 着手時の baseline 再測定（T-01 / plan Step 0）— **こちらが正**
+
+> 実施: 2026-08-15（exec） / 実施者: exec ワーカー
+> **測定対象: `73ac1db` の pristine clone**（`git clone --local --no-hardlinks` → `git checkout 73ac1db`、`git status` clean）
+> 配置: `/tmp/pg1101-base-repo`（使い捨て）
+> OS: Darwin 25.6.0 (macOS 26.6.1 / arm64) / `/bin/sh` = bash 3.2 系 / `dash` `bash` `zsh` いずれも導入済み
+> base: `origin/main` = `dfaeebb` / branch `feat/1101-ho-normalization` の分岐点 `73ac1db`
+
+### なぜ clone で測り直したか（**1 回目の worktree 実行は無効**）
+
+exec 開始と同時に worktree 内で `sh tests/run-tests.sh` を走らせたが、**その実行中に
+`tests/extras/ta-65-eh3-ho-task-context.sh` を編集した**ため、同一 run に baseline と
+post-change が混在した（ログの TA-65 セクションに #1101 の新 TC が出力されていた）。
+`747 passed / 0 failed` という値は**得られたが baseline としては採用しない**。
+
+→ **作業ツリーを触りながら baseline を測らない**。以後は使い捨て clone で測る。
+
+### 結果
+
+```
+sh tests/run-tests.sh    (cwd = /tmp/pg1101-base-repo)
+Results: 741 passed, 0 failed
+rc=0
+```
+
+| 指標 | 値 |
+|---|---|
+| passed | 741 |
+| **failed** | **0** |
+| rc | **0** |
+| `[FAIL]` 行（診断文言を除く実 FAIL） | **0 件** |
+
+**前セッションの baseline（`738 passed / 2 failed`）で報告されていた 2 件
+（TA-60 / TA-42）は、clean な checkout では再現しなかった。** 当時の切り分け
+（dirty 作業ツリー起因 = #997 の再現条件）と整合する。
+
+### AC-6 の判定基準（この baseline に基づく）
+
+> **baseline = `741 passed / 0 failed / rc=0`（`73ac1db` clean clone / 2026-08-15）**
+> 完了時は **rc=0 かつ実 FAIL ゼロ**であること。
+> **`741` を契約値にしない** — 本 PBI 自身が TC を追加するため総数は必ず増える。
+> 照合は「**新規 FAIL がゼロか**」で行い、件数の一致では行わない。
+
+### AC-6 の主対象 4 本（S-4）
+
+| テスト | baseline |
+|---|---|
+| `ta-65-eh3-ho-task-context` | **FAIL なし** |
+| `ta-12-maintenance` | **FAIL なし** |
+| `ta-39-eh3-doc-light` | **FAIL なし** |
+| `ta-45-c3-mode-config` | **FAIL なし** |
+
+> ⚠️ ただし `ta-45` は **AC-2 の回帰網としては機能しない**ことが Step 5 の変異注入で
+> 判明した（詳細: `evidence/test-runs/mutation-step5.md`）。`ta-45` TC-01 は TASK 文脈で
+> EH-3 を起動しており C-3 conversation 分岐に到達しないため、`_norm_target` を
+> 小文字化しても PASS のままだった。AC-2 の担保は新設の `ta-65` TC-10 に置く。
