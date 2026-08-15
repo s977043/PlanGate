@@ -55,3 +55,44 @@ AC-1 は **「HO 9 カテゴリ × 表記変換クラス（`./` 前置 / `//` / 
 ## 鮮度
 
 本実測は **`dfaeebb` 時点**。`check-plan-hash.sh` は HO 対象パスであり Human 適用でのみ変わるが、**着手時に再実測すること**（件数・rc を契約値として固定しない）。
+
+---
+
+## exec 着手時の再実測（T-02 / plan Step 0）
+
+> 実施: 2026-08-15（exec 着手時） / 実施者: exec ワーカー
+> 測定環境: worktree `plangate-wt-1101` / branch `feat/1101-ho-normalization` / HEAD `73ac1db`（base = `origin/main` `dfaeebb`）
+> OS: Darwin 25.6.0 (macOS 26.6.1 / arm64) / `/bin/sh` = bash 3.2 系
+> 方法: 上記 `probe()` と同一（`PLANGATE_HOOK_TASK=TASK-9999` / `</dev/null`）
+
+### 結果（**C-2 実測から変化なし**）
+
+| 入力 | rc（`dfaeebb`） | rc（`73ac1db` 再実測） | 判定 |
+|---|---|---|---|
+| `CLAUDE.md` | 2 | **2** | block（不変） |
+| `<repo>/CLAUDE.md` | 2 | **2** | block（不変） |
+| `./CLAUDE.md` | 2 | **2** | block（不変） |
+| `scripts/hooks/../../scripts/hooks/x.sh` | 2 | **2** | block（不変） |
+| `bin/../bin/plangate` | 0 | **0** | 迂回成立 |
+| `docs/../CLAUDE.md` | 0 | **0** | 迂回成立 |
+| `CLAUDE.MD` | 0 | **0** | 迂回成立 |
+| `"CLAUDE.md "` | 0 | **0** | 迂回成立 |
+| `<repo>/../<repo-basename>/CLAUDE.md` | 0 | **0** | 迂回成立 |
+| `bin/./plangate` | 0 | **0** | 迂回成立 |
+| `bin//plangate` | 0 | **0** | 迂回成立 |
+| `./bin/../bin/plangate` | 0 | **0** | 迂回成立 |
+| `.//CLAUDE.md` | 0 | **0** | 迂回成立（RiverReview critical のケース） |
+
+### 絶対パス（**block してはいけない**側 / TC-11b の根拠）
+
+| 入力 | rc（再実測） |
+|---|---|
+| `/tmp/foo.txt` | **0** |
+| `/CLAUDE.md` | **0** |
+| `/tmp/plangate-tc11b/note.md` | **0** |
+
+### 結論
+
+**迂回面は C-2 実測時点から変化していない**（7 変換クラス + 2 種複合が同じ rc）。
+`check-plan-hash.sh` は `dfaeebb` 以降 **未変更**（`git log` で確認）であり、期待どおり。
+本再実測の rc 値は **着手時点のスナップショット**であり、契約値として固定しない。
