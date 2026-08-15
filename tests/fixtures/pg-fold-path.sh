@@ -24,9 +24,12 @@
 #   (1) 末尾空白の除去
 #   (2) // の畳み込み / . セグメント除去 / .. の字句的畳み込み  ← **最初に**
 #   (3) 先頭 ./ の除去（(2) のセグメント走査に含まれる）
-#   (4) repo root の除去
-#   (5) 小文字化（_ho_key のみ / $3=1）
+#   (4) 小文字化（_ho_key のみ / $3=1）
+#   (5) repo root の除去（小文字化済み同士で比較 = 大小文字非依存）
 #   ※ (2) を (3) より後ろに置くと `.//CLAUDE.md` が素通りする。
+#   ※ (5) を (4) より前に置くと **root 前置部だけ大文字にした絶対パス**
+#     （`/USERS/.../CLAUDE.md`）が素通りする。macOS の case-insensitive FS では
+#     同一実体に到達し**書き込みが成立する**（PR 前レビューで検出）。
 #
 # 制約:
 #   - 単語分割に依存しない（zsh で no-op になるため / R-002）
@@ -151,17 +154,24 @@ _pg_fold_path() {
     _pf_final="$_pf_final/"
   fi
 
-  # (4) repo root の除去
+  # (4) 小文字化（_ho_key のみ）— **repo root 除去より先**に行う。
+  #     root 前置部だけ大文字にした絶対パス（macOS の case-insensitive FS では
+  #     同一実体に到達し書き込みが成立する）で (5) をすり抜けられるため。
+  #     root 側も同じ写像を通してから比較する＝ root 除去が大小文字非依存になる。
+  if [ "$_pf_lower" = 1 ]; then
+    _pg_fold_tolower "$_pf_final"
+    _pf_final=$_PG_FOLD_LOWER
+    if [ -n "$_pf_root" ]; then
+      _pg_fold_tolower "$_pf_root"
+      _pf_root=$_PG_FOLD_LOWER
+    fi
+  fi
+
+  # (5) repo root の除去（$3=1 のときは小文字化済み同士の比較）
   if [ -n "$_pf_root" ]; then
     case "$_pf_final" in
       "$_pf_root"/*) _pf_final=${_pf_final#"$_pf_root"/} ;;
     esac
-  fi
-
-  # (5) 小文字化（_ho_key のみ）
-  if [ "$_pf_lower" = 1 ]; then
-    _pg_fold_tolower "$_pf_final"
-    _pf_final=$_PG_FOLD_LOWER
   fi
 
   _PG_FOLD_OUT=$_pf_final

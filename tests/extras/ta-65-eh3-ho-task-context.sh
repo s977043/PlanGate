@@ -472,6 +472,11 @@ if [ "$_T65_ABORT" = "0" ]; then
     _t65_bad=0
     _t65_prod=0
     _t65_root_p="$_T65_TMP"   # _T65_HOOK_P の REPO_ROOT
+    # **repo root 形にも大小文字変換を当てる**（PR 前レビューで検出した AC-1 未達）。
+    # 旧版は repo root 形を常に正しい大小文字で生成しており、「repo root 跨ぎ ×
+    # 大小文字」の 2 種複合を一度も評価していなかった。macOS の case-insensitive FS
+    # では `/USERS/.../CLAUDE.md` が実体に到達するため、**書き込みが成立する**迂回。
+    _t65_root_up=$(printf '%s' "$_t65_root_p" | tr 'a-z' 'A-Z')
     for _t65_p in $_T65_PATTERNS; do
       _t65_up=$(printf '%s' "$_t65_p" | tr 'a-z' 'A-Z')
       case "$_t65_p" in
@@ -489,7 +494,9 @@ if [ "$_T65_ABORT" = "0" ]; then
         "$_t65_up" \
         "$_t65_p " \
         "./x/../$_t65_p" \
-        ".//$_t65_up"; do
+        ".//$_t65_up" \
+        "$_t65_root_up/$_t65_p" \
+        "$_t65_root_up/$_t65_up"; do
         _t65_prod=$((_t65_prod + 1))
         _t65_rc=0
         _t65_out=$(_t65_hook_at "$_T65_HOOK_P" "$_T65_TASK" "$_t65_v") || _t65_rc=$?
@@ -500,7 +507,7 @@ if [ "$_T65_ABORT" = "0" ]; then
       done
     done
     if [ "$_t65_bad" = "0" ] && [ "$_t65_prod" -ge 1 ]; then
-      t65_pass "TC-08 (AC-1): 直積 ${_t65_prod} 件（${_T65_PATTERN_COUNT} パターン × 変換 11 形）すべて rc=2 + HARDENING_OVERRIDE"
+      t65_pass "TC-08 (AC-1): 直積 ${_t65_prod} 件（${_T65_PATTERN_COUNT} パターン × 変換 13 形）すべて rc=2 + HARDENING_OVERRIDE"
     else
       t65_fail "TC-08 (AC-1): 直積で ${_t65_bad}/${_t65_prod} 件が block されない"
     fi
