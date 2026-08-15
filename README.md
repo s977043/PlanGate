@@ -195,6 +195,8 @@ clone / plugin 導入直後に、必ず次の 1 コマンドを実行して `.cl
 bin/plangate doctor --fix
 ```
 
+> **前提コマンド**: 本コマンドが配線する EH-13（承認トークン書き込みガード）は **`jq` と `sed` を必須**とします（v8.19.0 で fail-closed 化）。いずれかが PATH に無いと **Edit / Write と Bash が `exit 2` で止まります**。詳細と適用境界は [段階的導入ガイド §1](docs/staged-adoption-guide.md)、回避策は [CHANGELOG](CHANGELOG.md) を参照してください。
+
 - `--fix` は `.claude/settings.example.json` を正本に hooks を **merge-only**（既存キー温存）で適用し、EH-8 スクリプトに実行ビットを付与し、`.gitignore` に必要な除外を追記し、`docs/working/` を作成します。実行前に確認を求めます。
 - 事前に変更計画だけ確認したい場合は `bin/plangate doctor --fix --dry-run`（一切書き換えません）。
 - CI など非対話環境では `bin/plangate doctor --fix --yes` で確認をスキップします（`--yes` 無しの非対話実行は安全のため中断します）。
