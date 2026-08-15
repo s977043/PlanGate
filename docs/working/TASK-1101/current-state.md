@@ -46,15 +46,46 @@ bin/plangate validate TASK-1101 → C-3 Gate 全 PASS
 | **T-14** 変異注入 | ✅ **10 種（7 + 第 8 + 順序 + M10）すべて kill** |
 | **PR 前レビュー是正** | ✅ **AC-1 未達（repo root 除去の大小文字依存）を是正**。是正前の実装で新 TC が 30/195 FAIL することを先に確認済み。詳細: [`evidence/test-runs/prereview-ac1-root-case.md`](./evidence/test-runs/prereview-ac1-root-case.md) |
 
-### 次にやること（**Step 6 から**）
+### Step 6〜9 の到達点（**2026-08-15 23:50 セッション中断時点**）
 
-| ToDo | 内容 |
-|---|---|
-| **T-15** | 4 シェル可搬性の**正式な TC 化**（Step 1 の🚩として実測済みだが、リポジトリに残る検査になっていない） |
-| **T-16** | 性能実測（追加 fork 数 = 目標ゼロ / 典型・病的パスの実行時間）。参考: apply の smoke で **20 runs 0.71s** |
-| **T-17** | 既存 4 本 + `sh tests/run-tests.sh` の回帰確認（baseline = 741/0/rc=0 に対し**新規 FAIL ゼロ**で判定） |
-| **T-18** | `docs/ai/hook-enforcement.md` の更新（AC-7 の 5 点 / `Edit\|Write` 限定と `#1104` の明示） |
-| **T-19** | handoff.md |
+| ToDo | 状態 | 中身 |
+|---|---|---|
+| **T-15**（Step 6） | ✅ **完了** | `tests/extras/ta-67-pg-fold-path-portability.sh` を新設。`ta-67` **5 passed / 0 failed (rc=0)**、`ta-61` 契約 **92 passed / 0 failed (rc=0)**。変異 4 種（M1 / M5 / M7 / M10）で検出力を実証（いずれも `TC-02` で FAIL） |
+| **T-16**（Step 7） | 🔶 **途中（判定保留）** | **fork 増加ゼロを実測**（3 経路とも base と patched で同一）。**ただし長い大文字パスで実行時間が非線形に悪化**する問題を検出（status.md「Step 7 の重要な検出」参照）。**是正方式が未決**のため PASS を出していない |
+| **T-17**（Step 8） | ⬜ **未着手** | `ta-65` / `ta-12` / `ta-39` / `ta-45` は個別には rc=0 を確認済みだが、**`sh tests/run-tests.sh` の通し実行は本ラウンドで未実施** |
+| **T-18**（Step 9） | ⬜ **未着手** | `docs/ai/hook-enforcement.md` は未編集 |
+| **T-19** | ⬜ **未着手** | `handoff.md` は未作成 |
+
+### 次セッションの手順（この順で再開する）
+
+1. **status.md の「Step 7 の重要な検出」を読む**。長大な大文字パスで
+   `_pg_fold_tolower` が O(n²) になり、**セグメント上限 256 は文字数を制限しない**ため
+   `1 セグメント × 20,000 文字` でハングしうる。**EH-3 に timeout は無い**
+2. **是正方式をオーケストレータに確認する**（案 1「文字数上限を fail-closed に追加」は
+   plan の fail-closed 2 条件からの**逸脱**なので独断で実装しない。案 2「写像を
+   セグメント単位に分割」は plan 内で収まる可能性が高い）
+3. 方式確定後、`tests/fixtures/pg-fold-path.sh` を直し、`ta-65` / `ta-67` を再実行
+4. Step 8（`sh tests/run-tests.sh`）→ Step 9 → handoff の順
+
+### Step 9 / handoff に**必ず**入れる（オーケストレータ指示 / PR 前レビューの成果）
+
+- **FS エイリアスによる残存迂回**（本 PBI の退行ではなく、plan が Non-goal 宣言した
+  シンボリックリンク解決の領域。ただし **Non-goal の一行で済ませず「生きた残存迂回」
+  として明記**する）。オーケストレータ実測:
+  ```
+  REPO_ROOT の解決先: /tmp/pg1101-alias-96118
+  rc=2  /tmp/pg1101-alias-96118/CLAUDE.md                  ← block（正）
+  rc=0  /private/tmp/pg1101-alias-96118/CLAUDE.md          ← 素通り
+  rc=0  /System/Volumes/Data/private/tmp/.../CLAUDE.md     ← 素通り
+  ```
+  `ls -l` で **3 表記とも同一 inode・同一タイムスタンプ**に到達することを確認済み
+  （macOS の firmlink / `/tmp`→`/private/tmp` エイリアス）。
+  **「HO は常時 block される」と読めてはいけない**（AC-7 (3)(4) と同じ趣旨）。
+  → `hook-enforcement.md` の残存記述 + handoff の既知課題 + V2 候補に載せる。
+  **issue 起票はオーケストレータが行う**（AI は文書化まで）
+- **`ta-45` TC-01 が C-3 conversation 分岐を一度も通っていない**件も handoff の
+  既知課題に残す。**起票はオーケストレータ**
+- **Step 7 の性能問題**（未解決なら既知課題 + V2 候補に必ず載せる）
 
 ### 実行時の注意（前セッションの中断原因）
 
