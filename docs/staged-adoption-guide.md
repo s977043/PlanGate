@@ -87,6 +87,14 @@ Orchestrator Mode（親子 PBI）。
 
 ## 1. フック有効化の推奨順序
 
+> **前提コマンド**: フックを `.claude/settings.json` へ配線する場合、**`jq` と `sed` が PATH に必要**。
+> EH-13（承認トークン書き込みガード）は v8.19.0 で fail-closed 化され、いずれかが不在だと
+> **判定不能として `exit 2`（block）** する（`scripts/check-approval-token-write.sh` の
+> `command -v jq` / `command -v sed`）。結果として **Edit / Write / MultiEdit / Bash が止まる**。
+> **プラグインを導入するだけ（skill / agent / command のみ）なら不要**
+> — プラグインはフックを配布しないため（[`plugin/plangate/README.md`](../plugin/plangate/README.md)
+> の「Using hooks」参照）。**フック配線を行う段階から必須**になる。
+
 | 順序 | フック | 段階 | モード |
 |------|--------|------|--------|
 | 1 | EH-1（plan 存在） | Phase 1 | warning |
