@@ -185,3 +185,9 @@
 {"ts":"2026-08-04T15:48:41Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/92904c06-7605-4531-8402-bdb6d5f16a55/scratchpad/pr-eh12.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-08-04T15:49:25Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/92904c06-7605-4531-8402-bdb6d5f16a55/scratchpad/issue-checks.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-08-04T15:54:13Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/carry-over.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T07:03:41Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/staged-adoption-guide.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T07:03:51Z","event":"EH-3_DOC_LIGHT_SKIP","target":"plugin/plangate/README.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T07:13:43Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/staged-adoption-guide.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T07:13:56Z","event":"EH-3_DOC_LIGHT_SKIP","target":"plugin/plangate/README.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T07:14:07Z","event":"EH-3_DOC_LIGHT_SKIP","target":"README.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T07:14:24Z","event":"EH-3_DOC_LIGHT_SKIP","target":"README_en.md","acknowledged_by":null,"acknowledged_at":null}

@@ -167,6 +167,8 @@ sh ~/plangate/install.sh --dry-run   # preview changes without applying
 ```
 
 > **Post-install**: Run `~/plangate/bin/plangate doctor --fix` to wire up hook enforcement.
+>
+> **Prerequisites**: EH-13 (approval-token write guard) requires **`jq` and `sed`** on PATH (fail-closed since v8.19.0). Without either, Edit / Write and Bash are blocked with `exit 2`. Not required if you only install the plugin (it ships no hooks). See [staged adoption guide §1](docs/staged-adoption-guide.md) and [CHANGELOG](CHANGELOG.md).
 
 ### Option C: Copy `.claude/` directly
 

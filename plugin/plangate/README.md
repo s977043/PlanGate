@@ -351,6 +351,20 @@ See the [migration guide](../../docs/plangate-plugin-migration.md) for details.
 Hooks are not implemented in this version (directory structure reserved). Planned for a future release.
 EH-1/2/3/6/9 を使うには `.codex/hooks/` と `.claude/settings.json` の手動設定が必要です（上記「Hooks の設定について」を参照）。
 
+> **前提コマンド（フック配線を行う場合のみ）**: **`jq` と `sed` が PATH に必要**です。
+> EH-13（承認トークン書き込みガード）は v8.19.0 で fail-closed 化され、いずれかが不在だと
+> **判定不能として `exit 2`（block）** します（PlanGate 本体リポジトリの
+> `scripts/check-approval-token-write.sh` にある `command -v jq` / `command -v sed`）。
+> 結果として **Edit / Write と Bash が止まります**（EH-13 の matcher は `Edit|Write` と `Bash`）。
+>
+> **本プラグインを導入するだけなら `jq` / `sed` は不要です** — プラグインが配布するのは
+> skill / agent / command / rules であり、**フックは配布しない**ためです
+> （`claude plugin details plangate@plangate` の Component inventory が `Hooks (0)` を返す）。
+>
+> 回避策と移行手順は
+> [CHANGELOG v8.19.0 の「⚠️ 更新前に必ずお読みください」](https://github.com/s977043/plangate/blob/main/CHANGELOG.md)
+> を参照してください。
+
 ---
 
 ## ai-loop-workflow（同梱 PoC / low-risk 帯限定）
