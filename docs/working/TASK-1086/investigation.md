@@ -371,3 +371,12 @@ grep -rc "\.codex/skills" --exclude-dir=.git -r . | grep -v ':0$'
 # 6. spec check の dir 不在時挙動
 sh scripts/check-codex-skill-spec.sh --warn-only --target /nonexistent-dir-xyz ; echo rc=$?
 ```
+
+### 未実施（正直な記録）
+
+- **`sh tests/run-tests.sh` の baseline（AC-6）は本調査では取得していない。** 起動はしたが、
+  同一マシンで他セッションの full-suite が並走しており（`ta-61` が入れ子で full-suite を再実行する構造）、
+  完走前に自分の実行を中断した。**「rc=0 だった」とは書けない** ので、baseline は
+  **exec 開始時に単独実行で再測定すること**（issue AC-6 も「件数は exec 開始時に再測定」と規定している）。
+- 本調査で新規に実行したのは **読み取り専用の測定のみ**。`.codex/skills` を含む repo ファイルは一切変更していない
+  （追加したのは本ファイルのみ）。fixture はすべて scratchpad 配下に作成した。
