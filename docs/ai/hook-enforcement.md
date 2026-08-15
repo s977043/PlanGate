@@ -78,16 +78,79 @@
 
 | 層 | 強制 | 発火契機 | CLI を使わない運用での実態 |
 |----|------|---------|--------------------------|
-| **A. Claude PreToolUse**（自動・bypass 不能）| EH-1 / EH-2 / EH-3 / EH-6 / EH-9 + **EH-13**（承認トークン直書き block / TASK-0123・TASK-1023）+ **EH-12**（apply 後）| Edit / Write / Bash のたび | ✅ 常時発火 |
+| **A. Claude PreToolUse**（自動・bypass 不能）| EH-1 / EH-2 / EH-3 / EH-6 / EH-9 + **EH-13**（承認トークン直書き block / TASK-0123・TASK-1023）+ **EH-12**（apply 後）| **hook ごとに matcher が異なる**（下記 §0.1）。EH-1 / EH-2 / EH-3 / EH-6 は `Edit\|Write` のみ、EH-9 / EH-12 は `Bash` のみ、EH-13 は両方 | ✅ **配線された matcher 経路でのみ**常時発火（別経路は非発火 / #1104）|
 | **B. CI**（自動・bypass 不能）| EH-8（metrics privacy）/ settings drift / schema-validate / skip-ack / pr-issue-link | PR / push | ✅ 常時発火 |
 | **C. CLI**（`bin/plangate` 実行時のみ）| EH-4 / EH-5 / **EHS-1 / EHS-2 / EHS-3** | `verify` / `handoff --verify` を**実行したときだけ** | 🔴 **休眠**（CLI 未実行なら不発） |
 | **D. 外部設定**| EH-7（マージ 2 段階レビュー）| main へのマージ | 🔶 GitHub branch protection 設定に依存（Human-owned admin）|
 | **E. Codex hooks**| EH-3 / check-script-basename | Codex セッション中の apply_patch / Bash 等 | （Claude Code 運用では非該当）|
 
+### 0.1 matcher 別の適用範囲（#1104 / 実測 2026-08-15・`origin/main` = `dfaeebb`）
+
+> 層 A（Claude PreToolUse）は「発火する / しない」ではなく **どの tool 経路に配線されているか**で
+> 適用範囲が決まる。**`matcher` に無い tool から同じ操作をしても hook は呼ばれない。**
+> 配線の正本は `.claude/settings.json` の `hooks` 配列（**HO 対象・Human-owned**。本書は
+> その写しであり、乖離した場合は `settings.json` が正）。
+
+`.claude/settings.json` に配線済みの hook は **11 件**。matcher 内訳は以下（実測）。
+tracked な [`.claude/settings.example.json`](../../.claude/settings.example.json) も
+**同一の matcher 集合**（実測一致）であり、本ギャップは導入先にもそのまま配布される:
+
+| matcher | event | hook | 守るもの |
+|---------|-------|------|---------|
+| **`Edit\|Write`** | PreToolUse | [`check-plan-exists.sh`](../../scripts/hooks/check-plan-exists.sh)（EH-1）| plan.md 存在チェック |
+| **`Edit\|Write`** | PreToolUse | [`check-c3-approval.sh`](../../scripts/hooks/check-c3-approval.sh)（EH-2）| C-3 承認ゲート |
+| **`Edit\|Write`** | PreToolUse | [`check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh)（EH-3）| **Hardening Override 9 カテゴリ + plan.md ゲート + plan_hash 改竄** |
+| **`Edit\|Write`** | PreToolUse | [`check-forbidden-files.sh`](../../scripts/hooks/check-forbidden-files.sh)（EH-6）| forbidden_files（scope 逸脱） |
+| **`Edit\|Write`** | PreToolUse | [`check-approval-token-write.sh`](../../scripts/check-approval-token-write.sh)（EH-13）| 承認トークン直書き |
+| **`Bash`** | PreToolUse | [`check-approval-token-write.sh`](../../scripts/check-approval-token-write.sh)（EH-13）| 承認トークン直書き（**唯一の両経路配線**） |
+| **`Bash`** | PreToolUse | [`check-delegation-commit-boundary.sh`](../../scripts/hooks/check-delegation-commit-boundary.sh)（EH-9）| 委譲 commit/push 境界 |
+| **`Bash`** | PreToolUse | [`check-git-destructive.sh`](../../scripts/check-git-destructive.sh)（EH-12）| protected branch 上の破壊的 git 操作 |
+| `Edit\|Write\|MultiEdit` | PostToolUse | `scripts/hooks/check-post-edit-diff.sh` | 編集後 diff 可視化（block ではない） |
+| （なし）| Stop | `scripts/hooks/check-stop-diff-status.sh` | 停止時 diff 状態 |
+| （なし）| SessionStart | `scripts/gh-pin-account.sh` | gh アカウント固定 |
+
+#### 明示: ファイル書き込みガードは `Edit|Write` 経路のみ
+
+- **HO 9 カテゴリ / plan.md ゲート / plan_hash 改竄検知（EH-3）**、
+  **forbidden_files（EH-6）**、**C-3 承認ゲート（EH-2）**、**plan 存在チェック（EH-1）** は
+  **`Edit|Write` matcher にのみ配線されている**。
+  したがってこれらは **Edit / Write tool 経由の書き込みでのみ強制**され、
+  **`Bash` tool 経由の書き込み（`>` / `>>` / `tee` / `cp` / `mv` / `sed -i` /
+  `python3 -c "open(...,'w')"` / heredoc など）では発火しない。**
+- **HO 判定ロジックを持つ配線済み hook は `check-plan-hash.sh` の 1 本のみ**
+  （repo 全体で `_override=1` を持つのは同 hook と apply スクリプト
+  [`scripts/apply-eh3-ho-always.sh`](../../scripts/apply-eh3-ho-always.sh) の 2 本。
+  後者は **hook ではなく適用スクリプト**）。
+  `Bash` matcher の 3 本（EH-9 / EH-12 / EH-13）は **いずれも `plan.md` も HO も参照しない**（実測 grep 0 件）。
+  ⇒ **HO は `Edit|Write` 経路にしか存在しない。**
+- 書き込みガードのうち **両経路に配線されているのは EH-13（承認トークン直書き）だけ**。
+
+#### Bash 経路の欠落は #1104 で追跡中
+
+- 追跡 issue: **[#1104](https://github.com/s977043/plangate/issues/1104)**
+  （`Bash` 経路へのガード配線方式の設計・実装。AC-3 正規経路維持 / AC-4 偽陽性ゼロ /
+  AC-5 パス抽出不能時の方針が要点）。**本書への matcher 表の記載は #1104 AC-7 に対応する開示**。
+- 併せて **[#1101](https://github.com/s977043/plangate/issues/1101)**（`Edit|Write` 経路の
+  `..` / 大小文字 / 末尾空白の正規化）が **別の穴**として存在する。両者は代替関係ではない。
+- **実例 4 件（すべて自己申告で発覚）**:
+
+  | 時期 | 主体 | 件数 | 出典 |
+  |------|------|------|------|
+  | 2026-07-12 | 委託サブエージェント（3 体中 3 体）| 3 | [#833](https://github.com/s977043/plangate/issues/833)（docs 対応のみで CLOSE。技術層は未着手）|
+  | 2026-08-15 | メインセッションの AI（TASK-1101 作業中）| 1 | [#1104](https://github.com/s977043/plangate/issues/1104) |
+
+- **4/4 とも意図的な迂回ではなく「ツールを Bash に変えただけ」で規律が破れた**。
+  同一内容を `Write` tool で書くと `[Hook EH-3] BLOCK` になる。
+- **監査ギャップ**: Bash 経路の書き込みは hook を通らないため
+  `docs/working/_audit/skip-decision-log.jsonl` にも `hook-events.log` にも痕跡が残らない。
+  **申告されなければ検出されない**（層 B の CI が PR 差分として捕捉するのが唯一の後段防壁）。
+
 ### 含意
 
-- **承認境界（plan 未作成 / C-3 未承認 / plan_hash 改竄 / scope 逸脱 / 委譲境界）は
-  CLI を使わなくても 100% 強制**される（層 A）。
+- **承認境界（plan 未作成 / C-3 未承認 / plan_hash 改竄 / scope 逸脱）は、
+  `Edit` / `Write` tool 経由であれば CLI を使わなくても強制**される（層 A）。
+  **`Bash` tool 経由の書き込みには配線されておらず強制されない**（§0.1 / #1104）。
+  委譲境界（EH-9）は逆に `Bash` matcher にのみ配線されている。
 - **検証品質ゲート（EH-4 / EH-5 / EHS-1 / EHS-2 / EHS-3）は CLI 駆動が前提**。
   手動 / AI 任せ運用では休眠する（層 C）。EHS-1/2/3 は配線済み（TASK-0145/0146/0147）
   だが、`bin/plangate verify` / `handoff --verify` を回さなければ実効しない。
@@ -103,6 +166,10 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 ## 2. 強制すべき不変条件（一覧）
 
 [`responsibility-boundary.md`](./responsibility-boundary.md) § 5 と整合。最低 6 件:
+
+> **本節の「block」はすべて配線された matcher 経路での話**（§0.1）。
+> EH-1 / EH-2 / EH-3 / EH-6 は `Edit|Write` のみ、EH-9 / EH-12 は `Bash` のみ、
+> EH-13 は両方に配線されている。**未配線の経路からは同じ操作でも block されない（#1104）**。
 
 ### EH-1: plan.md なし production code 編集ブロック
 
@@ -129,14 +196,20 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 - **対応**: Hook が次の operation を block。再承認を要求
 - **基盤**: Iron Law #5（承認済 plan と実装差分の整合性）
 
-> **Hardening Override（HO）9 カテゴリの常時 block（#1089 是正済み・`9043536`）**
+> **Hardening Override（HO）9 カテゴリの block（`Edit|Write` 経路限定 / #1089 是正済み・`9043536`）**
 >
-> EH-3 は plan_hash 検知に加え **HO 9 カテゴリの常時 block**
+> EH-3 は plan_hash 検知に加え **HO 9 カテゴリの block**
 > （正本: [`.claude/rules/mode-classification.md`](../../.claude/rules/mode-classification.md)
 > 承認境界周辺の変更節）を担う **唯一のガード**である
 > （`check-forbidden-files.sh` は HO パスを守らない）。
 >
-> **HO 判定は `task_id` 分岐より前で行われるため、TASK 文脈の有無に依らず block される**
+> ⚠️ **適用範囲は `Edit|Write` matcher に限定される（§0.1 / #1104）**。EH-3 は
+> `.claude/settings.json` で `Edit|Write` にのみ配線されているため、**`Bash` tool 経由の
+> 書き込み（`cat >` / `tee` / `sed -i` / `python3 -c "open(...,'w')"` 等）では HO も
+> plan.md ゲートも発火しない**。以下の「block される」はすべて **Edit / Write 経路での話**。
+>
+> **`Edit|Write` 経路においては、HO 判定は `task_id` 分岐より前で行われるため、
+> TASK 文脈の有無に依らず block される**
 > （PR #1097 で是正。それ以前は `PLANGATE_HOOK_TASK` 設定時に 9 カテゴリすべてが
 > 素通りしていた = #1089）。
 >
@@ -144,7 +217,11 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >   「TASK 文脈でも block される」**。コードが元の構造へ戻ると CI が RED になる
 > - `.claude/settings*.json` は Claude Code 自身の self-mod ガード（harness 層）でも
 >   守られるが、**残る 8 カテゴリに同等の別ガードは確認されていない**
-> - **「常時 block」は文字どおりには成立しない（既知の残存）**: `..` / 大小文字 / 末尾空白の
+> - **「常時 block」は文字どおりには成立しない（既知の残存・2 系統）**:
+>   1. **経路の欠落（#1104）**: `Bash` matcher に未配線＝`Edit|Write` 以外の書き込みは素通り（§0.1）
+>   2. **`Edit|Write` 経路内の正規化不足（#1101、以下）**
+>
+>   `..` / 大小文字 / 末尾空白の
 >   正規化が未実装で通過する。ta-65 TC-07 が **4 ケース**を KNOWN-GAP として固定している
 >   （`docs/../CLAUDE.md` / `CLAUDE.MD` / `"CLAUDE.md "` / **`bin/../bin/plangate`**）。
 >   **`.md` の表記揺れに限らず、`..` 経由で CLI 本体 `bin/plangate` の HO も迂回できる**点に注意
@@ -353,7 +430,7 @@ CLI プロセス計数のため CLI 維持）。
 
 ### 4.3 設定方法（opt-in）
 
-[`.claude/settings.example.json`](../../.claude/settings.example.json) を `.claude/settings.json` にコピーすると PreToolUse hook（**EH-1 + EH-2 + EH-3 + EH-6**）+ SessionStart（gh-pin-account）が有効化される。
+[`.claude/settings.example.json`](../../.claude/settings.example.json) を `.claude/settings.json` にコピーすると PreToolUse hook（**EH-1 + EH-2 + EH-3 + EH-6**、いずれも **matcher = `Edit|Write`**）+ SessionStart（gh-pin-account）が有効化される。**`Bash` 経路の書き込みは対象外**（§0.1 / #1104）。
 
 **CLI 配線（TASK-0143 / apply-script 適用後）**: EH-4 は `plangate verify` V-1 前（strict=1）、EH-5 は V-1 後（warn）で発火。EH-7 / EHS-1 / EHS-2 / EHS-3 は引き続き手動呼び出し。
 
