@@ -1,0 +1,16 @@
+
+=== TA-68: skill spec presence check (#1109) ===
+  [PASS] TC-01 check-codex-skill-spec.sh の syntax OK
+  [PASS] TC-02 既定 2 root が rc=0
+  [PASS] TC-03 負側: openai.yaml 欠落を rc=1 + 名指しで検出
+  [PASS] TC-04 負側: orphan openai.yaml を rc=1 で検出
+  [FAIL] TC-05 --warn-only が rc=��期待 0）
+  [FAIL] TC-06 target 不在で rc=��期待 0）: [spec-check] NOT FOUND (explicit target): /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.rauVjS1F1X/never-created — 0 skills inspected;[spec-check] Checked 0 skills across 0 target(s);[spec-check] VIOLATIONS (2):;  - /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.rauVjS1F1X/never-created: target directory not found (explicit --target);  - no target directory was inspected — targets: /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.rauVjS1F1X/never-created
+  [PASS] TC-07 target 不在は rc=1（緑にしない）
+  [PASS] TC-08 target 不在で traceback を出さない
+  [PASS] TC-09 既定 target に配布物 plugin/plangate/skills を含む
+  [PASS] TC-10 skip したエントリを件数と理由つきで出力する
+  [PASS] TC-11 short_description 上限検査が退行していない
+  [PASS] TC-12 配布物 root の SKILL.md 集合と openai.yaml 集合が一致
+TA-68 standalone: 10 passed, 2 failed
+rc=1

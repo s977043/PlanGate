@@ -1,77 +1,210 @@
 #!/bin/sh
-# check-codex-skill-spec.sh — .codex/skills/ の openai.yaml 仕様チェック
+# check-codex-skill-spec.sh — skill root の openai.yaml 仕様チェック
 # 仕様: https://openai.com/academy/codex-plugins-and-skills/
 #
-# Usage: sh scripts/check-codex-skill-spec.sh [--warn-only] [--target DIR]
-# Exit: 0=OK, 1=violation(s) found (--warn-only 時は常に 0)
+# Usage: sh scripts/check-codex-skill-spec.sh [--warn-only] [--target DIR]...
+#
+# 既定 target（2 root）:
+#   - .codex/skills            … repo 内 Codex skill root
+#   - plugin/plangate/skills   … 配布物（marketplace 経路がそのまま読む実体）
+# --target を 1 回でも指定すると既定 2 root を置き換える（複数回指定可）。
+#
+# Exit:
+#   0 = violation なし
+#   1 = violation あり（--warn-only 指定時は 0 を返す）
+#   1 = python3 不在（環境不備。検査自体が走らないため --warn-only でも 1）
+#
+# 検査内容（#1109）:
+#   1. presence（同値照合）— target 直下の「SKILL.md を持つディレクトリ」の集合と
+#      「agents/openai.yaml を持つディレクトリ」の集合が一致すること。
+#      片側だけに存在するものは violation。**絶対件数は契約値にしない**（skill は増える）。
+#   2. field —  short_description(25-64) / default_prompt($name 含む) / icon_small / icon_large
+#   3. 検査対象から外したエントリは「件数と理由」を必ず出力する（silent skip 禁止 / #1109）
 
 set -eu
 
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-TARGET_DIR="$REPO_ROOT/.codex/skills"
 WARN_ONLY=0
+EXPLICIT_TARGET=0
+TARGETS=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --warn-only) WARN_ONLY=1; shift ;;
-    --target)    TARGET_DIR="$2"; shift 2 ;;
+    --target)
+      if [ $# -lt 2 ]; then
+        printf '[spec-check] ERROR: --target requires a directory argument\n' >&2
+        exit 1
+      fi
+      # 最初の --target で既定 2 root を破棄する（明示指定が既定を置き換える）
+      if [ "$EXPLICIT_TARGET" -eq 0 ]; then
+        TARGETS=""
+        EXPLICIT_TARGET=1
+      fi
+      TARGETS="$TARGETS$2
+"
+      shift 2 ;;
+    -h|--help)
+      printf 'Usage: sh scripts/check-codex-skill-spec.sh [--warn-only] [--target DIR]...\n'
+      exit 0 ;;
     *) printf 'Unknown option: %s\n' "$1" >&2; exit 1 ;;
   esac
 done
 
-command -v python3 >/dev/null 2>&1 || { printf '[spec-check] ERROR: python3 is required\n' >&2; exit 1; }
-python3 - "$TARGET_DIR" "$WARN_ONLY" << 'PYEOF'
-import os, re, sys, json
+if [ "$EXPLICIT_TARGET" -eq 0 ]; then
+  TARGETS="$REPO_ROOT/.codex/skills
+$REPO_ROOT/plugin/plangate/skills
+"
+fi
 
-target_dir = sys.argv[1]
-warn_only = sys.argv[2] == '1'
+command -v python3 >/dev/null 2>&1 || { printf '[spec-check] ERROR: python3 is required\n' >&2; exit 1; }
+
+# 改行区切りの TARGETS を位置パラメータへ展開（パスに空白が含まれても壊れない）
+_saved_ifs="$IFS"
+IFS='
+'
+set -f
+# shellcheck disable=SC2086
+set -- $TARGETS
+set +f
+IFS="$_saved_ifs"
+
+# 検出（python）と rc 方針（shell）を分離する。python は「violation があれば必ず 1」
+# だけを担い、--warn-only による rc=0 化は下の 1 箇所だけが行う（契約を二重実装
+# しない = 片方を壊しても他方が隠す構造を作らない / #1109 変異検出力）。
+_rc=0
+python3 - "$EXPLICIT_TARGET" "$@" << 'PYEOF' || _rc=$?
+import os, re, sys
+
+explicit = sys.argv[1] == '1'
+targets = sys.argv[2:]
 
 violations = []
-checked = 0
+inspected_targets = 0
+total_skills = 0
 
-for name in sorted(os.listdir(target_dir)):
-    if name.startswith('.'): continue
-    yaml_path = os.path.join(target_dir, name, 'agents', 'openai.yaml')
-    if not os.path.exists(yaml_path): continue
-    checked += 1
+
+def check_fields(label, name, yaml_path):
+    """openai.yaml の必須フィールドを検査して violation を追加する。"""
     with open(yaml_path, encoding='utf-8') as fh:
         content = fh.read()
 
     # short_description: 25-64 chars
     m = re.search(r'short_description:\s*"([^"]*)"', content)
     if not m:
-        violations.append(f'{name}: short_description missing')
+        violations.append(f'{label}/{name}: short_description missing')
     else:
         sd = m.group(1)
         if len(sd) < 25:
-            violations.append(f'{name}: short_description too short ({len(sd)} chars, min 25): "{sd}"')
+            violations.append(f'{label}/{name}: short_description too short ({len(sd)} chars, min 25): "{sd}"')
         elif len(sd) > 64:
-            violations.append(f'{name}: short_description too long ({len(sd)} chars, max 64): "{sd}"')
+            violations.append(f'{label}/{name}: short_description too long ({len(sd)} chars, max 64): "{sd}"')
 
     # default_prompt: must contain $skill-name
     m2 = re.search(r'default_prompt:\s*"([^"]*)"', content)
     if not m2:
-        violations.append(f'{name}: default_prompt missing')
+        violations.append(f'{label}/{name}: default_prompt missing')
     else:
         dp = m2.group(1)
         if f'${name}' not in dp:
-            violations.append(f'{name}: default_prompt does not contain "${name}": "{dp[:50]}"')
+            violations.append(f'{label}/{name}: default_prompt does not contain "${name}": "{dp[:50]}"')
 
     # icon_small / icon_large
     if 'icon_small' not in content:
-        violations.append(f'{name}: icon_small missing')
+        violations.append(f'{label}/{name}: icon_small missing')
     if 'icon_large' not in content:
-        violations.append(f'{name}: icon_large missing')
+        violations.append(f'{label}/{name}: icon_large missing')
 
-print(f'[spec-check] Checked {checked} skills in {target_dir}')
+
+def inspect(target):
+    """1 つの target root を検査する。戻り値: 検査した skill 数（未検査なら None）。"""
+    global inspected_targets
+    label = os.path.basename(target.rstrip('/')) or target
+    if not os.path.isdir(target):
+        # 不在の扱いは「明示指定か既定か」で変える:
+        #   明示 --target → 検査したいと言われた対象が無い = violation（fail-closed）
+        #   既定 target   → repo レイアウト差を許容。ただし必ず理由付きで出力する
+        if explicit:
+            violations.append(f'{target}: target directory not found (explicit --target)')
+            print(f'[spec-check] NOT FOUND (explicit target): {target} — 0 skills inspected')
+        else:
+            print(f'[spec-check] SKIPPED default target: {target} — reason: directory absent (0 skills inspected)')
+        return None
+
+    inspected_targets += 1
+    skill_dirs = set()
+    yaml_dirs = set()
+    ignored = []
+    for name in sorted(os.listdir(target)):
+        if name.startswith('.'):
+            ignored.append((name, 'dotfile / dot-directory'))
+            continue
+        path = os.path.join(target, name)
+        if not os.path.isdir(path):
+            ignored.append((name, 'not a directory'))
+            continue
+        has_skill = os.path.isfile(os.path.join(path, 'SKILL.md'))
+        has_yaml = os.path.isfile(os.path.join(path, 'agents', 'openai.yaml'))
+        if has_skill:
+            skill_dirs.add(name)
+        if has_yaml:
+            yaml_dirs.add(name)
+        if not has_skill and not has_yaml:
+            ignored.append((name, 'no SKILL.md and no agents/openai.yaml'))
+
+    # presence の同値照合（集合比較。絶対件数を契約値にしない）
+    missing = sorted(skill_dirs - yaml_dirs)
+    orphan = sorted(yaml_dirs - skill_dirs)
+    for name in missing:
+        violations.append(f'{label}/{name}: agents/openai.yaml missing (SKILL.md exists)')
+    for name in orphan:
+        violations.append(f'{label}/{name}: agents/openai.yaml exists but SKILL.md missing')
+
+    checked = sorted(skill_dirs & yaml_dirs)
+    for name in checked:
+        check_fields(label, name, os.path.join(target, name, 'agents', 'openai.yaml'))
+
+    print(
+        '[spec-check] {t}: SKILL.md dirs={s} openai.yaml dirs={y} '
+        'field-checked={c} missing-yaml={m} orphan-yaml={o} ignored={i}'.format(
+            t=target, s=len(skill_dirs), y=len(yaml_dirs),
+            c=len(checked), m=len(missing), o=len(orphan), i=len(ignored)))
+    # skip したものは必ず件数と理由を出す（「見ていない」を緑にしない / #1109）
+    for name, reason in ignored:
+        print(f'[spec-check]   ignored: {name} — reason: {reason}')
+    return len(skill_dirs)
+
+
+try:
+    for target in targets:
+        n = inspect(target)
+        if n is not None:
+            total_skills += n
+
+    if inspected_targets == 0:
+        # 1 つも見ていない状態を「All PASS」と言わない（false green の再生産防止）
+        violations.append(
+            'no target directory was inspected — targets: ' + (', '.join(targets) or '(none)'))
+except Exception as exc:  # noqa: BLE001 — 予期せぬ例外も traceback ではなく violation として扱う
+    violations.append(f'internal error while inspecting targets: {exc!r}')
+
+print(f'[spec-check] Checked {total_skills} skills across {inspected_targets} target(s)')
 if violations:
     print(f'[spec-check] VIOLATIONS ({len(violations)}):')
     for v in violations:
         print(f'  - {v}')
-    if not warn_only:
-        sys.exit(1)
-    else:
-        print('[spec-check] --warn-only: continuing despite violations')
+    sys.exit(1)
 else:
     print('[spec-check] All skills PASS spec check')
 PYEOF
+
+# --warn-only は「違反があっても後続を止めない」契約。violation・target 不在・
+# 内部例外のいずれでも 0 を返す（冒頭コメントの契約と実挙動を一致させる / #1109）。
+# rc 方針はこの 1 箇所が唯一の実装。
+if [ "$WARN_ONLY" -eq 1 ]; then
+  if [ "$_rc" -ne 0 ]; then
+    printf '[spec-check] --warn-only: continuing despite findings (suppressed rc=%s)\n' "$_rc"
+  fi
+  exit 0
+fi
+exit "$_rc"

@@ -1,0 +1,16 @@
+
+=== TA-68: skill spec presence check (#1109) ===
+  [PASS] TC-01 check-codex-skill-spec.sh の syntax OK
+  [PASS] TC-02 既定 2 root が rc=0
+  [PASS] TC-03 負側: openai.yaml 欠落を rc=1 + 名指しで検出
+  [PASS] TC-04 負側: orphan openai.yaml を rc=1 で検出
+  [PASS] TC-05 --warn-only は violation ありでも rc=0
+  [PASS] TC-06 --warn-only は target 不在でも rc=0
+  [PASS] TC-07 target 不在は rc=1（緑にしない）
+  [PASS] TC-08 target 不在で traceback を出さない
+  [PASS] TC-09 既定 target に配布物 plugin/plangate/skills を含む
+  [PASS] TC-10 skip したエントリを件数と理由つきで出力する
+  [PASS] TC-11 short_description 上限検査が退行していない
+  [PASS] TC-12 配布物 root の SKILL.md 集合と openai.yaml 集合が一致
+TA-68 standalone: 12 passed, 0 failed
+rc=0
