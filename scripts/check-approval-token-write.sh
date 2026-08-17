@@ -133,6 +133,9 @@ _has_write_intent() {
   _redirect_tok=0
   _redirect_writes_token "$_wc_n" && _redirect_tok=1 # t1110-redirect-correlate
   printf '%s' "$_wc_n" | grep -q '>' && [ "$_redirect_tok" = "1" ] && { _wi_rule=file-redirect; return 0; } # t1045-file-redirect
+  # ここへ来た時点で redirect レーンは不成立。以降のルールで block する場合に
+  # redirect_target が誤って添えられないよう捨てる（正規化失敗時の診断値対策）。
+  _wi_redirect_target=""
   # 書き込み系コマンドが語境界で出現（行頭・; & | ( 直後・空白区切り）
   printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(cp|mv|ln|install|dd|tee|truncate|patch|apply_patch)([[:space:]]|$)' && { _wi_rule=copy-like; return 0; }
   # ed / ex（stdin スクリプトの w コマンドで書込可能。語境界で検出 / TASK-1023 V-3 実測 bypass）
