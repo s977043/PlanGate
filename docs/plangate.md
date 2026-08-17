@@ -42,7 +42,7 @@ PlanGateはこれらを**構造的に防止**します。ルールや注意力�
 graph TD
     Start["Ready"] --> A["人間 A: PBI INPUT PACKAGE 作成"]
     A --> B["AI B: Plan + ToDo + TestCases 生成"]
-    B --> C1["AI C-1: セルフレビュー（17項目）"]
+    B --> C1["AI C-1: セルフレビュー（全25項目）"]
     C1 --> C2["AI C-2: 外部AIレビュー"]
     C2 --> C3{"人間 C-3: 人間レビュー（三値ゲート）"}
     C3 -->|"APPROVE"| D["AI D: Agent実行（TDD）"]
@@ -79,7 +79,7 @@ graph TD
 | --- | --- | --- | --- | --- |
 | **A**: PBI INPUT | WF-01 / WF-02 | 人間 | 要件・スコープ・受入基準を記入 | `pbi-input.md` |
 | **B**: Plan生成 | WF-01〜WF-03 横断 | AI | 計画・タスク分解・テストケース定義を同時生成 | `plan.md` `todo.md` `test-cases.md` |
-| **C-1**: セルフレビュー | (WF 外) | AI | 17項目のPASS/WARN/FAILチェック | `review-self.md` |
+| **C-1**: セルフレビュー | (WF 外) | AI | 全25項目のPASS/WARN/FAILチェック | `review-self.md` |
 | **C-2**: 外部AIレビュー | (WF 外) | AI | 別AIモデルによる独立チェック | `review-external.md` |
 | **C-3**: 人間レビュー | (WF 外) | **ゲート** | C-1/C-2の結果を踏まえて三値判断 | APPROVE / CONDITIONAL / REJECT |
 | **D**: Agent実行 | **WF-04** Build & Refine | AI | TDDで実装(テスト全パスが完了条件) | 実装コード |
@@ -120,9 +120,12 @@ Phase 1 計画 -> Phase 2 ゲート -> Phase 3 フル運用。各段階で「使
 
 Planが人間の目に届く前に、2段階の自動チェックが走ります。
 
-#### C-1 セルフレビュー(17項目)
+#### C-1 セルフレビュー(全25項目)
 
-AI自身が「この計画で本当に大丈夫か」をPlan 7項目+ToDo 5項目+TestCases 3項目で自己検証します。受入基準の網羅性、スコープ制御、テスト戦略などを自動チェック。
+AI自身が「この計画で本当に大丈夫か」を Plan 9項目 + Plan品質追加 2項目 + ToDo 6項目 + TestCases 3項目 + B-1/B-2結合 2項目 + セキュリティ/スコープ規律/UI 各1項目 の計25項目で自己検証します。受入基準の網羅性、スコープ制御、テスト戦略などを自動チェック。
+
+> 項目定義の正本は [`docs/working/templates/review-self.md`](./working/templates/review-self.md)。
+> 旧称の「17」は `C1-PLAN-01`〜`C1-B1B2-17` のコア番号帯（連番17個）を指す通称であり、現行の総数ではない。
 
 #### C-2 外部AIレビュー
 
@@ -193,7 +196,7 @@ execコマンド実行後、PR作成までに複数の自動検証ステップ�
 
 1. pbi-input.mdを読み込み
 2. plan.md + todo.md + test-cases.mdを同時生成
-3. C-1セルフレビュー(17項目)を自動実行
+3. C-1セルフレビュー(全25項目)を自動実行
 4. C-2外部AIレビューを自動実行
 
 > 計画を生むプロセス（B-1 確認質問・事前メトリクス検証・B-2 アプローチ比較・B-3 同時生成）の詳細は [高品質な実行計画ができるまで](./pages/explanation/product/plan-creation-process.md) を参照。
@@ -252,7 +255,7 @@ workflow-conductor(司令塔エージェント)がtodo.mdにしたがってタ�
 > モードに応じてフェーズをスキップします。判定基準の正本: `.claude/rules/mode-classification.md`
 > - **ultra-light**: plan/C-1〜C-3スキップ、直接実装 → L-0 → 簡易V-1 → PR → C-4
 > - **light**: 簡易plan → 簡易C-1 → TDD → L-0 → V-1 → PR → C-4
-> - **standard**: 標準plan → C-1(17項目) → TDD → L-0 → V-1 → V-3 → PR → C-4
+> - **standard**: 標準plan → C-1(全25項目) → TDD → L-0 → V-1 → V-3 → PR → C-4
 > - **high-risk**: 標準plan → C-1 → C-2 → TDD+並列 → L-0 → V-1 → V-2 → V-3 → PR → C-4
 > - **critical**: 詳細plan → C-1 → C-2(複数観点) → TDD+並列+段階的 → L-0 → V-1 → V-2 → V-3 → V-4 → PR → C-4
 
