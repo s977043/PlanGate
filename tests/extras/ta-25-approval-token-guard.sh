@@ -110,6 +110,27 @@ t25_mk p_t1045_w_gt '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_in
 t25_mk p_t1045_w_append '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x >> docs/working/TASK-0001/approvals/c3.json"}}'
 t25_mk p_t1045_w_fd1 '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x 1> docs/working/TASK-0001/approvals/c3.json"}}'
 
+# ── TASK-1110 (#1110) fixtures: リダイレクト先とトークンパスの相関 ──────────
+# 負の対照（トークン名は出るがリダイレクト先はトークンパスでない = 誤検知側）
+t25_mk p_t1110_n_msg_redirect '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m '"'"'docs: docs/working/TASK-0001/approvals/c3.json'"'"' > /tmp/log.txt"}}'
+t25_mk p_t1110_n_msg_only '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m '"'"'docs: docs/working/TASK-0001/approvals/c3.json handling'"'"'"}}'
+t25_mk p_t1110_n_no_token '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m '"'"'docs: approval token'"'"' > /tmp/log.txt"}}'
+t25_mk p_t1110_n_read '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_n_write_other '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo '"'"'docs/working/TASK-0001/approvals/c3.json'"'"' > /tmp/note.txt"}}'
+# 退行防止側（先が実際にトークンパスへ解決される = 真の陽性）
+t25_mk p_t1110_w_dotslash '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > ./docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_w_quoted '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > \"docs/working/TASK-0001/approvals/c3.json\""}}'
+t25_mk p_t1110_w_spaces '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x >   docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_w_dotdot '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/../TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_w_second '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo hi > /tmp/a.txt; echo x > docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_w_heredoc '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat > docs/working/TASK-0001/approvals/c3.json <<EOF\n{}\nEOF"}}'
+t25_mk p_t1110_w_maint '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/_maintenance/maintenance.json"}}'
+# fail-closed 側（先が静的に解決できない）
+t25_mk p_t1110_fc_cmdsub '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > $(cat /tmp/p) # docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_fc_var '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > $OUT # docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_fc_glob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > /tmp/*.json # docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_fc_empty '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x >   # docs/working/TASK-0001/approvals/c3.json"}}'
+
 # ── focused kill TC 群（mutation 子プロセスでも常に実行）───────────────────
 
 # T1023-TC-01: env target = maintenance.json → BLOCK rc=2（AC-01）
@@ -287,6 +308,73 @@ else
   t25_fail "T1045-TC-06 numbered fd redirect 1> token not blocked (exit $_t25_rc)"
 fi
 
+# ── TASK-1110 (#1110): リダイレクト先 ↔ トークンパス 相関（focused 群）──────
+# T1110-TC-01: 誤検知解消（AC-1）。mutation M-1 の kill 対象。
+#   「トークン名を含む文言」と「無関係なリダイレクト」が同居しても block しない。
+_t25_ok=1
+for _t25_p in p_t1110_n_msg_redirect p_t1110_n_msg_only p_t1110_n_no_token p_t1110_n_read; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (T1110-TC-01 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1110-TC-01 token literal + unrelated redirect passes (exit 0)"
+else
+  t25_fail "T1110-TC-01 token literal + unrelated redirect still falsely blocked"
+fi
+
+# T1110-TC-02: トークンパス文字列を「内容として」別ファイルへ書くのは block しない（AC-1）
+t25_guard "$T25_TMP/p_t1110_n_write_other"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1110-TC-02 writing the token path as content to another file passes (exit 0)"
+else
+  t25_fail "T1110-TC-02 writing token path as content falsely blocked (exit $_t25_rc)"
+fi
+
+# T1110-TC-03: 真の陽性は block 維持（AC-2）。mutation M-2 の補強。
+#   ./ 前置 / 引用 / 空白 / .. 混在 / 複文後段 / heredoc / maintenance を網羅。
+_t25_ok=1
+for _t25_p in p_t1110_w_dotslash p_t1110_w_quoted p_t1110_w_spaces p_t1110_w_dotdot \
+              p_t1110_w_second p_t1110_w_heredoc p_t1110_w_maint; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1110-TC-03 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1110-TC-03 redirect targets resolving to a token path remain blocked (exit 2)"
+else
+  t25_fail "T1110-TC-03 some real token-path redirect not blocked"
+fi
+
+# T1110-TC-04: リダイレクト先が静的に解決できない場合は block 側（AC-3 / fail-closed）
+#   コマンド置換 / 変数展開 / glob / 先が空。いずれも「安全側に倒す」ことの機械担保。
+_t25_ok=1
+for _t25_p in p_t1110_fc_cmdsub p_t1110_fc_var p_t1110_fc_glob p_t1110_fc_empty; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1110-TC-04 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1110-TC-04 unresolvable redirect targets fail closed (exit 2)"
+else
+  t25_fail "T1110-TC-04 an unresolvable redirect target was not blocked"
+fi
+
+# T1110-TC-05: block メッセージが一致したリダイレクト先を示す（AC-4）
+t25_guard "$T25_TMP/p_t1045_w_gt"
+if [ "$_t25_rc" = "2" ] && grep -q 'rule=file-redirect' "$T25_ERR" \
+   && grep -q 'redirect_target=docs/working/TASK-0001/approvals/c3.json' "$T25_ERR"; then
+  t25_pass "T1110-TC-05 block detail carries the matched redirect_target"
+else
+  t25_fail "T1110-TC-05 block detail missing matched redirect_target (exit $_t25_rc)"
+fi
+
 # ── ここから通常モード限定（mutation 子プロセスでは skip）───────────────────
 if [ "$PG_T25_FOCUSED" = "0" ]; then
 
@@ -441,12 +529,16 @@ else
   t25_fail "T1023-TC-08 read-only cat of token path incorrectly blocked (exit $_t25_rc)"
 fi
 
-# T1023-TC-09: token read + 別 file write の混在 → 保守的 rc=2（AC-04 / 相関解析しない仕様）
+# T1023-TC-09: token read + 別 file write の混在 → rc=0
+# 期待値変更（TASK-1110 / #1110）: 旧仕様は「相関解析しない」ため rc=2 だったが、
+# これは本 issue が是正した誤検知クラスそのもの（トークン名は読み取りに出るだけで、
+# リダイレクト先は /tmp/other.txt）。トークンパス宛の書き込みは
+# T1110-TC-03 / T1045-TC-04〜06 が引き続き block を担保する。
 t25_guard "$T25_TMP/p_bash_mixed"
-if [ "$_t25_rc" = "2" ]; then
-  t25_pass "T1023-TC-09 mixed token-read + other-write conservatively blocked (exit 2)"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1023-TC-09 mixed token-read + unrelated-file-write passes (exit 0, #1110)"
 else
-  t25_fail "T1023-TC-09 mixed command not conservatively blocked (exit $_t25_rc)"
+  t25_fail "T1023-TC-09 mixed token-read + unrelated-file-write falsely blocked (exit $_t25_rc)"
 fi
 
 # T1023-TC-10: normal file への Edit / Write / Bash write → 各 rc=0（AC-04）
@@ -746,12 +838,16 @@ else
   t25_fail "T1045-TC-15 >& <file> not blocked (exit $_t25_rc)"
 fi
 
-# T1045-TC-19: 文字列リテラル中の `>` は保守的 block を維持（AC-04 / GC-2 取りこぼしの明示固定）
+# T1045-TC-19: 文字列リテラル中の `>` → rc=0
+# 期待値変更（TASK-1110 / #1110）: 旧仕様は保守的 block（GC-2 の取りこぼしを
+# 明示固定）だったが、`echo (a > b) <TOKEN>` はリダイレクト先が `b` であり
+# トークンパスに解決されない = 本 issue の是正対象クラス（ケース A と同型）。
+# 解決不能な先（$ / glob / 空）は引き続き block されることを T1110-TC-04 が担保する。
 t25_guard "$T25_TMP/p_t1045_b_literal"
-if [ "$_t25_rc" = "2" ]; then
-  t25_pass "T1045-TC-19 '>' inside a string literal remains conservatively blocked (exit 2)"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1045-TC-19 '>' inside a string literal no longer over-blocks (exit 0, #1110)"
 else
-  t25_fail "T1045-TC-19 literal '>' not conservatively blocked (exit $_t25_rc)"
+  t25_fail "T1045-TC-19 literal '>' still over-blocked (exit $_t25_rc)"
 fi
 
 # ── TASK-1045: 併記による回避の非成立（通常群 / plan N-5 / AC-07）──
@@ -958,6 +1054,19 @@ else
   #   → 退行防止 TC（T1045-TC-04）が FAIL することで「弱体化が機械検出される」ことを示す（GC-1 の担保）
   _t25_mutate "TC-10" 's@^.*# t1045-file-redirect$@  false # t1045-file-redirect@' \
     't1045-file-redirect' 'T1045-TC-04' 'T1045'
+
+  # ── TASK-1110 変異 2 方向（出力ラベル prefix = T1110 / #1110）──
+  # 変異は **call site**（`# t1110-redirect-correlate` の行）を壊す。判定関数の本体
+  # だけを壊す変異は「呼び出し側が結果を使っているか」を検証できないため使わない。
+  # M-1 / 変異 (a): 相関判定の結果を握り潰して常に真（= 修正前の OR 判定へ回帰）
+  #   → 誤検知解消 TC（T1110-TC-01）が FAIL することで「相関を本当に見ている」ことを示す
+  _t25_mutate "TC-06" 's@^.*# t1110-redirect-correlate$@  _redirect_tok=1 # t1110-redirect-correlate@' \
+    't1110-redirect-correlate' 'T1110-TC-01' 'T1110'
+  # M-2 / 変異 (b): 相関判定の結果を常に偽（= 真の陽性を取りこぼす方向へ緩和）
+  #   → 退行防止 TC（T1045-TC-04 = `> <TOKEN>` の block）が FAIL することで
+  #     「誤検知削減に倒しすぎた場合に機械検出できる」ことを示す
+  _t25_mutate "TC-07" 's@^.*# t1110-redirect-correlate$@  _redirect_tok=0 # t1110-redirect-correlate@' \
+    't1110-redirect-correlate' 'T1045-TC-04' 'T1110'
 
   # T1045-TC-21: _t25_mutate 後方互換 — 既存 7 呼び出しは 4 引数のままで出力ラベルが T1023- のこと
   _t1045_c21=$(grep -c '_t25_mutate "TC-1[567]' "$PG_T25_SELF" || true)
