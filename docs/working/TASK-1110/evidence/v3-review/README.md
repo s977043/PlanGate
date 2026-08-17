@@ -19,6 +19,7 @@
 | `my_mutations_full.sh` | R-005 | 同上を 77 TC のフルグループで評価 |
 | `ta25_harness_mode.sh` | R-009 | `PG_HARNESS_SOURCED=1` + `FIXTURES_DIR` の harness 相当実行 |
 | `run_gnu_ta25.sh` | 棄却候補（移植性） | GNU sed を PATH 先頭に置いた TA-25 実行 |
+| `ta61-run.log` | R-009 | `sh tests/extras/ta-61-extra-contract.sh` の完走ログ（89 passed, 0 failed / EXIT=0） |
 
 ## プローブの前提（踏みやすい罠）
 

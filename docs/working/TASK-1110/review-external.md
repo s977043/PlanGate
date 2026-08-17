@@ -37,7 +37,7 @@
 | `sh tests/extras/ta-25-approval-token-guard.sh`（standalone / BSD sed） | **77 passed, 0 failed**（42.6s） |
 | `sh scratchpad/run_gnu_ta25.sh`（GNU sed 4.10） | **77 passed, 0 failed** |
 | `sh scratchpad/ta25_harness_mode.sh`（harness 相当） | **pass=77 fail=0 / EXIT=0** |
-| `sh tests/extras/ta-61-extra-contract.sh` | 実行中に本レビューを締めた（下記 R-009） |
+| `sh tests/extras/ta-61-extra-contract.sh` | **89 passed, 0 failed / EXIT=0**（入れ子フルスイート込み） |
 
 ---
 
@@ -302,7 +302,7 @@ status.md が正直に自己申告している点は評価するが、**R-001 / 
 
 ---
 
-### R-009 — **info** — `ta-61` の契約は本 PR で変化しない（静的確認 / 実行は完了前に締め）
+### R-009 — **info** — `ta-61` の契約は本 PR で変化しない（実測 89 passed / 0 failed）
 
 `tests/extras/ta-25-approval-token-guard.sh` は capability marker も
 `pg_extra_contract_init` も持たない **契約導入前のレガシー extras** であり
@@ -312,8 +312,14 @@ ta-61 の covered set の対象外。本 PR の diff は ta-25 の 1〜110 行�
 marker 1 個 / init 一致 / finalize / rc 層の契約は構造的に不変。
 standalone（rc=0 / 77 passed）と harness 相当（`PG_HARNESS_SOURCED=1` +
 `FIXTURES_DIR` / `fail=0` / EXIT=0）の**両方**で緑を実測済み。
-`sh tests/extras/ta-61-extra-contract.sh` の完走は入れ子フルスイートのため
-本レビュー締切までに終わらなかった（**判定不能ではなく、静的確認 + 2 モード実測で代替**）。
+
+さらに `sh tests/extras/ta-61-extra-contract.sh` を PR head 上で完走させ、
+**`TA-61 standalone: 89 passed, 0 failed` / `EXIT=0`** を実測した
+（入れ子フルスイートを含むため長時間。`TC-14` の
+「harness regression — suite rc=0, 0 failed, runtime-resolved last file
+(`ta-66-codex-plugin-manifest.sh`) reached」も PASS）。
+**marker 1 個 / init 一致 / finalize / rc 層（0/1/2/3）/ standalone 両対応の
+契約は本 PR で破壊されていない。**
 
 ---
 
@@ -368,7 +374,7 @@ standalone（rc=0 / 77 passed）と harness 相当（`PG_HARNESS_SOURCED=1` +
 | R-006 | minor | OPEN | — | `high-risk` PBI が C-3 未通過 / handoff 未発行 |
 | R-007 | info | OPEN | — | 実行時間 +38〜42ms（トークン混在時のみ）。hook timeout 未設定 |
 | R-008 | info | OPEN | — | `c3.jso*` glob 穴は新旧同値（#1115） |
-| R-009 | info | OPEN | — | ta-61 契約は静的に不変。standalone / harness 両モード緑 |
+| R-009 | info | CLOSED | — | ta-61 = 89 passed / 0 failed（実測）。standalone / harness 両モードも緑 |
 
 ---
 
