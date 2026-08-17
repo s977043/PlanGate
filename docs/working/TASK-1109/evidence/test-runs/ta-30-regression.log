@@ -10,4 +10,3 @@
   [PASS] TC-08 展開先 arbiter テスト自立 PASS
   [PASS] TC-09 2 回目実行は installed:0（up-to-date skip）
 TA-30 emulated: 9 passed, 0 failed
-rc=0

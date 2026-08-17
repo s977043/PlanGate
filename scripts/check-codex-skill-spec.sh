@@ -4,10 +4,8 @@
 #
 # Usage: sh scripts/check-codex-skill-spec.sh [--warn-only] [--target DIR]...
 #
-# 既定 target（2 root）:
-#   - .codex/skills            … repo 内 Codex skill root
-#   - plugin/plangate/skills   … 配布物（marketplace 経路がそのまま読む実体）
-# --target を 1 回でも指定すると既定 2 root を置き換える（複数回指定可）。
+# 既定 target は下の DEFAULT_TARGETS 宣言が正本。--target を 1 回でも指定すると
+# 既定宣言を置き換える（複数回指定可）。
 #
 # Exit:
 #   0 = violation なし
@@ -19,11 +17,30 @@
 #      「agents/openai.yaml を持つディレクトリ」の集合が一致すること。
 #      片側だけに存在するものは violation。**絶対件数は契約値にしない**（skill は増える）。
 #   2. field —  short_description(25-64) / default_prompt($name 含む) / icon_small / icon_large
+#      ※ icon_* は「値が宣言されていること」のみを見る。値のパス実在は検査しない
+#        （配布物 root の `./assets/...` は install 時に materialize される。#1109 R-005）
 #   3. 検査対象から外したエントリは「件数と理由」を必ず出力する（silent skip 禁止 / #1109）
+#   4. **target の不在は既定・明示を問わず violation**（#1109 R-001 / R-003）。
+#      「見に行く先が無い」を緑にしない。既定 root を減らすときは下の宣言を
+#      編集すること＝意識的なコード変更を強制する
 
 set -eu
 
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+
+# ── 既定 target の宣言（declared default roots / #1109 R-001）──────────────────
+# ここに宣言した root は **存在しなければ violation**（fail-closed）。
+# 片方が消えても検査母数だけが静かに半減する、という事故を構造的に防ぐ。
+#
+# `.codex/skills`          … repo 内 Codex skill root
+# `plugin/plangate/skills` … 配布物（marketplace 経路がそのまま読む実体）
+#
+# **#1086 で `.codex/skills` を untrack する場合はこの宣言から該当行を削除すること。**
+# 削除しない限り CI が赤くなるため、「気づかないうちに検査範囲が半減する」ことはない。
+# 逆に、削除は 1 行の意識的なコード変更として diff / レビューに必ず現れる。
+DEFAULT_TARGETS='.codex/skills
+plugin/plangate/skills'
+
 WARN_ONLY=0
 EXPLICIT_TARGET=0
 TARGETS=""
@@ -52,9 +69,18 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$EXPLICIT_TARGET" -eq 0 ]; then
-  TARGETS="$REPO_ROOT/.codex/skills
-$REPO_ROOT/plugin/plangate/skills
+  # 宣言（相対パス）を REPO_ROOT 起点の絶対パスへ展開する
+  _saved_ifs="$IFS"
+  IFS='
+'
+  set -f
+  for _d in $DEFAULT_TARGETS; do
+    [ -n "$_d" ] || continue
+    TARGETS="$TARGETS$REPO_ROOT/$_d
 "
+  done
+  set +f
+  IFS="$_saved_ifs"
 fi
 
 command -v python3 >/dev/null 2>&1 || { printf '[spec-check] ERROR: python3 is required\n' >&2; exit 1; }
@@ -73,11 +99,15 @@ IFS="$_saved_ifs"
 # だけを担い、--warn-only による rc=0 化は下の 1 箇所だけが行う（契約を二重実装
 # しない = 片方を壊しても他方が隠す構造を作らない / #1109 変異検出力）。
 _rc=0
-python3 - "$EXPLICIT_TARGET" "$@" << 'PYEOF' || _rc=$?
+python3 - "$REPO_ROOT" "$EXPLICIT_TARGET" "$@" << 'PYEOF' || _rc=$?
 import os, re, sys
 
-explicit = sys.argv[1] == '1'
-targets = sys.argv[2:]
+repo_root = sys.argv[1]
+explicit = sys.argv[2] == '1'
+targets = sys.argv[3:]
+# target がどこから来たかは **メッセージの文言にしか使わない**。
+# 「不在なら violation」は既定・明示で共通（#1109 R-001 / R-003）。
+origin = 'explicit --target' if explicit else 'declared default target'
 
 violations = []
 inspected_targets = 0
@@ -116,19 +146,31 @@ def check_fields(label, name, yaml_path):
         violations.append(f'{label}/{name}: icon_large missing')
 
 
+def root_label(target):
+    """violation 行に出す root 識別子。REPO_ROOT 配下なら相対パスにする。
+
+    basename だけだと `.codex/skills` と `plugin/plangate/skills` が
+    どちらも `skills` になり、violation 行から root を特定できない（#1109 R-004）。
+    """
+    norm = os.path.normpath(target)
+    root = os.path.normpath(repo_root)
+    if norm == root:
+        return '.'
+    if norm.startswith(root + os.sep):
+        return os.path.relpath(norm, root)
+    return norm
+
+
 def inspect(target):
     """1 つの target root を検査する。戻り値: 検査した skill 数（未検査なら None）。"""
     global inspected_targets
-    label = os.path.basename(target.rstrip('/')) or target
+    label = root_label(target)
     if not os.path.isdir(target):
-        # 不在の扱いは「明示指定か既定か」で変える:
-        #   明示 --target → 検査したいと言われた対象が無い = violation（fail-closed）
-        #   既定 target   → repo レイアウト差を許容。ただし必ず理由付きで出力する
-        if explicit:
-            violations.append(f'{target}: target directory not found (explicit --target)')
-            print(f'[spec-check] NOT FOUND (explicit target): {target} — 0 skills inspected')
-        else:
-            print(f'[spec-check] SKIPPED default target: {target} — reason: directory absent (0 skills inspected)')
+        # **既定 / 明示を問わず violation**（#1109 R-001 / R-003）。
+        # 「宣言した見に行き先が無い」状態を緑にしない。既定 root を減らすときは
+        # DEFAULT_TARGETS の宣言を編集する＝意識的なコード変更を強制する。
+        violations.append(f'{label}: target directory not found ({origin})')
+        print(f'[spec-check] NOT FOUND: {label} ({origin}) — 0 skills inspected')
         return None
 
     inspected_targets += 1
@@ -167,7 +209,7 @@ def inspect(target):
     print(
         '[spec-check] {t}: SKILL.md dirs={s} openai.yaml dirs={y} '
         'field-checked={c} missing-yaml={m} orphan-yaml={o} ignored={i}'.format(
-            t=target, s=len(skill_dirs), y=len(yaml_dirs),
+            t=label, s=len(skill_dirs), y=len(yaml_dirs),
             c=len(checked), m=len(missing), o=len(orphan), i=len(ignored)))
     # skip したものは必ず件数と理由を出す（「見ていない」を緑にしない / #1109）
     for name, reason in ignored:

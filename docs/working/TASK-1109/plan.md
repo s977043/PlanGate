@@ -21,7 +21,9 @@
 | **F-4** | したがって **欠落 4 件の実害は install 経路には無く、配布物をそのまま読む marketplace / plugin cache 経路に限定される** | F-3 の実測。severity = **major → minor 寄り**（配布物のメタデータ欠落） |
 | **F-5** | `sync-plugin-plangate.sh` は `plugin/plangate/skills/*/agents/openai.yaml` を**同期対象にしていない**（`SKILL.md` と `references/` のみ） | ソース読解。配布物の openai.yaml は手書き資産であり drift は構造的に発生する |
 | **F-6** | `.codex/skills` の 8 violations は全て `short_description too long`。**`install-plangate-skills-to-codex.sh --force` の再生成で全て解消**する（旧版が 64 文字切り詰めロジック導入前に生成した stale 資産） | 実測（再生成後 `Checked 39 / All PASS`） |
-| **F-7** | 呼び出し元は **`.github/workflows/sync-plugin-plangate.yml`（`--warn-only`）と `tests/extras/ta-30-install-skills.sh` TC-05（`--target <tmp>`）の 2 箇所のみ** | `grep -rn "check-codex-skill-spec"`（他は CHANGELOG / docs / evidence ログ） |
+| **F-7** | 呼び出し元は `origin/main` 時点で **`.github/workflows/sync-plugin-plangate.yml`（`--warn-only`）と `tests/extras/ta-30-install-skills.sh` TC-05（`--target <tmp>`）の 2 箇所のみ**。**本 PR 後は `tests/extras/ta-68-*.sh` が 3 経路目**になり、`.github/workflows/test.yml`（`on: pull_request` → `run-tests.sh`）経由で **PR 段階のブロック経路**を担う（`Refs: R-006`） | `grep -rn "check-codex-skill-spec"`（他は CHANGELOG / docs / evidence ログ） |
+| **F-9** | `sync` job は `if: github.event_name != 'pull_request'` 配下にあるため、`--warn-only` を外しても **その経路の強制力は post-merge のみ**。PR 段階の強制は F-7 の `ta-68` × `test.yml` が担う（`Refs: R-007`） | workflow 読解 |
+| **F-10** | `check_fields` の `icon_small` / `icon_large` は部分文字列一致で、**値のパス実在は見ない**。配布物 root に `assets/` は無いが `install-plangate-skills.sh` が install 時に materialize するため install 経路では実在する。**marketplace 直読み経路での解決可否は本 PBI では判定不能**（`Refs: R-005`） | `find plugin/plangate/skills -name plangate-small.svg` → 0 件 / installer 読解 |
 | **F-8** | `.codex/skills` は `.agents/skills` に対して **SKILL.md が 4 件 stale**（`ai-dev-exec` / `ai-loop-cycle` / `local-exec-handoff` / `plan-review-gate`） | 再生成時の diff。**本 PBI では触らない**（#1086 領域）。スコープ外の報告事項 |
 
 ## Constraints / Non-goals
@@ -69,16 +71,50 @@ dotfile / 非ディレクトリ（例: `plugin/plangate/skills/README.md`）/ �
 既定 = `.codex/skills` + `plugin/plangate/skills`。`--target` を 1 回でも指定したら
 既定を置き換える（複数指定可）。既存呼び出し元 `ta-30` は `--target <tmp>` なので影響なし。
 
-### 4. target 不在の扱いを「明示 / 既定」で分ける
+### 4. target 不在は既定・明示を問わず violation にする（v2 / `Refs: R-001 R-003`）
 
-| 状況 | 扱い | 理由 |
-|------|------|------|
-| **明示 `--target` が不在** | **violation**（rc=1） | 「これを検査しろ」と言われた対象が無いのを緑にしない |
-| **既定 target が不在** | 理由つきで SKIPPED 出力（violation にしない） | #1086 で `.codex/skills` が消えても検出器が壊れない |
-| **1 つも検査できなかった** | **violation** | 「0 件検査して All PASS」を構造的に禁止 |
+> **v1 では「既定 target の不在は violation にしない」設計だった。V-3 で棄却された。**
+
+| 状況 | v1（棄却） | **v2（採用）** |
+|------|-----------|--------------|
+| 明示 `--target` が不在 | violation | **violation** |
+| 既定 target が不在 | 理由つき SKIPPED（緑） | **violation** |
+| 1 つも検査できなかった | violation | violation（belt） |
+
+v1 の狙いは「#1086 で `.codex/skills` が消えても検出器が壊れない」ことだったが、
+実測（レビューア変異 M-A）で **片方の root が消えると検査母数が 78 → 39 に半減しても
+rc=0 / `ta-68` 12/12 PASS のまま**であることが示された。これは #1109 が潰そうとしている
+「見ていないのに緑」の**同じクラスの再生産**であり、しかも #1086 の (A′) 承認により
+**確実に起きる未来**だった。「1 つも検査できなければ violation」だけでは
+**片方消失を捕まえられない**（もう片方が生きていれば `inspected_targets>=1`）。
+
+**v2 の設計 = 既定 root を「宣言」にして、宣言と実体の不一致を violation にする。**
+
+- `check-codex-skill-spec.sh` の `DEFAULT_TARGETS` が既定 root の**宣言（正本）**
+- 宣言した root が存在しなければ **violation**（fail-closed）
+- したがって `explicit` は **メッセージの文言にしか使わない**。不在判定は既定・明示で共通
+  （分岐が消えたので「片方の経路だけ穴が空く」構造そのものが無くなる）
+
+#### #1086 で `.codex/skills` を untrack した後の挙動（いま決める）
+
+**`DEFAULT_TARGETS` の宣言から `.codex/skills` の 1 行を削除する。**
+
+- 削除しない限り CI は赤くなる → **気づかないうちに検査範囲が半減することはない**
+- 削除は 1 行の**意識的なコード変更**として diff とレビューに必ず現れる
+- スクリプト冒頭の宣言ブロックにこの手順をコメントで明記した（#1086 の担当者が読む場所）
 
 `os.listdir` の前に `os.path.isdir` で判定するため **traceback は出ない**。
 予期せぬ例外も try/except で violation 化する（traceback を rc の一次情報にしない）。
+
+### 4-bis. 既定経路（`explicit=False`）を負側 TC で押さえる（`Refs: R-003`）
+
+v1 の負側 TC は**すべて `--target` 経由**で、CI が実際に通る既定経路の検出力が
+**ゼロ**だった（変異 M-B が 12/12 PASS で生存）。
+
+テスト専用 env の seam は増やさない。スクリプトは `REPO_ROOT` を
+**自分の置かれた場所**（`dirname $0/..`）から求めるため、**fixture repo へ
+スクリプトを複製するだけ**で既定経路をそのまま実行できる（新しい API 面はゼロ）。
+これで TC-13（正側）/ TC-14（欠落検出）/ TC-15（宣言 root 不在）を既定経路で押さえた。
 
 ### 5. rc 方針を 1 箇所に集約する（変異検出力の確保）
 
@@ -144,7 +180,7 @@ python 側は「violation があれば必ず `exit 1`」だけを担い、
 | リスク | 対策 |
 |--------|------|
 | 検査強化で CI が赤で固定される | 適用順序を明記（§6）。`--warn-only` 除去は既存 violation 解消の**後** |
-| #1086 で `.codex/skills` が消えると既定 target が壊れる | 既定 target の不在は violation にしない（理由付き出力）。ただし「1 つも検査できない」は violation |
+| #1086 で `.codex/skills` が消えると既定実行が赤になる | **意図した挙動**（§4）。宣言から 1 行削除する手順をスクリプト冒頭に明記。TC-15 が宣言と実体の不一致を検出する |
 | 二重実装で変異が生き残る | rc 方針の実装点を 1 箇所に集約（§5）。M-2 で実証 |
 | 絶対件数を書くと将来の skill 追加で無関係 PR が落ちる | 判定はすべて集合演算。件数は出力のみ |
 | `.codex/skills` 再生成が SKILL.md の stale 差分を巻き込む | openai.yaml 以外の差分は revert し、スコープ外の報告事項として残す（F-8） |
@@ -157,6 +193,16 @@ python 側は「violation があれば必ず `exit 1`」だけを担い、
 - **Q-2**: `.codex/skills` の SKILL.md stale 4 件（F-8）をどこで直すか（#1086 と同時か）
 - **Q-3**: `brand_color` は `plugin/plangate/README.md` の checklist と CHANGELOG では
   「検査対象」と書かれているが、実装は検査していない。doc 側を直すか実装側を足すか
+- **Q-4**（`Refs: R-005`）: `icon_small` / `icon_large` の**値のパス実在検査**を足すか。
+  install 経路では materialize されるため実害は確認できていないが、
+  配布物 root を「marketplace がそのまま読む実体」と定義した以上、
+  marketplace 直読み経路での解決可否は**判定不能**のまま残っている。follow-up issue 候補
+
+## V-3 REJECT の反映（1 回確定 / `Refs: R-001 R-002 R-003 R-004 R-005 R-006 R-007`）
+
+外部レビュー（V-3 相当）の判定は **REJECT**（critical 0 / major 3 / minor 2 / info 2）。
+指摘の正本は [`review-external.md`](./review-external.md)、disposition は同ファイルの監査表。
+本 plan への反映は §4 / §4-bis / F-7 / F-9 / F-10 / Risks / Q-4 の 1 回確定。
 
 ## Mode 判定
 

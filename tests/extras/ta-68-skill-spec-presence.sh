@@ -16,9 +16,16 @@
 #   TC-07: 非 --warn-only の target 不在は rc=1（fail-closed / 緑にしない）
 #   TC-08: target 不在で python traceback を出さない
 #   TC-09: 既定 target に配布物 plugin/plangate/skills を含む
-#   TC-10: 検査対象外にしたエントリを件数と理由つきで出力する
+#   TC-10: 検査対象外にしたエントリを理由つきで出力し、件数が同値である
+#          （**絶対件数を契約値にしない** / R-002）
 #   TC-11: 既存 field 検査（short_description 上限）が退行していない
 #   TC-12: 配布物 root で SKILL.md 集合と openai.yaml 集合が一致する（同値照合）
+#   ── V-3 REJECT 反映（R-001 / R-002 / R-003 / R-004）で追加 ──
+#   TC-13: 既定経路（引数なし・explicit=False）が fixture repo で rc=0（正側）
+#   TC-14: 負側 — 既定経路でも openai.yaml 欠落を検出する（変異 M-B を kill）
+#   TC-15: 負側 — 宣言した既定 root の不在を violation にする（変異 M-A を kill）
+#   TC-16: 既定出力に宣言 2 root が両方現れる（root 名で照合・件数は使わない）
+#   TC-17: 同名 basename の 2 root でも violation 行が区別できる（R-004）
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -161,11 +168,18 @@ else
 fi
 
 # === TC-10 検査対象外エントリを件数と理由つきで出力する ===
+# **絶対件数（ignored=1）を契約値にしない**（#1109 R-002）。skills root に
+# 非ディレクトリが 1 枚増えただけの無関係 PR を落とさないため、
+#   (a) reason 付きの ignored 行が出ること
+#   (b) summary の ignored=<N> と ignored: 行の実数が **同値** であること
+# の 2 点だけを見る。
+_t68_ign_sum=$(printf '%s\n' "$_t68_out2" | awk 'match($0, /ignored=[0-9]+/) { s += substr($0, RSTART + 8, RLENGTH - 8) } END { print s + 0 }')
+_t68_ign_rows=$(printf '%s\n' "$_t68_out2" | awk '/ignored: .* — reason: / { n++ } END { print n + 0 }')
 if printf '%s' "$_t68_out2" | grep -q 'ignored: README.md — reason:' \
-  && printf '%s' "$_t68_out2" | grep -q 'ignored=1'; then
-  t68_pass "TC-10 skip したエントリを件数と理由つきで出力する"
+  && [ -n "$_t68_ign_sum" ] && [ "$_t68_ign_sum" = "$_t68_ign_rows" ]; then
+  t68_pass "TC-10 skip を理由つきで出力し件数が同値 (summary=$_t68_ign_sum rows=$_t68_ign_rows)"
 else
-  t68_fail "TC-10 skip の件数・理由が出力されていない: $(printf '%s' "$_t68_out2" | tr '\n' ';')"
+  t68_fail "TC-10 skip の理由出力 or 件数同値が崩れている (summary=$_t68_ign_sum rows=$_t68_ign_rows): $(printf '%s' "$_t68_out2" | tr '\n' ';')"
 fi
 
 # === TC-11 既存 field 検査（short_description 上限）が退行していない ===
@@ -201,6 +215,86 @@ if [ -z "$_t68_diff" ]; then
   t68_pass "TC-12 配布物 root の SKILL.md 集合と openai.yaml 集合が一致"
 else
   t68_fail "TC-12 配布物 root で集合が不一致: $_t68_diff"
+fi
+
+# ── 既定経路（explicit=False）の検出力 / #1109 R-001 R-003 ───────────────────
+# CI が実際に通るのは `--target` 無しの既定経路だが、TC-03/04/07/11 はすべて
+# `--target` 経由（explicit=True）であり、既定経路の検出ロジックだけを壊す変異が
+# 生き残っていた（レビューア変異 M-A / M-B が 12/12 PASS で生存）。
+#
+# テスト専用 env などの新しい seam は増やさない。スクリプトは `REPO_ROOT` を
+# **自分の置かれた場所**（`dirname $0/..`）から求めるため、fixture repo へ
+# スクリプトを複製するだけで既定経路をそのまま実行できる。
+_t68_make_fixture_repo() {
+  # $1 = fixture repo のパス。`scripts/` と既定 2 root を持つ最小 repo を作る
+  _fr="$1"
+  mkdir -p "$_fr/scripts"
+  cp "$_T68_SPEC" "$_fr/scripts/check-codex-skill-spec.sh"
+  mkdir -p "$_fr/.codex/skills" "$_fr/plugin/plangate/skills"
+  _t68_make_skill "$_fr/.codex/skills" alpha-skill "A perfectly valid fixture skill description"
+  _t68_make_skill "$_fr/plugin/plangate/skills" alpha-skill "A perfectly valid fixture skill description"
+}
+
+# === TC-13 正側: 既定経路（引数なし）が fixture repo で rc=0 ===
+_T68_FR_OK="$_T68_TMP/repo-ok"
+_t68_make_fixture_repo "$_T68_FR_OK"
+_t68_rc13=0
+_t68_out13=$(sh "$_T68_FR_OK/scripts/check-codex-skill-spec.sh" 2>&1) || _t68_rc13=$?
+if [ "$_t68_rc13" -eq 0 ] && printf '%s' "$_t68_out13" | grep -q 'across 2 target(s)'; then
+  t68_pass "TC-13 既定経路が fixture repo の 2 root を検査して rc=0"
+else
+  t68_fail "TC-13 既定経路の正側が壊れている (rc=$_t68_rc13): $(printf '%s' "$_t68_out13" | tr '\n' ';')"
+fi
+
+# === TC-14 負側: 既定経路で openai.yaml 欠落を検出する（M-B 相当を kill）===
+_T68_FR_MISS="$_T68_TMP/repo-missing"
+_t68_make_fixture_repo "$_T68_FR_MISS"
+mkdir -p "$_T68_FR_MISS/plugin/plangate/skills/beta-skill"
+printf -- '---\nname: beta-skill\n---\n' > "$_T68_FR_MISS/plugin/plangate/skills/beta-skill/SKILL.md"
+_t68_rc14=0
+_t68_out14=$(sh "$_T68_FR_MISS/scripts/check-codex-skill-spec.sh" 2>&1) || _t68_rc14=$?
+if [ "$_t68_rc14" -eq 1 ] && printf '%s' "$_t68_out14" | grep -q 'beta-skill: agents/openai.yaml missing'; then
+  t68_pass "TC-14 負側: 既定経路でも openai.yaml 欠落を rc=1 で検出"
+else
+  t68_fail "TC-14 既定経路の presence 検査が効いていない (rc=$_t68_rc14, 期待 1): $(printf '%s' "$_t68_out14" | tr '\n' ';')"
+fi
+
+# === TC-15 負側: 宣言した既定 root の不在は violation（M-A 相当を kill）===
+# #1086 で `.codex/skills` を untrack しても「検査母数が黙って半減する」ことを許さない。
+# root を減らすときは DEFAULT_TARGETS の宣言を編集する＝意識的なコード変更を強制する。
+_T68_FR_ABSENT="$_T68_TMP/repo-absent-root"
+_t68_make_fixture_repo "$_T68_FR_ABSENT"
+rm -rf "$_T68_FR_ABSENT/.codex"
+_t68_rc15=0
+_t68_out15=$(sh "$_T68_FR_ABSENT/scripts/check-codex-skill-spec.sh" 2>&1) || _t68_rc15=$?
+if [ "$_t68_rc15" -eq 1 ] \
+  && printf '%s' "$_t68_out15" | grep -q 'target directory not found (declared default target)' \
+  && printf '%s' "$_t68_out15" | grep -q '\.codex/skills'; then
+  t68_pass "TC-15 負側: 宣言した既定 root の不在を rc=1 + root 名で検出"
+else
+  t68_fail "TC-15 既定 root 消失が緑のまま通る (rc=$_t68_rc15, 期待 1): $(printf '%s' "$_t68_out15" | tr '\n' ';')"
+fi
+
+# === TC-16 既定出力に宣言 2 root が **両方** 現れる（root 名で照合・件数は使わない）===
+if printf '%s' "$_t68_out2" | grep -q '\.codex/skills:' \
+  && printf '%s' "$_t68_out2" | grep -q 'plugin/plangate/skills:'; then
+  t68_pass "TC-16 既定出力に .codex/skills と plugin/plangate/skills が両方現れる"
+else
+  t68_fail "TC-16 既定 root のいずれかが出力に現れない: $(printf '%s' "$_t68_out2" | tr '\n' ';')"
+fi
+
+# === TC-17 violation 行が root を区別できる（basename 衝突の解消 / R-004）===
+_T68_DUP="$_T68_TMP/dup"
+mkdir -p "$_T68_DUP/a/skills/foo" "$_T68_DUP/b/skills/foo"
+printf -- '---\nname: foo\n---\n' > "$_T68_DUP/a/skills/foo/SKILL.md"
+printf -- '---\nname: foo\n---\n' > "$_T68_DUP/b/skills/foo/SKILL.md"
+_t68_rc17=0
+_t68_out17=$(sh "$_T68_SPEC" --target "$_T68_DUP/a/skills" --target "$_T68_DUP/b/skills" 2>&1) || _t68_rc17=$?
+_t68_uniq=$(printf '%s\n' "$_t68_out17" | awk '/agents\/openai.yaml missing/ { print }' | sort -u | awk 'END { print NR + 0 }')
+if [ "$_t68_rc17" -eq 1 ] && [ "$_t68_uniq" -eq 2 ]; then
+  t68_pass "TC-17 同名 basename の 2 root でも violation 行が区別できる"
+else
+  t68_fail "TC-17 violation 行が root を区別できない (rc=$_t68_rc17, uniq=$_t68_uniq, 期待 2): $(printf '%s' "$_t68_out17" | tr '\n' ';')"
 fi
 
 rm -rf "$_T68_TMP"

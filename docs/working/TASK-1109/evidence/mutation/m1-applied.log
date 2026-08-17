@@ -2,15 +2,20 @@
 === TA-68: skill spec presence check (#1109) ===
   [PASS] TC-01 check-codex-skill-spec.sh の syntax OK
   [PASS] TC-02 既定 2 root が rc=0
-  [FAIL] TC-03 欠落を検出できず (rc=0, 期待 1): [spec-check] /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.kcNPoBOvwE/missing-yaml: SKILL.md dirs=1 openai.yaml dirs=1 field-checked=1 missing-yaml=0 orphan-yaml=0 ignored=0;[spec-check] Checked 1 skills across 1 target(s);[spec-check] All skills PASS spec check
+  [FAIL] TC-03 欠落を検出できず (rc=0, 期待 1): [spec-check] /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.FvCr0G4bKy/missing-yaml: SKILL.md dirs=1 openai.yaml dirs=1 field-checked=1 missing-yaml=0 orphan-yaml=0 ignored=0;[spec-check] Checked 1 skills across 1 target(s);[spec-check] All skills PASS spec check
   [PASS] TC-04 負側: orphan openai.yaml を rc=1 で検出
   [PASS] TC-05 --warn-only は violation ありでも rc=0
   [PASS] TC-06 --warn-only は target 不在でも rc=0
   [PASS] TC-07 target 不在は rc=1（緑にしない）
   [PASS] TC-08 target 不在で traceback を出さない
   [PASS] TC-09 既定 target に配布物 plugin/plangate/skills を含む
-  [PASS] TC-10 skip したエントリを件数と理由つきで出力する
+  [PASS] TC-10 skip を理由つきで出力し件数が同値 (summary=1 rows=1)
   [PASS] TC-11 short_description 上限検査が退行していない
   [PASS] TC-12 配布物 root の SKILL.md 集合と openai.yaml 集合が一致
-TA-68 standalone: 11 passed, 1 failed
+  [PASS] TC-13 既定経路が fixture repo の 2 root を検査して rc=0
+  [FAIL] TC-14 既定経路の presence 検査が効いていない (rc=0, 期待 1): [spec-check] .codex/skills: SKILL.md dirs=1 openai.yaml dirs=1 field-checked=1 missing-yaml=0 orphan-yaml=0 ignored=0;[spec-check] plugin/plangate/skills: SKILL.md dirs=1 openai.yaml dirs=1 field-checked=1 missing-yaml=0 orphan-yaml=0 ignored=0;[spec-check] Checked 2 skills across 2 target(s);[spec-check] All skills PASS spec check
+  [PASS] TC-15 負側: 宣言した既定 root の不在を rc=1 + root 名で検出
+  [PASS] TC-16 既定出力に .codex/skills と plugin/plangate/skills が両方現れる
+  [FAIL] TC-17 violation 行が root を区別できない (rc=0, uniq=0, 期待 2): [spec-check] /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.FvCr0G4bKy/dup/a/skills: SKILL.md dirs=0 openai.yaml dirs=0 field-checked=0 missing-yaml=0 orphan-yaml=0 ignored=0;[spec-check] /var/folders/_h/ffwb9tkx52vgq63h7vgtdgq80000gp/T/tmp.FvCr0G4bKy/dup/b/skills: SKILL.md dirs=0 openai.yaml dirs=0 field-checked=0 missing-yaml=0 orphan-yaml=0 ignored=0;[spec-check] Checked 0 skills across 2 target(s);[spec-check] All skills PASS spec check
+TA-68 standalone: 14 passed, 3 failed
 rc=1

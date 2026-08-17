@@ -9,8 +9,13 @@
   [PASS] TC-07 target 不在は rc=1（緑にしない）
   [PASS] TC-08 target 不在で traceback を出さない
   [PASS] TC-09 既定 target に配布物 plugin/plangate/skills を含む
-  [PASS] TC-10 skip したエントリを件数と理由つきで出力する
+  [PASS] TC-10 skip を理由つきで出力し件数が同値 (summary=1 rows=1)
   [PASS] TC-11 short_description 上限検査が退行していない
   [PASS] TC-12 配布物 root の SKILL.md 集合と openai.yaml 集合が一致
-TA-68 standalone: 12 passed, 0 failed
+  [PASS] TC-13 既定経路が fixture repo の 2 root を検査して rc=0
+  [PASS] TC-14 負側: 既定経路でも openai.yaml 欠落を rc=1 で検出
+  [PASS] TC-15 負側: 宣言した既定 root の不在を rc=1 + root 名で検出
+  [PASS] TC-16 既定出力に .codex/skills と plugin/plangate/skills が両方現れる
+  [PASS] TC-17 同名 basename の 2 root でも violation 行が区別できる
+TA-68 standalone: 17 passed, 0 failed
 rc=0

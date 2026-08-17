@@ -36,7 +36,15 @@ base: `7d91f7b`（`origin/main`）/ 実行環境: macOS, python3 あり
 | コマンド | 修正前 | 修正後 |
 |---------|--------|--------|
 | `--warn-only --target /tmp/nonexistent` | `FileNotFoundError` traceback / **rc=1**（契約違反） | 理由付き 1 行 + violation 出力 / **rc=0** |
-| `--target /tmp/nonexistent` | 同上（traceback） | `target directory not found` / **rc=1**（traceback なし） |
+| `--target /tmp/nonexistent` | 同上（traceback） | `target directory not found (explicit --target)` / **rc=1**（traceback なし） |
+| **既定 root の片方が不在**（#1086 後の状態） | （既定は 1 root のみで概念なし）**v1 実装では rc=0・`ta-68` 12/12 PASS で素通り** | `target directory not found (declared default target)` / **rc=1**（`Refs: R-001`） |
+
+## violation 行の root 識別（`Refs: R-004`）
+
+| | 修正前（v1） | 修正後（v2） |
+|---|---|---|
+| root ラベル | `basename` → `.codex/skills` も `plugin/plangate/skills` も **`skills`** | **REPO_ROOT 相対パス**（repo 外は絶対パス） |
+| 同名 2 root の violation 行 | `skills/foo: ...` が 2 行（区別不能） | `a/skills/foo` / `b/skills/foo` と一意（TC-17 が照合） |
 
 ## 既存 8 violations の内訳と処理
 
