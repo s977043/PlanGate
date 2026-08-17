@@ -1,0 +1,29 @@
+TRUNC-CHAR   OLD    NEW    verdict
+space        rc=2   rc=2   ok
+tab          rc=2   rc=2   ok
+semicolon    rc=2   rc=2   ok
+amp          rc=2   rc=2   ok
+pipe         rc=2   rc=2   ok
+lparen       rc=2   rc=2   ok
+rparen       rc=2   rc=2   ok
+lt           rc=2   rc=2   ok
+hash         rc=2   rc=2   ok
+
+lost: []
+
+--- control: same chars, unquoted (not a single shell word) ---
+space        rc=2   rc=0  
+hash         rc=2   rc=2  
+
+--- does the declared fail-closed set really fire? ---
+$VAR           OLD rc=2   NEW rc=2   [EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。   検出: Bas
+$(...)         OLD rc=2   NEW rc=2   [EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。   検出: Bas
+backtick       OLD rc=2   NEW rc=2   [EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。   検出: Bas
+glob *         OLD rc=2   NEW rc=2   [EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。   検出: Bas
+glob ?         OLD rc=2   NEW rc=2   [EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。   検出: Bas
+glob [         OLD rc=2   NEW rc=2   [EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。   検出: Bas
+empty          OLD rc=2   NEW rc=2   [EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。   検出: Bas
+/dev/stdout    OLD rc=2   NEW rc=2   [EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。   検出: Bas
+&>             OLD rc=2   NEW rc=2   [EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。   検出: Bas
+glob TOKEN*    OLD rc=0   NEW rc=0   
+quoted+space   OLD rc=0   NEW rc=0   

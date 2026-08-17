@@ -1,69 +1,129 @@
 # TASK-1110 evidence
 
-`TOKEN` = 架空の承認トークンパス（`docs/working/TASK-0001/approvals/c3.json`）。
-実 `approvals/` には一切触れていない。
+`TOKEN` = 架空の承認トークンパス（`docs/working/TASK-0001/approvals/` + `c3` + `.json`）。
+実 `approvals/` には一切書き込んでいない（hook 単体へ PreToolUse payload を stdin で
+与えて rc のみを観測）。
+
+## 3 バージョンの呼称
+
+| 呼称 | 中身 |
+|------|------|
+| **OLD** | `origin/main`（相関判定なし = `>` があるだけで block） |
+| **NEW** | `f922442`（相関判定の初版。V-3 で **REJECT**。切り詰めクラスの穴あり） |
+| **FIXED** | 本ブランチ head（V-3 R-001 是正後） |
 
 ## ファイル
 
 | ファイル | 内容 |
 |----------|------|
-| `gen_cases.py` | 18 ケースのコマンド文字列生成（base64 で `cases.txt` を出力） |
-| `probe.sh` | PreToolUse payload を組み立てて EH-13 を起動し rc を記録する |
-| `probe-before.log` | **修正前**（`HEAD` = `7d91f7b` 時点の guard）の 18 ケース実測 |
-| `probe-after.log` | **修正後**の 18 ケース実測 |
-| `ta25-red.log` | TC 追加直後（実装前）の TA-25 実行 = RED（3 FAIL） |
-| `ta25-after.log` | 実装後の TA-25 個別フル実行 = 0 failed（変異 11 種すべて killed） |
-| `mutation-M1.log` | M-1（相関を OR へ回帰）の 適用→FAIL→復元→PASS |
-| `mutation-M2.log` | M-2（相関を常時 false）の 適用→FAIL→復元→PASS |
+| `matrix.py` / `matrix-old-new-fixed.log` | **OLD / NEW / FIXED の 3 版比較**（R-001 の 23 ケース + A〜E + 境界 13 + 宣言 fail-closed 9 + レーン対称性 + 改行畳み込み） |
+| `v3b-rerun-fixed.log` | **V-3 レビューア自身の harness**（`v3-review/cases_v3b.py`）を FIXED に当て直した結果（`lost: []`） |
+| `v3-review/` | V-3 レビューアが使用したスクリプト一式（レビューブランチから取り込み） |
+| `gen_cases.py` / `probe.sh` | 初版で使った 18 ケース probe（`matrix.py` に包含。再現性のため保持） |
+| `probe-before.log` / `probe-after.log` | 初版（OLD → NEW）の 18 ケース実測 |
+| `ta25-red.log` | 初版 TC 追加直後（実装前）の TA-25 = RED |
+| `ta25-after.log` | **FIXED での TA-25 個別フル実行 = 0 failed（変異 13 種すべて killed）** |
+| `mutation-M1.log` / `mutation-M2.log` | レーン全体変異の 適用→FAIL→復元→PASS |
 
-## A〜E（issue #1110 本文の 5 ケース）
+## R-001（critical）是正の実測 — 切り詰めクラス
 
-| # | コマンド | 期待 | 修正前 | 修正後 |
-|---|----------|------|--------|--------|
-| A | `git commit -m 'docs: TOKEN' > /tmp/log.txt` | rc=0 | **rc=2**（誤検出） | **rc=0** ✅ |
-| B | `git commit -m 'docs: TOKEN handling'` | rc=0 | rc=0 | rc=0 ✅ |
-| C | `git commit -m 'docs: approval token' > /tmp/log.txt` | rc=0 | rc=0 | rc=0 ✅ |
-| D | `echo x > TOKEN` | rc=2 | rc=2 | rc=2 ✅ |
-| E | `cat TOKEN` | rc=0 | rc=0 | rc=0 ✅ |
+終端文字（空白 / TAB / `;` / `&` / `|` / `(` / `)` / `<` / `#`）を含むトークンパスを
+引用またはバックスラッシュ退避で書いた先。**NEW は全滅、FIXED で全て復帰**。
 
-## 追加 13 ケース（境界 / fail-closed）
+| クラス | want | OLD | NEW | FIXED |
+|--------|------|-----|-----|-------|
+| 引用（`'`）空白 / TAB / `;` / `&` / `\|` / `(` / `)` / `<` / `#` | 2 | 2 | **0** | **2** ✅ |
+| 二重引用（`"`）で同上 9 種 | 2 | 2 | **0** | **2** ✅ |
+| バックスラッシュ退避した空白 | 2 | 2 | **0** | **2** ✅ |
+| 引用なしの語中 `#`（退避不要で書ける形） | 2 | 2 | **0** | **2** ✅ |
+| 引用された空白入り絶対パス（`My Drive` 相当） | 2 | 2 | **0** | **2** ✅ |
+| 引用された括弧入りディレクトリ（`repo (2)` 相当） | 2 | 2 | **0** | **2** ✅ |
 
-| # | コマンド | 期待 | 修正前 | 修正後 |
-|---|----------|------|--------|--------|
-| 6 | `echo x >> TOKEN` | rc=2 | rc=2 | rc=2 ✅ |
-| 7 | `echo x > ./TOKEN` | rc=2 | rc=2 | rc=2 ✅ |
-| 8 | `echo 'TOKEN' > /tmp/note.txt` | rc=0 | **rc=2**（誤検出） | **rc=0** ✅ |
-| 9 | `echo x > "TOKEN"` | rc=2 | rc=2 | rc=2 ✅ |
-| 10 | `echo x > .../maintenance.json` | rc=2 | rc=2 | rc=2 ✅ |
-| 11 | `git commit -m 'docs: TOKEN' > /dev/null` | rc=0 | rc=0 | rc=0 ✅ |
-| 12 | `cp /tmp/x TOKEN` | rc=2 | rc=2（copy-like） | rc=2（copy-like）✅ |
-| 13 | `echo hi > /tmp/a.txt; echo x > TOKEN` | rc=2 | rc=2 | rc=2 ✅ |
-| 14 | `echo x > .../TASK-0001/../TASK-0001/approvals/c3.json` | rc=2 | rc=2 | rc=2 ✅ |
-| 15 | `cat > TOKEN <<EOF …`（heredoc） | rc=2 | rc=2 | rc=2 ✅ |
-| 16 | `git commit -m 'docs: TOKEN' 2>&1` | rc=0 | rc=0 | rc=0 ✅ |
-| 17 | `echo x >   TOKEN`（空白 3 個） | rc=2 | rc=2 | rc=2 ✅ |
-| 18 | `echo x > $(cat /tmp/p) # TOKEN` | rc=2 | rc=2 | rc=2 ✅（fail-closed） |
+計 **23 ケースすべてが rc=2 に復帰**（`matrix-old-new-fixed.log` §R-001）。
+レビューア自身の harness でも `lost: []`（`v3b-rerun-fixed.log`）。
 
-修正で rc が変わったのは **#1（A）と #8 のみ**。いずれもリダイレクト先が
-トークンパスに解決されない誤検出であり、真の陽性は 1 件も落ちていない。
+### レーン非対称の解消
 
-## 変異注入（call site を壊す）
+同一の空白入りトークンパス（`/Users/u/My Drive/pg/TOKEN`）:
 
-| 変異 | 内容 | 期待 kill | 結果 |
-|------|------|-----------|------|
-| M-1 | `# t1110-redirect-correlate` の行を `_redirect_tok=1` 固定（= 元の OR 判定へ回帰） | T1110-TC-01 | **KILLED**（T1110-TC-01/02/05 が FAIL） |
-| M-2 | 同じ行を `_redirect_tok=0` 固定（= 真の陽性を落とす） | T1045-TC-04 | **KILLED**（T1023-TC-03 / T1045-TC-04/05/06 / T1110-TC-03/04/05 が FAIL） |
+| レーン | OLD | NEW | FIXED |
+|--------|-----|-----|-------|
+| `tee`（copy-like） | 2 | 2 | 2 |
+| `cp`（copy-like） | 2 | 2 | 2 |
+| `Write` ツール（file レーン） | 2 | 2 | 2 |
+| **`>`（redirect）** | 2 | **0** ← 穴 | **2** ✅ |
 
-**空振り（適用しても PASS のまま）は 0 件。** 既存の変異 9 種（T1023-TC-15〜17e /
-T1045-TC-09 / T1045-TC-10）も引き続きすべて killed（`ta25-after.log`）。
-とくに T1045-TC-09（正規化 no-op 化 → T1045-TC-01 が FAIL）が生きていることは、
-相関判定を導入しても `_strip_nonwrite_redirects` が load-bearing のままである
-ことの機械的な担保になっている。
+## 退行していないことの実測 — A〜E と境界 13
+
+| # | ケース | want | OLD | NEW | FIXED |
+|---|--------|------|-----|-----|-------|
+| A | トークン名を含む文言 + 無関係リダイレクト | 0 | 2 | 0 | **0** ✅ |
+| B | トークン名を含む文言のみ | 0 | 0 | 0 | 0 ✅ |
+| C | トークン名なし + リダイレクト | 0 | 0 | 0 | 0 ✅ |
+| D | `> TOKEN` | 2 | 2 | 2 | 2 ✅ |
+| E | `cat TOKEN` | 0 | 0 | 0 | 0 ✅ |
+| 06 | `>> TOKEN` | 2 | 2 | 2 | 2 ✅ |
+| 07 | `> ./TOKEN` | 2 | 2 | 2 | 2 ✅ |
+| 08 | トークン名を内容として別ファイルへ | 0 | 2 | 0 | **0** ✅ |
+| 09 | `> "TOKEN"` | 2 | 2 | 2 | 2 ✅ |
+| 10 | maintenance トークン宛 | 2 | 2 | 2 | 2 ✅ |
+| 11 | `> /dev/null`（トークン名同居） | 0 | 0 | 0 | 0 ✅ |
+| 12 | `cp` でトークン宛（copy-like） | 2 | 2 | 2 | 2 ✅ |
+| 13 | 複文の後段がトークン宛 | 2 | 2 | 2 | 2 ✅ |
+| 14 | `..` 混在パス | 2 | 2 | 2 | 2 ✅ |
+| 15 | heredoc でトークン宛 | 2 | 2 | 2 | 2 ✅ |
+| 16 | `2>&1`（トークン名同居） | 0 | 0 | 0 | 0 ✅ |
+| 17 | `>` と先の間に空白 3 個 | 2 | 2 | 2 | 2 ✅ |
+| 18 | `$(...)` の先（解決不能） | 2 | 2 | 2 | 2 ✅ |
+
+**A と 08 は want=0 なので FIXED の rc=0 は退行ではなく意図した誤検出解消**
+（block を広げた R-001 是正の後でも、#1110 が狙った誤検出解消は維持されている）。
+宣言済み fail-closed 9 項目（`$VAR` / `$(...)` / backtick / glob `*?[` / 空 /
+`/dev/stdout` / `&>` / `>&<file>`）も **OLD / NEW / FIXED すべて rc=2** で不変。
+
+## R-002 — 主張のスコープを限定する
+
+初版 evidence の「**真の陽性は 1 件も落ちていない**」は、自作 18 ケース内の観測を
+全称命題として書いたものであり **誤りだった**（実際には最低 23 ケース落ちていた）。
+本版では次のスコープ付きに置き換える:
+
+> 本 PBI が測定した範囲（`matrix-old-new-fixed.log` の全ケース + V-3 レビューアの
+> harness `v3b-rerun-fixed.log`）において、**FIXED は `want=2` の行を 1 つも
+> 通していない**（`want=2` かつ `FIXED=0` の行が 0 件 = "TRUE-POSITIVE LOST" 表記なし）。
+> これは**全数照合ではない**。継続的に守られる範囲は、機械化した TC
+> （`T1110-TC-01`〜`TC-10`）と変異（`M-1`〜`M-6`）が覆う範囲に限られる。
+
+ケース総数はログ本文が持つ（件数を契約値にしない）。`matrix.py` は
+`want` と `FIXED` の不一致を数えて **不一致 0 のときだけ exit 0** を返すので、
+主張は再実行で機械的に検証できる。
+
+## 変異注入 — レーン内部の分類を壊す変異を追加（R-002 / R-005）
+
+**M-1 / M-2 はレーンごと落とす変異なので、レーン内部の分類ミスは原理的に検出できない。**
+V-3 R-001 の穴はまさにそれだったため、レーンを生かしたまま分類だけを誤らせる変異を追加した。
+
+| 変異 | 種別 | 内容 | kill した TC | 結果 |
+|------|------|------|--------------|------|
+| M-1 | レーン全体（call site） | 相関結果を常に真（元の OR 判定へ回帰） | T1110-TC-01 | KILLED |
+| M-2 | レーン全体（call site） | 相関結果を常に偽（真の陽性を落とす） | T1045-TC-04 | KILLED |
+| **M-3** | **レーン内部** | 引用・退避の検出を無効化（= R-001 の穴を再現） | **T1110-TC-06** | **KILLED** |
+| **M-4** | **レーン内部** | 終端文字クラスへ `#` を戻す | **T1110-TC-07** | **KILLED** |
+| **M-5** | **レーン内部** | 診断値リセットの削除（V-3 M-C 相当・旧 SURVIVED） | **T1110-TC-10** | **KILLED** |
+| **M-6** | **レーン内部** | 改行畳み込みの無効化（V-3 M-D 相当・旧 SURVIVED） | **T1110-TC-09** | **KILLED** |
+
+既存の変異 9 種（T1023-TC-15〜17e / T1045-TC-09 / T1045-TC-10）も引き続き全て killed。
+**空振り（適用しても PASS のまま）は 0 件**（`ta25-after.log`）。
 
 ## 実行環境
 
-- `sh tests/extras/ta-25-approval-token-guard.sh` → **exit 0 / 77 passed, 0 failed**
-- BSD sed（macOS 既定）と GNU sed（`gsed` を `sed` として PATH 先頭に配置）の
-  両方で TA-25 = 0 failed を確認
+- `sh tests/extras/ta-25-approval-token-guard.sh` → **exit 0 / 86 passed, 0 failed**
+- BSD sed（macOS 既定）で実測。GNU sed は初版で 0 failed を確認済み（V-3 でも追認）
 - **フルスイート `tests/run-tests.sh` は実行していない**（ta-61 が入れ子で
   full-suite を再実行するため、並走ワーカーの相互妨害を避ける指示による）
+
+## 本 PBI で閉じていない既知の穴（#1110 の退行ではない）
+
+| 事象 | OLD | FIXED | 扱い |
+|------|-----|-------|------|
+| 外側ゲート `_is_token_path "$_cmd"` がコマンド全体で一致しない形（`c3.jso*` glob / 大文字 `C3.JSON` / `'a b/approvals/x.json'` のように末尾が `.json` で終わらない引用形） | 0 | 0 | **新旧同値の既存穴**。相関判定へ到達しない。#1115 で起票済み |
+| `&>` / `&>>` / `>& <file>` にトークン名が同居すると block | 2 | 2 | TASK-1045 U-2 の据え置き（本 PBI Out of scope） |

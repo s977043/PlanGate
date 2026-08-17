@@ -117,6 +117,9 @@ t25_mk p_t1110_n_msg_only '{"hook_event_name":"PreToolUse","tool_name":"Bash","t
 t25_mk p_t1110_n_no_token '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m '"'"'docs: approval token'"'"' > /tmp/log.txt"}}'
 t25_mk p_t1110_n_read '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json"}}'
 t25_mk p_t1110_n_write_other '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo '"'"'docs/working/TASK-0001/approvals/c3.json'"'"' > /tmp/note.txt"}}'
+# 先の「後ろ」に引用符が来る形。引用検査を語ではなくレコード全体へ広げると
+# この正当な rc=0 が block に化ける（V-3 R-001 推奨案 2 を採らなかった理由の回帰ガード）。
+t25_mk p_t1110_n_quote_after '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > /tmp/log.txt && git commit -m '"'"'docs: docs/working/TASK-0001/approvals/c3.json'"'"'"}}'
 # 退行防止側（先が実際にトークンパスへ解決される = 真の陽性）
 t25_mk p_t1110_w_dotslash '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > ./docs/working/TASK-0001/approvals/c3.json"}}'
 t25_mk p_t1110_w_quoted '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > \"docs/working/TASK-0001/approvals/c3.json\""}}'
@@ -130,6 +133,32 @@ t25_mk p_t1110_fc_cmdsub '{"hook_event_name":"PreToolUse","tool_name":"Bash","to
 t25_mk p_t1110_fc_var '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > $OUT # docs/working/TASK-0001/approvals/c3.json"}}'
 t25_mk p_t1110_fc_glob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > /tmp/*.json # docs/working/TASK-0001/approvals/c3.json"}}'
 t25_mk p_t1110_fc_empty '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x >   # docs/working/TASK-0001/approvals/c3.json"}}'
+# 切り詰めクラス（V-3 R-001 / critical）: 終端文字を含むトークンパスを引用 /
+# バックスラッシュ退避で書いた先。語の切り詰めで非トークンの前半分に化けて
+# 通過してはならない。TASK セグメントに終端文字を 1 つ埋めてある。
+t25_mk p_t1110_tr_sq_space '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK 0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_dq_space '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > \"docs/working/TASK 0001/approvals/c3.json\""}}'
+t25_mk p_t1110_tr_tab '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK\t0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_semi '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK;0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_amp '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK&0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_pipe '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK|0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_lparen '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK(0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_rparen '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK)0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_lt '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK<0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_hash_q '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK#0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_backslash '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK\\\\ 0001/approvals/c3.json"}}'
+# `#` は語頭のみコメント開始で語中は通常文字 = 退避不要。終端に含めると取りこぼす。
+t25_mk p_t1110_tr_hash_bare '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK#0001/approvals/c3.json"}}'
+# レーン非対称の是正（V-3 R-001）: 同一の空白入りパスへ tee / cp / > のどれでも block
+t25_mk p_t1110_lane_tee '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee \"/Users/u/My Drive/pg/docs/working/TASK-0001/approvals/c3.json\""}}'
+t25_mk p_t1110_lane_cp '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x \"/Users/u/My Drive/pg/docs/working/TASK-0001/approvals/c3.json\""}}'
+t25_mk p_t1110_lane_redirect '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > \"/Users/u/My Drive/pg/docs/working/TASK-0001/approvals/c3.json\""}}'
+t25_mk p_t1110_lane_write '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"/Users/u/My Drive/pg/docs/working/TASK-0001/approvals/c3.json","content":"x"}}'
+# 改行畳み込み（R-005 / M-D）: heredoc 本文がトークンパスを含み、書き込み先は /tmp。
+# 畳み込みが無いと本文行が「先」として評価され誤 block になる。
+t25_mk p_t1110_nl_heredoc '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat <<EOF > /tmp/log.txt\ndocs/working/TASK-0001/approvals/c3.json\nEOF"}}'
+# focused 群から使う copy-like fixture（通常群の p_t1045_m_cp と同内容 / 定義順の都合で別名）
+t25_mk p_t1045_m_cp_early '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp docs/working/TASK-0001/approvals/c3.json /tmp/x"}}'
 
 # ── focused kill TC 群（mutation 子プロセスでも常に実行）───────────────────
 
@@ -312,7 +341,8 @@ fi
 # T1110-TC-01: 誤検知解消（AC-1）。mutation M-1 の kill 対象。
 #   「トークン名を含む文言」と「無関係なリダイレクト」が同居しても block しない。
 _t25_ok=1
-for _t25_p in p_t1110_n_msg_redirect p_t1110_n_msg_only p_t1110_n_no_token p_t1110_n_read; do
+for _t25_p in p_t1110_n_msg_redirect p_t1110_n_msg_only p_t1110_n_no_token p_t1110_n_read \
+              p_t1110_n_quote_after; do
   t25_guard "$T25_TMP/$_t25_p"
   if [ "$_t25_rc" != "0" ]; then
     _t25_ok=0
@@ -373,6 +403,79 @@ if [ "$_t25_rc" = "2" ] && grep -q 'rule=file-redirect' "$T25_ERR" \
   t25_pass "T1110-TC-05 block detail carries the matched redirect_target"
 else
   t25_fail "T1110-TC-05 block detail missing matched redirect_target (exit $_t25_rc)"
+fi
+
+# T1110-TC-06: 切り詰めクラスは block（V-3 R-001 / critical）。mutation M-3 の kill 対象。
+#   終端文字（空白 / TAB / ; & | ( ) <）を含むトークンパスを引用・退避して書いた先が、
+#   語の切り詰めで非トークンの前半分に化けて通過してはならない。
+_t25_ok=1
+for _t25_p in p_t1110_tr_sq_space p_t1110_tr_dq_space p_t1110_tr_tab p_t1110_tr_semi \
+              p_t1110_tr_amp p_t1110_tr_pipe p_t1110_tr_lparen p_t1110_tr_rparen \
+              p_t1110_tr_lt p_t1110_tr_hash_q p_t1110_tr_backslash; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1110-TC-06 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1110-TC-06 quoted/escaped token paths containing terminator chars stay blocked (exit 2)"
+else
+  t25_fail "T1110-TC-06 a truncated redirect target slipped through"
+fi
+
+# T1110-TC-07: 語中の `#` は終端でない（V-3 R-001）。mutation M-4 の kill 対象。
+#   `#` を終端に含めると、退避不要で書ける `dir#1/<TOKEN>` 形を取りこぼす。
+t25_guard "$T25_TMP/p_t1110_tr_hash_bare"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1110-TC-07 bare mid-word '#' in a token path target stays blocked (exit 2)"
+else
+  t25_fail "T1110-TC-07 mid-word '#' truncated the target and lost the block (exit $_t25_rc)"
+fi
+
+# T1110-TC-08: レーン非対称の解消（V-3 R-001）。同一の空白入りトークンパスへ
+#   tee / cp / `>` / Write のいずれの経路でも block されること。
+_t25_ok=1
+for _t25_p in p_t1110_lane_tee p_t1110_lane_cp p_t1110_lane_redirect p_t1110_lane_write; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1110-TC-08 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1110-TC-08 all lanes block the same spaced token path (exit 2)"
+else
+  t25_fail "T1110-TC-08 lane asymmetry remains for a spaced token path"
+fi
+
+# T1110-TC-09: 改行畳み込みの負の対照（R-005 / M-D の kill 対象）。
+#   heredoc 本文がトークンパスを含むが書き込み先は /tmp なので通す。
+t25_guard "$T25_TMP/p_t1110_nl_heredoc"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1110-TC-09 heredoc body mentioning a token path writes elsewhere (exit 0)"
+else
+  t25_fail "T1110-TC-09 heredoc body falsely treated as a redirect target (exit $_t25_rc)"
+fi
+
+# T1110-TC-10: redirect レーン不成立時に診断値を持ち越さない（R-005 / M-5 の kill 対象）。
+#   sed が必ず失敗するシムを与えると相関判定は fail-closed で診断値を立てるが、
+#   `>` が無いコマンドでは redirect レーンは不成立。後続の copy-like で block する際に
+#   無関係な redirect_target が添えられてはならない。
+_t1110_shim="$T25_TMP/t1110-shimsed"
+mkdir -p "$_t1110_shim"
+for _t1110_c in cat grep sh jq tr; do
+  _t1110_src=$(command -v "$_t1110_c" 2>/dev/null || true)
+  [ -n "$_t1110_src" ] && ln -sf "$_t1110_src" "$_t1110_shim/$_t1110_c" 2>/dev/null || true
+done
+printf '#!/bin/sh\nexit 1\n' > "$_t1110_shim/sed"
+chmod +x "$_t1110_shim/sed"
+_t25_rc=0
+env -u PLANGATE_HOOK_FILE PLANGATE_SKIP_TOKEN_GUARD=0 PATH="$_t1110_shim" /bin/sh "$PG_T25_GUARD" < "$T25_TMP/p_t1045_m_cp_early" 2>"$T25_ERR" || _t25_rc=$?
+if [ "$_t25_rc" = "2" ] && grep -q 'rule=copy-like' "$T25_ERR" && ! grep -q 'redirect_target=' "$T25_ERR"; then
+  t25_pass "T1110-TC-10 non-redirect block carries no stale redirect_target (exit 2)"
+else
+  t25_fail "T1110-TC-10 stale redirect_target leaked into a non-redirect block (exit $_t25_rc)"
 fi
 
 # ── ここから通常モード限定（mutation 子プロセスでは skip）───────────────────
@@ -534,6 +637,10 @@ fi
 # これは本 issue が是正した誤検知クラスそのもの（トークン名は読み取りに出るだけで、
 # リダイレクト先は /tmp/other.txt）。トークンパス宛の書き込みは
 # T1110-TC-03 / T1045-TC-04〜06 が引き続き block を担保する。
+# ⚠️ 本 TC は TASK-1023 pbi-input AC-04「token path と別 write を混在させた command は
+# 安全側 block を仕様とする」を redirect レーンに限り上書きする。V-3 R-003 の指摘どおり
+# 当初 plan では宣言漏れだったため、TASK-1110 の pbi-input / plan / test-cases へ
+# 明示的に追加し、**AC 上書きの可否そのものを Human C-3 の判断事項**として立てている。
 t25_guard "$T25_TMP/p_bash_mixed"
 if [ "$_t25_rc" = "0" ]; then
   t25_pass "T1023-TC-09 mixed token-read + unrelated-file-write passes (exit 0, #1110)"
@@ -843,6 +950,12 @@ fi
 # 明示固定）だったが、`echo (a > b) <TOKEN>` はリダイレクト先が `b` であり
 # トークンパスに解決されない = 本 issue の是正対象クラス（ケース A と同型）。
 # 解決不能な先（$ / glob / 空）は引き続き block されることを T1110-TC-04 が担保する。
+# TASK-1045 handoff K-2 が本ケースを「minor（残存誤検知）」と自己分類しており、
+# 反転は意図的仕様の無断変更ではない（TASK-1110 pbi-input / plan / test-cases で事前宣言）。
+# なお TASK-1045 plan SC-6（TC-11〜15 / TC-19 が rc=0 になったら critical 停止）は
+# **TASK-1045 exec 中の停止条件**であって後続 PBI を縛らない。#1110 は同じ真の陽性を
+# 「先がトークンパスに解決されるか」という別経路で維持しており、TC-11〜15 は本 PR でも
+# rc=2 のまま（V-3 実測 / T1045-TC-11〜15 が継続 PASS）。V-3 R-004 反映。
 t25_guard "$T25_TMP/p_t1045_b_literal"
 if [ "$_t25_rc" = "0" ]; then
   t25_pass "T1045-TC-19 '>' inside a string literal no longer over-blocks (exit 0, #1110)"
@@ -1060,13 +1173,34 @@ else
   # だけを壊す変異は「呼び出し側が結果を使っているか」を検証できないため使わない。
   # M-1 / 変異 (a): 相関判定の結果を握り潰して常に真（= 修正前の OR 判定へ回帰）
   #   → 誤検知解消 TC（T1110-TC-01）が FAIL することで「相関を本当に見ている」ことを示す
-  _t25_mutate "TC-06" 's@^.*# t1110-redirect-correlate$@  _redirect_tok=1 # t1110-redirect-correlate@' \
+  _t25_mutate "M-1" 's@^.*# t1110-redirect-correlate$@  _redirect_tok=1 # t1110-redirect-correlate@' \
     't1110-redirect-correlate' 'T1110-TC-01' 'T1110'
   # M-2 / 変異 (b): 相関判定の結果を常に偽（= 真の陽性を取りこぼす方向へ緩和）
   #   → 退行防止 TC（T1045-TC-04 = `> <TOKEN>` の block）が FAIL することで
   #     「誤検知削減に倒しすぎた場合に機械検出できる」ことを示す
-  _t25_mutate "TC-07" 's@^.*# t1110-redirect-correlate$@  _redirect_tok=0 # t1110-redirect-correlate@' \
+  _t25_mutate "M-2" 's@^.*# t1110-redirect-correlate$@  _redirect_tok=0 # t1110-redirect-correlate@' \
     't1110-redirect-correlate' 'T1045-TC-04' 'T1110'
+
+  # ── TASK-1110 V-3 是正: **レーン内部の分類**を壊す変異（R-002 / R-005）──
+  # M-1 / M-2 は相関レーン全体を落とす変異なので、レーン内部の分類ミス
+  # （解決不能 → 解決済み非トークン）は原理的に検出できない。V-3 R-001 の穴は
+  # まさにそれだった。以下はレーンを生かしたまま分類だけを誤らせる変異である。
+  # M-3 / 変異 (c): 引用・退避の検出を無効化（= V-3 R-001 の穴を再現）
+  #   → 切り詰めクラス TC（T1110-TC-06）が FAIL する
+  _t25_mutate "M-3" 's@^.*# t1110-quote-escape$@    case "$_rw_t" in *ZZZNEVERMATCHZZZ*) : ;; esac # t1110-quote-escape@' \
+    't1110-quote-escape' 'T1110-TC-06' 'T1110'
+  # M-4 / 変異 (d): 終端文字クラスへ `#` を戻す（語中の `#` で切り詰めてしまう）
+  #   → 語中 `#` TC（T1110-TC-07）が FAIL する
+  _t25_mutate "M-4" "s@^.*# t1110-terminator-class\$@  _rw_term='[[:space:];\&|()<#]' # t1110-terminator-class@" \
+    't1110-terminator-class' 'T1110-TC-07' 'T1110'
+  # M-5 / 変異 (e): 診断値リセットの削除（R-005 M-C 相当）
+  #   → T1110-TC-10 が FAIL する
+  _t25_mutate "M-5" 's@^  _wi_redirect_target="" # t1110-reset-diag$@  : # t1110-reset-diag@' \
+    't1110-reset-diag' 'T1110-TC-10' 'T1110'
+  # M-6 / 変異 (f): 改行畳み込みの無効化（R-005 M-D 相当）
+  #   → T1110-TC-09 が FAIL する
+  _t25_mutate "M-6" 's@^.*# t1110-flatten$@  _rw_flat="$_rw_s" # t1110-flatten@' \
+    't1110-flatten' 'T1110-TC-09' 'T1110'
 
   # T1045-TC-21: _t25_mutate 後方互換 — 既存 7 呼び出しは 4 引数のままで出力ラベルが T1023- のこと
   _t1045_c21=$(grep -c '_t25_mutate "TC-1[567]' "$PG_T25_SELF" || true)

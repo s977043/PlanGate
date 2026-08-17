@@ -19,6 +19,11 @@
   [PASS] T1110-TC-03 redirect targets resolving to a token path remain blocked (exit 2)
   [PASS] T1110-TC-04 unresolvable redirect targets fail closed (exit 2)
   [PASS] T1110-TC-05 block detail carries the matched redirect_target
+  [PASS] T1110-TC-06 quoted/escaped token paths containing terminator chars stay blocked (exit 2)
+  [PASS] T1110-TC-07 bare mid-word '#' in a token path target stays blocked (exit 2)
+  [PASS] T1110-TC-08 all lanes block the same spaced token path (exit 2)
+  [PASS] T1110-TC-09 heredoc body mentioning a token path writes elsewhere (exit 0)
+  [PASS] T1110-TC-10 non-redirect block carries no stale redirect_target (exit 2)
   [PASS] TC-01 check-approval-token-write.sh exists and is executable
   [PASS] TC-02 check-approval-token-write.sh syntax ok
   [PASS] TC-03 maintenance.json path blocked (exit 2)
@@ -73,9 +78,13 @@
   [PASS] T1023-TC-17e mutant killed by real TC (T1023-TC-02b FAILs)
   [PASS] T1045-TC-09 mutant killed by real TC (T1045-TC-01 FAILs)
   [PASS] T1045-TC-10 mutant killed by real TC (T1045-TC-04 FAILs)
-  [PASS] T1110-TC-06 mutant killed by real TC (T1110-TC-01 FAILs)
-  [PASS] T1110-TC-07 mutant killed by real TC (T1045-TC-04 FAILs)
+  [PASS] T1110-M-1 mutant killed by real TC (T1110-TC-01 FAILs)
+  [PASS] T1110-M-2 mutant killed by real TC (T1045-TC-04 FAILs)
+  [PASS] T1110-M-3 mutant killed by real TC (T1110-TC-06 FAILs)
+  [PASS] T1110-M-4 mutant killed by real TC (T1110-TC-07 FAILs)
+  [PASS] T1110-M-5 mutant killed by real TC (T1110-TC-10 FAILs)
+  [PASS] T1110-M-6 mutant killed by real TC (T1110-TC-09 FAILs)
   [PASS] T1045-TC-21 legacy _t25_mutate calls unchanged (7 x 4-arg) with T1023 prefix fallback
   [PASS] T1023-TC-17post restore (original guard) all focused TCs PASS
 
-TA-25 standalone: 77 passed, 0 failed
+TA-25 standalone: 86 passed, 0 failed

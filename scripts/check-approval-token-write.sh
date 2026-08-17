@@ -73,8 +73,19 @@ _strip_nonwrite_redirects() {
 #   - `&>` / `&>>`（全出力リダイレクト）を含む … TASK-1045 U-2 の block 維持
 #   - 抽出パイプラインの失敗（sed 失敗等）      … 真
 #   - 先が空 / `$` / バッククォート / glob を含む … 真（静的に解決不能）
+#   - **先に引用符 / バックスラッシュが残っている … 真**（V-3 R-001。下記「切り詰め」）
 #   - 先が /dev/*（正規化後に残った擬似デバイス）… 真（呼出側で token file へ
 #     再束縛されうる。既存 T1045-TC-11/12/13 の block を維持する）
+#
+# 「切り詰め」クラスが fail-closed に必要な理由（V-3 R-001 / critical）:
+#   先の語は終端文字（空白 / ; & | ( ) <）で打ち切る。POSIX sh でこれらの文字を
+#   語の一部として書くには **必ず引用かバックスラッシュ退避が要る**ため、打ち切りで
+#   本来の先を失った語には必ず `'` / `"` / `\` が残る。したがって
+#   「打ち切り後の語に引用符・バックスラッシュが含まれる → 静的に解決できていない」
+#   と判定すれば、構文解析（TASK-1045 GC-2 で不採用）に踏み込まずに閉じられる。
+#   `#` だけは語頭のみコメント開始で語中は通常文字なので終端に含めない
+#   （含めると `dir#1/<TOKEN>` のような退避不要の先を取りこぼす）。
+#
 # 完全なシェル構文解析は行わない（TASK-1045 GC-2 の方針を継承）。POSIX BRE のみ・
 # sed の RHS `\n` は使わない（分割は tr で行う / GNU・BSD 差異回避）。LC_ALL=C 固定。
 _wi_redirect_target=""
@@ -85,16 +96,20 @@ _redirect_writes_token() {
   case "$_rw_s" in
     *'&>'*) _wi_redirect_target='&>(all-output-redirect)'; return 0 ;;
   esac
-  # 改行を空白へ畳む（heredoc 等の複数行コマンドで語抽出が崩れないように）。
-  _rw_flat=$(printf '%s' "$_rw_s" | tr '\n' ' ') || { _wi_redirect_target='(flatten-failed)'; return 0; }
+  # 語の終端文字クラス（POSIX BRE のブラケット式）。`#` を入れてはならない（上記）。
+  _rw_term='[[:space:];&|()<]' # t1110-terminator-class
+  # 改行を空白へ畳む（複数行コマンドで、`>` より前の行が疑似的な先として
+  # 混入するのを防ぐ。畳まないと heredoc 本文の行が先として評価される）。
+  _rw_flat=$(printf '%s' "$_rw_s" | tr '\n' ' ') || { _wi_redirect_target='(flatten-failed)'; return 0; } # t1110-flatten
   # `>|`（noclobber 上書き）を `>` へ、`>>` 以上の連続を `>` へ畳む。
   _rw_norm=$(printf '%s' "$_rw_flat" | LC_ALL=C sed -e 's%>|%>%g' -e 's%>>*%>%g') \
     || { _wi_redirect_target='(normalize-failed)'; return 0; }
   # `>` で分割し、先頭（最初の `>` より前）を捨てた各レコードの先頭語を先とみなす。
-  # 語の終端: 空白 / ; & | ( ) < #。前後の引用符は剥がす。空語は @EMPTY@ で残す。
+  # 語頭の `#` はコメント開始 = 先が無いので空にする。空語は @EMPTY@ で残す。
+  # 引用符は剥がさない（残っていること自体が「解決できていない」の証拠なので）。
   _rw_list=$(printf '%s' "$_rw_norm" | tr '>' '\n' \
-    | LC_ALL=C sed -e '1d' -e 's%^[[:space:]]*%%' -e 's%[[:space:];&|()<#].*$%%' \
-        -e "s%^['\"]%%" -e "s%['\"]\$%%" -e 's%^$%@EMPTY@%') \
+    | LC_ALL=C sed -e '1d' -e 's%^[[:space:]]*%%' -e 's%^#.*$%%' \
+        -e "s%${_rw_term}.*\$%%" -e 's%^$%@EMPTY@%') \
     || { _wi_redirect_target='(extract-failed)'; return 0; }
   [ -n "$_rw_list" ] || return 1
   _rw_hit=1
@@ -103,6 +118,8 @@ _redirect_writes_token() {
 '
   set -f # glob 展開を止めて生の語のまま評価する
   for _rw_t in $_rw_list; do
+    # 引用 / 退避が残る語は切り詰めで別物になった可能性がある = 解決不能（R-001）
+    case "$_rw_t" in *"'"*|*'"'*|*'\'*) _wi_redirect_target="quoted-or-escaped:$_rw_t"; _rw_hit=0; break ;; esac # t1110-quote-escape
     case "$_rw_t" in
       '@EMPTY@'|*'$'*|*'`'*|*'*'*|*'?'*|*'['*)
         _wi_redirect_target="$_rw_t"; _rw_hit=0; break ;;
@@ -135,7 +152,7 @@ _has_write_intent() {
   printf '%s' "$_wc_n" | grep -q '>' && [ "$_redirect_tok" = "1" ] && { _wi_rule=file-redirect; return 0; } # t1045-file-redirect
   # ここへ来た時点で redirect レーンは不成立。以降のルールで block する場合に
   # redirect_target が誤って添えられないよう捨てる（正規化失敗時の診断値対策）。
-  _wi_redirect_target=""
+  _wi_redirect_target="" # t1110-reset-diag
   # 書き込み系コマンドが語境界で出現（行頭・; & | ( 直後・空白区切り）
   printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(cp|mv|ln|install|dd|tee|truncate|patch|apply_patch)([[:space:]]|$)' && { _wi_rule=copy-like; return 0; }
   # ed / ex（stdin スクリプトの w コマンドで書込可能。語境界で検出 / TASK-1023 V-3 実測 bypass）
