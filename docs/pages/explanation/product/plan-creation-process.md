@@ -30,7 +30,7 @@ B-2: アプローチ比較（2〜3 案の trade-off）🤖
    ↓
 B-3: plan / todo / test-cases 同時生成 + Mode 判定 🤖
    ↓
-C-1: セルフレビュー（17 項目）🤖
+C-1: セルフレビュー 🤖
    ↓
 C-2: 外部 AI レビュー（任意 / 観点固定）🤖
    ↓
@@ -89,9 +89,11 @@ PlanGate の計画品質を支える要のひとつ。「全部 / 全件 / 残�
 - **Mode 判定**: ultra-light / light / standard / high-risk / critical の 5 段階。承認境界に触れるパスは最低 high-risk へ自動補正
 - **正本**: [mode-classification.md](https://github.com/s977043/PlanGate/blob/main/.claude/rules/mode-classification.md) / [working-context.md](https://github.com/s977043/PlanGate/blob/main/.claude/rules/working-context.md)
 
-### C-1: セルフレビュー（17 項目）
+### C-1: セルフレビュー（全 25 項目）
 
-生成した計画を AI 自身が 17 項目で点検します（Plan 7 / ToDo 5 / TestCases 3 + 判定）。受入基準の網羅、Unknowns 処理、スコープ制御、テスト戦略、依存関係などを PASS / WARN / FAIL で評価します。
+生成した計画を AI 自身が 25 項目で点検します（Plan 9 / Plan 品質追加 2 / ToDo 6 / TestCases 3 / B-1・B-2 結合 2 / セキュリティ・スコープ規律・UI 各 1）。受入基準の網羅、Unknowns 処理、スコープ制御、テスト戦略、依存関係などを PASS / WARN / FAIL で評価します。
+
+- **正本**: [review-self.md](https://github.com/s977043/PlanGate/blob/main/docs/working/templates/review-self.md)（項目定義と項目数の単一正本。項目は PBI で増減するため、数える際は常に正本を参照）
 
 ### C-2: 外部 AI レビュー（任意 / 観点固定）
 
@@ -129,7 +131,7 @@ PlanGate の計画品質を支える要のひとつ。「全部 / 全件 / 残�
 - [ ] 「全件」系の対象は**実数**を取り、3 倍ルールで判定済み
 - [ ] `todo.md` の全タスクが 2〜5 分粒度 + Owner / depends_on / files 付き
 - [ ] `test-cases.md` で全受入基準 → テストケースが紐づき、Edge case を含む
-- [ ] C-1（17 項目）が PASS、FAIL は根拠付き
+- [ ] C-1（全 25 項目）が PASS、FAIL は根拠付き
 - [ ] Mode 判定の根拠が記録されている（承認境界に触れるなら最低 high-risk）
 
 ## 6. 参考資料（開発者向け正本）
