@@ -139,10 +139,9 @@ class Collision:
         「2 つの独立した定義が名前を取り合っている」のではなく
         「1 つの定義とその配布コピー」であり、多重定義として扱わない。
 
-        対の**内容** drift は本スクリプトでは見ない。
-        `.github/workflows/sync-plugin-plangate.yml` の `drift-check` job が
-        `.claude/**` / `plugin/plangate/**` を触る全 PR で `exit 1` により
-        担保している（責務の移譲であって放棄ではない）。
+        対の**内容** drift は本スクリプトでは見ない。担保の所在は
+        モジュール docstring「配布ミラーの扱い」を参照（agent/command は
+        `sync-plugin-plangate.yml` の `drift-check` が担保、skill は未担保）。
         """
         defs = self.definitions
         return (

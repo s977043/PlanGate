@@ -217,6 +217,22 @@ else
   t69_fail "TC-S7: expected rc=0 + INFO for a gitignored path"
 fi
 
+# --- TC-S2/TC-S3: 判定が実行環境に依存しない ---
+# 是正前は Path.exists() だけを見ていたため、gitignore 対象ファイルの
+# 有無（CI = 無い / wiring 済み開発機 = 有る）で rc が変わっていた。
+# 同じ入力で「無い環境」と「有る環境」の rc が一致することを実測する。
+_t69_probe 'wire `.claude/settings.json` first'
+_t69_s2_rc=$(_t69_stale_rc)                       # TC-S2: settings.json が無い（CI 相当）
+mkdir -p "$_T69_S/.claude"
+printf '{}\n' > "$_T69_S/.claude/settings.json"
+_t69_s3_rc=$(_t69_stale_rc)                       # TC-S3: settings.json が有る（開発機相当）
+rm -f "$_T69_S/.claude/settings.json"
+if [ "$_t69_s2_rc" = "0" ] && [ "$_t69_s3_rc" = "0" ]; then
+  t69_pass "TC-S2/S3: verdict is environment-independent (absent=$_t69_s2_rc present=$_t69_s3_rc)"
+else
+  t69_fail "TC-S2/S3: expected rc=0 in both, got absent=$_t69_s2_rc present=$_t69_s3_rc"
+fi
+
 # --- TC-S8: ignore パターンに合致しない typo -> WARN される（除外が広すぎない）---
 _t69_probe 'wire `.claude/settingz.json` first'
 if [ "$(_t69_stale_rc)" = "1" ] && _t69_stale_run | grep -q 'settingz.json'; then
