@@ -19,7 +19,10 @@
 1. **リリースを止めるべき唯一の項目が検出器から不可視**（穴 (d)）
 2. **報告された「適用待ち」に従って適用すると退行する**項目が混ざる（穴 (b)）
 
-### 実測で確定した 4 つの穴（本 worktree / HEAD=`0385457` / 34 本全数）
+### 実測で確定した 4 つの穴（本 worktree / HEAD=`0385457` / `ls scripts/apply-*.sh` 全数）
+
+> 以下は **測定時点のスナップショット**であり、件数は**契約値ではない**。
+> 対象集合の同値性は常に `ls scripts/apply-*.sh` との `comm -3` で確認する（R-012）。
 
 証跡: [`evidence/apply-dryrun-matrix.txt`](evidence/apply-dryrun-matrix.txt)
 （再現: `sh docs/working/TASK-1093/evidence/measure-apply-dryrun.sh <repo_root>`）
@@ -52,9 +55,15 @@ option`）。偶然 rc≠0 で非破壊だが、`--dry-run` の契約が script 
 
 ### Out of scope
 
+> **v3 追記（C-3 2026-08-18 / 案 B: 2 分割）**: **既存 apply script を exit code 契約へ
+> 適合させる移行**も Out of scope となり、**[#1114](https://github.com/s977043/PlanGate/issues/1114)**
+> へ分離した。本 PBI は **検出器 + 契約 + 台帳**に範囲を絞る。
+> 対象集合は `ls scripts/apply-*.sh` との**集合同値照合**で表し、件数を契約値にしない。
+
+- **既存 apply スクリプトの契約適合移行** → **#1114**
 - **個々の apply スクリプトの中身の是正**（`apply-ai-loop-workflow-command.sh`
   の逆方向差分・`apply-task-0146-ehs23-wiring.sh` の無条件ヘッダ・
-  `apply-task-0134-progress.sh` の引数解析欠落 は **別 issue**）
+  `apply-task-0134-progress.sh` の引数解析欠落）→ **#1114 に集約**
 - `bin/plangate` / `.github/workflows/` / `scripts/hooks/*` の変更（**HO パス**）
 - apply スクリプトの `--apply` を AI が実行すること（**Human-owned**）
 - 承認境界の緩和
@@ -99,7 +108,7 @@ option`）。偶然 rc≠0 で非破壊だが、`--dry-run` の契約が script 
 |----|-------|------|
 | R-1 | 実態判定を強化すると **既存の pending 8 本 + 新規検出分が一斉に NG 化**し、リリースが止まる | 高 |
 | R-2 | 判定の知識を release-prep 側に複製すると、apply script 側と **silent に drift** する | 中 |
-| R-3 | `--dry-run` 出力契約を 34 本全部に適用すると **Out of scope（中身の是正）に踏み込む** | 中 |
+| R-3 | `--dry-run` 出力契約を `ls scripts/apply-*.sh` 全数へ適用すると **Out of scope（中身の是正）に踏み込む** → **✅ C-3 2026-08-18 の案 B で解消**（移行は **#1114**。本 PBI は契約と検出器まで） | 中 → 解消 |
 | R-4 | AC-1/AC-2 の実証に **「未適用状態」「適用済み状態」の両方の fixture** が要る。`apply-eh3-ho-always.sh` は **HEAD で既適用**（#1089 CLOSED）のため、未適用側は sandbox 合成が必要 | 中 |
 | R-5 | AC-5（環境非依存）は `.claude/settings.json` が **untracked / 環境依存**であることが原因。判定スコープの定義を誤ると解消できない | 中 |
 
@@ -107,8 +116,8 @@ option`）。偶然 rc≠0 で非破壊だが、`--dry-run` の契約が script 
 
 | ID | 不明点 | 解消方法 |
 |----|-------|---------|
-| U-1 | 一斉 NG 化時に、既存 pending を「リリースブロッカー」とするか「既知の未適用」として明示 acknowledge するか | **Human 判断（C-3）**。plan では acknowledge 台帳方式を提案 |
-| U-2 | 出力契約を既存 34 本へ後付け適用するか、新規 script のみに課すか | plan では **新規のみ強制 + 既存は台帳で橋渡し**を提案（Out of scope 尊重） |
+| U-1 | 一斉 NG 化時に、既存 pending を「リリースブロッカー」とするか「既知の未適用」として明示 acknowledge するか | **✅ C-3 2026-08-18 で解決**: `pending` + `defer=<別 issue>` を認める（**AI は defer を増やさない / `undecidable` には効かせない**は維持）。名指し対象 = `apply-ai-loop-workflow-command.sh` |
+| U-2 | 出力契約を既存全数へ後付け適用するか、新規 script のみに課すか | **✅ C-3 2026-08-18 で解決**: 遡及が前提。ただし**遡及作業自体は #1114** へ分離（案 B） |
 
 ### Assumptions
 
