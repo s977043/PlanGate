@@ -51,6 +51,22 @@ cp "$_T52_ROOT/scripts/check-skill-name-collisions.py" "$_T52_TMP/scripts/check-
 t52_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t52_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
+# サンドボックスへの注入が本当に成立したかを検証する（#1087 / PR #1149）。
+# 注入が silently 失敗すると doctor は「衝突なし」= ok=true を返すため、
+# ok=true を期待する TC が **空のサンドボックスでも緑になる**。
+# 実測: 注入を無効化しても 6 TC 全てが PASS していた。
+_t52_count_defs() {
+  find "$_T52_TMP/.claude" "$_T52_TMP/plugin" -name SKILL.md 2>/dev/null | wc -l | tr -d ' '
+}
+_t52_assert_defs() {
+  _t52_ad_got=$(_t52_count_defs)
+  if [ "$_t52_ad_got" != "$1" ]; then
+    t52_fail "$2: sandbox injection failed (SKILL.md want=$1 got=$_t52_ad_got)"
+    return 1
+  fi
+  return 0
+}
+
 _t52_run() {
   ( cd "$_T52_TMP" && python3 scripts/doctor_check.py --scope v8.6.0 2>&1 )
 }
@@ -68,24 +84,28 @@ print("MISSING")
 }
 
 # --- TC-01: no .claude / plugin dirs at all -> no collision -> ok=true ---
-_t52_out=$(_t52_run) || true
-_t52_ok=$(_t52_collision_ok "$_t52_out")
-if [ "$_t52_ok" = "true" ]; then
-  t52_pass "TC-01: no skill roots -> ok=true (no collision)"
-else
-  t52_fail "TC-01: expected ok=true, got $_t52_ok"
+if _t52_assert_defs 0 "TC-01"; then
+  _t52_out=$(_t52_run) || true
+  _t52_ok=$(_t52_collision_ok "$_t52_out")
+  if [ "$_t52_ok" = "true" ]; then
+    t52_pass "TC-01: no skill roots -> ok=true (no collision)"
+  else
+    t52_fail "TC-01: expected ok=true, got $_t52_ok"
+  fi
 fi
 
 # --- TC-02: single repo-local skill (no plugin mirror) -> no collision ---
 mkdir -p "$_T52_TMP/.claude/skills/only-here"
 printf -- '---\nname: only-here\ndescription: solo\n---\n# only-here\n' \
   > "$_T52_TMP/.claude/skills/only-here/SKILL.md"
-_t52_out=$(_t52_run) || true
-_t52_ok=$(_t52_collision_ok "$_t52_out")
-if [ "$_t52_ok" = "true" ]; then
-  t52_pass "TC-02: repo-local only skill -> ok=true (no collision)"
-else
-  t52_fail "TC-02: expected ok=true, got $_t52_ok"
+if _t52_assert_defs 1 "TC-02"; then
+  _t52_out=$(_t52_run) || true
+  _t52_ok=$(_t52_collision_ok "$_t52_out")
+  if [ "$_t52_ok" = "true" ]; then
+    t52_pass "TC-02: repo-local only skill -> ok=true (no collision)"
+  else
+    t52_fail "TC-02: expected ok=true, got $_t52_ok"
+  fi
 fi
 
 # --- TC-03: repo-local + plugin の **配布ミラー** -> 衝突ではない -> ok=true ---
@@ -94,12 +114,14 @@ fi
 mkdir -p "$_T52_TMP/plugin/plugin-a/skills/only-here"
 printf -- '---\nname: only-here\ndescription: mirrored\n---\n# only-here\n' \
   > "$_T52_TMP/plugin/plugin-a/skills/only-here/SKILL.md"
-_t52_out=$(_t52_run) || true
-_t52_ok=$(_t52_collision_ok "$_t52_out")
-if [ "$_t52_ok" = "true" ]; then
-  t52_pass "TC-03: repo-local <-> plugin export mirror -> ok=true (not a collision)"
-else
-  t52_fail "TC-03: expected ok=true for an export mirror, got $_t52_ok"
+if _t52_assert_defs 2 "TC-03"; then
+  _t52_out=$(_t52_run) || true
+  _t52_ok=$(_t52_collision_ok "$_t52_out")
+  if [ "$_t52_ok" = "true" ]; then
+    t52_pass "TC-03: repo-local <-> plugin export mirror -> ok=true (not a collision)"
+  else
+    t52_fail "TC-03: expected ok=true for an export mirror, got $_t52_ok"
+  fi
 fi
 
 # --- TC-03b: 3 定義（repo-local + plugin-a + plugin-b）-> 真の衝突 -> ok=false + WARN ---
@@ -107,12 +129,14 @@ fi
 mkdir -p "$_T52_TMP/plugin/plugin-b/skills/only-here"
 printf -- '---\nname: only-here\ndescription: mirrored\n---\n# only-here\n' \
   > "$_T52_TMP/plugin/plugin-b/skills/only-here/SKILL.md"
-_t52_out=$(_t52_run) || true
-_t52_ok=$(_t52_collision_ok "$_t52_out")
-if [ "$_t52_ok" = "false" ] && printf '%s' "$_t52_out" | grep -q '多重定義'; then
-  t52_pass "TC-03b: 3 definitions -> ok=false (WARN with detail)"
-else
-  t52_fail "TC-03b: expected ok=false + detail, got ok=$_t52_ok"
+if _t52_assert_defs 3 "TC-03b"; then
+  _t52_out=$(_t52_run) || true
+  _t52_ok=$(_t52_collision_ok "$_t52_out")
+  if [ "$_t52_ok" = "false" ] && printf '%s' "$_t52_out" | grep -q '多重定義'; then
+    t52_pass "TC-03b: 3 definitions -> ok=false (WARN with detail)"
+  else
+    t52_fail "TC-03b: expected ok=false + detail, got ok=$_t52_ok"
+  fi
 fi
 
 # --- TC-04: WARN level is warn, not fail (never blocks passed) ---

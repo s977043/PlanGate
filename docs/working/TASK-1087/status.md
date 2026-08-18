@@ -20,7 +20,43 @@
 | 2026-08-18 | C-1 | `review-self.md` — **PASS**（WARN 2 / FAIL 0） |
 | 2026-08-18 | レビュー対応 | コーディネータ指摘 1〜4 に対応（下記「指摘対応」） |
 | 2026-08-18 | C-1 再 | `review-self-2.md` — **PASS**（WARN 2 / FAIL 0）。初回は保持 |
+| 2026-08-18 | CI FAIL 対応 | PR #1149 の `plangate CLI tests` が 7 FAIL。**harness モード固有の `set -e` 事故**を特定し是正 |
+| 2026-08-18 | C-1 再2 | `review-self-3.md` — **PASS**（WARN 2 / FAIL 0 / **FAIL-1 を新規記録**） |
 | 2026-08-18 | — | **C-3 待ち（人間）**。`c3.json` は発行していない |
+
+## CI FAIL の根本原因と是正（2026-08-18 / PR #1149）
+
+**症状**: ローカル standalone 19 passed / 0 failed に対し、CI で 7 FAIL。
+規則性は「**rc=1 を期待する TC が全滅・rc=0 を期待する TC は全通過**」。
+
+**根本原因**: OS 差ではなく **standalone と harness の差**。
+`run-tests.sh` は `set -eu` で extras を source する。ta-69 の rc 捕捉
+
+```sh
+( cd "$D" && python3 x.py >/dev/null 2>&1; echo $? )
+```
+
+は `set -e` 下で、python3 が rc=1 を返すと AND-list 失敗 →
+**`echo $?` に到達する前にサブシェルが終了** → 捕捉値が空文字になる。
+`[ "" = "1" ]` が偽になり rc=1 系が全滅、`[ "0" = "0" ]` は真なので
+rc=0 系は **空のサンドボックスでも通る**。素の代入で使った TC-S9 では
+`set -e` が **ハーネス全体を中断**（CI ログが TC-S8 で止まった理由）。
+
+**決め手**: CI ログに ta-61 が ta-69 を **standalone 実行して PASS させている**
+行があり、OS 差説を棄却できた。
+
+**是正**: rc 捕捉を OR-list（`_t69_rc_of`）へ統一 + **注入の前提条件検証**
+（`_t69_assert_defs` / `_t69_assert_probe` / TC-G1 / TC-G2 / TC-G3）を追加。
+`ta-52` にも同じ silent-green 性質があったため同様のガードを追加した。
+
+**実証**: standalone / harness の **両モードで** ta-69 = 22 passed 0 failed、
+ta-52 = 6 passed 0 failed。注入を no-op に壊す変異で
+`sandbox injection failed (want=N got=M)` として落ちることを実測。
+是正前の同変異では 3 TC が **緑のまま**だった。
+
+**再発防止（handoff 送り）**: extras を追加・変更するときは
+**単一 extra を harness 文脈（`set -eu` + source）で走らせる**検証を必須にする
+（フルスイート実行は ta-61 の入れ子再帰があるため不可）。
 
 ## 指摘対応（2026-08-18）
 
