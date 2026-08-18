@@ -5,7 +5,9 @@ description: "ユーザーの依頼文から開発 Intent を 8 分類し、stru
 
 # Intent Classifier
 
-> 正本: `.claude/skills/intent-classifier/SKILL.md`（`plugin/plangate/skills/` はミラー・export 用）。
+> 正本（sync 元）: `.agents/skills/intent-classifier/SKILL.md`。`scripts/sync-plugin-plangate.sh` が
+> `.agents/skills/` を読み取り `plugin/plangate/skills/` を機械生成する。`.claude/skills/` と
+> `.codex/skills/` は sync 対象外の配布先のため、正本更新時に同一内容を手動で追従させる。
 
 ユーザーの依頼文を読み取り、開発 Intent を 8 分類のいずれかに判定して structured JSON で返す。
 
@@ -168,7 +170,7 @@ description: "ユーザーの依頼文から開発 Intent を 8 分類し、stru
 
 ## 責務境界（Mode / lite_eligible は判定しない）
 
-intent-classifier は **Intent 8 分類のみ**を担う。Mode 判定・`lite_eligible` 算定は行わない（それらは [`mode-classification.md`](../../rules/mode-classification.md) 正本 + 後段の mode 判定ステップが担当）。本スキルの出力 Intent は skill-policy-router の入力の一部となる（WF-00 advisory）。
+intent-classifier は **Intent 8 分類のみ**を担う。Mode 判定・`lite_eligible` 算定は行わない（それらは `.claude/rules/mode-classification.md` 正本 + 後段の mode 判定ステップが担当）。本スキルの出力 Intent は skill-policy-router の入力の一部となる（WF-00 advisory）。
 
 ## 関連 Skill
 

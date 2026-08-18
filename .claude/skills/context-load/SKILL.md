@@ -38,5 +38,5 @@ artifact クラス: **context**
 
 ## 関連
 
-- Workflow: `docs/workflows/01_context_bootstrap.md`
+- Workflow: `docs/workflows/01_context_bootstrap.md`（**配布対象外**。`install.sh --claude` / plugin / Codex の 3 経路とも導入先には配置されない。解決できない場合は本 Skill の記述を代替正本とし、「正本 `<path>` を参照できなかった」と明示する）
 - Rule: Rule 2（Skill は再利用単位）、Rule 4（案件固有情報は CLAUDE.md に寄せる）

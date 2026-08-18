@@ -50,6 +50,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | 「スクリプトは雑でいい」 | SKILL.md・コマンド・エージェントに埋め込まれたシェル例はチーム全員が実行する。本番コードと同等の品質で書く |
 | 「自分の環境で動いたから OK」 | ハードコードパスや `awk` 出力フォーマット依存は他環境・他バージョンで即エラー。Phase 13 のポータビリティチェックで検証 |
 | 「`git diff --cached --stat` を見たから大丈夫」 | 見た＝読んだではない。stat に映った想定外ファイル（`__pycache__` 等）を見落として commit した実害あり。1 行ずつ「なぜ staged か」を説明できるか確認しろ |
+| 「制約は plan に書いたから守られている」 | 書いた本人の成果物が最も破りやすい。**自分が宣言した制約は、その制約で自分の成果物を grep してから PASS にする**。別 PBI・別担当で同じ型が独立に 3 回発生した実害あり |
 
 ## review-gate（実装後ゲート）との役割分界（#795 / #794）
 
@@ -146,6 +147,22 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
 3. 変更に影響を受ける **他のテストファイル** が漏れなく更新されているか
 4. **既存テストケースとの粒度比較**
 5. **既存テストとの手法統一**
+6. **新規テストの検出力を変異注入で実証したか**
+   - 変異は関数定義ではなく **call site** を壊す
+   - **「レーン全体を落とす変異」だけで済ませない** — レーンごと殺す変異では
+     **レーン内部の分類ミスは原理的に検出できない**。分岐・レーン内部の分類を
+     誤らせる変異を別に立てる
+   - 変異が空振り（適用しても PASS のまま）なら、それは TC の欠陥。
+     **空振りしたことも記録する**
+7. **負側テストが「本番経路」を通っているか**
+   - 負側 TC が明示引数・テスト専用 env 経由のみに偏り、**CI が実際に通る既定
+     経路の検出力がゼロ**になっていないか
+   - 経路が偏っていれば、call site を壊す変異でも穴は露出しない
+8. **成長する対象に絶対件数を assert していないか**
+   - `wc -l` / `grep -c` 由来の値を数値と等値比較していないか
+   - ファイルが増えるディレクトリへの件数契約は、**無関係な PR の CI を落とす
+     時限爆弾**になる
+   - 集合同値照合（`comm -3` 等）か下限で置く
 
 ### Phase 7: 既存パターンとの一貫性確認
 
@@ -312,7 +329,7 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
 - [`docs/ai/eval-cases/`](../../../docs/ai/eval-cases/) — 観点別詳細 × 8
 - [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — 出力 schema
 - [`docs/ai/contracts/review.md`](../../../docs/ai/contracts/review.md) — review phase contract
-- [`.claude/rules/review-principles.md`](../../rules/review-principles.md) — レビュー原則（CI / ローカル共通）。
+- `.claude/rules/review-principles.md` — レビュー原則（CI / ローカル共通）。
   **導入先での参照解決順**: (1) 導入先の `.claude/rules/review-principles.md`。
   ただし **本 skill が参照する節（例: `review-principles.md` の §3 Severity 定義）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため (2) へ進む →
   (2) plugin root 配下 `<plugin_root>/rules/review-principles.md`（`<plugin_root>` は
@@ -325,8 +342,10 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
   minor / info）は用いない**ため、正本未参照でも本 Skill の判定は成立する。5 観点・Severity
   定義を本 Skill の判定表で代替したことにせず、推測で補わない。
   Codex 経由の導入は skills のみ配布されるため常に (3) に落ちる。
-  なお上記の相対リンク `../../rules/review-principles.md` は **skills と rules が同一 root
-  直下に並ぶ配置でのみ**解決する（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）。
-  上流リポジトリの `.agents/skills/` と Codex 導入先の `.codex/skills/` には隣接する
-  `rules/` が無いため解決しない
+  なお上の `review-principles.md` は **意図的に Markdown リンクにしていない**。
+  `../../rules/review-principles.md` のような相対リンクは **skills と rules が同一 root
+  直下に並ぶ配置でのみ**解決し（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）、
+  本ファイルの正本 root である `.agents/skills/` と Codex 導入先の `.codex/skills/` には
+  隣接する `rules/` が無いため**必ず壊れる**。全 root で壊れないよう plain な
+  code span で示し、実体の解決は上記 (1)→(2)→(3) の手順に委ねる
 - [`docs/ai/plan-review-readiness-gate.md`](../../../docs/ai/plan-review-readiness-gate.md) §7/§8 — ドキュメント変更（D-1〜D-6）/ シェル・Python コード変更（C-1〜C-6）の追加観点

@@ -181,12 +181,14 @@ HO（Hardening Override）対象の rule 層に置かれ、UI 版（本規約）
 ## 関連ドキュメント（PlanGate v8.3）
 
 - Workflow: [`docs/workflows/05_verify_and_handoff.md`](../../../docs/workflows/05_verify_and_handoff.md)
-- 親 Rule: Rule 5（最終成果物は handoff に集約、[`hybrid-architecture.md`](../../rules/hybrid-architecture.md)）
+- 親 Rule: Rule 5（最終成果物は handoff に集約、`.claude/rules/hybrid-architecture.md`）
   → fallback `<plugin_root>/rules/hybrid-architecture.md`（上記「参照解決順」）。
-  上記の相対リンク `../../rules/hybrid-architecture.md` は **skills と rules が同一 root
-  直下に並ぶ配置でのみ**解決する（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）。
-  上流リポジトリの `.agents/skills/` と Codex 導入先の `.codex/skills/` には隣接する
-  `rules/` が無いため解決しない
+  上の `hybrid-architecture.md` は **意図的に Markdown リンクにしていない**。
+  `../../rules/hybrid-architecture.md` のような相対リンクは **skills と rules が同一 root
+  直下に並ぶ配置でのみ**解決し（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）、
+  本ファイルの正本 root である `.agents/skills/` と Codex 導入先の `.codex/skills/` には
+  隣接する `rules/` が無いため**必ず壊れる**。全 root で壊れないよう plain な
+  code span で示し、実体の解決は上記「参照解決順」の 1→2→3 に委ねる
 - handoff テンプレート: [`docs/working/templates/handoff.md`](../../../docs/working/templates/handoff.md)
 - [`docs/ai/eval-plan.md`](../../../docs/ai/eval-plan.md) — 8 eval 観点（AC coverage / verification honesty / format adherence）
 - [`docs/ai/eval-cases/ac-coverage.md`](../../../docs/ai/eval-cases/ac-coverage.md)

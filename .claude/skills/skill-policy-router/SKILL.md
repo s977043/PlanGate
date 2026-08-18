@@ -5,7 +5,9 @@ description: "Intent と Mode を受け取り、必要な Skill・ゲート要�
 
 # Skill Policy Router
 
-> 正本: `.claude/skills/skill-policy-router/SKILL.md`（`plugin/plangate/skills/` はミラー・export 用）。
+> 正本（sync 元）: `.agents/skills/skill-policy-router/SKILL.md`。`scripts/sync-plugin-plangate.sh` が
+> `.agents/skills/` を読み取り `plugin/plangate/skills/` を機械生成する。`.claude/skills/` と
+> `.codex/skills/` は sync 対象外の配布先のため、正本更新時に同一内容を手動で追従させる。
 
 Intent と Mode を入力として受け取り、必要な Skill とゲート要件（GatePolicy）を structured JSON で返す。
 
@@ -16,7 +18,7 @@ Intent と Mode を入力として受け取り、必要な Skill とゲート要
 GatePolicy の必須 / 任意判定は Mode によって決まる。
 Intent はスキルの優先度や追加推奨にのみ影響する。
 
-> **Mode の定義・判定基準（変更ファイル数・リスク・`lite_eligible`）は [`mode-classification.md`](../../rules/mode-classification.md) が単一正本**。本スキルは確定済み Mode を入力として受け取り GatePolicy へ写像するのみで、**Mode 自体は判定しない**。下の「Mode 別ポリシー表」は Mode→GatePolicy の*写像*であり Mode の定義ではない（重複定義ではない）。
+> **Mode の定義・判定基準（変更ファイル数・リスク・`lite_eligible`）は `.claude/rules/mode-classification.md` が単一正本**。本スキルは確定済み Mode を入力として受け取り GatePolicy へ写像するのみで、**Mode 自体は判定しない**。下の「Mode 別ポリシー表」は Mode→GatePolicy の*写像*であり Mode の定義ではない（重複定義ではない）。
 
 ## Common Rationalizations
 
@@ -189,7 +191,7 @@ Intent に応じて optionalSkills を追加・調整する:
 
 ## lite_eligible の扱い（責務分界）
 
-`lite_eligible`（Lite ゲート可否）は [`mode-classification.md`](../../rules/mode-classification.md) の派生属性で、**判定は mode-classification 正本が担う**。本スキルは確定した `lite_eligible` を入力として受け取り、`true` のとき Lite ゲート構成（例: C-2 外部レビューを 1 本に絞る・観点固定）を GatePolicy に反映する。router は `lite_eligible` を**判定せず使用するのみ**。判定不能時は安全側（`lite_eligible=false` 相当の full ゲート）。
+`lite_eligible`（Lite ゲート可否）は `.claude/rules/mode-classification.md` の派生属性で、**判定は mode-classification 正本が担う**。本スキルは確定した `lite_eligible` を入力として受け取り、`true` のとき Lite ゲート構成（例: C-2 外部レビューを 1 本に絞る・観点固定）を GatePolicy に反映する。router は `lite_eligible` を**判定せず使用するのみ**。判定不能時は安全側（`lite_eligible=false` 相当の full ゲート）。
 
 ## 関連 Skill
 
