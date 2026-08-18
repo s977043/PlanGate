@@ -26,7 +26,7 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 ## C-2 外部レビュー
 
 - 2 レーン責務（設計妥当性 / コードベース整合）と R-NNN 採番・追記専用集約の規約は `.claude/rules/review-principles.md` §7-bis を正本とする
-- 実行コマンド: `bin/plangate review TASK-XXXX --phase c2`（外部 AI モデル呼び出し）
+- 実行コマンド: 「CLI 呼び出し」節の表を参照（外部 AI モデル呼び出し。表記は実行環境で変わる）
 - 指摘ゼロでも「指摘なし」を明示記録
 
 ## C-2 → 確定反映 → c3.json 発行（EH-3 整合・厳守順序）
@@ -45,15 +45,49 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 
 ## settings タスクロック
 
-`bin/plangate doctor --check-settings` PASS は **V-1 / handoff 完了の前提条件**（`.claude/rules/working-context.md` 正本）。plan ゲート段階での block 対象ではないが、未配線なら verify フェーズ前に Human が `sh scripts/apply-claude-settings.sh` 実行が必要なことを認識しておく。
+`bin/plangate doctor --check-settings` PASS は **V-1 / handoff 完了の前提条件**（`.claude/rules/working-context.md` 正本）。plan ゲート段階での block 対象ではないが、未配線なら verify フェーズ前に Human が `sh scripts/apply-claude-settings.sh` 実行が必要なことを認識しておく（`doctor` / `apply-claude-settings.sh` はいずれも**上流リポジトリの cwd でのみ**成立する。下記「CLI 呼び出し」節を参照）。
 
 ## CLI 呼び出し
 
-- 機械検証（plan_hash / artifact 整合）: `bin/plangate validate TASK-XXXX`
-- C-2 / V-3 外部 AI レビュー: `bin/plangate review TASK-XXXX --phase {c2|v3}`
-- gate 通過判定（artifact チェック）: `./scripts/ai-dev-workflow TASK-XXXX gate`
+**呼び出し表記は実行環境で変わる**。相対パス形式（`bin/plangate` / `./scripts/...`）が成立するのは
+**上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` も
+`scripts/`（の CLI 本体）も配置されない。導入先で PATH を通した場合のコマンド名は
+**`plangate`**（`bin/plangate` ではない）。
 
-> ⚠️ **`bin/plangate review` は外部 AI モデル（gemini/codex 等）を呼び出す**。C-1 セルフレビュー目的で誤起動するとコスト発生・機密送信のリスクがある。C-1 は本 skill の手順に従い手動で実施する。
+| 用途 | 上流リポジトリの cwd | 導入先 + PATH に `plangate` あり | 導入先 + PATH に無い（**既定**） |
+|------|---------------------|----------------------------------|--------------------------------|
+| plan_hash / artifact 機械検証 | `bin/plangate validate TASK-XXXX` | `plangate validate --dir docs/working/TASK-XXXX` | 次節のフォールバック |
+| C-2 / V-3 外部 AI レビュー | `bin/plangate review TASK-XXXX --phase {c2\|v3}` | **導入先の TASK には使えない**（`--dir` 相当なし）→ 手動レビュー | 手動レビュー |
+| settings 検証 | `bin/plangate doctor --check-settings` | **導入先は検査できない**（`--dir` 相当なし）→ `.claude/settings.json` を直接確認 | `.claude/settings.json` を直接確認 |
+| gate 通過判定（artifact チェック）| `./scripts/ai-dev-workflow TASK-XXXX gate` | **配布対象外**（`scripts/` は導入先に無い）→ 次節のフォールバック | 次節のフォールバック |
+
+> **注意: `TASK-XXXX` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**
+> `bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
+> `<CLI の repo root>/docs/working/TASK-XXXX` を読み書きする。`bin/` は導入先に配置されない
+> ため、PATH 上の `plangate` は必ず**別の場所にある上流 clone** の実体を指す。cwd 非依存で
+> パスを明示できる `--dir` を持つのは `validate` / `validate-schemas` **だけ**で、
+> `review` / `doctor` / `exec` に相当オプションは無い。
+
+> ⚠️ **`plangate review` は外部 AI モデル（gemini/codex 等）を呼び出す**。C-1 セルフレビュー目的で誤起動するとコスト発生・機密送信のリスクがある。C-1 は本 skill の手順に従い手動で実施する。
+
+### CLI 不在時のフォールバック（導入先では既定）
+
+**ゲートの厳密な強制には CLI + hooks（EH-3 等）が必要**であり、CLI が無い環境では
+plan_hash 改竄検知と exec 受理の**機械的な block は成立しない**。それでも
+**判定基準とゲート順序は不変**で、機械検証だけを手動チェックリストへ置き換える:
+
+1. **C-1 / C-2 の判定基準は変えない** — 17 項目・5 観点・Severity・R-NNN 採番・
+   「C-2 → 確定反映 → c3.json 発行」の順序は CLI の有無に関わらず不変
+2. **plan_hash 突合を手で行う** — 手順の正本は `ai-dev-verify` skill
+   「CLI 不在時のフォールバック」節（legacy c3.json の sha256 突合 / c3-prime の
+   束縛検証という経路分岐を含む）。ここでは再定義しない
+3. **exec 受理判定を手で行う** — `approvals/c3.json` を直接読み、legacy は
+   `c3_status: APPROVED`、c3-prime（`approval_kind: "c3-prime"`）は
+   `decision: "AUTO_APPROVED"` であることを確認する（判定手順の正本は
+   `ai-dev-exec` skill「前提条件（exec 開始ゲート）」節）
+4. **未実施を「PASS」と書かない** — 機械検証できなかった項目は、その事実を
+   `status.md` と `decision-log.jsonl` に記録する。**CLI が無いことを理由に
+   C-1 / C-2 / C-3 を省略しない**
 
 ## 判定
 

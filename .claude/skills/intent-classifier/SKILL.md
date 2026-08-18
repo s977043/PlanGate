@@ -43,12 +43,35 @@ description: "ユーザーの依頼文から開発 Intent を 8 分類し、stru
 
 | ユーザー表現 | 実行コマンド |
 |-------------|------------|
-| C-3 確認を HTML / render / HTML 出力 | `bin/plangate render <TASK>` |
-| C-3 承認 / approve | `bin/plangate approve <TASK>`（別ターミナル必須） |
-| doctor / 健全性確認 | `bin/plangate doctor` |
-| exec 開始 / exec して | `bin/plangate exec <TASK>`（C-3 APPROVED 確認後） |
+| C-3 確認を HTML / render / HTML 出力 | `plangate render <TASK>` |
+| C-3 承認 / approve | `plangate approve <TASK>`（別ターミナル必須） |
+| doctor / 健全性確認 | `plangate doctor` |
+| exec 開始 / exec して | `plangate exec <TASK>`（C-3 APPROVED 確認後） |
 
 `<TASK>` はコンテキストから推定（不明なら確認）。**intent=ops と判定した時点で plangate コマンドの候補を提示し、承認を待たずに実行する**（render は読み取り専用）。
+
+> **呼び出し表記は実行環境で変わる**。上表は導入先で PATH を通した場合のコマンド名
+> （**`plangate`**）。**上流リポジトリ（`s977043/plangate`）を clone した cwd では
+> `bin/plangate render` のように相対パス形式で呼ぶ**（導入先に `bin/` は配置されない）。
+> なお `<TASK>` 位置引数は cwd ではなく **CLI 本体の位置**を基準に
+> `<CLI の repo root>/docs/working/<TASK>` へ解決されるため、PATH 上の `plangate` で
+> **導入先の TASK を対象にすることはできない**（`render` / `approve` / `doctor` / `exec` に
+> `--dir` 相当のオプションは無い）。
+
+### CLI 不在時の degrade
+
+`plangate` が PATH に無い環境（**導入先では既定**）でも **Intent 分類そのものは CLI に依存しない**
+ため、本 skill の判定手順・出力フォーマットは不変。変わるのは上表の「実行コマンド提示」だけで、
+以下に置き換える（**分類を `ops` 以外にすり替えない**）:
+
+- **render** → `plan.md` / `review-self.md` / `review-external.md` を直接読んでレビューする
+- **approve** → 人間が `approvals/c3.json` を発行する（AI は代理発行しない）
+- **doctor** → `.claude/settings.json` 等を直接確認する（**未検証を「doctor PASS」と書かない**。
+  検証観点の正本は `plangate-setup` skill）
+- **exec** → 手動で TDD 実行（ゲート確認の正本は `ai-dev-exec` skill）
+
+**ゲートの厳密な強制には CLI + hooks が必要**であり、CLI 不在時は機械的な block が成立しない。
+代替手順を実施した事実は `status.md` に記録し、**CLI が無いことを理由にゲートを省略しない**。
 
 ## 手順
 

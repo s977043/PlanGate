@@ -106,10 +106,16 @@ Intent に応じて optionalSkills を追加・調整する:
 | `research` | — |
 | `review` | check |
 | `docs` | — |
-| `ops` | verify（デプロイ検証のため、未追加の場合）。**PlanGate CLI 操作**（render/approve/doctor/exec）は skill でなく直接 `bin/plangate <cmd>` を実行する |
+| `ops` | verify（デプロイ検証のため、未追加の場合）。**PlanGate CLI 操作**（render/approve/doctor/exec）は skill でなく直接 `plangate <cmd>` を実行する |
 | `exploratory` | — （WF-07 opt-in 推奨。通常フローに留まる場合は intent 相当の Skill 構成を使用）|
 
 ただし、requiredSkills に既に含まれている Skill は optionalSkills に重複追加しない。
+
+> **`plangate <cmd>` の表記と CLI 不在時の degrade は `intent-classifier` skill
+> 「PlanGate CLI 操作の認識（ops 補足）」節を正本とする**（ここでは再定義しない）。
+> 要点のみ: PATH 解決されるコマンド名は **`plangate`**、上流リポジトリの cwd では
+> `bin/plangate <cmd>`、CLI が無い環境（**導入先では既定**）は同節の代替手順に置き換える。
+> **GatePolicy の内容は CLI の有無で変えない**（強制が機械 block から手動確認に落ちるだけ）。
 
 ### Step 4: GatePolicy 出力
 

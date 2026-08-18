@@ -1,0 +1,26 @@
+=== M-1 (correlation removed -> back to OR judgement) ===
+--- sed expr: s@^.*# t1110-redirect-correlate$@  _redirect_tok=1 # t1110-redirect-correlate@
+--- expected kill TC: T1110-TC-01
+
+[step 1] baseline: original guard, focused TC group
+baseline rc=0
+TA-25 standalone: 19 passed, 0 failed
+
+[step 2] apply mutation to a COPY of the guard (call site, not the helper body)
+anchor occurrences before mutation: 1 (must be 1)
+--- mutated call site:
+134:  _redirect_tok=1 # t1110-redirect-correlate
+mutant syntax OK
+
+[step 3] run focused TC group against the mutant
+mutant run rc=1
+  [FAIL] T1110-TC-01 token literal + unrelated redirect still falsely blocked
+  [FAIL] T1110-TC-02 writing token path as content falsely blocked (exit 2)
+  [FAIL] T1110-TC-05 block detail missing matched redirect_target (exit 2)
+TA-25 standalone: 16 passed, 3 failed
+RESULT: KILLED by T1110-TC-01
+
+[step 4] restore: original guard again
+restore rc=0
+TA-25 standalone: 19 passed, 0 failed
+[step 5] original guard on disk unchanged:  1 file changed, 70 insertions(+), 3 deletions(-)

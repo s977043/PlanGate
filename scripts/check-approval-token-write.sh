@@ -19,6 +19,8 @@
 #   Edit|Write|MultiEdit … PLANGATE_HOOK_FILE env / $1 / stdin JSON .tool_input.file_path
 #                （legacy 互換のみ top-level .file_path fallback）
 #   Bash       … stdin JSON .tool_input.command 中の token path + 「書き込み意図」を検出
+#                （TASK-1110 / #1110: リダイレクト（>）は先が token path に解決される
+#                  場合のみ block。解決不能な先は block 側 = fail-closed）
 #                （> / cp/mv/ln/install/dd/tee/truncate/patch/apply_patch /
 #                  ed/ex / git checkout|restore|checkout-index|update-index /
 #                  sed -i / perl -i / python write_text・open(...,"w") /
@@ -59,16 +61,98 @@ _strip_nonwrite_redirects() {
     -e 's|[0-9]*>>*[[:space:]]*/dev/null\([^A-Za-z0-9_./-]\)|\1|g'
 }
 
+# リダイレクト先とトークンパスの相関判定（TASK-1110 / #1110）。
+# 入力は _strip_nonwrite_redirects 適用後の文字列（fd 複製 / fd クローズ /
+# /dev/null 破棄は除去済み）。残存する各リダイレクト先を静的に抽出し、
+# 「トークンパスに解決される先」が 1 つでもあれば真（= block）を返す。
+# 修正前は「コマンド文字列のどこかにトークン名がある」×「どこかに `>` がある」の
+# AND だけで block していたため、`git commit -m '...c3.json...' > /tmp/log.txt` の
+# ように無関係なリダイレクトを伴うだけで誤 block された（#1110）。
+#
+# fail-closed（判定不能は必ず block 側 / 誤検知削減のために真の陽性を落とさない）:
+#   - `&>` / `&>>`（全出力リダイレクト）を含む … TASK-1045 U-2 の block 維持
+#   - 抽出パイプラインの失敗（sed 失敗等）      … 真
+#   - 先が空 / `$` / バッククォート / glob を含む … 真（静的に解決不能）
+#   - **先に引用符 / バックスラッシュが残っている … 真**（V-3 R-001。下記「切り詰め」）
+#   - 先が /dev/*（正規化後に残った擬似デバイス）… 真（呼出側で token file へ
+#     再束縛されうる。既存 T1045-TC-11/12/13 の block を維持する）
+#
+# 「切り詰め」クラスが fail-closed に必要な理由（V-3 R-001 / critical）:
+#   先の語は終端文字（空白 / ; & | ( ) <）で打ち切る。POSIX sh でこれらの文字を
+#   語の一部として書くには **必ず引用かバックスラッシュ退避が要る**ため、打ち切りで
+#   本来の先を失った語には必ず `'` / `"` / `\` が残る。したがって
+#   「打ち切り後の語に引用符・バックスラッシュが含まれる → 静的に解決できていない」
+#   と判定すれば、構文解析（TASK-1045 GC-2 で不採用）に踏み込まずに閉じられる。
+#   `#` だけは語頭のみコメント開始で語中は通常文字なので終端に含めない
+#   （含めると `dir#1/<TOKEN>` のような退避不要の先を取りこぼす）。
+#
+# 完全なシェル構文解析は行わない（TASK-1045 GC-2 の方針を継承）。POSIX BRE のみ・
+# sed の RHS `\n` は使わない（分割は tr で行う / GNU・BSD 差異回避）。LC_ALL=C 固定。
+_wi_redirect_target=""
+_redirect_writes_token() {
+  _rw_s="$1"
+  _wi_redirect_target=""
+  # `&>` は正規化で `&>#` へ退避される。原文・退避形のどちらでも同じく block 維持。
+  case "$_rw_s" in
+    *'&>'*) _wi_redirect_target='&>(all-output-redirect)'; return 0 ;;
+  esac
+  # 語の終端文字クラス（POSIX BRE のブラケット式）。`#` を入れてはならない（上記）。
+  _rw_term='[[:space:];&|()<]' # t1110-terminator-class
+  # 改行を空白へ畳む（複数行コマンドで、`>` より前の行が疑似的な先として
+  # 混入するのを防ぐ。畳まないと heredoc 本文の行が先として評価される）。
+  _rw_flat=$(printf '%s' "$_rw_s" | tr '\n' ' ') || { _wi_redirect_target='(flatten-failed)'; return 0; } # t1110-flatten
+  # `>|`（noclobber 上書き）を `>` へ、`>>` 以上の連続を `>` へ畳む。
+  _rw_norm=$(printf '%s' "$_rw_flat" | LC_ALL=C sed -e 's%>|%>%g' -e 's%>>*%>%g') \
+    || { _wi_redirect_target='(normalize-failed)'; return 0; }
+  # `>` で分割し、先頭（最初の `>` より前）を捨てた各レコードの先頭語を先とみなす。
+  # 語頭の `#` はコメント開始 = 先が無いので空にする。空語は @EMPTY@ で残す。
+  # 引用符は剥がさない（残っていること自体が「解決できていない」の証拠なので）。
+  _rw_list=$(printf '%s' "$_rw_norm" | tr '>' '\n' \
+    | LC_ALL=C sed -e '1d' -e 's%^[[:space:]]*%%' -e 's%^#.*$%%' \
+        -e "s%${_rw_term}.*\$%%" -e 's%^$%@EMPTY@%') \
+    || { _wi_redirect_target='(extract-failed)'; return 0; }
+  [ -n "$_rw_list" ] || return 1
+  _rw_hit=1
+  _rw_ifs="$IFS"
+  IFS='
+'
+  set -f # glob 展開を止めて生の語のまま評価する
+  for _rw_t in $_rw_list; do
+    # 引用 / 退避が残る語は切り詰めで別物になった可能性がある = 解決不能（R-001）
+    case "$_rw_t" in *"'"*|*'"'*|*'\'*) _wi_redirect_target="quoted-or-escaped:$_rw_t"; _rw_hit=0; break ;; esac # t1110-quote-escape
+    case "$_rw_t" in
+      '@EMPTY@'|*'$'*|*'`'*|*'*'*|*'?'*|*'['*)
+        _wi_redirect_target="$_rw_t"; _rw_hit=0; break ;;
+      /dev/*)
+        _wi_redirect_target="$_rw_t"; _rw_hit=0; break ;;
+    esac
+    if _is_token_path "$_rw_t"; then
+      _wi_redirect_target="$_rw_t"; _rw_hit=0; break
+    fi
+  done
+  set +f
+  IFS="$_rw_ifs"
+  return "$_rw_hit"
+}
+
 # Bash コマンド文字列に「書き込み意図」があるか（読み取りは false を返す）
 # 一致したルールの識別子（TASK-1045 AC-10）。真を返す直前に必ず設定する。
 _wi_rule=""
 _has_write_intent() {
   _wc="$1"
   _wi_rule=""
+  _wi_redirect_target=""
   # リダイレクト > / >>: 非書き込み記法を除去してから残存 `>` を見る。
   # 正規化に失敗したら元文字列で判定する = fail-closed（block 維持 / plan GC-8 (i)）。
   _wc_n=$(_strip_nonwrite_redirects "$_wc") || _wc_n="$_wc" # t1045-redirect-normalize
-  printf '%s' "$_wc_n" | grep -q '>' && { _wi_rule=file-redirect; return 0; } # t1045-file-redirect
+  # 残存 `>` があるだけでは block しない。先がトークンパスに解決されるか
+  # （または解決不能か）まで突き合わせる（#1110）。
+  _redirect_tok=0
+  _redirect_writes_token "$_wc_n" && _redirect_tok=1 # t1110-redirect-correlate
+  printf '%s' "$_wc_n" | grep -q '>' && [ "$_redirect_tok" = "1" ] && { _wi_rule=file-redirect; return 0; } # t1045-file-redirect
+  # ここへ来た時点で redirect レーンは不成立。以降のルールで block する場合に
+  # redirect_target が誤って添えられないよう捨てる（正規化失敗時の診断値対策）。
+  _wi_redirect_target="" # t1110-reset-diag
   # 書き込み系コマンドが語境界で出現（行頭・; & | ( 直後・空白区切り）
   printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(cp|mv|ln|install|dd|tee|truncate|patch|apply_patch)([[:space:]]|$)' && { _wi_rule=copy-like; return 0; }
   # ed / ex（stdin スクリプトの w コマンドで書込可能。語境界で検出 / TASK-1023 V-3 実測 bypass）
@@ -160,11 +244,14 @@ if true; then # t1023-stdin-always
   else
     _cmd=$(printf '%s' "$_stdin" | jq -r '.tool_input.command' 2>/dev/null) || _cmd=""
     if [ -z "$_cmd" ]; then _parse_unknown "empty command"; fi
-    # token path と別 write が同一 command に混在する場合も相関解析せず安全側 block
+    # redirect レーンは「先がトークンパスに解決される（または解決不能）」ときのみ
+    # block する（TASK-1110 / #1110）。copy-like 等の他ルールは従来どおり
+    # 相関解析せず安全側 block のまま。
     if _is_token_path "$_cmd" && _has_write_intent "$_cmd"; then
       # rule=<id> で一致ルールの根拠を機械可読に示す（TASK-1045 AC-10）。
+      # redirect レーンでは一致した先も併記する（TASK-1110 AC-4）。
       # 既存の可読性を壊さないよう "writes token path" は残す。
-      _block "Bash command writes token path (rule=${_wi_rule:-unknown}): $_cmd"
+      _block "Bash command writes token path (rule=${_wi_rule:-unknown}${_wi_redirect_target:+, redirect_target=$_wi_redirect_target}): $_cmd"
     fi
   fi
 fi
