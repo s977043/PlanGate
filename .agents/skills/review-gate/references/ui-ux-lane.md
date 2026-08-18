@@ -37,6 +37,19 @@ UI 変更か否かが曖昧な場合（例: `*.ts` だが DOM 操作・style 注
    「実行不可の理由 / 代替レビュー観点（静的コード検査で確認した範囲）/
    未充足リスク」を finding に必須記録する（空欄の unavailable は無効）
 
+   **参照解決順（導入先で必ずこの順に探す）**: `docs/**` は上流リポジトリ基準の
+   相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の
+   **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パス →
+   (2) `<plugin_root>/docs/ai/external-reviewer-interface.md`
+   （`<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/"` を実行して展開・確認した
+   絶対パス**。Read ツールは環境変数を展開しないため `${CLAUDE_PLUGIN_ROOT}/...` を
+   そのまま Read しない。空・未設定ならキャッシュを glob で推測しない）→
+   (3) どちらでも解決できない場合（Codex 経由は skills のみ配布のため常にこちら）は
+   **「正本 `docs/ai/external-reviewer-interface.md` を参照できなかった」と明示**する。
+   ただし **unavailable 記録の必須 3 フィールド（実行不可の理由 / 代替レビュー観点 /
+   未充足リスク）は上の本文に展開済み**であり、正本に到達できなくても本条項の要求は
+   自己完結して満たせる。正本の内容を推測で補わない。
+
 ## 2. Nielsen 10 ヒューリスティクス（個別解説）
 
 | # | ヒューリスティック | 解説・チェック方法 |
@@ -149,6 +162,10 @@ visual evidence: before/after スクリーンショット（PC/SP 2 点）を
 - 兄弟規約: `acceptance-review` Skill「UI 変更時の visual evidence 規約」
   （同一の発火ヒューリスティックを共有・V-1 での evidence 必須化）
 - unavailable 記録の正本: `docs/ai/external-reviewer-interface.md` §10
+  → 参照解決順は §1.3 と同じ（`docs/**` は 3 経路とも配布対象外。(1) 導入先リポジトリの
+  同名パス → (2) `<plugin_root>` 配下 → (3) 解決不能なら「参照できなかった」と明示）。
+  必須 3 フィールドは §1.3 の本文展開が自己完結した代替正本になるため、
+  正本の内容を推測で補わない
 - 安全側規則の同型元: `.claude/rules/mode-classification.md` 変更種別軸
   → fallback `<plugin_root>/rules/mode-classification.md`
   （`<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
