@@ -1,0 +1,21 @@
+
+=== TA-68: skill spec presence check (#1109) ===
+  [PASS] TC-01 check-codex-skill-spec.sh の syntax OK
+  [PASS] TC-02 既定 2 root が rc=0
+  [PASS] TC-03 負側: openai.yaml 欠落を rc=1 + 名指しで検出
+  [PASS] TC-04 負側: orphan openai.yaml を rc=1 で検出
+  [PASS] TC-05 --warn-only は violation ありでも rc=0
+  [PASS] TC-06 --warn-only は target 不在でも rc=0
+  [FAIL] TC-07 target 不在の扱いが不正 (rc=1, 期待 1): [spec-check] Checked 0 skills across 1 target(s);[spec-check] VIOLATIONS (1):;  - internal error while inspecting targets: FileNotFoundError(2, 'No such file or directory')
+  [PASS] TC-08 target 不在で traceback を出さない
+  [PASS] TC-09 既定 target に配布物 plugin/plangate/skills を含む
+  [PASS] TC-10 skip を理由つきで出力し件数が同値 (summary=1 rows=1)
+  [PASS] TC-11 short_description 上限検査が退行していない
+  [PASS] TC-12 配布物 root の SKILL.md 集合と openai.yaml 集合が一致
+  [PASS] TC-13 既定経路が fixture repo の 2 root を検査して rc=0
+  [PASS] TC-14 負側: 既定経路でも openai.yaml 欠落を rc=1 で検出
+  [FAIL] TC-15 既定 root 消失が緑のまま通る (rc=1, 期待 1): [spec-check] Checked 0 skills across 1 target(s);[spec-check] VIOLATIONS (1):;  - internal error while inspecting targets: FileNotFoundError(2, 'No such file or directory')
+  [PASS] TC-16 既定出力に .codex/skills と plugin/plangate/skills が両方現れる
+  [PASS] TC-17 同名 basename の 2 root でも violation 行が区別できる
+TA-68 standalone: 15 passed, 2 failed
+rc=1

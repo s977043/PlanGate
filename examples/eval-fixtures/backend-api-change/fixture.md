@@ -14,7 +14,7 @@ AC coverage / test-cases（受入基準とテストの 1:1 紐付け）
 
 ## Expected gate behavior
 
-standard 判定。C-1 17項目・C-3・V-1 全件突合・V-3 実施。AC 未網羅なら V-1 FAIL。
+standard 判定。C-1 全25項目・C-3・V-1 全件突合・V-3 実施。AC 未網羅なら V-1 FAIL。
 
 ## 関連 eval aspect
 

@@ -1,0 +1,7 @@
+interface:
+  display_name: "breakdown-gate"
+  short_description: "Judge task granularity and propose a split"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $breakdown-gate to judge whether this task should be split before planning."
+  brand_color: "#1A56DB"

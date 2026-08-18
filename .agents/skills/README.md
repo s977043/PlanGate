@@ -57,7 +57,7 @@ WF-01〜WF-05 の各 phase で呼び出す再利用可能スキル。
 | スキル | 役割 |
 |--------|------|
 | `brainstorming` | アイデアから設計書（PBI INPUT PACKAGE）への昇華 |
-| `diff-audit` | 変更内容の17項目体系的セルフレビュー（旧 self-review） |
+| `diff-audit` | 変更内容の体系的セルフレビュー（C-1 チェック項目一式 / 旧 self-review） |
 | `systematic-debugging` | エビデンスベースの体系的デバッグ |
 | `subagent-driven-development` | サブエージェント駆動の2段階レビュー開発 |
 | `codex-multi-agent` | Codex CLI を用いたマルチエージェント並列実行 |

@@ -1,0 +1,7 @@
+interface:
+  display_name: "subagent-delegation-brief"
+  short_description: "Build a subagent brief with the 8 required parts"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $subagent-delegation-brief to assemble a delegation prompt with an OUTCOME contract."
+  brand_color: "#1A56DB"

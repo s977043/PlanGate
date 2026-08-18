@@ -1,0 +1,4 @@
+[spec-check] .codex/skills: SKILL.md dirs=39 openai.yaml dirs=39 field-checked=39 missing-yaml=0 orphan-yaml=0 ignored=0
+[spec-check] Checked 39 skills across 1 target(s)
+[spec-check] All skills PASS spec check
+rc=0
