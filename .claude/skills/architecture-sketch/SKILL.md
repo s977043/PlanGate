@@ -39,6 +39,6 @@ design artifact:
 
 ## 関連
 
-- Workflow: `docs/workflows/03_solution_design.md`
+- Workflow: `docs/workflows/03_solution_design.md`（**配布対象外**。`install.sh --claude` / plugin / Codex の 3 経路とも導入先には配置されない。解決できない場合は本 Skill の記述を代替正本とし、「正本 `<path>` を参照できなかった」と明示する）
 - 連携 Skill: risk-assessment
 - Rule: Rule 2

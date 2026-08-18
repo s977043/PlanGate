@@ -94,6 +94,8 @@ description: タスク委譲前に Allowed Context を構造化して出力す�
 
 Allowed Context（6 要素）は委譲プロンプトに埋め込むだけでなく、`docs/working/TASK-XXXX/dispatch/task-NNN-brief.md` に**ファイルとして保存**する。これにより実装者の唯一の要件ファイルとなり、会話 compaction / モデル切替後も再現可能。テンプレは `docs/working/templates/dispatch/task-NNN-brief.md`。
 
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パス → (2) plugin root 配下（`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/"` を実行して展開・確認した絶対パス。Read ツールは環境変数を展開しないため `${CLAUDE_PLUGIN_ROOT}/...` をそのまま Read しない） → (3) どちらにも無ければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。
+
 ## 関連
 
 - Skill: `subagent-dispatch`（Allowed Context を使ってエージェントに分配）

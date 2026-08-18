@@ -25,6 +25,7 @@ PlanGate ワークフローの **verify & handoff フェーズ（WF-05）** を 
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
 | `rules/*.md`（下記 3〜6） | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
+| `docs/**`（`docs/workflows/ai-loop/c3-prime-contract.md` 等） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 | `docs/working/templates/*.md`（下記 8） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 | `bin/**`（CLI） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 | `scripts/**` | コピー対象外（解決不可） | `<plugin_root>/scripts/` は存在するが `install-plangate-skills.sh` のみ（`apply-claude-settings.sh` / `check-settings-wiring.sh` 等は解決不可） | 未配置（解決不可） |
