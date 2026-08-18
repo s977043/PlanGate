@@ -176,7 +176,7 @@ HO（Hardening Override）対象の rule 層に置かれ、UI 版（本規約）
 
 - [`acceptance-criteria-build`](../acceptance-criteria-build/SKILL.md): AC 一覧生成（本 Skill の前段）
 - [`known-issues-log`](../known-issues-log/SKILL.md): 既知課題抽出（handoff §2、本 Skill と並走）
-- [`diff-audit`](../diff-audit/SKILL.md): 実装側の事前 diff-audit（旧 self-review、17 項目 + Iron Law + 8 eval 観点）
+- [`diff-audit`](../diff-audit/SKILL.md): 実装側の事前 diff-audit（旧 self-review、C-1 チェック項目 + Iron Law + 8 eval 観点）
 
 ## 関連ドキュメント（PlanGate v8.3）
 

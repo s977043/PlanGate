@@ -6,7 +6,7 @@ PlanGate ドキュメントで頻出する略号の一覧。初見の方はこ�
 
 | 略号 | 名称 | 説明 |
 |------|------|------|
-| **C-1** | セルフレビュー | 17 項目チェック (Plan 7 + ToDo 5 + TestCases 3 + 結合 2)。AI 自身が plan/todo/test-cases を構造的に検証。 |
+| **C-1** | セルフレビュー | AI 自身が plan/todo/test-cases を構造的に検証。項目定義・項目数の正本は [review-self.md](https://github.com/s977043/PlanGate/blob/main/docs/working/templates/review-self.md)（現行 全 25 項目）。 |
 | **C-2** | 外部 AI レビュー | gemini / codex 等の外部モデルが指摘 R-NNN を付与。`bin/plangate review --phase c2` |
 | **C-3** | 人間承認ゲート（plan） | C-1/C-2 を踏まえ人間が APPROVED / CONDITIONAL / REJECT 三値で判定。`approvals/c3.json` 発行。 |
 | **C-3'** | AI 裁定ゲート（plan） | ai-loop の eligible run に限り C-3 を置き換える AI 裁定経路。HO 接触 / policy 変更 / 判定不能 / 重大な不一致は Human に escalate する。C-3 を撤廃するものではない。 |

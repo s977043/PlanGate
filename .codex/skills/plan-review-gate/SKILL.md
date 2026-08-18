@@ -11,7 +11,7 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 
 1. `CLAUDE.md`
 2. `AGENTS.md`
-3. `.claude/rules/working-context.md`（C-1 17 項目 / C-3 三値ゲート / 条件付き降格 / settings タスクロック の正本）
+3. `.claude/rules/working-context.md`（C-1 / C-3 三値ゲート / 条件付き降格 / settings タスクロック の正本）
 4. `.claude/rules/review-principles.md`（5 観点 / Severity / C-2 2 レーン責務契約の正本）
 5. `.claude/rules/mode-classification.md`（mode 別フェーズ適用マトリクス）
 6. `docs/working/TASK-XXXX/plan.md`
@@ -21,7 +21,7 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 
 ## C-1 セルフレビュー
 
-mode に応じた適用範囲・項目数（17 項目構成）は `.claude/rules/working-context.md` の C-1 節および `.claude/rules/mode-classification.md` フェーズ適用マトリクスを正本とする。FAIL があれば修正後再実行。evidence は FAIL 時必須（`evidence/c1-review/`）。
+チェック項目の定義と項目数は `docs/working/templates/review-self.md` を正本とする（現行 全 25 項目）。mode に応じた適用範囲は `.claude/rules/working-context.md` の C-1 節および `.claude/rules/mode-classification.md` フェーズ適用マトリクスを正本とする。FAIL があれば修正後再実行。evidence は FAIL 時必須（`evidence/c1-review/`）。
 
 ### C-1 追加品質ゲート: Plan 実行可能性
 
