@@ -195,7 +195,7 @@ Step 4 でアプローチが選択されたら、**不採用にしたアプロ�
 - **正本は decision-log.jsonl**。設計書（pbi-input）の `Notes from Refinement` はそこへの参照・要約に留め、不採用理由を二重管理しない
 - スキーマ: `docs/working/templates/decision-log-schema.md`
 
-> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パス → (2) plugin root 配下（`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/"` を実行して展開・確認した絶対パス。Read ツールは環境変数を展開しないため `${CLAUDE_PLUGIN_ROOT}/...` をそのまま Read しない） → (3) どちらにも無ければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。**`<plugin_root>` 配下の探索は `docs/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識しないため、`<plugin_root>/docs/...` は構造上存在せず、plugin root 段を置いても必ず空振りする（クラス A の `<plugin_root>/rules/...` が機能するのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
 
 
 ## 関連スキル
