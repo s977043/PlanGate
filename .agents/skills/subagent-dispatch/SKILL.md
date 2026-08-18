@@ -12,14 +12,14 @@ high-risk/critical モードでタスクをロール別エージェントに分�
 
 マルチエージェント実行を安全に行うために、以下を保証する。
 
-- 各エージェントが適切なロールを担う（`subagent-roles.md` に基づく）
+- 各エージェントが適切なロールを担う（`subagent-team-design` Skill のロール定義に基づく）
 - 並列実行による競合（同一ファイルの同時変更）を防ぐ
 - 依存関係のある処理が正しい順序で実行される
 
 ## 手順（5 ステップ）
 
 1. `plan.md` の Work Breakdown からタスクを列挙する
-2. 各タスクに `subagent-roles.md` のロールを割り当てる
+2. 各タスクに `subagent-team-design` Skill のロール定義（6 ロール）からロールを割り当てる
 3. タスク間の依存関係を特定し、依存関係グラフを生成する
 4. 依存がないタスクを「並列実行可能」としてグループ化する
 5. 各タスクに `context-packager` を適用して Allowed Context を生成する
@@ -38,7 +38,7 @@ high-risk/critical モードでタスクをロール別エージェントに分�
 - 実行モード（high-risk / critical）
 - `docs/working/TASK-XXXX/plan.md`（Work Breakdown）
 - `docs/working/TASK-XXXX/test-cases.md`
-- `plugin/plangate/rules/subagent-roles.md`（ロール定義）
+- `.agents/skills/subagent-team-design/SKILL.md` §ステップ 2（6 ロール定義）
 
 ## 出力: Dispatch パッケージ
 
@@ -105,5 +105,12 @@ reviewer は review-package ファイルのみを入力とし、会話履歴は�
 ## 関連
 
 - Skill: `context-packager`（各エージェントへの Allowed Context 生成）
-- Rule: `plugin/plangate/rules/subagent-roles.md`（ロール定義）
-- Rule: `plugin/plangate/rules/completion-gate.md`（全エージェント完了の統合判定）
+- Skill: `subagent-team-design` §ステップ 2（6 ロール定義の正本）
+- Skill: `pr-decision`（Gate / Evidence / Review を集約した最終 go/no-go 判定）
+
+> 旧 `plugin/plangate/rules/subagent-roles.md` / `plugin/plangate/rules/completion-gate.md` は
+> **削除済み**（TASK-0124 / `2645848`, 2026-06-02 の plugin 初回同期適用）。
+> ロール定義は `subagent-team-design` Skill が引き継いだ。
+> Completion Gate の 5 条件チェックポイントを定義した正本は**後継なし**であり、
+> 実務上の統合判定は `pr-decision` Skill が担う（本 Skill の Mermaid 図中の
+> `Completion Gate` は概念ノードであり、参照可能な正本ファイルは存在しない）。

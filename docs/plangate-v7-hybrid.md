@@ -197,9 +197,19 @@ PR Decision（APPROVE / BLOCK / CONDITIONAL）
 
 | Phase | 内容 | 実装場所 | 状態 |
 |-------|------|---------|------|
-| **Phase 1** | Intent Classifier / Mode Classifier / Skill Policy Router / `/pg` コマンド群 / Evidence Ledger | `plugin/plangate/skills/intent-classifier/` `skills/skill-policy-router/` `rules/evidence-ledger.md` `commands/pg-*.md` | ✅ 完了（#54/#55/#56） |
-| **Phase 2** | Design Gate / TDD Gate / Review Gate / Completion Gate | `plugin/plangate/rules/design-gate.md` `rules/review-gate.md` `rules/completion-gate.md` `commands/pg-tdd.md` | ✅ 完了（#57） |
-| **Phase 3** | Context Packager / Subagent Roles / Subagent Dispatch / Worktree Policy / PR Decision | `plugin/plangate/skills/context-packager/` `rules/subagent-roles.md` `skills/subagent-dispatch/` `rules/worktree-policy.md` `skills/pr-decision/` | ✅ 完了（#58） |
+| **Phase 1** | Intent Classifier / Mode Classifier / Skill Policy Router / Evidence Ledger | `plugin/plangate/skills/intent-classifier/` `skills/skill-policy-router/` `skills/evidence-ledger/` | ✅ 完了（#54/#55/#56） |
+| **Phase 2** | Design Gate / TDD Gate / Review Gate / Completion Gate | `plugin/plangate/skills/design-gate/` `skills/review-gate/`（Completion Gate の正本は**後継なし**、下記注参照） | ✅ 完了（#57） |
+| **Phase 3** | Context Packager / Subagent Roles / Subagent Dispatch / Worktree Policy / PR Decision | `plugin/plangate/skills/context-packager/` `skills/subagent-team-design/`（6 ロール定義）`skills/subagent-dispatch/` `skills/skill-policy-router/`（`requiresWorktree`）`skills/pr-decision/` | ✅ 完了（#58） |
+
+> **注（#963）**: 上表「実装場所」は **現行の実体**を指す。Phase 1〜3 の初出時に存在した
+> `plugin/plangate/rules/` 配下 6 ファイル（`completion-gate.md` / `design-gate.md` /
+> `evidence-ledger.md` / `review-gate.md` / `subagent-roles.md` / `worktree-policy.md`）は
+> **削除済み**（TASK-0124 / `2645848`, 2026-06-02 の plugin 初回同期適用）でリポジトリ内に存在しない。
+> 各 Gate の適用条件・ブロック条件は同名 Skill が自己保持する形へ移行した。ロール定義は
+> `subagent-team-design` Skill §ステップ 2、worktree 要否は `skill-policy-router` Skill の
+> `requiresWorktree` が引き継いでいる。**Completion Gate の 5 条件チェックポイントを定義した
+> 正本のみ後継が存在しない**（実務上の統合判定は `pr-decision` Skill が担う）。
+> 削除当時の記述は [`docs/changelog.md`](./changelog.md) に歴史記録として残る。
 
 ### Mode × Gate × Skill 対応表
 
