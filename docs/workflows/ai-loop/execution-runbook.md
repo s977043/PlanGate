@@ -131,8 +131,13 @@ echo '{...}' | python3 scripts/ai-loop/arbiter.py
 モジュール docstring および [`decision-table.md`](./decision-table.md) §2・§5 を
 正本とする。
 
-**Plan-first production run（TASK-0872 / issue #872）**: `ai-loop run TASK-XXXX`
-から開始した run では、入力 JSON に `production: true` と `plan_package` ブロック
+**Plan-first production run（TASK-0872 / issue #872）**: 本 run は
+`ai-loop run TASK-XXXX` という CLI 入口として設計されたが、**`bin/plangate` に
+`ai-loop` サブコマンドは未実装**であり、この入口は現時点で存在しない。**現行の
+実行手順は本書 §2 の `arbiter.py` 手動実行**であり、CLI 入口を設けるか否かは
+[#982](https://github.com/s977043/plangate/issues/982) で未決である。
+Plan-first production run として回す場合、入力 JSON に `production: true` と
+`plan_package` ブロック
 （`scripts/ai-loop/plan_package.py` が presence / evidence / hash を検証して組み立てた
 もの）を必ず含める。`production: true` で `plan_package` が欠落・構造不正なら
 priority 1.6 で escalate、reviewer snapshot 不一致・source_sha ≠ target_sha は
