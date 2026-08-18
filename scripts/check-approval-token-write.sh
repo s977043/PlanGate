@@ -43,6 +43,180 @@ _is_token_path() {
   esac
 }
 
+# 保護名リテラル（`_is_token_path` の basename 相当）。#1115 の幅ガードが参照する。
+_PG_PROTECTED_NAMES="maintenance.json c3.json parent-c3.json parent-integration.json" # t1115-protected-name-list
+# 語分割の区切り文字。リダイレクト記号を含めるのは、先が `/` を含まない形で
+# basename 抽出だけでは語を切り出せないため（V-3 R-008）。
+# 空白 / タブ / 改行は下の `_PG_WORD_IFS` 側に固定で入る。
+_PG_WORD_SEP=";&|()<>" # t1115-word-ifs-value
+_PG_WORD_IFS=" 	
+$_PG_WORD_SEP"
+
+# ── glob bypass の封鎖（TASK-1115 / #1115。V-3 R-001〜R-008 反映で再設計）────
+# `_is_token_path` は「保護パターンで **リテラル文字列** を照合する」判定なので、
+# 照合される側（コマンド）にワイルドカードを入れて保護対象のファイル名リテラルを
+# 途中で崩すと一致が外れる（末尾 1 文字を `*` / `?` / `[...]` / brace へ置換する等）。
+# 引数の pathname expansion は POSIX 必須のため、`cp` / `tee` 等の引数レーンでは
+# **shell 非依存で上書きが成立する**（redirect 先の展開は bash/zsh のみ）。
+# brace expansion は **存在しないファイルを新規作成できる**ため glob より危険
+# （glob は既存ファイルにしか展開されない = 上書きのみ / V-3 R-002）。
+# #1101（HO が `bin/../bin/plangate` で迂回できる）と同クラス
+# ＝ **正規化対象にワイルドカードが入っていない**。
+#
+# 是正の要点は **照合方向の反転**。候補語を「パターン」、保護名を「subject」に
+# 置いて `case "<protected-name>" in <candidate-pattern>)` で照合する。
+#
+# 判定軸は **「ディレクトリ条件 × basename 条件」の組**で統一する（V-3 R-001/R-003）。
+# 初版は (A) をディレクトリで括り (B) を *形*（先頭に glob があるか）で除外していた
+# ため軸が混ざり、片側で漏れ（保護ディレクトリを 1 つしか見ていなかった）
+# 片側で止めすぎた（`approvals/*.pdf`）。除外は **形ではなく幅**
+# （保護名をどれだけ pin するか）で行う。
+#
+#   P1: 保護ディレクトリ（`approvals/` / `_maintenance/`）配下
+#       × basename が **`.json` で終わりうる**
+#       → 当該 dir で実際に保護されているのは `.json` のみ。`*.pdf` / `*.md` は
+#         保護対象ではないので block しない（V-3 R-003 #8/#9）
+#   P2: 任意ディレクトリ
+#       × basename が保護名リテラルに一致しうる **かつ 1 文字を除いて pin する**
+#       → `c*` / `m*` / `p*.json` のような「一致はしうるが狙っていない」広い語を
+#         除外する（V-3 R-003 #1〜#4/#10）。1 文字しか譲らない語は block する
+#
+# 実装は **fork を一切伴わない**（PreToolUse は全 Bash 実行のたびに走るため /
+# V-3 R-004）。サブシェル・外部コマンドを使わず、パラメータ展開と `case` のみ。
+# さらに文字走査（`_scan_pattern`）は **保護ディレクトリ配下か、保護名に
+# パターン一致した語だけ**で呼ぶ。無関係な glob 語（`f1*.txt` 等）は `case` 数回で
+# 落ちるため、語数に対する劣化が出ない。
+
+# パターン文字列を 1 文字ずつ走査して次を求める（fork なし / t1115-scan-core）:
+#   _gm_pin  … パターンが pin する文字数（`[...]` は 1 文字、`*` / `?` は 0、他は 1）
+#   _gm_tail … 最後のメタ文字より後ろのリテラル部分
+# 閉じない `[` は _gm_tail が空のまま = 「何にでも化けうる」扱いになり fail-closed。
+_gm_pin=0
+_gm_tail=""
+_scan_pattern() {
+  _sp_s="$1"; _gm_pin=0; _gm_tail=""; _sp_br=0
+  while [ -n "$_sp_s" ]; do
+    _sp_rest="${_sp_s#?}"
+    _sp_c="${_sp_s%"$_sp_rest"}"
+    _sp_s="$_sp_rest"
+    if [ "$_sp_br" = "1" ]; then
+      if [ "$_sp_c" = "]" ]; then _sp_br=0; _gm_pin=$((_gm_pin + 1)); fi
+      continue
+    fi
+    case "$_sp_c" in
+      "[") _sp_br=1; _gm_tail="" ;;
+      "*"|"?") _gm_tail="" ;;
+      *) _gm_pin=$((_gm_pin + 1)); _gm_tail="$_gm_tail$_sp_c" ;;
+    esac
+  done
+}
+
+# 引用符を除去する（fork なし）。引用を語の途中で閉じる書き方は shell が glob
+# 展開するが、静的抽出では引用が残るため。V-3 R-006: 引用の有無で判定が非対称に
+# ならないよう、除去後も **同じ幅ガード（P2）** を通す。
+_gm_sq=""
+_strip_quotes() {
+  _sq_s="$1"; _gm_sq=""
+  while [ -n "$_sq_s" ]; do
+    _sq_rest="${_sq_s#?}"
+    _sq_c="${_sq_s%"$_sq_rest"}"
+    _sq_s="$_sq_rest"
+    case "$_sq_c" in
+      "'"|'"') : ;;
+      *) _gm_sq="$_gm_sq$_sq_c" ;;
+    esac
+  done
+}
+
+# P2: 保護名リテラルに「一致しうる」かつ「1 文字を除いて pin する」かを判定する。
+# 走査は **パターン一致した保護名がある場合だけ** 行う（性能 / V-3 R-004）。
+_pin_hits_protected() {
+  _ph_b="$1"
+  for _ph_l in $_PG_PROTECTED_NAMES; do # t1115-protected-basenames
+    # 候補語を **パターン**、保護名を subject に置く（照合方向の反転）。
+    # SC2254 は意図的 — 引用するとリテラル比較になり #1115 の是正が無効化される。
+    # shellcheck disable=SC2254
+    case "$_ph_l" in
+      $_ph_b)
+        _scan_pattern "$_ph_b" # t1115-scan-pin
+        [ "$_gm_pin" -ge $((${#_ph_l} - 1)) ] && return 0 # t1115-pin-width
+        ;;
+    esac
+  done
+  return 1
+}
+
+_may_expand_to_token_path() {
+  _gm_w="$1"
+  # メタ文字を含まない語は従来の `_is_token_path` リテラル判定に委ねる。
+  # `{` を含めるのは brace expansion の封鎖（V-3 R-002）。
+  case "$_gm_w" in
+    *"*"*|*"?"*|*"["*|*"{"*) : ;;
+    *) return 1 ;;
+  esac
+  _gm_base="${_gm_w##*/}" # t1115-basename-extract
+  # brace expansion 正規化: `{` 以降は任意文字列へ展開されうるので `*` に畳む。
+  # `*` は brace の展開結果を包含するため安全側（V-3 R-002）。
+  case "$_gm_base" in
+    *"{"*) _gm_base="${_gm_base%%\{*}*" ;; # t1115-brace-normalize
+  esac
+  # basename 側にメタ文字が無い（= dir 側だけの glob）なら従来判定に委ねる。
+  case "$_gm_base" in
+    *"*"*|*"?"*|*"["*) : ;;
+    *) return 1 ;; # t1115-base-meta
+  esac
+  # P1: 保護ディレクトリ × 「`.json` で終わりうる basename」
+  case "$_gm_w" in
+    */approvals/*|approvals/*|*/_maintenance/*|_maintenance/*) # t1115-protected-dir
+      _scan_pattern "$_gm_base" # t1115-scan-base
+      case "$_gm_tail" in
+        ""|n|on|son|json|*.json) return 0 ;; # t1115-dir-json-tail
+      esac
+      ;;
+  esac
+  # P2: 任意ディレクトリ × 保護名リテラルを 1 文字を除いて pin する basename。
+  # 最短の保護名は 7 文字なので pin は最低 6 必要 = 6 文字未満の語は足切り。
+  [ "${#_gm_base}" -ge 6 ] || return 1 # t1115-width-floor
+  _pin_hits_protected "$_gm_base" && return 0
+  case "$_gm_base" in
+    *"'"*|*'"'*)
+      _strip_quotes "$_gm_base" # t1115-quote-strip
+      [ "${#_gm_sq}" -ge 6 ] || return 1
+      _pin_hits_protected "$_gm_sq" && return 0
+      ;;
+  esac
+  return 1
+}
+
+# 外側ゲート: コマンド文字列が保護トークンパスを **狙いうる** か。
+#   リテラル一致（従来）OR 展開後にトークンパスになりうる glob 語を含む（#1115）
+# 真を返しても block はしない。`_has_write_intent` との AND は不変。
+# 語分割は IFS で行い fork を作らない（V-3 R-004）。`<` / `>` を区切りに含めるのは
+# リダイレクト先が `/` を含まない場合に basename 抽出（`##*/`）だけでは語を
+# 切り出せないため（V-3 R-008 の等価変異指摘への回答。TC で非等価性を固定する）。
+_tok_glob_word=""
+_cmd_may_target_token() {
+  _cm_c="$1"
+  _tok_glob_word=""
+  _is_token_path "$_cm_c" && return 0
+  case "$_cm_c" in
+    *"*"*|*"?"*|*"["*|*"{"*) : ;;
+    *) return 1 ;;
+  esac
+  _cm_hit=1
+  _cm_ifs="$IFS"
+  IFS="$_PG_WORD_IFS" # t1115-word-split
+  set -f # glob 展開を止めて生の語のまま評価する
+  for _cm_w in $_cm_c; do
+    if _may_expand_to_token_path "$_cm_w"; then # t1115-word-scan
+      _tok_glob_word="$_cm_w"; _cm_hit=0; break
+    fi
+  done
+  set +f
+  IFS="$_cm_ifs"
+  return "$_cm_hit"
+}
+
 # 非書き込みリダイレクト記法だけを列挙的に除去する（TASK-1045 / #1045）。
 # 方針（plan GC-2）: 完全なシェル構文解析は行わない。これは allowlist 的な除去であり
 # `>` 判定の一般的な緩和ではない。除去対象は次の 2 種のみ:
@@ -247,11 +421,12 @@ if true; then # t1023-stdin-always
     # redirect レーンは「先がトークンパスに解決される（または解決不能）」ときのみ
     # block する（TASK-1110 / #1110）。copy-like 等の他ルールは従来どおり
     # 相関解析せず安全側 block のまま。
-    if _is_token_path "$_cmd" && _has_write_intent "$_cmd"; then
+    if _cmd_may_target_token "$_cmd" && _has_write_intent "$_cmd"; then # t1115-glob-gate
       # rule=<id> で一致ルールの根拠を機械可読に示す（TASK-1045 AC-10）。
       # redirect レーンでは一致した先も併記する（TASK-1110 AC-4）。
+      # glob 経由でゲートを通った場合は候補語も併記する（TASK-1115）。
       # 既存の可読性を壊さないよう "writes token path" は残す。
-      _block "Bash command writes token path (rule=${_wi_rule:-unknown}${_wi_redirect_target:+, redirect_target=$_wi_redirect_target}): $_cmd"
+      _block "Bash command writes token path (rule=${_wi_rule:-unknown}${_wi_redirect_target:+, redirect_target=$_wi_redirect_target}${_tok_glob_word:+, glob_candidate=$_tok_glob_word}): $_cmd"
     fi
   fi
 fi
