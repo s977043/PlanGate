@@ -165,3 +165,5 @@ approved_at: YYYY-MM-DD（high-risk 以上で記入）
 - Command: `plugin/plangate/commands/pg-think.md`（論点整理の初段）
 - Template: `docs/working/templates/design.md`（design.md の保存形式）
 - Skill: `plugin/plangate/skills/skill-policy-router/SKILL.md`（GatePolicy との連携）
+
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パス → (2) plugin root 配下（`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/"` を実行して展開・確認した絶対パス。Read ツールは環境変数を展開しないため `${CLAUDE_PLUGIN_ROOT}/...` をそのまま Read しない） → (3) どちらにも無ければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。

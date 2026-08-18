@@ -83,7 +83,7 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 
 ### 事前メトリクス検証 (B-1 → B-2 mandatory gate / #351 TASK-0117)
 
-> 正本: [`docs/ai/plan-metrics-verification.md`](../../../docs/ai/plan-metrics-verification.md)
+> 正本: `docs/ai/plan-metrics-verification.md`
 > （`docs/**` は配布対象外。解決できない環境では以下の要約に従い、正本未参照である旨を plan に記録する）
 
 「全部 / 全件 / 残り N 件」系の対象は **実数を取得** してから B-2 へ進む。

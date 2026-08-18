@@ -37,6 +37,6 @@ WF-05 Verify & Handoff
 
 ## 関連
 
-- Workflow: `docs/workflows/05_verify_and_handoff.md`
+- Workflow: `docs/workflows/05_verify_and_handoff.md`（**配布対象外**。`install.sh --claude` / plugin / Codex の 3 経路とも導入先には配置されない。解決できない場合は本 Skill の記述を代替正本とし、「正本 `<path>` を参照できなかった」と明示する）
 - 連携 Skill: acceptance-review
 - Rule: Rule 2、Rule 5（最終成果物は毎回 handoff に集約）
