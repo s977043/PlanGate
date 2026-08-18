@@ -44,46 +44,65 @@ _cmd_may_target_token(c) =
 `_has_write_intent` 側は**一切変更しない**。したがって既存の
 「読み取りは block しない」「redirect 先の相関判定（#1110）」はそのまま効く。
 
-## 判定設計: `_may_expand_to_token_path(word)`
+## 判定設計（V-3 REJECT を受けた再設計）
 
-語が glob メタ文字（`*` / `?` / `[`）を含まないなら **即 false**（従来経路に委譲）。
-含む場合、次のいずれかで **true（= ゲート通過候補）**:
+初版は **(A) をディレクトリで括り (B) を *形*（先頭に glob があるか）で除外**して
+おり、**軸が混在**していた。その結果、片方の軸で漏れ（保護ディレクトリを 1 つしか
+見ていない）、もう片方の軸で止めすぎた（保護対象でない拡張子まで block）。
+V-3 R-001 / R-003 は同じ根から出ている。
 
-| ルール | 条件 | 根拠 |
-|--------|------|------|
-| **(A) approvals-dir** | 語が `approvals/` を含み、**basename に glob がある** | approvals/ 配下は `*/approvals/*.json` が全件保護対象。ファイル名が静的解決不能なら fail-closed |
-| **(B) basename-glob** | basename が **先頭 glob でなく**、保護 basename リテラル（`maintenance.json` / `c3.json` / `parent-c3.json` / `parent-integration.json`）に**パターンとして一致**する | 照合方向を反転（`case "c3.json" in c3.jso*)` は一致）。これが #1115 の本質的是正 |
+**保護対象を「ディレクトリ条件 × basename 条件」の組で定義し直し、除外は
+*形* ではなく *幅*（保護名をどれだけ pin するか）で行う。**
 
-- (B) の照合は **引用符除去版の basename でも**行う（`"c3.jso"*` のような混在引用は
-  shell が glob 展開するため / 保守的側）。
-- **先頭 glob（`*.json` / `?x` / `[a]x`）を (B) から外す**のは誤検出抑制のため。
-  `*.json` は「`c3.json` に一致しうる」ので理論上は真だが、
-  `cp schemas/*.json /tmp/` のような日常コマンドを全部落とす。
-  approvals 配下の `*.json` は **(A) と既存リテラル判定 `*/approvals/*.json`**
-  の双方で閉じているので、外しても穴は開かない（§残存クラスに実測を記載）。
-- basename は `${word##*/}`。ディレクトリ側だけの glob
-  （`docs/working/*/approvals/c3.json`）は**既存リテラル判定**が拾う（実測 G4）。
+| 組 | ディレクトリ条件 | basename 条件 | 目的 |
+|----|------------------|---------------|------|
+| **P1** | 承認トークン置き場（**2 箇所**）配下 | **`.json` で終わりうる** | 当該 dir で実際に保護されているのは `.json` のみ。他の拡張子は止めない |
+| **P2** | 任意 | 保護名リテラルに一致しうる **かつ 1 文字を除いて pin する** | 「1 文字だけ譲る狙い撃ち」を捕らえ、「一致はしうるが狙っていない広い語」は通す |
 
-### 語分割
+### 幅（pin）の定義
 
-コマンドを空白 / tab / 改行 / `;` / `&` / `|` / `(` / `)` / `<` / `>` で分割し
-（`tr`）、`set -f` + `IFS=<newline>` で 1 語ずつ評価する。
-分割失敗は fail-closed（true 側）。`>` を区切りに含めるのでリダイレクト先も
-同じ語として評価される。
+候補語を **パターン**、保護名を **subject** に置いて照合し（照合方向の反転）、
+一致したときに候補語が pin する文字数を数える:
 
-### 誤検出の実測（無条件 block を採らない根拠）
+- リテラル文字 … 1
+- `[...]` … 1（1 文字にしか一致しないため）
+- `*` / `?` … 0
 
-| コマンド | 無条件 block 案 | 本案 | 現行 |
-|----------|-----------------|------|------|
-| `cp schemas/*.json /tmp/` | **rc=2（誤）** | rc=0 | rc=0 |
-| `cp docs/*.md /tmp/` | rc=0 | rc=0 | rc=0 |
-| `sed -i.bak -e 's/a/b/' docs/working/*/status.md` | rc=0 | rc=0 | rc=0 |
-| `sed -i '' -e 's/a/b/' docs/working/*/approvals-notes.md` | rc=0 | rc=0 | rc=0 |
-| `cp /tmp/x docs/working/*/approvals/notes.md` | rc=0 | rc=0 | rc=0 |
+`pin >= len(保護名) - 1` を要求する = **1 文字を除いて pin していなければ通す**。
 
-（無条件 block 案 = 「redirect 先に glob があれば全部 block」を全語に拡張した場合。
-`cp schemas/*.json` が落ちるため不採用。redirect 先限定にしても
-`cp` / `tee` レーンの bypass が残るため、そもそも要件を満たさない。）
+### 「`.json` で終わりうる」の判定
+
+最後のメタ文字より後ろのリテラル部分（tail）が `.json` の suffix であるか、
+tail 自体が `.json` で終わるかを見る。`*.pdf` / `*.md` は tail が `.pdf` / `.md`
+なので **`.json` になりえない** → P1 に該当しない。
+
+### brace expansion（V-3 R-002）
+
+`{` をメタ文字集合に加え、`{` 以降を `*` へ正規化する。`*` は brace の展開結果を
+包含するので安全側。**brace は存在しないファイルを新規作成できる**ため、
+既存ファイルの上書きしかできない glob より危険であり、残存クラス化ではなく封鎖した。
+
+### fork ゼロ（V-3 R-004）
+
+PreToolUse は**全 Bash 実行のたび**に走るため、サブシェル・外部コマンドを使わず
+パラメータ展開と `case` のみで実装する。さらに文字走査は
+**保護ディレクトリ配下か、保護名にパターン一致した語だけ**で行う（遅延化）。
+
+## 誤検出の探索方法（V-3 R-003 の方法論指摘への対応）
+
+初版の FP 実測 5 ケースは「除外条件に当たるサンプル」に偏っていた。再設計では
+**block 条件の補集合を体系的に列挙**する方針に変更した:
+
+1. **P1 の補集合**: 保護ディレクトリ配下 × `.json` にならない拡張子（`*.md` / `*.pdf`）
+2. **P2 の補集合**: 保護名に一致しうるが幅が足りない語
+   （先頭 1 文字のみ pin / 拡張子のみ pin）
+3. **保護ディレクトリに似て非なる語**（`approvals-notes` 等）
+4. **引用の有無での対称性**（V-3 R-006）
+5. **書き込み意図が無い経路**（読み取り・メッセージ文字列）
+
+実測は 3 版（`pre` = `origin/main` / `v1` = REJECT 版 / `v2` = 本是正）で採り、
+`evidence/v3-both-directions.txt` に **両方向**（塞ぐべきもの / 誤検出であっては
+ならないもの）を 1 表で残す。
 
 ## Work Breakdown
 
@@ -131,14 +150,26 @@ rollback: `git checkout origin/main -- scripts/check-approval-token-write.sh tes
 | `$(...)` 失敗で `set -e` 終了 | hook が rc≠0/2 で落ちる | すべて `|| _fallback` を付ける |
 | 残存クラス（先頭 glob / 変数代入語） | 部分的な穴 | §残存クラスに明示。#1115 の報告クラスは閉じる |
 
-## 残存クラス（本 PBI で閉じない / 明示）
+## 残存クラス（本 PBI で閉じない / 実測ベース・V-3 R-009 反映）
 
-| クラス | 例 | 理由 |
-|--------|----|------|
-| approvals 外の先頭 glob | `cp x foo/*3.json` | (B) から除外（誤検出抑制とのトレードオフ） |
-| 変数代入語 | `OUT=c3.jso* cmd` | 語全体が `OUT=...` になり basename 照合が外れる |
-| 文字列連結 | `open("...c3.jso"+"n","w")` | 別クラス（静的連結解析が必要） |
-| `rm` 等 | `rm docs/.../approvals/*.json` | `_has_write_intent` に `rm` が無い（既存ギャップ / 本 PBI 範囲外） |
+初版の表は「到達先を過小に見せている」と指摘されたため、**実測した rc とともに**
+再掲する（`evidence/v3-both-directions.txt` / `evidence/edge-cases.txt`）。
+
+| クラス | 例 | v2 実測 | 理由 |
+|--------|----|---------|------|
+| 幅が足りない語（保護ディレクトリ**外**） | `cp src/c* /tmp/` | rc=0 | **意図的**。幅ガードで通す（V-3 R-003）。保護ディレクトリ配下なら P1 が捕らえる |
+| 拡張子のみ pin する語（保護ディレクトリ外） | `cp schemas/*.json /tmp/` | rc=0 | 同上 |
+| 変数代入語 | `OUT=<name> cmd` | rc=0 | 語全体が `OUT=…` になり basename 照合が外れる |
+| 文字列連結 | 言語ランタイム内で名前を組み立てる形 | rc=0 | 静的連結解析が必要（別クラス） |
+| `rm` / `chmod` / `gzip` / `touch` | `rm <protected-dir>/*.json` | rc=0 | **`_has_write_intent` 側の既存ギャップ**（V-3 R-010）。#1115 で新規に生じたものではない |
+| 読み方向の区別なし | `cp <protected-name> /tmp/` | rc=2 | **既存設計**。`_has_write_intent` に方向判定が無く、リテラル形も `origin/main` で rc=2。V-3 R-003 #5/#11 の棄却根拠 |
+| ディレクトリ名自体を glob で崩す | 保護ディレクトリ名の一部を `*` にする形 | 一部 rc=0 | basename が literal なら `_is_token_path` が捕らえるが、両方を崩すと漏れる |
+
+**follow-up 候補**（本 PBI 範囲外・issue 化を推奨）:
+
+- `_has_write_intent` への `rm` / `chmod` / `gzip` / `touch` 追加（V-3 R-010）
+- 読み方向（source 位置の引数）を block 対象から外す方向判定
+- #1101（HO 側 `scripts/hooks/check-plan-hash.sh` の正規化。同クラス・別実装）
 
 ## Questions / Unknowns
 

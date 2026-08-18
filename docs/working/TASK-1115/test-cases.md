@@ -1,106 +1,81 @@
 # TEST CASES — TASK-1115 (#1115)
 
-すべて **PreToolUse JSON payload を stdin へ供給**して評価する
-（`.claude/settings.json` からの本番呼び出しと同一経路。明示引数 / テスト専用 env に
-偏らせない — diff-audit Phase 6 item 7）。
-
-配置: `tests/extras/ta-25-approval-token-guard.sh`（既存 `t25_guard` ヘルパーを再利用）。
+> **V-3 REJECT を受けて全面改訂。** すべて **PreToolUse JSON payload を stdin へ供給**
+> して評価する（`.claude/settings.json` からの本番呼び出しと同一経路。明示引数 /
+> テスト専用 env に偏らせない — diff-audit Phase 6 item 7）。
+> 配置: `tests/extras/ta-25-approval-token-guard.sh`（既存 `t25_guard` を再利用）。
 
 ## 受入基準 → テストケース マッピング
 
 | AC | 内容 | TC |
 |----|------|----|
-| AC-1 | redirect 先のファイル名 glob 崩しを block | T1115-TC-01 |
-| AC-2 | 非 redirect レーン（cp / tee / sed -i）も block | T1115-TC-02 |
-| AC-3 | 真の陽性を落とさない | 既存 T1023 / T1045 / T1110 全件 + T1115-TC-05 |
-| AC-4 | #1110 の誤検出解消が戻っていない | 既存 T1110-TC-01/02 + T1115-TC-04 |
-| AC-5 | 日常 glob コマンドを誤 block しない | T1115-TC-03 |
-| AC-6 | 変異で検出力実証 | T1115-M-7〜M-11 |
+| AC-1 | 保護ディレクトリ配下の glob 崩しを block | T1115-TC-01 |
+| AC-2 | 非 redirect レーンも block | T1115-TC-02 |
+| AC-3 | 真の陽性を落とさない | 既存 T1023 / T1045 / T1110 全件 + TC-07 |
+| AC-4 | #1110 の誤検出解消が戻っていない | 既存 T1110-TC-01/02 + TC-04 |
+| AC-5 | 日常 glob コマンドを誤 block しない | TC-03 / TC-10 / TC-11 / TC-12 |
+| AC-6 | 変異で検出力を実証 | M-7 〜 M-16 |
+| **AC-7**（V-3 R-001） | 保護ディレクトリは 1 箇所ではない | TC-08 |
+| **AC-8**（V-3 R-002） | brace expansion を封鎖 | TC-09 |
+| **AC-9**（V-3 R-004） | PreToolUse 常時経路が劣化しない | `evidence/v3-perf.txt` |
 
 ## テストケース一覧
 
-### T1115-TC-01: redirect 先の glob 崩しを block（AC-1）
-
-| 項目 | 内容 |
-|------|------|
-| 前提 | EH-13、bypass なし |
-| 入力 | `echo x > docs/working/TASK-0001/approvals/c3.jso*` / `...c3.js?n` / `...c[3].jso*` / `...x9.jso*` |
-| 期待 | すべて **rc=2** |
-| 種別 | 自動（M-7 / M-8 / M-9 の kill 対象） |
-
-### T1115-TC-02: 非 redirect レーンの glob 崩しを block（AC-2）
-
-| 項目 | 内容 |
-|------|------|
-| 入力 | `cp /tmp/x <approvals>/c3.jso*` / `printf x \| tee <approvals>/c3.jso*` / `sed -i '' -e 's/a/b/' <approvals>/c3.jso*` / `echo x > docs/working/_maintenance/maintenance.jso*` / `tee <approvals>/parent-integration.js?n` |
-| 期待 | すべて **rc=2** |
-| 種別 | 自動（M-7 / M-9 の kill 対象） |
-
-### T1115-TC-03: 日常 glob コマンドを誤 block しない（AC-5 / 負側）
-
-| 項目 | 内容 |
-|------|------|
-| 入力 | `cp schemas/*.json /tmp/` / `cp docs/*.md /tmp/` / `sed -i.bak -e 's/a/b/' docs/working/*/status.md` / `sed -i '' -e 's/a/b/' docs/working/*/approvals-notes.md` / `cp /tmp/x docs/working/*/approvals/notes.md` |
-| 期待 | すべて **rc=0** |
-| 種別 | 自動（**M-10 = 先頭 glob ガード除去 の kill 対象**） |
-
-### T1115-TC-04: #1110 の誤検出解消が維持されている（AC-4 / 負側）
-
-| 項目 | 内容 |
-|------|------|
-| 入力 | `git commit -m 'docs: <TOKEN>' > /tmp/log.txt`（glob なし）／ `git commit -m 'docs: <approvals>/c3.jso* handling' > /tmp/log.txt`（**glob 語 + 無関係な redirect**） |
-| 期待 | 両方 **rc=0** |
-| 種別 | 自動。2 件目は「glob 語検出だけでは block しない＝書き込み意図との AND を維持」の対照 |
-
-### T1115-TC-05: 読み取りは block しない（AC-3 / 負側）
-
-| 項目 | 内容 |
-|------|------|
-| 入力 | `cat docs/working/*/approvals/*.json` / `ls docs/working/*/approvals/` |
-| 期待 | **rc=0** |
-| 種別 | 自動（`_has_write_intent` との AND が保たれていることの確認） |
-
-### T1115-TC-06: block 詳細に glob 候補語が出る
-
-| 項目 | 内容 |
-|------|------|
-| 入力 | `cp /tmp/x docs/working/TASK-0001/approvals/c3.jso*` |
-| 期待 | rc=2 かつ stderr に `glob_candidate=` を含む |
-| 種別 | 自動 |
-
-### T1115-TC-07: ディレクトリ側 glob の既存挙動が不変（回帰）
-
-| 項目 | 内容 |
-|------|------|
-| 入力 | `echo x > docs/working/*/approvals/c3.json` / `echo x > <approvals>/*.json` / `echo x > <approvals>/c[3].json` |
-| 期待 | **rc=2**（是正前と同じ） |
-| 種別 | 自動 |
+| TC | 目的 | 期待 | 対応する変異 |
+|----|------|------|--------------|
+| **TC-01** | 保護ディレクトリ配下でファイル名 glob 崩し（末尾 `*` / `?` / `[...]` / 保護名外） | rc=2 | M-7 |
+| **TC-02** | 引数レーン（`cp` / `tee` / `sed -i`）でも同型に block | rc=2 | M-7 |
+| **TC-03** | 日常 glob コマンド（負側） | rc=0 | — |
+| **TC-04** | #1110 の誤検出が戻っていない（負側） | rc=0 | — |
+| **TC-05** | 読み取りは block しない（負側） | rc=0 | — |
+| **TC-06** | block 詳細に `glob_candidate=` が出る | rc=2 | — |
+| **TC-07** | ディレクトリ側 glob の既存挙動が不変（回帰） | rc=2 | — |
+| **TC-08** | **保護ディレクトリ集合**（承認トークン置き場は 2 箇所）/ V-3 R-001 | rc=2 | **M-8** |
+| **TC-09** | **brace expansion** / V-3 R-002 | rc=2 | **M-15** |
+| **TC-10** | 保護ディレクトリ配下でも**保護対象外の拡張子は通す**（負側）/ V-3 R-003 #8/#9 | rc=0 | **M-16** |
+| **TC-11** | **幅ガード**（一致はしうるが狙っていない広い語を通す・負側）/ V-3 R-003 #1〜#4 | rc=0 | **M-10** |
+| **TC-12** | 引用の有無で判定が非対称にならない（負側）/ V-3 R-006 | rc=0 | — |
+| **TC-13** | 語の途中で引用を閉じる形（保護ディレクトリ**外** = P2 経由）/ V-3 R-005 | rc=2 | **M-12** |
+| **TC-14** | 保護ディレクトリの**相対形** / V-3 R-007 | rc=2 | **M-13** |
+| **TC-15** | リダイレクト先が `/` を含まない形（語分割の `>` が**非等価**）/ V-3 R-008 | rc=2 | **M-14** |
+| **TC-16** | 任意ディレクトリの P2 クラス | rc=2 | **M-9 / M-11** |
 
 ## 変異注入（AC-6）
 
-| ID | 変異（**call site を壊す**） | 分類 | kill 対象 TC |
-|----|------------------------------|------|--------------|
-| M-7 | `_cmd_may_target_token` 呼び出しを `_is_token_path` に戻す | **レーン全体** | T1115-TC-01 |
-| M-8 | ルール (A) approvals-dir の `case` を never-match に | **レーン内部の分類** | T1115-TC-01（`x9.jso*` のみが該当する語） |
-| M-9 | ルール (B) basename-glob の照合ループを無効化 | **レーン内部の分類** | T1115-TC-02（`maintenance.jso*` が非 approvals パス） |
-| M-10 | 先頭 glob ガード（`'*'*` 等 → return 1）を除去 | **レーン内部の分類 / 誤検出方向** | T1115-TC-03（`cp schemas/*.json`） |
-| M-11 | basename 抽出 `${w##*/}` を語全体に変更 | **レーン内部の分類** | T1115-TC-02 |
+すべて **call site** を壊す。M-7 はゲート全体、M-8 以降は**ゲートを生かしたまま
+分類だけを誤らせる**（diff-audit Phase 6 item 6）。
 
-- M-7 だけではレーン内部の分類ミスを検出できないため M-8〜M-11 を別に立てる。
-- M-10 は **block を広げる方向**の変異で、負側 TC でしか殺せない
-  （正側 TC だけでは原理的に検出不能）。
+| ID | 変異 | 方向 | kill |
+|----|------|------|------|
+| M-7 | 外側ゲートを修正前のリテラル判定に戻す | 緩める | TC-01 |
+| M-8 | 保護ディレクトリ集合から 2 つ目を落とす | 緩める | TC-08 |
+| M-9 | P2 の保護名リストを空振りにする | 緩める | TC-16 |
+| **M-10** | **幅ガードを外す（一致しうるだけで block）** | **広げる** | **TC-11（負側）** |
+| M-11 | basename 抽出をやめ語全体で照合 | 緩める | TC-16 |
+| M-12 | 引用除去を no-op 化 | 緩める | TC-13 |
+| M-13 | 保護ディレクトリの相対形を落とす | 緩める | TC-14 |
+| M-14 | 語分割から `<` `>` を落とす | 緩める | TC-15 |
+| M-15 | brace 正規化を無効化 | 緩める | TC-09 |
+| **M-16** | **保護 dir 配下を拡張子非考慮で block** | **広げる** | **TC-10（負側）** |
 
-## エッジケース（実測: `evidence/edge-cases.txt`）
+**M-10 / M-16 は block を広げる方向**であり、正側 TC では原理的に殺せない。
+負側 TC が本番経路を通っていることが kill の前提になっている。
 
-| ケース | 期待 | 実測 | 備考 |
-|--------|------|------|------|
-| `cp /tmp/x docs/working/*/approvals/notes.md` | rc=0 | rc=0 | (A) は basename に glob があるときのみ |
-| `sed -i.bak … docs/working/*/approvals-notes.md` | rc=0 | rc=0 | `approvals/` を含まない |
-| `cp /tmp/x foo/c3.jso*` | rc=2 | rc=2 | approvals 外でもルール (B) が拾う |
-| `echo x > <approvals>/"c3.jso"*` | rc=2 | rc=2 | 混在引用は引用除去版の照合で閉じる |
-| `echo "<div>*</div>" > /tmp/a.html` | rc=0 | rc=0 | 引用文中の `>` + `*` は誤 block しない（無条件 block 案なら落ちる） |
-| `echo "-> *bold*" > /tmp/b.md` | rc=0 | rc=0 | 同上 |
-| `git commit -m 'note about approvals/x9.jso* handling'` | rc=0 | rc=0 | 書き込み意図との AND が維持されている |
-| `cp x foo/*3.json` | rc=0 | rc=0 | **残存クラス**（先頭 glob 除外のトレードオフ / plan に明記） |
-| `OUT=c3.jso* cp /tmp/x $OUT` | rc=0 | rc=0 | **残存クラス**（変数代入語） |
-| `rm <approvals>/*.json` | rc=0 | rc=0 | **既存ギャップ**（`rm` は `_has_write_intent` に無い / 本 PBI 範囲外） |
+### 空振り（等価変異）の正直な記録
+
+`# t1115-base-meta`（basename にメタ文字が無い語の早期 return）は
+**性能ガードであって意味論を変えない**。壊しても後続 P1 / P2 のどちらにも
+該当しないため **等価変異**になる。よって **TC を立てていない**（立てても
+kill できない）。この事実はコードコメントにも明記した。
+
+## エッジケース（実測: `evidence/v3-both-directions.txt` / `evidence/edge-cases.txt`）
+
+| ケース | v2 実測 | 備考 |
+|--------|---------|------|
+| 保護 dir 配下で basename に glob 無し（`*/…/notes.md`） | rc=0 | P1 は basename にメタ文字があるときのみ |
+| 保護 dir に似て非なる語（`approvals-notes`） | rc=0 | 保護ディレクトリ条件に該当しない |
+| 保護 dir 配下の `*.pdf` / `*.md` | rc=0 | 当該 dir で保護されているのは `.json` のみ |
+| 幅が足りない語（`c*` / `m*` / `p*.json`） | rc=0 | 幅ガード（V-3 R-003） |
+| 1 文字だけ譲る語（`c?.json` / `c[0-9].json`） | rc=2 | **意図的**。リテラル形は `origin/main` で既に rc=2（`evidence/v3-consistency.txt`） |
+| 変数代入語 | rc=0 | **残存クラス** |
+| `rm` / `chmod` / `gzip` / `touch` | rc=0 | **既存ギャップ**（V-3 R-010・範囲外） |

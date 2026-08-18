@@ -1,0 +1,7 @@
+| case | PRE (origin/main) | V1 (5ccc1fe) | V2 (fork removed) | V2/PRE |
+|---|---|---|---|---|
+| git status (glob none) | 96.6 ms | 71.9 ms | 88.9 ms | 0.92x |
+| 5 glob words | 80.7 ms | 201.0 ms | 111.8 ms | 1.39x |
+| synthetic 50 words | 116.3 ms | 922.4 ms | 71.2 ms | 0.61x |
+| synthetic 200 words | 79.8 ms | 3976.2 ms | 99.3 ms | 1.24x |
+| synthetic 800 words | 125.8 ms | 14683.9 ms | 116.4 ms | 0.93x |

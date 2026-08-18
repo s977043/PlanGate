@@ -28,9 +28,18 @@
   [PASS] T1115-TC-02 argument lanes (cp/tee/sed -i) block glob-broken token filenames (exit 2)
   [PASS] T1115-TC-03 everyday glob commands stay unblocked (exit 0)
   [PASS] T1115-TC-04 glob-bearing message + unrelated redirect passes (exit 0)
-  [PASS] T1115-TC-05 glob reads under approvals stay unblocked (exit 0)
+  [PASS] T1115-TC-05 glob reads under a protected dir stay unblocked (exit 0)
   [PASS] T1115-TC-06 block detail carries the matched glob_candidate
   [PASS] T1115-TC-07 directory-side globs remain blocked (exit 2)
+  [PASS] T1115-TC-08 the second protected directory is covered too (exit 2)
+  [PASS] T1115-TC-09 brace expansion targeting a token name is blocked (exit 2)
+  [PASS] T1115-TC-10 non-.json files under a protected dir stay unblocked (exit 0)
+  [PASS] T1115-TC-11 wide patterns that merely could match are not blocked (exit 0)
+  [PASS] T1115-TC-12 quoted wide patterns behave like unquoted ones (exit 0)
+  [PASS] T1115-TC-13 mid-word quoting still resolves to a protected name (exit 2)
+  [PASS] T1115-TC-14 relative protected-dir form is covered (exit 2)
+  [PASS] T1115-TC-15 slashless redirect target is split into its own word (exit 2)
+  [PASS] T1115-TC-16 protected names are covered outside the protected dirs too (exit 2)
   [PASS] TC-01 check-approval-token-write.sh exists and is executable
   [PASS] TC-02 check-approval-token-write.sh syntax ok
   [PASS] TC-03 maintenance.json path blocked (exit 2)
@@ -92,12 +101,17 @@
   [PASS] T1110-M-5 mutant killed by real TC (T1110-TC-10 FAILs)
   [PASS] T1110-M-6 mutant killed by real TC (T1110-TC-09 FAILs)
   [PASS] T1115-M-7 mutant killed by real TC (T1115-TC-01 FAILs)
-  [PASS] T1115-M-8 mutant killed by real TC (T1115-TC-01 FAILs)
-  [PASS] T1115-M-9 mutant killed by real TC (T1115-TC-02 FAILs)
-  [PASS] T1115-M-10 mutant killed by real TC (T1115-TC-03 FAILs)
-  [PASS] T1115-M-11 mutant killed by real TC (T1115-TC-02 FAILs)
+  [PASS] T1115-M-8 mutant killed by real TC (T1115-TC-08 FAILs)
+  [PASS] T1115-M-9 mutant killed by real TC (T1115-TC-16 FAILs)
+  [PASS] T1115-M-10 mutant killed by real TC (T1115-TC-11 FAILs)
+  [PASS] T1115-M-11 mutant killed by real TC (T1115-TC-16 FAILs)
+  [PASS] T1115-M-12 mutant killed by real TC (T1115-TC-13 FAILs)
+  [PASS] T1115-M-13 mutant killed by real TC (T1115-TC-14 FAILs)
+  [PASS] T1115-M-14 mutant killed by real TC (T1115-TC-15 FAILs)
+  [PASS] T1115-M-15 mutant killed by real TC (T1115-TC-09 FAILs)
+  [PASS] T1115-M-16 mutant killed by real TC (T1115-TC-10 FAILs)
   [PASS] T1045-TC-21 legacy _t25_mutate calls unchanged (7 x 4-arg) with T1023 prefix fallback
   [PASS] T1023-TC-17post restore (original guard) all focused TCs PASS
 
-TA-25 standalone: 98 passed, 0 failed
+TA-25 standalone: 112 passed, 0 failed
 rc=0

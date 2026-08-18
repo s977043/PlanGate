@@ -1,0 +1,9 @@
+# TASK-1115 V-3: 幅ガードで残す 2 件が「既存のリテラル挙動と整合」であることの実測
+# pre	v1	v2	command
+2	2	2	sed -i.bak -e s/a/b/ c3.json
+0	2	2	sed -i.bak -e s/a/b/ c[0-9].json
+0	2	2	sed -i.bak -e s/a/b/ c[3].json
+2	2	2	cp c3.json /tmp/
+0	2	2	cp c?.json /tmp/
+0	2	2	cp c*.json /tmp/
+0	0	0	cp schemas/*.json /tmp/
