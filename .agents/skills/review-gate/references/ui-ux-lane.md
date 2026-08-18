@@ -42,10 +42,10 @@ UI 変更か否かが曖昧な場合（例: `*.ts` だが DOM 操作・style 注
    **3 経路とも配布対象外**。(1) 導入先リポジトリの同名パスを探す →
    (2) 見つからなければ **「正本 `docs/ai/external-reviewer-interface.md` を
    参照できなかった」と明示**する（Codex 経由は skills のみ配布のため常に (2)）。
-   **`<plugin_root>` 配下の探索は `docs/**` には適用しない**: plugin が配布するのは
+   **plugin root 配下の探索は `docs/**` には適用しない**: plugin が配布するのは
    `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を
-   配布対象として認識しないため、`<plugin_root>/docs/...` は構造上存在せず (2) 段の
-   探索は必ず空振りする。下の「安全側規則の同型元」がクラス A として
+   配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、
+   plugin root 段を置いても必ず空振りする。下の「安全側規則の同型元」がクラス A として
    `<plugin_root>/rules/mode-classification.md` を挙げられるのは `rules/` が実際に
    配布されるからであり、この非対称を `docs/**` に持ち込まないこと。
    ただし **本条項が要求する 3 フィールド（実行不可の理由 / 代替レビュー観点 /

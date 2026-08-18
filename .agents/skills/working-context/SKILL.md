@@ -24,6 +24,12 @@ PlanGate の `docs/working/TASK-XXXX/` 配下を **L0〜L3 の Progressive Discl
 3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない。
    L0〜L3 の段取り・出力先は本 skill 本文で代替し、正本未参照である旨を `status.md` に記録する
 
+**plugin root 配下の探索は `docs/**` には適用しない**（手順 2 は `rules/*.md` 等の
+配布対象にのみ適用する）: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の
+定義ディレクトリのみで `docs/`（本 skill が参照する `docs/working/templates/*.md` を含む）を
+配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため必ず空振りする。
+`docs/**` は手順 1 で解決できなければ手順 2 を飛ばして手順 3 へ進む。
+
 > **手順 3 に落ちても判定基準は緩めない**: 正本が引けない場合の代替は「L0=`INDEX.md` →
 > `current-state.md`、L1=フェーズ該当ファイル、L2=`evidence/` / `decision-log.jsonl`、
 > L3=`status.md` 全体」の段取りと本 skill「Rules」節（`YYYY-MM-DD HH:mm` 必須・handoff 6 要素
