@@ -40,6 +40,30 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# 既定の走査 root。**`.claude/**` のみ**であり、配布 root
+# （`.agents/skills` / `.codex/skills` / `plugin/plangate/skills`）は見ない。
+#
+# これは #1087 で意識的に据え置いた射程である（follow-up: 配布 root 走査）。
+# 「配布物検査」を名乗りながら配布物を見ていないという非対称は認識しており、
+# 本 PBI で拡張しなかった理由は実測に基づく:
+#
+#   2026-08-18 に各 root へ試行走査した結果
+#     .agents/skills          : 6 件（大半が真の stale）
+#     plugin/plangate/skills  : 24 件 — うち **16 件は新規の false-positive クラス**
+#                               （`scripts/ai-loop/arbiter.py:909-965` のような
+#                                 **行範囲サフィックス付きパス**。`_strip_anchor_and_query`
+#                                 は `#`/`?` しか剥がさないため実在ファイルを stale と誤判定する）
+#     .codex/skills           : 6 件
+#
+#   したがって root を広げるには (1) 行範囲サフィックスの FP ガード新設 と
+#   (2) 検出された真の stale（ai-loop レーンの skill 群）の是正 が同時に必要で、
+#   これは「検知器を直す」本 PBI と「検知器が見つけたものを直す」別作業の混在になる。
+#   また `.codex/skills` は #1086 で untrack 予定のため、既定 root への組み込みは
+#   その裁定後が適切。
+#
+# **本スクリプトは `.claude/**` 配下の repo-owned 定義のみを検査する**。
+# 配布 root の追従漏れは本検査では捕まらない
+# （回帰ガードは tests/extras/ta-69-distribution-checks.sh の TC-R1 を参照）。
 DEFAULT_TARGET_GLOBS = (
     ".claude/skills/**/*.md",
     ".claude/commands/**/*.md",

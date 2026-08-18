@@ -261,4 +261,39 @@ fi
 
 rm -rf "$_T69_S" 2>/dev/null || true
 
+# ===========================================================================
+# Part 3: 配布 root 間の追従漏れ（#1087 で実際に持ち込んだ退行の回帰ガード）
+# ===========================================================================
+#
+# 背景: #1087 で `.claude/skills` の例示パスをプレースホルダへ移行した際、
+# `.codex/skills` だけ追従が漏れた。stale-refs は `.claude/**` しか走査しない
+# ため、この漏れは検査で緑のまま通った（#1109 と同型）。
+#
+# なぜ「4 root の内容一致」を assert しないか（実測 2026-08-18）:
+#   .agents vs plugin : 39/39 一致（sync-plugin-plangate.sh が生成。CI が担保）
+#   .agents vs .codex : 39 中 26 が **正当に相違**
+#   .agents vs .claude: 24 中  8 が **正当に相違**
+# 各 root は配布先ごとの適応を持つため、内容一致は不変条件として成立しない。
+# 件数 assert も同様に時限爆弾になる（root ごとに skill 数が増減する）。
+#
+# 代わりに「移行済みの具体例パスがどの root にも残っていない」という
+# **固定リテラルのゼロ集合**を assert する。増減する母集団に依存しない。
+
+_T69_LEGACY_LITERAL='app/admin` 配下で'
+_t69_roots_present=''
+for _r in .agents/skills .claude/skills .codex/skills plugin/plangate/skills; do
+  [ -d "$_T69_ROOT/$_r" ] && _t69_roots_present="$_t69_roots_present $_r"
+done
+
+if [ -z "$_t69_roots_present" ]; then
+  t69_fail "TC-R1: no distribution skill root found (expected at least one)"
+else
+  _t69_leftover=$( cd "$_T69_ROOT" && grep -rl "$_T69_LEGACY_LITERAL" $_t69_roots_present 2>/dev/null )
+  if [ -z "$_t69_leftover" ]; then
+    t69_pass "TC-R1: migrated example path absent from all present roots ($_t69_roots_present )"
+  else
+    t69_fail "TC-R1: legacy example path still present in: $_t69_leftover"
+  fi
+fi
+
 pg_extra_contract_finalize

@@ -113,6 +113,36 @@ Hardening Override 対象パス（`bin/plangate` / `.github/workflows/*.yml`）
 の Hardening Override 対象パス、[`.claude/rules/responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)
 の責務 4 分類を参照）。
 
+## 走査 root の射程（#1087 で明文化）
+
+**本検査は `.claude/skills` / `.claude/commands` / `.claude/agents` 配下のみを走査する。**
+配布 root（`.agents/skills` / `.codex/skills` / `plugin/plangate/skills`）は**見ない**。
+
+`check-skill-name-collisions.py` が `plugin/*` を走査するのに対し、
+本検査は `.claude/**` に閉じている。**2 本の検査で射程が食い違っている**ことは
+認識されており、#1087 で意識的に据え置いた。
+
+### 検査しない範囲（明示）
+
+- 配布 root 配下の stale パス参照
+- 配布 root でのみ発生する参照崩れ
+  （例: `.claude/skills` から `.agents/skills` へ複製した際に
+  `../../rules/...` が `.agents/rules/` を指して解決不能になるクラス）
+
+### 拡張しなかった理由（2026-08-18 実測）
+
+各 root へ試行走査したところ、`plugin/plangate/skills` の 24 件のうち
+**16 件が新規の false-positive クラス**だった
+（`scripts/ai-loop/arbiter.py:909-965` のような**行範囲サフィックス付きパス**。
+`_strip_anchor_and_query` は `#` と `?` しか剥がさないため実在ファイルを誤判定する）。
+残りは ai-loop レーンの**真の stale**であり、別領域の是正を要する。
+
+root 拡張は「FP ガードの新設 + 検出された真の stale の是正 + `.codex/skills` の
+untrack 裁定（#1086）」が揃ってから行う。follow-up として起票する。
+
+配布 root の追従漏れに対する限定的な回帰ガードは
+`tests/extras/ta-69-distribution-checks.sh` の **TC-R1** にある。
+
 ## 判定の是正（#1087）
 
 > issue [#1087](https://github.com/s977043/plangate/issues/1087) で、上記

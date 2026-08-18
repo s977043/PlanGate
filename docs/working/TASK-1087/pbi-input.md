@@ -34,10 +34,26 @@ rc=1 のまま配線すれば CI が即赤になるため、**まず rc=1 の中
 （settings.json を持つ開発機と CI で rc が変わる）。issue 起票時は
 settings.json が存在する環境で測られたと推定される。
 
-さらに `check-skill-name-collisions.py` は **doctor には既に配線済み**
-（`scripts/doctor_check.py:check_skill_collisions()` / `level=warn`）。
-つまり「未配線」ではなく **「warn で配線され、46 件を出し続けているが誰も止まらない」**
-状態であり、#1109 と同じ「緑ではないが赤にもならない」クラスにある。
+### `check-skill-name-collisions.py` の既存配線（正確な射程 / 2026-08-18 実測）
+
+`check-skill-name-collisions.py` は **`scripts/doctor_check.py` に配線済み**だが、
+**`bin/plangate doctor --json` の経路からしか到達しない**。正確には:
+
+| 事実 | 根拠（実測） |
+|------|------------|
+| `scripts/doctor_check.py` が本スクリプトをサブプロセス実行する | `grep -rn "check-skill-name-collisions" --include='*.py' .` → `scripts/doctor_check.py` に 3 ヒット（`check_skill_collisions()` 定義 / `script = REPO / "scripts" / ...` / not-found skip） |
+| `bin/plangate` 自体には `collision` の文字列が無い | `grep -n "collision" bin/plangate` → 0 件。**`bin/plangate` は `doctor_check.py` へ総称的に委譲するだけ**（`grep -n "doctor_check" bin/plangate` → `--json` 分岐で `python3 "$py" --scope "$doctor_scope"`） |
+| `--json` 経路では実際に検査が走る | `bin/plangate doctor --json` の `checks[]` に `skill/command/agent name collisions (#721)` が **level=warn** で存在 |
+| **プレーンな `bin/plangate doctor` では走らない** | `bin/plangate doctor \| grep -ci collision` → **0** |
+| 是正前は warn で 46 件を出し続けていた | `origin/main` 版のスクリプトを実行 → `rc=1` / `合計 46 件の name 多重定義を検出`。`doctor_check.py` は `ok = not (rc == 1)` としているため `ok=false` / `level=warn` |
+
+つまり「CI 未配線」は正しいが、**doctor（`--json` 経路）には warn として配線済み**であり、
+**「緑ではないが赤にもならない」**状態にあった。`level=warn` は doctor の失敗数に
+計上されないため、46 件は誰も止めない。#1109 と同型のクラスである。
+
+> **注意**: `bin/plangate` を grep しても `collision` は出ない（総称委譲のため）。
+> 配線の有無は **`scripts/doctor_check.py` 側**、または
+> `bin/plangate doctor --json` の実出力で確認すること。
 
 ## What (Scope)
 

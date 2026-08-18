@@ -219,6 +219,120 @@ ignore 対象は stale 判定から外す。
 | R4 | CI patch が HO に触れる | **適用しない**。`git apply --check` のみ実施 |
 | R5 | `claude plugin validate` が CI ランナーに存在しない | patch 側で **存在検査を明示**し、**無ければ job を失敗させる**（silently skip しない = #1109 の教訓） |
 
+## 走査 root の射程（コーディネータ指摘 2 への回答 / 2026-08-18 追記）
+
+### 事実
+
+**2 本の検査で走査範囲が食い違っている**:
+
+| 検査 | 走査範囲 | 配布物を見ているか |
+|------|---------|------------------|
+| `check-skill-name-collisions.py` | `.claude/{skills,commands,agents}` **+ `plugin/*/{skills,commands,agents}`** | **見ている**（46 件のミラー検出がその証拠） |
+| `check-stale-skill-refs.py` | **`.claude/**` のみ** | **見ていない** |
+
+この非対称のため、本 PR 自身が持ち込んだ `.codex/skills` の追従漏れが
+**stale-refs では緑のまま通った**。「検査は動いているが実際に配布される
+成果物を見ていない」という #1109 と同型の構造であり、指摘は妥当である。
+
+### 判断: **(b) 本 PBI では拡張せず、射程を明文化して follow-up 起票**
+
+拡張しなかった理由は**実測に基づく**。各 root へ試行走査した結果:
+
+| root | 検出数 | 内訳 |
+|------|-------|------|
+| `.agents/skills` | 6 | 大半が**真の stale**（`../../rules/hybrid-architecture.md` は `.agents/rules/` が存在せず解決不能 / `scripts/arbiter.py` の実体は `scripts/ai-loop/arbiter.py`） |
+| `plugin/plangate/skills` | 24 | うち **16 件は新規の false-positive クラス** |
+| `.codex/skills` | 6 | — |
+
+**16 件の新規 FP クラス**は `scripts/ai-loop/arbiter.py:909-965` のような
+**行範囲サフィックス付きパス**である。`_strip_anchor_and_query` は `#` と `?`
+しか剥がさないため、**実在するファイルを stale と誤判定**する。
+
+したがって root を広げるには以下が同時に必要になる:
+
+1. **行範囲サフィックスの FP ガード新設**（検査側の変更）
+2. **検出された真の stale の是正**（ai-loop レーンの skill 群 = 別領域の欠陥）
+3. **`.codex/skills` の扱いの確定** — #1086 で untrack 予定のため、
+   既定 root への組み込みはその裁定後が適切
+
+これは「**検知器を直す**」本 PBI と「**検知器が見つけたものを直す**」別作業の
+混在であり、1 PR に入れるとレビュー不能になる。
+また rc=1 のまま CI に配線すれば、#1087 が防ごうとしている
+「赤いまま放置される検査」そのものを再生産する。
+
+### 本 PBI が「検査しない範囲」（明示）
+
+- `.agents/skills/**` / `.codex/skills/**` / `plugin/plangate/skills/**` の
+  **stale パス参照**
+- 上記 root 配下でのみ発生する参照崩れ
+  （例: `.claude/skills` から `.agents/skills` へコピーした際、
+  `../../rules/...` の相対リンクが `.agents/rules/` を指して壊れるクラス）
+
+明文化先: `scripts/check-stale-skill-refs.py` の `DEFAULT_TARGET_GLOBS` 直上コメント /
+[`docs/ai/stale-ref-detection.md`](../../ai/stale-ref-detection.md)。
+
+### follow-up issue（起票内容）
+
+> **タイトル**: `check-stale-skill-refs.py` の走査 root を配布 root へ拡張する
+>
+> **背景**: 現在の走査 root は `.claude/**` のみで、実際に配布される
+> `.agents/skills` / `plugin/plangate/skills`（および `.codex/skills`）を見ていない。
+> 一方 `check-skill-name-collisions.py` は `plugin/*` を見ており、
+> 2 本の検査で射程が食い違っている。#1087 ではこの非対称により、
+> PR 自身が持ち込んだ `.codex` の追従漏れが検査で緑のまま通った。
+>
+> **やること**:
+> 1. 行範囲サフィックス（`path.py:909-965`）を剥がす FP ガードを追加し、
+>    変異注入で検出力が落ちていないことを実証する
+> 2. `.agents/skills` の真の stale を是正する
+>    （`../../rules/*` の解決不能リンク / `scripts/arbiter.py` → `scripts/ai-loop/arbiter.py`）
+> 3. `DEFAULT_TARGET_GLOBS` に `.agents/skills/**` と `plugin/plangate/skills/**` を追加
+> 4. `.codex/skills` は **#1086 の untrack 裁定後**に判断する
+> 5. CI 配線 patch（#1087 同梱）の対象コマンドを更新する
+>
+> **完了条件**: 拡張後の既定経路で rc=0 / 真の stale 注入で rc=1 /
+> 行範囲サフィックスが FP にならないことの TC
+>
+> **関連**: #1087（本件の射程を明文化）/ #1086（`.codex/skills` untrack）/ #1109（false green の先例）
+
+## 4 root 追従漏れの検出可否（コーディネータ指摘 4 への回答）
+
+### 結論: **内容一致による一般的な検出は不可能**。代わりに固定リテラルの回帰ガードを置いた
+
+4 root の内容一致を不変条件にできるかを実測した（2026-08-18）:
+
+| 比較 | 共通 skill 数 | 一致 | **正当に相違** |
+|------|-------------|------|--------------|
+| `.agents` vs `plugin/plangate` | 39 | **39** | 0 |
+| `.agents` vs `.codex` | 39 | 13 | **26** |
+| `.agents` vs `.claude` | 24 | 16 | **8** |
+
+- `.agents` == `plugin` のみが全数一致であり、これは
+  `sync-plugin-plangate.sh` が生成し `drift-check` job が担保している**既存の不変条件**
+- **`.codex` は `.agents` の byte copy ではない**（39 中 26 が相違）。
+  `codex-multi-agent` がたまたま一致する 13 件の側だった
+- したがって「4 root が一致すべき」という assert は **26 件の正当な相違で即座に落ちる**
+- root ごとの skill 数（39 / 29 / 39 / 39）も運用で増減するため
+  **件数 assert は時限爆弾**（`.claude/rules/` の教訓と一致）
+
+### 置いたもの: `ta-69` の **TC-R1**
+
+「移行済みの具体例パス（固定リテラル）が**どの root にも残っていない**」という
+**ゼロ集合の assert**。増減する母集団に依存せず、#1138 型の「是正の再導入」を捕捉する。
+
+**実測で kill を確認**: `.codex/skills/codex-multi-agent/SKILL.md` を
+`origin/main` の内容へ戻すと
+
+```
+[FAIL] TC-R1: legacy example path still present in: .codex/skills/codex-multi-agent/SKILL.md
+TA-69 standalone: 18 passed, 1 failed
+```
+
+**本 PR が実際に持ち込んだ退行を、TC-R1 が捕捉することを実証した。**
+
+存在しない root はスキップするため、#1086 で `.codex/skills` が untrack されても
+TC は壊れない。
+
 ## Questions / Unknowns
 
 - なし（全件実測済み）
