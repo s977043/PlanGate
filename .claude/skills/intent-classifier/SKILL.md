@@ -5,7 +5,9 @@ description: "ユーザーの依頼文から開発 Intent を 8 分類し、stru
 
 # Intent Classifier
 
-> 正本: `.claude/skills/intent-classifier/SKILL.md`（`plugin/plangate/skills/` はミラー・export 用）。
+> 正本（sync 元）: `.agents/skills/intent-classifier/SKILL.md`。`scripts/sync-plugin-plangate.sh` が
+> `.agents/skills/` を読み取り `plugin/plangate/skills/` を機械生成する。`.claude/skills/` と
+> `.codex/skills/` は sync 対象外の配布先のため、正本更新時に同一内容を手動で追従させる。
 
 ユーザーの依頼文を読み取り、開発 Intent を 8 分類のいずれかに判定して structured JSON で返す。
 

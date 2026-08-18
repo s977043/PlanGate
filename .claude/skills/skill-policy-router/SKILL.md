@@ -5,7 +5,9 @@ description: "Intent と Mode を受け取り、必要な Skill・ゲート要�
 
 # Skill Policy Router
 
-> 正本: `.claude/skills/skill-policy-router/SKILL.md`（`plugin/plangate/skills/` はミラー・export 用）。
+> 正本（sync 元）: `.agents/skills/skill-policy-router/SKILL.md`。`scripts/sync-plugin-plangate.sh` が
+> `.agents/skills/` を読み取り `plugin/plangate/skills/` を機械生成する。`.claude/skills/` と
+> `.codex/skills/` は sync 対象外の配布先のため、正本更新時に同一内容を手動で追従させる。
 
 Intent と Mode を入力として受け取り、必要な Skill とゲート要件（GatePolicy）を structured JSON で返す。
 

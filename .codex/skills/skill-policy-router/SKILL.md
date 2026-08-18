@@ -5,7 +5,9 @@ description: "Intent と Mode を受け取り、必要な Skill・ゲート要�
 
 # Skill Policy Router
 
-> 正本: `.claude/skills/skill-policy-router/SKILL.md`（`plugin/plangate/skills/` はミラー・export 用）。
+> 正本（sync 元）: `.agents/skills/skill-policy-router/SKILL.md`。`scripts/sync-plugin-plangate.sh` が
+> `.agents/skills/` を読み取り `plugin/plangate/skills/` を機械生成する。`.claude/skills/` と
+> `.codex/skills/` は sync 対象外の配布先のため、正本更新時に同一内容を手動で追従させる。
 
 Intent と Mode を入力として受け取り、必要な Skill とゲート要件（GatePolicy）を structured JSON で返す。
 
@@ -82,7 +84,7 @@ Intent はスキルの優先度や追加推奨にのみ影響する。
 
 ```json
 {
-  "intent": "<feature|bug|refactor|research|review|docs|ops>",
+  "intent": "<feature|bug|refactor|research|review|docs|ops|exploratory>",
   "mode": "<ultra-light|light|standard|high-risk|critical>"
 }
 ```
@@ -106,9 +108,16 @@ Intent に応じて optionalSkills を追加・調整する:
 | `research` | — |
 | `review` | check |
 | `docs` | — |
-| `ops` | verify（デプロイ検証のため、未追加の場合）。**PlanGate CLI 操作**（render/approve/doctor/exec）は skill でなく直接 `bin/plangate <cmd>` を実行する |
+| `ops` | verify（デプロイ検証のため、未追加の場合）。**PlanGate CLI 操作**（render/approve/doctor/exec）は skill でなく直接 `plangate <cmd>` を実行する |
+| `exploratory` | — （WF-07 opt-in 推奨。通常フローに留まる場合は intent 相当の Skill 構成を使用）|
 
 ただし、requiredSkills に既に含まれている Skill は optionalSkills に重複追加しない。
+
+> **`plangate <cmd>` の表記と CLI 不在時の degrade は `intent-classifier` skill
+> 「PlanGate CLI 操作の認識（ops 補足）」節を正本とする**（ここでは再定義しない）。
+> 要点のみ: PATH 解決されるコマンド名は **`plangate`**、上流リポジトリの cwd では
+> `bin/plangate <cmd>`、CLI が無い環境（**導入先では既定**）は同節の代替手順に置き換える。
+> **GatePolicy の内容は CLI の有無で変えない**（強制が機械 block から手動確認に落ちるだけ）。
 
 ### Step 4: GatePolicy 出力
 
@@ -187,3 +196,4 @@ Intent に応じて optionalSkills を追加・調整する:
 ## 関連 Skill
 
 - **intent-classifier**: ユーザー依頼文から Intent を判定する。このスキルの前段として使用
+- **breakdown-gate**: タスク粒度の intake ゲート。intent-classifier よりさらに前段（PlanGate 起動前）でタスク分割要否を判定する（`.agents/skills/breakdown-gate/`）
