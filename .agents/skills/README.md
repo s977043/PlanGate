@@ -29,6 +29,12 @@
 Codex CLI の標準入口は `./scripts/ai-dev-workflow TASK-XXXX brainstorm|plan|gate|exec|prepare-cloud|sync-cloud`。verify 系は `bin/plangate validate|review|eval|metrics TASK-XXXX` を併用する。
 本 skill (`plangate-setup`) は Codex 用 agent `.codex/agents/setup_coordinator.toml` から参照される。
 
+> **上記 2 つの相対パス表記は、上流リポジトリ（`s977043/plangate`）を clone した cwd
+> でのみ成立する**（`scripts/**` / `bin/**` は install / plugin / Codex のどの経路でも
+> 導入先に配布されない）。導入先で PATH を通した場合のコマンド名は **`plangate`**
+> （`bin/plangate` ではない）。**環境ごとの表記と CLI 不在時の degrade 手順は
+> 各 skill の「CLI 呼び出し」節を正本とする**（ここでは再定義しない）。
+
 ## v7 ハイブリッドアーキテクチャ対応スキル（Claude Code / Codex CLI 共用）
 
 WF-01〜WF-05 の各 phase で呼び出す再利用可能スキル。
