@@ -28,11 +28,11 @@ LoopSpec 自体を裁定エンジンが直接消費するわけではない。
 
 ### Plan Package からの決定論的派生（TASK-0872 / issue #872）
 
-Plan-first production run（`ai-loop run TASK-XXXX` という CLI 入口として設計された
-が、**`bin/plangate` に `ai-loop` サブコマンドは未実装**。現行の実行手順は
-[`execution-runbook.md`](./execution-runbook.md) §2 の `arbiter.py` 手動実行であり、
-CLI 入口を設けるか否かは [#982](https://github.com/s977043/plangate/issues/982) で
-未決）では、LoopSpec を**手入力しない**。
+Plan-first 正式入口（`ai-loop run TASK-XXXX` — **`/ai-loop-workflow` の引数仕様**
+であり、**`bin/plangate` に `ai-loop` サブコマンドは存在しない**。`plangate ai-loop run …`
+は失敗する。CLI 入口を設けるか否かは
+[#982](https://github.com/s977043/plangate/issues/982) で未決）では、
+LoopSpec を**手入力しない**。
 `scripts/ai-loop/plan_package.py` の `derive_loopspec()` が Plan Package
 （pbi-input / plan / todo / test-cases + C-1/C-2 evidence）から §3 の必須フィールド
 **全数**を機械導出する（同一入力 → byte 同一の冪等派生。導出不能フィールドが
