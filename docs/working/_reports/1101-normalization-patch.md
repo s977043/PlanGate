@@ -5,7 +5,7 @@
 > （`check-plan-hash.sh` と `ta-65` は `01c8946`〜`6def020` で差分ゼロを実測）
 > 責務: **設計・差分・検証設計は AI-owned（本書）/ 適用は Human-owned**
 > 位置づけ: **#1144 で hook を配布する前に閉じるべき筆頭**
-> 版: **rev7**
+> 版: **rev8**（最終）
 
 ## 版の履歴（撤回した主張を明示する）
 
@@ -17,7 +17,8 @@
 | rev4 | コマンド置換代入に `\|\|` フォールバック / `.` `*/.` クラス明記 | 「`sed`/`tr` が実行不能 → 空キー → rc=2」 |
 | rev5 | `_ho_root` を fail-closed へ / `_tf_lc` に `\|\|` + guard + `LC_ALL=C` | 「`\|\| _ho_root="$REPO_ROOT"` は block を減らさない側」/ R-7 の「悪化しない」 |
 | rev6 | 監査ログの改行注入を遮断（MJ-1）/ `log_event` 失敗で block が消えるのを解消（MJ-2）/ infra 失敗を fail-closed から「base 相当へ縮退」へ（MJ-3）/ traversal の marker を分離（MN-1） | 「3 箇所すべて fail-closed」/ B-12・R-10 の「可用性より承認境界を優先」/ rev5 の reason 設計 |
-| **rev7** | **traversal 判定を `_ho_key` と生 `target_file` の union へ**（MJ-A）/ **`_esc_dl` / `_esc_c3` にも `\|\|` + 空チェック**（MJ-B）/ **構造検査を適用手順の step 化**（MJ-C）/ **タブ切り詰め + `[truncated]` マーカー + 監査書込失敗の in-band 警告**（MN-1）/ **`_PG_CR` / `_PG_TAB` が空でも壊れない形へ**（MN-2）/ §2.9 の論拠を不変条件ベースへ | **「traversal は縮退させない」**（**縮退キーは `_norm_target` で `./` 除去済みのため `.//` の証拠が消え、`notr` / `nosed` で `.//CLAUDE.md` が素通りしていた**）/ **§2.9「C でも失われないもの」表**（**`docs/../` クラスだけを根拠にし `.//` クラスを故障注入下で測っていなかった**）/ **§2.9 の「攻撃者は誘発できない」という能力主張**（証明不能。**不変条件による論証へ差し替え**）/ **R-7 の残存列挙**（**`_dl_ext` は挙げたが index shift の影響を実際に受ける `_esc_dl` を挙げていなかった**） |
+| rev7 | **traversal 判定を `_ho_key` と生 `target_file` の union へ**（MJ-A）/ **`_esc_dl` / `_esc_c3` にも `\|\|` + 空チェック**（MJ-B）/ **構造検査を適用手順の step 化**（MJ-C）/ **タブ切り詰め + `[truncated]` マーカー + 監査書込失敗の in-band 警告**（MN-1）/ **`_PG_CR` / `_PG_TAB` が空でも壊れない形へ**（MN-2）/ §2.9 の論拠を不変条件ベースへ | **「traversal は縮退させない」**（**縮退キーは `_norm_target` で `./` 除去済みのため `.//` の証拠が消え、`notr` / `nosed` で `.//CLAUDE.md` が素通りしていた**）/ **§2.9「C でも失われないもの」表**（**`docs/../` クラスだけを根拠にし `.//` クラスを故障注入下で測っていなかった**）/ **§2.9 の「攻撃者は誘発できない」という能力主張**（証明不能。**不変条件による論証へ差し替え**）/ **R-7 の残存列挙**（**`_dl_ext` は挙げたが index shift の影響を実際に受ける `_esc_dl` を挙げていなかった**） |
+| **rev8**（最終） | **`_PG_CR` / `_PG_TAB` のガードを `\|\|` 前置から `if` ブロックへ**（MAJOR-1 / 挙動同値）/ **サニタイズを共通 helper `_pg_oneline` へ集約し `_esc_dl` / `_esc_c3` の縮退先にも通す**（MINOR-1）/ **§2.4 の検出器の FP・FN 特性を明記** | **§2.4 の「rev7 採用版 hits=0」**（**MN-2 で足した `\|\|` 前置が除外パターンを壊し実測 hits=2。§6 step 4 どおりに実行すると正しい patch の適用が止まる**）/ **`hits=0` を安全の証明として読ませていた書き方**（**行内整形依存のヒューリスティックで FN が実在する**） |
 
 ## 結論先行
 
@@ -105,6 +106,20 @@ env -u PLANGATE_HOOK_TASK -u PLANGATE_SKIP_REASON -u PLANGATE_HOOK_FILE \
 | 7 | **縮退キーが証拠を落とす**（`_norm_target` は `./` 除去済みなので `.//` が消える） | **rev6** | traversal を **union 判定**へ（§2.3 / MJ-A） |
 | 8 | **index shift の下流がもう 1 つあった**（`_esc_dl` が 4 番目の `tr` に） | **rev6**（§2.8 と同一クラスの 3 度目） | 下流の該当箇所にも `\|\|` + 空チェック（§2.13） |
 
+#### 7 巡の収束（各巡が「前の層の盲点」を出し、穴が単調に小型化した）
+
+| 巡 | 出た層 | その巡で見つかった穴の深刻度 |
+|---|---|---|
+| rev1 | 実装の計算量 | **HO が rc=0 で素通り** |
+| rev2 | 外部コマンドの副作用（ロケール） | **HO が rc=0 で素通り** |
+| rev3 | （新しい穴なし） | — |
+| rev4 | `set -e` の意味論 / フォールバック値 | **HO が rc=0 で素通り** |
+| rev5 | 監査整合性 / fail-closed の完全性 | **block はするがログを偽造できる** |
+| rev6 | 縮退と policy の切り分け | **承認境界は不変、監査記録が消える** |
+| rev7 | 検証系の自己整合 | **patch 本体に触れない**（検出器が自分に発火 / 縮退先のサニタイズ漏れ） |
+
+**独立検証の到達点**: **81 セル × 4 故障モード × 2 文脈 = 648 セルで、base が block して rev7/rev8 が block しないセルは 0 件。**
+
 **「防御を足すと別の穴が開く」ことが 5 巡にわたり実際に起きたので、追加した各行がどの失敗モードを持つかを §2.5〜§2.11 に個別に書きます。** rev6 でも **MJ-1 の是正（改行切り詰め）が O(n²) を再導入し、性能スイートの再実行だけで検出しました**（§2.10）。**「同じ失敗クラスを別の構文でやり直す」ことが繰り返し起きる**ため、§2.4 のガード規則は**新しく足すパラメータ展開すべてに適用**します。
 
 ### 2.1 `..` / `//` の扱い — **解決せず fail-closed（採用）**
@@ -183,7 +198,32 @@ grep -nE '\$\{[A-Za-z_][A-Za-z_0-9]*(%%?|##?)' scripts/hooks/check-plan-hash.sh 
 # → 出力ゼロであること
 ```
 
-**実測**: base **hits=0** / rev7 採用版 **hits=0**（false positive なし）/ **無ガード版 hits=1（kill）**。**同じ無ガード版は機能 TC では検出できません**（改行注入テストはログ 1 行のまま合格する）。**§6 step 4 に入れます。**
+**実測（rev8 / 上の grep をそのまま実行）**:
+
+| 対象 | hits |
+|---|---:|
+| base（現 main） | **0** |
+| **rev7**（`\|\|` 前置形） | **2** ← ❌ |
+| **rev8**（`if` ブロック形・採用） | **0** |
+| rev8 の切り詰めを無ガードに戻した変異 | **1（kill）** |
+
+> **rev7 の「採用版 hits=0」は誤りでした（撤回）。** MN-2 で足した `[ -z "$_PG_CR" ] ||` の `||` が除外パターン `^[0-9]+:[[:space:]]*[^\|()]*\)[[:space:]]` を壊し、**検出器が patch 自身に発火**していました。**§6 step 4 は「hits が 0 でなければ適用しない」と書いてあるため、Human が手順どおり実行すると正しい patch の適用が止まるか、「例外だから無視」と運用されて検出器が無力化されます。**
+> **是正は検出器を緩める側ではなく書き方を合わせる側**（`if` ブロック化 / 挙動は同値）を採りました。**コメント中に接尾除去の記法を書いても発火する**ため、コメント文言も併せて調整しています（検出器はコメントを除外しません＝コメントアウトされたコードも拾う保守的な設計）。
+
+#### この検出器の性質（**`hits=0` を安全の証明として読まないこと**）
+
+**行内整形に依存したヒューリスティック**です。合成ファイルでの実測:
+
+| 形 | 検出器 | 実際 |
+|---|---|---|
+| 無ガード + 同一行に `:-` を含む | **検出しない** | **危険（FN）** |
+| catch-all の `*)` アーム内（＝実質無ガード） | **検出しない** | **危険（FN）** |
+| 位置パラメータ `${1%…}` | **検出しない** | **危険（FN）** |
+| 正しくガードした `case` の本体を改行して書いた形 | **検出する** | 安全（**FP**） |
+
+**`grep -vE 'dirname\|:-\|:='` は行内に `:-` があるだけで除外**し、rev8 実体では**内容に関係なく自動除外される行が存在**します。
+
+→ **この検出器は「よくある書き落とし」を機械的に拾うためのものであり、網羅性はありません。** 新しいパラメータ展開を足すときは **検出器の結果に加えて §5.5 の長入力測定も回すこと**。
 
 ### 2.5 空キー（`_ho_key`）の扱い
 
@@ -346,9 +386,10 @@ base で同型注入が成立するのは「HO glob に一致し、かつ `.md` 
 
 1. **タブでも切り詰める**（`_PG_TAB`）→ フィールド数が常に 5。
 2. **切り詰めたら `[truncated]` を付ける**→「監査から消えた」ことが in-band で分かる。
-3. **`_PG_CR` / `_PG_TAB` が空でも壊れない形にする**（MN-2 / §2.7 の注記）。
+3. **`_PG_CR` / `_PG_TAB` が空でも壊れない形にする**（MN-2 / §2.7 の注記）。**rev8 では `[ -z … ] ||` 前置ではなく `if` ブロックで包みます**（挙動同値・§2.4 の検出器を誤検出させないため / MAJOR-1）。
+4. **サニタイズを共通 helper `_pg_oneline` に集約**し、`log_event` と `_esc_dl` / `_esc_c3` の縮退先が**同じ規則**を通るようにする（§2.13 / MINOR-1）。
 
-**回帰 = 変異 MN1 / 入力 `tabinj`**。
+**回帰 = 変異 MN1 / 入力 `tabinj`**、**変異 MSAN / 入力 `jsonl_notr3`**。
 
 ### 2.11 `log_event` の失敗が block を消す（MJ-2）
 
@@ -410,7 +451,7 @@ rev5 は traversal / 空キー / root 失敗をすべて `HARDENING_OVERRIDE` �
 > **hunk は 3 箇所**: (A) `log_event`、(B) Hardening Override ブロック、(C) no-task 分岐の `_tf_lc`。
 > **3 つを 1 回の適用に束ねてください。** 分割すると rev4→rev5 と同じ「既知の退行を抱えたまま出荷」になります。
 
-### (A) `log_event`（MJ-1 / MJ-2）
+### (A) `log_event` + 共通サニタイズ `_pg_oneline`（MJ-1 / MJ-2 / MN-1 / MN-2 / MAJOR-1）
 
 ```diff
 @@
@@ -423,25 +464,39 @@ rev5 は traversal / 空キー / root 失敗をすべて `HARDENING_OVERRIDE` �
 +[ -n "$_PG_CR" ] || _PG_CR=$(printf '\015')
 +_PG_TAB=$(printf '\t') || _PG_TAB=''
 +[ -n "$_PG_TAB" ] || _PG_TAB=$(printf '\011')
++
++# _pg_oneline: 1 レコード 1 行・5 フィールドを保証する共通サニタイズ（#1101）。
++#   In : $1  Out: _PG_ONE
++#   改行 / CR / タブより後ろを捨てる。切り詰めたら [truncated] を付ける。
++#   接尾除去（パラメータ展開の %% 系）は必ず case で前置ガードする
++#   （無ガードは bash 3.2 で入力長に対して二次 / #1101 F1）。
++#   _PG_CR / _PG_TAB が空でも壊れないよう if で包む（#1101 MN-2）。
++#   `[ … ] ||` 前置ではなく if ブロックにするのは §6 step 4 の構造検査を
++#   誤検出させないため（#1101 MAJOR-1 / 挙動は同値）。
++_pg_oneline() {
++  _PG_ONE=$1
++  _pg_trunc=0
++  case "$_PG_ONE" in *"$_PG_NL"*) _PG_ONE=${_PG_ONE%%"$_PG_NL"*}; _pg_trunc=1 ;; esac
++  if [ -n "$_PG_CR" ]; then
++    case "$_PG_ONE" in *"$_PG_CR"*) _PG_ONE=${_PG_ONE%%"$_PG_CR"*}; _pg_trunc=1 ;; esac
++  fi
++  if [ -n "$_PG_TAB" ]; then
++    case "$_PG_ONE" in *"$_PG_TAB"*) _PG_ONE=${_PG_ONE%%"$_PG_TAB"*}; _pg_trunc=1 ;; esac
++  fi
++  if [ "$_pg_trunc" != "0" ]; then
++    _PG_ONE="$_PG_ONE [truncated]"
++  fi
++  return 0
++}
++
  log_event() {
    level=$1
-+  # 監査ログへの改行注入を防ぐ（#1101 MJ-1）: reason に生の target_file を載せる
-+  # 経路が増えたため、改行/CR より後ろを捨てて 1 レコード 1 行を保証する。
-+  # tr を足すと「外部コマンド失敗」クラスを再導入するのでパラメータ展開で行う。
-+  # **case で前置ガードする**: 一致しない ${var%%pat} は bash 3.2 で入力長に対して
-+  # 二次（#1101 F1 と同型）。無ガード版は 200000 文字で 2.4 秒かかる（実測）。
-   msg=$2
+-  msg=$2
 -  mkdir -p "$(dirname "$AUDIT_LOG")"
 -  ts=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 -  printf '%s\t%s\tcheck-plan-hash\t%s\t%s\n' "$ts" "$level" "${task_id:-${PLANGATE_HOOK_TASK:--}}" "$msg" >>"$AUDIT_LOG"
-+  # 改行 / CR / タブより後ろを捨てて 1 レコード 1 行・5 フィールドを保証する（MJ-1 / MN-1）。
-+  # 切り詰めたら [truncated] を付ける（監査から欠落したことを in-band で示す）。
-+  # _PG_CR / _PG_TAB が空でも壊れないよう case 自体を [ -z … ] || でガードする（MN-2）。
-+  _pg_trunc=0
-+  case "$msg" in *"$_PG_NL"*)  msg=${msg%%"$_PG_NL"*};  _pg_trunc=1 ;; esac
-+  [ -z "$_PG_CR" ]  || case "$msg" in *"$_PG_CR"*)  msg=${msg%%"$_PG_CR"*};  _pg_trunc=1 ;; esac
-+  [ -z "$_PG_TAB" ] || case "$msg" in *"$_PG_TAB"*) msg=${msg%%"$_PG_TAB"*}; _pg_trunc=1 ;; esac
-+  [ "$_pg_trunc" = "0" ] || msg="$msg [truncated]"
++  _pg_oneline "$2"
++  msg=$_PG_ONE
 +  # 監査ログが書けない環境でも block を成立させる（#1101 MJ-2）。
 +  # set -eu 下では mkdir / date / >> の失敗がそのままシェルを rc=1 で落とし、
 +  # PreToolUse は exit 2 のみ block なので fail-open に化ける。
@@ -453,6 +508,8 @@ rev5 は traversal / 空キー / root 失敗をすべて `HARDENING_OVERRIDE` �
 +  return 0
  }
 ```
+
+> **`_pg_oneline` は `log_event` と `_esc_dl` / `_esc_c3` の縮退先の両方から呼びます**（§3(D)）。**同じ規則が 2 箇所に手書きで散らばると片方だけ直る**（実際 rev7 は `log_event` だけ直して縮退先を素通しにしていた / MINOR-1）ため、共通化しています。
 
 ### (B) Hardening Override ブロック
 
@@ -581,13 +638,31 @@ rev5 は traversal / 空キー / root 失敗をすべて `HARDENING_OVERRIDE` �
 -        _esc_c3=$(printf '%s' "${_norm_target:-unknown}" | tr -d $'\n\r\t')
 +        # HO 判定が tr を 2 回消費するため本行は下流にずれる。|| + 空チェックが無いと
 +        # 部分故障で set -e が即死し、記録どころか SKIP 判定ごと消える（#1101 MJ-B）。
++        # 縮退先も _pg_oneline を通す: 生値のままだと制御文字が JSONL を壊し、
++        # scripts/check-skip-acknowledged.sh（CI required）が全 PR を落とす（#1101 MINOR-1）。
 +        _esc_c3=$(printf '%s' "${_norm_target:-unknown}" | LC_ALL=C tr -d '\n\r\t') || _esc_c3=''
-+        [ -n "$_esc_c3" ] || _esc_c3="${_norm_target:-unknown}"
++        if [ -z "$_esc_c3" ]; then
++          _pg_oneline "${_norm_target:-unknown}"
++          _esc_c3=$_PG_ONE
++        fi
 @@ doc-light 記録
 -      _esc_dl=$(printf '%s' "${_norm_target:-unknown}" | tr -d '\n\r\t')
 +      _esc_dl=$(printf '%s' "${_norm_target:-unknown}" | LC_ALL=C tr -d '\n\r\t') || _esc_dl=''
-+      [ -n "$_esc_dl" ] || _esc_dl="${_norm_target:-unknown}"
++      if [ -z "$_esc_dl" ]; then
++        _pg_oneline "${_norm_target:-unknown}"
++        _esc_dl=$_PG_ONE
++      fi
 ```
+
+**MINOR-1 の実測**（`docs/ai/x<TAB>INJ<CR>.md` / no-task / `notr3` = 縮退経路を通す）:
+
+| | 記録 | JSONL 妥当性 |
+|---|---|---|
+| base | `tr -d` 済み | valid |
+| **rev7** | **生の TAB / CR が入る** | **broken** ← base より弱い |
+| **rev8** | `docs/ai/x [truncated]` | **valid** |
+
+**`skip-decision-log.jsonl` は append-only** なので、**壊れた 1 行が入ると人手で監査ログを編集するまで CI required の `scripts/check-skip-acknowledged.sh` が全 PR を落とします**（`:20-22` が `JSONDecodeError` で `sys.exit(1)`）。**回帰 = 変異 MSAN / 入力 `jsonl_notr3`**。
 
 > **ついでに `$'\n\r\t'`（bash の ANSI-C quoting）も `'\n\r\t'` へ揃えます。** `dash` は ANSI-C quoting を解釈せず、**削除対象に `$` が混入**します。実測（target = `x$y-nrt.md`）: `sh` / `bash` / `zsh` / `ksh` は `x$y-nrt.md`、**`dash` だけ `xy-nrt.md`**（`$` が消える）。記録される target が壊れるだけで承認境界には影響しませんが、**同じ行を触るので同時に直します**。
 
@@ -617,6 +692,7 @@ rev5 は traversal / 空キー / root 失敗をすべて `HARDENING_OVERRIDE` �
 | **B-17** | **タブを含む target の監査レコード** | 5 フィールド | **5 フィールド + `[truncated]`** | rev6 は 7 フィールドになっていた（§2.10） |
 | **B-18** | **部分故障下の doc-light 記録**（`skip-decision-log.jsonl`） | `notr3` では記録あり / `notr2` では rc=127 | **どちらも記録あり** | §2.13。**rev6 は `notr3` で記録が消えていた** |
 | **B-19** | **`_audit/` 書込失敗時の in-band 痕跡** | なし | **stderr に `WARN: audit log write failed`** | §2.11 |
+| **B-20** | **制御文字を含む target の `skip-decision-log.jsonl` 妥当性**（縮退経路） | `tr -d` 済みで valid | **`[truncated]` 付きで valid** | §3(D)。**rev7 は生値が入り broken だった（base より弱い）** |
 | **B-8** | HO パスの `reason` 文字列 | 正規化後の値 | **生値**（改行/CR/タブ切り詰め済み） | ログ表記のみ。文字列 assert するテストは repo 内に無し |
 
 ### 4.1 変わらないもの（実測 / 故障注入なし・`LC_ALL=C`）
@@ -691,7 +767,7 @@ C7 schemas/x.schema.json     C8 .github/workflows/x.yml   C9 CLAUDE.md
 | 81 セル中 **rc=0 で完全通過** | **52** | **0** |
 | 81 セル中 block | 29（すべて `HARDENING_OVERRIDE`） | **81**（`HARDENING_OVERRIDE` **54** + `EH3_PATH_REJECTED` **27**） |
 
-**さらに 81 セル × 4 モード（healthy / `notr` / `nosed` / `notr2`）= 324 セルで、base が block して rev6/rev7 が通すセルは 0 件**（§2.9 の不変条件の実測）。
+**さらに 81 セル × 4 故障モード（healthy / `notr` / `nosed` / `notr2`）× 2 文脈（TASK / no-task）= 648 セルで、base が block して rev7/rev8 が block しないセルは 0 件**（§2.9 の不変条件の実測 / 独立検証）。
 
 **base の 29 件の内訳**: T0（9）+ T6（9）+ T7（9）= 27、+ C7 の T2 / T8（`*` が `/` を跨ぐ偶然）= **29**。`81 − 29 = 52`。
 **rev6 の 27 件の `EH3_PATH_REJECTED`** = T1 / T2 / T8 × 9 カテゴリ。
@@ -751,6 +827,7 @@ docs/working/TASK-9999/plan.md  rc=0         rc=0            <- plan_hash 経路
 | **MA** | **traversal の union を `_ho_key` 単独へ戻す** | **X** | **X** | . | . |
 | **MB** | **`_esc_dl` の `\|\|` + 空チェックを削除** | . | . | **X** | . |
 | **MN1** | **タブ切り詰めを削除** | . | . | . | **X** |
+| **MSAN** | **`_esc_dl` の縮退先を `_pg_oneline` 経由から生値へ戻す（rev7 形）** | — | — | — | **`jsonl_notr3` で X**（rev8 追加） |
 | MN2 | `[ -z "$_PG_CR" ] \|\|` ガードを削除 | . | . | . | . |
 
 **MN2 は black-box TC では kill できません**（`_PG_CR=$(printf '\r')` は 5 シェルすべてで成功するため、ガードが働く条件に到達しない）。**M12 と同じく「防御的だが到達不能」な行**です。**削除してよいわけではありません** — 到達したときの挙動は実測済みで、**空セパレータは `case *""*` が全一致してメッセージ全体を消します**（§2.7 の注記）。 M19 が `notr`（`tr` 常時失敗）では kill されないのは、その場合 `_ho_root` 側の縮退が先に効くためで、**`nosed`（`sed` 常時失敗 / `tr` は成功）が唯一の kill 入力**です。
@@ -790,13 +867,13 @@ bash / zsh / dash / ksh  すべて同一
 
 ### 5.5 性能（5 回平均 / `LC_ALL=C`）
 
-| 入力長 | base | rev6 | **rev7** |
+| 入力長 | base | rev7 | **rev8** |
 |---:|---:|---:|---:|
-| 9 | 40.3 ms | 51.4 ms | **48.5 ms** |
-| 3,009 | 72.3 ms | 87.2 ms | **89.9 ms** |
-| 20,010 | 130.8 ms | 147.7 ms | **146.8 ms** |
-| 100,000 | 191.6 ms | 218.5 ms | **223.2 ms** |
-| 200,000 | 222.7 ms | 279.6 ms | **282.0 ms** |
+| 9 | 39.4 ms | 50.4 ms | **47.0 ms** |
+| 20,010 | 131.2 ms | 147.9 ms | **146.4 ms** |
+| 200,000 | 223.1 ms | 276.3 ms | **276.2 ms** |
+
+（rev7 の 5 点測定: 9 / 3,009 / 20,010 / 100,000 / 200,000 = 48.5 / 89.9 / 146.8 / 223.2 / 282.0 ms）
 
 **rev7 = rev6 と同等（base 比 +8〜59ms、線形）。** traversal の union（ループ 2 回）とタブ切り詰めの追加コストは測定誤差の範囲。
 **参考**: `case` ガードを入れる前の rev6 は 100,000 で 732ms / 200,000 で 2,367ms（§2.4）。**この退行は性能スイートの再実行だけで検出しており、機能 TC は 1 件も落ちませんでした。だから §2.4 の構造検査を §6 の step に入れます。**
@@ -871,6 +948,7 @@ bash / zsh / dash / ksh  すべて同一
 | **R-9** | **Unicode 空白（U+00A0 / U+3000）は trim されない** | `LC_ALL=C` の帰結。base・rev7 とも非 HO で**退行ではない**が非対称が残る |
 | **R-11** | **rc の解釈がハーネス間で非対称** | Claude Code の PreToolUse は **exit 2 のみ block**（0/1/127 は通す）。`.codex/hooks/eh-bridge.sh` は **`2\|1) deny` / 未知 rc は `allow`**。**同じ rc=1 が Claude では通り Codex では止まる。** 本 patch は block を rc=2 に揃えるので非対称は解消するが、**将来「rc=1 なら安全側」と仮定してはいけない** |
 | **R-12** | ~~監査ログへのタブ注入~~ → **rev7 で閉じた**（§2.10）。**残るのは「切り詰めにより target の一部が監査から失われる」こと** | 改行 / CR / タブのいずれかを含む target は **最初の 1 個までしか記録されない**。`[truncated]` マーカーで欠落は自明になるが、**原文の全体は残らない**。原文が必要なら stderr 側（block メッセージ）を併せて収集すること |
+| **R-14** | **`skip-decision-log.jsonl` の JSON 文字列エスケープが不完全（`\"` / `\\`）** | `_esc_dl` / `_esc_c3` は `tr -d` で制御文字を落とすだけで **`"` をエスケープしない**。**target に `"` を含むと base も rev8 も broken JSONL**（実測: `docs/ai/x".md` で両者 broken）。**pre-existing かつ本 patch で悪化も改善もしない**。同ファイルの `EH-3_SKIP` 経路（`_esc_r` / `_esc_f`）は `sed 's/\\/\\\\/g; s/"/\\"/g'` でエスケープ済みであり、**doc-light / c3 経路だけが取り残されている**。**別 PBI 推奨** |
 | **R-13** | **`_PG_CR` / `_PG_TAB` が取得できない環境の挙動は理論値** | `printf '\r'` は 5 シェルすべてで builtin として成功するため、**フォールバック（別表記での再取得 / `case` 自体のスキップ）は black-box TC で到達できない**（変異 MN2 が kill されない理由）。**空セパレータがメッセージ全体を消すことは単体で実測済み**（§2.7 注記） |
 
 ---
