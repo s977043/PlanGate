@@ -19,6 +19,8 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 8. `docs/working/TASK-XXXX/review-external.md`（C-2、存在すれば）
 9. `docs/working/TASK-XXXX/approvals/c3.json`（存在すれば）
 
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パス → (2) plugin root 配下（`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/"` を実行して展開・確認した絶対パス。Read ツールは環境変数を展開しないため `${CLAUDE_PLUGIN_ROOT}/...` をそのまま Read しない） → (3) どちらにも無ければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。
+
 ## C-1 セルフレビュー
 
 チェック項目の定義と項目数は `docs/working/templates/review-self.md` を正本とする（現行 全 25 項目）。mode に応じた適用範囲は `.claude/rules/working-context.md` の C-1 節および `.claude/rules/mode-classification.md` フェーズ適用マトリクスを正本とする。FAIL があれば修正後再実行。evidence は FAIL 時必須（`evidence/c1-review/`）。

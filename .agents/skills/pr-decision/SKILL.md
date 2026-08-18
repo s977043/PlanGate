@@ -233,4 +233,4 @@ Rollback Plan は standard モードのため必須ではない。
 - Rule: `evidence-ledger.md`（Evidence Status の詳細）
 - Rule: `review-gate.md`（Review Findings の詳細）
 - Skill: `skill-policy-router`（GatePolicy・requiresWorktree）
-- Workflow: `docs/workflows/05_verify_and_handoff.md`
+- Workflow: `docs/workflows/05_verify_and_handoff.md`（**配布対象外**。`install.sh --claude` / plugin / Codex の 3 経路とも導入先には配置されない。解決できない場合は本 Skill の記述を代替正本とし、「正本 `<path>` を参照できなかった」と明示する）

@@ -83,7 +83,7 @@ severity=critical の finding がある場合、fix なしに Completion Gate �
    を finding に 1 行で書く。逆転させても severity が変わらないなら判定は
    頑健、逆転で下がるなら「前提依存の指摘」であることを明記する。
 3. 手順・allowlist の詳細は
-   [`docs/ai/secret-management-policy.md`](../../../docs/ai/secret-management-policy.md)
+   `docs/ai/secret-management-policy.md`
    を正本とする（本 Skill は判定手順の呼び出しのみを担い、allowlist データは
    持たない）。
 
@@ -160,10 +160,13 @@ reason: severity=critical の finding が <N> 件あります。fix 後に再レ
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
 | `rules/*.md` | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
+| `docs/**` | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 
 `install.sh --claude` のコピー対象は `agents` / `skills` / `commands` / `rules` の 4 ディレクトリ
 のみ。Codex 経由（`install_codex()`）は `install-plangate-skills.sh` を呼ぶだけで **skills しか
 配置されない**ため、rules 参照は解決順 1・2 とも成立せず必ず手順 3 に落ちる。
+
+**参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パス → (2) plugin root 配下（`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/"` を実行して展開・確認した絶対パス。Read ツールは環境変数を展開しないため `${CLAUDE_PLUGIN_ROOT}/...` をそのまま Read しない） → (3) どちらにも無ければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。
 
 > **手順 3 でも Iron Law は緩めない**: `NO MERGE WITHOUT TWO-STAGE REVIEW` と
 > 「severity=critical があれば Completion Gate を通さない」は本 Skill 内で完結する。

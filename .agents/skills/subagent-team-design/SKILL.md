@@ -35,6 +35,8 @@ description: "PlanGate のエージェント群（orchestrator / workflow-conduc
 > 派遣プロンプトの契約（必須 8 要素 / OUTCOME 契約 / 行動規範）は
 > `docs/ai/subagent-delegation/README.md` を参照（ロール定義は含まない）。
 
+**参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パス → (2) plugin root 配下（`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/"` を実行して展開・確認した絶対パス。Read ツールは環境変数を展開しないため `${CLAUDE_PLUGIN_ROOT}/...` をそのまま Read しない） → (3) どちらにも無ければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。
+
 | ロール | 責務 | 対応 subagent_type |
 |--------|------|-------------------|
 | planner | 要件分析・実行計画策定 | `Plan` または `plangate:spec-writer` |

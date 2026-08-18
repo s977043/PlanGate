@@ -49,9 +49,9 @@ WF-05 Verify & Handoff
 
 | eval 観点 | 出処 | release blocker |
 |----------|------|----------------|
-| **AC coverage** | [`eval-cases/ac-coverage.md`](../../../docs/ai/eval-cases/ac-coverage.md) | NO（WARN）|
-| **verification honesty** | [`eval-cases/verification-honesty.md`](../../../docs/ai/eval-cases/verification-honesty.md) | **YES** |
-| **format adherence** | [`eval-cases/format-adherence.md`](../../../docs/ai/eval-cases/format-adherence.md) | **YES**（schema 準拠率 < 95%）|
+| **AC coverage** | `docs/ai/eval-cases/ac-coverage.md` | NO（WARN）|
+| **verification honesty** | `docs/ai/eval-cases/verification-honesty.md` | **YES** |
+| **format adherence** | `docs/ai/eval-cases/format-adherence.md` | **YES**（schema 準拠率 < 95%）|
 
 ### Iron Law との関係
 
@@ -63,11 +63,11 @@ WF-05 Verify & Handoff
 - AC 一覧（`acceptance-criteria-build` の出力 / `pbi-input.md` の AC セクション / `parent-plan.md` の parent-AC）
 - 実装差分（コード変更 + `known-issues-log` の出力）
 - テスト実行結果 / CI 結果 / `evidence/` ディレクトリのログ
-- schema validation 結果（[`schemas/acceptance-result.schema.json`](../../../schemas/acceptance-result.schema.json) で validate 可能な JSON 出力対象）
+- schema validation 結果（`schemas/acceptance-result.schema.json` で validate 可能な JSON 出力対象）
 
 ## 出力
 
-要件適合確認結果（`handoff.md § 1` に統合される）。可能な限り [`acceptance-result.schema.json`](../../../schemas/acceptance-result.schema.json) に準拠する JSON も併記する。
+要件適合確認結果（`handoff.md § 1` に統合される）。可能な限り `schemas/acceptance-result.schema.json` に準拠する JSON も併記する。
 
 ### 必須要素
 
@@ -180,7 +180,7 @@ HO（Hardening Override）対象の rule 層に置かれ、UI 版（本規約）
 
 ## 関連ドキュメント（PlanGate v8.3）
 
-- Workflow: [`docs/workflows/05_verify_and_handoff.md`](../../../docs/workflows/05_verify_and_handoff.md)
+- Workflow: `docs/workflows/05_verify_and_handoff.md`
 - 親 Rule: Rule 5（最終成果物は handoff に集約、`.claude/rules/hybrid-architecture.md`）
   → fallback `<plugin_root>/rules/hybrid-architecture.md`（上記「参照解決順」）。
   上の `hybrid-architecture.md` は **意図的に Markdown リンクにしていない**。
@@ -189,12 +189,12 @@ HO（Hardening Override）対象の rule 層に置かれ、UI 版（本規約）
   本ファイルの正本 root である `.agents/skills/` と Codex 導入先の `.codex/skills/` には
   隣接する `rules/` が無いため**必ず壊れる**。全 root で壊れないよう plain な
   code span で示し、実体の解決は上記「参照解決順」の 1→2→3 に委ねる
-- handoff テンプレート: [`docs/working/templates/handoff.md`](../../../docs/working/templates/handoff.md)
-- [`docs/ai/eval-plan.md`](../../../docs/ai/eval-plan.md) — 8 eval 観点（AC coverage / verification honesty / format adherence）
-- [`docs/ai/eval-cases/ac-coverage.md`](../../../docs/ai/eval-cases/ac-coverage.md)
-- [`docs/ai/eval-cases/verification-honesty.md`](../../../docs/ai/eval-cases/verification-honesty.md)
-- [`docs/ai/eval-cases/format-adherence.md`](../../../docs/ai/eval-cases/format-adherence.md)
-- [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/acceptance-result.schema.json`](../../../schemas/acceptance-result.schema.json)
-- [`docs/ai/contracts/verify.md`](../../../docs/ai/contracts/verify.md) — verify phase contract
-- [`docs/ai/contracts/handoff.md`](../../../docs/ai/contracts/handoff.md) — handoff phase contract
-- Iron Law #3 / #4 ([`docs/ai/core-contract.md`](../../../docs/ai/core-contract.md))
+- handoff テンプレート: `docs/working/templates/handoff.md`
+- `docs/ai/eval-plan.md` — 8 eval 観点（AC coverage / verification honesty / format adherence）
+- `docs/ai/eval-cases/ac-coverage.md`
+- `docs/ai/eval-cases/verification-honesty.md`
+- `docs/ai/eval-cases/format-adherence.md`
+- `docs/ai/structured-outputs.md` + `schemas/acceptance-result.schema.json`
+- `docs/ai/contracts/verify.md` — verify phase contract
+- `docs/ai/contracts/handoff.md` — handoff phase contract
+- Iron Law #3 / #4 (`docs/ai/core-contract.md`)
