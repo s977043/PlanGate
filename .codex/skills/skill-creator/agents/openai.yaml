@@ -1,6 +1,6 @@
 interface:
   display_name: "skill-creator"
-  short_description: "Design a new repo-owned skill from a concrete use case and produce a repo-ready skill package. Use w"
+  short_description: "Design a new repo-owned skill from a concrete use case and pr..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use $skill-creator to assist with this project."

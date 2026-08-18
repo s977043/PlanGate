@@ -1,6 +1,6 @@
 interface:
   display_name: "skill-policy-router"
-  short_description: "Intent と Mode を受け取り、必要な Skill・ゲート要件（GatePolicy）を返す。Use when: 依頼の Intent と Mode が確定した後、どの Skill とゲートが"
+  short_description: "Intent と Mode を受け取り、必要な Skill・ゲート要件（GatePolicy）を返す。Use when: ..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use $skill-policy-router to assist with this project."

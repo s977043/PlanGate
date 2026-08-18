@@ -68,7 +68,7 @@ PlanGate（統制の外殻）の内側で動作する **実行層（Execution Ar
 | **A**: PBI INPUT PACKAGE 作成 | 統制 / 人間 | 人間 | WF-01 / WF-02 への入力提供 |
 | **B**: Plan + ToDo + TestCases 生成 | 統制 / AI | `workflow-conductor` 経由（内部で `spec-writer` が生成） | WF-01〜WF-03 を横断する計画策定 |
 | **Plan Review Readiness Gate** | 統制 / AI | 主エージェント | C-1 前の計画実行準備判定（[`plan-review-readiness-gate.md`](../ai/plan-review-readiness-gate.md)） |
-| **C-1**: セルフレビュー（17項目） | 統制 / AI | 主エージェント | 計画品質ゲート（WF 外） |
+| **C-1**: セルフレビュー（全25項目） | 統制 / AI | 主エージェント | 計画品質ゲート（WF 外。項目定義の正本: [`review-self.md`](../working/templates/review-self.md)） |
 | **C-2**: 外部AIレビュー | 統制 / AI | 外部 AI（Codex 等） | 計画独立検証ゲート（WF 外） |
 | **C-3**: 人間レビュー（三値） | 統制 / 人間 | 人間 | 計画承認ゲート（WF 外） |
 | **D**: Agent実行（TDD） | 実行 / AI | `implementation-agent` | **WF-04 Build & Refine** |

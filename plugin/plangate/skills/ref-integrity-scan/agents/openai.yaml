@@ -1,0 +1,7 @@
+interface:
+  display_name: "ref-integrity-scan"
+  short_description: "Scan dangling references before moving files"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $ref-integrity-scan to find dangling references before deleting or renaming files."
+  brand_color: "#1A56DB"
