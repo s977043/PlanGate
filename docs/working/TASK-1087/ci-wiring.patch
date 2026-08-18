@@ -1,0 +1,47 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 06ebd82..6494213 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -62,3 +62,42 @@ jobs:
+             docs/pages/explanation/product/philosophy.md
+             docs/pages/guides/governance/oss-governance.md
+             docs/workflows/**/*.md
++
++  # 配布物検査 3 本の CI 配線（#1087）。
++  #
++  # 設計原則: 3 本とも **hard gate**（rc != 0 で job を落とす）。
++  # `--warn-only` 相当の握り潰しを置かない — #1109 では検査が対象の欠落を
++  # silently skip し、`--warn-only` により既存 violations ごと常に緑だった。
++  #
++  # 検査対象が見つからない場合も **落とす**。「ツールが無いので skip」は
++  # 「検査が動いていないのに緑」と区別できず、同じ false green を再生産する。
++  distribution-checks:
++    name: 配布物検査（name 多重定義 / stale 参照 / plugin manifest）
++    runs-on: ubuntu-latest
++    timeout-minutes: 10
++    steps:
++      - name: Checkout
++        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
++        with:
++          persist-credentials: false
++
++      # check-stale-skill-refs.py は gitignore 判定に git を使う。
++      # actions/checkout が .git を用意するため追加の provision は不要。
++      - name: "skill/command/agent name の多重定義（#692 / #1087）"
++        run: python3 scripts/check-skill-name-collisions.py
++
++      - name: "repo-owned skill の stale パス参照（#691 / #1087）"
++        run: python3 scripts/check-stale-skill-refs.py
++
++      # ubuntu-latest には Node が同梱されているため setup-node は不要。
++      # バージョンは #1087 で挙動を実測した版に固定する（更新は Human 判断）。
++      - name: Install Claude Code CLI
++        run: npm install -g @anthropic-ai/claude-code@2.1.234
++
++      - name: plugin manifest / skills / agents / commands の検証
++        run: |
++          if ! command -v claude >/dev/null 2>&1; then
++            echo "::error::claude CLI が見つかりません。plugin validate を実行できないため job を失敗させます（skip すると検査未実行のまま緑になります）。"
++            exit 1
++          fi
++          claude plugin validate plugin/plangate
