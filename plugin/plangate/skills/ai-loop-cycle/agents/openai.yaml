@@ -1,0 +1,7 @@
+interface:
+  display_name: "ai-loop-cycle"
+  short_description: "Run one ai-loop cycle with C-3' arbitration"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $ai-loop-cycle to run one arbitration cycle of the ai-loop workflow."
+  brand_color: "#1A56DB"

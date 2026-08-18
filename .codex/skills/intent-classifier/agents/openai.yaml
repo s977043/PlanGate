@@ -1,6 +1,6 @@
 interface:
   display_name: "intent-classifier"
-  short_description: "ユーザーの依頼文から開発 Intent を 7 分類し、structured JSON で返す。Use when: ユーザーの依頼を受け取った直後に意図を分類したい時。「この依頼は何を求めているか判定"
+  short_description: "ユーザーの依頼文から開発 Intent を 7 分類し、structured JSON で返す。Use when: ユーザ..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use $intent-classifier to assist with this project."
