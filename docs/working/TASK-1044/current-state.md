@@ -17,19 +17,44 @@
   （branch `docs/1044-c2-reflect` / base `6089e23`）。plan パッケージ本体は PR #1049 で
   main へマージ済みだが、C-2 は未実施だったため本追補で実施した
 - **mode**: high-risk（人間 C-3 必須・autonomous APPROVE 不可）
-- **次にやること**:
-  1. 本追補のマージ（オーガナイザーが PR 作成）
-  2. 👤 C-3 人間レビュー + **裁定 5 件** — **Q-1 (1)** F-3 の方式（exit 4 案 vs harness 保護案）/
-     **Q-1 (2)** R-024 carve-out の可否 / **Q-3 (1)** AC 行数 12 の読み替え追認 /
-     **Q-3 (2)** 変更ファイル数の分母定義（15 か 16 か）— Round 2 R-015 で追加 /
-     **Q-4** `FIXTURES_DIR` 単独条件の検出力（`TC-01d` + `M-4c` で塞ぐか V2 送りか）
-     — Round 3 R-022 で追加。**計 5 件**。
-     Q-3 には安全側の向きの両論（整合レーン = 既定 critical / 設計レーン = high-risk 維持）と
-     裁定の実質的影響（差分は V-4 と C-4 複数レビュアー推奨のみ）を併記済み
-  3. APPROVED c3.json 発行後に exec（T-03 から TDD）
-- **ブロッカー**: C-3 待ち（exec ゲート）。
-  ⚠️ **`approve TASK-1044` は本追補のマージ後に行うこと** — 反映前に承認すると
-  C-2 REJECT の plan を承認した状態になる（現時点で `c3.json` は未発行）
+- **✅ C-3 は承認済み（2026-08-18 実測で確認）**:
+
+  ```
+  c3_status   = APPROVED
+  approved_at = 2026-08-12T15:12:49Z
+  approved_by = s977043@users.noreply.github.com
+  bin/plangate validate TASK-1044 → Result: PASS
+    [PASS] c3_status = APPROVED
+    [PASS] plan.md hash matches c3.json (no post-approval modification)
+  ```
+
+  > ⚠️ **本節は 2026-08-18 まで「`c3.json` は未発行 / 次は C-3 人間レビュー」と記載されており、
+  > 実体（APPROVED・validate PASS）と矛盾していた。** 着手する担当者が「まだ承認待ち」と
+  > 誤読して止まるリスクがあったため是正した（#1092 の台帳再実測で検出）。
+
+- **次にやること**: **exec（`todo.md` の T-03 から TDD）**。**ゲートは通過済みで、追加の承認は不要。**
+
+  ⚠️ ただし **exec 着手前に Human へ確認すべき事項が 1 つ**ある（下記）。
+
+- **⚠️ 未確認: 承認時の裁定 5 件の決着内容**
+
+  C-3 承認前に提示していた裁定 5 件が、**承認時にどう決着したかが記録に残っていない**
+  （`decision-log.jsonl` の D-30〜D-35 は C-2 フェーズで止まっている）。**exec 着手前に Human に確認すること。**
+
+  | ID | 論点 |
+  |---|---|
+  | **Q-1 (1)** | F-3 の方式（exit 4 案 vs harness 保護案） |
+  | **Q-1 (2)** | R-024 carve-out の可否 |
+  | **Q-3 (1)** | AC 行数 12 の読み替え追認 |
+  | **Q-3 (2)** | 変更ファイル数の分母定義（15 か 16 か）— Round 2 R-015 |
+  | **Q-4** | `FIXTURES_DIR` 単独条件の検出力（`TC-01d` + `M-4c` で塞ぐか V2 送りか）— Round 3 R-022 |
+
+  Q-3 には安全側の向きの両論（整合レーン = 既定 critical / 設計レーン = high-risk 維持）と
+  裁定の実質的影響（差分は V-4 と C-4 複数レビュアー推奨のみ）を併記済み。
+
+- **ブロッカー**: **C-3 は解消済み**。残るのは上記の裁定 5 件の確認と、
+  **`.sh` を書けるセッション**（`PLANGATE_HOOK_TASK=TASK-1044` 付き起動）。
+  Files to Touch は `tests/extras/*.sh` 16 ファイルで **HO 対象は含まない**。
 - **C-2 結果（2026-08-12 / 2 レーンとも REJECT）**: 統合 major 7 / minor 5 / info 1 を
   `review-external.md` に R-001〜R-013 として集約し全件反映。最重要 = **R-001**
   （本 PBI の修正が ta-61 の helper 直接 source fixture を「静かに通るテスト」化し

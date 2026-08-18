@@ -11,7 +11,7 @@
 
 - 設計品質の判定（PASS / WARN / FAIL）が記録
 - findings が [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) 準拠
-- C-1 セルフレビュー（17 項目）+ C-2 外部AIレビュー（high-risk / standard で実施）
+- C-1 セルフレビュー（全項目。項目定義の正本: [`docs/working/templates/review-self.md`](../../working/templates/review-self.md)）+ C-2 外部AIレビュー（high-risk / standard で実施）
 
 ## Stop rules
 
