@@ -107,4 +107,4 @@ grep / symlink 走査で出たヒットを 3 種に分類する:
 
 - `scripts/check-stale-skill-refs.py`（#691・outbound: スキルが参照する先の stale 検出）
 - `diff-audit`（Phase 5 残骸チェック。旧 `self-review`）
-- `docs/ai/skill-collision-detection.md`（名前衝突検出。本スキルは被参照検出で観点が異なる）（**配布対象外**。`install.sh --claude` / plugin / Codex の 3 経路とも導入先には配置されない。解決できない場合は本 Skill の記述を代替正本とし、「正本 `<path>` を参照できなかった」と明示する）
+- `docs/ai/skill-collision-detection.md`（名前衝突検出。本スキルは被参照検出で観点が異なる。**配布対象外**。上流リポジトリで作業する場合のみ解決する）
