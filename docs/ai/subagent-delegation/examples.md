@@ -130,7 +130,7 @@ description: "TASK-0221 plan.md の Approval 前リスク監査 review=true"。
 
 ## 既知の事実・確定済み結論・却下済み仮説
 
-- 確定済み: C-1（セルフレビュー）は PASS 済み（17項目、`review-self.md` 参照）
+- 確定済み: C-1（セルフレビュー）は PASS 済み（全25項目、`review-self.md` 参照）
 - 確定済み: 本 PBI は `scripts/hooks/check-plan-hash.sh` の固定パス書き込みを
   `mktemp` ベースへ修正する変更を含む（Hardening Override 対象パス）
 - 却下済み仮説: 「plan の変更ファイル数だけで risk レベルを判定する」方針は
