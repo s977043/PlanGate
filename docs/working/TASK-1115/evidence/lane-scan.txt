@@ -1,0 +1,23 @@
+# TASK-1115 V-3: 全レーン走査（_has_write_intent の全ルール）
+# pre	v1	v2	command
+0	2	2	printf x > docs/working/TASK-1/approvals/c3.jso*
+0	2	2	cp /tmp/x docs/working/TASK-1/approvals/c3.jso*
+0	2	2	mv /tmp/x docs/working/TASK-1/approvals/c3.jso*
+0	2	2	ln -sf /tmp/x docs/working/TASK-1/approvals/c3.jso*
+0	2	2	install /tmp/x docs/working/TASK-1/approvals/c3.jso*
+0	2	2	dd of=docs/working/TASK-1/approvals/c3.jso*
+0	2	2	printf x | tee docs/working/TASK-1/approvals/c3.jso*
+0	2	2	truncate -s 0 docs/working/TASK-1/approvals/c3.jso*
+0	2	2	patch docs/working/TASK-1/approvals/c3.jso* < /tmp/p
+0	2	2	ed docs/working/TASK-1/approvals/c3.jso*
+0	2	2	ex docs/working/TASK-1/approvals/c3.jso*
+0	2	2	git checkout HEAD -- docs/working/TASK-1/approvals/c3.jso*
+0	2	2	git restore --source HEAD docs/working/TASK-1/approvals/c3.jso*
+0	2	2	git checkout-index -f docs/working/TASK-1/approvals/c3.jso*
+0	2	2	git update-index docs/working/TASK-1/approvals/c3.jso*
+0	2	2	sed -i.bak -e s/a/b/ docs/working/TASK-1/approvals/c3.jso*
+0	2	2	perl -pi -e s/a/b/ docs/working/TASK-1/approvals/c3.jso*
+0	2	2	python3 -c "from pathlib import Path; Path('docs/working/TASK-1/approvals/c3.jso*').write_text('x')"
+0	2	0	node -e "require('fs').writeFileSync('docs/working/TASK-1/approvals/c3.jso*','x')"
+0	2	0	ruby -e "File.write('docs/working/TASK-1/approvals/c3.jso*','x')"
+0	2	0	python3 -c "open('docs/working/TASK-1/approvals/c3.jso*','w').write('x')"

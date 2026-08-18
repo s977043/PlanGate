@@ -1,0 +1,12 @@
+/bin/bash  cp src.txt tok/x9.jso*                     content=NEW       files=x9.json 
+/bin/bash  printf NEW | tee tok/x9.jso* >/dev/null    content=NEW       files=x9.json 
+/bin/bash  printf NEW > tok/x9.jso*                   content=NEW       files=x9.json 
+/bin/zsh   cp src.txt tok/x9.jso*                     content=NEW       files=x9.json 
+/bin/zsh   printf NEW | tee tok/x9.jso* >/dev/null    content=NEW       files=x9.json 
+/bin/zsh   printf NEW > tok/x9.jso*                   content=NEW       files=x9.json 
+/bin/sh    cp src.txt tok/x9.jso*                     content=NEW       files=x9.json 
+/bin/sh    printf NEW | tee tok/x9.jso* >/dev/null    content=NEW       files=x9.json 
+/bin/sh    printf NEW > tok/x9.jso*                   content=ORIGINAL  files=x9.jso* x9.json 
+/bin/dash  cp src.txt tok/x9.jso*                     content=NEW       files=x9.json 
+/bin/dash  printf NEW | tee tok/x9.jso* >/dev/null    content=NEW       files=x9.json 
+/bin/dash  printf NEW > tok/x9.jso*                   content=ORIGINAL  files=x9.jso* x9.json 
