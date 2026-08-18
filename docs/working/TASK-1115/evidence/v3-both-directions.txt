@@ -1,0 +1,54 @@
+# TASK-1115 V-3 是正: 両方向の実測（PreToolUse payload を stdin 供給 = 本番経路）
+#   pre = origin/main 17cd044 / v1 = 5ccc1fe (V-3 REJECT 版) / v2 = 本是正
+# pre	v1	v2	command
+2	2	2	echo x > docs/working/TASK-9999/approvals/c3.json
+0	2	2	echo x > docs/working/TASK-9999/approvals/c3.jso*
+0	2	2	echo x > docs/working/TASK-9999/approvals/c3.js?n
+2	2	2	echo x > docs/working/*/approvals/c3.json
+2	2	2	echo x > docs/working/TASK-9999/approvals/*.json
+2	2	2	echo x > docs/working/TASK-9999/approvals/c[3].json
+0	2	2	echo x > docs/working/TASK-9999/approvals/c[3].jso*
+0	2	2	cp /tmp/x docs/working/TASK-9999/approvals/c3.jso*
+0	2	2	printf x | tee docs/working/TASK-9999/approvals/c3.jso*
+0	2	2	sed -i.bak -e s/a/b/ docs/working/TASK-9999/approvals/c3.jso*
+0	2	2	tee docs/working/TASK-9999/approvals/x9.jso*
+0	2	2	tee approvals/x9.jso*
+0	2	2	echo x>c3.jso*
+0	0	2	cp /tmp/evil docs/working/_maintenance/*.json
+0	0	2	cp /tmp/evil docs/working/_maintenance/?aintenance.json
+0	0	2	tee docs/working/_maintenance/[m]aintenance.json
+0	2	2	cp /tmp/evil docs/working/_maintenance/maintenance.jso*
+0	0	2	cp /tmp/evil foo/?aintenance.json
+0	0	2	printf x | tee docs/working/TASK-9/approvals/c3.jso{n,n}
+0	0	2	printf x | tee docs/working/_maintenance/maintenance.jso{n,n}
+0	2	2	echo x > docs/working/TASK-9/approvals/"c3.jso"*
+0	2	2	tee docs/working/TASK-1/approvals/parent-c3.jso*
+0	2	2	tee docs/working/TASK-1/approvals/parent-integration.js?n
+0	2	0	cp src/c* /tmp/out/
+0	2	0	mv m* archive/
+0	2	0	cp public/m*.json dist/
+0	2	0	cp p*.json build/
+0	2	0	find . -name '*.json' -print0 | xargs -0 sed -i s/a/b/
+0	2	0	cp '*.json' /tmp/
+0	2	0	mv docs/working/TASK-9/approvals/*.md notes/
+0	2	0	cp docs/working/TASK-9/approvals/*.pdf /tmp/
+0	2	0	perl -i -pe s/x/y/ m*
+0	0	0	cp schemas/*.json /tmp/
+0	0	0	cp docs/*.md /tmp/
+0	0	0	sed -i.bak -e s/a/b/ docs/working/*/status.md
+0	0	0	cp docs/img/c*.png site/
+0	0	0	install -m 644 c*.conf /usr/local/etc/
+0	0	0	dd if=/dev/zero of=c*.img
+0	0	0	cp /tmp/x docs/working/*/approvals/notes.md
+0	0	0	sed -i.bak -e s/a/b/ docs/working/*/approvals-notes.md
+0	0	0	cp /tmp/evil docs/working/_maintenance/*.pdf
+0	0	0	git commit -m 'docs: docs/working/TASK-0001/approvals/c3.json' > /tmp/log.txt
+0	0	0	git commit -m 'docs: approval token' > /tmp/log.txt
+0	0	0	cat docs/working/TASK-0001/approvals/c3.json
+0	0	0	echo 'docs/working/TASK-0001/approvals/c3.json' > /tmp/note.txt
+0	0	0	cat docs/working/*/approvals/*.json
+0	0	0	ls docs/working/*/approvals/
+0	0	0	echo "<div>*</div>" > /tmp/a.html
+0	0	0	find . -exec {} \;
+0	2	2	sed -i.bak -e s/a/b/ c[0-9].json
+0	2	2	cp c?.json /tmp/
