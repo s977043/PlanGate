@@ -160,6 +160,38 @@ t25_mk p_t1110_nl_heredoc '{"hook_event_name":"PreToolUse","tool_name":"Bash","t
 # focused 群から使う copy-like fixture（通常群の p_t1045_m_cp と同内容 / 定義順の都合で別名）
 t25_mk p_t1045_m_cp_early '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp docs/working/TASK-0001/approvals/c3.json /tmp/x"}}'
 
+# ── TASK-1115 (#1115): glob bypass fixtures ─────────────────────────────
+# 保護対象のファイル名リテラルを glob で崩すと `_is_token_path` の文字列照合が
+# 外れて外側ゲートごと素通りしていた。展開は shell が行うため実害あり
+# （引数レーンは POSIX 必須の pathname expansion で shell 非依存に成立）。
+# 正側: redirect レーン（(A)+(B) 双方が該当するもの / (A) のみのもの）
+t25_mk p_t1115_g_redirect_star '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/c3.jso*"}}'
+t25_mk p_t1115_g_redirect_q '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/c3.js?n"}}'
+t25_mk p_t1115_g_redirect_brk '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/c[3].jso*"}}'
+# approvals 配下だが保護 basename には一致しない = ルール (A) のみが拾う語
+t25_mk p_t1115_g_redirect_other '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/x9.jso*"}}'
+# 正側: 非 redirect レーン（cp / tee / sed -i）。maintenance は approvals 外 = ルール (B) のみ
+t25_mk p_t1115_g_cp '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x docs/working/TASK-0001/approvals/c3.jso*"}}'
+t25_mk p_t1115_g_tee '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee docs/working/TASK-0001/approvals/c3.jso*"}}'
+t25_mk p_t1115_g_sed '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"sed -i.bak -e s/a/b/ docs/working/TASK-0001/approvals/c3.jso*"}}'
+t25_mk p_t1115_g_maint '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/_maintenance/maintenance.jso*"}}'
+t25_mk p_t1115_g_parent '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee docs/working/TASK-0001/approvals/parent-integration.js?n"}}'
+# 負側: 日常 glob コマンド（block を広げる方向の変異 M-10 の kill 対象）
+t25_mk p_t1115_n_cp_schemas '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp schemas/*.json /tmp/"}}'
+t25_mk p_t1115_n_cp_docs '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp docs/*.md /tmp/"}}'
+t25_mk p_t1115_n_sed_status '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"sed -i.bak -e s/a/b/ docs/working/*/status.md"}}'
+t25_mk p_t1115_n_sed_apnotes '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"sed -i.bak -e s/a/b/ docs/working/*/approvals-notes.md"}}'
+t25_mk p_t1115_n_cp_apnotes '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x docs/working/*/approvals/notes.md"}}'
+# 負側: #1110 の誤検知解消が戻っていないこと（glob 語 + 無関係な redirect でも通る）
+t25_mk p_t1115_n_msg_glob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m '"'"'docs: docs/working/TASK-0001/approvals/c3.jso* handling'"'"' > /tmp/log.txt"}}'
+# 負側: 読み取りは block しない（_has_write_intent との AND が保たれている）
+t25_mk p_t1115_n_read_glob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/*/approvals/*.json"}}'
+t25_mk p_t1115_n_ls_glob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls docs/working/*/approvals/"}}'
+# 回帰: ディレクトリ側 glob は是正前から block（挙動不変であること）
+t25_mk p_t1115_r_dirglob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/*/approvals/c3.json"}}'
+t25_mk p_t1115_r_starjson '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/*.json"}}'
+t25_mk p_t1115_r_brk '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/c[3].json"}}'
+
 # ── focused kill TC 群（mutation 子プロセスでも常に実行）───────────────────
 
 # T1023-TC-01: env target = maintenance.json → BLOCK rc=2（AC-01）
@@ -476,6 +508,105 @@ if [ "$_t25_rc" = "2" ] && grep -q 'rule=copy-like' "$T25_ERR" && ! grep -q 'red
   t25_pass "T1110-TC-10 non-redirect block carries no stale redirect_target (exit 2)"
 else
   t25_fail "T1110-TC-10 stale redirect_target leaked into a non-redirect block (exit $_t25_rc)"
+fi
+
+# ── TASK-1115 (#1115): glob bypass の封鎖 ────────────────────────────────
+
+# T1115-TC-01: リダイレクト先のファイル名 glob 崩しを block（AC-1）。
+#   M-7（レーン全体）/ M-8（ルール (A)）の kill 対象。
+_t25_ok=1
+for _t25_p in p_t1115_g_redirect_star p_t1115_g_redirect_q p_t1115_g_redirect_brk \
+              p_t1115_g_redirect_other; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-01 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-01 glob-broken token filenames in redirect targets are blocked (exit 2)"
+else
+  t25_fail "T1115-TC-01 a glob-broken redirect target slipped through"
+fi
+
+# T1115-TC-02: 非 redirect レーン（cp / tee / sed -i）も同型に block（AC-2）。
+#   M-7（レーン全体）/ M-9（ルール (B)）/ M-11（basename 抽出）の kill 対象。
+_t25_ok=1
+for _t25_p in p_t1115_g_cp p_t1115_g_tee p_t1115_g_sed p_t1115_g_maint p_t1115_g_parent; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-02 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-02 argument lanes (cp/tee/sed -i) block glob-broken token filenames (exit 2)"
+else
+  t25_fail "T1115-TC-02 an argument-lane glob bypass remains"
+fi
+
+# T1115-TC-03: 日常 glob コマンドを誤 block しない（AC-5 / 負側）。
+#   **block を広げる方向の変異 M-10 は負側 TC でしか殺せない**。
+_t25_ok=1
+for _t25_p in p_t1115_n_cp_schemas p_t1115_n_cp_docs p_t1115_n_sed_status \
+              p_t1115_n_sed_apnotes p_t1115_n_cp_apnotes; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-03 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-03 everyday glob commands stay unblocked (exit 0)"
+else
+  t25_fail "T1115-TC-03 the glob gate widened blocking into everyday commands"
+fi
+
+# T1115-TC-04: #1110 の誤検知解消が戻っていない（AC-4 / 負側）。
+#   glob 語を含んでも書き込み意図との AND は維持される。
+t25_guard "$T25_TMP/p_t1115_n_msg_glob"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1115-TC-04 glob-bearing message + unrelated redirect passes (exit 0)"
+else
+  t25_fail "T1115-TC-04 #1110 false positive returned via the glob gate (exit $_t25_rc)"
+fi
+
+# T1115-TC-05: 読み取りは block しない（AC-3 / 負側）
+_t25_ok=1
+for _t25_p in p_t1115_n_read_glob p_t1115_n_ls_glob; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-05 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-05 glob reads under approvals stay unblocked (exit 0)"
+else
+  t25_fail "T1115-TC-05 a read-only glob command was blocked"
+fi
+
+# T1115-TC-06: block 詳細に glob 候補語が出る
+t25_guard "$T25_TMP/p_t1115_g_cp"
+if [ "$_t25_rc" = "2" ] && grep -q 'glob_candidate=' "$T25_ERR"; then
+  t25_pass "T1115-TC-06 block detail carries the matched glob_candidate"
+else
+  t25_fail "T1115-TC-06 block detail missing glob_candidate (exit $_t25_rc)"
+fi
+
+# T1115-TC-07: ディレクトリ側 glob の既存挙動が不変（回帰 / 是正前も rc=2）
+_t25_ok=1
+for _t25_p in p_t1115_r_dirglob p_t1115_r_starjson p_t1115_r_brk; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-07 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-07 directory-side globs remain blocked (exit 2)"
+else
+  t25_fail "T1115-TC-07 a previously-blocked directory-side glob regressed"
 fi
 
 # ── ここから通常モード限定（mutation 子プロセスでは skip）───────────────────
@@ -1201,6 +1332,33 @@ else
   #   → T1110-TC-09 が FAIL する
   _t25_mutate "M-6" 's@^.*# t1110-flatten$@  _rw_flat="$_rw_s" # t1110-flatten@' \
     't1110-flatten' 'T1110-TC-09' 'T1110'
+
+  # ── TASK-1115 (#1115) mutation ───────────────────────────────────────
+  # M-7 はレーン全体を落とす変異なので、レーン内部の分類ミスは原理的に検出できない。
+  # M-8〜M-11 はゲートを生かしたまま **分類だけ** を誤らせる変異である
+  # （diff-audit Phase 6 item 6）。変異はすべて **call site** を壊す。
+  # M-7 / レーン全体: 外側ゲートを修正前の `_is_token_path` に戻す
+  #   → glob 崩しの正側 TC（T1115-TC-01）が FAIL する
+  _t25_mutate "M-7" 's@^.*# t1115-glob-gate$@    if _is_token_path "$_cmd" \&\& _has_write_intent "$_cmd"; then # t1115-glob-gate@' \
+    't1115-glob-gate' 'T1115-TC-01' 'T1115'
+  # M-8 / レーン内部: ルール (A) approvals-dir だけを never-match にする
+  #   → 保護 basename に一致しない `approvals/x9.jso*` を含む T1115-TC-01 が FAIL。
+  #     `c3.jso*` はルール (B) が拾うので TC-02 は生き残る = 分類の切り分けを実証
+  _t25_mutate "M-8" 's@^.*# t1115-approvals-dir$@        *ZZZNEVERMATCHZZZ*) return 0 ;; # t1115-approvals-dir@' \
+    't1115-approvals-dir' 'T1115-TC-01' 'T1115'
+  # M-9 / レーン内部: ルール (B) の保護 basename リストを空振りにする
+  #   → approvals 外の `_maintenance/maintenance.jso*` を含む T1115-TC-02 が FAIL
+  _t25_mutate "M-9" 's@^.*# t1115-protected-basenames$@  for _gm_lit in ZZZNEVERMATCHZZZ; do # t1115-protected-basenames@' \
+    't1115-protected-basenames' 'T1115-TC-02' 'T1115'
+  # M-10 / レーン内部・**誤検出方向**: 先頭 glob ガードを外す（`*.json` も照合対象に）
+  #   → 負側 TC（T1115-TC-03 の `cp schemas/*.json /tmp/`）が FAIL する。
+  #     正側 TC だけでは原理的に検出できない変異である
+  _t25_mutate "M-10" 's@^.*# t1115-leading-glob$@    ZZZNEVERMATCHZZZ) return 1 ;; # t1115-leading-glob@' \
+    't1115-leading-glob' 'T1115-TC-03' 'T1115'
+  # M-11 / レーン内部: basename 抽出を語全体に変える（`${w##*/}` を剥がす）
+  #   → ルール (B) がパス付き語で照合できなくなり T1115-TC-02 が FAIL
+  _t25_mutate "M-11" 's@^.*# t1115-basename-extract$@  _gm_base="$_gm_w" # t1115-basename-extract@' \
+    't1115-basename-extract' 'T1115-TC-02' 'T1115'
 
   # T1045-TC-21: _t25_mutate 後方互換 — 既存 7 呼び出しは 4 引数のままで出力ラベルが T1023- のこと
   _t1045_c21=$(grep -c '_t25_mutate "TC-1[567]' "$PG_T25_SELF" || true)

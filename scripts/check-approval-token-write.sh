@@ -43,6 +43,100 @@ _is_token_path() {
   esac
 }
 
+# ── glob bypass の封鎖（TASK-1115 / #1115）──────────────────────────────
+# `_is_token_path` は「保護パターンで **リテラル文字列** を照合する」判定なので、
+# 照合される側（コマンド）にワイルドカードを入れて保護対象のファイル名リテラルを
+# 途中で崩すと一致が外れる（`c3.json` → `c3.jso*` / `c3.js?n`）。
+# 引数の pathname expansion は POSIX 必須のため、`cp` / `tee` 等の引数レーンでは
+# **shell 非依存で上書きが成立する**（redirect 先の展開は bash/zsh のみ）。
+# #1101（HO が `bin/../bin/plangate` で迂回できる）と同クラス
+# ＝ **正規化対象にワイルドカードが入っていない**。
+#
+# 是正の要点は **照合方向の反転**。候補語を「パターン」、保護 basename を
+# 「subject」に置くと `case "c3.json" in c3.jso*)` は一致する。
+#
+# 無条件 block（glob を含む語は全部 block）は採らない。`cp schemas/*.json /tmp/`
+# のような日常コマンドまで落ちるため（plan §誤検出の実測）。次の 2 条件に絞る:
+#   (A) approvals-dir : 語が `approvals/` を含み **basename に glob がある**
+#       → approvals/ 配下は `*/approvals/*.json` が全件保護対象なので、
+#         ファイル名が静的解決不能なら fail-closed
+#   (B) basename-glob : basename が **先頭 glob でなく**、保護 basename リテラルに
+#       パターンとして一致する
+# 先頭 glob（`*.json` 等）を (B) から外すのは誤検出抑制。approvals 配下の
+# `*.json` は (A) と既存の `*/approvals/*.json` リテラル判定の双方で閉じている。
+_may_expand_to_token_path() {
+  _gm_w="$1"
+  # glob メタ文字を含まない語は従来の `_is_token_path` リテラル判定に委ねる
+  case "$_gm_w" in
+    *'*'*|*'?'*|*'['*) : ;;
+    *) return 1 ;;
+  esac
+  _gm_base="${_gm_w##*/}" # t1115-basename-extract
+  # (A) approvals ディレクトリ配下でファイル名が静的解決不能
+  case "$_gm_w" in
+    */approvals/*|approvals/*)
+      case "$_gm_base" in
+        *'*'*|*'?'*|*'['*) return 0 ;; # t1115-approvals-dir
+      esac
+      ;;
+  esac
+  # (B) basename を「パターン」として保護 basename リテラルへ照合する。
+  #     先頭が glob の語は照合対象外（誤検出抑制 / 上記コメント）。
+  case "$_gm_base" in
+    '*'*|'?'*|'['*) return 1 ;; # t1115-leading-glob
+  esac
+  # 混在引用（`"c3.jso"*`）は shell が glob 展開するが静的抽出では引用が残る。
+  # 引用符を除去した形でも照合する（保守的側）。
+  _gm_b2=$(printf '%s' "$_gm_base" | tr -d "'\"") || _gm_b2="$_gm_base"
+  for _gm_lit in maintenance.json c3.json parent-c3.json parent-integration.json; do # t1115-protected-basenames
+    # パターンごとに `case` を分ける（語中の `|` がパターン区切りと誤解釈される
+    # shell 差異を避けるため。1 つの case に `$a|$b` を並べない）。
+    # SC2254 は **意図的**: ここは候補語を「パターン」として使う照合方向の反転であり、
+    # 引用するとリテラル比較になって #1115 の是正が無効化される。
+    # shellcheck disable=SC2254
+    case "$_gm_lit" in
+      $_gm_base) return 0 ;; # t1115-basename-glob
+    esac
+    # shellcheck disable=SC2254
+    case "$_gm_lit" in
+      $_gm_b2) return 0 ;; # t1115-basename-glob-unquoted
+    esac
+  done
+  return 1
+}
+
+# 外側ゲート: コマンド文字列が保護トークンパスを **狙いうる** か。
+#   リテラル一致（従来）OR 展開後にトークンパスになりうる glob 語を含む（#1115）
+# 真を返しても block はしない。`_has_write_intent` との AND は不変。
+_tok_glob_word=""
+_cmd_may_target_token() {
+  _cm_c="$1"
+  _tok_glob_word=""
+  _is_token_path "$_cm_c" && return 0
+  # glob メタ文字を含まないコマンドは検査不要（高速パス）
+  case "$_cm_c" in
+    *'*'*|*'?'*|*'['*) : ;;
+    *) return 1 ;;
+  esac
+  # 語分割（`>` も区切りに含めるのでリダイレクト先も同じ語として評価される）。
+  # 分割失敗は fail-closed（真側）。
+  _cm_words=$(printf '%s' "$_cm_c" | tr ' \t\n;&|()<>' '\n\n\n\n\n\n\n\n\n\n') \
+    || { _tok_glob_word='(split-failed)'; return 0; } # t1115-word-split
+  _cm_hit=1
+  _cm_ifs="$IFS"
+  IFS='
+'
+  set -f # glob 展開を止めて生の語のまま評価する
+  for _cm_w in $_cm_words; do
+    if _may_expand_to_token_path "$_cm_w"; then # t1115-word-scan
+      _tok_glob_word="$_cm_w"; _cm_hit=0; break
+    fi
+  done
+  set +f
+  IFS="$_cm_ifs"
+  return "$_cm_hit"
+}
+
 # 非書き込みリダイレクト記法だけを列挙的に除去する（TASK-1045 / #1045）。
 # 方針（plan GC-2）: 完全なシェル構文解析は行わない。これは allowlist 的な除去であり
 # `>` 判定の一般的な緩和ではない。除去対象は次の 2 種のみ:
@@ -247,11 +341,12 @@ if true; then # t1023-stdin-always
     # redirect レーンは「先がトークンパスに解決される（または解決不能）」ときのみ
     # block する（TASK-1110 / #1110）。copy-like 等の他ルールは従来どおり
     # 相関解析せず安全側 block のまま。
-    if _is_token_path "$_cmd" && _has_write_intent "$_cmd"; then
+    if _cmd_may_target_token "$_cmd" && _has_write_intent "$_cmd"; then # t1115-glob-gate
       # rule=<id> で一致ルールの根拠を機械可読に示す（TASK-1045 AC-10）。
       # redirect レーンでは一致した先も併記する（TASK-1110 AC-4）。
+      # glob 経由でゲートを通った場合は候補語も併記する（TASK-1115）。
       # 既存の可読性を壊さないよう "writes token path" は残す。
-      _block "Bash command writes token path (rule=${_wi_rule:-unknown}${_wi_redirect_target:+, redirect_target=$_wi_redirect_target}): $_cmd"
+      _block "Bash command writes token path (rule=${_wi_rule:-unknown}${_wi_redirect_target:+, redirect_target=$_wi_redirect_target}${_tok_glob_word:+, glob_candidate=$_tok_glob_word}): $_cmd"
     fi
   fi
 fi

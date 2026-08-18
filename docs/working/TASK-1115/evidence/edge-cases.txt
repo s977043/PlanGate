@@ -1,0 +1,12 @@
+# TASK-1115 残存クラス / エッジケース 実測（是正後）
+# rc	command
+0	cp /tmp/x docs/working/*/approvals/notes.md
+0	sed -i.bak -e s/a/b/ docs/working/*/approvals-notes.md
+0	cp /tmp/x foo/*3.json
+2	cp /tmp/x foo/c3.jso*
+0	OUT=c3.jso* cp /tmp/x $OUT
+2	echo x > docs/working/TASK-1/approvals/"c3.jso"*
+0	rm docs/working/TASK-1/approvals/*.json
+0	echo "<div>*</div>" > /tmp/a.html
+0	echo "-> *bold*" > /tmp/b.md
+0	git commit -m 'note about approvals/x9.jso* handling'
