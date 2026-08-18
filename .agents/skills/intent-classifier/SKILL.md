@@ -170,7 +170,7 @@ description: "ユーザーの依頼文から開発 Intent を 8 分類し、stru
 
 ## 責務境界（Mode / lite_eligible は判定しない）
 
-intent-classifier は **Intent 8 分類のみ**を担う。Mode 判定・`lite_eligible` 算定は行わない（それらは [`mode-classification.md`](../../rules/mode-classification.md) 正本 + 後段の mode 判定ステップが担当）。本スキルの出力 Intent は skill-policy-router の入力の一部となる（WF-00 advisory）。
+intent-classifier は **Intent 8 分類のみ**を担う。Mode 判定・`lite_eligible` 算定は行わない（それらは `.claude/rules/mode-classification.md` 正本 + 後段の mode 判定ステップが担当）。本スキルの出力 Intent は skill-policy-router の入力の一部となる（WF-00 advisory）。
 
 ## 関連 Skill
 
