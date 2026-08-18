@@ -31,7 +31,9 @@
 | 2026-08-18 09:49 | **裁定の確定反映（v3）+ 簡易 C-1** | 本ブランチ。`review-self-3.md`（WARN）（`9b24ba2`） |
 | 2026-08-18 09:56 | **ai-loop C-3' 裁定（run-033）** | **`HUMAN_ESCALATED`（exit 2）**。`w_check` = model_a approve / model_b **reject（logic）**。Human 判断 = **指摘を反映して再提出**。record: `docs/working/ai-loop-runs/20260818T005603Z-9b24ba2.json` |
 | 2026-08-18 09:58 | #1114 に AC-1〜AC-7 追記（Human） | 起票時に受入条件が欠落していた件の是正（`updatedAt` 実測）。本 PBI の引き継ぎ先が**受理済**になった |
-| 2026-08-18 10:07 | **run-033 指摘の確定反映（v4）+ 簡易 C-1** | 本ブランチ。`review-self-4.md`。**fail-closed 一般則 / 凍結リスト / #1114 参照是正 / V-4 撤回 / 行番号アンカー除去** |
+| 2026-08-18 10:07 | **run-033 round 1 指摘の確定反映（v4）+ 簡易 C-1** | 本ブランチ。`review-self-4.md`。**fail-closed 一般則 / 凍結リスト / #1114 参照是正 / V-4 撤回 / 行番号アンカー除去** |
+| 2026-08-18 10:30 | **ai-loop C-3 裁定（run-033 round 2）** | **`HUMAN_ESCALATED`** → **Human 裁定: U-6 不採用**（凍結リスト設計が chicken-and-egg で成立しない / 結果は不採用と同一でコストだけ増える） |
+| 2026-08-18 10:45 | **U-6 不採用の確定反映（v5）+ 簡易 C-1** | 本ブランチ。`review-self-5.md`。**U-6 を設計から除去 / `n/a (local)` の実行時検査 / TC-33 格下げ / 半順序定義 / タスク数是正** |
 
 ## 計画からの変更点（v2 → v3 / **2 分割の反映**）
 
@@ -162,6 +164,111 @@ plan §3-quinquies を新設。**§3-ter / §3-quater が実装できないな�
 **#1114 完了まで恒久 NOT READY を受け入れる**。`--check` は CI 未配線（U-5）なので**自動フローは何も止まらない**。
 「`--check` が使えると便利」は fail-open を 1 つ増やす理由にならない。
 
+## 計画からの変更点（v4 → v5 / **U-6 不採用の確定反映**）
+
+ai-loop run-033 **round 2** も `HUMAN_ESCALATED`。**Human 裁定 = U-6 不採用**。
+
+### 1. 🔴 U-6（`contract=legacy` 機構）を**不採用**として plan 本体へ反映
+
+**注記の追加ではなく、plan を不採用の姿に整えた**（§3-bis を本線に昇格）。
+
+外したもの: `contract` 列 / `legacy` / `unmigrated(#1114)` / 凍結リスト
+（`scripts/apply-contract-freeze.list`）/ F-1 / F-2。
+
+**不採用の決め手（v4 設計は初日から成立しない）**:
+
+- v4 は「凍結リストは台帳と同一コミットで作成」かつ「F-2 の比較対象は**ヘッダに記録した凍結コミットの blob**」と定めた
+- しかし **自分自身を含むコミットの SHA を、そのコミットに含まれる自分のヘッダへは書けない**（chicken-and-egg）
+- よって凍結 SHA は必ず**凍結リストが存在しないコミット**を指し、blob 取得は失敗 → fail-closed 則で**全 `legacy` 行が `undecidable`→NG**
+- 「直前コミットを指す」設計でも、**本 repo は squash merge 運用**のため merge 後に SHA が reachable でなくなり同じ結末
+- **結果が不採用と同一なのに実装コスト（Step 6/6b・TC-25〜28・TC-31〜34・MUT-8〜14）だけが上乗せされる**
+
+**これは私（AI）の設計ミスである。** v4 で「凍結リストで同語反復を断つ」と書いた時点で、
+**その凍結リストを検証する術が無い**ことに気づくべきだった。
+
+### 2. `--check` が #1114 完了まで NOT READY を返すことを**仕様**として明記
+
+「既知の制約」ではなく **仕様**として plan §3-bis に記載した。理由:
+
+- 本 PBI の目的は「**緑が出たときに本当に適用待ちが無いと言える**」状態を作ること。
+  契約非適合で判定できない script が残る間は**緑を出してはならない**
+- 免除機構を置けば緑にできるが、それは**判定できないものを緑にする**行為＝ #1093 が是正しようとしている fail-open そのもの
+- **`--check` は CI 未配線（U-5）**なので、NOT READY で止まるのは **Human が手で走らせたとき**のみ。**自動フローは何も止まらない**
+
+**解消条件は #1114 の完了のみ**（SC-9 で「緑にするための免除列を足さない」を固定）。
+
+### 3. `n/a (local)` の穴を塞いだ（U-6 とは独立の実在の穴）
+
+v4 までは `n/a (local)` の根拠が **台帳 `scope` 列の自己申告のみ**で、
+`targets` の tracked 検査は **E-05 の test-time だけ**だった。
+結果、**非 git ディレクトリ / tarball 展開では `n/a (local)` が無傷で OK のまま通る**
+（`legacy` は `undecidable` に倒れるのに、こちらは倒れない）。
+
+**是正（plan §3-ter-2）**: `n/a` を与える前に**実行時に**評価する。
+
+1. `targets` の tracked / untracked を判定
+2. **1 つでも tracked なら `undecidable`→NG**（`scope` の誤申告を実行時に検出）
+3. **判定自体ができない**（非 git / tarball / `git` 不在）なら **`undecidable`→NG**
+
+**TC-35 / TC-36 / E-15 / MUT-15 / MUT-16** を新設。`TC-34` の軸を
+**「full / shallow」→「git repo 有無」**へ差し替えた（凍結ベースラインが消えたため）。
+
+### 4. `§3-quater`（fail-closed 一般則）は**存続**させた
+
+**根拠**: `legacy` が消えても、**根拠検査を要する verdict が 2 つ残る**。
+
+| verdict | 根拠検査 | 検査不能の例 |
+|---|---|---|
+| `pending(defer=#N)` | 参照 issue が OPEN | offline / `gh` 不在 / rate limit |
+| `n/a (local)` | `targets` が全て untracked | 非 git / tarball / `git` 不在 |
+
+どちらも「検査できないので免除する」に倒れれば fail-open になる。
+対象を **凍結リスト系 2 つ → `n/a (local)` 1 つ**に差し替えて存続（§3-ter へ改番）。
+
+### 5. TC-33 を「補助」へ格下げ
+
+TC-33（fail-open 分岐が grep で 0 件）は、**本 PBI が R-002 で否定した
+「実装本体でなく表現を測る」クラスそのもの**。fail-open は書き方の集合として
+無限に表現でき grep では網羅できない。
+
+→ **AC カバレッジに計上しない**。実質は動的な **TC-29 / TC-30 / TC-35 / TC-36** が担う。
+SC-8 の確認手段としては残すが、**「TC-33 が通ったから fail-open が無い」とは主張しない**。
+
+### 6. AC-5 単調安全性の**半順序を定義**（v4 は未定義だった）
+
+環境を capability 集合（`network` / `git`）で表し、**集合包含の半順序**で比較する。
+
+- **比較するのは比較可能な 5 ペアのみ**（基準→各劣化環境、および各劣化環境→最貧環境）
+- **`{network}` と `{git}` は比較不能なので比較しない** — v4 の「4 組合せで NG→OK が 0 件」は
+  「基準との比較」とも「隣接ペア総当たり」とも読め、**劣化側どうしの矛盾が測れなかった**
+- 安全性順: OK 系（`applied` / `n/a (local)` / `pending(defer)`）＜ NG 系（`pending` / `undecidable`）
+- **最貧環境では `defer` 行と `n/a (local)` 行がすべて `undecidable`**
+
+### 7. タスク数の不整合を是正（承認レコード未発行のうちに）
+
+**v3 / v4 の Mode 判定表は「タスク数 22」と書いていたが、実物は v4 時点で 25 だった**
+（`review-self-4` のみ正しく 25 と書いていた）。
+
+**U-6 不採用で T-08 / T-08b が落ち、`n/a` 実行時検査の T-08d が入って実測 24。**
+Mode 表・本文・本ファイルを **24** へ統一した。**定量軸では依然 critical 帯（21+）**であり、
+high-risk は **C-3 override** のままである。
+
+### 削除ではなく「不要」として記録した項目
+
+plan §3-bis に**欠番表**を置き、TC-25〜28 / TC-31 / TC-32 / E-11 / E-12 / E-14 /
+MUT-8 / MUT-9 / MUT-11〜13 / 旧 Step 6 / 旧 T-08 / T-08b / 旧 SC-7 を
+**「U-6 不採用により不要」**として追跡可能にした。**存続 ID は再採番していない**。
+
+### v5 実測値（再カウント）
+
+| 項目 | v4 | **v5（実測）** |
+|------|----|--------------|
+| Agent タスク | 25 | **24** |
+| TC（live） | 34 | **30** |
+| MUT（live） | 14 | **11** |
+| Edge（live） | 14 | **12** |
+| 成果物ファイル | 6 | **5**（凍結リストが消えた） |
+
 ## 変更していないもの（**重要**）
 
 - **v2 の方式**: 判定を台帳へ書き写さない / script 自身の冪等判定を exit code 契約で読む / self-validating
@@ -171,11 +278,11 @@ plan §3-quinquies を新設。**§3-ter / §3-quater が実装できないな�
 
 ## 残タスク
 
-- [ ] **👤 H-1: 人間 C-3 APPROVE**（mode=high-risk / autonomous APPROVE 不可）— **U-6（§3-ter/§3-quater の拘束付きで採用するか / 不採用＝恒久 NOT READY を受け入れるか）と U-7（V-4 の要否）の判断を含む**
-- [ ] **👤 H-1b: `c3.json` の発行** — **v3 に続き v4 でも `plan_hash` が変わったため、本更新の後に発行すること**
+- [ ] **👤 H-1: 人間 C-3 APPROVE**（mode=high-risk / autonomous APPROVE 不可）— **残る判断は U-7（V-4 の要否）のみ**（U-6 は round 2 で不採用確定）
+- [ ] **👤 H-1b: `c3.json` の発行** — **v3 / v4 / v5 と plan が変わっているため、本更新の後に発行すること**
       （working-context.md の順序規約: 確定反映 → 簡易 C-1 → `c3.json` 発行 → exec。
       **本セッションでは発行していない**）
-- [ ] 🤖 exec（T-01〜T-22）— C-3 APPROVE 後
+- [ ] 🤖 exec（Agent タスク **24 本**）— C-3 APPROVE 後
 - [ ] 👤 H-5: `--check` の CI 配線（`.github/workflows/*` = HO。**U-5 持ち越し・任意**）
 
 ### BLOCKED
@@ -190,16 +297,17 @@ plan §3-quinquies を新設。**§3-ter / §3-quater が実装できないな�
 
 | ステップ | 状態 |
 |---------|------|
-| C-1（初回 / C-2 反映後 / v3 / **v4**）| ✅ `review-self.md` / `review-self-2.md` / `review-self-3.md` / **`review-self-4.md`** |
+| C-1（初回 / C-2 反映後 / v3 / v4 / **v5**）| ✅ `review-self.md` / `review-self-2.md` / `review-self-3.md` / `review-self-4.md` / **`review-self-5.md`** |
 | C-2 | ✅ REJECT → v2 で反映（`review-external.md` `R-001`〜`R-013`）|
-| **C-3'（ai-loop run-033）** | ⏸ **`HUMAN_ESCALATED`（exit 2）** → Human 判断「指摘を反映して再提出」→ **v4 で反映済** |
+| **C-3'（ai-loop run-033 round 1）** | ⏸ **`HUMAN_ESCALATED`** → 「指摘を反映して再提出」→ **v4 で反映済** |
+| **C-3'（ai-loop run-033 round 2）** | ⏸ **`HUMAN_ESCALATED`** → **Human 裁定「U-6 不採用」** → **v5 で反映済** |
 | C-3 | ⏸ **裁定 2026-08-18 済（案 B）**。**`c3.json` は未発行** |
 | exec 以降 | 未着手 |
 
 ## 参照ファイル一覧
 
 - [`plan.md`](plan.md) / [`todo.md`](todo.md) / [`test-cases.md`](test-cases.md) / [`pbi-input.md`](pbi-input.md)
-- [`review-self.md`](review-self.md) / [`review-self-2.md`](review-self-2.md) / [`review-self-3.md`](review-self-3.md) / [`review-self-4.md`](review-self-4.md) / [`review-external.md`](review-external.md)
+- [`review-self.md`](review-self.md) / [`review-self-2.md`](review-self-2.md) / [`review-self-3.md`](review-self-3.md) / [`review-self-4.md`](review-self-4.md) / [`review-self-5.md`](review-self-5.md) / [`review-external.md`](review-external.md)
 - ai-loop run-033 record: `docs/working/ai-loop-runs/20260818T005603Z-9b24ba2.json`
 - [`evidence/`](evidence/)
 - issue [#1093](https://github.com/s977043/PlanGate/issues/1093) / 分割先 [#1114](https://github.com/s977043/PlanGate/issues/1114)

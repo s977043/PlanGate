@@ -17,7 +17,7 @@
 |----------|-----------|---------|-----------------|
 | **TC-16 / MUT-6** | **実 script 全数**（`scope=release` かつ `targets` 単一 tracked）の実装本体を壊し rc=10 反転を要求 | 対象 script が **契約適合済（`adopted`）でないと実行できない**。適合は #1114 の作業 | **TC-16' / MUT-6'**（sandbox の**契約準拠 fixture** に対する同一変異）。「契約 + 検出器の組が判定品質を測れる」ことは本 PBI で実証する |
 | **TC-06** | 実 `apply-task-0146-ehs23-wiring.sh` が契約適合後に pending に現れない | 契約適合（verdict を 0/10 に写す）が **#1114 の作業** | **TC-06'**（fixture で「無条件ヘッダを印字するが rc=0」を再現し、**印字によらず `applied`** を実証）。実 script での AC-3 実証は #1114 |
-| **TC-17** | `scope=release` の**全行**が `applied`/`pending`/`undecidable` に確定 | 未移行の間は `unmigrated` が入るため全行確定は成立しない | **TC-17'**（`contract=adopted` の**全行**が 3 値に確定 + `contract=legacy` の全行が `unmigrated`。**集合で定義・件数は契約にしない**） |
+| **TC-17** | `scope=release` の**全行**が `applied`/`pending`/`undecidable` に確定 | 未移行の間は契約非適合行が `undecidable` になるため「3 値に確定」の主張は #1114 完了後に成立する | **TC-17'**（**台帳の全行**が確定 verdict を持ち、verdict 不明が 0。**集合で定義・件数は契約にしない**） |
 
 **引き継ぎ先での受理状況（2026-08-18 実測 / `gh issue view 1114`）**:
 
@@ -45,16 +45,16 @@
 | **AC-2** | 適用済みの script が pending に現れない（負の対照） | TC-04, TC-05, **TC-17'** | — |
 | **AC-3** | 無条件ヘッダを印字する script が pending に現れない | **TC-06'**（fixture）/ 実 script は **#1114** | **(b)** |
 | **AC-4** | ERROR 終了時に「適用待ちなし」ではなく「判定不能」で READY を阻む | TC-07, TC-08, **TC-18**, **TC-19** | **(a)** |
-| **AC-5** | 通常 checkout と worktree で同じ結果 + **環境差は verdict を安全側にしか動かさない**（v4 で単調安全性へ精密化） | TC-09, TC-10, **TC-34** | **(c)** |
+| **AC-5** | 通常 checkout と worktree で同じ結果 + **環境差は verdict を安全側にしか動かさない**（v4 で単調安全性へ精密化 / **v5 で半順序を定義**） | TC-09, TC-10, **TC-34** | **(c)** |
 | **AC-6** | `sync-plugin-installed.sh` が READY 条件から外れリリース後手順に移る | TC-11, TC-12 | NG-2 |
 | **AC-7** | `sh tests/run-tests.sh` rc=0（baseline 維持） | TC-13, **TC-24** | — |
 | （構造） | 台帳カバレッジ漏れを構造的に不可能にする | TC-14, TC-15 | (d) の再発防止 |
 | （構造） | **判定品質**（コメントだけで applied にならない） | **TC-16' / MUT-6'**（fixture）/ 実 script は **#1114** | **R-002** |
 | （構造） | `defer` の挙動と保護 | **TC-20, TC-21, TC-22** | **R-004** |
 | （構造） | `vX.Y.Z` 経路の fail-open 解消 | **TC-23** | **R-006** |
-| （構造・**v3**） | **移行状態 `contract=legacy` が第 2 の fail-open にならない** | **TC-25, TC-26, TC-27, TC-28** | **U-6** |
-| （構造・**v4**） | **拘束の検査が実行できないとき免除を与えない**（fail-closed） | **TC-29, TC-30, TC-31, TC-32, TC-33** | **R-10** |
-| （構造・**v4**） | **凍結集合が同語反復でない**（許可集合が台帳の外） | **TC-27 + MUT-13** | **R-11** |
+| ~~（構造・v3）~~ | ~~移行状態 `contract=legacy`~~ → **U-6 不採用により不要**（TC-25〜28） | — | — |
+| （構造・**v4 / v5**） | **根拠検査が実行できないとき免除・除外を与えない**（fail-closed） | **TC-29, TC-30, TC-35, TC-36**（**TC-33 は補助・不計上**） | **R-10** |
+| （構造・**v5**） | **`n/a (local)` が自己申告だけで OK にならない** | **TC-35, TC-36** | **R-13** |
 
 ## 穴 (a)(b)(c)(d) → TC 1:1 対応
 
@@ -62,7 +62,7 @@
 |----|------|-------------|--------|
 | **(a) fail-open** | `2>/dev/null \|\| true` で ERROR が「適用待ちなし」に化ける | rc を一次情報にし、**0/10 以外は `undecidable`→NG**。timeout も NG。`vX.Y.Z` 経路の `\|\| true` も撤廃 | **TC-07 / TC-08 / TC-18 / TC-19 / TC-23** |
 | **(b) 誤検出** | 無条件ヘッダの `[dry-run]` で適用済みが pending 扱い | **stdout を判定に使わない**。印字内容は verdict に影響しない | **TC-06' / TC-17'**（実 script 版は #1114） |
-| **(c) 環境依存** | `.claude/settings.json` 不在で結果が変わる | `scope=local` は**実行せず** `n/a` 固定。**v4 追加**: ネットワーク / git 履歴の有無は **verdict を NG 側にしか動かせない**（単調安全性） | **TC-09 / TC-10 / TC-34** |
+| **(c) 環境依存** | `.claude/settings.json` 不在で結果が変わる | `scope=local` は script を**実行しない**。**v5**: `n/a` は**自己申告では与えず実行時検査を経る**（§3-ter-2）。ネットワーク / git repo の有無は **verdict を NG 側にしか動かせない**（単調安全性） | **TC-09 / TC-10 / TC-34 / TC-35 / TC-36** |
 | **(d) 検出漏れ** | `[dry-run]` を印字しない未適用 script が不可視 | 台帳が全 script を網羅し、**印字の有無に依存しない** | **TC-01 / TC-02 / TC-03 / TC-14 / TC-15** |
 
 ## テストケース一覧
@@ -81,7 +81,7 @@
 |----|---------|------|---------|------|
 | **TC-04** | HEAD そのまま（`apply-eh3-ho-always.sh` は #1089 で**適用済み**。判定は `scripts/hooks/check-plan-hash.sh` において **`_override=0` の代入が `if [ -z "$task_id" ]` の分岐より前に現れる**こと＝ `grep -n` の出現順で確認する。**行番号は記さない**。2026-08-18 時点で成立） | `check_pending_applies()` | **`applied`**（rc=0）で pending に現れない | Integration |
 | **TC-05** | TC-01 の sandbox（未適用）と TC-04（適用済み）を比較 | 両 verdict | **`pending` ⇄ `applied` に反転**（片方向だけでないことの実証） | Integration |
-| **TC-17'（v3 で改訂 / R-002）** | HEAD そのまま | `check_pending_applies()` の全 verdict | **`contract=adopted` の全行**が `applied` / `pending` / `undecidable` のいずれかに確定し、**`contract=legacy` の全行**が `unmigrated(#1114)` になる。verdict 不明の行が **0**（**集合で定義し件数を契約にしない**）。v2 の「`scope=release` 全行が 3 値に確定」は **#1114 完了時の条件**として引き継ぐ | Integration |
+| **TC-17'（v3 で改訂 / v5 で U-6 不採用を反映 / R-002）** | HEAD そのまま | `check_pending_applies()` の全 verdict | **台帳の全行**について verdict が `applied` / `pending` / `pending(defer)` / `n/a (local)` / `undecidable` のいずれかに確定し、**verdict 不明の行が 0**（**集合で定義し件数を契約にしない**）。**契約非適合 script は `undecidable` に入る**（免除列は無い / §3-bis）。v2 の「`scope=release` 全行が applied / pending の 2 値に確定」は **#1114 完了時の条件**として引き継ぐ（#1114 AC-2） | Integration |
 
 ### AC-3: 誤検出の解消（v3: 本 PBI は fixture で実証 / 実 script は #1114）
 
@@ -127,25 +127,40 @@
 | **TC-14** | — | `ls scripts/apply-*.sh` の集合 vs 台帳の集合 | **`comm -3` が空**（集合同値。**件数の絶対値は使わない** / R-012） | Unit |
 | **TC-15** | sandbox に `scripts/apply-zz-dummy.sh` を追加（台帳登録なし） | `check_pending_applies()` | **`undecidable`** → **NOT READY** | Integration |
 | **TC-16'（v3 で改訂 / R-002・MUT-6' の受け皿）** | sandbox の**契約準拠 fixture apply script**（単一 tracked target・冪等判定は実装本体を見る）の**実装本体を壊し、コメント / marker は残す** | 当該 fixture の `--dry-run` rc と検出器の verdict | **rc=10（pending）に反転**し、検出器も **`pending`** を出す。反転しない＝**契約か検出器の設計が誤り**として FAIL（緑にしない / SC-6）。**実 script 全数版は #1114**（MUT-6） | Mutation |
-| **TC-25（新規 / U-6）** | 台帳に `contract=legacy` の行がある（#1114 が **OPEN**） | `check_pending_applies()` | **`unmigrated(#1114)` として WARN 行が毎回出力され、READY を阻まない**。**script 名と #1114 が出力に必ず出る**（不可視化しない） | Integration |
-| **TC-26（新規 / U-6）** | sandbox で **#1114 が CLOSED** の状態を合成 | `check_pending_applies()` | `contract=legacy` の行が **`undecidable`→NG**（移行の永久先送りを許さない） | Integration |
-| **TC-27（v4 で非空振り化 / F-1）** | **台帳だけを編集**し、**凍結リスト `scripts/apply-contract-freeze.list` に無い** script に `contract=legacy` を付ける | 台帳 + 凍結リスト検査 | **FAIL**（`legacy` の値域は**台帳の外**の凍結リストに閉じる / SC-7）。**v3 は許可集合の出所が未定義で、台帳の `legacy` 行から導く実装なら本 TC は構造的に空振りだった**（run-033 指摘）。**MUT-13 が空振り実装を kill する** | Unit |
-| **TC-28（v4 で前状態を固定 / F-2）** | 既に `adopted` の行を `legacy` へ差し戻す（＝**凍結リストへ再追加**が必要になる） | 凍結リスト vs **ヘッダに記録された凍結コミットの blob**（`git show <freeze_sha>:scripts/apply-contract-freeze.list`） | **FAIL**（shrink-only 違反）。**比較対象は固定した 1 点**であり「直前のコミット」ではない（drift しない） | Unit |
+| ~~**TC-25 / TC-26 / TC-27 / TC-28**~~ | **U-6 不採用により不要**（`contract=legacy` / 凍結リストが存在しない）。plan §3-bis の欠番表を参照 | — | — | — |
 
-### 検査不能（v4 新規 / §3-quater・fail-closed）
+### 検査不能（v4 新規 / v5 で対象を再定義・§3-ter・fail-closed）
 
-> **v3 の最大の穴**: 拘束を「凍結集合 + 一方向 + OPEN 検査 + 毎回表示」に置きながら、
-> **検査自身が実行できないときの挙動が未定義**だった。実装が「判定不能 → OPEN とみなす」に
-> 倒れれば `legacy` / `defer` は **offline で恒久免除**になる（run-033 Model B の最重要指摘）。
+> **v3 の最大の穴**: 拘束を置きながら、**検査自身が実行できないときの挙動が未定義**だった。
+> 実装が「判定不能 → 免除」に倒れれば **offline / 非 git で恒久免除**になる（run-033 Model B）。
+>
+> **v5**: `legacy` は消えたが、**根拠検査を要する verdict は `pending(defer)` と `n/a (local)` の 2 つ残る**。
+> よって一般則は存続し、対象を**凍結リスト系 2 つ → `n/a (local)` 1 つ**へ差し替えた。
 
 | ID | 前提条件 | 入力 | 期待出力 | 種別 |
 |----|---------|------|---------|------|
-| **TC-29（新規）** | 台帳に `defer=#NNNN` 行あり。sandbox で **ネットワーク不通**（`gh` が非 0 で失敗 / timeout） | `check_pending_applies()` | 当該行が **`undecidable`→NG**。**`pending(defer)` として免除されない**。メッセージに「issue state 取得不能」と理由が出る | Integration |
-| **TC-30（新規）** | `contract=legacy` 行あり。sandbox で **`gh` を PATH から除去**（未認証 / rate limit も同型） | `check_pending_applies()` | 当該行が **`undecidable`→NG**。**`unmigrated` として免除されない** | Integration |
-| **TC-31（新規）** | `contract=legacy` 行あり。**凍結リストを削除 / 破損 / ヘッダ SHA 欠落** | `check_pending_applies()` | **全 `legacy` 行が `undecidable`→NG**（F-1 が検査できない＝免除しない） | Integration |
-| **TC-32（新規）** | `contract=legacy` 行あり。**shallow clone / tarball 展開 / 凍結コミットが履歴に無い / git repo でない** | `check_pending_applies()` | **全 `legacy` 行が `undecidable`→NG**（F-2 が検査できない＝免除しない）。**「履歴が無いから検査省略」にしない** | Integration |
-| **TC-33（新規）** | 上記 TC-29〜32 の各状況 | `check_pending_applies()` の**実装** | **「取得失敗 → OPEN とみなす」「取得失敗 → 制約なし」に相当する分岐が grep で 0 件**（SC-8 の静的確認） | Unit |
-| **TC-34（新規 / 単調安全性・AC-5 拡張）** | **ネットワーク有無 × git 履歴（full / shallow）有無 の 4 組合せ** | 各組合せで全 verdict を採取 | **NG→OK 方向の変化が 0 件**（OK→NG は許容）。**逆向きが 1 件でもあれば FAIL**。v3 の TC-09 は `.claude/settings.json` の有無しか diff しておらず、**ネットワーク / git 履歴の軸を測っていなかった**（run-033 指摘） | Integration |
+| **TC-29** | 台帳に `defer=#NNNN` 行あり。sandbox で **ネットワーク不通**（`gh` が非 0 で失敗 / timeout） | `check_pending_applies()` | 当該行が **`undecidable`→NG**。**`pending(defer)` として免除されない**。メッセージに「issue state 取得不能」と理由が出る | Integration |
+| **TC-30** | 台帳に `defer=#NNNN` 行あり。sandbox で **`gh` を PATH から除去**（未認証 / rate limit も同型） | `check_pending_applies()` | 当該行が **`undecidable`→NG** | Integration |
+| ~~**TC-31 / TC-32**~~ | **U-6 不採用により不要**（凍結リスト / 凍結ベースラインが存在しない） | — | — | — |
+| **TC-35（v5 新規 / §3-ter-2）** | 台帳に `scope=local` の行があり、その `targets` に **tracked ファイルが 1 つ以上含まれる**（`scope` の誤申告） | `check_pending_applies()` | **`undecidable`→NG**。**`n/a (local)` を与えない**（自己申告を実行時に検証。`n/a` の抜け道化防止） | Integration |
+| **TC-36（v5 新規 / §3-ter-2）** | 台帳に `scope=local` 行あり。**非 git ディレクトリ / tarball 展開 / `git` 不在**で tracked 判定ができない | `check_pending_applies()` | **`undecidable`→NG**。**「git が無いから検査省略 → `n/a`」にしない** | Integration |
+| **TC-33（v5 で「補助」へ格下げ）** | 上記 TC-29 / TC-30 / TC-35 / TC-36 の各状況 | `check_pending_applies()` の**実装** | 「取得失敗 → 免除」に相当する分岐が **grep で 0 件**。**ただし本 TC は補助であり、AC のカバレッジには計上しない**（下記） | Unit（**補助**） |
+| **TC-34（v5 で半順序を定義 / 単調安全性・AC-5）** | **ネットワーク有無 × git repo 有無 の 4 環境**（v4 の「full / shallow」軸は凍結ベースライン消滅により**不要**） | 各環境で全 verdict を採取し、**集合包含で比較可能な 5 ペア**について比較 | **NG→OK 方向の変化が 0 件**（OK→NG は許容）。**比較不能ペア（network のみ / git のみ）は比較しない**。**最も貧しい環境では `defer` 行と `n/a (local)` 行がすべて `undecidable`** | Integration |
+
+#### TC-33 の位置づけ（**v5 で是正**）
+
+TC-33 は「fail-open に相当する分岐が grep で 0 件」という**静的検査**である。
+しかしこれは **本 PBI が R-002 で否定した「実装本体ではなく表現を測る」クラスそのもの**である
+（fail-open は `[ "$state" = CLOSED ] || allow` や `set +e` など**書き方の集合**として
+無限に表現でき、grep では網羅できない）。
+
+したがって:
+
+- **TC-33 は「補助」とし、AC のカバレッジには計上しない**
+- **実質を担うのは動的な TC-29 / TC-30 / TC-35 / TC-36** であり、
+  これらが `undecidable` を実測することで fail-closed を保証する
+- **SC-8 の確認手段としては残す**が、**「TC-33 が通ったから fail-open が無い」とは主張しない**
+
 | **TC-20（新規 / R-004）** | 台帳に `pending` + `defer=#NNNN`（OPEN issue）を 1 行 | `check_pending_applies()` | **rc=0（READY を阻まない）かつ出力に script 名と issue 番号が必ず出る**（不可視化しない） | Integration |
 | **TC-21（新規 / R-004）** | 台帳に `undecidable` になる行 + `defer=#NNNN` | `check_pending_applies()` | **NG のまま**（`defer` は `undecidable` に効かない / R-001 の「握りつぶす経路を作らない」） | Integration |
 | **TC-22（新規 / R-004）** | `defer` 行を 1 行追加 | `git diff` / `decision-log.jsonl` | **`git diff` に 1 行として現れる**（監査可能性）かつ **`decision-log.jsonl` に対応エントリが無ければ NG**。参照 issue が **CLOSED なら NG** | Unit + Integration |
@@ -156,18 +171,16 @@
 | ID | 変異（**call site / 実態を壊す**） | kill されるべき TC |
 |----|--------------------------------|------------------|
 | **MUT-1** | `check_pending_applies()` を**旧実装**（`[dry-run]` 文字列一致 + `2>/dev/null \|\| true`）に戻す | TC-02, TC-03, **TC-06'**, TC-07, TC-18 |
-| **MUT-2** | `undecidable` の扱いを **NG → OK** に倒す | TC-07, TC-08, TC-15, TC-19, TC-21, **TC-26** |
+| **MUT-2** | `undecidable` の扱いを **NG → OK** に倒す | TC-07, TC-08, TC-15, TC-19, TC-21, **TC-35, TC-36** |
 | **MUT-3** | 台帳カバレッジ照合（`comm -3`）の呼び出しを**削除** | TC-14, TC-15 |
 | **MUT-4** | `scope` を見ず**全 script に `n/a` を無条件付与** | TC-01, TC-02, TC-03, **TC-06'**, **TC-17'** |
 | **MUT-5** | `defer` の検査（OPEN / decision-log / `undecidable` 除外）を**削除** | TC-20, TC-21, TC-22 |
 | **MUT-6'（v3 で改訂 / R-002）** | **判定品質を kill する変異**: **fixture** の実装本体だけを壊し marker / コメントは残す | **TC-16'**（反転しなければ契約 or 検出器の設計が誤り＝FAIL）。**実 script 全数版（MUT-6）は #1114** |
 | **MUT-7（新規 / R-006）** | `vX.Y.Z` 経路に `\|\| true` を戻す | TC-23 |
-| **MUT-8（新規 / U-6）** | `contract=legacy` の**F-1 検査 / F-2 検査 / #1114 OPEN 検査**を削除 | **TC-26, TC-27, TC-28** |
-| **MUT-9（新規 / U-6）** | `unmigrated` を **WARN → 非表示**に倒す（不可視化） | **TC-25** |
-| **MUT-10（v4 / 実行不能に落とす変異）** | issue state の**取得失敗を「OPEN とみなす」**に倒す | **TC-29, TC-30, TC-33** |
-| **MUT-11（v4 / 同上）** | 凍結リストの**読み込み失敗を「制約なし（全 `legacy` 許可）」**に倒す | **TC-31, TC-33** |
-| **MUT-12（v4 / 同上）** | 凍結ベースライン blob の**取得失敗を「shrink-only 検証 PASS」**に倒す | **TC-32, TC-33** |
-| **MUT-13（v4 / 同語反復への逆戻り）** | 凍結リスト参照をやめ、**台帳の `legacy` 行自身から凍結集合を導く** | **TC-27**（許可集合が自己言及になれば TC-27 が通ってしまう＝ kill されること） |
+| ~~**MUT-8 / MUT-9 / MUT-11 / MUT-12 / MUT-13**~~ | **U-6 不採用により不要**（`legacy` / 凍結リストが存在しない）。plan §3-bis の欠番表を参照 | — |
+| **MUT-10（v4 / 実行不能に落とす変異）** | issue state の**取得失敗を「OPEN とみなす」**に倒す | **TC-29, TC-30** |
+| **MUT-15（v5 / 自己申告への逆戻り）** | `n/a (local)` の**実行時 tracked 判定を省き、`scope` の自己申告だけで `n/a` を与える** | **TC-35** |
+| **MUT-16（v5 / 実行不能に落とす変異）** | tracked **判定不能を「untracked とみなす」**に倒す（非 git 環境で `n/a` を与える） | **TC-36** |
 | **MUT-14（v4 / 単調安全性）** | 単調検査を削除し、**環境差で verdict が OK 側へ動く**のを許す | **TC-34** |
 
 各変異は **sandbox 内で適用**し、対象 TC が **FAIL する**ことを実測して
@@ -186,13 +199,13 @@
 | **E-02** | 台帳に**同一 script の重複行** | **`undecidable`** + 明示エラー |
 | **E-03** | 台帳の列が**タブ欠落**で不足 | **`undecidable`** + 行番号付きエラー |
 | **E-04** | `targets` が**シンボリックリンク / ディレクトリ** | **`undecidable`** |
-| **E-05** | `scope=local` なのに `targets` に **tracked ファイル**が 1 つでもある | テストで **FAIL**（`n/a` の抜け道化防止） |
+| **E-05（v5 で実行時にも適用）** | `scope=local` なのに `targets` に **tracked ファイル**が 1 つでもある | テストで **FAIL**、かつ**実行時は `undecidable`→NG**（§3-ter-2。**test-time だけに依存しない** / TC-35） |
 | **E-06** | `defer` が**不正形式**（`#` なし・非数値・CLOSED issue） | **`undecidable`** 扱い（誤記で NG を消させない） |
 | **E-07** | `scripts/apply-*.sh` が **0 本** | 台帳も空 → OK（集合同値で成立） |
-| **E-11（新規 / U-6）** | `contract` の値が `adopted` / `legacy` 以外（誤記・空） | **`undecidable`**（未知値を安全側に倒す。緑にしない） |
-| **E-12（新規 / U-6）** | `contract=legacy` かつ `defer` も付いている | **`unmigrated` が優先**（二重の免除を重ねない。`defer` は `adopted` 行にのみ意味を持つ） |
+| ~~**E-11 / E-12**~~ | **U-6 不採用により不要**（`contract` 列が存在しない） | — |
 | **E-13（新規 / v4）** | issue state の応答が **OPEN・CLOSED のいずれとも解釈できない**（API 変更 / 予期しない JSON / 空応答） | **`undecidable`**（不明を OPEN に丸めない / §3-quater） |
-| **E-14（新規 / v4）** | 凍結リストに **台帳に存在しない script 名**がある / **重複行**がある | **`undecidable`** + 明示エラー（凍結リスト自体の破損を緑にしない） |
+| ~~**E-14**~~ | **U-6 不採用により不要**（凍結リストが存在しない） | — |
+| **E-15（v5 新規）** | `scope=local` の `targets` に**存在しないパス**が含まれる | **`undecidable`**（tracked 判定ができない＝根拠が立たない。§3-ter） |
 | **E-08** | script 名に**空白**を含む | TSV 列破損 → **`undecidable`** + 明示エラー |
 | **E-09（新規）** | script が **rc=10 だが stdout に何も出さない** | **`pending`**（stdout に依存しない / R-003） |
 | **E-10（新規）** | script が **rc=0 だが diff を大量に印字** | **`applied`**（印字は判定に影響しない / R-003） |
@@ -201,7 +214,7 @@
 
 | TC | 自動化 |
 |----|-------|
-| TC-01〜TC-09, TC-11〜TC-34, E-01〜E-14, MUT-1〜MUT-14 | **自動**（`ta-67-release-prep-pending.sh`） |
+| TC-01〜TC-09, TC-11〜TC-24, TC-29, TC-30, TC-33〜TC-36, E-01〜E-10, E-13, E-15, MUT-1〜MUT-7, MUT-10, MUT-14〜MUT-16 | **自動**（`ta-67-release-prep-pending.sh`） |
 | **TC-10** | **半自動**（判定は自動だが**実機 2 環境での実走は Human / 別セッション**。evidence に verdict 添付） |
 
 ## sandbox コスト方針（R-010）
