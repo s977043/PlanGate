@@ -1,0 +1,18 @@
+--- a/tests/extras/ta-62-t26-recurse-env-guard.sh
++++ b/tests/extras/ta-62-t26-recurse-env-guard.sh
+@@ -1,5 +1,5 @@
+ # tests/extras/ta-62-t26-recurse-env-guard.sh
+-# PG_EXTRA_CAPABILITY: standalone-capable
++# PG_EXTRA_CAPABILITY: harness-only
+ # Sourced by tests/run-tests.sh — uses $pass / $fail counters
+ # TASK-1036 (#1036): PG_T26_NO_RECURSE の呼び出し元 env 漏れ回帰テスト。
+ #
+@@ -32,7 +32,7 @@
+   exit 1
+ fi
+ . "$_pg_extra_helper"
+-pg_extra_contract_init ta-62-t26-recurse-env-guard standalone-capable
++pg_extra_contract_init ta-62-t26-recurse-env-guard harness-only
+ 
+ # ta-26 TC-33（静的検査 / README 規約 8）準拠: FIXTURES_DIR:- を含む extras は
+ # standalone 経路で runner と同一の 7 env unset を自ファイル内に持つ必要がある。
