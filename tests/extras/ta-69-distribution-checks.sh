@@ -142,12 +142,12 @@ else
   t69_fail "TC-G1: expected 0 defs in a reset sandbox, got $_t69_g1"
 fi
 
-# --- TC-G2: 注入失敗が [FAIL] として顕在化することの実証 ---
+# --- TC-G2: 注入失敗が明示的な失敗として顕在化することの実証 ---
 # t69_fail をサブシェル内で差し替え、_t69_assert_defs が実際に発火するか見る。
 _t69_reset_coll
 _t69_g2=$( t69_fail() { printf 'GUARD_FIRED\n'; }; _t69_assert_defs 3 "probe" || true )
 if printf '%s' "$_t69_g2" | grep -q 'GUARD_FIRED'; then
-  t69_pass "TC-G2: a failed injection surfaces as an explicit [FAIL], not a silent rc=0"
+  t69_pass "TC-G2: a failed injection surfaces as an explicit test failure, not a silent rc=0"
 else
   t69_fail "TC-G2: expected the precondition guard to fire on a failed injection"
 fi
