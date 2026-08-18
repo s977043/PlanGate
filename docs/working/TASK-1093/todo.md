@@ -29,7 +29,9 @@
 | T-05 | `docs/ai/ho-change-workflow.md` に rc 契約（0=applied / 10=pending / その他=undecidable）を正本化し、**既存の「標準フロー」2 の契約記述を同時に整理** | agent | — | `git checkout origin/main -- docs/ai/ho-change-workflow.md` | 「アンカー不在→exit 1」等の既存記述と**矛盾が残っていない**（**R-009**）。**#1114 が「移行先の契約」として参照できる**こと |
 | T-06 | `check_pending_applies()` を rc ベース + 実行ガード（timeout / rc 捕捉 / `scope=local` は実行しない）へ差し替え | agent | T-04, T-05 | `git checkout origin/main -- scripts/release-prep.sh` | 旧実装の `[dry-run]` 文字列一致が grep で **0 件**。stdout を判定に使っていないこと |
 | T-07 | 台帳カバレッジ照合を判定側に組込（`comm -3` の集合同値） | agent | T-06 | 同上 | 台帳に無い script を 1 本足すと `undecidable`→NOT READY |
-| T-08 | **`contract=legacy`→`unmigrated(#1114)` WARN の実装**（**U-6 採用時のみ**）: 凍結集合 / 一方向 / #1114 OPEN 検査 | agent | T-06 | 同上 | **凍結集合外の `legacy`** と **`adopted→legacy` 差し戻し**が FAIL。**#1114 が CLOSED なら `undecidable`→NG**（**SC-7**） |
+| T-08 | **凍結リスト `scripts/apply-contract-freeze.list` の作成**（**U-6 採用時のみ**）: `legacy` 許可集合 + ヘッダに凍結コミット SHA | agent | T-04 | `git rm scripts/apply-contract-freeze.list` | **台帳とは別ファイル**であること（同語反復の回避 / F-1）。`legacy` 行 ⊆ 凍結リスト |
+| T-08b | **`contract=legacy`→`unmigrated(#1114)` WARN の実装**: F-1（凍結リスト参照）/ F-2（**凍結コミット blob との shrink-only 比較**）/ #1114 OPEN 検査 | agent | T-08 | `git checkout origin/main -- scripts/release-prep.sh` | **凍結リスト外の `legacy`** と **`adopted→legacy` 差し戻し**が FAIL。**#1114 CLOSED で `undecidable`→NG**（**SC-7**） |
+| T-08c | **検査不能時の fail-closed 実装**（§3-quater / **最優先**）: issue state 取得不能 / 凍結リスト取得不能 / 凍結ベースライン取得不能 をすべて `undecidable` へ | agent | T-08b | 同上 | **「取得失敗 → OPEN とみなす」「取得失敗 → 制約なし」経路が grep で 0 件**（**SC-8**）。offline / shallow clone で免除行が NG になることを実走確認 |
 | T-09 | `defer` の 4 層防御を実装（Human 発行のみ / `decision-log.jsonl` 1:1 / 参照 issue が **OPEN** / `git diff` 1 行可視） | agent | T-06 | 同上 | **`undecidable` に `defer` が効かない**こと（判定不能を defer で消させない / **R-001 / TC-21**） |
 | T-10 | `n/a (local)` 行に `bin/plangate doctor --check-settings` への導線を表示 | agent | T-06 | 同上 | 通常 checkout で settings 配線シグナルが**完全には消えない**（**R-008**） |
 | T-11 | `check_plugin_cache_sync()` を `run_checks()` から除去 | agent | T-06 | 同上 | `--check` 出力に「plugin キャッシュ」行が 0 件 |
@@ -52,15 +54,16 @@
 
 | ID | タスク | Owner | depends_on | rollback | 🚩 |
 |----|-------|-------|-----------|----------|----|
-| T-21 | follow-up issue 起票: (i) **`ack` / `defer` の hook 層保護**（HO 定義本体の変更が必要・**C-3 で「本 PBI では塞げない」と確定**）/ (ii) `--check` の CI 配線（HO・Human・**U-5 持ち越し**）。**(iii) 実質ロジック是正と契約適合移行は #1114 に集約済＝新規起票しない** | agent | T-20 | issue close | **塞げないことを黙らない**（**R-004 / U-5**）。#1114 と相互リンク |
+| T-21 | follow-up issue 起票: (i) **`ack` / `defer` / 凍結リストの hook 層保護**（HO 定義本体の変更が必要・**C-3 で「本 PBI では塞げない」と確定**。**§3-ter の「残る限界」もここに含める**）/ (ii) `--check` の CI 配線（HO・Human・**U-5 持ち越し**） | agent | T-20 | issue close | **塞げないことを黙らない**（**R-004 / U-5**）。#1114 と相互リンク |
+| T-21b | **#1114 の AC と本 PBI の引き継ぎ内容の突合**（**起票ではなく既存 issue の受入条件の確認**） | agent | T-20 | — | **#1114 は起票済で AC-1〜AC-7 が付与済**（2026-08-18）。`TC-17` 相当 = #1114 AC-2 / `AC-3` 実 script 実証 = #1114 AC-3 / `MUT-6` 実 script 全数 = #1114 AC-4 / 台帳 `contract` の `adopted` 化 = #1114 AC-1 に**受理済であることを確認**する。**齟齬があれば #1114 側を是正**（本 PBI 側で抱え直さない） |
 | T-22 | `handoff.md` 発行（必須 6 要素） | agent | T-21 | — | 既知課題に「`defer` の hook 未保護（follow-up）」「`--check` CI 未配線（U-5）」「**契約非適合 script が `unmigrated` として残る（#1114）**」を列挙 |
 
 ## 👤 Human タスク
 
 | ID | タスク | Owner | タイミング | 依存 |
 |----|-------|-------|-----------|------|
-| **H-1** | **C-3 ゲート（人間必須 / mode=high-risk）**: 残る判断は **U-6**（`contract=legacy`→WARN を採用するか / 不採用なら #1114 完了まで NOT READY を受け入れる）。**U-1 / U-4 は 2026-08-18 に裁定済・U-5 は持ち越し確定** | human | exec 前 | C-1（`review-self-3.md`）+ C-2（`review-external.md`）+ [C-3 裁定](https://github.com/s977043/PlanGate/issues/1093#issuecomment-5320820417) |
-| **H-1b** | **`c3.json` の発行**（v3 で **`plan_hash` が変わった**ため、**本更新の後**に発行する） | human | H-1 の後 | H-1 |
+| **H-1** | **C-3 ゲート（人間必須 / mode=high-risk）**: 残る判断は **U-6**（`contract=legacy` を **F-1/F-2/fail-closed 付きで**採用するか / 不採用なら #1114 完了まで NOT READY を受け入れる）と **U-7**（V-4 の要否）。**U-1 / U-4 は 2026-08-18 に裁定済・U-5 は持ち越し確定** | human | exec 前 | C-1（**`review-self-4.md`**）+ C-2（`review-external.md`）+ [C-3 裁定](https://github.com/s977043/PlanGate/issues/1093#issuecomment-5320820417) + ai-loop run-033 |
+| **H-1b** | **`c3.json` の発行**（**v4 で `plan_hash` が再度変わった**ため、**本更新の後**に発行する） | human | H-1 の後 | H-1 |
 | **H-2** | `defer` の**発行**（AI は行わない / SC-2）。`decision-log.jsonl` への記録を伴う。名指し対象 = `apply-ai-loop-workflow-command.sh` | human | **#1114 で当該 script が `adopted` になった後** | #1114 |
 | **H-3** | **C-4 ゲート**: PR レビュー・**merge**（AI は行わない） | human | PR 作成後 | T-22 |
 | **H-4** | 新判定で `pending` と出た apply script の **`--apply` 実行**（必要な場合） | human | 任意（本 PBI の完了条件ではない） | — |
@@ -85,5 +88,7 @@
   **`ack` / `defer` の hook 層保護が本 PBI で塞げない**のも同じ帰結。R-004 / T-21）
 - **`defer` を AI 判断で増やさない** — SC-2（C-3 2026-08-18 で維持を確認）
 - **`undecidable` に `defer` を効かせない** — TC-21（C-3 2026-08-18 で維持を確認）
-- **`legacy` を凍結集合の外へ広げない** — SC-7
+- **`legacy` を凍結リストの外へ広げない / 凍結リストへ行を追加しない** — SC-7
+- **検査が実行できないときに免除を与えない** — SC-8（§3-quater。
+  「取得失敗 → OPEN とみなす」「取得失敗 → 制約なし」を実装しない）
 - **判定品質の変異が kill されないまま緑にしない** — SC-6

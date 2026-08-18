@@ -28,7 +28,7 @@ C-2 の 3 つの major はいずれも **この方式そのもの**への疑義�
 
 | 指摘 | v1 方式の欠陥 | 実測 |
 |------|-------------|------|
-| **R-002** | probe の marker が**コメント行**でも成立する。旧実装（stdout 文字列一致）と**同じ「表現を測る」クラスの再生産** | `bin/plangate:2248` は `  # EHS-2 (TASK-0146 / #527): ...` ＝**コメント**。実装本体を消しても `applied` になる |
+| **R-002** | probe の marker が**コメント行**でも成立する。旧実装（stdout 文字列一致）と**同じ「表現を測る」クラスの再生産** | `grep -n '# EHS-2 (TASK-0146' bin/plangate` の唯一のヒットは **`#` で始まるコメント行**（2026-08-18 実測。行番号は記さない）。実装本体を消しても `applied` になる |
 | **R-001** | 「適用済み」の定義が **2 ファイルの内容同値**である script が実在し、単一ファイル + marker では表現不能 | `grep -ln "cmp -s\|diff -q" scripts/apply-*.sh` → **4 本** |
 | **R-003** | 「script を実行しない」と「stdout の status 行を cross-check する」を同時に主張していた（実行しなければ stdout は得られない） | plan v1 Approach 1 と 3 の矛盾 |
 
@@ -126,8 +126,8 @@ verdict:
 | `pending` | rc=10、`defer` 無し | **NG** |
 | `pending(defer=#N)` | rc=10、Human 発行の `defer` 有り | **WARN（毎回表示・不可視化しない）** |
 | `n/a (local)` | `scope=local` — untracked なローカル設定が対象。**実行もしない** | OK（理由 + `bin/plangate doctor --check-settings` への導線を表示。R-008） |
-| `unmigrated(#1114)` | `contract=legacy`（**実行しない**。契約非適合なので rc に意味が無い） | **WARN（毎回表示）**。§3-bis / U-6 |
-| `undecidable` | rc がその他 / timeout / 台帳行なし / 台帳破損 / `contract=legacy` かつ #1114 が CLOSED | **NG（fail-closed）** |
+| `unmigrated(#1114)` | `contract=legacy` かつ **F-1 / F-2 / issue state の 3 検査がすべて実行でき、すべて充足**（実行しない。契約非適合なので rc に意味が無い） | **WARN（毎回表示）**。§3-bis / U-6 |
+| `undecidable` | rc がその他 / timeout / 台帳行なし / 台帳破損 / #1114 が CLOSED / **免除の根拠となる検査が実行できない**（issue state 取得不能・凍結リスト取得不能・凍結ベースライン取得不能。§3-quater） | **NG（fail-closed）** |
 
 - **(a) 解消**: rc を判定の一次情報にし、想定外 rc は必ず NG
 - **(b) 解消**: 無条件ヘッダのような**印字**は判定に影響しない
@@ -164,14 +164,99 @@ verdict:
 
 **`legacy` を「第 2 の fail-open」にしないための拘束**:
 
-- **凍結集合**: `legacy` を許すのは **台帳を作成したコミット時点で存在した `scripts/apply-*.sh` の集合**に限る。
+- **凍結集合**: `legacy` を許すのは **凍結リスト（下記 §3-ter）に載っている script** に限る。
   以後に追加される script は **`adopted` でなければ台帳に載せられない**（初日から契約準拠）
-- **一方向**: `legacy → adopted` のみ。**`adopted → legacy` への差し戻しはテストで FAIL**
+- **一方向**: `legacy → adopted` のみ。**`adopted → legacy` への差し戻しは FAIL**
+  （実現方法は §3-ter。凍結リストの **shrink-only** として検査する）
 - **期限は issue の生存**: `#1114` が **CLOSED なら `legacy` 行は `undecidable`→NG**
-  （`defer` の OPEN 検査と同じ機構を再利用）
 - **`defer` とは別物**: `defer` は **Human 発行の個別免除**（SC-2 で AI は増やさない）。
   `contract=legacy` は **C-3 が決めた分割そのものの表現**であり、
-  値域が凍結集合に閉じているため AI が新たな免除を作れない
+  値域が凍結リストに閉じているため AI が新たな免除を作れない
+- **拘束が検査できないときは免除を与えない**（§3-quater。**最重要**）
+
+### 3-ter. 凍結集合の materialize（**同語反復と shallow clone の両方を潰す**）
+
+> **v4 で追加**（ai-loop run-033 Model B 指摘）。v3 は「凍結集合」と書いただけで
+> **どこから得るかが未定義**だった。台帳の `legacy` 行から導けば**同語反復**
+> （`legacy` を 1 行足せば凍結集合が広がる ＝ TC-27 が構造的に空振り）、
+> git 履歴から導けば shallow clone で無効化される。**両方を塞ぐ。**
+
+**凍結リスト = `scripts/apply-contract-freeze.list`（新規・非 HO・台帳と同一コミットで作成）**
+
+| 性質 | 内容 |
+|------|------|
+| **場所** | **台帳とは別ファイル**。`legacy` の許可集合を**台帳の外**に置くことで**同語反復を断つ** |
+| **内容** | `legacy` を許す script の basename（1 行 1 件）+ ヘッダに **凍結コミット SHA** を記録 |
+| **意味** | **移行バックログ**。#1114 で 1 本 `adopted` にするたび、**対応する行を削除する** |
+| **不変条件 F-1（非タウトロジー）** | 台帳の `contract=legacy` 行の集合 **⊆ 凍結リストの集合**。**台帳だけを編集しても `legacy` を増やせない**（TC-33 が非空振りになる） |
+| **不変条件 F-2（shrink-only）** | 現在の凍結リスト **⊆ 凍結コミット時点の凍結リスト**。比較対象は **ヘッダに記録された凍結コミットの blob**（`git show <freeze_sha>:scripts/apply-contract-freeze.list`）＝**固定した 1 点**であり「直前のコミット」ではない（drift しない） |
+| **F-2 が「一方向」を与える理由** | `adopted → legacy` へ差し戻すには **凍結リストに再追加**するしかなく、それは集合の**拡大**なので F-2 が FAIL させる |
+
+**残る限界（明記する）**: 書き込み権限を持つ者が **凍結リストと台帳とヘッダ SHA を整合的に書き換えれば**
+F-1 / F-2 は通せる。これは **R-004（非 HO パスの承認トークンを hook が守れない）と同一の穴**であり、
+**本 PBI では塞げない**（HO 定義の変更が要る）。本設計が保証するのは
+**(i) 同語反復でないこと / (ii) 単一ファイルの編集では広がらないこと / (iii) 黙って広がらないこと**であって、
+**改竄不能ではない**。この非対称を Goal に含めない。
+
+### 3-quater. 検査不能時の verdict（**fail-closed の一般則**）
+
+> **v4 で追加**（run-033 Model B の最重要指摘）。v3 は拘束を
+> 「凍結集合 + 一方向 + OPEN 検査 + 毎回表示」に置きながら、
+> **その検査自身が実行できないときの挙動を定義していなかった**。
+> 定義が無ければ実装は「判定不能なら OPEN とみなす」に倒れやすく、
+> **`legacy` と `defer` が offline で恒久免除**になる。
+> **これは #1093 が潰そうとしている fail-open クラスそのものである。**
+
+**一般則**: **免除（`unmigrated` / `pending(defer)`）を与える根拠となる検査が
+実行できない場合、その免除を与えず `undecidable`（NG）に倒す。**
+「判定不能 → 免除」は**いかなる経路でも作らない**。
+
+| 検査 | 実行できない例 | v4 の verdict |
+|------|--------------|--------------|
+| **issue state（OPEN/CLOSED）** | ネットワーク不通 / `gh` 不在 / 未認証 / rate limit / timeout / 応答が OPEN・CLOSED のいずれとも解釈できない | **`undecidable`**（**`defer` 行・`legacy` 行の両方**） |
+| **凍結リストの読み取り（F-1）** | ファイル不在 / 読み取り不可 / 形式破損 / ヘッダ SHA 欠落 | **`undecidable`**（**全 `legacy` 行**） |
+| **凍結ベースラインの取得（F-2）** | shallow clone / tarball 展開 / 凍結コミットが履歴に無い / git repo でない | **`undecidable`**（**全 `legacy` 行**） |
+| **script の `--dry-run` 実行** | timeout / rc が 0・10 以外 | **`undecidable`**（v2 から不変） |
+
+**この設計の運用コスト（隠さない）**: **offline・shallow clone では
+`defer` / `legacy` を持つ行がすべて NG になり、`--check` は NOT READY を返す。**
+これは意図した安全側の挙動である。解消手段は
+**(a) ネットワーク到達可能な full checkout で実行する**か
+**(b) 免除を解消する（#1114 を進める / defer 対象を片付ける）**の 2 つで、
+**「検査を諦めて緑にする」経路は用意しない**。
+
+**AC-5（環境非依存 / 穴 (c)）との関係 — 単調安全性で定義し直す**:
+検査不能を NG に倒す以上、**verdict は実行環境に依存して動く**。
+AC-5 を「常に完全同一」と読むと本設計と矛盾するため、**満たすべき不変条件を精密化**する:
+
+| 環境差 | 要求 |
+|--------|------|
+| `.claude/settings.json` の有無 | **完全同一**（`scope=local` は実行しない。TC-09。v2 から不変） |
+| ネットワーク / `gh` / git 履歴 の有無 | **NG 側への変化のみ許容**。`unmigrated`・`pending(defer)` → `undecidable` は可。**逆向き（NG → OK）の変化が 1 件でもあれば FAIL** |
+
+すなわち **環境差は verdict を安全側にしか動かせない**（単調安全性）。
+これは「環境で結果が変わらない」より**強い保証**であり、穴 (c) の本質
+（**環境差で見落としが生まれる**）を塞ぐ。検査 TC は **TC-34**。
+
+### 3-quinquies. U-6 不採用時の代替案（**fail-open にするくらいなら NOT READY を受け入れる**）
+
+§3-ter（F-1 / F-2）と §3-quater（fail-closed）は **U-6 を採る場合の必須条件**である。
+**これらのいずれかが実装できない、または実装コストが見合わないと C-3 が判断した場合、
+`contract` 列ごと U-6 を不採用**とする。その場合:
+
+| 項目 | 不採用時の姿 |
+|------|------------|
+| 台帳 | `contract` 列を**持たない**（`script` / `scope` / `targets` / `defer` のみ） |
+| 凍結リスト | **作らない**（`scripts/apply-contract-freeze.list` 不要） |
+| 契約非適合 script | **`undecidable`→NG**（v2 の素の挙動。免除機構なし） |
+| `--check` の状態 | **#1114 完了まで恒久 NOT READY**。これを**受け入れる** |
+| 落ちる作業 | Step 6 / 6b・T-08 / T-08b / T-08c・**TC-25〜28・TC-31〜34・E-11・E-12・MUT-8〜9・MUT-11〜14** |
+| 残る影響 | `--check` は **CI 未配線（U-5）**のため、NOT READY で止まるのは **Human が手で走らせたとき**のみ。**自動フローは何も止まらない** |
+
+**判断基準を明示する**: 「`--check` が使えると便利」は
+**fail-open を 1 つ増やす理由にはならない**。
+拘束（F-1 / F-2 / fail-closed）を伴わない `legacy` を入れるくらいなら、
+**NOT READY を受け入れる方が本 PBI の目的（緑を信用できる状態にする）に忠実**である。
 
 > **U-6（Human 判断）**: 上記 `contract` 列を採用するか、
 > **採用せず「#1114 完了までは `--check` が NOT READY で構わない」とするか**。
@@ -200,7 +285,9 @@ v1 は `unknown`→NG に出口が無く、SC-1 発火＝**恒久 NOT READY** �
 
 - **発行は Human のみ**。AI は `defer` を増やさない（**SC-2**）
 - **`decision-log.jsonl` への記録を必須**とし、`defer` 行と 1:1 対応させる
-- **参照 issue が OPEN であること**を検査（close 済み `defer` の永久化を防ぐ）
+- **参照 issue が OPEN であること**を検査（close 済み `defer` の永久化を防ぐ）。
+  **OPEN であることを確認できない場合（offline / `gh` 不在 / rate limit / timeout）は
+  `undecidable`→NG**。**「取得できなかった → OPEN とみなす」は禁止**（§3-quater 一般則）
 - **残存リスク（明示）**: `scripts/*.tsv` は **HO 9 カテゴリ外**（実測: `check-plan-hash.sh` の
   `_override=0` 直後 `case` に `.tsv` 無し）＝ **hook は AI の書き換えを block しない**。
   防御は SC-2（規範層）+ `decision-log` + OPEN 検査 + `git diff` 1 行可視性の 4 層のみ。
@@ -239,7 +326,8 @@ v1 は `unknown`→NG に出口が無く、SC-1 発火＝**恒久 NOT READY** �
 | 3 | 台帳（マニフェスト）作成 | `scripts/apply-registry.tsv` | AI | medium | `probe_expr` 列が**存在しない**こと（方式逸脱の検出）。`contract` 列の初期値は Step 2 の実測に基づく |
 | 4 | verdict 契約の正本化 + 既存契約の整理 | `docs/ai/ho-change-workflow.md` | AI | medium | 既存の rc 記述と**矛盾が残っていない**（R-009）。**#1114 が参照できる形になっていること** |
 | 5 | `check_pending_applies()` 差し替え（実行ガード付き） | `scripts/release-prep.sh` | AI | **high** | 旧 `[dry-run]` 文字列一致が grep で 0 件 |
-| 6 | `contract=legacy` の凍結集合 / 一方向 / OPEN 検査を実装（**U-6 採用時のみ**） | `scripts/release-prep.sh` | AI | medium | `adopted→legacy` 差し戻しと**凍結集合外の `legacy`** が FAIL すること |
+| 6 | **凍結リスト作成**（**U-6 採用時のみ**）+ `contract=legacy` の F-1 / F-2 / issue state 検査を実装 | `scripts/apply-contract-freeze.list` / `scripts/release-prep.sh` | AI | **high** | `adopted→legacy` 差し戻しと**凍結リスト外の `legacy`** が FAIL。**凍結リストは台帳と別ファイル**（同語反復でない） |
+| 6b | **検査不能時の fail-closed を実装**（§3-quater） | `scripts/release-prep.sh` | AI | **high** | issue state / 凍結リスト / 凍結ベースライン の**取得失敗がすべて `undecidable`** に倒れる。**「取得失敗 → OPEN とみなす」経路が grep で 0 件** |
 | 7 | `run_checks \|\| true` 解消 + `check_plugin_cache_sync()` 除去 | `scripts/release-prep.sh` | AI | medium | `vX.Y.Z` 経路が NOT READY で rc≠0（R-006） |
 | 8 | リリース後手順への移設 | `docs/release-process.md` | AI | low | `run_checks()` から `sync-plugin-installed` 参照 0 件（R-007） |
 | 9 | 回帰テスト（**ta-61 契約 full 準拠**） | `tests/extras/ta-67-release-prep-pending.sh` | AI | **high** | marker 1 個 / `pg_extra_contract_init ta-67-release-prep-pending <cap>` / `finalize` / rc 層 / standalone 両対応（R-005） |
@@ -254,6 +342,7 @@ v1 は `unknown`→NG に出口が無く、SC-1 発火＝**恒久 NOT READY** �
 |---------|------|------|
 | `scripts/release-prep.sh` | **非 HO** | `check_pending_applies()` 差し替え / `check_plugin_cache_sync()` 除去 / `run_checks \|\| true` 解消 |
 | `scripts/apply-registry.tsv` | **非 HO・新規** | マニフェスト（**判定を持たない**） |
+| `scripts/apply-contract-freeze.list` | **非 HO・新規**（U-6 採用時） | 凍結リスト（`legacy` の許可集合。**台帳と別ファイル＝同語反復の回避**。§3-ter） |
 | `scripts/apply-*.sh` | **非 HO** | **本 PBI では変更しない**（契約適合の移行は **#1114**）。台帳には**登録のみ**する |
 | `tests/extras/ta-67-release-prep-pending.sh` | **非 HO・新規** | 回帰テスト（ta-61 契約準拠） |
 | `docs/ai/ho-change-workflow.md` | **非 HO** | rc 契約の正本化 + **既存記述の整理**（R-009） |
@@ -270,7 +359,9 @@ v1 は `unknown`→NG に出口が無く、SC-1 発火＝**恒久 NOT READY** �
 | **Unit** | 台帳パースの境界（空行 / コメント / タブ欠落 / 重複 / `scope` 整合）。verdict マッピング（rc→4 値） |
 | **Integration** | HEAD 実機で `pending` / `applied` の**両方向**を実証。ガード（rc その他 / timeout）で `undecidable`→NG |
 | **判定品質（R-002 / v3 で分割）** | **MUT-6'（本 PBI）**: sandbox の **fixture apply script**（契約準拠・単一 tracked target）の**実装本体を壊し marker/コメントは残す**変異で、`--dry-run` が **rc=10 に反転**し検出器が `pending` を出すことを要求。**契約と検出器の組が判定品質を測れる**ことの実証。**実 script 全数に対する MUT-6 は #1114**（対象 script が `adopted` になって初めて実行できるため） |
-| **移行状態（新設 / U-6）** | `contract=legacy` が **WARN として毎回出る** / **凍結集合外の `legacy` が FAIL** / **`adopted→legacy` 差し戻しが FAIL** / **#1114 CLOSED で `undecidable`→NG** |
+| **移行状態（新設 / U-6）** | `contract=legacy` が **WARN として毎回出る** / **凍結リスト外の `legacy` が FAIL**（F-1）/ **`adopted→legacy` 差し戻しが FAIL**（F-2）/ **#1114 CLOSED で `undecidable`→NG** |
+| **検査不能（新設 / v4・§3-quater）** | **ネットワーク不通 / `gh` 不在 / 凍結リスト不在 / shallow clone** のそれぞれで、免除行が **`undecidable`→NG** に倒れる。**「取得失敗 → 免除」経路が存在しない**ことを MUT-10〜13 で実証 |
+| **単調安全性（新設 / v4）** | ネットワーク有無 × git 履歴有無 の **4 組合せ**で verdict を採取し、**NG→OK の変化が 0 件**（TC-34 / MUT-14） |
 | **環境同値（AC-5）** | `.claude/settings.json` **有 / 無**の 2 sandbox で判定出力を `diff` して同一。実機 2 環境でも各 1 回実走 |
 | **Mutation（検出器側）** | MUT-1〜5（旧実装 / `undecidable`→OK / カバレッジ照合除去 / `n/a` 無条件付与 / defer 検査除去） |
 | **sandbox コスト（R-010）** | 複製は **`scripts/` + `tests/` + `bin/` + `.claude/` の最小サブツリー**（`docs/` = 18M を除外）。1 回複製して使い回す。`.github/workflows/test.yml` は `timeout-minutes: 10` |
@@ -286,8 +377,11 @@ v1 は `unknown`→NG に出口が無く、SC-1 発火＝**恒久 NOT READY** �
 | R-3 | ~~契約適合の改修が実質ロジックを変えてしまう~~ → **v3 で本 PBI から消滅** | **#1114 へ移設**（旧 SC-5 も同様） |
 | R-4 | `defer` が非 HO パスの承認トークン（**R-004**） | 4 層防御（SC-2 / decision-log / OPEN 検査 / diff 可視性）。**hook 層保護は C-3 で「本 PBI では塞げない」と確定** → follow-up 起票（Step 12） |
 | R-5 | 判定が弱い script が残る | 本 PBI では **fixture に対する MUT-6' で「測れること」を実証**。**実 script の判定品質は #1114 の MUT-6** |
-| R-6 | **`contract=legacy` が第 2 の fail-open になる** | 凍結集合 + 一方向 + #1114 OPEN 検査 + WARN 毎回表示。**U-6 不採用なら NOT READY を受け入れる**（どちらも fail-open ではない） |
+| R-6 | **`contract=legacy` が第 2 の fail-open になる** | F-1（凍結リスト・**台帳の外**）+ F-2（shrink-only）+ #1114 OPEN 検査 + WARN 毎回表示 + **§3-quater の fail-closed**。**U-6 不採用なら NOT READY を受け入れる**（どちらも fail-open ではない） |
 | R-9 | **#1114 が着手されず `legacy` が恒久化する** | `#1114` CLOSED で `undecidable`→NG に倒れる設計 + WARN の毎回表示。**期限を issue の生存に紐付ける** |
+| **R-10（v4 / run-033 Model B）** | **拘束の検査自身が実行不能になり、免除が offline で恒久化する** | **§3-quater の一般則で `undecidable` に倒す**。TC-29〜TC-32 + **MUT-10〜MUT-12** で「実行不能に落ちる変異」を kill。**「取得失敗→OPEN とみなす」は禁止** |
+| **R-11（v4 / run-033 Model B）** | **凍結集合が同語反復になり TC-27 が空振りする** | 凍結リストを**台帳の外**の別ファイルに置く（F-1）。**MUT-13** が「台帳の `legacy` 行から凍結集合を導く」変異を kill |
+| **R-12（v4）** | **単調安全性が崩れ、環境差で verdict が OK 側へ動く** | **TC-34** が 4 環境組合せで NG→OK の変化 0 件を要求。**MUT-14** が単調検査の削除を kill |
 | R-7 | sandbox コストが CI timeout を超える | 最小サブツリー + 複製使い回し（R-010）。超過時は MUT-6 を別 job / 手動実行へ退避 |
 | R-8 | 本 PBI が承認境界を緩めていないか | 変更は **NG を増やす方向のみ**（fail-open→fail-closed）。SC-3 で毎回確認 |
 
@@ -301,7 +395,8 @@ v1 は `unknown`→NG に出口が無く、SC-1 発火＝**恒久 NOT READY** �
 | **SC-4** | AC-5 が「両環境同一」にならない | 設計（`scope` 定義）に戻る。テストを緩めない |
 | **SC-5** | **`scripts/apply-*.sh` を編集したくなった** | **即停止**（**#1114 の scope**。本 PBI は台帳登録のみ） |
 | **SC-6** | fixture の MUT-6' が kill されない | **緑にしない**。契約 or 検出器の設計に戻る |
-| **SC-7** | **凍結集合外の script に `legacy` を付けたくなった** | **即停止・Human 判断**（`legacy` の値域拡大は分割の裁定を超える） |
+| **SC-7** | **凍結リスト外の script に `legacy` を付けたくなった** / **凍結リストへ行を追加したくなった** | **即停止・Human 判断**（`legacy` の値域拡大は分割の裁定を超える。F-2 違反） |
+| **SC-8（v4）** | **検査が実行できない状況で「とりあえず通す」実装をしたくなった** | **即停止**。§3-quater の一般則により **`undecidable` に倒す**。免除側へ倒す実装は書かない |
 
 ## Questions / Unknowns
 
@@ -312,7 +407,8 @@ v1 は `unknown`→NG に出口が無く、SC-1 発火＝**恒久 NOT READY** �
 | **U-3** | `defer` を台帳同居にするか別ファイルにするか | AI 提案 = 台帳同居（`git diff` に 1 行で出る）。**C-3 で異議なし** |
 | **U-4** | スコープ分割の是非 | **✅ 解決（C-3 2026-08-18）**: **案 B: 2 分割**。本 PBI = 検出器＋契約＋台帳（**high-risk**）/ 移行 = **#1114** |
 | **U-5** | `--check` の **CI 未配線**（`grep -rn "release-prep" .github/` → **0 件**）。配線は HO のため AI 不可 | **⏸ 未決のまま持ち越し（C-3 2026-08-18）**。本 PBI は Non-goals + 「既知の制約」節で**意図的な状態**として明示。配線するなら **Human（H-5）** |
-| **U-6（新規 / v3）** | 分割により契約非適合 script が残る間、`--check` を **`contract=legacy`→WARN** で使える状態に保つか、**#1114 完了まで NOT READY を受け入れる**か（§3-bis） | **Human（C-3）**。AI 提案 = **採用**（凍結集合 + 一方向 + #1114 OPEN 検査で fail-open にしない） |
+| **U-6（v3 / v4 で条件を明確化）** | 分割により契約非適合 script が残る間、`--check` を **`contract=legacy`→WARN** で使える状態に保つか、**#1114 完了まで NOT READY を受け入れる**か（§3-bis） | **Human（C-3）**。AI 提案 = **採用**。ただし **§3-ter（F-1/F-2）と §3-quater（fail-closed）が実装される場合に限る**。**これらが実装できないなら U-6 は fail-open の入口になるため、その場合は「不採用 = #1114 完了まで恒久 NOT READY を受け入れる」を採る**（下記「U-6 不採用時の代替案」） |
+| **U-7（新規 / v4）** | **V-4 を実施するか**。素の判定 critical では対象、C-3 override で high-risk になり必須ではなくなる。本 PBI はリリース可否の検出器そのものを変更する | **Human（C-3）**。**v3 の「TC-11 / TC-23 で代替」は撤回済**（既存 TC の二重計上だった）。AI からは要否を主張しない |
 
 ## Mode 判定
 
@@ -352,11 +448,18 @@ v1 は `unknown`→NG に出口が無く、SC-1 発火＝**恒久 NOT READY** �
 **最終判定**: **high-risk**（**C-3 override**。素の判定は critical / 差分はタスク数軸のみ）
 → `lite_eligible=false` / **C-2 必須（実施済・REJECT → v2 で反映）** /
 **C-3 は人間必須（high-risk も autonomous APPROVE 不可）** / V-2・V-3 実行。
-**V-4（リリース前チェック）は critical 専用のため素の判定では対象**だったが、
-override により**必須ではなくなる**。本 PBI は `scripts/release-prep.sh` そのものを変更するため、
-**V-4 相当の確認（`--check` / `vX.Y.Z` 両経路の rc）は TC-11 / TC-23 で代替**している
-（フェーズを落としても検査を落としていない）。
+
+**V-4 について（v3 の記述を撤回する）**:
+v3 は「V-4 相当の確認は TC-11 / TC-23 で代替している」と書いたが、**これは誤りなので撤回する**。
+**TC-11 は AC-6、TC-23 は R-006 の TC であり、override の有無に関わらず元から存在する。**
+override によって**追加された検査は 1 件も無く**、既存 TC の二重計上だった（run-033 指摘）。
+
+正しくは: **override により V-4（critical 専用フェーズ）は必須ではなくなり、
+その分の検査は減る。** 本 PBI は `scripts/release-prep.sh` そのもの＝
+**リリース可否を判定する検出器**を変更するため、
+**V-4 を実施するか否かは C-3 で Human が明示的に決める**（下記 U-7）。
+AI 側から「代替済みなので不要」とは主張しない。
 
 > **`c3.json` は本更新の後に Human が発行する。**
-> v3 で plan 本体が変わったため **`plan_hash` が変わる**。
+> **v3 に続き v4 でも plan 本体が変わったため `plan_hash` は再度変わる**。
 > working-context.md の順序規約（確定反映 → 簡易 C-1 → `c3.json` 発行 → exec）に従うこと。
