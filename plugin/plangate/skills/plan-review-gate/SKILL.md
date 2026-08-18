@@ -78,7 +78,7 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 plan_hash 改竄検知と exec 受理の**機械的な block は成立しない**。それでも
 **判定基準とゲート順序は不変**で、機械検証だけを手動チェックリストへ置き換える:
 
-1. **C-1 / C-2 の判定基準は変えない** — 17 項目・5 観点・Severity・R-NNN 採番・
+1. **C-1 / C-2 の判定基準は変えない** — C-1 チェック項目・5 観点・Severity・R-NNN 採番・
    「C-2 → 確定反映 → c3.json 発行」の順序は CLI の有無に関わらず不変
 2. **plan_hash 突合を手で行う** — 手順の正本は `ai-dev-verify` skill
    「CLI 不在時のフォールバック」節（legacy c3.json の sha256 突合 / c3-prime の
