@@ -5,7 +5,7 @@
 > （`check-plan-hash.sh` と `ta-65` は `01c8946`〜`6def020` で差分ゼロを実測）
 > 責務: **設計・差分・検証設計は AI-owned（本書）/ 適用は Human-owned**
 > 位置づけ: **#1144 で hook を配布する前に閉じるべき筆頭**
-> 版: **rev6**
+> 版: **rev7**
 
 ## 版の履歴（撤回した主張を明示する）
 
@@ -16,19 +16,21 @@
 | rev3 | `LC_ALL=C` を内側固定 / TC を OS・環境非依存へ | 「5 シェルで同一挙動＝可搬」/「15 変異すべて kill」/ `badutf` TC の有効性 |
 | rev4 | コマンド置換代入に `\|\|` フォールバック / `.` `*/.` クラス明記 | 「`sed`/`tr` が実行不能 → 空キー → rc=2」 |
 | rev5 | `_ho_root` を fail-closed へ / `_tf_lc` に `\|\|` + guard + `LC_ALL=C` | 「`\|\| _ho_root="$REPO_ROOT"` は block を減らさない側」/ R-7 の「悪化しない」 |
-| **rev6** | **監査ログの改行注入を遮断**（MJ-1）/ **`log_event` 失敗で block が消えるのを解消**（MJ-2）/ **infra 失敗を fail-closed から「base 相当へ縮退」へ**（MJ-3）/ **traversal の marker を分離**（MN-1） | **「3 箇所すべて fail-closed」**（**`log_event` 経由で rc=1 に化け、`_audit/` が書けない環境では block が丸ごと消える**）/ **B-12・R-10 の「可用性より承認境界を優先」**（**第 3 案＝縮退が未評価だった**）/ **rev5 の reason 設計**（**任意 target で監査ログに偽レコードを append できた**） |
+| rev6 | 監査ログの改行注入を遮断（MJ-1）/ `log_event` 失敗で block が消えるのを解消（MJ-2）/ infra 失敗を fail-closed から「base 相当へ縮退」へ（MJ-3）/ traversal の marker を分離（MN-1） | 「3 箇所すべて fail-closed」/ B-12・R-10 の「可用性より承認境界を優先」/ rev5 の reason 設計 |
+| **rev7** | **traversal 判定を `_ho_key` と生 `target_file` の union へ**（MJ-A）/ **`_esc_dl` / `_esc_c3` にも `\|\|` + 空チェック**（MJ-B）/ **構造検査を適用手順の step 化**（MJ-C）/ **タブ切り詰め + `[truncated]` マーカー + 監査書込失敗の in-band 警告**（MN-1）/ **`_PG_CR` / `_PG_TAB` が空でも壊れない形へ**（MN-2）/ §2.9 の論拠を不変条件ベースへ | **「traversal は縮退させない」**（**縮退キーは `_norm_target` で `./` 除去済みのため `.//` の証拠が消え、`notr` / `nosed` で `.//CLAUDE.md` が素通りしていた**）/ **§2.9「C でも失われないもの」表**（**`docs/../` クラスだけを根拠にし `.//` クラスを故障注入下で測っていなかった**）/ **§2.9 の「攻撃者は誘発できない」という能力主張**（証明不能。**不変条件による論証へ差し替え**）/ **R-7 の残存列挙**（**`_dl_ext` は挙げたが index shift の影響を実際に受ける `_esc_dl` を挙げていなかった**） |
 
 ## 結論先行
 
 **承認境界のパス集合（HO 9 カテゴリ）は変更しません。** 変えるのは **「HO 判定が何をキーに glob 照合するか」** と、**その正規化が壊れたときにどう振る舞うか**です。
 
 - **block する側（HO 判定）**にだけ HO 専用キー `_ho_key` を導出する。**通す側（`_norm_target`）は不変**
-- `..` / `//` / `/./` / `.` は **解決せず fail-closed で弾く**（`realpath` 非依存）
+- `..` / `//` / `/./` / `.` は **解決せず fail-closed で弾く**（`realpath` 非依存）。判定は **`_ho_key` と生 `target_file` の union**（縮退キーでは `.//` の証拠が消えるため。§2.3）
 - **パラメータ展開による除去・切り詰めは必ず `case` で前置ガードする**（無ガードの `${var%%pat}` は bash 3.2 で O(n²)。§2.4）
 - **`sed` / `tr` は `LC_ALL=C` を内側固定する**（§2.6）
 - **コマンド置換のみの代入には `|| <既定値>` を付ける**（§2.7）
 - **インフラ失敗（`sed`/`tr` が壊れている）は block ではなく「base 相当の判定へ縮退」する**（§2.9）
-- **`log_event` は「失敗しない」「1 レコード 1 行を保証する」**（§2.10 / §2.11）
+- **`log_event` は「失敗しない」「1 レコード 1 行・5 フィールドを保証する」「切り詰めたことを記録に残す」「書けなかったら in-band で警告する」**（§2.10 / §2.11）
+- **`||` を足す対象は HO 判定系だけでなく、index shift の下流も含める**（§2.13）
 
 **設計原則を 1 行で**: **policy による拒否は fail-closed、infrastructure の故障は degrade-to-base。** 前者は攻撃者が誘発できる（だから止める）、後者は誘発できず可用性だけを壊す（だから止めない）。
 
@@ -100,6 +102,8 @@ env -u PLANGATE_HOOK_TASK -u PLANGATE_SKIP_REASON -u PLANGATE_HOOK_FILE \
 | 4 | **呼び出しインデックスの移動**（`_tf_lc` が 3 回目に） | rev4 | `_tf_lc` にも同じ 3 点セット（§2.8） |
 | 5 | **block 経路が増えた分だけ監査ログ注入面が広がる** | rev5 | `log_event` で 1 行に切り詰め（§2.10） |
 | 6 | **`log_event` 自体が失敗経路**（`_audit/` 書込不可で block が消える） | rev1 以前から / rev5 の主張が誤り | `log_event` を絶対に失敗させない（§2.11） |
+| 7 | **縮退キーが証拠を落とす**（`_norm_target` は `./` 除去済みなので `.//` が消える） | **rev6** | traversal を **union 判定**へ（§2.3 / MJ-A） |
+| 8 | **index shift の下流がもう 1 つあった**（`_esc_dl` が 4 番目の `tr` に） | **rev6**（§2.8 と同一クラスの 3 度目） | 下流の該当箇所にも `\|\|` + 空チェック（§2.13） |
 
 **「防御を足すと別の穴が開く」ことが 5 巡にわたり実際に起きたので、追加した各行がどの失敗モードを持つかを §2.5〜§2.11 に個別に書きます。** rev6 でも **MJ-1 の是正（改行切り詰め）が O(n²) を再導入し、性能スイートの再実行だけで検出しました**（§2.10）。**「同じ失敗クラスを別の構文でやり直す」ことが繰り返し起きる**ため、§2.4 のガード規則は**新しく足すパラメータ展開すべてに適用**します。
 
@@ -128,10 +132,21 @@ doc-light 判定（通す側） : 小文字化しない    → 通す範囲が�
 
 ```
 (1) 前後空白の除去 + 小文字化（LC_ALL=C / || フォールバック）→ 失敗時は _norm_target へ縮退
-(2) traversal fail-closed 判定           ← ★ (3) より前
+(2) traversal fail-closed 判定           ← ★ (3) より前 / ★ _ho_key と生 target_file の union
 (3) 先頭 `./` 除去 / 末尾 `/` 除去       ← ★ どちらも case で前置ガード
 (4) root の小文字化 → repo root 除去     ← ★ (1) より後 / 失敗時は _norm_target へ縮退
 ```
+
+- **★ traversal は `_ho_key` だけを見てはいけません（MJ-A）。** `_ho_key` は (1) で `_norm_target` へ縮退しうるところ、**`_norm_target` は base 側で既に先頭 `./` を除去済み**（`.//CLAUDE.md` → `/CLAUDE.md`）なので **`//` の証拠が消えます**。これは §2.3 が「(2) を (3) より後ろに置くと `.//CLAUDE.md` が素通り」と書いた事故そのものが、**縮退経路で再現**したものです。実測（no-task）:
+
+  | target | mode | base | **rev6** | **rev7** |
+  |---|---|---|---|---|
+  | `.//CLAUDE.md` | healthy | DL/0 | TRAV/2 | TRAV/2 |
+  | `.//CLAUDE.md` | `notr` | pass/127 | **pass/127** | **TRAV/2** |
+  | `.//CLAUDE.md` | `nosed` | pass/127 | **pass/127** | **TRAV/2** |
+  | `.//bin/plangate` | `notr` | pass/127 | **SR/2**（TRAV ではない） | **TRAV/2** |
+
+  **是正**: `for _ho_cand in "$_ho_key" "${target_file:-}"` で **union** を取る。**回帰 = 変異 MA / 入力 `dotdbl_notr` `dotdbl_nosed`**。
 
 - **★ (2) を (3) より後ろに置くと `.//CLAUDE.md` が素通り**（**回帰 = MX1 / 入力 `dotdbl`**）。
 - **★ (4) を (1) より前に置くと `<REPO_ROOT を大文字化>/CLAUDE.md` が素通り**（**回帰 = MX2b / 入力 `absup`**）。
@@ -154,7 +169,21 @@ doc-light 判定（通す側） : 小文字化しない    → 通す範囲が�
 | 100,000 | 214.6 ms | **732.4 ms** | **218.3 ms** |
 | 200,000 | 408.4 ms | **2,367.0 ms** | **265.5 ms** |
 
-→ **規則**: `${var%…}` / `${var%%…}` / `${var#…}` を新規に足すときは、**必ず `case` で「一致する場合だけ」に入る**こと。本 patch 内の 5 箇所すべてがガード下です。
+→ **規則**: `${var%…}` / `${var%%…}` / `${var#…}` を新規に足すときは、**必ず `case` で「一致する場合だけ」に入る**こと。本 patch 内の 6 箇所すべてがガード下です。
+
+#### この規則には**検出器**が要る（MJ-C）
+
+**rev2 と rev6 で同じ罠を 2 回踏み、rev6 では「機能 TC は 1 件も落ちず、性能スイートの再実行だけで検出」しました。** §5.5 の測定はサンドボックス内の使い捨てで repo に残らないため、**このままでは 3 回目が起きます**。wall-clock より決定論的な**構造検査**を `ta-65` に入れます:
+
+```sh
+# 未ガードの ${var%…} / ${var#…} を検出（bash 3.2 の O(n^2) 罠）
+grep -nE '\$\{[A-Za-z_][A-Za-z_0-9]*(%%?|##?)' scripts/hooks/check-plan-hash.sh \
+  | grep -vE '^[0-9]+:[[:space:]]*[^|()]*\)[[:space:]]' \
+  | grep -vE 'dirname|:-|:=' 
+# → 出力ゼロであること
+```
+
+**実測**: base **hits=0** / rev7 採用版 **hits=0**（false positive なし）/ **無ガード版 hits=1（kill）**。**同じ無ガード版は機能 TC では検出できません**（改行注入テストはログ 1 行のまま合格する）。**§6 step 4 に入れます。**
 
 ### 2.5 空キー（`_ho_key`）の扱い
 
@@ -192,6 +221,8 @@ PATH 先頭に `exit 127` する `tr` を置いた実測（target = `CLAUDE.md` 
 | **`tr` 常時失敗** | sh / bash / zsh / dash / ksh | HO / rc=2 | **なし / rc=127** | **HO / rc=2** |
 
 **rc=127 は両ハーネスで「通す」側**です。Claude Code の PreToolUse は exit 2 のみ block、**`.codex/hooks/eh-bridge.sh:87-88` は未知 rc を明示的に `allow` へ変換**します。
+
+> **注意（MN-2）: この規則を機械的に全箇所へ適用してはいけません。** `_PG_CR=$(printf '\r') || _PG_CR=''` のように**既定値が空文字**だと、後段の `case "$msg" in *"$_PG_CR"*)` が**全文字列に一致してメッセージ全体が消えます**（実測: 長さ 0 になる）。**`||` の既定値は「その変数の意味として安全な値」でなければならず、空文字が安全とは限りません。** rev7 は (1) 空なら別表記で再取得、(2) それでも空なら**その `case` 自体をスキップ**（`[ -z "$_PG_CR" ] || case …`）の二段で閉じています。
 
 #### (b) `_ho_root` — **既定を生 `REPO_ROOT` にした rev4 は誤り**
 
@@ -255,23 +286,34 @@ rev5 は `_ho_key` / `_ho_root` の導出失敗を **block（exit 2）** にし�
 |---|---|---|---|
 | **A: fail-open**（キーが空なら HO 判定をスキップ） | **base 未満**（`CLAUDE.md` すら通る） | 影響なし | **却下**（現 main より弱い） |
 | **B: fail-closed**（rev5） | base 超（表記揺れも止まる） | **全ファイル編集が停止** | **却下**（下記） |
-| **C: degrade-to-base**（rev6・採用） | **常に base 以上**（表記揺れだけ取り逃す） | 影響なし | **採用** |
+| **C: degrade-to-base**（rev6 で採用 / rev7 の union 判定で完成） | **常に base 以上**（表記揺れだけ取り逃す） | 影響なし | **採用** |
+
+**C を採る根拠（不変条件・実測済み）**:
+
+> **縮退キー ≡ base キー**（`_ho_key := _norm_target`）である。したがって **縮退時の HO 判定は base の HO 判定と同一関数**になり、**検出力は入力に依らず常に base 以上**。
+> **81 セル × 4 モード（healthy / `notr` / `nosed` / `notr2`）= 324 セルで、base が block して rev6/rev7 が通すセルは 0 件**。
 
 **B を却下した理由**:
 
-1. **攻撃者は `tr` 故障を誘発できない。** PATH を握れる時点で hook 自体を差し替えられ、別ゲームになる。**B が守る差分（`CLAUDE.MD` 等の表記揺れ）は、実害になる条件が存在しない。**
-2. 一方 **B のコストは実在する**（全ファイル停止）。#1079 の EH-13 fail-closed 化と同型の可用性の崖。
-3. **C は base を下回らない。** 縮退先の `_norm_target` は base が使っていたキーそのもの。
+1. **B のコストは実在する**（`.md` に限らず全ファイルの編集停止）。#1079 の EH-13 fail-closed 化と同型の可用性の崖。
+2. **B が守る差分は `CLAUDE.MD` 等の表記揺れだけ**で、C はその 1 点以外を base 以上で維持する（下表）。
+3. **B は「壊れた環境で止める」という目的すら完全には果たさない**。`ulimit -u` によるプロセス枯渇では **hook プロセスごと落ちて rc≠2（= allow）** になり、B でも防げない。**「止める側に倒せば安全」という一般化が成立しない**。
 
-**C でも失われないもの（実測）**:
+> **rev6 は「攻撃者は `tr` 故障を誘発できない」を主な根拠にしていましたが、これは証明不能な能力主張なので撤回します。** 結論（C 採用）は上の不変条件だけで支持され、能力主張が崩れても崩れません。
 
-| target（`tr` 常時失敗 / TASK 文脈） | base | **rev6** |
-|---|---|---|
-| `CLAUDE.md` | HO / rc=2 | **HO / rc=2**（維持） |
-| `docs/../CLAUDE.md` | pass / rc=0 | **`EH3_PATH_REJECTED` / rc=2**（**base より強い** — traversal は縮退時も効く） |
-| `CLAUDE.MD` | pass / rc=0 | pass / rc=0（**これが C の劣化点**。base と同じ） |
+**C でも失われないもの（実測 / `tr` 常時失敗）**:
 
-**traversal は policy 判定なので縮退させません**（攻撃者が誘発できる入力だから）。**縮退させるのはインフラ故障だけ**、という切り分けです。
+| target | base | rev6 | **rev7** |
+|---|---|---|---|
+| `CLAUDE.md` | HO / rc=2 | HO / rc=2 | **HO / rc=2**（維持） |
+| `docs/../CLAUDE.md` | pass / rc=127 | TRAV / rc=2 | **TRAV / rc=2**（base より強い） |
+| **`.//CLAUDE.md`** | pass / rc=127 | **pass / rc=127** | **TRAV / rc=2** |
+| **`.//bin/plangate`** | pass / rc=127 | **SR / rc=2**（TRAV ではない） | **TRAV / rc=2** |
+| `CLAUDE.MD` | pass / rc=0 | pass / rc=0 | pass / rc=0（**これが C の唯一の劣化点**。base と同じ） |
+
+**traversal は policy 判定なので縮退させません**（攻撃者が誘発できる入力だから）。**ただし rev6 はそれを実装で達成できていませんでした**（`.//` 行）。**union 判定（§2.3）を入れて初めて成立します。**
+
+> **rev6 の「C でも失われないもの」表は `docs/../` クラスだけを根拠にしており、`.//` クラスを故障注入下で測っていませんでした。** 表に載せるクラスの選び方そのものが結論を作っていた例として記録します。
 
 **回帰 = 変異 M19（キー縮退を削除）/ 入力 `nosed`**、**変異 M20（root 縮退を削除）/ 入力 `notr2abs`**、**変異 M22（`case` から元表記リテラルを削除）/ 入力 `notr` `nosed` `notr2abs`**。
 
@@ -292,7 +334,21 @@ base で同型注入が成立するのは「HO glob に一致し、かつ `.md` 
 
 **是正**: `log_event` 側で **改行・CR より後ろを捨てて 1 レコード 1 行を保証**する。**`tr` を足すと「外部コマンド失敗」クラスを再導入する**ため、パラメータ展開で行う（**かつ §2.4 のとおり `case` で前置ガード**）。**回帰 = 変異 MJ1a / 入力 `inject`**。
 
-> **タブは残存**（R-12）。改行を落とせば**レコードの偽造は不可能**（行頭の timestamp / level / hook 名は必ず本物）で、タブは同一行内の列を増やすだけです。フォークなしで全タブを除去するにはループが要り、§2.4 の二次コスト規則に抵触するため入れません。
+#### rev7 で追加した 3 点（MN-1）
+
+**rev6 の「タブは除去にループが要るので残す」という理由は成立しません。** rev6 が改行に採ったのは**除去ではなく切り詰め**であり、**タブにも同じ `case` ガード 1 行で足ります**。
+
+| 入力 | base | **rev6** | **rev7** |
+|---|---|---|---|
+| タブ入り target（`docs/../x.md\tINJECTED\tCOL`） | 5 フィールド | **7 フィールド**（列注入成立） | **5 フィールド** |
+| 先頭が改行の target | 5 フィールド | field5 = `EH3_PATH_REJECTED: `（**パスが消えたことが分からない**） | field5 に **`[truncated]`** が付き**欠落が自明** |
+| 通常の traversal target | — | `[truncated]` なし | **`[truncated]` なし**（false positive なし） |
+
+1. **タブでも切り詰める**（`_PG_TAB`）→ フィールド数が常に 5。
+2. **切り詰めたら `[truncated]` を付ける**→「監査から消えた」ことが in-band で分かる。
+3. **`_PG_CR` / `_PG_TAB` が空でも壊れない形にする**（MN-2 / §2.7 の注記）。
+
+**回帰 = 変異 MN1 / 入力 `tabinj`**。
 
 ### 2.11 `log_event` の失敗が block を消す（MJ-2）
 
@@ -307,9 +363,36 @@ base で同型注入が成立するのは「HO glob に一致し、かつ `.md` 
 
 **本書は §2.5〜§2.8 で「追加した各行がどの失敗モードを持つか」を網羅したと宣言していましたが、3 箇所とも `log_event` 経由で fail-open に化けていました。** pre-existing（base も同じ）ですが、**本 patch の中心的主張が成立しない条件なので scope 内**として是正します。
 
-**是正**: `log_event` を**絶対に失敗させない**。`mkdir` / append は `2>/dev/null || true`、`ts=$(date …) || ts='-'`（**これもコマンド置換のみの代入なので §2.7 と同型**）、末尾に `return 0`。**回帰 = 変異 MJ2 / 入力 `auditro`**。
+**是正**: `log_event` を**絶対に失敗させない**。`mkdir` / append は `2>/dev/null`、`ts=$(date …) || ts='-'`（**これもコマンド置換のみの代入なので §2.7 と同型**）、末尾に `return 0`。**回帰 = 変異 MJ2 / 入力 `auditro`**。
+
+**rev7 では append 失敗時に in-band の警告を出します**（`|| true` ではなく `|| printf '[Hook EH-3] WARN: audit log write failed …' >&2`）。rev6 は **block は成立するがレコードが黙って消え、「書けなかった」を知る手段が in-band にゼロ**でした。実測:
+
+| `_audit/` 書込不可 | base | rev6 | **rev7** |
+|---|---|---|---|
+| block | rc=1（**されない**） | rc=2 HO | **rc=2 HO** |
+| 痕跡 | なし | **なし** | **`WARN: audit log write failed` を stderr へ** |
 
 > **ハーネス非対称（R-11）**: `.codex/hooks/eh-bridge.sh` は **rc=1 を `deny`** に写像します。したがって同じ rc=1 が **Claude Code では通し / Codex では止める**。本 patch は両ハーネスで rc=2 に揃えるので非対称は解消しますが、**「rc=1 なら安全側」と考えてはいけない**ことは記録に残します。
+
+### 2.13 index shift の下流（MJ-B / §2.8 と同一クラスの 3 度目）
+
+§2.8 で「rev4 が `tr` の index を 1→3 へずらした」ことを是正しましたが、**同じ shift の影響を受ける下流がもう 1 つありました**。
+
+**`tr` 呼び出し回数: base = 2 回 / rev6 = 4 回。** 4 番目が **`_esc_dl=$(printf '%s' … | tr -d '\n\r\t')`（`||` 無し）**です。
+
+実測（no-task / `docs/ai/x.md` = 非 HO の `.md` → doc-light）:
+
+| shim | base | **rev6** | **rev7** |
+|---|---|---|---|
+| `notr3`（3 回目以降失敗） | DL / rc=0 / **記録 1 行** | **rc=127 / 記録 0 行** | **DL / rc=0 / 記録 1 行** |
+| `notr2` | rc=127 / 記録 0 行 | rc=127 / 記録 0 行 | **DL / rc=0 / 記録 1 行**（base より強い） |
+| healthy | DL / rc=0 / 記録 1 行 | DL / rc=0 / 記録 1 行 | DL / rc=0 / 記録 1 行 |
+
+**壊れるのは `skip-decision-log.jsonl` の doc-light 記録**で、これは **§4.2 の判定手段であり `bin/plangate metrics --collect` の入力源**です。
+
+**是正**: `_esc_dl` と `_esc_c3` に `|| + 空チェック`（縮退先は生の `_norm_target`）。**回帰 = 変異 MB / 入力 `dl_notr3`**。
+
+**残る下流は R-7 に全数列挙**します。
 
 ### 2.12 marker の分離（MN-1）
 
@@ -336,7 +419,10 @@ rev5 は traversal / 空キー / root 失敗をすべて `HARDENING_OVERRIDE` �
  
 +_PG_NL='
 +'
-+_PG_CR=$(printf '\r')
++_PG_CR=$(printf '\r') || _PG_CR=''
++[ -n "$_PG_CR" ] || _PG_CR=$(printf '\015')
++_PG_TAB=$(printf '\t') || _PG_TAB=''
++[ -n "$_PG_TAB" ] || _PG_TAB=$(printf '\011')
  log_event() {
    level=$1
 +  # 監査ログへの改行注入を防ぐ（#1101 MJ-1）: reason に生の target_file を載せる
@@ -348,14 +434,22 @@ rev5 は traversal / 空キー / root 失敗をすべて `HARDENING_OVERRIDE` �
 -  mkdir -p "$(dirname "$AUDIT_LOG")"
 -  ts=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 -  printf '%s\t%s\tcheck-plan-hash\t%s\t%s\n' "$ts" "$level" "${task_id:-${PLANGATE_HOOK_TASK:--}}" "$msg" >>"$AUDIT_LOG"
-+  case "$msg" in *"$_PG_NL"*) msg=${msg%%"$_PG_NL"*} ;; esac
-+  case "$msg" in *"$_PG_CR"*) msg=${msg%%"$_PG_CR"*} ;; esac
++  # 改行 / CR / タブより後ろを捨てて 1 レコード 1 行・5 フィールドを保証する（MJ-1 / MN-1）。
++  # 切り詰めたら [truncated] を付ける（監査から欠落したことを in-band で示す）。
++  # _PG_CR / _PG_TAB が空でも壊れないよう case 自体を [ -z … ] || でガードする（MN-2）。
++  _pg_trunc=0
++  case "$msg" in *"$_PG_NL"*)  msg=${msg%%"$_PG_NL"*};  _pg_trunc=1 ;; esac
++  [ -z "$_PG_CR" ]  || case "$msg" in *"$_PG_CR"*)  msg=${msg%%"$_PG_CR"*};  _pg_trunc=1 ;; esac
++  [ -z "$_PG_TAB" ] || case "$msg" in *"$_PG_TAB"*) msg=${msg%%"$_PG_TAB"*}; _pg_trunc=1 ;; esac
++  [ "$_pg_trunc" = "0" ] || msg="$msg [truncated]"
 +  # 監査ログが書けない環境でも block を成立させる（#1101 MJ-2）。
 +  # set -eu 下では mkdir / date / >> の失敗がそのままシェルを rc=1 で落とし、
 +  # PreToolUse は exit 2 のみ block なので fail-open に化ける。
++  # 書けなかったこと自体は in-band で警告する（黙って消さない / MN-1）。
 +  mkdir -p "$(dirname "$AUDIT_LOG")" 2>/dev/null || true
 +  ts=$(date -u '+%Y-%m-%dT%H:%M:%SZ') || ts='-'
-+  printf '%s\t%s\tcheck-plan-hash\t%s\t%s\n' "$ts" "$level" "${task_id:-${PLANGATE_HOOK_TASK:--}}" "$msg" >>"$AUDIT_LOG" 2>/dev/null || true
++  printf '%s\t%s\tcheck-plan-hash\t%s\t%s\n' "$ts" "$level" "${task_id:-${PLANGATE_HOOK_TASK:--}}" "$msg" >>"$AUDIT_LOG" 2>/dev/null \
++    || printf '[Hook EH-3] WARN: audit log write failed (%s)\n' "$level" >&2
 +  return 0
  }
 ```
@@ -393,12 +487,17 @@ rev5 は traversal / 空キー / root 失敗をすべて `HARDENING_OVERRIDE` �
 +#   **先頭 `./` 除去より前**に判定する：先に `./` を取ると `.//CLAUDE.md` が
 +#   `/CLAUDE.md`（絶対パス形）になり `//` 検知をすり抜ける（実測で検出）。
 +#   marker は HARDENING_OVERRIDE と分ける（非 HO でも発火するため / MN-1）。
++#   **_ho_key と生 target_file の union で判定する**: _ho_key は (i-b) で
++#   _norm_target へ縮退しうるが、_norm_target は base 側で先頭 ./ を除去済みで
++#   `.//CLAUDE.md` -> `/CLAUDE.md` となり `//` の証拠が消える（#1101 MJ-A / 実測）。
 +_ho_trav=0
-+case "$_ho_key" in
++for _ho_cand in "$_ho_key" "${target_file:-}"; do
++case "$_ho_cand" in
 +  ..|../*|*/..|*/../*) _ho_trav=1 ;;
 +  *//*)                _ho_trav=1 ;;
 +  .|*/.|*/./*)         _ho_trav=1 ;;
 +esac
++done
 +if [ "$_ho_trav" = "1" ]; then
 +  reason="EH3_PATH_REJECTED: ${target_file:-} は正規化できないパス表記 (fail-closed: path traversal)"
 +  log_event "EH3_PATH_REJECTED" "$reason"
@@ -475,6 +574,23 @@ rev5 は traversal / 空キー / root 失敗をすべて `HARDENING_OVERRIDE` �
      */plan.md|plan.md)
 ```
 
+### (D) `_esc_dl` / `_esc_c3`（skip-decision-log / §2.13）
+
+```diff
+@@ c3 conversation 記録
+-        _esc_c3=$(printf '%s' "${_norm_target:-unknown}" | tr -d $'\n\r\t')
++        # HO 判定が tr を 2 回消費するため本行は下流にずれる。|| + 空チェックが無いと
++        # 部分故障で set -e が即死し、記録どころか SKIP 判定ごと消える（#1101 MJ-B）。
++        _esc_c3=$(printf '%s' "${_norm_target:-unknown}" | LC_ALL=C tr -d '\n\r\t') || _esc_c3=''
++        [ -n "$_esc_c3" ] || _esc_c3="${_norm_target:-unknown}"
+@@ doc-light 記録
+-      _esc_dl=$(printf '%s' "${_norm_target:-unknown}" | tr -d '\n\r\t')
++      _esc_dl=$(printf '%s' "${_norm_target:-unknown}" | LC_ALL=C tr -d '\n\r\t') || _esc_dl=''
++      [ -n "$_esc_dl" ] || _esc_dl="${_norm_target:-unknown}"
+```
+
+> **ついでに `$'\n\r\t'`（bash の ANSI-C quoting）も `'\n\r\t'` へ揃えます。** `dash` は ANSI-C quoting を解釈せず、**削除対象に `$` が混入**します。実測（target = `x$y-nrt.md`）: `sh` / `bash` / `zsh` / `ksh` は `x$y-nrt.md`、**`dash` だけ `xy-nrt.md`**（`$` が消える）。記録される target が壊れるだけで承認境界には影響しませんが、**同じ行を触るので同時に直します**。
+
 ### 3.1 既存の apply スクリプトとの整合
 
 `scripts/apply-eh3-ho-always.sh` は適用済み判定を `hook_applied = i_override < i_branch` というインデックス比較で行うため本 patch 適用後も "already applied" を返します。**ただし 9 カテゴリ `case` の第 2 コピーを `:135-143` / `:174-183` に埋め込んでおり正本と乖離します**（§6 step 6）。
@@ -497,7 +613,11 @@ rev5 は traversal / 空キー / root 失敗をすべて `HARDENING_OVERRIDE` �
 | **B-13** | **`_audit/` が書けない環境での全 block 経路** | **rc=1 で block されない** | **rc=2 で block** | §2.11。**pre-existing な穴の是正** |
 | **B-14** | **改行を含む target を渡したときの監査ログ** | 該当行なし（rc=0 通過） | **1 レコード 1 行に切り詰め** | §2.10。**rev5 は偽レコードを append できた** |
 | **B-15** | **traversal 拒否の marker** | （経路なし） | **`EH3_PATH_REJECTED`**（`HARDENING_OVERRIDE` ではない） | §2.12 |
-| **B-8** | HO パスの `reason` 文字列 | 正規化後の値 | **生値**（改行切り詰め済み） | ログ表記のみ。文字列 assert するテストは repo 内に無し |
+| **B-16** | **`REPO_ROOT` に glob 文字（`[` `]` `*` `?`）を含む環境での絶対パス HO** | **`DOC_LIGHT_SKIP` rc=0（既存バグ）** | **rc=2 `HARDENING_OVERRIDE`** | base の `${_norm_target#$REPO_ROOT/}` は**非引用**なので root が glob として解釈され prefix 除去に失敗する。rev6/rev7 の `case "$_ho_key" in "$_ho_root"/*)` は**引用済み**なので healthy 経路で**副産物として解消**。実測: root = `ro[o]t` で **base DL/0 → rev7 HO/2** |
+| **B-17** | **タブを含む target の監査レコード** | 5 フィールド | **5 フィールド + `[truncated]`** | rev6 は 7 フィールドになっていた（§2.10） |
+| **B-18** | **部分故障下の doc-light 記録**（`skip-decision-log.jsonl`） | `notr3` では記録あり / `notr2` では rc=127 | **どちらも記録あり** | §2.13。**rev6 は `notr3` で記録が消えていた** |
+| **B-19** | **`_audit/` 書込失敗時の in-band 痕跡** | なし | **stderr に `WARN: audit log write failed`** | §2.11 |
+| **B-8** | HO パスの `reason` 文字列 | 正規化後の値 | **生値**（改行/CR/タブ切り詰め済み） | ログ表記のみ。文字列 assert するテストは repo 内に無し |
 
 ### 4.1 変わらないもの（実測 / 故障注入なし・`LC_ALL=C`）
 
@@ -566,10 +686,12 @@ C7 schemas/x.schema.json     C8 .github/workflows/x.yml   C9 CLAUDE.md
 
 #### 結果（`LC_ALL=C` / 大文字を含む ROOT / 故障注入なし / TASK 文脈）
 
-| | base | **rev6** |
+| | base | **rev7** |
 |---|---:|---:|
 | 81 セル中 **rc=0 で完全通過** | **52** | **0** |
 | 81 セル中 block | 29（すべて `HARDENING_OVERRIDE`） | **81**（`HARDENING_OVERRIDE` **54** + `EH3_PATH_REJECTED` **27**） |
+
+**さらに 81 セル × 4 モード（healthy / `notr` / `nosed` / `notr2`）= 324 セルで、base が block して rev6/rev7 が通すセルは 0 件**（§2.9 の不変条件の実測）。
 
 **base の 29 件の内訳**: T0（9）+ T6（9）+ T7（9）= 27、+ C7 の T2 / T8（`*` が `/` を跨ぐ偶然）= **29**。`81 − 29 = 52`。
 **rev6 の 27 件の `EH3_PATH_REJECTED`** = T1 / T2 / T8 × 9 カテゴリ。
@@ -579,7 +701,7 @@ C7 schemas/x.schema.json     C8 .github/workflows/x.yml   C9 CLAUDE.md
 ### 5.2 `ta-65` TC-07（issue の 4 ケース）+ 追加
 
 ```
-                                base(TASK)   rev6(TASK)
+                                base(TASK)   rev7(TASK)
 docs/../CLAUDE.md               rc=0 PASS    rc=2 EH3_PATH_REJECTED
 CLAUDE.MD                       rc=0 PASS    rc=2 HARDENING_OVERRIDE
 "CLAUDE.md "                    rc=0 PASS    rc=2 HARDENING_OVERRIDE
@@ -601,7 +723,13 @@ docs/working/TASK-9999/plan.md  rc=0         rc=0            <- plan_hash 経路
 - **fault injection の shim が起動したことを確認すること**（カウンタファイル等）。
 - ロケールを固定すること。
 
-#### rev6 で新規に加わった行に対する変異と kill 入力
+#### 故障注入 × 入力クラスの**直積が必須**（MJ-A / MJ-B が示したこと）
+
+**rev6 までの TC は「故障注入入力（`notr` / `nosed` / `notr2abs` / `notr3`）」と「traversal 入力・doc-light 入力」の交差が 1 セルもありませんでした。** その結果 **MJ-A（`.//` × 故障）も MJ-B（doc-light × 故障）も検出できませんでした**。
+
+→ **§5.3 の故障注入モードを、traversal 入力（`dotdbl` = `.//CLAUDE.md` / `dotmid`）と doc-light 入力（`docs/ai/x.md`）と直積で回すこと。**
+
+#### rev7 で新規に加わった行に対する変異と kill 入力
 
 | 変異 | 壊した箇所 | notr | nosed | notr2abs | notr3 | inject | auditro |
 |---|---|---|---|---|---|---|---|
@@ -613,7 +741,19 @@ docs/working/TASK-9999/plan.md  rc=0         rc=0            <- plan_hash 経路
 | **MJ1a** | **改行切り詰めを削除** | . | . | . | . | **X** | . |
 | **MJ2** | **append の `\|\| true` を削除** | . | . | . | . | . | **X** |
 
-**6 変異すべてが kill されます。** M19 が `notr`（`tr` 常時失敗）では kill されないのは、その場合 `_ho_root` 側の縮退が先に効くためで、**`nosed`（`sed` 常時失敗 / `tr` は成功）が唯一の kill 入力**です。
+**6 変異すべてが kill されます。**
+
+#### rev7 で追加した行に対する変異（**直積 TC で kill**）
+
+| 変異 | 壊した箇所 | `dotdbl`×`notr` | `dotdbl`×`nosed` | `docs/ai/x.md`×`notr3` | `tabinj` |
+|---|---|---|---|---|---|
+| （なし） | — | . | . | . | . |
+| **MA** | **traversal の union を `_ho_key` 単独へ戻す** | **X** | **X** | . | . |
+| **MB** | **`_esc_dl` の `\|\|` + 空チェックを削除** | . | . | **X** | . |
+| **MN1** | **タブ切り詰めを削除** | . | . | . | **X** |
+| MN2 | `[ -z "$_PG_CR" ] \|\|` ガードを削除 | . | . | . | . |
+
+**MN2 は black-box TC では kill できません**（`_PG_CR=$(printf '\r')` は 5 シェルすべてで成功するため、ガードが働く条件に到達しない）。**M12 と同じく「防御的だが到達不能」な行**です。**削除してよいわけではありません** — 到達したときの挙動は実測済みで、**空セパレータは `case *""*` が全一致してメッセージ全体を消します**（§2.7 の注記）。 M19 が `notr`（`tr` 常時失敗）では kill されないのは、その場合 `_ho_root` 側の縮退が先に効くためで、**`nosed`（`sed` 常時失敗 / `tr` は成功）が唯一の kill 入力**です。
 
 **既存 15 変異（M1 / M1b / M2〜M14 / MX1 / MX2b / MX3）は rev5 までに実証済み**で、kill 入力は `ws` / `wsL` / `case` / `casedir` / `dotdot` / `dbl` / `dotmid` / `abs` / `trail` / `plain` / `dotdbl` / `absup` / `parent` / `dotend` / `nonutf`。**M12（`sed` からだけ `LC_ALL=C` を外す）のみ等価または厳格側**で kill されません（構造論証: この `sed` は先頭・末尾 2 アンカーの trim のみ / 非 C ロケールの `[[:space:]]` は C の上位集合 / HO 対象パスの先頭・末尾バイトを space に分類するロケールは存在しない）。
 
@@ -644,20 +784,22 @@ bash / zsh / dash / ksh  すべて同一
 ```
 
 `${var%%"$_PG_NL"*}` の改行切り詰めも **5 シェルで同一**（注入 target でログ 1 行・偽レコード 0）。
+**故障注入下の traversal も 5 シェルで同一**: `.//CLAUDE.md` × `notr` → **5 シェルすべて `EH3_PATH_REJECTED` / rc=2**（rev6 は 5 シェルすべて rc=127）。
 
 **ただしこれは 1 OS（macOS / BSD sed・BSD tr）上の 5 シェルであり、OS 可搬性の主張ではありません。**
 
 ### 5.5 性能（5 回平均 / `LC_ALL=C`）
 
-| 入力長 | base | rev5 | **rev6** |
+| 入力長 | base | rev6 | **rev7** |
 |---:|---:|---:|---:|
-| 9 | 37.5 ms | 46.0 ms | **44.4 ms** |
-| 3,009 | 77.4 ms | 86.7 ms | **88.3 ms** |
-| 20,010 | 134.0 ms | 151.8 ms | **153.8 ms** |
-| 100,000 | 190.2 ms | 218.5 ms | **218.3 ms** |
-| 200,000 | 223.7 ms | 265.5 ms | **265.5 ms** |
+| 9 | 40.3 ms | 51.4 ms | **48.5 ms** |
+| 3,009 | 72.3 ms | 87.2 ms | **89.9 ms** |
+| 20,010 | 130.8 ms | 147.7 ms | **146.8 ms** |
+| 100,000 | 191.6 ms | 218.5 ms | **223.2 ms** |
+| 200,000 | 222.7 ms | 279.6 ms | **282.0 ms** |
 
-**rev6 = rev5 と同等（base 比 +7〜42ms、線形）。** ただし **`case` ガードを入れる前の rev6 は 100,000 で 732ms / 200,000 で 2,367ms** でした（§2.4）。**この退行は性能スイートの再実行だけで検出しており、機能 TC は 1 件も落ちませんでした。**
+**rev7 = rev6 と同等（base 比 +8〜59ms、線形）。** traversal の union（ループ 2 回）とタブ切り詰めの追加コストは測定誤差の範囲。
+**参考**: `case` ガードを入れる前の rev6 は 100,000 で 732ms / 200,000 で 2,367ms（§2.4）。**この退行は性能スイートの再実行だけで検出しており、機能 TC は 1 件も落ちませんでした。だから §2.4 の構造検査を §6 の step に入れます。**
 
 ### 5.6 sed 実装差（不正 UTF-8）
 
@@ -672,7 +814,7 @@ bash / zsh / dash / ksh  すべて同一
 
 ## 6. 適用手順（Human-owned）
 
-1. §3 の **(A) (B) (C) 3 hunk を 1 回の適用で束ねて** `scripts/hooks/check-plan-hash.sh` へ適用する。
+1. §3 の **(A) (B) (C) (D) 4 hunk を 1 回の適用で束ねて** `scripts/hooks/check-plan-hash.sh` へ適用する。**分割しないこと**（分割は rev4→rev5 と同じ「既知の退行を抱えたまま出荷」になる）。
 2. `ta-65` の **TC-07 を fixed 期待へ反転**する（**期待値は `HARDENING_OVERRIDE` と `EH3_PATH_REJECTED` の union**）。TC-06 は**変更不要**（実測で PASS 維持）。
 3. **`ta-65` に §5.3 の TC 入力 21 件を追加する**（**追加するのは TC 入力だけ。変異体は repo にコミットしない**）。実装上の必須事項:
    - **`_T65_TMP` 配下に大文字セグメントを含む root を作り、そこへ hook を複製して実行する**。
@@ -680,17 +822,26 @@ bash / zsh / dash / ksh  すべて同一
    - **スタブ `tr` / `sed` は `_T65_TMP` 配下に置き、カウンタも `"$_T65_TMP/trcount"` に固定**する（`ta-65:76-81` の既存 `_T65_TMP` を使う。`mktemp -d` 配下なら並列衝突は構造的にゼロ）。**スタブは実体を絶対パスで呼ぶこと**（例: `exec /usr/bin/tr "$@"`。PATH 経由だと自分自身に無限再帰）。カウンタは**各実行前にリセット**。
    - **`auditro` TC は `_audit/` を 555 にする前にログファイルを削除**すること（既存ファイルが残っていると dir 権限に関係なく追記できてしまい、TC が空振りする）。
    - **`nonutf` / `nonutfplan` はロケール依存 TC なので、次のいずれかを選ぶ**（§6-A）。
-4. §4.2 の再測定手順で `..` を含む監査記録を確認する（**件数を契約値にしない**）。
-5. `sh tests/run-tests.sh` を **macOS と `ubuntu-latest` の両方**で rc=0 にする。baseline は適用時点の main で再測定。
-6. **`scripts/apply-eh3-ho-always.sh` の 9 カテゴリ第 2 コピー（`:135-143` / `:174-183`）を同期するか retire するか決める**（retire が最小コスト）。
-7. **`.claude/rules/mode-classification.md` の Hardening Override 節に 1 行足す**（正本↔実装の drift を文字列一致で検出する手段を維持するため）:
+   - **故障注入モードと入力クラスを直積で回すこと**（§5.3）。最低限 **`dotdbl`（`.//CLAUDE.md`）× {`notr`, `nosed`}**、**`docs/ai/x.md` × `notr3`（`skip-decision-log.jsonl` に記録が残ること）**、**`tabinj`（フィールド数 5）**、**`auditro`（rc=2）** を含めること。**この 4 種を落とすと MA / MB / MN1 / MJ2 が無検出のまま退行できます。**
+4. **§2.4 の構造検査を `ta-65` に 1 本追加し、ここでも実行する**（未ガードのパラメータ展開の検出 / **wall-clock より決定論的**）。**hits が 0 でなければ適用しない。**
+
+   ```sh
+   grep -nE '\$\{[A-Za-z_][A-Za-z_0-9]*(%%?|##?)' scripts/hooks/check-plan-hash.sh \
+     | grep -vE '^[0-9]+:[[:space:]]*[^|()]*\)[[:space:]]' \
+     | grep -vE 'dirname|:-|:='
+   ```
+
+5. §4.2 の再測定手順で `..` を含む監査記録を確認する（**件数を契約値にしない**）。
+6. `sh tests/run-tests.sh` を **macOS と `ubuntu-latest` の両方**で rc=0 にする。baseline は適用時点の main で再測定。
+7. **`scripts/apply-eh3-ho-always.sh` の 9 カテゴリ第 2 コピー（`:135-143` / `:174-183`）を同期するか retire するか決める**（retire が最小コスト）。
+8. **`.claude/rules/mode-classification.md` の Hardening Override 節に 1 行足す**（正本↔実装の drift を文字列一致で検出する手段を維持するため）:
 
    > 実装（`scripts/hooks/check-plan-hash.sh` の `_override=0` 直後の `case`）は、
    > 表記揺れ迂回を防ぐため**小文字化したキー `_ho_key`** で照合し、正規化が
    > 失敗したときは元表記へ縮退する。よって `case` は小文字リテラルと元表記の
    > 両方を持つ（#1101）。本表のパス名は正本表記である。
 
-8. `docs/ai/hook-enforcement.md` の「既知の残存」から本項目を削除する。ただし **#1104 は未解決**なので **「`Edit|Write` 経路では常時 block / `Bash` 経路は #1104 で追跡中」と matcher 別に書く**こと。
+9. `docs/ai/hook-enforcement.md` の「既知の残存」から本項目を削除する。ただし **#1104 は未解決**なので **「`Edit|Write` 経路では常時 block / `Bash` 経路は #1104 で追跡中」と matcher 別に書く**こと。
 
 ### 6-A. ロケール TC の扱い（**空振り fixture を作らないこと**）
 
@@ -715,11 +866,12 @@ bash / zsh / dash / ksh  すべて同一
 | **R-4** | Unicode の大小文字 | `tr 'A-Z' 'a-z'` は ASCII のみ。本 patch で悪化しない |
 | **R-5** | `#1135` patch との適用順 | 本 patch を先に入れれば `#1135` 側の「差分 0」は冗長。**Human 判断** |
 | **R-6** | **`REPO_ROOT` 由来の root 解決全般で HO が発火しない**（現 main も同様） | HO 9 カテゴリは **repo root 起点の完全一致**で、`REPO_ROOT` は `$(dirname "$0")/../..` から求まる。したがって **(a) worktree 越しの `.claude/worktrees/<id>/…`（本リポジトリは常用）**、**(b) 別 clone の絶対パス**、**(c) run-from-plugin（#1144）で hook を plugin cache から実行した場合の利用者リポジトリのパス** がいずれも root-strip されず HO にならない。**(c) は #1144 の設計書が「利用者リポジトリの `scripts/hooks/` 前提が崩れる」と明記している論点と同根**であり、**`CLAUDE_PROJECT_DIR` 等への切り替えを #1144 側の前提条件**として引き継ぐこと。**別 issue 化を推奨** |
-| **R-7** | **`_dl_ext`（doc-light 判定）の失敗経路・ロケール依存は残る** | 本 patch が固定したのは HO 判定 3 コマンド + `_tf_lc` 2 コマンド。`_dl_ext=$(printf \| sed …)` は `\|\|` を持たず、失敗すると rc=1。**Claude Code では「通す」側だが `.codex/hooks/eh-bridge.sh` は rc=1 を `deny` に写像するため Codex では block**（ハーネス非対称）。承認境界を弱める方向ではないが、**「rc=1 は安全側」ではない**（R-11） |
+| **R-7** | **`\|\|` を持たないコマンド置換代入が残る（全数 8 箇所）** | rev7 適用後に `\|\|` を持たない代入は **`_esc_c3` / `_dl_ext` / `_ts_dl` / `_esc_dl` / `_skipr` / `_ts` / `_esc_r` / `_esc_f` の 8 箇所**（うち `_esc_c3` / `_esc_dl` は rev7 で是正済 → 実質 6 箇所）。**いずれも HO 判定より下流**なので承認境界を弱めないが、**部分故障で rc=1 になり `skip-decision-log.jsonl` の記録が落ちる**。**`.codex/hooks/eh-bridge.sh` は rc=1 を `deny` に写像するため Codex 側では block**（ハーネス非対称 / R-11）。**index shift のたびに「何番目の `tr`/`sed` が落ちるか」が変わるため、下流を触る変更では毎回この一覧を数え直すこと**（§2.13 が §2.8 と同一クラスの 3 度目だった理由） |
 | **R-8** | **Linux / GNU coreutils での全 TC 実行が未実施** | 本書の測定は macOS 1 OS。**CI での初回実行が実質的な OS 検証**（§6 step 5） |
-| **R-9** | **Unicode 空白（U+00A0 / U+3000）は trim されない** | `LC_ALL=C` の帰結。base・rev6 とも非 HO で**退行ではない**が非対称が残る |
+| **R-9** | **Unicode 空白（U+00A0 / U+3000）は trim されない** | `LC_ALL=C` の帰結。base・rev7 とも非 HO で**退行ではない**が非対称が残る |
 | **R-11** | **rc の解釈がハーネス間で非対称** | Claude Code の PreToolUse は **exit 2 のみ block**（0/1/127 は通す）。`.codex/hooks/eh-bridge.sh` は **`2\|1) deny` / 未知 rc は `allow`**。**同じ rc=1 が Claude では通り Codex では止まる。** 本 patch は block を rc=2 に揃えるので非対称は解消するが、**将来「rc=1 なら安全側」と仮定してはいけない** |
-| **R-12** | **監査ログへのタブ注入は残る** | 改行・CR を落とすので**レコードの偽造は不可能**（行頭の timestamp / level / hook 名は必ず本物）だが、**同一行内に余分な列を作れる**。フォークなしで全タブを除去するにはループが要り §2.4 の二次コスト規則に抵触するため入れない。**列位置に依存したログ解析を書かないこと** |
+| **R-12** | ~~監査ログへのタブ注入~~ → **rev7 で閉じた**（§2.10）。**残るのは「切り詰めにより target の一部が監査から失われる」こと** | 改行 / CR / タブのいずれかを含む target は **最初の 1 個までしか記録されない**。`[truncated]` マーカーで欠落は自明になるが、**原文の全体は残らない**。原文が必要なら stderr 側（block メッセージ）を併せて収集すること |
+| **R-13** | **`_PG_CR` / `_PG_TAB` が取得できない環境の挙動は理論値** | `printf '\r'` は 5 シェルすべてで builtin として成功するため、**フォールバック（別表記での再取得 / `case` 自体のスキップ）は black-box TC で到達できない**（変異 MN2 が kill されない理由）。**空セパレータがメッセージ全体を消すことは単体で実測済み**（§2.7 注記） |
 
 ---
 
@@ -765,6 +917,12 @@ wc -l "$R/pat/docs/working/_audit/hook-events.log"   # 1 行であること
 `REPO_ROOT` は `$(dirname "$0")/../..` で解決されるため、サンドボックス側の hook はサンドボックスを root と見なします。
 
 **壊れた環境からの脱出口**: `PLANGATE_BYPASS_HOOK=1` は HO 判定より前に評価されるため、**`tr` が壊れた環境でも rc=0 で通ります**（実測）。縮退方式（§2.9）を採ったので停止自体が起きませんが、**唯一のインバンド脱出口として記録**します。
+
+**故障注入 TC を書くときの落とし穴（本作業中に踏んだもの）**:
+
+- **shim ディレクトリ名を取り違えると、shim 無しの測定を shim ありと誤認します。** カウンタファイルが生成されないことで検出できます。**「注入が効いたこと」を毎回確認してください。**
+- **`auditro` TC は `_audit/` を 555 にする前にログファイルを削除**すること。既存ファイルが残っていると **dir 権限に関係なく追記できてしまい TC が空振り**します。
+- **絶対パス TC は「その複製自身の ROOT」を使う**こと。
 
 ## 9. 関連
 
