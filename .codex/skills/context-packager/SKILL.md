@@ -97,4 +97,7 @@ Allowed Context（6 要素）は委譲プロンプトに埋め込むだけでな
 ## 関連
 
 - Skill: `subagent-dispatch`（Allowed Context を使ってエージェントに分配）
-- Rule: `plugin/plangate/rules/subagent-roles.md`（ロール別の受け取り方を定義）
+- Skill: `subagent-team-design` §ステップ 2（6 ロール定義の正本。ロール別の受け取り方の前提）
+
+> 旧 `plugin/plangate/rules/subagent-roles.md` は**削除済み**（TASK-0124 / `2645848`,
+> 2026-06-02 の plugin 初回同期適用）。ロール定義は `subagent-team-design` Skill が引き継いだ。

@@ -28,7 +28,12 @@ description: "PlanGate のエージェント群（orchestrator / workflow-conduc
 
 ## ステップ 2: ロール定義を確認する
 
-`plugin/plangate/rules/subagent-roles.md`（または `rules/subagent-roles.md`）に定義された 6 ロールを使用する。
+以下の 6 ロールを使用する。**本節が 6 ロール定義の正本**である。
+
+> 旧正本 `plugin/plangate/rules/subagent-roles.md` は**削除済み**（TASK-0124 /
+> `2645848`, 2026-06-02 の plugin 初回同期適用）。ロール定義は本節が引き継いだ。
+> 派遣プロンプトの契約（必須 8 要素 / OUTCOME 契約 / 行動規範）は
+> `docs/ai/subagent-delegation/README.md` を参照（ロール定義は含まない）。
 
 | ロール | 責務 | 対応 subagent_type |
 |--------|------|-------------------|

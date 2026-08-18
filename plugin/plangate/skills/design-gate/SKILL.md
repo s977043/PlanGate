@@ -157,7 +157,11 @@ approved_at: YYYY-MM-DD（high-risk 以上で記入）
 
 ## 関連
 
-- Rule: `plugin/plangate/rules/design-gate.md`（適用条件・ブロック条件の正本）
+- 適用条件・ブロック条件の正本は**本 Skill 自身**（§Iron Law / §Mode 別の扱い）
+- Rule: `.claude/rules/mode-classification.md`（`ultra-light`〜`critical` の 5 段階 Mode 判定の正本）
+
+> 旧 `plugin/plangate/rules/design-gate.md` は**削除済み**（TASK-0124 / `2645848`,
+> 2026-06-02 の plugin 初回同期適用）。適用条件・ブロック条件は本 Skill が自己保持する。
 - Command: `plugin/plangate/commands/pg-think.md`（論点整理の初段）
 - Template: `docs/working/templates/design.md`（design.md の保存形式）
 - Skill: `plugin/plangate/skills/skill-policy-router/SKILL.md`（GatePolicy との連携）
