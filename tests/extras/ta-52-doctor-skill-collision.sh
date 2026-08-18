@@ -88,16 +88,31 @@ else
   t52_fail "TC-02: expected ok=true, got $_t52_ok"
 fi
 
-# --- TC-03: repo-local + plugin same name -> collision -> ok=false + WARN ---
+# --- TC-03: repo-local + plugin の **配布ミラー** -> 衝突ではない -> ok=true ---
+# (#1087) plugin/<p>/ は sync-plugin-plangate.sh が生成する export であり、
+# root 内相対パスが一致する repo-local との対は「1 つの定義とその配布コピー」。
 mkdir -p "$_T52_TMP/plugin/plugin-a/skills/only-here"
 printf -- '---\nname: only-here\ndescription: mirrored\n---\n# only-here\n' \
   > "$_T52_TMP/plugin/plugin-a/skills/only-here/SKILL.md"
 _t52_out=$(_t52_run) || true
 _t52_ok=$(_t52_collision_ok "$_t52_out")
-if [ "$_t52_ok" = "false" ] && printf '%s' "$_t52_out" | grep -q '多重定義'; then
-  t52_pass "TC-03: repo-local + plugin collision -> ok=false (WARN with detail)"
+if [ "$_t52_ok" = "true" ]; then
+  t52_pass "TC-03: repo-local <-> plugin export mirror -> ok=true (not a collision)"
 else
-  t52_fail "TC-03: expected ok=false + detail, got ok=$_t52_ok"
+  t52_fail "TC-03: expected ok=true for an export mirror, got $_t52_ok"
+fi
+
+# --- TC-03b: 3 定義（repo-local + plugin-a + plugin-b）-> 真の衝突 -> ok=false + WARN ---
+# 元 issue #692 の動機ケース（供給元が 3 つ）。ミラー除外が広すぎないことの回帰。
+mkdir -p "$_T52_TMP/plugin/plugin-b/skills/only-here"
+printf -- '---\nname: only-here\ndescription: mirrored\n---\n# only-here\n' \
+  > "$_T52_TMP/plugin/plugin-b/skills/only-here/SKILL.md"
+_t52_out=$(_t52_run) || true
+_t52_ok=$(_t52_collision_ok "$_t52_out")
+if [ "$_t52_ok" = "false" ] && printf '%s' "$_t52_out" | grep -q '多重定義'; then
+  t52_pass "TC-03b: 3 definitions -> ok=false (WARN with detail)"
+else
+  t52_fail "TC-03b: expected ok=false + detail, got ok=$_t52_ok"
 fi
 
 # --- TC-04: WARN level is warn, not fail (never blocks passed) ---
