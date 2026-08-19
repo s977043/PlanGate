@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+
+from __future__ import annotations
+
+__doc__ = """
 PlanGate Eval Baseline Snapshot Generator (v8.6.0 PR4 / C-3).
 
 Runs `bin/plangate eval` against representative TASKs and aggregates the
@@ -16,8 +29,6 @@ Usage:
 Privacy: only schema-allowed scalars are written. No file paths, prompts,
 command outputs, or other §4 Forbidden fields per metrics-privacy.md.
 """
-
-from __future__ import annotations
 
 import argparse
 import datetime

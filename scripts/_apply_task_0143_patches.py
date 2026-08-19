@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
 # scripts/_apply_task_0143_patches.py
 # TASK-0143: bin/plangate への CLI 配線パッチ (呼び出し元: apply-task-0143-eh457-wiring.sh)
 import sys, os, difflib

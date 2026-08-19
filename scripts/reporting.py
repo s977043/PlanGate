@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""reporting.py — Reporting & Retrospective (#200 / PBI-HI-006).
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """reporting.py — Reporting & Retrospective (#200 / PBI-HI-006).
 
 PlanGate の実利用シグナル（C-3/C-4/V-1/fix loop/hook violation/Keep Rate/
 latency）を **期間指定**で集計し、sprint retrospective に貼れる Markdown を
@@ -11,7 +23,6 @@ latency）を **期間指定**で集計し、sprint retrospective に貼れる M
 Usage:
   python3 scripts/reporting.py --from 2026-05-01 --to 2026-05-31 [--no-write]
 """
-from __future__ import annotations
 
 import argparse
 import datetime as _dt

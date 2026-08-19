@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+
+from __future__ import annotations
+
+__doc__ = """
 check-skill-frontmatter.py — SKILL.md frontmatter の YAML パース健全性検査
 
 背景:
@@ -52,8 +65,6 @@ Exit codes:
     2 — 実行環境 / 引数エラー（PyYAML 不在 / **走査対象 0 件** を含む。
         検査が no-op に退行したまま緑を返さないための fail-closed）
 """
-
-from __future__ import annotations
 
 import argparse
 import sys
