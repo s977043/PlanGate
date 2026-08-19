@@ -67,7 +67,7 @@ gates を両方 `"PASS"`/`"pass"` で渡す必要がある）。
 
 `run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（**初回呼び出し=1**、再試行ごとに +1。1 起点。metrics は round_index==1 を初回 sentinel に first_pass 判定するため 0 起点不可）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
 
-`production` / `plan_package`（任意・TASK-0872）: **Plan-first 正式入口（`ai-loop run TASK-XXXX`）から開始した production run では両方を必ず入力に含める**。`plan_package.py`（arbiter.py と同ディレクトリ）で Plan Package（pbi-input / plan / todo / test-cases + C-1/C-2 evidence）の presence・evidence 判定・hash を検証して `plan_package` ブロックを組み立て、`production: true` を宣言する。`production: true` で `plan_package` が欠落・構造不正なら priority 1.6 で escalate、reviewer snapshot 三つ組不一致・`source_sha != target_sha` は priority 1.65 で blocked（フィールド契約・stale 規則・LoopSpec 派生マッピングの正本 = `c3-prime-contract.md`）。LoopSpec は同モジュールの `derive_loopspec()` で Plan Package から決定論派生する（手入力しない）。非 production の PoC 実験 run では両フィールドとも省略可（既存挙動不変・additive）。
+`production` / `plan_package`（任意・TASK-0872）: **Plan-first 正式入口（`ai-loop run TASK-XXXX`）から開始した production run では両方を必ず入力に含める**（この入口は **`/ai-loop-workflow` の引数仕様**であり、**`bin/plangate` に `ai-loop` サブコマンドは存在しない** — `plangate ai-loop run …` は失敗する。CLI 入口を設けるか否かは issue #982 で未決）。`plan_package.py`（arbiter.py と同ディレクトリ）で Plan Package（pbi-input / plan / todo / test-cases + C-1/C-2 evidence）の presence・evidence 判定・hash を検証して `plan_package` ブロックを組み立て、`production: true` を宣言する。`production: true` で `plan_package` が欠落・構造不正なら priority 1.6 で escalate、reviewer snapshot 三つ組不一致・`source_sha != target_sha` は priority 1.65 で blocked（フィールド契約・stale 規則・LoopSpec 派生マッピングの正本 = `c3-prime-contract.md`）。LoopSpec は同モジュールの `derive_loopspec()` で Plan Package から決定論派生する（手入力しない）。非 production の PoC 実験 run では両フィールドとも省略可（既存挙動不変・additive）。
 
 入力 JSON の例:
 
