@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""_resolve_validation_bias.py — TASK-0147 / #527 follow-up
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+__doc__ = """_resolve_validation_bias.py — TASK-0147 / #527 follow-up
 
 model-profiles.yaml の指定 profile key から validation_bias を解決して stdout に出力する。
 

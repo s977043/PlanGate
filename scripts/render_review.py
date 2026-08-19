@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""render_review.py — C-3 レビュー対象 MD を 1 枚の自己完結 HTML に集約する。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+__doc__ = """render_review.py — C-3 レビュー対象 MD を 1 枚の自己完結 HTML に集約する。
 
 TASK-0127. Python 標準ライブラリのみ（新規 pip 依存なし）。
 
