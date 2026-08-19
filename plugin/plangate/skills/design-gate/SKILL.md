@@ -7,6 +7,19 @@ description: "Design Gate を実施し、設計書（Design Artifact）を生成
 
 high-risk 以上のタスクで実装前に設計書（Design Artifact）を生成・評価する。
 
+## 参照解決順（`.claude/rules/*.md` / 導入先で必ずこの順に探す）
+
+本 Skill は Mode 判定の正本として `.claude/rules/mode-classification.md` を参照する（§関連）。
+このパスは上流リポジトリ基準のため、導入先では **次の順で探索する**:
+
+1. 導入先リポジトリの `.claude/rules/mode-classification.md`
+2. 無ければ plugin root 配下 `<plugin_root>/rules/mode-classification.md`。
+   `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
+   絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+   という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず 3 へ進む
+3. どちらにも無い場合は **「正本 `mode-classification.md` を参照できなかった」と明示**し、
+   推測で内容を補わない
+
 ## Iron Law
 
 `NO CODE WITHOUT APPROVED DESIGN FIRST`
