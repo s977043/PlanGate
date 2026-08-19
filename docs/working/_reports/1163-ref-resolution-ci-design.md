@@ -900,7 +900,7 @@ _T69_WIRING_EXTRA='tests/extras/ta-70-ref-resolution.sh'
 | 現 main の extras 取り込み順 | `git show origin/main:tests/run-tests.sh` の extras ループ（`EXTRAS_DIR/ta-*.sh` を for の glob に直接展開・許可リストなし） | 辞書順で確定。`git ls-tree -r origin/main -- tests/extras` の末尾は `ta-69-distribution-checks.sh` で、`ta-70-*` は**その後**に来る |
 | `ta-70` 単体（stub 2 assert） | `sh tests/extras/ta-70-ref-resolution.sh` | `TA-70 standalone: 2 passed, 0 failed` / rc=0 |
 | `ta-69` 単体（レジストリ TC 込み） | `sh tests/extras/ta-69-distribution-checks.sh` | `[PASS] TC-W1: wiring: tests/extras/ta-70-ref-resolution.sh executed 2 assert(s), rc=0` |
-| **harness 経由（辞書順 `ta-69` → `ta-70`）** | `sh tests/run-tests.sh` | **TC-W1 が PASS**。出力上の並びは `=== TA-69 ===` → `[PASS] TC-W1 ...` → `=== TA-70 ===` の順であり、**`ta-69` が `ta-70` より先に source される（rev1 案が壊れる）順序のまま TC-W1 が緑になる**ことを確認した |
+| **harness 経由（辞書順 `ta-69` → `ta-70`）** | `sh tests/run-tests.sh`（本体は無改造。extras は `ta-69` / `ta-70` のみ残して**順序の性質だけを切り出した**サンドボックス） | **TC-W1 が PASS**。出力上の並びは `=== TA-69 ===` → `[PASS] TC-W1 ...` → `=== TA-70 ===` の順であり、**`ta-69` が `ta-70` より先に source される（rev1 案が壊れる）順序のまま TC-W1 が緑になる**ことを確認した |
 | **外し方 (3) の検出**（`ta-70` を削除） | 同上 | `[FAIL] TC-W1: wiring registry: extras file missing: tests/extras/ta-70-ref-resolution.sh` |
 | **外し方 (5) の検出**（`ta-70` から TC 本体だけ削る） | 同上 | `[FAIL] TC-W1: hollow extras: 0 asserts executed` |
 
