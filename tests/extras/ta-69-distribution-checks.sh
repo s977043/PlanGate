@@ -163,10 +163,12 @@ if _t69_assert_defs 1 "TC-C9"; then
   fi
 fi
 
-# --- TC-C3: repo-local <-> plugin のミラー（root 内相対パス一致）-> rc=0 ---
+# --- TC-C3: repo-local <-> **export 先 plugin** のミラー（root 内相対パス一致）-> rc=0 ---
+# #1153: plugin 名が自リポジトリの export 先（既定 plangate）であることが条件。
+# 任意の plugin 名で rc=0 になっていた版は誤りだったため export 先名に固定する。
 _t69_reset_coll
 _t69_skill ".claude/skills" "mirrored" "mirrored" "same text" || true
-_t69_skill "plugin/pa/skills" "mirrored" "mirrored" "same text" || true
+_t69_skill "plugin/plangate/skills" "mirrored" "mirrored" "same text" || true
 if _t69_assert_defs 2 "TC-C3"; then
   if [ "$(_t69_coll_rc)" = "0" ]; then
     t69_pass "TC-C3: repo-local <-> plugin mirror -> rc=0 (accepted)"
@@ -182,10 +184,12 @@ else
   t69_fail "TC-C2: expected mirrors to be printed as INFO"
 fi
 
-# --- TC-C8: ミラーだが description が異なる -> rc=0（M-1）---
+# --- TC-C8: **skill** のミラーで description が異なる -> rc=0（M-1）---
+# skill の plugin 正本は .agents/skills であり .claude/skills との差分は
+# export 時の適応として起きうる（#1153 条件5 の drift 許容レーン）。
 _t69_reset_coll
 _t69_skill ".claude/skills" "drifted" "drifted" "repo side text" || true
-_t69_skill "plugin/pa/skills" "drifted" "drifted" "plugin side text" || true
+_t69_skill "plugin/plangate/skills" "drifted" "drifted" "plugin side text" || true
 if _t69_assert_defs 2 "TC-C8"; then
   if [ "$(_t69_coll_rc)" = "0" ]; then
     t69_pass "TC-C8: mirror with description drift -> rc=0"
@@ -242,6 +246,100 @@ if _t69_assert_defs 2 "TC-C7"; then
     t69_fail "TC-C7: expected rc=1 for a same-root duplicate, got $(_t69_coll_rc)"
   fi
 fi
+
+# ===========================================================================
+# #1153: ミラー判定は plugin 名と内容同一性を見る
+# ===========================================================================
+# 是正前は `startswith("plugin:")` しか見ていなかったため、consumer の
+# `.claude/skills/x` と第三者 plugin の同名定義が「正常なミラー」として
+# rc=0 で通っていた（#1149 レビューの major 指摘）。
+
+# フラット定義（command / agent）をサンドボックスに置く:
+# $1=相対ルート $2=ファイル名(拡張子なし) $3=name $4=description
+_t69_flat() {
+  mkdir -p "$_T69_C/$1" || return 1
+  printf -- '---\nname: %s\ndescription: %s\n---\n# %s\n' "$3" "$4" "$3" \
+    > "$_T69_C/$1/$2.md" || return 1
+  [ -s "$_T69_C/$1/$2.md" ] || return 1
+  return 0
+}
+
+# サンドボックス内の agent 定義（.md）実数。注入が silently 失敗したときに
+# 「違反なし → rc=0」が緑として通るのを防ぐ（本ファイル冒頭の不変条件 (2)）。
+_t69_count_agents() {
+  find "$_T69_C/.claude/agents" "$_T69_C/plugin" -name '*.md' 2>/dev/null | wc -l | tr -d ' '
+}
+_t69_assert_agents() {
+  _t69_aa_got=$(_t69_count_agents)
+  if [ "$_t69_aa_got" != "$1" ]; then
+    t69_fail "$2: sandbox injection failed (agent .md want=$1 got=$_t69_aa_got)"
+    return 1
+  fi
+  return 0
+}
+
+# --- TC-C10: repo-local <-> 非 export plugin（description 一致）-> rc=1 ---
+_t69_reset_coll
+_t69_skill ".claude/skills" "third" "third" "same text" || true
+_t69_skill "plugin/growth-core/skills" "third" "third" "same text" || true
+if _t69_assert_defs 2 "TC-C10"; then
+  if [ "$(_t69_coll_rc)" = "1" ] && _t69_coll_run | grep -q 'third'; then
+    t69_pass "TC-C10: repo-local <-> non-export plugin -> rc=1 (not a mirror)"
+  else
+    t69_fail "TC-C10: expected rc=1 for a repo-local/non-export-plugin pair, got $(_t69_coll_rc)"
+  fi
+fi
+
+# --- TC-C11: #1153 の再現ケース（第三者 plugin・description 差分あり）-> rc=1 ---
+_t69_reset_coll
+_t69_skill ".claude/skills" "self-review" "self-review" "repo local 12 phase version" || true
+_t69_skill "plugin/growth-core/skills" "self-review" "self-review" "commit level checklist" || true
+if _t69_assert_defs 2 "TC-C11"; then
+  if [ "$(_t69_coll_rc)" = "1" ] && _t69_coll_run | grep -q 'self-review'; then
+    t69_pass "TC-C11: issue #1153 repro (third-party plugin, drifted) -> rc=1"
+  else
+    t69_fail "TC-C11: expected rc=1 for the #1153 repro case, got $(_t69_coll_rc)"
+  fi
+fi
+
+# --- TC-C12: --mirror-plugin で export 先を宣言すればミラーになる -> rc=0 ---
+# consumer リポジトリ向けの逃げ道が機能すること（過検出のままにしない）。
+_t69_c12_rc=$(_t69_rc_of "$_T69_C" python3 scripts/check-skill-name-collisions.py --mirror-plugin growth-core)
+if [ "$_t69_c12_rc" = "0" ]; then
+  t69_pass "TC-C12: --mirror-plugin declares an export target -> rc=0"
+else
+  t69_fail "TC-C12: expected rc=0 with --mirror-plugin growth-core, got $_t69_c12_rc"
+fi
+
+# --- TC-C13: agent のミラー位置で description 乖離 -> rc=1（内容同一性）---
+# agent/command は sync-plugin-plangate.yml の drift-check が内容一致を
+# exit 1 で担保している。乖離は「export ではない別実装」の証拠。
+_t69_reset_coll
+_t69_flat ".claude/agents" "drifted-agent" "drifted-agent" "repo side duty" || true
+_t69_flat "plugin/plangate/agents" "drifted-agent" "drifted-agent" "plugin side other duty" || true
+if _t69_assert_agents 2 "TC-C13"; then
+  _t69_c13_rc=$(_t69_coll_rc)
+  if [ "$_t69_c13_rc" = "1" ] && _t69_coll_run | grep -q 'drifted-agent'; then
+    t69_pass "TC-C13: agent mirror with description drift -> rc=1"
+  else
+    t69_fail "TC-C13: expected rc=1 for an agent mirror with description drift, got $_t69_c13_rc"
+  fi
+fi
+
+# --- TC-C14: agent のミラーで description 一致 -> rc=0（退行なし）---
+_t69_reset_coll
+_t69_flat ".claude/agents" "synced-agent" "synced-agent" "same duty" || true
+_t69_flat "plugin/plangate/agents" "synced-agent" "synced-agent" "same duty" || true
+if _t69_assert_agents 2 "TC-C14"; then
+  _t69_c14_rc=$(_t69_coll_rc)
+  if [ "$_t69_c14_rc" = "0" ]; then
+    t69_pass "TC-C14: agent export mirror without drift -> rc=0"
+  else
+    t69_fail "TC-C14: expected rc=0 for a clean agent export mirror, got $_t69_c14_rc"
+  fi
+fi
+
+_t69_reset_coll
 
 # --- TC-C1: 本番ツリー（引数なし既定経路）-> rc=0 かつ true collision 0 件 ---
 _t69_c1_rc=$(_t69_rc_of "$_T69_ROOT" python3 scripts/check-skill-name-collisions.py)

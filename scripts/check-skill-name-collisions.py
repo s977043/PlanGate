@@ -37,16 +37,34 @@ repo-local / growth-core / plangate の 3 重定義、setup-team が 4 重定義
     ミラーと判定する条件（**すべて**満たすときのみ）:
         ① 定義がちょうど 2 つ
         ② 一方の root_label が `repo-local`
-        ③ 他方が `plugin:<p>`（単一）
+        ③ 他方が `plugin:<p>`（単一）で、**`<p>` が自リポジトリの export 先**
+           （既定 `plangate` = `sync-plugin-plangate.sh` の PLUGIN_DIR 名。
+           consumer リポジトリでは `--mirror-plugin` で明示指定する）
         ④ **走査ルート内の相対パスが一致**
+        ⑤ **内容の同一性が示せる**: description が一致するか、または
+           drift が構造的に説明できる kind（skill。plugin 側の正本は
+           `.agents/skills` であり `.claude/skills` との差分は export 時の
+           意図的な適応として発生しうる）であること。
+           agent / command は `sync-plugin-plangate.yml` の `drift-check` が
+           内容一致を `exit 1` で担保しているため、description 差分は
+           「export ではない別実装」の証拠として扱い衝突にする。
+
+    ③ が無いと **任意の第三者 plugin が無条件でミラーとして受理**され、
+    consumer リポジトリの `.claude/skills/x` ⇄ `plugin/<third-party>/skills/x`
+    という真の衝突が rc=0 で通る（#1153）。判定不能なら安全側（衝突）に倒す。
 
     以下は引き続き衝突として rc=1 になる:
         - 3 定義以上（repo-local + plugin-a + plugin-b。#692 の動機ケース）
+        - **repo-local ⇄ export 先でない plugin**（#1153。第三者 plugin との
+          真の名前衝突。`--mirror-plugin` で明示された plugin のみが除外対象）
+        - **agent / command のミラー位置で description が乖離**（#1153。
+          drift-check が担保するはずの一致が崩れている＝export ではない）
         - plugin 同士の同名（repo-local 無し）
         - 非ミラー位置での同名（`.claude/skills/foo/` と `plugin/p/skills/bar/`）
         - **同一 root 内の重複**（#1087 で新規に検出可能になったクラス）
 
-    ミラー対の**内容** drift は本スクリプトでは見ない。担保は非対称:
+    ミラー対の**内容** drift の扱いは非対称（#1153 で agent/command のみ
+    本スクリプトの判定条件5 に取り込んだ）。担保の所在:
         - agent / command: `.claude/` → `plugin/plangate/` を
           `sync-plugin-plangate.yml` の `drift-check` job が `exit 1` で担保
         - skill: plugin 側の正本は `.claude/skills` ではなく `.agents/skills`。
@@ -65,6 +83,7 @@ follow-up とする（docs/ai/skill-collision-detection.md 参照）。
 Usage:
     python3 scripts/check-skill-name-collisions.py
     python3 scripts/check-skill-name-collisions.py --extra-root <path>
+    python3 scripts/check-skill-name-collisions.py --mirror-plugin <plugin-name>
     python3 scripts/check-skill-name-collisions.py --selftest
 
 Exit codes:
@@ -85,6 +104,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 FRONTMATTER_KV_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")
 
 DESCRIPTION_PREVIEW_LEN = 80
+
+# 自リポジトリの export 先 plugin（#1153）。
+# `scripts/sync-plugin-plangate.sh` の `PLUGIN_DIR="$REPO_ROOT/plugin/plangate"`
+# に対応する。ここに載っている plugin だけが「repo-local 定義の配布コピー」で
+# あり、それ以外の plugin との同名対は独立した 2 定義＝衝突として扱う。
+# consumer リポジトリは `--mirror-plugin` で自分の export 先を明示する。
+DEFAULT_MIRROR_PLUGINS = frozenset({"plangate"})
+
+# ミラー対の内容 drift を許容する kind（#1153 条件⑤）。
+# skill は plugin 側の正本が `.agents/skills` であり `.claude/skills` との
+# description 差分が export 時の適応として正常に起きうる（既知ギャップ）。
+# agent / command は sync-plugin-plangate.yml の drift-check が内容一致を
+# `exit 1` で担保しているため、差分は「export ではない」ことの証拠になる。
+DRIFT_TOLERATED_KINDS = frozenset({"skill"})
 
 
 @dataclass
@@ -116,12 +149,38 @@ def _has_exactly_two(defs: list[Definition]) -> bool:
     return len(defs) == 2
 
 
-def _has_repo_local_and_single_plugin(defs: list[Definition]) -> bool:
-    """条件②③: 一方が repo-local、他方が単一の plugin。"""
+def _has_repo_local_and_single_plugin(
+    defs: list[Definition], mirror_plugins: frozenset[str]
+) -> bool:
+    """条件②③: 一方が repo-local、他方が **自リポジトリの export 先** plugin。
+
+    #1153: `startswith("plugin:")` だけを見ると、第三者 plugin との真の
+    名前衝突（consumer の `.claude/skills/x` ⇄ `plugin/growth-core/skills/x`）
+    まで「正常なミラー」として rc=0 で通る。ミラー除外の根拠は
+    「`plugin/<p>/` が `sync-plugin-plangate.sh` の生成物であること」なので、
+    その前提が成り立つ plugin 名でのみ成立させる。
+    """
     labels = [d.root_label for d in defs]
     repo_local = [x for x in labels if x == "repo-local"]
     plugins = [x for x in labels if x.startswith("plugin:")]
-    return len(repo_local) == 1 and len(plugins) == 1
+    if len(repo_local) != 1 or len(plugins) != 1:
+        return False
+    plugin_name = plugins[0][len("plugin:") :]
+    return plugin_name in mirror_plugins
+
+
+def _content_is_consistent(collision: "Collision") -> bool:
+    """条件⑤: 「1 つの定義とその配布コピー」であることを内容面でも示せるか。
+
+    description が一致していれば copy として整合。一致しない場合、
+    drift が構造的に説明できる kind（skill）に限って許容する
+    （モジュール docstring「配布ミラーの扱い」の非対称カバレッジ）。
+    agent / command の drift は drift-check が担保するはずの一致が崩れた
+    状態であり、export ではなく別実装である可能性を示すため衝突にする。
+    """
+    if not collision.description_differs:
+        return True
+    return collision.kind in DRIFT_TOLERATED_KINDS
 
 
 def _same_intra_root_path(defs: list[Definition]) -> bool:
@@ -134,6 +193,8 @@ class Collision:
     name: str
     kind: str
     definitions: list[Definition] = field(default_factory=list)
+    # この判定に使う「自リポジトリの export 先 plugin」集合（#1153）
+    mirror_plugins: frozenset[str] = DEFAULT_MIRROR_PLUGINS
 
     @property
     def description_differs(self) -> bool:
@@ -150,15 +211,21 @@ class Collision:
         「2 つの独立した定義が名前を取り合っている」のではなく
         「1 つの定義とその配布コピー」であり、多重定義として扱わない。
 
-        対の**内容** drift は本スクリプトでは見ない。担保の所在は
+        ただしそれが言えるのは **その plugin が自リポジトリの export 先で
+        ある場合だけ**である（#1153）。第三者 plugin との同名対は
+        「1 つの定義とその配布コピー」ではないため衝突のままにする。
+
+        対の**内容** drift のうち skill の description 差分は許容する
+        （条件5）。その担保の所在は
         モジュール docstring「配布ミラーの扱い」を参照（agent/command は
         `sync-plugin-plangate.yml` の `drift-check` が担保、skill は未担保）。
         """
         defs = self.definitions
         return (
             _has_exactly_two(defs)
-            and _has_repo_local_and_single_plugin(defs)
+            and _has_repo_local_and_single_plugin(defs, self.mirror_plugins)
             and _same_intra_root_path(defs)
+            and _content_is_consistent(self)
         )
 
 
@@ -288,7 +355,10 @@ def collect_flat_definitions(roots: list[Path], kind: str) -> list[Definition]:
     return definitions
 
 
-def find_collisions(definitions: list[Definition]) -> list[Collision]:
+def find_collisions(
+    definitions: list[Definition],
+    mirror_plugins: frozenset[str] = DEFAULT_MIRROR_PLUGINS,
+) -> list[Collision]:
     """同一 (kind, name) に定義が 2 つ以上ある場合を多重定義候補とする。
 
     「異なる root_label に跨る場合のみ」ではなく「2 つ以上」で拾う。
@@ -306,7 +376,14 @@ def find_collisions(definitions: list[Definition]) -> list[Collision]:
     collisions: list[Collision] = []
     for (kind, name), defs in sorted(grouped.items()):
         if len(defs) > 1:
-            collisions.append(Collision(name=name, kind=kind, definitions=defs))
+            collisions.append(
+                Collision(
+                    name=name,
+                    kind=kind,
+                    definitions=defs,
+                    mirror_plugins=mirror_plugins,
+                )
+            )
     return collisions
 
 
@@ -317,7 +394,11 @@ def _origins(c: Collision) -> str:
     )
 
 
-def format_report(true_collisions: list[Collision], mirrors: list[Collision]) -> str:
+def format_report(
+    true_collisions: list[Collision],
+    mirrors: list[Collision],
+    mirror_plugins: frozenset[str] = DEFAULT_MIRROR_PLUGINS,
+) -> str:
     """真の多重定義とミラーを **両方** 印字する。
 
     ミラーを出力から消さないのは意図的である。黙って落とすと
@@ -347,6 +428,11 @@ def format_report(true_collisions: list[Collision], mirrors: list[Collision]) ->
             "（正常。判定は docs/ai/skill-collision-detection.md を参照）"
         )
         lines.append(
+            "      ミラー除外の対象 plugin: "
+            + ", ".join(sorted(mirror_plugins))
+            + "（--mirror-plugin で指定。それ以外の plugin との同名対は衝突）"
+        )
+        lines.append(
             "      対の内容一致: agent/command は sync-plugin-plangate.yml の"
             " drift-check job が担保。skill は .agents/skills が plugin の正本のため"
             " .claude/skills との parity は未担保（既知ギャップ）"
@@ -366,8 +452,12 @@ def _is_relative(path: Path) -> bool:
         return False
 
 
-def run_scan(extra_roots: list[str]) -> int:
+def run_scan(extra_roots: list[str], mirror_plugins: list[str] | None = None) -> int:
     base_roots = [REPO_ROOT] + [Path(r).resolve() for r in extra_roots]
+    # --mirror-plugin 明示時は既定（plangate）を **置換** する。
+    # consumer リポジトリの export 先は plangate ではないため、
+    # 既定に足し込むと第三者 plugin の除外が残ってしまう。
+    mirrors_allowed = frozenset(mirror_plugins) if mirror_plugins else DEFAULT_MIRROR_PLUGINS
 
     skill_roots = discover_skill_roots(base_roots)
     command_roots = discover_flat_roots(base_roots, "commands")
@@ -378,13 +468,13 @@ def run_scan(extra_roots: list[str]) -> int:
     definitions += collect_flat_definitions(command_roots, "command")
     definitions += collect_flat_definitions(agent_roots, "agent")
 
-    collisions = find_collisions(definitions)
+    collisions = find_collisions(definitions, mirrors_allowed)
 
     # call site: ミラー分類。ここが壊れると真の衝突が rc に反映されなくなる
     mirrors = [c for c in collisions if c.is_export_mirror]
     true_collisions = [c for c in collisions if not c.is_export_mirror]
 
-    print(format_report(true_collisions, mirrors))
+    print(format_report(true_collisions, mirrors, mirrors_allowed))
 
     if true_collisions:
         return 1
@@ -408,7 +498,10 @@ def run_selftest() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         repo_local = tmp_path / "repo-local"
-        plugin_a = tmp_path / "plugin" / "plugin-a"
+        # #1153: ミラーとして受理されるのは **export 先 plugin** だけなので、
+        # ミラーを期待するケースは既定の export 先名（plangate）を使う。
+        plugin_a = tmp_path / "plugin" / "plangate"
+        plugin_third = tmp_path / "plugin" / "third-party"
 
         # Case 1: 同名 2 定義（description 同一）→ 衝突検出、差分なし
         (repo_local / ".claude" / "skills" / "self-review").mkdir(parents=True)
@@ -560,6 +653,92 @@ def run_selftest() -> int:
         for _kind, _name in (("skill", "shifted"), ("skill", "dup"), ("skill", "triple"), ("skill", "pclash")):
             check(f"report mentions true collision: {_name}", _name in report)
 
+        # --- #1153: 第三者 plugin との同名は衝突（ミラーではない）--------
+        # Case 9: repo-local ⇄ 非 export plugin（description 一致）
+        (repo_local / ".claude" / "skills" / "third-same").mkdir(parents=True)
+        (repo_local / ".claude" / "skills" / "third-same" / "SKILL.md").write_text(
+            "---\nname: third-same\ndescription: 同一テキスト\n---\n# third-same\n",
+            encoding="utf-8",
+        )
+        (plugin_third / "skills" / "third-same").mkdir(parents=True)
+        (plugin_third / "skills" / "third-same" / "SKILL.md").write_text(
+            "---\nname: third-same\ndescription: 同一テキスト\n---\n# third-same\n",
+            encoding="utf-8",
+        )
+
+        # Case 10: repo-local ⇄ 非 export plugin（description 差分・issue #1153 の再現）
+        (repo_local / ".claude" / "skills" / "third-drift").mkdir(parents=True)
+        (repo_local / ".claude" / "skills" / "third-drift" / "SKILL.md").write_text(
+            "---\nname: third-drift\ndescription: repo 固有の実装\n---\n# third-drift\n",
+            encoding="utf-8",
+        )
+        (plugin_third / "skills" / "third-drift").mkdir(parents=True)
+        (plugin_third / "skills" / "third-drift" / "SKILL.md").write_text(
+            "---\nname: third-drift\ndescription: 全く別の実装\n---\n# third-drift\n",
+            encoding="utf-8",
+        )
+
+        defs3 = collect_skill_definitions(discover_skill_roots([repo_local, tmp_path]))
+        by_name3 = {(c.kind, c.name): c for c in find_collisions(defs3)}
+
+        check(
+            "third-party plugin pair (same description) -> true collision",
+            not by_name3[("skill", "third-same")].is_export_mirror,
+        )
+        check(
+            "third-party plugin pair (description drift) -> true collision",
+            not by_name3[("skill", "third-drift")].is_export_mirror,
+        )
+        check(
+            "export-target plugin pair is still a mirror",
+            by_name3[("skill", "self-review")].is_export_mirror,
+        )
+
+        # --mirror-plugin 相当: export 先として明示すればミラーになる
+        by_name3_override = {
+            (c.kind, c.name): c
+            for c in find_collisions(defs3, frozenset({"third-party"}))
+        }
+        check(
+            "declaring the plugin as an export target makes the pair a mirror",
+            by_name3_override[("skill", "third-same")].is_export_mirror,
+        )
+        check(
+            "declaring another export target turns the plangate pair into a collision",
+            not by_name3_override[("skill", "self-review")].is_export_mirror,
+        )
+
+        # Case 11: agent/command のミラー位置で description が乖離 -> 真の衝突
+        (repo_local / ".claude" / "agents").mkdir(parents=True)
+        (repo_local / ".claude" / "agents" / "drifted-agent.md").write_text(
+            "---\nname: drifted-agent\ndescription: repo 側の責務\n---\n# a\n",
+            encoding="utf-8",
+        )
+        (plugin_a / "agents").mkdir(parents=True)
+        (plugin_a / "agents" / "drifted-agent.md").write_text(
+            "---\nname: drifted-agent\ndescription: plugin 側の別責務\n---\n# a\n",
+            encoding="utf-8",
+        )
+        (repo_local / ".claude" / "agents" / "synced-agent.md").write_text(
+            "---\nname: synced-agent\ndescription: 同一の責務\n---\n# a\n",
+            encoding="utf-8",
+        )
+        (plugin_a / "agents" / "synced-agent.md").write_text(
+            "---\nname: synced-agent\ndescription: 同一の責務\n---\n# a\n",
+            encoding="utf-8",
+        )
+        agent_roots = discover_flat_roots([repo_local, tmp_path], "agents")
+        agent_defs = collect_flat_definitions(agent_roots, "agent")
+        by_agent = {(c.kind, c.name): c for c in find_collisions(agent_defs)}
+        check(
+            "agent mirror with description drift -> true collision (drift-check would have blocked it)",
+            not by_agent[("agent", "drifted-agent")].is_export_mirror,
+        )
+        check(
+            "agent mirror without drift -> mirror",
+            by_agent[("agent", "synced-agent")].is_export_mirror,
+        )
+
         empty_report = format_report([], [])
         check("empty report says no collisions", empty_report.startswith("OK"))
 
@@ -569,7 +748,7 @@ def run_selftest() -> int:
             print(f"  - {name}")
         return 1
 
-    total_checks = 13 + 3 + 6 + 2 + 4
+    total_checks = 13 + 3 + 6 + 2 + 4 + 7  # 末尾 +7 = #1153 の export 先判定 / 内容同一性
     print(f"SELFTEST PASS ({total_checks} checks)")
     return 0
 
@@ -584,6 +763,16 @@ def main(argv: list[str] | None = None) -> int:
         help="追加で走査するベースディレクトリ（.claude/ と plugin/ を配下に持つパス）。複数指定可",
     )
     parser.add_argument(
+        "--mirror-plugin",
+        action="append",
+        default=[],
+        dest="mirror_plugins",
+        help=(
+            "配布ミラーとして除外してよい plugin 名（自リポジトリの export 先）。"
+            f"未指定時は {sorted(DEFAULT_MIRROR_PLUGINS)}。指定時は既定を置換する。複数指定可"
+        ),
+    )
+    parser.add_argument(
         "--selftest",
         action="store_true",
         help="内蔵ケースで衝突検出ロジックを自己テストする",
@@ -594,7 +783,7 @@ def main(argv: list[str] | None = None) -> int:
         return run_selftest()
 
     try:
-        return run_scan(args.extra_roots)
+        return run_scan(args.extra_roots, args.mirror_plugins)
     except Exception as exc:  # noqa: BLE001 - CLI 境界での明示的エラー化
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
