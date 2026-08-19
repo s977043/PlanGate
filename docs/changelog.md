@@ -10,6 +10,84 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.21.0 (2026-08-19)
+
+fix: 参照解決順の「構造上空振りする段」を配布物から除去し、EH-3 / EH-13 のガード迂回 2 クラスを封鎖（あわせて EH-13 の誤検出 1 件を解消）
+
+v8.20.0 タグ以降に main へ蓄積した **47 コミット**（実測: `git rev-list --count v8.20.0..f31687a`）を反映する。
+主題は **「参照はあるが解決されない」「ガードはあるが迂回できる」構造の実測是正**。
+配布物（`plugin/`）の変更は **45 ファイル**（実測: `git diff --name-only v8.20.0..f31687a -- plugin/ | wc -l`）で、
+うち大半は skill の参照解決順と正本参照の是正。**`schemas/*.json` と `bin/plangate` は変更ゼロ**
+（実測: `git diff --stat v8.20.0..f31687a -- schemas/ bin/` が空）→ Schema / CLI の挙動は不変。
+**PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
+
+### ⚠️ 更新前に必ずお読みください（block 挙動が 2 箇所で強化されます）
+
+> **対象: 本リポジトリを clone して `scripts/hooks/` / `scripts/check-approval-token-write.sh` を
+> `.claude/settings.json` へ配線している利用者。** これらは **plugin 配布物に含まれません**。
+> `plangate` プラグインを `plugin marketplace` 経由で導入しているだけの場合、本節は影響しません。
+
+1. **EH-3: Hardening Override の block が TASK 文脈でも発火するようになりました**（#1089 / PR #1097）。
+   v8.20.0 で「既知の未解消ギャップ」として出荷した迂回（`PLANGATE_HOOK_TASK` を設定していると HO 判定が
+   一度も評価されず、9 カテゴリすべてで `rc=2` → `rc=0` になる）が解消されています。
+   **`PLANGATE_HOOK_TASK` を設定した状態で HO 対象パス（`.claude/rules/*.md` / `.claude/settings*.json` /
+   `.claude/commands/*.md` / `.claude/agents/*.md` / `scripts/hooks/*.sh` / `bin/plangate` /
+   `schemas/*.schema.json` / `.github/workflows/*.yml|yaml` / `AGENTS.md` / `CLAUDE.md`）を編集していた
+   フローは block されます**（これが本来の期待挙動です）。適用済みのため、gap を受理していた
+   `tests/fixtures/eh3-known-gap-1089.flag` は削除されています（`scripts/apply-eh3-ho-always.sh`
+   は適用後も repo に残りますが、再実行は不要です）。
+2. **EH-13: 承認トークン書き込みガードの迂回 2 クラスを封鎖しました**（#1115 / PR #1148、#1110 / PR #1121）。
+   外側ゲートがコマンド文字列を**リテラル照合**していたため、保護対象のファイル名にワイルドカードを
+   混ぜると照合が外れ、**実測で 21 コマンド（`cp` / `mv` / `tee` / `sed -i` / `git restore` /
+   python・node・ruby の書き込みを含む）が `rc=0` で素通り**していました。照合方向を反転し、
+   (A) approvals 配下でファイル名が glob (B) basename が先頭 glob でなく保護 basename にパターン一致、
+   の 2 条件に絞って block します（**無条件 block は日常の glob コマンドまで落とすため**）。
+   **この 2 条件で塞がるのは実測 21 件中 18 件**で、`node -e "…writeFileSync(…)"` /
+   `ruby -e "File.write(…)"` / `python3 -c "open(…,'w')"` の 3 件は**是正後も `rc=0` のまま残存します**
+   （実測: `docs/working/TASK-1115/evidence/lane-scan.txt` の `v2` 列）。残存クラスと follow-up 候補は
+   `docs/working/TASK-1115/plan.md` §残存クラス を参照してください。あわせてリダイレクト判定を「先と保護パスの相関」で行うようにし、
+   コミットメッセージにパス名を書きつつ無関係な出力を `/tmp` へ流すだけのコマンドが block される
+   誤検出（#1110）を解消しました。**判定不能なケースは従来どおり block 側に倒します**（fail-closed 不変）。
+
+**semver 裁定**: 規約 [`docs/ai/versioning-stability-policy.md`](docs/ai/versioning-stability-policy.md) §2.2
+「既定挙動の変更（SKIP → BLOCK）」は上記 2 件を **major** と示すが、本リリースは Human 裁定により **minor**。
+影響が plugin 配布物に含まれない hook 配線利用者に限定されること、および v8.19.0（EH-13 の
+`exit 1` → `exit 2` fail-closed 化）で同型を minor と裁定した前例に揃えた。判定者・判定日・残る不整合と
+follow-up は [`docs/working/_merge/v8.21.0-release-runbook.md`](docs/working/_merge/v8.21.0-release-runbook.md) §1 に記録した。
+
+### Added
+
+- **`diff-audit` skill に検証観点を追加**（#1152 / #1137）— シェルオプションの意味論・実行文脈・多配置先追従の 4 観点、およびテスト検証の検出力 3 観点と自己宣言制約の Rationalization。配布物に含まれる
+- **`check-skill-name-collisions.py` に「同一 root 内の重複」検出を追加**（#1087 / PR #1149）— 従来は「2 定義以上」を見ておらず原理的に検出できなかったクラス。repo-local と plugin export のミラーは 4 条件の合接に限って除外し、握り潰さず INFO として印字する
+
+### Fixed
+
+- **skill の参照解決順から、構造上必ず空振りする plugin root 段を除去**（#954 / PR #1139・#1146・#1154・#1158。**PR #1158 単体で 41 ファイル**、4 PR のユニーク和は 73 ファイル）— `docs/**` は `sync-plugin-plangate.sh` の設計上 plugin の配布対象外のため、`docs/**` 専用の解決順に置かれた plugin root 段は**常に解決されない**手順だった。`rules/*.md`（クラス A）の解決順は plugin root 配下が実在するため不変
+- **不在 rules 6 件への参照を現行正本へ張り替え、後継なしは明記**（#1125）／**クラス A' の rules 参照を正本 root で壊れない形へ是正**（#1123・#1127）／**`intent-classifier` / `skill-policy-router` の正本宣言を実態へ是正し 4 root を新版で統一**（#1126）
+- **クラス A（`rules/*.md` 参照）の解決梯子を 4 skill に追加**（#1159 / PR #1164）— `design-gate` / `intent-classifier` / `plan-review-gate` / `skill-policy-router` で、**plugin 経由の導入だと判定の正本（`mode-classification.md` 等）が引けない**状態だった。配布物 4 ファイルを含む
+- **skill の CLI 呼び出し表記を PATH 解決名へ統一し、CLI 不在時の degrade を明記**（#1122）
+- **`ai-loop` の run 指定に関する CLI 誤読を解消**（#982 / PR #1160）— 入口は `/ai-loop-workflow` の引数仕様であることを `ai-loop-cycle` skill と runbook / loopspec で明示（配布物を含む 3 root = `.agents` / `.claude` / `plugin/plangate` と `docs/workflows/ai-loop`。**`.codex/skills/ai-loop-cycle/SKILL.md` は未追従のまま**）
+- **C-1 セルフレビューの項目数を実体（全 25 項目）へ是正**（#960 / PR #1118。非 HO 分 24 ファイル）。PR #1122 が「17 項目」表記を再導入した退行も是正した（PR #1138）
+- **EH-3 の Hardening Override を `task_id` 文脈に依存せず評価**（#1089 / PR #1097）— HO 判定が `task_id` 未設定分岐の内側にあったため、**`PLANGATE_HOOK_TASK` が設定されたセッションでは HO 9 カテゴリすべてが block されなかった**（`PLANGATE_HOOK_TASK` は `plan.md` 編集の正規経路であり、**PlanGate 作業中のセッションこそ HO 保護が外れる**状態だった）。判定を `task_id` 分岐より前へ移動し、TASK 文脈の有無に依らず block する。回帰は `tests/extras/ta-65-eh3-ho-task-context.sh`。適用済みのため `tests/fixtures/eh3-known-gap-1089.flag` は削除されている（`scripts/apply-eh3-ho-always.sh` は repo に残るが再実行不要）
+- **EH-13 の外側ゲート迂回とリダイレクト誤検出**（#1115 / PR #1148、#1110 / PR #1121）— 上記「⚠️ 更新前に必ずお読みください」2. を参照
+- **plugin skill spec 検査の silently skip**（#1109 / PR #1120）— 宣言した検査対象が不在でも緑になっていた状態を解消し、`.codex/skills/` の 8 件の `agents/openai.yaml` を是正
+- **配布物検査 2 本の判定を実態へ是正**（#1087 / PR #1149）— `check-skill-name-collisions.py` / `check-stale-skill-refs.py` は rc=1 のまま放置され CI にも未配線だった。全件を実測分類した結果 rc=1 の中身はいずれも検査側の誤りだったため rc=0 化した（CI 配線は patch 提示まで）
+- **`ta-62` TC-D の timeout を誤診断せず切り分け**（#1062 / PR #1142）— 実行回数 7 回の実測調査つき
+
+### Changed
+
+- **`mode-classification.md` の Hardening Override 参照を行番号アンカーから記号アンカーへ**（#1089）— `check-plan-hash.sh` の `_override=0` 直後の `case` ブロックを指す形に変更。行番号アンカーは実装の移動で黙って別ブロックを指すため
+- **hook 配線の前提（`jq` / `sed`）を導入導線へ明記**（#1079 / PR #1099）
+- **EH-3 の HO 注記を退役し、no-task 経路の正規手順を明文化**（#1095 / #1089 / PR #1100）
+- **ファイル書き込みガードが `Edit|Write` matcher 限定である事実を明記**（PR #1106）
+- **`chore(deps)`: github-actions group 4 件の更新**（PR #1113）
+
+### Notes
+
+- 本リリースには **適用が Human-owned の patch 設計 docs が多数含まれる**（#937 / #960 HO 分 / #984 / #990 / #997 / #1011 / #1018 / #1021 / #1101 / #1102 / #1104 / #1135 / #1144 など）。これらは **設計と patch の提示のみで、適用は含まれない**（適用は `sh scripts/apply-*.sh --apply` 相当の Human オペレーション）。**hook / 承認境界ガード本体への適用**は EH-3（#1089）と EH-13（#1115 / #1110）の 2 件のみで、それ以外の実行系変更は検査スクリプト側（#1109 の `check-codex-skill-spec.sh` / #1087 の `check-skill-name-collisions.py`・`check-stale-skill-refs.py`）と CI actions の bump（#1113）
+- `.codex/skills` と `.agents/skills` の二重 root 登録（#1086 / PR #1112）は**調査と是正案の提示まで**で、実装は #956 の判断待ち
+- improvement-seeds の読み出し導線（#1157 / PR #1161）は **patch 設計書のみ**（`docs/working/_reports/1157-seeds-read-path-patch.md`）。適用は含まない
+
 ## v8.20.0 (2026-08-14)
 
 fix: 配布経路（Codex plugin / skill frontmatter）の false green を実測で潰し、Codex CLI parity の誇大記述を「強制力 0/11」へ是正
