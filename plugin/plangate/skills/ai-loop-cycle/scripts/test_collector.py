@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""test_collector.py — collector.py（snapshot 供給者 / AC-1・AC-2・AC-9・論点 D3）の unittest。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_collector.py — collector.py（snapshot 供給者 / AC-1・AC-2・AC-9・論点 D3）の unittest。
 
 実行: python3 scripts/ai-loop/test_collector.py
 
@@ -25,8 +37,6 @@
 - `delivery.py` は main の実物を呼ぶ（AC-7: 一行も変更しない）。
 """
 
-from __future__ import annotations
-
 import ast
 import copy
 import json
@@ -48,7 +58,27 @@ PR = 917
 TASK = "TASK-0917"
 H0 = "0" * 40  # 旧 head
 H1 = "1" * 40  # 現 head
+
 SRC = "a" * 40  # c3 の source_sha
+
+
+def _module_doc(path: pathlib.Path) -> str:
+    """モジュール文書の実体を返す（PG-SH-GUARD #1169 対応）。
+
+    sh 誤起動ガード導入後、module docstring の位置は sh 用 polyglot が占め、
+    本来の文書は module 直下の `__doc__` 代入へ移っている。文書を根拠にする
+    検査は、実行時 `__doc__` と同じこの実体を見る。
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id == "__doc__"
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)):
+            return node.value.value
+    return ast.get_docstring(tree) or ""
+
 
 PLAN_TEXT = """# EXECUTION PLAN — TASK-0917
 
@@ -314,13 +344,14 @@ class TestAc1HeadShaBinding(unittest.TestCase):
                 doc = ast.get_docstring(node, clean=False)
                 if doc is not None:
                     docstrings.add(doc)
+        docstrings.add(_module_doc(HERE / "collector.py"))
         live = [n.value for n in ast.walk(tree)
                 if isinstance(n, ast.Constant) and isinstance(n.value, str)
                 and n.value not in docstrings]
         for token in ("statusCheckRollup", "latestReviews", "pr view", "pr checks"):
             self.assertFalse([s for s in live if token in s],
                              f"snapshot 生成経路に {token} を使っている")
-        self.assertIn("statusCheckRollup", ast.get_docstring(tree) or "",
+        self.assertIn("statusCheckRollup", _module_doc(HERE / "collector.py"),
                       "設計根拠（per-check の sha を持たない）が docstring に無い")
 
     def test_only_rest_get_endpoints_are_called(self):
@@ -556,8 +587,7 @@ class TestAc9RawEvidence(unittest.TestCase):
                          "HUMAN_ESCALATED")
 
     def test_ac9_limitation_documented(self):
-        doc = ast.get_docstring(ast.parse(
-            (HERE / "collector.py").read_text(encoding="utf-8"))) or ""
+        doc = _module_doc(HERE / "collector.py")
         self.assertIn("手作り", doc)
         self.assertIn("delivery.py", doc)
 

@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""reconciler.py — intent ↔ receipt を突合し **冪等** を担保する層
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """reconciler.py — intent ↔ receipt を突合し **冪等** を担保する層
 （TASK-0917 / #917 / AC-3・論点 D3）。
 
 契約正本: docs/working/TASK-0917/plan.md 論点 D3（`findings[]` の
@@ -41,8 +53,6 @@ Work Breakdown Step 7。
 読み取りのみ / `check_exec_boundary.py` の検査対象）。外部書き込みは
 `executor.py` の 1 層に閉じる（AC-5）。
 """
-
-from __future__ import annotations
 
 import dataclasses
 import pathlib

@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
-"""test_metrics.py — metrics.py の unittest カバレッジ（外部依存なし）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_metrics.py — metrics.py の unittest カバレッジ（外部依存なし）。
 
 実行: python3 scripts/ai-loop/test_metrics.py
 """
-
-from __future__ import annotations
 
 import json
 import os

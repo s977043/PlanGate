@@ -1,4 +1,16 @@
-"""c3-prime 契約の共通契約層（TASK-0896 / #896）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """c3-prime 契約の共通契約層（TASK-0896 / #896）。
 
 契約正本: docs/workflows/ai-loop/c3-prime-contract.md（本モジュールは実装集約のみ・
 規則は不変）。arbiter.py（入力ブロック検証）/ plan_package.py（producer）/
@@ -12,7 +24,6 @@ c3prime_verify.py（record 受理器）の 3 消費者が import 参照する単
 - I/O あり関数: sha256_of_file。producer / 受理器のみが使用し、arbiter は
   import / call しない（test_c3_contract.py が回帰検査）
 """
-from __future__ import annotations
 
 import hashlib
 import json

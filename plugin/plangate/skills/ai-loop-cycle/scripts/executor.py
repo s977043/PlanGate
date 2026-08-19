@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""executor.py — `delivery.py` の intent を実行する **唯一の外部書き込み層**
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """executor.py — `delivery.py` の intent を実行する **唯一の外部書き込み層**
 （TASK-0917 / #917 / AC-3・AC-5・R-005・R-021）。
 
 契約正本: docs/working/TASK-0917/plan.md
@@ -60,8 +72,6 @@ endpoint allowlist 外・`gh pr view --json comments` は `JSON_FIELDS` 外）�
 NO MERGE BY AI: 本モジュールは merge / approve / close を一切組み立てない。
 外部作用は `gh_exec.comment_pr()` と `gh_exec.push_pr_head()` の 2 経路のみ。
 """
-
-from __future__ import annotations
 
 import dataclasses
 import io

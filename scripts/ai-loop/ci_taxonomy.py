@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""ci_taxonomy.py — snapshot の `ci_failure_taxonomy` の**供給主体**（TASK-0917 / #917 AC-8）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """ci_taxonomy.py — snapshot の `ci_failure_taxonomy` の**供給主体**（TASK-0917 / #917 AC-8）。
 
 契約正本: docs/working/TASK-0917/plan.md 論点 D3 `ci_failure_taxonomy` 行。
 
@@ -26,8 +38,6 @@ AC-8 のモジュール境界（供給主体として機械的に特定できる
     load_record_entries() / manual_taxonomy() / classify_log() /
     resolve_taxonomy() / apply_to_snapshot()
 """
-
-from __future__ import annotations
 
 import pathlib
 import sys

@@ -1,7 +1,13 @@
 # tests/extras/ta-70-py-sh-misinvocation-guard.sh
 # PG_EXTRA_CAPABILITY: standalone-capable
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
-# scripts/*.py の「誤インタプリタ起動」副作用ガード回帰テスト（#1169）。
+# Python スクリプトの「誤インタプリタ起動」副作用ガード回帰テスト（#1169）。
+#
+# 走査対象は 3 群:
+#   1. scripts/*.py            （#1175 で是正した射程）
+#   2. scripts/ai-loop/*.py    （残射程。sh 誤起動で gh pr merge /
+#      gh pr review --approve / gh pr close へ実際に到達する経路を含む）
+#   3. plugin/plangate/skills/ai-loop-cycle/scripts/*.py（配布ミラー）
 #
 # 背景: sh scripts/check-skill-frontmatter.py を実行すると、sh は module
 # docstring を二重引用符文字列として読むため docstring 内のバッククォートが
@@ -10,11 +16,11 @@
 # 34 ファイルが書き換わった（v8.21.0 リリース準備レビュー中の実害）。
 # shebang と実行権限は既に付いていたため、それだけでは塞がらない。
 #
-#   TC-01: 全 scripts/*.py が PG-SH-GUARD marker を持つ（新規追加ファイル込みの
+#   TC-01: 走査対象 3 群の全 .py が PG-SH-GUARD marker を持つ（新規追加ファイル込みの
 #          再発検知。バッククォート除去だけでは再導入で再発するため構造で塞ぐ）
 #   TC-02: marker がファイル先頭 12 行以内（sh が危険な行を読む前に止まる位置）
-#   TC-03: 全 scripts/*.py が python3 で compile できる（polyglot が Python を壊さない）
-#   TC-04: 実ファイル — 全 scripts/*.py を sh で起動すると exit 2 かつ診断メッセージ
+#   TC-03: 走査対象の全 .py が python3 で compile できる（polyglot が Python を壊さない）
+#   TC-04: 実ファイル — 走査対象を sh で起動すると exit 2 かつ診断メッセージ
 #   TC-05: 実ファイル — TC-04 の一連の実行で repo が 1 バイトも変わらない
 #   TC-06: 合成 fixture 正側 — ガード付きは sentinel を起動せず exit 2
 #   TC-07: 合成 fixture 負側（変異注入） — ガードを外すと sentinel が実際に起動する
@@ -45,7 +51,7 @@ if pg_extra_contract_is_standalone; then
   unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
 fi
 
-printf '\n=== TA-70: scripts/*.py sh-misinvocation guard (#1169) ===\n'
+printf '\n=== TA-70: python sh-misinvocation guard (#1169) ===\n'
 
 t70_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t70_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
@@ -53,25 +59,39 @@ t70_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 _T70_ROOT="$(CDPATH= cd -- "$_pg_extra_dir/../.." && pwd)"
 _T70_MARKER='PG-SH-GUARD'
 
-# === TC-01 全 scripts/*.py が guard marker を持つ ===
+# 走査対象ディレクトリ 3 群。件数は運用で増減するため絶対件数を契約値に
+# しない（無関係 PR を落とす時限爆弾になる）。代わりに「各群が 1 件以上に
+# 展開されたこと」を機械検出し、glob が丸ごと空振りした状態で緑になるのを防ぐ。
+_T70_DIRS='scripts scripts/ai-loop plugin/plangate/skills/ai-loop-cycle/scripts'
+_t70_emptydir=''
+for _t70_d in $_T70_DIRS; do
+  _t70_n=0
+  for _t70_g in "$_T70_ROOT/$_t70_d"/*.py; do
+    [ -f "$_t70_g" ] || continue
+    _t70_n=$((_t70_n + 1))
+  done
+  [ "$_t70_n" -gt 0 ] || _t70_emptydir="$_t70_emptydir $_t70_d"
+done
+
+# === TC-01 走査対象 3 群の全 .py が guard marker を持つ ===
 _t70_total=0
 _t70_missing=''
-for _t70_f in "$_T70_ROOT"/scripts/*.py; do
+for _t70_f in "$_T70_ROOT"/scripts/*.py "$_T70_ROOT"/scripts/ai-loop/*.py "$_T70_ROOT"/plugin/plangate/skills/ai-loop-cycle/scripts/*.py; do
   [ -f "$_t70_f" ] || continue
   _t70_total=$((_t70_total + 1))
-  grep -q "$_T70_MARKER" "$_t70_f" || _t70_missing="$_t70_missing $(basename "$_t70_f")"
+  grep -q "$_T70_MARKER" "$_t70_f" || _t70_missing="$_t70_missing ${_t70_f#"$_T70_ROOT"/}"
 done
-if [ "$_t70_total" -ge 20 ] && [ -z "$_t70_missing" ]; then
-  t70_pass "TC-01 scripts/*.py ${_t70_total} 件すべてに $_T70_MARKER がある"
+if [ "$_t70_total" -ge 20 ] && [ -z "$_t70_missing" ] && [ -z "$_t70_emptydir" ]; then
+  t70_pass "TC-01 走査対象 ${_t70_total} 件すべてに ${_T70_MARKER} がある (${_T70_DIRS})"
 else
-  t70_fail "TC-01 guard 欠落 (走査 ${_t70_total} 件 / 欠落:${_t70_missing:- なし})"
+  t70_fail "TC-01 guard 欠落 (走査 ${_t70_total} 件 / 欠落:${_t70_missing:- なし} / 空 glob:${_t70_emptydir:- なし})"
 fi
 
 # === TC-02 marker がファイル先頭 12 行以内（sh が危険な行を読む前に止まる位置） ===
 _t70_late=''
-for _t70_f in "$_T70_ROOT"/scripts/*.py; do
+for _t70_f in "$_T70_ROOT"/scripts/*.py "$_T70_ROOT"/scripts/ai-loop/*.py "$_T70_ROOT"/plugin/plangate/skills/ai-loop-cycle/scripts/*.py; do
   [ -f "$_t70_f" ] || continue
-  head -12 "$_t70_f" | grep -q "$_T70_MARKER" || _t70_late="$_t70_late $(basename "$_t70_f")"
+  head -12 "$_t70_f" | grep -q "$_T70_MARKER" || _t70_late="$_t70_late ${_t70_f#"$_T70_ROOT"/}"
 done
 if [ -z "$_t70_late" ]; then
   t70_pass "TC-02 guard が先頭 12 行以内にある"
@@ -81,12 +101,12 @@ fi
 
 # === TC-03 polyglot が Python 側を壊していない ===
 _t70_broken=''
-for _t70_f in "$_T70_ROOT"/scripts/*.py; do
+for _t70_f in "$_T70_ROOT"/scripts/*.py "$_T70_ROOT"/scripts/ai-loop/*.py "$_T70_ROOT"/plugin/plangate/skills/ai-loop-cycle/scripts/*.py; do
   [ -f "$_t70_f" ] || continue
-  python3 -c 'import sys; compile(open(sys.argv[1], encoding="utf-8").read(), sys.argv[1], "exec")' "$_t70_f" >/dev/null 2>&1 || _t70_broken="$_t70_broken $(basename "$_t70_f")"
+  python3 -c 'import sys; compile(open(sys.argv[1], encoding="utf-8").read(), sys.argv[1], "exec")' "$_t70_f" >/dev/null 2>&1 || _t70_broken="$_t70_broken ${_t70_f#"$_T70_ROOT"/}"
 done
 if [ -z "$_t70_broken" ]; then
-  t70_pass "TC-03 全 scripts/*.py が python3 で compile 可能"
+  t70_pass "TC-03 走査対象すべてが python3 で compile 可能"
 else
   t70_fail "TC-03 compile 失敗:$_t70_broken"
 fi
@@ -94,21 +114,21 @@ fi
 # === TC-04 / TC-05 実ファイルを sh で起動しても副作用が出ない ===
 # 安全順序: TC-01 が緑（= guard がある）ときだけ実走する。guard 不在のまま
 # 実走すると本テスト自身が repo を書き換えてしまうため。
-if [ -z "$_t70_missing" ] && [ "$_t70_total" -ge 20 ]; then
+if [ -z "$_t70_missing" ] && [ "$_t70_total" -ge 20 ] && [ -z "$_t70_emptydir" ]; then
   _t70_before="$(cd "$_T70_ROOT" && git status --porcelain 2>/dev/null || printf 'GIT-UNAVAILABLE')"
   _t70_badrc=''
   _t70_nomsg=''
-  for _t70_f in "$_T70_ROOT"/scripts/*.py; do
+  for _t70_f in "$_T70_ROOT"/scripts/*.py "$_T70_ROOT"/scripts/ai-loop/*.py "$_T70_ROOT"/plugin/plangate/skills/ai-loop-cycle/scripts/*.py; do
     [ -f "$_t70_f" ] || continue
-    _t70_rel="scripts/$(basename "$_t70_f")"
+    _t70_rel="${_t70_f#"$_T70_ROOT"/}"
     _t70_rc=0
     _t70_out="$(cd "$_T70_ROOT" && sh "$_t70_rel" </dev/null 2>&1)" || _t70_rc=$?
-    [ "$_t70_rc" -eq 2 ] || _t70_badrc="$_t70_badrc $(basename "$_t70_f"):rc=$_t70_rc"
-    printf '%s' "$_t70_out" | grep -q 'python3' || _t70_nomsg="$_t70_nomsg $(basename "$_t70_f")"
+    [ "$_t70_rc" -eq 2 ] || _t70_badrc="$_t70_badrc ${_t70_f#"$_T70_ROOT"/}:rc=$_t70_rc"
+    printf '%s' "$_t70_out" | grep -q 'python3' || _t70_nomsg="$_t70_nomsg ${_t70_f#"$_T70_ROOT"/}"
   done
   _t70_after="$(cd "$_T70_ROOT" && git status --porcelain 2>/dev/null || printf 'GIT-UNAVAILABLE')"
   if [ -z "$_t70_badrc" ] && [ -z "$_t70_nomsg" ]; then
-    t70_pass "TC-04 全 scripts/*.py が sh 起動で exit 2 + python3 案内を出す"
+    t70_pass "TC-04 走査対象すべてが sh 起動で exit 2 + python3 案内を出す"
   else
     t70_fail "TC-04 rc 不一致:${_t70_badrc:- なし} / 診断なし:${_t70_nomsg:- なし}"
   fi
@@ -118,7 +138,7 @@ if [ -z "$_t70_missing" ] && [ "$_t70_total" -ge 20 ]; then
     t70_fail "TC-05 sh 起動で repo が変化した（#1169 再発）"
   fi
 else
-  t70_fail "TC-04/TC-05 実走中止: guard 不在（TC-01 を先に直すこと）"
+  t70_fail "TC-04/TC-05 実走中止: guard 不在 or glob 空振り（TC-01 を先に直すこと）"
 fi
 
 # === TC-06 / TC-07 / TC-08 合成 fixture（変異注入で検出力を実証） ===

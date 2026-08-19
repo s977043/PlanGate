@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
-"""test_c3prime_verify.py — c3prime_verify.py の受理側偽造耐性テスト（#889 敵対的レビュー）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_c3prime_verify.py — c3prime_verify.py の受理側偽造耐性テスト（#889 敵対的レビュー）。
 
 producer（plan_package.build_c3_prime）を介さず、JSON を手で mutate した偽造 record を
 受理器に直接与えて fail-closed を検証する（producer 経由テストが共有する前提を突く）。
 
 実行: python3 scripts/ai-loop/test_c3prime_verify.py
 """
-from __future__ import annotations
 
 import copy
 import json
