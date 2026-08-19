@@ -41,6 +41,10 @@ python3 scripts/check-skill-name-collisions.py
 # 追加のベースディレクトリ（.claude/ と plugin/ を配下に持つパス）を含めて検査
 python3 scripts/check-skill-name-collisions.py --extra-root /path/to/another-checkout
 
+# 自リポジトリの export 先 plugin を明示する（consumer リポジトリ向け・#1153）
+# 未指定時は plangate のみがミラー除外対象。指定すると既定を **置換** する
+python3 scripts/check-skill-name-collisions.py --mirror-plugin my-plugin
+
 # 内蔵の自己テスト
 python3 scripts/check-skill-name-collisions.py --selftest
 ```
@@ -221,8 +225,23 @@ growth-core + plangate の**供給元 3 者**で定義されていたケース�
 
 - 定義数がちょうど 2 件
 - 一方の定義元ラベルが `repo-local`
-- 他方が単一の `plugin:<p>`
+- 他方が単一の `plugin:<p>` で、**`<p>` が自リポジトリの export 先**
+  （既定は `plangate` = `scripts/sync-plugin-plangate.sh` の `PLUGIN_DIR` 名。
+  `--mirror-plugin <name>` で置換指定できる。**#1153 で追加**）
 - 走査ルート内の相対パスが一致する（例: 双方とも `foo/SKILL.md`）
+- **内容の同一性が示せる**（**#1153 で追加**）: description が一致するか、
+  drift が構造的に説明できる kind（`skill`）であること。
+  `agent` / `command` は `sync-plugin-plangate.yml` の `drift-check` が内容一致を
+  `exit 1` で担保しているため、description 差分は「export ではない別実装」の
+  証拠として扱い衝突にする
+
+> **#1153（`--mirror-plugin` が必要な理由）**: ミラー除外の根拠は
+> 「`plugin/<p>/` が sync スクリプトの生成物であること」であり、この前提が
+> 成り立つのは自リポジトリの export 先 plugin だけである。是正前は
+> `plugin:` で始まるラベルすべてを無条件にミラーとして受理していたため、
+> consumer リポジトリの `.claude/skills/x` ⇄ 第三者 plugin の `x` という
+> **真の衝突が rc=0 で通っていた**。consumer が自分の export 先を持つ場合は
+> `--mirror-plugin` で明示する（未指定なら安全側＝衝突として検出）。
 
 ### 引き続き検出するクラス（rc=1）
 
@@ -232,6 +251,8 @@ growth-core + plangate の**供給元 3 者**で定義されていたケース�
 | plugin 同士の同名 | repo-local を伴わない plugin-a / plugin-b の同名定義 |
 | ミラー関係にないパスでの同名 | `.claude/skills/foo/` と `plugin/p/skills/bar/` が双方 `name: foo` を宣言 |
 | **同一 root 内の重複** | 同じ走査ルートの中で同名が 2 件以上（**#1087 で新たに検出可能**） |
+| **2 者ケース: repo-local ⇄ export 先でない plugin** | consumer の `.claude/skills/self-review` と `plugin/growth-core/skills/self-review`（**#1153 で新たに検出**。description が一致していても、export 先として宣言されていない plugin との同名対は独立した 2 定義として扱う） |
+| **agent / command のミラー位置での description 乖離** | `.claude/agents/x.md` と `plugin/plangate/agents/x.md` の description が異なる（**#1153 で新たに検出**。`drift-check` が担保するはずの一致が崩れている＝ export ではない） |
 
 同一 root 内の重複は、従来の `find_collisions` が「**異なる**定義元ラベルが
 複数あること」を要求していたため、構造的に検出できなかった。#1087 で条件を

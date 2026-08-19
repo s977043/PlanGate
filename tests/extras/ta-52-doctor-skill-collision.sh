@@ -111,9 +111,11 @@ fi
 # --- TC-03: repo-local + plugin の **配布ミラー** -> 衝突ではない -> ok=true ---
 # (#1087) plugin/<p>/ は sync-plugin-plangate.sh が生成する export であり、
 # root 内相対パスが一致する repo-local との対は「1 つの定義とその配布コピー」。
-mkdir -p "$_T52_TMP/plugin/plugin-a/skills/only-here"
+# (#1153) ミラーとして受理されるのは **自リポジトリの export 先 plugin**
+# （既定 plangate）だけ。任意 plugin 名では真の衝突として ok=false になる。
+mkdir -p "$_T52_TMP/plugin/plangate/skills/only-here"
 printf -- '---\nname: only-here\ndescription: mirrored\n---\n# only-here\n' \
-  > "$_T52_TMP/plugin/plugin-a/skills/only-here/SKILL.md"
+  > "$_T52_TMP/plugin/plangate/skills/only-here/SKILL.md"
 if _t52_assert_defs 2 "TC-03"; then
   _t52_out=$(_t52_run) || true
   _t52_ok=$(_t52_collision_ok "$_t52_out")
