@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""plan_hash_util.py — plan_hash 抽出/生成の共有正本（#193 follow-up / TASK-0100).
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """plan_hash_util.py — plan_hash 抽出/生成の共有正本（#193 follow-up / TASK-0100).
 
 EH-3（scripts/hooks/check-plan-hash.sh）が承認境界の **shell 正本**。本 util は
 Python 側消費者（keep-rate / context-engine / metrics_collector）の plan_hash
@@ -15,7 +27,6 @@ Python 側消費者（keep-rate / context-engine / metrics_collector）の plan_
 import 方法: `sys.path.insert(0, str(REPO/"scripts")); import plan_hash_util`
 （schema_mapping.py と同方式）。
 """
-from __future__ import annotations
 
 import hashlib
 import json

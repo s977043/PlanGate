@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""_ai_loop_link_rewrite.py — plugin bundle 用の markdown リンク自己完結化。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """_ai_loop_link_rewrite.py — plugin bundle 用の markdown リンク自己完結化。
 
 背景（issue #790）: sync-plugin-plangate.sh の _sync_ai_loop_ref_content が
 docs/workflows/ai-loop/*.md・docs/ai/ai-loop/*.md を plugin/plangate/skills/
@@ -52,7 +64,6 @@ Usage:
 標準出力に変換後の内容を書き出す（sync script 側で mktemp 経由の比較・
 書き込みに使う想定）。
 """
-from __future__ import annotations
 
 import os
 import re
