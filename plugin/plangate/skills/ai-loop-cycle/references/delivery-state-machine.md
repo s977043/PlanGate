@@ -5,6 +5,10 @@
 > 実装: `delivery.py`（決定論・fail-closed・冪等の判定エンジン）
 > 関連正本: [`00_concept.md`](./00_concept.md) §2.2（Delivery 3 状態 — **不変**）/ [`execution-runbook.md`](./execution-runbook.md) §2-(7) Scheduling 判断表（**不変**）/ [`c3-prime-contract.md`](./c3-prime-contract.md) §7（読み取りフィールド + trust boundary）
 
+## 参照解決順（`docs/**` / 導入先で必ずこの順に探す）
+
+本ドキュメントが参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本ドキュメント内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
+
 ## 1. 既存正本との関係（additive・再定義しない）
 
 - 00_concept §2.2 の Delivery 3 状態（`PR_CREATED` / `MERGE_READY` / `MERGED`)は**不変**。本正本はその `PR_CREATED → MERGE_READY` 区間を機械実装するための**内部サブステート**を additive に定義する
