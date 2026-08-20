@@ -1,0 +1,7 @@
+{"ts":"2026-08-20T09:20:00Z","event":"plan_created","task":"TASK-1180","note":"#1180 の M-1 のみを carve-out。AC-2〜AC-8 は判定ロジック変更を含み high-risk のため別スライス"}
+{"ts":"2026-08-20T09:22:00Z","event":"order_deviation","task":"TASK-1180","note":"提示手順では plan.md 作成が先だったが、issue #1180 AC-8『現行実装で SURVIVE することを先に示してから修正する』を優先し、変異注入の実証を plan.md 作成より先に実施した。plan/todo/test-cases は実施済みの手順をそのまま記述している（事後の辻褄合わせではなく、実測値をそのまま契約値に採用）"}
+{"ts":"2026-08-20T09:24:00Z","event":"scope_correction","task":"TASK-1180","note":"引き継ぎの『:229 の 1 語』に対し grep で plugin/pa/skills が 3 箇所（:204/:216/:229）あることを検出したが、:204=TC-C4（3 定義）/:216=TC-C5（plugin 同士）は plugin/pa + plugin/pb の対として意図的と一次確認し、対象を :229 のみに確定"}
+{"ts":"2026-08-20T09:30:00Z","event":"plan_supplemented","task":"TASK-1180","note":"C-1 の 25 項目に照らし Stop Condition / Replan Triggers（機械値）/ B-2 アプローチ比較が欠落していたため plan.md に追記。C-3 前のため plan_hash 無効化の問題は生じない"}
+{"ts":"2026-08-20T09:35:00Z","event":"c1_result","task":"TASK-1180","verdict":"PASS","note":"25 項目 / PASS 23・N/A 2（C1-SEC-01 / C1-UI-01）・WARN 0・FAIL 0"}
+{"ts":"2026-08-20T09:37:34Z","event":"c3_prime_arbitration","task":"TASK-1180","run_id":"run-034","decision":"AUTO_APPROVED","note":"W チェック 2 体とも approve / boundary=clean / lite=true。非 production run（C-2 未実施のため plan_package 束縛は宣言せず、production フィールドを省略）"}
+{"ts":"2026-08-20T09:38:00Z","event":"duplicate_avoided","task":"TASK-1180","note":"引き継ぎで依頼された未起票 1 件（no-task セッションで ai-loop-workflow が実行不能）は #1197 として本日 09:21 に既に起票済みであることを実測。重複起票を回避"}
