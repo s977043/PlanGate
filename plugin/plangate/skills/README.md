@@ -16,8 +16,24 @@
 | `local-exec-handoff` | ローカル exec 再開・ツール間引き継ぎ用の短い指示パケット（Cloud 不使用時）|
 | `plangate-setup` | PlanGate 初期セットアップを対話的に進めるためのチェックリスト・5 要素対応観点（TASK-0107 / Claude Code + Codex CLI 共用）|
 
+## 似た責務スキルの使い分け（#514）
+
+| 迷ったら | 選ぶスキル | 理由 |
+|---------|-----------|------|
+| **着手前**にタスクを分割すべきか判定したい | `breakdown-gate` | PlanGate 起動前の intake 判定（mode-classification にかける前の分割要否）。mode 判定・C-1 の代替ではない |
+| plan の品質を**軽くスコアリング**したい | `plan-quality-check`（.claude 専用） | `bin/plangate plan-check` に配線された軽量ゲート。C-1 の代替ではない |
+| C-1/C-2/C-3 の**正式ゲート判定**を回したい | `plan-review-gate` | ゲート列の判定と exec 可否確認の正本フロー |
+| plan を**外部レビュアー視点で講評**してほしい | `plan-quality-reviewer`（.claude 専用） | スコアでなく講評を返す。正式ゲートの代替ではない |
+| 新しいスキルを**作りたい** | `skill-creator` | 要件→SKILL.md 一式の生成。既存スキルの改善は対象外 |
+
 Codex CLI の標準入口は `./scripts/ai-dev-workflow TASK-XXXX brainstorm|plan|gate|exec|prepare-cloud|sync-cloud`。verify 系は `bin/plangate validate|review|eval|metrics TASK-XXXX` を併用する。
 本 skill (`plangate-setup`) は Codex 用 agent `.codex/agents/setup_coordinator.toml` から参照される。
+
+> **上記 2 つの相対パス表記は、上流リポジトリ（`s977043/plangate`）を clone した cwd
+> でのみ成立する**（`scripts/**` / `bin/**` は install / plugin / Codex のどの経路でも
+> 導入先に配布されない）。導入先で PATH を通した場合のコマンド名は **`plangate`**
+> （`bin/plangate` ではない）。**環境ごとの表記と CLI 不在時の degrade 手順は
+> 各 skill の「CLI 呼び出し」節を正本とする**（ここでは再定義しない）。
 
 ## v7 ハイブリッドアーキテクチャ対応スキル（Claude Code / Codex CLI 共用）
 
@@ -55,21 +71,17 @@ WF-01〜WF-05 の各 phase で呼び出す再利用可能スキル。
 | `subagent-team-design` | タスク規模・モードに応じた最適チーム設計とエージェント委譲準備（旧 setup-team、#800 で改名） |
 | `ref-integrity-scan` | 削除・移動・改名前後の被参照（inbound）を全走査。`check-stale-skill-refs.py`（#691・outbound）の相補（#798）|
 
-## plugin 限定スキルの status（#514）
+## ゲート・委譲支援スキル（plugin 配布対象 / #862 で正本化）
 
-以下 8 スキルは `.agents/skills/`（共有 SSoT）に存在せず **plugin 配布専用**。
-v7 統制層（TASK-0029 / TASK-0033）で plugin に直接追加され、導入先リポジトリで
-Intent/Mode 分類・4 Gate・エージェント統制を動かすための製品面コンポーネント:
+旧来 `plugin/plangate/skills/` にのみ実体があった 7 件。sync / drift check の担保下に
+入れるため、本ディレクトリを正本として plugin 側は sync による派生成果物とする（#862）。
 
-| スキル | 役割 | status |
-|--------|------|--------|
-| `intent-classifier` | 依頼の意図分類（mode 判定の前段） | plugin 専用・現役 |
-| `skill-policy-router` | mode に応じた skill 選択ルーティング | plugin 専用・現役 |
-| `design-gate` / `review-gate` | 設計/レビューゲートの実行枠 | plugin 専用・現役 |
-| `context-packager` | サブエージェントへの文脈パッケージング | plugin 専用・現役 |
-| `subagent-dispatch` | サブエージェント委譲の定型化 | plugin 専用・現役 |
-| `evidence-ledger` | レビュー根拠の台帳化 | plugin 専用・現役 |
-| `pr-decision` | PR 作成可否の判定 | plugin 専用・現役 |
-
-本リポジトリ自身の運用では同等機能を rules / workflow / bin/plangate が担うため
-`.agents/skills` には置かない（共有 SSoT へ昇格する場合は #514 の後続判断）。
+| スキル | 役割 |
+|--------|------|
+| `context-packager` | タスク委譲前に Allowed Context を構造化して出力 |
+| `design-gate` | high-risk 以上のタスクで実装前に Design Artifact を生成・評価 |
+| `evidence-ledger` | 完了主張を証拠付きで記録し EvidenceLedger を出力 |
+| `intent-classifier` | 依頼文から開発 Intent を分類し structured JSON で返す |
+| `pr-decision` | gate/evidence/review/risk/rollback から PR 可否を判定 |
+| `skill-policy-router` | Intent と Mode から必要 Skill・GatePolicy を決定 |
+| `subagent-dispatch` | high-risk/critical でタスクをロール別エージェントに分配 |
