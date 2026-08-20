@@ -226,7 +226,7 @@ fi
 # --- TC-C6: 非ミラー位置での同名 -> rc=1 ---
 _t69_reset_coll
 _t69_skill ".claude/skills" "here" "shifted" "repo side" || true
-_t69_skill "plugin/pa/skills" "elsewhere" "shifted" "plugin side" || true
+_t69_skill "plugin/plangate/skills" "elsewhere" "shifted" "plugin side" || true
 if _t69_assert_defs 2 "TC-C6"; then
   if [ "$(_t69_coll_rc)" = "1" ] && _t69_coll_run | grep -q 'shifted'; then
     t69_pass "TC-C6: same name at non-mirrored paths -> rc=1"
