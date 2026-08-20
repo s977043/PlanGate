@@ -1,6 +1,8 @@
 #!/bin/sh
 # check-pr-issue-link.sh
-# PR 本文に GitHub closing keyword (closes/fixes/resolves #N) が含まれているか検証する
+# PR 本文に issue への linkage が含まれているか検証する。
+# closing keyword (closes/fixes/resolves #N) に加え、issue を閉じない linkage
+# 宣言 (Refs: #N / Part of #N / Related to #N) も有効なリンクとして扱う。
 #
 # Usage:
 #   sh scripts/check-pr-issue-link.sh \
@@ -74,9 +76,31 @@ fi
 # 形式: <keyword> [owner/repo]#<issue-number>
 keyword_re='(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)[[:space:]]+([A-Za-z0-9._-]+/[A-Za-z0-9._-]+)?#([0-9]+)'
 
+# --- non-closing link keyword (#159 改善) ---
+# 本リポジトリの実運用では 1 issue を複数 PR のスライスに分割するため、issue を
+# 閉じない linkage 宣言（Refs: #N / Part of #N / Related to #N）が主流である。
+# これらは「issue 未リンク」ではないので WARN の対象から外す。
+# `(^|[^A-Za-z])` は xrefs / prefs 等の部分一致による誤検出を防ぐ語頭ガード
+# （裸の `#N` は linkage 宣言ではないため意図的に対象外 = TC warn-bare-hash）。
+nonclosing_re='(^|[^A-Za-z])(refs?|related([[:space:]]+to)?|part[[:space:]]+of)[[:space:]:]+([A-Za-z0-9._-]+/[A-Za-z0-9._-]+)?#([0-9]+)'
+
 # 該当 issue 番号を全て抽出
-matched_issues=$(grep -Eio "$keyword_re" "$BODY_FILE" 2>/dev/null \
+closing_issues=$(grep -Eio "$keyword_re" "$BODY_FILE" 2>/dev/null \
   | grep -Eo '#[0-9]+' \
+  | sort -u \
+  | tr '\n' ' ' \
+  | sed 's/[[:space:]]*$//' || true)
+
+nonclosing_issues=$(grep -Eio "$nonclosing_re" "$BODY_FILE" 2>/dev/null \
+  | grep -Eo '#[0-9]+' \
+  | sort -u \
+  | tr '\n' ' ' \
+  | sed 's/[[:space:]]*$//' || true)
+
+# expected_issue 照合は closing / non-closing の双方を対象にする
+matched_issues=$(printf '%s %s' "$closing_issues" "$nonclosing_issues" \
+  | tr ' ' '\n' \
+  | grep -v '^$' \
   | sort -u \
   | tr '\n' ' ' \
   | sed 's/[[:space:]]*$//' || true)
@@ -103,18 +127,22 @@ fi
 
 # --- judgment ---
 if [ -z "$matched_issues" ]; then
-  printf 'WARN: no closing keyword found (expected one of: closes #N / fixes #N / resolves #N)\n'
+  printf 'WARN: no issue link found (expected one of: closes #N / fixes #N / resolves #N / Refs: #N / Part of #N)\n'
   exit 0
 fi
 
 if [ -n "$expected_issue" ]; then
   if printf '%s' "$matched_issues" | grep -qw "#$expected_issue"; then
-    printf 'PASS: expected issue #%s present in closing keywords (%s)\n' "$expected_issue" "$matched_issues"
+    printf 'PASS: expected issue #%s present in issue link(s) (%s)\n' "$expected_issue" "$matched_issues"
   else
-    printf 'WARN: expected issue #%s (from child PBI YAML) not in closing keywords (%s)\n' "$expected_issue" "$matched_issues"
+    printf 'WARN: expected issue #%s (from child PBI YAML) not in issue link(s) (%s)\n' "$expected_issue" "$matched_issues"
   fi
   exit 0
 fi
 
-printf 'PASS: closing keyword(s) %s found\n' "$matched_issues"
+if [ -n "$closing_issues" ]; then
+  printf 'PASS: closing keyword(s) %s found\n' "$closing_issues"
+else
+  printf 'PASS: non-closing link(s) %s found (issue stays open by design)\n' "$nonclosing_issues"
+fi
 exit 0

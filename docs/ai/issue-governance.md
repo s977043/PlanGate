@@ -141,7 +141,10 @@ EPIC issue は以下を満たす。
 ## 9. PR と Issue の連動
 
 - 1 PBI = 1 PR が原則。複数 PR に分割する場合は EPIC 側で分割理由を残す
-- PR 本文で `closes #N` / `fixes #N` / `resolves #N` のいずれかを書く（自動 close 対象）
+- PR 本文で issue への linkage を宣言する。**issue を閉じるか否かで keyword を使い分ける**:
+  - **この PR で issue が完結する** → `closes #N` / `fixes #N` / `resolves #N`（merge 時に自動 close）
+  - **この PR は 1 スライスで issue は open のまま** → `Refs: #N` / `Part of #N` / `Related to #N`
+  - 裸の `#N` 言及は linkage 宣言ではなく、issue-link チェックを満たさない
 - doc-only PR は `documentation` ラベルを付ければ issue-link チェックを skip 可能（PR `<!-- skip-issue-link-check -->` でも可）
 
 ## 10. Non-goals

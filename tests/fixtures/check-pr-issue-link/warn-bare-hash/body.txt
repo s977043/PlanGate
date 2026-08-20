@@ -1,0 +1,9 @@
+# Pull Request
+
+## Summary
+
+PR #123 で導入された挙動を踏襲する。xrefs #456 という語も含むが linkage 宣言ではない。
+
+## Validation
+
+- [x] Tests pass
