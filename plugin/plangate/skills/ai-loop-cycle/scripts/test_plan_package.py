@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""test_plan_package.py — plan_package.py の unittest カバレッジ（外部依存なし）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_plan_package.py — plan_package.py の unittest カバレッジ（外部依存なし）。
 
 実行: python3 scripts/ai-loop/test_plan_package.py
 
@@ -7,8 +19,6 @@
 カバー: TC-01(層2) / TC-02 / TC-03(表駆動) / TC-04 / TC-06 / TC-08a / TC-09(Unit) /
 TC-11 / EC-1 / EC-3（test-cases.md の対応表参照）
 """
-
-from __future__ import annotations
 
 import hashlib
 import inspect

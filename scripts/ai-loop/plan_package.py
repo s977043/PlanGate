@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""plan_package.py — Plan Package の presence/integrity 検証・hash 固定・LoopSpec 決定論的派生・
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """plan_package.py — Plan Package の presence/integrity 検証・hash 固定・LoopSpec 決定論的派生・
 c3-prime record 組み立て（TASK-0872 / issue #872）。
 
 PlanGate 本番フロー（bin/plangate・scripts/hooks/）からは一切呼ばれない隔離 PoC。
@@ -11,8 +23,6 @@ ai-loop（Phase 1）の C-3' を Plan Package の hash と evidence へ束縛す
 - fail-closed: 判定不能・欠落・不一致はすべてエラー側に倒す
 - 冪等: 同一 Plan Package からの派生・組み立ては byte 同一
 """
-
-from __future__ import annotations
 
 import argparse
 import json

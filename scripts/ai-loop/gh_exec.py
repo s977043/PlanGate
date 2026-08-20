@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""gh_exec.py — gh / git を実行する **唯一の境界**（TASK-0917 / #917 / AC-5）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """gh_exec.py — gh / git を実行する **唯一の境界**（TASK-0917 / #917 / AC-5）。
 
 契約正本: docs/working/TASK-0917/plan.md「論点 D2 / D2-A の設計詳細（実装契約）」。
 境界そのものは `check_exec_boundary.py` が AST で機械強制する
@@ -46,8 +58,6 @@
 NO MERGE BY AI: merge は Human-owned であり、本モジュールは merge 経路を
 一切組み立てない（`.claude/rules/responsibility-classes.md`）。
 """
-
-from __future__ import annotations
 
 import dataclasses
 import json

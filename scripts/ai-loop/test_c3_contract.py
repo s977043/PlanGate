@@ -1,8 +1,19 @@
-"""c3_contract.py の契約固定テスト（TASK-0896）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+__doc__ = """c3_contract.py の契約固定テスト（TASK-0896）。
 
 対象は共通層の純関数境界値と定数契約のみ。偽造 record 14 パターンの受理器
 統合テストは test_c3prime_verify.py に残置する（pbi-input Unknowns 確定）。
 """
+
 import pathlib
 import sys
 import unittest

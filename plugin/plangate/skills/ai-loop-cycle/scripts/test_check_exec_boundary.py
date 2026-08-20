@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""test_check_exec_boundary.py — check_exec_boundary.py（AST 実行境界検査器）の unittest。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_check_exec_boundary.py — check_exec_boundary.py（AST 実行境界検査器）の unittest。
 
 実行: python3 scripts/ai-loop/test_check_exec_boundary.py
 
@@ -13,8 +25,6 @@ TC-31c（import 形の解決・別名/直接 import の変異注入）
 - substring 走査は使わない（`discovery.py` の docstring に "subprocess" の禁止宣言文が
   実在するため、grep 方式だと偽陽性になる。本テストはその偽陽性が出ないことも固定する）
 """
-
-from __future__ import annotations
 
 import ast
 import contextlib

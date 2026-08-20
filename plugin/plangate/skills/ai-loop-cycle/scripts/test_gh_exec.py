@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""test_gh_exec.py — gh_exec.py（唯一の gh / git 実行境界 allowlist）の unittest。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_gh_exec.py — gh_exec.py（唯一の gh / git 実行境界 allowlist）の unittest。
 
 実行: python3 scripts/ai-loop/test_gh_exec.py
 
@@ -18,8 +30,6 @@ TC-30（push_pr_head() の事前検査）。
 - 本ファイル自身が `check_exec_boundary.py` の検査対象（`test_*.py`）であるため、
   `subprocess` を import せず実プロセスも起動しない。
 """
-
-from __future__ import annotations
 
 import dataclasses
 import json

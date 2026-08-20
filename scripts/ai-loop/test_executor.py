@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""test_executor.py — executor.py（唯一の外部書き込み層 / AC-3・AC-5・R-005・R-021）の unittest。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_executor.py — executor.py（唯一の外部書き込み層 / AC-3・AC-5・R-005・R-021）の unittest。
 
 実行: python3 scripts/ai-loop/test_executor.py
 
@@ -21,8 +33,6 @@
   作業ツリーのファイルは 1 バイトも書き換えない。
 - `delivery.py` は main の実物を呼ぶ（AC-7: 一行も変更しない）。
 """
-
-from __future__ import annotations
 
 import ast
 import hashlib

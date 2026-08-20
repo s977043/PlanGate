@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""collector.py — `delivery.py` へ渡す snapshot の**供給者**（TASK-0917 / #917）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """collector.py — `delivery.py` へ渡す snapshot の**供給者**（TASK-0917 / #917）。
 
 契約正本: docs/working/TASK-0917/plan.md 論点 D1（`required_checks[]` ⊇ 照合）/
 論点 D3（非 GitHub 由来キーの供給経路）/ 「⚠️ 設計を変えた実測: Collector の主経路は
@@ -47,8 +59,6 @@ head の無い snapshot は AC-1 の束縛対象そのものを欠くため構�
 
 NO MERGE BY AI: 本モジュールは読み取りのみで、PR の状態を変える操作を一切行わない。
 """
-
-from __future__ import annotations
 
 import dataclasses
 import json

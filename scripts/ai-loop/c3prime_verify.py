@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""c3-prime 受理検証（bin/plangate validate / exec preflight 共有・#872 PR-2）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """c3-prime 受理検証（bin/plangate validate / exec preflight 共有・#872 PR-2）。
 
 契約正本: docs/workflows/ai-loop/c3-prime-contract.md §4。
 approvals/c3.json の approval_kind を strict JSON で判別し、c3-prime なら
@@ -14,7 +26,6 @@ Plan Package への束縛を全数**再検証**する（trust boundary: decision
   exit 10 = legacy（approval_kind キー無し）→ 呼び出し側が legacy 経路で処理
   exit 1  = c3-prime だが検証 NG（fail-closed。理由を stderr に出力）
 """
-from __future__ import annotations
 
 import json
 import pathlib
