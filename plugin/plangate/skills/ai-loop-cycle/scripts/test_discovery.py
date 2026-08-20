@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
-"""test_discovery.py — discovery.py（TASK-0818 D-2）の unittest カバレッジ。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_discovery.py — discovery.py（TASK-0818 D-2）の unittest カバレッジ。
 
 実行: python3 scripts/ai-loop/test_discovery.py
 
 read-only 不変条件（git 操作・ファイル書き込みをしない）の検証も含む。
 外部依存なし（unittest 標準ライブラリのみ・metrics.py/arbiter.py と同じ位置付け）。
 """
-
-from __future__ import annotations
 
 import json
 import pathlib
