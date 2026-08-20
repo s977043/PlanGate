@@ -229,8 +229,14 @@ Rollback Plan は standard モードのため必須ではない。
 
 ## 関連
 
-- Rule: `completion-gate.md`（Gate Status の詳細）
-- Rule: `evidence-ledger.md`（Evidence Status の詳細）
-- Rule: `review-gate.md`（Review Findings の詳細）
+- Skill: `evidence-ledger`（Evidence Status の詳細。EvidenceItem 記録手順の正本）
+- Skill: `review-gate`（Review Findings の詳細。severity 判定の正本）
 - Skill: `skill-policy-router`（GatePolicy・requiresWorktree）
 - Workflow: `docs/workflows/05_verify_and_handoff.md`（**配布対象外**。`install.sh --claude` / plugin / Codex の 3 経路とも導入先には配置されない。解決できない場合は本 Skill の記述を代替正本とし、「正本 `<path>` を参照できなかった」と明示する）
+
+> 旧 `plugin/plangate/rules/completion-gate.md` / `plugin/plangate/rules/evidence-ledger.md` /
+> `plugin/plangate/rules/review-gate.md` は**削除済み**（TASK-0124 / `2645848`,
+> 2026-06-02 の plugin 初回同期適用）。Evidence Status / Review Findings の正本は
+> `evidence-ledger` / `review-gate` Skill が引き継いだ。Completion Gate の 5 条件
+> チェックポイントを定義した正本は**後継なし**であり、実務上の統合判定は本 Skill が担う
+> （入力 1「Gate Status」は概念入力であり、参照可能な正本ファイルは存在しない）。
