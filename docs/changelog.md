@@ -14,11 +14,13 @@ PlanGate の主要リリース履歴。
 
 fix: 参照解決順の「構造上空振りする段」を配布物から除去し、EH-3 / EH-13 のガード迂回 2 クラスを封鎖（あわせて EH-13 の誤検出 1 件を解消）
 
-v8.20.0 タグ以降に main へ蓄積した **47 コミット**（実測: `git rev-list --count v8.20.0..f31687a`）を反映する。
+v8.20.0 タグ以降に main へ蓄積した **53 コミット**（実測: `git rev-list --count v8.20.0..2447bf8`）を反映する。
 主題は **「参照はあるが解決されない」「ガードはあるが迂回できる」構造の実測是正**。
-配布物（`plugin/`）の変更は **45 ファイル**（実測: `git diff --name-only v8.20.0..f31687a -- plugin/ | wc -l`）で、
+配布物（`plugin/`）の変更は **45 ファイル**（実測: `git diff --name-only v8.20.0..2447bf8 -- plugin/ | wc -l`）で、
 うち大半は skill の参照解決順と正本参照の是正。**`schemas/*.json` と `bin/plangate` は変更ゼロ**
-（実測: `git diff --stat v8.20.0..f31687a -- schemas/ bin/` が空）→ Schema / CLI の挙動は不変。
+（実測: `git diff --stat v8.20.0..2447bf8 -- schemas/ bin/` が空）→ Schema / CLI の挙動は不変。
+（数値はいずれも **基点 `2447bf8` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない。基点の考え方は
+[`docs/working/_merge/v8.21.0-release-runbook.md`](docs/working/_merge/v8.21.0-release-runbook.md) §0 を参照）
 **PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
 
 ### ⚠️ 更新前に必ずお読みください（block 挙動が 2 箇所で強化されます）
@@ -73,6 +75,8 @@ follow-up は [`docs/working/_merge/v8.21.0-release-runbook.md`](docs/working/_m
 - **plugin skill spec 検査の silently skip**（#1109 / PR #1120）— 宣言した検査対象が不在でも緑になっていた状態を解消し、`.codex/skills/` の 8 件の `agents/openai.yaml` を是正
 - **配布物検査 2 本の判定を実態へ是正**（#1087 / PR #1149）— `check-skill-name-collisions.py` / `check-stale-skill-refs.py` は rc=1 のまま放置され CI にも未配線だった。全件を実測分類した結果 rc=1 の中身はいずれも検査側の誤りだったため rc=0 化した（CI 配線は patch 提示まで）
 - **`ta-62` TC-D の timeout を誤診断せず切り分け**（#1062 / PR #1142）— 実行回数 7 回の実測調査つき
+- **skill 名衝突検出のミラー判定に plugin 名と内容同一性を要求**（#1153 / PR #1174）— #1149 が入れたミラー除外は `startswith("plugin:")` しか見ていなかったため、consumer の `.claude/skills/<name>` と**第三者 plugin** の `plugin/<other>/skills/<name>` という**真の名前衝突を「正常なミラー」として `rc=0` で通していた**。除外条件に (3) 自リポジトリの export 先 plugin 名であること（既定 `plangate`。`--mirror-plugin` で**置換**指定。判定不能なら衝突＝安全側）と (5) 内容同一性（description 一致、または drift が構造的に説明できる `skill` kind のみ許容し、`agent` / `command` の drift は衝突）を追加した。回帰は `tests/extras/ta-69-distribution-checks.sh` の TC-C10〜C14。`scripts/check-skill-name-collisions.py` は **plugin 配布物には含まれない**
+- **`sh` で `.py` を起動すると repo が書き換わる経路を封鎖**（#1169 / PR #1175）— `sh scripts/check-skill-frontmatter.py` のように誤ったインタプリタで起動すると、`sh` が module docstring 全体を二重引用符文字列として読むため **docstring 内のバッククォートがコマンド置換として評価**され、`scripts/install-plangate-skills-to-codex.sh` が**実際に起動して `.codex/skills/**` が書き換わっていた**（本リリース準備のレビュー中に実害として発生。shebang と実行権限は既に付いており、それだけでは塞がらない）。`scripts/` 直下の `*.py` **27 本すべて**の先頭に、`python3` 以外で起動された場合に何も評価する前に診断メッセージ + `exit 2` で停止する polyglot ガード（`PG-SH-GUARD`）を追加した。`__doc__` を argparse の description 等で消費するスクリプトのため、元の docstring は `__doc__ = """..."""` として保持している。回帰は `tests/extras/ta-70-py-sh-misinvocation-guard.sh`。**⚠️ 適用範囲は `scripts/` 直下 27 本のみ**（実測: `git grep -l PG-SH-GUARD -- 'scripts/*.py' | wc -l` = 27）で、**`scripts/ai-loop/` の 30 本と `plugin/plangate/skills/ai-loop-cycle/scripts/` のミラー 28 本は未適用**（同 grep でいずれも 0 件。follow-up **[#1177](https://github.com/s977043/plangate/issues/1177)**）。さらに **回帰テスト `ta-70` の TC-01 が marker 文字列の有無しか見ておらず、未ガードのファイルを緑と報告する false green が残る**（**[#1178](https://github.com/s977043/plangate/issues/1178)** で起票済み）
 
 ### Changed
 
@@ -84,9 +88,11 @@ follow-up は [`docs/working/_merge/v8.21.0-release-runbook.md`](docs/working/_m
 
 ### Notes
 
-- 本リリースには **適用が Human-owned の patch 設計 docs が多数含まれる**（#937 / #960 HO 分 / #984 / #990 / #997 / #1011 / #1018 / #1021 / #1101 / #1102 / #1104 / #1135 / #1144 など）。これらは **設計と patch の提示のみで、適用は含まれない**（適用は `sh scripts/apply-*.sh --apply` 相当の Human オペレーション）。**hook / 承認境界ガード本体への適用**は EH-3（#1089）と EH-13（#1115 / #1110）の 2 件のみで、それ以外の実行系変更は検査スクリプト側（#1109 の `check-codex-skill-spec.sh` / #1087 の `check-skill-name-collisions.py`・`check-stale-skill-refs.py`）と CI actions の bump（#1113）
+- 本リリースには **適用が Human-owned の patch 設計 docs が多数含まれる**（#937 / #960 HO 分 / #984 / #990 / #997 / #1011 / #1018 / #1021 / #1101 / #1102 / #1104 / #1135 / #1144 など）。これらは **設計と patch の提示のみで、適用は含まれない**（適用は `sh scripts/apply-*.sh --apply` 相当の Human オペレーション）。**hook / 承認境界ガード本体への適用**は EH-3（#1089）と EH-13（#1115 / #1110）の 2 件のみで、それ以外の実行系変更は検査スクリプト側（#1109 の `check-codex-skill-spec.sh` / #1087・#1153 の `check-skill-name-collisions.py`・`check-stale-skill-refs.py`）、`scripts/` 直下 27 本への `sh` 誤起動ガード（#1169 / PR #1175）、および CI actions の bump（#1113）
 - `.codex/skills` と `.agents/skills` の二重 root 登録（#1086 / PR #1112）は**調査と是正案の提示まで**で、実装は #956 の判断待ち
 - improvement-seeds の読み出し導線（#1157 / PR #1161）は **patch 設計書のみ**（`docs/working/_reports/1157-seeds-read-path-patch.md`）。適用は含まない
+- `sh` 誤起動問題（#1169）の **patch 設計書**（PR #1176 / `docs/working/_reports/1169-sh-invocation-patch.md`）を同梱するが、**設計のみで実装は含まない**。同設計書は `scripts/**/*.py` 全 59 件を実測して 45 件を影響ありと分類しているのに対し、本リリースに入っている実装（PR #1175）は `scripts/` 直下 27 本のみ。差分の是正は #1177
+- skill 参照解決順の機械ゲートの**検出器設計書**（#1163 / PR #1172、`docs/working/_reports/1163-ref-resolution-ci-design.md`）も **設計のみ**で、CI 配線は含まない
 
 ## v8.20.0 (2026-08-14)
 

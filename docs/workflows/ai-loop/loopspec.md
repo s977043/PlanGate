@@ -11,6 +11,21 @@
 
 ---
 
+## 参照解決順（`.claude/rules/*.md` / 導入先で必ずこの順に探す）
+
+本ドキュメントは `.claude/rules/working-context.md` を参照する。
+このパスは上流リポジトリ基準のため、導入先では **次の順で探索する**:
+
+1. 導入先リポジトリの `.claude/rules/working-context.md`
+2. 無ければ plugin root 配下 `<plugin_root>/rules/working-context.md`。
+   `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
+   絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+   という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず 3 へ進む
+3. どちらにも無い場合は **「正本 `working-context.md` を参照できなかった」と明示**し、
+   推測で内容を補わない
+
+---
+
 ## 1. 目的
 
 「ループを回す」という指示だけでは、何が closed loop で何が単なる polling かを

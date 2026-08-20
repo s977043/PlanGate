@@ -422,10 +422,13 @@ if [ -d "$AI_LOOP_SCRIPTS_DIR" ]; then
   # c3prime_verify が import する共通契約層。列挙漏れは bundled 側 import エラー）
   # delivery.py + test_delivery.py（TASK-0873: MERGE_READY 状態機械。
   # c3prime_verify/c3_contract を import するため対で列挙する）
+  # discovery.py + test_discovery.py（#1173: bundled 側の test_check_exec_boundary.py
+  # が `HERE/discovery.py` と `HERE/test_discovery.py` を実読みするため、非配布だと
+  # 導入先で 2 件が FileNotFoundError になる。allowlist 載せ忘れであり意図的除外ではない）
   # gh_exec / check_exec_boundary / collector / ci_taxonomy / executor / reconciler
   # （TASK-0917 / R-011: 実 PR 収束レーン。本 for ループと下の case 許可判定は
   # **同一集合**でなければならない（片方漏れ = sync drift。T-39 で機械照合する））
-  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py" "$AI_LOOP_SCRIPTS_DIR/metrics.py" "$AI_LOOP_SCRIPTS_DIR/test_metrics.py" "$AI_LOOP_SCRIPTS_DIR/plan_package.py" "$AI_LOOP_SCRIPTS_DIR/test_plan_package.py" "$AI_LOOP_SCRIPTS_DIR/c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/test_c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/delivery.py" "$AI_LOOP_SCRIPTS_DIR/test_delivery.py" "$AI_LOOP_SCRIPTS_DIR/gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/test_gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/test_check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/collector.py" "$AI_LOOP_SCRIPTS_DIR/test_collector.py" "$AI_LOOP_SCRIPTS_DIR/ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/test_ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/executor.py" "$AI_LOOP_SCRIPTS_DIR/test_executor.py" "$AI_LOOP_SCRIPTS_DIR/reconciler.py" "$AI_LOOP_SCRIPTS_DIR/test_reconciler.py" "$AI_LOOP_SCRIPTS_DIR/run_evidence.py" "$AI_LOOP_SCRIPTS_DIR/test_run_evidence.py" "$AI_LOOP_SCRIPTS_DIR/run_evidence_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_run_evidence_verify.py"; do
+  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py" "$AI_LOOP_SCRIPTS_DIR/metrics.py" "$AI_LOOP_SCRIPTS_DIR/test_metrics.py" "$AI_LOOP_SCRIPTS_DIR/plan_package.py" "$AI_LOOP_SCRIPTS_DIR/test_plan_package.py" "$AI_LOOP_SCRIPTS_DIR/c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/test_c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/delivery.py" "$AI_LOOP_SCRIPTS_DIR/test_delivery.py" "$AI_LOOP_SCRIPTS_DIR/gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/test_gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/test_check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/collector.py" "$AI_LOOP_SCRIPTS_DIR/test_collector.py" "$AI_LOOP_SCRIPTS_DIR/ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/test_ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/executor.py" "$AI_LOOP_SCRIPTS_DIR/test_executor.py" "$AI_LOOP_SCRIPTS_DIR/reconciler.py" "$AI_LOOP_SCRIPTS_DIR/test_reconciler.py" "$AI_LOOP_SCRIPTS_DIR/run_evidence.py" "$AI_LOOP_SCRIPTS_DIR/test_run_evidence.py" "$AI_LOOP_SCRIPTS_DIR/run_evidence_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_run_evidence_verify.py" "$AI_LOOP_SCRIPTS_DIR/discovery.py" "$AI_LOOP_SCRIPTS_DIR/test_discovery.py"; do
     [ -f "$_f" ] || continue
     _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_SCRIPTS" "skills/ai-loop-cycle/scripts"
   done
@@ -437,7 +440,7 @@ if [ -d "$PLUGIN_AI_LOOP_SCRIPTS" ]; then
     case "$_base" in
       # 上の for ループ（コピー元列挙）と **同一集合** に保つこと。片方漏れは
       # sync drift（TASK-0917 / R-011）。T-39 の機械照合で差分 0 を確認する。
-      arbiter.py|test_arbiter.py|metrics.py|test_metrics.py|plan_package.py|test_plan_package.py|c3prime_verify.py|test_c3prime_verify.py|c3_contract.py|test_c3_contract.py|delivery.py|test_delivery.py|gh_exec.py|test_gh_exec.py|check_exec_boundary.py|test_check_exec_boundary.py|collector.py|test_collector.py|ci_taxonomy.py|test_ci_taxonomy.py|executor.py|test_executor.py|reconciler.py|test_reconciler.py|run_evidence.py|test_run_evidence.py|run_evidence_verify.py|test_run_evidence_verify.py) : ;;
+      arbiter.py|test_arbiter.py|metrics.py|test_metrics.py|plan_package.py|test_plan_package.py|c3prime_verify.py|test_c3prime_verify.py|c3_contract.py|test_c3_contract.py|delivery.py|test_delivery.py|gh_exec.py|test_gh_exec.py|check_exec_boundary.py|test_check_exec_boundary.py|collector.py|test_collector.py|ci_taxonomy.py|test_ci_taxonomy.py|executor.py|test_executor.py|reconciler.py|test_reconciler.py|run_evidence.py|test_run_evidence.py|run_evidence_verify.py|test_run_evidence_verify.py|discovery.py|test_discovery.py) : ;;
       *)
         if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/scripts/$_base"
         else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/scripts/$_base"; fi
