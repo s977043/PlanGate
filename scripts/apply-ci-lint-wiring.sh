@@ -12,7 +12,15 @@
 #
 #   ci.yml は **Hardening Override パス**であり AI は直接編集できない。
 #   docs/ai/ho-change-workflow.md「標準フロー」に従い、AI は本スクリプトの
-#   **作成と --dry-run のみ**。`--apply` の実行は **Human-owned**。
+#   **作成と --dry-run のみ**。実 HO パスへの `--apply` は **Human-owned**。
+#
+# 多層防御（実 HO パスへの書き込みだけに追加確認を要求する）:
+#   `--apply` の適用先が `<repo>/.github/workflows/` 配下のとき、環境変数
+#   `PLANGATE_APPLY_CONFIRM=1` が無ければ **何も書かずに exit 1**。
+#   AI はこの環境変数を設定しない。テストは `--target` で mktemp サンドボックスを
+#   指すため、この確認を必要とせず（実 HO パスに触れないので実害ゼロ）に
+#   適用経路の回帰を検査できる。
+#   ＝「AI は --apply を実行しない」を規範だけに頼らず、**書き込み先で** 守る。
 #
 # 新規 workflow ファイルではなく既存 ci.yml に足した理由:
 #   - 新規 workflow ファイルも .github/workflows/*.yml = 同じ HO パスなので
@@ -24,15 +32,22 @@
 # Usage:
 #   sh scripts/apply-ci-lint-wiring.sh              # dry-run（既定・書き込みなし）
 #   sh scripts/apply-ci-lint-wiring.sh --dry-run    # 同上（明示）
-#   sh scripts/apply-ci-lint-wiring.sh --apply      # 実適用（Human-owned）
+#   PLANGATE_APPLY_CONFIRM=1 sh scripts/apply-ci-lint-wiring.sh --apply
+#                                                   # 実適用（Human-owned）
 #   sh scripts/apply-ci-lint-wiring.sh --target FILE  # 適用先の上書き（sandbox 検証用）
 #
 #   注記: --target は「実 ci.yml を触らずに適用結果を検証する」ための seam。
-#         AI は --apply を実行しない（--target 付きであっても同じ）。
+#         **実 HO パス（<repo>/.github/workflows/**）を適用先にする --apply だけ**が
+#         PLANGATE_APPLY_CONFIRM=1 を要求する。サンドボックス target への --apply は
+#         確認不要（テストが使う経路）。
+#
+# Env:
+#   PLANGATE_APPLY_CONFIRM  実 HO パスへ --apply する際の明示確認（Human-owned）。
 #
 # Exit codes:
 #   0 = 成功（適用 / dry-run / 既適用 skip）
-#   1 = 引数エラー / アンカー未検出 / 対象ファイル不在（＝何も書き込まない）
+#   1 = 引数エラー / アンカー未検出 / 対象ファイル不在 / 実 HO パスへの --apply で
+#       PLANGATE_APPLY_CONFIRM 未設定（いずれも **何も書き込まない**）
 
 set -eu
 
@@ -64,6 +79,25 @@ done
 if [ ! -f "$TARGET" ]; then
   printf 'error: target not found: %s\n' "$TARGET" >&2
   exit 1
+fi
+
+# ── 実 HO パスへの書き込み確認（多層防御）───────────────────────────
+# TARGET を絶対パスへ正規化してから判定する（相対指定・シンボリックリンクで
+# 判定をすり抜けさせない）。
+_TARGET_DIR=$(CDPATH= cd -- "$(dirname -- "$TARGET")" && pwd)
+TARGET_ABS="$_TARGET_DIR/$(basename -- "$TARGET")"
+if [ "$MODE" = apply ]; then
+  case "$TARGET_ABS" in
+    "$REPO_ROOT"/.github/workflows/*)
+      if [ "${PLANGATE_APPLY_CONFIRM:-0}" != "1" ]; then
+        printf 'error: %s は Hardening Override パスです。\n' "$TARGET_ABS" >&2
+        printf '       AI はここへ --apply しません（docs/ai/ho-change-workflow.md）。\n' >&2
+        printf '       Human が適用する場合のみ: PLANGATE_APPLY_CONFIRM=1 sh %s --apply\n' "$0" >&2
+        printf '       何も書き込んでいません。\n' >&2
+        exit 1
+      fi
+      ;;
+  esac
 fi
 
 MODE="$MODE" TARGET="$TARGET" REPO_ROOT="$REPO_ROOT" python3 - <<'PYEOF'

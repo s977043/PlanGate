@@ -23,6 +23,21 @@
 #   TC-10: apply-ci-lint-wiring — dry-run は 1 バイトも書かない
 #   TC-11: apply-ci-lint-wiring — sandbox 適用後に marker が入り、再実行は冪等 skip
 #   TC-12: apply-ci-lint-wiring — アンカー未検出なら exit 1（何も書かない）
+#   TC-13: apply-ci-lint-wiring — 実 HO パス（<repo>/.github/workflows/**）への
+#          --apply は PLANGATE_APPLY_CONFIRM 無しでは exit 1 かつ 1 バイトも書かない
+#   TC-14: lint-shell 列挙の自己検査 — 対象 0 件 / 下限割れ / 自己参照欠落で FAIL
+#          （恒真 PASS 防止。3 変異すべてで KILL を実証）
+#   TC-15: lint-shell --advisory — 常に rc=0 / [INFO] finding(s) / SC1007 は除外
+#          （CI では非 gate の run step なので rc が立つと job が落ちる）
+#   TC-16: lint-shell — CRLF / UTF-8 BOM 付き shebang の拡張子なしファイルを
+#          silently skip しない
+#   TC-17: lint-shell — 空白・引用符入りファイル名でも未検査にならない（xargs -0）
+#   TC-18: 両ラッパの --help が行番号ハードコードでなくヘッダ全体を出す
+#   TC-19: --list が「未追跡ファイルは対象外」を明示する
+#
+# 注記: サンドボックスは数ファイルしか無いため lint-shell の対象下限
+#       （MIN_TARGETS）に引っかかる。サンドボックス実行では
+#       PG_LINT_MIN_TARGETS=1 を前置する（テスト専用シーム）。
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -130,7 +145,7 @@ if [ "$_t71_sb_init" -ne 0 ]; then
 else
   # 負側: クリーンな入力 → rc=0 かつ [PASS] 行（「FAIL が無い」では到達を証明できない）
   _t71_rc=0
-  _t71_out="$(sh "$_T71_SB/scripts/lint-shell.sh" 2>&1)" || _t71_rc=$?
+  _t71_out="$(PG_LINT_MIN_TARGETS=1 sh "$_T71_SB/scripts/lint-shell.sh" 2>&1)" || _t71_rc=$?
   if printf '%s' "$_t71_out" | grep -q '\[SKIP\] lint-shell'; then
     printf '  [SKIP] TC-06: shellcheck 未導入のため負側を評価できない\n'
   elif [ "$_t71_rc" -eq 0 ] && printf '%s' "$_t71_out" | grep -q '\[PASS\] lint-shell gate'; then
@@ -145,7 +160,7 @@ if [ "$_t71_sb_init" -eq 0 ]; then
   printf '#!/bin/sh\ncase $x in\n' >"$_T71_SB/scripts/broken.sh"
   ( cd "$_T71_SB" && git add -A ) >/dev/null 2>&1 || true
   _t71_rc=0
-  _t71_out="$(sh "$_T71_SB/scripts/lint-shell.sh" 2>&1)" || _t71_rc=$?
+  _t71_out="$(PG_LINT_MIN_TARGETS=1 sh "$_T71_SB/scripts/lint-shell.sh" 2>&1)" || _t71_rc=$?
   if printf '%s' "$_t71_out" | grep -q '\[SKIP\] lint-shell'; then
     printf '  [SKIP] TC-05: shellcheck 未導入のため正側を評価できない\n'
   elif [ "$_t71_rc" -ne 0 ] && printf '%s' "$_t71_out" | grep -q 'scripts/broken.sh'; then
@@ -269,6 +284,229 @@ if [ -n "${_T71_AB:-}" ]; then
   fi
 fi
 
-rm -rf "$_T71_SB" "${_T71_AB:-/nonexistent-ta71}"
+# --- TC-13 apply-ci-lint-wiring: 実 HO パスへの --apply は確認必須 ---
+# 実 repo の ci.yml を対象にすると（ガードが壊れていた場合に）実ファイルを書き換えて
+# しまうため、**偽 repo root** を作って検査する。REPO_ROOT はスクリプト自身の
+# 位置から導出されるので、コピー先の <sb>/.github/workflows/ci.yml が既定 TARGET になる。
+_T71_FR="$(mktemp -d)"
+register_cleanup "$_T71_FR"
+mkdir -p "$_T71_FR/scripts" "$_T71_FR/.github/workflows"
+cp "$_T71_AP" "$_T71_FR/scripts/apply-ci-lint-wiring.sh"
+if [ ! -f "$_T71_ROOT/.github/workflows/ci.yml" ]; then
+  printf '  [SKIP] TC-13: .github/workflows/ci.yml が無い\n'
+else
+  cp "$_T71_ROOT/.github/workflows/ci.yml" "$_T71_FR/.github/workflows/ci.yml"
+  _t71_before="$(cksum <"$_T71_FR/.github/workflows/ci.yml")"
+  _t71_rc=0
+  _t71_out="$(sh "$_T71_FR/scripts/apply-ci-lint-wiring.sh" --apply 2>&1)" || _t71_rc=$?
+  _t71_after="$(cksum <"$_T71_FR/.github/workflows/ci.yml")"
+  _t71_rc2=0
+  _t71_out2="$(PLANGATE_APPLY_CONFIRM=1 sh "$_T71_FR/scripts/apply-ci-lint-wiring.sh" --apply 2>&1)" || _t71_rc2=$?
+  if [ "$_t71_rc" -eq 1 ] && [ "$_t71_before" = "$_t71_after" ] \
+     && printf '%s' "$_t71_out" | grep -q 'PLANGATE_APPLY_CONFIRM' \
+     && [ "$_t71_rc2" -eq 0 ] && grep -q '^  shell-lint:' "$_T71_FR/.github/workflows/ci.yml"; then
+    t71_pass "TC-13 実 HO パスへの --apply: 確認なしは exit 1 + 無変更 / 確認ありで適用"
+  else
+    t71_fail "TC-13 HO 書き込みガードが破れている (no-confirm rc=$_t71_rc / confirm rc=$_t71_rc2)"
+  fi
+fi
+
+# --- TC-14 lint-shell 列挙の自己検査（3 変異すべてで KILL）---
+# 「対象 0 件 -> findings 0 件 -> [PASS] rc=0」という恒真 PASS を塞げているか。
+_T71_SC="$(mktemp -d)"
+register_cleanup "$_T71_SC"
+mkdir -p "$_T71_SC/scripts"
+cp "$_T71_LS" "$_T71_SC/scripts/lint-shell.sh"
+printf '#!/bin/sh\nset -eu\necho ok\n' >"$_T71_SC/scripts/a.sh"
+printf '#!/bin/sh\nset -eu\necho ok\n' >"$_T71_SC/scripts/b.sh"
+_t71_sc_init=0
+if command -v git >/dev/null 2>&1; then
+  git -C "$_T71_SC" init -q >/dev/null 2>&1 && git -C "$_T71_SC" add -A >/dev/null 2>&1 || _t71_sc_init=1
+else
+  _t71_sc_init=1
+fi
+
+if [ "$_t71_sc_init" -ne 0 ]; then
+  printf '  [SKIP] TC-14/TC-15/TC-16/TC-17: sandbox の初期化に失敗（git 不在等）\n'
+else
+  # 基準（変異なし）: 3 ファイルで緑になること。これが赤なら以下の KILL は無意味
+  _t71_rc=0
+  _t71_out="$(PG_LINT_MIN_TARGETS=1 sh "$_T71_SC/scripts/lint-shell.sh" 2>&1)" || _t71_rc=$?
+  _t71_base_ok=0
+  if printf '%s' "$_t71_out" | grep -q '\[SKIP\] lint-shell'; then
+    _t71_base_ok=skip
+  elif [ "$_t71_rc" -eq 0 ]; then
+    _t71_base_ok=1
+  fi
+
+  # 変異 1: 列挙を壊す（git ls-files を存在しない pathspec に固定）
+  sed -e 's|^git ls-files -z >|git ls-files -z -- PG-NOPE-NONEXISTENT >|' \
+    "$_T71_SC/scripts/lint-shell.sh" >"$_T71_SC/scripts/mut-empty.sh"
+  _t71_m1_rc=0
+  _t71_m1_out="$(PG_LINT_MIN_TARGETS=1 sh "$_T71_SC/scripts/mut-empty.sh" 2>&1)" || _t71_m1_rc=$?
+
+  # 変異 2: 下限割れ（実装は変えず、下限だけ実際の対象数より大きくする）
+  _t71_m2_rc=0
+  _t71_m2_out="$(PG_LINT_MIN_TARGETS=9999 sh "$_T71_SC/scripts/lint-shell.sh" 2>&1)" || _t71_m2_rc=$?
+
+  # 変異 3: 自己参照の欠落。**scripts/lint-shell.sh が存在しない**別 sandbox に
+  # 別名で置く（同居させると本物が対象に入って変異が効かない＝空振りになる）。
+  _T71_SC2="$_T71_SC-renamed"
+  register_cleanup "$_T71_SC2"
+  rm -rf "$_T71_SC2"
+  mkdir -p "$_T71_SC2/scripts"
+  cp "$_T71_LS" "$_T71_SC2/scripts/renamed-linter.sh"
+  printf '#!/bin/sh\nset -eu\necho ok\n' >"$_T71_SC2/scripts/a.sh"
+  _t71_m3_rc=0
+  if git -C "$_T71_SC2" init -q >/dev/null 2>&1 && git -C "$_T71_SC2" add -A >/dev/null 2>&1; then
+    _t71_m3_out="$(PG_LINT_MIN_TARGETS=1 sh "$_T71_SC2/scripts/renamed-linter.sh" 2>&1)" || _t71_m3_rc=$?
+  else
+    _t71_m3_out='sandbox init failed'
+  fi
+  rm -f "$_T71_SC/scripts/mut-empty.sh"
+  git -C "$_T71_SC" add -A >/dev/null 2>&1 || true
+
+  if [ "$_t71_base_ok" = skip ]; then
+    printf '  [SKIP] TC-14: shellcheck 未導入のため基準（変異なしで緑）を確認できない\n'
+  elif [ "$_t71_base_ok" != 1 ]; then
+    t71_fail "TC-14 基準が緑でない (rc=$_t71_rc) — 変異の KILL 判定が意味を持たない"
+  elif [ "$_t71_m1_rc" -eq 1 ] && printf '%s' "$_t71_m1_out" | grep -q '1 件も解決できなかった' \
+    && [ "$_t71_m2_rc" -eq 1 ] && printf '%s' "$_t71_m2_out" | grep -q '下限' \
+    && [ "$_t71_m3_rc" -eq 1 ] && printf '%s' "$_t71_m3_out" | grep -q '自分自身'; then
+    t71_pass "TC-14 列挙の自己検査: 0 件 / 下限割れ / 自己参照欠落 の 3 変異すべてで FAIL"
+  else
+    t71_fail "TC-14 恒真 PASS を塞げていない (m1=$_t71_m1_rc m2=$_t71_m2_rc m3=$_t71_m3_rc)"
+  fi
+fi
+
+# --- TC-15 --advisory（CI では非 gate の run step。rc が立つと job が落ちる）---
+if [ "$_t71_sc_init" -eq 0 ]; then
+  # warning 相当だけを含むファイル（SC2034 未使用変数）。gate(-S error) では 0 件、
+  # advisory(-S warning) では 1 件以上になる非対称を使って「両経路が実際に動いた」
+  # ことを示す。
+  printf '#!/bin/sh\nset -eu\nunused_var=1\necho done\n' >"$_T71_SC/scripts/warnish.sh"
+  # SC1007 の false positive 源（この repo が意図して使う env-prefix 代入）
+  printf '#!/bin/sh\nset -eu\nCDPATH= cd -- /tmp || exit 1\necho done\n' >"$_T71_SC/scripts/cdpath.sh"
+  git -C "$_T71_SC" add -A >/dev/null 2>&1 || true
+
+  _t71_g_rc=0
+  _t71_g_out="$(PG_LINT_MIN_TARGETS=1 sh "$_T71_SC/scripts/lint-shell.sh" 2>&1)" || _t71_g_rc=$?
+  _t71_a_rc=0
+  _t71_a_out="$(PG_LINT_MIN_TARGETS=1 sh "$_T71_SC/scripts/lint-shell.sh" --advisory 2>&1)" || _t71_a_rc=$?
+  # 陽性コントロール: 除外していない生の shellcheck では SC1007 が実際に出ること
+  _t71_pc=0
+  if command -v shellcheck >/dev/null 2>&1; then
+    shellcheck -S warning -f gcc "$_T71_SC/scripts/cdpath.sh" 2>&1 | grep -q 'SC1007' && _t71_pc=1
+  fi
+
+  if printf '%s' "$_t71_a_out" | grep -q '\[SKIP\] lint-shell'; then
+    printf '  [SKIP] TC-15: shellcheck 未導入のため advisory 経路を評価できない\n'
+  elif [ "$_t71_g_rc" -eq 0 ] \
+    && [ "$_t71_a_rc" -eq 0 ] \
+    && printf '%s' "$_t71_a_out" | grep -Eq '\[INFO\] lint-shell advisory: [1-9][0-9]* finding' \
+    && ! printf '%s' "$_t71_a_out" | grep -q 'SC1007' \
+    && [ "$_t71_pc" -eq 1 ]; then
+    t71_pass "TC-15 advisory: rc=0 かつ [INFO] finding(s)>0 かつ SC1007 は除外（陽性コントロール済）"
+  else
+    t71_fail "TC-15 advisory 経路が契約どおりでない (gate rc=$_t71_g_rc / advisory rc=$_t71_a_rc / SC1007 陽性コントロール=$_t71_pc)"
+  fi
+  rm -f "$_T71_SC/scripts/warnish.sh" "$_T71_SC/scripts/cdpath.sh"
+  git -C "$_T71_SC" add -A >/dev/null 2>&1 || true
+fi
+
+# --- TC-16 CRLF / UTF-8 BOM の shebang を silently skip しない ---
+if [ "$_t71_sc_init" -eq 0 ]; then
+  printf '#!/bin/sh\r\ncase $x in\r\n' >"$_T71_SC/scripts/crlf-broken"
+  printf '\357\273\277#!/bin/sh\ncase $x in\n' >"$_T71_SC/scripts/bom-broken"
+  git -C "$_T71_SC" add -A >/dev/null 2>&1 || true
+  _t71_rc=0
+  _t71_out="$(PG_LINT_MIN_TARGETS=1 sh "$_T71_SC/scripts/lint-shell.sh" 2>&1)" || _t71_rc=$?
+  _t71_lst="$(PG_LINT_MIN_TARGETS=1 sh "$_T71_SC/scripts/lint-shell.sh" --list 2>/dev/null)" || true
+  if printf '%s' "$_t71_out" | grep -q '\[SKIP\] lint-shell'; then
+    printf '  [SKIP] TC-16: shellcheck 未導入のため評価できない\n'
+  elif [ "$_t71_rc" -ne 0 ] \
+    && printf '%s\n' "$_t71_lst" | grep -qx 'scripts/crlf-broken' \
+    && printf '%s\n' "$_t71_lst" | grep -qx 'scripts/bom-broken' \
+    && printf '%s' "$_t71_out" | grep -q 'scripts/crlf-broken' \
+    && printf '%s' "$_t71_out" | grep -q 'scripts/bom-broken'; then
+    t71_pass "TC-16 CRLF / BOM 付き shebang（拡張子なし）を対象に含め違反を検出する"
+  else
+    t71_fail "TC-16 CRLF / BOM 付きファイルが silently skip されている (rc=$_t71_rc)"
+  fi
+  rm -f "$_T71_SC/scripts/crlf-broken" "$_T71_SC/scripts/bom-broken"
+  git -C "$_T71_SC" add -A >/dev/null 2>&1 || true
+fi
+
+# --- TC-17 空白・引用符入りファイル名（xargs -0）---
+if [ "$_t71_sc_init" -eq 0 ]; then
+  printf '#!/bin/sh\nset -eu\ncase $x in\n' >"$_T71_SC/scripts/zz probe.sh"
+  printf '#!/bin/sh\nset -eu\necho ok\n' >"$_T71_SC/scripts/zz'\''quote.sh"
+  git -C "$_T71_SC" add -A >/dev/null 2>&1 || true
+  _t71_rc=0
+  _t71_out="$(PG_LINT_MIN_TARGETS=1 sh "$_T71_SC/scripts/lint-shell.sh" 2>&1)" || _t71_rc=$?
+  if printf '%s' "$_t71_out" | grep -q '\[SKIP\] lint-shell'; then
+    printf '  [SKIP] TC-17: shellcheck 未導入のため評価できない\n'
+  elif [ "$_t71_rc" -ne 0 ] \
+    && printf '%s' "$_t71_out" | grep -q 'zz probe.sh' \
+    && ! printf '%s' "$_t71_out" | grep -q 'openBinaryFile' \
+    && ! printf '%s' "$_t71_out" | grep -q 'unterminated quote'; then
+    t71_pass "TC-17 空白 / 引用符入りファイル名でも実際に検査され違反を検出する"
+  else
+    t71_fail "TC-17 空白・引用符でファイル名が割れている (rc=$_t71_rc)"
+  fi
+  rm -f "$_T71_SC/scripts/zz probe.sh" "$_T71_SC/scripts/zz'\''quote.sh"
+  git -C "$_T71_SC" add -A >/dev/null 2>&1 || true
+fi
+
+# --- TC-18 --help がヘッダ全体を出す（行番号ハードコードでない）---
+_t71_help_ok=yes
+for _t71_s in "$_T71_LS" "$_T71_LW"; do
+  _t71_rc=0
+  _t71_out="$(sh "$_t71_s" --help 2>&1)" || _t71_rc=$?
+  if [ "$_t71_rc" -ne 0 ]; then
+    _t71_help_ok="no ($_t71_s rc=$_t71_rc)"
+    break
+  fi
+  # 先頭（2 行目のタイトル）と末尾（Exit codes 節）の両方が出ていること
+  # ＝範囲が固定行番号でなくヘッダ全体に追随している
+  if ! printf '%s' "$_t71_out" | grep -q 'Usage:'; then
+    _t71_help_ok="no ($_t71_s: Usage 節なし)"
+    break
+  fi
+  if ! printf '%s' "$_t71_out" | grep -q 'Exit codes:'; then
+    _t71_help_ok="no ($_t71_s: Exit codes 節が欠落＝範囲が短すぎる)"
+    break
+  fi
+  # 本体コードまで漏れていないこと（`set -eu` で止まる）
+  if printf '%s' "$_t71_out" | grep -qx 'set -eu'; then
+    _t71_help_ok="no ($_t71_s: 本体コードまで出力している)"
+    break
+  fi
+done
+if [ "$_t71_help_ok" = yes ]; then
+  t71_pass "TC-18 両ラッパの --help がヘッダ全体（Usage〜Exit codes）を出し本体は出さない"
+else
+  t71_fail "TC-18 usage の範囲が壊れている: $_t71_help_ok"
+fi
+
+# --- TC-19 --list が未追跡ファイル非対象を明示する ---
+_t71_note_ok=yes
+_t71_out="$(sh "$_T71_LS" --list 2>&1)" || _t71_note_ok="no (lint-shell rc)"
+if [ "$_t71_note_ok" = yes ] && ! printf '%s' "$_t71_out" | grep -q '未追跡'; then
+  _t71_note_ok="no (lint-shell: 注記なし)"
+fi
+if [ "$_t71_note_ok" = yes ]; then
+  _t71_out="$(sh "$_T71_LW" --list 2>&1)" || _t71_note_ok="no (lint-workflows rc)"
+fi
+if [ "$_t71_note_ok" = yes ] && ! printf '%s' "$_t71_out" | grep -q '未追跡'; then
+  _t71_note_ok="no (lint-workflows: 注記なし)"
+fi
+if [ "$_t71_note_ok" = yes ]; then
+  t71_pass "TC-19 --list が「未追跡ファイルは対象外」を明示する"
+else
+  t71_fail "TC-19 未追跡ファイルの注記がない: $_t71_note_ok"
+fi
+
+rm -rf "$_T71_SB" "${_T71_AB:-/nonexistent-ta71}" "${_T71_FR:-/nonexistent-ta71}" "${_T71_SC:-/nonexistent-ta71}" "${_T71_SC2:-/nonexistent-ta71}"
 
 pg_extra_contract_finalize

@@ -20,8 +20,15 @@
 #   (B) concurrency 欠落 7 workflow — 同一 ref の多重実行で runner を食う。
 #       cancel-in-progress は event 別に安全側で決める:
 #         PR も走る workflow -> github.event_name == 'pull_request' のときだけ cancel
-#           (PR は cancel してよいが main push / schedule は完走させる)
 #         release 起動のみ   -> false (リリース処理を途中で殺さない)
+#       注意 (正確な意味論): cancel-in-progress: false が抑止するのは
+#       **in-progress run の cancel** だけ。GitHub は同一 group に新しい run が
+#       queue されると、それ以前の **pending run を cancel** する。これは
+#       cancel-in-progress の値に関わらず起きる。
+#       codeql.yml は schedule の github.ref が既定ブランチ = refs/heads/main の
+#       ため、**push(main) と schedule が同一 group に入る**。実務上は無害
+#       (後勝ちした run が最新の main を解析するので SARIF は最新状態になる) だが、
+#       「main push / schedule は必ず全 run が完走する」という主張は成り立たない。
 #   (C) check-pr-issue-link.yml の top-level pull-requests: write を job スコープへ
 #       (最小権限。codeql.yml が既に採る「top-level contents: read + job で加算」形)
 #
@@ -30,18 +37,27 @@
 # Usage:
 #   sh scripts/apply-workflow-hygiene.sh              # dry-run（既定・書き込みなし）
 #   sh scripts/apply-workflow-hygiene.sh --dry-run    # 同上（明示）
-#   sh scripts/apply-workflow-hygiene.sh --apply      # 実適用（Human-owned）
+#   PLANGATE_APPLY_CONFIRM=1 sh scripts/apply-workflow-hygiene.sh --apply
+#                                                     # 実適用（Human-owned）
 #
 # Exit codes:
 #   0 = 成功（適用 / dry-run / 既適用 skip）
-#   1 = 引数エラー / 対象ファイル不在 / アンカー未検出（＝何も書き込まない）
+#   1 = 引数エラー / 対象ファイル不在 / アンカー未検出 / 実 HO パスへの --apply で
+#       PLANGATE_APPLY_CONFIRM 未設定（いずれも **何も書き込まない**）
 #
 # 適用順序の依存（重要）:
 #   - scripts/apply-pr-issue-link-comment-removal.sh（#1159 系）が同じ
 #     check-pr-issue-link.yml の **steps** を差し替える。本スクリプトは同ファイルの
 #     **header（on / permissions / jobs 直下）** のみを触るため textual conflict は
-#     起きないが、コメント投稿 step が撤去されれば pull-requests: write 自体が
-#     不要になる。-> **先に comment-removal を適用**し、(C) の要否を再判断すること。
+#     起きない。
+#     **`pull-requests: write` は comment-removal 適用後も必要**（実測: 同スクリプト
+#     31 行目が「削除操作に必要なため維持する」と明記し、置換後の step は
+#     `gh api -X DELETE repos/$REPO/issues/comments/$id` を呼ぶ）。したがって
+#     (C)（top-level -> job スコープへの移動）は **どちらを先に適用しても内容が
+#     変わらない**。順序の制約は無い。
+#     注意: (C) をスキップしてはならない。write を落とすと cleanup step が 403 で
+#     落ちる（＝(C) は「write を消す」変更ではなく「write の適用範囲を job に
+#     絞る」変更）。
 #   - dependabot PR #1201 が codeql.yml / scorecard.yml の action SHA を更新中。
 #     本スクリプトは codeql.yml の header のみ触るため行が重ならないが、
 #     **#1201 を先に merge** してから適用するのが安全。
@@ -52,6 +68,11 @@
 #
 # 環境変数:
 #   PLANGATE_WF_DIR — 対象 workflows ディレクトリを差し替える（sandbox 検証専用）
+#   PLANGATE_APPLY_CONFIRM — 実 HO パス（<repo>/.github/workflows）へ --apply する
+#     際の明示確認（Human-owned）。未設定なら **何も書かずに exit 1**。
+#     AI はこの環境変数を設定しない。テストは PLANGATE_WF_DIR で mktemp サンドボックス
+#     を指すため確認不要（実 HO パスに触れないので実害ゼロ）。
+#     ＝「AI は --apply を実行しない」を規範だけに頼らず **書き込み先で** 守る。
 #
 # Refs: docs/working/_reports/ci-required-checks-proposal.md
 
@@ -80,6 +101,20 @@ fi
 if [ ! -d "$WF_DIR" ]; then
   printf 'error: workflows dir not found: %s\n' "$WF_DIR" >&2
   exit 1
+fi
+
+# ── 実 HO パスへの書き込み確認（多層防御）───────────────────────────
+# WF_DIR を絶対パスへ正規化してから判定する（相対指定・シンボリックリンクで
+# 判定をすり抜けさせない）。
+WF_DIR=$(CDPATH= cd -- "$WF_DIR" && pwd)
+if [ "$MODE" = apply ] && [ "$WF_DIR" = "$REPO_ROOT/.github/workflows" ]; then
+  if [ "${PLANGATE_APPLY_CONFIRM:-0}" != "1" ]; then
+    printf 'error: %s は Hardening Override パスです。\n' "$WF_DIR" >&2
+    printf '       AI はここへ --apply しません（docs/ai/ho-change-workflow.md）。\n' >&2
+    printf '       Human が適用する場合のみ: PLANGATE_APPLY_CONFIRM=1 sh %s --apply\n' "$0" >&2
+    printf '       何も書き込んでいません。\n' >&2
+    exit 1
+  fi
 fi
 
 MODE="$MODE" WF_DIR="$WF_DIR" REPO_ROOT="$REPO_ROOT" python3 - <<'PY'
@@ -144,6 +179,9 @@ TIMEOUTS = [
 PR_CANCEL = "${{ github.event_name == 'pull_request' }}"
 CONCURRENCY = [
     ("check-pr-issue-link.yml", "check-pr-issue-link", PR_CANCEL),
+    # 注: schedule の github.ref は既定ブランチ (= refs/heads/main) なので
+    # push(main) と schedule は同一 group に入る。pending の後勝ちが起きうるが、
+    # 後勝ちした run が最新 main を解析するため解析結果としては劣化しない。
     ("codeql.yml", "codeql", PR_CANCEL),
     ("metrics-privacy.yml", "metrics-privacy", PR_CANCEL),
     ("release-docs-sync.yml", "release-docs-sync", "false"),

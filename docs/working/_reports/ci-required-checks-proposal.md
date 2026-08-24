@@ -11,7 +11,8 @@
 | # | 項目 | 結論 |
 |---|------|------|
 | 1 | required checks が守っているもの | **`Markdown lint` 1 本だけ**。テストが 1 件も required でない |
-| 2 | 追加すべき check | `plangate CLI tests` / `settings wiring drift` / `SKIP_REASON 追認` / `Analyze (python)` の **4 本** |
+| 2 | 追加すべき check | 既存 workflow から `plangate CLI tests` / `settings wiring drift` / `SKIP_REASON 追認` / `Analyze (python)` の **4 本**、本 PR が追加する `shellcheck (shell static analysis)` / `actionlint (workflow static analysis)` の **2 本** = 計 **6 本追加**（required は合計 7 本） |
+| 2b | **順序依存（必読）** | 新 2 本は **`ci.yml` への適用（`apply-ci-lint-wiring.sh --apply`）が main に入るまで required にしてはならない**。未適用の context を required にすると check run が生成されず **永久 pending**（§3.2 の paths-filter 罠と同じ失敗形）。§4 は 2 段階に分けている |
 | 3 | 追加しない check | `check` / `privacy` / `validate` / `drift-check` / `Scorecard analysis` / `CodeQL`（理由は §3） |
 | 4 | `strict`（up-to-date 必須） | **既に `true`**（変更不要）。追加はするが strict の値は触らない |
 | 5 | 残る穴（本提案の対象外） | `required_approving_review_count: 0` / `bypass_actors` に admin ロールが `always` |
@@ -65,6 +66,22 @@ gh api "repos/s977043/plangate/commits/583c23fe/check-runs?per_page=100" \
 | `check` | 15368 | github-actions |
 | `CodeQL` | 57789 | github-advanced-security |
 
+### 2.1 本 PR が追加する 2 job の表示名（**まだ実測できない**）
+
+`shell-lint` / `workflow-lint` は `scripts/apply-ci-lint-wiring.sh` が `ci.yml` へ
+追加する job であり、**適用前なので check-runs 実測は存在しない**。表示名は
+同スクリプトの `JOBS` 文字列（`name:` 行）から確定した値であり、推測ではないが
+**実測でもない**:
+
+| 表示名（= context 候補） | job id | 由来 | 実測 |
+|---|---|---|---|
+| `shellcheck (shell static analysis)` | `shell-lint` | `apply-ci-lint-wiring.sh` の `JOBS` `name:` | **未（未適用）** |
+| `actionlint (workflow static analysis)` | `workflow-lint` | 同上 | **未（未適用）** |
+
+`app.id` は `ci.yml` 内の job なので他の GitHub Actions check と同じ **15368**
+（`github-actions`）になる。**適用後の最初の PR で `gh pr checks` により
+表示名を 1 回実測してから** required に入れること（§4 Step 0）。
+
 `Analyze (python)` は `codeql.yml` の `jobs.analyze.name`。`check` は
 `check-pr-issue-link.yml` の job id（`name:` を持たないため id がそのまま表示名）。
 `CodeQL`(2s) は Advanced Security 側の集約チェックで、Actions 側の
@@ -82,6 +99,8 @@ gh api "repos/s977043/plangate/commits/583c23fe/check-runs?per_page=100" \
 | `settings wiring drift` | ci.yml / settings-drift | ○ | なし | 25 / 0 | 6s / 8s | **追加** |
 | `SKIP_REASON 追認` | ci.yml / skip-ack | ○ | なし | 25 / 0 | 6s / 10s | **追加** |
 | `Analyze (python)` | codeql.yml / analyze | ○ | なし | 25 / 0 | 73s / 87s | **追加** |
+| `shellcheck (shell static analysis)` | ci.yml / shell-lint（**本 PR で追加**） | ○ | なし | — （未適用） | — | **追加**（ci.yml 適用後） |
+| `actionlint (workflow static analysis)` | ci.yml / workflow-lint（**本 PR で追加**） | ○ | なし | — （未適用） | — | **追加**（ci.yml 適用後） |
 | `CodeQL` | (Advanced Security 集約) | ○ | — | — | 2s | 追加しない |
 | `check` | check-pr-issue-link.yml / check | ○ | なし | 25 / 0 | 8s / 12s | **追加しない** |
 | `privacy` | metrics-privacy.yml / privacy | **×** | **あり** | 25 / 0 | 6s / 9s | **追加しない** |
@@ -102,6 +121,17 @@ gh api "repos/s977043/plangate/commits/583c23fe/check-runs?per_page=100" \
 - **`settings wiring drift` / `SKIP_REASON 追認`** — 同 `ci.yml` 内。25/25 success、
   max 8s / 10s。承認境界（EH-3 SKIP 追認・settings 契約）を守る check であり、
   `Markdown lint` だけが required という現状の非対称が最も不自然な 2 本。
+- **`shellcheck (shell static analysis)` / `actionlint (workflow static analysis)`** —
+  `apply-ci-lint-wiring.sh` は両 job を **`ci.yml` に**追加する。`ci.yml` は
+  `on: pull_request`（paths / branches フィルタ無し）＝ **全 PR で必ず発生**するので
+  §3.1 の採用基準（paths-filter を持たない / 全 PR で発生）を満たす。
+  required にしないと「新しい gate が赤くなるが merge は止まらない」状態になり、
+  静的解析を入れた意味が消える。
+  **ただし順序依存がある**: `ci.yml` への適用が main に入るまでは check run が
+  生成されないため、先に required 化すると永久 pending になる（§4 Step 0）。
+  所要時間は未実測（適用後の最初の run で測る）。`ci.yml` の既存 job と同じ
+  `timeout-minutes: 10` を持ち、ローカル実測では shellcheck 179 ファイルが数秒、
+  actionlint 10 workflow が数十秒。
 - **`Analyze (python)`** — `codeql.yml` は
   `on.pull_request.branches: [main]`。ruleset は `~DEFAULT_BRANCH` すなわち
   **main 向け PR にしか適用されない**ので、「required なのに発生しない」は起きない。
@@ -153,6 +183,37 @@ gh api "repos/s977043/plangate/commits/583c23fe/check-runs?per_page=100" \
 
 ## 4. 適用コマンド（Human-owned。AI は実行していない）
 
+### Step 0: 順序依存（**先にこれを満たすこと**）
+
+`shellcheck (shell static analysis)` / `actionlint (workflow static analysis)` は
+**まだ `ci.yml` に存在しない**。この 2 本を required に入れる前に:
+
+1. 本 PR を merge する（`scripts/lint-shell.sh` / `scripts/lint-workflows.sh` /
+   `scripts/apply-ci-lint-wiring.sh` が main に入る）
+2. Human が `ci.yml` へ適用する（HO パスなので apply スクリプト経由）:
+
+   ```sh
+   sh scripts/apply-ci-lint-wiring.sh --dry-run          # 差分を目視（AI が実行してよいのはここまで）
+   PLANGATE_APPLY_CONFIRM=1 sh scripts/apply-ci-lint-wiring.sh --apply
+   sh scripts/lint-workflows.sh                          # 編集後 ci.yml が actionlint を通ること
+   ```
+
+   `PLANGATE_APPLY_CONFIRM` は **実 HO パスへの書き込みだけ**に要求される確認
+   （AI は設定しない）。
+3. 適用 PR が main に入り、**次の PR で 2 本の check run が実際に生成され表示名が
+   一致することを実測**する:
+
+   ```sh
+   gh pr checks <N> --repo s977043/plangate | grep -E 'shellcheck|actionlint'
+   # 期待: 'shellcheck (shell static analysis)' / 'actionlint (workflow static analysis)' が pass
+   ```
+
+**Step 0 未了のまま §4 Step 2 の 7 本 payload を適用してはならない。**
+未生成の context は `Expected — Waiting for status to be reported` のまま止まり、
+main へのマージが機械的に不能になる（§3.2 の paths-filter 罠と同じ失敗形）。
+Step 0 が終わっていない段階で required を先に増やしたい場合は、**既存 4 本のみ**
+（`Markdown lint` を含め 5 本）を入れる payload に留めること。
+
 ruleset の更新は `PUT /repos/{owner}/{repo}/rulesets/{ruleset_id}`。
 **現在値を手で書き写すと `bypass_actors` や `pull_request` ルールを取りこぼす**ので、
 ライブ状態から payload を生成する。
@@ -181,7 +242,10 @@ jq '
           { context: "plangate CLI tests",    integration_id: 15368 },
           { context: "settings wiring drift", integration_id: 15368 },
           { context: "SKIP_REASON 追認",       integration_id: 15368 },
-          { context: "Analyze (python)",      integration_id: 15368 }
+          { context: "Analyze (python)",      integration_id: 15368 },
+          # 以下 2 本は Step 0（ci.yml への適用 + 表示名の実測）完了後にのみ含める
+          { context: "shellcheck (shell static analysis)",     integration_id: 15368 },
+          { context: "actionlint (workflow static analysis)",  integration_id: 15368 }
         ]
         else . end
     ]
@@ -204,7 +268,10 @@ gh api --method PUT repos/s977043/plangate/rulesets/14939019 \
 gh api repos/s977043/plangate/rulesets/14939019 \
   --jq '[.rules[] | select(.type=="required_status_checks")
          | .parameters.required_status_checks[].context] | sort'
-# 期待 (sort 済み):
+# 期待 (sort 済み / Step 0 完了後の 7 本):
+# ["Analyze (python)","Markdown lint","SKIP_REASON 追認","actionlint (workflow static analysis)","plangate CLI tests","settings wiring drift","shellcheck (shell static analysis)"]
+#
+# Step 0 未了で既存 4 本のみ入れた場合の期待 (5 本):
 # ["Analyze (python)","Markdown lint","SKIP_REASON 追認","plangate CLI tests","settings wiring drift"]
 
 # strict が維持されているか
@@ -230,7 +297,7 @@ gh api --method PUT repos/s977043/plangate/rulesets/14939019 \
 
 ### 適用直後にやること
 
-適用後の最初の PR で `gh pr checks <N>` を確認し、5 本すべてが
+適用後の最初の PR で `gh pr checks <N>` を確認し、required の全本（Step 0 完了後は 7 本 / 未了なら 5 本）が
 `pass` になり **`Expected` のまま止まる check が無い**ことを 1 回だけ実測する。
 `Expected` が残ったら §3.2 の paths-filter 罠に踏み込んでいるので即ロールバック。
 
@@ -265,8 +332,22 @@ scorecard 15 / sync-plugin 10）とも粒度が揃う。
 
 | workflow | cancel-in-progress | 理由 |
 |---|---|---|
-| check-pr-issue-link / codeql / metrics-privacy / schema-validate / sync-plugin-plangate | `${{ github.event_name == 'pull_request' }}` | PR の再 push は cancel してよいが、main push / schedule は SARIF upload や同期 PR 作成を伴うので完走させる |
+| check-pr-issue-link / codeql / metrics-privacy / schema-validate / sync-plugin-plangate | `${{ github.event_name == 'pull_request' }}` | PR の再 push は cancel してよい。main push / schedule では **走り出した run が途中で殺されない**（in-progress cancel をしない） |
 | release-docs-sync / slsa-attestation | `false` | `on: release`。リリース処理を途中で殺すと asset / attestation が欠ける |
+
+**`cancel-in-progress: false` の正確な意味論（誤読しやすい）**:
+`cancel-in-progress` が制御するのは **in-progress run を cancel するか**だけ。
+GitHub は同一 concurrency group に新しい run が queue されると、値に関わらず
+**それ以前の pending run を cancel** する。つまり「同一 group の run はすべて
+完走する」という保証にはならない。
+
+本件で実際に同一 group に同居しうるのは **`codeql.yml` の push(main) と
+schedule** である（schedule の `github.ref` は既定ブランチ＝`refs/heads/main`
+なので `${{ github.workflow }}-${{ github.ref }}` が一致する）。ただし
+**実害は無い**: 後勝ちした run が最新の main を解析するため、SARIF は最新状態に
+なる（古い pending が消えても検出力は落ちない）。`release-docs-sync` /
+`slsa-attestation` は `on: release` で `github.ref` が tag ref のため
+リリースごとに group が別になり、同居しない。
 
 ### (C) `check-pr-issue-link.yml` の最小権限
 
@@ -308,14 +389,21 @@ PLANGATE_WF_DIR="$SB/.github/workflows" sh scripts/apply-workflow-hygiene.sh --a
    しか触らず `uses:` 行と行が重ならないため textual conflict は起きないが、
    HO 適用は 1 回で済ませたい。
 2. **`scripts/apply-pr-issue-link-comment-removal.sh`（#1159 系。ブランチ
-   `fix/1159-pr-issue-link-refs` に commit 済み・未 push）を先に適用**。
-   同じ `check-pr-issue-link.yml` の **steps** を差し替えるスクリプト。
-   本スクリプトは **header のみ**なので順序を逆にしても壊れないが、
-   コメント投稿 step が撤去されると `pull-requests: write` 自体が不要になり
-   (C) の内容が変わる（`permissions: contents: read` だけで足りる）。
-   → **comment-removal → 本スクリプト** の順で適用し、(C) 適用後に
-   `gh pr view` しか残っていなければ job の `pull-requests: write` を
-   `read` に落とすフォローアップを起票する。
+   `fix/1159-pr-issue-link-refs` に commit 済み・未 push）との順序は
+   どちらでもよい**。同じ `check-pr-issue-link.yml` の **steps** を差し替える
+   スクリプトだが、本スクリプトは **header（`on` / `permissions` / `jobs` 直下）
+   のみ**を触るため textual conflict は起きない。
+
+   **`pull-requests: write` は comment-removal 適用後も必要**（実測:
+   `scripts/apply-pr-issue-link-comment-removal.sh` の 31 行目に
+   「`permissions: pull-requests: write` は (2) の削除操作に必要なため維持する」と
+   明記され、置換後の step は `gh api -X DELETE repos/$REPO/issues/comments/$id`
+   を 1 箇所で呼ぶ）。したがって comment-removal を先に適用しても **(C) の内容は
+   変わらない**。
+
+   ⚠️ **(C) をスキップしてはならない**。(C) は「`write` を消す」変更ではなく
+   「`write` の適用範囲を top-level から job へ絞る」変更である。write を落とすと
+   cleanup step が 403 で落ちる。
 3. 本スクリプトを `--dry-run` → Human が差分確認 → `--apply`。
 4. `actionlint .github/workflows/*.yml` を実行して exit 0 を確認。
 
@@ -387,6 +475,8 @@ jobs.plangate-cli.steps:
 | 2 | `bypass_actors: [{actor_type: RepositoryRole, actor_id: 5, bypass_mode: always}]` | ruleset 実測 | admin ロールが required checks を常時バイパスできる。`current_user_can_bypass: "always"` |
 | 3 | `check` job の名前が `check` | check-runs 実測 | required にするなら他 app と衝突しにくい固有名（`name:` 明示）にすべき。ただし §3.2 の通り required 化自体を推奨しない |
 | 4 | `schema-validate.yml` の failure 1 件（2026-08-19 push to main） | `gh run list` 実測 | PR 側 run は同時刻に success。push 側のみ失敗しており未調査 |
+| 5 | **actionlint の shellcheck 連携が決定論的にハングする** | `actionlint -no-color -oneline .github/workflows/schema-validate.yml` が 60s x3 とも rc=124（actionlint が 100% CPU で spin、shellcheck の子プロセスは 0 個）。`-shellcheck=` を付ける / PATH から shellcheck を外すと rc=0 / 0s。ハングする 4 本 = check-pr-issue-link / release-docs-sync / schema-validate / sync-plugin-plangate。step 単位では schema-validate.yml の `Determine changed JSON files` 単体で再現（actionlint 1.7.12 + shellcheck 0.11.0 / darwin-arm64） | `scripts/lint-workflows.sh` は **既定で `-shellcheck=`**（+ `PG_LINT_TIMEOUT` 既定 120s のハング検出）。結果として **inline `run:` ブロックの shell lint は誰も行っていない**（`.sh` / shebang スクリプトは `lint-shell.sh` がカバー）。恒久解は版固定または upstream 修正で **別 PBI**。有効化は `PG_ACTIONLINT_SHELLCHECK=1` |
+| 6 | **shellcheck 本体のバージョンが非固定** | `apply-ci-lint-wiring.sh` の `JOBS`（`shellcheck --version` を出すだけ） | `shell-lint` job は runner プリインストールの shellcheck を使う。runner 側の版が上がると新規 check の追加で gate が落ちうる（actionlint は version + sha256 固定済み）。**別 PBI**。`shell-lint` を required にすると影響が出るため、required 化と同時期に版固定を検討する |
 
 ## 9. 参照
 
