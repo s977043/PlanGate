@@ -1,0 +1,9 @@
+# Pull Request
+
+## Summary
+
+この PR は Part of #123 の 1 スライスであり、issue は open のまま残す。
+
+## Validation
+
+- [x] Tests pass
