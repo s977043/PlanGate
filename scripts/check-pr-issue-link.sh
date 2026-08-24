@@ -1,6 +1,8 @@
 #!/bin/sh
 # check-pr-issue-link.sh
-# PR 本文に GitHub closing keyword (closes/fixes/resolves #N) が含まれているか検証する
+# PR 本文に issue への linkage が含まれているか検証する。
+# closing keyword (closes/fixes/resolves #N) に加え、issue を閉じない linkage
+# 宣言 (Refs: #N / Part of #N / Related to #N) も有効なリンクとして扱う。
 #
 # Usage:
 #   sh scripts/check-pr-issue-link.sh \
@@ -8,12 +10,19 @@
 #     --labels-file <path> # PR labels（1 行 1 ラベル、カンマ区切りも可）
 #     --changed-files <path> # PR 変更ファイル一覧（1 行 1 path）
 #
-# 出力 (stdout, 1 行):
-#   PASS: <理由>
-#   WARN: <理由>
-#   SKIP: <理由>
+# 出力 (stdout, 1 行) — 4 値判定:
+#   PASS:   closing keyword あり（この PR で issue が閉じる）
+#   NOTICE: 非クローズ型リンクのみ（リンクはあるが「閉じない」と宣言した状態）
+#   WARN:   issue 参照ゼロ
+#   SKIP:   skip marker / skip label
 #
-# Exit code: 常に 0（warning は出力でのみ表現）。
+# NOTICE は成功側の判定であり強制力を持たない（exit code は従来どおり常に 0）。
+# `Refs: #N` の参照先は issue とは限らず PR も混在するため、本スクリプト単体では
+# 「issue を 1 件もリンクしていない PR」と「意図的に閉じない PR」を区別できない。
+# NOTICE はその弱いシグナル（= closing keyword の書き忘れかもしれない）を残す段で、
+# PASS へ丸めると「本来 closing すべきなのに書き忘れた」ケースの検出手段がゼロになる。
+#
+# Exit code: 常に 0（warning / notice は出力でのみ表現）。
 # 引数誤りなど内部エラーのみ非ゼロ。
 #
 # 関連: docs/working/TASK-0045/, Issue #159
@@ -72,11 +81,37 @@ fi
 # GitHub の正式な closing keyword: close, closes, closed, fix, fixes, fixed,
 # resolve, resolves, resolved（case-insensitive）
 # 形式: <keyword> [owner/repo]#<issue-number>
-keyword_re='(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)[[:space:]]+([A-Za-z0-9._-]+/[A-Za-z0-9._-]+)?#([0-9]+)'
+# `(^|[^A-Za-z])` は non-closing 側と同一の語頭ガード。これが無いと hotfix /
+# prefix / suffixes 等の**語末一致**（hotfix -> fix, prefix -> fix,
+# suffixes -> fixes）で誤って PASS になる（実測: `This is a hotfix #123 for
+# the thing.` が `PASS: closing keyword(s) #123 found`）。両側で対称にする。
+keyword_re='(^|[^A-Za-z])(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)[[:space:]]+([A-Za-z0-9._-]+/[A-Za-z0-9._-]+)?#([0-9]+)'
+
+# --- non-closing link keyword (#159 改善) ---
+# 本リポジトリの実運用では 1 issue を複数 PR のスライスに分割するため、issue を
+# 閉じない linkage 宣言（Refs: #N / Part of #N / Related to #N）が主流である。
+# これらは「issue 未リンク」ではないので WARN の対象から外す。
+# `(^|[^A-Za-z])` は xrefs / prefs 等の部分一致による誤検出を防ぐ語頭ガード
+# （裸の `#N` は linkage 宣言ではないため意図的に対象外 = TC warn-bare-hash）。
+nonclosing_re='(^|[^A-Za-z])(refs?|related([[:space:]]+to)?|part[[:space:]]+of)[[:space:]:]+([A-Za-z0-9._-]+/[A-Za-z0-9._-]+)?#([0-9]+)'
 
 # 該当 issue 番号を全て抽出
-matched_issues=$(grep -Eio "$keyword_re" "$BODY_FILE" 2>/dev/null \
+closing_issues=$(grep -Eio "$keyword_re" "$BODY_FILE" 2>/dev/null \
   | grep -Eo '#[0-9]+' \
+  | sort -u \
+  | tr '\n' ' ' \
+  | sed 's/[[:space:]]*$//' || true)
+
+nonclosing_issues=$(grep -Eio "$nonclosing_re" "$BODY_FILE" 2>/dev/null \
+  | grep -Eo '#[0-9]+' \
+  | sort -u \
+  | tr '\n' ' ' \
+  | sed 's/[[:space:]]*$//' || true)
+
+# expected_issue 照合は closing / non-closing の双方を対象にする
+matched_issues=$(printf '%s %s' "$closing_issues" "$nonclosing_issues" \
+  | tr ' ' '\n' \
+  | grep -v '^$' \
   | sort -u \
   | tr '\n' ' ' \
   | sed 's/[[:space:]]*$//' || true)
@@ -103,18 +138,29 @@ fi
 
 # --- judgment ---
 if [ -z "$matched_issues" ]; then
-  printf 'WARN: no closing keyword found (expected one of: closes #N / fixes #N / resolves #N)\n'
+  printf 'WARN: no issue link found (expected one of: closes #N / fixes #N / resolves #N / Refs: #N / Part of #N)\n'
   exit 0
 fi
 
+# closing keyword があれば PASS、無ければ NOTICE（4 値判定の分岐点）。
+# closing / non-closing の切り分けは 1 箇所（この if）に閉じ込める。
 if [ -n "$expected_issue" ]; then
   if printf '%s' "$matched_issues" | grep -qw "#$expected_issue"; then
-    printf 'PASS: expected issue #%s present in closing keywords (%s)\n' "$expected_issue" "$matched_issues"
+    if printf '%s' "$closing_issues" | grep -qw "#$expected_issue"; then
+      printf 'PASS: expected issue #%s present in closing keyword(s) (%s)\n' "$expected_issue" "$closing_issues"
+    else
+      printf 'NOTICE: expected issue #%s linked without closing keyword (%s); if this PR completes the issue, rewrite the link as "closes #%s"\n' \
+        "$expected_issue" "$matched_issues" "$expected_issue"
+    fi
   else
-    printf 'WARN: expected issue #%s (from child PBI YAML) not in closing keywords (%s)\n' "$expected_issue" "$matched_issues"
+    printf 'WARN: expected issue #%s (from child PBI YAML) not in issue link(s) (%s)\n' "$expected_issue" "$matched_issues"
   fi
   exit 0
 fi
 
-printf 'PASS: closing keyword(s) %s found\n' "$matched_issues"
+if [ -n "$closing_issues" ]; then
+  printf 'PASS: closing keyword(s) %s found\n' "$closing_issues"
+else
+  printf 'NOTICE: non-closing link(s) %s found (issue stays open by design); if this PR completes the issue, rewrite the link as "closes #N"\n' "$nonclosing_issues"
+fi
 exit 0

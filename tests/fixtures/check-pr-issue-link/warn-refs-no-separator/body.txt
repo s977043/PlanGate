@@ -1,0 +1,10 @@
+# Pull Request
+
+## Summary
+
+本文に `refs#1` と書いてあるが、`Refs: #N` / `Refs #N` のような区切りが無く
+linkage 宣言ではない（非クローズ側の `[[:space:]:]+` は 1 文字以上を要求する）。
+
+## Validation
+
+- [x] Tests pass
