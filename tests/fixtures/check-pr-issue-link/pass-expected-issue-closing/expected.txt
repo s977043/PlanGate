@@ -1,0 +1,1 @@
+PASS: expected issue #4242 present in closing keyword(s) (#4242)

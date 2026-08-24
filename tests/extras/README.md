@@ -275,3 +275,29 @@ fail-closed（診断 + **rc=4** で終了。mis-wired probe を no-op にしな�
 `pg_extra_contract_finalize` に一元化され、finalize は harness では必ず `return 0`、
 standalone でのみ `exit` する。finalize 未到達（早期 exit の混入）は契約回帰テストの
 force-fail probe が rc≠1 として検出する。
+
+## 進行マーカー / 所要時間レポート / ウォッチドッグ（失敗の属性化）
+
+`tests/run-tests.sh` は extras を **現在のシェルに直列 source** するため、
+1 ファイルが長時間ブロックすると CI の job timeout で run 全体が落ち、
+原因ファイルがログから特定できなかった。per-file の `timeout` は **採らない**:
+extras は `pass` / `fail` / `register_cleanup` を共有しており、サブプロセス隔離は
+集計と cleanup 契約を壊す（全 `ta-*.sh` が共有カウンタを直接更新している）。
+
+代わりに runner が次の 4 つを提供する:
+
+1. source 直前の進行マーカー `[extras] >>> <file> (start t+Ns)` と
+   終了行 `[extras] <<< <file> done in Ns (new failures: N)`
+   — kill されてもログ末尾のマーカーが原因ファイルを一意に指す
+2. 実行後の所要時間レポート（遅い順）と、失敗のファイル単位の属性化
+3. 別プロセスのウォッチドッグ（既定は**警告のみ**で実行意味論を変えない）
+4. `GITHUB_STEP_SUMMARY` が存在する環境でのみ Markdown サマリを追記
+
+| env | 既定 | 意味 |
+| --- | --- | --- |
+| `PG_EXTRA_TOP_SLOW` | `10` | 所要時間レポートの表示件数（`0` で無効） |
+| `PG_EXTRA_WATCHDOG_SEC` | `300` | 1 ファイルの警告閾値（秒 / `0` で無効） |
+| `PG_EXTRA_WATCHDOG_POLL` | `5` | ウォッチドッグのポーリング間隔（秒） |
+| `PG_EXTRA_WATCHDOG_ACTION` | `warn` | `kill` にすると閾値超過で run を打ち切る |
+
+回帰テスト: `tests/extras/ta-72-extras-progress.sh`。

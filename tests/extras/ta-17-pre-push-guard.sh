@@ -113,7 +113,8 @@ fi
 rm -rf "$T17_TMP"
 
 # === TC-09 (R-005): POSIX sh の軽量設計 ===
-# shellcheck は別 CI で確認、本 TC は basic syntax check
+# 静的解析は scripts/lint-shell.sh 側で確認、本 TC は basic syntax check
+# (行頭 '# shellcheck ' は shellcheck のディレクティブ構文として解釈され SC1072/SC1073 になる)
 if sh -n "$PG_T17_HOOK"; then
   t17_pass "TC-09 pre-push.sample sh -n syntax check"
 else
