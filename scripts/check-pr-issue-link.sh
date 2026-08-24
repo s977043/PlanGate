@@ -74,7 +74,11 @@ fi
 # GitHub の正式な closing keyword: close, closes, closed, fix, fixes, fixed,
 # resolve, resolves, resolved（case-insensitive）
 # 形式: <keyword> [owner/repo]#<issue-number>
-keyword_re='(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)[[:space:]]+([A-Za-z0-9._-]+/[A-Za-z0-9._-]+)?#([0-9]+)'
+# `(^|[^A-Za-z])` は non-closing 側と同一の語頭ガード。これが無いと hotfix /
+# prefix / suffixes 等の**語末一致**（hotfix -> fix, prefix -> fix,
+# suffixes -> fixes）で誤って PASS になる（実測: `This is a hotfix #123 for
+# the thing.` が `PASS: closing keyword(s) #123 found`）。両側で対称にする。
+keyword_re='(^|[^A-Za-z])(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)[[:space:]]+([A-Za-z0-9._-]+/[A-Za-z0-9._-]+)?#([0-9]+)'
 
 # --- non-closing link keyword (#159 改善) ---
 # 本リポジトリの実運用では 1 issue を複数 PR のスライスに分割するため、issue を

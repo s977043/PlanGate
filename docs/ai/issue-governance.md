@@ -145,6 +145,12 @@ EPIC issue は以下を満たす。
   - **この PR で issue が完結する** → `closes #N` / `fixes #N` / `resolves #N`（merge 時に自動 close）
   - **この PR は 1 スライスで issue は open のまま** → `Refs: #N` / `Part of #N` / `Related to #N`
   - 裸の `#N` 言及は linkage 宣言ではなく、issue-link チェックを満たさない
+  - **keyword と `#N` は同一行に書く**。`scripts/check-pr-issue-link.sh` の判定は
+    `grep` ベースで行指向のため、`Part of` と `#1180` が改行で分かれていると
+    linkage として検出されず WARN になる（例: `Part of` の直後で改行して次行に
+    `#1180` を置いたケース）。折り返しは keyword と番号の**後ろ**で行う
+  - keyword は語頭で判定する。`hotfix #123` / `prefix #123` / `xrefs #456` のような
+    語末一致（hotfix → fix、xrefs → refs）は linkage 宣言として扱われない
 - doc-only PR は `documentation` ラベルを付ければ issue-link チェックを skip 可能（PR `<!-- skip-issue-link-check -->` でも可）
 
 ## 10. Non-goals

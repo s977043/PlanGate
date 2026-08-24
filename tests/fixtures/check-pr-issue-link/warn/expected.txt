@@ -1,1 +1,1 @@
-WARN
+WARN: no issue link found (expected one of: closes #N / fixes #N / resolves #N / Refs: #N / Part of #N)

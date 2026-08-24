@@ -19,7 +19,7 @@
 #   `scripts/check-pr-issue-link.sh`（非 HO）で別途適用済み。本スクリプトは
 #   その残る一半である「コメント投稿という出力チャネル」を廃止する。
 #
-# 本スクリプトは 1 オペレーションで次の 2 つを行う（部分適用を避ける）:
+# 本スクリプトは 1 オペレーションで次の 3 つを行う（部分適用を避ける）:
 #   (1) `Post warning comment (if WARN)` step を削除【HO パス】
 #   (2) `Annotate WARN` step を追加（GitHub Actions の ::warning:: 注釈）【HO パス】
 #   (3) `Cleanup stale warning comment` step を追加（if: always()）【HO パス】
@@ -28,7 +28,15 @@
 #   「ノイズ除去」ではなく「シグナル消滅」になる。注釈は Actions UI と
 #   checks サマリに出るが PR タイムラインは汚さない。
 #
-#   `permissions: pull-requests: write` は (2) の削除操作に必要なため維持する。
+#   `permissions: pull-requests: write` は (3) の削除操作（`gh api -X DELETE`）に
+#   必要なため維持する（(2) の注釈出力自体は追加権限を要さない）。
+#
+# 置換範囲（minor-3 是正 / 適用時点の未知 step を巻き込まない）:
+#   削除対象は `- name: Post warning comment (if WARN)` から **次の
+#   `      - name:` 行（または steps リストの終端）まで** に限定する。
+#   `- name: Output summary` を END アンカーとして両者の「間を全部消す」旧実装は、
+#   適用までの間に別 step が挿入されるとそれを無警告で削除していた。
+#   併せて削除対象ブロックの内容を検証し、想定外なら 1 バイトも書かずに exit 1。
 #
 # 責務: docs/ai/ho-change-workflow.md「標準フロー」に従う。
 #   AI は本スクリプトの**作成と --dry-run のみ**。`--apply` の実行は **Human-owned**。
@@ -40,7 +48,8 @@
 #
 # Exit codes:
 #   0 = 成功（適用 / dry-run / 既適用 skip）
-#   1 = 引数エラー / アンカー未検出 / 対象ファイル不在（＝何も書き込まない）
+#   1 = 引数エラー / アンカー未検出 / アンカー多重 / 削除対象ブロックの内容が
+#       想定外 / 部分適用状態 / 対象ファイル不在（いずれも 1 バイトも書かない）
 #
 # Refs: #159
 
@@ -112,7 +121,12 @@ NEW_STEP = """      - name: Annotate WARN
           fi
           for id in $ids; do
             echo "Deleting stale warning comment $id"
-            gh api -X DELETE "repos/$REPO/issues/comments/$id"
+            # fork からの pull_request では GITHUB_TOKEN が read-only になるため
+            # DELETE が 403 になる。cleanup の失敗で job を赤くする理由はないので
+            # 失敗許容にする（旧実装は同状況でも緑だった / #159）。
+            if ! gh api -X DELETE "repos/$REPO/issues/comments/$id"; then
+              echo "warning: could not delete comment $id (token may be read-only); skipping"
+            fi
           done
 """
 
@@ -128,22 +142,83 @@ if "Cleanup stale warning comment" in original or "Annotate WARN" in original:
     sys.stdout.write("already applied: %s (no change)\n" % wf)
     sys.exit(0)
 
-# ── アンカー検証 ──────────────────────────────────────────────────
+# ── アンカー検証（START のみ / END アンカーには依存しない）─────────
+# 旧実装は START..END(`- name: Output summary`) の「間を全部」置換していたため、
+# 適用までの間に別 step が挿入されると、それを無警告で削除していた（minor-3）。
+# ここでは START step の **自ブロックだけ** を切り出して置換する。
 START = "      - name: Post warning comment (if WARN)\n"
-END = "      - name: Output summary\n"
+STEP_PREFIX = "      - "        # steps リストの項目行
+STEP_INDENT = 6                 # 項目行のインデント幅
 
 if START not in original:
     sys.stderr.write("error: anchor not found: 'Post warning comment (if WARN)' step\n")
     sys.exit(1)
-if END not in original:
-    sys.stderr.write("error: anchor not found: 'Output summary' step\n")
+if original.count(START) != 1:
+    sys.stderr.write(
+        "error: anchor is ambiguous: 'Post warning comment (if WARN)' appears %d times\n"
+        % original.count(START)
+    )
     sys.exit(1)
 
-start_idx = original.index(START)
-end_idx = original.index(END, start_idx)
-if end_idx <= start_idx:
-    sys.stderr.write("error: anchors out of order\n")
+lines = original.splitlines(keepends=True)
+start_line = None
+for i, ln in enumerate(lines):
+    if ln == START:
+        start_line = i
+        break
+if start_line is None:  # pragma: no cover - START in original で担保済み
+    sys.stderr.write("error: anchor not found (line scan)\n")
     sys.exit(1)
+
+
+def _indent(text):
+    return len(text) - len(text.lstrip(" "))
+
+
+# ブロック終端 = 次の step 項目行、または steps リストからの dedent、または EOF
+end_line = len(lines)
+for i in range(start_line + 1, len(lines)):
+    ln = lines[i]
+    if not ln.strip():
+        continue                       # 空行はブロック内に許容（末尾の分離行含む）
+    if ln.startswith(STEP_PREFIX):
+        end_line = i
+        break
+    if _indent(ln) < STEP_INDENT:
+        end_line = i                   # steps リストの外へ出た
+        break
+
+removed = "".join(lines[start_line:end_line])
+
+# ── 削除対象ブロックの内容検証（想定外なら 1 バイトも書かずに exit 1）──
+REQUIRED_IN_REMOVED = (
+    "if: startsWith(steps.check.outputs.result, 'WARN')",
+    "<!-- check-pr-issue-link:warning -->",
+    "gh pr comment",
+)
+missing = [tok for tok in REQUIRED_IN_REMOVED if tok not in removed]
+if missing:
+    sys.stderr.write(
+        "error: block to remove does not look like the expected "
+        "'Post warning comment (if WARN)' step; missing marker(s): %s\n"
+        % ", ".join(missing)
+    )
+    sys.stderr.write("--- block that would have been removed ---\n")
+    sys.stderr.write(removed)
+    sys.exit(1)
+# 自ブロック外の step を巻き込んでいないことを二重に確認（防御的）
+extra_steps = [
+    ln for ln in lines[start_line + 1:end_line] if ln.startswith(STEP_PREFIX)
+]
+if extra_steps:
+    sys.stderr.write(
+        "error: block to remove unexpectedly spans %d additional step(s)\n"
+        % len(extra_steps)
+    )
+    sys.exit(1)
+
+start_idx = len("".join(lines[:start_line]))
+end_idx = start_idx + len(removed)
 
 updated = original[:start_idx] + NEW_STEP + "\n" + original[end_idx:]
 
