@@ -1,6 +1,6 @@
 ---
 name: ai-loop-cycle
-description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行する。Use when: 「ai-loop で回して」「C-3' 裁定を実行」「arbiter で裁定して」「ai-loop 初回実走」。適用ドメイン（Phase 1）: 本プラグイン同梱の ai-loop ドキュメント配下のみで、導入先プロジェクトの本番承認フローには適用しない。導入先での適用は ho-paths 確定 + LoopSpec allowed_paths 宣言が前提。"
+description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行する。Use when: 「ai-loop で回して」「C-3' 裁定を実行」「arbiter で裁定して」「ai-loop 初回実走」。恒久定義（責務・terminal state・C-3' 経路）の正本 = 同梱 references/00_concept.md、適用制限（Phase 1 rollout eligibility）の正本 = 同梱 references/rollout-policy.md（導入先が独自正本を保持する場合はそちらを優先）。"
 ---
 
 # ai-loop-cycle
@@ -18,6 +18,8 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 詳細な手順・分岐表は都度 `references/` を読みに行く（progressive disclosure。本 SKILL.md は
 手順の要点のみを持ち、runbook 等の全文を転記しない）。
 
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
+
 ## 前提
 
 - **C-1 PASS・C-2 完了済み**であること（`references/execution-runbook.md` §2 前提）。
@@ -26,10 +28,11 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 - 対象は **lite 帯候補の変更**（`references/lite-criteria.md` §2 の 4 軸を満たしうる変更）。
   high-risk / critical 相当や boundary=touches-HO が明らかな変更には使わない
   （使っても flow フェーズで即 human escalate になる）。
-- 適用ドメイン（Phase 1）は本スキル同梱の ai-loop ドキュメント（`references/` 配下）のみ。
-  導入先の本番承認フロー（ゲート・hook 等の統制機構）からは呼ばれない隔離 PoC
-  として運用する。導入先での適用は **①ho-paths の導入先確定 ②LoopSpec
-  `scope.allowed_paths` 宣言** の 2 条件が前提。
+- 適用制限（Phase 1 rollout eligibility）は同梱 `references/rollout-policy.md` を正本とする
+  （導入先が独自正本を保持する場合はそちらを優先）。導入先での適用は **①ho-paths の
+  導入先確定 ②LoopSpec `scope.allowed_paths` 宣言** の 2 条件が前提。恒久定義
+  （責務・terminal state・C-3'/Human C-3 経路）の正本は同梱 `references/00_concept.md`。
+  本サイクルは導入先の本番承認フロー（ゲート・hook 等の統制機構）からは呼ばれない（不変）。
 - **auto-approve 方針（Phase 1）**: lite 4 軸（`references/lite-criteria.md` §2）を
   申告制・AND・判定不能→false で満たせば、**実機能も `AUTO_APPROVED` 対象に含めてよい**
   （docs 級限定ではない）。`size_ok` は申告するが、arbiter が `changed_files` の
@@ -83,6 +86,8 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
 `"PASS"`/`"pass"` で渡す必要がある）。
 
 `run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（**初回呼び出し=1**、再試行ごとに +1。1 起点。metrics は round_index==1 を初回 sentinel に first_pass 判定するため 0 起点不可）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
+
+`production` / `plan_package`（任意・TASK-0872）: **Plan-first 正式入口（`ai-loop run TASK-XXXX`）から開始した production run では両方を必ず入力に含める**（この入口は **`/ai-loop-workflow` の引数仕様**であり、**`bin/plangate` に `ai-loop` サブコマンドは存在しない** — `plangate ai-loop run …` は失敗する。CLI 入口を設けるか否かは issue #982 で未決）。`plan_package.py`（arbiter.py と同ディレクトリ）で Plan Package（pbi-input / plan / todo / test-cases + C-1/C-2 evidence）の presence・evidence 判定・hash を検証して `plan_package` ブロックを組み立て、`production: true` を宣言する。`production: true` で `plan_package` が欠落・構造不正なら priority 1.6 で escalate、reviewer snapshot 三つ組不一致・`source_sha != target_sha` は priority 1.65 で blocked（フィールド契約・stale 規則・LoopSpec 派生マッピングの正本 = `c3-prime-contract.md`）。LoopSpec は同モジュールの `derive_loopspec()` で Plan Package から決定論派生する（手入力しない）。非 production の PoC 実験 run では両フィールドとも省略可（既存挙動不変・additive）。
 
 入力 JSON の例:
 
@@ -200,7 +205,7 @@ python3 scripts/arbiter.py --input /path/to/input.json \
 
 - **exit 0（AUTO_APPROVED）**: exec → 強化セルフレビュー（diff-audit スキル全観点 +
   導入先の plan-review readiness 相当の観点）→ PR 作成 → CI/AI レビュー指摘対応ループ
-  （merge-ready まで）
+  （`MERGE_READY` まで）
 - **exit 2（HUMAN_ESCALATED）**: **停止して人間へ**。`w_check` / `boundary_check` /
   `lite_check` の内容を提示し、人間の判断を仰ぐ。AI が自己解決してはならない
 - **exit 3（BLOCKED）**: 当該変更を採用しない。理由を audit record に記録して終了

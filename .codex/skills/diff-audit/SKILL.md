@@ -11,7 +11,9 @@ description: "変更差分を多段フェーズで精査し、構造化された
 
 PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phase 1〜12）に加えて **Iron Law 8 項目** と **8 eval 観点** で必ず判定する。`docs/ai/core-contract.md` が Iron Law の正本。
 
-### Iron Law 8 項目（[`core-contract.md`](../../../docs/ai/core-contract.md) 正本）
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` / `schemas/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` / `schemas/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` / `schemas/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` / `schemas/**` に持ち込まない）。
+
+### Iron Law 8 項目（`docs/ai/core-contract.md` 正本）
 
 | # | Iron Law | 違反例 |
 |---|---------|-------|
@@ -24,7 +26,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | #7 | NO SILENT GATE BYPASSES | C-3 / C-4 / Parent Integration Gate を黙ってスキップ |
 | #8 | NO CLAIM WITHOUT SOURCE CROSS-CHECK | findings・監査・レビューの事実主張（構成・件数・依存先等）を一次情報と未照合のまま採用 |
 
-### 8 eval 観点（[`eval-plan.md`](../../../docs/ai/eval-plan.md) / [`eval-cases/`](../../../docs/ai/eval-cases/) 正本）
+### 8 eval 観点（`docs/ai/eval-plan.md` / `docs/ai/eval-cases/` 正本）
 
 | 観点 | 判定 | release blocker |
 |------|------|----------------|
@@ -349,11 +351,11 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
 
 ## 関連（PlanGate v8.3）
 
-- [`docs/ai/core-contract.md`](../../../docs/ai/core-contract.md) — Iron Law 8 項目正本
-- [`docs/ai/eval-plan.md`](../../../docs/ai/eval-plan.md) — 8 eval 観点 / release blocker 基準
-- [`docs/ai/eval-cases/`](../../../docs/ai/eval-cases/) — 観点別詳細 × 8
-- [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — 出力 schema
-- [`docs/ai/contracts/review.md`](../../../docs/ai/contracts/review.md) — review phase contract
+- `docs/ai/core-contract.md` — Iron Law 8 項目正本
+- `docs/ai/eval-plan.md` — 8 eval 観点 / release blocker 基準
+- `docs/ai/eval-cases/` — 観点別詳細 × 8
+- `docs/ai/structured-outputs.md` + `schemas/review-result.schema.json` — 出力 schema
+- `docs/ai/contracts/review.md` — review phase contract
 - `.claude/rules/review-principles.md` — レビュー原則（CI / ローカル共通）。
   **導入先での参照解決順**: (1) 導入先の `.claude/rules/review-principles.md`。
   ただし **本 skill が参照する節（例: `review-principles.md` の §3 Severity 定義）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため (2) へ進む →
@@ -373,4 +375,4 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
   本ファイルの正本 root である `.agents/skills/` と Codex 導入先の `.codex/skills/` には
   隣接する `rules/` が無いため**必ず壊れる**。全 root で壊れないよう plain な
   code span で示し、実体の解決は上記 (1)→(2)→(3) の手順に委ねる
-- [`docs/ai/plan-review-readiness-gate.md`](../../../docs/ai/plan-review-readiness-gate.md) §7/§8 — ドキュメント変更（D-1〜D-6）/ シェル・Python コード変更（C-1〜C-6）の追加観点
+- `docs/ai/plan-review-readiness-gate.md` §7/§8 — ドキュメント変更（D-1〜D-6）/ シェル・Python コード変更（C-1〜C-6）の追加観点

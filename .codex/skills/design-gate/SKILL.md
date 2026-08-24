@@ -7,6 +7,19 @@ description: "Design Gate を実施し、設計書（Design Artifact）を生成
 
 high-risk 以上のタスクで実装前に設計書（Design Artifact）を生成・評価する。
 
+## 参照解決順（`.claude/rules/*.md` / 導入先で必ずこの順に探す）
+
+本 Skill は Mode 判定の正本として `.claude/rules/mode-classification.md` を参照する（§関連）。
+このパスは上流リポジトリ基準のため、導入先では **次の順で探索する**:
+
+1. 導入先リポジトリの `.claude/rules/mode-classification.md`
+2. 無ければ plugin root 配下 `<plugin_root>/rules/mode-classification.md`。
+   `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
+   絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+   という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず 3 へ進む
+3. どちらにも無い場合は **「正本 `mode-classification.md` を参照できなかった」と明示**し、
+   推測で内容を補わない
+
 ## Iron Law
 
 `NO CODE WITHOUT APPROVED DESIGN FIRST`
@@ -165,3 +178,5 @@ approved_at: YYYY-MM-DD（high-risk 以上で記入）
 - Command: `plugin/plangate/commands/pg-think.md`（論点整理の初段）
 - Template: `docs/working/templates/design.md`（design.md の保存形式）
 - Skill: `plugin/plangate/skills/skill-policy-router/SKILL.md`（GatePolicy との連携）
+
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
