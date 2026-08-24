@@ -15,8 +15,22 @@
 |---|---:|---|
 | 棚卸し対象（開始時の open issue 全数） | **98** | bug 41 + 非 bug 57 |
 | うち本棚卸しで close | 1 | #863（§5-1） |
-| 棚卸し開始後に起票され**未棚卸し** | 2 | #1207 / #1208（2026-08-24 11:00-11:01・別セッション起票） |
-| **測定終了時の open** | **99** | 98 − 1 + 2 |
+| 棚卸し開始後に起票され**未棚卸し** | **5** | #1207 / #1208 / #1209 / #1210 / #1211（すべて 2026-08-24 11:00:57〜11:02:27Z・別セッション起票） |
+| **測定終了時の open** | **102** | 98 − 1 + 5 |
+
+未棚卸し 5 件の内容（**軽微ではない**）:
+
+```text
+1207  test(ci): ta-61 が extras 実行時間の 57% を占め、extras 追加ごとに 3 回分増える
+1208  test(ci): ta-61 が自分の再帰実行で作った負荷により自分の timeout 180 を超過させる（偽 FAIL）
+1209  test: ta-12 の cleanup が末尾 rm 依存で、中断時に実 _maintenance/maintenance.json（承認トークン）を残す
+1210  test: ta-44 / ta-45 の rm -rf の変数未設定時に / を消しうる（SC2115）
+1211  ci: actionlint の shellcheck 連携が 4 workflow で無限ハングする
+```
+
+**#1209 は承認トークン層、#1210 は不可逆削除**である。§6 Phase 0 が「承認境界の穴を最優先」と掲げているのに、承認トークン残留の #1209 が母集団外にある。**§10 の推奨順に従って着手すると、この 2 件は視界に入らない。**
+
+**訂正の経緯**: 初版は「未棚卸し 2 件 / 測定終了時 99」と書いていた。**本計画は §8 に「#866 を open として質問した。原因は質問の直前に state を測らなかったこと」と自己記録しているが、その同型を母集団の締めで再発させた**（起票バッチの尾を数え切らずに確定した）。W チェック Model B が検出し、上表は訂正後の値である。
 
 ### 0-2. 前回計画（`bugfix-execution-plan-2026-08-20.md`）との差
 
@@ -134,7 +148,12 @@
 
 ### 3-1. #1101 — Hardening Override が表記で外れる
 
-sandbox へ展開した `check-plan-hash.sh` に対し `PLANGATE_HOOK_FILE` を変えて実行した結果:
+sandbox へ展開した `check-plan-hash.sh` に対し、**`PLANGATE_HOOK_TASK=TASK-9999` を設定した状態**（＝TASK 文脈あり。plan 承認済みセッションが編集する場面）で `PLANGATE_HOOK_FILE` を変えて実行した結果:
+
+```sh
+SB=$(mktemp -d); git show origin/main:scripts/hooks/check-plan-hash.sh > "$SB/check-plan-hash.sh"
+PLANGATE_HOOK_TASK=TASK-9999 PLANGATE_HOOK_FILE="<下表の値>" sh "$SB/check-plan-hash.sh"
+```
 
 ```text
   rc=2  bin/plangate                              ← block（陽性コントロール）
@@ -145,7 +164,9 @@ sandbox へ展開した `check-plan-hash.sh` に対し `PLANGATE_HOOK_FILE` を�
   rc=2  scripts/hooks/../hooks/check-plan-hash.sh ← block（陽性コントロール）
 ```
 
-`_norm_target` が `..` を解決せず、大小文字も区別する。**同じファイルを別表記で書けば HO が外れる。**陽性コントロール 3 本が rc=2 なので判定器自体は動いている。
+`_norm_target` の正規化は `./` 剥がしと `$REPO_ROOT/` 前置剥がしのみで、**`..` 解決も大小文字畳み込みも行わない**。**同じファイルを別表記で書けば HO が外れる。**陽性コントロール 3 本が rc=2 なので判定器自体は動いている。
+
+> **env 前提の開示（W チェック Model A の指摘で追記）**: 上表は **TASK 文脈あり**の値である。`PLANGATE_HOOK_TASK` を設定しない素の env では `bin/../bin/plangate` は rc=2 になるが、**それは HO が発火したからではなく後段の「SKIP 拒否: SKIP_REASON 未設定」による**。`docs/../CLAUDE.md` と `CLAUDE.MD` の 2 行は env 条件によらず rc=0 である。**欠陥（HO が `..` と大小文字を解決しない）は両条件で成立する**が、行ごとに成立条件が異なる点を明示する。
 
 ### 3-2. #928 — repo-wide 層の保護が実質ない
 
@@ -191,13 +212,48 @@ README.md:90   ... 12/12 hooks 実装済み（... 物理配線は 11/12（残り
 
 ### 3-5. #960 — リリースノートが実態を先取りしている
 
-テンプレ実体は **25 項目**（`docs/working/templates/review-self.md` の `^### C1-` が 25 件）。一方 live に「17 項目」が **12 ファイル**残存する（`.claude/agents/workflow-conductor.md` / `.claude/commands/{README,ai-dev-workflow}.md` / `.claude/rules/{mode-classification,working-context}.md` / plugin ミラー 5 / `CHANGELOG.md` / `docs/changelog.md`）。陽性コントロールとして「25 項目」は 45 ファイルでヒットする。
+テンプレ実体は **25 項目**（`docs/working/templates/review-self.md` の `^### C1-` が 25 件）。一方 live に「17 項目」が **13 ファイル**残存する:
 
-**HO 5 ファイルが未適用**のまま、v8.21.0 のリリースノートが「是正済み」と書いている。patch は `docs/working/_reports/960-ho-patch.md` に既存で、**Human 裁定 Yes（2026-08-24）取得済み**。
+```text
+.claude/agents/workflow-conductor.md
+.claude/commands/README.md
+.claude/commands/ai-dev-workflow.md
+.claude/rules/mode-classification.md
+.claude/rules/working-context.md
+schemas/review-result.schema.json          ← HO 9 カテゴリ（schemas/*.schema.json）
+plugin/plangate/{agents/workflow-conductor.md, commands/README.md, commands/ai-dev-workflow.md,
+                 rules/mode-classification.md, rules/working-context.md}
+CHANGELOG.md / docs/changelog.md           ← 履歴・Out of scope
+```
+
+→ **HO は 6 ファイル**（`.claude/` 5 + `schemas/review-result.schema.json`）で、`960-ho-patch.md:3` の「対象: **Hardening Override 対象 6 ファイル**」と一致する。
+
+**測定コマンド**（pathspec で絞らない / 表記ゆれを和集合で取る）:
+
+```sh
+{ git grep -l '17 項目' d5641b0; git grep -lE '17[[:space:]]*項目' d5641b0; } \
+  | sed 's|^d5641b0:||' | sort -u | grep -v '^docs/working/'
+# 陽性コントロール: 同条件の「25 項目」は 45 ファイル
+```
+
+**訂正の経緯**: 初版は「12 ファイル / HO 5」と書いていた。走査を `-- '*.md'` と `.md` に絞ったため **`schemas/review-result.schema.json` が構造的に脱落**し、§5-4 の「HO 6 ファイル」および patch 本体と自文書内で矛盾していた。**絞り込みで消した情報を「無い」と読む**型の誤りで、W チェック 2 体が**独立に同じ欠陥を検出**した。
+
+**HO 6 ファイルが未適用**のまま、v8.21.0 のリリースノートが「是正済み」と書いている。patch は `docs/working/_reports/960-ho-patch.md` に既存で、**Human 裁定 Yes（2026-08-24）取得済み**。
 
 ### 3-6. #937 — patch 文書の責務宣言が過剰（AI が適用できる）
 
-HO 判定の `case` ブロックに `templates` は **0 ヒット**。`scripts/templates/pre-push.sample` は **HO 9 カテゴリに含まれない**。`docs/working/_reports/937-942-unwired-guard-patch.md` は「Human 適用」と宣言しているが、**`PLANGATE_HOOK_TASK` セッションがあれば AI が適用できる**。この 1 点の訂正で #937 は最も安い close 候補になる。
+patch 文書が Human 適用とした理由を、**相手が述べた論点で読む**:
+
+```text
+$ git show origin/main:docs/working/_reports/937-942-unwired-guard-patch.md | sed -n '4p'
+> AI は `.sh` / hook テンプレートを編集できない（EH-3 の no-task 経路が SKIP_REASON を要求）ため、…
+```
+
+**blocker は HO ではなく EH-3 の no-task 経路である。** 実際 HO 判定の `case` ブロックに `templates` は 0 ヒットで、`scripts/templates/pre-push.sample` は HO 9 カテゴリに含まれない。したがって本計画の層定義では **L2**（`PLANGATE_HOOK_TASK` セッションがあれば AI が適用できる）であり、Human-owned ではない。
+
+**訂正の経緯**: 初版は「patch 文書の責務宣言が過剰」と断じ、その根拠に **HO 軸**を使っていた。相手が述べた理由（EH-3）に触れずに別の軸で反証した形で、W チェック Model B が「相手の論点に噛み合っていない」と指摘した。**結論（`PLANGATE_HOOK_TASK` 下なら AI 可）は変わらないが、根拠を EH-3 軸へ揃えた。patch 文書の記述は当時の no-task 前提では正しく、誤りではない。**
+
+なお対象は **main 直接 push を技術層で止める pre-push テンプレート**（`responsibility-classes.md` の 3 層防御の技術層）であり、適用時は慎重に扱うこと。
 
 ---
 
@@ -213,11 +269,11 @@ HO 判定の `case` ブロックに `templates` は **0 ヒット**。`scripts/t
 | #954 本文 | 「26 skill に残存」 | **クラス A / C とも 0 件**（`.codex` を除く） |
 | #963 本文 | 「live 19 箇所 / 28 箇所が正本として名指し参照」 | 名指し参照は歴史注記へ置換済み。**残は AC-4 と AC-6 の 2 点** |
 | #982 本文 | 「6 箇所で案内」 | live 9 箇所すべてが「#982 で未決」注記付きへ是正済み。**残は Human 裁定 1 回** |
-| #961 本文 | stale branch **22 本** | **50 本**（origin heads 51 − main） |
+| #961 本文 | stale branch **22 本** | **増えている**（`git ls-remote --heads origin` は測定時刻で変動: 20:00 時点 51 / 20:30 時点 48。**ref 固定できないので件数を契約値にしない**。#1207〜#1211 と同じく live 測定） |
 | #1052 / #1053 | 「TASK-1044 の C-3 決着に BLOCKED」 | **TASK-1044 の承認記録は APPROVED で main に着地済み**（2026-08-12） |
 | #1054 | 「TASK-1036 との順序を plan で明示」 | **#1036 は CLOSED/COMPLETED**（条件消化済み） |
 | #1092 本文 | tracking 対象 **33 件** | 現 open bug は **40 件**。**集合が別物**（本人が 2026-08-15 に Phase 設計を自己撤回済み） |
-| #1114 本文 | apply script「31 本前後」 | **35 本** |
+| #1114 本文 | apply script「31 本前後」 | **増えている**（母集団 glob 依存: `scripts/` 直下の `apply-*.sh` は 35 / repo 全体の `apply-*.sh` は 42。**glob を書かない件数は検証不能なので契約値にしない**） |
 | #1010 本文 | 「30 TC」 | **32 TC**（TC-35/36 追加。ただし AC 充足には無関係） |
 | #936 本文 | C-1「17 項目」 | **25 項目**（主張自体は成立） |
 | #1081 本文 | 「同型は 3 配布点のみ」 | **検出 B は repo 全体 0 件**（PR #1084 / `8f57e59` で是正済み） |
@@ -363,7 +419,9 @@ Human 裁定「項目 1〜3 の充足で close し、項目 4 を新 issue へ�
 | #1081-A の「commands が Skills として登録される」機構 | `claude plugin details` の実行が必要で未再現。repo 側の事実（commands 6 本 / `plugin.json` に `commands` 未宣言 / 39+6=45）のみ実測 |
 | #1057 の Marketplace 実体 | 導入先キャッシュ未確認。repo 側の配布物から間接に確認 |
 | #920 / #923 の SUPERSEDED 断定 | 両 issue の Phase 0 が未実施。「既存 issue で代替可能」は推定であり一次照合による確定ではない |
-| #1207 / #1208 | **棚卸し開始後に起票され、本計画の母集団に入っていない** |
+| #1207 / #1208 / #1209 / #1210 / #1211 | **棚卸し開始後に起票され、本計画の母集団に入っていない**（§0-1）。**#1209 は承認トークン層、#1210 は不可逆削除**で、Phase 0 の優先順位に影響しうる |
+| **§9 の 98 行の `verdict` / `layer` / `effort`** | **ワーカー 6 本の判定であり、オーガナイザーが 98 件すべてを一次照合したものではない**。オーガナイザーが自分で再現したのは §3 の 6 件と、各バッチから抜き取った数件のみ。§9 の個別行は**着手時に測り直す前提**である |
+| §2 マトリクスの `—（close 済）` 行 | 全セル 0 で 計 1 と見えるのは、#863 の verdict `CLOSED` に対応する列を置いていないため。列和 97 + `CLOSED` 1 = 98 |
 
 ### 測定上の事故と自己訂正（記録）
 
@@ -485,6 +543,34 @@ Human 裁定「項目 1〜3 の充足で close し、項目 4 を新 issue へ�
 | 1135 | OPEN | L3 | M | **波及効果最大。patch 着地済み・Human 適用待ち** |
 | 1157 | OPEN | L3 | M | 案 A〜D 裁定 → working-context へ適用 |
 | 1163 | OPEN | L2 | L | 参照解決順の機械ゲート + CI 配線 |
+
+---
+
+## 9-3. W チェック（C-3' round 1）の disposition
+
+本計画は PR 作成前に **ai-loop の W チェック**（Model A = 順方向・設計妥当性 / Model B = 逆方向・adversarial）を、**互いの結論を見せずに独立並列**で通した。
+
+| モデル | verdict | reject_category |
+|---|---|---|
+| Model A | `approve` | `none` |
+| **Model B** | **`reject`** | **`documentation`** |
+
+### 指摘と扱い（全件）
+
+| 指摘 | 検出者 | 扱い | 反映先 |
+|---|---|---|---|
+| **母集団の全数主張が不成立**（未棚卸しは 2 件でなく **5 件**。測定終了時の open は 99 でなく **102**） | B | **採用** | §0-1 / §8 |
+| **「17 項目」は 12 でなく 13 ファイル**。`schemas/review-result.schema.json` が pathspec `-- '*.md'` で構造的に脱落し、§3-5「HO 5」が §5-4「HO 6」および patch 本体と自文書内で矛盾 | **A と B が独立に検出** | **採用** | §3-5 |
+| **§3-6 が EH-3 軸の主張を HO 軸で反証していた**（相手の論点に噛み合っていない） | B | **採用**（結論は不変・根拠を差し替え） | §3-6 |
+| §3-1 の rc 表に **env 前提（TASK 文脈の有無）が未開示** | A | **採用** | §3-1 |
+| §4 の #1114 / #961 の件数に **母集団 glob / 測定時刻が未記載**で検証不能 | A | **採用**（件数を契約値から外した） | §4 |
+| §2 マトリクスの `—` 行が列和と合わない見え方 | A | **採用**（脚注で開示） | §8 |
+| §9 の 98 行が**オーガナイザーの一次照合を経ていない**旨が未開示 | A | **採用** | §8 |
+| 数値の時限爆弾化 | B | **問題なし**と判定（§9 冒頭の再測定指示・§4・§8 で回避されている） | — |
+| §1 / §2 / §9 の内部整合 | **A と B が独立に全セル一致を確認** | **問題なし** | — |
+| §3-2（#928 ruleset）/ §3-1 の構造 | A・B とも一次ソースで再現 | **問題なし** | — |
+
+**Model B の reject は、いずれも本計画自身の測定ミスを突いたものであり、すべて採用した。**とくに母集団の指摘は、**本計画が §8 に自己記録した「#866 を測り直さずに扱った」失敗と同型の再発**である。
 
 ---
 
