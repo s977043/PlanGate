@@ -44,9 +44,15 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
    - **変数が空・未設定なら glob（`~/.claude/plugins/cache/**` 等）で推測せず 3 へ進む**
 3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない
 
+**plugin root 配下の探索は `docs/**` には適用しない**（手順 2 は `rules/*.md` 等の
+配布対象にのみ適用する）: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の
+定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が
+存在しないため必ず空振りする。`docs/**` は手順 1 で解決できなければ手順 2 を飛ばして手順 3 へ進む。
+
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
 | `rules/*.md`（下記 3〜5） | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
+| `docs/**`（`docs/workflows/ai-loop/c3-prime-contract.md` 等） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 | `bin/**`（CLI） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 | `scripts/**` | コピー対象外（解決不可） | `<plugin_root>/scripts/` は存在するが `install-plangate-skills.sh` のみ（`ai-dev-workflow` / `codex-guarded.sh` 等は解決不可） | 未配置（解決不可） |
 
