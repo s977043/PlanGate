@@ -1,0 +1,11 @@
+# Pull Request
+
+## Summary
+
+This is a hotfix #123 for the thing. The prefix #123 rule also applies.
+Please suffixes #99 here. いずれも closing keyword の語末一致にすぎず
+linkage 宣言ではない。
+
+## Validation
+
+- [x] Tests pass

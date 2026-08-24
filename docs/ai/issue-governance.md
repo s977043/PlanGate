@@ -141,8 +141,41 @@ EPIC issue は以下を満たす。
 ## 9. PR と Issue の連動
 
 - 1 PBI = 1 PR が原則。複数 PR に分割する場合は EPIC 側で分割理由を残す
-- PR 本文で `closes #N` / `fixes #N` / `resolves #N` のいずれかを書く（自動 close 対象）
+- PR 本文で issue への linkage を宣言する。**issue を閉じるか否かで keyword を使い分ける**:
+  - **この PR で issue が完結する** → `closes #N` / `fixes #N` / `resolves #N`（merge 時に自動 close）
+  - **この PR は 1 スライスで issue は open のまま** → `Refs: #N` / `Part of #N` / `Related to #N`
+  - 裸の `#N` 言及は linkage 宣言ではなく、issue-link チェックを満たさない
+  - **keyword と `#N` は同一行に書く**。`scripts/check-pr-issue-link.sh` の判定は
+    `grep` ベースで行指向のため、`Part of` と `#1180` が改行で分かれていると
+    linkage として検出されず WARN になる（例: `Part of` の直後で改行して次行に
+    `#1180` を置いたケース）。折り返しは keyword と番号の**後ろ**で行う
+  - keyword は語頭で判定する。`hotfix #123` / `prefix #123` / `xrefs #456` のような
+    語末一致（hotfix → fix、xrefs → refs）は linkage 宣言として扱われない
 - doc-only PR は `documentation` ラベルを付ければ issue-link チェックを skip 可能（PR `<!-- skip-issue-link-check -->` でも可）
+
+### issue-link チェックの 4 値判定
+
+`scripts/check-pr-issue-link.sh` は 1 行の判定を stdout に出す。**exit code は
+常に 0**（4 値はいずれも merge をブロックしない）。
+
+| 出力 | 条件 | 意味 |
+|------|------|------|
+| `PASS` | closing keyword（`closes` / `fixes` / `resolves`）あり | この PR の merge で issue が閉じる |
+| `NOTICE` | 非クローズ型リンク（`Refs:` / `Part of` / `Related to`）のみ | **リンクはあるが「閉じない」と宣言している状態**。意図どおりならそのままでよい |
+| `WARN` | issue 参照がゼロ | linkage 宣言が無い。追記するかラベル / skip marker で対象外にする |
+| `SKIP` | skip marker / `chore` / `documentation` ラベル | 検査対象外 |
+
+`NOTICE` を `PASS` と分けているのは、`Refs: #N` の参照先が **issue とは限らず
+PR も混在する**ため（例: PR #1187 → `#1169`、PR #1195 → `#1158` / `#1184` は
+いずれも PR）。判定器は issue と PR を区別しないので、`NOTICE` を `PASS` へ
+丸めると「本来 closing すべきなのに書き忘れた PR」を検出する手段がゼロになる。
+`NOTICE` はその弱いシグナルを残すための段であり、**強制力は増やさない**
+（成功側の判定 / CI は緑のまま）。この PR で issue が完結するなら
+`closes #N` に書き換えること。
+
+CI 側の可視面は GitHub Actions の注釈（`WARN` → `::warning::` /
+`NOTICE` → `::notice::`）。いずれも Actions UI と checks サマリには出るが、
+**PR タイムラインにはコメントを残さない**。
 
 ## 10. Non-goals
 

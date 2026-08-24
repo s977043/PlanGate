@@ -1,0 +1,9 @@
+# Pull Request
+
+## Summary
+
+親 PBI の最終スライス。この PR で issue を閉じる。
+
+## Linked Issue
+
+closes #4242
