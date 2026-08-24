@@ -153,6 +153,30 @@ EPIC issue は以下を満たす。
     語末一致（hotfix → fix、xrefs → refs）は linkage 宣言として扱われない
 - doc-only PR は `documentation` ラベルを付ければ issue-link チェックを skip 可能（PR `<!-- skip-issue-link-check -->` でも可）
 
+### issue-link チェックの 4 値判定
+
+`scripts/check-pr-issue-link.sh` は 1 行の判定を stdout に出す。**exit code は
+常に 0**（4 値はいずれも merge をブロックしない）。
+
+| 出力 | 条件 | 意味 |
+|------|------|------|
+| `PASS` | closing keyword（`closes` / `fixes` / `resolves`）あり | この PR の merge で issue が閉じる |
+| `NOTICE` | 非クローズ型リンク（`Refs:` / `Part of` / `Related to`）のみ | **リンクはあるが「閉じない」と宣言している状態**。意図どおりならそのままでよい |
+| `WARN` | issue 参照がゼロ | linkage 宣言が無い。追記するかラベル / skip marker で対象外にする |
+| `SKIP` | skip marker / `chore` / `documentation` ラベル | 検査対象外 |
+
+`NOTICE` を `PASS` と分けているのは、`Refs: #N` の参照先が **issue とは限らず
+PR も混在する**ため（例: PR #1187 → `#1169`、PR #1195 → `#1158` / `#1184` は
+いずれも PR）。判定器は issue と PR を区別しないので、`NOTICE` を `PASS` へ
+丸めると「本来 closing すべきなのに書き忘れた PR」を検出する手段がゼロになる。
+`NOTICE` はその弱いシグナルを残すための段であり、**強制力は増やさない**
+（成功側の判定 / CI は緑のまま）。この PR で issue が完結するなら
+`closes #N` に書き換えること。
+
+CI 側の可視面は GitHub Actions の注釈（`WARN` → `::warning::` /
+`NOTICE` → `::notice::`）。いずれも Actions UI と checks サマリには出るが、
+**PR タイムラインにはコメントを残さない**。
+
 ## 10. Non-goals
 
 - すべての既存 Issue を一括で本ガバナンスへ整合させること

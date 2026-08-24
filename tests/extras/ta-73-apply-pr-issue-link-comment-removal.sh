@@ -17,7 +17,8 @@
 #   TC-02 sh -n が通る（構文）
 #   TC-03 引数なし / --dry-run が rc=0 かつ 1 バイトも書かない、diff を出す
 #   TC-04 未知引数 / 引数過多は rc=1 かつ書き込みなし
-#   TC-05 --apply が Post warning comment を消し Annotate WARN + Cleanup を足す
+#   TC-05 --apply が Post warning comment を消し Annotate WARN / Annotate NOTICE
+#         + Cleanup を足す
 #   TC-06 冪等（2 回目は already applied で rc=0、バイト不変）
 #   TC-07 START アンカー未検出 -> rc=1 かつ 1 バイトも書かない
 #   TC-08 削除対象ブロックの内容が想定外 -> rc=1 かつ書き込みなし
@@ -25,6 +26,9 @@
 #   TC-10 END アンカー（Output summary）が無くても START ブロックだけ置換できる
 #   TC-11 生成後の cleanup step の DELETE が失敗許容（fork PR で job を赤くしない）
 #   TC-12 対象ファイル不在 -> rc=1
+#   TC-14 生成 step が 4 値判定に写像される（WARN->::warning:: / NOTICE->::notice::、
+#         いずれも PR タイムラインを汚さない設計意図つき）
+#   TC-15 生成後の workflow が yaml.safe_load を通る
 #   TC-13 サンドボックスを明示削除（実 workflow には一切書き込まない）
 
 # ---- extras execution contract bootstrap (#921) ----------------------------
@@ -115,7 +119,7 @@ else
   t73_fail "TC-03a rc_noarg=$_t73_rc_noarg rc_dry=$_t73_rc sum $_t73_b1 -> $_t73_a1"
 fi
 _t73_ok=1
-for _t73_tok in "[dry-run] no file written" "-      - name: Post warning comment (if WARN)" "+      - name: Annotate WARN" "+      - name: Cleanup stale warning comment"; do
+for _t73_tok in "[dry-run] no file written" "-      - name: Post warning comment (if WARN)" "+      - name: Annotate WARN" "+      - name: Annotate NOTICE" "+      - name: Cleanup stale warning comment"; do
   if ! printf '%s\n' "$_t73_out" | grep -Fq -- "$_t73_tok"; then
     t73_fail "TC-03b --dry-run 出力に marker が無い: $_t73_tok"
     _t73_ok=0
@@ -154,14 +158,14 @@ if grep -Fq "Post warning comment" "$_t73_w2"; then
   t73_fail "TC-05 Post warning comment が残っている"
   _t73_ok=0
 fi
-for _t73_tok in "      - name: Annotate WARN" "      - name: Cleanup stale warning comment" "      - name: Output summary"; do
+for _t73_tok in "      - name: Annotate WARN" "      - name: Annotate NOTICE" "      - name: Cleanup stale warning comment" "      - name: Output summary"; do
   if ! grep -Fq "$_t73_tok" "$_t73_w2"; then
     t73_fail "TC-05 step が無い: $_t73_tok"
     _t73_ok=0
   fi
 done
 if [ "$_t73_ok" -eq 1 ]; then
-  t73_pass "TC-05 --apply が Post warning を除去し Annotate/Cleanup を追加（Output summary は保持）"
+  t73_pass "TC-05 --apply が Post warning を除去し Annotate WARN/NOTICE と Cleanup を追加（Output summary は保持）"
 fi
 
 # === TC-06: 冪等 ===
@@ -185,6 +189,47 @@ if [ "$_t73_ok" -eq 1 ]; then
   t73_pass "TC-11 cleanup の gh api DELETE は失敗許容（fork PR で job を赤くしない）"
 else
   t73_fail "TC-11 cleanup の DELETE が失敗許容になっていない"
+fi
+
+# === TC-14: 4 値判定の注釈チャネルへの写像（#159 敵対レビュー major-4）===
+# WARN -> ::warning:: / NOTICE -> ::notice::。どちらも PR タイムラインを汚さない
+# 注釈チャネルであることを、生成物の実テキストで確認する。
+_t73_ok=1
+if ! grep -Fq "        if: startsWith(steps.check.outputs.result, 'WARN')" "$_t73_w2"; then
+  t73_fail "TC-14 Annotate WARN の if 条件が WARN prefix になっていない"
+  _t73_ok=0
+fi
+if ! grep -Fq "        if: startsWith(steps.check.outputs.result, 'NOTICE')" "$_t73_w2"; then
+  t73_fail "TC-14 Annotate NOTICE の if 条件が NOTICE prefix になっていない"
+  _t73_ok=0
+fi
+if ! grep -Fq "::warning title=Check PR Issue Link::" "$_t73_w2"; then
+  t73_fail "TC-14 ::warning:: 注釈が無い"
+  _t73_ok=0
+fi
+if ! grep -Fq "::notice title=Check PR Issue Link::" "$_t73_w2"; then
+  t73_fail "TC-14 ::notice:: 注釈が無い（NOTICE の可視面が Step Summary だけになる）"
+  _t73_ok=0
+fi
+# 「PR タイムラインは汚さない」という設計意図が WARN / NOTICE の両 step に残るか。
+# 2 件を下回ったら片方の注記が失われている。
+_t73_intent=$(grep -c "PR タイムラインは" "$_t73_w2" || true)
+if [ "$_t73_intent" -lt 2 ]; then
+  t73_fail "TC-14 設計意図（PR タイムラインを汚さない）の注記が $_t73_intent 件しかない"
+  _t73_ok=0
+fi
+if [ "$_t73_ok" -eq 1 ]; then
+  t73_pass "TC-14 WARN->::warning:: / NOTICE->::notice:: が別 step として生成される"
+fi
+
+# === TC-15: 生成後の workflow が yaml.safe_load を通る ===
+_t73_run python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1], encoding="utf-8")); print("yaml-ok")' "$_t73_w2"
+if [ "$_t73_rc" -eq 0 ] && printf '%s\n' "$_t73_out" | grep -Fq "yaml-ok"; then
+  t73_pass "TC-15 生成後の workflow が yaml.safe_load を通る"
+elif printf '%s\n' "$_t73_out" | grep -Fq "ModuleNotFoundError"; then
+  t73_pass "TC-15 (skipped) PyYAML 未導入のため safe_load 検証を省略"
+else
+  t73_fail "TC-15 yaml.safe_load rc=$_t73_rc out=$_t73_out"
 fi
 
 # === TC-07: START アンカー未検出 -> rc=1 / 1 バイトも書かない ===

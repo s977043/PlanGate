@@ -10,12 +10,19 @@
 #     --labels-file <path> # PR labels（1 行 1 ラベル、カンマ区切りも可）
 #     --changed-files <path> # PR 変更ファイル一覧（1 行 1 path）
 #
-# 出力 (stdout, 1 行):
-#   PASS: <理由>
-#   WARN: <理由>
-#   SKIP: <理由>
+# 出力 (stdout, 1 行) — 4 値判定:
+#   PASS:   closing keyword あり（この PR で issue が閉じる）
+#   NOTICE: 非クローズ型リンクのみ（リンクはあるが「閉じない」と宣言した状態）
+#   WARN:   issue 参照ゼロ
+#   SKIP:   skip marker / skip label
 #
-# Exit code: 常に 0（warning は出力でのみ表現）。
+# NOTICE は成功側の判定であり強制力を持たない（exit code は従来どおり常に 0）。
+# `Refs: #N` の参照先は issue とは限らず PR も混在するため、本スクリプト単体では
+# 「issue を 1 件もリンクしていない PR」と「意図的に閉じない PR」を区別できない。
+# NOTICE はその弱いシグナル（= closing keyword の書き忘れかもしれない）を残す段で、
+# PASS へ丸めると「本来 closing すべきなのに書き忘れた」ケースの検出手段がゼロになる。
+#
+# Exit code: 常に 0（warning / notice は出力でのみ表現）。
 # 引数誤りなど内部エラーのみ非ゼロ。
 #
 # 関連: docs/working/TASK-0045/, Issue #159
@@ -135,9 +142,16 @@ if [ -z "$matched_issues" ]; then
   exit 0
 fi
 
+# closing keyword があれば PASS、無ければ NOTICE（4 値判定の分岐点）。
+# closing / non-closing の切り分けは 1 箇所（この if）に閉じ込める。
 if [ -n "$expected_issue" ]; then
   if printf '%s' "$matched_issues" | grep -qw "#$expected_issue"; then
-    printf 'PASS: expected issue #%s present in issue link(s) (%s)\n' "$expected_issue" "$matched_issues"
+    if printf '%s' "$closing_issues" | grep -qw "#$expected_issue"; then
+      printf 'PASS: expected issue #%s present in closing keyword(s) (%s)\n' "$expected_issue" "$closing_issues"
+    else
+      printf 'NOTICE: expected issue #%s linked without closing keyword (%s); if this PR completes the issue, rewrite the link as "closes #%s"\n' \
+        "$expected_issue" "$matched_issues" "$expected_issue"
+    fi
   else
     printf 'WARN: expected issue #%s (from child PBI YAML) not in issue link(s) (%s)\n' "$expected_issue" "$matched_issues"
   fi
@@ -147,6 +161,6 @@ fi
 if [ -n "$closing_issues" ]; then
   printf 'PASS: closing keyword(s) %s found\n' "$closing_issues"
 else
-  printf 'PASS: non-closing link(s) %s found (issue stays open by design)\n' "$nonclosing_issues"
+  printf 'NOTICE: non-closing link(s) %s found (issue stays open by design); if this PR completes the issue, rewrite the link as "closes #N"\n' "$nonclosing_issues"
 fi
 exit 0

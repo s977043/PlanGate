@@ -15,21 +15,32 @@
 #     投稿されたコメントが残存する。重複防止の identifier 判定が、逆に stale な
 #     コメントを固定していた
 #
-#   判定ロジック側の是正（`Refs: #N` を有効な linkage として PASS 扱いにする）は
-#   `scripts/check-pr-issue-link.sh`（非 HO）で別途適用済み。本スクリプトは
-#   その残る一半である「コメント投稿という出力チャネル」を廃止する。
+#   判定ロジック側の是正（`Refs: #N` を有効な linkage として扱い、closing の
+#   有無を PASS / NOTICE で分ける 4 値判定）は `scripts/check-pr-issue-link.sh`
+#   （非 HO）で別途適用済み。本スクリプトはその残る一半である「コメント投稿と
+#   いう出力チャネル」を廃止し、代わりに注釈チャネルへ 4 値を写像する。
 #
-# 本スクリプトは 1 オペレーションで次の 3 つを行う（部分適用を避ける）:
+# 本スクリプトは 1 オペレーションで次の 4 つを行う（部分適用を避ける）:
 #   (1) `Post warning comment (if WARN)` step を削除【HO パス】
 #   (2) `Annotate WARN` step を追加（GitHub Actions の ::warning:: 注釈）【HO パス】
-#   (3) `Cleanup stale warning comment` step を追加（if: always()）【HO パス】
+#   (3) `Annotate NOTICE` step を追加（::notice:: 注釈）【HO パス】
+#   (4) `Cleanup stale warning comment` step を追加（if: always()）【HO パス】
 #
 #   (2) を同時に入れないと WARN の可視面が Step Summary だけになり、
 #   「ノイズ除去」ではなく「シグナル消滅」になる。注釈は Actions UI と
 #   checks サマリに出るが PR タイムラインは汚さない。
 #
-#   `permissions: pull-requests: write` は (3) の削除操作（`gh api -X DELETE`）に
-#   必要なため維持する（(2) の注釈出力自体は追加権限を要さない）。
+#   (3) は判定器の 4 値化（#159 敵対レビュー major-4 / Human 裁定 (b)）に対応する。
+#   NOTICE = 非クローズ型リンクのみ。WARN と NOTICE を **別 step** に分けるのは:
+#     - 判定の分類は判定器の出力 prefix 1 箇所に閉じ、workflow 側で prefix を
+#       再パースする第 2 の分類器を作らない（`if:` 条件だけで済む）
+#     - WARN 経路のテキストを 1 バイトも変えないので、NOTICE 追加が WARN 経路を
+#       退行させ得ない（差分が純粋に additive）
+#     - Actions UI 上どちらの判定で発火したかが step 名で一目で分かる
+#   代償は skip される step が 1 つ増えることだけ。
+#
+#   `permissions: pull-requests: write` は (4) の削除操作（`gh api -X DELETE`）に
+#   必要なため維持する（(2) / (3) の注釈出力自体は追加権限を要さない）。
 #
 # 置換範囲（minor-3 是正 / 適用時点の未知 step を巻き込まない）:
 #   削除対象は `- name: Post warning comment (if WARN)` から **次の
@@ -101,6 +112,19 @@ NEW_STEP = """      - name: Annotate WARN
           # Actions UI / checks サマリには出るが PR タイムラインは汚さない。
           printf '::warning title=Check PR Issue Link::%s\\n' "$RESULT"
 
+      - name: Annotate NOTICE
+        if: startsWith(steps.check.outputs.result, 'NOTICE')
+        env:
+          RESULT: ${{ steps.check.outputs.result }}
+        run: |
+          set -eu
+          # NOTICE = 非クローズ型リンク（Refs / Part of / Related to）のみ。
+          # リンクはあるので WARN ではないが、`Refs:` の参照先は issue とは限らず
+          # PR も混在するため「closing の書き忘れ」を弱いシグナルとして残す。
+          # ::notice:: は Actions UI / checks サマリには出るが PR タイムラインは
+          # 汚さない（WARN と同じ設計意図。強制力は増やさない）。
+          printf '::notice title=Check PR Issue Link::%s\\n' "$RESULT"
+
       - name: Cleanup stale warning comment
         if: always()
         env:
@@ -131,12 +155,25 @@ NEW_STEP = """      - name: Annotate WARN
 """
 
 # ── 冪等性チェック ────────────────────────────────────────────────
-if "Cleanup stale warning comment" in original or "Annotate WARN" in original:
-    if "Post warning comment" in original or "Cleanup stale warning comment" not in original \
-            or "Annotate WARN" not in original:
+# 適用後の workflow が満たすべき marker（NOTICE 段の追加で 3 本になった / #159）。
+# 一部だけ存在する = 部分適用 or 旧版適用済みなので、1 バイトも書かずに落とす。
+APPLIED_MARKERS = (
+    "Annotate WARN",
+    "Annotate NOTICE",
+    "Cleanup stale warning comment",
+)
+present = [m for m in APPLIED_MARKERS if m in original]
+if present:
+    missing = [m for m in APPLIED_MARKERS if m not in original]
+    if missing or "Post warning comment" in original:
         sys.stderr.write(
-            "error: partially applied state detected "
-            "(cleanup step present but 'Post warning comment' step still exists)\n"
+            "error: partially applied state detected; present=[%s] missing=[%s] "
+            "post_warning_step_present=%s\n"
+            % (
+                ", ".join(present),
+                ", ".join(missing),
+                "Post warning comment" in original,
+            )
         )
         sys.exit(1)
     sys.stdout.write("already applied: %s (no change)\n" % wf)

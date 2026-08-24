@@ -1,1 +1,0 @@
-PASS: non-closing link(s) #1180 found (issue stays open by design)

@@ -1,0 +1,1 @@
+NOTICE: non-closing link(s) #1180 found (issue stays open by design); if this PR completes the issue, rewrite the link as "closes #N"

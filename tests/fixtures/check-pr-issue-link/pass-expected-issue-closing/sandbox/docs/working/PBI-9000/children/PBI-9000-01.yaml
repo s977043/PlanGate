@@ -1,0 +1,6 @@
+# tests 専用の子 PBI YAML（本番 docs/working/ には置かない）。
+# ta-04 が fixture の sandbox/ を mktemp へ複製し、そこを cwd にして
+# scripts/check-pr-issue-link.sh を起動するため、この相対パスで解決される。
+id: TASK-9000
+parent: PBI-9000
+related_issue: 4242

@@ -3,6 +3,11 @@
 # Issue #170 で run-tests.sh から分離
 #
 # 判定は fixture の expected.txt の **全文一致**（#159 敵対レビュー major-2/3）。
+#
+# 判定は 4 値（#159 敵対レビュー major-4 / Human 裁定 (b)）:
+#   PASS / NOTICE（非クローズ型リンクのみ）/ WARN / SKIP。
+# 非クローズ型のみの fixture は `notice-*` へ改名し、期待値も PASS → NOTICE に
+# 変えてある。NOTICE を PASS へ丸める変異は `notice-*` 3 件が全文一致で落とす。
 # 旧実装は `case "$out" in "$expected"*)` の prefix 4 文字（PASS/WARN/SKIP）しか
 # 見ておらず、以下の変異が実測で生存していた:
 #   - 出力分岐削除（`PASS: non-closing link(s)  found` で issue 番号が消える）
@@ -72,12 +77,14 @@ run_pr_link_fixture "$PR_LINK_FIXTURES/pass" "pass: closes #N present"
 run_pr_link_fixture "$PR_LINK_FIXTURES/warn" "warn: no closing keyword"
 run_pr_link_fixture "$PR_LINK_FIXTURES/skip-label" "skip-label: documentation label"
 run_pr_link_fixture "$PR_LINK_FIXTURES/skip-marker" "skip-marker: HTML comment marker"
-run_pr_link_fixture "$PR_LINK_FIXTURES/pass-refs" "pass-refs: non-closing link 'Refs: #N' accepted"
-run_pr_link_fixture "$PR_LINK_FIXTURES/pass-part-of" "pass-part-of: non-closing link 'Part of #N' accepted"
+run_pr_link_fixture "$PR_LINK_FIXTURES/notice-refs" "notice-refs: non-closing link 'Refs: #N' は NOTICE（PASS ではない）"
+run_pr_link_fixture "$PR_LINK_FIXTURES/notice-part-of" "notice-part-of: non-closing link 'Part of #N' は NOTICE（PASS ではない）"
 run_pr_link_fixture "$PR_LINK_FIXTURES/warn-bare-hash" "warn-bare-hash: bare #N without keyword stays WARN"
 # --- #159 敵対レビュー是正で追加した TC ---
-run_pr_link_fixture "$PR_LINK_FIXTURES/pass-expected-issue" \
-  "pass-expected-issue: child PBI YAML の related_issue と一致 → PASS（番号まで全文一致）"
+run_pr_link_fixture "$PR_LINK_FIXTURES/notice-expected-issue" \
+  "notice-expected-issue: related_issue と一致するが非クローズ型のみ → NOTICE（番号まで全文一致）"
+run_pr_link_fixture "$PR_LINK_FIXTURES/pass-expected-issue-closing" \
+  "pass-expected-issue-closing: related_issue と一致し closing keyword あり → PASS"
 run_pr_link_fixture "$PR_LINK_FIXTURES/warn-expected-issue-mismatch" \
   "warn-expected-issue-mismatch: related_issue と不一致 → WARN"
 run_pr_link_fixture "$PR_LINK_FIXTURES/warn-refs-no-separator" \
