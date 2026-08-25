@@ -175,7 +175,7 @@ index ab1cdb3..e52d286 100644
 +
 +| 判定結果 | 実行する doctor |
 +|---------|----------------|
-+| `./bin/plangate` が実行可能（上流 cwd） | `bin/plangate doctor --json` |
++| `[ -x ./bin/plangate ]` が真（上流 cwd） | `bin/plangate doctor --json` |
 +| PATH に `plangate` あり | `plangate doctor --json`（下記注意） |
 +| どちらも無い（**既定**） | doctor をスキップし degrade 手順へ |
 +
