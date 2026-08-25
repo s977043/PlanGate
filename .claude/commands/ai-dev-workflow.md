@@ -11,7 +11,7 @@ PlanGateガイド: `docs/plangate.md`
 $ARGUMENTS に以下の形式で渡される:
 
 - `TASK-XXXX brainstorm` — フェーズ0: Brainstorming（アイデア→設計書の対話的生成）
-- `TASK-XXXX plan` — フェーズB〜C-2: Plan + ToDo + Test Cases生成 → セルフレビュー（17項目）→ 外部AIレビュー → 指摘反映（一括自動実行）
+- `TASK-XXXX plan` — フェーズB〜C-2: Plan + ToDo + Test Cases生成 → セルフレビュー → 外部AIレビュー → 指摘反映（一括自動実行）
 - `TASK-XXXX exec` — フェーズD〜C-4: Agent実行 → 多層防御検証 → PR作成
 - `TASK-XXXX status` — 現在のフェーズと進捗を表示
 
@@ -196,7 +196,7 @@ Plan + ToDo + Test Cases 生成完了後、以下のファイルを自動生成�
 > ユーザー確認不要。plan/todo/test-cases生成後にそのまま実行する。
 
 1. `plan.md` + `todo.md` + `test-cases.md` + `pbi-input.md` を読み込む
-2. 以下の17項目をチェック:
+2. 以下をチェック（項目定義の正本: `docs/working/templates/review-self.md`）:
 
 **Planチェック（7項目）**:
 1. 受入基準網羅性 — 全受入基準に対してVerificationが書かれているか（必須）
@@ -250,7 +250,7 @@ Plan + ToDo + Test Cases 生成完了後、以下のファイルを自動生成�
 #### ステップ5: 最終結果の提示
 
 1. フェーズB〜C-2の全結果をユーザーにサマリ表示:
-   - C-1結果（PASS/WARN/FAIL件数、17項目）
+   - C-1結果（PASS/WARN/FAIL件数、全項目）
    - C-2結果（重要指摘件数、自動修正した内容）
    - 生成されたファイル一覧
 2. C-3（人間レビュー）の三値判断を案内:

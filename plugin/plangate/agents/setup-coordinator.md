@@ -32,9 +32,30 @@ settings.json の wiring 適用、`apply-claude-settings.sh` の実行、Hook �
 - Gate 保持（`doctor --check-settings PASS` まで完了不可）
 - 進捗の永続記録（status.md / decision-log.jsonl への append）
 
-## bin/plangate 不在時のフォールバック
+## CLI 不在時のフォールバック（導入先では既定）
 
-`bin/plangate doctor --json` を実行する前に `command -v bin/plangate` で存在確認する。不在の場合は doctor をスキップし、PlanGate フルリポジトリの clone が必要である旨と clone コマンド（`git clone https://github.com/s977043/plangate.git`）を案内して停止する（command not found でユーザーを放置しない）。
+**呼び出し表記は実行環境で変わる**。相対パス形式（`bin/plangate`）が成立するのは上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけで、導入先には `bin/` が配置されない。導入先で PATH を通した場合のコマンド名は **`plangate`**（`bin/plangate` ではない）。
+
+存在確認は **`command -v plangate`（PATH 解決）と `[ -x ./bin/plangate ]`（上流 cwd）の両方**で行う。`command -v bin/plangate` はスラッシュを含む語を PATH 検索しない（相対パスのファイル確認になる）ため、PATH 導入済みの環境を「不在」と誤判定する。
+
+| 判定結果 | 実行する doctor |
+|---------|----------------|
+| `[ -x ./bin/plangate ]` が真（上流 cwd） | `bin/plangate doctor --json` |
+| PATH に `plangate` あり | `plangate doctor --json`（下記注意） |
+| どちらも無い（**既定**） | doctor をスキップし degrade 手順へ |
+
+> **注意: doctor の検査対象は cwd ではなく CLI 本体の位置で決まる。**
+> `doctor --json` は `scripts/doctor_check.py` へ委譲され、同スクリプトは
+> `_paths.REPO_ROOT`（= `bin/` の親）を検査対象とする。`doctor` に `--dir` 相当の
+> オプションは無いため、PATH 上の `plangate` を導入先で実行しても検査されるのは
+> **上流 clone 側**であり、導入先リポジトリではない。導入先の設定を確認する場合は
+> `.claude/settings.json` を直接読む。
+
+**degrade 手順（CLI 不在時）**: doctor をスキップし、次の 3 点を案内して停止する（command not found でユーザーを放置しない）。
+
+1. clone と PATH 追加: `git clone https://github.com/s977043/plangate.git ~/plangate && export PATH="$HOME/plangate/bin:$PATH"`
+2. 導入しない場合は [`plangate-setup`](../skills/plangate-setup/SKILL.md) Skill のチェックリストを手動突合で代替し、**「doctor で検証済み」と記録しない**
+3. ゲートの厳密な強制（EH-3 / plan_hash / presence gate）には CLI + hooks の導入が必要
 
 ## 対話フロー
 
@@ -60,7 +81,7 @@ else:
 ### Step 1: 初回検知（doctor --json）
 
 ```
-$ bin/plangate doctor --json
+$ plangate doctor --json      # 上流リポジトリの cwd では `bin/plangate doctor --json`
 → JSON 出力を取得
 → 不足項目 = [c for c in checks if c.ok == false]
 → 不足項目をユーザーに提示
@@ -83,7 +104,7 @@ $ bin/plangate doctor --json
 
 ユーザーが「やりました / 完了」と報告 →
 ```
-$ bin/plangate doctor --json
+$ plangate doctor --json      # 上流リポジトリの cwd では `bin/plangate doctor --json`
 → 再度抽出
 → 全 PASS → Step 4 へ
 → 残 FAIL → Step 2 に戻る（再提示）
@@ -104,10 +125,12 @@ doctor FAIL が解消できない場合（環境制約等）:
 ### Step 4: settings タスクロック確認（AC-12）
 
 ```
-$ bin/plangate doctor --check-settings
+$ plangate doctor --check-settings   # 上流リポジトリの cwd では `bin/plangate doctor --check-settings`
 → exit_code == 0 && stdout starts with "[check-settings] PASS:" → 次へ
 → 上記不成立 → V-1 / handoff 完了不可（ブロック）
 ```
+
+CLI 不在時は本ゲートを PASS にできない（上記「CLI 不在時のフォールバック」）。未検証のまま完了扱いにせず、degrade した事実を status.md に記録する。
 
 ### Step 5: 完了サマリ出力
 
