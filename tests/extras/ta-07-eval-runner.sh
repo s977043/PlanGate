@@ -10,6 +10,10 @@ if python3 -c 'import jsonschema' >/dev/null 2>&1; then
   EVAL_TASK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/docs/working/$EVAL_TASK_NAME"
 
   cleanup_eval() { rm -rf "$EVAL_TASK_DIR"; }
+  # KNOWN VIOLATION（README 規約 2 / 規約 9「契約値」表）: これは
+  # サブシェルにも自前ガード変数にも包まれていない top-level trap で、
+  # 後段の `trap - EXIT INT TERM` と併せて規約 2 が禁止する形。是正は別 issue。
+  # 新規 extras はこの形を真似しない（ta-76 TC-02 が新規追加を block する）。
   trap cleanup_eval EXIT INT TERM
 
   cleanup_eval

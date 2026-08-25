@@ -200,30 +200,78 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
 
 9. **共有の実 repo パスに置く一時状態は「射程宣言 → 先頭 prune → register_cleanup」
    の三点セットで扱う（#947 / #1209 / #1210 / 2026-08-25 正本化）** —
-   規約 1/3 の運用形を機械検査可能な形に固定したもの。回帰テストは
+   規約 1/2 の運用形（trap を張らず register_cleanup + 明示 cleanup に寄せる）を
+   機械検査可能な形に固定したもの。回帰テストは
    `tests/extras/ta-76-extras-temp-state-scope.sh`。
 
    - **射程宣言**: そのファイルが実 repo に作る一時パスを **1 箇所にまとめて**
-     宣言する。使用箇所ごとに `rm` を散らさない
+     宣言する。使用箇所ごとに `rm` を散らさない。宣言には「誰が所有するか」も
+     含む — **他の extras が所有するパスを勝手に prune しない**。並走している
+     所有者の実行を壊すため、注入した側が注入したものだけを始末する
    - **先頭 prune**: 宣言した全パスの掃除を **body の最初の副作用より前** に
      済ませる。**「冪等に掃除している」だけでは足りず、順序が要件**
      （実害: `ta-42` は `TASK-T999` の掃除が判定 TC-04 より後にあり、中断残骸で
      TC-04 が誤 FAIL していた = #947 問題 1）
    - **register_cleanup 登録**: 同じリストをそのまま登録し、ハーネス末尾の
      drain に委ねる（`trap` は張らない = 規約 1/2）
-   - **`${var:?}` を rm の対象に付ける**（#1210）。これは実バグの修正ではなく
-     **将来「変数が空のまま rm に渡る」退行に対する防御**。意図をコメントに書く
-   - **ガードを緩めるトークンを作る fixture は TTL を「テストが必要とする最小値」
-     に縮める** — 中断残骸が有効でいられる時間が、そのまま実害窓になる
-     （実害: `ta-12` の `until = now + 600` が中断後 600 秒、非 HO パスへの
-     `MAINTENANCE_SKIP` を開けたままにしていた = #1209。Hardening Override は
-     この窓を貫通しないが、非 HO パスは `exit 2` → `exit 0` に反転する）
+   - **`${var:?}` は「合成後のパス」ではなく root 変数に付ける**（#1210 / 2026-08-25
+     是正）。`_ROOT="$(cd -- "$FIXTURES_DIR/../.." && pwd)"` は `$FIXTURES_DIR`
+     が未設定/空なら `/` に解決され、合成後は `//docs/working/...` になる。
+     **合成後は非空なので `${var:?}` は発火せず**、`rm` がファイルシステムルート
+     直下を指した（stub `rm` サンドボックスでの実測。`ta-12` / `ta-42` が該当）。
+     正しい形は `ta-44` / `ta-45` で、root の導出自体を
+     `PG_HARNESS_SOURCED` と `FIXTURES_DIR` の AND（規約 8）で守り、
+     root が repo でなければ **副作用を出さずに抜ける**:
 
-   **できないこと（明示）**: `bin/plangate` と `scripts/hooks/check-plan-hash.sh` は
-   ともに `$REPO_ROOT/docs/working/` を固定参照しており、**一時状態を sandbox へ
-   逃がす env seam が存在しない**。両者は Hardening Override 対象で AI が編集
-   できないため、「実 docs/working を一切汚さない」構造は現状**実現不可能**。
-   本規約は「汚す範囲と持続時間を宣言し、最小化し、機械検査する」までを担う。
+     ```sh
+     _TNN_FX="${FIXTURES_DIR:-}"
+     if [ -n "$_TNN_FX" ]; then _TNN_ROOT="$(CDPATH= cd -- "$_TNN_FX/../.." && pwd)"; else _TNN_ROOT=""; fi
+     if [ -z "$_TNN_ROOT" ] || [ ! -f "$_TNN_ROOT/bin/plangate" ]; then
+       # 非空チェックだけでは `/` を弾けないので実体で確かめる
+       printf '  [FAIL] ta-NN: repo root unresolved\n' 1>&2; return 0
+     fi
+     _TNN_WDIR="${_TNN_ROOT:?ta-NN: repo root unresolved}/docs/working"
+     ```
+
+   - **爆風半径は広げない** — `${var:?}` を足すのは防御の追加であって、`rm -f` を
+     `rm -rf` に変えたり存在ガードを外したりする理由にはならない。対象が
+     ファイル 1 本なら `rm -f` のまま、木を消すなら `[ -e "$p" ]` で守る
+   - **ガードを緩めるトークンを作る fixture は TTL を縮める** — 中断残骸が
+     有効でいられる時間が、そのまま実害窓になる（実害: `ta-12` の
+     `until = now + 600` が中断後 600 秒、非 HO パスへの `MAINTENANCE_SKIP` を
+     開けたままにしていた = #1209。Hardening Override はこの窓を貫通しないが、
+     非 HO パスは `exit 2` → `exit 0` に反転する）
+
+   ### 契約値（正本はこの表。`ta-76` はこの表を機械検査するだけ）
+
+   | 契約 | 値 | 根拠 |
+   |---|---|---|
+   | fixture TTL 上限 | **120 秒** | 各 TC の hook 呼出に十分な余裕を残しつつ残骸窓を最小化。現行 `ta-12` は 60 秒 |
+   | `until` の組み立て | `_TNN_TTL` 変数経由（正の直書き禁止） | 宣言だけ縮めて heredoc 側に `+600` を直書きすると窓は元に戻る |
+   | top-level `trap` を持ってよい extras（**規約 2 適合**） | `ta-09-metrics.sh`（自前ガード変数）/ `ta-28-plugin-version.sh`（サブシェル内） | 規約 2 が明示的に認めている 2 形 |
+   | top-level `trap` を持つ **既知違反**（新規追加禁止） | `ta-07-eval-runner.sh` / `ta-24-parallel-review.sh` | top-level `trap ... EXIT` + `trap - EXIT` で規約 2 に反する。実害あり: `ta-24` の `trap - EXIT INT TERM` は先行する `ta-09` の EXIT trap を実際に解除する。**是正は別 issue**（本表は「見逃していない」ことの記録） |
+   | 上記 4 本の `trap` 行数 | 2 / 1 / 2 / 2 | ファイル粒度の登録だけだと「登録済みファイルへ trap を足し放題」「trap を消しても登録が残る（stale）」の両方向で乖離するため本数まで固定する |
+
+   ### できること / できないこと（2026-08-25 実測で是正）
+
+   - **hook 側は sandbox へ移設できる**。`scripts/hooks/check-plan-hash.sh` の
+     `REPO_ROOT` は `$0` 由来（`cd -- "$(dirname -- "$0")/../.."`）なので、
+     **規約 3 が正本として挙げるサンドボックス複製**（PR #511 の隔離パターン）で
+     複製先を repo root にできる。実測: 複製先へ `PLANGATE_HOOK_FILE=docs/foo.md`
+     で実行すると `hook-events.log` / `skip-decision-log.jsonl` は **複製先に**
+     生成され、実 repo は不変。`bin/plangate` も `$0` 由来だが、templates /
+     schemas / scripts まで揃える必要があり複製コストが高い
+   - **無いのは `env` seam であって、隔離手段そのものではない**。`PLANGATE_*`
+     で出力先を差し替える口は無く、両者とも Hardening Override 対象で AI が
+     編集して seam を足すこともできない。ここから「実現不可能」と結論するのは
+     誤りで、正しくは「**hook を直接呼ぶ TC（`ta-12` の EH-3 部分 / `ta-45` の
+     TC-01）は複製で逃がせる。`bin/plangate` を叩く TC（`ta-42` / `ta-44` の
+     全体、および `ta-12` / `ta-45` の doctor 系）は複製コストが高く現実的で
+     ない**」。ファイル単位で完全に逃がすには両方の複製が要る点に注意
+   - **`ta-76` が測れていない穴（既知）**: `ta-12` に対する「中断残骸の注入」は
+     未実装。`ta-12` が所有する一時パスは承認トークンそのもので、AI がそこへ
+     書くのは EH-13 token-guard が block する。現状は注入なしで実走し
+     「単体で全 pass すること」「実行後にトークンが残らないこと」までを測る
 
 ## 実行契約（execution contract / #921 TASK-0921）
 

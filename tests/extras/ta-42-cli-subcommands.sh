@@ -11,7 +11,31 @@
 
 printf '\n=== TA-42: bin/plangate CLI subcommand coverage (TASK-0140 / #515) ===\n'
 
-_t42_root="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
+# ────────── repo root の解決（M4 是正 / #1210）──────────
+# 本 extras は harness 専用（$FIXTURES_DIR 依存）。$FIXTURES_DIR が未設定/空の
+# まま合成すると cd -- "/../.." が / に解決され、以降のパスが //docs/working/...
+# になる。合成後の文字列は「非空」なので、合成後のパスに付けた ${var:?} は
+# 発火しない（stub rm 実測: RM-CALLED: -rf //docs/working/TASK-T420 が発火した）。
+# ガードは合成後ではなく「root 側」に置く（ta-44 / ta-45 と同形）。
+_t42_fx="${FIXTURES_DIR:-}"
+if [ -n "$_t42_fx" ]; then
+  _t42_root="$(CDPATH= cd -- "$_t42_fx/../.." && pwd)"
+else
+  # harness 実行ではないので、規約 8 に従い呼び出し元 env を無害化してから
+  # 何もせず抜ける（run-tests.sh 冒頭と同一の 7 env）。
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+  _t42_root=""
+fi
+# root の健全性検査: 非空チェックだけでは / を弾けないため実体で確かめる。
+if [ -z "$_t42_root" ] || [ ! -f "$_t42_root/bin/plangate" ]; then
+  printf '  [FAIL] ta-42: repo root unresolved (FIXTURES_DIR=%s root=%s) — refusing to run\n' \
+    "${_t42_fx:-(unset)}" "${_t42_root:-(empty)}" >&2
+  if [ "${PG_HARNESS_SOURCED:-0}" = "1" ]; then
+    fail=$((fail + 1))
+    return 0
+  fi
+  exit 1
+fi
 _t42_bin="$_t42_root/bin/plangate"
 _t42_task="TASK-T420"
 _t42_work="$_t42_root/docs/working/$_t42_task"
@@ -25,12 +49,15 @@ t42_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 # 使用箇所ごとに rm を散らすと「事前掃除が使用箇所より後にある」順序バグを生む
 # （#947 問題 1 の実体: TASK-T999 の掃除が TC-04 の判定より後にあり、中断残骸が
 #  TC-04 を誤 FAIL させていた）。宣言を 1 箇所へ集約して順序バグを構造的に排除する。
-# ${_t42_p:?} は防御的措置（#1210）— 実バグの修正ではなく、将来「変数が空のまま
-# rm に渡る」退行が入ったときに黙って広い範囲を消さないためのガード。
+# ${_t42_p:?} は 2 段目の防御にすぎない。1 段目は上の root 健全性検査で、
+# 「合成後は非空だが root が / 」という M4 のケースを実際に止めるのはそちら。
+# rm は base と同じく存在確認つきで撃つ（無条件 rm -rf は爆風半径を広げる）。
 _t42_task_t999_work="$_t42_root/docs/working/TASK-T999"
 _t42_scope_reset() {
   for _t42_p in "$@"; do
-    rm -rf "${_t42_p:?ta-42: empty cleanup path refused}"
+    if [ -e "${_t42_p:?ta-42: empty cleanup path refused}" ]; then
+      rm -rf "$_t42_p"
+    fi
     if command -v register_cleanup >/dev/null 2>&1; then
       register_cleanup "$_t42_p"
     fi
