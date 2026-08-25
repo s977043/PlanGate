@@ -1,8 +1,15 @@
 # TASK-XXXX 作業ステータス
 
 > 最終更新: YYYY-MM-DD HH:mm
-> 現在フェーズ: {plan / exec / review / verify / done}
+> 現在フェーズ: {brainstorm | plan | C-1 | C-2 | C-3 待ち | exec | verify（L-0 / V-1〜V-4）| PR 作成済 | C-4 待ち | done | BLOCKED}
 > モード: {ultra-light / light / standard / high-risk / critical}
+> 発行時点 SHA (issued_at_commit): {完了資産として発行した時点の commit SHA}
+
+> 現在フェーズの値域は `INDEX.md` と共通（正本: `.claude/rules/working-context.md`）。
+> 本ファイルに書く commit 数 / 変更ファイル数 / 未 push ブランチ数は
+> **`issued_at_commit` 時点の測定値**であり契約値ではない
+> （完了資産自身のコミットで必ずずれる）。SHA を書かない場合は、完了資産を
+> コミットしたあとに再測定して更新すること。
 
 ## フェーズ履歴
 

@@ -4,6 +4,7 @@ artifact_type: handoff
 schema_version: 1
 status: final
 issued_at: YYYY-MM-DD
+issued_at_commit: <発行時点の commit SHA>
 author: qa-reviewer
 v1_release: ""
 ---
@@ -21,8 +22,15 @@ task: TASK-XXXX
 related_issue: <issue URL>
 author: qa-reviewer
 issued_at: YYYY-MM-DD
+issued_at_commit: <発行時点の commit SHA>
 v1_release: <コミット SHA or タグ>
 ```
+
+> `issued_at_commit` は**本 handoff を発行した時点の commit SHA**。本文に書く
+> commit 数 / 変更ファイル数 / 未 push ブランチ数は**その SHA 時点の測定値**であり、
+> HEAD の値とは一致しない（完了資産自身のコミットで必ずずれる）。SHA を書かない場合は、
+> 完了資産をコミットしたあとに再測定して更新すること
+> （正本: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」3）。
 
 ## 1. 要件適合確認結果
 
