@@ -46,6 +46,26 @@ _T45_EH3="$_T45_ROOT/scripts/hooks/check-plan-hash.sh"
 _T45_CFG_SCHEMA="$_T45_ROOT/schemas/plangate-config.schema.json"
 _T45_C3_SCHEMA="$_T45_ROOT/schemas/c3-approval.schema.json"
 
+# ── 一時状態の射程宣言 + 先頭 prune + cleanup 登録（#947 / #1210）─────
+# 旧実装は trap cleanup_t45 EXIT + 末尾 trap - EXIT に依存していたが、これは
+# tests/extras/README.md 「隔離・後始末の規約」1/2 に真正面から反する:
+# extras は同一シェルへ直列 source されるため EXIT trap は後続に上書きされ
+# 発火が保証されず、`trap - EXIT` は他 extras / ハーネスの cleanup を巻き込む。
+# 宣言 → body の副作用より前に prune → register_cleanup 登録 へ寄せる。
+# ${_t45_p:?} は防御的措置（#1210）— 実バグの修正ではなく、将来「変数が空の
+# まま rm に渡る」退行が入ったときのガード。
+_T45_TASK="TASK-T45"
+_T45_WD="${_T45_ROOT:?ta-45: repo root unresolved}/docs/working"
+_t45_scope_reset() {
+  for _t45_p in "$@"; do
+    rm -rf "${_t45_p:?ta-45: empty cleanup path refused}"
+    if command -v register_cleanup >/dev/null 2>&1; then
+      register_cleanup "$_t45_p"
+    fi
+  done
+}
+_t45_scope_reset "$_T45_WD/$_T45_TASK"
+
 t45_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t45_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
@@ -76,10 +96,11 @@ if [ "$_T45_APPLIED" = "0" ]; then
   return 0
 fi
 
-# ── サンドボックス用一時タスク ───────────────────────────────────
+# ── サンドボックス用一時タスク（宣言・prune・登録は先頭で実施済）──
 _T45_TMP=$(mktemp -d)
-_T45_TASK="TASK-T45"
-_T45_WD="$_T45_ROOT/docs/working"
+if command -v register_cleanup >/dev/null 2>&1; then
+  register_cleanup "$_T45_TMP"
+fi
 mkdir -p "$_T45_WD/$_T45_TASK/approvals"
 
 # plan.md を最小限作成
@@ -93,11 +114,11 @@ PLANEOF
 _T45_HASH=$(sha256sum "$_T45_WD/$_T45_TASK/plan.md" 2>/dev/null | cut -d' ' -f1 \
   || shasum -a 256 "$_T45_WD/$_T45_TASK/plan.md" | cut -d' ' -f1)
 
+# 後始末は末尾の明示呼出に一本化する（trap は張らない = README 規約 1/2）。
 cleanup_t45() {
-  rm -rf "$_T45_TMP"
-  rm -rf "$_T45_WD/$_T45_TASK"
+  rm -rf "${_T45_TMP:?ta-45: empty tmp path refused}"
+  rm -rf "$_T45_WD/${_T45_TASK:?ta-45: empty task name refused}"
 }
-trap cleanup_t45 EXIT
 
 # ── TC-01: conversation モード + EH-3 c3.json SKIP ────────────────
 # .plangate.yml に conversation を設定 → c3.json への Write が EH-3 で SKIP されること
@@ -245,6 +266,5 @@ else
 fi
 
 cleanup_t45
-trap - EXIT
 
 pg_extra_contract_finalize

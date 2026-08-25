@@ -249,6 +249,11 @@ fi
 # === TC-06c (AC-2): spec ファイルのコマンドにスペースが含まれても正しく動作（shlex.quote 修正検証）===
 if python3 -c 'import yaml, shlex' >/dev/null 2>&1; then
   t24_tmpdir4=$(mktemp -d)
+  # KNOWN VIOLATION: tests/extras/README.md:146「親シェルの trap を
+  # `trap - EXIT` で消さない（他 extras / ハーネスの cleanup を巻き込むため）」
+  # に反する。後段 :285 の `trap - EXIT INT TERM` は source 順で先行する
+  # ta-09:23 `trap cleanup_metrics EXIT INT TERM` を実際に解除する（実測）。
+  # 是正は別 issue（本 PR では trap 本体を変更しない）。
   trap 'rm -rf "$t24_tmpdir4"' EXIT INT TERM
 
   # コマンドにスペースが含まれる場合の spec ファイル生成テスト
