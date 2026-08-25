@@ -25,6 +25,8 @@
 #   TC-12: apply-ci-lint-wiring — アンカー未検出なら exit 1（何も書かない）
 #   TC-13: apply-ci-lint-wiring — 実 HO パス（<repo>/.github/workflows/**）への
 #          --apply は PLANGATE_APPLY_CONFIRM 無しでは exit 1 かつ 1 バイトも書かない
+#   TC-09b: apply-ci-lint-wiring の入力 fixture が未適用である（恒真 PASS 防止）
+#   TC-13b: 実 repo アンカー probe — 実 ci.yml への --dry-run が rc=0（書き込みなし）
 #   TC-14: lint-shell 列挙の自己検査 — 対象 0 件 / 下限割れ / 自己参照欠落で FAIL
 #          （恒真 PASS 防止。3 変異すべてで KILL を実証）
 #   TC-15: lint-shell --advisory — 常に rc=0 / [INFO] finding(s) / SC1007 は除外
@@ -71,6 +73,22 @@ _T71_ROOT="$(CDPATH= cd -- "$_pg_extra_dir/../.." && pwd)"
 _T71_LS="$_T71_ROOT/scripts/lint-shell.sh"
 _T71_LW="$_T71_ROOT/scripts/lint-workflows.sh"
 _T71_AP="$_T71_ROOT/scripts/apply-ci-lint-wiring.sh"
+
+# ── apply-ci-lint-wiring 用入力の射程宣言（規約 9 と同じ思想）─────────────
+# TC-10〜13 が読む入力は次の 2 つだけ。どちらも **実 repo の適用状態に依存しない**。
+#   (1) _T71_CI   : 未適用状態で凍結した fixture（唯一の apply 対象入力）
+#                   tests/fixtures/apply-baseline/README.md を参照
+#   (2) _T71_REAL : 実 .github/workflows/ci.yml（**--dry-run の probe でのみ読む**）
+# 実 ci.yml をコピーしていた旧設計は、実 repo が適用済みだと apply が no-op になり
+# dry-run 差分も冪等判定も成立しなかった（TC-10 / TC-12 が誤 FAIL、TC-11 / TC-13 は
+# 恒真 PASS）。書き込みは mktemp サンドボックス配下のみ。
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
+  _T71_FXD="$FIXTURES_DIR"
+else
+  _T71_FXD="$(CDPATH= cd -- "$_pg_extra_dir/../fixtures" && pwd)"
+fi
+_T71_CI="$_T71_FXD/apply-baseline/workflows/ci.yml"
+_T71_REAL="$_T71_ROOT/.github/workflows/ci.yml"
 
 for _t71_f in "$_T71_LS" "$_T71_LW" "$_T71_AP"; do
   if [ ! -f "$_t71_f" ]; then
@@ -219,10 +237,22 @@ if [ "$_t71_sb_init" -eq 0 ]; then
   fi
 fi
 
-# --- TC-10 / TC-11 / TC-12 apply-ci-lint-wiring ---
-_T71_CI="$_T71_ROOT/.github/workflows/ci.yml"
+# --- TC-09b fixture 前提検査（未適用であること）---
+# fixture が「適用済み」に差し替わると TC-11 / TC-13 は差分ゼロで恒真 PASS になる。
+# 黙って緑にしないため FAIL させる（SKIP ではない）。
 if [ ! -f "$_T71_CI" ]; then
-  printf '  [SKIP] TC-10/11/12: .github/workflows/ci.yml が無い\n'
+  t71_fail "TC-09b baseline fixture が無い: $_T71_CI"
+elif grep -q '^  shell-lint:' "$_T71_CI" || grep -q '^  workflow-lint:' "$_T71_CI"; then
+  t71_fail "TC-09b fixture が未適用でない（shell-lint / workflow-lint が既にある）— 以降の TC が恒真 PASS になる"
+elif ! grep -q '^  markdown:$' "$_T71_CI"; then
+  t71_fail "TC-09b fixture に挿入アンカー '  markdown:' が無い"
+else
+  t71_pass "TC-09b fixture が未適用状態（2 job 未挿入 / アンカーあり）"
+fi
+
+# --- TC-10 / TC-11 / TC-12 apply-ci-lint-wiring ---
+if [ ! -f "$_T71_CI" ]; then
+  printf '  [SKIP] TC-10/11/12: baseline fixture ci.yml が無い\n'
 else
   _T71_AB="$(mktemp -d)"
   register_cleanup "$_T71_AB"
@@ -292,10 +322,10 @@ _T71_FR="$(mktemp -d)"
 register_cleanup "$_T71_FR"
 mkdir -p "$_T71_FR/scripts" "$_T71_FR/.github/workflows"
 cp "$_T71_AP" "$_T71_FR/scripts/apply-ci-lint-wiring.sh"
-if [ ! -f "$_T71_ROOT/.github/workflows/ci.yml" ]; then
-  printf '  [SKIP] TC-13: .github/workflows/ci.yml が無い\n'
+if [ ! -f "$_T71_CI" ]; then
+  printf '  [SKIP] TC-13: baseline fixture ci.yml が無い\n'
 else
-  cp "$_T71_ROOT/.github/workflows/ci.yml" "$_T71_FR/.github/workflows/ci.yml"
+  cp "$_T71_CI" "$_T71_FR/.github/workflows/ci.yml"
   _t71_before="$(cksum <"$_T71_FR/.github/workflows/ci.yml")"
   _t71_rc=0
   _t71_out="$(sh "$_T71_FR/scripts/apply-ci-lint-wiring.sh" --apply 2>&1)" || _t71_rc=$?
@@ -308,6 +338,28 @@ else
     t71_pass "TC-13 実 HO パスへの --apply: 確認なしは exit 1 + 無変更 / 確認ありで適用"
   else
     t71_fail "TC-13 HO 書き込みガードが破れている (no-confirm rc=$_t71_rc / confirm rc=$_t71_rc2)"
+  fi
+fi
+
+# --- TC-13b 実 repo アンカー probe（read-only）---
+# 実 ci.yml に対し --dry-run を 1 回だけ走らせる。dry-run は 1 バイトも書かないので
+# HO パスに触れない。実 ci.yml がアンカーを失う方向に drift すれば apply は
+# anchor not found で rc=1 になり、ここが落ちる。
+#   未適用 checkout -> dry-run 差分で rc=0 / 適用済み checkout -> already applied で rc=0
+# どちらでも rc=0 なので **適用状態に依存しない**。
+if [ ! -f "$_T71_REAL" ]; then
+  printf '  [SKIP] TC-13b: 実 .github/workflows/ci.yml が無い\n'
+else
+  _t71_before="$(cksum <"$_T71_REAL")"
+  _t71_rc=0
+  _t71_out="$(sh "$_T71_AP" --dry-run --target "$_T71_REAL" 2>&1)" || _t71_rc=$?
+  _t71_after="$(cksum <"$_T71_REAL")"
+  if [ "$_t71_rc" -eq 0 ] && [ "$_t71_before" = "$_t71_after" ] \
+     && { printf '%s' "$_t71_out" | grep -q 'dry-run' \
+          || printf '%s' "$_t71_out" | grep -q 'already applied'; }; then
+    t71_pass "TC-13b 実 repo アンカー probe: --dry-run rc=0 かつ実 ci.yml はバイト不変"
+  else
+    t71_fail "TC-13b 実 ci.yml がアンカーを失っている可能性 (rc=$_t71_rc): $_t71_out"
   fi
 fi
 

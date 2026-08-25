@@ -19,14 +19,9 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: metrics-privacy-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 jobs:
   privacy:
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # 実測 max 9s (直近 25 run)
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

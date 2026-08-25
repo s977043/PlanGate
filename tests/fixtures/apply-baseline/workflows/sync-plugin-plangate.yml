@@ -30,10 +30,6 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: sync-plugin-plangate-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 jobs:
   # PR 段階で plugin/plangate/ と正本の drift を検出する (#842 R-005)。
   # push 後の同期 PR だけでは「main にマージされてから気づく」構造のため、

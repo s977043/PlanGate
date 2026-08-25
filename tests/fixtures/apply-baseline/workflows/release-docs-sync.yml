@@ -9,17 +9,12 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: release-docs-sync-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   sync:
     permissions:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # 実測 max 11s (直近 25 run)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 

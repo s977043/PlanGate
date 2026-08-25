@@ -8,10 +8,6 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: slsa-attestation-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   provenance:
     permissions:
@@ -19,7 +15,6 @@ jobs:
       contents: write      # release asset upload
       attestations: write  # GitHub Attestations API
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # 実測 max 14s (直近 25 run)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

@@ -6,11 +6,18 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+
+concurrency:
+  group: check-pr-issue-link-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-latest
+    timeout-minutes: 5  # 実測 max 12s (直近 25 run)
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -45,24 +52,56 @@ jobs:
             echo "EOF"
           } >>"$GITHUB_OUTPUT"
 
-      - name: Post warning comment (if WARN)
+      - name: Annotate WARN
         if: startsWith(steps.check.outputs.result, 'WARN')
         env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
           RESULT: ${{ steps.check.outputs.result }}
         run: |
           set -eu
-          # 既存の warning コメントがあれば重複投稿しない（identifier で識別）
+          # PR コメントは廃止（#159）。WARN は Actions の注釈として残す:
+          # Actions UI / checks サマリには出るが PR タイムラインは汚さない。
+          printf '::warning title=Check PR Issue Link::%s\n' "$RESULT"
+
+      - name: Annotate NOTICE
+        if: startsWith(steps.check.outputs.result, 'NOTICE')
+        env:
+          RESULT: ${{ steps.check.outputs.result }}
+        run: |
+          set -eu
+          # NOTICE = 非クローズ型リンク（Refs / Part of / Related to）のみ。
+          # リンクはあるので WARN ではないが、`Refs:` の参照先は issue とは限らず
+          # PR も混在するため「closing の書き忘れ」を弱いシグナルとして残す。
+          # ::notice:: は Actions UI / checks サマリには出るが PR タイムラインは
+          # 汚さない（WARN と同じ設計意図。強制力は増やさない）。
+          printf '::notice title=Check PR Issue Link::%s\n' "$RESULT"
+
+      - name: Cleanup stale warning comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          # コメント投稿は廃止済み（#159）。過去 run が残した warning コメントを
+          # 判定結果に関わらず回収する。ラベル追加等で SKIP へ転じた PR に stale な
+          # WARN コメントが残り続ける問題（実例: PR #1176）への恒久対応。
           identifier='<!-- check-pr-issue-link:warning -->'
-          existing=$(gh pr view "$PR_NUMBER" --json comments --jq \
-            ".comments[] | select(.body | contains(\"$identifier\")) | .id" || true)
-          if [ -n "$existing" ]; then
-            echo "Existing warning comment found, skipping duplicate."
+          ids=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | contains(\"$identifier\")) | .id" || true)
+          if [ -z "$ids" ]; then
+            echo "No stale warning comment found."
             exit 0
           fi
-          body=$(printf '%s\n\n**Check PR Issue Link**: %s\n\n- 推奨: PR 本文に `closes #N` / `fixes #N` / `resolves #N` を含めてください\n- 対象外の場合: PR に `chore` / `documentation` ラベルを付けるか、PR 本文に `<!-- skip-issue-link-check -->` を含めてください\n- 詳細: [Issue #159](https://github.com/s977043/plangate/issues/159)\n' "$identifier" "$RESULT")
-          gh pr comment "$PR_NUMBER" --body "$body"
+          for id in $ids; do
+            echo "Deleting stale warning comment $id"
+            # fork からの pull_request では GITHUB_TOKEN が read-only になるため
+            # DELETE が 403 になる。cleanup の失敗で job を赤くする理由はないので
+            # 失敗許容にする（旧実装は同状況でも緑だった / #159）。
+            if ! gh api -X DELETE "repos/$REPO/issues/comments/$id"; then
+              echo "warning: could not delete comment $id (token may be read-only); skipping"
+            fi
+          done
 
       - name: Output summary
         env:
