@@ -1,5 +1,5 @@
 # tests/extras/ta-26-plan-normalization.sh
-# Sourced by tests/run-tests.sh — relies on $pass / $fail / $FIXTURES_DIR
+# Sourced by tests/run-tests.sh — relies on $pass / $fail / $FIXTURES_DIR / register_cleanup
 # Issue #1220: Canonical Plan normalization の機械契約を固定する。
 
 printf '\n=== TA-26: Plan Normalization Gate contract ===\n'
@@ -7,7 +7,7 @@ printf '\n=== TA-26: Plan Normalization Gate contract ===\n'
 PN_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
 PN_CHECKER="$PN_ROOT/scripts/check-plan-normalization.py"
 PN_TMP="$(mktemp -d)"
-trap 'rm -rf "$PN_TMP"' EXIT INT TERM
+register_cleanup "$PN_TMP"
 
 pn_write_before() {
   cat > "$PN_TMP/before.md" <<'EOF'
@@ -160,6 +160,3 @@ AC-1 と AC-2 を満たす。
 - AC-2: verification contract を維持する
 EOF
 pn_assert_fail "Verification Plan 欠落は FAIL"
-
-rm -rf "$PN_TMP"
-trap - EXIT INT TERM
