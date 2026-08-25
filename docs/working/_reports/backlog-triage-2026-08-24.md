@@ -139,6 +139,64 @@
 
 `docs/working/_reports/1135-ai-owned-lane-patch.md` に設計が着地済み。**AI-owned レーンを明示すれば、現在「patch 提示止まり」の 11 issue が AI から到達可能になる。**承認境界を変えない設計。ただし `scripts/hooks/check-plan-hash.sh` が HO なので**適用は Human**。
 
+### 1-7. **patch は提示されているが、適用可能性の契約が無い**
+
+**§1-1（backlog は close では減らない）と並ぶ、backlog が減らない構造原因の 1 つ。**
+「patch 提示済み・適用待ち」で滞留している issue のほとんどは、**patch 文書に「そのとおり適用すれば所望の状態になる」ことを機械検査する手段が付いていない。** そのため Human も AI も、適用のたびに 6 ファイル前後を目で追って手編集するしかなく、着手コストが下がらない。
+
+**欠けているのは形式ではなく契約である。** 適用可能性を保証する手段は 2 通りあり、どちらでもよい:
+
+| 手段 | 適用可能性の検証方法 | 向いているもの |
+|---|---|---|
+| **unified diff 化** | `git apply --check` rc=0 かつ `git apply --check --reverse` rc≠0（＝適用可能かつ未適用） | 行単位の置換が主で、対象ファイルが安定しているもの |
+| **冪等 apply スクリプト化** | `--dry-run` 既定で書き込みゼロ（前後 cksum 不変）/ 2 回目は `already applied` で rc=0 / 未知引数は rc=1 / **アンカー未検出なら全体 exit 1 かつ 1 バイトも書かない**（部分適用しない）/ 適用後の妥当性検査（`yaml.safe_load` / `actionlint` 等）/ 実 HO パスへの書き込みは `PLANGATE_APPLY_CONFIRM=1` 要求 | アンカー探索が要る・YAML/JSON の構造を保つ必要があるもの |
+
+後者は本 repo に実績がある（`apply-ci-lint-wiring.sh` / `apply-workflow-hygiene.sh` / `apply-pr-issue-link-comment-removal.sh` が上記契約を TC で機械検査している）。**「unified diff へ変換せよ」という単一解には倒さない。**
+
+#### 実測（`origin/main` = `9dc9cc6` / 2026-08-25 測定時点）
+
+`docs/working/_reports/*-patch.md` を全数走査し、各文書からフェンス済みコードブロック（4 バッククォート / 3 バッククォート 両対応・再帰抽出）を取り出して `git apply --check` にかけた:
+
+| 判定 | 本数 | 文書 |
+|---|---:|---|
+| `git apply --check` **rc=0**（`--reverse` はいずれも rc=1＝未適用） | **3** | `863-4-ho-patch` / `945-946-rules-patch` / `1151-settings-example-patch` |
+| ファイルヘッダあり・**rc≠0** | **1** | `1144-plugin-packaging-patch`（`--- a/` は 2 行あるが hunk ヘッダが `@@ (bundled schema ブロックの直後 …)` のような自然文プレースホルダで、`git apply` は `No valid patches in input` を返す） |
+| **ファイルヘッダ 0**（`--- a/` が 1 行も無い＝before/after スニペットや部分 hunk のみ） | **16** | `1011-v304-fail-open` / `1021-ta09-isolation` / `1101-normalization` / `1102-1018-blocked-oneline` / `1104-bash-route-guard` / `1135-ai-owned-lane` / `1144-root-resolution` / `1157-seeds-read-path` / `1169-sh-invocation` / `937-942-unwired-guard` / `960-ho` / `960-recurrence-guard` / `982-cli-entry-notation` / `984-wiring-check-gap` / `990-multibyte-var` / `997-947c-porcelain` |
+| **計** | **20** | — |
+
+**つまり適用可能性が何らかの形で保証されているのは 3 本のみ。残り 17 本は `git apply` もできない。**
+
+対応する apply スクリプトも無い:
+
+```console
+$ git ls-tree -r origin/main --name-only -- scripts/ | grep -c '^scripts/apply-.*\.sh$'
+38                      # 陽性コントロール: apply スクリプトは repo に 38 本ある
+
+$ # 上記 16 本に対応する issue 番号（1011 1021 1101 1102 1104 1135 1144 1157
+$ # 1169 937 960 982 984 990 997）を含む apply スクリプト
+→ すべて 0 件
+
+$ git grep -l -E '1011-v304-fail-open|1021-ta09-isolation|…|997-947c-porcelain' \
+    origin/main -- scripts/ bin/
+→ rc=1（0 件。patch 文書を参照する適用スクリプトは存在しない）
+```
+
+**保証する手段が無いわけではなく、この 17 本に適用されていない。**
+
+#### コントロール
+
+- **陽性（抽出器）**: 上表の 3 本が `git apply --check` rc=0 を返す。初版の抽出器は 4 バッククォートフェンス内の diff 文脈行（先頭が空白の ` ```sh `）を内側フェンスと誤認して `863-4-ho-patch` を取りこぼした。**フェンス認識を桁 0 限定に直して 3 本が揃うことを確認してから採用した。**
+- **陽性（独立測定）**: 抽出器を通さない `git grep -c -- '--- a/' origin/main -- docs/working/_reports/` は 4 ファイルのみ（`1144-plugin-packaging`=2 / `1151-settings-example`=1 / `863-4-ho`=3 / `945-946-rules`=7、他に patch 文書でない `1163-ref-resolution-ci-design`=1）。**16 本にヘッダが無いことを抽出器と独立に確認している。**
+- **陽性（grep 機構）**: 同じ `git grep -l` を `945-946-rules|863-4-ho` で撃つと rc=0 でヒットが返る（空出力が「0 件」ではなく grep 不発である可能性を排除）。
+- **陰性**: `git grep -c -- 'ZZZ-NONEXISTENT-TOKEN-9x' origin/main -- docs/working/_reports/` → rc=1 / 0 件。
+
+#### 影響する open issue（測定時点）
+
+17 本が指す issue のうち **open は 14 件**: **#937 / #942 / #960 / #982 / #984 / #990 / #997 / #1011 / #1021 / #1101 / #1104 / #1135 / #1144 / #1157**。
+（`#1102` / `#1169` は CLOSED/COMPLETED。`960-ho` と `960-recurrence-guard` は同じ #960、`1144-plugin-packaging` と `1144-root-resolution` は同じ #1144 を指す）
+
+> **件数は契約値にしない。** patch 文書も apply スクリプトも運用で増える。上表はすべて `origin/main` = `9dc9cc6` を明示 ref にした**測定時点の値**であり、判定を再現するには同じ ref で走査コマンドごと再実行すること。なお §4 の #1114 行が記録する「`scripts/` 直下の `apply-*.sh` は 35」は、同じ ref・同じ glob での本測定では **38** だった（母集団 glob の書き方に依存する典型例。どちらも契約値にしない）。
+
 ---
 
 ## 2. verdict × 実行層 マトリクス
@@ -291,6 +349,7 @@ $ git show origin/main:docs/working/_reports/937-942-unwired-guard-patch.md | se
 | #1081 本文 | 「同型は 3 配布点のみ」 | **検出 B は repo 全体 0 件**（PR #1084 / `8f57e59` で是正済み） |
 | #1093 本文 | 穴 (d) の例示スクリプト | 適用済みで**その 1 例は無効化**。検出器の構造欠陥 4 種は無変更 |
 | `937-942-unwired-guard-patch.md` | #937 を「Human 適用」 | **HO 外＝AI 適用可**（§3-6） |
+| **patch 文書 17 本**（§1-7 の内訳。`1011-v304-fail-open` / `1021-ta09-isolation` / `1101-normalization` / `1102-1018-blocked-oneline` / `1104-bash-route-guard` / `1135-ai-owned-lane` / `1144-plugin-packaging` / `1144-root-resolution` / `1157-seeds-read-path` / `1169-sh-invocation` / `937-942-unwired-guard` / `960-ho` / `960-recurrence-guard` / `982-cli-entry-notation` / `984-wiring-check-gap` / `990-multibyte-var` / `997-947c-porcelain`） | 「patch」「適用」と読める記述で、**そのまま適用できる成果物であるかのように示している** | **適用可能性の契約が無い**。`git apply --check` は rc≠0（うち 16 本は `--- a/` が 1 行も無く before/after スニペット・部分 hunk のみ、1 本は hunk ヘッダが自然文プレースホルダ）。対応する apply スクリプトも 0 件（repo に apply スクリプトは 38 本ある）。**着手時は「適用するだけ」ではなく「適用可能性の契約を与える」工数を見込むこと**（§1-7 / Phase -1） |
 
 ---
 
@@ -347,7 +406,24 @@ Human 裁定「項目 1〜3 の充足で close し、項目 4 を新 issue へ�
 
 **原則**: (1) 他 issue の停滞を解く順 (2) 承認境界の穴を塞ぐ順 (3) 1 PR で複数閉じられる束を優先。
 
-### Phase 0 — 承認境界の穴（他のすべてに優先）
+### Phase -1 — patch 17 本に適用可能性の契約を与える（**Phase 0 の前提**）
+
+§1-7 の実測どおり、**Phase 0 の #1101 / #1104 の patch は現状 `git apply` できず、対応する apply スクリプトも無い。** この Phase を飛ばすと、Phase 0 は「Human が patch 文書を読みながら HO ファイルを手編集する」作業になり、いま滞留している状態と同じところへ戻る。
+
+**成果物は「適用形式の変換」ではなく「適用可能性を機械検査できる状態」。** 形式は文書ごとに 2 択（§1-7 の表）:
+
+- **unified diff 化** — `git apply --check` rc=0 かつ `--reverse` rc≠0 を CI/手元で確認できること
+- **冪等 apply スクリプト化** — dry-run 既定で書き込みゼロ / 冪等 / 未知引数 rc=1 / アンカー未検出で全体 exit 1（部分適用しない）/ 適用後の妥当性検査 / HO パスは `PLANGATE_APPLY_CONFIRM=1` 要求
+
+| 順 | 対象 patch 文書 | 対応 issue | 備考 |
+|---:|---|---|---|
+| **-1a** | `1101-normalization` / `1104-bash-route-guard` | #1101 / #1104 | **Phase 0 の 1・2 の直接の前提。ここだけ先行させる価値がある** |
+| **-1b** | `1135-ai-owned-lane` | #1135 | Phase 4 の前提（§1-6 の「11 issue が到達可能になる」は適用できて初めて効く） |
+| **-1c** | 残り 14 本（`1011-v304-fail-open` / `1021-ta09-isolation` / `1102-1018-blocked-oneline` / `1144-plugin-packaging` / `1144-root-resolution` / `1157-seeds-read-path` / `1169-sh-invocation` / `937-942-unwired-guard` / `960-ho` / `960-recurrence-guard` / `982-cli-entry-notation` / `984-wiring-check-gap` / `990-multibyte-var` / `997-947c-porcelain`） | #937 / #942 / #960 / #982 / #984 / #990 / #997 / #1011 / #1021 / #1144 / #1157（#1102 / #1169 は CLOSED） | Phase 1〜3 に着手する順で随時。**まとめて 1 PR にしない**（対象ファイルが HO / 非 HO をまたぐ） |
+
+**注意**: 変換そのものが HO 対象ファイルへの patch を生成する場合でも、**生成物は patch 文書側にとどまり HO ファイルは触らない**（適用は従来どおり Phase 0 以降・責務分界は不変）。件数（17 / 38）は §1-7 の測定時点の値であり契約値ではない。
+
+### Phase 0 — 承認境界の穴（Phase -1 の次に優先）
 
 3 系統が同時に open な限り「HO は常時 block される」は成立しない（§1-3）。
 
