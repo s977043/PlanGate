@@ -14,10 +14,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   analyze:
     name: Analyze (python)
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # 実測 max 87s (直近 25 run)
     permissions:
       actions: read
       contents: read
