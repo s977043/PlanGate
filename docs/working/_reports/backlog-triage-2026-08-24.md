@@ -4,6 +4,191 @@
 > **測定時刻**: 2026-08-24 19:47〜20:20
 > **本レポートは読み取りのみで作成した。** issue への書き込みは #863 の close（下記 §5-1）を除き行っていない。
 > **測定はすべて ref を明示した**（`git show origin/main:<path>` / `git grep <pat> origin/main` / `git ls-tree -r origin/main` / `gh api`）。共有 checkout の作業ツリーは使っていない。
+>
+> **⚠️ 本書の読み方（2026-08-25 追記）**: 上記の測定基点 `d5641b0` は **2026-08-24 時点**である。**現況（`origin/main` = `6370573` / 2026-08-25）は [§0-0](#0-0-現況2026-08-25--この節だけが最新の値) にある。**`## 0.` 以降は 08-24 時点の記録として保持しており、書き換えていない。母集団・verdict・patch 本数は乖離しているので、**まず §0-0 を読むこと**。
+
+---
+
+## 0-0. 現況（2026-08-25） — この節だけが最新の値
+
+> **この節の測定基点**: `origin/main` = `6370573` / **測定時刻**: 2026-08-25 18:00〜18:10 JST（09:00〜09:10Z）
+> **§0 以降（`## 0.` 〜 `## 10.`）は測定基点 `d5641b0`（2026-08-24 19:47〜20:20）時点の記録であり、本節では書き換えていない。**
+> 数値が食い違う場合、**節ごとに付いている測定基点で判断すること**。「どちらが正しいか」ではなく「いつの値か」が違う。
+> 本節の件数はすべて**測定時点の値であり契約値ではない**。再現するには同じ ref で走査コマンドごと再実行すること。
+
+### 0-0-1. 母集団の実測
+
+| 指標 | 2026-08-24（`d5641b0`） | **2026-08-25（`6370573`）** | 差 |
+|---|---:|---:|---:|
+| open issue 全数 | 103（98 + 追加 5） | **83** | **−20** |
+| うち `bug` ラベル | 41 | **35** | −6 |
+| open PR | （未測定） | **2** | — |
+
+```console
+$ gh issue list --state open --limit 400 --json number --jq 'length'
+83
+$ gh issue list --state open --label bug --limit 400 --json number --jq 'length'
+35
+$ gh pr list --state open --json number,title
+#1227  apply/ho-patches                      fix(governance): #1203 / #945 / #946 / #960 の HO patch を適用
+#1225  ci/apply-workflow-hygiene-and-lint    ci: lint job 配線と workflow 衛生を apply スクリプトで適用する (#1204 / #1205)
+$ git rev-parse --short origin/main
+6370573
+```
+
+**オーガナイザー提示値（2026-08-25 17:57 / main=`6370573`）= open 83 / bug 35 / open PR 2 と、本節の実測は全項目一致。食い違いなし。**
+
+### 0-0-2. 2026-08-24 以降に close された 22 件（全数）
+
+```console
+$ gh issue list --state closed --limit 300 --json number,closedAt,stateReason,title \
+    --jq '[.[]|select(.closedAt>"2026-08-24T00:00")] | length'
+22
+```
+
+| # | 分類 | 移管先 / 根拠 |
+|---|---|---|
+| **863** | **08-24 棚卸しで close** | §5-1。項目 4 は #1203 へ |
+| **920** | PROPOSAL-ONLY / SUPERSEDED | 実体ゼロ（`git grep -l evidence_contract origin/main -- scripts bin schemas` → 0 件 / 陽性コントロール `plan_package` は 18 ファイル）。吸収先 #1025 #894 #874 #868 |
+| **923** | PROPOSAL-ONLY | §5-3 の 6 件。Discovery へ降格 |
+| **980** | PROPOSAL-ONLY | 同上 |
+| **1002** | PROPOSAL-ONLY | 同上 |
+| **1015** | PROPOSAL-ONLY | 同上 |
+| **1098** | PROPOSAL-ONLY | 同上 |
+| **1092** | SUPERSEDED | §5-2。母集団が別物（33 件 tracking vs 現 open bug 35）。後継＝`bugfix-execution-plan-2026-08-20.md` と本書 |
+| **991** | **横断統合** | → **#1009**（`scripts/sync-plugin-plangate.sh` の `_mass_delete_blocked`） |
+| **1010** | **横断統合** | → **#1009**（同上。`nolink` / `basewiden` 変異の TC） |
+| **1011** | **横断統合** | → **#1009**（同上。V3-02/04/05） |
+| **1107** | **横断統合** | → **#1101**（`scripts/hooks/check-plan-hash.sh` の root 解決 1 行） |
+| **906** | **横断統合** | → **#916**（`scripts/ai-loop/arbiter.py` の HO 解決経路） |
+| **978** | **横断統合** | → **#916**（同上。同梱雛形フォールバック） |
+| **1062** | **横断統合** | → **#1207**（`tests/extras/ta-61-extra-contract.sh` の standalone 起動構造）。**移管先 #1207 も後に PR #1223 で CLOSED/COMPLETED** |
+| **954** | 実測で AC 充足 | PR #1221（`feat: add canonical plan normalization gate`）が最後の 1 件を解消。クラス A / C が 3 root で 0 件（`origin/main` = `c677e1e` で測定） |
+| **1170** | 実測で AC 充足 | 本文の再現コマンドを現 main でそのまま実行し **4/4 解消**（`origin/main` = `c677e1e`） |
+| **1207** | 他セッションの PR | PR #1223（`test(extras): ta-61 の実行コストと自己再帰負荷を構造的に削減する`） |
+| **1208** | 他セッションの PR | PR #1223（同上） |
+| **1209** | 他セッションの PR | PR #1224（`fix(tests): extras の一時状態を「射程宣言→先頭 prune→register_cleanup」へ統一`） |
+| **1210** | 他セッションの PR | PR #1224（同上） |
+| **1220** | 他セッションの PR | PR #1221（`feat: add canonical plan normalization gate`） |
+
+**集計**: 横断統合 **7** / PROPOSAL-ONLY・SUPERSEDED **7** / 実測で AC 充足 **2** / 他セッションの PR **5** / 08-24 棚卸しで close **1** = **22**。
+
+> **#1211 は依然 open**（§9-3 の追加 5 件のうち唯一残っている）。
+
+### 0-0-3. **中核の学び — 棚卸しでは issue は減らない**
+
+103 件（§0-1 の全数）を **2 つの独立した軸**で判定した結果:
+
+| 軸 | 判定 | 結果 |
+|---|---|---|
+| **軸 1** — AC 充足を証明できるか | `CLOSE-NOW`（AI 側残作業ゼロで閉じられる） | **0 件**（§1-1 / §2 の 98 件マトリクス。§9-3 の追加 5 件も全て `OPEN` / `PARTIAL`） |
+| **軸 2** — 前提崩壊・重複・提案止まり・実装済みを含む 5 パターン | 「実装済み」に該当 | **1 件**（#1170。本文の再現コマンドが現 main で 4/4 解消） |
+
+**2 軸とも「棚卸しの結果として閉じられる issue」はほぼゼロだった。** 実際に減った 20 件は、いずれも棚卸しそのものの産物ではなく、**次の 3 経路のどれか**である。
+
+| 経路 | 件数 | なぜ棚卸しでは出せなかったか |
+|---|---:|---|
+| **1. 横断統合** | 7 | **番号順に分割して棚卸しすると、グループをまたぐ重複が原理的に検出できない。** #991/#1010/#1011 は別バッチに散っており、各バッチ内では「別々の bug」に見えていた。全数を横断して「**同一ファイル・同一関数を争う組**」を探して初めて出た |
+| **2. patch の適用**（Human 操作） | 0（PR #1227 が open で未マージ） | AI は HO パスへ書けない。Human の 1 アクション待ち |
+| **3. 他セッションの PR** | 5 | 本トラックの制御外 |
+| （PROPOSAL-ONLY / SUPERSEDED の降格） | 7 | これは「減らした」のではなく **open 件数の見かけを圧縮した**だけ。§1-1 の 3 手のうち手 2・手 3 に相当 |
+
+> **`patch 設計書を作る作業は、在庫を別の形に変えただけで、減らす作業ではなかった。`**
+> §1-7 が指摘した「適用可能性の契約が無い」を受けて 08-25 に 3 本を unified diff 化した（PR #1216 / #1218 / #1219）が、**その 3 本が指す issue（#960 / #1101 / #1104）は 3 件とも依然 open** である。patch 文書は 20 → 23 本に増え、open issue はこの経路では 1 件も減っていない。**減るのは適用（Human 操作）が入った瞬間だけ**で、その PR #1227 はいま open のまま止まっている。
+
+### 0-0-4. 実行した横断統合の記録（4 組 / 収束点は本節で測り直した）
+
+| 組 | 主 | close した issue | 収束点（一次ソース・`origin/main` = `6370573` で再測定） |
+|---|---|---|---|
+| **sync guard** | **#1009** | #991 / #1010 / #1011 | `scripts/sync-plugin-plangate.sh` の `_mass_delete_blocked`（定義 `:56` / 呼び出し `:127` `:218` `:395`） |
+| **HO 正規化** | **#1101** | #1107 | `scripts/hooks/check-plan-hash.sh:22` の root 解決 1 行（`REPO_ROOT=$(CDPATH= cd -- ... && pwd)`）。`pwd -P` / `realpath` のヒットは **0** |
+| **arbiter HO** | **#916** | #906 / #978 | `scripts/ai-loop/arbiter.py` の HO 解決経路（`_BUNDLED_HO_PATHS_RELATIVE :157` → `_candidate_ho_paths_sources :187` → 呼び出し `:214` → `boundary_check :291`） |
+| **ta-61** | #1207 | #1062 | `tests/extras/ta-61-extra-contract.sh` の standalone 起動（`_t61_to` 定義 `:101` `:103` / 起動 `:324` `:377` `:411` `:814` `:816`）。**現 main では `timeout 180` のハードコードは既に `$_T61_RUN_TIMEOUT` へ置換済み**（PR #1223） |
+
+```console
+$ git grep -n '_mass_delete_blocked' origin/main -- scripts/sync-plugin-plangate.sh
+origin/main:scripts/sync-plugin-plangate.sh:56:_mass_delete_blocked() {
+origin/main:scripts/sync-plugin-plangate.sh:127:  if _mass_delete_blocked "$_label" "$_src_count" "$_stale_count"; then
+origin/main:scripts/sync-plugin-plangate.sh:218:      if ! _mass_delete_blocked "skills/$_skill_name/references" ...
+origin/main:scripts/sync-plugin-plangate.sh:395:  if ! _mass_delete_blocked "skills/ai-loop-cycle/references" ...
+                                                                          # rc=0 / 4 ヒット
+
+$ git grep -n 'REPO_ROOT=\|pwd -P\|realpath' origin/main -- scripts/hooks/check-plan-hash.sh
+origin/main:scripts/hooks/check-plan-hash.sh:22:REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+                                                                          # rc=0 / 1 ヒット（pwd -P / realpath は 0）
+
+$ git grep -n '_candidate_ho_paths_sources\|_BUNDLED_HO_PATHS\|def boundary_check' origin/main -- scripts/ai-loop/arbiter.py
+origin/main:scripts/ai-loop/arbiter.py:157:_BUNDLED_HO_PATHS_RELATIVE = ("references", "ho-paths.md")
+origin/main:scripts/ai-loop/arbiter.py:187:def _candidate_ho_paths_sources(cli_path: str | None) -> list[pathlib.Path]:
+origin/main:scripts/ai-loop/arbiter.py:199:        script_dir.parent.joinpath(*_BUNDLED_HO_PATHS_RELATIVE),
+origin/main:scripts/ai-loop/arbiter.py:214:    for candidate in _candidate_ho_paths_sources(cli_path):
+origin/main:scripts/ai-loop/arbiter.py:291:def boundary_check(
+                                                                          # rc=0 / 5 ヒット
+
+$ git grep -c 'ZZZ-NONEXISTENT-TOKEN-9x' origin/main -- scripts/
+                                                                          # rc=1 / 0 件（陰性コントロール）
+```
+
+- **陽性コントロール**: 上記 3 本はいずれも rc=0 でヒットを返す（走査が起動していることの確認）。
+- **陰性コントロール**: `git grep -c 'ZZZ-NONEXISTENT-TOKEN-9x' origin/main -- scripts/` → **rc=1 / 0 件**。空出力が「0 件」ではなく grep 不発である可能性を排除している。
+
+**主 3 件（#1009 / #1101 / #916）はいずれも open。#1207 のみ CLOSED/COMPLETED。**（本節測定時に `gh issue view` で 1 件ずつ確認）
+
+### 0-0-5. 承認境界の穴は **3 → 4 系統**（§1-3 の更新）
+
+§1-3 は 3 系統を挙げているが、08-25 に **4 系統目 #1226 が起票**された。**§1-3 は書き換えていない**ので、以下を差分として読むこと。
+
+| 系統 | issue | 性質 | state |
+|---|---|---|---|
+| **表記** | #1101 | 別表記（`..` / 大小文字 / 末尾空白 / FS エイリアス）で HO 判定が外れる。#1107 を統合済み | OPEN |
+| **経路** | #1104 | 書き込みガード 5 本が `Edit\|Write` のみで、Bash 経由では発火しない | OPEN |
+| **repo-wide** | #928 | main の ruleset が承認 0 人・required check 1 本のみ | OPEN |
+| **手順の所在**（**新**） | **#1226** | **HO を 1 つも踏まずに、承認手順そのものを変更できる** | OPEN |
+
+**#1226 が既存 3 系統と違う点**: 既知の 3 系統はいずれも「**HO パスへの書き込みを止められない**」型だった。#1226 はそれより上流で、「**HO パスを触らずに承認の中身を変えられる**」型である。実測（#1226 本文 / `origin/main` = `6370573`）では、C-3 の必須手順を定義する 6 ファイルのうち **HO 該当は `.claude/rules/working-context.md` の 1 本のみ**で、残り 5 本（`{.agents,.codex,plugin/plangate}/skills/plan-review-gate/SKILL.md` / `docs/ai/plan-normalization-gate.md` / `scripts/check-plan-normalization.py`）は非 HO。実際に PR #1221 が C-3 の必須手順を 1 つ増やしながら HO 9 カテゴリを 1 つも踏まず、`mode-classification.md` の「承認境界周辺 → 最低 high-risk / `lite_eligible=false` 強制」が発火しなかった。
+
+> **#1226 の射程限定（誤読防止）**: これは **HO 判定機構の欠陥ではない**。HO を踏む経路では高リスク扱いが正しく発火する＝判定機構は正常に動いている。問題は**判定への入力（＝承認手順を定義するファイルの集合）が HO 対象パスの集合と一致していない**ことである。したがって #1101（表記）/ #1104（経路）とは是正箇所が異なり、**同じ PR に束ねられない**。
+
+### 0-0-6. Phase -1（patch の適用可能性）の進捗
+
+§6 Phase -1 は「patch 17 本に適用可能性の契約を与える」を Phase 0 の前提としていた。**§1-7 の抽出器を本節で再実行した結果**:
+
+| 判定 | 2026-08-24（`9dc9cc6`） | **2026-08-25（`6370573`）** |
+|---|---:|---:|
+| `git apply --check` **rc=0** かつ `--reverse` rc≠0（＝適用可能かつ未適用） | **3** | **6** |
+| ファイルヘッダあり・rc≠0 | 1 | **1** |
+| ファイルヘッダ 0（before/after スニペットのみ） | 16 | **16** |
+| **patch 文書の総数** | **20** | **23** |
+
+**適用可能な 6 本**（`APPLICABLE`）:
+
+```text
+docs/working/_reports/863-4-ho-patch.md                       ← 08-24 時点で既に適用可能
+docs/working/_reports/945-946-rules-patch.md                  ← 同上
+docs/working/_reports/1151-settings-example-patch.md          ← 同上
+docs/working/_reports/960-ho-patch-applicable.md              ← 新規（PR #1216）
+docs/working/_reports/1101-normalization-patch-applicable.md  ← 新規（PR #1218）
+docs/working/_reports/1104-bash-route-guard-patch-applicable.md ← 新規（PR #1219）
+```
+
+- **Phase -1a（#1101 / #1104）は完了**。Phase 0 の 1・2 の前提が外れた。
+- **-1b（`1135-ai-owned-lane`）/ -1c（残り）は未着手**。`1135-ai-owned-lane-patch.md` は依然 `NO_HEADER`。
+- **変換は「元の patch 文書の置換」ではなく「`-applicable.md` の並置」で行われた。** そのため `NO_HEADER` の 16 本は減っておらず、文書総数だけが 20 → 23 に増えている。§0-0-3 の「在庫を別の形に変えただけ」はここに現れている。
+
+**測定方法（再現手順）**: `docs/working/_reports/*-patch*.md` を `git ls-tree -r origin/main` で全数列挙し、各文書から桁 0 のフェンス（3 バッククォート以上・再帰対応）でコードブロックを抽出、結合したものを `git apply --check` / `--check --reverse` にかけた。
+
+- **陽性コントロール（抽出器）**: 08-24 に適用可能だった 3 本（`863-4-ho` / `945-946-rules` / `1151-settings-example`）が本測定でも `APPLICABLE` を返した。抽出器が空振りしていない。
+- **陽性コントロール（独立測定）**: `git ls-tree -r origin/main --name-only -- docs/working/_reports/ | grep -c -- '-patch.*\.md$'` → **23**。抽出器を通さない列挙と総数が一致する。
+- **既知の限界**: `1144-plugin-packaging-patch.md` は `--- a/` を 2 行持つが hunk ヘッダが自然文プレースホルダのため `No valid patches in input`（08-24 と同じ）。
+
+### 0-0-7. 未検証として残っていること
+
+| 項目 | なぜ未検証か |
+|---|---|
+| `sh tests/run-tests.sh` の baseline 系 AC | **テストスイートの実走が要る。** 本セッションは共有 checkout との競合を避けるため実行していない（規律上の禁止）。したがって「テストが通る」系の主張は本節では一切していない |
+| marketplace 経由の導入先での実測 | 本 repo の checkout では測れない。**#954 の AC-5 として切り出し済み**（#954 自体は close だが、AC-5 の追跡は別扱い） |
+| 軸 2（5 パターン）の母集団 103 件全数での再判定 | 本節では #1170 の 1 件を実測で確認したのみ。**「1 件 / 103」と言い切れる根拠は本節にはない**。オーガナイザーは「1 件 / 95」と提示しているが、**95 という母集団は §0-1 の 103（98 + 5）と一致せず、定義差の解消ができていない**（未確定） |
+| PROPOSAL-ONLY 6 件の再起票条件 | close コメントに吸収先は記録されているが、**「どの条件で再起票するか」が全件そろっているかは未確認** |
 
 ---
 
