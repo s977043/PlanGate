@@ -235,6 +235,58 @@ docs/working/_reports/1104-bash-route-guard-patch-applicable.md ← 新規（PR 
 
 > **教訓（本計画自身にも適用される）**: 棚卸し結果は数日で腐る。**着手前に対象 issue を 1 点測り直すこと**を各項目の前提とする。本計画も例外ではない。
 
+### 0-3. §1-5「L2 は通常セッションでは 1 件も触れない」の是正（2026-08-26 追記）
+
+> **本節が §1-5 に対する最新値を持つ。** §1-5 の本文は `d5641b0` 基点の記録として**保全のため書き換えていない**。
+> **測定基点**: `origin/main` = `a1b3927` / `PLANGATE_HOOK_TASK` 未設定のセッションで実測。
+
+#### 何が不正確だったか
+
+§1-5 の「**L2 の 47 件は、通常セッションでは 1 件も触れない。**」は**不正確**である。正確には:
+
+> **`Write` / `Edit` 経由では block される。Bash 経由では書けてしまうが、それは #1104 の迂回であり使用しない。**
+
+EH-3（`scripts/hooks/check-plan-hash.sh`）は `.claude/settings.json` の PreToolUse で **`Edit|Write` にのみ配線されており、`Bash` には掛かっていない**。
+
+| matcher | 掛かる hook |
+|---|---|
+| `Edit\|Write` | `check-plan-exists.sh` / `check-c3-approval.sh` / **`check-plan-hash.sh`（EH-3）** / `check-forbidden-files.sh` / `check-approval-token-write.sh` |
+| `Bash` | `check-delegation-commit-boundary.sh` / `check-git-destructive.sh` / `check-approval-token-write.sh`（**EH-3 は無い**） |
+
+EH-3 に各パスを直接渡した rc（`PLANGATE_HOOK_TASK` 未設定）:
+
+```text
+rc=2  scripts/check-c1-item-count.py
+rc=2  scripts/foo.sh
+rc=2  tests/extras/ta-77-x.sh
+rc=2  docs/working/TASK-9999/plan.md
+rc=0  docs/working/_reports/x.md
+```
+
+つまり L2 が塞がれているのは **`Write` / `Edit` 経路だけ**であり、Bash 経路は素通りする（#1104）。
+
+#### 結論は変わらない
+
+**迂回は使わない前提**を維持する。したがって L2 の 47 件は依然として
+**`PLANGATE_HOOK_TASK` を設定した新規セッション待ち**であり、
+**backlog 全体の最大の律速であることに変更はない**（§1-5 / §5-5 / §10 の順序も変えない）。
+issue #1104 が塞がるまで、L2 は Human 待ちのままとする。
+
+#### 2026-08-25 の実発生例
+
+issue #960 の残 AC 実装（`scripts/check-c1-item-count.py` + `tests/extras/ta-77-*.sh`）が
+**Bash 経由で作成されて PR #1229 まで到達し、手続き上の理由で close・破棄された**
+（`gh pr view 1229` = CLOSED / 2026-08-25T22:39:27Z / head `feat/960-c1-item-count-check`）。
+**成果物の品質には問題が無かった**（フルスイート 952 passed / 0 failed、変異注入で検出力も実証済み）。
+破棄されたのは、成果物が EH-3 を通らずに作られたという**手続きの瑕疵のみ**が理由である。
+
+#### 教訓
+
+AI は「**`Write` が block された → 別の書き方をする**」という自然な手順で、
+**無自覚に迂回へ到達する**。とくにハーネス側に「ファイル変更は Bash で行う」系の
+運用指示がある環境では、`Edit|Write` のみの配線は**構造的に空振りする**。
+詳細は #1104 のコメントを参照。
+
 ---
 
 ## 1. 結論（先に読む）
