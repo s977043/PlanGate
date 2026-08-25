@@ -1,6 +1,9 @@
 # TASK-XXXX INDEX
 
 > 最終更新: YYYY-MM-DD HH:MM
+> 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
+> plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
+> （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
 
 ## チケット概要（1-2文）
 
@@ -8,7 +11,12 @@
 
 ## 現在のフェーズ
 
-{brainstorm | plan | C-1 | C-2 | C-3待ち | exec | done}
+{brainstorm | plan | C-1 | C-2 | C-3 待ち | exec | verify（L-0 / V-1〜V-4）| PR 作成済 | C-4 待ち | done | BLOCKED}
+
+> 値域は `status.md` と共通（正本: `.claude/rules/working-context.md`）。
+> V-1 等の**総合判定をここに書く場合は `status.md` / `handoff.md` の判定語をそのまま転記する**。
+> INDEX 側で要約・丸めない（WARN / 条件付き PASS を PASS と書かない）。
+> 判定の正本は `handoff.md` §1 > `status.md` > 本ファイル。矛盾時に是正するのは本ファイル側。
 
 ## 次のアクション
 
