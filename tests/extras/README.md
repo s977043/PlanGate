@@ -352,6 +352,28 @@ fail-closed（診断 + **rc=4** で終了。mis-wired probe を no-op にしな�
 standalone でのみ `exit` する。finalize 未到達（早期 exit の混入）は契約回帰テストの
 force-fail probe が rc≠1 として検出する。
 
+### 契約回帰テスト `ta-61` の実行コストと env knob（#1207 / #1208）
+
+`ta-61-extra-contract.sh` は covered な extras 1 本につき **standalone 子プロセスを
+2 起動**する（clean baseline / 汚染 env + 自分自身を target にした force-fail probe）。
+extras が 1 本増えると 2 起動増える。**絶対件数は契約値にしない**
+（covered 集合は `_pending_migration` の消化で増減する）。
+
+| env | 既定 | 意味 |
+| --- | --- | --- |
+| `PG_T61_RUN_TIMEOUT_SEC` | `180` | 子プロセス 1 起動の上限秒。**下限 180（R-026）は床で、下げる方向の override は受け付けない**。混雑した機械で rc=124 が出るときに引き上げる。引き上げても timeout は **FAIL のまま**（黙って SKIP / 緑にしない）で、診断に load1 と同名プロセス数が付く |
+| `PG_T61_NO_RECURSE` | `0` | nested 実行であることの宣言。nested full-suite / sandbox 子が `1` を渡す。**per-file 実行ループと nested full-suite / sandbox TC を止める**（囲っている run が同一ツリーの同一 covered 集合を実行済みで、再実行は完全な重複） |
+| `PG_T61_EXEC_ONLY_PROBES` | `0` | TC-16 の sandbox 子専用。実行ループの対象を**ハードコードされた `ta-*-probe-*.sh` パターン**へ限定する。sandbox の外で立てると対象が 0 本になり TC-25(3) が fail-closed で落ちるため、実 run を黙って縮める用途には使えない |
+| `PG_T61_SKIP_SUITE` | `0` | mutation driver 専用。nested full-suite（TC-14 / TC-15 runner）だけを止め、sandbox TC は残す |
+
+いずれも **テスト実行専用**であり、`PG_EXTRA_CONTRACT_PROBE` と同様に
+CI 設定・開発シェル・`.env` へ設定してはならない。
+
+なお `ta-61` は covered 集合に比例して長くなるため、下記ウォッチドッグの既定閾値
+`PG_EXTRA_WATCHDOG_SEC=300` を正常時でも超えうる。ウォッチドッグは既定で
+**警告のみ**（実行意味論を変えない）なので、`ta-61` の警告行は stall ではなく
+「このファイルが構造的に長い」ことの表示である。
+
 ## 進行マーカー / 所要時間レポート / ウォッチドッグ（失敗の属性化）
 
 `tests/run-tests.sh` は extras を **現在のシェルに直列 source** するため、

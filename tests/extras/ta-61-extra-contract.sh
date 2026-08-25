@@ -10,7 +10,14 @@
 #   - migration-period allowlist soundness (_pending_migration / TC-25)
 #   - dual-shell (dash/bash) skip-guard behaviour (TC-29 / issue #1026)
 # Recursion guard: PG_T61_NO_RECURSE=1 skips the nested full-suite and
-# sandbox cases (TC-14 / TC-15 runner / TC-16 / TC-17 sandbox / TC-29).
+# sandbox cases (TC-14 / TC-15 runner / TC-16 / TC-17 sandbox / TC-29) and,
+# since #1207/#1208, also the per-file execution loop (nested 側は静的検査のみ)。
+#
+# 実行コストの knob（既定値のままなら挙動不変。詳細は tests/extras/README.md）:
+#   PG_T61_RUN_TIMEOUT_SEC  既定 180 / 下限 180。1 子プロセスの上限秒。
+#   PG_T61_EXEC_ONLY_PROBES TC-16 sandbox 子専用。実行対象を ta-*-probe-*.sh に限定。
+#   PG_T61_NO_RECURSE       nested 実行であることの宣言（上記のとおり）。
+#   PG_T61_SKIP_SUITE       mutation driver 専用。nested full-suite だけを止める。
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -52,15 +59,57 @@ _T61_HELPER="$_T61_DIR/_extra-contract.sh"
 _T61_RUNNER="$_T61_ROOT/tests/run-tests.sh"
 _T61_NO_RECURSE="${PG_T61_NO_RECURSE:-0}"
 
+# --- per-file 実行ループの適用範囲（#1207 / #1208）------------------------
+# このファイルの所要時間はほぼ全部が「covered な extras 1 本ごとに standalone
+# 子プロセスを起動するループ」である。トップレベル実行からアサーションを一つも
+# 減らさずに済む構造的な削減を 2 つだけ入れる:
+#
+#   * PG_T61_EXEC_ONLY_PROBES=1 — TC-16 の sandbox 子プロセス専用。適用範囲は
+#     呼び出し側が渡すリストではなく **ハードコードされた ta-*-probe-*.sh
+#     パターン**なので、sandbox の外で立てても対象が 0 本になり
+#     TC-25(3) が fail-closed で落ちる（実 run を黙って縮められない）。
+#   * PG_T61_NO_RECURSE=1 かつ上記 knob 無し — nested full-suite 側の子。その
+#     ループは「同じツリーの同じ covered 集合に対して、囲っている run と
+#     まったく同じ standalone 子を起動する」完全な重複であり、#1208 の
+#     自己再帰負荷（load 79 / run-tests.sh 6 本）の実体そのもの。
+#     囲っている run がループの所有者であり、nested 側は静的検査だけを行う。
+_T61_EXEC_LOOP=1
+_T61_EXEC_SCOPE=all
+if [ "${PG_T61_EXEC_ONLY_PROBES:-0}" = "1" ]; then
+  _T61_EXEC_SCOPE=probes-only
+elif [ "$_T61_NO_RECURSE" = "1" ]; then
+  _T61_EXEC_LOOP=0
+fi
+
 _T61_TMP=$(mktemp -d)
 register_cleanup "$_T61_TMP"
 
-# per-file timeout (R-026): >=180s; timeout(1) on CI, perl alarm fallback on macOS
+# per-file timeout (R-026 の下限 180s は不変)。#1208: 固定 180 は負荷非耐性で、
+# 混雑した機械では rc=124 が「実アサーション失敗ではない FAIL」として出ていた。
+# 是正は 2 点:
+#   (1) 予算を PG_T61_RUN_TIMEOUT_SEC で引き上げ可能にする（下限 180 は床。
+#       契約最小値を下げる方向の override は受け付けない）
+#   (2) timeout は従来どおり FAIL（fail-closed。黙って SKIP / 緑にしない）だが、
+#       診断に混雑証跡を載せ「環境由来か実失敗か」を人が切り分けられるようにする
+# 構造原因（このファイルが自分自身へ再帰して負荷を作る）は下の exec scope で除去する。
+_T61_RUN_TIMEOUT="${PG_T61_RUN_TIMEOUT_SEC:-180}"
+case "$_T61_RUN_TIMEOUT" in
+  ''|*[!0-9]*) _T61_RUN_TIMEOUT=180 ;;
+esac
+[ "$_T61_RUN_TIMEOUT" -ge 180 ] 2>/dev/null || _T61_RUN_TIMEOUT=180
 if command -v timeout >/dev/null 2>&1; then
-  _t61_to() { timeout 180 "$@"; }
+  _t61_to() { timeout "$_T61_RUN_TIMEOUT" "$@"; }
 else
-  _t61_to() { perl -e 'alarm 180; exec @ARGV' "$@"; }
+  _t61_to() { perl -e 'alarm shift; exec @ARGV' "$_T61_RUN_TIMEOUT" "$@"; }
 fi
+# 混雑スナップショット。診断専用であり、FAIL を降格する判断には一切使わない。
+# プロセス数は pgrep -f のため観測側スクリプトも拾いうる概算値（多め = 安全側）。
+_t61_contention() {
+  printf 'timeout=%ss matching-suite-procs~%s load1=%s / 環境由来を疑うなら PG_T61_RUN_TIMEOUT_SEC を上げて再実行（それでも本 TC は FAIL のまま）' \
+    "$_T61_RUN_TIMEOUT" \
+    "$(pgrep -f 'run-tests\.sh|ta-61-extra-contract' 2>/dev/null | wc -l | tr -d ' ')" \
+    "$(uptime 2>/dev/null | sed -n 's/.*load average[s]*: *\([0-9.]*\).*/\1/p')"
+}
 
 # ---------------------------------------------------------------------------
 # Migration-period allowlist (Human 決定 4 / MJ-E): explicit list embedded in
@@ -262,6 +311,11 @@ done
 
 # ---------------------------------------------------------------------------
 # TC-11: harness-only all-file direct execution (rc=2 AND id-bearing message)
+if [ "$_T61_EXEC_LOOP" != "1" ]; then
+  t61_info "実行ループ（TC-11 / TC-12 / TC-13 / TC-15(loop) / TC-17(live)）は nested run では走らせない: PG_T61_NO_RECURSE=1。囲っている run が同一ツリーの同一 covered 集合に対して同じ子を既に起動しており、ここでの再実行は完全な重複（#1208 の自己再帰負荷の実体）"
+  _T61_HARNESS_ONLY_LIST=""
+  _T61_STANDALONE_LIST=""
+fi
 _T61_HO_COUNT=0
 for _t61_b in $_T61_HARNESS_ONLY_LIST; do
   _T61_HO_COUNT=$((_T61_HO_COUNT + 1))
@@ -274,7 +328,7 @@ for _t61_b in $_T61_HARNESS_ONLY_LIST; do
     t61_fail "TC-11: $_t61_id direct execution not rejected as specified (rc=$_t61_rc)"
   fi
 done
-if [ "$_T61_HO_COUNT" = "0" ]; then
+if [ "$_T61_HO_COUNT" = "0" ] && [ "$_T61_EXEC_LOOP" = "1" ]; then
   t61_info "TC-11: harness-only in-scope count is 0 — vacuous PASS (recorded, not hidden; full coverage arrives in Slice 2)"
 fi
 
@@ -300,6 +354,19 @@ _t61_contam_args() {
   done
 }
 
+if [ "$_T61_EXEC_SCOPE" = "probes-only" ]; then
+  # TC-16 sandbox 子専用。対象は呼び出し側指定ではなくハードコードされた
+  # ta-*-probe-*.sh パターン（sandbox 外では 0 本 -> TC-25(3) が fail-closed）。
+  _t61_scoped=""
+  for _t61_b in $_T61_STANDALONE_LIST; do
+    case "$_t61_b" in
+      ta-*-probe-*.sh) _t61_scoped="$_t61_scoped $_t61_b" ;;
+    esac
+  done
+  _T61_STANDALONE_LIST="$_t61_scoped"
+  t61_info "exec scope=probes-only (TC-16 sandbox 子): 実行対象を$_T61_STANDALONE_LIST に限定"
+fi
+
 for _t61_b in $_T61_STANDALONE_LIST; do
   _t61_id="${_t61_b%.sh}"
   [ "$_t61_id" = "$_T61_SELF_ID" ] && continue
@@ -309,7 +376,7 @@ for _t61_b in $_T61_STANDALONE_LIST; do
   _t61_rc=0
   _t61_out=$(PG_EXTRA_CONTRACT_PROBE='' PG_EXTRA_CONTRACT_TARGET='' _t61_to sh "$_t61_f" </dev/null 2>&1) || _t61_rc=$?
   if [ "$_t61_rc" = "124" ] || [ "$_t61_rc" = "142" ]; then
-    t61_fail "TC-12: stage-1 run TIMED OUT (>180s, treated as FAIL not SKIP): $_t61_id"
+    t61_fail "TC-12: stage-1 run TIMED OUT: $_t61_id / $(_t61_contention)"
     continue
   fi
   case "$_t61_rc" in
@@ -321,21 +388,40 @@ for _t61_b in $_T61_STANDALONE_LIST; do
       else
         t61_pass "TC-12(a)/TC-13: $_t61_id clean standalone run rc=0 with no [FAIL]"
       fi
-      # TC-12(b): force-fail probe -> rc=1 AND probe marker (R-029-1)
-      _t61_prc=0
-      _t61_pout=$(PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET="$_t61_id" _t61_to sh "$_t61_f" </dev/null 2>&1) || _t61_prc=$?
-      if [ "$_t61_prc" = "1" ] && printf '%s\n' "$_t61_pout" | grep -Fq "PG_EXTRA_CONTRACT_PROBE_FIRED:$_t61_id"; then
-        t61_pass "TC-12(b): $_t61_id force-fail probe propagates to rc=1 with probe marker"
-      else
-        t61_fail "TC-12(b): $_t61_id probe differential failed (rc=$_t61_prc; finalize not reached or marker missing)"
-      fi
-      # TC-15 (loop): contaminated env must behave like the clean baseline
+      # clean baseline の pass 件数（finalize の summary リテラルから取得。
+      # 絶対件数はハードコードせず、同一ファイルの 2 run 間でのみ突合する）
+      _t61_pclean=$(printf '%s\n' "$_t61_out" | sed -n 's/^TA-[0-9]* standalone: \([0-9]*\) passed.*/\1/p' | tail -1)
+      # TC-12(b) + TC-15 (loop) を 1 起動に統合する（#1207）。
+      # 旧実装は「clean + force-fail probe」「汚染 env + 非該当 target」の 2 起動に
+      # 分かれており、covered 1 本あたり 3 起動を要した。統合 run は
+      # **汚染 env のまま自分自身を target にした force-fail probe** を走らせ、
+      #   - rc=1                                  ... probe が finalize まで伝播した
+      #   - PG_EXTRA_CONTRACT_PROBE_FIRED:<id>    ... その rc=1 は probe 由来
+      #   - [FAIL] 行がちょうど 1 本              ... probe 以外の失敗が無い
+      #   - summary の pass 件数 == clean baseline ... 汚染で検査が減っていない
+      # を同時に主張する。検出力は据え置きではなく **強化** されている:
+      # 旧 TC-15 は rc=0 しか見ないため「汚染 env で検査が黙って半分に減るが
+      # rc は 0 のまま」という劣化を素通しした（mutation M3b）。新 assert は
+      # pass 件数の同値照合でこれを落とす。
+      # 失う検出力は 1 点のみ:「他 test-id を target にした probe が発火しない」の
+      # per-file 確認。これは helper 側の 1 箇所の比較（_extra-contract.sh の
+      # PROBE_TARGET == _PG_EXTRA_ID）であって per-file のコードではないため、
+      # 下の合成 TC-15(target-isolation) で helper レベルに 1 本で担保する。
       _t61_crc=0
-      _t61_cout=$(_t61_to env $(_t61_contam_args) PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET=ta-00-none sh "$_t61_f" </dev/null 2>&1) || _t61_crc=$?
-      if [ "$_t61_crc" = "0" ]; then
-        t61_pass "TC-15: $_t61_id contaminated-env standalone run matches clean baseline (rc=0)"
+      _t61_cout=$(_t61_to env $(_t61_contam_args) PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET="$_t61_id" sh "$_t61_f" </dev/null 2>&1) || _t61_crc=$?
+      if [ "$_t61_crc" = "124" ] || [ "$_t61_crc" = "142" ]; then
+        t61_fail "TC-12(b)/TC-15: $_t61_id merged run TIMED OUT: $(_t61_contention)"
       else
-        t61_fail "TC-15: $_t61_id contaminated-env standalone run diverged (rc=$_t61_crc)"
+        _t61_cfails=$(printf '%s\n' "$_t61_cout" | grep -c '^[[:space:]]*\[FAIL\]' 2>/dev/null || true)
+        _t61_pcontam=$(printf '%s\n' "$_t61_cout" | sed -n 's/^TA-[0-9]* standalone: \([0-9]*\) passed.*/\1/p' | tail -1)
+        if [ "$_t61_crc" = "1" ] \
+           && printf '%s\n' "$_t61_cout" | grep -Fq "PG_EXTRA_CONTRACT_PROBE_FIRED:$_t61_id" \
+           && [ "$_t61_cfails" = "1" ] \
+           && [ -n "$_t61_pclean" ] && [ "$_t61_pcontam" = "$_t61_pclean" ]; then
+          t61_pass "TC-12(b)/TC-15: $_t61_id 汚染 env 下で probe が finalize まで伝播（rc=1 / [FAIL] は probe の 1 本のみ / pass 件数 $_t61_pcontam == clean baseline）"
+        else
+          t61_fail "TC-12(b)/TC-15: $_t61_id merged probe+contamination run diverged (rc=$_t61_crc fail_lines=$_t61_cfails pass_contaminated=$_t61_pcontam pass_clean=$_t61_pclean; finalize 未到達 / probe marker 欠落 / 汚染で検査件数が変化 のいずれか)"
+        fi
       fi
       ;;
     3)
@@ -355,8 +441,13 @@ for _t61_b in $_T61_STANDALONE_LIST; do
 done
 [ -n "$_T61_PREREQ_ABSENT" ] && t61_info "stage-1 prerequisite-absent class:$_T61_PREREQ_ABSENT"
 
-# TC-25 assert 3: the per-file loop actually started executing at least one file
-if [ "$_T61_EXEC_COUNT" -gt 0 ]; then
+# TC-25 assert 3: the per-file loop actually started executing at least one file.
+# nested run（PG_T61_NO_RECURSE=1 かつ probes-only でない）はループを所有しない
+# ため対象外。トップレベル run と probes-only sandbox 子では従来どおり
+# 「0 本なら vacuous」で fail-closed する。
+if [ "$_T61_EXEC_LOOP" != "1" ]; then
+  t61_info "TC-25(3): nested run のため per-file 実行ループは非所有（囲っている run 側で assert 済み）"
+elif [ "$_T61_EXEC_COUNT" -gt 0 ]; then
   t61_pass "TC-25(3): per-file execution loop started $_T61_EXEC_COUNT file run(s) (non-zero)"
 else
   t61_fail "TC-25(3): per-file execution loop executed ZERO files — contract checks are vacuous (covered set collapsed in $_T61_DIR)"
@@ -578,6 +669,19 @@ else
   t61_fail "TC-17(probe): probe fired on a prerequisite-absent run (rc=$_t61_rc, want 3)"
 fi
 
+# TC-15(target-isolation): 他 test-id を target にした probe は発火してはならない。
+# #1207 で per-file ループの 3 起動目（汚染 env + 非該当 target）を統合したため、
+# この性質の確認をここ（helper レベル 1 本）へ移した。target 比較は
+# _extra-contract.sh の 1 箇所であり per-file のコードではないので、
+# per-file × N から helper × 1 への移動で検出対象は変わらない。
+_t61_rc=0
+_t61_out=$(PG_EXTRA_CONTRACT_PROBE= PG_EXTRA_CONTRACT_TARGET= T61_HELPER="$_T61_HELPER" PG_EXTRA_CONTRACT_PROBE=force-fail PG_EXTRA_CONTRACT_TARGET=ta-00-none sh "$_T61_FX/tc03.sh" </dev/null 2>&1) || _t61_rc=$?
+if [ "$_t61_rc" = "0" ] && ! printf '%s\n' "$_t61_out" | grep -Fq 'PG_EXTRA_CONTRACT_PROBE_FIRED'; then
+  t61_pass "TC-15(target-isolation): 非該当 test-id を target にした force-fail probe は発火しない (rc=0)"
+else
+  t61_fail "TC-15(target-isolation): 非該当 target の probe が発火した (rc=$_t61_rc): $_t61_out"
+fi
+
 # TC-21: register_cleanup not redefined in harness; helper is set -eu source-safe
 cat > "$_T61_FX/tc21.sh" <<'FX21'
 set -eu
@@ -763,7 +867,13 @@ pg_extra_contract_init ta-99-probe-c standalone-capable
 :
 P16C
       _t61_rc=0
-      _t61_out=$(PG_T61_NO_RECURSE=1 PG_EXTRA_CONTRACT_PROBE='' PG_EXTRA_CONTRACT_TARGET='' sh "$_T61_SBX/$_T61_SELF_ID.sh" </dev/null 2>&1) || _t61_rc=$?
+      # PG_T61_EXEC_ONLY_PROBES=1: 実行ループを ta-*-probe-*.sh だけに絞る（#1207）。
+      # TC-16 が主張するのは「A/B/C の 3 パターンが検出されること」であり、
+      # sandbox 子が covered 全件を再実行する必要はない。A は marker 欠落 =
+      # 静的 TC-09、B は init 不一致 = 静的 TC-10 で捕まり、実行を要するのは
+      # C（finalize 欠落 -> probe 不伝播）1 本だけ。下の hit_a/hit_b/hit_c 判定は
+      # 一切変えていないので、この TC の検出力は同一。
+      _t61_out=$(PG_T61_NO_RECURSE=1 PG_T61_EXEC_ONLY_PROBES=1 PG_EXTRA_CONTRACT_PROBE='' PG_EXTRA_CONTRACT_TARGET='' sh "$_T61_SBX/$_T61_SELF_ID.sh" </dev/null 2>&1) || _t61_rc=$?
       _t61_hit_a=0; _t61_hit_b=0; _t61_hit_c=0
       printf '%s\n' "$_t61_out" | grep -q 'TC-09.*ta-97-probe-a' && _t61_hit_a=1
       printf '%s\n' "$_t61_out" | grep -q 'TC-10.*ta-98-probe-b' && _t61_hit_b=1
