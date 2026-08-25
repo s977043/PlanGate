@@ -19,13 +19,27 @@ _t42_work="$_t42_root/docs/working/$_t42_task"
 t42_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t42_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
-# テスト後の cleanup 登録（AC-05）
-register_cleanup "$_t42_work"
+# ── 一時状態の射程宣言 + 先頭 prune + cleanup 登録（#947 / #1209 / #1210）──
+# 本 extras が「共有の実 repo パス」に作る一時状態を 1 箇所で宣言し、
+# body の副作用より前にまとめて prune してから register_cleanup へ登録する。
+# 使用箇所ごとに rm を散らすと「事前掃除が使用箇所より後にある」順序バグを生む
+# （#947 問題 1 の実体: TASK-T999 の掃除が TC-04 の判定より後にあり、中断残骸が
+#  TC-04 を誤 FAIL させていた）。宣言を 1 箇所へ集約して順序バグを構造的に排除する。
+# ${_t42_p:?} は防御的措置（#1210）— 実バグの修正ではなく、将来「変数が空のまま
+# rm に渡る」退行が入ったときに黙って広い範囲を消さないためのガード。
+_t42_task_t999_work="$_t42_root/docs/working/TASK-T999"
+_t42_scope_reset() {
+  for _t42_p in "$@"; do
+    rm -rf "${_t42_p:?ta-42: empty cleanup path refused}"
+    if command -v register_cleanup >/dev/null 2>&1; then
+      register_cleanup "$_t42_p"
+    fi
+  done
+}
+_t42_scope_reset "$_t42_work" "$_t42_task_t999_work"
 
 # ── TC-01: init 正常系（新規 TASK 作成）────────────────────────────────────
-if [ -d "$_t42_work" ]; then
-  rm -rf "$_t42_work"
-fi
+# 事前掃除は _t42_scope_reset（body の副作用より前）で完了済み。
 if "$_t42_bin" init "$_t42_task" >/dev/null 2>&1; then
   if [ -f "$_t42_work/pbi-input.md" ] && [ -d "$_t42_work/approvals" ] && [ -d "$_t42_work/evidence" ]; then
     t42_pass "TC-01 AC-01: init creates task dir + pbi-input.md + approvals/ + evidence/"
@@ -87,9 +101,7 @@ fi
 
 # ── TC-06: handoff 非存在 TASK（mkdir-p で自動作成 → exit 0）──────────────
 # handoff は task dir がなくても mkdir -p + cp で作成するため exit 0 が正常動作
-_t42_task_t999_work="$_t42_root/docs/working/TASK-T999"
-register_cleanup "$_t42_task_t999_work"
-if [ -d "$_t42_task_t999_work" ]; then rm -rf "$_t42_task_t999_work"; fi
+# 掃除・登録ともに _t42_scope_reset で先頭実施済み（TC-04 より前）。
 # set -e 対応: || パターンで rc を捕捉（POSIX 準拠）
 _t42_rc=0
 _t42_out=$("$_t42_bin" handoff TASK-T999 2>&1) || _t42_rc=$?

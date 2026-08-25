@@ -11,8 +11,26 @@ PG_T12_MAINT_DIR="$PG_T12_ROOT/docs/working/_maintenance"
 PG_T12_MAINT="$PG_T12_MAINT_DIR/maintenance.json"
 PG_T12_SCHEMA="$PG_T12_ROOT/schemas/maintenance.schema.json"
 
+# ── 一時状態の射程宣言 + 先頭 prune + cleanup 登録（#1209 / #1210）──────
+# 本 extras は EH-3 のメンテ承認判定を検査するため、$PG_T12_MAINT（実の repo 配下）
+# を使うしかない。bin/plangate も scripts/hooks/check-plan-hash.sh も $REPO_ROOT 配下を
+# 固定参照しており、sandbox へ逃がす env seam が存在しない（両者とも Hardening
+# Override 対象のため本 PR からは触れない）。結果として中断残骸が EH-3 の
+# legacy 窓を開けたままにしうる（#1209）。緩和は 3 点: (1) body の副作用より前の
+# prune (2) register_cleanup 登録によるハーネス末尾 drain (3) TTL の最小化。
+# ${_t12_p:?} は防御的措置（#1210）— 実バグの修正ではなく、将来「変数が空の
+# まま rm に渡る」退行が入ったときに黙って広い範囲を消さないためのガード。
+_t12_scope_reset() {
+  for _t12_p in "$@"; do
+    rm -rf "${_t12_p:?ta-12: empty cleanup path refused}"
+    if command -v register_cleanup >/dev/null 2>&1; then
+      register_cleanup "$_t12_p"
+    fi
+  done
+}
+_t12_scope_reset "$PG_T12_MAINT"
+
 mkdir -p "$PG_T12_MAINT_DIR"
-rm -f "$PG_T12_MAINT" 2>/dev/null || true
 
 t12_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t12_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
@@ -52,17 +70,22 @@ PYV
 if [ $? -eq 0 ]; then t12_pass "schema v1/v2/additionalProperties:false"; else t12_fail "schema"; fi
 
 # Hook fixture helpers
-_t12_now=$(date -u +%s)
-_t12_v1() { cat > "$PG_T12_MAINT" <<EOF
-{"scope":"t","until":$((_t12_now+600)),"granted_at":$((_t12_now-1)),"reason":"t","approved_by":"t"}
+# fixture の TTL は「テストが必要とする最小値」に縮める（#1209）。旧実装は
+# until = _t12_now + 600（_t12_now はファイル冒頭で 1 度だけ固定）で、中断残骸が
+# 最大 600 秒「非 HO パスへの無条件 MAINTENANCE_SKIP」窓を残していた。呼出時に
+# now を取り直し TTL=$_T12_TTL 秒にすることで、各 TC の hook 呼出には十分な余裕を
+# 残しつつ残骸窓を 1/10 へ縮める。
+_T12_TTL=60
+_t12_v1() { _t12_n=$(date -u +%s); cat > "$PG_T12_MAINT" <<EOF
+{"scope":"t","until":$((_t12_n+_T12_TTL)),"granted_at":$((_t12_n-1)),"reason":"t","approved_by":"t"}
 EOF
 }
-_t12_v2() { cat > "$PG_T12_MAINT" <<EOF
-{"scope":"t","until":$((_t12_now+600)),"granted_at":$((_t12_now-1)),"reason":"t","approved_by":"t","allowed_paths":["README.md"],"one_shot":true}
+_t12_v2() { _t12_n=$(date -u +%s); cat > "$PG_T12_MAINT" <<EOF
+{"scope":"t","until":$((_t12_n+_T12_TTL)),"granted_at":$((_t12_n-1)),"reason":"t","approved_by":"t","allowed_paths":["README.md"],"one_shot":true}
 EOF
 }
-_t12_expired() { cat > "$PG_T12_MAINT" <<EOF
-{"scope":"t","until":$((_t12_now-10)),"granted_at":$((_t12_now-1200)),"reason":"t","approved_by":"t"}
+_t12_expired() { _t12_n=$(date -u +%s); cat > "$PG_T12_MAINT" <<EOF
+{"scope":"t","until":$((_t12_n-10)),"granted_at":$((_t12_n-1200)),"reason":"t","approved_by":"t"}
 EOF
 }
 
@@ -163,5 +186,6 @@ assert 'remaining_mmss' in m and 'remaining_seconds' in m
   && t12_pass "TC-34 doctor --json (active v2 fixture)" \
   || t12_fail "TC-34 doctor JSON v2"
 
-# cleanup
-rm -f "$PG_T12_MAINT" 2>/dev/null || true
+# cleanup（register_cleanup 未提供環境向けの明示後始末。
+# harness では _pg_drain_cleanup が二重に担保する）
+rm -f "${PG_T12_MAINT:?ta-12: empty token path refused}" 2>/dev/null || true

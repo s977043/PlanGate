@@ -45,6 +45,27 @@ fi
 
 _T44_BIN="$_T44_ROOT/bin/plangate"
 
+# ── 一時状態の射程宣言 + 先頭 prune + cleanup 登録（#947 / #1210）─────
+# hook スクリプトが REPO_ROOT を内部計算するため sandbox を実の docs/working/
+# 配下に置くしかない。使用箇所ごとに rm を散らさず、body の副作用より前に
+# 一括 prune してから register_cleanup へ登録する（#947 問題 1 と同型の
+# 「事前掃除が使用箇所より後にある」順序バグを構造的に排除）。
+# SKIP 経路でも prune だけは先に走る—— 前回中断時の残骸を残さないため。
+# ${_T44_ROOT:?} / ${_t44_p:?} は防御的措置（#1210）— 実バグの修正ではなく、
+# 将来「変数が空のまま rm に渡る」退行が入ったときのガード。
+_T44_TASK_NONE="TASK-T4400-ta44-tmp"
+_T44_TASK_OK="TASK-T4401-ta44-tmp"
+_T44_WDIR="${_T44_ROOT:?ta-44: repo root unresolved}/docs/working"
+_t44_scope_reset() {
+  for _t44_p in "$@"; do
+    rm -rf "${_t44_p:?ta-44: empty cleanup path refused}"
+    if command -v register_cleanup >/dev/null 2>&1; then
+      register_cleanup "$_t44_p"
+    fi
+  done
+}
+_t44_scope_reset "$_T44_WDIR/$_T44_TASK_NONE" "$_T44_WDIR/$_T44_TASK_OK"
+
 t44_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t44_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
@@ -76,18 +97,9 @@ fi
 # ── TC-01: 適用済み確認 ──────────────────────────────────────────
 t44_pass "TC-01: apply 適用済み (bin/plangate に check-test-cases.sh 配線あり)"
 
-# ── サンドボックス: REPO 配下に一時 TASK ディレクトリを作成 ──────
-# hook スクリプトが REPO_ROOT を内部計算するため、実際の docs/working/ 配下を使う
-_T44_TASK_NONE="TASK-T4400-ta44-tmp"
-_T44_TASK_OK="TASK-T4401-ta44-tmp"
-_T44_WDIR="$_T44_ROOT/docs/working"
+# ── サンドボックスの実体作成（宣言・prune・登録は先頭で実施済）────
 mkdir -p "$_T44_WDIR/$_T44_TASK_NONE" "$_T44_WDIR/$_T44_TASK_OK"
 touch "$_T44_WDIR/$_T44_TASK_OK/test-cases.md"
-# register_cleanup を使って run-tests.sh の一括削除に委譲
-if command -v register_cleanup >/dev/null 2>&1; then
-  register_cleanup "$_T44_WDIR/$_T44_TASK_NONE"
-  register_cleanup "$_T44_WDIR/$_T44_TASK_OK"
-fi
 
 # ── TC-02: EH-4 strict — test-cases.md なし → exit 1 ────────────
 rc=0
@@ -124,9 +136,9 @@ else
   t44_fail "TC-05 AC-07: doctor が check-test-cases.sh を報告しない"
 fi
 
-# ── クリーンアップ（register_cleanup 未使用環境向け） ──────────
+# ── クリーンアップ（register_cleanup 未提供環境向けの明示後始末）─────
 if ! command -v register_cleanup >/dev/null 2>&1; then
-  rm -rf "$_T44_WDIR/$_T44_TASK_NONE" "$_T44_WDIR/$_T44_TASK_OK" 2>/dev/null || true
+  rm -rf "$_T44_WDIR/${_T44_TASK_NONE:?}" "$_T44_WDIR/${_T44_TASK_OK:?}" 2>/dev/null || true
 fi
 
 pg_extra_contract_finalize
