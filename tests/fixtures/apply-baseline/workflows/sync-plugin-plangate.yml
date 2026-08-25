@@ -1,0 +1,103 @@
+name: sync-plugin-plangate
+
+# plugin/plangate/ を main push のたびに .claude/ と同期し、差分あり時に PR を自動作成。
+# merge は Human-owned (C-4)。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.claude/**'
+      - '.agents/skills/**'
+      - 'CHANGELOG.md'
+      - 'docs/ai/ai-loop/**'
+      - 'docs/workflows/ai-loop/**'
+      - 'scripts/ai-loop/**'
+      - 'scripts/_ai_loop_link_rewrite.py'
+      - 'scripts/sync-plugin-plangate.sh'
+      - 'plugin/plangate/**'
+  pull_request:
+    paths:
+      - '.claude/**'
+      - '.agents/skills/**'
+      - 'docs/ai/ai-loop/**'
+      - 'docs/workflows/ai-loop/**'
+      - 'scripts/ai-loop/**'
+      - 'scripts/_ai_loop_link_rewrite.py'
+      - 'scripts/sync-plugin-plangate.sh'
+      - 'plugin/plangate/**'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  # PR 段階で plugin/plangate/ と正本の drift を検出する (#842 R-005)。
+  # push 後の同期 PR だけでは「main にマージされてから気づく」構造のため、
+  # PR 時点で sync 実行後の差分ゼロを必須とする。
+  drift-check:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+
+      - name: Verify plugin/plangate is in sync with sources
+        run: |
+          sh scripts/sync-plugin-plangate.sh
+          if ! git diff --quiet -- plugin/plangate/; then
+            echo "::error::plugin/plangate/ が正本と乖離しています。ローカルで 'sh scripts/sync-plugin-plangate.sh' を実行し、結果をコミットしてください。"
+            git diff --stat -- plugin/plangate/
+            exit 1
+          fi
+          echo "plugin/plangate/ is in sync with sources."
+
+  sync:
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+
+      - name: Codex skill spec check
+        run: sh scripts/check-codex-skill-spec.sh --warn-only
+
+      - name: Run sync script
+        run: sh scripts/sync-plugin-plangate.sh
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- plugin/plangate/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PR if changed
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="chore/plugin-sync-${{ github.run_id }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add plugin/plangate/
+          git commit -m "chore(plugin): .claude/ → plugin/plangate/ 自動同期"
+          git push origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(plugin): plugin/plangate/ 自動同期" \
+            --body "push to main をトリガーに \`scripts/sync-plugin-plangate.sh\` が .claude/ との差分を検出しました。merge は Human-owned (C-4)。"

@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  settings-drift:
+    name: settings wiring drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: settings wiring 契約 ↔ settings.example.json 整合（TASK-0080 S2）
+        run: sh scripts/check-settings-wiring.sh --target example
+
+  skip-ack:
+    name: SKIP_REASON 追認
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: EH-3 SKIP の人間追認確認（TASK-0082 S5）
+        run: sh scripts/check-skip-acknowledged.sh
+
+  markdown:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lint Markdown
+        uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0
+        with:
+          globs: |
+            README.md
+            CHANGELOG.md
+            .github/PULL_REQUEST_TEMPLATE.md
+            CODE_OF_CONDUCT.md
+            CONTRIBUTING.md
+            SECURITY.md
+            docs/index.md
+            docs/pages/explanation/product/philosophy.md
+            docs/pages/guides/governance/oss-governance.md
+            docs/workflows/**/*.md

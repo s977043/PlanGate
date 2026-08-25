@@ -1,0 +1,44 @@
+name: SLSA Provenance
+
+# リリース公開時に SLSA build provenance を生成し release asset に添付する。
+# Scorecard CII-Best-Practices / SLSA チェック対応。
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  provenance:
+    permissions:
+      id-token: write      # SLSA signing (OIDC token)
+      contents: write      # release asset upload
+      attestations: write  # GitHub Attestations API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Create release archive
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          git archive --format=tar.gz \
+            --prefix="plangate-${RELEASE_TAG}/" \
+            HEAD \
+            -o "plangate-${RELEASE_TAG}.tar.gz"
+          echo "ARCHIVE=plangate-${RELEASE_TAG}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Generate SLSA provenance attestation
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ env.ARCHIVE }}
+
+      - name: Upload archive to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release upload "${RELEASE_TAG}" \
+            "${ARCHIVE}" --clobber

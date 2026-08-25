@@ -12,7 +12,13 @@
 #   REPO_ROOT 解決（scripts/ -> ..）がサンドボックスを指す性質を使って検証する。
 #   trap は張らず register_cleanup + 末尾 rm -rf の二重で回収する。
 #
+# 入力は tests/fixtures/apply-baseline/workflows/check-pr-issue-link.yml（**未適用状態で
+# 凍結**）。実 workflow をコピーしていた旧設計は、実 repo が適用済みだと apply が no-op に
+# なり、削除対象が既に無い / 追加対象が既にある入力で **検出力ゼロの恒真 PASS** を作って
+# いた（TC-05 / TC-11 / TC-14）。詳細は tests/fixtures/apply-baseline/README.md。
+#
 # 契約する不変条件:
+#   TC-00 fixture が未適用である（恒真 PASS 防止。適用済みなら SKIP でなく FAIL）
 #   TC-01 スクリプトが存在する
 #   TC-02 sh -n が通る（構文）
 #   TC-03 引数なし / --dry-run が rc=0 かつ 1 バイトも書かない、diff を出す
@@ -29,6 +35,7 @@
 #   TC-14 生成 step が 4 値判定に写像される（WARN->::warning:: / NOTICE->::notice::、
 #         いずれも PR タイムラインを汚さない設計意図つき）
 #   TC-15 生成後の workflow が yaml.safe_load を通る
+#   TC-16 実 repo アンカー probe（実 workflow への --dry-run が rc=0・書き込みなし）
 #   TC-13 サンドボックスを明示削除（実 workflow には一切書き込まない）
 
 # ---- extras execution contract bootstrap (#921) ----------------------------
@@ -61,7 +68,20 @@ else
 fi
 
 _T73_APPLY="$_T73_ROOT/scripts/apply-pr-issue-link-comment-removal.sh"
-_T73_WF="$_T73_ROOT/.github/workflows/check-pr-issue-link.yml"
+
+# ── 入力の射程宣言（規約 9 と同じ思想）───────────────────────────────
+# 本 TA が読む入力は次の 2 つだけ。どちらも **実 repo の適用状態に依存しない**。
+#   (1) _T73_WF   : 未適用状態で凍結した fixture（唯一の apply 対象入力）
+#                   tests/fixtures/apply-baseline/README.md を参照
+#   (2) _T73_REAL : 実 check-pr-issue-link.yml（**--dry-run の probe でのみ読む**）
+# 書き込みは mktemp サンドボックス配下のみ。register_cleanup + 末尾 rm -rf で回収。
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
+  _T73_FXD="$FIXTURES_DIR"
+else
+  _T73_FXD="$(CDPATH= cd -- "$(dirname -- "$0")/../fixtures" && pwd)"
+fi
+_T73_WF="$_T73_FXD/apply-baseline/workflows/check-pr-issue-link.yml"
+_T73_REAL="$_T73_ROOT/.github/workflows/check-pr-issue-link.yml"
 
 t73_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t73_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
@@ -75,7 +95,7 @@ _t73_run() {
 }
 
 if [ ! -f "$_T73_APPLY" ] || [ ! -f "$_T73_WF" ]; then
-  pg_extra_contract_skip "apply script or workflow absent"
+  pg_extra_contract_skip "apply script or baseline fixture absent"
 else
 
 _t73_mksbx() {
@@ -88,6 +108,23 @@ _t73_mksbx() {
 _t73_wf_of() { printf '%s' "$1/.github/workflows/check-pr-issue-link.yml"; }
 _t73_run_of() { printf '%s' "$1/scripts/apply-pr-issue-link-comment-removal.sh"; }
 _t73_sum() { cksum <"$1"; }
+
+# === TC-00: fixture 前提検査（未適用であること）===
+# fixture が「適用済み」に差し替わると TC-05 / TC-09 / TC-10 / TC-11 / TC-14 は
+# 差分ゼロで恒真 PASS になる（実際に旧設計ではそうなっていた）。ここで FAIL させる。
+_t73_pre=1
+_t73_why=''
+if ! grep -Fq "      - name: Post warning comment (if WARN)" "$_T73_WF"; then
+  _t73_pre=0; _t73_why="$_t73_why 削除対象 'Post warning comment' が無い;"
+fi
+if grep -Fq "      - name: Annotate WARN" "$_T73_WF"; then
+  _t73_pre=0; _t73_why="$_t73_why 追加対象 'Annotate WARN' が既にある;"
+fi
+if [ "$_t73_pre" -eq 1 ]; then
+  t73_pass "TC-00 fixture が未適用状態（削除対象あり / 追加対象なし）"
+else
+  t73_fail "TC-00 fixture が未適用でない — 以降の TC が恒真 PASS になる:$_t73_why"
+fi
 
 # === TC-01: 存在 ===
 if [ -f "$_T73_APPLY" ]; then
@@ -314,6 +351,27 @@ if [ "$_t73_rc" -eq 1 ] && printf '%s\n' "$_t73_out" | grep -Fq "target not foun
   t73_pass "TC-12 対象 workflow 不在は rc=1"
 else
   t73_fail "TC-12 rc=$_t73_rc out=$_t73_out"
+fi
+
+# === TC-16: 実 repo アンカー probe（read-only）===
+# 実 check-pr-issue-link.yml に対し --dry-run を 1 回だけ走らせる。dry-run は 1 バイトも
+# 書かないので HO パスに触れない。実 workflow がアンカーを失う方向に drift すれば
+# apply は anchor not found で rc=1 になり、ここが落ちる。
+#   未適用 checkout -> unified diff で rc=0 / 適用済み checkout -> already applied で rc=0
+# どちらでも rc=0 なので **適用状態に依存しない**。
+if [ ! -f "$_T73_REAL" ]; then
+  printf '  [SKIP] TC-16: 実 workflow が無い: %s\n' "$_T73_REAL"
+else
+  _t73_rb=$(_t73_sum "$_T73_REAL")
+  _t73_run sh "$_T73_APPLY" --dry-run
+  _t73_ra=$(_t73_sum "$_T73_REAL")
+  if [ "$_t73_rc" -eq 0 ] && [ "$_t73_rb" = "$_t73_ra" ] \
+     && { printf '%s\n' "$_t73_out" | grep -Fq "[dry-run] no file written" \
+          || printf '%s\n' "$_t73_out" | grep -Fq "already applied"; }; then
+    t73_pass "TC-16 実 repo アンカー probe: --dry-run rc=0 かつ実ファイルはバイト不変"
+  else
+    t73_fail "TC-16 実 workflow がアンカーを失っている可能性 (rc=$_t73_rc): $_t73_out"
+  fi
 fi
 
 # === TC-13: サンドボックスを明示削除（実 workflow には一切書き込まない）===

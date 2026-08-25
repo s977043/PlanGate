@@ -15,10 +15,18 @@
 #   TC-06: アンカー未検出なら exit 1 かつ **全ファイルが不変**（部分適用しない）
 #   TC-07: 実 HO パス（<repo>/.github/workflows）への --apply は
 #          PLANGATE_APPLY_CONFIRM 無しでは exit 1 かつ 1 バイトも書かない
+#   TC-08: 実 repo アンカー probe — 実 .github/workflows への --dry-run が rc=0
+#          （書き込みは一切しない。適用状態に依存せず drift だけを見る）
 #
-# 空振り防止: TC-04 は「FAIL が無い」ではなく「適用後に期待する構造が実在する」ことを
-# 見る。TC-06 は「exit 1 になった」だけでなく「他ファイルの cksum が変わっていない」
-# ことまで見る（部分適用は exit 1 でも起きうる）。
+# 入力は tests/fixtures/apply-baseline/workflows/（**未適用状態で凍結**）。
+# 実 .github/workflows をコピーしていた旧設計は、**実 repo が適用済みだと apply が
+# no-op になり dry-run 差分も冪等判定も成立しない**（= CI は緑なのに適用を検証した
+# 人の手元だけ赤い）ため廃止した。詳細は tests/fixtures/apply-baseline/README.md。
+#
+# 空振り防止: TC-00 が「fixture が本当に未適用か」を先に確認する（適用済みの YAML を
+# 置くと SKIP ではなく FAIL）。TC-04 は「FAIL が無い」ではなく「適用後に期待する構造が
+# 実在する」ことを見る。TC-06 は「exit 1 になった」だけでなく「他ファイルの cksum が
+# 変わっていない」ことまで見る（部分適用は exit 1 でも起きうる）。
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
   _pg_extra_dir="$EXTRAS_DIR"
@@ -50,13 +58,24 @@ t74_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
 _T74_ROOT="$(CDPATH= cd -- "$_pg_extra_dir/../.." && pwd)"
 _T74_AP="$_T74_ROOT/scripts/apply-workflow-hygiene.sh"
-_T74_WF="$_T74_ROOT/.github/workflows"
+
+# ── 入力の射程宣言（規約 9 と同じ思想）───────────────────────────────
+# 本 TA が読む入力は次の 2 つだけ。どちらも **実 repo の適用状態に依存しない**。
+#   (1) _T74_WF   : 未適用状態で凍結した fixture（唯一の apply 対象入力）
+#                   tests/fixtures/apply-baseline/README.md を参照
+#   (2) _T74_REAL : 実 .github/workflows（**--dry-run の probe でのみ読む**。
+#                   書き込みは一切しない）
+# 書き込みは mktemp サンドボックス配下のみ。所有者は本 TA で、
+# register_cleanup + 末尾の明示 rm -rf で回収する。
+_T74_FXD="${FIXTURES_DIR:-$_pg_extra_dir/../fixtures}"
+_T74_WF="$_T74_FXD/apply-baseline/workflows"
+_T74_REAL="$_T74_ROOT/.github/workflows"
 
 if [ ! -f "$_T74_AP" ]; then
   pg_extra_contract_skip "missing target script: $_T74_AP"
 fi
 if [ ! -d "$_T74_WF" ]; then
-  pg_extra_contract_skip "missing workflows dir: $_T74_WF"
+  pg_extra_contract_skip "missing fixture workflows dir: $_T74_WF"
 fi
 if ! command -v python3 >/dev/null 2>&1; then
   pg_extra_contract_skip "python3 not available (apply スクリプトの本体が python3)"
@@ -113,6 +132,26 @@ _t74_digest() {
     printf '%s %s\n' "$(basename "$_t74_f")" "$(cksum <"$_t74_f")"
   done
 }
+
+# --- TC-00 fixture 前提検査（未適用であること）---
+# fixture が「適用済み」に差し替わると、以降の TC は差分ゼロで恒真 PASS になる。
+# 黙って緑にしないため、ここで **FAIL** させる（SKIP ではない）。
+_t74_pre=1
+_t74_why=''
+if grep -q 'timeout-minutes:' "$_T74_WF/codeql.yml" 2>/dev/null; then
+  _t74_pre=0; _t74_why="$_t74_why codeql.yml に timeout-minutes が既にある;"
+fi
+if grep -q '^concurrency:' "$_T74_WF/check-pr-issue-link.yml" 2>/dev/null; then
+  _t74_pre=0; _t74_why="$_t74_why check-pr-issue-link.yml に concurrency が既にある;"
+fi
+if ! grep -q '^  pull-requests: write' "$_T74_WF/check-pr-issue-link.yml" 2>/dev/null; then
+  _t74_pre=0; _t74_why="$_t74_why check-pr-issue-link.yml の top-level pull-requests: write が無い;"
+fi
+if [ "$_t74_pre" -eq 1 ]; then
+  t74_pass "TC-00 fixture が未適用状態（(A)(B)(C) いずれも未適用）"
+else
+  t74_fail "TC-00 fixture が未適用でない — 以降の TC が恒真 PASS になる:$_t74_why"
+fi
 
 # --- TC-01 引数 strict 検証 ---
 _t74_rc=0
@@ -237,6 +276,28 @@ else
     t74_pass "TC-07 実 HO パスへの --apply: 確認なしは exit 1 + 無変更 / 確認ありで適用"
   else
     t74_fail "TC-07 HO 書き込みガードが破れている (no-confirm rc=$_t74_rc / confirm rc=$_t74_rc2)"
+  fi
+fi
+
+# --- TC-08 実 repo アンカー probe（read-only）---
+# 実 .github/workflows に対し --dry-run を 1 回だけ走らせる。dry-run は 1 バイトも
+# 書かないので HO パスに触れない。実 workflow がアンカーを失う方向に drift すれば
+# apply は anchor not found で rc=1 になり、ここが落ちる。
+#   未適用 checkout -> "WILL CHANGE" で rc=0 / 適用済み checkout -> "already applied" で rc=0
+# どちらでも rc=0 なので **適用状態に依存しない**。
+if [ ! -d "$_T74_REAL" ]; then
+  printf '  [SKIP] TC-08: 実 workflows dir が無い: %s\n' "$_T74_REAL"
+else
+  _t74_rbefore="$(_t74_digest "$_T74_REAL")"
+  _t74_rc=0
+  _t74_out="$(PLANGATE_WF_DIR="$_T74_REAL" sh "$_T74_AP" --dry-run 2>&1)" || _t74_rc=$?
+  _t74_rafter="$(_t74_digest "$_T74_REAL")"
+  if [ "$_t74_rc" -eq 0 ] && [ "$_t74_rbefore" = "$_t74_rafter" ] \
+     && { printf '%s' "$_t74_out" | grep -q 'WILL CHANGE' \
+          || printf '%s' "$_t74_out" | grep -q 'already applied'; }; then
+    t74_pass "TC-08 実 repo アンカー probe: --dry-run rc=0 かつ実ファイルはバイト不変"
+  else
+    t74_fail "TC-08 実 workflows がアンカーを失っている可能性 (rc=$_t74_rc): $_t74_out"
   fi
 fi
 
