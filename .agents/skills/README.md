@@ -4,6 +4,10 @@
 
 ## ワークフロー運用スキル（Codex CLI 専用）
 
+> 節名は Codex CLI 運用を主眼にした歴史的名称。実体としては本表のスキルも
+> `.agents/skills/` を正本に `.claude` / `.codex` / plugin の 3 root へ配布され、
+> Claude Code からも読める（例: `plan-review-gate` / `plan-normalization`）。
+
 | スキル | 役割 |
 |--------|------|
 | `ai-dev-brainstorm` | アイデアや曖昧な要件を `pbi-input.md` に整理する |

@@ -25,6 +25,23 @@ C-3 human approval / plan_hash 固定
 exec
 ```
 
+## 適用範囲（この Gate が掛かる対象）
+
+本 Gate は **これから normalization を通す Plan にだけ**適用する。既存の
+`docs/working/TASK-XXXX/plan.md` 全体を後から一括で検査する lint ではない。
+
+| 対象 | 扱い |
+|---|---|
+| 本 skill を通して正規化する Plan（C-2 反映後・C-3 前） | **適用**（checker 必須） |
+| 既に C-3 承認済み / 完了済みの過去 Plan | **対象外**（遡って是正しない。C-3 後の書き換えは `plan_hash` を壊すため禁止） |
+| C-2 を実施せず修正履歴も無い light / ultra-light の Plan | N/A（実施しない。ただし C-1 / C-3 の既存条件は緩和しない） |
+
+理由: checker の必須見出しは `docs/working/templates/plan.md` 系の Canonical
+Plan 構造を前提としており、過去に別テンプレートで書かれた Plan は構造的に
+一致しない。既存資産を一括で違反判定にしないため、適用対象を「正規化を通す
+Plan」に限定する。過去 Plan を canonical 化したい場合は、その Plan を本 skill
+に通す時点で初めて対象になる。
+
 ## Read First
 
 1. `docs/working/TASK-XXXX/plan.md`
@@ -34,7 +51,9 @@ exec
 5. `docs/working/TASK-XXXX/review-external.md`（存在すれば）
 6. `docs/working/TASK-XXXX/review-self.md`
 7. `docs/working/TASK-XXXX/decision-log.jsonl`
-8. `docs/ai/plan-normalization-gate.md`（上流リポジトリで参照可能な場合）
+8. `docs/ai/plan-normalization-gate.md`（上流リポジトリで参照可能な場合。**本 Skill が正本**であり、当該 docs は上流向けの概要と入口）
+
+> **参照解決順（`docs/**` / 導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
 
 ## 出力契約
 
@@ -127,7 +146,24 @@ Plan 本文から削除するが将来の再提案防止に必要な判断理由
 
 ### 6. 機械チェック
 
-上流リポジトリでスクリプトが利用可能なら実行する。
+上流リポジトリでスクリプトが利用可能なら実行する。**baseline は git 由来を
+既定にする**（`--before-ref`）。
+
+```bash
+python3 scripts/check-plan-normalization.py \
+  --before-ref HEAD \
+  --after docs/working/TASK-XXXX/plan.md
+```
+
+`--before-ref <git-ref>` は `git show <ref>:<path>` で正規化前の Plan を読む。
+これは **baseline を正規化 Agent 自身が書けないようにする**ための既定経路で、
+C-3 が `plan_hash` を C-3 発行時の SHA-256 で固定して EH-3 が突合するのと
+同じ考え方（承認対象は自己申告でない）。
+
+step 1 の snapshot を `--before` に渡す経路も残っているが、それは **Agent が
+自分で書いたファイル**なので checker は `[WARN]` を出す。commit 前で git ref が
+無い等の理由でこの経路を使った場合、その run では「baseline は未検証」である
+ことを review-external / decision-log に明記する。
 
 ```bash
 python3 scripts/check-plan-normalization.py \
@@ -135,13 +171,37 @@ python3 scripts/check-plan-normalization.py \
   --after docs/working/TASK-XXXX/plan.md
 ```
 
-この checker は少なくとも次を fail-closed で確認する。
+この checker は少なくとも次を fail-closed で確認する（exit 1）。
 
-- core heading 欠落
-- before に存在した `AC-*` / `REQ-*` / `FR-*` / `NFR-*` の消失
-- canonical Plan に残った代表的な履歴依存表現
+- **before と after が同一（no-op）** — 何も正規化していない状態で gate を
+  自己証明することを塞ぐ
+- core heading 欠落（番号接頭辞 `## 1. Goal` / h1 `# Goal` / 副題併記
+  `## Scope（In Scope / Out of Scope）` は同一見出しとして扱う）
+- before に存在した `AC-*` / `REQ-*` / `FR-*` / `NFR-*` / `R-*` の消失
+  （`R-NNN` は C-2 指摘 ID。本 Gate は R-NNN 確定反映の直後に置かれるため
+  保存対象に含める）
+- **契約 ID が 1 つも無い** — ID が空だと「消えた ID の集合」は常に空になり、
+  ID 保存の検査が何も見ないまま PASS する（恒真 PASS）。この Gate に到達する
+  Plan は C-1 / C-2 を通っており AC を持つ前提なので、WARN ではなく違反として
+  扱う
+- canonical Plan に残った代表的な履歴依存表現と、superseded 状態の構造
+  （取り消し線 / 「代替案」「変更履歴」等を宣言する見出し）
 
-ID が無い要件の意味保存は機械判定できないため、本 skill の手動チェックを省略しない。
+起動不正・入力不良（引数不足 / 不在ファイル / 非 UTF-8）は exit 2 で、契約違反
+（exit 1）と区別する。
+
+#### 機械検証の限界（denylist であること）
+
+履歴依存表現の検出は **固定パターンの denylist** であり、再現率は低い。
+「元々の方針から改めた」「初期案では別実装だった」「we changed this after
+feedback」のような言い換えは **検出されない**。構造マーカー（取り消し線 /
+履歴・代替案を宣言する見出し）を併用して「言い換えでは消せない形」を拾って
+いるが、これも網羅ではない。
+
+したがって **checker PASS は step 5 の自己完結性チェックの代替にならない**。
+ID を持たない自然言語要件の意味保存、rationale の妥当性、`todo.md` /
+`test-cases.md` との意味的整合はいずれも静的検査では保証できない。手動チェックを
+省略しない。
 
 ### 7. 簡易 C-1 を再実行
 
@@ -166,15 +226,25 @@ PASS 後にのみ C-3 へ進む。
 - 「読みやすくする」目的で AC / Requirement の意味を変える
 - unresolved な論点を勝手に決定して canonical state に混ぜる
 - `review-external.md` を消して監査履歴を失う
+- checker PASS だけを根拠に簡易 C-1 を省略する
+- `--before` に after と同一内容を渡して gate を自己証明する
 
-## PASS 条件
+## PASS 条件（正本 / 全 9 項目）
 
-- `plan.md` 単体が現在状態として読める
-- superseded な案が Plan の実行指示に残っていない
-- 重要な rejected rationale は Decision Log に保持されている
-- stable contract IDs が欠落していない
-- test / acceptance / constraint が正規化前後で意味的に保存されている
-- 簡易 C-1 が PASS
-- まだ C-3 が発行されていない
+Plan Normalization Gate は次を **すべて**満たしたときだけ PASS とする。
 
-1つでも満たさない場合は C-3 に進まない。
+- [ ] 正規化前 baseline が確定している（`--before-ref` の git ref、または
+      step 1 の snapshot）
+- [ ] `plan.md` 単体が Current Canonical State として自己完結して読める
+- [ ] superseded / rejected な案が Plan の実行指示に残っていない
+- [ ] 重要な rejected rationale / trade-off が `decision-log.jsonl` に保持
+      されている
+- [ ] stable contract ID（`AC-*` / `REQ-*` / `FR-*` / `NFR-*` / `R-*`）が
+      欠落していない
+- [ ] checker が PASS（利用可能な環境。no-op でないことを含む）
+- [ ] `todo.md` / `test-cases.md` と意味的に整合する
+- [ ] 簡易 C-1 が PASS
+- [ ] C-3 がまだ発行されていない
+
+1 つでも満たさない場合は C-3 に進まない。この Gate を通過した `plan.md` を
+C-3 の承認対象とし、その hash を exec まで不変として扱う。
