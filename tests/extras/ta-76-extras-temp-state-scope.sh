@@ -71,13 +71,40 @@ _T76_TARGETS='ta-12-maintenance.sh ta-42-cli-subcommands.sh ta-44-eh457-cli-wiri
 
 # top-level EXIT trap の登録簿（m9 / 2026-08-25 の実測で 2 群へ分割）。
 # 旧実装は 4 件すべてを「文書化済み例外」と説明していたが、実体は違った。
-#   - documented: README 規約 2 が実際に認めている形。ta-09 は top-level trap
-#     だが自前ガード変数つき、ta-28 はサブシェル内 trap
-#   - known violation: 規約 2 が **明示的に禁止** している「top-level trap +
-#     trap - EXIT」。README にも文書化されていない。実害も観測済みで、
-#     ta-24 の `trap - EXIT INT TERM` は source 連鎖で先行する ta-09 の
-#     EXIT trap を実際に解除する。本 PR の担当外（別 issue 候補）なので
-#     修正はせず「既知違反」として明示登録するにとどめる。
+# 根拠は「規約 N 適合」のような番号だけの参照ではなく、**行番号 + 本文** で引く。
+# README 本文にはその番号表記が存在せず（実測: 本文が番号で自己参照するのは
+# 規約 8 と規約 1-2 の 2 箇所のみ）、番号引用は誤読と検証不能を生むため。
+#
+#   - documented（trap が必要な場合の許容形として README が名指ししている 2 形）:
+#       tests/extras/README.md:144-146
+#       「どうしても trap が必要な場合は**サブシェルに閉じ込める**（ta-28 方式）か、
+#         自前ガード変数で再実行を no-op 化する（ta-09 方式）。」
+#       ta-09-metrics.sh = 自前ガード変数方式。:16 の
+#         `[ -n "${METRICS_CLEANUP_DONE:-}" ] && return 0` と :460 の
+#         `METRICS_CLEANUP_DONE=1` で再実行を no-op 化し、さらに :457-458 の
+#         コメント「後続 extras が trap EXIT を上書きするため、trap に頼らず
+#         ここで明示実行する」のとおり自ら trap 依存を回避している
+#       ta-28-plugin-version.sh = サブシェル方式。:87 / :114 の trap はいずれも
+#         コマンド置換 `$( ... )` の中にあり、source 連鎖の親シェルへ漏れない
+#       （README:128「（ta-09 で実害を確認済み）」は **規約が生まれた経緯の
+#         出典表示** であって現在の評価ではない。同じ規約が :145 で ta-09 を
+#         許容形として名指ししているので、経緯と評価は分けて読む）
+#
+#   - known violation（README が明示的に禁止している操作）:
+#       tests/extras/README.md:146
+#       「親シェルの trap を `trap - EXIT` で消さない（他 extras / ハーネスの
+#         cleanup を巻き込むため）」
+#       ta-07-eval-runner.sh     :20 `trap cleanup_eval EXIT INT TERM` /
+#                                :56 `trap - EXIT INT TERM`
+#       ta-24-parallel-review.sh :257 `trap 'rm -rf "$t24_tmpdir4"' EXIT INT TERM` /
+#                                :285 `trap - EXIT INT TERM`
+#       実害も観測済みで、ta-24:285 は source 順で先行する ta-09:23
+#       `trap cleanup_metrics EXIT INT TERM` を実際に解除する。
+#       本 PR の担当外（別 issue 候補）なので trap 本体は修正せず、
+#       「既知違反」として明示登録するにとどめる。
+#
+# 行番号は 2026-08-25 時点・本ブランチでの実測値。行番号は移動しうるので、
+# 同定は併記した本文で行うこと。
 _T76_TRAP_DOCUMENTED='ta-09-metrics.sh ta-28-plugin-version.sh'
 _T76_TRAP_KNOWN_VIOLATION='ta-07-eval-runner.sh ta-24-parallel-review.sh'
 # 期待 trap 行数（実測 2026-08-25）。ファイル粒度の登録だけだと

@@ -200,8 +200,9 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
 
 9. **共有の実 repo パスに置く一時状態は「射程宣言 → 先頭 prune → register_cleanup」
    の三点セットで扱う（#947 / #1209 / #1210 / 2026-08-25 正本化）** —
-   規約 1/2 の運用形（trap を張らず register_cleanup + 明示 cleanup に寄せる）を
-   機械検査可能な形に固定したもの。回帰テストは
+   本節冒頭の :130「trap に頼らず末尾で明示 cleanup + 開始時の冪等掃除」と
+   :134「共有 cleanup ユーティリティ `register_cleanup` を使う（推奨 / #530-3）」の
+   運用形を、機械検査可能な形に固定したもの。回帰テストは
    `tests/extras/ta-76-extras-temp-state-scope.sh`。
 
    - **射程宣言**: そのファイルが実 repo に作る一時パスを **1 箇所にまとめて**
@@ -213,7 +214,7 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
      （実害: `ta-42` は `TASK-T999` の掃除が判定 TC-04 より後にあり、中断残骸で
      TC-04 が誤 FAIL していた = #947 問題 1）
    - **register_cleanup 登録**: 同じリストをそのまま登録し、ハーネス末尾の
-     drain に委ねる（`trap` は張らない = 規約 1/2）
+     drain に委ねる（`trap` は張らない = 本節 :130 / :134）
    - **`${var:?}` は「合成後のパス」ではなく root 変数に付ける**（#1210 / 2026-08-25
      是正）。`_ROOT="$(cd -- "$FIXTURES_DIR/../.." && pwd)"` は `$FIXTURES_DIR`
      が未設定/空なら `/` に解決され、合成後は `//docs/working/...` になる。
@@ -248,8 +249,8 @@ source 型の構造上 **trap EXIT は後続 extras に上書きされ、発火�
    |---|---|---|
    | fixture TTL 上限 | **120 秒** | 各 TC の hook 呼出に十分な余裕を残しつつ残骸窓を最小化。現行 `ta-12` は 60 秒 |
    | `until` の組み立て | `_TNN_TTL` 変数経由（正の直書き禁止） | 宣言だけ縮めて heredoc 側に `+600` を直書きすると窓は元に戻る |
-   | top-level `trap` を持ってよい extras（**規約 2 適合**） | `ta-09-metrics.sh`（自前ガード変数）/ `ta-28-plugin-version.sh`（サブシェル内） | 規約 2 が明示的に認めている 2 形 |
-   | top-level `trap` を持つ **既知違反**（新規追加禁止） | `ta-07-eval-runner.sh` / `ta-24-parallel-review.sh` | top-level `trap ... EXIT` + `trap - EXIT` で規約 2 に反する。実害あり: `ta-24` の `trap - EXIT INT TERM` は先行する `ta-09` の EXIT trap を実際に解除する。**是正は別 issue**（本表は「見逃していない」ことの記録） |
+   | top-level `trap` を持ってよい extras | `ta-09-metrics.sh`（自前ガード変数方式） / `ta-28-plugin-version.sh`（サブシェル方式） | 本 README の :144-146「どうしても trap が必要な場合は**サブシェルに閉じ込める**（ta-28 方式）か、自前ガード変数で再実行を no-op 化する（ta-09 方式）。」が許容形として名指ししている 2 形。なお :128「（ta-09 で実害を確認済み）」は規約が生まれた経緯の出典表示であって、現在の評価ではない（:145 が同じ ta-09 を許容形として挙げているため、経緯と評価は分けて読む） |
+   | top-level `trap` を持つ **既知違反**（新規追加禁止） | `ta-07-eval-runner.sh` / `ta-24-parallel-review.sh` | 本 README の :146「親シェルの trap を `trap - EXIT` で消さない（他 extras / ハーネスの cleanup を巻き込むため）」に真正面から反する（`ta-07:56` / `ta-24:285` がいずれも `trap - EXIT INT TERM`）。実害あり: `ta-24:285` は source 順で先行する `ta-09:23` の `trap cleanup_metrics EXIT INT TERM` を実際に解除する。**是正は別 issue**（本表は「見逃していない」ことの記録） |
    | 上記 4 本の `trap` 行数 | 2 / 1 / 2 / 2 | ファイル粒度の登録だけだと「登録済みファイルへ trap を足し放題」「trap を消しても登録が残る（stale）」の両方向で乖離するため本数まで固定する |
 
    ### できること / できないこと（2026-08-25 実測で是正）
