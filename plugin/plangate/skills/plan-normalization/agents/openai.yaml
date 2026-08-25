@@ -1,0 +1,7 @@
+interface:
+  display_name: "plan-normalization"
+  short_description: "C-3 前に plan.md を Canonical Plan へ正規化する"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $plan-normalization to assist with this project."
+  brand_color: "#1A56DB"

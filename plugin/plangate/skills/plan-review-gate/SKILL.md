@@ -47,15 +47,28 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 - 実行コマンド: 「CLI 呼び出し」節の表を参照（外部 AI モデル呼び出し。表記は実行環境で変わる）
 - 指摘ゼロでも「指摘なし」を明示記録
 
-## C-2 → 確定反映 → c3.json 発行（EH-3 整合・厳守順序）
+## C-2 → 確定反映 → Plan Normalization → c3.json 発行（EH-3 整合・厳守順序）
 
 1. R-NNN を `review-external.md` に集約（追記専用）
 2. 1 回確定反映（plan/todo/test-cases へ反映、コミットメッセージに `Refs: R-NNN`）
-3. 簡易 C-1 再実行
-4. **人間が APPROVED c3.json 発行**（確定後 plan の `plan_hash: sha256:...` を含む）
-5. exec 開始
+3. **`plan-normalization` skill を実行し、`plan.md` を最終合意状態の Canonical Plan へ再構成する**
+   - `evidence/plan-normalization/plan.before.md` を保存する
+   - superseded / rejected な案を Plan 本文から除去する
+   - 将来必要な却下理由・trade-off は append-only `decision-log.jsonl` に保持する
+   - 上流リポジトリでは `python3 scripts/check-plan-normalization.py --before ... --after ...` を実行する
+4. 正規化後の `plan.md` に対して簡易 C-1 を再実行し、`todo.md` / `test-cases.md` と矛盾がないことを確認する
+5. **人間が APPROVED c3.json 発行**（正規化済み plan の `plan_hash: sha256:...` を含む）
+6. exec 開始
 
-> ⚠️ **c3.json 発行は確定反映の後**。順序を逆にすると EH-3 が plan_hash mismatch で block する。
+> ⚠️ **Plan Normalization と簡易 C-1 は c3.json 発行より前**。C-3 後に `plan.md` を正規化すると EH-3 が plan_hash mismatch で block する。`canonical-plan.md` を別正本として増やさず、正規化済み `plan.md` 自体を Canonical Plan とする。
+
+### Canonical Plan の最低条件
+
+- 過去会話を知らない新規 Agent が `plan.md` と通常の L1 artifact だけで実装判断できる
+- 「当初案」「前述の指摘」「先ほどのレビュー」など履歴依存表現が実行指示に残っていない
+- AC / REQ / FR / NFR 等の stable contract ID が正規化前後で欠落していない
+- Goal / Scope / Constraints / Work Breakdown / Verification Plan が具体的である
+- 却下案の再提案防止に必要な rationale は `decision-log.jsonl` に残る
 
 ## C-3 三値判定
 
@@ -75,6 +88,7 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 | 用途 | 上流リポジトリの cwd | 導入先 + PATH に `plangate` あり | 導入先 + PATH に無い（**既定**） |
 |------|---------------------|----------------------------------|--------------------------------|
 | plan_hash / artifact 機械検証 | `bin/plangate validate TASK-XXXX` | `plangate validate --dir docs/working/TASK-XXXX` | 次節のフォールバック |
+| Plan Normalization invariant 検証 | `python3 scripts/check-plan-normalization.py --before <snapshot> --after <plan>` | 配布対象外 → `plan-normalization` skill の手動チェック | 同左 |
 | C-2 / V-3 外部 AI レビュー | `bin/plangate review TASK-XXXX --phase {c2\|v3}` | **導入先の TASK には使えない**（`--dir` 相当なし）→ 手動レビュー | 手動レビュー |
 | settings 検証 | `bin/plangate doctor --check-settings` | **導入先は検査できない**（`--dir` 相当なし）→ `.claude/settings.json` を直接確認 | `.claude/settings.json` を直接確認 |
 | gate 通過判定（artifact チェック）| `./scripts/ai-dev-workflow TASK-XXXX gate` | **配布対象外**（`scripts/` は導入先に無い）→ 次節のフォールバック | 次節のフォールバック |
@@ -94,18 +108,19 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 plan_hash 改竄検知と exec 受理の**機械的な block は成立しない**。それでも
 **判定基準とゲート順序は不変**で、機械検証だけを手動チェックリストへ置き換える:
 
-1. **C-1 / C-2 の判定基準は変えない** — C-1 チェック項目・5 観点・Severity・R-NNN 採番・
-   「C-2 → 確定反映 → c3.json 発行」の順序は CLI の有無に関わらず不変
-2. **plan_hash 突合を手で行う** — 手順の正本は `ai-dev-verify` skill
+1. **C-1 / C-2 / Plan Normalization の判定基準は変えない** — C-1 チェック項目・5 観点・Severity・R-NNN 採番・
+   「C-2 → 確定反映 → Plan Normalization → 簡易 C-1 → c3.json 発行」の順序は CLI の有無に関わらず不変
+2. **Plan Normalization を手動検証する** — stable contract ID の保持、履歴依存表現の除去、Decision Log への rationale 退避、自己完結性を `plan-normalization` skill の PASS 条件で確認する
+3. **plan_hash 突合を手で行う** — 手順の正本は `ai-dev-verify` skill
    「CLI 不在時のフォールバック」節（legacy c3.json の sha256 突合 / c3-prime の
    束縛検証という経路分岐を含む）。ここでは再定義しない
-3. **exec 受理判定を手で行う** — `approvals/c3.json` を直接読み、legacy は
+4. **exec 受理判定を手で行う** — `approvals/c3.json` を直接読み、legacy は
    `c3_status: APPROVED`、c3-prime（`approval_kind: "c3-prime"`）は
    `decision: "AUTO_APPROVED"` であることを確認する（判定手順の正本は
    `ai-dev-exec` skill「前提条件（exec 開始ゲート）」節）
-4. **未実施を「PASS」と書かない** — 機械検証できなかった項目は、その事実を
+5. **未実施を「PASS」と書かない** — 機械検証できなかった項目は、その事実を
    `status.md` と `decision-log.jsonl` に記録する。**CLI が無いことを理由に
-   C-1 / C-2 / C-3 を省略しない**
+   C-1 / C-2 / Plan Normalization / C-3 を省略しない**
 
 ## 判定
 
