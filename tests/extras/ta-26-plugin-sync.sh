@@ -824,6 +824,39 @@ else
   t26_fail "TC-33 失敗 (単独判別残存:${_t26_viol33:- なし} / unset欠落:${_t26_incl33:- なし} / harness集合:${_t26_hset33:- 空})"
 fi
 
+# TC-37: skills 索引 README.md の同期経路（#1057 / #1199 / #1221 再発防止）
+#
+# スキル同期ループは "$SKILLS_DIR"/*/ と**ディレクトリのみ**を走査するため、
+# .agents/skills/ 直下のファイルである README.md はかつてどの同期経路にも
+# 入っておらず、配布側は手作業でしか追従できなかった（#1199 で手作業追従した
+# 5 日後に #1221 で再乖離）。同期経路を追加したので、その経路が**消えたら
+# 落ちる**ことを固定する。
+#
+# 本 TC が無いと、追加ブロックを丸ごと削除しても ta-26 / ta-69 / CI drift-check が
+# すべて緑のまま通る（敵対レビューで変異注入により実証済み）。
+_t26_t37=$(mktemp -d); register_cleanup "$_t26_t37"
+mkdir -p "$_t26_t37/scripts" "$_t26_t37/.agents/skills/dummy-skill" \
+  "$_t26_t37/plugin/plangate/skills"
+cp "$PG_T26_SCRIPT" "$_t26_t37/scripts/"
+printf -- '---\nname: dummy-skill\n---\nbody\n' > "$_t26_t37/.agents/skills/dummy-skill/SKILL.md"
+printf 'canonical index v2\n' > "$_t26_t37/.agents/skills/README.md"
+# 配布側は「古い版」— 同期経路が生きていれば上書きされる
+printf 'stale index v1\n' > "$_t26_t37/plugin/plangate/skills/README.md"
+_t26_rc37=0
+_t26_out37=$(sh "$_t26_t37/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc37=$?
+_t26_got37=$(cat "$_t26_t37/plugin/plangate/skills/README.md" 2>/dev/null)
+# 2 回目は差分なし（冪等）であることも同時に固定する
+_t26_out37b=$(sh "$_t26_t37/scripts/sync-plugin-plangate.sh" 2>&1) || true
+rm -rf "$_t26_t37"
+if [ "$_t26_rc37" = "0" ] \
+  && [ "$_t26_got37" = "canonical index v2" ] \
+  && printf '%s' "$_t26_out37" | grep -q 'COPY: skills/README\.md' \
+  && printf '%s' "$_t26_out37b" | grep -q 'no changes'; then
+  t26_pass "TC-37 skills/README.md が正本から同期され、2 回目は差分なし（#1057 再発防止）"
+else
+  t26_fail "TC-37 skills/README.md の同期経路が機能していない (rc=$_t26_rc37 / 内容=${_t26_got37:- 空} / 1回目=${_t26_out37} / 2回目=${_t26_out37b})"
+fi
+
 # 単体実行時のみ: cleanup drain + サマリ + exit code（source 時は run-tests.sh が担う）
 if [ "$PG_T26_STANDALONE" = "1" ]; then
   printf '%s' "$_PG_T26_CLEANUP_PATHS" | while IFS= read -r _pg_cp; do
