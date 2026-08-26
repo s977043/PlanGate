@@ -598,26 +598,71 @@ fi
 #
 # 検証シーム: PG_TA71_SYNC_WORKFLOW に別ファイルを指すと、その内容で判定する
 # （patch 適用後に緑になることを本体を触らず実証するため）。
+#
+# **KNOWN-GAP flag が吸収してよいのは「未被覆」だけ**（#1249 MAJOR-2(new)）。
+# 旧実装は python の rc が非ゼロなら何でも `uncovered` に落としていたため、
+# PARSE-FAIL（`_ai_dev_ref_spec` の消失 / spec 抽出の空振り / paths: ブロック
+# 不足）まで flag が PASS に吸収していた。実測: `_ai_dev_ref_spec` をリネーム
+# するだけで全 TC 緑になった＝**ガードが壊れても緑**。
+# そこで PARSE-FAIL は専用 rc=9 に分離し、**flag の有無に関わらず FAIL** にする。
+#
+# spec ソースの取り方（#1249 MAJOR-3(new)）: 字句解析（`'...'` かつ特定拡張子の
+# 正規表現）は形状依存で silently lossy だった。実測でダブルクォート表記・
+# `.sh` 拡張子・既存行のクォート変更がいずれも無警告で母数から落ちた
+# （floor は「完全な空振り」しか止めない）。そこで **抽出した関数を実際に
+# `sh` で実行し、その実出力を正とする**。クォート種別・拡張子・行継続は
+# シェル自身が解釈するため形状に依存しない。
 _T71_SYNC_WF="${PG_TA71_SYNC_WORKFLOW:-$_T71_ROOT/.github/workflows/sync-plugin-plangate.yml}"
 _T71_SYNC_SCRIPT="$_T71_ROOT/scripts/sync-plugin-plangate.sh"
 _t71_py20="$(command -v python3 2>/dev/null || true)"
+
+# `_ai_dev_ref_spec` を実行して `<skill>\t<配布先 basename>\t<ソース>` を吐く。
+# 失敗（関数/一覧が取れない・出力が空）は stdout を空にして返す＝呼び出し側が
+# PARSE-FAIL として扱う。
+_t71_spec_dump20() {
+  _t71_sd_script="$1"
+  _t71_sd_fn="$(mktemp)"
+  awk '/^_ai_dev_ref_spec\(\) \{/{f=1} f{print} f&&/^\}$/{exit}' \
+    "$_t71_sd_script" > "$_t71_sd_fn" 2>/dev/null || true
+  if ! grep -q '^_ai_dev_ref_spec() {' "$_t71_sd_fn" 2>/dev/null; then
+    rm -f "$_t71_sd_fn"; return 0
+  fi
+  _t71_sd_skills="$(grep -m1 '^AI_DEV_SKILLS=' "$_t71_sd_script" 2>/dev/null \
+    | sed 's/^AI_DEV_SKILLS=//; s/"//g')"
+  for _t71_sd_s in $_t71_sd_skills; do
+    sh -c '. "$1"; _ai_dev_ref_spec "$2"' _ "$_t71_sd_fn" "$_t71_sd_s" 2>/dev/null \
+      | awk -v k="$_t71_sd_s" 'NF{print k"\t"$1"\t"$2}'
+  done
+  rm -f "$_t71_sd_fn"
+}
+
+_T71_SPEC_DUMP="$(mktemp)"
+_t71_spec_dump20 "$_T71_SYNC_SCRIPT" > "$_T71_SPEC_DUMP" 2>/dev/null || true
+
 if [ -z "$_t71_py20" ]; then
   t71_fail "TC-20 python3 が解決できない"
 elif [ ! -f "$_T71_SYNC_WF" ] || [ ! -f "$_T71_SYNC_SCRIPT" ]; then
   t71_fail "TC-20 対象ファイルが不在 (wf=$_T71_SYNC_WF / script=$_T71_SYNC_SCRIPT)"
 else
   _t71_rc20=0
-  _t71_out20=$("$_t71_py20" - "$_T71_SYNC_SCRIPT" "$_T71_SYNC_WF" <<'PY' 2>&1
+  _t71_out20=$("$_t71_py20" - "$_T71_SPEC_DUMP" "$_T71_SYNC_WF" <<'PY' 2>&1
 import fnmatch, pathlib, re, sys
 
-script = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+# PARSE-FAIL は rc=9（KNOWN-GAP flag が吸収してはならない失敗クラス）。
+# 未被覆（= 本来の gap）だけが AssertionError の rc=1 で出る。
+def parse_fail(msg):
+    sys.stderr.write("PARSE-FAIL: %s\n" % msg)
+    sys.exit(9)
+
+dump = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 wf = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
 
-body = re.search(r"_ai_dev_ref_spec\(\)\s*\{(.*?)\n\}", script, re.S)
-assert body, "PARSE-FAIL: _ai_dev_ref_spec が見つからない"
-srcs = sorted({m[1] for m in
-               re.findall(r"'([^' ]+\.(?:md|json|yaml))\s+([^']+)'", body.group(1))})
-assert len(srcs) >= 10, "PARSE-FAIL: spec ソース抽出が空振り (%d)" % len(srcs)
+rows = [ln.split("\t") for ln in dump.splitlines() if ln.strip()]
+if not rows or any(len(r) != 3 for r in rows):
+    parse_fail("_ai_dev_ref_spec の実出力が取れない (rows=%d)" % len(rows))
+srcs = sorted({r[2] for r in rows})
+if len(srcs) < 10:
+    parse_fail("spec ソースの実出力が少なすぎる (%d) — 関数抽出の空振りを疑う" % len(srcs))
 
 # on.push.paths / on.pull_request.paths のリスト項目を素直に拾う。
 # YAML パーサに依存しない（PyYAML は CI に無い前提）。
@@ -626,9 +671,9 @@ assert len(srcs) >= 10, "PARSE-FAIL: spec ソース抽出が空振り (%d)" % le
 # false positive を生む（実測でこの穴を踏んだ）。
 blocks = re.findall(
     r"^\s{2,}paths:\n((?:(?:\s+- '[^']+'|\s*#[^\n]*|\s*)\n)+)", wf, re.M)
-assert len(blocks) >= 2, (
-    "PARSE-FAIL: paths: ブロックが 2 つ未満 (%d) — push / pull_request の両方が要る"
-    % len(blocks))
+if len(blocks) < 2:
+    parse_fail("paths: ブロックが 2 つ未満 (%d) — push / pull_request の両方が要る"
+               % len(blocks))
 patsets = [set(re.findall(r"- '([^']+)'", b)) for b in blocks]
 
 def covered(path, pats):
@@ -646,19 +691,36 @@ for i, pats in enumerate(patsets):
     for s in srcs:
         if not covered(s, pats):
             bad.append("%s:%s" % (label, s))
-assert not bad, (
-    "CI トリガ未被覆: sync の同梱元が paths: に入っておらず drift-check が起動しない "
-    "-> %s" % sorted(set(bad)))
+if bad:
+    # 未被覆一覧は 1 行 1 パスで全件出す（呼び出し側で切り詰めないこと）。
+    sys.stderr.write("CI トリガ未被覆: sync の同梱元が paths: に入っておらず "
+                     "drift-check が起動しない (%d 件)\n" % len(set(bad)))
+    for b in sorted(set(bad)):
+        sys.stderr.write("UNCOVERED\t%s\n" % b)
+    sys.exit(1)
 print("OK srcs=%d blocks=%d" % (len(srcs), len(patsets)))
 PY
 ) || _t71_rc20=$?
   _T71_GAP_FLAG="$_T71_ROOT/tests/fixtures/sync-paths-known-gap-1249.flag"
+  rm -f "$_T71_SPEC_DUMP"
   if [ "$_t71_rc20" = "0" ] && printf '%s' "$_t71_out20" | grep -q '^OK srcs='; then
     _t71_cov20=covered
-  else
+  elif [ "$_t71_rc20" = "9" ]; then
+    _t71_cov20=parse-fail
+  elif printf '%s\n' "$_t71_out20" | grep -q '^UNCOVERED	'; then
+    # 「未被覆」と名乗れるのは、未被覆パスを実際に列挙して終わった run だけ。
+    # rc=9 を足しただけでは、想定外の例外（正規表現の破損・IO エラー等）が
+    # rc=1 のまま `uncovered` に落ちて flag に吸収される経路が残る。
     _t71_cov20=uncovered
+  else
+    _t71_cov20=parse-fail
   fi
-  if [ "$_t71_cov20" = covered ] && [ ! -f "$_T71_GAP_FLAG" ]; then
+  if [ "$_t71_cov20" = parse-fail ]; then
+    # KNOWN-GAP flag は「paths: が未被覆である」ことだけを受理する。検査器自身が
+    # 壊れた（PARSE-FAIL）ときに緑にすると、flag が置かれている無期限の窓の
+    # あいだガードが空振りしても誰も気づかない（#1249 MAJOR-2(new)）。
+    t71_fail "TC-20 検査器が機能していない（PARSE-FAIL / rc=9）— KNOWN-GAP flag では受理しない: $_t71_out20"
+  elif [ "$_t71_cov20" = covered ] && [ ! -f "$_T71_GAP_FLAG" ]; then
     t71_pass "TC-20 sync 同梱元が paths: に全被覆（$(printf '%s' "$_t71_out20" | tr -d '\n')）"
   elif [ "$_t71_cov20" = covered ] && [ -f "$_T71_GAP_FLAG" ]; then
     t71_fail "TC-20 stale KNOWN-GAP 宣言 — paths: は既に全被覆なのに tests/fixtures/sync-paths-known-gap-1249.flag が残っている。flag を削除すること"
@@ -666,7 +728,13 @@ PY
     # 受理はするが、何が未被覆なのかは毎回必ず出す（silently 緑にしない）
     printf '  [KNOWN-GAP #1249] tests/fixtures/sync-paths-known-gap-1249.flag により gap を受理\n'
     printf '  [KNOWN-GAP #1249] 未適用: docs/working/TASK-1232/patches/sync-plugin-paths.patch（.github/workflows/** は HO のため Human-owned）\n'
-    printf '  [KNOWN-GAP #1249] %s\n' "$(printf '%s' "$_t71_out20" | tr '\n' ' ' | cut -c1-600)"
+    # 未被覆一覧は **1 行 1 パスで全件**出す（#1249 MINOR-2）。
+    # 旧実装は `tr '\n' ' ' | cut -c1-600` で 1 行に潰してから切っていたため、
+    # `sorted(set(bad))` の並びで push 側だけが表示され pull_request 側 14 件が
+    # 1 件も見えていなかった。「毎回出力する」と宣言した情報が実際には
+    # 出ていない状態を作らない。
+    printf '%s\n' "$_t71_out20" | grep '^UNCOVERED	' \
+      | sed 's/^UNCOVERED	/  [KNOWN-GAP #1249] 未被覆: /'
     t71_pass "TC-20 sync 同梱元が CI paths: に未被覆（KNOWN-GAP #1249 として受理 / patch 適用後は flag を削除すること）"
   else
     t71_fail "TC-20 sync 同梱元が CI paths: に未被覆で KNOWN-GAP 宣言も無い — patch 未適用か paths: の退行（docs/working/TASK-1232/patches/sync-plugin-paths.patch / rc=$_t71_rc20): $_t71_out20"

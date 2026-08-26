@@ -117,6 +117,12 @@ _t26_sb="$_t26_tmpdir/sandbox"
 mkdir -p "$_t26_sb/scripts" "$_t26_sb/.claude" "$_t26_sb/.agents" \
   "$_t26_sb/docs/workflows" "$_t26_sb/docs/ai" "$_t26_sb/.claude-plugin" \
   "$_t26_sb/plugin"
+# >>> PG_T26_SANDBOX_BUILDER_BEGIN
+# TC-40 はこのマーカーで囲まれた **実行される行**だけから `cp -r` のディレクトリ
+# 供給経路を抽出する（#1249 MINOR-1）。ファイル全体を走査していた旧実装は、
+# 末尾のコメント行に `cp -r "$PG_T26_ROOT/docs" ...` と書くだけで「docs/ 配下は
+# すべて供給済み」と誤認し、陽性コントロール（sandbox 一覧から 1 件落とす変異）
+# が無効化された。マーカーの移動・削除は TC-40 の PARSE-FAIL になる。
 cp "$PG_T26_SCRIPT" "$_t26_sb/scripts/"
 if [ -f "$PG_T26_ROOT/scripts/_ai_loop_link_rewrite.py" ]; then
   cp "$PG_T26_ROOT/scripts/_ai_loop_link_rewrite.py" "$_t26_sb/scripts/"
@@ -165,6 +171,7 @@ do
     cp "$PG_T26_ROOT/$_f26" "$_t26_sb/$_f26"
   fi
 done
+# <<< PG_T26_SANDBOX_BUILDER_END
 if [ -f "$PG_T26_ROOT/CHANGELOG.md" ]; then
   cp "$PG_T26_ROOT/CHANGELOG.md" "$_t26_sb/CHANGELOG.md"
 fi
@@ -990,6 +997,39 @@ fi
 
 PG_T26_PY="$(command -v python3 2>/dev/null || true)"
 
+# `_ai_dev_ref_spec` の **実出力**を `<skill>\t<配布先 basename>\t<ソース>` で吐く
+# （#1249 MAJOR-3(new)）。
+#
+# 旧実装は `'([^' ]+\.(?:md|json|yaml))\s+([^']+)'` という字句正規表現で spec を
+# 読んでいたが、これはシングルクォート + 特定拡張子という **書き方** にしか当たら
+# ない。実測でダブルクォート表記・`.sh` 拡張子・既存行のクォート変更がいずれも
+# 無警告で母数から落ち、`PAIRS >= 20` / `srcs >= 15` の floor は
+# 「完全な空振り」しか止めなかった（4〜5 本の消失を許す）。
+# 抽出した関数を実際に `sh` で実行し、その出力を正とすればクォート種別・拡張子・
+# 行継続はシェル自身が解釈するため形状に依存しない。
+# 取得失敗（関数が無い / 一覧が無い / 出力が空）は stdout を空にして返し、
+# 呼び出し側が PARSE-FAIL として扱う。
+_t26_spec_dump() {
+  _t26_sd_script="$1"
+  _t26_sd_fn="$(mktemp)"
+  awk '/^_ai_dev_ref_spec\(\) \{/{f=1} f{print} f&&/^\}$/{exit}' \
+    "$_t26_sd_script" > "$_t26_sd_fn" 2>/dev/null || true
+  if ! grep -q '^_ai_dev_ref_spec() {' "$_t26_sd_fn" 2>/dev/null; then
+    rm -f "$_t26_sd_fn"; return 0
+  fi
+  _t26_sd_skills="$(grep -m1 '^AI_DEV_SKILLS=' "$_t26_sd_script" 2>/dev/null \
+    | sed 's/^AI_DEV_SKILLS=//; s/"//g')"
+  for _t26_sd_s in $_t26_sd_skills; do
+    sh -c '. "$1"; _ai_dev_ref_spec "$2"' _ "$_t26_sd_fn" "$_t26_sd_s" 2>/dev/null \
+      | awk -v k="$_t26_sd_s" 'NF{print k"\t"$1"\t"$2}'
+  done
+  rm -f "$_t26_sd_fn"
+}
+
+_T26_SPEC_DUMP="$(mktemp)"
+register_cleanup "$_T26_SPEC_DUMP"
+_t26_spec_dump "$PG_T26_SCRIPT" > "$_T26_SPEC_DUMP" 2>/dev/null || true
+
 # TC-39: 配布 references/ に basename `plan.md` が存在しない（spec + 実配布物の両面）
 #
 # `scripts/hooks/check-plan-hash.sh` の EH-3 は **basename** `plan.md` で block する
@@ -1002,26 +1042,15 @@ if [ -z "$PG_T26_PY" ]; then
   t26_fail "TC-39 python3 が解決できない"
 else
   # (a) spec が配布先 basename に plan.md を出さない
-  _t26_spec39=$("$PG_T26_PY" - "$PG_T26_SCRIPT" <<'PY' 2>&1 || true
-import pathlib, re, sys
-text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
-body = re.search(r"_ai_dev_ref_spec\(\)\s*\{(.*?)\n\}", text, re.S)
-if not body:
-    print("PARSE-FAIL"); raise SystemExit(0)
-pairs = re.findall(r"'([^' ]+\.(?:md|json|yaml))\s+([^']+)'", body.group(1))
-if not pairs:
-    print("PARSE-FAIL"); raise SystemExit(0)
-print("PAIRS=%d" % len(pairs))
-for base, src in pairs:
-    print("BASE\t%s\t%s" % (base, src))
-PY
-)
-  if printf '%s' "$_t26_spec39" | grep -q 'PARSE-FAIL'; then
+  #     判定は `_ai_dev_ref_spec` の **実出力**（$_T26_SPEC_DUMP）で行う。
+  #     字句解析だとクォート種別を変えるだけで対象行が母数から消える（MAJOR-3(new)）。
+  _t26_pairs39=$(awk 'NF' "$_T26_SPEC_DUMP" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${_t26_pairs39:-0}" = "0" ]; then
     _t26_v39="$_t26_v39 spec-parse-fail"
   fi
+  _t26_spec39=$(awk -F'\t' 'NF==3{print "BASE\t"$2"\t"$3}' "$_T26_SPEC_DUMP" 2>/dev/null)
   # 陽性コントロール: 抽出が空振りしていないこと（PAIRS>=20）と、
   # リネーム後の basename が実際に spec に居ること
-  _t26_pairs39=$(printf '%s' "$_t26_spec39" | sed -n 's/^PAIRS=//p')
   [ -n "$_t26_pairs39" ] && [ "$_t26_pairs39" -ge 20 ] 2>/dev/null \
     || _t26_v39="$_t26_v39 spec-pairs-too-few(${_t26_pairs39:-none})"
   printf '%s' "$_t26_spec39" | grep -q "^BASE	plan-template.md	" \
@@ -1054,16 +1083,18 @@ if [ -z "$PG_T26_PY" ]; then
   t26_fail "TC-40 python3 が解決できない"
 else
   _t26_rc40=0
-  _t26_out40=$("$PG_T26_PY" - "$PG_T26_SCRIPT" "$PG_T26_ROOT/tests/extras/ta-26-plugin-sync.sh" <<'PY' 2>&1
+  _t26_out40=$("$PG_T26_PY" - "$_T26_SPEC_DUMP" "$PG_T26_ROOT/tests/extras/ta-26-plugin-sync.sh" <<'PY' 2>&1
 import pathlib, re, sys
 
-script = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+dump = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 selfsrc = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
 
-body = re.search(r"_ai_dev_ref_spec\(\)\s*\{(.*?)\n\}", script, re.S)
-assert body, "PARSE-FAIL: _ai_dev_ref_spec が見つからない"
-spec_srcs = {m[1] for m in re.findall(r"'([^' ]+\.(?:md|json|yaml))\s+([^']+)'", body.group(1))}
-assert len(spec_srcs) >= 15, "PARSE-FAIL: spec ソース抽出が空振り (%d)" % len(spec_srcs)
+# spec は `_ai_dev_ref_spec` の実出力（字句解析ではない / #1249 MAJOR-3(new)）。
+rows = [ln.split("\t") for ln in dump.splitlines() if ln.strip()]
+assert rows and all(len(r) == 3 for r in rows), (
+    "PARSE-FAIL: _ai_dev_ref_spec の実出力が取れない (rows=%d)" % len(rows))
+spec_srcs = {r[2] for r in rows}
+assert len(spec_srcs) >= 15, "PARSE-FAIL: spec ソースの実出力が少なすぎる (%d)" % len(spec_srcs)
 
 block = re.search(r"^for _f26 in \\\n(.*?)^do$", selfsrc, re.S | re.M)
 assert block, "PARSE-FAIL: sandbox 一覧 (for _f26) が見つからない"
@@ -1074,7 +1105,18 @@ assert len(listed) >= 10, "PARSE-FAIL: sandbox 一覧の抽出が空振り (%d)"
 # ファイル単位の一覧のほかに、sandbox は `cp -r "$PG_T26_ROOT/<dir>"` で
 # ディレクトリごと持ち込む経路も持つ（docs/workflows/ai-loop など）。
 # その配下は「一覧に無くても供給されている」ため被覆に数える。
-dirs = set(re.findall(r'cp -r "\$PG_T26_ROOT/([^"]+)"', selfsrc))
+#
+# 走査対象は **sandbox builder のマーカー区間の、コメントでない行**に限る
+# （#1249 MINOR-1）。ファイル全体を対象にしていた旧実装は、実行されない
+# コメント行 `# cp -r "$PG_T26_ROOT/docs" ...` を書くだけで docs/ 配下を
+# 全被覆と誤認し、陽性コントロールを無効化できた（実測）。
+region = re.search(
+    r"^# >>> PG_T26_SANDBOX_BUILDER_BEGIN$(.*?)^# <<< PG_T26_SANDBOX_BUILDER_END$",
+    selfsrc, re.S | re.M)
+assert region, "PARSE-FAIL: sandbox builder のマーカー区間が見つからない"
+exec_lines = "\n".join(ln for ln in region.group(1).splitlines()
+                       if not ln.lstrip().startswith("#"))
+dirs = set(re.findall(r'cp -r "\$PG_T26_ROOT/([^"]+)"', exec_lines))
 
 def covered(p):
     return p in listed or any(p.startswith(d.rstrip("/") + "/") for d in dirs)
