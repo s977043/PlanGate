@@ -507,7 +507,12 @@ elif [ "$_T70_T09_LIMIT_SEC" -ge "$_T70_HANG_SEC" ]; then
   t70_fail "TC-09 fixture 設定不正: 上限 ${_T70_T09_LIMIT_SEC}s >= ハング ${_T70_HANG_SEC}s（timeout が発火し得ない）"
 elif { [ "$_t70_rc9" -eq "$_T70_TIMEOUT_RC" ] || [ "$_t70_rc9" -eq "$_T70_TIMEOUT_RC_TERM" ]; } \
      && [ "$_t70_el9" -lt "$_T70_HANG_SEC" ]; then
-  t70_pass "TC-09 実走 timeout が発火する（rc=$_t70_rc9 = 上限で殺された rc / ${_t70_el9}s < ハング ${_T70_HANG_SEC}s / timeout=$_T70_TIMEOUT）"
+  # NOTE: 変数展開の直後に全角文字が続く場合は必ず `${VAR}` 形で囲む。
+  # 波括弧なしで書くと全角括弧のバイト列が変数名に食い込み、`set -u` 下
+  # （= harness 経由）でのみ unbound variable になる。standalone は `set -u` が
+  # 無いため緑のまま通り、フルスイートだけが落ちる（#874 / #990 と同型）。
+  # 本コメントに違反例そのものを書かないこと（機械走査を汚すため）。
+  t70_pass "TC-09 実走 timeout が発火する（rc=$_t70_rc9 = 上限で殺された rc / ${_t70_el9}s < ハング ${_T70_HANG_SEC}s / timeout=${_T70_TIMEOUT}）"
 else
   t70_fail "TC-09 実走 timeout が効いていない (rc=$_t70_rc9 期待 $_T70_TIMEOUT_RC または $_T70_TIMEOUT_RC_TERM / 経過 ${_t70_el9}s 期待 < ${_T70_HANG_SEC}s / timeout=$_T70_TIMEOUT)"
 fi
