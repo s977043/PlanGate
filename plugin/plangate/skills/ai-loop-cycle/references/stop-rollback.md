@@ -155,7 +155,7 @@ Step 1（ブランチ破棄・revert という破壊的操作）に着手する�
 
 - 対象 PR への GitHub `Request changes` レビュー（GitHub 側が発行者を保証する）
 - または `reject-ack.json`（`decision` / `signed_by` / `timestamp` を持つ、`c3.json` と同型の
-  人間発行ファイル。`responsibility-classes.md`
+  人間発行ファイル。`maintenance.json` 発行元ギャップ（`responsibility-classes.md`）
   と同種の問題を防ぐため、AI の会話内解釈だけを根拠に破壊的操作を実行しない）
 
 後述 §3.7 の `rollback-log.jsonl` の `acknowledged_by` フィールドは、**この人間発行アーティファクトからの

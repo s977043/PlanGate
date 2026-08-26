@@ -274,8 +274,17 @@ _sync_ai_loop_file() {
   fi
 }
 
-# references/ はフラット配置（workflows 10 本 + spec 6 本 + ho-paths.md = 17 本、
-# ファイル名衝突なしを確認済み）。SKILL.md は本ループの対象外（親ディレクトリに
+# references/ はフラット配置（docs/workflows/ai-loop/*.md 全件 + $_ai_loop_spec_files
+# + ho-paths.md）。**件数は運用で増えるためここに絶対数を書かない**（過去に
+# 「workflows 10 本 = 17 本」と書かれ、実体が増えた後も更新されず陳腐化した）。
+# 実数は次で測る:
+#   ls docs/workflows/ai-loop/*.md | wc -l   # workflows
+#   ls plugin/plangate/skills/ai-loop-cycle/references/*.md | wc -l  # 配布後の合計
+# basename 衝突が無いことは次で確認する（出力が空なら衝突なし）。docs/ai/ai-loop/
+# には非同梱ファイル（$_ai_loop_spec_files に無いもの）も含まれるため、この検査は
+# 実際の bundle より**広く**見る安全側の近似であり、偽陽性は出るが見落としはしない:
+#   { ls docs/workflows/ai-loop/; ls docs/ai/ai-loop/; } | sort | uniq -d
+# SKILL.md は本ループの対象外（親ディレクトリに
 # 配置されるため references/*.md の glob には含まれず、削除ループの対象にもならない）
 #
 # bundle 集合（_ai_loop_expected_refs）はリンク変換（issue #790）の判定にも使う
