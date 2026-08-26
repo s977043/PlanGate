@@ -6,8 +6,15 @@ PlanGate ワークフローで使うテンプレート群。
 
 | テンプレート | 用途 | フェーズ |
 | --- | --- | --- |
+| [`pbi-input.md`](./pbi-input.md) | PBI INPUT PACKAGE（人間が作成する plan の入力） | A / WF-02 |
 | [`plan.md`](./plan.md) | 実装前の実行可能な作業指示書（Task Sizing / No Placeholders / 検証計画） | WF-03 / C-1 |
+| [`todo.md`](./todo.md) | EXECUTION TODO（2-5 分粒度 / `Owner` / `depends_on` / `files` / `rollback`） | WF-03 / C-1 |
+| [`test-cases.md`](./test-cases.md) | テストケース定義（受入基準 → テストケースのマッピング / Edge case） | WF-03 / C-1 |
 | [`handoff.md`](./handoff.md) | 完了時の引き継ぎパッケージ（必須6要素・全PBI必須） | WF-05 |
+
+> `pbi-input.md` / `plan.md` / `todo.md` / `test-cases.md` の 4 点で **Plan Package** が成立する
+> （`scripts/ai-loop/plan_package.py` の `ARTIFACTS` は上記 4 点 + `review-self.md` / `review-external.md` の 6 要素）。
+> `plan.md` / `todo.md` / `test-cases.md` はフェーズ B（Prompt 1）で**同時生成**する（#1235）。
 
 ## 親 PBI（Orchestrator Mode）
 
@@ -29,7 +36,6 @@ PlanGate ワークフローで使うテンプレート群。
 | [`evidence-tdd-ledger.json`](./evidence-tdd-ledger.json) | TDD RED/GREEN/REFACTOR VERIFY 証跡 | high-risk / critical mode のTDD必須時に使用 |
 
 > `run-outcome-review.md` は v8.6.0 以前の利用者に**移行コストゼロ**（任意・後方互換）。
-
 
 ## Phase 分割表 (規模 L 以上 / #352 codex-mvp-split)
 
