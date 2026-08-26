@@ -6,6 +6,34 @@ PlanGateガイド: `docs/plangate.md`
 ワークフロー詳細: `docs/ai-driven-development.md`
 ルール: `.claude/rules/working-context.md`
 
+> **パス表記の規約（重要）**: 本コマンド中のパス参照は、**Markdown リンクのリンク先
+> を除き** 上流リポジトリのルート基準であり、導入先でそのまま解決できるとは限らない。
+>
+> **リンク先（`](...)` の中身）は解決に使わないこと**。本文中の
+> `[`docs/ai/core-contract.md`](../../docs/ai/core-contract.md)` のような `../` 記法は
+> **上流リポジトリで GitHub 上の相対リンクを成立させるためだけのもの**で、コマンド
+> ファイルのディレクトリ基準で解決される。導入先（特に plugin）でこれを辿ると
+> **plugin root の外へ抜ける**。解決には必ず**表示テキスト側のパス**（上記例では
+> `docs/ai/core-contract.md`）を使い、下表の規則に従うこと。
+>
+> 参照の種類ごとに解決先が異なる:
+>
+> | 参照の種類 | 上流リポジトリ | 導入先での解決 |
+> | --- | --- | --- |
+> | ルール | `.claude/rules/**` | **配布される**。plugin 導入先は `<plugin_root>/rules/**`、`install.sh --claude` 導入先は `.claude/rules/**` |
+> | ガイド / 契約 doc | `docs/**` | **3 経路とも配布対象外**。導入先の同名パスを探す |
+> | working context テンプレート | `docs/working/templates/**` | **3 経路とも配布対象外**。導入先の同名パスを探す |
+> | 作業ディレクトリ（`docs/working/TASK-XXXX/**`） | — | 導入先リポジトリ内に**本コマンドが生成する**（配布物ではない） |
+>
+> **参照解決順**: (1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ
+> **「正本 `<path>` を参照できなかった」と明示**し、本コマンド内の記述を代替正本
+> として扱い、**推測で内容を補わない**。テンプレートが解決できない場合、テンプレート由来の
+> 章立て・スキーマを推測で捏造せず、不足を明示したうえで最小構成で生成する。
+> **plugin root 直下に `docs/` を探しに行かないこと**: plugin が配布するのは
+> `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を
+> 配布対象として認識しないため必ず空振りする（`rules/` が plugin root 配下で
+> 解決できるのは実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
+
 ## 引数
 
 $ARGUMENTS に以下の形式で渡される:
@@ -295,7 +323,7 @@ Plan + ToDo + Test Cases 生成完了後、以下のファイルを自動生成�
 > - **判定不能** → 安全側＝direct-implementer-mode
 >
 > direct-implementer-mode でも C-3 承認 / plan_hash / allowed_files / todo・
-> status 更新 / L-0〜V-4 / C-4 は **すべて不変**（[`../../docs/ai/core-contract.md`](../../docs/ai/core-contract.md) §5-bis）。
+> status 更新 / L-0〜V-4 / C-4 は **すべて不変**（[`docs/ai/core-contract.md`](../../docs/ai/core-contract.md) §5-bis）。
 > 命名注記: 本ハーネスのサブエージェント起動ツールは `Agent`（ネスト時は
 > `Task` 名で "not available inside subagents"）。両者を「サブエージェント起動
 > （`Agent`/`Task`）」と総称する。関連: `AGENT_LEARNINGS.md` 2026-05-16（更新済）。

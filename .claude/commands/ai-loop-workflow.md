@@ -9,10 +9,31 @@ ai-loop-workflow（human-on-the-loop 裁定ループ）を明示起動する。
 実行手順の正本: skill `ai-loop-cycle`（1 サイクル = LoopSpec → W チェック →
 arbiter 裁定 → exec → rubric grader）。本コマンドは前提確認と起動のみを担う。
 
-> **docs の参照先**: plugin 導入先では ai-loop ドキュメントは skill 内の
-> `references/` 配下（`skills/ai-loop-cycle/references/`）に同梱される。
-> 本リポジトリ（正本側）では `docs/workflows/ai-loop/` 配下。以下の参照は
-> 環境に応じてどちらかで解決すること。
+> **パス表記の規約（重要）**: 本コマンド中の ai-loop 資材への参照は、環境ごとに
+> 解決先が異なる。**上流リポジトリ基準の `docs/**` / `scripts/**` を導入先で
+> そのまま探しに行かないこと**（3 経路とも配布対象外であり必ず空振りする）。
+> 参照は `<skill_dir>` = skill `ai-loop-cycle` が置かれているディレクトリを
+> 解決してから使う（表記・解決規則は skill `ai-loop-cycle` の SKILL.md 冒頭
+> 「パス表記の規約」と同一）:
+>
+> | 環境 | `<skill_dir>` |
+> | --- | --- |
+> | plugin 導入先（Claude marketplace） | `<plugin_root>/skills/ai-loop-cycle/` |
+> | `install.sh --claude` 導入先 | `.claude/skills/ai-loop-cycle/` |
+> | Codex 導入先 | `.codex/skills/ai-loop-cycle/` |
+> | 上流リポジトリ（正本側） | `.agents/skills/ai-loop-cycle/` |
+>
+> **参照解決順**: (1) `<skill_dir>` 配下の同梱物（`references/` / `scripts/` /
+> `schemas/`）を第一に読む → (2) 導入先リポジトリが独自の正本（上流の
+> `docs/workflows/ai-loop/` に相当するもの）を保持していればそちらを優先する →
+> (3) いずれでも解決できなければ **「正本 `<path>` を参照できなかった」と明示**し、
+> 本コマンド内の記述を代替正本として扱い、**推測で内容を補わない**。
+> なお上流リポジトリ（正本側）では `<skill_dir>` 配下に同梱物を持たない
+> （`references/` / `scripts/` / `schemas/` が揃うのは配布物のみ）ため、
+> 上流では (1) が空振りし常に (2) で解決する。
+> **plugin root 直下に `docs/` を探しに行かないこと**:
+> plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義
+> ディレクトリのみで `docs/` を配布対象として認識しないため必ず空振りする。
 
 ## 引数
 
@@ -20,9 +41,11 @@ $ARGUMENTS に以下の形式で渡される:
 
 - `run TASK-XXXX` — **Plan-first の正式入口**（TASK ID 必須）。既存の Plan Package
   （pbi-input / plan / todo / test-cases + C-1/C-2 evidence）を起点に production run を
-  開始する。LoopSpec は `scripts/ai-loop/plan_package.py` の `derive_loopspec()` で
+  開始する。LoopSpec は `<skill_dir>/scripts/plan_package.py` の `derive_loopspec()` で
   Plan Package から決定論派生し、`production: true` + `plan_package` ブロックを
-  arbiter へ渡す（契約正本: `docs/workflows/ai-loop/c3-prime-contract.md`）。
+  arbiter へ渡す（契約正本: `<skill_dir>/references/c3-prime-contract.md`。
+  上流リポジトリでは順に `scripts/ai-loop/plan_package.py` /
+  `docs/workflows/ai-loop/c3-prime-contract.md`）。
   TASK ID を伴わない自由文だけの `run <説明>` は **production run を開始できない**
   （TASK-0872 / #872。Plan Package 束縛の無い run を Wチェックへ進めない）
 - `status` — 直近 run の状態・decision record・摩擦台帳の要約を表示
@@ -68,6 +91,7 @@ $ARGUMENTS に以下の形式で渡される:
 ## 関連
 
 - skill: `ai-loop-cycle`（実行単位の正本）
-- docs: 同梱 ai-loop ドキュメント（design-philosophy / decision-table / execution-runbook —
-  plugin 導入先は skill 内 `references/`、本リポジトリは `docs/workflows/ai-loop/` 配下）
+- docs: 同梱 ai-loop ドキュメント（design-philosophy / decision-table / execution-runbook）
+  — `<skill_dir>/references/` 配下。上流リポジトリでは `docs/workflows/ai-loop/` 配下
+  （冒頭「パス表記の規約」の解決順に従う）
 - 対: `/ai-dev-workflow`（PlanGate 本番フロー入口）
