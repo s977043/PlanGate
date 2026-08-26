@@ -38,6 +38,15 @@ description: "PlanGate 初期セットアップを対話的に進めるための
 
 ## CLI 前提（doctor が何を検査するか）
 
+> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
+> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
+> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。`doctor` を実行できるのは
+> **上流リポジトリ（`s977043/plangate`）の clone がある環境だけ**である。導入先の
+> セットアップ検証で `doctor` に到達したら「CLI が無いため実行できない／上流リポジトリの
+> clone が必要」と**明示して停止する**か、下記「5 要素対応」表の「検証」列を導入先の
+> ファイルを直接見て手動確認へ置き換える。**CLI が無いことを理由に検証を黙って省略し、
+> 「doctor PASS」と読める記録を残してはならない。**
+
 本 skill は `doctor` を単一検証源とするが、**`doctor` は cwd ではなく CLI 本体の位置を基準に
 検査する**。`bin/plangate` は自身のパスから `plangate_root`（= `bin/` の親）を求め、
 `doctor` / `doctor --json` / `doctor --check-settings` はいずれも
