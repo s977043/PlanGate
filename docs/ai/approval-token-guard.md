@@ -72,7 +72,7 @@ bin/plangate maintenance start --reason "hook 整備" [--paths "scripts/hooks/fo
         "hooks": [
           {
             "type": "command",
-            "command": "sh scripts/check-approval-token-write.sh"
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh"
           }
         ]
       }
@@ -81,11 +81,16 @@ bin/plangate maintenance start --reason "hook 整備" [--paths "scripts/hooks/fo
 }
 ```
 
+> **パスは `${CLAUDE_PROJECT_DIR}` 付きで書くこと**（相対パスにしない）。hook は
+> harness の cwd で起動されるため、`sh scripts/...` と書くと cwd 次第で
+> **ロードされず無言で無効化される**。実際に効いている配線の正本は
+> [`.claude/settings.example.json`](../../.claude/settings.example.json)（EH-13 の 2 エントリ）。
+
 ## ガード本体の配置（単一ソース）
 
 EH-13 guard の**正本は `scripts/check-approval-token-write.sh` の 1 本のみ**。
-`scripts/hooks/` 配下にコピーを置かない。settings は上記のとおり `scripts/` 直下を
-直接参照する。
+`scripts/hooks/` 配下にコピーを置かない。settings は上記のとおり
+`${CLAUDE_PROJECT_DIR}/scripts/` 直下を直接参照する。
 
 理由:
 
@@ -95,6 +100,24 @@ EH-13 guard の**正本は `scripts/check-approval-token-write.sh` の 1 本の�
   読み取り誤 block 解消）が、コピー側には伝播しない。
 - 同方式の先例: [`scripts/apply-eh-git-destructive-guard.sh`](../../scripts/apply-eh-git-destructive-guard.sh)
   （EH-12 の hook 本体をコピーせず `scripts/` ルートを settings から直接参照する）。
+
+### この方針の代償: Codex / Cursor ブリッジからは到達できない
+
+Codex / Cursor のブリッジは **`scripts/hooks/` 配下しか起動できない**:
+
+- [`.codex/hooks/eh-bridge.sh`](../../.codex/hooks/eh-bridge.sh): `HOOK_SCRIPT="$REPO_ROOT/scripts/hooks/$HOOK_NAME"`
+- [`scripts/hooks/cursor-adapter.sh`](../../scripts/hooks/cursor-adapter.sh): 同上
+
+したがって「`scripts/hooks/` 配下にコピーを置かない」という本方針は、
+**EH-13 を Codex / Cursor パリティから恒久的に締め出す**ことを意味する。
+
+現時点で実害はない（`.codex/hooks.json` が wire するのは 5 本で EH-13 を含まず、
+`cursor-adapter.sh` は hook 不在時に `deny` で fail-closed する）。
+
+**Codex / Cursor で EH-13 を配線したくなった場合は、`scripts/hooks/` へ複製を置くのではなく、
+ブリッジ側にルート直下（`scripts/`）のパスを許可する変更を行う**こと。複製で解決すると
+本節冒頭の drift 問題がそのまま戻る。本 doc は方針の明記までで、ブリッジの実装変更は
+別途 issue を立てて扱う（本 PBI の範囲外）。
 
 ### 適用済み環境向け移行手順（#1071）
 
@@ -114,17 +137,41 @@ ls -l scripts/hooks/check-approval-token-write.sh 2>/dev/null \
 
 #### 2. 複製がどこからも参照されていないことを確認する
 
+確認対象は **repo ローカルの settings だけではない**。Claude Code / Codex / Cursor が
+実際に読み込む配線先を全部見る:
+
 ```sh
-grep -rn "hooks/check-approval-token-write" .claude/settings.json .claude/settings.local.json \
-  .claude/settings.example.json .codex/hooks.json .cursor/hooks.json 2>/dev/null
+grep -rn "hooks/check-approval-token-write" \
+  .claude/settings.json .claude/settings.local.json .claude/settings.example.json \
+  .codex/hooks.json .cursor/hooks.json \
+  plugin/plangate/hooks/hooks.json \
+  "$HOME/.claude/settings.json" 2>/dev/null
 ```
 
-**出力が空であること**が削除の前提。1 件でも出た場合は、まずその参照を
-`scripts/check-approval-token-write.sh`（`scripts/` 直下）へ張り替える。
-`.claude/settings*.json` は Hardening Override 対象のため、**張り替えは Human が実施する**
+| 追加した対象 | なぜ必要か |
+|------------|-----------|
+| **ユーザーレベル `~/.claude/settings.json`** | repo 外だが Claude Code が実際に読む配線先。repo ローカルだけ見て「参照ゼロ」と判定すると、ここに残った参照を見落とす |
+| **plugin 配布の `hooks/hooks.json`** | plugin は `hooks/hooks.json` 経由でしか hook を起動できない（[`docs/working/_reports/1144-plugin-packaging-patch.md`](../working/_reports/1144-plugin-packaging-patch.md) §1）。未作成なら空振りする |
+
+**出力が空であること**が削除の前提。**列挙が不完全なら、この前提判定も不完全**である
+（上の一覧以外の配線先を持つ環境では、その分も自分で足すこと）。1 件でも出た場合は、
+まずその参照を `${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh`
+（`scripts/` 直下）へ張り替える。
+`.claude/settings*.json` および `~/.claude/settings.json` は Hardening Override 対象
+（および AI の self-mod ガード対象）のため、**張り替えは Human が実施する**
 （AI は patch 提示まで）。
 
-#### 3. 複製を削除する
+#### 3. 複製を削除する（👤 Human が実施）
+
+> **`scripts/hooks/*.sh` は Hardening Override 対象**（正本:
+> [`scripts/hooks/check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) の
+> `_override=0` 直後の `case` ブロック内 `scripts/hooks/*.sh) _override=1`）。
+> **作成・変更だけでなく削除も Human が実施する。AI は本手順の提示までで、
+> 自分では実行しない**（step 2 の張り替えと同じ強さの制約）。
+>
+> 特に EH-3 の PreToolUse は `Edit|Write` にのみ配線されており **Bash 経路は素通りする**
+> （#1104）。下の `rm` / `git rm` を AI が Bash で走らせても**物理的には止まらない**ため、
+> ここは規範層で担保するしかない。
 
 ```sh
 rm scripts/hooks/check-approval-token-write.sh
@@ -154,6 +201,14 @@ sh tests/extras/ta-25-approval-token-guard.sh        # EH-13 の TC が全 PASS
 `bin/plangate doctor` / CI に複製の存在検出は**追加していない**（#1071 で案 (c) は
 不採用）。導線（`cp`）を断って**新たな複製が生まれない**ようにしたうえで、既存の複製は
 本節の移行手順で 1 度だけ解消する方針を採る。
+
+### 残存脅威モデル（この節が守らないもの）
+
+**導入先環境の残存複製は、本節の手順を実行した環境でのみ解消される（機械保証は無い）。**
+`tests/extras/ta-25-approval-token-guard.sh` の T1071-TC-03 が複製不在を固定するのは
+**この repo のチェックアウトだけ**であり、#1071 の本来の被害者である導入先環境は
+test suite を回すとは限らない。導線を断ったことで**新たな複製は生まれない**が、
+**既に存在する複製の除去は各環境の運用者の手順実行に依存する**。
 
 ## トラブルシューティング
 

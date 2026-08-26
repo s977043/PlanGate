@@ -44,6 +44,10 @@ PG_T25_SCHEMA="$PG_T25_ROOT/schemas/maintenance.schema.json"
 # PG_T25_GUARD と同じく env override 可能にする（R-029 と同方式）。
 PG_T25_PATCH="${PG_T25_PATCH:-$PG_T25_ROOT/scripts/apply-task-0123-patches.sh}"
 PG_T25_SELF="$PG_T25_ROOT/tests/extras/ta-25-approval-token-guard.sh"
+# T1071-TC-04（#1252 M-3）: ユーザーレベル settings は repo 外・環境依存のため、
+# 実パスを env override 可能にする（PG_T25_GUARD / PG_T25_PATCH と同じ R-029 方式）。
+# これが無いと「ユーザーレベル配線に複製参照を置いたら落ちるか」を実証できない。
+PG_T25_USER_SETTINGS="${PG_T25_USER_SETTINGS:-${HOME:-/nonexistent}/.claude/settings.json}"
 
 # focused mode: mutation 子プロセス（PG_T25_MUTATION_CHILD=1）は kill 対象 TC のみ実行
 PG_T25_FOCUSED="${PG_T25_MUTATION_CHILD:-0}"
@@ -873,20 +877,30 @@ fi
 # TC-01 は静的（導線の不在）、TC-02 は sandbox 実行での挙動（複製が生まれない）を撃つ。
 # 検出力の実証は PG_T25_PATCH に旧版スクリプトを差した実行で行う（R-029 と同方式）。
 
-# T1071-TC-01: apply スクリプトに複製先パスを作る導線が無い（AC-2）
-# 「言及」ではなく「導線」を撃つ: 変数への代入（旧実装の TOKEN_GUARD=...）と、
-# パスを直書きしたファイル生成コマンドの両方を 0 件として固定する。
-# 移行手順を案内する _log / コメント中の言及は導線ではないので対象外。
+# T1071-TC-01: 複製先パスの**リテラル直書き**が apply スクリプトに無い（AC-2 / 回帰固定）
+# 変数への代入（旧実装の TOKEN_GUARD=...）と、パスを直書きしたファイル生成コマンドを
+# 0 件として固定する。移行手順を案内する _log / コメント中の言及は対象外。
+#
+# 検出力の限界（意図的にこの範囲に留める）:
+#   - 本 TC が撃てるのは**リテラル直書きの回帰**だけ。間接的なパス構築
+#     （例: _HD="$REPO_ROOT/scripts/hooks"; cp ... "$_HD/$_HB"）は PASS する。
+#   - 2 本目の正規表現（cp|ln|install|mv|touch|tee）は旧実装ですら発火しない
+#     （旧コードも変数経由で書いていたため）。実質の検出力は assign 側 1 本が担う。
+#   - **恒久的な網は T1071-TC-02**（sandbox 実行で複製が生まれないことを実測する）。
+#     TC-01 単独を「複製導線の不在の証明」として扱わないこと。
 _t1071_assign=$(grep -cE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=.*scripts/hooks/check-approval-token-write' "$PG_T25_PATCH" 2>/dev/null || true)
 _t1071_mk=$(grep -cE '(^|[[:space:];&|(])(cp|ln|install|mv|touch|tee)[[:space:]].*scripts/hooks/check-approval-token-write' "$PG_T25_PATCH" 2>/dev/null || true)
 if [ "$_t1071_assign" = "0" ] && [ "$_t1071_mk" = "0" ]; then
-  t25_pass "T1071-TC-01 apply script has no code path creating scripts/hooks/<guard>"
+  t25_pass "T1071-TC-01 apply script has no literal scripts/hooks/<guard> duplication line (regression pin; the durable net is TC-02)"
 else
-  t25_fail "T1071-TC-01 apply script still has a duplication path (assign=$_t1071_assign mk=$_t1071_mk)"
+  t25_fail "T1071-TC-01 apply script still has a literal duplication line (assign=$_t1071_assign mk=$_t1071_mk)"
 fi
 
 # T1071-TC-02: sandbox で実行しても scripts/hooks/ に複製が生まれない（AC-2）
 # 実 repo は一切触らない（REPO_ROOT は $0 の親の親＝sandbox に解決される）。
+# **apply の rc=0 を PASS 条件に AND する**（vacuous 化の防止）。rc を見ないと、
+# apply が Patch 2 到達前に死んだ環境（例: python3 不在で Patch 1 が失敗）でも
+# 「複製が無い」だけで PASS を報告してしまう＝何も検査していない PASS になる。
 _t1071_sbx=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-1071.XXXXXX")
 register_cleanup "$_t1071_sbx"
 mkdir -p "$_t1071_sbx/scripts/hooks" "$_t1071_sbx/schemas" "$_t1071_sbx/bin" "$_t1071_sbx/.github/workflows"
@@ -898,8 +912,10 @@ cp "$PG_T25_ROOT/bin/plangate" "$_t1071_sbx/bin/plangate"
 _t1071_dup="$_t1071_sbx/scripts/hooks/check-approval-token-write.sh"
 _t1071_rc=0
 sh "$_t1071_sbx/scripts/apply-task-0123-patches.sh" >/dev/null 2>&1 || _t1071_rc=$?
-if [ ! -e "$_t1071_dup" ]; then
-  t25_pass "T1071-TC-02 apply run creates no scripts/hooks/<guard> duplicate (sandbox)"
+if [ ! -e "$_t1071_dup" ] && [ "$_t1071_rc" = "0" ]; then
+  t25_pass "T1071-TC-02 apply run completes (rc=0) and creates no scripts/hooks/<guard> duplicate (sandbox)"
+elif [ "$_t1071_rc" != "0" ]; then
+  t25_fail "T1071-TC-02 apply run did not complete (apply rc=$_t1071_rc) — duplicate check is vacuous"
 else
   t25_fail "T1071-TC-02 apply run created a duplicate at scripts/hooks/<guard> (apply rc=$_t1071_rc)"
 fi
@@ -914,6 +930,14 @@ fi
 
 # T1071-TC-04: 配線が scripts/ 直下を指し、scripts/hooks/ を指さない（AC-5）
 # 現存する settings / hooks 配線ファイルを全数走査する（存在するものだけ検査）。
+#
+# 走査対象は repo ローカルの settings 5 ファイルに閉じない（#1252 敵対レビュー M-3）:
+#   - **ユーザーレベル `~/.claude/settings.json`**: repo 外だが Claude Code が実際に
+#     読み込む配線先。環境依存のため「存在するときだけ」見る（`[ -f ] || continue`）。
+#   - **plugin 配布の `hooks/hooks.json`**: plugin は `hooks/hooks.json` 経由でしか
+#     hook を起動できない（`docs/working/_reports/1144-plugin-packaging-patch.md` §1）。
+#     現時点では未作成のため空振りするが、作られた瞬間に検査対象へ入る。
+# 列挙が不完全なら「複製はどこからも参照されていない」という削除の前提判定も不完全になる。
 _t1071_root_refs=0
 _t1071_hook_refs=0
 for _t1071_f in \
@@ -921,7 +945,9 @@ for _t1071_f in \
   "$PG_T25_ROOT/.claude/settings.local.json" \
   "$PG_T25_ROOT/.claude/settings.example.json" \
   "$PG_T25_ROOT/.codex/hooks.json" \
-  "$PG_T25_ROOT/.cursor/hooks.json"; do
+  "$PG_T25_ROOT/.cursor/hooks.json" \
+  "$PG_T25_ROOT/plugin/plangate/hooks/hooks.json" \
+  "$PG_T25_USER_SETTINGS"; do
   [ -f "$_t1071_f" ] || continue
   _t1071_n=$(grep -c 'scripts/check-approval-token-write\.sh' "$_t1071_f" 2>/dev/null || true)
   _t1071_root_refs=$((_t1071_root_refs + _t1071_n))
