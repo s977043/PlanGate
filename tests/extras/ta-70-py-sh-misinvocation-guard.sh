@@ -43,16 +43,32 @@
 #          発火したこと」自体を見る。standalone 実行には CI の timeout-minutes が
 #          効かないため本体側で持つ）
 #
-# 残存脅威モデル（#1250 F3 / 打ち切り宣言）:
-#   - 守るもの: 走査対象 3 群の .py を `sh` / `bash` で起動しても、ガードより
-#     後ろの行が一切実行されないこと。構造判定は「ガードブロック本体に
-#     副作用を持ちうる行が存在しない」ことまで保証する
+# 残存脅威モデル（#1250 F3 / C-1 で限定・打ち切り宣言）:
+#   - 守るもの: 走査対象 3 群の .py を `sh` / `bash` で起動したとき、ガード
+#     ブロック本体が **既知の許可形（空行 / コメント / 引用とエスケープを
+#     正規化したうえでシェルメタ文字を持たない echo・printf / top-level の
+#     `exit 2`）だけで構成されていること**、およびガードより後ろの行が
+#     実行されないこと
+#   - **「副作用を持ちうる行が一切存在しない」とは主張しない**（#1250 C-1 で
+#     この文言が実際に破れた）。構造判定は allowlist ＋ 正規化の一致検査であり、
+#     **正規化が想定しない書法があれば任意コマンドが許可形に化けうる**。
+#     実際に `\"` / `\'`（シェルではリテラルの引用符だが、引用符除去の
+#     `gsub(/"[^"]*"/, ...)` は対として消す）という非対称で `;` 連結が
+#     素通りし、9 passed / 0 failed のまま `touch` が発火した。是正は
+#     「引用符除去の前にバックスラッシュ・エスケープを落とす」1 行で、
+#     対照は TC-07 の 5 クラス目として恒久固定した。**保証の根拠は
+#     「正規化 + allowlist が既知の書法を網羅している範囲」に限られ、
+#     未知の書法に対する完全性は主張しない**
 #   - 守らないもの: (a) 走査対象 3 群の **外** にある .py。(b) `sh` 以外の
 #     誤起動経路（`source` / `.` によるカレントシェルでの読み込み等）。
 #     (c) guard より前に置かれた shebang 行そのものの改変。
 #     (d) TC-04 は sandbox 実行なので、**docstring が実 repo の実在ファイルを
 #     参照して初めて発火する型の副作用**は再現されない（fixture 側の
-#     TC-06 / TC-07 が sentinel でその型を担保する）
+#     TC-06 / TC-07 が sentinel でその型を担保する）。
+#     (e) 副作用先が **sandbox の外**（`/tmp` 等の絶対パス）である副作用。
+#     TC-05 は sandbox のファイル構成と実 repo の git status しか見ないため
+#     backstop にならない（#1250 C-1 の実測）。ここを守るのは構造判定だけで
+#     あり、多層になっていない
 #   - 本検査は多層防御の 1 層であり、最終的な保証は C-4 Human レビューと
 #     runtime の allowlist（NO MERGE BY AI）が担う
 #
@@ -107,11 +123,25 @@ mkdir -p "$_T70_TMP/scripts"
 # FAIL ではなくハングする。CI の `timeout-minutes` は standalone 実行に
 # 効かないので本体側で持つ。TC-09 が「この配線が実際に効くこと」を実証する。
 _T70_SH_TIMEOUT_SEC="${PG_T70_SH_TIMEOUT_SEC:-20}"
+# 選定順の是正（#1250 m-3）: 旧実装は `timeout` を無条件で `gtimeout` より
+# 優先していた。`timeout` という名の**非 coreutils 実装**が PATH にある環境では
+# それが選ばれ、rc が coreutils の 124 にならず TC-09 が常時赤になる。
+# **`timeout --version` に GNU coreutils の署名があるものを優先**し、
+# 無ければ `gtimeout`、それも無ければ素の `timeout`（rc は後述のとおり
+# 124 / 143 の両方を許容する）へ落とす。
+_t70_is_coreutils() {
+  command -v "$1" >/dev/null 2>&1 || return 1
+  "$1" --version 2>/dev/null | head -1 | grep -qi 'coreutils'
+}
 _T70_TIMEOUT=''
-if command -v timeout >/dev/null 2>&1; then
+if _t70_is_coreutils timeout; then
   _T70_TIMEOUT='timeout'
+elif _t70_is_coreutils gtimeout; then
+  _T70_TIMEOUT='gtimeout'
 elif command -v gtimeout >/dev/null 2>&1; then
   _T70_TIMEOUT='gtimeout'
+elif command -v timeout >/dev/null 2>&1; then
+  _T70_TIMEOUT='timeout'
 fi
 # 出力は「パイプ捕捉」ではなくファイル経由で受け取る。
 #
@@ -181,13 +211,20 @@ _t70_total=$(grep -c . "$_T70_LIST" || true)
 #   (b) `echo` / `printf` で始まる出力行。ただし
 #       - コマンド置換（`` ` `` / `$(`）は **二重引用符の内側でも評価される**ため
 #         行全体で禁止する
-#       - 引用済み部分と `>&2` を落とした残りにシェルメタ文字（`; | & < > ( ) ` $`）
-#         があるものは禁止（`echo "..." ; rm -rf /` 型の連結を弾く）
+#       - **バックスラッシュ・エスケープを落としてから**引用済み部分と `>&2` を
+#         落とし、残りにシェルメタ文字（`; | & < > ( ) ` $`）があるものは禁止
+#         （`echo "..." ; rm -rf /` 型の連結を弾く）。エスケープの正規化を
+#         省くと `\"` / `\'` が引用符の対として消えて連結が素通りする（#1250 C-1）
 #   (c) `exit 2`（top-level・インデントなし）
 # のみ。条件分岐・ループ・任意コマンドはいずれも許可形に該当せず落ちる。
-# これにより `exit 2` の前に実行されうる行は「副作用のない出力」だけになり、
-# かつ分岐が存在しえないので `exit 2` の到達可能性が構造的に保証される。
 # `exit 2` より後ろに実行行を置くこと（＝到達不能な後続処理）も許さない。
+#
+# **この判定が保証する範囲**: 「ブロック本体が上記 allowlist に一致すること」。
+# allowlist と正規化が既知の書法を網羅している限りにおいて、`exit 2` の前に
+# 実行されうるのは副作用のない出力だけで、分岐が無いので `exit 2` は到達可能
+# である。**正規化が想定しない書法に対する完全性は主張しない**（#1250 C-1 で
+# エスケープの非対称が実際に破った）。新しい書法を見つけたら塞いだうえで
+# TC-07 のクラスを 1 つ増やすこと。
 _t70_struct_ok() {
   awk '
     NR > 40 { bad = 1; exit }
@@ -212,6 +249,15 @@ _t70_struct_ok() {
         # エラーへのリダイレクト）を落としたうえで、残りにシェルメタ文字が
         # 無いことを見る（`echo "..." ; rm -rf /` 型の連結を弾く）
         rest = $0
+        # バックスラッシュ・エスケープを **引用符除去の前に** 落とす（#1250 C-1）。
+        # `\"` はシェルではリテラルの `"` だが、下の `gsub(/"[^"]*"/, ...)` は
+        # これを引用符の**対**として消す。この非対称を使うと
+        #     echo \" ; touch /tmp/pwned ; echo \"
+        # の `;` 連結ごと「引用済みスパン」として消えて残りが無害に見え、
+        # 任意コマンドが構造判定を通り抜けた（実測: 9 passed / 0 failed のまま
+        # `touch` が発火。副作用先を sandbox 外の絶対パスにすると TC-05 も
+        # backstop にならない）。`\` 自体はメタ文字クラスに無いため enabler だった。
+        gsub(/\\./, "", rest)
         gsub(/"[^"]*"/, "", rest)
         gsub(/'"'"'[^'"'"']*'"'"'/, "", rest)
         gsub(/>&2/, "", rest)
@@ -302,7 +348,7 @@ if [ -z "$_t70_missing" ] && [ -z "$_t70_late" ] && [ -z "$_t70_emptydir" ] \
     _t70_rel="${_t70_f#"$_T70_ROOT"/}"
     _t70_rc=0
     _t70_run_sh "$_t70_sandbox" "$_t70_rel" "$_T70_SH_TIMEOUT_SEC" "$_t70_outf" || _t70_rc=$?
-    # rc=124 は timeout（GNU coreutils / gtimeout）= ハング。FAIL として可視化する
+    # rc=124（coreutils）/ 143（TERM 由来）は timeout = ハング。FAIL として可視化する
     [ "$_t70_rc" -eq 2 ] || _t70_badrc="$_t70_badrc ${_t70_rel}:rc=$_t70_rc"
     grep -qF "$_T70_DIAG" "$_t70_outf" || _t70_nomsg="$_t70_nomsg ${_t70_rel}"
   done <"$_T70_LIST"
@@ -369,11 +415,31 @@ printf '#!/usr/bin/env python3\n""":"\n# --- PG-SH-GUARD (#1169) ---\nif false; 
 _t70_struct7c=ok
 _t70_struct_ok "$_T70_TMP/scripts/unreachable.py" || _t70_struct7c=ng
 
+# TC-07d/e 対照（#1250 C-1 の恒久固定）: `echo` 行の allowlist を
+# **バックスラッシュ・エスケープ**で素通りするクラス。`\"` / `\'` はシェルでは
+# リテラルの引用符だが、正規化の `gsub(/"[^"]*"/, ...)` はこれを引用符の**対**
+# として消す。この非対称で `;` 連結した任意コマンドを丸ごと「引用済みスパン」
+# として消せた（実測 SURVIVE: 9 passed / 0 failed のまま `touch` が発火）。
+# 副作用先を sandbox 外の絶対パスにすると TC-05 も backstop にならないため、
+# ここで構造判定側に固定する。
+# 注意: 副作用行に `$(` / バッククォートを**入れない**。入れるとコマンド置換の
+# 禁止則（行全体で `index($0, "$(")`）が先に落とすため、エスケープ非対称という
+# 検出したいクラスそのものを測れなくなる（陽性コントロールが空振りする）。
+printf '#!/usr/bin/env python3\n""":"\n# --- PG-SH-GUARD (#1169) ---\necho \\" ; touch ./FIRED-esc ; echo \\"\necho "ERROR: $0 is a Python script; do not run it with sh/bash." >&2\nexit 2\n":"""\n\nprint("x")\n' \
+  >"$_T70_TMP/scripts/escdq.py"
+_t70_struct7d=ok
+_t70_struct_ok "$_T70_TMP/scripts/escdq.py" || _t70_struct7d=ng
+printf '#!/usr/bin/env python3\n""":"\n# --- PG-SH-GUARD (#1169) ---\necho \\%s ; touch ./FIRED-esc ; echo \\%s\necho "ERROR: $0 is a Python script; do not run it with sh/bash." >&2\nexit 2\n":"""\n\nprint("x")\n' \
+  "'" "'" >"$_T70_TMP/scripts/escsq.py"
+_t70_struct7e=ok
+_t70_struct_ok "$_T70_TMP/scripts/escsq.py" || _t70_struct7e=ng
+
 if [ "$_t70_fired7" = yes ] && [ "$_t70_struct7" = ng ] \
-   && [ "$_t70_struct7b" = ng ] && [ "$_t70_struct7c" = ng ]; then
-  t70_pass "TC-07 変異注入: guard 除去 / ブロック内副作用行 / 到達不能 exit 2 の 3 クラスすべてが構造判定で落ちる（検出力の実証）"
+   && [ "$_t70_struct7b" = ng ] && [ "$_t70_struct7c" = ng ] \
+   && [ "$_t70_struct7d" = ng ] && [ "$_t70_struct7e" = ng ]; then
+  t70_pass "TC-07 変異注入: guard 除去 / ブロック内副作用行 / 到達不能 exit 2 / バックスラッシュ・エスケープ（\\\" と \\') の 5 クラスすべてが構造判定で落ちる（検出力の実証）"
 else
-  t70_fail "TC-07 変異注入 (rc=$_t70_rc7 / FIRED=$_t70_fired7 / 構造判定=$_t70_struct7 / 副作用行=$_t70_struct7b / 到達不能=$_t70_struct7c) — TC-01/TC-06 が空振りしている"
+  t70_fail "TC-07 変異注入 (rc=$_t70_rc7 / FIRED=$_t70_fired7 / 構造判定=$_t70_struct7 / 副作用行=$_t70_struct7b / 到達不能=$_t70_struct7c / エスケープ\\\"=$_t70_struct7d / エスケープ\\'=$_t70_struct7e) — TC-01/TC-06 が空振りしている"
 fi
 
 # --- TC-06 正側: guard 付きは sentinel を起動せず exit 2 ---
@@ -412,12 +478,20 @@ fi
 # **timeout 配線を丸ごと外しても 30 秒フル待って rc≠0 で戻り 30 < 60 で PASS** した
 # （敵対レビューが変異注入で SURVIVE を実測 / 9 passed 0 failed）。
 # これは「timeout が発火したこと」を一切見ていない。
-# 是正: **rc=124（timeout / gtimeout が上限で殺した固有の rc）** と
-# **経過 < ハング秒数** の連言にする。閾値はハング秒数と同じ変数から導出し、
-# 片方だけ変えても壊れないようにする。
+# 是正: **上限で殺されたことを示す rc**（coreutils の 124、または TERM 由来の
+# 143 / #1250 m-3）と **経過 < ハング秒数** の連言にする。閾値はハング秒数と
+# 同じ変数から導出し、片方だけ変えても壊れないようにする。
+# 「rc≠0」ではなく **この 2 値のいずれか**を要求する点が要 — rc≠0 では
+# 「30 秒フル待ってから別の理由で落ちた」を区別できず、変異注入が SURVIVE する。
 _T70_HANG_SEC=30          # fixture の docstring が呼ぶ sleep の秒数（＝配線が無いときの所要時間）
 _T70_T09_LIMIT_SEC=2      # TC-09 で timeout に渡す上限。必ず _T70_HANG_SEC 未満
+# 上限超過時の rc（#1250 m-3）。124 は GNU coreutils `timeout` / `gtimeout` 固有だが、
+# **TERM を送って子の終了ステータスをそのまま返す実装では 128+15 = 143** になる。
+# 124 決め打ちは fail-closed（安全側）ではあるが、そうした実装の環境で
+# **偽 FAIL** を出して常時赤になる。両方を許す。
+# どちらも「上限で殺された」ことを示す rc であり、通常終了（0 / 2）とは区別できる。
 _T70_TIMEOUT_RC=124       # GNU coreutils timeout / gtimeout が上限超過で返す rc
+_T70_TIMEOUT_RC_TERM=143  # TERM 由来（128+15）で返す実装のための許容値
 printf '#!/usr/bin/env python3\n"""\nhang — 詳細は `sleep %s` を参照。\n"""\nprint("python-ran")\n' \
   "$_T70_HANG_SEC" >"$_T70_TMP/scripts/hang.py"
 _t70_rc9=0
@@ -431,10 +505,11 @@ if [ -z "$_T70_TIMEOUT" ]; then
 elif [ "$_T70_T09_LIMIT_SEC" -ge "$_T70_HANG_SEC" ]; then
   # 上限がハング秒数以上だと timeout は原理的に発火せず、以下の判定が無意味になる
   t70_fail "TC-09 fixture 設定不正: 上限 ${_T70_T09_LIMIT_SEC}s >= ハング ${_T70_HANG_SEC}s（timeout が発火し得ない）"
-elif [ "$_t70_rc9" -eq "$_T70_TIMEOUT_RC" ] && [ "$_t70_el9" -lt "$_T70_HANG_SEC" ]; then
-  t70_pass "TC-09 実走 timeout が発火する（rc=$_t70_rc9 = timeout 固有 / ${_t70_el9}s < ハング ${_T70_HANG_SEC}s）"
+elif { [ "$_t70_rc9" -eq "$_T70_TIMEOUT_RC" ] || [ "$_t70_rc9" -eq "$_T70_TIMEOUT_RC_TERM" ]; } \
+     && [ "$_t70_el9" -lt "$_T70_HANG_SEC" ]; then
+  t70_pass "TC-09 実走 timeout が発火する（rc=$_t70_rc9 = 上限で殺された rc / ${_t70_el9}s < ハング ${_T70_HANG_SEC}s / timeout=$_T70_TIMEOUT）"
 else
-  t70_fail "TC-09 実走 timeout が効いていない (rc=$_t70_rc9 期待 $_T70_TIMEOUT_RC / 経過 ${_t70_el9}s 期待 < ${_T70_HANG_SEC}s)"
+  t70_fail "TC-09 実走 timeout が効いていない (rc=$_t70_rc9 期待 $_T70_TIMEOUT_RC または $_T70_TIMEOUT_RC_TERM / 経過 ${_t70_el9}s 期待 < ${_T70_HANG_SEC}s / timeout=$_T70_TIMEOUT)"
 fi
 
 # 後始末は register_cleanup 済み（README 規約 3）。最終行は finalize 単独とし、
