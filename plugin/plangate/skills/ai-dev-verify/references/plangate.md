@@ -73,7 +73,7 @@ graph TD
 
 ### 各フェーズの役割
 
-> ABCD ↔ WF-XX 対応の正本: `glossary.md` (TASK-0108 / #310 #7)。下表は WF-XX 列で **併記**。
+> ABCD ↔ WF-XX 対応の正本: `docs/pages/reference/glossary.md` Workflow フェーズ（`glossary.md`） (TASK-0108 / #310 #7)。下表は WF-XX 列で **併記**。
 
 | フェーズ | 対応 WF | 誰が | 何をする | 成果物 |
 | --- | --- | --- | --- | --- |
@@ -110,7 +110,7 @@ graph TD
 ## 段階的に導入する
 
 全部入りは前提ではない。チーム / プロジェクトへ段階導入する場合は
-`staged-adoption-guide.md`を参照（Phase 0 体験 ->
+段階的導入ガイド（`staged-adoption-guide.md`）を参照（Phase 0 体験 ->
 Phase 1 計画 -> Phase 2 ゲート -> Phase 3 フル運用。各段階で「使わなくて
 よいもの」を明示）。
 
@@ -199,7 +199,7 @@ execコマンド実行後、PR作成までに複数の自動検証ステップ�
 3. C-1セルフレビュー(全25項目)を自動実行
 4. C-2外部AIレビューを自動実行
 
-> 計画を生むプロセス（B-1 確認質問・事前メトリクス検証・B-2 アプローチ比較・B-3 同時生成）の詳細は `plan-creation-process.md` を参照。
+> 計画を生むプロセス（B-1 確認質問・事前メトリクス検証・B-2 アプローチ比較・B-3 同時生成）の詳細は 高品質な実行計画ができるまで（`plan-creation-process.md`） を参照。
 
 ### Step 3: 人間レビュー → 承認(人間)
 
@@ -465,14 +465,14 @@ PlanGateのゲートは**PBI(チケット)1枚の中**に置きます。判断�
 
 ## 関連資料
 
-- `ai-driven-development.md` -- 実装者向けリファレンス
-- `plangate-v4-design.md` -- フェーズD拡張設計の詳細
-- `plangate-v5-design.md` -- ハーネスエンジニアリング知見統合
-- `plangate-v6-roadmap.md` -- ハーネスエンジニアリング差分解消
-- `workflow-conductor.md` -- フェーズD司令塔エージェント
-- `ai-dev-workflow.md` -- `/ai-dev-workflow`コマンド
-- `working-context.md` -- セッション管理
-- `review-principles.md` -- レビュー原則
+- ワークフロー詳細・プロンプト集（`ai-driven-development.md`） -- 実装者向けリファレンス
+- PlanGate v4設計 -- takt知見統合（`plangate-v4-design.md`） -- フェーズD拡張設計の詳細
+- PlanGate v5設計 -- L-0リンター自動修正（`plangate-v5-design.md`） -- ハーネスエンジニアリング知見統合
+- PlanGate v6ロードマップ（`plangate-v6-roadmap.md`） -- ハーネスエンジニアリング差分解消
+- workflow-conductor定義（`workflow-conductor.md`） -- フェーズD司令塔エージェント
+- メインコマンド定義（`ai-dev-workflow.md`） -- `/ai-dev-workflow`コマンド
+- 作業コンテキスト管理ルール（`working-context.md`） -- セッション管理
+- レビュー判定フレーム（`review-principles.md`） -- レビュー原則
 
 
 ## 関連環境変数

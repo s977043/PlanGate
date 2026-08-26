@@ -4,7 +4,7 @@
 > 本ファイルが **実行契約（Iron Law / 制約 / 停止条件）の正本** であり、`CLAUDE.md` / `AGENTS.md` 等の入口ファイルから参照される。
 >
 > Status: v1（PBI-116-01 で初版確立）
-> 関連: `project-rules.md` / [`docs/ai-driven-development.md`](./ai-driven-development.md) / `parent-plan.md`
+> 関連: `project-rules.md` / [`docs/ai-driven-development.md`](./ai-driven-development.md) / PBI-116（`parent-plan.md`）
 
 ## 正本責務の境界（Codex 相談 CC-01 対応）
 
@@ -136,7 +136,7 @@ exec 前に停止 or 明示降格する:
    宣言時、委譲先は commit/push しない（完了フェーズは親が実施）。
 3. **委譲 commit 境界の機械検出（EH-9）**: 宣言下の git commit/push 相当
    （`git -c`/`-C`/env 前置/`command git`/`gh pr merge`/`sh -c` 等を含む）は
-   **EH-9**（`hook-enforcement.md`）が
+   **EH-9**（`contracts/hook-enforcement.md` 系（`hook-enforcement.md`））が
    PreToolUse で **default=block**（**warn は廃止＝high-risk 恒久対処**。
    bypass・未宣言のみ従来動作）。違反は block であり direct-mode 降格は
    しない（降格は項目1の `delegation_unavailable` に限定）。信頼境界は
