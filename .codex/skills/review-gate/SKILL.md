@@ -23,16 +23,37 @@ severity=critical の finding がある場合、fix なしに Completion Gate �
 
 ## 手順
 
-### ステップ 1: `/pg-check` を実行して finding を収集する
+### ステップ 1: レビュー対象の差分を取得して finding を収集する
+
+> **`/pg-check` は存在しない**（TASK-0124 / `2645848`, 2026-06-02 の plugin 初回同期適用で
+> `plugin/plangate/commands/pg-check.md` が削除され、**後継コマンドは無い**）。
+> 本節はその**代替として、コマンドに依存しない手順**を定義する。severity 付き finding を
+> 起こす責務は本 Skill（ステップ 2〜3）が引き継ぐ。旧コマンドを前提とした自動化を
+> 組んでいる場合は、以下の手順に置き換えること。
+
+対象差分を取得する（上から順に該当するものを使う）:
 
 ```bash
-# 差分レビューを実行して severity 付き finding を取得する
-/pg-check <対象ブランチ or PR番号>
+git status                       # 対象ブランチと未コミット変更を確認
+gh pr diff <PR番号>              # PR がある場合
+git diff origin/main...HEAD      # PR 前のブランチを見る場合
+git diff && git diff --cached    # 未コミット変更を見る場合
+git diff --stat                  # 変更ファイルの概要
 ```
+
+取得した差分を精読し、ステップ 2 の 6 観点ごとに finding を起こす。**この段階では
+severity を付けず、事実（ファイル・行・観察された挙動）だけを列挙する**。severity は
+ステップ 2 で `review-principles.md` §3 の定義に従って付与する。
+
+> **コミット・PR 前のセルフ検査は `diff-audit` Skill を使う**（本 Skill の代わりにはならない）。
+> `diff-audit` は「変更を作った本人が PR 前に自分で潰す」段階、本 Skill は「実装完了後の
+> ゲート判定」段階であり、`diff-audit` §review-gate との役割分界 のとおり**別段階**である。
+> `diff-audit` の出力を本ステップの入力として持ち込むのは有効だが、それだけで本ステップを
+> 満たしたとは扱わない。
 
 ### ステップ 2: 6 観点で finding を分類・severity を付与する
 
-`/pg-check` の Findings を以下の 6 観点に分類する:
+ステップ 1 で収集した finding を以下の 6 観点に分類する:
 
 | #   | 観点               | チェック内容                                 |
 | --- | ------------------ | -------------------------------------------- |
@@ -300,7 +321,11 @@ Completion Gate の発火条件（`severity=critical` が 1 件以上あれば�
 ## 関連
 
 - Rule: `mode-classification.md`（Mode 別フェーズ適用マトリクス・発火条件の正本）
-- Command: `/pg-check`（差分レビュー・finding 収集）
+- Skill: `diff-audit`（コミット・PR **前**のセルフ検査。本 Skill とは別段階）
 - Skill: `evidence-ledger`（EvidenceItem 記録手順）
 - Rule: `review-principles.md`（レビューの姿勢・禁止事項・False-positive ガード）
 - Doc: `docs/ai/secret-management-policy.md`（secret/config policy-grounding の allowlist・判定手順正本 / #731）
+
+> 旧 `plugin/plangate/commands/pg-check.md` は**削除済み**（TASK-0124 / `2645848`,
+> 2026-06-02 の plugin 初回同期適用）で**後継コマンドは無い**。finding 収集の手順は
+> 本 Skill §手順 ステップ 1 が引き継いだ。`/pg-check` を新たに参照に加えないこと。
