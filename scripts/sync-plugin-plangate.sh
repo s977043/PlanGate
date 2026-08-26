@@ -149,6 +149,29 @@ done
 # 各スキルの SKILL.md を plugin/plangate/skills/<name>/SKILL.md にコピー
 _plugin_skills="$PLUGIN_DIR/skills"
 mkdir -p "$_plugin_skills"
+
+# skills 索引 README.md を同期する。
+#
+# 下の for は "$SKILLS_DIR"/*/ と **ディレクトリのみ**を走査するため、
+# .agents/skills/ 直下のファイルである README.md はどの同期経路にも入らない。
+# その結果 plugin 側 README.md は手作業でしか追従できず、実際に乖離が再発した:
+#   #1057 → PR #1199 で手作業追従（2026-08-20）
+#   → PR #1221 で正本が更新され（2026-08-25）5 日で再び乖離
+# 索引が古いと導入先ユーザーは「存在するスキルを知らないまま」使うことになる。
+#
+# 内容変換は行わない（正本と byte-identical に保つ）。README 内の相対リンクは
+# スキルディレクトリ名で書かれており、配布側も同じ構造を持つため解決先が変わらない。
+# sync_dir の README.md 除外（stale 集計・削除ループ）は `.claude/{agents,rules,commands}`
+# 側の別の関心事であり、ここには適用されない。
+_skills_readme_src="$SKILLS_DIR/README.md"
+_skills_readme_dst="$_plugin_skills/README.md"
+if [ -f "$_skills_readme_src" ]; then
+  if [ ! -f "$_skills_readme_dst" ] || ! cmp -s "$_skills_readme_src" "$_skills_readme_dst"; then
+    if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD COPY: skills/README.md"
+    else cp "$_skills_readme_src" "$_skills_readme_dst"; _log "COPY: skills/README.md"; fi
+    changed=1
+  fi
+fi
 for _skill_dir in "$SKILLS_DIR"/*/; do
   [ -d "$_skill_dir" ] || continue
   _skill_name="$(basename "$_skill_dir")"
