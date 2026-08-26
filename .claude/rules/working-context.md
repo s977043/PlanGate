@@ -30,6 +30,27 @@ Ready → In Progress
   → Done
 ```
 
+## 本ルールの CLI 依存（`bin/plangate`）— 導入先での扱い（#1144）
+
+本ルールは plugin（読み物層）としても配布されるが、**plugin 配布物には
+`bin/plangate`（CLI）と `scripts/hooks/`（enforcement 層）が含まれない**。
+そのため本ルール中の `bin/plangate` 呼び出しは、上流リポジトリ
+（`s977043/plangate`）を clone した cwd でのみ成立する。**手順そのものは削除しない**
+（上流では従来どおり有効）。導入先では下表に従う。
+
+| 記述箇所 | 種別 | 導入先での扱い |
+|---------|------|--------------|
+| settings タスクロック（`doctor --check-settings` が PASS であること） | **CLI 必須** | 実行不可。下記「CLI 不在時の規則」に従う |
+| C-3 ゲート / C-3 条件付き降格の「`bin/plangate exec` は APPROVED のみ受理」 | **CLI 必須**（機械強制の前提） | CLI 不在では exec の機械強制が働かない。承認境界は運用規範として維持し、`c3.json` の `APPROVED` を人間が確認してから exec する |
+| INDEX.md 鮮度契約の「CLI / hook 化は本規約の範囲外」 | CLI 不要 | 「範囲外」である旨の言及であって手順ではない。stale 検出は同節のワンライナ（git のみで完結）で足りる |
+| 管理ディレクトリ表の `_metrics/` / `_reports/`（`bin/plangate metrics` の出力先） | CLI 不要 | ディレクトリの役割説明。metrics を実際に収集する場合にのみ CLI が要る |
+
+**CLI 不在時の規則（CLI 必須の項目に共通）**: 導入先に `bin/plangate` は配布
+されないため、当該手順に到達したら **上流リポジトリの clone（および PATH 追加）が
+必要である旨をユーザーに告げて停止する**。黙ってスキップして「検証済み」と記録して
+はならない。clone しない選択をした場合は、その手順を実施できなかった事実を
+`status.md` に degrade として記録する。
+
 ## ディレクトリ構造
 
 ### 単一 PBI（標準）
@@ -198,6 +219,12 @@ V-1 受け入れ検査 / handoff 完了の**前提条件**として
 （self-mod ガード）ため、`sh scripts/apply-claude-settings.sh` を**ユーザーが
 実行**して解消する。これにより「AI が適用済みと誤認して完了する」Shadow
 Configuration を構造的に防ぐ。
+
+**本ゲートは CLI 必須**（[「本ルールの CLI 依存」](#本ルールの-cli-依存binplangate-導入先での扱い1144)）。
+`bin/plangate` も `scripts/` も plugin 配布物に含まれないため、導入先ではこのゲートを
+PASS にできない。到達したら上流リポジトリの clone が必要である旨を告げて停止し、
+clone しない場合は「doctor 未検証（degrade）」として `status.md` に記録する
+（PASS 扱いにしない）。
 
 ### improvement-seeds.md（WF-06 Retro / opt-in・append-only）
 
