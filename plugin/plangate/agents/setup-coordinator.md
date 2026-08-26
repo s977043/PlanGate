@@ -57,6 +57,26 @@ settings.json の wiring 適用、`apply-claude-settings.sh` の実行、Hook �
 2. 導入しない場合は [`plangate-setup`](../skills/plangate-setup/SKILL.md) Skill のチェックリストを手動突合で代替し、**「doctor で検証済み」と記録しない**
 3. ゲートの厳密な強制（EH-3 / plan_hash / presence gate）には CLI + hooks の導入が必要
 
+### CLI 必須 / 不要 の分離（#1144）
+
+**plugin 配布物には CLI（`bin/plangate`）も enforcement 層（`scripts/hooks/`）も
+含まれない**（読み物層のみ配布）。したがって本 Agent の手順のうち CLI を要するものは
+**導入先では実行できない**。手順は削除しない（上流 clone の cwd では従来どおり有効）。
+
+| 手順 | 種別 | 導入先での扱い |
+|------|------|--------------|
+| Step 1 / Step 3 の `doctor --json` | **CLI 必須** | 実行不可。下記規則に従い停止 |
+| Step 4 の `doctor --check-settings`（settings タスクロック） | **CLI 必須** | 実行不可。PASS 扱いにしない |
+| Step 0 の TASK ID 動的解決 | CLI 不要 | `ls` / cwd 判定のみで完結 |
+| Step 2 の Human-owned 操作の提示 | CLI 不要 | 提示文の出力のみ（元々 Agent は実行しない） |
+| Step 5 / 永続記録（status.md・decision-log.jsonl への追記） | CLI 不要 | ファイル追記のみ |
+| 上記「呼び出し表記」「存在確認」の説明 | CLI 不要 | どう呼ぶかの説明であって手順ではない |
+
+**CLI 必須の手順に到達したときの規則**: 導入先に `bin/plangate` は配布されないため、
+**上流リポジトリの clone（および PATH 追加）が必要である旨をユーザーに告げて停止する**。
+黙ってスキップして「doctor で検証済み」と記録してはならない。clone しない選択をした
+場合は degrade（未検証）として `status.md` に記録し、Gate は未 PASS のまま保持する。
+
 ## 対話フロー
 
 ### Step 0: TASK ID 動的解決
