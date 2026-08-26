@@ -159,10 +159,21 @@ mkdir -p "$_plugin_skills"
 #   → PR #1221 で正本が更新され（2026-08-25）5 日で再び乖離
 # 索引が古いと導入先ユーザーは「存在するスキルを知らないまま」使うことになる。
 #
-# 内容変換は行わない（正本と byte-identical に保つ）。README 内の相対リンクは
-# スキルディレクトリ名で書かれており、配布側も同じ構造を持つため解決先が変わらない。
+# 内容変換は行わない（正本と byte-identical に保つ）。同スクリプト内の先行事例
+# （agents の model: 正規化 / ho-paths.md の雛形注記前置 / references のリンク
+# 自己完結化）とは異なる選択だが、索引の内容を配布時に書き換えると乖離判定が
+# 複雑になるため、ここでは byte-identical を優先する。
+#   測定時点の README には markdown リンク（`](...)`）が **0 件**であり、
+#   リンク書き換えを要する箇所は無い（backtick のパス表記は README 自身の
+#   免責注記が扱う）。将来リンクが追加されたら、この選択を再検討すること:
+#     grep -oE '\]\([^)]*\)' .agents/skills/README.md | wc -l
+#
+# **本経路は add / update のみ**。正本の削除・改名は検出しない（配布側に
+# 「幽霊 README」が無警告で残る）。これは #861 mass-delete guard の思想に
+# 合わせ、正本の一時欠損で配布物が消える事故を作らないための設計選択である。
 # sync_dir の README.md 除外（stale 集計・削除ループ）は `.claude/{agents,rules,commands}`
-# 側の別の関心事であり、ここには適用されない。
+# 側の別の関心事であり、ここには適用されない（あちらの stale 検出 + guard の
+# 対称性は本経路には無い）。
 _skills_readme_src="$SKILLS_DIR/README.md"
 _skills_readme_dst="$_plugin_skills/README.md"
 if [ -f "$_skills_readme_src" ]; then
