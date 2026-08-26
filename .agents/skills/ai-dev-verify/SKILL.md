@@ -7,41 +7,68 @@ description: "PlanGate の V-1〜V-4 受け入れ検査と handoff.md 発行を�
 
 PlanGate ワークフローの **verify & handoff フェーズ（WF-05）** を Codex / Claude Code 両方で実行する skill。Rule 5（最終成果物は毎回 handoff に集約）を担保する。
 
+> 本スキルは **bundled resources**（`references/`）で自己完結する。
+>
+> **パス表記の規約（重要）**: 本 SKILL.md 中の `references/…` は、すべて **本スキル
+> ディレクトリからの相対パス**（= `<skill_dir>/…`）であって、導入先リポジトリのルートからの
+> 相対パスではない。実行時はまず `<skill_dir>`（このファイルが置かれているディレクトリ）を
+> 解決してから使う:
+>
+> | 環境 | `<skill_dir>` |
+> | --- | --- |
+> | plugin 導入先（Claude marketplace） | `<plugin_root>/skills/ai-dev-verify/` |
+> | `install.sh --claude` 導入先 | `.claude/skills/ai-dev-verify/` |
+> | Codex 導入先 | `.codex/skills/ai-dev-verify/` |
+> | 上流リポジトリ（正本側） | `.agents/skills/ai-dev-verify/` |
+>
+> 導入先が独自の正本（上流リポジトリの `docs/` 配下に相当するもの）を別途保持している
+> 場合は、そちらを優先すること。
+
 ## Read First
 
 ### 参照解決順（導入先で必ずこの順に探す）
 
-本 skill の参照は上流リポジトリ（`s977043/plangate`）基準の相対パスで書かれている。
-導入先ではそのままでは解決できないものがあるため、**次の順で探索する**:
+本 Skill は **上流リポジトリ基準の `docs/**` パスを直接参照しない**（#1232）。`docs/**` は
+`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**であり、
+書いた時点で導入先では必ず空振りするためである。参照の解決は次の順で行う:
 
-1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）
-2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）
-   - **`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して得た絶対パス**。
-     Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
-     という文字列をそのまま Read しても必ず失敗する
-   - **変数が空・未設定なら glob（`~/.claude/plugins/cache/**` 等）で推測せず 3 へ進む**
-3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない
+1. **`<skill_dir>` 配下の同梱物（`references/`）を第一に読む** — 契約 doc と handoff
+   テンプレートは本スキルに同梱されている（「同梱リファレンス」節の一覧）
+2. 導入先リポジトリが独自の正本（上流の `docs/` 配下に相当するもの）を保持していれば、
+   そちらを優先する
+3. **rules（`rules/*.md`）だけは配布経路によって着地が異なる**ため、次の順で探す:
+   1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）
+   2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）
+      - **`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して得た絶対パス**。
+        Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+        という文字列をそのまま Read しても必ず失敗する
+      - **変数が空・未設定なら glob（`~/.claude/plugins/cache/**` 等）で推測せず次へ進む**
+4. いずれでも解決できなければ **「解決できなかった」と明示**し、同梱 `references/` と本 Skill の
+   記述を代替正本として扱い、推測で内容を補わない
 
-**plugin root 配下の探索は `docs/**` には適用しない**（手順 2 は `rules/*.md` 等の
-配布対象にのみ適用する）: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の
-定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が
-存在しないため必ず空振りする。`docs/**` は手順 1 で解決できなければ手順 2 を飛ばして手順 3 へ進む。
+**plugin root 直下に `docs/` を探しに行かないこと**: plugin が配布するのは
+`agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として
+認識せず、plugin root 配下に相当する配布物が存在しないため必ず空振りする。
 
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
-| `rules/*.md`（下記 3〜6） | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
-| `docs/**`（`docs/workflows/ai-loop/c3-prime-contract.md` 等） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
-| `docs/working/templates/*.md`（下記 8） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+| `rules/*.md`（下記 3〜6） | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 4 へ）** |
+| 契約 doc・handoff テンプレート | **`<skill_dir>/references/` に同梱（解決可）** | **`<skill_dir>/references/` に同梱（解決可）** | **`<skill_dir>/references/` に同梱（解決可）** |
 | `bin/**`（CLI） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 | `scripts/**` | コピー対象外（解決不可） | `<plugin_root>/scripts/` は存在するが `install-plangate-skills.sh` のみ（`apply-claude-settings.sh` / `check-settings-wiring.sh` 等は解決不可） | 未配置（解決不可） |
 
 `docs/working/TASK-XXXX/*`（下記 7）は**配布物ではなく導入先で作成する作業成果物**なので、
 導入先リポジトリ内でそのまま解決する。
 
-**テンプレート（下記 8）が解決できない環境では、handoff の 6 要素は
-`.claude/rules/working-context.md`（fallback `<plugin_root>/rules/working-context.md`）の
-「handoff（WF-05 完了資産 / Rule 5）」節を唯一の正本として使い**、テンプレート未参照である旨を
-handoff.md に記録する（推測でテンプレート構成を捏造しない）。
+### 同梱リファレンス（`<skill_dir>/references/`）
+
+| ファイル | 役割 |
+|---------|------|
+| `references/handoff.md` | handoff.md 6 要素の正本テンプレート |
+| `references/c3-prime-contract.md` | `approval_kind: "c3-prime"` の受理契約（§3〜§5）の正本 |
+| `references/settings-wiring-contract.md` | settings wiring 契約（必要 hook の定義） |
+| `references/core-contract.md` | 実行契約（Iron Law / Stop rules / Output discipline）の正本 |
+| `references/plangate.md` | PlanGate 概要ガイド |
 
 ### 読む順序
 
@@ -52,7 +79,7 @@ handoff.md に記録する（推測でテンプレート構成を捏造しない
 5. `.claude/rules/review-principles.md` → fallback `<plugin_root>/rules/review-principles.md`（V-3 外部レビュー観点）
 6. `.claude/rules/mode-classification.md` → fallback `<plugin_root>/rules/mode-classification.md`（V-2/V-3/V-4 の mode 別適用）
 7. `docs/working/TASK-XXXX/plan.md` / `test-cases.md` / `status.md`
-8. `docs/working/templates/handoff.md`（handoff.md 6 要素の正本テンプレート。**配布対象外**。上流リポジトリで作業する場合のみ解決する）
+8. `references/handoff.md`（**同梱**。handoff.md 6 要素の正本テンプレート。導入先が独自テンプレートを持つ場合はそちらを優先）
 
 ## V-1〜V-4 の概要
 
@@ -75,8 +102,8 @@ mode 別の適用範囲は `.claude/rules/mode-classification.md`（fallback `<p
 > handoff.md に明記する（**未検証を「PASS」と書かない**）。
 >
 > **必要 hook の実体と、導入先での判定の落とし所**: 「必要な hook」の定義の正本は
-> `scripts/check-settings-wiring.sh` と `docs/ai/settings-wiring-contract.md`（**どちらも
-> 配布対象外**）で、`Edit|Write` matcher に EH-1 `check-plan-exists.sh` / EH-2
+> `scripts/check-settings-wiring.sh`（**配布対象外**）と同梱 `references/settings-wiring-contract.md`
+> で、`Edit|Write` matcher に EH-1 `check-plan-exists.sh` / EH-2
 > `check-c3-approval.sh` / EH-3 `check-plan-hash.sh`（+ 引数 `${PLANGATE_HOOK_FILE:-}`） /
 > EH-6 `check-forbidden-files.sh`、`Bash` matcher に EH-9
 > `check-delegation-commit-boundary.sh` が配線されていることを要求する。ただし
@@ -90,7 +117,7 @@ mode 別の適用範囲は `.claude/rules/mode-classification.md`（fallback `<p
 
 ## handoff.md 発行（必須・Rule 5）
 
-`docs/working/templates/handoff.md` を雛形に発行（**配布対象外**。解決できない環境は「参照解決順」の注記に従う）。**6 要素の正本**は `.claude/rules/working-context.md`（fallback `<plugin_root>/rules/working-context.md`）の「handoff（WF-05 完了資産 / Rule 5）」節および `docs/working/templates/handoff.md` を参照。light モード以下で簡易版を採用する場合も本テンプレートを踏襲（該当なしは「該当なし」明記）。PR マージ後も削除しない（完了資産）。
+同梱 `references/handoff.md` を雛形に発行する（導入先が独自テンプレートを持つ場合はそちらを優先）。**6 要素の正本**は `.claude/rules/working-context.md`（fallback `<plugin_root>/rules/working-context.md`）の「handoff（WF-05 完了資産 / Rule 5）」節および同梱 `references/handoff.md` を参照。light モード以下で簡易版を採用する場合も本テンプレートを踏襲（該当なしは「該当なし」明記）。PR マージ後も削除しない（完了資産）。
 
 ## Output
 
@@ -127,7 +154,7 @@ mode 別の適用範囲は `.claude/rules/mode-classification.md`（fallback `<p
 > パスを明示できる `--dir` を持つのは `validate` / `validate-schemas` **だけ**で、
 > `review` / `eval` / `metrics` / `doctor` に相当オプションは無い。
 
-**handoff.md 発行コマンドは未実装**（環境を問わず手動）。skill 利用者が `docs/working/templates/handoff.md` をコピーし手動で 6 要素を記載する。テンプレートが解決できない環境の扱いは「参照解決順」の注記に従う。
+**handoff.md 発行コマンドは未実装**（環境を問わず手動）。skill 利用者が同梱 `references/handoff.md` をコピーし手動で 6 要素を記載する。
 
 ### CLI 不在時のフォールバック（導入先では既定）
 
@@ -159,7 +186,7 @@ mode 別の適用範囲は `.claude/rules/mode-classification.md`（fallback `<p
    `todo.md` / `test-cases.md` / `review-self.md` / `review-external.md`）の `artifact_hashes`
    全数照合 + `plan_package_hash` + `source_sha`（検証時点の対象 SHA と一致）+ reviewer
    snapshot の三つ組一致 + `decision=AUTO_APPROVED`** までの束縛検証が必要
-   （正本: `docs/workflows/ai-loop/c3-prime-contract.md` §3〜§5）。
+   （正本: 同梱 `references/c3-prime-contract.md` §3〜§5）。
    **c3-prime を手動 sha256 のみで代替してはならない** — `plan.md` 単体の hash 一致だけで
    検証済みと扱うと、残り 5 artifact と `source_sha` の stale を見逃す。この場合は item 3 の
    上流 clone 経由 `plangate validate --dir` で機械検証するか、機械検証できない旨を
