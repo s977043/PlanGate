@@ -43,7 +43,9 @@ _ai_loop_map_file=""
 # POSIX sh に local は無く関数内代入も global なので、最後に割り当てた値を trap が掃除する。
 _tmp_rewritten=""
 _tmp_ho=""
-trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_tmp_ho:-}"' EXIT INT TERM
+_ai_dev_map_file=""
+_ai_dev_spec_file=""
+trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_tmp_ho:-}" "${_ai_dev_map_file:-}" "${_ai_dev_spec_file:-}"' EXIT INT TERM
 
 # mass-delete safety guard の共通判定（#861 / #877 / #914）。
 # 判定 + 警告 + guard_fired フラグ立てのみを担う（呼び出し元の制御脱出は含めない
@@ -524,6 +526,176 @@ if [ -d "$PLUGIN_AI_LOOP_SCHEMAS" ]; then
     esac
   done
 fi
+
+# ai-dev-{plan,exec,verify,brainstorm} の参照 doc / テンプレートを plugin へ同梱（issue #1232）
+#
+# 背景は ai-loop セクション（上）と同一: plugin は `docs/` を配布対象として認識しない
+# ため、`docs/**` を指す参照は導入先で必ず空振りする。ai-loop-cycle と同じ
+# **bundled resources 方式**（skill ディレクトリ内 references/ に自己完結同梱）で解決する。
+# 新方式は作らず、リンク自己完結化も同じ scripts/_ai_loop_link_rewrite.py を再利用する
+# （リライタは skill 名と bundle map を引数で受け取る汎用実装であり ai-loop 専用ではない）。
+#
+# 設計（#1232 の Human 決定）: **skill ごとに references/ を持たせ、その skill が実際に
+# 参照するものだけを同梱する**。共有物（core-contract.md / plangate.md 等）の重複は
+# 許容する — skill は自己完結しているべきであり、skill 間の相対参照を作らない。
+#
+# ⚠️ `docs/working/templates/plan.md` は配布先で **plan-template.md にリネーム**する
+# （Human 決定）。`scripts/hooks/check-plan-hash.sh` の EH-3 は **basename `plan.md`**
+# で block するため（パスではなく basename 判定）、そのまま同梱すると導入先で当該
+# ファイルを AI が編集できなくなる。実測: `plan.md` → rc=2 / `plan-template.md` → rc=0。
+# リネーム対象は plan.md のみ（todo.md / test-cases.md 等は実測 rc=0 のため不要）。
+#
+# ⚠️ `docs/working/TASK-XXXX/*` は**導入先で本ワークフローが生成する出力先**であって
+# 配布物ではない。同梱しない。
+#
+# ⚠️ 上の汎用 skills ループ（`.agents/skills/<name>/references/` を同期する部分）とは
+# **同じ dst ディレクトリを二重管理しないこと**が前提。汎用側は `_src_refs` が存在する
+# ときだけ dst に触るため、`.agents/skills/ai-dev-*/references/` を作らない限り衝突しない
+# （ai-loop-cycle と同じ前提）。作ってしまうと両者の削除ループが互いの成果物を消し合う。
+AI_DEV_SKILLS="ai-dev-plan ai-dev-exec ai-dev-verify ai-dev-brainstorm"
+
+_ai_dev_ref_spec() {
+  # $1=skill 名 → stdout に `<配布先 basename> <REPO_ROOT 相対のソースパス>` を 1 行 1 件。
+  # 配布先 basename とソース basename が異なるのは plan-template.md のみ（上記注記）。
+  case "$1" in
+    ai-dev-plan)
+      printf '%s\n' \
+        'ai-driven-development.md docs/ai-driven-development.md' \
+        'plan-metrics-verification.md docs/ai/plan-metrics-verification.md' \
+        'core-contract.md docs/ai/core-contract.md' \
+        'plangate.md docs/plangate.md' \
+        'plan-template.md docs/working/templates/plan.md' \
+        'todo.md docs/working/templates/todo.md' \
+        'test-cases.md docs/working/templates/test-cases.md' \
+        'INDEX.md docs/working/templates/INDEX.md' \
+        'current-state.md docs/working/templates/current-state.md' \
+        'review-self.md docs/working/templates/review-self.md' \
+        'review-external.md docs/working/templates/review-external.md' \
+        'pbi-input.md docs/working/templates/pbi-input.md'
+      ;;
+    ai-dev-exec)
+      printf '%s\n' \
+        'settings-wiring-contract.md docs/ai/settings-wiring-contract.md' \
+        'c3-prime-contract.md docs/workflows/ai-loop/c3-prime-contract.md' \
+        'core-contract.md docs/ai/core-contract.md' \
+        'plangate.md docs/plangate.md'
+      ;;
+    ai-dev-verify)
+      printf '%s\n' \
+        'settings-wiring-contract.md docs/ai/settings-wiring-contract.md' \
+        'c3-prime-contract.md docs/workflows/ai-loop/c3-prime-contract.md' \
+        'core-contract.md docs/ai/core-contract.md' \
+        'plangate.md docs/plangate.md' \
+        'handoff.md docs/working/templates/handoff.md'
+      ;;
+    ai-dev-brainstorm)
+      printf '%s\n' \
+        'ai-driven-development.md docs/ai-driven-development.md' \
+        'core-contract.md docs/ai/core-contract.md' \
+        'plangate.md docs/plangate.md'
+      ;;
+  esac
+}
+
+for _ad_skill in $AI_DEV_SKILLS; do
+  _ad_skill_dir="$PLUGIN_DIR/skills/$_ad_skill"
+  # SKILL.md が同期済みの skill だけを対象にする（上の汎用 skills ループが作る）。
+  [ -d "$_ad_skill_dir" ] || continue
+  _ad_refs="$_ad_skill_dir/references"
+
+  _ai_dev_spec_file="$(mktemp)"
+  _ai_dev_ref_spec "$_ad_skill" > "$_ai_dev_spec_file"
+
+  # 二段構成（ai-loop セクションと同型）: (1) 期待 basename 集合と
+  # basename → **バンドル元ソース実パス** の写像を先に確定し、(2) そのあとで
+  # 内容をリンク変換しつつ書き込む。先にコピーしながら集合を積み上げると、
+  # 後半で追加される bundle ファイルへの内部リンクを前半の変換時点で判定できない。
+  # 写像を持つのは basename 単独では別実体へ誤ポイントし得るため（issue #790 MAJOR）。
+  _ad_expected=""
+  _ai_dev_map_file="$(mktemp)"
+  : > "$_ai_dev_map_file"
+  while read -r _ad_base _ad_src; do
+    [ -n "$_ad_base" ] || continue
+    [ -f "$REPO_ROOT/$_ad_src" ] || continue
+    _ad_expected="$_ad_expected $_ad_base"
+    printf '%s\t%s\n' "$_ad_base" "$REPO_ROOT/$_ad_src" >> "$_ai_dev_map_file"
+  done < "$_ai_dev_spec_file"
+
+  while read -r _ad_base _ad_src; do
+    [ -n "$_ad_base" ] || continue
+    _ad_f="$REPO_ROOT/$_ad_src"
+    [ -f "$_ad_f" ] || continue
+    mkdir -p "$_ad_refs"
+    _ad_dfile="$_ad_refs/$_ad_base"
+    _tmp_rewritten="$(mktemp)"
+    # content_src と source_path は同一（ai-loop の ho-paths.md のようなヘッダ前置は無い）。
+    python3 "$AI_LOOP_LINK_REWRITER" "$_ad_f" "$_ad_f" "$_ad_skill" "$_ai_dev_map_file" \
+      > "$_tmp_rewritten"
+    if [ ! -f "$_ad_dfile" ] || ! cmp -s "$_tmp_rewritten" "$_ad_dfile"; then
+      if [ "$DRY_RUN" = "1" ]; then
+        _drylog "WOULD COPY (links self-contained): skills/$_ad_skill/references/$_ad_base"
+      else
+        cp "$_tmp_rewritten" "$_ad_dfile"
+        _log "COPY (links self-contained): skills/$_ad_skill/references/$_ad_base"
+      fi
+      changed=1
+    fi
+    rm -f "$_tmp_rewritten"
+  done < "$_ai_dev_spec_file"
+
+  rm -f "$_ai_dev_spec_file"
+  _ai_dev_spec_file=""
+  rm -f "$_ai_dev_map_file"
+  _ai_dev_map_file=""
+
+  # 正本から消えたファイルを配布側からも削除する。
+  # mass-delete safety guard（#861 / #877 / #914 と同型）: 削除実行前に
+  # base（期待集合の要素数）と stale（dst にあって期待集合に無い *.md 数）を集計し、
+  # blocked なら **当該 skill の削除ループのみ** skip する（コピーは阻害しない・
+  # 他 skill の処理も継続する）。
+  #
+  # 保証範囲: base は当該 skill の期待集合であり、正本ディレクトリ単位ではない。
+  # したがって捕捉できるのは「期待集合より stale が多い」規模の異常（spec の
+  # 大量削除・正本ディレクトリの消失など）に限られ、期待集合の一部だけが欠損した
+  # 場合は stale <= base のままとなり検出しない（ai-loop 側の合算方式と同じ限界）。
+  if [ -d "$_ad_refs" ]; then
+    _ad_base_count=0
+    for _ad_e in $_ad_expected; do
+      [ -n "$_ad_e" ] || continue
+      _ad_base_count=$((_ad_base_count + 1))
+    done
+    # stale の定義（*.md 実ファイル + 期待集合に無い）は下の削除ループの条件と
+    # **必ず一致させること**。片方だけ変えると「N 件と数えて M 件消す」形で
+    # guard が無効化される（#861 再発型）。
+    _ad_stale_count=0
+    for _ad_f in "$_ad_refs"/*.md; do
+      [ -f "$_ad_f" ] || continue
+      _ad_b="$(basename "$_ad_f")"
+      case " $_ad_expected " in
+        *" $_ad_b "*) : ;;
+        *) _ad_stale_count=$((_ad_stale_count + 1)) ;;
+      esac
+    done
+    # 呼び出しを $(...) 内へ置かないこと（guard_fired の global 伝播条件）
+    if ! _mass_delete_blocked "skills/$_ad_skill/references" "$_ad_base_count" "$_ad_stale_count"; then
+      for _ad_f in "$_ad_refs"/*.md; do
+        [ -f "$_ad_f" ] || continue
+        _ad_b="$(basename "$_ad_f")"
+        case " $_ad_expected " in
+          *" $_ad_b "*) : ;;
+          *)
+            if [ "$DRY_RUN" = "1" ]; then
+              _drylog "WOULD DELETE: skills/$_ad_skill/references/$_ad_b"
+            else
+              rm "$_ad_f"; _log "DELETE: skills/$_ad_skill/references/$_ad_b"
+            fi
+            changed=1
+            ;;
+        esac
+      done
+    fi
+  fi
+done
 
 # バージョン番号を CHANGELOG から取得（README.md / plugin.json 共用）
 _ver=""

@@ -138,6 +138,33 @@ fi
 if [ -d "$PG_T26_ROOT/docs/ai/ai-loop" ]; then
   cp -r "$PG_T26_ROOT/docs/ai/ai-loop" "$_t26_sb/docs/ai/ai-loop"
 fi
+# ai-dev-{plan,exec,verify,brainstorm} の同梱ソース（#1232）。
+# sandbox は「実リポジトリの stale 関係をそのまま再現する」ことが前提であり、
+# sync の入力を 1 つでも欠くと期待集合が空になり mass-delete guard が正当に
+# 発火して exit 3 になる（= sandbox 側の欠損であって実装の誤りではない）。
+# sync 側の同梱対象（_ai_dev_ref_spec）を増やしたら、ここにも足すこと。
+mkdir -p "$_t26_sb/docs/working/templates"
+for _f26 in \
+  docs/ai-driven-development.md \
+  docs/plangate.md \
+  docs/ai/core-contract.md \
+  docs/ai/plan-metrics-verification.md \
+  docs/ai/settings-wiring-contract.md \
+  docs/working/templates/plan.md \
+  docs/working/templates/todo.md \
+  docs/working/templates/test-cases.md \
+  docs/working/templates/INDEX.md \
+  docs/working/templates/current-state.md \
+  docs/working/templates/review-self.md \
+  docs/working/templates/review-external.md \
+  docs/working/templates/pbi-input.md \
+  docs/working/templates/handoff.md
+do
+  if [ -f "$PG_T26_ROOT/$_f26" ]; then
+    mkdir -p "$_t26_sb/$(dirname "$_f26")"
+    cp "$PG_T26_ROOT/$_f26" "$_t26_sb/$_f26"
+  fi
+done
 if [ -f "$PG_T26_ROOT/CHANGELOG.md" ]; then
   cp "$PG_T26_ROOT/CHANGELOG.md" "$_t26_sb/CHANGELOG.md"
 fi
