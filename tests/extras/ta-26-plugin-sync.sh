@@ -817,6 +817,7 @@ fi
 _t26_viol33=""
 _t26_incl33=""
 _t26_nocond33=""
+_t26_nocondviol33=""
 _t26_scanned33=0
 # 行継続（末尾 `\`）を 1 行へ結合する共有正規化。旧実装は `grep '^\s*unset '`
 # を直接かけていたため、複数行に折られた unset の 2 行目以降が不可視になり
@@ -855,6 +856,23 @@ _t26_disc_lines33() {
 # 判別行に相方が同居しているか。判別行が 1 本も無いファイル（root 導出だけに
 # FIXTURES_DIR を使う harness 専用 extras）は、旧来のファイル単位判定へ
 # フォールバックし、件数を可視化する（黙って検査対象外にしない）。
+#
+# ⚠️ `nocond` フォールバックは **#994 が欠陥と認定した「ファイル単位 grep」そのもの**
+# である（#1250 F2）。無制限に許すと、判別式の *形* を変えるだけで検査を素通り
+# できる:
+#
+#     case "${FIXTURES_DIR:-}" in            ← 条件行の形ではないので disc_lines に
+#       "") _disc=standalone ;;                 拾われず nocond に落ちる
+#     esac
+#     if [ "$_disc" = harness ]; then ...     ← 実体は FIXTURES_DIR 単独判別（#914 違反）
+#
+# 敵対レビューがこの形の本物の違反を注入して SURVIVE を実測した。
+# そこで `nocond` を **明示 allowlist（下記 2 本）に限定**し、それ以外が
+# `nocond` に落ちたら FAIL とする。この 2 本は #921 実行契約 bootstrap へ
+# 移行しておらず root 導出だけに FIXTURES_DIR を使う既知の残件で、その
+# bootstrap 改修は本 PBI のスコープ外（退行だけを塞ぐ）。
+# 新規 extras をここへ足さないこと — 足す前に判別式を規約 8 の形にする。
+_T26_NOCOND_ALLOW33='ta-12-maintenance.sh ta-42-cli-subcommands.sh'
 _t26_disc_ok33() {
   _t26_dl33=$(_t26_disc_lines33 "$1") || _t26_dl33=""
   if [ -z "$_t26_dl33" ]; then
@@ -880,7 +898,21 @@ for _t26_f33 in "$PG_T26_ROOT/tests/extras/"ta-*.sh; do
   _t26_ok33=0
   _t26_shape33=$(_t26_disc_ok33 "$_t26_f33") || _t26_ok33=1
   case "$_t26_shape33" in
-    nocond) _t26_nocond33="$_t26_nocond33 ${_t26_f33##*/}" ;;
+    nocond)
+      _t26_base33="${_t26_f33##*/}"
+      case " $_T26_NOCOND_ALLOW33 " in
+        *" $_t26_base33 "*)
+          # 既知の allowlist（bootstrap 未移行の 2 本）。可視化だけして通す
+          _t26_nocond33="$_t26_nocond33 $_t26_base33"
+          ;;
+        *)
+          # allowlist 外が nocond に落ちた = 判別式の形を変えた退行。FAIL させる
+          # （ファイル名の追記は直後の共通 violation ブロックが行う）
+          _t26_ok33=1
+          _t26_nocondviol33="$_t26_nocondviol33 $_t26_base33"
+          ;;
+      esac
+      ;;
   esac
   if [ "$_t26_ok33" != "0" ]; then
     _t26_viol33="$_t26_viol33 ${_t26_f33##*/}"
@@ -895,14 +927,25 @@ for _t26_f33 in "$PG_T26_ROOT/tests/extras/"ta-*.sh; do
     esac
   done
 done
+# allowlist の陳腐化検出（#1250 F2）: allowlist に載っているのに実際には
+# `nocond` へ落ちなかった（＝規約 8 の形へ是正済み、またはファイルが消えた）
+# エントリを列挙する。allowlist を「一度書いたら誰も削らない免罪符」にしない。
+_t26_stale33=""
+for _t26_a33 in $_T26_NOCOND_ALLOW33; do
+  case " $_t26_nocond33 " in
+    *" $_t26_a33 "*) : ;;
+    *) _t26_stale33="$_t26_stale33 $_t26_a33" ;;
+  esac
+done
 # 走査 0 件（glob 空振り・パス誤り）でも「違反 0 件」で緑になる恒真を塞ぐ。
 # floor は絶対件数の契約値ではない（`-eq` にしない / #1087 AC-9）。
 _T26_MIN_SCANNED33=20
 if [ -n "$_t26_hset33" ] && [ -z "$_t26_viol33" ] && [ -z "$_t26_incl33" ] \
+   && [ -z "$_t26_stale33" ] \
    && [ "$_t26_scanned33" -ge "$_T26_MIN_SCANNED33" ]; then
-  t26_pass "TC-33 判別行に AND の相方が同居（走査 ${_t26_scanned33} 件 / 判別行なし:${_t26_nocond33:- なし}）+ standalone unset が run-tests.sh の unset 集合を包含"
+  t26_pass "TC-33 判別行に AND の相方が同居（走査 ${_t26_scanned33} 件 / 判別行なし（allowlist 内）:${_t26_nocond33:- なし}）+ standalone unset が run-tests.sh の unset 集合を包含"
 else
-  t26_fail "TC-33 失敗 (判別行違反:${_t26_viol33:- なし} / unset欠落:${_t26_incl33:- なし} / 走査 ${_t26_scanned33} 件 / harness集合:${_t26_hset33:- 空})"
+  t26_fail "TC-33 失敗 (判別行違反:${_t26_viol33:- なし} / allowlist 外の判別行なし:${_t26_nocondviol33:- なし} / allowlist 陳腐化（是正済なので削ること）:${_t26_stale33:- なし} / unset欠落:${_t26_incl33:- なし} / 走査 ${_t26_scanned33} 件 / harness集合:${_t26_hset33:- 空})"
 fi
 
 # TC-38: README 規約 8 の例示コードブロックが TC-33 の抽出規則 (1)(2) を通る
@@ -928,8 +971,16 @@ _t26_v38=""
 if [ "$_t26_fxlines38" -lt 3 ]; then
   _t26_v38="$_t26_v38 抽出失敗(${_t26_fxlines38}行)"
 else
-  # (1) 判別行の AND 同居
+  # (1) 判別行の AND 同居。
+  # **shape が `cond` であることを連言で要求する**（#1250 F2）。旧実装は
+  # `_t26_disc_ok33` の返り値しか見ておらず、例示を `case "${FIXTURES_DIR:-}"`
+  # 形へ退行させても `nocond` フォールバック（＝ファイル単位 grep）で rc=0 が
+  # 返り SURVIVE していた。規約の正本である例示は、検査器が実際に読む
+  # **条件行の形**（`if` / `elif` / `; then`）で書かれていなければならない。
   _t26_shape38=$(_t26_disc_ok33 "$_t26_fx38") || _t26_v38="$_t26_v38 判別行(${_t26_shape38})"
+  if [ "$_t26_shape38" != "cond" ]; then
+    _t26_v38="$_t26_v38 例示の判別式が条件行の形でない(shape=${_t26_shape38:- 空})"
+  fi
   # (2) unset 包含: 例示の unset は行継続で 3 行に折られている。
   #     awk 結合が効いていなければここで落ちる
   _t26_fset38=$(_t26_unset_envs33 "$_t26_fx38" | tr '\n' ' ')
