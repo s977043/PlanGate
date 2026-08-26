@@ -901,14 +901,38 @@ fi
 # **apply の rc=0 を PASS 条件に AND する**（vacuous 化の防止）。rc を見ないと、
 # apply が Patch 2 到達前に死んだ環境（例: python3 不在で Patch 1 が失敗）でも
 # 「複製が無い」だけで PASS を報告してしまう＝何も検査していない PASS になる。
+#
+# **Patch 1 / 3 / 4 の冪等ガードは sandbox 側で先に満たしておく**
+# （#1252 R2 敵対レビュー M-D）。apply は `set -eu` なので、冪等ガードを満たさない
+# ファイルを置くと Patch 1/3/4 が毎回**実 python3 で実走**し、`rc=0` が
+# 「`bin/plangate` に `os.replace(tmp, target)` と `PYW` がある」「`check-plan-hash.sh`
+# に `    esac` がある」といった **#1071 と無関係な HO ファイルの実装詳細**を暗黙に
+# 要求してしまう。実測: `bin/plangate` の `tmp` を `tmp_path` に改名しただけで
+# apply rc=1 → TC-02 が "duplicate check is vacuous" で FAIL（複製はゼロなのに）。
+# 冪等ガードを満たしておけば Patch 1/3/4 は `SKIP (already applied)` に落ち、
+# `rc=0 dup=no` を維持したまま実 HO ファイルの内容から切り離せる。
+#
+# ただし **python3 不在の検出は意図的に残す**: Patch 1 の冪等チェック自体が
+# `python3 -c` なので、python3 が無ければ apply は rc!=0 で落ちる（apply が
+# 実行不能な環境で「複製が無い」だけの vacuous な PASS を出さないため）。
+#
+# `scripts/check-approval-token-write.sh` だけは実物を置く。これは #1071 の
+# 主題そのもの（旧版 apply が cp する複製元）であり、変異注入で検出力を実証する
+# 経路に必要なため、ここへの結合は意図的。
 _t1071_sbx=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-1071.XXXXXX")
 register_cleanup "$_t1071_sbx"
 mkdir -p "$_t1071_sbx/scripts/hooks" "$_t1071_sbx/schemas" "$_t1071_sbx/bin" "$_t1071_sbx/.github/workflows"
 cp "$PG_T25_PATCH" "$_t1071_sbx/scripts/apply-task-0123-patches.sh"
 cp "$PG_T25_ROOT/scripts/check-approval-token-write.sh" "$_t1071_sbx/scripts/check-approval-token-write.sh"
-cp "$PG_T25_ROOT/scripts/hooks/check-plan-hash.sh" "$_t1071_sbx/scripts/hooks/check-plan-hash.sh"
-cp "$PG_T25_ROOT/schemas/maintenance.schema.json" "$_t1071_sbx/schemas/maintenance.schema.json"
-cp "$PG_T25_ROOT/bin/plangate" "$_t1071_sbx/bin/plangate"
+# Patch 3 の冪等ガード: grep -q PLANGATE_MAINTENANCE_KEY <check-plan-hash.sh>
+printf '#!/bin/sh\n# t25 stub: Patch 3 idempotency guard (PLANGATE_MAINTENANCE_KEY)\nexit 0\n' \
+  > "$_t1071_sbx/scripts/hooks/check-plan-hash.sh"
+# Patch 4 の冪等ガード: grep -q PLANGATE_MAINTENANCE_KEY <bin/plangate>
+printf '#!/bin/sh\n# t25 stub: Patch 4 idempotency guard (PLANGATE_MAINTENANCE_KEY)\nexit 0\n' \
+  > "$_t1071_sbx/bin/plangate"
+# Patch 1 の冪等ガード: properties.hmac_signature が既に在ること
+printf '{"properties": {"hmac_signature": {"type": "string"}}}\n' \
+  > "$_t1071_sbx/schemas/maintenance.schema.json"
 _t1071_dup="$_t1071_sbx/scripts/hooks/check-approval-token-write.sh"
 _t1071_rc=0
 sh "$_t1071_sbx/scripts/apply-task-0123-patches.sh" >/dev/null 2>&1 || _t1071_rc=$?
@@ -931,33 +955,111 @@ fi
 # T1071-TC-04: 配線が scripts/ 直下を指し、scripts/hooks/ を指さない（AC-5）
 # 現存する settings / hooks 配線ファイルを全数走査する（存在するものだけ検査）。
 #
-# 走査対象は repo ローカルの settings 5 ファイルに閉じない（#1252 敵対レビュー M-3）:
-#   - **ユーザーレベル `~/.claude/settings.json`**: repo 外だが Claude Code が実際に
-#     読み込む配線先。環境依存のため「存在するときだけ」見る（`[ -f ] || continue`）。
-#   - **plugin 配布の `hooks/hooks.json`**: plugin は `hooks/hooks.json` 経由でしか
-#     hook を起動できない（`docs/working/_reports/1144-plugin-packaging-patch.md` §1）。
-#     現時点では未作成のため空振りするが、作られた瞬間に検査対象へ入る。
-# 列挙が不完全なら「複製はどこからも参照されていない」という削除の前提判定も不完全になる。
+# **カウンタは 2 系統に分ける**（#1252 R2 敵対レビュー M-A / M-B）。走査対象を
+# 1 つのカウンタに合算していた版は、AC-5 の**最重要の失敗モードを検出できなかった**:
+# `root_refs >= 1` が PASS 条件のため、**repo の EH-13 配線が丸ごと消えても、
+# 利用者の `~/.claude/settings.json` に `scripts/check-approval-token-write.sh` が
+# 1 件あれば PASS**した（実測: repo 配線除去 + user settings 1 件 → PASS root=1 hooks=0）。
+#
+#   1. `_t1071_root_refs`（`>= 1` を要求）: **repo ローカルの配線正本 5 ファイルのみ**から
+#      数える。「この repo の配線が生きているか」は repo 内だけで決まる。
+#   2. `_t1071_hook_refs`（`= 0` を要求）: 上記 5 ファイル + **plugin 配布の
+#      `hooks/hooks.json`**。plugin は `hooks/hooks.json` 経由でしか hook を起動できない
+#      （`docs/working/_reports/1144-plugin-packaging-patch.md` §1）。未作成なら空振りする。
+#   3. `_t1071_ext_hook_refs`（**WARN のみ / 判定に入れない**）: **ユーザーレベル
+#      `~/.claude/settings.json`** など repo 外の配線先。複製参照の残存を告げる目的
+#      （#1252 M-3 の本来の狙い）はここだけで満たせる。**repo の CI 判定と環境の
+#      運用指摘を混ぜない**: repo が完全に正しくても利用者の環境都合で FAIL すると、
+#      FAIL メッセージが repo を指すため誤誘導になり、しかも `~/.claude/settings.json` は
+#      self-mod ガード対象で AI には直せない（#1252 R2 M-B）。
+#
+# **読めないファイルは無言で 0 を足さない**（#1252 R2 M-C）。`[ -f ]` は通るが読めない
+# ファイルで `grep -c` は空文字を返し、`$((n + ))` は POSIX 算術で 0 扱い・エラー無しに
+# なる。結果、検査を素通りしたまま PASS を報告していた（実測: `chmod 000` → PASS）。
+# 「列挙が不完全なら判定も不完全」は doc に書いた当のリスクなので、ここで明示的に落とす。
 _t1071_root_refs=0
 _t1071_hook_refs=0
+_t1071_unreadable=""
+_t1071_ext_hook_refs=0
+_t1071_ext_hits=""
+_t1071_ext_unreadable=""
+
+# _t1071_count <file> <pattern> → 一致行数を echo。読めなければ何も echo しない。
+_t1071_count() {
+  grep -c "$2" "$1" 2>/dev/null || true
+}
+
+# (1) repo ローカルの配線正本 — root_refs の母集団はここだけ
 for _t1071_f in \
   "$PG_T25_ROOT/.claude/settings.json" \
   "$PG_T25_ROOT/.claude/settings.local.json" \
   "$PG_T25_ROOT/.claude/settings.example.json" \
   "$PG_T25_ROOT/.codex/hooks.json" \
-  "$PG_T25_ROOT/.cursor/hooks.json" \
-  "$PG_T25_ROOT/plugin/plangate/hooks/hooks.json" \
-  "$PG_T25_USER_SETTINGS"; do
-  [ -f "$_t1071_f" ] || continue
-  _t1071_n=$(grep -c 'scripts/check-approval-token-write\.sh' "$_t1071_f" 2>/dev/null || true)
+  "$PG_T25_ROOT/.cursor/hooks.json"; do
+  [ -e "$_t1071_f" ] || continue
+  if [ ! -f "$_t1071_f" ] || [ ! -r "$_t1071_f" ]; then
+    _t1071_unreadable="$_t1071_unreadable $_t1071_f"
+    continue
+  fi
+  _t1071_n=$(_t1071_count "$_t1071_f" 'scripts/check-approval-token-write\.sh')
+  _t1071_m=$(_t1071_count "$_t1071_f" 'hooks/check-approval-token-write\.sh')
+  if [ -z "$_t1071_n" ] || [ -z "$_t1071_m" ]; then
+    _t1071_unreadable="$_t1071_unreadable $_t1071_f"
+    continue
+  fi
   _t1071_root_refs=$((_t1071_root_refs + _t1071_n))
-  _t1071_n=$(grep -c 'hooks/check-approval-token-write\.sh' "$_t1071_f" 2>/dev/null || true)
-  _t1071_hook_refs=$((_t1071_hook_refs + _t1071_n))
+  _t1071_hook_refs=$((_t1071_hook_refs + _t1071_m))
 done
-if [ "$_t1071_root_refs" -ge 1 ] && [ "$_t1071_hook_refs" = "0" ]; then
-  t25_pass "T1071-TC-04 EH-13 wiring points at scripts/ root only (root=$_t1071_root_refs hooks=0)"
+
+# (2) plugin 配布の hooks.json — repo 内なので複製参照は FAIL 側（root_refs には足さない）
+_t1071_f="$PG_T25_ROOT/plugin/plangate/hooks/hooks.json"
+if [ -e "$_t1071_f" ]; then
+  if [ ! -f "$_t1071_f" ] || [ ! -r "$_t1071_f" ]; then
+    _t1071_unreadable="$_t1071_unreadable $_t1071_f"
+  else
+    _t1071_m=$(_t1071_count "$_t1071_f" 'hooks/check-approval-token-write\.sh')
+    if [ -z "$_t1071_m" ]; then
+      _t1071_unreadable="$_t1071_unreadable $_t1071_f"
+    else
+      _t1071_hook_refs=$((_t1071_hook_refs + _t1071_m))
+    fi
+  fi
+fi
+
+# (3) repo 外の配線先 — WARN のみ（判定には入れない / hermeticity）
+_t1071_f="$PG_T25_USER_SETTINGS"
+if [ -e "$_t1071_f" ]; then
+  if [ ! -f "$_t1071_f" ] || [ ! -r "$_t1071_f" ]; then
+    _t1071_ext_unreadable="$_t1071_ext_unreadable $_t1071_f"
+  else
+    _t1071_m=$(_t1071_count "$_t1071_f" 'hooks/check-approval-token-write\.sh')
+    if [ -z "$_t1071_m" ]; then
+      _t1071_ext_unreadable="$_t1071_ext_unreadable $_t1071_f"
+    elif [ "$_t1071_m" != "0" ]; then
+      _t1071_ext_hook_refs=$((_t1071_ext_hook_refs + _t1071_m))
+      _t1071_ext_hits="$_t1071_ext_hits $_t1071_f"
+    fi
+  fi
+fi
+
+if [ -n "$_t1071_unreadable" ]; then
+  t25_fail "T1071-TC-04 wiring file present but unreadable — verdict would be incomplete:$_t1071_unreadable"
+elif [ "$_t1071_root_refs" -ge 1 ] && [ "$_t1071_hook_refs" = "0" ]; then
+  t25_pass "T1071-TC-04 EH-13 wiring points at scripts/ root only (repo root=$_t1071_root_refs hooks=0)"
 else
-  t25_fail "T1071-TC-04 EH-13 wiring unexpected (root=$_t1071_root_refs hooks=$_t1071_hook_refs)"
+  t25_fail "T1071-TC-04 EH-13 repo wiring unexpected (repo root=$_t1071_root_refs hooks=$_t1071_hook_refs)"
+fi
+
+# repo 外の指摘は判定と分離して出す（pass/fail カウンタを動かさない）
+if [ "$_t1071_ext_hook_refs" != "0" ]; then
+  printf '  [WARN] T1071-TC-04 あなたの環境の repo 外配線に scripts/hooks/ 複製への参照が %s 件残っています:%s\n' \
+    "$_t1071_ext_hook_refs" "$_t1071_ext_hits" >&2
+  printf '         docs/ai/approval-token-guard.md「適用済み環境向け移行手順（#1071）」の\n' >&2
+  printf '         #2（scripts/ 直下へ張り替え）→ #3（複製の削除）を実施してください（Human 操作）。\n' >&2
+fi
+if [ -n "$_t1071_ext_unreadable" ]; then
+  printf '  [WARN] T1071-TC-04 repo 外の配線先が読めないため残存参照を確認できませんでした:%s\n' \
+    "$_t1071_ext_unreadable" >&2
 fi
 
 # ── T1023 追加 TC（通常モード）───────────────────────────────
