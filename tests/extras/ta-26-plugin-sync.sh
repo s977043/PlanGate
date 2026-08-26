@@ -776,36 +776,86 @@ fi
 # TC-33: FIXTURES_DIR 単独判別の残存 0 + unset 集合の包含（#914 AC-9 / R-304 / R-306）
 # 「統一」は残存 0 という全体性質であり個別ファイルの置換完了とは別命題。
 # 件数（11 等）をハードコードしない grep ベース検査:
-#   (1) FIXTURES_DIR:- を含み PG_HARNESS_SOURCED を含まない extras = 0 件
+#   (1) 判別行（FIXTURES_DIR:- を含む条件行）に AND の相方 PG_HARNESS_SOURCED が
+#       同居していること
 #   (2) run-tests.sh 冒頭の unset 集合 ⊆ FIXTURES_DIR 判別を持つ各 extras
 #       （ta-26 自身も対象）の standalone unset 集合
+#
+# (1) の是正（#994 / #1178 AC-c）: 旧実装は `grep -q 'PG_HARNESS_SOURCED' <file>`
+# の**ファイル単位**判定で、実際に守っていたのは「相方シグナルの文字列が
+# ファイル中に存在すること」であって「判別式が AND であること」ではなかった。
+# 判別行を `FIXTURES_DIR:-` を含む**条件行**（`if` / `elif` / `; then`）に
+# 限定し、その行に相方が同居しているかを見る。行継続で折られた判別式に
+# 対応するため、(2) と同じ awk 継続行結合を共有する。
 _t26_viol33=""
 _t26_incl33=""
-# unset 行 → env 名列への正規化（リスト増減に自動追従・件数非依存）。
-# 先頭の unset と末尾の 2>/dev/null / || true をリダイレクト・演算子ごと落とす。
-# 注意: case の [A-Z]* でのトークン選別は locale collation 下で 'true' 等の
-# 小文字にもマッチし得るため使わない（実測で混入を確認済み）。
-# 行継続（末尾 `\`）は awk で先に 1 行へ結合してから走査する。旧実装は
-# `grep '^\s*unset '` を直接かけていたため、複数行に折られた unset の 2 行目
-# 以降が不可視になり（かつ末尾 `\` を env 名として収集し）false positive を
-# 出していた（#914 / PR #986 CI 実害。ta-60 が該当）。
-_t26_unset_envs33() {
+_t26_nocond33=""
+_t26_scanned33=0
+# 行継続（末尾 `\`）を 1 行へ結合する共有正規化。旧実装は `grep '^\s*unset '`
+# を直接かけていたため、複数行に折られた unset の 2 行目以降が不可視になり
+# （かつ末尾 `\` を env 名として収集し）false positive を出していた
+# （#914 / PR #986 CI 実害。ta-60 が該当）。
+_t26_join_cont33() {
   awk '
     { if (cont) { buf = buf " " $0 } else { buf = $0 } }
     buf ~ /\\$/ { sub(/\\$/, "", buf); cont = 1; next }
     { cont = 0; print buf }
     END { if (cont) print buf }
-  ' "$1" 2>/dev/null \
+  ' "$1" 2>/dev/null
+}
+# unset 行 → env 名列への正規化（リスト増減に自動追従・件数非依存）。
+# 先頭の unset と末尾の 2>/dev/null / || true をリダイレクト・演算子ごと落とす。
+# 注意: case の [A-Z]* でのトークン選別は locale collation 下で 'true' 等の
+# 小文字にもマッチし得るため使わない（実測で混入を確認済み）。
+_t26_unset_envs33() {
+  _t26_join_cont33 "$1" \
     | grep -E '^[[:space:]]*unset ' \
     | sed -e 's/[[:space:]]*2>\/dev\/null.*$//' -e 's/[[:space:]]*||.*$//' \
           -e 's/^[[:space:]]*unset[[:space:]]*//'
+}
+# 判別行（条件行のうち FIXTURES_DIR:- を含むもの）。コメント行は除く。
+# 末尾 `|| true`（および呼び出し側の `|| true`）は必須 — 一致 0 件で grep が
+# 非ゼロを返すと、harness（run-tests.sh の `set -eu` 下で source）では関数が
+# その場で打ち切られ、`nocond` を印字しないまま非ゼロで戻って**違反に化ける**
+# （standalone は set -e が無いため再現せず、harness だけで落ちる型の差）。
+_t26_disc_lines33() {
+  _t26_join_cont33 "$1" \
+    | grep -v '^[[:space:]]*#' \
+    | grep 'FIXTURES_DIR:-' \
+    | grep -E '^[[:space:]]*(if|elif)[[:space:]]|;[[:space:]]*then([[:space:]]|$)' \
+    || true
+}
+# 判別行に相方が同居しているか。判別行が 1 本も無いファイル（root 導出だけに
+# FIXTURES_DIR を使う harness 専用 extras）は、旧来のファイル単位判定へ
+# フォールバックし、件数を可視化する（黙って検査対象外にしない）。
+_t26_disc_ok33() {
+  _t26_dl33=$(_t26_disc_lines33 "$1") || _t26_dl33=""
+  if [ -z "$_t26_dl33" ]; then
+    printf 'nocond\n'
+    if grep -q 'PG_HARNESS_SOURCED' "$1"; then
+      return 0
+    fi
+    return 1
+  fi
+  printf 'cond\n'
+  if printf '%s\n' "$_t26_dl33" | grep -v 'PG_HARNESS_SOURCED' | grep -q .; then
+    return 1
+  fi
+  return 0
 }
 _t26_hset33=$(_t26_unset_envs33 "$PG_T26_ROOT/tests/run-tests.sh" | tr '\n' ' ')
 for _t26_f33 in "$PG_T26_ROOT/tests/extras/"ta-*.sh; do
   [ -f "$_t26_f33" ] || continue
   grep -q 'FIXTURES_DIR:-' "$_t26_f33" || continue
-  # (1) 単独判別の残存（ファイル単位: AND の相方シグナルが 1 度も現れない）
-  if ! grep -q 'PG_HARNESS_SOURCED' "$_t26_f33"; then
+  _t26_scanned33=$((_t26_scanned33 + 1))
+  # (1) 判別行の AND 同居（#994 / #1178 AC-c）
+  _t26_shape33=""
+  _t26_ok33=0
+  _t26_shape33=$(_t26_disc_ok33 "$_t26_f33") || _t26_ok33=1
+  case "$_t26_shape33" in
+    nocond) _t26_nocond33="$_t26_nocond33 ${_t26_f33##*/}" ;;
+  esac
+  if [ "$_t26_ok33" != "0" ]; then
     _t26_viol33="$_t26_viol33 ${_t26_f33##*/}"
     continue
   fi
@@ -818,10 +868,55 @@ for _t26_f33 in "$PG_T26_ROOT/tests/extras/"ta-*.sh; do
     esac
   done
 done
-if [ -n "$_t26_hset33" ] && [ -z "$_t26_viol33" ] && [ -z "$_t26_incl33" ]; then
-  t26_pass "TC-33 FIXTURES_DIR 単独判別の残存 0 + standalone unset が run-tests.sh の unset 集合を包含"
+# 走査 0 件（glob 空振り・パス誤り）でも「違反 0 件」で緑になる恒真を塞ぐ。
+# floor は絶対件数の契約値ではない（`-eq` にしない / #1087 AC-9）。
+_T26_MIN_SCANNED33=20
+if [ -n "$_t26_hset33" ] && [ -z "$_t26_viol33" ] && [ -z "$_t26_incl33" ] \
+   && [ "$_t26_scanned33" -ge "$_T26_MIN_SCANNED33" ]; then
+  t26_pass "TC-33 判別行に AND の相方が同居（走査 ${_t26_scanned33} 件 / 判別行なし:${_t26_nocond33:- なし}）+ standalone unset が run-tests.sh の unset 集合を包含"
 else
-  t26_fail "TC-33 失敗 (単独判別残存:${_t26_viol33:- なし} / unset欠落:${_t26_incl33:- なし} / harness集合:${_t26_hset33:- 空})"
+  t26_fail "TC-33 失敗 (判別行違反:${_t26_viol33:- なし} / unset欠落:${_t26_incl33:- なし} / 走査 ${_t26_scanned33} 件 / harness集合:${_t26_hset33:- 空})"
+fi
+
+# TC-38: README 規約 8 の例示コードブロックが TC-33 の抽出規則 (1)(2) を通る
+# （#1004 / #1178 AC-d）。規約の「正本」が例示コードである以上、その例示が
+# 検査器を通らない（あるいは検査器が例示の形を読めない）状態は、規約と
+# 検査器の乖離そのもの。例示を fixture として抽出し機械照合する。
+_t26_tmp38=$(mktemp -d)
+if command -v register_cleanup >/dev/null 2>&1; then
+  register_cleanup "$_t26_tmp38"
+fi
+_t26_readme38="$PG_T26_ROOT/tests/extras/README.md"
+_t26_fx38="$_t26_tmp38/ta-99-readme-example.sh"
+awk '
+  !seen && /^8\. \*\*harness\/standalone/ { seen = 1; next }
+  seen && !inblk && /^[[:space:]]*```sh[[:space:]]*$/ { inblk = 1; next }
+  seen && inblk && /^[[:space:]]*```[[:space:]]*$/ { exit }
+  seen && inblk { sub(/^   /, ""); print }
+' "$_t26_readme38" > "$_t26_fx38" 2>/dev/null || true
+_t26_fxlines38=$(grep -c . "$_t26_fx38" 2>/dev/null || true)
+[ -n "$_t26_fxlines38" ] || _t26_fxlines38=0
+_t26_v38=""
+# 抽出できたこと自体を先に確かめる（空ファイルを「違反 0 件」と読まない）
+if [ "$_t26_fxlines38" -lt 3 ]; then
+  _t26_v38="$_t26_v38 抽出失敗(${_t26_fxlines38}行)"
+else
+  # (1) 判別行の AND 同居
+  _t26_shape38=$(_t26_disc_ok33 "$_t26_fx38") || _t26_v38="$_t26_v38 判別行(${_t26_shape38})"
+  # (2) unset 包含: 例示の unset は行継続で 3 行に折られている。
+  #     awk 結合が効いていなければここで落ちる
+  _t26_fset38=$(_t26_unset_envs33 "$_t26_fx38" | tr '\n' ' ')
+  for _t26_e38 in $_t26_hset33; do
+    case " $_t26_fset38 " in
+      *" $_t26_e38 "*) : ;;
+      *) _t26_v38="$_t26_v38 unset欠落:$_t26_e38" ;;
+    esac
+  done
+fi
+if [ -n "$_t26_hset33" ] && [ -z "$_t26_v38" ]; then
+  t26_pass "TC-38 README 規約 8 の例示（${_t26_fxlines38} 行）が TC-33 の抽出規則 (1)(2) を通る"
+else
+  t26_fail "TC-38 README 規約 8 の例示が TC-33 の規則を通らない:${_t26_v38:- harness集合が空}"
 fi
 
 # TC-37: skills 索引 README.md の同期経路（#1057 / #1199 / #1221 再発防止）
