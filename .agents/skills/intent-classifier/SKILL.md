@@ -75,6 +75,14 @@ description: "ユーザーの依頼文から開発 Intent を 8 分類し、stru
 
 ### CLI 不在時の degrade
 
+> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
+> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
+> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。上表のコマンドを実際に実行できるのは
+> **上流リポジトリ（`s977043/plangate`）の clone がある環境だけ**である。CLI 実行に到達したら
+> 「CLI が無いため実行できない／上流リポジトリの clone が必要」と**明示して停止する**か、
+> 以下の代替へ置き換える。**CLI が無いことを理由に手順を黙って省略し、実施済みと読める記録を
+> 残してはならない。**
+
 `plangate` が PATH に無い環境（**導入先では既定**）でも **Intent 分類そのものは CLI に依存しない**
 ため、本 skill の判定手順・出力フォーマットは不変。変わるのは上表の「実行コマンド提示」だけで、
 以下に置き換える（**分類を `ops` 以外にすり替えない**）:

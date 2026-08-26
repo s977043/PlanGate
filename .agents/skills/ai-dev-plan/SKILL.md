@@ -5,7 +5,9 @@ description: "PBI INPUT PACKAGE から PlanGate の plan.md / todo.md / test-cas
 
 # AI-Driven Plan (PlanGate / Codex 共用)
 
-PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Codex / Claude Code 両方で実行する skill。実行ロジックは上流リポジトリの `scripts/ai-dev-workflow` / `bin/plangate` CLI 側に集約し、skill は読む順序と入出力規約のみを担う。
+PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Codex / Claude Code 両方で実行する skill。skill が担うのは読む順序と入出力規約であり、**機械化された実行ロジックは上流リポジトリ（`s977043/plangate`）の `scripts/ai-dev-workflow` / `bin/plangate` CLI 側にある**。
+
+> **その CLI は導入先には配布されない**（Human 決定 #1144: plugin が配るのは読み物層のみで、CLI と enforcement 層〔`scripts/hooks/`〕は含めない）。**plan フェーズ自体は CLI 非依存で完結する**（本 skill の手順どおり `plan.md` / `todo.md` / `test-cases.md` を手で作る）。CLI が必須なのは `plan_hash` の機械検証など一部に限られ、その分離と代替手順は下記「CLI 呼び出し」節と「CLI 不在時のフォールバック」節を正本とする。
 
 ## Read First
 
@@ -146,6 +148,14 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
 > 「plan を作る側 = PlanGate の責務」と整理され移管。s977043/river-review#1105）
 
 ## CLI 呼び出し
+
+> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
+> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
+> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。したがって下表の「上流リポジトリの cwd」
+> 列にしか成立しない手順は、導入先では **上流リポジトリ（`s977043/plangate`）の clone が無いかぎり
+> 実行できない**。そこへ到達したら「CLI が無いため実行できない／上流リポジトリの clone が必要」と
+> **明示して停止する**か、同表の代替手順へ置き換える。**CLI が無いことを理由に手順を黙って省略し、
+> 実施済みと読める記録を残してはならない。**
 
 **呼び出し表記は実行環境で変わる**。相対パス形式（`./scripts/...` / `bin/...`）が成立するのは
 **上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` も
