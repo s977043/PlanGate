@@ -120,26 +120,63 @@ cleanup_t45() {
   rm -rf "$_T45_WD/${_T45_TASK:?ta-45: empty task name refused}"
 }
 
-# ── TC-01: conversation モード + EH-3 c3.json SKIP ────────────────
-# .plangate.yml に conversation を設定 → c3.json への Write が EH-3 で SKIP されること
-_T45_TMP_CFG="$_T45_TMP/.plangate_conversation.yml"
-cat > "$_T45_TMP_CFG" << 'CFGEOF'
-c3_approval:
-  mode: conversation
-CFGEOF
-
+# ── TC-01: conversation モード → EH-3 の C3_CONVERSATION_SKIP 分岐 ──
+# 旧実装（#1108）は 2 重に空振りしていた:
+#   1. `PLANGATE_HOOK_TASK` を設定していたため **no-task 分岐に入らず**、
+#      検査したい C-3 conversation 分岐へそもそも到達していなかった
+#   2. 判定が `grep -qiE 'SKIP|PASS'` の**選言**で、到達した先が別分岐でも
+#      出力に SKIP の 3 文字があれば通った（cli モードの `SKIP 拒否: ...`
+#      = exit 2 すら「PASS」になる）
+# 是正: no-task 経路で起動して当該分岐へ到達させ、判定を
+# **rc と一意 reason トークンの対**にする（矯正パターン: ta-39:94）。
+# 分岐は `$REPO_ROOT/.plangate.yml` を読むため、hook を sandbox へ複製して
+# そこに設定ファイルを置く（README「隔離・後始末の規約」3 / できること節）。
+mkdir -p "$_T45_TMP/scripts/hooks"
+mkdir -p "$_T45_TMP/docs/working/_audit"
+cp "$_T45_EH3" "$_T45_TMP/scripts/hooks/check-plan-hash.sh"
+_T45_EH3_SANDBOX="$_T45_TMP/scripts/hooks/check-plan-hash.sh"
 _t45_c3_target="docs/working/$_T45_TASK/approvals/c3.json"
-_t45_eh3_out=$(PLANGATE_HOOK_TASK="$_T45_TASK" \
-  PLANGATE_HOOK_FILE="$_t45_c3_target" \
-  sh "$_T45_EH3" "$_T45_TASK" "$_t45_c3_target" 2>&1 || true)
 
-# EH-3 は plan_hash 比較に進む（c3.json 未存在なので SKIP[c3.json not found]）
-# → TC-01 は conversation モード時 c3.json を生成後に exec する統合フローのため、
-#   ここでは EH-3 が c3.json 未存在で SKIP (exit 0) することを確認する
-if printf '%s' "$_t45_eh3_out" | grep -qiE 'SKIP|PASS'; then
-  t45_pass "TC-01: EH-3 with TASK context handles c3.json path (SKIP/PASS)"
+_t45_run_eh3_notask() {
+  # $1 = PLANGATE_HOOK_FILE。TASK 文脈を渡さない（no-task 経路）
+  PLANGATE_HOOK_FILE="$1" sh "$_T45_EH3_SANDBOX" </dev/null 2>&1
+}
+
+if ! python3 -c 'import yaml' >/dev/null 2>&1; then
+  # 規約 6（依存ゲート）: 分岐は PyYAML で mode を読む。未導入環境では
+  # 常に cli へフォールバックするため、conversation 分岐は検査できない
+  printf '  [SKIP] TC-01: PyYAML 未導入のため C-3 conversation 分岐を検査できない\n'
 else
-  t45_fail "TC-01: EH-3 expected SKIP/PASS, got: $(printf '%s' "$_t45_eh3_out" | head -1)"
+  # (a) conversation → rc=0 かつ一意 reason トークン C3_CONVERSATION_SKIP
+  printf 'c3_approval:\n  mode: conversation\n' > "$_T45_TMP/.plangate.yml"
+  _t45_rc_conv=0
+  _t45_out_conv=$(_t45_run_eh3_notask "$_t45_c3_target") || _t45_rc_conv=$?
+  # (b) 対照（cli）: 同じ sandbox・同じ target で mode だけ替える。分岐に
+  #     到達していることと mode 感応であることを同時に示す。cli 側の出力にも
+  #     `SKIP` の語は現れる（`SKIP 拒否`）ので、選言述語では区別できない
+  printf 'c3_approval:\n  mode: cli\n' > "$_T45_TMP/.plangate.yml"
+  _t45_rc_cli=0
+  _t45_out_cli=$(_t45_run_eh3_notask "$_t45_c3_target") || _t45_rc_cli=$?
+
+  _t45_cli_has_token=no
+  if printf '%s' "$_t45_out_cli" | grep -q 'C3_CONVERSATION_SKIP'; then
+    _t45_cli_has_token=yes
+  fi
+  if [ "$_t45_rc_conv" = "0" ] \
+     && printf '%s' "$_t45_out_conv" | grep -q 'C3_CONVERSATION_SKIP' \
+     && [ "$_t45_rc_cli" = "2" ] && [ "$_t45_cli_has_token" = no ]; then
+    t45_pass "TC-01: no-task + mode=conversation → rc=0 + C3_CONVERSATION_SKIP（対照 cli は rc=2・トークンなし）"
+  else
+    t45_fail "TC-01: conversation rc=$_t45_rc_conv out=$(printf '%s' "$_t45_out_conv" | head -1) / cli rc=$_t45_rc_cli token=$_t45_cli_has_token"
+  fi
+
+  # 副次: sandbox 側の skip-decision-log にのみ記録され、実 repo は汚れない
+  _t45_dlog="$_T45_TMP/docs/working/_audit/skip-decision-log.jsonl"
+  if [ -f "$_t45_dlog" ] && grep -q 'EH-3_C3_CONVERSATION_SKIP' "$_t45_dlog"; then
+    t45_pass "TC-01 副次: sandbox skip-decision-log に EH-3_C3_CONVERSATION_SKIP あり"
+  else
+    t45_fail "TC-01 副次: sandbox skip-decision-log に EH-3_C3_CONVERSATION_SKIP なし (log=$_t45_dlog)"
+  fi
 fi
 
 # ── TC-02: cli モード → _read_plangate_config が cli を返す ──────
