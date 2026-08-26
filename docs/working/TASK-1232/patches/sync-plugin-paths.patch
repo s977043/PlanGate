@@ -1,0 +1,35 @@
+--- a/.github/workflows/sync-plugin-plangate.yml
++++ b/.github/workflows/sync-plugin-plangate.yml
+@@ -12,6 +12,16 @@
+       - 'CHANGELOG.md'
+       - 'docs/ai/ai-loop/**'
+       - 'docs/workflows/ai-loop/**'
++      # ai-dev-{plan,exec,verify,brainstorm} の同梱元 (#1232 / #1249 MAJOR-1)。
++      # scripts/sync-plugin-plangate.sh の _ai_dev_ref_spec が読むソース集合と
++      # 一致させること。不足すると「これらだけを変える PR」で drift-check が
++      # 起動せず、配布物が無警告で腐る。機械照合: tests/extras/ta-71 TC-20。
++      - 'docs/ai-driven-development.md'
++      - 'docs/plangate.md'
++      - 'docs/ai/core-contract.md'
++      - 'docs/ai/plan-metrics-verification.md'
++      - 'docs/ai/settings-wiring-contract.md'
++      - 'docs/working/templates/**'
+       - 'scripts/ai-loop/**'
+       - 'scripts/_ai_loop_link_rewrite.py'
+       - 'scripts/sync-plugin-plangate.sh'
+@@ -22,6 +32,15 @@
+       - '.agents/skills/**'
+       - 'docs/ai/ai-loop/**'
+       - 'docs/workflows/ai-loop/**'
++      # ai-dev-{plan,exec,verify,brainstorm} の同梱元 (#1232 / #1249 MAJOR-1)。
++      # push 側と同一集合に保つこと（片側だけ足すと PR 時の drift-check か
++      # push 後の自動同期のどちらかが盲点として残る）。
++      - 'docs/ai-driven-development.md'
++      - 'docs/plangate.md'
++      - 'docs/ai/core-contract.md'
++      - 'docs/ai/plan-metrics-verification.md'
++      - 'docs/ai/settings-wiring-contract.md'
++      - 'docs/working/templates/**'
+       - 'scripts/ai-loop/**'
+       - 'scripts/_ai_loop_link_rewrite.py'
+       - 'scripts/sync-plugin-plangate.sh'

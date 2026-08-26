@@ -36,6 +36,9 @@
 #   TC-17: lint-shell — 空白・引用符入りファイル名でも未検査にならない（xargs -0）
 #   TC-18: 両ラッパの --help が行番号ハードコードでなくヘッダ全体を出す
 #   TC-19: --list が「未追跡ファイルは対象外」を明示する
+#   TC-20: sync-plugin-plangate.sh の同梱ソース集合 ⊆ sync-plugin-plangate.yml の
+#          paths:（push / pull_request 両方）。未被覆は KNOWN-GAP flag があるときだけ
+#          受理し、flag と実態がどちらの向きにズレても FAIL する（#1249 MAJOR-1）
 #
 # 注記: サンドボックスは数ファイルしか無いため lint-shell の対象下限
 #       （MIN_TARGETS）に引っかかる。サンドボックス実行では
@@ -557,6 +560,117 @@ if [ "$_t71_note_ok" = yes ]; then
   t71_pass "TC-19 --list が「未追跡ファイルは対象外」を明示する"
 else
   t71_fail "TC-19 未追跡ファイルの注記がない: $_t71_note_ok"
+fi
+
+# --- TC-20: sync-plugin-plangate の同梱ソースが CI の paths: フィルタに被覆される -
+#
+# #1249 敵対レビュー MAJOR-1。`scripts/sync-plugin-plangate.sh` の
+# `_ai_dev_ref_spec` は `docs/ai-driven-development.md` / `docs/plangate.md` /
+# `docs/ai/core-contract.md` / `docs/working/templates/**` 等を配布物の
+# **同梱元**として読む。ところが `.github/workflows/sync-plugin-plangate.yml` の
+# `on.push.paths` / `on.pull_request.paths` は ai-loop 由来のパスしか列挙して
+# おらず、これらの同梱元だけを変える PR では **drift-check job がそもそも起動
+# しない**。結果、配布物は無警告で腐る（実測 2 回発生）。
+#
+# 「先例を踏襲した」のは sync スクリプト側だけで、CI トリガ配線は踏襲されて
+# いなかった。次に同梱元を足した人が同じ穴を開けても検出できるよう、
+# **spec のソース集合 ⊆ workflow の paths: 被覆** を機械照合する。
+#
+# `.github/workflows/**` は Hardening Override であり AI は適用できない。
+# 未適用のあいだ **恒久 FAIL にはしない** — extras は standalone rc=0 か
+# rc=3（`pg_extra_contract_skip`）のいずれかであることが harness の契約であり
+# （tests/extras/_extra-contract.sh / ta-61 TC-12 が fail-closed で検査する）、
+# 恒久 red の extras は「本 PBI の 1 件」ではなく **ta-61 の分類 FAIL も道連れにする**。
+# 代わりに `ta-65` が #1089 で確立した **KNOWN-GAP flag 方式**に合わせる:
+#
+#   tests/fixtures/sync-paths-known-gap-1249.flag
+#
+# | flag | workflow の被覆 | 判定 |
+# | --- | --- | --- |
+# | あり | 未被覆 | PASS（既知 gap として受理。**未被覆パス一覧は毎回出力する**） |
+# | あり | 被覆済 | **FAIL** — stale 宣言。patch 適用済みなので flag を消すこと |
+# | なし | 未被覆 | **FAIL** — 未適用 or paths: の退行 |
+# | なし | 被覆済 | PASS（適用後の定常状態） |
+#
+# どちらの方向のドリフトも赤くなるため「黙って緑」にはならない。flag 自体が
+# 未適用の Human-owned アクションの greppable な記録になる。
+# 適用用 patch: docs/working/TASK-1232/patches/sync-plugin-paths.patch
+#
+# 検証シーム: PG_TA71_SYNC_WORKFLOW に別ファイルを指すと、その内容で判定する
+# （patch 適用後に緑になることを本体を触らず実証するため）。
+_T71_SYNC_WF="${PG_TA71_SYNC_WORKFLOW:-$_T71_ROOT/.github/workflows/sync-plugin-plangate.yml}"
+_T71_SYNC_SCRIPT="$_T71_ROOT/scripts/sync-plugin-plangate.sh"
+_t71_py20="$(command -v python3 2>/dev/null || true)"
+if [ -z "$_t71_py20" ]; then
+  t71_fail "TC-20 python3 が解決できない"
+elif [ ! -f "$_T71_SYNC_WF" ] || [ ! -f "$_T71_SYNC_SCRIPT" ]; then
+  t71_fail "TC-20 対象ファイルが不在 (wf=$_T71_SYNC_WF / script=$_T71_SYNC_SCRIPT)"
+else
+  _t71_rc20=0
+  _t71_out20=$("$_t71_py20" - "$_T71_SYNC_SCRIPT" "$_T71_SYNC_WF" <<'PY' 2>&1
+import fnmatch, pathlib, re, sys
+
+script = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+wf = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
+
+body = re.search(r"_ai_dev_ref_spec\(\)\s*\{(.*?)\n\}", script, re.S)
+assert body, "PARSE-FAIL: _ai_dev_ref_spec が見つからない"
+srcs = sorted({m[1] for m in
+               re.findall(r"'([^' ]+\.(?:md|json|yaml))\s+([^']+)'", body.group(1))})
+assert len(srcs) >= 10, "PARSE-FAIL: spec ソース抽出が空振り (%d)" % len(srcs)
+
+# on.push.paths / on.pull_request.paths のリスト項目を素直に拾う。
+# YAML パーサに依存しない（PyYAML は CI に無い前提）。
+# リスト項目のあいだにコメント行が挟まっても打ち切らないこと — 打ち切ると
+# 「コメント以降の項目を見落として未被覆と誤判定する」false negative ならぬ
+# false positive を生む（実測でこの穴を踏んだ）。
+blocks = re.findall(
+    r"^\s{2,}paths:\n((?:(?:\s+- '[^']+'|\s*#[^\n]*|\s*)\n)+)", wf, re.M)
+assert len(blocks) >= 2, (
+    "PARSE-FAIL: paths: ブロックが 2 つ未満 (%d) — push / pull_request の両方が要る"
+    % len(blocks))
+patsets = [set(re.findall(r"- '([^']+)'", b)) for b in blocks]
+
+def covered(path, pats):
+    for p in pats:
+        if fnmatch.fnmatch(path, p):
+            return True
+        # '**' は fnmatch では 1 階層扱いになるため、prefix でも判定する
+        if p.endswith("/**") and path.startswith(p[:-2]):
+            return True
+    return False
+
+bad = []
+for i, pats in enumerate(patsets):
+    label = ("push", "pull_request")[i] if i < 2 else "block%d" % i
+    for s in srcs:
+        if not covered(s, pats):
+            bad.append("%s:%s" % (label, s))
+assert not bad, (
+    "CI トリガ未被覆: sync の同梱元が paths: に入っておらず drift-check が起動しない "
+    "-> %s" % sorted(set(bad)))
+print("OK srcs=%d blocks=%d" % (len(srcs), len(patsets)))
+PY
+) || _t71_rc20=$?
+  _T71_GAP_FLAG="$_T71_ROOT/tests/fixtures/sync-paths-known-gap-1249.flag"
+  if [ "$_t71_rc20" = "0" ] && printf '%s' "$_t71_out20" | grep -q '^OK srcs='; then
+    _t71_cov20=covered
+  else
+    _t71_cov20=uncovered
+  fi
+  if [ "$_t71_cov20" = covered ] && [ ! -f "$_T71_GAP_FLAG" ]; then
+    t71_pass "TC-20 sync 同梱元が paths: に全被覆（$(printf '%s' "$_t71_out20" | tr -d '\n')）"
+  elif [ "$_t71_cov20" = covered ] && [ -f "$_T71_GAP_FLAG" ]; then
+    t71_fail "TC-20 stale KNOWN-GAP 宣言 — paths: は既に全被覆なのに tests/fixtures/sync-paths-known-gap-1249.flag が残っている。flag を削除すること"
+  elif [ "$_t71_cov20" = uncovered ] && [ -f "$_T71_GAP_FLAG" ]; then
+    # 受理はするが、何が未被覆なのかは毎回必ず出す（silently 緑にしない）
+    printf '  [KNOWN-GAP #1249] tests/fixtures/sync-paths-known-gap-1249.flag により gap を受理\n'
+    printf '  [KNOWN-GAP #1249] 未適用: docs/working/TASK-1232/patches/sync-plugin-paths.patch（.github/workflows/** は HO のため Human-owned）\n'
+    printf '  [KNOWN-GAP #1249] %s\n' "$(printf '%s' "$_t71_out20" | tr '\n' ' ' | cut -c1-600)"
+    t71_pass "TC-20 sync 同梱元が CI paths: に未被覆（KNOWN-GAP #1249 として受理 / patch 適用後は flag を削除すること）"
+  else
+    t71_fail "TC-20 sync 同梱元が CI paths: に未被覆で KNOWN-GAP 宣言も無い — patch 未適用か paths: の退行（docs/working/TASK-1232/patches/sync-plugin-paths.patch / rc=$_t71_rc20): $_t71_out20"
+  fi
 fi
 
 rm -rf "$_T71_SB" "${_T71_AB:-/nonexistent-ta71}" "${_T71_FR:-/nonexistent-ta71}" "${_T71_SC:-/nonexistent-ta71}" "${_T71_SC2:-/nonexistent-ta71}"

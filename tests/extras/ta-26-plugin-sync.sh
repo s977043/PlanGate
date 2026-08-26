@@ -979,6 +979,289 @@ else
   t26_fail "TC-37 skills/README.md の同期経路が機能していない (rc=$_t26_rc37 / 内容=${_t26_got37:- 空} / 1回目=${_t26_out37} / 2回目=${_t26_out37b})"
 fi
 
+# ── #1249 敵対レビュー MAJOR-2 / MAJOR-3 / MINOR-4 の回帰 TC 群 ──────────────
+#
+# #1249（ai-dev 実行資材の同梱）は 176 行の guard / spec ロジックを足しながら
+# ta-26 に TC を 1 件も足さなかった。敵対レビューの変異実測では
+#   - spec の `plan-template.md` を `plan.md` へ revert（唯一の Human 決定の破棄）
+#   - sandbox 一覧から `handoff.md` を 1 件だけ落とす
+# のいずれも **34 passed / 0 failed = 検出されない**（配布物は実際に劣化する）。
+# 以下はその 2 変異と、spec ソース不在の無警告脱落・二重管理の非収束を固定する。
+
+PG_T26_PY="$(command -v python3 2>/dev/null || true)"
+
+# TC-39: 配布 references/ に basename `plan.md` が存在しない（spec + 実配布物の両面）
+#
+# `scripts/hooks/check-plan-hash.sh` の EH-3 は **basename** `plan.md` で block する
+# （パス判定ではない）。そのまま同梱すると導入先で雛形が編集不能になるため、
+# `docs/working/templates/plan.md` は配布先で `plan-template.md` へリネームする
+# ——これが #1232 で唯一の Human 決定である。spec を revert しても実配布物は
+# 次の sync まで変わらないので、**spec 側**も併せて検査しないと変異が生き残る。
+_t26_v39=''
+if [ -z "$PG_T26_PY" ]; then
+  t26_fail "TC-39 python3 が解決できない"
+else
+  # (a) spec が配布先 basename に plan.md を出さない
+  _t26_spec39=$("$PG_T26_PY" - "$PG_T26_SCRIPT" <<'PY' 2>&1 || true
+import pathlib, re, sys
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+body = re.search(r"_ai_dev_ref_spec\(\)\s*\{(.*?)\n\}", text, re.S)
+if not body:
+    print("PARSE-FAIL"); raise SystemExit(0)
+pairs = re.findall(r"'([^' ]+\.(?:md|json|yaml))\s+([^']+)'", body.group(1))
+if not pairs:
+    print("PARSE-FAIL"); raise SystemExit(0)
+print("PAIRS=%d" % len(pairs))
+for base, src in pairs:
+    print("BASE\t%s\t%s" % (base, src))
+PY
+)
+  if printf '%s' "$_t26_spec39" | grep -q 'PARSE-FAIL'; then
+    _t26_v39="$_t26_v39 spec-parse-fail"
+  fi
+  # 陽性コントロール: 抽出が空振りしていないこと（PAIRS>=20）と、
+  # リネーム後の basename が実際に spec に居ること
+  _t26_pairs39=$(printf '%s' "$_t26_spec39" | sed -n 's/^PAIRS=//p')
+  [ -n "$_t26_pairs39" ] && [ "$_t26_pairs39" -ge 20 ] 2>/dev/null \
+    || _t26_v39="$_t26_v39 spec-pairs-too-few(${_t26_pairs39:-none})"
+  printf '%s' "$_t26_spec39" | grep -q "^BASE	plan-template.md	" \
+    || _t26_v39="$_t26_v39 plan-template.md-not-in-spec"
+  # 本体判定: 配布先 basename に plan.md が無い
+  if printf '%s' "$_t26_spec39" | grep -q "^BASE	plan.md	"; then
+    _t26_v39="$_t26_v39 spec-emits-plan.md"
+  fi
+  # (b) 実配布ツリーにも basename plan.md が無い
+  for _t26_f39 in "$PG_T26_PLUGIN"/skills/*/references/plan.md; do
+    [ -f "$_t26_f39" ] || continue
+    _t26_v39="$_t26_v39 distributed:${_t26_f39#"$PG_T26_ROOT"/}"
+  done
+  # (c) block の根拠（EH-3 の basename case）が実在する — 前提が消えたら気づく
+  grep -q '\*/plan\.md|plan\.md' "$PG_T26_ROOT/scripts/hooks/check-plan-hash.sh" 2>/dev/null \
+    || _t26_v39="$_t26_v39 eh3-basename-case-missing"
+  if [ -z "$_t26_v39" ]; then
+    t26_pass "TC-39 配布 references/ に basename plan.md なし（spec ${_t26_pairs39} 件 / plan-template.md 実在 / EH-3 basename case 実在）"
+  else
+    t26_fail "TC-39 失敗:$_t26_v39"
+  fi
+fi
+
+# TC-40: _ai_dev_ref_spec のソース集合 ⊆ ta-26 sandbox の同梱一覧（機械照合）
+#
+# sandbox が sync の入力を 1 件でも欠くと、その skill の期待集合が縮んで
+# 実 repo と違う条件で guard を検査することになる（TC-05 の前提が崩れる）。
+# ta-57 TC-E8 / ta-60 の「for ループと case 文の集合一致」と同型の drift 検査。
+if [ -z "$PG_T26_PY" ]; then
+  t26_fail "TC-40 python3 が解決できない"
+else
+  _t26_rc40=0
+  _t26_out40=$("$PG_T26_PY" - "$PG_T26_SCRIPT" "$PG_T26_ROOT/tests/extras/ta-26-plugin-sync.sh" <<'PY' 2>&1
+import pathlib, re, sys
+
+script = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+selfsrc = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
+
+body = re.search(r"_ai_dev_ref_spec\(\)\s*\{(.*?)\n\}", script, re.S)
+assert body, "PARSE-FAIL: _ai_dev_ref_spec が見つからない"
+spec_srcs = {m[1] for m in re.findall(r"'([^' ]+\.(?:md|json|yaml))\s+([^']+)'", body.group(1))}
+assert len(spec_srcs) >= 15, "PARSE-FAIL: spec ソース抽出が空振り (%d)" % len(spec_srcs)
+
+block = re.search(r"^for _f26 in \\\n(.*?)^do$", selfsrc, re.S | re.M)
+assert block, "PARSE-FAIL: sandbox 一覧 (for _f26) が見つからない"
+listed = {ln.strip().rstrip("\\").strip() for ln in block.group(1).splitlines()}
+listed = {p for p in listed if p}
+assert len(listed) >= 10, "PARSE-FAIL: sandbox 一覧の抽出が空振り (%d)" % len(listed)
+
+# ファイル単位の一覧のほかに、sandbox は `cp -r "$PG_T26_ROOT/<dir>"` で
+# ディレクトリごと持ち込む経路も持つ（docs/workflows/ai-loop など）。
+# その配下は「一覧に無くても供給されている」ため被覆に数える。
+dirs = set(re.findall(r'cp -r "\$PG_T26_ROOT/([^"]+)"', selfsrc))
+
+def covered(p):
+    return p in listed or any(p.startswith(d.rstrip("/") + "/") for d in dirs)
+
+missing = sorted(p for p in spec_srcs if not covered(p))
+assert not missing, (
+    "sandbox drift: _ai_dev_ref_spec のソースが ta-26 sandbox の同梱経路に無い -> %s"
+    % missing)
+print("OK spec=%d sandbox_files=%d sandbox_dirs=%d" % (len(spec_srcs), len(listed), len(dirs)))
+PY
+) || _t26_rc40=$?
+  if [ "$_t26_rc40" = "0" ] && printf '%s' "$_t26_out40" | grep -q '^OK spec='; then
+    t26_pass "TC-40 spec ソース集合 ⊆ sandbox 同梱一覧（$(printf '%s' "$_t26_out40" | tr -d '\n')）"
+  else
+    t26_fail "TC-40 失敗 (rc=$_t26_rc40): $_t26_out40"
+  fi
+fi
+
+# ai-dev 用 sandbox ビルダ（guard 境界 TC / spec 欠損 TC 共用）
+# $1=dir / $2=skill 名 / $3=stale 件数 / $4以降=配置するソース相対パス
+_t26_mk_ai_dev_sandbox() {
+  _t26_ad_dir="$1"; _t26_ad_skill="$2"; _t26_ad_stale="$3"; shift 3
+  mkdir -p "$_t26_ad_dir/scripts" \
+    "$_t26_ad_dir/.agents/skills/$_t26_ad_skill" \
+    "$_t26_ad_dir/plugin/plangate/skills/$_t26_ad_skill/references"
+  cp "$PG_T26_SCRIPT" "$_t26_ad_dir/scripts/"
+  cp "$PG_T26_ROOT/scripts/_ai_loop_link_rewrite.py" "$_t26_ad_dir/scripts/"
+  printf -- '---\nname: %s\n---\nbody\n' "$_t26_ad_skill" \
+    > "$_t26_ad_dir/.agents/skills/$_t26_ad_skill/SKILL.md"
+  for _t26_ad_f in "$@"; do
+    mkdir -p "$_t26_ad_dir/$(dirname "$_t26_ad_f")"
+    printf 'src %s\n' "$_t26_ad_f" > "$_t26_ad_dir/$_t26_ad_f"
+  done
+  _t26_ad_i=1
+  while [ "$_t26_ad_i" -le "$_t26_ad_stale" ]; do
+    printf 'stale %s\n' "$_t26_ad_i" \
+      > "$_t26_ad_dir/plugin/plangate/skills/$_t26_ad_skill/references/stale-$_t26_ad_i.md"
+    _t26_ad_i=$((_t26_ad_i + 1))
+  done
+}
+
+# ai-dev-brainstorm の期待集合は 3 件（spec 固定）。境界 base = stale を作れる。
+_T26_BRAINSTORM_SRCS="docs/ai-driven-development.md docs/ai/core-contract.md docs/plangate.md"
+
+# TC-41: ai-dev 削除 guard の境界 — base = stale は非発火 / base < stale は発火
+#
+# `_mass_delete_blocked` は `stale > base` でのみ block する。境界（同数）で
+# 誤って発火すると正当な stale が消えなくなり、逆に境界を緩めると mass-delete が
+# 素通りする。両側を 1 件差で固定する（片側だけでは閾値のズレを検出できない）。
+_t26_t41a=$(mktemp -d); register_cleanup "$_t26_t41a"
+# shellcheck disable=SC2086
+_t26_mk_ai_dev_sandbox "$_t26_t41a" ai-dev-brainstorm 3 $_T26_BRAINSTORM_SRCS
+_t26_rc41a=0
+_t26_out41a=$(sh "$_t26_t41a/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc41a=$?
+_t26_left41a=$(ls "$_t26_t41a/plugin/plangate/skills/ai-dev-brainstorm/references" 2>/dev/null | wc -l | tr -d ' ')
+_t26_stale41a=$(ls "$_t26_t41a/plugin/plangate/skills/ai-dev-brainstorm/references"/stale-*.md 2>/dev/null | wc -l | tr -d ' ')
+
+_t26_t41b=$(mktemp -d); register_cleanup "$_t26_t41b"
+# shellcheck disable=SC2086
+_t26_mk_ai_dev_sandbox "$_t26_t41b" ai-dev-brainstorm 4 $_T26_BRAINSTORM_SRCS
+_t26_rc41b=0
+_t26_out41b=$(sh "$_t26_t41b/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc41b=$?
+_t26_stale41b=$(ls "$_t26_t41b/plugin/plangate/skills/ai-dev-brainstorm/references"/stale-*.md 2>/dev/null | wc -l | tr -d ' ')
+rm -rf "$_t26_t41a" "$_t26_t41b"
+if [ "$_t26_rc41a" -eq 0 ] && [ "$_t26_left41a" = "3" ] && [ "$_t26_stale41a" = "0" ] \
+  && ! printf '%s' "$_t26_out41a" | grep -q 'safety guard' \
+  && [ "$_t26_rc41b" -eq 3 ] && [ "$_t26_stale41b" = "4" ] \
+  && printf '%s' "$_t26_out41b" | grep -q 'skills/ai-dev-brainstorm/references' \
+  && printf '%s' "$_t26_out41b" | grep -q 'base=3 / stale=4'; then
+  t26_pass "TC-41 ai-dev guard 境界: base=3/stale=3 は非発火（stale 3 件削除・期待 3 件のみ残存）/ base=3/stale=4 は発火（rc=3・4 件全残存）"
+else
+  t26_fail "TC-41 失敗 (同数: rc=$_t26_rc41a 期待0 left=$_t26_left41a 期待3 stale残=$_t26_stale41a 期待0 / 超過: rc=$_t26_rc41b 期待3 stale残=$_t26_stale41b 期待4): $_t26_out41a ||| $_t26_out41b"
+fi
+
+# TC-42: spec ソース不在は _warn し、配布側の既存ファイルを削除しない（MAJOR-3）
+#
+# spec は固定パス 24 件で ai-loop のディレクトリ glob と違い rename に追従しない。
+# 旧実装は `[ -f ... ] || continue` で黙って落としていたため、上流の 1 本の rename で
+# 配布物が警告ゼロで消えた（実測: core-contract.md のパスを 1 文字変えるだけで
+# 4 skill の core-contract.md が rc=0・警告なしで DELETE された）。
+_t26_t42=$(mktemp -d); register_cleanup "$_t26_t42"
+# shellcheck disable=SC2086
+_t26_mk_ai_dev_sandbox "$_t26_t42" ai-dev-brainstorm 0 $_T26_BRAINSTORM_SRCS
+# 1 回目: 3 件が配布される
+sh "$_t26_t42/scripts/sync-plugin-plangate.sh" >/dev/null 2>&1 || true
+_t26_seed42=$(ls "$_t26_t42/plugin/plangate/skills/ai-dev-brainstorm/references" 2>/dev/null | wc -l | tr -d ' ')
+# 上流 rename を模擬: ソース 1 本だけを消す
+rm -f "$_t26_t42/docs/ai/core-contract.md"
+_t26_rc42=0
+_t26_out42=$(sh "$_t26_t42/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc42=$?
+_t26_kept42=0
+[ -f "$_t26_t42/plugin/plangate/skills/ai-dev-brainstorm/references/core-contract.md" ] && _t26_kept42=1
+rm -rf "$_t26_t42"
+if [ "$_t26_seed42" = "3" ] && [ "$_t26_rc42" -eq 0 ] && [ "$_t26_kept42" = "1" ] \
+  && printf '%s' "$_t26_out42" | grep -q 'WARN: spec のソースが見つかりません' \
+  && printf '%s' "$_t26_out42" | grep -q 'docs/ai/core-contract.md' \
+  && ! printf '%s' "$_t26_out42" | grep -q 'DELETE: skills/ai-dev-brainstorm/references/core-contract.md'; then
+  t26_pass "TC-42 spec ソース不在で WARN 出力・配布側を保持（無警告脱落の再発防止 / seed=3）"
+else
+  t26_fail "TC-42 失敗 (seed=$_t26_seed42 期待3 / rc=$_t26_rc42 期待0 / 保持=$_t26_kept42 期待1): $_t26_out42"
+fi
+
+# TC-43: 汎用 skills ループとの二重管理は「消し合う」ではなく一方向 DELETE の非収束
+#
+# `.agents/skills/ai-dev-*/references/` を作ると、汎用ループが COPY した直後に
+# ai-dev ループが stale として DELETE する。順序が固定なので配布側へは永久に
+# 届かず、`changed=1` が立ち続けて "no changes" に収束しない。
+# 実測どおりの性質を固定する（net のファイル状態は不変なので CI の
+# `git diff --quiet` は緑のまま = 「CI 恒久 red」ではない、という点も含めて）。
+_t26_t43=$(mktemp -d); register_cleanup "$_t26_t43"
+# shellcheck disable=SC2086
+_t26_mk_ai_dev_sandbox "$_t26_t43" ai-dev-brainstorm 0 $_T26_BRAINSTORM_SRCS
+mkdir -p "$_t26_t43/.agents/skills/ai-dev-brainstorm/references"
+printf 'dual-managed\n' > "$_t26_t43/.agents/skills/ai-dev-brainstorm/references/extra.md"
+_t26_conv43=0   # "no changes" に収束した run の数
+_t26_cycle43=0  # COPY と DELETE が同一 run に両方出た回数
+_t26_i43=1
+while [ "$_t26_i43" -le 3 ]; do
+  _t26_o43=$(sh "$_t26_t43/scripts/sync-plugin-plangate.sh" 2>&1) || true
+  if printf '%s' "$_t26_o43" | grep -q 'COPY (links self-contained): skills/ai-dev-brainstorm/references/extra.md' \
+    || printf '%s' "$_t26_o43" | grep -q 'COPY: skills/ai-dev-brainstorm/references/extra.md'; then
+    if printf '%s' "$_t26_o43" | grep -q 'DELETE: skills/ai-dev-brainstorm/references/extra.md'; then
+      _t26_cycle43=$((_t26_cycle43 + 1))
+    fi
+  fi
+  printf '%s' "$_t26_o43" | grep -q 'Sync complete — no changes' && _t26_conv43=$((_t26_conv43 + 1))
+  _t26_i43=$((_t26_i43 + 1))
+done
+_t26_land43=0
+[ -f "$_t26_t43/plugin/plangate/skills/ai-dev-brainstorm/references/extra.md" ] && _t26_land43=1
+rm -rf "$_t26_t43"
+if [ "$_t26_cycle43" = "3" ] && [ "$_t26_conv43" = "0" ] && [ "$_t26_land43" = "0" ]; then
+  t26_pass "TC-43 二重管理は 3 run とも COPY→DELETE を反復し収束しない（配布側へ到達 0 / 'no changes' 0 回）"
+else
+  t26_fail "TC-43 失敗 (COPY→DELETE 同時発生=$_t26_cycle43 期待3 / 'no changes'=$_t26_conv43 期待0 / 配布到達=$_t26_land43 期待0)"
+fi
+
+# TC-44: guard 発火は当該 skill の削除ループだけを止め、他 skill は削除を続行する
+#
+# `_mass_delete_blocked` の判定は skill ごとに独立で、発火しても run 全体は
+# 止まらない（設計どおり — コピーも他 skill も阻害しない）。裏返すと
+# **rc=3 の run でも別 skill の配布物は実際に消えている**。
+# 「rc=3 なら何も消えていない」と読まれると事故調査を誤るため、この非対称を固定する。
+# per-skill 期待集合方式が ai-loop の合算方式より leverage が弱い理由の実測でもある
+# （#1249 敵対レビュー MAJOR-3）。
+_t26_t44=$(mktemp -d); register_cleanup "$_t26_t44"
+mkdir -p "$_t26_t44/scripts"
+cp "$PG_T26_SCRIPT" "$_t26_t44/scripts/"
+cp "$PG_T26_ROOT/scripts/_ai_loop_link_rewrite.py" "$_t26_t44/scripts/"
+for _t26_s44 in ai-dev-brainstorm ai-dev-verify; do
+  mkdir -p "$_t26_t44/.agents/skills/$_t26_s44" \
+    "$_t26_t44/plugin/plangate/skills/$_t26_s44/references"
+  printf -- '---\nname: %s\n---\nbody\n' "$_t26_s44" \
+    > "$_t26_t44/.agents/skills/$_t26_s44/SKILL.md"
+done
+# 両 skill の spec ソースを全部置く（欠損 WARN を出さず、guard 判定だけを見る）
+for _t26_f44 in docs/ai-driven-development.md docs/plangate.md docs/ai/core-contract.md \
+  docs/ai/settings-wiring-contract.md docs/workflows/ai-loop/c3-prime-contract.md \
+  docs/working/templates/handoff.md; do
+  mkdir -p "$_t26_t44/$(dirname "$_t26_f44")"
+  printf 'src %s\n' "$_t26_f44" > "$_t26_t44/$_t26_f44"
+done
+# brainstorm: base=3 / stale=9 → 発火 ｜ verify: base=5 / stale=2 → 非発火
+_t26_i44=1
+while [ "$_t26_i44" -le 9 ]; do
+  printf 'stale\n' > "$_t26_t44/plugin/plangate/skills/ai-dev-brainstorm/references/stale-$_t26_i44.md"
+  _t26_i44=$((_t26_i44 + 1))
+done
+_t26_i44=1
+while [ "$_t26_i44" -le 2 ]; do
+  printf 'stale\n' > "$_t26_t44/plugin/plangate/skills/ai-dev-verify/references/stale-$_t26_i44.md"
+  _t26_i44=$((_t26_i44 + 1))
+done
+_t26_rc44=0
+_t26_out44=$(sh "$_t26_t44/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc44=$?
+_t26_bs44=$(ls "$_t26_t44/plugin/plangate/skills/ai-dev-brainstorm/references"/stale-*.md 2>/dev/null | wc -l | tr -d ' ')
+_t26_vf44=$(ls "$_t26_t44/plugin/plangate/skills/ai-dev-verify/references"/stale-*.md 2>/dev/null | wc -l | tr -d ' ')
+rm -rf "$_t26_t44"
+if [ "$_t26_rc44" -eq 3 ] && [ "$_t26_bs44" = "9" ] && [ "$_t26_vf44" = "0" ] \
+  && printf '%s' "$_t26_out44" | grep -q 'DELETE skipped for skills/ai-dev-brainstorm/references' \
+  && printf '%s' "$_t26_out44" | grep -q 'base=3 / stale=9' \
+  && printf '%s' "$_t26_out44" | grep -q 'DELETE: skills/ai-dev-verify/references/stale-1.md'; then
+  t26_pass "TC-44 guard は skill 単位: rc=3 の同一 run で brainstorm は 9 件保持・verify は 2 件を実削除（rc=3 を「何も消えていない」と読めない）"
+else
+  t26_fail "TC-44 失敗 (rc=$_t26_rc44 期待3 / brainstorm残=$_t26_bs44 期待9 / verify残=$_t26_vf44 期待0): $_t26_out44"
+fi
+
 # 単体実行時のみ: cleanup drain + サマリ + exit code（source 時は run-tests.sh が担う）
 if [ "$PG_T26_STANDALONE" = "1" ]; then
   printf '%s' "$_PG_T26_CLEANUP_PATHS" | while IFS= read -r _pg_cp; do
