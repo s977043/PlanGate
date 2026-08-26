@@ -7,6 +7,23 @@ description: "PlanGate の exec フェーズを TDD で実行する。Use when: 
 
 PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** を Codex / Claude Code 両方で実行する skill。
 
+> 本スキルは **bundled resources**（`references/`）で自己完結する。
+>
+> **パス表記の規約（重要）**: 本 SKILL.md 中の `references/…` は、すべて **本スキル
+> ディレクトリからの相対パス**（= `<skill_dir>/…`）であって、導入先リポジトリのルートからの
+> 相対パスではない。実行時はまず `<skill_dir>`（このファイルが置かれているディレクトリ）を
+> 解決してから使う:
+>
+> | 環境 | `<skill_dir>` |
+> | --- | --- |
+> | plugin 導入先（Claude marketplace） | `<plugin_root>/skills/ai-dev-exec/` |
+> | `install.sh --claude` 導入先 | `.claude/skills/ai-dev-exec/` |
+> | Codex 導入先 | `.codex/skills/ai-dev-exec/` |
+> | 上流リポジトリ（正本側） | `.agents/skills/ai-dev-exec/` |
+>
+> 導入先が独自の正本（上流リポジトリの `docs/` 配下に相当するもの）を別途保持している
+> 場合は、そちらを優先すること。
+
 ## 前提条件（exec 開始ゲート）
 
 1. `docs/working/TASK-XXXX/approvals/c3.json` が存在し、**その `approval_kind` に応じた承認条件**を
@@ -16,7 +33,7 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
    | record 種別 | 判別 | 承認済みと見なす条件 |
    |------------|------|--------------------|
    | **legacy** | `approval_kind` キー **なし** | `c3_status: APPROVED` |
-   | **c3-prime** | `approval_kind: "c3-prime"` | `decision: "AUTO_APPROVED"`（**`c3_status` は契約 §5 で明示禁止**。含まれていたら FAIL）**かつ** Plan Package 束縛の全数検証 PASS（`plan_hash` / `artifact_hashes` 6 要素 / `plan_package_hash` / `source_sha` / reviewer verdict 整合）。正本: `docs/workflows/ai-loop/c3-prime-contract.md` §2〜§5 |
+   | **c3-prime** | `approval_kind: "c3-prime"` | `decision: "AUTO_APPROVED"`（**`c3_status` は契約 §5 で明示禁止**。含まれていたら FAIL）**かつ** Plan Package 束縛の全数検証 PASS（`plan_hash` / `artifact_hashes` 6 要素 / `plan_package_hash` / `source_sha` / reviewer verdict 整合）。正本: 同梱 `references/c3-prime-contract.md` §2〜§5 |
    | それ以外の値 | — | **受理拒否**（exec 不可） |
 
 2. **validate 相当が PASS**（plan_hash 整合 / artifact 整合 / EH-3 整合）
@@ -33,31 +50,46 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
 
 ### 参照解決順（導入先で必ずこの順に探す）
 
-本 skill の参照は上流リポジトリ（`s977043/plangate`）基準の相対パスで書かれている。
-導入先ではそのままでは解決できないものがあるため、**次の順で探索する**:
+本 Skill は **上流リポジトリ基準の `docs/**` パスを直接参照しない**（#1232）。`docs/**` は
+`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**であり、
+書いた時点で導入先では必ず空振りするためである。参照の解決は次の順で行う:
 
-1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）
-2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）
-   - **`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して得た絶対パス**。
-     Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
-     という文字列をそのまま Read しても必ず失敗する
-   - **変数が空・未設定なら glob（`~/.claude/plugins/cache/**` 等）で推測せず 3 へ進む**
-3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない
+1. **`<skill_dir>` 配下の同梱物（`references/`）を第一に読む** — 契約 doc は本スキルに
+   同梱されている（「同梱リファレンス」節の一覧）
+2. 導入先リポジトリが独自の正本（上流の `docs/` 配下に相当するもの）を保持していれば、
+   そちらを優先する
+3. **rules（`rules/*.md`）だけは配布経路によって着地が異なる**ため、次の順で探す:
+   1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）
+   2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）
+      - **`<plugin_root>` は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して得た絶対パス**。
+        Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+        という文字列をそのまま Read しても必ず失敗する
+      - **変数が空・未設定なら glob（`~/.claude/plugins/cache/**` 等）で推測せず次へ進む**
+4. いずれでも解決できなければ **「解決できなかった」と明示**し、同梱 `references/` と本 Skill の
+   記述を代替正本として扱い、推測で内容を補わない
 
-**plugin root 配下の探索は `docs/**` には適用しない**（手順 2 は `rules/*.md` 等の
-配布対象にのみ適用する）: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の
-定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が
-存在しないため必ず空振りする。`docs/**` は手順 1 で解決できなければ手順 2 を飛ばして手順 3 へ進む。
+**plugin root 直下に `docs/` を探しに行かないこと**: plugin が配布するのは
+`agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として
+認識せず、plugin root 配下に相当する配布物が存在しないため必ず空振りする。
 
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
-| `rules/*.md`（下記 3〜5） | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
-| `docs/**`（`docs/workflows/ai-loop/c3-prime-contract.md` 等） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+| `rules/*.md`（下記 3〜5） | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 4 へ）** |
+| 契約 doc（c3-prime 契約・settings wiring 契約 等） | **`<skill_dir>/references/` に同梱（解決可）** | **`<skill_dir>/references/` に同梱（解決可）** | **`<skill_dir>/references/` に同梱（解決可）** |
 | `bin/**`（CLI） | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 | `scripts/**` | コピー対象外（解決不可） | `<plugin_root>/scripts/` は存在するが `install-plangate-skills.sh` のみ（`ai-dev-workflow` / `codex-guarded.sh` 等は解決不可） | 未配置（解決不可） |
 
 `docs/working/TASK-XXXX/*`（下記 6〜7）は**配布物ではなく導入先で作成する作業成果物**なので、
 導入先リポジトリ内でそのまま解決する（存在しなければ plan フェーズが未完了）。
+
+### 同梱リファレンス（`<skill_dir>/references/`）
+
+| ファイル | 役割 |
+|---------|------|
+| `references/c3-prime-contract.md` | `approval_kind: "c3-prime"` の受理契約（§2〜§5）の正本 |
+| `references/settings-wiring-contract.md` | settings wiring 契約（必要 hook の定義・Codex CLI parity） |
+| `references/core-contract.md` | 実行契約（Iron Law / Stop rules / Output discipline）の正本 |
+| `references/plangate.md` | PlanGate 概要ガイド |
 
 ### 読む順序
 
@@ -119,7 +151,7 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
 - 並行で `./scripts/ai-dev-workflow TASK-XXXX exec` も利用可（**上流リポジトリの cwd のみ**。`scripts/ai-dev-workflow` は配布対象外）
 - **Codex CLI 経由の場合は `scripts/codex-guarded.sh --task TASK-XXXX exec --full-auto` を推奨**（**上流リポジトリの cwd のみ**。pre-flight で validate + doctor --check-settings 実行、post-flight で plan.md drift 検知）
 
-> ❌ ~~**Codex CLI 物理 hook 等価達成 (PR #347)**~~ **未達成（2026-08-13 実測）**: `.codex/hooks.json` は設定ファイル全体が parse 拒否されており、**hook は 1 件も登録されていない**。**EH-1/2/3/6/9 は Codex session で一度も発火していない**。`scripts/codex-guarded.sh` の session 前後検知は正規入口を経由した場合のみ機能する（入口を強制する機械ゲートは無い）。**Codex session 中の write は物理 block されないものとして扱い、ゲートは人手で維持すること。** 上流リポジトリでの詳細は `docs/ai/settings-wiring-contract.md` §Codex CLI parity を参照。**これらは配布対象外**でもあるため、導入先では下記フォールバックでゲートを人手維持する。
+> ❌ ~~**Codex CLI 物理 hook 等価達成 (PR #347)**~~ **未達成（2026-08-13 実測）**: `.codex/hooks.json` は設定ファイル全体が parse 拒否されており、**hook は 1 件も登録されていない**。**EH-1/2/3/6/9 は Codex session で一度も発火していない**。`scripts/codex-guarded.sh` の session 前後検知は正規入口を経由した場合のみ機能する（入口を強制する機械ゲートは無い）。**Codex session 中の write は物理 block されないものとして扱い、ゲートは人手で維持すること。** 詳細は同梱 `references/settings-wiring-contract.md` §Codex CLI parity を参照。**これらは配布対象外**でもあるため、導入先では下記フォールバックでゲートを人手維持する。
 
 ### CLI 不在時のフォールバック（導入先では既定）
 
@@ -158,7 +190,7 @@ PlanGate ワークフローの **exec フェーズ（WF-04 Build & Refine）** �
    `todo.md` / `test-cases.md` / `review-self.md` / `review-external.md`）の `artifact_hashes`
    全数照合 + `plan_package_hash` + `source_sha`（検証時点の対象 SHA と一致）+ reviewer
    snapshot の三つ組一致 + `decision=AUTO_APPROVED`** までの束縛検証が必要
-   （正本: `docs/workflows/ai-loop/c3-prime-contract.md` §3〜§5）。
+   （正本: 同梱 `references/c3-prime-contract.md` §3〜§5）。
    **c3-prime を手動 sha256 のみで代替してはならない** — `plan.md` 単体の hash 一致だけで
    入口ゲート確認済みとして exec に進むと、残り 5 artifact と `source_sha` の stale を見逃す。
    この場合は item 4 の上流 clone 経由 `plangate validate --dir` で機械検証するか、

@@ -188,7 +188,7 @@ created_by: orchestrator
 ### C1-TEST-14: テストケースの具体性
 - **result**: PASS / WARN / FAIL
 - **category**: test
-- **finding**: {入力値・期待値が具体的か（「正しく動作する」ではなく値レベル）。あわせて**期待値の出所**（デザイン実測 / 規約 / 既存実装）が各ケースに明記されているか。出所が「規約」の期待値は `test-cases.md` の `## Convention Evidence` に実値との突合があり、不一致のものが AC から除外され 🚩 人間確認へ落ちているか（#934）}
+- **finding**: {入力値・期待値が具体的か（「正しく動作する」ではなく値レベル）}
 - **evidence_ref**: —
 - **impacted_files**: []
 
@@ -244,10 +244,7 @@ created_by: orchestrator
 
 <!--
 共通schema フィールド定義:
-- check_id: 一意の識別子。ID の形は連番だけではない（C1-SUP-PLAN-01 / C1-TODO-RB /
-  C1-B1B2-16 / C1-SCOPE-DISC-01 等）ため、C1-[A-Z]+-[0-9]+ 前提の正規表現は取りこぼす。
-  実測は次で列挙する:
-    grep -o '^### C1-[A-Za-z0-9-]*' docs/working/templates/review-self.md
+- check_id: 一意の識別子（C1-PLAN-01〜C1-B1B2-17 / C1-SUP-PLAN-01〜02）
 - category: plan / todo / test
 - result: PASS / WARN / FAIL
 - finding: 発見内容（1-2文）
