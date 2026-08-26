@@ -103,6 +103,43 @@ else
   t54_fail "TC-03c 誤ポイント是正を確認できない（subagent-delegation/README.md）"
 fi
 
+# TC-03d: 脱リンク時の**記述ラベル保持**（#1232 / 元 AC = #1196 案 B）。
+# 旧実装は link_text を捨てて basename だけを残していたため、説明文ラベルが
+# 配布物では対象ファイル名に化け、何の話か伝わらなくなっていた。
+#
+# 正本の文面に結合させると doc 編集で壊れるため、**合成入力を rewriter へ直接
+# 通す単体検査**にする。bundle map は空 = すべて外部参照扱い（脱リンク経路）。
+#
+# 検査する 3 帯（敵対レビュー MAJOR-1 で「部分一致判定では塞げない」と判明した
+# 境界を含む。ここを外すと同じ消失が別形で残る）:
+#   1) 説明文ラベルで **末尾が拡張子**（`.sh` で終わる）→ ラベルを保持すること
+#   2) ラベルが **パス 1 トークン** → 従来どおり basename へ正規化（既存出力の不変）
+#   3) **foreign SKILL.md 経路**（`_inline()` を通らない別分岐）でもラベルを保持すること
+#
+# fixture に承認トークン名（`maintenance.json` 等）を書かないこと: EH-13
+# token-guard が Bash 経由の書き込みを block するため、このテストを編集しようと
+# する後続作業が恒常的に止まる（同レビュー MINOR-7・対照実験で機序確認済み）。
+_t54_lbl_dir="$PG_T54_TMPDIR/label-case"
+mkdir -p "$_t54_lbl_dir"
+: > "$_t54_lbl_dir/bundle.tsv"
+{
+  printf '%s\n' '[EH-3 の check-plan-hash.sh](../../../scripts/hooks/check-plan-hash.sh)'
+  printf '%s\n' '[`docs/ai/sample-target.md`](../../ai/sample-target.md)'
+  printf '%s\n' '[Hardening Override](../../../.claude/skills/pr-watch/SKILL.md)'
+} > "$_t54_lbl_dir/src.md"
+_t54_lbl_out=$(python3 "$PG_T54_REWRITER" \
+  "$_t54_lbl_dir/src.md" \
+  "$PG_T54_ROOT/docs/workflows/ai-loop/stop-rollback.md" \
+  ai-loop-cycle "$_t54_lbl_dir/bundle.tsv" 2>/dev/null)
+if printf '%s' "$_t54_lbl_out" | grep -q '^EH-3 の check-plan-hash\.sh（`check-plan-hash\.sh`）$' \
+  && printf '%s' "$_t54_lbl_out" | grep -q '^`sample-target\.md`$' \
+  && printf '%s' "$_t54_lbl_out" | grep -q '^Hardening Override（`pr-watch/SKILL\.md`）$' \
+  && ! printf '%s' "$_t54_lbl_out" | grep -q '](' ; then
+  t54_pass "TC-03d 記述ラベル保持（拡張子末尾・foreign SKILL.md 経路を含む）／パス型は basename へ正規化"
+else
+  t54_fail "TC-03d 記述ラベルが脱リンクで消失している（またはパス型ラベルの出力が変化）"
+fi
+
 # TC-04: 本スキル自身の SKILL.md 参照は ../SKILL.md のまま維持される（rule 2、
 # references/ の親に実在するため dead link ではない）
 if [ -f "$PG_T54_REFS/execution-runbook.md" ] \
