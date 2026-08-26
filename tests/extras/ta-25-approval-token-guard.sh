@@ -40,7 +40,9 @@ PG_T25_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
 # ことで行う。ハードコードだと mutation はインライン assert しか壊せず検出力が実証されない。
 PG_T25_GUARD="${PG_T25_GUARD:-$PG_T25_ROOT/scripts/check-approval-token-write.sh}"
 PG_T25_SCHEMA="$PG_T25_ROOT/schemas/maintenance.schema.json"
-PG_T25_PATCH="$PG_T25_ROOT/scripts/apply-task-0123-patches.sh"
+# T1071: 変異注入（旧版 apply スクリプト）で T1071-TC-01/02 の検出力を実証できるよう
+# PG_T25_GUARD と同じく env override 可能にする（R-029 と同方式）。
+PG_T25_PATCH="${PG_T25_PATCH:-$PG_T25_ROOT/scripts/apply-task-0123-patches.sh}"
 PG_T25_SELF="$PG_T25_ROOT/tests/extras/ta-25-approval-token-guard.sh"
 
 # focused mode: mutation 子プロセス（PG_T25_MUTATION_CHILD=1）は kill 対象 TC のみ実行
@@ -864,6 +866,72 @@ if [ -f "$PG_T25_PATCH" ] && sh -n "$PG_T25_PATCH" 2>/dev/null; then
   t25_pass "TC-07 apply-task-0123-patches.sh exists and syntax ok"
 else
   t25_fail "TC-07 apply-task-0123-patches.sh missing or syntax error"
+fi
+
+# ── TASK-1071 (#1071): EH-13 guard の複製導線の廃止（通常モード）──────────
+# 採択案 (a): apply-task-0123-patches.sh の cp を廃止し scripts/ 直下を唯一の正本とする。
+# TC-01 は静的（導線の不在）、TC-02 は sandbox 実行での挙動（複製が生まれない）を撃つ。
+# 検出力の実証は PG_T25_PATCH に旧版スクリプトを差した実行で行う（R-029 と同方式）。
+
+# T1071-TC-01: apply スクリプトに複製先パスを作る導線が無い（AC-2）
+# 「言及」ではなく「導線」を撃つ: 変数への代入（旧実装の TOKEN_GUARD=...）と、
+# パスを直書きしたファイル生成コマンドの両方を 0 件として固定する。
+# 移行手順を案内する _log / コメント中の言及は導線ではないので対象外。
+_t1071_assign=$(grep -cE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=.*scripts/hooks/check-approval-token-write' "$PG_T25_PATCH" 2>/dev/null || true)
+_t1071_mk=$(grep -cE '(^|[[:space:];&|(])(cp|ln|install|mv|touch|tee)[[:space:]].*scripts/hooks/check-approval-token-write' "$PG_T25_PATCH" 2>/dev/null || true)
+if [ "$_t1071_assign" = "0" ] && [ "$_t1071_mk" = "0" ]; then
+  t25_pass "T1071-TC-01 apply script has no code path creating scripts/hooks/<guard>"
+else
+  t25_fail "T1071-TC-01 apply script still has a duplication path (assign=$_t1071_assign mk=$_t1071_mk)"
+fi
+
+# T1071-TC-02: sandbox で実行しても scripts/hooks/ に複製が生まれない（AC-2）
+# 実 repo は一切触らない（REPO_ROOT は $0 の親の親＝sandbox に解決される）。
+_t1071_sbx=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-1071.XXXXXX")
+register_cleanup "$_t1071_sbx"
+mkdir -p "$_t1071_sbx/scripts/hooks" "$_t1071_sbx/schemas" "$_t1071_sbx/bin" "$_t1071_sbx/.github/workflows"
+cp "$PG_T25_PATCH" "$_t1071_sbx/scripts/apply-task-0123-patches.sh"
+cp "$PG_T25_ROOT/scripts/check-approval-token-write.sh" "$_t1071_sbx/scripts/check-approval-token-write.sh"
+cp "$PG_T25_ROOT/scripts/hooks/check-plan-hash.sh" "$_t1071_sbx/scripts/hooks/check-plan-hash.sh"
+cp "$PG_T25_ROOT/schemas/maintenance.schema.json" "$_t1071_sbx/schemas/maintenance.schema.json"
+cp "$PG_T25_ROOT/bin/plangate" "$_t1071_sbx/bin/plangate"
+_t1071_dup="$_t1071_sbx/scripts/hooks/check-approval-token-write.sh"
+_t1071_rc=0
+sh "$_t1071_sbx/scripts/apply-task-0123-patches.sh" >/dev/null 2>&1 || _t1071_rc=$?
+if [ ! -e "$_t1071_dup" ]; then
+  t25_pass "T1071-TC-02 apply run creates no scripts/hooks/<guard> duplicate (sandbox)"
+else
+  t25_fail "T1071-TC-02 apply run created a duplicate at scripts/hooks/<guard> (apply rc=$_t1071_rc)"
+fi
+
+# T1071-TC-03: 本 repo に複製が存在しない（AC-4 / 実測の回帰固定）
+if [ ! -e "$PG_T25_ROOT/scripts/hooks/check-approval-token-write.sh" ] \
+  && [ -f "$PG_T25_ROOT/scripts/check-approval-token-write.sh" ]; then
+  t25_pass "T1071-TC-03 repo has the single canonical guard and no scripts/hooks/ duplicate"
+else
+  t25_fail "T1071-TC-03 guard layout broken (duplicate present or canonical missing)"
+fi
+
+# T1071-TC-04: 配線が scripts/ 直下を指し、scripts/hooks/ を指さない（AC-5）
+# 現存する settings / hooks 配線ファイルを全数走査する（存在するものだけ検査）。
+_t1071_root_refs=0
+_t1071_hook_refs=0
+for _t1071_f in \
+  "$PG_T25_ROOT/.claude/settings.json" \
+  "$PG_T25_ROOT/.claude/settings.local.json" \
+  "$PG_T25_ROOT/.claude/settings.example.json" \
+  "$PG_T25_ROOT/.codex/hooks.json" \
+  "$PG_T25_ROOT/.cursor/hooks.json"; do
+  [ -f "$_t1071_f" ] || continue
+  _t1071_n=$(grep -c 'scripts/check-approval-token-write\.sh' "$_t1071_f" 2>/dev/null || true)
+  _t1071_root_refs=$((_t1071_root_refs + _t1071_n))
+  _t1071_n=$(grep -c 'hooks/check-approval-token-write\.sh' "$_t1071_f" 2>/dev/null || true)
+  _t1071_hook_refs=$((_t1071_hook_refs + _t1071_n))
+done
+if [ "$_t1071_root_refs" -ge 1 ] && [ "$_t1071_hook_refs" = "0" ]; then
+  t25_pass "T1071-TC-04 EH-13 wiring points at scripts/ root only (root=$_t1071_root_refs hooks=0)"
+else
+  t25_fail "T1071-TC-04 EH-13 wiring unexpected (root=$_t1071_root_refs hooks=$_t1071_hook_refs)"
 fi
 
 # ── T1023 追加 TC（通常モード）───────────────────────────────

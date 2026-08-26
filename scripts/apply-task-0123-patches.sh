@@ -4,6 +4,12 @@
 # Human が実行することで Hardening Override 対象ファイルへの変更を適用する。
 # べき等性: 2回実行しても壊れない（既存変更の存在チェック付き）
 #
+# #1071: Patch 2（EH-13 guard の scripts/hooks/ への cp）は**廃止**した。
+#   EH-13 guard の正本は scripts/check-approval-token-write.sh **のみ**。
+#   本スクリプトは scripts/hooks/ に複製を作らない。
+#   既に複製がある環境の移行手順は docs/ai/approval-token-guard.md
+#   「ガード本体の配置（単一ソース）」節を参照。
+#
 # Usage:
 #   sh scripts/apply-task-0123-patches.sh [--dry-run]
 
@@ -64,27 +70,31 @@ PY1
 fi
 
 ###############################################################################
-# Patch 2: scripts/hooks/check-approval-token-write.sh — 新規作成
+# Patch 2: （廃止 / #1071）EH-13 guard の scripts/hooks/ への複製
+#
+# 旧実装は scripts/check-approval-token-write.sh を
+# scripts/hooks/check-approval-token-write.sh へ `cp` し、**既存時はスキップして
+# 更新しなかった**。そのため過去に本スクリプトを適用した環境には、上流の修正
+# （例: #1045 / PR #1069 の読み取り誤 block 解消）が伝播しない**古い fork** が
+# 残り続ける。
+#
+# #1071 で 3 案（(a) cp 廃止 / (b) 既存時も上書き / (c) 複製検出の追加）を比較し、
+# **(a) cp を廃止し scripts/ 直下を唯一の正本とする**を採択した。
+#   - 現行の配線（.claude/settings.example.json）は既に scripts/ 直下を参照して
+#     おり、複製は誰も参照していない（実測）。
+#   - `scripts/hooks/` は tracked のため、そこへ cp すると同一内容の tracked
+#     ファイルが 2 つ並び、両者の drift を検出する CI も存在しない
+#     （#956 の commit 済み drift と同一構造）。
+#   - 同方式の先例: scripts/apply-eh-git-destructive-guard.sh（hook 本体を
+#     コピーせず scripts/ ルートを settings から直接参照する）。
+#
+# したがって本 Patch は **意図的に何もしない**（セクション番号は Patch 3〜5 と
+# 既存の参照を壊さないために維持する）。
+#
+# 適用済み環境（= scripts/hooks/check-approval-token-write.sh が手元にある）の
+# 移行手順は docs/ai/approval-token-guard.md の
+# 「ガード本体の配置（単一ソース）」節を参照すること。
 ###############################################################################
-
-TOKEN_GUARD="$REPO_ROOT/scripts/hooks/check-approval-token-write.sh"
-TOKEN_GUARD_SRC="$REPO_ROOT/scripts/check-approval-token-write.sh"
-
-_apply "scripts/hooks/check-approval-token-write.sh — 新規作成"
-
-if [ -f "$TOKEN_GUARD" ]; then
-  _already "scripts/hooks/check-approval-token-write.sh (already exists)"
-else
-  if [ "$DRY_RUN" = "0" ]; then
-    if [ ! -f "$TOKEN_GUARD_SRC" ]; then
-      printf '[apply-task-0123] ERROR: src not found: %s\n' "$TOKEN_GUARD_SRC" >&2
-      exit 1
-    fi
-    cp "$TOKEN_GUARD_SRC" "$TOKEN_GUARD"
-    chmod +x "$TOKEN_GUARD"
-    _log "OK: check-approval-token-write.sh copied from scripts/ to scripts/hooks/ and made executable"
-  fi
-fi
 
 ###############################################################################
 # Patch 3: scripts/hooks/check-plan-hash.sh — HMAC 署名検証追加
@@ -283,8 +293,11 @@ else
   _log "Next steps (Human):"
   _log "  1. Set PLANGATE_MAINTENANCE_KEY in your shell environment"
   _log "     e.g.: export PLANGATE_MAINTENANCE_KEY=\$(openssl rand -hex 32)"
-  _log "  2. Wire check-approval-token-write.sh in .claude/settings.json"
+  _log "  2. Wire scripts/check-approval-token-write.sh in .claude/settings.json"
   _log "     (PreToolUse hook for Write/Edit/Bash tool calls)"
+  _log "     NOTE (#1071): 参照先は scripts/ 直下。scripts/hooks/ 配下の複製は使わない。"
+  _log "     過去の本スクリプトで作られた scripts/hooks/check-approval-token-write.sh が"
+  _log "     残っている場合は削除する（docs/ai/approval-token-guard.md 参照）。"
   _log "  3. Register GitHub Secret PLANGATE_MAINTENANCE_KEY_CI"
   _log "  4. Run: sh tests/run-tests.sh"
   _log "  5. Run: bin/plangate doctor"
