@@ -1,0 +1,95 @@
+KNOWN-GAP #1249 MAJOR-1 — sync-plugin-plangate.yml の paths: 未拡張
+
+`.github/workflows/sync-plugin-plangate.yml` の `on.push.paths` /
+`on.pull_request.paths` に、`scripts/sync-plugin-plangate.sh` の入力集合が
+入りきっていない。未被覆は次の 2 群 + 非対称 1 件:
+
+  (1) ai-dev-{plan,exec,verify,brainstorm} の同梱元
+      `docs/ai-driven-development.md` / `docs/plangate.md` /
+      `docs/ai/core-contract.md` / `docs/ai/plan-metrics-verification.md` /
+      `docs/ai/settings-wiring-contract.md` / `docs/working/templates/*.md`
+  (2) それ以外の入力
+      `docs/schemas`（ai-loop-cycle の schemas 同梱元） /
+      `.claude-plugin/marketplace.json`（version 同期先かつ読み取り元）
+  (3) `CHANGELOG.md` が **push 側にしか無い**（`pull_request.paths` に無い）。
+      patch の PR 側コメントは「push 側と同一集合に保つこと」と宣言しているのに
+      実体が非対称で、PR 時の drift-check だけが盲点になる。
+
+これらだけを変える PR では drift-check job が起動せず、配布物が無警告で腐る。
+
+`.github/workflows/**` は Hardening Override のため AI は適用できない。
+本 flag は **Human-owned 未適用アクションの宣言**であり、gap を「既知」として
+受理するためだけに存在する（黙って緑にするためではない）。
+
+## この flag は白紙委任ではない（#1249 R4 major-3 の是正 / R5）
+
+R3 までのコードは **flag が存在するかどうかしか見ていなかった**。そのため実
+workflow から `'.claude/**'` を削除しても（flag は実物のまま）TC-20 は PASS した。
+`.github/workflows/**` は HO で Human 適用待ちのため、この白紙委任状態は
+**マージから patch 適用までの全期間**続いていた。
+
+R5 以降、`tests/extras/ta-71-ci-static-lint.sh` の TC-20 / TC-22 は下の
+`GAP-DECL` ブロックと**実 gap 集合の完全一致**を要求する。
+
+- 宣言に無い gap が 1 件でも出たら FAIL（新しい穴を flag で吸収できない）
+- 宣言だけ残って実態から消えたら FAIL（部分適用・宣言の陳腐化）
+- gap が完全に無くなったら FAIL（stale 宣言 — flag を削除すること）
+
+行の意味:
+  `UNCOVERED <push|pull_request> <origin>`
+      origin は「どの宣言由来の入力が未被覆か」。ディレクトリ入力は静的入力表の
+      トークン（例 `docs/schemas`）、ai-dev spec の同梱元は個々のソースパス。
+  `ASYM <push-only|pull_request-only> <パターン>`
+
+不一致になったらテスト出力が貼り付け用の正しいブロックを毎回全件表示する。
+
+GAP-DECL-BEGIN
+ASYM push-only CHANGELOG.md
+UNCOVERED pull_request .claude-plugin/marketplace.json
+UNCOVERED pull_request CHANGELOG.md
+UNCOVERED pull_request docs/ai-driven-development.md
+UNCOVERED pull_request docs/ai/core-contract.md
+UNCOVERED pull_request docs/ai/plan-metrics-verification.md
+UNCOVERED pull_request docs/ai/settings-wiring-contract.md
+UNCOVERED pull_request docs/plangate.md
+UNCOVERED pull_request docs/schemas
+UNCOVERED pull_request docs/working/templates/INDEX.md
+UNCOVERED pull_request docs/working/templates/current-state.md
+UNCOVERED pull_request docs/working/templates/handoff.md
+UNCOVERED pull_request docs/working/templates/pbi-input.md
+UNCOVERED pull_request docs/working/templates/plan.md
+UNCOVERED pull_request docs/working/templates/review-external.md
+UNCOVERED pull_request docs/working/templates/review-self.md
+UNCOVERED pull_request docs/working/templates/test-cases.md
+UNCOVERED pull_request docs/working/templates/todo.md
+UNCOVERED push .claude-plugin/marketplace.json
+UNCOVERED push docs/ai-driven-development.md
+UNCOVERED push docs/ai/core-contract.md
+UNCOVERED push docs/ai/plan-metrics-verification.md
+UNCOVERED push docs/ai/settings-wiring-contract.md
+UNCOVERED push docs/plangate.md
+UNCOVERED push docs/schemas
+UNCOVERED push docs/working/templates/INDEX.md
+UNCOVERED push docs/working/templates/current-state.md
+UNCOVERED push docs/working/templates/handoff.md
+UNCOVERED push docs/working/templates/pbi-input.md
+UNCOVERED push docs/working/templates/plan.md
+UNCOVERED push docs/working/templates/review-external.md
+UNCOVERED push docs/working/templates/review-self.md
+UNCOVERED push docs/working/templates/test-cases.md
+UNCOVERED push docs/working/templates/todo.md
+GAP-DECL-END
+
+適用手順:
+  git apply docs/working/TASK-1232/patches/sync-plugin-paths.patch
+  rm tests/fixtures/sync-paths-known-gap-1249.flag
+
+**patch を適用したら本 flag を必ず削除すること。** 適用済みなのに flag が残って
+いると TC-20 / TC-22 は stale 宣言として FAIL する（逆に flag を先に消すと未被覆・
+非対称のまま FAIL する）。どちらの方向のドリフトも赤くなる。
+
+なお TC-21（paths マッチャのコントロール）と TC-23（入力インベントリ）と
+TC-24（::warning:: 経路）は **本 flag の対象外**。検査器自身が壊れたときや
+sync の入力が増えたときは flag の有無に関わらず FAIL する。
+
+Refs: #1232 / PR #1249 敵対レビュー MAJOR-1 / PR #1250 R3 / #1249 R4 → R5

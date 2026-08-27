@@ -58,6 +58,17 @@ PlanGate ワークフローの **brainstorm フェーズ** を Codex / Claude Co
 | ワークフロー正本・実行契約 | **`<skill_dir>/references/` に同梱（解決可）** | **`<skill_dir>/references/` に同梱（解決可）** | **`<skill_dir>/references/` に同梱（解決可）** |
 | `scripts/**` / `bin/**` | コピー対象外（解決不可） | 目的の CLI は不在（解決不可） | 未配置（解決不可） |
 
+> **例外（上流リポジトリ内のドッグフーディング経路 / #1249 MINOR-3）**: 上表「Codex 経由」の
+> 「同梱（解決可）」が成立するのは **配布物経由**（`plugin/plangate/scripts/install-plangate-skills.sh`。
+> source は `plugin/plangate/skills/`）に限る。上流リポジトリ自身が `.codex/skills/` を作る
+> `scripts/install-plangate-skills-to-codex.sh` は source が `.agents/skills/` であり、そこには
+> 本 skill の `references/` が **存在しない**（`references/` は `scripts/sync-plugin-plangate.sh` が
+> `plugin/plangate/skills/**` にだけ生成する）。したがって上流 repo の
+> `.codex/skills/<skill>/references/` は **構造上つねに不在**であり、この経路では契約 doc・
+> テンプレートは手順 4（解決できなかったと明示）に落ちる。上流では `docs/**` の正本を直接
+> 読めるため実害は無いが、上表の「解決可」を上流の `.codex/` にまで拡大解釈しないこと。
+> 経路自体の是正（source の一本化）は #1086 の裁定待ち。
+
 `install.sh --claude` のコピー対象は `agents` / `skills` / `commands` / `rules` の 4 ディレクトリ
 のみ。Codex 経由（`install_codex()`）は `install-plangate-skills.sh` を呼ぶだけで **skills しか
 配置されない**ため、rules 参照は解決順 3-1・3-2 とも成立せず必ず手順 4 に落ちる。

@@ -117,6 +117,12 @@ _t26_sb="$_t26_tmpdir/sandbox"
 mkdir -p "$_t26_sb/scripts" "$_t26_sb/.claude" "$_t26_sb/.agents" \
   "$_t26_sb/docs/workflows" "$_t26_sb/docs/ai" "$_t26_sb/.claude-plugin" \
   "$_t26_sb/plugin"
+# >>> PG_T26_SANDBOX_BUILDER_BEGIN
+# TC-40 はこのマーカーで囲まれた **実行される行**だけから `cp -r` のディレクトリ
+# 供給経路を抽出する（#1249 MINOR-1）。ファイル全体を走査していた旧実装は、
+# 末尾のコメント行に `cp -r "$PG_T26_ROOT/docs" ...` と書くだけで「docs/ 配下は
+# すべて供給済み」と誤認し、陽性コントロール（sandbox 一覧から 1 件落とす変異）
+# が無効化された。マーカーの移動・削除は TC-40 の PARSE-FAIL になる。
 cp "$PG_T26_SCRIPT" "$_t26_sb/scripts/"
 if [ -f "$PG_T26_ROOT/scripts/_ai_loop_link_rewrite.py" ]; then
   cp "$PG_T26_ROOT/scripts/_ai_loop_link_rewrite.py" "$_t26_sb/scripts/"
@@ -165,6 +171,7 @@ do
     cp "$PG_T26_ROOT/$_f26" "$_t26_sb/$_f26"
   fi
 done
+# <<< PG_T26_SANDBOX_BUILDER_END
 if [ -f "$PG_T26_ROOT/CHANGELOG.md" ]; then
   cp "$PG_T26_ROOT/CHANGELOG.md" "$_t26_sb/CHANGELOG.md"
 fi
@@ -789,15 +796,56 @@ else
   fi
 fi
 
-# TC-30: tests/extras/README.md に harness 判別規約が存在（#914 AC-5 / 静的検査）
+# TC-30: tests/extras/README.md の「隔離・後始末の規約」8（harness 判別規約）が
+# **規約として成立している**こと（#914 AC-5 / #1250 M-3 で内容盲目を是正）。
+#
+# 旧実装は README **全体**に対し `PG_HARNESS_SOURCED` / `非 export` / `AND` /
+# `standalone 側（安全側）` の 4 トークンが存在するかを見ていた。これは
+# 「文字列の存在ではなく構造を見る」（README「PASS 判定の書き方」P-5）に
+# 反しており、**4 トークンを残したまま規約を反転**（「OR でよい」「AND は不要」
+# 「standalone 側（安全側）には倒さない」）しても PASS した（実測 SURVIVE:
+# 34 passed / 0 failed）。
+#
+# 是正: TC-38 と同じ手法（**該当ブロックを抽出してからブロック内で照合**）へ
+# 寄せ、さらに **規範文そのもの**（反転すれば必ず消える文言）と、規約の正本で
+# ある例示コードの **AND 結合された条件行**を連言で要求する。
 _t26_readme30="$PG_T26_ROOT/tests/extras/README.md"
-if grep -q 'PG_HARNESS_SOURCED' "$_t26_readme30" 2>/dev/null \
-  && grep -q '非 export' "$_t26_readme30" \
-  && grep -q 'AND' "$_t26_readme30" \
-  && grep -q 'standalone 側（安全側）' "$_t26_readme30"; then
-  t26_pass "TC-30 README.md に判別規約（PG_HARNESS_SOURCED / 非 export / AND / standalone 側（安全側））"
+_t26_tmp30=$(mktemp -d)
+if command -v register_cleanup >/dev/null 2>&1; then
+  register_cleanup "$_t26_tmp30"
+fi
+_t26_blk30="$_t26_tmp30/readme-rule8.txt"
+awk '
+  !seen && /^8\. \*\*harness\/standalone/ { seen = 1; print; next }
+  seen && /^9\. / { exit }
+  seen { print }
+' "$_t26_readme30" > "$_t26_blk30" 2>/dev/null || true
+_t26_blklines30=$(grep -c . "$_t26_blk30" 2>/dev/null || true)
+[ -n "$_t26_blklines30" ] || _t26_blklines30=0
+_t26_v30=""
+# 抽出できたこと自体を先に確かめる（空ブロックを「違反 0 件」と読まない）
+if [ "$_t26_blklines30" -lt 10 ]; then
+  _t26_v30="$_t26_v30 ブロック抽出失敗(${_t26_blklines30}行)"
 else
-  t26_fail "TC-30 README.md の判別規約が不足（PG_HARNESS_SOURCED / 非 export / AND / standalone 側（安全側） のいずれか欠落）"
+  grep -q 'PG_HARNESS_SOURCED' "$_t26_blk30" || _t26_v30="$_t26_v30 PG_HARNESS_SOURCED"
+  grep -q '非 export' "$_t26_blk30" || _t26_v30="$_t26_v30 非export"
+  # 規範文（反転すれば必ず消える）
+  grep -q '\*\*AND\*\* で harness 実行を判別する' "$_t26_blk30" \
+    || _t26_v30="$_t26_v30 規範文(AND で判別する)"
+  grep -q '片方でも欠ければ \*\*standalone 側（安全側）へ倒す\*\*' "$_t26_blk30" \
+    || _t26_v30="$_t26_v30 規範文(片方でも欠ければ standalone 側（安全側）へ倒す)"
+  # 例示コードの条件行が実際に AND 結合であること（規約の正本はコード / P-9）
+  grep -qE '^[[:space:]]*if .*PG_HARNESS_SOURCED.*&&.*FIXTURES_DIR.*; then' "$_t26_blk30" \
+    || _t26_v30="$_t26_v30 例示の条件行が AND 結合でない"
+  # OR 結合の例示が混ざっていないこと（反転の直接形）
+  if grep -qE '^[[:space:]]*if .*PG_HARNESS_SOURCED.*\|\|.*FIXTURES_DIR.*; then' "$_t26_blk30"; then
+    _t26_v30="$_t26_v30 例示に OR 結合の条件行がある"
+  fi
+fi
+if [ -z "$_t26_v30" ]; then
+  t26_pass "TC-30 README「隔離・後始末の規約」8 が規約として成立（${_t26_blklines30} 行を抽出 / 規範文 2 本 + 例示の AND 結合条件行）"
+else
+  t26_fail "TC-30 README「隔離・後始末の規約」8 の欠落・反転:${_t26_v30}"
 fi
 
 # TC-33: FIXTURES_DIR 単独判別の残存 0 + unset 集合の包含（#914 AC-9 / R-304 / R-306）
@@ -817,6 +865,7 @@ fi
 _t26_viol33=""
 _t26_incl33=""
 _t26_nocond33=""
+_t26_nocondviol33=""
 _t26_scanned33=0
 # 行継続（末尾 `\`）を 1 行へ結合する共有正規化。旧実装は `grep '^\s*unset '`
 # を直接かけていたため、複数行に折られた unset の 2 行目以降が不可視になり
@@ -845,16 +894,79 @@ _t26_unset_envs33() {
 # 非ゼロを返すと、harness（run-tests.sh の `set -eu` 下で source）では関数が
 # その場で打ち切られ、`nocond` を印字しないまま非ゼロで戻って**違反に化ける**
 # （standalone は set -e が無いため再現せず、harness だけで落ちる型の差）。
+#
+# **`FIXTURES_DIR:-`（コロン付き）に限定しないこと**（#1250 M-2）。旧実装は
+# 判別行の抽出も走査ゲートもコロン付きに限定しており、判別式を
+# `if [ -n "${FIXTURES_DIR-}" ]; then`（コロン無し）へ書き換えるだけで
+# **ファイルごと検査対象から消えた**（実測: 走査 34 → 33 件のまま 34 passed /
+# 0 failed。件数 floor 20 では -1 の変化を検出できない）。抽出は
+# `FIXTURES_DIR` 単体で行う。
+#
+# 判別行は **変数を展開している**行に限る（`$FIXTURES_DIR` / `${FIXTURES_DIR`）。
+# `grep -q 'FIXTURES_DIR:-' "$f"` のように **文字列リテラル**として名前が現れる
+# だけの行は判別ではない（検査器自身＝ta-26 がまさにこの形を持つため、これを
+# 除外しないと自己検出で偽陽性になる / #1250 M-1・M-2 の実測）。
+_T26_DISC_EXPAND33='\$\{?FIXTURES_DIR'
 _t26_disc_lines33() {
   _t26_join_cont33 "$1" \
     | grep -v '^[[:space:]]*#' \
-    | grep 'FIXTURES_DIR:-' \
+    | grep -E "$_T26_DISC_EXPAND33" \
     | grep -E '^[[:space:]]*(if|elif)[[:space:]]|;[[:space:]]*then([[:space:]]|$)' \
+    || true
+}
+# 条件行として拾えなかった `FIXTURES_DIR` 行のうち、**判別に使われうる形**
+# （`case` の主語 / `[ -n ... ]` `[ -z ... ]` `test -n/-z` を FIXTURES_DIR に
+# 直接かける形）を列挙する（#1250 M-1）。
+#
+# 旧実装は「cond 行が 1 本も無いファイル」しか捕まえられなかった。cond 行が
+# 1 本でもあれば shape=cond になり、あとは「拾えた cond 行に相方が同居して
+# いるか」しか見ないため、**使われない囮の準拠行を 1 行足すだけ**で、実体が
+# `case "${FIXTURES_DIR:-}"` による単独判別でも緑になった（実測 SURVIVE:
+# 34 passed / 0 failed）。規約の趣旨をファイル単位ではなく **行単位**で適用する。
+#
+# 判定を FIXTURES_DIR に**隣接する**条件式へ絞るのは false positive 回避のため。
+# `_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"` のような単なるパス
+# 導出は `&&` を含むが判別ではない（実測: 隣接条件を課さず「代入行に条件演算子が
+# あれば違反」とすると走査 63 件中 **45 件**が偽陽性、隣接条件を課すと **0 件**）。
+# 相方 `PG_HARNESS_SOURCED` が同居する行は AND 判別の
+# 別書法として許す。
+_t26_disc_strays33() {
+  _t26_join_cont33 "$1" \
+    | grep -v '^[[:space:]]*#' \
+    | grep -E "$_T26_DISC_EXPAND33" \
+    | grep -vE '^[[:space:]]*(if|elif)[[:space:]]|;[[:space:]]*then([[:space:]]|$)' \
+    | grep -E '^[[:space:]]*case[[:space:]].*\$\{?FIXTURES_DIR|(\[|test)[[:space:]]+-[nz][[:space:]]+"?\$\{?FIXTURES_DIR' \
+    | grep -v 'PG_HARNESS_SOURCED' \
     || true
 }
 # 判別行に相方が同居しているか。判別行が 1 本も無いファイル（root 導出だけに
 # FIXTURES_DIR を使う harness 専用 extras）は、旧来のファイル単位判定へ
 # フォールバックし、件数を可視化する（黙って検査対象外にしない）。
+#
+# ⚠️ `nocond` フォールバックは **#994 が欠陥と認定した「ファイル単位 grep」そのもの**
+# である（#1250 F2）。無制限に許すと、判別式の *形* を変えるだけで検査を素通り
+# できる:
+#
+#     case "${FIXTURES_DIR:-}" in            ← 条件行の形ではないので disc_lines に
+#       "") _disc=standalone ;;                 拾われず nocond に落ちる
+#     esac
+#     if [ "$_disc" = harness ]; then ...     ← 実体は FIXTURES_DIR 単独判別（#914 違反）
+#
+# 敵対レビューがこの形の本物の違反を注入して SURVIVE を実測した。
+# そこで `nocond` を **明示 allowlist（下記 2 本）に限定**し、それ以外が
+# `nocond` に落ちたら FAIL とする。この 2 本は #921 実行契約 bootstrap へ
+# 移行しておらず root 導出だけに FIXTURES_DIR を使う既知の残件で、その
+# bootstrap 改修は本 PBI のスコープ外（退行だけを塞ぐ）。
+# 新規 extras をここへ足さないこと — 足す前に判別式を
+# **「隔離・後始末の規約」8** の形（`PG_HARNESS_SOURCED` と `FIXTURES_DIR` の
+# AND）にする。
+#
+# 番号の読み分け（#1250 m-1）: README には番号 8 / 9 の節が 2 系統ある。
+# 上の「規約 8」は**「隔離・後始末の規約」8**（判別式の形）。本 allowlist 自体は
+# 別系統の **`P-8`**（「PASS 判定の書き方」= 緩和フォールバックの allowlist 化）の
+# 実装例である。**引用時は「規約 N」=「隔離・後始末の規約」、`P-N`=「PASS 判定の
+# 書き方」と書き分けること。**
+_T26_NOCOND_ALLOW33='ta-12-maintenance.sh ta-42-cli-subcommands.sh'
 _t26_disc_ok33() {
   _t26_dl33=$(_t26_disc_lines33 "$1") || _t26_dl33=""
   if [ -z "$_t26_dl33" ]; then
@@ -870,39 +982,102 @@ _t26_disc_ok33() {
   fi
   return 0
 }
+_t26_stray33=""
+_t26_narrow33=0
+_t26_widenonly33=""
 _t26_hset33=$(_t26_unset_envs33 "$PG_T26_ROOT/tests/run-tests.sh" | tr '\n' ' ')
+# 走査ゲートは `FIXTURES_DIR` 単体（#1250 M-2）。コロン付きに限定していた旧
+# ゲートは、判別行を `${FIXTURES_DIR-}` へ書き換えるだけでファイルごと検査から
+# 外れた。ゲートを広げたうえで、コロン付き集合（= (2) unset 包含の対象）から
+# **外れたファイル名を列挙**する。件数 floor では -1 の変化を検出できないため、
+# 母数の減少は「数」ではなく「名前」で可視化する。
 for _t26_f33 in "$PG_T26_ROOT/tests/extras/"ta-*.sh; do
   [ -f "$_t26_f33" ] || continue
-  grep -q 'FIXTURES_DIR:-' "$_t26_f33" || continue
+  grep -q 'FIXTURES_DIR' "$_t26_f33" || continue
   _t26_scanned33=$((_t26_scanned33 + 1))
-  # (1) 判別行の AND 同居（#994 / #1178 AC-c）
+  _t26_base33="${_t26_f33##*/}"
+  # コロン付きで判別している「本来の統一対象」か（(2) の適用範囲）
+  _t26_isnarrow33=no
+  if grep -q 'FIXTURES_DIR:-' "$_t26_f33"; then
+    _t26_isnarrow33=yes
+    _t26_narrow33=$((_t26_narrow33 + 1))
+  else
+    _t26_widenonly33="$_t26_widenonly33 $_t26_base33"
+  fi
+  # (1) 判別行の AND 同居（#994 / #1178 AC-c、#1250 M-2 で FIXTURES_DIR 単体へ）
   _t26_shape33=""
   _t26_ok33=0
   _t26_shape33=$(_t26_disc_ok33 "$_t26_f33") || _t26_ok33=1
   case "$_t26_shape33" in
-    nocond) _t26_nocond33="$_t26_nocond33 ${_t26_f33##*/}" ;;
+    nocond)
+      case " $_T26_NOCOND_ALLOW33 " in
+        *" $_t26_base33 "*)
+          # 既知の allowlist（bootstrap 未移行の 2 本）。可視化だけして通す
+          _t26_nocond33="$_t26_nocond33 $_t26_base33"
+          ;;
+        *)
+          if [ "$_t26_isnarrow33" = yes ]; then
+            # allowlist 外の**統一対象**が nocond に落ちた = 判別式の形を変えた
+            # 退行。FAIL させる（ファイル名の追記は直後の共通 violation ブロック）
+            _t26_ok33=1
+            _t26_nocondviol33="$_t26_nocondviol33 $_t26_base33"
+          fi
+          if [ "$_t26_isnarrow33" != yes ]; then
+            # ゲート拡大で入っただけの harness 専用 extras（FIXTURES_DIR を
+            # root 導出にしか使わず、PG_HARNESS_SOURCED も持たない）は
+            # 判別していないので nocond が正常。ここを FAIL にすると 31 件が
+            # 一斉に落ちる（実測）。`_t26_disc_ok33` は nocond かつ相方の文字列が
+            # ファイルに無ければ rc=1 を返すので、明示的に打ち消す。
+            # 「実は判別している」ケースは (1b) の行単位検査が拾う
+            _t26_ok33=0
+          fi
+          ;;
+      esac
+      ;;
   esac
+  # (1b) 行単位: 条件行として拾えなかった判別形（#1250 M-1）。
+  # shape が cond でも nocond でも適用する — 囮の準拠 cond 行を 1 本足して
+  # 実体を `case` で判別する迂回は、ファイル単位の shape では捕まらない
+  _t26_st33=$(_t26_disc_strays33 "$_t26_f33") || _t26_st33=""
+  if [ -n "$_t26_st33" ]; then
+    _t26_ok33=1
+    _t26_stray33="$_t26_stray33 $_t26_base33"
+  fi
   if [ "$_t26_ok33" != "0" ]; then
-    _t26_viol33="$_t26_viol33 ${_t26_f33##*/}"
+    _t26_viol33="$_t26_viol33 $_t26_base33"
     continue
   fi
-  # (2) unset 包含（当該ファイルの unset 行群から env 名を収集して照合）
+  # (2) unset 包含（当該ファイルの unset 行群から env 名を収集して照合）。
+  # 対象はコロン付き集合のまま — ゲート拡大で入った harness 専用 extras は
+  # standalone 分岐を持たないため unset 集合を要求できない（既存挙動を保つ）
+  [ "$_t26_isnarrow33" = yes ] || continue
   _t26_fset33=$(_t26_unset_envs33 "$_t26_f33" | tr '\n' ' ')
   for _t26_e33 in $_t26_hset33; do
     case " $_t26_fset33 " in
       *" $_t26_e33 "*) : ;;
-      *) _t26_incl33="$_t26_incl33 ${_t26_f33##*/}:$_t26_e33" ;;
+      *) _t26_incl33="$_t26_incl33 $_t26_base33:$_t26_e33" ;;
     esac
   done
+done
+# allowlist の陳腐化検出（#1250 F2）: allowlist に載っているのに実際には
+# `nocond` へ落ちなかった（＝規約 8 の形へ是正済み、またはファイルが消えた）
+# エントリを列挙する。allowlist を「一度書いたら誰も削らない免罪符」にしない。
+_t26_stale33=""
+for _t26_a33 in $_T26_NOCOND_ALLOW33; do
+  case " $_t26_nocond33 " in
+    *" $_t26_a33 "*) : ;;
+    *) _t26_stale33="$_t26_stale33 $_t26_a33" ;;
+  esac
 done
 # 走査 0 件（glob 空振り・パス誤り）でも「違反 0 件」で緑になる恒真を塞ぐ。
 # floor は絶対件数の契約値ではない（`-eq` にしない / #1087 AC-9）。
 _T26_MIN_SCANNED33=20
 if [ -n "$_t26_hset33" ] && [ -z "$_t26_viol33" ] && [ -z "$_t26_incl33" ] \
+   && [ -z "$_t26_stale33" ] && [ -z "$_t26_stray33" ] \
    && [ "$_t26_scanned33" -ge "$_T26_MIN_SCANNED33" ]; then
-  t26_pass "TC-33 判別行に AND の相方が同居（走査 ${_t26_scanned33} 件 / 判別行なし:${_t26_nocond33:- なし}）+ standalone unset が run-tests.sh の unset 集合を包含"
+  t26_pass "TC-33 判別行に AND の相方が同居（走査 ${_t26_scanned33} 件 / うちコロン付き ${_t26_narrow33} 件 / 判別行なし（allowlist 内）:${_t26_nocond33:- なし}）+ 条件行外の判別形なし + standalone unset が run-tests.sh の unset 集合を包含 / ゲート拡大で入った（コロン無し）:${_t26_widenonly33:- なし}"
 else
-  t26_fail "TC-33 失敗 (判別行違反:${_t26_viol33:- なし} / unset欠落:${_t26_incl33:- なし} / 走査 ${_t26_scanned33} 件 / harness集合:${_t26_hset33:- 空})"
+  t26_fail "TC-33 失敗 (判別行違反:${_t26_viol33:- なし} / 条件行外の判別形（case・test を FIXTURES_DIR に直接）:${_t26_stray33:- なし} / allowlist 外の判別行なし:${_t26_nocondviol33:- なし} / allowlist 陳腐化（是正済なので削ること）:${_t26_stale33:- なし} / unset欠落:${_t26_incl33:- なし} / 走査 ${_t26_scanned33} 件（コロン付き ${_t26_narrow33} 件）/ harness集合:${_t26_hset33:- 空})"
 fi
 
 # TC-38: README 規約 8 の例示コードブロックが TC-33 の抽出規則 (1)(2) を通る
@@ -928,8 +1103,16 @@ _t26_v38=""
 if [ "$_t26_fxlines38" -lt 3 ]; then
   _t26_v38="$_t26_v38 抽出失敗(${_t26_fxlines38}行)"
 else
-  # (1) 判別行の AND 同居
+  # (1) 判別行の AND 同居。
+  # **shape が `cond` であることを連言で要求する**（#1250 F2）。旧実装は
+  # `_t26_disc_ok33` の返り値しか見ておらず、例示を `case "${FIXTURES_DIR:-}"`
+  # 形へ退行させても `nocond` フォールバック（＝ファイル単位 grep）で rc=0 が
+  # 返り SURVIVE していた。規約の正本である例示は、検査器が実際に読む
+  # **条件行の形**（`if` / `elif` / `; then`）で書かれていなければならない。
   _t26_shape38=$(_t26_disc_ok33 "$_t26_fx38") || _t26_v38="$_t26_v38 判別行(${_t26_shape38})"
+  if [ "$_t26_shape38" != "cond" ]; then
+    _t26_v38="$_t26_v38 例示の判別式が条件行の形でない(shape=${_t26_shape38:- 空})"
+  fi
   # (2) unset 包含: 例示の unset は行継続で 3 行に折られている。
   #     awk 結合が効いていなければここで落ちる
   _t26_fset38=$(_t26_unset_envs33 "$_t26_fx38" | tr '\n' ' ')
@@ -977,6 +1160,324 @@ if [ "$_t26_rc37" = "0" ] \
   t26_pass "TC-37 skills/README.md が正本から同期され、2 回目は差分なし（#1057 再発防止）"
 else
   t26_fail "TC-37 skills/README.md の同期経路が機能していない (rc=$_t26_rc37 / 内容=${_t26_got37:- 空} / 1回目=${_t26_out37} / 2回目=${_t26_out37b})"
+fi
+
+# ── #1249 敵対レビュー MAJOR-2 / MAJOR-3 / MINOR-4 の回帰 TC 群 ──────────────
+#
+# #1249（ai-dev 実行資材の同梱）は 176 行の guard / spec ロジックを足しながら
+# ta-26 に TC を 1 件も足さなかった。敵対レビューの変異実測では
+#   - spec の `plan-template.md` を `plan.md` へ revert（唯一の Human 決定の破棄）
+#   - sandbox 一覧から `handoff.md` を 1 件だけ落とす
+# のいずれも **34 passed / 0 failed = 検出されない**（配布物は実際に劣化する）。
+# 以下はその 2 変異と、spec ソース不在の無警告脱落・二重管理の非収束を固定する。
+
+PG_T26_PY="$(command -v python3 2>/dev/null || true)"
+
+# `_ai_dev_ref_spec` の **実出力**を `<skill>\t<配布先 basename>\t<ソース>` で吐く
+# （#1249 MAJOR-3(new)）。
+#
+# 旧実装は `'([^' ]+\.(?:md|json|yaml))\s+([^']+)'` という字句正規表現で spec を
+# 読んでいたが、これはシングルクォート + 特定拡張子という **書き方** にしか当たら
+# ない。実測でダブルクォート表記・`.sh` 拡張子・既存行のクォート変更がいずれも
+# 無警告で母数から落ち、`PAIRS >= 20` / `srcs >= 15` の floor は
+# 「完全な空振り」しか止めなかった（4〜5 本の消失を許す）。
+# 抽出した関数を実際に `sh` で実行し、その出力を正とすればクォート種別・拡張子・
+# 行継続はシェル自身が解釈するため形状に依存しない。
+# 取得失敗（関数が無い / 一覧が無い / 出力が空）は stdout を空にして返し、
+# 呼び出し側が PARSE-FAIL として扱う。
+_t26_spec_dump() {
+  _t26_sd_script="$1"
+  _t26_sd_fn="$(mktemp)"
+  awk '/^_ai_dev_ref_spec\(\) \{/{f=1} f{print} f&&/^\}$/{exit}' \
+    "$_t26_sd_script" > "$_t26_sd_fn" 2>/dev/null || true
+  if ! grep -q '^_ai_dev_ref_spec() {' "$_t26_sd_fn" 2>/dev/null; then
+    rm -f "$_t26_sd_fn"; return 0
+  fi
+  _t26_sd_skills="$(grep -m1 '^AI_DEV_SKILLS=' "$_t26_sd_script" 2>/dev/null \
+    | sed 's/^AI_DEV_SKILLS=//; s/"//g')"
+  for _t26_sd_s in $_t26_sd_skills; do
+    sh -c '. "$1"; _ai_dev_ref_spec "$2"' _ "$_t26_sd_fn" "$_t26_sd_s" 2>/dev/null \
+      | awk -v k="$_t26_sd_s" 'NF{print k"\t"$1"\t"$2}'
+  done
+  rm -f "$_t26_sd_fn"
+}
+
+_T26_SPEC_DUMP="$(mktemp)"
+register_cleanup "$_T26_SPEC_DUMP"
+_t26_spec_dump "$PG_T26_SCRIPT" > "$_T26_SPEC_DUMP" 2>/dev/null || true
+
+# TC-39: 配布 references/ に basename `plan.md` が存在しない（spec + 実配布物の両面）
+#
+# `scripts/hooks/check-plan-hash.sh` の EH-3 は **basename** `plan.md` で block する
+# （パス判定ではない）。そのまま同梱すると導入先で雛形が編集不能になるため、
+# `docs/working/templates/plan.md` は配布先で `plan-template.md` へリネームする
+# ——これが #1232 で唯一の Human 決定である。spec を revert しても実配布物は
+# 次の sync まで変わらないので、**spec 側**も併せて検査しないと変異が生き残る。
+_t26_v39=''
+if [ -z "$PG_T26_PY" ]; then
+  t26_fail "TC-39 python3 が解決できない"
+else
+  # (a) spec が配布先 basename に plan.md を出さない
+  #     判定は `_ai_dev_ref_spec` の **実出力**（$_T26_SPEC_DUMP）で行う。
+  #     字句解析だとクォート種別を変えるだけで対象行が母数から消える（MAJOR-3(new)）。
+  _t26_pairs39=$(awk 'NF' "$_T26_SPEC_DUMP" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${_t26_pairs39:-0}" = "0" ]; then
+    _t26_v39="$_t26_v39 spec-parse-fail"
+  fi
+  _t26_spec39=$(awk -F'\t' 'NF==3{print "BASE\t"$2"\t"$3}' "$_T26_SPEC_DUMP" 2>/dev/null)
+  # 陽性コントロール: 抽出が空振りしていないこと（PAIRS>=20）と、
+  # リネーム後の basename が実際に spec に居ること
+  [ -n "$_t26_pairs39" ] && [ "$_t26_pairs39" -ge 20 ] 2>/dev/null \
+    || _t26_v39="$_t26_v39 spec-pairs-too-few(${_t26_pairs39:-none})"
+  printf '%s' "$_t26_spec39" | grep -q "^BASE	plan-template.md	" \
+    || _t26_v39="$_t26_v39 plan-template.md-not-in-spec"
+  # 本体判定: 配布先 basename に plan.md が無い
+  if printf '%s' "$_t26_spec39" | grep -q "^BASE	plan.md	"; then
+    _t26_v39="$_t26_v39 spec-emits-plan.md"
+  fi
+  # (b) 実配布ツリーにも basename plan.md が無い
+  for _t26_f39 in "$PG_T26_PLUGIN"/skills/*/references/plan.md; do
+    [ -f "$_t26_f39" ] || continue
+    _t26_v39="$_t26_v39 distributed:${_t26_f39#"$PG_T26_ROOT"/}"
+  done
+  # (c) block の根拠（EH-3 の basename case）が実在する — 前提が消えたら気づく
+  grep -q '\*/plan\.md|plan\.md' "$PG_T26_ROOT/scripts/hooks/check-plan-hash.sh" 2>/dev/null \
+    || _t26_v39="$_t26_v39 eh3-basename-case-missing"
+  if [ -z "$_t26_v39" ]; then
+    t26_pass "TC-39 配布 references/ に basename plan.md なし（spec ${_t26_pairs39} 件 / plan-template.md 実在 / EH-3 basename case 実在）"
+  else
+    t26_fail "TC-39 失敗:$_t26_v39"
+  fi
+fi
+
+# TC-40: _ai_dev_ref_spec のソース集合 ⊆ ta-26 sandbox の同梱一覧（機械照合）
+#
+# sandbox が sync の入力を 1 件でも欠くと、その skill の期待集合が縮んで
+# 実 repo と違う条件で guard を検査することになる（TC-05 の前提が崩れる）。
+# ta-57 TC-E8 / ta-60 の「for ループと case 文の集合一致」と同型の drift 検査。
+if [ -z "$PG_T26_PY" ]; then
+  t26_fail "TC-40 python3 が解決できない"
+else
+  _t26_rc40=0
+  _t26_out40=$("$PG_T26_PY" - "$_T26_SPEC_DUMP" "$PG_T26_ROOT/tests/extras/ta-26-plugin-sync.sh" <<'PY' 2>&1
+import pathlib, re, sys
+
+dump = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+selfsrc = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
+
+# spec は `_ai_dev_ref_spec` の実出力（字句解析ではない / #1249 MAJOR-3(new)）。
+rows = [ln.split("\t") for ln in dump.splitlines() if ln.strip()]
+assert rows and all(len(r) == 3 for r in rows), (
+    "PARSE-FAIL: _ai_dev_ref_spec の実出力が取れない (rows=%d)" % len(rows))
+spec_srcs = {r[2] for r in rows}
+assert len(spec_srcs) >= 15, "PARSE-FAIL: spec ソースの実出力が少なすぎる (%d)" % len(spec_srcs)
+
+block = re.search(r"^for _f26 in \\\n(.*?)^do$", selfsrc, re.S | re.M)
+assert block, "PARSE-FAIL: sandbox 一覧 (for _f26) が見つからない"
+listed = {ln.strip().rstrip("\\").strip() for ln in block.group(1).splitlines()}
+listed = {p for p in listed if p}
+assert len(listed) >= 10, "PARSE-FAIL: sandbox 一覧の抽出が空振り (%d)" % len(listed)
+
+# ファイル単位の一覧のほかに、sandbox は `cp -r "$PG_T26_ROOT/<dir>"` で
+# ディレクトリごと持ち込む経路も持つ（docs/workflows/ai-loop など）。
+# その配下は「一覧に無くても供給されている」ため被覆に数える。
+#
+# 走査対象は **sandbox builder のマーカー区間の、コメントでない行**に限る
+# （#1249 MINOR-1）。ファイル全体を対象にしていた旧実装は、実行されない
+# コメント行 `# cp -r "$PG_T26_ROOT/docs" ...` を書くだけで docs/ 配下を
+# 全被覆と誤認し、陽性コントロールを無効化できた（実測）。
+region = re.search(
+    r"^# >>> PG_T26_SANDBOX_BUILDER_BEGIN$(.*?)^# <<< PG_T26_SANDBOX_BUILDER_END$",
+    selfsrc, re.S | re.M)
+assert region, "PARSE-FAIL: sandbox builder のマーカー区間が見つからない"
+exec_lines = "\n".join(ln for ln in region.group(1).splitlines()
+                       if not ln.lstrip().startswith("#"))
+dirs = set(re.findall(r'cp -r "\$PG_T26_ROOT/([^"]+)"', exec_lines))
+
+def covered(p):
+    return p in listed or any(p.startswith(d.rstrip("/") + "/") for d in dirs)
+
+missing = sorted(p for p in spec_srcs if not covered(p))
+assert not missing, (
+    "sandbox drift: _ai_dev_ref_spec のソースが ta-26 sandbox の同梱経路に無い -> %s"
+    % missing)
+print("OK spec=%d sandbox_files=%d sandbox_dirs=%d" % (len(spec_srcs), len(listed), len(dirs)))
+PY
+) || _t26_rc40=$?
+  if [ "$_t26_rc40" = "0" ] && printf '%s' "$_t26_out40" | grep -q '^OK spec='; then
+    t26_pass "TC-40 spec ソース集合 ⊆ sandbox 同梱一覧（$(printf '%s' "$_t26_out40" | tr -d '\n')）"
+  else
+    t26_fail "TC-40 失敗 (rc=$_t26_rc40): $_t26_out40"
+  fi
+fi
+
+# ai-dev 用 sandbox ビルダ（guard 境界 TC / spec 欠損 TC 共用）
+# $1=dir / $2=skill 名 / $3=stale 件数 / $4以降=配置するソース相対パス
+_t26_mk_ai_dev_sandbox() {
+  _t26_ad_dir="$1"; _t26_ad_skill="$2"; _t26_ad_stale="$3"; shift 3
+  mkdir -p "$_t26_ad_dir/scripts" \
+    "$_t26_ad_dir/.agents/skills/$_t26_ad_skill" \
+    "$_t26_ad_dir/plugin/plangate/skills/$_t26_ad_skill/references"
+  cp "$PG_T26_SCRIPT" "$_t26_ad_dir/scripts/"
+  cp "$PG_T26_ROOT/scripts/_ai_loop_link_rewrite.py" "$_t26_ad_dir/scripts/"
+  printf -- '---\nname: %s\n---\nbody\n' "$_t26_ad_skill" \
+    > "$_t26_ad_dir/.agents/skills/$_t26_ad_skill/SKILL.md"
+  for _t26_ad_f in "$@"; do
+    mkdir -p "$_t26_ad_dir/$(dirname "$_t26_ad_f")"
+    printf 'src %s\n' "$_t26_ad_f" > "$_t26_ad_dir/$_t26_ad_f"
+  done
+  _t26_ad_i=1
+  while [ "$_t26_ad_i" -le "$_t26_ad_stale" ]; do
+    printf 'stale %s\n' "$_t26_ad_i" \
+      > "$_t26_ad_dir/plugin/plangate/skills/$_t26_ad_skill/references/stale-$_t26_ad_i.md"
+    _t26_ad_i=$((_t26_ad_i + 1))
+  done
+}
+
+# ai-dev-brainstorm の期待集合は 3 件（spec 固定）。境界 base = stale を作れる。
+_T26_BRAINSTORM_SRCS="docs/ai-driven-development.md docs/ai/core-contract.md docs/plangate.md"
+
+# TC-41: ai-dev 削除 guard の境界 — base = stale は非発火 / base < stale は発火
+#
+# `_mass_delete_blocked` は `stale > base` でのみ block する。境界（同数）で
+# 誤って発火すると正当な stale が消えなくなり、逆に境界を緩めると mass-delete が
+# 素通りする。両側を 1 件差で固定する（片側だけでは閾値のズレを検出できない）。
+_t26_t41a=$(mktemp -d); register_cleanup "$_t26_t41a"
+# shellcheck disable=SC2086
+_t26_mk_ai_dev_sandbox "$_t26_t41a" ai-dev-brainstorm 3 $_T26_BRAINSTORM_SRCS
+_t26_rc41a=0
+_t26_out41a=$(sh "$_t26_t41a/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc41a=$?
+_t26_left41a=$(ls "$_t26_t41a/plugin/plangate/skills/ai-dev-brainstorm/references" 2>/dev/null | wc -l | tr -d ' ')
+_t26_stale41a=$(ls "$_t26_t41a/plugin/plangate/skills/ai-dev-brainstorm/references"/stale-*.md 2>/dev/null | wc -l | tr -d ' ')
+
+_t26_t41b=$(mktemp -d); register_cleanup "$_t26_t41b"
+# shellcheck disable=SC2086
+_t26_mk_ai_dev_sandbox "$_t26_t41b" ai-dev-brainstorm 4 $_T26_BRAINSTORM_SRCS
+_t26_rc41b=0
+_t26_out41b=$(sh "$_t26_t41b/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc41b=$?
+_t26_stale41b=$(ls "$_t26_t41b/plugin/plangate/skills/ai-dev-brainstorm/references"/stale-*.md 2>/dev/null | wc -l | tr -d ' ')
+rm -rf "$_t26_t41a" "$_t26_t41b"
+if [ "$_t26_rc41a" -eq 0 ] && [ "$_t26_left41a" = "3" ] && [ "$_t26_stale41a" = "0" ] \
+  && ! printf '%s' "$_t26_out41a" | grep -q 'safety guard' \
+  && [ "$_t26_rc41b" -eq 3 ] && [ "$_t26_stale41b" = "4" ] \
+  && printf '%s' "$_t26_out41b" | grep -q 'skills/ai-dev-brainstorm/references' \
+  && printf '%s' "$_t26_out41b" | grep -q 'base=3 / stale=4'; then
+  t26_pass "TC-41 ai-dev guard 境界: base=3/stale=3 は非発火（stale 3 件削除・期待 3 件のみ残存）/ base=3/stale=4 は発火（rc=3・4 件全残存）"
+else
+  t26_fail "TC-41 失敗 (同数: rc=$_t26_rc41a 期待0 left=$_t26_left41a 期待3 stale残=$_t26_stale41a 期待0 / 超過: rc=$_t26_rc41b 期待3 stale残=$_t26_stale41b 期待4): $_t26_out41a ||| $_t26_out41b"
+fi
+
+# TC-42: spec ソース不在は _warn し、配布側の既存ファイルを削除しない（MAJOR-3）
+#
+# spec は固定パス 24 件で ai-loop のディレクトリ glob と違い rename に追従しない。
+# 旧実装は `[ -f ... ] || continue` で黙って落としていたため、上流の 1 本の rename で
+# 配布物が警告ゼロで消えた（実測: core-contract.md のパスを 1 文字変えるだけで
+# 4 skill の core-contract.md が rc=0・警告なしで DELETE された）。
+_t26_t42=$(mktemp -d); register_cleanup "$_t26_t42"
+# shellcheck disable=SC2086
+_t26_mk_ai_dev_sandbox "$_t26_t42" ai-dev-brainstorm 0 $_T26_BRAINSTORM_SRCS
+# 1 回目: 3 件が配布される
+sh "$_t26_t42/scripts/sync-plugin-plangate.sh" >/dev/null 2>&1 || true
+_t26_seed42=$(ls "$_t26_t42/plugin/plangate/skills/ai-dev-brainstorm/references" 2>/dev/null | wc -l | tr -d ' ')
+# 上流 rename を模擬: ソース 1 本だけを消す
+rm -f "$_t26_t42/docs/ai/core-contract.md"
+_t26_rc42=0
+_t26_out42=$(sh "$_t26_t42/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc42=$?
+_t26_kept42=0
+[ -f "$_t26_t42/plugin/plangate/skills/ai-dev-brainstorm/references/core-contract.md" ] && _t26_kept42=1
+rm -rf "$_t26_t42"
+if [ "$_t26_seed42" = "3" ] && [ "$_t26_rc42" -eq 0 ] && [ "$_t26_kept42" = "1" ] \
+  && printf '%s' "$_t26_out42" | grep -q 'WARN: spec のソースが見つかりません' \
+  && printf '%s' "$_t26_out42" | grep -q 'docs/ai/core-contract.md' \
+  && ! printf '%s' "$_t26_out42" | grep -q 'DELETE: skills/ai-dev-brainstorm/references/core-contract.md'; then
+  t26_pass "TC-42 spec ソース不在で WARN 出力・配布側を保持（無警告脱落の再発防止 / seed=3）"
+else
+  t26_fail "TC-42 失敗 (seed=$_t26_seed42 期待3 / rc=$_t26_rc42 期待0 / 保持=$_t26_kept42 期待1): $_t26_out42"
+fi
+
+# TC-43: 汎用 skills ループとの二重管理は「消し合う」ではなく一方向 DELETE の非収束
+#
+# `.agents/skills/ai-dev-*/references/` を作ると、汎用ループが COPY した直後に
+# ai-dev ループが stale として DELETE する。順序が固定なので配布側へは永久に
+# 届かず、`changed=1` が立ち続けて "no changes" に収束しない。
+# 実測どおりの性質を固定する（net のファイル状態は不変なので CI の
+# `git diff --quiet` は緑のまま = 「CI 恒久 red」ではない、という点も含めて）。
+_t26_t43=$(mktemp -d); register_cleanup "$_t26_t43"
+# shellcheck disable=SC2086
+_t26_mk_ai_dev_sandbox "$_t26_t43" ai-dev-brainstorm 0 $_T26_BRAINSTORM_SRCS
+mkdir -p "$_t26_t43/.agents/skills/ai-dev-brainstorm/references"
+printf 'dual-managed\n' > "$_t26_t43/.agents/skills/ai-dev-brainstorm/references/extra.md"
+_t26_conv43=0   # "no changes" に収束した run の数
+_t26_cycle43=0  # COPY と DELETE が同一 run に両方出た回数
+_t26_i43=1
+while [ "$_t26_i43" -le 3 ]; do
+  _t26_o43=$(sh "$_t26_t43/scripts/sync-plugin-plangate.sh" 2>&1) || true
+  if printf '%s' "$_t26_o43" | grep -q 'COPY (links self-contained): skills/ai-dev-brainstorm/references/extra.md' \
+    || printf '%s' "$_t26_o43" | grep -q 'COPY: skills/ai-dev-brainstorm/references/extra.md'; then
+    if printf '%s' "$_t26_o43" | grep -q 'DELETE: skills/ai-dev-brainstorm/references/extra.md'; then
+      _t26_cycle43=$((_t26_cycle43 + 1))
+    fi
+  fi
+  printf '%s' "$_t26_o43" | grep -q 'Sync complete — no changes' && _t26_conv43=$((_t26_conv43 + 1))
+  _t26_i43=$((_t26_i43 + 1))
+done
+_t26_land43=0
+[ -f "$_t26_t43/plugin/plangate/skills/ai-dev-brainstorm/references/extra.md" ] && _t26_land43=1
+rm -rf "$_t26_t43"
+if [ "$_t26_cycle43" = "3" ] && [ "$_t26_conv43" = "0" ] && [ "$_t26_land43" = "0" ]; then
+  t26_pass "TC-43 二重管理は 3 run とも COPY→DELETE を反復し収束しない（配布側へ到達 0 / 'no changes' 0 回）"
+else
+  t26_fail "TC-43 失敗 (COPY→DELETE 同時発生=$_t26_cycle43 期待3 / 'no changes'=$_t26_conv43 期待0 / 配布到達=$_t26_land43 期待0)"
+fi
+
+# TC-44: guard 発火は当該 skill の削除ループだけを止め、他 skill は削除を続行する
+#
+# `_mass_delete_blocked` の判定は skill ごとに独立で、発火しても run 全体は
+# 止まらない（設計どおり — コピーも他 skill も阻害しない）。裏返すと
+# **rc=3 の run でも別 skill の配布物は実際に消えている**。
+# 「rc=3 なら何も消えていない」と読まれると事故調査を誤るため、この非対称を固定する。
+# per-skill 期待集合方式が ai-loop の合算方式より leverage が弱い理由の実測でもある
+# （#1249 敵対レビュー MAJOR-3）。
+_t26_t44=$(mktemp -d); register_cleanup "$_t26_t44"
+mkdir -p "$_t26_t44/scripts"
+cp "$PG_T26_SCRIPT" "$_t26_t44/scripts/"
+cp "$PG_T26_ROOT/scripts/_ai_loop_link_rewrite.py" "$_t26_t44/scripts/"
+for _t26_s44 in ai-dev-brainstorm ai-dev-verify; do
+  mkdir -p "$_t26_t44/.agents/skills/$_t26_s44" \
+    "$_t26_t44/plugin/plangate/skills/$_t26_s44/references"
+  printf -- '---\nname: %s\n---\nbody\n' "$_t26_s44" \
+    > "$_t26_t44/.agents/skills/$_t26_s44/SKILL.md"
+done
+# 両 skill の spec ソースを全部置く（欠損 WARN を出さず、guard 判定だけを見る）
+for _t26_f44 in docs/ai-driven-development.md docs/plangate.md docs/ai/core-contract.md \
+  docs/ai/settings-wiring-contract.md docs/workflows/ai-loop/c3-prime-contract.md \
+  docs/working/templates/handoff.md; do
+  mkdir -p "$_t26_t44/$(dirname "$_t26_f44")"
+  printf 'src %s\n' "$_t26_f44" > "$_t26_t44/$_t26_f44"
+done
+# brainstorm: base=3 / stale=9 → 発火 ｜ verify: base=5 / stale=2 → 非発火
+_t26_i44=1
+while [ "$_t26_i44" -le 9 ]; do
+  printf 'stale\n' > "$_t26_t44/plugin/plangate/skills/ai-dev-brainstorm/references/stale-$_t26_i44.md"
+  _t26_i44=$((_t26_i44 + 1))
+done
+_t26_i44=1
+while [ "$_t26_i44" -le 2 ]; do
+  printf 'stale\n' > "$_t26_t44/plugin/plangate/skills/ai-dev-verify/references/stale-$_t26_i44.md"
+  _t26_i44=$((_t26_i44 + 1))
+done
+_t26_rc44=0
+_t26_out44=$(sh "$_t26_t44/scripts/sync-plugin-plangate.sh" 2>&1) || _t26_rc44=$?
+_t26_bs44=$(ls "$_t26_t44/plugin/plangate/skills/ai-dev-brainstorm/references"/stale-*.md 2>/dev/null | wc -l | tr -d ' ')
+_t26_vf44=$(ls "$_t26_t44/plugin/plangate/skills/ai-dev-verify/references"/stale-*.md 2>/dev/null | wc -l | tr -d ' ')
+rm -rf "$_t26_t44"
+if [ "$_t26_rc44" -eq 3 ] && [ "$_t26_bs44" = "9" ] && [ "$_t26_vf44" = "0" ] \
+  && printf '%s' "$_t26_out44" | grep -q 'DELETE skipped for skills/ai-dev-brainstorm/references' \
+  && printf '%s' "$_t26_out44" | grep -q 'base=3 / stale=9' \
+  && printf '%s' "$_t26_out44" | grep -q 'DELETE: skills/ai-dev-verify/references/stale-1.md'; then
+  t26_pass "TC-44 guard は skill 単位: rc=3 の同一 run で brainstorm は 9 件保持・verify は 2 件を実削除（rc=3 を「何も消えていない」と読めない）"
+else
+  t26_fail "TC-44 失敗 (rc=$_t26_rc44 期待3 / brainstorm残=$_t26_bs44 期待9 / verify残=$_t26_vf44 期待0): $_t26_out44"
 fi
 
 # 単体実行時のみ: cleanup drain + サマリ + exit code（source 時は run-tests.sh が担う）
