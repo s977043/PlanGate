@@ -107,8 +107,18 @@ high-risk 以上のモードでは、Design Artifact の 8 項目が揃い承認
 
 ## 手順
 
-1. `/pg-think` を実行して論点整理を行う（Problem Restatement / Assumptions / Options / Recommended Approach / Risks）
-2. `/pg-think` の出力を元に 8 項目を補完する
+> **`/pg-think` は存在しない**（TASK-0124 / `2645848`, 2026-06-02 の plugin 初回同期適用で
+> `plugin/plangate/commands/pg-think.md` が削除され、**後継コマンドは無い**）。
+> 手順 1 は**コマンドに依存しない論点整理**として実施する（下記）。旧コマンドを前提とした
+> 自動化を組んでいる場合は、以下に置き換えること。
+
+1. 論点整理を行い、次の 5 項目を書き出す（コマンド不要。`brainstorming` Skill を使ってもよい）
+   - **Problem Restatement**: 解くべき問題を自分の言葉で言い直す
+   - **Assumptions**: 前提として置いていること（未検証のものは「未検証」と明記）
+   - **Options**: 検討した代替案（採用しなかった案も残す）
+   - **Recommended Approach**: 採用案とその理由
+   - **Risks**: 採用案が外れたときに何が壊れるか
+2. 上記 5 項目の出力を元に 8 項目を補完する
    - Problem Restatement → 問題定義・目的
    - Assumptions → 非目的（スコープ外の前提）
    - Options → 代替案
@@ -175,7 +185,10 @@ approved_at: YYYY-MM-DD（high-risk 以上で記入）
 
 > 旧 `plugin/plangate/rules/design-gate.md` は**削除済み**（TASK-0124 / `2645848`,
 > 2026-06-02 の plugin 初回同期適用）。適用条件・ブロック条件は本 Skill が自己保持する。
-- Command: `plugin/plangate/commands/pg-think.md`（論点整理の初段）
+> 同 commit で削除された `plugin/plangate/commands/pg-think.md` も**後継コマンドは無く**、
+> 論点整理の手順は本 Skill §手順 1 が引き継いだ。`/pg-think` を新たに参照に加えないこと。
+
+- Skill: `brainstorming`（論点整理の初段。任意）
 - Template: `docs/working/templates/design.md`（design.md の保存形式）
 - Skill: `plugin/plangate/skills/skill-policy-router/SKILL.md`（GatePolicy との連携）
 
