@@ -236,7 +236,7 @@ sh tests/extras/ta-25-approval-token-guard.sh        # EH-13 の TC が全 PASS
   T1071-TC-04 は**これを FAIL にしない**（repo の CI 判定と環境の運用指摘を混ぜないため）。
   検出したときは **WARN + 該当パス表示**で本節 #2 / #3 へ誘導するのみで、
   実施は運用者に依存する。
-- **`scripts/check-settings-wiring.sh` の `checks` に EH-13 は未登録**（実測: EH-1 / EH-2 / EH-3 / EH-3 引数 / EH-6 / EH-9 の 6 件のみ）。契約ドリフト検知は EH-13 をまだ見ていないため、`ta-25` の `T1071-TC-04a` が tracked 配線に対する 事実上唯一の機械ゲートである。
+- **`scripts/check-settings-wiring.sh` の `checks` に EH-13 は未登録**（実測: EH-1 / EH-2 / EH-3 / EH-3 引数 / EH-6 / EH-9 の 6 件のみ）。契約ドリフト検知は EH-13 をまだ見ていないため、`ta-25` の `T1071-TC-04a` が tracked 配線に対する事実上唯一の機械ゲートである。
 
 #### T1071-TC-04 の検査モデル: tracked / untracked / loaded
 
