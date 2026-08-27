@@ -1183,7 +1183,9 @@ _t1071_mkctl() {
   printf '.claude/settings.json\n.claude/settings.local.json\n' > "$_mk/.gitignore"
   printf '%s\n' "$1" > "$_mk/.claude/settings.example.json"
   git -C "$_mk" init -q >/dev/null 2>&1
-  git -C "$_mk" add .gitignore .claude/settings.example.json >/dev/null 2>&1
+  # -f: 利用者の global gitignore が .claude/ を無視していても tracked にする
+  # （sandbox の tracked 集合を環境設定に依存させない）
+  git -C "$_mk" add -f .gitignore .claude/settings.example.json >/dev/null 2>&1
   if [ -n "$2" ]; then
     printf '%s\n' "$2" > "$_mk/.claude/settings.json"
   fi
