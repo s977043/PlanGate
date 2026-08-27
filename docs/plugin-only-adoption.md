@@ -36,7 +36,7 @@ plugin-only 環境でどこまで PlanGate の価値（レビュー観点・plan
 | `acceptance-criteria-build` / `acceptance-review` | 受入基準の作成・検証 |
 | `requirement-gap-scan` / `edgecase-enumeration` | 要件の抜け漏れ・エッジケース洗い出し |
 | `risk-assessment` / `nonfunctional-check` | リスク・非機能観点の洗い出し |
-| `review-gate` | 6 観点レビュー（`/pg-check` 出力を分類するレビューフレーム） |
+| `review-gate` | 6 観点レビュー（差分から finding を収集し severity を付与するレビューフレーム。専用コマンドは不要） |
 | `diff-audit` | セルフレビュー（構造化チェックリスト、旧 self-review） |
 | `known-issues-log` / `evidence-ledger` | 既知課題・根拠の記録 |
 | `context-load` / `context-packager` | コンテキストの読み込み・引き継ぎパケット作成 |
