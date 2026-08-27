@@ -1,0 +1,46 @@
+--- a/.claude/commands/ai-dev-workflow.md
++++ b/.claude/commands/ai-dev-workflow.md
+@@ -6,15 +6,17 @@
+ ワークフロー詳細: `docs/ai-driven-development.md`
+ ルール: `.claude/rules/working-context.md`
+
+-> **パス表記の規約（重要）**: 本コマンド中のパス参照は、**Markdown リンクのリンク先
+-> を除き** 上流リポジトリのルート基準であり、導入先でそのまま解決できるとは限らない。
++> **パス表記の規約（重要）**: 本コマンド中のパス参照は上流リポジトリのルート基準で
++> あり、導入先でそのまま解決できるとは限らない。
+ >
+-> **リンク先（`](...)` の中身）は解決に使わないこと**。本文中の
+-> `[`docs/ai/core-contract.md`](../../docs/ai/core-contract.md)` のような `../` 記法は
+-> **上流リポジトリで GitHub 上の相対リンクを成立させるためだけのもの**で、コマンド
+-> ファイルのディレクトリ基準で解決される。導入先（特に plugin）でこれを辿ると
+-> **plugin root の外へ抜ける**。解決には必ず**表示テキスト側のパス**（上記例では
+-> `docs/ai/core-contract.md`）を使い、下表の規則に従うこと。
++> **本ファイルには `../` を含む Markdown リンクを置かない**（#1249 MINOR-5）。
++> 以前は `docs/ai/core-contract.md` へのリンク先が親ディレクトリ 2 段（`../` を 2 回）
++> 遡る形で書かれており、コマンドファイルのディレクトリ基準で解決されるため導入先（特に plugin）では
++> **plugin root の外へ抜けていた**。規約の側に「リンク先は除く」という例外を置くと
++> 同じファイルが規約の反証を抱え続けるため、例外ではなく **リンクそのものを撤去**し、
++> パスは backtick 表記に統一した。新たに参照を足すときもリンクにせず backtick で書く。
++>
++> パスの解決には下表の規則に従うこと。
+ >
+ > 参照の種類ごとに解決先が異なる:
+ >
+@@ -45,7 +47,7 @@
+
+ ## Iron Law（不可侵ルール）
+
+-違反したら即停止する 7 項目の Iron Law（[`docs/ai/core-contract.md`](../../docs/ai/core-contract.md) の Hard constraints が正本）。
++違反したら即停止する 7 項目の Iron Law（`docs/ai/core-contract.md` の Hard constraints が正本）。
+
+ | ルール | 意味 |
+ |-------|------|
+@@ -323,7 +325,7 @@
+ > - **判定不能** → 安全側＝direct-implementer-mode
+ >
+ > direct-implementer-mode でも C-3 承認 / plan_hash / allowed_files / todo・
+-> status 更新 / L-0〜V-4 / C-4 は **すべて不変**（[`docs/ai/core-contract.md`](../../docs/ai/core-contract.md) §5-bis）。
++> status 更新 / L-0〜V-4 / C-4 は **すべて不変**（`docs/ai/core-contract.md` §5-bis）。
+ > 命名注記: 本ハーネスのサブエージェント起動ツールは `Agent`（ネスト時は
+ > `Task` 名で "not available inside subagents"）。両者を「サブエージェント起動
+ > （`Agent`/`Task`）」と総称する。関連: `AGENT_LEARNINGS.md` 2026-05-16（更新済）。

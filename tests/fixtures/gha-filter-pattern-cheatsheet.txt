@@ -1,0 +1,112 @@
+# GitHub Actions "Filter pattern cheat sheet" — 期待値の外部正本
+#
+# TC-21（paths マッチャのコントロール）は、期待値を **実装から導出しない**。
+# 実装と期待値を同じ頭で書くと、両方が同じ勘違いをしたときに一致してしまう
+# （#1249 R4 critical-1 の実害: `?` を「/ 以外の任意 1 文字」と誤って実装し、
+#  コントロール表がその誤りを「正解」として固定していた）。
+# そこで公式ドキュメントの逐語を本ファイルに転記し、テストはこれを読むだけにする。
+#
+# SOURCE-URL   https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#filter-pattern-cheat-sheet
+# SOURCE-RAW   https://raw.githubusercontent.com/github/docs/main/content/actions/reference/workflows-and-actions/workflow-syntax.md
+# RETRIEVED    2026-08-27
+#
+# ── 特殊文字（逐語）───────────────────────────────────────────────────────
+# * `*`: Matches zero or more characters, but does not match the `/` character.
+#        For example, `Octo*` matches `Octocat`.
+# * `**`: Matches zero or more of any character.
+# * `?`: Matches zero or one of the preceding character.
+# * `+`: Matches one or more of the preceding character.
+# * `[]` Matches one alphanumeric character listed in the brackets or included in
+#        ranges. Ranges can only include `a-z`, `A-Z`, and `0-9`. For example, the
+#        range`[0-9a-z]` matches any digit or lowercase letter. For example,
+#        `[CB]at` matches `Cat` or `Bat` and `[1-2]00` matches `100` and `200`.
+# * `!`: At the start of a pattern makes it negate previous positive patterns.
+#        It has no special meaning if not the first character.
+#
+# The characters `*`, `[`, and `!` are special characters in YAML. If you start a
+# pattern with `*`, `[`, or `!`, you must enclose the pattern in quotes.
+#
+# ── "Patterns to match file paths" の前書き（逐語）───────────────────────
+# Path patterns must match the whole path, and start from the repository's root.
+#
+# ── 形式 ────────────────────────────────────────────────────────────────
+#   ROW|<行 ID>|<パターン列(, 区切り)>|<パス>|<1=match / 0=no match>|<出所>|<根拠>
+#   BUL|... 同上（特殊文字の箇条書き由来）
+#   PARSEFAIL|<パターン>|<理由>       ← マッチャが例外を投げなければならない入力
+# 出所 VERBATIM = 公式表の "Example matches" 欄／"Does not match" 欄そのもの。
+# 出所 DERIVED  = 公式の説明文から一意に導かれる帰結（根拠欄に逐語を引用する）。
+#                 実装を見て決めた値は 1 件も無い。
+#
+EXPECTED-ROWS|15
+EXPECTED-BULLETS|6
+EXPECTED-PARSEFAIL|7
+#
+# ── Patterns to match file paths（公式表の全 15 行）──────────────────────
+ROW|'*'|*|README.md|1|VERBATIM|Example matches: README.md
+ROW|'*'|*|server.rb|1|VERBATIM|Example matches: server.rb
+ROW|'*'|*|docs/README.md|0|DERIVED|The `*` wildcard matches any character, but does not match slash (`/`).
+ROW|'*.jsx?'|*.jsx?|page.js|1|VERBATIM|Example matches: page.js
+ROW|'*.jsx?'|*.jsx?|page.jsx|1|VERBATIM|Example matches: page.jsx
+ROW|'*.jsx?'|*.jsx?|page.jsxx|0|DERIVED|The `?` character matches zero or one of the preceding character.
+ROW|'**'|**|all/the/files.md|1|VERBATIM|Example matches: all/the/files.md
+ROW|'*.js'|*.js|app.js|1|VERBATIM|Example matches: app.js
+ROW|'*.js'|*.js|index.js|1|VERBATIM|Example matches: index.js
+ROW|'*.js'|*.js|js/index.js|0|DERIVED|Matches all `.js` files at the root of the repository.
+ROW|'**.js'|**.js|index.js|1|VERBATIM|Example matches: index.js
+ROW|'**.js'|**.js|js/index.js|1|VERBATIM|Example matches: js/index.js
+ROW|'**.js'|**.js|src/js/app.js|1|VERBATIM|Example matches: src/js/app.js
+ROW|docs/*|docs/*|docs/README.md|1|VERBATIM|Example matches: docs/README.md
+ROW|docs/*|docs/*|docs/file.txt|1|VERBATIM|Example matches: docs/file.txt
+ROW|docs/*|docs/*|docs/mona/octocat.txt|0|DERIVED|All files within the root of the `docs` directory only, at the root of the repository.
+ROW|docs/**|docs/**|docs/README.md|1|VERBATIM|Example matches: docs/README.md
+ROW|docs/**|docs/**|docs/mona/octocat.txt|1|VERBATIM|Example matches: docs/mona/octocat.txt
+ROW|docs/**/*.md|docs/**/*.md|docs/README.md|1|VERBATIM|Example matches: docs/README.md（**/ は 0 ディレクトリでも成立する）
+ROW|docs/**/*.md|docs/**/*.md|docs/mona/hello-world.md|1|VERBATIM|Example matches: docs/mona/hello-world.md
+ROW|docs/**/*.md|docs/**/*.md|docs/a/markdown/file.md|1|VERBATIM|Example matches: docs/a/markdown/file.md
+ROW|'**/docs/**'|**/docs/**|docs/hello.md|1|VERBATIM|Example matches: docs/hello.md（**/ は 0 ディレクトリでも成立する）
+ROW|'**/docs/**'|**/docs/**|dir/docs/my-file.txt|1|VERBATIM|Example matches: dir/docs/my-file.txt
+ROW|'**/docs/**'|**/docs/**|space/docs/plan/space.doc|1|VERBATIM|Example matches: space/docs/plan/space.doc
+ROW|'**/README.md'|**/README.md|README.md|1|VERBATIM|Example matches: README.md（**/ は 0 ディレクトリでも成立する）
+ROW|'**/README.md'|**/README.md|js/README.md|1|VERBATIM|Example matches: js/README.md
+ROW|'**/*src/**'|**/*src/**|a/src/app.js|1|VERBATIM|Example matches: a/src/app.js
+ROW|'**/*src/**'|**/*src/**|my-src/code/js/app.js|1|VERBATIM|Example matches: my-src/code/js/app.js
+ROW|'**/*-post.md'|**/*-post.md|my-post.md|1|VERBATIM|Example matches: my-post.md
+ROW|'**/*-post.md'|**/*-post.md|path/their-post.md|1|VERBATIM|Example matches: path/their-post.md
+ROW|'**/migrate-*.sql'|**/migrate-*.sql|migrate-10909.sql|1|VERBATIM|Example matches: migrate-10909.sql
+ROW|'**/migrate-*.sql'|**/migrate-*.sql|db/migrate-v1.0.sql|1|VERBATIM|Example matches: db/migrate-v1.0.sql
+ROW|'**/migrate-*.sql'|**/migrate-*.sql|db/sept/migrate-v1.sql|1|VERBATIM|Example matches: db/sept/migrate-v1.sql
+ROW|'*.md' + '!README.md'|*.md,!README.md|hello.md|1|VERBATIM|Example matches: hello.md
+ROW|'*.md' + '!README.md'|*.md,!README.md|README.md|0|VERBATIM|Does not match: README.md
+ROW|'*.md' + '!README.md'|*.md,!README.md|docs/hello.md|0|VERBATIM|Does not match: docs/hello.md
+ROW|'*.md' + '!README.md' + README*|*.md,!README.md,README*|hello.md|1|VERBATIM|Example matches: hello.md
+ROW|'*.md' + '!README.md' + README*|*.md,!README.md,README*|README.md|1|VERBATIM|Example matches: README.md（後続の正パターンで再包含）
+ROW|'*.md' + '!README.md' + README*|*.md,!README.md,README*|README.doc|1|VERBATIM|Example matches: README.doc
+#
+# ── 特殊文字の箇条書き由来（表に行が無いもの: * / + / [] / ? の実用イディオム）──
+BUL|Octo*|Octo*|Octocat|1|VERBATIM|For example, `Octo*` matches `Octocat`.
+BUL|[CB]at|[CB]at|Cat|1|VERBATIM|`[CB]at` matches `Cat` or `Bat`
+BUL|[CB]at|[CB]at|Bat|1|VERBATIM|`[CB]at` matches `Cat` or `Bat`
+BUL|[CB]at|[CB]at|Mat|0|DERIVED|Matches one alphanumeric character listed in the brackets（M は列挙外）
+BUL|[1-2]00|[1-2]00|100|1|VERBATIM|`[1-2]00` matches `100` and `200`
+BUL|[1-2]00|[1-2]00|200|1|VERBATIM|`[1-2]00` matches `100` and `200`
+BUL|[1-2]00|[1-2]00|300|0|DERIVED|... or included in ranges（3 は 1-2 の外）
+BUL|[0-9a-z]|[0-9a-z]|5|1|DERIVED|the range`[0-9a-z]` matches any digit or lowercase letter
+BUL|[0-9a-z]|[0-9a-z]|q|1|DERIVED|the range`[0-9a-z]` matches any digit or lowercase letter
+BUL|[0-9a-z]|[0-9a-z]|A|0|DERIVED|the range`[0-9a-z]` matches any digit or lowercase letter（大文字は含まれない）
+BUL|a+b|a+b|ab|1|DERIVED|`+`: Matches one or more of the preceding character.
+BUL|a+b|a+b|aab|1|DERIVED|`+`: Matches one or more of the preceding character.
+BUL|a+b|a+b|b|0|DERIVED|`+`: Matches one or more of the preceding character.（0 個は不可）
+BUL|'*.y?ml'|*.y?ml|x.yml|1|DERIVED|`?` は直前 1 文字（y）への量化子なので y?ml は yml / ml に当たる
+BUL|'*.y?ml'|*.y?ml|x.ml|1|DERIVED|`?`: Matches zero or one of the preceding character.
+BUL|'*.y?ml'|*.y?ml|x.yaml|0|DERIVED|`?` は「任意 1 文字」ではないので yaml には当たらない（#1249 R4 critical-1 の実害イディオム）
+BUL|'*.y?ml'|*.y?ml|docs/schemas/x.yml|0|DERIVED|The `*` wildcard ... does not match slash (`/`).
+#
+# ── マッチャが「リテラル扱いで黙って通す」ことを禁じる入力 ──────────────
+# 守れない構文を守ったふりをしない（#1249 R4 major-1）。PARSE-FAIL が正解。
+PARSEFAIL|*?|`?` の直前が量化不能（`*` は 1 文字ではない）
+PARSEFAIL|**+|`+` の直前が量化不能（`**` は 1 文字ではない）
+PARSEFAIL|?abc|`?` に直前の文字が無い
+PARSEFAIL|[a-]|Ranges can only include `a-z`, `A-Z`, and `0-9`
+PARSEFAIL|[!a]|Matches one alphanumeric character（`!` は alphanumeric ではない）
+PARSEFAIL|[abc|`[` が閉じていない
+PARSEFAIL|[a-Z]|Ranges can only include `a-z`, `A-Z`, and `0-9`（大小混在は範囲でない）
