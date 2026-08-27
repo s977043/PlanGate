@@ -48,6 +48,12 @@ PG_T25_SELF="$PG_T25_ROOT/tests/extras/ta-25-approval-token-guard.sh"
 # 実パスを env override 可能にする（PG_T25_GUARD / PG_T25_PATCH と同じ R-029 方式）。
 # これが無いと「ユーザーレベル配線に複製参照を置いたら落ちるか」を実証できない。
 PG_T25_USER_SETTINGS="${PG_T25_USER_SETTINGS:-${HOME:-/nonexistent}/.claude/settings.json}"
+# T1071-TC-04（#1252 R4 M-2）: tracked 配線側の call site 変異（相対パス化 / 散文化 /
+# 全削除 / 複製参照の混入）で検出力を実証するための env override。既定は実 repo。
+# `.claude/settings*.json` は Hardening Override 対象で AI が書き換えられないため、
+# 変異は「実ファイルを複製した sandbox repo」に対して行い、ここへ向ける
+# （PG_T25_GUARD / PG_T25_PATCH と同じ R-029 方式）。
+PG_T25_WIRING_ROOT="${PG_T25_WIRING_ROOT:-$PG_T25_ROOT}"
 
 # focused mode: mutation 子プロセス（PG_T25_MUTATION_CHILD=1）は kill 対象 TC のみ実行
 PG_T25_FOCUSED="${PG_T25_MUTATION_CHILD:-0}"
@@ -881,17 +887,26 @@ fi
 # 変数への代入（旧実装の TOKEN_GUARD=...）と、パスを直書きしたファイル生成コマンドを
 # 0 件として固定する。移行手順を案内する _log / コメント中の言及は対象外。
 #
-# 検出力の限界（意図的にこの範囲に留める）:
-#   - 本 TC が撃てるのは**リテラル直書きの回帰**だけ。間接的なパス構築
-#     （例: _HD="$REPO_ROOT/scripts/hooks"; cp ... "$_HD/$_HB"）は PASS する。
+# 検出力の限界（意図的にこの範囲に留める / #1252 R4 M-1 で文言是正）:
+#   - 本 TC が撃てるのは**このリテラル 1 個の回帰**だけ。撃っているのは
+#     `scripts/hooks/check-approval-token-write` という**単一の文字列**であって、
+#     doc の不変条件（「`scripts/hooks/` 配下にコピーを置かない」＝パス配下の
+#     全体量化）ではない。**別名の複製**（例:
+#     `scripts/hooks/eh13-token-guard.sh`）も、間接的なパス構築
+#     （例: _HD="$REPO_ROOT/scripts/hooks"; cp ... "$_HD/$_HB"）も PASS する
+#     （R4 実測: 別名複製を作る mutant が本 TC を素通りした）。
 #   - 2 本目の正規表現（cp|ln|install|mv|touch|tee）は旧実装ですら発火しない
 #     （旧コードも変数経由で書いていたため）。実質の検出力は assign 側 1 本が担う。
-#   - **恒久的な網は T1071-TC-02**（sandbox 実行で複製が生まれないことを実測する）。
-#     TC-01 単独を「複製導線の不在の証明」として扱わないこと。
+#   - **本 TC を「複製導線の不在の証明」として扱わないこと。**「名前によらず
+#     `scripts/hooks/` にファイルが増えない」ことを撃つのは T1071-TC-02
+#     （sandbox 実行前後で当該ディレクトリの**ファイル集合が不変**であることの
+#     全数照合）。ただし TC-02 が見るのも「apply を 1 回走らせた結果」であり、
+#     複製導線一般の不在を証明するものではない（残存脅威は TC-04 直前の
+#     コメントと handoff にまとめる）。
 _t1071_assign=$(grep -cE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=.*scripts/hooks/check-approval-token-write' "$PG_T25_PATCH" 2>/dev/null || true)
 _t1071_mk=$(grep -cE '(^|[[:space:];&|(])(cp|ln|install|mv|touch|tee)[[:space:]].*scripts/hooks/check-approval-token-write' "$PG_T25_PATCH" 2>/dev/null || true)
 if [ "$_t1071_assign" = "0" ] && [ "$_t1071_mk" = "0" ]; then
-  t25_pass "T1071-TC-01 apply script has no literal scripts/hooks/<guard> duplication line (regression pin; the durable net is TC-02)"
+  t25_pass "T1071-TC-01 apply script has no literal scripts/hooks/<guard> duplication line (single-literal regression pin only; renames are NOT covered here)"
 else
   t25_fail "T1071-TC-01 apply script still has a literal duplication line (assign=$_t1071_assign mk=$_t1071_mk)"
 fi
@@ -916,6 +931,22 @@ fi
 # `scripts/check-approval-token-write.sh` だけは実物を置く。これは #1071 の
 # 主題そのもの（旧版 apply が cp する複製元）であり、変異注入で検出力を実証する
 # 経路に必要なため、ここへの結合は意図的。
+#
+# ── 判定軸（#1252 R4 M-1 で張り替え）──────────────────────────────
+# 旧版の判定は `[ -e "$sbx/scripts/hooks/check-approval-token-write.sh" ]`＝
+# **リテラルパス 1 個**の存在検査だった。doc の不変条件は「`scripts/hooks/` 配下に
+# コピーを置かない」という**パス配下の全体量化**なので、複製先を改名するだけで
+# 素通りする（R4 実測: `scripts/hooks/eh13-token-guard.sh` を作る mutant が
+# 121 passed / 0 failed のまま生存）。
+#
+# そこで判定を **`scripts/hooks/` のファイル集合が apply 実行の前後で不変**である
+# ことへ替える。fixture 上この集合は `check-plan-hash.sh` 1 件だけなので `find` の
+# 全数照合で足り、**名前に依存せず**あらゆる新規ファイル / サブディレクトリを殺せる。
+# Patch 3 は `check-plan-hash.sh` を**内容だけ**書き換えるので集合は動かない。
+#
+# 検出力の限界: 本 TC が見るのは「この apply スクリプトを sandbox で 1 回走らせた
+# 結果」であって、複製導線一般の不在ではない。別経路（別スクリプト・手作業・
+# 実行時 env 依存の分岐）による複製は射程外。
 _t1071_sbx=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-1071.XXXXXX")
 register_cleanup "$_t1071_sbx"
 mkdir -p "$_t1071_sbx/scripts/hooks" "$_t1071_sbx/schemas" "$_t1071_sbx/bin" "$_t1071_sbx/.github/workflows"
@@ -945,10 +976,17 @@ _t1071_p4="$_t1071_sbx/bin/plangate"
 printf '#!/bin/sh\n# t25 synthetic fixture (Patch 4 anchors only)\nos.replace(tmp, target)\nPYW\nexit 0\n' > "$_t1071_p4"
 # Patch 5 fixture: 生成先は不在にしておく（適用分岐へ落とす）
 
-_t1071_dup="$_t1071_sbx/scripts/hooks/check-approval-token-write.sh"
+# _t1071_lsset <dir> --- dir 配下の相対パス集合を 1 行 1 件で（ソート済みで）出力
+_t1071_lsset() {
+  find "$1" -mindepth 1 2>/dev/null | sed "s|^$1/||" | LC_ALL=C sort
+}
+
+_t1071_hooksdir="$_t1071_sbx/scripts/hooks"
+_t1071_before=$(_t1071_lsset "$_t1071_hooksdir")
 _t1071_out="$_t1071_sbx/apply.out"
 _t1071_rc=0
 sh "$_t1071_sbx/scripts/apply-task-0123-patches.sh" > "$_t1071_out" 2>&1 || _t1071_rc=$?
+_t1071_after=$(_t1071_lsset "$_t1071_hooksdir")
 
 # 適用分岐通過マーカー（Patch 1 / 3 / 4 / 5 の順）。SKIP 分岐では出力されない。
 _t1071_marks=""
@@ -964,22 +1002,52 @@ for _t1071_pat in \
   fi
 done
 
+# 母集団が空だと集合照合は vacuous（何を足しても差分が出る／出ないの判別以前に
+# 「元から空」は fixture 破損）。fixture は check-plan-hash.sh 1 件を必ず持つ。
 if [ "$_t1071_rc" != "0" ]; then
-  t25_fail "T1071-TC-02 apply run did not complete (rc=$_t1071_rc marks=$_t1071_marks) — duplicate check would be vacuous"
+  t25_fail "T1071-TC-02 apply run did not complete (rc=$_t1071_rc marks=$_t1071_marks) — the file-set check would be vacuous"
 elif [ "$_t1071_marks" != "1111" ]; then
   t25_fail "T1071-TC-02 apply did not traverse every applied branch (marks=$_t1071_marks expected=1111) — rc=0 alone is vacuous"
-elif [ -e "$_t1071_dup" ]; then
-  t25_fail "T1071-TC-02 apply run created a duplicate at scripts/hooks/<guard> (marks=$_t1071_marks)"
+elif [ "$_t1071_before" != "check-plan-hash.sh" ]; then
+  t25_fail "T1071-TC-02 fixture broken: pre-run scripts/hooks/ set was [$_t1071_before], expected exactly [check-plan-hash.sh]"
+elif [ "$_t1071_after" != "$_t1071_before" ]; then
+  t25_fail "T1071-TC-02 apply changed the file set under scripts/hooks/ (before=[$_t1071_before] after=[$_t1071_after]) — any added file counts, whatever its name"
 else
-  t25_pass "T1071-TC-02 apply traverses Patch 1/3/4/5 applied branches (marks=1111, rc=0) and creates no scripts/hooks/<guard> duplicate"
+  t25_pass "T1071-TC-02 apply traverses Patch 1/3/4/5 applied branches (marks=1111, rc=0) and leaves the scripts/hooks/ file set unchanged (name-independent, full enumeration)"
 fi
 
 # T1071-TC-03: 本 repo に複製が存在しない（AC-4 / 実測の回帰固定）
-if [ ! -e "$PG_T25_ROOT/scripts/hooks/check-approval-token-write.sh" ] \
-  && [ -f "$PG_T25_ROOT/scripts/check-approval-token-write.sh" ]; then
-  t25_pass "T1071-TC-03 repo has the single canonical guard and no scripts/hooks/ duplicate"
+#
+# #1252 R4 M-1: リテラルパス 1 個の `[ ! -e ]` では**改名した複製**を見逃す。
+# `scripts/hooks/` 配下を全数走査し、(a) 正本と**バイト一致**するファイル、
+# (b) 名前に `approval-token-write` を含むファイル、のいずれかがあれば FAIL。
+# 検出力の限界: 内容を編集した改名複製（fork）は (a) を外れる。名前も内容も
+# 変えた「事実上の複製」は静的には同定できない — 残存脅威として明示する。
+_t1071_canon="$PG_T25_ROOT/scripts/check-approval-token-write.sh"
+_t1071_clones=""
+if [ ! -f "$_t1071_canon" ] || [ ! -r "$_t1071_canon" ]; then
+  t25_fail "T1071-TC-03 canonical guard missing/unreadable at scripts/check-approval-token-write.sh"
 else
-  t25_fail "T1071-TC-03 guard layout broken (duplicate present or canonical missing)"
+  _t1071_csum=$(cksum < "$_t1071_canon")
+  for _t1071_hf in "$PG_T25_ROOT"/scripts/hooks/*; do
+    [ -f "$_t1071_hf" ] || continue
+    case "$_t1071_hf" in
+      *approval-token-write*) _t1071_clones="$_t1071_clones ${_t1071_hf##*/}(name)"; continue ;;
+    esac
+    if [ ! -r "$_t1071_hf" ]; then
+      # 読めないファイルを無言で「複製でない」と数えない（fail-closed）
+      _t1071_clones="$_t1071_clones ${_t1071_hf##*/}(unreadable)"
+      continue
+    fi
+    if [ "$(cksum < "$_t1071_hf")" = "$_t1071_csum" ]; then
+      _t1071_clones="$_t1071_clones ${_t1071_hf##*/}(byte-identical)"
+    fi
+  done
+  if [ -z "$_t1071_clones" ]; then
+    t25_pass "T1071-TC-03 scripts/hooks/ contains no byte-identical or name-matching copy of the canonical guard (full enumeration)"
+  else
+    t25_fail "T1071-TC-03 scripts/hooks/ contains a copy of the canonical guard:$_t1071_clones"
+  fi
 fi
 
 # T1071-TC-04: EH-13 配線が scripts/ 直下を指し、scripts/hooks/ を指さない（AC-5）
@@ -1004,6 +1072,39 @@ fi
 #   | tracked | git の index にある = CI と他人の checkout に必ず存在する | **FAIL** |
 #   | untracked / 環境依存 | `.gitignore` 済み・repo 外（`~/.claude/settings.json` 等） | **WARN** |
 #   | loaded | harness が実際にロード・発火させた配線 | **本 TC の射程外** |
+#
+# ── 陽性 assert の強度（#1252 R4 M-2 で張り替え）────────────────────
+# 旧版の root カウントは `grep -c 'scripts/check-approval-token-write\.sh'`＝
+# **ファイル中のどこかに文字列があるか**だった。R4 実測でこれが、
+# **同じ PR の doc が「無言で無効化されるクラス」として明文化した書法**でも
+# 満たされることが分かった:
+#
+#   | 合成配線 | 旧 root カウント | 実際にロードされるか |
+#   |---------|----------------|--------------------|
+#   | `${CLAUDE_PROJECT_DIR}` 付き絶対パス | 1（PASS） | される（正しい） |
+#   | 相対パス `sh scripts/...` | 1（PASS） | **cwd 次第でされない** |
+#   | 散文（`_comment_`）中の言及だけ | 1（PASS） | されない |
+#   | 未知 / typo の event キー配下 | 1（PASS） | されない |
+#
+# 下 3 つは `loaded`（実発火）の問題ではなく**静的に判定できる構造の問題**なので、
+# 「loaded は射程外」で免責しない。root として数える条件を次の 2 つに絞る:
+#
+#   1. **構造上のフック位置**にあること — JSON を実際に parse し、
+#      `hooks.<既知 event キー>[].hooks[].command`（Claude / Codex 形式）または
+#      `hooks.<既知 event キー>[].command`（Cursor 形式）の文字列だけを見る。
+#      散文フィールド・未知 event キー配下は母集団に入らない。
+#   2. **repo ルートにアンカーされていること** — `${CLAUDE_PROJECT_DIR}` /
+#      `$CLAUDE_PROJECT_DIR` / `$(git rev-parse --show-toplevel)` /
+#      `${PLANGATE_REPO_ROOT}` のいずれかを前置していること。
+#      アンカーの無い参照は `rel` として**別カウントし FAIL 側に置く**
+#      （移行期間は設けない。doc が既に「相対パスにしない」と明記しているため）。
+#
+# 既知の副作用: Cursor の hooks 仕様は相対パスを正とするため、`.cursor/hooks.json`
+# へ EH-13 を相対パスで配線すると本 TC は `rel` として赤くする。これは意図的
+# （doc「この方針の代償」節のとおり EH-13 の Cursor 配線は現状スコープ外であり、
+# 配線するなら別 issue でブリッジ側を変える）。
+#
+# JSON parse は python3 に依存する。python3 不在は **fail-closed**（NOPY）で落とす。
 #
 #   - tracked / untracked の判定は `git ls-files --error-unmatch` で機械化する
 #     （パスのハードコード分類にしない。`.gitignore` が変われば自動で追従する）。
@@ -1041,8 +1142,78 @@ _t1071_isrepo() {
 }
 
 # _t1071_count <file> <pattern> --- 一致行数を echo。読めなければ何も echo しない。
+# WARN レーン（環境依存ファイル）専用。任意形式のファイルが来るため素の grep で扱う。
 _t1071_count() {
   grep -c "$2" "$1" 2>/dev/null || true
+}
+
+# _t1071_jsonrefs <file> --- "<root> <hooks> <rel>" を echo。
+#   root  : 構造上のフック位置にあり repo ルートへアンカーされた正本参照
+#   hooks : scripts/hooks/ 複製への参照（アンカー有無を問わない）
+#   rel   : 構造上のフック位置にあるがアンカーされていない参照（＝無言で無効化）
+# parse 失敗 / python3 不在では何も echo せず non-zero で返る（呼び出し側で fail-closed）。
+_t1071_jsonrefs() {
+  python3 - "$1" <<'T25_JSONREFS'
+import json
+import re
+import sys
+
+# harness が実際にロードする event キー（Claude Code / Codex / Cursor）。
+# ここに無いキー配下の command は「書いてあるが起動されない」ため母集団に入れない。
+EVENTS = {
+    "pretooluse", "posttooluse", "userpromptsubmit", "notification",
+    "stop", "subagentstop", "precompact", "sessionstart", "sessionend",
+    "beforeshellexecution", "beforemcpexecution", "beforereadfile",
+    "beforesubmitprompt", "afterfileedit",
+}
+
+DUP = re.compile(r"scripts/hooks/check-approval-token-write\.sh")
+ROOT = re.compile(
+    r"(\$\{CLAUDE_PROJECT_DIR\}|\$CLAUDE_PROJECT_DIR"
+    r"|\$\(git rev-parse --show-toplevel\)"
+    r"|\$\{PLANGATE_REPO_ROOT\}|\$PLANGATE_REPO_ROOT)"
+    r"/scripts/check-approval-token-write\.sh"
+)
+ANY = re.compile(r"check-approval-token-write\.sh")
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        doc = json.load(fh)
+except Exception:
+    sys.exit(3)
+
+commands = []
+hooks = doc.get("hooks") if isinstance(doc, dict) else None
+if isinstance(hooks, dict):
+    for event, entries in hooks.items():
+        if not isinstance(event, str) or event.lower() not in EVENTS:
+            continue
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            direct = entry.get("command")          # Cursor 形式
+            if isinstance(direct, str):
+                commands.append(direct)
+            inner = entry.get("hooks")             # Claude / Codex 形式
+            if isinstance(inner, list):
+                for hook in inner:
+                    if (isinstance(hook, dict)
+                            and hook.get("type") == "command"
+                            and isinstance(hook.get("command"), str)):
+                        commands.append(hook["command"])
+
+root = dup = rel = 0
+for command in commands:
+    if DUP.search(command):
+        dup += 1
+    elif ROOT.search(command):
+        root += 1
+    elif ANY.search(command):
+        rel += 1
+print("%d %d %d" % (root, dup, rel))
+T25_JSONREFS
 }
 
 # _t1071_env_add <file> — WARN レーンへ 1 ファイル加算（pass/fail は動かさない）
@@ -1063,7 +1234,9 @@ _t1071_env_add() {
 # _t1071_scan <root> <user-settings-path>
 #   グローバル副作用:
 #     _T1071_VERDICT     PASS / FAIL / INCOMPLETE / NOGIT
-#     _T1071_TROOT       tracked な WIRING 集合中の scripts/ 直下参照件数
+#     _T1071_TROOT       tracked な WIRING 集合中の「構造上のフック位置にあり
+#                        repo ルートへアンカーされた」正本参照件数
+#     _T1071_TREL        同上のうちアンカーされていない参照件数（FAIL 要因）
 #     _T1071_THOOK       tracked な WIRING+DIST 集合中の複製参照件数
 #     _T1071_ENVHOOK     環境依存ファイル中の複製参照件数（判定に入れない）
 #     _T1071_ENVHITS     同上のファイル一覧
@@ -1074,6 +1247,7 @@ _t1071_scan() {
   _sc_user="$2"
   _T1071_VERDICT=""
   _T1071_TROOT=0
+  _T1071_TREL=0
   _T1071_THOOK=0
   _T1071_ENVHOOK=0
   _T1071_ENVHITS=""
@@ -1082,6 +1256,11 @@ _t1071_scan() {
 
   if ! _t1071_isrepo "$_sc_top"; then
     _T1071_VERDICT="NOGIT"
+    return 0
+  fi
+  # 構造判定は JSON parse を要する。python3 不在は fail-closed（緑にしない）。
+  if ! command -v python3 >/dev/null 2>&1; then
+    _T1071_VERDICT="NOPY"
     return 0
   fi
 
@@ -1102,16 +1281,21 @@ _t1071_scan() {
         _T1071_INCOMPLETE="$_T1071_INCOMPLETE $_sc_rel"
         continue
       fi
-      _sc_n=$(_t1071_count "$_sc_f" 'scripts/check-approval-token-write\.sh')
-      _sc_m=$(_t1071_count "$_sc_f" 'hooks/check-approval-token-write\.sh')
-      if [ -z "$_sc_n" ] || [ -z "$_sc_m" ]; then
-        _T1071_INCOMPLETE="$_T1071_INCOMPLETE $_sc_rel"
+      # 構造 scan（JSON parse）。parse 不能な tracked 配線は「列挙が不完全」。
+      _sc_res=$(_t1071_jsonrefs "$_sc_f") || _sc_res=""
+      if [ -z "$_sc_res" ]; then
+        _T1071_INCOMPLETE="$_T1071_INCOMPLETE $_sc_rel(unparsed)"
         continue
       fi
+      _sc_n=${_sc_res%% *}
+      _sc_tail=${_sc_res#* }
+      _sc_m=${_sc_tail%% *}
+      _sc_r=${_sc_tail#* }
       # root_refs は repo の配線正本（WIRING 集合）からだけ数える。
       # plugin 配布物は「配線が生きている」証拠にならないため hook 側にのみ寄与。
       if [ "$_sc_dist" = "0" ]; then
         _T1071_TROOT=$((_T1071_TROOT + _sc_n))
+        _T1071_TREL=$((_T1071_TREL + _sc_r))
       fi
       _T1071_THOOK=$((_T1071_THOOK + _sc_m))
     else
@@ -1129,27 +1313,31 @@ _t1071_scan() {
 
   if [ -n "$_T1071_INCOMPLETE" ]; then
     _T1071_VERDICT="INCOMPLETE"
-  elif [ "$_T1071_TROOT" -ge 1 ] && [ "$_T1071_THOOK" = "0" ]; then
+  elif [ "$_T1071_TROOT" -ge 1 ] && [ "$_T1071_THOOK" = "0" ] && [ "$_T1071_TREL" = "0" ]; then
     _T1071_VERDICT="PASS"
   else
     _T1071_VERDICT="FAIL"
   fi
 }
 
-# T1071-TC-04a: 実 repo の tracked 配線が scripts/ 直下のみを指す
-_t1071_scan "$PG_T25_ROOT" "$PG_T25_USER_SETTINGS"
+# T1071-TC-04a: 実 repo の tracked 配線が「構造上のフック位置」で
+# 「repo ルートへアンカーされた」scripts/ 直下のみを指す
+_t1071_scan "$PG_T25_WIRING_ROOT" "$PG_T25_USER_SETTINGS"
 case "$_T1071_VERDICT" in
   PASS)
-    t25_pass "T1071-TC-04a EH-13 tracked wiring points at scripts/ root only (tracked root=$_T1071_TROOT hooks=0)"
+    t25_pass "T1071-TC-04a EH-13 tracked wiring is anchored (\${CLAUDE_PROJECT_DIR} etc.) and structural, pointing at scripts/ root only (root=$_T1071_TROOT hooks=0 unanchored=0)"
     ;;
   INCOMPLETE)
-    t25_fail "T1071-TC-04a tracked wiring file unreadable/missing — verdict would be incomplete:$_T1071_INCOMPLETE"
+    t25_fail "T1071-TC-04a tracked wiring file unreadable/unparsable — verdict would be incomplete:$_T1071_INCOMPLETE"
     ;;
   NOGIT)
     t25_fail "T1071-TC-04a cannot determine the tracked set (not a git checkout) — fail-closed"
     ;;
+  NOPY)
+    t25_fail "T1071-TC-04a python3 unavailable — the structural JSON check cannot run (fail-closed)"
+    ;;
   *)
-    t25_fail "T1071-TC-04a EH-13 tracked wiring unexpected (tracked root=$_T1071_TROOT hooks=$_T1071_THOOK)"
+    t25_fail "T1071-TC-04a EH-13 tracked wiring unexpected (root=$_T1071_TROOT hooks=$_T1071_THOOK unanchored=$_T1071_TREL)"
     ;;
 esac
 
@@ -1166,56 +1354,92 @@ if [ -n "$_T1071_ENVUNREAD" ]; then
     "$_T1071_ENVUNREAD" >&2
 fi
 
-# ── 陽性コントロール（両方向 / #1252 R3 M-1）──────────────────────────
+# ── 陽性コントロール（両方向 / #1252 R3 M-1・R4 M-2）──────────────────
 # 検査モデルが「実際に何を検出でき、何を検出しないか」をテスト自身の中で実測する。
 # ここが無いと TC-04a は「たまたま緑」と区別がつかない。
 #   b: tracked 配線が消えたら赤くなるか（旧版はここが PASS だった）
 #   c: untracked な環境ファイルが tracked の欠落を **救済しない**か（M-1 の実害）
 #   d: 環境側に複製参照があっても repo が正しければ **赤くならない**か（逆方向）
 #   e: tracked 側の複製参照は引き続き赤くなるか（既存 true positive の退行防止）
+#   f: **相対パス**（アンカー無し）の tracked 配線は赤くなるか（R4 M-2 / doc が
+#      「無言で無効化される」と明記した書法を機械ゲートが緑にしない）
+#   g: **散文中の言及だけ**の tracked 配線は赤くなるか（R4 M-2）
+#   h: **未知 / typo の event キー**配下の tracked 配線は赤くなるか（R4 M-2）
+#
+# コントロール sandbox の settings は **実際に parse できる JSON** として組み立てる
+# （旧版は生の断片行だったため、構造判定を入れると成立しなくなる）。
 
-# _t1071_mkctl <tracked-content> <untracked-content> --- sandbox path を echo
-#   untracked 性は宣言でなく **実際の git の状態**として作る（.gitignore + add 対象外）。
+# _t1071_mkjson <commands> <event-key> <prose>
+#   commands: 1 行 1 コマンド文字列（空行は無視）
+#   prose:    hooks の外側（_comment_）に置く散文。構造上のフック位置ではない。
+_t1071_mkjson() {
+  T25_MJ_CMDS="$1" T25_MJ_EV="$2" T25_MJ_PROSE="$3" python3 - <<'T25_MKJSON'
+import json
+import os
+
+commands = [c for c in os.environ["T25_MJ_CMDS"].split("\n") if c]
+doc = {
+    "_comment_": os.environ["T25_MJ_PROSE"],
+    "hooks": {
+        os.environ["T25_MJ_EV"]: [
+            {"matcher": "Edit|Write",
+             "hooks": [{"type": "command", "command": c}]}
+            for c in commands
+        ]
+    },
+}
+print(json.dumps(doc, indent=2))
+T25_MKJSON
+}
+
+# _t1071_mkctl <tracked-commands> <untracked-commands> [event-key] [prose]
+#   sandbox パスは **グローバル `_T1071_CTL`** で返す。
+#   ⚠️ `$( )` で呼ばないこと（#1252 R4 minor）: register_cleanup は
+#      シェル変数への追記なので subshell で登録が失われ、1 実行ごとに
+#      TMPDIR へ sandbox が残る（f5fd09a 実測: standalone 1 回で 8 個）。
+#   untracked 性は宣言でなく **実際の VCS の状態**として作る（ignore + add 対象外）。
 _t1071_mkctl() {
-  _mk=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-ctl.XXXXXX")
-  register_cleanup "$_mk"
-  mkdir -p "$_mk/.claude"
-  printf '.claude/settings.json\n.claude/settings.local.json\n' > "$_mk/.gitignore"
-  printf '%s\n' "$1" > "$_mk/.claude/settings.example.json"
-  git -C "$_mk" init -q >/dev/null 2>&1
-  # -f: 利用者の global gitignore が .claude/ を無視していても tracked にする
+  _T1071_CTL=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-ctl.XXXXXX")
+  register_cleanup "$_T1071_CTL"
+  mkdir -p "$_T1071_CTL/.claude"
+  printf '.claude/settings.json\n.claude/settings.local.json\n' > "$_T1071_CTL/.gitignore"
+  _t1071_mkjson "$1" "${3:-PreToolUse}" "${4:-t25 synthetic control}" \
+    > "$_T1071_CTL/.claude/settings.example.json"
+  git -C "$_T1071_CTL" init -q >/dev/null 2>&1
+  # -f: 利用者の global ignore 設定が .claude/ を無視していても tracked にする
   # （sandbox の tracked 集合を環境設定に依存させない）
-  git -C "$_mk" add -f .gitignore .claude/settings.example.json >/dev/null 2>&1
+  git -C "$_T1071_CTL" add -f .gitignore .claude/settings.example.json >/dev/null 2>&1
   if [ -n "$2" ]; then
-    printf '%s\n' "$2" > "$_mk/.claude/settings.json"
+    _t1071_mkjson "$2" PreToolUse "t25 synthetic env" > "$_T1071_CTL/.claude/settings.json"
   fi
-  printf '%s' "$_mk"
 }
 
 # _t1071_ctl <label> <expected-verdict> <sandbox>
 _t1071_ctl() {
   _t1071_scan "$3" ""
   if [ "$_T1071_VERDICT" = "$2" ]; then
-    t25_pass "$1 (verdict=$_T1071_VERDICT root=$_T1071_TROOT hooks=$_T1071_THOOK env=$_T1071_ENVHOOK)"
+    t25_pass "$1 (verdict=$_T1071_VERDICT root=$_T1071_TROOT hooks=$_T1071_THOOK unanchored=$_T1071_TREL env=$_T1071_ENVHOOK)"
   else
-    t25_fail "$1 expected=$2 got=$_T1071_VERDICT (root=$_T1071_TROOT hooks=$_T1071_THOOK env=$_T1071_ENVHOOK incomplete=$_T1071_INCOMPLETE)"
+    t25_fail "$1 expected=$2 got=$_T1071_VERDICT (root=$_T1071_TROOT hooks=$_T1071_THOOK unanchored=$_T1071_TREL env=$_T1071_ENVHOOK incomplete=$_T1071_INCOMPLETE)"
   fi
 }
 
-_t1071_ref_root='"command": "sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh"'
-_t1071_ref_hook='"command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-approval-token-write.sh"'
+# コマンド文字列（JSON の値としてそのまま埋め込む）
+_t1071_cmd_root='sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh'
+_t1071_cmd_hook='sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-approval-token-write.sh'
+_t1071_cmd_rel='sh scripts/check-approval-token-write.sh'
 
 # b: tracked 配線が全て消えた repo は必ず赤くなる
-_t1071_ctl_b=$(_t1071_mkctl "" "")
-_t1071_ctl "T1071-TC-04b removing every tracked EH-13 wiring turns the verdict red" FAIL "$_t1071_ctl_b"
+_t1071_mkctl "" ""
+_t1071_ctl "T1071-TC-04b removing every tracked EH-13 wiring turns the verdict red" FAIL "$_T1071_CTL"
 
 # c: untracked な環境ファイルは tracked の欠落を救済しない（M-1 の実害そのもの）
-_t1071_ctl_c=$(_t1071_mkctl "" "$_t1071_ref_root")
-_t1071_ctl "T1071-TC-04c an untracked env file cannot rescue missing tracked wiring" FAIL "$_t1071_ctl_c"
+_t1071_mkctl "" "$_t1071_cmd_root"
+_t1071_ctl "T1071-TC-04c an untracked env file cannot rescue missing tracked wiring" FAIL "$_T1071_CTL"
 
 # d: 環境側に複製参照があっても repo が正しければ赤くならない（逆方向）
-_t1071_ctl_d=$(_t1071_mkctl "$_t1071_ref_root" "$_t1071_ref_hook")
-_t1071_ctl "T1071-TC-04d an untracked env file with a hooks/ duplicate does not fail the repo" PASS "$_t1071_ctl_d"
+_t1071_mkctl "$_t1071_cmd_root" "$_t1071_cmd_hook"
+_t1071_ctl "T1071-TC-04d an untracked env file with a hooks/ duplicate does not fail the repo" PASS "$_T1071_CTL"
 
 # d-2: しかも「見えていない」わけではない（WARN レーンには載る）
 if [ "$_T1071_ENVHOOK" -ge 1 ]; then
@@ -1225,9 +1449,24 @@ else
 fi
 
 # e: tracked 側の複製参照は引き続き赤くなる（既存 true positive の退行防止）
-_t1071_ctl_e=$(_t1071_mkctl "$_t1071_ref_root
-$_t1071_ref_hook" "")
-_t1071_ctl "T1071-TC-04e a hooks/ duplicate in a tracked wiring file still fails" FAIL "$_t1071_ctl_e"
+_t1071_mkctl "$_t1071_cmd_root
+$_t1071_cmd_hook" ""
+_t1071_ctl "T1071-TC-04e a hooks/ duplicate in a tracked wiring file still fails" FAIL "$_T1071_CTL"
+
+# f: 相対パス（アンカー無し）だけの tracked 配線は赤くなる。
+#    doc「パスは ${CLAUDE_PROJECT_DIR} 付きで書くこと（相対パスにしない）… cwd 次第で
+#    ロードされず無言で無効化される」が名指ししたクラスそのもの。
+_t1071_mkctl "$_t1071_cmd_rel" ""
+_t1071_ctl "T1071-TC-04f an unanchored (relative-path) tracked wiring fails" FAIL "$_T1071_CTL"
+
+# g: 散文中の言及だけでは陽性 assert を満たさない（構造上のフック位置ではない）
+_t1071_mkctl "" "" PreToolUse \
+  'see ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh for details'
+_t1071_ctl "T1071-TC-04g a prose-only mention does not count as wiring" FAIL "$_T1071_CTL"
+
+# h: 未知 / typo の event キー配下は harness がロードしないため陽性にしない
+_t1071_mkctl "$_t1071_cmd_root" "" PreToolUseX
+_t1071_ctl "T1071-TC-04h wiring under an unknown/typo event key does not count" FAIL "$_T1071_CTL"
 
 # ── T1023 追加 TC（通常モード）───────────────────────────────
 

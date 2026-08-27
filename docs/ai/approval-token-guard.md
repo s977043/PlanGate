@@ -86,6 +86,32 @@ bin/plangate maintenance start --reason "hook 整備" [--paths "scripts/hooks/fo
 > **ロードされず無言で無効化される**。実際に効いている配線の正本は
 > [`.claude/settings.example.json`](../../.claude/settings.example.json)（EH-13 の 2 エントリ）。
 
+## この方針を守っている機械ゲート（何を検出し、何を検出しないか）
+
+> #1252 R5。**「不変条件を doc に書いた」ことと「機械が守らせている」ことは別物**
+> なので、現に何が撃たれているかをここに明示する。
+
+正本は [`tests/extras/ta-25-approval-token-guard.sh`](../../tests/extras/ta-25-approval-token-guard.sh)
+の `T1071-TC-01`〜`TC-04h`。
+
+| TC | 何を撃つか | 検出できないもの |
+|----|-----------|----------------|
+| TC-01 | apply スクリプトに**このリテラルパス 1 個**が再登場する回帰 | 別名の複製 / 変数経由のパス構築 |
+| TC-02 | sandbox で apply を適用分岐まで実走させたとき、`scripts/hooks/` の**ファイル集合が不変**であること（`find` の全数照合＝**名前に依存しない**） | この apply スクリプト以外の経路による複製 |
+| TC-03 | 実 repo の `scripts/hooks/` 配下に、正本と**バイト一致**するファイル / 名前に `approval-token-write` を含むファイルが無いこと（全数走査） | 内容を編集した改名複製（fork） |
+| TC-04a | **tracked** な配線が、JSON 構造上の `hooks.<既知 event キー>[].command` 位置にあり、かつ `${CLAUDE_PROJECT_DIR}` 等で**repo ルートにアンカー**されて `scripts/` 直下を指すこと | **loaded（実際にロード・発火したか）**。設定ファイルに書いてあることは効いていることの証拠にならない |
+| TC-04b〜h | 上記判定の**両方向の陽性コントロール**（配線削除 / untracked による救済 / 環境側複製 / tracked 複製 / 相対パス / 散文のみ / 未知 event キー） | — |
+
+`untracked`（`.claude/settings.json` 等 `.gitignore` 済み）および repo 外の
+`~/.claude/settings.json` は **WARN レーン**で、pass/fail を動かさない。repo の
+責任ではないものを repo のせいにしないため（かつ `.claude/settings*.json` は
+Hardening Override 対象で AI が是正できないため）。
+
+**既知のギャップ（本 doc の範囲外 / issue #1259）**:
+[`scripts/check-settings-wiring.sh`](../../scripts/check-settings-wiring.sh) の
+checks に EH-13 は**未登録**である。そのため `.claude/settings.example.json` に
+対する機械ゲートは事実上 `T1071-TC-04a` の 1 本しかない。
+
 ## ガード本体の配置（単一ソース）
 
 EH-13 guard の**正本は `scripts/check-approval-token-write.sh` の 1 本のみ**。
