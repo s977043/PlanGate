@@ -789,15 +789,56 @@ else
   fi
 fi
 
-# TC-30: tests/extras/README.md に harness 判別規約が存在（#914 AC-5 / 静的検査）
+# TC-30: tests/extras/README.md の「隔離・後始末の規約」8（harness 判別規約）が
+# **規約として成立している**こと（#914 AC-5 / #1250 M-3 で内容盲目を是正）。
+#
+# 旧実装は README **全体**に対し `PG_HARNESS_SOURCED` / `非 export` / `AND` /
+# `standalone 側（安全側）` の 4 トークンが存在するかを見ていた。これは
+# 「文字列の存在ではなく構造を見る」（README「PASS 判定の書き方」P-5）に
+# 反しており、**4 トークンを残したまま規約を反転**（「OR でよい」「AND は不要」
+# 「standalone 側（安全側）には倒さない」）しても PASS した（実測 SURVIVE:
+# 34 passed / 0 failed）。
+#
+# 是正: TC-38 と同じ手法（**該当ブロックを抽出してからブロック内で照合**）へ
+# 寄せ、さらに **規範文そのもの**（反転すれば必ず消える文言）と、規約の正本で
+# ある例示コードの **AND 結合された条件行**を連言で要求する。
 _t26_readme30="$PG_T26_ROOT/tests/extras/README.md"
-if grep -q 'PG_HARNESS_SOURCED' "$_t26_readme30" 2>/dev/null \
-  && grep -q '非 export' "$_t26_readme30" \
-  && grep -q 'AND' "$_t26_readme30" \
-  && grep -q 'standalone 側（安全側）' "$_t26_readme30"; then
-  t26_pass "TC-30 README.md に判別規約（PG_HARNESS_SOURCED / 非 export / AND / standalone 側（安全側））"
+_t26_tmp30=$(mktemp -d)
+if command -v register_cleanup >/dev/null 2>&1; then
+  register_cleanup "$_t26_tmp30"
+fi
+_t26_blk30="$_t26_tmp30/readme-rule8.txt"
+awk '
+  !seen && /^8\. \*\*harness\/standalone/ { seen = 1; print; next }
+  seen && /^9\. / { exit }
+  seen { print }
+' "$_t26_readme30" > "$_t26_blk30" 2>/dev/null || true
+_t26_blklines30=$(grep -c . "$_t26_blk30" 2>/dev/null || true)
+[ -n "$_t26_blklines30" ] || _t26_blklines30=0
+_t26_v30=""
+# 抽出できたこと自体を先に確かめる（空ブロックを「違反 0 件」と読まない）
+if [ "$_t26_blklines30" -lt 10 ]; then
+  _t26_v30="$_t26_v30 ブロック抽出失敗(${_t26_blklines30}行)"
 else
-  t26_fail "TC-30 README.md の判別規約が不足（PG_HARNESS_SOURCED / 非 export / AND / standalone 側（安全側） のいずれか欠落）"
+  grep -q 'PG_HARNESS_SOURCED' "$_t26_blk30" || _t26_v30="$_t26_v30 PG_HARNESS_SOURCED"
+  grep -q '非 export' "$_t26_blk30" || _t26_v30="$_t26_v30 非export"
+  # 規範文（反転すれば必ず消える）
+  grep -q '\*\*AND\*\* で harness 実行を判別する' "$_t26_blk30" \
+    || _t26_v30="$_t26_v30 規範文(AND で判別する)"
+  grep -q '片方でも欠ければ \*\*standalone 側（安全側）へ倒す\*\*' "$_t26_blk30" \
+    || _t26_v30="$_t26_v30 規範文(片方でも欠ければ standalone 側（安全側）へ倒す)"
+  # 例示コードの条件行が実際に AND 結合であること（規約の正本はコード / P-9）
+  grep -qE '^[[:space:]]*if .*PG_HARNESS_SOURCED.*&&.*FIXTURES_DIR.*; then' "$_t26_blk30" \
+    || _t26_v30="$_t26_v30 例示の条件行が AND 結合でない"
+  # OR 結合の例示が混ざっていないこと（反転の直接形）
+  if grep -qE '^[[:space:]]*if .*PG_HARNESS_SOURCED.*\|\|.*FIXTURES_DIR.*; then' "$_t26_blk30"; then
+    _t26_v30="$_t26_v30 例示に OR 結合の条件行がある"
+  fi
+fi
+if [ -z "$_t26_v30" ]; then
+  t26_pass "TC-30 README「隔離・後始末の規約」8 が規約として成立（${_t26_blklines30} 行を抽出 / 規範文 2 本 + 例示の AND 結合条件行）"
+else
+  t26_fail "TC-30 README「隔離・後始末の規約」8 の欠落・反転:${_t26_v30}"
 fi
 
 # TC-33: FIXTURES_DIR 単独判別の残存 0 + unset 集合の包含（#914 AC-9 / R-304 / R-306）
@@ -817,6 +858,7 @@ fi
 _t26_viol33=""
 _t26_incl33=""
 _t26_nocond33=""
+_t26_nocondviol33=""
 _t26_scanned33=0
 # 行継続（末尾 `\`）を 1 行へ結合する共有正規化。旧実装は `grep '^\s*unset '`
 # を直接かけていたため、複数行に折られた unset の 2 行目以降が不可視になり
@@ -845,16 +887,79 @@ _t26_unset_envs33() {
 # 非ゼロを返すと、harness（run-tests.sh の `set -eu` 下で source）では関数が
 # その場で打ち切られ、`nocond` を印字しないまま非ゼロで戻って**違反に化ける**
 # （standalone は set -e が無いため再現せず、harness だけで落ちる型の差）。
+#
+# **`FIXTURES_DIR:-`（コロン付き）に限定しないこと**（#1250 M-2）。旧実装は
+# 判別行の抽出も走査ゲートもコロン付きに限定しており、判別式を
+# `if [ -n "${FIXTURES_DIR-}" ]; then`（コロン無し）へ書き換えるだけで
+# **ファイルごと検査対象から消えた**（実測: 走査 34 → 33 件のまま 34 passed /
+# 0 failed。件数 floor 20 では -1 の変化を検出できない）。抽出は
+# `FIXTURES_DIR` 単体で行う。
+#
+# 判別行は **変数を展開している**行に限る（`$FIXTURES_DIR` / `${FIXTURES_DIR`）。
+# `grep -q 'FIXTURES_DIR:-' "$f"` のように **文字列リテラル**として名前が現れる
+# だけの行は判別ではない（検査器自身＝ta-26 がまさにこの形を持つため、これを
+# 除外しないと自己検出で偽陽性になる / #1250 M-1・M-2 の実測）。
+_T26_DISC_EXPAND33='\$\{?FIXTURES_DIR'
 _t26_disc_lines33() {
   _t26_join_cont33 "$1" \
     | grep -v '^[[:space:]]*#' \
-    | grep 'FIXTURES_DIR:-' \
+    | grep -E "$_T26_DISC_EXPAND33" \
     | grep -E '^[[:space:]]*(if|elif)[[:space:]]|;[[:space:]]*then([[:space:]]|$)' \
+    || true
+}
+# 条件行として拾えなかった `FIXTURES_DIR` 行のうち、**判別に使われうる形**
+# （`case` の主語 / `[ -n ... ]` `[ -z ... ]` `test -n/-z` を FIXTURES_DIR に
+# 直接かける形）を列挙する（#1250 M-1）。
+#
+# 旧実装は「cond 行が 1 本も無いファイル」しか捕まえられなかった。cond 行が
+# 1 本でもあれば shape=cond になり、あとは「拾えた cond 行に相方が同居して
+# いるか」しか見ないため、**使われない囮の準拠行を 1 行足すだけ**で、実体が
+# `case "${FIXTURES_DIR:-}"` による単独判別でも緑になった（実測 SURVIVE:
+# 34 passed / 0 failed）。規約の趣旨をファイル単位ではなく **行単位**で適用する。
+#
+# 判定を FIXTURES_DIR に**隣接する**条件式へ絞るのは false positive 回避のため。
+# `_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"` のような単なるパス
+# 導出は `&&` を含むが判別ではない（実測: 隣接条件を課さず「代入行に条件演算子が
+# あれば違反」とすると走査 63 件中 **45 件**が偽陽性、隣接条件を課すと **0 件**）。
+# 相方 `PG_HARNESS_SOURCED` が同居する行は AND 判別の
+# 別書法として許す。
+_t26_disc_strays33() {
+  _t26_join_cont33 "$1" \
+    | grep -v '^[[:space:]]*#' \
+    | grep -E "$_T26_DISC_EXPAND33" \
+    | grep -vE '^[[:space:]]*(if|elif)[[:space:]]|;[[:space:]]*then([[:space:]]|$)' \
+    | grep -E '^[[:space:]]*case[[:space:]].*\$\{?FIXTURES_DIR|(\[|test)[[:space:]]+-[nz][[:space:]]+"?\$\{?FIXTURES_DIR' \
+    | grep -v 'PG_HARNESS_SOURCED' \
     || true
 }
 # 判別行に相方が同居しているか。判別行が 1 本も無いファイル（root 導出だけに
 # FIXTURES_DIR を使う harness 専用 extras）は、旧来のファイル単位判定へ
 # フォールバックし、件数を可視化する（黙って検査対象外にしない）。
+#
+# ⚠️ `nocond` フォールバックは **#994 が欠陥と認定した「ファイル単位 grep」そのもの**
+# である（#1250 F2）。無制限に許すと、判別式の *形* を変えるだけで検査を素通り
+# できる:
+#
+#     case "${FIXTURES_DIR:-}" in            ← 条件行の形ではないので disc_lines に
+#       "") _disc=standalone ;;                 拾われず nocond に落ちる
+#     esac
+#     if [ "$_disc" = harness ]; then ...     ← 実体は FIXTURES_DIR 単独判別（#914 違反）
+#
+# 敵対レビューがこの形の本物の違反を注入して SURVIVE を実測した。
+# そこで `nocond` を **明示 allowlist（下記 2 本）に限定**し、それ以外が
+# `nocond` に落ちたら FAIL とする。この 2 本は #921 実行契約 bootstrap へ
+# 移行しておらず root 導出だけに FIXTURES_DIR を使う既知の残件で、その
+# bootstrap 改修は本 PBI のスコープ外（退行だけを塞ぐ）。
+# 新規 extras をここへ足さないこと — 足す前に判別式を
+# **「隔離・後始末の規約」8** の形（`PG_HARNESS_SOURCED` と `FIXTURES_DIR` の
+# AND）にする。
+#
+# 番号の読み分け（#1250 m-1）: README には番号 8 / 9 の節が 2 系統ある。
+# 上の「規約 8」は**「隔離・後始末の規約」8**（判別式の形）。本 allowlist 自体は
+# 別系統の **`P-8`**（「PASS 判定の書き方」= 緩和フォールバックの allowlist 化）の
+# 実装例である。**引用時は「規約 N」=「隔離・後始末の規約」、`P-N`=「PASS 判定の
+# 書き方」と書き分けること。**
+_T26_NOCOND_ALLOW33='ta-12-maintenance.sh ta-42-cli-subcommands.sh'
 _t26_disc_ok33() {
   _t26_dl33=$(_t26_disc_lines33 "$1") || _t26_dl33=""
   if [ -z "$_t26_dl33" ]; then
@@ -870,39 +975,102 @@ _t26_disc_ok33() {
   fi
   return 0
 }
+_t26_stray33=""
+_t26_narrow33=0
+_t26_widenonly33=""
 _t26_hset33=$(_t26_unset_envs33 "$PG_T26_ROOT/tests/run-tests.sh" | tr '\n' ' ')
+# 走査ゲートは `FIXTURES_DIR` 単体（#1250 M-2）。コロン付きに限定していた旧
+# ゲートは、判別行を `${FIXTURES_DIR-}` へ書き換えるだけでファイルごと検査から
+# 外れた。ゲートを広げたうえで、コロン付き集合（= (2) unset 包含の対象）から
+# **外れたファイル名を列挙**する。件数 floor では -1 の変化を検出できないため、
+# 母数の減少は「数」ではなく「名前」で可視化する。
 for _t26_f33 in "$PG_T26_ROOT/tests/extras/"ta-*.sh; do
   [ -f "$_t26_f33" ] || continue
-  grep -q 'FIXTURES_DIR:-' "$_t26_f33" || continue
+  grep -q 'FIXTURES_DIR' "$_t26_f33" || continue
   _t26_scanned33=$((_t26_scanned33 + 1))
-  # (1) 判別行の AND 同居（#994 / #1178 AC-c）
+  _t26_base33="${_t26_f33##*/}"
+  # コロン付きで判別している「本来の統一対象」か（(2) の適用範囲）
+  _t26_isnarrow33=no
+  if grep -q 'FIXTURES_DIR:-' "$_t26_f33"; then
+    _t26_isnarrow33=yes
+    _t26_narrow33=$((_t26_narrow33 + 1))
+  else
+    _t26_widenonly33="$_t26_widenonly33 $_t26_base33"
+  fi
+  # (1) 判別行の AND 同居（#994 / #1178 AC-c、#1250 M-2 で FIXTURES_DIR 単体へ）
   _t26_shape33=""
   _t26_ok33=0
   _t26_shape33=$(_t26_disc_ok33 "$_t26_f33") || _t26_ok33=1
   case "$_t26_shape33" in
-    nocond) _t26_nocond33="$_t26_nocond33 ${_t26_f33##*/}" ;;
+    nocond)
+      case " $_T26_NOCOND_ALLOW33 " in
+        *" $_t26_base33 "*)
+          # 既知の allowlist（bootstrap 未移行の 2 本）。可視化だけして通す
+          _t26_nocond33="$_t26_nocond33 $_t26_base33"
+          ;;
+        *)
+          if [ "$_t26_isnarrow33" = yes ]; then
+            # allowlist 外の**統一対象**が nocond に落ちた = 判別式の形を変えた
+            # 退行。FAIL させる（ファイル名の追記は直後の共通 violation ブロック）
+            _t26_ok33=1
+            _t26_nocondviol33="$_t26_nocondviol33 $_t26_base33"
+          fi
+          if [ "$_t26_isnarrow33" != yes ]; then
+            # ゲート拡大で入っただけの harness 専用 extras（FIXTURES_DIR を
+            # root 導出にしか使わず、PG_HARNESS_SOURCED も持たない）は
+            # 判別していないので nocond が正常。ここを FAIL にすると 31 件が
+            # 一斉に落ちる（実測）。`_t26_disc_ok33` は nocond かつ相方の文字列が
+            # ファイルに無ければ rc=1 を返すので、明示的に打ち消す。
+            # 「実は判別している」ケースは (1b) の行単位検査が拾う
+            _t26_ok33=0
+          fi
+          ;;
+      esac
+      ;;
   esac
+  # (1b) 行単位: 条件行として拾えなかった判別形（#1250 M-1）。
+  # shape が cond でも nocond でも適用する — 囮の準拠 cond 行を 1 本足して
+  # 実体を `case` で判別する迂回は、ファイル単位の shape では捕まらない
+  _t26_st33=$(_t26_disc_strays33 "$_t26_f33") || _t26_st33=""
+  if [ -n "$_t26_st33" ]; then
+    _t26_ok33=1
+    _t26_stray33="$_t26_stray33 $_t26_base33"
+  fi
   if [ "$_t26_ok33" != "0" ]; then
-    _t26_viol33="$_t26_viol33 ${_t26_f33##*/}"
+    _t26_viol33="$_t26_viol33 $_t26_base33"
     continue
   fi
-  # (2) unset 包含（当該ファイルの unset 行群から env 名を収集して照合）
+  # (2) unset 包含（当該ファイルの unset 行群から env 名を収集して照合）。
+  # 対象はコロン付き集合のまま — ゲート拡大で入った harness 専用 extras は
+  # standalone 分岐を持たないため unset 集合を要求できない（既存挙動を保つ）
+  [ "$_t26_isnarrow33" = yes ] || continue
   _t26_fset33=$(_t26_unset_envs33 "$_t26_f33" | tr '\n' ' ')
   for _t26_e33 in $_t26_hset33; do
     case " $_t26_fset33 " in
       *" $_t26_e33 "*) : ;;
-      *) _t26_incl33="$_t26_incl33 ${_t26_f33##*/}:$_t26_e33" ;;
+      *) _t26_incl33="$_t26_incl33 $_t26_base33:$_t26_e33" ;;
     esac
   done
+done
+# allowlist の陳腐化検出（#1250 F2）: allowlist に載っているのに実際には
+# `nocond` へ落ちなかった（＝規約 8 の形へ是正済み、またはファイルが消えた）
+# エントリを列挙する。allowlist を「一度書いたら誰も削らない免罪符」にしない。
+_t26_stale33=""
+for _t26_a33 in $_T26_NOCOND_ALLOW33; do
+  case " $_t26_nocond33 " in
+    *" $_t26_a33 "*) : ;;
+    *) _t26_stale33="$_t26_stale33 $_t26_a33" ;;
+  esac
 done
 # 走査 0 件（glob 空振り・パス誤り）でも「違反 0 件」で緑になる恒真を塞ぐ。
 # floor は絶対件数の契約値ではない（`-eq` にしない / #1087 AC-9）。
 _T26_MIN_SCANNED33=20
 if [ -n "$_t26_hset33" ] && [ -z "$_t26_viol33" ] && [ -z "$_t26_incl33" ] \
+   && [ -z "$_t26_stale33" ] && [ -z "$_t26_stray33" ] \
    && [ "$_t26_scanned33" -ge "$_T26_MIN_SCANNED33" ]; then
-  t26_pass "TC-33 判別行に AND の相方が同居（走査 ${_t26_scanned33} 件 / 判別行なし:${_t26_nocond33:- なし}）+ standalone unset が run-tests.sh の unset 集合を包含"
+  t26_pass "TC-33 判別行に AND の相方が同居（走査 ${_t26_scanned33} 件 / うちコロン付き ${_t26_narrow33} 件 / 判別行なし（allowlist 内）:${_t26_nocond33:- なし}）+ 条件行外の判別形なし + standalone unset が run-tests.sh の unset 集合を包含 / ゲート拡大で入った（コロン無し）:${_t26_widenonly33:- なし}"
 else
-  t26_fail "TC-33 失敗 (判別行違反:${_t26_viol33:- なし} / unset欠落:${_t26_incl33:- なし} / 走査 ${_t26_scanned33} 件 / harness集合:${_t26_hset33:- 空})"
+  t26_fail "TC-33 失敗 (判別行違反:${_t26_viol33:- なし} / 条件行外の判別形（case・test を FIXTURES_DIR に直接）:${_t26_stray33:- なし} / allowlist 外の判別行なし:${_t26_nocondviol33:- なし} / allowlist 陳腐化（是正済なので削ること）:${_t26_stale33:- なし} / unset欠落:${_t26_incl33:- なし} / 走査 ${_t26_scanned33} 件（コロン付き ${_t26_narrow33} 件）/ harness集合:${_t26_hset33:- 空})"
 fi
 
 # TC-38: README 規約 8 の例示コードブロックが TC-33 の抽出規則 (1)(2) を通る
@@ -928,8 +1096,16 @@ _t26_v38=""
 if [ "$_t26_fxlines38" -lt 3 ]; then
   _t26_v38="$_t26_v38 抽出失敗(${_t26_fxlines38}行)"
 else
-  # (1) 判別行の AND 同居
+  # (1) 判別行の AND 同居。
+  # **shape が `cond` であることを連言で要求する**（#1250 F2）。旧実装は
+  # `_t26_disc_ok33` の返り値しか見ておらず、例示を `case "${FIXTURES_DIR:-}"`
+  # 形へ退行させても `nocond` フォールバック（＝ファイル単位 grep）で rc=0 が
+  # 返り SURVIVE していた。規約の正本である例示は、検査器が実際に読む
+  # **条件行の形**（`if` / `elif` / `; then`）で書かれていなければならない。
   _t26_shape38=$(_t26_disc_ok33 "$_t26_fx38") || _t26_v38="$_t26_v38 判別行(${_t26_shape38})"
+  if [ "$_t26_shape38" != "cond" ]; then
+    _t26_v38="$_t26_v38 例示の判別式が条件行の形でない(shape=${_t26_shape38:- 空})"
+  fi
   # (2) unset 包含: 例示の unset は行継続で 3 行に折られている。
   #     awk 結合が効いていなければここで落ちる
   _t26_fset38=$(_t26_unset_envs33 "$_t26_fx38" | tr '\n' ' ')
