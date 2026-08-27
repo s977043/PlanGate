@@ -36,9 +36,19 @@
 #   TC-17: lint-shell — 空白・引用符入りファイル名でも未検査にならない（xargs -0）
 #   TC-18: 両ラッパの --help が行番号ハードコードでなくヘッダ全体を出す
 #   TC-19: --list が「未追跡ファイルは対象外」を明示する
-#   TC-20: sync-plugin-plangate.sh の同梱ソース集合 ⊆ sync-plugin-plangate.yml の
-#          paths:（push / pull_request 両方）。未被覆は KNOWN-GAP flag があるときだけ
-#          受理し、flag と実態がどちらの向きにズレても FAIL する（#1249 MAJOR-1）
+#   TC-20: sync-plugin-plangate.sh の入力集合 ⊆ sync-plugin-plangate.yml の
+#          paths:（push / pull_request 両方）。判定は GitHub Actions の paths:
+#          意味論（`*` は `/` を跨がない / `**` は跨ぐ / `!` は順序付き除外）で
+#          行う。未被覆は KNOWN-GAP flag があるときだけ受理し、flag と実態が
+#          どちらの向きにズレても FAIL する（#1249 MAJOR-1 / #1250 R3）
+#   TC-21: その paths マッチャ自身の陽性・陰性コントロール（16 件）。1 件でも
+#          外れたら PARSE-FAIL で、KNOWN-GAP flag では吸収しない
+#   TC-22: push と pull_request の paths: 集合が一致する（patch が宣言している
+#          「push 側と同一集合に保つこと」の実体照合）
+#   TC-23: sync スクリプトの $REPO_ROOT 参照と ta-71 の静的入力表を両方向照合し、
+#          未登録の新規入力 / 消えた入力を検出する
+#   TC-24: spec ソース不在の通知 2 経路（stderr 再掲 / ::warning:: 注釈）を固定
+#          （ta-73 TC-14 の先例に倣う。是正本体にテストが 0 件だった穴を塞ぐ）
 #
 # 注記: サンドボックスは数ファイルしか無いため lint-shell の対象下限
 #       （MIN_TARGETS）に引っかかる。サンドボックス実行では
@@ -562,63 +572,90 @@ else
   t71_fail "TC-19 未追跡ファイルの注記がない: $_t71_note_ok"
 fi
 
-# --- TC-20: sync-plugin-plangate の同梱ソースが CI の paths: フィルタに被覆される -
+# --- TC-20〜24: sync-plugin-plangate の入力集合 vs CI の paths: フィルタ -------
 #
-# #1249 敵対レビュー MAJOR-1。`scripts/sync-plugin-plangate.sh` の
-# `_ai_dev_ref_spec` は `docs/ai-driven-development.md` / `docs/plangate.md` /
-# `docs/ai/core-contract.md` / `docs/working/templates/**` 等を配布物の
-# **同梱元**として読む。ところが `.github/workflows/sync-plugin-plangate.yml` の
-# `on.push.paths` / `on.pull_request.paths` は ai-loop 由来のパスしか列挙して
-# おらず、これらの同梱元だけを変える PR では **drift-check job がそもそも起動
-# しない**。結果、配布物は無警告で腐る（実測 2 回発生）。
+# #1249 敵対レビュー MAJOR-1 → #1250 R3 で検査モデルごと再設計した。
 #
-# 「先例を踏襲した」のは sync スクリプト側だけで、CI トリガ配線は踏襲されて
-# いなかった。次に同梱元を足した人が同じ穴を開けても検出できるよう、
-# **spec のソース集合 ⊆ workflow の paths: 被覆** を機械照合する。
+# ## なぜ作り直したか（R3 major）
 #
-# `.github/workflows/**` は Hardening Override であり AI は適用できない。
-# 未適用のあいだ **恒久 FAIL にはしない** — extras は standalone rc=0 か
-# rc=3（`pg_extra_contract_skip`）のいずれかであることが harness の契約であり
-# （tests/extras/_extra-contract.sh / ta-61 TC-12 が fail-closed で検査する）、
-# 恒久 red の extras は「本 PBI の 1 件」ではなく **ta-61 の分類 FAIL も道連れにする**。
-# 代わりに `ta-65` が #1089 で確立した **KNOWN-GAP flag 方式**に合わせる:
+# 旧 TC-20 は「被覆」を Python の `fnmatch` で判定していた。ところが
+# GitHub Actions の `paths:` は fnmatch と**意味論が違う**:
+#
+#   fnmatch('docs/ai/core-contract.md', 'docs/*')  -> True （誤）
+#   GitHub Actions の paths: 'docs/*'              -> 不一致（`*` は `/` を跨がない）
+#
+# このため 2 クラスの誤りが黙って緑になっていた:
+#
+#   (a) 明示 5 本を `- 'docs/*'` 1 本に潰しても「全被覆」判定
+#       → 実際には job が起動しない
+#   (b) `- '!docs/working/templates/**'` を足しても正パターン側が当たるので被覆判定
+#       → GitHub 側では除外され job が起動しない
+#
+# どちらも「flag 削除後の定常状態」で起きる＝**ガードが壊れても緑**。
+# そこで fnmatch を捨て、**GitHub Actions の paths: 意味論に合わせたマッチャ**を
+# 実装した（`*` は `/` を跨がない / `**` は跨ぐ / `?` は `/` 以外の 1 文字 /
+# `!` は除外で**出現順に last-match-wins**）。
+#
+# マッチャ自身がずれていないことは、**テスト内の陽性・陰性コントロール表**で
+# 毎回証明する（TC-21）。コントロールが 1 件でも外れたら PARSE-FAIL 扱いで、
+# KNOWN-GAP flag では吸収しない。
+#
+# ## 被覆範囲（R3 minor）
+#
+# 旧実装は `_ai_dev_ref_spec` のソースしか見ていなかったが、sync の入力は
+# 他にもある（`docs/schemas/**` / `.claude-plugin/marketplace.json` /
+# `CHANGELOG.md` 等）。**個別インスタンスではなく集合の差**で見るため、
+#
+#   1. sync スクリプト中の `$REPO_ROOT/<literal>` 参照を全数抽出し
+#   2. 本ファイルの静的入力表と**両方向で照合**する（TC-23）
+#      — 新しい入力が足されたのに表に無い / 表にあるのに参照が消えた、を検出
+#   3. 表の input 行の probe パス ∪ spec dump のソースを被覆母数にする（TC-20）
+#
+# さらに `push` と `pull_request` の `paths:` 集合が**一致する**ことを検査する
+# （TC-22）。patch の PR 側コメントは「push 側と同一集合に保つこと」と宣言して
+# いるが、実体は `CHANGELOG.md` が push にしか無い＝宣言と実体が不一致だった。
+#
+# ## CRITICAL-1 是正本体のテスト（R3 minor）
+#
+# `scripts/sync-plugin-plangate.sh` 終端の `spec_missing` 再掲 + `::warning::`
+# アノテーションは、丸ごと削除しても既存テストが 1 件も落ちなかった。
+# `ta-73` の先例（`grep -Fq "::warning title=..."`）に倣って assert を張る（TC-24）。
+#
+# ## KNOWN-GAP flag（#1089 ta-65 方式・不変）
 #
 #   tests/fixtures/sync-paths-known-gap-1249.flag
 #
-# | flag | workflow の被覆 | 判定 |
+# | flag | 実態 | 判定 |
 # | --- | --- | --- |
-# | あり | 未被覆 | PASS（既知 gap として受理。**未被覆パス一覧は毎回出力する**） |
-# | あり | 被覆済 | **FAIL** — stale 宣言。patch 適用済みなので flag を消すこと |
-# | なし | 未被覆 | **FAIL** — 未適用 or paths: の退行 |
-# | なし | 被覆済 | PASS（適用後の定常状態） |
+# | あり | gap あり | PASS（既知として受理。**差分一覧は毎回全件出力する**） |
+# | あり | gap なし | **FAIL** — stale 宣言。patch 適用済みなので flag を消すこと |
+# | なし | gap あり | **FAIL** — 未適用 or paths: の退行 |
+# | なし | gap なし | PASS（適用後の定常状態） |
 #
-# どちらの方向のドリフトも赤くなるため「黙って緑」にはならない。flag 自体が
-# 未適用の Human-owned アクションの greppable な記録になる。
+# `.github/workflows/**` は Hardening Override であり AI は適用できない。
 # 適用用 patch: docs/working/TASK-1232/patches/sync-plugin-paths.patch
+# 検証シーム: PG_TA71_SYNC_WORKFLOW / PG_TA71_SYNC_SCRIPT / PG_TA71_GAP_FLAG。
+# PG_TA71_SHOW_CONTROLS=1 でマッチャのコントロール表を全件表示する。
 #
-# 検証シーム: PG_TA71_SYNC_WORKFLOW に別ファイルを指すと、その内容で判定する
-# （patch 適用後に緑になることを本体を触らず実証するため）。
+# ## 残存脅威モデル（完全性を主張しない）
 #
-# **KNOWN-GAP flag が吸収してよいのは「未被覆」だけ**（#1249 MAJOR-2(new)）。
-# 旧実装は python の rc が非ゼロなら何でも `uncovered` に落としていたため、
-# PARSE-FAIL（`_ai_dev_ref_spec` の消失 / spec 抽出の空振り / paths: ブロック
-# 不足）まで flag が PASS に吸収していた。実測: `_ai_dev_ref_spec` をリネーム
-# するだけで全 TC 緑になった＝**ガードが壊れても緑**。
-# そこで PARSE-FAIL は専用 rc=9 に分離し、**flag の有無に関わらず FAIL** にする。
-#
-# spec ソースの取り方（#1249 MAJOR-3(new)）: 字句解析（`'...'` かつ特定拡張子の
-# 正規表現）は形状依存で silently lossy だった。実測でダブルクォート表記・
-# `.sh` 拡張子・既存行のクォート変更がいずれも無警告で母数から落ちた
-# （floor は「完全な空振り」しか止めない）。そこで **抽出した関数を実際に
-# `sh` で実行し、その実出力を正とする**。クォート種別・拡張子・行継続は
-# シェル自身が解釈するため形状に依存しない。
+# 守る: paths: と sync 入力集合の差 / `*` vs `**` の取り違え / `!` 除外の追加 /
+#       push・pull_request の非対称 / `$REPO_ROOT/` 直参照の新規入力 /
+#       spec dump の空振り / `::warning::` 経路の削除。
+# 守らない: GitHub 側の実マッチング挙動そのもの（本検査はローカル再実装であり
+#       実 API 検証ではない）／ `$REPO_ROOT` を経由しない入力（環境変数・
+#       サブスクリプト経由の読み取り）／ workflow の `on:` 以外の起動条件
+#       （workflow_dispatch・他 workflow からの呼び出し）／ paths-ignore。
+#       これらは C-4 Human レビューと実 CI 実行が担保の主体。
 _T71_SYNC_WF="${PG_TA71_SYNC_WORKFLOW:-$_T71_ROOT/.github/workflows/sync-plugin-plangate.yml}"
-_T71_SYNC_SCRIPT="$_T71_ROOT/scripts/sync-plugin-plangate.sh"
+_T71_SYNC_SCRIPT="${PG_TA71_SYNC_SCRIPT:-$_T71_ROOT/scripts/sync-plugin-plangate.sh}"
+_T71_GAP_FLAG="${PG_TA71_GAP_FLAG:-$_T71_ROOT/tests/fixtures/sync-paths-known-gap-1249.flag}"
 _t71_py20="$(command -v python3 2>/dev/null || true)"
 
-# `_ai_dev_ref_spec` を実行して `<skill>\t<配布先 basename>\t<ソース>` を吐く。
+# `_ai_dev_ref_spec` を実行して 3 列 TSV を吐く（skill / 配布先 basename / ソース）。
 # 失敗（関数/一覧が取れない・出力が空）は stdout を空にして返す＝呼び出し側が
-# PARSE-FAIL として扱う。
+# PARSE-FAIL として扱う。字句解析ではなく**実行**するのは、クォート種別・拡張子・
+# 行継続に依存せず母数を取るため（#1249 MAJOR-3(new)）。
 _t71_spec_dump20() {
   _t71_sd_script="$1"
   _t71_sd_fn="$(mktemp)"
@@ -636,111 +673,349 @@ _t71_spec_dump20() {
   rm -f "$_t71_sd_fn"
 }
 
+# 静的入力表（TC-23 が sync スクリプトの実参照と両方向照合する）。
+#   <$REPO_ROOT/ 直後の literal トークン>|<種別>|<被覆判定に使う probe パス>
+# 種別 input  = 同梱入力（paths: に載っていなければ drift-check が起動しない）
+# 種別 output = 生成先（入力ではないので被覆母数に入れない）
+# probe パスは**ディレクトリ入力なら 2 階層下**を選ぶ。`dir/*` では当たらず
+# `dir/**` でだけ当たる形にして、`*` / `**` の取り違えを母数側からも殺す。
+_T71_STATIC_INPUTS='.agents/skills|input|.agents/skills/ai-loop-cycle/SKILL.md
+.claude|input|.claude/rules/working-context.md
+.claude-plugin/marketplace.json|input|.claude-plugin/marketplace.json
+CHANGELOG.md|input|CHANGELOG.md
+docs/ai/ai-loop|input|docs/ai/ai-loop/00_concept.md
+docs/schemas|input|docs/schemas/child-pbi.yaml
+docs/workflows/ai-loop|input|docs/workflows/ai-loop/00_concept.md
+scripts/_ai_loop_link_rewrite.py|input|scripts/_ai_loop_link_rewrite.py
+scripts/ai-loop|input|scripts/ai-loop/run-cycle.sh
+plugin/plangate|output|-'
+
 _T71_SPEC_DUMP="$(mktemp)"
+_T71_INPUTS_FILE="$(mktemp)"
+_T71_REFS_FILE="$(mktemp)"
 _t71_spec_dump20 "$_T71_SYNC_SCRIPT" > "$_T71_SPEC_DUMP" 2>/dev/null || true
+printf '%s\n' "$_T71_STATIC_INPUTS" > "$_T71_INPUTS_FILE"
+
+# sync スクリプトの `$REPO_ROOT/<literal>` 参照を全数抽出（`$` 以降は動的なので
+# そこで打ち切り、末尾 `/` を落とし、空トークンは捨てる）。
+grep -o '\$REPO_ROOT/[A-Za-z0-9._/-]*' "$_T71_SYNC_SCRIPT" 2>/dev/null \
+  | sed 's|^\$REPO_ROOT/||; s|/*$||' | grep -v '^$' | sort -u > "$_T71_REFS_FILE" || true
 
 if [ -z "$_t71_py20" ]; then
-  t71_fail "TC-20 python3 が解決できない"
+  t71_fail "TC-20〜24 python3 が解決できない"
 elif [ ! -f "$_T71_SYNC_WF" ] || [ ! -f "$_T71_SYNC_SCRIPT" ]; then
-  t71_fail "TC-20 対象ファイルが不在 (wf=$_T71_SYNC_WF / script=$_T71_SYNC_SCRIPT)"
+  t71_fail "TC-20〜24 対象ファイルが不在 (wf=$_T71_SYNC_WF / script=$_T71_SYNC_SCRIPT)"
 else
   _t71_rc20=0
-  _t71_out20=$("$_t71_py20" - "$_T71_SPEC_DUMP" "$_T71_SYNC_WF" <<'PY' 2>&1
-import fnmatch, pathlib, re, sys
+  _t71_out20=$("$_t71_py20" - "$_T71_SPEC_DUMP" "$_T71_SYNC_WF" "$_T71_INPUTS_FILE" "$_T71_REFS_FILE" <<'PY' 2>&1
+import os, pathlib, re, sys
 
 # PARSE-FAIL は rc=9（KNOWN-GAP flag が吸収してはならない失敗クラス）。
-# 未被覆（= 本来の gap）だけが AssertionError の rc=1 で出る。
+# 「検査器が壊れた」と「paths: に穴がある」を混ぜない。
 def parse_fail(msg):
     sys.stderr.write("PARSE-FAIL: %s\n" % msg)
     sys.exit(9)
 
+# ---------------------------------------------------------------- matcher ---
+# GitHub Actions の paths: 意味論。fnmatch は使わない（`*` が `/` を跨ぐため）。
+#   *  -> `/` を含まない 0 文字以上
+#   ** -> `/` を含む 0 文字以上
+#   ?  -> `/` 以外の 1 文字
+#   !  -> 除外。出現順に評価し last-match-wins（後続の正パターンで再包含も可）
+_rx_cache = {}
+
+def _to_regex(pat):
+    rx = _rx_cache.get(pat)
+    if rx is not None:
+        return rx
+    out, i, n = [], 0, len(pat)
+    while i < n:
+        c = pat[i]
+        if c == "*":
+            j = i
+            while j < n and pat[j] == "*":
+                j += 1
+            out.append(".*" if j - i >= 2 else "[^/]*")
+            i = j
+        elif c == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(c))
+            i += 1
+    rx = re.compile("^" + "".join(out) + "$")
+    _rx_cache[pat] = rx
+    return rx
+
+def covered(path, pats):
+    hit = False
+    for p in pats:
+        neg = p.startswith("!")
+        q = p[1:] if neg else p
+        if _to_regex(q).match(path):
+            hit = not neg
+    return hit
+
+# --------------------------------------------------- positive/negative ctrl ---
+# マッチャが GitHub の意味論とずれていないことをテスト内で証明する。
+# 1 件でも外れたら PARSE-FAIL（flag では吸収しない）。
+CONTROLS = [
+    # (パターン列, パス, 期待, 意図)
+    (["docs/*"], "docs/ai/core-contract.md", False, "* は / を跨がない(陰性)"),
+    (["docs/*"], "docs/working/templates/plan.md", False, "* は / を跨がない(陰性/2階層)"),
+    (["docs/*"], "docs/plangate.md", True, "* は同階層に当たる(陽性)"),
+    (["docs/**"], "docs/ai/core-contract.md", True, "** は / を跨ぐ(陽性)"),
+    (["docs/**"], "docs/working/templates/plan.md", True, "** は多階層を跨ぐ(陽性)"),
+    ([".claude/*"], ".claude/rules/x.md", False, "先頭ドット dir の * (陰性)"),
+    ([".claude/**"], ".claude/rules/x.md", True, "先頭ドット dir の ** (陽性)"),
+    (["CHANGELOG.md"], "CHANGELOG.md", True, "ワイルドカード無しの完全一致(陽性)"),
+    (["CHANGELOG.md"], "docs/CHANGELOG.md", False, "完全一致は前方に伸びない(陰性)"),
+    (["docs/ai/core-contrac?.md"], "docs/ai/core-contract.md", True, "? は 1 文字(陽性)"),
+    (["docs/ai/core-contract?md"], "docs/ai/core/contract.md", False, "? は / に当たらない(陰性)"),
+    (["docs/**", "!docs/working/templates/**"], "docs/working/templates/plan.md",
+     False, "! による除外が効く(陰性)"),
+    (["docs/**", "!docs/working/templates/**"], "docs/ai/core-contract.md",
+     True, "! は無関係パスを巻き込まない(陽性)"),
+    (["docs/**", "!docs/working/**", "docs/working/templates/**"],
+     "docs/working/templates/plan.md", True, "順序評価で再包含できる(陽性)"),
+    (["!docs/**"], "docs/ai/x.md", False, "除外のみでは被覆されない(陰性)"),
+    (["docs/**"], "docsx/ai.md", False, "prefix 一致で誤って当てない(陰性)"),
+]
+
+ctrl_bad = []
+for pats, path, want, why in CONTROLS:
+    got = covered(path, pats)
+    status = "PASS" if got == want else "FAIL"
+    if got != want:
+        ctrl_bad.append((pats, path, want, got, why))
+    if os.environ.get("PG_TA71_SHOW_CONTROLS") == "1" or got != want:
+        sys.stdout.write("CONTROL\t%s\t%s\t%s\twant=%s\tgot=%s\t%s\n"
+                         % (status, path, "|".join(pats), want, got, why))
+if ctrl_bad:
+    parse_fail("paths マッチャのコントロールが %d 件不一致 — 実装が GitHub の "
+               "意味論からずれている" % len(ctrl_bad))
+print("CONTROLS\tok=%d" % len(CONTROLS))
+
+# ------------------------------------------------------------------ inputs ---
 dump = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 wf = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
+table_txt = pathlib.Path(sys.argv[3]).read_text(encoding="utf-8")
+refs_txt = pathlib.Path(sys.argv[4]).read_text(encoding="utf-8")
 
 rows = [ln.split("\t") for ln in dump.splitlines() if ln.strip()]
 if not rows or any(len(r) != 3 for r in rows):
     parse_fail("_ai_dev_ref_spec の実出力が取れない (rows=%d)" % len(rows))
-srcs = sorted({r[2] for r in rows})
-if len(srcs) < 10:
-    parse_fail("spec ソースの実出力が少なすぎる (%d) — 関数抽出の空振りを疑う" % len(srcs))
+spec_srcs = sorted({r[2] for r in rows})
+if len(spec_srcs) < 10:
+    parse_fail("spec ソースの実出力が少なすぎる (%d) — 関数抽出の空振りを疑う"
+               % len(spec_srcs))
 
-# on.push.paths / on.pull_request.paths のリスト項目を素直に拾う。
-# YAML パーサに依存しない（PyYAML は CI に無い前提）。
-# リスト項目のあいだにコメント行が挟まっても打ち切らないこと — 打ち切ると
-# 「コメント以降の項目を見落として未被覆と誤判定する」false negative ならぬ
-# false positive を生む（実測でこの穴を踏んだ）。
-blocks = re.findall(
-    r"^\s{2,}paths:\n((?:(?:\s+- '[^']+'|\s*#[^\n]*|\s*)\n)+)", wf, re.M)
-if len(blocks) < 2:
-    parse_fail("paths: ブロックが 2 つ未満 (%d) — push / pull_request の両方が要る"
-               % len(blocks))
-patsets = [set(re.findall(r"- '([^']+)'", b)) for b in blocks]
+table = []
+for ln in table_txt.splitlines():
+    ln = ln.strip()
+    if not ln:
+        continue
+    parts = ln.split("|")
+    if len(parts) != 3:
+        parse_fail("静的入力表の行が壊れている: %r" % ln)
+    table.append(tuple(parts))
+if not table:
+    parse_fail("静的入力表が空")
 
-def covered(path, pats):
-    for p in pats:
-        if fnmatch.fnmatch(path, p):
-            return True
-        # '**' は fnmatch では 1 階層扱いになるため、prefix でも判定する
-        if p.endswith("/**") and path.startswith(p[:-2]):
-            return True
-    return False
+declared = {t[0] for t in table}
+actual = {ln.strip() for ln in refs_txt.splitlines() if ln.strip()}
+if not actual:
+    parse_fail("sync スクリプトから REPO_ROOT 参照を 1 件も抽出できない")
+missing_in_table = sorted(actual - declared)
+stale_in_table = sorted(declared - actual)
 
-bad = []
-for i, pats in enumerate(patsets):
-    label = ("push", "pull_request")[i] if i < 2 else "block%d" % i
+static_probes = sorted(set(r[2] for r in table if r[1] == "input"))
+srcs = sorted(set(spec_srcs).union(static_probes))
+
+# -------------------------------------------------------------- wf parsing ---
+# `on:` 直下の push / pull_request の paths: を行スキャンで拾う。YAML パーサに
+# 依存しない（PyYAML は CI に無い前提）。リスト項目のあいだにコメント行・空行が
+# 挟まっても打ち切らない。`!` 除外・ダブルクォート表記も拾う。
+def parse_paths(text):
+    blocks = {}
+    cur_key = None
+    in_on = False
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines):
+        ln = lines[i]
+        if re.match(r"^on:\s*$", ln):
+            in_on = True
+            i += 1
+            continue
+        if in_on and re.match(r"^\S", ln):
+            in_on = False
+        if in_on:
+            m = re.match(r"^  (\w+):\s*$", ln)
+            if m:
+                cur_key = m.group(1)
+            elif re.match(r"^    paths:\s*$", ln) and cur_key:
+                items = []
+                j = i + 1
+                while j < len(lines):
+                    l2 = lines[j]
+                    if not l2.strip() or re.match(r"^\s*#", l2):
+                        j += 1
+                        continue
+                    m2 = re.match(r"^\s+-\s+(.+?)\s*$", l2)
+                    if not m2:
+                        break
+                    v = m2.group(1)
+                    if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
+                        v = v[1:-1]
+                    items.append(v)
+                    j += 1
+                blocks.setdefault(cur_key, []).extend(items)
+                i = j
+                continue
+        i += 1
+    return blocks
+
+blocks = parse_paths(wf)
+for key in ("push", "pull_request"):
+    if not blocks.get(key):
+        parse_fail("on.%s.paths が取れない — workflow の形状変更か抽出の空振り" % key)
+
+# ------------------------------------------------------------- coverage ------
+uncovered = []
+for key in ("push", "pull_request"):
+    pats = blocks[key]
     for s in srcs:
         if not covered(s, pats):
-            bad.append("%s:%s" % (label, s))
-if bad:
-    # 未被覆一覧は 1 行 1 パスで全件出す（呼び出し側で切り詰めないこと）。
-    sys.stderr.write("CI トリガ未被覆: sync の同梱元が paths: に入っておらず "
-                     "drift-check が起動しない (%d 件)\n" % len(set(bad)))
-    for b in sorted(set(bad)):
-        sys.stderr.write("UNCOVERED\t%s\n" % b)
-    sys.exit(1)
-print("OK srcs=%d blocks=%d" % (len(srcs), len(patsets)))
+            uncovered.append("%s:%s" % (key, s))
+for u in sorted(set(uncovered)):
+    sys.stdout.write("UNCOVERED\t%s\n" % u)
+if not uncovered:
+    sys.stdout.write("COVERAGE\tok\n")
+
+# ------------------------------------------------------------- symmetry ------
+# patch の PR 側コメントは「push 側と同一集合に保つこと」と宣言している。
+# 宣言と実体の不一致（片側にしか無いパターン）を機械検出する。
+only_push = sorted(set(blocks["push"]) - set(blocks["pull_request"]))
+only_pr = sorted(set(blocks["pull_request"]) - set(blocks["push"]))
+for p in only_push:
+    sys.stdout.write("ASYM\tpush-only:%s\n" % p)
+for p in only_pr:
+    sys.stdout.write("ASYM\tpull_request-only:%s\n" % p)
+if not only_push and not only_pr:
+    sys.stdout.write("SYMMETRY\tok\n")
+
+# --------------------------------------------------------------- inventory ---
+for t in missing_in_table:
+    sys.stdout.write("NEW-INPUT\t%s\n" % t)
+for t in stale_in_table:
+    sys.stdout.write("STALE-INPUT\t%s\n" % t)
+if not missing_in_table and not stale_in_table:
+    sys.stdout.write("INVENTORY\tok\n")
+
+print("SRCS\tspec=%d static=%d total=%d" % (len(spec_srcs), len(static_probes), len(srcs)))
+print("ANALYSIS-COMPLETE")
 PY
 ) || _t71_rc20=$?
-  _T71_GAP_FLAG="$_T71_ROOT/tests/fixtures/sync-paths-known-gap-1249.flag"
-  rm -f "$_T71_SPEC_DUMP"
-  if [ "$_t71_rc20" = "0" ] && printf '%s' "$_t71_out20" | grep -q '^OK srcs='; then
-    _t71_cov20=covered
-  elif [ "$_t71_rc20" = "9" ]; then
-    _t71_cov20=parse-fail
-  elif printf '%s\n' "$_t71_out20" | grep -q '^UNCOVERED	'; then
-    # 「未被覆」と名乗れるのは、未被覆パスを実際に列挙して終わった run だけ。
-    # rc=9 を足しただけでは、想定外の例外（正規表現の破損・IO エラー等）が
-    # rc=1 のまま `uncovered` に落ちて flag に吸収される経路が残る。
-    _t71_cov20=uncovered
+
+  rm -f "$_T71_SPEC_DUMP" "$_T71_INPUTS_FILE" "$_T71_REFS_FILE"
+
+  # rc=9 は PARSE-FAIL。それ以外の非ゼロ（想定外の例外・IO エラー）も同様に
+  # 「検査器が機能していない」として扱う。完了 sentinel が無ければ解析結果を
+  # 一切信用しない（途中で落ちた出力を gap 判定に流用しない）。
+  if [ "$_t71_rc20" != "0" ] || ! printf '%s\n' "$_t71_out20" | grep -q '^ANALYSIS-COMPLETE$'; then
+    _t71_analysis20=parse-fail
   else
-    _t71_cov20=parse-fail
+    _t71_analysis20=ok
   fi
-  if [ "$_t71_cov20" = parse-fail ]; then
-    # KNOWN-GAP flag は「paths: が未被覆である」ことだけを受理する。検査器自身が
-    # 壊れた（PARSE-FAIL）ときに緑にすると、flag が置かれている無期限の窓の
-    # あいだガードが空振りしても誰も気づかない（#1249 MAJOR-2(new)）。
-    t71_fail "TC-20 検査器が機能していない（PARSE-FAIL / rc=9）— KNOWN-GAP flag では受理しない: $_t71_out20"
-  elif [ "$_t71_cov20" = covered ] && [ ! -f "$_T71_GAP_FLAG" ]; then
-    t71_pass "TC-20 sync 同梱元が paths: に全被覆（$(printf '%s' "$_t71_out20" | tr -d '\n')）"
-  elif [ "$_t71_cov20" = covered ] && [ -f "$_T71_GAP_FLAG" ]; then
-    t71_fail "TC-20 stale KNOWN-GAP 宣言 — paths: は既に全被覆なのに tests/fixtures/sync-paths-known-gap-1249.flag が残っている。flag を削除すること"
-  elif [ "$_t71_cov20" = uncovered ] && [ -f "$_T71_GAP_FLAG" ]; then
-    # 受理はするが、何が未被覆なのかは毎回必ず出す（silently 緑にしない）
-    printf '  [KNOWN-GAP #1249] tests/fixtures/sync-paths-known-gap-1249.flag により gap を受理\n'
-    printf '  [KNOWN-GAP #1249] 未適用: docs/working/TASK-1232/patches/sync-plugin-paths.patch（.github/workflows/** は HO のため Human-owned）\n'
-    # 未被覆一覧は **1 行 1 パスで全件**出す（#1249 MINOR-2）。
-    # 旧実装は `tr '\n' ' ' | cut -c1-600` で 1 行に潰してから切っていたため、
-    # `sorted(set(bad))` の並びで push 側だけが表示され pull_request 側 14 件が
-    # 1 件も見えていなかった。「毎回出力する」と宣言した情報が実際には
-    # 出ていない状態を作らない。
-    printf '%s\n' "$_t71_out20" | grep '^UNCOVERED	' \
-      | sed 's/^UNCOVERED	/  [KNOWN-GAP #1249] 未被覆: /'
-    t71_pass "TC-20 sync 同梱元が CI paths: に未被覆（KNOWN-GAP #1249 として受理 / patch 適用後は flag を削除すること）"
+
+  if [ "$_t71_analysis20" = parse-fail ]; then
+    t71_fail "TC-21 paths マッチャ / 検査器が機能していない（rc=${_t71_rc20}）— KNOWN-GAP flag では受理しない: $_t71_out20"
+    t71_fail "TC-20 被覆判定が実施できない（TC-21 の PARSE-FAIL に従属）"
+    t71_fail "TC-22 push / pull_request 対称性が検査できない（TC-21 の PARSE-FAIL に従属）"
+    t71_fail "TC-23 入力インベントリが検査できない（TC-21 の PARSE-FAIL に従属）"
   else
-    t71_fail "TC-20 sync 同梱元が CI paths: に未被覆で KNOWN-GAP 宣言も無い — patch 未適用か paths: の退行（docs/working/TASK-1232/patches/sync-plugin-paths.patch / rc=$_t71_rc20): $_t71_out20"
+    printf '%s\n' "$_t71_out20" | grep '^CONTROL	' || true
+    t71_pass "TC-21 paths マッチャの陽性・陰性コントロール全件一致（$(printf '%s\n' "$_t71_out20" | grep '^CONTROLS	' | tr -d '\n')）"
+
+    # --- TC-20 被覆（flag 4 状態）---
+    if printf '%s\n' "$_t71_out20" | grep -q '^COVERAGE	ok$'; then
+      if [ -f "$_T71_GAP_FLAG" ]; then
+        t71_fail "TC-20 stale KNOWN-GAP 宣言 — paths: は既に全被覆なのに ${_T71_GAP_FLAG##*/} が残っている。flag を削除すること"
+      else
+        t71_pass "TC-20 sync の入力集合が paths: に全被覆（$(printf '%s\n' "$_t71_out20" | grep '^SRCS	' | tr -d '\n')）"
+      fi
+    else
+      # 未被覆一覧は 1 行 1 パスで全件出す（#1249 MINOR-2 / 切り詰め禁止）。
+      printf '%s\n' "$_t71_out20" | grep '^UNCOVERED	' \
+        | sed 's/^UNCOVERED	/  [TC-20] 未被覆: /'
+      if [ -f "$_T71_GAP_FLAG" ]; then
+        printf '  [KNOWN-GAP #1249] %s により gap を受理（未適用: docs/working/TASK-1232/patches/sync-plugin-paths.patch / .github/workflows/** は HO のため Human-owned）\n' "${_T71_GAP_FLAG##*/}"
+        t71_pass "TC-20 sync の入力集合が CI paths: に未被覆（KNOWN-GAP #1249 として受理 / patch 適用後は flag を削除すること）"
+      else
+        t71_fail "TC-20 sync の入力集合が CI paths: に未被覆で KNOWN-GAP 宣言も無い — patch 未適用か paths: の退行（docs/working/TASK-1232/patches/sync-plugin-paths.patch）"
+      fi
+    fi
+
+    # --- TC-22 push / pull_request の paths: 集合一致（flag 4 状態）---
+    if printf '%s\n' "$_t71_out20" | grep -q '^SYMMETRY	ok$'; then
+      if [ -f "$_T71_GAP_FLAG" ]; then
+        t71_fail "TC-22 stale KNOWN-GAP 宣言 — push / pull_request の paths: は既に一致しているのに ${_T71_GAP_FLAG##*/} が残っている。flag を削除すること"
+      else
+        t71_pass "TC-22 push / pull_request の paths: 集合が一致（patch の宣言どおり）"
+      fi
+    else
+      printf '%s\n' "$_t71_out20" | grep '^ASYM	' \
+        | sed 's/^ASYM	/  [TC-22] 片側のみ: /'
+      if [ -f "$_T71_GAP_FLAG" ]; then
+        printf '  [KNOWN-GAP #1249] %s により非対称を受理（patch の PR 側コメントは「push 側と同一集合に保つこと」と宣言している）\n' "${_T71_GAP_FLAG##*/}"
+        t71_pass "TC-22 push / pull_request の paths: が非対称（KNOWN-GAP #1249 として受理）"
+      else
+        t71_fail "TC-22 push / pull_request の paths: 集合が不一致 — 片側だけ足すと PR 時の drift-check か push 後の自動同期のどちらかが盲点として残る"
+      fi
+    fi
+
+    # --- TC-23 入力インベントリの両方向照合（flag では吸収しない）---
+    if printf '%s\n' "$_t71_out20" | grep -q '^INVENTORY	ok$'; then
+      t71_pass "TC-23 sync の REPO_ROOT 参照と静的入力表が両方向で一致"
+    else
+      printf '%s\n' "$_t71_out20" | grep -E '^(NEW-INPUT|STALE-INPUT)	' \
+        | sed 's/^/  [TC-23] /'
+      t71_fail "TC-23 sync の入力集合と ta-71 の静的入力表がずれている — 表を追従させ、必要なら paths: にも追加すること（新規入力が paths: 未登録のまま増えるのを止めるゲート）"
+    fi
   fi
 fi
 
+# --- TC-24: spec ソース不在の「人へ届く経路」に assert を張る ------------------
+#
+# #1249 CRITICAL-1 の是正本体（`scripts/sync-plugin-plangate.sh` 終端の
+# `spec_missing` 再掲 + `GITHUB_ACTIONS` 下の `::warning::`）は、丸ごと削除しても
+# ta-26 が 40 passed / 0 failed / exit 0 のままだった＝是正にテストが 0 件。
+# `ta-73` TC-14 の先例（`grep -Fq "::warning title=..."`）に倣い、終端ブロックを
+# 抽出したうえで 3 要素すべてを固定する（部分削除も殺す）。
+_t71_tail24="$(awk '/^if \[ "\$spec_missing" != "0" \]; then/{f=1} f{print} f&&/^fi$/{exit}' \
+  "$_T71_SYNC_SCRIPT" 2>/dev/null || true)"
+_t71_ok24=1
+if [ -z "$_t71_tail24" ]; then
+  t71_fail "TC-24 sync スクリプト終端の spec_missing 通知ブロックが見つからない（削除 or 形状変更）"
+  _t71_ok24=0
+else
+  if ! printf '%s\n' "$_t71_tail24" | grep -Fq '_warn "WARN: ai-dev spec のソース不在'; then
+    t71_fail "TC-24 spec_missing の stderr 再掲（ローカル実行者向け経路）が無い"
+    _t71_ok24=0
+  fi
+  if ! printf '%s\n' "$_t71_tail24" | grep -Fq 'GITHUB_ACTIONS'; then
+    t71_fail "TC-24 ::warning:: が GITHUB_ACTIONS ガードの下に置かれていない"
+    _t71_ok24=0
+  fi
+  if ! printf '%s\n' "$_t71_tail24" | grep -Fq '::warning title=sync-plugin: ai-dev spec source missing::'; then
+    t71_fail "TC-24 ::warning:: アノテーションが無い（緑の run では誰も気づけなくなる）"
+    _t71_ok24=0
+  fi
+fi
+if [ "$_t71_ok24" = "1" ]; then
+  t71_pass "TC-24 spec ソース不在の通知 2 経路（stderr 再掲 / ::warning:: 注釈）が固定されている"
+fi
 rm -rf "$_T71_SB" "${_T71_AB:-/nonexistent-ta71}" "${_T71_FR:-/nonexistent-ta71}" "${_T71_SC:-/nonexistent-ta71}" "${_T71_SC2:-/nonexistent-ta71}"
 
 pg_extra_contract_finalize

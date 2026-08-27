@@ -1,25 +1,40 @@
 KNOWN-GAP #1249 MAJOR-1 — sync-plugin-plangate.yml の paths: 未拡張
 
 `.github/workflows/sync-plugin-plangate.yml` の `on.push.paths` /
-`on.pull_request.paths` に、`scripts/sync-plugin-plangate.sh` の
-`_ai_dev_ref_spec` が読む同梱元（`docs/ai-driven-development.md` /
-`docs/plangate.md` / `docs/ai/core-contract.md` /
-`docs/ai/plan-metrics-verification.md` / `docs/ai/settings-wiring-contract.md` /
-`docs/working/templates/**`）が入っていない。これらだけを変える PR では
-drift-check job が起動せず、配布物が無警告で腐る。
+`on.pull_request.paths` に、`scripts/sync-plugin-plangate.sh` の入力集合が
+入りきっていない。#1250 R3 で被覆母数を `_ai_dev_ref_spec` のソースだけから
+**sync が読む入力全体**へ広げた結果、未被覆は次の 2 群になっている:
+
+  (1) ai-dev-{plan,exec,verify,brainstorm} の同梱元
+      `docs/ai-driven-development.md` / `docs/plangate.md` /
+      `docs/ai/core-contract.md` / `docs/ai/plan-metrics-verification.md` /
+      `docs/ai/settings-wiring-contract.md` / `docs/working/templates/**`
+  (2) それ以外の入力
+      `docs/schemas/**`（ai-loop-cycle の schemas 同梱元） /
+      `.claude-plugin/marketplace.json`（version 同期先かつ読み取り元）
+
+加えて `CHANGELOG.md` が **push 側にしか無い**（`pull_request.paths` に無い）。
+patch の PR 側コメントは「push 側と同一集合に保つこと」と宣言しているのに実体が
+非対称で、PR 時の drift-check だけが盲点になる。
+
+これらだけを変える PR では drift-check job が起動せず、配布物が無警告で腐る。
 
 `.github/workflows/**` は Hardening Override のため AI は適用できない。
 本 flag は **Human-owned 未適用アクションの宣言**であり、gap を「既知」として
 受理するためだけに存在する（黙って緑にするためではない —
-tests/extras/ta-71-ci-static-lint.sh TC-20 は本 flag があるときも
-未被覆パスの一覧を毎回出力する）。
+tests/extras/ta-71-ci-static-lint.sh の TC-20 / TC-22 は本 flag があるときも
+未被覆パスと非対称パターンの一覧を毎回全件出力する）。
 
 適用手順:
   git apply docs/working/TASK-1232/patches/sync-plugin-paths.patch
   rm tests/fixtures/sync-paths-known-gap-1249.flag
 
 **patch を適用したら本 flag を必ず削除すること。** 適用済みなのに flag が残って
-いると TC-20 は stale 宣言として FAIL する（逆に flag を先に消すと未被覆の
-まま FAIL する）。どちらの方向のドリフトも赤くなる。
+いると TC-20 / TC-22 は stale 宣言として FAIL する（逆に flag を先に消すと未被覆・
+非対称のまま FAIL する）。どちらの方向のドリフトも赤くなる。
 
-Refs: #1232 / PR #1249 敵対レビュー MAJOR-1
+なお TC-21（paths マッチャの陽性・陰性コントロール）と TC-23（入力インベントリ）
+と TC-24（::warning:: 経路）は **本 flag の対象外**。検査器自身が壊れたときや
+sync の入力が増えたときは flag の有無に関わらず FAIL する。
+
+Refs: #1232 / PR #1249 敵対レビュー MAJOR-1 / PR #1250 R3
