@@ -23,7 +23,11 @@
 #          `exit 2`）だけで構成されている」ことを検査する。
 #          marker 文字列だけを持つ未ガードファイルや、**到達不能な `exit 2`**・
 #          **`exit 2` 到達前に実行される任意の副作用行**を持つファイルが緑に
-#          なり、そのまま TC-04 で sh 起動されるのを防ぐ（#1250 F3）
+#          なり、そのまま TC-04 で sh 起動されるのを防ぐ（#1250 F3）。
+#          判定は **行指向ではなく文字単位の字句状態機械**で行う（#1250 R3）。
+#          シェルの字句は行をまたぐため、「1 行 = 1 コマンド」を前提にした述語は
+#          未終端引用符 / 行継続を原理的に見られない（詳細は `_t70_struct_ok`
+#          直前のコメント）
 #   TC-02: guard marker がファイル先頭 12 行以内（sh が危険な行を読む前に止まる位置）
 #   TC-03: 走査対象の全 .py が python3 で compile できる（polyglot が Python を壊さない）
 #   TC-04: 走査対象を **repo 外のサンドボックスへ複製してから** sh で起動すると
@@ -34,7 +38,9 @@
 #          #1250 F7: git 不在で両辺 `GIT-UNAVAILABLE` になる恒真を塞ぐ）
 #   TC-06: 合成 fixture 正側 — ガード付きは sentinel を起動せず exit 2
 #   TC-07: 合成 fixture 負側（変異注入） — ガード除去 / ブロック内副作用行 /
-#          到達不能 exit 2 の 3 クラスが構造判定で落ちる
+#          到達不能 exit 2 / バックスラッシュ・エスケープ 2 種 /
+#          **行をまたぐ未終端引用符** / **行継続バックスラッシュ** の 7 クラスが
+#          構造判定で落ちる
 #          （本 TA に検出力があることの実証。ここが PASS しないと TC-06 は空振り）
 #   TC-08: 合成 fixture — ガード付きでも python3 起動の挙動は不変
 #   TC-09: 実走の timeout 配線が効いている（#1178 AC-5 / #1250 F1。未ガードの .py が
@@ -43,22 +49,21 @@
 #          発火したこと」自体を見る。standalone 実行には CI の timeout-minutes が
 #          効かないため本体側で持つ）
 #
-# 残存脅威モデル（#1250 F3 / C-1 で限定・打ち切り宣言）:
+# 残存脅威モデル（#1250 F3 / C-1 / R3 で限定・打ち切り宣言）:
 #   - 守るもの: 走査対象 3 群の .py を `sh` / `bash` で起動したとき、ガード
-#     ブロック本体が **既知の許可形（空行 / コメント / 引用とエスケープを
-#     正規化したうえでシェルメタ文字を持たない echo・printf / top-level の
-#     `exit 2`）だけで構成されていること**、およびガードより後ろの行が
-#     実行されないこと
-#   - **「副作用を持ちうる行が一切存在しない」とは主張しない**（#1250 C-1 で
-#     この文言が実際に破れた）。構造判定は allowlist ＋ 正規化の一致検査であり、
-#     **正規化が想定しない書法があれば任意コマンドが許可形に化けうる**。
-#     実際に `\"` / `\'`（シェルではリテラルの引用符だが、引用符除去の
-#     `gsub(/"[^"]*"/, ...)` は対として消す）という非対称で `;` 連結が
-#     素通りし、9 passed / 0 failed のまま `touch` が発火した。是正は
-#     「引用符除去の前にバックスラッシュ・エスケープを落とす」1 行で、
-#     対照は TC-07 の 5 クラス目として恒久固定した。**保証の根拠は
-#     「正規化 + allowlist が既知の書法を網羅している範囲」に限られ、
-#     未知の書法に対する完全性は主張しない**
+#     ブロック本体が **既知の許可形（空行 / コメント / 副作用のない
+#     echo・printf / top-level の `exit 2`）だけで構成されていること**、
+#     およびガードより後ろの行が実行されないこと。判定は **シェルと同じ
+#     引用状態を持つ文字単位の字句モデル**で行い、コマンド境界は行ではなく
+#     「引用符の外の改行 / `;`」で決める
+#   - **「副作用を持ちうる行が一切存在しない」とは主張しない**（#1250 C-1 /
+#     R3 でこの文言が 2 度破れた）。R3 で破れたのは **述語の粒度**そのもので、
+#     「1 行 = 1 コマンド」という前提がシェルの字句単位と一致していなかった
+#     （未終端引用符が行をまたぐ / 行継続バックスラッシュ）。是正は
+#     トークン指向への作り直しで、対照は TC-07 の 6・7 クラス目として恒久固定
+#     した。**字句モデルは POSIX sh の引用規則の部分実装であり、実装していない
+#     構文（`$'...'` / here-document / 算術展開 等）は allowlist かメタ文字
+#     reject で落ちる設計（fail-closed）だが、完全性は主張しない**
 #   - 守らないもの: (a) 走査対象 3 群の **外** にある .py。(b) `sh` 以外の
 #     誤起動経路（`source` / `.` によるカレントシェルでの読み込み等）。
 #     (c) guard より前に置かれた shebang 行そのものの改変。
@@ -182,92 +187,278 @@ done
 _t70_total=$(grep -c . "$_T70_LIST" || true)
 [ -n "$_t70_total" ] || _t70_total=0
 
-# guard の構造判定（#1178 AC-1 / AC-a、#1250 追走の AC-e で到達可能性まで拡張）。
-#   - 1 行目が shebang ならそれを読み飛ばす（`scripts/_paths.py` 等の
-#     ライブラリモジュールは shebang を持たず guard が 1 行目にある）
-#   - その次の行が **厳密に** `""":"`（ガード開始行）であること
-#   - 閉じ行 `":"""` までのブロック内に `PG-SH-GUARD` があること
-#   - `exit 2` が **top-level（インデントなし）** にあること
+# guard の構造判定（#1178 AC-1 / AC-a、#1250 追走の AC-e。#1250 R3 で **述語の粒度**
+# を行指向からトークン指向へ作り直した）。
 #
-# 「ブロック内のどこかに `exit 2` がある」だけでは不足である（#1250 敵対レビュー
-# F3 で実測）。旧述語はブロック本体の内容を無制約に許したため、
+# 【なぜ行指向では原理的に閉じないか / R3 critical】
+# 旧述語は awk の 1 レコード = 1 行を「1 コマンド」とみなしていた。しかし
+# **シェルの字句は行をまたぐ**。そのため次の 2 クラスが構造的に見えなかった:
 #
-#     """:"
-#     # --- PG-SH-GUARD (#1169) ---
-#     touch /tmp/pwned          ← 任意の副作用行が通る
-#     if false; then
-#     exit 2                    ← 到達不能な exit 2 でも `^exit 2$` に一致する
-#     fi
-#     echo "ERROR: ... " >&2
-#     exit 2
-#     ":"""
+#   (1) 未終端の引用符が行をまたぐ
+#         echo <単一引用符>x           ← 引用符を開いたまま行が終わる
+#         <単一引用符閉じ>; <任意コマンド>
+#       シェルにとって 2 行目の先頭は**文字列の終端**だが、その行が `#` で
+#       始まって見えるため、行指向の述語には**コメント行**に見えて `next` され、
+#       直後の `;` 連結が丸ごと不可視になる。この形は rc=2 を返し guard 固有の
+#       診断も出すため **TC-04 も欺かれ**、副作用先が絶対パスなら TC-05 も
+#       backstop にならない（R2 の `\"` 型は TC-01 だけを欺いた。こちらは悪化形）
+#   (2) 行継続バックスラッシュ
+#         echo harmless <backslash>
+#         exit 2
+#       シェルは 2 行を 1 コマンド `echo harmless exit 2` として実行する
+#       （＝ guard が完全に無効化され、以降の Python 本体まで sh が読み進む。
+#       実測: 出力 `harmless exit 2` + 8 行目 syntax error）。旧述語は行末の
+#       孤立 `\` を `gsub(/\\./, "", rest)`（`\` + 任意 1 文字）では消せず、
+#       `\` 自体もメタ文字クラスに無かったため `exit 2` を「独立した行」として
+#       数え、STRUCT_OK=ACCEPTED になった
 #
-# のようなファイルが構造判定を通り、TC-04 の実走ゲートが開いた。実測では
-# 9 passed / 0 failed のまま `touch` が実際に発火した（副作用先が repo 外なら
-# TC-05 でも検出できない）。
+# どちらも **トークンを 1 個足す是正では閉じない**。「行」という単位が
+# シェルの実際の字句単位と一致していないことが原因だからである。
 #
-# したがってブロック本体は **許可形の allowlist** で縛る。許可するのは
-#   (a) 空行 / コメント行（`#` 始まり）
-#   (b) `echo` / `printf` で始まる出力行。ただし
-#       - コマンド置換（`` ` `` / `$(`）は **二重引用符の内側でも評価される**ため
-#         行全体で禁止する
-#       - **バックスラッシュ・エスケープを落としてから**引用済み部分と `>&2` を
-#         落とし、残りにシェルメタ文字（`; | & < > ( ) ` $`）があるものは禁止
-#         （`echo "..." ; rm -rf /` 型の連結を弾く）。エスケープの正規化を
-#         省くと `\"` / `\'` が引用符の対として消えて連結が素通りする（#1250 C-1）
-#   (c) `exit 2`（top-level・インデントなし）
-# のみ。条件分岐・ループ・任意コマンドはいずれも許可形に該当せず落ちる。
-# `exit 2` より後ろに実行行を置くこと（＝到達不能な後続処理）も許さない。
+# 【新しい粒度: 文字単位の字句状態機械（トークン指向）】
+# ガードブロック本体を **1 本の文字列として**走査し、シェルと同じ状態
+# （NORMAL / 単一引用符内 / 二重引用符内、およびバックスラッシュ・エスケープ）
+# を持たせる。コマンド境界は「行」ではなく **引用符の外にある改行 / `;`** で
+# 決める。この粒度なら:
+#   - (1) は「引用符を開いたまま行末に到達した」時点で reject できる。
+#     `#` 始まりに見える行も**コメントではなく文字列の一部**として正しく
+#     読まれるため、続く連結コマンドは独立コマンドとして allowlist 検査に
+#     必ずかかる
+#   - (2) は「バックスラッシュ + 改行（行継続）で行が終わった」時点で reject
+#     できる。行継続を許すと**人間が読む行と shell が実行するコマンドが乖離**
+#     し、以後どんな allowlist を足しても同じ乖離が再現するため、
+#     ガードブロックでは行継続そのものを禁止する（正規の guard に必要ない）
+# すなわち **reject 条件を「行の中身」ではなく「行末での字句状態」に置く**のが
+# 要点。これは R2 の `\"` / `\'` 非対称（引用符除去の正規化が壊れるクラス）も
+# 同じ機構で吸収する — 正規化で引用を *消す* のをやめ **引用状態として
+# *追跡する*** ようにしたため、「対応の非対称」という概念自体が消える。
 #
-# **この判定が保証する範囲**: 「ブロック本体が上記 allowlist に一致すること」。
-# allowlist と正規化が既知の書法を網羅している限りにおいて、`exit 2` の前に
-# 実行されうるのは副作用のない出力だけで、分岐が無いので `exit 2` は到達可能
-# である。**正規化が想定しない書法に対する完全性は主張しない**（#1250 C-1 で
-# エスケープの非対称が実際に破った）。新しい書法を見つけたら塞いだうえで
-# TC-07 のクラスを 1 つ増やすこと。
+# 【allowlist（トークン列に対して適用）】
+#   (a) 空行 / コメント（引用符の外の、語頭にある `#` から行末まで）
+#   (b) コマンド先頭語が `echo` / `printf`。引用符の外に現れる
+#       `&` `|` `<` `(` `)` と、`>&2` 以外のリダイレクトは reject。
+#       コマンド置換（バッククォート / `$(`）は**二重引用符の内側でも評価される**
+#       ため NORMAL / 二重引用符内の双方で reject（単一引用符内でも保守的に reject）
+#   (c) `exit 2`（引数まで厳密一致）。分岐・ループは先頭語が allowlist 外に
+#       なるので自動的に落ち、`exit 2` は常に top-level かつ到達可能である
+#   (d) `exit 2` より後ろに実行コマンドを置くことは許さない
+#
+# 【この判定が保証する範囲 / しない範囲】
+# 保証するのは「ガードブロックが上記の字句モデルで allowlist に一致すること」。
+# 字句モデルは POSIX sh の引用規則の**部分実装**であり、`$'...'` / here-document /
+# 算術展開など**実装していない構文は先頭語 allowlist かメタ文字 reject のどちらか
+# で落ちる設計（fail-closed）**にしてあるが、**完全性は主張しない**。
+# 新しい回避クラスを見つけたら塞いだうえで TC-07 のクラスを 1 つ増やすこと。
+#
+# 実装は python3 に置く（awk のレコード指向では上記の粒度を表現できない）。
+# python3 不在時は `_t70_struct_ok` が非ゼロを返して TC-01 が FAIL する
+# ＝ fail-closed（TC-03 も同じく python3 必須なので依存は増えない）。
+#
+# 非機能コスト（実測 / 2026-08-27・同一機・standalone）: awk 版 13.7s →
+# 本実装 19.1s（+5.4s）。増分は走査 1 件ごとの python3 プロセス起動で、
+# 走査母数に比例する。harness の watchdog は 300s なので余裕はあるが、
+# **母数が数百件規模に増えたら 1 プロセスで全件を処理する batch 化を検討する
+# こと**（そのときも実装は 1 本に保ち、単体呼び出しと別経路にしない —
+# 経路が 2 本になると TC-07 が実証した検出力が TC-01 側で担保されなくなる）。
+_T70_GUARD_LINT="$_T70_TMP/_t70_guard_lint.py"
+cat >"$_T70_GUARD_LINT" <<'PG_T70_LINT_EOF'
+"""ガードブロックの字句レベル検査（#1250 R3）。
+
+行指向ではなく文字単位の状態機械で走査する。理由は呼び出し元
+(tests/extras/ta-70-py-sh-misinvocation-guard.sh) のコメントを参照。
+本ファイルは mktemp サンドボックス内にのみ生成され、走査対象には入らない。
+"""
+import sys
+
+GUARD_OPEN = '""":"'
+GUARD_CLOSE = '":"""'
+MARKER = 'PG-SH-GUARD'
+MAX_LINES = 40
+ALLOWED_HEADS = ('echo', 'printf')
+REDIR = '\x00>&2'
+
+
+def reject(msg):
+    sys.stderr.write('reject: %s\n' % msg)
+    return 1
+
+
+def lex(block):
+    """ガードブロックを (コマンド = 語のリスト) の列へ落とす。
+
+    reject する条件はすべて「シェルが実際に見る字句状態」で決める:
+      - 行末で引用符が開いたまま         -> 行と実行単位が乖離する
+      - 行継続（バックスラッシュ + 改行） -> 同上
+      - 引用符の外のメタ文字 / コマンド置換
+    失敗時は int 1 を返す（成功時は list）。
+    """
+    src = '\n'.join(block)
+    n = len(src)
+    i = 0
+    state = 'N'          # N=normal, S=single-quoted, D=double-quoted
+    cmds = []
+    words = []
+    cur = None
+    while i < n:
+        c = src[i]
+        if state == 'N':
+            if c == '\\':
+                if i + 1 >= n:
+                    return reject('trailing backslash at end of guard block')
+                if src[i + 1] == '\n':
+                    return reject('line continuation (backslash-newline): the line '
+                                  'a human reads is not the command sh runs')
+                cur = (cur or '') + src[i + 1]
+                i += 2
+                continue
+            if c == "'":
+                state = 'S'
+                cur = cur or ''
+                i += 1
+                continue
+            if c == '"':
+                state = 'D'
+                cur = cur or ''
+                i += 1
+                continue
+            if c == '#' and cur is None:
+                while i < n and src[i] != '\n':
+                    i += 1
+                continue
+            if c == '\n' or c == ';':
+                if cur is not None:
+                    words.append(cur)
+                    cur = None
+                if words:
+                    cmds.append(words)
+                words = []
+                i += 1
+                continue
+            if c in ' \t':
+                if cur is not None:
+                    words.append(cur)
+                    cur = None
+                i += 1
+                continue
+            if c == '`':
+                return reject('command substitution (backquote)')
+            if c == '$' and i + 1 < n and src[i + 1] == '(':
+                return reject('command substitution $( )')
+            if c == '>':
+                if src[i:i + 3] == '>&2':
+                    if cur is not None:
+                        words.append(cur)
+                        cur = None
+                    words.append(REDIR)
+                    i += 3
+                    continue
+                return reject('redirection other than >&2')
+            if c in '&|<()':
+                return reject('unquoted shell metacharacter %r' % c)
+            cur = (cur or '') + c
+            i += 1
+            continue
+        if state == 'S':
+            if c == '\n':
+                return reject('single quote left open at end of line')
+            if c == "'":
+                state = 'N'
+                i += 1
+                continue
+            if c == '`':
+                return reject('backquote inside single quotes (rejected conservatively)')
+            cur += c
+            i += 1
+            continue
+        # state == 'D'
+        if c == '\n':
+            return reject('double quote left open at end of line')
+        if c == '\\':
+            if i + 1 >= n:
+                return reject('trailing backslash at end of guard block')
+            if src[i + 1] == '\n':
+                return reject('line continuation inside double quotes')
+            cur += src[i + 1]
+            i += 2
+            continue
+        if c == '"':
+            state = 'N'
+            i += 1
+            continue
+        if c == '`':
+            return reject('command substitution (backquote) inside double quotes')
+        if c == '$' and i + 1 < n and src[i + 1] == '(':
+            return reject('command substitution $( ) inside double quotes')
+        cur += c
+        i += 1
+    if state != 'N':
+        return reject('quote left open at end of guard block')
+    if cur is not None:
+        words.append(cur)
+    if words:
+        cmds.append(words)
+    return cmds
+
+
+def validate(cmds):
+    if not cmds:
+        return reject('guard block contains no executable command')
+    seen_exit = False
+    for words in cmds:
+        if seen_exit:
+            return reject('command placed after `exit 2` (unreachable / post-exit code)')
+        real = [w for w in words if w != REDIR]
+        if not real:
+            return reject('command consisting only of a redirection')
+        head = real[0]
+        if head == 'exit':
+            if real != ['exit', '2']:
+                return reject('exit must be exactly `exit 2`, got %r' % (real,))
+            seen_exit = True
+            continue
+        if head in ALLOWED_HEADS:
+            continue
+        return reject('command head not in allowlist: %r' % head)
+    if not seen_exit:
+        return reject('no top-level `exit 2`')
+    return 0
+
+
+def main(path):
+    try:
+        with open(path, encoding='utf-8') as fh:
+            lines = fh.read().split('\n')
+    except (OSError, UnicodeDecodeError) as exc:
+        return reject('unreadable: %s' % exc)
+    i = 1 if (lines and lines[0].startswith('#!')) else 0
+    if i >= len(lines) or lines[i] != GUARD_OPEN:
+        return reject('guard opening line %r not found at line %d' % (GUARD_OPEN, i + 1))
+    close = None
+    for j in range(i + 1, min(len(lines), MAX_LINES)):
+        if lines[j] == GUARD_CLOSE:
+            close = j
+            break
+    if close is None:
+        return reject('guard closing line %r not found within first %d lines'
+                      % (GUARD_CLOSE, MAX_LINES))
+    block = lines[i + 1:close]
+    if not any(MARKER in line for line in block):
+        return reject('marker %r missing from guard block' % MARKER)
+    cmds = lex(block)
+    if isinstance(cmds, int):
+        return cmds
+    return validate(cmds)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        sys.stderr.write('usage: _t70_guard_lint.py <file>\n')
+        raise SystemExit(2)
+    raise SystemExit(main(sys.argv[1]))
+PG_T70_LINT_EOF
+
 _t70_struct_ok() {
-  awk '
-    NR > 40 { bad = 1; exit }
-    NR == 1 && /^#!/ { next }
-    !started {
-      if ($0 != "\"\"\":\"") { bad = 1; exit }
-      started = 1; next
-    }
-    closed { next }
-    {
-      if ($0 == "\":\"\"\"") { closed = 1; exit }
-      if (/PG-SH-GUARD/) { marker = 1 }
-      # 空行 / コメント行は常に無害
-      if ($0 ~ /^[[:space:]]*$/ || $0 ~ /^#/) { next }
-      # ここから先は「実行される行」。exit 2 より後ろには置かせない
-      if (hasexit) { bad = 1; exit }
-      if ($0 ~ /^exit 2[[:space:]]*$/) { hasexit = 1; next }
-      if ($0 ~ /^(echo|printf)[[:space:]]/) {
-        # コマンド置換は **二重引用符の内側でも評価される**ので行全体で見る
-        if (index($0, "`") > 0 || index($0, "$(") > 0) { bad = 1; exit }
-        # 引用符の内側の `;` `&` 等はただの文字。引用済み部分と `>&2`（標準
-        # エラーへのリダイレクト）を落としたうえで、残りにシェルメタ文字が
-        # 無いことを見る（`echo "..." ; rm -rf /` 型の連結を弾く）
-        rest = $0
-        # バックスラッシュ・エスケープを **引用符除去の前に** 落とす（#1250 C-1）。
-        # `\"` はシェルではリテラルの `"` だが、下の `gsub(/"[^"]*"/, ...)` は
-        # これを引用符の**対**として消す。この非対称を使うと
-        #     echo \" ; touch /tmp/pwned ; echo \"
-        # の `;` 連結ごと「引用済みスパン」として消えて残りが無害に見え、
-        # 任意コマンドが構造判定を通り抜けた（実測: 9 passed / 0 failed のまま
-        # `touch` が発火。副作用先を sandbox 外の絶対パスにすると TC-05 も
-        # backstop にならない）。`\` 自体はメタ文字クラスに無いため enabler だった。
-        gsub(/\\./, "", rest)
-        gsub(/"[^"]*"/, "", rest)
-        gsub(/'"'"'[^'"'"']*'"'"'/, "", rest)
-        gsub(/>&2/, "", rest)
-        if (rest ~ /[;|&<>()`$]/) { bad = 1; exit }
-        next
-      }
-      bad = 1; exit
-    }
-    END { exit (!bad && started && closed && marker && hasexit) ? 0 : 1 }
-  ' "$1"
+  python3 "$_T70_GUARD_LINT" "$1" >/dev/null 2>&1
 }
 
 # === TC-01 走査対象 3 群の全 .py が guard を構造として持つ ===
@@ -434,12 +625,36 @@ printf '#!/usr/bin/env python3\n""":"\n# --- PG-SH-GUARD (#1169) ---\necho \\%s 
 _t70_struct7e=ok
 _t70_struct_ok "$_T70_TMP/scripts/escsq.py" || _t70_struct7e=ng
 
+# TC-07f/g 対照（#1250 R3 の恒久固定 / **行指向述語では原理的に見えなかった 2 クラス**）:
+# シェルの字句が **行をまたぐ** ため、「1 行 = 1 コマンド」を前提にした述語が
+# 構造的に検出できなかったクラス。両方とも旧述語では STRUCT_OK=ACCEPTED
+# （SURVIVE）だった実測がある。
+#   (f) 未終端の単一引用符が行をまたぎ、次の行の先頭 `#` が**コメントに見える**。
+#       旧述語はその行を `next` し、同じ行の `;` 連結コマンドを丸ごと落とした。
+#       このクラスは rc=2 + guard 固有の診断も出すため **TC-04 でも捕まらず**、
+#       副作用先を絶対パスにすれば TC-05 も backstop にならない
+#       （R2 の `\"` 型は TC-01 だけを欺いた。こちらはより深く欺く悪化形）
+#   (g) 行継続バックスラッシュ。sh は 2 行を 1 コマンドとして実行するので guard が
+#       無効化される（実測: 出力 `harmless exit 2` のあと sh が Python 本体まで
+#       読み進めて syntax error）。旧述語は `exit 2` を独立した行として数えていた
+# 注意: 副作用先は **sandbox 内の相対パス**にする（テスト自身が repo 外へ
+# 副作用を出さないため。実クラスの危険性は絶対パスでも同じ）。
+printf '#!/usr/bin/env python3\n""":"\n# --- PG-SH-GUARD (#1169) ---\necho %sx\n#%s; touch ./FIRED-multiline\necho "ERROR: $0 is a Python script; do not run it with sh/bash." >&2\nexit 2\n":"""\n\nprint("x")\n' \
+  "'" "'" >"$_T70_TMP/scripts/mlquote.py"
+_t70_struct7f=ok
+_t70_struct_ok "$_T70_TMP/scripts/mlquote.py" || _t70_struct7f=ng
+printf '#!/usr/bin/env python3\n""":"\n# --- PG-SH-GUARD (#1169) ---\necho harmless \\\nexit 2\n":"""\n\nprint("x")\n' \
+  >"$_T70_TMP/scripts/linecont.py"
+_t70_struct7g=ok
+_t70_struct_ok "$_T70_TMP/scripts/linecont.py" || _t70_struct7g=ng
+
 if [ "$_t70_fired7" = yes ] && [ "$_t70_struct7" = ng ] \
    && [ "$_t70_struct7b" = ng ] && [ "$_t70_struct7c" = ng ] \
-   && [ "$_t70_struct7d" = ng ] && [ "$_t70_struct7e" = ng ]; then
-  t70_pass "TC-07 変異注入: guard 除去 / ブロック内副作用行 / 到達不能 exit 2 / バックスラッシュ・エスケープ（\\\" と \\') の 5 クラスすべてが構造判定で落ちる（検出力の実証）"
+   && [ "$_t70_struct7d" = ng ] && [ "$_t70_struct7e" = ng ] \
+   && [ "$_t70_struct7f" = ng ] && [ "$_t70_struct7g" = ng ]; then
+  t70_pass "TC-07 変異注入: guard 除去 / ブロック内副作用行 / 到達不能 exit 2 / バックスラッシュ・エスケープ（\\\" と \\'） / 行をまたぐ未終端引用符 / 行継続バックスラッシュ の 7 クラスすべてが構造判定で落ちる（検出力の実証）"
 else
-  t70_fail "TC-07 変異注入 (rc=$_t70_rc7 / FIRED=$_t70_fired7 / 構造判定=$_t70_struct7 / 副作用行=$_t70_struct7b / 到達不能=$_t70_struct7c / エスケープ\\\"=$_t70_struct7d / エスケープ\\'=$_t70_struct7e) — TC-01/TC-06 が空振りしている"
+  t70_fail "TC-07 変異注入 (rc=$_t70_rc7 / FIRED=$_t70_fired7 / 構造判定=$_t70_struct7 / 副作用行=$_t70_struct7b / 到達不能=$_t70_struct7c / エスケープ\\\"=$_t70_struct7d / エスケープ\\'=$_t70_struct7e / 行またぎ引用符=$_t70_struct7f / 行継続=$_t70_struct7g) — TC-01/TC-06 が空振りしている"
 fi
 
 # --- TC-06 正側: guard 付きは sentinel を起動せず exit 2 ---
