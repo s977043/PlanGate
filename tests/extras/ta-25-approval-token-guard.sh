@@ -896,25 +896,22 @@ else
   t25_fail "T1071-TC-01 apply script still has a literal duplication line (assign=$_t1071_assign mk=$_t1071_mk)"
 fi
 
-# T1071-TC-02: sandbox で実行しても scripts/hooks/ に複製が生まれない（AC-2）
+# T1071-TC-02: sandbox で apply を **適用分岐まで実走** させても複製が生まれない（AC-2）
 # 実 repo は一切触らない（REPO_ROOT は $0 の親の親＝sandbox に解決される）。
-# **apply の rc=0 を PASS 条件に AND する**（vacuous 化の防止）。rc を見ないと、
-# apply が Patch 2 到達前に死んだ環境（例: python3 不在で Patch 1 が失敗）でも
-# 「複製が無い」だけで PASS を報告してしまう＝何も検査していない PASS になる。
 #
-# **Patch 1 / 3 / 4 の冪等ガードは sandbox 側で先に満たしておく**
-# （#1252 R2 敵対レビュー M-D）。apply は `set -eu` なので、冪等ガードを満たさない
-# ファイルを置くと Patch 1/3/4 が毎回**実 python3 で実走**し、`rc=0` が
-# 「`bin/plangate` に `os.replace(tmp, target)` と `PYW` がある」「`check-plan-hash.sh`
-# に `    esac` がある」といった **#1071 と無関係な HO ファイルの実装詳細**を暗黙に
-# 要求してしまう。実測: `bin/plangate` の `tmp` を `tmp_path` に改名しただけで
-# apply rc=1 → TC-02 が "duplicate check is vacuous" で FAIL（複製はゼロなのに）。
-# 冪等ガードを満たしておけば Patch 1/3/4 は `SKIP (already applied)` に落ち、
-# `rc=0 dup=no` を維持したまま実 HO ファイルの内容から切り離せる。
+# **rc=0 の AND だけでは vacuous になる**（#1252 R3 M-2）。R2 で Patch 1/3/4 の
+# 冪等ガードを sandbox 側で満たす stub を置いた結果、3 つの Patch がすべて
+# `SKIP (already applied)` へ落ち、`rc=0` が保証するのは「4 SKIP + Patch 5 の
+# ファイル生成 1 件」だけになっていた。実測: Patch 3 の**適用分岐**に複製生成を
+# 注入した mutant が生存した（適用分岐に到達しないため）。
 #
-# ただし **python3 不在の検出は意図的に残す**: Patch 1 の冪等チェック自体が
-# `python3 -c` なので、python3 が無ければ apply は rc!=0 で落ちる（apply が
-# 実行不能な環境で「複製が無い」だけの vacuous な PASS を出さないため）。
+# そこで stub ではなく **合成 fixture**（各 Patch の「未適用」状態 + 挿入
+# アンカーだけを持つ最小ファイル）を置き、Patch 1/3/4/5 の**適用分岐を実走**させる。
+#   - 実 HO ファイルの内容には結合しない（R2 M-D の指摘を維持）。
+#     Patch が探す挿入アンカー文字列だけを合成 fixture で再現する。
+#   - 適用分岐を通過したことは **apply 自身が出す OK マーカー**で実測する
+#     （rc だけでなく「何をしたか」を見る）。マーカーが揃わなければ FAIL。
+#   - python3 不在の検出は引き続き残る（Patch 1 の冪等チェックが python3）。
 #
 # `scripts/check-approval-token-write.sh` だけは実物を置く。これは #1071 の
 # 主題そのもの（旧版 apply が cp する複製元）であり、変異注入で検出力を実証する
@@ -924,24 +921,57 @@ register_cleanup "$_t1071_sbx"
 mkdir -p "$_t1071_sbx/scripts/hooks" "$_t1071_sbx/schemas" "$_t1071_sbx/bin" "$_t1071_sbx/.github/workflows"
 cp "$PG_T25_PATCH" "$_t1071_sbx/scripts/apply-task-0123-patches.sh"
 cp "$PG_T25_ROOT/scripts/check-approval-token-write.sh" "$_t1071_sbx/scripts/check-approval-token-write.sh"
-# Patch 3 の冪等ガード: grep -q PLANGATE_MAINTENANCE_KEY <check-plan-hash.sh>
-printf '#!/bin/sh\n# t25 stub: Patch 3 idempotency guard (PLANGATE_MAINTENANCE_KEY)\nexit 0\n' \
-  > "$_t1071_sbx/scripts/hooks/check-plan-hash.sh"
-# Patch 4 の冪等ガード: grep -q PLANGATE_MAINTENANCE_KEY <bin/plangate>
-printf '#!/bin/sh\n# t25 stub: Patch 4 idempotency guard (PLANGATE_MAINTENANCE_KEY)\nexit 0\n' \
-  > "$_t1071_sbx/bin/plangate"
-# Patch 1 の冪等ガード: properties.hmac_signature が既に在ること
-printf '{"properties": {"hmac_signature": {"type": "string"}}}\n' \
+
+# Patch 1 fixture: properties はあるが hmac_signature は無い（= 未適用）
+printf '{"properties": {"task": {"type": "string"}}}\n' \
   > "$_t1071_sbx/schemas/maintenance.schema.json"
+# Patch 3 fixture: PLANGATE_MAINTENANCE_KEY 不在（= 未適用）+ 挿入アンカー "    esac"
+cat > "$_t1071_sbx/scripts/hooks/check-plan-hash.sh" <<'T25_P3_FIXTURE'
+#!/bin/sh
+# t25 synthetic fixture (NOT the real hook): Patch 3 の挿入アンカーだけを持つ
+_maint="/nonexistent/none.json"
+log_event() { :; }
+case "${1:-}" in
+  maintenance)
+    :
+    ;;
+    esac
+exit 0
+T25_P3_FIXTURE
+# Patch 4 fixture: PLANGATE_MAINTENANCE_KEY 不在（= 未適用）+ 挿入アンカー
+# （"os.replace(tmp, target)" の後ろに最初に現れる "PYW" 行）。Patch 4 は
+# テキスト検索と挿入しか行わないため、実行可能である必要はない。
+_t1071_p4="$_t1071_sbx/bin/plangate"
+printf '#!/bin/sh\n# t25 synthetic fixture (Patch 4 anchors only)\nos.replace(tmp, target)\nPYW\nexit 0\n' > "$_t1071_p4"
+# Patch 5 fixture: 生成先は不在にしておく（適用分岐へ落とす）
+
 _t1071_dup="$_t1071_sbx/scripts/hooks/check-approval-token-write.sh"
+_t1071_out="$_t1071_sbx/apply.out"
 _t1071_rc=0
-sh "$_t1071_sbx/scripts/apply-task-0123-patches.sh" >/dev/null 2>&1 || _t1071_rc=$?
-if [ ! -e "$_t1071_dup" ] && [ "$_t1071_rc" = "0" ]; then
-  t25_pass "T1071-TC-02 apply run completes (rc=0) and creates no scripts/hooks/<guard> duplicate (sandbox)"
-elif [ "$_t1071_rc" != "0" ]; then
-  t25_fail "T1071-TC-02 apply run did not complete (apply rc=$_t1071_rc) — duplicate check is vacuous"
+sh "$_t1071_sbx/scripts/apply-task-0123-patches.sh" > "$_t1071_out" 2>&1 || _t1071_rc=$?
+
+# 適用分岐通過マーカー（Patch 1 / 3 / 4 / 5 の順）。SKIP 分岐では出力されない。
+_t1071_marks=""
+for _t1071_pat in \
+  'OK: hmac_signature added' \
+  'OK: HMAC verification block inserted' \
+  'OK: HMAC signature generation added' \
+  'OK: check-maintenance-provenance.yml created'; do
+  if grep -qF "$_t1071_pat" "$_t1071_out" 2>/dev/null; then
+    _t1071_marks="${_t1071_marks}1"
+  else
+    _t1071_marks="${_t1071_marks}0"
+  fi
+done
+
+if [ "$_t1071_rc" != "0" ]; then
+  t25_fail "T1071-TC-02 apply run did not complete (rc=$_t1071_rc marks=$_t1071_marks) — duplicate check would be vacuous"
+elif [ "$_t1071_marks" != "1111" ]; then
+  t25_fail "T1071-TC-02 apply did not traverse every applied branch (marks=$_t1071_marks expected=1111) — rc=0 alone is vacuous"
+elif [ -e "$_t1071_dup" ]; then
+  t25_fail "T1071-TC-02 apply run created a duplicate at scripts/hooks/<guard> (marks=$_t1071_marks)"
 else
-  t25_fail "T1071-TC-02 apply run created a duplicate at scripts/hooks/<guard> (apply rc=$_t1071_rc)"
+  t25_pass "T1071-TC-02 apply traverses Patch 1/3/4/5 applied branches (marks=1111, rc=0) and creates no scripts/hooks/<guard> duplicate"
 fi
 
 # T1071-TC-03: 本 repo に複製が存在しない（AC-4 / 実測の回帰固定）
@@ -952,115 +982,250 @@ else
   t25_fail "T1071-TC-03 guard layout broken (duplicate present or canonical missing)"
 fi
 
-# T1071-TC-04: 配線が scripts/ 直下を指し、scripts/hooks/ を指さない（AC-5）
-# 現存する settings / hooks 配線ファイルを全数走査する（存在するものだけ検査）。
+# T1071-TC-04: EH-13 配線が scripts/ 直下を指し、scripts/hooks/ を指さない（AC-5）
 #
-# **カウンタは 2 系統に分ける**（#1252 R2 敵対レビュー M-A / M-B）。走査対象を
-# 1 つのカウンタに合算していた版は、AC-5 の**最重要の失敗モードを検出できなかった**:
-# `root_refs >= 1` が PASS 条件のため、**repo の EH-13 配線が丸ごと消えても、
-# 利用者の `~/.claude/settings.json` に `scripts/check-approval-token-write.sh` が
-# 1 件あれば PASS**した（実測: repo 配線除去 + user settings 1 件 → PASS root=1 hooks=0）。
+# ── 検査モデルの軸（#1252 R3 M-1 で張り替え）────────────────────────────
+# 旧版は走査母集団を**ファイルの位置**（repo パス配下か否か）で切っていた。しかし
+# `.claude/settings.json` / `.claude/settings.local.json` は `.gitignore` 対象で
+# **untracked**＝ CI にも他人の checkout にも存在しない環境依存ファイルである。
+# 「パスが repo 内にある」ことと「その配線が repo の資産である」ことは別物で、
+# ここを混ぜたことで両方向に壊れていた（いずれも実測）:
+#   - tracked 配線を全削除しても、手元の untracked な `.claude/settings.json` に
+#     同じ参照が 1 件あるだけで **PASS**（repo の EH-13 配線が丸ごと消えても
+#     どの機械ゲートも赤くならない）。
+#   - 逆に環境側に `.claude/settings.local.json` があるだけで、repo が完全に
+#     正しくても FAIL が **repo を名指し**する。しかも `.claude/settings*.json` は
+#     Hardening Override 対象で AI には直せない。
 #
-#   1. `_t1071_root_refs`（`>= 1` を要求）: **repo ローカルの配線正本 5 ファイルのみ**から
-#      数える。「この repo の配線が生きているか」は repo 内だけで決まる。
-#   2. `_t1071_hook_refs`（`= 0` を要求）: 上記 5 ファイル + **plugin 配布の
-#      `hooks/hooks.json`**。plugin は `hooks/hooks.json` 経由でしか hook を起動できない
-#      （`docs/working/_reports/1144-plugin-packaging-patch.md` §1）。未作成なら空振りする。
-#   3. `_t1071_ext_hook_refs`（**WARN のみ / 判定に入れない**）: **ユーザーレベル
-#      `~/.claude/settings.json`** など repo 外の配線先。複製参照の残存を告げる目的
-#      （#1252 M-3 の本来の狙い）はここだけで満たせる。**repo の CI 判定と環境の
-#      運用指摘を混ぜない**: repo が完全に正しくても利用者の環境都合で FAIL すると、
-#      FAIL メッセージが repo を指すため誤誘導になり、しかも `~/.claude/settings.json` は
-#      self-mod ガード対象で AI には直せない（#1252 R2 M-B）。
+# 新しい軸は **tracked / untracked / loaded** の 3 概念:
 #
-# **読めないファイルは無言で 0 を足さない**（#1252 R2 M-C）。`[ -f ]` は通るが読めない
-# ファイルで `grep -c` は空文字を返し、`$((n + ))` は POSIX 算術で 0 扱い・エラー無しに
-# なる。結果、検査を素通りしたまま PASS を報告していた（実測: `chmod 000` → PASS）。
-# 「列挙が不完全なら判定も不完全」は doc に書いた当のリスクなので、ここで明示的に落とす。
-_t1071_root_refs=0
-_t1071_hook_refs=0
-_t1071_unreadable=""
-_t1071_ext_hook_refs=0
-_t1071_ext_hits=""
-_t1071_ext_unreadable=""
+#   | 概念 | 定義 | レーン |
+#   |------|------|--------|
+#   | tracked | git の index にある = CI と他人の checkout に必ず存在する | **FAIL** |
+#   | untracked / 環境依存 | `.gitignore` 済み・repo 外（`~/.claude/settings.json` 等） | **WARN** |
+#   | loaded | harness が実際にロード・発火させた配線 | **本 TC の射程外** |
+#
+#   - tracked / untracked の判定は `git ls-files --error-unmatch` で機械化する
+#     （パスのハードコード分類にしない。`.gitignore` が変われば自動で追従する）。
+#   - FAIL メッセージは **repo の責任でないものを repo のせいにしない**。環境側の
+#     残存参照は pass/fail を動かさない WARN として別に出す。
+#   - **loaded は検証していない**。設定ファイルに参照が「書いてある」ことは
+#     「効いている」ことの証拠ではない（実ロード結果は harness 側の観測経路で
+#     しか分からない）。残存脅威として明示し、ここで検証したことにしない。
+#
+# ── 走査母集団 ────────────────────────────────────────────────
+#   WIRING 集合（repo の配線正本 / root_refs はここからだけ数える）:
+#     .claude/settings.json / .claude/settings.local.json /
+#     .claude/settings.example.json / .codex/hooks.json / .cursor/hooks.json
+#   DIST 集合（plugin 配布物 / hook_refs にのみ寄与）:
+#     plugin/plangate/hooks/hooks.json
+#       plugin は hooks/hooks.json 経由でしか hook を起動できない
+#       （docs/working/_reports/1144-plugin-packaging-patch.md §1）。未作成なら空振り。
+#   ENV 集合（WARN 専用）: 上記のうち untracked だったもの + $PG_T25_USER_SETTINGS
+#
+# **読めないファイルは無言で 0 を足さない**（#1252 R2 M-C の維持）。`[ -f ]` は
+# 通るが読めないファイルで `grep -c` は空文字を返し `$((n + ))` が 0 扱いになる。
+# tracked なのに読めない / 不在なら「列挙が不完全」として落とす。
+#
+# 絶対件数は assert しない（運用で増減する値を契約値にしない）。root は `>= 1`、
+# hooks 複製は `= 0` のみを要求する。
 
-# _t1071_count <file> <pattern> → 一致行数を echo。読めなければ何も echo しない。
+# _t1071_tracked <root> <relpath> --- tracked なら 0
+_t1071_tracked() {
+  git -C "$1" ls-files --error-unmatch -- "$2" >/dev/null 2>&1
+}
+
+# _t1071_isrepo <root> --- git worktree なら 0
+_t1071_isrepo() {
+  git -C "$1" rev-parse --git-dir >/dev/null 2>&1
+}
+
+# _t1071_count <file> <pattern> --- 一致行数を echo。読めなければ何も echo しない。
 _t1071_count() {
   grep -c "$2" "$1" 2>/dev/null || true
 }
 
-# (1) repo ローカルの配線正本 — root_refs の母集団はここだけ
-for _t1071_f in \
-  "$PG_T25_ROOT/.claude/settings.json" \
-  "$PG_T25_ROOT/.claude/settings.local.json" \
-  "$PG_T25_ROOT/.claude/settings.example.json" \
-  "$PG_T25_ROOT/.codex/hooks.json" \
-  "$PG_T25_ROOT/.cursor/hooks.json"; do
-  [ -e "$_t1071_f" ] || continue
-  if [ ! -f "$_t1071_f" ] || [ ! -r "$_t1071_f" ]; then
-    _t1071_unreadable="$_t1071_unreadable $_t1071_f"
-    continue
+# _t1071_env_add <file> — WARN レーンへ 1 ファイル加算（pass/fail は動かさない）
+_t1071_env_add() {
+  if [ ! -f "$1" ] || [ ! -r "$1" ]; then
+    _T1071_ENVUNREAD="$_T1071_ENVUNREAD $1"
+    return 0
   fi
-  _t1071_n=$(_t1071_count "$_t1071_f" 'scripts/check-approval-token-write\.sh')
-  _t1071_m=$(_t1071_count "$_t1071_f" 'hooks/check-approval-token-write\.sh')
-  if [ -z "$_t1071_n" ] || [ -z "$_t1071_m" ]; then
-    _t1071_unreadable="$_t1071_unreadable $_t1071_f"
-    continue
+  _ea_m=$(_t1071_count "$1" 'hooks/check-approval-token-write\.sh')
+  if [ -z "$_ea_m" ]; then
+    _T1071_ENVUNREAD="$_T1071_ENVUNREAD $1"
+  elif [ "$_ea_m" != "0" ]; then
+    _T1071_ENVHOOK=$((_T1071_ENVHOOK + _ea_m))
+    _T1071_ENVHITS="$_T1071_ENVHITS $1"
   fi
-  _t1071_root_refs=$((_t1071_root_refs + _t1071_n))
-  _t1071_hook_refs=$((_t1071_hook_refs + _t1071_m))
-done
+}
 
-# (2) plugin 配布の hooks.json — repo 内なので複製参照は FAIL 側（root_refs には足さない）
-_t1071_f="$PG_T25_ROOT/plugin/plangate/hooks/hooks.json"
-if [ -e "$_t1071_f" ]; then
-  if [ ! -f "$_t1071_f" ] || [ ! -r "$_t1071_f" ]; then
-    _t1071_unreadable="$_t1071_unreadable $_t1071_f"
-  else
-    _t1071_m=$(_t1071_count "$_t1071_f" 'hooks/check-approval-token-write\.sh')
-    if [ -z "$_t1071_m" ]; then
-      _t1071_unreadable="$_t1071_unreadable $_t1071_f"
+# _t1071_scan <root> <user-settings-path>
+#   グローバル副作用:
+#     _T1071_VERDICT     PASS / FAIL / INCOMPLETE / NOGIT
+#     _T1071_TROOT       tracked な WIRING 集合中の scripts/ 直下参照件数
+#     _T1071_THOOK       tracked な WIRING+DIST 集合中の複製参照件数
+#     _T1071_ENVHOOK     環境依存ファイル中の複製参照件数（判定に入れない）
+#     _T1071_ENVHITS     同上のファイル一覧
+#     _T1071_INCOMPLETE  tracked なのに列挙できなかったファイル一覧
+#     _T1071_ENVUNREAD   読めなかった環境依存ファイル一覧
+_t1071_scan() {
+  _sc_top="$1"
+  _sc_user="$2"
+  _T1071_VERDICT=""
+  _T1071_TROOT=0
+  _T1071_THOOK=0
+  _T1071_ENVHOOK=0
+  _T1071_ENVHITS=""
+  _T1071_INCOMPLETE=""
+  _T1071_ENVUNREAD=""
+
+  if ! _t1071_isrepo "$_sc_top"; then
+    _T1071_VERDICT="NOGIT"
+    return 0
+  fi
+
+  for _sc_rel in \
+    .claude/settings.json \
+    .claude/settings.local.json \
+    .claude/settings.example.json \
+    .codex/hooks.json \
+    .cursor/hooks.json \
+    plugin/plangate/hooks/hooks.json; do
+    _sc_f="$_sc_top/$_sc_rel"
+    _sc_dist=0
+    case "$_sc_rel" in plugin/*) _sc_dist=1 ;; esac
+
+    if _t1071_tracked "$_sc_top" "$_sc_rel"; then
+      # FAIL レーン: tracked = CI と他人の checkout に必ず存在する
+      if [ ! -f "$_sc_f" ] || [ ! -r "$_sc_f" ]; then
+        _T1071_INCOMPLETE="$_T1071_INCOMPLETE $_sc_rel"
+        continue
+      fi
+      _sc_n=$(_t1071_count "$_sc_f" 'scripts/check-approval-token-write\.sh')
+      _sc_m=$(_t1071_count "$_sc_f" 'hooks/check-approval-token-write\.sh')
+      if [ -z "$_sc_n" ] || [ -z "$_sc_m" ]; then
+        _T1071_INCOMPLETE="$_T1071_INCOMPLETE $_sc_rel"
+        continue
+      fi
+      # root_refs は repo の配線正本（WIRING 集合）からだけ数える。
+      # plugin 配布物は「配線が生きている」証拠にならないため hook 側にのみ寄与。
+      if [ "$_sc_dist" = "0" ]; then
+        _T1071_TROOT=$((_T1071_TROOT + _sc_n))
+      fi
+      _T1071_THOOK=$((_T1071_THOOK + _sc_m))
     else
-      _t1071_hook_refs=$((_t1071_hook_refs + _t1071_m))
+      # WARN レーン: untracked = 環境依存（.gitignore 済み）。判定を動かさない。
+      if [ -e "$_sc_f" ]; then
+        _t1071_env_add "$_sc_f"
+      fi
     fi
-  fi
-fi
+  done
 
-# (3) repo 外の配線先 — WARN のみ（判定には入れない / hermeticity）
-_t1071_f="$PG_T25_USER_SETTINGS"
-if [ -e "$_t1071_f" ]; then
-  if [ ! -f "$_t1071_f" ] || [ ! -r "$_t1071_f" ]; then
-    _t1071_ext_unreadable="$_t1071_ext_unreadable $_t1071_f"
+  # repo 外のユーザーレベル配線も WARN レーン
+  if [ -n "$_sc_user" ] && [ -e "$_sc_user" ]; then
+    _t1071_env_add "$_sc_user"
+  fi
+
+  if [ -n "$_T1071_INCOMPLETE" ]; then
+    _T1071_VERDICT="INCOMPLETE"
+  elif [ "$_T1071_TROOT" -ge 1 ] && [ "$_T1071_THOOK" = "0" ]; then
+    _T1071_VERDICT="PASS"
   else
-    _t1071_m=$(_t1071_count "$_t1071_f" 'hooks/check-approval-token-write\.sh')
-    if [ -z "$_t1071_m" ]; then
-      _t1071_ext_unreadable="$_t1071_ext_unreadable $_t1071_f"
-    elif [ "$_t1071_m" != "0" ]; then
-      _t1071_ext_hook_refs=$((_t1071_ext_hook_refs + _t1071_m))
-      _t1071_ext_hits="$_t1071_ext_hits $_t1071_f"
-    fi
+    _T1071_VERDICT="FAIL"
   fi
-fi
+}
 
-if [ -n "$_t1071_unreadable" ]; then
-  t25_fail "T1071-TC-04 wiring file present but unreadable — verdict would be incomplete:$_t1071_unreadable"
-elif [ "$_t1071_root_refs" -ge 1 ] && [ "$_t1071_hook_refs" = "0" ]; then
-  t25_pass "T1071-TC-04 EH-13 wiring points at scripts/ root only (repo root=$_t1071_root_refs hooks=0)"
-else
-  t25_fail "T1071-TC-04 EH-13 repo wiring unexpected (repo root=$_t1071_root_refs hooks=$_t1071_hook_refs)"
-fi
+# T1071-TC-04a: 実 repo の tracked 配線が scripts/ 直下のみを指す
+_t1071_scan "$PG_T25_ROOT" "$PG_T25_USER_SETTINGS"
+case "$_T1071_VERDICT" in
+  PASS)
+    t25_pass "T1071-TC-04a EH-13 tracked wiring points at scripts/ root only (tracked root=$_T1071_TROOT hooks=0)"
+    ;;
+  INCOMPLETE)
+    t25_fail "T1071-TC-04a tracked wiring file unreadable/missing — verdict would be incomplete:$_T1071_INCOMPLETE"
+    ;;
+  NOGIT)
+    t25_fail "T1071-TC-04a cannot determine the tracked set (not a git checkout) — fail-closed"
+    ;;
+  *)
+    t25_fail "T1071-TC-04a EH-13 tracked wiring unexpected (tracked root=$_T1071_TROOT hooks=$_T1071_THOOK)"
+    ;;
+esac
 
-# repo 外の指摘は判定と分離して出す（pass/fail カウンタを動かさない）
-if [ "$_t1071_ext_hook_refs" != "0" ]; then
-  printf '  [WARN] T1071-TC-04 あなたの環境の repo 外配線に scripts/hooks/ 複製への参照が %s 件残っています:%s\n' \
-    "$_t1071_ext_hook_refs" "$_t1071_ext_hits" >&2
+# 環境依存（untracked / repo 外）の残存参照は判定と分離して出す。
+# pass/fail カウンタは動かさない（repo の責任ではないため）。
+if [ "$_T1071_ENVHOOK" != "0" ]; then
+  printf '  [WARN] T1071-TC-04 あなたの環境の untracked / repo 外配線に scripts/hooks/ 複製への参照が %s 件残っています:%s\n' \
+    "$_T1071_ENVHOOK" "$_T1071_ENVHITS" >&2
   printf '         docs/ai/approval-token-guard.md「適用済み環境向け移行手順（#1071）」の\n' >&2
   printf '         #2（scripts/ 直下へ張り替え）→ #3（複製の削除）を実施してください（Human 操作）。\n' >&2
 fi
-if [ -n "$_t1071_ext_unreadable" ]; then
-  printf '  [WARN] T1071-TC-04 repo 外の配線先が読めないため残存参照を確認できませんでした:%s\n' \
-    "$_t1071_ext_unreadable" >&2
+if [ -n "$_T1071_ENVUNREAD" ]; then
+  printf '  [WARN] T1071-TC-04 環境依存の配線先が読めないため残存参照を確認できませんでした:%s\n' \
+    "$_T1071_ENVUNREAD" >&2
 fi
+
+# ── 陽性コントロール（両方向 / #1252 R3 M-1）──────────────────────────
+# 検査モデルが「実際に何を検出でき、何を検出しないか」をテスト自身の中で実測する。
+# ここが無いと TC-04a は「たまたま緑」と区別がつかない。
+#   b: tracked 配線が消えたら赤くなるか（旧版はここが PASS だった）
+#   c: untracked な環境ファイルが tracked の欠落を **救済しない**か（M-1 の実害）
+#   d: 環境側に複製参照があっても repo が正しければ **赤くならない**か（逆方向）
+#   e: tracked 側の複製参照は引き続き赤くなるか（既存 true positive の退行防止）
+
+# _t1071_mkctl <tracked-content> <untracked-content> --- sandbox path を echo
+#   untracked 性は宣言でなく **実際の git の状態**として作る（.gitignore + add 対象外）。
+_t1071_mkctl() {
+  _mk=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-ctl.XXXXXX")
+  register_cleanup "$_mk"
+  mkdir -p "$_mk/.claude"
+  printf '.claude/settings.json\n.claude/settings.local.json\n' > "$_mk/.gitignore"
+  printf '%s\n' "$1" > "$_mk/.claude/settings.example.json"
+  git -C "$_mk" init -q >/dev/null 2>&1
+  git -C "$_mk" add .gitignore .claude/settings.example.json >/dev/null 2>&1
+  if [ -n "$2" ]; then
+    printf '%s\n' "$2" > "$_mk/.claude/settings.json"
+  fi
+  printf '%s' "$_mk"
+}
+
+# _t1071_ctl <label> <expected-verdict> <sandbox>
+_t1071_ctl() {
+  _t1071_scan "$3" ""
+  if [ "$_T1071_VERDICT" = "$2" ]; then
+    t25_pass "$1 (verdict=$_T1071_VERDICT root=$_T1071_TROOT hooks=$_T1071_THOOK env=$_T1071_ENVHOOK)"
+  else
+    t25_fail "$1 expected=$2 got=$_T1071_VERDICT (root=$_T1071_TROOT hooks=$_T1071_THOOK env=$_T1071_ENVHOOK incomplete=$_T1071_INCOMPLETE)"
+  fi
+}
+
+_t1071_ref_root='"command": "sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh"'
+_t1071_ref_hook='"command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-approval-token-write.sh"'
+
+# b: tracked 配線が全て消えた repo は必ず赤くなる
+_t1071_ctl_b=$(_t1071_mkctl "" "")
+_t1071_ctl "T1071-TC-04b removing every tracked EH-13 wiring turns the verdict red" FAIL "$_t1071_ctl_b"
+
+# c: untracked な環境ファイルは tracked の欠落を救済しない（M-1 の実害そのもの）
+_t1071_ctl_c=$(_t1071_mkctl "" "$_t1071_ref_root")
+_t1071_ctl "T1071-TC-04c an untracked env file cannot rescue missing tracked wiring" FAIL "$_t1071_ctl_c"
+
+# d: 環境側に複製参照があっても repo が正しければ赤くならない（逆方向）
+_t1071_ctl_d=$(_t1071_mkctl "$_t1071_ref_root" "$_t1071_ref_hook")
+_t1071_ctl "T1071-TC-04d an untracked env file with a hooks/ duplicate does not fail the repo" PASS "$_t1071_ctl_d"
+
+# d-2: しかも「見えていない」わけではない（WARN レーンには載る）
+if [ "$_T1071_ENVHOOK" -ge 1 ]; then
+  t25_pass "T1071-TC-04d2 the env-lane duplicate is still reported (WARN lane, env=$_T1071_ENVHOOK)"
+else
+  t25_fail "T1071-TC-04d2 env-lane duplicate was silently dropped (env=$_T1071_ENVHOOK)"
+fi
+
+# e: tracked 側の複製参照は引き続き赤くなる（既存 true positive の退行防止）
+_t1071_ctl_e=$(_t1071_mkctl "$_t1071_ref_root
+$_t1071_ref_hook" "")
+_t1071_ctl "T1071-TC-04e a hooks/ duplicate in a tracked wiring file still fails" FAIL "$_t1071_ctl_e"
 
 # ── T1023 追加 TC（通常モード）───────────────────────────────
 

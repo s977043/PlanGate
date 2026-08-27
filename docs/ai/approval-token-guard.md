@@ -236,6 +236,34 @@ sh tests/extras/ta-25-approval-token-guard.sh        # EH-13 の TC が全 PASS
   T1071-TC-04 は**これを FAIL にしない**（repo の CI 判定と環境の運用指摘を混ぜないため）。
   検出したときは **WARN + 該当パス表示**で本節 #2 / #3 へ誘導するのみで、
   実施は運用者に依存する。
+- **`scripts/check-settings-wiring.sh` の `checks` に EH-13 は未登録**（実測: EH-1 / EH-2 / EH-3 / EH-3 引数 / EH-6 / EH-9 の 6 件のみ）。契約ドリフト検知は EH-13 をまだ見ていないため、`ta-25` の `T1071-TC-04a` が tracked 配線に対する 事実上唯一の機械ゲートである。
+
+#### T1071-TC-04 の検査モデル: tracked / untracked / loaded
+
+`ta-25` の T1071-TC-04 は走査母集団を **ファイルの位置ではなく git の追跡状態**で
+切る（#1252 R3）。パスが repo 内にあることと、その配線が repo の資産であることは
+別物である。
+
+| 概念 | 定義 | レーン | 根拠 |
+|------|------|--------|------|
+| **tracked** | `git ls-files --error-unmatch` が通る = CI と他人の checkout に必ず存在する | **FAIL** | repo が壊れているなら repo の責任 |
+| **untracked / 環境依存** | `.gitignore` 済み（`.claude/settings.json` / `.claude/settings.local.json`）・repo 外（`~/.claude/settings.json`） | **WARN** | 環境都合の FAIL が repo を名指しすると誤誘導になる。しかも `.claude/settings*.json` は Hardening Override 対象で AI には直せない |
+| **loaded** | harness が実際にロード・発火させた配線 | **検証対象外** | 設定ファイルに書いてあることは「効いている」証拠ではない |
+
+この軸に張り替える前は、**tracked 配線（`.claude/settings.example.json` の 2 エントリ）を
+全削除しても、手元の untracked な `.claude/settings.json` に同じ参照が 1 件あれば
+PASS**していた（実測）。repo の EH-13 配線が丸ごと消えても、どの機械ゲートも赤く
+ならない状態だった。逆に環境側にファイルがあるだけで、repo が完全に正しくても
+FAIL が repo を名指しした。
+
+検出力は同じテスト内の陽性コントロールで実測している（`T1071-TC-04b` 〜 `04e`）:
+tracked 配線の全削除は必ず FAIL、untracked な環境ファイルは tracked の欠落を
+**救済しない**、repo が正しければ環境側の複製参照だけでは **FAIL しない**（WARN には
+載る）、tracked 側の複製参照は引き続き FAIL。
+
+**`loaded` は本 TC の射程外**。実ロード結果（hook が実際に登録され発火したか）は
+設定ファイルの静的検査では分からない。本 TC は多層防御の 1 層でしかなく、
+実発火の保証は C-4 Human レビューと実環境での観測に依存する。
 
 ## トラブルシューティング
 
