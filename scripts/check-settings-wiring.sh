@@ -62,6 +62,7 @@ checks = [
     ("check-c3-approval.sh", "Edit|Write", "EH-2 c3-approval"),
     ("check-forbidden-files.sh", "Edit|Write", "EH-6 forbidden-files"),
     ("check-plan-hash.sh", "Edit|Write", "EH-3 plan-hash"),
+    ("check-plan-hash.sh", "Bash", "EH-3b Bash route plan-hash(#1104)"),
     ("${PLANGATE_HOOK_FILE:-}", "Edit|Write", "EH-3 の PLANGATE_HOOK_FILE 引数(P4(d)/AC-8)"),
     ("check-delegation-commit-boundary.sh", "Bash", "EH-9 delegation-commit-boundary(TASK-0073)"),
 ]
