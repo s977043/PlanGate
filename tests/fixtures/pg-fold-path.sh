@@ -38,31 +38,62 @@
 #   - 先頭 `/` は除去しない（絶対パスを block しない / N-1・TC-11b）
 #   - 末尾 `/` は保持する（`CLAUDE.md/` は FS 到達不能なので skip 側のまま）
 #   - シンボリックリンクは解決しない（Non-goal）
+#   - fail-closed は 4 条件: (a) 畳み込み後に先頭 .. が残る / (b) セグメント数
+#     > 256 / (c) 全体長 > 4096 (PATH_MAX 上限) / (d) セグメント長 > 255
+#     (NAME_MAX)。(c)(d) は #1101 Step 7 の実測（長い大文字パスで小文字化が
+#     非線形に悪化し、timeout の無い EH-3 がハングする）を受けた追加であり、
+#     plan v4 の 2 条件からの**逸脱**（status.md 計画からの変更点 #9 に記録）。
 _PG_FOLD_MAXSEG=256
+# NAME_MAX（macOS / Linux とも 255）。これを超えるセグメントは FS 上の
+# ファイル名になりえないため、block しても正当な書き込みを妨げない。
+_PG_FOLD_MAXNAME=255
+# PATH_MAX の上限（Linux 4096 / macOS 1024）。同上。
+_PG_FOLD_MAXLEN=4096
 
 _pg_fold_tolower() {
-  _pl_in=$1
-  case "$_pl_in" in
+  _pl_all=$1
+  case "$_pl_all" in
     *[ABCDEFGHIJKLMNOPQRSTUVWXYZ]*) ;;
-    *) _PG_FOLD_LOWER=$_pl_in; return 0 ;;
+    *) _PG_FOLD_LOWER=$_pl_all; return 0 ;;
   esac
-  _pl_out=''
-  while [ -n "$_pl_in" ]; do
-    _pl_rest=${_pl_in#?}
-    _pl_c=${_pl_in%"$_pl_rest"}
-    _pl_in=$_pl_rest
-    case "$_pl_c" in
-      A) _pl_c=a ;; B) _pl_c=b ;; C) _pl_c=c ;; D) _pl_c=d ;;
-      E) _pl_c=e ;; F) _pl_c=f ;; G) _pl_c=g ;; H) _pl_c=h ;;
-      I) _pl_c=i ;; J) _pl_c=j ;; K) _pl_c=k ;; L) _pl_c=l ;;
-      M) _pl_c=m ;; N) _pl_c=n ;; O) _pl_c=o ;; P) _pl_c=p ;;
-      Q) _pl_c=q ;; R) _pl_c=r ;; S) _pl_c=s ;; T) _pl_c=t ;;
-      U) _pl_c=u ;; V) _pl_c=v ;; W) _pl_c=w ;; X) _pl_c=x ;;
-      Y) _pl_c=y ;; Z) _pl_c=z ;;
+  # 1 文字ループは入力長 n に対して O(n^2)（`${v#?}` と `${v%"$rest"}` が毎回
+  # 全長を走査する）。パス全体を一度に回すと長い大文字パスで実行時間が跳ね上がる
+  # ため、**`/` セグメント単位に分割して回す**（出力は分割しない場合と byte 一致）。
+  # 上限そのものは _PG_FOLD_MAXNAME / _PG_FOLD_MAXLEN が fail-closed で切る。
+  # 背景: #1101 Step 7（EH-3 に timeout が無いため暴走は block ではなくハングになる）。
+  _pl_acc=''
+  while : ; do
+    case "$_pl_all" in
+      */*) _pl_in=${_pl_all%%/*}; _pl_all=${_pl_all#*/}; _pl_sep='/' ;;
+      *) _pl_in=$_pl_all; _pl_all=''; _pl_sep='' ;;
     esac
-    _pl_out=$_pl_out$_pl_c
+    case "$_pl_in" in
+      *[ABCDEFGHIJKLMNOPQRSTUVWXYZ]*)
+        _pl_out=''
+        while [ -n "$_pl_in" ]; do
+          _pl_rest=${_pl_in#?}
+          _pl_c=${_pl_in%"$_pl_rest"}
+          _pl_in=$_pl_rest
+          case "$_pl_c" in
+            A) _pl_c=a ;; B) _pl_c=b ;; C) _pl_c=c ;; D) _pl_c=d ;;
+            E) _pl_c=e ;; F) _pl_c=f ;; G) _pl_c=g ;; H) _pl_c=h ;;
+            I) _pl_c=i ;; J) _pl_c=j ;; K) _pl_c=k ;; L) _pl_c=l ;;
+            M) _pl_c=m ;; N) _pl_c=n ;; O) _pl_c=o ;; P) _pl_c=p ;;
+            Q) _pl_c=q ;; R) _pl_c=r ;; S) _pl_c=s ;; T) _pl_c=t ;;
+            U) _pl_c=u ;; V) _pl_c=v ;; W) _pl_c=w ;; X) _pl_c=x ;;
+            Y) _pl_c=y ;; Z) _pl_c=z ;;
+          esac
+          _pl_out=$_pl_out$_pl_c
+        done
+        ;;
+      *) _pl_out=$_pl_in ;;
+    esac
+    _pl_acc=$_pl_acc$_pl_out$_pl_sep
+    if [ -z "$_pl_sep" ]; then
+      break
+    fi
   done
-  _PG_FOLD_LOWER=$_pl_out
+  _PG_FOLD_LOWER=$_pl_acc
 }
 
 _pg_fold_path() {
@@ -72,6 +103,17 @@ _pg_fold_path() {
   _PG_FOLD_OUT=''
   _PG_FOLD_RC=0
   _PG_FOLD_REASON=''
+
+  # fail-closed (c): 入力長が上限（PATH_MAX 上限）を超える（#1101 Step 7）。
+  # 上限判定を「セグメント数」だけに置くと `1 セグメント x 20,000 文字` が
+  # 素通りし、小文字化ループだけが非線形に回る。EH-3 に timeout は無いので
+  # これは block ではなく**ハング**になる＝可用性の穴。長さでも切る。
+  if [ ${#_pf_in} -gt "$_PG_FOLD_MAXLEN" ]; then
+    _PG_FOLD_RC=1
+    _PG_FOLD_REASON="path length exceeded (>$_PG_FOLD_MAXLEN)"
+    _PG_FOLD_OUT=$_pf_in
+    return 0
+  fi
 
   # (1) 末尾空白（space / tab 等）の除去
   while [ -n "$_pf_in" ]; do
@@ -101,6 +143,15 @@ _pg_fold_path() {
       */*) _pf_seg=${_pf_rest%%/*}; _pf_rest=${_pf_rest#*/} ;;
       *) _pf_seg=$_pf_rest; _pf_rest='' ;;
     esac
+    # fail-closed (d): セグメント長が NAME_MAX を超える（#1101 Step 7）。
+    # 小文字化のコストはセグメント長の 2 乗で効くため、ここで切らないと
+    # 全体長の上限 (c) だけでは worst case が数十秒に達する。
+    if [ ${#_pf_seg} -gt "$_PG_FOLD_MAXNAME" ]; then
+      _PG_FOLD_RC=1
+      _PG_FOLD_REASON="segment length exceeded (>$_PG_FOLD_MAXNAME)"
+      _PG_FOLD_OUT=$_pf_in
+      return 0
+    fi
     case "$_pf_seg" in
       '')
         # 連続スラッシュ / 先頭スラッシュ由来の空セグメント

@@ -30,6 +30,7 @@
 #   - TC-08  : 直積（HO 全パターン × 変換 7 種 + 2 種複合）が rc=2（AC-1）
 #   - TC-09  : fail-closed 2 条件（先頭 `..` 残り / セグメント上限）（AC-8）
 #   - TC-09b : **絶対パスは block しない**ことの表明（偽陽性の回帰検出 / TC-11b）
+#   - TC-09c : 入力長 / セグメント長の fail-closed と**上限内 worst case の実行時間**（#1101 Step 7）
 #   - TC-10  : `_norm_target` 下流 consumer が不変（AC-2）
 #   - TC-11  : 監査ログと reason が**生の要求パス**を保持（AC-9）
 #   - TC-12  : 正規化関数が正本 tests/fixtures/pg-fold-path.sh と byte 一致
@@ -85,6 +86,45 @@ _t65_hook_at() {
   PLANGATE_HOOK_TASK="$2" PLANGATE_HOOK_FILE="$3" \
   PLANGATE_HOOK_STRICT="${4:-0}" PLANGATE_BYPASS_HOOK="${5:-0}" \
     sh "$_t65_h" </dev/null 2>&1
+}
+
+# 文字反復（#1101 TC-09c）。素朴な 1 文字ずつの連結は O(n^2) で、テスト自身が
+# 検査対象と同じ遅さになるため、二進合成で組み立てる。
+_t65_repeat_char() {
+  _t65_rp_unit=$1
+  _t65_rp_left=$2
+  _t65_rp_out=''
+  while [ "$_t65_rp_left" -gt 0 ]; do
+    if [ $((_t65_rp_left % 2)) -eq 1 ]; then
+      _t65_rp_out="$_t65_rp_out$_t65_rp_unit"
+    fi
+    _t65_rp_unit="$_t65_rp_unit$_t65_rp_unit"
+    _t65_rp_left=$((_t65_rp_left / 2))
+  done
+  printf '%s' "$_t65_rp_out"
+}
+
+# per-run timeout（ta-62 / ta-61 R-026 と同型）。#1101 TC-09c は「退行すると
+# FAIL ではなくハングする」検査なので、外側で必ず時間を切る。
+_T65_TIMEOUT_CMD=''
+if command -v timeout >/dev/null 2>&1; then
+  _T65_TIMEOUT_CMD=timeout
+elif command -v gtimeout >/dev/null 2>&1; then
+  _T65_TIMEOUT_CMD=gtimeout
+fi
+
+# _t65_hook_at の timeout つき版（120 秒）。
+_t65_hook_at_to() {
+  _t65_h=$1
+  if [ -n "$_T65_TIMEOUT_CMD" ]; then
+    PLANGATE_HOOK_TASK="$2" PLANGATE_HOOK_FILE="$3" \
+    PLANGATE_HOOK_STRICT="${4:-0}" PLANGATE_BYPASS_HOOK="${5:-0}" \
+      "$_T65_TIMEOUT_CMD" 120 sh "$_t65_h" </dev/null 2>&1
+  else
+    PLANGATE_HOOK_TASK="$2" PLANGATE_HOOK_FILE="$3" \
+    PLANGATE_HOOK_STRICT="${4:-0}" PLANGATE_BYPASS_HOOK="${5:-0}" \
+      perl -e 'alarm 120; exec @ARGV' sh "$_t65_h" </dev/null 2>&1
+  fi
 }
 
 _T65_ABORT=0
@@ -565,6 +605,60 @@ if [ "$_T65_ABORT" = "0" ]; then
       t65_pass "TC-09b (TC-11b): 絶対パス 4 件は block されない（偽陽性の回帰検出）"
     else
       t65_fail "TC-09b (TC-11b): 絶対パスが block された (${_t65_bad} 件) — repo 外への書き込みが止まる"
+    fi
+
+    # === TC-09c (#1101 Step 7): 入力長 / セグメント長の fail-closed と実行時間の上限 ===
+    # 背景: セグメント**数**の上限だけでは総文字数を制限できず、`1 セグメント x
+    # 20,000 文字` が上限を通過して小文字化ループだけが非線形に回る。EH-3 に
+    # timeout は無いため、これは block ではなく**ハング**になる（可用性の穴）。
+    # 検査は 2 点。(1) 長さ由来の fail-closed が rc=2 で block すること。
+    # (2) **上限内の worst case が現実的な時間で終わること**。(2) が無いと
+    # 「block はするが遅い」退行を検出できない。
+    _t65_bad=0
+    # (c) 全体長 > 4096（PATH_MAX 上限）
+    _t65_huge=$(_t65_repeat_char A 20000)
+    _t65_rc=0
+    _t65_out=$(_t65_hook_at_to "$_T65_HOOK_P" "$_T65_TASK" "$_t65_huge") || _t65_rc=$?
+    if [ "$_t65_rc" != "2" ] || ! printf '%s' "$_t65_out" | grep -q 'HARDENING_OVERRIDE'; then
+      _t65_bad=$((_t65_bad + 1))
+      printf '    fail-closed miss (path length, len=20000): rc=%s\n' "$_t65_rc" >&2
+    fi
+    # (d) セグメント長 > 255（NAME_MAX。全体長は上限内）
+    _t65_seg=$(_t65_repeat_char B 300)
+    _t65_rc=0
+    _t65_out=$(_t65_hook_at_to "$_T65_HOOK_P" "$_T65_TASK" "docs/${_t65_seg}/CLAUDE.md") || _t65_rc=$?
+    if [ "$_t65_rc" != "2" ] || ! printf '%s' "$_t65_out" | grep -q 'HARDENING_OVERRIDE'; then
+      _t65_bad=$((_t65_bad + 1))
+      printf '    fail-closed miss (segment length, 300): rc=%s\n' "$_t65_rc" >&2
+    fi
+    # 境界: セグメント長ちょうど 255 は fail-closed にしない（偽陽性の回帰検出）
+    _t65_seg255=$(_t65_repeat_char b 255)
+    _t65_rc=0
+    _t65_out=$(_t65_hook_at_to "$_T65_HOOK_P" "$_T65_TASK" "docs/${_t65_seg255}/note.md") || _t65_rc=$?
+    if [ "$_t65_rc" = "2" ]; then
+      _t65_bad=$((_t65_bad + 1))
+      printf '    boundary miss (segment length == 255 wrongly blocked): rc=%s\n' "$_t65_rc" >&2
+    fi
+    # (2) 上限内の worst case（255 文字 x 16 セグメント = 4095 文字・全て大文字）。
+    #     **絶対値を契約にしない**（測定環境依存）。退行時は分〜十数分オーダーに
+    #     なるため上限 120 秒で十分に切り分けられる。
+    _t65_wseg=$(_t65_repeat_char C 255)
+    _t65_worst=$_t65_wseg
+    _t65_i=1
+    while [ "$_t65_i" -lt 16 ]; do _t65_worst="$_t65_worst/$_t65_wseg"; _t65_i=$((_t65_i + 1)); done
+    _t65_t0=$(date +%s)
+    _t65_rc=0
+    _t65_hook_at_to "$_T65_HOOK_P" "$_T65_TASK" "$_t65_worst" >/dev/null 2>&1 || _t65_rc=$?
+    _t65_t1=$(date +%s)
+    _t65_el=$((_t65_t1 - _t65_t0))
+    if [ "$_t65_rc" = "124" ] || [ "$_t65_rc" = "142" ] || [ "$_t65_el" -gt 120 ]; then
+      _t65_bad=$((_t65_bad + 1))
+      printf '    worst case within caps too slow: %ss (rc=%s)\n' "$_t65_el" "$_t65_rc" >&2
+    fi
+    if [ "$_t65_bad" = "0" ]; then
+      t65_pass "TC-09c (#1101 Step 7): 長さ由来の fail-closed 2 件が rc=2 / 255 境界は非 block / 上限内 worst case は ${_t65_el}s で完了"
+    else
+      t65_fail "TC-09c (#1101 Step 7): 長さ上限が成立しない (${_t65_bad} 件)"
     fi
 
     # === TC-10 (AC-2): _norm_target の下流 consumer が不変 ===

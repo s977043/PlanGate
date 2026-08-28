@@ -168,9 +168,14 @@ NEW_HO = '''# (i-b) HO 判定専用キー _ho_key の導出（#1101 / TASK-1101�
 _pg_fold_path "${target_file:-}" "$REPO_ROOT" 1
 _ho_key=$_PG_FOLD_OUT
 if [ "$_PG_FOLD_RC" != "0" ]; then
-  # fail-closed（AC-8）: 畳み込み後に先頭 .. が残る / セグメント上限超過。
-  # 前者は cwd 次第で repo 内 HO に到達しうる。後者は EH-3 に timeout が無く
-  # 暴走が block ではなくハングになるため上限で切って block へ倒す。
+  # fail-closed: (a) 畳み込み後に先頭 .. が残る / (b) セグメント数 > 256 /
+  # (c) 全体長 > 4096 (PATH_MAX 上限) / (d) セグメント長 > 255 (NAME_MAX)。
+  # (a) は cwd 次第で repo 内 HO に到達しうる。(b)(c)(d) は EH-3 に timeout が
+  # 無く暴走が block ではなく**ハング**になるため上限で切って block へ倒す。
+  # AC-8 は (a)(b) の 2 条件のみを規定しており、(c)(d) は #1101 Step 7 の実測
+  # （長い大文字パスで小文字化が非線形に悪化）を受けた**逸脱**。ただし (c)(d)
+  # に該当するパスは PATH_MAX / NAME_MAX を超えており FS 上のファイルを
+  # 指しえないため、正当な書き込みを止めることはない。
   reason="HARDENING_OVERRIDE: ${target_file:-} は正規化できない (fail-closed: ${_PG_FOLD_REASON})"
   log_event "HARDENING_OVERRIDE" "$reason"
   printf '[Hook EH-3] %s\\n' "$reason" >&2

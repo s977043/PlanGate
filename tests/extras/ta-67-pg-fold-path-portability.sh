@@ -125,6 +125,24 @@ _i=0
 while [ "$_i" -lt 257 ]; do _long="$_long"'x/'; _i=$((_i + 1)); done
 _pg_fold_path "${_long}CLAUDE.md" "$_R" 1
 printf 'IN[%s]\tOUT[%s]\trc=%s\n' '257seg' 'omitted' "$_PG_FOLD_RC"
+# #1101 Step 7: 長さ由来の fail-closed（(c) 全体長 / (d) セグメント長）と
+# その境界。二重化で組み立てる（1 文字ずつの連結はドライバ側が O(n^2) になる）。
+_huge=A
+_i=0
+while [ "$_i" -lt 15 ]; do _huge="$_huge$_huge"; _i=$((_i + 1)); done
+_pg_fold_path "$_huge" "$_R" 1
+printf 'IN[%s]\tOUT[%s]\trc=%s\n' 'len32768' 'omitted' "$_PG_FOLD_RC"
+_seg=B
+_i=0
+while [ "$_i" -lt 9 ]; do _seg="$_seg$_seg"; _i=$((_i + 1)); done
+_pg_fold_path "docs/$_seg/CLAUDE.md" "$_R" 1
+printf 'IN[%s]\tOUT[%s]\trc=%s\n' 'seg512' 'omitted' "$_PG_FOLD_RC"
+_seg2=c
+_i=0
+while [ "$_i" -lt 8 ]; do _seg2="$_seg2$_seg2"; _i=$((_i + 1)); done
+_seg2=${_seg2#?}
+_pg_fold_path "docs/$_seg2/note.md" "$_R" 1
+printf 'IN[%s]\tOUT[%s]\trc=%s\n' 'seg255' 'omitted' "$_PG_FOLD_RC"
 T67DRV
 
   # ── 期待値（正本。repo の実パスに依存しない）────────────────────
@@ -158,6 +176,9 @@ IN[..]	OUT[..]	rc=1
 IN[../plangate/CLAUDE.md]	OUT[../plangate/CLAUDE.md]	rc=1
 IN[a/b/../../../CLAUDE.md]	OUT[../CLAUDE.md]	rc=1
 IN[257seg]	OUT[omitted]	rc=1
+IN[len32768]	OUT[omitted]	rc=1
+IN[seg512]	OUT[omitted]	rc=1
+IN[seg255]	OUT[omitted]	rc=0
 T67EXP
 
   # ── TC-01: 各シェルで rc=0（評価自体が成功する）───────────────────
@@ -189,7 +210,7 @@ T67EXP
     fi
   done
   if [ "$_t67_bad" = "0" ]; then
-    t67_pass "TC-02 (AC-4): 全シェルの入出力が期待値表と一致（29 ケース / fail-closed 4 件を含む）"
+    t67_pass "TC-02 (AC-4): 全シェルの入出力が期待値表と一致（32 ケース / fail-closed 6 件 + 長さ境界 1 件を含む）"
   else
     t67_fail "TC-02 (AC-4): ${_t67_bad} シェルで期待値と乖離"
   fi
