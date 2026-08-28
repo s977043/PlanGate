@@ -1,0 +1,4 @@
+# eh3-bash-lane-pending-1104.flag
+# #1104 / PR #1267: docs/working/_reports/1104-bash-lane-noop-patch-applicable.md の
+# patch が scripts/hooks/check-plan-hash.sh へ **未適用**であることの明示 opt-in。
+# Human が patch を適用したら、このファイルを削除すること（ta-79 TC-00b が stale を FAIL にする）。
