@@ -57,21 +57,28 @@ fi
 . "$_pg_extra_helper"
 pg_extra_contract_init ta-79-eh3-bash-lane standalone-capable
 
-printf '\n=== TA-77: EH-3 Bash lane (#1104 / PR #1267 hotfix) ===\n'
+printf '\n=== TA-79: EH-3 Bash lane (#1104 / PR #1267 hotfix) ===\n'
 
-if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ]; then
-  _T79_FX="$FIXTURES_DIR"
-else
+# harness / standalone の判別は bootstrap が立てた 3 条件 AND
+# （PG_HARNESS_SOURCED + FIXTURES_DIR + EXTRAS_DIR = _pg_extra_mode /
+# tests/extras/README.md HR-4 = (b)）**だけ**を使う。ここで 2 条件 AND の
+# 別述語を立てると、外部 env の FIXTURES_DIR 漏れだけで harness と誤判定する
+# 経路ができる（ta-77 / ta-78 も単一述語で一貫している）。
+if pg_extra_contract_is_standalone; then
   # standalone: 外部 env 汚染を無害化（tests/extras/README.md 規約 8）
   unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
     PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
     PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
-  _T79_FX=""
+fi
+
+_T79_FX=""
+if [ "$_pg_extra_mode" = harness ]; then
+  _T79_FX="${FIXTURES_DIR:-}"
 fi
 if [ -n "$_T79_FX" ]; then
   _T79_ROOT="$(CDPATH= cd -- "$_T79_FX/../.." && pwd)"
 else
-  _T79_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+  _T79_ROOT="${_pg_extra_dir%/tests/extras}"
 fi
 
 t79_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
