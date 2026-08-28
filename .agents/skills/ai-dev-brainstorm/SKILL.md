@@ -7,32 +7,79 @@ description: "アイデアや曖昧な要件を PlanGate の PBI INPUT PACKAGE �
 
 PlanGate ワークフローの **brainstorm フェーズ** を Codex / Claude Code 両方で実行する skill。
 
+> 本スキルは **bundled resources**（`references/`）で自己完結する。
+>
+> **パス表記の規約（重要）**: 本 SKILL.md 中の `references/…` は、すべて **本スキル
+> ディレクトリからの相対パス**（= `<skill_dir>/…`）であって、導入先リポジトリのルートからの
+> 相対パスではない。実行時はまず `<skill_dir>`（このファイルが置かれているディレクトリ）を
+> 解決してから使う:
+>
+> | 環境 | `<skill_dir>` |
+> | --- | --- |
+> | plugin 導入先（Claude marketplace） | `<plugin_root>/skills/ai-dev-brainstorm/` |
+> | `install.sh --claude` 導入先 | `.claude/skills/ai-dev-brainstorm/` |
+> | Codex 導入先 | `.codex/skills/ai-dev-brainstorm/` |
+> | 上流リポジトリ（正本側） | `.agents/skills/ai-dev-brainstorm/` |
+>
+> 導入先が独自の正本（上流リポジトリの `docs/` 配下に相当するもの）を別途保持している
+> 場合は、そちらを優先すること。
+
 ## Read First
 
 ### 参照解決順（導入先で必ずこの順に探す）
 
-本 skill の参照は上流リポジトリ基準の相対パスで書かれている。導入先ではそのままでは
-解決できないものがあるため、**次の順で探索する**:
+本 Skill は **上流リポジトリ基準の `docs/**` パスを直接参照しない**（#1232）。`docs/**` は
+`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**であり、
+書いた時点で導入先では必ず空振りするためである。参照の解決は次の順で行う:
 
-1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）。
-   ただし **本 skill が参照する節（例: `working-context.md` の「pbi-input.md」節）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため 2 へ進む
-2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）。
-   `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
-   絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
-   という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず 3 へ進む
-3. どちらにも無い場合は **「正本 `<path>` を参照できなかった」と明示**し、推測で内容を補わない
+1. **`<skill_dir>` 配下の同梱物（`references/`）を第一に読む** — ワークフロー正本と実行契約は
+   本スキルに同梱されている（「同梱リファレンス」節の一覧）
+2. 導入先リポジトリが独自の正本（上流の `docs/` 配下に相当するもの）を保持していれば、
+   そちらを優先する
+3. **rules（`rules/*.md`）だけは配布経路によって着地が異なる**ため、次の順で探す:
+   1. 導入先リポジトリの相対パス（例: `.claude/rules/working-context.md`）。
+      ただし **本 skill が参照する節（例: `working-context.md` の「pbi-input.md」節）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため次へ進む
+   2. 無ければ plugin root 配下（例: `<plugin_root>/rules/working-context.md`）。
+      `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
+      絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+      という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず次へ進む
+4. いずれでも解決できなければ **「正本 `<path>` を参照できなかった」と明示**し、同梱
+   `references/` と本 Skill の記述を代替正本として扱い、推測で内容を補わない
+
+**plugin root 直下に `docs/` を探しに行かないこと**: plugin が配布するのは
+`agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として
+認識せず、plugin root 配下に相当する配布物が存在しないため必ず空振りする。
 
 導入経路ごとに配置されるものが違う:
 
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
-| `rules/*.md` | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
-| `docs/**` | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+| `rules/*.md` | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 4 へ）** |
+| ワークフロー正本・実行契約 | **`<skill_dir>/references/` に同梱（解決可）** | **`<skill_dir>/references/` に同梱（解決可）** | **`<skill_dir>/references/` に同梱（解決可）** |
 | `scripts/**` / `bin/**` | コピー対象外（解決不可） | 目的の CLI は不在（解決不可） | 未配置（解決不可） |
+
+> **例外（上流リポジトリ内のドッグフーディング経路 / #1249 MINOR-3）**: 上表「Codex 経由」の
+> 「同梱（解決可）」が成立するのは **配布物経由**（`plugin/plangate/scripts/install-plangate-skills.sh`。
+> source は `plugin/plangate/skills/`）に限る。上流リポジトリ自身が `.codex/skills/` を作る
+> `scripts/install-plangate-skills-to-codex.sh` は source が `.agents/skills/` であり、そこには
+> 本 skill の `references/` が **存在しない**（`references/` は `scripts/sync-plugin-plangate.sh` が
+> `plugin/plangate/skills/**` にだけ生成する）。したがって上流 repo の
+> `.codex/skills/<skill>/references/` は **構造上つねに不在**であり、この経路では契約 doc・
+> テンプレートは手順 4（解決できなかったと明示）に落ちる。上流では `docs/**` の正本を直接
+> 読めるため実害は無いが、上表の「解決可」を上流の `.codex/` にまで拡大解釈しないこと。
+> 経路自体の是正（source の一本化）は #1086 の裁定待ち。
 
 `install.sh --claude` のコピー対象は `agents` / `skills` / `commands` / `rules` の 4 ディレクトリ
 のみ。Codex 経由（`install_codex()`）は `install-plangate-skills.sh` を呼ぶだけで **skills しか
-配置されない**ため、rules 参照は解決順 1・2 とも成立せず必ず手順 3 に落ちる。
+配置されない**ため、rules 参照は解決順 3-1・3-2 とも成立せず必ず手順 4 に落ちる。
+
+### 同梱リファレンス（`<skill_dir>/references/`）
+
+| ファイル | 役割 |
+|---------|------|
+| `references/ai-driven-development.md` | ワークフロー全体像・ゲート条件・成果物の保存先 |
+| `references/core-contract.md` | 実行契約（Iron Law / Stop rules / Output discipline）の正本 |
+| `references/plangate.md` | PlanGate 概要ガイド |
 
 ### 読む順序
 
@@ -42,10 +89,9 @@ PlanGate ワークフローの **brainstorm フェーズ** を Codex / Claude Co
    （PBI INPUT PACKAGE の必須要素・ディレクトリ構造の正本）
    - どちらでも解決できない場合は下記「Rules」節を代替正本とし、
      pbi-input.md に「正本 `working-context.md` を参照できなかった」旨を記録する
-4. `docs/ai-driven-development.md`（**配布対象外**。上流リポジトリで作業する場合のみ解決する）
+4. `references/ai-driven-development.md`（**同梱**。導入先が独自正本を持つ場合はそちらを優先）
    - 最低限: `## ワークフロー全体像`、`## ゲート条件`、`## 成果物の保存先`
-   - 解決できない場合は 3 の rules を優先正本とする
-5. `docs/working/TASK-XXXX/status.md`（存在する場合）
+5. `docs/working/TASK-XXXX/status.md`（**導入先で作成する作業成果物**。存在する場合）
 
 ## Output
 

@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""_paths.py — scripts 共有パス定数（#277 / reuse M-2 / EPIC #193 follow-up).
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """_paths.py — scripts 共有パス定数（#277 / reuse M-2 / EPIC #193 follow-up).
 
 scripts/*.py に重複していた REPO ルート / docs/working / schemas /
 scripts ディレクトリの算出を 1 箇所へ集約する。固定定数のみ。
@@ -13,7 +25,6 @@ import 方法（既存 sys.path.insert 慣習と整合）:
 
 shell / hooks は対象外（本モジュールは Python 消費者専用）。
 """
-from __future__ import annotations
 
 from pathlib import Path
 

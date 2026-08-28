@@ -23,6 +23,11 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
      キャッシュには複数バージョンが並存しうるため、当て推量は版の取り違えを招く
 3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない
 
+**plugin root 配下の探索は `docs/**` には適用しない**（手順 2 は `rules/*.md` 等の
+配布対象にのみ適用する）: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の
+定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が
+存在しないため必ず空振りする。`docs/**` は手順 1 で解決できなければ手順 2 を飛ばして手順 3 へ進む。
+
 導入経路は 3 つあり、配置されるものが違う（**「同じ 4 ディレクトリが配られる」わけではない**）:
 
 - **`install.sh --claude` 経由**: コピー対象は `agents` / `skills` / `commands` / `rules`
@@ -83,7 +88,7 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 
 ### 事前メトリクス検証 (B-1 → B-2 mandatory gate / #351 TASK-0117)
 
-> 正本: [`docs/ai/plan-metrics-verification.md`](../../../docs/ai/plan-metrics-verification.md)
+> 正本: `docs/ai/plan-metrics-verification.md`
 > （`docs/**` は配布対象外。解決できない環境では以下の要約に従い、正本未参照である旨を plan に記録する）
 
 「全部 / 全件 / 残り N 件」系の対象は **実数を取得** してから B-2 へ進む。

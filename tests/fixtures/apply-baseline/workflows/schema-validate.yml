@@ -1,0 +1,80 @@
+name: Schema Validate
+
+on:
+  pull_request:
+    paths:
+      - 'docs/working/**/*.json'
+      - 'schemas/**/*.json'
+      - 'scripts/validate-schemas.py'
+      - 'scripts/schema_mapping.py'
+      - '.github/workflows/schema-validate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'schemas/**/*.json'
+      - 'scripts/validate-schemas.py'
+      - 'scripts/schema_mapping.py'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install jsonschema
+        run: pip install --require-hashes -r requirements/schema-validate.txt
+
+      - name: Validate schema files and mapping integrity
+        run: |
+          set -eu
+          for f in schemas/*.json; do python3 -m json.tool "$f" >/dev/null; done
+          python3 - <<'PYCHK'
+          import sys, pathlib
+          sys.path.insert(0, "scripts")
+          import schema_mapping as m
+          miss = [v for v in m.FILENAME_TO_SCHEMA.values()
+                  if not (pathlib.Path(m.SCHEMAS_DIR) / v).exists()]
+          if miss:
+              sys.exit("missing schema targets: %s" % miss)
+          print("schema files + schema_mapping integrity OK")
+          PYCHK
+
+      - name: Determine changed JSON files
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git diff --name-only --diff-filter=AM "$BASE_SHA" "$HEAD_SHA" \
+              | grep -E '^docs/working/.*\.json$' > .changed-json.txt || true
+          else
+            # push to main: validate all working JSON
+            find docs/working -name '*.json' -type f > .changed-json.txt 2>/dev/null || true
+          fi
+          count=$(wc -l < .changed-json.txt | tr -d ' ')
+          echo "count=$count" >>"$GITHUB_OUTPUT"
+          echo "Found $count JSON file(s) to validate:"
+          cat .changed-json.txt || true
+
+      - name: Validate schemas
+        if: steps.changed.outputs.count != '0'
+        run: |
+          set -eu
+          sh bin/plangate validate-schemas --files-from .changed-json.txt
+
+      - name: No JSON to validate
+        if: steps.changed.outputs.count == '0'
+        run: echo "No JSON artifacts in this PR — skipping schema validation."

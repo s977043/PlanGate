@@ -1,0 +1,9 @@
+# Pull Request
+
+## Summary
+
+親 PBI の 1 スライス。issue はこの PR では閉じない。
+
+## Linked Issue
+
+Refs: #4242

@@ -1,0 +1,34 @@
+apply-ai-loop-phase1-command.sh|rc=0|dryrun_hits=0|[apply] SKIP: 対象箇所が見つからない（適用済み or 参照なし）
+apply-ai-loop-workflow-command.sh|rc=0|dryrun_hits=1|[dry-run] COPY 予定: /Users/user/Documents/GitHub/plangate/.claude/worktrees/agent-a9fd88385
+apply-approve-hardening.sh|rc=0|dryrun_hits=0|SKIP: TASK-0139 は既に適用済み
+apply-claude-md-v8160.sh|rc=0|dryrun_hits=0|[apply] SKIP: 対象節が見つからない（適用済み or 構造変更）
+apply-claude-md-v8171.sh|rc=0|dryrun_hits=0|[apply] SKIP: 対象節が見つからない（適用済み or 構造変更）
+apply-claude-md-v8180.sh|rc=1|dryrun_hits=0|SKIP: 旧見出しが見つからない（適用済み or 形式変更）
+apply-claude-md-v8190.sh|rc=1|dryrun_hits=0|FAIL: 旧見出しが見つからない（適用済み or 形式変更）
+apply-claude-md-v8200.sh|rc=0|dryrun_hits=0|SKIP: 適用済み（新見出しが既に存在）
+apply-claude-settings.sh|rc=0|dryrun_hits=0|[apply] .claude/settings.json 不在 → settings.example.json をコピー
+apply-conductor-dynamic-phase.sh|rc=0|dryrun_hits=0|SKIP (already applied): .claude/agents/workflow-conductor.md
+apply-diff-audit-rename.sh|rc=0|dryrun_hits=0|[apply] SKIP: 対象箇所が見つからない（適用済み or 参照なし）
+apply-eh-git-destructive-guard.sh|rc=0|dryrun_hits=0|  [skip] .claude/settings.json (not present in this checkout; example only)
+apply-eh3-doc-light.sh|rc=0|dryrun_hits=0|SKIP (already applied): doc-light 経路は既に存在します
+apply-eh3-ho-always.sh|rc=0|dryrun_hits=0|[apply-eh3-ho-always] already applied — nothing to do (idempotent)
+apply-precompact-guard.sh|rc=1|dryrun_hits=0|ERROR: .claude/settings.json not found
+apply-quality-command-gate.sh|rc=0|dryrun_hits=1|--- a/working-context.md
+apply-reviewer-silence-gate.sh|rc=0|dryrun_hits=2|=== #685: review-principles.md §7-ter にフォールバック参照を追記 ===
+apply-rnnn-c4-extension.sh|rc=0|dryrun_hits=0|=== DRY-RUN 差分プレビュー: working-context.md ===
+apply-subagent-delegation-wiring.sh|rc=0|dryrun_hits=0|=== #715/#710: .claude/rules/orchestrator-mode.md に既存ルールとの関係を追記 ===
+apply-subagent-team-design-rename.sh|rc=0|dryrun_hits=0|[apply] SKIP: HO 対象 (.claude/commands|agents|rules) に 'setup-team' 参照なし（対応不要・適用済み or 該当なし）
+apply-task-0123-patches.sh|rc=0|dryrun_hits=7|[apply-task-0123][dry-run] WOULD APPLY: schemas/maintenance.schema.json — hmac_signature フ
+apply-task-0124-patches.sh|rc=0|dryrun_hits=0|[apply-task-0124] SKIP (already exists): sync-plugin-plangate.yml
+apply-task-0128-p0-hardening.sh|rc=1|dryrun_hits=0|Traceback (most recent call last):
+apply-task-0129-schema.sh|rc=0|dryrun_hits=1|
+apply-task-0129-wc.sh|rc=0|dryrun_hits=1|
+apply-task-0130-working-context.sh|rc=0|dryrun_hits=0|=== DRY-RUN 差分プレビュー ===
+apply-task-0134-progress.sh|rc=1|dryrun_hits=0|grep: unrecognized option `--dry-run'
+apply-task-0141-eh2-strict.sh|rc=1|dryrun_hits=0|=== apply-task-0141-eh2-strict.sh (dry_run=1) ===
+apply-task-0143-eh457-wiring.sh|rc=0|dryrun_hits=0|=== apply-task-0143-eh457-wiring.sh (dry_run=1) ===
+apply-task-0144-c3-mode.sh|rc=0|dryrun_hits=0|=== DRY-RUN MODE (確認のみ) ===
+apply-task-0145-ehs-wiring.sh|rc=0|dryrun_hits=0|=== apply-task-0145-ehs-wiring.sh (dry_run=1) — EHS-1 ===
+apply-task-0146-ehs23-wiring.sh|rc=1|dryrun_hits=1|[dry-run] EHS-2/3 配線 diff (bin/plangate)
+apply-task-0147-bias-export.sh|rc=0|dryrun_hits=0|=== apply-task-0147-bias-export.sh (dry_run=1) — validation_bias export ===
+apply-ui-v1-crossref.sh|rc=0|dryrun_hits=1|[dry-run] 挿入予定（.claude/rules/mode-classification.md）:

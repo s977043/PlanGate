@@ -1,0 +1,12 @@
+
+=== TA-30: install-skills coverage ===
+  [PASS] TC-01 install-plangate-skills.sh 存在・実行可能
+  [PASS] TC-02 sh -n syntax check（両スクリプト）
+  [PASS] TC-03 --help が exit 0
+  [PASS] TC-04 --target 展開数(39) = plugin skills 数(39)
+  [PASS] TC-05 展開物が check-codex-skill-spec PASS
+  [PASS] TC-06 展開スキルに SKILL.md + agents/openai.yaml
+  [PASS] TC-07 bundled resources 展開 (references=23 scripts=28)
+  [PASS] TC-08 展開先 arbiter テスト自立 PASS
+  [PASS] TC-09 2 回目実行は installed:0（up-to-date skip）
+TA-30 emulated: 9 passed, 0 failed

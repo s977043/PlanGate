@@ -11,7 +11,31 @@
 
 printf '\n=== TA-42: bin/plangate CLI subcommand coverage (TASK-0140 / #515) ===\n'
 
-_t42_root="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
+# ────────── repo root の解決（M4 是正 / #1210）──────────
+# 本 extras は harness 専用（$FIXTURES_DIR 依存）。$FIXTURES_DIR が未設定/空の
+# まま合成すると cd -- "/../.." が / に解決され、以降のパスが //docs/working/...
+# になる。合成後の文字列は「非空」なので、合成後のパスに付けた ${var:?} は
+# 発火しない（stub rm 実測: RM-CALLED: -rf //docs/working/TASK-T420 が発火した）。
+# ガードは合成後ではなく「root 側」に置く（ta-44 / ta-45 と同形）。
+_t42_fx="${FIXTURES_DIR:-}"
+if [ -n "$_t42_fx" ]; then
+  _t42_root="$(CDPATH= cd -- "$_t42_fx/../.." && pwd)"
+else
+  # harness 実行ではないので、規約 8 に従い呼び出し元 env を無害化してから
+  # 何もせず抜ける（run-tests.sh 冒頭と同一の 7 env）。
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+  _t42_root=""
+fi
+# root の健全性検査: 非空チェックだけでは / を弾けないため実体で確かめる。
+if [ -z "$_t42_root" ] || [ ! -f "$_t42_root/bin/plangate" ]; then
+  printf '  [FAIL] ta-42: repo root unresolved (FIXTURES_DIR=%s root=%s) — refusing to run\n' \
+    "${_t42_fx:-(unset)}" "${_t42_root:-(empty)}" >&2
+  if [ "${PG_HARNESS_SOURCED:-0}" = "1" ]; then
+    fail=$((fail + 1))
+    return 0
+  fi
+  exit 1
+fi
 _t42_bin="$_t42_root/bin/plangate"
 _t42_task="TASK-T420"
 _t42_work="$_t42_root/docs/working/$_t42_task"
@@ -19,13 +43,30 @@ _t42_work="$_t42_root/docs/working/$_t42_task"
 t42_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t42_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
-# テスト後の cleanup 登録（AC-05）
-register_cleanup "$_t42_work"
+# ── 一時状態の射程宣言 + 先頭 prune + cleanup 登録（#947 / #1209 / #1210）──
+# 本 extras が「共有の実 repo パス」に作る一時状態を 1 箇所で宣言し、
+# body の副作用より前にまとめて prune してから register_cleanup へ登録する。
+# 使用箇所ごとに rm を散らすと「事前掃除が使用箇所より後にある」順序バグを生む
+# （#947 問題 1 の実体: TASK-T999 の掃除が TC-04 の判定より後にあり、中断残骸が
+#  TC-04 を誤 FAIL させていた）。宣言を 1 箇所へ集約して順序バグを構造的に排除する。
+# ${_t42_p:?} は 2 段目の防御にすぎない。1 段目は上の root 健全性検査で、
+# 「合成後は非空だが root が / 」という M4 のケースを実際に止めるのはそちら。
+# rm は base と同じく存在確認つきで撃つ（無条件 rm -rf は爆風半径を広げる）。
+_t42_task_t999_work="$_t42_root/docs/working/TASK-T999"
+_t42_scope_reset() {
+  for _t42_p in "$@"; do
+    if [ -e "${_t42_p:?ta-42: empty cleanup path refused}" ]; then
+      rm -rf "$_t42_p"
+    fi
+    if command -v register_cleanup >/dev/null 2>&1; then
+      register_cleanup "$_t42_p"
+    fi
+  done
+}
+_t42_scope_reset "$_t42_work" "$_t42_task_t999_work"
 
 # ── TC-01: init 正常系（新規 TASK 作成）────────────────────────────────────
-if [ -d "$_t42_work" ]; then
-  rm -rf "$_t42_work"
-fi
+# 事前掃除は _t42_scope_reset（body の副作用より前）で完了済み。
 if "$_t42_bin" init "$_t42_task" >/dev/null 2>&1; then
   if [ -f "$_t42_work/pbi-input.md" ] && [ -d "$_t42_work/approvals" ] && [ -d "$_t42_work/evidence" ]; then
     t42_pass "TC-01 AC-01: init creates task dir + pbi-input.md + approvals/ + evidence/"
@@ -87,9 +128,7 @@ fi
 
 # ── TC-06: handoff 非存在 TASK（mkdir-p で自動作成 → exit 0）──────────────
 # handoff は task dir がなくても mkdir -p + cp で作成するため exit 0 が正常動作
-_t42_task_t999_work="$_t42_root/docs/working/TASK-T999"
-register_cleanup "$_t42_task_t999_work"
-if [ -d "$_t42_task_t999_work" ]; then rm -rf "$_t42_task_t999_work"; fi
+# 掃除・登録ともに _t42_scope_reset で先頭実施済み（TC-04 より前）。
 # set -e 対応: || パターンで rc を捕捉（POSIX 準拠）
 _t42_rc=0
 _t42_out=$("$_t42_bin" handoff TASK-T999 2>&1) || _t42_rc=$?

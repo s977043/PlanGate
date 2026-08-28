@@ -14,11 +14,13 @@ description: "サブエージェントへの派遣プロンプトを必須 8 要
 
 | 正本 | 何が書いてあるか |
 |---|---|
-| [`dispatch-template.md`](../../../docs/ai/subagent-delegation/dispatch-template.md) | 必須 8 要素の定義・省略時の実害・用途別テンプレート本体（調査 / 実装 / レビュー / 追指示） |
-| [`outcome-contract.md`](../../../docs/ai/subagent-delegation/outcome-contract.md) | `OUTCOME` の表記ルール・P0/P1/P2 の定義・検証状態 4 区分・`review=true`・受け入れ確認 5 項目の判定基準 |
-| [`behavior-norms.md`](../../../docs/ai/subagent-delegation/behavior-norms.md) | 行動規範（軽量版 / フル版） |
-| [`examples.md`](../../../docs/ai/subagent-delegation/examples.md) | フルサンプル |
-| [`README.md`](../../../docs/ai/subagent-delegation/README.md) | 配置 ADR・オーケストレータ責務・索引 |
+| `docs/ai/subagent-delegation/dispatch-template.md` | 必須 8 要素の定義・省略時の実害・用途別テンプレート本体（調査 / 実装 / レビュー / 追指示） |
+| `docs/ai/subagent-delegation/outcome-contract.md` | `OUTCOME` の表記ルール・P0/P1/P2 の定義・検証状態 4 区分・`review=true`・受け入れ確認 5 項目の判定基準 |
+| `docs/ai/subagent-delegation/behavior-norms.md` | 行動規範（軽量版 / フル版） |
+| `docs/ai/subagent-delegation/examples.md` | フルサンプル |
+| `docs/ai/subagent-delegation/README.md` | 配置 ADR・オーケストレータ責務・索引 |
+
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
 
 ## 1. 派遣前チェックリスト（8 要素）
 
@@ -55,7 +57,7 @@ description: "サブエージェントへの派遣プロンプトを必須 8 要
 
 ## 3. 要素 7 の追加規約 — OUTCOME 契約への導線
 
-派遣プロンプトの出力形式欄に、次の 3 点を必ず入れる（定義は [`outcome-contract.md`](../../../docs/ai/subagent-delegation/outcome-contract.md)）。
+派遣プロンプトの出力形式欄に、次の 3 点を必ず入れる（定義は `docs/ai/subagent-delegation/outcome-contract.md`）。
 
 1. **最終行に `OUTCOME` を 1 回だけ**書かせる。表記ゆれ（小文字・スペースなし・コロン前スペース）・複数出現・最終行でない、はすべて契約違反
 2. **要判断事項を P0 / P1 / P2 で分類**させる。無い場合も「なし」と明記させる（無言の省略と区別できない）
@@ -85,7 +87,7 @@ description: "サブエージェントへの派遣プロンプトを必須 8 要
 
 ## 5. 受領時チェック（丸呑みしない）
 
-ユーザーへ返す前に 5 項目を確認する（判定基準の正本は [`outcome-contract.md`](../../../docs/ai/subagent-delegation/outcome-contract.md) §6）。
+ユーザーへ返す前に 5 項目を確認する（判定基準の正本は `docs/ai/subagent-delegation/outcome-contract.md` §6）。
 
 | # | 項目 | 判定 |
 |---|---|---|

@@ -1,6 +1,6 @@
 interface:
   display_name: "pr-decision"
-  short_description: "gate status + evidence status + review findings + unresolved risks + rollback plan から PR 可否を判定する。判定根"
+  short_description: "gate status + evidence status + review findings + unresolved ..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use $pr-decision to assist with this project."

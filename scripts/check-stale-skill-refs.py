@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+
+from __future__ import annotations
+
+__doc__ = """
 check-stale-skill-refs.py — repo-owned skill/command/agent の stale パス参照検出
 
 Issue #691.
@@ -30,15 +43,38 @@ Exit codes:
     2 — 引数エラー
 """
 
-from __future__ import annotations
-
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# 既定の走査 root。**`.claude/**` のみ**であり、配布 root
+# （`.agents/skills` / `.codex/skills` / `plugin/plangate/skills`）は見ない。
+#
+# これは #1087 で意識的に据え置いた射程である（follow-up: 配布 root 走査）。
+# 「配布物検査」を名乗りながら配布物を見ていないという非対称は認識しており、
+# 本 PBI で拡張しなかった理由は実測に基づく:
+#
+#   2026-08-18 に各 root へ試行走査した結果
+#     .agents/skills          : 6 件（大半が真の stale）
+#     plugin/plangate/skills  : 24 件 — うち **16 件は新規の false-positive クラス**
+#                               （`scripts/ai-loop/arbiter.py:909-965` のような
+#                                 **行範囲サフィックス付きパス**。`_strip_anchor_and_query`
+#                                 は `#`/`?` しか剥がさないため実在ファイルを stale と誤判定する）
+#     .codex/skills           : 6 件
+#
+#   したがって root を広げるには (1) 行範囲サフィックスの FP ガード新設 と
+#   (2) 検出された真の stale（ai-loop レーンの skill 群）の是正 が同時に必要で、
+#   これは「検知器を直す」本 PBI と「検知器が見つけたものを直す」別作業の混在になる。
+#   また `.codex/skills` は #1086 で untrack 予定のため、既定 root への組み込みは
+#   その裁定後が適切。
+#
+# **本スクリプトは `.claude/**` 配下の repo-owned 定義のみを検査する**。
+# 配布 root の追従漏れは本検査では捕まらない
+# （回帰ガードは tests/extras/ta-69-distribution-checks.sh の TC-R1 を参照）。
 DEFAULT_TARGET_GLOBS = (
     ".claude/skills/**/*.md",
     ".claude/commands/**/*.md",
@@ -48,8 +84,11 @@ DEFAULT_TARGET_GLOBS = (
 # Markdown リンク `](path)` からパスらしき文字列を取り出す
 MD_LINK_RE = re.compile(r"\]\(([^)]+)\)")
 
-# インラインコード ` `...` ` の中身
-INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
+# インラインコードスパン（バッククォート 1 個以上の対）。
+# 開始と同じ本数のバッククォートで閉じる Markdown の規則に合わせ、
+# `` `[a](./b)` `` のような「リンク記法そのものを見せるためのコードスパン」も
+# 1 つのスパンとして捉える (#1087)
+INLINE_CODE_RE = re.compile(r"(`+)([^\n]*?)\1")
 
 # コード起点として扱うプレフィックス（リポジトリ内パスらしさの判定）
 CODE_PATH_PREFIXES = (
@@ -147,11 +186,24 @@ def looks_like_repo_path(raw: str) -> bool:
 
 
 def extract_candidates(text: str) -> list[str]:
-    """Markdown リンクとインラインコードからパス候補を抽出する。"""
+    """Markdown リンクとインラインコードからパス候補を抽出する。
+
+    **コードスパンをマスクしてから** Markdown リンクを探す (#1087)。
+    コードスパンの中に書かれたリンク記法は「記法の説明」であって
+    リンクではないため、リンクとして拾うと偽陽性になる:
+
+        `` `[file.md](./file.md)` 形式でリンク化し ``
+             ^^^^^^^^^^^^^^^^^^^ 参照ではなく記法の例示
+
+    コードスパンの**中身**は従来どおり候補として拾う（挙動不変）。
+    """
     candidates: list[str] = []
-    for match in MD_LINK_RE.finditer(text):
-        candidates.append(match.group(1))
+    masked = list(text)
     for match in INLINE_CODE_RE.finditer(text):
+        candidates.append(match.group(2))
+        for idx in range(match.start(), match.end()):
+            masked[idx] = " "
+    for match in MD_LINK_RE.finditer("".join(masked)):
         candidates.append(match.group(1))
     return candidates
 
@@ -165,8 +217,42 @@ def resolve_repo_relative(path_str: str, source_file: Path) -> Path:
     return (REPO_ROOT / cleaned).resolve()
 
 
+def gitignored_paths(rel_paths: list[str]) -> set[str]:
+    """与えた REPO_ROOT 相対パスのうち gitignore 対象のものを返す (#1087)。
+
+    gitignore 対象のファイルは「リポジトリに存在しないことが正常」であり、
+    存在しないことを stale 参照として扱ってはならない
+    （例: `.claude/settings.json` は各利用者がローカル生成する）。
+
+    これは同時に **実行環境依存の解消**でもある。`Path.exists()` だけを見ると
+    settings.json を持つ開発機と持たない CI で判定が食い違い、
+    「開発者がローカルで再現できない CI 失敗」を生む。
+
+    **縮退**: git が使えない / 想定外の exit code の場合は空集合を返す
+    （= 何も除外しない = 従来挙動）。検査を緩める方向に倒さない。
+    """
+    if not rel_paths:
+        return set()
+    try:
+        proc = subprocess.run(
+            ["git", "check-ignore", "--stdin"],
+            cwd=str(REPO_ROOT),
+            input="\n".join(rel_paths),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    # 0 = 1 件以上が ignore 対象 / 1 = どれも ignore 対象でない
+    # それ以外（128 等）は git が判断できていないので除外しない
+    if proc.returncode not in (0, 1):
+        return set()
+    return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+
+
 def check_file(path: Path) -> list[tuple[int, str, str]]:
-    """1 ファイルを検査し、(行番号, 参照文字列, 除外理由 or '') の WARN リストを返す。"""
+    """1 ファイルを検査し、(行番号, 参照文字列, REPO_ROOT 相対の参照先) を返す。"""
     warnings: list[tuple[int, str, str]] = []
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -187,13 +273,13 @@ def check_file(path: Path) -> list[tuple[int, str, str]]:
 
             resolved = resolve_repo_relative(raw, path)
             try:
-                resolved.relative_to(REPO_ROOT)
+                rel_target = resolved.relative_to(REPO_ROOT).as_posix()
             except ValueError:
                 # リポジトリ外へ逸脱するパス（../ の辿りすぎ等）はスコープ外として無視
                 continue
 
             if not resolved.exists():
-                warnings.append((lineno, cleaned, ""))
+                warnings.append((lineno, cleaned, rel_target))
 
     return warnings
 
@@ -209,14 +295,32 @@ def iter_target_files(roots: list[str]) -> list[Path]:
 
 def run_scan(roots: list[str]) -> int:
     files = iter_target_files(roots)
-    total_warnings = 0
 
+    findings: list[tuple[Path, int, str, str]] = []
     for path in files:
         rel = path.relative_to(REPO_ROOT)
-        file_warnings = check_file(path)
-        for lineno, ref, _reason in file_warnings:
-            print(f"WARN {rel}:{lineno} → 非実在パス: {ref}")
-            total_warnings += 1
+        for lineno, ref, rel_target in check_file(path):
+            findings.append((rel, lineno, ref, rel_target))
+
+    # gitignore 判定は 1 回のバッチ呼び出しにまとめる（参照 1 件ごとに
+    # subprocess を起動しない）
+    ignored = gitignored_paths(sorted({f[3] for f in findings}))
+
+    total_warnings = 0
+    skipped_ignored = 0
+    for rel, lineno, ref, rel_target in findings:
+        if rel_target in ignored:
+            skipped_ignored += 1
+            continue
+        print(f"WARN {rel}:{lineno} → 非実在パス: {ref}")
+        total_warnings += 1
+
+    if skipped_ignored:
+        # 何を見なくなったかを黙らせない（#1109 と同型の false green を作らない）
+        print(
+            f"INFO: {skipped_ignored} 件は gitignore 対象パスのため除外"
+            "（存在しないことが正常。docs/ai/stale-ref-detection.md 参照）"
+        )
 
     if total_warnings == 0:
         print(f"OK: {len(files)} ファイルを検査し stale パス参照なし")
@@ -304,13 +408,44 @@ def run_selftest() -> int:
         len(tmp_candidates) == 4,
     )
 
+    # 9. #1087 B-1: コードスパン内のリンク記法はリンクとして拾わない
+    notation_line = "`` `[file.md](./file.md)` `` 形式でリンク化し"
+    notation_cands = extract_candidates(notation_line)
+    check(
+        "code-span link notation is not extracted as a link",
+        "./file.md" not in notation_cands,
+    )
+    # 通常の（コードスパン外の）リンクは従来どおり拾う = 検出力を落としていない
+    plain_link = "see [x](docs/no-such-file-1087.md) here"
+    check(
+        "plain markdown link is still extracted",
+        "docs/no-such-file-1087.md" in extract_candidates(plain_link),
+    )
+    # インラインコード内の素のパスも従来どおり拾う
+    check(
+        "inline-code path is still extracted",
+        "docs/no-such-file-1087.md" in extract_candidates("`docs/no-such-file-1087.md`"),
+    )
+
+    # 10. #1087 B-2: gitignore 対象は除外、非対象は除外しない
+    ignored = gitignored_paths([".claude/settings.json", "scripts/check-stale-skill-refs.py"])
+    check("gitignored path is reported as ignored", ".claude/settings.json" in ignored)
+    check(
+        "tracked path is not reported as ignored",
+        "scripts/check-stale-skill-refs.py" not in ignored,
+    )
+    # 除外が広すぎないこと: ignore パターンに合致しない typo は除外されない
+    typo_ignored = gitignored_paths([".claude/settingz.json"])
+    check("typo near an ignored path is NOT excluded", ".claude/settingz.json" not in typo_ignored)
+    check("empty input returns empty set", gitignored_paths([]) == set())
+
     if failures:
         print("SELFTEST FAIL:")
         for name in failures:
             print(f"  - {name}")
         return 1
 
-    total_checks = 8 + len(placeholder_cases) + len(url_cases) + len(anchor_cases)
+    total_checks = 8 + 7 + len(placeholder_cases) + len(url_cases) + len(anchor_cases)
     print(f"SELFTEST PASS ({total_checks} checks)")
     return 0
 

@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""test_ci_taxonomy.py — ci_taxonomy.py（AC-8 `ci_failure_taxonomy` の供給主体）の unittest。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_ci_taxonomy.py — ci_taxonomy.py（AC-8 `ci_failure_taxonomy` の供給主体）の unittest。
 
 実行: python3 scripts/ai-loop/test_ci_taxonomy.py
 
@@ -14,8 +26,6 @@
 - 変異注入は **allowlist（rule table）の差し替え**で行い、作業ツリーのファイルは
   1 バイトも書き換えない。
 """
-
-from __future__ import annotations
 
 import json
 import pathlib

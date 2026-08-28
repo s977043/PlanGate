@@ -40,8 +40,20 @@ PG_T25_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
 # ことで行う。ハードコードだと mutation はインライン assert しか壊せず検出力が実証されない。
 PG_T25_GUARD="${PG_T25_GUARD:-$PG_T25_ROOT/scripts/check-approval-token-write.sh}"
 PG_T25_SCHEMA="$PG_T25_ROOT/schemas/maintenance.schema.json"
-PG_T25_PATCH="$PG_T25_ROOT/scripts/apply-task-0123-patches.sh"
+# T1071: 変異注入（旧版 apply スクリプト）で T1071-TC-01/02 の検出力を実証できるよう
+# PG_T25_GUARD と同じく env override 可能にする（R-029 と同方式）。
+PG_T25_PATCH="${PG_T25_PATCH:-$PG_T25_ROOT/scripts/apply-task-0123-patches.sh}"
 PG_T25_SELF="$PG_T25_ROOT/tests/extras/ta-25-approval-token-guard.sh"
+# T1071-TC-04（#1252 M-3）: ユーザーレベル settings は repo 外・環境依存のため、
+# 実パスを env override 可能にする（PG_T25_GUARD / PG_T25_PATCH と同じ R-029 方式）。
+# これが無いと「ユーザーレベル配線に複製参照を置いたら落ちるか」を実証できない。
+PG_T25_USER_SETTINGS="${PG_T25_USER_SETTINGS:-${HOME:-/nonexistent}/.claude/settings.json}"
+# T1071-TC-04（#1252 R4 M-2）: tracked 配線側の call site 変異（相対パス化 / 散文化 /
+# 全削除 / 複製参照の混入）で検出力を実証するための env override。既定は実 repo。
+# `.claude/settings*.json` は Hardening Override 対象で AI が書き換えられないため、
+# 変異は「実ファイルを複製した sandbox repo」に対して行い、ここへ向ける
+# （PG_T25_GUARD / PG_T25_PATCH と同じ R-029 方式）。
+PG_T25_WIRING_ROOT="${PG_T25_WIRING_ROOT:-$PG_T25_ROOT}"
 
 # focused mode: mutation 子プロセス（PG_T25_MUTATION_CHILD=1）は kill 対象 TC のみ実行
 PG_T25_FOCUSED="${PG_T25_MUTATION_CHILD:-0}"
@@ -109,6 +121,114 @@ t25_mk p_t1045_read_fdclose '{"hook_event_name":"PreToolUse","tool_name":"Bash",
 t25_mk p_t1045_w_gt '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/c3.json"}}'
 t25_mk p_t1045_w_append '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x >> docs/working/TASK-0001/approvals/c3.json"}}'
 t25_mk p_t1045_w_fd1 '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x 1> docs/working/TASK-0001/approvals/c3.json"}}'
+
+# ── TASK-1110 (#1110) fixtures: リダイレクト先とトークンパスの相関 ──────────
+# 負の対照（トークン名は出るがリダイレクト先はトークンパスでない = 誤検知側）
+t25_mk p_t1110_n_msg_redirect '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m '"'"'docs: docs/working/TASK-0001/approvals/c3.json'"'"' > /tmp/log.txt"}}'
+t25_mk p_t1110_n_msg_only '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m '"'"'docs: docs/working/TASK-0001/approvals/c3.json handling'"'"'"}}'
+t25_mk p_t1110_n_no_token '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m '"'"'docs: approval token'"'"' > /tmp/log.txt"}}'
+t25_mk p_t1110_n_read '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_n_write_other '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo '"'"'docs/working/TASK-0001/approvals/c3.json'"'"' > /tmp/note.txt"}}'
+# 先の「後ろ」に引用符が来る形。引用検査を語ではなくレコード全体へ広げると
+# この正当な rc=0 が block に化ける（V-3 R-001 推奨案 2 を採らなかった理由の回帰ガード）。
+t25_mk p_t1110_n_quote_after '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > /tmp/log.txt && git commit -m '"'"'docs: docs/working/TASK-0001/approvals/c3.json'"'"'"}}'
+# 退行防止側（先が実際にトークンパスへ解決される = 真の陽性）
+t25_mk p_t1110_w_dotslash '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > ./docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_w_quoted '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > \"docs/working/TASK-0001/approvals/c3.json\""}}'
+t25_mk p_t1110_w_spaces '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x >   docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_w_dotdot '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/../TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_w_second '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo hi > /tmp/a.txt; echo x > docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_w_heredoc '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat > docs/working/TASK-0001/approvals/c3.json <<EOF\n{}\nEOF"}}'
+t25_mk p_t1110_w_maint '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/_maintenance/maintenance.json"}}'
+# fail-closed 側（先が静的に解決できない）
+t25_mk p_t1110_fc_cmdsub '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > $(cat /tmp/p) # docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_fc_var '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > $OUT # docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_fc_glob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > /tmp/*.json # docs/working/TASK-0001/approvals/c3.json"}}'
+t25_mk p_t1110_fc_empty '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x >   # docs/working/TASK-0001/approvals/c3.json"}}'
+# 切り詰めクラス（V-3 R-001 / critical）: 終端文字を含むトークンパスを引用 /
+# バックスラッシュ退避で書いた先。語の切り詰めで非トークンの前半分に化けて
+# 通過してはならない。TASK セグメントに終端文字を 1 つ埋めてある。
+t25_mk p_t1110_tr_sq_space '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK 0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_dq_space '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > \"docs/working/TASK 0001/approvals/c3.json\""}}'
+t25_mk p_t1110_tr_tab '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK\t0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_semi '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK;0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_amp '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK&0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_pipe '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK|0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_lparen '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK(0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_rparen '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK)0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_lt '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK<0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_hash_q '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > '"'"'docs/working/TASK#0001/approvals/c3.json'"'"'"}}'
+t25_mk p_t1110_tr_backslash '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK\\\\ 0001/approvals/c3.json"}}'
+# `#` は語頭のみコメント開始で語中は通常文字 = 退避不要。終端に含めると取りこぼす。
+t25_mk p_t1110_tr_hash_bare '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK#0001/approvals/c3.json"}}'
+# レーン非対称の是正（V-3 R-001）: 同一の空白入りパスへ tee / cp / > のどれでも block
+t25_mk p_t1110_lane_tee '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee \"/Users/u/My Drive/pg/docs/working/TASK-0001/approvals/c3.json\""}}'
+t25_mk p_t1110_lane_cp '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x \"/Users/u/My Drive/pg/docs/working/TASK-0001/approvals/c3.json\""}}'
+t25_mk p_t1110_lane_redirect '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > \"/Users/u/My Drive/pg/docs/working/TASK-0001/approvals/c3.json\""}}'
+t25_mk p_t1110_lane_write '{"hook_event_name":"PreToolUse","tool_name":"Write","tool_input":{"file_path":"/Users/u/My Drive/pg/docs/working/TASK-0001/approvals/c3.json","content":"x"}}'
+# 改行畳み込み（R-005 / M-D）: heredoc 本文がトークンパスを含み、書き込み先は /tmp。
+# 畳み込みが無いと本文行が「先」として評価され誤 block になる。
+t25_mk p_t1110_nl_heredoc '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat <<EOF > /tmp/log.txt\ndocs/working/TASK-0001/approvals/c3.json\nEOF"}}'
+# focused 群から使う copy-like fixture（通常群の p_t1045_m_cp と同内容 / 定義順の都合で別名）
+t25_mk p_t1045_m_cp_early '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp docs/working/TASK-0001/approvals/c3.json /tmp/x"}}'
+
+# ── TASK-1115 (#1115) V-3 再設計後の fixture ───────────────────────────
+# 正側: 保護ディレクトリ配下でファイル名が静的解決不能（P1）
+t25_mk p_t1115_g_redirect_star '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/c3.jso*"}}'
+t25_mk p_t1115_g_redirect_q '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/c3.js?n"}}'
+t25_mk p_t1115_g_redirect_brk '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/c[3].jso*"}}'
+t25_mk p_t1115_g_redirect_other '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/x9.jso*"}}'
+# 正側: 非 redirect レーン（引数の pathname expansion は shell 非依存）
+t25_mk p_t1115_g_cp '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x docs/working/TASK-0001/approvals/c3.jso*"}}'
+t25_mk p_t1115_g_tee '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee docs/working/TASK-0001/approvals/c3.jso*"}}'
+t25_mk p_t1115_g_sed '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"sed -i.bak -e s/a/b/ docs/working/TASK-0001/approvals/c3.jso*"}}'
+t25_mk p_t1115_g_parent '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee docs/working/TASK-0001/approvals/parent-integration.js?n"}}'
+# 正側 R-001: 保護ディレクトリは approvals/ だけではない（_maintenance/）
+t25_mk p_t1115_m_starjson '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x docs/working/_maintenance/*.json"}}'
+t25_mk p_t1115_m_leadq '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x docs/working/_maintenance/?aintenance.json"}}'
+t25_mk p_t1115_m_leadbrk '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee docs/working/_maintenance/[m]aintenance.json"}}'
+t25_mk p_t1115_m_trail '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x docs/working/_maintenance/maintenance.jso*"}}'
+# 正側 R-002: brace expansion（存在しないファイルを新規作成できる = glob より危険）
+t25_mk p_t1115_b_approvals '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee docs/working/TASK-0001/approvals/c3.jso{n,n}"}}'
+t25_mk p_t1115_b_maint '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee docs/working/_maintenance/maintenance.jso{n,n}"}}'
+# 正側 P2: 任意ディレクトリ × 1 文字を除いて pin する basename
+t25_mk p_t1115_p2_leadq '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x foo/?aintenance.json"}}'
+t25_mk p_t1115_p2_trail '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x foo/c3.jso*"}}'
+t25_mk p_t1115_p2_brk '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"sed -i.bak -e s/a/b/ c[0-9].json"}}'
+# 正側 R-005: 引用を語の途中で閉じる書き方（_strip_quotes の唯一の担保）
+t25_mk p_t1115_q_mixed '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x foo/\"c3.jso\"*"}}'
+# 正側 R-007: approvals/ の相対形（絶対形しか無いと変異が空振りする）
+t25_mk p_t1115_rel_approvals '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"printf x | tee approvals/x9.jso*"}}'
+# 正側 R-008: リダイレクト先が `/` を含まない = 語分割の `>` が非等価になる形
+t25_mk p_t1115_redir_noslash '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x>c3.jso*"}}'
+# 負側 R-003: 保護ディレクトリ配下でも保護されていない拡張子は block しない
+t25_mk p_t1115_n_ap_md '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"mv docs/working/TASK-0001/approvals/*.md notes/"}}'
+t25_mk p_t1115_n_ap_pdf '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp docs/working/TASK-0001/approvals/*.pdf /tmp/"}}'
+t25_mk p_t1115_n_mnt_pdf '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x docs/working/_maintenance/*.pdf"}}'
+# 負側 R-003: 一致はしうるが狙っていない広い語（幅ガード）
+t25_mk p_t1115_n_w_c '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp src/c* /tmp/out/"}}'
+t25_mk p_t1115_n_w_m '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"mv m* archive/"}}'
+t25_mk p_t1115_n_w_mjson '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp public/m*.json dist/"}}'
+t25_mk p_t1115_n_w_pjson '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp p*.json build/"}}'
+t25_mk p_t1115_n_w_perl '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"perl -i -pe s/x/y/ m*"}}'
+# 負側 R-006: 引用の有無で判定が非対称にならないこと（両方 rc=0）
+t25_mk p_t1115_n_q_find '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"find . -name '"'"'*.json'"'"' -print0 | xargs -0 sed -i s/a/b/"}}'
+t25_mk p_t1115_n_q_cp '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp '"'"'*.json'"'"' /tmp/"}}'
+# 負側: 日常 glob コマンド
+t25_mk p_t1115_n_cp_schemas '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp schemas/*.json /tmp/"}}'
+t25_mk p_t1115_n_cp_docs '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp docs/*.md /tmp/"}}'
+t25_mk p_t1115_n_sed_status '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"sed -i.bak -e s/a/b/ docs/working/*/status.md"}}'
+t25_mk p_t1115_n_sed_apnotes '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"sed -i.bak -e s/a/b/ docs/working/*/approvals-notes.md"}}'
+t25_mk p_t1115_n_cp_apnotes '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cp /tmp/x docs/working/*/approvals/notes.md"}}'
+t25_mk p_t1115_n_brace_exec '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"find . -exec {} \\;"}}'
+# 負側: 書き込み意図との AND が維持されている
+t25_mk p_t1115_n_msg_glob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git commit -m '"'"'docs: docs/working/TASK-0001/approvals/c3.jso* handling'"'"' > /tmp/log.txt"}}'
+t25_mk p_t1115_n_read_glob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"cat docs/working/*/approvals/*.json"}}'
+t25_mk p_t1115_n_ls_glob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls docs/working/*/approvals/"}}'
+# 回帰: ディレクトリ側 glob は是正前から block（挙動不変）
+t25_mk p_t1115_r_dirglob '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/*/approvals/c3.json"}}'
+t25_mk p_t1115_r_starjson '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/*.json"}}'
+t25_mk p_t1115_r_brk '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x > docs/working/TASK-0001/approvals/c[3].json"}}'
 
 # ── focused kill TC 群（mutation 子プロセスでも常に実行）───────────────────
 
@@ -287,6 +407,401 @@ else
   t25_fail "T1045-TC-06 numbered fd redirect 1> token not blocked (exit $_t25_rc)"
 fi
 
+# ── TASK-1110 (#1110): リダイレクト先 ↔ トークンパス 相関（focused 群）──────
+# T1110-TC-01: 誤検知解消（AC-1）。mutation M-1 の kill 対象。
+#   「トークン名を含む文言」と「無関係なリダイレクト」が同居しても block しない。
+_t25_ok=1
+for _t25_p in p_t1110_n_msg_redirect p_t1110_n_msg_only p_t1110_n_no_token p_t1110_n_read \
+              p_t1110_n_quote_after; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (T1110-TC-01 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1110-TC-01 token literal + unrelated redirect passes (exit 0)"
+else
+  t25_fail "T1110-TC-01 token literal + unrelated redirect still falsely blocked"
+fi
+
+# T1110-TC-02: トークンパス文字列を「内容として」別ファイルへ書くのは block しない（AC-1）
+t25_guard "$T25_TMP/p_t1110_n_write_other"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1110-TC-02 writing the token path as content to another file passes (exit 0)"
+else
+  t25_fail "T1110-TC-02 writing token path as content falsely blocked (exit $_t25_rc)"
+fi
+
+# T1110-TC-03: 真の陽性は block 維持（AC-2）。mutation M-2 の補強。
+#   ./ 前置 / 引用 / 空白 / .. 混在 / 複文後段 / heredoc / maintenance を網羅。
+_t25_ok=1
+for _t25_p in p_t1110_w_dotslash p_t1110_w_quoted p_t1110_w_spaces p_t1110_w_dotdot \
+              p_t1110_w_second p_t1110_w_heredoc p_t1110_w_maint; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1110-TC-03 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1110-TC-03 redirect targets resolving to a token path remain blocked (exit 2)"
+else
+  t25_fail "T1110-TC-03 some real token-path redirect not blocked"
+fi
+
+# T1110-TC-04: リダイレクト先が静的に解決できない場合は block 側（AC-3 / fail-closed）
+#   コマンド置換 / 変数展開 / glob / 先が空。いずれも「安全側に倒す」ことの機械担保。
+_t25_ok=1
+for _t25_p in p_t1110_fc_cmdsub p_t1110_fc_var p_t1110_fc_glob p_t1110_fc_empty; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1110-TC-04 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1110-TC-04 unresolvable redirect targets fail closed (exit 2)"
+else
+  t25_fail "T1110-TC-04 an unresolvable redirect target was not blocked"
+fi
+
+# T1110-TC-05: block メッセージが一致したリダイレクト先を示す（AC-4）
+t25_guard "$T25_TMP/p_t1045_w_gt"
+if [ "$_t25_rc" = "2" ] && grep -q 'rule=file-redirect' "$T25_ERR" \
+   && grep -q 'redirect_target=docs/working/TASK-0001/approvals/c3.json' "$T25_ERR"; then
+  t25_pass "T1110-TC-05 block detail carries the matched redirect_target"
+else
+  t25_fail "T1110-TC-05 block detail missing matched redirect_target (exit $_t25_rc)"
+fi
+
+# T1110-TC-06: 切り詰めクラスは block（V-3 R-001 / critical）。mutation M-3 の kill 対象。
+#   終端文字（空白 / TAB / ; & | ( ) <）を含むトークンパスを引用・退避して書いた先が、
+#   語の切り詰めで非トークンの前半分に化けて通過してはならない。
+_t25_ok=1
+for _t25_p in p_t1110_tr_sq_space p_t1110_tr_dq_space p_t1110_tr_tab p_t1110_tr_semi \
+              p_t1110_tr_amp p_t1110_tr_pipe p_t1110_tr_lparen p_t1110_tr_rparen \
+              p_t1110_tr_lt p_t1110_tr_hash_q p_t1110_tr_backslash; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1110-TC-06 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1110-TC-06 quoted/escaped token paths containing terminator chars stay blocked (exit 2)"
+else
+  t25_fail "T1110-TC-06 a truncated redirect target slipped through"
+fi
+
+# T1110-TC-07: 語中の `#` は終端でない（V-3 R-001）。mutation M-4 の kill 対象。
+#   `#` を終端に含めると、退避不要で書ける `dir#1/<TOKEN>` 形を取りこぼす。
+t25_guard "$T25_TMP/p_t1110_tr_hash_bare"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1110-TC-07 bare mid-word '#' in a token path target stays blocked (exit 2)"
+else
+  t25_fail "T1110-TC-07 mid-word '#' truncated the target and lost the block (exit $_t25_rc)"
+fi
+
+# T1110-TC-08: レーン非対称の解消（V-3 R-001）。同一の空白入りトークンパスへ
+#   tee / cp / `>` / Write のいずれの経路でも block されること。
+_t25_ok=1
+for _t25_p in p_t1110_lane_tee p_t1110_lane_cp p_t1110_lane_redirect p_t1110_lane_write; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1110-TC-08 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1110-TC-08 all lanes block the same spaced token path (exit 2)"
+else
+  t25_fail "T1110-TC-08 lane asymmetry remains for a spaced token path"
+fi
+
+# T1110-TC-09: 改行畳み込みの負の対照（R-005 / M-D の kill 対象）。
+#   heredoc 本文がトークンパスを含むが書き込み先は /tmp なので通す。
+t25_guard "$T25_TMP/p_t1110_nl_heredoc"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1110-TC-09 heredoc body mentioning a token path writes elsewhere (exit 0)"
+else
+  t25_fail "T1110-TC-09 heredoc body falsely treated as a redirect target (exit $_t25_rc)"
+fi
+
+# T1110-TC-10: redirect レーン不成立時に診断値を持ち越さない（R-005 / M-5 の kill 対象）。
+#   sed が必ず失敗するシムを与えると相関判定は fail-closed で診断値を立てるが、
+#   `>` が無いコマンドでは redirect レーンは不成立。後続の copy-like で block する際に
+#   無関係な redirect_target が添えられてはならない。
+_t1110_shim="$T25_TMP/t1110-shimsed"
+mkdir -p "$_t1110_shim"
+for _t1110_c in cat grep sh jq tr; do
+  _t1110_src=$(command -v "$_t1110_c" 2>/dev/null || true)
+  [ -n "$_t1110_src" ] && ln -sf "$_t1110_src" "$_t1110_shim/$_t1110_c" 2>/dev/null || true
+done
+printf '#!/bin/sh\nexit 1\n' > "$_t1110_shim/sed"
+chmod +x "$_t1110_shim/sed"
+_t25_rc=0
+env -u PLANGATE_HOOK_FILE PLANGATE_SKIP_TOKEN_GUARD=0 PATH="$_t1110_shim" /bin/sh "$PG_T25_GUARD" < "$T25_TMP/p_t1045_m_cp_early" 2>"$T25_ERR" || _t25_rc=$?
+if [ "$_t25_rc" = "2" ] && grep -q 'rule=copy-like' "$T25_ERR" && ! grep -q 'redirect_target=' "$T25_ERR"; then
+  t25_pass "T1110-TC-10 non-redirect block carries no stale redirect_target (exit 2)"
+else
+  t25_fail "T1110-TC-10 stale redirect_target leaked into a non-redirect block (exit $_t25_rc)"
+fi
+
+# ── TASK-1115 (#1115): glob bypass の封鎖（V-3 R-001〜R-008 反映）────────
+
+# T1115-TC-01: 保護ディレクトリ配下でファイル名 glob 崩しを block（AC-1）。
+#   M-7（ゲート全体）/ M-16（拡張子判定）の kill 対象。
+
+_t25_ok=1
+for _t25_p in p_t1115_g_redirect_star \
+              p_t1115_g_redirect_q \
+              p_t1115_g_redirect_brk \
+              p_t1115_g_redirect_other; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-01 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-01 glob-broken token filenames in redirect targets are blocked (exit 2)"
+else
+  t25_fail "T1115-TC-01 a glob-broken redirect target slipped through"
+fi
+
+# T1115-TC-02: 非 redirect レーン（cp / tee / sed -i）も同型に block（AC-2）。
+
+_t25_ok=1
+for _t25_p in p_t1115_g_cp \
+              p_t1115_g_tee \
+              p_t1115_g_sed \
+              p_t1115_g_parent; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-02 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-02 argument lanes (cp/tee/sed -i) block glob-broken token filenames (exit 2)"
+else
+  t25_fail "T1115-TC-02 an argument-lane glob bypass remains"
+fi
+
+# T1115-TC-03: 日常 glob コマンドを誤 block しない（AC-5 / 負側）。
+#   幅ガードを緩める変異（M-10）は **負側 TC でしか殺せない**。
+
+_t25_ok=1
+for _t25_p in p_t1115_n_cp_schemas \
+              p_t1115_n_cp_docs \
+              p_t1115_n_sed_status \
+              p_t1115_n_sed_apnotes \
+              p_t1115_n_cp_apnotes \
+              p_t1115_n_brace_exec; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-03 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-03 everyday glob commands stay unblocked (exit 0)"
+else
+  t25_fail "T1115-TC-03 the glob gate widened blocking into everyday commands"
+fi
+
+# T1115-TC-04: #1110 の誤検知解消が戻っていない（AC-4 / 負側）。
+#   glob 語を含んでも書き込み意図との AND は維持される。
+t25_guard "$T25_TMP/p_t1115_n_msg_glob"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1115-TC-04 glob-bearing message + unrelated redirect passes (exit 0)"
+else
+  t25_fail "T1115-TC-04 #1110 false positive returned via the glob gate (exit $_t25_rc)"
+fi
+
+# T1115-TC-05: 読み取りは block しない（AC-3 / 負側）
+
+_t25_ok=1
+for _t25_p in p_t1115_n_read_glob \
+              p_t1115_n_ls_glob; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-05 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-05 glob reads under a protected dir stay unblocked (exit 0)"
+else
+  t25_fail "T1115-TC-05 a read-only glob command was blocked"
+fi
+
+# T1115-TC-06: block 詳細に glob 候補語が出る
+t25_guard "$T25_TMP/p_t1115_g_cp"
+if [ "$_t25_rc" = "2" ] && grep -q 'glob_candidate=' "$T25_ERR"; then
+  t25_pass "T1115-TC-06 block detail carries the matched glob_candidate"
+else
+  t25_fail "T1115-TC-06 block detail missing glob_candidate (exit $_t25_rc)"
+fi
+
+# T1115-TC-07: ディレクトリ側 glob の既存挙動が不変（回帰 / 是正前も rc=2）
+
+_t25_ok=1
+for _t25_p in p_t1115_r_dirglob \
+              p_t1115_r_starjson \
+              p_t1115_r_brk; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-07 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-07 directory-side globs remain blocked (exit 2)"
+else
+  t25_fail "T1115-TC-07 a previously-blocked directory-side glob regressed"
+fi
+
+# T1115-TC-08: 保護ディレクトリは approvals/ だけではない（V-3 R-001）。
+#   M-8（保護ディレクトリ集合）の kill 対象。
+
+_t25_ok=1
+for _t25_p in p_t1115_m_starjson \
+              p_t1115_m_leadq \
+              p_t1115_m_leadbrk \
+              p_t1115_m_trail; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-08 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-08 the second protected directory is covered too (exit 2)"
+else
+  t25_fail "T1115-TC-08 a protected-directory bypass remains outside approvals/"
+fi
+
+# T1115-TC-09: brace expansion（V-3 R-002）。M-15 の kill 対象。
+#   brace は存在しないファイルを新規作成できるため glob より危険。
+
+_t25_ok=1
+for _t25_p in p_t1115_b_approvals \
+              p_t1115_b_maint; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-09 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-09 brace expansion targeting a token name is blocked (exit 2)"
+else
+  t25_fail "T1115-TC-09 brace expansion can still forge a token file"
+fi
+
+# T1115-TC-10: 保護ディレクトリでも保護対象外の拡張子は block しない（V-3 R-003 #8/#9）。
+#   M-16（拡張子判定を常に真にする変異）の kill 対象 = **負側でしか殺せない**。
+
+_t25_ok=1
+for _t25_p in p_t1115_n_ap_md \
+              p_t1115_n_ap_pdf \
+              p_t1115_n_mnt_pdf; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-10 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-10 non-.json files under a protected dir stay unblocked (exit 0)"
+else
+  t25_fail "T1115-TC-10 a protected dir blocked a file type that is not protected"
+fi
+
+# T1115-TC-11: 幅ガード（V-3 R-003 #1〜#4/#10）。M-10 の kill 対象 = **負側**。
+#   「保護名に一致しうる」だけの広い語は狙っているとは言えないので通す。
+
+_t25_ok=1
+for _t25_p in p_t1115_n_w_c \
+              p_t1115_n_w_m \
+              p_t1115_n_w_mjson \
+              p_t1115_n_w_pjson \
+              p_t1115_n_w_perl; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-11 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-11 wide patterns that merely could match are not blocked (exit 0)"
+else
+  t25_fail "T1115-TC-11 the width guard is not holding back wide patterns"
+fi
+
+# T1115-TC-12: 引用の有無で判定が非対称にならない（V-3 R-006 / 負側）。
+
+_t25_ok=1
+for _t25_p in p_t1115_n_q_find \
+              p_t1115_n_q_cp; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "0" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-12 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-12 quoted wide patterns behave like unquoted ones (exit 0)"
+else
+  t25_fail "T1115-TC-12 quoting still flips the width guard"
+fi
+
+# T1115-TC-13: 語の途中で引用を閉じる形（V-3 R-005）。M-12 の kill 対象。
+#   保護ディレクトリ外に置くことで P1 ではなく **_strip_quotes 経由の P2** を撃つ。
+t25_guard "$T25_TMP/p_t1115_q_mixed"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1115-TC-13 mid-word quoting still resolves to a protected name (exit 2)"
+else
+  t25_fail "T1115-TC-13 mid-word quoting bypassed the width guard (exit $_t25_rc)"
+fi
+
+# T1115-TC-14: approvals/ の相対形（V-3 R-007）。M-13 の kill 対象。
+t25_guard "$T25_TMP/p_t1115_rel_approvals"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1115-TC-14 relative protected-dir form is covered (exit 2)"
+else
+  t25_fail "T1115-TC-14 relative protected-dir form slipped through (exit $_t25_rc)"
+fi
+
+# T1115-TC-15: リダイレクト先が `/` を含まない形（V-3 R-008）。M-14 の kill 対象。
+#   basename 抽出だけでは語を切り出せないので、語分割の `>` が **非等価**になる。
+t25_guard "$T25_TMP/p_t1115_redir_noslash"
+if [ "$_t25_rc" = "2" ]; then
+  t25_pass "T1115-TC-15 slashless redirect target is split into its own word (exit 2)"
+else
+  t25_fail "T1115-TC-15 slashless redirect target was not extracted (exit $_t25_rc)"
+fi
+
+# T1115-TC-16: 任意ディレクトリの P2 クラス（M-9 / M-11 の kill 対象）。
+
+_t25_ok=1
+for _t25_p in p_t1115_p2_leadq \
+              p_t1115_p2_trail \
+              p_t1115_p2_brk; do
+  t25_guard "$T25_TMP/$_t25_p"
+  if [ "$_t25_rc" != "2" ]; then
+    _t25_ok=0
+    printf '    (T1115-TC-16 detail: %s exit=%s)\n' "$_t25_p" "$_t25_rc" >&2
+  fi
+done
+if [ "$_t25_ok" = "1" ]; then
+  t25_pass "T1115-TC-16 protected names are covered outside the protected dirs too (exit 2)"
+else
+  t25_fail "T1115-TC-16 a protected-name glob outside the protected dirs slipped through"
+fi
+
 # ── ここから通常モード限定（mutation 子プロセスでは skip）───────────────────
 if [ "$PG_T25_FOCUSED" = "0" ]; then
 
@@ -362,6 +877,596 @@ if [ -f "$PG_T25_PATCH" ] && sh -n "$PG_T25_PATCH" 2>/dev/null; then
 else
   t25_fail "TC-07 apply-task-0123-patches.sh missing or syntax error"
 fi
+
+# ── TASK-1071 (#1071): EH-13 guard の複製導線の廃止（通常モード）──────────
+# 採択案 (a): apply-task-0123-patches.sh の cp を廃止し scripts/ 直下を唯一の正本とする。
+# TC-01 は静的（導線の不在）、TC-02 は sandbox 実行での挙動（複製が生まれない）を撃つ。
+# 検出力の実証は PG_T25_PATCH に旧版スクリプトを差した実行で行う（R-029 と同方式）。
+
+# T1071-TC-01: 複製先パスの**リテラル直書き**が apply スクリプトに無い（AC-2 / 回帰固定）
+# 変数への代入（旧実装の TOKEN_GUARD=...）と、パスを直書きしたファイル生成コマンドを
+# 0 件として固定する。移行手順を案内する _log / コメント中の言及は対象外。
+#
+# 検出力の限界（意図的にこの範囲に留める / #1252 R4 M-1 で文言是正）:
+#   - 本 TC が撃てるのは**このリテラル 1 個の回帰**だけ。撃っているのは
+#     `scripts/hooks/check-approval-token-write` という**単一の文字列**であって、
+#     doc の不変条件（「`scripts/hooks/` 配下にコピーを置かない」＝パス配下の
+#     全体量化）ではない。**別名の複製**（例:
+#     `scripts/hooks/eh13-token-guard.sh`）も、間接的なパス構築
+#     （例: _HD="$REPO_ROOT/scripts/hooks"; cp ... "$_HD/$_HB"）も PASS する
+#     （R4 実測: 別名複製を作る mutant が本 TC を素通りした）。
+#   - 2 本目の正規表現（cp|ln|install|mv|touch|tee）は旧実装ですら発火しない
+#     （旧コードも変数経由で書いていたため）。実質の検出力は assign 側 1 本が担う。
+#   - **本 TC を「複製導線の不在の証明」として扱わないこと。**「名前によらず
+#     `scripts/hooks/` にファイルが増えない」ことを撃つのは T1071-TC-02
+#     （sandbox 実行前後で当該ディレクトリの**ファイル集合が不変**であることの
+#     全数照合）。ただし TC-02 が見るのも「apply を 1 回走らせた結果」であり、
+#     複製導線一般の不在を証明するものではない（残存脅威は TC-04 直前の
+#     コメントと handoff にまとめる）。
+_t1071_assign=$(grep -cE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=.*scripts/hooks/check-approval-token-write' "$PG_T25_PATCH" 2>/dev/null || true)
+_t1071_mk=$(grep -cE '(^|[[:space:];&|(])(cp|ln|install|mv|touch|tee)[[:space:]].*scripts/hooks/check-approval-token-write' "$PG_T25_PATCH" 2>/dev/null || true)
+if [ "$_t1071_assign" = "0" ] && [ "$_t1071_mk" = "0" ]; then
+  t25_pass "T1071-TC-01 apply script has no literal scripts/hooks/<guard> duplication line (single-literal regression pin only; renames are NOT covered here)"
+else
+  t25_fail "T1071-TC-01 apply script still has a literal duplication line (assign=$_t1071_assign mk=$_t1071_mk)"
+fi
+
+# T1071-TC-02: sandbox で apply を **適用分岐まで実走** させても複製が生まれない（AC-2）
+# 実 repo は一切触らない（REPO_ROOT は $0 の親の親＝sandbox に解決される）。
+#
+# **rc=0 の AND だけでは vacuous になる**（#1252 R3 M-2）。R2 で Patch 1/3/4 の
+# 冪等ガードを sandbox 側で満たす stub を置いた結果、3 つの Patch がすべて
+# `SKIP (already applied)` へ落ち、`rc=0` が保証するのは「4 SKIP + Patch 5 の
+# ファイル生成 1 件」だけになっていた。実測: Patch 3 の**適用分岐**に複製生成を
+# 注入した mutant が生存した（適用分岐に到達しないため）。
+#
+# そこで stub ではなく **合成 fixture**（各 Patch の「未適用」状態 + 挿入
+# アンカーだけを持つ最小ファイル）を置き、Patch 1/3/4/5 の**適用分岐を実走**させる。
+#   - 実 HO ファイルの内容には結合しない（R2 M-D の指摘を維持）。
+#     Patch が探す挿入アンカー文字列だけを合成 fixture で再現する。
+#   - 適用分岐を通過したことは **apply 自身が出す OK マーカー**で実測する
+#     （rc だけでなく「何をしたか」を見る）。マーカーが揃わなければ FAIL。
+#   - python3 不在の検出は引き続き残る（Patch 1 の冪等チェックが python3）。
+#
+# `scripts/check-approval-token-write.sh` だけは実物を置く。これは #1071 の
+# 主題そのもの（旧版 apply が cp する複製元）であり、変異注入で検出力を実証する
+# 経路に必要なため、ここへの結合は意図的。
+#
+# ── 判定軸（#1252 R4 M-1 で張り替え）──────────────────────────────
+# 旧版の判定は `[ -e "$sbx/scripts/hooks/check-approval-token-write.sh" ]`＝
+# **リテラルパス 1 個**の存在検査だった。doc の不変条件は「`scripts/hooks/` 配下に
+# コピーを置かない」という**パス配下の全体量化**なので、複製先を改名するだけで
+# 素通りする（R4 実測: `scripts/hooks/eh13-token-guard.sh` を作る mutant が
+# 121 passed / 0 failed のまま生存）。
+#
+# そこで判定を **`scripts/hooks/` のファイル集合が apply 実行の前後で不変**である
+# ことへ替える。fixture 上この集合は `check-plan-hash.sh` 1 件だけなので `find` の
+# 全数照合で足り、**名前に依存せず**あらゆる新規ファイル / サブディレクトリを殺せる。
+# Patch 3 は `check-plan-hash.sh` を**内容だけ**書き換えるので集合は動かない。
+#
+# 検出力の限界: 本 TC が見るのは「この apply スクリプトを sandbox で 1 回走らせた
+# 結果」であって、複製導線一般の不在ではない。別経路（別スクリプト・手作業・
+# 実行時 env 依存の分岐）による複製は射程外。
+_t1071_sbx=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-1071.XXXXXX")
+register_cleanup "$_t1071_sbx"
+mkdir -p "$_t1071_sbx/scripts/hooks" "$_t1071_sbx/schemas" "$_t1071_sbx/bin" "$_t1071_sbx/.github/workflows"
+cp "$PG_T25_PATCH" "$_t1071_sbx/scripts/apply-task-0123-patches.sh"
+cp "$PG_T25_ROOT/scripts/check-approval-token-write.sh" "$_t1071_sbx/scripts/check-approval-token-write.sh"
+
+# Patch 1 fixture: properties はあるが hmac_signature は無い（= 未適用）
+printf '{"properties": {"task": {"type": "string"}}}\n' \
+  > "$_t1071_sbx/schemas/maintenance.schema.json"
+# Patch 3 fixture: PLANGATE_MAINTENANCE_KEY 不在（= 未適用）+ 挿入アンカー "    esac"
+cat > "$_t1071_sbx/scripts/hooks/check-plan-hash.sh" <<'T25_P3_FIXTURE'
+#!/bin/sh
+# t25 synthetic fixture (NOT the real hook): Patch 3 の挿入アンカーだけを持つ
+_maint="/nonexistent/none.json"
+log_event() { :; }
+case "${1:-}" in
+  maintenance)
+    :
+    ;;
+    esac
+exit 0
+T25_P3_FIXTURE
+# Patch 4 fixture: PLANGATE_MAINTENANCE_KEY 不在（= 未適用）+ 挿入アンカー
+# （"os.replace(tmp, target)" の後ろに最初に現れる "PYW" 行）。Patch 4 は
+# テキスト検索と挿入しか行わないため、実行可能である必要はない。
+_t1071_p4="$_t1071_sbx/bin/plangate"
+printf '#!/bin/sh\n# t25 synthetic fixture (Patch 4 anchors only)\nos.replace(tmp, target)\nPYW\nexit 0\n' > "$_t1071_p4"
+# Patch 5 fixture: 生成先は不在にしておく（適用分岐へ落とす）
+
+# _t1071_lsset <dir> --- dir 配下の相対パス集合を 1 行 1 件で（ソート済みで）出力
+_t1071_lsset() {
+  find "$1" -mindepth 1 2>/dev/null | sed "s|^$1/||" | LC_ALL=C sort
+}
+
+_t1071_hooksdir="$_t1071_sbx/scripts/hooks"
+_t1071_before=$(_t1071_lsset "$_t1071_hooksdir")
+_t1071_out="$_t1071_sbx/apply.out"
+_t1071_rc=0
+sh "$_t1071_sbx/scripts/apply-task-0123-patches.sh" > "$_t1071_out" 2>&1 || _t1071_rc=$?
+_t1071_after=$(_t1071_lsset "$_t1071_hooksdir")
+
+# 適用分岐通過マーカー（Patch 1 / 3 / 4 / 5 の順）。SKIP 分岐では出力されない。
+_t1071_marks=""
+for _t1071_pat in \
+  'OK: hmac_signature added' \
+  'OK: HMAC verification block inserted' \
+  'OK: HMAC signature generation added' \
+  'OK: check-maintenance-provenance.yml created'; do
+  if grep -qF "$_t1071_pat" "$_t1071_out" 2>/dev/null; then
+    _t1071_marks="${_t1071_marks}1"
+  else
+    _t1071_marks="${_t1071_marks}0"
+  fi
+done
+
+# 母集団が空だと集合照合は vacuous（何を足しても差分が出る／出ないの判別以前に
+# 「元から空」は fixture 破損）。fixture は check-plan-hash.sh 1 件を必ず持つ。
+if [ "$_t1071_rc" != "0" ]; then
+  t25_fail "T1071-TC-02 apply run did not complete (rc=$_t1071_rc marks=$_t1071_marks) — the file-set check would be vacuous"
+elif [ "$_t1071_marks" != "1111" ]; then
+  t25_fail "T1071-TC-02 apply did not traverse every applied branch (marks=$_t1071_marks expected=1111) — rc=0 alone is vacuous"
+elif [ "$_t1071_before" != "check-plan-hash.sh" ]; then
+  t25_fail "T1071-TC-02 fixture broken: pre-run scripts/hooks/ set was [$_t1071_before], expected exactly [check-plan-hash.sh]"
+elif [ "$_t1071_after" != "$_t1071_before" ]; then
+  t25_fail "T1071-TC-02 apply changed the file set under scripts/hooks/ (before=[$_t1071_before] after=[$_t1071_after]) — any added file counts, whatever its name"
+else
+  t25_pass "T1071-TC-02 apply traverses Patch 1/3/4/5 applied branches (marks=1111, rc=0) and leaves the scripts/hooks/ file set unchanged (name-independent, full enumeration)"
+fi
+
+# T1071-TC-03: 本 repo に複製が存在しない（AC-4 / 実測の回帰固定）
+#
+# #1252 R4 M-1: リテラルパス 1 個の `[ ! -e ]` では**改名した複製**を見逃す。
+# `scripts/hooks/` 配下を全数走査し、(a) 正本と**バイト一致**するファイル、
+# (b) 名前に `approval-token-write` を含むファイル、のいずれかがあれば FAIL。
+# 検出力の限界: 内容を編集した改名複製（fork）は (a) を外れる。名前も内容も
+# 変えた「事実上の複製」は静的には同定できない — 残存脅威として明示する。
+_t1071_canon="$PG_T25_ROOT/scripts/check-approval-token-write.sh"
+_t1071_clones=""
+if [ ! -f "$_t1071_canon" ] || [ ! -r "$_t1071_canon" ]; then
+  t25_fail "T1071-TC-03 canonical guard missing/unreadable at scripts/check-approval-token-write.sh"
+else
+  _t1071_csum=$(cksum < "$_t1071_canon")
+  for _t1071_hf in "$PG_T25_ROOT"/scripts/hooks/*; do
+    [ -f "$_t1071_hf" ] || continue
+    case "$_t1071_hf" in
+      *approval-token-write*) _t1071_clones="$_t1071_clones ${_t1071_hf##*/}(name)"; continue ;;
+    esac
+    if [ ! -r "$_t1071_hf" ]; then
+      # 読めないファイルを無言で「複製でない」と数えない（fail-closed）
+      _t1071_clones="$_t1071_clones ${_t1071_hf##*/}(unreadable)"
+      continue
+    fi
+    if [ "$(cksum < "$_t1071_hf")" = "$_t1071_csum" ]; then
+      _t1071_clones="$_t1071_clones ${_t1071_hf##*/}(byte-identical)"
+    fi
+  done
+  if [ -z "$_t1071_clones" ]; then
+    t25_pass "T1071-TC-03 scripts/hooks/ contains no byte-identical or name-matching copy of the canonical guard (full enumeration)"
+  else
+    t25_fail "T1071-TC-03 scripts/hooks/ contains a copy of the canonical guard:$_t1071_clones"
+  fi
+fi
+
+# T1071-TC-04: EH-13 配線が scripts/ 直下を指し、scripts/hooks/ を指さない（AC-5）
+#
+# ── 検査モデルの軸（#1252 R3 M-1 で張り替え）────────────────────────────
+# 旧版は走査母集団を**ファイルの位置**（repo パス配下か否か）で切っていた。しかし
+# `.claude/settings.json` / `.claude/settings.local.json` は `.gitignore` 対象で
+# **untracked**＝ CI にも他人の checkout にも存在しない環境依存ファイルである。
+# 「パスが repo 内にある」ことと「その配線が repo の資産である」ことは別物で、
+# ここを混ぜたことで両方向に壊れていた（いずれも実測）:
+#   - tracked 配線を全削除しても、手元の untracked な `.claude/settings.json` に
+#     同じ参照が 1 件あるだけで **PASS**（repo の EH-13 配線が丸ごと消えても
+#     どの機械ゲートも赤くならない）。
+#   - 逆に環境側に `.claude/settings.local.json` があるだけで、repo が完全に
+#     正しくても FAIL が **repo を名指し**する。しかも `.claude/settings*.json` は
+#     Hardening Override 対象で AI には直せない。
+#
+# 新しい軸は **tracked / untracked / loaded** の 3 概念:
+#
+#   | 概念 | 定義 | レーン |
+#   |------|------|--------|
+#   | tracked | git の index にある = CI と他人の checkout に必ず存在する | **FAIL** |
+#   | untracked / 環境依存 | `.gitignore` 済み・repo 外（`~/.claude/settings.json` 等） | **WARN** |
+#   | loaded | harness が実際にロード・発火させた配線 | **本 TC の射程外** |
+#
+# ── 陽性 assert の強度（#1252 R4 M-2 で張り替え）────────────────────
+# 旧版の root カウントは `grep -c 'scripts/check-approval-token-write\.sh'`＝
+# **ファイル中のどこかに文字列があるか**だった。R4 実測でこれが、
+# **同じ PR の doc が「無言で無効化されるクラス」として明文化した書法**でも
+# 満たされることが分かった:
+#
+#   | 合成配線 | 旧 root カウント | 実際にロードされるか |
+#   |---------|----------------|--------------------|
+#   | `${CLAUDE_PROJECT_DIR}` 付き絶対パス | 1（PASS） | される（正しい） |
+#   | 相対パス `sh scripts/...` | 1（PASS） | **cwd 次第でされない** |
+#   | 散文（`_comment_`）中の言及だけ | 1（PASS） | されない |
+#   | 未知 / typo の event キー配下 | 1（PASS） | されない |
+#
+# 下 3 つは `loaded`（実発火）の問題ではなく**静的に判定できる構造の問題**なので、
+# 「loaded は射程外」で免責しない。root として数える条件を次の 2 つに絞る:
+#
+#   1. **構造上のフック位置**にあること — JSON を実際に parse し、
+#      `hooks.<既知 event キー>[].hooks[].command`（Claude / Codex 形式）または
+#      `hooks.<既知 event キー>[].command`（Cursor 形式）の文字列だけを見る。
+#      散文フィールド・未知 event キー配下は母集団に入らない。
+#   2. **repo ルートにアンカーされていること** — `${CLAUDE_PROJECT_DIR}` /
+#      `$CLAUDE_PROJECT_DIR` / `$(git rev-parse --show-toplevel)` /
+#      `${PLANGATE_REPO_ROOT}` のいずれかを前置していること。
+#      アンカーの無い参照は `rel` として**別カウントし FAIL 側に置く**
+#      （移行期間は設けない。doc が既に「相対パスにしない」と明記しているため）。
+#
+# 既知の副作用: Cursor の hooks 仕様は相対パスを正とするため、`.cursor/hooks.json`
+# へ EH-13 を相対パスで配線すると本 TC は `rel` として赤くする。これは意図的
+# （doc「この方針の代償」節のとおり EH-13 の Cursor 配線は現状スコープ外であり、
+# 配線するなら別 issue でブリッジ側を変える）。
+#
+# JSON parse は python3 に依存する。python3 不在は **fail-closed**（NOPY）で落とす。
+#
+#   - tracked / untracked の判定は `git ls-files --error-unmatch` で機械化する
+#     （パスのハードコード分類にしない。`.gitignore` が変われば自動で追従する）。
+#   - FAIL メッセージは **repo の責任でないものを repo のせいにしない**。環境側の
+#     残存参照は pass/fail を動かさない WARN として別に出す。
+#   - **loaded は検証していない**。設定ファイルに参照が「書いてある」ことは
+#     「効いている」ことの証拠ではない（実ロード結果は harness 側の観測経路で
+#     しか分からない）。残存脅威として明示し、ここで検証したことにしない。
+#
+# ── 走査母集団 ────────────────────────────────────────────────
+#   WIRING 集合（repo の配線正本 / root_refs はここからだけ数える）:
+#     .claude/settings.json / .claude/settings.local.json /
+#     .claude/settings.example.json / .codex/hooks.json / .cursor/hooks.json
+#   DIST 集合（plugin 配布物 / hook_refs にのみ寄与）:
+#     plugin/plangate/hooks/hooks.json
+#       plugin は hooks/hooks.json 経由でしか hook を起動できない
+#       （docs/working/_reports/1144-plugin-packaging-patch.md §1）。未作成なら空振り。
+#   ENV 集合（WARN 専用）: 上記のうち untracked だったもの + $PG_T25_USER_SETTINGS
+#
+# **読めないファイルは無言で 0 を足さない**（#1252 R2 M-C の維持）。`[ -f ]` は
+# 通るが読めないファイルで `grep -c` は空文字を返し `$((n + ))` が 0 扱いになる。
+# tracked なのに読めない / 不在なら「列挙が不完全」として落とす。
+#
+# 絶対件数は assert しない（運用で増減する値を契約値にしない）。root は `>= 1`、
+# hooks 複製は `= 0` のみを要求する。
+
+# _t1071_tracked <root> <relpath> --- tracked なら 0
+_t1071_tracked() {
+  git -C "$1" ls-files --error-unmatch -- "$2" >/dev/null 2>&1
+}
+
+# _t1071_isrepo <root> --- git worktree なら 0
+_t1071_isrepo() {
+  git -C "$1" rev-parse --git-dir >/dev/null 2>&1
+}
+
+# _t1071_count <file> <pattern> --- 一致行数を echo。読めなければ何も echo しない。
+# WARN レーン（環境依存ファイル）専用。任意形式のファイルが来るため素の grep で扱う。
+_t1071_count() {
+  grep -c "$2" "$1" 2>/dev/null || true
+}
+
+# _t1071_jsonrefs <file> --- "<root> <hooks> <rel>" を echo。
+#   root  : 構造上のフック位置にあり repo ルートへアンカーされた正本参照
+#   hooks : scripts/hooks/ 複製への参照（アンカー有無を問わない）
+#   rel   : 構造上のフック位置にあるがアンカーされていない参照（＝無言で無効化）
+# parse 失敗 / python3 不在では何も echo せず non-zero で返る（呼び出し側で fail-closed）。
+_t1071_jsonrefs() {
+  python3 - "$1" <<'T25_JSONREFS'
+import json
+import re
+import sys
+
+# harness が実際にロードする event キー（Claude Code / Codex / Cursor）。
+# ここに無いキー配下の command は「書いてあるが起動されない」ため母集団に入れない。
+EVENTS = {
+    "pretooluse", "posttooluse", "userpromptsubmit", "notification",
+    "stop", "subagentstop", "precompact", "sessionstart", "sessionend",
+    "beforeshellexecution", "beforemcpexecution", "beforereadfile",
+    "beforesubmitprompt", "afterfileedit",
+}
+
+DUP = re.compile(r"scripts/hooks/check-approval-token-write\.sh")
+ROOT = re.compile(
+    r"(\$\{CLAUDE_PROJECT_DIR\}|\$CLAUDE_PROJECT_DIR"
+    r"|\$\(git rev-parse --show-toplevel\)"
+    r"|\$\{PLANGATE_REPO_ROOT\}|\$PLANGATE_REPO_ROOT)"
+    r"/scripts/check-approval-token-write\.sh"
+)
+ANY = re.compile(r"check-approval-token-write\.sh")
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        doc = json.load(fh)
+except Exception:
+    sys.exit(3)
+
+commands = []
+hooks = doc.get("hooks") if isinstance(doc, dict) else None
+if isinstance(hooks, dict):
+    for event, entries in hooks.items():
+        if not isinstance(event, str) or event.lower() not in EVENTS:
+            continue
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            direct = entry.get("command")          # Cursor 形式
+            if isinstance(direct, str):
+                commands.append(direct)
+            inner = entry.get("hooks")             # Claude / Codex 形式
+            if isinstance(inner, list):
+                for hook in inner:
+                    if (isinstance(hook, dict)
+                            and hook.get("type") == "command"
+                            and isinstance(hook.get("command"), str)):
+                        commands.append(hook["command"])
+
+root = dup = rel = 0
+for command in commands:
+    if DUP.search(command):
+        dup += 1
+    elif ROOT.search(command):
+        root += 1
+    elif ANY.search(command):
+        rel += 1
+print("%d %d %d" % (root, dup, rel))
+T25_JSONREFS
+}
+
+# _t1071_env_add <file> — WARN レーンへ 1 ファイル加算（pass/fail は動かさない）
+_t1071_env_add() {
+  if [ ! -f "$1" ] || [ ! -r "$1" ]; then
+    _T1071_ENVUNREAD="$_T1071_ENVUNREAD $1"
+    return 0
+  fi
+  _ea_m=$(_t1071_count "$1" 'hooks/check-approval-token-write\.sh')
+  if [ -z "$_ea_m" ]; then
+    _T1071_ENVUNREAD="$_T1071_ENVUNREAD $1"
+  elif [ "$_ea_m" != "0" ]; then
+    _T1071_ENVHOOK=$((_T1071_ENVHOOK + _ea_m))
+    _T1071_ENVHITS="$_T1071_ENVHITS $1"
+  fi
+}
+
+# _t1071_scan <root> <user-settings-path>
+#   グローバル副作用:
+#     _T1071_VERDICT     PASS / FAIL / INCOMPLETE / NOGIT
+#     _T1071_TROOT       tracked な WIRING 集合中の「構造上のフック位置にあり
+#                        repo ルートへアンカーされた」正本参照件数
+#     _T1071_TREL        同上のうちアンカーされていない参照件数（FAIL 要因）
+#     _T1071_THOOK       tracked な WIRING+DIST 集合中の複製参照件数
+#     _T1071_ENVHOOK     環境依存ファイル中の複製参照件数（判定に入れない）
+#     _T1071_ENVHITS     同上のファイル一覧
+#     _T1071_INCOMPLETE  tracked なのに列挙できなかったファイル一覧
+#     _T1071_ENVUNREAD   読めなかった環境依存ファイル一覧
+_t1071_scan() {
+  _sc_top="$1"
+  _sc_user="$2"
+  _T1071_VERDICT=""
+  _T1071_TROOT=0
+  _T1071_TREL=0
+  _T1071_THOOK=0
+  _T1071_ENVHOOK=0
+  _T1071_ENVHITS=""
+  _T1071_INCOMPLETE=""
+  _T1071_ENVUNREAD=""
+
+  if ! _t1071_isrepo "$_sc_top"; then
+    _T1071_VERDICT="NOGIT"
+    return 0
+  fi
+  # 構造判定は JSON parse を要する。python3 不在は fail-closed（緑にしない）。
+  if ! command -v python3 >/dev/null 2>&1; then
+    _T1071_VERDICT="NOPY"
+    return 0
+  fi
+
+  for _sc_rel in \
+    .claude/settings.json \
+    .claude/settings.local.json \
+    .claude/settings.example.json \
+    .codex/hooks.json \
+    .cursor/hooks.json \
+    plugin/plangate/hooks/hooks.json; do
+    _sc_f="$_sc_top/$_sc_rel"
+    _sc_dist=0
+    case "$_sc_rel" in plugin/*) _sc_dist=1 ;; esac
+
+    if _t1071_tracked "$_sc_top" "$_sc_rel"; then
+      # FAIL レーン: tracked = CI と他人の checkout に必ず存在する
+      if [ ! -f "$_sc_f" ] || [ ! -r "$_sc_f" ]; then
+        _T1071_INCOMPLETE="$_T1071_INCOMPLETE $_sc_rel"
+        continue
+      fi
+      # 構造 scan（JSON parse）。parse 不能な tracked 配線は「列挙が不完全」。
+      _sc_res=$(_t1071_jsonrefs "$_sc_f") || _sc_res=""
+      if [ -z "$_sc_res" ]; then
+        _T1071_INCOMPLETE="$_T1071_INCOMPLETE $_sc_rel(unparsed)"
+        continue
+      fi
+      _sc_n=${_sc_res%% *}
+      _sc_tail=${_sc_res#* }
+      _sc_m=${_sc_tail%% *}
+      _sc_r=${_sc_tail#* }
+      # root_refs は repo の配線正本（WIRING 集合）からだけ数える。
+      # plugin 配布物は「配線が生きている」証拠にならないため hook 側にのみ寄与。
+      if [ "$_sc_dist" = "0" ]; then
+        _T1071_TROOT=$((_T1071_TROOT + _sc_n))
+        _T1071_TREL=$((_T1071_TREL + _sc_r))
+      fi
+      _T1071_THOOK=$((_T1071_THOOK + _sc_m))
+    else
+      # WARN レーン: untracked = 環境依存（.gitignore 済み）。判定を動かさない。
+      if [ -e "$_sc_f" ]; then
+        _t1071_env_add "$_sc_f"
+      fi
+    fi
+  done
+
+  # repo 外のユーザーレベル配線も WARN レーン
+  if [ -n "$_sc_user" ] && [ -e "$_sc_user" ]; then
+    _t1071_env_add "$_sc_user"
+  fi
+
+  if [ -n "$_T1071_INCOMPLETE" ]; then
+    _T1071_VERDICT="INCOMPLETE"
+  elif [ "$_T1071_TROOT" -ge 1 ] && [ "$_T1071_THOOK" = "0" ] && [ "$_T1071_TREL" = "0" ]; then
+    _T1071_VERDICT="PASS"
+  else
+    _T1071_VERDICT="FAIL"
+  fi
+}
+
+# T1071-TC-04a: 実 repo の tracked 配線が「構造上のフック位置」で
+# 「repo ルートへアンカーされた」scripts/ 直下のみを指す
+_t1071_scan "$PG_T25_WIRING_ROOT" "$PG_T25_USER_SETTINGS"
+case "$_T1071_VERDICT" in
+  PASS)
+    t25_pass "T1071-TC-04a EH-13 tracked wiring is anchored (\${CLAUDE_PROJECT_DIR} etc.) and structural, pointing at scripts/ root only (root=$_T1071_TROOT hooks=0 unanchored=0)"
+    ;;
+  INCOMPLETE)
+    t25_fail "T1071-TC-04a tracked wiring file unreadable/unparsable — verdict would be incomplete:$_T1071_INCOMPLETE"
+    ;;
+  NOGIT)
+    t25_fail "T1071-TC-04a cannot determine the tracked set (not a git checkout) — fail-closed"
+    ;;
+  NOPY)
+    t25_fail "T1071-TC-04a python3 unavailable — the structural JSON check cannot run (fail-closed)"
+    ;;
+  *)
+    t25_fail "T1071-TC-04a EH-13 tracked wiring unexpected (root=$_T1071_TROOT hooks=$_T1071_THOOK unanchored=$_T1071_TREL)"
+    ;;
+esac
+
+# 環境依存（untracked / repo 外）の残存参照は判定と分離して出す。
+# pass/fail カウンタは動かさない（repo の責任ではないため）。
+if [ "$_T1071_ENVHOOK" != "0" ]; then
+  printf '  [WARN] T1071-TC-04 あなたの環境の untracked / repo 外配線に scripts/hooks/ 複製への参照が %s 件残っています:%s\n' \
+    "$_T1071_ENVHOOK" "$_T1071_ENVHITS" >&2
+  printf '         docs/ai/approval-token-guard.md「適用済み環境向け移行手順（#1071）」の\n' >&2
+  printf '         #2（scripts/ 直下へ張り替え）→ #3（複製の削除）を実施してください（Human 操作）。\n' >&2
+fi
+if [ -n "$_T1071_ENVUNREAD" ]; then
+  printf '  [WARN] T1071-TC-04 環境依存の配線先が読めないため残存参照を確認できませんでした:%s\n' \
+    "$_T1071_ENVUNREAD" >&2
+fi
+
+# ── 陽性コントロール（両方向 / #1252 R3 M-1・R4 M-2）──────────────────
+# 検査モデルが「実際に何を検出でき、何を検出しないか」をテスト自身の中で実測する。
+# ここが無いと TC-04a は「たまたま緑」と区別がつかない。
+#   b: tracked 配線が消えたら赤くなるか（旧版はここが PASS だった）
+#   c: untracked な環境ファイルが tracked の欠落を **救済しない**か（M-1 の実害）
+#   d: 環境側に複製参照があっても repo が正しければ **赤くならない**か（逆方向）
+#   e: tracked 側の複製参照は引き続き赤くなるか（既存 true positive の退行防止）
+#   f: **相対パス**（アンカー無し）の tracked 配線は赤くなるか（R4 M-2 / doc が
+#      「無言で無効化される」と明記した書法を機械ゲートが緑にしない）
+#   g: **散文中の言及だけ**の tracked 配線は赤くなるか（R4 M-2）
+#   h: **未知 / typo の event キー**配下の tracked 配線は赤くなるか（R4 M-2）
+#
+# コントロール sandbox の settings は **実際に parse できる JSON** として組み立てる
+# （旧版は生の断片行だったため、構造判定を入れると成立しなくなる）。
+
+# _t1071_mkjson <commands> <event-key> <prose>
+#   commands: 1 行 1 コマンド文字列（空行は無視）
+#   prose:    hooks の外側（_comment_）に置く散文。構造上のフック位置ではない。
+_t1071_mkjson() {
+  T25_MJ_CMDS="$1" T25_MJ_EV="$2" T25_MJ_PROSE="$3" python3 - <<'T25_MKJSON'
+import json
+import os
+
+commands = [c for c in os.environ["T25_MJ_CMDS"].split("\n") if c]
+doc = {
+    "_comment_": os.environ["T25_MJ_PROSE"],
+    "hooks": {
+        os.environ["T25_MJ_EV"]: [
+            {"matcher": "Edit|Write",
+             "hooks": [{"type": "command", "command": c}]}
+            for c in commands
+        ]
+    },
+}
+print(json.dumps(doc, indent=2))
+T25_MKJSON
+}
+
+# _t1071_mkctl <tracked-commands> <untracked-commands> [event-key] [prose]
+#   sandbox パスは **グローバル `_T1071_CTL`** で返す。
+#   ⚠️ `$( )` で呼ばないこと（#1252 R4 minor）: register_cleanup は
+#      シェル変数への追記なので subshell で登録が失われ、1 実行ごとに
+#      TMPDIR へ sandbox が残る（f5fd09a 実測: standalone 1 回で 8 個）。
+#   untracked 性は宣言でなく **実際の VCS の状態**として作る（ignore + add 対象外）。
+_t1071_mkctl() {
+  _T1071_CTL=$(mktemp -d "${TMPDIR:-/tmp}/pg-t25-ctl.XXXXXX")
+  register_cleanup "$_T1071_CTL"
+  mkdir -p "$_T1071_CTL/.claude"
+  printf '.claude/settings.json\n.claude/settings.local.json\n' > "$_T1071_CTL/.gitignore"
+  _t1071_mkjson "$1" "${3:-PreToolUse}" "${4:-t25 synthetic control}" \
+    > "$_T1071_CTL/.claude/settings.example.json"
+  git -C "$_T1071_CTL" init -q >/dev/null 2>&1
+  # -f: 利用者の global ignore 設定が .claude/ を無視していても tracked にする
+  # （sandbox の tracked 集合を環境設定に依存させない）
+  git -C "$_T1071_CTL" add -f .gitignore .claude/settings.example.json >/dev/null 2>&1
+  if [ -n "$2" ]; then
+    _t1071_mkjson "$2" PreToolUse "t25 synthetic env" > "$_T1071_CTL/.claude/settings.json"
+  fi
+}
+
+# _t1071_ctl <label> <expected-verdict> <sandbox>
+_t1071_ctl() {
+  _t1071_scan "$3" ""
+  if [ "$_T1071_VERDICT" = "$2" ]; then
+    t25_pass "$1 (verdict=$_T1071_VERDICT root=$_T1071_TROOT hooks=$_T1071_THOOK unanchored=$_T1071_TREL env=$_T1071_ENVHOOK)"
+  else
+    t25_fail "$1 expected=$2 got=$_T1071_VERDICT (root=$_T1071_TROOT hooks=$_T1071_THOOK unanchored=$_T1071_TREL env=$_T1071_ENVHOOK incomplete=$_T1071_INCOMPLETE)"
+  fi
+}
+
+# コマンド文字列（JSON の値としてそのまま埋め込む）
+_t1071_cmd_root='sh ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh'
+_t1071_cmd_hook='sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-approval-token-write.sh'
+_t1071_cmd_rel='sh scripts/check-approval-token-write.sh'
+
+# b: tracked 配線が全て消えた repo は必ず赤くなる
+_t1071_mkctl "" ""
+_t1071_ctl "T1071-TC-04b removing every tracked EH-13 wiring turns the verdict red" FAIL "$_T1071_CTL"
+
+# c: untracked な環境ファイルは tracked の欠落を救済しない（M-1 の実害そのもの）
+_t1071_mkctl "" "$_t1071_cmd_root"
+_t1071_ctl "T1071-TC-04c an untracked env file cannot rescue missing tracked wiring" FAIL "$_T1071_CTL"
+
+# d: 環境側に複製参照があっても repo が正しければ赤くならない（逆方向）
+_t1071_mkctl "$_t1071_cmd_root" "$_t1071_cmd_hook"
+_t1071_ctl "T1071-TC-04d an untracked env file with a hooks/ duplicate does not fail the repo" PASS "$_T1071_CTL"
+
+# d-2: しかも「見えていない」わけではない（WARN レーンには載る）
+if [ "$_T1071_ENVHOOK" -ge 1 ]; then
+  t25_pass "T1071-TC-04d2 the env-lane duplicate is still reported (WARN lane, env=$_T1071_ENVHOOK)"
+else
+  t25_fail "T1071-TC-04d2 env-lane duplicate was silently dropped (env=$_T1071_ENVHOOK)"
+fi
+
+# e: tracked 側の複製参照は引き続き赤くなる（既存 true positive の退行防止）
+_t1071_mkctl "$_t1071_cmd_root
+$_t1071_cmd_hook" ""
+_t1071_ctl "T1071-TC-04e a hooks/ duplicate in a tracked wiring file still fails" FAIL "$_T1071_CTL"
+
+# f: 相対パス（アンカー無し）だけの tracked 配線は赤くなる。
+#    doc「パスは ${CLAUDE_PROJECT_DIR} 付きで書くこと（相対パスにしない）… cwd 次第で
+#    ロードされず無言で無効化される」が名指ししたクラスそのもの。
+_t1071_mkctl "$_t1071_cmd_rel" ""
+_t1071_ctl "T1071-TC-04f an unanchored (relative-path) tracked wiring fails" FAIL "$_T1071_CTL"
+
+# g: 散文中の言及だけでは陽性 assert を満たさない（構造上のフック位置ではない）
+_t1071_mkctl "" "" PreToolUse \
+  'see ${CLAUDE_PROJECT_DIR}/scripts/check-approval-token-write.sh for details'
+_t1071_ctl "T1071-TC-04g a prose-only mention does not count as wiring" FAIL "$_T1071_CTL"
+
+# h: 未知 / typo の event キー配下は harness がロードしないため陽性にしない
+_t1071_mkctl "$_t1071_cmd_root" "" PreToolUseX
+_t1071_ctl "T1071-TC-04h wiring under an unknown/typo event key does not count" FAIL "$_T1071_CTL"
 
 # ── T1023 追加 TC（通常モード）───────────────────────────────
 
@@ -441,12 +1546,20 @@ else
   t25_fail "T1023-TC-08 read-only cat of token path incorrectly blocked (exit $_t25_rc)"
 fi
 
-# T1023-TC-09: token read + 別 file write の混在 → 保守的 rc=2（AC-04 / 相関解析しない仕様）
+# T1023-TC-09: token read + 別 file write の混在 → rc=0
+# 期待値変更（TASK-1110 / #1110）: 旧仕様は「相関解析しない」ため rc=2 だったが、
+# これは本 issue が是正した誤検知クラスそのもの（トークン名は読み取りに出るだけで、
+# リダイレクト先は /tmp/other.txt）。トークンパス宛の書き込みは
+# T1110-TC-03 / T1045-TC-04〜06 が引き続き block を担保する。
+# ⚠️ 本 TC は TASK-1023 pbi-input AC-04「token path と別 write を混在させた command は
+# 安全側 block を仕様とする」を redirect レーンに限り上書きする。V-3 R-003 の指摘どおり
+# 当初 plan では宣言漏れだったため、TASK-1110 の pbi-input / plan / test-cases へ
+# 明示的に追加し、**AC 上書きの可否そのものを Human C-3 の判断事項**として立てている。
 t25_guard "$T25_TMP/p_bash_mixed"
-if [ "$_t25_rc" = "2" ]; then
-  t25_pass "T1023-TC-09 mixed token-read + other-write conservatively blocked (exit 2)"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1023-TC-09 mixed token-read + unrelated-file-write passes (exit 0, #1110)"
 else
-  t25_fail "T1023-TC-09 mixed command not conservatively blocked (exit $_t25_rc)"
+  t25_fail "T1023-TC-09 mixed token-read + unrelated-file-write falsely blocked (exit $_t25_rc)"
 fi
 
 # T1023-TC-10: normal file への Edit / Write / Bash write → 各 rc=0（AC-04）
@@ -746,12 +1859,22 @@ else
   t25_fail "T1045-TC-15 >& <file> not blocked (exit $_t25_rc)"
 fi
 
-# T1045-TC-19: 文字列リテラル中の `>` は保守的 block を維持（AC-04 / GC-2 取りこぼしの明示固定）
+# T1045-TC-19: 文字列リテラル中の `>` → rc=0
+# 期待値変更（TASK-1110 / #1110）: 旧仕様は保守的 block（GC-2 の取りこぼしを
+# 明示固定）だったが、`echo (a > b) <TOKEN>` はリダイレクト先が `b` であり
+# トークンパスに解決されない = 本 issue の是正対象クラス（ケース A と同型）。
+# 解決不能な先（$ / glob / 空）は引き続き block されることを T1110-TC-04 が担保する。
+# TASK-1045 handoff K-2 が本ケースを「minor（残存誤検知）」と自己分類しており、
+# 反転は意図的仕様の無断変更ではない（TASK-1110 pbi-input / plan / test-cases で事前宣言）。
+# なお TASK-1045 plan SC-6（TC-11〜15 / TC-19 が rc=0 になったら critical 停止）は
+# **TASK-1045 exec 中の停止条件**であって後続 PBI を縛らない。#1110 は同じ真の陽性を
+# 「先がトークンパスに解決されるか」という別経路で維持しており、TC-11〜15 は本 PR でも
+# rc=2 のまま（V-3 実測 / T1045-TC-11〜15 が継続 PASS）。V-3 R-004 反映。
 t25_guard "$T25_TMP/p_t1045_b_literal"
-if [ "$_t25_rc" = "2" ]; then
-  t25_pass "T1045-TC-19 '>' inside a string literal remains conservatively blocked (exit 2)"
+if [ "$_t25_rc" = "0" ]; then
+  t25_pass "T1045-TC-19 '>' inside a string literal no longer over-blocks (exit 0, #1110)"
 else
-  t25_fail "T1045-TC-19 literal '>' not conservatively blocked (exit $_t25_rc)"
+  t25_fail "T1045-TC-19 literal '>' still over-blocked (exit $_t25_rc)"
 fi
 
 # ── TASK-1045: 併記による回避の非成立（通常群 / plan N-5 / AC-07）──
@@ -958,6 +2081,79 @@ else
   #   → 退行防止 TC（T1045-TC-04）が FAIL することで「弱体化が機械検出される」ことを示す（GC-1 の担保）
   _t25_mutate "TC-10" 's@^.*# t1045-file-redirect$@  false # t1045-file-redirect@' \
     't1045-file-redirect' 'T1045-TC-04' 'T1045'
+
+  # ── TASK-1110 変異 2 方向（出力ラベル prefix = T1110 / #1110）──
+  # 変異は **call site**（`# t1110-redirect-correlate` の行）を壊す。判定関数の本体
+  # だけを壊す変異は「呼び出し側が結果を使っているか」を検証できないため使わない。
+  # M-1 / 変異 (a): 相関判定の結果を握り潰して常に真（= 修正前の OR 判定へ回帰）
+  #   → 誤検知解消 TC（T1110-TC-01）が FAIL することで「相関を本当に見ている」ことを示す
+  _t25_mutate "M-1" 's@^.*# t1110-redirect-correlate$@  _redirect_tok=1 # t1110-redirect-correlate@' \
+    't1110-redirect-correlate' 'T1110-TC-01' 'T1110'
+  # M-2 / 変異 (b): 相関判定の結果を常に偽（= 真の陽性を取りこぼす方向へ緩和）
+  #   → 退行防止 TC（T1045-TC-04 = `> <TOKEN>` の block）が FAIL することで
+  #     「誤検知削減に倒しすぎた場合に機械検出できる」ことを示す
+  _t25_mutate "M-2" 's@^.*# t1110-redirect-correlate$@  _redirect_tok=0 # t1110-redirect-correlate@' \
+    't1110-redirect-correlate' 'T1045-TC-04' 'T1110'
+
+  # ── TASK-1110 V-3 是正: **レーン内部の分類**を壊す変異（R-002 / R-005）──
+  # M-1 / M-2 は相関レーン全体を落とす変異なので、レーン内部の分類ミス
+  # （解決不能 → 解決済み非トークン）は原理的に検出できない。V-3 R-001 の穴は
+  # まさにそれだった。以下はレーンを生かしたまま分類だけを誤らせる変異である。
+  # M-3 / 変異 (c): 引用・退避の検出を無効化（= V-3 R-001 の穴を再現）
+  #   → 切り詰めクラス TC（T1110-TC-06）が FAIL する
+  _t25_mutate "M-3" 's@^.*# t1110-quote-escape$@    case "$_rw_t" in *ZZZNEVERMATCHZZZ*) : ;; esac # t1110-quote-escape@' \
+    't1110-quote-escape' 'T1110-TC-06' 'T1110'
+  # M-4 / 変異 (d): 終端文字クラスへ `#` を戻す（語中の `#` で切り詰めてしまう）
+  #   → 語中 `#` TC（T1110-TC-07）が FAIL する
+  _t25_mutate "M-4" "s@^.*# t1110-terminator-class\$@  _rw_term='[[:space:];\&|()<#]' # t1110-terminator-class@" \
+    't1110-terminator-class' 'T1110-TC-07' 'T1110'
+  # M-5 / 変異 (e): 診断値リセットの削除（R-005 M-C 相当）
+  #   → T1110-TC-10 が FAIL する
+  _t25_mutate "M-5" 's@^  _wi_redirect_target="" # t1110-reset-diag$@  : # t1110-reset-diag@' \
+    't1110-reset-diag' 'T1110-TC-10' 'T1110'
+  # M-6 / 変異 (f): 改行畳み込みの無効化（R-005 M-D 相当）
+  #   → T1110-TC-09 が FAIL する
+  _t25_mutate "M-6" 's@^.*# t1110-flatten$@  _rw_flat="$_rw_s" # t1110-flatten@' \
+    't1110-flatten' 'T1110-TC-09' 'T1110'
+
+  # ── TASK-1115 (#1115) mutation（V-3 R-005/R-007/R-008 の空振り是正を含む）──
+  # M-7 はゲート全体を落とす変異なので、内部の分類ミスは原理的に検出できない。
+  # M-8 以降はゲートを生かしたまま **分類だけ** を誤らせる（diff-audit Phase 6 item 6）。
+  # 変異はすべて **call site** を壊す。M-10 / M-16 は block を広げる方向の変異であり
+  # **負側 TC でしか殺せない**。
+  # M-7 / ゲート全体: 外側ゲートを修正前の `_is_token_path` に戻す
+  _t25_mutate "M-7" 's@^.*# t1115-glob-gate$@    if _is_token_path "$_cmd" \&\& _has_write_intent "$_cmd"; then # t1115-glob-gate@' \
+    't1115-glob-gate' 'T1115-TC-01' 'T1115'
+  # M-8 / 分類: 保護ディレクトリ集合から 2 つ目を落とす（V-3 R-001 の再現）
+  _t25_mutate "M-8" 's@^.*# t1115-protected-dir$@    */approvals/*|approvals/*) # t1115-protected-dir@' \
+    't1115-protected-dir' 'T1115-TC-08' 'T1115'
+  # M-9 / 分類: P2 の保護名リストを空振りにする
+  _t25_mutate "M-9" 's@^.*# t1115-protected-basenames$@  for _ph_l in ZZZNEVERMATCHZZZ; do # t1115-protected-basenames@' \
+    't1115-protected-basenames' 'T1115-TC-16' 'T1115'
+  # M-10 / 分類・**誤検出方向**: 幅ガードを外して「一致しうる」だけで block
+  _t25_mutate "M-10" 's@^.*# t1115-pin-width$@        return 0 # t1115-pin-width@' \
+    't1115-pin-width' 'T1115-TC-11' 'T1115'
+  # M-11 / 分類: basename 抽出をやめて語全体で照合する
+  _t25_mutate "M-11" 's@^.*# t1115-basename-extract$@  _gm_base="$_gm_w" # t1115-basename-extract@' \
+    't1115-basename-extract' 'T1115-TC-16' 'T1115'
+  # M-12 / 分類（V-3 R-005 の空振り是正）: 引用除去を no-op にする
+  _t25_mutate "M-12" 's@^.*# t1115-quote-strip$@      _gm_sq="$_gm_base" # t1115-quote-strip@' \
+    't1115-quote-strip' 'T1115-TC-13' 'T1115'
+  # M-13 / 分類（V-3 R-007 の空振り是正）: 保護ディレクトリの相対形を落とす
+  _t25_mutate "M-13" 's@^.*# t1115-protected-dir$@    */approvals/*|*/_maintenance/*|_maintenance/*) # t1115-protected-dir@' \
+    't1115-protected-dir' 'T1115-TC-14' 'T1115'
+  # M-14 / 分類（V-3 R-008 の等価性是正）: 語分割から `<` `>` を落とす
+  _t25_mutate "M-14" 's@^.*# t1115-word-ifs-value$@_PG_WORD_SEP=";\&|()" # t1115-word-ifs-value@' \
+    't1115-word-ifs-value' 'T1115-TC-15' 'T1115'
+  # M-15 / 分類（V-3 R-002）: brace 正規化を無効化する
+  _t25_mutate "M-15" 's@^.*# t1115-brace-normalize$@    *ZZZNEVERMATCHZZZ*) : ;; # t1115-brace-normalize@' \
+    't1115-brace-normalize' 'T1115-TC-09' 'T1115'
+  # M-16 / 分類・**誤検出方向**（V-3 R-003 #8/#9）: 保護 dir 配下を拡張子非考慮で block
+  _t25_mutate "M-16" 's@^.*# t1115-dir-json-tail$@        *) return 0 ;; # t1115-dir-json-tail@' \
+    't1115-dir-json-tail' 'T1115-TC-10' 'T1115'
+  # 注記（正直な記録 / diff-audit Phase 6 item 6）: `# t1115-base-meta` の早期 return は
+  # **性能ガードであって意味論を変えない**（basename にメタ文字が無い語は後続 P1/P2 の
+  # どちらにも該当しない）。したがってこの行を壊す変異は **等価変異**であり TC を立てない。
 
   # T1045-TC-21: _t25_mutate 後方互換 — 既存 7 呼び出しは 4 引数のままで出力ラベルが T1023- のこと
   _t1045_c21=$(grep -c '_t25_mutate "TC-1[567]' "$PG_T25_SELF" || true)

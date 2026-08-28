@@ -1,0 +1,9 @@
+# Pull Request
+
+## Summary
+
+子 PBI YAML の related_issue とは別の issue を参照してしまっている。
+
+## Linked Issue
+
+Refs: #9999

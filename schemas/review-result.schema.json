@@ -39,7 +39,7 @@
     },
     "score": {
       "type": "object",
-      "description": "phase 固有スコア（C-1 の 17 項目等、任意）",
+      "description": "phase 固有スコア（C-1 の各項目等、任意）",
       "properties": {
         "pass": { "type": "integer", "minimum": 0 },
         "warn": { "type": "integer", "minimum": 0 },

@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""validate-schemas.py — JSON ファイル群を schemas/ で検証する
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """validate-schemas.py — JSON ファイル群を schemas/ で検証する
 
 PlanGate Issue #158 / TASK-0047 — Structured Outputs CI 統合の中核。
 
@@ -15,7 +27,6 @@ Exit code:
     1  schema 違反あり
     2  内部エラー（jsonschema 未インストール 等）
 """
-from __future__ import annotations
 
 import argparse
 import json

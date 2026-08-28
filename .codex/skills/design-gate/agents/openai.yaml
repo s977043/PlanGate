@@ -1,6 +1,6 @@
 interface:
   display_name: "design-gate"
-  short_description: "Design Gate を実施し、設計書（Design Artifact）を生成・評価する。Use when: high-risk 以上のタスクで実装前に設計を整理したい時。「設計書を作りたい」「De"
+  short_description: "Design Gate を実施し、設計書（Design Artifact）を生成・評価する。Use when: high-..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use $design-gate to assist with this project."

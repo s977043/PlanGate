@@ -53,10 +53,11 @@ _T62_RUNNER="$_T62_ROOT/tests/run-tests.sh"
 _T62_FIXTURES="$_T62_ROOT/tests/fixtures"
 
 # per-run timeout (ta-61 R-026 と同型): timeout(1) on CI, perl alarm fallback on macOS
+_T62_TIMEOUT=180
 if command -v timeout >/dev/null 2>&1; then
-  _t62_to() { timeout 180 "$@"; }
+  _t62_to() { timeout "$_T62_TIMEOUT" "$@"; }
 else
-  _t62_to() { perl -e 'alarm 180; exec @ARGV' "$@"; }
+  _t62_to() { perl -e 'alarm shift; exec @ARGV' "$_T62_TIMEOUT" "$@"; }
 fi
 
 # ---------------------------------------------------------------------------
@@ -177,7 +178,18 @@ if [ -f "$_T62_TA26" ] && [ -d "$_T62_FIXTURES" ]; then
   _t62_passes=$(grep -c '\[PASS\]' "$_t62_tmp/clean.out" 2>/dev/null || true)
   _t62_diff_ok=0
   diff "$_t62_tmp/leak.out" "$_t62_tmp/clean.out" >/dev/null 2>&1 && _t62_diff_ok=1
-  if [ "$_t62_rc_leak" = "0" ] && [ "$_t62_rc_clean" = "0" ] \
+  # per-run timeout の切り分け（#1062）: timeout(1)=124 / perl alarm=142。
+  # 打ち切られた側の出力は途中で切れるため diff は必ず不一致になり、素の
+  # 「同値照合不成立」メッセージは「ta-26 の出力が leak/clean で食い違った」
+  # という誤った診断を出す（#1062 実測: rc_clean=142 の回で発生）。
+  # 検出力は変えない — timeout は従来どおり FAIL（SKIP にしない）。
+  _t62_timedout=0
+  case " $_t62_rc_leak $_t62_rc_clean " in
+    *" 124 "*|*" 142 "*) _t62_timedout=1 ;;
+  esac
+  if [ "$_t62_timedout" = "1" ]; then
+    t62_fail "TC-D driver run TIMED OUT (>${_T62_TIMEOUT}s / rc_leak=$_t62_rc_leak rc_clean=$_t62_rc_clean) — 同値照合は未実施。FAIL 扱い（SKIP にしない）。ta-26 1 本の所要が per-run 上限に達している"
+  elif [ "$_t62_rc_leak" = "0" ] && [ "$_t62_rc_clean" = "0" ] \
     && [ "$_t62_diff_ok" = "1" ] && [ "$_t62_skips" = "0" ] && [ "$_t62_passes" -ge 1 ]; then
     t62_pass "TC-D leak/clean の harness 実行出力が完全一致（再帰防止 [SKIP] 0・非空実行）"
   else

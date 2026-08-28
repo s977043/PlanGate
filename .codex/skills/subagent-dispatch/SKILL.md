@@ -12,14 +12,14 @@ high-risk/critical モードでタスクをロール別エージェントに分�
 
 マルチエージェント実行を安全に行うために、以下を保証する。
 
-- 各エージェントが適切なロールを担う（`subagent-roles.md` に基づく）
+- 各エージェントが適切なロールを担う（`subagent-team-design` Skill のロール定義に基づく）
 - 並列実行による競合（同一ファイルの同時変更）を防ぐ
 - 依存関係のある処理が正しい順序で実行される
 
 ## 手順（5 ステップ）
 
 1. `plan.md` の Work Breakdown からタスクを列挙する
-2. 各タスクに `subagent-roles.md` のロールを割り当てる
+2. 各タスクに `subagent-team-design` Skill のロール定義（6 ロール）からロールを割り当てる
 3. タスク間の依存関係を特定し、依存関係グラフを生成する
 4. 依存がないタスクを「並列実行可能」としてグループ化する
 5. 各タスクに `context-packager` を適用して Allowed Context を生成する
@@ -38,7 +38,7 @@ high-risk/critical モードでタスクをロール別エージェントに分�
 - 実行モード（high-risk / critical）
 - `docs/working/TASK-XXXX/plan.md`（Work Breakdown）
 - `docs/working/TASK-XXXX/test-cases.md`
-- `plugin/plangate/rules/subagent-roles.md`（ロール定義）
+- `.agents/skills/subagent-team-design/SKILL.md` §ステップ 2（6 ロール定義）
 
 ## 出力: Dispatch パッケージ
 
@@ -102,8 +102,17 @@ subagent へは会話履歴でなく **`dispatch/` 配下のファイル**で渡
 
 reviewer は review-package ファイルのみを入力とし、会話履歴は渡さない。テンプレは `docs/working/templates/dispatch/`。
 
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
+
 ## 関連
 
 - Skill: `context-packager`（各エージェントへの Allowed Context 生成）
-- Rule: `plugin/plangate/rules/subagent-roles.md`（ロール定義）
-- Rule: `plugin/plangate/rules/completion-gate.md`（全エージェント完了の統合判定）
+- Skill: `subagent-team-design` §ステップ 2（6 ロール定義の正本）
+- Skill: `pr-decision`（Gate / Evidence / Review を集約した最終 go/no-go 判定）
+
+> 旧 `plugin/plangate/rules/subagent-roles.md` / `plugin/plangate/rules/completion-gate.md` は
+> **削除済み**（TASK-0124 / `2645848`, 2026-06-02 の plugin 初回同期適用）。
+> ロール定義は `subagent-team-design` Skill が引き継いだ。
+> Completion Gate の 5 条件チェックポイントを定義した正本は**後継なし**であり、
+> 実務上の統合判定は `pr-decision` Skill が担う（本 Skill の Mermaid 図中の
+> `Completion Gate` は概念ノードであり、参照可能な正本ファイルは存在しない）。

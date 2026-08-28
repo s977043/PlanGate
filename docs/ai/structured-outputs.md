@@ -16,7 +16,7 @@ PlanGate の **機械判定向け成果物** を、自然文プロンプト（�
 | 成果物 / 判定結果 | 用途 | 新規 schema |
 |----------------|------|-----------|
 | **mode classification result** | classify phase の mode 判定 | [`mode-classification.schema.json`](../../schemas/mode-classification.schema.json) |
-| **C-1 self review result** | C-1 17 項目セルフレビュー結果 | [`review-result.schema.json`](../../schemas/review-result.schema.json)（共通基底） |
+| **C-1 self review result** | C-1 セルフレビュー結果 | [`review-result.schema.json`](../../schemas/review-result.schema.json)（共通基底） |
 | **C-2 external review result** | Codex 等の外部 AI レビュー | 同上（phase 識別） |
 | **V-1 acceptance result** | test-cases 突合の受入結果 | [`acceptance-result.schema.json`](../../schemas/acceptance-result.schema.json) |
 | **V-3 design review result** | exec 後の外部モデルレビュー | [`review-result.schema.json`](../../schemas/review-result.schema.json)（phase 識別） |
@@ -85,7 +85,7 @@ PlanGate の **機械判定向け成果物** を、自然文プロンプト（�
 
 | schema | 用途 |
 |--------|------|
-| **`review-self.schema.json`**（既存） | C-1 セルフレビューの **Markdown 成果物全体** に対する frontmatter / メタ schema（17 項目チェックの記録方式） |
+| **`review-self.schema.json`**（既存） | C-1 セルフレビューの **Markdown 成果物全体** に対する frontmatter / メタ schema（C-1 チェック項目の記録方式。項目定義の正本: [`docs/working/templates/review-self.md`](../working/templates/review-self.md)） |
 | **`review-external.schema.json`**（既存） | C-2 外部 AI レビューの **Markdown 成果物全体** の frontmatter / メタ schema |
 | **`review-result.schema.json`**（新規） | C-1 / C-2 / V-1 / V-3 の **判定結果のみ** を機械集計用に構造化（phase / decision / findings / gateRecommendation）|
 

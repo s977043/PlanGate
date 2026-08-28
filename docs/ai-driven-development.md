@@ -65,7 +65,7 @@ Ready → In Progress
   → 0: Brainstorming 🤖👤（対話的な要件整理・設計書生成、任意）
   → A: PBI INPUT PACKAGE作成 👤
   → B: Plan + ToDo + Test Cases同時生成 🤖
-  → C-1: セルフレビュー 🤖（17項目チェック）
+  → C-1: セルフレビュー 🤖（全25項目チェック）
   → C-2: 外部AIレビュー 🤖（専門エージェント経由）
   → C-3: 人間レビュー 👤（三値ゲート：APPROVE / CONDITIONAL / REJECT）
   → D: Agent実行 🤖（workflow-conductor経由、TDD）
@@ -88,7 +88,7 @@ Ready → In Progress
 | 0: Brainstorming（任意） | pbi-input.md（対話で生成） | AI + 人間 |
 | A: PBI INPUT PACKAGE作成 | pbi-input.md | 人間 |
 | B: Plan + ToDo + Test Cases生成 | plan.md + todo.md + test-cases.md | AI（Prompt 1） |
-| C-1: セルフレビュー | review-self.md（17項目PASS/WARN/FAIL） | AI（Prompt 2） |
+| C-1: セルフレビュー | review-self.md（全25項目PASS/WARN/FAIL） | AI（Prompt 2） |
 | C-2: 外部AIレビュー | review-external.md（PASS/WARN/FAIL） | AI（専門エージェント経由） |
 | C-3: 人間レビュー（ゲート） | APPROVE / CONDITIONAL / REJECT | 人間 |
 | D: Agent実行（TDD） | 実装コード | AI（workflow-conductor） |
@@ -132,7 +132,7 @@ obra/superpowersから取り込んだ最上位ルール。違反したら即停�
 ## 運用の最小ルール v5
 
 1. Ready → In Progressに動かしたら**PBI INPUT PACKAGE**を作る
-2. `/ai-dev-workflow TASK-XXXX plan`で**Plan + ToDo + Test Cases + セルフレビュー（17項目） + 外部AIレビュー**を一括生成
+2. `/ai-dev-workflow TASK-XXXX plan`で**Plan + ToDo + Test Cases + セルフレビュー（全25項目） + 外部AIレビュー**を一括生成
 3. 人が**C-3レビュー**（三値判断: APPROVE → exec / CONDITIONAL → plan修正後exec / REJECT → plan再生成）
 4. `/ai-dev-workflow TASK-XXXX exec`で**Agent実行**。workflow-conductorが多層防御（L-0→V-1→V-2→V-3→V-4→PR）まで自動管理
 5. 人が**C-4レビュー**（GitHub上でPR確認。APPROVE → マージ / REQUEST CHANGES → exec再実行 / REJECT → plan再生成）
@@ -292,7 +292,7 @@ Prompt 1  Plan + ToDo + Test Cases生成
   人間がPBI INPUT PACKAGEを渡す → Plan + ToDo + Test Casesを同時出力
        ↓
 Prompt 2  Plan + ToDo + Test Casesレビュー（セルフレビュー）
-  自動レビュー → PASS/WARN/FAIL判定（17項目）
+  自動レビュー → PASS/WARN/FAIL判定（全25項目）
        ↓
 外部AIレビュー（専門エージェント経由）
   複数視点での並列チェック
@@ -575,7 +575,7 @@ D: TDD実装 → L-0: リンター自動修正 → V-1: 受け入れ検査 → V
 1. **Iron Law**: 各スキル/サブコマンドに不可侵の最上位ルール（6つ）
 2. **合理化テーブル**: AIが「スキップしよう」と合理化するパターンを先回りして封じる
 3. **2-5分粒度原則**: todo.md生成時のタスク分解粒度を定義
-4. **TDD先行**: plan phaseでtest-cases.mdを生成し、C-1でテストケースの品質もレビュー（17項目化）
+4. **TDD先行**: plan phaseでtest-cases.mdを生成し、C-1でテストケースの品質もレビュー（当時のコア番号帯 `C1-PLAN-01`〜`C1-B1B2-17`（連番17個）を確立。以後の追加を含む現行の項目定義は [`docs/working/templates/review-self.md`](working/templates/review-self.md) が正本）
 5. **workflow-conductor**: exec phaseの司令塔エージェント（並列実行判断・チェック漏れ防止・セッション復旧）
 6. **振り返りメトリクス**: 計画精度/テスト品質/プロセス遵守/効率性/成果物品質の5軸評価
 

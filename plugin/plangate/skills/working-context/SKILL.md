@@ -24,6 +24,12 @@ PlanGate の `docs/working/TASK-XXXX/` 配下を **L0〜L3 の Progressive Discl
 3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない。
    L0〜L3 の段取り・出力先は本 skill 本文で代替し、正本未参照である旨を `status.md` に記録する
 
+**plugin root 配下の探索は `docs/**` には適用しない**（手順 2 は `rules/*.md` 等の
+配布対象にのみ適用する）: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の
+定義ディレクトリのみで `docs/`（本 skill が参照する `docs/working/templates/*.md` を含む）を
+配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため必ず空振りする。
+`docs/**` は手順 1 で解決できなければ手順 2 を飛ばして手順 3 へ進む。
+
 > **手順 3 に落ちても判定基準は緩めない**: 正本が引けない場合の代替は「L0=`INDEX.md` →
 > `current-state.md`、L1=フェーズ該当ファイル、L2=`evidence/` / `decision-log.jsonl`、
 > L3=`status.md` 全体」の段取りと本 skill「Rules」節（`YYYY-MM-DD HH:mm` 必須・handoff 6 要素
@@ -67,6 +73,14 @@ PlanGate の `docs/working/TASK-XXXX/` 配下を **L0〜L3 の Progressive Discl
 - handoff.md は WF-05 完了時に 1 回発行（6 要素は `.claude/rules/working-context.md` → fallback `<plugin_root>/rules/working-context.md` および `docs/working/templates/handoff.md` を正本とする。**テンプレートは配布対象外**なので、解決できない環境では rules 側の「handoff（WF-05 完了資産 / Rule 5）」節を唯一の正本とする）
 
 ## CLI 呼び出し
+
+> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
+> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
+> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。したがって下表の「上流リポジトリの cwd」
+> 列にしか成立しない手順は、導入先では **上流リポジトリ（`s977043/plangate`）の clone が無いかぎり
+> 実行できない**。そこへ到達したら「CLI が無いため実行できない／上流リポジトリの clone が必要」と
+> **明示して停止する**か、同表の代替手順へ置き換える。**CLI が無いことを理由に手順を黙って省略し、
+> 実施済みと読める記録を残してはならない。**
 
 **呼び出し表記は実行環境で変わる**。相対パス形式（`bin/plangate`）が成立するのは
 **上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` が

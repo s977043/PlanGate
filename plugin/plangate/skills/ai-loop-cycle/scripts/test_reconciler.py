@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""test_reconciler.py — reconciler.py（AC-3 冪等 / D3 findings 再構成）+ AC-6 接続点 +
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_reconciler.py — reconciler.py（AC-3 冪等 / D3 findings 再構成）+ AC-6 接続点 +
 TC-40 の unittest。
 
 実行: python3 scripts/ai-loop/test_reconciler.py
@@ -20,8 +32,6 @@ Work Breakdown Step 7 / todo.md T-29・T-30・T-31・T-32・T-51。
 - 変異注入は **monkeypatch / 一時オブジェクト / mktemp サンドボックス**のみで行い、
   作業ツリーのファイルは 1 バイトも書き換えない。
 """
-
-from __future__ import annotations
 
 import ast
 import copy

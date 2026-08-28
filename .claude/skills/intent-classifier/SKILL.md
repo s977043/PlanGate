@@ -5,9 +5,24 @@ description: "ユーザーの依頼文から開発 Intent を 8 分類し、stru
 
 # Intent Classifier
 
-> 正本: `.claude/skills/intent-classifier/SKILL.md`（`plugin/plangate/skills/` はミラー・export 用）。
+> 正本（sync 元）: `.agents/skills/intent-classifier/SKILL.md`。`scripts/sync-plugin-plangate.sh` が
+> `.agents/skills/` を読み取り `plugin/plangate/skills/` を機械生成する。`.claude/skills/` と
+> `.codex/skills/` は sync 対象外の配布先のため、正本更新時に同一内容を手動で追従させる。
 
 ユーザーの依頼文を読み取り、開発 Intent を 8 分類のいずれかに判定して structured JSON で返す。
+
+## 参照解決順（`.claude/rules/*.md` / 導入先で必ずこの順に探す）
+
+本 Skill は責務境界の説明として `.claude/rules/mode-classification.md` を参照する
+（§責務境界）。このパスは上流リポジトリ基準のため、導入先では **次の順で探索する**:
+
+1. 導入先リポジトリの `.claude/rules/mode-classification.md`
+2. 無ければ plugin root 配下 `<plugin_root>/rules/mode-classification.md`。
+   `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
+   絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+   という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず 3 へ進む
+3. どちらにも無い場合は **「正本 `mode-classification.md` を参照できなかった」と明示**し、
+   推測で内容を補わない
 
 ## Iron Law
 
@@ -43,12 +58,35 @@ description: "ユーザーの依頼文から開発 Intent を 8 分類し、stru
 
 | ユーザー表現 | 実行コマンド |
 |-------------|------------|
-| C-3 確認を HTML / render / HTML 出力 | `bin/plangate render <TASK>` |
-| C-3 承認 / approve | `bin/plangate approve <TASK>`（別ターミナル必須） |
-| doctor / 健全性確認 | `bin/plangate doctor` |
-| exec 開始 / exec して | `bin/plangate exec <TASK>`（C-3 APPROVED 確認後） |
+| C-3 確認を HTML / render / HTML 出力 | `plangate render <TASK>` |
+| C-3 承認 / approve | `plangate approve <TASK>`（別ターミナル必須） |
+| doctor / 健全性確認 | `plangate doctor` |
+| exec 開始 / exec して | `plangate exec <TASK>`（C-3 APPROVED 確認後） |
 
 `<TASK>` はコンテキストから推定（不明なら確認）。**intent=ops と判定した時点で plangate コマンドの候補を提示し、承認を待たずに実行する**（render は読み取り専用）。
+
+> **呼び出し表記は実行環境で変わる**。上表は導入先で PATH を通した場合のコマンド名
+> （**`plangate`**）。**上流リポジトリ（`s977043/plangate`）を clone した cwd では
+> `bin/plangate render` のように相対パス形式で呼ぶ**（導入先に `bin/` は配置されない）。
+> なお `<TASK>` 位置引数は cwd ではなく **CLI 本体の位置**を基準に
+> `<CLI の repo root>/docs/working/<TASK>` へ解決されるため、PATH 上の `plangate` で
+> **導入先の TASK を対象にすることはできない**（`render` / `approve` / `doctor` / `exec` に
+> `--dir` 相当のオプションは無い）。
+
+### CLI 不在時の degrade
+
+`plangate` が PATH に無い環境（**導入先では既定**）でも **Intent 分類そのものは CLI に依存しない**
+ため、本 skill の判定手順・出力フォーマットは不変。変わるのは上表の「実行コマンド提示」だけで、
+以下に置き換える（**分類を `ops` 以外にすり替えない**）:
+
+- **render** → `plan.md` / `review-self.md` / `review-external.md` を直接読んでレビューする
+- **approve** → 人間が `approvals/c3.json` を発行する（AI は代理発行しない）
+- **doctor** → `.claude/settings.json` 等を直接確認する（**未検証を「doctor PASS」と書かない**。
+  検証観点の正本は `plangate-setup` skill）
+- **exec** → 手動で TDD 実行（ゲート確認の正本は `ai-dev-exec` skill）
+
+**ゲートの厳密な強制には CLI + hooks が必要**であり、CLI 不在時は機械的な block が成立しない。
+代替手順を実施した事実は `status.md` に記録し、**CLI が無いことを理由にゲートを省略しない**。
 
 ## 手順
 
@@ -145,7 +183,7 @@ description: "ユーザーの依頼文から開発 Intent を 8 分類し、stru
 
 ## 責務境界（Mode / lite_eligible は判定しない）
 
-intent-classifier は **Intent 8 分類のみ**を担う。Mode 判定・`lite_eligible` 算定は行わない（それらは [`mode-classification.md`](../../rules/mode-classification.md) 正本 + 後段の mode 判定ステップが担当）。本スキルの出力 Intent は skill-policy-router の入力の一部となる（WF-00 advisory）。
+intent-classifier は **Intent 8 分類のみ**を担う。Mode 判定・`lite_eligible` 算定は行わない（それらは `.claude/rules/mode-classification.md` 正本 + 後段の mode 判定ステップが担当）。本スキルの出力 Intent は skill-policy-router の入力の一部となる（WF-00 advisory）。
 
 ## 関連 Skill
 

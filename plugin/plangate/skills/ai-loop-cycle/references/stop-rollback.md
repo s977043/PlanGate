@@ -9,6 +9,12 @@
 
 ---
 
+## 参照解決順（`docs/**` / 導入先で必ずこの順に探す）
+
+本ドキュメントが参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本ドキュメント内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
+
+---
+
 ## 0. 位置づけ・非ゴール
 
 - 本書は以下の既存正本の**再定義ではない**。値・機構の変更が必要な場合は各正本の版上げ手続きに従う
@@ -149,7 +155,7 @@ Step 1（ブランチ破棄・revert という破壊的操作）に着手する�
 
 - 対象 PR への GitHub `Request changes` レビュー（GitHub 側が発行者を保証する）
 - または `reject-ack.json`（`decision` / `signed_by` / `timestamp` を持つ、`c3.json` と同型の
-  人間発行ファイル。`responsibility-classes.md`
+  人間発行ファイル。`maintenance.json` 発行元ギャップ（`responsibility-classes.md`）
   と同種の問題を防ぐため、AI の会話内解釈だけを根拠に破壊的操作を実行しない）
 
 後述 §3.7 の `rollback-log.jsonl` の `acknowledged_by` フィールドは、**この人間発行アーティファクトからの

@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""check_exec_boundary.py — ai-loop の実行系境界を AST で機械強制する検査器（TASK-0917 / #917）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """check_exec_boundary.py — ai-loop の実行系境界を AST で機械強制する検査器（TASK-0917 / #917）。
 
 契約正本: docs/working/TASK-0917/plan.md「D2-A の設計詳細（実装契約）」および
 「`test_*.py` の argv 先頭要素 不変条件（精緻化 / C-1 F-1 の裁定）」。
@@ -136,8 +148,6 @@ CLI:
 exit code:
     0 = 違反なし / 1 = 違反あり（違反箇所を stdout に出力）
 """
-
-from __future__ import annotations
 
 import argparse
 import ast

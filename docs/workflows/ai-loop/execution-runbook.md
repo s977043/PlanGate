@@ -6,6 +6,12 @@
 
 ---
 
+## 参照解決順（`docs/**` / 導入先で必ずこの順に探す）
+
+本ドキュメントが参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本ドキュメント内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
+
+---
+
 ## 0. 導入先での開始手順（Phase 1）
 
 導入先リポジトリで ai-loop-workflow を初めて回す際の手順（詳細は各正本を参照。
@@ -132,7 +138,12 @@ echo '{...}' | python3 scripts/ai-loop/arbiter.py
 正本とする。
 
 **Plan-first production run（TASK-0872 / issue #872）**: `ai-loop run TASK-XXXX`
-から開始した run では、入力 JSON に `production: true` と `plan_package` ブロック
+は **`/ai-loop-workflow` の引数仕様**（`.claude/commands/ai-loop-workflow.md`。plugin
+導入先では `commands/ai-loop-workflow.md`）であり、**`bin/plangate` に `ai-loop`
+サブコマンドは存在しない**（`plangate ai-loop run …` は失敗する。CLI 入口を設けるか
+否かは [#982](https://github.com/s977043/plangate/issues/982) で未決。本エンジンが
+`bin/plangate` から呼ばれないことは §1 の制約（絶対）のとおり）。この入口から開始した
+run では、入力 JSON に `production: true` と `plan_package` ブロック
 （`scripts/ai-loop/plan_package.py` が presence / evidence / hash を検証して組み立てた
 もの）を必ず含める。`production: true` で `plan_package` が欠落・構造不正なら
 priority 1.6 で escalate、reviewer snapshot 不一致・source_sha ≠ target_sha は

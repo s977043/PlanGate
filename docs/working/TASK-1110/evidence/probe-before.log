@@ -1,0 +1,120 @@
+### case 1
+cmd: git commit -m 'docs: approvals/c3.json' > /tmp/log.txt
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): git commit -m 'docs: approvals/c3.json' > /tmp/log.txt
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 2
+cmd: git commit -m 'docs: approvals/c3.json handling'
+rc=0
+
+
+### case 3
+cmd: git commit -m 'docs: approval token' > /tmp/log.txt
+rc=0
+
+
+### case 4
+cmd: echo x > approvals/c3.json
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): echo x > approvals/c3.json
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 5
+cmd: cat approvals/c3.json
+rc=0
+
+
+### case 6
+cmd: echo x >> approvals/c3.json
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): echo x >> approvals/c3.json
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 7
+cmd: echo x > ./approvals/c3.json
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): echo x > ./approvals/c3.json
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 8
+cmd: echo 'approvals/c3.json' > /tmp/note.txt
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): echo 'approvals/c3.json' > /tmp/note.txt
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 9
+cmd: echo x > "approvals/c3.json"
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): echo x > "approvals/c3.json"
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 10
+cmd: echo x > docs/working/_maintenance/maintenance.json
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): echo x > docs/working/_maintenance/maintenance.json
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 11
+cmd: git commit -m 'docs: approvals/c3.json' > /dev/null
+rc=0
+
+
+### case 12
+cmd: cp /tmp/x approvals/c3.json
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=copy-like): cp /tmp/x approvals/c3.json
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 13
+cmd: echo hi > /tmp/a.txt; echo x > approvals/c3.json
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): echo hi > /tmp/a.txt; echo x > approvals/c3.json
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 14
+cmd: echo x > docs/working/TASK-0001/../TASK-0001/approvals/c3.json
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): echo x > docs/working/TASK-0001/../TASK-0001/approvals/c3.json
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 15
+cmd: cat > approvals/c3.json <<EOF
+{}
+EOF
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): cat > approvals/c3.json <<EOF
+{}
+EOF
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 16
+cmd: git commit -m 'docs: approvals/c3.json' 2>&1
+rc=0
+
+
+### case 17
+cmd: echo x >   approvals/c3.json
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): echo x >   approvals/c3.json
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+
+### case 18
+cmd: echo x > $(cat /tmp/p) # approvals/c3.json
+rc=2
+[EH-13 token-guard] BLOCK: 承認トークン系ファイルへの AI 直接書き込みは禁止されています。
+  検出: Bash command writes token path (rule=file-redirect): echo x > $(cat /tmp/p) # approvals/c3.json
+  正規操作: bin/plangate approve <TASK>（Human TTY / TASK-0128）または bin/plangate maintenance start
+

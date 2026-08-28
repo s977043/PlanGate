@@ -3,7 +3,7 @@
 PlanGate — a governance OS for AI-assisted coding.
 Provides Intent/Mode classification, a 4-Gate approval system, and an agent control layer as a Claude Code plugin.
 
-- **Version**: v8.20.0
+- **Version**: v8.21.0
 - **Source**: <https://github.com/s977043/plangate>
 
 ## Install
@@ -34,11 +34,24 @@ sh install.sh --dry-run             # 変更内容を確認（実行しない）
 - Claude Code CLI（最新版推奨）
 - git
 - `bin/plangate` CLI（本プラグイン同梱の一部のコマンド / スキル / エージェントが使用。内訳は下記）。Plugin 単体導入時は PATH に無いため、リポジトリ clone と PATH への追加が必要です。一時的な追加: `git clone https://github.com/s977043/plangate.git ~/plangate && export PATH="$HOME/plangate/bin:$PATH"`（永続化するには `~/.bashrc` / `~/.zshrc` 等に追記）
-  - コマンド（1）: `/plangate-setup`
-  - スキル（9）: `ai-dev-exec`・`ai-dev-plan`・`ai-dev-verify`・`intent-classifier`・`local-exec-handoff`・`plan-review-gate`・`plangate-setup`・`skill-policy-router`・`working-context`
-  - エージェント（2）: `setup-coordinator`・`workflow-conductor`
-  - **カウント対象**: 同梱の **コマンド定義**（`commands/*.md`）/ **スキル本体**（`skills/*/SKILL.md`）/ **エージェント本文**（`agents/*.md`）の 3 種のみ。この範囲で `bin/plangate` を参照するのは上記 12 ファイル（1 + 9 + 2）で全部です。再現コマンド（`plugin/plangate/` 直下で実行 → 12 件）: `grep -rl 'bin/plangate' commands/*.md skills/*/SKILL.md agents/*.md`
-  - **カウント対象外**: 説明用ドキュメント内の言及は CLI 依存に数えません（本 README 自身 / `skills/README.md` / `rules/**` の計 4 ファイル）。また `skills/ai-loop-cycle/` の同梱 `references/`（5 ファイル）/ `scripts/`（6 ファイル）にも `bin/plangate` の記述がありますが、これは HO（Hardening Override）パス指定および「本番フローから呼ばれない隔離 PoC」であることの明示であり、CLI 依存ではありません。この 15 ファイルを含むため、`grep -rl 'bin/plangate' plugin/plangate/` を範囲指定なしで実行すると 27 件（対象 12 + 対象外 15）になります
+  - **カウント対象**: 同梱の **コマンド定義**（`commands/*.md`）/ **スキル本体**（`skills/*/SKILL.md`）/ **エージェント本文**（`agents/*.md`）の 3 種のみ。**正は次の再現コマンドの出力**であり、その下の一覧は測定時点のスナップショットです。スキルの追加・削除で変動するため、**件数は契約値として扱わないでください**。
+
+    ```bash
+    # plugin/plangate/ 直下で実行
+    grep -rl 'bin/plangate' commands/*.md skills/*/SKILL.md agents/*.md
+    ```
+
+    commit `2447bf8` 時点の測定結果:
+
+    - コマンド: `plangate-setup`
+    - スキル: `ai-dev-exec` / `ai-dev-plan` / `ai-dev-verify` / `ai-loop-cycle` / `intent-classifier` / `local-exec-handoff` / `plan-review-gate` / `plangate-setup` / `skill-policy-router` / `working-context`
+    - エージェント: `setup-coordinator` / `workflow-conductor`
+  - **カウント対象外**: 説明用ドキュメント内の言及（本 README 自身 / `skills/README.md` / `rules/**`）は CLI 依存に数えません。また `skills/ai-loop-cycle/` 同梱の `references/` / `scripts/` にも `bin/plangate` の記述がありますが、これは HO（Hardening Override）パス指定および「本番フローから呼ばれない隔離 PoC」であることの明示であり、CLI 依存ではありません。範囲を指定しない下記コマンドはこれらも拾うため、カウント対象より多い結果を返します（その差分がカウント対象外にあたります）。
+
+    ```bash
+    # plugin/plangate/ 直下で実行（カウント対象 + カウント対象外）
+    grep -rl 'bin/plangate' .
+    ```
 
 #### 方法 A: プラグインパスを直接指定（推奨）
 
@@ -124,8 +137,10 @@ sh plugin/plangate/scripts/install-plangate-skills.sh
 
 ```bash
 # 方法 B（直接展開）の場合
+# 展開先のスキル数と、配布元 plugin/plangate/skills の SKILL.md 数が
+# 一致すれば成功（スキル追加で増えるため、絶対件数ではなく両者の一致で判定します）
 ls .codex/skills/ | grep -v '^\.' | wc -l
-# 35 前後のスキルディレクトリが表示されれば成功（plugin/plangate/skills の全スキルが展開されます）
+ls -d /path/to/plangate/plugin/plangate/skills/*/ | wc -l
 ```
 
 Codex UI を開き、スキル選択ペインで PlanGate スキル（例: `ai-dev-plan`, `brainstorming` など）が表示されることを確認。
@@ -167,61 +182,22 @@ sh plugin/plangate/scripts/install-plangate-skills.sh --force
 
 ## Contents
 
+下記はディレクトリ **構成** のみを示します。各ディレクトリの **中身（名前一覧）は
+下の `### Agents` / `### Skills` / `### Commands` / `### Rules` が正**であり、
+ここには件数もファイル名も重複させません（同じ集合を 2 箇所に書くと片方だけ更新されて腐るため）。
+
 ```text
 plugin/plangate/
 ├── .claude-plugin/
-│   └── plugin.json         # manifest (v8.11.0)
-├── agents/                 # 17 agents
+│   └── plugin.json         # manifest（version はこのファイルが正）
+├── .codex-plugin/
+│   └── plugin.json         # Codex 用 manifest（.claude-plugin と parity）
+├── agents/                 # 一覧は Agents 節
 ├── assets/                 # アイコン等のアセット
 │   └── plangate-small.svg  # icon_small / icon_large 兼用 (SVG)
-├── skills/                 # 35 skills（.agents/skills/ から同期 + plugin 専用スキルを含む上位集合）
-│   ├── acceptance-criteria-build/
-│   ├── acceptance-review/
-│   ├── ai-dev-brainstorm/
-│   ├── ai-dev-exec/
-│   ├── ai-dev-plan/
-│   ├── ai-dev-verify/
-│   ├── architecture-sketch/
-│   ├── brainstorming/
-│   ├── codex-multi-agent/
-│   ├── codex-mvp-split/
-│   ├── context-load/
-│   ├── context-packager/
-│   ├── design-gate/
-│   ├── edgecase-enumeration/
-│   ├── evidence-ledger/
-│   ├── feature-implement/
-│   ├── intent-classifier/
-│   ├── known-issues-log/
-│   ├── local-exec-handoff/
-│   ├── manual-cloud-task/
-│   ├── nonfunctional-check/
-│   ├── plan-review-gate/
-│   ├── plangate-setup/
-│   ├── pr-decision/
-│   ├── requirement-gap-scan/
-│   ├── review-gate/
-│   ├── risk-assessment/
-│   ├── diff-audit/
-│   ├── subagent-team-design/
-│   ├── skill-creator/
-│   ├── skill-policy-router/
-│   ├── subagent-dispatch/
-│   ├── subagent-driven-development/
-│   ├── systematic-debugging/
-│   └── working-context/
-├── commands/               # 4 commands
-│   ├── working-context.md
-│   ├── ai-dev-workflow.md
-│   ├── codex-mvp-split.md
-│   └── plangate-setup.md
-├── rules/                  # 6 rules
-│   ├── hybrid-architecture.md
-│   ├── mode-classification.md
-│   ├── orchestrator-mode.md
-│   ├── responsibility-classes.md
-│   ├── review-principles.md
-│   └── working-context.md
+├── skills/                 # 一覧は Skills 節（.agents/skills/ から同期 + plugin 専用スキルを含む上位集合）
+├── commands/               # 一覧は Commands 節
+├── rules/                  # 一覧は Rules 節
 ├── hooks/                  # (reserved — 現バージョンでは未実装)
 └── scripts/                # install-plangate-skills.sh
     └── install-plangate-skills.sh
@@ -231,23 +207,64 @@ plugin/plangate/
 > `plangate.png` は同梱されていないため、`openai.yaml` の `icon_large` も
 > `plangate-small.svg`（SVG）を使用します。
 
-### Agents (23)
+**以下 4 節の読み方**: 各節の **正は再現コマンドの出力**であり、その下の一覧は
+測定時点のスナップショットです。追加・削除で変動するため、**件数は契約値として
+扱わないでください**（そもそも件数を書きません）。各コマンドは `README.md` を
+除外した「定義本体」のみを列挙します。
+
+### Agents
 
 責務別エージェント定義。plan / exec / review / verify / orchestrate などの単一責務を持つ（`agents/` 配下）。
 
+```bash
+# plugin/plangate/ 直下で実行
+ls agents/*.md | grep -v 'README\.md$' | xargs -n1 basename | sed 's/\.md$//'
+```
+
+commit `86d05f7` 時点の測定結果:
+
+`acceptance-tester` / `code-optimizer` / `documentation-writer` / `explorer-agent` / `implementation-agent` / `implementer` / `linter-fixer` / `orchestrator` / `project-planner` / `qa-reviewer` / `requirements-analyst` / `retrospective-analyst` / `setup-coordinator` / `skill-designer` / `solution-architect` / `spec-writer` / `workflow-conductor`
+
 > **model について**: 配布版の agents はすべて `model: inherit`（メイン会話のモデルに追従）に正規化されています。導入先でエージェント別にモデルを使い分けたい場合は、本家の [docs/ai/model-profiles.md §11](https://github.com/s977043/plangate/blob/main/docs/ai/model-profiles.md)（定型=sonnet / 判断系=inherit の 2 tier 設計）を参考に frontmatter の `model:` を調整してください。
 
-### Skills (37)
+### Skills
 
 再利用可能なスキル定義（`.agents/skills/` から同期 + plugin 専用スキルを含む上位集合。`skills/` 配下）。
 
-### Commands (4)
+```bash
+# plugin/plangate/ 直下で実行
+ls -d skills/*/ | xargs -n1 basename
+```
 
-スラッシュコマンド定義（`/working-context` / `/ai-dev-workflow` / `/codex-mvp-split` / `/plangate-setup`。`commands/` 配下）。
+commit `86d05f7` 時点の測定結果:
 
-### Rules (6)
+`acceptance-criteria-build` / `acceptance-review` / `ai-dev-brainstorm` / `ai-dev-exec` / `ai-dev-plan` / `ai-dev-verify` / `ai-loop-cycle` / `architecture-sketch` / `brainstorming` / `breakdown-gate` / `codex-multi-agent` / `codex-mvp-split` / `context-load` / `context-packager` / `design-gate` / `diff-audit` / `edgecase-enumeration` / `evidence-ledger` / `feature-implement` / `intent-classifier` / `known-issues-log` / `local-exec-handoff` / `manual-cloud-task` / `nonfunctional-check` / `plan-review-gate` / `plangate-setup` / `pr-decision` / `ref-integrity-scan` / `requirement-gap-scan` / `review-gate` / `risk-assessment` / `skill-creator` / `skill-policy-router` / `subagent-delegation-brief` / `subagent-dispatch` / `subagent-driven-development` / `subagent-team-design` / `systematic-debugging` / `working-context`
 
-運用ルール定義（hybrid-architecture / mode-classification / orchestrator-mode / responsibility-classes / review-principles / working-context。`rules/` 配下）。
+### Commands
+
+スラッシュコマンド定義（`commands/` 配下）。
+
+```bash
+# plugin/plangate/ 直下で実行
+ls commands/*.md | grep -v 'README\.md$' | xargs -n1 basename | sed 's/\.md$//'
+```
+
+commit `86d05f7` 時点の測定結果:
+
+`ai-dev-workflow` / `ai-loop-workflow` / `codex-mvp-split` / `plangate-setup` / `working-context`
+
+### Rules
+
+運用ルール定義（`rules/` 配下）。
+
+```bash
+# plugin/plangate/ 直下で実行
+ls rules/*.md | xargs -n1 basename | sed 's/\.md$//'
+```
+
+commit `86d05f7` 時点の測定結果:
+
+`hybrid-architecture` / `mode-classification` / `orchestrator-mode` / `responsibility-classes` / `review-principles` / `working-context`
 
 ---
 
@@ -311,7 +328,7 @@ EH-1/2/3/6/9 などの Hook を使用するには、別途手動設定が必要�
 ## 配布チェックリスト
 
 - [ ] **ファイル整合性**: `plugin/plangate/skills/` が `.agents/skills/` を包含する上位集合であること（`scripts/sync-plugin-plangate.sh` で同期。`context-packager` 等の plugin 専用スキルを含む）
-- [ ] **README 正確性**: Contents 欄のエージェント数・スキル数が実態と一致していること（agents: 23、skills: 37）
+- [ ] **README 正確性**: Contents 欄の `### Agents` / `### Skills` / `### Commands` / `### Rules` の各再現コマンドを実行し、直下のスナップショット一覧と**集合として**一致していること（一致しなければ一覧と測定 commit を更新する。件数は記載しない）
 - [ ] **openai.yaml 完全性**: 全スキルの `agents/openai.yaml` に 6 フィールド（display_name / short_description / icon_small / icon_large / default_prompt / brand_color）が揃い、`scripts/check-codex-skill-spec.sh` を PASS すること
 - [ ] **アセット存在確認**: `plugin/plangate/assets/` に `plangate-small.svg` が実在すること（PNG は不要）
 - [ ] **インストールスクリプト動作確認**: `install-plangate-skills.sh` をクリーン環境で実行し、全スキルが `.codex/skills/` に展開されること

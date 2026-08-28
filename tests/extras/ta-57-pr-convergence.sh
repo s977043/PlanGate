@@ -26,6 +26,8 @@
 #      にしない / R2 B2-2）
 #   5. TC-E8: `sync-plugin-plangate.sh` の for ループ側と case 側の basename
 #      集合が一致すること（片方漏れは `git diff --quiet plugin/` では検出されない）
+#   6. TC-E9: その allowlist が `scripts/ai-loop/` の **実体**を網羅すること
+#      （両方に載っていないファイルは TC-E8 をすり抜け、導入先だけ壊れる / #1173）
 #
 # 隔離・後片付け（tests/extras/README.md §隔離・後始末の規約）:
 #   trap は張らない（source 連鎖で上書きされ発火が保証されないため）。
@@ -661,6 +663,189 @@ PYEOF
       t57_pass "TC-E8: sync-plugin-plangate.sh の for ループ側と case 側の basename 集合が一致（${_t57_n} 本）"
     else
       t57_fail "TC-E8: sync 列挙の片方漏れ（for=${_t57_n} 本 / 差分: $(diff "$_t57_for" "$_t57_case" | tr '\n' ' ')）"
+    fi
+  fi
+
+  # ── 6. TC-E9: allowlist と scripts/ai-loop/ の **実体** を照合（#1173）────
+  # TC-E8 は for↔case の**相互一致**しか見ない。したがって「両方に載っていない
+  # ファイル」は検査をすり抜け、plugin 導入先だけ ImportError / FileNotFoundError
+  # になるのに CI は緑になる（実測: #1173 で discovery.py / test_discovery.py が
+  # 非配布のまま bundled 側 test_check_exec_boundary.py を 2 件 error にしていた）。
+  # ここでは allowlist を **ディレクトリの実体**と突き合わせ、次を FAIL にする:
+  #   UNDECLARED          実在するが allowlist にも非配布宣言にも無い（載せ忘れ）
+  #   REASON_MISSING      非配布宣言に issue 参照（#NNNN）形式の reason が無い
+  #   STALE_IN_ALLOWLIST  非配布宣言なのに allowlist にも載っている
+  #   STALE_MISSING       非配布宣言のファイルが実在しない
+  # 総件数は契約にしない（集合の差分だけで判定する / #1162 の時限爆弾を作らない）。
+  #
+  # 非配布宣言: 1 行 1 件・`<basename> reason: <理由（#NNNN を必須で含む）>`。
+  # 現在 0 件（#1173 で discovery.py / test_discovery.py は配布側へ是正済み）。
+  # 宣言 0 件でも検出力が空振りにならないよう、(b) で監査器そのものを合成入力で
+  # 6 ケース自己検査する。
+  _T57_NONDIST_DECL=''
+
+  _t57_audit="$_t57_tmp/allowlist_audit.py"
+  cat > "$_t57_audit" <<'PY_T57_AUDIT'
+import re
+import sys
+
+
+def audit(real, allow, decl_text):
+    problems = []
+    declared = {}
+    for line in decl_text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        parts = line.split(None, 1)
+        name = parts[0]
+        reason = parts[1] if len(parts) > 1 else ''
+        declared[name] = reason
+        if not re.search(r'#[0-9]+', reason):
+            problems.append(
+                'REASON_MISSING %s (reason に issue 参照 #NNNN が無い: %r)'
+                % (name, reason))
+    for name in sorted(set(real) - set(allow) - set(declared)):
+        problems.append(
+            'UNDECLARED %s (scripts/ai-loop/ に実在するが allowlist にも '
+            '非配布宣言にも無い — plugin 導入先で欠落する)' % name)
+    for name in sorted(set(declared) & set(allow)):
+        problems.append(
+            'STALE_IN_ALLOWLIST %s (非配布と宣言されているが allowlist に '
+            '載っている — 宣言を削除すること)' % name)
+    for name in sorted(set(declared) - set(real)):
+        problems.append(
+            'STALE_MISSING %s (非配布宣言のファイルが実在しない — '
+            '宣言を削除すること)' % name)
+    return problems
+
+
+def _read(path):
+    with open(path, encoding='utf-8') as fh:
+        return fh.read()
+
+
+def _lines(path):
+    return [x.strip() for x in _read(path).splitlines() if x.strip()]
+
+
+def main(argv):
+    real, allow, decl = argv[1], argv[2], argv[3]
+    problems = audit(_lines(real), _lines(allow), _read(decl))
+    for p in problems:
+        sys.stdout.write(p + '\n')
+    return 1 if problems else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
+PY_T57_AUDIT
+
+  # (a) 本番判定: 実体 × allowlist（for ループ側）× 非配布宣言
+  _t57_real="$_t57_tmp/ai-loop-real.txt"
+  _t57_decl="$_t57_tmp/ai-loop-nondist.txt"
+  printf '%s\n' "$_T57_NONDIST_DECL" > "$_t57_decl"
+  for _t57_p in "$PG_T57_AILOOP"/*.py; do
+    [ -f "$_t57_p" ] || continue
+    basename "$_t57_p"
+  done | sort -u > "$_t57_real"
+  _t57_n=$(grep -c . "$_t57_real" 2>/dev/null || printf '0')
+  if [ ! -s "${_t57_for:-/nonexistent}" ]; then
+    t57_fail "TC-E9: allowlist（TC-E8 の for ループ抽出）が空 — 抽出パターンが実装とずれた可能性"
+  elif [ "${_t57_n:-0}" -eq 0 ]; then
+    t57_fail "TC-E9: scripts/ai-loop/ に .py が 1 本も見つからない（測定対象が空 = 偽 PASS 経路）"
+  else
+    _t57_out="$_t57_tmp/audit.out"
+    _t57_rc=0
+    python3 "$_t57_audit" "$_t57_real" "$_t57_for" "$_t57_decl" > "$_t57_out" 2>&1 || _t57_rc=$?
+    if [ "$_t57_rc" -eq 0 ]; then
+      t57_pass "TC-E9: allowlist が scripts/ai-loop/ の実体を網羅（実体 ${_t57_n} 本 / 非配布宣言との差分 0）"
+    else
+      t57_fail "TC-E9: allowlist と実体の乖離 — $(tr '\n' ' ' < "$_t57_out")"
+    fi
+  fi
+
+  # (b) 監査器の自己検査（宣言 0 件でも検出力が空振りにならないことの実証）
+  _t57_selfcheck() {
+    _sc_name="$1"; _sc_real="$2"; _sc_allow="$3"; _sc_decl="$4"; _sc_expect="$5"
+    printf '%s' "$_sc_real" > "$_t57_tmp/sc-real.txt"
+    printf '%s' "$_sc_allow" > "$_t57_tmp/sc-allow.txt"
+    printf '%s' "$_sc_decl" > "$_t57_tmp/sc-decl.txt"
+    _sc_rc=0
+    _sc_out=$(python3 "$_t57_audit" "$_t57_tmp/sc-real.txt" "$_t57_tmp/sc-allow.txt" \
+      "$_t57_tmp/sc-decl.txt" 2>&1) || _sc_rc=$?
+    if [ "$_sc_expect" = "OK" ]; then
+      if [ "$_sc_rc" -eq 0 ]; then
+        t57_pass "TC-E9 self: ${_sc_name}（期待どおり違反なし）"
+      else
+        t57_fail "TC-E9 self: $_sc_name — 違反なしを期待したが検出: $(printf '%s' "$_sc_out" | tr '\n' ' ')"
+      fi
+    else
+      if [ "$_sc_rc" -ne 0 ] && printf '%s' "$_sc_out" | grep -q "$_sc_expect"; then
+        t57_pass "TC-E9 self: ${_sc_name}（$_sc_expect を検出）"
+      else
+        t57_fail "TC-E9 self: $_sc_name — $_sc_expect を期待したが rc=$_sc_rc / out=$(printf '%s' "$_sc_out" | tr '\n' ' ')"
+      fi
+    fi
+  }
+  _t57_selfcheck 'allowlist 完全一致は PASS' 'a.py
+b.py
+' 'a.py
+b.py
+' '' 'OK'
+  _t57_selfcheck '新規ファイルが未宣言なら FAIL' 'a.py
+b.py
+new.py
+' 'a.py
+b.py
+' '' 'UNDECLARED'
+  _t57_selfcheck '理由付き非配布宣言があれば PASS' 'a.py
+skip.py
+' 'a.py
+' 'skip.py reason: PoC のため非配布 (#1173)
+' 'OK'
+  _t57_selfcheck 'issue 参照の無い reason は FAIL' 'a.py
+skip.py
+' 'a.py
+' 'skip.py reason: とりあえず除外
+' 'REASON_MISSING'
+  _t57_selfcheck '宣言と allowlist の二重掲載は FAIL' 'a.py
+' 'a.py
+' 'a.py reason: 非配布 (#1173)
+' 'STALE_IN_ALLOWLIST'
+  _t57_selfcheck '実在しないファイルの宣言は FAIL' 'a.py
+' 'a.py
+' 'gone.py reason: 非配布 (#1173)
+' 'STALE_MISSING'
+
+  # (c) CI 層のみ: 非配布宣言が参照する issue が OPEN であること
+  #     （CLOSED = 除外の根拠が消えたのに除外だけ残っている状態）。
+  #     `tests/extras/` はオフライン実行される前提のため gh 不在 / 非 CI では
+  #     判定しない。常時層は (a) の REASON_MISSING（形式検査）が担保する。
+  _t57_declc=$(grep -v '^[[:space:]]*#' "$_t57_decl" 2>/dev/null | grep -c . || printf '0')
+  if [ "${_t57_declc:-0}" -gt 0 ]; then
+    if [ "${PG_T57_ISSUE_STATE:-${CI:-0}}" != "0" ] \
+       && [ "${PG_T57_ISSUE_STATE:-${CI:-0}}" != "false" ] \
+       && command -v gh >/dev/null 2>&1; then
+      grep -v '^[[:space:]]*#' "$_t57_decl" | grep . > "$_t57_tmp/decl-lines.txt"
+      : > "$_t57_tmp/decl-bad.txt"
+      while IFS= read -r _dl; do
+        _t57_num=$(printf '%s' "$_dl" | grep -o '#[0-9][0-9]*' | head -1 | tr -d '#')
+        [ -n "$_t57_num" ] || continue
+        _t57_state=$(gh issue view "$_t57_num" --json state -q .state 2>/dev/null || true)
+        case "$_t57_state" in
+          OPEN) : ;;
+          '') printf '  [WARN] TC-E9 issue 状態: #%s を照会できない（gh 認証 / ネットワーク）\n' "$_t57_num" ;;
+          *) printf '#%s=%s\n' "$_t57_num" "$_t57_state" >> "$_t57_tmp/decl-bad.txt" ;;
+        esac
+      done < "$_t57_tmp/decl-lines.txt"
+      if [ -s "$_t57_tmp/decl-bad.txt" ]; then
+        t57_fail "TC-E9: 非配布宣言の根拠 issue が OPEN でない — $(tr '\n' ' ' < "$_t57_tmp/decl-bad.txt")（除外の根拠が失効している）"
+      else
+        t57_pass "TC-E9: 非配布宣言の根拠 issue はすべて OPEN"
+      fi
+    else
+      printf '  [INFO] TC-E9 issue 状態検査は CI 層のみ（PG_T57_ISSUE_STATE=1 かつ gh 利用可で実行）\n'
     fi
   fi
 

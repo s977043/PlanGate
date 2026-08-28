@@ -5,10 +5,22 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 
 # ai-loop-cycle
 
-> 本スキルは **bundled resources**（`references/`・`scripts/`）で自己完結する。
-> スキルディレクトリ直下の `references/<name>.md` と `scripts/arbiter.py` を同梱し、
-> 導入先が独自の正本（`docs/workflows/ai-loop/` 等）を別途保持している場合は
-> そちらを優先すること。
+> 本スキルは **bundled resources**（`references/`・`scripts/`・`schemas/`）で自己完結する。
+>
+> **パス表記の規約（重要）**: 本 SKILL.md 中の `references/…` / `scripts/…` /
+> `schemas/…` は、すべて **本スキルディレクトリからの相対パス**（= `<skill_dir>/…`）
+> であって、導入先リポジトリのルートからの相対パスではない。実行時はまず
+> `<skill_dir>`（このファイルが置かれているディレクトリ）を解決してから使う:
+>
+> | 環境 | `<skill_dir>` |
+> | --- | --- |
+> | plugin 導入先（Claude marketplace） | `<plugin_root>/skills/ai-loop-cycle/` |
+> | `install.sh --claude` 導入先 | `.claude/skills/ai-loop-cycle/` |
+> | Codex 導入先 | `.codex/skills/ai-loop-cycle/` |
+> | 上流リポジトリ（正本側） | `.agents/skills/ai-loop-cycle/` |
+>
+> 導入先が独自の正本（上流リポジトリの `docs/workflows/ai-loop/` に相当するもの）を
+> 別途保持している場合は、そちらを優先すること。
 
 本スキルに同梱される ai-loop ドキュメント（`references/` 配下。導入先で正本を
 別途保持している場合はそちらを優先する）の `references/execution-runbook.md` に定義された
@@ -17,6 +29,8 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
 それらを実行するための **委託プロンプト定型** と **手順の要約** のみを持つ（二重定義しない）。
 詳細な手順・分岐表は都度 `references/` を読みに行く（progressive disclosure。本 SKILL.md は
 手順の要点のみを持ち、runbook 等の全文を転記しない）。
+
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill は **上流リポジトリ基準の `docs/**` パスを直接参照しない**（#1232 AC-9 で除去済み）。`docs/**` は `install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**であり、書いた時点で導入先では必ず空振りするためである。したがって解決順は次のとおり: (1) **`<skill_dir>` 配下の同梱物**（`references/` / `scripts/` / `schemas/`）を第一に読む → (2) 導入先リポジトリが独自の正本（上流の `docs/workflows/ai-loop/` に相当するもの）を保持していればそちらを優先する → (3) いずれでも解決できなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 直下に `docs/` を探しに行かないこと**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
 
 ## 前提
 
@@ -41,6 +55,40 @@ description: "ai-loop-workflow の 1 サイクル（C-3' 裁定）を実行す�
   既定案として、導入先の作業ディレクトリ配下に run 単位の裁定 record 用サブディレクトリ
   （例: `<作業ディレクトリ>/ai-loop-runs/`）を設ける配置が参考になるが、導入先の
   ディレクトリ規約を優先すること。
+
+## CLI 依存の分離（`bin/plangate` は配布されない）
+
+PlanGate の CLI（`bin/plangate`）は **plugin / `install.sh --claude` / Codex の
+どの経路でも導入先に配置されない**（Human 決定 #1144: plugin が配るのは読み物層のみで、
+enforcement 層〔`scripts/hooks/`〕と CLI は含めない）。本スキルの手順を CLI 必須／
+CLI 不要で分けると次のようになる。
+
+| 手順 | CLI 依存 | 導入先での実行可否 |
+| --- | --- | --- |
+| Step 0 breakdown-gate 粒度判定 | **不要** | 実行可（スキル判断のみ） |
+| Step 1 入力の組み立て（lite 4 軸・`gates`・`run`） | **不要** | 実行可 |
+| Step 1 `plan_package` の組み立て・LoopSpec 派生 | **不要** | 実行可（同梱 `scripts/plan_package.py`） |
+| Step 2 W チェック | **不要** | 実行可 |
+| Step 3 arbiter 裁定 | **不要** | 実行可（同梱 `scripts/arbiter.py`。`python3` があればよい） |
+| Step 4 record の保存 | **不要** | 実行可 |
+| Step 5 分岐後の行動（exec / セルフレビュー / PR） | **不要** | 実行可 |
+
+**結論: ai-loop の 1 サイクルは CLI 非依存で完結する。** `python3` と `git` があれば
+導入先だけで回せる。
+
+CLI（＝上流リポジトリの clone）が要るのは、本スキルの外にある次の作業だけである。
+これらに到達したときは「上流リポジトリの clone が必要」と明示して停止し、
+**CLI が無いことを理由に手順を省略した、と誤読させない**こと:
+
+| CLI 必須の作業 | 必要なもの | 本スキルとの関係 |
+| --- | --- | --- |
+| PlanGate 本番フロー（WF-00〜07）の `plangate plan` / `exec` / `validate` | 上流リポジトリの clone | **本スキルの範囲外**（`/ai-dev-workflow` 側。ai-loop は本番フローの置き換えではない） |
+| `plangate doctor --check-settings` による settings 配線検証 | 上流リポジトリの clone | 本スキルの範囲外（導入先では `.claude/settings.json` を直接確認する） |
+| hook による機械強制（EH-1〜EH-13） | `scripts/hooks/`（**配布外** / #1144） | 本スキルの範囲外。導入先では **arbiter の裁定と実行者の規律が担保層**になる |
+
+> **`plangate ai-loop run …` は存在しない。** `run TASK-XXXX` は `/ai-loop-workflow`
+> コマンドの引数仕様であって CLI サブコマンドではない（CLI 入口を設けるか否かは
+> issue #982 で未決）。
 
 ## Step 0: breakdown-gate による粒度判定（#780 Slice B）
 
@@ -85,7 +133,7 @@ lite 4 軸（`references/lite-criteria.md` §2）をそれぞれ根拠つきで�
 
 `run`（任意）は `run_id`（`run-NNN` 連番）・`round_index`（**初回呼び出し=1**、再試行ごとに +1。1 起点。metrics は round_index==1 を初回 sentinel に first_pass 判定するため 0 起点不可）・`task_id`（対象 PBI）を刻む。省略可だが、省略すると metrics 集計対象外（legacy）になる。
 
-`production` / `plan_package`（任意・TASK-0872）: **Plan-first 正式入口（`ai-loop run TASK-XXXX`）から開始した production run では両方を必ず入力に含める**。`plan_package.py`（arbiter.py と同ディレクトリ）で Plan Package（pbi-input / plan / todo / test-cases + C-1/C-2 evidence）の presence・evidence 判定・hash を検証して `plan_package` ブロックを組み立て、`production: true` を宣言する。`production: true` で `plan_package` が欠落・構造不正なら priority 1.6 で escalate、reviewer snapshot 三つ組不一致・`source_sha != target_sha` は priority 1.65 で blocked（フィールド契約・stale 規則・LoopSpec 派生マッピングの正本 = `c3-prime-contract.md`）。LoopSpec は同モジュールの `derive_loopspec()` で Plan Package から決定論派生する（手入力しない）。非 production の PoC 実験 run では両フィールドとも省略可（既存挙動不変・additive）。
+`production` / `plan_package`（任意・TASK-0872）: **Plan-first 正式入口（`ai-loop run TASK-XXXX`）から開始した production run では両方を必ず入力に含める**（この入口は **`/ai-loop-workflow` の引数仕様**であり、**PlanGate CLI のサブコマンドではない** — 上記「CLI 依存の分離」を参照）。`scripts/plan_package.py`（`arbiter.py` と同ディレクトリ）で Plan Package（pbi-input / plan / todo / test-cases + C-1/C-2 evidence）の presence・evidence 判定・hash を検証して `plan_package` ブロックを組み立て、`production: true` を宣言する。`production: true` で `plan_package` が欠落・構造不正なら priority 1.6 で escalate、reviewer snapshot 三つ組不一致・`source_sha != target_sha` は priority 1.65 で blocked（フィールド契約・stale 規則・LoopSpec 派生マッピングの正本 = `references/c3-prime-contract.md`）。LoopSpec は同モジュールの `derive_loopspec()` で Plan Package から決定論派生する（手入力しない）。非 production の PoC 実験 run では両フィールドとも省略可（既存挙動不変・additive）。
 
 入力 JSON の例:
 
@@ -164,14 +212,22 @@ reject_category: none (approve時) | ho_path_contact | permission | irreversible
 
 ## Step 3: `arbiter.py` へ入力し裁定を得る
 
+`arbiter.py` は **本スキルディレクトリ直下の `scripts/arbiter.py` として同梱** される
+（同梱 `references/` と対になる形で配布される）。冒頭「パス表記の規約」のとおり
+`<skill_dir>` を解決してから起動する。cwd がスキルディレクトリとは限らないため、
+**`scripts/arbiter.py` をそのまま cwd 相対で叩かないこと**:
+
 ```sh
-python3 scripts/arbiter.py --input /path/to/input.json
+# <skill_dir> はこの SKILL.md が置かれているディレクトリ（冒頭の表を参照）
+ARBITER="<skill_dir>/scripts/arbiter.py"
+
+python3 "$ARBITER" --input /path/to/input.json
 # または stdin 経由:
-echo '{...}' | python3 scripts/arbiter.py
+echo '{...}' | python3 "$ARBITER"
 ```
 
-（`arbiter.py` の配置は導入方法により異なる。本スキル同梱版は、スキルディレクトリ
-直下の `scripts/arbiter.py` として同梱 `references/` と対になる形で配布される）
+> `arbiter.py` は `sh` / `bash` で起動すると `exit 2` で止まる（#1169 の polyglot
+> ガード）。必ず `python3` で起動する。
 
 | exit code | decision          | 動作                                                                              |
 | --------- | ----------------- | --------------------------------------------------------------------------------- |
@@ -191,7 +247,7 @@ ai-loop-runs/`）へ、裁定日時とコミット SHA を含むファイル名�
 
 ```sh
 mkdir -p <導入先で定義した保存先>
-python3 scripts/arbiter.py --input /path/to/input.json \
+python3 "<skill_dir>/scripts/arbiter.py" --input /path/to/input.json \
   > "<導入先で定義した保存先>/$(date -u +%Y%m%dT%H%M%SZ)-$(git rev-parse --short HEAD).json"
 ```
 
@@ -291,6 +347,11 @@ feedback: <1〜3文>
 - `references/lite-criteria.md` — lite 4 軸・AC-8 安全側
 - `references/flow-detect.md` — W チェック・severity 分類・C/D 裁定
 - `references/decision-table.md` — Decision table・provenance schema
+- `references/c3-prime-contract.md` — `plan_package` フィールド契約・stale 規則・LoopSpec 派生
 - `scripts/arbiter.py` — 入力 JSON 仕様（docstring）
+- `scripts/plan_package.py` — Plan Package 検証と `derive_loopspec()`
+- `schemas/run-evidence.schema.json` — run evidence の JSON Schema
 - `references/ho-paths.md` — HO（Hardening Override）パス一覧（**プロジェクト固有・導入先で確定**）
 - 導入先の強化セルフレビュー観点（存在する場合）
+
+（いずれも `<skill_dir>` 配下の同梱物。冒頭「パス表記の規約」を参照）

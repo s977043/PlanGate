@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""RunEvidence 受理検証（TASK-0874 / #874）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """RunEvidence 受理検証（TASK-0874 / #874）。
 
 契約正本: docs/workflows/ai-loop/run-evidence-contract.md §6。
 schema:   docs/schemas/run-evidence.schema.json（**唯一の正**。必須キー・許可キー・
@@ -26,7 +38,6 @@ privacy も受理側で再導出**する（producer の純関数を import し�
 ⚠️ 本受理器の rc を bin/plangate の _plangate_c3_dispatch 経路へ流してはならない
 （同経路は 0/1 以外を catch-all で legacy にフォールバックするため 2 / 11 を誤読する）。
 """
-from __future__ import annotations
 
 import json
 import pathlib

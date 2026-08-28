@@ -11,7 +11,9 @@ description: "変更差分を多段フェーズで精査し、構造化された
 
 PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phase 1〜12）に加えて **Iron Law 8 項目** と **8 eval 観点** で必ず判定する。`docs/ai/core-contract.md` が Iron Law の正本。
 
-### Iron Law 8 項目（[`core-contract.md`](../../../docs/ai/core-contract.md) 正本）
+> **参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` / `schemas/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2) 見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` / `schemas/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` / `schemas/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` / `schemas/**` に持ち込まない）。
+
+### Iron Law 8 項目（`docs/ai/core-contract.md` 正本）
 
 | # | Iron Law | 違反例 |
 |---|---------|-------|
@@ -24,7 +26,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | #7 | NO SILENT GATE BYPASSES | C-3 / C-4 / Parent Integration Gate を黙ってスキップ |
 | #8 | NO CLAIM WITHOUT SOURCE CROSS-CHECK | findings・監査・レビューの事実主張（構成・件数・依存先等）を一次情報と未照合のまま採用 |
 
-### 8 eval 観点（[`eval-plan.md`](../../../docs/ai/eval-plan.md) / [`eval-cases/`](../../../docs/ai/eval-cases/) 正本）
+### 8 eval 観点（`docs/ai/eval-plan.md` / `docs/ai/eval-cases/` 正本）
 
 | 観点 | 判定 | release blocker |
 |------|------|----------------|
@@ -50,6 +52,7 @@ PlanGate コンテキストで本 Skill を呼ぶときは、汎用観点（Phas
 | 「スクリプトは雑でいい」 | SKILL.md・コマンド・エージェントに埋め込まれたシェル例はチーム全員が実行する。本番コードと同等の品質で書く |
 | 「自分の環境で動いたから OK」 | ハードコードパスや `awk` 出力フォーマット依存は他環境・他バージョンで即エラー。Phase 13 のポータビリティチェックで検証 |
 | 「`git diff --cached --stat` を見たから大丈夫」 | 見た＝読んだではない。stat に映った想定外ファイル（`__pycache__` 等）を見落として commit した実害あり。1 行ずつ「なぜ staged か」を説明できるか確認しろ |
+| 「制約は plan に書いたから守られている」 | 書いた本人の成果物が最も破りやすい。**自分が宣言した制約は、その制約で自分の成果物を grep してから PASS にする**。別 PBI・別担当で同じ型が独立に 3 回発生した実害あり |
 
 ## review-gate（実装後ゲート）との役割分界（#795 / #794）
 
@@ -146,6 +149,27 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
 3. 変更に影響を受ける **他のテストファイル** が漏れなく更新されているか
 4. **既存テストケースとの粒度比較**
 5. **既存テストとの手法統一**
+6. **新規テストの検出力を変異注入で実証したか**
+   - 変異は関数定義ではなく **call site** を壊す
+   - **「レーン全体を落とす変異」だけで済ませない** — レーンごと殺す変異では
+     **レーン内部の分類ミスは原理的に検出できない**。分岐・レーン内部の分類を
+     誤らせる変異を別に立てる
+   - 変異が空振り（適用しても PASS のまま）なら、それは TC の欠陥。
+     **空振りしたことも記録する**
+7. **負側テストが「本番経路」を通っているか**
+   - 負側 TC が明示引数・テスト専用 env 経由のみに偏り、**CI が実際に通る既定
+     経路の検出力がゼロ**になっていないか
+   - 経路が偏っていれば、call site を壊す変異でも穴は露出しない
+8. **成長する対象に絶対件数を assert していないか**
+   - `wc -l` / `grep -c` 由来の値を数値と等値比較していないか
+   - ファイルが増えるディレクトリへの件数契約は、**無関係な PR の CI を落とす
+     時限爆弾**になる
+   - 集合同値照合（`comm -3` 等）か下限で置く
+9. **テストを「実行文脈を変えて」走らせたか**
+   - 単体実行（standalone）と、実際の実行系（harness / CI が使う経路）では
+     **シェルオプション・環境変数・作業ディレクトリが異なる**
+   - **片方でしか走らせていないなら、それは 1 通りしか検証していない**
+   - CI でだけ落ちる / CI でだけ通る場合、原因は**実行文脈の差**を疑う
 
 ### Phase 7: 既存パターンとの一貫性確認
 
@@ -154,6 +178,12 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
    - プロジェクト固有のアーキテクチャパターンに準拠しているか
    - テストパターン（ファクトリ、モック、アサーション）が既存と統一されているか
    - コンポーネント構造が既存と一貫しているか
+3. **同一ファイルが複数の配置先に存在する場合、正本と追従関係を先に確認する**
+   - どれが正本か（生成スクリプトの入力はどれか）を**実装で確認**してから編集する
+   - 自動生成される配置先と、**手動追従が必要な配置先**を区別する
+   - **配置先ごとの意図的な差分**（相対リンクが解決する側だけリンク形式にする等）を
+     一括コピーで壊していないか
+   - 追従後、**同期スクリプトの `--dry-run` が drift なし**であることを確認する
 
 ### Phase 8: 依存方向・アーキテクチャ境界
 
@@ -214,6 +244,20 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
   - ❌ `gh auth status 2>&1 | awk '/Active account/'`（gh のバージョンで出力が変わる）
   - ✅ `gh api user --jq '.login'`（API は安定）
 - **OS 差異**: `date` / `sed` 等の BSD / GNU 差異に注意（macOS と Linux で挙動が異なる場合がある）
+
+#### シェルオプションの意味論（`set -e` / 判定記号）
+
+- **`set -e` 下で rc を捕捉するイディオムは壊れる**
+  - ❌ `rc=$( cd "$D" && cmd >/dev/null 2>&1; echo $? )`
+    — `cmd` が非ゼロだと AND-list ごと失敗し、**`echo $?` に到達せず捕捉値が空文字**になる
+  - ✅ `cmd >/dev/null 2>&1 || rc=$?`（OR-list は `set -e` の対象外）
+  - **指紋**: 「rc=0 を期待する検査だけ通り、rc≠0 を期待する検査が全滅する」
+    — この形が出たら真っ先に疑う
+- **判定に使う記号を、判定される側の説明文に書かない**
+  - 契約検査が `[FAIL]` 等を grep する場合、**テスト名や説明文にその literal を書くと衝突**する
+  - ❌ `TC-X: 失敗が明示的な [FAIL] として現れる`
+  - ✅ `TC-X: 失敗が明示的なテスト失敗として現れる`
+  - **説明と信号が名前空間を共有していないか**を確認する
 
 #### 危険な git 操作の安全ガード
 
@@ -307,11 +351,11 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
 
 ## 関連（PlanGate v8.3）
 
-- [`docs/ai/core-contract.md`](../../../docs/ai/core-contract.md) — Iron Law 8 項目正本
-- [`docs/ai/eval-plan.md`](../../../docs/ai/eval-plan.md) — 8 eval 観点 / release blocker 基準
-- [`docs/ai/eval-cases/`](../../../docs/ai/eval-cases/) — 観点別詳細 × 8
-- [`docs/ai/structured-outputs.md`](../../../docs/ai/structured-outputs.md) + [`schemas/review-result.schema.json`](../../../schemas/review-result.schema.json) — 出力 schema
-- [`docs/ai/contracts/review.md`](../../../docs/ai/contracts/review.md) — review phase contract
+- `docs/ai/core-contract.md` — Iron Law 8 項目正本
+- `docs/ai/eval-plan.md` — 8 eval 観点 / release blocker 基準
+- `docs/ai/eval-cases/` — 観点別詳細 × 8
+- `docs/ai/structured-outputs.md` + `schemas/review-result.schema.json` — 出力 schema
+- `docs/ai/contracts/review.md` — review phase contract
 - [`.claude/rules/review-principles.md`](../../rules/review-principles.md) — レビュー原則（CI / ローカル共通）。
   **導入先での参照解決順**: (1) 導入先の `.claude/rules/review-principles.md`。
   ただし **本 skill が参照する節（例: `review-principles.md` の §3 Severity 定義）が実在することを確認する**。同名でも別内容なら PlanGate の正本ではないため (2) へ進む →
@@ -329,4 +373,4 @@ review-gate の**追加観点レーン**（#794 で棚卸し・#795 で実装: �
   直下に並ぶ配置でのみ**解決する（`.claude/skills/` ↔ `.claude/rules/` / plugin バンドル内）。
   上流リポジトリの `.agents/skills/` と Codex 導入先の `.codex/skills/` には隣接する
   `rules/` が無いため解決しない
-- [`docs/ai/plan-review-readiness-gate.md`](../../../docs/ai/plan-review-readiness-gate.md) §7/§8 — ドキュメント変更（D-1〜D-6）/ シェル・Python コード変更（C-1〜C-6）の追加観点
+- `docs/ai/plan-review-readiness-gate.md` §7/§8 — ドキュメント変更（D-1〜D-6）/ シェル・Python コード変更（C-1〜C-6）の追加観点

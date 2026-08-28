@@ -1,0 +1,34 @@
+# EH-13 glob bypass — 是正後 実測
+# 経路: PreToolUse JSON payload を stdin へ供給（本番経路と同一）
+# rc	command
+2	echo x > docs/working/TASK-9999/approvals/c3.json
+2	echo x > docs/working/TASK-9999/approvals/c3.jso*
+2	echo x > docs/working/TASK-9999/approvals/c3.js?n
+2	echo x > docs/working/*/approvals/c3.json
+2	echo x > docs/working/TASK-9999/approvals/*.json
+2	echo x > docs/working/TASK-9999/approvals/c[3].json
+2	echo x > docs/working/TASK-9999/approvals/c[3].jso*
+2	cp /tmp/x docs/working/TASK-9999/approvals/c3.jso*
+2	printf x | tee docs/working/TASK-9999/approvals/c3.jso*
+2	sed -i '' -e 's/a/b/' docs/working/TASK-9999/approvals/c3.jso*
+2	echo x > docs/working/_maintenance/maintenance.jso*
+2	echo x > c3.jso*
+2	cp /tmp/x c3*
+0	git commit -m 'docs: docs/working/TASK-0001/approvals/c3.json' > /tmp/log.txt
+0	git commit -m 'docs: approval token' > /tmp/log.txt
+0	cat docs/working/TASK-0001/approvals/c3.json
+0	echo 'docs/working/TASK-0001/approvals/c3.json' > /tmp/note.txt
+0	cp schemas/*.json /tmp/
+0	cp docs/*.md /tmp/
+0	sed -i.bak -e 's/a/b/' docs/working/*/status.md
+0	echo "<div>*</div>"
+0	echo hi > /tmp/out.txt
+0	tee /tmp/a.log
+0	ls docs/working/*/approvals/
+0	cat docs/working/*/approvals/*.json
+0	sed -i '' -e 's/a/b/' docs/working/*/approvals-notes.md
+0	cp /tmp/x docs/working/TASK-9999/approvals/notes.md
+0	cp /tmp/x docs/working/*/approvals/notes.md
+2	echo x > docs/working/TASK-9999/approvals/c3.json.bak
+2	tee docs/working/TASK-1/approvals/parent-c3.jso*
+2	tee docs/working/TASK-1/approvals/parent-integration.js?n

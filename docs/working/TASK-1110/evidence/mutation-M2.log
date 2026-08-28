@@ -1,0 +1,30 @@
+=== M-2 (correlation forced false -> true positives dropped) ===
+--- sed expr: s@^.*# t1110-redirect-correlate$@  _redirect_tok=0 # t1110-redirect-correlate@
+--- expected kill TC: T1045-TC-04
+
+[step 1] baseline: original guard, focused TC group
+baseline rc=0
+TA-25 standalone: 19 passed, 0 failed
+
+[step 2] apply mutation to a COPY of the guard (call site, not the helper body)
+anchor occurrences before mutation: 1 (must be 1)
+--- mutated call site:
+134:  _redirect_tok=0 # t1110-redirect-correlate
+mutant syntax OK
+
+[step 3] run focused TC group against the mutant
+mutant run rc=1
+  [FAIL] T1023-TC-03 env-normal + stdin Bash token write not blocked (exit 0)
+  [FAIL] T1045-TC-04 file redirect > token not blocked (exit 0)
+  [FAIL] T1045-TC-05 append redirect >> token not blocked (exit 0)
+  [FAIL] T1045-TC-06 numbered fd redirect 1> token not blocked (exit 0)
+  [FAIL] T1110-TC-03 some real token-path redirect not blocked
+  [FAIL] T1110-TC-04 an unresolvable redirect target was not blocked
+  [FAIL] T1110-TC-05 block detail missing matched redirect_target (exit 0)
+TA-25 standalone: 12 passed, 7 failed
+RESULT: KILLED by T1045-TC-04
+
+[step 4] restore: original guard again
+restore rc=0
+TA-25 standalone: 19 passed, 0 failed
+[step 5] original guard on disk unchanged:  1 file changed, 70 insertions(+), 3 deletions(-)

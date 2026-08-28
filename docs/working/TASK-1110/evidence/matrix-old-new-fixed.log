@@ -1,0 +1,78 @@
+
+=== R-001 truncation classes ===
+case                                       want   OLD    NEW    FIXED  verdict
+quoted space                               2      2      0      2      OK
+dquoted space                              2      2      0      2      OK
+quoted tab                                 2      2      0      2      OK
+dquoted tab                                2      2      0      2      OK
+quoted semicolon                           2      2      0      2      OK
+dquoted semicolon                          2      2      0      2      OK
+quoted amp                                 2      2      0      2      OK
+dquoted amp                                2      2      0      2      OK
+quoted pipe                                2      2      0      2      OK
+dquoted pipe                               2      2      0      2      OK
+quoted lparen                              2      2      0      2      OK
+dquoted lparen                             2      2      0      2      OK
+quoted rparen                              2      2      0      2      OK
+dquoted rparen                             2      2      0      2      OK
+quoted lt                                  2      2      0      2      OK
+dquoted lt                                 2      2      0      2      OK
+quoted hash                                2      2      0      2      OK
+dquoted hash                               2      2      0      2      OK
+backslash-escaped space                    2      2      0      2      OK
+unquoted mid-word hash                     2      2      0      2      OK
+quoted spaced abs path                     2      2      0      2      OK
+quoted paren dir                           2      2      0      2      OK
+
+=== issue cases A-E ===
+case                                       want   OLD    NEW    FIXED  verdict
+A token-literal + unrelated redirect       0      2      0      0      OK / intended false-positive removal
+B token-literal, no redirect               0      0      0      0      OK
+C no token literal + redirect              0      0      0      0      OK
+D true positive                            2      2      2      2      OK
+E read only                                0      0      0      0      OK
+
+=== boundary 13 ===
+case                                       want   OLD    NEW    FIXED  verdict
+06 append                                  2      2      2      2      OK
+07 dot-slash                               2      2      2      2      OK
+08 token as content to other file          0      2      0      0      OK / intended false-positive removal
+09 quoted token target                     2      2      2      2      OK
+10 maintenance target                      2      2      2      2      OK
+11 redirect to /dev/null                   0      0      0      0      OK
+12 cp into token (copy-like)               2      2      2      2      OK
+13 second stmt writes token                2      2      2      2      OK
+14 dotdot in path                          2      2      2      2      OK
+15 heredoc to token                        2      2      2      2      OK
+16 fd dup 2>&1                             0      0      0      0      OK
+17 multiple spaces                         2      2      2      2      OK
+18 command substitution target             2      2      2      2      OK
+
+=== declared fail-closed ===
+case                                       want   OLD    NEW    FIXED  verdict
+$VAR target                                2      2      2      2      OK
+backtick target                            2      2      2      2      OK
+glob * target                              2      2      2      2      OK
+glob ? target                              2      2      2      2      OK
+glob [ target                              2      2      2      2      OK
+empty target                               2      2      2      2      OK
+/dev/stdout                                2      2      2      2      OK
+&> file                                    2      2      2      2      OK
+>& file                                    2      2      2      2      OK
+
+=== lane symmetry (same spaced path) ===
+case                                       want   OLD    NEW    FIXED  verdict
+tee to spaced token (copy-like)            2      2      2      2      OK
+cp to spaced token (copy-like)             2      2      2      2      OK
+redirect to spaced token                   2      2      0      2      OK
+
+=== newline flattening ===
+case                                       want   OLD    NEW    FIXED  verdict
+heredoc body mentions token, writes /tmp   0      2      0      0      OK / intended false-positive removal
+redirect to /tmp then quoted token msg     0      2      0      0      OK / intended false-positive removal
+redirect to /tmp then unquoted token word  0      2      0      0      OK / intended false-positive removal
+
+=== Write-lane control (same spaced token path) ===
+Write tool, spaced token path: OLD=2 NEW=2 FIXED=2
+
+FIXED mismatches: 0

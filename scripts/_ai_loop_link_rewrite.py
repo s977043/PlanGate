@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""_ai_loop_link_rewrite.py — plugin bundle 用の markdown リンク自己完結化。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """_ai_loop_link_rewrite.py — plugin bundle 用の markdown リンク自己完結化。
 
 背景（issue #790）: sync-plugin-plangate.sh の _sync_ai_loop_ref_content が
 docs/workflows/ai-loop/*.md・docs/ai/ai-loop/*.md を plugin/plangate/skills/
@@ -31,6 +43,17 @@ ai-loop-cycle/references/ へバンドルしているため、正本側の `../`
    `subagent-delegation/README.md`・`pr-watch/SKILL.md`）。それ以外は
    `<basename>`（例 `working-context.md`）。
 
+   **リンクラベルの扱い（issue #1232 / 元 AC = #1196 案 B）**: 脱リンク時に
+   ラベル（link_text）を捨てると、ラベルが説明文だった場合に配布物だけが意味を
+   失う（例 `[`maintenance.json` 発行元ギャップ](...)` → `` `x.md` ``）。そこで
+   `_is_path_label()` で **ラベル全体がパス 1 トークンか**を判定し、
+   - パス 1 トークン（例 `` `docs/workflows/ai-loop/x.md` ``）→ 従来どおり
+     basename へ正規化（情報は失われない）
+   - それ以外（説明文・パスを含む文・空白を含む文）→
+     `` <ラベル>（`<basename>`） `` としてラベルを保持
+   判定は **空白を含めば必ず記述ラベル**（安全側）とする。部分一致で
+   「パスを含む説明文」をパス扱いすると同じ消失が別形で残るため。
+
 冪等性: 変換済み（`./name.md`・`../SKILL.md`・インラインコード化済み）に
 再適用しても不変。`./<basename>`（basename∈bundle）は既に自己完結形なので
 canonical fixed-point として素通しする（references/ 内では常に正しい sibling
@@ -52,7 +75,6 @@ Usage:
 標準出力に変換後の内容を書き出す（sync script 側で mktemp 経由の比較・
 書き込みに使う想定）。
 """
-from __future__ import annotations
 
 import os
 import re
@@ -79,13 +101,71 @@ def _real(path: str) -> str:
     return os.path.realpath(path)
 
 
-def _inline(segments: list[str], basename: str, bundle: set[str]) -> str:
+_WHITESPACE_RE = re.compile(r"\s")
+
+
+def _is_path_label(link_text: str) -> bool:
+    """リンクラベルが **全体としてパス 1 トークン** かを判定する。
+
+    このコーパスのリンクは大半が `[`docs/workflows/ai-loop/x.md`](../x.md)` の
+    ように **ラベル自体がパス**であり、その場合ラベルを basename へ正規化しても
+    情報は失われない（従来挙動）。一方 `[`maintenance.json` 発行元ギャップ](…)`
+    のような **記述ラベル**を basename へ潰すと、何の話なのかが読み手に伝わらなく
+    なる。両者を区別するための判定。
+
+    **部分一致で判定しないこと**（TASK-1232 敵対レビュー MAJOR-1）。
+    「パスを含む説明文」「拡張子で終わる説明文」を部分一致でパス扱いすると、
+    塞いだはずの消失が別形で残る:
+
+        [EH-3 の check-plan-hash.sh](…)    末尾が .sh
+        [詳細は docs/ai/foo.md を参照](…)   "/" を含む
+
+    したがって **空白を含むラベルは無条件で記述ラベル**（安全側）とし、
+    空白なしのときだけ `/` または `.` の有無でパスらしさを見る。拡張子を
+    allowlist で列挙すると `.jsonl` / `.ndjson` のような新しい拡張子を
+    取りこぼすため、列挙はしない。
+    """
+    plain = link_text.replace("`", "").strip()
+    if not plain:
+        return True  # ラベルが空なら保持しても意味がない = 従来どおり basename のみ
+    if _WHITESPACE_RE.search(plain):
+        return False  # 空白を含む = 説明文（安全側）
+    return "/" in plain or "." in plain
+
+
+def _wrap(link_text: str, inline: str) -> str:
+    """脱リンク結果にラベルを添える整形（記述ラベルのときのみ呼ぶ）。
+
+    `_inline()` と foreign SKILL.md 分岐の 2 箇所で同じ整形を使うため関数化する
+    （片方だけ書式を変える事故を防ぐ / 同レビュー MINOR-4）。
+
+    ラベルが basename と同一（例 `[README](../../ai/README)`）なら添えても情報が
+    増えないため、`README（`README`）` のような重複を作らず inline のみを返す。
+    """
+    if link_text.replace("`", "").strip() == inline.strip("`"):
+        return inline
+    return f"{link_text}（{inline}）"
+
+
+def _inline(
+    segments: list[str], basename: str, bundle: set[str], link_text: str | None = None
+) -> str:
     """外部リンクをインラインコード化する。basename がバンドル集合と衝突しうる
     場合は識別性のため親ディレクトリを前置する（例 subagent-delegation/README.md）。
+
+    `link_text` に **記述ラベル**（パスでない説明文）が渡された場合は、ラベルを
+    捨てずに `<ラベル>（`<basename>`）` の形で保持する。ラベルを落とすと配布物
+    だけが意味を失う（issue #1232 と同型の「参照はあるが導入先で成立しない」）。
+    ラベルがパスそのものの場合は従来どおり basename へ正規化する（冪等性・
+    既存リンクの出力不変を維持）。
     """
     if basename in bundle and len(segments) >= 2:
-        return f"`{segments[-2]}/{basename}`"
-    return f"`{basename}`"
+        inline = f"`{segments[-2]}/{basename}`"
+    else:
+        inline = f"`{basename}`"
+    if link_text is not None and not _is_path_label(link_text):
+        return _wrap(link_text, inline)
+    return inline
 
 
 def _rewrite_links_in_segment(
@@ -142,7 +222,10 @@ def _rewrite_links_in_segment(
         )
         if is_foreign_skill_md:
             # 他スキルの SKILL.md は同梱されない → `<skill>/SKILL.md` inline
-            return f"`{segments[-2]}/SKILL.md`"
+            inline = f"`{segments[-2]}/SKILL.md`"
+            if not _is_path_label(link_text):
+                return _wrap(link_text, inline)
+            return inline
 
         # 同一実体判定（issue #790 MAJOR）: basename がバンドル集合にあっても、
         # 相対リンクを src_dir 基準で解決した実パスがバンドル元と一致する時のみ
@@ -151,9 +234,9 @@ def _rewrite_links_in_segment(
             resolved = _real(os.path.join(src_dir, path_part))
             if resolved == _real(bundle_src[basename]):
                 return f"[{link_text}](./{basename}{anchor_suffix})"
-            return _inline(segments, basename, bundle)
+            return _inline(segments, basename, bundle, link_text)
 
-        return _inline(segments, basename, bundle)
+        return _inline(segments, basename, bundle, link_text)
 
     return _LINK_RE.sub(_replace, text)
 

@@ -28,6 +28,13 @@ changed=0
 # 呼ばれるため（下の for ループ 1 箇所のみ）、POSIX sh に local が無くても
 # global への集約が成立する。終端で 1 回だけ判定して exit 3 する。
 guard_fired=0
+# ai-dev spec のソース不在（上流 rename / 移動）を数える（#1249 MAJOR-3）。
+# spec は固定パスの一覧であり ai-loop のディレクトリ glob と違って rename に
+# 追従しない。旧実装は不在ソースを黙って読み飛ばし、その basename が期待集合から
+# 抜けることで **次の削除ループが配布物を無警告で消していた**。件数を global に
+# 集約し、終端で 1 回だけ人が読める形で再掲する（下の「人へ届く経路」を参照）。
+spec_missing=0
+spec_missing_list=""
 
 # agents の model frontmatter は本リポジトリ運用向けの tier 指定（docs/ai/model-profiles.md
 # §Claude Code エージェントの model tier）。配布版 plugin は利用者環境のモデル可用性に
@@ -43,7 +50,9 @@ _ai_loop_map_file=""
 # POSIX sh に local は無く関数内代入も global なので、最後に割り当てた値を trap が掃除する。
 _tmp_rewritten=""
 _tmp_ho=""
-trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_tmp_ho:-}"' EXIT INT TERM
+_ai_dev_map_file=""
+_ai_dev_spec_file=""
+trap 'rm -f "${_tmp_norm:-}" "${_ai_loop_map_file:-}" "${_tmp_rewritten:-}" "${_tmp_ho:-}" "${_ai_dev_map_file:-}" "${_ai_dev_spec_file:-}"' EXIT INT TERM
 
 # mass-delete safety guard の共通判定（#861 / #877 / #914）。
 # 判定 + 警告 + guard_fired フラグ立てのみを担う（呼び出し元の制御脱出は含めない
@@ -149,6 +158,40 @@ done
 # 各スキルの SKILL.md を plugin/plangate/skills/<name>/SKILL.md にコピー
 _plugin_skills="$PLUGIN_DIR/skills"
 mkdir -p "$_plugin_skills"
+
+# skills 索引 README.md を同期する。
+#
+# 下の for は "$SKILLS_DIR"/*/ と **ディレクトリのみ**を走査するため、
+# .agents/skills/ 直下のファイルである README.md はどの同期経路にも入らない。
+# その結果 plugin 側 README.md は手作業でしか追従できず、実際に乖離が再発した:
+#   #1057 → PR #1199 で手作業追従（2026-08-20）
+#   → PR #1221 で正本が更新され（2026-08-25）5 日で再び乖離
+# 索引が古いと導入先ユーザーは「存在するスキルを知らないまま」使うことになる。
+#
+# 内容変換は行わない（正本と byte-identical に保つ）。同スクリプト内の先行事例
+# （agents の model: 正規化 / ho-paths.md の雛形注記前置 / references のリンク
+# 自己完結化）とは異なる選択だが、索引の内容を配布時に書き換えると乖離判定が
+# 複雑になるため、ここでは byte-identical を優先する。
+#   測定時点の README には markdown リンク（`](...)`）が **0 件**であり、
+#   リンク書き換えを要する箇所は無い（backtick のパス表記は README 自身の
+#   免責注記が扱う）。将来リンクが追加されたら、この選択を再検討すること:
+#     grep -oE '\]\([^)]*\)' .agents/skills/README.md | wc -l
+#
+# **本経路は add / update のみ**。正本の削除・改名は検出しない（配布側に
+# 「幽霊 README」が無警告で残る）。これは #861 mass-delete guard の思想に
+# 合わせ、正本の一時欠損で配布物が消える事故を作らないための設計選択である。
+# sync_dir の README.md 除外（stale 集計・削除ループ）は `.claude/{agents,rules,commands}`
+# 側の別の関心事であり、ここには適用されない（あちらの stale 検出 + guard の
+# 対称性は本経路には無い）。
+_skills_readme_src="$SKILLS_DIR/README.md"
+_skills_readme_dst="$_plugin_skills/README.md"
+if [ -f "$_skills_readme_src" ]; then
+  if [ ! -f "$_skills_readme_dst" ] || ! cmp -s "$_skills_readme_src" "$_skills_readme_dst"; then
+    if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD COPY: skills/README.md"
+    else cp "$_skills_readme_src" "$_skills_readme_dst"; _log "COPY: skills/README.md"; fi
+    changed=1
+  fi
+fi
 for _skill_dir in "$SKILLS_DIR"/*/; do
   [ -d "$_skill_dir" ] || continue
   _skill_name="$(basename "$_skill_dir")"
@@ -274,8 +317,17 @@ _sync_ai_loop_file() {
   fi
 }
 
-# references/ はフラット配置（workflows 10 本 + spec 6 本 + ho-paths.md = 17 本、
-# ファイル名衝突なしを確認済み）。SKILL.md は本ループの対象外（親ディレクトリに
+# references/ はフラット配置（docs/workflows/ai-loop/*.md 全件 + $_ai_loop_spec_files
+# + ho-paths.md）。**件数は運用で増えるためここに絶対数を書かない**（過去に
+# 「workflows 10 本 = 17 本」と書かれ、実体が増えた後も更新されず陳腐化した）。
+# 実数は次で測る:
+#   ls docs/workflows/ai-loop/*.md | wc -l   # workflows
+#   ls plugin/plangate/skills/ai-loop-cycle/references/*.md | wc -l  # 配布後の合計
+# basename 衝突が無いことは次で確認する（出力が空なら衝突なし）。docs/ai/ai-loop/
+# には非同梱ファイル（$_ai_loop_spec_files に無いもの）も含まれるため、この検査は
+# 実際の bundle より**広く**見る安全側の近似であり、偽陽性は出るが見落としはしない:
+#   { ls docs/workflows/ai-loop/; ls docs/ai/ai-loop/; } | sort | uniq -d
+# SKILL.md は本ループの対象外（親ディレクトリに
 # 配置されるため references/*.md の glob には含まれず、削除ループの対象にもならない）
 #
 # bundle 集合（_ai_loop_expected_refs）はリンク変換（issue #790）の判定にも使う
@@ -422,10 +474,13 @@ if [ -d "$AI_LOOP_SCRIPTS_DIR" ]; then
   # c3prime_verify が import する共通契約層。列挙漏れは bundled 側 import エラー）
   # delivery.py + test_delivery.py（TASK-0873: MERGE_READY 状態機械。
   # c3prime_verify/c3_contract を import するため対で列挙する）
+  # discovery.py + test_discovery.py（#1173: bundled 側の test_check_exec_boundary.py
+  # が `HERE/discovery.py` と `HERE/test_discovery.py` を実読みするため、非配布だと
+  # 導入先で 2 件が FileNotFoundError になる。allowlist 載せ忘れであり意図的除外ではない）
   # gh_exec / check_exec_boundary / collector / ci_taxonomy / executor / reconciler
   # （TASK-0917 / R-011: 実 PR 収束レーン。本 for ループと下の case 許可判定は
   # **同一集合**でなければならない（片方漏れ = sync drift。T-39 で機械照合する））
-  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py" "$AI_LOOP_SCRIPTS_DIR/metrics.py" "$AI_LOOP_SCRIPTS_DIR/test_metrics.py" "$AI_LOOP_SCRIPTS_DIR/plan_package.py" "$AI_LOOP_SCRIPTS_DIR/test_plan_package.py" "$AI_LOOP_SCRIPTS_DIR/c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/test_c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/delivery.py" "$AI_LOOP_SCRIPTS_DIR/test_delivery.py" "$AI_LOOP_SCRIPTS_DIR/gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/test_gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/test_check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/collector.py" "$AI_LOOP_SCRIPTS_DIR/test_collector.py" "$AI_LOOP_SCRIPTS_DIR/ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/test_ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/executor.py" "$AI_LOOP_SCRIPTS_DIR/test_executor.py" "$AI_LOOP_SCRIPTS_DIR/reconciler.py" "$AI_LOOP_SCRIPTS_DIR/test_reconciler.py" "$AI_LOOP_SCRIPTS_DIR/run_evidence.py" "$AI_LOOP_SCRIPTS_DIR/test_run_evidence.py" "$AI_LOOP_SCRIPTS_DIR/run_evidence_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_run_evidence_verify.py"; do
+  for _f in "$AI_LOOP_SCRIPTS_DIR/arbiter.py" "$AI_LOOP_SCRIPTS_DIR/test_arbiter.py" "$AI_LOOP_SCRIPTS_DIR/metrics.py" "$AI_LOOP_SCRIPTS_DIR/test_metrics.py" "$AI_LOOP_SCRIPTS_DIR/plan_package.py" "$AI_LOOP_SCRIPTS_DIR/test_plan_package.py" "$AI_LOOP_SCRIPTS_DIR/c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_c3prime_verify.py" "$AI_LOOP_SCRIPTS_DIR/c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/test_c3_contract.py" "$AI_LOOP_SCRIPTS_DIR/delivery.py" "$AI_LOOP_SCRIPTS_DIR/test_delivery.py" "$AI_LOOP_SCRIPTS_DIR/gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/test_gh_exec.py" "$AI_LOOP_SCRIPTS_DIR/check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/test_check_exec_boundary.py" "$AI_LOOP_SCRIPTS_DIR/collector.py" "$AI_LOOP_SCRIPTS_DIR/test_collector.py" "$AI_LOOP_SCRIPTS_DIR/ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/test_ci_taxonomy.py" "$AI_LOOP_SCRIPTS_DIR/executor.py" "$AI_LOOP_SCRIPTS_DIR/test_executor.py" "$AI_LOOP_SCRIPTS_DIR/reconciler.py" "$AI_LOOP_SCRIPTS_DIR/test_reconciler.py" "$AI_LOOP_SCRIPTS_DIR/run_evidence.py" "$AI_LOOP_SCRIPTS_DIR/test_run_evidence.py" "$AI_LOOP_SCRIPTS_DIR/run_evidence_verify.py" "$AI_LOOP_SCRIPTS_DIR/test_run_evidence_verify.py" "$AI_LOOP_SCRIPTS_DIR/discovery.py" "$AI_LOOP_SCRIPTS_DIR/test_discovery.py"; do
     [ -f "$_f" ] || continue
     _sync_ai_loop_file "$_f" "$PLUGIN_AI_LOOP_SCRIPTS" "skills/ai-loop-cycle/scripts"
   done
@@ -437,7 +492,7 @@ if [ -d "$PLUGIN_AI_LOOP_SCRIPTS" ]; then
     case "$_base" in
       # 上の for ループ（コピー元列挙）と **同一集合** に保つこと。片方漏れは
       # sync drift（TASK-0917 / R-011）。T-39 の機械照合で差分 0 を確認する。
-      arbiter.py|test_arbiter.py|metrics.py|test_metrics.py|plan_package.py|test_plan_package.py|c3prime_verify.py|test_c3prime_verify.py|c3_contract.py|test_c3_contract.py|delivery.py|test_delivery.py|gh_exec.py|test_gh_exec.py|check_exec_boundary.py|test_check_exec_boundary.py|collector.py|test_collector.py|ci_taxonomy.py|test_ci_taxonomy.py|executor.py|test_executor.py|reconciler.py|test_reconciler.py|run_evidence.py|test_run_evidence.py|run_evidence_verify.py|test_run_evidence_verify.py) : ;;
+      arbiter.py|test_arbiter.py|metrics.py|test_metrics.py|plan_package.py|test_plan_package.py|c3prime_verify.py|test_c3prime_verify.py|c3_contract.py|test_c3_contract.py|delivery.py|test_delivery.py|gh_exec.py|test_gh_exec.py|check_exec_boundary.py|test_check_exec_boundary.py|collector.py|test_collector.py|ci_taxonomy.py|test_ci_taxonomy.py|executor.py|test_executor.py|reconciler.py|test_reconciler.py|run_evidence.py|test_run_evidence.py|run_evidence_verify.py|test_run_evidence_verify.py|discovery.py|test_discovery.py) : ;;
       *)
         if [ "$DRY_RUN" = "1" ]; then _drylog "WOULD DELETE: skills/ai-loop-cycle/scripts/$_base"
         else rm "$_f"; _log "DELETE: skills/ai-loop-cycle/scripts/$_base"; fi
@@ -478,6 +533,195 @@ if [ -d "$PLUGIN_AI_LOOP_SCHEMAS" ]; then
     esac
   done
 fi
+
+# ai-dev-{plan,exec,verify,brainstorm} の参照 doc / テンプレートを plugin へ同梱（issue #1232）
+#
+# 背景は ai-loop セクション（上）と同一: plugin は `docs/` を配布対象として認識しない
+# ため、`docs/**` を指す参照は導入先で必ず空振りする。ai-loop-cycle と同じ
+# **bundled resources 方式**（skill ディレクトリ内 references/ に自己完結同梱）で解決する。
+# 新方式は作らず、リンク自己完結化も同じ scripts/_ai_loop_link_rewrite.py を再利用する
+# （リライタは skill 名と bundle map を引数で受け取る汎用実装であり ai-loop 専用ではない）。
+#
+# 設計（#1232 の Human 決定）: **skill ごとに references/ を持たせ、その skill が実際に
+# 参照するものだけを同梱する**。共有物（core-contract.md / plangate.md 等）の重複は
+# 許容する — skill は自己完結しているべきであり、skill 間の相対参照を作らない。
+#
+# ⚠️ `docs/working/templates/plan.md` は配布先で **plan-template.md にリネーム**する
+# （Human 決定）。`scripts/hooks/check-plan-hash.sh` の EH-3 は **basename `plan.md`**
+# で block するため（パスではなく basename 判定）、そのまま同梱すると導入先で当該
+# ファイルを AI が編集できなくなる。実測: `plan.md` → rc=2 / `plan-template.md` → rc=0。
+# リネーム対象は plan.md のみ（todo.md / test-cases.md 等は実測 rc=0 のため不要）。
+#
+# ⚠️ `docs/working/TASK-XXXX/*` は**導入先で本ワークフローが生成する出力先**であって
+# 配布物ではない。同梱しない。
+#
+# ⚠️ 上の汎用 skills ループ（`.agents/skills/<name>/references/` を同期する部分）とは
+# **同じ dst ディレクトリを二重管理しないこと**が前提。汎用側は `_src_refs` が存在する
+# ときだけ dst に触るため、`.agents/skills/ai-dev-*/references/` を作らない限り衝突しない
+# （ai-loop-cycle と同じ前提）。
+# 作ってしまったときの実挙動（実測 / `tests/extras/ta-26-plugin-sync.sh` TC-43）は
+# 「互いに消し合う」ではなく **一方向の COPY→DELETE が毎 run 反復して収束しない**:
+# 汎用ループが COPY した直後に、同 run 内で後続の ai-dev ループが期待集合外
+# （stale）として DELETE する。順序が固定なので配布側へは永久に到達せず、
+# `changed=1` が立ち続けて "Sync complete — no changes" にならない。
+# net のファイル状態は不変なので CI の `git diff --quiet` は緑のままで、
+# **CI が恒久 red になるわけではない**（＝黙って直らない）。
+AI_DEV_SKILLS="ai-dev-plan ai-dev-exec ai-dev-verify ai-dev-brainstorm"
+
+_ai_dev_ref_spec() {
+  # $1=skill 名 → stdout に `<配布先 basename> <REPO_ROOT 相対のソースパス>` を 1 行 1 件。
+  # 配布先 basename とソース basename が異なるのは plan-template.md のみ（上記注記）。
+  case "$1" in
+    ai-dev-plan)
+      printf '%s\n' \
+        'ai-driven-development.md docs/ai-driven-development.md' \
+        'plan-metrics-verification.md docs/ai/plan-metrics-verification.md' \
+        'core-contract.md docs/ai/core-contract.md' \
+        'plangate.md docs/plangate.md' \
+        'plan-template.md docs/working/templates/plan.md' \
+        'todo.md docs/working/templates/todo.md' \
+        'test-cases.md docs/working/templates/test-cases.md' \
+        'INDEX.md docs/working/templates/INDEX.md' \
+        'current-state.md docs/working/templates/current-state.md' \
+        'review-self.md docs/working/templates/review-self.md' \
+        'review-external.md docs/working/templates/review-external.md' \
+        'pbi-input.md docs/working/templates/pbi-input.md'
+      ;;
+    ai-dev-exec)
+      printf '%s\n' \
+        'settings-wiring-contract.md docs/ai/settings-wiring-contract.md' \
+        'c3-prime-contract.md docs/workflows/ai-loop/c3-prime-contract.md' \
+        'core-contract.md docs/ai/core-contract.md' \
+        'plangate.md docs/plangate.md'
+      ;;
+    ai-dev-verify)
+      printf '%s\n' \
+        'settings-wiring-contract.md docs/ai/settings-wiring-contract.md' \
+        'c3-prime-contract.md docs/workflows/ai-loop/c3-prime-contract.md' \
+        'core-contract.md docs/ai/core-contract.md' \
+        'plangate.md docs/plangate.md' \
+        'handoff.md docs/working/templates/handoff.md'
+      ;;
+    ai-dev-brainstorm)
+      printf '%s\n' \
+        'ai-driven-development.md docs/ai-driven-development.md' \
+        'core-contract.md docs/ai/core-contract.md' \
+        'plangate.md docs/plangate.md'
+      ;;
+  esac
+}
+
+for _ad_skill in $AI_DEV_SKILLS; do
+  _ad_skill_dir="$PLUGIN_DIR/skills/$_ad_skill"
+  # SKILL.md が同期済みの skill だけを対象にする（上の汎用 skills ループが作る）。
+  [ -d "$_ad_skill_dir" ] || continue
+  _ad_refs="$_ad_skill_dir/references"
+
+  _ai_dev_spec_file="$(mktemp)"
+  _ai_dev_ref_spec "$_ad_skill" > "$_ai_dev_spec_file"
+
+  # 二段構成（ai-loop セクションと同型）: (1) 期待 basename 集合と
+  # basename → **バンドル元ソース実パス** の写像を先に確定し、(2) そのあとで
+  # 内容をリンク変換しつつ書き込む。先にコピーしながら集合を積み上げると、
+  # 後半で追加される bundle ファイルへの内部リンクを前半の変換時点で判定できない。
+  # 写像を持つのは basename 単独では別実体へ誤ポイントし得るため（issue #790 MAJOR）。
+  _ad_expected=""
+  _ai_dev_map_file="$(mktemp)"
+  : > "$_ai_dev_map_file"
+  while read -r _ad_base _ad_src; do
+    [ -n "$_ad_base" ] || continue
+    if [ ! -f "$REPO_ROOT/$_ad_src" ]; then
+      # ソース不在は **異常**であって「配らない」という意思表示ではない（#1249
+      # MAJOR-3）。黙って continue すると basename が期待集合から抜け、直後の
+      # 削除ループが配布側の既存ファイルを rc=0・無警告で消す。
+      # ここでは (1) WARN を出し (2) basename を期待集合に残して削除を保留する。
+      # map には入れない（ソース実パスが無いためリンク同一実体判定に使えない）。
+      spec_missing=$((spec_missing + 1))
+      spec_missing_list="$spec_missing_list
+  - skills/$_ad_skill/references/$_ad_base <- $_ad_src"
+      _warn "WARN: spec のソースが見つかりません — $_ad_src (skills/$_ad_skill/references/$_ad_base)。上流の rename / 移動の可能性があるため配布側の削除を保留します（_ai_dev_ref_spec を実パスへ追従させてください）"
+      _ad_expected="$_ad_expected $_ad_base"
+      continue
+    fi
+    _ad_expected="$_ad_expected $_ad_base"
+    printf '%s\t%s\n' "$_ad_base" "$REPO_ROOT/$_ad_src" >> "$_ai_dev_map_file"
+  done < "$_ai_dev_spec_file"
+
+  while read -r _ad_base _ad_src; do
+    [ -n "$_ad_base" ] || continue
+    _ad_f="$REPO_ROOT/$_ad_src"
+    [ -f "$_ad_f" ] || continue
+    mkdir -p "$_ad_refs"
+    _ad_dfile="$_ad_refs/$_ad_base"
+    _tmp_rewritten="$(mktemp)"
+    # content_src と source_path は同一（ai-loop の ho-paths.md のようなヘッダ前置は無い）。
+    python3 "$AI_LOOP_LINK_REWRITER" "$_ad_f" "$_ad_f" "$_ad_skill" "$_ai_dev_map_file" \
+      > "$_tmp_rewritten"
+    if [ ! -f "$_ad_dfile" ] || ! cmp -s "$_tmp_rewritten" "$_ad_dfile"; then
+      if [ "$DRY_RUN" = "1" ]; then
+        _drylog "WOULD COPY (links self-contained): skills/$_ad_skill/references/$_ad_base"
+      else
+        cp "$_tmp_rewritten" "$_ad_dfile"
+        _log "COPY (links self-contained): skills/$_ad_skill/references/$_ad_base"
+      fi
+      changed=1
+    fi
+    rm -f "$_tmp_rewritten"
+  done < "$_ai_dev_spec_file"
+
+  rm -f "$_ai_dev_spec_file"
+  _ai_dev_spec_file=""
+  rm -f "$_ai_dev_map_file"
+  _ai_dev_map_file=""
+
+  # 正本から消えたファイルを配布側からも削除する。
+  # mass-delete safety guard（#861 / #877 / #914 と同型）: 削除実行前に
+  # base（期待集合の要素数）と stale（dst にあって期待集合に無い *.md 数）を集計し、
+  # blocked なら **当該 skill の削除ループのみ** skip する（コピーは阻害しない・
+  # 他 skill の処理も継続する）。
+  #
+  # 保証範囲: base は当該 skill の期待集合であり、正本ディレクトリ単位ではない。
+  # したがって捕捉できるのは「期待集合より stale が多い」規模の異常（spec の
+  # 大量削除・正本ディレクトリの消失など）に限られ、期待集合の一部だけが欠損した
+  # 場合は stale <= base のままとなり検出しない（ai-loop 側の合算方式と同じ限界）。
+  if [ -d "$_ad_refs" ]; then
+    _ad_base_count=0
+    for _ad_e in $_ad_expected; do
+      [ -n "$_ad_e" ] || continue
+      _ad_base_count=$((_ad_base_count + 1))
+    done
+    # stale の定義（*.md 実ファイル + 期待集合に無い）は下の削除ループの条件と
+    # **必ず一致させること**。片方だけ変えると「N 件と数えて M 件消す」形で
+    # guard が無効化される（#861 再発型）。
+    _ad_stale_count=0
+    for _ad_f in "$_ad_refs"/*.md; do
+      [ -f "$_ad_f" ] || continue
+      _ad_b="$(basename "$_ad_f")"
+      case " $_ad_expected " in
+        *" $_ad_b "*) : ;;
+        *) _ad_stale_count=$((_ad_stale_count + 1)) ;;
+      esac
+    done
+    # 呼び出しを $(...) 内へ置かないこと（guard_fired の global 伝播条件）
+    if ! _mass_delete_blocked "skills/$_ad_skill/references" "$_ad_base_count" "$_ad_stale_count"; then
+      for _ad_f in "$_ad_refs"/*.md; do
+        [ -f "$_ad_f" ] || continue
+        _ad_b="$(basename "$_ad_f")"
+        case " $_ad_expected " in
+          *" $_ad_b "*) : ;;
+          *)
+            if [ "$DRY_RUN" = "1" ]; then
+              _drylog "WOULD DELETE: skills/$_ad_skill/references/$_ad_b"
+            else
+              rm "$_ad_f"; _log "DELETE: skills/$_ad_skill/references/$_ad_b"
+            fi
+            changed=1
+            ;;
+        esac
+      done
+    fi
+  fi
+done
 
 # バージョン番号を CHANGELOG から取得（README.md / plugin.json 共用）
 _ver=""
@@ -592,6 +836,23 @@ if [ "$changed" = "1" ]; then
   _log "Sync complete — changes detected"
 else
   _log "Sync complete — no changes"
+fi
+
+# spec ソース不在の「人へ届く経路」（#1249 CRITICAL-1）。
+# 削除を保留する以上ファイル状態は変わらないため、CI の `git diff --quiet` も
+# exit code も緑のままになる（TC-42 が rc=0 を要求している）。ログ 1 行だけでは
+# 誰も読まないので、
+#   (1) 終端でまとめて stderr へ再掲する（ローカル実行者向け）
+#   (2) GitHub Actions 上では `::warning::` アノテーションを出す
+#       （job サマリと該当 step に表示され、緑の run でも一覧から見える）
+# の 2 経路を確保する。**exit code は変えない**（保留は fail ではなく、
+# 「spec を実パスへ追従させる」という追従作業の通知である）。
+if [ "$spec_missing" != "0" ]; then
+  _warn "WARN: ai-dev spec のソース不在 $spec_missing 件 — 該当 basename の削除を保留しました。_ai_dev_ref_spec を実パスへ追従させてください:$spec_missing_list"
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    printf '::warning title=sync-plugin: ai-dev spec source missing::%s 件のソースが見つからず配布物の削除を保留しました（_ai_dev_ref_spec の追従が必要）\n' \
+      "$spec_missing"
+  fi
 fi
 
 # #877 F1: mass-delete safety guard が発火した run は非ゼロ（exit 3）で終了する。

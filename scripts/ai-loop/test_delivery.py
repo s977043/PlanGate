@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
-"""delivery.py（MERGE_READY 状態機械 / TASK-0873・#873）の単体テスト。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """delivery.py（MERGE_READY 状態機械 / TASK-0873・#873）の単体テスト。
 
 test-cases 正本: docs/working/TASK-0873/test-cases.md（TC 番号は同文書と対応）。
 producer 非依存の手組み snapshot / record で判定エンジンを検証し、
 CLI 統合（c3-prime 入口再検証）は実 task_dir sandbox で検証する。
 """
-from __future__ import annotations
 
 import io
 import json

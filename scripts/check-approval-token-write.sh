@@ -19,6 +19,8 @@
 #   Edit|Write|MultiEdit … PLANGATE_HOOK_FILE env / $1 / stdin JSON .tool_input.file_path
 #                （legacy 互換のみ top-level .file_path fallback）
 #   Bash       … stdin JSON .tool_input.command 中の token path + 「書き込み意図」を検出
+#                （TASK-1110 / #1110: リダイレクト（>）は先が token path に解決される
+#                  場合のみ block。解決不能な先は block 側 = fail-closed）
 #                （> / cp/mv/ln/install/dd/tee/truncate/patch/apply_patch /
 #                  ed/ex / git checkout|restore|checkout-index|update-index /
 #                  sed -i / perl -i / python write_text・open(...,"w") /
@@ -41,6 +43,180 @@ _is_token_path() {
   esac
 }
 
+# 保護名リテラル（`_is_token_path` の basename 相当）。#1115 の幅ガードが参照する。
+_PG_PROTECTED_NAMES="maintenance.json c3.json parent-c3.json parent-integration.json" # t1115-protected-name-list
+# 語分割の区切り文字。リダイレクト記号を含めるのは、先が `/` を含まない形で
+# basename 抽出だけでは語を切り出せないため（V-3 R-008）。
+# 空白 / タブ / 改行は下の `_PG_WORD_IFS` 側に固定で入る。
+_PG_WORD_SEP=";&|()<>" # t1115-word-ifs-value
+_PG_WORD_IFS=" 	
+$_PG_WORD_SEP"
+
+# ── glob bypass の封鎖（TASK-1115 / #1115。V-3 R-001〜R-008 反映で再設計）────
+# `_is_token_path` は「保護パターンで **リテラル文字列** を照合する」判定なので、
+# 照合される側（コマンド）にワイルドカードを入れて保護対象のファイル名リテラルを
+# 途中で崩すと一致が外れる（末尾 1 文字を `*` / `?` / `[...]` / brace へ置換する等）。
+# 引数の pathname expansion は POSIX 必須のため、`cp` / `tee` 等の引数レーンでは
+# **shell 非依存で上書きが成立する**（redirect 先の展開は bash/zsh のみ）。
+# brace expansion は **存在しないファイルを新規作成できる**ため glob より危険
+# （glob は既存ファイルにしか展開されない = 上書きのみ / V-3 R-002）。
+# #1101（HO が `bin/../bin/plangate` で迂回できる）と同クラス
+# ＝ **正規化対象にワイルドカードが入っていない**。
+#
+# 是正の要点は **照合方向の反転**。候補語を「パターン」、保護名を「subject」に
+# 置いて `case "<protected-name>" in <candidate-pattern>)` で照合する。
+#
+# 判定軸は **「ディレクトリ条件 × basename 条件」の組**で統一する（V-3 R-001/R-003）。
+# 初版は (A) をディレクトリで括り (B) を *形*（先頭に glob があるか）で除外していた
+# ため軸が混ざり、片側で漏れ（保護ディレクトリを 1 つしか見ていなかった）
+# 片側で止めすぎた（`approvals/*.pdf`）。除外は **形ではなく幅**
+# （保護名をどれだけ pin するか）で行う。
+#
+#   P1: 保護ディレクトリ（`approvals/` / `_maintenance/`）配下
+#       × basename が **`.json` で終わりうる**
+#       → 当該 dir で実際に保護されているのは `.json` のみ。`*.pdf` / `*.md` は
+#         保護対象ではないので block しない（V-3 R-003 #8/#9）
+#   P2: 任意ディレクトリ
+#       × basename が保護名リテラルに一致しうる **かつ 1 文字を除いて pin する**
+#       → `c*` / `m*` / `p*.json` のような「一致はしうるが狙っていない」広い語を
+#         除外する（V-3 R-003 #1〜#4/#10）。1 文字しか譲らない語は block する
+#
+# 実装は **fork を一切伴わない**（PreToolUse は全 Bash 実行のたびに走るため /
+# V-3 R-004）。サブシェル・外部コマンドを使わず、パラメータ展開と `case` のみ。
+# さらに文字走査（`_scan_pattern`）は **保護ディレクトリ配下か、保護名に
+# パターン一致した語だけ**で呼ぶ。無関係な glob 語（`f1*.txt` 等）は `case` 数回で
+# 落ちるため、語数に対する劣化が出ない。
+
+# パターン文字列を 1 文字ずつ走査して次を求める（fork なし / t1115-scan-core）:
+#   _gm_pin  … パターンが pin する文字数（`[...]` は 1 文字、`*` / `?` は 0、他は 1）
+#   _gm_tail … 最後のメタ文字より後ろのリテラル部分
+# 閉じない `[` は _gm_tail が空のまま = 「何にでも化けうる」扱いになり fail-closed。
+_gm_pin=0
+_gm_tail=""
+_scan_pattern() {
+  _sp_s="$1"; _gm_pin=0; _gm_tail=""; _sp_br=0
+  while [ -n "$_sp_s" ]; do
+    _sp_rest="${_sp_s#?}"
+    _sp_c="${_sp_s%"$_sp_rest"}"
+    _sp_s="$_sp_rest"
+    if [ "$_sp_br" = "1" ]; then
+      if [ "$_sp_c" = "]" ]; then _sp_br=0; _gm_pin=$((_gm_pin + 1)); fi
+      continue
+    fi
+    case "$_sp_c" in
+      "[") _sp_br=1; _gm_tail="" ;;
+      "*"|"?") _gm_tail="" ;;
+      *) _gm_pin=$((_gm_pin + 1)); _gm_tail="$_gm_tail$_sp_c" ;;
+    esac
+  done
+}
+
+# 引用符を除去する（fork なし）。引用を語の途中で閉じる書き方は shell が glob
+# 展開するが、静的抽出では引用が残るため。V-3 R-006: 引用の有無で判定が非対称に
+# ならないよう、除去後も **同じ幅ガード（P2）** を通す。
+_gm_sq=""
+_strip_quotes() {
+  _sq_s="$1"; _gm_sq=""
+  while [ -n "$_sq_s" ]; do
+    _sq_rest="${_sq_s#?}"
+    _sq_c="${_sq_s%"$_sq_rest"}"
+    _sq_s="$_sq_rest"
+    case "$_sq_c" in
+      "'"|'"') : ;;
+      *) _gm_sq="$_gm_sq$_sq_c" ;;
+    esac
+  done
+}
+
+# P2: 保護名リテラルに「一致しうる」かつ「1 文字を除いて pin する」かを判定する。
+# 走査は **パターン一致した保護名がある場合だけ** 行う（性能 / V-3 R-004）。
+_pin_hits_protected() {
+  _ph_b="$1"
+  for _ph_l in $_PG_PROTECTED_NAMES; do # t1115-protected-basenames
+    # 候補語を **パターン**、保護名を subject に置く（照合方向の反転）。
+    # SC2254 は意図的 — 引用するとリテラル比較になり #1115 の是正が無効化される。
+    # shellcheck disable=SC2254
+    case "$_ph_l" in
+      $_ph_b)
+        _scan_pattern "$_ph_b" # t1115-scan-pin
+        [ "$_gm_pin" -ge $((${#_ph_l} - 1)) ] && return 0 # t1115-pin-width
+        ;;
+    esac
+  done
+  return 1
+}
+
+_may_expand_to_token_path() {
+  _gm_w="$1"
+  # メタ文字を含まない語は従来の `_is_token_path` リテラル判定に委ねる。
+  # `{` を含めるのは brace expansion の封鎖（V-3 R-002）。
+  case "$_gm_w" in
+    *"*"*|*"?"*|*"["*|*"{"*) : ;;
+    *) return 1 ;;
+  esac
+  _gm_base="${_gm_w##*/}" # t1115-basename-extract
+  # brace expansion 正規化: `{` 以降は任意文字列へ展開されうるので `*` に畳む。
+  # `*` は brace の展開結果を包含するため安全側（V-3 R-002）。
+  case "$_gm_base" in
+    *"{"*) _gm_base="${_gm_base%%\{*}*" ;; # t1115-brace-normalize
+  esac
+  # basename 側にメタ文字が無い（= dir 側だけの glob）なら従来判定に委ねる。
+  case "$_gm_base" in
+    *"*"*|*"?"*|*"["*) : ;;
+    *) return 1 ;; # t1115-base-meta
+  esac
+  # P1: 保護ディレクトリ × 「`.json` で終わりうる basename」
+  case "$_gm_w" in
+    */approvals/*|approvals/*|*/_maintenance/*|_maintenance/*) # t1115-protected-dir
+      _scan_pattern "$_gm_base" # t1115-scan-base
+      case "$_gm_tail" in
+        ""|n|on|son|json|*.json) return 0 ;; # t1115-dir-json-tail
+      esac
+      ;;
+  esac
+  # P2: 任意ディレクトリ × 保護名リテラルを 1 文字を除いて pin する basename。
+  # 最短の保護名は 7 文字なので pin は最低 6 必要 = 6 文字未満の語は足切り。
+  [ "${#_gm_base}" -ge 6 ] || return 1 # t1115-width-floor
+  _pin_hits_protected "$_gm_base" && return 0
+  case "$_gm_base" in
+    *"'"*|*'"'*)
+      _strip_quotes "$_gm_base" # t1115-quote-strip
+      [ "${#_gm_sq}" -ge 6 ] || return 1
+      _pin_hits_protected "$_gm_sq" && return 0
+      ;;
+  esac
+  return 1
+}
+
+# 外側ゲート: コマンド文字列が保護トークンパスを **狙いうる** か。
+#   リテラル一致（従来）OR 展開後にトークンパスになりうる glob 語を含む（#1115）
+# 真を返しても block はしない。`_has_write_intent` との AND は不変。
+# 語分割は IFS で行い fork を作らない（V-3 R-004）。`<` / `>` を区切りに含めるのは
+# リダイレクト先が `/` を含まない場合に basename 抽出（`##*/`）だけでは語を
+# 切り出せないため（V-3 R-008 の等価変異指摘への回答。TC で非等価性を固定する）。
+_tok_glob_word=""
+_cmd_may_target_token() {
+  _cm_c="$1"
+  _tok_glob_word=""
+  _is_token_path "$_cm_c" && return 0
+  case "$_cm_c" in
+    *"*"*|*"?"*|*"["*|*"{"*) : ;;
+    *) return 1 ;;
+  esac
+  _cm_hit=1
+  _cm_ifs="$IFS"
+  IFS="$_PG_WORD_IFS" # t1115-word-split
+  set -f # glob 展開を止めて生の語のまま評価する
+  for _cm_w in $_cm_c; do
+    if _may_expand_to_token_path "$_cm_w"; then # t1115-word-scan
+      _tok_glob_word="$_cm_w"; _cm_hit=0; break
+    fi
+  done
+  set +f
+  IFS="$_cm_ifs"
+  return "$_cm_hit"
+}
+
 # 非書き込みリダイレクト記法だけを列挙的に除去する（TASK-1045 / #1045）。
 # 方針（plan GC-2）: 完全なシェル構文解析は行わない。これは allowlist 的な除去であり
 # `>` 判定の一般的な緩和ではない。除去対象は次の 2 種のみ:
@@ -59,16 +235,98 @@ _strip_nonwrite_redirects() {
     -e 's|[0-9]*>>*[[:space:]]*/dev/null\([^A-Za-z0-9_./-]\)|\1|g'
 }
 
+# リダイレクト先とトークンパスの相関判定（TASK-1110 / #1110）。
+# 入力は _strip_nonwrite_redirects 適用後の文字列（fd 複製 / fd クローズ /
+# /dev/null 破棄は除去済み）。残存する各リダイレクト先を静的に抽出し、
+# 「トークンパスに解決される先」が 1 つでもあれば真（= block）を返す。
+# 修正前は「コマンド文字列のどこかにトークン名がある」×「どこかに `>` がある」の
+# AND だけで block していたため、`git commit -m '...c3.json...' > /tmp/log.txt` の
+# ように無関係なリダイレクトを伴うだけで誤 block された（#1110）。
+#
+# fail-closed（判定不能は必ず block 側 / 誤検知削減のために真の陽性を落とさない）:
+#   - `&>` / `&>>`（全出力リダイレクト）を含む … TASK-1045 U-2 の block 維持
+#   - 抽出パイプラインの失敗（sed 失敗等）      … 真
+#   - 先が空 / `$` / バッククォート / glob を含む … 真（静的に解決不能）
+#   - **先に引用符 / バックスラッシュが残っている … 真**（V-3 R-001。下記「切り詰め」）
+#   - 先が /dev/*（正規化後に残った擬似デバイス）… 真（呼出側で token file へ
+#     再束縛されうる。既存 T1045-TC-11/12/13 の block を維持する）
+#
+# 「切り詰め」クラスが fail-closed に必要な理由（V-3 R-001 / critical）:
+#   先の語は終端文字（空白 / ; & | ( ) <）で打ち切る。POSIX sh でこれらの文字を
+#   語の一部として書くには **必ず引用かバックスラッシュ退避が要る**ため、打ち切りで
+#   本来の先を失った語には必ず `'` / `"` / `\` が残る。したがって
+#   「打ち切り後の語に引用符・バックスラッシュが含まれる → 静的に解決できていない」
+#   と判定すれば、構文解析（TASK-1045 GC-2 で不採用）に踏み込まずに閉じられる。
+#   `#` だけは語頭のみコメント開始で語中は通常文字なので終端に含めない
+#   （含めると `dir#1/<TOKEN>` のような退避不要の先を取りこぼす）。
+#
+# 完全なシェル構文解析は行わない（TASK-1045 GC-2 の方針を継承）。POSIX BRE のみ・
+# sed の RHS `\n` は使わない（分割は tr で行う / GNU・BSD 差異回避）。LC_ALL=C 固定。
+_wi_redirect_target=""
+_redirect_writes_token() {
+  _rw_s="$1"
+  _wi_redirect_target=""
+  # `&>` は正規化で `&>#` へ退避される。原文・退避形のどちらでも同じく block 維持。
+  case "$_rw_s" in
+    *'&>'*) _wi_redirect_target='&>(all-output-redirect)'; return 0 ;;
+  esac
+  # 語の終端文字クラス（POSIX BRE のブラケット式）。`#` を入れてはならない（上記）。
+  _rw_term='[[:space:];&|()<]' # t1110-terminator-class
+  # 改行を空白へ畳む（複数行コマンドで、`>` より前の行が疑似的な先として
+  # 混入するのを防ぐ。畳まないと heredoc 本文の行が先として評価される）。
+  _rw_flat=$(printf '%s' "$_rw_s" | tr '\n' ' ') || { _wi_redirect_target='(flatten-failed)'; return 0; } # t1110-flatten
+  # `>|`（noclobber 上書き）を `>` へ、`>>` 以上の連続を `>` へ畳む。
+  _rw_norm=$(printf '%s' "$_rw_flat" | LC_ALL=C sed -e 's%>|%>%g' -e 's%>>*%>%g') \
+    || { _wi_redirect_target='(normalize-failed)'; return 0; }
+  # `>` で分割し、先頭（最初の `>` より前）を捨てた各レコードの先頭語を先とみなす。
+  # 語頭の `#` はコメント開始 = 先が無いので空にする。空語は @EMPTY@ で残す。
+  # 引用符は剥がさない（残っていること自体が「解決できていない」の証拠なので）。
+  _rw_list=$(printf '%s' "$_rw_norm" | tr '>' '\n' \
+    | LC_ALL=C sed -e '1d' -e 's%^[[:space:]]*%%' -e 's%^#.*$%%' \
+        -e "s%${_rw_term}.*\$%%" -e 's%^$%@EMPTY@%') \
+    || { _wi_redirect_target='(extract-failed)'; return 0; }
+  [ -n "$_rw_list" ] || return 1
+  _rw_hit=1
+  _rw_ifs="$IFS"
+  IFS='
+'
+  set -f # glob 展開を止めて生の語のまま評価する
+  for _rw_t in $_rw_list; do
+    # 引用 / 退避が残る語は切り詰めで別物になった可能性がある = 解決不能（R-001）
+    case "$_rw_t" in *"'"*|*'"'*|*'\'*) _wi_redirect_target="quoted-or-escaped:$_rw_t"; _rw_hit=0; break ;; esac # t1110-quote-escape
+    case "$_rw_t" in
+      '@EMPTY@'|*'$'*|*'`'*|*'*'*|*'?'*|*'['*)
+        _wi_redirect_target="$_rw_t"; _rw_hit=0; break ;;
+      /dev/*)
+        _wi_redirect_target="$_rw_t"; _rw_hit=0; break ;;
+    esac
+    if _is_token_path "$_rw_t"; then
+      _wi_redirect_target="$_rw_t"; _rw_hit=0; break
+    fi
+  done
+  set +f
+  IFS="$_rw_ifs"
+  return "$_rw_hit"
+}
+
 # Bash コマンド文字列に「書き込み意図」があるか（読み取りは false を返す）
 # 一致したルールの識別子（TASK-1045 AC-10）。真を返す直前に必ず設定する。
 _wi_rule=""
 _has_write_intent() {
   _wc="$1"
   _wi_rule=""
+  _wi_redirect_target=""
   # リダイレクト > / >>: 非書き込み記法を除去してから残存 `>` を見る。
   # 正規化に失敗したら元文字列で判定する = fail-closed（block 維持 / plan GC-8 (i)）。
   _wc_n=$(_strip_nonwrite_redirects "$_wc") || _wc_n="$_wc" # t1045-redirect-normalize
-  printf '%s' "$_wc_n" | grep -q '>' && { _wi_rule=file-redirect; return 0; } # t1045-file-redirect
+  # 残存 `>` があるだけでは block しない。先がトークンパスに解決されるか
+  # （または解決不能か）まで突き合わせる（#1110）。
+  _redirect_tok=0
+  _redirect_writes_token "$_wc_n" && _redirect_tok=1 # t1110-redirect-correlate
+  printf '%s' "$_wc_n" | grep -q '>' && [ "$_redirect_tok" = "1" ] && { _wi_rule=file-redirect; return 0; } # t1045-file-redirect
+  # ここへ来た時点で redirect レーンは不成立。以降のルールで block する場合に
+  # redirect_target が誤って添えられないよう捨てる（正規化失敗時の診断値対策）。
+  _wi_redirect_target="" # t1110-reset-diag
   # 書き込み系コマンドが語境界で出現（行頭・; & | ( 直後・空白区切り）
   printf '%s' "$_wc" | grep -qE '(^|[;&|(]|[[:space:]])(cp|mv|ln|install|dd|tee|truncate|patch|apply_patch)([[:space:]]|$)' && { _wi_rule=copy-like; return 0; }
   # ed / ex（stdin スクリプトの w コマンドで書込可能。語境界で検出 / TASK-1023 V-3 実測 bypass）
@@ -160,11 +418,15 @@ if true; then # t1023-stdin-always
   else
     _cmd=$(printf '%s' "$_stdin" | jq -r '.tool_input.command' 2>/dev/null) || _cmd=""
     if [ -z "$_cmd" ]; then _parse_unknown "empty command"; fi
-    # token path と別 write が同一 command に混在する場合も相関解析せず安全側 block
-    if _is_token_path "$_cmd" && _has_write_intent "$_cmd"; then
+    # redirect レーンは「先がトークンパスに解決される（または解決不能）」ときのみ
+    # block する（TASK-1110 / #1110）。copy-like 等の他ルールは従来どおり
+    # 相関解析せず安全側 block のまま。
+    if _cmd_may_target_token "$_cmd" && _has_write_intent "$_cmd"; then # t1115-glob-gate
       # rule=<id> で一致ルールの根拠を機械可読に示す（TASK-1045 AC-10）。
+      # redirect レーンでは一致した先も併記する（TASK-1110 AC-4）。
+      # glob 経由でゲートを通った場合は候補語も併記する（TASK-1115）。
       # 既存の可読性を壊さないよう "writes token path" は残す。
-      _block "Bash command writes token path (rule=${_wi_rule:-unknown}): $_cmd"
+      _block "Bash command writes token path (rule=${_wi_rule:-unknown}${_wi_redirect_target:+, redirect_target=$_wi_redirect_target}${_tok_glob_word:+, glob_candidate=$_tok_glob_word}): $_cmd"
     fi
   fi
 fi

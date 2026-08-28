@@ -5,23 +5,55 @@ description: "PBI INPUT PACKAGE から PlanGate の plan.md / todo.md / test-cas
 
 # AI-Driven Plan (PlanGate / Codex 共用)
 
-PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Codex / Claude Code 両方で実行する skill。実行ロジックは上流リポジトリの `scripts/ai-dev-workflow` / `bin/plangate` CLI 側に集約し、skill は読む順序と入出力規約のみを担う。
+PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Codex / Claude Code 両方で実行する skill。skill が担うのは読む順序と入出力規約であり、**機械化された実行ロジックは上流リポジトリ（`s977043/plangate`）の `scripts/ai-dev-workflow` / `bin/plangate` CLI 側にある**。
+
+> **その CLI は導入先には配布されない**（Human 決定 #1144: plugin が配るのは読み物層のみで、CLI と enforcement 層〔`scripts/hooks/`〕は含めない）。**plan フェーズ自体は CLI 非依存で完結する**（本 skill の手順どおり `plan.md` / `todo.md` / `test-cases.md` を手で作る）。CLI が必須なのは `plan_hash` の機械検証など一部に限られ、その分離と代替手順は下記「CLI 呼び出し」節と「CLI 不在時のフォールバック」節を正本とする。
+
+> 本スキルは **bundled resources**（`references/`）で自己完結する。
+>
+> **パス表記の規約（重要）**: 本 SKILL.md 中の `references/…` は、すべて **本スキル
+> ディレクトリからの相対パス**（= `<skill_dir>/…`）であって、導入先リポジトリのルートからの
+> 相対パスではない。実行時はまず `<skill_dir>`（このファイルが置かれているディレクトリ）を
+> 解決してから使う:
+>
+> | 環境 | `<skill_dir>` |
+> | --- | --- |
+> | plugin 導入先（Claude marketplace） | `<plugin_root>/skills/ai-dev-plan/` |
+> | `install.sh --claude` 導入先 | `.claude/skills/ai-dev-plan/` |
+> | Codex 導入先 | `.codex/skills/ai-dev-plan/` |
+> | 上流リポジトリ（正本側） | `.agents/skills/ai-dev-plan/` |
+>
+> 導入先が独自の正本（上流リポジトリの `docs/` 配下に相当するもの）を別途保持している
+> 場合は、そちらを優先すること。
 
 ## Read First
 
 ### 参照解決順（導入先で必ずこの順に探す）
 
-本 skill の参照は上流リポジトリ基準の相対パスで書かれている。導入先ではそのままでは
-解決できないものがあるため、**次の順で探索する**:
+本 Skill は **上流リポジトリ基準の `docs/**` パスを直接参照しない**（#1232）。`docs/**` は
+`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**であり、
+書いた時点で導入先では必ず空振りするためである。参照の解決は次の順で行う:
 
-1. 導入先リポジトリの相対パス（例: `.claude/rules/mode-classification.md`）
-2. 無ければ plugin root 配下（例: `${CLAUDE_PLUGIN_ROOT}/rules/mode-classification.md`）
-   - **解決は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して確認する**。
-     Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
-     という文字列をそのまま Read しても必ず失敗する
-   - **変数が空・未設定なら glob（`~/.claude/plugins/cache/**` 等）で推測せず 3 へ進む**。
-     キャッシュには複数バージョンが並存しうるため、当て推量は版の取り違えを招く
-3. どちらにも無い場合は **「解決できなかった」と明示**し、推測で内容を補わない
+1. **`<skill_dir>` 配下の同梱物（`references/`）を第一に読む** — 契約 doc・テンプレートは
+   本スキルに同梱されている（「同梱リファレンス」節の一覧）
+2. 導入先リポジトリが独自の正本（上流の `docs/` 配下に相当するもの）を保持していれば、
+   そちらを優先する
+3. **rules（`rules/*.md`）だけは配布経路によって着地が異なる**ため、次の順で探す:
+   1. 導入先リポジトリの相対パス（例: `.claude/rules/mode-classification.md`）
+   2. 無ければ plugin root 配下（例: `${CLAUDE_PLUGIN_ROOT}/rules/mode-classification.md`）
+      - **解決は Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して確認する**。
+        Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+        という文字列をそのまま Read しても必ず失敗する
+      - **変数が空・未設定なら glob（`~/.claude/plugins/cache/**` 等）で推測せず次へ進む**。
+        キャッシュには複数バージョンが並存しうるため、当て推量は版の取り違えを招く
+4. いずれでも解決できなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の
+   記述と同梱 `references/` を代替正本として扱い、推測で内容を補わない
+
+**plugin root 直下に `docs/` を探しに行かないこと**: plugin が配布するのは
+`agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として
+認識せず、plugin root 配下に相当する配布物が存在しないため必ず空振りする（クラス A の rules
+参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を
+`docs/**` に持ち込まない）。
 
 導入経路は 3 つあり、配置されるものが違う（**「同じ 4 ディレクトリが配られる」わけではない**）:
 
@@ -38,18 +70,52 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
-| `rules/*.md` | `.claude/rules/` に着地（解決可） | `${CLAUDE_PLUGIN_ROOT}/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
-| `docs/**` | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
+| `rules/*.md` | `.claude/rules/` に着地（解決可） | `${CLAUDE_PLUGIN_ROOT}/rules/` で解決 | **未配置（解決不可 → 手順 4 へ）** |
+| 契約 doc・テンプレート | **`<skill_dir>/references/` に同梱（解決可）** | **`<skill_dir>/references/` に同梱（解決可）** | **`<skill_dir>/references/` に同梱（解決可）** |
 | `bin/**` | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 | `scripts/**` | コピー対象外（解決不可） | `${CLAUDE_PLUGIN_ROOT}/scripts/` は存在するが `install-plangate-skills.sh` のみ（目的の CLI は解決不可） | 未配置（解決不可） |
 
-**Codex 経路では解決順 1・2 とも成立しない**ため、rules 参照は手順 3（解決できなかったと
-明示）に落ちる。`docs/**` が解決できない環境と同様、正本の内容は **本 skill の記述で代替**
-し、plan.md の Questions / Unknowns に「正本 `<path>` を参照できなかった」旨を記録する。
+> **例外（上流リポジトリ内のドッグフーディング経路 / #1249 MINOR-3）**: 上表「Codex 経由」の
+> 「同梱（解決可）」が成立するのは **配布物経由**（`plugin/plangate/scripts/install-plangate-skills.sh`。
+> source は `plugin/plangate/skills/`）に限る。上流リポジトリ自身が `.codex/skills/` を作る
+> `scripts/install-plangate-skills-to-codex.sh` は source が `.agents/skills/` であり、そこには
+> 本 skill の `references/` が **存在しない**（`references/` は `scripts/sync-plugin-plangate.sh` が
+> `plugin/plangate/skills/**` にだけ生成する）。したがって上流 repo の
+> `.codex/skills/<skill>/references/` は **構造上つねに不在**であり、この経路では契約 doc・
+> テンプレートは手順 4（解決できなかったと明示）に落ちる。上流では `docs/**` の正本を直接
+> 読めるため実害は無いが、上表の「解決可」を上流の `.codex/` にまで拡大解釈しないこと。
+> 経路自体の是正（source の一本化）は #1086 の裁定待ち。
+
+**Codex 経路では rules の解決順 3-1・3-2 とも成立しない**ため、rules 参照は手順 4
+（解決できなかったと明示）に落ちる。その場合、正本の内容は **同梱 `references/` と本 skill の
+記述で代替**し、plan.md の Questions / Unknowns に「正本 `<path>` を参照できなかった」旨を
+記録する。
+
+### 同梱リファレンス（`<skill_dir>/references/`）
+
+| ファイル | 役割 |
+|---------|------|
+| `references/ai-driven-development.md` | ワークフロー全体像・モード分岐・ゲート条件・Prompt 1 の正本 |
+| `references/plan-metrics-verification.md` | 事前メトリクス検証（B-1 → B-2 mandatory gate）の正本 |
+| `references/core-contract.md` | 実行契約（Iron Law / Stop rules / Output discipline）の正本 |
+| `references/plangate.md` | PlanGate 概要ガイド |
+| `references/plan-template.md` | `plan.md` の雛形（**配布先ではこの名前**。理由は下記注記） |
+| `references/todo.md` | `todo.md` の雛形 |
+| `references/test-cases.md` | `test-cases.md` の雛形 |
+| `references/INDEX.md` | `INDEX.md` の雛形 |
+| `references/current-state.md` | `current-state.md` の雛形 |
+| `references/review-self.md` | `review-self.md`（C-1 全項目）の雛形・項目定義の正本 |
+| `references/review-external.md` | `review-external.md`（C-2 / R-NNN 集約）の雛形 |
+| `references/pbi-input.md` | `pbi-input.md` の雛形 |
+
+> **`plan.md` の雛形が `plan-template.md` である理由**: 承認境界 hook（EH-3）は
+> **basename `plan.md`** を block 対象として判定する（パスではなく basename）。雛形を
+> `plan.md` の名前で同梱すると、hook を配線した導入先で雛形そのものが編集不能になる。
+> 配布名だけを変えており、**生成する成果物のファイル名は `plan.md` のまま**。
 
 ### 読む順序
 
-> 下記 3〜5 の fallback にある `<plugin_root>` は、上の「参照解決順」手順 2 のとおり
+> 下記 3〜5 の fallback にある `<plugin_root>` は、上の「参照解決順」手順 3-2 のとおり
 > **Bash で `${CLAUDE_PLUGIN_ROOT}` を展開して得た絶対パス**を指す（変数を含む文字列を
 > そのまま Read しない）。
 
@@ -61,10 +127,9 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
    （5 段階 mode + `lite_eligible` 派生属性の正本）
 5. `.claude/rules/hybrid-architecture.md` → fallback `<plugin_root>/rules/hybrid-architecture.md`
    （Rule 1〜5 / handoff 必須化）
-6. `docs/ai-driven-development.md`（**配布対象外**。上流リポジトリで作業する場合のみ解決する）
+6. `references/ai-driven-development.md`（**同梱**。導入先が独自正本を持つ場合はそちらを優先）
    - 最低限: `## ワークフロー全体像`、`### タスク規模によるモード分岐（5 モード）`、`## ゲート条件`、`### Prompt 1: Plan + ToDo + Test Cases生成`
-   - 解決できない場合は 3〜5 の rules を優先正本とし、本 skill の「Rules」節で代替する
-7. `docs/working/TASK-XXXX/pbi-input.md`（導入先で作成する入力。無ければ plan を開始しない）
+7. `docs/working/TASK-XXXX/pbi-input.md`（**導入先で作成する入力**。配布物ではない。無ければ plan を開始しない）
 
 ## Output
 
@@ -78,13 +143,13 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 
 ### フロー（詳細は正本参照）
 
-- **B-1 / B-2 / B-3** フローおよび plan.md 必須セクション（確認事項 / アプローチ比較 / Mode判定 / lite_eligible 等）は `docs/ai-driven-development.md` の `### Prompt 1: Plan + ToDo + Test Cases生成` と `.claude/rules/mode-classification.md` を **正本** とする。skill は順序のみを示す。
+- **B-1 / B-2 / B-3** フローおよび plan.md 必須セクション（確認事項 / アプローチ比較 / Mode判定 / lite_eligible 等）は同梱 `references/ai-driven-development.md` の `### Prompt 1: Plan + ToDo + Test Cases生成` と `.claude/rules/mode-classification.md` を **正本** とする。skill は順序のみを示す。生成物の雛形は同梱 `references/plan-template.md` / `references/todo.md` / `references/test-cases.md` を使う。
 - B-1（最大 3 問の確認質問）→ **事前メトリクス検証 (mandatory gate)** → B-2（2〜3 案の trade-off 比較）→ B-3（3 ファイル同時生成）
 
 ### 事前メトリクス検証 (B-1 → B-2 mandatory gate / #351 TASK-0117)
 
-> 正本: [`docs/ai/plan-metrics-verification.md`](../../../docs/ai/plan-metrics-verification.md)
-> （`docs/**` は配布対象外。解決できない環境では以下の要約に従い、正本未参照である旨を plan に記録する）
+> 正本: 同梱 `references/plan-metrics-verification.md`
+> （導入先が独自正本を保持する場合はそちらを優先。どちらも解決できない環境では以下の要約に従い、正本未参照である旨を plan に記録する）
 
 「全部 / 全件 / 残り N 件」系の対象は **実数を取得** してから B-2 へ進む。
 
@@ -116,6 +181,12 @@ find . -name <pattern> -not -path './.git/*' -not -path './node_modules/*' | wc 
 ### test-cases.md 規約
 
 - 各 AC → テストケースのマッピング必須、Edge case を含める
+- **各ケースの期待値に出所を明記する**（`デザイン実測` / `規約` / `既存実装`）
+- 出所が `規約` の期待値は、`## Convention Evidence` に **規約の記述 / 実値 / 一致 / 判定** を残す（#934）。
+  事前メトリクス検証が「全部 / 全件」系に実数を要求するのと同じ理由で、**規約由来の期待値には実値との突合を要求する**
+- **不一致（規約 ≠ 実値）のときは AC に採用しない**。安全側に倒して plan の 🚩 人間確認ポイントへ落とし、
+  規約と実装のどちらを正とするかは人間の設計判断に委ねる（`mode-classification.md` の安全側不変条件と一貫）。
+  AI が黙って片側へ寄せて一括変更しない
 
 ### 監査
 
@@ -141,6 +212,14 @@ plan.md 生成時、以下の観点を Work Breakdown / Risks に反映する:
 > 「plan を作る側 = PlanGate の責務」と整理され移管。s977043/river-review#1105）
 
 ## CLI 呼び出し
+
+> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
+> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
+> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。したがって下表の「上流リポジトリの cwd」
+> 列にしか成立しない手順は、導入先では **上流リポジトリ（`s977043/plangate`）の clone が無いかぎり
+> 実行できない**。そこへ到達したら「CLI が無いため実行できない／上流リポジトリの clone が必要」と
+> **明示して停止する**か、同表の代替手順へ置き換える。**CLI が無いことを理由に手順を黙って省略し、
+> 実施済みと読める記録を残してはならない。**
 
 **呼び出し表記は実行環境で変わる**。相対パス形式（`./scripts/...` / `bin/...`）が成立するのは
 **上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` も

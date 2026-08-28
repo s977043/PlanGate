@@ -1,0 +1,33 @@
+From: TASK-1109 (#1109)
+Subject: [PATCH] ci(1109): sync workflow の skill spec check から --warn-only を外す
+
+Hardening Override 対象（.github/workflows/*.yml）につき **AI は適用しない**。
+適用は Human-owned。適用順序の制約は docs/working/TASK-1109/plan.md §適用順序 を参照。
+
+前提（この patch を当てる前に満たされていること）:
+  - scripts/check-codex-skill-spec.sh が presence 検査つきの版であること（本 PR）
+  - 既定 2 root（.codex/skills / plugin/plangate/skills）で violation が 0 であること
+    実測コマンド: sh scripts/check-codex-skill-spec.sh  → rc=0
+
+強制力の範囲（#1109 R-007）:
+  この step は sync job（`if: github.event_name != 'pull_request'`）の中にあり、
+  workflow の paths filter 配下でもある。したがって --warn-only を外しても
+  **この経路の強制力は post-merge のみ**であり、「PR で止まる」ようにはならない。
+  PR 段階の強制は tests/extras/ta-68-skill-spec-presence.sh が
+  .github/workflows/test.yml（on: pull_request → run-tests.sh）経由で担う。
+
+適用:
+  git apply docs/working/TASK-1109/patches/0001-drop-warn-only-from-sync-workflow.patch
+
+diff --git a/.github/workflows/sync-plugin-plangate.yml b/.github/workflows/sync-plugin-plangate.yml
+--- a/.github/workflows/sync-plugin-plangate.yml
++++ b/.github/workflows/sync-plugin-plangate.yml
+@@ -70,7 +70,7 @@
+           fetch-depth: 1
+
+       - name: Codex skill spec check
+-        run: sh scripts/check-codex-skill-spec.sh --warn-only
++        run: sh scripts/check-codex-skill-spec.sh
+
+       - name: Run sync script
+         run: sh scripts/sync-plugin-plangate.sh

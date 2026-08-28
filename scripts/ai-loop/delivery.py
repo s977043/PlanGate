@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""MERGE_READY 状態機械（TASK-0873 / #873）— 決定論・fail-closed・冪等の判定エンジン。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """MERGE_READY 状態機械（TASK-0873 / #873）— 決定論・fail-closed・冪等の判定エンジン。
 
 正本: docs/workflows/ai-loop/delivery-state-machine.md（サブステート・正規化
 マッピング・record 契約）。c3-prime 入口再検証の契約は
@@ -16,7 +28,6 @@ docs/workflows/ai-loop/c3-prime-contract.md §7（trust boundary）。
 - 純判定器: ネットワーク・外部プロセスを一切呼ばない（NO MERGE BY AI。
   `MERGED` への遷移は存在しない — ta-56 がソース走査でも固定）
 """
-from __future__ import annotations
 
 import json
 import pathlib

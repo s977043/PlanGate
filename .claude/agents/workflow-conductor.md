@@ -259,7 +259,7 @@ plan.md の Mode判定に基づき、フェーズのスキップ判定を自動�
 | フェーズ | ultra-light | light | standard | high-risk | critical |
 |---------|-------------|-------|----------|------|----------|
 | plan 生成 | - | △ | ○ | ○ | ○ |
-| C-1 | - | △(7項目) | ○(17項目) | ○(17項目) | ○(17項目) |
+| C-1 | - | △(Plan 項目) | ○(全項目) | ○(全項目) | ○(全項目) |
 | C-2 | - | - | - | ○ | ○ |
 | C-3 | - | △ | ○ | ○ | ○ |
 | exec | 直接実装 | TDD | TDD | TDD+並列 | TDD+並列+段階的 |
@@ -468,7 +468,7 @@ conductor が Implementer サブエージェントに文脈を構成する際の
 |-------------|--------|----------------|
 | brainstorm | brainstorming skill | ユーザー入力 + コードベース調査結果 |
 | plan生成 | project-planner agent | pbi-input.md全文 |
-| C-1 | diff-audit skill（17項目チェック） | plan + todo + test-cases + pbi-input |
+| C-1 | diff-audit skill（全項目チェック） | plan + todo + test-cases + pbi-input |
 | C-2 | 利用可能なサブエージェント | plan + todo + test-cases + review-self |
 | exec: 実装 | implementer agent（タスクごとに新規） | タスク詳細（抽出済み）+ テストケース（抽出済み）+ 既存パターン |
 | L-0: autofix/AI修正 | linter-fixer agent | リンター設定 + 違反一覧 + 該当コード |
@@ -542,9 +542,33 @@ conductorはstatus.mdに以下のMarkdownセクションを管理する（YAML f
 
 strict profile（`model-profiles.yaml` の `validation_bias: strict`）で EHS-1/2/3 を
 実 run 発火させたい場合、conductor は V フェーズの CLI 呼び出しに `--profile=<key>` を
-渡す（**等号形式必須**。例: `bin/plangate verify <TASK> --mode=<m> --profile=gpt-5_5_pro`。
+渡す（**等号形式必須**。導入先 + PATH では `plangate verify <TASK> --mode=<m> --profile=gpt-5_5_pro`、
+上流リポジトリを clone した cwd では `bin/plangate verify <TASK> --mode=<m> --profile=gpt-5_5_pro`。
 `--mode` と同じく `--flag=value` 形式のみ受理し、スペース区切り `--profile <key>` は無視される）。CLI が
 `model-profiles.yaml` から `validation_bias` を解決し `PLANGATE_VALIDATION_BIAS` を
 内部 export する。env で明示注入済みならそれを尊重する。normal/lenient profile では
 従来どおり非発火（既存挙動不変）。**強制は CLI 側（`bin/plangate`）に閉じており、
 本補足は運用ガイドであって強制力を持たない**。
+
+> **注意: `verify` の `<TASK>` 位置引数は cwd ではなく CLI 本体の位置を基準に解決される。**
+> `verify` に `--dir` 相当のオプションは無いため、PATH 上の `plangate` を導入先で実行しても
+> 対象は導入先の `docs/working/` ではなく **その clone 側の `docs/working/`** になる。
+>
+> **CLI 未導入時の degrade**: 導入先で `verify` 自体が実行できないため、`--profile` 供給と
+> strict profile の EHS-1/2/3 実 run 発火はいずれも成立しない。V フェーズは手動レビューで
+> 代替し、**「strict profile で検証済み」とは記録しない**。
+
+### CLI 必須 / 不要 の分離（#1144）
+
+**plugin 配布物には CLI（`bin/plangate`）も enforcement 層（`scripts/hooks/`）も
+含まれない**（読み物層のみ配布）。本節の手順は削除しないが、導入先での可否は分かれる。
+
+| 記述箇所 | 種別 | 導入先での扱い |
+|---------|------|--------------|
+| V フェーズの `verify <TASK> --mode=<m> --profile=<key>` 呼び出し | **CLI 必須** | 実行不可。下記規則に従う |
+| 「強制は CLI 側（`bin/plangate`）に閉じており本補足は強制力を持たない」 | CLI 不要 | 強制の所在を述べた説明であって手順ではない。CLI 不在＝この強制が存在しないことを意味する |
+
+**CLI 必須の手順に到達したときの規則**: 導入先に `bin/plangate` は配布されないため、
+**上流リポジトリの clone（および PATH 追加）が必要である旨を告げて停止する**。clone
+しない場合は当該 V フェーズを手動レビューで代替し、その degrade を `status.md` に
+記録する（「CLI で検証済み」とは記録しない）。

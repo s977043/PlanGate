@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""test_run_evidence.py — RunEvidence 決定論 producer のテスト（TASK-0874 / #874）。
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """test_run_evidence.py — RunEvidence 決定論 producer のテスト（TASK-0874 / #874）。
 
 契約正本: docs/workflows/ai-loop/run-evidence-contract.md §3。
 
@@ -11,7 +23,6 @@
 対応 TC（本ファイル現時点）: TC-10 〜 TC-16 / TC-18 / TC-30 / TC-31 / TC-50 /
 TC-52 / TC-53 / TC-57 〜 TC-60 / TC-64
 """
-from __future__ import annotations
 
 import io
 import json

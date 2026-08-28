@@ -16,7 +16,7 @@ Ready → In Progress
   → 0: Brainstorming 🤖👤（対話的な要件整理・設計書生成、任意）
   → A: PBI INPUT PACKAGE作成 👤
   → B: Plan + ToDo + Test Cases同時生成 🤖
-  → C-1: セルフレビュー 🤖（17項目チェック）
+  → C-1: セルフレビュー 🤖（全項目チェック）
   → C-2: 外部AIレビュー 🤖
   → C-3: 人間レビュー 👤（三値ゲート: APPROVE / CONDITIONAL / REJECT）
   → D: Agent実行 🤖（TDD）
@@ -29,6 +29,27 @@ Ready → In Progress
   → C-4: 人間レビュー 👤（GitHub上: APPROVE / REQUEST CHANGES / REJECT）
   → Done
 ```
+
+## 本ルールの CLI 依存（`bin/plangate`）— 導入先での扱い（#1144）
+
+本ルールは plugin（読み物層）としても配布されるが、**plugin 配布物には
+`bin/plangate`（CLI）と `scripts/hooks/`（enforcement 層）が含まれない**。
+そのため本ルール中の `bin/plangate` 呼び出しは、上流リポジトリ
+（`s977043/plangate`）を clone した cwd でのみ成立する。**手順そのものは削除しない**
+（上流では従来どおり有効）。導入先では下表に従う。
+
+| 記述箇所 | 種別 | 導入先での扱い |
+|---------|------|--------------|
+| settings タスクロック（`doctor --check-settings` が PASS であること） | **CLI 必須** | 実行不可。下記「CLI 不在時の規則」に従う |
+| C-3 ゲート / C-3 条件付き降格の「`bin/plangate exec` は APPROVED のみ受理」 | **CLI 必須**（機械強制の前提） | CLI 不在では exec の機械強制が働かない。承認境界は運用規範として維持し、`c3.json` の `APPROVED` を人間が確認してから exec する |
+| INDEX.md 鮮度契約の「CLI / hook 化は本規約の範囲外」 | CLI 不要 | 「範囲外」である旨の言及であって手順ではない。stale 検出は同節のワンライナ（git のみで完結）で足りる |
+| 管理ディレクトリ表の `_metrics/` / `_reports/`（`bin/plangate metrics` の出力先） | CLI 不要 | ディレクトリの役割説明。metrics を実際に収集する場合にのみ CLI が要る |
+
+**CLI 不在時の規則（CLI 必須の項目に共通）**: 導入先に `bin/plangate` は配布
+されないため、当該手順に到達したら **上流リポジトリの clone（および PATH 追加）が
+必要である旨をユーザーに告げて停止する**。黙ってスキップして「検証済み」と記録して
+はならない。clone しない選択をした場合は、その手順を実施できなかった事実を
+`status.md` に degrade として記録する。
 
 ## ディレクトリ構造
 
@@ -96,13 +117,78 @@ docs/working/
 
 **フォールバック**: INDEX.md が存在しない場合（旧形式チケット）→ L1 から開始（status.md を直接読む = 従来動作）。
 
-### current-state.md / status.md / handoff.md の役割分担
+### INDEX.md / current-state.md / status.md / handoff.md の役割分担
 
 | ファイル | 役割 | 目安行数 | 更新タイミング |
 |---------|------|---------|--------------|
+| **INDEX.md** | L0 索引（「今どのフェーズで、次に何を読むか」の入口） | ~40行 | plan 完了時に生成し、**以降はフェーズ遷移のたびに更新**（下記「INDEX.md（L0 索引）の鮮度契約」1 の更新イベント表） |
 | current-state.md | 「今どこにいて、次に何をするか」のスナップショット | ~20行 | タスク完了ごとに上書き |
 | status.md | フェーズ履歴・完了記録のアーカイブ | 制限なし | フェーズ遷移・セッション終了時に追記 |
 | **handoff.md** | WF-05 完了時の引き継ぎパッケージ（完了資産） | 制限なし | WF-05 完了時に 1 回生成 |
+
+#### INDEX.md（L0 索引）の鮮度契約（#945）
+
+`INDEX.md` は Progressive Disclosure の **L0 = セッション開始時に最初に読む 1 ファイル**
+であり、ここが実態から乖離すると次セッションが誤った地点から再開する。生成規定
+（plan 完了時）だけでは以降の更新契約が無いため、以下を規約とする。
+
+**1. 更新イベント**（いずれかが起きたら、同じ作業単位のうちに `INDEX.md` を更新する）
+
+| イベント | `INDEX.md` で更新する項目 |
+|---------|------------------------|
+| plan / todo / test-cases 生成 | 生成（現在フェーズ・次のアクション・ファイルマップ・変更ファイル一覧） |
+| C-3 承認（APPROVED / CONDITIONAL / REJECTED / AUTONOMOUS APPROVED） | 現在フェーズ・次のアクション・承認成果物の状態 |
+| plan の確定反映・再編集 | `approvals/` 配下の `c3.json` の `plan_hash` 整合状態（再承認の要否） |
+| exec 完了 / V-1 判定確定 | 現在フェーズ・総合判定（下記 2 に従う） |
+| WF-05 handoff 発行 | 現在フェーズ = `done`・発行時点 SHA（下記 3） |
+| BLOCKED 化 / 解除 | 現在フェーズ = `BLOCKED`（`blocker` / `unblock_condition` の詳細は status.md 側） |
+
+**2. 「現在フェーズ」の値域と、総合判定を矛盾させないこと**
+
+現在フェーズの値域（`INDEX.md` / `status.md` 共通。この一覧以外の語を使わない）:
+
+```text
+brainstorm | plan | C-1 | C-2 | C-3 待ち | exec | verify（L-0 / V-1〜V-4）| PR 作成済 | C-4 待ち | done | BLOCKED
+```
+
+- `INDEX.md` に V-1 等の**総合判定を書く場合は `status.md` / `handoff.md` の判定語を
+  そのまま転記する**。INDEX 側で独自に要約・丸めない（WARN / 条件付き PASS を PASS と
+  書かない）。
+- 判定の正本は **`handoff.md` §1 > `status.md` > `INDEX.md`** の順。**`INDEX.md` は
+  索引であって判定の正本ではない**。矛盾を検出したときに是正するのは `INDEX.md` 側。
+- 判定が WARN / FAIL / 条件付き PASS のときは `INDEX.md` にも**その語のまま**書く。
+  「最初に読む 1 ファイルだけが不都合な事実を落とす」状態を作らない。
+
+**3. WF-05 完了資産（handoff.md / status.md）の鮮度**
+
+完了資産は「WF-05 完了時に 1 回生成」であるため、**その生成物自身をコミットした時点で
+commit 数・変更ファイル数・未 push ブランチ数といった実測値が古くなる**。次のいずれかを
+必須とする（両方でもよい）。
+
+- **発行時点の commit SHA を明記する**（テンプレートの `issued_at_commit`）。記載した
+  実測値は**その SHA 時点の値**であることを併記する。
+- 完了資産をコミットしたあとに実測値を再測定して更新する工程を取る。
+
+いずれの場合も、commit 数 / ファイル数のような**運用で増える値を契約値として書かない**
+（C-4 レビュアーが見る HEAD とは必ずずれる）。SHA を添えた**測定値**として書く。
+
+**4. stale の機械検出**
+
+CLI / hook 化（`bin/plangate` への追加）は本規約の範囲外。検出は次のワンライナで行う
+（`status.md` より古い commit でしか `INDEX.md` が更新されていない TASK を列挙する）:
+
+```sh
+for d in docs/working/TASK-*/; do
+  [ -f "$d/INDEX.md" ] && [ -f "$d/status.md" ] || continue
+  i=$(git log -1 --format=%ct -- "$d/INDEX.md")
+  s=$(git log -1 --format=%ct -- "$d/status.md")
+  [ -n "$i" ] && [ -n "$s" ] && [ "$i" -lt "$s" ] && echo "STALE-CANDIDATE: $d"
+done
+```
+
+これは**候補抽出**であり、stale の確定は内容照合で行う（更新時刻だけで断定しない）。
+併せて `INDEX.md` の「現在フェーズ」が `status.md` フェーズ履歴の**最終行**および
+`handoff.md` §1 の総合判定と一致するかを照合する。
 
 ### handoff（WF-05 完了資産 / Rule 5）
 
@@ -133,6 +219,12 @@ V-1 受け入れ検査 / handoff 完了の**前提条件**として
 （self-mod ガード）ため、`sh scripts/apply-claude-settings.sh` を**ユーザーが
 実行**して解消する。これにより「AI が適用済みと誤認して完了する」Shadow
 Configuration を構造的に防ぐ。
+
+**本ゲートは CLI 必須**（[「本ルールの CLI 依存」](#本ルールの-cli-依存binplangate-導入先での扱い1144)）。
+`bin/plangate` も `scripts/` も plugin 配布物に含まれないため、導入先ではこのゲートを
+PASS にできない。到達したら上流リポジトリの clone が必要である旨を告げて停止し、
+clone しない場合は「doctor 未検証（degrade）」として `status.md` に記録する
+（PASS 扱いにしない）。
 
 ### improvement-seeds.md（WF-06 Retro / opt-in・append-only）
 

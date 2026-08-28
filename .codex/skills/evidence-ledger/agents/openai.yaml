@@ -1,6 +1,6 @@
 interface:
   display_name: "evidence-ledger"
-  short_description: "完了主張を証拠付きで記録し、EvidenceLedger を出力する。Use when: 「完了した」「修正した」「テストが通った」と言う前に証拠を記録したい時。/pg verify の出力先として使"
+  short_description: "完了主張を証拠付きで記録し、EvidenceLedger を出力する。Use when: 「完了した」「修正した」「テスト..."
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use $evidence-ledger to assist with this project."

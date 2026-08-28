@@ -1,7 +1,7 @@
 # PlanGate Claude Code Plugin 移行ガイド
 
 > 最終更新: 2026-06-04
-> 対象バージョン: plugin 8.11.0
+> 対象バージョン: `plugin/plangate/.claude-plugin/plugin.json` の `version`（正はこのファイル。本文に転記しない）
 > 対象ツール: Claude Code / Codex（両対応）
 
 ## 背景・目的
@@ -49,14 +49,23 @@ cd path/to/your-project
 sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 ```
 
-## 同梱範囲（plugin 8.11.0）
+## 同梱範囲
 
-### Skills (37)  <!-- 実数: ls plugin/plangate/skills/ -->
+> **版と件数の正**: 同梱物の version は `plugin/plangate/.claude-plugin/plugin.json` の
+> `version` が正です（本文に版番号を転記しません）。各カテゴリの **全一覧の正は
+> [`plugin/plangate/README.md`](../plugin/plangate/README.md) の `### Agents` /
+> `### Skills` / `### Commands` / `### Rules`** にある再現コマンドの出力です。
+> 本ページの表は**役割の説明を目的とした抜粋**であり、**件数は契約値として
+> 扱わないでください**。
+
+### Skills
+
+全一覧は [`plugin/plangate/README.md`](../plugin/plangate/README.md) の `### Skills` を参照。以下は役割説明のための**抜粋**:
 
 | Skill | 役割 |
 |-------|------|
 | `brainstorming` | アイデア → 設計書（PBI INPUT PACKAGE）への昇華 |
-| `diff-audit` | 変更内容の17項目体系的セルフレビュー（旧 self-review） |
+| `diff-audit` | 変更内容の体系的セルフレビュー（C-1 チェック項目一式 / 旧 self-review。項目定義の正本: [`docs/working/templates/review-self.md`](working/templates/review-self.md)） |
 | `subagent-driven-development` | サブエージェント駆動の2段階レビュー開発 |
 | `systematic-debugging` | エビデンスベースの体系的デバッグ |
 | `codex-multi-agent` | Codex マルチエージェント連携 |
@@ -70,18 +79,21 @@ sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 | `subagent-dispatch` | 依存関係グラフ生成・並列実行可能タスク特定・dispatch |
 | `pr-decision` | Evidence Ledger + Review Gate から APPROVE/BLOCK/CONDITIONAL 判定 |
 
-### Commands (4)
+### Commands
+
+全一覧は [`plugin/plangate/README.md`](../plugin/plangate/README.md) の `### Commands` を参照。
 
 | Command | 役割 |
 |---------|------|
 | `/working-context` | チケット単位の作業コンテキスト管理 |
 | `/ai-dev-workflow` | PlanGate ワークフロー起動（plan → exec 等） |
+| `/ai-loop-workflow` | ai-loop-workflow（human-on-the-loop 裁定ループ）の明示起動 |
 | `/codex-mvp-split` | Codex 向け MVP / バックログ分割 |
 | `/plangate-setup` | PlanGate セットアップ（setup-coordinator へ委譲） |
 
-### Agents (23)
+### Agents
 
-責務別エージェント 23 件を同梱（全一覧は [`plugin/plangate/README.md` の `### Agents (23)`](../plugin/plangate/README.md) を参照）。主要なもの:
+責務別エージェント定義を同梱（全一覧は [`plugin/plangate/README.md` の `### Agents`](../plugin/plangate/README.md) を参照）。主要なもの:
 
 | Agent | 役割 |
 |-------|------|
@@ -94,9 +106,13 @@ sh ~/plangate/install.sh   # .claude/ と .codex/ を自動検出
 | `orchestrator` | 親 PBI 分解・統合の最終統括 |
 | `qa-reviewer` | handoff 中核作成・要件適合確認 |
 
-他に `agile-coach` / `scrum-master` / `requirements-analyst` / `solution-architect` / `research-analyst` / `retrospective-analyst` / `project-planner` / `setup-coordinator` / `skill-designer` / `prompt-engineer` / `migration-agent` / `implementation-agent` / `explorer-agent` / `documentation-writer` / `claude-code-reviewer` を含む。
+上表以外にも同梱エージェントがあります。**同梱されている全エージェント名の正**は
+[`plugin/plangate/README.md`](../plugin/plangate/README.md) の `### Agents` に置いた再現コマンドの出力です
+（このページに名前を再掲すると、追加・削除のたびに片側だけ腐るため再掲しません）。
 
-### Rules (6)
+### Rules
+
+全一覧は [`plugin/plangate/README.md`](../plugin/plangate/README.md) の `### Rules` を参照。
 
 | Rule | 内容 |
 |------|------|

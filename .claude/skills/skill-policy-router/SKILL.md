@@ -5,9 +5,25 @@ description: "Intent と Mode を受け取り、必要な Skill・ゲート要�
 
 # Skill Policy Router
 
-> 正本: `.claude/skills/skill-policy-router/SKILL.md`（`plugin/plangate/skills/` はミラー・export 用）。
+> 正本（sync 元）: `.agents/skills/skill-policy-router/SKILL.md`。`scripts/sync-plugin-plangate.sh` が
+> `.agents/skills/` を読み取り `plugin/plangate/skills/` を機械生成する。`.claude/skills/` と
+> `.codex/skills/` は sync 対象外の配布先のため、正本更新時に同一内容を手動で追従させる。
 
 Intent と Mode を入力として受け取り、必要な Skill とゲート要件（GatePolicy）を structured JSON で返す。
+
+## 参照解決順（`.claude/rules/*.md` / 導入先で必ずこの順に探す）
+
+本 Skill は Mode / `lite_eligible` の定義正本として `.claude/rules/mode-classification.md` を
+参照する（§Iron Law / §lite_eligible の扱い）。このパスは上流リポジトリ基準のため、導入先では
+**次の順で探索する**:
+
+1. 導入先リポジトリの `.claude/rules/mode-classification.md`
+2. 無ければ plugin root 配下 `<plugin_root>/rules/mode-classification.md`。
+   `<plugin_root>` は **Bash で `ls "${CLAUDE_PLUGIN_ROOT}/rules/"` を実行して展開・確認した
+   絶対パス**（Read ツールは絶対パスを要求し環境変数を展開しないため、`${CLAUDE_PLUGIN_ROOT}/...`
+   という文字列をそのまま Read しない）。変数が空・未設定ならキャッシュを glob で推測せず 3 へ進む
+3. どちらにも無い場合は **「正本 `mode-classification.md` を参照できなかった」と明示**し、
+   推測で内容を補わない
 
 ## Iron Law
 
@@ -16,7 +32,7 @@ Intent と Mode を入力として受け取り、必要な Skill とゲート要
 GatePolicy の必須 / 任意判定は Mode によって決まる。
 Intent はスキルの優先度や追加推奨にのみ影響する。
 
-> **Mode の定義・判定基準（変更ファイル数・リスク・`lite_eligible`）は [`mode-classification.md`](../../rules/mode-classification.md) が単一正本**。本スキルは確定済み Mode を入力として受け取り GatePolicy へ写像するのみで、**Mode 自体は判定しない**。下の「Mode 別ポリシー表」は Mode→GatePolicy の*写像*であり Mode の定義ではない（重複定義ではない）。
+> **Mode の定義・判定基準（変更ファイル数・リスク・`lite_eligible`）は `.claude/rules/mode-classification.md` が単一正本**。本スキルは確定済み Mode を入力として受け取り GatePolicy へ写像するのみで、**Mode 自体は判定しない**。下の「Mode 別ポリシー表」は Mode→GatePolicy の*写像*であり Mode の定義ではない（重複定義ではない）。
 
 ## Common Rationalizations
 
@@ -106,10 +122,16 @@ Intent に応じて optionalSkills を追加・調整する:
 | `research` | — |
 | `review` | check |
 | `docs` | — |
-| `ops` | verify（デプロイ検証のため、未追加の場合）。**PlanGate CLI 操作**（render/approve/doctor/exec）は skill でなく直接 `bin/plangate <cmd>` を実行する |
+| `ops` | verify（デプロイ検証のため、未追加の場合）。**PlanGate CLI 操作**（render/approve/doctor/exec）は skill でなく直接 `plangate <cmd>` を実行する |
 | `exploratory` | — （WF-07 opt-in 推奨。通常フローに留まる場合は intent 相当の Skill 構成を使用）|
 
 ただし、requiredSkills に既に含まれている Skill は optionalSkills に重複追加しない。
+
+> **`plangate <cmd>` の表記と CLI 不在時の degrade は `intent-classifier` skill
+> 「PlanGate CLI 操作の認識（ops 補足）」節を正本とする**（ここでは再定義しない）。
+> 要点のみ: PATH 解決されるコマンド名は **`plangate`**、上流リポジトリの cwd では
+> `bin/plangate <cmd>`、CLI が無い環境（**導入先では既定**）は同節の代替手順に置き換える。
+> **GatePolicy の内容は CLI の有無で変えない**（強制が機械 block から手動確認に落ちるだけ）。
 
 ### Step 4: GatePolicy 出力
 
@@ -183,7 +205,7 @@ Intent に応じて optionalSkills を追加・調整する:
 
 ## lite_eligible の扱い（責務分界）
 
-`lite_eligible`（Lite ゲート可否）は [`mode-classification.md`](../../rules/mode-classification.md) の派生属性で、**判定は mode-classification 正本が担う**。本スキルは確定した `lite_eligible` を入力として受け取り、`true` のとき Lite ゲート構成（例: C-2 外部レビューを 1 本に絞る・観点固定）を GatePolicy に反映する。router は `lite_eligible` を**判定せず使用するのみ**。判定不能時は安全側（`lite_eligible=false` 相当の full ゲート）。
+`lite_eligible`（Lite ゲート可否）は `.claude/rules/mode-classification.md` の派生属性で、**判定は mode-classification 正本が担う**。本スキルは確定した `lite_eligible` を入力として受け取り、`true` のとき Lite ゲート構成（例: C-2 外部レビューを 1 本に絞る・観点固定）を GatePolicy に反映する。router は `lite_eligible` を**判定せず使用するのみ**。判定不能時は安全側（`lite_eligible=false` 相当の full ゲート）。
 
 ## 関連 Skill
 

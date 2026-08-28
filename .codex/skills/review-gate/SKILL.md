@@ -23,16 +23,37 @@ severity=critical の finding がある場合、fix なしに Completion Gate �
 
 ## 手順
 
-### ステップ 1: `/pg-check` を実行して finding を収集する
+### ステップ 1: レビュー対象の差分を取得して finding を収集する
+
+> **`/pg-check` は存在しない**（TASK-0124 / `2645848`, 2026-06-02 の plugin 初回同期適用で
+> `plugin/plangate/commands/pg-check.md` が削除され、**後継コマンドは無い**）。
+> 本節はその**代替として、コマンドに依存しない手順**を定義する。severity 付き finding を
+> 起こす責務は本 Skill（ステップ 2〜3）が引き継ぐ。旧コマンドを前提とした自動化を
+> 組んでいる場合は、以下の手順に置き換えること。
+
+対象差分を取得する（上から順に該当するものを使う）:
 
 ```bash
-# 差分レビューを実行して severity 付き finding を取得する
-/pg-check <対象ブランチ or PR番号>
+git status                       # 対象ブランチと未コミット変更を確認
+gh pr diff <PR番号>              # PR がある場合
+git diff origin/main...HEAD      # PR 前のブランチを見る場合
+git diff && git diff --cached    # 未コミット変更を見る場合
+git diff --stat                  # 変更ファイルの概要
 ```
+
+取得した差分を精読し、ステップ 2 の 6 観点ごとに finding を起こす。**この段階では
+severity を付けず、事実（ファイル・行・観察された挙動）だけを列挙する**。severity は
+ステップ 2 で `review-principles.md` §3 の定義に従って付与する。
+
+> **コミット・PR 前のセルフ検査は `diff-audit` Skill を使う**（本 Skill の代わりにはならない）。
+> `diff-audit` は「変更を作った本人が PR 前に自分で潰す」段階、本 Skill は「実装完了後の
+> ゲート判定」段階であり、`diff-audit` §review-gate との役割分界 のとおり**別段階**である。
+> `diff-audit` の出力を本ステップの入力として持ち込むのは有効だが、それだけで本ステップを
+> 満たしたとは扱わない。
 
 ### ステップ 2: 6 観点で finding を分類・severity を付与する
 
-`/pg-check` の Findings を以下の 6 観点に分類する:
+ステップ 1 で収集した finding を以下の 6 観点に分類する:
 
 | #   | 観点               | チェック内容                                 |
 | --- | ------------------ | -------------------------------------------- |
@@ -83,7 +104,7 @@ severity=critical の finding がある場合、fix なしに Completion Gate �
    を finding に 1 行で書く。逆転させても severity が変わらないなら判定は
    頑健、逆転で下がるなら「前提依存の指摘」であることを明記する。
 3. 手順・allowlist の詳細は
-   [`docs/ai/secret-management-policy.md`](../../../docs/ai/secret-management-policy.md)
+   `docs/ai/secret-management-policy.md`
    を正本とする（本 Skill は判定手順の呼び出しのみを担い、allowlist データは
    持たない）。
 
@@ -160,10 +181,13 @@ reason: severity=critical の finding が <N> 件あります。fix 後に再レ
 | 参照 | `install.sh --claude` 経由 | plugin（Claude marketplace）経由 | Codex 経由 |
 |------|---------------------------|----------------------------------|-----------|
 | `rules/*.md` | `.claude/rules/` に着地（解決可） | `<plugin_root>/rules/` で解決 | **未配置（解決不可 → 手順 3 へ）** |
+| `docs/**` | コピー対象外（解決不可） | バンドル対象外（解決不可） | 未配置（解決不可） |
 
 `install.sh --claude` のコピー対象は `agents` / `skills` / `commands` / `rules` の 4 ディレクトリ
 のみ。Codex 経由（`install_codex()`）は `install-plangate-skills.sh` を呼ぶだけで **skills しか
 配置されない**ため、rules 参照は解決順 1・2 とも成立せず必ず手順 3 に落ちる。
+
+**参照解決順（導入先で必ずこの順に探す）**: 本 Skill が参照する `docs/**` は上流リポジトリ基準の相対パスであり、`install.sh --claude` / plugin（Claude marketplace）/ Codex の **3 経路とも配布対象外**（解決不可）。(1) 導入先リポジトリの同名パスを探す → (2)（上のクラス A ブロックの手順 3 に相当）見つからなければ **「正本 `<path>` を参照できなかった」と明示**し、本 Skill 内の記述を代替正本として扱い、推測で内容を補わない。**plugin root 配下の探索は `docs/**` には適用しない**: plugin が配布するのは `agents` / `commands` / `skills` / `rules` 等の定義ディレクトリのみで `docs/` を配布対象として認識せず、plugin root 配下に相当する配布物が存在しないため、plugin root 段を置いても必ず空振りする（クラス A の rules 参照が plugin root 配下で解決できるのは `rules/` が実際に配布されるからであり、この非対称を `docs/**` に持ち込まない）。
 
 > **手順 3 でも Iron Law は緩めない**: `NO MERGE WITHOUT TWO-STAGE REVIEW` と
 > 「severity=critical があれば Completion Gate を通さない」は本 Skill 内で完結する。
@@ -297,7 +321,11 @@ Completion Gate の発火条件（`severity=critical` が 1 件以上あれば�
 ## 関連
 
 - Rule: `mode-classification.md`（Mode 別フェーズ適用マトリクス・発火条件の正本）
-- Command: `/pg-check`（差分レビュー・finding 収集）
+- Skill: `diff-audit`（コミット・PR **前**のセルフ検査。本 Skill とは別段階）
 - Skill: `evidence-ledger`（EvidenceItem 記録手順）
 - Rule: `review-principles.md`（レビューの姿勢・禁止事項・False-positive ガード）
 - Doc: `docs/ai/secret-management-policy.md`（secret/config policy-grounding の allowlist・判定手順正本 / #731）
+
+> 旧 `plugin/plangate/commands/pg-check.md` は**削除済み**（TASK-0124 / `2645848`,
+> 2026-06-02 の plugin 初回同期適用）で**後継コマンドは無い**。finding 収集の手順は
+> 本 Skill §手順 ステップ 1 が引き継いだ。`/pg-check` を新たに参照に加えないこと。
