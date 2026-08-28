@@ -1,0 +1,9 @@
+# tests/fixtures/ta-77/known-gaps.tsv
+#
+# 既知ギャップ台帳。列: term<TAB>issue<TAB>reason
+# ここに載せた step term は UNRESOLVED ではなく GAP として扱われ rc を 0 に保つ
+# （= negative suppression。fail-open の穴であることを承知で置いている）。
+# エントリ数の上限は ta-77 本体の _T77_GAP_MAX で契約しており、増やすには本ファイルと
+# ta-77 本体の両方を編集する必要がある（diff に必ず現れる）。
+# 各行は issue 番号を必須とし、解消されたら削除する（stale エントリは TC-05 で FAIL）。
+PlanNormalization	#1226	非 HO 面 3 本の承認連鎖にあるが正本 working-context.md に一度も現れない

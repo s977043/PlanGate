@@ -11,42 +11,74 @@
 # 「lite_eligible=false 強制 + Standard C-3 同期固定」が発火しなかった。
 # 「正本を更新しない」ことがそのままゲート回避になっている。
 #
-# === 判定軸: 位置ではなく「その面が承認手順を定義しているか」===
-# approval surface = C-3 承認手順の *順序連鎖* を宣言している面。
-# 内容述語だけで発見する（パス一覧では発見しない）:
-#   1 行の中に矢印 U+2192 が 3 本以上、かつ承認トークン名（c3 + .json）を含む
-# 発見結果は下の登録表と *同値照合* する。面が増えても減っても TC-01 が落ちる。
+# === R2 レビュー（A-1〜A-6）を受けた設計変更 ===
+# 初版は「1 行に矢印 3 本以上 + 承認トークン名」という単一述語だけで面を発見し、
+# その出力の写しを期待値（登録表）に置いていた。実測でこの述語は
+# docs/c3-approval-command.md（矢印 0 本・承認トークン言及 6 件・approve コマンドを
+# 承認トークン生成の *唯一の正規経路* と宣言する面）を 1 つも拾わず、それでも
+# 11/11 green を返した。期待値が同じ述語の出力である以上、述語が見落とす面は
+# discovered にも registered にも現れず恒久的に一致し続ける（= 何も測っていない）。
+#
+# 本版は 2 層に分ける。
+#
+#   層 1: 発見と分類（fail-closed / 期待値を外部台帳へ）
+#     発見述語を広げる。ANCHOR を含む行が
+#       (a) 矢印 2 本以上、または
+#       (b) 承認手続の宣言動詞（発行 / 生成 / 唯一 / 正規経路 / 必須手順 / 手順）
+#     を伴うとき、その行を「承認手順の宣言行」とみなす。宣言行を持つファイルは
+#     すべて approval surface として発見される（矢印ゼロでも拾う）。
+#     期待値は検査器の外の台帳 tests/fixtures/ta-77/approval-surfaces.tsv に置き、
+#     path / class / digest の 3 列で同値照合する。digest は「宣言行 + その行を含む
+#     連続非空行ブロック」を連結した sha256 先頭 12 桁。承認手順の記述を 1 文字でも
+#     変えると digest が動き、台帳を更新しない限り FAIL する（台帳更新は必ず diff に
+#     出る）。台帳に無い面が現れても、台帳にある面が消えても FAIL（両方向）。
+#     これは main に入った ta-70（正典テンプレートのバイト列一致 + 許可形 allowlist）
+#     と同じ向きであり、初版の「述語の自己写像」ではない。
+#
+#   層 2: ステップ語の解決（初版から不変）
+#     class=CHAIN（1 行に矢印 3 本以上）の非正本面については、各ステップ語が正本
+#     .claude/rules/working-context.md の本文で解決できることを要求する。非正本面
+#     だけを変更して新ステップを足すと UNRESOLVED になる。
 #
 # === 差分判定の基準: git diff を使わない（実測に基づく設計判断）===
 # .github/workflows/test.yml は actions/checkout を fetch-depth 指定なしで呼ぶ
 # （既定 = 1）。CI の pull_request 実行では origin/main も履歴も存在せず、
 # 「origin/main との比較」も「commit range」も CI では成立しない（手元でだけ
 # 通る検査になる）。したがって本ゲートは差分ではなく **同一ツリー内の同値照合**
-# で判定する:
-#     非正本面が宣言する各ステップ語が、正本 .claude/rules/working-context.md
-#     の本文で解決できること
-# 非正本面「だけ」を変更して新ステップを足すと、その語は正本に存在しないので
-# UNRESOLVED になる（= issue 案 C「正本更新を必須化」の機械化）。正本にも同じ
-# 語を入れれば解決するが、正本は HO なので通常の承認境界ゲートに乗る。
-# 比較対象は常に作業ツリーの内容どうしなので、CI・手元・standalone で同一に動く。
+# で判定する。比較対象は常に作業ツリーの内容どうしなので、CI・手元・standalone で
+# 同一に動く。
 #
-# === 既知ギャップ台帳 ===
-# origin/main = ecfef5b 時点で #1226 の実害は *生きている*（Plan Normalization が
+# === 既知ギャップ台帳（negative suppression。fail-open の穴）===
+# origin/main = 75d832d 時点で #1226 の実害は *生きている*（Plan Normalization が
 # 非 HO 面 3 本の連鎖に入っているが、正本には 1 度も現れない）。これを
-# _T77_GAPS に明示登録し、それ以外の未解決語は FAIL とする。台帳エントリが
-# 発火しなくなったら TC-05 が落ちる（stale 台帳の禁止 = 恒久ザル化の防止）。
-# 台帳自体は fail-open の穴でもある（残存脅威モデルを参照）。
+# tests/fixtures/ta-77/known-gaps.tsv に明示登録し、それ以外の未解決語は FAIL とする。
+# 台帳が発火しなくなったら TC-05 が落ちる（stale 台帳の禁止 = 恒久ザル化の防止）。
+# 台帳を外部ファイルへ出し、エントリ数の上限（_T77_GAP_MAX）を本ファイル側の契約行に
+# 固定したので、抑止を 1 件増やすには 2 ファイルの編集が要る。それでも台帳自体は
+# fail-open の穴であり、tests/extras 配下も tests/fixtures 配下も Hardening Override
+# 9 カテゴリのいずれにも該当しない（実測: scripts/hooks/check-plan-hash.sh の
+# _override=0 直後の case ブロック）。この構造的な残存リスクは PR 本文の残存脅威
+# モデルに記載する。台帳を .claude/rules/ 配下（HO）へ外出しする案は HO 編集を
+# 伴うため本 PR の範囲外（patch 提案に留める）。
 #
-#   TC-01: 発見 surface 集合 == 登録集合（同値照合。面の増減を検出）
-#   TC-02: 発見 surface 数が floor 以上（vacuous PASS 防止。絶対件数の契約にしない）
-#   TC-03: 正本自身が承認連鎖を宣言している（宣言をやめたら検出）
-#   TC-04: 非正本面のステップ語がすべて解決（rc=0 + unresolved=0 + 母数 floor）
-#   TC-05: 既知ギャップ台帳に stale エントリが無い（gapunused=0）
-#   TC-06: .cursor/skills/plan-review-gate symlink が登録 surface を指す
-#   TC-07: 対照 — 非正本面だけに新ステップを足すと UNRESOLVED（rc=1 + 一意トークン）
-#   TC-08: 対照 — 同じ新ステップを正本にも足すと解決（rc=0 + OK トークン）
-#   TC-09: 対照 — 引数不足は invocation error（rc=2）で契約違反 rc=1 と区別
-#   TC-10: 対照 — 正本が連鎖宣言を失うと専用トークン付きで rc=1
+#   TC-01 : 発見 surface のパス集合 == 台帳のパス集合（両方向 fail-closed）
+#   TC-01b: 発見 surface の path/class/digest 三つ組 == 台帳の三つ組
+#   TC-02 : 発見 surface 数が floor 以上（vacuous PASS 防止。絶対件数の契約にしない）
+#   TC-02b: 非正本面の distinct ステップ語数が floor 以上（配布ミラー重複だけで
+#           floor を満たす vacuous を防ぐ / A-6）
+#   TC-03 : 正本自身が承認連鎖を宣言している
+#   TC-04 : 非正本 CHAIN 面のステップ語がすべて解決（rc=0 + unresolved=0 + 母数 floor）
+#   TC-05 : 既知ギャップ台帳に stale エントリが無い（gapunused=0）
+#   TC-05b: 既知ギャップ台帳が契約を満たす（件数 <= _T77_GAP_MAX / 各行に issue 番号）
+#   TC-06 : .cursor/skills/plan-review-gate symlink が登録 surface を指す（完全一致）
+#   TC-07a: 対照ベース — 非正本面の全ステップが正本で解決
+#   TC-07 : 対照 — 非正本面だけに新ステップを足すと UNRESOLVED（rc=1 + 一意トークン）
+#   TC-08 : 対照 — 同じ新ステップを正本にも足すと解決（rc=0 + OK トークン）
+#   TC-09 : 対照 — 引数不足は invocation error（rc=2）で契約違反 rc=1 と区別
+#   TC-10 : 対照 — 正本が連鎖宣言を失うと専用トークン付きで rc=1
+#   TC-11 : 対照 — 矢印 0 本の宣言面（docs/c3-approval-command.md 型）を発見する
+#   TC-12 : 対照 — 番号付きリスト形式の承認手順に新ステップを挿入すると digest が動く
+#   TC-13 : 対照 — 矢印 1→2 本の 1 行形式に新ステップを足すと digest が動く
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -109,6 +141,17 @@ if [ "$_T77_RUN" = 1 ] && ! git -C "$_T77_ROOT" rev-parse --git-dir >/dev/null 2
   _T77_RUN=0
 fi
 
+_T77_REGF="$_T77_ROOT/tests/fixtures/ta-77/approval-surfaces.tsv"
+_T77_GAPF="$_T77_ROOT/tests/fixtures/ta-77/known-gaps.tsv"
+if [ "$_T77_RUN" = 1 ] && [ ! -r "$_T77_REGF" ]; then
+  _t77_ng "ta-77: 外部台帳が読めない ($_T77_REGF)"
+  _T77_RUN=0
+fi
+if [ "$_T77_RUN" = 1 ] && [ ! -r "$_T77_GAPF" ]; then
+  _t77_ng "ta-77: 既知ギャップ台帳が読めない ($_T77_GAPF)"
+  _T77_RUN=0
+fi
+
 if [ "$_T77_RUN" = 1 ]; then
 
 _T77_TMP="$(mktemp -d)"
@@ -119,21 +162,18 @@ _T77_AN="$_T77_TMP/analyze.py"
 # 生成手順（EH-13 token-guard / 隔離チェッカ）の制約で連結・chr() 合成する。
 # 判定内容には影響しない。
 cat > "$_T77_AN" <<'T77PY'
+import hashlib
 import re
 import sys
 
 ARROW = chr(8594)
 MIN_ARROWS = 3
+DECL_ARROWS = 2
 ANCHOR = "c3" + ".json"
+VERBS = ("発行", "生成", "唯一", "正規経路", "必須手順", "手順")
 EXCLUDE_PREFIXES = ("docs/working/",)
 EXCLUDE_FILES = ("CHANGELOG.md", "docs/changelog.md")
 
-# 正規化に使う文字クラス。CJK 記号は chr() で組む（生成手順の制約）。
-#   65288/65289 = FULLWIDTH PARENTHESIS, 12300/12301 = CORNER BRACKET,
-#   12303 = WHITE CORNER BRACKET, 12288 = IDEOGRAPHIC SPACE,
-#   12290 = IDEOGRAPHIC FULL STOP, 12289 = IDEOGRAPHIC COMMA,
-#   65306 = FULLWIDTH COLON, 65307 = FULLWIDTH SEMICOLON,
-#   96 = GRAVE ACCENT, 34 = QUOTATION MARK, 62 = GT, 124 = VERTICAL LINE
 _FW_L = chr(65288)
 _FW_R = chr(65289)
 _PAREN_FW = re.compile(_FW_L + "[^" + _FW_L + _FW_R + "]*" + _FW_R)
@@ -172,6 +212,40 @@ def chain_lines(text):
         if line.count(ARROW) >= MIN_ARROWS and ANCHOR in line:
             out.append((i, line))
     return out
+
+
+def is_decl(line):
+    if ANCHOR not in line:
+        return False
+    if line.count(ARROW) >= DECL_ARROWS:
+        return True
+    for v in VERBS:
+        if v in line:
+            return True
+    return False
+
+
+def decl_region(lines):
+    marks = [i for i, line in enumerate(lines) if is_decl(line)]
+    if not marks:
+        return []
+    keep = set()
+    for i in marks:
+        a = i
+        while a > 0 and lines[a - 1].strip():
+            a -= 1
+        b = i
+        while b + 1 < len(lines) and lines[b + 1].strip():
+            b += 1
+        for k in range(a, b + 1):
+            keep.add(k)
+    return sorted(keep)
+
+
+def digest_of(lines, idx):
+    h = hashlib.sha256()
+    h.update("\n".join(lines[k] for k in idx).encode("utf-8"))
+    return h.hexdigest()[:12]
 
 
 def read_rel(root, rel):
@@ -219,23 +293,28 @@ def main(argv):
             text = read_rel(root, rel)
         except (OSError, UnicodeDecodeError):
             continue
+        lines = text.splitlines()
+        idx = decl_region(lines)
+        if not idx:
+            continue
         cl = chain_lines(text)
-        if cl:
-            surfaces.append((rel, cl))
+        cls = "CHAIN" if cl else "DECL"
+        surfaces.append((rel, cls, digest_of(lines, idx), len(idx), cl))
     surfaces.sort()
-    for rel, cl in surfaces:
-        sys.stdout.write("SURFACE\t%s\t%d\n" % (rel, len(cl)))
+    for rel, cls, dg, n, cl in surfaces:
+        sys.stdout.write("SURFACE\t%s\t%s\t%s\t%d\n" % (rel, cls, dg, n))
 
-    if not [s for s in surfaces if s[0] == canonical]:
+    if not [s for s in surfaces if s[0] == canonical and s[1] == "CHAIN"]:
         sys.stderr.write("APPROVAL_SURFACE_NO_CANONICAL_CHAIN: %s\n" % canonical)
         return 1
     hay = norm(read_rel(root, canonical))
 
     terms = 0
+    distinct = set()
     unresolved = 0
     gap_hits = dict()
-    for rel, cl in surfaces:
-        if rel == canonical:
+    for rel, cls, dg, n, cl in surfaces:
+        if rel == canonical or cls != "CHAIN":
             continue
         for lineno, line in cl:
             for seg in line.split(ARROW):
@@ -243,6 +322,7 @@ def main(argv):
                 if len(term) < 2:
                     continue
                 terms += 1
+                distinct.add(term)
                 if term in hay:
                     verdict = "OK"
                 elif term in gaps:
@@ -256,8 +336,8 @@ def main(argv):
     for g in unused:
         sys.stdout.write("GAPUNUSED\t%s\n" % g)
     sys.stdout.write(
-        "SUMMARY\tsurfaces=%d\tterms=%d\tunresolved=%d\tgaphits=%d\tgapunused=%d\n"
-        % (len(surfaces), terms, unresolved, len(gap_hits), len(unused))
+        "SUMMARY\tsurfaces=%d\tterms=%d\tdistinct=%d\tunresolved=%d\tgaphits=%d\tgapunused=%d\n"
+        % (len(surfaces), terms, len(distinct), unresolved, len(gap_hits), len(unused))
     )
     return 1 if unresolved else 0
 
@@ -265,21 +345,37 @@ def main(argv):
 sys.exit(main(sys.argv))
 T77PY
 
-# --- 登録表（発見結果と同値照合する相手。これ自体は正本ではない）---------
-# 発見は内容述語で行い、この表は「実体との差」を検出するためだけに置く。
-# 面が増えても減っても TC-01 が落ちる。
+# --- 契約定数（floor / 上限。絶対件数の契約値ではない）---------------------
 _T77_CANON=".claude/rules/working-context.md"
-_T77_REGISTERED=".agents/skills/plan-review-gate/SKILL.md
-.claude/rules/working-context.md
-.codex/skills/plan-review-gate/SKILL.md
-plugin/plangate/rules/working-context.md
-plugin/plangate/skills/plan-review-gate/SKILL.md"
-# floor であって絶対件数の契約値ではない（成長するディレクトリに -eq を置かない）
-_T77_SURFACE_FLOOR=4
+_T77_SURFACE_FLOOR=20
 _T77_TERM_FLOOR=20
-# 既知ギャップ台帳: #1226 の実害（Plan Normalization が非 HO 面にだけ存在する）。
-# 正本が更新されたら発火しなくなり TC-05 が落ちる = 台帳から消す義務が生じる。
-_T77_GAPS="PlanNormalization"
+# 配布ミラーの重複ではなく実体の語彙で母数を担保する（A-6）
+_T77_DISTINCT_FLOOR=6
+# 既知ギャップ台帳のエントリ数上限。増やすには本行の編集が必要 = diff に必ず出る。
+_T77_GAP_MAX=1
+
+# --- 外部台帳の読み込み ----------------------------------------------------
+_t77_reg_rows="$(grep -v '^[[:space:]]*#' "$_T77_REGF" | grep '[^[:space:]]' | sort)"
+_t77_gap_rows="$(grep -v '^[[:space:]]*#' "$_T77_GAPF" | grep '[^[:space:]]' || true)"
+
+_t77_gapargs=""
+_t77_gap_n=0
+_t77_gap_bad=0
+while IFS='	' read -r _t77_g_term _t77_g_issue _t77_g_rest; do
+  [ -n "$_t77_g_term" ] || continue
+  _t77_gap_n=$((_t77_gap_n + 1))
+  case "$_t77_g_term" in
+    *[!A-Za-z0-9_-]*) _t77_gap_bad=$((_t77_gap_bad + 1)) ;;
+  esac
+  case "$_t77_g_issue" in
+    '#'[0-9]*) : ;;
+    *) _t77_gap_bad=$((_t77_gap_bad + 1)) ;;
+  esac
+  [ -n "$_t77_g_rest" ] || _t77_gap_bad=$((_t77_gap_bad + 1))
+  _t77_gapargs="$_t77_gapargs --gap $_t77_g_term"
+done <<T77GAPS
+$_t77_gap_rows
+T77GAPS
 
 _T77_CAND="$_T77_TMP/cand.txt"
 _T77_OUT="$_T77_TMP/out.txt"
@@ -287,21 +383,36 @@ _T77_ERR="$_T77_TMP/err.txt"
 git -C "$_T77_ROOT" ls-files -- '*.md' > "$_T77_CAND" 2>/dev/null || true
 
 _t77_rc=0
-python3 "$_T77_AN" --root "$_T77_ROOT" --canonical "$_T77_CANON" --gap "$_T77_GAPS" < "$_T77_CAND" > "$_T77_OUT" 2> "$_T77_ERR" || _t77_rc=$?
+# shellcheck disable=SC2086
+python3 "$_T77_AN" --root "$_T77_ROOT" --canonical "$_T77_CANON" $_t77_gapargs < "$_T77_CAND" > "$_T77_OUT" 2> "$_T77_ERR" || _t77_rc=$?
 
-_t77_found="$(awk -F'\t' '$1=="SURFACE"{print $2}' "$_T77_OUT" | sort)"
-_t77_want="$(printf '%s\n' "$_T77_REGISTERED" | sort)"
-_t77_nfound="$(printf '%s\n' "$_t77_found" | grep -c . || true)"
+_t77_found_rows="$(awk -F'\t' '$1=="SURFACE"{printf "%s\t%s\t%s\n", $2, $3, $4}' "$_T77_OUT" | sort)"
+_t77_found_paths="$(printf '%s\n' "$_t77_found_rows" | cut -f1 | sort)"
+_t77_reg_paths="$(printf '%s\n' "$_t77_reg_rows" | cut -f1 | sort)"
+_t77_nfound="$(printf '%s\n' "$_t77_found_paths" | grep -c . || true)"
 
-# === TC-01: 発見集合 == 登録集合（同値照合）
-if [ "$_t77_found" = "$_t77_want" ]; then
-  _t77_ok "TC-01 発見した approval surface 集合が登録表と一致 (n=$_t77_nfound)"
+# === TC-01: 発見パス集合 == 台帳パス集合（両方向 fail-closed）
+if [ "$_t77_found_paths" = "$_t77_reg_paths" ]; then
+  _t77_ok "TC-01 発見した approval surface のパス集合が外部台帳と一致 (n=$_t77_nfound)"
 else
-  _t77_ng "TC-01 approval surface 集合が登録表と不一致 — 面が増減した可能性"
+  _t77_ng "TC-01 approval surface のパス集合が外部台帳と不一致 — 面が増減した"
+  printf '%s\n' "$_t77_found_paths" > "$_T77_TMP/found.txt"
+  printf '%s\n' "$_t77_reg_paths" > "$_T77_TMP/reg.txt"
+  printf '         --- discovered only ---\n'
+  comm -23 "$_T77_TMP/found.txt" "$_T77_TMP/reg.txt" | sed 's/^/         /'
+  printf '         --- registered only ---\n'
+  comm -13 "$_T77_TMP/found.txt" "$_T77_TMP/reg.txt" | sed 's/^/         /'
+fi
+
+# === TC-01b: path/class/digest 三つ組が一致（承認手順の記述変更を検出）
+if [ "$_t77_found_rows" = "$_t77_reg_rows" ]; then
+  _t77_ok "TC-01b approval surface の class/digest が外部台帳と一致"
+else
+  _t77_ng "TC-01b approval surface の class/digest が外部台帳と不一致 — 承認手順の記述が変わった"
   printf '         --- discovered ---\n'
-  printf '%s\n' "$_t77_found" | sed 's/^/         /'
+  printf '%s\n' "$_t77_found_rows" | sed 's/^/         /'
   printf '         --- registered ---\n'
-  printf '%s\n' "$_t77_want" | sed 's/^/         /'
+  printf '%s\n' "$_t77_reg_rows" | sed 's/^/         /'
 fi
 
 # === TC-02: 母数 floor（vacuous PASS 防止）
@@ -312,22 +423,31 @@ else
 fi
 
 # === TC-03: 正本自身が承認連鎖を宣言している
-if printf '%s\n' "$_t77_found" | grep -qx "$_T77_CANON" && ! grep -q APPROVAL_SURFACE_NO_CANONICAL_CHAIN "$_T77_ERR"; then
+if printf '%s\n' "$_t77_found_paths" | grep -Fqx "$_T77_CANON" && ! grep -q APPROVAL_SURFACE_NO_CANONICAL_CHAIN "$_T77_ERR"; then
   _t77_ok "TC-03 正本 $_T77_CANON が承認連鎖を宣言している"
 else
   _t77_ng "TC-03 正本が承認連鎖を宣言していない（宣言の消失は承認境界の消失）"
 fi
 
-# === TC-04: 非正本面のステップ語がすべて解決（rc=0 + unresolved=0 + 母数 floor）
+# === TC-04: 非正本 CHAIN 面のステップ語がすべて解決
 _t77_summary="$(grep '^SUMMARY' "$_T77_OUT" || true)"
 _t77_nterms="$(printf '%s' "$_t77_summary" | sed -n 's/.*terms=\([0-9][0-9]*\).*/\1/p' | head -n 1)"
+_t77_ndist="$(printf '%s' "$_t77_summary" | sed -n 's/.*distinct=\([0-9][0-9]*\).*/\1/p' | head -n 1)"
 [ -n "$_t77_nterms" ] || _t77_nterms=0
+[ -n "$_t77_ndist" ] || _t77_ndist=0
 if [ "$_t77_rc" = 0 ] && printf '%s' "$_t77_summary" | grep -q 'unresolved=0' && [ "$_t77_nterms" -ge "$_T77_TERM_FLOOR" ]; then
   _t77_ok "TC-04 非正本面のステップ語がすべて正本で解決 (rc=0, terms=$_t77_nterms)"
 else
   _t77_ng "TC-04 非正本面に正本で解決できないステップ語がある (rc=$_t77_rc, terms=$_t77_nterms)"
   grep UNRESOLVED "$_T77_OUT" | sed 's/^/         /' || true
   sed 's/^/         /' "$_T77_ERR" || true
+fi
+
+# === TC-02b: distinct ステップ語 floor（配布ミラー重複による vacuous を防ぐ / A-6）
+if [ "$_t77_ndist" -ge "$_T77_DISTINCT_FLOOR" ]; then
+  _t77_ok "TC-02b distinct ステップ語が floor 以上 ($_t77_ndist -ge $_T77_DISTINCT_FLOOR)"
+else
+  _t77_ng "TC-02b distinct ステップ語が floor 未満 ($_t77_ndist) — ミラー重複で母数を満たしている"
 fi
 
 # === TC-05: 既知ギャップ台帳に stale エントリが無い
@@ -338,21 +458,26 @@ else
   grep '^GAPUNUSED' "$_T77_OUT" | sed 's/^/         /' || true
 fi
 
-# === TC-06: .cursor/skills/plan-review-gate は symlink 経由の 6 面目。
+# === TC-05b: 既知ギャップ台帳の契約（上限件数 / 行の well-formedness）
+if [ "$_t77_gap_n" -le "$_T77_GAP_MAX" ] && [ "$_t77_gap_bad" = 0 ]; then
+  _t77_ok "TC-05b 既知ギャップ台帳が契約を満たす (entries=$_t77_gap_n -le $_T77_GAP_MAX, malformed=0)"
+else
+  _t77_ng "TC-05b 既知ギャップ台帳が契約違反 (entries=$_t77_gap_n, max=$_T77_GAP_MAX, malformed=$_t77_gap_bad)"
+fi
+
+# === TC-06: .cursor/skills/plan-review-gate は symlink 経由の面。
 # 内容は .agents 面と同一になる（分岐しえない）が、貼り替えは分岐しうる。
+# 部分文字列一致では agents/skills/... のような別ディレクトリも通るため完全一致で照合。
 _T77_ROOTP="$(CDPATH= cd -- "$_T77_ROOT" && pwd -P)"
 _T77_LINK="$_T77_ROOT/.cursor/skills/plan-review-gate"
 if [ -L "$_T77_LINK" ] && [ -d "$_T77_LINK" ]; then
   _t77_tgt="$(CDPATH= cd -- "$_T77_LINK" && pwd -P)"
   _t77_trel="${_t77_tgt#$_T77_ROOTP/}"
-  case "$_T77_REGISTERED" in
-    *"$_t77_trel/SKILL.md"*)
-      _t77_ok "TC-06 .cursor symlink が登録 surface を指す ($_t77_trel)"
-      ;;
-    *)
-      _t77_ng "TC-06 .cursor symlink が登録 surface 外を指す ($_t77_trel)"
-      ;;
-  esac
+  if printf '%s\n' "$_t77_reg_paths" | grep -Fqx "$_t77_trel/SKILL.md"; then
+    _t77_ok "TC-06 .cursor symlink が登録 surface を指す ($_t77_trel)"
+  else
+    _t77_ng "TC-06 .cursor symlink が登録 surface 外を指す ($_t77_trel)"
+  fi
 else
   _t77_ng "TC-06 .cursor/skills/plan-review-gate が symlink として存在しない"
 fi
@@ -434,6 +559,70 @@ if [ "$_t77_rc" = 1 ] && printf '%s' "$_t77_out" | grep -q APPROVAL_SURFACE_NO_C
   _t77_ok "TC-10 正本が連鎖宣言を失うと専用トークンで検出 (rc=1)"
 else
   _t77_ng "TC-10 正本の連鎖宣言消失を検出できない (rc=$_t77_rc)"
+fi
+
+# TC-11: 矢印 0 本の宣言面を発見する（docs/c3-approval-command.md 型 / A-1 の実物）
+# 初版の述語（矢印 3 本以上）はこの形を 1 つも拾わなかった。
+cat > "$_T77_SBX/zeroarrow.md" <<T77SBX
+## 承認コマンド
+
+承認トークン ${_T77_ANCHOR} の発行作業は CLI が自動化する。
+これにより approve が ${_T77_ANCHOR} 生成の唯一の正規経路になる。
+T77SBX
+printf 'canon.md\nmirror.md\nzeroarrow.md\n' > "$_T77_SBX/cand3.txt"
+_t77_rc=0
+_t77_out="$(python3 "$_T77_AN" --root "$_T77_SBX" --canonical canon.md < "$_T77_SBX/cand3.txt" 2>&1)" || _t77_rc=$?
+if printf '%s\n' "$_t77_out" | awk -F'\t' '$1=="SURFACE" && $2=="zeroarrow.md" && $3=="DECL"{f=1} END{exit f?0:1}'; then
+  _t77_ok "TC-11 矢印 0 本の承認手順宣言面を DECL として発見 (rc=$_t77_rc)"
+else
+  _t77_ng "TC-11 矢印 0 本の承認手順宣言面を発見できない — A-1 の実害が残る"
+  printf '%s\n' "$_t77_out" | sed 's/^/         /'
+fi
+
+# TC-12: 番号付きリスト形式の承認手順に新ステップを挿入すると digest が動く
+# 挿入行自体は宣言行ではない（ANCHOR も矢印も無い）が、宣言行を含む連続ブロック
+# 全体を digest 対象にしているため検出できる。
+cat > "$_T77_SBX/numlist.md" <<T77SBX
+## 承認手順
+
+1. R-NNN を集約する
+2. 1 回確定反映する
+3. 人間が APPROVED ${_T77_ANCHOR} を発行する
+4. exec を開始する
+T77SBX
+printf 'canon.md\nnumlist.md\n' > "$_T77_SBX/cand4.txt"
+_t77_d1="$(python3 "$_T77_AN" --root "$_T77_SBX" --canonical canon.md < "$_T77_SBX/cand4.txt" 2>/dev/null | awk -F'\t' '$1=="SURFACE" && $2=="numlist.md"{print $4}')"
+cat > "$_T77_SBX/numlist.md" <<T77SBX
+## 承認手順
+
+1. R-NNN を集約する
+2. 1 回確定反映する
+3. T77NEWSTEP を実行する
+4. 人間が APPROVED ${_T77_ANCHOR} を発行する
+5. exec を開始する
+T77SBX
+_t77_d2="$(python3 "$_T77_AN" --root "$_T77_SBX" --canonical canon.md < "$_T77_SBX/cand4.txt" 2>/dev/null | awk -F'\t' '$1=="SURFACE" && $2=="numlist.md"{print $4}')"
+if [ -n "$_t77_d1" ] && [ -n "$_t77_d2" ] && [ "$_t77_d1" != "$_t77_d2" ]; then
+  _t77_ok "TC-12 番号付きリストへの新ステップ挿入で digest が変わる ($_t77_d1 -> $_t77_d2)"
+else
+  _t77_ng "TC-12 番号付きリストへの新ステップ挿入を digest が検出できない (d1=$_t77_d1 d2=$_t77_d2)"
+fi
+
+# TC-13: 矢印 1→2 本の 1 行形式に新ステップを足すと発見され digest が動く
+# 初版の閾値（矢印 3 本以上）では発見すらされなかった形。
+cat > "$_T77_SBX/twoarrow.md" <<T77SBX
+## 確定反映 → ${_T77_ANCHOR} 発行
+T77SBX
+printf 'canon.md\ntwoarrow.md\n' > "$_T77_SBX/cand5.txt"
+_t77_e1="$(python3 "$_T77_AN" --root "$_T77_SBX" --canonical canon.md < "$_T77_SBX/cand5.txt" 2>/dev/null | awk -F'\t' '$1=="SURFACE" && $2=="twoarrow.md"{print $3"/"$4}')"
+cat > "$_T77_SBX/twoarrow.md" <<T77SBX
+## 確定反映 → T77NEWSTEP → ${_T77_ANCHOR} 発行
+T77SBX
+_t77_e2="$(python3 "$_T77_AN" --root "$_T77_SBX" --canonical canon.md < "$_T77_SBX/cand5.txt" 2>/dev/null | awk -F'\t' '$1=="SURFACE" && $2=="twoarrow.md"{print $3"/"$4}')"
+if [ -n "$_t77_e1" ] && [ -n "$_t77_e2" ] && [ "$_t77_e1" != "$_t77_e2" ]; then
+  _t77_ok "TC-13 矢印 3 本未満の 1 行形式でも発見し、新ステップで digest が変わる ($_t77_e1 -> $_t77_e2)"
+else
+  _t77_ng "TC-13 矢印 3 本未満の 1 行形式の変更を検出できない (e1=$_t77_e1 e2=$_t77_e2)"
 fi
 
 rm -rf "$_T77_SBX"
