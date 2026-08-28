@@ -139,7 +139,7 @@ PR #1267 が `.claude/settings.example.json` の `Bash` matcher へ `check-plan-
   `check-skip-acknowledged.sh` が FAIL、という **摩擦だけ**が残る
 - 是正 patch（Bash レーンの明示 no-op 化）と残存脅威モデル:
   [`docs/working/_reports/1104-bash-lane-noop-patch-applicable.md`](../working/_reports/1104-bash-lane-noop-patch-applicable.md)。
-  回帰テスト: `tests/extras/ta-77-eh3-bash-lane.sh`
+  回帰テスト: `tests/extras/ta-79-eh3-bash-lane.sh`
 - **したがって `Bash` 経路の欠落（#1104）は解消していない。** 配線の有無と強制力の有無を混同しないこと
 
 #### Bash 経路の欠落は #1104 で追跡中

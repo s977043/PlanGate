@@ -338,7 +338,7 @@ gitignore でリポジトリに存在しないため）と **`.codex/hooks.json`
 > `skip-decision-log.jsonl` へ未追認エントリが積まれ `check-skip-acknowledged.sh` が FAIL、という
 > **摩擦だけ**が残る。是正 patch と残存脅威モデル:
 > [`docs/working/_reports/1104-bash-lane-noop-patch-applicable.md`](../working/_reports/1104-bash-lane-noop-patch-applicable.md)。
-> 回帰テスト: `tests/extras/ta-77-eh3-bash-lane.sh`。**#1104 は open**（Bash コマンド文字列からの
+> 回帰テスト: `tests/extras/ta-79-eh3-bash-lane.sh`。**#1104 は open**（Bash コマンド文字列からの
 > 書き込み先抽出は未実装）。
 
 **欠落 6 件を「単に名前を足せば直る」と読んではならない**。#6〜#9 の hook 実体は

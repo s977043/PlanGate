@@ -16,7 +16,7 @@
 | **採らなかった方針** | 方針 2（`tool_input.command` から書き込み先を抽出して HO 判定に掛ける）。理由は §3 |
 | **patch 対象** | `scripts/hooks/check-plan-hash.sh`（+29 行）/ `.claude/settings.example.json`（`_comment_` 1 行の是正） |
 | **配線自体は残す** | `scripts/apply-claude-settings.sh` は **「不足のみ取り込む・削除しない」** 冪等 merge（同スクリプト冒頭に明記）。すでに apply した利用者の `.claude/settings.json` からは、example 側を戻しても Bash エントリは**消えない**。したがって **hook 側の是正が必須**であり、example 側の配線を剥がしても救済にならない |
-| **回帰テスト** | `tests/extras/ta-77-eh3-bash-lane.sh`（新規）。Bash 形状の PreToolUse payload を hook に流して rc を実測する |
+| **回帰テスト** | `tests/extras/ta-79-eh3-bash-lane.sh`（新規）。Bash 形状の PreToolUse payload を hook に流して rc を実測する |
 
 ---
 
@@ -137,7 +137,7 @@ git apply --check /tmp/1104-bash-lane.patch && git apply /tmp/1104-bash-lane.pat
 
 （行アンカー `^...$` を付けるのは、本節の説明文・コマンド自身に含まれる同じ文字列へ誤ヒットさせないため。`sed` を 2 回通すのは marker 行と fence 行を外側から 1 組ずつ落とすため（1 回の sed で `1d` を 2 度書いても同じ行にしか当たらない）。）
 
-`tests/extras/ta-77-eh3-bash-lane.sh` は **同じ marker 規則**でこの block を抽出し、
+`tests/extras/ta-79-eh3-bash-lane.sh` は **同じ marker 規則**でこの block を抽出し、
 サンドボックス複製へ適用して挙動を実測する（= **この block が壊れたらテストが FAIL する**）。
 
 <!-- PG-PATCH-BEGIN -->
@@ -198,8 +198,8 @@ diff --git a/.claude/settings.example.json b/.claude/settings.example.json
 
 ### 適用後にやること
 
-1. `tests/fixtures/eh3-bash-lane-pending-1104.flag` を **削除**する（既知ギャップの明示 opt-in。残したままだと `ta-77` TC-00b が stale 宣言として FAIL する）
-2. `sh tests/extras/ta-77-eh3-bash-lane.sh`（standalone 実行可）で全 PASS を確認する
+1. `tests/fixtures/eh3-bash-lane-pending-1104.flag` を **削除**する（既知ギャップの明示 opt-in。残したままだと `ta-79` TC-00b が stale 宣言として FAIL する）
+2. `sh tests/extras/ta-79-eh3-bash-lane.sh`（standalone 実行可）で全 PASS を確認する
 3. `sh scripts/apply-claude-settings.sh` を実行して `.claude/settings.json` へ反映する（Human-owned）
 
 ---
@@ -211,7 +211,7 @@ diff --git a/.claude/settings.example.json b/.claude/settings.example.json
 | `git apply --check` が `origin/main` = `3f0cadd` で成功 | ✅ 実測 rc=0 |
 | patch 適用後の hook が `sh -n` を通る | ✅ 実測 rc=0 |
 | patch 適用後の settings.example.json が valid JSON | ✅ `json.load` 成功 |
-| §1 の 6 ケースが patch 後に §2 の表どおりになる | ✅ `ta-77` が実測（サンドボックス複製） |
-| `ta-77` の検出力 | ✅ 変異注入 4 種で実証（`ta-77` TC-08、結果は同ファイル冒頭コメント） |
+| §1 の 6 ケースが patch 後に §2 の表どおりになる | ✅ `ta-79` が実測（サンドボックス複製） |
+| `ta-79` の検出力 | ✅ 変異注入 4 種で実証（`ta-79` TC-08、結果は同ファイル冒頭コメント） |
 | 実 Claude Code セッションでの 1 周 | ❌ 未実施（§4 の「測っていないもの」） |
-| `tests/run-tests.sh` 全体の実走 | ❌ 未実施（ローカル 25 分超のため。`ta-77` は standalone 実行で確認） |
+| `tests/run-tests.sh` 全体の実走 | ❌ 未実施（ローカル 25 分超のため。`ta-79` は standalone 実行で確認） |
