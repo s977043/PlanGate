@@ -28,6 +28,13 @@ changed=0
 # 呼ばれるため（下の for ループ 1 箇所のみ）、POSIX sh に local が無くても
 # global への集約が成立する。終端で 1 回だけ判定して exit 3 する。
 guard_fired=0
+# ai-dev spec のソース不在（上流 rename / 移動）を数える（#1249 MAJOR-3）。
+# spec は固定パスの一覧であり ai-loop のディレクトリ glob と違って rename に
+# 追従しない。旧実装は不在ソースを黙って読み飛ばし、その basename が期待集合から
+# 抜けることで **次の削除ループが配布物を無警告で消していた**。件数を global に
+# 集約し、終端で 1 回だけ人が読める形で再掲する（下の「人へ届く経路」を参照）。
+spec_missing=0
+spec_missing_list=""
 
 # agents の model frontmatter は本リポジトリ運用向けの tier 指定（docs/ai/model-profiles.md
 # §Claude Code エージェントの model tier）。配布版 plugin は利用者環境のモデル可用性に
@@ -551,7 +558,14 @@ fi
 # ⚠️ 上の汎用 skills ループ（`.agents/skills/<name>/references/` を同期する部分）とは
 # **同じ dst ディレクトリを二重管理しないこと**が前提。汎用側は `_src_refs` が存在する
 # ときだけ dst に触るため、`.agents/skills/ai-dev-*/references/` を作らない限り衝突しない
-# （ai-loop-cycle と同じ前提）。作ってしまうと両者の削除ループが互いの成果物を消し合う。
+# （ai-loop-cycle と同じ前提）。
+# 作ってしまったときの実挙動（実測 / `tests/extras/ta-26-plugin-sync.sh` TC-43）は
+# 「互いに消し合う」ではなく **一方向の COPY→DELETE が毎 run 反復して収束しない**:
+# 汎用ループが COPY した直後に、同 run 内で後続の ai-dev ループが期待集合外
+# （stale）として DELETE する。順序が固定なので配布側へは永久に到達せず、
+# `changed=1` が立ち続けて "Sync complete — no changes" にならない。
+# net のファイル状態は不変なので CI の `git diff --quiet` は緑のままで、
+# **CI が恒久 red になるわけではない**（＝黙って直らない）。
 AI_DEV_SKILLS="ai-dev-plan ai-dev-exec ai-dev-verify ai-dev-brainstorm"
 
 _ai_dev_ref_spec() {
@@ -616,7 +630,19 @@ for _ad_skill in $AI_DEV_SKILLS; do
   : > "$_ai_dev_map_file"
   while read -r _ad_base _ad_src; do
     [ -n "$_ad_base" ] || continue
-    [ -f "$REPO_ROOT/$_ad_src" ] || continue
+    if [ ! -f "$REPO_ROOT/$_ad_src" ]; then
+      # ソース不在は **異常**であって「配らない」という意思表示ではない（#1249
+      # MAJOR-3）。黙って continue すると basename が期待集合から抜け、直後の
+      # 削除ループが配布側の既存ファイルを rc=0・無警告で消す。
+      # ここでは (1) WARN を出し (2) basename を期待集合に残して削除を保留する。
+      # map には入れない（ソース実パスが無いためリンク同一実体判定に使えない）。
+      spec_missing=$((spec_missing + 1))
+      spec_missing_list="$spec_missing_list
+  - skills/$_ad_skill/references/$_ad_base <- $_ad_src"
+      _warn "WARN: spec のソースが見つかりません — $_ad_src (skills/$_ad_skill/references/$_ad_base)。上流の rename / 移動の可能性があるため配布側の削除を保留します（_ai_dev_ref_spec を実パスへ追従させてください）"
+      _ad_expected="$_ad_expected $_ad_base"
+      continue
+    fi
     _ad_expected="$_ad_expected $_ad_base"
     printf '%s\t%s\n' "$_ad_base" "$REPO_ROOT/$_ad_src" >> "$_ai_dev_map_file"
   done < "$_ai_dev_spec_file"
@@ -810,6 +836,23 @@ if [ "$changed" = "1" ]; then
   _log "Sync complete — changes detected"
 else
   _log "Sync complete — no changes"
+fi
+
+# spec ソース不在の「人へ届く経路」（#1249 CRITICAL-1）。
+# 削除を保留する以上ファイル状態は変わらないため、CI の `git diff --quiet` も
+# exit code も緑のままになる（TC-42 が rc=0 を要求している）。ログ 1 行だけでは
+# 誰も読まないので、
+#   (1) 終端でまとめて stderr へ再掲する（ローカル実行者向け）
+#   (2) GitHub Actions 上では `::warning::` アノテーションを出す
+#       （job サマリと該当 step に表示され、緑の run でも一覧から見える）
+# の 2 経路を確保する。**exit code は変えない**（保留は fail ではなく、
+# 「spec を実パスへ追従させる」という追従作業の通知である）。
+if [ "$spec_missing" != "0" ]; then
+  _warn "WARN: ai-dev spec のソース不在 $spec_missing 件 — 該当 basename の削除を保留しました。_ai_dev_ref_spec を実パスへ追従させてください:$spec_missing_list"
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    printf '::warning title=sync-plugin: ai-dev spec source missing::%s 件のソースが見つからず配布物の削除を保留しました（_ai_dev_ref_spec の追従が必要）\n' \
+      "$spec_missing"
+  fi
 fi
 
 # #877 F1: mass-delete safety guard が発火した run は非ゼロ（exit 3）で終了する。

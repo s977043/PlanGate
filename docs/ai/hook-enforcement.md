@@ -217,15 +217,52 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >   「TASK 文脈でも block される」**。コードが元の構造へ戻ると CI が RED になる
 > - `.claude/settings*.json` は Claude Code 自身の self-mod ガード（harness 層）でも
 >   守られるが、**残る 8 カテゴリに同等の別ガードは確認されていない**
-> - **「常時 block」は文字どおりには成立しない（既知の残存・2 系統）**:
->   1. **経路の欠落（#1104）**: `Bash` matcher に未配線＝`Edit|Write` 以外の書き込みは素通り（§0.1）
->   2. **`Edit|Write` 経路内の正規化不足（#1101、以下）**
+> - **「常時 block」は文字どおりには成立しない（既知の残存・3 系統）**:
+>   1. **経路の欠落（[#1104](https://github.com/s977043/plangate/issues/1104)）**:
+>      `Bash` matcher に未配線＝`Edit|Write` 以外の書き込みは素通り（§0.1）
+>   2. **`Edit|Write` 経路内の正規化不足（[#1101](https://github.com/s977043/plangate/issues/1101)
+>      — patch 作成済み・**適用は Human-owned で未適用**）**
+>   3. **FS エイリアス（firmlink / シンボリックリンク）による別表記到達
+>      — 追跡 issue **未起票**（#1101 handoff の follow-up。起票はオーケストレータ）**
 >
->   `..` / 大小文字 / 末尾空白の
->   正規化が未実装で通過する。ta-65 TC-07 が **4 ケース**を KNOWN-GAP として固定している
->   （`docs/../CLAUDE.md` / `CLAUDE.MD` / `"CLAUDE.md "` / **`bin/../bin/plangate`**）。
->   **`.md` の表記揺れに限らず、`..` 経由で CLI 本体 `bin/plangate` の HO も迂回できる**点に注意
->   （実測 rc=0）。塞いだ時点で TC-07 が RED になり更新が強制される。**別 PBI 候補**
+>   **2 の実測（旧記述の訂正）**: 旧版はこの残存を **4 ケース**と書いていたが**過少**だった。
+>   #1101 の実測では変換クラスは **7 種**（`..` 往復 / `//` / `/./` / 先頭 `./` / 大小文字 /
+>   末尾空白 / repo root 跨ぎの絶対パス）あり、**HO 9 カテゴリ 15 パターンすべて**に対して
+>   適用できる（`.md` の表記揺れに限らず、`..` 経由で CLI 本体 `bin/plangate` の HO も
+>   迂回できる。実測 rc=0）。
+>
+>   是正は `tests/fixtures/pg-fold-path.sh`（正規化関数の正本）+
+>   `scripts/apply-1101-ho-normalization.sh`（patch 適用スクリプト）として用意済み。
+>   **`scripts/hooks/check-plan-hash.sh` は HO 対象パスであり AI は適用できない**ため、
+>   適用は `sh scripts/apply-1101-ho-normalization.sh --apply`（Human-owned）。
+>   適用前は `tests/fixtures/eh3-normalization-pending-1101.flag`（tracked）が未適用を
+>   明示 opt-in で受理し、ta-65 TC-07 が緑になる。**適用したら flag を削除すること**
+>   （適用済みで flag が残ると TC-07 が stale 宣言として FAIL する）。
+>   patch の中身自体は ta-65 TC-08〜TC-12 が patch 済み複製に対して常時検査している。
+>
+>   **3 の実測**: macOS の firmlink により、同一 inode へ複数表記で到達できる。
+>   正規化は**字句のみ**でありシンボリックリンクを解決しない（#1101 の Non-goal）ため、
+>   repo root を `/tmp/...` として解決したセッションでは次のようになる:
+>
+>   ```text
+>   rc=2  /tmp/<root>/CLAUDE.md                       ← block（正）
+>   rc=0  /private/tmp/<root>/CLAUDE.md               ← 素通り
+>   rc=0  /System/Volumes/Data/private/tmp/.../CLAUDE.md ← 素通り
+>   ```
+>
+>   `ls -l` で 3 表記とも同一 inode・同一タイムスタンプに到達することを確認済み。
+>   **#1101 適用後も残る**。「HO は常時 block される」と読んではならない。
+>
+> **残存脅威モデル（守るもの / 守らないもの）**
+>
+> | | 内容 |
+> |---|---|
+> | **守る** | `Edit\|Write` 経路の、**字句上**の表記揺れ（上記 7 変換クラスとその複合）による HO 迂回（#1101 適用後） |
+> | **守らない** | `Bash` 経路（#1104）/ FS エイリアス・シンボリックリンク（上記 3）/ hook を配線していない導入先（plugin 配布物に `scripts/hooks/` は含まれない）/ `PLANGATE_BYPASS_HOOK=1` |
+>
+> EH-3 の HO block は**多層防御の 1 層**にすぎない。承認境界の最終的な保証主体は
+> **C-4 Human レビュー**と **GitHub branch protection** であり、本 hook の block を
+> 単独の保証と見なさないこと。
 
 > **`PLANGATE_HOOK_TASK` 未設定セッションの正規経路（#1095）**
 >

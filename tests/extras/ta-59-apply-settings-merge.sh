@@ -62,6 +62,102 @@ _t59_mksbx() {
   fi
 }
 
+# ── EH-3（check-plan-hash.sh）レーン検査ヘルパ（#1104）──────────────────
+# #1104 で EH-3 は `Edit|Write` と `Bash` の **2 レーン**に配線された。
+# 「出現回数」で判定すると example のレーンが増減するたびに無関係な TC が
+# 落ちる（成長しうる対象への絶対件数 assert は時限爆弾）。そこで
+# **期待レーン集合を settings.example.json から実行時に導出**し、
+# 「example の各レーンにつき正規表記の EH-3 がちょうど 1 本・引数欠落 0」という
+# 構造で判定する。
+# 正規化規則は apply-claude-settings.sh の `_script_paths()` と同一
+# （二重引用符と `${}` の brace は剥がす / 単一引用符と変数名は保持する）。
+# ここを緩めると apply 側の誤同一視（TC-14 / TC-21 の検出対象）を見逃す。
+#
+# 出力（1 行 1 項目）:
+#   LANE <matcher> <正規表記の本数> <引数欠落の本数>
+#   FOREIGN <正規表記でない EH-3 の本数>   ← 別変数名 / 単一引用符の残存
+_t59_ph_report() {  # $1 = 適用後 settings.json  $2 = settings.example.json
+  python3 - "$1" "$2" <<'PY59H'
+import json, re, sys
+_BRACED = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_SCRIPT = re.compile(r"\S+\.(?:sh|py)\b")
+CANON = "$CLAUDE_PROJECT_DIR/scripts/hooks/check-plan-hash.sh"
+
+
+def _norm(tok):
+    tok = tok.strip('"')
+    tok = _BRACED.sub(r"$\1", tok)
+    while tok.startswith("./"):
+        tok = tok[2:]
+    return tok
+
+
+def _is_canon(cmd):
+    return CANON in [_norm(t) for t in _SCRIPT.findall(cmd or "")]
+
+
+def _tokens(m):
+    m = (m or "").strip()
+    if m in ("", "*"):
+        return "ALL"
+    parts = [p.strip() for p in m.split("|")]
+    if parts and all(re.fullmatch(r"[A-Za-z0-9_]+", p) for p in parts):
+        return frozenset(parts)
+    return None
+
+
+def _covers(existing, wanted):
+    if existing == wanted:
+        return True
+    et, wt = _tokens(existing), _tokens(wanted)
+    if et == "ALL":
+        return True
+    if et is None or wt is None or wt == "ALL":
+        return False
+    return wt <= et
+
+
+def _eh3(doc):
+    out = []
+    for blk in (doc.get("hooks", {}) or {}).get("PreToolUse", []) or []:
+        if not isinstance(blk, dict):
+            continue
+        for h in blk.get("hooks", []) or []:
+            cmd = (h or {}).get("command", "") or ""
+            if "check-plan-hash.sh" in cmd:
+                out.append((blk.get("matcher") or "", cmd))
+    return out
+
+
+sj = _eh3(json.load(open(sys.argv[1])))
+want = sorted({m for m, c in _eh3(json.load(open(sys.argv[2]))) if _is_canon(c)})
+for m in want:
+    hits = [c for gm, c in sj if _is_canon(c) and _covers(gm, m)]
+    bad = sum(1 for c in hits if "${PLANGATE_HOOK_TASK:-}" not in c
+              or "${PLANGATE_HOOK_FILE:-}" not in c)
+    print("LANE %s %d %d" % (m or "*", len(hits), bad))
+print("FOREIGN %d" % sum(1 for m, c in sj if not _is_canon(c)))
+PY59H
+}
+
+# example の全レーンが「正規表記 1 本・引数欠落 0」なら rc=0
+_t59_ph_lanes_ok() {  # $1 = サンドボックス root
+  _t59_ph_report "$1/.claude/settings.json" "$1/.claude/settings.example.json" \
+    | awk '/^LANE /{ if ($3 != 1 || $4 != 0) bad = 1 } END { exit bad ? 1 : 0 }'
+}
+
+# 正規表記でない EH-3（別変数名 / 単一引用符）の残存数を出力
+_t59_ph_foreign() {  # $1 = サンドボックス root
+  _t59_ph_report "$1/.claude/settings.json" "$1/.claude/settings.example.json" \
+    | awk '/^FOREIGN /{ print $2 }'
+}
+
+# FAIL 時に貼る診断（レーン別内訳を 1 行に）
+_t59_ph_diag() {  # $1 = サンドボックス root
+  _t59_ph_report "$1/.claude/settings.json" "$1/.claude/settings.example.json" \
+    | tr '\n' ' '
+}
+
 # 契約 hook がほぼ未配線の settings.json（PreToolUse は EH-9 の 1 本だけ）
 _T59_MINIMAL='{
   "hooks": {
@@ -151,13 +247,14 @@ else
 fi
 
 # === TC-06: EH-3 は引数が付与され、ブロックは二重取り込みされない ===
-_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx2/.claude/settings.json" || true)
-if [ "$_t59_n" -eq 1 ] \
+# #1104 以降 EH-3 は Edit|Write / Bash の 2 レーン。出現回数ではなく
+# 「example の各レーンに正規表記が 1 本ずつ・引数欠落 0・異表記の残存 0」で見る。
+if _t59_ph_lanes_ok "$_t59_sbx2" && [ "$(_t59_ph_foreign "$_t59_sbx2")" -eq 0 ] \
   && grep -qF 'check-plan-hash.sh ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}' \
        "$_t59_sbx2/.claude/settings.json"; then
-  t59_pass "TC-06 引数なし EH-3 に PLANGATE_HOOK_FILE を付与し二重配線しない（出現 1 回）"
+  t59_pass "TC-06 引数なし EH-3 に PLANGATE_HOOK_FILE を付与し各レーン 1 本ずつに収める"
 else
-  t59_fail "TC-06 EH-3 の引数付与 or 重複排除に失敗（check-plan-hash.sh 出現 $_t59_n 回）"
+  t59_fail "TC-06 EH-3 の引数付与 or 重複排除に失敗（$(_t59_ph_diag "$_t59_sbx2")）"
 fi
 
 # === TC-07: ローカル固有あり sandbox でも冪等 ===
@@ -238,13 +335,13 @@ _t59_mksbx '{
 _t59_sbx6="$_t59_sbx"
 _t59_rc=0
 _t59_out=$(sh "$_t59_sbx6/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
-_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx6/.claude/settings.json" || true)
-if [ "$_t59_rc" -eq 0 ] && [ "$_t59_n" -eq 1 ] \
+if [ "$_t59_rc" -eq 0 ] && _t59_ph_lanes_ok "$_t59_sbx6" \
+  && [ "$(_t59_ph_foreign "$_t59_sbx6")" -eq 0 ] \
   && grep -qF 'check-plan-hash.sh ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}' \
        "$_t59_sbx6/.claude/settings.json"; then
-  t59_pass "TC-11 引数なし EH-3 に TASK→FILE の順で 2 引数を付与（example と同形）"
+  t59_pass "TC-11 引数なし EH-3 に TASK→FILE の順で 2 引数を付与（example と同形・全レーン）"
 else
-  t59_fail "TC-11 EH-3 の引数位置が壊れている (rc=$_t59_rc / 出現 $_t59_n 回): $_t59_out"
+  t59_fail "TC-11 EH-3 の引数位置が壊れている (rc=$_t59_rc / $(_t59_ph_diag "$_t59_sbx6")): $_t59_out"
 fi
 
 # === TC-12: matcher "*"（全ツール）を包含として扱う（F2(b)）===
@@ -283,11 +380,13 @@ _t59_mksbx '{
 _t59_sbx8="$_t59_sbx"
 _t59_rc=0
 _t59_out=$(sh "$_t59_sbx8/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
-_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx8/.claude/settings.json" || true)
-if [ "$_t59_rc" -eq 0 ] && [ "$_t59_n" -eq 1 ]; then
-  t59_pass "TC-13 引用符付きパスを同一 hook と見なす（EH-3 出現 1 回）"
+# 引用符付きは同一 hook＝Edit|Write レーンは既存 1 本のまま（追加されない）。
+# 別 hook 扱いになると同レーンが 2 本になり lanes_ok が落ちる。
+if [ "$_t59_rc" -eq 0 ] && _t59_ph_lanes_ok "$_t59_sbx8" \
+  && [ "$(_t59_ph_foreign "$_t59_sbx8")" -eq 0 ]; then
+  t59_pass "TC-13 引用符付きパスを同一 hook と見なす（Edit|Write レーンは 1 本のまま）"
 else
-  t59_fail "TC-13 引用符付きパスが別 hook 扱いになった (rc=$_t59_rc / 出現 $_t59_n 回・期待 1)"
+  t59_fail "TC-13 引用符付きパスが別 hook 扱いになった (rc=$_t59_rc / $(_t59_ph_diag "$_t59_sbx8"))"
 fi
 
 # === TC-14: 別変数名のパスは同一視しない（F2 逆方向）===
@@ -305,13 +404,13 @@ _t59_mksbx '{
 _t59_sbx9="$_t59_sbx"
 _t59_rc=0
 _t59_out=$(sh "$_t59_sbx9/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
-_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx9/.claude/settings.json" || true)
-if [ "$_t59_rc" -eq 0 ] && [ "$_t59_n" -eq 2 ] \
-  && grep -qF '${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh' \
-       "$_t59_sbx9/.claude/settings.json"; then
-  t59_pass "TC-14 別変数名のパスを同一視せず正規の EH-3 を取り込む（出現 2 回）"
+# 期待: 正規表記が example の全レーンに 1 本ずつ入り、かつ別変数名の 1 本は
+# 削除されず残る（FOREIGN=1）。同一視されると Edit|Write レーンが 0 本になる。
+if [ "$_t59_rc" -eq 0 ] && _t59_ph_lanes_ok "$_t59_sbx9" \
+  && [ "$(_t59_ph_foreign "$_t59_sbx9")" -eq 1 ]; then
+  t59_pass "TC-14 別変数名のパスを同一視せず正規の EH-3 を全レーンへ取り込む"
 else
-  t59_fail "TC-14 別変数名を同一視して EH-3 が入らなかった (rc=$_t59_rc / 出現 $_t59_n 回・期待 2)"
+  t59_fail "TC-14 別変数名を同一視して EH-3 が入らなかった (rc=$_t59_rc / $(_t59_ph_diag "$_t59_sbx9"))"
 fi
 
 # === TC-15: 未知引数は本適用せずエラー終了する（F5）===
@@ -468,13 +567,13 @@ _t59_mksbx '{
 _t59_sbx16="$_t59_sbx"
 _t59_rc=0
 _t59_out=$(sh "$_t59_sbx16/scripts/apply-claude-settings.sh" 2>&1) || _t59_rc=$?
-_t59_n=$(grep -cF 'check-plan-hash.sh' "$_t59_sbx16/.claude/settings.json" || true)
-if [ "$_t59_rc" -eq 0 ] && [ "$_t59_n" -eq 2 ] \
-  && grep -qF '"sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh' \
-       "$_t59_sbx16/.claude/settings.json"; then
-  t59_pass "TC-21 単一引用符の literal パスを同一視せず正規 EH-3 を取り込む（出現 2 回）"
+# 期待: 正規表記が example の全レーンに 1 本ずつ入り、単一引用符の 1 本は
+# 別物として残る（FOREIGN=1）。同一視されると Edit|Write レーンが 0 本になる。
+if [ "$_t59_rc" -eq 0 ] && _t59_ph_lanes_ok "$_t59_sbx16" \
+  && [ "$(_t59_ph_foreign "$_t59_sbx16")" -eq 1 ]; then
+  t59_pass "TC-21 単一引用符の literal パスを同一視せず正規 EH-3 を全レーンへ取り込む"
 else
-  t59_fail "TC-21 単一引用符を同一視し正規 EH-3 が入らなかった (rc=$_t59_rc / 出現 $_t59_n 回・期待 2)"
+  t59_fail "TC-21 単一引用符を同一視し正規 EH-3 が入らなかった (rc=$_t59_rc / $(_t59_ph_diag "$_t59_sbx16"))"
 fi
 
 # === TC-22: サンドボックス後片付け（明示 rm -rf の実効確認）===

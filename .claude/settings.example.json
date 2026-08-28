@@ -45,6 +45,16 @@
         ]
       },
       {
+        "_comment_": "Hook EH-3b (#1104): Bash route HO / plan.md guard. Applies the same HO decision as EH-3 to write-intent Bash commands.",
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}"
+          }
+        ]
+      },
+      {
         "_comment_": "Hook EH-6 (Issue #169 セッション B): scope 外ファイル編集検知。子 PBI YAML の forbidden_files glob と編集対象 path を突合。PLANGATE_HOOK_FILE 環境変数で編集対象 path を明示する必要あり。default は warning、strict 時 block。未明示時は SKIP。",
         "matcher": "Edit|Write",
         "hooks": [

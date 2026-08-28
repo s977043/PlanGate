@@ -17,8 +17,8 @@
 #     済みの check をここで hard FAIL にすると、既存インストールの
 #     `doctor --check-settings` が一斉に赤くなり settings タスクロックが
 #     止まるため、そうした check は **WARN**（exit 0 のまま列挙）とする。
-#   - 既存 6 項目（EH-1/2/6/3/EH-3 引数/EH-9）は従来どおり **両レーンとも
-#     FAIL**（退行させない）。
+#   - 既存 7 項目（EH-1/2/6/3/EH-3b/EH-3 引数/EH-9）は従来どおり **両レーンとも
+#     FAIL**（退行させない）。EH-3b は Bash 経路の plan-hash 配線（#1104 / #1267）。
 #
 # strict モード（`PLANGATE_STRICT_WIRING=1` / #1259 R6-B-2）:
 #   user レーンの WARN を **FAIL に昇格**させる。
@@ -113,11 +113,16 @@ def tool(name):
 
 # (check id, command 部分文字列, matcher 正規表現, ラベル, severity レーン)
 checks = [
-    # 既存 6 項目は matcher 正規表現を含め **一切変更しない**（退行防止 / #1259 R6）。
+    # 既存項目（EH-1/2/6/3/EH-3b/EH-3 引数/EH-9）は matcher 正規表現を含め
+    # **一切変更しない**（退行防止 / #1259 R6・#1267）。
     ("EH-1", "check-plan-exists.sh", "Edit|Write", "EH-1 plan-exists", FAIL_BOTH),
     ("EH-2", "check-c3-approval.sh", "Edit|Write", "EH-2 c3-approval", FAIL_BOTH),
     ("EH-6", "check-forbidden-files.sh", "Edit|Write", "EH-6 forbidden-files", FAIL_BOTH),
     ("EH-3", "check-plan-hash.sh", "Edit|Write", "EH-3 plan-hash", FAIL_BOTH),
+    # EH-3b Bash 経路の plan-hash 配線（#1104 / main 側 #1267 由来）。
+    # matcher 文字列・severity は main の挙動（両 target で FAIL）を保存する。
+    ("EH-3B", "check-plan-hash.sh", "Bash",
+     "EH-3b Bash route plan-hash(#1104)", FAIL_BOTH),
     ("EH-3-FILE-ARG", "${PLANGATE_HOOK_FILE:-}", "Edit|Write",
      "EH-3 の PLANGATE_HOOK_FILE 引数(P4(d)/AC-8)", FAIL_BOTH),
     ("EH-9", "check-delegation-commit-boundary.sh", "Bash",
@@ -144,7 +149,7 @@ checks = [
 # 一般に防ぐものではない）。その改変クラスの担い手は冒頭「残存脅威モデル」に
 # 記したとおり C-4 Human レビューのみ。
 REQUIRED_CHECK_IDS = (
-    "EH-1", "EH-2", "EH-6", "EH-3", "EH-3-FILE-ARG", "EH-9",
+    "EH-1", "EH-2", "EH-6", "EH-3", "EH-3B", "EH-3-FILE-ARG", "EH-9",
     "EH-13-EDIT", "EH-13-WRITE", "EH-13-BASH",
 )
 _present = {c[0] for c in checks}
