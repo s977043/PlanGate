@@ -107,10 +107,22 @@ bin/plangate maintenance start --reason "hook 整備" [--paths "scripts/hooks/fo
 責任ではないものを repo のせいにしないため（かつ `.claude/settings*.json` は
 Hardening Override 対象で AI が是正できないため）。
 
-**既知のギャップ（本 doc の範囲外 / issue #1259）**:
+**`check-settings-wiring.sh` 側の被覆（#1259 で追加 / 実測 2026-08-28）**:
 [`scripts/check-settings-wiring.sh`](../../scripts/check-settings-wiring.sh) の
-checks に EH-13 は**未登録**である。そのため `.claude/settings.example.json` に
-対する機械ゲートは事実上 `T1071-TC-04a` の 1 本しかない。
+checks に EH-13 の 3 エントリ（`EH-13-EDIT` / `EH-13-WRITE` / `EH-13-BASH`）が
+登録された。**ただし「機械ゲートに載った」と言えるのは tracked な
+`.claude/settings.example.json`（`--target example`）レーンだけである**:
+
+- `--target example` = FAIL（exit 1）。CI が実行するのでここは実効
+- `--target user`（実配線 `.claude/settings.json`）= **WARN**（exit 0 のまま列挙）。
+  既存インストールを一斉に赤くしないための設計上の選択
+- user レーンの唯一の消費者 `bin/plangate doctor --check-settings` は
+  **rc しか転送しない**ため、この WARN は V-1 の settings タスクロックから
+  **構造的に見えない**。見せるには `PLANGATE_STRICT_WIRING=1`（opt-in）が要る
+
+したがって**実際に適用されている配線に対する自動検出は依然として
+`ta-25` の `T1071-TC-04a` が主**であり、EH-13 の登録をもって
+「実配線が機械ゲートで守られている」と読んではならない。
 
 ## ガード本体の配置（単一ソース）
 
@@ -262,7 +274,7 @@ sh tests/extras/ta-25-approval-token-guard.sh        # EH-13 の TC が全 PASS
   T1071-TC-04 は**これを FAIL にしない**（repo の CI 判定と環境の運用指摘を混ぜないため）。
   検出したときは **WARN + 該当パス表示**で本節 #2 / #3 へ誘導するのみで、
   実施は運用者に依存する。
-- **`scripts/check-settings-wiring.sh` の `checks` に EH-13 は未登録**（実測: EH-1 / EH-2 / EH-3 / EH-3 引数 / EH-6 / EH-9 の 6 件のみ）。契約ドリフト検知は EH-13 をまだ見ていないため、`ta-25` の `T1071-TC-04a` が tracked 配線に対する事実上唯一の機械ゲートである。
+- **`scripts/check-settings-wiring.sh` の EH-13 3 check は `--target user`（実配線）では WARN 止まり**（#1259。`--target example` = tracked レーンのみ FAIL）。唯一の消費者 `bin/plangate doctor --check-settings` は rc しか転送しないため、WARN は settings タスクロックから見えない（昇格は `PLANGATE_STRICT_WIRING=1` の opt-in）。**実配線に対する契約ドリフト検知は依然として `ta-25` の `T1071-TC-04a` が主**である。
 
 #### T1071-TC-04 の検査モデル: tracked / untracked / loaded
 

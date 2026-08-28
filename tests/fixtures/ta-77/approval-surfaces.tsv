@@ -1,0 +1,54 @@
+# tests/fixtures/ta-77/approval-surfaces.tsv
+#
+# ta-77 (#1226) approval surface 分類台帳。列: path<TAB>class<TAB>digest
+#   path   : リポジトリ相対パス
+#   class  : CHAIN = 1 行内に矢印 3 本以上の順序連鎖を宣言する面
+#            DECL  = 連鎖形ではないが承認トークンの発行・生成・唯一経路を宣言する面
+#   digest : 当該ファイル中の「宣言行 + その行を含む連続非空行ブロック」を連結した
+#            文字列の sha256 先頭 12 桁
+#
+# 本台帳との**照合**は両方向 fail-closed。検査器が発見した面がここに無ければ FAIL、
+# ここにあるのに発見されなければ FAIL、class / digest が一致しなければ FAIL。承認手順の
+# 記述を 1 文字でも変えると digest が変わるため、変更時は必ず本台帳の更新が diff に出る。
+#
+# ⚠️ 「fail-closed」なのは照合だけである。本ファイルも known-gaps.tsv も ta-77 本体も
+# Hardening Override の対象外なので、同一 PR で書き換えれば承認境界ゲートを踏まずに
+# 期待値を動かせる。**得られるのは diff 可視性であって承認境界ではない**
+# （抑止枠 known-gaps.tsv は明示的に fail-open）。
+#
+# 更新手順: ta-77 を実行し、FAIL 時に出力される discovered 行をそのまま貼り替える。
+# その際「正本 .claude/rules/working-context.md も同じ変更を必要としないか」を必ず
+# 確認すること（それが #1226 の是正対象そのもの）。
+.agents/skills/ai-dev-plan/SKILL.md	DECL	79c0d8551308
+.agents/skills/intent-classifier/SKILL.md	DECL	9014dac9caec
+.agents/skills/local-exec-handoff/SKILL.md	DECL	8b368bb3f212
+.agents/skills/plan-review-gate/SKILL.md	CHAIN	17e7ed953b6c
+.agents/skills/plangate-setup/SKILL.md	DECL	3ff5b08b9abc
+.claude/rules/working-context.md	CHAIN	e3795e3490cd
+.claude/skills/intent-classifier/SKILL.md	DECL	9014dac9caec
+.claude/skills/plangate-setup/SKILL.md	DECL	3ff5b08b9abc
+.codex/skills/ai-dev-plan/SKILL.md	DECL	79c0d8551308
+.codex/skills/intent-classifier/SKILL.md	DECL	9014dac9caec
+.codex/skills/local-exec-handoff/SKILL.md	DECL	8b368bb3f212
+.codex/skills/plan-review-gate/SKILL.md	CHAIN	17e7ed953b6c
+.codex/skills/plangate-setup/SKILL.md	DECL	3ff5b08b9abc
+docs/ai/hook-enforcement.md	DECL	e6dda48ec42d
+docs/ai/review-gate-decision-mapping.md	DECL	1cdfda0272c2
+docs/ai/settings-wiring-contract.md	DECL	31168ee60e79
+docs/ai/tool-error-taxonomy.md	DECL	4ca3b138f8f4
+docs/c3-approval-command.md	DECL	9b2ef92ec3e4
+docs/pages/reference/glossary.md	DECL	fc7c63ec9db5
+docs/workflows/ai-loop/c3-prime-contract.md	DECL	308695782f01
+docs/workflows/ai-loop/stop-rollback.md	DECL	f712e63e9846
+plugin/plangate/rules/working-context.md	CHAIN	e3795e3490cd
+plugin/plangate/skills/ai-dev-exec/references/c3-prime-contract.md	DECL	308695782f01
+plugin/plangate/skills/ai-dev-exec/references/settings-wiring-contract.md	DECL	31168ee60e79
+plugin/plangate/skills/ai-dev-plan/SKILL.md	DECL	79c0d8551308
+plugin/plangate/skills/ai-dev-verify/references/c3-prime-contract.md	DECL	308695782f01
+plugin/plangate/skills/ai-dev-verify/references/settings-wiring-contract.md	DECL	31168ee60e79
+plugin/plangate/skills/ai-loop-cycle/references/c3-prime-contract.md	DECL	308695782f01
+plugin/plangate/skills/ai-loop-cycle/references/stop-rollback.md	DECL	914a06e6630b
+plugin/plangate/skills/intent-classifier/SKILL.md	DECL	9014dac9caec
+plugin/plangate/skills/local-exec-handoff/SKILL.md	DECL	8b368bb3f212
+plugin/plangate/skills/plan-review-gate/SKILL.md	CHAIN	17e7ed953b6c
+plugin/plangate/skills/plangate-setup/SKILL.md	DECL	3ff5b08b9abc

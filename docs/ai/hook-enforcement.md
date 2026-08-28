@@ -103,6 +103,7 @@ tracked な [`.claude/settings.example.json`](../../.claude/settings.example.jso
 | **`Edit\|Write`** | PreToolUse | [`check-forbidden-files.sh`](../../scripts/hooks/check-forbidden-files.sh)（EH-6）| forbidden_files（scope 逸脱） |
 | **`Edit\|Write`** | PreToolUse | [`check-approval-token-write.sh`](../../scripts/check-approval-token-write.sh)（EH-13）| 承認トークン直書き |
 | **`Bash`** | PreToolUse | [`check-approval-token-write.sh`](../../scripts/check-approval-token-write.sh)（EH-13）| 承認トークン直書き（**唯一の両経路配線**） |
+| **`Bash`** | PreToolUse | [`check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh)（EH-3b / #1104・#1267）| **現状は何も守らない**（下記「#1267 の実測」）|
 | **`Bash`** | PreToolUse | [`check-delegation-commit-boundary.sh`](../../scripts/hooks/check-delegation-commit-boundary.sh)（EH-9）| 委譲 commit/push 境界 |
 | **`Bash`** | PreToolUse | [`check-git-destructive.sh`](../../scripts/check-git-destructive.sh)（EH-12）| protected branch 上の破壊的 git 操作 |
 | `Edit\|Write\|MultiEdit` | PostToolUse | `scripts/hooks/check-post-edit-diff.sh` | 編集後 diff 可視化（block ではない） |
@@ -121,9 +122,25 @@ tracked な [`.claude/settings.example.json`](../../.claude/settings.example.jso
   （repo 全体で `_override=1` を持つのは同 hook と apply スクリプト
   [`scripts/apply-eh3-ho-always.sh`](../../scripts/apply-eh3-ho-always.sh) の 2 本。
   後者は **hook ではなく適用スクリプト**）。
-  `Bash` matcher の 3 本（EH-9 / EH-12 / EH-13）は **いずれも `plan.md` も HO も参照しない**（実測 grep 0 件）。
-  ⇒ **HO は `Edit|Write` 経路にしか存在しない。**
-- 書き込みガードのうち **両経路に配線されているのは EH-13（承認トークン直書き）だけ**。
+  他の `Bash` matcher 3 本（EH-9 / EH-12 / EH-13）は **いずれも `plan.md` も HO も参照しない**（実測 grep 0 件）。
+  ⇒ **HO 判定が実際に効くのは `Edit|Write` 経路だけ**（`Bash` 経路にも同 hook が配線されたが、
+  次項のとおり対象パスが解決されないため一致しない）。
+- 書き込みガードのうち **両経路で実効的なのは EH-13（承認トークン直書き）だけ**。
+
+##### #1267 の実測（2026-08-28 / `origin/main` = `3f0cadd`）
+
+PR #1267 が `.claude/settings.example.json` の `Bash` matcher へ `check-plan-hash.sh` を追加した
+（上表 EH-3b）。**しかし配線だけでは何も守れない**:
+
+- `check-plan-hash.sh` の対象パス抽出は `tool_input.file_path` のみ。Bash の PreToolUse payload が
+  持つのは `tool_input.command` なので **`target_file` は常に空**になり、**HO 判定は一度も一致しない**
+- その結果、`Bash` レーンでは (a) no-task セッションで全 Bash が `exit 2`、
+  (b) `PLANGATE_SKIP_REASON` で回避すると `skip-decision-log.jsonl` へ未追認エントリが積まれ
+  `check-skip-acknowledged.sh` が FAIL、という **摩擦だけ**が残る
+- 是正 patch（Bash レーンの明示 no-op 化）と残存脅威モデル:
+  [`docs/working/_reports/1104-bash-lane-noop-patch-applicable.md`](../working/_reports/1104-bash-lane-noop-patch-applicable.md)。
+  回帰テスト: `tests/extras/ta-79-eh3-bash-lane.sh`
+- **したがって `Bash` 経路の欠落（#1104）は解消していない。** 配線の有無と強制力の有無を混同しないこと
 
 #### Bash 経路の欠落は #1104 で追跡中
 
@@ -204,7 +221,8 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 > （`check-forbidden-files.sh` は HO パスを守らない）。
 >
 > ⚠️ **適用範囲は `Edit|Write` matcher に限定される（§0.1 / #1104）**。EH-3 は
-> `.claude/settings.json` で `Edit|Write` にのみ配線されているため、**`Bash` tool 経由の
+> `.claude/settings.json` の `Edit|Write` 経路でのみ実効であるため（`Bash` 経路の配線は
+> #1267 以降存在するが対象パスを解決できず一致しない / §0.1）、**`Bash` tool 経由の
 > 書き込み（`cat >` / `tee` / `sed -i` / `python3 -c "open(...,'w')"` 等）では HO も
 > plan.md ゲートも発火しない**。以下の「block される」はすべて **Edit / Write 経路での話**。
 >
@@ -219,7 +237,10 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >   守られるが、**残る 8 カテゴリに同等の別ガードは確認されていない**
 > - **「常時 block」は文字どおりには成立しない（既知の残存・3 系統）**:
 >   1. **経路の欠落（[#1104](https://github.com/s977043/plangate/issues/1104)）**:
->      `Bash` matcher に未配線＝`Edit|Write` 以外の書き込みは素通り（§0.1）
+>      `Edit|Write` 以外の書き込みは素通り（§0.1）。**PR #1267 が `Bash` matcher へ
+>      同 hook を配線したが、Bash payload は `tool_input.command` で `file_path` を
+>      持たないため `target_file` が空になり HO 判定は一致しない**（実測 / §0.1
+>      「#1267 の実測」）。配線の有無と強制力の有無を混同しないこと。#1104 は open
 >   2. **`Edit|Write` 経路内の正規化不足（[#1101](https://github.com/s977043/plangate/issues/1101)
 >      — patch 作成済み・**適用は Human-owned で未適用**）**
 >   3. **FS エイリアス（firmlink / シンボリックリンク）による別表記到達
