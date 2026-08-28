@@ -6,6 +6,15 @@
 #   一-shot トークン消費・スコープチェック・TTL 期限切れ検証が迂回される（TA-12 7件 FAIL）
 # 修正: _maint 存在チェックを追加し、maintenance ファイルがある場合は doc-light を発火させない
 #
+# ⚠️ 退役済み（#1101 / TASK-1101）
+#   適用完了済みで以後 **no-op**（冪等判定 `grep -q '! -f "$_maint"'` が真 →
+#   "SKIP (already fixed)"）。ただし `old` / `new` に **`_norm_target` を含む
+#   当時のブロックを verbatim 保持**しており、#1101 以降は stale なスナップ
+#   ショットである（HO 判定は `_ho_key` を見る形に変わった）。
+#   → **本スクリプトを新規に実行しないこと**。
+#   実測（#1101 exec / sandbox）: #1101 適用後の hook に対して `--dry-run` /
+#   `--apply` とも rc=0「SKIP (already fixed)」で **ファイルを変更しない**。
+#
 # 使い方:
 #   sh scripts/fix-eh3-doc-light-maint-guard.sh --dry-run
 #   sh scripts/fix-eh3-doc-light-maint-guard.sh --apply

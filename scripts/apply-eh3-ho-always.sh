@@ -30,7 +30,19 @@
 #   0 = 成功（適用 / dry-run / 既適用 skip）
 #   1 = 引数エラー / アンカー未検出 / 対象ファイル不在（＝何も書き込まない）
 #
-# Refs: #1089 / docs/working/TASK-1089/
+# ⚠️ 退役済み（#1101 / TASK-1101）
+#   本スクリプトは適用完了済みで、以後 **no-op**（冪等判定 `_override=0` の位置が
+#   `if [ -z "$task_id" ]` より前 → "already applied"）。ただし内部に **#1089 当時の
+#   HO ブロックを verbatim 保持**している（`MOVED_BLOCK` / `OLD_INBRANCH`）。
+#   #1101 で HO 判定は `_ho_key`（正規化済み・小文字）を見る形に変わったため、
+#   ここに残る文字列は **stale なスナップショット**である。
+#   → **本スクリプトを新規に実行しないこと**。HO 判定の正本は
+#     `scripts/hooks/check-plan-hash.sh` 本体、#1101 の適用は
+#     `scripts/apply-1101-ho-normalization.sh`。
+#   実測（#1101 exec / sandbox）: #1101 適用後の hook に対して `--dry-run` /
+#   `--apply` とも rc=0「already applied」で **ファイルを変更しない**ことを確認済み。
+#
+# Refs: #1089 / docs/working/TASK-1089/ / #1101 (退役)
 
 set -eu
 
