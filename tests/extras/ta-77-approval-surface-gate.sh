@@ -53,13 +53,25 @@
 # 非 HO 面 3 本の連鎖に入っているが、正本には 1 度も現れない）。これを
 # tests/fixtures/ta-77/known-gaps.tsv に明示登録し、それ以外の未解決語は FAIL とする。
 # 台帳が発火しなくなったら TC-05 が落ちる（stale 台帳の禁止 = 恒久ザル化の防止）。
-# 台帳を外部ファイルへ出し、エントリ数の上限（_T77_GAP_MAX）を本ファイル側の契約行に
+# 台帳を外部ファイルへ出し、エントリ数の上限を「本ファイルの _T77_GAP_MAX」と
+# 「known-gaps.tsv ヘッダの #!MAXENTRIES 行」の両方に持たせ、TC-05b で一致を照合する。
+# 片方だけ書き換えても FAIL するため、抑止枠の緩和は fixture 側の diff（レビューで必ず
+# 見る場所）に必ず現れる（F2-3。旧版は本ファイル側だけの契約で、実測では
+# _T77_GAP_MAX=1 -> 5 に書き換えても 17 passed, 0 failed のまま通っていた）。
+# 上限（_T77_GAP_MAX）を本ファイル側の契約行に
 # 固定したので、抑止を 1 件増やすには 2 ファイルの編集が要る。それでも台帳自体は
 # fail-open の穴であり、tests/extras 配下も tests/fixtures 配下も Hardening Override
 # 9 カテゴリのいずれにも該当しない（実測: scripts/hooks/check-plan-hash.sh の
 # _override=0 直後の case ブロック）。この構造的な残存リスクは PR 本文の残存脅威
 # モデルに記載する。台帳を .claude/rules/ 配下（HO）へ外出しする案は HO 編集を
 # 伴うため本 PR の範囲外（patch 提案に留める）。
+#
+# === 本ゲートが green であることの意味（誤読の禁止）===
+# ta-77 が green でも #1226 の実害が解消したことにはならない。green は
+# 「承認面の集合と記述が台帳と一致している」ことしか意味しない。
+# tests/fixtures/ta-77/known-gaps.tsv にエントリが 1 件でも残っている限り、
+# #1226 の実害（非 HO 面だけで承認手順を増やせる構造）は生きている。
+# **ta-77 の green を根拠に issue #1226 を close してはならない。**
 #
 #   TC-01 : 発見 surface のパス集合 == 台帳のパス集合（両方向 fail-closed）
 #   TC-01b: 発見 surface の path/class/digest 三つ組 == 台帳の三つ組
@@ -69,8 +81,10 @@
 #   TC-03 : 正本自身が承認連鎖を宣言している
 #   TC-04 : 非正本 CHAIN 面のステップ語がすべて解決（rc=0 + unresolved=0 + 母数 floor）
 #   TC-05 : 既知ギャップ台帳に stale エントリが無い（gapunused=0）
-#   TC-05b: 既知ギャップ台帳が契約を満たす（件数 <= _T77_GAP_MAX / 各行に issue 番号）
-#   TC-06 : .cursor/skills/plan-review-gate symlink が登録 surface を指す（完全一致）
+#   TC-05b: 既知ギャップ台帳が契約を満たす（件数 <= _T77_GAP_MAX / fixture 宣言の
+#           #!MAXENTRIES と一致 / 各行に issue 番号）
+#   TC-06 : tracked symlink を全数走査し、.cursor/skills/* が .agents/skills/<同名> へ
+#           解決すること・登録 surface を露出する link が floor 以上あることを照合
 #   TC-07a: 対照ベース — 非正本面の全ステップが正本で解決
 #   TC-07 : 対照 — 非正本面だけに新ステップを足すと UNRESOLVED（rc=1 + 一意トークン）
 #   TC-08 : 対照 — 同じ新ステップを正本にも足すと解決（rc=0 + OK トークン）
@@ -79,6 +93,9 @@
 #   TC-11 : 対照 — 矢印 0 本の宣言面（docs/c3-approval-command.md 型）を発見する
 #   TC-12 : 対照 — 番号付きリスト形式の承認手順に新ステップを挿入すると digest が動く
 #   TC-13 : 対照 — 矢印 1→2 本の 1 行形式に新ステップを足すと digest が動く
+#   TC-14 : 対照 — 折返し（soft wrap）で ANCHOR と宣言動詞が別行になっても発見する
+#   TC-15 : 対照 — 別々のリスト項目に分かれた ANCHOR と動詞は畳まない（過検出防止）
+#   TC-16 : 対照 — docs/working/templates/ は検査対象、docs/working/TASK-XXXX/ は対象外
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -172,6 +189,11 @@ DECL_ARROWS = 2
 ANCHOR = "c3" + ".json"
 VERBS = ("発行", "生成", "唯一", "正規経路", "必須手順", "手順")
 EXCLUDE_PREFIXES = ("docs/working/",)
+# docs/working/ は run ごとに単調増加する作業ディレクトリなので一括除外する。ただし
+# docs/working/templates/ は PBI 横断で参照される恒久成果物（承認手順の雛形が入りうる）
+# なので carve-in して検査対象に戻す。TASK-XXXX / PBI-XXX / discussions / incidents は
+# 過去 run の記録であり、承認手順の正本ではないため除外のまま（F2-5）。
+INCLUDE_OVERRIDE_PREFIXES = ("docs/working/templates/",)
 EXCLUDE_FILES = ("CHANGELOG.md", "docs/changelog.md")
 
 _FW_L = chr(65288)
@@ -184,6 +206,20 @@ _STOP_CHARS = "".join([chr(12290), chr(12289), chr(44), chr(58), chr(65306), chr
 _STOP = re.compile("[" + _STOP_CHARS + "]")
 _CUT_CHARS = "".join([chr(12301), chr(12303), chr(34)])
 _CUT = re.compile("[" + _CUT_CHARS + "]")
+_BQ3 = chr(96) * 3
+_FENCE = re.compile("^[ ]{0,3}(?:" + _BQ3 + "|~~~)")
+_BSTART = re.compile(
+    "^[ ]{0,3}(?:"
+    "#{1,6}[ \t]"      # 見出し
+    "|[-*+][ \t]"      # 箇条書き
+    "|[0-9]+[.)][ \t]" # 番号付きリスト
+    "|>"                # 引用
+    "|[|]"              # 表の行
+    "|-{3,}[ \t]*$"    # 水平線
+    "|[*]{3,}[ \t]*$"
+    "|_{3,}[ \t]*$"
+    ")"
+)
 
 
 def norm(s):
@@ -214,19 +250,62 @@ def chain_lines(text):
     return out
 
 
-def is_decl(line):
-    if ANCHOR not in line:
+def logical_units(lines):
+    """markdown の論理行（soft-wrap 単位）へ分割する。
+
+    行を単位にすると、ANCHOR と宣言動詞が「改行の位置」だけで別行に落ちた面を
+    取りこぼす（実物: docs/workflows/ai-loop/stop-rollback.md の reject-ack 宣言。
+    ANCHOR と「発行」が折返しで別行にある）。切り分けの軸が意味論ではなく整形に
+    なるため、承認手順を足す側は行を折り返すだけでゲートを回避できた（F2-1）。
+
+    一方で「連続非空行ブロック」まで広げると単位が粗すぎる（実測: 発見面が
+    31 -> 53 に増え、増分 22 件の 20 件は別々の表の行・別々のリスト項目・
+    コードブロック内の無関係な行を同一単位に畳んだことによる誤検出）。
+    そこで markdown のブロック境界（見出し / リスト項目 / 表の行 / 引用 /
+    コードフェンス / 水平線 / 空行）で単位を切り、それ以外の後続非空行だけを
+    soft-wrap の継続行として畳む。実測でこの単位は 31 -> 33（増分 2 件 =
+    stop-rollback.md 本体と plugin 配布ミラー）となり、誤検出ゼロで
+    折返し回避だけを塞ぐ。
+    """
+    out = []
+    cur = None
+    fence = False
+    for i, line in enumerate(lines):
+        if _FENCE.match(line):
+            fence = not fence
+            out.append([i])
+            cur = None
+            continue
+        if fence or not line.strip():
+            out.append([i])
+            cur = None
+            continue
+        if cur is None or _BSTART.match(line):
+            cur = [i]
+            out.append(cur)
+        else:
+            cur.append(i)
+    return out
+
+
+def is_decl(lines, unit):
+    # 継続行は行頭の空白を落として連結する（折返しで語が分断されても拾うため）
+    s = "".join(lines[k].strip() for k in unit)
+    if ANCHOR not in s:
         return False
-    if line.count(ARROW) >= DECL_ARROWS:
+    if s.count(ARROW) >= DECL_ARROWS:
         return True
     for v in VERBS:
-        if v in line:
+        if v in s:
             return True
     return False
 
 
 def decl_region(lines):
-    marks = [i for i, line in enumerate(lines) if is_decl(line)]
+    marks = []
+    for unit in logical_units(lines):
+        if is_decl(lines, unit):
+            marks.extend(unit)
     if not marks:
         return []
     keep = set()
@@ -287,7 +366,9 @@ def main(argv):
         rel = rel.strip()
         if not rel:
             continue
-        if rel.startswith(EXCLUDE_PREFIXES) or rel in EXCLUDE_FILES:
+        if rel in EXCLUDE_FILES:
+            continue
+        if rel.startswith(EXCLUDE_PREFIXES) and not rel.startswith(INCLUDE_OVERRIDE_PREFIXES):
             continue
         try:
             text = read_rel(root, rel)
@@ -351,12 +432,16 @@ _T77_SURFACE_FLOOR=20
 _T77_TERM_FLOOR=20
 # 配布ミラーの重複ではなく実体の語彙で母数を担保する（A-6）
 _T77_DISTINCT_FLOOR=6
-# 既知ギャップ台帳のエントリ数上限。増やすには本行の編集が必要 = diff に必ず出る。
+# 既知ギャップ台帳のエントリ数上限。本行と known-gaps.tsv ヘッダの #!MAXENTRIES 行の
+# 両方を書き換えないと緩和できない（TC-05b が一致を照合する / F2-3）。
 _T77_GAP_MAX=1
+# 登録 surface を露出する tracked symlink の下限。link の削除も検出する。
+_T77_LINK_FLOOR=2
 
 # --- 外部台帳の読み込み ----------------------------------------------------
 _t77_reg_rows="$(grep -v '^[[:space:]]*#' "$_T77_REGF" | grep '[^[:space:]]' | sort)"
 _t77_gap_rows="$(grep -v '^[[:space:]]*#' "$_T77_GAPF" | grep '[^[:space:]]' || true)"
+_t77_gap_maxdecl="$(sed -n 's/^#!MAXENTRIES[[:space:]][[:space:]]*\([0-9][0-9]*\)[[:space:]]*$/\1/p' "$_T77_GAPF" | head -n 1)"
 
 _t77_gapargs=""
 _t77_gap_n=0
@@ -459,27 +544,81 @@ else
 fi
 
 # === TC-05b: 既知ギャップ台帳の契約（上限件数 / 行の well-formedness）
-if [ "$_t77_gap_n" -le "$_T77_GAP_MAX" ] && [ "$_t77_gap_bad" = 0 ]; then
-  _t77_ok "TC-05b 既知ギャップ台帳が契約を満たす (entries=$_t77_gap_n -le $_T77_GAP_MAX, malformed=0)"
+if [ "$_t77_gap_n" -le "$_T77_GAP_MAX" ] && [ "$_t77_gap_bad" = 0 ] \
+  && [ -n "$_t77_gap_maxdecl" ] && [ "$_t77_gap_maxdecl" = "$_T77_GAP_MAX" ]; then
+  _t77_ok "TC-05b 既知ギャップ台帳が契約を満たす (entries=$_t77_gap_n -le $_T77_GAP_MAX, fixture #!MAXENTRIES=$_t77_gap_maxdecl, malformed=0)"
 else
-  _t77_ng "TC-05b 既知ギャップ台帳が契約違反 (entries=$_t77_gap_n, max=$_T77_GAP_MAX, malformed=$_t77_gap_bad)"
+  _t77_ng "TC-05b 既知ギャップ台帳が契約違反 (entries=$_t77_gap_n, max=$_T77_GAP_MAX, fixture #!MAXENTRIES=${_t77_gap_maxdecl:-<none>}, malformed=$_t77_gap_bad)"
 fi
 
-# === TC-06: .cursor/skills/plan-review-gate は symlink 経由の面。
-# 内容は .agents 面と同一になる（分岐しえない）が、貼り替えは分岐しうる。
-# 部分文字列一致では agents/skills/... のような別ディレクトリも通るため完全一致で照合。
+# === TC-06: tracked symlink を全数走査する（F2-2）
+# 旧版は .cursor/skills/plan-review-gate の 1 パス固定だった。実測では tracked
+# symlink は 5 本あり（mode 120000）、うち登録 surface を露出するものは 2 本
+# （plan-review-gate / ai-dev-plan）。ai-dev-plan が無検査で、貼り替えは台帳にも
+# digest にも現れなかった。ここでは全数を走査し、
+#   (a) すべての tracked symlink が repo 内に解決すること（dangling / 外部脱出の禁止）
+#   (b) .cursor/skills/<name> は .agents/skills/<name> へ解決すること
+#       （.cursor は .agents のミラーであるという構造契約。貼り替えは必ずここで落ちる）
+#   (c) 登録 surface を露出する symlink が floor 以上あること（link 削除の検出）
+# を照合する。部分文字列一致では agents/skills/... のような別ディレクトリも通るため
+# 解決先は完全一致で比較する。
 _T77_ROOTP="$(CDPATH= cd -- "$_T77_ROOT" && pwd -P)"
-_T77_LINK="$_T77_ROOT/.cursor/skills/plan-review-gate"
-if [ -L "$_T77_LINK" ] && [ -d "$_T77_LINK" ]; then
-  _t77_tgt="$(CDPATH= cd -- "$_T77_LINK" && pwd -P)"
-  _t77_trel="${_t77_tgt#$_T77_ROOTP/}"
-  if printf '%s\n' "$_t77_reg_paths" | grep -Fqx "$_t77_trel/SKILL.md"; then
-    _t77_ok "TC-06 .cursor symlink が登録 surface を指す ($_t77_trel)"
-  else
-    _t77_ng "TC-06 .cursor symlink が登録 surface 外を指す ($_t77_trel)"
+_T77_LINKS="$_T77_TMP/links.txt"
+git -C "$_T77_ROOT" ls-files -s > "$_T77_TMP/lsfiles.txt" 2>/dev/null || true
+awk '$1=="120000"{ sub(/^[0-9]+ [0-9a-f]+ [0-9]+\t/, ""); print }' "$_T77_TMP/lsfiles.txt" > "$_T77_LINKS"
+
+_t77_link_n=0
+_t77_link_bad=0
+_t77_link_surf=0
+_t77_link_msg=""
+while IFS= read -r _t77_l; do
+  [ -n "$_t77_l" ] || continue
+  _t77_link_n=$((_t77_link_n + 1))
+  _t77_lp="$_T77_ROOT/$_t77_l"
+  if [ ! -L "$_t77_lp" ]; then
+    _t77_link_bad=$((_t77_link_bad + 1))
+    _t77_link_msg="$_t77_link_msg
+         $_t77_l: tracked mode 120000 だが symlink として存在しない"
+    continue
   fi
+  _t77_tgt="$(CDPATH= cd -- "$_t77_lp" 2>/dev/null && pwd -P)" || _t77_tgt=""
+  if [ -z "$_t77_tgt" ]; then
+    _t77_link_bad=$((_t77_link_bad + 1))
+    _t77_link_msg="$_t77_link_msg
+         $_t77_l: 解決できない（dangling / ディレクトリでない）"
+    continue
+  fi
+  case "$_t77_tgt" in
+    "$_T77_ROOTP"/*) : ;;
+    *)
+      _t77_link_bad=$((_t77_link_bad + 1))
+      _t77_link_msg="$_t77_link_msg
+         $_t77_l: repo 外へ解決する ($_t77_tgt)"
+      continue
+      ;;
+  esac
+  _t77_trel="${_t77_tgt#$_T77_ROOTP/}"
+  case "$_t77_l" in
+    .cursor/skills/*)
+      _t77_base="${_t77_l#.cursor/skills/}"
+      if [ ".agents/skills/$_t77_base" != "$_t77_trel" ]; then
+        _t77_link_bad=$((_t77_link_bad + 1))
+        _t77_link_msg="$_t77_link_msg
+         $_t77_l: .agents/skills/$_t77_base ではなく $_t77_trel へ解決する（貼り替え）"
+        continue
+      fi
+      ;;
+  esac
+  if printf '%s\n' "$_t77_reg_paths" | grep -q "^$_t77_trel/"; then
+    _t77_link_surf=$((_t77_link_surf + 1))
+  fi
+done < "$_T77_LINKS"
+
+if [ "$_t77_link_bad" = 0 ] && [ "$_t77_link_n" -ge 1 ] && [ "$_t77_link_surf" -ge "$_T77_LINK_FLOOR" ]; then
+  _t77_ok "TC-06 tracked symlink 全数が契約を満たす (links=$_t77_link_n, 登録 surface 露出=$_t77_link_surf -ge $_T77_LINK_FLOOR)"
 else
-  _t77_ng "TC-06 .cursor/skills/plan-review-gate が symlink として存在しない"
+  _t77_ng "TC-06 tracked symlink が契約違反 (links=$_t77_link_n, bad=$_t77_link_bad, 登録 surface 露出=$_t77_link_surf, floor=$_T77_LINK_FLOOR)"
+  [ -n "$_t77_link_msg" ] && printf '%s\n' "$_t77_link_msg"
 fi
 
 # --- 対照実験（negative control）: 検出力をこのファイル内で実証する --------
@@ -623,6 +762,64 @@ if [ -n "$_t77_e1" ] && [ -n "$_t77_e2" ] && [ "$_t77_e1" != "$_t77_e2" ]; then
   _t77_ok "TC-13 矢印 3 本未満の 1 行形式でも発見し、新ステップで digest が変わる ($_t77_e1 -> $_t77_e2)"
 else
   _t77_ng "TC-13 矢印 3 本未満の 1 行形式の変更を検出できない (e1=$_t77_e1 e2=$_t77_e2)"
+fi
+
+# TC-14: 折返し（soft wrap）で ANCHOR と宣言動詞が別行に落ちても発見する（F2-1）
+# 実物: docs/workflows/ai-loop/stop-rollback.md の reject-ack 宣言。行単位の述語では
+# 「改行をどこで入れたか」だけでゲートを回避できた。
+cat > "$_T77_SBX/wrapped.md" <<T77SBX
+## 承認トークン
+
+- または \`reject-ack.json\`（\`decision\` / \`signed_by\` を持つ、${_T77_ANCHOR} と同型の
+  人間発行ファイル。AI の会話内解釈だけを根拠に破壊的操作を実行しない）
+T77SBX
+printf 'canon.md\nwrapped.md\n' > "$_T77_SBX/cand6.txt"
+_t77_out="$(python3 "$_T77_AN" --root "$_T77_SBX" --canonical canon.md < "$_T77_SBX/cand6.txt" 2>&1)" || true
+if printf '%s\n' "$_t77_out" | awk -F'\t' '$1=="SURFACE" && $2=="wrapped.md" && $3=="DECL"{f=1} END{exit f?0:1}'; then
+  _t77_ok "TC-14 折返しで ANCHOR と宣言動詞が別行になっても DECL として発見"
+else
+  _t77_ng "TC-14 折返しの宣言面を発見できない — 整形だけでゲートを回避できる"
+  printf '%s\n' "$_t77_out" | sed 's/^/         /'
+fi
+
+# TC-15: 別々のリスト項目に分かれた ANCHOR と動詞は畳まない（過検出防止 / F2-1）
+# 単位を「連続非空行ブロック」まで広げると、無関係な隣接行を同一単位に畳んで
+# 誤検出する（実測で増分 22 件中 20 件がこの型）。単位は markdown のブロック境界で切る。
+cat > "$_T77_SBX/twoitems.md" <<T77SBX
+## 前提
+
+- C-3 未承認なら停止する（\`approvals/${_T77_ANCHOR}\` APPROVED 必須）
+- Cloud task は tracked handoff packet を唯一の作業指示として扱う
+T77SBX
+printf 'canon.md\ntwoitems.md\n' > "$_T77_SBX/cand7.txt"
+_t77_out="$(python3 "$_T77_AN" --root "$_T77_SBX" --canonical canon.md < "$_T77_SBX/cand7.txt" 2>&1)" || true
+if printf '%s\n' "$_t77_out" | awk -F'\t' '$1=="SURFACE" && $2=="twoitems.md"{f=1} END{exit f?1:0}'; then
+  _t77_ok "TC-15 別リスト項目の ANCHOR と動詞を畳まない（過検出しない）"
+else
+  _t77_ng "TC-15 別リスト項目を同一宣言単位として誤検出している"
+  printf '%s\n' "$_t77_out" | sed 's/^/         /'
+fi
+
+# TC-16: docs/working/templates/ は検査対象、docs/working/TASK-XXXX/ は対象外（F2-5）
+# templates は PBI 横断で参照される恒久成果物なので、承認手順の雛形が入ったら発見する。
+mkdir -p "$_T77_SBX/docs/working/templates" "$_T77_SBX/docs/working/TASK-9999"
+cat > "$_T77_SBX/docs/working/templates/tmpl.md" <<T77SBX
+## 承認テンプレート
+
+人間が APPROVED ${_T77_ANCHOR} を発行する。
+T77SBX
+cp "$_T77_SBX/docs/working/templates/tmpl.md" "$_T77_SBX/docs/working/TASK-9999/rec.md"
+printf 'canon.md\ndocs/working/templates/tmpl.md\ndocs/working/TASK-9999/rec.md\n' > "$_T77_SBX/cand8.txt"
+_t77_out="$(python3 "$_T77_AN" --root "$_T77_SBX" --canonical canon.md < "$_T77_SBX/cand8.txt" 2>&1)" || true
+_t77_has_tmpl=1
+_t77_has_task=0
+printf '%s\n' "$_t77_out" | awk -F'\t' '$1=="SURFACE" && $2=="docs/working/templates/tmpl.md"{f=1} END{exit f?0:1}' || _t77_has_tmpl=0
+printf '%s\n' "$_t77_out" | awk -F'\t' '$1=="SURFACE" && $2=="docs/working/TASK-9999/rec.md"{f=1} END{exit f?0:1}' && _t77_has_task=1
+if [ "$_t77_has_tmpl" = 1 ] && [ "$_t77_has_task" = 0 ]; then
+  _t77_ok "TC-16 docs/working/templates/ は検査対象・TASK-XXXX/ は対象外"
+else
+  _t77_ng "TC-16 除外境界が誤っている (templates=$_t77_has_tmpl, TASK=$_t77_has_task)"
+  printf '%s\n' "$_t77_out" | sed 's/^/         /'
 fi
 
 rm -rf "$_T77_SBX"

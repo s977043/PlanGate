@@ -34,6 +34,7 @@ docs/ai/tool-error-taxonomy.md	DECL	4ca3b138f8f4
 docs/c3-approval-command.md	DECL	9b2ef92ec3e4
 docs/pages/reference/glossary.md	DECL	fc7c63ec9db5
 docs/workflows/ai-loop/c3-prime-contract.md	DECL	308695782f01
+docs/workflows/ai-loop/stop-rollback.md	DECL	f712e63e9846
 plugin/plangate/rules/working-context.md	CHAIN	e3795e3490cd
 plugin/plangate/skills/ai-dev-exec/references/c3-prime-contract.md	DECL	308695782f01
 plugin/plangate/skills/ai-dev-exec/references/settings-wiring-contract.md	DECL	31168ee60e79
@@ -41,6 +42,7 @@ plugin/plangate/skills/ai-dev-plan/SKILL.md	DECL	79c0d8551308
 plugin/plangate/skills/ai-dev-verify/references/c3-prime-contract.md	DECL	308695782f01
 plugin/plangate/skills/ai-dev-verify/references/settings-wiring-contract.md	DECL	31168ee60e79
 plugin/plangate/skills/ai-loop-cycle/references/c3-prime-contract.md	DECL	308695782f01
+plugin/plangate/skills/ai-loop-cycle/references/stop-rollback.md	DECL	914a06e6630b
 plugin/plangate/skills/intent-classifier/SKILL.md	DECL	9014dac9caec
 plugin/plangate/skills/local-exec-handoff/SKILL.md	DECL	8b368bb3f212
 plugin/plangate/skills/plan-review-gate/SKILL.md	CHAIN	17e7ed953b6c

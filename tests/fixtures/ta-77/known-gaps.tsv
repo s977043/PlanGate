@@ -3,7 +3,17 @@
 # 既知ギャップ台帳。列: term<TAB>issue<TAB>reason
 # ここに載せた step term は UNRESOLVED ではなく GAP として扱われ rc を 0 に保つ
 # （= negative suppression。fail-open の穴であることを承知で置いている）。
-# エントリ数の上限は ta-77 本体の _T77_GAP_MAX で契約しており、増やすには本ファイルと
-# ta-77 本体の両方を編集する必要がある（diff に必ず現れる）。
+#
+# 上限契約（F2-3）: エントリ数の上限は下記 #!MAXENTRIES 行と ta-77 本体の
+# _T77_GAP_MAX の両方で宣言し、TC-05b が両者の一致を照合する。片方だけ書き換えても
+# FAIL するため、抑止枠の緩和は必ず本 fixture の diff に現れる。
+#!MAXENTRIES	1
+#
 # 各行は issue 番号を必須とし、解消されたら削除する（stale エントリは TC-05 で FAIL）。
+#
+# === close 禁止（F2-4）===
+# 本台帳にエントリが 1 件でも残っている限り、#1226 の実害（承認手順を非 HO 面だけで
+# 増やせる構造）は生きている。ta-77 が green であることを根拠に issue #1226 を
+# close してはならない。green が意味するのは「承認面の集合と記述が台帳と一致して
+# いる」ことだけである。
 PlanNormalization	#1226	非 HO 面 3 本の承認連鎖にあるが正本 working-context.md に一度も現れない
