@@ -34,6 +34,11 @@
 | 2026-08-15 23:10 | D | **Step 6 完了（T-15）**: `tests/extras/ta-67-pg-fold-path-portability.sh` を新設。`ta-67` 5 passed / `ta-61` 契約 92 passed。変異 4 種で検出力を実証 |
 | 2026-08-15 23:40 | D | **Step 7 部分（T-16）**: **fork 増加ゼロを実測**（3 経路とも base と patched で同一）。ただし**病的パスで実行時間が非線形に悪化**する問題を検出（下記「Step 7 の重要な検出」）。**判定は保留** |
 | 2026-08-15 23:50 | D | **セッション中断**（オーケストレータ指示）。Step 7 の判定 / Step 8 / Step 9 / handoff は未着手 |
+| 2026-08-28 12:00 | D | **exec 再開**（13 日ぶり）。base を `dfaeebb` から `origin/main` = `75d832d` へ **merge** で追随（rebase は既存コミットを書き換えるため不採用）。`check-plan-hash.sh` / `ta-65` / `ta-67` は main 側で**未変更**を実測（patch アンカーと parity は無傷）|
+| 2026-08-28 12:30 | D | **Step 7 完了（T-16）— 判定 = 是正**。小文字化を `/` セグメント単位に分割 + 長さ由来の fail-closed 2 条件を追加。`len=2749` が 10,803ms から 208ms、`1 セグメント x 20,000 文字` が未完（ハング）から 58ms/rc=1 へ。変異 M11 / M7 再注入で検出力を実証（`evidence/test-runs/step7-performance.md`）|
+| 2026-08-28 13:10 | D | **Step 8 完了（T-17）**: `ta-65` 17/0・`ta-67` 5/0・`ta-12` 14/0・`ta-39` 8/0・`ta-45` 7/0（後者 3 本は main が追加した `tests/fixtures/extras-mini-harness.sh` で隔離実行）。**`sh tests/run-tests.sh` の通し実行は禁止指示により未実施＝ degrade** |
+| 2026-08-28 13:30 | D | **Step 9 完了（T-18）**: `docs/ai/hook-enforcement.md` の既知残存を 2 系統から 3 系統へ是正（FS エイリアスを追加）、変換クラスを 3 種から 7 種へ訂正、残存脅威モデルを追記 |
+| 2026-08-28 13:45 | WF-05 | **handoff.md 発行（T-19）**。総合 **8/11 PASS・3 WARN・0 FAIL** |
 
 ## モード判定結果
 
@@ -85,10 +90,10 @@
 - [x] **T-13** 監査ログの生パス保持（TC-11）
 - [x] **T-14** 変異注入 9 種 → **9/9 kill**
 - [x] **T-15** 4 シェル可搬性の TC 化（Step 6）— `tests/extras/ta-67-pg-fold-path-portability.sh`
-- [ ] **T-16** 性能実測（Step 7）— **fork 増加ゼロは実測済み。実行時間で問題を検出し判定保留**（上記「Step 7 の重要な検出」）
-- [ ] **T-17** 既存 4 本 + `sh tests/run-tests.sh` の回帰確認（Step 8）— **未着手**
-- [ ] **T-18** `docs/ai/hook-enforcement.md` の更新（Step 9）— **未着手**
-- [ ] **T-19** handoff.md — **未着手**
+- [x] **T-16** 性能実測（Step 7）— fork 増加ゼロ + **非線形性を是正**（判定 = 是正。`evidence/test-runs/step7-performance.md`）
+- [x] **T-17** 既存 4 本 + 新設 1 本の回帰確認（Step 8）— **`sh tests/run-tests.sh` の通し実行のみ未実施（degrade / AC-6 WARN）**
+- [x] **T-18** `docs/ai/hook-enforcement.md` の更新（Step 9）— **AC-7 は WARN**（FS エイリアスの追跡 issue が未起票）
+- [x] **T-19** handoff.md — 発行済み（2026-08-28 / `82dbe8e`）
 
 ### 👤 Human
 
@@ -122,6 +127,8 @@
 | 6 | **AC-1 未達の是正**（PR 前レビュー） | `_pg_fold_path` の適用順を **(4) repo root 除去 → (5) 小文字化** から **(4) 小文字化 → (5) repo root 除去**（root 側にも同じ写像）へ入れ替えた。plan §Approach の順序記述と異なるが、plan の順序のままでは **AC-1（repo root 跨ぎ × 大小文字の 2 種複合）を満たせない**。`$3=0` では従来どおり大小文字厳密で `_norm_target` 側の意味論は不変。詳細: [`evidence/test-runs/prereview-ac1-root-case.md`](./evidence/test-runs/prereview-ac1-root-case.md) |
 | 7 | 直積の規模 | TC-08 の変換形を **11 形 → 13 形**（165 件 → **195 件**）。追加は repo root 形への大小文字変換 2 形 |
 | 8 | 変異の本数 | **9 種 → 10 種**（M10: root 比較を大小文字厳密に戻す）。M7 のアンカーも新ブロックへ更新（旧アンカーは `anchor count=0` で**当たっていなかった**） |
+| 9 | **AC-8 からの逸脱（Step 7）** | fail-closed を **2 条件 → 4 条件**にした。追加は **(c) 全体長が 4096 超（PATH_MAX 上限）**・**(d) セグメント長が 255 超（NAME_MAX）**。理由: `_pg_fold_tolower` の 1 文字ループが O(n^2) で、**セグメント数の上限は総文字数を制限しない**ため `1 セグメント x 20,000 文字` が上限を通過し、**timeout の無い EH-3 が block ではなくハングする**（可用性の穴）。セグメント分割だけでは この入力に効かず（実測）、長さ上限だけでは worst case が数十秒に達するため**両方が要る**。(c)(d) に該当する入力は FS 上のファイルを指しえないため正当な書き込みを止めない。`plan.md` は C-3 承認済みで編集できないため**逸脱として記録**する。詳細と却下した代替案: [`evidence/test-runs/step7-performance.md`](./evidence/test-runs/step7-performance.md) §3 |
+| 10 | **回帰実行の手段** | `ta-12` / `ta-39` / `ta-45` は harness-only のため、main が追加した `tests/fixtures/extras-mini-harness.sh` で 1 本ずつ隔離実行した。`sh tests/run-tests.sh` の通し実行は**禁止指示により未実施**（AC-6 WARN / degrade）|
 
 ## ⚠️ Step 7 の重要な検出（**未解決 / 次セッションの最優先**）
 
