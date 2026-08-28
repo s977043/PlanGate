@@ -312,8 +312,8 @@ failed to parse hooks config <repo>/.codex/hooks.json: unknown field `$schema_no
 比較対象は **`.claude/settings.example.json`**（`.claude/settings.json` は
 gitignore でリポジトリに存在しないため）と **`.codex/hooks.json`** の全数差分。
 
-> ⚠️ **本表は「軸 A（記述）」の表である。** 11 wiring 中 Codex 側に**記述**があるのは 5 件・
-> 欠落 6 件。**ただし記述のある 5 件も含め、Codex 側の登録数は 0・強制力は 0**
+> ⚠️ **本表は「軸 A（記述）」の表である。** 12 wiring 中 Codex 側に**記述**があるのは 5 件・
+> 欠落 7 件（#1267 が `settings.example.json` へ EH-3b = `Bash` matcher の `check-plan-hash.sh` を追加したため、#1078 時点の 11 → 12。実測: `settings.example.json` の hook コマンド総数 12）。**ただし記述のある 5 件も含め、Codex 側の登録数は 0・強制力は 0**
 > （上記「parity の 3 軸」）。**本表の ✅ は「効いている」ではなく「書かれている」を意味する。**
 
 | # | 強制 | event / matcher | Claude Code (`settings.example.json`) | Codex CLI (`.codex/hooks.json`) |
@@ -329,6 +329,17 @@ gitignore でリポジトリに存在しないため）と **`.codex/hooks.json`
 | 9 | **gh-pin-account** | SessionStart | ✅ `scripts/gh-pin-account.sh` | **❌ 未配線**（Codex 側に SessionStart 配線が無い） |
 | 10 | **check-post-edit-diff** | PostToolUse `Edit\|Write\|MultiEdit` | ✅ `scripts/hooks/check-post-edit-diff.sh` | **❌ 未配線**（Codex 側に PostToolUse 配線が無い） |
 | 11 | **check-stop-diff-status** | Stop | ✅ `scripts/hooks/check-stop-diff-status.sh` | **❌ 未配線**（Codex 側に Stop 配線が無い） |
+| 12 | **EH-3b plan_hash（Bash レーン / #1104）** | PreToolUse `Bash` | ⚠️ 配線あり・**現状 no-op**（下記注） | **❌ 未配線** |
+
+> **#12（EH-3b）の実測（2026-08-28 / `origin/main` = `3f0cadd`）**: `check-plan-hash.sh` の対象パス抽出は
+> `tool_input.file_path` のみを見る。Bash の PreToolUse payload が持つのは `tool_input.command` なので
+> `target_file` は常に空になり、**HO 判定も write-intent 判定も行われない**。配線されただけの状態では
+> (a) no-task セッションで全 Bash が `exit 2`、(b) `PLANGATE_SKIP_REASON` で回避すると
+> `skip-decision-log.jsonl` へ未追認エントリが積まれ `check-skip-acknowledged.sh` が FAIL、という
+> **摩擦だけ**が残る。是正 patch と残存脅威モデル:
+> [`docs/working/_reports/1104-bash-lane-noop-patch-applicable.md`](../working/_reports/1104-bash-lane-noop-patch-applicable.md)。
+> 回帰テスト: `tests/extras/ta-77-eh3-bash-lane.sh`。**#1104 は open**（Bash コマンド文字列からの
+> 書き込み先抽出は未実装）。
 
 **欠落 6 件を「単に名前を足せば直る」と読んではならない**。#6〜#9 の hook 実体は
 `scripts/` **直下**にあり、`eh-bridge.sh` は `scripts/hooks/<NAME>` を**ハードコード**
