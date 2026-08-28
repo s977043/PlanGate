@@ -21,6 +21,8 @@
 #   TC-03: EH-13 の `Edit|Write` ブロック削除 → 同上
 #   TC-04: `Edit|Write` → `Edit` へ縮小 → 同上（`tool()` の厳密判定が撃つ穴）
 #   TC-05: EH-13 を `matcher:"*"` へ集約 → 3 レーンとも PASS（全ツール発火の同一視）
+#          ※ この PASS は **wiring 検査としての PASS** であり、`*` 配線が安全である
+#            ことを意味しない（TC-05 直前の「反証」コメントを必ず読むこと）
 #   TC-06: 既存 6 check（EH-1/2/6/3/EH-3 引数/EH-9）を 1 つずつ削除 → すべて example FAIL(1)
 #   TC-07: WARN 経路が **その label を名指しで** 出す（rc=0 の握り潰しでない）
 #   TC-08: 検出力の帰属 — 検査器から EH-13 の checks 表 **と** REQUIRED_CHECK_IDS を
@@ -234,6 +236,29 @@ _t78_assert_eh13 eh13-drop-editwrite "TC-03 EH-13 の Edit|Write ブロック削
 _t78_assert_eh13 eh13-narrow-edit    "TC-04 EH-13 の Edit|Write → Edit 縮小を検出（tool() 厳密判定）"
 
 # === TC-05: matcher:"*" への集約は 3 レーンとも PASS（全ツール発火の同一視）===
+#
+# 【反証 — この PASS を「`*` 配線でよい」と読んではならない】
+# 本 TC が固定しているのは検査器の**配線判定**（`*` は全ツールに発火するので
+# Edit / Write / Bash を包含する）だけであり、**runtime の挙動は逆向き**である。
+#
+# 実測（2026-08-28 / origin/main = 3f0cadd。payload はファイル経由で hook に流し rc を採取）:
+#   scripts/check-approval-token-write.sh（EH-13）
+#     Read / Glob / Grep / WebFetch / Task / NotebookEdit → **すべて rc=2**
+#     （`[EH-13 token-guard] BLOCK (parse-unknown)`。未知 tool_name を
+#       `_parse_unknown` → exit 2 にする **唯一の hook**）
+#   対照 5 hook（check-plan-exists / check-c3-approval / check-forbidden-files /
+#     check-delegation-commit-boundary / check-plan-hash）
+#     同じ 6 payload → **すべて rc=0**
+#
+# したがって EH-13 を `matcher:"*"` で配線した settings は **Read すら通らない**
+# （#1267 と同型の全停止クラス）。本検査器の `has()` はそれを「準拠」と判定し、
+# 本 TC がその判定を正しい挙動として固定している——という構造が現に存在する。
+#
+# 本 PR で検査器側を EH-13 だけ厳密判定へ倒さなかった理由:
+# apply-claude-settings.sh 側の包含判定（`*` = 全ツール集合）とずれ、apply が
+# 「配線済み」と見なしたものを本検査が「不足」と言い続ける **非収束**（#928 MJ-1）
+# を EH-13 に対して再導入するため。是正の本筋は EH-13 hook 本体が未知 tool_name を
+# allow することであり、それは本 PR の scope 外（別 PBI で対応中）。
 if _t78_mksbx eh13-collapse-star; then
   _t78_s5="$_t78_sbx"
   _t78_run "$_t78_s5" example 0

@@ -7,9 +7,14 @@
 #   digest : 当該ファイル中の「宣言行 + その行を含む連続非空行ブロック」を連結した
 #            文字列の sha256 先頭 12 桁
 #
-# 本台帳は fail-closed。検査器が発見した面がここに無ければ FAIL、ここにあるのに
-# 発見されなければ FAIL、class / digest が一致しなければ FAIL。承認手順の記述を
-# 1 文字でも変えると digest が変わるため、変更時は必ず本台帳の更新が diff に出る。
+# 本台帳との**照合**は両方向 fail-closed。検査器が発見した面がここに無ければ FAIL、
+# ここにあるのに発見されなければ FAIL、class / digest が一致しなければ FAIL。承認手順の
+# 記述を 1 文字でも変えると digest が変わるため、変更時は必ず本台帳の更新が diff に出る。
+#
+# ⚠️ 「fail-closed」なのは照合だけである。本ファイルも known-gaps.tsv も ta-77 本体も
+# Hardening Override の対象外なので、同一 PR で書き換えれば承認境界ゲートを踏まずに
+# 期待値を動かせる。**得られるのは diff 可視性であって承認境界ではない**
+# （抑止枠 known-gaps.tsv は明示的に fail-open）。
 #
 # 更新手順: ta-77 を実行し、FAIL 時に出力される discovered 行をそのまま貼り替える。
 # その際「正本 .claude/rules/working-context.md も同じ変更を必要としないか」を必ず

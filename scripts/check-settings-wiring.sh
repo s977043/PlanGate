@@ -94,6 +94,18 @@ def has(substr, matcher_re=None):
         # apply-claude-settings.sh 側の包含判定（`*` を全ツール集合とみなす）
         # と解釈がずれ、apply が「配線済み」と判断したものを本検証が
         # 「不足」と言い続けて **何度実行しても収束しない**（#928 MJ-1）。
+        # ⚠️ 反証（#1259 R3 / 本 PR で実測）: この `*` 同一視は wiring 検査を
+        # 通すが、**runtime の安全性は保証しない**。EH-13
+        # （scripts/check-approval-token-write.sh）は未知 tool_name を
+        # `_parse_unknown` → `exit 2` にする唯一の hook であり、
+        # `matcher:"*"` で配線すると Read / Glob / Grep / WebFetch / Task /
+        # NotebookEdit まで全て block される（実測 rc=2 / 他 5 hook は rc=0）。
+        # つまり `*` は「配線として準拠」だが「全停止クラス（#1267 と同型）」。
+        # ここを EH-13 だけ厳密判定へ倒す案は採らなかった: apply-claude-settings.sh
+        # 側の包含判定（`*` = 全ツール）とずれ、apply が「配線済み」と判断した
+        # ものを本検査が「不足」と言い続ける **非収束**（#928 MJ-1）を
+        # EH-13 に対して再導入するため。runtime 側の是正（未知 tool_name を
+        # allow する）が本筋であり、それは EH-13 hook 本体の責務。
         if substr in c and (matcher_re is None
                             or (m or "").strip() in ("", "*")
                             or re.search(matcher_re, m)):
@@ -121,6 +133,16 @@ checks = [
     ("EH-3", "check-plan-hash.sh", "Edit|Write", "EH-3 plan-hash", FAIL_BOTH),
     # EH-3b Bash 経路の plan-hash 配線（#1104 / main 側 #1267 由来）。
     # matcher 文字列・severity は main の挙動（両 target で FAIL）を保存する。
+    #
+    # ⚠️ 本 check が確かめるのは **配線の存在だけ**であり、強制力ではない。
+    # 実測（#1104 / ta-79）: check-plan-hash.sh の対象パス抽出は
+    # `tool_input.file_path` のみを見る。Bash の PreToolUse payload が持つのは
+    # `tool_input.command` なので `target_file` は常に空になり、
+    # **Bash レーンでは Hardening Override 判定が一度も発火しない**。
+    # それでも example / user 両レーンで存在を必須にしているのは、
+    # main（#1267）が入れた配線を黙って落とさないため（退行防止）であって、
+    # 「Bash 経路が HO で守られている」ことの根拠にはならない。
+    # 詳細と是正 patch: docs/working/_reports/1104-bash-lane-noop-patch-applicable.md
     ("EH-3B", "check-plan-hash.sh", "Bash",
      "EH-3b Bash route plan-hash(#1104)", FAIL_BOTH),
     ("EH-3-FILE-ARG", "${PLANGATE_HOOK_FILE:-}", "Edit|Write",

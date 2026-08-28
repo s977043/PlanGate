@@ -59,7 +59,12 @@
 # 見る場所）に必ず現れる（F2-3。旧版は本ファイル側だけの契約で、実測では
 # _T77_GAP_MAX=1 -> 5 に書き換えても 17 passed, 0 failed のまま通っていた）。
 # 上限（_T77_GAP_MAX）を本ファイル側の契約行に
-# 固定したので、抑止を 1 件増やすには 2 ファイルの編集が要る。それでも台帳自体は
+# 固定したので、抑止を 1 件増やすには 2 ファイルの編集が要る。**ただしこの二重宣言が
+# 担うのは承認境界ではなく diff 可視性どまりである**: 3 ファイル
+# （本ファイル / known-gaps.tsv / approval-surfaces.tsv）はいずれも Hardening
+# Override の対象外なので、**同一 PR で 3 つとも書き換えれば承認境界ゲートを 1 度も
+# 踏まずに抑止枠を増やせる**。得られるのは「その書き換えが必ず diff に現れる」
+# ことだけであって、fail-closed 化ではない。台帳自体も
 # fail-open の穴であり、tests/extras 配下も tests/fixtures 配下も Hardening Override
 # 9 カテゴリのいずれにも該当しない（実測: scripts/hooks/check-plan-hash.sh の
 # _override=0 直後の case ブロック）。この構造的な残存リスクは PR 本文の残存脅威
