@@ -1,0 +1,18 @@
+# PENDING-APPLY marker — #1101 / TASK-1101
+#
+# このファイルが存在する間、tests/extras/ta-65-eh3-ho-task-context.sh の TC-07 は
+# 「real hook (scripts/hooks/check-plan-hash.sh) に #1101 の正規化 patch が
+#  **まだ適用されていない**」ことを明示的に受理する。
+#
+# scripts/hooks/check-plan-hash.sh は Hardening Override 対象パスであり、
+# 適用は Human-owned（AI は patch と apply スクリプトの作成 + --dry-run のみ）。
+#
+# 解除手順（Human）:
+#   sh scripts/apply-1101-ho-normalization.sh --dry-run   # 差分の確認
+#   sh scripts/apply-1101-ho-normalization.sh --apply     # 適用（本ファイルを自動削除）
+#
+# 適用済みなのに本ファイルが残っていると、ta-65 が「stale PENDING-APPLY 宣言」
+# として FAIL する（黙って緑にならない設計 / #1089 の KNOWN-GAP flag と同機構）。
+#
+# ※ patch の**内容**は本ファイルの有無に関係なく ta-65 TC-08〜TC-12 が
+#   patch 済み sandbox 複製に対して常時検査している。

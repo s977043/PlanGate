@@ -191,3 +191,64 @@
 {"ts":"2026-08-15T07:13:56Z","event":"EH-3_DOC_LIGHT_SKIP","target":"plugin/plangate/README.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-08-15T07:14:07Z","event":"EH-3_DOC_LIGHT_SKIP","target":"README.md","acknowledged_by":null,"acknowledged_at":null}
 {"ts":"2026-08-15T07:14:24Z","event":"EH-3_DOC_LIGHT_SKIP","target":"README_en.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T07:59:59Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:02:26Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/84e7e206-557f-496c-85d4-335a242e4c4b/scratchpad/TASK-1101-plan.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:12:04Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/review-self.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:12:27Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/evidence/c2-review/ho-bypass-surface.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:16:34Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/review-external.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:20:34Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:21:05Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:21:34Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:23:07Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/84e7e206-557f-496c-85d4-335a242e4c4b/scratchpad/TASK-1101-plan-v2.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:24:02Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/todo.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:25:01Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:27:35Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/current-state.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:28:12Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/status.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:32:12Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:32:30Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:32:47Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:33:35Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/todo.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:45:26Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/review-external.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:45:53Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/feedback_river_review_before_pr.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:46:03Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/feedback_river_review_before_pr.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:47:37Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/feedback_river_review_before_pr.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:47:43Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/feedback_river_review_before_pr.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T08:47:50Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/Users/user/Documents/GitHub/ai-second-brain/08 Agent Context/memory/plangate/MEMORY.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:56:47Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:56:57Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:57:21Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:57:33Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:57:49Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:58:07Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/pbi-input.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:58:13Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:58:23Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:58:33Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:58:44Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:58:58Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:59:08Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:59:22Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:59:34Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:59:43Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/test-cases.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T09:59:59Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/todo.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T10:00:05Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/todo.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T10:00:11Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/todo.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T10:00:20Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/todo.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T10:00:48Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/current-state.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T10:01:42Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/review-self-2.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T10:04:11Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/84e7e206-557f-496c-85d4-335a242e4c4b/scratchpad/TASK-1101-plan-v4.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T10:52:03Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/evidence/test-runs/baseline.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T10:53:13Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/status.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:06:17Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:06:17Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/workflows/README.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:07:48Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/current-state.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:08:01Z","event":"EH-3_DOC_LIGHT_SKIP","target":"docs/working/TASK-1101/status.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:08:10Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a9f2aa8a9fc21b5a7/docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:08:47Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a9f2aa8a9fc21b5a7/docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:09:02Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a9f2aa8a9fc21b5a7/docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:09:09Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a9f2aa8a9fc21b5a7/docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:09:18Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a9f2aa8a9fc21b5a7/docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:09:24Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a9f2aa8a9fc21b5a7/docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:15:03Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/84e7e206-557f-496c-85d4-335a242e4c4b/scratchpad/issue-stale-approval.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:21:16Z","event":"EH-3_DOC_LIGHT_SKIP","target":".claude/worktrees/agent-a9f2aa8a9fc21b5a7/docs/ai/hook-enforcement.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:23:14Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/84e7e206-557f-496c-85d4-335a242e4c4b/scratchpad/pr-1104-body.md","acknowledged_by":null,"acknowledged_at":null}
+{"ts":"2026-08-15T11:25:30Z","event":"EH-3_DOC_LIGHT_SKIP","target":"/private/tmp/claude-502/-Users-user-Documents-GitHub-plangate/84e7e206-557f-496c-85d4-335a242e4c4b/scratchpad/pr-1104-body.md","acknowledged_by":null,"acknowledged_at":null}
