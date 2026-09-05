@@ -44,13 +44,15 @@ V2 では次の 4 軸を**別フィールド**で持つ。
 | ----------------- | ------------------------------------------------------------------ |
 | `MERGE_READY`     | Delivery 契約を満たし、C-4 / merge（Human-owned）待ちで停止        |
 | `HUMAN_ESCALATED` | AI では継続できず、Human の判断へ返した                            |
-| `BLOCKED`         | 外部条件・権限・境界により継続不能。Human 判断ではなく条件解除待ち |
+| `BLOCKED` | 外部条件・権限・境界により **この Run は終了**。Run 内で解消する見込みが無い。条件解除後の再開は `WAITING_EXTERNAL` からの復帰ではなく **新 Run**（`resumed_from_run_id` で連結） |
 
 原則:
 
 - Outcome は **Delivery Run の終端**であり Policy の裁定ではない。`AUTO_APPROVED` は Outcome にならない。
 - `HUMAN_ESCALATED` / `BLOCKED` は必ず 1 つ以上の Stop Reason を伴う。
 - `MERGE_READY` は Stop Reason を伴わない（正常終端）。
+- **待機と終端の判別**: Run 内で解消見込みのある一時的な外部待ちは State `WAITING_EXTERNAL`、解消見込みが無いものは Outcome `BLOCKED`。Legacy #1025 の `status: BLOCKED`（再開可能な status）とは意味が異なる（§7）。
+- **C-4 / merge は Delivery Run の外**。`WAITING_HUMAN` は Run 内の Human action（C-3 / 判断）のみを指し、C-4 待ちは `MERGE_READY` 終端後であって State を持たない。
 
 ## 4. Stop Reason
 
@@ -64,6 +66,7 @@ V2 では次の 4 軸を**別フィールド**で持つ。
 | `VERIFIER_UNAVAILABLE` | 必須 Verifier が実行不能・判定不能（fail-open しない）                | Verifier pipeline             |
 | `REQUIREMENT_CONFLICT` | 受入基準同士、または Plan と受入基準が矛盾                            | Plan Verification / Diagnoser |
 | `STATE_CONFLICT`       | RunState の revision CAS 失敗（並行 resume 等）                       | RunState store                |
+| `HUMAN_REJECTED` | Policy Verdict `HUMAN_REQUIRED` の後、Human が継続を否認した | Human（`WAITING_HUMAN` からの復帰時） |
 
 原則:
 
@@ -76,7 +79,7 @@ V2 では次の 4 軸を**別フィールド**で持つ。
 | Verdict          | 意味                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------- |
 | `AUTO_APPROVED`  | Policy profile の範囲内で Human 承認なしに次段へ進んでよい                                  |
-| `HUMAN_REQUIRED` | Human の判断が必要（→ State `WAITING_HUMAN`。Human が拒否すれば Outcome `HUMAN_ESCALATED`） |
+| `HUMAN_REQUIRED` | Human の判断が必要（→ State `WAITING_HUMAN`。Human が否認すれば Outcome `HUMAN_ESCALATED` + Stop Reason `HUMAN_REJECTED`） |
 | `DENIED`         | Policy が禁止（→ Stop Reason `POLICY_DENIED`）                                              |
 
 原則:
@@ -139,7 +142,7 @@ stop_reasons: []
 | Legacy の用法                                                                                                                                          | V2 での読み替え                                                                                                                                   |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | C-3' arbiter の `AUTO_APPROVED / HUMAN_ESCALATED / BLOCKED`（`scripts/ai-loop/arbiter.py`、`docs/workflows/ai-loop/**`）                               | `AUTO_APPROVED` → Policy Verdict。`HUMAN_ESCALATED` / `BLOCKED` → Terminal Outcome。Legacy 実装は変更しない                                       |
-| #1025 の `status: RUNNING / WAITING_HUMAN / WAITING_EXTERNAL / BLOCKED / COMPLETED`                                                                    | `RUNNING` → Lifecycle State 群、`WAITING_*` → State、`BLOCKED` → Outcome、`COMPLETED` → Outcome（`MERGE_READY` 等）へ分解                         |
+| #1025 の `status: RUNNING / WAITING_HUMAN / WAITING_EXTERNAL / BLOCKED / COMPLETED` | `RUNNING` → Lifecycle State 群、`WAITING_*` → State、`BLOCKED` → Outcome（**終端。Legacy の「再開可能な BLOCKED」は V2 では `WAITING_EXTERNAL`**）、`COMPLETED` → Outcome（`MERGE_READY` 等）へ分解 |
 | #894 `termination.decision: continue \| success \| blocked \| human_escalated \| budget_exhausted \| no_progress \| repeated_failure \| policy_denied` | `continue` → Decision Engine の継続判断（Outcome ではない）、`success` → `MERGE_READY`、`blocked / human_escalated` → Outcome、残り → Stop Reason |
 | Legacy RunEvidence schema `terminal_state`（`docs/schemas/run-evidence.schema.json`）                                                                  | 値域は V2 Terminal Outcome と一致。名称は V2 では `outcome`。Legacy schema は変更しない                                                           |
 | `docs/workflows/ai-loop/delivery-state-machine.md` の PR サブステート                                                                                  | `PR_CONVERGING` の内部詳細（reusable pattern）。V2 Lifecycle State に昇格しない                                                                   |
@@ -151,9 +154,11 @@ Legacy 文書・Issue の履歴は書き換えない。V2 namespace（`docs/ai/a
 V2 namespace に対して次を検査する。いずれも 0 件が期待値。
 
 ```sh
-git grep -nE '^\s*state:\s*(NO_PROGRESS|REPEATED_FAILURE|OSCILLATION|BUDGET_EXHAUSTED|POLICY_DENIED|VERIFIER_UNAVAILABLE|REQUIREMENT_CONFLICT|STATE_CONFLICT|MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -v '禁止例'
-git grep -nE '^\s*outcome:\s*(AUTO_APPROVED|HUMAN_REQUIRED|DENIED)\b' -- docs/ai/ai-loop-v2 | grep -v '禁止例'
-git grep -nE '^\s*policy_verdict:\s*(MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -v '禁止例'
+git grep -nP '^\s*state:\s*(NO_PROGRESS|REPEATED_FAILURE|OSCILLATION|BUDGET_EXHAUSTED|POLICY_DENIED|VERIFIER_UNAVAILABLE|REQUIREMENT_CONFLICT|STATE_CONFLICT|MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '# .*(にしている|が無い)'
+git grep -nP '^\s*outcome:\s*(AUTO_APPROVED|HUMAN_REQUIRED|DENIED)\b' -- docs/ai/ai-loop-v2 | grep -vE '# .*(にしている|が無い)'
+git grep -nP '^\s*policy_verdict:\s*(MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '# .*(にしている|が無い)'
 ```
+
+**positive control**: 上記コマンドから `| grep -vE '# .*(にしている|が無い)'` を外して `taxonomy.md` 自身に当て、§6 の禁止例が検出されること（`state:` 2 行 / `outcome:` 1 行 / `policy_verdict:` 1 行）を先に確認する。検出されない場合は検査が空振りしており「0 件」を証拠にしてはならない。`-E`（POSIX ERE）では `\s` / `\b` が効かず常時 0 件になる（レビューで実測）。
 
 Phase 1 で `tests/extras/` に fixture 化し、本節の禁止例を negative control として固定する（[`phase0-migration.md`](./phase0-migration.md) §8）。

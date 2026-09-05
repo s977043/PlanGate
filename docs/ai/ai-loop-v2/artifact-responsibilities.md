@@ -52,15 +52,15 @@ RunEvent stream（append-only）
 
 | 要素            | 内容                                                                                                                                                                                                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| RunEvent stream | append-only の event 列。既存 `docs/working/_metrics/events.ndjson`（`schemas/plangate-event.schema.json`、`scripts/metrics_collector.py`）と `docs/working/TASK-XXXX/delivery/record.jsonl` / `decision-log.jsonl` は **Legacy の event 源**として projection 入力に使える（Legacy 実装は変更しない） |
+| RunEvent stream | append-only の event 列。V2 の RunEvent 型（`decision_made` / `component_selected` / `component_fired` / Outcome / Stop Reason / Policy Verdict を運ぶ）は **Phase 1 で V2 側に定義**する。既存 `docs/working/_metrics/events.ndjson`（`schemas/plangate-event.schema.json` は event 12 種・`additionalProperties: false`）と `<task_dir>/delivery/record.jsonl`（`scripts/ai-loop/delivery.py`）/ `decision-log.jsonl` は **metrics / phase 遷移の補助入力**として projection に読めるが、Legacy schema へ V2 event 型を追加しない |
 | projection      | 純関数。入力 = event stream + HarnessManifest ref。出力 = RunEvidence。timestamp・順序以外の外部状態を読まない                                                                                                                                                                                         |
-| RunEvidence     | 1 Run の要約。`harness_manifest_ref` / `outcome` / `stop_reasons` / `policy_verdicts` / VerificationResult refs / FailureRecord refs / metrics / evidence refs                                                                                                                                         |
+| RunEvidence | 1 Run の要約。`harness_manifest_ref` / `outcome` / `stop_reasons[]` / `policy_verdicts[]`（Run 中の Verdict 履歴。RunState が持つ現在値 `policy_verdict` とは別）/ VerificationResult refs / FailureRecord refs / metrics / evidence refs / `evidence_status: ready \| partial \| invalid` |
 
 原則:
 
 - **RunEvidence を唯一の mutable source of truth にしない**。正本は event stream。RunEvidence は再生成可能なキャッシュ。
 - 同一 event stream から同一 RunEvidence を再生成できること（#874 AC「同一入力 events から同一 RunEvidence を再生成できる」を KEEP）。
-- **completed run だけを前提にしない**。projection は途中の stream からも部分 RunEvidence（`evidence_status: partial`）を出せる。
+- **completed run だけを前提にしない**。projection は途中の stream からも部分 RunEvidence（`evidence_status: partial`）を出せる。`ready` は projection が Outcome まで到達し `harness_manifest_ref` を持つ場合、`invalid` は stream の欠損・改竄・binding 不一致を検出した場合（Legacy `complete / partial` とは値域が異なる。V2 schema は Phase 1）。
 
 ### Evolution input に含める Run
 

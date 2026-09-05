@@ -12,7 +12,7 @@ Harness Improvement Candidate は、**自分の採用評価中**に次を変更�
 
 | Protected authority        | 内容                                                          |
 | -------------------------- | ------------------------------------------------------------- |
-| Evaluation Harness         | paired replay / activation check / grader を実行する仕組み    |
+| Evaluation Harness | paired replay / activation check / grader / **stable meta-verifier** / **HarnessManifest 生成器・canonical 化器** / **`protected_surfaces` 定義** |
 | Sealed / held-out fixtures | 提案時に未使用の regression set。Candidate 作成前に ID を固定 |
 | Promotion Policy           | PASS / FAIL / INCONCLUSIVE の判定規則                         |
 | Acceptance Threshold       | Candidate 作成前に固定した閾値・trial 数・metrics             |
@@ -54,6 +54,10 @@ Candidate が Verifier / Eval / Test strategy を変更する場合、評価は�
 
 - 「変異注入で検出力を実証する」（新規テストは旧実装 + 変異で FAIL を確認する）を Verifier Candidate の必須条件にする。
 - Verifier Candidate が sealed fixture を「更新」することは Trust Boundary 違反。fixture の更新は別 Candidate・別評価。
+
+### 後退の終端（無限後退の接地）
+
+「meta-verifier を変える Candidate は誰が評価するか」「sealed fixture を更新する Candidate は誰が評価するか」「HarnessManifest 生成器を変える Candidate は誰が評価するか」は、いずれも **Evaluation Harness そのものの変更**である。これらは通常の paired evaluation の対象外とし、**Independence Level I4（Human + machine independent evidence）でのみ採用する**。ここが後退の終端であり、North Star §3 / §15 の Human-owned Promotion に接地する。Manifest 生成器が Candidate の対象に含まれると identity 偽装（同一 `harness_id` の詐称・`INCONCLUSIVE` の回避）が可能になるため、生成器は protected authority に含める。
 
 ## 4. Independence Level
 

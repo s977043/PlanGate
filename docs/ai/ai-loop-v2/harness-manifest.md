@@ -75,7 +75,7 @@ candidate_manifest_ref: sha256:...
 | `selected`            | その Run でルーティング／呼び出し対象に選ばれた                              | RunEvent（`component_selected`）                                    |
 | `fired`               | 実際に実行された（hook 発火・skill 展開・agent 起動）                        | RunEvent（`component_fired`。hook-events.log 等の一次ログへの ref） |
 | `produced_evidence`   | 実行結果が VerificationResult / FailureRecord / artifact として残った        | RunEvent + evidence refs                                            |
-| `influenced_decision` | その evidence を Decision Engine が実際に参照して判断した                    | Decision record の `inputs`                                         |
+| `influenced_decision` | その evidence を Decision Engine が実際に参照して判断した | RunEvent `decision_made` の `inputs` |
 
 原則:
 

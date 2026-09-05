@@ -145,12 +145,12 @@ These are inputs to V2 design; they are not automatically V2 canon.
 Phase 1 では正本 artifact を無制限に増やさない。初期候補を以下に限定する。
 
 1. `LoopContract`
-2. `RunState`
+2. `RunState`（Phase 0.1: `harness_manifest_ref` を additive に追加）
 3. `VerificationResult`
 4. `FailureRecord`
-5. `RunEvidence`
-6. `HarnessImprovementCandidate`
-7. `HarnessExperimentResult`
+5. `RunEvidence`（Phase 0.1: `harness_manifest_ref` を additive に追加。event projection として再定義）
+6. `HarnessImprovementCandidate`（Phase 0.1: evaluation plan digest を additive に追加）
+7. `HarnessExperimentResult`（Phase 0.1: `baseline_manifest_ref` / `candidate_manifest_ref` を additive に追加）
 8. `PromotionDecision`
 9. `HarnessManifest`（Phase 0.1 で追加。独立 artifact とする根拠は [`harness-manifest.md`](./harness-manifest.md) §5）
 
