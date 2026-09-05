@@ -1,8 +1,8 @@
 # ai-loop V2 Phase 0 — Freeze / Migration Matrix
 
-> **Status**: Phase 0 migration canon candidate
+> **Status**: Phase 0 **MERGED**（PR #1273・Human C-4 DONE）/ Independent Review **PENDING（separate checker required）** / Phase 0.1 **CANON_HARDENING**（#1275）
 > **North Star**: [`north-star.md`](./north-star.md)
-> **Baseline**: `main@9f7bac9f62dccc057be5ae58570dcb65a4acbec8`
+> **Baseline**: Phase 0 `main@9f7bac9f62dccc057be5ae58570dcb65a4acbec8` / Phase 0.1 `main@1e95e8a`
 
 ## 1. Phase 0 decision
 
@@ -51,11 +51,11 @@ Legacy ai-loop に許可する変更:
 
 | Issue | Class | V2 treatment |
 |---|---|---|
-| #870 ai-loop vNext EPIC | **ADAPT** | V2 親 EPICへ再定義。C-3' 中心から Self-Evolving Harness / Delivery-first に軸を移す |
-| #894 Loop Control Contract | **KEEP** | V2 Contract / Verifier hierarchy / budget / progress / stop の中核へ昇格 |
-| #1025 Durable Run State | **KEEP** | process/session 非依存の RunState / intent-receipt / resume を V2 core として利用 |
-| #874 RunEvidence | **KEEP** | Delivery → Learn → Evolve の producer contract。`harness_version` immutability も維持 |
-| #916 arbiter self-protection | **KEEP** | 自己改変防止を V2 の active-harness immutability / protected surface enforcement へ接続 |
+| #870 ai-loop vNext EPIC | **ADAPT → REBASELINED（Phase 0.1）** | V2 親 EPIC として本文を全面 rebaseline。Verifier-driven Delivery + Evidence-driven Evolution + Self-Evolving Harness を中核、C-3' は optional autonomy / policy profile。旧本文は Legacy Evidence として Issue 内に保持 |
+| #894 Loop Control Contract | **KEEP PROBLEM / ADAPT CONTRACT** | Verifier hierarchy / budget / progress / stop の問題設定は KEEP。単一 `LoopControlContract` は LoopContract / RunState / VerificationResult / FailureRecord / Decision Engine / RunEvidence へ分解（[`artifact-responsibilities.md`](./artifact-responsibilities.md) §2） |
+| #1025 Durable Run State | **KEEP + CONCURRENCY HARDENING** | RunState / intent-receipt / resume を V2 core として利用。revision CAS / concurrent resume / `STATE_CONFLICT` を追加（同 §4） |
+| #874 RunEvidence | **KEEP + REBASELINE** | producer contract は KEEP。`harness_version` → `harness_manifest_ref`、RunEvidence = deterministic event projection、非完了 Run も Evolution input（同 §3） |
+| #916 arbiter self-protection | **KEEP → Evaluation Trust Boundary へ昇格** | 局所 carve-out から `Candidate cannot modify the authority that judges the candidate` の Legacy 実例へ（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §2） |
 | #1029 rollback execution | **ADAPT** | C-3' 固有 rollback としてではなく V2 stop / recovery / external decision rollback の pattern として再設計 |
 | #1241 task_id portability | **KEEP** | V2 Core の portability / external task identity 契約へ取り込む。`TASK-XXXX` 固定を V2 正本にしない |
 
@@ -72,7 +72,7 @@ Legacy ai-loop に許可する変更:
 
 | Issue | Class | V2 treatment |
 |---|---|---|
-| #869 Run Retrospective / Harness Evolution | **KEEP + EXPAND** | V2 Evolution Loop の中核。Skill / Agent / Flow / Verifier の CREATE / UPDATE / SPLIT / MERGE / DEPRECATE を正式対象化 |
+| #869 Run Retrospective / Harness Evolution | **KEEP + REBASELINE** | V2 Evolution Loop の中核。Skill / Agent / Flow / Verifier の CREATE / UPDATE / SPLIT / MERGE / DEPRECATE を正式対象化。Legacy inner-loop / `AUTO_APPROVED` 中心の表現と V2 canonical flow を区別（Promotion Decision に `INCONCLUSIVE`） |
 | #811 Memory Promotion Gate | **ADAPT / SUB-GATE** | Promotion 対象が Rule/Skill等の場合の sub-gate。V2 Evolution 全体の owner にはしない |
 
 ### Autonomy / policy
@@ -145,15 +145,16 @@ These are inputs to V2 design; they are not automatically V2 canon.
 Phase 1 では正本 artifact を無制限に増やさない。初期候補を以下に限定する。
 
 1. `LoopContract`
-2. `RunState`
+2. `RunState`（Phase 0.1: `harness_manifest_ref` を additive に追加）
 3. `VerificationResult`
 4. `FailureRecord`
-5. `RunEvidence`
-6. `HarnessImprovementCandidate`
-7. `HarnessExperimentResult`
+5. `RunEvidence`（Phase 0.1: `harness_manifest_ref` を additive に追加。event projection として再定義）
+6. `HarnessImprovementCandidate`（Phase 0.1: evaluation plan digest を additive に追加）
+7. `HarnessExperimentResult`（Phase 0.1: `baseline_manifest_ref` / `candidate_manifest_ref` を additive に追加）
 8. `PromotionDecision`
+9. `HarnessManifest`（Phase 0.1 で追加。独立 artifact とする根拠は [`harness-manifest.md`](./harness-manifest.md) §5）
 
-新 artifact を追加する Plan は、既存 artifact へ additive に表現できない理由を North Star review で説明する。
+各 artifact の責務境界は [`artifact-responsibilities.md`](./artifact-responsibilities.md)。新 artifact を追加する Plan は、既存 artifact へ additive に表現できない理由を North Star review で説明する。
 
 ## 7. Phase 0 exit criteria
 
@@ -166,10 +167,20 @@ Phase 1 では正本 artifact を無制限に増やさない。初期候補を�
 - [x] Human-owned / active-run immutability を固定
 - [x] 主要 ai-loop Issue を KEEP / ADAPT / SUPERSEDE / DEFER / LEGACY EVIDENCE に分類
 - [x] V2 初期 artifact budget を固定
-- [ ] North Star / migration docs の独立レビュー
-- [ ] Human C-4 で Phase 0 docs PR を merge
+- [x] Human C-4 で Phase 0 docs PR を merge（PR #1273、2026-09-05）
+- [ ] North Star / migration docs の独立レビュー — **PENDING**。実装 Agent 自身のレビューは独立レビューに数えない（Independence Level I0。[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §4）。別 context / role の checker による I1 以上の記録を要する
 
-Phase 0 の最後の 2 項目が満たされるまで Phase 1 実装を開始しない。
+### Phase 0.1 exit criteria（#1275 / Canon Hardening）
+
+- [x] Lifecycle State / Terminal Outcome / Stop Reason / Policy Verdict の 4 軸 taxonomy を正本化（[`taxonomy.md`](./taxonomy.md)）（PR #1276 で充足）
+- [x] HarnessManifest の責務・最低フィールド・RunEvidence binding・Runtime Activation 6 段階を定義（[`harness-manifest.md`](./harness-manifest.md)）（PR #1276 で充足）
+- [x] Evaluation Trust Boundary / Independence Level / `INCONCLUSIVE` / pre-registration を invariant 化（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md)）（PR #1276 で充足）
+- [x] artifact 責務分離 / RunEvidence = event projection / RunState revision CAS を固定（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）（PR #1276 で充足）
+- [x] Initial Plan Verification / Plan Gate を Delivery canonical flow へ追加（`north-star.md` §2 / §9 / §17）（PR #1276 で充足）
+- [x] #870 / #894 / #869 / #874 / #916 / #1025 を GitHub 上で rebaseline（PR #1276 で充足）
+- [ ] Phase 0.1 docs PR の別 context / role によるレビューと Human C-4
+
+Phase 0 の独立レビューと Phase 0.1 の全項目が満たされるまで Phase 1 実装を開始しない。Phase 0.1 の PR は MERGE_READY で停止し、Phase 1 へ自動的に進まない。
 
 ## 8. Next phase
 
@@ -178,11 +189,13 @@ Phase 1 は実装ではなく **V2 Architecture / Contract design** から開始
 最初に決めるもの:
 
 - LoopContract schema / semantic contract
-- Delivery State Machine
+- Delivery State Machine（[`taxonomy.md`](./taxonomy.md) の 4 軸を前提）
 - Verifier pipeline / blocking rule
-- Decision / Progress / Stop reason
+- Decision Engine / Progress / Stop reason
 - Repair vs Replan
-- RunState / RunEvidence binding
+- RunState（revision CAS）/ RunEvidence（event projection）/ HarnessManifest binding
+- Evaluation Trust Boundary の機械層（protected surface 定義・Independence Level の surface 別 threshold）
 - ai-dev adapter boundary
+- 本 Phase 0.1 の negative example を `tests/extras/` fixture 化（[`taxonomy.md`](./taxonomy.md) §8 / [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §7）
 
 Evolution 実装は Delivery E2E (`FAIL -> Diagnose -> Repair -> PASS -> MERGE_READY` + `NO_PROGRESS -> STOP`) の成立後に開始する。

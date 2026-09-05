@@ -1,6 +1,7 @@
 # ai-loop V2 North Star — Self-Evolving Development Harness
 
-> **Status**: Phase 0 canonical candidate
+> **Status**: Phase 0 **MERGED**（PR #1273・Human C-4 DONE）/ Independent Review **PENDING（separate checker required）** / Phase 0.1 **CANON_HARDENING**（#1275）
+> **Companion canon**: [`taxonomy.md`](./taxonomy.md) / [`harness-manifest.md`](./harness-manifest.md) / [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) / [`artifact-responsibilities.md`](./artifact-responsibilities.md)
 > **Role**: V2 の最上位判断基準。詳細実装仕様ではなく、目的・不変原則・境界・成功条件を固定する。
 
 ## 1. North Star
@@ -36,9 +37,19 @@ Harness N
 1 Task を `MERGE_READY` へ収束させる。
 
 ```text
-Plan -> Execute -> Verify -> Diagnose -> Repair / Replan -> Verify
-     -> PR -> CI / Review -> MERGE_READY
+Request
+  -> Plan
+  -> Plan Verification
+       - Requirements Review
+       - Design Review
+       - Technical / Feasibility Review
+       - Research Evidence Review (when required)
+  -> Plan Gate
+  -> Execute -> Verify -> Diagnose -> Repair / Replan -> Verify
+  -> PR Convergence -> MERGE_READY
 ```
+
+Initial Plan も Plan Verification を通る。Replan 時だけ Plan Review する構造にしない（§9）。
 
 ### Learn
 
@@ -108,7 +119,7 @@ Planner -> Builder -> Verifier -> Diagnoser -> Decision Engine
 - Verifier != Decision Engine
 - Improvement Proposer != Promotion Evaluator
 
-同じ Model を利用する場合でも、context / role / run を分離する。
+同じ Model を利用する場合でも、context / role / run を分離する。独立度は I0（same context）〜 I4（Human + machine independent evidence）で段階化し、Verifier / Gate / Policy / protected Flow の変更は通常の Prompt 変更より高い独立度を要求する（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §4）。
 
 ## 6. Evidence before judgment
 
@@ -155,15 +166,16 @@ Observation と Cause Hypothesis を別フィールドにする。
 - resolved blockers
 - introduced blockers
 
-正式な停止理由に以下を含める。
+Run の記述は 4 軸を別フィールドで持つ（正本: [`taxonomy.md`](./taxonomy.md)）。
 
-- `NO_PROGRESS`
-- `REPEATED_FAILURE`
-- `OSCILLATION`
-- `BUDGET_EXHAUSTED`
-- `POLICY_DENIED`
-- `BLOCKED`
-- `HUMAN_ESCALATED`
+| 軸 | 値域（最低限） |
+|---|---|
+| Lifecycle State | `PLANNING` / `PLAN_VERIFYING` / `EXECUTING` / `VERIFYING` / `DIAGNOSING` / `REPAIRING` / `REPLANNING` / `PR_CONVERGING` / `WAITING_HUMAN` / `WAITING_EXTERNAL` |
+| Terminal Outcome | `MERGE_READY` / `HUMAN_ESCALATED` / `BLOCKED` |
+| Stop Reason | `NO_PROGRESS` / `REPEATED_FAILURE` / `OSCILLATION` / `BUDGET_EXHAUSTED` / `POLICY_DENIED` / `VERIFIER_UNAVAILABLE` / `REQUIREMENT_CONFLICT` / `STATE_CONFLICT` / `HUMAN_REJECTED` |
+| Policy Verdict | `AUTO_APPROVED` / `HUMAN_REQUIRED` / `DENIED` |
+
+`NO_PROGRESS` は State ではなく Stop Reason、`AUTO_APPROVED` は Outcome ではなく Policy Verdict、`MERGE_READY` は Verdict ではなく Outcome である。
 
 > **止まれることは自律性の失敗ではなく、自律性の要件である。**
 
@@ -174,14 +186,14 @@ Verify FAIL
   -> Diagnose
   -> Plan valid?
        YES -> Repair
-       NO  -> Replan -> Plan Review
+       NO  -> Replan -> Plan Verification -> Plan Gate
 ```
 
-Plan が変更された場合、旧 Plan に束縛された verification evidence は再検証する。
+Plan が変更された場合、旧 Plan に束縛された verification evidence は再検証する。Initial Plan と Replan 後の Plan は同じ Plan Verification を通る（§2）。
 
-## 10. Harness version is immutable during a Run
+## 10. Harness identity is immutable during a Run
 
-Run 開始時に `harness_version` を固定する。
+Run 開始時に **HarnessManifest**（[`harness-manifest.md`](./harness-manifest.md)）を固定し、RunState / RunEvidence は `harness_manifest_ref` で束縛する。`harness_version` 文字列は人間向けラベルであり、同一性の根拠にしない。
 
 Active Run 中に Skill / Agent / Flow / Verifier contract / Gate / Policy / Budget policy を暗黙変更しない。
 
@@ -281,7 +293,13 @@ Same Fixture
 - activation
 - rollback
 
-Candidate が実際に対象経路で発火したことを Activation Check で確認する。重要変更では held-out / sealed regression set を使う。
+Candidate が実際に対象経路で発火したことを Activation Check で確認する（`installed` / `registered` / `selected` / `fired` / `produced_evidence` / `influenced_decision` の 6 段階。`fired` 以上を要求）。重要変更では held-out / sealed regression set を使う。
+
+評価の結果は `PASS` / `FAIL` / `INCONCLUSIVE` の 3 値で、evaluation plan（fixture IDs / task profile / trial count / metrics / threshold / critical regression condition）は Candidate 実装前に固定する。
+
+> **Candidate cannot modify the authority that judges the candidate.**
+
+正本: [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md)。
 
 ## 15. Evolution authority levels
 
@@ -317,7 +335,7 @@ Delivery V2 が検証されるまで、V2 自身を V2 で開発しない。
 最低限、次を E2E で実証する。
 
 ```text
-Request -> Plan -> Execute -> Verify FAIL -> Diagnose -> Repair
+Request -> Plan -> Plan Verify -> Execute -> Verify FAIL -> Diagnose -> Repair
         -> Verify PASS -> PR -> Review finding -> Repair -> MERGE_READY
 ```
 
