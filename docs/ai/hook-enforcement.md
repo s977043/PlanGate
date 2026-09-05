@@ -283,7 +283,7 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 > | | 内容 |
 > |---|---|
 > | **守る** | `Edit\|Write` 経路の、**字句上**の表記揺れ（上記 7 変換クラスとその複合）による HO 迂回（#1101 適用後） |
-> | **守らない** | `Bash` 経路（#1104）/ FS エイリアス・シンボリックリンク（上記 3）/ hook を配線していない導入先（plugin 配布物に `scripts/hooks/` は含まれない）/ `PLANGATE_BYPASS_HOOK=1` |
+> | **守らない** | `Bash` 経路（#1104）/ FS エイリアス・シンボリックリンク（上記 3）/ **worktree 配下の HO パス（上記 4・#1277）** / **監査ログ（`hook-events.log`）が書けない環境（`log_event` が `set -eu` 下で rc=1 になり block に到達しない・#1278）** / hook を配線していない導入先（plugin 配布物に `scripts/hooks/` は含まれない）/ `PLANGATE_BYPASS_HOOK=1` |
 >
 > EH-3 の HO block は**多層防御の 1 層**にすぎない。承認境界の最終的な保証主体は
 > **C-4 Human レビュー**と **GitHub branch protection** であり、本 hook の block を

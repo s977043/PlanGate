@@ -6,6 +6,7 @@
 > 測定基点: 本 worktree HEAD = `9f7bac9`（`fix/1104-bash-route` 派生）。`scripts/hooks/check-plan-hash.sh` の最終変更は
 > `9043536`（#1089）で、**#1104 no-op（PR #1271・OPEN）と #1101 正規化はいずれも未適用**
 > （`tests/fixtures/eh3-bash-lane-pending-1104.flag` / `eh3-normalization-pending-1101.flag` が現存）。
+> **上記は `9f7bac9` 時点の測定値**。PR #1271 は 2026-09-05 に main へマージ済みで、main では両 patch 適用済み・flag 0 本。F4 / S1 / AC-01 の「report 4 本 vs flag 2 本」も同時点の値であり、S1 の実測根拠（PENDING / STALE_FLAG の実例）は plan 生成時に origin/main で再測定する。
 > 以下で「hook の分岐」を挙げる際は**関数名・分岐条件で参照し、行番号は使わない**（#1089 の教訓）。
 
 ## Context / Why
@@ -157,6 +158,7 @@ AI 単独で完了できる作業が構造的に制限される。さらに **AI
 - **U-2**: `plugin/plangate/**`（配布物 = `sync-plugin-plangate.sh` の生成物）と `scripts/sync-plugin-plangate.sh` のレーン帰属。issue コメントで Human 判断待ち。候補: Gray 維持（既定）/ AI-owned + sync dry-run 一致を CI で検査
 - **U-3**: `apply-pending --check` で NO_FLAG（report はあるが flag が無い）を rc=1 にするか WARN に留めるか（既定: WARN。遡及分は S1 で flag を付与）
 - **U-4**: AI が自分の到達範囲を事前判定する `bin/plangate lane <path>`（判定関数の dry-run）を S3 に含めるか（`bin/plangate` は HO のため配線 patch が増える）
+- **U-5b**: ai-loop V2 の sealed / held-out fixture（`docs/ai/ai-loop-v2/evaluation-trust-boundary.md` §1 の protected authority）は allowlist から除外する。配置先を `tests/extras/` 以外（例 `tests/fixtures/sealed/`）にするか、S3 で除外 glob を持つかは #1276 Phase 1 と合わせて裁定
 - **U-5**: `tests/extras/*.sh` のうち**承認境界を検査するテスト**（`ta-65` / `ta-79` / 本 PBI の `ta-NN`）は**既定で除外**（安全側 = `mode-classification.md` の「判定不能は該当扱い」と同方向）。**含める側へ倒すには Human C-3 の明示裁定が要る**
 - **U-6**: レーン判定を maintenance 判定の前に置くか後に置くか（上記 Notes）
 - **U-7**: 着手順。issue は「#1101 / #1104 の是正後に入れるほうが安全」としており、本書は #1271（Bash no-op）と #1234（containment）を S3 の前提にした。**S1 / S2 は依存なしで先行可**
