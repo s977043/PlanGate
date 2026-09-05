@@ -242,9 +242,13 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >      持たないため `target_file` が空になり HO 判定は一致しない**（実測 / §0.1
 >      「#1267 の実測」）。配線の有無と強制力の有無を混同しないこと。#1104 は open
 >   2. **`Edit|Write` 経路内の正規化不足（[#1101](https://github.com/s977043/plangate/issues/1101)
->      — patch 作成済み・**適用は Human-owned で未適用**）**
+>      — patch を Human が適用済み・PR #1271 で main へ反映）**
 >   3. **FS エイリアス（firmlink / シンボリックリンク）による別表記到達
->      — 追跡 issue **未起票**（#1101 handoff の follow-up。起票はオーケストレータ）**
+>      — 追跡 issue [#1264](https://github.com/s977043/plangate/issues/1264)**
+>   4. **worktree 配下の HO ファイル**（`_ho_key` が `REPO_ROOT` 前置きに固定され、
+>      `.claude/worktrees/*/CLAUDE.md` や root 外 worktree の HO パスは 9 パターンに当たらない
+>      — 追跡 issue [#1277](https://github.com/s977043/plangate/issues/1277)。PR #1271 の River Review で実測、
+>      #1101 適用前後で同じ rc=0 = 既存ギャップ）**
 >
 >   **2 の実測（旧記述の訂正）**: 旧版はこの残存を **4 ケース**と書いていたが**過少**だった。
 >   #1101 の実測では変換クラスは **7 種**（`..` 往復 / `//` / `/./` / 先頭 `./` / 大小文字 /
@@ -255,7 +259,7 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >   是正は `tests/fixtures/pg-fold-path.sh`（正規化関数の正本）+
 >   `scripts/apply-1101-ho-normalization.sh`（patch 適用スクリプト）として用意済み。
 >   **`scripts/hooks/check-plan-hash.sh` は HO 対象パスであり AI は適用できない**ため、
->   適用は `sh scripts/apply-1101-ho-normalization.sh --apply`（Human-owned）。
+>   適用は `sh scripts/apply-1101-ho-normalization.sh --apply`（Human-owned。**2026-09-05 に適用済み・PR #1271**）。
 >   適用前は `tests/fixtures/eh3-normalization-pending-1101.flag`（tracked）が未適用を
 >   明示 opt-in で受理し、ta-65 TC-07 が緑になる。**適用したら flag を削除すること**
 >   （適用済みで flag が残ると TC-07 が stale 宣言として FAIL する）。
