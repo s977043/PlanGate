@@ -39,6 +39,224 @@ sha256_of() {
   fi
 }
 
+# >>> PG-FOLD-PATH BEGIN (#1101)
+# _pg_fold_path — HO 判定専用のパス正規化（字句のみ / FS に触れない）
+#
+#   In : $1 = 対象パス / $2 = repo root（空可）/ $3 = 1 なら小文字化
+#   Out: _PG_FOLD_OUT    正規化結果
+#        _PG_FOLD_RC     0=正常 / 1=fail-closed（呼び出し側が block する）
+#        _PG_FOLD_REASON fail-closed の理由（rc=1 のときのみ意味を持つ）
+#
+# 適用順（#1101 / RiverReview critical）:
+#   (1) 末尾空白の除去
+#   (2) // の畳み込み / . セグメント除去 / .. の字句的畳み込み  ← **最初に**
+#   (3) 先頭 ./ の除去（(2) のセグメント走査に含まれる）
+#   (4) 小文字化（_ho_key のみ / $3=1）
+#   (5) repo root の除去（小文字化済み同士で比較 = 大小文字非依存）
+#   ※ (2) を (3) より後ろに置くと `.//CLAUDE.md` が素通りする。
+#   ※ (5) を (4) より前に置くと **root 前置部だけ大文字にした絶対パス**
+#     （`/USERS/.../CLAUDE.md`）が素通りする。macOS の case-insensitive FS では
+#     同一実体に到達し**書き込みが成立する**（PR 前レビューで検出）。
+#
+# 制約:
+#   - 単語分割に依存しない（zsh で no-op になるため / R-002）
+#   - 外部コマンドを呼ばない（fork 増加ゼロ / AC-11）。呼び出し側も
+#     コマンド置換を使わず、結果はグローバル変数で受け取ること
+#   - 先頭 `/` は除去しない（絶対パスを block しない / N-1・TC-11b）
+#   - 末尾 `/` は保持する（`CLAUDE.md/` は FS 到達不能なので skip 側のまま）
+#   - シンボリックリンクは解決しない（Non-goal）
+#   - fail-closed は 4 条件: (a) 畳み込み後に先頭 .. が残る / (b) セグメント数
+#     > 256 / (c) 全体長 > 4096 (PATH_MAX 上限) / (d) セグメント長 > 255
+#     (NAME_MAX)。(c)(d) は #1101 Step 7 の実測（長い大文字パスで小文字化が
+#     非線形に悪化し、timeout の無い EH-3 がハングする）を受けた追加であり、
+#     plan v4 の 2 条件からの**逸脱**（status.md 計画からの変更点 #9 に記録）。
+_PG_FOLD_MAXSEG=256
+# NAME_MAX（macOS / Linux とも 255）。これを超えるセグメントは FS 上の
+# ファイル名になりえないため、block しても正当な書き込みを妨げない。
+_PG_FOLD_MAXNAME=255
+# PATH_MAX の上限（Linux 4096 / macOS 1024）。同上。
+_PG_FOLD_MAXLEN=4096
+
+_pg_fold_tolower() {
+  _pl_all=$1
+  case "$_pl_all" in
+    *[ABCDEFGHIJKLMNOPQRSTUVWXYZ]*) ;;
+    *) _PG_FOLD_LOWER=$_pl_all; return 0 ;;
+  esac
+  # 1 文字ループは入力長 n に対して O(n^2)（`${v#?}` と `${v%"$rest"}` が毎回
+  # 全長を走査する）。パス全体を一度に回すと長い大文字パスで実行時間が跳ね上がる
+  # ため、**`/` セグメント単位に分割して回す**（出力は分割しない場合と byte 一致）。
+  # 上限そのものは _PG_FOLD_MAXNAME / _PG_FOLD_MAXLEN が fail-closed で切る。
+  # 背景: #1101 Step 7（EH-3 に timeout が無いため暴走は block ではなくハングになる）。
+  _pl_acc=''
+  while : ; do
+    case "$_pl_all" in
+      */*) _pl_in=${_pl_all%%/*}; _pl_all=${_pl_all#*/}; _pl_sep='/' ;;
+      *) _pl_in=$_pl_all; _pl_all=''; _pl_sep='' ;;
+    esac
+    case "$_pl_in" in
+      *[ABCDEFGHIJKLMNOPQRSTUVWXYZ]*)
+        _pl_out=''
+        while [ -n "$_pl_in" ]; do
+          _pl_rest=${_pl_in#?}
+          _pl_c=${_pl_in%"$_pl_rest"}
+          _pl_in=$_pl_rest
+          case "$_pl_c" in
+            A) _pl_c=a ;; B) _pl_c=b ;; C) _pl_c=c ;; D) _pl_c=d ;;
+            E) _pl_c=e ;; F) _pl_c=f ;; G) _pl_c=g ;; H) _pl_c=h ;;
+            I) _pl_c=i ;; J) _pl_c=j ;; K) _pl_c=k ;; L) _pl_c=l ;;
+            M) _pl_c=m ;; N) _pl_c=n ;; O) _pl_c=o ;; P) _pl_c=p ;;
+            Q) _pl_c=q ;; R) _pl_c=r ;; S) _pl_c=s ;; T) _pl_c=t ;;
+            U) _pl_c=u ;; V) _pl_c=v ;; W) _pl_c=w ;; X) _pl_c=x ;;
+            Y) _pl_c=y ;; Z) _pl_c=z ;;
+          esac
+          _pl_out=$_pl_out$_pl_c
+        done
+        ;;
+      *) _pl_out=$_pl_in ;;
+    esac
+    _pl_acc=$_pl_acc$_pl_out$_pl_sep
+    if [ -z "$_pl_sep" ]; then
+      break
+    fi
+  done
+  _PG_FOLD_LOWER=$_pl_acc
+}
+
+_pg_fold_path() {
+  _pf_in=${1:-}
+  _pf_root=${2:-}
+  _pf_lower=${3:-0}
+  _PG_FOLD_OUT=''
+  _PG_FOLD_RC=0
+  _PG_FOLD_REASON=''
+
+  # fail-closed (c): 入力長が上限（PATH_MAX 上限）を超える（#1101 Step 7）。
+  # 上限判定を「セグメント数」だけに置くと `1 セグメント x 20,000 文字` が
+  # 素通りし、小文字化ループだけが非線形に回る。EH-3 に timeout は無いので
+  # これは block ではなく**ハング**になる＝可用性の穴。長さでも切る。
+  if [ ${#_pf_in} -gt "$_PG_FOLD_MAXLEN" ]; then
+    _PG_FOLD_RC=1
+    _PG_FOLD_REASON="path length exceeded (>$_PG_FOLD_MAXLEN)"
+    _PG_FOLD_OUT=$_pf_in
+    return 0
+  fi
+
+  # (1) 末尾空白（space / tab 等）の除去
+  while [ -n "$_pf_in" ]; do
+    case "$_pf_in" in
+      *[[:space:]]) _pf_in=${_pf_in%?} ;;
+      *) break ;;
+    esac
+  done
+
+  # (2)(3) セグメント走査による畳み込み
+  _pf_abs=0
+  case "$_pf_in" in /*) _pf_abs=1 ;; esac
+  _pf_trail=0
+  case "$_pf_in" in */) _pf_trail=1 ;; esac
+  _pf_rest=$_pf_in
+  _pf_out=''
+  _pf_n=0
+  while [ -n "$_pf_rest" ]; do
+    _pf_n=$((_pf_n + 1))
+    if [ "$_pf_n" -gt "$_PG_FOLD_MAXSEG" ]; then
+      _PG_FOLD_RC=1
+      _PG_FOLD_REASON="segment limit exceeded (>$_PG_FOLD_MAXSEG)"
+      _PG_FOLD_OUT=$_pf_in
+      return 0
+    fi
+    case "$_pf_rest" in
+      */*) _pf_seg=${_pf_rest%%/*}; _pf_rest=${_pf_rest#*/} ;;
+      *) _pf_seg=$_pf_rest; _pf_rest='' ;;
+    esac
+    # fail-closed (d): セグメント長が NAME_MAX を超える（#1101 Step 7）。
+    # 小文字化のコストはセグメント長の 2 乗で効くため、ここで切らないと
+    # 全体長の上限 (c) だけでは worst case が数十秒に達する。
+    if [ ${#_pf_seg} -gt "$_PG_FOLD_MAXNAME" ]; then
+      _PG_FOLD_RC=1
+      _PG_FOLD_REASON="segment length exceeded (>$_PG_FOLD_MAXNAME)"
+      _PG_FOLD_OUT=$_pf_in
+      return 0
+    fi
+    case "$_pf_seg" in
+      '')
+        # 連続スラッシュ / 先頭スラッシュ由来の空セグメント
+        continue
+        ;;
+      .)
+        # 先頭 ./ と 中間 /./ の双方
+        continue
+        ;;
+      ..)
+        if [ "$_pf_abs" = 1 ] && [ -z "$_pf_out" ]; then
+          # 絶対パスの root を越える .. は root に固定する
+          continue
+        fi
+        case "$_pf_out" in
+          '') _pf_out='..' ;;
+          '..') _pf_out='../..' ;;
+          *'/..') _pf_out="$_pf_out/.." ;;
+          */*) _pf_out=${_pf_out%/*} ;;
+          *) _pf_out='' ;;
+        esac
+        ;;
+      *)
+        if [ -z "$_pf_out" ]; then
+          _pf_out=$_pf_seg
+        else
+          _pf_out="$_pf_out/$_pf_seg"
+        fi
+        ;;
+    esac
+  done
+
+  # fail-closed (a): 畳み込み**後**に先頭 .. が残る（相対パスのみ）
+  if [ "$_pf_abs" = 0 ]; then
+    case "$_pf_out" in
+      '..'|'../'*)
+        _PG_FOLD_RC=1
+        _PG_FOLD_REASON="leading .. after folding"
+        _PG_FOLD_OUT=$_pf_out
+        return 0
+        ;;
+    esac
+  fi
+
+  if [ "$_pf_abs" = 1 ]; then
+    _pf_final="/$_pf_out"
+  else
+    _pf_final=$_pf_out
+  fi
+  if [ "$_pf_trail" = 1 ] && [ -n "$_pf_out" ]; then
+    _pf_final="$_pf_final/"
+  fi
+
+  # (4) 小文字化（_ho_key のみ）— **repo root 除去より先**に行う。
+  #     root 前置部だけ大文字にした絶対パス（macOS の case-insensitive FS では
+  #     同一実体に到達し書き込みが成立する）で (5) をすり抜けられるため。
+  #     root 側も同じ写像を通してから比較する＝ root 除去が大小文字非依存になる。
+  if [ "$_pf_lower" = 1 ]; then
+    _pg_fold_tolower "$_pf_final"
+    _pf_final=$_PG_FOLD_LOWER
+    if [ -n "$_pf_root" ]; then
+      _pg_fold_tolower "$_pf_root"
+      _pf_root=$_PG_FOLD_LOWER
+    fi
+  fi
+
+  # (5) repo root の除去（$3=1 のときは小文字化済み同士の比較）
+  if [ -n "$_pf_root" ]; then
+    case "$_pf_final" in
+      "$_pf_root"/*) _pf_final=${_pf_final#"$_pf_root"/} ;;
+    esac
+  fi
+
+  _PG_FOLD_OUT=$_pf_final
+  return 0
+}
+# <<< PG-FOLD-PATH END (#1101)
+
 # bypass
 if [ "${PLANGATE_BYPASS_HOOK:-0}" = "1" ]; then
   log_event "BYPASS" "PLANGATE_BYPASS_HOOK=1 set"
@@ -74,6 +292,35 @@ if [ -z "$target_file" ] && [ ! -t 0 ]; then
   fi
 fi
 
+# ===== EH-3b: Bash レーンの明示 no-op（#1104 / PR #1267 の実測是正）=====
+# `.claude/settings.example.json` は PreToolUse matcher "Bash" にも本 hook を
+# 配線しているが、Bash の PreToolUse payload が持つのは tool_input.command で
+# あり tool_input.file_path ではない。したがって上の抽出は必ず空になり、
+# 以降は「対象パス不明」のまま進むため、実測では次の 3 点だけが起きる:
+#   - HO 判定は 1 度も一致しない（#1104 が塞ごうとした穴は塞がっていない）
+#   - no-task セッションでは SKIP_REASON 未設定として **全 Bash が exit 2**
+#   - SKIP_REASON を設定すると Bash 1 回ごとに skip-decision-log へ未追認
+#     エントリが増え check-skip-acknowledged.sh が FAIL する
+# 「防御を足さずに摩擦だけ足す」状態を避けるため、Bash レーンで対象パスが
+# 与えられていない場合は **明示的に何もしない**。
+# Bash コマンド文字列からの書き込み先抽出（= #1104 本来の意図）は未実装で
+# あり、**#1104 は open のまま**（既知の残存ギャップ）。詳細と残存脅威モデル:
+#   docs/working/_reports/1104-bash-lane-noop-patch-applicable.md
+# 適用範囲は **「対象パス未指定」かつ「TASK 文脈なし」の Bash payload のみ**:
+#   - PLANGATE_HOOK_FILE / $2 で対象が明示されていれば従来どおり HO / plan.md 判定
+#   - PLANGATE_HOOK_TASK が設定されていれば従来どおり plan_hash 突合を行う
+#     （plan_hash 検証は target_file を必要としないため、Bash レーンでも有効）
+# jq 不在時は本分岐を発火させない（誤って判定を緩めないための安全側）。
+if [ -z "$target_file" ] && [ -z "$task_id" ] && [ -n "${_stdin:-}" ] && command -v jq >/dev/null 2>&1; then
+  _tool_name=$(printf '%s' "$_stdin" | jq -r '.tool_name // empty' 2>/dev/null || true)
+  if [ "${_tool_name:-}" = "Bash" ]; then
+    reason="Bash lane without target path: EH-3 does not parse Bash commands (#1104 open)"
+    log_event "BASH_LANE_NOOP" "$reason"
+    printf '[Hook EH-3 BASH_LANE_NOOP] %s\n' "$reason"
+    exit 0
+  fi
+fi
+
 # ===== Hardening Override 判定（#1089 / TASK-1089）=====
 # TASK 文脈（PLANGATE_HOOK_TASK / $1）の有無に依存せず評価する。TASK-0106 では
 # 本判定が no-task 分岐の内側にあったため、TASK 設定時は plan_hash 検証パスへ
@@ -90,9 +337,34 @@ case "$_norm_target" in
   "$REPO_ROOT"/*) _norm_target="${_norm_target#$REPO_ROOT/}" ;;
 esac
 
+# (i-b) HO 判定専用キー _ho_key の導出（#1101 / TASK-1101）
+# 表記揺れ（./ 前置 / // / /./ / .. 往復 / repo root 跨ぎ / 大小文字 / 末尾空白
+# とその複合）で HO を迂回できないようにする。**_norm_target は書き換えない**
+# ＝下流 3 経路（maintenance allowed_paths の fnmatchcase / c3.json conversation
+# 判定 / doc-light 拡張子）が大小文字に感応して共有しているため（R-001）。
+_pg_fold_path "${target_file:-}" "$REPO_ROOT" 1
+_ho_key=$_PG_FOLD_OUT
+if [ "$_PG_FOLD_RC" != "0" ]; then
+  # fail-closed: (a) 畳み込み後に先頭 .. が残る / (b) セグメント数 > 256 /
+  # (c) 全体長 > 4096 (PATH_MAX 上限) / (d) セグメント長 > 255 (NAME_MAX)。
+  # (a) は cwd 次第で repo 内 HO に到達しうる。(b)(c)(d) は EH-3 に timeout が
+  # 無く暴走が block ではなく**ハング**になるため上限で切って block へ倒す。
+  # AC-8 は (a)(b) の 2 条件のみを規定しており、(c)(d) は #1101 Step 7 の実測
+  # （長い大文字パスで小文字化が非線形に悪化）を受けた**逸脱**。ただし (c)(d)
+  # に該当するパスは PATH_MAX / NAME_MAX を超えており FS 上のファイルを
+  # 指しえないため、正当な書き込みを止めることはない。
+  reason="HARDENING_OVERRIDE: ${target_file:-} は正規化できない (fail-closed: ${_PG_FOLD_REASON})"
+  log_event "HARDENING_OVERRIDE" "$reason"
+  printf '[Hook EH-3] %s\n' "$reason" >&2
+  exit 2
+fi
+
 # (ii) Hardening Override 物理先頭判定（R-003/R-015、maintenance より上）
+# 判定対象は _ho_key（小文字化済み）。したがって case は**小文字側で受ける**。
+# ラベル 9 行 / パターン 15 個。9 カテゴリの正本は
+# .claude/rules/mode-classification.md の Hardening Override 節（内容は不変）。
 _override=0
-case "$_norm_target" in
+case "$_ho_key" in
   .claude/rules/*.md) _override=1 ;;
   .claude/settings.json|.claude/settings.local.json|.claude/settings.example.json) _override=1 ;;
   .claude/commands/*.md|.claude/commands/*/*.md) _override=1 ;;
@@ -101,10 +373,11 @@ case "$_norm_target" in
   bin/plangate) _override=1 ;;
   schemas/*.schema.json) _override=1 ;;
   .github/workflows/*.yml|.github/workflows/*.yaml) _override=1 ;;
-  AGENTS.md|CLAUDE.md) _override=1 ;;
+  agents.md|claude.md) _override=1 ;;
 esac
 if [ "$_override" = "1" ]; then
-  reason="HARDENING_OVERRIDE: ${_norm_target} は maintenance 窓内でも常時 block (R-003/R-015)"
+  # AC-9: 監査ログと reason には**生の要求パス**を残す（正規化後の値ではない）。
+  reason="HARDENING_OVERRIDE: ${target_file:-} は maintenance 窓内でも常時 block (R-003/R-015)"
   log_event "HARDENING_OVERRIDE" "$reason"
   printf '[Hook EH-3] %s\n' "$reason" >&2
   exit 2

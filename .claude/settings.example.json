@@ -45,7 +45,7 @@
         ]
       },
       {
-        "_comment_": "Hook EH-3b (#1104): Bash route HO / plan.md guard. Applies the same HO decision as EH-3 to write-intent Bash commands.",
+        "_comment_": "Hook EH-3b (#1104, 未完 / no-op): Bash レーンの seam。check-plan-hash.sh は tool_input.file_path しか見ず Bash payload は tool_input.command なので、対象パスは常に空になる。実測上この配線は HO 判定も write-intent 判定も行わず BASH_LANE_NOOP で exit 0 する（防御効果はまだ無い）。Bash コマンドからの書き込み先抽出が入るまで #1104 は open。PLANGATE_HOOK_FILE を明示した場合のみ従来の EH-3 判定が働く。",
         "matcher": "Bash",
         "hooks": [
           {
