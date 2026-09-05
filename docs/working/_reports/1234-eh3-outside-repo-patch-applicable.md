@@ -424,6 +424,7 @@ sandbox: `mktemp -d` 配下に §1 と同じレイアウト（`root/` + `outside
 
 **守るもの**: §3 after 表の rc=2 行 + repo 外 4 形状の rc=0。
 **守らないもの**:
+
 - repo 外パス全般（他 repo の `CLAUDE.md` 含む）。issue Non-goals。
 - 同一 repo の worktree 配下 HO（root 配下 / root 外）— **#1277 のまま**（本 patch は縮退で据え置き）。
 - 未存在ディレクトリ配下で `..` を使う表記（`UNSURE`）— 現行判定。#1101 の字句 fail-closed が repo 内相対では効く。
