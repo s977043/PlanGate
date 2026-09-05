@@ -510,7 +510,9 @@ CLI プロセス計数のため CLI 維持）。
 
 ### 4.3 設定方法（opt-in）
 
-[`.claude/settings.example.json`](../../.claude/settings.example.json) を `.claude/settings.json` にコピーすると PreToolUse hook（**EH-1 + EH-2 + EH-3 + EH-6**、いずれも **matcher = `Edit|Write`**）+ SessionStart（gh-pin-account）が有効化される。**`Bash` 経路の書き込みは対象外**（§0.1 / #1104）。
+[`.claude/settings.example.json`](../../.claude/settings.example.json) を `.claude/settings.json` にコピーすると PreToolUse hook（**EH-1 + EH-2 + EH-6** は **matcher = `Edit|Write`**、**EH-3** は `Edit|Write` + `Bash`〔EH-3b / #1104。no-task では `BASH_LANE_NOOP` で何も守らない〕）+ SessionStart（gh-pin-account）が有効化される。**`Bash` 経路の書き込みは EH-3b でも解析されない**（§0.1 / #1104 open）。
+
+**apply を実行する Human が**、settings を apply する前に `git status --porcelain` が空であることを確認したうえで **共有 checkout を patched hook を含む ref（main）へ**切り替える（未コミット変更がある共有 checkout を AI が切り替えない）。settings だけ先に apply すると旧 hook + Bash 配線で no-task の全 Bash が停止する（2026-09-05 実害）。apply 後は `grep -c BASH_LANE_NOOP scripts/hooks/check-plan-hash.sh` が 1 以上であることを確認する（apply 手順の正本は [`settings-wiring-contract.md`](settings-wiring-contract.md)「検証・適用」）。
 
 **CLI 配線（TASK-0143 / apply-script 適用後）**: EH-4 は `plangate verify` V-1 前（strict=1）、EH-5 は V-1 後（warn）で発火。EH-7 / EHS-1 / EHS-2 / EHS-3 は引き続き手動呼び出し。
 
