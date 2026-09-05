@@ -159,7 +159,7 @@ skip-decision-log 追記: 3 行（B11 / B12 / B17）。`OUTSIDE_REPO_SKIP` は `
 
 ## 4. #1277 との関係（悪化させないことの実測）
 
-#1277 は「`_ho_key` が `REPO_ROOT` 前置き固定で worktree 配下 HO が判定できない」。本 patch は同じ root 解決の問題に触れるため、次を実測した:
+Issue #1277 は「`_ho_key` が `REPO_ROOT` 前置き固定で worktree 配下 HO が判定できない」。本 patch は同じ root 解決の問題に触れるため、次を実測した:
 
 | 形状 | before | after | M-WT（worktree 検出を外した変異） |
 |---|---|---|---|
