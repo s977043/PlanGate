@@ -1,6 +1,8 @@
 # ai-loop-workflow ドキュメントの入口
 
-> **Legacy / Freeze notice (2026-09-05)**: この namespace は既存 ai-loop の PoC / Legacy 正本・監査証跡として保持する。新しい ai-loop V2 の最上位判断基準は [`../ai-loop-v2/north-star.md`](../ai-loop-v2/north-star.md) とし、V2 の新機能・新しい自律モデル・Evolution 機能は原則としてこの Legacy namespace へ追加しない。security fix / critical bug fix / migration support は例外として許可する。詳細は [`../ai-loop-v2/phase0-migration.md`](../ai-loop-v2/phase0-migration.md) を参照する。
+> **Legacy / Freeze notice (2026-09-05)**: この namespace は既存 ai-loop の PoC / Legacy 正本・監査証跡として保持する。新しい ai-loop V2 の最上位判断基準は upstream repository の `docs/ai/ai-loop-v2/north-star.md` とし、V2 の新機能・新しい自律モデル・Evolution 機能は原則としてこの Legacy namespace へ追加しない。security fix / critical bug fix / migration support は例外として許可する。移行判断は `docs/ai/ai-loop-v2/phase0-migration.md` を参照する。
+>
+> **Distribution boundary**: Phase 0 時点では `docs/ai/ai-loop-v2/**` は upstream repository の設計正本であり、installed plugin へはまだ同梱しない。plugin 利用者は、この Legacy reference から V2 の挙動・契約・利用可能性を推測しない。V2 の plugin 配布・同期契約は後続 Phase で別途定義する。
 >
 > Run-001 の HUMAN_ESCALATED に対する人間判断 (a) を受けて新設。
 > 本ファイルは薄い入口であり、資産の再列挙・taxonomy 表の複製は行わない。
@@ -12,7 +14,7 @@
 「誰が何に答えるか」の一意なタクソノミであり、Legacy 資産の個別の機構・手順を探す場合は同節から辿ること。
 
 V2 の Issue / Plan / PR では、この Legacy 正本を暗黙に最上位へ置かず、先に
-[`../ai-loop-v2/north-star.md`](../ai-loop-v2/north-star.md) を参照する。
+`docs/ai/ai-loop-v2/north-star.md` を参照する。
 
 ## 時点固定のスナップショットについて（改変しない）
 
