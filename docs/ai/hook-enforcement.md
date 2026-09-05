@@ -235,7 +235,7 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >   「TASK 文脈でも block される」**。コードが元の構造へ戻ると CI が RED になる
 > - `.claude/settings*.json` は Claude Code 自身の self-mod ガード（harness 層）でも
 >   守られるが、**残る 8 カテゴリに同等の別ガードは確認されていない**
-> - **「常時 block」は文字どおりには成立しない（既知の残存・3 系統）**:
+> - **「常時 block」は文字どおりには成立しない（既知の残存・5 系統）**:
 >   1. **経路の欠落（[#1104](https://github.com/s977043/plangate/issues/1104)）**:
 >      `Edit|Write` 以外の書き込みは素通り（§0.1）。**PR #1267 が `Bash` matcher へ
 >      同 hook を配線したが、Bash payload は `tool_input.command` で `file_path` を
@@ -249,6 +249,19 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >      `.claude/worktrees/*/CLAUDE.md` や root 外 worktree の HO パスは 9 パターンに当たらない
 >      — 追跡 issue [#1277](https://github.com/s977043/plangate/issues/1277)。PR #1271 の River Review で実測、
 >      #1101 適用前後で同じ rc=0 = 既存ギャップ）**
+>   5. **repo 外パスの block（false positive）と symlink 経由の HO 到達（false negative）
+>      — [#1234](https://github.com/s977043/plangate/issues/1234)。no-task 経路は `/tmp/**` /
+>      ハーネスの scratchpad / `$HOME` 配下への Write を `SKIP_BLOCKED` rc=2 にし（守るべき
+>      対象ではない）、逆に `outside/link -> <repo>` の `link/CLAUDE.md` や file symlink は
+>      `DOC_LIGHT_SKIP` rc=0 で通る（`_pg_fold_path` は字句のみで symlink を解決しない）。
+>      **是正 patch は `docs/working/_reports/1234-eh3-outside-repo-patch-applicable.md`
+>      （`f23d31d` で `git apply --check` rc=0・before/after・変異注入・python3 不在を実測済）。
+>      適用は Human-owned**（`scripts/hooks/check-plan-hash.sh` は HO）。適用後は repo 外
+>      （物理 realpath かつ字句 `_ho_key` の両方で repo 外）が `OUTSIDE_REPO_SKIP` rc=0
+>      （`hook-events.log` のみ記録・`skip-decision-log.jsonl` 非記録）、symlink → repo 内
+>      HO / plan.md は rc=2。同一 repo の linked worktree は縮退（従来判定）で **4 の #1277 を
+>      悪化させない**（実測: root 外 worktree `bin/plangate` は before/after とも rc=2）。
+>      python3 不在では全行が適用前と一致（degrade-to-base）。未適用の間は本項が残存
 >
 >   **2 の実測（旧記述の訂正）**: 旧版はこの残存を **4 ケース**と書いていたが**過少**だった。
 >   #1101 の実測では変換クラスは **7 種**（`..` 往復 / `//` / `/./` / 先頭 `./` / 大小文字 /
