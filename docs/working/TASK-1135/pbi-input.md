@@ -58,7 +58,7 @@ AI 単独で完了できる作業が構造的に制限される。さらに **AI
 |---|---|---|---|---|
 | **S1: `apply-pending` 突合**（オーガナイザー案 S4。**最優先**） | `docs/working/_reports/*-patch-applicable.md` と `tests/fixtures/*-pending-*.flag`（および各 report が指す対象ファイルの実体）を突合し、**未適用 patch / stale flag / flag 欠落 report** を列挙する。`--list`（一覧）/ `--check`（未適用があれば rc≠0）。doctor に「Pending HO patches」section を追加 | **`bin/plangate` は HO 9 カテゴリ** → 配線のみ HO | **実体は `scripts/plangate-apply-pending.sh`（非 HO・AI 直接編集可）に置き、`bin/plangate` へは dispatch 1 行 + doctor section 呼び出しの最小 patch** に留める。report ↔ flag の対応規約（命名 or report 冒頭 front-matter で `pending_flag:` を宣言）を `docs/ai/hook-enforcement.md` に明文化 | `bin/plangate` patch の適用。**patch の適用自体は本ツールでは行わない**（list/check のみ） |
 | **S2: AI-owned レーン正本**（issue AC-1） | `.claude/rules/ai-owned-lane.md`（新規・正本）に 3 帯を定義: **AI-owned**（no-task でも書ける）/ **Human-owned**（常時 block・現行不変）/ **Gray**（SKIP_REASON or maintenance 承認・現行どおり）。`docs/ai/hook-enforcement.md` の no-task 経路表と `responsibility-classes.md` からは**参照のみ**（再定義しない） | `.claude/rules/*.md` は HO | 正本の本文を patch 文書として作成。`docs/ai/hook-enforcement.md` の更新は非 HO で直接 | `.claude/rules/` への配置 |
-| **S3: EH-3 no-task 経路をレーン判定へ接続**（issue AC-2/3/4/5/6） | no-task 分岐に **レーン判定関数**（例 `_eh3_lane()`; `_norm_target` を入力に `ai-owned` / `gray` を返す。HO は既存 `_override` で先に確定）を追加し、`ai-owned` なら `LANE_SKIP`（`hook-events.log` 記録・`skip-decision-log.jsonl` には書かない = 人間追認不要）で exit 0。allowlist 初期値: `tests/extras/*.sh` / `docs/working/templates/**`（`plan.md` 含む）/ 非 HO `.md`（現行 DOC_LIGHT_SKIP を吸収するか併存かは plan で決定）。**`case */plan.md)` は `docs/working/TASK-*/plan.md` 形状に限定**してテンプレートを外す | `scripts/hooks/*.sh` は HO | patch 文書 + `scripts/apply-1135-eh3-lane.sh` + `tests/fixtures/eh3-lane-pending-1135.flag` + 新規 `tests/extras/ta-NN-eh3-lane.sh`（サンドボックス複製で patch 適用後を実測・変異注入） | hook への適用・flag 削除。`sh scripts/apply-claude-settings.sh` は不要（配線変更なし） |
+| **S3: EH-3 no-task 経路をレーン判定へ接続**（issue AC-2/3/4/5/6） | no-task 分岐に **レーン判定関数**（例 `_eh3_lane()`; `_norm_target` を入力に `ai-owned` / `gray` を返す。HO は既存 `_override` で先に確定）を追加し、`ai-owned` なら `LANE_SKIP`（`hook-events.log` 記録・`skip-decision-log.jsonl` には書かない = 人間追認不要）で exit 0。allowlist 初期値: `tests/extras/*.sh`（**ただし承認境界を検査する `ta-65` / `ta-79` / 本 PBI の `ta-NN` は既定で除外 = Gray 維持。含めるのは Human C-3 の明示裁定時のみ**）/ `docs/working/templates/**`（`plan.md` 含む）/ 非 HO `.md`（現行 DOC_LIGHT_SKIP を吸収するか併存かは plan で決定）。**`case */plan.md)` は `docs/working/TASK-*/plan.md` 形状に限定**してテンプレートを外す | `scripts/hooks/*.sh` は HO | patch 文書 + `scripts/apply-1135-eh3-lane.sh` + `tests/fixtures/eh3-lane-pending-1135.flag` + 新規 `tests/extras/ta-NN-eh3-lane.sh`（サンドボックス複製で patch 適用後を実測・変異注入） | hook への適用・flag 削除。`sh scripts/apply-claude-settings.sh` は不要（配線変更なし） |
 
 実行順: **S1 → S2 → S3**（S1 が S2/S3 の patch 適用漏れを機械検出する土台。S2 が S3 の allowlist 正本）。S2 と S3 は同一 PR にしない
 （HO 2 ファイルの適用待ちを 1 つに束ねると片方の遅延が他方を巻き込む = #1031 の分割理由と同型）。
@@ -83,12 +83,13 @@ AI 単独で完了できる作業が構造的に制限される。さらに **AI
 ### S1（apply-pending / doctor）
 
 - [ ] **AC-01**（CLI 出力）: `bin/plangate apply-pending --list` が、`docs/working/_reports/` 配下の `*-patch-applicable.md` **各ファイル**について `report / flag / 実体の適用状態 / 判定（PENDING · APPLIED · STALE_FLAG · NO_FLAG）` を 1 行ずつ出力する。着手時点の 4 本（`960-ho` / `1101-normalization` / `1104-bash-route-guard` / `1104-bash-lane-noop`）が期待どおりの判定で出る実測ログを添える
-- [ ] **AC-02**（rc）: `--check` は PENDING または STALE_FLAG が 1 件以上なら rc=1、0 件なら rc=0。NO_FLAG は WARN 表示のみで rc に影響しない（既存 report の遡及 flag 付与は本 PBI で行うが、将来の report 作成者の漏れを rc で止めるかは Unknown U-3）
-- [ ] **AC-03**（doctor 出力）: `bin/plangate doctor` の出力に `=== Pending HO patches ===` section が追加され、AC-01 と同じ判定が表示される。`--json` 経路（`doctor_check.py` 委譲）でも同じ項目が出る
-- [ ] **AC-04**（適用状態の検出方法）: 「適用済み」判定は report 内 marker 抽出 patch の `git apply --check --reverse` 成功（= 既に当たっている）で行い、flag の有無だけで判定しない（`ta-79` TC-00b の stale 検出と同じ原理）
+- [ ] **AC-02**（rc）: `--check` は PENDING / STALE_FLAG / UNDETERMINED が 1 件以上なら rc=1、0 件なら rc=0。NO_FLAG は WARN 表示のみで rc に影響しない（既存 report の遡及 flag 付与は本 PBI で行うが、将来の report 作成者の漏れを rc で止めるかは Unknown U-3）
+- [ ] **AC-03**（doctor 出力）: `bin/plangate doctor` の出力に `=== Pending HO patches ===` section が追加され、AC-01 と同じ判定が表示される
+- [ ] **AC-03b**（doctor `--json` 出力）: `--json` 経路（`doctor_check.py` 委譲）でも AC-03 と同じ項目・同じ判定が出る（text と JSON で件数が一致）
+- [ ] **AC-04**（適用状態の検出方法）: 「適用済み」判定は report 内 marker 抽出 patch の `git apply --check --reverse` 成功（= 既に当たっている）で行い、flag の有無だけで判定しない（`ta-79` TC-00b の stale 検出と同じ原理）。forward / reverse の**双方**が失敗する場合（部分適用・手直し適用・context drift）は第 5 状態 **`UNDETERMINED`** とし、`--check` の rc=1 に含める（沈黙・誤 PENDING にしない）
 - [ ] **AC-05**（責務）: `apply-pending` は**読み取りのみ**。`--apply` 相当のオプションを持たない（適用は Human 固定。`responsibility-classes.md` と一致）
 - [ ] **AC-06**（テスト）: `tests/extras/ta-NN-apply-pending.sh` が report/flag/実体の 4 組合せ（PENDING / APPLIED / STALE_FLAG / NO_FLAG）を fixture で再現し PASS。判定関数の各分岐を 1 つずつ壊す変異で対応 TC が FAIL する
-- [ ] **AC-07**（docs）: report ↔ flag の対応規約が `docs/ai/hook-enforcement.md` に明文化され、既存 4 report がその規約に適合する（遡及分は同 PR で是正）
+- [ ] **AC-07**（docs）: report ↔ flag の対応規約と **patch 抽出 marker（`<!-- PG-PATCH-BEGIN -->` / `<!-- PG-PATCH-END -->`）の必須化**が `docs/ai/hook-enforcement.md` に明文化され、既存 4 report がその規約に適合する（遡及分は同 PR で是正。現状 marker を持つのは `1104-bash-lane-noop` の 1 本のみで、`960-ho` / `1101-normalization` は素の fence、`1104-bash-route-guard` は apply スクリプト設計のため patch 化されていない部分を `UNDETERMINED` ではなく **`NO_PATCH`（apply script 経由）** として別扱いにする）
 - [ ] **AC-08**（HO 接触の最小化）: `bin/plangate` への差分が dispatch 行 + doctor section 呼び出しに限られることを patch 文書の diffstat で示す
 
 ### S2（レーン正本 / docs）
@@ -100,9 +101,11 @@ AI 単独で完了できる作業が構造的に制限される。さらに **AI
 ### S3（EH-3 レーン判定）
 
 - [ ] **AC-12**（hook 分岐・AI-owned）: no-task で `tests/extras/ta-99-x.sh` / `docs/working/templates/plan.md` / `docs/working/templates/todo.md` / `docs/ai/foo.md` が **rc=0**、出力が `LANE_SKIP`。`LANE_SKIP` 経路は `skip-decision-log.jsonl` に**追記しない**。`.md` が既存 `DOC_LIGHT_SKIP` に先に落ちる場合は現行どおり `EH-3_DOC_LIGHT_SKIP` を追記してよい（`scripts/check-skip-acknowledged.sh` の追認対象外のため CI 負債にならない）
+- [ ] **AC-12b**（hook 分岐・境界テストは Gray 維持）: no-task で `tests/extras/ta-65-eh3-ho-task-context.sh` / `tests/extras/ta-79-eh3-bash-lane.sh` が引き続き **rc=2**（`SKIP 拒否: SKIP_REASON 未設定`）。allowlist の glob が境界テストを吸い込まないことの負例
 - [ ] **AC-13**（hook 分岐・plan.md ガード維持）: no-task で `docs/working/TASK-9999/plan.md` / `docs/working/TASK-9999/PLAN.md` / `docs/working/TASK-9999/plan.md `（末尾空白）が **rc=2**（`BLOCK: plan.md edited without TASK context`）。`PLANGATE_SKIP_REASON` 設定下でも rc=2
 - [ ] **AC-14**（hook 分岐・HO 退行なし）: HO 9 カテゴリ（`ta-65` が hook の `case` から動的抽出する全パターン・現行 15）× #1101 の変換 13 形（7 種 + 2 種複合、`ta-65` TC-08）の直積が **rc=2**（`HARDENING_OVERRIDE`）。`ta-65` の既存直積 TC をそのまま流用し、レーン判定が HO 判定より**後**に評価されることを patch の配置で示す
-- [ ] **AC-14b**（hook 分岐・承認トークン不変）: レーン allowlist に `approvals/**` / `_maintenance/**` / `*.json` 承認成果物を含めない（正本と hook patch を `grep` して 0 件）。承認トークンへの書き込み guard は EH-13 `scripts/check-approval-token-write.sh` が担い本 PBI で変更しない（`ta-25` に新規 FAIL なし）。issue #1135 AC-4 後段の「承認トークンのパスも block」はこの 2 点で担保する
+- [ ] **AC-14b**（hook 分岐・承認トークン不変）: レーン allowlist に `approvals/**` / `_maintenance/**` / `*.json` 承認成果物を含めない（正本と hook patch を `grep` して 0 件）
+- [ ] **AC-14c**（テスト・承認トークン guard 回帰）: 承認トークンへの書き込み guard は EH-13 `scripts/check-approval-token-write.sh` が担い本 PBI で変更しない。`ta-25` に新規 FAIL なし。issue #1135 AC-4 後段の「承認トークンのパスも block」は AC-14b + AC-14c で担保する
 - [ ] **AC-15**（hook 分岐・Gray 帯偽陽性なし）: no-task で `scripts/foo.sh` / `scripts/lib/foo.sh` / `bin/other` / `schemas/x.json`（非 `.schema.json`）/ `.github/CODEOWNERS` / `plugin/plangate/hooks/hooks.json`（新規作成。現行は `.gitkeep` のみ）が引き続き **rc=2**（`SKIP 拒否: SKIP_REASON 未設定`）
 - [ ] **AC-16**（hook 分岐・maintenance 併存）: maintenance 承認ファイル存在時の one_shot 消費 / `allowed_paths` / conversation-mode c3.json 経路の rc と出力が現行と一致（`_norm_target` の消費者 3 本 = #1101 AC-2 と同じ回帰表明）
 - [ ] **AC-17**（テスト・検出力）: レーン判定関数内の各分岐（allowlist の各エントリ・`TASK-*` ディレクトリ条件・HO 先行）を 1 つずつ壊す変異を注入し、対応 TC が FAIL する。**patch 未適用の hook に対して AC-12 の TC が FAIL する**ことも含む
@@ -154,18 +157,20 @@ AI 単独で完了できる作業が構造的に制限される。さらに **AI
 - **U-2**: `plugin/plangate/**`（配布物 = `sync-plugin-plangate.sh` の生成物）と `scripts/sync-plugin-plangate.sh` のレーン帰属。issue コメントで Human 判断待ち。候補: Gray 維持（既定）/ AI-owned + sync dry-run 一致を CI で検査
 - **U-3**: `apply-pending --check` で NO_FLAG（report はあるが flag が無い）を rc=1 にするか WARN に留めるか（既定: WARN。遡及分は S1 で flag を付与）
 - **U-4**: AI が自分の到達範囲を事前判定する `bin/plangate lane <path>`（判定関数の dry-run）を S3 に含めるか（`bin/plangate` は HO のため配線 patch が増える）
-- **U-5**: `tests/extras/*.sh` のうち**承認境界を検査するテスト**（`ta-65` / `ta-79` / 本 PBI の `ta-NN`）を allowlist から除外するか
+- **U-5**: `tests/extras/*.sh` のうち**承認境界を検査するテスト**（`ta-65` / `ta-79` / 本 PBI の `ta-NN`）は**既定で除外**（安全側 = `mode-classification.md` の「判定不能は該当扱い」と同方向）。**含める側へ倒すには Human C-3 の明示裁定が要る**
 - **U-6**: レーン判定を maintenance 判定の前に置くか後に置くか（上記 Notes）
 - **U-7**: 着手順。issue は「#1101 / #1104 の是正後に入れるほうが安全」としており、本書は #1271（Bash no-op）と #1234（containment）を S3 の前提にした。**S1 / S2 は依存なしで先行可**
 - **U-8**: EH-13 の heredoc 本文 `**` 偽陽性を issue 起票するか（本 PBI 外。起票は Human または承認後の AI）
+- **U-9**: アーカイブ配下 `.md` を Gray に戻すか（issue 案の「アーカイブ除く」条件。現行 DOC_LIGHT_SKIP を狭める退行になるため既定は「戻さない」）
+- **U-10**: AC-04 の `UNDETERMINED`（forward / reverse 双方 fail）を S1 で rc=1 に含めるか、Human 目視へ回すか（既定は rc=1）
 
 ### Assumptions
 
 - PR #1271 がマージされ `BASH_LANE_NOOP` が `origin/main` に入る（Bash レーンは本 PBI の対象外）
 - #1234 が S3 より先に適用され、レーン判定の入力 `_norm_target` は repo 内相対パスに限定される
 - HO 9 カテゴリ・承認トークン・merge・`docs/working/TASK-*/plan.md` ガードの定義は変えない
-- `tests/extras/*.sh` / `scripts/apply-*.sh` / `scripts/plangate-apply-pending.sh` / `docs/ai/*.md` / `docs/working/**` は HO 対象外で AI が直接編集できる
-- **Mode = high-risk**（`.claude/rules/*.md` / `scripts/hooks/*.sh` / `bin/plangate` = HO 対象パスに触れるため `mode-classification.md` の例外ルール「承認境界周辺 → 最低 high」に該当。`lite_eligible=false` 強制・**人間 C-3 同期**・autonomous APPROVE 不可）。定量基準では AC 22 本が `critical` 帯に入るが、#1101 と同じく「穴が塞がったことを消費箇所ごとに測るために分解した結果」であり、スライス単位（S1: 8 / S2: 3 / S3: 11）では high-risk 帯。**override の可否は C-3 で Human が裁定**（#1101 の選択肢 A/B/C と同形）
+- `tests/extras/*.sh` / `scripts/apply-*.sh` / `scripts/plangate-apply-pending.sh` / `docs/ai/*.md` / `docs/working/**`（`TASK-*/plan.md`・`approvals/**`・`_maintenance/**` を除く）は HO 対象外で AI が直接編集できる
+- **Mode = high-risk**（`.claude/rules/*.md` / `scripts/hooks/*.sh` / `bin/plangate` = HO 対象パスに触れるため `mode-classification.md` の例外ルール「承認境界周辺 → 最低 high」に該当。`lite_eligible=false` 強制・**人間 C-3 同期**・autonomous APPROVE 不可）。定量基準では AC 26 本（S1: 9 / S2: 3 / S3: 14）が `critical` 帯に入るが、#1101 と同じく「穴が塞がったことを消費箇所ごとに測るために分解した結果」であり、スライス単位（S1: 9 / S2: 3 / S3: 14）では high-risk 帯。**override の可否は C-3 で Human が裁定**（#1101 の選択肢 A/B/C と同形）
 - **敵対レビュー**: `review-principles.md` §7-quater により承認境界に触れる S3 は **2 ラウンド以上**を plan に含める。2 ラウンド目は「レーン判定の追加が HO 判定・plan.md 判定・maintenance 経路に新たに開けた穴」を疑う。S1 も `bin/plangate`（外部作用層）に触れるため 2 ラウンド。S2 は文書のみだが正本であるため 1 ラウンド + C-3
 - 本 PBI は ai-loop-workflow の帯外（`touches-HO`）で escalate 固定
 
