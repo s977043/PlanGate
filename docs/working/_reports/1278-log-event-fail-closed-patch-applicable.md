@@ -131,7 +131,7 @@ HO block（`:357` / `:381`）も plan.md block（`:400`）も **`log_event` → 
 | 残存 | 内容 | 保証の主体 |
 |---|---|---|
 | **`skip-decision-log.jsonl` の書込失敗** | §3 のとおり SKIP 3 経路は rc=1（続行・記録なし）のまま | Human 判断（§7 (b)）/ 現状は stderr 生エラーの目視 |
-| **`log_event` 以外の `set -e` 死** | `date` / `sha256sum` / `python3` の失敗など、`log_event` 以前に rc≠2 で終わる経路は本 patch の対象外（今回の 3 ケースでは観測されず） | 別 issue（本書は監査ログ書込のみを扱う） |
+| **`log_event` 以外の `set -e` 死** | `date` / `sha256sum` / `python3` の失敗、**stderr 閉塞時（`2>&-`）の block 経路の `printf >&2`**（実測: base / patch 後とも rc=1。Claude Code は stderr を pipe で受けるため実害は低い）、**不正 UTF-8 バイトを含む no-task `plan.md` パスでの `sed`（UTF-8 locale の BSD sed で rc=1。`LC_ALL=C` では rc=2。APFS は当該ファイル名を作れないため Linux + BSD sed 環境に限る）** など、`log_event` 以前に rc≠2 で終わる経路は本 patch の対象外 | 別 issue（本書は監査ログ書込のみを扱う） |
 | **監査ログの改ざん・削除** | 書けない環境を「作る」こと自体（`chmod 444` / `_audit` のファイル化）は AI にも可能。本 patch は「作られても block は残る」までで、作ったこと自体は検出しない | `git status` / C-4 Human レビュー（`_audit` は tracked） |
 | **rc=1 を block と誤認する運用** | 「エラーが出た＝止まった」と読む人間の誤認は残る | 本書 §1 の契約説明 / hook 冒頭コメント |
 | **exit 2 が実際に block になること** | fixture は rc を測るだけ。Claude Code が exit 2 を block として扱う経路は **実セッション 1 周でしか確認できない**（未検証） | §6 |
@@ -212,6 +212,7 @@ diff --git a/scripts/hooks/check-plan-hash.sh b/scripts/hooks/check-plan-hash.sh
 2. `tests/extras/ta-65-eh3-ho-task-context.sh` / `ta-79-eh3-bash-lane.sh` を standalone 実行して既存 TC が全 PASS（本 patch は判定ロジックを変えないので退行があれば patch 側の誤り）
 3. §6 の回帰 TC を `ta-79` へ追加し、**patch 適用前の hook で FAIL すること**（変異 TC）を 1 度実走して確認する
 4. `plugin/plangate/` へのミラーは対象外（`scripts/hooks/` は plugin 配布物に含まれない。CLAUDE.md v8.21.0 節）
+5. **#1234（`1234-eh3-outside-repo-patch-applicable.md`）との併用**: hunk が重ならず**順序不問**（`f23d31d` で 1278→1234 / 1234→1278 の両順序で `git apply --check` rc=0・結果ファイル一致を実測）。片方だけ適用しても他方の `--check` は失敗しない
 
 ---
 

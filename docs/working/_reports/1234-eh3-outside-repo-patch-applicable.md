@@ -448,6 +448,7 @@ sandbox: `mktemp -d` 配下に §1 と同じレイアウト（`root/` + `outside
 | 3 | 変異注入 | §5（8 変異すべて検出） |
 | 4 | python3 不在 | §6（全行 before 一致） |
 | 5 | #1101 / #1104 との併用順 | **不要**（両方 `f23d31d` に適用済み。本 patch はその上で生成） |
+| 5b | #1278（`1278-log-event-fail-closed-patch-applicable.md`）との併用順 | **不問**（hunk 非重複。`f23d31d` で両順序 `git apply --check` rc=0・結果一致を実測。片方だけ適用しても他方は `--check` を通る） |
 | 6 | `ta-80` 作成 / flag 作成 | **未**（`.sh` / flag は本セッションで作成不可。§8 仕様のみ） |
 | 7 | `docs/ai/hook-enforcement.md` 残存脅威モデルへ追記 | 同 PR で実施 |
 | 8 | DRAFT 表示を外し測定基点を更新 | 本書 |

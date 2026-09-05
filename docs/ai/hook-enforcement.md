@@ -235,7 +235,7 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >   「TASK 文脈でも block される」**。コードが元の構造へ戻ると CI が RED になる
 > - `.claude/settings*.json` は Claude Code 自身の self-mod ガード（harness 層）でも
 >   守られるが、**残る 8 カテゴリに同等の別ガードは確認されていない**
-> - **「常時 block」は文字どおりには成立しない（既知の残存・5 系統）**:
+> - **「常時 block」は文字どおりには成立しない（既知の残存・6 系統）**:
 >   1. **経路の欠落（[#1104](https://github.com/s977043/plangate/issues/1104)）**:
 >      `Edit|Write` 以外の書き込みは素通り（§0.1）。**PR #1267 が `Bash` matcher へ
 >      同 hook を配線したが、Bash payload は `tool_input.command` で `file_path` を
@@ -262,6 +262,11 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >      HO / plan.md は rc=2。同一 repo の linked worktree は縮退（従来判定）で **4 の #1277 を
 >      悪化させない**（実測: root 外 worktree `bin/plangate` は before/after とも rc=2）。
 >      python3 不在では全行が適用前と一致（degrade-to-base）。未適用の間は本項が残存
+>   6. **監査ログ（`hook-events.log`）が書けない環境で `log_event` が `set -eu` により rc=1 で死に、HO / no-task `plan.md` の block（exit 2）に到達しない**
+>      — [#1278](https://github.com/s977043/plangate/issues/1278)。read-only FS / `_audit` のファイル化 / ディスク満杯で
+>      防御が丸ごと fail-open になる。**是正 patch は `docs/working/_reports/1278-log-event-fail-closed-patch-applicable.md`
+>      （`f23d31d` で before rc=1 → after rc=2・変異で rc=1 に戻ることを実測済）。適用は Human-owned**。
+>      #1234 の patch と hunk が重ならず順序不問（両順序で実測）。未適用の間は本項が残存
 >
 >   **2 の実測（旧記述の訂正）**: 旧版はこの残存を **4 ケース**と書いていたが**過少**だった。
 >   #1101 の実測では変換クラスは **7 種**（`..` 往復 / `//` / `/./` / 先頭 `./` / 大小文字 /
