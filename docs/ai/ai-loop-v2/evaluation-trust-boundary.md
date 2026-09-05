@@ -32,7 +32,7 @@ V2 ではこれを **本 invariant の Legacy 実例**として位置づける�
 
 | #916 の要素                                                  | V2 での一般化                                                                                                                                                     |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| carve-out glob（escalate 固定パス集合）                      | Protected authority の path 集合。機械可読な 1 正本（`protected_surfaces`）として HarnessManifest の `verifier_set_sha` / `policy_profile_sha` が指す定義に含める |
+| carve-out glob（escalate 固定パス集合） | Protected authority の path 集合。機械可読な 1 正本（`protected_surfaces`）として HarnessManifest の `verifier_set_sha` / `policy_profile_sha` が指す定義に含める。**交差判定には baseline Manifest（または evaluation plan digest に固定した定義）の `protected_surfaces` を使い、candidate Manifest 側の定義は判定に用いない**（candidate が自分を保護集合から外す経路を塞ぐ） |
 | `changed_files` が carve-out に一致 → `HUMAN_ESCALATED`      | Candidate `allowed_paths` ∩ protected authority ≠ ∅ → Policy Verdict `DENIED` または `HUMAN_REQUIRED`（fail-closed）                                              |
 | 規範層のみの防御                                             | 機械層（Policy Gate）+ 規範層 + Human C-4 の多層防御                                                                                                              |
 | ho-paths.md の HO 一覧だけを読む単一経路（#906 / #978 統合） | protected surface の解決元を `explicit / downstream / bundled_template` として保持し、雛形フォールバックを escalate（#916 移管 AC を継承）                        |

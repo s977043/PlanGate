@@ -154,11 +154,11 @@ Legacy 文書・Issue の履歴は書き換えない。V2 namespace（`docs/ai/a
 V2 namespace に対して次を検査する。いずれも 0 件が期待値。
 
 ```sh
-git grep -nP '^\s*state:\s*(NO_PROGRESS|REPEATED_FAILURE|OSCILLATION|BUDGET_EXHAUSTED|POLICY_DENIED|VERIFIER_UNAVAILABLE|REQUIREMENT_CONFLICT|STATE_CONFLICT|MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '# .*(にしている|が無い)'
-git grep -nP '^\s*outcome:\s*(AUTO_APPROVED|HUMAN_REQUIRED|DENIED)\b' -- docs/ai/ai-loop-v2 | grep -vE '# .*(にしている|が無い)'
-git grep -nP '^\s*policy_verdict:\s*(MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '# .*(にしている|が無い)'
+git grep -nP '^\s*state:\s*(NO_PROGRESS|REPEATED_FAILURE|OSCILLATION|BUDGET_EXHAUSTED|POLICY_DENIED|VERIFIER_UNAVAILABLE|REQUIREMENT_CONFLICT|STATE_CONFLICT|MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '^docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
+git grep -nP '^\s*outcome:\s*(AUTO_APPROVED|HUMAN_REQUIRED|DENIED)\b' -- docs/ai/ai-loop-v2 | grep -vE '^docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
+git grep -nP '^\s*policy_verdict:\s*(MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '^docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
 ```
 
-**positive control**: 上記コマンドから `| grep -vE '# .*(にしている|が無い)'` を外して `taxonomy.md` 自身に当て、§6 の禁止例が検出されること（`state:` 2 行 / `outcome:` 1 行 / `policy_verdict:` 1 行）を先に確認する。検出されない場合は検査が空振りしており「0 件」を証拠にしてはならない。`-E`（POSIX ERE）では `\s` / `\b` が効かず常時 0 件になる（レビューで実測）。
+**positive control**: 上記コマンドから `| grep -vE '^docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'` を外して `taxonomy.md` 自身に当て、§6 の禁止例が検出されること（`state:` 2 行 / `outcome:` 1 行 / `policy_verdict:` 1 行）を先に確認する。検出されない場合は検査が空振りしており「0 件」を証拠にしてはならない。`-E`（POSIX ERE）では `\s` / `\b` が効かず常時 0 件になる（レビューで実測）。
 
 Phase 1 で `tests/extras/` に fixture 化し、本節の禁止例を negative control として固定する（[`phase0-migration.md`](./phase0-migration.md) §8）。

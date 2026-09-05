@@ -172,12 +172,12 @@ Phase 1 では正本 artifact を無制限に増やさない。初期候補を�
 
 ### Phase 0.1 exit criteria（#1275 / Canon Hardening）
 
-- [ ] Lifecycle State / Terminal Outcome / Stop Reason / Policy Verdict の 4 軸 taxonomy を正本化（[`taxonomy.md`](./taxonomy.md)）
-- [ ] HarnessManifest の責務・最低フィールド・RunEvidence binding・Runtime Activation 6 段階を定義（[`harness-manifest.md`](./harness-manifest.md)）
-- [ ] Evaluation Trust Boundary / Independence Level / `INCONCLUSIVE` / pre-registration を invariant 化（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md)）
-- [ ] artifact 責務分離 / RunEvidence = event projection / RunState revision CAS を固定（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）
-- [ ] Initial Plan Verification / Plan Gate を Delivery canonical flow へ追加（`north-star.md` §2 / §9 / §17）
-- [ ] #870 / #894 / #869 / #874 / #916 / #1025 を GitHub 上で rebaseline
+- [x] Lifecycle State / Terminal Outcome / Stop Reason / Policy Verdict の 4 軸 taxonomy を正本化（[`taxonomy.md`](./taxonomy.md)）（PR #1276 で充足）
+- [x] HarnessManifest の責務・最低フィールド・RunEvidence binding・Runtime Activation 6 段階を定義（[`harness-manifest.md`](./harness-manifest.md)）（PR #1276 で充足）
+- [x] Evaluation Trust Boundary / Independence Level / `INCONCLUSIVE` / pre-registration を invariant 化（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md)）（PR #1276 で充足）
+- [x] artifact 責務分離 / RunEvidence = event projection / RunState revision CAS を固定（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）（PR #1276 で充足）
+- [x] Initial Plan Verification / Plan Gate を Delivery canonical flow へ追加（`north-star.md` §2 / §9 / §17）（PR #1276 で充足）
+- [x] #870 / #894 / #869 / #874 / #916 / #1025 を GitHub 上で rebaseline（PR #1276 で充足）
 - [ ] Phase 0.1 docs PR の別 context / role によるレビューと Human C-4
 
 Phase 0 の独立レビューと Phase 0.1 の全項目が満たされるまで Phase 1 実装を開始しない。Phase 0.1 の PR は MERGE_READY で停止し、Phase 1 へ自動的に進まない。
