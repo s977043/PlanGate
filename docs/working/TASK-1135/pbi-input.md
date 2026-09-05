@@ -22,7 +22,7 @@ AI 単独で完了できる作業が構造的に制限される。さらに **AI
 | 2026-08-18 | bugfix 11 issue が `.sh` / `.py` を要し **patch 提示止まり**（PR #1119 / #1128〜#1134）。うち #1021 / #947 / #1044 / #921 は対象が `tests/extras/*.sh` で承認境界と無関係。#1044 は plan APPROVED 済みで exec だけが塞がる | #1135 本文 |
 | 2026-08-18 | `docs/working/templates/plan.md` の 1 行修正（#1018）が basename `plan.md` で block | #1135 / #1031 |
 | 2026-08-18 | `/ai-loop-cycle` 3 回とも帯外（`gates.c1` ← Plan Package ← `plan.md` ← EH-3 block の循環） | #1135 / #927 非対称 C |
-| 2026-08-18 | #1144 の配布作業 3 件（`scripts/sync-plugin-plangate.sh` / `plugin/plangate/hooks/hooks.json` / `plugin.json`）が **HO 外なのに** SKIP_REASON 未設定で rc=2 | #1135 コメント |
+| 2026-08-18 | #1144 の配布作業 3 件（`scripts/sync-plugin-plangate.sh` / `plugin/plangate/hooks/hooks.json`（新規作成）/ `plugin.json`）が **HO 外なのに** SKIP_REASON 未設定で rc=2 | #1135 コメント |
 | 2026-08-26 | ハーネス指定スクラッチパッド（repo 外）への `.html` Write が rc=2。同内容を Bash heredoc で書くと素通り（= #1104 迂回の誘発） | #1234 |
 | 2026-08-20 | Human 決定「開発は ai-loop-workflow で」が no-task セッションで実行不能（#1180 M-1 の 1 語置換を裁定できず） | #1197 |
 | 2026-08-12〜13 | v8.19.0 リリースで Human 5 手。HO patch の適用 1 手は構造的に残るが、**どの patch が未適用かを機械が把握していない** | #1077 |
@@ -99,10 +99,11 @@ AI 単独で完了できる作業が構造的に制限される。さらに **AI
 
 ### S3（EH-3 レーン判定）
 
-- [ ] **AC-12**（hook 分岐・AI-owned）: no-task で `tests/extras/ta-99-x.sh` / `docs/working/templates/plan.md` / `docs/working/templates/todo.md` / `docs/ai/foo.md` が **rc=0**、出力が `LANE_SKIP`（または既存 `DOC_LIGHT_SKIP`）で、`skip-decision-log.jsonl` に**追記されない**
+- [ ] **AC-12**（hook 分岐・AI-owned）: no-task で `tests/extras/ta-99-x.sh` / `docs/working/templates/plan.md` / `docs/working/templates/todo.md` / `docs/ai/foo.md` が **rc=0**、出力が `LANE_SKIP`。`LANE_SKIP` 経路は `skip-decision-log.jsonl` に**追記しない**。`.md` が既存 `DOC_LIGHT_SKIP` に先に落ちる場合は現行どおり `EH-3_DOC_LIGHT_SKIP` を追記してよい（`scripts/check-skip-acknowledged.sh` の追認対象外のため CI 負債にならない）
 - [ ] **AC-13**（hook 分岐・plan.md ガード維持）: no-task で `docs/working/TASK-9999/plan.md` / `docs/working/TASK-9999/PLAN.md` / `docs/working/TASK-9999/plan.md `（末尾空白）が **rc=2**（`BLOCK: plan.md edited without TASK context`）。`PLANGATE_SKIP_REASON` 設定下でも rc=2
-- [ ] **AC-14**（hook 分岐・HO 退行なし）: HO 9 カテゴリ（15 パターン）× #1101 の変換クラス 7 種の直積が **rc=2**（`HARDENING_OVERRIDE`）。`ta-65` の既存直積 TC をそのまま流用し、レーン判定が HO 判定より**後**に評価されることを patch の配置で示す
-- [ ] **AC-15**（hook 分岐・Gray 帯偽陽性なし）: no-task で `scripts/foo.sh` / `scripts/lib/foo.sh` / `bin/other` / `schemas/x.json`（非 `.schema.json`）/ `.github/CODEOWNERS` / `plugin/plangate/hooks/hooks.json` が引き続き **rc=2**（`SKIP 拒否: SKIP_REASON 未設定`）
+- [ ] **AC-14**（hook 分岐・HO 退行なし）: HO 9 カテゴリ（`ta-65` が hook の `case` から動的抽出する全パターン・現行 15）× #1101 の変換 13 形（7 種 + 2 種複合、`ta-65` TC-08）の直積が **rc=2**（`HARDENING_OVERRIDE`）。`ta-65` の既存直積 TC をそのまま流用し、レーン判定が HO 判定より**後**に評価されることを patch の配置で示す
+- [ ] **AC-14b**（hook 分岐・承認トークン不変）: レーン allowlist に `approvals/**` / `_maintenance/**` / `*.json` 承認成果物を含めない（正本と hook patch を `grep` して 0 件）。承認トークンへの書き込み guard は EH-13 `scripts/check-approval-token-write.sh` が担い本 PBI で変更しない（`ta-25` に新規 FAIL なし）。issue #1135 AC-4 後段の「承認トークンのパスも block」はこの 2 点で担保する
+- [ ] **AC-15**（hook 分岐・Gray 帯偽陽性なし）: no-task で `scripts/foo.sh` / `scripts/lib/foo.sh` / `bin/other` / `schemas/x.json`（非 `.schema.json`）/ `.github/CODEOWNERS` / `plugin/plangate/hooks/hooks.json`（新規作成。現行は `.gitkeep` のみ）が引き続き **rc=2**（`SKIP 拒否: SKIP_REASON 未設定`）
 - [ ] **AC-16**（hook 分岐・maintenance 併存）: maintenance 承認ファイル存在時の one_shot 消費 / `allowed_paths` / conversation-mode c3.json 経路の rc と出力が現行と一致（`_norm_target` の消費者 3 本 = #1101 AC-2 と同じ回帰表明）
 - [ ] **AC-17**（テスト・検出力）: レーン判定関数内の各分岐（allowlist の各エントリ・`TASK-*` ディレクトリ条件・HO 先行）を 1 つずつ壊す変異を注入し、対応 TC が FAIL する。**patch 未適用の hook に対して AC-12 の TC が FAIL する**ことも含む
 - [ ] **AC-18**（テスト・可搬性）: レーン判定関数を `sh` / `dash` / `bash` / `zsh` で直接評価した入出力が一致（#1101 AC-4 と同方式。`ta-*` 経由では測れない）
@@ -122,14 +123,16 @@ AI 単独で完了できる作業が構造的に制限される。さらに **AI
 | **S4** `apply-pending --list/--check` | **採用 → S1（最優先）** | F4 の実測（report 4 本 vs flag 2 本・命名の非対応・doctor 項目なし）で必要性を裏付け。**修正点**: `bin/plangate` は HO 9 カテゴリなので「AI 直接実装」ではなく、実体を `scripts/`（非 HO）に置き `bin/plangate` は配線 patch のみ（AC-08）。適用状態は flag でなく `git apply --check --reverse` で判定（AC-04） |
 | **S1** no-task 判定順を「対象か？」先行（repo 外 → SKIP / HO → BLOCK 不変） | **却下（本 PBI から除外・#1234 を依存先に）** | 内容が #1234 の In scope と同一（repo containment 判定 + AC-3 逆方向迂回 + false negative）。#1234 は既に AC 5 本と Mode（high-risk・2 ラウンド）を持つ独立 PBI で、ここに複製すると同じ HO 関数に 2 つの patch が競合する。**「対象か？先行」という順序設計自体は妥当**で、S3 のレーン判定は #1234 適用後の `_norm_target`（repo 内相対パス）を入力にする前提で書く |
 | **S2** SKIP_REASON をセッションファイル（gitignore・監査転記）からも読む | **既定不採用（Unknown U-1 で Human 判断）** | (1) hook コメントは「SKIP_REASON 源は env のみ」と明示し、V-3 MJ-2 で todo.md 源を**死に分岐として除去**した経緯がある。(2) maintenance は「承認ファイルのみ = AI 自己付与不可（R-011）」が設計原則で、AI が実行中に書けるファイルを SKIP 源にすると **Gray 帯全体が「AI 自己宣言 + 事後追認」帯に変わる**（HO は不変でも Gray の意味が変わる = レーン設計の変更を 1 スライスで暗黙に行うことになる）。(3) 実害として挙がった対象（`tests/extras` / templates / 配布作業 3 件）は S3 の allowlist で到達可能になり、S2 が無くても Why の実害は解消する。**Human が「Gray 帯を事後追認帯にする」ことを明示的に決めるなら別 PBI として起票** |
-| **S3** `bin/plangate plan new` の新規 TASK bootstrap に限り EH-3 免除 | **却下（#1197 へ）** | (1) #1197 が案 A（起動導線明示・推奨）/ B（承認トークン未発行時のみ新規作成許可）/ C の選択を C-3 判断としており、ここで B 相当を先取りすると #1197 の判断を空洞化する。(2) CLI 経路は Bash レーンで、#1271 適用後は `BASH_LANE_NOOP` により**そもそも EH-3 が見ない**（免除の実装対象が無い）。#1104 本体で Bash 書き込み先抽出が入った時点で初めて「bootstrap の allow 条件」が要るので、その設計は #1104 本体 + #1197 案 B の安全条件（新規作成のみ・c3.json 未発行時のみ・変異注入で実証）に委ねる |
+| **S3** `bin/plangate plan new` の新規 TASK bootstrap に限り EH-3 免除 | **却下（#1197 へ）** | (1) #1197 が案 A（起動導線明示・推奨）/ B（承認トークン未発行時のみ新規作成許可）/ C の選択を C-3 判断としており、ここで B 相当を先取りすると #1197 の判断を空洞化する。(2) CLI 経路は Bash レーンで、#1271 適用後は `BASH_LANE_NOOP`（`target_file` 空 ∧ `task_id` 空 ∧ stdin 非空 ∧ jq 存在 ∧ `tool_name=Bash` の 5 条件。jq 不在時は従来どおり `SKIP_BLOCKED` で安全側）により**そもそも EH-3 が見ない**（免除の実装対象が無い）。#1104 本体で Bash 書き込み先抽出が入った時点で初めて「bootstrap の allow 条件」が要るので、その設計は #1104 本体 + #1197 案 B の安全条件（新規作成のみ・c3.json 未発行時のみ・変異注入で実証）に委ねる |
 
 ### 追加した論点
 
 - **「HO 外」≠「到達可能」の誤認防止**（#1135 コメント）: S2 の正本に「no-task 経路の 3 段（HO → plan.md → レーン/SKIP_REASON）」を図示し、AI が自分の到達範囲を判定できる **1 コマンド**（例 `bin/plangate lane <path>` = レーン判定関数の dry-run）を S3 に含めるかは Unknown U-4
-- **`DOC_LIGHT_SKIP` との関係**: 現行の非 HO `.md` 自動 SKIP は `skip-decision-log.jsonl` に `EH-3_DOC_LIGHT_SKIP` を書くが `check-skip-acknowledged.sh` は `EH-3_SKIP` のみを追認対象にするため CI 負債にならない。`LANE_SKIP` も同じ扱い（skip-decision-log に書かない or 追認不要 event）にする。maintenance 承認ファイル存在時は現行どおり token ライフサイクル優先（doc-light を発火させない）— レーン判定を maintenance より前に置くか後に置くかは plan で確定（前に置くと maintenance 窓の消費を回避できるが、`allowed_paths` で AI-owned 帯を**狭める**運用ができなくなる）
+- **`DOC_LIGHT_SKIP` との関係**: 現行の非 HO `.md` 自動 SKIP は `skip-decision-log.jsonl` に `EH-3_DOC_LIGHT_SKIP` を書くが `scripts/check-skip-acknowledged.sh` は `EH-3_SKIP` のみを追認対象にするため CI 負債にならない。`LANE_SKIP` も同じ扱い（skip-decision-log に書かない or 追認不要 event）にする。maintenance 承認ファイル存在時は現行どおり token ライフサイクル優先（doc-light を発火させない）— レーン判定を maintenance より前に置くか後に置くかは plan で確定（前に置くと maintenance 窓の消費を回避できるが、`allowed_paths` で AI-owned 帯を**狭める**運用ができなくなる）
 - **`tests/extras/*.sh` を開ける是非**（issue 設計上の注意 2）: テストコードは承認境界ではないが「検証の土台」。対抗策は AC-17（変異注入）に加え、**`tests/extras/ta-65` / `ta-79` / 新規 `ta-NN`（承認境界を検査するテスト）を allowlist から除外するか**を Unknown U-5 とする（除外すると「承認境界のテストは Gray」= 現行維持）
-- **EH-13 の偽陽性（本書作成時に実測）**: 本書を Bash heredoc で書こうとしたところ、`check-approval-token-write.sh` が本文中の Markdown 強調 `**DRAFT**` を `rule=file-redirect, redirect_target=**DRAFT` としてワイルドカード付きリダイレクト先と誤認し block した（承認トークン系パスとは無関係）。fail-closed 設計どおりの挙動だが、「heredoc 本文の `**` をリダイレクト先として解析する」クラスは #1115 の外側ゲートの残存偽陽性として別途記録が要る（本 PBI の scope 外・Unknown U-8）。回避は `Write` ツール（EH-3 が発火するより強いガードのレーン）で行い、迂回ではない
+- **allowlist 初期値からの意図的な除外**: issue #1135 の AI-owned 案にある `docs/**/*.md（アーカイブ除く）` の「アーカイブ除く」条件は、現行 `DOC_LIGHT_SKIP` が既に非 HO `.md` を無条件 SKIP しており本 PBI で狭めると退行になるため S3 の初期 allowlist に含めない（Unknown U-9: アーカイブ配下 `.md` を Gray に戻すかは plan で裁定）
+- **却下案の構造化**: 上表の S1/S2/S3 却下理由は plan 生成時に `decision-log.jsonl` の `alternatives_rejected` へ転記する（テンプレ規約。本書はその要約）
+- **EH-13 の偽陽性（本書作成時に実測）**: 本書を Bash heredoc で書こうとしたところ、EH-13 `scripts/check-approval-token-write.sh` が本文中の Markdown 強調 `**DRAFT**` を `rule=file-redirect, redirect_target=**DRAFT` としてワイルドカード付きリダイレクト先と誤認し block した（承認トークン系パスとは無関係）。fail-closed 設計どおりの挙動だが、「heredoc 本文の `**` をリダイレクト先として解析する」クラスは #1115 の外側ゲートの残存偽陽性として別途記録が要る（本 PBI の scope 外・Unknown U-8）。回避は `Write` ツール（EH-3 が発火するより強いガードのレーン）で行い、迂回ではない
 - **本 worktree の前提ずれ**: オーガナイザーの指示は「この worktree の版は #1104 hotfix + #1101 正規化が適用済み」としていたが、実測では両方未適用（flag 2 本現存・hook 最終変更 #1089・`.claude/settings.json` 不在）。本書の rc 表は**未適用の hook**に対する読解であり、plan 生成時に #1271 マージ後の `origin/main` で再測定すること
 
 ## Estimation Evidence
