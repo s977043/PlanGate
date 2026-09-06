@@ -6,7 +6,9 @@
 
 ## 1. North Star
 
-ai-loop V2 が目指すものは、単なる「長時間自律実行する Coding Agent」ではない。
+ai-loop V2 は、検証可能な開発成果と、次の判断に使える Evidence を継続的に生み出し、その経験から開発システム自体を改善するための Harness である。
+
+品質・安全性・Evidence の妥当性を守りながら、問題の観測から判断に必要な Evidence を得るまでの時間、回避可能な確認・復旧負担、失敗の影響と再発を減らす。Time to Learning の短縮だけを目的に、必要な観測を打ち切ったり、成功条件を緩めたりしない。
 
 > **AI が開発を実行し、その結果を検証し、失敗と成功を振り返り、自らの Skill / Agent / Flow / Verifier を改善し、その改善が本当に有効かを独立検証したうえで、次の Harness version を作れる開発システムを構築する。**
 
@@ -51,9 +53,13 @@ Request
 
 Initial Plan も Plan Verification を通る。Replan 時だけ Plan Review する構造にしない（§9）。
 
+Delivery は合意した Contract のもとで実行する。探索を支える実装では、実装の受入基準と価値仮説の学習条件を区別し、必要な観測条件と Evidence の返却先を明確にする。`MERGE_READY` は実装の受入条件を満たした終端であり、価値仮説の検証完了を意味しない。Product Discovery 全体やリリース後の観測・意思決定を V2 に内包せず、それらへ Evidence を接続する。
+
 ### Learn
 
-Run を振り返り、成功・失敗・摩擦を再利用可能な Evidence に変換する。
+Run の観測・検証結果を記録し、成功・失敗・摩擦を振り返って、次の判断に再利用できる Evidence にする。観測事実、原因仮説、未確認事項を区別する。
+
+仮説の棄却や Candidate の不採用も、妥当な Evidence に基づくなら学習として扱う。評価実験の成立と Candidate の採用可否は別であり、Evidence 不足を学習成功や採用可能と見なさない（§14）。
 
 ```text
 Run -> RunEvidence -> Retrospective -> Pattern / Friction / Success
@@ -123,7 +129,7 @@ Planner -> Builder -> Verifier -> Diagnoser -> Decision Engine
 
 ## 6. Evidence before judgment
 
-Worker の「完了」「PASS」等の自己申告を完了根拠にしない。
+Worker の「完了」「PASS」等の自己申告を完了根拠にしない。報告は主張として受け取り、対象の成果物・外部状態・検証結果との対応を確認する。検証不能を「対象なし」や PASS として扱わない。
 
 ```text
 Worker -> Artifact -> Verifier -> Evidence -> Decision Engine
@@ -189,6 +195,8 @@ Verify FAIL
        NO  -> Replan -> Plan Verification -> Plan Gate
 ```
 
+目的・受入条件・学習条件の変更が必要な場合は、暗黙に書き換えず、変更提案を明示して Replan / Plan Verification / Plan Gate を通す。判断主体と承認権限は既存の境界に従い、合格させるために条件を緩めない。
+
 Plan が変更された場合、旧 Plan に束縛された verification evidence は再検証する。Initial Plan と Replan 後の Plan は同じ Plan Verification を通る（§2）。
 
 ## 10. Harness identity is immutable during a Run
@@ -249,6 +257,10 @@ Harness の進化を Component 数の増加と定義しない。
 
 必要に応じて MERGE / DEPRECATE / REMOVE_FROM_FLOW / SIMPLIFY を提案する。
 
+運用で検査を追加・変更する動機は、原則として観測した事故や失敗パターンへ紐づけ、適用範囲・誤検知・維持コストも評価する。基礎的な安全境界の設置は事故の発生を待たない。
+
+簡素化は、必要な能力・検出力・安全条件を維持できることを Evidence で確かめて採用する。読まれない警告は範囲調整・統合・廃止の検討対象とするが、検査削除や Gate 緩和の権限は §15 に従う。
+
 ## 13. Improvement Candidate contract principle
 
 Harness 変更を直接始めない。
@@ -294,6 +306,8 @@ Same Fixture
 - rollback
 
 Candidate が実際に対象経路で発火したことを Activation Check で確認する（`installed` / `registered` / `selected` / `fired` / `produced_evidence` / `influenced_decision` の 6 段階。`fired` 以上を要求）。重要変更では held-out / sealed regression set を使う。
+
+Verifier / Gate の改善では、存在や発火だけでなく、既知の欠陥を検出でき、その結果が期待した続行・停止の判断へ接続されることを確かめる。検出力・適用範囲・誤検知も改善の評価対象とする。
 
 評価の結果は `PASS` / `FAIL` / `INCONCLUSIVE` の 3 値で、evaluation plan（fixture IDs / task profile / trial count / metrics / threshold / critical regression condition）は Candidate 実装前に固定する。
 
@@ -377,13 +391,21 @@ Candidate 数や Component 数を KPI にしない。
 - repair rounds
 - replan count
 - no-progress rate
-- human intervention rate
+- avoidable human intervention / confirmation / recovery burden
 - regression rate
 - verifier false-positive / false-negative rate
 - cost per accepted change
 - rollback rate
 
-品質・安全性を速度やコストで上書きしない。
+加えて、目的に応じて次の評価軸を見る。測定定義・対象範囲は詳細の評価計画で定める。
+
+- Time to Learning: 問題の観測から、次の判断に必要な妥当な Evidence を得るまでの時間
+- Evidence 取得後の意思決定待ち時間（Time to Learning と分ける）
+- failure detection time / impact / recovery cost / recurrence
+
+Product 側と Harness 側の学習を混同せず、V2 が直接観測できる範囲と外部から受け取る Evidence を区別する。必要な人間判断は維持し、証拠不足による聞き直し・反復確認・手動復旧の負担を減らす。承認時には Evidence・残存リスク・未解決事項を提示して判断を支える。
+
+品質・安全性・Evidence の妥当性を速度やコストで上書きしない。
 
 ## 19. Non-goals
 
@@ -396,6 +418,7 @@ Candidate 数や Component 数を KPI にしない。
 - Component を増やすこと自体
 - Human authority の撤廃
 - PlanGate 全体を巨大な AI OS / control plane にすること
+- Product Discovery 全体やリリース後の価値検証の orchestration
 
 ## 20. Decision priority
 
@@ -450,4 +473,6 @@ Candidate 数や Component 数を KPI にしない。
 >
 > **AI が自律的に開発し、自分の失敗と成功を Evidence として学び、Skill・Agent・Flow・Verifier を改善し、その改善自体を検証可能・rollback 可能な Software Engineering Process として運用するための Harness である。**
 >
-> **良い Loop とは長く動く Loop ではない。正しく検証し、必要なら止まり、経験から次のより良い Harness を作れる Loop である。**
+> **良い Loop は、正しく検証し、必要なら止まり、経験から次のより良い Harness を作れる。誤りを前提に、早期検知・影響限定・復旧・再発防止を可能にする。**
+>
+> **Delivery は合意した Contract のもとで MERGE_READY まで進める。実行中の Harness は固定し、C-4・マージ・次版 Harness の本番への最終 Promotion と既存の Human-owned 境界を維持する。**
