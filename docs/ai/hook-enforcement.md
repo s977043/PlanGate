@@ -261,7 +261,7 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >      （`hook-events.log` のみ記録・`skip-decision-log.jsonl` 非記録）、symlink → repo 内
 >      HO / plan.md は rc=2。同一 repo の linked worktree は縮退（従来判定）で **4 の #1277 を
 >      悪化させない**（実測: root 外 worktree `bin/plangate` は before/after とも rc=2）。
->      python3 不在では全行が適用前と一致（degrade-to-base）。未適用の間は本項が残存
+>      python3 不在では全行が適用前と一致（degrade-to-base）。#1264（firmlink 別表記）は本 patch の対象外・別途。未適用の間は本項が残存
 >   6. **監査ログ（`hook-events.log`）が書けない環境で `log_event` が `set -eu` により rc=1 で死に、HO / no-task `plan.md` の block（exit 2）に到達しない**
 >      — [#1278](https://github.com/s977043/plangate/issues/1278)。read-only FS / `_audit` のファイル化 / ディスク満杯で
 >      防御が丸ごと fail-open になる。**是正 patch は `docs/working/_reports/1278-log-event-fail-closed-patch-applicable.md`
@@ -301,7 +301,7 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 > | | 内容 |
 > |---|---|
 > | **守る** | `Edit\|Write` 経路の、**字句上**の表記揺れ（上記 7 変換クラスとその複合）による HO 迂回（#1101 適用後） |
-> | **守らない** | `Bash` 経路（#1104）/ FS エイリアス・シンボリックリンク（上記 3）/ **worktree 配下の HO パス（上記 4・#1277）** / **監査ログ（`hook-events.log`）が書けない環境（`log_event` が `set -eu` 下で rc=1 になり block に到達しない・#1278）** / hook を配線していない導入先（plugin 配布物に `scripts/hooks/` は含まれない）/ `PLANGATE_BYPASS_HOOK=1` |
+> | **守らない** | `Bash` 経路（#1104）/ FS エイリアス・シンボリックリンク（上記 3・#1264。repo 外 symlink 経由の到達は上記 5・#1234）/ **worktree 配下の HO パス（上記 4・#1277）** / **監査ログ（`hook-events.log`）が書けない環境（`log_event` が `set -eu` 下で rc=1 になり block に到達しない・#1278）** / hook を配線していない導入先（plugin 配布物に `scripts/hooks/` は含まれない）/ `PLANGATE_BYPASS_HOOK=1` |
 >
 > EH-3 の HO block は**多層防御の 1 層**にすぎない。承認境界の最終的な保証主体は
 > **C-4 Human レビュー**と **GitHub branch protection** であり、本 hook の block を
