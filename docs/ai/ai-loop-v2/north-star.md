@@ -53,13 +53,13 @@ Request
 
 Initial Plan も Plan Verification を通る。Replan 時だけ Plan Review する構造にしない（§9）。
 
-Delivery は合意した Contract のもとで実行する。探索を支える実装では、実装の受入基準と価値仮説の学習条件を区別し、必要な観測条件と Evidence の返却先を明確にする。`MERGE_READY` は実装の受入条件を満たした終端であり、価値仮説の検証完了を意味しない。Product Discovery 全体やリリース後の観測・意思決定を V2 に内包せず、それらへ Evidence を接続する。
+Delivery は合意した Contract のもとで実行する。探索を支える実装では、実装の受入基準と価値仮説の学習条件を区別し、必要な観測条件と Evidence の返却先を明確にする。`MERGE_READY` は必須の検証・PR 収束を含む Delivery 契約全体を満たし、C-4 / merge（Human-owned）待ちで停止した終端であり、価値仮説の検証完了を意味しない（[`taxonomy.md`](./taxonomy.md) §3）。Product Discovery 全体やリリース後の観測・意思決定を V2 に内包せず、それらへ Evidence を接続する。
 
 ### Learn
 
 Run の観測・検証結果を記録し、成功・失敗・摩擦を振り返って、次の判断に再利用できる Evidence にする。観測事実、原因仮説、未確認事項を区別する。
 
-仮説の棄却や Candidate の不採用も、妥当な Evidence に基づくなら学習として扱う。評価実験の成立と Candidate の採用可否は別であり、Evidence 不足を学習成功や採用可能と見なさない（§14）。
+仮説の棄却や Candidate の不採用も、妥当な Evidence に基づくなら学習として扱う。評価実験の成立と Candidate の採用可否は別であり、Evidence 不足を、当初の学習条件の充足や採用可能と見なさない（§14）。不足の原因や観測・検証上の摩擦は、次の改善の材料として残す。
 
 ```text
 Run -> RunEvidence -> Retrospective -> Pattern / Friction / Success
@@ -195,7 +195,9 @@ Verify FAIL
        NO  -> Replan -> Plan Verification -> Plan Gate
 ```
 
-目的・受入条件・学習条件の変更が必要な場合は、暗黙に書き換えず、変更提案を明示して Replan / Plan Verification / Plan Gate を通す。判断主体と承認権限は既存の境界に従い、合格させるために条件を緩めない。
+Delivery の Plan / Contract に含まれる目的・受入条件・学習条件の変更が必要な場合は、暗黙に書き換えず、変更提案を明示して Replan / Plan Verification / Plan Gate を通す。判断主体と承認権限は既存の境界に従い、合格させるために条件を緩めない。
+
+この Replan は、Evolution Candidate の実装前に固定した評価計画・採用閾値を同じ Candidate の評価中に変更する権限を与えない。評価条件そのものの変更は別 Candidate・別評価として扱い、§14 と Evaluation Trust Boundary の保護・Human-owned 規則に従う。
 
 Plan が変更された場合、旧 Plan に束縛された verification evidence は再検証する。Initial Plan と Replan 後の Plan は同じ Plan Verification を通る（§2）。
 
