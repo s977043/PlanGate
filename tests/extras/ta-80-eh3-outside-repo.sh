@@ -200,6 +200,58 @@ _t80_holds() {
   [ "$_t80_rc" = "$1" ] && printf '%s' "$_t80_out" | grep -q -- "$2"
 }
 
+# ── patch 適用（git apply → patch -p1 フォールバック）──────────────
+# `git apply` 決め打ちは **他の HO patch が先に当たっている hook** に対して
+# 壊れる。#1226（approval surface）は #1234 と同じ領域（`@@ -358` / `@@ -361`）を
+# 触るため、どちらを先に当てても 2 本目の `git apply` は
+# `patch failed: scripts/hooks/check-plan-hash.sh:...` (rc=1) で落ちる。
+# 適用順序の正本 docs/working/_reports/1226-approval-surface-patch-applicable.md
+# §8-5 が「**2 本目は `patch -p1`**」と規定しているので、それに従う。
+#
+# `git apply` が落ちたまま TC-01 以降へ進むと **未適用の hook を patched hook
+# として測る**ことになり、原因の読めない偽 FAIL が大量に出る（実測: 20 PASS /
+# 20 FAIL）。よって「どちらの経路で適用されたか」を必ず出力に残し、
+# **両方失敗したときだけ** FAIL にする。
+#
+# $1 = stage dir（$1/scripts/hooks/check-plan-hash.sh を持つこと）
+# $2 = patch file / $3 = pristine hook（再試行前に書き戻す原本）
+# 出力: $_T80_APPLY_ROUTE（経路 / 失敗理由）・$_T80_APPLY_RC（最後の失敗 rc）
+_T80_APPLY_ROUTE=none
+_T80_APPLY_RC=0
+_t80_apply_patch() {
+  _T80_APPLY_ROUTE=none
+  _T80_APPLY_RC=0
+  _t80_ap_stage="$1"
+  _t80_ap_patch="$2"
+  _t80_ap_pristine="$3"
+  _t80_ap_git=0
+  cp "$_t80_ap_pristine" "$_t80_ap_stage/scripts/hooks/check-plan-hash.sh"
+  (cd "$_t80_ap_stage" && git apply "$_t80_ap_patch") >/dev/null 2>&1 || _t80_ap_git=$?
+  if [ "$_t80_ap_git" = "0" ]; then
+    _T80_APPLY_ROUTE="git-apply"
+    return 0
+  fi
+  # フォールバック前に必ず原本へ戻す（git apply は部分適用しない設計だが、
+  # 中途状態に patch を重ねると「当たったのか」を判別できなくなる）
+  cp "$_t80_ap_pristine" "$_t80_ap_stage/scripts/hooks/check-plan-hash.sh"
+  if ! command -v patch >/dev/null 2>&1; then
+    _T80_APPLY_ROUTE="git-apply-failed(rc=$_t80_ap_git)/patch-unavailable"
+    _T80_APPLY_RC="$_t80_ap_git"
+    return 1
+  fi
+  _t80_ap_pat=0
+  (cd "$_t80_ap_stage" \
+    && patch -p1 --batch --forward -r "$_t80_ap_stage/patch.rej" < "$_t80_ap_patch") \
+    >/dev/null 2>&1 || _t80_ap_pat=$?
+  if [ "$_t80_ap_pat" = "0" ]; then
+    _T80_APPLY_ROUTE="patch-p1 (git apply rc=$_t80_ap_git → fallback / §8-5)"
+    return 0
+  fi
+  _T80_APPLY_ROUTE="both-failed (git apply rc=$_t80_ap_git / patch -p1 rc=$_t80_ap_pat)"
+  _T80_APPLY_RC="$_t80_ap_pat"
+  return 1
+}
+
 # ── patch 抽出（marker 基準）──────────────────────────────────────
 _T80_PATCH="$_T80_TMP/1234.patch"
 sed -n '/^<!-- PG-PATCH-BEGIN -->$/,/^<!-- PG-PATCH-END -->$/p' "$_T80_REPORT" \
@@ -242,18 +294,61 @@ fi
 _T80_STAGE="$_T80_TMP/stage"
 mkdir -p "$_T80_STAGE/scripts/hooks"
 cp "$_T80_HOOK_SRC" "$_T80_STAGE/scripts/hooks/check-plan-hash.sh"
-_T80_APPLY_RC=0
 if [ "$_T80_REAL_PATCHED" = "1" ]; then
-  t80_pass "TC-00c: real hook already patched — sandbox copy is fixed as-is"
+  _T80_APPLY_ROUTE="already-applied"
+  t80_pass "TC-00c: real hook already patched — sandbox copy is fixed as-is (route=$_T80_APPLY_ROUTE)"
 else
-  (cd "$_T80_STAGE" && git apply "$_T80_PATCH") >/dev/null 2>&1 || _T80_APPLY_RC=$?
-  if [ "$_T80_APPLY_RC" = "0" ] && grep -q "$_T80_MARK" "$_T80_STAGE/scripts/hooks/check-plan-hash.sh"; then
-    t80_pass "TC-00c: patch applies to the sandbox copy and installs the $_T80_MARK branch"
+  if _t80_apply_patch "$_T80_STAGE" "$_T80_PATCH" "$_T80_HOOK_SRC" \
+     && grep -q "$_T80_MARK" "$_T80_STAGE/scripts/hooks/check-plan-hash.sh"; then
+    t80_pass "TC-00c: patch applies to the sandbox copy and installs the $_T80_MARK branch (route=$_T80_APPLY_ROUTE)"
   else
-    t80_fail "TC-00c: patch failed to apply to sandbox copy (rc=$_T80_APPLY_RC)"
+    t80_fail "TC-00c: patch failed to apply to sandbox copy (route=$_T80_APPLY_ROUTE rc=$_T80_APPLY_RC) — 以降の TC-01〜TC-09 は未適用 hook を測るため信用できない"
   fi
 fi
 _T80_PSRC="$_T80_STAGE/scripts/hooks/check-plan-hash.sh"
+
+# TC-00c-pc: フォールバックの positive control。
+# 「patch が当たった」だけでは *フォールバックが効いた* ことを主張できないので、
+# **`git apply` が実際に落ちる drift を注入したうえで** patch -p1 が救うことを
+# 同 TC 内で実測する。drift は #1234 hunk の context 行（`# (ii) Hardening
+# Override ...`）に 1 語足すだけ（= #1226 適用時に起きるのと同種の context ずれ）。
+# 判定は連言（P-1/P-2）: (a) drift が実際に入った / (b) 素の git apply が rc≠0 /
+# (c) 経路が patch-p1 と報告される / (d) 適用後に marker が入っている。
+_T80_PCST="$_T80_TMP/stage-pc"
+mkdir -p "$_T80_PCST/scripts/hooks"
+_T80_PC_DRIFT="$_T80_TMP/drifted-hook.sh"
+PG_T80_IN="$_T80_HOOK_SRC" PG_T80_OUT="$_T80_PC_DRIFT" python3 - <<'PYDRIFT' 2>/dev/null || true
+import os
+s = open(os.environ["PG_T80_IN"], encoding="utf-8").read()
+anchor = "# (ii) Hardening Override "
+i = s.find(anchor)
+if i >= 0:
+    j = s.index("\n", i)
+    s = s[:j] + "  # ta-80 TC-00c-pc drift" + s[j:]
+    open(os.environ["PG_T80_OUT"], "w", encoding="utf-8").write(s)
+PYDRIFT
+_T80_PC_OK=1
+if [ ! -s "$_T80_PC_DRIFT" ] || cmp -s "$_T80_HOOK_SRC" "$_T80_PC_DRIFT"; then
+  _T80_PC_OK=0
+fi
+if [ "$_T80_REAL_PATCHED" = "1" ]; then
+  printf '  [SKIP] TC-00c-pc: 実 hook が既に #1234 適用済み（drift 用の pre-image が無い）\n'
+elif [ "$_T80_PC_OK" != "1" ]; then
+  t80_fail "TC-00c-pc: drift を注入できなかった（context アンカーが見つからない = positive control を主張できない）"
+else
+  cp "$_T80_PC_DRIFT" "$_T80_PCST/scripts/hooks/check-plan-hash.sh"
+  _T80_PC_GITRC=0
+  (cd "$_T80_PCST" && git apply "$_T80_PATCH") >/dev/null 2>&1 || _T80_PC_GITRC=$?
+  if [ "$_T80_PC_GITRC" = "0" ]; then
+    t80_fail "TC-00c-pc: drift 注入後も素の git apply が成功する（フォールバックの必要性を実証できない）"
+  elif _t80_apply_patch "$_T80_PCST" "$_T80_PATCH" "$_T80_PC_DRIFT" \
+       && printf '%s' "$_T80_APPLY_ROUTE" | grep -q 'patch-p1' \
+       && grep -q "$_T80_MARK" "$_T80_PCST/scripts/hooks/check-plan-hash.sh"; then
+    t80_pass "TC-00c-pc: git apply が落ちる drift (rc=$_T80_PC_GITRC) を patch -p1 が救い marker が入る (route=$_T80_APPLY_ROUTE)"
+  else
+    t80_fail "TC-00c-pc: フォールバックが drift を救えない (route=$_T80_APPLY_ROUTE rc=$_T80_APPLY_RC git=$_T80_PC_GITRC)"
+  fi
+fi
 
 # TC-00d: patch 適用後の hook が sh -n を通る
 if sh -n "$_T80_PSRC" 2>/dev/null; then
@@ -341,10 +436,22 @@ a = block('case "$_ho_key" in')
 b = block('case "$_phys_key" in')
 if a is None or b is None or not a:
     print("MISSING"); sys.exit(0)
-print("MATCH" if a == b else "DIFF")
+if a == b:
+    print("MATCH"); sys.exit(0)
+# 1 行目が verdict、2 行目以降が **差分行そのもの**。
+# コメント行も比較対象なので「コメント差」と「HO カテゴリの欠落＝実際の穴」が
+# 同じ DIFF に丸まる。どちらなのかを適用者が即断できるよう行を出す。
+print("DIFF")
+import difflib
+for ln in difflib.unified_diff(a, b, fromfile="_ho_key", tofile="_phys_key", lineterm="", n=1):
+    print("      " + ln)
+print("      arms: _ho_key=%d _phys_key=%d (measured)" % (len(a), len(b)))
 PYCMP
 }
-_T80_CMP=$(_t80_cmp_cases "$_T80_PHOOK")
+# 差分行を含む生出力と、判定に使う 1 行目（verdict）を分ける。
+_t80_cmp_verdict() { printf '%s\n' "$1" | head -1; }
+_T80_CMP_RAW=$(_t80_cmp_cases "$_T80_PHOOK")
+_T80_CMP=$(_t80_cmp_verdict "$_T80_CMP_RAW")
 # positive control: 片方の 9 行を 1 文字変えた複製で検査器が DIFF を返すこと
 _T80_CMPMUT="$_T80_TMP/cmp-mutant.sh"
 PG_T80_IN="$_T80_PHOOK" PG_T80_OUT="$_T80_CMPMUT" python3 - <<'PYCMPM' 2>/dev/null || true
@@ -355,13 +462,37 @@ head, tail = s[:i], s[i:]
 tail = tail.replace("bin/plangate) _override=1 ;;", "bin/plangate2) _override=1 ;;", 1)
 open(os.environ["PG_T80_OUT"], "w", encoding="utf-8").write(head + tail)
 PYCMPM
-_T80_CMP_PC=$(_t80_cmp_cases "$_T80_CMPMUT")
+_T80_CMP_PC_RAW=$(_t80_cmp_cases "$_T80_CMPMUT")
+_T80_CMP_PC=$(_t80_cmp_verdict "$_T80_CMP_PC_RAW")
+# positive control 2: **カテゴリを 1 本まるごと落とした**複製（#1226 適用時に
+# 実際に起きる _ho_key=12 arms / _phys_key=9 arms の非対称と同じクラス）。
+# 「DIFF になる」だけでは 3-2 の指摘（何が欠けたか読めない）を潰せないので、
+# **欠けたパターンが差分行として出ること**まで連言で要求する（P-1/P-2）。
+_T80_CMPDEL="$_T80_TMP/cmp-deleted.sh"
+PG_T80_IN="$_T80_PHOOK" PG_T80_OUT="$_T80_CMPDEL" python3 - <<'PYCMPD' 2>/dev/null || true
+import os
+s = open(os.environ["PG_T80_IN"], encoding="utf-8").read()
+i = s.index('case "$_phys_key" in')
+head, tail = s[:i], s[i:]
+j = tail.index("bin/plangate) _override=1 ;;")
+k = tail.index("\n", j)
+tail = tail[:j] + tail[k + 1:]
+open(os.environ["PG_T80_OUT"], "w", encoding="utf-8").write(head + tail)
+PYCMPD
+_T80_CMP_PCDEL_RAW=$(_t80_cmp_cases "$_T80_CMPDEL")
+_T80_CMP_PCDEL=$(_t80_cmp_verdict "$_T80_CMP_PCDEL_RAW")
 if [ "$_T80_CMP_PC" != "DIFF" ]; then
   t80_fail "TC-06: positive control failed — 9 カテゴリを 1 行変えた複製を検査器が検出できない (got=$_T80_CMP_PC)"
+elif ! printf '%s' "$_T80_CMP_PC_RAW" | grep -q 'bin/plangate2'; then
+  t80_fail "TC-06: positive control failed — DIFF は返るが**差分行そのものが出ない**（変異した行 bin/plangate2 が出力に無い）"
+elif [ "$_T80_CMP_PCDEL" != "DIFF" ] \
+     || ! printf '%s' "$_T80_CMP_PCDEL_RAW" | grep -q '^ *-.*bin/plangate) _override=1'; then
+  t80_fail "TC-06: positive control failed — カテゴリを 1 本落とした複製で、欠落した arm が差分行に現れない (got=$_T80_CMP_PCDEL)"
 elif [ "$_T80_CMP" = "MATCH" ]; then
-  t80_pass "TC-06: (ii) と (ii-b) の 9 カテゴリ行が一致（インデント除去後バイト一致 / positive control OK）"
+  t80_pass "TC-06: (ii) と (ii-b) の 9 カテゴリ行が一致（インデント除去後バイト一致 / positive control: 変異行・欠落 arm とも差分行に出る）"
 else
-  t80_fail "TC-06: 9 カテゴリ行が (ii) と (ii-b) で一致しない (got=$_T80_CMP)"
+  t80_fail "TC-06: 9 カテゴリ行が (ii) と (ii-b) で一致しない (got=$_T80_CMP)
+$(printf '%s\n' "$_T80_CMP_RAW" | sed -e '1d')"
 fi
 
 # TC-07: OUTSIDE_REPO_SKIP は skip-decision-log.jsonl を汚さない（positive control 付き）

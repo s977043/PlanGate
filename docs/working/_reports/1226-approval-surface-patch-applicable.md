@@ -270,19 +270,25 @@ git grep -n "9 カテゴリ\|15 パターン\|残る 8 カテゴリ" \
 ```
 
 **positive control（この grep に検出力があること）**: 適用**前**に同じ grep を実行すると
-23 行が返る（実測。`.claude/rules/mode-classification.md` と
+本書初版時点で 23 行、**`bd2da8a5` 時点では 28 行**が返る（実測。`.claude/rules/mode-classification.md` と
 `scripts/hooks/check-plan-hash.sh` を含む）。常に 0 件を返す空振り検査ではない。
+**この件数は運用で増える測定値であり契約値ではない**（`tests/extras/` に TC が増えれば増える）。
+適用可否の判定は件数ではなく**下表の面に収まっているか**で行うこと。
 
-**適用後の期待（残ってよい 4 種）**:
+**適用後の期待（残ってよい面）**。実測は 2 条件で異なる — **PATCH-A のみ適用 = 9 行 / §8-5 の 4 本すべて適用 = 10 行**（いずれも `bd2da8a5` 時点の実測）。§5 手順 3 はこの sweep を **4 本適用後**に実行するので、**期待は 10 行**である:
 
-| 残る面 | 理由 |
-|---|---|
-| `CLAUDE.md:16` / `README.md:81` | v8.21.0 リリースノート節の履歴記述（§4.3） |
-| `plugin/plangate/rules/mode-classification.md:49` | **生成物**。§5 手順 4 の `sh scripts/sync-plugin-plangate.sh` で 12 に変わる。手順 4 の**後**に再実行してこの行が消えることを確認する |
-| `scripts/hooks/check-plan-hash.sh:327` | 「当時は 9 カテゴリ」に書き換わるため上の `grep -v` で除外される（0 行） |
-| `tests/extras/ta-77-approval-surface-gate.sh:69` | §4.3 の理由で本 patch の対象外（§8-6 の follow-up） |
+| 残る面 | 実測行 | 理由 |
+|---|---|---|
+| `CLAUDE.md` / `README.md` | `CLAUDE.md:16` / `README.md:81` | v8.21.0 リリースノート節の履歴記述（§4.3） |
+| `plugin/plangate/rules/mode-classification.md` | `:49` | **生成物**。§5 手順 4 の `sh scripts/sync-plugin-plangate.sh` で 12 に変わる。手順 4 の**後**に再実行してこの行が消えることを確認する |
+| `scripts/hooks/check-plan-hash.sh` | PATCH-A のみ: **0 行** / 4 本適用後: **1 行** | `:327` は「当時は 9 カテゴリ」に書き換わるため上の `grep -v` で除外される。4 本適用後に増える 1 行は **#1234 の patch が新規追加するコメント**（「HO 9 カテゴリ判定より **前**」）で、**PATCH-C は `case` ブロック内の 2 箇所しか 12 へ直さないため、この行だけ 9 のまま残る**。文言だけの乖離で判定ロジックには影響しないが、**`1234-*` 側の follow-up で 12 へ揃える**（行番号は patch 適用で動くため文言で照合すること） |
+| `tests/extras/ta-77-approval-surface-gate.sh` | `:69` | §4.3 の理由で本 patch の対象外（§8-6 の follow-up） |
+| **`tests/extras/ta-79-eh3-bash-lane.sh`** | `:405` | **同上（`tests/` は本 PR の対象外）**。#1289 で追加。本書初版の期待表に無く、Human が「取りこぼしあり」と誤判定する原因だった |
+| **`tests/extras/ta-80-eh3-outside-repo.sh`** | `:321` / `:360` / `:362` / `:364` | **同上（`tests/` は本 PR の対象外）**。#1289 で追加。TC-06 の説明文とメッセージ文字列。**PATCH-C（§8-5）適用後は実体が 12 カテゴリになるため、これらの文言は `tests/` 側の follow-up で 12 へ揃える**（文言だけの乖離であり TC-06 の照合ロジックはカテゴリ数に依存しない） |
 
-**これら以外が残っていたら宣言面の取りこぼしである。**
+**これら以外が残っていたら宣言面の取りこぼしである。** 逆に、**`tests/extras/` に新しい TC が
+増えれば本表の行は増える**（`tests/` は本 patch の対象外という同一の理由による）。
+適用時は「表に無いパスが出たか」を見ること。
 
 ---
 
@@ -596,6 +602,9 @@ index 5cf7762..0a47f85 100755
 1. 上記 `sed` で patch を抽出し、`git apply --check` が rc=0 であることを確認する
 2. `git apply /tmp/1226-approval-surface.patch`
    （**先に #1234 の patch を当てている場合は `git apply -3` または `patch -p1`。§8-5 の実測に従う**）
+   — **#1234 の patch を併用する場合は、続けて §8-5-bis の PATCH-C を必ず適用する**
+   （`(ii-b) _phys_key` 側が 9 arms のまま残り、PATCH-A が守ろうとした 3 カテゴリだけ
+   symlink 経由で素通りする。あわせて `tests/extras/ta-80-eh3-outside-repo.sh` の TC-06 が FAIL する）
 3. **§4.4 の grep を実行し、`tests/extras/ta-77-approval-surface-gate.sh` 以外に「9 カテゴリ」が残らないことを確認する**（実装だけ 12 で規範が 9 のまま、という本 issue と同型の状態を作らない）
 4. **`sh scripts/sync-plugin-plangate.sh` を実行し、`plugin/plangate/rules/mode-classification.md` の差分をコミットする**
    — **これを飛ばすと `sync-plugin-plangate.yml` の `drift-check` job が `exit 1` で即 FAIL する**。
@@ -667,7 +676,7 @@ EH-3 の HO block は**多層防御の 1 層**にすぎない。承認境界の�
 | 2 | HO 判定の before/after | §1 表 + §4 変異（次節） |
 | 3 | `.codex/skills` drift の実測 | §2 表（10 / 40。行数の定義は §2 に明記） |
 | 4 | 偽陽性の確認（skills を HO にしない） | 変異 M-3 |
-| 5 | `#1234` / `#1278` の patch との併用順 | **§8-5 の実測に従う（旧版の記述は誤り）** |
+| 5 | `#1234` / `#1278` の patch との併用順 | **§8-5 の実測に従う（旧版の記述は誤り）**。**#1234 併用時は §8-5-bis の PATCH-C が必須**（未適用だと `(ii-b)` が 9 arms のまま残り ta-80 TC-06 が FAIL） |
 | 6 | `tests/extras` の新規 TC | **未作成**（`.sh` は本セッションで作成不可。`tests/` は並行作業中のため読取のみ）。仕様は変異表。`ta-77` の台帳追随要否も適用時に確認 |
 | 7 | `docs/ai/hook-enforcement.md` 残存脅威モデルへの追記 | **本 patch のハンクで 9 → 12 の数だけ更新済み**。「7 番目のクラス」の追記は follow-up |
 | 8 | 宣言面の全数更新 | §4（12 面）+ §4.4 の差集合 grep |
@@ -704,16 +713,131 @@ EH-3 の HO block は**多層防御の 1 層**にすぎない。承認境界の�
    2 本目の `git apply` は失敗する。**2 本目は `patch -p1` で当てる**（両順序 rc=0 実測）。
    本 patch は `index` 行を持つため `git apply -3` も選べるが、**#1234 の patch 文書側は
    依然 `index` 行を持たない**ので、#1226 → #1234 の順では `patch -p1` が唯一の手段になる
-3. 実測した通し手順（3 本すべて / rc すべて 0）:
+3. 実測した通し手順（**4 本 / rc すべて 0**。4 本目は下記 §8-5-bis の PATCH-C で、**省略不可**）:
 
    ```sh
    git apply /tmp/1278-log-event.patch          # rc=0
    git apply /tmp/1226-approval-surface.patch   # rc=0
    patch -p1 < /tmp/1234-eh3-outside-repo.patch # rc=0
+   git apply /tmp/1226c-phys-key-parity.patch   # rc=0  ← 必須（§8-5-bis）
    ```
 
    適用後の `case` ブロックで**既存 15 パターンが逐語不変**であること、および
    `*.rej` / `*.orig` が生成されないことを実測済み
+
+### 8-5-bis. PATCH-C（**#1234 と併用するとき必須** / `(ii-b) _phys_key` への追随）
+
+> 初版の通し手順（`1278` → `1226` → `1234` の 3 本）には**穴があった**。
+> 本節はその是正であり、**3 本を当てる運用では 4 本目として必ず適用する**。
+
+**何が起きるか（`bd2da8a5` + 3 本適用状態で実測）**: #1234 が新設する
+`(ii-b) case "$_phys_key" in`（物理解決後パス側）は **9 arms のまま**で、
+PATCH-A が `(ii) case "$_ho_key" in` に足した 3 arms（12 arms）を持たない。
+実測（両ブロックの `_override=1` 行をインデント除去して `diff`）:
+
+```text
+12  # (ii)  _ho_key
+ 9  # (ii-b) _phys_key
+10,12d9
+< .codex/hooks.json|.cursor/hooks.json) _override=1 ;;
+< .codex/hooks/*.sh|.cursor/hooks/*.sh) _override=1 ;;
+< scripts/check-approval-token-write.sh) _override=1 ;;
+```
+
+**実害 1（防御の穴）**: 3 本適用済みの hook に symlink を渡した実走
+（`PLANGATE_SKIP_REASON=probe sh scripts/hooks/check-plan-hash.sh "" <symlink>`）:
+
+| 対象 | PATCH-C 適用前 | PATCH-C 適用後 |
+|---|---|---|
+| `link → .codex/hooks.json`（PATCH-A で追加したカテゴリ） | **rc=0 / `[Hook EH-3 SKIP]`（素通り）** | **rc=2 / `HARDENING_OVERRIDE`** |
+| `link → CLAUDE.md`（既存 9 カテゴリ） | rc=2 / `HARDENING_OVERRIDE` | rc=2 / `HARDENING_OVERRIDE` |
+
+つまり **PATCH-A が「非対称の解消」として最優先で守ろうとした対象**
+（EH-13 本体 `scripts/check-approval-token-write.sh` と他 Provider の enforcement 配線）
+**だけが、#1234 が塞いだはずの symlink クラスに対して開いたまま**になる。
+
+**実害 2（CI / テスト）**: `tests/extras/ta-80-eh3-outside-repo.sh` の **TC-06**
+（`(ii)` と `(ii-b)` の行がインデント除去後バイト一致であることの検査）が **FAIL** する。
+**この手順を踏まないと ta-80 TC-06 が落ちる**ので、原因を探す前に本節へ戻ること。
+
+> **TC-06 は `_override=1` の行だけでなく `case` ブロック内の全非空行（コメント行を含む）を
+> 比較する**。したがって PATCH-C は `(ii)` 側と**同じコメント 2 行**を `(ii-b)` にも入れる。
+> arms 3 行だけを手で足すと TC-06 は MATCH にならない（本 patch 初稿がこれで DIFF になった実測）。
+
+**patch（`git apply` 用 / 3 本適用後の状態に対して `--check` rc=0 実測）**:
+
+抽出:
+
+````sh
+sed -n '/^<!-- PG-PATCH-C-BEGIN -->$/,/^<!-- PG-PATCH-C-END -->$/p' \
+  docs/working/_reports/1226-approval-surface-patch-applicable.md \
+  | sed -e '1d' -e '$d' | sed -e '1d' -e '$d' > /tmp/1226c-phys-key-parity.patch
+git apply --check /tmp/1226c-phys-key-parity.patch   # 3 本適用後に rc=0
+````
+
+<!-- PG-PATCH-C-BEGIN -->
+`````diff
+diff --git a/scripts/hooks/check-plan-hash.sh b/scripts/hooks/check-plan-hash.sh
+index b90b91f..10df81d 100755
+--- a/scripts/hooks/check-plan-hash.sh
++++ b/scripts/hooks/check-plan-hash.sh
+@@ -484,14 +484,14 @@ case "$_ho_key" in
+   # .claude/settings*.json が HO であることとの非対称の解消。skills は対象外。
+   .codex/hooks.json|.cursor/hooks.json) _override=1 ;;
+   .codex/hooks/*.sh|.cursor/hooks/*.sh) _override=1 ;;
+   scripts/check-approval-token-write.sh) _override=1 ;;
+ esac
+ # (ii-b) #1234: 物理解決後の repo 相対パス（_phys_target を _pg_fold_path で小文字化
+-# した _phys_key）にも同じ 9 カテゴリを当てる。_ho_key との union（どちらか一致で
+-# block）。9 カテゴリの正本は上の case ブロック（_override=0 直後）であり、本ブロックの
++# した _phys_key）にも同じ 12 カテゴリを当てる。_ho_key との union（どちらか一致で
++# block）。12 カテゴリの正本は上の case ブロック（_override=0 直後）であり、本ブロックの
+ # 一覧は正本と同一に保つこと（ta-80 TC-06 が照合）。
+ _phys_key=""
+ if [ "$_override" = "0" ] && [ -n "${_phys_target:-}" ]; then
+   _pg_fold_path "$_phys_target" "" 1
+   if [ "$_PG_FOLD_RC" = "0" ]; then
+     _phys_key=$_PG_FOLD_OUT
+@@ -505,12 +505,17 @@ if [ -n "$_phys_key" ] && [ "$_phys_key" != "$_ho_key" ]; then
+     .claude/agents/*.md|.claude/agents/*/*.md) _override=1 ;;
+     scripts/hooks/*.sh) _override=1 ;;
+     bin/plangate) _override=1 ;;
+     schemas/*.schema.json) _override=1 ;;
+     .github/workflows/*.yml|.github/workflows/*.yaml) _override=1 ;;
+     agents.md|claude.md) _override=1 ;;
++    # (#1226) 他 Provider の enforcement 配線と承認トークンガード本体。
++    # .claude/settings*.json が HO であることとの非対称の解消。skills は対象外。
++    .codex/hooks.json|.cursor/hooks.json) _override=1 ;;
++    .codex/hooks/*.sh|.cursor/hooks/*.sh) _override=1 ;;
++    scripts/check-approval-token-write.sh) _override=1 ;;
+   esac
+ fi
+ if [ "$_override" = "1" ]; then
+   # AC-9: 監査ログと reason には**生の要求パス**を残す（正規化後の値ではない）。
+   reason="HARDENING_OVERRIDE: ${target_file:-} は maintenance 窓内でも常時 block (R-003/R-015)"
+   log_event "HARDENING_OVERRIDE" "$reason"
+`````
+<!-- PG-PATCH-C-END -->
+
+**適用後の受入条件（機械照合）**:
+
+```sh
+# 1) 両ブロックの arms が一致すること（rc=0 / 12 arms・12 arms）
+sed -n '/^case "$_ho_key" in$/,/^esac$/p'      scripts/hooks/check-plan-hash.sh \
+  | grep '_override=1' | sed 's/^ *//' > /tmp/a.txt
+sed -n '/^  case "$_phys_key" in$/,/^  esac$/p' scripts/hooks/check-plan-hash.sh \
+  | grep '_override=1' | sed 's/^ *//' > /tmp/b.txt
+diff /tmp/a.txt /tmp/b.txt   # rc=0
+
+# 2) ta-80 TC-06 の比較器（コメント行を含む全非空行）が MATCH を返すこと
+sh tests/extras/ta-80-eh3-outside-repo.sh   # TC-06 が PASS
+```
+
+**注意**: PATCH-C の `index` 行の前側 blob（`b90b91f`）は
+**3 本適用後の内容**のハッシュであり、適用前の main には存在しない。
+`git apply -3` は使えない（`git apply` / `patch -p1` を使う）。
+また **#1234 を当てない運用（PATCH-A 単独）では PATCH-C は不要**
+（`(ii-b)` ブロック自体が存在しないため）。
 
 ### 変異注入（検出力）
 
