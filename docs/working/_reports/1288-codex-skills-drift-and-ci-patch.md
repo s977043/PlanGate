@@ -14,12 +14,12 @@
 |---|---|
 | **乖離の全数（自分で数え直した）** | `SKILL.md` は **40 対中 10 件** が byte 不一致（issue 本文と一致）。ただし **`SKILL.md` だけを見るのは過小**で、`.codex/skills/**` 全体では **11 ファイル**が生成結果と不一致（+`plan-normalization/agents/openai.yaml`）。§1 |
 | **どちらが正しいか** | **10 件すべて `.agents/skills/`（正本）が正しい**。`.codex` 側にしかない行は合計 **102 行**あるが、その全部が「正本が新版へ差し替えた旧版の段落」であり、**正本に無い独自の内容は 1 行も無い**。§2 |
-| **単純上書きしてよいか** | **10 件すべて可**。§2 の 3 つの独立根拠（履歴・行単位・全ツリー再生成）で裏取り済み。**正本へ取り込むべき差分は 0 件**。PR #1212 が意図的に除外した `plan-review-gate` の「`.codex` 独自節 34 行」は、その後 PR #1221 が両レーンへ入れており **現時点では解消済み**（codex-only 行は 1 行のみ・旧表記）。§2.2 |
+| **単純上書きしてよいか** | **10 件すべて可**（＝ `.codex` 側に保存すべき独自内容は無い）。§2 の 3 つの独立根拠（履歴・行単位・全ツリー再生成）で裏取り済み。**正本へ取り込むべき差分は 0 件**。**ただし「上書き可」は「上書き後の記述が Codex レーンで正しく解決する」を意味しない**: `ai-dev-exec` / `ai-dev-plan` / `ai-dev-verify` / `ai-loop-cycle` の **4 skill は例外**で、上流 `.codex` レーンでは**構造上つねに不在**の同梱 `references/` を参照する記述が入る（§2.4）。再同期自体は実施してよいが、§9-5 の Human 判断を伴う。PR #1212 が意図的に除外した `plan-review-gate` の「`.codex` 独自節 34 行」は、その後 PR #1221 が両レーンへ入れており **現時点では解消済み**（codex-only 行は 1 行のみ・旧表記）。§2.2 |
 | **承認手順の欠落（機械照合）** | 「**CLI / 機械 block が無いことを理由に手順を黙って省略し、実施済みと読める記録を残してはならない**」系の規範文は `.agents` の **8 skill** にあり、`.codex` には **0 件**。うち `plan-review-gate` の「**機械 block が無いことを理由に C-3 を省略しない**」は正本 1 件・codex 0 件。§3 |
 | **再発防止 CI** | 2 層（層 1 = installer 非依存の byte 照合・双方向 / 層 2 = 全ツリー再生成して差分ゼロ）。**`pull_request.paths` に `.codex/skills/**` を含める**（含めないと起動しない）。§5・§6 |
-| **positive control** | 層 2 は 3 クラス（内容改竄 / skill 内の余剰ファイル / 正本に無い skill ディレクトリ）を、層 1 は 3 分岐（欠落 / 余剰 `references` / 余剰 skill ディレクトリ）を仕込んで **すべて検出（rc=1）**。無改竄では両層とも **rc=0（PASS）**。サンドボックス実測。§5.4 / §5.5 |
+| **positive control** | 層 2 は 3 クラス（内容改竄 / skill 内の余剰ファイル / 正本に無い skill ディレクトリ）を、層 1 は **4 分岐**（欠落 / 正本に `references/` を持つ skill の余剰 `references` / 余剰 skill ディレクトリ / **正本に `references/` を持たない skill への `references/` 偽造**）を仕込んで **すべて検出（rc=1）**。無改竄では両層とも **rc=0（PASS）**。サンドボックス実測。§5.4 / §5.5 |
 | **`git apply --check`** | repo root で **rc=0**（§6.2 に実測コマンドと出力） |
-| **適用しても塞がらないもの** | CI が **advisory**（required status check ではない）ので赤でもマージできる / installer 自体の改竄（層 2 が空振り。層 1 が緩和） / `.agents/skills/**` 正本そのものの改変（HO 外・#1263） / hook 未配線の導入先。§8 |
+| **適用しても塞がらないもの** | CI が **advisory**（required status check ではない）ので赤でもマージできる / installer 自体の改竄（層 2 が空振り。層 1 が**部分的にだけ**緩和 — 層 1 の canon→mirror 内容照合が及ぶ `references/` は **正本 40 skill 中 2 skill 分のみ**。実測は §5.2） / `.agents/skills/**` 正本そのものの改変（HO 外・#1263） / hook 未配線の導入先。§8 |
 
 ---
 
@@ -66,6 +66,8 @@ find .codex/skills -type f | sed 's|.*/||' | sort | uniq -c | sort -rn
 #   40 SKILL.md / 40 plangate-small.svg / 40 openai.yaml
 #    1 ui-ux-lane.md / 1 review-default.md / 1 design-principles.md   （= references/ 配下 2 skill 分）
 ```
+
+> **この内訳は `.codex/skills/.system/` が不在のツリー限定の実測**（`git clone` 直後のサンドボックス複製、および Codex を回していない worktree）。`.system/` は `.gitignore` 登録の実行時ディレクトリで、Codex セッションを走らせたことのある作業ツリーでは `find` に載るため上記は再現しない。tracked ファイルだけを数えるなら `find` ではなく `git ls-files .codex/skills` を使うこと。層 1 手動実行時の偽陽性は §8 に既述。
 
 サンドボックス複製で `sh scripts/install-plangate-skills-to-codex.sh --force` を 1 回実行した結果（`git status --porcelain`）:
 
@@ -121,6 +123,12 @@ diff -r .agents/skills/review-gate/references  .codex/skills/review-gate/referen
 | 10 | `working-context` | 8 | 8 | 0 | 同上 | **`.agents`** | **可** |
 | — | （11 件目）`plan-normalization/agents/openai.yaml` | — | — | — | 生成物 `short_description` が旧 description 由来 | **`.agents` 由来の再生成** | **可** |
 
+> **「単純上書き可」の意味（§2.4 の例外を必ず併読すること）**: この列は
+> **「`.codex` 側に保存すべき独自内容が無い」**の判定であり、上書き後の記述が Codex レーンで
+> 正しく解決することまでは主張していない。#1〜#4（`ai-dev-plan` / `ai-dev-verify` / `ai-dev-exec` /
+> `ai-loop-cycle`）は、上流 `.codex` レーンでは**構造上つねに不在**の同梱 `references/` を参照する
+> 記述を含む。§2.4 参照。
+>
 > 参考: #1226 の調査（PR #1287）も同じ 10 件・同じ差分行数（128/98/87/81/79/15/9/8/8/8）を報告している。**本書は数値を転記せず独立に測って一致を確認した**（10 件すべて一致）。
 
 ### 2.2 「消してはいけない差分」は無い — 3 つの独立根拠
@@ -161,6 +169,83 @@ PR #1212 は人間裁定 Q6=B により `plan-review-gate` を再同期対象か
 - 現在の codex-only 行は **1 行のみ**（上記 §2.2 根拠 B）で、独自節は残っていない。
 
 したがって **`plan-review-gate` を除外する理由は消滅している**。ただしこれは Q6=B の裁定を AI が撤回するものではない — **再同期を実施する Human が「除外理由の消滅」を確認したうえで判断する事項**として §9 に送る。
+
+### 2.4 例外: 4 skill は再同期で「存在しない同梱ファイル」への参照が Codex レーンへ入る
+
+§2.1 の「10 件すべて単純上書き可」は **`.codex` 側に保存すべき独自内容が無い**という判定であって、
+**上書き後の記述が Codex レーンで解決する**という主張ではない。次の 4 skill でその区別が効く。
+
+**実測 1 — 正本が「同梱 `references/`」を参照しているが、正本側にそのディレクトリが無い:**
+
+```sh
+for n in ai-dev-exec ai-dev-plan ai-dev-verify ai-loop-cycle; do
+  printf '%-16s canon_同梱言及=%s canon_refs_dir=%s plugin_refs=%s\n' "$n" \
+    "$(grep -c '同梱' .agents/skills/$n/SKILL.md)" \
+    "$([ -d .agents/skills/$n/references ] && echo YES || echo ABSENT)" \
+    "$(ls plugin/plangate/skills/$n/references 2>/dev/null | wc -l)"
+done
+```
+
+| skill | 正本の「同梱」言及 | `.agents/.../references/` | `plugin/.../references/`（実配布） |
+|---|---|---|---|
+| `ai-dev-exec` | 9 | **ABSENT** | 4 ファイル |
+| `ai-dev-plan` | 11 | **ABSENT** | 12 ファイル |
+| `ai-dev-verify` | 11 | **ABSENT** | 5 ファイル |
+| `ai-loop-cycle` | 12 | **ABSENT** | 23 ファイル |
+
+`references/` は `scripts/sync-plugin-plangate.sh` が **`plugin/plangate/skills/**` にだけ生成**する。
+一方 `scripts/install-plangate-skills-to-codex.sh` の `sync_refs` は **source（`.agents/skills/<n>/references`）が
+無い skill を「管理外」として何も配らない**。したがって **`.codex` レーンだけの非対称**である
+（`plugin` レーンには実ファイルが届いている）。
+
+**実測 2 — 再同期を実行すると何が起きるか**（`git clone --no-hardlinks --no-local` した複製で
+`sh scripts/install-plangate-skills-to-codex.sh --force` を 1 回。rc=0）:
+
+| skill | 再同期**前**の `.codex`（同梱言及 / 解決不可言及 / #1249 例外注記） | 再同期**後**（同左） | 後の `references/` |
+|---|---|---|---|
+| `ai-dev-exec` | 0 / 4 / 0 | **9** / 3 / **1** | **ABSENT** |
+| `ai-dev-plan` | 0 / 4 / 0 | **11** / 3 / **1** | **ABSENT** |
+| `ai-dev-verify` | 0 / 5 / 0 | **11** / 3 / **1** | **ABSENT** |
+| `ai-loop-cycle` | **9** / 1 / 0 | **12** / 0 / **0** | **ABSENT** |
+
+読み方（レビュー指摘より粒度を上げて確定した点）:
+
+- **`ai-dev-exec` / `ai-dev-plan` / `ai-dev-verify`**: 現在の `.codex` は「コピー対象外（解決不可）/
+  未配置（解決不可）」と書いており **正直**。再同期でその行が「`<skill_dir>/references/` に同梱（解決可）」へ
+  置き換わるため、**表の記述としては退行する**。ただし正本はこの 3 skill に限り
+  **#1249 MINOR-3 の例外注記**（「上流リポジトリ自身が `.codex/skills/` を作る経路では
+  `references/` は **構造上つねに不在**であり、契約 doc は『解決できなかったと明示』へ落ちる」）を
+  同じ節に持っており、注記も一緒に伝播する。**表の 1 セルは誤り・直後の注記は正しい**という状態になる。
+- **`ai-loop-cycle`**: 現在の `.codex` が **すでに 9 箇所で「同梱 `references/`」を主張しており**、
+  正直ではない。正本にも例外注記が **無い**（`構造上つねに不在` の grep が 0 件）。
+  つまりこの skill については **再同期は退行ではなく、正本側の記述に不足がある**。
+
+**したがってレビュー指摘「4 skill とも現在の `.codex` の方が正直」は 3 skill について成立し、
+`ai-loop-cycle` については成立しない**（自分で数え直した結果、指摘の症状だけでなく分布が違った）。
+影響先は c3-prime 契約（`ai-dev-exec` の exec 入口条件）と C-3′ 経路（`ai-loop-cycle`）。
+
+#### 推奨案と棄却理由（Human 判断は §9-5）
+
+| 案 | 内容 | 判定 |
+|---|---|---|
+| **(c) 正本側の表現を「配布先により解決可否が異なる」へ揃える** | 4 skill の参照解決表と「同梱リファレンス」節に、`ai-dev-exec` 等が既に持つ #1249 MINOR-3 相当の例外注記を**明示的に載せる**（`ai-loop-cycle` は新規追加、他 3 skill は表セル自体を「配布経路により可否が変わる」表現へ寄せる） | **推奨** |
+| (a) 4 skill の `references/` を Codex レーンにも配る（installer 変更） | `install-plangate-skills-to-codex.sh` の source を `plugin/plangate/skills/` へ寄せる等 | 棄却（本 PR では） |
+| (b) 当該行を Codex レーン向けに書き分ける | installer に mirror 専用の文言置換を持たせる | 棄却 |
+
+- **(c) を推す理由**: 正本が 1 つで、記述が配布経路すべてで真になる。上流の `.codex` レーンは
+  ドッグフーディング用であり、そこでは `docs/**` の正本を直接読めるため実害は「表が 1 セル嘘」に
+  留まる。**既に 3 skill が同じ手当てを持っている**ので、新規パターンを増やさず `ai-loop-cycle` を
+  揃えるだけで整合する（既存パターン踏襲）。層 1 / 層 2 の CI とも独立で、本 patch の設計を変えない。
+- **(a) の棄却理由**: source 一本化は `.codex` と `.agents` の二重 root 登録（#1086）の裁定と
+  密結合しており、本 PR の範囲（調査 + CI patch）を超える。加えて `scripts/` は Hardening Override
+  対象ではないものの、installer 変更は生成物 40 skill 分を動かす **別 PR 相当の影響範囲**。
+  「後で source を一本化する」道は (c) を入れても閉じない（(c) は注記であり、解決可になれば注記が
+  無害化するだけ）。
+- **(b) の棄却理由**: installer が本文を書き換えると **層 1（byte 照合・installer 非依存）の前提が壊れる**。
+  「無変換 `cp` で配られるものは `cmp` で独立に主張できる」という本 patch の中核が失われ、
+  drift 検出が installer の正しさに全面依存する。承認手順の定義面を守る目的と真っ向から衝突する。
+
+**本 PR ではいずれも実施しない**（`.agents/` は本 PR の変更対象外）。§9-5 の Human 判断事項。
 
 ---
 
@@ -266,10 +351,40 @@ issue 本文と #1226 は「承認手順の定義面 **7 件**」と数えてい
 
 | 層 | 何を照合するか | 方向 | installer 依存 |
 |---|---|---|---|
-| **層 1** | 無変換 `cp` で配られる 2 種（`SKILL.md` / `references/*.md`）の byte 一致 + 欠落 + 余剰 | **双方向**（canon→mirror で欠落・乖離、mirror→canon で余剰 skill ディレクトリと余剰 `references/*.md`） | **非依存**（`cmp` のみ。installer が no-op に改竄されても主張が立つ） |
+| **層 1** | 無変換 `cp` で配られる 2 種（`SKILL.md` / `references/*.md`）の byte 一致 + 欠落 + 余剰 | **双方向**（canon→mirror で欠落・乖離、mirror→canon で余剰 skill ディレクトリと余剰 `references/*.md`） | **非依存**（`cmp` のみ。installer が no-op に改竄されても主張が立つ）。**ただし主張の及ぶ範囲は下記のとおり非対称** |
 | **層 2** | `.codex/skills/**` **全体**（`agents/openai.yaml` / `assets/*` / 余剰ファイルを含む） | **双方向**（`rm -rf` してから再生成するので、生成されないファイルは `D` として現れる） | **依存**（installer を実行する） |
 
 2 層にする理由: 層 1 だけでは §1.3 の 11 件目（生成物）と skill ディレクトリ内の余剰ファイルを見逃す。層 2 だけでは **installer 自体を no-op に改竄されると空振り**する。**片方が他方を代替しない。**
+
+#### 層 1 の主張が及ぶ範囲（installer 非依存性の限界 / #1288 MAJOR-2）
+
+層 1 の `SKILL.md` 照合は **正本 40 skill すべて**に及ぶが、`references/*.md` の
+**canon→mirror（欠落・乖離）照合は、正本に `references/` を持つ skill にしか及ばない**。実測:
+
+```sh
+ls -d .agents/skills/*/ | wc -l                     # 40
+ls -d .agents/skills/*/references 2>/dev/null | wc -l # 2  ← review-gate / skill-creator のみ
+```
+
+**すなわち層 1 の `references` 内容照合は 40 skill 中 2 skill 分にしか働かない。**
+残り 38 skill には canon 側に比較対象が存在しないため、「内容が一致しているか」は
+原理的に問えない（installer が改竄されていてもこの 38 skill について層 1 は何も言わない）。
+
+この非対称は **§2.4 と組み合わさると実害になりうる**: `ai-dev-exec` の `SKILL.md` は
+同梱 `references/c3-prime-contract.md` を **exec 入口条件の正本として指す**が、canon 側に
+`references/` が無いため、初版の層 1 実装（`[ -d "$srcref" ] || continue`）では
+**mirror 側に偽の `c3-prime-contract.md` を置いても余剰チェックごと skip されて rc=0** だった
+（レビュアーの変異注入 d と、§5.5 で本書が再現した結果が一致）。
+
+**そこで層 1 を次のとおり修正した**（本 patch に反映済み）: canon→mirror の欠落・乖離照合は
+`[ -d "$srcref" ]` のガード内に置いたまま、**mirror→canon の余剰照合をガードの外に出す**。
+canon に `references/` が無い skill でも mirror 側の `references/*.md` は全件「正本なし＝余剰」として
+落ちる。これで **`SKILL.md` が同梱と主張する `references/` を偽造する経路は層 1 単独でも塞がる**
+（§5.5 の変異 d / rc=1）。
+
+**それでも残るもの**: `references/*.md` **以外**の拡張子で偽造したファイル（層 1 は `*.md` のみ見る）と、
+`assets/` / `agents/openai.yaml` の偽造。これらは **層 2 のみ**が検出する（＝層 2 が installer 改竄で
+空振りする状況下では検出手段が無い）。§8 に残存として記載。
 
 対象範囲は installer の実装を読んで決めた（`cp SKILL.md` / `sync_refs`（`references/*.md` のコピー + 正本に無いものの削除）/ `cp` assets / `{ ... } > openai.yaml` の 4 種）。`assets/*` は per-skill の正本を持たない（出所は `plugin/plangate/assets`）ため層 1 の byte 照合には載せず、層 2 の再生成一致でのみ担保する。
 
@@ -313,15 +428,23 @@ patch をサンドボックスへ適用し、workflow の `run` ブロックを*
 |---|---|---|
 | 現 main（drift あり） | **rc=1**（10 件の `::error::drift` を出力） | **rc=1**（§1.3 の 11 ファイルを列挙） |
 | 再同期をコミットした状態 | **rc=0**（`layer1: copied artifacts are in sync.`） | **rc=0**（`layer2: .codex/skills/ matches the generated tree.`） |
-| 層 1 の 3 分岐へ変異注入（下記） | **rc=1**（3 件とも検出） | — |
+| 層 1 の 4 分岐へ変異注入（下記） | **rc=1**（4 件とも検出） | — |
 
 層 1 の変異注入（**現 main が 0 件のため、空振りでないことを別途示す必要がある分岐**）:
 
-1. `.codex/skills/plangate-setup/SKILL.md` を削除 → `::error::missing .codex/skills/plangate-setup/SKILL.md (canon: ...)`
-2. `.codex/skills/review-gate/references/EXTRA.md` を追加（正本に無い `references`）→ `::error::surplus ... (no canon)`
-3. `.codex/skills/zz-orphan/` を追加（正本に無い skill ディレクトリ）→ `::error::surplus skill dir ... (no canon)`
+1. `.codex/skills/plangate-setup/SKILL.md` を削除 → `::error::missing .codex/skills/plangate-setup/SKILL.md (canon: .agents/skills/plangate-setup/SKILL.md)`（rc=1）
+2. `.codex/skills/review-gate/references/EXTRA.md` を追加（**正本に `references/` を持つ** skill への余剰）→ `::error::surplus .codex/skills/review-gate/references/EXTRA.md (no canon)`（rc=1）
+3. `.codex/skills/zz-orphan/` を追加（正本に無い skill ディレクトリ）→ `::error::surplus skill dir .codex/skills/zz-orphan/ (no canon)`（rc=1）
+4. **（#1288 MAJOR-2 で追加）** `.codex/skills/ai-dev-exec/references/c3-prime-contract.md` を捏造（**正本に `references/` を持たない** skill への偽造。`SKILL.md` が「同梱」と主張しているファイル名を使う）→ `::error::surplus .codex/skills/ai-dev-exec/references/c3-prime-contract.md (no canon)`（rc=1）
 
-**3 分岐すべて検出。** また層 1 の `diff -u ... | head -40 || true` が `pipefail` 下でもステップを落とさず、10 件すべてを報告し切ることを実測した（`head` の早期終了で errexit が効く既知の罠を回避できている）。
+**4 分岐すべて検出。** 分岐 4 は **初版の層 1 実装では rc=0（素通り）だった**ことを先に実測したうえで、
+§5.2 の修正（mirror→canon 余剰照合を `[ -d "$srcref" ]` ガードの外へ）を入れて rc=1 に転じることを確認している
+（修正前後の対照。片側だけの測定で「検出できる」と書いていない）。層 2 は修正前の実装でも
+同じ変異を `D .codex/skills/ai-dev-exec/references/c3-prime-contract.md` として検出しており（rc=1）、
+**この経路は当初から多層防御としては閉じていた**が、**層 1 の「installer 非依存で主張が立つ」という
+記述はこの経路について成立していなかった**。
+
+また層 1 の `diff -u ... | head -40 || true` が `pipefail` 下でもステップを落とさず、10 件すべてを報告し切ることを実測した（`head` の早期終了で errexit が効く既知の罠を回避できている）。
 
 ---
 
@@ -346,7 +469,7 @@ new file mode 100644
 index 0000000..1111111
 --- /dev/null
 +++ b/.github/workflows/codex-skills-drift.yml
-@@ -0,0 +1,105 @@
+@@ -0,0 +1,110 @@
 +name: codex-skills-drift
 +
 +# .codex/skills/ が生成元 .agents/skills/ と乖離していないことを PR で必須化する (#1288)。
@@ -414,17 +537,22 @@ index 0000000..1111111
 +            fi
 +            srcref=".agents/skills/$n/references"
 +            dstref=".codex/skills/$n/references"
-+            [ -d "$srcref" ] || continue
-+            for r in "$srcref"/*.md; do
-+              [ -f "$r" ] || continue
-+              b=$(basename "$r")
-+              if [ ! -f "$dstref/$b" ]; then
-+                echo "::error::missing $dstref/$b"
-+                rc=1
-+                continue
-+              fi
-+              cmp -s "$r" "$dstref/$b" || { echo "::error::drift $dstref/$b"; rc=1; }
-+            done
++            # canon -> mirror (欠落・乖離) は canon に references/ を持つ skill だけが対象。
++            if [ -d "$srcref" ]; then
++              for r in "$srcref"/*.md; do
++                [ -f "$r" ] || continue
++                b=$(basename "$r")
++                if [ ! -f "$dstref/$b" ]; then
++                  echo "::error::missing $dstref/$b"
++                  rc=1
++                  continue
++                fi
++                cmp -s "$r" "$dstref/$b" || { echo "::error::drift $dstref/$b"; rc=1; }
++              done
++            fi
++            # mirror -> canon (余剰) は canon に references/ が無い skill でも必ず見る (#1288 MAJOR-2)。
++            # ここを [ -d "$srcref" ] のガード内に置くと、canon に references/ を持たない skill で
++            # 「SKILL.md が同梱と主張する references/」を偽造しても層 1 が素通りする。
 +            for r in "$dstref"/*.md; do
 +              [ -f "$r" ] || continue
 +              b=$(basename "$r")
@@ -465,14 +593,17 @@ $ git apply --check /tmp/1288-codex-skills-drift.patch
 $ echo $?
 0
 $ git apply --numstat /tmp/1288-codex-skills-drift.patch
-105	0	.github/workflows/codex-skills-drift.yml
+110	0	.github/workflows/codex-skills-drift.yml
 ```
+
+（`110` は §5.2 の層 1 修正を反映した後の実測。修正前は `105`。）
 
 サンドボックス複製での実適用も rc=0。適用後の YAML は `yaml.safe_load` でパース可能で、`pull_request.paths` / `push.paths` の双方に `.codex/skills/**` が含まれることを機械確認した。
 
 ### 6.3 適用手順（Human / repo root で実行）
 
 > **警告（順序を守ること）**: **この patch を先に当てると、`.codex/skills/**` または `.agents/skills/**` に触れる次の PR で CI が即 FAIL する。** 現 main には §1.3 の **11 ファイルの drift が残っている**ためである。**必ず「1. 再同期 → 2. patch」の順**、または**同一 PR で両方**を行うこと（先例: `1226-approval-surface-patch-applicable.md` §0 の PATCH-B 適用前提と同じ性質）。
+> **手順 1 の再同期は 4 skill の記述を退行させる**（§2.4 / §7 冒頭の警告）。再同期を実行する前に §9-5 を読むこと。
 
 ```sh
 # 0) 作業ブランチ（main へ直接 commit しない）
@@ -506,6 +637,15 @@ git status --porcelain -- .codex/skills/      # 空であること
 
 本 PR の AI セッションは **`PLANGATE_SKIP_REASON` 未設定**であり、EH-3 により `.md` 以外の書込が block される。`.codex/skills/**` の再同期は `SKILL.md`（`.md`）だけでなく `agents/openai.yaml` を書き換えるため、**本セッションでは実施していない**（Bash 経由で書けば技術的には通るが、それは #1104 の既知の穴を使った迂回であり規律上禁止）。
 
+> **警告（4 skill は再同期で記述が退行する / §2.4）**: `ai-dev-exec` / `ai-dev-plan` /
+> `ai-dev-verify` の 3 skill は、現在の `.codex` が「コピー対象外（解決不可）/ 未配置（解決不可）」と
+> **正直に**書いている箇所を、再同期が「`<skill_dir>/references/` に同梱（解決可）」へ置き換える。
+> 上流 `.codex` レーンには `references/` が **構造上つねに存在しない**（実測: §2.4）ため、
+> 再同期後の表は 1 セルが事実と違う状態になる（直後の #1249 MINOR-3 例外注記が打ち消すが、
+> 表だけを読むと誤る）。`ai-loop-cycle` は再同期前から同じ主張をしており、かつ正本に例外注記が
+> **無い**ため、再同期しても是正されない。**再同期を止める理由にはならない**（`.codex` 側に
+> 保存すべき内容は無く、正本追従が全体としては正しい）が、**§9-5 の Human 判断とセットで扱うこと**。
+
 | 実行主体 | 手順 |
 |---|---|
 | **Human**（推奨） | §6.3 の手順 1 |
@@ -538,7 +678,9 @@ git status --porcelain -- .codex/skills/      # 再生成後に空
 | 残存 | 内容 | 追跡 |
 |---|---|---|
 | **CI が advisory** | 本検査は required status check ではない。**赤でもマージできる**（ruleset 操作は Human-owned）。「CI があるから担保されている」と書かないこと | #928 |
-| **installer 自体の改竄** | 層 2 は installer を実行するため、installer を no-op にすれば空振りする。層 1（`cmp`）が `SKILL.md` / `references/*.md` については緩和するが、`openai.yaml` は層 2 のみ | 本書（follow-up 候補） |
+| **installer 自体の改竄** | 層 2 は installer を実行するため、installer を no-op にすれば空振りする。層 1（`cmp`）が緩和する範囲は **`SKILL.md`（40/40 skill）** と **`references/*.md` の余剰（40/40 skill）**、および **`references/*.md` の内容一致（正本に `references/` を持つ 2/40 skill のみ・実測 §5.2）**。`openai.yaml` / `assets/*` / `*.md` 以外の偽造ファイルは **層 2 のみ**が見る | 本書（follow-up 候補） |
+| **`references/` の非 `.md` 偽造** | 層 1 の余剰照合は `"$dstref"/*.md` に限る。`.codex/skills/<n>/references/x.yaml` のような偽造は層 1 を通り、層 2 でのみ `D` として落ちる（＝ installer 改竄と組み合わせると検出手段が無い） | 本書（follow-up 候補） |
+| **`SKILL.md` が指す同梱 `references/` が上流 `.codex` に構造上不在** | 4 skill（`ai-dev-exec` / `ai-dev-plan` / `ai-dev-verify` / `ai-loop-cycle`）。本検査は「正本とコピーの一致」を守るのであって、**正本の記述が配布経路で解決すること**は守らない。`ai-loop-cycle` は正本側に例外注記も無い | §2.4 / §9-5 / #1086 |
 | **正本そのものの改変** | `.agents/skills/**` は HO 外。本検査が守るのは「正本とコピーの一致」であって「正本の内容が正しいこと」ではない | #1226 / #1263 |
 | **`.cursor/skills/plan-review-gate`** | `.agents/skills/plan-review-gate` への symlink であり、本検査の対象外 | #1226 §1 / #1264 |
 | **Codex CLI の実セッション 1 周** | 「規範ブロックが復元されたことで Codex の挙動が実際に変わる」ことは fixture では測れない。§3 の影響欄は**記述の欠落と、その規範が担う役割**から導いた推論であり、実セッションでの挙動計測ではない | 本書 |
@@ -553,6 +695,7 @@ git status --porcelain -- .codex/skills/      # 再生成後に空
 2. **#1226 PATCH-B と本 patch のどちらを採るか / 両方採るか**（§6.3 末尾）。
 3. **本検査を required status check に加えるか**（#928 の一部。ruleset 操作は Human-owned）。
 4. `openai.yaml` を層 1 側でも照合できるようにするか（installer 非依存にするには生成規則の独立実装が要る＝二重実装のコスト）。
+5. **4 skill の「同梱 `references/`」参照をどう扱うか**（§2.4）。選択肢は (a) `references/` を Codex レーンにも配る（installer 変更＝別 PR・#1086 の裁定と密結合）/ (b) installer が Codex レーン向けに文言を書き分ける / (c) 正本側の表現を「配布先により解決可否が異なる」へ揃える（`ai-loop-cycle` に #1249 MINOR-3 相当の例外注記を新設し、他 3 skill は表セル自体を経路依存の表現へ）。**本書の推奨は (c)**、棄却理由は §2.4 末尾（要旨: (a) は範囲外かつ (c) を入れても道が閉じない、(b) は層 1 の installer 非依存性という本 patch の中核を壊す）。**本 PR では 3 案とも実施していない**（`.agents/` は変更対象外）。
 
 ---
 
