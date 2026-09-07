@@ -412,32 +412,47 @@ _t79_mut_case M4 "TC-P01" "" "" "0" "$_T79_P_HARMLESS" 0 "$_T79_MARK"
 #   pin は PG_T79_EXPECT_1278（無ければ PG_T79_EXPECT にフォールバック）。
 #
 # ── 残存脅威モデル / plaform 差分（実測。推測ではない）─────────────
-# #1278 の **fail-open は shell 依存**である。監査ログ（hook-events.log）が
-# 444 の状態で patch 未適用の hook を実行した実測値:
+# #1278 の壊れ方は **OS ではなく `/bin/sh` の実体（どのシェルか）で決まる**。
+# `set -eu` の下で「書き込み不可先への `>>`」と「通常ファイルへの `mkdir -p`」を
+# 実行したときの rc（本 worktree での実測 / uid=502・非 root）:
 #
-#   | shell                | HO CLAUDE.md | 非 HO docs/foo.md | PlanGate 理由トークン |
-#   |----------------------|--------------|-------------------|----------------------|
-#   | macOS /bin/sh        | rc=1         | rc=1              | 出ない                |
-#   | dash (Linux CI 相当) | **rc=2**     | **rc=2**          | 出ない                |
+#   | sh の実体            | redirect 失敗 | mkdir 失敗 | 書き込み可（対照） |
+#   |----------------------|---------------|------------|--------------------|
+#   | /bin/sh (bash 3.2.57)| rc=1          | rc=1       | rc=0               |
+#   | /bin/dash            | **rc=2**      | rc=1       | rc=0               |
+#   | /bin/bash (3.2.57)   | rc=1          | rc=1       | rc=0               |
+#   | bash 5.3.15          | rc=1          | rc=1       | rc=0               |
 #
-# macOS の /bin/sh はリダイレクト失敗を **コマンドの失敗**として扱い set -e で
-# rc=1 終了する（= Claude Code の PreToolUse では「エラー表示つきの許可」＝
-# fail-open）。dash は **リダイレクト失敗でシェル自体を rc=2 で終了**するため、
-# 形の上では block 側に倒れる（素通りはしない）が、**PlanGate の判定を 1 度も
-# 通っていない**点は同じで、許可すべき経路（非 HO .md の DOC_LIGHT_SKIP）まで
-# 巻き込んで rc=2 になる。どちらも「監査ログが書けないと判定が成立しない」
-# という同一の欠陥の別の現れ方である。
-# なお `_audit` を通常ファイルにした（mkdir 失敗）ケースは **両 shell とも rc=1**
-# （リダイレクトではなく通常コマンドの失敗のため）。
+# 機構はどのシェルでも同じ（単純コマンドが失敗し `set -e` がその rc を返す。
+# シェルが特別な終了をするわけではない）。違うのは **リダイレクト失敗時に
+# dash が 2 を返す**という一点だけで、`mkdir` 失敗は **dash でも rc=1** である。
 #
-# したがって **gap レーンの判定に rc の具体値を使わない**。patch 未適用時に
-# plaform 非依存で成り立つ不変条件は
-#   「PlanGate の block 理由トークンが出力に現れない（正規の判定へ到達しない）」
-#   かつ「rc が 0 でない」
-# だけである（TC-12）。緩めすぎ検出は TC-12d が担う: **patch 適用済み複製では
-# この gap 述語が成立しない**（理由トークンが出る）ことを同時に実測する。
-# patch 適用後の rc / トークンは両 shell で同一（実測: rc=2 + HARDENING_OVERRIDE /
-# rc=0 + DOC_LIGHT_SKIP）なので TC-10 / TC-11 は従来どおり rc + トークンの対で固定する。
+# 帰結（重要）:
+#   - PreToolUse の配線は `sh <script>`（.claude/settings.example.json）なので、
+#     **`/bin/sh` が bash な Linux（Fedora / RHEL 系・多くのコンテナ）では
+#     Linux でも rc=1 = fail-open** になる。「Linux なら rc=2 で block 側に
+#     倒れる」は誤りで、最も危険なケースを安全に見せてしまう。
+#   - `_audit` を通常ファイルにした（mkdir 失敗）トリガは **dash でも rc=1 =
+#     fail-open**。#1278 の 3 トリガのうち少なくとも 1 つは shell を問わず
+#     fail-open のままである。
+#   - Ubuntu CI runner の `/bin/sh` がたまたま dash だっただけで、
+#     「CI が緑 = 実運用が安全」ではない。
+#
+# したがって gap レーンでは **期待 rc を定数として決め打ちしない**。代わりに
+# **hook と独立した最小コマンド**（`_t79_probe_rc`）で当該エラーモードの rc を
+# 実測し、それを期待値として **rc + 理由トークンの対（AND）** で判定する
+# （tests/extras/README.md P-1 / P-2 を満たす。rc の選言にはしない）。
+#   - probe は hook を一切使わない（hook から期待値を導出すると恒真になる）
+#   - probe 自体の健全性を同 TC 内で controls で確かめる:
+#       positive: エラーモードの probe が rc≠0 を返すこと（0 なら環境が前提を
+#                 再現できていない＝gap レーンは何も測っていないので FAIL）
+#       negative: **書き込み可能な**対象での probe が rc=0 を返すこと
+#                 （常に非 0 を返す壊れた probe を検出する）
+#   - 緩めすぎ検出は TC-12d: 同じ述語を **patch 適用済み複製**へ当てると
+#     成立しない（理由トークンが出る）ことを実測する
+# patch 適用後の rc / トークンは shell を問わず同一（実測: rc=2 +
+# HARDENING_OVERRIDE / rc=0 + DOC_LIGHT_SKIP）なので TC-10 / TC-11 は
+# 従来どおり定数の rc + トークンの対で固定する。
 printf '  -- #1278 log_event fail-open (audit log unwritable) --\n'
 
 _T79_REPORT_1278="$_T79_ROOT/docs/working/_reports/1278-log-event-fail-closed-patch-applicable.md"
@@ -529,23 +544,60 @@ _t79_mk1278() {
   esac
 }
 
-# gap レーンの述語（plaform 非依存）。
-#   主判定 = **PlanGate の block 理由トークンが出ていない**（正規の判定に到達
-#            していない）
-#   副条件 = rc が 0 でない（許可として素通りしてもいない）
-# rc の具体値は shell 依存（冒頭の残存脅威モデル参照）なので固定しない。
+# ── gap レーンの期待 rc を hook と独立に実測する probe ─────────────
+# `sh` の実体が当該エラーモードで返す rc を、**hook を一切使わない最小コマンド**で
+# 測る。hook 自身から期待値を導出すると恒真になり TC が何も検査しなくなる
+# （ta-61 で「実行時導出が自己除外を生む」型の穴が実際に出ている）。
+# 断片は hook の log_event と同じ形にする:
+#   redirect : set -eu の下で書き込み不可先へ `>>`（printf ... >>"$LOG"）
+#   mkdir    : set -eu の下で通常ファイルへ `mkdir -p`（mkdir -p "$(dirname LOG)"）
+#   writable : 書き込み可能な対象への `>>`（negative control。rc=0 のはず）
+# 実行シェルはテストが hook を起動するのと同じ `sh`（PATH 解決）を使う。
+_t79_probe_rc() {
+  # $1 = redirect|mkdir|writable ; rc を stdout に出す
+  _t79_pdir="$_T79_TMP/probe"
+  mkdir -p "$_t79_pdir"
+  _t79_prc=0
+  case "$1" in
+    redirect)
+      _t79_ptgt="$_t79_pdir/ro.log"
+      rm -f "$_t79_ptgt" 2>/dev/null || true
+      : > "$_t79_ptgt"
+      chmod 444 "$_t79_ptgt"
+      sh -c 'set -eu; printf "x\n" >>"$1"; exit 0' _ "$_t79_ptgt" >/dev/null 2>&1 || _t79_prc=$?
+      chmod 644 "$_t79_ptgt" 2>/dev/null || true
+      ;;
+    mkdir)
+      _t79_ptgt="$_t79_pdir/notdir"
+      rm -rf "$_t79_ptgt" 2>/dev/null || true
+      : > "$_t79_ptgt"
+      sh -c 'set -eu; mkdir -p "$1"; exit 0' _ "$_t79_ptgt" >/dev/null 2>&1 || _t79_prc=$?
+      ;;
+    writable)
+      _t79_ptgt="$_t79_pdir/rw.log"
+      rm -f "$_t79_ptgt" 2>/dev/null || true
+      : > "$_t79_ptgt"
+      sh -c 'set -eu; printf "x\n" >>"$1"; exit 0' _ "$_t79_ptgt" >/dev/null 2>&1 || _t79_prc=$?
+      ;;
+  esac
+  printf '%s' "$_t79_prc"
+}
+
+# gap レーンの述語: **probe で実測した rc** と **PlanGate 理由トークンの不在**の
+# 対（AND）。rc の選言（0 以外なら何でも可）にはしない — rc=2（block）と
+# rc=1（fail-open）の差こそ #1278 の本質であり、そこを潰すと検査にならない。
 # 述語成立の可否だけを返す版（TC-12d の緩めすぎ検出が同じ述語を使う）。
 _t79_gap_holds() {
-  # $1 = 不在であるべき PlanGate 理由トークン
-  [ "$_t79_rc" != "0" ] && ! printf '%s' "$_t79_out" | grep -q -- "$1"
+  # $1 = 期待 rc（probe 実測値）/ $2 = 不在であるべき PlanGate 理由トークン
+  [ "$_t79_rc" = "$1" ] && ! printf '%s' "$_t79_out" | grep -q -- "$2"
 }
 _t79_expect_gap() {
-  # $1 = ラベル / $2 = 不在であるべき PlanGate 理由トークン
-  if _t79_gap_holds "$2"; then
-    t79_pass "$1 ('$2' 不在 / rc=$_t79_rc は plaform 依存のため判定に使わない)"
+  # $1 = ラベル / $2 = 期待 rc（probe 実測値）/ $3 = 不在であるべき理由トークン
+  if _t79_gap_holds "$2" "$3"; then
+    t79_pass "$1 (rc=$2 = probe 実測 / '$3' 不在)"
     return 0
   fi
-  t79_fail "$1: '$2' は出ないはず / rc=$_t79_rc（0 でないこと）out=[$(printf '%s' "$_t79_out" | head -1)]"
+  t79_fail "$1: rc=$_t79_rc (want $2 = probe 実測) / '$3' は出ないはず out=[$(printf '%s' "$_t79_out" | head -1)]"
   return 1
 }
 
@@ -579,23 +631,69 @@ _t79_mk1278 "$_T79_RRO" "$_T79_HOOK_SRC" ro
 _T79_RND="$_T79_TMP/real-nd1278"
 _t79_mk1278 "$_T79_RND" "$_T79_HOOK_SRC" notdir
 
+# --- probe: gap レーンの期待 rc を hook と独立に実測する ---------------
+# probe の起動経路は hook の起動と同じ `sh`（PATH 解決）。テスト本体が bash /
+# dash のどちらで走っていても、hook は常に `sh <script>` で起動されるため
+# （.claude/settings*.json の配線）、probe も `sh -c` で測らないと期待値がずれる。
+_T79_PRC_RED=$(_t79_probe_rc redirect)
+_T79_PRC_MKD=$(_t79_probe_rc mkdir)
+_T79_PRC_RW=$(_t79_probe_rc writable)
+_T79_SH_REAL=$(command -v sh 2>/dev/null || printf 'sh')
+printf '  -- probe (sh=%s): redirect-fail rc=%s / mkdir-fail rc=%s / writable rc=%s --\n' \
+  "$_T79_SH_REAL" "$_T79_PRC_RED" "$_T79_PRC_MKD" "$_T79_PRC_RW"
+
+# positive control: エラーモードの probe は非 0 を返すこと
+if [ "$_T79_PRC_RED" != "0" ] && [ "$_T79_PRC_MKD" != "0" ]; then
+  t79_pass "TC-12/probe-1: probe(positive control) が両エラーモードで非 0 を返す (redirect=$_T79_PRC_RED mkdir=$_T79_PRC_MKD)"
+else
+  t79_fail "TC-12/probe-1: probe が rc=0 を返した — 前提（書込不可 / ファイル化）が再現できていない環境。gap レーンは何も測れない (redirect=$_T79_PRC_RED mkdir=$_T79_PRC_MKD)"
+fi
+# negative control: 書き込み可能な対象では rc=0（常に非 0 を返す壊れた probe の検出）
+if [ "$_T79_PRC_RW" = "0" ]; then
+  t79_pass "TC-12/probe-2: probe(negative control) は書き込み可能な対象で rc=0 を返す"
+else
+  t79_fail "TC-12/probe-2: probe が書き込み可能な対象でも rc=$_T79_PRC_RW を返す（probe が壊れている）"
+fi
+
+# 前提崩れの検出（controls とは別）: probe が 0 のエラーモードでは
+# **期待値として採用せず** 当該 gap TC を実行しない（rc=0 を期待値にすると
+# 「rc=0 かつ理由トークン在り」という恒偽条件になり、TC の意味が消える）。
+# （`cond && var=0` は cond 偽で文が rc=1 になり harness の set -e を踏むので if/fi）
+_T79_GAP_RED_OK=1
+if [ "$_T79_PRC_RED" = "0" ]; then
+  _T79_GAP_RED_OK=0
+fi
+_T79_GAP_MKD_OK=1
+if [ "$_T79_PRC_MKD" = "0" ]; then
+  _T79_GAP_MKD_OK=0
+fi
+
 _t79_run_file "$_T79_RRO/scripts/hooks/check-plan-hash.sh" "CLAUDE.md" '{}'
 if [ "$_T79_EXPECT_1278" = "fixed" ]; then
   _t79_expect "TC-12a: 実 hook / log 444 / HO → block" 2 "HARDENING_OVERRIDE" || true
+elif [ "$_T79_GAP_RED_OK" = "0" ]; then
+  t79_fail "TC-12a(gap): probe(redirect)=0 のため期待 rc を導出できない — 実行せず FAIL（前提崩れ）"
 else
-  _t79_expect_gap "TC-12a(gap): 実 hook / log 444 / HO → 正規の判定へ到達しない (#1278 未適用)" "HARDENING_OVERRIDE" || true
+  _t79_expect_gap "TC-12a(gap): 実 hook / log 444 / HO → 正規の判定へ到達しない (#1278 未適用)" \
+    "$_T79_PRC_RED" "HARDENING_OVERRIDE" || true
 fi
 _t79_run_file "$_T79_RRO/scripts/hooks/check-plan-hash.sh" "docs/working/TASK-9999/plan.md" '{}'
 if [ "$_T79_EXPECT_1278" = "fixed" ]; then
   _t79_expect "TC-12b: 実 hook / log 444 / no-task plan.md → block" 2 "plan.md edited without TASK context" || true
+elif [ "$_T79_GAP_RED_OK" = "0" ]; then
+  t79_fail "TC-12b(gap): probe(redirect)=0 のため期待 rc を導出できない — 実行せず FAIL（前提崩れ）"
 else
-  _t79_expect_gap "TC-12b(gap): 実 hook / log 444 / plan.md → 正規の判定へ到達しない" "plan.md edited without TASK context" || true
+  _t79_expect_gap "TC-12b(gap): 実 hook / log 444 / plan.md → 正規の判定へ到達しない" \
+    "$_T79_PRC_RED" "plan.md edited without TASK context" || true
 fi
 _t79_run_file "$_T79_RND/scripts/hooks/check-plan-hash.sh" "CLAUDE.md" '{}'
 if [ "$_T79_EXPECT_1278" = "fixed" ]; then
   _t79_expect "TC-12c: 実 hook / _audit がファイル / HO → block" 2 "HARDENING_OVERRIDE" || true
+elif [ "$_T79_GAP_MKD_OK" = "0" ]; then
+  t79_fail "TC-12c(gap): probe(mkdir)=0 のため期待 rc を導出できない — 実行せず FAIL（前提崩れ）"
 else
-  _t79_expect_gap "TC-12c(gap): 実 hook / _audit がファイル / HO → 正規の判定へ到達しない" "HARDENING_OVERRIDE" || true
+  _t79_expect_gap "TC-12c(gap): 実 hook / _audit がファイル / HO → 正規の判定へ到達しない" \
+    "$_T79_PRC_MKD" "HARDENING_OVERRIDE" || true
 fi
 
 # TC-12d: gap 述語が **緩すぎない**ことの実測（両方向）。
@@ -603,13 +701,13 @@ fi
 # gap 述語は成立してはならない（理由トークンが出て正規の判定に到達するため）。
 # ここが PASS しないと TC-12 は「patch を当てても通る」空振りになる。
 _t79_run_file "$_T79_ROHOOK" "CLAUDE.md" '{}'
-if _t79_gap_holds "HARDENING_OVERRIDE"; then
+if _t79_gap_holds "$_T79_PRC_RED" "HARDENING_OVERRIDE"; then
   t79_fail "TC-12d-1: gap 述語が patch 適用済み複製でも成立する(TC-12a が緩すぎる / rc=$_t79_rc)"
 else
   t79_pass "TC-12d-1: gap 述語は patch 適用済み複製では成立しない(TC-12a は緩すぎない / rc=$_t79_rc)"
 fi
 _t79_run_file "$_T79_NDHOOK" "CLAUDE.md" '{}'
-if _t79_gap_holds "HARDENING_OVERRIDE"; then
+if _t79_gap_holds "$_T79_PRC_MKD" "HARDENING_OVERRIDE"; then
   t79_fail "TC-12d-2: gap 述語が patch 適用済み複製（_audit ファイル化）でも成立する(TC-12c が緩すぎる / rc=$_t79_rc)"
 else
   t79_pass "TC-12d-2: gap 述語は patch 適用済み複製（_audit ファイル化）では成立しない (rc=$_t79_rc)"
