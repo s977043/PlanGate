@@ -266,7 +266,14 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >      — [#1278](https://github.com/s977043/plangate/issues/1278)。read-only FS / `_audit` のファイル化 / ディスク満杯で
 >      防御が丸ごと fail-open になる。**是正 patch は `docs/working/_reports/1278-log-event-fail-closed-patch-applicable.md`
 >      （`f23d31d` で before rc=1 → after rc=2・変異で rc=1 に戻ることを実測済）。適用は Human-owned**。
->      #1234 の patch と hunk が重ならず順序不問（両順序で実測）。未適用の間は本項が残存
+>      #1234 の patch と hunk が重ならず順序不問（両順序で実測）。未適用の間は本項が残存。
+>      **platform 差（2026-09-07 実測・CI）**: 上記の rc=1 fail-open は **macOS の `/bin/sh` 固有**。
+>      Linux の `dash` は**リダイレクト失敗でシェル自体を rc=2 で終了**するため、block には偶然
+>      倒れるが **PlanGate の判定に到達しておらず理由トークンが出力に出ない**（出力はシェルの
+>      `cannot create …: Permission denied` のみ）。**「rc=2 だから守れている」と読まないこと** —
+>      同じ欠陥が OS によって fail-open / 理由不明の rc=2 に分かれる。patch の要否は変わらない。
+>      rc の数値だけを期待値に固定した検査は platform 差で誤判定するため、**「理由トークンが
+>      出力に在るか」を主判定に置く**こと
 >
 >   **2 の実測（旧記述の訂正）**: 旧版はこの残存を **4 ケース**と書いていたが**過少**だった。
 >   #1101 の実測では変換クラスは **7 種**（`..` 往復 / `//` / `/./` / 先頭 `./` / 大小文字 /
