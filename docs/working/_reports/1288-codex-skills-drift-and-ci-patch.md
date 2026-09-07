@@ -1,6 +1,6 @@
 # #1288 — `.codex/skills` の正本乖離: 全数照合・正否判定・再発防止 CI（`git apply` 可能形 patch / **Human 適用**）
 
-> 測定基点: **`origin/main` = `bd2da8a5`**（PR #1292 マージ後）/ 2026-09-07。以下の件数・rc はすべてこの ref のワークツリー、および `git clone --no-hardlinks --no-local` で作った **repo 外サンドボックス複製**に対する実測。
+> 測定基点: **`origin/main` = `bd2da8a5`**（PR #1292 マージ後）/ 2026-09-07。**base 更新後の再測定**: 本 PR ブランチへ新しい `main` を取り込んだ `5f2c8d88` でも **`SKILL.md` 10 / 40 件・`.codex/skills/**` 全体 11 ファイル**で変わらない（件数は base が動くたびに機械ゲートを再実行して確認しており、契約値として固定していない）。以下の件数・rc はすべてこの ref のワークツリー、および `git clone --no-hardlinks --no-local` で作った **repo 外サンドボックス複製**に対する実測。
 > 位置づけ: **既存ギャップの是正**（退行ではない）。`.github/workflows/*.yml` は Hardening Override 対象のため、**AI は patch 提示まで・適用は Human-owned**。
 > 本書で AI が作成したのは本ファイル 1 本のみ。`.codex/` / `.agents/` / `scripts/` / `tests/` / `.claude/` / `bin/` / `schemas/` / `.github/` は **1 バイトも変更していない**（同期スクリプトも repo 上では実行していない。実行はサンドボックス複製のみ）。
 > 先例と同じ marker 規則: [`1226-approval-surface-patch-applicable.md`](./1226-approval-surface-patch-applicable.md) / [`1278-log-event-fail-closed-patch-applicable.md`](./1278-log-event-fail-closed-patch-applicable.md)。
