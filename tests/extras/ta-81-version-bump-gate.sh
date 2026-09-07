@@ -558,6 +558,218 @@ else
   t81_fail "ta-81 TC-11: 同一 version・別 payload を通している (rc=$_t81_rc out=$_t81_out)"
 fi
 
+# ---------------------------------------------------------------------------
+# TC-12: 新ゲートが**リリース手順の中に**現れるか（#1292 後追い是正 major-2）
+#   #1292 マージ時点の実測: `release-prep.sh --check` は「ゲートを掛ける位置」の
+#   分界表にしか無く、`### 必須検証手順` にも .github/workflows/ にも無かった。
+#   = 配線したと書いてあるだけで**手順として実行されない**。
+#   **節を限定して検査する**。ファイル全体 grep は分界表にヒットして恒真になる
+#   （README P-5: 文字列の存在ではなく構造を見る）。
+# ---------------------------------------------------------------------------
+# 見出しから次の見出しまでを切り出す（`### 必須検証手順` 本体）。
+# **awk の文字列比較は使わない**: 本 repo の macOS 既定 awk は非 ASCII 見出しの
+# `$0 == "### 必須検証手順"` が別の `### <日本語>` 行にも真を返す（実測: 4 行に HIT）。
+# 見出し検出は grep -Fx（バイト一致）で行い、範囲切り出しは sed に任せる。
+_t81_section() {
+  # $1 = ファイル / $2 = 見出し行（完全一致）
+  _sec_start=$(grep -n -Fx -- "$2" "$1" | head -1 | cut -d: -f1)
+  [ -n "${_sec_start:-}" ] || return 1
+  _sec_off=$(sed -n "$((_sec_start + 1)),\$p" "$1" | grep -n -E '^#{2,6} ' | head -1 | cut -d: -f1)
+  if [ -n "${_sec_off:-}" ]; then
+    _sec_end=$((_sec_start + _sec_off - 1))
+  else
+    _sec_end=$(grep -c '' "$1")
+  fi
+  [ "$_sec_end" -gt "$_sec_start" ] || return 1
+  sed -n "$((_sec_start + 1)),${_sec_end}p" "$1"
+}
+
+if [ -f "$_T81_RELDOC" ]; then
+  _T81_SECT="$_T81_TMP/relproc-required.txt"
+  _t81_section "$_T81_RELDOC" '### 必須検証手順' > "$_T81_SECT"
+  _t81_sect_lines=$(grep -c '' "$_T81_SECT" || true)
+  _t81_file_lines=$(grep -c '' "$_T81_RELDOC" || true)
+
+  # (a) 節が実体を持つこと（切り出しが空振りしていたら以降は vacuous / README P-6）
+  if [ "$_t81_sect_lines" -ge 5 ] && [ "$_t81_sect_lines" -lt "$_t81_file_lines" ]; then
+    t81_pass "ta-81 TC-12a: 「必須検証手順」節を切り出せた（$_t81_sect_lines 行 / ファイル $_t81_file_lines 行。件数は契約値にしない）"
+  else
+    t81_fail "ta-81 TC-12a: 節の切り出しが空振り or ファイル全体（節=$_t81_sect_lines 全体=${_t81_file_lines}）"
+  fi
+
+  # (b) positive control: 節の**外**にある「配線した」と書いてあるだけの行
+  #     （分界表の `| **リリース準備** | ... release-prep.sh --check に配線） | ...`）が
+  #     切り出しに混ざらないこと。この行こそがファイル全体 grep を恒真にする張本人で、
+  #     混ざるなら (c) は「表に書いてあるだけ」を PASS にしてしまう。
+  if grep -qF '**リリース準備**' "$_T81_RELDOC" && ! grep -qF '**リリース準備**' "$_T81_SECT"; then
+    t81_pass "ta-81 TC-12b: positive control — 分界表の行（節外）は切り出しに含まれない"
+  else
+    t81_fail "ta-81 TC-12b: 節の限定が効いていない = TC-12c はファイル全体 grep と同義（恒真）"
+  fi
+
+  # (c) 本体: 必須検証手順の中で release-prep.sh --check を実行している
+  if grep -qF 'scripts/release-prep.sh --check' "$_T81_SECT"; then
+    t81_pass "ta-81 TC-12c: 必須検証手順に release-prep.sh --check のステップがある"
+  else
+    t81_fail "ta-81 TC-12c: 必須検証手順に release-prep.sh --check が無い — ゲートが手順から呼ばれない (#1292 major-2)"
+  fi
+else
+  t81_fail "ta-81 TC-12: docs/release-process.md が見つかりません"
+fi
+
+# ---------------------------------------------------------------------------
+# TC-13 / TC-14: release-prep の**準備経路**（`vX.Y.Z`）の rc と bump 実処理。
+#   合成 root を組み、検査サブスクリプトはスタブに差し替える（本 TC が測るのは
+#   release-prep 側の rc 伝播と bump の由来であって、各検査の中身ではない。
+#   検査の中身は TC-02〜TC-11 が実測している）。
+# ---------------------------------------------------------------------------
+# $1 = 作る root / $2 = check-version-bump スタブが --bump で返す rc
+_t81_mkprep() {
+  _mk_root="$1"; _mk_bumprc="$2"
+  rm -rf "$_mk_root"
+  mkdir -p "$_mk_root/scripts" "$_mk_root/.claude-plugin" \
+    "$_mk_root/plugin/plangate/.claude-plugin" "$_mk_root/plugin/plangate/.codex-plugin"
+  cp "$_T81_RELPREP" "$_mk_root/scripts/release-prep.sh"
+  cp "$_T81_PY" "$_mk_root/scripts/version_sites.py"
+  printf '## Unreleased\n\n- 変更あり\n\n## v8.0.0 - 2026-01-01\n\n- 旧\n' \
+    > "$_mk_root/CHANGELOG.md"
+  printf '{\n  "name": "plangate",\n  "version": "8.21.0"\n}\n' \
+    > "$_mk_root/plugin/plangate/.claude-plugin/plugin.json"
+  printf '{\n  "name": "plangate",\n  "version": "8.21.0"\n}\n' \
+    > "$_mk_root/plugin/plangate/.codex-plugin/plugin.json"
+  printf '{\n  "metadata": {\n    "version": "8.21.0"\n  },\n  "plugins": [\n    {\n      "name": "plangate",\n      "version": "8.21.0"\n    }\n  ]\n}\n' \
+    > "$_mk_root/.claude-plugin/marketplace.json"
+  # check-version-bump スタブ: --parity は常に OK、--bump は指定 rc
+  {
+    printf '#!/bin/sh\n'
+    printf 'for a in "$@"; do\n'
+    printf '  [ "$a" = "--parity" ] && { echo "VERSION_PARITY_OK stub"; exit 0; }\n'
+    printf 'done\n'
+    printf 'echo "VERSION_BUMP_MISSING stub"\n'
+    printf 'exit %s\n' "$_mk_bumprc"
+  } > "$_mk_root/scripts/check-version-bump.sh"
+  printf '#!/bin/sh\necho "manifest parity stub OK"\nexit 0\n' \
+    > "$_mk_root/scripts/check-plugin-manifest-parity.sh"
+  printf '#!/bin/sh\necho "no-op"\nexit 0\n' > "$_mk_root/scripts/sync-release-docs.sh"
+  printf '#!/bin/sh\necho "no-op"\nexit 0\n' > "$_mk_root/scripts/sync-plugin-installed.sh"
+  # apply-*.sh は置かない（= 適用待ちなし）
+}
+
+# TC-13a: NOT READY のとき準備経路が rc≠0 で終わる（fail-open ラッパの回帰検出）
+_T81_PREP_NG="$_T81_TMP/prep-ng"
+_t81_mkprep "$_T81_PREP_NG" 1
+_t81_rc=0
+_t81_out=$(sh "$_T81_PREP_NG/scripts/release-prep.sh" v9.9.9 2>&1) || _t81_rc=$?
+if [ "$_t81_rc" != "0" ] && printf '%s' "$_t81_out" | grep -q 'NOT READY'; then
+  t81_pass "ta-81 TC-13a: 準備経路は NOT READY を rc=$_t81_rc で返す（fail-open ではない / #1292 major-3）"
+else
+  t81_fail "ta-81 TC-13a: NOT READY なのに rc=$_t81_rc — 準備経路が fail-open (out=$_t81_out)"
+fi
+
+# TC-13b: rc は保持するが「次: …」の案内は出す（是正の意図そのもの）
+if printf '%s' "$_t81_out" | grep -q '^次: '; then
+  t81_pass "ta-81 TC-13b: NOT READY でも次アクションの案内は出力される"
+else
+  t81_fail "ta-81 TC-13b: 案内が失われた（rc 保持のために出力を削っている）"
+fi
+
+# TC-13c positive control: 同じ形で全検査が緑なら rc=0 + READY
+#   （TC-13a が「準備経路は常に rc≠0」の恒真ゲートに退行していないことを実測）
+_T81_PREP_OK="$_T81_TMP/prep-ok"
+_t81_mkprep "$_T81_PREP_OK" 0
+_t81_rc=0
+_t81_out=$(sh "$_T81_PREP_OK/scripts/release-prep.sh" v9.9.9 2>&1) || _t81_rc=$?
+if [ "$_t81_rc" = "0" ] && printf '%s' "$_t81_out" | grep -q '^READY$'; then
+  t81_pass "ta-81 TC-13c: positive control — 全検査 OK なら rc=0 READY（TC-13a は恒真でない）"
+else
+  t81_fail "ta-81 TC-13c: 検査が全て OK なのに rc=$_t81_rc (out=$_t81_out)"
+fi
+
+# ---------------------------------------------------------------------------
+# TC-14: bump 実処理が **DECLARED_SITES 由来**であること（#1292 major-1）。
+#   旧実装は release-prep 側に 3 ファイルを決め打ちしていたため、宣言テーブルに
+#   5 番目を足しても bump されず、`--parity` は rc=0 なのにリリース準備の最中に
+#   初めて VERSION_PARITY_MISMATCH になった。doc の「更新するのは DECLARED_SITES
+#   （と本表）だけでよい」という主張と実装が食い違っていた。
+# ---------------------------------------------------------------------------
+_T81_PREP5="$_T81_TMP/prep-fifth"
+_t81_mkprep "$_T81_PREP5" 0
+# (1) 宣言テーブルに 5 番目を足す（doc が「これだけでよい」と言う操作）
+mkdir -p "$_T81_PREP5/plugin/fifth/.claude-plugin"
+printf '{\n  "name": "fifth",\n  "version": "8.21.0"\n}\n' \
+  > "$_T81_PREP5/plugin/fifth/.claude-plugin/plugin.json"
+# (2) 宣言テーブル**外**の manifest も置く（bump が「見つけた JSON を全部」で
+#     ないこと = 宣言由来であることの negative control）
+mkdir -p "$_T81_PREP5/plugin/undeclared/.claude-plugin"
+printf '{\n  "name": "undeclared",\n  "version": "8.21.0"\n}\n' \
+  > "$_T81_PREP5/plugin/undeclared/.claude-plugin/plugin.json"
+_t81_declared_patched=0
+python3 - "$_T81_PREP5" <<'PYDECL' && _t81_declared_patched=1
+import sys
+p = sys.argv[1] + "/scripts/version_sites.py"
+s = open(p, encoding="utf-8").read()
+anchor = '    ("plugin.codex", "plugin/plangate/.codex-plugin/plugin.json", "version"),\n'
+if anchor not in s:
+    raise SystemExit("anchor-not-found")
+s = s.replace(anchor, anchor + '    ("plugin.fifth", "plugin/fifth/.claude-plugin/plugin.json", "version"),\n', 1)
+open(p, "w", encoding="utf-8").write(s)
+PYDECL
+if [ "$_t81_declared_patched" != "1" ]; then
+  t81_fail "ta-81 TC-14: 宣言テーブルへの変異注入が空振り（DECLARED_SITES の形が変わった）"
+else
+  _t81_before5=$(python3 - "$_T81_PREP5" <<'PYV'
+import json, sys
+print(json.load(open(sys.argv[1] + "/plugin/fifth/.claude-plugin/plugin.json"))["version"])
+PYV
+)
+  _t81_rc=0
+  _t81_out=$(sh "$_T81_PREP5/scripts/release-prep.sh" v9.9.9 2>&1) || _t81_rc=$?
+  _t81_after5=$(python3 - "$_T81_PREP5" <<'PYV'
+import json, sys
+print(json.load(open(sys.argv[1] + "/plugin/fifth/.claude-plugin/plugin.json"))["version"])
+PYV
+)
+  _t81_undecl=$(python3 - "$_T81_PREP5" <<'PYV'
+import json, sys
+print(json.load(open(sys.argv[1] + "/plugin/undeclared/.claude-plugin/plugin.json"))["version"])
+PYV
+)
+  # (a) 宣言を足しただけで 5 番目が bump される
+  if [ "$_t81_before5" != "9.9.9" ] && [ "$_t81_after5" = "9.9.9" ] &&
+     printf '%s' "$_t81_out" | grep -q 'VERSION_SET_SITE plugin.fifth'; then
+    t81_pass "ta-81 TC-14a: DECLARED_SITES に足しただけで 5 番目の manifest も bump（$_t81_before5 -> ${_t81_after5}）"
+  else
+    t81_fail "ta-81 TC-14a: 宣言済みの manifest が bump されない（before=$_t81_before5 after=$_t81_after5 rc=$_t81_rc out=$_t81_out）"
+  fi
+  # (b) negative control: 宣言していない manifest は触らない
+  if [ "$_t81_undecl" = "8.21.0" ]; then
+    t81_pass "ta-81 TC-14b: negative control — 未宣言 manifest は bump されない（宣言由来であることの確認）"
+  else
+    t81_fail "ta-81 TC-14b: 未宣言 manifest まで書き換えている（${_t81_undecl}）"
+  fi
+  # (c) bump 後に parity が保たれる（#1292 major-1 の実害そのもの）
+  _t81_rc=0
+  _t81_out=$(python3 "$_T81_PREP5/scripts/version_sites.py" parity --root "$_T81_PREP5" 2>&1) || _t81_rc=$?
+  if [ "$_t81_rc" = "0" ] && printf '%s' "$_t81_out" | grep -q 'VERSION_PARITY_OK 9.9.9'; then
+    t81_pass "ta-81 TC-14c: 準備実行の後に宣言箇所が全て同値（MISMATCH が出ない）"
+  else
+    t81_fail "ta-81 TC-14c: 準備実行の後に VERSION_PARITY_MISMATCH (rc=$_t81_rc out=$_t81_out)"
+  fi
+fi
+
+# TC-14d: 実装側が宣言テーブル由来であることを構造で見る（決め打ち復活の検出）
+if grep -q 'version_sites.py" set --value' "$_T81_RELPREP"; then
+  t81_pass "ta-81 TC-14d: release-prep の bump が version_sites.py set 経由（決め打ちでない）"
+else
+  t81_fail "ta-81 TC-14d: release-prep の bump が宣言テーブル由来でない — doc の主張と食い違う"
+fi
+# positive control: 実在しない呼び出し形は当然ヒットしない
+if grep -q 'version_sites.py" set --nonexistent-flag' "$_T81_RELPREP"; then
+  t81_fail "ta-81 TC-14e: positive control 失敗 — 実在しない呼び出し形がヒットした"
+else
+  t81_pass "ta-81 TC-14e: positive control — 未使用の呼び出し形は確かに未ヒット"
+fi
+
 # 明示 cleanup（trap 非依存 / README 規約 1・2）
 rm -rf "$_T81_TMP"
 

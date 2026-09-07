@@ -266,9 +266,15 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >      — [#1278](https://github.com/s977043/plangate/issues/1278)。read-only FS / `_audit` のファイル化 / ディスク満杯で
 >      防御が丸ごと fail-open になる。**是正 patch は `docs/working/_reports/1278-log-event-fail-closed-patch-applicable.md`
 >      （`f23d31d` で before rc=1 → after rc=2・変異で rc=1 に戻ることを実測済）。適用は Human-owned**。
->      #1234 の patch とは hunk が重ならず順序不問（両順序で実測）。ただし **#1226 の patch とは
->      干渉する**（3 本とも `scripts/hooks/check-plan-hash.sh` を触る）。順序と回避策は
+>      **本 patch（#1278）は #1234 とも #1226 とも順序不問**（`log_event`（`@@ -23` 付近）だけを触る。
+>      4 通りの `git apply` を実測: #1278→#1226 / #1226→#1278 / #1278→#1234 / #1234→#1278 の
+>      **すべて rc=0**）。**干渉するのは #1234 × #1226 の組だけ**であり（同じ `case` 領域を触るため
+>      どちらを先に当てても 2 本目の `git apply` が rc=1）、その順序と回避策は
 >      `docs/working/_reports/1226-approval-surface-patch-applicable.md` §8-5 を正本とする。
+>      **さらに #1234 と #1226 を併用する場合は同書 §8-5-bis の PATCH-C（`(ii-b) _phys_key` 側の
+>      case ブロックへの追随）が必須**である。未適用だと #1226 が守ろうとした 3 カテゴリだけが
+>      symlink 経由で素通りし（実測: `link → .codex/hooks.json` rc=0 / `link → CLAUDE.md` rc=2）、
+>      `tests/extras/ta-80-eh3-outside-repo.sh` の **TC-06 が FAIL** する。
 >      未適用の間は本項が残存。
 >      **`/bin/sh` の実体依存（手元実測 / 2026-09-07。`git archive origin/main` を repo 外へ展開した
 >      複製に対し実 hook を 3 シェルで実走）**: rc を決めるのは OS ではなく、配線が `sh <script>` である

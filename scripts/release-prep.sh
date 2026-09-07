@@ -121,20 +121,24 @@ assert m and m.group(1).strip(), "Unreleased が空（リリース対象なし�
 s = s.replace("## Unreleased\n", f"## Unreleased\n\n## v{v} - {date}\n", 1)
 open(p, "w", encoding="utf-8").write(s)
 print(f"OK CHANGELOG: v{v} セクション化（サマリ文は手動で追記）")
-# .codex-plugin/plugin.json も同時に bump する（#1085）。片方だけ上がると
-# scripts/check-plugin-manifest-parity.sh が version 乖離として FAIL する。
-for f in [f"{root}/plugin/plangate/.claude-plugin/plugin.json",
-          f"{root}/plugin/plangate/.codex-plugin/plugin.json",
-          f"{root}/.claude-plugin/marketplace.json"]:
-    s2 = open(f, encoding="utf-8").read()
-    s3 = re.sub(r'"version":\s*"[0-9.]+"', f'"version": "{v}"', s2)
-    open(f, "w", encoding="utf-8").write(s3)
-    print(f"OK version bump: {f.split('/')[-1]}")
 PY
+    # version bump は **宣言テーブル（scripts/version_sites.py の DECLARED_SITES）由来**。
+    # 旧実装はここに 3 ファイルを決め打ちしていたため、DECLARED_SITES に 5 番目の
+    # manifest を足しても bump されず、`--parity` は通るのにリリース準備の最中に
+    # 初めて VERSION_PARITY_MISMATCH が出た（#1292 後追い是正）。
+    # 到達できない宣言があれば version_sites.py 側が何も書かずに rc≠0 で止まる。
+    if ! python3 "$ROOT/scripts/version_sites.py" set --value "$V" --root "$ROOT"; then
+      ng "version bump 失敗（宣言箇所に到達できない）— scripts/version_sites.py の DECLARED_SITES を確認"
+    fi
     sh "$ROOT/scripts/sync-release-docs.sh" >/dev/null || true
     note "=== 続けて readiness 検査 ==="
-    run_checks || true
+    # rc を保持する。案内（次: ...）は CHANGELOG と manifest を**書き換えた後**なので
+    # 出力する価値があるが、NOT READY を rc=0 で握り潰さない（fail-closed を売りにする
+    # ゲートを fail-open のラッパに置かない / #1292 後追い是正 major-3）。
+    prep_rc=0
+    run_checks || prep_rc=$?
     note "次: README 散文 / CLAUDE.md apply（Human）/ テスト → PR → merge → tag push → check-tag-main-parity.sh → gh release create"
+    exit "$prep_rc"
     ;;
   *)
     note "usage: $0 [--check | vX.Y.Z]"; exit 1

@@ -16,6 +16,15 @@ schema_version: 1
 > であり、項目数は追加 PBI で増減する。実測は
 > `grep -c '^### C1-' docs/working/templates/review-self.md`。
 > 本ファイルは **artifact フォーマットの参照例**であって、実施すべき項目の一覧ではない。
+>
+> **項目名について（#960 の位置対応ズレの是正）**: 収録時（2026-04-26）の本ファイルは
+> `C1-TEST-13: 受入基準との紐付き` / `C1-TEST-14: Edge case網羅` / `C1-TEST-15: 自動化可否`
+> という当時の名称を使っており、正本（`docs/working/templates/review-self.md`）の
+> `C1-TEST-14: テストケースの具体性` / `C1-TEST-15: エッジケースの考慮` と
+> **ID と観点の対応が 1 つずれていた**。本ファイルは正本 ID の名称へ揃え、
+> 「エッジケース」の finding を `C1-TEST-15` へ移した。当時 `C1-TEST-15: 自動化可否` に
+> 記録していた自動実行可否の判定は、正本では `C1-PLAN-07: 動作検証自動化` が担う観点であり、
+> 本ファイルでも同項目に記録済みである（重複記載しない）。
 
 ## サマリー
 
@@ -97,20 +106,20 @@ schema_version: 1
 
 ## TestCases チェック（3項目）
 
-### C1-TEST-13: 受入基準との紐付き
+### C1-TEST-13: 受入基準→テストケース網羅性
 
 - **result**: PASS
 - **finding**: AC-1〜AC-7の全7件がAC→TCマッピング表でTCと対応付けられている。対応TCが存在しないACはない
 
-### C1-TEST-14: Edge case網羅
+### C1-TEST-14: テストケースの具体性
+
+- **result**: PASS
+- **finding**: TC-01〜TC-08・TC-E1〜TC-E5の全13件が入力値と期待値を値レベルで記述している（例: TC-E3「最大長email」・TC-E4「空文字password」）。「正しく動作する」のような抽象的な期待値はない
+
+### C1-TEST-15: エッジケースの考慮
 
 - **result**: PASS
 - **finding**: TC-E1（bodyなし）・TC-E2（emailのみ）・TC-E3（最大長email）・TC-E4（空文字password）・TC-E5（SQLインジェクション）の5件を定義。主要な境界値・異常入力パターンをカバー
-
-### C1-TEST-15: 自動化可否
-
-- **result**: PASS
-- **finding**: TC-01〜TC-08・TC-E1〜TC-E5の全13件がunit/integrationとして自動実行可能。手動確認が必要なケースはない
 
 ---
 
