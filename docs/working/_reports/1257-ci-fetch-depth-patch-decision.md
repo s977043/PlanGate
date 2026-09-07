@@ -95,3 +95,15 @@ feature PR のほぼ全部である。さらに自動同期 PR は version を C
   実インストール E2E（#1257 Out of scope）が担う。
 - `release-prep --check` を**実行せずに**リリースした場合、本ゲートは一切働かない。
   リリース手順（`docs/release-process.md`）と C-4 Human レビューとの多層で担保する。
+  **#1292 マージ直後の実測ではこの「手順側の担保」が存在しなかった**: `--check` は
+  「ゲートを掛ける位置」の分界表にしか書かれておらず、`### 必須検証手順` の 4 ステップ
+  （tag push → parity → `gh release create` → run 確認）にも `.github/workflows/` にも
+  現れていなかった（`release-prep` の出現は doc 全体で 2 行、いずれも表と散文）。
+  後追い是正で **必須検証手順の手順 1**（tag push の前）に追加し、
+  `tests/extras/ta-81-version-bump-gate.sh` TC-12 が
+  **節を限定して**（ファイル全体 grep は分界表にヒットして恒真になる）その存在を検査する。
+- 準備経路 `release-prep.sh vX.Y.Z` は `run_checks || true` で **NOT READY でも rc=0** を
+  返していた（fail-closed を売りにするゲートを fail-open のラッパに置いていた）。
+  後追い是正で `run_checks` の rc を保持し、案内（`次: …`）を出したうえでその rc で
+  終了する。`--check` 側の rc 意味は変えていない。`ta-81` TC-13 が rc≠0 と、
+  対照（全検査 OK で rc=0 / READY）の両方を実測する。
