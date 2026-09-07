@@ -449,6 +449,7 @@ sandbox: `mktemp -d` 配下に §1 と同じレイアウト（`root/` + `outside
 | 4 | python3 不在 | §6（全行 before 一致） |
 | 5 | #1101 / #1104 との併用順 | **不要**（両方 `f23d31d` に適用済み。本 patch はその上で生成） |
 | 5b | #1278（`1278-log-event-fail-closed-patch-applicable.md`）との併用順 | **不問**（hunk 非重複。`f23d31d` で両順序 `git apply --check` rc=0・結果一致を実測。片方だけ適用しても他方は `--check` を通る）。**ただし #1226（`1226-approval-surface-patch-applicable.md`）とは干渉する**（本 patch と同じ `case` 領域を触り、`git apply` はどちらの順序でも 2 本目が失敗する。回避策込みの正本は `1226-approval-surface-patch-applicable.md` §8-5） |
+| 5c | #1226 と併用したときの **`(ii-b) _phys_key` 追随** | **必須**。本 patch が新設する `(ii-b) case "$_phys_key" in` は 9 arms 固定であり、#1226 が `(ii) case "$_ho_key" in` に足す 3 arms（`.codex/hooks.json` / `.cursor/hooks.json`・`.codex/hooks/*.sh` / `.cursor/hooks/*.sh`・`scripts/check-approval-token-write.sh`）を持たない。**2 本を当てただけでは、#1226 が守ろうとした 3 カテゴリだけ symlink 経由で素通りする**（実測: `link → .codex/hooks.json` が rc=0 / `link → CLAUDE.md` は rc=2）。さらに `tests/extras/ta-80-eh3-outside-repo.sh` の **TC-06 が FAIL** する。是正 patch は `1226-approval-surface-patch-applicable.md` **§8-5-bis（PATCH-C）**（同節を正本とする） |
 | 6 | `ta-80` 作成 / flag 作成 | **未**（`.sh` / flag は本セッションで作成不可。§8 仕様のみ） |
 | 7 | `docs/ai/hook-enforcement.md` 残存脅威モデルへ追記 | 同 PR で実施 |
 | 8 | DRAFT 表示を外し測定基点を更新 | 本書 |
