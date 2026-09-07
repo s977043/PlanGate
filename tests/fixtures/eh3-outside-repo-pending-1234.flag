@@ -1,0 +1,2 @@
+#1234 EH-3 repo outside-path SKIP patch (docs/working/_reports/1234-eh3-outside-repo-patch-applicable.md) is not yet applied to scripts/hooks/check-plan-hash.sh (Hardening Override / Human-owned).
+ta-80 expects the pre-patch behaviour while this file exists. Delete this flag in the same commit that applies the patch.
