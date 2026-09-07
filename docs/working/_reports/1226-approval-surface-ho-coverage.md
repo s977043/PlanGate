@@ -16,7 +16,9 @@
 | **最も重い新規発見** | **`.codex/skills/**/SKILL.md` は正本 `.agents/skills/` の無変換コピーであるべきなのに、40 件中 10 件が実際に乖離しており、うち 7 件が承認手順の定義面**。`plan-review-gate` の Codex 版からは「機械 block が無いことを理由に C-3 を省略しない」という規範ブロックが**欠落している**（§4）。issue が「起こりうる」と書いた事象は**既に main で起きている** |
 | **次に重い発見** | **Codex / Cursor の enforcement 配線が 1 つも HO でない**。`.claude/settings*.json` は HO なのに `.codex/hooks.json` / `.cursor/hooks.json` / `.cursor/hooks/*.sh` は非 HO。さらに **EH-13（承認トークンガード）本体 `scripts/check-approval-token-write.sh` 自身が非 HO**（§3.2） |
 | **推奨** | **A′（HO の最小・非対称解消のみ拡張）＋ B′（`.codex` レーンの内容 drift を PR CI で必須化）の併用**。案 A の広域適用（skills / plugin を HO へ）と案 C（plugin を repo から外す）は棄却（§5） |
-| **この提案で塞がらないもの** | Bash 経路 / symlink / worktree / 導入先 / **CI が required check でないこと**（実測: required は `Markdown lint` 1 本、承認 0 人）（§7） |
+| **既存ゲート `ta-77` との関係** | **直交する**。`tests/extras/ta-77-approval-surface-gate.sh` + `tests/fixtures/ta-77/approval-surfaces.tsv` は既に存在し、**承認手順の「宣言ブロック」の digest** を見る。ファイル全体を見ないため、宣言ブロックの外側で起きている §4 の drift を報告しない（§4.1） |
+| **是正の適用コスト（見落としやすい前提）** | 案 A′ は **HO のカテゴリ数を宣言する 12 面を同時に更新**し（うち 9 面は非 HO）、さらに `plugin/plangate/rules/` の生成ミラーを再生成しないと **既存 CI が即 FAIL する**（§4.2） |
+| **この提案で塞がらないもの** | Bash 経路 / symlink / worktree / 導入先 / **CI が required check でないこと**（実測: required は `Markdown lint` 1 本、承認 0 人）/ **`scripts/` 直下の他 2 guard**（§7） |
 
 ---
 
@@ -138,6 +140,20 @@ git ls-files | grep -E '(^|/)(rules|commands|agents)/' | grep -v '^docs/working/
 
 **8 / 22 が HO。14 が非 HO。**
 
+**`scripts/` 直下から wire されている guard の全数**（数え落としを残さないための実測。
+`grep -o 'scripts/[A-Za-z0-9_./-]*' .claude/settings.example.json | sort | uniq -c`）:
+
+| スクリプト | HO | 役割 | 案 A′ で HO にするか |
+|---|---|---|---|
+| `scripts/check-approval-token-write.sh` | 非 HO | **EH-13** 承認トークン直書き block（`Edit\|Write` と `Bash` の両経路） | **する**（承認境界そのもの） |
+| `scripts/check-git-destructive.sh` | 非 HO | EH-12 protected branch 上の `reset --hard` / `push --force` block | **しない**（承認トークンの受理判定を持たない。§7 残存 / patch 文書 §7-6 の Human 判断へ） |
+| `scripts/gh-pin-account.sh` | 非 HO | gh CLI active account 固定（sockpuppet 防止の補助） | **しない**（同上） |
+
+`scripts/hooks/` 配下の 7 本は既に `scripts/hooks/*.sh` で HO。**案 A′ の「非対称の解消」は
+EH-13 に限った部分適用であり、残り 2 本を意図的に外している**ことを本書は明示する
+（`check-git-destructive.sh` は main への `push --force` を止める最後の技術層であり、
+AI が編集できる位置にある点は EH-13 と同型の非対称である）。
+
 **この層で最も重い非対称**: Claude レーンの配線（`.claude/settings*.json`）は HO なのに、Codex / Cursor レーンの配線は 1 つも HO でない。`.cursor/hooks/plangate-eh2-c3.sh` は現状 3 行のシェルスクリプトで、`exit 0` に書き換えるだけで Cursor セッションの EH-2 が消える。**HO を 1 つも踏まずに。** 同様に **EH-13 は承認トークンを守るガードだが、ガード本体が AI 編集可能な位置にある**。
 
 ### 3.3 規範層（散文で必須条件・必須手順を宣言している面）— 20 件
@@ -212,7 +228,14 @@ for d in .agents/skills/*/; do n=$(basename "$d"); cmp -s "$d/SKILL.md" ".codex/
 | `plugin/plangate/rules/*.md` vs `.claude/rules/*.md`（`working-context` / `mode-classification`） | 2 | **0** |
 | **`.codex/skills/*/SKILL.md` vs `.agents/skills/*/SKILL.md`** | 40 | **10** |
 
-乖離 10 件のうち **7 件が承認手順の定義面**（`ai-dev-plan` 116 行 / `ai-dev-verify` 94 行 / `ai-dev-exec` 82 行 / `ai-loop-cycle` 68 行 / `plan-review-gate` 13 行 / `intent-classifier` 7 行 / `local-exec-handoff` 7 行）。
+乖離 10 件のうち **7 件が承認手順の定義面**（変更行数 = `diff <canon> <mirror>` の `<` / `>` 行の合計。
+`ai-dev-plan` 128 行 / `ai-dev-verify` 98 行 / `ai-dev-exec` 87 行 / `ai-loop-cycle` 81 行 /
+`plan-review-gate` 15 行 / `intent-classifier` 8 行 / `local-exec-handoff` 8 行）。
+
+> **行数の数え方（本書の訂正）**: 旧版は数え方を書かずに 116 / 94 / 82 / 68 / 13 / 7 / 7 と
+> 記載していたが、これは `diff -u | grep -c '^-[^-]'` 方式の値であり、**内容が `-` / `+` で
+> 始まる行（Markdown の箇条書き）を取りこぼしていた**。上記は `diff` の `<` / `>` 行で
+> 数え直した値である。**件数 10 / 40 と skill 名の内訳は変わらない。**
 
 `plan-review-gate` の乖離内容（最小の実例）— `.codex/` 版には正本にある次の規範ブロックが**無い**:
 
@@ -229,6 +252,49 @@ for d in .agents/skills/*/; do n=$(basename "$d"); cmp -s "$d/SKILL.md" ".codex/
 | `.codex/skills/**` | **なし** — `scripts/check-codex-skill-spec.sh` はディレクトリ集合の presence しか見ず、CI では `--warn-only`。さらに同 workflow の `pull_request.paths` に **`.codex/**` が含まれない**ため `.codex/` だけ変える PR では job が起動すらしない | **10 / 40 乖離** |
 
 **同じ配布メカニズムでも、CI で照合しているレーンだけが一致している。** これは案 B（機械検出）の有効性の実証であると同時に、**配線されていない検査は存在しないのと同じ**（#1259 と同型）という実測でもある。
+
+### 4.1 既存ゲート `ta-77` はなぜこの drift を報告しないのか（本書の追記）
+
+repo には既に #1226 用のゲート `tests/extras/ta-77-approval-surface-gate.sh`（834 行）と
+台帳 `tests/fixtures/ta-77/approval-surfaces.tsv`（33 エントリ）が存在する。**本書の旧版は
+これに一切言及していなかった**。`tests/` は本セッションでは読取のみ（並行作業中）。
+
+台帳は `.codex/skills/ai-dev-plan/SKILL.md` と `.agents/skills/ai-dev-plan/SKILL.md` に
+**同一の digest `79c0d8551308`** を記録している。一方 §4 の実測では同ファイルは **128 行**
+乖離している。矛盾ではなく、**digest の対象範囲が「宣言ブロック」に限られている**ためである:
+
+- ta-77 の digest は `digest_of(lines, idx)` — **検出器がマッチした宣言行とその行を含む
+  連続非空行ブロックだけ**を連結した sha256 先頭 12 桁であり、**ファイル全体のダイジェスト
+  ではない**（ta-77 本体の冒頭コメントに明記）。
+- したがって `.codex` 版から**宣言ブロックの外側**が削られている限り digest は動かない。
+  実際、§4 の乖離 10 件のうち台帳に `.codex` 側エントリがあるのは 5 件だけで、
+  `ai-dev-verify` / `ai-dev-exec` / `ai-loop-cycle` / `ai-dev-brainstorm` / `working-context` は
+  そもそも台帳に載っていない（検出器が宣言面と認識していない）。
+
+**本提案との関係は直交**である。ta-77 は「承認手順の**記述**が変わったら diff に出す」ため
+のもの、案 B′ は「正本と配布物が**ファイルとして**一致していることを PR で必須にする」ため
+のもの。**片方が他方を代替しない。** なお ta-77 自身が台帳冒頭で「得られるのは diff 可視性
+であって承認境界ではない」（台帳も ta-77 本体も HO 対象外で、同一 PR で書き換えれば期待値を
+動かせる）と自己申告しており、§7 の残存と同じ立場をとっている。
+
+### 4.2 是正の副作用 — 宣言面は 1 面ではない（案 A′ 適用時の必須同時変更）
+
+HO のカテゴリ数を宣言している面は `.claude/rules/mode-classification.md` だけではない。
+実測で **12 面**あり（`git grep "9 カテゴリ"` / `"15 パターン"` / 派生値 `"残る 8 カテゴリ"` を
+掃き出し、リリース履歴と適用済み one-shot スクリプトを除外して narrowing）、うち **9 面が
+非 HO**（`.claude/skills/plangate-working-discipline/` の 2 本と `docs/ai/` の 7 箇所）。
+
+最も重いのは `.claude/skills/plangate-working-discipline/approval-gate-template.md` で、
+**承認ゲート Step 0 のチェックリストが HO 対象パスを列挙**している。更新しないと新カテゴリに
+触れる PBI が「最低 high + `lite_eligible=false`」の**規範判定から漏れる**（機械 block は効くが
+mode 判定側が追随しない）。全数の一覧と patch のハンクは
+[`1226-approval-surface-patch-applicable.md`](./1226-approval-surface-patch-applicable.md) §4。
+
+加えて `.claude/rules/mode-classification.md` は `plugin/plangate/rules/mode-classification.md`
+と **byte 一致の生成ミラー**（実測 `cmp` rc=0）であり、`sync-plugin-plangate.yml` の
+`drift-check` job は `pull_request.paths` の `.claude/**` で起動する。**patch だけ当てると
+同 job が `exit 1` で即 FAIL する**（案 B′ の「適用時点で 10 件 FAIL」と同型のリスクが
+案 A′ 側にも存在する）。適用手順は patch 文書 §5 手順 4。
 
 ---
 
@@ -256,13 +322,17 @@ for d in .agents/skills/*/; do n=$(basename "$d"); cmp -s "$d/SKILL.md" ".codex/
 
 | 疑い | 検証 | 結果 |
 |---|---|---|
-| A′ が正常な編集まで止めないか | 追加対象 6 ファイルの直近変更を `git log` で確認 | `.codex/hooks.json` = 2026-05 の PR #347 が最後、`.cursor/hooks.json` = 2026-06 の PR #292 が最後。日常保守の対象ではない。**偽陽性の実害は小さい** |
+| A′ が正常な編集まで止めないか | 追加対象 6 ファイルの直近変更を `git log` で確認 | `.codex/hooks.json` = **2026-05-26** の PR #347（`d7b72a2`）が最後、`.cursor/hooks.json` および `.cursor/hooks/*.sh` = **2026-05-20** の PR #292（`8535247`）が最後（旧版は後者を「2026-06」と書いていたが誤り。PR 番号は正しい）。日常保守の対象ではない。**偽陽性の実害は小さい** |
 | A′ が skills / docs を巻き込まないか | patch 適用後のパターン集合で `.codex/skills/plan-review-gate/SKILL.md` / `.agents/skills/**` / `docs/**` を照合 | いずれも **非 HO のまま**（§ patch 文書 §4 M-3）。`case` の `*` が `/` を跨ぐため、`.codex/hooks/*.sh` は `.codex/skills/**` を巻き込まない（`hooks/` セグメントが literal） |
 | A′ が既存 HO を弱めないか（AC-6） | before/after で既存 15 パターンの一致を比較 | `.claude/rules/working-context.md` / `scripts/hooks/check-plan-hash.sh` 等は **HO → HO** で不変。**削除ゼロの追加のみ** |
 | A′ 自体が「正本を更新しない」病を再生産しないか | `case` ブロックだけでなく `.claude/rules/mode-classification.md` の HO 一覧も**同一 patch に含めた** | 片側適用が構造的に起きない |
 | A′ が **allowlist 改変で素通りしないか** | HO 判定は allowlist ではなく denylist（`_override=1` で無条件 exit 2）。`maintenance.json` の `allowed_paths` は HO 判定の**後**に評価される（判定順 (ii) → (iii)） | **maintenance 窓では迂回できない**。ただし判定ブロック自体を書き換える経路は `scripts/hooks/*.sh`（HO）で守られる — **循環ではなく既存の自己防護** |
 | B′ の検査が空振りしないか | 現 main で 10 件検出することを実測（§4） | **空振りではない**。`\|\| true` を入れる変異で検出が消えることも確認（patch 文書 §4 M-4） |
-| B′ が削除を見逃さないか | `.codex/skills/<n>/SKILL.md` 不在も FAIL にした。正当な除外が無いことを確認（`.agents/skills` に symlink 0 件、40/40 が `.codex` 側に存在、`.codex/skills/.system` 不在） | **missing も検出**。`continue` だけの変異で削除が素通りすることを確認（M-5） |
+| B′ が削除を見逃さないか | `.codex/skills/<n>/SKILL.md` 不在も FAIL にした。正当な除外が無いことを確認（`.agents/skills` に symlink 0 件、40/40 が `.codex` 側に存在） | **missing も検出**。`continue` だけの変異で削除が素通りすることを確認（M-5） |
+| B′ が **`.codex` 側にだけある面**を見逃さないか | 旧版の B′ は `.agents/skills/*/` を回す一方向のみで、正本に無い skill / references を検出できなかった | **双方向へ拡張**（patch 文書 §2「検査の方向」/ M-8）。現 main では 0 件、仕込みフィクスチャで 2 件検出 rc=1 |
+| B′ が **SKILL.md 以外の配布物**を見逃さないか | installer は `SKILL.md` / `references/*.md` / `assets/*` / `agents/openai.yaml` の 4 種を配る（実測） | **byte 比較できる 2 種（`SKILL.md` / `references/*.md`）へ拡張**。`openai.yaml` は生成物、`assets/` は per-skill 正本を持たないため対象外と明記（patch 文書 §2 表） |
+| B′ が **全件を報告するか** | GitHub Actions の既定シェルは `bash -eo pipefail`。旧版の `diff -u ... \| head -40` は rc=1 で errexit を踏む | **実測: 旧形は 1 件目で終了（`::error::` 1 行）。`\|\| true` を付けた形で 10 件すべて報告**（patch 文書 M-7） |
+| `.codex/skills/.system` の扱い（旧版の訂正） | 旧版は「不在」と書いたが**誤り**。`.gitignore:32` の `.codex/skills/.system/` で **ignore されているだけ**で、Codex CLI が実行時に作るため作業チェックアウトには実在しうる | **結論は不変**（CI は fresh checkout なので出現しない）。ローカル手動実行時のみ逆方向ループで 1 件の偽陽性が出る点を patch 文書に注記した |
 | B′ が **実行時導出で素通りしないか** | installer を CI で走らせて `git diff` を見る方式だと **installer 自身の改変で検査が空振りする**。これを避けて `cmp` による直接比較にした | installer とは独立に「正本 = 配布物」を主張する |
 | B′ が **そもそも起動するか** | 既存 workflow の `pull_request.paths` に `.codex/**` が無いことを実測 | **paths への追加を同一 hunk に含めた**。含めなければ検査は存在しても発火しない（M-6） |
 | 提案が承認境界を緩めていないか | 追加のみ / 削除ゼロ。C-4・merge・ruleset・Policy は一切触れない | **緩和なし**。E（required 化）も Human 判断へ送るに留めた |
@@ -291,8 +361,13 @@ for d in .agents/skills/*/; do n=$(basename "$d"); cmp -s "$d/SKILL.md" ".codex/
 | 6 | `for f in plugin/plangate/skills/*/SKILL.md; do ... cmp ...; done` | 0 / 0 件 |
 | 7 | `gh api repos/s977043/plangate/rulesets/14939019`（required check 実測） | 0 |
 | 8 | `git apply --check /tmp/1226-approval-surface.patch`（**repo root**） | **0** |
-| 9 | `git apply --stat /tmp/1226-approval-surface.patch` | 0 / 3 files, +29 / -2 |
-| 10 | `npx markdownlint-cli2 docs/working/_reports/1226-*.md` | 本 PR の記載に従う |
+| 9 | `git apply --numstat /tmp/1226-approval-surface.patch` | 0 / **11 files, +76 / -19** |
+| 10 | `cmp .claude/rules/mode-classification.md plugin/plangate/rules/mode-classification.md`（生成ミラー確認） | **0**（byte 一致） |
+| 11 | `git grep -n "9 カテゴリ\|15 パターン\|残る 8 カテゴリ" -- . ':!CHANGELOG.md' ':!docs/changelog.md' ':!docs/working' ':!scripts/apply-*.sh'`（宣言面の掃き出し / positive control） | 0 / **23 行** |
+| 12 | サンドボックス（`git init` した最小 repo）への patch 適用 + 既存 15 パターンの逐語不変確認 + `yaml.safe_load` | **0**（`*.rej` / `*.orig` なし） |
+| 13 | #1234 / #1278 patch との併用（両順序 × `git apply` / `git apply -3` / `patch -p1`） | patch 文書 §8-5 の表 |
+| 14 | 改修後 CI ステップ相当を `bash -eo pipefail` で実走（positive control） | **1**（10 件すべて報告。旧形は 1 件で終了） |
+| 15 | `npx markdownlint-cli2 docs/working/_reports/1226-*.md` | 本 PR の記載に従う |
 
 ---
 
@@ -310,6 +385,9 @@ for d in .agents/skills/*/; do n=$(basename "$d"); cmp -s "$d/SKILL.md" ".codex/
 | 8 | **HO 判定を hook 実走で確認していない**: 本書の判定は `fnmatch` replica。`sh` 起動が本セッションの実行環境で拒否されるため rc 実測ができていない | 本書 §1 |
 | 9 | **本書の面の数（20 / 22）は全数の証明ではない**: (a)(b)(c) の作業定義に依存し、`docs/working/` の過去 TASK 成果物と `tests/` を除外している。**契約値にしてはならない** | 本書 §3.5 |
 | 10 | **導入先**: plugin 配布物に `scripts/hooks/` も CLI も含まれないため、導入先には HO そのものが存在しない | #1144 |
+| 11 | **`scripts/` 直下の他 2 guard**: `scripts/check-git-destructive.sh`（EH-12）と `scripts/gh-pin-account.sh` は settings から wire されているが **非 HO のまま**。案 A′ は EH-13 だけを HO にする部分適用である（§3.2） | patch 文書 §7-6（Human 判断） |
+| 12 | **`agents/openai.yaml` / `assets/`**: 案 B′ の byte 比較の対象外（前者は生成物、後者は per-skill 正本を持たない）。`openai.yaml` の内容改竄は検出しない | 新規（follow-up 候補） |
+| 13 | **宣言面の追随の機械強制**: §4.2 の 12 面は案 A′ の patch で一度に揃うが、以後「新しい宣言面が増えたら追随する」ことを機械で強制する仕組みは無い（ta-77 は宣言ブロックの digest を見るが、カテゴリ数の記述は宣言ブロック外にありうる — §4.1） | 新規（follow-up 候補） |
 
 EH-3 の HO block は**多層防御の 1 層**にすぎない。承認境界の最終的な保証主体は **C-4 Human レビュー**と **GitHub ruleset** であり、本書の提案をもって承認境界が完全になるとは主張しない。
 
@@ -318,6 +396,7 @@ EH-3 の HO block は**多層防御の 1 層**にすぎない。承認境界の�
 ## 8. 関連
 
 - **#1226**（本 issue）/ **#1263**（一般形・§5.4 で差分を明示）/ **#1221**（実例）
+- 既存ゲート: `tests/extras/ta-77-approval-surface-gate.sh` + `tests/fixtures/ta-77/approval-surfaces.tsv`（§4.1。本 PR では読取のみ）
 - **#1101 / #1104 / #928 / #1234 / #1264 / #1277 / #1278 / #1259**（既知の残存）
 - `docs/ai/hook-enforcement.md` の「既知の残存・6 系統」— いずれも「**HO への書き込みを止められない**」型。本書の型は「**HO を踏まずに承認の中身を変えられる**」であり、6 系統のどれとも異なる **7 番目のクラス**にあたる（追記は follow-up）
 - 適用可能 patch: [`1226-approval-surface-patch-applicable.md`](./1226-approval-surface-patch-applicable.md)
