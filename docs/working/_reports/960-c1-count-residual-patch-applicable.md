@@ -14,10 +14,12 @@
 | **#960 の「数」は解決済み** | `17 項目` / `15 項目` という**総数の表記**は非 HO 分（PR #1118）・HO 分（PR #1119 → #1227 適用）・退行分（PR #1138）で潰れている。本 PR 時点の残存は **数ではなく番号範囲** |
 | **残存の型** | `C1-PLAN-01`〜`07` / `C1-PLAN-01〜C1-B1B2-17` という **ID 範囲**での言及。範囲が実体とずれていれば「17 項目」と書くのと同じ欠陥（issue #960 の主題と同型） |
 | **残存 2 箇所（HO・本書の対象）** | ① `.claude/rules/mode-classification.md:170` の light 適用範囲 `Plan 項目（C1-PLAN-01〜07）のみ` — 実体の Plan 区分は **9**（`08-AEE` / `09-AEE` を落とす）。issue #960「決めるべきこと 2（mode 別適用）」の未処理分であり、[`bug-backlog-triage-2026-08-20.md`](./bug-backlog-triage-2026-08-20.md) の残件 4 と同一 ② `.claude/commands/ai-dev-workflow.md:227-255` の **C-1 手順そのものが 17 項目しか列挙していない**（`(7項目)` / `(5項目)` / `(3項目)` / `(2項目)` の 4 見出し + 連番 1〜17 + `check_id: C1-PLAN-01〜C1-B1B2-17`）。C-1 を実行する側の指示が正本 25 項目のうち **8 項目を構造的に落とす** |
-| **①②の違い** | ① は「範囲表記の誤り」、② は「**手順の欠落**」。② の方が実害が大きい（#544/#578/#579/#581 で入れた 8 項目が C-1 実行時に評価されない） |
-| **既に別 patch 文書がある残存（本書では重複させない）** | `.claude/rules/working-context.md` の `review-self.md（セルフレビュー結果）` 節が `Planチェック（7項目）/ ToDoチェック（5項目）/ TestCasesチェック（3項目）` と列挙している件は [`960-ac2-working-context-patch.md`](./960-ac2-working-context-patch.md) が扱う。**`b3565b2` 時点で未適用**（Human 適用待ち）。本書と対象ファイルが重ならないため順序不問 |
+| **①②の違い** | ① は「範囲表記の誤り」、② は「**手順の欠落**」。② の方が実害が大きい（#544/#578/#579/#581 で入れた 8 項目が C-1 実行時に評価されない）。加えて ② の TestCases 3 行は**文言が正本と対応しておらず**、正本 `C1-TEST-14` が実質 9 項目目の欠落になっている（§1 ②-b） |
+| **light の挙動が変わる点（Human 承認材料）** | ① の是正により **light モードの C-1 実施項目が 7 → 9 に増える**（`C1-PLAN-08-AEE` / `C1-PLAN-09-AEE` が light でも必須化）。これは表記の是正であると同時に **light の実施項目という挙動の変更**である。§7.1 で保留している「`C1-SUP-PLAN-01/02` を含めるか」と同じ性質の判断なので、**同じ土俵で Human に提示する**（§7.0） |
+| **既に別 patch 文書がある残存 ①（本書では重複させない）** | `.claude/rules/working-context.md` の `review-self.md（セルフレビュー結果）` 節が `Planチェック（7項目）/ ToDoチェック（5項目）/ TestCasesチェック（3項目）` と列挙している件 → [`960-ac2-working-context-patch.md`](./960-ac2-working-context-patch.md)。**`b3565b2` 時点で未適用**（Human 適用待ち）。本書と対象ファイルが重ならないため順序不問 |
+| **既に別 patch 文書がある残存 ②（同一 HO ファイルが対象）** | **`.claude/commands/ai-dev-workflow.md` を対象とする未適用 patch がもう 1 本ある** → [`docs/working/TASK-1232/patches/ai-dev-workflow-command-links.patch`](../TASK-1232/patches/ai-dev-workflow-command-links.patch)。実測: `git apply --check` **rc=0**（＝未適用）、`--numstat` は `12 10 .claude/commands/ai-dev-workflow.md`。**hunk は `@@ -6,15 @@` / `@@ -45,7 @@` / `@@ -323,7 @@` で、本 patch の `@@ -226,35 @@` と行域が重複しない**ため順序不問（両順序で適用でき結果がバイト同一であることを §6 で実測） |
 | **非 HO 分（本 PR で是正済）** | `examples/sample-task/review-self.md`（サマリー `PASS 17` に対し実体 15 項目）/ `examples/README.md`（`17-point self-review result`）/ `docs/plangate-v6-roadmap.md:158`（`C-1の15項目レビュー`） |
-| **patch 対象** | `.claude/rules/mode-classification.md`（+1 / -1）、`.claude/commands/ai-dev-workflow.md`（+20 / -5）。**計 2 ファイル / 2 hunk**（`git apply --numstat` 実測） |
+| **patch 対象** | `.claude/rules/mode-classification.md`（+1 / -1）、`.claude/commands/ai-dev-workflow.md`（+23 / -8）。**計 2 ファイル / 2 hunk**（`git apply --numstat` 実測） |
 | **検証** | repo root で `git apply --check` **rc=0**（§6）。適用後の残存検査は positive control 付きで実走（§6） |
 
 ---
@@ -65,6 +67,22 @@ Plan 区分の 9 = `C1-PLAN-01`〜`07` + `C1-PLAN-08-AEE` + `C1-PLAN-09-AEE`（`
 
 落ちている 8 項目: `C1-PLAN-08-AEE` / `C1-PLAN-09-AEE` / `C1-SUP-PLAN-01` / `C1-SUP-PLAN-02` / `C1-TODO-RB` / `C1-SEC-01` / `C1-SCOPE-DISC-01` / `C1-UI-01`。
 
+#### ②-b: TestCases 区分は **文言も正本と対応していない**（数の欠落とは別の欠陥）
+
+Plan（1〜7）/ ToDo（8〜12）/ B-1B2（16〜17）の 14 行は正本の `### C1-…` 見出しと 1:1 で一致するが、
+TestCases の 3 行だけは一致しない（`docs/working/templates/review-self.md:181,188,195` と実測比較）:
+
+| # | ai-dev-workflow.md（現行） | 位置対応する正本の見出し | 判定 |
+|---|---|---|---|
+| 13 | 受入基準との紐付き | `C1-TEST-13: 受入基準→テストケース網羅性` | 同義（表記ゆれのみ） |
+| 14 | Edge case網羅 | `C1-TEST-14: テストケースの具体性` | **不一致** |
+| 15 | 自動化可否 | `C1-TEST-15: エッジケースの考慮` | **不一致** |
+
+実質は `14`（Edge case網羅）が正本 `C1-TEST-15` の内容、`15`（自動化可否）は**正本に対応 ID が無い**
+（近いのは Plan 区分の `C1-PLAN-07: 動作検証自動化`）。結果として正本 `C1-TEST-14`（テストケースの具体性・
+期待値の出所 #934）が C-1 手順のどこからも評価されない。**8 項目の欠落に加えて 9 項目目の実質欠落**であり、
+本 patch はこの 3 行を正本見出しへ置換して解消する（§2・§5）。
+
 `:255` の `C1-PLAN-01〜C1-B1B2-17` は加えて **ID が連番であるという誤った前提**を与える。正本テンプレート自身が「`C1-[A-Z]+-[0-9]+` 前提の正規表現は取りこぼす」と注意している形（`C1-PLAN-08-AEE` / `C1-TODO-RB` / `C1-SCOPE-DISC-01`）と矛盾する。
 
 ---
@@ -74,7 +92,9 @@ Plan 区分の 9 = `C1-PLAN-01`〜`07` + `C1-PLAN-08-AEE` + `C1-PLAN-09-AEE`（`
 | 設計判断 | 理由 |
 |---|---|
 | ① は範囲を**正本の区分名 + 現行 ID** の二段で書く | 「Plan 区分のみ」という**意味**を正本に預け、ID は現行値として括弧内に置く。項目追加時に括弧内だけがずれ、意味は壊れない |
-| ② は 17 項目の列挙を**消さず**、コア帯外 8 項目を追記する | 既存 17 行の文言は正本と一致しており、消すと差分が大きく C-4 レビューが読めない。**欠落を足す**方が最小かつ検証しやすい |
+| ② は 17 項目の列挙を**消さず**、コア帯外 8 項目を追記する | 既存 17 行のうち **14 行（Plan 7 / ToDo 5 / B-1B2 2）は正本の見出しと一致**しており、消すと差分が大きく C-4 レビューが読めない。**欠落を足す**方が最小かつ検証しやすい |
+| ② の TestCases 3 行は**置換**する（追記では足りない） | 実測すると **TestCases 区分だけ正本と対応していない**（下表）。位置で読むと `14`/`15` が正本と別項目に紐づき、正本の `C1-TEST-14`（テストケースの具体性）が C-1 手順から評価されないまま残る。同 patch が「check_id は正本テンプレートの見出し ID と一致させる」を追記するため、放置すると同一 patch 内で矛盾する |
+| 置換後は各行に **`C1-TEST-NN` を併記**する | 位置対応で読ませないため。他 3 区分は一致しているので併記は TestCases のみに留め、差分を最小にする |
 | ② の 4 見出しに「コア帯」を付す | `(7項目)` を残したまま 8 項目を足すと「Plan は 7」と「Plan は 9」が同一節に並ぶ。`(コア帯 7 項目)` にすれば両立する |
 | ② に「総数を契約値として複写しない」注記を足す | 正本テンプレートの同趣旨の注記と揃える。#960 の再発防止（本文直書きをやめる）に対応 |
 | **正本テンプレートの項目は 1 つも増減しない** | 本 issue は数と表記の整合であり、実体を変える PBI ではない（#960 Non-goals） |
@@ -97,6 +117,7 @@ Plan 区分の 9 = `C1-PLAN-01`〜`07` + `C1-PLAN-08-AEE` + `C1-PLAN-09-AEE`（`
 | **light に `C1-SUP-PLAN-01` / `02` を含めるか** | 正本の表では「Plan」と「Plan 品質追加」が別区分。本 patch は **Plan 区分のみ**（9）とし、Plan 品質追加 2 を light に含めない | **Human 判断**（§7.1） |
 | **数の再発** | 本 patch は 2 箇所を直すだけで、新しい直書きを機械的に止めない。#960 AC「再発防止策」は [`960-recurrence-guard-patch.md`](./960-recurrence-guard-patch.md) が扱い、そこでは「弱すぎ かつ 広すぎ」で一度棄却されている | 未解決（§7.2） |
 | **`docs/working/` の過去成果物** | `TASK-*` / `discussions/` / `_prompts/` / `retrospective-*` の「17 項目」は履歴として残す（#960 Out of scope） | 意図的 |
+| **`docs/archive/plangate-v4-design.md` / `plangate-v5-design.md` の「15項目」** | 当時の設計を凍結した **archive**（v4 / v5 時点で C-1 が 15 項目だったという事実の記録）。現行の C-1 手順に影響せず、書き換えると当時の設計が読めなくなる。§0 の (a) 非 HO 是正 / (b) HO patch / (c) 履歴据え置き のうち **(c) 履歴据え置き**に分類する | 意図的（`docs/archive/` の性質） |
 | **`C1-UI-01` の条件付き適用** | `is_ui_task` のときのみ有効。「25 項目」と書いても常に 25 個判定されるわけではない。本 patch は列挙に条件を併記するに留める | 正本テンプレート |
 | **手順の列挙と正本の二重管理** | ② の列挙は写しであり、正本が変われば再びずれる。注記で「正本に対して判定せよ」と書くのは規範層の担保にすぎない | C-4 Human レビュー / §7.2 |
 
@@ -130,7 +151,7 @@ sed -n '/^<!-- PG-PATCH-BEGIN -->$/,/^<!-- PG-PATCH-END -->$/p' \
   | sed -e '1d' -e '$d' | sed -e '1d' -e '$d' > /tmp/960-residual.patch
 
 git apply --check /tmp/960-residual.patch && git apply /tmp/960-residual.patch
-git diff --stat   # 2 files changed, 21 insertions(+), 6 deletions(-)
+git diff --stat   # 2 files changed, 24 insertions(+), 9 deletions(-)
 ````
 
 （`sed` を 2 回通すのは marker 行と fence 行を外側から 1 組ずつ落とすため。先例 1104 / 1278 と同じ規則。）
@@ -176,9 +197,12 @@ diff --git a/.claude/commands/ai-dev-workflow.md b/.claude/commands/ai-dev-workf
  
 -**TestCasesチェック（3項目）**:
 +**TestCasesチェック（コア帯 3 項目）**:
- 13. 受入基準との紐付き — 全受入基準に対してテストケースがあるか（必須）
- 14. Edge case網羅 — 境界値・異常系が設計されているか（必須）
- 15. 自動化可否 — 手動テストのみでなく自動化できるか（推奨）
+-13. 受入基準との紐付き — 全受入基準に対してテストケースがあるか（必須）
+-14. Edge case網羅 — 境界値・異常系が設計されているか（必須）
+-15. 自動化可否 — 手動テストのみでなく自動化できるか（推奨）
++13. 受入基準→テストケース網羅性（`C1-TEST-13`） — 全受入基準に対応するテストケースがあるか（必須）
++14. テストケースの具体性（`C1-TEST-14`） — 入力値・期待値が値レベルで具体的か。期待値の出所（デザイン実測 / 規約 / 既存実装）が各ケースに明記されているか（#934）（必須）
++15. エッジケースの考慮（`C1-TEST-15`） — 境界値・異常系・空入力が含まれているか（必須）
  
 -**B-1/B-2チェック（2項目）**:
 +**B-1/B-2チェック（コア帯 2 項目）**:
@@ -226,7 +250,9 @@ diff --git a/.claude/commands/ai-dev-workflow.md b/.claude/commands/ai-dev-workf
 |---|---|
 | 正本の実数 25（区分内訳 9/2/6/3/2/1/1/1） | ✅ 実測（§1） |
 | 残存 2 箇所の行番号・現在の文言 | ✅ 実測（§1。`b3565b2`） |
-| repo root で `git apply --check` rc=0 | ✅ 実測 |
+| repo root で `git apply --check` rc=0 | ✅ 実測（`--numstat`: `1 1 .claude/rules/mode-classification.md` / `23 8 .claude/commands/ai-dev-workflow.md`） |
+| **適用後の列挙が正本 25 項目を全網羅**（ID または見出しタイトルで照合し差集合が空） | ✅ 実測。サンドボックス複製へ `patch -p1` で適用 → `covered=25 / MISSING=[] / extra_ids=[]`。**positive control**（適用前の同ファイル）は `missing=11`（8 欠落 + TestCases 3 行の文言不一致）で、検査に検出力があることを示す |
+| 本 patch と [`TASK-1232/patches/ai-dev-workflow-command-links.patch`](../TASK-1232/patches/ai-dev-workflow-command-links.patch) の**順序独立性** | ✅ 実測。同一 HO ファイルを対象とするが行域が重ならず、**両順序で適用可能かつ結果はバイト同一**（`diff -q` rc=0） |
 | 残存検査 grep の **positive control** | ✅ 実測（既知の陽性＝本 patch 適用前の 2 行が検出されること） |
 | 非 HO 分 3 ファイルの markdownlint | ✅ 実測（同 PR） |
 | **適用後の実 `/ai-dev-workflow plan` 1 周** | ❌ **未検証**。列挙が増えたことで C-1 が実際に 25 項目を出力するかは、実セッション 1 周でしか測れない |
@@ -256,7 +282,26 @@ patch 文書内の引用（`docs/working/_reports/960-*.md`）は diff の `-` �
 
 ---
 
-## 7. Human 判断事項（本 patch では扱わない）
+## 7. Human 判断事項
+
+### 7.0 本 patch が light の実施項目を 7 → 9 に変えること（承認材料・本 patch に**含む**）
+
+**本 patch は light モードの C-1 実施項目を実質 7 → 9 に変える。**
+① の是正で light の適用範囲が `C1-PLAN-01`〜`07`（7）から Plan 区分全体（9）になり、
+`C1-PLAN-08-AEE`（Stop Condition 記入）/ `C1-PLAN-09-AEE`（Replan Triggers 機械値）が
+**light でも必須になる**。
+
+これは §7.1 で保留している「`C1-SUP-PLAN-01/02` を light に含めるか」と**同じ性質の判断**
+（どちらも light の実施項目の増減）である。§7.1 を「挙動が変わるため Human 決定」として保留する以上、
+本 patch 自身が持ち込む 7 → 9 も同じ土俵で提示しなければ基準が非対称になるため、ここに明記する。
+
+| 選択肢 | light の Plan 実施項目 | 備考 |
+|---|---|---|
+| **本 patch のまま（推奨）** | 9（Plan 区分全体） | 「Plan 項目のみ」という現行文言の素直な解釈。`08/09-AEE` は plan の停止条件・再計画トリガという light でも要る性質 |
+| 7 のまま据え置く | 7 | 範囲表記を `C1-PLAN-01`〜`07` に固定する。ただし「Plan 項目のみ」という表現と実体がずれ続ける |
+| 11 まで広げる | 11（Plan + Plan 品質追加） | §7.1 の判断。本 patch の範囲外 |
+
+**適用 = 選択肢 1 の承認**として扱う。据え置き / 拡大を選ぶ場合は patch の該当 1 行を差し替えること。
 
 ### 7.1 light の C-1 適用範囲に「Plan 品質追加」2 項目を含めるか
 
