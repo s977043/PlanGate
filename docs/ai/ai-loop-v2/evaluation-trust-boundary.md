@@ -12,7 +12,7 @@ Harness Improvement Candidate は、**自分の採用評価中**に次を変更�
 
 | Protected authority        | 内容                                                          |
 | -------------------------- | ------------------------------------------------------------- |
-| Evaluation Harness | paired replay / activation check / grader / **stable meta-verifier** / **HarnessManifest 生成器・canonical 化器** / **`protected_surfaces` 定義** |
+| Evaluation Harness | paired replay / activation check / grader / **stable meta-verifier** / **HarnessManifest 生成器・canonical 化器** / **`protected_surfaces` 定義** / **実差分算出器**（§1「実差分の供給元」） |
 | Sealed / held-out fixtures | 提案時に未使用の regression set。Candidate 作成前に ID を固定 |
 | Promotion Policy           | PASS / FAIL / INCONCLUSIVE の判定規則                         |
 | Acceptance Threshold       | Candidate 作成前に固定した閾値・trial 数・metrics             |
@@ -23,9 +23,29 @@ Harness Improvement Candidate は、**自分の採用評価中**に次を変更�
 
 Protected Gate は **その Candidate の採用評価に参加する** Gate / Verifier に限る。限定を外すと、あらゆる Verifier blocking 規則の変更が `DENIED` になり、North Star §11（Verifier は正式な改善対象）/ §15（Verifier 追加は「条件付き領域」）と §3（stable meta-verifier / known mutants による Verifier Candidate の評価手続き）が到達不能な死文になる。
 
-- 「この Candidate を裁く評価系に参加するか」の判定は、**評価 plan（§6）に固定した verifier set** を基準にする。判定不能なら参加扱い（fail-closed）。
+- 「この Candidate を裁く評価系に参加するか」の判定は、**evaluation plan（§6）の固定項目 `verifier set`** を基準にする。判定不能なら参加扱い（fail-closed）。この `verifier set` は **§6 の規定により Candidate 提案者が単独で決められない**（Candidate が「自分を裁かない」set を書いて Protected Gate の適用外へ落とす経路を塞ぐ）。set が baseline の verifier 集合より**狭い**場合は、値が入っていても判定可能値として扱わず、欠落分は参加扱い（fail-closed）。
 - 参加しない Verifier / Gate を変更する Candidate は `DENIED` にせず、**§3 の手続き（stable meta-verifier / known mutants / baseline detection power）へ差し戻して評価する**。
 - ただし Gate / Verifier の**削除・緩和・適用範囲縮小**は、評価系への参加有無にかかわらず North Star §15 の Human Gate 必須領域である（本節は §15 を緩めない）。
+
+### 実差分の供給元（definition）
+
+本節以降で「実差分」と書くとき、それは次で定義される**観測値**を指す。**供給元を定義しない「実差分」は宣言値の別名に退化し、交差判定の核（自己申告依存の排除）が失われる**（[`artifact-responsibilities.md`](./artifact-responsibilities.md) §6-4「フィールドを増やしても供給経路が無ければ値は入らない」と同じ理由）。
+
+| 項目             | 定義                                                                                                                                                                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **算出主体**     | **Evaluation Harness 側**（Promotion Evaluator）。**Candidate 側ではない**。Candidate が申告した値、および Candidate の `allowed_paths` 内にある実装が出力した値を実差分として受け取らない。実差分算出器は §1 の Protected authority（Evaluation Harness）に含み、Candidate の変更対象外とする |
+| **base**         | **baseline HarnessManifest の `source_commit`**（[`harness-manifest.md`](./harness-manifest.md) §2）。比較対象は candidate HarnessManifest の `source_commit` / `distribution_digest` が指す実体。どの Manifest を baseline に置くかは **evaluation plan（§6）に固定した `baseline_manifest_ref`** に従う |
+| **算出方法**     | evaluation plan（§6）に固定する。**Candidate が選べない**（結果を見てから算出範囲・除外パターンを変えることは §6「結果を見てから評価条件を緩めない」に反する新 evaluation plan）                                                                                                        |
+| **Legacy 対応**  | Legacy #916 の `changed_files`（arbiter が算出する観測値）に相当する。**V2 でも「評価系が算出する観測値」という供給元の性質を失わせない**（§2）                                                                                                                                        |
+
+取得・信頼性が満たされない場合の扱い:
+
+| 状況                                                                                                                                                | 扱い                                            |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| 実差分が**取得できない**（baseline / candidate の Manifest が取れない・binding 不一致・差分算出器が実行不能）                                        | `INCONCLUSIVE`（§5）。`PASS` 側へ倒さない       |
+| 実差分は取得できたが**信頼できない**（算出主体が Candidate 側・算出器が Candidate の `allowed_paths` 内・base が evaluation plan の固定値と不一致・算出方法が事前固定と異なる） | **fail-closed**。`DENIED` または `HUMAN_REQUIRED` |
+
+信頼できない観測は「取れた」と扱わない。**供給元・base・算出方法のいずれかが確認できない実差分を交差判定の充足根拠にしない。**
 
 適用規則:
 
@@ -119,15 +139,25 @@ Candidate の実装を始める**前**に、evaluation plan を固定する。
 | 固定する項目                  | 内容                                                     |
 | ----------------------------- | -------------------------------------------------------- |
 | fixture IDs                   | sealed / held-out set の ID 一覧                         |
+| **verifier set**              | **この Candidate の採用評価に参加する Verifier / Gate の集合**。§1「Protected Gate の限定」の判定基準になる。baseline HarnessManifest の `verifier_set_sha` が指す定義から導出する |
+| **baseline manifest ref**     | 実差分の base（§1「実差分の供給元」）と paired 比較の baseline を固定する `baseline_manifest_ref`（[`harness-manifest.md`](./harness-manifest.md) §3） |
 | task profile                  | 評価に使う task の種別（探索 / 定型修正 / …）            |
 | trial count                   | 非決定的挙動に対する試行回数。単発で足りる場合はその理由 |
 | metrics                       | 何を測るか（North Star §14 / §18）                       |
 | threshold                     | 採用閾値                                                 |
 | critical regression condition | 1 件でも出たら FAIL にする条件                           |
 
+**固定の主体**（誰が固定するか）:
+
+| 項目                                    | 固定の主体                                                                                                                                                                 |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `verifier set` / `baseline manifest ref` | **Evaluation Harness 側**（Promotion Evaluator）。**Candidate 提案者は単独で決められない**。提案者は変更を申請できるが、その変更は §1 の Protected authority（Evaluation Harness / Protected Gate）の変更として扱い、§3 の手続きまたは Human Gate（North Star §15）を要する |
+| fixture IDs / task profile / trial count / metrics / threshold / critical regression condition | 同上。Candidate 実装を始める前に Evaluation Harness 側が固定し、Candidate 作成後は変更しない                                                                              |
+
 原則:
 
-- **結果を見てから評価条件を緩めない**。閾値・fixture・trial 数の変更は新しい evaluation plan = 新しい評価。
+- **結果を見てから評価条件を緩めない**。閾値・fixture・trial 数・verifier set・baseline manifest ref の変更は新しい evaluation plan = 新しい評価。
+- **固定項目のいずれかが欠落・判定不能なら安全側に倒す**（`verifier set` の欠落 → 全 Verifier を参加扱い。baseline manifest ref の欠落 → `INCONCLUSIVE`（§5））。
 - evaluation plan の digest を HarnessImprovementCandidate に持たせ、HarnessExperimentResult が同じ digest を参照していることを Promotion Evaluator が検査する。
 
 ## 7. Negative examples（V2 として invalid）

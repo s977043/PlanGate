@@ -173,7 +173,7 @@ read RunState (revision = N)
 ## 7. 学習条件と Delivery Contract の接続
 
 > North Star §1 が定義する **価値仮説 / 学習条件 / 観測条件 / Evidence の返却先** の**保持先**を定める。
-> **新 artifact を増やさない**（North Star §11「Component を増やすこと自体を進化と定義しない」/ §6 artifact budget）。
+> **新 artifact を増やさない**（North Star §19 Non-goals「Component を増やすこと自体」/ §12「Harness の進化を Component 数の増加と定義しない」/ [`phase0-migration.md`](./phase0-migration.md) §6 artifact budget）。
 
 ### 7-1. 保持先
 
@@ -200,9 +200,11 @@ typo 修正でも変わり（偽陽性）、学習条件を別ファイルに書
 
 1. **学習条件を安定 ID 付きの列挙単位にする**（既存の `R-NNN` / AC 番号と同じ運用）。ID があって初めて「どの条件が変わったか」を差分で言える
 2. **その列挙の正規化表現に対する section-level hash** を `plan_hash` とは**別に**持つ。導出は既存の `canonical_hash()` を再利用する（独自 hash 実装を作らない）
-3. **承認 record に additive に刻む**（既存の optional フィールドと同じパターン）
+3. **承認 record に additive に刻む**（既存の optional フィールドと同じパターン）。**ただしこれは "そのまま" ではない**（下記）
 
 これで `plan_hash` 不一致（= 何かが変わった）と学習条件 hash 不一致（= Replan トリガ）を**分離**できる。
+
+**承認 record 側の波及**: `schemas/c3-prime.schema.json` は top-level が `additionalProperties: false` で、必須 14 / optional 1（`derived_loopspec_hash`）である（2026-09-07 実測）。したがって「既存の optional フィールドと同じパターン」で追加する場合でも、**schema 変更 + 受理器（検証実装）+ fixture への波及を伴う**。7-1 の「束縛 hash は既存機構でそのままかかる（新 hash 機構も新 artifact も不要）」は **Plan Package 側**（6 要素の `artifact_hashes` / `plan_package_hash`）についての記述であり、**承認 record 側には及ばない**。波及範囲の確定は Phase 1（7-4）。
 
 **注意**: `artifact_hashes` は 6 要素全数必須なので、**学習条件を新ファイルに切り出すと 6 要素契約に触れる**。
 `plan.md` の節に置いて section hash を取る方が既存契約を壊さない。
