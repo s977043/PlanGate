@@ -30,6 +30,18 @@
 # 「0 件が期待値」の検査（TC-06 のバイト一致 / TC-07 の skip-decision-log
 # 行数不変）は **positive control 付き**で書く（検査器が実際に差分・追記を
 # 検出できることを同 TC 内で実証してから 0 件を主張する）。
+#
+# ── rc 固定と plaform 依存についての点検結果（#1289 CI fail 由来）────
+# ta-79 の #1278 レーンは「監査ログを書けなくする」前提を作るため、
+# **リダイレクト失敗時の rc が shell 依存**（macOS /bin/sh=1 / dash=2。実測）に
+# なり、gap レーンで rc を数値固定していたことが Ubuntu CI の FAIL を招いた。
+# 本ファイルは **監査ログを書けない状態を一切作らない**（各 fixture は
+# docs/working/_audit を書き込み可能な通常ディレクトリとして用意する）ため、
+# 観測される rc はすべて **hook 自身の exit（0 / 2）** で shell 非依存である。
+# 実測: macOS /bin/sh と dash（PATH の sh も dash へ差し替え）で 40 PASS / 0 FAIL 一致。
+# よって本ファイルの rc + トークン対は据え置く。**将来 TC を足すときも、監査ログを
+# 書けなくする前提を導入するなら rc を数値固定しないこと**（gap 側は
+# 「PlanGate の理由トークンが出ない」を主判定にする / ta-79 の TC-12 参照）。
 
 # ---- extras execution contract bootstrap (#921) ----------------------------
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then

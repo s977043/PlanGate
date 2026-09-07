@@ -410,6 +410,34 @@ _t79_mut_case M4 "TC-P01" "" "" "0" "$_T79_P_HARMLESS" 0 "$_T79_MARK"
 # 期待値ポリシーは #1104 レーンと同型だが **flag は別**:
 #   tests/fixtures/eh3-log-event-pending-1278.flag
 #   pin は PG_T79_EXPECT_1278（無ければ PG_T79_EXPECT にフォールバック）。
+#
+# ── 残存脅威モデル / plaform 差分（実測。推測ではない）─────────────
+# #1278 の **fail-open は shell 依存**である。監査ログ（hook-events.log）が
+# 444 の状態で patch 未適用の hook を実行した実測値:
+#
+#   | shell                | HO CLAUDE.md | 非 HO docs/foo.md | PlanGate 理由トークン |
+#   |----------------------|--------------|-------------------|----------------------|
+#   | macOS /bin/sh        | rc=1         | rc=1              | 出ない                |
+#   | dash (Linux CI 相当) | **rc=2**     | **rc=2**          | 出ない                |
+#
+# macOS の /bin/sh はリダイレクト失敗を **コマンドの失敗**として扱い set -e で
+# rc=1 終了する（= Claude Code の PreToolUse では「エラー表示つきの許可」＝
+# fail-open）。dash は **リダイレクト失敗でシェル自体を rc=2 で終了**するため、
+# 形の上では block 側に倒れる（素通りはしない）が、**PlanGate の判定を 1 度も
+# 通っていない**点は同じで、許可すべき経路（非 HO .md の DOC_LIGHT_SKIP）まで
+# 巻き込んで rc=2 になる。どちらも「監査ログが書けないと判定が成立しない」
+# という同一の欠陥の別の現れ方である。
+# なお `_audit` を通常ファイルにした（mkdir 失敗）ケースは **両 shell とも rc=1**
+# （リダイレクトではなく通常コマンドの失敗のため）。
+#
+# したがって **gap レーンの判定に rc の具体値を使わない**。patch 未適用時に
+# plaform 非依存で成り立つ不変条件は
+#   「PlanGate の block 理由トークンが出力に現れない（正規の判定へ到達しない）」
+#   かつ「rc が 0 でない」
+# だけである（TC-12）。緩めすぎ検出は TC-12d が担う: **patch 適用済み複製では
+# この gap 述語が成立しない**（理由トークンが出る）ことを同時に実測する。
+# patch 適用後の rc / トークンは両 shell で同一（実測: rc=2 + HARDENING_OVERRIDE /
+# rc=0 + DOC_LIGHT_SKIP）なので TC-10 / TC-11 は従来どおり rc + トークンの対で固定する。
 printf '  -- #1278 log_event fail-open (audit log unwritable) --\n'
 
 _T79_REPORT_1278="$_T79_ROOT/docs/working/_reports/1278-log-event-fail-closed-patch-applicable.md"
@@ -501,14 +529,23 @@ _t79_mk1278() {
   esac
 }
 
-# 期待トークンが **出ていない** ことを判定する（gap / 変異版の rc=1 は shell の
-# 生エラーで文言が OS 依存なため、PlanGate 側 reason の不在を対で見る）。
-_t79_expect_absent() {
-  if [ "$_t79_rc" = "$2" ] && ! printf '%s' "$_t79_out" | grep -q -- "$3"; then
-    t79_pass "$1 (rc=$2 / '$3' 不在)"
+# gap レーンの述語（plaform 非依存）。
+#   主判定 = **PlanGate の block 理由トークンが出ていない**（正規の判定に到達
+#            していない）
+#   副条件 = rc が 0 でない（許可として素通りしてもいない）
+# rc の具体値は shell 依存（冒頭の残存脅威モデル参照）なので固定しない。
+# 述語成立の可否だけを返す版（TC-12d の緩めすぎ検出が同じ述語を使う）。
+_t79_gap_holds() {
+  # $1 = 不在であるべき PlanGate 理由トークン
+  [ "$_t79_rc" != "0" ] && ! printf '%s' "$_t79_out" | grep -q -- "$1"
+}
+_t79_expect_gap() {
+  # $1 = ラベル / $2 = 不在であるべき PlanGate 理由トークン
+  if _t79_gap_holds "$2"; then
+    t79_pass "$1 ('$2' 不在 / rc=$_t79_rc は plaform 依存のため判定に使わない)"
     return 0
   fi
-  t79_fail "$1: rc=$_t79_rc (want $2) token='$3' は出ないはず out=[$(printf '%s' "$_t79_out" | head -1)]"
+  t79_fail "$1: '$2' は出ないはず / rc=$_t79_rc（0 でないこと）out=[$(printf '%s' "$_t79_out" | head -1)]"
   return 1
 }
 
@@ -546,19 +583,36 @@ _t79_run_file "$_T79_RRO/scripts/hooks/check-plan-hash.sh" "CLAUDE.md" '{}'
 if [ "$_T79_EXPECT_1278" = "fixed" ]; then
   _t79_expect "TC-12a: 実 hook / log 444 / HO → block" 2 "HARDENING_OVERRIDE" || true
 else
-  _t79_expect_absent "TC-12a(gap): 実 hook / log 444 / HO → rc=1 で block に到達しない (#1278 未適用)" 1 "HARDENING_OVERRIDE" || true
+  _t79_expect_gap "TC-12a(gap): 実 hook / log 444 / HO → 正規の判定へ到達しない (#1278 未適用)" "HARDENING_OVERRIDE" || true
 fi
 _t79_run_file "$_T79_RRO/scripts/hooks/check-plan-hash.sh" "docs/working/TASK-9999/plan.md" '{}'
 if [ "$_T79_EXPECT_1278" = "fixed" ]; then
   _t79_expect "TC-12b: 実 hook / log 444 / no-task plan.md → block" 2 "plan.md edited without TASK context" || true
 else
-  _t79_expect_absent "TC-12b(gap): 実 hook / log 444 / plan.md → rc=1 で block に到達しない" 1 "plan.md edited without TASK context" || true
+  _t79_expect_gap "TC-12b(gap): 実 hook / log 444 / plan.md → 正規の判定へ到達しない" "plan.md edited without TASK context" || true
 fi
 _t79_run_file "$_T79_RND/scripts/hooks/check-plan-hash.sh" "CLAUDE.md" '{}'
 if [ "$_T79_EXPECT_1278" = "fixed" ]; then
   _t79_expect "TC-12c: 実 hook / _audit がファイル / HO → block" 2 "HARDENING_OVERRIDE" || true
 else
-  _t79_expect_absent "TC-12c(gap): 実 hook / _audit がファイル / HO → rc=1 で block に到達しない" 1 "HARDENING_OVERRIDE" || true
+  _t79_expect_gap "TC-12c(gap): 実 hook / _audit がファイル / HO → 正規の判定へ到達しない" "HARDENING_OVERRIDE" || true
+fi
+
+# TC-12d: gap 述語が **緩すぎない**ことの実測（両方向）。
+# 同じ前提（log 444 / _audit ファイル化）を patch **適用済み**複製に与えると、
+# gap 述語は成立してはならない（理由トークンが出て正規の判定に到達するため）。
+# ここが PASS しないと TC-12 は「patch を当てても通る」空振りになる。
+_t79_run_file "$_T79_ROHOOK" "CLAUDE.md" '{}'
+if _t79_gap_holds "HARDENING_OVERRIDE"; then
+  t79_fail "TC-12d-1: gap 述語が patch 適用済み複製でも成立する(TC-12a が緩すぎる / rc=$_t79_rc)"
+else
+  t79_pass "TC-12d-1: gap 述語は patch 適用済み複製では成立しない(TC-12a は緩すぎない / rc=$_t79_rc)"
+fi
+_t79_run_file "$_T79_NDHOOK" "CLAUDE.md" '{}'
+if _t79_gap_holds "HARDENING_OVERRIDE"; then
+  t79_fail "TC-12d-2: gap 述語が patch 適用済み複製（_audit ファイル化）でも成立する(TC-12c が緩すぎる / rc=$_t79_rc)"
+else
+  t79_pass "TC-12d-2: gap 述語は patch 適用済み複製（_audit ファイル化）では成立しない (rc=$_t79_rc)"
 fi
 
 # ---- TC-13: 変異注入（保護句が実際に効いていることの実証）-------------
