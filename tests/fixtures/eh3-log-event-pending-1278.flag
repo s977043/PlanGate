@@ -1,0 +1,2 @@
+#1278 EH-3 log_event fail-open patch (docs/working/_reports/1278-log-event-fail-closed-patch-applicable.md) is not yet applied to scripts/hooks/check-plan-hash.sh (Hardening Override / Human-owned).
+ta-79 TC-12 expects the pre-patch behaviour (rc=1, block unreachable) while this file exists. Delete this flag in the same commit that applies the patch.

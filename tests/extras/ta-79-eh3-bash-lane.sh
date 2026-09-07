@@ -395,6 +395,329 @@ _t79_mut_case M2 "TC-P01" "" "" "0" "$_T79_P_HARMLESS" 0 "$_T79_MARK"
 _t79_mut_case M3 "TC-P04-1" "TASK-T79TMP" "" "0" "$_T79_P_HARMLESS" 0 "plan_hash mismatch"
 _t79_mut_case M4 "TC-P01" "" "" "0" "$_T79_P_HARMLESS" 0 "$_T79_MARK"
 
+# ══════════════════════════════════════════════════════════════════
+# #1278: log_event の監査ログ書込失敗が block 判定を fail-open にする
+# ══════════════════════════════════════════════════════════════════
+# 仕様の正本: docs/working/_reports/1278-log-event-fail-closed-patch-applicable.md
+# §6「回帰 TC 仕様」（TC-10a〜d / TC-11a/b / TC-12 / TC-13 / TC-14）。
+#
+# `log_event` は set -eu 下で mkdir / printf >> が失敗すると rc=1 で即死し、
+# 直後の exit 2（HO 9 カテゴリ / no-task plan.md block）へ到達しない。
+# Claude Code の PreToolUse は **exit 2 のみ block** なので、監査ログが書けない
+# 環境では防御が丸ごと外れる。判定は **rc と PlanGate 側の reason トークンの対**
+# で行う（shell の生エラー文言は OS 依存なので判定に使わない）。
+#
+# 期待値ポリシーは #1104 レーンと同型だが **flag は別**:
+#   tests/fixtures/eh3-log-event-pending-1278.flag
+#   pin は PG_T79_EXPECT_1278（無ければ PG_T79_EXPECT にフォールバック）。
+#
+# ── 残存脅威モデル / plaform 差分（実測。推測ではない）─────────────
+# #1278 の **fail-open は shell 依存**である。監査ログ（hook-events.log）が
+# 444 の状態で patch 未適用の hook を実行した実測値:
+#
+#   | shell                | HO CLAUDE.md | 非 HO docs/foo.md | PlanGate 理由トークン |
+#   |----------------------|--------------|-------------------|----------------------|
+#   | macOS /bin/sh        | rc=1         | rc=1              | 出ない                |
+#   | dash (Linux CI 相当) | **rc=2**     | **rc=2**          | 出ない                |
+#
+# macOS の /bin/sh はリダイレクト失敗を **コマンドの失敗**として扱い set -e で
+# rc=1 終了する（= Claude Code の PreToolUse では「エラー表示つきの許可」＝
+# fail-open）。dash は **リダイレクト失敗でシェル自体を rc=2 で終了**するため、
+# 形の上では block 側に倒れる（素通りはしない）が、**PlanGate の判定を 1 度も
+# 通っていない**点は同じで、許可すべき経路（非 HO .md の DOC_LIGHT_SKIP）まで
+# 巻き込んで rc=2 になる。どちらも「監査ログが書けないと判定が成立しない」
+# という同一の欠陥の別の現れ方である。
+# なお `_audit` を通常ファイルにした（mkdir 失敗）ケースは **両 shell とも rc=1**
+# （リダイレクトではなく通常コマンドの失敗のため）。
+#
+# したがって **gap レーンの判定に rc の具体値を使わない**。patch 未適用時に
+# plaform 非依存で成り立つ不変条件は
+#   「PlanGate の block 理由トークンが出力に現れない（正規の判定へ到達しない）」
+#   かつ「rc が 0 でない」
+# だけである（TC-12）。緩めすぎ検出は TC-12d が担う: **patch 適用済み複製では
+# この gap 述語が成立しない**（理由トークンが出る）ことを同時に実測する。
+# patch 適用後の rc / トークンは両 shell で同一（実測: rc=2 + HARDENING_OVERRIDE /
+# rc=0 + DOC_LIGHT_SKIP）なので TC-10 / TC-11 は従来どおり rc + トークンの対で固定する。
+printf '  -- #1278 log_event fail-open (audit log unwritable) --\n'
+
+_T79_REPORT_1278="$_T79_ROOT/docs/working/_reports/1278-log-event-fail-closed-patch-applicable.md"
+_T79_FLAG_1278="$_T79_ROOT/tests/fixtures/eh3-log-event-pending-1278.flag"
+_T79_MARK_1278="audit log unavailable"
+_T79_1278_OK=1
+
+if [ ! -f "$_T79_REPORT_1278" ]; then
+  t79_fail "TC-10/00: patch report not found: $_T79_REPORT_1278"
+  _T79_1278_OK=0
+fi
+
+if [ "$_T79_1278_OK" = "1" ]; then
+
+_T79_PATCH_1278="$_T79_TMP/1278.patch"
+sed -n '/^<!-- PG-PATCH-BEGIN -->$/,/^<!-- PG-PATCH-END -->$/p' "$_T79_REPORT_1278" \
+  | sed -e '1d' -e '$d' | sed -e '1d' -e '$d' > "$_T79_PATCH_1278" || true
+if [ -s "$_T79_PATCH_1278" ] && grep -q '^--- a/scripts/hooks/check-plan-hash.sh$' "$_T79_PATCH_1278"; then
+  t79_pass "TC-10/00a: #1278 patch block extracted from report (marker-anchored, non-empty)"
+else
+  t79_fail "TC-10/00a: #1278 patch block extraction failed ($_T79_REPORT_1278)"
+fi
+
+# NOTE: `grep -q ... && var=1` と書くと **grep が外れた行が文の rc=1 になり**、
+# harness（run-tests.sh の set -e）ではスイートごと落ちる。if/fi で受ける。
+_T79_REAL_1278=0
+if grep -q "$_T79_MARK_1278" "$_T79_HOOK_SRC"; then
+  _T79_REAL_1278=1
+fi
+_T79_FLAG_1278_PRESENT=0
+if [ -f "$_T79_FLAG_1278" ]; then
+  _T79_FLAG_1278_PRESENT=1
+fi
+
+if [ -n "${PG_T79_EXPECT_1278:-}" ]; then
+  _T79_EXPECT_1278="$PG_T79_EXPECT_1278"
+elif [ -n "${PG_T79_EXPECT:-}" ]; then
+  _T79_EXPECT_1278="$PG_T79_EXPECT"
+elif [ "$_T79_FLAG_1278_PRESENT" = "1" ]; then
+  _T79_EXPECT_1278=gap
+else
+  _T79_EXPECT_1278=fixed
+fi
+
+# TC-10/00b: stale 宣言の検出（flag が残っているのに実装は fixed）
+if [ "$_T79_FLAG_1278_PRESENT" = "1" ] && [ "$_T79_REAL_1278" = "1" ]; then
+  t79_fail "TC-10/00b: stale gap flag — #1278 patch は適用済みなのに $_T79_FLAG_1278 が残っている（削除すること）"
+else
+  t79_pass "TC-10/00b: #1278 gap flag と実装状態が整合 (flag=$_T79_FLAG_1278_PRESENT patched=$_T79_REAL_1278 expect=$_T79_EXPECT_1278)"
+fi
+
+# patch を **repo 外 mktemp** の staging へ適用する（repo 内サブディレクトリで
+# git apply すると何も適用せず rc=0 で成功したように見える）
+_T79_STAGE_1278="$_T79_TMP/stage1278"
+mkdir -p "$_T79_STAGE_1278/scripts/hooks"
+cp "$_T79_HOOK_SRC" "$_T79_STAGE_1278/scripts/hooks/check-plan-hash.sh"
+_T79_APPLY_1278=0
+if [ "$_T79_REAL_1278" = "1" ]; then
+  t79_pass "TC-10/00c: real hook already carries the #1278 fix — sandbox copy is fixed as-is"
+else
+  (cd "$_T79_STAGE_1278" && git apply "$_T79_PATCH_1278") >/dev/null 2>&1 || _T79_APPLY_1278=$?
+  if [ "$_T79_APPLY_1278" = "0" ] \
+     && grep -q "$_T79_MARK_1278" "$_T79_STAGE_1278/scripts/hooks/check-plan-hash.sh"; then
+    t79_pass "TC-10/00c: #1278 patch applies to the sandbox copy and installs the WARN guard"
+  else
+    t79_fail "TC-10/00c: #1278 patch failed to apply to sandbox copy (rc=$_T79_APPLY_1278)"
+  fi
+fi
+_T79_PSRC_1278="$_T79_STAGE_1278/scripts/hooks/check-plan-hash.sh"
+if sh -n "$_T79_PSRC_1278" 2>/dev/null; then
+  t79_pass "TC-10/00d: #1278-patched hook passes sh -n"
+else
+  t79_fail "TC-10/00d: #1278-patched hook has a syntax error"
+fi
+
+# 監査ログを書けない状態を作る。$1=sandbox dir / $2=hook / $3=ro|notdir
+_t79_mk1278() {
+  _t79_mkroot "$1"
+  cp "$2" "$1/scripts/hooks/check-plan-hash.sh"
+  case "$3" in
+    ro)
+      : > "$1/docs/working/_audit/hook-events.log"
+      chmod 444 "$1/docs/working/_audit/hook-events.log"
+      ;;
+    notdir)
+      rm -rf "$1/docs/working/_audit"
+      : > "$1/docs/working/_audit"
+      ;;
+  esac
+}
+
+# gap レーンの述語（plaform 非依存）。
+#   主判定 = **PlanGate の block 理由トークンが出ていない**（正規の判定に到達
+#            していない）
+#   副条件 = rc が 0 でない（許可として素通りしてもいない）
+# rc の具体値は shell 依存（冒頭の残存脅威モデル参照）なので固定しない。
+# 述語成立の可否だけを返す版（TC-12d の緩めすぎ検出が同じ述語を使う）。
+_t79_gap_holds() {
+  # $1 = 不在であるべき PlanGate 理由トークン
+  [ "$_t79_rc" != "0" ] && ! printf '%s' "$_t79_out" | grep -q -- "$1"
+}
+_t79_expect_gap() {
+  # $1 = ラベル / $2 = 不在であるべき PlanGate 理由トークン
+  if _t79_gap_holds "$2"; then
+    t79_pass "$1 ('$2' 不在 / rc=$_t79_rc は plaform 依存のため判定に使わない)"
+    return 0
+  fi
+  t79_fail "$1: '$2' は出ないはず / rc=$_t79_rc（0 でないこと）out=[$(printf '%s' "$_t79_out" | head -1)]"
+  return 1
+}
+
+# ---- TC-10a〜d: hook-events.log が 444（printf >> 側の保護）----------
+_T79_RO="$_T79_TMP/ro1278"
+_t79_mk1278 "$_T79_RO" "$_T79_PSRC_1278" ro
+_T79_ROHOOK="$_T79_RO/scripts/hooks/check-plan-hash.sh"
+
+_t79_run_file "$_T79_ROHOOK" "CLAUDE.md" '{}'
+_t79_expect "TC-10a: log 444 / HO CLAUDE.md → block は維持される" 2 "HARDENING_OVERRIDE" || true
+_t79_run_file "$_T79_ROHOOK" "docs/working/TASK-9999/plan.md" '{}'
+_t79_expect "TC-10b: log 444 / no-task plan.md → block は維持される" 2 "plan.md edited without TASK context" || true
+_t79_run_file "$_T79_ROHOOK" "docs/foo.md" '{}'
+_t79_expect "TC-10c: log 444 / 非 HO .md → 正常系（doc-light）が退行しない" 0 "DOC_LIGHT_SKIP" || true
+_t79_run "$_T79_ROHOOK" "" "" "0" "$_T79_P_HARMLESS"
+_t79_expect "TC-10d: log 444 / Bash payload → NOOP が退行しない" 0 "$_T79_MARK" || true
+
+# ---- TC-11a/b: _audit が通常ファイル（mkdir 側の保護）----------------
+_T79_ND="$_T79_TMP/nd1278"
+_t79_mk1278 "$_T79_ND" "$_T79_PSRC_1278" notdir
+_T79_NDHOOK="$_T79_ND/scripts/hooks/check-plan-hash.sh"
+
+_t79_run_file "$_T79_NDHOOK" "CLAUDE.md" '{}'
+_t79_expect "TC-11a: _audit がファイル / HO CLAUDE.md → block は維持される" 2 "HARDENING_OVERRIDE" || true
+_t79_run_file "$_T79_NDHOOK" "docs/working/TASK-9999/plan.md" '{}'
+_t79_expect "TC-11b: _audit がファイル / no-task plan.md → block は維持される" 2 "plan.md edited without TASK context" || true
+
+# ---- TC-12: 実 hook（期待は flag に従う）------------------------------
+_T79_RRO="$_T79_TMP/real-ro1278"
+_t79_mk1278 "$_T79_RRO" "$_T79_HOOK_SRC" ro
+_T79_RND="$_T79_TMP/real-nd1278"
+_t79_mk1278 "$_T79_RND" "$_T79_HOOK_SRC" notdir
+
+_t79_run_file "$_T79_RRO/scripts/hooks/check-plan-hash.sh" "CLAUDE.md" '{}'
+if [ "$_T79_EXPECT_1278" = "fixed" ]; then
+  _t79_expect "TC-12a: 実 hook / log 444 / HO → block" 2 "HARDENING_OVERRIDE" || true
+else
+  _t79_expect_gap "TC-12a(gap): 実 hook / log 444 / HO → 正規の判定へ到達しない (#1278 未適用)" "HARDENING_OVERRIDE" || true
+fi
+_t79_run_file "$_T79_RRO/scripts/hooks/check-plan-hash.sh" "docs/working/TASK-9999/plan.md" '{}'
+if [ "$_T79_EXPECT_1278" = "fixed" ]; then
+  _t79_expect "TC-12b: 実 hook / log 444 / no-task plan.md → block" 2 "plan.md edited without TASK context" || true
+else
+  _t79_expect_gap "TC-12b(gap): 実 hook / log 444 / plan.md → 正規の判定へ到達しない" "plan.md edited without TASK context" || true
+fi
+_t79_run_file "$_T79_RND/scripts/hooks/check-plan-hash.sh" "CLAUDE.md" '{}'
+if [ "$_T79_EXPECT_1278" = "fixed" ]; then
+  _t79_expect "TC-12c: 実 hook / _audit がファイル / HO → block" 2 "HARDENING_OVERRIDE" || true
+else
+  _t79_expect_gap "TC-12c(gap): 実 hook / _audit がファイル / HO → 正規の判定へ到達しない" "HARDENING_OVERRIDE" || true
+fi
+
+# TC-12d: gap 述語が **緩すぎない**ことの実測（両方向）。
+# 同じ前提（log 444 / _audit ファイル化）を patch **適用済み**複製に与えると、
+# gap 述語は成立してはならない（理由トークンが出て正規の判定に到達するため）。
+# ここが PASS しないと TC-12 は「patch を当てても通る」空振りになる。
+_t79_run_file "$_T79_ROHOOK" "CLAUDE.md" '{}'
+if _t79_gap_holds "HARDENING_OVERRIDE"; then
+  t79_fail "TC-12d-1: gap 述語が patch 適用済み複製でも成立する(TC-12a が緩すぎる / rc=$_t79_rc)"
+else
+  t79_pass "TC-12d-1: gap 述語は patch 適用済み複製では成立しない(TC-12a は緩すぎない / rc=$_t79_rc)"
+fi
+_t79_run_file "$_T79_NDHOOK" "CLAUDE.md" '{}'
+if _t79_gap_holds "HARDENING_OVERRIDE"; then
+  t79_fail "TC-12d-2: gap 述語が patch 適用済み複製（_audit ファイル化）でも成立する(TC-12c が緩すぎる / rc=$_t79_rc)"
+else
+  t79_pass "TC-12d-2: gap 述語は patch 適用済み複製（_audit ファイル化）では成立しない (rc=$_t79_rc)"
+fi
+
+# ---- TC-13: 変異注入（保護句が実際に効いていることの実証）-------------
+# 片側だけ除去する 2 変異を含め、mkdir 側 / printf 側がそれぞれ別のケースを
+# 守っていることを測る（両方まとめて消す変異だけでは片側の空振りを検出できない）。
+_t79_mutate_1278() {
+  # $1 = mkdir|printf|both / $2 = 出力 hook path
+  cp "$_T79_PSRC_1278" "$2"
+  MUT="$1" TGT="$2" python3 - <<'PYM78'
+import os, sys
+mut = os.environ["MUT"]; tgt = os.environ["TGT"]
+lines = open(tgt, encoding="utf-8").read().split("\n")
+idx = [i for i, l in enumerate(lines)
+       if l.strip().startswith("|| { printf '[Hook EH-3] WARN: audit log unavailable")]
+if len(idx) != 2:
+    sys.exit(9)
+drop = {"mkdir": [idx[0]], "printf": [idx[1]], "both": idx}.get(mut)
+if drop is None:
+    sys.exit(9)
+for i in sorted(drop, reverse=True):
+    prev = lines[i - 1]
+    if prev.rstrip().endswith("\\"):
+        lines[i - 1] = prev.rstrip()[:-1].rstrip()
+    del lines[i]
+open(tgt, "w", encoding="utf-8").write("\n".join(lines))
+PYM78
+}
+
+# $1=mutant $2=ro|notdir $3=対象パス $4=TC ラベル $5=want_rc $6=want_token
+# $7=hold|break（break: その TC が落ちること / hold: 落ちないこと を期待）
+_t79_mut1278_case() {
+  _t79_m78="$_T79_TMP/mut1278-$1.sh"
+  if [ ! -f "$_t79_m78" ]; then
+    if ! _t79_mutate_1278 "$1" "$_t79_m78"; then
+      t79_fail "TC-13/$1: mutation could not be applied（変異が当たっていない = 検出力を主張できない）"
+      return 0
+    fi
+    if cmp -s "$_T79_PSRC_1278" "$_t79_m78"; then
+      t79_fail "TC-13/$1: mutant is byte-identical to the patched hook（変異が当たっていない）"
+      return 0
+    fi
+    if ! sh -n "$_t79_m78" 2>/dev/null; then
+      t79_fail "TC-13/$1: mutant has a syntax error（変異が壊れている）"
+      return 0
+    fi
+  fi
+  _t79_msb="$_T79_TMP/mut1278-$1-$2"
+  if [ ! -d "$_t79_msb" ]; then
+    _t79_mk1278 "$_t79_msb" "$_t79_m78" "$2"
+  fi
+  _t79_run_file "$_t79_msb/scripts/hooks/check-plan-hash.sh" "$3" '{}'
+  if _t79_holds "$5" "$6"; then
+    if [ "$7" = "hold" ]; then
+      t79_pass "TC-13/$1: $4 は依然 PASS（この変異が守備範囲外であることの対照 / rc=${_t79_rc}）"
+    else
+      t79_fail "TC-13/$1: 変異したのに $4 が依然 PASS する（この TC は空振り）"
+    fi
+  else
+    if [ "$7" = "hold" ]; then
+      t79_fail "TC-13/$1: 守備範囲外のはずの $4 まで落ちた（変異が広すぎる / rc=${_t79_rc}）"
+    else
+      t79_pass "TC-13/$1: 変異により $4 が FAIL する（検出力あり / rc=${_t79_rc}）"
+    fi
+  fi
+}
+
+_t79_mut1278_case both   ro     "CLAUDE.md" "TC-10a" 2 "HARDENING_OVERRIDE" break
+_t79_mut1278_case both   notdir "CLAUDE.md" "TC-11a" 2 "HARDENING_OVERRIDE" break
+_t79_mut1278_case printf ro     "CLAUDE.md" "TC-10a" 2 "HARDENING_OVERRIDE" break
+_t79_mut1278_case printf notdir "CLAUDE.md" "TC-11a" 2 "HARDENING_OVERRIDE" hold
+_t79_mut1278_case mkdir  notdir "CLAUDE.md" "TC-11a" 2 "HARDENING_OVERRIDE" break
+_t79_mut1278_case mkdir  ro     "CLAUDE.md" "TC-10a" 2 "HARDENING_OVERRIDE" hold
+
+# ---- TC-14: 444 / 通常ファイル化した _audit を復元してから削除 --------
+# （444 のまま rm -rf すると権限で失敗する環境がある）
+_t79_1278_restore() {
+  for _t79_rp in "$1/docs/working/_audit/hook-events.log" "$1/docs/working/_audit"; do
+    [ -e "$_t79_rp" ] || continue
+    chmod u+rwx "$_t79_rp" 2>/dev/null || chmod 644 "$_t79_rp" 2>/dev/null || true
+  done
+}
+_T79_1278_SBS="$_T79_RO $_T79_ND $_T79_RRO $_T79_RND"
+for _t79_mb in "$_T79_TMP"/mut1278-*-ro "$_T79_TMP"/mut1278-*-notdir; do
+  if [ -d "$_t79_mb" ]; then
+    _T79_1278_SBS="$_T79_1278_SBS $_t79_mb"
+  fi
+done
+for _t79_sb in $_T79_1278_SBS; do
+  _t79_1278_restore "$_t79_sb"
+done
+_T79_1278_RM=1
+for _t79_sb in $_T79_1278_SBS; do
+  rm -rf "$_t79_sb" 2>/dev/null || true
+  if [ -e "$_t79_sb" ]; then
+    _T79_1278_RM=0
+  fi
+done
+if [ "$_T79_1278_RM" = "1" ]; then
+  t79_pass "TC-14: 444 / _audit ファイル化サンドボックスを権限復元してから削除できた"
+else
+  t79_fail "TC-14: #1278 サンドボックスの削除に失敗（権限復元が効いていない）"
+fi
+
+fi
+
 # ── 後片付け（trap は使わない / README 規約 1・2）────────────────────
 rm -rf "$_T79_TMP"
 if [ -e "$_T79_TMP" ]; then
