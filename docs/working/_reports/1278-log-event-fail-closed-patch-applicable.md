@@ -108,6 +108,7 @@ HO block（`:357` / `:381`）も plan.md block（`:400`）も **`log_event` → 
 **判断: 本 patch では触らない。** 根拠:
 
 1. **block の fail-open は生じない。** 3 箇所とも到達先は `exit 0`（許可）である。書込失敗で rc=1 になっても、Claude Code 上は rc=0 と同じく「続行」。つまり **判定の結果（許可）は変わらず、失われるのは記録だけ**。#1278 の主題（exit 2 に到達しない）とはクラスが違う。
+   **ただしこの根拠は `/bin/sh` が bash 系（rc=1）である前提に立つ**（§6 の実体依存表）。`/bin/sh` が **dash・ash 系**の環境では、`skip-decision-log.jsonl` へのリダイレクト失敗は **rc=2 = block** になり、`_audit` の権限事故だけで **非 HO の `.md` 編集がすべて止まる**（(b) を選ばずとも実質 (b) の可用性影響が出る）。据え置きの判断自体は変えないが、この platform 依存性は運用者が把握しておくこと。
 2. **選択肢は 2 つあり、どちらも「同型で保護」ではない。**
    - (a) `\|\| { WARN; }` で保護して `exit 0` を続ける = 記録なしで SKIP を通す。**現状（rc=1 で続行）と実効挙動は同じ**で、shell の生エラーが WARN に変わるだけ。CI（`scripts/check-skip-acknowledged.sh`）が未追認エントリで落ちる補償統制は、エントリ自体が無ければどのみち働かない。
    - (b) 記録できなければ `exit 2` = **「記録付き自動 SKIP」の前提を fail-closed に倒す**。ガバナンス上はこちらが筋（記録が SKIP の条件）だが、**新しい block クラス**（`_audit` が書けないと非 HO `.md` すら編集不可）を導入する。read-only checkout や `_audit` 権限事故で docs 作業が止まるため、可用性側の影響を Human が引き受ける判断が要る。
@@ -130,7 +131,7 @@ HO block（`:357` / `:381`）も plan.md block（`:400`）も **`log_event` → 
 
 | 残存 | 内容 | 保証の主体 |
 |---|---|---|
-| **`skip-decision-log.jsonl` の書込失敗** | §3 のとおり SKIP 3 経路は rc=1（続行・記録なし）のまま | Human 判断（§7 (b)）/ 現状は stderr 生エラーの目視 |
+| **`skip-decision-log.jsonl` の書込失敗** | §3 のとおり SKIP 3 経路は保護なしのまま。`/bin/sh` が bash 系なら rc=1（続行・記録なし）だが、**dash・ash 系ではリダイレクト失敗が rc=2 = block** になり非 HO `.md` 編集が止まる（§3 / §6） | Human 判断（§7 (b)）/ 現状は stderr 生エラーの目視 |
 | **`log_event` 以外の `set -e` 死** | `date` / `sha256sum` / `python3` の失敗、**stderr 閉塞時（`2>&-`）の block 経路の `printf >&2`**（実測: base / patch 後とも rc=1。Claude Code は stderr を pipe で受けるため実害は低い）、**不正 UTF-8 バイトを含む no-task `plan.md` パスでの `sed`（UTF-8 locale の BSD sed で rc=1。`LC_ALL=C` では rc=2。APFS は当該ファイル名を作れないため Linux + BSD sed 環境に限る）** など、`log_event` 以前に rc≠2 で終わる経路は本 patch の対象外 | 別 issue（本書は監査ログ書込のみを扱う） |
 | **監査ログの改ざん・削除** | 書けない環境を「作る」こと自体（`chmod 444` / `_audit` のファイル化）は AI にも可能。本 patch は「作られても block は残る」までで、作ったこと自体は検出しない | `git status` / C-4 Human レビュー（`_audit` は tracked） |
 | **rc=1 を block と誤認する運用** | 「エラーが出た＝止まった」と読む人間の誤認は残る | 本書 §1 の契約説明 / hook 冒頭コメント |
@@ -212,7 +213,8 @@ diff --git a/scripts/hooks/check-plan-hash.sh b/scripts/hooks/check-plan-hash.sh
 2. `tests/extras/ta-65-eh3-ho-task-context.sh` / `ta-79-eh3-bash-lane.sh` を standalone 実行して既存 TC が全 PASS（本 patch は判定ロジックを変えないので退行があれば patch 側の誤り）
 3. §6 の回帰 TC を `ta-79` へ追加し、**patch 適用前の hook で FAIL すること**（変異 TC）を 1 度実走して確認する
 4. `plugin/plangate/` へのミラーは対象外（`scripts/hooks/` は plugin 配布物に含まれない。CLAUDE.md v8.21.0 節）
-5. **#1234（`1234-eh3-outside-repo-patch-applicable.md`）との併用**: hunk が重ならず**順序不問**（`f23d31d` で 1278→1234 / 1234→1278 の両順序で `git apply --check` rc=0・結果ファイル一致を実測）。片方だけ適用しても他方の `--check` は失敗しない
+5. **#1234（`1234-eh3-outside-repo-patch-applicable.md`）との併用**: hunk が重ならず**順序不問**（`f23d31d` で 1278→1234 / 1234→1278 の両順序で `git apply --check` rc=0・結果ファイル一致を実測）。片方だけ適用しても他方の `--check` は失敗しない。
+   **ただし `scripts/hooks/check-plan-hash.sh` を触る未適用 patch は 3 本（#1226 / #1234 / #1278）**あり、**#1226 とは #1234 が干渉する**（`git apply` はどちらの順序でも 2 本目が失敗する。実測）。本 patch 自体は #1226 とも順序不問（両順序 `git apply` rc=0）だが、3 本を通す順序と回避策は **`1226-approval-surface-patch-applicable.md` §8-5 を正本**とすること
 
 ---
 
@@ -228,11 +230,21 @@ diff --git a/scripts/hooks/check-plan-hash.sh b/scripts/hooks/check-plan-hash.sh
 | 変異注入（保護句除去）で再現ケースが rc=1 に戻る | ✅ 実測（§4 表） |
 | **実 Claude Code セッション 1 周**（PreToolUse 経由で exit 2 が block として扱われ、stderr WARN がモデル/ユーザーに届く） | ❌ **未検証**。fixture は rc しか測れない。Human 適用後に `chmod 444 docs/working/_audit/hook-events.log` 状態で HO ファイルへの Write を 1 回試し、block されることを見てから戻す |
 | `tests/run-tests.sh` / `ta-61` 全体走行 | ❌ 未実施（本ワーカーの実行制約）。patch は判定ロジック非接触のため既存 TC への影響は理論上ゼロだが、実測はしていない |
-| Linux（dash / GNU coreutils）での再現 | ❌ 未実測。`>>` 失敗と `mkdir` 失敗が非 0 を返す挙動は POSIX で共通だが、エラー文言は異なる（TC は rc のみで判定すること） |
+| **`/bin/sh` の実体ごとの再現（OS 軸ではなくシェル実体軸）** | ✅ 実測（2026-09-07 手元。`git archive origin/main` を repo 外へ展開した複製に対し実 hook を実走）。配線は `sh <script>` なので挙動を決めるのは `/bin/sh` の実体である。**リダイレクト失敗**（`chmod 444` の log）: `/bin/sh`（bash 3.2.57）**rc=1**、`/bin/bash` **rc=1**、`/bin/dash` **rc=2**（理由トークンなし・シェルの `cannot create …` のみ）。**`_audit` のファイル化**（`mkdir -p` 失敗）: `/bin/sh` **rc=1**、`/bin/dash` **rc=1** — 外部コマンドの失敗なので **dash でも fail-open**。したがって「macOS 固有 / Linux は rc=2 で安全」は誤りで、**`/bin/sh` が bash な Linux（Fedora / RHEL 系や多くのコンテナ）でも rc=1 = fail-open** になる |
+| **保護句の platform 非依存性** | ✅ 実測。dash のリダイレクト失敗は「シェルが独自に即死する」のではなく**単純コマンドが rc=2 で失敗し `set -eu` が終了させている**もの（機構は bash 系と同じ）であり、本 patch の `\|\| { WARN; return 0; }` 型の保護は **dash でも効く**（保護を入れた複製で `/bin/sh` / `/bin/dash` / `/bin/bash` の 3 者とも WARN 出力の上で block rc=2 に到達） |
+| **TC の判定述語** | **rc と一意 reason トークンの対で書く**（`tests/extras/README.md` `P-1`〜`P-3` / #1178）。**rc を判定から落としてはならない** — rc=2（block）と rc=1（fail-open）の差が #1278 の本質であり、トークンだけでは検査できない。代わりに **期待 rc を platform 非依存の定数として決め打ちしない**（`sh` の実体ごとに期待 rc を定義するか、トークン不在そのものを fail と定義する）。エラー文言はシェル依存なので文言一致は使わない |
 
 ### 回帰 TC 仕様（`ta-79` へ追加。`.sh` は本ワーカーが書けないため仕様のみ）
 
-`ta-79` は既に「patch 文書 → marker 抽出 → サンドボックス複製へ `git apply` → rc 実測」の seam（TC-00c）を持つ。同じ骨組みで、本書の marker から patch を取る第 2 の抽出（`_T79_PATCH_1278`）を足し、以下を追加する。判定は **rc のみ**（stderr 文言は OS 依存）。
+`ta-79` は既に「patch 文書 → marker 抽出 → サンドボックス複製へ `git apply` → rc 実測」の seam（TC-00c）を持つ。同じ骨組みで、本書の marker から patch を取る第 2 の抽出（`_T79_PATCH_1278`）を足し、以下を追加する。
+判定は **rc と一意 reason トークンの対**（`tests/extras/README.md` `P-1`〜`P-3` / #1178。`ta-79` の
+`_t79_expect` も rc 一致 **AND** `grep -q` である）。**rc を落とさない** — rc=2（block）と rc=1
+（fail-open）の差が #1278 の本質だからである。ただし **期待 rc を platform 非依存の定数として
+決め打ちしない**: 下表の期待 rc は `/bin/sh` が **bash 系**（macOS 既定 / `/bin/sh` が bash な Linux）
+であることを前提にした値であり、`/bin/sh` が dash・ash 系の環境では **未適用時（TC-12）の期待 rc が
+リダイレクト失敗ケースでは 1 ではなく 2 になる**（`mkdir` 失敗ケースは dash でも 1）。実装時は
+`sh` の実体ごとに期待 rc を定義するか、**理由トークン不在そのものを fail と定義する**こと。
+シェルのエラー文言（`Permission denied` / `cannot create` 等）はシェル依存なので述語に使わない。
 
 | TC | 前提（サンドボックス複製） | 入力 | 期待 rc | 備考 |
 |---|---|---|---|---|
