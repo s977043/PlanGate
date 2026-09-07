@@ -263,6 +263,7 @@ $ git show origin/main:.agents/skills/intent-classifier/SKILL.md | sed -n '8,10p
 2. **Human 判断**: `schemas/review-result.schema.json:42` の「phase 固有スコア（C-1 の 17 項目等、任意）」が**契約値かどうか**
 3. 適用後に `sh scripts/sync-plugin-plangate.sh` でミラー 5 件を追従
 4. **mode 別適用範囲の実質的な再定義**: `mode-classification.md:153,170` の light「Plan 7 項目のみ（C1-PLAN-01〜07）」が実体 PLAN 9（+ SUP-PLAN 2）とどう対応するか
+   - → **patch 作成済み**: [`960-c1-count-residual-patch-applicable.md`](./960-c1-count-residual-patch-applicable.md)（残件 4 の `mode-classification.md:170` + `.claude/commands/ai-dev-workflow.md` の C-1 手順 17 項目欠落。適用は Human-owned）
 5. **Human 判断**: `CHANGELOG.md` / `docs/changelog.md` を歴史記録として据え置く方針の最終確認
 
 > **AI 側に残る着手可能作業は実質ゼロ。適用が Human ワンアクションで完了する状態**（本レポート中もっとも「詰まりを外せば進む」度合いが高い）。
