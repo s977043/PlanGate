@@ -17,6 +17,20 @@ V2 では次の 4 軸を**別フィールド**で持つ。
 | **Stop Reason**      | なぜ継続できなかったか       | Outcome の根拠。複数可        |
 | **Policy Verdict**   | Policy Gate は何と判定したか | Gate の出力。Outcome ではない |
 
+### Evolution Loop（Candidate 評価）への適用範囲
+
+本 taxonomy は **Delivery Run** の語彙として定義する。North Star §4「Delivery と Evolution は同じ state / gate / success condition で表現しない」に従い、4 軸のうち Evolution Loop に転用するものを次に限定する。
+
+| 軸                   | Evolution Loop（Candidate 評価）への適用                                                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Lifecycle State**  | **適用しない**。Candidate 評価 Run の進行表現は Delivery の State 値域を流用しない（Phase 1 で確定）                                                                          |
+| **Terminal Outcome** | **適用しない**。`MERGE_READY` は Delivery 契約であり、Candidate の採否は Terminal Outcome ではなく **Promotion Decision**（`PASS` / `FAIL` / `INCONCLUSIVE`）で表す（Phase 1 で確定） |
+| **Stop Reason**      | **語彙のみ共用**。Candidate 評価が成立しない理由を記録する語として使ってよいが、Delivery Outcome の根拠としては使わない                                                       |
+| **Policy Verdict**   | **適用する**。Policy Gate は Delivery / Evolution の双方に働く単一の Gate であり、Evaluation Trust Boundary の交差判定も同じ Gate の出力（`DENIED` / `HUMAN_REQUIRED`）で表す（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §1 / §7）。Verdict は「成功条件」ではなく「禁止・要 Human の宣言」であり、Delivery と Evolution で success condition を共有することにはならない |
+
+- **Candidate 評価 Run が Lifecycle State / Terminal Outcome を持つか否かは Phase 1 で確定する**（[`phase0-migration.md`](./phase0-migration.md) §8）。Phase 0.1 時点では未定義であり、暫定的に Delivery の値域を当てはめない。
+- `INCONCLUSIVE` は **Promotion Decision** の値であって Terminal Outcome ではない。
+
 ## 2. Lifecycle State
 
 | State              | 意味                                                                                       |
@@ -141,7 +155,7 @@ stop_reasons: []
 
 | Legacy の用法                                                                                                                                          | V2 での読み替え                                                                                                                                   |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C-3' arbiter の `AUTO_APPROVED / HUMAN_ESCALATED / BLOCKED`（`scripts/ai-loop/arbiter.py`、`docs/workflows/ai-loop/**`）                               | `AUTO_APPROVED` → Policy Verdict。`HUMAN_ESCALATED` / `BLOCKED` → Terminal Outcome。Legacy 実装は変更しない                                       |
+| C-3' arbiter の `AUTO_APPROVED / HUMAN_ESCALATED / BLOCKED`（`scripts/ai-loop/arbiter.py`、`docs/workflows/ai-loop/**`）                               | `AUTO_APPROVED` → Policy Verdict。`HUMAN_ESCALATED` / `BLOCKED` → Terminal Outcome。**V2 taxonomy を Legacy 実装へ逆輸入しない**（語彙・state 機械の書き換えをしない）。[`phase0-migration.md`](./phase0-migration.md) §2 の freeze 例外（security fix 等）を禁じる意味ではない |
 | #1025 の `status: RUNNING / WAITING_HUMAN / WAITING_EXTERNAL / BLOCKED / COMPLETED` | `RUNNING` → Lifecycle State 群、`WAITING_*` → State、`BLOCKED` → Outcome（**終端。Legacy の「再開可能な BLOCKED」は V2 では `WAITING_EXTERNAL`**）、`COMPLETED` → Outcome（`MERGE_READY` 等）へ分解 |
 | #894 `termination.decision: continue \| success \| blocked \| human_escalated \| budget_exhausted \| no_progress \| repeated_failure \| policy_denied` | `continue` → Decision Engine の継続判断（Outcome ではない）、`success` → `MERGE_READY`、`blocked / human_escalated` → Outcome、残り → Stop Reason |
 | Legacy RunEvidence schema `terminal_state`（`docs/schemas/run-evidence.schema.json`）                                                                  | 値域は V2 Terminal Outcome と一致。名称は V2 では `outcome`。Legacy schema は変更しない                                                           |
@@ -154,11 +168,22 @@ Legacy 文書・Issue の履歴は書き換えない。V2 namespace（`docs/ai/a
 V2 namespace に対して次を検査する。いずれも 0 件が期待値。
 
 ```sh
-git grep -nP '^\s*state:\s*(NO_PROGRESS|REPEATED_FAILURE|OSCILLATION|BUDGET_EXHAUSTED|POLICY_DENIED|VERIFIER_UNAVAILABLE|REQUIREMENT_CONFLICT|STATE_CONFLICT|MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '^docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
-git grep -nP '^\s*outcome:\s*(AUTO_APPROVED|HUMAN_REQUIRED|DENIED)\b' -- docs/ai/ai-loop-v2 | grep -vE '^docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
-git grep -nP '^\s*policy_verdict:\s*(MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '^docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
+git grep --full-name -nP '^\s*state:\s*(NO_PROGRESS|REPEATED_FAILURE|OSCILLATION|BUDGET_EXHAUSTED|POLICY_DENIED|VERIFIER_UNAVAILABLE|REQUIREMENT_CONFLICT|STATE_CONFLICT|MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
+git grep --full-name -nP '^\s*outcome:\s*(AUTO_APPROVED|HUMAN_REQUIRED|DENIED)\b' -- docs/ai/ai-loop-v2 | grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
+git grep --full-name -nP '^\s*policy_verdict:\s*(MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
 ```
 
-**positive control**: 上記コマンドから `| grep -vE '^docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'` を外して `taxonomy.md` 自身に当て、§6 の禁止例が検出されること（`state:` 2 行 / `outcome:` 1 行 / `policy_verdict:` 1 行）を先に確認する。検出されない場合は検査が空振りしており「0 件」を証拠にしてはならない。`-E`（POSIX ERE）では `\s` / `\b` が効かず常時 0 件になる（レビューで実測）。
+`--full-name` はリポジトリ root 以外から実行した場合の相対パス出力を防ぐ。除外パターンの先頭を `(^|:)` にするのは、`git grep <rev> …` 形式では出力が `<rev>:docs/…` になり、行頭アンカー `^docs/` では**除外が空振りして「0 件」が偽になる**ため（レビューで実測）。
+
+**positive control**: 上記コマンドから `| grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'` を外して `taxonomy.md` 自身に当て、§6 の禁止例が検出されること（`state:` 2 行 / `outcome:` 1 行 / `policy_verdict:` 1 行 = 計 4 行）を先に確認する。検出されない場合は検査が空振りしており「0 件」を証拠にしてはならない。`-E`（POSIX ERE）では `\s` / `\b` が効かず常時 0 件になる（レビューで実測）。
+
+**grep で検査できない禁止例（1 件）**: §6 の禁止例は 5 件だが、上記 3 本が検出できるのは 4 行のみ。残る 1 件 —
+
+```yaml
+outcome: HUMAN_ESCALATED
+stop_reasons: []
+```
+
+— は §3 の中核規則「`HUMAN_ESCALATED` / `BLOCKED` は必ず 1 つ以上の Stop Reason を伴う」の違反であり、**2 行の関係（同一 Run 内の `outcome` と `stop_reasons` の組み合わせ）を見ないと判定できない**ため、行単位の grep では原理的に検査できない。この 1 件は Phase 1 の fixture 化で検査対象にする（[`phase0-migration.md`](./phase0-migration.md) §8）。Phase 0.1 時点では **未検査**であり、上記 3 本の「0 件」を §6 全体の充足根拠にしてはならない。
 
 Phase 1 で `tests/extras/` に fixture 化し、本節の禁止例を negative control として固定する（[`phase0-migration.md`](./phase0-migration.md) §8）。

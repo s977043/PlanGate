@@ -79,14 +79,14 @@ candidate_manifest_ref: sha256:...
 
 原則:
 
-- 上位段階は下位段階を含意しない方向には使えない（`fired` は `selected` を含意するが、`registered` は `fired` を含意しない）。
+- **下位段階の成立から上位段階の成立を推定してはならない**（`fired` が成立していれば `selected` も成立しているが、`registered` が成立していても `fired` は成立していない）。含意は上位 → 下位の一方向のみ。
 - HarnessExperiment の Activation Check（North Star §14）は **`fired` 以上**を要求する。`installed` / `registered` のみの Candidate 評価は `INCONCLUSIVE`。
 - **例外（North Star §14 / #1284）**: **Verifier / Gate の改善**では要求段階が一般則の `fired` 以上ではなく **`influenced_decision`** になる（既知の欠陥を検出でき、その結果が続行・停止の判断へ接続されたことまで確かめる）。この場合、`fired` / `produced_evidence` 止まりの Candidate 評価は `INCONCLUSIVE`。
 - 「設定の存在は効いている証拠でない」（hooks.json の注記キー 2 つで全体 parse 拒否・登録 0 件を達成済みと書き続けた実害）を構造的に防ぐ。
 
 ## 5. 独立 Artifact にする理由（artifact budget review）
 
-[`phase0-migration.md`](./phase0-migration.md) §6 の budget 8 件に対し、HarnessManifest を 9 件目として追加する。既存 artifact への additive 表現を検討した結果を残す。
+[`phase0-migration.md`](./phase0-migration.md) §6 の budget（Phase 0 時点で 8 件）に対し、HarnessManifest を 9 件目として追加する（同 §6 は Phase 0.1 で `RunEvent stream` を 10 件目として追加している）。既存 artifact への additive 表現を検討した結果を残す。
 
 | 候補                                                             | 却下理由                                                                                                                                                                                           |
 | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

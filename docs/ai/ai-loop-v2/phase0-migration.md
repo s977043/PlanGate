@@ -33,6 +33,35 @@ Legacy ai-loop に許可する変更:
 
 例外を入れる場合は、V2 North Star に照らして「Legacy に入れる必要」を Plan に明示する。
 
+### 判定主体と判定手順
+
+許可・不許可の列挙だけでは、同じ変更が「security fix」とも「V2 専用 verifier の本実装」とも読める。**どちらに当たるかを誰がどの手順で決めるかを次に固定する。**
+
+| 役割         | 担当                | 責務                                                                                                        |
+| ------------ | ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 分類の提案   | AI（Plan 作成者）   | 当該変更が上記のどの許可カテゴリに当たるか、および「V2 側で実装しない理由」を **Plan に明示**する            |
+| 例外の承認   | **Human（C-3 ゲート）** | freeze 例外の可否を裁定する。**AI は自分の Plan の freeze 例外を自分で承認できない**（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §1 と同じ趣旨） |
+| 適用の確認   | Human（C-4）        | merge 時点で、実差分が承認した例外カテゴリの範囲に収まっているかを確認する                                   |
+
+判定手順:
+
+1. Plan に **freeze 例外の申告**（対象 Legacy 資産 / 許可カテゴリ / V2 側で実装しない理由 / 範囲）を書く。
+2. Human が C-3 で可否を裁定する。**分類が両解釈可能なときは不許可側（V2 で実装する）を既定**とする（fail-closed）。
+3. 承認した例外カテゴリと範囲を、当該 Plan と本 §2 の実例表に残す。
+
+判定不能・未申告の変更は Legacy に入れない。
+
+### 実例: #916
+
+| 論点         | 判定                                                                                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 対象         | Legacy C-3' arbiter への carve-out 機械層配線（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §2）                                              |
+| 許可カテゴリ | **security fix / migration・compatibility support**。arbiter が自分の判定基盤を auto-approve 経路で改変しうる構造的盲点を塞ぐため                                 |
+| 不許可カテゴリに当たらない理由 | 配線するのは **Legacy arbiter の既存 escalate 経路への carve-out 適用**であり、V2 の Policy Gate / Evaluation Trust Boundary の**本実装ではない**。V2 側は同じ protected surface 定義を再利用するだけで、Legacy 実装を V2 正本にしない |
+| 承認         | 本 §2 の判定手順に従い Human C-3 で裁定する（未裁定のまま着手しない）                                                                                            |
+
+[`taxonomy.md`](./taxonomy.md) §7 の「C-3' arbiter の Legacy 実装は変更しない」は **V2 taxonomy を Legacy 実装へ逆輸入しない**（語彙・state 機械の書き換えをしない）という意味であり、本 §2 が定める freeze 例外（security fix 等）を禁じるものではない。2 つの記述はこの限定で読む。
+
 ## 3. Classification rule
 
 | Classification | Meaning |
@@ -153,6 +182,7 @@ Phase 1 では正本 artifact を無制限に増やさない。初期候補を�
 7. `HarnessExperimentResult`（Phase 0.1: `baseline_manifest_ref` / `candidate_manifest_ref` を additive に追加）
 8. `PromotionDecision`
 9. `HarnessManifest`（Phase 0.1 で追加。独立 artifact とする根拠は [`harness-manifest.md`](./harness-manifest.md) §5）
+10. `RunEvent stream`（Phase 0.1 で追加。[`artifact-responsibilities.md`](./artifact-responsibilities.md) §3 が「正本は event stream。RunEvidence は再生成可能なキャッシュ」と宣言しており、**budget 外に置くと Phase 1 が正本を budget 外 artifact として定義せざるを得なくなる**ため budget に含める。V2 RunEvent 型の定義は Phase 1。Legacy schema へ V2 event 型を追加しない点は同 §3）
 
 各 artifact の責務境界は [`artifact-responsibilities.md`](./artifact-responsibilities.md)。新 artifact を追加する Plan は、既存 artifact へ additive に表現できない理由を North Star review で説明する。
 
@@ -169,18 +199,41 @@ Phase 1 では正本 artifact を無制限に増やさない。初期候補を�
 - [x] V2 初期 artifact budget を固定
 - [x] Human C-4 で Phase 0 docs PR を merge（PR #1273、2026-09-05）
 - [ ] North Star / migration docs の独立レビュー — **PENDING**。実装 Agent 自身のレビューは独立レビューに数えない（Independence Level I0。[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §4）。別 context / role の checker による I1 以上の記録を要する
+  - `reviewed_at_sha`: **`2950d358`** — 記録: [`docs/working/_reports/1275-phase0-01-independent-review.md`](../../working/_reports/1275-phase0-01-independent-review.md)（I1 ×2 / docs 整合・敵対 / 2026-09-07）
+  - **本項のチェックは本 PR のマージ後に行う**。記録を追加した PR 自身を Human C-4 完了として扱わない
+
+### 独立レビュー記録の要求（`reviewed_at_sha`）
+
+canon は Phase 0 baseline 以降も更新されるため、「独立レビュー済み」は **どの SHA を見たレビューか**と対で記録しないと意味を持たない（本節の Baseline は**作成時 baseline** であってレビュー済み SHA ではない）。
+
+- 独立レビューを記録する際は、**レビュー対象の commit SHA を `reviewed_at_sha` に必ず書く**。SHA の無いレビュー記録は exit criteria を充足しない。
+- 記録後に canon が更新された場合、`reviewed_at_sha` と HEAD の差分が**レビュー範囲外**であることを明示する（差分がレビュー対象の主張に触れるなら再レビュー）。
+- `README.md` / `north-star.md` の Status 行の「Independent Review PENDING」表記は索引であり、充足判定の正本は本節の `reviewed_at_sha` 欄とする。
 
 ### Phase 0.1 exit criteria（#1275 / Canon Hardening）
 
-- [x] Lifecycle State / Terminal Outcome / Stop Reason / Policy Verdict の 4 軸 taxonomy を正本化（[`taxonomy.md`](./taxonomy.md)）（PR #1276 で充足）
-- [x] HarnessManifest の責務・最低フィールド・RunEvidence binding・Runtime Activation 6 段階を定義（[`harness-manifest.md`](./harness-manifest.md)）（PR #1276 で充足）
-- [x] Evaluation Trust Boundary / Independence Level / `INCONCLUSIVE` / pre-registration を invariant 化（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md)）（PR #1276 で充足）
-- [x] artifact 責務分離 / RunEvidence = event projection / RunState revision CAS を固定（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）（PR #1276 で充足）
-- [x] Initial Plan Verification / Plan Gate を Delivery canonical flow へ追加（`north-star.md` §2 / §9 / §17）（PR #1276 で充足）
-- [x] #870 / #894 / #869 / #874 / #916 / #1025 を GitHub 上で rebaseline（PR #1276 で充足）
+各項目の根拠は、その項目が**何によって達成されるか**で書き分ける（docs の新規作成は docs PR のマージで達成できるが、GitHub 上の Issue body 更新は docs PR のマージでは原理的に達成できない）。
+
+- [x] Lifecycle State / Terminal Outcome / Stop Reason / Policy Verdict の 4 軸 taxonomy を正本化（[`taxonomy.md`](./taxonomy.md)）（根拠: PR #1276 で当該 docs を追加）
+- [x] HarnessManifest の責務・最低フィールド・RunEvidence binding・Runtime Activation 6 段階を定義（[`harness-manifest.md`](./harness-manifest.md)）（根拠: PR #1276 で当該 docs を追加）
+- [x] Evaluation Trust Boundary / Independence Level / `INCONCLUSIVE` / pre-registration を invariant 化（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md)）（根拠: PR #1276 で当該 docs を追加）
+- [x] artifact 責務分離 / RunEvidence = event projection / RunState revision CAS を固定（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）（根拠: PR #1276 で当該 docs を追加）
+- [x] Initial Plan Verification / Plan Gate を Delivery canonical flow へ追加（`north-star.md` §2 / §9 / §17）（根拠: PR #1276 で `north-star.md` を更新）
+- [x] #870 / #894 / #869 / #874 / #916 / #1025 を GitHub 上で rebaseline（根拠: **6 issue の body 更新を確認**（2026-09-05 / #1275）。docs PR のマージでは達成されない証跡種別であり、PR #1276 を根拠にしない）
 - [ ] Phase 0.1 docs PR の別 context / role によるレビューと Human C-4
+  - `reviewed_at_sha`: **`2950d358`** — 記録: [`docs/working/_reports/1275-phase0-01-independent-review.md`](../../working/_reports/1275-phase0-01-independent-review.md)（I1 ×2 / docs 整合・敵対 / 2026-09-07）
+  - **本項のチェックは本 PR のマージ後に行う**。記録を追加した PR 自身を Human C-4 完了として扱わない
 
 Phase 0 の独立レビューと Phase 0.1 の全項目が満たされるまで Phase 1 実装を開始しない。Phase 0.1 の PR は MERGE_READY で停止し、Phase 1 へ自動的に進まない。
+
+### Human 判断事項（未決 / AI が決めない）
+
+**canon docs 自体に要求する Independence Level を I1 のままにするか、I4 へ引き上げるか。**
+
+- [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §1 は `protected_surfaces` 定義と HarnessManifest 生成器を Protected authority に列挙し、同 §3「後退の終端」は **Evaluation Harness そのものの変更は I4 でのみ採用する**と定めている。
+- 本 §7 の canon 7 本（`README.md` / `north-star.md` / `phase0-migration.md` / `taxonomy.md` / `harness-manifest.md` / `evaluation-trust-boundary.md` / `artifact-responsibilities.md`）は、まさにその Evaluation Harness の**定義そのもの**である。にもかかわらず上記 exit criteria は **I1 以上**しか要求していない（自分が課す基準の最低段を自分に適用している）。
+- 取りうる選択肢: (a) canon docs の独立レビュー要求を **I4** へ引き上げる / (b) canon docs は「実装されていない仕様文書」として**明示的に例外**とし、その根拠と、実装が入る時点で I4 へ移行する条件を書く。
+- **本項は Human 判断（AI は決めない）**。決着するまで、上記 exit criteria の I1 要求は**暫定**であり、充足しても本項の未決を解消しない。
 
 ## 8. Next phase
 
