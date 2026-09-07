@@ -413,7 +413,11 @@ Candidate 数や Component 数を KPI にしない。
 - Evidence 取得後の意思決定待ち時間（Time to Learning と分ける）
 - failure detection time / impact / recovery cost / recurrence
 
-これら 3 つは Phase 1 時点では未対応であり、算出には [`run-evidence.schema.json`](../../schemas/run-evidence.schema.json) の拡張（現行は `started_at` / `completed_at` の 2 時刻のみで、Evidence 取得時刻・判断時刻・failure 発生時刻に対応するフィールドが無く、`escalation` / `quality_metrics` は `additionalProperties: false` のため追加できない）を要する（追跡: #1285）。
+これら 3 つは Phase 1 時点では未対応である。**算出に必要な時刻フィールドは、Phase 1 で別に定義する V2 RunEvidence schema 側に持たせる**（追跡: #1285）。
+
+**Legacy schema（[`run-evidence.schema.json`](../../schemas/run-evidence.schema.json)）は拡張しない。** 同 schema は [`artifact-responsibilities.md`](./artifact-responsibilities.md)（`docs/schemas/run-evidence.schema.json` の行）および [`taxonomy.md`](./taxonomy.md)（Legacy RunEvidence schema の行）で **「Legacy schema。変更しない」** と宣言されており、V2 RunEvidence schema を Phase 1 で別に定義して `terminal_state` → `outcome` の写像を持たせる方針が正本である。実装上も [`scripts/ai-loop/run_evidence_verify.py`](../../../scripts/ai-loop/run_evidence_verify.py) が同 schema を **唯一の正**として必須キー・許可キーを導出しているため、拡張すると legacy 受理器と既存 fixture に波及する。
+
+現行 legacy schema の制約そのものは以下のとおり（V2 側で時刻を持つ根拠として残す / 実測）: 時刻は `started_at` / `completed_at` の 2 つのみで、Evidence 取得時刻・判断時刻・failure 発生時刻に対応するフィールドが無く、`escalation` / `quality_metrics` を含む object は `additionalProperties: false` のためフィールドを足せない。
 
 Product 側と Harness 側の学習を混同せず、V2 が直接観測できる範囲と外部から受け取る Evidence を区別する。必要な人間判断は維持し、証拠不足による聞き直し・反復確認・手動復旧の負担を減らす。承認時には Evidence・残存リスク・未解決事項を提示して判断を支える。
 
