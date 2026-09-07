@@ -219,8 +219,22 @@ issue 本文と #1226 は「承認手順の定義面 **7 件**」と数えてい
 |---|---|---|
 | `.github/workflows/sync-plugin-plangate.yml` の `drift-check` | `sh scripts/sync-plugin-plangate.sh` 後に `git diff --quiet -- plugin/plangate/` | **`.codex` は対象外**。`pull_request.paths` にも `.codex/**` を含まない（実測: 同 workflow の paths は `.claude/**` / `.agents/skills/**` / `docs/{ai,workflows}/ai-loop/**` / `scripts/ai-loop/**` / `scripts/_ai_loop_link_rewrite.py` / `scripts/sync-plugin-plangate.sh` / `plugin/plangate/**`） |
 | `scripts/check-codex-skill-spec.sh` | ディレクトリ集合の presence と `SKILL.md` / `agents/openai.yaml` の対応 | **内容を見ない**。CI では `--warn-only` |
-| `tests/extras/ta-77-approval-surface-gate.sh` + `tests/fixtures/ta-77/approval-surfaces.tsv`（読取のみ） | 承認手順の**宣言ブロック**（宣言行 + 連続非空行ブロック）の sha256 先頭 12 桁 | **ファイル全体を見ない**ため、宣言ブロックの digest が `.agents` / `.codex` で一致していても、その**外側**（今回欠落している #1144 前提ブロック等）の乖離は素通りする。10 件のうち台帳に `.codex` 側エントリがあるのは一部のみ |
+| `tests/extras/ta-77-approval-surface-gate.sh` + `tests/fixtures/ta-77/approval-surfaces.tsv`（読取のみ） | 承認手順の**宣言ブロック**（宣言行 + 連続非空行ブロック）の sha256 先頭 12 桁 | **ファイル全体を見ない**ため、宣言ブロックの外側の乖離を素通りする（下記の実測） |
 | **#1226 PATCH-B**（`1226-approval-surface-patch-applicable.md` / PR #1287 マージ済・**未適用**） | `.codex/skills` の `SKILL.md` + `references/*.md` を `cmp` で双方向照合し、`sync-plugin-plangate.yml` の既存 job にステップ追加 + `paths` に `.codex/skills/**` 追加 | **本書の層 1 とほぼ同じ**。ただし同書は `agents/openai.yaml` と `assets/` を**意図的に対象外**（同書 §6「新規（follow-up 候補）」）としており、**§1.3 の 11 件目を検出しない**。本書はその残存を実測で顕在化させ、層 2 で塞ぐ |
+
+### 4.1 ta-77 台帳の digest は一致しているのに、ファイルは乖離している（自分で照合した）
+
+台帳（54 行 / `.codex/skills` 由来のエントリは **5 件**）を読み、`.agents` 側の同名エントリと digest を突き合わせた:
+
+| path | class | digest（`.agents` / `.codex`） | §2 の差分行 |
+|---|---|---|---|
+| `.../ai-dev-plan/SKILL.md` | DECL | `79c0d8551308` / **同一** | 128 |
+| `.../intent-classifier/SKILL.md` | DECL | `9014dac9caec` / **同一** | 8 |
+| `.../local-exec-handoff/SKILL.md` | DECL | `8b368bb3f212` / **同一** | 8 |
+| `.../plan-review-gate/SKILL.md` | CHAIN | `17e7ed953b6c` / **同一** | 15 |
+| `.../plangate-setup/SKILL.md` | DECL | `3ff5b08b9abc` / **同一** | 9 |
+
+**5 対すべて digest 一致、5 対すべてファイルは乖離。** ta-77 の digest は「宣言行 + その行を含む連続非空行ブロック」だけの sha256 であり、今回落ちている #1144 前提ブロックや `plan-review-gate` の C-3 規範ブロックは**その外側**にあるため、台帳は緑のまま drift が通過する。**ta-77 は本検査を代替しない**（逆も同様）。残り 5 件（`ai-dev-verify` / `ai-dev-exec` / `ai-loop-cycle` / `ai-dev-brainstorm` / `working-context`）は `.codex` 側エントリが台帳に無い。
 
 **したがって本書の新規性は次の 3 点に限る**（既存の再掲は避ける）:
 
