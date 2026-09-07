@@ -258,7 +258,9 @@ issue 本文と #1226 は「承認手順の定義面 **7 件**」と数えてい
 | `plugin/plangate/assets/**` | installer は `plugin/plangate/assets` から `assets/` をコピーする（実測: `ASSETS_SRC="$ROOT_DIR/plugin/plangate/assets"`） |
 | `.github/workflows/codex-skills-drift.yml` | 検査自身の変更で検査が走らない状態を作らない |
 
-**この 5 つ以外の変更では `.codex/skills/**` の drift は原理的に発生しない**（installer の入力がその 3 種 + 生成規則しかないため。§2.2 根拠 C で全体が生成物であることを実測済み）。
+**この 5 つ以外の *repo 内の* 変更では `.codex/skills/**` の drift は原理的に発生しない**（installer の入力がその 3 種 + 生成規則しかないため。§2.2 根拠 C で全体が生成物であることを実測済み）。
+
+> **環境依存の注意（層 2 のみ）**: installer は `openai.yaml` の `short_description` を **`python3` があるときだけ 64 文字へ切り詰める**（`command -v python3 >/dev/null 2>&1` の分岐）。`python3` が無いランナーで層 2 を走らせると、切り詰め前の長い description が生成されて **本物の drift が無くても FAIL する**。`ubuntu-latest` には `python3` が同梱されているため現状は問題にならないが、ランナー変更時はこの前提を確認すること。層 1 はこの依存を持たない。
 
 ### 5.2 照合の方向と対象範囲
 
