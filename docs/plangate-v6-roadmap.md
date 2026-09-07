@@ -155,7 +155,7 @@ LangChainの実証。計画フェーズ＝xhigh、実装フェーズ＝high、�
 ### PlanGateへの適用
 
 - workflow-conductorの8つの役割のプロンプトをファセット分解
-- C-1の15項目レビューとC-2の外部AIレビューでPolicyファセットを共有
+- C-1のセルフレビュー（項目定義・項目数の正本は [`docs/working/templates/review-self.md`](working/templates/review-self.md)）とC-2の外部AIレビューでPolicyファセットを共有
 - Iron LawをPolicyファセットとして切り出すことで、ルール変更の影響範囲を最小化
 
 ### 前提条件

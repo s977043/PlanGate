@@ -8,12 +8,20 @@ schema_version: 1
 
 > レビュー日: 2026-04-26
 > 判定: **PASS** — critical=0, major=0, minor=0
+>
+> **本サンプルの収録範囲**: 当時のコア番号帯のうち `C1-PLAN-01`〜`C1-TEST-15` の
+> **15 項目**を収録した抜粋であり、C-1 の全項目ではない（`C1-B1B2-16` / `17` も未収録）。
+> C-1 のチェック項目定義・項目数の正本は
+> [`docs/working/templates/review-self.md`](../../docs/working/templates/review-self.md)
+> であり、項目数は追加 PBI で増減する。実測は
+> `grep -c '^### C1-' docs/working/templates/review-self.md`。
+> 本ファイルは **artifact フォーマットの参照例**であって、実施すべき項目の一覧ではない。
 
 ## サマリー
 
 | result | 件数 |
 |--------|------|
-| PASS | 17 |
+| PASS | 15 |
 | WARN | 0 |
 | FAIL | 0 |
 

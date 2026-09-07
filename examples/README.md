@@ -16,7 +16,7 @@ A complete worked example showing PlanGate artifacts for a real-world task.
 | `sample-task/plan.md` | B | Execution plan (AI-generated) |
 | `sample-task/todo.md` | B | Task breakdown for agent execution |
 | `sample-task/test-cases.md` | B | Test case definitions |
-| `sample-task/review-self.md` | C-1 | 17-point self-review result |
+| `sample-task/review-self.md` | C-1 | Self-review result (format reference; an excerpt of 15 core-band items, not the full C-1 item set — the canonical item definition and count is [`docs/working/templates/review-self.md`](../docs/working/templates/review-self.md)) |
 | `sample-task/handoff.md` | WF-05 | Handoff package after completion |
 | `sample-task/metrics-events.ndjson` | post-V-1 | Sample metrics events emitted by `bin/plangate metrics` (v8.6.0) |
 | `sample-task/metrics-summary.md` | post-V-1 | Sample summary report from `bin/plangate metrics --report` |
