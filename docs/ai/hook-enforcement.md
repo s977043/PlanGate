@@ -266,14 +266,35 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >      — [#1278](https://github.com/s977043/plangate/issues/1278)。read-only FS / `_audit` のファイル化 / ディスク満杯で
 >      防御が丸ごと fail-open になる。**是正 patch は `docs/working/_reports/1278-log-event-fail-closed-patch-applicable.md`
 >      （`f23d31d` で before rc=1 → after rc=2・変異で rc=1 に戻ることを実測済）。適用は Human-owned**。
->      #1234 の patch と hunk が重ならず順序不問（両順序で実測）。未適用の間は本項が残存。
->      **platform 差（2026-09-07 実測・CI）**: 上記の rc=1 fail-open は **macOS の `/bin/sh` 固有**。
->      Linux の `dash` は**リダイレクト失敗でシェル自体を rc=2 で終了**するため、block には偶然
->      倒れるが **PlanGate の判定に到達しておらず理由トークンが出力に出ない**（出力はシェルの
->      `cannot create …: Permission denied` のみ）。**「rc=2 だから守れている」と読まないこと** —
->      同じ欠陥が OS によって fail-open / 理由不明の rc=2 に分かれる。patch の要否は変わらない。
->      rc の数値だけを期待値に固定した検査は platform 差で誤判定するため、**「理由トークンが
->      出力に在るか」を主判定に置く**こと
+>      #1234 の patch とは hunk が重ならず順序不問（両順序で実測）。ただし **#1226 の patch とは
+>      干渉する**（3 本とも `scripts/hooks/check-plan-hash.sh` を触る）。順序と回避策は
+>      `docs/working/_reports/1226-approval-surface-patch-applicable.md` §8-5 を正本とする。
+>      未適用の間は本項が残存。
+>      **`/bin/sh` の実体依存（手元実測 / 2026-09-07。`git archive origin/main` を repo 外へ展開した
+>      複製に対し実 hook を 3 シェルで実走）**: rc を決めるのは OS ではなく、配線が `sh <script>` である
+>      以上 **`/bin/sh` が何か**である。
+>
+>      | 失敗の種類 | bash 系（macOS `/bin/sh` = bash 3.2.57 / `/bin/bash`）| dash・ash 系（`/bin/dash`）|
+>      |---|---|---|
+>      | 監査ログへの `>>` が失敗（RO FS / `chmod 444` / ディスク満杯）| **rc=1（fail-open）** | rc=2（理由トークンなし）|
+>      | `_audit` がファイル化 → `mkdir -p` が失敗 | **rc=1（fail-open）** | **rc=1（fail-open）** |
+>
+>      したがって **rc=2 に倒れるのはリダイレクト失敗のときだけ**であり、残存 6 が挙げる 3 トリガのうち
+>      **`_audit` のファイル化は外部コマンド（`mkdir -p`）の失敗なので dash でも rc=1 = fail-open** である
+>      （「dash だから自分は該当しない」と読まないこと）。また **`/bin/sh` が bash な Linux
+>      （Fedora / RHEL 系や多くのコンテナ）では Linux でもリダイレクト失敗が rc=1 = fail-open** になる。
+>      OS 軸で「macOS 固有 / Linux は安全」と切り分けてはならない。
+>      dash の rc=2 も **PlanGate の判定に到達しておらず理由トークンが出力に無い**（出力はシェルの
+>      `cannot create …: Permission denied` のみ）ため、**「rc=2 だから守れている」と読まないこと**。
+>      patch の要否は `/bin/sh` の実体によらず変わらない。
+>      なお dash のこれは「シェルが独自に即死する」のではなく **単純コマンドが rc=2 で失敗し `set -eu` が
+>      終了させている**もの（機構は bash 系と同じ）であり、patch の `|| { WARN; return 0; }` 型の保護は
+>      **dash でも効く**（patch 相当の保護を入れた複製で `/bin/sh` / `/bin/dash` / `/bin/bash` の 3 者とも
+>      WARN 出力の上で block rc=2 に到達することを実測）。
+>      検査は **rc と一意 reason トークンの対**で書く（`tests/extras/README.md` `P-1`〜`P-3` / #1178）。
+>      rc を判定から落とすと **rc=2（block）と rc=1（fail-open）の差＝#1278 の本質**が検査できなくなる。
+>      代わりに **期待 rc を platform 非依存の定数として決め打ちしない**こと（`sh` の実体ごとに期待 rc を
+>      定義するか、トークン不在そのものを fail と定義する）
 >
 >   **2 の実測（旧記述の訂正）**: 旧版はこの残存を **4 ケース**と書いていたが**過少**だった。
 >   #1101 の実測では変換クラスは **7 種**（`..` 往復 / `//` / `/./` / 先頭 `./` / 大小文字 /
@@ -308,7 +329,7 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 > | | 内容 |
 > |---|---|
 > | **守る** | `Edit\|Write` 経路の、**字句上**の表記揺れ（上記 7 変換クラスとその複合）による HO 迂回（#1101 適用後） |
-> | **守らない** | `Bash` 経路（#1104）/ FS エイリアス・シンボリックリンク（上記 3・#1264。repo 外 symlink 経由の到達は上記 5・#1234）/ **worktree 配下の HO パス（上記 4・#1277）** / **監査ログ（`hook-events.log`）が書けない環境（`log_event` が `set -eu` 下で rc=1 になり block に到達しない・#1278）** / hook を配線していない導入先（plugin 配布物に `scripts/hooks/` は含まれない）/ `PLANGATE_BYPASS_HOOK=1` |
+> | **守らない** | `Bash` 経路（#1104）/ FS エイリアス・シンボリックリンク（上記 3・#1264。repo 外 symlink 経由の到達は上記 5・#1234）/ **worktree 配下の HO パス（上記 4・#1277）** / **監査ログ（`hook-events.log`）が書けない環境（`log_event` が `set -eu` 下で失敗し block（exit 2）に到達しない・#1278。rc は `/bin/sh` の実体依存で、bash 系は rc=1 = fail-open、dash・ash 系はリダイレクト失敗のみ rc=2＝理由トークンなし。`_audit` のファイル化（`mkdir -p` 失敗）は dash でも rc=1。上記 6 の表を参照し「rc=2 だから守られている」と読まないこと）** / hook を配線していない導入先（plugin 配布物に `scripts/hooks/` は含まれない）/ `PLANGATE_BYPASS_HOOK=1` |
 >
 > EH-3 の HO block は**多層防御の 1 層**にすぎない。承認境界の最終的な保証主体は
 > **C-4 Human レビュー**と **GitHub branch protection** であり、本 hook の block を
