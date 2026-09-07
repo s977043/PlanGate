@@ -28,8 +28,9 @@ V2 では次の 4 軸を**別フィールド**で持つ。
 | **Stop Reason**      | **語彙のみ共用**。Candidate 評価が成立しない理由を記録する語として使ってよいが、Delivery Outcome の根拠としては使わない                                                       |
 | **Policy Verdict**   | **適用する**。Policy Gate は Delivery / Evolution の双方に働く単一の Gate であり、Evaluation Trust Boundary の交差判定も同じ Gate の出力（`DENIED` / `HUMAN_REQUIRED`）で表す（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §1 / §7）。Verdict は「成功条件」ではなく「禁止・要 Human の宣言」であり、Delivery と Evolution で success condition を共有することにはならない |
 
-- **Candidate 評価 Run が Lifecycle State / Terminal Outcome を持つか否かは Phase 1 で確定する**（[`phase0-migration.md`](./phase0-migration.md) §8）。Phase 0.1 時点では未定義であり、暫定的に Delivery の値域を当てはめない。
+- **Candidate 評価 Run が Lifecycle State / Terminal Outcome を持つか否かは Phase 1 で確定する**（[`phase0-migration.md`](./phase0-migration.md) §8 の「Candidate 評価 Run（Evolution Loop）の進行・終端表現」）。Phase 0.1 時点では未定義であり、暫定的に Delivery の値域を当てはめない。
 - `INCONCLUSIVE` は **Promotion Decision** の値であって Terminal Outcome ではない。
+- **既知の衝突（Phase 0.1 時点で未解消）**: §5 の Policy Verdict 定義は `HUMAN_REQUIRED` に **State `WAITING_HUMAN` / Human 否認時の Outcome `HUMAN_ESCALATED` + Stop Reason `HUMAN_REJECTED`** という写像を内蔵している。一方、本表は Evolution に State / Outcome を適用しない。Evolution 側は `HUMAN_REQUIRED` を実際に使う（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §1 の fail-closed）ため、**その後の待ち状態と終端を表す語が Evolution に存在しない**。Phase 0.1 ではこの欠落を disclosed な未決として扱い、`phase0-migration.md` §8 で確定する。Delivery の `WAITING_HUMAN` / `HUMAN_ESCALATED` を Evolution へ暫定流用しない（Stop Reason は「語彙のみ共用」の範囲で `HUMAN_REJECTED` を記録語として使ってよい）。
 
 ## 2. Lifecycle State
 
@@ -168,14 +169,18 @@ Legacy 文書・Issue の履歴は書き換えない。V2 namespace（`docs/ai/a
 V2 namespace に対して次を検査する。いずれも 0 件が期待値。
 
 ```sh
-git grep --full-name -nP '^\s*state:\s*(NO_PROGRESS|REPEATED_FAILURE|OSCILLATION|BUDGET_EXHAUSTED|POLICY_DENIED|VERIFIER_UNAVAILABLE|REQUIREMENT_CONFLICT|STATE_CONFLICT|MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
-git grep --full-name -nP '^\s*outcome:\s*(AUTO_APPROVED|HUMAN_REQUIRED|DENIED)\b' -- docs/ai/ai-loop-v2 | grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
-git grep --full-name -nP '^\s*policy_verdict:\s*(MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- docs/ai/ai-loop-v2 | grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
+git grep --full-name -nP '^\s*state:\s*(NO_PROGRESS|REPEATED_FAILURE|OSCILLATION|BUDGET_EXHAUSTED|POLICY_DENIED|VERIFIER_UNAVAILABLE|REQUIREMENT_CONFLICT|STATE_CONFLICT|MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- :/docs/ai/ai-loop-v2 | grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
+git grep --full-name -nP '^\s*outcome:\s*(AUTO_APPROVED|HUMAN_REQUIRED|DENIED)\b' -- :/docs/ai/ai-loop-v2 | grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
+git grep --full-name -nP '^\s*policy_verdict:\s*(MERGE_READY|HUMAN_ESCALATED|BLOCKED)\b' -- :/docs/ai/ai-loop-v2 | grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'
 ```
 
-`--full-name` はリポジトリ root 以外から実行した場合の相対パス出力を防ぐ。除外パターンの先頭を `(^|:)` にするのは、`git grep <rev> …` 形式では出力が `<rev>:docs/…` になり、行頭アンカー `^docs/` では**除外が空振りして「0 件」が偽になる**ため（レビューで実測）。
+出力側と入力側の**両方**を repo root 基準に固定している。片方だけでは検査が沈黙する。
 
-**positive control**: 上記コマンドから `| grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'` を外して `taxonomy.md` 自身に当て、§6 の禁止例が検出されること（`state:` 2 行 / `outcome:` 1 行 / `policy_verdict:` 1 行 = 計 4 行）を先に確認する。検出されない場合は検査が空振りしており「0 件」を証拠にしてはならない。`-E`（POSIX ERE）では `\s` / `\b` が効かず常時 0 件になる（レビューで実測）。
+- `--full-name`（**出力側**）はリポジトリ root 以外から実行した場合の相対パス出力を防ぐ。
+- pathspec の `:/`（**入力側**）は、pathspec `docs/ai/ai-loop-v2` が **cwd 相対**に解決されることを防ぐ。`:/` を付けないと、例えば `docs/` から実行した場合の対象は `docs/docs/ai/ai-loop-v2`（存在しない）になり、**positive control ですら 0 件 / `exit=1`** になる（レビューで実測）。「0 件」が検査の成功ではなく沈黙を意味する状態になる。
+- 除外パターンの先頭を `(^|:)` にするのは、`git grep <rev> …` 形式では出力が `<rev>:docs/…` になり、行頭アンカー `^docs/` では**除外が空振りして「0 件」が偽になる**ため（レビューで実測）。
+
+**positive control**: 上記コマンドから `| grep -vE '(^|:)docs/ai/ai-loop-v2/taxonomy\.md:.*# .*(にしている|が無い)'` を外して `taxonomy.md` 自身に当て、§6 の禁止例が検出されること（`state:` 2 行 / `outcome:` 1 行 / `policy_verdict:` 1 行 = 計 4 行）を先に確認する。検出されない場合は検査が空振りしており「0 件」を証拠にしてはならない。`-E`（POSIX ERE）では `\s` / `\b` が効かず常時 0 件になる（レビューで実測）。**positive control は repo root だけでなく、サブディレクトリ（例 `docs/`）からも実走して 4 行が出ることを確認する**（pathspec の cwd 相対解決による沈黙は root からの実行では現れない）。
 
 **grep で検査できない禁止例（1 件）**: §6 の禁止例は 5 件だが、上記 3 本が検出できるのは 4 行のみ。残る 1 件 —
 

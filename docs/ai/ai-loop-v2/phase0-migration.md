@@ -51,6 +51,14 @@ Legacy ai-loop に許可する変更:
 
 判定不能・未申告の変更は Legacy に入れない。
 
+#### freeze 例外の承認は autonomous APPROVE の対象にしない
+
+上表の「例外の承認 = Human（C-3 ゲート）」は、**AI が C-3 を自己承認する経路を含まない**。`.claude/rules/working-context.md` の **C-3 Autonomous APPROVE**（自律実行指示下で、mode が standard 以下かつ Hardening Override 対象パスを含まない場合に AI が C-3 を自己承認できる規定）は、**本 §2 の freeze 例外には適用しない**。
+
+- 理由: 本 §2 の承認は「AI は自分の Plan の freeze 例外を自分で承認できない」を前提に置いている（[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §1 と同じ趣旨）。autonomous APPROVE を許すと、この前提が承認主体の入れ替えによって成立しなくなる。
+- 対象 Legacy 資産が **Hardening Override 9 カテゴリに含まれない場合でも同じ**。実例 #916 の対象 `scripts/ai-loop/arbiter.py` は HO の `scripts/hooks/*.sh` に当たらないため既存ルールだけでは autonomous APPROVE の適用余地があるが、本節によりその余地を V2 canon 側で閉じる。
+- 本節は `.claude/rules/working-context.md` の規定を**変更・緩和しない**。既存ルール（AC-10 Hardening Override 優先を含む）はそのまま働き、本節は freeze 例外という限定領域に**追加の制約を課す**のみである（緩める方向の例外を作らない）。`.claude/rules/` は Hardening Override 対象であり、本 canon から変更しない。
+
 ### 実例: #916
 
 | 論点         | 判定                                                                                                                                                              |
@@ -243,6 +251,7 @@ Phase 1 は実装ではなく **V2 Architecture / Contract design** から開始
 
 - LoopContract schema / semantic contract
 - Delivery State Machine（[`taxonomy.md`](./taxonomy.md) の 4 軸を前提）
+- **Candidate 評価 Run（Evolution Loop）の進行・終端表現** — Lifecycle State / Terminal Outcome を持つか否か、持つ場合の値域。および `HUMAN_REQUIRED` 後の待ち状態を Evolution 側でどう表すか（[`taxonomy.md`](./taxonomy.md) §1 が本項へ委譲している）
 - Verifier pipeline / blocking rule
 - Decision Engine / Progress / Stop reason
 - Repair vs Replan
