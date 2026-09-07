@@ -34,6 +34,14 @@ modes:
   discovered    manifest 走査で見つかった version 宣言箇所を出力
   verify-sites  declared と discovered の同値照合 (網羅性ゲート)
   parity        宣言箇所の値が全て一致するか
+  set           宣言箇所すべてに `--value` を書き込む (リリース準備の bump 実処理)
+
+`set` は `scripts/release-prep.sh vX.Y.Z` の bump 処理から呼ばれる。旧実装は
+release-prep 側に 3 ファイルを**決め打ち**していたため、`DECLARED_SITES` に
+5 番目を足しても bump されず、`--parity` が通るのに release-prep だけ
+`VERSION_PARITY_MISMATCH` で NG になる (更新箇所が実質 3 つに増えていた / #1292 後追い是正)。
+bump を宣言テーブル由来にしたことで、新しい manifest を足すときに触るのは
+`DECLARED_SITES` と `docs/release-process.md` の同期マップの 2 箇所で足りる。
 
 rc: 0 = OK / 1 = 違反 / 2 = 使い方エラー / 3 = 前提不足 (root が repo でない)
 
@@ -135,6 +143,29 @@ def _resolve(node, path):
     return cursor
 
 
+def _assign(node, path, value):
+    """json path の終端に value を書き込む。到達できなければ False。
+
+    終端トークンは dict のキーである前提 (`version` は必ずキー名)。list 添字が
+    終端に来る形は DECLARED_SITES の形式上ありえないので False を返す。
+    """
+    tokens = re.findall(r"\[[^\]]*\]|[^.\[\]]+", path)
+    if not tokens:
+        return False
+    cursor = node
+    for token in tokens[:-1]:
+        cursor = _resolve(cursor, token)
+        if cursor is None:
+            return False
+    last = tokens[-1]
+    if last.startswith("["):
+        return False
+    if not isinstance(cursor, dict) or last not in cursor:
+        return False
+    cursor[last] = value
+    return True
+
+
 def _load(path):
     try:
         with open(path, encoding="utf-8") as handle:
@@ -227,11 +258,75 @@ def discovered(root):
     return sorted(set(rows))
 
 
+def set_all(root, value):
+    """宣言箇所すべてに value を書き込む。
+
+    fail-closed: **1 箇所でも到達できなければ何も書かずに rc=1**。
+    「一部だけ bump された tree」を作らない (中途半端な bump は
+    `--parity` で NG になるが、その時点で作業ツリーは既に汚れている)。
+    """
+    rows = declared(root)
+    if not rows:
+        sys.stdout.write("VERSION_SET_FAILED no-declared-sites\n")
+        return 1
+
+    plans = {}   # relpath -> (doc, original_text)
+    updates = []  # (site_id, key, old, relpath, jsonpath)
+    failed = []
+    for site_id, relpath, jsonpath in DECLARED_SITES:
+        abspath = os.path.join(root, relpath)
+        if relpath not in plans:
+            if not os.path.isfile(abspath):
+                plans[relpath] = None
+            else:
+                with open(abspath, encoding="utf-8") as handle:
+                    text = handle.read()
+                try:
+                    plans[relpath] = (json.loads(text), text)
+                except Exception:  # noqa: BLE001
+                    plans[relpath] = None
+        if plans[relpath] is None:
+            failed.append((site_id, relpath, jsonpath, "unreadable-or-absent"))
+            continue
+        doc, _text = plans[relpath]
+        old = _resolve(doc, jsonpath)
+        if not _assign(doc, jsonpath, value):
+            failed.append((site_id, relpath, jsonpath, "path-absent"))
+            continue
+        updates.append((site_id, "%s::%s" % (relpath, jsonpath), old, relpath, jsonpath))
+
+    if failed:
+        for site_id, relpath, jsonpath, note in failed:
+            sys.stdout.write("VERSION_SET_FAILED %s %s::%s (%s)\n" % (site_id, relpath, jsonpath, note))
+        return 1
+
+    for relpath, loaded in sorted(plans.items()):
+        doc, original = loaded
+        rendered = json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
+        # 元ファイルの整形を再現できない場合は書式が変わる。実害はないが黙って
+        # 変えない (差分レビューで気づけるように明示する)。
+        probe = json.dumps(json.loads(original), indent=2, ensure_ascii=False) + "\n"
+        if probe != original:
+            sys.stdout.write("VERSION_SET_REFORMATTED %s\n" % relpath)
+        with open(os.path.join(root, relpath), "w", encoding="utf-8") as handle:
+            handle.write(rendered)
+
+    for site_id, key, old, _relpath, _jsonpath in updates:
+        sys.stdout.write("VERSION_SET_SITE %s %s %s -> %s\n" % (site_id, key, old, value))
+    sys.stdout.write("VERSION_SET_OK %s %d\n" % (value, len(updates)))
+    return 0
+
+
 def main(argv):
     parser = argparse.ArgumentParser(add_help=True)
-    parser.add_argument("mode", choices=("declared", "discovered", "verify-sites", "parity"))
+    parser.add_argument("mode", choices=("declared", "discovered", "verify-sites", "parity", "set"))
     parser.add_argument("--root", default=".")
+    parser.add_argument("--value", default=None, help="set モードで書き込む version 文字列")
     args = parser.parse_args(argv)
+
+    if args.mode == "set" and not args.value:
+        sys.stdout.write("VERSION_SET_USAGE set には --value <version> が必須です\n")
+        return 2
 
     root = os.path.abspath(args.root)
     if not os.path.isdir(root):
@@ -261,6 +356,9 @@ def main(argv):
             return 1
         sys.stdout.write("VERSION_SITES_COMPLETE %d\n" % len(declared_keys))
         return 0
+
+    if args.mode == "set":
+        return set_all(root, args.value)
 
     # parity
     rows = declared(root)

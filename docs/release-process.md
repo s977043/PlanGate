@@ -87,6 +87,8 @@ annotated tag を打った後、tag が指す commit と `origin/main` の最新
 ```text
 PR merge 完了 (develop → main)
   ↓
+🚪 リリース準備 readiness 検査  ← scripts/release-prep.sh --check（version bump ゲート #1257）
+  ↓ READY (rc=0)
 tag push
   ↓
 🚪 TAG-MAIN PARITY 検証 (Iron Law)  ← scripts/check-tag-main-parity.sh
@@ -99,25 +101,40 @@ GitHub Release 作成
 ### 必須検証手順
 
 ```sh
-# 1. tag push
+# 1. リリース準備 readiness 検査 (#1257 の version bump ゲートはここでしか走らない)
+#    tag push の**前**に行う。tag は「その commit の配布物」を指すため、
+#    bump 漏れに tag push 後に気づいても貼り替えが要る。
+sh scripts/release-prep.sh --check
+# → READY (rc=0) なら次へ
+# → NOT READY (rc≠0) なら NG 行を解消する。version 据え置きのままリリースしない
+#   （VERSION_BUMP_MISSING の場合は `sh scripts/release-prep.sh vX.Y.Z` で
+#     CHANGELOG 確定 + 宣言箇所の bump を行い、PR → merge してから本手順に戻る。
+#     この準備実行も NOT READY のときは rc≠0 で終了する）
+
+# 2. tag push
 git push origin <tag>
 
-# 2. Iron Law: tag = main 検証 (R-001: 内部で git fetch origin main 実施、
+# 3. Iron Law: tag = main 検証 (R-001: 内部で git fetch origin main 実施、
 #    R-005: git ls-remote でリモート tag 実体を照合)
 sh scripts/check-tag-main-parity.sh <tag>
 # → OK: tag '<tag>' (origin 実体) = origin/main (<sha>)  なら次へ
 # → MISMATCH / FAIL なら下記フローで貼り替え
 
-# 3. GitHub Release 発行 (Human-owned。2 が OK になるまで実行しない)
+# 4. GitHub Release 発行 (Human-owned。3 が OK になるまで実行しない)
 #    note は AI が用意した確定 release note（例: docs/working/_reports/<version>-release-note-draft.md）
 gh release create <tag> --title "<tag> — <リリース見出し>" --notes-file <確定 release note>
 # → 発行と同時に release published 起点の workflow（release-docs-sync）が発火する
 
-# 4. リリース後: release 起点の自動 workflow の run 結果確認
+# 5. リリース後: release 起点の自動 workflow の run 結果確認
 #    （失敗しても通知されない。詳細・リカバリは「リリース後の workflow run 結果確認（#950）」節）
 gh run list --workflow=release-docs-sync.yml --event=release --limit 1
 # → conclusion が success なら完了。failure なら同節のリカバリ手順へ
 ```
+
+手順 1 は **CI では走らない**（`--bump --since-latest-tag` は完全な履歴を要求するため
+PR CI に置かない / 下記「ゲートを掛ける位置」）。**このステップを飛ばすと #1257 の
+version bump ゲートは一切働かない。** `tests/extras/ta-81-version-bump-gate.sh` は
+本節に `release-prep.sh --check` が現れることを機械検査する。
 
 `gh release create` の実行は
 [`.claude/rules/responsibility-classes.md`](../.claude/rules/responsibility-classes.md)
@@ -225,10 +242,25 @@ v8.16.0 の README_en 漏れ（レビューで水際検出）が実害・ヒヤ�
 | `tests/extras/ta-28-plugin-version.sh` | **最新 release tag との一致**、`v` プレフィックス不使用、ルート `README.md` の `Latest` 表記との一致 | manifest 横断の網羅性 |
 
 `check-plugin-manifest-parity.sh` も version を比較するが、それは 2 manifest に閉じた
-副次的な確認であり、**version 同値の正本は `--parity` 側**である。新しい manifest を
-足したときに更新するのは `DECLARED_SITES`（と本表）だけでよい。ただし
-`check-plugin-manifest-parity.sh` は対象 2 本が固定であるため、3 本目の
-`name` / `skills` は**どの機械検査でも見ていない**（既知の射程外）。
+副次的な確認であり、**version 同値の正本は `--parity` 側**である。
+
+#### 新しい manifest を足すときに更新する箇所（最低 2 つ）
+
+| # | 更新箇所 | 落ちない場合に起きること |
+|---|---|---|
+| 1 | `scripts/version_sites.py` の `DECLARED_SITES` | `--parity` の対象にならず、値がずれても検出されない（宣言漏れは `verify-sites` の `VERSION_SITE_UNDECLARED` で落ちる） |
+| 2 | **本節の上の version 同期マップ表** | `tests/extras/ta-81-version-bump-gate.sh` TC-08a が「同期マップに未記載」で落ちる |
+
+**`scripts/release-prep.sh` の bump 処理は 1 に追随する**（`version_sites.py set` へ委譲。
+以前はここに 3 ファイルを決め打ちしていたため、**更新箇所が実質 3 つ**あり、
+`DECLARED_SITES` にだけ足すと `--parity` は rc=0 なのに `release-prep.sh vX.Y.Z` が
+5 番目を bump せず、**リリース準備の最中に初めて** `VERSION_PARITY_MISMATCH` が出た。
+`ta-81` TC-14 がこの追随を機械検査する）。
+
+なお `check-plugin-manifest-parity.sh` は対象 2 本が固定であるため、3 本目の
+`name` / `skills` は**どの機械検査でも見ていない**（既知の射程外）。README 散文・
+`plugin/plangate/README.md` の `**Version**:` 行も自動 bump の対象外で、上の
+同期マップ表の「手動確認 TODO」に従って人間が更新する。
 
 ### ゲートを掛ける位置（A-2' / 2026-09-07 Human 決定）
 
