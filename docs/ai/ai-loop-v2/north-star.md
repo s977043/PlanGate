@@ -1,6 +1,6 @@
 # ai-loop V2 North Star — Self-Evolving Development Harness
 
-> **Status**: Phase 0 **MERGED**（PR #1273・Human C-4 DONE）/ Independent Review **PENDING（separate checker required）** / Phase 0.1 **CANON_HARDENING**（#1275）
+> **Status**: Phase 0 **MERGED**（PR #1273・Human C-4 DONE）/ Independent Review **DONE（R1 I1 ×2 + R2 I1 / `reviewed_at_sha` = `f8f1e8b8`。[`phase0-migration.md`](./phase0-migration.md) §7 が正本）** / Phase 0.1 **CANON_HARDENING**（#1275）
 > **Companion canon**: [`taxonomy.md`](./taxonomy.md) / [`harness-manifest.md`](./harness-manifest.md) / [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) / [`artifact-responsibilities.md`](./artifact-responsibilities.md)
 > **Role**: V2 の最上位判断基準。詳細実装仕様ではなく、目的・不変原則・境界・成功条件を固定する。
 
