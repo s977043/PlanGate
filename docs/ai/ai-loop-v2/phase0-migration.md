@@ -1,6 +1,6 @@
 # ai-loop V2 Phase 0 — Freeze / Migration Matrix
 
-> **Status**: Phase 0 **MERGED**（PR #1273・Human C-4 DONE）/ Independent Review **PENDING（separate checker required）** / Phase 0.1 **CANON_HARDENING**（#1275）
+> **Status**: Phase 0 **MERGED**（PR #1273・Human C-4 DONE）/ Independent Review **DONE（R1 I1 ×2 + R2 I1 / `reviewed_at_sha` = `f8f1e8b8`。§7 が正本）** / Phase 0.1 **CANON_HARDENING**（#1275）
 > **North Star**: [`north-star.md`](./north-star.md)
 > **Baseline**: Phase 0 `main@9f7bac9f62dccc057be5ae58570dcb65a4acbec8` / Phase 0.1 `main@1e95e8a`
 
@@ -206,9 +206,10 @@ Phase 1 では正本 artifact を無制限に増やさない。初期候補を�
 - [x] 主要 ai-loop Issue を KEEP / ADAPT / SUPERSEDE / DEFER / LEGACY EVIDENCE に分類
 - [x] V2 初期 artifact budget を固定
 - [x] Human C-4 で Phase 0 docs PR を merge（PR #1273、2026-09-05）
-- [ ] North Star / migration docs の独立レビュー — **PENDING**。実装 Agent 自身のレビューは独立レビューに数えない（Independence Level I0。[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §4）。別 context / role の checker による I1 以上の記録を要する
-  - `reviewed_at_sha`: **`2950d358`** — 記録: [`docs/working/_reports/1275-phase0-01-independent-review.md`](../../working/_reports/1275-phase0-01-independent-review.md)（I1 ×2 / docs 整合・敵対 / 2026-09-07）
-  - **本項のチェックは本 PR のマージ後に行う**。記録を追加した PR 自身を Human C-4 完了として扱わない
+- [x] North Star / migration docs の独立レビュー — 別 context / role の checker による **I1 以上の記録**を得た（実装 Agent 自身のレビューは独立レビューに数えない = Independence Level I0。[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §4）
+  - `reviewed_at_sha`: **`f8f1e8b85982642a467bdce712daedce65568c23`** — 記録: [`docs/working/_reports/1275-phase0-01-independent-review.md`](../../working/_reports/1275-phase0-01-independent-review.md)（**R1 / R2 の 2 ラウンドを含む**）
+  - 充足の根拠: **R1**（`2950d358` / I1 ×2 = docs 整合・敵対 / 2026-09-07）→ 是正 **PR #1300**（merged 2026-09-07、merge commit `62e4ab93`）→ **R2**（`2950d358..62e4ab93` / I1 / R1 の**是正そのものを疑う** role）→ 是正 **PR #1301**（merged 2026-09-07、merge commit `f8f1e8b8`）。Human C-4 = Human による merge 操作（[`1275-phase0-01-evidence-audit.md`](../../working/_reports/1275-phase0-01-evidence-audit.md) §3 の定義）は #1300 / #1301 の両方で完了している
+  - 収束判定と打ち切りの根拠（回避クラス台帳 / 残存脅威モデル）は記録 §6 / §7。**完全性は主張しない**（I2 未実施 / canon 自身が要求する I3・I4 に未達 / Phase 1 実装の妥当性は未検証）
 
 ### 独立レビュー記録の要求（`reviewed_at_sha`）
 
@@ -217,6 +218,7 @@ canon は Phase 0 baseline 以降も更新されるため、「独立レビュ�
 - 独立レビューを記録する際は、**レビュー対象の commit SHA を `reviewed_at_sha` に必ず書く**。SHA の無いレビュー記録は exit criteria を充足しない。
 - 記録後に canon が更新された場合、`reviewed_at_sha` と HEAD の差分が**レビュー範囲外**であることを明示する（差分がレビュー対象の主張に触れるなら再レビュー）。
 - `README.md` / `north-star.md` の Status 行の「Independent Review PENDING」表記は索引であり、充足判定の正本は本節の `reviewed_at_sha` 欄とする。
+- **`reviewed_at_sha` = `f8f1e8b8` 以降の差分（レビュー範囲外の明示）**: 本節の充足記録（チェックボックス・充足の根拠・本ノート）と [`docs/working/_reports/1275-phase0-01-independent-review.md`](../../working/_reports/1275-phase0-01-independent-review.md) の R2 記録追記のみ。**canon の規定内容そのものは変更していない**ため再レビューを要さない。以後 canon の規定を変更した場合は、その差分がレビュー範囲外であることを本欄に追記するか、再レビューを行う。
 
 ### Phase 0.1 exit criteria（#1275 / Canon Hardening）
 
@@ -228,9 +230,11 @@ canon は Phase 0 baseline 以降も更新されるため、「独立レビュ�
 - [x] artifact 責務分離 / RunEvidence = event projection / RunState revision CAS を固定（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）（根拠: PR #1276 で当該 docs を追加）
 - [x] Initial Plan Verification / Plan Gate を Delivery canonical flow へ追加（`north-star.md` §2 / §9 / §17）（根拠: PR #1276 で `north-star.md` を更新）
 - [x] #870 / #894 / #869 / #874 / #916 / #1025 を GitHub 上で rebaseline（根拠: **6 issue の body 更新を確認**（2026-09-05 / #1275）。docs PR のマージでは達成されない証跡種別であり、PR #1276 を根拠にしない）
-- [ ] Phase 0.1 docs PR の別 context / role によるレビューと Human C-4
-  - `reviewed_at_sha`: **`2950d358`** — 記録: [`docs/working/_reports/1275-phase0-01-independent-review.md`](../../working/_reports/1275-phase0-01-independent-review.md)（I1 ×2 / docs 整合・敵対 / 2026-09-07）
-  - **本項のチェックは本 PR のマージ後に行う**。記録を追加した PR 自身を Human C-4 完了として扱わない
+- [x] Phase 0.1 docs PR の別 context / role によるレビューと Human C-4
+  - `reviewed_at_sha`: **`f8f1e8b85982642a467bdce712daedce65568c23`** — 記録: [`docs/working/_reports/1275-phase0-01-independent-review.md`](../../working/_reports/1275-phase0-01-independent-review.md)（**R1 / R2 の 2 ラウンドを含む**）
+  - **(a) 別 context / role によるレビュー**: R1（I1 ×2 / `2950d358`）と R2（I1 / `2950d358..62e4ab93` / 是正そのものを疑う role）。R2 は §7-quater が求める「2 ラウンド目以降の焦点」に沿い、major 4 + minor 4 を検出して #1301 で是正済み
+  - **(b) Human C-4**: [`1275-phase0-01-evidence-audit.md`](../../working/_reports/1275-phase0-01-evidence-audit.md) §3 で確定した定義（**Human による merge 操作**。独立性は別項目 = I1 以上のレビュー artifact で担保）に照らし、#1300 / #1301 の merge をもって**充足**
+  - 本項の充足は**既にマージ済みの #1300 / #1301** を根拠にする。記録を更新する PR 自身のマージを充足根拠にしない
 
 Phase 0 の独立レビューと Phase 0.1 の全項目が満たされるまで Phase 1 実装を開始しない。Phase 0.1 の PR は MERGE_READY で停止し、Phase 1 へ自動的に進まない。
 
@@ -242,6 +246,7 @@ Phase 0 の独立レビューと Phase 0.1 の全項目が満たされるまで 
 - 本 §7 の canon 7 本（`README.md` / `north-star.md` / `phase0-migration.md` / `taxonomy.md` / `harness-manifest.md` / `evaluation-trust-boundary.md` / `artifact-responsibilities.md`）は、まさにその Evaluation Harness の**定義そのもの**である。にもかかわらず上記 exit criteria は **I1 以上**しか要求していない（自分が課す基準の最低段を自分に適用している）。
 - 取りうる選択肢: (a) canon docs の独立レビュー要求を **I4** へ引き上げる / (b) canon docs は「実装されていない仕様文書」として**明示的に例外**とし、その根拠と、実装が入る時点で I4 へ移行する条件を書く。
 - **本項は Human 判断（AI は決めない）**。決着するまで、上記 exit criteria の I1 要求は**暫定**であり、充足しても本項の未決を解消しない。
+- **2 ラウンド（R1 / R2）を経ても本項は未決のまま**である。R2 のレビュアー自身が「本差分は Evaluation Harness の定義そのものであり、canon が自ら課す I3 / I4 の下限を本レビューは満たしていない」と申告しており（[記録](../../working/_reports/1275-phase0-01-independent-review.md) §5-0 / §7-2）、**ラウンドを重ねても解消しない構造**である。上の exit criteria 2 項目のチェックは「**暫定の I1 要求**を満たした」ことの記録であって、本項を決着させたものではない。
 
 ## 8. Next phase
 
