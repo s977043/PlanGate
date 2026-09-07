@@ -64,7 +64,7 @@ RunEvent stream（append-only）
 
 ### Evolution input に含める Run
 
-`MERGE_READY` だけを Evolution の材料にしない。少なくとも次を projection の対象にし、pattern 検出（North Star §17）へ渡す。
+`MERGE_READY` だけを Evolution の材料にしない。少なくとも次を projection の対象にし、pattern 検出（North Star §2 の Evolution Loop 責務 `Run -> RunEvidence -> Retrospective -> Pattern / Friction / Success`）へ渡す。
 
 | 入力                                                          | 何が学べるか                                  |
 | ------------------------------------------------------------- | --------------------------------------------- |

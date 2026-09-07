@@ -16,12 +16,22 @@ Harness Improvement Candidate は、**自分の採用評価中**に次を変更�
 | Sealed / held-out fixtures | 提案時に未使用の regression set。Candidate 作成前に ID を固定 |
 | Promotion Policy           | PASS / FAIL / INCONCLUSIVE の判定規則                         |
 | Acceptance Threshold       | Candidate 作成前に固定した閾値・trial 数・metrics             |
-| Protected Gate             | Verifier pipeline の blocking 規則、Stop / Escalation policy  |
+| Protected Gate             | **この Candidate を裁く評価系に参加する** Verifier pipeline の blocking 規則、Stop / Escalation policy。当該 Candidate の評価に参加しない Verifier / Gate は Protected Gate ではない（§3 の手続きで評価する） |
 | Human-owned Boundary       | C-4 / Merge / HO / Policy / Permission / First Principles     |
+
+### Protected Gate の限定（評価系への参加）
+
+Protected Gate は **その Candidate の採用評価に参加する** Gate / Verifier に限る。限定を外すと、あらゆる Verifier blocking 規則の変更が `DENIED` になり、North Star §11（Verifier は正式な改善対象）/ §15（Verifier 追加は「条件付き領域」）と §3（stable meta-verifier / known mutants による Verifier Candidate の評価手続き）が到達不能な死文になる。
+
+- 「この Candidate を裁く評価系に参加するか」の判定は、**評価 plan（§6）に固定した verifier set** を基準にする。判定不能なら参加扱い（fail-closed）。
+- 参加しない Verifier / Gate を変更する Candidate は `DENIED` にせず、**§3 の手続き（stable meta-verifier / known mutants / baseline detection power）へ差し戻して評価する**。
+- ただし Gate / Verifier の**削除・緩和・適用範囲縮小**は、評価系への参加有無にかかわらず North Star §15 の Human Gate 必須領域である（本節は §15 を緩めない）。
 
 適用規則:
 
-- Candidate の `allowed_paths` が上記のいずれかを含む場合、その Candidate は **通常の paired evaluation で PASS にできない**。`DENIED`（Policy Verdict）または Human escalation。
+- 交差判定の入力は **`allowed_paths`（Candidate の宣言値）と実差分（観測値）の両方**とする。いずれか一方でも protected authority と交差する場合、その Candidate は **通常の paired evaluation で PASS にできない**。`DENIED`（Policy Verdict）または `HUMAN_REQUIRED`（fail-closed）。
+- **実差分 ⊆ `allowed_paths` の検証を必須**とする（`allowed_paths` の過少申告で交差判定を素通りする経路を塞ぐ）。実差分が `allowed_paths` を超えた場合は、超過分が protected authority と交差するか否かに**かかわらず** fail-closed とし、`DENIED` または `HUMAN_REQUIRED`。超過が観測できない（差分が取れない・binding 不一致）場合は `INCONCLUSIVE`（§5）。
+- 宣言値のみを入力にした交差判定は、Candidate の自己申告を判定根拠にすることであり、North Star §6「Worker の自己申告を完了根拠にしない。報告は主張として受け取り、対象の成果物・外部状態・検証結果との対応を確認する」に反する。**宣言（主張）と実差分（観測）の対応確認までを交差判定の一部とする。**
 - 「Verifier を改善する Candidate」「Eval を改善する Candidate」「Test strategy を改善する Candidate」は正当な改善対象（North Star §11）だが、**その Candidate 自身の変更後 Verifier / Eval で自分を評価してはならない**（§3）。
 
 ## 2. #916 との接続
@@ -33,11 +43,11 @@ V2 ではこれを **本 invariant の Legacy 実例**として位置づける�
 | #916 の要素                                                  | V2 での一般化                                                                                                                                                     |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | carve-out glob（escalate 固定パス集合） | Protected authority の path 集合。機械可読な 1 正本（`protected_surfaces`）として HarnessManifest の `verifier_set_sha` / `policy_profile_sha` が指す定義に含める。**交差判定には baseline Manifest（または evaluation plan digest に固定した定義）の `protected_surfaces` を使い、candidate Manifest 側の定義は判定に用いない**（candidate が自分を保護集合から外す経路を塞ぐ） |
-| `changed_files` が carve-out に一致 → `HUMAN_ESCALATED`      | Candidate `allowed_paths` ∩ protected authority ≠ ∅ → Policy Verdict `DENIED` または `HUMAN_REQUIRED`（fail-closed）                                              |
+| `changed_files` が carve-out に一致 → `HUMAN_ESCALATED`      | （Candidate `allowed_paths`（宣言） ∪ 実差分（観測）） ∩ protected authority ≠ ∅ → Policy Verdict `DENIED` または `HUMAN_REQUIRED`（fail-closed）。**Legacy #916 が観測値 `changed_files` を入力にしていた性質を V2 でも失わない**。加えて 実差分 ⊆ `allowed_paths` を検証し、超過は fail-closed（§1） |
 | 規範層のみの防御                                             | 機械層（Policy Gate）+ 規範層 + Human C-4 の多層防御                                                                                                              |
 | ho-paths.md の HO 一覧だけを読む単一経路（#906 / #978 統合） | protected surface の解決元を `explicit / downstream / bundled_template` として保持し、雛形フォールバックを escalate（#916 移管 AC を継承）                        |
 
-Issue #916 の実装は Legacy arbiter への機械層配線として進めてよい（Legacy freeze の「security fix / migration support」に該当）。V2 の Policy Gate は同じ protected surface 定義を再利用する。
+Issue #916 の実装は Legacy arbiter への機械層配線として **Legacy freeze の例外（security fix / migration・compatibility support）に当たる**が、その分類は本節の断定ではなく [`phase0-migration.md`](./phase0-migration.md) §2「判定主体と判定手順」に従い **Human が C-3 で裁定する**（本節はその申告内容を記述するもので、承認の代わりにならない）。V2 の Policy Gate は同じ protected surface 定義を再利用する。
 
 ## 3. Verifier / Eval を変更する Candidate の評価
 
@@ -91,7 +101,8 @@ Harness Candidate の評価結果を PASS / FAIL の二値にしない。
 `INCONCLUSIVE` になる条件（例）:
 
 - baseline / candidate の `harness_manifest_ref` が取れない（identity 不明）
-- Activation Check で `fired` 以上の evidence が無い
+- Activation Check で `fired` 以上の evidence が無い（**Verifier / Gate の改善では要求段階が `influenced_decision` であり、`fired` / `produced_evidence` 止まりも `INCONCLUSIVE`**。North Star §14 / [`harness-manifest.md`](./harness-manifest.md) §4）
+- 実差分が取れず、実差分 ⊆ `allowed_paths` を検証できない（§1）
 - Verifier unavailable / grader unavailable
 - trial 数が事前固定値に満たない
 - fixture が sealed でなかった（Candidate 作成後に変更された）
@@ -124,6 +135,9 @@ Candidate の実装を始める**前**に、evaluation plan を固定する。
 | ケース                                                               | 期待される扱い                                                                  |
 | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | Candidate の `allowed_paths` に sealed fixture のパスが含まれる      | Policy Verdict `DENIED` または `HUMAN_REQUIRED`。paired evaluation を開始しない |
+| `allowed_paths` は protected authority と交差しないが、**実差分**が sealed fixture / Verifier を触っている | invalid。実差分を交差判定の入力に含めるため `DENIED` または `HUMAN_REQUIRED`（§1）。宣言だけを見て PASS にしない |
+| 実差分が `allowed_paths` を超えているが、超過分は protected authority と交差しない | invalid。実差分 ⊆ `allowed_paths` を満たさない時点で fail-closed（§1）|
+| 交差判定を `allowed_paths`（宣言値）だけで行う                       | invalid。Candidate の自己申告を判定根拠にしている（North Star §6）|
 | Verifier を変更した Candidate を、変更後 Verifier の PASS だけで採用 | invalid。stable meta-verifier / known mutants / sealed fixtures が必須          |
 | baseline と candidate の Manifest identity が取れないまま比較        | `INCONCLUSIVE`                                                                  |
 | trial 数を結果を見てから減らす                                       | invalid。新 evaluation plan として再評価                                        |
