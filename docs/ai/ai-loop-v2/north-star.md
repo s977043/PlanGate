@@ -413,7 +413,7 @@ Candidate 数や Component 数を KPI にしない。
 - Evidence 取得後の意思決定待ち時間（Time to Learning と分ける）
 - failure detection time / impact / recovery cost / recurrence
 
-これら 3 つは Phase 1 時点では未対応であり、算出には [`run-evidence.schema.json`](../../schemas/run-evidence.schema.json) の拡張（現行は `started_at` / `completed_at` の 2 時刻のみで、Evidence 取得時刻・判断時刻・failure 発生時刻に対応するフィールドが無く、`escalation` / `quality_metrics` は `additionalProperties: false` のため追加できない）を要する。
+これら 3 つは Phase 1 時点では未対応であり、算出には [`run-evidence.schema.json`](../../schemas/run-evidence.schema.json) の拡張（現行は `started_at` / `completed_at` の 2 時刻のみで、Evidence 取得時刻・判断時刻・failure 発生時刻に対応するフィールドが無く、`escalation` / `quality_metrics` は `additionalProperties: false` のため追加できない）を要する（追跡: #1285）。
 
 Product 側と Harness 側の学習を混同せず、V2 が直接観測できる範囲と外部から受け取る Evidence を区別する。必要な人間判断は維持し、証拠不足による聞き直し・反復確認・手動復旧の負担を減らす。承認時には Evidence・残存リスク・未解決事項を提示して判断を支える。
 
