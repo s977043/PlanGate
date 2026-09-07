@@ -195,15 +195,29 @@ v8.16.0 の README_en 漏れ（レビューで水際検出）が実害・ヒヤ�
 |---|---|---|
 | 1 | `CHANGELOG.md` | `## vX.Y.Z (date)` 節の確定（Unreleased を残す） |
 | 2 | `plugin/plangate/.claude-plugin/plugin.json` | `version` |
-| 3 | `.claude-plugin/marketplace.json` | `plugins[].version` と `metadata.version` の両方 |
-| 4 | `README.md` | 「最新リリース」表の行 + 冒頭散文 + 「リリース済」行 |
-| 5 | `README_en.md` | 同上（英語） |
-| 6 | `plugin/plangate/README.md` | `**Version**:` 行 |
-| 7 | **`CLAUDE.md`「最新リリース」節** | **HO パスのため AI は apply スクリプト提示まで・適用は Human**（`sh scripts/apply-claude-md-*.sh --apply`。v8.14〜8.16 で 3 世代 stale になった構造原因への対策として本表に常設） |
-| 8 | `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR。**リリース後に run 結果確認 — 本書末尾「リリース後の workflow run 結果確認」参照**） |
+| 3 | `plugin/plangate/.codex-plugin/plugin.json` | `version`（**#1257 で追加** — 本表から漏れており、Codex 側配布だけが別 payload で同じ version を名乗る原因になっていた） |
+| 4 | `.claude-plugin/marketplace.json` | `plugins[].version` と `metadata.version` の両方 |
+| 5 | `README.md` | 「最新リリース」表の行 + 冒頭散文 + 「リリース済」行 |
+| 6 | `README_en.md` | 同上（英語） |
+| 7 | `plugin/plangate/README.md` | `**Version**:` 行 |
+| 8 | **`CLAUDE.md`「最新リリース」節** | **HO パスのため AI は apply スクリプト提示まで・適用は Human**（`sh scripts/apply-claude-md-*.sh --apply`。v8.14〜8.16 で 3 世代 stale になった構造原因への対策として本表に常設） |
+| 9 | `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR。**リリース後に run 結果確認 — 本書末尾「リリース後の workflow run 結果確認」参照**） |
 
-検証: `tests/extras/ta-28-plugin-version.sh`（2〜4 を機械検査。1・5・6・7 は未カバー —
-リリース準備 PR のレビュー観点として本表で担保する。ta-28 の 1/6 カバー拡張は V2 候補）。
+検証:
+
+- `tests/extras/ta-28-plugin-version.sh` — 2 / 4 と最新 tag の一致を機械検査
+- `tests/extras/ta-81-version-bump-gate.sh` + `scripts/check-version-bump.sh`（#1257）—
+  **2・3・4 の JSON version 宣言 4 箇所の同値**（`--parity`）と、
+  **`plugin/plangate/**` に差分がある range で version が bump されているか**（`--bump`）。
+  宣言箇所の正本は `scripts/_version_sites.py` の `DECLARED_SITES` で、
+  manifest の実走査との同値照合により**宣言漏れ自体が検出される**（新しい manifest を
+  足したら本表と合わせて `DECLARED_SITES` も更新すること）
+- 1・5・6・7・8 は未カバー — リリース準備 PR のレビュー観点として本表で担保する
+  （ta-28 の 1 / 7 カバー拡張は V2 候補）
+
+**version を bump しないまま配布物だけを変えてはならない**（`/plugin update` は version
+が変わらなければ no-op のため、consumer に 1 件も届かない。実測: 45 commits / 配布系 PR
+9 本が未配布のまま同じ `8.21.0` を名乗り、payload が 3 種類に分岐した = #1257）。
 
 ## リリース後の workflow run 結果確認（#950）
 
