@@ -199,7 +199,8 @@ Phase 1 では正本 artifact を無制限に増やさない。初期候補を�
 - [x] V2 初期 artifact budget を固定
 - [x] Human C-4 で Phase 0 docs PR を merge（PR #1273、2026-09-05）
 - [ ] North Star / migration docs の独立レビュー — **PENDING**。実装 Agent 自身のレビューは独立レビューに数えない（Independence Level I0。[`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §4）。別 context / role の checker による I1 以上の記録を要する
-  - `reviewed_at_sha`: _未記入_
+  - `reviewed_at_sha`: **`2950d358`** — 記録: [`docs/working/_reports/1275-phase0-01-independent-review.md`](../../working/_reports/1275-phase0-01-independent-review.md)（I1 ×2 / docs 整合・敵対 / 2026-09-07）
+  - **本項のチェックは本 PR のマージ後に行う**。記録を追加した PR 自身を Human C-4 完了として扱わない
 
 ### 独立レビュー記録の要求（`reviewed_at_sha`）
 
@@ -220,7 +221,8 @@ canon は Phase 0 baseline 以降も更新されるため、「独立レビュ�
 - [x] Initial Plan Verification / Plan Gate を Delivery canonical flow へ追加（`north-star.md` §2 / §9 / §17）（根拠: PR #1276 で `north-star.md` を更新）
 - [x] #870 / #894 / #869 / #874 / #916 / #1025 を GitHub 上で rebaseline（根拠: **6 issue の body 更新を確認**（2026-09-05 / #1275）。docs PR のマージでは達成されない証跡種別であり、PR #1276 を根拠にしない）
 - [ ] Phase 0.1 docs PR の別 context / role によるレビューと Human C-4
-  - `reviewed_at_sha`: _未記入_
+  - `reviewed_at_sha`: **`2950d358`** — 記録: [`docs/working/_reports/1275-phase0-01-independent-review.md`](../../working/_reports/1275-phase0-01-independent-review.md)（I1 ×2 / docs 整合・敵対 / 2026-09-07）
+  - **本項のチェックは本 PR のマージ後に行う**。記録を追加した PR 自身を Human C-4 完了として扱わない
 
 Phase 0 の独立レビューと Phase 0.1 の全項目が満たされるまで Phase 1 実装を開始しない。Phase 0.1 の PR は MERGE_READY で停止し、Phase 1 へ自動的に進まない。
 
