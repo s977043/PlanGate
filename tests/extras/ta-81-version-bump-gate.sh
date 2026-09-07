@@ -4,28 +4,41 @@
 #
 # #1257: version bump ゲート。
 #
-# 背景（issue #1257 実測 / origin/main = ecfef5b）:
+# 背景（issue #1257 実測 / 測定時点 origin/main = ecfef5b）:
 #   `/plugin update` は version が変わらなければ no-op。version を bump しない限り
-#   配布系 PR を何本マージしても consumer には 1 件も届かない。実測では 45 commits /
-#   配布系 PR 9 本が未配布のまま宣言 version は据え置きの 8.21.0 で、しかも同じ
-#   `8.21.0` を名乗る payload が 3 種類（Claude Aug 20 / Codex Aug 26 / main Aug 27）
-#   存在した。**version 文字列は同一性を保証していなかった。**
+#   配布系 PR を何本マージしても consumer には 1 件も届かない。ecfef5b 時点の実測では
+#   v8.21.0 タグ以降 45 commits / 配布系 PR 9 本が未配布のまま宣言 version は据え置きの
+#   8.21.0 で、しかも同じ `8.21.0` を名乗る payload が 3 種類（Claude Aug 20 /
+#   Codex Aug 26 / main Aug 27）存在した。**version 文字列は同一性を保証していなかった。**
+#   （45 / 9 / 3 は測定時点の値であり、運用で増える。契約値ではない）
 #
-# 本ファイルが測る 2 つのゲート（受入基準 1 / 2）:
-#   (a) bump   — plugin/plangate/** に差分がある range で version が bump されているか
-#   (b) parity — version 宣言箇所（実測 4 箇所）が全て同値か
+# ゲートを掛ける位置（A-2' / 2026-09-07 Human 決定）:
+#   * PR CI     = `--parity` のみ。git 履歴に依存しないので shallow clone でも動く
+#   * リリース時 = `--bump --since-latest-tag`（`scripts/release-prep.sh --check` 経由）
+#   `--bump` を PR CI に置くと、直近 2 か月で `plugin/plangate` に触れた first-parent
+#   commit 99 件のうち 91 件が赤になる（自動同期 PR は恒久的に赤）。ゲートは
+#   「マージのたび」ではなく「リリースのたび」に置く。
+#
+# 本ファイルが測る 3 つのこと:
+#   (a) parity — version 宣言箇所が全て同値か（PR CI で走る側）
+#   (b) bump   — 監視対象に差分がある range で version が bump されているか
+#                （downgrade / 既発行 tag への衝突を含む）
+#   (c) 配線   — release-prep が (b) を実際に呼んでいるか（存在は「効いている証拠」でない）
 #
 # 設計上の要点:
 #   - **宣言テーブルの網羅性を別 TC で担保する**（TC-03）。宣言は
-#     scripts/_version_sites.py の DECLARED_SITES にハードコードされているが、
+#     scripts/version_sites.py の DECLARED_SITES にハードコードされているが、
 #     manifest の実走査（discovered）との**同値照合**で「5 箇所目が増えたのに
 #     検査から漏れる」を検出する。宣言側にしか無い（= stale）も同時に見る
-#   - **絶対件数を書かない**。宣言 4 箇所は「4」という契約値ではなく
+#   - **絶対件数を書かない**。宣言箇所は「4」という契約値ではなく
 #     declared / discovered の**集合が一致すること**として検査する（README P-6 /
 #     成長する対象に assertEqual N を置かない）
 #   - **positive control を全ての「0 件が期待値」検査に入れる**（TC-03b / TC-03c /
-#     TC-04 / TC-06）。検査器が恒真に退行していないことを同 TC 内で実測する
+#     TC-04 / TC-06 / TC-07b / TC-08b）。検査器が恒真に退行していないことを同 TC 内で実測する
 #   - PASS 判定は **rc と分岐固有 reason トークンの対**（README P-1 / P-3）
+#   - **live tree を直接読まない**（#1257 R2 の cross-test 結合指摘）。実 repo の
+#     manifest は HEAD からスナップショットして sandbox で検査する。ta-28 TC-08 が
+#     tracked な marketplace.json を一時改変する窓と重なっても誤 FAIL しない
 #
 # 隔離: 実 repo は読むだけ。変異注入・合成 git repo はすべて mktemp -d 配下
 #   （README 規約 3 / 9。実 repo の tracked パスには一切書かない = 先頭 prune 対象なし）
@@ -82,9 +95,8 @@ if [ -z "$_T81_ROOT" ] || [ ! -f "$_T81_ROOT/bin/plangate" ]; then
 fi
 
 _T81_SH="$_T81_ROOT/scripts/check-version-bump.sh"
-_T81_PY="$_T81_ROOT/scripts/_version_sites.py"
-_T81_WF="$_T81_ROOT/.github/workflows/test.yml"
-_T81_PATCHDOC="$_T81_ROOT/docs/working/_reports/1257-ci-fetch-depth-patch-applicable.md"
+_T81_PY="$_T81_ROOT/scripts/version_sites.py"
+_T81_RELPREP="$_T81_ROOT/scripts/release-prep.sh"
 _T81_RELDOC="$_T81_ROOT/docs/release-process.md"
 
 if [ "$_T81_OK" = "1" ] && [ ! -f "$_T81_SH" ]; then
@@ -135,6 +147,38 @@ with open(path, 'w', encoding='utf-8') as fh:
     fh.write('\n')
 PYSET
 
+# 実 repo の manifest を **HEAD から** sandbox へ複製する（#1257 R2: cross-test 結合）。
+# live tree を直接読むと、ta-28 TC-08 が tracked な marketplace.json を一時改変する
+# 窓（subshell trap で復元）に重なったとき誤 FAIL する。HEAD 由来なら他テストの
+# 作業ツリー改変から独立する。working tree が dirty なら（= リリース準備中に
+# version を編集している最中など）live を複製し、その旨を出力する。
+_T81_SNAP_SRC="HEAD"
+_t81_snapshot() {
+  # $1 = 出力先ディレクトリ
+  rm -rf "$1"
+  mkdir -p "$1"
+  if [ "$_T81_SNAP_SRC" = "HEAD" ]; then
+    ( cd "$_T81_ROOT" && git archive HEAD -- \
+        .claude-plugin/marketplace.json \
+        plugin/plangate/.claude-plugin/plugin.json \
+        plugin/plangate/.codex-plugin/plugin.json ) | ( cd "$1" && tar xf - )
+  else
+    ( cd "$_T81_ROOT" && tar cf - .claude-plugin/marketplace.json \
+        plugin/plangate/.claude-plugin/plugin.json \
+        plugin/plangate/.codex-plugin/plugin.json ) | ( cd "$1" && tar xf - )
+  fi
+}
+
+if git -C "$_T81_ROOT" diff --quiet HEAD -- \
+    .claude-plugin/marketplace.json \
+    plugin/plangate/.claude-plugin/plugin.json \
+    plugin/plangate/.codex-plugin/plugin.json 2>/dev/null; then
+  _T81_SNAP_SRC="HEAD"
+else
+  _T81_SNAP_SRC="worktree"
+  t81_info "ta-81: manifest が working tree で未コミット変更あり — HEAD ではなく作業ツリーを検査する"
+fi
+
 # ---------------------------------------------------------------------------
 # TC-01: gate script が POSIX sh として解釈でき、使い方エラーが rc=2
 # ---------------------------------------------------------------------------
@@ -147,19 +191,41 @@ fi
 # 対照（README P-4）: --bump だけで --base を欠くと rc=2（使い方エラー）
 _t81_rc=0
 _t81_out=$(sh "$_T81_SH" --bump 2>&1) || _t81_rc=$?
-if [ "$_t81_rc" = "2" ] && printf '%s' "$_t81_out" | grep -q -- '--bump には --base が必須です'; then
+if [ "$_t81_rc" = "2" ] && printf '%s' "$_t81_out" | grep -q -- '--bump には --base か --since-latest-tag が必須です'; then
   t81_pass "ta-81 TC-01b: --bump without --base -> rc=2 (usage error)"
 else
   t81_fail "ta-81 TC-01b: expected rc=2 + usage diagnostic (rc=$_t81_rc out=$_t81_out)"
 fi
 
+# TC-01c: option の**値欠落**も rc=2（使い方エラー）。#1257 R2 指摘の回帰テスト。
+# 旧実装は `set -e` 下で引数を使い切った後の末尾 `shift` が失敗し、
+# **出力ゼロ・rc=1** で落ちていた。rc=1 は「契約違反を検出した」の意味なので
+# 呼び出し側（release-prep）が「未 bump を検出した」と誤判定する。
+_t81_c1c_bad=""
+for _t81_argset in "--bump --base" "--bump --base --head HEAD" "--bump --base --root ." "--bump --head"; do
+  # 引数列を意図的に単語分割させる（値欠落の形を再現するため）。
+  # shellcheck disable=SC2086
+  _t81_rc=0
+  _t81_out=$(sh "$_T81_SH" $_t81_argset 2>&1) || _t81_rc=$?
+  if [ "$_t81_rc" != "2" ] || ! printf '%s' "$_t81_out" | grep -q 'Usage:'; then
+    _t81_c1c_bad="$_t81_c1c_bad [$_t81_argset -> rc=$_t81_rc]"
+  fi
+done
+if [ -z "$_t81_c1c_bad" ]; then
+  t81_pass "ta-81 TC-01c: option の値欠落は rc=2 + usage（rc=1 と混ざらない）"
+else
+  t81_fail "ta-81 TC-01c: 値欠落の rc 契約違反:$_t81_c1c_bad"
+fi
+
 # ---------------------------------------------------------------------------
 # TC-02: 実 repo の parity（受入基準 2）— rc=0 + VERSION_PARITY_OK
 # ---------------------------------------------------------------------------
+_T81_SNAP="$_T81_TMP/snapshot"
+_t81_snapshot "$_T81_SNAP"
 _t81_rc=0
-_t81_out=$(sh "$_T81_SH" --parity --root "$_T81_ROOT" 2>&1) || _t81_rc=$?
+_t81_out=$(sh "$_T81_SH" --parity --root "$_T81_SNAP" 2>&1) || _t81_rc=$?
 if [ "$_t81_rc" = "0" ] && printf '%s' "$_t81_out" | grep -q 'VERSION_PARITY_OK'; then
-  t81_pass "ta-81 TC-02: 実 repo の version 宣言箇所が全て同値 ($(printf '%s' "$_t81_out" | sed -n 's/.*VERSION_PARITY_OK //p'))"
+  t81_pass "ta-81 TC-02: 実 repo（$_T81_SNAP_SRC 由来）の version 宣言箇所が全て同値 ($(printf '%s' "$_t81_out" | sed -n 's/.*VERSION_PARITY_OK //p'))"
 else
   t81_fail "ta-81 TC-02: parity NG (rc=$_t81_rc out=$_t81_out)"
 fi
@@ -186,11 +252,7 @@ fi
 # TC-03b positive control: 未宣言の manifest を 1 本足すと UNDECLARED で検出されるか
 # （「0 件が期待値」の検査が確かに検出できることを同 TC 内で実測する）
 _T81_SB="$_T81_TMP/sandbox-sites"
-rm -rf "$_T81_SB"
-mkdir -p "$_T81_SB"
-( cd "$_T81_ROOT" && tar cf - .claude-plugin/marketplace.json \
-    plugin/plangate/.claude-plugin/plugin.json \
-    plugin/plangate/.codex-plugin/plugin.json ) | ( cd "$_T81_SB" && tar xf - )
+_t81_snapshot "$_T81_SB"
 mkdir -p "$_T81_SB/plugin/probe/.claude-plugin"
 printf '{\n  "name": "probe",\n  "version": "0.0.1"\n}\n' \
   > "$_T81_SB/plugin/probe/.claude-plugin/plugin.json"
@@ -226,11 +288,7 @@ while IFS="$(printf '\t')" read -r _t81_id _t81_key; do
   [ -n "${_t81_key:-}" ] || continue
   _t81_total=$((_t81_total + 1))
   _T81_MUT="$_T81_TMP/mut-$_t81_id"
-  rm -rf "$_T81_MUT"
-  mkdir -p "$_T81_MUT"
-  ( cd "$_T81_ROOT" && tar cf - .claude-plugin/marketplace.json \
-      plugin/plangate/.claude-plugin/plugin.json \
-      plugin/plangate/.codex-plugin/plugin.json ) | ( cd "$_T81_MUT" && tar xf - )
+  _t81_snapshot "$_T81_MUT"
   _t81_file="${_t81_key%%::*}"
   _t81_path="${_t81_key#*::}"
   # 変異が実際に入ったことを先に確認する（README P-7: 空振り変異を PASS にしない）
@@ -350,31 +408,32 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# TC-07: CI 有効化状態の宣言（ta-79 と同型の pending-flag 方式）
-#   ゲートの存在は「効いている証拠」ではない。actions/checkout が既定の
-#   fetch-depth: 1 のままだと base が解決できず rc=3 になり、CI では働かない。
+# TC-07: **リリース経路への配線**（A-2'）。
+#   ゲートの存在は「効いている証拠」ではない。A-2' では PR CI ではなく
+#   scripts/release-prep.sh --check が --bump を呼ぶ。呼んでいなければ
+#   #1257 の受入基準 1 は黙って未達になる。
+#   grep はファイル全体ではなく **run_checks から呼ばれる関数**まで見る
+#   （旧 TC-07 の「test.yml 全体を grep」は、別 job が増えたときに誤判定した）。
 # ---------------------------------------------------------------------------
-_t81_depth0=0
-if [ -f "$_T81_WF" ] && grep -q 'fetch-depth: *0' "$_T81_WF"; then
-  _t81_depth0=1
-fi
-if [ "$_t81_depth0" = "1" ] && [ -f "$_T81_PATCHDOC" ]; then
-  t81_fail "ta-81 TC-07: stale 宣言 — test.yml は fetch-depth: 0 済みなのに pending patch doc が残っている: $_T81_PATCHDOC"
-elif [ "$_t81_depth0" = "1" ]; then
-  t81_pass "ta-81 TC-07: CI 有効（test.yml fetch-depth: 0）— bump ゲートが PR base を解決できる"
-elif [ -f "$_T81_PATCHDOC" ]; then
-  # 既知 gap は「patch が実際に当たること」まで実測する（提示だけで満足しない）
-  _t81_patch="$_T81_TMP/ci.patch"
-  awk '/PG-PATCH-BEGIN/{f=1;next} /PG-PATCH-END/{f=0} f' "$_T81_PATCHDOC" | grep -v '^```' > "$_t81_patch"
-  _t81_rc=0
-  _t81_out=$(git -C "$_T81_ROOT" apply --check "$_t81_patch" 2>&1) || _t81_rc=$?
-  if [ "$_t81_rc" = "0" ]; then
-    t81_pass "ta-81 TC-07: CI 未有効だが gap は明示宣言済みで、patch は git apply --check を通る（適用は Human-owned）"
+if [ -f "$_T81_RELPREP" ]; then
+  _t81_wired=1
+  grep -q 'check-version-bump.sh" --bump --since-latest-tag' "$_T81_RELPREP" || _t81_wired=0
+  grep -q '^  check_version_bump$' "$_T81_RELPREP" || _t81_wired=0
+  grep -q 'check-version-bump.sh" --parity' "$_T81_RELPREP" || _t81_wired=0
+  if [ "$_t81_wired" = "1" ]; then
+    t81_pass "ta-81 TC-07a: release-prep --check が --parity と --bump --since-latest-tag を配線している"
   else
-    t81_fail "ta-81 TC-07: pending patch が当たらない (rc=$_t81_rc out=$_t81_out)"
+    t81_fail "ta-81 TC-07a: release-prep への配線が無い — リリース時ゲートが働かない ($_T81_RELPREP)"
+  fi
+
+  # positive control: 実在しない関数名は当然ヒットしない = 上の grep は恒真でない
+  if grep -q '^  check_version_bump_nonexistent$' "$_T81_RELPREP"; then
+    t81_fail "ta-81 TC-07b: positive control 失敗 — 実在しない関数名がヒットした"
+  else
+    t81_pass "ta-81 TC-07b: positive control — 未配線の名前は確かに未ヒット"
   fi
 else
-  t81_fail "ta-81 TC-07: CI 未有効（test.yml に fetch-depth: 0 なし）かつ gap 宣言も無い — #1257 AC-1 が黙って未達になる"
+  t81_fail "ta-81 TC-07: scripts/release-prep.sh が見つかりません: $_T81_RELPREP"
 fi
 
 # ---------------------------------------------------------------------------
@@ -405,44 +464,98 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# TC-09: **実 PR / 実ブランチそのもの**に対する bump ゲート（受入基準 1 の本体）
-#   TC-05 / TC-06 は「検出器が動くこと」の証明で、これが無いと *今の変更* は
-#   1 度も検査されない（ゲートを持っているだけで働かない状態）。
-#   base が解決できないとき（shallow clone）は pass にも fail にも数えず、
-#   「検査していない」ことを明示する — rc=0 で成功を装わない。
+# TC-09: 合成 git repo で **--since-latest-tag**（リリース経路そのもの）を双方向検証。
+#   #1257 の実障害「tag 以降に配布物差分があるのに version 据え置き」を
+#   最小再現し、tag を base にして検出できることを実測する。
 # ---------------------------------------------------------------------------
-_t81_base_ref=""
-for _t81_cand in \
-  "${PLANGATE_VERSION_BUMP_BASE:-}" \
-  "${GITHUB_BASE_REF:+origin/$GITHUB_BASE_REF}" \
-  "origin/main" "main"; do
-  [ -n "$_t81_cand" ] || continue
-  if git -C "$_T81_ROOT" rev-parse --verify --quiet "$_t81_cand^{commit}" >/dev/null 2>&1; then
-    _t81_base_ref="$_t81_cand"
-    break
-  fi
-done
-if [ -n "$_t81_base_ref" ]; then
-  _t81_rc=0
-  _t81_out=$(sh "$_T81_SH" --bump --base "$_t81_base_ref" --head HEAD --root "$_T81_ROOT" 2>&1) || _t81_rc=$?
-  case "$_t81_rc" in
-    0)
-      if printf '%s' "$_t81_out" | grep -q 'VERSION_BUMP_OK_NO_PLUGIN_DIFF\|VERSION_BUMP_OK_BUMPED'; then
-        t81_pass "ta-81 TC-09: 実ブランチ（base=${_t81_base_ref}）は version bump 契約を満たす"
-      else
-        t81_fail "ta-81 TC-09: rc=0 だが既知 reason トークンが無い (out=$_t81_out)"
-      fi
-      ;;
-    3)
-      t81_info "ta-81 TC-09: base=${_t81_base_ref} を解決したが range 検査不能 — 未検査 ($_t81_out)"
-      ;;
-    *)
-      t81_fail "ta-81 TC-09: 実ブランチが version bump 契約に違反 (rc=$_t81_rc)
-$_t81_out"
-      ;;
-  esac
+_T81_TAG="$_T81_TMP/tagged"
+rm -rf "$_T81_TAG"
+mkdir -p "$_T81_TAG/plugin/plangate/.claude-plugin" "$_T81_TAG/plugin/plangate/skills"
+printf '{\n  "name": "plangate",\n  "version": "1.0.0"\n}\n' \
+  > "$_T81_TAG/plugin/plangate/.claude-plugin/plugin.json"
+printf 'base\n' > "$_T81_TAG/plugin/plangate/skills/a.md"
+git -C "$_T81_TAG" init -q 2>/dev/null
+git -C "$_T81_TAG" config user.email ta81@example.invalid
+git -C "$_T81_TAG" config user.name ta81
+git -C "$_T81_TAG" add -A >/dev/null 2>&1
+git -C "$_T81_TAG" -c commit.gpgsign=false commit -q -m 'release 1.0.0' >/dev/null 2>&1
+git -C "$_T81_TAG" tag v1.0.0
+
+# (a) tag 以降に配布物差分・version 据え置き -> rc=1 VERSION_BUMP_MISSING（#1257 の実障害型）
+printf 'changed after release\n' > "$_T81_TAG/plugin/plangate/skills/a.md"
+git -C "$_T81_TAG" add -A >/dev/null 2>&1
+git -C "$_T81_TAG" -c commit.gpgsign=false commit -q -m 'plugin change after tag' >/dev/null 2>&1
+_t81_rc=0
+_t81_out=$(sh "$_T81_SH" --bump --since-latest-tag --root "$_T81_TAG" 2>&1) || _t81_rc=$?
+if [ "$_t81_rc" = "1" ] && printf '%s' "$_t81_out" | grep -q 'VERSION_BUMP_MISSING'; then
+  t81_pass "ta-81 TC-09a: --since-latest-tag が「tag 以降に配布物差分・version 据え置き」を検出（#1257 実障害の再現）"
 else
-  t81_info "ta-81 TC-09: base ref 未解決（shallow clone 等）— 実ブランチの bump ゲートは未実行。CI で有効化するには test.yml の fetch-depth: 0 が要る（TC-07 参照）"
+  t81_fail "ta-81 TC-09a: 最新 tag 基準の未 bump を検出できない (rc=$_t81_rc out=$_t81_out)"
+fi
+
+# (b) 対照: bump すると通る
+printf '{\n  "name": "plangate",\n  "version": "1.1.0"\n}\n' \
+  > "$_T81_TAG/plugin/plangate/.claude-plugin/plugin.json"
+git -C "$_T81_TAG" add -A >/dev/null 2>&1
+git -C "$_T81_TAG" -c commit.gpgsign=false commit -q -m 'bump to 1.1.0' >/dev/null 2>&1
+_t81_rc=0
+_t81_out=$(sh "$_T81_SH" --bump --since-latest-tag --root "$_T81_TAG" 2>&1) || _t81_rc=$?
+if [ "$_t81_rc" = "0" ] && printf '%s' "$_t81_out" | grep -q 'VERSION_BUMP_OK_BUMPED'; then
+  t81_pass "ta-81 TC-09b: 対照 — 最新 tag 以降に bump があれば通る"
+else
+  t81_fail "ta-81 TC-09b: bump ありが通らない (rc=$_t81_rc out=$_t81_out)"
+fi
+
+# ---------------------------------------------------------------------------
+# TC-10: downgrade を bump として受理しない（#1257 R2 指摘）。
+#   既に tag 済みの version へ戻す revert は「同じ version で別 payload」を
+#   再生産する = #1257 の主症状そのもの。
+# ---------------------------------------------------------------------------
+printf 'reverted payload\n' > "$_T81_TAG/plugin/plangate/skills/a.md"
+printf '{\n  "name": "plangate",\n  "version": "1.0.0"\n}\n' \
+  > "$_T81_TAG/plugin/plangate/.claude-plugin/plugin.json"
+git -C "$_T81_TAG" add -A >/dev/null 2>&1
+git -C "$_T81_TAG" -c commit.gpgsign=false commit -q -m 'revert version to 1.0.0' >/dev/null 2>&1
+_t81_head=$(git -C "$_T81_TAG" rev-parse HEAD)
+_t81_prev=$(git -C "$_T81_TAG" rev-parse HEAD~1)
+_t81_rc=0
+_t81_out=$(sh "$_T81_SH" --bump --base "$_t81_prev" --head "$_t81_head" --root "$_T81_TAG" 2>&1) || _t81_rc=$?
+if [ "$_t81_rc" = "1" ] && printf '%s' "$_t81_out" | grep -q 'VERSION_BUMP_DOWNGRADE'; then
+  t81_pass "ta-81 TC-10a: 1.1.0 -> 1.0.0（配布物差分あり）を rc=1 VERSION_BUMP_DOWNGRADE で拒否"
+else
+  t81_fail "ta-81 TC-10a: downgrade を bump として受理している (rc=$_t81_rc out=$_t81_out)"
+fi
+
+# TC-10b positive control: 同じ形の**昇格**は通る（TC-10a が「差分があれば何でも落とす」
+# 恒真ゲートに退行していないことを同 TC 内で実測する）
+printf '{\n  "name": "plangate",\n  "version": "1.2.0"\n}\n' \
+  > "$_T81_TAG/plugin/plangate/.claude-plugin/plugin.json"
+git -C "$_T81_TAG" add -A >/dev/null 2>&1
+git -C "$_T81_TAG" -c commit.gpgsign=false commit -q -m 'bump to 1.2.0' >/dev/null 2>&1
+_t81_rc=0
+_t81_out=$(sh "$_T81_SH" --bump --base "$_t81_head" --head HEAD --root "$_T81_TAG" 2>&1) || _t81_rc=$?
+if [ "$_t81_rc" = "0" ] && printf '%s' "$_t81_out" | grep -q 'VERSION_BUMP_OK_BUMPED'; then
+  t81_pass "ta-81 TC-10b: positive control — 同じ形の昇格 1.0.0 -> 1.2.0 は通る"
+else
+  t81_fail "ta-81 TC-10b: 昇格まで落ちている = downgrade 検査が恒真 (rc=$_t81_rc out=$_t81_out)"
+fi
+
+# ---------------------------------------------------------------------------
+# TC-11: 既に tag 発行済みの version へ「bump」して別 payload を配ろうとしたら落とす
+#   （downgrade ではないが同一 version で payload が分岐する経路）
+# ---------------------------------------------------------------------------
+git -C "$_T81_TAG" tag v2.0.0
+printf 'payload that differs from what v2.0.0 points at\n' > "$_T81_TAG/plugin/plangate/skills/a.md"
+printf '{\n  "name": "plangate",\n  "version": "2.0.0"\n}\n' \
+  > "$_T81_TAG/plugin/plangate/.claude-plugin/plugin.json"
+git -C "$_T81_TAG" add -A >/dev/null 2>&1
+git -C "$_T81_TAG" -c commit.gpgsign=false commit -q -m 'claim already-tagged version' >/dev/null 2>&1
+_t81_rc=0
+_t81_out=$(sh "$_T81_SH" --bump --base "HEAD~1" --head HEAD --root "$_T81_TAG" 2>&1) || _t81_rc=$?
+if [ "$_t81_rc" = "1" ] && printf '%s' "$_t81_out" | grep -q 'VERSION_TAG_PAYLOAD_CONFLICT'; then
+  t81_pass "ta-81 TC-11: 既発行 tag と同じ version で別 payload を rc=1 VERSION_TAG_PAYLOAD_CONFLICT で拒否"
+else
+  t81_fail "ta-81 TC-11: 同一 version・別 payload を通している (rc=$_t81_rc out=$_t81_out)"
 fi
 
 # 明示 cleanup（trap 非依存 / README 規約 1・2）

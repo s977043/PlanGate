@@ -9,10 +9,16 @@ echo "       Use: python3 $0 [args...]" >&2
 exit 2
 ":"""
 
-__doc__ = """_version_sites.py — plugin 配布 manifest の version 宣言箇所の正本 (#1257).
+__doc__ = """version_sites.py — plugin 配布 manifest の version 宣言箇所の正本 (#1257).
+
+**保守者が直接編集するファイルである** (内部ヘルパではない)。
+`docs/release-process.md` の version 同期マップが本ファイルの `DECLARED_SITES` を
+正本として参照しているため、新しい manifest を足すときはリリース手順の一部として
+ここを更新する (旧名 `_version_sites.py` の `_` 接頭辞はこの位置付けと矛盾したため
+#1257 のレビュー指摘 m-3 で改名した)。
 
 背景: version 文字列 `8.21.0` が同一でも payload が 3 種類あった (#1257 実測)。
-version は 4 箇所で宣言されているが、それらが同値であることを保証する機械が
+version は複数箇所で宣言されているが、それらが同値であることを保証する機械が
 `.codex-plugin/plugin.json` を含む形では存在しなかった。
 
 本ファイルは「どこで version が宣言されているか」の**正本テーブル**を持ち、
@@ -27,16 +33,27 @@ modes:
   declared      宣言テーブルと実値を出力
   discovered    manifest 走査で見つかった version 宣言箇所を出力
   verify-sites  declared と discovered の同値照合 (網羅性ゲート)
-  parity        宣言 4 箇所の値が全て一致するか
+  parity        宣言箇所の値が全て一致するか
 
 rc: 0 = OK / 1 = 違反 / 2 = 使い方エラー / 3 = 前提不足 (root が repo でない)
+
+残存脅威モデル (走査が原理的に見ないもの / #1257 R2):
+  - 走査対象は `MANIFEST_DIRS` に挙げた plugin manifest ディレクトリ名を持つ
+    JSON のみ。**族の外**に version 宣言が増えたら検出できない
+    (例: `package.json` / CI 変数 / README の散文)。それらは
+    `docs/release-process.md` の同期マップと人間レビューが担保する。
+  - `version` という**キー名**で宣言された文字列だけを見る。別名キー
+    (`pluginVersion` 等) は対象外。
+  - 値の形式は問わない (`8.21.0` も `v8.21.0` も site として拾う)。
+    「同値か」だけを見るので、形式の妥当性は別ゲート
+    (`tests/extras/ta-28-plugin-version.sh` の v プレフィックス検査) が担う。
 """
 
 import argparse
-import glob
 import json
 import os
 import re
+import subprocess
 import sys
 
 # --- 正本テーブル -----------------------------------------------------------
@@ -49,23 +66,33 @@ DECLARED_SITES = (
 )
 
 # 走査対象 manifest。ここに掛からない場所へ version が増えても検出できないため、
-# 「plugin manifest の族」を glob で定義し、族の外は対象外だと明示する。
-MANIFEST_GLOBS = (
-    ".claude-plugin/*.json",
-    ".codex-plugin/*.json",
-    "plugin/*/.claude-plugin/*.json",
-    "plugin/*/.codex-plugin/*.json",
-)
+# 「plugin manifest の族」= このディレクトリ名を持つ階層の JSON、と定義する。
+#
+# #1257 R2 で塞いだ 2 つの穴:
+#   (a) 深さ固定の glob だった (`plugin/*/.claude-plugin/*.json`)。
+#       `plugin/a/b/.claude-plugin/plugin.json` は無検出だった
+#       → repo 全体を walk して**ディレクトリ名**で拾う方式に変更（深さ非依存）。
+#   (b) 値が semver 形でないと site として拾わなかった (`"v1.2.3"` が素通り)。
+#       → 値の形式では絞らない（下の _walk 参照）。
+MANIFEST_DIRS = (".claude-plugin", ".codex-plugin")
 
-VERSION_VALUE_RE = re.compile(r"^\d+\.\d+\.\d+")
+# walk から除外するディレクトリ（走査コストと、配布実体でないコピーの混入を避ける）。
+# `worktrees` は git worktree の置き場（本 repo では gitignore 済みの
+# `.claude/worktrees/`）。ここには plugin manifest の**複製**が並ぶため、
+# 除外しないと「未宣言 manifest が数十件ある」という偽陽性になる。
+PRUNE_DIRS = frozenset((".git", "node_modules", "__pycache__", ".venv", "venv", "worktrees"))
 
 
 def _walk(node, prefix, out):
-    """version らしき値を持つ全パスを (path, value) で集める。"""
+    """`version` キーを持つ全パスを (path, value) で集める。
+
+    値の形式では絞らない。semver でない値（`"v1.2.3"` 等）を無視すると、
+    その site が discovered から落ちて「宣言漏れ」を検出できなくなる（#1257 R2）。
+    """
     if isinstance(node, dict):
         for key, value in node.items():
             path = "%s.%s" % (prefix, key) if prefix else key
-            if key == "version" and isinstance(value, str) and VERSION_VALUE_RE.match(value):
+            if key == "version" and isinstance(value, str) and value:
                 out.append((path, value))
             else:
                 _walk(value, path, out)
@@ -140,23 +167,63 @@ def declared(root):
     return rows
 
 
+def _is_manifest_relpath(relpath):
+    head, tail = os.path.split(relpath)
+    return tail.endswith(".json") and os.path.basename(head) in MANIFEST_DIRS
+
+
+def _git_listed_files(root):
+    """git 管理下の候補パス（追跡済み + 未追跡だが ignore されていないもの）。
+
+    git repo では**この経路を優先する**。素の os.walk だと gitignore された
+    複製（`.claude/worktrees/<agent>/plugin/.../plugin.json` 等）まで拾い、
+    「未宣言 manifest が大量にある」という偽陽性になる。git が無い / repo で
+    ない場合は None を返し、呼び出し側が os.walk へフォールバックする。
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "-C", root, "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False,
+        )
+    except (OSError, ValueError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return [p for p in proc.stdout.decode("utf-8", "replace").split("\0") if p]
+
+
+def manifest_files(root):
+    """走査対象 manifest の repo 相対パスを返す（深さ非依存 / ソート済み）。"""
+    listed = _git_listed_files(root)
+    if listed is not None:
+        return sorted(set(
+            p for p in listed
+            if _is_manifest_relpath(p) and os.path.isfile(os.path.join(root, p))
+        ))
+    found = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in PRUNE_DIRS]
+        if os.path.basename(dirpath) not in MANIFEST_DIRS:
+            continue
+        for name in filenames:
+            if not name.endswith(".json"):
+                continue
+            abspath = os.path.join(dirpath, name)
+            found.append(os.path.relpath(abspath, root).replace(os.sep, "/"))
+    return sorted(set(found))
+
+
 def discovered(root):
     """[(key, value)] を返す (ソート済み)。"""
     rows = []
-    seen = set()
-    for pattern in MANIFEST_GLOBS:
-        for abspath in sorted(glob.glob(os.path.join(root, pattern))):
-            relpath = os.path.relpath(abspath, root).replace(os.sep, "/")
-            if relpath in seen:
-                continue
-            seen.add(relpath)
-            doc, _err = _load(abspath)
-            if doc is None:
-                continue
-            found = []
-            _walk(doc, "", found)
-            for jsonpath, value in found:
-                rows.append(("%s::%s" % (relpath, jsonpath), value))
+    for relpath in manifest_files(root):
+        doc, _err = _load(os.path.join(root, relpath))
+        if doc is None:
+            continue
+        found = []
+        _walk(doc, "", found)
+        for jsonpath, value in found:
+            rows.append(("%s::%s" % (relpath, jsonpath), value))
     return sorted(set(rows))
 
 

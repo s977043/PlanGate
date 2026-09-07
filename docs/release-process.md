@@ -191,39 +191,77 @@ sh scripts/check-tag-main-parity.sh <tag>
 1 箇所でも漏れると「Latest 表記の drift」となる（v8.13.0 の README 漏れ・
 v8.16.0 の README_en 漏れ（レビューで水際検出）が実害・ヒヤリの実例）:
 
-| # | ファイル | 箇所 |
+> **参照はパス名で行う（番号を使わない）**。本表は行が増減するため、
+> 「#7 のみ Human 適用」のような番号アンカーは行が 1 本増えた瞬間に別の項目を指す
+> （#1257 で `.codex-plugin/plugin.json` を追加したとき実際に起きた）。過去の
+> runbook・issue に残る番号は**その文書が書かれた時点の表**を指すので、
+> 追跡するときは番号ではなく本表のパス名と突き合わせること。
+> 本書の他節も番号ではなくパス名で参照する。
+
+| ファイル | 箇所 | 機械検査 |
 |---|---|---|
-| 1 | `CHANGELOG.md` | `## vX.Y.Z (date)` 節の確定（Unreleased を残す） |
-| 2 | `plugin/plangate/.claude-plugin/plugin.json` | `version` |
-| 3 | `plugin/plangate/.codex-plugin/plugin.json` | `version`（**#1257 で追加** — 本表から漏れており、Codex 側配布だけが別 payload で同じ version を名乗る原因になっていた） |
-| 4 | `.claude-plugin/marketplace.json` | `plugins[].version` と `metadata.version` の両方 |
-| 5 | `README.md` | 「最新リリース」表の行 + 冒頭散文 + 「リリース済」行 |
-| 6 | `README_en.md` | 同上（英語） |
-| 7 | `plugin/plangate/README.md` | `**Version**:` 行 |
-| 8 | **`CLAUDE.md`「最新リリース」節** | **HO パスのため AI は apply スクリプト提示まで・適用は Human**（`sh scripts/apply-claude-md-*.sh --apply`。v8.14〜8.16 で 3 世代 stale になった構造原因への対策として本表に常設） |
-| 9 | `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR。**リリース後に run 結果確認 — 本書末尾「リリース後の workflow run 結果確認」参照**） |
+| `CHANGELOG.md` | `## vX.Y.Z (date)` 節の確定（Unreleased を残す） | なし（レビュー観点） |
+| `plugin/plangate/.claude-plugin/plugin.json` | `version` | ta-28（最新 tag との一致）/ `--parity` |
+| `plugin/plangate/.codex-plugin/plugin.json` | `version`（**#1257 で追加**） | `--parity` / `check-plugin-manifest-parity.sh` |
+| `.claude-plugin/marketplace.json` | `plugins[].version` と `metadata.version` の両方 | ta-28 / `--parity` |
+| `README.md` | 「最新リリース」表の行 + 冒頭散文 + 「リリース済」行 | ta-28 TC-11（`Latest` 表記 == plugin.json） |
+| `README_en.md` | 同上（英語） | なし（レビュー観点） |
+| `plugin/plangate/README.md` | `**Version**:` 行 | なし（レビュー観点） |
+| **`CLAUDE.md`「最新リリース」節** | **HO パスのため AI は apply スクリプト提示まで・適用は Human**（`sh scripts/apply-claude-md-*.sh --apply`。v8.14〜8.16 で 3 世代 stale になった構造原因への対策として本表に常設） | なし（Human 適用の確認） |
+| `docs/changelog.md` | 更新**不要**（release published 後に `release-docs-sync` が自動 PR。**リリース後に run 結果確認 — 本書末尾「リリース後の workflow run 結果確認」参照**） | 自動 PR の run 結果確認 |
 
-検証:
+`.codex-plugin/plugin.json` が本表から漏れていた件について: 追加は **予防**であって、
+過去の payload 分岐の**原因ではない**。両 manifest の version は git 履歴上つねに
+同値で動いており（`scripts/release-prep.sh` の bump 処理が両方を書き換える）、
+表に無いままでも実害は出ていなかった。表に載せたのは「手順の正本に無い箇所は
+いつ落ちてもおかしくない」ためである。
 
-- `tests/extras/ta-28-plugin-version.sh` — 2 / 4 と最新 tag の一致を機械検査
-- `tests/extras/ta-81-version-bump-gate.sh` + `scripts/check-version-bump.sh`（#1257）—
-  **2・3・4 の JSON version 宣言 4 箇所の同値**（`--parity`）と、
-  **`plugin/plangate/**` に差分がある range で version が bump されているか**（`--bump`）。
-  宣言箇所の正本は `scripts/_version_sites.py` の `DECLARED_SITES` で、
-  manifest の実走査との同値照合により**宣言漏れ自体が検出される**（新しい manifest を
-  足したら本表と合わせて `DECLARED_SITES` も更新すること）
-- 1・5・6・7・8 は未カバー — リリース準備 PR のレビュー観点として本表で担保する
-  （ta-28 の 1 / 7 カバー拡張は V2 候補）
+### version 検査の正本分界（役割が重複しないように）
 
-**version を bump しないまま配布物だけを変えてはならない**（`/plugin update` は version
-が変わらなければ no-op のため、consumer に 1 件も届かない。実測: 45 commits / 配布系 PR
-9 本が未配布のまま同じ `8.21.0` を名乗り、payload が 3 種類に分岐した = #1257）。
+| 検査 | 正本として担うもの | 担わないもの |
+|---|---|---|
+| `scripts/check-version-bump.sh --parity`<br>（宣言表 = `scripts/version_sites.py` の `DECLARED_SITES`） | **version 値の同値**（宣言された全 manifest 横断）と、**宣言漏れの検出**（manifest の実走査との同値照合。新しい manifest を足して宣言し忘れたら落ちる） | `name` / `skills` の整合、tag との一致 |
+| `scripts/check-plugin-manifest-parity.sh`（#1085） | **`plugin/plangate` の 2 manifest（Claude / Codex）の `name` と `skills` の整合** | 3 つ目以降の manifest（対象は 2 本固定）、宣言漏れの検出 |
+| `tests/extras/ta-28-plugin-version.sh` | **最新 release tag との一致**、`v` プレフィックス不使用、ルート `README.md` の `Latest` 表記との一致 | manifest 横断の網羅性 |
+
+`check-plugin-manifest-parity.sh` も version を比較するが、それは 2 manifest に閉じた
+副次的な確認であり、**version 同値の正本は `--parity` 側**である。新しい manifest を
+足したときに更新するのは `DECLARED_SITES`（と本表）だけでよい。ただし
+`check-plugin-manifest-parity.sh` は対象 2 本が固定であるため、3 本目の
+`name` / `skills` は**どの機械検査でも見ていない**（既知の射程外）。
+
+### ゲートを掛ける位置（A-2' / 2026-09-07 Human 決定）
+
+| タイミング | 走らせるもの | 理由 |
+|---|---|---|
+| **PR CI** | `check-version-bump.sh --parity` のみ（`tests/extras/ta-81-version-bump-gate.sh` 経由） | git 履歴に依存しないので shallow clone（`actions/checkout` 既定）でもそのまま動く |
+| **リリース準備** | `check-version-bump.sh --bump --since-latest-tag`（`scripts/release-prep.sh --check` に配線） | 「最新 tag 以降に配布物差分があるのに version 据え置き」= #1257 の実障害をそのまま検出する |
+
+`--bump` を PR CI に置かない理由（実測。測定時点 = `b3565b2` / 対象 = 2026-07-07 以降の
+first-parent commit）: `plugin/plangate` に差分がある **98 件のうち 91 件**が、
+その commit で version を据え置いており赤になる。
+赤くなるのは自動同期 PR だけでなく `.claude/` を触る通常の feature PR のほぼ全部で、
+さらに自動同期 PR は version を CHANGELOG 先頭から取るため人手が入るまで**恒久的に
+赤**である。ゲートは「マージのたびに bump」ではなく「**リリースのたびに bump**」に置く。
+
+**version を bump しないまま配布物だけを変えてリリースしてはならない**
+（`/plugin update` は version が変わらなければ no-op のため、consumer に 1 件も届かない。
+測定時点 `ecfef5b` の実測: v8.21.0 タグ以降 45 commits / 配布系 PR 9 本が未配布のまま
+同じ `8.21.0` を名乗り、payload が 3 種類に分岐した = #1257。**この数値は測定時点の
+ものであり運用で増える。契約値ではない**）。
+
+`--bump` は次も落とす:
+
+- **downgrade**（例 1.1.0 → 1.0.0 で配布物差分あり）— 既に配布済みの version へ戻すと
+  「同じ version で別 payload」を再生産する
+- **既発行 tag との payload 衝突** — bump 先の `vX.Y.Z` が既に tag として存在し、
+  その tag 時点の配布物と中身が違う場合（tag へ向かう途中の履歴は除外する）
 
 ## リリース後の workflow run 結果確認（#950）
 
 release published を起点とする自動 workflow は**失敗しても通知されず、成果物の欠落で
 初めて発覚する**。v8.17.0 / v8.17.1 / v8.18.0 では `release-docs-sync`（version 同期
-マップ #8 の自動 PR）が権限エラーで 3 リリース連続失敗し、`docs/changelog.md` が
+マップの `docs/changelog.md` 行が指す自動 PR）が権限エラーで 3 リリース連続失敗し、`docs/changelog.md` が
 2 世代欠落するまで誰も気づかなかった（issue #950）。GitHub Release 作成後、以下を
 リリース手順の一部として必ず確認する:
 

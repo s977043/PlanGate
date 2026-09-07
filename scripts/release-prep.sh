@@ -17,22 +17,32 @@ note() { printf '%s\n' "$1"; }
 ng() { printf 'NG: %s\n' "$1"; fail=1; }
 ok() { printf 'OK: %s\n' "$1"; }
 
+# version 宣言箇所の同値検査（#1257）。
+# 旧実装はここで plugin.json と marketplace.json を直接読み比べていたが、
+# **宣言箇所が増えたときに追随しない**（実際 `.codex-plugin/plugin.json` は
+# 見ていなかった）。宣言箇所の正本は scripts/version_sites.py の DECLARED_SITES に
+# 一本化し、本関数はそこへ委譲する。宣言テーブルと実 manifest 走査の同値照合も
+# 同じコマンドが行うため、新しい manifest を足して宣言し忘れた場合も落ちる。
 check_versions() {
-  v1=$(python3 -c "import json;print(json.load(open('$ROOT/plugin/plangate/.claude-plugin/plugin.json'))['version'])")
-  v2=$(python3 -c "
-import json
-d = json.load(open('$ROOT/.claude-plugin/marketplace.json'))
-vs = set()
-def walk(x):
-    if isinstance(x, dict):
-        if 'version' in x and isinstance(x['version'], str): vs.add(x['version'])
-        [walk(v) for v in x.values()]
-    elif isinstance(x, list):
-        [walk(v) for v in x]
-walk(d)
-print(vs.pop() if len(vs) == 1 else 'INCONSISTENT:' + ','.join(sorted(vs)))
-")
-  if [ "$v1" = "$v2" ]; then ok "plugin version 一致 ($v1)"; else ng "plugin version 不一致: plugin.json=$v1 marketplace=$v2"; fi
+  out="$(sh "$ROOT/scripts/check-version-bump.sh" --parity --root "$ROOT" 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok "version 宣言箇所が全て同値 ($(printf '%s' "$out" | sed -n 's/.*VERSION_PARITY_OK //p'))"
+  else
+    ng "version 宣言箇所の不一致 or 宣言漏れ (rc=$rc): $(printf '%s' "$out" | tr '\n' ' ')"
+  fi
+}
+
+# 最新 tag 以降に配布物差分があるのに version が据え置きなら NOT READY にする（#1257）。
+# ゲートの位置は A-2'（2026-09-07 Human 決定）: PR CI ではなく**リリース時**に置く。
+# rc=3 は「検査していない」であり成功ではないので NG にする（shallow clone 等）。
+check_version_bump() {
+  out="$(sh "$ROOT/scripts/check-version-bump.sh" --bump --since-latest-tag --root "$ROOT" 2>&1)" && rc=0 || rc=$?
+  case "$rc" in
+    0) ok "配布物 version bump 契約 ($(printf '%s' "$out" | grep -o 'VERSION_[A-Z_]*' | tail -1))" ;;
+    3) ng "version bump 未検査 (rc=3 / 完全な履歴が要る): $(printf '%s' "$out" | tr '\n' ' ')" ;;
+    *) ng "$(printf '%s' "$out" | grep 'VERSION_BUMP_MISSING\|VERSION_BUMP_DOWNGRADE\|VERSION_TAG_PAYLOAD_CONFLICT' | head -1)
+     → 詳細: sh scripts/check-version-bump.sh --bump --since-latest-tag" ;;
+  esac
 }
 
 # #1085: 2 マニフェスト（.claude-plugin / .codex-plugin）の整合。
@@ -80,6 +90,7 @@ check_plugin_cache_sync() {
 run_checks() {
   note "=== release readiness 検査 ==="
   check_versions
+  check_version_bump
   check_manifest_parity
   check_pending_applies
   check_changelog_sync
