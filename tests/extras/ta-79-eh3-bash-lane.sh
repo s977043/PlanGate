@@ -177,6 +177,55 @@ _t79_holds() {
   [ "$_t79_rc" = "$1" ] && printf '%s' "$_t79_out" | grep -q -- "$2"
 }
 
+# ── patch 適用（git apply → patch -p1 フォールバック）──────────────
+# ta-80 と同型。`git apply` 決め打ちは **別の HO patch が先に当たっている hook**
+# に対して context ずれで落ちる（#1226 と #1234 の実測。適用順序の正本
+# docs/working/_reports/1226-approval-surface-patch-applicable.md §8-5 が
+# 「2 本目は `patch -p1`」と規定）。**現時点の #1104（`@@ -71`）/ #1278
+# （`@@ -23`）は #1226（`@@ -324` 以降）と干渉しないので `git apply` が通る**が、
+# 落ちたときに未適用 hook を patched hook として測ってしまう構造は同じなので
+# 予防的に同じフォールバックを持たせる。両方失敗したときだけ FAIL。
+#
+# $1 = stage dir / $2 = patch file / $3 = 原本を書き戻す関数名 / $4 = その引数
+# 出力: $_T79_APPLY_ROUTE（経路 / 失敗理由）・$_T79_APPLY_RC
+_T79_APPLY_ROUTE=none
+_T79_APPLY_RC=0
+_t79_restore_hook_only() {
+  cp "$_T79_HOOK_SRC" "$1/scripts/hooks/check-plan-hash.sh"
+}
+_t79_apply_patch() {
+  _T79_APPLY_ROUTE=none
+  _T79_APPLY_RC=0
+  _t79_ap_stage="$1"
+  _t79_ap_patch="$2"
+  _t79_ap_restore="$3"
+  _t79_ap_arg="$4"
+  "$_t79_ap_restore" "$_t79_ap_arg"
+  _t79_ap_git=0
+  (cd "$_t79_ap_stage" && git apply "$_t79_ap_patch") >/dev/null 2>&1 || _t79_ap_git=$?
+  if [ "$_t79_ap_git" = "0" ]; then
+    _T79_APPLY_ROUTE="git-apply"
+    return 0
+  fi
+  "$_t79_ap_restore" "$_t79_ap_arg"
+  if ! command -v patch >/dev/null 2>&1; then
+    _T79_APPLY_ROUTE="git-apply-failed(rc=$_t79_ap_git)/patch-unavailable"
+    _T79_APPLY_RC="$_t79_ap_git"
+    return 1
+  fi
+  _t79_ap_pat=0
+  (cd "$_t79_ap_stage" \
+    && patch -p1 --batch --forward -r "$_t79_ap_stage/patch.rej" < "$_t79_ap_patch") \
+    >/dev/null 2>&1 || _t79_ap_pat=$?
+  if [ "$_t79_ap_pat" = "0" ]; then
+    _T79_APPLY_ROUTE="patch-p1 (git apply rc=$_t79_ap_git → fallback / §8-5)"
+    return 0
+  fi
+  _T79_APPLY_ROUTE="both-failed (git apply rc=$_t79_ap_git / patch -p1 rc=$_t79_ap_pat)"
+  _T79_APPLY_RC="$_t79_ap_pat"
+  return 1
+}
+
 # payload 定数
 _T79_P_HARMLESS='{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo hi"}}'
 _T79_P_HOWRITE='{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo x >> bin/plangate"}}'
@@ -221,16 +270,59 @@ fi
 _T79_PATCHED="$_T79_TMP/patched"
 _t79_mkroot "$_T79_PATCHED"
 _t79_mktask "$_T79_PATCHED"
-_T79_APPLY_RC=0
 if [ "$_T79_REAL_PATCHED" = "1" ]; then
   # 既に適用済みなら複製もそのまま fixed
-  t79_pass "TC-00c: real hook already patched — sandbox copy is fixed as-is"
+  _T79_APPLY_ROUTE="already-applied"
+  t79_pass "TC-00c: real hook already patched — sandbox copy is fixed as-is (route=$_T79_APPLY_ROUTE)"
 else
-  (cd "$_T79_PATCHED" && git apply "$_T79_PATCH") >/dev/null 2>&1 || _T79_APPLY_RC=$?
-  if [ "$_T79_APPLY_RC" = "0" ] && grep -q "$_T79_MARK" "$_T79_PATCHED/scripts/hooks/check-plan-hash.sh"; then
-    t79_pass "TC-00c: patch applies to sandbox copy and installs the $_T79_MARK branch"
+  if _t79_apply_patch "$_T79_PATCHED" "$_T79_PATCH" _t79_mkroot "$_T79_PATCHED" \
+     && grep -q "$_T79_MARK" "$_T79_PATCHED/scripts/hooks/check-plan-hash.sh"; then
+    t79_pass "TC-00c: patch applies to sandbox copy and installs the $_T79_MARK branch (route=$_T79_APPLY_ROUTE)"
   else
-    t79_fail "TC-00c: patch failed to apply to sandbox copy (rc=$_T79_APPLY_RC)"
+    t79_fail "TC-00c: patch failed to apply to sandbox copy (route=$_T79_APPLY_ROUTE rc=$_T79_APPLY_RC) — 以降の TC-P* は未適用 hook を測るため信用できない"
+  fi
+fi
+
+# TC-00c-pc: フォールバックの positive control（ta-80 TC-00c-pc と同型）。
+# #1104 hunk の context 行（`| head -1 \`）に 1 文字足して **素の git apply が
+# 落ちる**状態を作り、patch -p1 が救うことを同 TC 内で実測する。
+# 判定は連言: (a) drift が入った / (b) 素の git apply rc≠0 / (c) route=patch-p1 /
+# (d) 適用後に $_T79_MARK が入る。
+_T79_PCST="$_T79_TMP/stage-pc"
+_T79_PC_DRIFT="$_T79_TMP/drifted-hook.sh"
+PG_T79_IN="$_T79_HOOK_SRC" PG_T79_OUT="$_T79_PC_DRIFT" python3 - <<'PYDRIFT79' 2>/dev/null || true
+import os
+s = open(os.environ["PG_T79_IN"], encoding="utf-8").read()
+anchor = "        | head -1 \\\n"
+if s.count(anchor) == 1:
+    s = s.replace(anchor, "        | head -1  \\\n", 1)
+    open(os.environ["PG_T79_OUT"], "w", encoding="utf-8").write(s)
+PYDRIFT79
+_t79_restore_pc_drift() {
+  mkdir -p "$1/scripts/hooks" "$1/.claude" "$1/docs/working/_audit"
+  cp "$_T79_PC_DRIFT" "$1/scripts/hooks/check-plan-hash.sh"
+  cp "$_T79_SET_SRC" "$1/.claude/settings.example.json"
+}
+_T79_PC_OK=1
+if [ ! -s "$_T79_PC_DRIFT" ] || cmp -s "$_T79_HOOK_SRC" "$_T79_PC_DRIFT"; then
+  _T79_PC_OK=0
+fi
+if [ "$_T79_REAL_PATCHED" = "1" ]; then
+  printf '  [SKIP] TC-00c-pc: 実 hook が既に #1104 適用済み（drift 用の pre-image が無い）\n'
+elif [ "$_T79_PC_OK" != "1" ]; then
+  t79_fail "TC-00c-pc: drift を注入できなかった（context アンカーが一意に見つからない = positive control を主張できない）"
+else
+  _t79_restore_pc_drift "$_T79_PCST"
+  _T79_PC_GITRC=0
+  (cd "$_T79_PCST" && git apply "$_T79_PATCH") >/dev/null 2>&1 || _T79_PC_GITRC=$?
+  if [ "$_T79_PC_GITRC" = "0" ]; then
+    t79_fail "TC-00c-pc: drift 注入後も素の git apply が成功する（フォールバックの必要性を実証できない）"
+  elif _t79_apply_patch "$_T79_PCST" "$_T79_PATCH" _t79_restore_pc_drift "$_T79_PCST" \
+       && printf '%s' "$_T79_APPLY_ROUTE" | grep -q 'patch-p1' \
+       && grep -q "$_T79_MARK" "$_T79_PCST/scripts/hooks/check-plan-hash.sh"; then
+    t79_pass "TC-00c-pc: git apply が落ちる drift (rc=$_T79_PC_GITRC) を patch -p1 が救い $_T79_MARK が入る (route=$_T79_APPLY_ROUTE)"
+  else
+    t79_fail "TC-00c-pc: フォールバックが drift を救えない (route=$_T79_APPLY_ROUTE rc=$_T79_APPLY_RC git=$_T79_PC_GITRC)"
   fi
 fi
 
@@ -280,7 +372,9 @@ _t79_expect "TC-P02: Bash / no-task / HO パスへの書き込み命令 → 通�
 _T79_SB3="$_T79_TMP/sb3"
 _t79_mkroot "$_T79_SB3"
 if [ "$_T79_REAL_PATCHED" != "1" ]; then
-  (cd "$_T79_SB3" && git apply "$_T79_PATCH") >/dev/null 2>&1 || true
+  if ! _t79_apply_patch "$_T79_SB3" "$_T79_PATCH" _t79_mkroot "$_T79_SB3"; then
+    t79_fail "TC-P03-0: sb3 への patch 適用に失敗 (route=$_T79_APPLY_ROUTE rc=$_T79_APPLY_RC) — TC-P03-1/2 は未適用 hook を測る"
+  fi
 fi
 _t79_run "$_T79_SB3/scripts/hooks/check-plan-hash.sh" "" "probe reason" "0" "$_T79_P_HARMLESS"
 _t79_expect "TC-P03-1: Bash / no-task / SKIP_REASON あり → block しない" 0 "$_T79_MARK" || true
@@ -509,19 +603,59 @@ fi
 _T79_STAGE_1278="$_T79_TMP/stage1278"
 mkdir -p "$_T79_STAGE_1278/scripts/hooks"
 cp "$_T79_HOOK_SRC" "$_T79_STAGE_1278/scripts/hooks/check-plan-hash.sh"
-_T79_APPLY_1278=0
 if [ "$_T79_REAL_1278" = "1" ]; then
-  t79_pass "TC-10/00c: real hook already carries the #1278 fix — sandbox copy is fixed as-is"
+  _T79_APPLY_ROUTE="already-applied"
+  t79_pass "TC-10/00c: real hook already carries the #1278 fix — sandbox copy is fixed as-is (route=$_T79_APPLY_ROUTE)"
 else
-  (cd "$_T79_STAGE_1278" && git apply "$_T79_PATCH_1278") >/dev/null 2>&1 || _T79_APPLY_1278=$?
-  if [ "$_T79_APPLY_1278" = "0" ] \
+  if _t79_apply_patch "$_T79_STAGE_1278" "$_T79_PATCH_1278" _t79_restore_hook_only "$_T79_STAGE_1278" \
      && grep -q "$_T79_MARK_1278" "$_T79_STAGE_1278/scripts/hooks/check-plan-hash.sh"; then
-    t79_pass "TC-10/00c: #1278 patch applies to the sandbox copy and installs the WARN guard"
+    t79_pass "TC-10/00c: #1278 patch applies to the sandbox copy and installs the WARN guard (route=$_T79_APPLY_ROUTE)"
   else
-    t79_fail "TC-10/00c: #1278 patch failed to apply to sandbox copy (rc=$_T79_APPLY_1278)"
+    t79_fail "TC-10/00c: #1278 patch failed to apply to sandbox copy (route=$_T79_APPLY_ROUTE rc=$_T79_APPLY_RC)"
   fi
 fi
 _T79_PSRC_1278="$_T79_STAGE_1278/scripts/hooks/check-plan-hash.sh"
+
+# TC-10/00c-pc: #1278 レーンでのフォールバック positive control。
+# 上の TC-00c-pc は実 hook が #1104 適用済みだと SKIP になるため、**未適用の
+# patch が 1 本でもある限りフォールバックが実測される**よう #1278 側にも置く。
+_T79_PCST78="$_T79_TMP/stage-pc-1278"
+mkdir -p "$_T79_PCST78/scripts/hooks"
+_T79_PC78_DRIFT="$_T79_TMP/drifted-hook-1278.sh"
+PG_T79_IN="$_T79_HOOK_SRC" PG_T79_OUT="$_T79_PC78_DRIFT" python3 - <<'PYDRIFT78' 2>/dev/null || true
+import os
+s = open(os.environ["PG_T79_IN"], encoding="utf-8").read()
+anchor = 'AUDIT_LOG="$WORKING_DIR/_audit/hook-events.log"'
+if s.count(anchor) == 1:
+    s = s.replace(anchor, anchor + "  # ta-79 TC-10/00c-pc drift", 1)
+    open(os.environ["PG_T79_OUT"], "w", encoding="utf-8").write(s)
+PYDRIFT78
+_t79_restore_pc78() {
+  cp "$_T79_PC78_DRIFT" "$1/scripts/hooks/check-plan-hash.sh"
+}
+_T79_PC78_OK=1
+if [ ! -s "$_T79_PC78_DRIFT" ] || cmp -s "$_T79_HOOK_SRC" "$_T79_PC78_DRIFT"; then
+  _T79_PC78_OK=0
+fi
+if [ "$_T79_REAL_1278" = "1" ]; then
+  printf '  [SKIP] TC-10/00c-pc: 実 hook が既に #1278 適用済み（drift 用の pre-image が無い）\n'
+elif [ "$_T79_PC78_OK" != "1" ]; then
+  t79_fail "TC-10/00c-pc: drift を注入できなかった（context アンカーが一意に見つからない）"
+else
+  _t79_restore_pc78 "$_T79_PCST78"
+  _T79_PC78_GITRC=0
+  (cd "$_T79_PCST78" && git apply "$_T79_PATCH_1278") >/dev/null 2>&1 || _T79_PC78_GITRC=$?
+  if [ "$_T79_PC78_GITRC" = "0" ]; then
+    t79_fail "TC-10/00c-pc: drift 注入後も素の git apply が成功する（フォールバックの必要性を実証できない）"
+  elif _t79_apply_patch "$_T79_PCST78" "$_T79_PATCH_1278" _t79_restore_pc78 "$_T79_PCST78" \
+       && printf '%s' "$_T79_APPLY_ROUTE" | grep -q 'patch-p1' \
+       && grep -q "$_T79_MARK_1278" "$_T79_PCST78/scripts/hooks/check-plan-hash.sh"; then
+    t79_pass "TC-10/00c-pc: git apply が落ちる drift (rc=$_T79_PC78_GITRC) を patch -p1 が救い WARN guard が入る (route=$_T79_APPLY_ROUTE)"
+  else
+    t79_fail "TC-10/00c-pc: フォールバックが drift を救えない (route=$_T79_APPLY_ROUTE rc=$_T79_APPLY_RC git=$_T79_PC78_GITRC)"
+  fi
+fi
+
 if sh -n "$_T79_PSRC_1278" 2>/dev/null; then
   t79_pass "TC-10/00d: #1278-patched hook passes sh -n"
 else
