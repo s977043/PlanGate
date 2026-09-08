@@ -7,6 +7,31 @@
 
 ---
 
+## 適用状態: **適用済み**（2026-09-08 実測 / `origin/main` = `f455a7b7`）
+
+§5 の `<!-- PG-PATCH-BEGIN -->` block は **main へ適用済み**。作り直しは不要。
+
+| 測定 | コマンド | rc | 判定 |
+|---|---|---|---|
+| 順方向 | `git apply --check 1104-A.patch` | **1**（`.claude/settings.example.json:45` で失敗） | 当たらない |
+| 逆方向 | `git apply --check -R 1104-A.patch` | **0** | **適用済み**（stale ではない） |
+
+実体照合（`f455a7b7`）:
+
+- `scripts/hooks/check-plan-hash.sh:327-328` に `BASH_LANE_NOOP` が存在
+- `.claude/settings.example.json:48` の EH-3b `_comment_` が本 patch の是正後文言と一致
+- §5「適用後にやること」1. の `tests/fixtures/eh3-bash-lane-pending-1104.flag` は **既に削除済み**
+- `sh tests/extras/ta-79-eh3-bash-lane.sh` = **50 passed / 0 failed**。TC-00c は
+  `route=already-applied` を報告し、TC-00c-pc は「実 hook が既に #1104 適用済み」で SKIP
+
+**patch block は削除しない。** `ta-79` が本 block を marker で抽出して健全性を検査しているため、
+壊すとテストが FAIL する（本書冒頭の設計どおり）。
+
+**#1104 本体は open のまま**（Bash コマンド文字列からの書き込み先抽出 + HO 判定は未実装）。
+§3 / §4 の残存脅威モデルは現在も有効。
+
+---
+
 ## 0. 結論先行
 
 | 項目 | 結論 |

@@ -2,6 +2,13 @@
 
 > 対象: `scripts/check-approval-token-write.sh`（検出器の切り出し）/ `scripts/hooks/check-plan-hash.sh`（HO 判定）/ `.claude/settings*.json`（配線）— **すべて HO 対象パス**
 > 測定基点: `origin/main` = `74e158c` / 2026-08-18
+>
+> **本書に `git apply` 可能な patch は無い**（2026-09-08 確認）。unified diff のファイルヘッダを持たない
+> **設計文書**であり、「stale な patch」ではない。適用可能化の試みは
+> [`1104-bash-route-guard-patch-applicable.md`](./1104-bash-route-guard-patch-applicable.md) にあり、
+> そこで patch 化できたのは **Step 3（配線）のみ**・かつ現在は適用済み。
+> Step 1 / Step 2 は下記「設計判断 3 点」の **判断 1・判断 2 が Human 未確定**のため、
+> 本日時点でも patch 化できない。#1104 は open。
 
 ## 結論先行: **必要な部品は既に存在します**
 
