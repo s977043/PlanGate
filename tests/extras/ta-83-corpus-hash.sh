@@ -118,3 +118,5 @@ fi
 
 rm -rf "$_t83_sbx" "$_t83_empty" 2>/dev/null || true
 fi
+
+pg_extra_contract_finalize
