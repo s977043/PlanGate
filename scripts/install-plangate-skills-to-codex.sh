@@ -36,6 +36,8 @@ done
 installed_count=0
 skipped_count=0
 installed_names=""
+curated_count=0
+curated_names=""
 skipped_names=""
 
 yaml_quote() {
@@ -228,15 +230,40 @@ PYTRUNC
   icon_large=$(yaml_quote "$frontmatter_icon_large")
   default_prompt=$(yaml_quote "$frontmatter_default_prompt")
 
-  {
-    printf 'interface:\n'
-    printf '  display_name: "%s"\n' "$display_name"
-    printf '  short_description: "%s"\n' "$short_description"
-    printf '  icon_small: "%s"\n' "$icon_small"
-    printf '  icon_large: "%s"\n' "$icon_large"
-    printf '  default_prompt: "%s"\n' "$default_prompt"
-    printf '  brand_color: "#1A56DB"\n'
-  } > "$target_openai_yaml"
+  # curated 保護（#1288 / 2026-09-08 実害）:
+  #   openai.yaml は「生成物」だが sync-plugin-plangate.sh の同期対象ではないため
+  #   （`grep -c openai.yaml scripts/sync-plugin-plangate.sh` = 0）、意図的に手置き
+  #   された値が存在しうる。実例 = plan-normalization（#1221 の commit message が
+  #   「手置き」と明記）。canon の description は 40/40 すべて 64 文字超のため生成値は
+  #   必ず truncate され、--force がそれで手置き値を黙って上書きしていた。
+  #
+  #   判定は「既存値と生成値が違うか」では **できない**。canon の description を
+  #   正当に更新したときも差が出るため、それを curated 扱いすると installer が
+  #   事実上「初回のみ生成」に退行する（実測で確認した。対照実験 3）。
+  #   そこで **明示マーカー**方式にする: 保護したいファイルだけが下記の行を持ち、
+  #   installer はマーカーがあるファイルを書き換えない。マーカーを消せば通常の
+  #   生成物に戻る＝保護の解除に意識的な操作を要求する。
+  CURATED_MARKER='# plangate:curated — installer は上書きしない（値は手置き / #1288）'
+  _curated=0
+  if [ -f "$target_openai_yaml" ] && grep -qF "$CURATED_MARKER" "$target_openai_yaml" 2>/dev/null; then
+    _curated=1
+    curated_count=$((curated_count + 1))
+    curated_names="${curated_names}${skill_name}
+"
+    printf 'curated-kept: %s (plangate:curated マーカーあり)\n' "$skill_name" >&2
+  fi
+
+  if [ "$_curated" -eq 0 ]; then
+    {
+      printf 'interface:\n'
+      printf '  display_name: "%s"\n' "$display_name"
+      printf '  short_description: "%s"\n' "$short_description"
+      printf '  icon_small: "%s"\n' "$icon_small"
+      printf '  icon_large: "%s"\n' "$icon_large"
+      printf '  default_prompt: "%s"\n' "$default_prompt"
+      printf '  brand_color: "#1A56DB"\n'
+    } > "$target_openai_yaml"
+  fi
 
   installed_count=$((installed_count + 1))
   installed_names="${installed_names}${skill_name}
@@ -254,12 +281,14 @@ if [ "$JSON_OUTPUT" -eq 1 ]; then
   done
   names_json="[${names_json%,}]"
 
-  printf '{"installed_count":%d,"skipped_count":%d,"total_processed":%d,"installed_names":%s}\n' \
-    "$installed_count" "$skipped_count" "$total" "$names_json"
+  printf '{"installed_count":%d,"skipped_count":%d,"curated_kept_count":%d,"total_processed":%d,"installed_names":%s}\n' \
+    "$installed_count" "$skipped_count" "$curated_count" "$total" "$names_json"
 else
   printf '\n--- Summary ---\n'
   printf 'installed_count=%s\n' "$installed_count"
   printf 'skipped_count=%s\n' "$skipped_count"
   printf 'total_processed=%s\n' "$total"
+  printf 'curated_kept_count=%s\n' "$curated_count"
   printf 'installed_names:\n%s' "$installed_names"
+  [ "$curated_count" -gt 0 ] && printf 'curated_kept_names:\n%s' "$curated_names"
 fi
