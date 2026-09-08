@@ -72,13 +72,26 @@ PlanGate の **plan ゲート（C-1 セルフレビュー / C-2 外部レビュ�
 
 ## C-3 三値判定
 
-詳細は `.claude/rules/working-context.md` の C-3 ゲート節と条件付き降格節を正本とする。`bin/plangate exec` は APPROVED の c3.json のみ受理。
+詳細は `.claude/rules/working-context.md` の C-3 ゲート節と条件付き降格節を正本とする。PlanGate CLI の `exec` は APPROVED の c3.json のみ受理する。
+
+> **これは CLI（＝上流リポジトリの clone）がある環境でのみ成立する機械的な受理判定**であり、
+> 導入先には CLI も hook も配布されない（#1144。下記「CLI 呼び出し」節）。CLI が無い環境では
+> **判定基準そのものは不変**で、「APPROVED 以外では exec に進まない」を人手で維持する
+> （下記「CLI 不在時のフォールバック」）。**機械 block が無いことを理由に C-3 を省略しない。**
 
 ## settings タスクロック
 
 `bin/plangate doctor --check-settings` PASS は **V-1 / handoff 完了の前提条件**（`.claude/rules/working-context.md` 正本）。plan ゲート段階での block 対象ではないが、未配線なら verify フェーズ前に Human が `sh scripts/apply-claude-settings.sh` 実行が必要なことを認識しておく（`doctor` / `apply-claude-settings.sh` はいずれも**上流リポジトリの cwd でのみ**成立する。下記「CLI 呼び出し」節を参照）。
 
 ## CLI 呼び出し
+
+> **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
+> **読み物層（`skills` / `rules` / `agents` / `commands`）だけ**であり、**CLI（PlanGate CLI 本体）も
+> enforcement 層（`scripts/hooks/`）も配布物に含まれない**。したがって下表の「上流リポジトリの cwd」
+> 列にしか成立しない手順は、導入先では **上流リポジトリ（`s977043/plangate`）の clone が無いかぎり
+> 実行できない**。そこへ到達したら「CLI が無いため実行できない／上流リポジトリの clone が必要」と
+> **明示して停止する**か、同表の代替手順へ置き換える。**CLI が無いことを理由に手順を黙って省略し、
+> 実施済みと読める記録を残してはならない。**
 
 **呼び出し表記は実行環境で変わる**。相対パス形式（`bin/plangate` / `./scripts/...`）が成立するのは
 **上流リポジトリ（`s977043/plangate`）を clone した cwd に居るときだけ**で、導入先には `bin/` も
