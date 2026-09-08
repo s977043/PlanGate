@@ -682,7 +682,13 @@ PYEOF
   # 現在 0 件（#1173 で discovery.py / test_discovery.py は配布側へ是正済み）。
   # 宣言 0 件でも検出力が空振りにならないよう、(b) で監査器そのものを合成入力で
   # 6 ケース自己検査する。
-  _T57_NONDIST_DECL=''
+  # corpus_hash.py / test_corpus_hash.py は **意図的に非配布**（#1299）。
+  # enforcement scope の対象（scripts/hooks/** ・ bin/plangate ・ schemas/*.schema.json）
+  # は plugin 配布物に含まれないため、導入先で走らせても enforcement 側が常に 0 件に
+  # なり、値の意味が上流と一致しない（.claude/rules/working-context.md「本ルールの
+  # CLI 依存」と同じ理由）。上流 clone 上でのみ成立する producer として扱う。
+  _T57_NONDIST_DECL='corpus_hash.py reason: enforcement scope（scripts/hooks/** 等）が plugin 配布物に含まれず導入先で値が一致しないため上流専用 (#1299)
+test_corpus_hash.py reason: corpus_hash.py が上流専用のため同伴して非配布 (#1299)'
 
   _t57_audit="$_t57_tmp/allowlist_audit.py"
   cat > "$_t57_audit" <<'PY_T57_AUDIT'
