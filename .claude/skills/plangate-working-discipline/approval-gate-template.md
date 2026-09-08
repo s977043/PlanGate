@@ -7,7 +7,7 @@
 
 | #   | 観点                 | 例                                                   |
 | --- | -------------------- | ---------------------------------------------------- |
-| 0   | **Hardening Override（HO）対象パス接触** | `.claude/rules/*.md`・`.claude/settings*.json`・`.claude/commands/*.md`・`.claude/agents/*.md`・`scripts/hooks/*.sh`・`bin/plangate`・`schemas/*.schema.json`・`.github/workflows/*`・`AGENTS.md`/`CLAUDE.md`（正本: `mode-classification.md` の HO 9 カテゴリ）。**該当なら他観点にかかわらず無条件 yes + 最低 high** |
+| 0   | **Hardening Override（HO）対象パス接触** | `.claude/rules/*.md`・`.claude/settings*.json`・`.claude/commands/*.md`・`.claude/agents/*.md`・`scripts/hooks/*.sh`・`bin/plangate`・`schemas/*.schema.json`・`.github/workflows/*`・`AGENTS.md`/`CLAUDE.md`・`.codex/hooks.json`/`.cursor/hooks.json`・`.codex/hooks/*.sh`/`.cursor/hooks/*.sh`・`scripts/check-approval-token-write.sh`（正本: `mode-classification.md` の HO 12 カテゴリ）。**該当なら他観点にかかわらず無条件 yes + 最低 high** |
 | 1   | データ削除           | レコード削除・ファイル削除・履歴の破棄               |
 | 2   | DB schema 変更       | migration・カラム削除・型変更                        |
 | 3   | 認証・認可変更       | 権限モデル・ロール・トークン・セッション             |

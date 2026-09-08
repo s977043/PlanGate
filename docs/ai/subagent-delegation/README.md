@@ -68,7 +68,7 @@ Agent）へ調査・レビュー・実装を委譲する際の**標準プロト�
 同名・同一責務の直接衝突は **無し**（`docs/ai/subagent-delegation/` は新規、既存に
 該当ファイルなし）。ただし整合（棲み分け明記）が必要な隣接資産が 4 つある。§2.5
 で扱う。なお `docs/ai/subagent-delegation/` は
-[`check-plan-hash.sh`](../../../scripts/hooks/check-plan-hash.sh) の 9 カテゴリ HO
+[`check-plan-hash.sh`](../../../scripts/hooks/check-plan-hash.sh) の 12 カテゴリ HO
 パターンに非該当（`docs/` 配下）で承認境界にも抵触せず、mode 引き上げ対象外。
 
 ### 2.5 既存資産との棲み分け（demarcation）
@@ -119,7 +119,7 @@ Agent）へ調査・レビュー・実装を委譲する際の**標準プロト�
 
 非 HO の追加導線として `README.md` 主要ドキュメント一覧表・
 [`docs/orchestrator-mode.md`](../../orchestrator-mode.md) の棲み分け節にも直接追記
-できる（HO 9 カテゴリ非該当のため apply-script 不要）。
+できる（HO 12 カテゴリ非該当のため apply-script 不要）。
 
 ## 3. オーケストレータ責務（#710 方針 1 の転記）
 

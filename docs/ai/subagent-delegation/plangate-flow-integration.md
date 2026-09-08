@@ -91,7 +91,7 @@ issue #715 のやること「`SendMessage` で同一サブエージェントへ�
 
 - **C-3 / C-4 ゲート**: 変更しない。サブエージェントが `review=true` でリスク監査（表 1 の #2/#3）を返しても、APPROVE / CONDITIONAL / REJECT（C-3）や APPROVE / REQUEST CHANGES / REJECT（C-4）の**判定主体は人間のまま**（[`working-context.md`](../../../.claude/rules/working-context.md)）
 - **AS-1〜5 / `ChildExecAllowed` / `ParentDone`**（[`.claude/rules/orchestrator-mode.md`](../../../.claude/rules/orchestrator-mode.md)）: 変更しない。親子 PBI の Gate 通過判定に本プロトコルは関与しない。子 PBI exec 中に発生する「Execution 中の限定実装」委譲（表 1 の #4）は、`ChildExecAllowed` が既に成立している前提でのみ行う
-- **`lite_eligible` / C-3 条件付き降格**（[`mode-classification.md`](../../../.claude/rules/mode-classification.md)）: 本プロトコルは lite 判定基準を変更しない。Hardening Override 対象パス（`.claude/rules/*.md` 等 9 カテゴリ）への実装委譲は、[`dispatch-template.md` 4-B](./dispatch-template.md#4-b-実装エージェント向け) の制約欄で **Write/Edit 禁止**を明記する（HO は常時 AI 直接編集不可。[`ho-change-workflow.md`](../ho-change-workflow.md)）
+- **`lite_eligible` / C-3 条件付き降格**（[`mode-classification.md`](../../../.claude/rules/mode-classification.md)）: 本プロトコルは lite 判定基準を変更しない。Hardening Override 対象パス（`.claude/rules/*.md` 等 12 カテゴリ）への実装委譲は、[`dispatch-template.md` 4-B](./dispatch-template.md#4-b-実装エージェント向け) の制約欄で **Write/Edit 禁止**を明記する（HO は常時 AI 直接編集不可。[`ho-change-workflow.md`](../ho-change-workflow.md)）
 - **`subagent-dispatch`（並列 dispatch）との関係**: 高 mode（high-risk/critical）でのロール別並列実行・`dispatch/` ファイル授受は [`plugin/plangate/skills/subagent-dispatch`](../../../plugin/plangate/skills/subagent-dispatch/SKILL.md) の責務のまま。本プロトコルは個々の派遣プロンプトの自己完結性契約を提供するのみで、並列化の判断・分配構造を代替しない（[`README.md`](./README.md) §2.5 参照）
 
 ## 6. HO への接続（本ファイルは非HO）

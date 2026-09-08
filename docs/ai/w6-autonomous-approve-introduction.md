@@ -98,7 +98,7 @@ Standard・同期 C-3 を強制。
 ```
 
 > 対象リポジトリの Hardening Override 対象パス一覧（`mode-classification.md` の
-> 9 カテゴリ）が plangate 本体と異なる場合は、貼り付け前に「HO 対象パスを含む変更」
+> 12 カテゴリ）が plangate 本体と異なる場合は、貼り付け前に「HO 対象パスを含む変更」
 > の判定基準を対象リポジトリの実際のパス構成に合わせて調整すること（機械的なコピペ
 > だけで終わらせない）。
 
@@ -211,7 +211,7 @@ W6IntroductionGapDetected =
 - [`.claude/rules/working-context.md`](../../.claude/rules/working-context.md)
   「C-3 Autonomous APPROVE」節（W-6 正本）
 - [`.claude/rules/mode-classification.md`](../../.claude/rules/mode-classification.md)
-  （5 段階モード分類 + AC-10 Hardening Override 対象パス 9 カテゴリ）
+  （5 段階モード分類 + AC-10 Hardening Override 対象パス 12 カテゴリ）
 - [`.claude/rules/responsibility-classes.md`](../../.claude/rules/responsibility-classes.md)
   （AI-owned / Human-owned 境界の正本）
 - [`docs/ai/project-rules.md`](./project-rules.md)（AI 運用 4 原則）

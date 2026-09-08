@@ -162,7 +162,7 @@ CI/CD・デプロイ設定変更 / 外部 API・料金・規約に影響する�
 |---|---|
 | `docs/ai/core-contract.md` | Iron Law / Stop rules / Output discipline（実行契約の正本） |
 | `.claude/rules/review-principles.md` | レビュー観点・Severity・auto-approve 判定（C-2 / CI / コードレビュー） |
-| `.claude/rules/mode-classification.md` | 5 段階モード・**HO 9 カテゴリ**・lite_eligible（承認境界の機械判定） |
+| `.claude/rules/mode-classification.md` | 5 段階モード・**HO 12 カテゴリ**・lite_eligible（承認境界の機械判定） |
 | `.claude/rules/responsibility-classes.md` | AI/Human/CI/Workflow の責務 4 分類・自己設置 Gate 非緩和 |
 | `.claude/rules/working-context.md` | C-3/C-4 ゲート・handoff・作業コンテキスト構造 |
 | `docs/ai/subagent-delegation/` | 派遣プロンプト 8 要素・OUTCOME 契約・行動規範（委譲の契約層） |

@@ -46,7 +46,7 @@
 - データベーススキーマ変更 → 最低でも「高」
 - 公開 API の破壊的変更 → 最低でも「超高」
 - **承認境界周辺の変更 → 最低でも「高」** (TASK-0106 Retrospective Try 由来 / TASK-0112)
-  - 対象パス (Hardening Override 対象と完全一致 / [`scripts/hooks/check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) の **`_override=0` 直後の `case` ブロック**（`esac` まで）= **9 カテゴリ** 正本。行番号で参照しないこと — 行番号アンカーは実装の移動で黙って別ブロックを指す / #1089):
+  - 対象パス (Hardening Override 対象と完全一致 / [`scripts/hooks/check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh) の **`_override=0` 直後の `case` ブロック**（`esac` まで）= **12 カテゴリ** 正本。行番号で参照しないこと — 行番号アンカーは実装の移動で黙って別ブロックを指す / #1089):
     - `.claude/rules/*.md`
     - `.claude/settings.json` / `.claude/settings.local.json` / `.claude/settings.example.json`
     - `.claude/commands/*.md`
@@ -56,6 +56,9 @@
     - `schemas/*.schema.json`
     - `.github/workflows/*.yml` / `.github/workflows/*.yaml`
     - `AGENTS.md` / `CLAUDE.md`
+    - `.codex/hooks.json` / `.cursor/hooks.json` (#1226)
+    - `.codex/hooks/*.sh` / `.cursor/hooks/*.sh` (#1226)
+    - `scripts/check-approval-token-write.sh` (#1226 / EH-13 本体)
   - (注: `.claude/skills/` と `scripts/_*.py` は現行 override パターン**外**、本ルールでも追加しない — R-003/R-006)
   - 上記パスに touch する PBI は **`lite_eligible=false` 強制 + Standard C-3 同期固定** ([`working-context.md`](./working-context.md) C-3 条件付き降格 §AC-10 Hardening Override と整合 / R-007)
   - 監査ログ (`docs/working/_audit/`) の **データ一括変更 CLI** も承認境界相当として扱い、最低「高」 (例: TASK-0110 skip-decision-log batch acknowledge)

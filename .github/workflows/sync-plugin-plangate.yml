@@ -9,6 +9,7 @@ on:
     paths:
       - '.claude/**'
       - '.agents/skills/**'
+      - '.codex/skills/**'
       - 'CHANGELOG.md'
       - 'docs/ai/ai-loop/**'
       - 'docs/workflows/ai-loop/**'
@@ -20,6 +21,7 @@ on:
     paths:
       - '.claude/**'
       - '.agents/skills/**'
+      - '.codex/skills/**'
       - 'docs/ai/ai-loop/**'
       - 'docs/workflows/ai-loop/**'
       - 'scripts/ai-loop/**'
@@ -59,6 +61,55 @@ jobs:
             exit 1
           fi
           echo "plugin/plangate/ is in sync with sources."
+
+      - name: Verify .codex/skills mirrors .agents/skills canon (#1226)
+        # 対象は installer が無変換 cp する SKILL.md と references/*.md のみ。
+        # agents/openai.yaml は frontmatter を正規化して生成されるため byte 比較の
+        # 対象外。assets/ は plugin/plangate/assets が出所で per-skill 正本を持たない
+        # （scripts/install-plangate-skills-to-codex.sh 実測）。
+        # 既定シェルは bash -eo pipefail。`diff | head` は head の早期終了で rc=1 に
+        # なり errexit でステップが即終了して 1 件目しか報告されないため、パイプは
+        # `|| true` で閉じ、全件を報告してから最後に rc を返す。
+        run: |
+          rc=0
+          # canon -> mirror（欠落・乖離）
+          for _d in .agents/skills/*/; do
+            _n=$(basename "$_d")
+            for _c in "${_d}SKILL.md" "${_d}references"/*.md; do
+              [ -f "$_c" ] || continue
+              _b=$(basename "$_c")
+              case "$_c" in
+                *references/*) _m=".codex/skills/$_n/references/$_b" ;;
+                *) _m=".codex/skills/$_n/$_b" ;;
+              esac
+              if [ ! -f "$_m" ]; then
+                echo "::error::$_m missing (canon: $_c)"
+                rc=1
+              elif ! cmp -s "$_c" "$_m"; then
+                echo "::error::$_m diverges from $_c -- re-run scripts/install-plangate-skills-to-codex.sh --force and commit the result"
+                diff -u "$_c" "$_m" | head -40 || true
+                rc=1
+              fi
+            done
+          done
+          # mirror -> canon（正本に無い面が .codex 側にだけ存在しないこと）
+          for _m in .codex/skills/*/; do
+            _n=$(basename "$_m")
+            if [ ! -d ".agents/skills/$_n" ]; then
+              echo "::error::.codex/skills/$_n has no canon under .agents/skills/"
+              rc=1
+              continue
+            fi
+            for _r in "${_m}references"/*.md; do
+              [ -f "$_r" ] || continue
+              _b=$(basename "$_r")
+              if [ ! -f ".agents/skills/$_n/references/$_b" ]; then
+                echo "::error::$_r has no canon under .agents/skills/$_n/references/"
+                rc=1
+              fi
+            done
+          done
+          exit "$rc"
 
   sync:
     if: github.event_name != 'pull_request'

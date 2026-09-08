@@ -99,7 +99,7 @@ tracked な [`.claude/settings.example.json`](../../.claude/settings.example.jso
 |---------|-------|------|---------|
 | **`Edit\|Write`** | PreToolUse | [`check-plan-exists.sh`](../../scripts/hooks/check-plan-exists.sh)（EH-1）| plan.md 存在チェック |
 | **`Edit\|Write`** | PreToolUse | [`check-c3-approval.sh`](../../scripts/hooks/check-c3-approval.sh)（EH-2）| C-3 承認ゲート |
-| **`Edit\|Write`** | PreToolUse | [`check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh)（EH-3）| **Hardening Override 9 カテゴリ + plan.md ゲート + plan_hash 改竄** |
+| **`Edit\|Write`** | PreToolUse | [`check-plan-hash.sh`](../../scripts/hooks/check-plan-hash.sh)（EH-3）| **Hardening Override 12 カテゴリ + plan.md ゲート + plan_hash 改竄** |
 | **`Edit\|Write`** | PreToolUse | [`check-forbidden-files.sh`](../../scripts/hooks/check-forbidden-files.sh)（EH-6）| forbidden_files（scope 逸脱） |
 | **`Edit\|Write`** | PreToolUse | [`check-approval-token-write.sh`](../../scripts/check-approval-token-write.sh)（EH-13）| 承認トークン直書き |
 | **`Bash`** | PreToolUse | [`check-approval-token-write.sh`](../../scripts/check-approval-token-write.sh)（EH-13）| 承認トークン直書き（**唯一の両経路配線**） |
@@ -112,7 +112,7 @@ tracked な [`.claude/settings.example.json`](../../.claude/settings.example.jso
 
 #### 明示: ファイル書き込みガードは `Edit|Write` 経路のみ
 
-- **HO 9 カテゴリ / plan.md ゲート / plan_hash 改竄検知（EH-3）**、
+- **HO 12 カテゴリ / plan.md ゲート / plan_hash 改竄検知（EH-3）**、
   **forbidden_files（EH-6）**、**C-3 承認ゲート（EH-2）**、**plan 存在チェック（EH-1）** は
   **`Edit|Write` matcher にのみ配線されている**。
   したがってこれらは **Edit / Write tool 経由の書き込みでのみ強制**され、
@@ -213,9 +213,9 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 - **対応**: Hook が次の operation を block。再承認を要求
 - **基盤**: Iron Law #5（承認済 plan と実装差分の整合性）
 
-> **Hardening Override（HO）9 カテゴリの block（`Edit|Write` 経路限定 / #1089 是正済み・`9043536`）**
+> **Hardening Override（HO）12 カテゴリの block（`Edit|Write` 経路限定 / #1089 是正済み・`9043536`）**
 >
-> EH-3 は plan_hash 検知に加え **HO 9 カテゴリの block**
+> EH-3 は plan_hash 検知に加え **HO 12 カテゴリの block**
 > （正本: [`.claude/rules/mode-classification.md`](../../.claude/rules/mode-classification.md)
 > 承認境界周辺の変更節）を担う **唯一のガード**である
 > （`check-forbidden-files.sh` は HO パスを守らない）。
@@ -234,7 +234,7 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 > - 回帰テスト: `tests/extras/ta-65-eh3-ho-task-context.sh`。**期待値の既定は
 >   「TASK 文脈でも block される」**。コードが元の構造へ戻ると CI が RED になる
 > - `.claude/settings*.json` は Claude Code 自身の self-mod ガード（harness 層）でも
->   守られるが、**残る 8 カテゴリに同等の別ガードは確認されていない**
+>   守られるが、**残る 11 カテゴリに同等の別ガードは確認されていない**
 > - **「常時 block」は文字どおりには成立しない（既知の残存・6 系統）**:
 >   1. **経路の欠落（[#1104](https://github.com/s977043/plangate/issues/1104)）**:
 >      `Edit|Write` 以外の書き込みは素通り（§0.1）。**PR #1267 が `Bash` matcher へ
@@ -304,7 +304,7 @@ PlanGate の **Iron Law のうち runtime 強制可能な不変条件**（現状
 >
 >   **2 の実測（旧記述の訂正）**: 旧版はこの残存を **4 ケース**と書いていたが**過少**だった。
 >   #1101 の実測では変換クラスは **7 種**（`..` 往復 / `//` / `/./` / 先頭 `./` / 大小文字 /
->   末尾空白 / repo root 跨ぎの絶対パス）あり、**HO 9 カテゴリ 15 パターンすべて**に対して
+>   末尾空白 / repo root 跨ぎの絶対パス）あり、**HO 12 カテゴリ 20 パターンすべて**に対して
 >   適用できる（`.md` の表記揺れに限らず、`..` 経由で CLI 本体 `bin/plangate` の HO も
 >   迂回できる。実測 rc=0）。
 >
