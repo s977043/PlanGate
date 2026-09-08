@@ -210,10 +210,45 @@ plugin = `8.18.0` / LoopSpec 派生 hash = run ごとに変動）、**object 3 �
 |-----|------|
 | `plugin_version` | plugin / release 版 |
 | `cli_version` | `bin/plangate` の版 |
-| `corpus_hash` | 判定基盤 corpus（§10 の carve-out ①②③）のファイル内容 hash を `canonical_hash()` で束ねた値 |
+| `corpus_hash` | **判定基盤 corpus ∪ enforcement 層**のファイル内容 hash を `canonical_hash()` で束ねた値（下記「`corpus_hash` の対象範囲」）|
 
 **AC-12（active run 中に harness version が変化しない）は 3 値すべてについて**、run 開始時注入値と
 終了時の値の **byte 一致**で検証する。1 つでも不一致なら **fail-closed**（警告に降格しない）。
+
+#### `corpus_hash` の対象範囲（#1299）
+
+**producer は `corpus_hash.py` を単一実装とする**
+（`python3 scripts/ai-loop/corpus_hash.py` が既定 scope = `full` の値を出力する）。
+以前は文書定義しか無く、値を何から計算するかが再現できなかった。
+
+**carve-out と `corpus_hash` は目的が違うので分離する**:
+
+| 概念 | 問い | 正本 |
+|------|------|------|
+| carve-out ①②③ | **AI が自走で触ってよいか**（承認境界） | [`rollout-policy.md`](./rollout-policy.md) §2 |
+| `corpus_hash` | **run の同一性を何で判定するか**（検証範囲） | 本節（= carve-out ∪ enforcement） |
+
+`corpus_hash` の対象 glob:
+
+| 群 | glob |
+|----|------|
+| ① 強制エンジンコード | `scripts/ai-loop/**` |
+| ② policy / spec 文書 corpus | `docs/workflows/ai-loop/**`・`docs/ai/ai-loop/**` |
+| ③ 実行手順スキル | `.agents/skills/ai-loop-cycle/**`・`.claude/skills/ai-loop-cycle/**` |
+| **④ enforcement 層（#1299 で追加）** | `scripts/hooks/**`・`scripts/check-approval-token-write.sh`・`.codex/hooks.json`・`.codex/hooks/**`・`.cursor/hooks.json`・`.cursor/hooks/**`・`bin/plangate`・`schemas/*.schema.json` |
+
+**含めないもの（非対称を黙って残さない）**: `.claude/settings.json`（untracked な端末
+ローカル配線。含めると同一 commit でも値が端末ごとに変わる。実際に登録されたかは V2
+`HarnessManifest`（`harness-manifest.md`） の `components[].registered`
+が持つ）/ `.claude/settings.example.json`（契約の参照値であり実行時配線ではない。drift は
+`settings-drift` CI）/ `.github/workflows/**`（CI-owned。harness プロセス内では発火せず、
+変化は `ci_outcomes` に現れる）/ `.claude/rules/**`・`.claude/agents/**`・`.claude/commands/**`・
+`AGENTS.md`・`CLAUDE.md`（規範層。HO ではあるが理由は承認境界の保護であり run 同一性ではない）。
+機械可読な理由一覧は `python3 scripts/ai-loop/corpus_hash.py --list-exclusions`。
+
+**残存脅威**: 配線（`.claude/settings.json`）だけを差し替えた drift と、ランタイムに実際に
+登録されたかは本 hash では検出できない。本 hash は多層防御の 1 層であり、そこは V2
+HarnessManifest が担う。
 
 #### 未検査（`--harness-version-end` 未注入）の扱い
 
