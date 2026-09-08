@@ -1,6 +1,6 @@
 interface:
   display_name: "plan-normalization"
-  short_description: "C-2 の確定反映後・C-3 承認前に plan.md を最終合意状態へ正規化し、履歴依存を除去した Canonical ..."
+  short_description: "C-3 前に plan.md を Canonical Plan へ正規化する"
   icon_small: "./assets/plangate-small.svg"
   icon_large: "./assets/plangate-small.svg"
   default_prompt: "Use $plan-normalization to assist with this project."
