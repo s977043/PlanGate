@@ -1,4 +1,5 @@
 # tests/extras/ta-85-trailing-and-exit-code.sh
+# PG_EXTRA_CAPABILITY: standalone-capable
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
 #
 # === TA-85: スクリプト末尾の `&&` リストが終了ステータスを漏らす形の検出 ===
@@ -28,10 +29,32 @@
 # 対象は `scripts/` 配下の `*.sh` 全件（再帰）。
 # tests/ と fixtures は対象外（fixture は意図的に壊してある）。
 
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
+  _pg_extra_mode=harness
+  _pg_extra_dir="$EXTRAS_DIR"
+else
+  _pg_extra_mode=standalone
+  _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+fi
+_pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
+if [ ! -r "$_pg_extra_helper" ]; then
+  printf '  [FAIL] helper unresolved: %s\n' "$_pg_extra_helper" >&2
+  if [ "$_pg_extra_mode" = harness ]; then
+    fail=$((fail + 1))
+    return 0
+  fi
+  exit 1
+fi
+. "$_pg_extra_helper"
+pg_extra_contract_init ta-85-trailing-and-exit-code standalone-capable
+
 printf '\n=== TA-85: trailing && exit-code leak ===\n'
 
-PG_T85_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
-PG_T85_FIX="$FIXTURES_DIR/ta85"
+# root / fixtures は **両モードで解決できる形**にする。standalone では
+# FIXTURES_DIR が未定義のため、extras dir（$_pg_extra_dir）を起点にする
+# （ta-83 と同じ方式）。
+PG_T85_ROOT="$(CDPATH= cd -- "$_pg_extra_dir/../.." && pwd)"
+PG_T85_FIX="$PG_T85_ROOT/tests/fixtures/ta85"
 
 t85_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t85_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
@@ -125,3 +148,7 @@ if [ "$_t85_scanned" -gt 0 ]; then
 else
   t85_fail "TC-05 走査対象が 0 件 — TC-04 の「該当なし」は空振りの可能性"
 fi
+
+# 本 TA は読み取りのみでサンドボックスを作らないため後始末は不要。
+# 最終行は finalize 単独とする（extras 実行契約）。
+pg_extra_contract_finalize
