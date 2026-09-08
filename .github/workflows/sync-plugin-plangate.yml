@@ -9,6 +9,7 @@ on:
     paths:
       - '.claude/**'
       - '.agents/skills/**'
+      - '.codex/skills/**'
       - 'CHANGELOG.md'
       - 'docs/ai/ai-loop/**'
       - 'docs/workflows/ai-loop/**'
