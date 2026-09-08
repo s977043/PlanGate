@@ -48,6 +48,14 @@ fi
 . "$_pg_extra_helper"
 pg_extra_contract_init ta-85-trailing-and-exit-code standalone-capable
 
+if pg_extra_contract_is_standalone; then
+  # standalone: 外部 env 汚染を無害化（tests/extras/README.md「隔離・後始末の規約」8 /
+  # ta-26 TC-33 が静的検査する集合と一致させる）
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
+    PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
+    PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+fi
+
 printf '\n=== TA-85: trailing && exit-code leak ===\n'
 
 # root / fixtures は **両モードで解決できる形**にする。standalone では
