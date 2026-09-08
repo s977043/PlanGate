@@ -1,3 +1,4 @@
+# plangate:curated — installer は上書きしない（値は手置き / #1288）
 interface:
   display_name: "plan-normalization"
   short_description: "C-3 前に plan.md を Canonical Plan へ正規化する"
