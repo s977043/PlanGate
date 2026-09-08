@@ -7,6 +7,45 @@
 
 ---
 
+## ⛔ 適用状態: **§5 の diff は当てないこと**（2026-09-08 実測 / `origin/main` = `f455a7b7`）
+
+§5 の Step 3 配線は **PR #1267 で main へ入り済み**（その後 [`1104-bash-lane-noop-patch-applicable.md`](./1104-bash-lane-noop-patch-applicable.md) が `_comment_` を是正）。
+§5 の diff は **実体としては適用済みだが、テキストとしては当時のものと乖離**しており、当てると壊れる。
+
+| ファイル別 hunk | fwd (`git apply --check`) | rev (`--check -R`) | 判定 |
+|---|---|---|---|
+| `.claude/settings.example.json` | **rc=0** | rc=1 | ⚠️ **偽の「適用可能」**。実体は適用済み（§下記） |
+| `scripts/check-settings-wiring.sh` | rc=1 | rc=1 | **stale**（当該箇所は #1131 系で再構成済み） |
+| 2 ファイル同時（§5 の diff 全体） | rc=1 | rc=1 | 当たらない |
+
+### `settings.example.json` hunk が fwd rc=0 になるのは適用可能の証拠ではない
+
+追加位置の context 行が `]` / `}` / `{` という**汎用の JSON 構造行**のみで、
+既存の EH-3b ブロックを識別できないため。**実際に当てると重複が入る**（複製環境で実測）:
+
+```text
+git clone --no-hardlinks --no-local . <tmp> && cd <tmp>
+git apply B-settings.patch          → rc=0
+grep -c 'EH-3b' .claude/settings.example.json      → 2   （適用前は 1）
+grep -c '"matcher": "Bash"' .claude/settings.example.json → 5   （適用前は 4）
+```
+
+`check-plan-hash.sh` が Bash matcher に **2 重配線**され、全 Bash コマンドで hook が 2 回走る。
+**`git apply --check` の rc=0 だけを適用可否の根拠にしてはならない**ことの実例。
+
+### 実体が適用済みであることの照合（`f455a7b7`）
+
+- `.claude/settings.example.json:48` — EH-3b ブロック（matcher `Bash` + `check-plan-hash.sh`）が存在
+- `scripts/check-settings-wiring.sh:146-147` — `("EH-3B", "check-plan-hash.sh", "Bash", "EH-3b Bash route plan-hash(#1104)", FAIL_BOTH)` が存在（§5 の diff とは別形式で、配線検査は退行していない）
+
+### 残っているもの
+
+§7 の未確定（Step 1 / Step 2 = Bash コマンド文字列からの書き込み先抽出と HO 判定）は
+**未実装のまま #1104 open**。着手には元設計書の **判断 1（fail-open / fail-closed）・判断 2（正規経路の許可方式）**
+の Human 確定が先に要る。
+
+---
+
 ## 0. 結論先行
 
 | 項目 | 結論 |
