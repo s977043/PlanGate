@@ -7,6 +7,79 @@
 
 ---
 
+## ⛔ 適用状態: **§5 の diff は当てないこと**（2026-09-08 実測 / `origin/main` = `f455a7b7`）
+
+§5 の Step 3 配線は **PR #1267 で main へ入り済み**（その後 [`1104-bash-lane-noop-patch-applicable.md`](./1104-bash-lane-noop-patch-applicable.md) が `_comment_` を是正）。
+§5 の diff は **実体としては適用済みだが、テキストとしては当時のものと乖離**しており、当てると壊れる。
+
+| ファイル別 hunk | fwd (`git apply --check`) | rev (`--check -R`) | 判定 |
+|---|---|---|---|
+| `.claude/settings.example.json` | **rc=0**（offset 10 行） | rc=1 | ⚠️ **偽の「適用可能」**。内容は `3f0cadd2` で適用済み（§下記） |
+| `scripts/check-settings-wiring.sh` | rc=1 | rc=1 | **stale**（当該箇所は #1131 系で再構成済み） |
+| 2 ファイル同時（§5 の diff 全体） | rc=1 | rc=1 | 当たらない |
+
+### `settings.example.json` hunk が fwd rc=0 になる理由 — **context が弱いのではない**
+
+原因は「同じ形の並びが 2 箇所あり、patch が想定していた位置と実際に当たる位置が違う」こと。
+
+本 hunk の pre-image は `] } {` の 3 行 + **EH-6 の `_comment_` / `matcher` / `hooks` の 3 行**であり、
+汎用構造行「だけ」ではない。ところが EH-3b が入った現 main では、この 6 行の並びが
+**EH-3 ブロックの直後（元の `@@ -45`）ではなく EH-3b ブロックの直後（55 行目付近）に移動**している。
+`git apply` はそちらへ **offset 10 行**で当て、後方 context の EH-6 とも完全一致するため rc=0 になる。
+
+```text
+$ git apply -v B-settings.patch
+Hunk #1 succeeded at 55 (offset 10 lines).
+Applied patch .claude/settings.example.json cleanly.
+
+$ grep -c 'EH-3b' .claude/settings.example.json            → 2   （適用前は 1）
+$ grep -c '"matcher": "Bash"' .claude/settings.example.json → 5   （適用前は 4）
+```
+
+結果、**既存 EH-3b の直後に同一ブロックがもう 1 つ入り**、`check-plan-hash.sh` が Bash matcher に
+2 重配線され、全 Bash コマンドで hook が 2 回走る。
+
+**「context を厚くすれば直る」種の問題ではない。** 追加しようとしている内容は既に main にあり、
+当てるべきものが無いのだから、patch を改良しても解決しない。
+
+### 追加内容は既存ブロックと同一 — 「未適用の patch」ではない
+
+patch が追加する `command` 行と `origin/main:.claude/settings.example.json:53`（EH-3b ブロック内）を照合:
+
+```text
+$ diff <(patch の + 行の command) <(origin/main:53 行目)
+（差分なし = IDENTICAL）
+
+  "command": "sh ${CLAUDE_PROJECT_DIR}/scripts/hooks/check-plan-hash.sh ${PLANGATE_HOOK_TASK:-} ${PLANGATE_HOOK_FILE:-}"
+```
+
+したがって B-1 は **未適用の patch ではなく、「別経路で既に適用済みの内容を、もう一度足そうとする patch」**。
+⛔ の理由はここにある。`_comment_` 文言だけが
+[`1104-bash-lane-noop-patch-applicable.md`](./1104-bash-lane-noop-patch-applicable.md) の是正で差し替わっている。
+
+既存 EH-3b が入った commit:
+
+```text
+$ git log -S 'EH-3b' --oneline -- .claude/settings.example.json
+3f0cadd2 fix(hooks): EH-3 を Bash レーンへ配線し plan_hash の迂回を塞ぐ /
+         ta-59 をレーン構造検査へ張り替え (#1104) (#1267)
+```
+
+**`git apply --check` の rc=0 だけを適用可否の根拠にしてはならない**ことの実例。
+
+### 実体が適用済みであることの照合（`f455a7b7`）
+
+- `.claude/settings.example.json:48` — EH-3b ブロック（matcher `Bash` + `check-plan-hash.sh`）が存在
+- `scripts/check-settings-wiring.sh:146-147` — `("EH-3B", "check-plan-hash.sh", "Bash", "EH-3b Bash route plan-hash(#1104)", FAIL_BOTH)` が存在（§5 の diff とは別形式で、配線検査は退行していない）
+
+### 残っているもの
+
+§7 の未確定（Step 1 / Step 2 = Bash コマンド文字列からの書き込み先抽出と HO 判定）は
+**未実装のまま #1104 open**。着手には元設計書の **判断 1（fail-open / fail-closed）・判断 2（正規経路の許可方式）**
+の Human 確定が先に要る。
+
+---
+
 ## 0. 結論先行
 
 | 項目 | 結論 |
