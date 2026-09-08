@@ -115,10 +115,13 @@ else
 fi
 
 # --- TC-03: fixture の rc が実際に漏れている（検査対象が机上でない） ---
-sh "$PG_T85_FIX/bad-trailing-and.sh" >/dev/null 2>&1
-_t85_bad_rc=$?
-sh "$PG_T85_FIX/good-if-fi.sh" >/dev/null 2>&1
-_t85_good_rc=$?
+# `set -e` 下でも止まらない形で rc を受ける。`cmd; rc=$?` は cmd が非ゼロを
+# 返した時点で errexit が発火する（CI の run-tests.sh は set -e。ローカルの
+# 簡易再現では set -e が無く、この違いを見落として 1 度 CI を落とした）。
+_t85_bad_rc=0
+sh "$PG_T85_FIX/bad-trailing-and.sh" >/dev/null 2>&1 || _t85_bad_rc=$?
+_t85_good_rc=0
+sh "$PG_T85_FIX/good-if-fi.sh" >/dev/null 2>&1 || _t85_good_rc=$?
 if [ "$_t85_bad_rc" -ne 0 ] && [ "$_t85_good_rc" -eq 0 ]; then
   t85_pass "TC-03 fixture の実 rc が想定どおり（bad=$_t85_bad_rc good=$_t85_good_rc）"
 else
