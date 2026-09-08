@@ -23,12 +23,21 @@ REPO_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 WORKING_DIR="$REPO_ROOT/docs/working"
 AUDIT_LOG="$WORKING_DIR/_audit/hook-events.log"
 
+# #1278: 監査ログの書込可否と block 判定を分離する（fail-open 防止）。
+# set -eu 下で mkdir / >> が失敗すると log_event の時点で rc=1 となり、後続の
+# exit 2（HO / plan.md block）に到達しない。Claude Code の PreToolUse は exit 2
+# 以外を block と扱わないため、監査ログが書けない環境（read-only FS / _audit の
+# ファイル化 / ディスク満杯）では防御が丸ごと外れていた。ログ失敗は stderr 警告
+# に留め、呼び出し元の判定（exit 0 / exit 2）をそのまま進める。
+# 監査欠落の可視化は stderr の "[Hook EH-3] WARN: audit log unavailable" が担う。
 log_event() {
   level=$1
   msg=$2
-  mkdir -p "$(dirname "$AUDIT_LOG")"
+  mkdir -p "$(dirname "$AUDIT_LOG")" 2>/dev/null \
+    || { printf '[Hook EH-3] WARN: audit log unavailable (%s) -- event %s not recorded\n' "$AUDIT_LOG" "$level" >&2; return 0; }
   ts=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-  printf '%s\t%s\tcheck-plan-hash\t%s\t%s\n' "$ts" "$level" "${task_id:-${PLANGATE_HOOK_TASK:--}}" "$msg" >>"$AUDIT_LOG"
+  printf '%s\t%s\tcheck-plan-hash\t%s\t%s\n' "$ts" "$level" "${task_id:-${PLANGATE_HOOK_TASK:--}}" "$msg" 2>/dev/null >>"$AUDIT_LOG" \
+    || { printf '[Hook EH-3] WARN: audit log unavailable (%s) -- event %s not recorded\n' "$AUDIT_LOG" "$level" >&2; return 0; }
 }
 
 sha256_of() {
@@ -324,8 +333,8 @@ fi
 # ===== Hardening Override 判定（#1089 / TASK-1089）=====
 # TASK 文脈（PLANGATE_HOOK_TASK / $1）の有無に依存せず評価する。TASK-0106 では
 # 本判定が no-task 分岐の内側にあったため、TASK 設定時は plan_hash 検証パスへ
-# 抜けて 9 カテゴリすべてが一度も評価されなかった（#1089）。
-# 判定内容・9 カテゴリ・「maintenance 窓内でも常時 block」は不変（R-003/R-015）。
+# 抜けて HO 判定が一度も評価されなかった（#1089。当時は 9 カテゴリ）。
+# 判定内容・HO カテゴリ集合・「maintenance 窓内でも常時 block」は #1089 では不変（R-003/R-015）。
 # 優先順は BYPASS > Override > (no-task: maintenance/doc-light/SKIP_REASON,
 # task: plan_hash 検証)。
 # (i) target_file 正規化（R-028）
@@ -358,10 +367,107 @@ if [ "$_PG_FOLD_RC" != "0" ]; then
   printf '[Hook EH-3] %s\n' "$reason" >&2
   exit 2
 fi
+# ===== (i-c) repo containment 判定（#1234）=====
+# no-task 経路が repo 外のパス（/tmp、ハーネスのスクラッチパッド、$HOME 配下）まで
+# SKIP_BLOCKED (rc=2) にしていた欠陥の是正。判定は「物理解決した先が REPO_ROOT
+# 配下か」で行う（_pg_fold_path は字句のみで symlink を解決しない = Non-goal）:
+#   - 存在する最長プレフィクスを realpath で解決（symlink / .. を物理的に潰す）し、
+#     残りの未存在セグメントに . / .. / 空 が含まれるなら UNSURE（縮退 = 従来判定）
+#   - OUTSIDE（物理）かつ字句正規化 _ho_key も repo 外 かつ no-task かつ STRICT=0 の
+#     ときだけ OUTSIDE_REPO_SKIP (rc=0)。TASK 文脈 / STRICT=1 は不変
+#   - INSIDE なら repo 相対の物理パスを _phys_target に置き、HO / plan.md 判定は
+#     _ho_key との union で評価する（symlink 経由の逆方向迂回を塞ぐ）
+#   - 解決先が REPO_ROOT 外でも **同一 repo の linked worktree**（.git ファイルの
+#     gitdir → commondir が REPO_ROOT の common dir と一致）なら WORKTREE = 縮退
+#     （従来判定のまま）。worktree 配下 HO の判定は #1277 の領域であり、本判定で
+#     rc を緩めない（OUTSIDE 扱いにすると #1277 が悪化する）
+# 位置: _pg_fold_path の fail-closed 判定より **後**（相対 .. の fail-closed を
+# 緩めない）、HO 9 カテゴリ判定より **前**（OUTSIDE でも HO 一致は無い）。
+# python3 不在 / 失敗時は _pg_contain が空になり、SKIP も union も発火しない
+# （degrade-to-base: 現行判定そのまま。緩める側には倒れない）。
+_pg_contain=""
+_phys_target=""
+if [ -n "${target_file:-}" ] && command -v python3 >/dev/null 2>&1; then
+  _pg_contain=$(PG_ROOT="$REPO_ROOT" PG_TARGET="$target_file" python3 - <<'PYCT' 2>/dev/null || true
+import os, sys
+root = os.path.realpath(os.environ["PG_ROOT"])
+t = os.environ["PG_TARGET"]
+if not os.path.isabs(t):
+    t = os.path.join(root, t)
+p = t
+rest = []
+while not os.path.lexists(p):
+    head, tail = os.path.split(p)
+    if head == p:
+        break
+    rest.insert(0, tail)
+    p = head
+if any(s in ("", ".", "..") for s in rest):
+    print("UNSURE|unresolved segment"); sys.exit(0)
+full = os.path.realpath(p)
+if rest:
+    full = os.path.join(full, *rest)
+if full == root or full.startswith(root + os.sep):
+    print("INSIDE|" + os.path.relpath(full, root)); sys.exit(0)
+
+def common_dir(d):
+    # d/.git が dir ならそれ自体、file なら gitdir → commondir を辿る
+    g = os.path.join(d, ".git")
+    try:
+        if os.path.isdir(g):
+            return os.path.realpath(g)
+        with open(g, "r", encoding="utf-8") as f:
+            line = f.readline().strip()
+        if not line.startswith("gitdir:"):
+            return None
+        gd = line[len("gitdir:"):].strip()
+        if not os.path.isabs(gd):
+            gd = os.path.join(d, gd)
+        cd = os.path.join(gd, "commondir")
+        if os.path.isfile(cd):
+            with open(cd, "r", encoding="utf-8") as f:
+                rel = f.readline().strip()
+            return os.path.realpath(os.path.join(gd, rel))
+        return os.path.realpath(gd)
+    except OSError:
+        return None
+
+root_common = common_dir(root)
+d = os.path.dirname(full)
+while True:
+    if os.path.lexists(os.path.join(d, ".git")):
+        if root_common is not None and common_dir(d) == root_common:
+            print("WORKTREE|" + full); sys.exit(0)
+        break
+    nd = os.path.dirname(d)
+    if nd == d:
+        break
+    d = nd
+print("OUTSIDE|" + full)
+PYCT
+)
+fi
+case "$_pg_contain" in
+  INSIDE\|*) _phys_target="${_pg_contain#INSIDE|}" ;;
+  OUTSIDE\|*)
+    # 字句正規化（_ho_key）の側で repo 内に畳み込まれるパス（例: /tmp/../<repo>/x）は
+    # 物理的には別の場所へ到達するが、#1101 が block していた表記を本判定で緩めない
+    # ＝物理 OUTSIDE **かつ** 字句でも repo 外（root 除去後も絶対パスのまま）のときだけ SKIP。
+    _pg_lex_outside=0
+    case "$_ho_key" in /*) _pg_lex_outside=1 ;; esac
+    if [ "$_pg_lex_outside" = "1" ] && [ -z "$task_id" ] && [ "${PLANGATE_HOOK_STRICT:-0}" != "1" ]; then
+      reason="OUTSIDE_REPO_SKIP: target outside REPO_ROOT (${target_file}) -- not a PlanGate artifact, skipped (#1234)"
+      log_event "OUTSIDE_REPO_SKIP" "$reason"
+      printf '[Hook EH-3 OUTSIDE_REPO_SKIP] %s\n' "$reason"
+      exit 0
+    fi
+    ;;
+esac
+
 
 # (ii) Hardening Override 物理先頭判定（R-003/R-015、maintenance より上）
 # 判定対象は _ho_key（小文字化済み）。したがって case は**小文字側で受ける**。
-# ラベル 9 行 / パターン 15 個。9 カテゴリの正本は
+# ラベル 12 行 / パターン 20 個。12 カテゴリの正本は
 # .claude/rules/mode-classification.md の Hardening Override 節（内容は不変）。
 _override=0
 case "$_ho_key" in
@@ -374,7 +480,41 @@ case "$_ho_key" in
   schemas/*.schema.json) _override=1 ;;
   .github/workflows/*.yml|.github/workflows/*.yaml) _override=1 ;;
   agents.md|claude.md) _override=1 ;;
+  # (#1226) 他 Provider の enforcement 配線と承認トークンガード本体。
+  # .claude/settings*.json が HO であることとの非対称の解消。skills は対象外。
+  .codex/hooks.json|.cursor/hooks.json) _override=1 ;;
+  .codex/hooks/*.sh|.cursor/hooks/*.sh) _override=1 ;;
+  scripts/check-approval-token-write.sh) _override=1 ;;
 esac
+# (ii-b) #1234: 物理解決後の repo 相対パス（_phys_target を _pg_fold_path で小文字化
+# した _phys_key）にも同じ 12 カテゴリを当てる。_ho_key との union（どちらか一致で
+# block）。12 カテゴリの正本は上の case ブロック（_override=0 直後）であり、本ブロックの
+# 一覧は正本と同一に保つこと（ta-80 TC-06 が照合）。
+_phys_key=""
+if [ "$_override" = "0" ] && [ -n "${_phys_target:-}" ]; then
+  _pg_fold_path "$_phys_target" "" 1
+  if [ "$_PG_FOLD_RC" = "0" ]; then
+    _phys_key=$_PG_FOLD_OUT
+  fi
+fi
+if [ -n "$_phys_key" ] && [ "$_phys_key" != "$_ho_key" ]; then
+  case "$_phys_key" in
+    .claude/rules/*.md) _override=1 ;;
+    .claude/settings.json|.claude/settings.local.json|.claude/settings.example.json) _override=1 ;;
+    .claude/commands/*.md|.claude/commands/*/*.md) _override=1 ;;
+    .claude/agents/*.md|.claude/agents/*/*.md) _override=1 ;;
+    scripts/hooks/*.sh) _override=1 ;;
+    bin/plangate) _override=1 ;;
+    schemas/*.schema.json) _override=1 ;;
+    .github/workflows/*.yml|.github/workflows/*.yaml) _override=1 ;;
+    agents.md|claude.md) _override=1 ;;
+    # (#1226) 他 Provider の enforcement 配線と承認トークンガード本体。
+    # .claude/settings*.json が HO であることとの非対称の解消。skills は対象外。
+    .codex/hooks.json|.cursor/hooks.json) _override=1 ;;
+    .codex/hooks/*.sh|.cursor/hooks/*.sh) _override=1 ;;
+    scripts/check-approval-token-write.sh) _override=1 ;;
+  esac
+fi
 if [ "$_override" = "1" ]; then
   # AC-9: 監査ログと reason には**生の要求パス**を残す（正規化後の値ではない）。
   reason="HARDENING_OVERRIDE: ${target_file:-} は maintenance 窓内でも常時 block (R-003/R-015)"
@@ -404,6 +544,19 @@ if [ -z "$task_id" ]; then
       exit 2
       ;;
   esac
+  # #1234: symlink 経由で repo 内 plan.md を指すパスも同じ判定に掛ける（union）
+  if [ -n "${_phys_key:-}" ]; then
+    case "$_phys_key" in
+      */plan.md|plan.md)
+        reason="plan.md edited without TASK context via symlink (EH-3 bypass guard): $target_file -> $_phys_target"
+        log_event "VIOLATION" "$reason"
+        printf '[Hook EH-3] BLOCK: plan.md edited without TASK context.\n' >&2
+        printf '  target: %s (resolves to %s)\n' "$target_file" "$_phys_target" >&2
+        printf '  Set PLANGATE_HOOK_TASK=TASK-XXXX to allow plan.md edits.\n' >&2
+        exit 2
+        ;;
+    esac
+  fi
   if [ "${PLANGATE_HOOK_STRICT:-0}" = "1" ]; then
     printf 'Usage: %s <TASK-XXXX>  (or set PLANGATE_HOOK_TASK)\n' "$0" >&2
     exit 2

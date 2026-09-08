@@ -113,7 +113,7 @@ issue #684 は「`plangate doctor` に『必須 git hooks が導入済みか』�
 チェック項目を追加」も要望しているが、`bin/plangate` は Hardening
 Override 対象パス
 （[`mode-classification.md`](../../.claude/rules/mode-classification.md)
-の 9 カテゴリ正本）に該当し、**AI が直接編集できない**（常時 block）。
+の 12 カテゴリ正本）に該当し、**AI が直接編集できない**（常時 block）。
 
 したがって、doctor への「pre-push guard 導入済みか」チェック追加は **別
 PBI として起票し、Standard モード・同期 C-3（人間承認）を経て実施する**。
