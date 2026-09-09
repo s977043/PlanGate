@@ -47,6 +47,22 @@
 #   TC-02a 陽性: wiring step を **コメント化** した合成 workflow → 0 件（grep なら通る）
 #   TC-02b 陽性: `run:` → `runx:` へ **キー名だけ** 変えた合成 workflow → 0 件
 #   TC-02c 陽性: run-tests step を削除した合成 workflow → 0 件
+#   TC-02d 陽性: step の `if:` / `continue-on-error:` による無効化 → 0 件
+#   TC-02e 陽性: job 単位の `if:` による無効化 → 0 件
+#
+# 受理する起動形の限定（レビュー指摘 minor）:
+#   本 TA が「起動されている」と数えるのは **`jobs.<job>.steps[].run` への直接記述**
+#   だけ。composite action（`uses: ./.github/actions/...`）/ reusable workflow
+#   （`jobs.<job>.uses:`）/ 集約スクリプト経由（`run: make ci-settings`）へ移す変更は、
+#   **正しいリファクタでも本 TA を赤くする**。その場合は述語を更新すること
+#   （誤爆を放置して「検査が壊れている」状態にしない）。
+#   現 main では composite / reusable とも 0 件（`.github/actions` 不在を実測）。
+#
+# PyYAML 依存について:
+#   他の extras（ta-64 / ta-45 / ta-71 / ta-74）は README 規約 6 に従い PyYAML 不在で
+#   SKIP するが、本 TA は **fail-closed を選ぶ**（liveness ゲートを黙って飛ばすと
+#   「検査が走っていない」ことを検査できなくなるため）。TC-01 の FAIL には
+#   「PyYAML 不在 / 構文破損」と明記してあり、前提未充足と実際の退行を読み分けられる。
 #   TC-03  extras 発見 liveness: runner の glob で発見された extras のうち
 #          EH-13 ガード本体を参照するものが ≥1（＝配線退行を撃つテストが実在する）
 #   TC-04a 陽性: それらを削除した合成 extras ディレクトリ → 0 件
@@ -176,12 +192,23 @@ for path in paths:
     for job in jobs.values():
         if not isinstance(job, dict):
             continue
+        # job 単位で無効化されていれば、その中の step は 1 度も走らない。
+        # 「step は在るが起動されない」クラスを通さない（レビュー指摘 major）。
+        if job.get("if") is not None:
+            continue
         steps = job.get("steps")
         if not isinstance(steps, list):
             continue
         for step in steps:
-            if isinstance(step, dict) and isinstance(step.get("run"), str):
-                runs.append(step["run"])
+            if not (isinstance(step, dict) and isinstance(step.get("run"), str)):
+                continue
+            # step の `if:` は条件次第で走らない。`continue-on-error: true` は
+            # 失敗しても job を落とさない = ゲートとして機能しない。
+            if step.get("if") is not None:
+                continue
+            if step.get("continue-on-error") is True:
+                continue
+            runs.append(step["run"])
 
 wiring = sum(1 for r in runs if "check-settings-wiring.sh" in r)
 suite = sum(1 for r in runs if "tests/run-tests.sh" in r)
@@ -418,6 +445,56 @@ T83_WFC
 else
   t83_fail "TC-02c サンドボックス生成に失敗"
 fi
+
+# d: step / job を **無効化**（step は在るが 1 度も起動されない）
+#    レビュー指摘（major）: `if: false` を 1 行足すだけでゲートは走らなくなるのに、
+#    `steps[].run` の存在だけを見る述語は緑のまま通していた。
+if _t83_mkwf; then
+  cat >"$_t83_wfd/ci.yml" <<'T83_WFD'
+name: ci
+on: [push]
+jobs:
+  settings:
+    runs-on: ubuntu-latest
+    steps:
+      - if: false
+        run: sh scripts/check-settings-wiring.sh --target example
+      - run: sh tests/run-tests.sh
+        continue-on-error: true
+T83_WFD
+  _t83_ci=$(_t83_ci_runs "$_t83_wfd") || _t83_ci=""
+  if [ "$_t83_ci" = "0 0" ]; then
+    t83_pass "TC-02d step の if: / continue-on-error: による無効化を検出（step は在るが起動されない）"
+  else
+    t83_fail "TC-02d 無効化された step を起動と誤認 (predicate=[$_t83_ci])"
+  fi
+else
+  t83_fail "TC-02d サンドボックス生成に失敗"
+fi
+
+# e: job 単位の無効化
+if _t83_mkwf; then
+  cat >"$_t83_wfd/ci.yml" <<'T83_WFE'
+name: ci
+on: [push]
+jobs:
+  settings:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: sh scripts/check-settings-wiring.sh --target example
+      - run: sh tests/run-tests.sh
+T83_WFE
+  _t83_ci=$(_t83_ci_runs "$_t83_wfd") || _t83_ci=""
+  if [ "$_t83_ci" = "0 0" ]; then
+    t83_pass "TC-02e job 単位の if: による無効化を検出"
+  else
+    t83_fail "TC-02e 無効化された job を起動と誤認 (predicate=[$_t83_ci])"
+  fi
+else
+  t83_fail "TC-02e サンドボックス生成に失敗"
+fi
+
 
 # ===========================================================================
 # TC-03: extras 発見 liveness
