@@ -1,0 +1,7 @@
+interface:
+  display_name: "instruction-debt-audit"
+  short_description: "AI agent instruction debt を監査し、過剰読込・誤発火・矛盾・権限曖昧・早期停止を特定"
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $instruction-debt-audit to audit this agent setup without modifying it."
+  brand_color: "#1A56DB"
