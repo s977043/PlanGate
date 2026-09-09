@@ -290,5 +290,7 @@ else
   printf 'total_processed=%s\n' "$total"
   printf 'curated_kept_count=%s\n' "$curated_count"
   printf 'installed_names:\n%s' "$installed_names"
-  [ "$curated_count" -gt 0 ] && printf 'curated_kept_names:\n%s' "$curated_names"
+  if [ "$curated_count" -gt 0 ]; then
+    printf 'curated_kept_names:\n%s' "$curated_names"
+  fi
 fi
