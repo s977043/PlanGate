@@ -7,6 +7,7 @@ PlanGate ワークフロー v5 / v6 / **v7** で使用するスキル群。
 | スキル | 説明 | カテゴリ |
 | ------ | ---- | -------- |
 | `skill-creator` | 新しいClaude Codeスキルを対話的に設計・生成するワークフロー | developer-tools |
+| `instruction-debt-audit` | AGENTS.md / Skills / agents / hooks / permissions / completion rules の Instruction Debt を read-only 監査 | developer-tools |
 | `brainstorming` | アイデアや要件を対話的に設計書（PBI INPUT PACKAGE）へ昇華 | workflow |
 | `diff-audit` | 変更内容に対する詳細セルフレビュー（Phase 1〜13 + Iron Law / eval 判定、旧 self-review） | review |
 | `systematic-debugging` | バグや障害の体系的調査・根本原因特定 | debugging |
