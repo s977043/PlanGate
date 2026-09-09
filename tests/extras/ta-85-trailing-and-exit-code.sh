@@ -67,51 +67,108 @@ PG_T85_FIX="$PG_T85_ROOT/tests/fixtures/ta85"
 t85_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
 t85_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
 
-# 意図的に末尾 `&&` を許す資産の宣言（現時点で 0 件）。
-# 追加するときは理由をコメントで併記すること。
-T85_ALLOW=""
+# 意図的に末尾 `&&` を許す資産の宣言。**白紙委任ではない**（同値照合なので、
+# 宣言だけ残って実態から消えても TC-04 が FAIL する）。追加するときは理由を必ず書く。
+#
+#   scripts/gen-codex-agents.sh
+#     `--check` モードの判定値として意図的にこの形。
+#     `[ "$_updated" -eq 0 ] && [ "$_created" -eq 0 ]` が then 分岐の終端にあり、
+#     drift / missing がゼロのときだけ rc=0 を返す仕様（rc が結果そのもの）。
+T85_ALLOW="scripts/gen-codex-agents.sh"
 
-# 末尾から閉じトークンを遡り、最初の実行文が `&&` リストなら 1 を返す検査器。
-# 標準出力に該当行を出す（呼び出し側が理由として使える）。
+# 検査器: スクリプトの終了ステータスを決めうる「最終実行文」を列挙し、
+# その中に `&&` リストがあれば 1 を返す（該当行を標準出力に出す）。
+#
+# 素朴に「末尾から閉じトークンを遡って最初の 1 文」を見る実装では、次の形を
+# 取りこぼす（レビュー指摘 C-3。実 repo に `scripts/gen-codex-agents.sh:101` が実在）:
+#
+#     if [ "$_check" = "1" ]; then
+#       printf ...
+#       [ "$_updated" -eq 0 ] && [ "$_created" -eq 0 ]   <- then 分岐の終端
+#     else
+#       printf ...                                        <- ここしか見ていなかった
+#     fi
+#
+# そこで **末尾の構造ブロック内で「次の実行行が閉じトークンである行」= 分岐の終端**
+# をすべて候補にする。`}` が最終行のとき（＝関数定義で終わり、実行文が無い）は
+# 走査を打ち切る（関数本体を最終実行文と誤認する偽陽性を避ける）。
 t85_probe() {
   awk '
-    # コメント行・空行は落とす
     /^[[:space:]]*#/ { next }
     /^[[:space:]]*$/ { next }
-    { lines[++n] = $0 }
+    { raw[++n] = $0 }
     END {
-      for (i = n; i >= 1; i--) {
-        s = lines[i]
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
-        # 構造の閉じトークンはスキップ（rc は直前から伝播する）
-        if (s == "fi" || s == "done" || s == "esac" || s == "}" || s == ";;" || s == "else") continue
-        # 最初の実行文がこれ
+      if (n == 0) exit 0
+
+      # 末尾が関数定義の閉じ `}` なら、スクリプトは最終実行文を持たない
+      s = raw[n]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
+      if (s == "}") exit 0
+
+      # 最終行が閉じトークンでなければ、**それがそのまま最終実行文**。
+      # 構造ブロックの中を見に行ってはいけない（`exit 0` で終わるスクリプトの
+      # 手前の分岐を拾って偽陽性になる。実測: scripts/check-codex-plugin-status.sh）。
+      if (s !~ /^(fi|done|esac|;;)/) {
         if (s ~ /&&/ && s !~ /\|\|/) { print s; exit 1 }
         exit 0
       }
-      exit 0
+
+      # ここから先は「最終行が fi / done / esac / ;;」の場合のみ。
+      # その構造の**各分岐の終端**が終了ステータスを決めうるので、すべて候補にする。
+      start = 1
+      for (i = n; i >= 1; i--) {
+        if (raw[i] ~ /^(if|case|while|for|until)[[:space:](]/) { start = i; break }
+      }
+
+      hit = 0
+      for (i = start; i <= n; i++) {
+        cur = raw[i]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", cur)
+        if (cur ~ /^(fi|done|esac|\}|;;|else|elif)/) continue
+
+        is_terminal = 0
+        if (i == n) {
+          is_terminal = 1
+        } else {
+          nx = raw[i+1]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", nx)
+          if (nx ~ /^(fi|done|esac|\}|;;|else|elif)/) is_terminal = 1
+        }
+        if (!is_terminal) continue
+
+        # 行継続で始まる `&&` も拾うため、直前行が `\` 終端なら連結して見る
+        line = cur
+        if (i > 1) {
+          pv = raw[i-1]; gsub(/[[:space:]]+$/, "", pv)
+          if (pv ~ /\\$/) { sub(/\\$/, "", pv); line = pv " " cur }
+        }
+        # `&&` リストは条件が偽のとき非ゼロを返す。`||` で受けていれば漏れない。
+        if (line ~ /&&/ && line !~ /\|\|/) { print line; hit = 1 }
+      }
+      exit (hit ? 1 : 0)
     }
   ' "$1"
 }
 
 # --- TC-01: positive control（検査器が実害の形を検出する） ---
 _t85_hits=0
-for _f in "$PG_T85_FIX/bad-trailing-and.sh" "$PG_T85_FIX/bad-nested-fi.sh"; do
+for _f in "$PG_T85_FIX/bad-trailing-and.sh" "$PG_T85_FIX/bad-nested-fi.sh" "$PG_T85_FIX/bad-then-branch.sh"; do
   if [ -f "$_f" ]; then
     t85_probe "$_f" >/dev/null 2>&1 || _t85_hits=$((_t85_hits + 1))
   fi
 done
-if [ "$_t85_hits" -eq 2 ]; then
-  t85_pass "TC-01 positive control — bad fixture 2 本とも検出（最終行が fi の形を含む）"
+if [ "$_t85_hits" -eq 3 ]; then
+  t85_pass "TC-01 positive control — bad fixture 3 本とも検出（末尾 / fi 直前 / then 分岐の終端）"
 else
-  t85_fail "TC-01 positive control 不成立 — 検出 $_t85_hits / 2（検査器が空振りしている）"
+  t85_fail "TC-01 positive control 不成立 — 検出 ${_t85_hits} / 3（検査器が空振りしている）"
 fi
 
 # --- TC-02: negative control（正しい形を誤検出しない） ---
-if t85_probe "$PG_T85_FIX/good-if-fi.sh" >/dev/null 2>&1; then
-  t85_pass "TC-02 negative control — if ... fi 形は検出しない"
+_t85_fp=0
+for _f in "$PG_T85_FIX/good-if-fi.sh" "$PG_T85_FIX/good-func-tail.sh"; do
+  t85_probe "$_f" >/dev/null 2>&1 || _t85_fp=$((_t85_fp + 1))
+done
+if [ "$_t85_fp" -eq 0 ]; then
+  t85_pass "TC-02 negative control — if ... fi 形と「関数定義で終わる」形を誤検出しない"
 else
-  t85_fail "TC-02 negative control 失敗 — 正しい形を誤検出した"
+  t85_fail "TC-02 negative control 失敗 — 正しい形を ${_t85_fp} 件 誤検出した"
 fi
 
 # --- TC-03: fixture の rc が実際に漏れている（検査対象が机上でない） ---
@@ -123,9 +180,9 @@ sh "$PG_T85_FIX/bad-trailing-and.sh" >/dev/null 2>&1 || _t85_bad_rc=$?
 _t85_good_rc=0
 sh "$PG_T85_FIX/good-if-fi.sh" >/dev/null 2>&1 || _t85_good_rc=$?
 if [ "$_t85_bad_rc" -ne 0 ] && [ "$_t85_good_rc" -eq 0 ]; then
-  t85_pass "TC-03 fixture の実 rc が想定どおり（bad=$_t85_bad_rc good=$_t85_good_rc）"
+  t85_pass "TC-03 fixture の実 rc が想定どおり（bad=${_t85_bad_rc} good=${_t85_good_rc}）"
 else
-  t85_fail "TC-03 fixture の rc が想定と違う（bad=$_t85_bad_rc good=$_t85_good_rc）"
+  t85_fail "TC-03 fixture の rc が想定と違う（bad=${_t85_bad_rc} good=${_t85_good_rc}）"
 fi
 
 # --- TC-04: 実資産に該当が無い（allowlist と実態の同値照合） ---
@@ -147,15 +204,15 @@ done
 _t85_found_n=$(printf '%s' "$_t85_found" | grep -c . || true)
 _t85_allow_n=$(printf '%s' "$T85_ALLOW" | grep -c . || true)
 if [ "$_t85_found_n" -eq "$_t85_allow_n" ]; then
-  t85_pass "TC-04 実資産の該当件数が allowlist と一致（found=$_t85_found_n allow=$_t85_allow_n・件数は契約値にしない）"
+  t85_pass "TC-04 実資産の該当件数が allowlist と一致（found=${_t85_found_n} allow=${_t85_allow_n}・件数は契約値にしない）"
 else
-  t85_fail "TC-04 実資産の該当が allowlist と一致しない（found=$_t85_found_n allow=$_t85_allow_n）— 意図的なら T85_ALLOW へ理由つきで宣言すること"
+  t85_fail "TC-04 実資産の該当が allowlist と一致しない（found=${_t85_found_n} allow=${_t85_allow_n}）— 意図的なら T85_ALLOW へ理由つきで宣言すること"
 fi
 
 # --- TC-05: 検査対象が 0 件に張り付いていない（探索そのものの liveness） ---
 _t85_scanned=$(printf '%s\n' "$_t85_list" | grep -c . || true)
 if [ "$_t85_scanned" -gt 0 ]; then
-  t85_pass "TC-05 走査対象が存在する（scanned=$_t85_scanned・下限のみを見る）"
+  t85_pass "TC-05 走査対象が存在する（scanned=${_t85_scanned}・下限のみを見る）"
 else
   t85_fail "TC-05 走査対象が 0 件 — TC-04 の「該当なし」は空振りの可能性"
 fi

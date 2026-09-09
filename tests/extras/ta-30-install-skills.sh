@@ -36,12 +36,15 @@ if [ -n "$_t30_cx" ]; then
   cp -R "$PG_T30_ROOT/.agents/skills" "$_t30_cx/.agents/" 2>/dev/null || true
   cp -R "$PG_T30_ROOT/plugin/plangate/assets" "$_t30_cx/plugin/plangate/" 2>/dev/null || true
 
+  # rc は `|| rc=$?` で受ける。`cmd; rc=$?` は `set -e` 下で cmd が非ゼロを返した
+  # 時点で errexit が発火し、**検出すべき退行が起きたときに FAIL ではなくスイートの
+  # 中断**になる（run-tests.sh は set -eu）。ta-85 TC-03 と同じ形に揃える。
   # 1 回目: 全 skill を展開
-  sh "$_t30_cx/scripts/install-plangate-skills-to-codex.sh" >/dev/null 2>&1
-  _t30_cx_rc1=$?
+  _t30_cx_rc1=0
+  sh "$_t30_cx/scripts/install-plangate-skills-to-codex.sh" >/dev/null 2>&1 || _t30_cx_rc1=$?
   # 2 回目: 変更なし（installed 0 件 / curated 0 件）でも rc=0 でなければならない
-  sh "$_t30_cx/scripts/install-plangate-skills-to-codex.sh" >/dev/null 2>&1
-  _t30_cx_rc2=$?
+  _t30_cx_rc2=0
+  sh "$_t30_cx/scripts/install-plangate-skills-to-codex.sh" >/dev/null 2>&1 || _t30_cx_rc2=$?
 
   if [ "$_t30_cx_rc1" -eq 0 ] && [ "$_t30_cx_rc2" -eq 0 ]; then
     t30_pass "TC-01b to-codex installer は初回・再実行とも rc=0 (rc1=$_t30_cx_rc1 rc2=$_t30_cx_rc2)"
@@ -52,7 +55,7 @@ if [ -n "$_t30_cx" ]; then
   # TC-01c: サンドボックスが実際に生成物を持つ（TC-01b が「何もせず rc=0」で通っていない対照）
   _t30_cx_n=$(ls "$_t30_cx/.codex/skills" 2>/dev/null | wc -l | tr -d ' ')
   if [ "${_t30_cx_n:-0}" -gt 0 ]; then
-    t30_pass "TC-01c サンドボックスに skill が展開された (n=$_t30_cx_n・件数は契約値にしない)"
+    t30_pass "TC-01c サンドボックスに skill が展開された (n=${_t30_cx_n}・件数は契約値にしない)"
   else
     t30_fail "TC-01c サンドボックスに展開物が無い — TC-01b は空振りの可能性 (n=${_t30_cx_n:-0})"
   fi
