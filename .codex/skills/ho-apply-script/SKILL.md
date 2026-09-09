@@ -110,6 +110,28 @@ git apply --check -R "$T/p.patch" 2>/dev/null || die "reverse-apply できない
 git apply -R "$T/p.patch" || die "reverse-apply に失敗"
 ```
 
+### 5-bis. hook の rc を測るときの 3 つの罠
+
+```sh
+# NG: SKIP_REASON を外すと no-task の「SKIP 拒否」が全ファイルで rc=2 になり、
+#     HO block と区別できない。**HO は SKIP より優先**して block される設計なので、
+#     SKIP_REASON は設定したままで HO 判定を分離できる。
+env -u PLANGATE_SKIP_REASON sh "$HOOK" ...
+
+# NG: パイプの後で $? を取ると hook ではなくパイプの rc になる
+printf '...' | sh "$HOOK" 2>&1 | head -1 ; rc=$?
+
+# OK
+_rc=0
+printf '{"tool_input":{"file_path":"%s"}}' "$path" \
+  | PLANGATE_SKIP_REASON="${PLANGATE_SKIP_REASON:-probe}" \
+    sh "$HOOK" >/dev/null 2>&1 </dev/null || _rc=$?
+```
+
+**検証の前提が成立しているかを先に assert する。** 「実 repo の HO が rc=2 であること」を
+最初に測り、そうでなければ *patch の問題ではなく検証環境の問題* として die すること。
+これを入れないと、hook が発火していない環境で「全部 rc=0 だから壊れた」と誤読する。
+
 ## 落とし穴（すべて実際に踏んだもの）
 
 | # | 落とし穴 | 症状 | 対処 |
@@ -119,6 +141,10 @@ git apply -R "$T/p.patch" || die "reverse-apply に失敗"
 | 3 | marker 抽出が `sed -e '1d' -e '$d'` の 2 回がけ | markdown formatter が**fence 長を正規化し marker 前後に空行を入れる**ため 2 行余る | fence 長・空行に依存しない **awk** |
 | 4 | `grep -c ... \|\| printf '0'` | 0 件のとき `0\n0` の**二重出力** → `[: integer expression expected` | `\|\| true` で受ける |
 | 5 | `git apply --check` を fwd だけ見る | **rc=0 でも適用可能とは限らない**。同じ形の並びが複数あると `offset` で別位置に当たり、配線が 2 重になる（実例あり） | fwd / rev の**両方**を測り、`git apply -v` で `offset` を確認する |
+| 6 | **`$var` の直後にマルチバイト文字**（`"現在: $br）"` 等） | bash が `br）` を識別子に取り込み `set -u` で `br<0xE3>: unbound variable`。**スクリプトが 1 行目で死ぬ** | **`${br}`** と brace で囲む。日本語メッセージに変数を埋めるなら既定でこれ |
+| 7 | **hook の挙動を複製環境で検証しようとする** | 複製では `REPO_ROOT` の解決が安定せず、同じコマンドで rc=2 と rc=0 が混ざる。`(unknown)` = HO 判定に到達していない状態も出る | **hook の挙動検証は実 repo で行う**。複製の dry-run は「patch が当たるか / rollback で戻るか」に限定する |
+| 8 | **検証 probe の `grep` パターンにシェル/正規表現のメタ文字が入っている**（`grep -c '_x="${y#A\|B}"'` 等） | `$` `{` `\|` が正規表現として解釈され**常に 0 件**。適用済みの patch を「未適用」と誤判定する | 文字列一致は **`grep -F`**。加えて **positive control**（既知の一致するパターンで 1 件以上返ることを同時に確認）を置く。**挙動は grep 実装依存**（実測: `ugrep` 7.8.4 / macOS で BRE=0 件・`-F`=1 件。GNU grep とは異なりうる）なので、なおさら `-F` で固定する |
+| 9 | **前提 assert 自体の偽陽性を疑わない** | 5-bis の「実 repo の HO が rc=2」assert が rc=0 を返して die したが、**同じ probe を手で 3 通り実行すると全て rc=2** だった。patch は正しいのにスクリプトが止まる | die する前に **probe の入力（path・stdin・env）をそのまま stderr へ出す**。die メッセージは「検証環境の問題」で止まる旨と再現用の 1 行を必ず含める |
 
 ## Checklist
 
@@ -129,6 +155,10 @@ git apply -R "$T/p.patch" || die "reverse-apply に失敗"
 - [ ] `grep` に `--` が付いている
 - [ ] dirty ガードが対象ファイル自身を除外している
 - [ ] 検証が marker の存在だけでなく**述語**（テスト・パース・実挙動）を測っている
+- [ ] **`$var` の直後にマルチバイト文字が無い**（`grep -nE '\$[A-Za-z_][A-Za-z0-9_]*[（）・「」]' <script>` が 0 件）
+- [ ] **hook の挙動検証は実 repo 前提**になっている（複製で測っていない）
+- [ ] **検証の `grep` が `-F` か、メタ文字を含まない**（`${...}` を含むパターンを BRE で書いていない）
+- [ ] **前提 assert が die するとき、probe の入力と再現用 1 行を出力する**
 - [ ] **commit も push もしない**
 - [ ] `PLANGATE_APPLY_REPO` 等で repo パスを上書きでき、複製で dry-run できる
 
