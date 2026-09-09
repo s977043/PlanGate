@@ -78,6 +78,26 @@ else
 fi
 ```
 
+### NG（単独コマンド行 + `rc=$?`）
+
+コマンド置換だけでなく、**単独のコマンド行の直後で `$?` を受ける形**も `set -e` で死ぬ。
+**「検出すべき失敗が起きたときに `[FAIL]` ではなくスイートの中断になる」**ため、
+回帰テストとしては最悪の壊れ方をする（2026-09-09 に `ta-30` TC-01b で実害）。
+
+```sh
+sh "$sandbox/installer.sh" >/dev/null 2>&1
+rc=$?                                  # ← installer が非ゼロを返した瞬間に errexit が発火し、ここへ来ない
+```
+
+```sh
+rc=0
+sh "$sandbox/installer.sh" >/dev/null 2>&1 || rc=$?   # OK
+```
+
+**ローカルで harness モードを再現するときは `set -e` を必ず付ける**こと。
+`PG_HARNESS_SOURCED=1 ... . tests/extras/ta-NN.sh` だけでは本番と条件が違い、
+この欠陥をローカルで再現できない（同日、条件を揃えずに 1 度 CI を落とした）。
+
 ### trap は使わない
 
 EXIT/INT/TERM trap は extras 間で互いに上書きし合い、set -e との組み合わせで予測しにくい挙動になる（s3 retrospective で実害発生）。**fixture の cleanup は trap ではなく直接 `rm -rf` で行う**。
@@ -97,6 +117,60 @@ extras はすべて同一 shell プロセスで source されるため、関数�
 
 - 各 extras 固有のヘルパは `_taN_helper_name()` のように `_taN_` プレフィクスを推奨
 - `assert_pass` / `assert_fail` は run-tests.sh 提供で再定義不要
+
+## シェル実体・glob・件数取得の落とし穴（2026-09-09 実測）
+
+いずれも **CI（ubuntu = dash）では緑のまま通り、ローカル（macOS = bash）でだけ壊れる**か、
+**検査が恒真になって空振りする**類。1 セッションで 3 件とも踏んだ。
+
+### `$var` の直後にマルチバイト文字を置かない（**最も危険**）
+
+```sh
+printf '%s\n' "n=$n・件数は契約値にしない"     # NG
+printf '%s\n' "n=${n}・件数は契約値にしない"   # OK
+```
+
+bash は `$n・` の先頭バイトを識別子に取り込むため、`set -u` 下で
+`n<0xE3>: unbound variable` になる。**`[FAIL]` ではなく 1 行のエラーで
+スイート全体が停止し、以降の extras が一度も走らない。**
+
+```text
+$ sh -c 'set -eu; n=0; printf "%s\n" "n=$n・tail"; echo DONE'   # /bin/sh = bash
+line 3: n<0xE3>: unbound variable   rc=1
+$ dash 同上 → 正常（DONE が出る）
+```
+
+**CI は dash なので永久に検出できない。** 日本語メッセージに変数を埋める extras では
+`${...}` を既定にすること。兆候は**出力の文字化け**（`scanned=??`）— 見たら必ず追う。
+
+### glob を直書きせず `find` で列挙する
+
+```sh
+for f in "$root"/scripts/ai-loop/*.sh; do ...   # NG
+list=$(find "$root/scripts" -type f -name '*.sh' | sort)   # OK
+```
+
+対象ディレクトリに 1 本も無いとき、zsh は `no matches found` で**テストを途中終了**させる
+（`[ -f "$f" ] || continue` では防げない。glob 展開の時点で落ちる）。
+
+### `grep -c` の rc を `|| printf '0'` で受けない
+
+```sh
+n=$(printf '%s' "$x" | grep -c . || printf '0')   # NG → 0 件のとき "0\n0"
+n=$(printf '%s' "$x" | grep -c . || true)         # OK
+```
+
+`grep -c` は 0 件でも `0` を出力して rc=1 を返すため、`|| printf '0'` だと**二重出力**になり
+`[: integer expression expected` を招く。
+
+### `$?` を使う行にコマンド置換を混ぜない
+
+```sh
+echo "$(basename "$f") rc=$?"   # NG → basename の rc で $? が上書きされる
+rc=$?; b=$(basename "$f"); printf '%s rc=%s\n' "$b" "$rc"   # OK
+```
+
+これで fixture の rc を 3 本とも 0 と誤測し、「検査器が壊れている」と誤結論しかけた。
 
 ## 関連
 

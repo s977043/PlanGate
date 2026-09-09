@@ -46,6 +46,16 @@
 
 ## 学び
 
+- [2026-09-09] 重複回避の探索範囲は「追記先のディレクトリ」ではなく「その規律が属する領域全体」
+  - 事実: 「bot レビューが quota 超過のときはマージ可能と報告しない」を `docs/ai/subagent-delegation/behavior-norms.md` へ新規追記したが、**同じインシデント（外部 bot レビュアーの daily quota 切れで 6 本 30% が実質ノーレビューのままマージ）から作られた正本 `docs/ai/reviewer-silence-fallback.md` が既に存在**した。私は追記先ディレクトリ配下しか grep せず「無かった」と判断していた
+  - 再利用条件: 規律を新規追記する前に、**その規律の主題語**（今回なら `quota` / `unavailable` / `fallback` / `レビュア`）で `docs/` 全体を grep する。既存があれば新規追加せずリンクで接続する（同じ規律が 2 箇所に分裂すると将来乖離する）
+  - 根拠: 既存正本は §3 発火条件・§3.2 代替レビューアへのフォールバック手順・§3.3 記録必須項目・§4「`ExecutedReviewerCount = 0` なら gate は FAIL」まで定義していた。私の追記は「報告しない」で止まっており、**代替レビューの実施と evidence 記録へ読者を導いていなかった**
+
+- [2026-09-09] 「まだ塞げない穴」は主張ではなく **TC で実測固定**する
+  - 事実: `corpus_hash` の producer を新設したが consumer（`run_evidence.py`）への接続は golden fixture 8 件の再生成が必要で本 PR では入れられなかった。「未接続である」と doc に書くだけでは、接続されたときに doc が無言で陳腐化する
+  - 再利用条件: 範囲外にした穴を doc に書くときは、**現状を assert する TC を 1 本置く**（例: `grep -q "import corpus_hash" run_evidence.py` なら FAIL）。接続された瞬間にその TC が赤くなり、doc の更新を強制する
+  - 根拠: 同じパターンを `ta-83` TC-11（`check-settings-wiring.sh` が相対パス化 / hooks 付け替えを素通りすることを PASS として固定）でも採った。**盲点を「主張」で残すと更新されないが、「実測」で残すと更新が強制される**
+
 - [2026-05-16] PR 後処理の破壊操作はマージ確定検証の後だけ
   - 事実: 「マージした」発言を信用しマージ未確定のまま `git push origin --delete` を実行し PR #240 を未マージ CLOSE させた（reopen で復旧、作業ロストなし）
   - 再利用条件: PR のローカル/リモートブランチ削除・cleanup を行う前に必ず `sh scripts/verify-pr-merged.sh <PR>`（state==MERGED かつ mergedAt/mergeCommit non-null）で確定検証する
