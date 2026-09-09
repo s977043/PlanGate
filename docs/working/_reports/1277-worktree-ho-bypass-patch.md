@@ -142,8 +142,27 @@ awk 'BEGIN{q=sprintf("%c",96)} /^<!-- PG-PATCH-BEGIN -->$/{b=1;next} /^<!-- PG-P
 git apply --check /tmp/1277-worktree-ho.patch      # rc=0
 git apply --numstat /tmp/1277-worktree-ho.patch    # 25  9  scripts/hooks/check-plan-hash.sh
 git apply /tmp/1277-worktree-ho.patch
-sh tests/extras/ta-80-eh3-outside-repo.sh          # 45 passed, 0 failed
+
+# 未適用宣言の flag を **同じ commit で**削除する（残すと ta-80 TC-00b2 が
+# stale gap flag として FAIL する）
+rm -f tests/fixtures/eh3-worktree-ho-pending-1277.flag
+
+sh tests/extras/ta-80-eh3-outside-repo.sh          # 52 passed, 0 failed
 ```
+
+### 適用前 / 適用後の ta-80 の見え方
+
+`tests/extras/ta-80-eh3-outside-repo.sh` は本 patch を **2 つのレーン**で扱う
+（#1234 と同型 / ta-79 の #1104・#1278 2 レーンと同型）。
+
+| レーン | 対象 | 未適用時 | 適用時 |
+| --- | --- | --- | --- |
+| サンドボックス（TC-05b/c/d, TC-08/M-WT・M-WT2） | 本 §の patch block を mktemp 複製へ当てた hook | **常に fixed を assert**（TC-00c2 が patch を当てる） | 同左（`already-applied`） |
+| 実 hook（TC-R05〜R07） | `scripts/hooks/check-plan-hash.sh` の実体 | `eh3-worktree-ho-pending-1277.flag` があるので gap を assert（root 外/配下 worktree の HO は `SKIP 拒否` / worktree 配下の HO `.md` は `DOC_LIGHT_SKIP` rc=0 で素通り） | flag を消すと fixed を assert（3 件とも `HARDENING_OVERRIDE` rc=2） |
+
+適用状態の検出 marker は `_phys_target="${_pg_contain#WORKTREE|}"`（本 patch が新設
+する代入）。`WORKTREE|` 単体は #1234 の縮退 arm として**未適用の hook にも存在する**
+ため marker に使えない。
 
 | コマンド | 実測 rc | 意味 |
 | --- | --- | --- |

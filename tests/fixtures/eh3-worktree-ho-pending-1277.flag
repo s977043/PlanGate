@@ -1,0 +1,2 @@
+#1277 EH-3 worktree Hardening Override bypass patch (docs/working/_reports/1277-worktree-ho-bypass-patch.md) is not yet applied to scripts/hooks/check-plan-hash.sh (Hardening Override / Human-owned).
+ta-80 TC-R05/R06/R07 expect the pre-patch behaviour while this file exists. Delete this flag in the same commit that applies the patch.

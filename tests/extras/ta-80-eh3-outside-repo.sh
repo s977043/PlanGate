@@ -15,6 +15,15 @@
 #   - flag があるのに実装が fixed なら **stale 宣言として FAIL**（TC-00b）
 #   - PG_T80_EXPECT=fixed|gap で pin できる（デバッグ用。失敗を増やす方向のみ）
 #
+# #1277（worktree 配下の HO 迂回）のレーンも **同じ方式**に載せる（ta-79 が
+# #1104 / #1278 の 2 レーンを 1 ファイルで持つのと同型）:
+#   - サンドボックス複製には #1234 の上に #1277 patch も重ねる（TC-00a2/TC-00c2）。
+#     TC-05b/c/d と TC-08/M-WT・M-WT2 は **その patched hook** を測る
+#   - 実 hook 側（TC-R05〜R07）の期待は
+#     tests/fixtures/eh3-worktree-ho-pending-1277.flag で切り替える。
+#     flag があるのに実装が fixed なら stale 宣言として FAIL（TC-00b2）
+#   - PG_T80_EXPECT_1277=fixed|gap で pin できる（デバッグ用）
+#
 # patch 済み複製（TC-01〜TC-09）は Human 適用を待たずに patch 内容そのものを
 # 実測する。patch は上記 report の <!-- PG-PATCH-BEGIN --> / <!-- PG-PATCH-END -->
 # block から抽出する（= その block が壊れると本ファイルが FAIL する）。
@@ -108,6 +117,16 @@ _T80_HOOK_SRC="$_T80_ROOT/scripts/hooks/check-plan-hash.sh"
 _T80_REPORT="$_T80_ROOT/docs/working/_reports/1234-eh3-outside-repo-patch-applicable.md"
 _T80_FLAG="$_T80_ROOT/tests/fixtures/eh3-outside-repo-pending-1234.flag"
 _T80_MARK="OUTSIDE_REPO_SKIP"
+# (#1277) worktree HO bypass の是正。#1234 と同じ「patch 文書が正本 / サンドボックス
+# 複製に当てて patched 挙動を実測 / 実 hook の未適用は tracked flag で明示 opt-in」
+# 方式に載せる（別の仕組みを作らない）。
+_T80_REPORT_1277="$_T80_ROOT/docs/working/_reports/1277-worktree-ho-bypass-patch.md"
+_T80_FLAG_1277="$_T80_ROOT/tests/fixtures/eh3-worktree-ho-pending-1277.flag"
+# NOTE: `WORKTREE|` 単体は **未適用の hook にも存在する**（#1234 が縮退 arm として
+# 導入済み）。marker は #1277 が新設する「worktree 相対パスを _phys_target に置く」
+# 代入そのものを指すこと（存在しないものを marker にすると常時 already-applied に
+# 誤判定し、TC-05b/c/d が未適用 hook を測る）。
+_T80_MARK_1277='_phys_target="${_pg_contain#WORKTREE|}"'
 
 if [ "$_T80_OK" = "1" ] && [ ! -f "$_T80_HOOK_SRC" ]; then
   t80_fail "ta-80 TC-00: hook not found: $_T80_HOOK_SRC"
@@ -115,6 +134,10 @@ if [ "$_T80_OK" = "1" ] && [ ! -f "$_T80_HOOK_SRC" ]; then
 fi
 if [ "$_T80_OK" = "1" ] && [ ! -f "$_T80_REPORT" ]; then
   t80_fail "ta-80 TC-00: patch report not found: $_T80_REPORT"
+  _T80_OK=0
+fi
+if [ "$_T80_OK" = "1" ] && [ ! -f "$_T80_REPORT_1277" ]; then
+  t80_fail "ta-80 TC-00: patch report not found: $_T80_REPORT_1277"
   _T80_OK=0
 fi
 if [ "$_T80_OK" = "1" ] && ! command -v python3 >/dev/null 2>&1; then
@@ -300,6 +323,30 @@ else
   t80_pass "TC-00b: gap flag と実装状態が整合 (flag=$_T80_FLAG_PRESENT patched=$_T80_REAL_PATCHED expect=$_T80_EXPECT)"
 fi
 
+# ── #1277 の適用状態（同型 / 独立の flag）─────────────────────────
+_T80_REAL_PATCHED_1277=0
+if grep -qF "$_T80_MARK_1277" "$_T80_HOOK_SRC"; then
+  _T80_REAL_PATCHED_1277=1
+fi
+_T80_FLAG_1277_PRESENT=0
+if [ -f "$_T80_FLAG_1277" ]; then
+  _T80_FLAG_1277_PRESENT=1
+fi
+if [ -n "${PG_T80_EXPECT_1277:-}" ]; then
+  _T80_EXPECT_1277="$PG_T80_EXPECT_1277"
+elif [ "$_T80_FLAG_1277_PRESENT" = "1" ]; then
+  _T80_EXPECT_1277=gap
+else
+  _T80_EXPECT_1277=fixed
+fi
+
+# TC-00b2: stale 宣言の検出（#1277 patch は適用済みなのに flag が残っている）
+if [ "$_T80_FLAG_1277_PRESENT" = "1" ] && [ "$_T80_REAL_PATCHED_1277" = "1" ]; then
+  t80_fail "TC-00b2: stale gap flag — #1277 patch は適用済みなのに $_T80_FLAG_1277 が残っている（削除すること）"
+else
+  t80_pass "TC-00b2: #1277 gap flag と実装状態が整合 (flag=$_T80_FLAG_1277_PRESENT patched=$_T80_REAL_PATCHED_1277 expect=$_T80_EXPECT_1277)"
+fi
+
 # TC-00c: patch をサンドボックス（repo 外 mktemp）で適用し、patched hook を得る
 _T80_STAGE="$_T80_TMP/stage"
 mkdir -p "$_T80_STAGE/scripts/hooks"
@@ -357,6 +404,44 @@ else
     t80_pass "TC-00c-pc: git apply が落ちる drift (rc=$_T80_PC_GITRC) を patch -p1 が救い marker が入る (route=$_T80_APPLY_ROUTE)"
   else
     t80_fail "TC-00c-pc: フォールバックが drift を救えない (route=$_T80_APPLY_ROUTE rc=$_T80_APPLY_RC git=$_T80_PC_GITRC)"
+  fi
+fi
+
+# TC-00c2: #1277 patch も同じサンドボックス複製へ重ねる。
+# これをしないと TC-05b/c/d と TC-08/M-WT・M-WT2 は **#1277 未適用の hook** を
+# patched hook として測ることになり、is-not-implemented を FAIL として叫び続ける
+# （= main が恒常的に赤くなる）。#1234 と同じく patch は report の marker block を
+# 正本とする。抽出は 1277 report §5 の awk（fence 対応）に合わせる。
+_T80_PATCH_1277="$_T80_TMP/1277.patch"
+awk 'BEGIN{q=sprintf("%c",96)}
+  /^<!-- PG-PATCH-BEGIN -->$/{b=1;next}
+  /^<!-- PG-PATCH-END -->$/{exit}
+  b && substr($0,1,1)==q{f=!f;next}
+  f' "$_T80_REPORT_1277" > "$_T80_PATCH_1277" || true
+
+if [ -s "$_T80_PATCH_1277" ] \
+   && grep -q '^--- a/scripts/hooks/check-plan-hash.sh$' "$_T80_PATCH_1277"; then
+  t80_pass "TC-00a2: #1277 patch block extracted from report (marker-anchored, non-empty)"
+else
+  t80_fail "TC-00a2: #1277 patch block extraction failed ($_T80_REPORT_1277)"
+fi
+
+if [ "$_T80_REAL_PATCHED_1277" = "1" ]; then
+  _T80_APPLY_ROUTE_1277="already-applied"
+  t80_pass "TC-00c2: real hook already carries #1277 — sandbox copy is fixed as-is (route=$_T80_APPLY_ROUTE_1277)"
+else
+  # pristine = #1234 適用済みの現在のサンドボックス複製（_t80_apply_patch は
+  # 再試行前に pristine へ書き戻すので、#1234 を巻き戻さないようここを渡す）
+  _T80_PRISTINE_1234="$_T80_TMP/pristine-1234.sh"
+  cp "$_T80_PSRC" "$_T80_PRISTINE_1234"
+  if _t80_apply_patch "$_T80_STAGE" "$_T80_PATCH_1277" "$_T80_PRISTINE_1234" \
+     && grep -qF "$_T80_MARK_1277" "$_T80_PSRC" \
+     && grep -q "$_T80_MARK" "$_T80_PSRC"; then
+    _T80_APPLY_ROUTE_1277="$_T80_APPLY_ROUTE"
+    t80_pass "TC-00c2: #1277 patch applies on top of #1234 and both markers survive (route=$_T80_APPLY_ROUTE_1277)"
+  else
+    _T80_APPLY_ROUTE_1277="$_T80_APPLY_ROUTE"
+    t80_fail "TC-00c2: #1277 patch failed to apply to sandbox copy (route=$_T80_APPLY_ROUTE_1277 rc=$_T80_APPLY_RC) — TC-05b/c/d と TC-08/M-WT* は信用できない"
   fi
 fi
 
@@ -675,6 +760,37 @@ _t80_run "$_T80_RHOOK" "$_T80_R/root/bin/plangate" "" "0"
 _t80_expect "TC-R03: 実 hook / repo 内 HO → block（対照 / mode 不問）" 2 "HARDENING_OVERRIDE" || true
 _t80_run "$_T80_RHOOK" "$_T80_R/root/docs/working/TASK-9999/plan.md" "" "0"
 _t80_expect "TC-R04: 実 hook / repo 内 plan.md → block（対照 / mode 不問）" 2 "plan.md edited without TASK context" || true
+
+# ── TC-R05〜R08: 実 hook の #1277（worktree HO bypass）─────────────
+# 期待は $_T80_FLAG_1277 に従う。gap 側は「今こう漏れている」を **具体的な
+# rc / token で固定**する（何も assert しない skip にしない）。
+printf '  -- real hook / #1277 (expect: %s) --\n' "$_T80_EXPECT_1277"
+
+_t80_run "$_T80_RHOOK" "$_T80_R/wt-ext/bin/plangate" "" "0"
+if [ "$_T80_EXPECT_1277" = "fixed" ]; then
+  _t80_expect "TC-R05: 実 hook / root 外 linked worktree の HO → block" 2 "HARDENING_OVERRIDE" || true
+else
+  _t80_expect "TC-R05(gap): 実 hook / root 外 linked worktree の HO → HO 判定されず従来判定 (#1277 未適用)" 2 "SKIP 拒否" || true
+fi
+
+_t80_run "$_T80_RHOOK" "$_T80_R/root/.claude/worktrees/wtn/bin/plangate" "" "0"
+if [ "$_T80_EXPECT_1277" = "fixed" ]; then
+  _t80_expect "TC-R06: 実 hook / root 配下 linked worktree の HO → block" 2 "HARDENING_OVERRIDE" || true
+else
+  _t80_expect "TC-R06(gap): 実 hook / root 配下 linked worktree の HO → HO 判定されず従来判定 (#1277 未適用)" 2 "SKIP 拒否" || true
+fi
+
+# #1277 の実害本体: worktree 配下の HO .md が doc-light に落ちて **rc=0 で通る**
+_t80_run "$_T80_RHOOK" "$_T80_R/root/.claude/worktrees/wtn/CLAUDE.md" "" "0"
+if [ "$_T80_EXPECT_1277" = "fixed" ]; then
+  _t80_expect "TC-R07: 実 hook / root 配下 linked worktree の HO .md → block" 2 "HARDENING_OVERRIDE" || true
+else
+  _t80_expect "TC-R07(gap): 実 hook / root 配下 linked worktree の HO .md → doc-light で素通り (#1277 の実害本体)" 0 "DOC_LIGHT_SKIP" || true
+fi
+
+# 非 HO の対照は gap / fixed 不問で不変（是正が正常系を壊さないこと）
+_t80_run "$_T80_RHOOK" "$_T80_R/root/.claude/worktrees/wtn/docs/note.md" "" "0"
+_t80_expect "TC-R08: 実 hook / worktree 配下の非 HO .md → DOC_LIGHT_SKIP（対照 / mode 不問）" 0 "DOC_LIGHT_SKIP" || true
 
 # ── 後片付け（trap は使わない / README 規約 1・2）────────────────────
 rm -rf "$_T80_TMP"
