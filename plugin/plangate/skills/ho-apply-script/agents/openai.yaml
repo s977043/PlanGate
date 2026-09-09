@@ -1,0 +1,7 @@
+interface:
+  display_name: "ho-apply-script"
+  short_description: "Hardening Override 対象パスへの patch を Human が安全に適用するための、検証つきスクリプト..."
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $ho-apply-script to assist with this project."
+  brand_color: "#1A56DB"
