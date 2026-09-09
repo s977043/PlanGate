@@ -3,8 +3,9 @@
 > **Status**: Phase 0 **MERGED**（PR #1273・Human C-4 DONE）/ Independent Review **DONE（R1 I1 ×2 + R2 I1 / `reviewed_at_sha` = `f8f1e8b8`。[`phase0-migration.md`](./phase0-migration.md) §7 が正本）** / Phase 0.1 **CANON_HARDENING**（#1275）
 > **North Star**: [`north-star.md`](./north-star.md)
 > **Migration**: [`phase0-migration.md`](./phase0-migration.md)
+> **Responsibility model**: [`loop-graph-harness.md`](./loop-graph-harness.md)
 
-ai-loop V2 は、既存 ai-loop の増築ではなく、**Verifier-driven Delivery Loop + Evidence-driven Evolution Loop** として再構築する。
+ai-loop V2 は、既存 ai-loop の増築ではなく、**Verifier-driven Delivery Loop + Evidence-driven Evolution Loop** として再構築する。Loop は feedback / convergence、Graph は coordination topology、Harness は両者を信頼可能に実行する環境として責務を分離し、Graph は coordination complexity が必要な箇所にのみ導入する。
 
 このディレクトリは V2 の思想・境界・移行判断の正本を置く。既存 `docs/ai/ai-loop/` と `docs/workflows/ai-loop/` は PoC / Legacy evidence として保持し、V2 へ暗黙継承しない。
 
@@ -19,7 +20,8 @@ V2 の Issue / Plan / PR は次の順に参照する。
    - [`harness-manifest.md`](./harness-manifest.md) — Harness identity と Runtime Activation 6 段階
    - [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) — Candidate 不可侵 authority / Independence Level / `INCONCLUSIVE`
    - [`artifact-responsibilities.md`](./artifact-responsibilities.md) — artifact 責務分離 / event projection / revision CAS
-4. Phase 1 以降で作る Architecture / Contract / State / Verification 文書
+4. [`loop-graph-harness.md`](./loop-graph-harness.md) — Loop / Graph / Harness の責務解釈。**North Star と companion canon に従属し、新しい正本・Graph runtime を作らない**
+5. Phase 1 以降で作る Architecture / Contract / State / Verification 文書
 
 ## Phase 0 / 0.1 rule
 
