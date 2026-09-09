@@ -2,6 +2,15 @@
 
 > **Status**: ai-loop V2 の責務解釈ガイド。正本は [`north-star.md`](./north-star.md) と companion canon であり、本書はそれらに従属する。
 > **Purpose**: Loop / Graph / Harness の境界を明確にし、二重正本や不要な Graph runtime を作らずに設計判断できるようにする。
+> **Derived from**: canon 6 本（`north-star.md` / `taxonomy.md` / `harness-manifest.md` / `evaluation-trust-boundary.md` / `artifact-responsibilities.md` / `phase0-migration.md`）@ `b1217b41`。**本書は canon ではないため `phase0-migration.md` §7 の canon 7 本には加えない。** 下記が `b1217b41` 以外を返したら canon が動いているので、§2 の責務表と §3 の境界規則を読み直すこと。
+>
+> ```sh
+> git log -1 --format=%h origin/main -- docs/ai/ai-loop-v2/north-star.md \
+>   docs/ai/ai-loop-v2/taxonomy.md docs/ai/ai-loop-v2/harness-manifest.md \
+>   docs/ai/ai-loop-v2/evaluation-trust-boundary.md \
+>   docs/ai/ai-loop-v2/artifact-responsibilities.md \
+>   docs/ai/ai-loop-v2/phase0-migration.md
+> ```
 
 ## 1. Core model
 
@@ -26,16 +35,20 @@ Loop と Graph は直交し、必要に応じて合成する。
 
 V2 の既存責務へ当てはめると次のようになる。
 
-| Concern | Primary responsibility | Canonical owner / reference |
+**本表が責務と owner の唯一の対応表である**（§7 で再掲しない）。
+
+| Concern | 責務 | Owner / 正本 |
 |---|---|---|
 | 1 Task を Evidence で `MERGE_READY` へ収束 | Loop | Delivery Loop / [`north-star.md`](./north-star.md) |
-| 複数 Run から Harness N+1 Candidate を作り評価 | Loop | Evolution Loop / #869 |
-| progress / retry / no-progress / stop | Loop | #894 |
-| branch / join / durable wait / resume / recovery | Graph | #1025 / #911 |
-| node 遷移の妥当性評価 | Graph + Evaluation | #908 |
+| 複数 Run から Harness N+1 Candidate を作り評価（Harness Evolution） | Loop | Evolution Loop / #869 |
+| stop / progress / retry strategy | Loop | #894 / [`north-star.md`](./north-star.md) §8 |
+| durable state / Human interrupt / wait-resume / recovery | Graph + Harness | #1025 |
+| Work Item Graph / intent-to-execution structure（branch / join） | Graph | #911 |
+| node 遷移の妥当性評価（Trajectory evaluation） | Graph + Evaluation | #908 |
 | RunEvidence / failure evidence | Harness evidence | #874 / [`artifact-responsibilities.md`](./artifact-responsibilities.md) |
 | Harness identity / activation | Harness | [`harness-manifest.md`](./harness-manifest.md) |
 | evaluator / protected authority | Harness trust boundary | [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) |
+| Canon / Trust Boundary の維持 | Harness canon | #1275 + V2 companion canon |
 
 ## 3. Boundary rules
 
@@ -120,21 +133,17 @@ Harness -> Loop -> Graph -> Model -> External
 
 これは診断順序の heuristic であり、新しい persisted failure taxonomy ではない。FailureRecord / RunEvidence の schema は companion canon と #874 を正とする。
 
-## 7. Existing owner mapping
+## 7. Precedence
 
 Issue #923 は Harness / Loop / Graph の横断整理を提案したが、実装責務が既存 Issue に存在するため **SUPERSEDED** で close 済みである。本書は #923 を reopen せず、概念の解釈だけを残す。
 
-| Concern | Existing owner |
-|---|---|
-| Stop / progress / retry strategy | #894 |
-| Durable state / Human interrupt / resume | #1025 |
-| RunEvidence / failure evidence | #874 |
-| Trajectory evaluation | #908 |
-| Work Item Graph / intent-to-execution structure | #911 |
-| Harness Evolution | #869 |
-| Canon / Trust Boundary | #1275 + V2 companion canon |
+owner と正本の対応は **§2 の表が唯一**である。ここで再掲しない（2 箇所を同期し続ける状態を作らないため）。
 
-具体的な Contract が owner 側で定義された場合は、owner 側を正とする。
+優先順位は次のとおり。
+
+1. **owner 側で具体的な Contract が定義されたら owner 側を正とする**
+2. canon（`north-star.md` と companion canon）が本書と食い違ったら **canon を正とし、本書を直す**
+3. 本書は 1 / 2 のいずれも定めていない範囲の**解釈**だけを持つ
 
 ## 8. Non-goals
 
