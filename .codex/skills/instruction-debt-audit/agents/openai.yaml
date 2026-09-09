@@ -1,0 +1,7 @@
+interface:
+  display_name: "instruction-debt-audit"
+  short_description: "AIエージェント設定の instruction debt を監査し、不要なコンテキスト読込、過剰発火、重複・矛盾、曖昧な権..."
+  icon_small: "./assets/plangate-small.svg"
+  icon_large: "./assets/plangate-small.svg"
+  default_prompt: "Use $instruction-debt-audit to assist with this project."
+  brand_color: "#1A56DB"
