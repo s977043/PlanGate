@@ -1,275 +1,166 @@
 # ai-loop V2 — Loop / Graph / Harness Responsibility Model
 
-> **Status**: Interpretation guide for ai-loop V2 architecture. This document is subordinate to [`north-star.md`](./north-star.md), [`taxonomy.md`](./taxonomy.md), [`harness-manifest.md`](./harness-manifest.md), [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md), and [`artifact-responsibilities.md`](./artifact-responsibilities.md).
-> **Purpose**: Make the responsibility boundary between Loop, Graph, and Harness explicit without creating a second source of truth or introducing a new Graph runtime.
+> **Status**: ai-loop V2 の責務解釈ガイド。正本は [`north-star.md`](./north-star.md) と companion canon であり、本書はそれらに従属する。
+> **Purpose**: Loop / Graph / Harness の境界を明確にし、二重正本や不要な Graph runtime を作らずに設計判断できるようにする。
 
-## 1. Core statement
+## 1. Core model
 
-ai-loop V2 treats Loop, Graph, and Harness as different architectural concerns.
+ai-loop V2 では Loop / Graph / Harness を、置換関係ではなく異なる責務として扱う。
 
 > **Loop is the unit of feedback and convergence. Graph is the unit of coordination topology. Harness is the execution environment that makes both reliable.**
 
-They are not a maturity ladder such as `Harness -> Loop -> Graph`, and Graph does not replace Loop.
+- **Loop**: Evidence を観測し、進捗を判断し、repair / replan / stop しながら bounded goal へ収束させる。
+- **Graph**: node / edge / branch / join / wait / resume / recovery を通じて、複数責務の実行順序と遷移を明示する。
+- **Harness**: context / tool / permission / state primitive / verifier / policy / budget / observability を提供し、Loop と Graph を安全・再現可能に実行する。
 
-- **Loop** answers: how does work observe evidence, decide progress, repair or replan, and stop?
-- **Graph** answers: what runs next, what may run in parallel, where does execution branch or join, and where can it wait, resume, recover, or escalate?
-- **Harness** answers: under what context, tools, permissions, state, policy, verifier, budget, and observability can that work run safely and reproducibly?
+`Prompt -> Context -> Harness -> Loop -> Graph` を成熟度や年代順として扱わない。Graph は Loop を置き換えない。
 
-These concerns are composable.
+## 2. Composition rules
 
-- A Graph may contain multiple Loops.
-- A Loop may traverse multiple Graph nodes.
-- A Loop can itself be treated as a node in a larger Graph.
-- A node does not need to be an Agent or LLM; it may be deterministic code, a tool, a verifier, a gate, a Human action, or another Loop.
+Loop と Graph は直交し、必要に応じて合成する。
 
-## 2. Responsibility boundaries
+- Graph は複数の Loop を含められる。
+- Loop は複数の Graph node を巡回できる。
+- Loop 自体を、より大きな Graph の node として扱える。
+- node は Agent / LLM に限定しない。deterministic code / tool / verifier / gate / Human action / another Loop も node になれる。
 
-### Loop Engineering
+V2 の既存責務へ当てはめると次のようになる。
 
-Loop Engineering owns evidence-based convergence toward a bounded goal.
+| Concern | Primary responsibility | Canonical owner / reference |
+|---|---|---|
+| 1 Task を Evidence で `MERGE_READY` へ収束 | Loop | Delivery Loop / [`north-star.md`](./north-star.md) |
+| 複数 Run から Harness N+1 Candidate を作り評価 | Loop | Evolution Loop / #869 |
+| progress / retry / no-progress / stop | Loop | #894 |
+| branch / join / durable wait / resume / recovery | Graph | #1025 / #911 |
+| node 遷移の妥当性評価 | Graph + Evaluation | #908 |
+| RunEvidence / failure evidence | Harness evidence | #874 / [`artifact-responsibilities.md`](./artifact-responsibilities.md) |
+| Harness identity / activation | Harness | [`harness-manifest.md`](./harness-manifest.md) |
+| evaluator / protected authority | Harness trust boundary | [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) |
 
-Typical responsibilities:
+## 3. Boundary rules
 
-- goal / contract for one feedback cycle
-- observe -> evaluate -> repair / replan -> verify
-- progress detection
-- repeated-failure / oscillation / no-progress detection
-- iteration / time / token / cost budget
-- evidence-based stop conditions
-- escalation when the contract cannot be satisfied safely
+責務が重なる箇所では、次で分ける。
 
-A Loop is not equivalent to retry. Repeating the same action without new evidence or strategy change is not progress.
+### Loop owns convergence semantics
 
-Canonical V2 owners:
-
-- Delivery Loop: one Task / Run -> `MERGE_READY`
-- Evolution Loop: multiple RunEvidence -> Harness Candidate -> evaluation -> Promotion Ready
-- stop / progress contract: #894
-
-### Graph Engineering
-
-Graph Engineering owns explicit control topology and durable transitions between responsibilities.
-
-Typical responsibilities:
-
-- node / edge definition
-- conditional branch
-- parallel execution and join
-- independent role handoff
-- Human / External interrupt and resume
-- recovery / rollback path
-- durable current position and transition reason
-- orchestration of multiple Loops, Agents, tools, verifiers, and gates
-
-Graph is introduced for coordination complexity, not because a task uses AI.
-
-Canonical V2 owners:
-
-- durable state / interrupt / resume: #1025
-- Work Item Graph / intent-to-execution structure: #911
-- trajectory evaluation of transitions: #908
-
-### Harness Engineering
-
-Harness Engineering owns the runtime conditions that make Loop and Graph execution trustworthy.
-
-Typical responsibilities:
-
-- Prompt / project instructions
-- context selection / retrieval / compression / handoff
-- Skill / Agent definitions
-- tools / sandbox / permissions
-- model and effort routing
-- verifier set and evaluation harness
-- policy / approval / Human-owned boundaries
-- budget policy
-- durable state primitives and checkpoints
-- RunEvent / RunEvidence collection
-- Harness identity and activation evidence
-- observability / logs / traces
-
-Canonical V2 owners include:
-
-- Harness identity: [`harness-manifest.md`](./harness-manifest.md)
-- Evaluation authority: [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md)
-- artifact responsibilities: [`artifact-responsibilities.md`](./artifact-responsibilities.md)
-- Harness evolution: #869
-
-## 3. ai-loop V2 mapping
-
-### Delivery
-
-The Delivery concern is a Loop because it must converge one Task to a bounded terminal outcome using evidence.
-
-Its execution topology may be represented as a Graph when coordination requires explicit transitions.
+Loop は「次に何をすべきか」のうち、Evidence と Contract に基づく収束判断を持つ。
 
 ```text
-Request
-  -> Plan
-  -> Plan Verification
-  -> Plan Gate
-  -> Execute
-  -> Verify
-       FAIL -> Diagnose
-                  -> Plan still valid? -- yes --> Repair ----┐
-                                      \-- no  --> Replan     |
-                                                   -> Plan Verification
-                                                   -> Plan Gate
-                                                          |  |
-                                                          +--+
-  -> Verify PASS
-  -> PR Convergence
-  -> MERGE_READY
+continue | repair | replan | stop / escalate
 ```
 
-`WAITING_HUMAN`, `WAITING_EXTERNAL`, recovery, and resume are Graph/state concerns. Whether execution should continue, repair, replan, stop, or escalate remains a Loop decision based on evidence and contract state.
+単なる `retry < N` は Loop ではない。Iteration 間で progress / evidence delta / failure fingerprint を比較する原則は [`north-star.md`](./north-star.md) §8 を正とする。
 
-### Evolution
+### Graph owns coordination topology
 
-The Evolution concern is a separate Loop operating across multiple Delivery Runs.
+Graph は「どの責務へ遷移するか」を明示する。
 
 ```text
-RunEvidence corpus
-  -> Retrospective
-  -> Pattern / Friction / Success
-  -> Improvement Hypothesis
-  -> Harness Candidate
-  -> Experiment
-  -> Independent Evaluation
-  -> Canary
-  -> Promotion Ready
-  -> Human Decision
-  -> Harness N+1
+node -> edge -> node
+      branch / join / wait / resume / recovery
 ```
 
-When Candidate creation, independent evaluation, canary, Human decision, and rollback require different roles or execution paths, the Evolution Loop may use a Graph topology internally.
+Graph の node 到達だけでは、その node の Contract が満たされた証拠にならない。完了判定は Verifier / Evidence / Gate の責務を維持する。
 
-The Graph does not weaken the Evolution Trust Boundary:
+### Harness owns reliable execution conditions
 
-> Candidate cannot modify the authority that judges the candidate.
+Harness は Graph state の意味そのものではなく、state を安全に保存・復元する primitive や runtime 条件を提供する。
+
+- Graph: `current_node`, transition, waiting / recovery path の意味
+- Harness: persistence, checkpoint, CAS, tool / permission, verifier availability, activation evidence
+
+Active Run 中の Harness identity は [`harness-manifest.md`](./harness-manifest.md) に従い固定する。
 
 ## 4. Minimum topology principle
 
-Start with the smallest control structure that can satisfy the contract safely.
+**まず最小の制御構造を選ぶ。** AI を使うこと自体は Graph 導入理由にならない。
 
-Prefer a single Loop when all of the following are true:
+単一 Loop を優先する条件:
 
-- one bounded goal
-- mostly linear execution
-- one responsibility context is sufficient
-- no meaningful parallel branch / join
-- no durable Human / External wait and resume
-- no independent trust domain requiring a separate execution path
-- recovery can be expressed as repair / replan inside the same Loop
+- bounded goal が 1 つ
+- 実行がほぼ線形
+- meaningful な parallel / join がない
+- durable Human / External wait-resume がない
+- 独立した trust domain への handoff が不要
+- failure を同一 Loop 内の repair / replan で表現できる
 
-Introduce explicit Graph structure when one or more of the following materially improves correctness or recoverability:
+明示的な Graph を導入する条件:
 
-- conditional branches have different contracts or permissions
-- parallel work must join under an explicit condition
-- Planner / Builder / Verifier / Decision Engine require durable handoff
-- Human / External wait must survive process or session loss
-- independent reviewers or evaluators must be isolated
-- recovery / rollback has a distinct path
-- multiple sub-Loops need orchestration
+- branch ごとに Contract / permission が異なる
+- parallel work を明示的な join 条件で収束させる必要がある
+- Planner / Builder / Verifier / Decision Engine 間の handoff を durable にする必要がある
+- Human / External wait を session / process loss を越えて resume する必要がある
+- independent reviewer / evaluator を別 trust path として隔離する必要がある
+- recovery / rollback が通常経路と異なる
+- 複数の sub-Loop を orchestration する必要がある
 
 > **Do not graph what a single Loop can express clearly. Do not hide real coordination complexity inside one opaque Loop.**
 
-## 5. Node and edge rules
+## 5. Graph safety invariants
 
-When Graph structure is used:
+Graph を使う場合も、V2 の既存 invariant を弱めない。
 
-1. **Nodes have one primary responsibility.** Avoid nodes that plan, build, verify, and decide at the same time.
-2. **Edges are explicit decisions.** A transition must be attributable to evidence, policy, or a Human / External event.
-3. **State is durable where interruption matters.** Session memory or a live process is not the source of truth for resumable execution.
-4. **Join conditions are explicit.** Parallel work is not complete merely because all workers report completion.
-5. **Failure paths are first-class.** Retry, repair, replan, wait, escalate, rollback, and stop must not be hidden exceptional behavior.
-6. **Human-owned edges remain Human-owned.** Graph orchestration must not convert C-4, merge, policy, permission, First Principles, or Production Harness promotion into AI-owned transitions.
-7. **Verifier evidence is not replaced by routing.** Reaching a Graph node does not prove that the node's contract was satisfied.
+1. node は primary responsibility を明確にし、plan / build / verify / decide を無制限に同居させない。
+2. non-trivial edge は Evidence / Policy / Human or External event のいずれかに根拠を持つ。
+3. interruption が重要な state は conversation history や live process を正本にしない。
+4. parallel work の完了は worker の自己申告ではなく join condition と Evidence で判定する。
+5. retry / repair / replan / wait / escalate / rollback / stop を暗黙の例外経路にしない。
+6. C-4 / Merge / policy / permission / First Principles / Production Harness promotion の Human-owned authority は Graph edge によって AI-owned へ変換しない。
+7. Candidate は Graph を変更しても、自分を裁く authority を変更できない。
 
-## 6. Failure diagnosis
+> **Candidate cannot modify the authority that judges the candidate.**
 
-Do not attribute failure to the Model before checking the surrounding system.
+## 6. Diagnosis heuristic
 
-Use this order as a diagnostic heuristic, not a new persisted taxonomy:
+失敗を Model に帰属する前に、周辺システムを確認する。
 
-1. **Harness** — context, tool, permission, runtime activation, state, verifier availability, evidence collection
-2. **Loop** — progress criteria, evaluation contract, repair strategy, stop condition, budget
-3. **Graph** — missing / incorrect edge, branch, join, interrupt, resume, recovery path
-4. **Model** — reasoning, instruction following, tool use, or task capability remains insufficient after the above are valid
-5. **External** — GitHub, CI, API, network, or another external dependency
+```text
+Harness -> Loop -> Graph -> Model -> External
+```
 
-Persisted failure fields and RunEvidence responsibilities remain owned by the V2 artifact contracts and #874; this section must not create a parallel failure schema.
+これは診断順序の heuristic であり、新しい persisted failure taxonomy ではない。FailureRecord / RunEvidence の schema は companion canon と #874 を正とする。
 
-## 7. Design review questions
+## 7. Existing owner mapping
 
-For a V2 Plan / PR that changes orchestration, answer the following in addition to the North Star review questions.
-
-### Loop
-
-- What bounded goal is the Loop converging toward?
-- What evidence demonstrates progress?
-- What causes repair, replan, escalation, or stop?
-- How is no-progress distinguished from ordinary retry?
-
-### Graph
-
-- Why is an explicit Graph needed instead of one Loop?
-- What are the nodes and their primary responsibilities?
-- What evidence or event authorizes each non-trivial edge?
-- Are branch, join, wait, resume, recovery, and rollback paths explicit where needed?
-- Can the current position be recovered without conversation history or a live process?
-
-### Harness
-
-- Which HarnessManifest identity is executing the Loop / Graph?
-- Which context, tools, permissions, verifiers, policies, and budgets are active?
-- Can activation and influence be proven rather than inferred from file presence?
-- Does the change touch a protected authority or Human-owned boundary?
-
-## 8. Relationship to existing work
-
-Issue #923 previously proposed a cross-cutting Harness / Loop / Graph classification. It was closed as **SUPERSEDED** because implementation responsibility already belonged to lower-level issues. This document does not reopen that architecture EPIC.
-
-The existing ownership remains:
+Issue #923 は Harness / Loop / Graph の横断整理を提案したが、実装責務が既存 Issue に存在するため **SUPERSEDED** で close 済みである。本書は #923 を reopen せず、概念の解釈だけを残す。
 
 | Concern | Existing owner |
 |---|---|
 | Stop / progress / retry strategy | #894 |
-| Durable workflow state / Human interrupt / resume | #1025 |
+| Durable state / Human interrupt / resume | #1025 |
 | RunEvidence / failure evidence | #874 |
 | Trajectory evaluation | #908 |
-| Work Item Graph / context-to-execution structure | #911 |
+| Work Item Graph / intent-to-execution structure | #911 |
 | Harness Evolution | #869 |
-| Canon hardening / trust boundaries | #1275 and V2 companion canon |
+| Canon / Trust Boundary | #1275 + V2 companion canon |
 
-If those owners define a more specific contract, the specific contract wins. This document provides responsibility interpretation only.
+具体的な Contract が owner 側で定義された場合は、owner 側を正とする。
 
-## 9. Non-goals
+## 8. Non-goals
 
-- introducing LangGraph or another Graph framework as a dependency
-- creating a new generic Graph runtime before a concrete V2 requirement needs it
-- graphifying every workflow
-- replacing Delivery Loop or Evolution Loop terminology
-- creating a second state / outcome / stop-reason taxonomy
-- moving verification responsibility from Verifier / Gate to Graph routing
-- weakening Human-owned authority
-- treating `Prompt -> Context -> Harness -> Loop -> Graph` as a chronological maturity ladder
+- LangGraph 等の特定 Graph framework を導入すること
+- concrete requirement より先に generic Graph runtime を作ること
+- 全 workflow を Graph 化すること
+- Delivery Loop / Evolution Loop の用語を Graph に置き換えること
+- state / outcome / stop reason / failure schema を本書で再定義すること
+- Graph routing を Verifier / Gate の代替にすること
+- Human-owned authority を縮小すること
 
-## 10. Working rule
+## 9. Working rule
 
-When architecture becomes ambiguous, use these three questions:
+設計責務に迷ったときは、次の 3 問で判断する。
 
 ```text
-How does this work converge and stop?      -> Loop
-What coordinates the next transition?     -> Graph
-What makes execution reliable and safe?   -> Harness
+How does this work converge and stop?    -> Loop
+What coordinates the next transition?   -> Graph
+What makes execution reliable and safe? -> Harness
 ```
 
-Then keep the implementation in the smallest existing owner that can satisfy the requirement.
+そのうえで、要件を満たせる**最小の既存 owner**へ実装責務を置く。
 
 ## References
 
-Informative only; repository canon takes precedence.
+Informative only. Repository canon takes precedence.
 
 - #923 — Harness / Loop / Graph Engineering responsibility separation (SUPERSEDED)
 - https://x.com/Sumanth_077/status/2097689190712692965 — Loop vs Graph Engineering discussion
