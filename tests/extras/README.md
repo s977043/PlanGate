@@ -172,6 +172,30 @@ rc=$?; b=$(basename "$f"); printf '%s rc=%s\n' "$b" "$rc"   # OK
 
 これで fixture の rc を 3 本とも 0 と誤測し、「検査器が壊れている」と誤結論しかけた。
 
+## `.md` を編集したら diff が純追加か確認する（formatter 対策）
+
+PostToolUse の整形が走る環境では、**1 行足しただけでファイル全体が再整形され**、
+既存の表・強調記法が書き換わって diff が数百行に膨らむ。既存行に lint エラー
+（MD049 等）を新たに発生させることもある。
+
+```sh
+git diff --numstat origin/main -- <path>     # 追記のみなら "N 0" になるはず
+```
+
+削除行が出たら **原本へ戻して追記ブロックだけを再適用**する:
+
+```sh
+git show origin/main:<path> > <path>         # 原本へ戻す
+# 追記ブロックを再適用（sed/awk ではなく、退避しておいたブロックを挿入）
+git diff --numstat origin/main -- <path>     # "N 0" を再確認
+```
+
+**commit の直前にもう一度確認すること** — `git add` と `git commit` の間に整形が
+走ることがある（2026-09-09 に 2 回踏み、うち 1 回は commit 後に amend で是正）。
+
+lint も**原本と同じ条件**で測る。編集中のファイルを直接 lint すると、その実行自体が
+整形を誘発して結果が変わる。`cp` してから lint するのが確実。
+
 ## 関連
 
 - 親 issue: [#170](https://github.com/s977043/plangate/issues/170)
