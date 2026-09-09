@@ -124,7 +124,8 @@ v1 が書いていた「11 ファイルの drift」は **`d805aba0`（PR #1305�
 | 穴                                                                                                                                                       | 塞いだか   | 根拠                                                                                                                                                                                                                                                                          |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **bot の PR が CI で検査されない**（`GITHUB_TOKEN` 由来のイベントは workflow を起動しない）→ 改竄された installer の出力がそのまま main 行きの PR になる | **塞いだ** | 再生成の直後に **installer 非依存の byte 照合**（canon の `SKILL.md` **と `references/*.md`** ↔ mirror）を bot 出力へ掛けるステップを追加。positive control 3 クラスで実測（§5.2）                                                                                            |
-| `rm -rf .codex/skills` を **書き込み権限のある job** で実行 → installer が途中失敗すると「大量削除 PR」になる                                            | **塞いだ** | `rm -rf` と installer は**同一ステップ**。GitHub Actions の既定シェルは `bash -eo pipefail` で、installer が非ゼロなら**そのステップで job が失敗**し、後続の commit / PR 作成ステップは実行されない。`--json` 経路でも installer 本体の `set -eu` は生きている（§9 major-1） |
+| `rm -rf .codex/skills` を **書き込み権限のある job** で実行 → installer が途中失敗すると「大量削除 PR」になる                                            | **塞いだ（非ゼロを返す失敗に限る）** | `rm -rf` と installer は**同一ステップ**。GitHub Actions の既定シェルは `bash -eo pipefail` で、installer が非ゼロなら**そのステップで job が失敗**し、後続の commit / PR 作成ステップは実行されない。`--json` 経路でも installer 本体の `set -eu` は生きている（§9 major-1） **ただし「rc=0 で 0 件処理した」経路は別**（次行）。 |
+| **canon（`.agents/skills/*/`）が空でも installer が rc=0 を返す**（rename / bad merge / `.gitignore` 事故。`--json` 経路は `total_processed:0` で rc=0。非 JSON 経路は rc=1 だった） | **塞いだ** | gate に**件数の positive control** を置いた。`_n_cmp -eq 0` なら `::error::canon set (.agents/skills/*/) is empty -- refusing to publish a deletion PR` で rc=1。実測: 正常系 `compared=43` rc=0 / canon 消失 `compared=0` rc=1。これが無いと bot が `.codex/skills` を**全削除する PR**（83 件の `D`）を出し、その PR は `GITHUB_TOKEN` 由来のため `pull_request` workflow（層 1・層 2）を起動せず、**誰も検査しないまま C-4 に届く** |
 | 差分判定が `git diff` のままだと、再生成で**新規に生えたファイル（`??`）を取りこぼす**                                                                   | **塞いだ** | `.codex` 側は `git status --porcelain -- .codex/skills/`（`agents/openai.yaml` 除外）で判定（`M` / `D` / `??` の 3 クラス）。両値の実測は §5.3                                                                                                                                |
 | **bot が curated な `agents/openai.yaml` を生成値へ差し戻す PR を出す**（`fef879df` の退行の再導入）                                                     | **塞いだ** | `Check for changes` / `git add -A` の両方で `:(exclude).codex/skills/*/agents/openai.yaml` を指定。実測: `git add -A` 後の `git diff --cached --name-only` が空、`git status` には unstaged の `M` として openai.yaml が残る（＝stage されていない）                                        |
 | `paths` を触ることで ta-71 TC-20 / TC-22 の KNOWN-GAP 台帳が壊れる                                                                                       | **塞いだ** | 追加は両側対称の 1 パターンのみ。宣言済み gap 集合を 1 件も被覆しない。実測 27 passed / 0 failed（§6）                                                                                                                                                                        |
@@ -215,7 +216,7 @@ $ git status --porcelain -- .codex/skills/
 | `git apply --check /tmp/1288-layer2-pushlane.patch`    | **0**                                                                  | 当たる       |
 | `git apply --check -R /tmp/1288-layer2-pushlane.patch` | **1**（`patch failed: .github/workflows/sync-plugin-plangate.yml:16`） | 入っていない |
 
-`git apply --numstat`: `86  4  .github/workflows/sync-plugin-plangate.yml`
+`git apply --numstat`: `99  4  .github/workflows/sync-plugin-plangate.yml`
 
 ---
 
@@ -231,14 +232,14 @@ awk 'BEGIN{q=sprintf("%c",96)} /^<!-- PG-PATCH-BEGIN -->$/{b=1;next} /^<!-- PG-P
   docs/working/_reports/1288-ci-layer2-and-push-lane-patch.md \
   > /tmp/1288-layer2-pushlane.patch
 git apply --check /tmp/1288-layer2-pushlane.patch
-git apply --numstat /tmp/1288-layer2-pushlane.patch    # 86  4  .github/workflows/sync-plugin-plangate.yml
+git apply --numstat /tmp/1288-layer2-pushlane.patch    # 99  4  .github/workflows/sync-plugin-plangate.yml
 ```
 
 <!-- PG-PATCH-BEGIN -->
 
 ```diff
 diff --git a/.github/workflows/sync-plugin-plangate.yml b/.github/workflows/sync-plugin-plangate.yml
-index a872da40..207c7353 100644
+index a872da40..6626f65c 100644
 --- a/.github/workflows/sync-plugin-plangate.yml
 +++ b/.github/workflows/sync-plugin-plangate.yml
 @@ -16,6 +16,7 @@ on:
@@ -298,7 +299,7 @@ index a872da40..207c7353 100644
    sync:
      if: github.event_name != 'pull_request'
      permissions:
-@@ -130,10 +166,54 @@ jobs:
+@@ -130,10 +166,67 @@ jobs:
        - name: Run sync script
          run: sh scripts/sync-plugin-plangate.sh
  
@@ -322,10 +323,18 @@ index a872da40..207c7353 100644
 +      - name: Verify regenerated tree matches canon (installer-independent)
 +        run: |
 +          rc=0
++          # 比較した件数を数える。canon が空（.agents/skills の rename / bad merge /
++          # .gitignore 事故）のとき installer は --json 経路で rc=0 を返し、この
++          # ループも空回りして rc=0 になる。その状態で後続の `git add -A` が走ると
++          # bot は .codex/skills を全削除する PR を出す。その PR は GITHUB_TOKEN 由来
++          # なので pull_request workflow（層 1・層 2）を起動せず、誰も検査しないまま
++          # C-4 に届く。件数の positive control でその経路を塞ぐ。
++          _n_cmp=0
 +          for _d in .agents/skills/*/; do
 +            _n=$(basename "$_d")
 +            for _c in "${_d}SKILL.md" "${_d}references"/*.md; do
 +              [ -f "$_c" ] || continue
++              _n_cmp=$((_n_cmp + 1))
 +              _b=$(basename "$_c")
 +              case "$_c" in
 +                *references/*) _m=".codex/skills/$_n/references/$_b" ;;
@@ -340,6 +349,11 @@ index a872da40..207c7353 100644
 +              fi
 +            done
 +          done
++          if [ "$_n_cmp" -eq 0 ]; then
++            echo "::error::canon set (.agents/skills/*/) is empty -- refusing to publish a deletion PR"
++            rc=1
++          fi
++          echo "compared=$_n_cmp"
 +          exit "$rc"
 +
        - name: Check for changes
@@ -354,7 +368,7 @@ index a872da40..207c7353 100644
              echo "changed=false" >> "$GITHUB_OUTPUT"
            else
              echo "changed=true" >> "$GITHUB_OUTPUT"
-@@ -149,10 +229,12 @@ jobs:
+@@ -149,10 +242,12 @@ jobs:
            git config user.email "github-actions[bot]@users.noreply.github.com"
            git checkout -b "$branch"
            git add plugin/plangate/
@@ -434,6 +448,9 @@ rm -rf .codex/skills
 sh scripts/install-plangate-skills-to-codex.sh --force --json >/dev/null
 git status --porcelain -- .codex/skills/ ':(exclude).codex/skills/*/agents/openai.yaml'   # 空であること
 sh tests/extras/ta-71-ci-static-lint.sh       # 27 passed / 0 failed
+
+# curated な openai.yaml は上の --force で生成値へ戻るので復元する
+git checkout -- .codex/skills/*/agents/openai.yaml
 ```
 
 > 手順 3 で `rm -rf` を伴う再生成をローカルで行うと、curated な
