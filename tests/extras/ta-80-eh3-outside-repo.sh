@@ -153,6 +153,16 @@ _t80_mkfixture() {
   printf 'print(1)\n' > "$_t80_fx_root/scripts/foo.py"
   printf 'worktree claude\n' > "$_t80_fx_root/.claude/worktrees/x/CLAUDE.md"
   printf '../..\n' > "$_t80_fx_root/.git/worktrees/wt/commondir"
+  # (#1277) root **配下** の linked worktree（本 repo の実運用形態 .claude/worktrees/<name>/）。
+  # TC-05a の `worktrees/x` は .git を持たない単なるディレクトリで、名前だけでは
+  # worktree 扱いしないことの対照。
+  mkdir -p "$_t80_fx_root/.git/worktrees/wtn" "$_t80_fx_root/.claude/worktrees/wtn/bin" \
+    "$_t80_fx_root/.claude/worktrees/wtn/docs"
+  printf '../..\n' > "$_t80_fx_root/.git/worktrees/wtn/commondir"
+  printf 'gitdir: %s/.git/worktrees/wtn\n' "$_t80_fx_root" > "$_t80_fx_root/.claude/worktrees/wtn/.git"
+  printf 'nested worktree claude\n' > "$_t80_fx_root/.claude/worktrees/wtn/CLAUDE.md"
+  printf '#!/bin/sh\n' > "$_t80_fx_root/.claude/worktrees/wtn/bin/plangate"
+  printf 'nested doc\n' > "$_t80_fx_root/.claude/worktrees/wtn/docs/note.md"
   printf 'gitdir: %s/.git/worktrees/wt\n' "$_t80_fx_root" > "$1/wt-ext/.git"
   printf 'worktree claude\n' > "$1/wt-ext/CLAUDE.md"
   printf '#!/bin/sh\n' > "$1/wt-ext/bin/plangate"
@@ -407,11 +417,20 @@ _t80_expect "TC-04b: 未存在 dir 経由の .. → #1101 の字句判定で blo
 _t80_run "$_T80_PHOOK" "$_T80_P/outside/newdir/../x.html" "" "0"
 _t80_expect "TC-04c: 未存在 dir 経由の .. (UNSURE) → 縮退（従来判定）" 2 "SKIP 拒否" || true
 
-# TC-05: worktree（#1277 を解決も悪化もさせない）
+# TC-05: worktree（#1277）
+# 名前が `.claude/worktrees/x` でも .git を持たなければ worktree ではない = 従来判定のまま。
 _t80_run "$_T80_PHOOK" "$_T80_PROOT/.claude/worktrees/x/CLAUDE.md" "" "0"
-_t80_expect "TC-05a: root 配下 worktree HO .md → #1277 のまま (DOC_LIGHT_SKIP)" 0 "DOC_LIGHT_SKIP" || true
+_t80_expect "TC-05a: .git 無しの worktrees/x（worktree ではない）→ DOC_LIGHT_SKIP" 0 "DOC_LIGHT_SKIP" || true
 _t80_run "$_T80_PHOOK" "$_T80_P/wt-ext/bin/plangate" "" "0"
-_t80_expect "TC-05b: root 外 linked worktree → WORKTREE 縮退（SKIP しない）" 2 "SKIP 拒否" || true
+_t80_expect "TC-05b: root 外 linked worktree の HO → block (#1277)" 2 "HARDENING_OVERRIDE" || true
+_t80_run "$_T80_PHOOK" "$_T80_PROOT/.claude/worktrees/wtn/bin/plangate" "" "0"
+_t80_expect "TC-05c: root 配下 linked worktree の HO → block (#1277 本体)" 2 "HARDENING_OVERRIDE" || true
+_t80_run "$_T80_PHOOK" "$_T80_PROOT/.claude/worktrees/wtn/CLAUDE.md" "" "0"
+_t80_expect "TC-05d: root 配下 linked worktree の HO .md → block（doc-light に落ちない）" 2 "HARDENING_OVERRIDE" || true
+_t80_run "$_T80_PHOOK" "$_T80_PROOT/.claude/worktrees/wtn/docs/note.md" "" "0"
+_t80_expect "TC-05e: root 配下 linked worktree の非 HO .md → DOC_LIGHT_SKIP（不変）" 0 "DOC_LIGHT_SKIP" || true
+_t80_run "$_T80_PHOOK" "$_T80_P/wt-ext/x.html" "" "0"
+_t80_expect "TC-05f: root 外 linked worktree の非 HO → 従来判定（SKIP 拒否 / 不変）" 2 "SKIP 拒否" || true
 
 # TC-06: (ii) と (ii-b) の 9 カテゴリ行がバイト一致（positive control 付き）
 _t80_cmp_cases() {
@@ -554,8 +573,13 @@ elif mut == "M5":
 elif mut == "M-LEX":
     s = s.replace('[ "$_pg_lex_outside" = "1" ] && ', '', 1)
 elif mut == "M-WT":
-    s = s.replace("if root_common is not None and common_dir(d) == root_common:",
-                  "if False:", 1)
+    s = s.replace(
+        "if d != root and root_common is not None and common_dir(d) == root_common:",
+        "if False:", 1)
+elif mut == "M-WT2":
+    i = s.index('  WORKTREE\\|*) _phys_target="${_pg_contain#WORKTREE|}" ;;\n')
+    j = i + len('  WORKTREE\\|*) _phys_target="${_pg_contain#WORKTREE|}" ;;\n')
+    s = s[:i] + s[j:]
 else:
     sys.exit(9)
 open(tgt, "w", encoding="utf-8").write(s)
@@ -592,7 +616,8 @@ _t80_mut_case M3    "TC-01e" "@BASE@/outside/scratch.html" "TASK-9999" "0" 0 "c3
 _t80_mut_case M4    "TC-03b" "@BASE@/outside/x.md" "" "0" 2 "HARDENING_OVERRIDE"
 _t80_mut_case M5    "TC-03c" "@BASE@/outside/y.md" "" "0" 2 "resolves to"
 _t80_mut_case M-LEX "TC-04a" "@BASE@/linkdir/../root/CLAUDE.md" "" "0" 2 "HARDENING_OVERRIDE"
-_t80_mut_case M-WT  "TC-05b" "@BASE@/wt-ext/bin/plangate" "" "0" 2 "SKIP 拒否"
+_t80_mut_case M-WT  "TC-05b" "@BASE@/wt-ext/bin/plangate" "" "0" 2 "HARDENING_OVERRIDE"
+_t80_mut_case M-WT2 "TC-05c" "@ROOT@/.claude/worktrees/wtn/bin/plangate" "" "0" 2 "HARDENING_OVERRIDE"
 
 # ── TC-09: python3 不在（degrade-to-base）──────────────────────────
 _T80_PBIN="$_T80_TMP/nopy-bin"
