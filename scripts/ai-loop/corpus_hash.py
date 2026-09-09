@@ -39,6 +39,14 @@ docs/workflows/ai-loop/rollout-policy.md §2 の carve-out (1)(2)(3) は
 含めないものと理由は EXCLUSIONS を参照（非対称を黙って残さない）。
 
 ## 残存脅威モデル（完全性を主張しない）
+#   (e) **ファイルモード（実行ビット）の変化** — collect() は内容だけを hash する。
+#       `chmod -x scripts/hooks/check-plan-hash.sh` は値を動かさない（実測）。
+#       つまり **1 バイトも変えずに enforcement を無効化する**変化は捕捉できない。
+#   (f) **symlink への差し替え** — _iter_files は `not os.path.islink(full)` で
+#       symlink を除外する。実体を symlink に置き換えると対象から消える。
+#   (g) **生成物・キャッシュ**（__pycache__ / *.pyc 等）は決定性のため意図的に除外
+#       している（_EXCLUDED_DIRS / _EXCLUDED_SUFFIXES）。そこへ実行系を置いても
+#       本 hash は動かない。
 
 守る: リポジトリに追跡される enforcement 実体の内容変化。
 守らない: (a) untracked な実行時配線（.claude/settings.json）の差し替え、
@@ -113,26 +121,61 @@ EXCLUSIONS = {
 _DEFAULT_SCOPE = "full"
 
 
+# 生成物・キャッシュの除外（決定性のため / #1311 レビュー D-1）
+#
+#   `scripts/ai-loop/**` の再帰展開は `.gitignore` 済みの
+#   `scripts/ai-loop/__pycache__/*.pyc` を取り込んでいた。`.pyc` はソースの mtime を
+#   埋め込むため checkout ごとに中身が変わり、**同一 commit の別 clone で
+#   corpus_hash が変わる**。しかも本 producer 自身が `from c3_contract import ...`
+#   で `.pyc` を生成するので、初回実行の時点で自分の生成物が自分の corpus に入る。
+#
+#   実測（同一 SHA を 2 つの新規ディレクトリへ展開して初回実行）:
+#       c1: sha256:5f4019ff…   c2: sha256:e8ab11dc…   ← DIFFER
+#
+#   `run_evidence.py` の AC-12 は start / end の byte 一致を fail-closed で要求する
+#   ため、run 中に python を起動する工程が挟まると**正しい run が false-positive で
+#   fail-closed になる**経路もあった。
+#
+#   ここでは「tracked でないもの」を落とす方向ではなく、**生成物として決定性を
+#   持たないディレクトリ / 拡張子**を名指しで除外する（`git` に依存せず、
+#   `git archive` で展開したツリーでも同じ値になる）。
+_EXCLUDED_DIRS = ("__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache")
+_EXCLUDED_SUFFIXES = (".pyc", ".pyo")
+
+
+def _is_excluded(rel):
+    """repo 相対パスが生成物・キャッシュなら True。"""
+    parts = rel.split(os.sep)
+    if any(seg in _EXCLUDED_DIRS for seg in parts):
+        return True
+    return rel.endswith(_EXCLUDED_SUFFIXES)
+
+
 def _iter_files(root, pattern):
     """1 パターンを repo 相対パスの sorted list へ展開する（通常ファイルのみ）。"""
     out = []
+
+    def _add(full):
+        if not (os.path.isfile(full) and not os.path.islink(full)):
+            return
+        rel = os.path.relpath(full, root)
+        if _is_excluded(rel):
+            return
+        out.append(rel)
+
     if pattern.endswith("/**"):
         base = os.path.join(root, pattern[:-3])
         if os.path.isdir(base):
             for dirpath, dirnames, filenames in os.walk(base):
-                dirnames.sort()
+                # 生成物ディレクトリへは降りない（walk のコストも減る）
+                dirnames[:] = sorted(d for d in dirnames if d not in _EXCLUDED_DIRS)
                 for name in sorted(filenames):
-                    full = os.path.join(dirpath, name)
-                    if os.path.isfile(full) and not os.path.islink(full):
-                        out.append(os.path.relpath(full, root))
+                    _add(os.path.join(dirpath, name))
     elif "*" in pattern:
         for full in _glob.glob(os.path.join(root, pattern)):
-            if os.path.isfile(full) and not os.path.islink(full):
-                out.append(os.path.relpath(full, root))
+            _add(full)
     else:
-        full = os.path.join(root, pattern)
-        if os.path.isfile(full) and not os.path.islink(full):
-            out.append(os.path.relpath(full, root))
+        _add(os.path.join(root, pattern))
     return sorted(out)
 
 

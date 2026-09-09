@@ -102,6 +102,30 @@ CLI（＝上流リポジトリの clone）が要るのは、本スキルの外�
 
 ## Step 1: 入力の組み立て
 
+### `harness_version.corpus_hash` は producer から取る（#1299）
+
+`corpus_hash` は **`scripts/ai-loop/corpus_hash.py` が単一 producer** である。
+run 開始時に実行して得た値を注入し、run 終了時にもう一度実行して
+`--harness-version-end` に渡す（AC-12 の drift 検査はこの 2 値の byte 一致を見る）。
+
+```sh
+python3 scripts/ai-loop/corpus_hash.py            # 既定 scope = full（111 ファイル）
+python3 scripts/ai-loop/corpus_hash.py --explain  # 対象の全数と各ファイルの digest
+```
+
+対象は carve-out（`scripts/ai-loop/**` 等）に加えて **enforcement 層**
+（`scripts/hooks/**` / `check-approval-token-write.sh` / `bin/plangate` /
+`schemas/*.schema.json` / `.codex`・`.cursor` の hooks）を含む。#1299 以前の定義は
+enforcement を含んでおらず、**HO patch で hook を +158/−5 しても値が動かなかった**。
+
+**機械強制は未接続（follow-up）**: `run_evidence.py` は注入値の**形式**（`sha256:`+64hex）と
+run 中不変（AC-12）しか検査せず、**producer の計算値と照合しない**。したがって
+producer を呼ばずに任意の 64hex を注入できる。照合を `run_evidence.py` に入れると
+golden fixture 8 件（`corpus_hash` がプレースホルダ `sha256:0…0`）が byte 不一致に
+なるため、fixture の再生成とセットで別 PBI とする。現状は
+`tests/extras/ta-84-corpus-hash.sh` の TC-06 が**未接続であること自体を実測で固定**
+しており、接続されたらそのテストが赤くなって本節の更新を強制する。
+
 `changed_files` を決定する:
 
 - **計画時**（exec 前の C-3' 裁定）: plan の Files to Touch を使う

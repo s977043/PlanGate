@@ -221,6 +221,13 @@ plugin = `8.18.0` / LoopSpec 派生 hash = run ごとに変動）、**object 3 �
 （`python3 scripts/ai-loop/corpus_hash.py` が既定 scope = `full` の値を出力する）。
 以前は文書定義しか無く、値を何から計算するかが再現できなかった。
 
+> **導入先での扱い（#1144 と同じ規約）**: `scripts/ai-loop/corpus_hash.py` は
+> plugin 配布物に**含まれない**（`tests/extras/ta-57-pr-convergence.sh` の TC-E9 が
+> 非配布として宣言している）。導入先でこの手順に到達したら「上流リポジトリ
+> （`s977043/plangate`）の clone が必要であり**導入先では実施不可**」と明示して停止するか、
+> 実施できなかった事実を degrade として記録すること。**黙ってスキップして
+> 「検証済み」と読める記録を残してはならない。**
+
 **carve-out と `corpus_hash` は目的が違うので分離する**:
 
 | 概念 | 問い | 正本 |

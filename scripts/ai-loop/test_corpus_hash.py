@@ -57,6 +57,46 @@ class CorpusHashTest(unittest.TestCase):
         self.assertRegex(first, SHA256_RE)
         self.assertEqual(first, corpus_hash.compute(self.root), "同一入力で値が揺れる")
 
+    def test_tc01c_same_content_in_another_directory_is_same_hash(self):
+        """**別ディレクトリに同じ内容を置いたら同じ hash**（#1311 レビュー D-1）。
+
+        TC-01 は同一 root を 2 回計算するだけなので、`__pycache__` のような
+        「実行するたびに増える生成物」を corpus に取り込む欠陥を原理的に検出できない。
+        実測では同一 commit の 2 clone で値が違っていた（`.pyc` は mtime を埋め込む）。
+        """
+        other = _make_fixture_root()
+        self.addCleanup(shutil.rmtree, other, True)
+        self.assertEqual(
+            corpus_hash.compute(self.root),
+            corpus_hash.compute(other),
+            "同じ内容でもディレクトリが違うと hash が変わる（絶対パス混入か生成物の取り込み）",
+        )
+
+    def test_tc01d_generated_caches_do_not_move_the_hash(self):
+        """`__pycache__` / `*.pyc` を置いても hash が動かないこと（D-1 の positive control）。
+
+        producer 自身が import で `.pyc` を作るため、除外しないと
+        **初回実行の時点で自分の生成物が自分の corpus に入る**。
+        """
+        before = corpus_hash.compute(self.root)
+        cache = os.path.join(self.root, "scripts", "ai-loop", "__pycache__")
+        os.makedirs(cache, exist_ok=True)
+        with open(os.path.join(cache, "engine.cpython-314.pyc"), "wb") as fh:
+            fh.write(b"\x00\x01mtime-dependent-garbage")
+        self.assertEqual(
+            before,
+            corpus_hash.compute(self.root),
+            "__pycache__ の中身が corpus_hash を動かしている",
+        )
+        # 対照: 除外していない通常ファイルなら動く（検査が空振りでないこと）
+        with open(os.path.join(self.root, "scripts", "ai-loop", "extra.py"), "w") as fh:
+            fh.write("x\n")
+        self.assertNotEqual(
+            before,
+            corpus_hash.compute(self.root),
+            "通常ファイルの追加でも hash が動かない = 走査そのものが空振り",
+        )
+
     def test_tc01b_accepted_by_run_evidence_validator(self):
         """run_evidence.py の受理 pattern（契約 §4-1）に通ること。"""
         self.assertTrue(run_evidence._SHA256.fullmatch(corpus_hash.compute(self.root)))

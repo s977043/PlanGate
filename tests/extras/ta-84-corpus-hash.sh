@@ -61,7 +61,7 @@ else
 
 # --- TC-01: unit test の CI 導線 -------------------------------------------
 _t84_rc=0
-_t84_out=$("$_T84_PY" "$_T84_ROOT/scripts/ai-loop/test_corpus_hash.py" 2>&1) || _t84_rc=$?
+_t84_out=$(PYTHONDONTWRITEBYTECODE=1 "$_T84_PY" "$_T84_ROOT/scripts/ai-loop/test_corpus_hash.py" 2>&1) || _t84_rc=$?
 if [ "$_t84_rc" = "0" ]; then
   t84_pass "unit: test_corpus_hash.py（$(printf '%s' "$_t84_out" | sed -n 's/^Ran \([0-9]*\) tests.*/\1/p') tests）"
 else
@@ -117,6 +117,30 @@ else
 fi
 
 rm -rf "$_t84_sbx" "$_t84_empty" 2>/dev/null || true
+fi
+
+# --- TC-06: producer と consumer の接続状態を **実測で固定** する（#1299 未了）----
+#   producer（scripts/ai-loop/corpus_hash.py）は本 PR で新設したが、consumer
+#   （scripts/ai-loop/run_evidence.py）は依然として注入値の**形式**しか見ておらず、
+#   producer の計算値と照合しない。つまり producer を呼ばずに任意の 64hex を
+#   注入でき、#1299 の実害（hook を変えても corpus_hash が動かない）は再現しうる。
+#
+#   照合を run_evidence.py に入れると golden fixture 8 件（corpus_hash が
+#   プレースホルダ sha256:0…0）が byte 不一致になり、既存 unit が 13 件落ちる
+#   （実測）。fixture の再生成とセットで別 PBI とする。
+#
+#   ここでは **未接続であること自体を実測として固定**する。接続されたらこの TC が
+#   赤くなり、SKILL.md / 契約 doc の「機械強制は未接続」記述の更新を強制する
+#   （ta-83 TC-11 と同じ「盲点の実測固定」パターン）。
+_t84_re="$_T84_ROOT/scripts/ai-loop/run_evidence.py"
+if [ -f "$_t84_re" ]; then
+  if grep -q "import corpus_hash" "$_t84_re" 2>/dev/null; then
+    t84_fail "TC-06 run_evidence.py が corpus_hash を import している — producer と consumer が接続された。SKILL.md / run-evidence-contract.md の「機械強制は未接続」記述と、本 TC を更新すること"
+  else
+    t84_pass "TC-06 producer と consumer は未接続（run_evidence.py は形式検査のみ）— #1299 の follow-up として固定"
+  fi
+else
+  t84_fail "TC-06 run_evidence.py が見つからない: $_t84_re"
 fi
 
 pg_extra_contract_finalize
