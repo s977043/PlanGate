@@ -19,6 +19,52 @@ else
   t30_fail "TC-01 不在 or 非実行可能"
 fi
 
+# TC-01b: to-codex installer は「変更なし」でも rc=0 を返す（#1308 の退行検出 / 2026-09-09）
+#   2026-09-08 に末尾へ `[ "$curated_count" -gt 0 ] && printf ...` を足したことで、
+#   curated が 0 件のとき最終コマンドの rc=1 がスクリプトの rc になり、
+#   **同期済みで何もすることが無い通常実行が「失敗」を返す**退行が main に入った。
+#   `sh -n`（TC-02）では捕まらない。実行して rc を見る TC が要る。
+#
+#   installer は ROOT_DIR を $0 の親の親から求め、書き込み先を $ROOT_DIR/.codex/skills に
+#   固定する（--target 相当のオプションは無い）。そこで **mktemp サンドボックスへ
+#   ROOT_DIR 相当の最小構成を複製し、その中の scripts/ から起動**する。
+#   実 repo の .codex/ には一切書き込まない。
+_t30_cx=$(mktemp -d 2>/dev/null || printf '')
+if [ -n "$_t30_cx" ]; then
+  mkdir -p "$_t30_cx/scripts" "$_t30_cx/.agents" "$_t30_cx/plugin/plangate"
+  cp "$PG_T30_TOCODEX" "$_t30_cx/scripts/"
+  cp -R "$PG_T30_ROOT/.agents/skills" "$_t30_cx/.agents/" 2>/dev/null || true
+  cp -R "$PG_T30_ROOT/plugin/plangate/assets" "$_t30_cx/plugin/plangate/" 2>/dev/null || true
+
+  # rc は `|| rc=$?` で受ける。`cmd; rc=$?` は `set -e` 下で cmd が非ゼロを返した
+  # 時点で errexit が発火し、**検出すべき退行が起きたときに FAIL ではなくスイートの
+  # 中断**になる（run-tests.sh は set -eu）。ta-85 TC-03 と同じ形に揃える。
+  # 1 回目: 全 skill を展開
+  _t30_cx_rc1=0
+  sh "$_t30_cx/scripts/install-plangate-skills-to-codex.sh" >/dev/null 2>&1 || _t30_cx_rc1=$?
+  # 2 回目: 変更なし（installed 0 件 / curated 0 件）でも rc=0 でなければならない
+  _t30_cx_rc2=0
+  sh "$_t30_cx/scripts/install-plangate-skills-to-codex.sh" >/dev/null 2>&1 || _t30_cx_rc2=$?
+
+  if [ "$_t30_cx_rc1" -eq 0 ] && [ "$_t30_cx_rc2" -eq 0 ]; then
+    t30_pass "TC-01b to-codex installer は初回・再実行とも rc=0 (rc1=$_t30_cx_rc1 rc2=$_t30_cx_rc2)"
+  else
+    t30_fail "TC-01b to-codex installer の rc が 0 でない (rc1=$_t30_cx_rc1 rc2=$_t30_cx_rc2)"
+  fi
+
+  # TC-01c: サンドボックスが実際に生成物を持つ（TC-01b が「何もせず rc=0」で通っていない対照）
+  _t30_cx_n=$(ls "$_t30_cx/.codex/skills" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "${_t30_cx_n:-0}" -gt 0 ]; then
+    t30_pass "TC-01c サンドボックスに skill が展開された (n=${_t30_cx_n}・件数は契約値にしない)"
+  else
+    t30_fail "TC-01c サンドボックスに展開物が無い — TC-01b は空振りの可能性 (n=${_t30_cx_n:-0})"
+  fi
+
+  rm -rf "$_t30_cx"
+else
+  t30_fail "TC-01b mktemp -d 失敗"
+fi
+
 # TC-02: syntax（両スクリプト）
 if sh -n "$PG_T30_SH" 2>/dev/null && sh -n "$PG_T30_TOCODEX" 2>/dev/null; then
   t30_pass "TC-02 sh -n syntax check（両スクリプト）"
