@@ -61,6 +61,22 @@ plangate 本体（提供元リポジトリ）の実コード変更のうち、§
   - ③ai-loop 実行手順スキル: `.agents/skills/ai-loop-cycle/**`・`.claude/skills/ai-loop-cycle/**`（W チェック委託定型・`reject_category` enum・escalate 分岐・grader 上限を保持する判定基盤）
   - **配布派生の扱い**: 上記 ①〜③ の配布コピー（`plugin/plangate/skills/ai-loop-cycle/**` 等）は `sync-plugin-plangate.sh` が生成する派生成果物であり、正本を carve-out することで実質的に保護される。配布側の独立改変は CI の sync drift-check で検出する（正本と非対称に直接編集しない）。
   - **規範層である旨の明示**: arbiter（`arbiter.py`）の `boundary_check` は ho-paths.md の HO 表からのみ touches-HO を導出するため、上記 carve-out パスは現状 **boundary=clean と判定される**（機械層では escalate しない）。よって本 carve-out は**規範層**であり、eligible 判定時に実行者が escalate する責務を負う（W チェック 2 体が併せて担保）。
+  - **`corpus_hash` の対象範囲と混同しないこと（#1299）**: 本 carve-out は
+    **「AI が自走で触ってよいか」（承認境界）** の定義であり、
+    `harness_version.corpus_hash` の **「run の同一性を何で判定するか」（検証範囲）**
+    とは目的が違う。#1299 以前は後者が前者をそのまま流用していたため、
+    **最も強制力のある enforcement 層（`scripts/hooks/**` 等）だけが run 同一性検証の外**
+    にあった（hook を書き換えても `corpus_hash` が動かない）。`corpus_hash` の対象は
+    carve-out ①②③ に **④ enforcement 層**を加えた和集合とし、正本は
+    [`run-evidence-contract.md`](./run-evidence-contract.md) §4-1「`corpus_hash` の
+    対象範囲」、実装は `corpus_hash.py` に置く。
+    **本 carve-out（①②③）自体は変更しない**（承認境界は不変）。
+
+    | 概念 | 問い | 集合 |
+    |------|------|------|
+    | carve-out（本節） | AI が自走で触ってよいか | ①②③ |
+    | `corpus_hash` | run の同一性を何で判定するか | ①②③ ∪ ④ enforcement |
+
   - **機械層化の射程（V2）**: `ho-paths.md` 原則 2 は本来 **policy ファイル**（`auto-approve-lite-clean@v1` 等）を対象とし、エンジンコード・doc corpus 全体・skill の将来登録までは約束していない。機械層強制は同原則 2 の**拡張**として、①〜③ を含む HO 登録を V2 で行う（`ho-paths.md` 自身が HO である self-protection 原則と同型）。
 
 > **§3 前提 2 条件との関係**: §3 は表題どおり導入先向けだが、`allowed_paths` 宣言（前提 2）は arbiter が全 run で非空必須検証するため **plangate 本体 run にも同様に適用**される（ho-paths は本リポジトリで確定済み＝前提 1 充足）。
