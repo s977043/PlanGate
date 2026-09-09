@@ -19,6 +19,7 @@
 | `ai-dev-exec` | C-3 APPROVED 後の TDD 実行フェーズ（plan_hash 整合 + c3.json APPROVED が前提）|
 | `ai-dev-verify` | V-1〜V-4 受け入れ検査と handoff.md 発行（Rule 5 / 6 要素必須）|
 | `local-exec-handoff` | ローカル exec 再開・ツール間引き継ぎ用の短い指示パケット（Cloud 不使用時）|
+| `ho-apply-script` | HO 対象パスへの patch を Human が安全に適用するための検証つきスクリプトの型（4 モード実走 + 5 つの落とし穴）|
 | `plangate-setup` | PlanGate 初期セットアップを対話的に進めるためのチェックリスト・5 要素対応観点（TASK-0107 / Claude Code + Codex CLI 共用）|
 
 ## 似た責務スキルの使い分け（#514）
