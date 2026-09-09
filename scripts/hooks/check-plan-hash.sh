@@ -377,10 +377,14 @@ fi
 #     ときだけ OUTSIDE_REPO_SKIP (rc=0)。TASK 文脈 / STRICT=1 は不変
 #   - INSIDE なら repo 相対の物理パスを _phys_target に置き、HO / plan.md 判定は
 #     _ho_key との union で評価する（symlink 経由の逆方向迂回を塞ぐ）
-#   - 解決先が REPO_ROOT 外でも **同一 repo の linked worktree**（.git ファイルの
-#     gitdir → commondir が REPO_ROOT の common dir と一致）なら WORKTREE = 縮退
-#     （従来判定のまま）。worktree 配下 HO の判定は #1277 の領域であり、本判定で
-#     rc を緩めない（OUTSIDE 扱いにすると #1277 が悪化する）
+#   - **同一 repo の linked worktree**（.git ファイルの gitdir → commondir が
+#     REPO_ROOT の common dir と一致）配下なら WORKTREE = その **worktree root からの
+#     相対パス** を _phys_target に置く（#1277）。worktree は REPO_ROOT の外
+#     （/tmp/wt 等）にも **内**（.claude/worktrees/<name>/ = 本 repo の実運用形態）にも
+#     置かれるため、判定は INSIDE / OUTSIDE の**前**に行う。これをしないと
+#     `.claude/worktrees/x/.claude/rules/a.md` は INSIDE 扱いのまま HO 12 カテゴリの
+#     どれにも一致せず（先頭が `.claude/worktrees/`）、承認境界が丸ごと外れる。
+#     WORKTREE は rc を**緩めない**（SKIP へは倒さない / 締める方向のみ）。
 # 位置: _pg_fold_path の fail-closed 判定より **後**（相対 .. の fail-closed を
 # 緩めない）、HO 9 カテゴリ判定より **前**（OUTSIDE でも HO 一致は無い）。
 # python3 不在 / 失敗時は _pg_contain が空になり、SKIP も union も発火しない
@@ -407,8 +411,10 @@ if any(s in ("", ".", "..") for s in rest):
 full = os.path.realpath(p)
 if rest:
     full = os.path.join(full, *rest)
-if full == root or full.startswith(root + os.sep):
-    print("INSIDE|" + os.path.relpath(full, root)); sys.exit(0)
+# INSIDE 判定は保留する（#1277）。REPO_ROOT 配下でも、その実体が **別の linked
+# worktree**（.claude/worktrees/<name>/ 等）であれば repo 相対キーは worktree root
+# からの相対でなければならない。
+_inside = (full == root or full.startswith(root + os.sep))
 
 def common_dir(d):
     # d/.git が dir ならそれ自体、file なら gitdir → commondir を辿る
@@ -433,22 +439,32 @@ def common_dir(d):
         return None
 
 root_common = common_dir(root)
-d = os.path.dirname(full)
+# full を含む **最も内側の** git 作業ツリー root を探す。最初に見つかった .git が
+# REPO_ROOT と同じ common dir を指す（= 同一 repo の linked worktree）で、かつ
+# REPO_ROOT 自身でないときだけ WORKTREE。それ以外（別 repo の clone / submodule /
+# git 管理外）は従来どおり INSIDE / OUTSIDE に倒す（#1277）。
+d = full if os.path.isdir(full) else os.path.dirname(full)
 while True:
     if os.path.lexists(os.path.join(d, ".git")):
-        if root_common is not None and common_dir(d) == root_common:
-            print("WORKTREE|" + full); sys.exit(0)
+        if d != root and root_common is not None and common_dir(d) == root_common:
+            print("WORKTREE|" + os.path.relpath(full, d)); sys.exit(0)
         break
     nd = os.path.dirname(d)
     if nd == d:
         break
     d = nd
+if _inside:
+    print("INSIDE|" + os.path.relpath(full, root)); sys.exit(0)
 print("OUTSIDE|" + full)
 PYCT
 )
 fi
 case "$_pg_contain" in
   INSIDE\|*) _phys_target="${_pg_contain#INSIDE|}" ;;
+  # (#1277) 同一 repo の linked worktree 配下。値は **worktree root からの相対パス**
+  # なので、INSIDE と同じく _phys_key 経由で HO 12 カテゴリ / plan.md 判定に載る。
+  # OUTSIDE_REPO_SKIP へは倒さない（rc を緩めない）。
+  WORKTREE\|*) _phys_target="${_pg_contain#WORKTREE|}" ;;
   OUTSIDE\|*)
     # 字句正規化（_ho_key）の側で repo 内に畳み込まれるパス（例: /tmp/../<repo>/x）は
     # 物理的には別の場所へ到達するが、#1101 が block していた表記を本判定で緩めない
