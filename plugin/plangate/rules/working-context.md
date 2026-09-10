@@ -30,6 +30,12 @@ Ready → In Progress
   → Done
 ```
 
+> **PR 作成は完了ではない。** CI 緑・レビュー完了（レビュアーが沈黙し
+> `unavailable` になった場合は
+> [`reviewer-silence-fallback.md`](../../docs/ai/reviewer-silence-fallback.md)
+> §3〜§4 に従い代替レビューを実施）・同時 open PR との衝突の事前検出まで
+> 進めて、初めて C-4 へ渡す。
+
 ## 本ルールの CLI 依存（`bin/plangate`）— 導入先での扱い（#1144）
 
 本ルールは plugin（読み物層）としても配布されるが、**plugin 配布物には
