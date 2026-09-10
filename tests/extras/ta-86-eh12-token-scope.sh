@@ -170,22 +170,50 @@ else
 fi
 
 # --- 本物の破壊的操作は BLOCK のまま（緩めていないことの証明）-----------------
+# 敵対レビュー（#1328）で v1 が取りこぼした 12 クラスをすべて含む。
 printf '  -- sandbox / 本物の破壊的操作（BLOCK のまま）--\n'
-_t86_expect "$_T86_SB" BLOCK 'TC-03a: --force'              'git push --force origin main'
-_t86_expect "$_T86_SB" BLOCK 'TC-03b: --force-with-lease'   'git push --force-with-lease origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-03a: --force'                  'git push --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-03b: --force-with-lease'       'git push --force-with-lease origin main'
 _t86_expect "$_T86_SB" BLOCK 'TC-03c: --force-with-lease=<ref>' 'git push --force-with-lease=main:abc origin main'
-_t86_expect "$_T86_SB" BLOCK 'TC-03d: --force-if-includes'  'git push --force-if-includes origin main'
-_t86_expect "$_T86_SB" BLOCK 'TC-03e: -f'                   'git push -f origin main'
-_t86_expect "$_T86_SB" BLOCK 'TC-03f: refspec +'            'git push origin +HEAD:main'
-_t86_expect "$_T86_SB" BLOCK 'TC-03g: reset --hard'         'git reset --hard origin/main'
-_t86_expect "$_T86_SB" BLOCK 'TC-04a: git -C 経由'          'git -C /path push --force origin main'
-_t86_expect "$_T86_SB" BLOCK 'TC-04b: git -c 経由'          'git -c user.name=x push --force origin main'
-_t86_expect "$_T86_SB" BLOCK 'TC-04c: env 前置'             'GIT_DIR=/x git push --force origin main'
-_t86_expect "$_T86_SB" BLOCK 'TC-04d: command 前置'         'command git push --force origin main'
-_t86_expect "$_T86_SB" BLOCK 'TC-04e: 絶対パス'             '/usr/bin/git push --force origin main'
-_t86_expect "$_T86_SB" BLOCK 'TC-04f: sh -c 間接起動'       'sh -c "git push --force origin main"'
-_t86_expect "$_T86_SB" BLOCK 'TC-04g: && の後段が force'    'git status && git push --force origin main'
-_t86_expect "$_T86_SB" BLOCK 'TC-04h: 連続空白'             'git push  --force  origin  main'
+_t86_expect "$_T86_SB" BLOCK 'TC-03d: --force-if-includes'      'git push --force-if-includes origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-03e: -f'                       'git push -f origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-03f: refspec +'                'git push origin +HEAD:main'
+_t86_expect "$_T86_SB" BLOCK 'TC-03g: reset --hard'             'git reset --hard origin/main'
+_t86_expect "$_T86_SB" BLOCK 'TC-04a: git -C 経由'              'git -C /path push --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-04b: git -c 経由'              'git -c user.name=x push --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-04c: env 前置'                 'GIT_DIR=/x git push --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-04d: command 前置'             'command git push --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-04e: 絶対パス'                 '/usr/bin/git push --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-04f: sh -c 間接起動'           'sh -c "git push --force origin main"'
+_t86_expect "$_T86_SB" BLOCK 'TC-04g: && の後段が force'        'git status && git push --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-04h: 連続空白'                 'git push  --force  origin  main'
+_t86_expect "$_T86_SB" BLOCK 'TC-04i: ; 区切りの後段'           'git status ; git reset --hard origin/main'
+
+printf '  -- sandbox / 区切り文字の網羅（#1328 敵対レビュー R-1〜R-7）--\n'
+# R-1: この hook が作られた原因のインシデント形（改行区切り）
+_t86_expect "$_T86_SB" BLOCK 'TC-09a: 改行区切り + reset --hard（実害コマンド逐語）' \
+  'git checkout -q feat 2>/dev/null || git checkout -q -b feat origin/feat
+git reset --hard -q origin/feat'
+_t86_expect "$_T86_SB" BLOCK 'TC-09b: 改行 3 行の末尾が force push' \
+  'git add -A
+git commit -m wip
+git push --force-with-lease origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-09c: 改行区切り cd + reset --hard' \
+  'cd /repo
+git reset --hard HEAD~5'
+_t86_expect "$_T86_SB" BLOCK 'TC-09d: 行継続 \ は 1 コマンドとして解釈' \
+  'git push \
+  --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-09e: & 区切り'                 'echo hi & git push --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-09f: if 複合コマンド'          'if git push --force origin main; then echo ok; fi'
+_t86_expect "$_T86_SB" BLOCK 'TC-09g: for 複合コマンド'         'for i in 1; do git push --force origin main; done'
+_t86_expect "$_T86_SB" BLOCK 'TC-09h: { } 複合コマンド'         '{ git push --force origin main; }'
+_t86_expect "$_T86_SB" BLOCK 'TC-09i: case 複合コマンド'        'case x in x) git push --force origin main;; esac'
+_t86_expect "$_T86_SB" BLOCK 'TC-09j: time ラッパー'            'time git push --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-09k: stdbuf ラッパー'          'stdbuf -o0 git push --force origin main'
+_t86_expect "$_T86_SB" BLOCK 'TC-09l: find -exec'               'find . -exec git push --force origin main \;'
+_t86_expect "$_T86_SB" BLOCK 'TC-09m: クォート付き env 代入'    "A='x y' git push --force origin main"
+_t86_expect "$_T86_SB" BLOCK 'TC-09n: リダイレクト前置'         '> /tmp/o git push --force origin main'
 
 # --- 誤検知が解消していること -------------------------------------------------
 printf '  -- sandbox / 非破壊（allow）--\n'
@@ -199,20 +227,47 @@ _t86_expect "$_T86_SB" allow 'TC-05g: worktree remove 単独'   'git worktree re
 _t86_expect "$_T86_SB" allow 'TC-05h: reset --soft'           'git reset --soft HEAD~1'
 _t86_expect "$_T86_SB" allow 'TC-05i: grep のパターン'        'grep -n "push --force" README.md'
 _t86_expect "$_T86_SB" allow 'TC-05j: git を含まない'         'pwd'
+_t86_expect "$_T86_SB" allow 'TC-05k: 改行区切りの非破壊' \
+  'git status
+git log --oneline
+echo done'
+_t86_expect "$_T86_SB" allow 'TC-05l: 未 push commit ラベル'  "git log --oneline && echo '未 push commit' && echo 'a + b'"
 
-# --- 変異注入: 是正前の実装がこれらを取りこぼすこと ---------------------------
-# サンドボックスの hook を「是正前」へ戻し、TC-05a/b/c が FAIL することを確認する。
-printf '  -- 変異注入（是正前の実装で誤検知が再現すること）--\n'
+# --- O-1: glob 展開が cwd 依存の誤検知を生まないこと ---------------------------
+printf '  -- sandbox / glob 展開（#1328 O-1）--\n'
+: > "$_T86_PROBE_REPO/+refspec-lookalike"
+_t86_expect "$_T86_SB" allow 'TC-11: cwd の + 始まりファイルで glob 誤検知しない' 'git push origin *'
+rm -f "$_T86_PROBE_REPO/+refspec-lookalike"
+
+# --- 変異注入 -----------------------------------------------------------------
+# 是正前の実装が誤検知を出すこと（v1 で確認済みのクラス）に加え、
+# **是正後の実装から区切り文字を 1 つ落とすと退行が出ること**を示す（#1328 O-2）。
+printf '  -- 変異注入 --\n'
 _t86_mut=0
 for _m in 'git push -q origin docs/x && git worktree remove --force /tmp/w' \
           'git push origin HEAD && echo a + b' \
-          'echo "use git push --force only on branches"'; do
+          'git commit -m "do not push --force to main"'; do
   [ "$(_t86_probe "$_T86_OLD" "$_m")" = "BLOCK" ] && _t86_mut=$((_t86_mut + 1))
 done
 if [ "$_t86_mut" -ge 3 ]; then
-  t86_pass "TC-06: 変異注入 — 是正前の実装は 3 ケースすべてを誤 BLOCK する（検出力あり）"
+  t86_pass "TC-06a: 是正前の実装は誤検知 3 クラスを再現する（検出力あり）"
 else
-  t86_fail "TC-06: 変異注入 — 是正前の実装で誤 BLOCK が $_t86_mut 件（3 件を期待）"
+  t86_fail "TC-06a: 是正前の実装で誤 BLOCK が $_t86_mut 件（3 件を期待）"
+fi
+
+# 是正後の実装から改行→` ; ` 変換を落とすと、TC-09a が allow へ転ぶこと
+_T86_MUT="$_T86_TMP/mutant-hook.sh"
+sed -e 's| ; ", \$0 }| ", $0 }|' "$_T86_SB" > "$_T86_MUT" 2>/dev/null || cp "$_T86_SB" "$_T86_MUT"
+if ! cmp -s "$_T86_SB" "$_T86_MUT" && sh -n "$_T86_MUT" 2>/dev/null; then
+  _t86_mv=$(_t86_probe "$_T86_MUT" 'git status
+git reset --hard origin/main')
+  if [ "$_t86_mv" = "allow" ]; then
+    t86_pass "TC-06b: 変異（改行の分割子化を除去）で TC-09 系が allow へ転ぶ（TC が空振りでない）"
+  else
+    t86_fail "TC-06b: 変異注入しても BLOCK のまま（TC-09 系が実装を測っていない疑い）"
+  fi
+else
+  t86_fail "TC-06b: 変異体を作れなかった（sed の置換対象が実装と一致しない）"
 fi
 
 # --- 実 hook レーン -----------------------------------------------------------
