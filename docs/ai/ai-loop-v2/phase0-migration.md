@@ -220,6 +220,23 @@ canon は Phase 0 baseline 以降も更新されるため、「独立レビュ�
 - `README.md` / `north-star.md` の Status 行の「Independent Review PENDING」表記は索引であり、充足判定の正本は本節の `reviewed_at_sha` 欄とする。
 - **`reviewed_at_sha` = `f8f1e8b8` 以降の差分（レビュー範囲外の明示）**: 本節の充足記録（チェックボックス・充足の根拠・本ノート）と [`docs/working/_reports/1275-phase0-01-independent-review.md`](../../working/_reports/1275-phase0-01-independent-review.md) の R2 記録追記のみ。**canon の規定内容そのものは変更していない**ため再レビューを要さない。以後 canon の規定を変更した場合は、その差分がレビュー範囲外であることを本欄に追記するか、再レビューを行う。
 
+  **追記（2026-09-10）**: 上記の記載は `283caea6`（#1321）で stale になった。`f8f1e8b8` 以降に canon 7 本へ入った変更は、実測で次の 2 commit である。
+
+  ```sh
+  git log --oneline f8f1e8b8..origin/main -- \
+    docs/ai/ai-loop-v2/README.md docs/ai/ai-loop-v2/north-star.md \
+    docs/ai/ai-loop-v2/phase0-migration.md docs/ai/ai-loop-v2/taxonomy.md \
+    docs/ai/ai-loop-v2/harness-manifest.md \
+    docs/ai/ai-loop-v2/evaluation-trust-boundary.md \
+    docs/ai/ai-loop-v2/artifact-responsibilities.md
+  # 283caea6 (#1321) / b1217b41 (#1302)
+  ```
+
+  | commit | canon への変更 | レビュー範囲外の理由 |
+  | --- | --- | --- |
+  | `b1217b41`（#1302） | 本節の充足記録 + R2 記録追記 | 上記のとおり規定内容は不変 |
+  | `283caea6`（#1321） | `README.md` に **+5 −3**。索引行 1 本（`loop-graph-harness.md` への導線）と、Loop / Graph / Harness の責務分離を述べる 1 文の追記 | **索引と要約であって規定ではない**。追加された [`loop-graph-harness.md`](./loop-graph-harness.md) 自身が「canon ではなく従属する解釈ガイド」と自己宣言しており、**canon 7 本には加えない**。したがって再レビューを要さない |
+
 ### Phase 0.1 exit criteria（#1275 / Canon Hardening）
 
 各項目の根拠は、その項目が**何によって達成されるか**で書き分ける（docs の新規作成は docs PR のマージで達成できるが、GitHub 上の Issue body 更新は docs PR のマージでは原理的に達成できない）。
