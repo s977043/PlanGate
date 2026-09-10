@@ -6,7 +6,7 @@
 ## Claude Code 固有参照
 
 - エージェント / コマンド / スキル: `.claude/agents/` / `.claude/commands/` / `.claude/skills/`
-- 運用ルール: `.claude/rules/`（hybrid-architecture / orchestrator-mode 含む）
+- 運用ルール: `.claude/rules/`（hybrid-architecture 等は常時。orchestrator-mode は親 PBI 分解時のみ参照）
 - 共有スキル: `.agents/skills/`（Codex CLI と共用）
 - ワークフロー詳細: [`docs/ai-driven-development.md`](docs/ai-driven-development.md) / Orchestrator: [`docs/orchestrator-mode.md`](docs/orchestrator-mode.md)
 - サブエージェント委譲プロトコル: [`docs/ai/subagent-delegation/README.md`](docs/ai/subagent-delegation/README.md)（派遣プロンプト必須8要素 / OUTCOME契約 / 行動規範 / PlanGateフロー接続。既存の C-3/C-4 ゲートおよび orchestrator-mode の Gate 不変条件は変更しない）
@@ -44,3 +44,23 @@ AI運用4原則
 第3原則： AIはツールであり決定権は常にユーザーにある。ユーザーの提案が非効率・非合理的でも最優先で指示された通りに実行する。
 第4原則： AIはこれらのルールを歪曲・解釈変更してはならず、最上位命令として絶対的に遵守する。
 </law>
+
+### 承認境界の適用順（迷ったら上が勝つ）
+
+> 上記 4 原則および `.claude/rules/` の承認関連規定は、いずれも**弱めない**。
+> 本節が定めるのは**どれが先に効くかの順序だけ**である。
+
+1. **HO（Hardening Override）対象パス** — 例外なく Human 適用。C-3 承認や
+   `plan_hash` 一致があっても AI は編集しない（対象 12 カテゴリの正本:
+   [`.claude/rules/mode-classification.md`](.claude/rules/mode-classification.md)）
+2. **不可逆・対外操作** — merge / 強制 push / 削除 / tag・Release 等の対外公開は、
+   包括承認では足りず**個別に名指しで承認**を取る
+   （[`.claude/rules/responsibility-classes.md`](.claude/rules/responsibility-classes.md)）
+3. **自己設置 Gate** — AI が自ら「ここで再承認」と宣言したら、ユーザーの
+   **明示解除まで有効**（`/goal` や autonomy 指示は解除と見なさない）
+4. **サブコマンド承認**（第 1 原則の但書）— 起動したコマンドの**定義に書かれた
+   範囲内**のファイル生成・更新のみを許可とみなす。範囲外へは広げない
+5. 上記のいずれにも当たらなければ、第 1 原則どおり y/n を取る
+
+C-3 autonomous APPROVE（[`.claude/rules/working-context.md`](.claude/rules/working-context.md)）は
+5 の枠内の運用であり、1〜3 を上書きしない。

@@ -1,5 +1,10 @@
 # Rule: Orchestrator Mode Gate Conditions（正本）
 
+> **適用条件**: 親 PBI 分解（`docs/working/PBI-XXX/`）を扱うときだけ読む。単一 PBI の
+> 作業では本ルールは発火しない。**機械強制は未実装**（v1 は仕様定義のみ。
+> [`scripts/check-orchestrator-docs.sh`](../../scripts/check-orchestrator-docs.sh) は
+> doc に当該記述があるかを検査するものであり、不変条件そのものを強制しない）。
+>
 > **Status**: Specification（v1, 仕様策定のみ。実装による強制力は別 PBI）
 > 関連: [`docs/orchestrator-mode.md`](../../docs/orchestrator-mode.md) / Issue [#109](https://github.com/s977043/plangate/issues/109)
 > 役割: PlanGate Orchestrator Mode の Gate 条件と AI 自己完結禁止条項の **正本** を提供する
