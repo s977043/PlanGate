@@ -279,22 +279,54 @@ M-1 / M-2 / M-3 の **いずれか 1 つでも baseline から動いた時点**�
 
 | ID      | 条件（何が入ったら例外が切れるか）                                                            | baseline（`9f1b9f63` 実測）                  |
 | ------- | --------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| **M-1** | canon 由来の schema が `schemas/` に入る（HarnessManifest / LoopContract / RunState）         | 出力なし                                     |
-| **M-2** | V2 実行系の namespace が repo に出現する（`scripts/ai-loop-v2` / `bin/ai-loop-v2`）           | 出力なし                                     |
-| **M-3** | canon 固有語彙が実行系ファイル（`scripts` / `bin` / `schemas` / `.github/workflows`）に現れる | `scripts/ai-loop/corpus_hash.py` の 1 本のみ |
+| **M-1** | canon 由来の schema が `schemas/` に入る、**または既存 schema に canon 語彙が入る** | 出力なし / ヒット 0 件 |
+| **M-2** | V2 実行系の namespace が repo に出現する（`scripts/ai-loop-v2` / `bin/ai-loop-v2`） | 出力なし |
+| **M-3** | canon 固有語彙が実行系ファイル（`scripts` / `bin` / `schemas` / `.github/workflows`）に現れる | **下記 4 ファイル**（Legacy 側の既存実装。完全一致で比較する） |
 
 判定コマンド（3 条件を一括で測る）:
 
 ```sh
-echo "== M-1 =="; ls schemas/ | grep -Ei 'harness|loop-contract|run-state|runstate' || echo "(none)"
-echo "== M-2 =="; ls -d scripts/ai-loop-v2 bin/ai-loop-v2 2>/dev/null || echo "(none)"
-echo "== M-3 =="; git grep -lE 'HarnessManifest|harness_id|distribution_digest|protected_surfaces|independence_level|LoopContract' -- scripts bin schemas .github/workflows | sort
+V='HarnessManifest|harness_manifest|harness_id|distribution_digest|protected_surfaces'
+V="$V"'|independence_level|LoopContract|paired_replay|meta_verifier|promotion_evaluat'
+V="$V"'|carve_out|sealed_fixture'
+
+echo "== M-1 =="
+ls schemas/ | grep -Ei 'harness|loop-contract|run-state|runstate' || echo "(none)"
+git grep -liE "$V" -- schemas || echo "(none)"
+
+echo "== M-2 =="
+ls -d scripts/ai-loop-v2 bin/ai-loop-v2 2>/dev/null || echo "(none)"
+
+echo "== M-3 =="
+git grep -liE "$V" -- scripts bin .github/workflows | sort
 ```
+
+**M-3 の baseline（`9f1b9f63` 実測。この 4 行と完全一致すれば未失効）**:
+
+```text
+scripts/ai-loop/corpus_hash.py
+scripts/ai-loop/run_evidence.py
+scripts/ai-loop/test_corpus_hash.py
+scripts/ai-loop/test_run_evidence.py
+```
+
+**検出力の実証（変異注入 / 独立レビュー I1 の指摘 1 を受けて是正）**: 是正前の語彙は
+**case-sensitive かつ `harness_manifest_ref` / `PROTECTED_SURFACES` /
+`build_harness_manifest()` / `paired_replay()` を取りこぼし**、Phase 1 の実装が
+入っても失効しない状態だった（変異注入 6 本中 4 本が未検出）。是正後は `-i` と
+語彙拡張により **7 本すべてを検出**し、negative control（`def main():` /
+`import json` / `manifest = load()`）は 0 件で誤検出しない。
+
+`carve_out` を語彙へ加えたのは、**#916（判定基盤 carve-out の arbiter 機械強制）が
+本例外を最も切るべき変更でありながら、旧語彙では素通りしていた**ためである。
 
 判定規則:
 
-- **M-3 の baseline 1 本（`scripts/ai-loop/corpus_hash.py`）は Legacy 側の説明コメントであって canon の強制ではない**ため baseline に含める。新たに現れたファイルが説明コメントのみであると判断する場合は、その根拠を本欄に追記したうえで baseline を更新してよい。**判断できない場合は失効側（I4 要求）に倒す**（fail-closed。安全側は「例外を切る」側である）。
-- M-3 の語彙から `RunEvidence` を意図的に外している。Legacy の RunEvidence 実装（#874 / `scripts/ai-loop/run_evidence.py` 他）が既に存在し、常時ヒットして検出力を失うためである。Legacy `scripts/ai-loop/**` は §2 freeze policy 下にあり、canon 7 本の強制ではない。
+- **M-3 の baseline 4 ファイルは Legacy 側の既存実装であって canon 7 本の強制ではない**ため baseline に含める。
+- **baseline の更新は Human-owned である。** 新たに現れたファイルが「説明コメントのみ」「canon の強制ではない」と判断して baseline へ加えることは、**例外の延長と同義**であり、canon を変更する当事者（AI を含む）が単独で行ってはならない。C-4 で対象ファイルを**名指しして**承認を得たうえで、その根拠と承認の所在を本欄に追記する。**判断できない場合・承認が無い場合は失効側（I4 要求）に倒す**（fail-closed。安全側は「例外を切る」側である）。
+  この規則は独立レビュー（I1）の major 指摘を受けて追加した。判定主体を書かない限り、fail-closed の宣言は当事者の裁量で無効化できてしまう。
+- M-3 の語彙から `RunEvidence` を意図的に外している。Legacy の RunEvidence 実装（#874 / `scripts/ai-loop/run_evidence.py` 他）が既に存在し、常時ヒットして検出力を失うためである。Legacy `scripts/ai-loop/**` は §2 freeze policy 下にあり、canon 7 本の強制ではない。**代わりに baseline を「ヒット 0 件」ではなく「既知の 4 ファイルと完全一致」で定義**し、Legacy の存在を許容しつつ新規ファイルの出現を検出できるようにした。
+- **M-1 はファイル名だけでなく既存 schema の中身も見る。** `harness_manifest_ref` を既存の `schemas/run-event.schema.json` へ足す形（#874 / #1025 の最初の一手として自然な変更）は、ファイル名の検査では検出できない。
 - **失効は遡及しない。** Phase 0 / Phase 0.1 の充足記録（I1）は当時の規定に照らして有効なまま残す。失効時点で必要なのは、(1) **その後の** canon 規定変更に I4 を課すこと、(2) Phase 1 の exit criteria に「canon 7 本の I4 レビュー」を 1 項目として立てること、の 2 つである。
 - 再測定のタイミングは、**§8 の Phase 1 Architecture / Contract design 着手時に 1 回**、および **canon 7 本を変更する PR ごと**。
 - 本決定は #1275 の close 条件を満たすためのものであり、失効時に必要な作業は follow-up issue として別途起票する（本 §7 は起票先の番号を後追いで記載してよい）。
