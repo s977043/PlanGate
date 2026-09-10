@@ -88,32 +88,44 @@ else
   t86_fail "TC-00: probe 用 repo の branch が main でない（branch=${_t86_probe_branch}）"
 fi
 
-# --- サンドボックス: patch を当てた hook を作る -------------------------------
-_T86_SB="$_T86_TMP/patched-hook.sh"
-cp "$_T86_HOOK" "$_T86_SB"
+# --- サンドボックス: 是正後(NEW) と 是正前(OLD) の hook を両方作る ------------
+# 実 hook が未適用なら fwd apply で NEW を、適用済みなら rev apply で OLD を作る。
+# どちらの状態でも 2 本が揃うので、TC の判定は patch の適用有無に依存しない。
+_T86_SB="$_T86_TMP/new-hook.sh"
+_T86_OLD="$_T86_TMP/old-hook.sh"
+_t86_lanes=0
 
-_t86_patched=0
 if [ -f "$_T86_DOC" ]; then
   awk 'BEGIN{q=sprintf("%c",96)}
        /^<!-- PG-PATCH-BEGIN -->$/{b=1;next}
        /^<!-- PG-PATCH-END -->$/{exit}
        b && substr($0,1,1)==q{f=!f;next}
        f' "$_T86_DOC" > "$_T86_TMP/p.patch"
-  if [ -s "$_T86_TMP/p.patch" ]; then
-    if (cd "$_T86_TMP" && mkdir -p scripts && cp "$_T86_HOOK" scripts/check-git-destructive.sh \
-        && git apply --unsafe-paths --directory=. p.patch 2>/dev/null); then
-      cp "$_T86_TMP/scripts/check-git-destructive.sh" "$_T86_SB"
-      _t86_patched=1
-    elif git apply --check -R -p1 --directory="$_T86_TMP" "$_T86_TMP/p.patch" 2>/dev/null; then
-      _t86_patched=1   # 実 hook が既に適用済み → 複製もそのまま是正後
+fi
+
+if [ -s "${_T86_TMP}/p.patch" ]; then
+  mkdir -p "$_T86_TMP/scripts"
+  cp "$_T86_HOOK" "$_T86_TMP/scripts/check-git-destructive.sh"
+  if (cd "$_T86_TMP" && git apply --unsafe-paths --directory=. p.patch 2>/dev/null); then
+    cp "$_T86_TMP/scripts/check-git-destructive.sh" "$_T86_SB"   # NEW = 適用結果
+    cp "$_T86_HOOK" "$_T86_OLD"                                   # OLD = 実 hook
+    _t86_lanes=1
+  else
+    cp "$_T86_HOOK" "$_T86_TMP/scripts/check-git-destructive.sh"
+    if (cd "$_T86_TMP" && git apply -R --unsafe-paths --directory=. p.patch 2>/dev/null); then
+      cp "$_T86_HOOK" "$_T86_SB"                                  # NEW = 実 hook（適用済み）
+      cp "$_T86_TMP/scripts/check-git-destructive.sh" "$_T86_OLD" # OLD = rev apply 結果
+      _t86_lanes=1
     fi
   fi
 fi
 
-if [ "$_t86_patched" = "1" ]; then
-  t86_pass "TC-01: サンドボックスに #1326 patch を適用した（または適用済み）"
+if [ "$_t86_lanes" = "1" ]; then
+  t86_pass "TC-01: サンドボックスに是正後(NEW)と是正前(OLD)の hook を用意した"
 else
-  t86_fail "TC-01: サンドボックスへの patch 適用に失敗（patch 文書を確認）"
+  t86_fail "TC-01: patch の fwd / rev どちらも当たらない（patch 文書が stale）"
+  cp "$_T86_HOOK" "$_T86_SB"
+  cp "$_T86_HOOK" "$_T86_OLD"
 fi
 
 if [ ! -s "$_T86_SB" ] || ! sh -n "$_T86_SB" 2>/dev/null; then
@@ -156,14 +168,6 @@ _t86_expect "$_T86_SB" allow 'TC-05j: git を含まない'         'pwd'
 # --- 変異注入: 是正前の実装がこれらを取りこぼすこと ---------------------------
 # サンドボックスの hook を「是正前」へ戻し、TC-05a/b/c が FAIL することを確認する。
 printf '  -- 変異注入（是正前の実装で誤検知が再現すること）--\n'
-_T86_OLD="$_T86_TMP/old-hook.sh"
-cp "$_T86_HOOK" "$_T86_OLD"
-if [ "$_t86_patched" = "1" ] && git apply --check -R -p1 --directory="$_T86_TMP" "$_T86_TMP/p.patch" 2>/dev/null; then
-  : # 実 hook が適用済みなら _T86_OLD を rev-apply して是正前へ戻す
-  (cd "$_T86_TMP" && cp "$_T86_HOOK" scripts/check-git-destructive.sh \
-    && git apply -R --unsafe-paths --directory=. p.patch 2>/dev/null) || true
-  [ -f "$_T86_TMP/scripts/check-git-destructive.sh" ] && cp "$_T86_TMP/scripts/check-git-destructive.sh" "$_T86_OLD"
-fi
 _t86_mut=0
 for _m in 'git push -q origin docs/x && git worktree remove --force /tmp/w' \
           'git push origin HEAD && echo a + b' \
