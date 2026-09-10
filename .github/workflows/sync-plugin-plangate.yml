@@ -16,6 +16,7 @@ on:
       - 'scripts/ai-loop/**'
       - 'scripts/_ai_loop_link_rewrite.py'
       - 'scripts/sync-plugin-plangate.sh'
+      - 'scripts/install-plangate-skills-to-codex.sh'
       - 'plugin/plangate/**'
   pull_request:
     paths:
@@ -27,6 +28,7 @@ on:
       - 'scripts/ai-loop/**'
       - 'scripts/_ai_loop_link_rewrite.py'
       - 'scripts/sync-plugin-plangate.sh'
+      - 'scripts/install-plangate-skills-to-codex.sh'
       - 'plugin/plangate/**'
   workflow_dispatch:
 
@@ -111,6 +113,40 @@ jobs:
           done
           exit "$rc"
 
+      # 層 2: .codex/skills/ を丸ごと再生成し、commit 済みツリーとの差分ゼロを要求する (#1288)。
+      # 直前の層 1 が見ない assets/・skill ディレクトリ内の余剰ファイル・孤児
+      # ディレクトリまでが 1 つの述語で落ちる (M / D / ?? の 3 クラス)。
+      # 2 層は互いを代替しない: 層 1 は installer 非依存 (cmp のみ) なので installer が
+      # no-op へ改竄されても主張が立ち、層 2 は installer 依存だが対象範囲が広い。
+      #
+      # agents/openai.yaml を述語から除外する理由 (#1288 / 実測):
+      #   直前の層 1 のコメントと同じく、本ファイルは frontmatter を正規化して
+      #   生成されるため byte 比較の対象外。加えて plan-normalization の値は curated
+      #   (手置き) で `# plangate:curated` マーカーにより保護されるが、マーカーは
+      #   ファイル内にあるため rm -rf で消える。除外しないと本ステップは無改竄の
+      #   main でも恒常 FAIL する (実測: ` M .codex/skills/plan-normalization/agents/openai.yaml`)。
+      #   マーカーに削除耐性を与える案 (台帳方式) は installer 側の変更のため本 patch の範囲外。
+      #
+      # --json を付ける理由 (#1288 / 実測): installer の非 JSON 経路の最終コマンドは
+      #   `[ "$curated_count" -gt 0 ] && printf ...` で、curated マーカーを 1 件も見つけないと
+      #   rc=1 を返す。直前の rm -rf でマーカーごと消えるためこの経路では必ず rc=1 になり、
+      #   bash -eo pipefail 下で述語に到達する前にステップが落ちる。--json 経路の最終コマンドは
+      #   printf なので rc=0 で、installer 本体の set -eu による真の失敗検出はそのまま残る。
+      #
+      # 注: installer は python3 があるときだけ openai.yaml の short_description を 64 文字へ
+      # 切り詰めるが、本ステップは openai.yaml を除外するためこの依存は述語に影響しない。
+      - name: Regenerate .codex/skills and require zero diff (#1288)
+        run: |
+          rm -rf .codex/skills
+          sh scripts/install-plangate-skills-to-codex.sh --force --json >/dev/null
+          out=$(git status --porcelain -- .codex/skills/ ':(exclude).codex/skills/*/agents/openai.yaml')
+          if [ -n "$out" ]; then
+            echo "::error::.codex/skills/ が生成結果と一致しません。ローカルで 'sh scripts/install-plangate-skills-to-codex.sh --force' を実行し、結果をコミットしてください。"
+            echo "$out"
+            exit 1
+          fi
+          echo ".codex/skills/ matches the generated tree."
+
   sync:
     if: github.event_name != 'pull_request'
     permissions:
@@ -130,10 +166,67 @@ jobs:
       - name: Run sync script
         run: sh scripts/sync-plugin-plangate.sh
 
+      # push(main) レーンにも .codex/skills の再同期を置く (#1288)。
+      # drift-check job は `if: github.event_name == 'pull_request'` のため push では走らず、
+      # sync job は plugin レーンしか面倒を見ていなかった。結果として main に .codex の drift が
+      # 入っても main の CI は緑のままだった (2026-09-08 に実発生)。
+      # ここでは push レーンを「赤くする」のではなく、plugin レーンと同じ既存パターン
+      # ＝ bot が是正 PR を出し、merge は Human-owned (C-4) で解消する。
+      # --json / openai.yaml 除外の理由は drift-check 側の層 2 と同じ (#1288)。
+      - name: Regenerate .codex/skills
+        run: |
+          rm -rf .codex/skills
+          sh scripts/install-plangate-skills-to-codex.sh --force --json >/dev/null
+
+      # bot が作る PR は GITHUB_TOKEN 由来のため pull_request workflow を起動しない
+      # (GitHub の既知仕様)。つまり drift-check は bot 自身の出力を検査しない。
+      # そこで再生成の直後に installer 非依存の byte 照合 (層 1 の中核) を bot 出力へ掛ける。
+      # 対象集合は層 1 と同一 (SKILL.md と references/*.md)。SKILL.md だけを見ると
+      # references/*.md だけを不誠実にコピーする改竄が素通りする (#1288 実測の変異 3)。
+      - name: Verify regenerated tree matches canon (installer-independent)
+        run: |
+          rc=0
+          # 比較した件数を数える。canon が空（.agents/skills の rename / bad merge /
+          # .gitignore 事故）のとき installer は --json 経路で rc=0 を返し、この
+          # ループも空回りして rc=0 になる。その状態で後続の `git add -A` が走ると
+          # bot は .codex/skills を全削除する PR を出す。その PR は GITHUB_TOKEN 由来
+          # なので pull_request workflow（層 1・層 2）を起動せず、誰も検査しないまま
+          # C-4 に届く。件数の positive control でその経路を塞ぐ。
+          _n_cmp=0
+          for _d in .agents/skills/*/; do
+            _n=$(basename "$_d")
+            for _c in "${_d}SKILL.md" "${_d}references"/*.md; do
+              [ -f "$_c" ] || continue
+              _n_cmp=$((_n_cmp + 1))
+              _b=$(basename "$_c")
+              case "$_c" in
+                *references/*) _m=".codex/skills/$_n/references/$_b" ;;
+                *) _m=".codex/skills/$_n/$_b" ;;
+              esac
+              if [ ! -f "$_m" ]; then
+                echo "::error::$_m missing after regeneration (canon: $_c)"
+                rc=1
+              elif ! cmp -s "$_c" "$_m"; then
+                echo "::error::$_m differs from canon $_c after regeneration -- installer output is not a faithful copy"
+                rc=1
+              fi
+            done
+          done
+          if [ "$_n_cmp" -eq 0 ]; then
+            echo "::error::canon set (.agents/skills/*/) is empty -- refusing to publish a deletion PR"
+            rc=1
+          fi
+          echo "compared=$_n_cmp"
+          exit "$rc"
+
       - name: Check for changes
         id: diff
         run: |
-          if git diff --quiet -- plugin/plangate/; then
+          # .codex/skills は再生成前に rm -rf しているため、未追跡の新規ファイルも拾える
+          # git status --porcelain で判定する (git diff では ?? が落ちる)。
+          # agents/openai.yaml は curated 運用のため除外する (層 2 と同じ理由 / #1288)。
+          # 除外しないと push のたびに手置き値を差し戻す bot PR が出る。
+          if git diff --quiet -- plugin/plangate/ && [ -z "$(git status --porcelain -- .codex/skills/ ':(exclude).codex/skills/*/agents/openai.yaml')" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -149,10 +242,12 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
           git add plugin/plangate/
-          git commit -m "chore(plugin): .claude/ → plugin/plangate/ 自動同期"
+          # openai.yaml は curated 運用のため stage しない (再生成で手置き値が戻っている)。
+          git add -A -- .codex/skills/ ':(exclude).codex/skills/*/agents/openai.yaml'
+          git commit -m "chore(plugin): plugin/plangate/ ・ .codex/skills/ を正本へ自動同期"
           git push origin "$branch"
           gh pr create \
             --base main \
             --head "$branch" \
-            --title "chore(plugin): plugin/plangate/ 自動同期" \
-            --body "push to main をトリガーに \`scripts/sync-plugin-plangate.sh\` が .claude/ との差分を検出しました。merge は Human-owned (C-4)。"
+            --title "chore(plugin): plugin/plangate/ ・ .codex/skills/ 自動同期" \
+            --body "push to main をトリガーに \`scripts/sync-plugin-plangate.sh\` / \`scripts/install-plangate-skills-to-codex.sh --force\` が正本との差分を検出しました。merge は Human-owned (C-4)。"
