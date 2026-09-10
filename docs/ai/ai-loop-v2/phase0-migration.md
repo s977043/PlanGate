@@ -236,6 +236,7 @@ canon は Phase 0 baseline 以降も更新されるため、「独立レビュ�
   | --- | --- | --- |
   | `b1217b41`（#1302） | 本節の充足記録 + R2 記録追記 | 上記のとおり規定内容は不変 |
   | `283caea6`（#1321） | `README.md` に **+5 −3**。索引行 1 本（`loop-graph-harness.md` への導線）と、Loop / Graph / Harness の責務分離を述べる 1 文の追記 | **索引と要約であって規定ではない**。追加された [`loop-graph-harness.md`](./loop-graph-harness.md) 自身が「canon ではなく従属する解釈ガイド」と自己宣言しており、**canon 7 本には加えない**。したがって再レビューを要さない |
+  | 本 PR（#1275 決着記録） | 本節「Human 判断事項」に決着（選択肢 (b)）と I4 移行条件を追記 | **レビュー範囲外にしない**。規定の追加にあたるため、本節の I1 要求（上記「決定」で例外として明示した水準）の対象とし、本 PR 自身が I1 レビューと Human C-4 を経る。merge 後に本表へ merge commit SHA を追記する |
 
 ### Phase 0.1 exit criteria（#1275 / Canon Hardening）
 
@@ -255,9 +256,84 @@ canon は Phase 0 baseline 以降も更新されるため、「独立レビュ�
 
 Phase 0 の独立レビューと Phase 0.1 の全項目が満たされるまで Phase 1 実装を開始しない。Phase 0.1 の PR は MERGE_READY で停止し、Phase 1 へ自動的に進まない。
 
-### Human 判断事項（未決 / AI が決めない）
+### Human 判断事項（2026-09-10 決着 / 選択肢 (b) を採用）
 
 **canon docs 自体に要求する Independence Level を I1 のままにするか、I4 へ引き上げるか。**
+
+#### 決定（2026-09-10 / Human）
+
+**選択肢 (b) を採用する。** canon 7 本は「**それを強制する実行系をまだ持たない仕様文書**」であることを理由に、独立レビュー要求 **I1** を [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §3（Evaluation Harness そのものの変更は I4 でのみ採用する）の **明示的な例外**として認める。
+
+- **§3 の規定そのものは変更しない。** 本例外は §3 を弱めるものではなく、**canon 7 本の独立レビュー要求という 1 点にのみ**及ぶ。`protected_surfaces` / Protected authority / Promotion Decision の値域など §1〜§5 の規定内容には及ばない。
+- 例外は**期限ではなく条件で切れる**（下記「I4 移行条件」）。日付での自動失効は置かない。
+
+**なぜ現時点で例外が成り立つか（例外の根拠）**:
+
+- §3 の I4 要求は「Candidate が**自分を裁く評価系を変えて採用判定を動かす**」ことを防ぐためのものである。裁定を実行する主体（paired replay / grader / stable meta-verifier / HarnessManifest 生成器 / 実差分算出器）が repo に存在しない間は、canon 7 本の変更によって動かせる**採用判定が存在しない**。したがって §3 が防ごうとしている実害が、この期間には発生しない。
+- 現時点で canon 7 本を強制する実行系は無い（下記 M-1 / M-2 / M-3 の実測がすべて baseline）。この期間の canon 変更を守っているのは **Human C-4 merge と I1 レビュー**であり、これは §3 が想定する「評価系の自己改変」経路ではない。
+- ただしこれは「**I1 で十分である**」という主張ではなく「**I4 が防ぐ対象がまだ存在しない**」という主張である。対象が現れた時点で例外は成り立たなくなる（下記）。
+
+#### I4 移行条件（例外が切れる条件・判定可能）
+
+M-1 / M-2 / M-3 の **いずれか 1 つでも baseline から動いた時点**で本例外は失効し、**以後の canon 7 本の規定変更は I4（Human + machine independent evidence）を要求する**。「実装が入ったら」という主観判定ではなく、下記コマンドの出力が baseline と一致するか否かで測る。
+
+| ID      | 条件（何が入ったら例外が切れるか）                                                            | baseline（`9f1b9f63` 実測）                  |
+| ------- | --------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| **M-1** | canon 由来の schema が `schemas/` に入る、**または既存 schema に canon 語彙が入る** | 出力なし / ヒット 0 件 |
+| **M-2** | V2 実行系の namespace が repo に出現する（`scripts/ai-loop-v2` / `bin/ai-loop-v2`） | 出力なし |
+| **M-3** | canon 固有語彙が実行系ファイル（`scripts` / `bin` / `schemas` / `.github/workflows`）に現れる | **下記 4 ファイル**（Legacy 側の既存実装。完全一致で比較する） |
+
+判定コマンド（3 条件を一括で測る）:
+
+```sh
+V='HarnessManifest|harness_manifest|harness_id|distribution_digest|protected_surfaces'
+V="$V"'|independence_level|LoopContract|paired_replay|meta_verifier|promotion_evaluat'
+V="$V"'|carve_out|sealed_fixture'
+
+echo "== M-1 =="
+ls schemas/ | grep -Ei 'harness|loop-contract|run-state|runstate' || echo "(none)"
+git grep -liE "$V" -- schemas || echo "(none)"
+
+echo "== M-2 =="
+ls -d scripts/ai-loop-v2 bin/ai-loop-v2 2>/dev/null || echo "(none)"
+
+echo "== M-3 =="
+git grep -liE "$V" -- scripts bin .github/workflows | sort
+```
+
+**M-3 の baseline（`9f1b9f63` 実測。この 4 行と完全一致すれば未失効）**:
+
+```text
+scripts/ai-loop/corpus_hash.py
+scripts/ai-loop/run_evidence.py
+scripts/ai-loop/test_corpus_hash.py
+scripts/ai-loop/test_run_evidence.py
+```
+
+**検出力の実証（変異注入 / 独立レビュー I1 の指摘 1 を受けて是正）**: 是正前の語彙は
+**case-sensitive かつ `harness_manifest_ref` / `PROTECTED_SURFACES` /
+`build_harness_manifest()` / `paired_replay()` を取りこぼし**、Phase 1 の実装が
+入っても失効しない状態だった（変異注入 6 本中 4 本が未検出）。是正後は `-i` と
+語彙拡張により **7 本すべてを検出**し、negative control（`def main():` /
+`import json` / `manifest = load()`）は 0 件で誤検出しない。
+
+`carve_out` を語彙へ加えたのは、**#916（判定基盤 carve-out の arbiter 機械強制）が
+本例外を最も切るべき変更でありながら、旧語彙では素通りしていた**ためである。
+
+判定規則:
+
+- **M-3 の baseline 4 ファイルは Legacy 側の既存実装であって canon 7 本の強制ではない**ため baseline に含める。
+- **baseline の更新は Human-owned である。** 新たに現れたファイルが「説明コメントのみ」「canon の強制ではない」と判断して baseline へ加えることは、**例外の延長と同義**であり、canon を変更する当事者（AI を含む）が単独で行ってはならない。C-4 で対象ファイルを**名指しして**承認を得たうえで、その根拠と承認の所在を本欄に追記する。**判断できない場合・承認が無い場合は失効側（I4 要求）に倒す**（fail-closed。安全側は「例外を切る」側である）。
+  この規則は独立レビュー（I1）の major 指摘を受けて追加した。判定主体を書かない限り、fail-closed の宣言は当事者の裁量で無効化できてしまう。
+- M-3 の語彙から `RunEvidence` を意図的に外している。Legacy の RunEvidence 実装（#874 / `scripts/ai-loop/run_evidence.py` 他）が既に存在し、常時ヒットして検出力を失うためである。Legacy `scripts/ai-loop/**` は §2 freeze policy 下にあり、canon 7 本の強制ではない。**代わりに baseline を「ヒット 0 件」ではなく「既知の 4 ファイルと完全一致」で定義**し、Legacy の存在を許容しつつ新規ファイルの出現を検出できるようにした。
+- **M-1 はファイル名だけでなく既存 schema の中身も見る。** `harness_manifest_ref` を既存の `schemas/run-event.schema.json` へ足す形（#874 / #1025 の最初の一手として自然な変更）は、ファイル名の検査では検出できない。
+- **失効は遡及しない。** Phase 0 / Phase 0.1 の充足記録（I1）は当時の規定に照らして有効なまま残す。失効時点で必要なのは、(1) **その後の** canon 規定変更に I4 を課すこと、(2) Phase 1 の exit criteria に「canon 7 本の I4 レビュー」を 1 項目として立てること、の 2 つである。
+- 再測定のタイミングは、**§8 の Phase 1 Architecture / Contract design 着手時に 1 回**、および **canon 7 本を変更する PR ごと**。
+- 本決定は #1275 の close 条件を満たすためのものであり、失効時に必要な作業は follow-up issue として別途起票する（本 §7 は起票先の番号を後追いで記載してよい）。
+
+#### 経緯（決着前の記録・そのまま保存する）
+
+> 以下は決着前（2026-09-10 より前）の記述であり、**上記「決定」に置き換わっている**。当時の論点を追えるように改変せず残す。
 
 - [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) §1 は `protected_surfaces` 定義と HarnessManifest 生成器を Protected authority に列挙し、同 §3「後退の終端」は **Evaluation Harness そのものの変更は I4 でのみ採用する**と定めている。
 - 本 §7 の canon 7 本（`README.md` / `north-star.md` / `phase0-migration.md` / `taxonomy.md` / `harness-manifest.md` / `evaluation-trust-boundary.md` / `artifact-responsibilities.md`）は、まさにその Evaluation Harness の**定義そのもの**である。にもかかわらず上記 exit criteria は **I1 以上**しか要求していない（自分が課す基準の最低段を自分に適用している）。
