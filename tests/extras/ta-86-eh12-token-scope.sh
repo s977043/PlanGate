@@ -14,15 +14,50 @@
 # 誤検知の実害: コマンド文字列に `git` と `push` / `--force` / ` +` が同居すると、
 # 実行されない文字列（echo の引数・コミットメッセージ）でも block される。
 
-set -eu
+# ---- extras execution contract bootstrap (#921) ----------------------------
+if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
+  _pg_extra_mode=harness
+  _pg_extra_dir="$EXTRAS_DIR"
+else
+  _pg_extra_mode=standalone
+  _pg_extra_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+fi
+_pg_extra_helper="$_pg_extra_dir/_extra-contract.sh"
+if [ ! -r "$_pg_extra_helper" ]; then
+  printf '  [FAIL] helper unresolved: %s\n' "$_pg_extra_helper" >&2
+  if [ "$_pg_extra_mode" = harness ]; then
+    fail=$((fail + 1))
+    return 0
+  fi
+  exit 1
+fi
+. "$_pg_extra_helper"
+pg_extra_contract_init ta-86-eh12-token-scope standalone-capable
 
-_t86_pass=0
-_t86_fail=0
-t86_pass() { _t86_pass=$((_t86_pass + 1)); printf '  [PASS] %s\n' "$1"; }
-t86_fail() { _t86_fail=$((_t86_fail + 1)); printf '  [FAIL] %s\n' "$1"; }
+if pg_extra_contract_is_standalone; then
+  # standalone: 外部 env 汚染を無害化（tests/extras/README.md 規約 8）
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
+    PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
+    PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+fi
 
-_T86_SELF=$(cd "$(dirname "$0")" && pwd)
-_T86_ROOT=$(cd "$_T86_SELF/../.." && pwd)
+# repo root は **契約側の値**から解く。`$0` 相対だと harness 実行時に
+# 1 階層上を指す（実測: CI で「hook が無い」になった）。
+_T86_FX=""
+if [ "$_pg_extra_mode" = harness ]; then
+  _T86_FX="${FIXTURES_DIR:-}"
+fi
+if [ -n "$_T86_FX" ]; then
+  _T86_ROOT="$(CDPATH= cd -- "$_T86_FX/../.." && pwd)"
+else
+  _T86_ROOT="${_pg_extra_dir%/tests/extras}"
+fi
+
+# pass / fail は契約 helper が初期化し、standalone のサマリ出力も helper が行う
+# （自前で printf すると contract probe の再実行で二重に出る。実測で踏んだ）。
+t86_pass() { pass=$((pass + 1)); printf '  [PASS] %s\n' "$1"; }
+t86_fail() { fail=$((fail + 1)); printf '  [FAIL] %s\n' "$1" >&2; }
+
 _T86_HOOK="$_T86_ROOT/scripts/check-git-destructive.sh"
 _T86_DOC="$_T86_ROOT/docs/working/_reports/1326-eh12-token-scope-patch.md"
 _T86_FIXTURES="${FIXTURES_DIR:-$_T86_ROOT/tests/fixtures}"
@@ -70,9 +105,9 @@ printf 'TA-86: EH-12 token scope (#1326)\n'
 if [ ! -f "$_T86_HOOK" ]; then
   t86_fail "TC-00: hook が無い: $_T86_HOOK"
   _t86_cleanup
-  printf 'TA-86 standalone: %s passed, %s failed\n' "$_t86_pass" "$_t86_fail"
-  [ "$_t86_fail" -eq 0 ] || exit 1
-  exit 0
+  pg_extra_contract_finalize
+  if pg_extra_contract_is_standalone; then exit 1; fi
+  return 0
 fi
 
 # hook が protected branch と判定する cwd を用意する。実 repo の branch に
@@ -224,6 +259,4 @@ else
   t86_pass "TC-08: sandbox removed (no residue outside mktemp)"
 fi
 
-printf 'TA-86 standalone: %s passed, %s failed\n' "$_t86_pass" "$_t86_fail"
-[ "$_t86_fail" -eq 0 ] || exit 1
-exit 0
+pg_extra_contract_finalize
