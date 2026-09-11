@@ -1,0 +1,3 @@
+#1326 pending: EH-12 の判定が同一コマンドのトークン列へ限定されていない。
+patch: docs/working/_reports/1326-eh12-token-scope-patch.md / 適用は Human（HO）。
+適用したら同じ commit で本ファイルを削除する（残すと ta-86 TC-07 が FAIL）。
