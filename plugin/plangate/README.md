@@ -3,7 +3,7 @@
 PlanGate — a governance OS for AI-assisted coding.
 Provides Intent/Mode classification, a 4-Gate approval system, and an agent control layer as a Claude Code plugin.
 
-- **Version**: v8.21.0
+- **Version**: v8.22.0
 - **Source**: <https://github.com/s977043/plangate>
 
 ## Install
@@ -46,6 +46,7 @@ sh install.sh --dry-run             # 変更内容を確認（実行しない）
     - コマンド: `plangate-setup`
     - スキル: `ai-dev-exec` / `ai-dev-plan` / `ai-dev-verify` / `ai-loop-cycle` / `intent-classifier` / `local-exec-handoff` / `plan-review-gate` / `plangate-setup` / `skill-policy-router` / `working-context`
     - エージェント: `setup-coordinator` / `workflow-conductor`
+
   - **カウント対象外**: 説明用ドキュメント内の言及（本 README 自身 / `skills/README.md` / `rules/**`）は CLI 依存に数えません。また `skills/ai-loop-cycle/` 同梱の `references/` / `scripts/` にも `bin/plangate` の記述がありますが、これは HO（Hardening Override）パス指定および「本番フローから呼ばれない隔離 PoC」であることの明示であり、CLI 依存ではありません。範囲を指定しない下記コマンドはこれらも拾うため、カウント対象より多い結果を返します（その差分がカウント対象外にあたります）。
 
     ```bash
