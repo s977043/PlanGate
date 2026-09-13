@@ -6,6 +6,112 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.22.0 - 2026-09-11
+
+fix: 承認境界のガードを「文字列で近似する」実装から「トークン列で判定する」実装へ作り直し、EH-3 の worktree 素通りと EH-12 の誤検知を実測で塞ぐ
+
+v8.21.0 タグ以降に main へ蓄積した **102 コミット**（実測: `git rev-list --count v8.21.0..319d6121`）を反映する。
+主題は **承認境界ガードの判定精度**。配布物（`plugin/`）の変更は **76 ファイル**
+（実測: `git diff --name-only v8.21.0..319d6121 -- plugin/ | wc -l`）。
+**`bin/plangate` は変更ゼロ**、`schemas/` は `review-result.schema.json` の説明文 1 行のみ
+（実測: `git diff --numstat v8.21.0..319d6121 -- bin/plangate schemas/`）→ CLI / Schema の挙動は不変。
+（数値はいずれも **基点 `319d6121` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
+**PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
+
+### ⚠️ 更新前に必ずお読みください
+
+> **対象: 本リポジトリを clone して `scripts/hooks/` / `scripts/check-git-destructive.sh` を
+> `.claude/settings.json` へ配線している利用者。** これらは **plugin 配布物に含まれません**。
+> `plangate` プラグインを marketplace 経由で導入しているだけの場合、下記 1. と 2. は影響しません。
+
+#### 1. EH-3 が linked worktree 配下の Hardening Override を block するようになります（#1277）
+
+`.claude/worktrees/<name>/` のような **REPO_ROOT 配下の linked worktree**、および REPO_ROOT 外の
+worktree で、HO 12 カテゴリのファイルが **block されず素通りしていました**。本リポジトリでは
+linked worktree が 60 本以上あり、エージェントが日常的にその中で作業するため、
+**承認境界が最も使われる経路で外れていた**ことになります。
+
+worktree 内で `.claude/rules/*.md` 等を編集していた運用がある場合、**その編集は block されます**。
+
+#### 2. EH-12 が破壊的でない git コマンドを block しなくなります（#1326）
+
+`git push` の**トークン列に属さない** `--force` / `+` を拾っていたため、次のような
+**破壊的でないコマンドが block** されていました。
+
+```text
+git push -q origin docs/x && git worktree remove --force /tmp/w
+git push origin HEAD && echo a + b
+echo "use git push --force only on branches"      # 実行されない文字列
+git commit -m "do not push --force to main"       # コミットメッセージ
+```
+
+**block 対象は一切緩めていません。** 実 hook を PreToolUse payload で起動した 44 ケースの対照で、
+**本物の破壊的操作 32 件は是正前後とも 32/32 BLOCK**、非破壊 12 件が **6 件の誤 block → 0 件**。
+
+### 承認境界ガードの是正
+
+- **EH-3 — linked worktree 配下の HO 素通り**（#1277 / PR #1317・#1320）。containment 判定が
+  worktree root からの相対パスを返すようにし、`_phys_key` 経由で HO 12 カテゴリ判定へ載せた。
+  回帰網 `ta-80` は 40 → **52 TC**（TC-R05〜R08 が**実 hook**に対して assert）
+- **EH-3 — 残存欠陥 3 件**（#1278 / #1234 / #1226 / PR #1304）。`log_event` の fail-open 化、
+  repo 外パスの `OUTSIDE_REPO_SKIP`、承認サーフェス台帳の新設
+- **EH-3 — Bash レーン配線と HO パス正規化**（#1104 / #1101 / PR #1271）。
+  `bin/../bin/plangate` のような別表記による迂回を塞いだ
+- **EH-12 — 判定を同一コマンドのトークン列へ限定**（#1326 / PR #1328・#1330）。
+  `;` `&&` `||` `|` `&` と**物理改行**でセグメント分割し、先頭語が `git` そのもののときだけ
+  精密解析へ入る。それ以外は**従来の部分文字列判定へ落とす fail-closed**。
+  回帰網 `ta-86` を **56 TC** で新設
+- **EH-13 — 配線の回帰防止**（#1259）。`check-settings-wiring.sh` へ `EH-13-EDIT` / `-WRITE` を
+  `TRACKED_FAIL` として登録し、`ta-83` で gate の liveness を固定
+
+### 承認境界の運用
+
+- **承認の適用順を明示**（#1318 / PR #1323）。`CLAUDE.md` の `<law>` 直後に 5 段の適用順を追加。
+  **各層を弱めず順序だけを定める**。HO → 不可逆・対外操作 → 自己設置 Gate → サブコマンド承認 → y/n
+- `orchestrator-mode.md` に**適用条件**を明記（親 PBI 分解時のみ読む / 機械強制は未実装）。
+  194 行が常時ロードされていた状態を解消
+- `working-context.md` に **「PR 作成は完了ではない」** を追加
+
+### 配布とリリース
+
+- **version bump ゲート**をリリース時に配線（#1257）。`plugin/` に差分があるのに version が
+  据え置きなら `release-prep --check` が NOT READY を返す。**bump しないと `/plugin update` は
+  no-op で consumer に 1 件も届かない**
+- **ai-dev ワークフローの実行資材を plugin へ同梱**（#1232）。`ai-dev-plan` / `exec` / `verify` /
+  `brainstorm` が各 2 ファイルだった状態を 14 / 6 / 7 / 5 へ
+- **`.codex/skills` の drift 検査を push レーンへ拡張**（#1288 / PR #1322）。従来は
+  `pull_request` でしか走らず、**main に drift が入っても main の CI は緑のまま**だった。
+  あわせて bot PR 向けに installer 非依存の byte 照合を追加
+- 配布物の手順が**導入先に無い `bin/plangate` の実行を前提**にしていた箇所を是正（#1144 / #1245）
+
+### ai-loop V2
+
+- **Phase 0 / 0.1 の canon を確立**（#1273 / #1276 / #1300 / #1301 / #1302）。North Star・
+  4 軸 taxonomy・HarnessManifest・Evaluation Trust Boundary・artifact 責務分離
+- **Phase 0.1 完了**（#1275）。AC 16/16・DoD 7/7 を実体で充足。canon docs 自身に要求する
+  Independence Level は **I1 を明示的な例外**とし、**失効条件 M-1 / M-2 / M-3** を判定コマンド + baseline
+  つきで定義した（#1327）。失効の follow-up は #1329
+- **Loop / Graph / Harness の責務モデル**を解釈ガイドとして明文化（#1321）。canon ではなく従属文書
+- **corpus_hash に enforcement 層を含める**（#1299）。producer 自身が生成する `.pyc` を
+  corpus へ取り込んで値が非決定になっていた問題も解消
+
+### テストと検査
+
+- `ta-86`（EH-12 / 56 TC）・`ta-85`（末尾 `&&` による rc 漏れ）・`ta-84`（corpus hash）・
+  `ta-83`（EH-13 gate liveness）・`ta-81`（version bump）を新設
+- `ta-70` の guard 判定を**正典テンプレートとのバイト列一致**へ作り直し（#1250 / #1178）
+- `ta-69` TC-C6 の fixture を是正し検出力を回復（#1180）
+- `ta-71` の被覆判定を **GitHub Actions `paths:` 公式仕様の逐語**へ外部化（#1249）
+- extras の一時状態を「射程宣言 → 先頭 prune → `register_cleanup`」へ統一（#1209 / #1210 / #947）
+
+### スキル
+
+- **`ho-apply-script`** を新設（#1316）。HO 対象パスへの patch を Human が安全に適用するための型。
+  **実際に踏んだ落とし穴 11 件**を収録（`grep -F` / 前提 assert の偽陽性 / `$( )` はサブシェル /
+  適用スクリプトの連結実行 ほか）
+- **`instruction-debt-audit`** を新設。指示系を変更せずに監査する
+- `test-cases` テンプレートに**期待値の出所**欄と `Convention Evidence` 節を追加（#934）
+
 ## v8.21.0 (2026-08-19)
 
 fix: 参照解決順の「構造上空振りする段」を配布物から除去し、EH-3 / EH-13 のガード迂回を封鎖。さらに `sh` 誤起動から `gh pr merge` へ到達する経路（NO MERGE BY AI の迂回）を配布物ごと塞ぐ
