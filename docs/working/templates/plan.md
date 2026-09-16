@@ -63,7 +63,7 @@ created_by: orchestrator
 ## Approach Comparison
 
 > **最小案を baseline に含める。** より複雑な案を採用する場合は、追加複雑性が現在必要な根拠を `Current-Need Trace` に示す。
-> ultra-light / light で実質的な設計選択がない場合は、儀式的に列を埋めず「単一の明白な変更で比較不要」と理由を記録してよい。
+> B-2 の「2〜3案の trade-off 比較」は mode にかかわらず維持する。ultra-light / light では各セルを短くし、追加の説明セクションを増やさず**記述量だけ**を抑える。
 
 | 案 | Evidence | Complexity Cost | New Abstractions | Current-Need Trace | Verification | Trade-offs | 判定 |
 |---|---|---|---|---|---|---|---|
