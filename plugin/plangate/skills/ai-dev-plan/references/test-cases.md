@@ -3,15 +3,23 @@
 > フェーズ B（Prompt 1）で `plan.md` / `todo.md` と**同時生成**する。
 > 正本: `working-context.md` の「test-cases.md（テストケース定義）」節 /
 > [`.agents/skills/ai-dev-plan/SKILL.md`](../SKILL.md) の「test-cases.md 規約」。
+> 設計判断からテストを導出する原則は本SKILL.mdの「Plan Design Principles」節を参照する。
 > **本テンプレートは規約の実体化であって再定義ではない**。規約を変えるときは正本側を変える。
 
 ## 記入規約（チェックリスト）
 
 - [ ] [`pbi-input.md`](./pbi-input.md) の**すべての受入基準に最低 1 件**のテストケースを対応させる（対応の無い AC を残さない）
+- [ ] AC 以外の重要な Contract / Invariant / Regression / Conditional Requirement を検証する場合、下記 `Verification Trace` に**存在理由と現在根拠**を記録する
+- [ ] Contract / Invariant を「テストを作るため」に後付けで発明しない。AC / 既存挙動 / Domain Rule / Architecture Constraint / 実測 Evidence の最低1つへ trace する
 - [ ] **Edge case を含める**（境界値・異常系・空入力・上限・権限なし等）
 - [ ] 各ケースに 前提条件 / 入力 / 期待出力 / 種別 を書く
 - [ ] 各ケースの**期待値に出所を書く**（`デザイン実測` / `規約` / `既存実装`）。出所が `規約` のものは下記 `## Convention Evidence` で実値と突合する（#934）
 - [ ] 自動化できないケースは「自動化可否」表に理由と代替手段を残す
+
+> `Trace` と `期待値の出所` は別の問いである。
+>
+> - **Trace**: なぜこのテストケースが存在するか
+> - **期待値の出所**: なぜその期待値が正しいか
 
 ## 受入基準 → テストケース マッピング
 
@@ -22,11 +30,27 @@
 
 > 未対応の AC が 1 つでも残る場合は plan に戻す（C-1 の「受入基準との紐付き」で FAIL になる）。
 
+## Verification Trace
+
+> AC の網羅表を置き換えない。AC 以外を含む「このテストがなぜ必要か」を追跡するための表。
+> `Contract` / `Invariant` は Source / Evidence が空なら採用しない。
+
+| Trace Type | Trace ID / 内容 | Source / Evidence | テストケース |
+| --- | --- | --- | --- |
+| AC | AC-01 | `pbi-input.md#AC-01` | TC-01, TC-02 |
+| Contract | CONTRACT-01: {現在守る契約} | `{既存API / ADR / schema / 実測}` | TC-03 |
+| Invariant | INV-01: {現在守る不変条件} | `{Domain Rule / 既存実装 / 実測}` | TC-04 |
+| Regression | REG-01: {観測済みfailure} | `{Issue / evidence / failing test}` | TC-R01 |
+| Conditional Requirement | CR-01: {failure / compatibility 等} | `{発火したDesign Guidanceと根拠}` | TC-E01 |
+
 ## テストケース一覧
 
 ### TC-01: {テストケース名}
 
 - 対応 AC: AC-01
+- Trace: AC / Contract / Invariant / Regression / Conditional Requirement
+- Trace ID: AC-01
+- Trace Source / Evidence: `pbi-input.md#AC-01`
 - 種別: unit / integration / e2e / manual
 - 前提条件: {実行前に成立している必要がある状態}
 - 入力: {具体値。「適切な値」と書かない}
@@ -37,6 +61,9 @@
 ### TC-02: {テストケース名}
 
 - 対応 AC: AC-01
+- Trace: AC / Contract / Invariant / Regression / Conditional Requirement
+- Trace ID: AC-01
+- Trace Source / Evidence: `pbi-input.md#AC-01`
 - 種別: unit / integration / e2e / manual
 - 前提条件: {前提}
 - 入力: {入力}
@@ -47,10 +74,14 @@
 ## Edge Cases
 
 > 正常系だけの一覧にしない。最低 1 件は異常系・境界値を置く。
+> Failure / Compatibility / Security / Observability 等の Conditional Design Guidance が発火した場合だけ、必要なケースを追加する。全観点を一律に展開しない。
 
 ### TC-E01: {エッジケース名}
 
-- 対応 AC: AC-02
+- 対応 AC: AC-02 / N/A
+- Trace: AC / Contract / Invariant / Regression / Conditional Requirement
+- Trace ID: {AC-02 / CONTRACT-01 / INV-01 / REG-01 / CR-01}
+- Trace Source / Evidence: `{根拠となる要件・既存挙動・規約・実測}`
 - 種別: unit / integration / e2e / manual
 - 分類: 境界値 / 異常系 / 空入力 / 上限・下限 / 権限なし / 並行実行
 - 前提条件: {前提}
