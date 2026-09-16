@@ -12,6 +12,7 @@ created_by: orchestrator
 
 > このテンプレートは、AI実装者が安全に実行できる **実行可能な作業指示書** として `plan.md` を書くためのもの。
 > Superpowers の `writing-plans` から、PlanGateに合う要素だけを翻訳している。
+> Plan 作成時の設計判断は [`.agents/skills/ai-dev-plan/SKILL.md`](../SKILL.md) の「Plan Design Principles」節を実行規範とし、原則全文を本 artifact へ転記せず、**今回 material な判断結果だけ**を残す。
 
 ## Goal
 
@@ -61,14 +62,61 @@ created_by: orchestrator
 
 ## Approach Comparison
 
-| 案 | 内容 | メリット | デメリット | 判定 |
-|---|---|---|---|---|
-| A | {案A} | {メリット} | {デメリット} | 採用 / 不採用 |
-| B | {案B} | {メリット} | {デメリット} | 採用 / 不採用 |
+> **最小案を baseline に含める。** より複雑な案を採用する場合は、追加複雑性が現在必要な根拠を `Current-Need Trace` に示す。
+> ultra-light / light で実質的な設計選択がない場合は、儀式的に列を埋めず「単一の明白な変更で比較不要」と理由を記録してよい。
+
+| 案 | Evidence | Complexity Cost | New Abstractions | Current-Need Trace | Verification | Trade-offs | 判定 |
+|---|---|---|---|---|---|---|---|
+| A: {最小案} | {現行実装/実測/制約} | {低/中/高 + 理由} | {なし/追加要素} | {AC/constraint/evidence} | {証明方法} | {利点/欠点} | 採用 / 不採用 |
+| B: {代替案} | {現行実装/実測/制約} | {低/中/高 + 理由} | {なし/追加要素} | {AC/constraint/evidence} | {証明方法} | {利点/欠点} | 採用 / 不採用 |
 
 ### Recommended Approach
 
 {採用案と理由。既存設計との整合性、実装コスト、保守性、テスト容易性を含める}
+
+#### Why this is the minimum sufficient design
+
+- Required AC / constraints: {この設計が満たす現在要件}
+- New abstractions / interfaces / dependencies: {なし / 一覧}
+- Why each is needed now: {AC / constraint / observed problem への Current-Need Trace}
+- Simpler alternative considered: {より単純な案と採否理由}
+- Observable behavior / contract / invariant: {設計判断が何として観測できるか}
+- Verification strategy: {テスト / deterministic check / manual evidence}
+- Conditional guidance fired: {Failure / Compatibility / Observability / Security / Performance / UI / なし}
+- Deferred extensions: {今は作らない将来拡張と理由}
+
+> Contract / Invariant を採用する場合は、AC / Existing Behavior / Domain Rule / Architecture Constraint / Measured Evidence の最低1つへ trace する。テストや抽象化を正当化するために後付けで発明しない。
+
+## Change Type / Verification Strategy
+
+> TDD を常に同一の `RED → GREEN` へ固定しない。**変更の性質に適した事前証拠を持ち、変更後に同じ契約を再検証する。**
+
+- Change type: new behavior / bug fix / behavior-preserving refactor / docs-config-generated / mixed
+- Pre-change evidence: {RED / characterization GREEN / deterministic baseline / その他}
+- Post-change evidence: {GREEN / behavior-preservation / deterministic validation / その他}
+- Test trace: {`test-cases.md` の AC / Contract / Invariant / Regression / Conditional Requirement}
+
+標準パターン:
+
+```text
+New behavior
+  RED → minimum implementation → GREEN → Refactor
+
+Bug fix
+  regression RED → fix → GREEN
+
+Behavior-preserving refactor
+  characterization / existing tests GREEN
+    → refactor
+    → GREEN + behavior-preservation evidence
+
+Docs / config / generated artifact
+  deterministic baseline
+    → change
+    → deterministic validation
+```
+
+> Refactor でテストを RED にしてから構造変更を進めない。必要な Characterization Test / Preparatory Refactoring / Knowledge Delta の責務は #867 を参照し、本テンプレートで再定義しない。
 
 ## Files / Interfaces
 
@@ -81,10 +129,13 @@ created_by: orchestrator
 
 > 各Taskは、独立して検証可能で、reviewerがTask単位で approve / reject できる粒度にする。
 > setup / config / docs は、それを必要とする成果物のTaskに含める。
+> 各Taskの責務を1文で説明でき、独立した複数の変更理由を理由なく混在させない。
 
 ### Task 1: {タスク名}
 
 **Purpose**: {このTaskで達成すること}
+
+**Change Type / Verification Pattern**: {new behavior / bug fix / refactor / docs-config-generated / mixed} — {選択理由}
 
 **Files**:
 
@@ -99,17 +150,17 @@ created_by: orchestrator
 
 **Steps**:
 
-- [ ] Step 1: failing test を追加する
-  - 変更: `path/to/test-file.test.ts`
-  - 期待: 対象機能が未実装のため失敗する
-- [ ] Step 2: REDを確認する
-  - command: `pnpm test path/to/test-file.test.ts`
-  - expected: `FAIL` with `{期待する失敗理由}`
-- [ ] Step 3: 最小実装を追加する
-  - 変更: `path/to/new-file.ts`
-  - 方針: テストを通すために必要な最小実装に留める
-- [ ] Step 4: GREENを確認する
-  - command: `pnpm test path/to/test-file.test.ts`
+- [ ] Step 1: 変更タイプに応じた事前証拠を確立する
+  - command: `{failing test / characterization test / deterministic baseline}`
+  - expected: `{RED / GREEN baseline / 現行値}`
+- [ ] Step 2: 必要最小限の変更を実装する
+  - 変更: `{対象ファイル}`
+  - 方針: `{Current-Need Trace がある範囲だけを変更}`
+- [ ] Step 3: 同じ Behavior / Contract / Invariant を再検証する
+  - command: `{検証コマンド}`
+  - expected: `{GREEN / preserved / deterministic expected value}`
+- [ ] Step 4: 必要な場合のみ refactor し、再度 behavior preservation を確認する
+  - command: `{検証コマンド}`
   - expected: `PASS`
 - [ ] Step 5: 関連検証を実行する
   - command: `pnpm typecheck`
@@ -117,7 +168,8 @@ created_by: orchestrator
 
 **Completion Criteria**:
 
-- [ ] 対象テストが成功している
+- [ ] `test-cases.md` の対象 Trace が検証済み
+- [ ] 変更タイプに適した Evidence が保存されている
 - [ ] 変更ファイルがScope内に収まっている
 - [ ] Evidence Ledgerに検証結果を記録している
 
@@ -128,6 +180,8 @@ created_by: orchestrator
 ### Task 2: {タスク名}
 
 **Purpose**: {このTaskで達成すること}
+
+**Change Type / Verification Pattern**: {new behavior / bug fix / refactor / docs-config-generated / mixed} — {選択理由}
 
 **Files**:
 
@@ -182,12 +236,14 @@ created_by: orchestrator
 ### Success Criteria
 
 - AC: {受入基準と対応する `test-cases.md` のケースID}
+- Contract / Invariant / Regression: {material なものだけ。Source/EvidenceとケースID}
 - Completion boundary: {どこまで終わればDoneか、どこから先は別PBIか}
 
 ### Review Criteria
 
 - Design alignment: {既存設計・ADR・UI/UX・workflowとの整合観点}
-- Test expectations: {C-1/C-2/C-3で確認すべきテスト期待値}
+- Minimum sufficient design: {不要なabstraction / extensionを追加していない根拠}
+- Test expectations: {変更タイプに応じた事前・事後Evidenceと `test-cases.md` Trace}
 - Security: {セキュリティ観点。N/Aの場合は理由}
 - Maintainability: {保守性・命名・責務境界の観点}
 - Backward compatibility: {後方互換性。N/Aの場合は理由}
@@ -221,6 +277,7 @@ created_by: orchestrator
 - hidden dependency が見つかり、Work Breakdown または Files / Interfaces が変わる
 - public API / schema / hook / workflow 契約の変更が必要になった
 - `test-cases.md` と実装可能なテスト契約が一致しない
+- Contract / Invariant の根拠が崩れた、または設計判断を正当化するための後付けだったと判明した
 - scope bloat（計画外ファイルが大幅に増える、または目的外改善が混入する）が発生した
 - security impact が新たに見つかった
 
@@ -236,7 +293,7 @@ created_by: orchestrator
 - 外部API / 認証情報 / 課金 / 権限 / 本番データに触る必要が出た
 - 破壊的操作、データ削除、migration、不可逆変更が必要になった
 - 新規依存追加、または大規模な想定外変更が必要になった
-- high-risk / criticalでTDD証跡を残せない
+- high-risk / criticalで必要な検証証跡を残せない
 
 ## Human Approval Boundary
 
@@ -253,6 +310,9 @@ created_by: orchestrator
 - [ ] Plan Review Readiness Gate が `pass` 相当（7 項目がすべて具体化済み）
 - [ ] 受入基準がWork Breakdownにマッピングされている
 - [ ] TaskごとのFiles / Interfaces / Steps / Completion Criteriaが具体的
+- [ ] 採用案が現在要件を満たす最小十分な設計で、追加複雑性に Current-Need Trace がある
+- [ ] material な Contract / Invariant は現在根拠へ trace されている
+- [ ] 変更タイプに適した事前・事後 Verification Strategy が定義されている
 - [ ] `TBD` / `TODO` / `後で実装` / `必要に応じて` / `適切に` / `いい感じに` が残っていない
 - [ ] 未定義の関数名・型名・ファイルパス・コマンドを参照していない
 - [ ] テストの入力・期待値・検証コマンドが具体的
