@@ -96,6 +96,7 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 | ファイル | 役割 |
 |---------|------|
 | `references/ai-driven-development.md` | ワークフロー全体像・モード分岐・ゲート条件・Prompt 1 の正本 |
+| `references/plan-design-principles.md` | Plan作成時の設計判断原則・TDD/Test Case導出・Conditional Design Guidanceの正本 |
 | `references/plan-metrics-verification.md` | 事前メトリクス検証（B-1 → B-2 mandatory gate）の正本 |
 | `references/core-contract.md` | 実行契約（Iron Law / Stop rules / Output discipline）の正本 |
 | `references/plangate.md` | PlanGate 概要ガイド |
@@ -129,7 +130,8 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
    （Rule 1〜5 / handoff 必須化）
 6. `references/ai-driven-development.md`（**同梱**。導入先が独自正本を持つ場合はそちらを優先）
    - 最低限: `## ワークフロー全体像`、`### タスク規模によるモード分岐（5 モード）`、`## ゲート条件`、`### Prompt 1: Plan + ToDo + Test Cases生成`
-7. `docs/working/TASK-XXXX/pbi-input.md`（**導入先で作成する入力**。配布物ではない。無ければ plan を開始しない）
+7. `references/plan-design-principles.md`（**同梱**。設計原則・検証可能性・変更タイプ別TDDの正本）
+8. `docs/working/TASK-XXXX/pbi-input.md`（**導入先で作成する入力**。配布物ではない。無ければ plan を開始しない）
 
 ## Output
 
@@ -144,7 +146,22 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 ### フロー（詳細は正本参照）
 
 - **B-1 / B-2 / B-3** フローおよび plan.md 必須セクション（確認事項 / アプローチ比較 / Mode判定 / lite_eligible 等）は同梱 `references/ai-driven-development.md` の `### Prompt 1: Plan + ToDo + Test Cases生成` と `.claude/rules/mode-classification.md` を **正本** とする。skill は順序のみを示す。生成物の雛形は同梱 `references/plan-template.md` / `references/todo.md` / `references/test-cases.md` を使う。
+- Planの**設計判断**は同梱 `references/plan-design-principles.md` を正本とし、Evidence → Minimum Sufficient Design → Responsibility/Boundary → sourced Contract/Invariant → Verification の順で考える。
+- Principles は常に判断へ利用するが、artifactへは material な判断だけを残す。ultra-light / light で空セクションや儀式的 `N/A` を増やさない。
 - B-1（最大 3 問の確認質問）→ **事前メトリクス検証 (mandatory gate)** → B-2（2〜3 案の trade-off 比較）→ B-3（3 ファイル同時生成）
+
+### Plan Design Principles（#1335）
+
+Plan作成では次の6原則を使う。Review checklistへ個別展開せず、作成時の判断ガイドとして適用する。
+
+1. **Evidence Before Design** — 推測より現行実装・テスト・docs・履歴・実測を優先する
+2. **Minimum Sufficient Design** — 現在のACを満たす最小十分な設計をbaselineにする
+3. **Explicit Responsibility & Boundary** — Task / module / workflow等の責務を1文で説明できる粒度にする
+4. **Abstraction Requires Evidence** — code similarityだけで共通化せず、knowledge/invariant/change reason/current needを確認する
+5. **Extension Is Conditional** — OCP/DIP/Compositionは実在する境界・variationがある場合だけ発火する
+6. **Design for Verification** — Design Decisionをobservable Behavior / Contract / Invariantと検証方法へ接続する
+
+新しい abstraction / interface / dependency / extension point と Contract / Invariant は、AC / current constraint / existing behavior / domain rule / architecture constraint / measured evidence の現在根拠へ trace できなければ採用しない。
 
 ### 事前メトリクス検証 (B-1 → B-2 mandatory gate / #351 TASK-0117)
 
@@ -181,12 +198,26 @@ find . -name <pattern> -not -path './.git/*' -not -path './node_modules/*' | wc 
 ### test-cases.md 規約
 
 - 各 AC → テストケースのマッピング必須、Edge case を含める
+- AC以外の重要な Contract / Invariant / Regression / Conditional Requirement を検証する場合は `Verification Trace` に**存在理由とSource/Evidence**を残す
+- Contract / Invariant はテストを作るために後付けで発明しない。AC / 既存挙動 / Domain Rule / Architecture Constraint / 実測 Evidence の最低1つへ trace する
+- `Trace`（なぜtestが存在するか）と `期待値の出所`（なぜexpectedが正しいか）を分離する
 - **各ケースの期待値に出所を明記する**（`デザイン実測` / `規約` / `既存実装`）
 - 出所が `規約` の期待値は、`## Convention Evidence` に **規約の記述 / 実値 / 一致 / 判定** を残す（#934）。
   事前メトリクス検証が「全部 / 全件」系に実数を要求するのと同じ理由で、**規約由来の期待値には実値との突合を要求する**
 - **不一致（規約 ≠ 実値）のときは AC に採用しない**。安全側に倒して plan の 🚩 人間確認ポイントへ落とし、
   規約と実装のどちらを正とするかは人間の設計判断に委ねる（`mode-classification.md` の安全側不変条件と一貫）。
   AI が黙って片側へ寄せて一括変更しない
+
+### 変更タイプ別 Verification / TDD
+
+`Always RED first` を一般則にしない。変更タイプに適した事前証拠を持ち、変更後に同じ契約を再検証する。
+
+- **new behavior**: failing test (RED) → minimum implementation → GREEN → refactor
+- **bug fix**: regression test reproduces failure (RED) → fix → GREEN
+- **behavior-preserving refactor**: characterization / existing tests GREEN → refactor → GREEN + behavior-preservation evidence
+- **docs / config / generated artifact**: deterministic baseline → change → deterministic validation
+
+RefactorではRedの状態で構造変更を進めない。Characterization Test / Preparatory Refactoring / Knowledge Deltaの詳細は #867 の責務とし、本skillで再定義しない。
 
 ### 監査
 
