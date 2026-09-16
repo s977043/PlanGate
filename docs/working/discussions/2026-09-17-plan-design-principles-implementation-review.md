@@ -25,7 +25,8 @@ Branch: `docs/1335-plan-design-principles`
 5. C-1 governance / #960 との整合
 6. #810 Unknown Discovery / #867 Knowledge Delta との責務重複
 7. plugin / Codex / install.sh distribution
-8. independent review の維持
+8. existing workflow contract compatibility
+9. independent review の維持
 
 ## Findings and Decisions
 
@@ -78,6 +79,8 @@ Verification Trace の種別は AC / Contract / Invariant / Regression / Conditi
 現在は `Verification Trace` 表を正とし、各 Test Case は `Trace ID` だけを参照する。
 
 これにより traceability を保ちつつ重複を減らした。
+
+#936 の「テストケース生成量制御」は #960 に統合済みであるため、本PRでは新規C-1削減項目やmode別件数制限を実装しない。
 
 ### 6. C-1 項目追加と #960 の衝突 — FIXED
 
@@ -153,6 +156,21 @@ Skill summary が保持すべき契約:
 
 plan/test template は distribution 時のリンク変換を考慮した内容にした。
 
+### 11. ultra-light / light で B-2 を省略する案 — FIXED
+
+初期テンプレート案では、ultra-light / light で実質的な設計選択がない場合に Approach Comparison を省略できる記述を入れていた。
+
+しかし現行 `ai-dev-plan` / `scripts/ai-dev-plan.sh` / Plan creation process は、B-2 を **2〜3案の trade-off 比較**として要求している。
+
+#1335 は既存workflow contractそのものを変更するIssueではないため、この緩和はスコープ越境と判断した。
+
+最終判断:
+
+- B-2 の2〜3案比較はmodeにかかわらず維持する
+- ultra-light / lightでは各セルを短くし、追加説明を増やさない
+- mode-awareにするのは**記述密度**であり、既存必須ステップの有無ではない
+- B-2自体をmode-awareにする必要が出た場合は、別途workflow contractとして検討する
+
 ## Multi-perspective Review Result
 
 | Perspective | Result | Notes |
@@ -160,9 +178,11 @@ plan/test template は distribution 時のリンク変換を考慮した内容�
 | Architecture | PASS | Principles / Guide / Artifact / Review の責務分離を維持 |
 | TDD | PASS after fix | 変更タイプ別 evidence へ修正 |
 | AI anti-overengineering | PASS | Current-Need Trace / sourced Contract を導入 |
-| light/ultra-light | PASS after fix | materialize only relevant decisions、Trace重複削減 |
+| light/ultra-light | PASS after fix | B-2は維持し記述密度のみ縮小、Trace重複削減 |
+| Test volume | PASS with boundary | #936/#960 の件数制御へ越境しない |
 | C-1 governance | PASS after fix | 新規 check ID / C-1項目追加を行わない |
 | #810/#867 overlap | PASS | 詳細責務は再実装しない |
+| Existing workflow contract | PASS after fix | B-2 mandatory contractを維持 |
 | Distribution | PASS after replan | 既存 Skill sync を再利用 |
 | Review independence | PASS | actual correctness/evidence は Review に残す |
 
@@ -171,10 +191,11 @@ plan/test template は distribution 時のリンク変換を考慮した内容�
 - #960 が解決するまで、C-1 に新規 check ID を追加しない。
 - #810 / #867 / #933 が `plan.md` 正本へ入る際は、この変更と競合しないよう rebase 後に意味差分を再確認する。
 - `docs/ai/plan-design-principles.md` と Skill summary は全文一致ではないため、将来 Principle を追加・削除する際は summary の必須契約を同一PRで確認する。
+- B-2 のmode別省略は本PRでは導入しない。必要性が実運用で確認された場合はworkflow contractとして別途扱う。
 - 実行環境から GitHub host への直接 clone ができず、ローカルで `sync-plugin-plangate.sh` を実走できなかった。PR CI の drift check を最終的な deterministic verification として確認する。
 
 ## Completion Decision
 
-実装前のMajor findingはすべて解消済み。
+完了前レビューで見つかったMajor / Medium findingは修正済み。
 
-PR作成後は CI / drift check と diff review を行い、失敗があれば Planへ戻って修正する。CIが通り、PR差分の独立レビューで新しいMajor findingが無ければ #1335 の実装を完了可能と判断する。
+PR CI / drift check とPR差分レビューで新しい blocking finding が無ければ #1335 の実装を完了可能と判断する。失敗があればPlanへ戻って修正する。
