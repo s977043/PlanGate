@@ -96,7 +96,6 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 | ファイル | 役割 |
 |---------|------|
 | `references/ai-driven-development.md` | ワークフロー全体像・モード分岐・ゲート条件・Prompt 1 の正本 |
-| `references/plan-design-principles.md` | Plan作成時の設計判断原則・TDD/Test Case導出・Conditional Design Guidanceの正本 |
 | `references/plan-metrics-verification.md` | 事前メトリクス検証（B-1 → B-2 mandatory gate）の正本 |
 | `references/core-contract.md` | 実行契約（Iron Law / Stop rules / Output discipline）の正本 |
 | `references/plangate.md` | PlanGate 概要ガイド |
@@ -130,8 +129,7 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
    （Rule 1〜5 / handoff 必須化）
 6. `references/ai-driven-development.md`（**同梱**。導入先が独自正本を持つ場合はそちらを優先）
    - 最低限: `## ワークフロー全体像`、`### タスク規模によるモード分岐（5 モード）`、`## ゲート条件`、`### Prompt 1: Plan + ToDo + Test Cases生成`
-7. `references/plan-design-principles.md`（**同梱**。設計原則・検証可能性・変更タイプ別TDDの正本）
-8. `docs/working/TASK-XXXX/pbi-input.md`（**導入先で作成する入力**。配布物ではない。無ければ plan を開始しない）
+7. `docs/working/TASK-XXXX/pbi-input.md`（**導入先で作成する入力**。配布物ではない。無ければ plan を開始しない）
 
 ## Output
 
@@ -146,11 +144,13 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 ### フロー（詳細は正本参照）
 
 - **B-1 / B-2 / B-3** フローおよび plan.md 必須セクション（確認事項 / アプローチ比較 / Mode判定 / lite_eligible 等）は同梱 `references/ai-driven-development.md` の `### Prompt 1: Plan + ToDo + Test Cases生成` と `.claude/rules/mode-classification.md` を **正本** とする。skill は順序のみを示す。生成物の雛形は同梱 `references/plan-template.md` / `references/todo.md` / `references/test-cases.md` を使う。
-- Planの**設計判断**は同梱 `references/plan-design-principles.md` を正本とし、Evidence → Minimum Sufficient Design → Responsibility/Boundary → sourced Contract/Invariant → Verification の順で考える。
+- Planの**設計判断**は上流正本 `docs/ai/plan-design-principles.md` を基準とし、導入先では下記「Plan Design Principles」節を配布用の実行サマリとして使う。新しい bundled reference を増やさず、既存の SKILL.md 同期経路を再利用する。
 - Principles は常に判断へ利用するが、artifactへは material な判断だけを残す。ultra-light / light で空セクションや儀式的 `N/A` を増やさない。
 - B-1（最大 3 問の確認質問）→ **事前メトリクス検証 (mandatory gate)** → B-2（2〜3 案の trade-off 比較）→ B-3（3 ファイル同時生成）
 
-### Plan Design Principles（#1335）
+### Plan Design Principles（#1335 / 配布用実行サマリ）
+
+上流の詳細正本は `docs/ai/plan-design-principles.md`。`docs/**` が届かない plugin / Codex / install.sh 導入先でも同じ判断を実行できるよう、必要最小限の規範を本SKILLへ埋め込む。本SKILLは既存 `scripts/sync-plugin-plangate.sh` の skill 同期で配布される。
 
 Plan作成では次の6原則を使う。Review checklistへ個別展開せず、作成時の判断ガイドとして適用する。
 
