@@ -310,9 +310,6 @@ Docs / config / generated artifact
 - [ ] Plan Review Readiness Gate が `pass` 相当（7 項目がすべて具体化済み）
 - [ ] 受入基準がWork Breakdownにマッピングされている
 - [ ] TaskごとのFiles / Interfaces / Steps / Completion Criteriaが具体的
-- [ ] 採用案が現在要件を満たす最小十分な設計で、追加複雑性に Current-Need Trace がある
-- [ ] material な Contract / Invariant は現在根拠へ trace されている
-- [ ] 変更タイプに適した事前・事後 Verification Strategy が定義されている
 - [ ] `TBD` / `TODO` / `後で実装` / `必要に応じて` / `適切に` / `いい感じに` が残っていない
 - [ ] 未定義の関数名・型名・ファイルパス・コマンドを参照していない
 - [ ] テストの入力・期待値・検証コマンドが具体的
