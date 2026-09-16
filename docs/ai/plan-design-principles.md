@@ -30,7 +30,7 @@ C-1 / C-2 / Validator
         ↓
 Execute / TDD
         ↓
-Review Gate
+Independent Review Gate
 ```
 
 ## Core Principles
@@ -154,6 +154,20 @@ Plan 作成時に確認する。
 
 > Every important design decision should identify the observable behavior, contract, or invariant that proves the decision works. Tests verify those outcomes—not the principle itself.
 
+#### Contract / Invariant Requires Source
+
+Test を作るために Contract / Invariant を後付けで発明しない。
+
+```text
+AC / Existing Behavior / Domain Rule / Architecture Constraint / Measured Evidence
+        ↓
+Contract / Invariant
+        ↓
+Test Case
+```
+
+Contract / Invariant は最低 1 つの現在根拠へ trace できること。`test が欲しいから invariant を作る`、`抽象化を正当化するために contract を作る` は禁止する。
+
 ## Principle Conflict Resolution
 
 原則が衝突した場合は次の順で判断する。
@@ -185,7 +199,7 @@ DRY と YAGNI が衝突する場合、抽象化の evidence が不足してい�
 7. Minimum Sufficient Design を選択
 8. Responsibility / Boundary を定義
 9. 新規 abstraction を Current-Need Trace へ接続
-10. Observable Behavior / Contract / Invariant を定義
+10. Observable Behavior / sourced Contract / Invariant を定義
 11. Verification Strategy / Test Cases を設計
 12. Conditional Design Guidance を必要時のみ発火
 13. Work Breakdown
@@ -194,31 +208,17 @@ DRY と YAGNI が衝突する場合、抽象化の evidence が不足してい�
 
 より複雑な案を採用する場合、その追加複雑性が必要な現在の根拠を説明する。
 
+### Mode-aware Output
+
+Principles は常に判断へ利用するが、成果物への記述量はタスク規模に合わせる。
+
+> Apply every principle mentally. Materialize only relevant decisions.
+
+ultra-light / light の単純変更で abstraction / compatibility / operational risk 等の判断が実質不要なら、空セクションや儀式的な説明を増やさない。判断が material な場合だけ plan artifact へ残す。
+
 ## TDD / Test Case Design
 
 Plan Design Principles は `test-cases.md` の生成にも利用する。
-
-```text
-Requirement / Acceptance Criteria
-        ↓
-Observable Behavior
-        ↓
-Contract / Invariant
-        ↓
-Test Case
-        ↓
-Design Refinement
-        ↓
-RED
-        ↓
-Implementation
-        ↓
-GREEN
-        ↓
-Refactor
-        ↓
-Behavior Preservation
-```
 
 ### Test Case Derivation Rule
 
@@ -231,6 +231,56 @@ Behavior Preservation
 5. 回帰として保存すべき観測済み failure
 
 原則そのものをテストしない。テストが検証するのは、その原則から導かれた observable behavior / contract / invariant である。
+
+`test-cases.md` では次の 2 つを分離して追跡する。
+
+```text
+trace_to
+  = なぜこの Test Case が存在するのか
+  = AC / Contract / Invariant / Regression / Conditional Requirement
+
+expected_value_source
+  = なぜこの期待値が正しいのか
+  = measured evidence / existing behavior / specification / approved rule
+```
+
+### TDD Strategy Depends on Change Type
+
+**TDD を常に `RED → GREEN` の単一形へ固定しない。変更タイプに適した事前証拠を要求する。**
+
+```text
+New behavior
+  Failing test (RED)
+      ↓
+  Minimum implementation
+      ↓
+  GREEN
+      ↓
+  Refactor
+
+Bug fix
+  Regression test reproduces failure (RED)
+      ↓
+  Fix
+      ↓
+  GREEN
+
+Behavior-preserving refactor
+  Characterization / existing tests GREEN
+      ↓
+  Refactor
+      ↓
+  GREEN + Behavior Preservation evidence
+
+Docs / config / generated artifact
+  Deterministic baseline / validation
+      ↓
+  Change
+      ↓
+  Deterministic validation
+```
+
+Refactoring では「Red の状態で構造変更を進めない」。必要に応じて Characterization Test / Preparatory Refactoring を先行し、#867 の Knowledge Delta / behavior vs structural change の責務を再実装せず参照する。
 
 ### Conditional Guidance → Test Cases
 
@@ -264,26 +314,6 @@ Observability fired
  ├─ observation / hypothesis separation
  └─ reproducible diagnosis
 ```
-
-### TDD Evidence Flow
-
-```text
-AC / Contract / Invariant
-        ↓
-Test Case
-        ↓
-RED evidence
-        ↓
-Implementation
-        ↓
-GREEN evidence
-        ↓
-Refactor
-        ↓
-Behavior preservation evidence
-```
-
-Refactor 後も、守るべき Behavior / Contract / Invariant が変わっていないことを証拠で確認する。
 
 ## Conditional Design Guidance
 
@@ -358,6 +388,8 @@ UI変更時のみ使う。既存 Design Gate を参照し、design token / compo
 - compatibility contract が実際に維持されたか
 - Design Guidance が実装へ正しく反映されたか
 
+Review は Principles を再実行するだけの maker-self-check にしない。independent checker として actual evidence / diff / behavior を検証する。
+
 ## Review → Guidance Promotion Policy
 
 同型の review finding が繰り返される場合、レビュー項目を増やす前に上流化を検討する。
@@ -375,10 +407,32 @@ Preventable before implementation?
              ↓
         Promote to Design Guidance / Principle
              ↓
-        Review keeps only conformance check
+        Review keeps only conformance + actual verification
 ```
 
 昇格候補は、複数タスクで再発し、実装前に判断可能で、原因がコードミスより設計判断にあり、Guide 化で再発率を下げられるものとする。
+
+## Canonical Source and Distribution
+
+上流リポジトリでの正本は本ファイル `docs/ai/plan-design-principles.md` とする。
+
+ただし `ai-dev-plan` の plugin / Codex / install.sh 配布では `docs/**` が配布対象外であるため、導入先から正本パスを直接参照させない。
+
+実装時は次を満たす。
+
+```text
+docs/ai/plan-design-principles.md       # canonical
+        ↓ sync
+.agents/skills/ai-dev-plan or plugin skill references
+  references/plan-design-principles.md  # bundled distribution copy
+        ↓
+Claude plugin / Codex / install.sh
+```
+
+- bundled reference は手編集せず canonical から生成 / sync する
+- sync / drift check を deterministic に検証する
+- `ai-dev-plan` は既存の reference resolution 規約に従う
+- canonical と配布copyの乖離を許容しない
 
 ## Non-goals
 
@@ -390,6 +444,8 @@ Preventable before implementation?
 - interface / DIP / OCP を常時強制する
 - Principle ごとにテストを作る
 - 将来想定だけで test matrix を増やす
+- Contract / Invariant を test や abstraction の正当化目的で発明する
+- 全変更へ機械的に RED-first を要求する
 
 ## Related
 
