@@ -18,7 +18,7 @@
 
 > `Trace` と `期待値の出所` は別の問いである。
 >
-> - **Trace**: なぜこのテストケースが存在するか
+> - **Trace**: なぜこのテストケースが存在するか。`Verification Trace` を正とし、各ケースでは `Trace ID` だけを参照する
 > - **期待値の出所**: なぜその期待値が正しいか
 
 ## 受入基準 → テストケース マッピング
@@ -48,9 +48,7 @@
 ### TC-01: {テストケース名}
 
 - 対応 AC: AC-01
-- Trace: AC / Contract / Invariant / Regression / Conditional Requirement
 - Trace ID: AC-01
-- Trace Source / Evidence: `pbi-input.md#AC-01`
 - 種別: unit / integration / e2e / manual
 - 前提条件: {実行前に成立している必要がある状態}
 - 入力: {具体値。「適切な値」と書かない}
@@ -61,9 +59,7 @@
 ### TC-02: {テストケース名}
 
 - 対応 AC: AC-01
-- Trace: AC / Contract / Invariant / Regression / Conditional Requirement
 - Trace ID: AC-01
-- Trace Source / Evidence: `pbi-input.md#AC-01`
 - 種別: unit / integration / e2e / manual
 - 前提条件: {前提}
 - 入力: {入力}
@@ -79,9 +75,7 @@
 ### TC-E01: {エッジケース名}
 
 - 対応 AC: AC-02 / N/A
-- Trace: AC / Contract / Invariant / Regression / Conditional Requirement
 - Trace ID: {AC-02 / CONTRACT-01 / INV-01 / REG-01 / CR-01}
-- Trace Source / Evidence: `{根拠となる要件・既存挙動・規約・実測}`
 - 種別: unit / integration / e2e / manual
 - 分類: 境界値 / 異常系 / 空入力 / 上限・下限 / 権限なし / 並行実行
 - 前提条件: {前提}
