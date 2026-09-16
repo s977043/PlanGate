@@ -3,7 +3,7 @@
 > フェーズ B（Prompt 1）で `plan.md` / `todo.md` と**同時生成**する。
 > 正本: [`.claude/rules/working-context.md`](../../../.claude/rules/working-context.md) の「test-cases.md（テストケース定義）」節 /
 > [`.agents/skills/ai-dev-plan/SKILL.md`](../../../.agents/skills/ai-dev-plan/SKILL.md) の「test-cases.md 規約」。
-> 設計判断からテストを導出する原則は [`docs/ai/plan-design-principles.md`](../../ai/plan-design-principles.md) を参照する。
+> 設計判断からテストを導出する実行規範は同 Skill の「Plan Design Principles」節。詳細正本は上流 `docs/ai/plan-design-principles.md`。
 > **本テンプレートは規約の実体化であって再定義ではない**。規約を変えるときは正本側を変える。
 
 ## 記入規約（チェックリスト）
