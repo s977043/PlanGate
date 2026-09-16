@@ -12,7 +12,7 @@ created_by: orchestrator
 
 > このテンプレートは、AI実装者が安全に実行できる **実行可能な作業指示書** として `plan.md` を書くためのもの。
 > Superpowers の `writing-plans` から、PlanGateに合う要素だけを翻訳している。
-> Plan 作成時の設計判断は [`.agents/skills/ai-dev-plan/SKILL.md`](../SKILL.md) の「Plan Design Principles」節を実行規範とし、原則全文を本 artifact へ転記せず、**今回 material な判断結果だけ**を残す。
+> Plan 作成時の設計判断は [`.agents/skills/ai-dev-plan/SKILL.md`](../SKILL.md) の「Plan Design Principles」節を実行規範とする。詳細正本は上流 `docs/ai/plan-design-principles.md`。原則全文を本 artifact へ転記せず、**今回 material な判断結果だけ**を残す。
 
 ## Goal
 
