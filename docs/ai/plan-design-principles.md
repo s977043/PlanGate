@@ -414,25 +414,34 @@ Preventable before implementation?
 
 ## Canonical Source and Distribution
 
-上流リポジトリでの正本は本ファイル `docs/ai/plan-design-principles.md` とする。
+上流リポジトリでの**詳細正本**は本ファイル `docs/ai/plan-design-principles.md` とする。
 
-ただし `ai-dev-plan` の plugin / Codex / install.sh 配布では `docs/**` が配布対象外であるため、導入先から正本パスを直接参照させない。
-
-実装時は次を満たす。
+ただし `ai-dev-plan` の plugin / Codex / install.sh 配布では `docs/**` が配布対象外であるため、導入先から正本パスを直接参照させない。配布先でPlan作成に必要な実行規範は `.agents/skills/ai-dev-plan/SKILL.md` の `Plan Design Principles` 節へ**実行サマリ**として持たせ、既存のSkill同期経路で配布する。
 
 ```text
-docs/ai/plan-design-principles.md       # canonical
-        ↓ sync
-.agents/skills/ai-dev-plan or plugin skill references
-  references/plan-design-principles.md  # bundled distribution copy
-        ↓
-Claude plugin / Codex / install.sh
+docs/ai/plan-design-principles.md       # detailed canonical source
+        ↓ maintain semantic alignment
+.agents/skills/ai-dev-plan/SKILL.md     # executable summary
+        ↓ existing skill sync
+plugin / install.sh / Codex
 ```
 
-- bundled reference は手編集せず canonical から生成 / sync する
-- sync / drift check を deterministic に検証する
-- `ai-dev-plan` は既存の reference resolution 規約に従う
-- canonical と配布copyの乖離を許容しない
+責務は次のように分ける。
+
+- 本ファイル: 背景、優先順位、Conditional Guidance、TDD/Test Case設計、Reviewとの境界を含む詳細正本
+- `ai-dev-plan/SKILL.md`: Plan生成時に必ず使う6原則、Current-Need Trace、変更タイプ別TDD、Test Traceの最小実行契約
+- `plan.md` / `test-cases.md`: 原則本文を複製せず、materialな判断結果だけを記録する
+
+全文の byte-identical copy は要求しない。代わりに、配布Skillが少なくとも次を保持していることを検証対象とする。
+
+1. 6 Core Principles
+2. `Extensibility < Simplicity unless current evidence requires extensibility`
+3. Contract / Invariant Requires Source
+4. change-type-aware TDD strategy
+5. `trace_to` と `expected_value_source` の分離
+6. mode-aware output（判断は適用、不要な記述は増やさない）
+
+詳細正本へ新しい必須原則を追加した場合は、同一変更で実行サマリへの反映要否を判断する。配布Skillのサマリが古くなり、上記必須契約を欠く状態を許容しない。
 
 ## Non-goals
 
