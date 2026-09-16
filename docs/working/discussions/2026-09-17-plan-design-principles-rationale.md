@@ -4,93 +4,74 @@ Date: 2026-09-17
 Related Issue: #1335  
 Status: Working Decision Record
 
-## 1. この文書の目的
+## Purpose
 
-この文書は `docs/ai/plan-design-principles.md` の規範そのものではなく、**なぜその形にしたか、どの論点を検討し、何を採用・却下したかを残す判断記録**である。
+この文書は `docs/ai/plan-design-principles.md` の規範そのものではなく、**なぜその形にしたか、どの案を採用・修正・却下したかを後から追えるようにする判断記録**である。
 
-正本の役割分担は次の通り。
+- `docs/ai/plan-design-principles.md`: 詳細正本
+- `.agents/skills/ai-dev-plan/SKILL.md`: Plan作成時の配布可能な実行サマリ
+- 本文書: Context / Alternatives / Decisions / Trade-offs / Revisit Triggers
+- `2026-09-17-plan-design-principles-implementation-review.md`: 実装途中の再レビューと修正記録
+- Issue #1335: 実装計画・Acceptance Criteria・進捗
 
-```text
-docs/ai/plan-design-principles.md
-  = 現時点の規範・設計判断原則
-
-docs/working/discussions/2026-09-17-plan-design-principles-rationale.md
-  = 検討過程・レビュー結果・トレードオフ・再検討条件
-
-Issue #1335
-  = 実装計画・Acceptance Criteria・進捗
-```
-
-ここでは生の思考ログではなく、後から再検討できる形で `Context / Observation / Alternatives / Decision / Trade-offs / Revisit Triggers` を残す。
+生の思考ログではなく、判断を再検討できる形で残す。
 
 ---
 
-## 2. Context
+## 1. Context
 
-PlanGate の Plan はすでに、前提の実測、Unknown、複数案比較、Work Breakdown、Verification、Replan / Stop Condition を備えている。
+PlanGate の Plan はすでに、前提の実測、Questions / Unknowns、アプローチ比較、Work Breakdown、Verification、Replan / Stop Conditionを持つ。
 
-一方、AI coding agent の実装能力が高くなるほど、次の問題が増える。
+一方、AI coding agent の実装能力が高くなるほど、次の問題が目立つ。
 
 - 将来用途を先回りした abstraction / interface / config / extension point を低コストで増やす
-- 実装後の Review Gate に設計知識が集まり、「どう作るべきか」がレビューまで遅延する
-- review finding を増やすたびに C-1 / review checklist が肥大化する
-- TDD が `実装したものを確認するテスト` へ後退し、設計入力として機能しにくくなる
-- Principle をそのまま check item / test item に変換すると、儀式と test matrix が増える
+- 実装後の Review に設計知識が集まり、「どう作るべきか」がレビューまで遅延する
+- review finding のたびに checklist を増やすと C-1 が肥大化する
+- TDD が「実装後の確認」に寄り、設計入力として働きにくい
+- Principle をそのまま check item / test item に変換すると儀式化する
 
-ここから、レビュー観点を増やすより、**良い判断を作成時にさせる設計原則・ガイドへ左シフトする**方針を検討した。
+したがって、**繰り返しレビューで指摘する設計判断を、可能なものからPlan作成ガイドへ左シフトする**方針を採用した。
 
 ---
 
-## 3. 最初に検討した候補
+## 2. 却下した案: 原則を1つずつC-1化する
 
-元の問題意識では、SOLID / DRY / KISS / YAGNI / SRP / OCP / DIP / Composition / Separation of Concerns / Fail Fast / Measure First などの原則を Plan / Self Review へ取り込む案を検討した。
+元の検討対象には SOLID / DRY / KISS / YAGNI / SRP / OCP / DIP / Composition / Separation of Concerns / Fail Fast / Measure First があった。
 
-### 却下した案: 原則を1つずつ C-1 にする
+これらを個別C-1項目にする案は却下した。
 
 理由:
 
-- SOLID の内部に SRP / OCP / DIP が含まれ粒度が揃っていない
-- OCP / DIP / Composition は常時適用すると過剰設計を誘発する
-- DRY は `似たコード → 共通化` と誤解されやすい
-- C-1 の項目数 drift (#960) をさらに悪化させる
-- AI が checklist completion を目的化し、設計判断の質が上がらない
+- SOLIDとSRP/OCP/DIPが重複し粒度が揃っていない
+- OCP / DIP / Compositionは常時適用すると過剰設計を誘発する
+- DRYは「似たコード→共通化」と誤解されやすい
+- #960 のC-1 count driftを悪化させる
+- AIがchecklist completionを目的化しやすい
 
 Decision:
 
-> **原則群をそのままチェックリストへ変換せず、PlanGate向けの少数の設計判断原則へ翻訳する。**
+> **原則群を少数のPlan Design Principlesへ翻訳し、Review checklistではなくPlan作成時の判断モデルにする。**
 
 ---
 
-## 4. Review から Guide へ移すという判断
+## 3. ReviewからGuideへ移す境界
 
-### Observation
-
-Review に存在する観点には2種類ある。
+Review観点は2種類に分かれる。
 
 1. 実装前に選択できる設計判断
-2. actual diff / behavior / evidence を見ないと確認できない実装事実
+2. actual diff / behavior / evidenceを見ないと判定できない実装事実
 
-両方を Review に置くと、Review が設計知識の正本になりやすい。
-
-### Decision
+採用した責務分離:
 
 ```text
 Principles = どう考えるか
-Guide      = どう Plan に落とすか
+Guide      = どうPlanへ落とすか
+Artifact   = 今回のmaterialな判断結果
 Review     = 実際にそうなったかを独立確認する
 Validator  = 機械判定可能な契約だけ
 ```
 
-採用した原則:
-
-1. Evidence Before Design
-2. Minimum Sufficient Design
-3. Explicit Responsibility & Boundary
-4. Abstraction Requires Evidence
-5. Extension Is Conditional
-6. Design for Verification
-
-Review に残すもの:
+Reviewに残すもの:
 
 - logic correctness
 - off-by-one / null / race / swallowed error
@@ -99,73 +80,79 @@ Review に残すもの:
 - actual security vulnerability
 - actual N+1 / resource leak
 - test evidence completeness
-- Plan vs diff の scope leakage
+- Plan vs diff のscope leakage
 
-### なぜこの分離か
-
-Review の価値は `maker が正しく考えたか` をもう一度同じ観点でなぞることではなく、**独立 checker が actual artifact / behavior / evidence を確認すること**にある。
-
-したがって Review は薄くするが、弱くはしない。
+Reviewを薄くしても、独立checkerとしての役割は弱めない。
 
 ---
 
-## 5. Core Principles を6つにした理由
+## 4. Core Principlesを6つにした理由
 
-### Evidence Before Design
+### 1. Evidence Before Design
 
-Measure First / Unknown Discovery を設計前提として統合する。
-
-AIは存在しない API / config / pattern を推測して Plan を作れるため、設計より前に current state の観測が必要。
-
-### Minimum Sufficient Design
-
-KISS / YAGNI を精神論で終わらせず、Current-Need Trace にする。
-
-新しい abstraction / interface / dependency / config / extension point は、現在の AC / constraint / observed problem のどれかへ trace できる必要がある。
-
-### Explicit Responsibility & Boundary
-
-SRP / Separation of Concerns を OOP に限定せず、Task / Agent / Skill / module / workflow / state / interface に適用する。
-
-特に PlanGate では task boundary が reviewability / test boundary / execution autonomy に直結する。
-
-### Abstraction Requires Evidence
-
-DRY を `duplicate code removal` ではなく `knowledge duplication` として扱う。
-
-判断順序:
+Measure First / Unknown Discoveryの前提を統合する。
 
 ```text
-similar code
+Observe
+  ↓
+Facts / Assumptions / Unknowns
+  ↓
+Design
+```
+
+推測よりrepository / tests / docs / history / current behavior / metricsを優先する。
+
+### 2. Minimum Sufficient Design
+
+KISS / YAGNIを精神論で終わらせず、Current-Need Traceへ変換する。
+
+新しい abstraction / interface / dependency / config / extension point は、現在のAC / constraint / observed problemへtraceできる場合だけ導入する。
+
+### 3. Explicit Responsibility & Boundary
+
+SRP / Separation of ConcernsをOOPに限定せず、Task / Agent / Skill / module / workflow / state / interfaceへ適用する。
+
+PlanGateでは責務境界がreviewability / test boundary / execution autonomyへ直結する。
+
+### 4. Abstraction Requires Evidence
+
+DRYを単なるduplicate-code removalとして扱わない。
+
+```text
+similar implementation
   ↓
 same knowledge / invariant / business rule?
   ↓ yes
 same reason to change?
   ↓ yes
-real consumers / variation / current need?
+real consumer / variation / current need?
   ↓ yes
 abstraction candidate
 ```
 
-### Extension Is Conditional
+### 5. Extension Is Conditional
 
-OCP / DIP / Composition は常時原則ではなく conditional lens とする。
+OCP / DIP / Compositionは常時ルールではなくconditional lensとする。
 
-重要な優先順位:
+> **Extensibility < Simplicity unless current evidence requires extensibility.**
 
-> Extensibility < Simplicity unless current evidence requires extensibility.
+### 6. Design for Verification
 
-### Design for Verification
+設計を「説明が綺麗か」だけでなく「どう正しさを証明するか」まで含めて考える。
 
-設計が良いかを、`説明が綺麗か` ではなく `正しさをどう証明するか` まで含めて考える。
-
-ここから TDD / test-cases.md への接続が生まれた。
+```text
+Design Decision
+  ↓
+Observable Behavior / Contract / Invariant
+  ↓
+Test / Deterministic Check / Evidence
+```
 
 ---
 
-## 6. 原則衝突時の優先順位
+## 5. Principle Conflict Resolution
 
-採用:
+採用した優先順位:
 
 ```text
 1. Correctness / Safety
@@ -178,17 +165,15 @@ OCP / DIP / Composition は常時原則ではなく conditional lens とする�
 8. Extensibility
 ```
 
-特に `Maintainability / Extensibility` を上に置かない。
+特にMaintainability / Extensibilityを現在要件より上位に置かない。
 
-理由:
-
-AIは将来保守性や拡張性を理由に現在の複雑性を正当化しやすい。現在要求と evidence を優先することで speculative design を抑える。
+AIは将来保守性・拡張性を理由に現在の複雑性を正当化しやすいため、EvidenceとSimplicityを優先する。
 
 ---
 
-## 7. Review 観点から Conditional Guidance へ移したもの
+## 6. Conditional Design Guidance
 
-Core Principles へ全部入れると肥大化するため、以下を条件付きガイドへ分離した。
+Core Principlesへ全部を入れると肥大化するため、次は該当条件でだけ発火する。
 
 - Failure & Recovery
 - Compatibility / Change
@@ -197,10 +182,6 @@ Core Principles へ全部入れると肥大化するため、以下を条件付�
 - Performance / Cost Awareness
 - UI / UX / Accessibility
 
-### 理由
-
-これらは重要だが全タスクで必要ではない。
-
 例:
 
 - external API / async → Failure & Recovery
@@ -208,43 +189,19 @@ Core Principles へ全部入れると肥大化するため、以下を条件付�
 - non-trivial runtime state → Observability
 - auth / permission / secret → Security
 - expensive I/O / model usage → Performance
-- UI task → UI/UX/Accessibility
+- UI task → UI / UX / Accessibility
 
 Decision:
 
-> **Principles は常時使う。Conditional Guidance は該当条件でのみ発火する。**
+> **Principlesは常時使う。Conditional Guidanceは条件付きで使う。**
 
 ---
 
-## 8. TDDへの接続で得た重要な変更
+## 7. TDDへの接続
 
-### 最初の案
+初期案は `Requirement → Test → RED → Implementation → GREEN` に寄っていたが、複数視点レビューで一律RED-firstは不適切と判断した。
 
-```text
-Requirement / AC
-  ↓
-Observable Behavior / Contract / Invariant
-  ↓
-Test Case
-  ↓
-RED
-  ↓
-Implementation
-  ↓
-GREEN
-  ↓
-Refactor
-```
-
-この方向性自体は良いが、複数視点レビューで問題が見つかった。
-
-### Finding 1: RED-first を全変更へ適用すると不自然
-
-#867 の Knowledge Delta / refactoring 方針では、behavior-preserving refactor は Characterization / existing behavior を GREEN で固定してから構造変更する方が自然。
-
-#### Revised Decision
-
-変更タイプ別に事前証拠を変える。
+採用:
 
 ```text
 New behavior
@@ -254,177 +211,185 @@ Bug fix
   regression RED → fix → GREEN
 
 Behavior-preserving refactor
-  characterization/existing tests GREEN
-      → refactor
-      → GREEN + behavior-preservation evidence
+  characterization / existing tests GREEN
+    → refactor
+    → GREEN + behavior-preservation evidence
 
 Docs / config / generated artifact
   deterministic baseline
-      → change
-      → deterministic validation
+    → change
+    → deterministic validation
 ```
 
-上位原則は `Always RED first` ではなく、
+上位ルール:
 
 > **変更の性質に適した事前証拠を持ち、変更後に同じ契約を再検証する。**
 
-とする。
+#867 が扱う Knowledge Delta / Characterization Test / Preparatory Refactoring の詳細契約は #1335 で再実装しない。
 
 ---
 
-## 9. Contract / Invariant をAIに発明させない
+## 8. Contract / Invariant Requires Source
 
-### Risk
-
-TDDを強化すると、AIが次の逆流を起こす可能性がある。
+TDDを強化すると、AIが次の自己正当化を起こす危険がある。
 
 ```text
 テストを書きたい
   ↓
-Invariant を作る
+Invariantを発明
   ↓
-Invariant を守る abstraction を作る
-  ↓
-不要な設計を自己正当化
+Invariantを守るabstractionを発明
 ```
 
-### Decision: Contract / Invariant Requires Source
+そのため、Contract / Invariantも現在根拠へtraceする。
 
 ```text
-AC
-Existing Behavior
-Domain Rule
-Architecture Constraint
-Measured Evidence
+AC / Existing Behavior / Domain Rule / Architecture Constraint / Measured Evidence
         ↓
 Contract / Invariant
         ↓
 Test Case
 ```
 
-Contract / Invariant も evidence へ trace する。
-
-これは `Abstraction Requires Evidence` と同型の防御である。
+`testが欲しいから invariant を作る`、`abstractionを正当化するためcontractを作る`は禁止する。
 
 ---
 
-## 10. test-cases.md の trace を2種類に分ける
+## 9. Test traceとExpected Value Sourceを分離する
 
-現行 `test-cases.md` には `対応 AC` と `期待値の出所` がある。
-
-今後は概念的に次を分離する。
+`test-cases.md` では2つの問いを分ける。
 
 ```text
-trace_to
-  = なぜこのテストが存在するか
+Trace
+  = なぜこのtestが存在するか
   = AC / Contract / Invariant / Regression / Conditional Requirement
 
-expected_value_source
+Expected Value Source
   = なぜその期待値が正しいか
   = measured evidence / existing behavior / specification / approved rule
 ```
 
-理由:
+さらに完了前レビューで、各Test CaseにTrace Type / Sourceを重複記載する案は肥大化すると判断した。
 
-`test existence rationale` と `expected-value correctness` は別問題だから。
+最終形:
 
-この分離により、ACだけでは表現しにくい architecture contract / invariant / regression も追跡できる。
+- `Verification Trace` 表をTraceの正とする
+- 各Test Caseは `Trace ID` だけ参照する
+- 既存 `Convention Evidence` はExpected Value Source側の仕組みとして維持する
 
----
-
-## 11. Mode-awareにする
-
-### Risk
-
-14段階のPlanning Guideをultra-light / lightへそのまま文章出力させると、PlanGateが儀式化する。
-
-### Decision
-
-> Apply every principle mentally. Materialize only relevant decisions.
-
-Principles は常時判断に使うが、artifactへ記録するのは material な判断だけ。
-
-単純変更では次で十分な場合がある。
-
-```text
-Evidence
-  ↓
-minimum change
-  ↓
-verification
-```
-
-空のarchitecture sectionや `N/A` の大量生成を目的化しない。
+#936 の「テスト生成量制御」は #960 に統合済みのため、本PRで新しいC-1削減項目やmode別件数上限は追加しない。
 
 ---
 
-## 12. Distribution / Plugin / Codexのレビュー結果
+## 10. Mode-aware OutputとB-2の境界
 
-### Major Finding
+原則:
 
-`docs/ai/plan-design-principles.md` を正本にしても、そのままでは plugin / Codex / install.sh 導入先へ届かない。
+> **Apply every principle mentally. Materialize only relevant decisions.**
 
-現行 `ai-dev-plan` は `docs/**` を配布対象とせず、skill の `references/` を bundled resource として利用する契約になっている。
+ただし、これは既存workflow contractを勝手に省略する意味ではない。
 
-### Decision
+完了前レビューで、ultra-light / lightならApproach Comparisonを省略できるという初期案は、現行B-2の「2〜3案のtrade-off比較」と矛盾すると判明したため撤回した。
+
+最終判断:
+
+- B-2の2〜3案比較はmodeにかかわらず維持する
+- light / ultra-lightでは各セルを短くし、追加の説明や空セクションを増やさない
+- **必須ステップ数ではなく、記述密度をmode-awareにする**
+
+---
+
+## 11. Distribution Strategy — Initial Plan and Replan
+
+### Initial plan — Superseded
+
+当初は次を想定した。
 
 ```text
-docs/ai/plan-design-principles.md        # canonical
-        ↓ sync
+docs/ai/plan-design-principles.md
+  ↓ sync
 ai-dev-plan/references/plan-design-principles.md
-        ↓
-Claude plugin / Codex / install.sh
+  ↓
+plugin / Codex / install.sh
 ```
 
-要件:
+理由は、`docs/**` が配布先へ届かないためだった。
 
-- bundled copy を手編集しない
-- canonical から sync する
-- deterministic drift check を持つ
-- existing reference-resolution contract を壊さない
+### Implementation finding
 
-これは #1335 のAcceptance Criteriaへ昇格する。
+調査すると、`.agents/skills/ai-dev-plan/SKILL.md` 自体は既存sync経路ですでに配布される。
+
+新しいreference、allowlist、drift契約を増やすより、詳細正本を1つに保ち、Plan生成に必要な規範だけSkillへ実行サマリとして持たせる方がMinimum Sufficient Designに合う。
+
+### Final decision
+
+```text
+docs/ai/plan-design-principles.md       # detailed canonical source
+        ↓ semantic alignment
+.agents/skills/ai-dev-plan/SKILL.md     # executable summary
+        ↓ existing skill sync
+plugin / install.sh / Codex
+```
+
+Skill summaryが保持する最低契約:
+
+1. 6 Core Principles
+2. `Extensibility < Simplicity unless current evidence requires extensibility`
+3. Contract / Invariant Requires Source
+4. change-type-aware TDD
+5. TraceとExpected Value Sourceの分離
+6. Mode-aware Output
+
+全文byte-identical copyは要求しない。
+
+派生テンプレートも `docs/**` のみに依存せず、配布可能なSkill summaryを実行規範として参照する。
 
 ---
 
-## 13. Review independence
+## 12. #960との境界
 
-Principles を充実させても、reviewer を不要にしない。
+初期実装では `plan.md` のC-1ローカルチェックリストへ以下を追加しかけた。
 
-Maker:
+- Minimum Sufficient Design
+- sourced Contract / Invariant
+- change-type-aware Verification
 
-```text
-Principles / Guide
-  → good design / plan / tests
-```
+しかし #960 でC-1の項目数・mode別適用が未解決のため撤回した。
 
-Checker:
+最終判断:
 
-```text
-Principles conformance
-  + actual diff
-  + actual behavior
-  + independent evidence
-  + adversarial / claim-vs-actual check
-```
+- 新規C-1 check IDを作らない
+- C-1項目数を変えない
+- Design判断はApproach Comparison / Recommended Approach / Verification Strategyへ置く
+- C-1は既存項目から成果物を確認する
 
-Review が maker と同じ checklist を再生するだけになれば価値が落ちる。
+---
+
+## 13. #810 / #867 / #794との責務分担
+
+#1335では既存・予定責務を再実装しない。
+
+- #794: implementation review側のYAGNI / architecture / anti-pattern review
+- #810: Facts / Assumptions / Unknowns、Blocking Unknown
+- #867: Knowledge Delta、behavior vs structural change、Characterization / Preparatory Refactoring
+
+#1335の責務は、これらをPlan作成時の上位原則から必要時に発火・参照できるようにすること。
 
 ---
 
 ## 14. Review → Guidance Promotion Policy
 
-今後の進化原則として採用する。
+今後の改善原則として採用する。
 
 ```text
 Repeated Review Finding
         ↓
 Preventable before implementation?
-        ├─ No  → Review/Test/Validatorに残す
+        ├─ No → Review / Test / Validatorへ残す
         └─ Yes
              ↓
         Generalizable?
-        ├─ No  → task/domain guidance
+        ├─ No → task / domain guidance
         └─ Yes
              ↓
         Promote to Design Guidance / Principle
@@ -432,199 +397,71 @@ Preventable before implementation?
         Review keeps conformance + actual verification
 ```
 
-狙いは、Review checklist を増やし続けるのではなく、**再発する設計ミスの学習を上流へ戻す**こと。
+狙いは、Review checklistを増やし続けるのではなく、**再発する設計ミスの学習を上流へ戻す**こと。
 
 ---
 
-## 15. 複数視点レビューまとめ
+## 15. Multi-perspective Review Summary
 
-### Architecture / Design
-
-判定: Proceed with refinements
-
-良い点:
-
-- Principles → Guide → Artifact → Review の責務分離
-- over-engineeringをreview後ではなくplan時に予防
-- conditional guidanceでcore肥大化を抑制
-
-注意:
-
-- Principles自体を新しい巨大フレームワークにしない
-- 既存 #581 / #794 / #810 / #867 を再実装しない
-
-### TDD / Verification
-
-判定: Proceed after change-type split
-
-良い点:
-
-- AC → Behavior / Contract / Invariant → Test へ拡張できる
-- testabilityが設計品質になる
-
-修正:
-
-- 一律RED-firstをやめる
-- Contract / Invariantのsource traceを必須化
-- trace_to と expected_value_source を分離
-
-### AI Agent Behavior
-
-判定: Positive with anti-gaming guard
-
-良い点:
-
-- speculative abstractionを抑制
-- future-proofingを現在根拠へ戻せる
-
-リスク:
-
-- testを作るためのcontract発明
-- checklist completion目的化
-- light taskでartifact過剰生成
-
-対策:
-
-- Contract / Invariant Requires Source
-- Mode-aware Output
-
-### Governance / Distribution
-
-判定: Major fix required before implementation complete
-
-問題:
-
-- docs canonicalだけでは配布先で参照できない
-
-対策:
-
-- bundled reference + sync + drift check
-
-### Review / Quality Assurance
-
-判定: Good separation
-
-Reviewからdesign knowledgeを減らしても、actual verificationは維持する。
-
-### Maintainability
-
-判定: Good if rationale is retained
-
-正本は規範だけにし、今回の判断理由・却下案・再検討条件を本Rationaleへ分離する。
+| Perspective | Result | Main decision |
+| --- | --- | --- |
+| Architecture | PASS | Principles / Guide / Artifact / Review を分離 |
+| TDD / Verification | PASS after fix | 一律RED-firstを撤回 |
+| AI anti-overengineering | PASS | Current-Need Trace / sourced Contract |
+| light / ultra-light | PASS after fix | B-2は維持、記述密度だけ軽くする |
+| Test volume | PASS with boundary | Trace重複を削減、#936/#960の件数制御は触らない |
+| C-1 governance | PASS after fix | 新規項目を追加しない |
+| Related issue overlap | PASS | #810/#867/#794を再実装しない |
+| Distribution | PASS after replan | 既存Skill syncを再利用 |
+| Review independence | PASS | actual correctness / evidence はReviewに残す |
 
 ---
 
-## 16. Revised Implementation Plan
+## 16. Rejected / Superseded Alternatives
 
-### Phase 0: Rebaseline
-
-実装に入る前に設計を固定する。
-
-- [x] Multi-perspective review
-- [x] TDDを変更タイプ別へ修正する方針
-- [x] Contract / Invariant Requires Source
-- [x] Mode-aware Output
-- [x] canonical → bundled reference 方針
-- [x] Rationale記録
-
-### Phase 1: Canonical Principles
-
-- `docs/ai/plan-design-principles.md` を正本化
-- 6 Core Principles
-- Conditional Guidance
-- Review → Guidance Promotion Policy
-- TDD strategy
-- Distribution contract
-
-### Phase 2: ai-dev-plan integration
-
-- `ai-dev-plan` がPrinciplesを参照
-- bundled `references/plan-design-principles.md` を生成/同期
-- plugin / Codex / install.sh で解決可能にする
-- drift detection
-
-### Phase 3: test-cases.md
-
-- ACだけでなく Contract / Invariant / Regression / Conditional Requirement へtrace可能にする
-- `trace_to` と `expected_value_source` の責務を分離
--既存Convention Evidenceと競合させない
-
-### Phase 4: plan.md / Work Breakdown
-
-- Approach Comparisonへ Evidence / Complexity / Current-Need Trace / Verification を反映
-- Recommended Approachに minimum sufficient design の理由を残す
-- Change Typeに応じたTDD strategyを選択
-
-### Phase 5: C-1 / Review references
-
-- 新規check_idを増やさない
-- existing C1項目の wording / reference のみ調整
-- #960 解決前にitem countを動かさない
-
-### Phase 6: Verification Fixtures
-
-最低限:
-
-1. simple/light one-file change
-2. new behavior
-3. bug fix
-4. behavior-preserving refactor
-5. external provider
-6. schema/contract change
-7. speculative future abstraction rejection
-8. test-driven invented invariant rejection
-9. canonical/bundled drift detection
-
----
-
-## 17. Rejected Alternatives
-
-### A. 11 principlesを個別check化
-
+### 11 principlesを個別C-1化
 却下。重複・粒度不整合・C-1肥大化。
 
-### B. Review GateをPrinciplesの正本にする
+### Review GateをPrinciples正本にする
+却下。feedbackが遅く、makerの設計判断を改善しない。
 
-却下。feedbackが遅く、makerが良い判断をする助けにならない。
+### 全変更をRED-first
+却下。behavior-preserving refactor / docs / configに不自然。
 
-### C. すべての変更をRED-first
+### 全Conditional Guidanceを全タスクへ適用
+却下。light taskを儀式化する。
 
-却下。behavior-preserving refactor / config/docsには不自然。
+### ultra-light / lightでB-2比較を省略
+却下。既存B-2契約と矛盾する。記述密度だけ下げる。
 
-### D. 全タスクで全Conditional Guidanceを実行
-
-却下。軽量タスクの儀式化とover-planningを誘発。
-
-### E. docs/aiのみ作ってskillから直接参照
-
-却下。plugin/Codex配布契約上、導入先でdocsが解決できない。
+### 新しいbundled `plan-design-principles.md` を追加
+**実装調査後にSuperseded。** 既存Skill syncで必要な実行規範を配れるため、新しい配布経路を増やさない。
 
 ---
 
-## 18. Revisit Triggers
+## 17. Revisit Triggers
 
 以下が観測されたらPrinciples / Guideを再検討する。
 
 - reviewで同じ設計findingが複数回繰り返される
-- light taskのPlan量が明確に増え、実装速度を落とす
-- Contract / Invariant trace が形式的に埋められるだけになる
-- test case数が増えるが defect detection / confidence が改善しない
-- bundled reference driftが発生する
-- reviewerがPrinciples再実行だけになり、独立性が落ちる
+- light taskのPlan量が増え実装速度を明確に落とす
+- Contract / Invariant traceが形式的に埋められるだけになる
+- test case数が増えるがdefect detection / confidenceが改善しない
+- Skill summaryと詳細正本のsemantic driftが発生する
+- reviewerがPrinciples再実行だけになり独立性が落ちる
 - speculative abstractionが依然として頻発する
 - characterization / refactor flowが通常TDDと衝突する
+- B-2自体をmode-awareに変える必要性が実運用で観測される
 
 ---
 
-## 19. Final Decision
+## Final Decision
 
-採用する北極星は次。
+北極星:
 
 > **Gateから作らない。Principlesから作る。**
 >
-> **AIに良い設計判断をするための思考モデルを与え、Testでその判断から導かれたBehavior / Contract / Invariantを証明し、Reviewはactual diff / evidenceを独立確認する。**
-
-最終的な流れ:
+> **AIに良い設計判断をするための思考モデルを与え、その判断から導かれたBehavior / Contract / Invariantを適切なTest / Evidenceで証明し、Reviewはactual diff / evidenceを独立確認する。**
 
 ```text
 Requirement / AC
@@ -637,7 +474,7 @@ Minimum Sufficient Design
         ↓
 Sourced Behavior / Contract / Invariant
         ↓
-Change-type appropriate Test Strategy
+Change-type appropriate Verification
         ↓
 Plan / Test Cases
         ↓
@@ -650,4 +487,4 @@ Independent Review
 Repeated finding → Guidanceへ学習を戻す
 ```
 
-この構造により、PlanGateを checklist を増やすシステムではなく、**Evidenceに基づき設計し、検証し、学習を上流へ戻すAI開発ハーネス**として進化させる。
+PlanGateを「checklistを増やす仕組み」ではなく、**Evidenceに基づき設計し、検証し、レビューで得た学習を上流へ戻すAI開発ハーネス**として進化させる。
