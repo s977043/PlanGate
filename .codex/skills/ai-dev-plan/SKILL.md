@@ -144,7 +144,24 @@ PlanGate ワークフローの **plan フェーズ（WF-02〜WF-03）** を Code
 ### フロー（詳細は正本参照）
 
 - **B-1 / B-2 / B-3** フローおよび plan.md 必須セクション（確認事項 / アプローチ比較 / Mode判定 / lite_eligible 等）は同梱 `references/ai-driven-development.md` の `### Prompt 1: Plan + ToDo + Test Cases生成` と `.claude/rules/mode-classification.md` を **正本** とする。skill は順序のみを示す。生成物の雛形は同梱 `references/plan-template.md` / `references/todo.md` / `references/test-cases.md` を使う。
+- Planの**設計判断**は上流正本 `docs/ai/plan-design-principles.md` を基準とし、導入先では下記「Plan Design Principles」節を配布用の実行サマリとして使う。新しい bundled reference を増やさず、既存の SKILL.md 同期経路を再利用する。
+- Principles は常に判断へ利用するが、artifactへは material な判断だけを残す。ultra-light / light で空セクションや儀式的 `N/A` を増やさない。
 - B-1（最大 3 問の確認質問）→ **事前メトリクス検証 (mandatory gate)** → B-2（2〜3 案の trade-off 比較）→ B-3（3 ファイル同時生成）
+
+### Plan Design Principles（#1335 / 配布用実行サマリ）
+
+上流の詳細正本は `docs/ai/plan-design-principles.md`。`docs/**` が届かない plugin / Codex / install.sh 導入先でも同じ判断を実行できるよう、必要最小限の規範を本SKILLへ埋め込む。本SKILLは既存 `scripts/sync-plugin-plangate.sh` の skill 同期で配布される。
+
+Plan作成では次の6原則を使う。Review checklistへ個別展開せず、作成時の判断ガイドとして適用する。
+
+1. **Evidence Before Design** — 推測より現行実装・テスト・docs・履歴・実測を優先する
+2. **Minimum Sufficient Design** — 現在のACを満たす最小十分な設計をbaselineにする
+3. **Explicit Responsibility & Boundary** — Task / module / workflow等の責務を1文で説明できる粒度にする
+4. **Abstraction Requires Evidence** — code similarityだけで共通化せず、knowledge/invariant/change reason/current needを確認する
+5. **Extension Is Conditional** — OCP/DIP/Compositionは実在する境界・variationがある場合だけ発火する
+6. **Design for Verification** — Design Decisionをobservable Behavior / Contract / Invariantと検証方法へ接続する
+
+新しい abstraction / interface / dependency / extension point と Contract / Invariant は、AC / current constraint / existing behavior / domain rule / architecture constraint / measured evidence の現在根拠へ trace できなければ採用しない。
 
 ### 事前メトリクス検証 (B-1 → B-2 mandatory gate / #351 TASK-0117)
 
@@ -181,12 +198,26 @@ find . -name <pattern> -not -path './.git/*' -not -path './node_modules/*' | wc 
 ### test-cases.md 規約
 
 - 各 AC → テストケースのマッピング必須、Edge case を含める
+- AC以外の重要な Contract / Invariant / Regression / Conditional Requirement を検証する場合は `Verification Trace` に**存在理由とSource/Evidence**を残す
+- Contract / Invariant はテストを作るために後付けで発明しない。AC / 既存挙動 / Domain Rule / Architecture Constraint / 実測 Evidence の最低1つへ trace する
+- `Trace`（なぜtestが存在するか）と `期待値の出所`（なぜexpectedが正しいか）を分離する
 - **各ケースの期待値に出所を明記する**（`デザイン実測` / `規約` / `既存実装`）
 - 出所が `規約` の期待値は、`## Convention Evidence` に **規約の記述 / 実値 / 一致 / 判定** を残す（#934）。
   事前メトリクス検証が「全部 / 全件」系に実数を要求するのと同じ理由で、**規約由来の期待値には実値との突合を要求する**
 - **不一致（規約 ≠ 実値）のときは AC に採用しない**。安全側に倒して plan の 🚩 人間確認ポイントへ落とし、
   規約と実装のどちらを正とするかは人間の設計判断に委ねる（`mode-classification.md` の安全側不変条件と一貫）。
   AI が黙って片側へ寄せて一括変更しない
+
+### 変更タイプ別 Verification / TDD
+
+`Always RED first` を一般則にしない。変更タイプに適した事前証拠を持ち、変更後に同じ契約を再検証する。
+
+- **new behavior**: failing test (RED) → minimum implementation → GREEN → refactor
+- **bug fix**: regression test reproduces failure (RED) → fix → GREEN
+- **behavior-preserving refactor**: characterization / existing tests GREEN → refactor → GREEN + behavior-preservation evidence
+- **docs / config / generated artifact**: deterministic baseline → change → deterministic validation
+
+RefactorではRedの状態で構造変更を進めない。Characterization Test / Preparatory Refactoring / Knowledge Deltaの詳細は #867 の責務とし、本skillで再定義しない。
 
 ### 監査
 
