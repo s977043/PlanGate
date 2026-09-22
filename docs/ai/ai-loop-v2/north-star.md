@@ -36,7 +36,7 @@ Human-facing artifact / handoff / escalation は、既存のEvidence・state・d
 - **Compress before escalating.**
 - **Escalate decisions, not process logs.**
 
-ここでいうcompressionはfinding・Evidence・不確実性を消すことではない。Humanが最初に読む面を判断対象へ絞り、完全な情報とprovenanceへ辿れる状態を維持する。
+ここでいうcompressionはfinding・Evidence・不確実性を消すことではない。Humanが最初に読む面を判断対象へ絞り、完全な情報とprovenanceへ辿れる状態を維持する。必要なHuman review / approvalはリスクに応じて維持し、Human Attentionの削減自体を目的にしない。
 
 ```text
 Projection != Judgment
