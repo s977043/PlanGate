@@ -116,6 +116,29 @@ git commit -m "do not push --force to main"       # コミットメッセージ
 - **`instruction-debt-audit`** を新設。指示系を変更せずに監査する
 - `test-cases` テンプレートに**期待値の出所**欄と `Convention Evidence` 節を追加（#934）
 
+### 基点 `319d6121` 以降に main へ入った変更
+
+> 上記の測定値（102 コミット / plugin 76 ファイル）は**基点 `319d6121` 時点**のもので、
+> この節はその後 tag 前に main へ入った分である（実測: `git log --oneline 319d6121..9b9107f4` = 4 件）。
+> 上の数値は再測定していない（運用で増える値を契約値にしないため）。
+
+- **Plan Design Principles を `ai-dev-plan` へ導入**（#1335 / PR #1336）。plan 作成時の設計判断を
+  レビュー側の checklist から**上流（plan 生成）へ移し**、`docs/ai/plan-design-principles.md` を
+  正本化した。6 Core Principles（Evidence Before Design / Minimum Sufficient Design /
+  Explicit Responsibility & Boundary / Abstraction Requires Evidence / Extension Is Conditional /
+  Design for Verification）、原則衝突時の優先順、Review → Guidance Promotion Policy、
+  **変更種別に応じた TDD**（new behavior / bug fix / behavior-preserving refactor /
+  docs・config・generated）を定義。Contract / Invariant は AC・既存挙動・ドメイン規則・
+  アーキ制約・実測証跡のいずれかへ **trace できる場合のみ採用**する（発明を禁止）。
+  `plan.md` / `test-cases.md` テンプレートに Minimum Sufficient Design / Current-Need Trace /
+  Change Type / Verification Trace を追加。**配布物を含む**
+  （`plugin/plangate/skills/ai-dev-plan/` の 3 ファイル + `.codex/skills/` / `.agents/skills/`）
+- **`chore(deps)`: github-actions group 4 件の更新 × 2**（PR #1332・#1339）。
+  `codeql-action` 4.37.9 → 4.38.0 → 4.38.1（`init` / `autobuild` / `analyze` / `upload-sarif`）。
+  対象は `.github/workflows/codeql.yml` / `scorecard.yml` のみで SHA ピンは維持
+- リリース準備そのものの PR: #1331（CHANGELOG / version bump 8.21.0 → 8.22.0 / README 同期 /
+  `CLAUDE.md` の apply スクリプト）
+
 ## v8.21.0 (2026-08-19)
 
 fix: 参照解決順の「構造上空振りする段」を配布物から除去し、EH-3 / EH-13 のガード迂回を封鎖。さらに `sh` 誤起動から `gh pr merge` へ到達する経路（NO MERGE BY AI の迂回）を配布物ごと塞ぐ
