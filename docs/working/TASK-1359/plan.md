@@ -205,7 +205,7 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
   - fixed fixtures show required/omitted sections as expected;
   - sync checks green;
   - no C-1 count change.
-- Test trace: `test-cases.md` TC-01..TC-12.
+- Test trace: `test-cases.md` TC-01..TC-13.
 
 ## Files / Interfaces
 
@@ -495,6 +495,7 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 | Stale refs | existing stale-ref checker | success |
 | Markdown/CI | repository CI | success |
 | Dependency compatibility | preserve #1358-owned `C1-TEST-14` | no diff after TASK-1359 C-1 changes |
+| Evaluation integrity | changed paths before T-00 | only `docs/working/TASK-1359/**` |
 | Review | independent plan/diff review | no unresolved critical/major |
 
 ## Review Lane Plan
@@ -511,6 +512,7 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 - #1337 evaluation order preserved; no candidate contamination.
 - AC-01..14 mapped to TC-01..TC-11.
 - Dependency contract `COMP-1358-01` mapped to TC-12.
+- Evaluation-integrity contract `COMP-1337-01` mapped to TC-13.
 - Completion boundary: non-HO planning/review integration + fixtures; any HO patch is separate.
 
 ### Review Criteria
