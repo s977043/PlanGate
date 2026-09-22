@@ -1,7 +1,7 @@
 # TASK-1359 Current State
 
-> 更新: 2026-09-23 06:39
-> snapshot_base: main `91e191bc6858cc3e4c0b7961f33a7e2edfaee127` / PR #1364 merged
+> 更新: 2026-09-23 08:24
+> snapshot_base: main `d185a741fe1d06f08b95d1090978f224096b0bba` / PR #1364 + #1366 merged
 
 ## フェーズ: BLOCKED
 ## 進捗: T-01/T-02完了、Plan/C-1/C-2 refresh完了、T-00待ち
@@ -13,12 +13,14 @@
 - shared review/planning surface revalidation PASS
 - fresh dependency review against #1337 / #1347
 - PR #1364 execution freeze merged
-- TASK-1359 branch latest-main sync PASS (ahead only / production diff 0)
+- PR #1366 Codex runtime hardening merged
+- TASK-1359 branch latest-main sync PASS (behind 0 / production diff 0)
+- post-#1366 TC-13 fresh PASS
 - evaluation-order blockerをPlan/Todo/Reviewへ反映
 
 ## 現在のタスク
 
-- T-00: #1337 operator smoke → 48 generations → blind scoring → pair-level result fixed 待ち
+- T-00: #1337 operator smoke（Codex CLI exact version freeze）→ 48 generations → blind scoring → pair-level result fixed 待ち
 
 ## ブロッカー
 
