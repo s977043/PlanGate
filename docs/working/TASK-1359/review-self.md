@@ -100,7 +100,8 @@ created_by: orchestrator
 
 ### C1-TEST-14: テストケースの具体性
 - **result**: PASS
-- **finding**: 各TCに具体入力/期待/source/verification methodを追加。TC-12で#1358 ownership、TC-13で#1337 evaluation-integrityを独立検証。現branchのproduction surface変更は0で、#1358-owned `C1-TEST-14` block equality = PASS。
+- **finding**: 各TCに具体入力/期待/source/verification methodを追加。TC-12で#1358 ownership、TC-13で#1337 evaluation-integrityを独立検証。fresh compareでbranch差分は `docs/working/TASK-1359/**` のみ、production surface変更=0、#1358-owned `C1-TEST-14` block equality=PASS。
+- **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`, `evidence/c1-review/2026-09-23-evaluation-integrity.md`
 - **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`
 
 ### C1-TEST-15: エッジケースの考慮
