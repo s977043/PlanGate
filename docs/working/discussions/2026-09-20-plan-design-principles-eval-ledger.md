@@ -22,7 +22,7 @@
 - baseline bundled-reference manifest/hash
 - candidate bundled-reference manifest/hash
 - independent reviewer identity/role
-- raw output保存先
+- generated artifact bundle + raw output保存先
 - rubric version/hash
 
 ## Sandbox / contamination controls
@@ -102,7 +102,7 @@ field-by-field semantic equality: **8/8 PASS**。
 | max_input_tokens | 64000 (measured ceiling) |
 | max_output_tokens | 16000 (measured ceiling) |
 | timeout_seconds | 600 |
-| tool_policy | Codex read-only shell/file inspection only; no write/MCP/network |
+| tool_policy | Codex workspace-write; writes limited by instruction/evidence to TASK-EVAL plan artifacts; no MCP/network/implementation |
 | network | off |
 | input_ref | `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md` + selected frozen PBI |
 | input_source_hash | git blob `1a6176ff18c19f7cf1141c38aab9a23e1968ce0b` |
@@ -206,8 +206,13 @@ model / effort / timeout / tool policy / per-run ceiling / pilot-wide ceiling / 
 | budget | TBD |
 | started_at | TBD |
 | completed_at | TBD |
-| raw_output_ref | TBD |
-| raw_output_hash | TBD |
+| artifact_bundle_ref | TBD |
+| artifact_bundle_hash | TBD |
+| final_response_ref | TBD |
+| final_response_hash | TBD |
+| pre_run_file_manifest | TBD |
+| post_run_file_manifest | TBD |
+| out_of_scope_writes | none/TBD |
 | rubric_visible_to_generator | false/TBD |
 | variant_identity_verified | true/false |
 | activation_evidence | TBD |
