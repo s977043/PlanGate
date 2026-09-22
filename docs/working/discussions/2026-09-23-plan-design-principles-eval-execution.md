@@ -202,7 +202,7 @@ run中のoutput rootをgenerator worktreeから読める場所へ置かない。
 - [ ] `codex --version`
 - [ ] `gpt-5.6-sol` available
 - [ ] `gpt-5.6-terra` available
-- [ ] read-only / approval never / ephemeral が起動
+- [ ] workspace-write / network-off / approval never / ephemeral が起動
 - [ ] networkを使わない
 - [ ] JSONLにusage / tool eventsが残る
 - [ ] final messageを別fileへ保存できる
