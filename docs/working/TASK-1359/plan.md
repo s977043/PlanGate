@@ -18,7 +18,7 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 - Related issues: #1359 / #933 / #810 / #867
 - Related architecture: #1335 / PR #1336
-- Dependency: PR #1358 should merge first, then this branch must rebase.
+- Dependency: PR #1358 merged; TASK-1359 rebased and compatibility evidence recorded.
 - Parallel governance dependency: #960 HO-side C-1 drift remains separate.
 - Related artifacts:
   - `pbi-input.md`
@@ -91,10 +91,11 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 - RU-01: generic pre-PR self-review surface = `.agents/skills/diff-audit/SKILL.md`.
 - RU-02: `Prior Artifact Impact` = conditional dedicated Plan section; omit entirely when no material prior artifact exists.
+- RU-03: #1358 dependency = merged/rebased; TC-12 confirms `C1-TEST-14` preservation and shared review/planning surfaces remain unchanged on TASK-1359 branch.
 
 ### Blocking Unknowns
 
-- BU-01: branch must be rebased after #1358 before modifying shared skill/template files.
+- なし
 
 ### Human Decisions Required
 
@@ -104,9 +105,9 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 ### Readiness
 
-**blocked**
+**ready**
 
-Reason: the only current blocker is the repository dependency on #1358 merge/rebase. There is no unresolved design clarification blocking C-1/C-2 review.
+Reason: Blocking Unknowns = 0. #1358 merge/rebase and TC-12 compatibility are resolved. Critical-mode Human C-3 remains mandatory before implementation.
 
 ## Source-of-Truth Hierarchy
 
