@@ -4,7 +4,7 @@
 > Mode: critical
 > Review stage: pre-C-3
 > Overall: **PASS WITH EXTERNAL BLOCKER — #1337**
-> Fresh review after #1358 merge and PR #1364 execution-freeze sync
+> Fresh review after #1358 merge, PR #1364 execution freeze, and PR #1366 runtime hardening
 > Critical: 0 / Major: 0 / Minor: 1
 
 ## Lane 1 — Architecture / Responsibility
@@ -120,11 +120,12 @@ Mitigation applied:
 
 Fresh evidence: `evidence/c1-review/2026-09-23-evaluation-integrity.md` — TC-13 PASS.
 Post-#1364 refresh: `evidence/c1-review/2026-09-23-post-1364-evaluation-integrity.md` — latest main sync / behind 0 / production diff 0 PASS.
+Post-#1366 refresh: `evidence/c1-review/2026-09-23-post-1366-evaluation-integrity.md` — runtime hardening merged / behind 0 / production diff 0 PASS.
 
 ## Final Review Verdict
 
 **Plan quality: PASS**
-**Execution readiness: BLOCKED on #1337 operator smoke → 48 generations → blind scoring → pair-level result fixed**
+**Execution readiness: BLOCKED on #1337 operator smoke (CLI version freeze) → 48 generations → blind scoring → pair-level result fixed**
 **C-3 readiness: NO until T-00 completes**
 
 次の正しい遷移:
