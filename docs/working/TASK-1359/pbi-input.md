@@ -79,6 +79,8 @@ Prior Artifacts / Repository Evidence
 - River Review diff-review duplication.
 - Direct edits to HO paths in this AI-owned phase.
 - Changing C-1 total count.
+- Human Decision Surface / Plan compression / projection optimization owned by #1347.
+- Changing the #1337 evaluation candidate or contaminating its before/after comparison.
 
 ## Acceptance Criteria
 
@@ -107,6 +109,8 @@ Prior Artifacts / Repository Evidence
 - E-06: Current `ai-dev-plan` already requires repository evidence and change-type-aware verification.
 - E-07: #1358 adds Minimum Sufficient Test Set and was merged before TASK-1359 implementation. TASK-1359 was rebased onto main and TC-12 confirmed `C1-TEST-14` ownership preservation.
 - E-08: #960 still has HO-side C-1 execution drift; this task must not couple non-HO implementation to that unresolved HO patch.
+- E-09: #1337 explicitly fixes the Plan Design Principles evaluation candidate SHA and orders #933/#810/#867 implementation **after paired evaluation results are fixed**.
+- E-10: #1347 hard-depends on #1337 and explicitly prohibits changing `ai-dev-plan` / Plan Design Principles before #1337 completes; Human Decision Surface / Plan compression is owned there, not by TASK-1359.
 
 ## Unknowns
 
@@ -143,6 +147,8 @@ Reason:
 
 **Dependency**:
 - #1358 merge/rebase dependency: **RESOLVED** — branch rebased to main `7b523a4530d0c2b324ecd9464736d0c7776a2bdc`; TC-12 PASS.
+- #1337 paired evaluation result: **BLOCKING** — do not begin production changes to `ai-dev-plan` / Plan workflow surfaces until the result is fixed.
+- #1347 Plan Decision Surface: downstream/parallel concern; TASK-1359 must not preempt its Human-facing projection experiment.
 - #960 HO work may proceed separately; TASK-1359 does not require modifying those HO files in Phase 1.
 
 
@@ -180,3 +186,16 @@ C-1 landing is fixed before implementation:
 - `ai-dev-plan` / `diff-audit` / `review-gate`: branch == main
 - evidence: `evidence/c1-review/2026-09-23-rebase-compatibility.md`
 - Blocking dependency from #1358: **resolved**
+
+
+## Evaluation-order dependency — 2026-09-23
+
+Fresh dependency review after rebasing to latest main found a stronger upstream constraint:
+
+- #1337 freezes baseline/candidate and places **#933 + #810 + #867 implementation after paired evaluation**.
+- #1347 explicitly says **do not change `ai-dev-plan` Skill / Plan Design Principles before #1337 completes**.
+
+Therefore:
+- TASK-1359 planning/review artifacts may continue.
+- Human C-3 and production implementation are **blocked until #1337 result is fixed**.
+- TASK-1359 must not add Human Decision Surface / compression changes; #1347 owns that experiment.
