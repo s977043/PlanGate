@@ -218,6 +218,20 @@ ai-loop W チェックに既に存在する Model A / Model B の blind-first �
 
 Cross Examination が導入された後も、challenge は **initial position が固定された後**にのみ実行する。
 
+### 3-bis. Existing C-2 multi-round review との非重複
+
+[`review-principles.md`](../../.claude/rules/review-principles.md) §7-quater が規定する既存 C-2 の複数ラウンドは、**前ラウンドの指摘を plan へ反映した後、その是正自体を再レビューして新しい回避クラス / 失敗クラスがないか確認する仕組み**である。
+
+Plan Deliberation はこれを置き換えない。
+
+- **C-2 multi-round review**: plan / review target が更新された後の再検証
+- **Plan Deliberation**: 同一 review snapshot 上で、既に存在する source positions の前提・証拠・反証を整理
+- Deliberation の challenge round は §7-quater の「C-2 review round」として**数えない**
+- high-risk / critical 等で要求される C-2 ラウンド下限を Deliberation で充足したことにしない
+- Deliberation 後に plan を変更した場合、既存 stale / re-review 規約に従い必要な C-2 を再実行する
+
+したがって、Deliberation は「レビューをもう1回行う仕組み」ではなく、**同じレビュー時点に存在する不一致を構造化する仕組み**である。
+
 ### 4. Challenge invariant
 
 challenge が扱う論点は、最低限次に限定する。
