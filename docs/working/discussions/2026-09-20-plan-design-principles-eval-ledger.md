@@ -171,6 +171,7 @@ Generatorに見せない:
 | b2_comparison | PASS/FAIL/N_A/INCONCLUSIVE |
 | scope_honesty | PASS/FAIL/N_A/INCONCLUSIVE |
 | output_load | PASS/FAIL/N_A/INCONCLUSIVE |
+| stop_validity | PASS/FAIL/N_A/INCONCLUSIVE |
 | critical_regression | true/false/unknown |
 | evidence_refs | TBD |
 | rationale | TBD |
@@ -187,3 +188,12 @@ Generatorに見せない:
 5. 次施策が決定
 
 した後。
+
+## 記録と再試行の補足
+
+- 生成status（NOT_RUN / GENERATED / REVIEWED / ERROR / BLOCKED）と採点verdictは別項目。未実行・未記入を0／PASSに変換しない。
+- provider error / timeout / output打切りは欠測。完成したFAIL出力は除外しない。
+- retryが必要なら理由を保存し、pair全体を新run setへ移す。旧証跡を上書きしない。
+- budgetは1試行のinput/output上限に加え、総額または総token上限と単位を固定する。
+- context manifestに実際に読み込んだ全参照のpath・SHA256・repo SHA・読取証跡を残す。「読みました」という自己申告だけではactivation成立としない。
+- PDP-01はPlan/ToDo/Test Cases本文のUnicode文字数・空セクション数・無関係test数を分けて記録。未取得は空欄と理由を記録する。
