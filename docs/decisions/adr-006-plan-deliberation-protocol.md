@@ -22,7 +22,8 @@ PlanGate にはすでに、実装前の計画品質と承認境界を守るた�
   - Model B = adversarial・失敗モード
   - minor / low の不一致時のみ Model C / D を追加
 - deterministic Arbiter による `AUTO_APPROVED | HUMAN_ESCALATED | BLOCKED` の裁定
-- Human-owned C-3 / C-4
+- PlanGate 本番フローの Human C-3、および Human-owned C-4
+- ai-loop eligible run では C-3'（Arbiter）が Human C-3 を置換し、`HUMAN_ESCALATED` 時のみ Human C-3 へ降格する既存経路
 - append-only な review / decision record
 
 正本:
@@ -59,7 +60,7 @@ C-2 の複数レビュー結果をそのまま集約すると、以下を区別�
 
 ## Decision Drivers
 
-- **承認境界を弱めない**: C-3 / C-4 の Human ownership を維持する
+- **承認境界を弱めない**: PlanGate 本番フローの Human C-3 と Human-owned C-4 を維持し、ai-loop eligible run の既存 C-3' → Human C-3 escalation 経路も変更しない
 - **deterministic authority を重複させない**: Arbiter と競合する Judge を作らない
 - **Independent-first を維持する**: 他 Reviewer の結論を見る前に initial position を確定する
 - **Consensus bias を避ける**: 多数決・confidence weighting を correctness とみなさない
@@ -150,29 +151,29 @@ PlanGate に **Plan Deliberation Protocol** を、C-2 と C-3 の間に置く **
 | C-1 | self review / plan package の自己検査 | cross-review synthesis |
 | C-2 | independent findings / source positions / evidence | final governance decision |
 | **Plan Deliberation** | challenge / counter-evidence / final positions / unresolved / evidence needed | approval / block / merge |
-| ai-loop Arbiter | deterministic adjudication | semantic debate / governance decision |
-| C-3 | Human plan approval | finding generation |
+| ai-loop C-3' / Arbiter | eligible run の deterministic adjudication。`AUTO_APPROVED | HUMAN_ESCALATED | BLOCKED` を決める | semantic debate / Human governance decision |
+| Human C-3 | PlanGate 本番フローの plan approval、および ai-loop `HUMAN_ESCALATED` 時の fallback decision | finding generation / C-3' の deterministic policy |
 | Exec / Verify | approved plan の実行 / verification evidence | plan approval |
 | C-4 | Human PR approval / merge | plan deliberation |
 
 責務を次の式で固定する。
 
 ```text
-C-2 != Deliberation != Arbiter != C-3
+C-2 != Deliberation != C-3'/Arbiter != Human C-3
 ```
 
 より具体的には:
 
 ```text
-C-2          = Discover / Critique
-Deliberation = Challenge / Clarify disagreement
-Arbiter      = Deterministic adjudication
-C-3          = Human governance decision
+C-2             = Discover / Critique
+Deliberation    = Challenge / Clarify disagreement
+C-3' / Arbiter  = Deterministic adjudication for ai-loop eligible runs
+Human C-3       = Human governance decision for the standard path / escalation fallback
 ```
 
 ### 2. Placement
 
-production plan review の基本位置は次とする。
+初期 rollout の対象は **Human C-3 を通る PlanGate 本番フロー**とする。
 
 ```text
 PBI / Requirements
@@ -194,7 +195,20 @@ Human C-3
 Exec
 ```
 
-Phase 0〜3 では selector は shadow mode とし、C-3 input / verdict / Arbiter input を変更しない。
+現行 ai-loop eligible run は次の既存経路を持つ。
+
+```text
+C-2
+ ↓
+C-3' / Arbiter
+ ├─ AUTO_APPROVED → Exec
+ ├─ HUMAN_ESCALATED → Human C-3
+ └─ BLOCKED
+```
+
+**初期 rollout ではこの ai-loop C-3' 経路へ Deliberation を挿入しない。** C-3' / W-check への接続は Phase 3 の shadow evaluation 後に別 Issue で再評価する。これにより、PlanGate Core の Human C-3 改善と ai-loop の自動裁定変更を同一 rollout で混ぜない。
+
+Phase 0〜3 では selector は shadow mode とし、Human C-3 input / verdict / C-3' Arbiter input のいずれも変更しない。
 
 ### 3. Independent-first invariant
 
@@ -270,7 +284,7 @@ challenge 後も意見が割れる場合は `split` として残し、最低限�
 - explicit Human decisions required
 - falsification / replan candidate
 
-Human が判断した後にのみ、既存の approval / execution contract へ進む。
+初期 rollout の Human C-3 経路では、Human が判断した後にのみ既存の approval / execution contract へ進む。ai-loop eligible run の C-3' 経路は本 rollout の対象外とし、既存挙動を維持する。
 
 ### 8. Failure / safety semantics
 
@@ -351,7 +365,8 @@ Phase 0〜3:
 では、次を変更しない。
 
 - production WF-00〜07 の phase transition
-- C-3 approval requirement
+- Human C-3 approval requirement（PlanGate 本番フロー）
+- ai-loop eligible run の C-3' → Human C-3 escalation semantics
 - C-4 / merge ownership
 - ai-loop Arbiter decision table
 - `AUTO_APPROVED | HUMAN_ESCALATED | BLOCKED` の terminal semantics
@@ -433,7 +448,7 @@ Phase 3 の representative cases を確認するまで Phase 4 を開始しな�
 - automatic C-4 approval / merge
 - hidden CoT / raw session transcript 保存
 - Phase 0〜3 での production WF-00〜07 変更
-- ai-loop W-check への即時適用
+- ai-loop W-check / C-3' への初期 rollout での適用
 - River Review の review logic の重複実装
 
 ## ADR Numbering Note
