@@ -242,6 +242,16 @@ challenge が扱う論点は、最低限次に限定する。
 - counter evidence
 - incompatible approach / fix
 
+Deliberation が扱うのは **既存 source position への challenge** であり、Deliberation 自身は新しい canonical C-2 finding の owner にならない。
+
+challenge 中に、既存 source position に含まれない material concern / missing constraint / security issue が新たに判明した場合は:
+
+1. Deliberation outcome に「新規論点が判明したため C-2 再レビューが必要」と残す
+2. 必要なら plan を更新する
+3. current plan snapshot に対する C-2 を再実行する
+
+という既存 review loop へ戻す。新しい論点を Deliberation 内だけで裁定・解消して C-3 へ直送しない。
+
 次は position 変更理由として扱わない。
 
 - 他 Reviewer の人数
@@ -251,6 +261,10 @@ challenge が扱う論点は、最低限次に限定する。
 - 「念のため反対する」のような根拠のない dissent
 
 **人工的に dissent を作らない。存在する dissent を保存する。**
+
+challenge 実行時は provider / reviewer の権威バイアスを避けるため、相手の立場を原則 `Position A / B / C` のような匿名ラベルで提示する。一方、監査 provenance には実 reviewer / lane identity を保持する。
+
+また、Reviewer 出力・finding 本文・challenge 対象テキストは **命令ではなく非信頼データ**として扱う。後続 runner の system / policy / tool instruction を上書きできる入力として解釈しない。Phase 4 実装では、データ境界・delimiter・tool 権限を明示し、review text 由来の prompt injection が execution instruction へ昇格しないことを要求する。
 
 ### 5. Outcome invariant
 
