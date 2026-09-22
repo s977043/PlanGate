@@ -19,7 +19,7 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 - Related issues: #1359 / #933 / #810 / #867
 - Related architecture: #1335 / PR #1336
 - Dependency: PR #1358 merged; TASK-1359 rebased and compatibility evidence recorded.
-- **Hard dependency**: #1337 paired evaluation result must be fixed before Human C-3 / production implementation. This preserves the frozen evaluation candidate and avoids contaminating #1337.
+- **Hard dependency**: #1337 paired evaluation result must be fixed before Human C-3 / production implementation. PR #1364 has already frozen/merged the execution protocol and runtime conditions; remaining steps are operator smoke → 48 generations → blind scoring → pair-level decision. This preserves the frozen evaluation candidate and avoids contaminating #1337.
 - #1347 owns Human Decision Surface / Plan compression experiments after #1337; TASK-1359 must not absorb that scope.
 - Parallel governance dependency: #960 HO-side C-1 drift remains separate.
 - Related artifacts:
@@ -105,7 +105,7 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 - **EB-01: #1337 paired evaluation result not fixed**
   - blocking: yes for Human C-3 and exec
-  - reason: #1337 explicitly orders #933/#810/#867 implementation after paired evaluation and freezes the candidate SHA.
+  - reason: #1337 explicitly orders #933/#810/#867 implementation after paired evaluation and freezes the candidate SHA. PR #1364 resolved protocol/runtime-design uncertainty but did not produce effectiveness evidence.
   - unblock condition: #1337 records a fixed pair-level evaluation result / next-action decision that allows downstream implementation.
 
 ### Human Decisions Required
@@ -228,13 +228,14 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 **Purpose**: prevent TASK-1359 from contaminating the frozen Plan Design Principles evaluation.
 
 **Steps**:
-- [ ] Wait until #1337 paired evaluation result is fixed.
+- [x] Confirm PR #1364 merged and execution protocol/runtime budget/smoke contract are frozen.
+- [ ] Wait for #1337 three-call operator smoke, 48 generations, blind scoring, and pair-level result.
 - [ ] Read the final #1337 decision and determine whether TASK-1359 Plan requires replan.
 - [ ] Reconfirm #1347 still owns Human Decision Surface / compression concerns.
 
 **Completion Criteria**:
 - EB-01 resolved.
-- #1337 result and downstream decision are referenced in decision-log.
+- #1364 execution-freeze merge and #1337 final result/downstream decision are referenced in decision-log.
 - No TASK-1359 production change occurred before resolution.
 
 **Rollback**:
@@ -528,7 +529,7 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 ### Required Context
 
 - #1359 / #933 / #810 / #867
-- #1335 / #1358 / #960
+- #1335 / #1337 / PR #1364 / #1358 / #960
 - `docs/working/TASK-0810/pbi-input.md`
 - `docs/working/TASK-0867/pbi-input.md`
 - current Plan template / ai-dev-plan / review surfaces
