@@ -4,6 +4,20 @@
 > Related: #1285 (V2 RunEvidence measurement contract), s977043/river-review#1990
 > Scope: metric glossary / measurement semantics / layer adapters only. No runtime schema change.
 
+## Decision Summary
+
+この文書で固定する判断は次の7点です。
+
+1. Human Attentionは単独最適化しません。Correctness / Safety / Visibilityをguardにします。
+2. cross-layerで共有するのはschemaではなく**metricの意味**です。保存形式は各layerが所有します。
+3. `Human Attention Time` はactive cognitive timeです。wall-clock waitとは分離します。
+4. 既存のlegacy `human_intervention_rate` / `reversal_rate` は意味を変更しません。
+5. `unavailable != 0`、`not_applicable != unavailable` を固定します。
+6. time metricのanchorとVisibility Regressionのoracleはcandidate実行前に固定します。
+7. Human Attention telemetryを個人のperformance KPIへ利用しません。
+
+最初のvalidation siteはRiver Review #2368です。精密telemetryを先に作らず、fixtureを使ったDecision Extraction / Visibility / bounded attention measurementから始めます。
+
 ## 1. Purpose
 
 Human Attention Architectureの効果を、River Review / ai-loop V2 / ai-dev / PlanGate / Evolutionで比較可能にする。
