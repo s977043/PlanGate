@@ -53,25 +53,28 @@ def build_schema() -> dict:
     }
 
     final_position = {
-        "allOf": [
-            {"$ref": "#/$defs/position"},
-            {
-                "type": "object",
-                "required": ["changed", "change_reason"],
-                "properties": {
-                    "changed": {"type": "boolean"},
-                    "change_reason": {
-                        "type": "string",
-                        "enum": [
-                            "factual_error",
-                            "stronger_evidence",
-                            "wrong_assumption",
-                            "missing_constraint",
-                            "unchanged",
-                        ],
-                    },
-                },
+        "type": "object",
+        "required": [
+            *position_base["required"],
+            "changed",
+            "change_reason",
+        ],
+        "properties": {
+            **position_base["properties"],
+            "changed": {"type": "boolean"},
+            "change_reason": {
+                "type": "string",
+                "enum": [
+                    "factual_error",
+                    "stronger_evidence",
+                    "wrong_assumption",
+                    "missing_constraint",
+                    "unchanged",
+                ],
             },
+        },
+        "additionalProperties": False,
+        "allOf": [
             {
                 "if": {
                     "properties": {"changed": {"const": False}},
@@ -92,9 +95,8 @@ def build_schema() -> dict:
                         }
                     }
                 },
-            },
+            }
         ],
-        "unevaluatedProperties": False,
     }
 
     schema = {
