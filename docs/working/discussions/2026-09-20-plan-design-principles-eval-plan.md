@@ -252,7 +252,9 @@ cross-vendor independenceを主張しない。
 
 - generator: 48 × (64k input + 16k output) = **3,840,000 tokens**
 - blind scoring: 48 × (64k input + 8k output) = **3,456,000 tokens**
-- combined hard ceiling: **7,296,000 tokens**
+- paired-run combined hard ceiling: **7,296,000 tokens**
+- pre-run 3-call smoke ceiling: **232,000 tokens**
+- grand ceiling including smoke: **7,528,000 tokens**
 - retryは元runを上書きせず新run set扱い。combined ceilingへ加算する
 - ceilingを超える見込みなら新runを開始せず `INCONCLUSIVE_BUDGET` としてHuman判断へ送る
 - この数字は料金見積もりではなく、比較条件を途中変更しないためのtoken budget contract
@@ -281,7 +283,7 @@ Start gateの設計はfreeze済みだが、実走開始直前に以下を実測�
 - ChatGPT/API authが有効
 - `gpt-5.6-sol` / `gpt-5.6-terra` がmodel catalogに存在
 - `timeout` または `gtimeout` が存在
-- 空のsmoke runで `--ephemeral --sandbox workspace-write --ask-for-approval never --json` と `sandbox_workspace_write.network_access=false` が動作
+- exact 3-call smoke（baseline/candidate generator + blind reviewer）がExecution PacketどおりPASS
 - event JSONLでmodel / usage / tool activityを記録可能
 
 いずれかが満たせなければ48runを開始せず `INCONCLUSIVE_NOT_RUN`。
