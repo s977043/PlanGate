@@ -228,6 +228,8 @@ rubricの固定規則に従い、各caseを以下へ分類する。
   - → fixed wrapperによるper-case PBI materializationとhash一致契約を追加
 - **Medium**: PDP-08のcreated_at fixture値が実行時注入でpair間差分になり得る
   - → `2026-09-20T00:00:00Z` を固定Evidenceとして凍結
+- **Medium**: generator visibility記述が「8ケースsource全文」と「選択1ケースPBI」で矛盾
+  - → sourceはoperator-only、generatorはmaterialized 1ケースだけへ統一
 
 現時点のblocking finding:
 - protocol文書化については **なし**
