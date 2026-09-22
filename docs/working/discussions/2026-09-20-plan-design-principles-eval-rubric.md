@@ -10,7 +10,7 @@
 
 1. reviewerへ渡す出力から baseline/candidate 名を隠す。
 2. reviewerは generator と別担当にする。
-3. reviewerは generator input と本rubricだけを使用する。
+3. reviewerは当該runで使った materialized PBI、raw output、本rubricだけを使用する。他caseやvariant identityは採点前に見ない。
 4. variant identity は採点完了後に開示する。
 5. reviewer間不一致は adjudication と理由を ledger に残す。
 6. evidence excerpt は短い抜粋または位置参照で残し、結論だけを書かない。
