@@ -22,13 +22,14 @@
 - baseline bundled-reference manifest/hash
 - candidate bundled-reference manifest/hash
 - independent reviewer identity/role
-- raw output保存先
+- generated artifact bundle + raw output保存先
 - rubric version/hash
 
 ## Sandbox / contamination controls
 
 Generatorに見せてよい:
-- generator inputs
+- 選択1ケースの frozen derived PBI
+- 共通依頼
 - 対象variantと同じSHAの `ai-dev-plan/SKILL.md`
 - そのSkillが通常解決する bundled references / rules
 - 評価fixture内で明示した synthetic evidence
@@ -44,39 +45,83 @@ Generatorに見せない:
 
 ## Materialized PBI contract
 
-各generationは、generator input文書から選択した1ケースを固定wrapperで
-`docs/working/TASK-EVAL-PDPXX/pbi-input.md` へmaterializeしてから開始する。
+materializationはrun前に一度だけ実施済み。各generationは `docs/working/eval-inputs/PDP-EVAL-v1/` の選択ケースを
+**byte-for-byte copy** して `docs/working/TASK-EVAL-PDPXX/pbi-input.md` に配置して開始する。
+正本manifest: `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md`。
 
 記録必須:
 - source input hash
-- materialized PBI path
-- materialized PBI SHA256
+- frozen derived PBI Git blob
+- runtime copied PBI path
+- runtime copied PBI SHA256
 - case ID / task ID
 - baseline/candidate間でbytes一致したか
 
 同一pairでmaterialized PBI hashが一致しなければ、そのpairは `INCONCLUSIVE_INPUT_MISMATCH` として採点対象から除外する。
 
 
+## Frozen PBI manifest
+
+| Case | Git blob |
+| --- | --- |
+| PDP-01 | `e5f9f46397ca85ea82c0f72f19c3ad81fe4e722f` |
+| PDP-02 | `f6cfd3a3bf4c23729a6bd407c3a7c1281058b253` |
+| PDP-03 | `aec24092eec9ab9bc8b4dd692e4941bf0b88489f` |
+| PDP-04 | `6ea5585de848fb11e5848d2a669ad8538c952363` |
+| PDP-05 | `38b267c1930e36d5700e3aed437c0a59ed909282` |
+| PDP-06 | `f8d538e7e2530e0bbebc0d4ffc5a8d96880f98fc` |
+| PDP-07 | `b34035d35f2b5b15a4466889a70a290f1fc41208` |
+| PDP-08 | `8a72f5d3694853487db2f8a031679932296cd5aa` |
+
+Source Git blob: `1a6176ff18c19f7cf1141c38aab9a23e1968ce0b`。
+field-by-field semantic equality: **8/8 PASS**。
+
+## Frozen variant manifest
+
+| Surface | baseline | candidate |
+| --- | --- | --- |
+| repo SHA | `612c3dacacf76c0bfd72559fbbe0bc41bc41443d` | `4b3f4017ad6c2a64813524ec8567a289f722cb45` |
+| plugin Skill | `139fadd69c39fa0079ee8b44ca20d3f4830819fd` | `e8d773fc47e224d1d1a9fcf179ec970aa271c4e0` |
+| ai-driven-development ref | `3ec9e74bdd65ee72fe88edc4a101d2f1252be3d6` | same |
+| metrics ref | `c763b06d79bc281bb336a38cc7be42f93f774822` | same |
+| core-contract ref | `914b6467afe49928c364ca277aed6e9a4a2072d5` | same |
+| plan-template ref | `3735169a24bc94c09c76720435d0d372720207ab` | `5f0c37ea4a2539a70aa78c06584d9b54ec804f03` |
+| todo ref | `339fd09dd7abd26b8cb9cb16c4374114d7648232` | same |
+| test-cases ref | `c6d9da1c9be660c648d594fe847bb42caa110263` | `1832e6c084e487c8b0e59ccac3f910f44bcdd6d3` |
+
+実行時Skillは `plugin/plangate/skills/ai-dev-plan/SKILL.md` を明示的に読む。
+上流 `.agents/skills/ai-dev-plan/` の `references/` を期待しない。
+
 ## Run manifest
 
 | Field | Value |
 | --- | --- |
 | eval_version | PDP-EVAL-v1 |
-| model_id | TBD |
-| effort | TBD |
-| max_input_tokens | TBD |
-| max_output_tokens | TBD |
-| timeout_seconds | TBD |
-| tool_policy | TBD |
+| model_id | `gpt-5.6-sol` |
+| effort | `high` |
+| max_input_tokens | 64000 (measured ceiling) |
+| max_output_tokens | 16000 (measured ceiling) |
+| timeout_seconds | 600 |
+| tool_policy | Codex workspace-write; writes limited by instruction/evidence to TASK-EVAL plan artifacts; no MCP/network/implementation |
 | network | off |
-| input_ref | `2026-09-20-plan-design-principles-eval-inputs.md` |
-| input_source_hash | TBD |
+| input_ref | `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md` + selected frozen PBI |
+| input_source_hash | git blob `1a6176ff18c19f7cf1141c38aab9a23e1968ce0b` |
 | materialized_pbi_hash | TBD |
 | materialized_pbi_path | TBD |
 | rubric_ref | `2026-09-20-plan-design-principles-eval-rubric.md` |
-| rubric_hash | TBD |
-| reviewer | TBD |
-| adjudicator | TBD |
+| rubric_hash | git blob `0fe2983377a0a61f58e2d4b796e85fe9355410ba` |
+| reviewer | isolated Codex `gpt-5.6-terra` / high |
+| reviewer_model_id | `gpt-5.6-terra` |
+| reviewer_effort | `high` |
+| reviewer_max_input_tokens | 64000 (measured ceiling) |
+| reviewer_max_output_tokens | 8000 (measured ceiling) |
+| reviewer_timeout_seconds | 600 |
+| generator_total_ceiling | 3840000 tokens |
+| reviewer_total_ceiling | 3456000 tokens |
+| paired_run_total_ceiling | 7296000 tokens |
+| smoke_total_ceiling | 232000 tokens |
+| grand_total_ceiling | 7528000 tokens |
+| adjudicator | Human |
 | started_at | TBD |
 | completed_at | TBD |
 
@@ -126,6 +171,20 @@ Generatorに見せない:
 
 各pairは2 generationなので全48 generation。
 
+## Runtime-only placeholders
+
+以降の `TBD` は**設計未確定ではない**。run開始後にのみ確定する以下の実測値用placeholderである。
+
+- pair/case/trial/variantの個別record値
+- runtime copied PBI SHA256 / path
+- context/session ID
+- started/completed timestamp
+- actual raw output path/hash
+- actual activation evidence / contamination / missing-data
+- blind scoring evidence / rationale
+
+model / effort / timeout / tool policy / per-run ceiling / pilot-wide ceiling / reviewer identity / frozen input・rubric・variant manifest は上のsectionsで確定済み。
+
 ## Per-run record
 
 各generationごとに1 recordを作る。
@@ -149,8 +208,13 @@ Generatorに見せない:
 | budget | TBD |
 | started_at | TBD |
 | completed_at | TBD |
-| raw_output_ref | TBD |
-| raw_output_hash | TBD |
+| artifact_bundle_ref | TBD |
+| artifact_bundle_hash | TBD |
+| final_response_ref | TBD |
+| final_response_hash | TBD |
+| pre_run_file_manifest | TBD |
+| post_run_file_manifest | TBD |
+| out_of_scope_writes | none/TBD |
 | rubric_visible_to_generator | false/TBD |
 | variant_identity_verified | true/false |
 | activation_evidence | TBD |
