@@ -244,6 +244,28 @@ expected_value_source
   = measured evidence / existing behavior / specification / approved rule
 ```
 
+### Minimum Sufficient Test Set
+
+**Test Case も「多いほど安全」とはみなさず、現在の AC / Contract / Invariant / Regression / Conditional Requirement を証明する最小十分な集合へ収束させる。**
+
+各 Test Case は、少なくとも次のどちらかを説明できること。
+
+1. 他の Test Case と異なる `Trace ID` を証明する
+2. 同じ Trace でも、distinct な failure mode / boundary / compatibility / security evidence を証明する
+
+次だけを理由に Test Case を増やさない。
+
+- 入力パターンをさらに列挙できる
+- AI が簡単に生成できる
+- 「念のため」で同じ振る舞いを別値でもう一度確認したい
+- coverage 数やケース数そのものを増やしたい
+
+同じ Trace と同じ failure mode を実質的に重複して証明するケースは、期待値・境界の差に意味がなければ統合する。
+
+**hard な件数上限は置かない。** リスクの高い変更は distinct な failure / compatibility / security requirement が増えるため、結果として Test Case が増えてよい。mode は機械的な件数 cap ではなく、materiality と記述密度に使う。
+
+> Minimize redundant proofs, not meaningful coverage.
+
 ### TDD Strategy Depends on Change Type
 
 **TDD を常に `RED → GREEN` の単一形へ固定しない。変更タイプに適した事前証拠を要求する。**

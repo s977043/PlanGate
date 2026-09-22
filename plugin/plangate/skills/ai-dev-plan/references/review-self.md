@@ -188,7 +188,7 @@ created_by: orchestrator
 ### C1-TEST-14: テストケースの具体性
 - **result**: PASS / WARN / FAIL
 - **category**: test
-- **finding**: {入力値・期待値が具体的か（「正しく動作する」ではなく値レベル）。あわせて**期待値の出所**（デザイン実測 / 規約 / 既存実装）が各ケースに明記されているか。出所が「規約」の期待値は `test-cases.md` の `## Convention Evidence` に実値との突合があり、不一致のものが AC から除外され 🚩 人間確認へ落ちているか（#934）}
+- **finding**: {入力値・期待値が具体的か（「正しく動作する」ではなく値レベル）。あわせて**期待値の出所**（デザイン実測 / 規約 / 既存実装）が各ケースに明記されているか。出所が「規約」の期待値は `test-cases.md` の `## Convention Evidence` に実値との突合があり、不一致のものが AC から除外され 🚩 人間確認へ落ちているか（#934）。さらに各 Test Case が distinct な Trace または distinct な failure / boundary / compatibility / security evidence を持ち、同じ証明をする重複ケースや変更範囲に対して過剰な粒度になっていないか（#936 → #960）}
 - **evidence_ref**: —
 - **impacted_files**: []
 

@@ -23,6 +23,31 @@ ai-loop V2 は、検証可能な開発成果と、次の判断に使える Evide
 
 > **AI builds software. AI also improves the system that builds software.**
 
+### Human Attention is a constrained resource
+
+AI側の探索・実装・レビュー・検証能力を増やしても、その複雑さをそのままHumanの読解・確認量へ転嫁しない。
+
+> **Machine complexity should not become Human complexity.**
+
+Human-facing artifact / handoff / escalation は、既存のEvidence・state・decisionを次の原則でprojectionする。
+
+- **Think deeply, materialize selectively.**
+- **Visibility is complete, attention is selective.**
+- **Compress before escalating.**
+- **Escalate decisions, not process logs.**
+
+ここでいうcompressionはfinding・Evidence・不確実性を消すことではない。Humanが最初に読む面を判断対象へ絞り、完全な情報とprovenanceへ辿れる状態を維持する。必要なHuman review / approvalはリスクに応じて維持し、Human Attentionの削減自体を目的にしない。
+
+```text
+Projection != Judgment
+Compression != Suppression
+Summary != SSoT
+```
+
+Human Attention削減のために新しいJudge / Gate / authoritative artifactを作ることを既定としない。各layerは既存のSSoTからHuman-facing projectionを生成し、Human-owned authority（§3 / §15）を維持する。
+
+この原則のcross-layer rolloutは #1343、canon gap analysisは #1344、共通measurement contractは #1349で追跡する。River Reviewの先行実証（s977043/river-review#2368）をEvidenceとして利用する。
+
 ただし、自己進化と実行中の自己変更は分離する。
 
 > **Self-Evolution != Live Self-Modification**
@@ -460,6 +485,8 @@ Product 側と Harness 側の学習を混同せず、V2 が直接観測できる
 - どの原則に基づくか
 - 既存 Harness の再利用では解決できないか
 - 新 Component を増やす必要が本当にあるか
+- Human が実際に判断すべき情報は何か。process log / raw output を判断面へ転嫁していないか
+- compression / handoff によって blocker・不確実性・Evidence provenance・Human-owned decision requirement が見えなくなっていないか
 
 ### Verification
 
