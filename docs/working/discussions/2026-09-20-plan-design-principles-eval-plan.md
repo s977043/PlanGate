@@ -1,7 +1,7 @@
 # Plan Design Principles 運用評価計画
 
 - Issue: #1337 / predecessor: #1335, PR #1336
-- Status: evaluation protocol v2。実モデルによるpaired実行は未実施。
+- Status: evaluation protocol v2 + execution config freeze。実モデルによるpaired実行は未実施。
 - 対象: ai-dev-plan の設計判断。production、承認境界、C-1定義は変更しない。
 - baseline: `612c3dacacf76c0bfd72559fbbe0bc41bc41443d`
 - candidate: `4b3f4017ad6c2a64813524ec8567a289f722cb45`
@@ -58,6 +58,44 @@
 - generator workspaceには選択ケースのPBIだけを置く
 - hash不一致pairは `INCONCLUSIVE_INPUT_MISMATCH`
 
+
+## 3.1 Execution surface freeze
+
+固定SHAを上流repoの通常worktreeとして実行すると、`.agents/skills/ai-dev-plan/` には bundled `references/` が存在しない一方、同一SHAの
+`plugin/plangate/skills/ai-dev-plan/` には配布用bundleが存在する。
+
+したがって本pilotは **repo SHAをvariant identity、plugin bundleを実行面** として固定する。
+
+### Baseline
+
+- repo SHA: `612c3dacacf76c0bfd72559fbbe0bc41bc41443d`
+- Skill: `plugin/plangate/skills/ai-dev-plan/SKILL.md`
+  - Git blob: `139fadd69c39fa0079ee8b44ca20d3f4830819fd`
+- refs:
+  - `ai-driven-development.md`: `3ec9e74bdd65ee72fe88edc4a101d2f1252be3d6`
+  - `plan-metrics-verification.md`: `c763b06d79bc281bb336a38cc7be42f93f774822`
+  - `core-contract.md`: `914b6467afe49928c364ca277aed6e9a4a2072d5`
+  - `plan-template.md`: `3735169a24bc94c09c76720435d0d372720207ab`
+  - `todo.md`: `339fd09dd7abd26b8cb9cb16c4374114d7648232`
+  - `test-cases.md`: `c6d9da1c9be660c648d594fe847bb42caa110263`
+
+### Candidate
+
+- repo SHA: `4b3f4017ad6c2a64813524ec8567a289f722cb45`
+- Skill: `plugin/plangate/skills/ai-dev-plan/SKILL.md`
+  - Git blob: `e8d773fc47e224d1d1a9fcf179ec970aa271c4e0`
+- refs:
+  - `ai-driven-development.md`: `3ec9e74bdd65ee72fe88edc4a101d2f1252be3d6`
+  - `plan-metrics-verification.md`: `c763b06d79bc281bb336a38cc7be42f93f774822`
+  - `core-contract.md`: `914b6467afe49928c364ca277aed6e9a4a2072d5`
+  - `plan-template.md`: `5f0c37ea4a2539a70aa78c06584d9b54ec804f03`
+  - `todo.md`: `339fd09dd7abd26b8cb9cb16c4374114d7648232`
+  - `test-cases.md`: `1832e6c084e487c8b0e59ccac3f910f44bcdd6d3`
+
+両SHAで `AGENTS.md` / `CLAUDE.md` / `.claude/rules/working-context.md` / `mode-classification.md` / `hybrid-architecture.md`
+は同じblobであることを事前確認した。差分はSkillとPR #1336で意図的に変化したPlan/Test template等として扱う。
+
+**評価対象の主張単位**は「Skill単体」ではなく **PR #1336で固定したPlan-generation harness差分** とする。
 
 ### B-1
 
@@ -158,18 +196,80 @@ rubricの固定規則に従い、各caseを以下へ分類する。
 
 以下が揃うまで48 generationを開始しない。
 
-- [ ] generator inputs / materialization wrapper凍結
-- [ ] reviewer rubric凍結
-- [ ] ledger / run matrix凍結
-- [ ] baseline/candidate SHA確認
-- [ ] model ID / effort固定
-- [ ] input/output token budget固定
-- [ ] timeout固定
-- [ ] tool/network policy固定
-- [ ] isolated generator workspaceの手段確認
-- [ ] raw output保存先確認
-- [ ] independent reviewer確認
-- [ ] skill/reference hash取得方法確認
+- [x] generator inputs / materialization wrapper凍結
+- [x] reviewer rubric凍結
+- [x] ledger / run matrix凍結
+- [x] baseline/candidate SHA確認
+- [x] model ID / effort固定
+- [x] input/output token budget固定
+- [x] timeout固定
+- [x] tool/network policy固定
+- [x] isolated generator workspaceの手段確認
+- [x] raw output保存先確認
+- [x] independent reviewer確認
+- [x] skill/reference hash取得方法確認
+
+### Execution configuration
+
+**Generator**
+
+- CLI: Codex CLI `codex exec`
+- model: `gpt-5.6-sol`
+- reasoning: `high`
+- sandbox: `read-only`
+- approval: `never`
+- network: off
+- session: `--ephemeral`
+- generation timeout: 600 seconds
+- measured token ceiling per generation:
+  - input <= 64,000
+  - output <= 16,000
+  - ceiling超過は `INCONCLUSIVE_BUDGET`; budgetを後から広げて同じsetへ混ぜない
+
+**Blind reviewer**
+
+- CLI: Codex CLI separate fresh context
+- model: `gpt-5.6-terra`
+- reasoning: `high`
+- sandbox: `read-only`
+- approval: `never`
+- network: off
+- reviewer input: materialized PBI + anonymous raw output + frozen rubricのみ
+- reviewerはrepo checkout / variant name / generator event logを読まない
+- adjudicator: Human。critical regression / Other change / reviewer判定不能のみ
+
+同じmodel familyを使う点は限界として記録する。generator/reviewerはモデルID・context・可視情報を分離するが、
+cross-vendor independenceを主張しない。
+
+**Output / log storage**
+
+run中は評価checkout外の一時rootへ保存する。
+
+```text
+$TMPDIR/plangate-pdp-eval-v1/
+  runs/<pair>/<variant>/final.md
+  runs/<pair>/<variant>/events.jsonl
+  runs/<pair>/<variant>/stderr.log
+  review/<pair>/<anonymous-id>.md
+  manifests/
+```
+
+後続runから過去出力が見えないよう、generator worktreeへこのrootをmount/copyしない。
+全run完了後にraw evidenceをrepository側へ取り込む。
+
+**Runtime prerequisite (operator machine)**
+
+Start gateの設計はfreeze済みだが、実走開始直前に以下を実測する。
+
+- `codex --version`
+- ChatGPT/API authが有効
+- `gpt-5.6-sol` / `gpt-5.6-terra` がmodel catalogに存在
+- `timeout` または `gtimeout` が存在
+- 空のsmoke runで `--ephemeral --sandbox read-only --ask-for-approval never --json` が動作
+- event JSONLでmodel / usage / tool activityを記録可能
+
+いずれかが満たせなければ48runを開始せず `INCONCLUSIVE_NOT_RUN`。
+
 
 揃わない場合は `INCONCLUSIVE_NOT_RUN`。未実行をPASSへ変換しない。
 
@@ -233,8 +333,10 @@ rubricの固定規則に従い、各caseを以下へ分類する。
   - → sourceはoperator-only、generatorはmaterialized 1ケースだけへ統一
 
 現時点のblocking finding:
-- protocol文書化については **なし**
-- model paired executionについては **実行環境・model/budget/reviewer未確定のため未開始**
+- protocol / execution config文書化については **なし**
+- 48runについては **operator machineのCodex CLI/auth/runtime smoke未実測のため未開始**
+- upstream dogfoodでは `.agents/skills/ai-dev-plan/references/` が存在しない点をMajorとして検出し、
+  同一SHAの `plugin/plangate/skills/ai-dev-plan/` bundleを実行面として固定して解消
 
 ### 追加レビュー反映
 
