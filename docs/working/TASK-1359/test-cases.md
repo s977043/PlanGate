@@ -33,6 +33,7 @@
 | AC | AC-13 canonical/mirror alignment | #1359 | TC-11 |
 | AC | AC-14 four fixed fixtures | #1359 | TC-06, TC-01/TC-02, TC-05, TC-07 |
 | Contract | COMP-1358-01: #1358 Minimum Sufficient Test Set ownership is preserved | PR #1358 | TC-12 |
+| Contract | COMP-1337-01: frozen evaluation candidate is not contaminated before #1337 result fixed | #1337 / #1347 | TC-13 |
 
 ## Test Cases
 
@@ -141,6 +142,21 @@
   - compare the same block after TASK-1359 changes;
   - expected diff: empty.
 
+### TC-13: #1337 frozen candidate is not contaminated
+
+- Input: TASK-1359 branch while #1337 paired evaluation result is not fixed.
+- Expected:
+  - branch diff contains only `docs/working/TASK-1359/**`;
+  - no change to `.agents/skills/ai-dev-plan/SKILL.md`;
+  - no change to `docs/ai/plan-design-principles.md`;
+  - no change to production plan/review templates or mirrors.
+- Source: dependency contract COMP-1337-01 / #1337 / #1347.
+- Type: compatibility / evaluation-integrity negative control.
+- Verification method:
+  - compare `main...feat/1359-plan-knowledge-continuity`;
+  - assert every changed path starts with `docs/working/TASK-1359/`;
+  - if any production surface appears before T-00 completes, FAIL and stop.
+
 ## Edge Cases
 
 - Prior artifact exists but is stale: record provenance/freshness; do not treat as current fact without validation.
@@ -152,5 +168,6 @@
 
 The suite intentionally keeps one positive and one negative control for prior-artifact materiality,
 one negative control for conditional Knowledge Delta, and distinct safety cases for readiness/refactor/pre-PR.
-TC-12 is retained because it proves a distinct compatibility contract with the immediate dependency #1358, not another TASK-1359 behavior trace.
+TC-12 is retained because it proves a distinct compatibility contract with the immediate dependency #1358.
+TC-13 is retained because it proves evaluation-integrity isolation from the frozen #1337 experiment.
 Do not add cases that prove the same Trace and failure mode without a distinct boundary or risk.
