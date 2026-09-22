@@ -171,6 +171,8 @@ Decision Wait = calendar / queue delay
 Attention Time = active cognitive work
 ```
 
+startは、判断に必要なEvidenceが揃った時点とHuman-required signalが提示された時点のうち遅い方とします。Evidence不足の時間をHumanの意思決定待ちとして計上しません。
+
 ---
 
 ### M5. Decision Extraction Success
@@ -453,8 +455,19 @@ candidateを知っているreviewerが早く読む。
 
 Guard:
 - fixed rubric
--可能ならblinded / counterbalanced eval
+- 可能なら blinded / counterbalanced eval
 - raw results保存
+
+### Human surveillance / performance gaming
+
+Human Attention telemetryを個人の生産性評価へ転用すると、短時間で判断すること自体が目的化し、慎重なレビューや必要なHuman Gateを抑制します。
+
+Guard:
+- 個人の評価・査定KPIとして利用しない
+- run / fixture単位の改善評価を基本とする
+- 個人識別情報は測定に必要な最小限にする
+- aggregateで目的を満たせる場合は個人別データを保持しない
+- measurement overhead / consent / retentionを運用設計で明示する
 
 ## 9. Storage / ownership
 
@@ -494,6 +507,7 @@ River Review #2368を最初のvalidation siteとする。
 - safety / visibility guardがあるか
 - raw evidenceのownerが明確か
 - new schema / databaseを不要に増やしていないか
+- 個人のperformance surveillanceへ転用される設計になっていないか
 
 ## 12. Decision
 
