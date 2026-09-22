@@ -118,10 +118,15 @@ Reviewer per run:
 - output <= 8k
 - timeout <= 600s
 
-Pilot ceiling:
+Pilot paired-run ceiling:
 - generator = 3.84M tokens
 - reviewer = 3.456M tokens
-- combined = 7.296M tokens
+- paired total = 7.296M tokens
+
+Pre-run smoke:
+- 2 generator smoke calls + 1 reviewer smoke call
+- smoke ceiling = 232k tokens
+- **grand ceiling = 7.528M tokens**
 
 Budget changes cannot be mixed into the same run set.
 Retry evidence is append-only and counts toward the pilot ceiling.
@@ -155,6 +160,7 @@ The only remaining blocker to 48-generation execution is local runtime evidence:
 
 - `codex --version`
 - valid auth
+- exact 3-call non-PDP smoke passes without consuming P01
 - `gpt-5.6-sol` available
 - `gpt-5.6-terra` available
 - timeout/gtimeout available
