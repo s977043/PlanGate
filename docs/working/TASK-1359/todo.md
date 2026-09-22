@@ -11,8 +11,9 @@
 - [ ] T-00: #1337 paired evaluation result固定を確認する
   - Owner: agent
   - depends_on: #1337 result fixed
-  - files: 読取: #1337 / #1338 / final evaluation evidence
-  - completion: #1337の最終pair-level判定とdownstream decisionを確認し、TASK-1359 replan要否をdecision-logへ記録する
+  - progress: PR #1364 execution freeze merged; protocol/config/input/smoke contract fixed
+  - files: 読取: #1337 / PR #1364 / smoke evidence / 48-run raw evidence / blind scoring / final pair-level decision
+  - completion: #1337の3-call smoke・48 generations・blind scoringが完了し、最終pair-level判定とdownstream decisionを確認してTASK-1359 replan要否をdecision-logへ記録する
   - rollback: 不要
   - 🚩 チェックポイント: regression / no-effect / guidance変更があればT-03以降を開始せずreplan
 
@@ -22,7 +23,7 @@
   - Owner: agent
   - depends_on: #1358 merge
   - files: repository branch
-  - completion: branchが#1358 merge後のmainをbaseに持ち、shared filesのconflictが解消されている
+  - completion: branchが#1358およびPR #1364 merge後のlatest mainをbaseに持ち、shared filesのconflictが解消されている
   - rollback: rebase前branch SHAへ戻す
   - 🚩 チェックポイント: conflictがshared skill/templateに出たらreplan
 
