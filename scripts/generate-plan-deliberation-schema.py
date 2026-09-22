@@ -352,6 +352,40 @@ def build_schema() -> dict:
                     }
                 },
             },
+            {
+                "if": {
+                    "properties": {
+                        "outcome": {
+                            "properties": {
+                                "requires_c2_rereview": {"const": True}
+                            },
+                            "required": ["requires_c2_rereview"],
+                        }
+                    },
+                    "required": ["outcome"],
+                },
+                "then": {
+                    "properties": {
+                        "outcome": {
+                            "properties": {
+                                "status": {
+                                    "enum": ["split", "insufficient_evidence"]
+                                },
+                                "rereview_reasons": {"minItems": 1},
+                            }
+                        }
+                    }
+                },
+                "else": {
+                    "properties": {
+                        "outcome": {
+                            "properties": {
+                                "rereview_reasons": {"maxItems": 0}
+                            }
+                        }
+                    }
+                },
+            },
         ],
         "$defs": {
             "position": position_base,
