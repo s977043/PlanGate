@@ -68,11 +68,16 @@ hash mismatchならCodexを起動せず `INCONCLUSIVE_INPUT_MISMATCH`。
 ## 4. Generator invocation template
 
 ```sh
+cd "$WT"
+
+git status --porcelain=v1 --untracked-files=all >"$RUN_ROOT/pre-status.txt"
+
 timeout 600 codex exec \
   --ephemeral \
   --model gpt-5.6-sol \
   -c 'model_reasoning_effort="high"' \
-  --sandbox read-only \
+  -c 'sandbox_workspace_write.network_access=false' \
+  --sandbox workspace-write \
   --ask-for-approval never \
   --json \
   --output-last-message "$RUN_ROOT/final.md" \
@@ -81,11 +86,37 @@ timeout 600 codex exec \
   2>"$RUN_ROOT/stderr.log"
 ```
 
-networkはCodex read-only sandboxのdefault無効を使う。network enable overrideを渡さない。
+workspace-writeを使うのは、ai-dev-plan本来の契約どおり `plan.md / todo.md / test-cases.md` 等のPlan artifactを実ファイルとして生成させるため。
+networkは明示的に `sandbox_workspace_write.network_access=false` とする。
 MCP / app / external repo / browserを使用しない。
 
-共通promptはgenerator input文書の「共通依頼」に加え、plugin Skill pathを明示する。
+共通promptはgenerator input文書の「共通依頼」に加え、plugin Skill pathと次のwrite boundaryを明示する。
+
+> Create only planning artifacts under `docs/working/TASK-EVAL-PDPXX/`. Do not modify source code, configuration, rules, skills, templates, hooks, or files outside that task directory. Do not implement the requested product change.
+
 baseline/candidateでprompt bytesを同一にする。
+
+### Post-run artifact capture / write-scope evidence
+
+run後にoperatorが:
+
+```sh
+git status --porcelain=v1 --untracked-files=all >"$RUN_ROOT/post-status.txt"
+find "docs/working/TASK-EVAL-PDPXX" -type f -print | sort >"$RUN_ROOT/task-files.txt"
+```
+
+を取得する。
+
+PBIはrun前からoperatorが配置した入力なので、pre/post manifestで区別する。
+生成されたPlan artifactを `$RUN_ROOT/artifacts/` へoperatorがcopyし、hashを保存する。
+
+- `plan.md`
+- `todo.md`
+- `test-cases.md`
+- Skill契約上生成された `INDEX.md` / `decision-log.jsonl` 等
+
+task directory外へのwriteは削除して隠さない。
+`out_of_scope_writes` として保存し、scope disciplineの採点対象にする。
 
 ## 5. Budget contract
 
@@ -123,7 +154,7 @@ events JSONLとfinal outputから記録する。
 - actual model ID / effort
 - relevant read/tool events
 - resolution failure
-- final outputでSkill/Principles/Templateの影響が観測できる箇所
+- generated artifacts / final responseでSkill/Principles/Templateの影響が観測できる箇所
 
 「Skillを読んだ」という自己申告だけではactivation proofにしない。
 
@@ -132,7 +163,8 @@ events JSONLとfinal outputから記録する。
 reviewer workspaceには次だけを置く。
 
 - selected materialized PBI
-- anonymous final output
+- anonymous generated artifact bundle
+- anonymous final response
 - frozen rubric
 
 置かない:
