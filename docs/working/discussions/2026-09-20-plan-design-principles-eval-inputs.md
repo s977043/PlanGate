@@ -2,8 +2,8 @@
 
 - Issue: #1337
 - Purpose: #1335 / PR #1336 の before/after paired evaluation 用の **generator-visible input**。
-- Visibility: **generator に渡してよいのは本ファイルと、対象 variant の ai-dev-plan Skill / bundled references のみ**。
-- Prohibited for generator: rubric、期待挙動、失敗例、他 trial の出力、採点結果。
+- Visibility: 本ファイルは **operator-side source**。generatorには本ファイル全体をmountせず、選択1ケースからmaterializeした `pbi-input.md`、共通依頼、対象variantの ai-dev-plan Skill / bundled referencesだけを渡す。
+- Prohibited for generator: 他7ケース、本source全文、rubric、期待挙動、失敗例、他 trial の出力、採点結果。
 - All scenarios below are synthetic evaluation facts, not production requirements.
 
 ## Execution contract
