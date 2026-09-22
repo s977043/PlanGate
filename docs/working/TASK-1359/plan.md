@@ -19,6 +19,8 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 - Related issues: #1359 / #933 / #810 / #867
 - Related architecture: #1335 / PR #1336
 - Dependency: PR #1358 merged; TASK-1359 rebased and compatibility evidence recorded.
+- **Hard dependency**: #1337 paired evaluation result must be fixed before Human C-3 / production implementation. This preserves the frozen evaluation candidate and avoids contaminating #1337.
+- #1347 owns Human Decision Surface / Plan compression experiments after #1337; TASK-1359 must not absorb that scope.
 - Parallel governance dependency: #960 HO-side C-1 drift remains separate.
 - Related artifacts:
   - `pbi-input.md`
@@ -37,6 +39,8 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 ### Out of Scope
 
 - New Unknown service/subsystem.
+- Human Decision Surface / Plan compression / Human Attention projection changes owned by #1347.
+- Any change that alters or contaminates #1337 baseline/candidate evaluation inputs or candidate SHA.
 - New Trust Ledger schema fields.
 - New C-1 IDs.
 - HO file edits.
@@ -97,6 +101,13 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 - なし
 
+### External Blockers
+
+- **EB-01: #1337 paired evaluation result not fixed**
+  - blocking: yes for Human C-3 and exec
+  - reason: #1337 explicitly orders #933/#810/#867 implementation after paired evaluation and freezes the candidate SHA.
+  - unblock condition: #1337 records a fixed pair-level evaluation result / next-action decision that allows downstream implementation.
+
 ### Human Decisions Required
 
 - C-3 approval for critical-mode exec.
@@ -105,9 +116,9 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 ### Readiness
 
-**ready**
+**blocked**
 
-Reason: Blocking Unknowns = 0. #1358 merge/rebase and TC-12 compatibility are resolved. Critical-mode Human C-3 remains mandatory before implementation.
+Reason: internal Blocking Unknowns = 0 and #1358 compatibility is resolved, but external blocker EB-01 (#1337 result not fixed) prevents Human C-3 / production implementation.
 
 ## Source-of-Truth Hierarchy
 
@@ -211,6 +222,23 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 ## Work Breakdown
 
 > 実行粒度の正本は `todo.md`。本節も reviewer が変更理由ごとに approve/reject できる単位へ合わせる。
+
+### Task 0: Preserve #1337 evaluation order
+
+**Purpose**: prevent TASK-1359 from contaminating the frozen Plan Design Principles evaluation.
+
+**Steps**:
+- [ ] Wait until #1337 paired evaluation result is fixed.
+- [ ] Read the final #1337 decision and determine whether TASK-1359 Plan requires replan.
+- [ ] Reconfirm #1347 still owns Human Decision Surface / compression concerns.
+
+**Completion Criteria**:
+- EB-01 resolved.
+- #1337 result and downstream decision are referenced in decision-log.
+- No TASK-1359 production change occurred before resolution.
+
+**Rollback**:
+- N/A (dependency gate only)
 
 ### Task 1: Rebase / review boundary reconfirmation
 
@@ -480,6 +508,7 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 
 ### Success Criteria
 
+- #1337 evaluation order preserved; no candidate contamination.
 - AC-01..14 mapped to TC-01..TC-11.
 - Dependency contract `COMP-1358-01` mapped to TC-12.
 - Completion boundary: non-HO planning/review integration + fixtures; any HO patch is separate.
@@ -505,6 +534,8 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 ## Replan Triggers
 
 Replan if:
+- #1337 result identifies a regression, no-effect, or guidance change that invalidates TASK-1359 assumptions.
+- #1347 changes the Human-facing Plan projection boundary in a way that overlaps TASK-1359 artifact representation.
 - post-#1358 baselineから `ai-dev-plan` / C-1 ownership が変化し、Minimum Sufficient Test SetとTASK-1359 guidanceが責務混在する。
 - `diff-audit` cannot express the re-check without a new artifact or responsibility conflict.
 - existing decision/evidence records cannot represent Knowledge Delta in fixture 4.
@@ -523,5 +554,6 @@ Stop for human decision if:
 
 ## Human Approval Boundary
 
+#1337 result fixed is a prerequisite to Human C-3.
 Critical-mode C-3 is mandatory before implementation.
 Merge remains C-4 Human-owned.
