@@ -129,7 +129,7 @@ def build_schema() -> dict:
         "properties": {
             "schema_version": {"type": "integer", "const": 1},
             "artifact_type": {"type": "string", "const": "plan-deliberation"},
-            "stability": {"type": "string", "const": "experimental"},
+            "stability": {"type": "string", "enum": ["experimental"]},
             "task_id": {"type": "string", "pattern": r"^TASK-[0-9]{4}$"},
             "plan_ref": {
                 "type": "object",
@@ -280,7 +280,10 @@ def build_schema() -> dict:
                     "properties": {
                         "participants": {"minItems": 1},
                         "positions": {
-                            "properties": {"initial": {"minItems": 1}}
+                            "properties": {
+                                "initial": {"minItems": 1},
+                                "final": {"minItems": 1},
+                            }
                         },
                     }
                 },
