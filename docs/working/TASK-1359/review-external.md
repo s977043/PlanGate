@@ -113,8 +113,11 @@ Mitigation applied:
 - add T-00 before Human C-3
 - keep PR #1360 draft / planning-only
 - add #1347 Human Decision Surface as explicit non-goal
+- add COMP-1337-01 / TC-13 and fresh evidence proving current branch changes only `docs/working/TASK-1359/**`
 
 **Resolved in plan: yes**
+
+Fresh evidence: `evidence/c1-review/2026-09-23-evaluation-integrity.md` — TC-13 PASS.
 
 ## Final Review Verdict
 
