@@ -3,7 +3,8 @@
 > 対象: TASK-1359 pbi-input / plan / todo / test-cases
 > Mode: critical
 > Review stage: pre-C-3
-> Overall: **PASS WITH EXEC PRECONDITION**
+> Overall: **PASS — WAITING HUMAN C-3**
+> Fresh review after #1358 merge/rebase
 > Critical: 0 / Major: 0 / Minor: 1
 
 ## Lane 1 — Architecture / Responsibility
@@ -87,20 +88,26 @@ Finding:
 9. **Unverified operational timestamps**: `status.md` 初稿で過去フェーズの分単位時刻を実測せず補完していた
    - fixed: 推測時刻を削除し、実測したstatus発行時刻のみ記録。過去順序はGit history / decision-logへ委譲。
 
+## Post-rebase compatibility refresh
+
+- branch vs main: ahead 1 / behind 0 at evidence point
+- `C1-TEST-14` block equality: PASS
+- `ai-dev-plan` branch == main: PASS
+- `diff-audit` branch == main: PASS
+- `review-gate` branch == main: PASS
+- evidence: `evidence/c1-review/2026-09-23-rebase-compatibility.md`
+
 ## Final Review Verdict
 
 **Plan quality: PASS**
-**Execution readiness: BLOCKED on #1358 merge/rebase**
-**C-3 readiness after rebase: YES, subject to revalidation of shared files**
+**Execution readiness: WAITING HUMAN C-3**
+**C-3 readiness: YES**
 
 次の正しい遷移:
 
 ```text
-#1358 merge
-  -> TASK-1359 rebase
-  -> diff-audit/review-gate boundary revalidation
-  -> C-1 rerun
-  -> C-2 refresh
-  -> Human C-3
-  -> exec
+Human C-3
+  -> APPROVED
+  -> T-03..T-16 exec / verify
+  -> Human C-4
 ```
