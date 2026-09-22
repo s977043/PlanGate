@@ -236,12 +236,25 @@ rubricの固定規則に従い、各caseを以下へ分類する。
 - sandbox: `read-only`
 - approval: `never`
 - network: off
+- timeout: 600 seconds
+- measured token ceiling per scoring run:
+  - input <= 64,000
+  - output <= 8,000
 - reviewer input: materialized PBI + anonymous raw output + frozen rubricのみ
 - reviewerはrepo checkout / variant name / generator event logを読まない
 - adjudicator: Human。critical regression / Other change / reviewer判定不能のみ
 
 同じmodel familyを使う点は限界として記録する。generator/reviewerはモデルID・context・可視情報を分離するが、
 cross-vendor independenceを主張しない。
+
+**Pilot total token ceiling**
+
+- generator: 48 × (64k input + 16k output) = **3,840,000 tokens**
+- blind scoring: 48 × (64k input + 8k output) = **3,456,000 tokens**
+- combined hard ceiling: **7,296,000 tokens**
+- retryは元runを上書きせず新run set扱い。combined ceilingへ加算する
+- ceilingを超える見込みなら新runを開始せず `INCONCLUSIVE_BUDGET` としてHuman判断へ送る
+- この数字は料金見積もりではなく、比較条件を途中変更しないためのtoken budget contract
 
 **Output / log storage**
 
