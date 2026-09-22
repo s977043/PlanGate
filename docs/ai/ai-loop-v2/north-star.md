@@ -485,6 +485,8 @@ Product 側と Harness 側の学習を混同せず、V2 が直接観測できる
 - どの原則に基づくか
 - 既存 Harness の再利用では解決できないか
 - 新 Component を増やす必要が本当にあるか
+- Human が実際に判断すべき情報は何か。process log / raw output を判断面へ転嫁していないか
+- compression / handoff によって blocker・不確実性・Evidence provenance・Human-owned decision requirement が見えなくなっていないか
 
 ### Verification
 
