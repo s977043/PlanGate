@@ -49,7 +49,7 @@ cases = json.loads(cases_path.read_text(encoding="utf-8"))
 Draft202012Validator.check_schema(schema)
 validator = Draft202012Validator(schema)
 
-assert schema["properties"]["stability"]["const"] == "experimental"
+assert schema["properties"]["stability"]["enum"] == ["experimental"]
 assert schema["additionalProperties"] is False
 
 def resolve_parent(obj, parts):
