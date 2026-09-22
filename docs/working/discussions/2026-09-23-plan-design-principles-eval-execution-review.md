@@ -104,6 +104,23 @@ Accepted limitation:
 - this reduces variant/context coupling but is **not** cross-vendor independence.
 - no stronger claim is made.
 
+## 5.1 Runtime compatibility
+
+**PASS after hardening**
+
+Fresh current-spec review found:
+- GPT-5.6 in Codex requires Codex CLI 0.144.0+.
+- `approval_policy` is the canonical approval config surface and supports `never`.
+- relying on approval flag spelling around the `exec` subcommand is unnecessary version-sensitive surface.
+
+Fix:
+- minimum CLI version = 0.144.0;
+- exact CLI version is frozen at smoke and held constant across smoke / generation / scoring;
+- invocation uses `-c 'approval_policy="never"'`;
+- local smoke remains authoritative for actual availability.
+
+This does not change the model/evaluation hypothesis; it reduces runtime configuration drift.
+
 ## 6. Budget / reproducibility
 
 **PASS**
@@ -158,13 +175,13 @@ No new execution engine / LLM judge was introduced.
 
 The only remaining blocker to 48-generation execution is local runtime evidence:
 
-- `codex --version`
+- `codex --version` >= 0.144.0 and exact version frozen
 - valid auth
 - exact 3-call non-PDP smoke passes without consuming P01
 - `gpt-5.6-sol` available
 - `gpt-5.6-terra` available
 - timeout/gtimeout available
-- workspace-write / network-off / approval-never / ephemeral smoke run
+- workspace-write / network-off / `approval_policy=never` / ephemeral smoke run
 - JSONL usage/tool events recorded
 - final message capture works
 - plugin bundle readable at both frozen SHAs

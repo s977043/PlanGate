@@ -10,6 +10,7 @@
 
 以下が1つでも未確定なら run を開始せず、statusを `INCONCLUSIVE_NOT_RUN` とする。
 
+- codex_cli_version (>= 0.144.0; exact version frozen at smoke)
 - model_id
 - effort / reasoning level
 - token/output budget
@@ -97,8 +98,10 @@ field-by-field semantic equality: **8/8 PASS**。
 | Field | Value |
 | --- | --- |
 | eval_version | PDP-EVAL-v1 |
+| codex_cli_version | TBD_AT_SMOKE — must be >= 0.144.0 and immutable for run set |
 | model_id | `gpt-5.6-sol` |
 | effort | `high` |
+| approval_policy | `never` |
 | max_input_tokens | 64000 (measured ceiling) |
 | max_output_tokens | 16000 (measured ceiling) |
 | timeout_seconds | 600 |
@@ -183,7 +186,7 @@ field-by-field semantic equality: **8/8 PASS**。
 - actual activation evidence / contamination / missing-data
 - blind scoring evidence / rationale
 
-model / effort / timeout / tool policy / per-run ceiling / pilot-wide ceiling / reviewer identity / frozen input・rubric・variant manifest は上のsectionsで確定済み。
+model / effort / timeout / approval policy / tool policy / per-run ceiling / pilot-wide ceiling / reviewer identity / frozen input・rubric・variant manifest は上のsectionsで確定済み。Codex CLIは最低版を固定し、exact versionだけsmokeでruntime確定する。
 
 ## Per-run record
 
@@ -197,6 +200,7 @@ model / effort / timeout / tool policy / per-run ceiling / pilot-wide ceiling / 
 | variant | baseline/candidate |
 | repo_sha | TBD |
 | generator_context_id | TBD |
+| codex_cli_version | TBD |
 | input_source_hash | TBD |
 | materialized_pbi_hash | TBD |
 | materialized_pbi_path | TBD |

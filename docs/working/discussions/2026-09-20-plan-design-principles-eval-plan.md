@@ -219,7 +219,7 @@ rubricの固定規則に従い、各caseを以下へ分類する。
 - model: `gpt-5.6-sol`
 - reasoning: `high`
 - sandbox: `workspace-write`
-- approval: `never`
+- approval: `never` via `approval_policy="never"` config override
 - network: off (`sandbox_workspace_write.network_access=false`)
 - writable purpose: Plan artifacts only; implementation/source changes are forbidden by the common request
 - session: `--ephemeral`
@@ -279,11 +279,13 @@ $TMPDIR/plangate-pdp-eval-v1/
 
 Start gateの設計はfreeze済みだが、実走開始直前に以下を実測する。
 
-- `codex --version`
+- `codex --version` が **0.144.0以上**
+- smoke開始時のexact Codex CLI versionをledgerへfreezeし、全48 generation + scoringで同一versionを使う
 - ChatGPT/API authが有効
 - `gpt-5.6-sol` / `gpt-5.6-terra` がmodel catalogに存在
 - `timeout` または `gtimeout` が存在
 - exact 3-call smoke（baseline/candidate generator + blind reviewer）がExecution PacketどおりPASS
+- smoke / generation / scoringで `approval_policy="never"` とsandbox/network policyが同一に解決される
 - event JSONLでmodel / usage / tool activityを記録可能
 
 いずれかが満たせなければ48runを開始せず `INCONCLUSIVE_NOT_RUN`。
@@ -355,6 +357,15 @@ Start gateの設計はfreeze済みだが、実走開始直前に以下を実測�
 - 48runについては **operator machineのCodex CLI/auth/runtime smoke未実測のため未開始**
 - upstream dogfoodでは `.agents/skills/ai-dev-plan/references/` が存在しない点をMajorとして検出し、
   同一SHAの `plugin/plangate/skills/ai-dev-plan/` bundleを実行面として固定して解消
+
+### Runtime compatibility review (2026-09-23)
+
+- OpenAI current guidance requires Codex CLI **0.144.0+** for GPT-5.6 access.
+- `approval_policy` is the canonical config key and supports `never` for non-interactive execution.
+- generator invocation therefore uses `-c 'approval_policy="never"'` rather than depending on subcommand-specific approval flag spelling.
+- exact `codex --version` is frozen at smoke and must remain identical for the entire run set.
+- model IDs `gpt-5.6-sol` / `gpt-5.6-terra` and reasoning `high` remain valid.
+- runtime smoke still decides actual local availability; documentation support is not converted into PASS.
 
 ### 追加レビュー反映
 
