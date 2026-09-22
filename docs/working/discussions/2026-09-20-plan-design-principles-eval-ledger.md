@@ -15,7 +15,8 @@
 - token/output budget
 - timeout
 - tool policy / network policy
-- generator input hash
+- generator input source hash
+- materialized pbi-input.md hash
 - baseline skill hash
 - candidate skill hash
 - baseline bundled-reference manifest/hash
@@ -41,6 +42,21 @@ Generatorに見せない:
 
 実行後に `rubric_visible_to_generator=false` を証跡付きで記録できなければ、そのrunは contaminated として除外する。
 
+## Materialized PBI contract
+
+各generationは、generator input文書から選択した1ケースを固定wrapperで
+`docs/working/TASK-EVAL-PDPXX/pbi-input.md` へmaterializeしてから開始する。
+
+記録必須:
+- source input hash
+- materialized PBI path
+- materialized PBI SHA256
+- case ID / task ID
+- baseline/candidate間でbytes一致したか
+
+同一pairでmaterialized PBI hashが一致しなければ、そのpairは `INCONCLUSIVE_INPUT_MISMATCH` として採点対象から除外する。
+
+
 ## Run manifest
 
 | Field | Value |
@@ -54,7 +70,9 @@ Generatorに見せない:
 | tool_policy | TBD |
 | network | off |
 | input_ref | `2026-09-20-plan-design-principles-eval-inputs.md` |
-| input_hash | TBD |
+| input_source_hash | TBD |
+| materialized_pbi_hash | TBD |
+| materialized_pbi_path | TBD |
 | rubric_ref | `2026-09-20-plan-design-principles-eval-rubric.md` |
 | rubric_hash | TBD |
 | reviewer | TBD |
@@ -120,7 +138,9 @@ Generatorに見せない:
 | variant | baseline/candidate |
 | repo_sha | TBD |
 | generator_context_id | TBD |
-| input_hash | TBD |
+| input_source_hash | TBD |
+| materialized_pbi_hash | TBD |
+| materialized_pbi_path | TBD |
 | skill_hash | TBD |
 | references_manifest_hash | TBD |
 | model_id | TBD |
