@@ -3,7 +3,7 @@
 > 対象: TASK-1359 pbi-input / plan / todo / test-cases
 > Mode: critical
 > Review stage: pre-C-3
-> Overall: **PASS — WAITING HUMAN C-3**
+> Overall: **PASS WITH EXTERNAL BLOCKER — #1337**
 > Fresh review after #1358 merge/rebase
 > Critical: 0 / Major: 0 / Minor: 1
 
@@ -97,16 +97,38 @@ Finding:
 - `review-gate` branch == main: PASS
 - evidence: `evidence/c1-review/2026-09-23-rebase-compatibility.md`
 
+## Finding 10 — Evaluation-order dependency discovered after latest-main rebase
+
+**Severity before mitigation: Major**
+
+Fresh main contains / references:
+- #1337: frozen Plan Design Principles baseline/candidate; implementation order places #933/#810/#867 after paired evaluation.
+- #1347: hard dependency on #1337 and explicit prohibition on changing `ai-dev-plan` / Plan Design Principles before #1337 completes.
+
+Risk:
+- moving TASK-1359 to C-3/exec now would violate evaluation order and could contaminate the experiment or make its downstream interpretation ambiguous.
+
+Mitigation applied:
+- add external blocker EB-01 (#1337 result fixed)
+- add T-00 before Human C-3
+- keep PR #1360 draft / planning-only
+- add #1347 Human Decision Surface as explicit non-goal
+
+**Resolved in plan: yes**
+
 ## Final Review Verdict
 
 **Plan quality: PASS**
-**Execution readiness: WAITING HUMAN C-3**
-**C-3 readiness: YES**
+**Execution readiness: BLOCKED on #1337 result fixed**
+**C-3 readiness: NO until T-00 completes**
 
 次の正しい遷移:
 
 ```text
-Human C-3
+#1337 result fixed
+  -> T-00 evaluate downstream impact
+  -> C-1/C-2 refresh if needed
+  -> Human C-3
   -> APPROVED
   -> T-03..T-16 exec / verify
   -> Human C-4
