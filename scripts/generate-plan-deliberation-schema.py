@@ -29,7 +29,6 @@ def build_schema() -> dict:
         "required": [
             "position_id",
             "participant_ref",
-            "source_finding_ref",
             "stance",
             "claim",
             "rationale_summary",
@@ -123,6 +122,7 @@ def build_schema() -> dict:
             "execution",
             "trigger",
             "participants",
+            "problem_frames",
             "positions",
             "outcome",
         ],
@@ -209,6 +209,29 @@ def build_schema() -> dict:
                         "participant_id": {"type": "string", "minLength": 1},
                         "reviewer_id": {"type": "string", "minLength": 1},
                         "lane": {"type": "string", "minLength": 1},
+                    },
+                    "additionalProperties": False,
+                },
+            },
+            "problem_frames": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": [
+                        "participant_ref",
+                        "objective",
+                        "constraints",
+                        "non_goals",
+                        "assumptions",
+                        "unknowns",
+                    ],
+                    "properties": {
+                        "participant_ref": {"type": "string", "minLength": 1},
+                        "objective": {"type": "string", "minLength": 1},
+                        "constraints": string_array(),
+                        "non_goals": string_array(),
+                        "assumptions": string_array(),
+                        "unknowns": string_array(),
                     },
                     "additionalProperties": False,
                 },
@@ -306,6 +329,7 @@ def build_schema() -> dict:
                 "then": {
                     "properties": {
                         "participants": {"minItems": 1},
+                        "problem_frames": {"minItems": 1},
                         "positions": {
                             "properties": {
                                 "initial": {"minItems": 1},
