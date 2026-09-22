@@ -11,6 +11,7 @@
 - [ ] [`pbi-input.md`](./pbi-input.md) の**すべての受入基準に最低 1 件**のテストケースを対応させる（対応の無い AC を残さない）
 - [ ] AC 以外の重要な Contract / Invariant / Regression / Conditional Requirement を検証する場合、下記 `Verification Trace` に**存在理由と現在根拠**を記録する
 - [ ] Contract / Invariant を「テストを作るため」に後付けで発明しない。AC / 既存挙動 / Domain Rule / Architecture Constraint / 実測 Evidence の最低1つへ trace する
+- [ ] **Minimum Sufficient Test Set**: 各 Test Case は distinct な `Trace ID` または distinct な failure / boundary / compatibility / security evidence を持つ。同じ Trace + 同じ failure mode を重複して証明するケースは、差に意味がなければ統合する（件数上限は設けない）
 - [ ] **Edge case を含める**（境界値・異常系・空入力・上限・権限なし等）
 - [ ] 各ケースに 前提条件 / 入力 / 期待出力 / 種別 を書く
 - [ ] 各ケースの**期待値に出所を書く**（`デザイン実測` / `規約` / `既存実装`）。出所が `規約` のものは下記 `## Convention Evidence` で実値と突合する（#934）
