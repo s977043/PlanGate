@@ -281,7 +281,7 @@ Start gateの設計はfreeze済みだが、実走開始直前に以下を実測�
 - ChatGPT/API authが有効
 - `gpt-5.6-sol` / `gpt-5.6-terra` がmodel catalogに存在
 - `timeout` または `gtimeout` が存在
-- 空のsmoke runで `--ephemeral --sandbox read-only --ask-for-approval never --json` が動作
+- 空のsmoke runで `--ephemeral --sandbox workspace-write --ask-for-approval never --json` と `sandbox_workspace_write.network_access=false` が動作
 - event JSONLでmodel / usage / tool activityを記録可能
 
 いずれかが満たせなければ48runを開始せず `INCONCLUSIVE_NOT_RUN`。
