@@ -423,6 +423,45 @@
           "value": "APPROVE"
         }
       ]
+    },
+    {
+      "name": "rereview-requires-reason",
+      "ops": [
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "split"
+        },
+        {
+          "op": "set",
+          "path": "outcome.unresolved",
+          "value": [
+            "A new material concern requires canonical C-2 review."
+          ]
+        },
+        {
+          "op": "set",
+          "path": "outcome.requires_c2_rereview",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "rereview-cannot-converge",
+      "ops": [
+        {
+          "op": "set",
+          "path": "outcome.requires_c2_rereview",
+          "value": true
+        },
+        {
+          "op": "set",
+          "path": "outcome.rereview_reasons",
+          "value": [
+            "A new material concern requires canonical C-2 review."
+          ]
+        }
+      ]
     }
   ]
 }
