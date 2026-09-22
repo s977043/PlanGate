@@ -208,6 +208,18 @@ find . -name <pattern> -not -path './.git/*' -not -path './node_modules/*' | wc 
   規約と実装のどちらを正とするかは人間の設計判断に委ねる（`mode-classification.md` の安全側不変条件と一貫）。
   AI が黙って片側へ寄せて一括変更しない
 
+### Minimum Sufficient Test Set（#936 → #960 / #1335）
+
+Test Case は現在の要求を証明する**最小十分な集合**へ収束させる。
+
+- 各 Test Case は distinct な `Trace ID`、または同じ Trace に対する distinct な failure / boundary / compatibility / security evidence を説明する
+- 同じ Trace + 同じ failure mode を実質的に重複して証明するケースは、差に意味がなければ統合する
+- 「念のため」「生成できるから」「ケース数を増やすため」だけでは追加しない
+- hard な件数上限は置かない。高リスク変更で distinct な検証要求が増えることは許容する
+- mode は Test Case 件数の cap ではなく、materiality / 記述密度に使う
+
+> Minimize redundant proofs, not meaningful coverage.
+
 ### 変更タイプ別 Verification / TDD
 
 `Always RED first` を一般則にしない。変更タイプに適した事前証拠を持ち、変更後に同じ契約を再検証する。
