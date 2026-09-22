@@ -101,8 +101,7 @@ created_by: orchestrator
 ### C1-TEST-14: テストケースの具体性
 - **result**: PASS
 - **finding**: 各TCに具体入力/期待/source/verification methodを追加。TC-12で#1358 ownership、TC-13で#1337 evaluation-integrityを独立検証。fresh compareでbranch差分は `docs/working/TASK-1359/**` のみ、production surface変更=0、#1358-owned `C1-TEST-14` block equality=PASS。
-- **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`, `evidence/c1-review/2026-09-23-evaluation-integrity.md`
-- **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`
+- **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`, `evidence/c1-review/2026-09-23-evaluation-integrity.md`, `evidence/c1-review/2026-09-23-post-1364-evaluation-integrity.md`
 
 ### C1-TEST-15: エッジケースの考慮
 - **result**: PASS
@@ -136,5 +135,5 @@ created_by: orchestrator
 
 **WARN — critical 0 / major 0 / minor 1**
 
-Plan内部の設計品質findingは解消済み。#1358 merge/rebase・TC-12・shared-surface revalidationもPASS。
+Plan内部の設計品質findingは解消済み。#1358 merge/rebase・TC-12・PR #1364後のTC-13 fresh revalidationもPASS。
 ただし外部依存 #1337 が未完了のためHuman C-3へはまだ進まない。#1337 result fixed後にT-00でreplan要否を判定する。
