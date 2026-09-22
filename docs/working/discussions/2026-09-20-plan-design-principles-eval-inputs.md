@@ -12,7 +12,7 @@
 
 共通依頼:
 
-> 次の PBI INPUT PACKAGE から Plan と必要な Test Cases を作成してください。実装・外部操作・承認記録作成はしないでください。提供された Evidence / Assumption / Unknown を区別してください。対象 variant の ai-dev-plan と、その variant と同じ repo SHA から解決した参照規約に従ってください。実行していないコマンド・テスト・測定を成功したと主張しないでください。
+> 次の PBI INPUT PACKAGE から、対象Skillが要求する Plan / ToDo / Test Cases を作成してください。実装・外部操作・承認記録作成はしないでください。提供された Evidence / Assumption / Unknown を区別してください。対象 variant の ai-dev-plan と、その variant と同じ repo SHA から解決した参照規約に従ってください。実行していないコマンド・テスト・測定を成功したと主張しないでください。
 
 - 対話は行わない。B-1で確認が必要なら Questions / Unknowns として出力する。
 - fixtureに無い事実をネットワークや別repoから補完しない。
@@ -20,6 +20,69 @@
 - baseline/candidateで同一の本ファイル bytes を使用し、input hash を ledger に記録する。
 - plan / todo / test-cases のうち、評価対象は主に plan と test-cases。todo生成有無は対象 Skill の契約に従う。
 - Metrics Evidence が fixture から実測不能なら、未取得・非該当・追加調査必要を明示し、架空値を作らない。
+
+## Materialization contract
+
+本ファイルそのものを `ai-dev-plan` の入力ファイルとして渡さない。各runのoperatorは、選択した1ケースだけを**意味変更なし**で次の実体へmaterializeする。
+
+- PDP-01 → `docs/working/TASK-EVAL-PDP01/pbi-input.md`
+- PDP-02 → `docs/working/TASK-EVAL-PDP02/pbi-input.md`
+- PDP-03 → `docs/working/TASK-EVAL-PDP03/pbi-input.md`
+- PDP-04 → `docs/working/TASK-EVAL-PDP04/pbi-input.md`
+- PDP-05 → `docs/working/TASK-EVAL-PDP05/pbi-input.md`
+- PDP-06 → `docs/working/TASK-EVAL-PDP06/pbi-input.md`
+- PDP-07 → `docs/working/TASK-EVAL-PDP07/pbi-input.md`
+- PDP-08 → `docs/working/TASK-EVAL-PDP08/pbi-input.md`
+
+frontmatterは固定する。
+
+```yaml
+---
+task_id: TASK-EVAL-PDPXX
+artifact_type: pbi-input
+schema_version: 1
+status: draft
+---
+```
+
+case blockは、固定wrapperへ機械的に写す。
+
+```markdown
+# PBI INPUT PACKAGE — TASK-EVAL-PDPXX
+
+## Context / Why
+<Context / Why を逐語コピー>
+
+## What — Scope
+
+### In scope
+<In scope を逐語コピー>
+
+### Out of scope
+<Out of scope を逐語コピー>
+
+## Acceptance Criteria
+<Acceptance Criteria を逐語コピー>
+
+## Notes from Refinement
+
+### Evidence
+<Evidence を逐語コピー>
+
+## Estimation Evidence
+
+**Risks**: fixtureに明記がなければ `未評価 — Planで判断`
+**Unknowns**: <Unknowns を逐語コピー>
+**Assumptions**: <Assumptions を逐語コピー>
+```
+
+規則:
+- 要約・言い換え・追加仕様を行わない。
+- baseline/candidateで**同一bytesのmaterialized pbi-input.md**を使う。
+- materialized fileのSHA256をrun ledgerへ記録する。
+- generator workspaceには選択した1ケースのmaterialized PBIだけを置き、本8ケース一覧やreviewer rubricを置かない。
+- `ai-dev-plan` が要求するその他の通常参照は対象variantと同一SHAから解決する。
+- materialization差分が生じたpairは比較不能として `INCONCLUSIVE`。
 
 ---
 
@@ -264,9 +327,10 @@ CSV export の既存列末尾へ `created_at` を追加する。
 - E01: 仕様は列順だけ定義する
 - E02: 行順保証は仕様にない
 - E03: 現在はDBが返した順でexportする
+- E04: 固定fixture例は `id=42`, `created_at=2026-09-20T00:00:00Z`
 
 ### Unknowns
-- created_atのfixture値は実行時の固定入力で与える
+- なし
 
 ### Assumptions
 - 行順はテストの判定条件ではない
