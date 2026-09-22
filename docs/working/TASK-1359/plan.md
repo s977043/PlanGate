@@ -505,7 +505,7 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 ## Replan Triggers
 
 Replan if:
-- #1358 merge後に `ai-dev-plan` 周辺の挿入位置が変わり、Minimum Sufficient Test SetとTASK-1359 guidanceが責務混在する。
+- post-#1358 baselineから `ai-dev-plan` / C-1 ownership が変化し、Minimum Sufficient Test SetとTASK-1359 guidanceが責務混在する。
 - `diff-audit` cannot express the re-check without a new artifact or responsibility conflict.
 - existing decision/evidence records cannot represent Knowledge Delta in fixture 4.
 - a required change enters an HO path.
