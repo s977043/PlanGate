@@ -71,7 +71,7 @@
 
 ### B-2
 
-2〜3案の実質的trade-off比較を維持する。lightを理由に比較そのものを省略しない。記述密度はtaskに合わせてよい。
+B-3まで進んだ出力は2〜3案の実質的trade-off比較を維持する。B-1で正しいBlocking Unknownにより停止した場合はB-2をN/Aとし、停止妥当性を別評価する。
 
 ### B-3
 
@@ -129,6 +129,7 @@ rubricの固定規則に従い、各caseを以下へ分類する。
 - **Regression**
 - **No demonstrated difference**
 - **INCONCLUSIVE**
+- **Other change — needs adjudication**（上記に収まらない軸別変化）
 
 3 trialはpilot診断であり、統計的有意差・一般化された効果を主張しない。
 
@@ -234,3 +235,11 @@ rubricの固定規則に従い、各caseを以下へ分類する。
 現時点のblocking finding:
 - protocol文書化については **なし**
 - model paired executionについては **実行環境・model/budget/reviewer未確定のため未開始**
+
+### 追加レビュー反映
+
+- 実行経路はupstream-repositoryに固定。Skillと参照先を当該SHAから解決し、参照不能を記録する。Skill本文だけの効果と断定せず、テンプレートを含むPR #1336全体の比較として扱う。
+- generator入力の設計回答に相当する禁止・誘導を削減。ACと観測事実は保持。
+- 正しい停止とB-2欠落を分離し、比較不能・既存欠陥・新規回帰・その他変化の判定を明確化。
+- raw出力の匿名コピーは意味内容を書き換えない。本文から版が推測される可能性はblindの限界として記録。
+- このpilotは合成入力での判断評価。実リポジトリ探索能力・実運用生産性への一般化はしない。
