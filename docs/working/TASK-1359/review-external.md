@@ -119,6 +119,7 @@ Mitigation applied:
 **Resolved in plan: yes**
 
 Fresh evidence: `evidence/c1-review/2026-09-23-evaluation-integrity.md` — TC-13 PASS.
+Post-#1364 refresh: `evidence/c1-review/2026-09-23-post-1364-evaluation-integrity.md` — latest main sync / behind 0 / production diff 0 PASS.
 
 ## Final Review Verdict
 
