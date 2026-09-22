@@ -28,7 +28,8 @@
 ## Sandbox / contamination controls
 
 Generatorに見せてよい:
-- generator inputs
+- 選択1ケースの frozen derived PBI
+- 共通依頼
 - 対象variantと同じSHAの `ai-dev-plan/SKILL.md`
 - そのSkillが通常解決する bundled references / rules
 - 評価fixture内で明示した synthetic evidence
@@ -110,6 +111,14 @@ field-by-field semantic equality: **8/8 PASS**。
 | rubric_ref | `2026-09-20-plan-design-principles-eval-rubric.md` |
 | rubric_hash | git blob `0fe2983377a0a61f58e2d4b796e85fe9355410ba` |
 | reviewer | isolated Codex `gpt-5.6-terra` / high |
+| reviewer_model_id | `gpt-5.6-terra` |
+| reviewer_effort | `high` |
+| reviewer_max_input_tokens | 64000 (measured ceiling) |
+| reviewer_max_output_tokens | 8000 (measured ceiling) |
+| reviewer_timeout_seconds | 600 |
+| generator_total_ceiling | 3840000 tokens |
+| reviewer_total_ceiling | 3456000 tokens |
+| combined_total_ceiling | 7296000 tokens |
 | adjudicator | Human |
 | started_at | TBD |
 | completed_at | TBD |
