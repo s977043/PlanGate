@@ -197,19 +197,125 @@ run中のoutput rootをgenerator worktreeから読める場所へ置かない。
 
 ## 9. Operator smoke gate
 
-48run前に1つも本番pairを消費せず確認する。
+SmokeはP01〜P24を一切消費しない。**3 callsだけ**実施する。
+
+### Smoke A/B — baseline / candidate generator surface
+
+各variantのdetached worktreeに、評価8ケースとは無関係な一時入力だけを作る。
+
+```text
+docs/working/TASK-EVAL-SMOKE/pbi-input.md
+```
+
+内容:
+
+```markdown
+---
+task_id: TASK-EVAL-SMOKE
+artifact_type: pbi-input
+schema_version: 1
+status: draft
+---
+
+# PBI INPUT PACKAGE — TASK-EVAL-SMOKE
+
+## Context / Why
+Codex CLI execution-path smoke only.
+
+## What — Scope
+
+### In scope
+- bundled ai-dev-plan Skill / references が読めること
+- TASK-EVAL-SMOKE 配下へファイルを書けること
+
+### Out of scope
+- product design evaluation
+- baseline/candidate quality comparison
+
+## Acceptance Criteria
+- SMOKE-01: Skill path と2つ以上の bundled reference pathを列挙する
+- SMOKE-02: `docs/working/TASK-EVAL-SMOKE/smoke-output.md` を作る
+
+## Notes from Refinement
+
+### Evidence
+- This input is not part of PDP-01..08.
+
+## Estimation Evidence
+**Risks**: none
+**Unknowns**: none
+**Assumptions**: smoke output is discarded from scoring
+```
+
+共通smoke prompt:
+
+> This is execution-path smoke, not an evaluation case. Read `plugin/plangate/skills/ai-dev-plan/SKILL.md` and at least two bundled references relative to that Skill. Create only `docs/working/TASK-EVAL-SMOKE/smoke-output.md`. In that file list the Skill path and reference paths actually read, then write `SMOKE_OK`. Do not inspect evaluation rubric or PDP-01..08 inputs. Do not implement product code.
+
+baselineとcandidateに1callずつ、generatorと同じmodel/flagsで実行する。
+
+PASS:
+- exit 0
+- final response captured
+- JSONL captured
+- `smoke-output.md` exists and contains `SMOKE_OK`
+- plugin Skill + >=2 referencesのread evidence
+- task directory外write = 0
+- network usage = 0
+
+### Smoke C — blind reviewer surface
+
+repo checkoutを渡さない空temp directoryで、次の3ファイルだけを置く。
+
+- `pbi-input.md`: smoke identifier only
+- `anonymous-output.md`: `SMOKE_OK`
+- frozen rubric copy
+
+`gpt-5.6-terra` / high / read-only / no-networkで:
+
+> This is reviewer-path smoke only. Confirm you can read the three provided files. Output exactly a short SMOKE_REVIEW_OK record. Do not infer or request a repository variant.
+
+PASS:
+- exit 0
+- `SMOKE_REVIEW_OK`
+- model ID / usage in event evidence
+- repo / variant identity unavailable
+
+### Smoke budget
+
+Smokeはpair budgetとは分離して上限固定する。
+
+- 2 generator smoke calls: 2 × (64k + 16k) = 160k
+- 1 reviewer smoke call: 1 × (64k + 8k) = 72k
+- setup smoke ceiling: **232,000 tokens**
+
+したがって全工程の最大contractは:
+
+- smoke: 232,000
+- paired generation + scoring: 7,296,000
+- **grand ceiling: 7,528,000 tokens**
+
+smoke failure時:
+- P01を開始しない
+- status = `INCONCLUSIVE_NOT_RUN`
+- failed smoke evidenceを保存
+- flag/model/auth変更後に再smokeする場合も旧証跡を上書きしない
+
+### Checklist
 
 - [ ] `codex --version`
-- [ ] `gpt-5.6-sol` available
-- [ ] `gpt-5.6-terra` available
-- [ ] workspace-write / network-off / approval never / ephemeral が起動
-- [ ] networkを使わない
-- [ ] JSONLにusage / tool eventsが残る
-- [ ] final messageを別fileへ保存できる
-- [ ] baseline/candidate両方でplugin Skill + refsを読める
-- [ ] reviewer workspaceからvariant identityを読めない
+- [ ] baseline Smoke A PASS
+- [ ] candidate Smoke B PASS
+- [ ] reviewer Smoke C PASS
+- [ ] actual model IDs match frozen config
+- [ ] workspace-write + network-off + approval-never + ephemeral confirmed
+- [ ] JSONL usage / tool events captured
+- [ ] final response captured
+- [ ] task artifact write captured
+- [ ] out-of-scope write = 0
+- [ ] reviewer has no variant identity
 
-smokeで失敗したら48runを開始しない。
+3 smokeすべてPASSするまで48runを開始しない。
+
 
 ## 10. Known limitation
 
