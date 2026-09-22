@@ -13,7 +13,8 @@
 
 | Artifact | Role | Generator visibility |
 | --- | --- | --- |
-| `2026-09-20-plan-design-principles-eval-inputs.md` | 8ケースのPBI入力 | **visible** |
+| `2026-09-20-plan-design-principles-eval-inputs.md` | 8ケースのsource | **operator only** |
+| `docs/working/eval-inputs/PDP-EVAL-v1/PDP-XX/pbi-input.md` | frozen derived PBI | **selected 1 case only** |
 | `2026-09-20-plan-design-principles-eval-rubric.md` | expected behavior / failure / scoring | **hidden** |
 | `2026-09-20-plan-design-principles-eval-ledger.md` | 実行条件・48 run・blind scoring台帳 | execution operator / reviewer |
 | 本文書 | orchestration / stop / completion boundary | operator |
@@ -49,10 +50,11 @@
 ### PBI materialization
 
 `ai-dev-plan` は実体 `docs/working/TASK-XXXX/pbi-input.md` が無い場合にPlanを開始しない。
-そのため各runで、generator inputの選択ケースを固定wrapperにより
-`docs/working/TASK-EVAL-PDPXX/pbi-input.md` へmaterializeする。
+固定wrapperによるmaterializationは実行前に一度だけ済ませ、8ケースを `docs/working/eval-inputs/PDP-EVAL-v1/` にfreezeした。
+各runでは選択ケースのfrozen PBIを **byte-for-byte copy** して `docs/working/TASK-EVAL-PDPXX/pbi-input.md` に置く。
 
-- semanticな要約・補完はしない
+- source→derivedのsemantic field equalityは8ケース全件PASS済み
+- run時に要約・再materialize・補完はしない
 - baseline/candidateで同一bytes
 - materialized PBIのSHA256をledgerへ保存
 - generator workspaceには選択ケースのPBIだけを置く
