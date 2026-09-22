@@ -105,7 +105,7 @@ Prior Artifacts / Repository Evidence
 - E-04: #1335 already provides Evidence Before Design and Minimum Sufficient Design, so a second design-principle framework is unnecessary.
 - E-05: Current `docs/working/templates/plan.md` already has Questions/Unknowns, Approach Comparison, Change Type, Work Breakdown, Replan and Stop conditions.
 - E-06: Current `ai-dev-plan` already requires repository evidence and change-type-aware verification.
-- E-07: #1358 adds Minimum Sufficient Test Set and should be merged/rebased before TASK-1359 implementation touches the same skill/template surfaces.
+- E-07: #1358 adds Minimum Sufficient Test Set and was merged before TASK-1359 implementation. TASK-1359 was rebased onto main and TC-12 confirmed `C1-TEST-14` ownership preservation.
 - E-08: #960 still has HO-side C-1 execution drift; this task must not couple non-HO implementation to that unresolved HO patch.
 
 ## Unknowns
@@ -142,7 +142,7 @@ Reason:
 - touches multiple planning/review/distribution layers.
 
 **Dependency**:
-- Rebase after #1358 merges because both touch `ai-dev-plan` and test/planning guidance.
+- #1358 merge/rebase dependency: **RESOLVED** — branch rebased to main `7b523a4530d0c2b324ecd9464736d0c7776a2bdc`; TC-12 PASS.
 - #960 HO work may proceed separately; TASK-1359 does not require modifying those HO files in Phase 1.
 
 
@@ -169,3 +169,14 @@ C-1 landing is fixed before implementation:
 - Knowledge Delta scope discipline → C1-PLAN-03
 - safe structural-change ordering → C1-PLAN-06
 - C1-TEST-14 → #1358 ownership; TASK-1359 must not modify it.
+
+
+## Dependency resolution — 2026-09-23
+
+- PR #1358: MERGED
+- TASK-1359 branch: rebased onto current main
+- compare: ahead 1 / behind 0 at rebase evidence point
+- `C1-TEST-14`: unchanged from #1358-merged baseline
+- `ai-dev-plan` / `diff-audit` / `review-gate`: branch == main
+- evidence: `evidence/c1-review/2026-09-23-rebase-compatibility.md`
+- Blocking dependency from #1358: **resolved**
