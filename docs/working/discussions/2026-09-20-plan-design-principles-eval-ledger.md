@@ -118,7 +118,9 @@ field-by-field semantic equality: **8/8 PASS**。
 | reviewer_timeout_seconds | 600 |
 | generator_total_ceiling | 3840000 tokens |
 | reviewer_total_ceiling | 3456000 tokens |
-| combined_total_ceiling | 7296000 tokens |
+| paired_run_total_ceiling | 7296000 tokens |
+| smoke_total_ceiling | 232000 tokens |
+| grand_total_ceiling | 7528000 tokens |
 | adjudicator | Human |
 | started_at | TBD |
 | completed_at | TBD |
