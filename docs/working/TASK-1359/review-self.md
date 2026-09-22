@@ -11,7 +11,8 @@ created_by: orchestrator
 
 > 対象: `pbi-input.md` / `plan.md` / `todo.md` / `test-cases.md`
 > 判定: **WARN** — critical=0, major=0, minor=1
-> Exec readiness: **BLOCKED**（#1358 merge/rebase待ち。Plan品質findingとは別）
+> Fresh review base: main `7b523a4530d0c2b324ecd9464736d0c7776a2bdc` / post-#1358 rebase
+> Exec readiness: **WAITING HUMAN C-3**
 
 ## Plan
 
@@ -37,7 +38,8 @@ created_by: orchestrator
 
 ### C1-PLAN-06: 依存関係
 - **result**: PASS
-- **finding**: #1358 merge→rebase→責務境界再確認→Human C-3→実装の順序を固定。Knowledge Delta/refactor発火時は Safety Net → Preparatory Refactor → Behavior Change → Verification の安全順序をC-1着地点として固定。#960 HO作業は本Taskへ混在させない。
+- **finding**: #1358 merge/rebaseは完了。TC-12で `C1-TEST-14` preservationを確認し、次の依存はHuman C-3のみ。Knowledge Delta/refactor発火時は Safety Net → Preparatory Refactor → Behavior Change → Verification の安全順序を維持。#960 HO作業は本Taskへ混在させない。
+- **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`
 
 ### C1-PLAN-07: 動作検証自動化
 - **result**: WARN
@@ -98,7 +100,8 @@ created_by: orchestrator
 
 ### C1-TEST-14: テストケースの具体性
 - **result**: PASS
-- **finding**: 各TCに具体入力/期待/source/verification methodを追加。repo invariant系TC-11は実コマンド、dependency compatibilityはTC-12で#1358-owned `C1-TEST-14` no-diffを定義。なおproduction templateの `C1-TEST-14` 自体は#1358所有としてTASK-1359では変更しない。
+- **finding**: 各TCに具体入力/期待/source/verification methodを追加。TC-12をfresh実行し、#1358-owned `C1-TEST-14` block equality = PASS。production template自体はTASK-1359では未変更。
+- **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`
 
 ### C1-TEST-15: エッジケースの考慮
 - **result**: PASS
@@ -132,5 +135,5 @@ created_by: orchestrator
 
 **WARN — critical 0 / major 0 / minor 1**
 
-Planの設計品質にexec blockerとなるfindingはない。再レビューで検出した `decision-log.jsonl` 欠落、C-1 landing ambiguity、source-of-truth ambiguity、TC-12 trace syncは是正済み。
-ただし #1358 merge/rebaseが未完了なので、C-3 APPROVE/execへはまだ進まない。
+Planの設計品質にexec blockerとなるfindingはない。#1358 merge/rebase・TC-12・shared-surface revalidationもPASS。
+次の境界はHuman C-3。APPROVEDまではT-03以降を開始しない。
