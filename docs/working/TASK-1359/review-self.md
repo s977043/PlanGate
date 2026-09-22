@@ -11,7 +11,7 @@ created_by: orchestrator
 
 > 対象: `pbi-input.md` / `plan.md` / `todo.md` / `test-cases.md`
 > 判定: **WARN** — critical=0, major=0, minor=1
-> Fresh review base: main `91e191bc6858cc3e4c0b7961f33a7e2edfaee127` / post-PR #1364 sync
+> Fresh review base: main `d185a741fe1d06f08b95d1090978f224096b0bba` / post-PR #1366 sync
 > Exec readiness: **BLOCKED — #1337 paired evaluation result not fixed**
 
 ## Plan
@@ -38,7 +38,7 @@ created_by: orchestrator
 
 ### C1-PLAN-06: 依存関係
 - **result**: PASS
-- **finding**: #1358 merge/rebaseは完了しTC-12もPASS。PR #1364 execution freezeもmainへmerge済みだが、#1337 effectiveness result fixedは依然Human C-3前のhard dependency。T-00 → H-01 → T-03の順序を維持。Knowledge Delta/refactor発火時は Safety Net → Preparatory Refactor → Behavior Change → Verification の安全順序を維持。#960 HO作業は本Taskへ混在させない。
+- **finding**: #1358 merge/rebaseは完了しTC-12もPASS。PR #1364 execution freezeとPR #1366 runtime hardeningはmainへmerge済みだが、#1337 effectiveness result fixedは依然Human C-3前のhard dependency。T-00 → H-01 → T-03の順序を維持。Knowledge Delta/refactor発火時は Safety Net → Preparatory Refactor → Behavior Change → Verification の安全順序を維持。#960 HO作業は本Taskへ混在させない。
 - **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`
 
 ### C1-PLAN-07: 動作検証自動化
@@ -101,7 +101,7 @@ created_by: orchestrator
 ### C1-TEST-14: テストケースの具体性
 - **result**: PASS
 - **finding**: 各TCに具体入力/期待/source/verification methodを追加。TC-12で#1358 ownership、TC-13で#1337 evaluation-integrityを独立検証。fresh compareでbranch差分は `docs/working/TASK-1359/**` のみ、production surface変更=0、#1358-owned `C1-TEST-14` block equality=PASS。
-- **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`, `evidence/c1-review/2026-09-23-evaluation-integrity.md`, `evidence/c1-review/2026-09-23-post-1364-evaluation-integrity.md`
+- **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`, `evidence/c1-review/2026-09-23-evaluation-integrity.md`, `evidence/c1-review/2026-09-23-post-1364-evaluation-integrity.md`, `evidence/c1-review/2026-09-23-post-1366-evaluation-integrity.md`
 
 ### C1-TEST-15: エッジケースの考慮
 - **result**: PASS
@@ -135,5 +135,5 @@ created_by: orchestrator
 
 **WARN — critical 0 / major 0 / minor 1**
 
-Plan内部の設計品質findingは解消済み。#1358 merge/rebase・TC-12・PR #1364後のTC-13 fresh revalidationもPASS。
+Plan内部の設計品質findingは解消済み。#1358 merge/rebase・TC-12・PR #1364/#1366後のTC-13 fresh revalidationもPASS。
 ただし外部依存 #1337 が未完了のためHuman C-3へはまだ進まない。#1337 result fixed後にT-00でreplan要否を判定する。
