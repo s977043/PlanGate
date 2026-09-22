@@ -269,6 +269,33 @@ def build_schema() -> dict:
             {
                 "if": {
                     "properties": {
+                        "source_reviews": {
+                            "contains": {
+                                "type": "object",
+                                "properties": {
+                                    "execution_status": {"const": "unavailable"}
+                                },
+                                "required": ["execution_status"],
+                            }
+                        }
+                    },
+                    "required": ["source_reviews"],
+                },
+                "then": {
+                    "properties": {
+                        "execution": {
+                            "properties": {
+                                "status": {
+                                    "enum": ["partial", "unavailable", "not_run"]
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+            {
+                "if": {
+                    "properties": {
                         "execution": {
                             "properties": {"status": {"const": "completed"}},
                             "required": ["status"],
