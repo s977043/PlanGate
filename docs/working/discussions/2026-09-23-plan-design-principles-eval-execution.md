@@ -103,6 +103,14 @@ generator:
 - 当該pairを同じbudgetの新run setへ移すか、pilot全体のbudgetをHuman判断で再設計する
 - 途中からbudgetだけ増やしたrunを既存setへ混ぜない
 
+### Pilot-wide budget
+
+- 48 generator runs: max 3,840,000 tokens
+- 48 blind scoring runs: max 3,456,000 tokens
+- combined max: **7,296,000 tokens**
+- retryもこの総量へ加算
+- 総量超過見込みなら新run開始禁止
+
 ## 6. Activation evidence
 
 events JSONLとfinal outputから記録する。
@@ -135,6 +143,7 @@ reviewer workspaceには次だけを置く。
 - pairのもう片方のvariant identity
 
 review commandは同じread-only/no-network policyで `gpt-5.6-terra` / high。
+reviewer ceilingは input 64k / output 8k / timeout 600s。
 critical regression / Other change / INCONCLUSIVEはHuman adjudicationへ送る。
 
 ## 8. Storage
