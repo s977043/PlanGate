@@ -64,6 +64,13 @@ else:
     Draft202012Validator.check_schema(schema)
 PY
 
+if [ "$MODE" = "--human-confirmed" ] &&
+   ! python3 -c 'import jsonschema' >/dev/null 2>&1; then
+  echo "ERROR: jsonschema is required for Human apply; refusing unvalidated HO write" >&2
+  echo "       Install requirements/schema-validate.txt, then retry." >&2
+  exit 1
+fi
+
 if [ "$MODE" = "--dry-run" ]; then
   python3 - "$TARGET" "$TMP" <<'PY'
 import difflib
@@ -100,8 +107,7 @@ fi
 cp "$TMP" "$TARGET"
 
 python3 -m json.tool "$TARGET" >/dev/null
-if python3 -c 'import jsonschema' >/dev/null 2>&1; then
-  python3 - "$TARGET" <<'PY'
+python3 - "$TARGET" <<'PY'
 import json
 import pathlib
 import sys
@@ -110,9 +116,6 @@ from jsonschema import Draft202012Validator
 schema = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 Draft202012Validator.check_schema(schema)
 PY
-else
-  echo "[WARN] jsonschema not installed; structural schema validation skipped" >&2
-fi
 
 echo "[applied] $TARGET"
 echo "NEXT: inspect git diff -- schemas/plan-deliberation.schema.json before continuing." >&2
