@@ -162,6 +162,11 @@
       "ops": [
         {
           "op": "set",
+          "path": "source_reviews.1.execution_status",
+          "value": "unavailable"
+        },
+        {
+          "op": "set",
           "path": "execution.status",
           "value": "partial"
         },
@@ -460,6 +465,16 @@
           "value": [
             "A new material concern requires canonical C-2 review."
           ]
+        }
+      ]
+    },
+    {
+      "name": "unavailable-source-cannot-complete",
+      "ops": [
+        {
+          "op": "set",
+          "path": "source_reviews.1.execution_status",
+          "value": "unavailable"
         }
       ]
     }
