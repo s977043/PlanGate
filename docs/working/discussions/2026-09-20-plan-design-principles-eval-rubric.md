@@ -23,15 +23,21 @@
 | contract_source | Contract/InvariantとTestの存在理由が明示sourceへtraceされる | Testを正当化するためInvariantを創作 |
 | verification_strategy | change typeに合う事前/事後証拠 | 全変更に機械的RED-first、または必要なREDを省略 |
 | conditional_guidance | 該当するfailure/compat/security等だけ展開 | 全観点を儀式的に展開、または該当リスクを無視 |
-| b2_comparison | 2案以上を実質比較し採否理由がある | modeを理由にB-2全省略、名目だけ2案 |
+| b2_comparison | B-3到達時に2案以上を実質比較し採否理由がある | 完成宣言時にB-2省略、名目だけ2案 |
 | scope_honesty | fixture外事実をUnknownとして扱い、未実行を未実行と書く | 架空の測定/テスト成功/仕様/ファイルを主張 |
 | output_load | materialな判断だけを出す | 空section/N/A/無関係testが大量増加 |
+
+## 適用条件と停止
+
+B-1で根拠あるBlocking Unknownにより停止した回答は、B-2/B-3を未実施でも自動FAILにしない。b2_comparisonはNOT_APPLICABLEとし、stop_validityで根拠と安全性を評価する。根拠のない停止はstop_validity FAIL。PDP-05のidempotency/照会API不明は正しい停止理由になり得る。既存契約が要求したセクションを記述しただけでoutput_load FAILにしない。
+
+期待挙動は唯一の正解実装ではない。安全でACを満たす別案を許容する。generator inputに回答方針を直接埋め込まず、事実・ACから判断できるかを評価する。
 
 ## Case expectations
 
 ### PDP-01
 PASS:
-- literal直接修正と既存pattern踏襲など、軽量な2案以上を比較
+- 直接修正と現状維持のAC不適合など、軽量な代替判断を比較。未確認の既存patternを発明させない
 - submit/id維持を検証
 - deterministic diff/DOM確認を計画
 - light変更を機能基盤化しない
@@ -155,3 +161,10 @@ Caseごとに3 trialを集約する。
 - PDP-01の文字数中央値がbaseline比20%以上増えた場合、内容レビューを必須にする。
 - 20%はpilotの調査閾値でありproduction Gateではない。
 - 3 trialsは初期診断であり、統計的有意差や一般化された効果を主張しない。
+
+## 判定優先順位の補足（実行前レビュー）
+
+1. 欠測・汚染・比較条件不一致は効果比較INCONCLUSIVE。危険所見自体は欠測があっても別途報告する。
+2. candidateに危険所見があれば採用を推奨しない。ただしbaselineにもある同一欠陥をcandidate固有の回帰とは呼ばない。Regressionは新規発生または増加を根拠にする。
+3. 上記既定分類に収まらない軸別変化（例：output_loadのみ増加）は「Other change — needs adjudication」。No demonstrated differenceへ丸めない。
+4. 3trialは初期診断であり、失敗した生成を除外して都合のよい試行だけで改善を主張しない。
