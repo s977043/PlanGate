@@ -1,7 +1,7 @@
 # TASK-1359 Current State
 
-> 更新: 2026-09-23 02:38
-> snapshot_base: post-#1358 rebased branch
+> 更新: 2026-09-23 06:39
+> snapshot_base: main `91e191bc6858cc3e4c0b7961f33a7e2edfaee127` / PR #1364 merged
 
 ## フェーズ: BLOCKED
 ## 進捗: T-01/T-02完了、Plan/C-1/C-2 refresh完了、T-00待ち
@@ -12,11 +12,13 @@
 - TC-12 PASS
 - shared review/planning surface revalidation PASS
 - fresh dependency review against #1337 / #1347
+- PR #1364 execution freeze merged
+- TASK-1359 branch latest-main sync PASS (ahead only / production diff 0)
 - evaluation-order blockerをPlan/Todo/Reviewへ反映
 
 ## 現在のタスク
 
-- T-00: #1337 paired evaluation result fixed 待ち
+- T-00: #1337 operator smoke → 48 generations → blind scoring → pair-level result fixed 待ち
 
 ## ブロッカー
 
@@ -27,7 +29,8 @@
 
 ## 次のアクション
 
-- #1337完了
+- #1337 3-call smoke PASS
+- 48 generations + blind scoring + pair-level result固定
 - T-00でreplan要否判断
 - C-1/C-2 refresh if needed
 - Human C-3
