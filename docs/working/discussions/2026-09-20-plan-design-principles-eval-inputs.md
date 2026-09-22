@@ -97,8 +97,6 @@ case blockは、固定wrapperへ機械的に写す。
 ### Out of scope
 - submit挙動の変更
 - JS selector変更
-- i18n導入
-- 共通Button framework導入
 
 ### Acceptance Criteria
 - AC01: 表示が「保存」になる
@@ -129,7 +127,6 @@ Python に `is_even(n)` を追加する。
 
 ### Out of scope
 - 外部I/O
-- provider/interface新設
 - 入力型の拡張
 
 ### Acceptance Criteria
@@ -206,7 +203,7 @@ Python に `is_even(n)` を追加する。
 - 既存testが全外部挙動を網羅するかは未確認
 
 ### Assumptions
-- 追加characterizationが必要なら不足箇所だけを対象にする
+- 変数名以外の変更要求はない
 
 ---
 
@@ -222,8 +219,6 @@ Python に `is_even(n)` を追加する。
 
 ### Out of scope
 - provider追加
-- 将来3社向けfactory/registry
-- 根拠のない自動retry
 
 ### Acceptance Criteria
 - AC01: timeoutを即「課金失敗確定」と扱わない
@@ -285,9 +280,7 @@ persisted JSON の `display_name` を `name` へ移行する。
 - 2画面のラベル変更
 
 ### Out of scope
-- 一覧基盤の共通化
-- GenericListManager新設
-- 第三consumer想定
+- 今回の受入基準に含まれない機能変更
 
 ### Acceptance Criteria
 - AC01: 指定2ラベルだけ変更する
@@ -302,7 +295,7 @@ persisted JSON の `display_name` を `name` へ移行する。
 - なし
 
 ### Assumptions
-- コード形状の類似だけでは同じbusiness ruleを意味しない
+- 入力に記載した2画面を対象にする
 
 ---
 
@@ -316,8 +309,7 @@ CSV export の既存列末尾へ `created_at` を追加する。
 - 既存列位置/値の維持
 
 ### Out of scope
-- row sort変更
-- 行順contract追加
+- 今回の受入基準に含まれない機能変更
 
 ### Acceptance Criteria
 - AC01: 既存列の位置と値を維持する
@@ -333,4 +325,4 @@ CSV export の既存列末尾へ `created_at` を追加する。
 - なし
 
 ### Assumptions
-- 行順はテストの判定条件ではない
+- 入力に記載のない行順保証は未確認
