@@ -57,6 +57,7 @@ seconds
 
 1. `explicit`
    - Humanがtimer / UI action等でactive intervalを明示
+   - timer操作などmeasurement自体のoverheadは可能なら別記し、task attentionへ無条件に混ぜない
 2. `bounded_approximation`
    - event間隔から上限・下限を持って近似
 3. `unavailable`
@@ -124,7 +125,8 @@ seconds
 
 **Start anchor**
 
-layer-specific adapterが定義する。
+layer-specific adapterが評価開始前に固定し、既存のauthoritative event / timestampへ束縛する。
+candidateごとにstart anchorを変えてはならない。
 
 例:
 
@@ -206,7 +208,9 @@ speedだけでなくcorrectnessを要求する。
 
 **定義**
 
-Human-facing compression / projectionにより、baselineで確認できたmaterial informationがcandidateで確認不能・誤認可能になった割合または件数。
+Human-facing compression / projectionにより、評価前に固定したmaterial reference setの情報がcandidateで確認不能・誤認可能になった割合または件数。
+
+reference setはbaseline出力そのものを正解扱いしない。fixture oracle、独立adjudication、または事前固定したexpected material itemsを用いる。baseline / candidateのどちらにも同じreference setを適用する。
 
 対象例:
 
@@ -221,6 +225,8 @@ Human-facing compression / projectionにより、baselineで確認できたmater
 **Target**
 
 material visibility regression = 0 を基本とする。
+
+分母となるmaterial item集合とseverity / materiality判定はcandidate実行前に固定する。
 
 「L1に全文が出ない」こと自体はregressionではない。
 L2/L3へ明確に辿れればvisibilityは維持できる。
@@ -364,6 +370,8 @@ Guard:
 
 - task / fixture profile
 - layer
+- metric start / end anchor
+- material reference set / oracle
 - model / effort（LLM生成比較の場合）
 - tool / budget条件
 - Human evaluator rubric
@@ -420,6 +428,15 @@ instrumentation無しrunを0秒扱いする。
 Guard:
 - explicit measurement mode
 - unavailable / N/A separation
+
+### Anchor shifting
+
+candidate側だけrun start / signal timestampの定義を後ろへずらしてtime metricを改善する。
+
+Guard:
+- start / end anchorを評価前に固定
+- authoritative eventへ束縛
+- adapter version / definitionを記録
 
 ### Easy-case selection
 
