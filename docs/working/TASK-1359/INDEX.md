@@ -1,6 +1,6 @@
 # TASK-1359 INDEX
 
-> 最終更新: 2026-09-23 06:39
+> 最終更新: 2026-09-23 08:24
 > Issue: #1359
 > Draft PR: #1360
 > Mode: critical
@@ -8,7 +8,7 @@
 ## チケット概要
 
 #933 / #810 / #867 を Plan生成時の evidence / uncertainty / knowledge continuity として統合する。
-#1358 compatibilityは解消済み。PR #1364で#1337 execution protocol/config/smoke contractもfreeze済みだが、実モデル評価結果固定が次のhard dependency。
+#1358 compatibilityは解消済み。PR #1364でexecution protocol/config/smoke contract、PR #1366でCodex runtime compatibility contractまでfreeze済み。実モデル評価結果固定が次のhard dependency。
 
 ## 現在のフェーズ
 
@@ -21,7 +21,7 @@
 
 ## 次のアクション
 
-1. #1337 3-call smoke → 48 generations → blind scoringを完了し、pair-level result / downstream decisionを固定
+1. #1337 3-call smoke（Codex CLI >=0.144.0 / exact version freeze）→ 48 generations → blind scoringを完了し、pair-level result / downstream decisionを固定
 2. T-00で結果を読み、TASK-1359 replan要否を判定
 3. 必要ならC-1/C-2 refresh
 4. Human C-3
@@ -41,6 +41,7 @@
 | `evidence/c1-review/2026-09-23-rebase-compatibility.md` | #1358 compatibility |
 | `evidence/c1-review/2026-09-23-evaluation-integrity.md` | #1337 candidate isolation / TC-13 initial |
 | `evidence/c1-review/2026-09-23-post-1364-evaluation-integrity.md` | #1364 merge後のlatest-main isolation / TC-13 refresh |
+| `evidence/c1-review/2026-09-23-post-1366-evaluation-integrity.md` | #1366 runtime hardening merge後のlatest-main isolation / TC-13 refresh |
 | `status.md` | phase history |
 | `current-state.md` | resumable snapshot |
 
