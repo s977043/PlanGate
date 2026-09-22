@@ -72,13 +72,14 @@ cd "$WT"
 
 git status --porcelain=v1 --untracked-files=all >"$RUN_ROOT/pre-status.txt"
 
-timeout 600 codex exec \
-  --ephemeral \
+timeout 600 codex \
   --model gpt-5.6-sol \
   -c 'model_reasoning_effort="high"' \
+  -c 'approval_policy="never"' \
   -c 'sandbox_workspace_write.network_access=false' \
   --sandbox workspace-write \
-  --ask-for-approval never \
+  exec \
+  --ephemeral \
   --json \
   --output-last-message "$RUN_ROOT/final.md" \
   "$PROMPT" \
@@ -86,6 +87,7 @@ timeout 600 codex exec \
   2>"$RUN_ROOT/stderr.log"
 ```
 
+`approval_policy="never"` は非対話runの承認ポリシーを明示するcanonical config overrideとして固定する。
 workspace-writeを使うのは、ai-dev-plan本来の契約どおり `plan.md / todo.md / test-cases.md` 等のPlan artifactを実ファイルとして生成させるため。
 networkは明示的に `sandbox_workspace_write.network_access=false` とする。
 MCP / app / external repo / browserを使用しない。
@@ -175,6 +177,7 @@ reviewer workspaceには次だけを置く。
 - pairのもう片方のvariant identity
 
 review commandは同じread-only/no-network policyで `gpt-5.6-terra` / high。
+approvalはgeneratorと同じく `-c 'approval_policy="never"'` を使う。
 reviewer ceilingは input 64k / output 8k / timeout 600s。
 critical regression / Other change / INCONCLUSIVEはHuman adjudicationへ送る。
 
@@ -194,6 +197,32 @@ $TMPDIR/plangate-pdp-eval-v1/
 をrepoへ取り込む。
 
 run中のoutput rootをgenerator worktreeから読める場所へ置かない。
+
+## 8.1 Runtime compatibility freeze
+
+Current OpenAI guidance requires **Codex CLI 0.144.0 or newer** to access GPT-5.6 in Codex.
+
+At smoke start:
+
+1. run `codex --version`;
+2. require version >= `0.144.0`;
+3. write the exact version string to the run ledger;
+4. use that exact CLI version for Smoke A/B/C, all 48 generations, and all blind scoring calls.
+
+A CLI upgrade/downgrade during the run set is a condition change:
+- do not continue the existing set;
+- preserve old evidence;
+- either restore the frozen CLI version or start a new evaluation set.
+
+Runtime config contract:
+- `model_reasoning_effort="high"`
+- `approval_policy="never"`
+- generator `sandbox=workspace-write`
+- generator `sandbox_workspace_write.network_access=false`
+- reviewer `sandbox=read-only`
+- no browser/MCP/network augmentation
+
+Documentation support is not activation proof. Smoke must still verify the local installation.
 
 ## 9. Operator smoke gate
 
@@ -302,12 +331,13 @@ smoke failure時:
 
 ### Checklist
 
-- [ ] `codex --version`
+- [ ] `codex --version` >= 0.144.0 and exact version frozen in ledger
 - [ ] baseline Smoke A PASS
 - [ ] candidate Smoke B PASS
 - [ ] reviewer Smoke C PASS
 - [ ] actual model IDs match frozen config
-- [ ] workspace-write + network-off + approval-never + ephemeral confirmed
+- [ ] workspace-write + network-off + `approval_policy=never` + ephemeral confirmed
+- [ ] all three smoke calls use the frozen exact Codex CLI version
 - [ ] JSONL usage / tool events captured
 - [ ] final response captured
 - [ ] task artifact write captured
