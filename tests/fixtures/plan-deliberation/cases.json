@@ -126,7 +126,39 @@
       "human_decisions": [],
       "requires_c2_rereview": false,
       "rereview_reasons": []
-    }
+    },
+    "problem_frames": [
+      {
+        "participant_ref": "p1",
+        "objective": "Preserve the approved plan contract while clarifying disagreement.",
+        "constraints": [
+          "Do not create a new approval authority."
+        ],
+        "non_goals": [
+          "Do not replace canonical C-2 findings."
+        ],
+        "assumptions": [
+          "The cited C-2 review snapshot is current."
+        ],
+        "unknowns": []
+      },
+      {
+        "participant_ref": "p2",
+        "objective": "Check the plan against existing repository compatibility constraints.",
+        "constraints": [
+          "Keep Human C-3 ownership on the standard path."
+        ],
+        "non_goals": [
+          "Do not modify ai-loop C-3' behavior."
+        ],
+        "assumptions": [
+          "The existing consumer remains supported."
+        ],
+        "unknowns": [
+          "Whether an undocumented compatibility edge exists."
+        ]
+      }
+    ]
   },
   "valid_cases": [
     {
@@ -290,6 +322,19 @@
           "value": [
             "New material concern must return to canonical C-2 review."
           ]
+        }
+      ]
+    },
+    {
+      "name": "position-without-canonical-finding",
+      "ops": [
+        {
+          "op": "delete",
+          "path": "positions.initial.0.source_finding_ref"
+        },
+        {
+          "op": "delete",
+          "path": "positions.final.0.source_finding_ref"
         }
       ]
     }
@@ -475,6 +520,16 @@
           "op": "set",
           "path": "source_reviews.1.execution_status",
           "value": "unavailable"
+        }
+      ]
+    },
+    {
+      "name": "completed-requires-problem-frame",
+      "ops": [
+        {
+          "op": "set",
+          "path": "problem_frames",
+          "value": []
         }
       ]
     }
