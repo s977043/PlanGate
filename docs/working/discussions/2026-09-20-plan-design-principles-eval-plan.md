@@ -46,6 +46,19 @@
 
 実行時は対象variantの `ai-dev-plan/SKILL.md` と、**同じrepo SHAのbundled references / rules**を使用する。
 
+### PBI materialization
+
+`ai-dev-plan` は実体 `docs/working/TASK-XXXX/pbi-input.md` が無い場合にPlanを開始しない。
+そのため各runで、generator inputの選択ケースを固定wrapperにより
+`docs/working/TASK-EVAL-PDPXX/pbi-input.md` へmaterializeする。
+
+- semanticな要約・補完はしない
+- baseline/candidateで同一bytes
+- materialized PBIのSHA256をledgerへ保存
+- generator workspaceには選択ケースのPBIだけを置く
+- hash不一致pairは `INCONCLUSIVE_INPUT_MISMATCH`
+
+
 ### B-1
 
 本pilotはpaired conditionを固定するため非対話で行う。
@@ -144,7 +157,7 @@ rubricの固定規則に従い、各caseを以下へ分類する。
 
 以下が揃うまで48 generationを開始しない。
 
-- [ ] generator inputs凍結
+- [ ] generator inputs / materialization wrapper凍結
 - [ ] reviewer rubric凍結
 - [ ] ledger / run matrix凍結
 - [ ] baseline/candidate SHA確認
@@ -211,6 +224,10 @@ rubricの固定規則に従い、各caseを以下へ分類する。
   - → unavailable/non-applicableを明示し架空値禁止
 - **Medium**: repo内でファイル分離してもgeneratorがread可能ならblind性が無い
   - → isolated workspace / allowed-readをstart gateへ追加
+- **Major**: `ai-dev-plan` は実体 `docs/working/TASK-XXXX/pbi-input.md` を要求するため、ケース一覧だけではactivation条件を満たさない
+  - → fixed wrapperによるper-case PBI materializationとhash一致契約を追加
+- **Medium**: PDP-08のcreated_at fixture値が実行時注入でpair間差分になり得る
+  - → `2026-09-20T00:00:00Z` を固定Evidenceとして凍結
 
 現時点のblocking finding:
 - protocol文書化については **なし**
