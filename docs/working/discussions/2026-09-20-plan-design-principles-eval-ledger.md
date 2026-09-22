@@ -44,18 +44,36 @@ Generatorに見せない:
 
 ## Materialized PBI contract
 
-各generationは、generator input文書から選択した1ケースを固定wrapperで
-`docs/working/TASK-EVAL-PDPXX/pbi-input.md` へmaterializeしてから開始する。
+materializationはrun前に一度だけ実施済み。各generationは `docs/working/eval-inputs/PDP-EVAL-v1/` の選択ケースを
+**byte-for-byte copy** して `docs/working/TASK-EVAL-PDPXX/pbi-input.md` に配置して開始する。
+正本manifest: `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md`。
 
 記録必須:
 - source input hash
-- materialized PBI path
-- materialized PBI SHA256
+- frozen derived PBI Git blob
+- runtime copied PBI path
+- runtime copied PBI SHA256
 - case ID / task ID
 - baseline/candidate間でbytes一致したか
 
 同一pairでmaterialized PBI hashが一致しなければ、そのpairは `INCONCLUSIVE_INPUT_MISMATCH` として採点対象から除外する。
 
+
+## Frozen PBI manifest
+
+| Case | Git blob |
+| --- | --- |
+| PDP-01 | `e5f9f46397ca85ea82c0f72f19c3ad81fe4e722f` |
+| PDP-02 | `f6cfd3a3bf4c23729a6bd407c3a7c1281058b253` |
+| PDP-03 | `aec24092eec9ab9bc8b4dd692e4941bf0b88489f` |
+| PDP-04 | `6ea5585de848fb11e5848d2a669ad8538c952363` |
+| PDP-05 | `38b267c1930e36d5700e3aed437c0a59ed909282` |
+| PDP-06 | `f8d538e7e2530e0bbebc0d4ffc5a8d96880f98fc` |
+| PDP-07 | `b34035d35f2b5b15a4466889a70a290f1fc41208` |
+| PDP-08 | `8a72f5d3694853487db2f8a031679932296cd5aa` |
+
+Source Git blob: `1a6176ff18c19f7cf1141c38aab9a23e1968ce0b`。
+field-by-field semantic equality: **8/8 PASS**。
 
 ## Frozen variant manifest
 
@@ -85,7 +103,7 @@ Generatorに見せない:
 | timeout_seconds | 600 |
 | tool_policy | Codex read-only shell/file inspection only; no write/MCP/network |
 | network | off |
-| input_ref | `2026-09-20-plan-design-principles-eval-inputs.md` |
+| input_ref | `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md` + selected frozen PBI |
 | input_source_hash | git blob `1a6176ff18c19f7cf1141c38aab9a23e1968ce0b` |
 | materialized_pbi_hash | TBD |
 | materialized_pbi_path | TBD |
