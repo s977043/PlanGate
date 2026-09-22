@@ -6,6 +6,16 @@
 
 ## 🤖 Agent タスク
 
+### 0. Evaluation-order dependency
+
+- [ ] T-00: #1337 paired evaluation result固定を確認する
+  - Owner: agent
+  - depends_on: #1337 result fixed
+  - files: 読取: #1337 / #1338 / final evaluation evidence
+  - completion: #1337の最終pair-level判定とdownstream decisionを確認し、TASK-1359 replan要否をdecision-logへ記録する
+  - rollback: 不要
+  - 🚩 チェックポイント: regression / no-effect / guidance変更があればT-03以降を開始せずreplan
+
 ### 1. 準備
 
 - [x] T-01: #1358 merge後にmainへrebaseする
@@ -152,7 +162,7 @@
 
 - [ ] H-01: C-3 critical-mode Plan承認
   - Owner: human
-  - depends_on: T-01, T-02
+  - depends_on: T-00, T-01, T-02
   - files: `docs/working/TASK-1359/approvals/c3.json`
   - completion: HumanのC-3 APPROVED記録が存在し、承認対象plan hashが確定している
   - rollback: 不要
@@ -170,7 +180,9 @@
 
 | タスク | depends_on | 種別 | 備考 |
 |---|---|---|---|
+| T-00 | #1337 result fixed | Eval | frozen candidateを汚染しない |
 | T-01 | #1358 merge | Repo | shared skill/templateの競合回避 |
+| H-01 | T-00, T-01, T-02 | Agent/Eval → Human | #1337固定後のみC-3 |
 | T-03 | H-01 | Human → Agent | critical C-3 |
 | T-09 | T-05, T-08 | Agent | planning guidance確定後にreviewへ反映 |
 | T-10 | T-02, T-08 | Agent | diff-audit境界再確認後 |
