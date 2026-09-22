@@ -218,9 +218,10 @@ rubricの固定規則に従い、各caseを以下へ分類する。
 - CLI: Codex CLI `codex exec`
 - model: `gpt-5.6-sol`
 - reasoning: `high`
-- sandbox: `read-only`
+- sandbox: `workspace-write`
 - approval: `never`
-- network: off
+- network: off (`sandbox_workspace_write.network_access=false`)
+- writable purpose: Plan artifacts only; implementation/source changes are forbidden by the common request
 - session: `--ephemeral`
 - generation timeout: 600 seconds
 - measured token ceiling per generation:
@@ -240,7 +241,7 @@ rubricの固定規則に従い、各caseを以下へ分類する。
 - measured token ceiling per scoring run:
   - input <= 64,000
   - output <= 8,000
-- reviewer input: materialized PBI + anonymous raw output + frozen rubricのみ
+- reviewer input: materialized PBI + anonymous generated artifact bundle + final response + frozen rubricのみ
 - reviewerはrepo checkout / variant name / generator event logを読まない
 - adjudicator: Human。critical regression / Other change / reviewer判定不能のみ
 
