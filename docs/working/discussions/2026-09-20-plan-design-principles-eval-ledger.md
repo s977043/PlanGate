@@ -57,26 +57,42 @@ Generatorに見せない:
 同一pairでmaterialized PBI hashが一致しなければ、そのpairは `INCONCLUSIVE_INPUT_MISMATCH` として採点対象から除外する。
 
 
+## Frozen variant manifest
+
+| Surface | baseline | candidate |
+| --- | --- | --- |
+| repo SHA | `612c3dacacf76c0bfd72559fbbe0bc41bc41443d` | `4b3f4017ad6c2a64813524ec8567a289f722cb45` |
+| plugin Skill | `139fadd69c39fa0079ee8b44ca20d3f4830819fd` | `e8d773fc47e224d1d1a9fcf179ec970aa271c4e0` |
+| ai-driven-development ref | `3ec9e74bdd65ee72fe88edc4a101d2f1252be3d6` | same |
+| metrics ref | `c763b06d79bc281bb336a38cc7be42f93f774822` | same |
+| core-contract ref | `914b6467afe49928c364ca277aed6e9a4a2072d5` | same |
+| plan-template ref | `3735169a24bc94c09c76720435d0d372720207ab` | `5f0c37ea4a2539a70aa78c06584d9b54ec804f03` |
+| todo ref | `339fd09dd7abd26b8cb9cb16c4374114d7648232` | same |
+| test-cases ref | `c6d9da1c9be660c648d594fe847bb42caa110263` | `1832e6c084e487c8b0e59ccac3f910f44bcdd6d3` |
+
+実行時Skillは `plugin/plangate/skills/ai-dev-plan/SKILL.md` を明示的に読む。
+上流 `.agents/skills/ai-dev-plan/` の `references/` を期待しない。
+
 ## Run manifest
 
 | Field | Value |
 | --- | --- |
 | eval_version | PDP-EVAL-v1 |
-| model_id | TBD |
-| effort | TBD |
-| max_input_tokens | TBD |
-| max_output_tokens | TBD |
-| timeout_seconds | TBD |
-| tool_policy | TBD |
+| model_id | `gpt-5.6-sol` |
+| effort | `high` |
+| max_input_tokens | 64000 (measured ceiling) |
+| max_output_tokens | 16000 (measured ceiling) |
+| timeout_seconds | 600 |
+| tool_policy | Codex read-only shell/file inspection only; no write/MCP/network |
 | network | off |
 | input_ref | `2026-09-20-plan-design-principles-eval-inputs.md` |
-| input_source_hash | TBD |
+| input_source_hash | git blob `1a6176ff18c19f7cf1141c38aab9a23e1968ce0b` |
 | materialized_pbi_hash | TBD |
 | materialized_pbi_path | TBD |
 | rubric_ref | `2026-09-20-plan-design-principles-eval-rubric.md` |
-| rubric_hash | TBD |
-| reviewer | TBD |
-| adjudicator | TBD |
+| rubric_hash | git blob `0fe2983377a0a61f58e2d4b796e85fe9355410ba` |
+| reviewer | isolated Codex `gpt-5.6-terra` / high |
+| adjudicator | Human |
 | started_at | TBD |
 | completed_at | TBD |
 
