@@ -169,6 +169,20 @@ field-by-field semantic equality: **8/8 PASS**。
 
 各pairは2 generationなので全48 generation。
 
+## Runtime-only placeholders
+
+以降の `TBD` は**設計未確定ではない**。run開始後にのみ確定する以下の実測値用placeholderである。
+
+- pair/case/trial/variantの個別record値
+- runtime copied PBI SHA256 / path
+- context/session ID
+- started/completed timestamp
+- actual raw output path/hash
+- actual activation evidence / contamination / missing-data
+- blind scoring evidence / rationale
+
+model / effort / timeout / tool policy / per-run ceiling / pilot-wide ceiling / reviewer identity / frozen input・rubric・variant manifest は上のsectionsで確定済み。
+
 ## Per-run record
 
 各generationごとに1 recordを作る。
