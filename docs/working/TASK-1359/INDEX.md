@@ -39,6 +39,7 @@
 | `review-external.md` | fresh multi-perspective review |
 | `decision-log.jsonl` | append-only decisions |
 | `evidence/c1-review/2026-09-23-rebase-compatibility.md` | #1358 compatibility |
+| `evidence/c1-review/2026-09-23-evaluation-integrity.md` | #1337 candidate isolation / TC-13 |
 | `status.md` | phase history |
 | `current-state.md` | resumable snapshot |
 
