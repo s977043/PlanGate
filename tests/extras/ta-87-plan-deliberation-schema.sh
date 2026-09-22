@@ -109,10 +109,26 @@ else
   printf '[SKIP] TA-87 semantic fixtures — jsonschema package not installed (CI will install it)\n'
 fi
 
+if [ -f "$_T87_TARGET" ]; then
+  _T87_BEFORE="present:$(cksum <"$_T87_TARGET")"
+else
+  _T87_BEFORE="absent"
+fi
+
 if [ -f "$_T87_APPLY" ] &&
    sh "$_T87_APPLY" --dry-run >/dev/null 2>&1; then
-  printf '[PASS] Human apply script dry-run succeeds without applying\n'
-  pass=$((pass + 1))
+  if [ -f "$_T87_TARGET" ]; then
+    _T87_AFTER="present:$(cksum <"$_T87_TARGET")"
+  else
+    _T87_AFTER="absent"
+  fi
+  if [ "$_T87_BEFORE" = "$_T87_AFTER" ]; then
+    printf '[PASS] Human apply script dry-run succeeds and changes no target bytes\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] Human apply script --dry-run changed target state/content\n'
+    fail=$((fail + 1))
+  fi
 else
   printf '[FAIL] Human apply script --dry-run failed\n'
   fail=$((fail + 1))
