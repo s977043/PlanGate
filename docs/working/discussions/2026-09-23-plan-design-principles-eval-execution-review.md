@@ -58,7 +58,7 @@ Review note:
 
 ## 4. Contamination / isolation
 
-**PASS by design; runtime smoke pending**
+**PASS after Major fix; runtime smoke pending**
 
 Generator sees:
 - one selected frozen PBI
@@ -78,10 +78,17 @@ Worktree:
 - no thread resume
 - output root outside generator worktree
 - network disabled
-- read-only sandbox
+- workspace-write sandbox so normal ai-dev-plan artifact creation remains possible
+- common prompt limits writes to `docs/working/TASK-EVAL-PDPXX/`
+- pre/post file manifests make out-of-scope writes observable instead of hiding them
+
+Major finding resolved:
+- the first execution packet used a read-only sandbox.
+- that would prevent ai-dev-plan from creating its normal `plan.md / todo.md / test-cases.md` outputs and would change the behavior under evaluation.
+- fixed to workspace-write + explicit network-off + task-directory write boundary + pre/post manifest evidence.
 
 Remaining runtime proof:
-- operator smoke must confirm local CLI flags, no-network behavior and event logging.
+- operator smoke must confirm local CLI flags, network-off behavior, file generation and event logging.
 
 ## 5. Reviewer independence
 
@@ -151,7 +158,7 @@ The only remaining blocker to 48-generation execution is local runtime evidence:
 - `gpt-5.6-sol` available
 - `gpt-5.6-terra` available
 - timeout/gtimeout available
-- read-only / approval-never / ephemeral smoke run
+- workspace-write / network-off / approval-never / ephemeral smoke run
 - JSONL usage/tool events recorded
 - final message capture works
 - plugin bundle readable at both frozen SHAs
