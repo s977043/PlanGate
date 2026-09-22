@@ -1,7 +1,7 @@
 # TASK-1359 作業ステータス
 
 > 最終更新: 2026-09-23 02:13
-> 現在フェーズ: C-3 待ち
+> 現在フェーズ: BLOCKED
 > モード: critical
 > 発行時点 SHA (issued_at_commit): `36461db287fa2c5462bcca7648cfadb01248fa48`
 
@@ -14,6 +14,7 @@
 |---|---|---|
 | 2026-09-23 02:13 | BLOCKED | #1358 Human C-4 / merge待ち |
 | 2026-09-23 02:38 | C-3 待ち | #1358 merge/rebase、TC-12、review responsibility revalidation、C-1/C-2 refresh完了 |
+| 2026-09-23 02:38 | BLOCKED | latest-main dependency reviewで #1337 result fixed がhard dependencyと判明。C-3前にT-00必須 |
 
 ## 全体構成（PR 一覧）
 
@@ -30,6 +31,7 @@
 - [x] TC-12 #1358 compatibility baseline check
 - [x] C-1 rerun
 - [x] C-2 refresh
+- [ ] T-00 #1337 paired evaluation result fixed確認 / downstream impact判定
 - [ ] H-01 Human C-3
 - [ ] T-03〜T-16 implementation / verification
 - [ ] H-02 Human C-4
@@ -53,7 +55,6 @@
 
 ## 次の作業（Claude Code プロンプト）
 
-Human C-3を実施する。
-APPROVEDならT-03以降のproduction implementationへ進む。
-CONDITIONALなら条件をplan/todo/test-casesへ反映してC-1/C-2を再実行する。
-REJECTEDならreplanする。
+#1337 paired evaluationを完了しresultを固定する。
+その後T-00でTASK-1359への影響を判定する。
+必要ならreplan/C-1/C-2 refreshを行い、問題なければHuman C-3へ進む。
