@@ -8,7 +8,7 @@
 
 ### 1. 準備
 
-- [ ] T-01: #1358 merge後にmainへrebaseする
+- [x] T-01: #1358 merge後にmainへrebaseする
   - Owner: agent
   - depends_on: #1358 merge
   - files: repository branch
@@ -16,7 +16,7 @@
   - rollback: rebase前branch SHAへ戻す
   - 🚩 チェックポイント: conflictがshared skill/templateに出たらreplan
 
-- [ ] T-02: rebase後のreview責務境界を再確認する
+- [x] T-02: rebase後のreview責務境界を再確認する
   - Owner: agent
   - depends_on: T-01
   - files: 読取: `.agents/skills/diff-audit/SKILL.md`, `.agents/skills/review-gate/SKILL.md`
