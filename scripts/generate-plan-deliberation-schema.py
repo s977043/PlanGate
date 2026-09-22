@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
-"""Generate the Plan Deliberation v1 JSON Schema deterministically.
+""":"
+# --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
+echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
+echo "       Use: python3 $0 [args...]" >&2
+exit 2
+":"""
+
+from __future__ import annotations
+
+__doc__ = """Generate the Plan Deliberation v1 JSON Schema deterministically.
 
 TASK-1353 / #1353. This file is AI-owned. The generated target
 schemas/plan-deliberation.schema.json is Hardening Override and must be applied
 by a Human through scripts/apply-task-1353-plan-deliberation-schema.sh.
 """
-
-from __future__ import annotations
 
 import json
 import sys
