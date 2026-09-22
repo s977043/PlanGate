@@ -12,7 +12,7 @@ created_by: orchestrator
 > 対象: `pbi-input.md` / `plan.md` / `todo.md` / `test-cases.md`
 > 判定: **WARN** — critical=0, major=0, minor=1
 > Fresh review base: main `7b523a4530d0c2b324ecd9464736d0c7776a2bdc` / post-#1358 rebase
-> Exec readiness: **WAITING HUMAN C-3**
+> Exec readiness: **BLOCKED — #1337 paired evaluation result not fixed**
 
 ## Plan
 
@@ -38,7 +38,7 @@ created_by: orchestrator
 
 ### C1-PLAN-06: 依存関係
 - **result**: PASS
-- **finding**: #1358 merge/rebaseは完了。TC-12で `C1-TEST-14` preservationを確認し、次の依存はHuman C-3のみ。Knowledge Delta/refactor発火時は Safety Net → Preparatory Refactor → Behavior Change → Verification の安全順序を維持。#960 HO作業は本Taskへ混在させない。
+- **finding**: #1358 merge/rebaseは完了しTC-12もPASS。ただしfresh dependency reviewで #1337 result fixed がHuman C-3前のhard dependencyと判明。T-00 → H-01 → T-03の順序へ修正。Knowledge Delta/refactor発火時は Safety Net → Preparatory Refactor → Behavior Change → Verification の安全順序を維持。#960 HO作業は本Taskへ混在させない。
 - **evidence_ref**: `evidence/c1-review/2026-09-23-rebase-compatibility.md`
 
 ### C1-PLAN-07: 動作検証自動化
@@ -135,5 +135,5 @@ created_by: orchestrator
 
 **WARN — critical 0 / major 0 / minor 1**
 
-Planの設計品質にexec blockerとなるfindingはない。#1358 merge/rebase・TC-12・shared-surface revalidationもPASS。
-次の境界はHuman C-3。APPROVEDまではT-03以降を開始しない。
+Plan内部の設計品質findingは解消済み。#1358 merge/rebase・TC-12・shared-surface revalidationもPASS。
+ただし外部依存 #1337 が未完了のためHuman C-3へはまだ進まない。#1337 result fixed後にT-00でreplan要否を判定する。
