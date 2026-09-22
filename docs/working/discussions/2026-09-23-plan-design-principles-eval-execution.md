@@ -39,19 +39,31 @@ PR #1336の効果はSkill本文だけでなくplan/test template変更を含む�
 git worktree add --detach "$WT" "$VARIANT_SHA"
 ```
 
-run前に選択ケースの凍結済みPBIだけを:
+run前に `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md` でblobを確認し、選択ケースの凍結済みPBIだけをbyte-for-byte copyする:
 
 ```text
 $WT/docs/working/TASK-EVAL-PDPXX/pbi-input.md
 ```
 
-へコピーする。
+へコピーする。source文書からrun時に再生成しない。
 
 禁止:
 - current mainのeval plan/rubricをworktreeへコピー
 - 他7ケースをコピー
 - 過去run outputをコピー
 - workspace間でCodex threadをresume
+
+### Frozen PBI copy verification
+
+copy後にSHA256を取得し、同一pairのbaseline/candidateで一致を確認する。
+
+```sh
+sha256sum "$WT/docs/working/TASK-EVAL-PDPXX/pbi-input.md"
+```
+
+macOSでは `shasum -a 256` を使う。
+
+hash mismatchならCodexを起動せず `INCONCLUSIVE_INPUT_MISMATCH`。
 
 ## 4. Generator invocation template
 
