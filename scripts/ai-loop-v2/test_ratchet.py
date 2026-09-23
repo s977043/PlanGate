@@ -76,6 +76,17 @@ class RatchetVerticalSliceTests(unittest.TestCase):
         self.assertEqual(
             promotion["experiment_result_ref"], canonical_digest(experiment)
         )
+        self.assertEqual(
+            promotion["candidate_manifest_ref"], experiment["candidate_manifest_ref"]
+        )
+        self.assertEqual(
+            promotion["source_failure_instance_refs"],
+            self.base["candidate"]["source"]["failure_instance_refs"],
+        )
+        self.assertEqual(
+            experiment["metrics"]["recurrence_observation"],
+            expected["recurrence"],
+        )
 
     def test_candidate_cannot_choose_its_evaluation_plan(self):
         value = copy.deepcopy(self.base)
@@ -240,6 +251,12 @@ class RatchetVerticalSliceTests(unittest.TestCase):
         self.assertIn(
             "MANIFEST_MISSING", result["experiment_result"]["reason_codes"]
         )
+
+    def test_occurrence_count_is_evidence_not_promotion_authority(self):
+        value = copy.deepcopy(self.base)
+        value["candidate"]["source"]["pattern_snapshot"]["occurrence_count"] = 999
+        result = self.evaluate(value)
+        self.assertEqual(result["experiment_result"]["result"], "PASS")
 
     def test_private_transcript_is_rejected(self):
         value = copy.deepcopy(self.base)
