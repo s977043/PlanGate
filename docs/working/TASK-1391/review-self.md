@@ -72,6 +72,29 @@ Resolution:
 - valid unfinished: partial
 - valid terminal: ready
 
+### R-6 — per-event validation was insufficient for safe commit
+
+Severity: major.
+
+An individually valid Decision/Failure event can still reference future/missing evidence or follow a terminal Outcome.
+
+Resolution:
+- #1392 reads current accepted stream under lock
+- #1391 finalizes candidate event
+- #1391 validates `current_stream + candidate` before commit
+- only a valid append may enter #1392 durable transaction
+
+### R-7 — strictly increasing sequence allowed silent gaps
+
+Severity: major.
+
+`1, 2, 4` is strictly increasing but can represent a missing event.
+
+Resolution:
+- first event_seq = 1
+- next seq must be exactly previous + 1
+- gap/duplicate/out-of-order all fail closed
+
 ## Remaining findings
 
 ### R-1 — Storage location intentionally unresolved
