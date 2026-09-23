@@ -75,9 +75,11 @@ Contract Gate A is ready. Production implementation is split by owner:
 
 ```text
 #1391 Event / Projection
- -> #1392 State / CAS
- -> #1393 Verify / Failure / Decision
- -> #1395 Integration
+  ├─> #1392 State / CAS
+  └─> #1393 Verify / Failure / Decision (pure core)
+
+#1392 + #1393 consumable
+  -> #1395 Integration
 ```
 
 #1329 preflight baseline is measured on main `b2234bd1097f7b741d372e3353d1877932401731`: M-1/M-2/M-3 all remain at baseline.
@@ -170,7 +172,7 @@ Kill mutants:
 4. semantic invalidation classification — runtime slices = YES candidate
 5. review level — I3 minimum; I4 on protected Evaluation Harness / Human-owned boundary
 6. each implementation branch is based on latest main at its start
-7. #1391 -> #1392 -> #1393 become consumable before #1395 integration
+7. #1391 contract first; then #1392 and #1393 may proceed in parallel; both must be consumable before #1395 integration
 8. no conflicting owner contract change in flight
 
 ## Replan triggers
