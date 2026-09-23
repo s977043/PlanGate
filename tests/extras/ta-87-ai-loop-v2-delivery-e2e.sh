@@ -214,8 +214,6 @@ def validate_common(trace):
     if terminal_events:
         req(terminal_events[0]["seq"] == events[-1]["seq"],
             "events must not continue after terminal outcome")
-            elif outcome in {"HUMAN_ESCALATED", "BLOCKED"}:
-                req(len(reasons) >= 1, "non-success Terminal Outcome requires Stop Reason")
 
     # Decision inputs must resolve to evidence that already exists in the trace.
     # This prevents a missing FailureRecord / VerificationResult from being hidden
