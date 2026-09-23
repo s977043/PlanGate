@@ -187,3 +187,24 @@ A transaction that commits terminal `decision_made`:
 - does not append a `state_transitioned` event after it
 - leaves the last non-terminal Lifecycle State as historical state, while terminal Outcome is derived from event stream/RunEvidence
 - is final for the Run; later `commit` calls are rejected by #1391 terminality validation
+
+
+## First-slice transition allowlist
+
+Do not infer an unrestricted transition graph from the Lifecycle State enum.
+
+For this slice:
+
+```text
+PLAN_VERIFYING -> EXECUTING | REPLANNING
+EXECUTING      -> VERIFYING
+VERIFYING      -> DIAGNOSING | PR_CONVERGING
+DIAGNOSING     -> REPAIRING | REPLANNING
+REPAIRING      -> VERIFYING
+REPLANNING     -> PLAN_VERIFYING
+PR_CONVERGING  -> REPAIRING | WAITING_HUMAN | WAITING_EXTERNAL
+```
+
+A terminal Decision does not transition to a terminal state.
+
+Transitions from WAITING_HUMAN / WAITING_EXTERNAL require a pending-action resume contract and are outside the first owner-backed #1383 path. They are rejected until that resume contract is implemented rather than guessed.
