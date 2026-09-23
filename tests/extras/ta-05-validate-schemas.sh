@@ -60,6 +60,14 @@ if python3 -c 'import jsonschema' >/dev/null 2>&1; then
     fail=$((fail + 1))
   fi
 
+  if python3 "$_t05_root/tests/test_context_engine_intent_context.py" >/dev/null 2>&1; then
+    printf '[PASS] Context Engine Intent Context adapter scenarios pass\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] Context Engine Intent Context adapter scenarios failed\n'
+    fail=$((fail + 1))
+  fi
+
   if sh "$PLANGATE_BIN" validate-schemas 2>&1 | grep -q 'Usage'; then
     printf '[PASS] validate-schemas: no args emits Usage text\n'
     pass=$((pass + 1))
