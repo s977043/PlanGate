@@ -179,6 +179,37 @@ jobs:
             --max-turns 3
             --json-schema '{"type":"object","additionalProperties":false,"required":["status","checks","notes"],"properties":{"status":{"type":"string","enum":["pass","fail","inconclusive"]},"checks":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"object","additionalProperties":false,"required":["id","status","evidence"],"properties":{"id":{"type":"string","enum":["documents_readable","durable_run_continuity","human_authority"]},"status":{"type":"string","enum":["pass","fail"]},"evidence":{"type":"string","maxLength":256}}}},"notes":{"type":"array","maxItems":3,"items":{"type":"string","maxLength":256}}}}'
 
+      - name: Remove raw Claude execution log
+        if: always()
+        shell: bash
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          set -euo pipefail
+
+          candidate="${EXECUTION_FILE:-}"
+          if [ -z "$candidate" ]; then
+            candidate="$RUNNER_TEMP/claude-execution-output.json"
+          fi
+
+          case "$candidate" in
+            "$RUNNER_TEMP"/*)
+              ;;
+            *)
+              echo "::error::Refusing to remove execution log outside RUNNER_TEMP"
+              exit 1
+              ;;
+          esac
+
+          if [ -f "$candidate" ]; then
+            rm -f -- "$candidate"
+          fi
+
+          if [ -e "$candidate" ]; then
+            echo "::error::Raw Claude execution log still exists after cleanup"
+            exit 1
+          fi
+
       - name: Verify pinned Claude Code version
         shell: bash
         env:
@@ -275,6 +306,7 @@ jobs:
             echo "- runner_environment: \`${RUNNER_ENVIRONMENT}\`"
             echo "- max_turns: \`3\`"
             echo "- timeout_minutes: \`10\`"
-            echo "- raw_execution_log_persisted: \`false\`"
+            echo "- raw_execution_log_uploaded: \`false\`"
+            echo "- raw_execution_log_deleted_after_action: \`true\`"
             echo "- session_resume_used: \`false\`"
           } >> "$GITHUB_STEP_SUMMARY"
