@@ -134,21 +134,6 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: "false"
-          settings: |
-            {
-              "permissions": {
-                "deny": [
-                  "Bash",
-                  "Edit",
-                  "Write",
-                  "NotebookEdit",
-                  "Agent",
-                  "WebFetch",
-                  "WebSearch",
-                  "mcp__*"
-                ]
-              }
-            }
           prompt: |
             Perform a read-only Stage A canary for PlanGate.
 
@@ -169,11 +154,12 @@ jobs:
             Do not reproduce repository file contents verbatim.
             Return only the requested structured result with short, non-secret evidence summaries.
           claude_args: >-
+            --restricted
             --tools "Read"
             --allowedTools "Read(docs/ai/ai-loop-v2/**)"
-            --disallowedTools "Bash,Edit,Write,NotebookEdit,Agent,WebFetch,WebSearch,mcp__*"
+            --disallowedTools "mcp__*"
             --permission-mode dontAsk
-            --setting-sources user
+            --disable-slash-commands
             --max-turns 3
             --json-schema '{"type":"object","additionalProperties":false,"required":["status","checks","notes"],"properties":{"status":{"type":"string","enum":["pass","fail","inconclusive"]},"checks":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"object","additionalProperties":false,"required":["id","status","evidence"],"properties":{"id":{"type":"string","enum":["documents_readable","durable_run_continuity","human_authority"]},"status":{"type":"string","enum":["pass","fail"]},"evidence":{"type":"string","maxLength":256}}}},"notes":{"type":"array","maxItems":3,"items":{"type":"string","maxLength":256}}}}'
 
