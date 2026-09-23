@@ -176,3 +176,34 @@ issue #874 の RunEvidence producer（`scripts/ai-loop/run_evidence.py`）も c3
 ## 8. バージョニング
 
 本契約の破壊的変更（required 追加・型変更・§6 マッピング変更）は #872 / #873 / #874 の 3 issue 合意 + plan Replan を要する。additive な任意フィールド追加は本ファイルの改版のみでよい（`^_` 注釈キーは自由）。
+
+## 9. Plan Contract execution reference（#981 / #1403）
+
+Plan Contract は本契約の Plan Package / approval identity を再定義しない。
+`docs/working/TASK-XXXX/execution/plan-contract.json` は execution-side reference であり、
+正本は引き続き本ファイル + `approvals/c3.json` + Plan Package 6 要素である。
+
+### 9-1. Intent Context binding
+
+#1389 Intent Context Package を使う Plan は、承認前の `plan.md` に次を各1行だけ持つ。
+
+```text
+Intent-Context-ID: CTX-...
+Intent-Context-Ref: sha256:<64hex>
+```
+
+この2行は `plan.md` のbytesに含まれるため、既存 `plan_hash` とC-3/C-3' approvalが
+semantic Context bindingを間接ではなく明示内容として束縛する。sidecarはその
+`plan_hash` / `plan_package_hash` / approval digest / Context refsを再掲してpreflightする。
+
+- `context_ref`: semantic stale boundary。現 Context と不一致なら execution不可。
+- `snapshot_ref`: exact audit provenance。timestamp/resolverのみの再解決で変化しても、
+  `context_ref` が同一ならそれ単独ではPlanをstaleにしない。
+- Context Package本文・sources/claimsをsidecarへ複製しない。
+- Intent Context不在の既存Planはbinding省略を許容し、後方互換を維持する。
+- validated Contextに複数authoritative source由来の未解決 conflict がある場合、
+  `AUTO_APPROVED` record生成はfail-closed。`HUMAN_ESCALATED` / `BLOCKED` を使う。
+
+受理/生成の機械実装は `scripts/ai-loop/plan_contract.py`、shapeは
+`schemas/plan-contract.schema.json`。ActorSession真正性は#980の責務であり、
+本sidecarはそれを証明しない。
