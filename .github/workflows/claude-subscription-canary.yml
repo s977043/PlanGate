@@ -303,7 +303,25 @@ jobs:
               print("::error::At least one canary check did not pass")
               sys.exit(1)
 
-          print("Stage A structured output validated without persisting raw execution logs.")
+          import hashlib
+
+          digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if not summary_path:
+              print("::error::GITHUB_STEP_SUMMARY is unavailable")
+              sys.exit(1)
+
+          status_by_id = {item["id"]: item["status"] for item in checks}
+          with open(summary_path, "a", encoding="utf-8") as summary:
+              summary.write("### Validated Claude structured result\\n\\n")
+              summary.write(f"- structured_status: \`{data['status']}\`\\n")
+              summary.write(f"- structured_output_sha256: \`{digest}\`\\n")
+              for check_id in sorted(expected_ids):
+                  summary.write(
+                      f"- check_{check_id}: \`{status_by_id[check_id]}\`\\n"
+                  )
+
+          print("Stage A structured output validated; only statuses and digest were persisted.")
           PY
 
       - name: Verify no repository or session persistence
