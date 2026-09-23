@@ -37,6 +37,21 @@ test-cases / approval は **契約コンテキスト**として固定すべき�
 （always / on_demand / on_failure）の **記述子のみ**（実取得は呼び出し側が
 budget 内で行う）。
 
+## 2-a. Intent Context Package adapter（#1389 / #1399）
+
+`docs/working/<TASK>/intent-context.json` が存在する場合だけ、manifest は
+トップレベルの任意 `intent_context` に **参照情報だけ**を追加する。
+
+- package 不在: `intent_context` field 自体を省略し、従来 #199 JSON を維持する。
+- valid: `path / context_id / context_ref / snapshot_ref / status:present` を出す。
+- invalid / TASK mismatch: `path / status:invalid` のみ。semantic/exact ref は出さず CLI exit 1。
+- `sources[]` / outcomes / constraints / assumptions / unknowns / conflicts は
+  manifest へ複製しない。authority/freshness の正本も #1389 のまま。
+- `context_ref` は Plan stale binding 用の semantic identity、`snapshot_ref` は
+  exact audit identity。timestamp だけの再解決で前者を変えてはならない。
+- この adapter は **Plan approval を判定しない**。Plan/approval/execution の
+  context binding は #981 が owner。
+
 ## 3. Context budget（mode / profile）
 
 mode により budget を適用（[model-profiles.md](./model-profiles.md) の
