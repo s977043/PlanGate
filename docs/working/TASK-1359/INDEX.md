@@ -53,5 +53,7 @@
 
 - #1337: Plan Design Principles paired evaluation
 - #1347: Human Decision Surface / Plan compression experiment after #1337
+- ADR-006 / #1352-#1355: Plan Deliberation / C-2 disagreement clarification
+- #1343/#1349: Human Attention measurement semantics
 - #1359: Prior Artifact / Unknown / Knowledge Delta continuity
 - #960: HO-side C-1 execution drift
