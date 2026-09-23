@@ -8,9 +8,9 @@
 
 | Dependency | Current state | Minimum needed by #1383 | Readiness verdict |
 |---|---|---|---|
-| #1025 RunState | V2 rebaseline open | transition semantics + revision CAS + harness ref invariant | BLOCKED |
-| #894 Decision / Verification / Failure | V2 rebaseline open | result/failure/decision/progress semantics | BLOCKED |
-| #874 V2 RunEvidence | Legacy implementation exists; V2 rebaseline open | projection/binding boundary only | PARTIAL |
+| #1025 RunState | minimum V2 semantics fixed in canon; implementation slice #1392 open | transition semantics + revision CAS + harness ref invariant | CONTRACT READY / RUNTIME PENDING |
+| #894 Decision / Verification / Failure | minimum V2 semantics fixed in canon; implementation slice #1393 open | result/failure/decision/progress semantics | CONTRACT READY / RUNTIME PENDING |
+| #874 V2 RunEvidence | projection boundary fixed in canon; implementation slice #1391 open | projection/binding boundary only | CONTRACT READY / RUNTIME PENDING |
 | #1285 RunEvidence metrics | design issue open | no full metrics required; only avoid incompatible schema decisions | NON-BLOCKING unless it changes core field ownership |
 | #1369 Worker contract | closed | worker success != verification success, bounded attempt | READY |
 | #873/#917 PR convergence | Legacy Evidence complete | reusable fixture/pattern only | READY AS EVIDENCE |
@@ -20,22 +20,43 @@
 
 Before runtime code:
 
-- [ ] #1025 provides stable V2 RunState minimum subset
-- [ ] #894 provides stable V2 VerificationResult / FailureRecord / Decision Engine minimum subset
-- [ ] #874/#1285 do not conflict on the RunEvidence fields consumed by E2E
+- [x] #1025 minimum V2 RunState semantics are stable enough to implement via #1392
+- [x] #894 minimum V2 VerificationResult / FailureRecord / Decision Engine semantics are stable enough to implement via #1393
+- [x] #874/#1285 field ownership is reconciled; #1391 owns only the minimal projection spine
 - [x] #1369 Worker control facts available
 - [x] Legacy PR convergence evidence available
 - [x] #1329 implementation review procedure available
 
 ## Gate B — Runtime implementation readiness
 
-After Gate A:
+Gate A means **contract semantics are ready**, not that executable owner surfaces already exist.
 
-- [ ] record M-1/M-2/M-3 on base SHA
-- [ ] reviewer answers semantic invalidation question
-- [ ] indeterminate => invalidation candidate
-- [ ] implementation PR does not modify canon 7 to preserve its own exception
-- [ ] Human-owned merge boundary remains unchanged
+Owner-backed runtime DAG:
+
+```text
+#1391 RunEvent spine / RunEvidence projection
+  -> #1392 RunState CAS / crash recovery
+  -> #1393 Verification / Failure / Decision core
+  -> #1395 owner-backed Delivery E2E integration
+  -> #1383 evidence / #1381 unblock decision
+```
+
+Preflight measured on main `b2234bd1097f7b741d372e3353d1877932401731`:
+
+- [x] M-1 = baseline: no matching V2 schema filename/content under `schemas/**`
+- [x] M-2 = baseline: no `scripts/ai-loop-v2/**` / `bin/ai-loop-v2/**`
+- [x] M-3 = baseline: exactly the known four Legacy files
+  - `scripts/ai-loop/corpus_hash.py`
+  - `scripts/ai-loop/run_evidence.py`
+  - `scripts/ai-loop/test_corpus_hash.py`
+  - `scripts/ai-loop/test_run_evidence.py`
+- [x] current #1387 tests-only diff is not a Production semantic enforcement surface
+- [x] #1391/#1392/#1393/#1395 runtime implementation is a semantic invalidation candidate
+- [x] implementation PR must not modify canon 7 to preserve its own exception
+- [x] review level: I3 minimum for Verifier/Gate runtime; I4 if protected Evaluation Harness or Human-owned boundary is touched
+- [x] Human-owned merge boundary remains unchanged
+
+**Runtime availability remains BLOCKED until #1391/#1392/#1393 are consumable.**
 
 ## Anti-dependency rules
 
