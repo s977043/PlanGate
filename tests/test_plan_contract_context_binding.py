@@ -267,6 +267,25 @@ class PlanContractContextBindingTests(unittest.TestCase):
             ["CFT-001"], intent_context_contract.authoritative_conflicts(payload)
         )
 
+    def test_15_bundled_intent_context_helper_imports(self):
+        bundled = (
+            ROOT
+            / "plugin"
+            / "plangate"
+            / "skills"
+            / "ai-loop-cycle"
+            / "scripts"
+            / "intent_context_contract.py"
+        )
+        spec = importlib.util.spec_from_file_location("bundled_intent_context_contract", bundled)
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+        self.assertEqual(
+            intent_context_contract.c3_contract.canonical_hash({"text": "日本語", "n": 1}),
+            module.c3_contract.canonical_hash({"text": "日本語", "n": 1}),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
