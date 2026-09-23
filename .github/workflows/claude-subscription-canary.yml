@@ -273,19 +273,18 @@ jobs:
               sys.exit(1)
 
           digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-          if not summary_path:
-              print("::error::GITHUB_STEP_SUMMARY is unavailable")
+          github_env = os.environ.get("GITHUB_ENV")
+          if not github_env:
+              print("::error::GITHUB_ENV is unavailable")
               sys.exit(1)
 
-          with open(summary_path, "a", encoding="utf-8") as summary:
-              summary.write("### Validated Claude structured result\n\n")
-              summary.write("- structured_status: `READ_ONLY_OK`\n")
-              summary.write("- checked_file_README: `pass`\n")
-              summary.write("- checked_file_core_contract: `pass`\n")
-              summary.write(f"- structured_output_sha256: `{digest}`\n")
+          with open(github_env, "a", encoding="utf-8") as env_file:
+              env_file.write("CANARY_STRUCTURED_STATUS=READ_ONLY_OK\n")
+              env_file.write("CANARY_CHECK_README=pass\n")
+              env_file.write("CANARY_CHECK_CORE_CONTRACT=pass\n")
+              env_file.write(f"CANARY_STRUCTURED_SHA256={digest}\n")
 
-          print("Stage A structured output validated; model text was not persisted.")
+          print("Stage A structured output validated; durable evidence waits for postconditions.")
           PY
 
       - name: Verify canary stayed read-only
@@ -339,6 +338,10 @@ jobs:
             echo "- source_sha: \`$GITHUB_SHA\`"
             echo "- action_sha: \`9ca9355b36297178e28d37c799d1c9c8a28e6507\`"
             echo "- claude_code_version: \`$CLAUDE_CODE_VERSION\`"
+            echo "- structured_status: \`$CANARY_STRUCTURED_STATUS\`"
+            echo "- checked_file_README: \`$CANARY_CHECK_README\`"
+            echo "- checked_file_core_contract: \`$CANARY_CHECK_CORE_CONTRACT\`"
+            echo "- structured_output_sha256: \`$CANARY_STRUCTURED_SHA256\`"
             echo "- auth_class: \`oauth_subscription\`"
             echo "- runner_environment: \`$RUNNER_ENVIRONMENT_VALUE\`"
             echo "- max_turns: \`4\`"
