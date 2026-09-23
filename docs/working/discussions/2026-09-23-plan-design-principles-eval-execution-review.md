@@ -60,18 +60,16 @@ Review note:
 
 **SPEC PASS / RUNTIME MAJOR OPEN**
 
-Generator sees:
-- one selected frozen PBI
-- common prompt
-- selected variant plugin Skill + same-SHA references/rules
-
-Generator does not see:
-- rubric
-- expected behavior/failure examples
-- other cases
-- other runs
-- reviewer outputs
-- variant peer output
+Required generator visibility (spec, not yet runtime-proven):
+- MUST see one selected frozen PBI
+- MUST see common prompt
+- MUST see selected variant plugin Skill + same-SHA references/rules
+- MUST NOT see rubric
+- MUST NOT see expected behavior/failure examples
+- MUST NOT see other cases
+- MUST NOT see other runs
+- MUST NOT see reviewer outputs
+- MUST NOT see peer variant / current main / source repo data
 
 Generator checkout:
 - linked worktree is forbidden
@@ -105,11 +103,12 @@ Remaining runtime proof:
 
 ## 5. Reviewer independence
 
-**PASS with accepted limitation**
+**SPEC PASS / RUNTIME VISIBILITY NOT YET PROVEN**
 
-- reviewer uses a fresh context and different model ID: `gpt-5.6-terra`.
-- generator uses `gpt-5.6-sol`.
-- reviewer does not see variant identity / generator checkout / event log.
+- reviewer model is fixed to a fresh context with different model ID: `gpt-5.6-terra`.
+- generator model is fixed to `gpt-5.6-sol`.
+- reviewer **MUST NOT see** variant identity / generator checkout / generator event log.
+- this visibility constraint remains runtime-unproven until reviewer Smoke C actual tool-boundary control passes.
 - Human adjudicates critical regression / Other change / inconclusive cases.
 
 Accepted limitation:
@@ -217,7 +216,11 @@ Current correct state:
 protocol frozen
   -> execution config frozen
   -> frozen inputs verified
-  -> local operator smoke
+  -> runtime preflight / exact CLI freeze
+  -> independent checkout isolation
+  -> model-free sandbox controls
+  -> Smoke actual tool-boundary controls
+  -> 3-call smoke complete
   -> 48 generations
   -> blind scoring
   -> pair-level result
