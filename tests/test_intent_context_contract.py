@@ -119,28 +119,38 @@ class IntentContextContractTests(unittest.TestCase):
         }
         self.assertNotEqual([], self.errors(bad))
 
-    def test_12_absolute_local_source_ref_rejected(self):
+    def test_12_authoritative_basis_requires_ref(self):
+        bad = copy.deepcopy(self.base)
+        bad["sources"][0]["authority_basis"]["ref"] = None
+        self.assertNotEqual([], self.errors(bad))
+
+    def test_13_current_freshness_basis_requires_ref(self):
+        bad = copy.deepcopy(self.base)
+        bad["sources"][0]["freshness_basis"]["ref"] = None
+        self.assertNotEqual([], self.errors(bad))
+
+    def test_14_absolute_local_source_ref_rejected(self):
         bad = copy.deepcopy(self.base)
         bad["sources"][0]["ref"] = "/Users/example/private/spec.md"
         self.assertTrue(
             any("absolute local path" in x for x in self.errors(bad))
         )
 
-    def test_13_self_hash_field_rejected(self):
+    def test_15_self_hash_field_rejected(self):
         bad = copy.deepcopy(self.base)
         bad["context_ref"] = "sha256:" + "b" * 64
         self.assertNotEqual([], self.errors(bad))
 
-    def test_14_final_acceptance_criteria_field_rejected(self):
+    def test_16_final_acceptance_criteria_field_rejected(self):
         bad = copy.deepcopy(self.base)
         bad["acceptance_criteria"] = ["must not be package-owned"]
         self.assertNotEqual([], self.errors(bad))
 
-    def test_15_unsourced_assumption_is_valid(self):
+    def test_17_unsourced_assumption_is_valid(self):
         self.assertEqual([], self.base["assumptions"][0]["source_ids"])
         self.assertEqual([], self.errors(self.base))
 
-    def test_16_unknown_conflict_statement_ref_rejected(self):
+    def test_18_unknown_conflict_statement_ref_rejected(self):
         bad = copy.deepcopy(self.base)
         bad["sources"].append({
             "source_id": "SRC-002",
@@ -168,12 +178,12 @@ class IntentContextContractTests(unittest.TestCase):
         }]
         self.assertTrue(any("unknown statement" in x for x in self.errors(bad)))
 
-    def test_17_raw_body_is_rejected(self):
+    def test_19_raw_body_is_rejected(self):
         bad = copy.deepcopy(self.base)
         bad["sources"][0]["raw_body"] = "do not copy source bodies"
         self.assertNotEqual([], self.errors(bad))
 
-    def test_18_non_ascii_canonical_hash_golden_vector(self):
+    def test_20_non_ascii_canonical_hash_golden_vector(self):
         self.assertEqual(
             "sha256:731ad74c6dd72c1576f775a0abef976bb707773aee0cd34d45a797bb8a284b9d",
             contract.c3_contract.canonical_hash({"text": "日本語", "n": 1}),
