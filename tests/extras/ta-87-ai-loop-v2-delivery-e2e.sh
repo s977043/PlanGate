@@ -435,10 +435,11 @@ m = copy.deepcopy(repair)
 m["events"][3]["decision"] = {"action": "stop", "outcome": "MERGE_READY", "stop_reasons": []}
 expect_reject("worker self-report completion", m, validate_repair)
 
-# Mutation 3: Independent model PASS overrides deterministic FAIL.
+# Mutation 3: Independent model PASS causes the loop to continue instead of repair.
+# Keep this non-terminal so it cannot be killed merely by taxonomy-axis checks.
 m = copy.deepcopy(repair)
 m["events"][7]["decision"] = {
-    "action": "stop", "inputs": ["v1", "v2"], "outcome": "MERGE_READY", "stop_reasons": []
+    "action": "continue", "inputs": ["v1", "v2"], "outcome": None, "stop_reasons": []
 }
 expect_reject("model PASS overrides deterministic FAIL", m, validate_repair)
 
@@ -500,7 +501,41 @@ m["events"][11]["decision"]["stop_reasons"] = []
 m["expected_projection"]["stop_reasons"] = []
 expect_reject("human escalation without stop reason", m, validate_no_progress)
 
-print("  [PASS] 13 mutation classes killed")
+# Mutation 14: MERGE_READY ignores PR convergence evidence.
+m = copy.deepcopy(repair)
+m["events"][11]["decision"]["inputs"] = ["v3"]
+expect_reject("MERGE_READY missing PR convergence evidence", m, validate_repair)
+
+# Mutation 15: progress fingerprints are self-consistent but do not bind to FailureRecords.
+m = copy.deepcopy(no_progress)
+m["events"][10]["progress"]["previous_failure_fingerprint"] = "fake:same"
+m["events"][10]["progress"]["current_failure_fingerprint"] = "fake:same"
+expect_reject("progress fingerprint provenance detached", m, validate_no_progress)
+
+# Mutation 16: a new blocker exists but the run still claims NO_PROGRESS.
+m = copy.deepcopy(no_progress)
+m["events"][7]["introduced_blockers"] = ["blocker:new"]
+m["events"][10]["progress"]["introduced_blockers"] = ["blocker:new"]
+expect_reject("introduced blocker mislabeled no-progress", m, validate_no_progress)
+
+# Mutation 17: events continue after a terminal outcome.
+m = copy.deepcopy(no_progress)
+m["events"].append({
+    "seq": 13,
+    "type": "repair_attempted",
+    "state": "REPAIRING",
+    "revision": 9,
+    "harness_manifest_ref": m["harness_manifest_ref"],
+    "before_artifact_ref": "sha256:" + "a" * 64,
+    "after_artifact_ref": "sha256:" + "a" * 64,
+    "evidence_delta": [],
+    "resolved_blockers": [],
+    "introduced_blockers": [],
+    "evidence_ref": "repair:after-terminal",
+})
+expect_reject("event after terminal outcome", m, validate_no_progress)
+
+print("  [PASS] 17 mutation classes killed")
 PY
 ); then
   _T87_RC=0
