@@ -183,7 +183,22 @@ class IntentContextContractTests(unittest.TestCase):
         bad["sources"][0]["raw_body"] = "do not copy source bodies"
         self.assertNotEqual([], self.errors(bad))
 
-    def test_20_non_ascii_canonical_hash_golden_vector(self):
+    def test_20_invalid_datetime_rejected_by_full_contract(self):
+        bad = copy.deepcopy(self.base)
+        bad["created_at"] = "not-a-date-time"
+        self.assertNotEqual([], self.errors(bad))
+
+    def test_21_absolute_authority_basis_ref_rejected(self):
+        bad = copy.deepcopy(self.base)
+        bad["sources"][0]["authority_basis"]["ref"] = "/tmp/policy.md"
+        self.assertTrue(any("absolute local path" in x for x in self.errors(bad)))
+
+    def test_22_absolute_freshness_basis_ref_rejected(self):
+        bad = copy.deepcopy(self.base)
+        bad["sources"][0]["freshness_basis"]["ref"] = "C:\\secret\\state.json"
+        self.assertTrue(any("absolute local path" in x for x in self.errors(bad)))
+
+    def test_23_non_ascii_canonical_hash_golden_vector(self):
         self.assertEqual(
             "sha256:731ad74c6dd72c1576f775a0abef976bb707773aee0cd34d45a797bb8a284b9d",
             contract.c3_contract.canonical_hash({"text": "日本語", "n": 1}),
