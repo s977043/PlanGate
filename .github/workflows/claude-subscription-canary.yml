@@ -115,10 +115,19 @@ jobs:
 
           git -C "$canary_dir" init -q
 
+      - name: Prepare isolated Claude home
+        shell: bash
+        run: |
+          set -euo pipefail
+          claude_home="$RUNNER_TEMP/claude-home"
+          rm -rf "$claude_home"
+          mkdir -p "$claude_home"
+
       - name: Run read-only Claude subscription canary
         id: claude
         uses: anthropics/claude-code-action/base-action@9ca9355b36297178e28d37c799d1c9c8a28e6507
         env:
+          HOME: ${{ runner.temp }}/claude-home
           CLAUDE_WORKING_DIR: ${{ runner.temp }}/claude-canary
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
