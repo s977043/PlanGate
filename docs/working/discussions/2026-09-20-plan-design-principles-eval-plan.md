@@ -63,10 +63,19 @@
 
 ## 3.1 Execution surface freeze
 
-固定SHAを上流repoの通常worktreeとして実行すると、`.agents/skills/ai-dev-plan/` には bundled `references/` が存在しない一方、同一SHAの
+固定SHAのrepo snapshotを確認すると、`.agents/skills/ai-dev-plan/` には bundled `references/` が存在しない一方、同一SHAの
 `plugin/plangate/skills/ai-dev-plan/` には配布用bundleが存在する。
 
 したがって本pilotは **repo SHAをvariant identity、plugin bundleを実行面** として固定する。
+
+**Checkout isolation**
+
+- generatorへ linked worktree を渡さない。
+- baseline/candidateごとに、選択SHAだけを持つ独立checkoutをoperator側でmaterializeする。
+- peer variant / current main / source repo のGit objectsへ到達できないことをnegative controlで実測する。
+- source remote / alternates / partial-clone promisorをmodel-visible execution前に除去する。
+- model-visible checkoutは選択PBIと当該SHAのrepo snapshotだけを持つ。
+- 詳細なPASS条件はExecution Packet §8.2を正本とする。
 
 ### Baseline
 
@@ -272,7 +281,7 @@ $TMPDIR/plangate-pdp-eval-v1/
   manifests/
 ```
 
-後続runから過去出力が見えないよう、generator worktreeへこのrootをmount/copyしない。
+後続runから過去出力が見えないよう、generatorの独立checkout / model-visible environmentへこのrootをmount/copyしない。
 全run完了後にraw evidenceをrepository側へ取り込む。
 
 **Runtime prerequisite (operator machine)**
