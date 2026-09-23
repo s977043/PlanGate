@@ -59,9 +59,11 @@ failure_instance_ref:
   evidence_refs:
     - ...
 
-pattern_ref:
+pattern_snapshot:
   pattern_id: pattern:verification-skipped
   pattern_version: 1
+  classifier_digest: sha256:...
+  source_set_digest: sha256:...
   fingerprint: sha256:...
 ```
 
@@ -69,7 +71,7 @@ pattern_ref:
 
 - `failure_instance_ref` は観測事実への immutable reference。instance key は少なくとも `run_id + event_ref` に束縛し、cause hypothesis の改訂で同一 failure instance が別物にならないようにする。
 - `failure_record_ref` はその時点の immutable FailureRecord payload への content-addressed ref とし、instance key と分離する。
-- `pattern_ref` は Retrospective が導出する classification。
+- `pattern_snapshot` は Retrospective が Candidate 作成時点で固定する classification snapshot。独立 artifact への ref ではない。
 - `fingerprint` は dedup / similarity の補助。主キーではない。
 - pattern classifier を更新しても過去の Failure instance provenance は変えない。
 
