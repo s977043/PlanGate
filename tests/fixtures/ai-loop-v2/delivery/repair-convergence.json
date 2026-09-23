@@ -1,0 +1,169 @@
+{
+  "schema_version": "spec-1",
+  "kind": "ai_loop_v2_delivery_e2e_trace",
+  "scenario": "repair-convergence",
+  "authoritative": false,
+  "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "expected_projection": {
+    "outcome": "MERGE_READY",
+    "stop_reasons": [],
+    "verification_result_refs": [
+      "v1",
+      "v2",
+      "v3"
+    ],
+    "failure_record_refs": [
+      "f1"
+    ],
+    "evidence_status": "ready"
+  },
+  "events": [
+    {
+      "seq": 1,
+      "type": "run_started",
+      "state": "EXECUTING",
+      "revision": 0,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "seq": 2,
+      "type": "worker_completed",
+      "state": "VERIFYING",
+      "revision": 1,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence_ref": "worker:attempt-1"
+    },
+    {
+      "seq": 3,
+      "type": "verification_recorded",
+      "state": "VERIFYING",
+      "revision": 1,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "verification": {
+        "id": "v1",
+        "verifier_id": "deterministic.tests",
+        "kind": "deterministic",
+        "status": "fail",
+        "bound_artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "test:failure-1"
+        ]
+      }
+    },
+    {
+      "seq": 4,
+      "type": "verification_recorded",
+      "state": "VERIFYING",
+      "revision": 1,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "verification": {
+        "id": "v2",
+        "verifier_id": "independent.review",
+        "kind": "independent_model",
+        "status": "pass",
+        "bound_artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "review:pass-1"
+        ]
+      }
+    },
+    {
+      "seq": 5,
+      "type": "failure_recorded",
+      "state": "DIAGNOSING",
+      "revision": 2,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "failure": {
+        "id": "f1",
+        "observation": "deterministic tests failed",
+        "fingerprint": "verification:deterministic.tests:test_failure",
+        "evidence_refs": [
+          "v1"
+        ],
+        "cause_hypothesis": "implementation defect in changed artifact",
+        "repairability": "repairable",
+        "result": "open"
+      }
+    },
+    {
+      "seq": 6,
+      "type": "decision_made",
+      "state": "REPAIRING",
+      "revision": 3,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "decision": {
+        "action": "repair",
+        "inputs": [
+          "v1",
+          "v2",
+          "f1"
+        ],
+        "outcome": null,
+        "stop_reasons": []
+      }
+    },
+    {
+      "seq": 7,
+      "type": "artifact_changed",
+      "state": "REPAIRING",
+      "revision": 4,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "before_artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "after_artifact_ref": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "scope_ok": true,
+      "evidence_ref": "artifact:delta-1"
+    },
+    {
+      "seq": 8,
+      "type": "verification_recorded",
+      "state": "VERIFYING",
+      "revision": 5,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "verification": {
+        "id": "v3",
+        "verifier_id": "deterministic.tests",
+        "kind": "deterministic",
+        "status": "pass",
+        "bound_artifact_ref": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "evidence_refs": [
+          "test:pass-2"
+        ]
+      }
+    },
+    {
+      "seq": 9,
+      "type": "pr_convergence_recorded",
+      "state": "PR_CONVERGING",
+      "revision": 6,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "convergence": {
+        "ci": "pass",
+        "required_reviews": "pass",
+        "blocking_threads": 0,
+        "conflict": false,
+        "scope": "pass"
+      },
+      "evidence_refs": [
+        "pr:convergence-1"
+      ]
+    },
+    {
+      "seq": 10,
+      "type": "decision_made",
+      "state": "PR_CONVERGING",
+      "revision": 7,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "decision": {
+        "action": "stop",
+        "inputs": [
+          "v3",
+          "pr:convergence-1"
+        ],
+        "outcome": "MERGE_READY",
+        "stop_reasons": []
+      }
+    }
+  ]
+}
