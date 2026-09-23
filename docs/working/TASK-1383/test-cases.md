@@ -67,7 +67,7 @@
 | TC-40 | harness_manifest_ref changes in one event | reject |
 | TC-41 | merge_executed event appears | reject |
 
-TA-87 currently kills 10 mutation classes:
+TA-87 currently kills 11 mutation classes:
 1. Initial Plan Verification skipped
 2. Worker self-report completion
 3. model PASS overriding deterministic FAIL
@@ -78,3 +78,12 @@ TA-87 currently kills 10 mutation classes:
 8. retry-count-only NO_PROGRESS
 9. NO_PROGRESS used as Lifecycle State
 10. meaningful artifact delta mislabeled NO_PROGRESS
+11. Decision references a removed FailureRecord
+
+
+## Evidence reference integrity
+
+- every `decision.inputs[]` must resolve to an existing earlier evidence/reference in the same trace
+- future references are rejected
+- duplicate reference IDs are rejected
+- removing a FailureRecord while leaving its decision reference must fail even if the expected projection is also edited
