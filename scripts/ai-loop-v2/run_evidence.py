@@ -40,7 +40,7 @@ def _invalid_projection(
     return {
         "schema_version": EVIDENCE_SCHEMA_VERSION,
         "run_id": first.get("run_id"),
-        "harness_manifest_ref": expected_harness_manifest_ref,
+        "harness_manifest_ref": first.get("harness_manifest_ref"),
         "plan_hash": first.get("plan_hash"),
         "source_sha": first.get("source_sha"),
         "outcome": None,
