@@ -67,7 +67,7 @@
 | TC-40 | harness_manifest_ref changes in one event | reject |
 | TC-41 | merge_executed event appears | reject |
 
-TA-87 currently kills 11 mutation classes:
+TA-87 currently kills 13 mutation classes:
 1. Initial Plan Verification skipped
 2. Worker self-report completion
 3. model PASS overriding deterministic FAIL
@@ -76,9 +76,11 @@ TA-87 currently kills 11 mutation classes:
 6. active-run Harness drift
 7. auto merge side effect
 8. retry-count-only NO_PROGRESS
-9. NO_PROGRESS used as Lifecycle State
-10. meaningful artifact delta mislabeled NO_PROGRESS
-11. Decision references a removed FailureRecord
+9. Terminal Outcome event mixed with Lifecycle State
+10. NO_PROGRESS used as Lifecycle State
+11. meaningful artifact delta mislabeled NO_PROGRESS
+12. Decision references a removed FailureRecord
+13. HUMAN_ESCALATED without Stop Reason
 
 
 ## Evidence reference integrity
@@ -116,3 +118,17 @@ fi
 Review lesson:
 - a new `tests/extras/ta-*.sh` must satisfy both its task-specific assertions and the repository-wide extras meta-contract
 - "TA itself green" is not sufficient evidence; full `tests/run-tests.sh` is mandatory
+
+
+## Taxonomy-axis review
+
+Canonical taxonomy requires four orthogonal axes.
+
+Additional executable rules:
+- non-terminal events may carry a Lifecycle State
+- terminal `decision_made` with an Outcome does **not** simultaneously carry a Lifecycle State in this fixture
+- `MERGE_READY` has no Stop Reason
+- `HUMAN_ESCALATED` / `BLOCKED` require at least one Stop Reason
+- Stop Reason values can never be used as Lifecycle State values
+
+This keeps the fixture from implying that a terminal Run is still in `WAITING_HUMAN` or another non-terminal state.
