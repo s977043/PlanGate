@@ -19,6 +19,7 @@ Producer
        assign event_seq
        bind run/revision/manifest/source context
   -> #1391 finalize accepted RunEvent + canonical event_ref
+  -> #1391 validate_append(current_stream, candidate_event)
   -> #1392 commit
   -> accepted stream
   -> #1391 validate stream + deterministic projection
@@ -72,7 +73,8 @@ The draft does **not** choose authoritative `event_seq` or `event_ref`.
 The identity payload does not consult wall clock, environment, or live Git state.
 
 Rules:
-- event_seq is strictly increasing in an accepted stream
+- first accepted event_seq is 1
+- each next accepted event_seq is exactly previous + 1; gaps and duplicates are invalid
 - event_seq is independent from RunState revision
 - accepted stream contains unique event_ref values
 - same ref with different recomputed content is invalid
@@ -172,8 +174,11 @@ No durable writer.
 Define interfaces consumed by #1392/#1393:
 - validate_event_draft(value)
 - finalize_event(draft, bound_context, event_seq)
+- validate_append(current_stream, candidate_event)
 - validate_stream(values)
 - project_run_evidence(values, manifest_ref)
+
+#1392 must call `validate_append` while holding the durable lock **before** the transaction is committed. This is where prior-reference existence, terminality, binding continuity, and exact next sequence are checked.
 
 `finalize_event` computes the event_ref after #1392 has assigned authoritative sequence/bindings.
 
