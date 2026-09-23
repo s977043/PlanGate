@@ -170,7 +170,9 @@
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "before_artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "after_artifact_ref": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "changed_paths": [\n        "fixture://delivery/implementation.py"\n      ],
+      "changed_paths": [
+        "fixture://delivery/implementation.py"
+      ],
       "evidence_ref": "artifact:delta-1"
     },
     {
