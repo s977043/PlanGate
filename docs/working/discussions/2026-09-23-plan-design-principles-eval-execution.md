@@ -31,24 +31,47 @@ reviewer:
 
 PR #1336の効果はSkill本文だけでなくplan/test template変更を含むため、評価対象はPlan-generation harness差分である。
 
-## 3. Isolated worktree
+## 3. Isolated independent checkout
 
-各generationは新規detached worktreeを作る。
+各generationは **linked worktreeではなく、選択variant SHAだけを持つ独立checkout** を使う。
+model-visible checkoutからsource repo / peer variant / current mainのGit objectsへ到達できてはならない。
+
+operator materializationの例:
 
 ```sh
-git worktree add --detach "$WT" "$VARIANT_SHA"
+mkdir -p "$WT"
+git -C "$WT" init
+git -C "$WT" fetch --depth=1 "$SOURCE_URL" "$VARIANT_SHA"
+git -C "$WT" checkout --detach FETCH_HEAD
+
+# materialization後、model-visible execution前にsource取得経路を除去
+git -C "$WT" remote remove origin 2>/dev/null || true
+git -C "$WT" config --unset-all remote.origin.url 2>/dev/null || true
 ```
 
-run前に `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md` でblobを確認し、選択ケースの凍結済みPBIだけをbyte-for-byte copyする:
+上記は例であり、採用方式は§8.2のnegative controlsを満たす必要がある。
+特に次を必須とする。
+
+- selected SHAだけが取得可能
+- peer SHA / current main SHAの `git cat-file -e` は失敗
+- shared `git-common-dir` なし
+- source/peerを指す alternates なし
+- partial-clone/promisor なし
+- source remoteなし
+- model-visible runtimeからsource repo path / socket / mountへ到達不能
+
+run前に `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md` でblobを確認し、
+選択ケースの凍結済みPBIだけをbyte-for-byte copyする:
 
 ```text
 $WT/docs/working/TASK-EVAL-PDPXX/pbi-input.md
 ```
 
-へコピーする。source文書からrun時に再生成しない。
+source文書からrun時に再生成しない。
 
 禁止:
-- current mainのeval plan/rubricをworktreeへコピー
+- linked worktreeをgenerator checkoutに使う
+- current mainのeval plan/rubricをcheckoutへコピー
 - 他7ケースをコピー
 - 過去run outputをコピー
 - workspace間でCodex threadをresume
@@ -196,7 +219,7 @@ $TMPDIR/plangate-pdp-eval-v1/
 - pair judgment
 をrepoへ取り込む。
 
-run中のoutput rootをgenerator worktreeから読める場所へ置かない。
+run中のoutput rootをgeneratorの独立checkout / model-visible environmentから読める場所へ置かない。
 
 ## 8.1 Runtime compatibility freeze
 
@@ -361,7 +384,7 @@ SmokeはP01〜P24を一切消費しない。**3 callsだけ**実施する。
 
 ### Smoke A/B — baseline / candidate generator surface
 
-各variantのdetached worktreeに、評価8ケースとは無関係な一時入力だけを作る。
+各variantの独立checkoutに、評価8ケースとは無関係な一時入力だけを作る。
 
 ```text
 docs/working/TASK-EVAL-SMOKE/pbi-input.md
