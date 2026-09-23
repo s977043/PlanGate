@@ -30,6 +30,7 @@ _ALLOWED_VERIFICATION_KIND = {
     "policy",
 }
 _ALLOWED_ACTIONS = {"continue", "repair", "replan", "stop"}
+_ALLOWED_POLICY_VERDICTS = {"AUTO_APPROVED", "HUMAN_REQUIRED", "DENIED"}
 _ALLOWED_OUTCOMES = {
     "MERGE_READY",
     "HUMAN_ESCALATED",
@@ -362,7 +363,11 @@ def _validate_payload(event_type: str, payload: Any) -> dict[str, Any]:
         _require(all(r in _ALLOWED_STOP_REASONS for r in reasons),
                  "decision.stop_reasons: invalid reason")
         if "policy_verdicts" in p:
-            _require_string_list(p["policy_verdicts"], "policy_verdicts")
+            verdicts = _require_string_list(p["policy_verdicts"], "policy_verdicts")
+            _require(
+                all(v in _ALLOWED_POLICY_VERDICTS for v in verdicts),
+                "policy_verdicts: invalid verdict",
+            )
 
         if outcome is not None:
             _require(p["action"] == "stop", "terminal outcome requires action=stop")
@@ -517,13 +522,31 @@ def validate_event(event: Any) -> dict[str, Any]:
     return copy.deepcopy(event)
 
 
-def registered_refs(event: Mapping[str, Any]) -> list[str]:
-    refs: list[str] = [event["event_ref"]]
-    refs.extend(event.get("evidence_refs", []))
+def owned_refs(event: Mapping[str, Any]) -> dict[str, str]:
+    """Return identifiers owned/defined by this event.
+
+    evidence_refs are links and are intentionally not owned identifiers.
+    """
+    refs: dict[str, str] = {event["event_ref"]: "run_event"}
     payload = event["payload"]
     for field in _REF_FIELDS_BY_EVENT[event["event_type"]]:
-        refs.append(payload[field])
+        ref = payload[field]
+        _require(
+            ref not in refs,
+            f"duplicate owned reference inside event: {ref}",
+            StreamContractError,
+        )
+        refs[ref] = event["event_type"]
     return refs
+
+
+def registered_refs(event: Mapping[str, Any]) -> list[str]:
+    """Compatibility/debug view of owned refs plus evidence links.
+
+    Uniqueness is enforced only for owned refs. evidence_refs may be reused
+    by multiple events because several artifacts can cite the same evidence.
+    """
+    return list(owned_refs(event)) + list(event.get("evidence_refs", []))
 
 
 def _terminal_outcome(event: Mapping[str, Any]) -> str | None:
@@ -532,23 +555,44 @@ def _terminal_outcome(event: Mapping[str, Any]) -> str | None:
     return event["payload"].get("outcome")
 
 
-def _prior_ref_set(events: Sequence[Mapping[str, Any]]) -> set[str]:
-    refs: set[str] = set()
+def _prior_ref_registry(
+    events: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, str], set[str]]:
+    owners: dict[str, str] = {}
+    evidence_links: set[str] = set()
     for event in events:
-        for ref in registered_refs(event):
+        event_owned = owned_refs(event)
+        for ref, kind in event_owned.items():
             _require(
-                ref not in refs,
-                f"duplicate registered reference in accepted stream: {ref}",
+                ref not in owners,
+                f"duplicate owned reference in accepted stream: {ref}",
                 StreamContractError,
             )
-            refs.add(ref)
-    return refs
+            _require(
+                ref not in evidence_links,
+                f"owned reference collides with earlier evidence link: {ref}",
+                StreamContractError,
+            )
+            owners[ref] = kind
+        for ref in event.get("evidence_refs", []):
+            # Evidence links may repeat and may intentionally cite an already
+            # owned semantic record (for example FailureRecord -> VerificationResult).
+            evidence_links.add(ref)
+    return owners, evidence_links
 
 
 def _validate_append_against_validated(
     current_stream: Sequence[Mapping[str, Any]],
     candidate: Mapping[str, Any],
 ) -> None:
+    candidate_owned = owned_refs(candidate)
+    candidate_evidence = set(candidate.get("evidence_refs", []))
+    _require(
+        not (set(candidate_owned) & candidate_evidence),
+        "candidate evidence link cannot self-reference an owned identifier",
+        StreamContractError,
+    )
+
     if not current_stream:
         _require(candidate["event_seq"] == 1, "first event_seq must be 1", StreamContractError)
         _require(
@@ -579,27 +623,25 @@ def _validate_append_against_validated(
         StreamContractError,
     )
 
-    prior_refs = _prior_ref_set(current_stream)
-    candidate_refs = registered_refs(candidate)
-    candidate_ref_set: set[str] = set()
-    for ref in candidate_refs:
+    prior_owned, prior_evidence = _prior_ref_registry(current_stream)
+    for ref in candidate_owned:
         _require(
-            ref not in candidate_ref_set,
-            f"duplicate reference inside candidate event: {ref}",
+            ref not in prior_owned,
+            f"duplicate owned reference: {ref}",
             StreamContractError,
         )
-        candidate_ref_set.add(ref)
         _require(
-            ref not in prior_refs,
-            f"duplicate registered reference: {ref}",
+            ref not in prior_evidence,
+            f"owned reference collides with prior evidence link: {ref}",
             StreamContractError,
         )
 
+    resolvable_prior_refs = set(prior_owned) | prior_evidence
     payload = candidate["payload"]
     if candidate["event_type"] == "decision_made":
         for ref in payload["input_refs"]:
             _require(
-                ref in prior_refs,
+                ref in resolvable_prior_refs,
                 f"decision input is not prior evidence: {ref}",
                 StreamContractError,
             )
@@ -608,8 +650,8 @@ def _validate_append_against_validated(
         for field in ("previous_failure_ref", "current_failure_ref"):
             ref = payload[field]
             _require(
-                ref in prior_refs,
-                f"progress assessment references unknown prior failure: {ref}",
+                prior_owned.get(ref) == "failure_recorded",
+                f"progress assessment reference is not a prior FailureRecord: {ref}",
                 StreamContractError,
             )
 
@@ -661,6 +703,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "canonical_event_ref",
     "finalize_event",
+    "owned_refs",
     "registered_refs",
     "validate_append",
     "validate_event",
