@@ -178,6 +178,9 @@ class StateStoreTests(unittest.TestCase):
             store.transition(0, "PLAN_VERIFYING", self._draft())
             with self.assertRaises(StateConflict):
                 store.transition(0, "EXECUTING", self._draft())
+            self.assertEqual(store.read_state()["revision"], 1)
+            self.assertEqual(len(store.read_events()), 2)
+            self.assertEqual(store.read_events()[-1]["event_type"], "state_conflict_recorded")
 
 
 class DecisionTests(unittest.TestCase):
