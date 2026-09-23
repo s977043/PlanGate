@@ -3,7 +3,7 @@
 > Parent: #870
 > Unblocks: #1381
 > Goal: ai-loop V2 Delivery first release boundary を executable evidence で成立させる
-> Status: CONTRACT INTEGRATION READY / RUNTIME BLOCKED
+> Status: EXECUTABLE SPECIFICATION IN PROGRESS / PRODUCTION RUNTIME BLOCKED
 
 ## Current facts
 
@@ -107,3 +107,30 @@ The exact terminal outcome is determined by existing policy/decision contract. #
 - new top-level artifact
 - Legacy ai-loop promotion to V2 canon
 - Production auto-merge
+
+
+## Review refinement — executable spec before runtime
+
+#870 の DoD が要求するのは **Delivery first release boundary の E2E fixture が CI で通ること**であり、Production runtime の存在ではない。
+
+また #1329 は **inactive fixture / evidence-only change は semantic invalidation rule だけでは invalidation としない** と明記している。
+
+したがって #1383 の第一実装は `scripts/ai-loop-v2/**` ではなく、tests 配下の **non-authoritative executable specification** とする。
+
+```text
+tests/fixtures/ai-loop-v2/delivery/
+  repair-convergence.json
+  no-progress-stop.json
+
+tests/extras/
+  ta-87-ai-loop-v2-delivery-e2e.sh
+```
+
+この spec は:
+- canon / owner issue の現時点 semantic を検証可能な event trace として固定する
+- Production dispatcher / state store / verifier / Decision Engine ではない
+- owner contract の代替正本にならない
+- M-2 を動かさない
+- runtime 実装時には同じ fixture を production adapter に対して再利用する
+
+これにより Delivery-before-Evolution gate を **runtime namespace を作る前に**検証できる。
