@@ -72,6 +72,43 @@ PlanGate の `docs/working/TASK-XXXX/` 配下を **L0〜L3 の Progressive Discl
 - **status.md のフェーズ履歴は `YYYY-MM-DD HH:mm`（分まで）を必須**とする（#463）。日付のみ・時刻欠落は不可。セッション跨ぎ・同日複数フェーズ遷移の順序を一意に追跡するため。テンプレート: `docs/working/templates/status.md`（**配布対象外**。解決できない環境では本ルールの書式要求のみを満たす）
 - handoff.md は WF-05 完了時に 1 回発行（6 要素は `.claude/rules/working-context.md` → fallback `<plugin_root>/rules/working-context.md` および `docs/working/templates/handoff.md` を正本とする。**テンプレートは配布対象外**なので、解決できない環境では rules 側の「handoff（WF-05 完了資産 / Rule 5）」節を唯一の正本とする）
 
+## Context Lifecycle / fresh-context transition (#1410)
+
+会話履歴を次セッションへ持ち越すのではなく、**現在の canonical state を checkpoint して
+fresh context から再開する**。fresh context は workflow reset ではなく、C-3/C-4・plan
+binding・evidence・Human-owned authority はそのまま維持する。
+
+### checkpoint → fresh context の trigger
+
+以下は checkpoint 後に fresh context へ切り替える:
+
+- **必須**: worker / agent / model / runtime の変更、独立 reviewer の開始、worker 間 handoff、
+  外部待ち・使用量上限による意図的中断
+- **推奨**: compaction / context pressure が近い、phase 遷移で必要 working set が変わる、
+  repair/review loop で superseded な議論が蓄積した
+
+provider 非依存の token 閾値は推測で作らない。usage が信頼できる形で取得できる場合のみ
+補助情報として使う。
+
+### checkpoint 手順
+
+1. material な最終判断を canonical `plan.md` / `decision-log.jsonl` / ADR へ反映する。
+2. `INDEX.md` と `current-state.md` を実態に合わせて更新する。
+3. test/review の結果は既存 evidence/report/Review Artifact に保存し、L0 には参照と要約だけを残す。
+4. ownership が変わる場合は `local-exec-handoff` または
+   `context-packager` + `dispatch/*` を使う。
+5. 次 context は会話 transcript を渡さず **L0 → phase-required L1 → L2/L3 on demand** で再開する。
+
+必須 state が missing / stale と分かっている場合、それを resumable checkpoint として扱わない。
+degrade を記録して canonical state を修復してから引き継ぐ。
+
+**保存禁止**: hidden chain-of-thought、raw chat transcript、既存 evidence で代替できる raw tool
+stream、secret / credential / personal data。独立 reviewer は implementer の会話 reasoning を
+引き継がず review package + diff + evidence から開始する。
+
+上流 integration map: `docs/ai/context-lifecycle.md`（導入先では docs が配布されないため、
+解決できなくても本節の運用契約は維持する）。
+
 ## CLI 呼び出し
 
 > **前提（Human 決定 #1144）**: plugin / `install.sh --claude` / Codex が導入先へ配るのは
