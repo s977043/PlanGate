@@ -78,6 +78,23 @@ def validate_one(json_path: Path) -> tuple[str, str]:
             "FAIL",
             f"{json_path.name} ↔ {schema_path.name}: {len(errors)} error(s); first at {path}: {first.message}",
         )
+
+    # #1389: Intent Context Package has cross-reference/provenance invariants
+    # that JSON Schema alone cannot express. CI must not report a false green
+    # for schema-valid but semantically invalid context artifacts.
+    if json_path.name == "intent-context.json":
+        try:
+            from intent_context_contract import validate_semantics
+        except ImportError as e:
+            return ("ERROR", f"intent context semantic validator unavailable: {e}")
+        semantic_errors = validate_semantics(instance)
+        if semantic_errors:
+            return (
+                "FAIL",
+                f"{json_path.name} semantic validation: {len(semantic_errors)} error(s); "
+                f"first: {semantic_errors[0]}",
+            )
+
     return ("PASS", f"{json_path.name} ↔ {schema_path.name}")
 
 
