@@ -258,12 +258,17 @@ def validate_semantics(payload: dict[str, Any]) -> list[str]:
         if ref.startswith("/") or _WINDOWS_ABS.match(ref):
             errors.append(f"{src['source_id']} uses non-portable absolute local path")
         if src.get("authority") == "authoritative":
-            if src.get("authority_basis", {}).get("kind") == "unverified_default":
+            authority_basis = src.get("authority_basis", {})
+            if (
+                authority_basis.get("kind") == "unverified_default"
+                or not authority_basis.get("ref")
+            ):
                 errors.append(f"{src['source_id']} authoritative source lacks valid authority basis")
         if src.get("freshness") == "current":
             if not (src.get("revision_ref") or src.get("content_digest")):
                 errors.append(f"{src['source_id']} current source lacks observed identity")
-            if src.get("freshness_basis", {}).get("kind") == "unavailable":
+            freshness_basis = src.get("freshness_basis", {})
+            if freshness_basis.get("kind") == "unavailable" or not freshness_basis.get("ref"):
                 errors.append(f"{src['source_id']} current source lacks freshness evidence")
 
     return errors
