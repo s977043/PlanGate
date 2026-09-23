@@ -13,13 +13,34 @@ concurrency:
 jobs:
   canary:
     name: Read-only OAuth subscription canary
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       ANTHROPIC_API_KEY: ""
+      ANTHROPIC_BASE_URL: ""
+      ANTHROPIC_CUSTOM_HEADERS: ""
 
     steps:
+      - name: Enforce canary execution boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::This canary may only run from refs/heads/main."
+            exit 1
+          fi
+
+          if [ "${RUNNER_ENVIRONMENT:-}" != "github-hosted" ]; then
+            echo "::error::This canary requires a GitHub-hosted runner."
+            exit 1
+          fi
+
+          if [ "${RUNNER_DEBUG:-}" = "1" ]; then
+            echo "::error::Debug logging is forbidden because Claude full output may be exposed."
+            exit 1
+          fi
+
       - name: Checkout trusted main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
