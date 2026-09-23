@@ -94,6 +94,7 @@ jobs:
             Return the structured result required by the JSON schema.
           claude_args: >-
             --max-turns 4
+            --permission-mode dontAsk
             --allowedTools "Read,Glob,Grep"
             --json-schema '{"type":"object","additionalProperties":false,"required":["status","checked_files","summary"],"properties":{"status":{"type":"string","enum":["READ_ONLY_OK"]},"checked_files":{"type":"array","items":{"type":"string"},"minItems":2},"summary":{"type":"string","maxLength":500}}}'
 
