@@ -32,6 +32,18 @@ PASS.
 
 PR convergence may carry a scope verdict from deterministic observer, but #1393 does not calculate changed paths or trust Worker scope_ok.
 
+### R-6 — repairability free text would make Decision non-deterministic
+
+Resolved by first-slice enum:
+- repairable
+- replan_required
+
+Unknown values reject.
+
+### R-7 — Policy Verdict mapping was under-specified
+
+Resolved by not inventing it. First slice only accepts empty/ALLOW for automatic decision. Other policy values fail closed and cannot reach success.
+
 ## Verdict
 
 PASS for plan. Production code gated by event contract and #1329 preflight.
