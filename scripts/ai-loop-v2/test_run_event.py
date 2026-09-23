@@ -47,14 +47,7 @@ def event(event_type, payload, seq, *, revision=0, evidence_refs=None, ctx=None)
 def base_stream():
     e1 = event(
         "plan_contract_bound",
-        {
-            "contract_ref": "loop-contract:test",
-            "acceptance_refs": ["ac:delivery"],
-            "allowed_scope": ["src/**"],
-            "required_verifiers": ["deterministic.tests"],
-            "budget": {"max_repair_rounds": 2},
-            "task_profile": "test",
-        },
+        {"contract_ref": "loop-contract:test"},
         1,
     )
     return [e1]
