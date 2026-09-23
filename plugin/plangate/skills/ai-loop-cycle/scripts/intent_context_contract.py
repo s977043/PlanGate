@@ -35,7 +35,8 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 AI_LOOP_DIR = HERE / "ai-loop"
-sys.path.insert(0, str(AI_LOOP_DIR))
+CONTRACT_MODULE_DIR = AI_LOOP_DIR if AI_LOOP_DIR.is_dir() else HERE
+sys.path.insert(0, str(CONTRACT_MODULE_DIR))
 import c3_contract  # noqa: E402
 
 SCHEMA_PATH = REPO / "schemas" / "intent-context-package.schema.json"
