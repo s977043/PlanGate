@@ -60,6 +60,14 @@ if python3 -c 'import jsonschema' >/dev/null 2>&1; then
     fail=$((fail + 1))
   fi
 
+  if python3 "$_t05_root/tests/test_plan_contract_context_binding.py" >/dev/null 2>&1; then
+    printf '[PASS] Plan Contract Context binding scenarios pass\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] Plan Contract Context binding scenarios failed\n'
+    fail=$((fail + 1))
+  fi
+
   if sh "$PLANGATE_BIN" validate-schemas 2>&1 | grep -q 'Usage'; then
     printf '[PASS] validate-schemas: no args emits Usage text\n'
     pass=$((pass + 1))
