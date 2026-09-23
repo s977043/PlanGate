@@ -1,0 +1,166 @@
+{
+  "schema_version": "spec-1",
+  "kind": "ai_loop_v2_delivery_e2e_trace",
+  "scenario": "no-progress-stop",
+  "authoritative": false,
+  "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "expected_projection": {
+    "outcome": "HUMAN_ESCALATED",
+    "stop_reasons": [
+      "NO_PROGRESS"
+    ],
+    "verification_result_refs": [
+      "v1",
+      "v2"
+    ],
+    "failure_record_refs": [
+      "f1",
+      "f2"
+    ],
+    "evidence_status": "ready"
+  },
+  "events": [
+    {
+      "seq": 1,
+      "type": "run_started",
+      "state": "EXECUTING",
+      "revision": 0,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "seq": 2,
+      "type": "verification_recorded",
+      "state": "VERIFYING",
+      "revision": 1,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "verification": {
+        "id": "v1",
+        "verifier_id": "deterministic.tests",
+        "kind": "deterministic",
+        "status": "fail",
+        "bound_artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "test:failure-1"
+        ]
+      }
+    },
+    {
+      "seq": 3,
+      "type": "failure_recorded",
+      "state": "DIAGNOSING",
+      "revision": 2,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "failure": {
+        "id": "f1",
+        "observation": "deterministic tests failed",
+        "fingerprint": "verification:deterministic.tests:test_failure",
+        "evidence_refs": [
+          "v1"
+        ],
+        "cause_hypothesis": "implementation defect in changed artifact",
+        "repairability": "repairable",
+        "result": "open"
+      }
+    },
+    {
+      "seq": 4,
+      "type": "decision_made",
+      "state": "REPAIRING",
+      "revision": 3,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "decision": {
+        "action": "repair",
+        "inputs": [
+          "v1",
+          "f1"
+        ],
+        "outcome": null,
+        "stop_reasons": []
+      }
+    },
+    {
+      "seq": 5,
+      "type": "repair_attempted",
+      "state": "REPAIRING",
+      "revision": 4,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "before_artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "after_artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence_delta": [],
+      "resolved_blockers": [],
+      "introduced_blockers": [],
+      "evidence_ref": "repair:attempt-2"
+    },
+    {
+      "seq": 6,
+      "type": "verification_recorded",
+      "state": "VERIFYING",
+      "revision": 5,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "verification": {
+        "id": "v2",
+        "verifier_id": "deterministic.tests",
+        "kind": "deterministic",
+        "status": "fail",
+        "bound_artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_refs": [
+          "test:failure-2"
+        ]
+      }
+    },
+    {
+      "seq": 7,
+      "type": "failure_recorded",
+      "state": "DIAGNOSING",
+      "revision": 6,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "failure": {
+        "id": "f2",
+        "observation": "deterministic tests failed",
+        "fingerprint": "verification:deterministic.tests:test_failure",
+        "evidence_refs": [
+          "v2"
+        ],
+        "cause_hypothesis": "same implementation defect remains",
+        "repairability": "repairable",
+        "result": "repeated"
+      }
+    },
+    {
+      "seq": 8,
+      "type": "progress_assessed",
+      "state": "DIAGNOSING",
+      "revision": 6,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "progress": {
+        "previous_failure_fingerprint": "verification:deterministic.tests:test_failure",
+        "current_failure_fingerprint": "verification:deterministic.tests:test_failure",
+        "artifact_changed": false,
+        "evidence_delta": [],
+        "resolved_blockers": [],
+        "introduced_blockers": [],
+        "no_progress": true
+      }
+    },
+    {
+      "seq": 9,
+      "type": "decision_made",
+      "state": "WAITING_HUMAN",
+      "revision": 7,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "decision": {
+        "action": "stop",
+        "inputs": [
+          "v2",
+          "f2",
+          "progress:8"
+        ],
+        "outcome": "HUMAN_ESCALATED",
+        "stop_reasons": [
+          "NO_PROGRESS"
+        ]
+      }
+    }
+  ]
+}
