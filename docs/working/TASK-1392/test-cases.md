@@ -24,7 +24,9 @@
 | ST-20 | stale temp file | deterministic cleanup/ignore under lock |
 | ST-21 | retry same expected revision after committed transition | conflict, no duplicate transition |
 | ST-22 | multiple non-state events one transaction | contiguous event_seq; revision unchanged |
-| ST-23 | transition + other events | state_transitioned is transaction-final event |
+| ST-23 | non-terminal transition + other events | state_transitioned is transaction-final event |
+| ST-23a | terminal decision + state transition request | reject before commit |
+| ST-23b | terminal decision only | commit without RunState revision increment |
 | ST-24 | terminal stream then append | reject through #1391 |
 | ST-25 | direct event writer duplicated in #1392 | static boundary FAIL |
 | ST-26 | merge/promotion primitive | static boundary FAIL |
