@@ -56,6 +56,8 @@ Implement a storage-agnostic V2 event/evidence core that can be consumed by:
 ## Key constraints
 
 - `event_seq` != RunState `revision`
+- accepted stream contains no duplicate `event_ref`
+- retry/idempotency is handled by #1392 before append: exact replay returns the already accepted event instead of appending a duplicate
 - same `event_ref` + different content => invalid
 - producer cannot self-declare receiver-derived `evidence_status`
 - raw transcript / hidden CoT / secrets are forbidden
@@ -64,6 +66,8 @@ Implement a storage-agnostic V2 event/evidence core that can be consumed by:
 - HUMAN_ESCALATED / BLOCKED require Stop Reason
 - Legacy schema/runtime remain unchanged
 - no durable JSONL writer in #1391
+- producer does not choose authoritative `event_seq`; #1392 assigns sequence under the durable commit boundary
+- `event_ref` is derived only after the accepted envelope is fully bound
 
 ## Dependencies
 
