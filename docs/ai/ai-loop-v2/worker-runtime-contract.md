@@ -99,12 +99,25 @@ effective_capabilities:
 
 導出元:
 
-- task / acceptance / allowed scope / budget: LoopContract
+- task / acceptance / allowed scope / budget / paid-fallback permission / execution bounds: LoopContract
 - revision / binding / pending action: RunState
-- runtime / policy identity: HarnessManifest + Worker Runtime configuration
-- backend / auth / billing: Worker Runtime Contract
+- runtime / routing-policy / policy-profile identity: HarnessManifest
+- selected backend / auth class / availability: approved policyを満たした attempt-time observation
+
+Worker の local configuration や environment variable は authority ではない。既存 contract / manifest を満たすかを検証する入力に限る。
 
 **derived view 自体に新しい authority を持たせない。**
+
+### Active-run immutability
+
+Run 開始後に Worker local config が変わっても、approved policy を暗黙変更してはならない。
+
+- paid fallback permission / budget / execution bounds は active Run 中に拡張しない
+- routing / policy identity は `harness_manifest_ref` が指す内容から drift させない
+- environment 差分が approved policy と矛盾する場合は provider call 前に fail
+- policy を変更して続行したい場合は、既存の Replan / new revision / new Run 境界を通す
+
+attempt-time observation（選ばれた backend、auth class、availability）は Event / FailureRecord に残せるが、それ自体が policy を書き換える根拠にはならない。
 
 ## 6. Authentication / billing invariant
 
@@ -326,6 +339,7 @@ production harness を作る前に、少なくとも以下を executable fixture
 | WR-13 | Worker requests wider write/tool scope | dispatch 前に fail |
 | WR-14 | cross-runtime target requested | direct fallbackせず reroute requirement |
 | WR-15 | clean runner resume | persistent workspace / conversation なしで next action を導出可能 |
+| WR-16 | worker config / environment drift widens billing, timeout, scope or backend permission | provider call 前に fail。policy変更はReplan/new revision境界へ |
 
 ## 16. Phase 1A exit criteria
 
@@ -334,10 +348,11 @@ production harness を作る前に、少なくとも以下を executable fixture
 - [ ] responsibility matrix が existing V2 artifact owner と重複しない
 - [ ] new top-level Worker artifact を追加していない
 - [ ] subscription-only auth / billing invariant が固定されている
+- [ ] active-run worker policy immutability が固定され、local config が authority にならない
 - [ ] effective capability boundary の owner が固定されている
 - [ ] intent / attempt / receipt / CAS の責務分離が固定されている
 - [ ] W1-W8 crash window が定義され、W3/W5 が外部 controller evidence の信頼境界を持つ
-- [ ] WR-01〜WR-15 + WR-08b を実装可能な fixture specification として説明できる
+- [ ] WR-01〜WR-16 + WR-08b を実装可能な fixture specification として説明できる
 - [ ] cancellation / timeout が fail-open しない
 - [ ] raw transcript / hidden CoT / credential を永続化しない
 - [ ] persistent Worker / workspace が Run SSoT でない
