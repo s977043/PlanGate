@@ -91,16 +91,19 @@ def _blocking_deterministic_fail(verifications, artifact_ref):
     )
 
 
-def _required_unavailable(verifications, required_verifiers):
+def _required_verifier_state(verifications, required_verifiers):
     by_id = {}
     for value in verifications:
         by_id[value.get("verifier_id")] = value
     blocked = []
+    missing = []
     for verifier_id in required_verifiers:
         value = by_id.get(verifier_id)
-        if value is not None and value.get("status") in {"unavailable", "inconclusive"}:
+        if value is None:
+            missing.append(verifier_id)
+        elif value.get("status") in {"unavailable", "inconclusive"}:
             blocked.append(value)
-    return blocked
+    return blocked, missing
 
 
 def decide(
@@ -117,9 +120,13 @@ def decide(
 ):
     if not isinstance(loop_contract, dict) or not isinstance(run_state, dict):
         raise DecisionError("contract/state")
-    unavailable = _required_unavailable(
+    unavailable, missing_required = _required_verifier_state(
         verifications, list(loop_contract.get("required_verifiers") or [])
     )
+    if missing_required:
+        raise DecisionError(
+            "required verifier result missing: " + ",".join(sorted(missing_required))
+        )
     if unavailable:
         return {
             "action": "stop",
