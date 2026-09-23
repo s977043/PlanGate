@@ -90,18 +90,18 @@ Active Run 中の Harness identity は [`harness-manifest.md`](./harness-manifes
 
 ### Static Workflow（default）
 
-実行前に node / edge / branch / join の候補が確定しており、runtime はその定義済み経路を評価・実行する。
+実行前に graph shape と transition rule が確定しており、runtime は定義済み条件を評価して経路を実行する。
 
 ```text
 Request -> Plan -> Build -> Verify -> PR
-                    \-> Repair -> Verify
+                    └-> Repair -> Verify
 ```
 
 単純・反復可能・安全境界が明確な処理では、Static Workflow を優先する。
 
 ### Adaptive Routing
 
-node catalog と許可 edge は事前定義し、**どの経路を通るか**だけを runtime の Evidence / State / Policy に基づいて決める。
+node catalog と安全境界は事前定義し、**次にどの既知 node へ遷移するか**を runtime の Evidence / State / Policy に基づいて選択する。Static Workflow と異なり、transition target を個別の固定条件へ完全には焼き込まない。
 
 ```text
 Known nodes / allowed edges
@@ -138,9 +138,9 @@ runtime が変更してはいけない対象:
 
 > **Dynamic topology does not mean dynamic authority.**
 
-### Runtime Graph Decision Contract
+### Runtime Graph Decision Record（informative shape）
 
-runtime graph の構成・遷移判断は、少なくとも次へ束縛する。
+runtime graph の構成・遷移判断は、少なくとも次の情報へ束縛できる必要がある。**これは新しい schema / SSoT ではない。** Work Item Graph / assignment の正式 contract は #911、durable state は #1025 を owner とし、persisted schema が必要になった時点で owner 側に定義する。
 
 ```yaml
 graph_decision:
@@ -148,11 +148,13 @@ graph_decision:
   graph_revision: 0
   observed_state_ref: ""
   evidence_refs: []
+  convergence_decision_ref: ""
   policy_ref: ""
   allowed_node_types: []
   allowed_edges_ref: ""
   decision:
-    action: route | spawn | join | repair | replan | wait | resume | recover | stop
+    action: route | spawn | join | wait | resume | recover | terminate
+    route_kind: normal | repair | replan | recovery
     target_nodes: []
   context_refs: []
   budget_ref: ""
@@ -161,7 +163,7 @@ graph_decision:
 
 原則:
 
-1. decision は current RunState / Evidence / Contract / Policy から導出する。
+1. Graph decision は current RunState / Evidence / Contract / Policy と、必要に応じて #894 が所有する convergence decision から導出する。Graph 自身が repair / replan の要否を再判定しない。
 2. 新しい node type / authority / permission を実行中に創設しない。
 3. worker 数・parallelism・token / time / cost は事前定義 budget を超えない。
 4. join condition は worker の自己申告ではなく Evidence で判定する。
