@@ -5,10 +5,13 @@
 | ID | Condition | Expected |
 |---|---|---|
 | EV-01 | valid minimum event | accepted |
-| EV-02 | duplicate event_ref / same content | deterministic duplicate handling; no second semantic event |
-| EV-03 | duplicate event_ref / different content | reject |
+| EV-02 | accepted stream contains duplicate event_ref / same content | invalid stream; idempotent retry must have been absorbed by #1392 before append |
+| EV-03 | duplicate event_ref / different content | invalid / reject tamper |
 | EV-04 | event_seq decreases | reject |
-| EV-05 | event_seq duplicate for different event | reject |
+| EV-05 | event_seq duplicate for different event | invalid |
+| EV-05a | producer draft tries to supply authoritative event_seq/event_ref | reject draft |
+| EV-05b | #1392 assigns next event_seq then #1391 finalizes | accepted |
+| EV-05c | recomputed canonical event_ref differs from stored ref | invalid |
 | EV-06 | revision differs while event_seq advances | allowed when event type permits |
 | EV-07 | harness_manifest_ref changes mid-run | reject |
 | EV-08 | unknown terminal/state taxonomy value | reject |
@@ -31,7 +34,8 @@
 | PJ-01 | same stream twice | same semantic projection |
 | PJ-02 | unfinished stream | evidence_status=partial |
 | PJ-03 | valid terminal stream | evidence_status=ready |
-| PJ-04 | binding mismatch | invalid |
+| PJ-04 | readable binding mismatch | evidence_status=invalid |
+| PJ-04a | malformed JSON / unusable envelope | reject; no RunEvidence fabricated |
 | PJ-05 | multiple terminal outcomes | invalid |
 | PJ-06 | event after terminal outcome | invalid |
 | PJ-07 | MERGE_READY + Stop Reason | invalid |
