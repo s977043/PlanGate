@@ -25,12 +25,21 @@ if python3 -c 'import jsonschema' >/dev/null 2>&1; then
 
   _t05_root="$(CDPATH= cd -- "$(dirname "$PLANGATE_BIN")/.." && pwd)"
   _t05_intent_fixture="$_t05_root/tests/fixtures/intent-context/valid/intent-context.json"
+  _t05_intent_invalid="$_t05_root/tests/fixtures/intent-context/invalid/intent-context.json"
 
   if sh "$PLANGATE_BIN" validate-schemas "$_t05_intent_fixture" >/dev/null 2>&1; then
     printf '[PASS] Intent Context Package fixture passes schema mapping/validation\n'
     pass=$((pass + 1))
   else
     printf '[FAIL] Intent Context Package fixture — expected schema PASS\n'
+    fail=$((fail + 1))
+  fi
+
+  if ! sh "$PLANGATE_BIN" validate-schemas "$_t05_intent_invalid" >/dev/null 2>&1; then
+    printf '[PASS] schema-valid semantic-invalid Intent Context fixture fails closed\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] semantic-invalid Intent Context fixture produced false green\n'
     fail=$((fail + 1))
   fi
 
