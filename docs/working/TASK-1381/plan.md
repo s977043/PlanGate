@@ -63,6 +63,7 @@ Planning / contract drafting は進めてよいが、Evolution runtime implement
 
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/source-bundle.json`
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/candidate.json`
+- `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/evaluation-plan.json` — evaluator-owned / sealed
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/baseline-manifest.json`
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/candidate-manifest.json`
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/known-bad.json`
@@ -115,7 +116,7 @@ expected_prevention:
   mode: stop
   expected_effect: ...
 baseline_manifest_ref: sha256:...
-evaluation_plan_digest: sha256:...
+evaluation_plan_digest: sha256:... # evaluator-owned evaluation-plan.json の再計算値と一致必須
 ```
 
 ### HarnessExperimentResult
@@ -144,6 +145,7 @@ result: PASS
 
 ### FAIL
 
+- source payload digest / source-set digest の改ざん・不整合
 - critical regression
 - known-bad が candidate 後も miss
 - negative control が false-positive
@@ -153,7 +155,8 @@ result: PASS
 ### INCONCLUSIVE
 
 - baseline / candidate manifest ref 欠落
-- evaluation plan digest mismatch
+- evaluator-owned sealed evaluation plan から再計算した digest と Candidate の digest が不一致
+- source refs / source-set digest を evaluator が再検証できない
 - activation が required level 未満
 - prevention evidence が未実行 / unavailable
 - identity binding を再検証できない
@@ -174,9 +177,11 @@ result: PASS
 
 1. Candidate / Experiment schema field mappingを Plan 上で固定
 2. fixture layout / source binding / expected resultsを固定
-3. RED test cases / mutation matrixを固定
-4. #1383 Delivery E2E evidence linkを取得
-5. #1329 M-1 / M-2 / M-3 base measurement手順を handoff に用意
+3. evaluator-owned `evaluation-plan.json` と canonical fixture digest 規則を固定
+4. `source_set_digest` の evaluator-side recomputation 規則を固定
+5. RED test cases / mutation matrixを固定
+6. #1383 Delivery E2E evidence linkを取得
+7. #1329 M-1 / M-2 / M-3 base measurement手順を handoff に用意
 
 ### Phase B0B — Runtime gate
 
@@ -189,13 +194,15 @@ result: PASS
 ### Phase B1 — RED runtime contracts
 
 1. schema validation RED test
-2. missing manifest -> INCONCLUSIVE
-3. evaluation plan digest mismatch -> INCONCLUSIVE
-4. allowed_paths overflow -> fail-closed
-5. activation `fired` only -> INCONCLUSIVE
-6. candidate-side sealed fixture mutation -> fail-closed
-7. known-bad baseline miss / candidate stop
-8. negative control pass
+2. source payload digest tamper -> fail-closed
+3. source_set_digest mismatch -> INCONCLUSIVE
+4. missing manifest -> INCONCLUSIVE
+5. sealed evaluation-plan digest mismatch -> INCONCLUSIVE
+6. allowed_paths overflow -> fail-closed
+7. activation `fired` only -> INCONCLUSIVE
+8. candidate-side sealed fixture mutation -> fail-closed
+9. known-bad baseline miss / candidate stop
+10. negative control pass
 
 ### Phase B2 — GREEN minimal evaluator
 
@@ -206,21 +213,30 @@ result: PASS
 ```python
 validate_candidate(candidate, schema)
 validate_experiment_result(result, schema)
+canonical_json_digest(payload)
+compute_source_set_digest(failure_instance_refs)
 compute_fixture_tree_delta(baseline_tree, candidate_tree)
 evaluate_candidate(
     candidate,
     *,
+    source_bundle,
+    evaluation_plan,
     baseline_manifest,
     candidate_manifest,
     observed_tree_delta,
     prevention_evidence,
     activation,
-    evaluation_plan_digest,
 )
 project_promotion_decision(experiment_result)
 ```
 
 CLI は Phase B では必須にしない。test / fixture で決定論 API を先に固定する。
+
+`canonical_json_digest()` は Phase B fixture 内だけの deterministic binding とし、UTF-8 / key sort / whitespace除去 / deterministic separators で SHA-256 を計算する。これは production RunEvidence / HarnessManifest の一般 canonicalization algorithm を定義するものではない。
+
+`compute_source_set_digest()` は failure instance stable tuple を sort して evaluator 側で生成する。Candidate 内の `source_set_digest` は照合対象であり権威ではない。
+
+`evaluation_plan_digest` は sealed `evaluation-plan.json` から evaluator が再計算する。Candidate が plan 本文や threshold を提供して自己整合させる経路は持たない。
 
 `compute_fixture_tree_delta()` は sealed fixture tree を読み、relative path + content digest の差分を Evaluation Harness 側で生成する。Candidate JSON 内の changed paths は入力にしない。Production の source-commit diff calculator は Non-goal。
 
@@ -267,6 +283,8 @@ sh tests/run-tests.sh
 - PR diff で `scripts/ai-loop/**` / `docs/schemas/run-evidence.schema.json` が無変更であること
 - `git grep` で merge / approve / destructive GitHub mutation API が `scripts/ai-loop-v2/ratchet.py` に無いこと
 - fixture tree から evaluator が算出した delta と Candidate `allowed_paths` を比較すること
+- sealed `evaluation-plan.json` から evaluator が digest を再計算し Candidate 値と比較すること
+- source payload refs / source_set_digest を evaluator が再計算し Candidate 自己申告だけで通さないこと
 
 ## Replan triggers
 
@@ -302,7 +320,8 @@ Phase B code itselfは shadow / fixture-only、Production behavior 非変更。
 
 - `project_promotion_decision()` は #811 の authoritative Gate ではない。ExperimentResult を downstream へ渡す compatibility projection。
 - FailureRecord full schema / V2 RunEvidence schema は本 Task で定義しない。
-- HarnessManifest generator / canonicalization algorithm も本 Task で定義しない。fixture は canon fields の必要 subset を使う。
+- HarnessManifest generator / production-wide canonicalization algorithm も本 Task で定義しない。fixture は canon fields の必要 subset を使う。
+- Phase B で定義する canonical JSON digest は fixture provenance 検証の局所規則であり、V2全体のserialization contractへ昇格させない。
 - Phase B development fixture を #909 Incident Regression Set へ自動昇格しない。
 
 ## Governance / sequencing review
