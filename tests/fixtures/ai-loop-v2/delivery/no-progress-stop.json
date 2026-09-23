@@ -207,7 +207,8 @@
         "resolved_blockers": [],
         "introduced_blockers": [],
         "no_progress": true
-      }
+      },
+      "id": "p1"
     },
     {
       "seq": 12,
@@ -220,7 +221,7 @@
         "inputs": [
           "v2",
           "f2",
-          "progress:11"
+          "p1"
         ],
         "outcome": "HUMAN_ESCALATED",
         "stop_reasons": [
