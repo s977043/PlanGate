@@ -598,7 +598,14 @@ def _validate_append_against_validated(
 
     prior_refs = _prior_ref_set(current_stream)
     candidate_refs = registered_refs(candidate)
+    candidate_ref_set: set[str] = set()
     for ref in candidate_refs:
+        _require(
+            ref not in candidate_ref_set,
+            f"duplicate reference inside candidate event: {ref}",
+            StreamContractError,
+        )
+        candidate_ref_set.add(ref)
         _require(
             ref not in prior_refs,
             f"duplicate registered reference: {ref}",
