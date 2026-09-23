@@ -128,6 +128,7 @@ jobs:
           HOME: ${{ runner.temp }}/claude-home
           CLAUDE_WORKING_DIR: ${{ runner.temp }}/claude-canary
           CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1"
+          CLAUDE_CODE_SKIP_PROMPT_HISTORY: "1"
           CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
           DISABLE_TELEMETRY: "1"
           DISABLE_UPDATES: "1"
@@ -183,6 +184,8 @@ jobs:
             --allowedTools "Read(docs/ai/ai-loop-v2/**)"
             --disallowedTools "mcp__*"
             --permission-mode dontAsk
+            --permission-prompts none
+            --no-session-persistence
             --disable-slash-commands
             --max-turns 3
             --json-schema '{"type":"object","additionalProperties":false,"required":["status","checks","notes"],"properties":{"status":{"type":"string","enum":["pass","fail","inconclusive"]},"checks":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"object","additionalProperties":false,"required":["id","status","evidence"],"properties":{"id":{"type":"string","enum":["documents_readable","durable_run_continuity","human_authority"]},"status":{"type":"string","enum":["pass","fail"]},"evidence":{"type":"string","maxLength":256}}}},"notes":{"type":"array","maxItems":3,"items":{"type":"string","maxLength":256}}}}'
@@ -318,3 +321,26 @@ jobs:
             echo "- raw_execution_log_deleted_after_action: \`true\`"
             echo "- session_resume_used: \`false\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+
+      - name: Remove isolated Claude state
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for path in "$RUNNER_TEMP/claude-home" "$RUNNER_TEMP/claude-canary"; do
+            case "$path" in
+              "$RUNNER_TEMP"/*)
+                ;;
+              *)
+                echo "::error::Refusing cleanup outside RUNNER_TEMP"
+                exit 1
+                ;;
+            esac
+            rm -rf -- "$path"
+            if [ -e "$path" ]; then
+              echo "::error::Isolated Claude state still exists after cleanup: $path"
+              exit 1
+            fi
+          done
