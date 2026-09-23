@@ -13,12 +13,15 @@ Durable persistence: OUT OF SCOPE -> #1392
 
 ```text
 Producer
-  -> RunEvent candidate
-  -> #1391 validate/canonicalize
-  -> accepted event value
-  -> #1392 durable sink
+  -> EventDraft (no authoritative seq/ref)
+  -> #1391 validate draft payload semantics
+  -> #1392 durable sink / lock
+       assign event_seq
+       bind run/revision/manifest/source context
+  -> #1391 finalize accepted RunEvent + canonical event_ref
+  -> #1392 commit
   -> accepted stream
-  -> #1391 deterministic projection
+  -> #1391 validate stream + deterministic projection
   -> RunEvidence
 ```
 
@@ -42,26 +45,38 @@ No top-level JSON Schema in the first vertical slice unless review proves a mach
 
 ## RunEvent minimum envelope
 
-Required:
+### EventDraft
+
+Producer-controlled before durable commit:
 - schema/version marker
-- run_id
-- event_ref
-- event_seq
 - event_type
-- harness_manifest_ref
 - payload
 - evidence refs where applicable
 
-Conditional:
-- revision
-- plan_hash
-- source_sha
+The draft does **not** choose authoritative `event_seq` or `event_ref`.
+
+### Accepted RunEvent
+
+#1392 binds/assigns under its durable lock:
+- run_id
+- event_seq
+- revision where applicable
+- harness_manifest_ref
+- plan_hash/source_sha where applicable
+
+#1391 then finalizes:
+- strict event-type payload validation
+- canonical representation
+- `event_ref = hash(canonical accepted event excluding event_ref itself)`
+
+The identity payload does not consult wall clock, environment, or live Git state.
 
 Rules:
 - event_seq is strictly increasing in an accepted stream
 - event_seq is independent from RunState revision
-- event_ref is stable and unique
-- duplicate event_ref with byte/semantic mismatch is invalid
+- accepted stream contains unique event_ref values
+- same ref with different recomputed content is invalid
+- exact retry is handled at #1392 transaction/idempotency layer and does **not** append a second event
 - event type determines allowed payload keys
 - unknown critical fields do not fail open
 
@@ -92,13 +107,18 @@ Exact names are frozen by RED fixtures before GREEN implementation. Do not desig
 - evidence_refs[]
 - evidence_status = ready | partial | invalid
 
-Projection rules:
+Projection / validation result layers:
+
+1. **Parse/schema failure** — input is not a usable RunEvent stream at all; reject and do not fabricate RunEvidence.
+2. **Readable but contract-invalid stream** — projection returns `evidence_status=invalid` with no successful completion claim.
+3. **Valid unfinished stream** — `evidence_status=partial`.
+4. **Valid terminal stream** — `evidence_status=ready`.
+
+Rules:
 - pure: no network, current Git state, environment, wall clock, or mutable external file lookup
 - same accepted input -> same output
-- unfinished stream -> partial
-- malformed/tampered/binding-inconsistent stream -> invalid
+- binding mismatch / tamper / post-terminal event => invalid
 - receiver derives evidence_status
-- post-terminal event -> invalid
 
 ## Work breakdown
 
@@ -150,10 +170,12 @@ No durable writer.
 ### T6 — Owner adapter handoff
 
 Define interfaces consumed by #1392/#1393:
-- validate_event(value)
+- validate_event_draft(value)
+- finalize_event(draft, bound_context, event_seq)
 - validate_stream(values)
-- canonical_event_ref(value)
 - project_run_evidence(values, manifest_ref)
+
+`finalize_event` computes the event_ref after #1392 has assigned authoritative sequence/bindings.
 
 Names may differ after implementation review; responsibilities may not.
 
