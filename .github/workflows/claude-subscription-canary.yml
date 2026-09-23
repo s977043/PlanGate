@@ -131,6 +131,8 @@ jobs:
           CLAUDE_WORKING_DIR: ${{ runner.temp }}/claude-canary
           CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1"
           CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+          DISABLE_TELEMETRY: "1"
+          DISABLE_UPDATES: "1"
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: "false"
@@ -176,6 +178,26 @@ jobs:
             --setting-sources user
             --max-turns 3
             --json-schema '{"type":"object","additionalProperties":false,"required":["status","checks","notes"],"properties":{"status":{"type":"string","enum":["pass","fail","inconclusive"]},"checks":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"object","additionalProperties":false,"required":["id","status","evidence"],"properties":{"id":{"type":"string","enum":["documents_readable","durable_run_continuity","human_authority"]},"status":{"type":"string","enum":["pass","fail"]},"evidence":{"type":"string","maxLength":256}}}},"notes":{"type":"array","maxItems":3,"items":{"type":"string","maxLength":256}}}}'
+
+      - name: Verify pinned Claude Code version
+        shell: bash
+        env:
+          HOME: ${{ runner.temp }}/claude-home
+          DISABLE_UPDATES: "1"
+        run: |
+          set -euo pipefail
+
+          version="$(claude --version)"
+          case "$version" in
+            2.1.280*)
+              ;;
+            *)
+              echo "::error::Unexpected Claude Code version: $version"
+              exit 1
+              ;;
+          esac
+
+          printf 'CLAUDE_CODE_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
 
       - name: Validate sanitized structured output
         shell: bash
@@ -248,6 +270,7 @@ jobs:
             echo
             echo "- source_sha: \`${GITHUB_SHA}\`"
             echo "- action_sha: \`9ca9355b36297178e28d37c799d1c9c8a28e6507\`"
+            echo "- claude_code_version: \`${CLAUDE_CODE_VERSION}\`"
             echo "- auth_class: \`oauth_subscription\`"
             echo "- runner_environment: \`${RUNNER_ENVIRONMENT}\`"
             echo "- max_turns: \`3\`"
