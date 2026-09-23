@@ -304,6 +304,43 @@ jobs:
           print("Stage A structured output validated without persisting raw execution logs.")
           PY
 
+      - name: Verify no repository or session persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            echo "::error::Repository working tree changed during Stage A canary"
+            exit 1
+          fi
+
+          expected="$RUNNER_TEMP/expected-canary-files.txt"
+          actual="$RUNNER_TEMP/actual-canary-files.txt"
+
+          cat > "$expected" <<'EOF'
+          docs/ai/ai-loop-v2/artifact-responsibilities.md
+          docs/ai/ai-loop-v2/north-star.md
+          docs/ai/ai-loop-v2/worker-runtime-contract.md
+          EOF
+
+          (
+            cd "$RUNNER_TEMP/claude-canary"
+            find . -type f -printf '%P\n' | sort
+          ) > "$actual"
+
+          if ! diff -u "$expected" "$actual"; then
+            echo "::error::Isolated canary workspace changed during Claude execution"
+            exit 1
+          fi
+
+          if [ -d "$RUNNER_TEMP/claude-home/.claude" ] && \
+             find "$RUNNER_TEMP/claude-home/.claude" -type f -name '*.jsonl' -print -quit | grep -q .; then
+            echo "::error::Claude session/history JSONL persisted despite Stage A no-persistence controls"
+            exit 1
+          fi
+
+          rm -f -- "$expected" "$actual"
+
       - name: Record non-secret canary metadata
         shell: bash
         run: |
