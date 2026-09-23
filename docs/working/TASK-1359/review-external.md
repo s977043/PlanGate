@@ -122,16 +122,36 @@ Fresh evidence: `evidence/c1-review/2026-09-23-evaluation-integrity.md` — TC-1
 Post-#1364 refresh: `evidence/c1-review/2026-09-23-post-1364-evaluation-integrity.md` — latest main sync / behind 0 / production diff 0 PASS.
 Post-#1366 refresh: `evidence/c1-review/2026-09-23-post-1366-evaluation-integrity.md` — runtime hardening merged / behind 0 / production diff 0 PASS.
 
+## Finding 11 — Planning merge and execution readiness were conflated
+
+**Severity before mitigation: Medium**
+
+Previous state kept PR #1360 Draft until #1337 effectiveness result, even though the PR contains only TASK-1359 planning/evidence files and the frozen evaluation uses historical SHAs.
+
+Risk:
+- repeated main-sync/review churn without improving evaluation integrity;
+- obscures the difference between "plan is reviewable/mergeable" and "implementation is authorized".
+
+Mitigation:
+- split readiness into **Planning package MERGE_READY** and **Execution BLOCKED**;
+- planning baseline may merge via Human C-4;
+- #1337 result fixed remains mandatory before T-00 → Human C-3 → production implementation;
+- future implementation should use a separate implementation branch/PR.
+
+**Resolved in plan: yes**
+
 ## Final Review Verdict
 
 **Plan quality: PASS**
+**Planning package readiness: MERGE_READY**
 **Execution readiness: BLOCKED on #1337 operator smoke (CLI version freeze) → 48 generations → blind scoring → pair-level result fixed**
 **C-3 readiness: NO until T-00 completes**
 
 次の正しい遷移:
 
 ```text
-#1337 result fixed
+#1360 Human C-4 / planning baseline merge
+  -> #1337 result fixed
   -> T-00 evaluate downstream impact
   -> C-1/C-2 refresh if needed
   -> Human C-3
