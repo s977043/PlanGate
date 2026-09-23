@@ -54,11 +54,17 @@ Precondition 1 未充足のまま implementation PR を main に merge しない
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/candidate-manifest.json`
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/known-bad.json`
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/negative-control.json`
+- `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/baseline-tree/**`
+- `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/candidate-tree/**`
+
+この fixture は development evidence であり、#909 Incident Regression Set の正式登録ではない。
 
 ### CI integration
 
-- `tests/extras/ta-87-ai-loop-v2-ratchet.sh`
-- `tests/extras/README.md`（TA-87 registration only if current convention requires it）
+- `tests/extras/ta-NN-ai-loop-v2-ratchet.sh`
+- `tests/extras/README.md`（現行 convention が registration を要求する場合のみ）
+
+現時点の main の最大番号は 86 なので候補は 87。ただし repo は並行更新されるため、**実装直前に next-free number を再取得して確定**する。
 
 ### Planning / handoff
 
@@ -171,12 +177,13 @@ result: PASS
 ```python
 validate_candidate(candidate, schema)
 validate_experiment_result(result, schema)
+compute_fixture_tree_delta(baseline_tree, candidate_tree)
 evaluate_candidate(
     candidate,
     *,
     baseline_manifest,
     candidate_manifest,
-    observed_component_deltas,
+    observed_tree_delta,
     prevention_evidence,
     activation,
     evaluation_plan_digest,
@@ -184,17 +191,19 @@ evaluate_candidate(
 project_promotion_decision(experiment_result)
 ```
 
-CLI は Phase B では必須にしない。test / fixture で純関数を先に固定する。
+CLI は Phase B では必須にしない。test / fixture で決定論 API を先に固定する。
+
+`compute_fixture_tree_delta()` は sealed fixture tree を読み、relative path + content digest の差分を Evaluation Harness 側で生成する。Candidate JSON 内の changed paths は入力にしない。Production の source-commit diff calculator は Non-goal。
 
 ### Phase B2 — integration
 
-TA-87 で:
+TA-NN で:
 - 2 schema parse
 - unit tests
 - fixture E2E
-- Legacy schema unchanged check
-- `scripts/ai-loop/**` diff zero check
 - no network / merge API in V2 module static check
+
+Legacy schema / `scripts/ai-loop/**` 無変更は CI test に base branch 依存を持ち込まず、PR diff review / handoff evidence で確認する。
 
 ### Phase B3 — review
 
@@ -215,7 +224,7 @@ python3 scripts/ai-loop-v2/test_ratchet.py
 ### Integration
 
 ```sh
-sh tests/extras/ta-87-ai-loop-v2-ratchet.sh
+sh tests/extras/ta-NN-ai-loop-v2-ratchet.sh
 ```
 
 ### Full suite
@@ -224,18 +233,18 @@ sh tests/extras/ta-87-ai-loop-v2-ratchet.sh
 sh tests/run-tests.sh
 ```
 
-### Diff guards
+### Review guards
 
-- `git diff --name-only <base>...HEAD -- scripts/ai-loop docs/schemas/run-evidence.schema.json`
-  - Legacy runtime / legacy RunEvidence schema が無変更であること
+- PR diff で `scripts/ai-loop/**` / `docs/schemas/run-evidence.schema.json` が無変更であること
 - `git grep` で merge / approve / destructive GitHub mutation API が `scripts/ai-loop-v2/ratchet.py` に無いこと
+- fixture tree から evaluator が算出した delta と Candidate `allowed_paths` を比較すること
 
 ## Replan triggers
 
 - Phase A Independent Review で contract が変更
 - V2 RunEvidence / HarnessManifest implementation が先に main へ入り compatibility bridge が不要になる
 - `docs/schemas/` placement policy が変更
-- #811 が PromotionDecision の incompatible contract を先に確定
+- #811 が authoritative PromotionDecision / Gate contract を先に確定し compatibility projection の shape が衝突
 - representative fixture が Legacy RunEvidence では表現不能
 
 ## Stop conditions
@@ -254,3 +263,11 @@ sh tests/run-tests.sh
 - merge / C-4
 
 Phase B code itselfは shadow / fixture-only、Production behavior 非変更。
+
+
+## Ownership notes
+
+- `project_promotion_decision()` は #811 の authoritative Gate ではない。ExperimentResult を downstream へ渡す compatibility projection。
+- FailureRecord full schema / V2 RunEvidence schema は本 Task で定義しない。
+- HarnessManifest generator / canonicalization algorithm も本 Task で定義しない。fixture は canon fields の必要 subset を使う。
+- Phase B development fixture を #909 Incident Regression Set へ自動昇格しない。
