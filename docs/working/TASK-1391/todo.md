@@ -8,6 +8,10 @@
 - [x] #1393 pure decision dependency identified
 - [x] first-slice event vocabulary bounded
 - [x] RED categories defined
+- [x] event_seq allocation assigned to #1392 durable boundary
+- [x] EventDraft vs Accepted RunEvent separated
+- [x] duplicate retry vs duplicate accepted event separated
+- [x] parse failure vs evidence_status=invalid separated
 - [ ] I0 plan self-review
 - [ ] I1+ plan review
 - [ ] exact reviewed_at_sha
