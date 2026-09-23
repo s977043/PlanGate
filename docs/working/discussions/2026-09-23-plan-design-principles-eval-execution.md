@@ -250,8 +250,13 @@ linked worktree単体は不可。
 - peer variant SHA: `git cat-file -e <peer_sha>^{commit}` = fail
 - current main SHA: `git cat-file -e <current_main_sha>^{commit}` = fail
 - `git rev-parse --git-common-dir` がsource repo / peer checkoutの共有Git directoryを指さない
+- `.git/objects/info/alternates` が存在しない、またはsource/peer object DBを指さない
+- partial-clone/promisor設定を使わない（`extensions.partialClone` / `remote.*.promisor` が無い）
+- operator materialization完了後はmodel-visible checkoutから `origin` 等のsource remoteを削除する
+- source repoへのfile path / socket / mountがmodel-visible environmentから到達不能
 
 baseline/candidateでcheckout構成手順を同一にする。
+`git cat-file` のnegative controlはnetwork/file remoteへlazy fetchできない状態で実行する。
 
 ### 8.2.2 許可/禁止データ
 
@@ -313,7 +318,8 @@ Smoke A/B:
 - operatorが `docs/working/TASK-EVAL-SMOKE/isolation-probe.sh` を配置する
 - scriptはallowed canary read成功 + 全denied canary read失敗を検証し、成功時のみ `ISOLATION_TOOL_OK`
 - smoke promptは最初のtool actionとしてこのscriptを1回実行するよう要求する
-- JSONLに実tool call・exit code・sandbox/runtime identityを残す
+- JSONLに実tool call・exit codeを残す
+- runtime/sandbox identityはeventに出る場合はその値を保存し、出ない場合はoperator manifestのexact CLI version / config hash / isolation hashとactual control結果を対にする
 - modelの「読めなかった」という自己申告だけでは不可
 
 Smoke C:
@@ -339,7 +345,7 @@ AとBのruntime identity / policy hash / CLI versionが一致しない場合はF
 
 PASS条件:
 
-1. independent checkoutでpeer/current-main Git objectsへ到達しない
+1. independent checkoutでpeer/current-main Git objectsへ到達せず、remote / alternates / promisor経由の再取得経路も無い
 2. model-free positive/negative controlsが期待どおり
 3. Smoke actual tool positive/negative controlsが期待どおり
 4. preflightとSmokeでruntime identity / policyが一致
@@ -434,7 +440,8 @@ PASS:
 - `SMOKE_REVIEW_OK`
 - actual tool JSONLに reviewer isolation probe + `ISOLATION_REVIEW_OK` + exit 0
 - model ID / usage in event evidence
-- repo / variant identity unavailable
+- variant mapping canaryがread不能
+- reviewer input directoryにcheckout / mapping / generator logが存在しない
 
 ### Smoke budget
 
