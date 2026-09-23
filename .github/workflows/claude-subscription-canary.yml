@@ -113,8 +113,6 @@ jobs:
           cp docs/ai/ai-loop-v2/worker-runtime-contract.md \
             "$canary_dir/docs/ai/ai-loop-v2/worker-runtime-contract.md"
 
-          git -C "$canary_dir" init -q
-
       - name: Prepare isolated Claude home
         shell: bash
         run: |
