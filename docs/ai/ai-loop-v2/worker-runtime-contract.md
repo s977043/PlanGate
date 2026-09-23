@@ -165,11 +165,14 @@ Phase 1A では独立した `CapabilityPolicy` artifact を追加しない。fix
 原則:
 
 1. intent を durable にした後でだけ external execution を dispatch する
-2. dispatch 前 crash は同じ `action_id` から安全に再開できる
-3. external side effect 完了後は receipt が duplicate dispatch を止める
-4. retry は Decision Engine が retry を選んだ後だけ新 attempt として作る
-5. Worker process の「完了しました」という自己申告だけでは receipt 完了・Run success にしない
-6. receipt に raw model transcript を保存しない
+2. dispatch には、外部 control plane が対応する場合は `action_id` に束縛された idempotency / correlation key を必ず渡す
+3. dispatch 前 crash は同じ `action_id` から安全に再開できる
+4. dispatch の成否が不明な crash では、外部 control plane から「未実行」を一意に証明できる場合だけ自動 redispatch してよい
+5. 外部 control plane が idempotency key / execution identity / queryable status を提供せず、実行有無を証明できない場合は自動 redispatch せず Human reconciliation へ倒す
+6. external side effect 完了後は action / attempt に束縛された receipt が duplicate dispatch を止める
+7. retry は Decision Engine が retry を選んだ後だけ新 attempt として作る
+8. Worker process の「完了しました」という自己申告だけでは receipt 完了・Run success にしない
+9. receipt に raw model transcript を保存しない
 
 ### Minimum observable attempt facts
 
@@ -211,9 +214,9 @@ RunState(revision N)
 | --- | --- | --- |
 | W1: intent 前に crash | action 未発行 | 同じ approved binding から新しい intent を作れる |
 | W2: intent 後・dispatch 前に crash | intent あり / receipt 無し | 同じ action を再利用。intent を増殖させない |
-| W3: dispatch 後・開始確認前に crash | intent あり / controller state 不明 | controller evidence を照合。無根拠 redispatch 禁止 |
+| W3: dispatch 後・開始確認前に crash | intent あり / controller state 不明 | action に束縛された controller evidence を照合。「未実行」を証明できる場合のみ redispatch。証明不能なら Human reconciliation |
 | W4: execution 中に crash | started evidence あり / finish 無し | interrupted/unknown として fail-closed。success 禁止 |
-| W5: external side effect 後・receipt 前に crash | controller 側完了 / local receipt 無し | controller evidence から receipt reconciliation。duplicate side effect 禁止 |
+| W5: external side effect 後・receipt 前に crash | controller 側完了 / local receipt 無し | action / attempt に束縛された controller evidence から receipt reconciliation。duplicate side effect 禁止 |
 | W6: receipt 後・RunState CAS 前に crash | receipt あり / revision N | resume で receipt を再消費せず state transition を再評価 |
 | W7: concurrent resume | 2 writer が revision N | 1 writer のみ CAS 成功。残りは `STATE_CONFLICT` |
 | W8: stale binding で resume | source / plan mismatch | provider call 前に拒否 |
@@ -314,7 +317,8 @@ production harness を作る前に、少なくとも以下を executable fixture
 | WR-05 | stale `plan_hash` / `source_sha` | provider call 前に fail |
 | WR-06 | timeout / max-turns missing | invalid contract |
 | WR-07 | crash after intent before dispatch | intent 増殖なし・同じ action から resume |
-| WR-08 | external completion before local receipt | controller evidence で reconcile・duplicate side effect なし |
+| WR-08 | external completion before local receipt | action-bound controller evidence で reconcile・duplicate side effect なし |
+| WR-08b | dispatch state unknown + controller cannot prove not-run | auto redispatch 禁止・Human reconciliation |
 | WR-09 | concurrent resume | exactly one CAS / loser = `STATE_CONFLICT` |
 | WR-10 | unknown / malformed Worker result | success 不可 |
 | WR-11 | cancelled execution | non-advancing / missing output を success 扱いしない |
@@ -332,8 +336,8 @@ production harness を作る前に、少なくとも以下を executable fixture
 - [ ] subscription-only auth / billing invariant が固定されている
 - [ ] effective capability boundary の owner が固定されている
 - [ ] intent / attempt / receipt / CAS の責務分離が固定されている
-- [ ] W1-W8 crash window が定義されている
-- [ ] WR-01〜WR-15 を実装可能な fixture specification として説明できる
+- [ ] W1-W8 crash window が定義され、W3/W5 が外部 controller evidence の信頼境界を持つ
+- [ ] WR-01〜WR-15 + WR-08b を実装可能な fixture specification として説明できる
 - [ ] cancellation / timeout が fail-open しない
 - [ ] raw transcript / hidden CoT / credential を永続化しない
 - [ ] persistent Worker / workspace が Run SSoT でない
@@ -373,4 +377,4 @@ Stage A / B の両方が再現可能になるまで、scheduled unattended execu
   - `scripts/ai-loop/test_corpus_hash.py`
   - `scripts/ai-loop/test_run_evidence.py`
 
-本 PR は Architecture / Contract docs のみを追加し、schema / V2 runtime namespace / production workflow を変更しない。したがってこの差分自体では I4 移行条件を発火させない。
+本 PR は Architecture / Contract docs のみを追加し、canon 7 本、schema、V2 runtime namespace、production workflow を変更しない。したがってこの差分自体では I4 移行条件を発火させない。
