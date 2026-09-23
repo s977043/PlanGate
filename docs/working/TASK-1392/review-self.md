@@ -30,6 +30,15 @@ Conflict recording is a separate generation-only commit against current state re
 
 API success is returned only after directory fsync.
 
+### R-5 — Terminal Outcome must not be encoded as a state transition
+
+A transaction containing terminal `decision_made` cannot also append `state_transitioned` afterward. Terminality lives in RunEvent/RunEvidence, not Lifecycle State.
+
+Resolution:
+- terminal decision and transition request are mutually exclusive
+- terminal decision does not increment RunState revision just to encode completion
+- no later Run event is allowed
+
 ## Verdict
 
 PASS for plan. Runtime remains gated by #1391 consumability and #1329 implementation preflight.
