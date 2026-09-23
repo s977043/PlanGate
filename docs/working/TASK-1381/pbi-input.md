@@ -85,18 +85,22 @@ pattern_snapshot:
 
 Pattern 専用 artifact / DB / registry は作らない。
 
-### D6. Evaluation is pure and fixture-driven
+### D6. Evaluation is fixture-driven and evaluator-owned
 
-`ratchet.py` は Phase B では pure evaluator と schema validation adapter に限定する。
+`ratchet.py` は Phase B では schema validation + deterministic evaluation に限定する。
 
 最低責務:
 - candidate validation
 - evaluation plan digest binding
 - baseline / candidate manifest ref presence check
+- **sealed baseline/candidate fixture tree から evaluator 側で changed paths を算出**
 - observed delta ⊆ allowed_paths
 - prevention evidence tri-state
 - activation level check
 - PASS / FAIL / INCONCLUSIVE projection
+
+Candidate から `observed_component_deltas` / `changed_paths` を自己申告させ、それをそのまま採用しない。
+Phase B の observed delta は production Git diff の代用品ではなく、**sealed fixture tree を Evaluation Harness 役が比較して生成する vertical-slice evidence** とする。
 
 外部 API / GitHub / network / merge / branch mutation は持たない。
 
@@ -134,3 +138,13 @@ candidate:
 - automatic Production promotion / merge
 - plugin distribution
 - `bin/plangate` integration
+
+
+### D7. PromotionDecision は compatibility projection
+
+Phase B の `project_promotion_decision()` は、`HarnessExperimentResult.result` と evidence refs を #811 へ渡せる形に投影するだけであり、#811 の authoritative Promotion Gate / persisted schema を定義しない。
+
+### D8. Fixture is development evidence, not automatic Incident Regression promotion
+
+`tests/fixtures/ai-loop-v2/ratchet/verification-skipped/` は Phase B の development fixture。
+#909 Incident Regression Set への正式昇格は、#909 の独立レビュー / Human-owned 変更規律を別途通す。
