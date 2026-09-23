@@ -1,7 +1,8 @@
 # TASK-1359 作業ステータス
 
-> 最終更新: 2026-09-23 08:24
-> 現在フェーズ: BLOCKED
+> 最終更新: 2026-09-23 12:45
+> Planning package: MERGE_READY
+> Execution: BLOCKED
 > モード: critical
 > 発行時点 SHA (issued_at_commit): `36461db287fa2c5462bcca7648cfadb01248fa48`
 
@@ -17,6 +18,7 @@
 | 2026-09-23 02:38 | BLOCKED | latest-main dependency reviewで #1337 result fixed がhard dependencyと判明。C-3前にT-00必須 |
 | 2026-09-23 06:39 | BLOCKED | PR #1364 merged。#1337 execution protocol/config/smoke contract freeze完了。TASK-1359 branchをlatest mainへ同期し、production diff 0を再確認 |
 | 2026-09-23 08:24 | BLOCKED | PR #1366 merged。Codex CLI >=0.144.0 / exact-version freeze / approval_policy=neverをruntime contractへ追加。latest main同期後TC-13 PASS |
+| 2026-09-23 12:45 | PLANNING MERGE_READY / EXEC BLOCKED | #1360 all-green。planning-only mergeとproduction C-3/execを分離。frozen #1337 SHAを変更しないためplanning baselineは先行merge可能 |
 
 ## 全体構成（PR 一覧）
 
@@ -25,7 +27,7 @@
 | #1358 | `feat/960-minimum-sufficient-test-set` | MERGED |
 | #1364 | `docs/1337-eval-execution-freeze` | MERGED / execution freeze |
 | #1366 | `docs/1337-eval-runtime-hardening` | MERGED / runtime hardening |
-| #1360 | `feat/1359-plan-knowledge-continuity` | DRAFT / planning-only / latest main synced |
+| #1360 | `feat/1359-plan-knowledge-continuity` | planning-only / all-green / Human C-4 MERGE_READY |
 
 ## 残タスク
 
@@ -35,6 +37,7 @@
 - [x] TC-12 #1358 compatibility baseline check
 - [x] C-1 rerun
 - [x] C-2 refresh
+- [ ] Human C-4: #1360 planning baseline merge
 - [ ] T-00 #1337 paired evaluation result fixed確認 / downstream impact判定
 - [ ] H-01 Human C-3
 - [ ] T-03〜T-16 implementation / verification
@@ -59,6 +62,7 @@
 
 ## 次の作業（Claude Code プロンプト）
 
-#1337の3-call operator smoke（Codex CLI exact version freeze含む）→ 48 generations → blind scoring → pair-level result固定を完了する。
+#1360 planning-only PRをHuman C-4でmergeし、planning baselineをmainへ確定する。
+その後もproduction execは開始せず、#1337の3-call operator smoke（Codex CLI exact version freeze含む）→ 48 generations → blind scoring → pair-level result固定を完了する。
 その後T-00でTASK-1359への影響を判定する。
 必要ならreplan/C-1/C-2 refreshを行い、問題なければHuman C-3へ進む。
