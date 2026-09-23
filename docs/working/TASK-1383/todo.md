@@ -28,7 +28,7 @@
 - [x] no-progress-stop fixture
 - [x] Initial Plan Verification / Plan Gate trace
 - [x] TA executable invariant checks
-- [x] 10 mutation classes
+- [x] 11 mutation classes
 - [x] set -e safe failure capture
 - [ ] full tests
 - [ ] confirm M-2 remains baseline
