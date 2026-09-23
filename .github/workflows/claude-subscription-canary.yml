@@ -1,0 +1,180 @@
+name: Claude Subscription Canary
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-subscription-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: Read-only Claude subscription canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Preflight runner, ref, debug, and OAuth
+        shell: bash
+        env:
+          CANARY_REF: ${{ github.ref }}
+          RUNNER_ENVIRONMENT_VALUE: ${{ runner.environment }}
+          RUNNER_DEBUG_VALUE: ${{ runner.debug }}
+          CLAUDE_CODE_OAUTH_TOKEN_VALUE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ "$CANARY_REF" != "refs/heads/main" ]; then
+            echo "::error::Stage A canary may run only from refs/heads/main"
+            exit 1
+          fi
+
+          if [ "$RUNNER_ENVIRONMENT_VALUE" != "github-hosted" ]; then
+            echo "::error::Stage A canary requires a GitHub-hosted runner"
+            exit 1
+          fi
+
+          if [ "${RUNNER_DEBUG_VALUE:-}" = "1" ]; then
+            echo "::error::Stage A canary refuses to run with debug logging enabled"
+            exit 1
+          fi
+
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN_VALUE:-}" ]; then
+            echo "::error::CLAUDE_CODE_OAUTH_TOKEN is required"
+            exit 1
+          fi
+
+      - name: Checkout trusted main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Preflight repository trust baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files="
+          docs/ai/ai-loop-v2/north-star.md
+          docs/ai/ai-loop-v2/artifact-responsibilities.md
+          docs/ai/ai-loop-v2/worker-runtime-contract.md
+          "
+
+          for path in $required_files; do
+            if [ ! -f "$path" ]; then
+              echo "::error::Required trusted file is missing: $path"
+              exit 1
+            fi
+          done
+
+          forbidden_config="
+          .mcp.json
+          .claude/settings.json
+          .claude/settings.local.json
+          .claude.json
+          CLAUDE.local.md
+          "
+
+          for path in $forbidden_config; do
+            if [ -e "$path" ]; then
+              echo "::error::Stage A trust baseline changed; review required: $path"
+              exit 1
+            fi
+          done
+
+      - name: Run read-only Claude subscription canary
+        id: claude
+        uses: anthropics/claude-code-action/base-action@9ca9355b36297178e28d37c799d1c9c8a28e6507
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: "false"
+          prompt: |
+            Perform a read-only Stage A canary for PlanGate.
+
+            You may only inspect these trusted repository documents:
+            - docs/ai/ai-loop-v2/north-star.md
+            - docs/ai/ai-loop-v2/artifact-responsibilities.md
+            - docs/ai/ai-loop-v2/worker-runtime-contract.md
+
+            Verify only:
+            1. all three documents exist and are readable;
+            2. worker-runtime-contract.md states that Worker process continuity must not depend on a persistent Claude session;
+            3. worker-runtime-contract.md keeps Human approval/merge authority outside the Worker.
+
+            Do not execute shell commands.
+            Do not modify files.
+            Do not access the network.
+            Do not reproduce repository file contents verbatim.
+            Return only the requested structured result with short, non-secret evidence summaries.
+          claude_args: >-
+            --allowedTools "Read,Glob,Grep"
+            --max-turns 3
+            --json-schema '{"type":"object","additionalProperties":false,"required":["status","checks","notes"],"properties":{"status":{"type":"string","enum":["pass","fail","inconclusive"]},"checks":{"type":"array","minItems":1,"maxItems":5,"items":{"type":"object","additionalProperties":false,"required":["id","status","evidence"],"properties":{"id":{"type":"string","maxLength":64},"status":{"type":"string","enum":["pass","fail"]},"evidence":{"type":"string","maxLength":256}}}},"notes":{"type":"array","maxItems":3,"items":{"type":"string","maxLength":256}}}}'
+
+      - name: Validate sanitized structured output
+        shell: bash
+        env:
+          CLAUDE_CONCLUSION: ${{ steps.claude.outputs.conclusion }}
+          STRUCTURED_OUTPUT: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          set -euo pipefail
+
+          if [ "$CLAUDE_CONCLUSION" != "success" ]; then
+            echo "::error::Claude canary did not report success"
+            exit 1
+          fi
+
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          raw = os.environ.get("STRUCTURED_OUTPUT", "")
+          if not raw:
+              print("::error::Missing structured output")
+              sys.exit(1)
+
+          if len(raw.encode("utf-8")) > 8192:
+              print("::error::Structured output exceeds 8 KiB")
+              sys.exit(1)
+
+          try:
+              data = json.loads(raw)
+          except json.JSONDecodeError:
+              print("::error::Structured output is not valid JSON")
+              sys.exit(1)
+
+          if data.get("status") != "pass":
+              print("::error::Canary structured status is not pass")
+              sys.exit(1)
+
+          checks = data.get("checks")
+          if not isinstance(checks, list) or not checks:
+              print("::error::Canary checks are missing")
+              sys.exit(1)
+
+          if any(item.get("status") != "pass" for item in checks if isinstance(item, dict)):
+              print("::error::At least one canary check did not pass")
+              sys.exit(1)
+
+          print("Stage A structured output validated without persisting raw execution logs.")
+          PY
+
+      - name: Record non-secret canary metadata
+        shell: bash
+        run: |
+          {
+            echo "### Claude subscription Stage A canary"
+            echo
+            echo "- source_sha: \`${GITHUB_SHA}\`"
+            echo "- action_sha: \`9ca9355b36297178e28d37c799d1c9c8a28e6507\`"
+            echo "- auth_class: \`oauth_subscription\`"
+            echo "- runner_environment: \`${RUNNER_ENVIRONMENT}\`"
+            echo "- max_turns: \`3\`"
+            echo "- timeout_minutes: \`10\`"
+            echo "- raw_execution_log_persisted: \`false\`"
+            echo "- session_resume_used: \`false\`"
+          } >> "$GITHUB_STEP_SUMMARY"
