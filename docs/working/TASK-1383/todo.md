@@ -23,11 +23,13 @@
 
 ## Stage 2 — Executable specification
 
-- [ ] reserve next-free TA number
-- [ ] repair-convergence fixture
-- [ ] no-progress-stop fixture
-- [ ] TA executable invariant checks
-- [ ] mutation checks
+- [x] reserve next-free TA number = 87
+- [x] repair-convergence fixture
+- [x] no-progress-stop fixture
+- [x] Initial Plan Verification / Plan Gate trace
+- [x] TA executable invariant checks
+- [x] 10 mutation classes
+- [x] set -e safe failure capture
 - [ ] full tests
 - [ ] confirm M-2 remains baseline
 
