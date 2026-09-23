@@ -116,9 +116,15 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 ### Readiness
 
-**blocked**
+- **Planning artifact readiness: MERGE_READY**
+- **Execution readiness: BLOCKED**
 
-Reason: internal Blocking Unknowns = 0 and #1358 compatibility is resolved, but external blocker EB-01 (#1337 result not fixed) prevents Human C-3 / production implementation.
+Reason:
+- internal Blocking Unknowns = 0;
+- #1358/#1364/#1366 compatibility is resolved;
+- PR #1360 is planning-only and all required checks are green;
+- merging planning artifacts does not mutate frozen #1337 historical baseline/candidate SHAs;
+- external blocker EB-01 still prevents Human C-3 / production implementation.
 
 ## Source-of-Truth Hierarchy
 
@@ -557,6 +563,15 @@ Stop for human decision if:
 
 ## Human Approval Boundary
 
-#1337 result fixed is a prerequisite to Human C-3.
-Critical-mode C-3 is mandatory before implementation.
-Merge remains C-4 Human-owned.
+Two merge/approval boundaries are intentionally separated:
+
+1. **Planning baseline PR #1360**
+   - planning artifacts only;
+   - may reach Human C-4 / merge before #1337 completes;
+   - merge does **not** constitute C-3 approval or implementation authorization.
+2. **Future implementation PR**
+   - #1337 result fixed is prerequisite to Human C-3;
+   - critical-mode C-3 is mandatory before implementation;
+   - implementation merge remains a later Human C-4.
+
+Planning baseline merge must not be interpreted as approval to execute T-03..T-16.
