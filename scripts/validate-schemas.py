@@ -84,15 +84,15 @@ def validate_one(json_path: Path) -> tuple[str, str]:
     # for schema-valid but semantically invalid context artifacts.
     if json_path.name == "intent-context.json":
         try:
-            from intent_context_contract import validate_semantics
+            from intent_context_contract import validate_package
         except ImportError as e:
             return ("ERROR", f"intent context semantic validator unavailable: {e}")
-        semantic_errors = validate_semantics(instance)
-        if semantic_errors:
+        contract_errors = validate_package(instance)
+        if contract_errors:
             return (
                 "FAIL",
-                f"{json_path.name} semantic validation: {len(semantic_errors)} error(s); "
-                f"first: {semantic_errors[0]}",
+                f"{json_path.name} contract validation: {len(contract_errors)} error(s); "
+                f"first: {contract_errors[0]}",
             )
 
     return ("PASS", f"{json_path.name} ↔ {schema_path.name}")
