@@ -14,7 +14,7 @@
 - [x] parse failure vs evidence_status=invalid separated
 - [x] precommit validate_append assigned to #1391/#1392 boundary
 - [x] event_seq made contiguous, not merely monotonic
-- [ ] I0 plan self-review
+- [x] I0 plan self-review
 - [ ] I1+ plan review
 - [ ] exact reviewed_at_sha
 
