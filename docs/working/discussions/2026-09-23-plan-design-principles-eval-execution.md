@@ -224,6 +224,55 @@ Runtime config contract:
 
 Documentation support is not activation proof. Smoke must still verify the local installation.
 
+## 8.2 読み取り隔離のpreflight（smoke前・モデル呼び出しなし）
+
+別worktree / 別temp directoryへの配置だけを読み取り拒否の証拠にしない。
+linked worktreeは共有Git管理領域への参照を持つため、共有object databaseからの取得経路も対象にする。
+本節は§3の作業場所に加える検証条件であり、新しい評価runnerではない。
+
+operatorは既存の実行環境で次の境界を用意し、その構成・版・許可mount/pathを記録する。
+具体的な隔離方式が未設定なら、以下をPASSにせず停止する。
+
+| 実行主体 | 許可する評価データ | 到達させない評価データ |
+| --- | --- | --- |
+| Generator A/B | 当該SHAのcheckout・bundled references・選択したPBI | rubric、他ケース、他run output、current main、共有Git objects内の非選択版 |
+| Reviewer C | §7の匿名bundle・PBI・rubric（smoke時は§9の3ファイル） | checkout、variant mapping、generator logs、他の採点結果 |
+
+CLI実行に必要なruntimeは別途許可する。認証情報をこの検証のために読取・表示・コピーしない。
+CLIのモデル接続経路と、モデルが利用するtoolのnetwork-off条件を区別する。
+Git共有領域を単にread-only mountしても、禁止データの読み取り防止にはならない。
+mount・process・Git objects等を経由して禁止データへ到達しない構成が必要である。
+runtime構成の変更はbaseline/candidate両方に同じ条件で適用し、run途中で変更しない。
+
+### 検証手順
+
+1. operator専用領域にrun固有の無害なcanaryを置き、operator側で存在とhashを確認する。
+   rubric、他run output、variant mapping、共有Git領域の各禁止経路をダミーデータで代表させる。
+   本物のrubricや秘密情報を読ませて試験しない。
+2. モデルのtool subprocessと同じ実効UID・mount・sandbox条件で、許可入力のreadが成功することを確認する。
+   この条件の同一性を確認できなければ未検証とする。
+3. 同じ条件で禁止経路へのreadを試み、全て拒否されることを確認する。
+   absolute path、親directory、symlink、共有Git object参照を、存在する経路に応じて含める。
+   このprobeはoperatorによる事前検証で、生成promptや採点入力へ加えない。
+4. 記録するのは実行構成、probe command、exit code、期待値・実測値、operator側のcanary hash。
+   読取成功・設定不明・probe未実施はPASSにしない。
+   単なる存在しないpathへのread失敗では不十分で、手順1の存在証拠と対にする。
+5. 検証後も同じ境界でSmoke A/B/Cを実行する。
+   canaryや検証ログは許可入力へ混ぜない。境界変更時は再検証する。
+
+### 判定・引き継ぎ
+
+- `isolation_preflight`: PASS / FAIL / NOT_RUN
+- `runtime_identity`: OS・CLI版・隔離方式/版・構成hash
+- `positive_controls`: 許可入力のread成功証拠
+- `negative_controls`: 禁止経路別のread拒否証拠
+- `tool_boundary_equivalence`: probeとtool subprocessの条件一致証拠
+- `evidence_location`: operator専用証跡の保存先
+
+1つでも欠ければ `INCONCLUSIVE_NOT_RUN` のままsmoke・48生成を開始しない。
+試験用canaryへの到達は隔離FAILであり、実データの流出を意味するとは断定しない。
+本節の文書レビュー完了は、実環境の隔離PASSや追加Major findingの解消を意味しない。
+
 ## 9. Operator smoke gate
 
 SmokeはP01〜P24を一切消費しない。**3 callsだけ**実施する。
@@ -330,6 +379,8 @@ smoke failure時:
 - flag/model/auth変更後に再smokeする場合も旧証跡を上書きしない
 
 ### Checklist
+
+- [ ] §8.2 isolation preflight PASS（許可read・禁止read・実行境界一致の証拠）
 
 - [ ] `codex --version` >= 0.144.0 and exact version frozen in ledger
 - [ ] baseline Smoke A PASS
