@@ -59,3 +59,14 @@
 - PromotionDecision projection は #811 authoritative schema として保存しない。
 - development fixture が PlanGateBench / Incident Regression Set の正本一覧を自動変更しない。
 - TA 番号は実装直前に next-free を再確認し、番号そのものを contract にしない。
+
+## Governance / sequencing cases
+
+| ID | Gate | Input / State | Expected |
+|---|---|---|---|
+| TC-28 | Delivery-before-Evolution | #870 Delivery E2E evidence missing | runtime implementation NO-GO; no `scripts/ai-loop-v2/**` creation |
+| TC-29 | I4 invalidation | first runtime PR adds `scripts/ai-loop-v2/` | M-2 changes from baseline; PR classified as I1 exception invalidation candidate |
+| TC-30 | Semantic invalidation | evaluator mechanically emits PASS/FAIL/INCONCLUSIVE | reviewer must answer semantic enforcement=yes; indeterminate => yes |
+| TC-31 | Separation of authority | runtime implementation PR attempts to edit canon 7 to preserve I1 exception | invalid; separate canon review path required |
+
+These are implementation-entry review cases, not runtime unit tests. Evidence is recorded in PR checklist / review record per #1329.
