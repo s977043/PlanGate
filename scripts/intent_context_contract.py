@@ -254,9 +254,16 @@ def validate_semantics(payload: dict[str, Any]) -> list[str]:
             )
 
     for src in payload.get("sources", []):
-        ref = src.get("ref", "")
-        if ref.startswith("/") or _WINDOWS_ABS.match(ref):
-            errors.append(f"{src['source_id']} uses non-portable absolute local path")
+        refs_to_check = [
+            ("ref", src.get("ref")),
+            ("authority_basis.ref", src.get("authority_basis", {}).get("ref")),
+            ("freshness_basis.ref", src.get("freshness_basis", {}).get("ref")),
+        ]
+        for label, ref in refs_to_check:
+            if isinstance(ref, str) and (ref.startswith("/") or _WINDOWS_ABS.match(ref)):
+                errors.append(
+                    f"{src['source_id']} {label} uses non-portable absolute local path"
+                )
         if src.get("authority") == "authoritative":
             authority_basis = src.get("authority_basis", {})
             if (
