@@ -71,14 +71,14 @@ Decision: #1389 is upstream provenance, not Context Manifest v2.
 | field | class | decision |
 |---|---|---|
 | schema_version | owned | package schema version |
-| context_id | owned | logical lineage identifier; not content hash |
+| context_id | owned | logical intent lineage identifier; stable across snapshots of the same task/intent lineage, not a content hash |
 | context_ref | derived semantic identity | canonical hash of the **contract projection**; used for Plan stale binding; not a payload field |
 | snapshot_ref | derived byte identity | hash of exact immutable artifact bytes; audit/provenance only; not a payload field |
 | task_id | referenced | existing task identity |
 | supersedes_context_ref | referenced | optional previous semantic context ref when semantics change |
 | created_at | owned snapshot metadata | included in snapshot_ref, excluded from context_ref |
 | resolver_version | provenance | included in snapshot_ref, excluded from context_ref unless it changes normalized contract data |
-| intent | owned normalized inputs | source-backed normalized intent, not final PBI/Plan |
+| intent | owned normalized inputs | summary/outcomes/non-goals are source-backed normalized statements, not final PBI/Plan |
 | sources[] | owned provenance | source inventory and evidence identity |
 | constraints[] | owned normalized inputs | source-backed inputs only |
 | acceptance_inputs[] | owned normalized inputs | source-backed inputs only; never final AC |
@@ -105,7 +105,7 @@ A source record identifies exactly what was observed and how it may be used.
 | authority | owned classification | authoritative / supporting / unverified |
 | authority_basis | owned structured provenance | basis kind + optional ref explaining why this source is authoritative; model confidence is insufficient |
 | freshness | owned classification | current / stale / unknown at snapshot time |
-| freshness_basis | owned provenance | revision comparison / explicit user assertion / unavailable, etc. |
+| freshness_basis | owned structured provenance | basis kind + target/ref defining what `current` means |
 | excerpts / raw_body | forbidden | package stores normalized statements + refs, not copied source bodies |
 | confidence score | forbidden as authority | model confidence is not source authority |
 
@@ -115,13 +115,14 @@ Every source used for normalized facts must have an auditable observed identity 
 
 That identity proves **what was observed**; it does **not by itself prove freshness=current**.
 
-freshness=current additionally requires a freshness_basis showing why the observed identity represented the applicable current source at observed_at, for example:
+freshness=current additionally requires structured freshness_basis defining the comparison target. Minimum basis kinds:
 
-- resolver compared against source HEAD/latest revision at observation time
-- repository canonical artifact at the bound commit
-- explicit Human assertion where machine verification is unavailable
+- bound_revision: observed source matches the run/Plan-bound revision (for code/repository artifacts)
+- fetched_latest: resolver fetched the provider's latest version at observed_at
+- explicit_human_assertion: Human states this source/revision is the applicable current authority
+- unavailable: currentness could not be established
 
-If currentness cannot be established, freshness=unknown. A mutable URL or content_digest alone is insufficient.
+`current` is therefore relative to an explicit basis, not an ambiguous claim of global latestness. If currentness cannot be established, freshness=unknown. A mutable URL or content_digest alone is insufficient.
 
 ### Authority rule
 
@@ -135,21 +136,31 @@ The basis may carry a policy/artifact ref. Free-form rationale alone is not suff
 
 The resolver must not upgrade a source to authoritative because an LLM considers it convincing.
 
+### Source-kind freshness guidance
+
+| kind | observed identity | valid `current` basis examples |
+|---|---|---|
+| pbi_input / spec / adr / code | git commit/blob or content digest + repo-relative ref | `bound_revision` against the Plan/task source SHA; or `fetched_latest` when latest is explicitly required |
+| issue / discussion | provider entity ref + observed revision/update token when available + content digest | `fetched_latest` from live provider fetch; otherwise `explicit_human_assertion` or `unknown` |
+| prior_run | immutable RunEvidence/event-stream ref + digest | `bound_revision` to that immutable run artifact; "latest run" is not inferred automatically |
+
+Absolute local filesystem paths are not valid portable source refs. Repository sources use repo-relative refs; external sources use stable provider/URL identifiers.
+
 ## 6. Normalized intent / constraint ownership
 
 Normalized statements make provenance machine-checkable; they are not a second requirements document.
 
-### desired_outcomes / non_goals / constraints / acceptance_inputs
+### summary / desired_outcomes / non_goals / constraints / acceptance_inputs
 
-Each item owns:
+Every normalized statement, including the intent summary, owns:
 
-- stable local ID
+- stable local statement ID
 - minimal normalized statement
 - source_ids[]
 
 Rules:
 
-- at least one source ID required
+- at least one source ID required for every normalized statement
 - all source IDs must resolve
 - source role/freshness is derived from referenced sources
 - acceptance_input is an input to PBI/Plan authoring, not an approved acceptance criterion
@@ -172,9 +183,15 @@ Own unknown_id / question / blocking. They do not invent answers.
 
 ### conflicts
 
-Own conflict_id / at least two source-or-statement refs / incompatibility description / optional downstream blocking classification.
+Own:
 
-The package does not own conflict resolution.
+- conflict_id
+- at least two `statement_refs[]` pointing to normalized statements where possible
+- supporting `source_ids[]`
+- incompatibility description
+- optional downstream blocking classification
+
+Prefer statement-level conflict refs over treating an entire source document as conflicting. The package does not own conflict resolution.
 
 ## 7. Relationship to PBI / Plan / #872
 
@@ -276,8 +293,8 @@ Do not migrate #199 draft-07 schema to 2020-12 as incidental work.
 6. assumption represented as authoritative fact
 7. freshness=current with no evidence that observed identity was current at observed_at
 8. authority=authoritative with missing/unknown structured authority basis
-9. two authoritative conflicting sources silently collapsed
-10. raw transcript / hidden CoT / secret field present
+9. two authoritative conflicting statements silently collapsed
+10. raw transcript / hidden CoT / secret or absolute-local-path field present
 11. context_ref/snapshot_ref self-hash field inside payload
 12. source raw body copied into package
 13. package tries to own phase/mode/profile/budget
