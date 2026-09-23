@@ -71,7 +71,7 @@ ALLOWED_OUTCOMES = {"MERGE_READY", "HUMAN_ESCALATED", "BLOCKED"}
 ALLOWED_STOP_REASONS = {
     "NO_PROGRESS", "REPEATED_FAILURE", "OSCILLATION", "BUDGET_EXHAUSTED",
     "POLICY_DENIED", "VERIFIER_UNAVAILABLE", "REQUIREMENT_CONFLICT",
-    "STATE_CONFLICT",
+    "STATE_CONFLICT", "HUMAN_REJECTED",
 }
 ALLOWED_ACTIONS = {"continue", "repair", "replan", "stop"}
 ALLOWED_VERIFICATION = {"pass", "fail", "unavailable", "inconclusive"}
@@ -203,6 +203,18 @@ def validate_common(trace):
             if outcome == "MERGE_READY":
                 req(reasons == [], "MERGE_READY must not carry failure stop reason")
             elif outcome in {"HUMAN_ESCALATED", "BLOCKED"}:
+                req(bool(reasons), "non-success terminal outcome requires stop reason")
+
+    terminal_events = [
+        event for event in events
+        if event["type"] == "decision_made"
+        and event["decision"].get("outcome") is not None
+    ]
+    req(len(terminal_events) <= 1, "multiple terminal outcomes")
+    if terminal_events:
+        req(terminal_events[0]["seq"] == events[-1]["seq"],
+            "events must not continue after terminal outcome")
+            elif outcome in {"HUMAN_ESCALATED", "BLOCKED"}:
                 req(len(reasons) >= 1, "non-success Terminal Outcome requires Stop Reason")
 
     # Decision inputs must resolve to evidence that already exists in the trace.
@@ -320,7 +332,8 @@ def validate_repair(trace):
     req(final_det["bound_artifact_ref"] == change["after_artifact_ref"],
         "stale verification after artifact change")
 
-    convergence = next(e["convergence"] for e in events if e["type"] == "pr_convergence_recorded")
+    convergence_event = next(e for e in events if e["type"] == "pr_convergence_recorded")
+    convergence = convergence_event["convergence"]
     req(convergence == {
         "ci": "pass",
         "required_reviews": "pass",
@@ -329,9 +342,16 @@ def validate_repair(trace):
         "scope": "pass",
     }, "MERGE_READY convergence preconditions")
 
-    final = decisions[-1]["decision"]
+    final_event = decisions[-1]
+    final = final_event["decision"]
     req(final["action"] == "stop" and final["outcome"] == "MERGE_READY",
         "final MERGE_READY decision")
+    req(final_event["seq"] > convergence_event["seq"], "MERGE_READY before convergence evidence")
+    convergence_refs = convergence_event.get("evidence_refs") or []
+    req(convergence_refs and all(ref in final["inputs"] for ref in convergence_refs),
+        "MERGE_READY decision must consume PR convergence evidence")
+    req(final_det["id"] in final["inputs"],
+        "MERGE_READY decision must consume fresh deterministic PASS")
 
 
 def validate_no_progress(trace):
@@ -353,11 +373,22 @@ def validate_no_progress(trace):
     ):
         req(key in progress, f"progress field missing: {key}")
 
+    req(progress["previous_failure_fingerprint"] == failures[-2]["fingerprint"],
+        "previous failure fingerprint not bound to actual failure")
+    req(progress["current_failure_fingerprint"] == failures[-1]["fingerprint"],
+        "current failure fingerprint not bound to actual failure")
     req(progress["previous_failure_fingerprint"] == progress["current_failure_fingerprint"],
         "failure delta")
     req(progress["artifact_changed"] is False, "artifact delta required")
     req(progress["evidence_delta"] == [], "evidence delta required")
-    req(progress["resolved_blockers"] == [], "blocker delta required")
+    req(progress["resolved_blockers"] == [], "resolved blocker delta required")
+    req(progress["introduced_blockers"] == [], "introduced blocker delta required")
+    req(progress["evidence_delta"] == repair.get("evidence_delta", []),
+        "progress evidence delta must match repair observation")
+    req(progress["resolved_blockers"] == repair.get("resolved_blockers", []),
+        "progress resolved blockers must match repair observation")
+    req(progress["introduced_blockers"] == repair.get("introduced_blockers", []),
+        "progress introduced blockers must match repair observation")
     req(repair["before_artifact_ref"] == repair["after_artifact_ref"],
         "repair must show no artifact delta")
     req(progress["no_progress"] is True, "no_progress conclusion")
