@@ -27,10 +27,10 @@ RunEvidence / Failure instance
 ### Runtime implementation hard gates
 
 4. **PR #1380 Independent Review / contract acceptance が完了**
-5. **Delivery first release boundary E2E が成立**
+5. **#1383 Delivery E2E Gate が成立**
    - `FAIL -> Diagnose -> Repair -> PASS -> MERGE_READY`
    - `NO_PROGRESS -> STOP / ESCALATE`
-   - evidence source: #870 DoD / linked CI fixture
+   - #1383 が #870 DoD へ evidence を返し、#1381 の解除可否を明示
 6. **#1329 invalidation preflight を実施**
    - M-1 / M-2 / M-3 base measurement
    - semantic invalidation review
@@ -175,7 +175,7 @@ result: PASS
 1. Candidate / Experiment schema field mappingを Plan 上で固定
 2. fixture layout / source binding / expected resultsを固定
 3. RED test cases / mutation matrixを固定
-4. #870 Delivery E2E evidence linkを取得
+4. #1383 Delivery E2E evidence linkを取得
 5. #1329 M-1 / M-2 / M-3 base measurement手順を handoff に用意
 
 ### Phase B0B — Runtime gate
@@ -270,7 +270,7 @@ sh tests/run-tests.sh
 
 ## Replan triggers
 
-- #870 Delivery E2E が未成立または成立条件が変更
+- #1383 Delivery E2E Gate が未成立または成立条件が変更
 - #1329 semantic invalidation procedure が変更
 - Phase A Independent Review で contract が変更
 - V2 RunEvidence / HarnessManifest implementation が先に main へ入り compatibility bridge が不要になる
@@ -310,7 +310,7 @@ Phase B code itselfは shadow / fixture-only、Production behavior 非変更。
 ### Delivery-before-Evolution
 
 本 Task の runtime 実装は `phase0-migration.md` §8 の順序制約に従う。
-#870 の Delivery E2E DoD が未チェックの間、本 Plan の verdict は:
+#1383 が未完了の間、本 Plan の verdict は:
 
 ```text
 Planning / contract readiness: GO
