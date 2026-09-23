@@ -182,6 +182,8 @@ jobs:
             --restricted
             --tools "Read"
             --allowedTools "Read(docs/ai/ai-loop-v2/**)"
+            --strict-mcp-config
+            --mcp-config '{"mcpServers":{}}'
             --disallowedTools "mcp__*"
             --permission-mode dontAsk
             --permission-prompts none
