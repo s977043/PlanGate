@@ -329,6 +329,45 @@ class StreamValidationTests(unittest.TestCase):
                 2,
             )
 
+    def test_human_rejected_is_not_terminal_outcome(self):
+        with self.assertRaises(EventParseError):
+            event(
+                "decision_made",
+                {
+                    "decision_ref": "d-reject",
+                    "action": "stop",
+                    "input_refs": ["x"],
+                    "outcome": "HUMAN_REJECTED",
+                    "stop_reasons": ["HUMAN_REJECTED"],
+                },
+                2,
+            )
+
+    def test_human_rejected_stop_reason_with_escalation_is_valid_payload(self):
+        draft(
+            "decision_made",
+            {
+                "decision_ref": "d-reject",
+                "action": "stop",
+                "input_refs": ["x"],
+                "outcome": "HUMAN_ESCALATED",
+                "stop_reasons": ["HUMAN_REJECTED"],
+            },
+        )
+        # finalize validates taxonomy even though stream reference integrity is
+        # checked later by validate_append/validate_stream.
+        event(
+            "decision_made",
+            {
+                "decision_ref": "d-reject",
+                "action": "stop",
+                "input_refs": ["x"],
+                "outcome": "HUMAN_ESCALATED",
+                "stop_reasons": ["HUMAN_REJECTED"],
+            },
+            2,
+        )
+
     def test_non_stop_action_with_outcome_rejected(self):
         with self.assertRaises(EventParseError):
             event(
