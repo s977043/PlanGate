@@ -196,11 +196,8 @@ fi
 # TC-06: unknown severity uses existing safe fallback (major), never info.
 _t88_tmp2=$(mktemp)
 register_cleanup "$_t88_tmp2" 2>/dev/null || true
-"$ _T88_PY" >/dev/null 2>&1 && : # unreachable sentinel; catches accidental shell interpolation changes
-
-"$ _T88_PY" 2>/dev/null || true
 # Build from a known-good fixture without requiring jq.
-"$ _T88_PY" - "$_T88_FIX/river-valid.json" "$_t88_tmp2" <<'PY'
+"$_T88_PY" - "$_T88_FIX/river-valid.json" "$_t88_tmp2" <<'PY'
 import json,sys
 src=json.load(open(sys.argv[1], encoding="utf-8"))
 src["issues"][0]["severity"]="future-new-severity"
