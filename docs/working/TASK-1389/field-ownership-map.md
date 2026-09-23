@@ -304,6 +304,7 @@ Do not migrate #199 draft-07 schema to 2020-12 as incidental work.
 
 Schema work starts after review confirms:
 
+- #1390 is Human-approved/merged, or an equivalent approved ownership boundary is recorded
 - #199 is reused, not replaced
 - source authority and freshness have explicit bases
 - final AC stays downstream
