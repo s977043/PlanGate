@@ -228,6 +228,25 @@ class DecisionTests(unittest.TestCase):
         )
 
 
+    def test_missing_required_verifier_fails_closed(self):
+        with self.assertRaises(DecisionError):
+            decide(
+                loop_contract={"required_verifiers": ["deterministic.tests", "completion.evidence"]},
+                run_state={"state": "VERIFYING"},
+                verifications=[
+                    {
+                        "id": "v-pass",
+                        "verifier_id": "deterministic.tests",
+                        "kind": "deterministic",
+                        "status": "pass",
+                        "bound_artifact_ref": A,
+                        "evidence_refs": ["test:pass"],
+                    }
+                ],
+                failures=[],
+                current_artifact_ref=A,
+            )
+
     def test_unavailable_verifier_is_decision_provenance(self):
         result = decide(
             loop_contract={"required_verifiers": ["deterministic.tests", "completion.evidence"]},
