@@ -30,6 +30,7 @@
 - [x] TA executable invariant checks
 - [x] 13 mutation classes
 - [x] set -e safe failure capture
+- [x] adversarial review: blocker delta / provenance binding / terminality / convergence-input gaps fixed
 - [ ] full tests (rerun after ta-26 TC-13/TC-33 convention fix)
 - [ ] confirm M-2 remains baseline
 
