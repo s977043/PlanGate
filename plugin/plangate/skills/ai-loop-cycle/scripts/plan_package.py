@@ -283,9 +283,16 @@ def _check_auto_approval_intent_context(task_dir, task_id):
     if not path.is_file():
         return []
 
-    scripts_dir = pathlib.Path(__file__).resolve().parent.parent
-    if str(scripts_dir) not in sys.path:
-        sys.path.insert(0, str(scripts_dir))
+    here = pathlib.Path(__file__).resolve().parent
+    helper_dirs = (here, here.parent)
+    helper_dir = next(
+        (d for d in helper_dirs if (d / "intent_context_contract.py").is_file()),
+        None,
+    )
+    if helper_dir is None:
+        return ["intent-context: validator helper unavailable"]
+    if str(helper_dir) not in sys.path:
+        sys.path.insert(0, str(helper_dir))
     import intent_context_contract  # noqa: E402
 
     try:
