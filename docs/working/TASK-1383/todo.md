@@ -28,7 +28,7 @@
 - [x] no-progress-stop fixture
 - [x] Initial Plan Verification / Plan Gate trace
 - [x] TA executable invariant checks
-- [x] 11 mutation classes
+- [x] 13 mutation classes
 - [x] set -e safe failure capture
 - [ ] full tests (rerun after ta-26 TC-13/TC-33 convention fix)
 - [ ] confirm M-2 remains baseline
@@ -80,3 +80,10 @@
 - [x] ta-26 TC-13/TC-33 root cause identified
 - [x] explicit 7-env standalone unset added
 - [ ] rerun Test green
+
+
+## Taxonomy review repair
+
+- [x] terminal Outcome / Lifecycle State co-presence removed from fixtures
+- [x] HUMAN_ESCALATED/BLOCKED Stop Reason requirement made executable
+- [x] hardcoded plan-verifier ID removed from repair decision filtering
