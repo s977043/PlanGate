@@ -1,6 +1,6 @@
 # ai-loop V2
 
-> **Status**: Phase 0 **MERGED**（PR #1273・Human C-4 DONE）/ Independent Review **DONE（R1 I1 ×2 + R2 I1 / `reviewed_at_sha` = `f8f1e8b8`。[`phase0-migration.md`](./phase0-migration.md) §7 が正本）** / Phase 0.1 **CANON_HARDENING**（#1275）
+> **Status**: Phase 0 **MERGED**（PR #1273・Human C-4 DONE）/ Independent Review **DONE（R1 I1 ×2 + R2 I1 / `reviewed_at_sha` = `f8f1e8b8`。[ `phase0-migration.md`](./phase0-migration.md) §7 が正本）** / Phase 0.1 **CANON_HARDENING**（#1275）
 > **North Star**: [`north-star.md`](./north-star.md)
 > **Migration**: [`phase0-migration.md`](./phase0-migration.md)
 > **Responsibility model**: [`loop-graph-harness.md`](./loop-graph-harness.md)
@@ -21,7 +21,9 @@ V2 の Issue / Plan / PR は次の順に参照する。
    - [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) — Candidate 不可侵 authority / Independence Level / `INCONCLUSIVE`
    - [`artifact-responsibilities.md`](./artifact-responsibilities.md) — artifact 責務分離 / event projection / revision CAS
 4. [`loop-graph-harness.md`](./loop-graph-harness.md) — Loop / Graph / Harness の責務解釈。**North Star と companion canon に従属し、新しい正本・Graph runtime を作らない**
-5. Phase 1 以降で作る Architecture / Contract / State / Verification 文書
+5. Phase 1 Architecture / Contract
+   - [`worker-runtime-contract.md`](./worker-runtime-contract.md) — disposable Worker / durable Run、auth・capability・resume・crash-window 契約（#1369）
+6. Phase 1 以降で作る State / Verification / Decision / Evaluation 文書
 
 ## Phase 0 / 0.1 rule
 
