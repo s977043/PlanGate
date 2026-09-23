@@ -117,6 +117,7 @@ class RunEvidenceProjectionTests(unittest.TestCase):
         bad_h = "sha256:" + "9" * 64
         out = project_run_evidence(s, bad_h)
         self.assertEqual(out["evidence_status"], "invalid")
+        self.assertEqual(out["harness_manifest_ref"], H)
         self.assertTrue(out["errors"])
 
     def test_tampered_event_projects_invalid(self):
