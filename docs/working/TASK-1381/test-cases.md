@@ -13,8 +13,9 @@
 | TC-09 | AC-5 | known-bad baseline | miss reproduced |
 | TC-10 | AC-6 | known-bad candidate | detect/stop + influenced_decision |
 | TC-11 | AC-7 | negative control | no false-positive block |
-| TC-12 | AC-8 | actual delta within allowed_paths | allowed |
-| TC-13 | AC-8/10 | actual delta outside allowed_paths | fail-closed |
+| TC-12 | AC-8 | evaluator computes fixture-tree delta within allowed_paths | allowed |
+| TC-13 | AC-8/10 | evaluator computes extra changed path outside allowed_paths | fail-closed |
+| TC-13b | AC-8 | Candidate JSON falsely declares narrower/clean delta | ignored; evaluator-derived tree delta remains authority |
 | TC-14 | AC-9 | prevention evidence PASS | machine-readable PASS |
 | TC-15 | AC-9 | evidence unavailable | INCONCLUSIVE |
 | TC-16 | AC-10 | candidate changes sealed fixture | fail-closed |
@@ -22,8 +23,8 @@
 | TC-18 | AC-10 | activation=fired, required=influenced_decision | INCONCLUSIVE |
 | TC-19 | AC-11 | ExperimentResult -> projection | candidate/result/evidence refs preserved |
 | TC-20 | AC-12 | PASS result | no merge/promotion side effect |
-| TC-21 | AC-13 | diff guard | Legacy run-evidence schema unchanged |
-| TC-22 | AC-13 | diff guard | scripts/ai-loop/** unchanged |
+| TC-21 | AC-13 | PR review evidence | Legacy run-evidence schema unchanged |
+| TC-22 | AC-13 | PR review evidence | scripts/ai-loop/** unchanged |
 | TC-23 | AC-14 | same fixture + same inputs | deterministic serialized result |
 | TC-24 | AC-15 | full vertical slice | source -> candidate -> delta -> evidence -> decision |
 | TC-25 | safety | raw transcript / prompt / secret fields | rejected / absent |
@@ -51,3 +52,10 @@
 
 「known-bad を止めた」だけでは PASS にしない。
 正常ケースを通せることまで確認する。
+
+
+## Boundary tests
+
+- PromotionDecision projection は #811 authoritative schema として保存しない。
+- development fixture が PlanGateBench / Incident Regression Set の正本一覧を自動変更しない。
+- TA 番号は実装直前に next-free を再確認し、番号そのものを contract にしない。
