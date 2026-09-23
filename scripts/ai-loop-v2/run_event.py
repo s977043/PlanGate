@@ -87,13 +87,7 @@ _CONTEXT_KEYS = {
 _EVENT_SPECS: dict[str, tuple[set[str], set[str]]] = {
     "plan_contract_bound": (
         {"contract_ref"},
-        {
-            "acceptance_refs",
-            "allowed_scope",
-            "required_verifiers",
-            "budget",
-            "task_profile",
-        },
+        set(),
     ),
     "worker_completed": (
         {"worker_attempt_ref", "artifact_ref"},
@@ -291,17 +285,6 @@ def _validate_payload(event_type: str, payload: Any) -> dict[str, Any]:
 
     if event_type == "plan_contract_bound":
         _require_string(p["contract_ref"], "contract_ref")
-        if "acceptance_refs" in p:
-            _require_string_list(p["acceptance_refs"], "acceptance_refs")
-        if "allowed_scope" in p:
-            _require_string_list(p["allowed_scope"], "allowed_scope")
-        if "required_verifiers" in p:
-            _require_string_list(p["required_verifiers"], "required_verifiers")
-        if "budget" in p:
-            _require(isinstance(p["budget"], dict), "budget: object required")
-            _scan_privacy(p["budget"], "$.payload.budget")
-        if "task_profile" in p:
-            _require_string(p["task_profile"], "task_profile")
 
     elif event_type == "worker_completed":
         _require_string(p["worker_attempt_ref"], "worker_attempt_ref")
