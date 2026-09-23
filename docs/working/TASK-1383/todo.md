@@ -51,6 +51,7 @@
 - [ ] #1392 RunState CAS / crash recovery
 - [ ] #1393 Verification / Failure / Decision core
 - [ ] #1395 owner-backed Delivery integration
+- [ ] #1395 splits fixture stimulus from expected oracle; no pre-authored Decision/Outcome is fed as runtime input
 - [ ] create V2 delivery integration harness only after owner surfaces are consumable
 - [ ] Path A RED
 - [ ] Path B RED
