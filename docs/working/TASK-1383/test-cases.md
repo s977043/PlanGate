@@ -89,6 +89,10 @@ TA-87 currently kills 13 mutation classes:
 - future references are rejected
 - duplicate reference IDs are rejected
 - removing a FailureRecord while leaving its decision reference must fail even if the expected projection is also edited
+- progress fingerprint must bind to the actual adjacent FailureRecord fingerprints, not only self-consistent progress fields
+- MERGE_READY decision must consume both fresh deterministic PASS and PR convergence evidence
+- terminal outcome must be unique and terminal; later Run events are rejected
+- NO_PROGRESS requires zero artifact/evidence/resolved-blocker/introduced-blocker delta
 
 
 ## CI integration finding — extras convention
