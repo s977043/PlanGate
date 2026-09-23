@@ -8,8 +8,22 @@
 - [x] existing RunEvidence adaptersを棚卸し
 - [ ] PR #1380 Independent Review complete
 - [ ] PR #1380 contract accepted
+- [ ] #870 Delivery E2E: FAIL -> Diagnose -> Repair -> PASS -> MERGE_READY evidence
+- [ ] #870 Delivery E2E: NO_PROGRESS -> STOP / ESCALATE evidence
+- [ ] #1329 M-1 / M-2 / M-3 base measurement
+- [ ] #1329 semantic invalidation review preflight
+- [ ] Runtime implementation gate = all above PASS
 
-## Phase B1 — RED
+## Phase B0A — Allowed while blocked
+
+- [x] implementation file placementをV2 namespaceへ固定
+- [x] Candidate / Experiment schema scopeを最小化
+- [x] evaluator-owned actual delta設計
+- [x] mutation matrix
+- [x] Delivery-before-Evolution gateをPlanへ反映
+- [x] I4 invalidation gateをPlanへ反映
+
+## Phase B1 — RED（runtime gate後のみ）
 
 - [ ] candidate schema RED
 - [ ] experiment result schema RED
@@ -24,7 +38,7 @@
 
 ## Phase B2 — GREEN
 
-- [ ] `scripts/ai-loop-v2/ratchet.py`
+- [ ] **GATED:** `scripts/ai-loop-v2/ratchet.py`
 - [ ] candidate validator
 - [ ] experiment validator
 - [ ] evaluator-owned fixture tree delta calculator
