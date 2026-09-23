@@ -21,6 +21,8 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 - Dependency: PR #1358 merged; TASK-1359 rebased and compatibility evidence recorded.
 - **Hard dependency**: #1337 paired evaluation result must be fixed before Human C-3 / production implementation. PR #1364 froze the execution protocol and PR #1366 hardened/merged the Codex runtime contract; remaining steps are operator smoke (including exact CLI version freeze) → 48 generations → blind scoring → pair-level decision. This preserves the frozen evaluation candidate and avoids contaminating #1337.
 - #1347 owns Human Decision Surface / Plan compression experiments after #1337; TASK-1359 must not absorb that scope.
+- ADR-006 owns selective Plan Deliberation between C-2 and Human C-3; TASK-1359 must not create a competing debate/judge layer.
+- Human Attention Metrics (#1343/#1349) owns attention/visibility measurement semantics; TASK-1359 must not optimize Plan length/attention as a success target.
 - Parallel governance dependency: #960 HO-side C-1 drift remains separate.
 - Related artifacts:
   - `pbi-input.md`
@@ -40,6 +42,8 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 - New Unknown service/subsystem.
 - Human Decision Surface / Plan compression / Human Attention projection changes owned by #1347.
+- Plan Deliberation selector/challenge/outcome protocol owned by ADR-006 / #1352-#1355.
+- Human Attention measurement schema/adapter/optimization owned by #1343/#1349.
 - Any change that alters or contaminates #1337 baseline/candidate evaluation inputs or candidate SHA.
 - New Trust Ledger schema fields.
 - New C-1 IDs.
@@ -139,6 +143,8 @@ TASK-1359 は正本を増やさず、既存の責務階層へ配置する。
 | C-1 conformance | `docs/working/templates/review-self.md` | 既存check IDへ分散統合。新IDは作らない |
 | Pre-PR maker audit | `.agents/skills/diff-audit/SKILL.md` | implementation後のUnknown/Assumption/Knowledge Delta再検査 |
 | Independent implementation review | `.agents/skills/review-gate/SKILL.md` | 責務不変。maker-side pre-PR auditを取り込まない |
+| C-2 disagreement clarification | ADR-006 Plan Deliberation | TASK-1359では実装しない。eligible時も既存C-2/C-3契約へ委譲 |
+| Human-facing attention measurement | `docs/working/discussions/2026-09-23-human-attention-metrics.md` | #1359の成功条件にしない。#1347/eval側へ委譲 |
 
 > `working-context.md` の必須artifact基礎契約は変えない。TASK-1359の新規情報は **conditional guidance / conditional artifact representation** として導入し、全task必須の新contractへ昇格しない。
 
@@ -536,6 +542,8 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 
 - #1359 / #933 / #810 / #867
 - #1335 / #1337 / PR #1364 / PR #1366 / #1358 / #960
+- ADR-006 Plan Deliberation
+- Human Attention Metrics (#1343/#1349)
 - `docs/working/TASK-0810/pbi-input.md`
 - `docs/working/TASK-0867/pbi-input.md`
 - current Plan template / ai-dev-plan / review surfaces
@@ -545,6 +553,7 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 Replan if:
 - #1337 result identifies a regression, no-effect, or guidance change that invalidates TASK-1359 assumptions.
 - #1347 changes the Human-facing Plan projection boundary in a way that overlaps TASK-1359 artifact representation.
+- ADR-006 Phase 4+ changes C-2→C-3 flow in a way that changes the review handoff assumed by this Plan.
 - post-#1358 baselineから `ai-dev-plan` / C-1 ownership が変化し、Minimum Sufficient Test SetとTASK-1359 guidanceが責務混在する。
 - `diff-audit` cannot express the re-check without a new artifact or responsibility conflict.
 - existing decision/evidence records cannot represent Knowledge Delta in fixture 4.
