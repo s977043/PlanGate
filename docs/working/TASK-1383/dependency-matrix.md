@@ -35,8 +35,11 @@ Owner-backed runtime DAG:
 
 ```text
 #1391 RunEvent spine / RunEvidence projection
-  -> #1392 RunState CAS / crash recovery
-  -> #1393 Verification / Failure / Decision core
+  ├─> #1392 RunState CAS / crash recovery
+  └─> #1393 Verification / Failure / Decision core
+        (pure core; #1392 data contractをconsumeするがruntime完了待ちは不要)
+
+#1392 + #1393 consumable
   -> #1395 owner-backed Delivery E2E integration
   -> #1383 evidence / #1381 unblock decision
 ```
