@@ -27,6 +27,7 @@
 - [ ] `scripts/ai-loop-v2/ratchet.py`
 - [ ] candidate validator
 - [ ] experiment validator
+- [ ] evaluator-owned fixture tree delta calculator
 - [ ] actual delta validator
 - [ ] activation evaluator
 - [ ] prevention evidence evaluator
@@ -35,8 +36,9 @@
 
 ## Phase B3 — Integration
 
-- [ ] TA-87
-- [ ] Legacy diff guard
+- [ ] next-free TA number再取得
+- [ ] TA-NN
+- [ ] Legacy diff review evidence
 - [ ] privacy / secret guard
 - [ ] no-network / no-merge static guard
 - [ ] full test suite
@@ -61,3 +63,11 @@
 - HarnessManifest generator
 - general clustering engine
 - long-term recurrence collector
+
+
+## Plan-review fixes already incorporated
+
+- [x] actual delta を Candidate 自己申告から分離
+- [x] TA-87 hardcode を撤回し next-free 解決へ変更
+- [x] PromotionDecision を #811 authoritative contract ではなく compatibility projection に限定
+- [x] Phase B fixture を #909 Incident Regression Set へ自動昇格しない
