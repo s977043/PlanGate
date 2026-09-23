@@ -2,7 +2,9 @@
 
 | ID | Condition | Expected |
 |---|---|---|
-| DC-01 | specification plan PASS | continue |
+| DC-01 | PLAN_VERIFYING + specification plan PASS | continue |
+| DC-01a | EXECUTING/VERIFYING + specification-only PASS | no MERGE_READY |
+| DC-01b | WAITING_HUMAN/WAITING_EXTERNAL | no autonomous success |
 | DC-02 | deterministic FAIL + model PASS + repairable failure | repair |
 | DC-03 | deterministic FAIL + no FailureRecord | fail closed / validation error |
 | DC-04 | deterministic FAIL + repairability=replan_required | replan |
@@ -10,7 +12,8 @@
 | DC-05 | unavailable deterministic verifier | HUMAN_ESCALATED / VERIFIER_UNAVAILABLE |
 | DC-06 | inconclusive deterministic verifier | no MERGE_READY |
 | DC-07 | fresh deterministic PASS, no convergence | continue |
-| DC-08 | fresh PASS + convergence all pass | MERGE_READY |
+| DC-08 | PR_CONVERGING + fresh PASS + convergence all pass | MERGE_READY |
+| DC-08a | VERIFYING + fresh PASS + convergence pass | not MERGE_READY |
 | DC-09 | stale PASS + convergence pass | no MERGE_READY |
 | DC-10 | same fingerprint/no deltas | NO_PROGRESS |
 | DC-11 | artifact_changed=true | not NO_PROGRESS |
