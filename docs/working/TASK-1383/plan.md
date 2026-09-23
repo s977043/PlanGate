@@ -8,10 +8,11 @@ V2 Delivery first release boundary の2経路を、owner contracts を再実装�
 
 ```text
 Contract integration planning: GO
-Runtime implementation: BLOCKED
+Non-authoritative executable specification: GO
+Production V2 runtime: BLOCKED
 ```
 
-Runtime blocker is not vague: Gate A in `dependency-matrix.md` is incomplete.
+The executable specification may proceed under tests only. It is not a runtime authority and does not satisfy owner implementation issues by proxy.
 
 ## Strategy
 
@@ -39,38 +40,39 @@ Acceptance:
 - owner全体のcloseは要求しない
 - subsetが stable / accepted になれば Gate A を進める
 
-### Stage 2 — RED E2E fixture
+### Stage 2 — Executable specification (allowed now)
 
-Gate A + #1329 preflight 後のみ。
-
-Candidate runtime namespace:
+Production runtime を作らず、tests 配下に event-trace contract を置く。
 
 ```text
-scripts/ai-loop-v2/
-  delivery_e2e.py
-  test_delivery_e2e.py
-
 tests/fixtures/ai-loop-v2/delivery/
-  repair-convergence/
-  no-progress-stop/
+  repair-convergence.json
+  no-progress-stop.json
+
+tests/extras/
+  ta-87-ai-loop-v2-delivery-e2e.sh
 ```
 
-Important: this is an integration harness, not a second production orchestrator.
+TA-87 は fixture を読み、canon invariant を検証する。
 
-### Stage 3 — GREEN minimum integration
+- Builder != Verifier != Decision Engine
+- worker self-report alone cannot complete
+- deterministic FAIL remains blocking
+- repair requires fresh re-verification
+- stale VerificationResult cannot be reused after artifact change
+- MERGE_READY requires PR convergence evidence
+- NO_PROGRESS is Stop Reason, not State
+- no-progress uses failure/artifact/evidence delta
+- harness_manifest_ref remains unchanged
+- no merge side effect is represented
 
-Implement only enough adapters to connect owner contracts:
+This is **non-authoritative executable specification**. Production dispatcher / store / evaluator is not implemented.
 
-```python
-start_run(contract, state, manifest_ref)
-record_verification(...)
-normalize_failure(...)
-decide(...)
-apply_repair_fixture(...)
-project_run_evidence(...)
-```
+### Stage 3 — Owner-backed runtime integration (later)
 
-The functions are illustrative; final API follows owner contracts.
+Owner minimum subset + #1329 preflight 後にのみ Production V2 runtime を設計する。
+
+Runtime code should reuse the same Stage 2 fixtures as acceptance tests.
 
 ### Stage 4 — E2E evidence
 
@@ -143,13 +145,14 @@ Kill mutants:
 - `docs/working/TASK-1383/test-cases.md`
 - `docs/working/TASK-1383/todo.md`
 
-## Runtime implementation preconditions
+## Production runtime implementation preconditions
 
-1. Gate A complete
-2. #1329 M-1/M-2/M-3 base measurement
-3. semantic invalidation review
-4. implementation branch based on latest main
-5. no conflicting owner contract change in flight
+1. Stage 2 executable specification green
+2. Gate A complete
+3. #1329 M-1/M-2/M-3 base measurement
+4. semantic invalidation review
+5. implementation branch based on latest main
+6. no conflicting owner contract change in flight
 
 ## Replan triggers
 
@@ -167,3 +170,13 @@ Kill mutants:
 - Legacy ai-loop must become runtime authority
 - Candidate/Evolution logic becomes necessary
 - Human C-4 / merge authority must change
+
+
+## Why tests-only first is preferable
+
+- #870 explicitly asks for an **E2E fixture**
+- avoids inventing a premature production orchestrator
+- does not create `scripts/ai-loop-v2/`, so M-2 remains unchanged
+- #1329 explicitly separates inactive fixture/evidence-only changes from execution-surface invalidation
+- creates reusable acceptance evidence for the later V2 runtime
+- keeps owner implementation responsibilities with #1025/#894/#874
