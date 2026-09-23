@@ -6,7 +6,7 @@
 - [x] Legacy freezeとの配置衝突を確認
 - [x] schema placement Human裁定を確認
 - [x] existing RunEvidence adaptersを棚卸し
-- [ ] PR #1380 Independent Review complete
+- [x] PR #1380 Independent Review complete — head `6d15a7d3`, PASS / GO
 - [ ] PR #1380 contract accepted
 - [ ] #1383 Delivery E2E: FAIL -> Diagnose -> Repair -> PASS -> MERGE_READY evidence
 - [ ] #1383 Delivery E2E: NO_PROGRESS -> STOP / ESCALATE evidence
@@ -23,13 +23,19 @@
 - [x] mutation matrix
 - [x] Delivery-before-Evolution gateをPlanへ反映
 - [x] I4 invalidation gateをPlanへ反映
+- [x] evaluator-owned sealed evaluation-plan authorityをPlanへ反映
+- [x] fixture-local canonical JSON digest規則を固定
+- [x] source_set_digest evaluator-side recomputationを固定
 
 ## Phase B1 — RED（runtime gate後のみ）
 
 - [ ] candidate schema RED
 - [ ] experiment result schema RED
 - [ ] failure instance identity tests
+- [ ] source payload canonical digest tamper tests
 - [ ] pattern snapshot digest tests
+- [ ] source_set_digest recomputation tests
+- [ ] sealed evaluation-plan authority tests
 - [ ] manifest missing -> INCONCLUSIVE tests
 - [ ] evaluation plan mismatch tests
 - [ ] allowed_paths overflow mutant
@@ -86,3 +92,5 @@
 - [x] TA-87 hardcode を撤回し next-free 解決へ変更
 - [x] PromotionDecision を #811 authoritative contract ではなく compatibility projection に限定
 - [x] Phase B fixture を #909 Incident Regression Set へ自動昇格しない
+- [x] evaluation_plan_digest を Candidate 自己申告ではなく sealed evaluator-owned plan に束縛
+- [x] source content refs / source_set_digest を evaluator 側で再計算
