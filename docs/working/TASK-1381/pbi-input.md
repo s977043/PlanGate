@@ -3,12 +3,12 @@
 > Parent: #1376
 > Stacked on: PR #1380 Phase A contract
 > Goal: verification-skipped Ratchet vertical slice を E2E で実証する
-> **Status: READY PLAN / IMPLEMENTATION BLOCKED** — planning / contract refinement only. Production behavior unchanged. Runtime implementation is blocked by the Delivery E2E sequencing gate and Phase A independent review.
+> **Status: READY PLAN / IMPLEMENTATION BLOCKED** — planning / contract refinement only. Production behavior unchanged. Phase A independent review is complete; runtime implementation remains blocked by the Delivery E2E sequencing gate, Phase A contract acceptance, and #1329 invalidation preflight.
 
 ## Current repository facts
 
 - PR #1380 latest head `6d15a7d3`: CI / Test / CodeQL / PR Issue Link は PASS。
-- PR #1380 の Independent Review は未完了。I0 self-review のみ。
+- PR #1380 Independent Review は head `6d15a7d3` で PASS / GO。contract acceptance / merge は未完了。
 - Legacy RunEvidence は `scripts/ai-loop/run_evidence.py` + `docs/schemas/run-evidence.schema.json` として実装済み。
 - Legacy RunEvidence には `to_shadow_candidate_input()` / `to_paired_replay()` / `to_promotion_provenance()` の provenance bridge がある。
 - V2 canon の `HarnessManifest` / `FailureRecord` / `HarnessImprovementCandidate` / `HarnessExperimentResult` は設計正本のみで、V2 runtime/schema は未実装。
@@ -75,7 +75,9 @@ failure_instance_ref:
 
 - `run_id + event_ref` = instance binding
 - `failure_record_ref` = fixture / observed FailureRecord payload の immutable digest
-- `run_evidence_ref` = source RunEvidence bytes / canonical payload の immutable ref
+- `failure_record_ref` / `run_evidence_ref` は Phase B fixture では **canonical JSON digest を evaluator が再計算**して検証する
+- canonical JSON は UTF-8 / object key sort / insignificant whitespace除去 / deterministic separators とし、`sha256:<hex>` で表現する
+- Candidate が自己申告した digest をそのまま信用しない
 - `failure_fingerprint` は identity に使わない
 
 V2 RunEvidence schema 自体は本 PBI で作らない。
@@ -94,13 +96,16 @@ pattern_snapshot:
 
 Pattern 専用 artifact / DB / registry は作らない。
 
+`source_set_digest` は Candidate の申告値を権威にしない。Evaluator が `failure_instance_refs` を stable tuple (`run_id`, `event_ref`, `failure_record_ref`, `run_evidence_ref`) に正規化・sortして再計算し、一致しなければ provenance 不成立として fail-closed / INCONCLUSIVE にする。
+
 ### D6. Evaluation is fixture-driven and evaluator-owned
 
 `ratchet.py` は Phase B では schema validation + deterministic evaluation に限定する。
 
 最低責務:
 - candidate validation
-- evaluation plan digest binding
+- evaluator-owned canonical digest verification
+- evaluator が sealed `evaluation-plan.json` から digest を再計算し Candidate の `evaluation_plan_digest` と照合
 - baseline / candidate manifest ref presence check
 - **sealed baseline/candidate fixture tree から evaluator 側で changed paths を算出**
 - observed delta ⊆ allowed_paths
@@ -109,6 +114,7 @@ Pattern 専用 artifact / DB / registry は作らない。
 - PASS / FAIL / INCONCLUSIVE projection
 
 Candidate から `observed_component_deltas` / `changed_paths` を自己申告させ、それをそのまま採用しない。
+同様に `evaluation_plan_digest` / `source_set_digest` / source content refs も Candidate 自己申告だけでは成立させず、Evaluator-owned input から再計算する。
 Phase B の observed delta は production Git diff の代用品ではなく、**sealed fixture tree を Evaluation Harness 役が比較して生成する vertical-slice evidence** とする。
 
 外部 API / GitHub / network / merge / branch mutation は持たない。
