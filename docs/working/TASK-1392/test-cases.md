@@ -30,7 +30,9 @@
 | ST-24 | terminal stream then append | reject through #1391 |
 | ST-25 | direct event writer duplicated in #1392 | static boundary FAIL |
 | ST-26 | merge/promotion primitive | static boundary FAIL |
-| ST-27 | full repository test | PASS |
+| ST-27 | unsupported state edge, e.g. EXECUTING -> REPAIRING | reject |
+| ST-28 | WAITING_* resume without resume contract | reject in first slice |
+| ST-29 | full repository test | PASS |
 
 ## Fault matrix invariant
 
