@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """:"
 # --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
 echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
 echo "       Use: python3 $0 [args...]" >&2
 exit 2
@@ -21,6 +24,7 @@ This module does not resolve external sources and does not make approval decisio
 
 import argparse
 import copy
+from datetime import datetime
 import hashlib
 import json
 import re
@@ -209,9 +213,37 @@ def _statement_entries(payload: dict[str, Any]) -> list[tuple[str, list[str]]]:
     return items
 
 
+def _validate_datetime(value: Any, field: str) -> str | None:
+    """Require an offset-aware RFC3339-compatible date-time.
+
+    jsonschema format checking may depend on optional format packages in some
+    environments, so the contract enforces this invariant explicitly too.
+    """
+    if not isinstance(value, str) or not value:
+        return f"{field} must be a non-empty date-time string"
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return f"{field} is not a valid RFC3339-compatible date-time"
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return f"{field} must include a timezone offset"
+    return None
+
+
 def validate_semantics(payload: dict[str, Any]) -> list[str]:
     """Validate cross-reference and provenance rules not expressible cleanly in JSON Schema."""
     errors = _walk_keys(payload)
+
+    created_at_error = _validate_datetime(payload.get("created_at"), "created_at")
+    if created_at_error:
+        errors.append(created_at_error)
+    for src in payload.get("sources", []):
+        observed_error = _validate_datetime(
+            src.get("observed_at"), f"{src.get('source_id', '<unknown>')}.observed_at"
+        )
+        if observed_error:
+            errors.append(observed_error)
 
     source_ids = [x["source_id"] for x in payload.get("sources", [])]
     source_set = set(source_ids)
