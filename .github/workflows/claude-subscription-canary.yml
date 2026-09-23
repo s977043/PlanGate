@@ -85,9 +85,29 @@ jobs:
             fi
           done
 
+      - name: Prepare isolated canary workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          canary_dir="$RUNNER_TEMP/claude-canary"
+          rm -rf "$canary_dir"
+          mkdir -p "$canary_dir/docs/ai/ai-loop-v2"
+
+          cp docs/ai/ai-loop-v2/north-star.md \
+            "$canary_dir/docs/ai/ai-loop-v2/north-star.md"
+          cp docs/ai/ai-loop-v2/artifact-responsibilities.md \
+            "$canary_dir/docs/ai/ai-loop-v2/artifact-responsibilities.md"
+          cp docs/ai/ai-loop-v2/worker-runtime-contract.md \
+            "$canary_dir/docs/ai/ai-loop-v2/worker-runtime-contract.md"
+
+          git -C "$canary_dir" init -q
+
       - name: Run read-only Claude subscription canary
         id: claude
         uses: anthropics/claude-code-action/base-action@9ca9355b36297178e28d37c799d1c9c8a28e6507
+        env:
+          CLAUDE_WORKING_DIR: ${{ runner.temp }}/claude-canary
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: "false"
@@ -100,9 +120,10 @@ jobs:
             - docs/ai/ai-loop-v2/worker-runtime-contract.md
 
             Verify only:
-            1. all three documents exist and are readable;
-            2. worker-runtime-contract.md states that Worker process continuity must not depend on a persistent Claude session;
-            3. worker-runtime-contract.md keeps Human approval/merge authority outside the Worker.
+            Return exactly these three check IDs:
+            1. documents_readable — all three documents exist and are readable;
+            2. durable_run_continuity — worker-runtime-contract.md states that Worker process continuity must not depend on a persistent Claude session;
+            3. human_authority — worker-runtime-contract.md keeps Human approval/merge authority outside the Worker.
 
             Do not execute shell commands.
             Do not modify files.
@@ -112,7 +133,7 @@ jobs:
           claude_args: >-
             --allowedTools "Read,Glob,Grep"
             --max-turns 3
-            --json-schema '{"type":"object","additionalProperties":false,"required":["status","checks","notes"],"properties":{"status":{"type":"string","enum":["pass","fail","inconclusive"]},"checks":{"type":"array","minItems":1,"maxItems":5,"items":{"type":"object","additionalProperties":false,"required":["id","status","evidence"],"properties":{"id":{"type":"string","maxLength":64},"status":{"type":"string","enum":["pass","fail"]},"evidence":{"type":"string","maxLength":256}}}},"notes":{"type":"array","maxItems":3,"items":{"type":"string","maxLength":256}}}}'
+            --json-schema '{"type":"object","additionalProperties":false,"required":["status","checks","notes"],"properties":{"status":{"type":"string","enum":["pass","fail","inconclusive"]},"checks":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"object","additionalProperties":false,"required":["id","status","evidence"],"properties":{"id":{"type":"string","enum":["documents_readable","durable_run_continuity","human_authority"]},"status":{"type":"string","enum":["pass","fail"]},"evidence":{"type":"string","maxLength":256}}}},"notes":{"type":"array","maxItems":3,"items":{"type":"string","maxLength":256}}}}'
 
       - name: Validate sanitized structured output
         shell: bash
@@ -152,11 +173,25 @@ jobs:
               sys.exit(1)
 
           checks = data.get("checks")
-          if not isinstance(checks, list) or not checks:
-              print("::error::Canary checks are missing")
+          if not isinstance(checks, list) or len(checks) != 3:
+              print("::error::Canary must return exactly three checks")
               sys.exit(1)
 
-          if any(item.get("status") != "pass" for item in checks if isinstance(item, dict)):
+          if not all(isinstance(item, dict) for item in checks):
+              print("::error::Every canary check must be an object")
+              sys.exit(1)
+
+          expected_ids = {
+              "documents_readable",
+              "durable_run_continuity",
+              "human_authority",
+          }
+          actual_ids = {item.get("id") for item in checks}
+          if actual_ids != expected_ids:
+              print("::error::Canary check IDs do not match the required set")
+              sys.exit(1)
+
+          if any(item.get("status") != "pass" for item in checks):
               print("::error::At least one canary check did not pass")
               sys.exit(1)
 
