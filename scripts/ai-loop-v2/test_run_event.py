@@ -223,6 +223,35 @@ class StreamValidationTests(unittest.TestCase):
         with self.assertRaises(StreamContractError):
             validate_stream(s + [v2, v3])
 
+    def test_reused_evidence_link_across_events_is_allowed(self):
+        s = base_stream()
+        v2 = event(
+            "verification_recorded",
+            {
+                "verification_ref": "v1",
+                "verifier_id": "deterministic.tests",
+                "kind": "deterministic",
+                "status": "fail",
+                "bound_artifact_ref": "sha256:" + "a" * 64,
+            },
+            2,
+            evidence_refs=["evidence:shared"],
+        )
+        f3 = event(
+            "failure_recorded",
+            {
+                "failure_ref": "f1",
+                "observation": "test failure",
+                "fingerprint": "fp:test",
+                "cause_hypothesis": "implementation defect",
+                "repairability": "repairable",
+                "result": "open",
+            },
+            3,
+            evidence_refs=["evidence:shared", "v1"],
+        )
+        validate_stream(s + [v2, f3])
+
     def test_decision_requires_prior_refs(self):
         s = base_stream()
         d2 = event(
@@ -283,6 +312,51 @@ class StreamValidationTests(unittest.TestCase):
         )
         with self.assertRaises(StreamContractError):
             validate_stream(s + [p2])
+
+    def test_progress_refs_must_be_failure_records(self):
+        s = base_stream()
+        v2 = event(
+            "verification_recorded",
+            {
+                "verification_ref": "v1",
+                "verifier_id": "deterministic.tests",
+                "kind": "deterministic",
+                "status": "fail",
+                "bound_artifact_ref": "sha256:" + "a" * 64,
+            },
+            2,
+        )
+        p3 = event(
+            "progress_assessed",
+            {
+                "progress_ref": "p1",
+                "previous_failure_ref": "v1",
+                "current_failure_ref": "v1",
+                "artifact_changed": False,
+                "evidence_delta": [],
+                "resolved_blockers": [],
+                "introduced_blockers": [],
+                "no_progress": True,
+            },
+            3,
+        )
+        with self.assertRaises(StreamContractError):
+            validate_stream(s + [v2, p3])
+
+    def test_unknown_policy_verdict_rejected(self):
+        with self.assertRaises(EventParseError):
+            event(
+                "decision_made",
+                {
+                    "decision_ref": "d-policy",
+                    "action": "continue",
+                    "input_refs": ["x"],
+                    "outcome": None,
+                    "stop_reasons": [],
+                    "policy_verdicts": ["MAYBE"],
+                },
+                2,
+            )
 
     def test_post_terminal_event_rejected(self):
         s = base_stream()
