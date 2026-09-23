@@ -270,7 +270,8 @@
                       "repository_canon",
                       "artifact_contract"
                     ]
-                  }
+                  },
+                  "ref": { "type": "string", "minLength": 1, "maxLength": 1024 }
                 }
               }
             }
@@ -312,7 +313,8 @@
                           "fetched_latest",
                           "explicit_human_assertion"
                         ]
-                      }
+                      },
+                      "ref": { "type": "string", "minLength": 1, "maxLength": 1024 }
                     }
                   }
                 }
