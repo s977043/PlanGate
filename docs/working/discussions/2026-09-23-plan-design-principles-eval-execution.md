@@ -44,9 +44,10 @@ git -C "$WT" init
 git -C "$WT" fetch --depth=1 "$SOURCE_URL" "$VARIANT_SHA"
 git -C "$WT" checkout --detach FETCH_HEAD
 
-# materialization後、model-visible execution前にsource取得経路を除去
+# materialization後、model-visible execution前にsource取得経路・fetch metadataを除去
 git -C "$WT" remote remove origin 2>/dev/null || true
 git -C "$WT" config --unset-all remote.origin.url 2>/dev/null || true
+rm -f "$WT/.git/FETCH_HEAD"
 ```
 
 上記は例であり、採用方式は§8.2のnegative controlsを満たす必要がある。
@@ -58,6 +59,7 @@ git -C "$WT" config --unset-all remote.origin.url 2>/dev/null || true
 - source/peerを指す alternates なし
 - partial-clone/promisor なし
 - source remoteなし
+- `FETCH_HEAD` 等にsource URL/pathを残さない
 - model-visible runtimeからsource repo path / socket / mountへ到達不能
 
 run前に `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md` でblobを確認し、
