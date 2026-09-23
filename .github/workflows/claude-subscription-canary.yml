@@ -70,9 +70,29 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare isolated Claude working directory
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          canary_dir="${RUNNER_TEMP}/claude-subscription-canary"
+          rm -rf "$canary_dir"
+          mkdir -p "$canary_dir/docs/ai"
+
+          cp README.md "$canary_dir/README.md"
+          cp docs/ai/core-contract.md "$canary_dir/docs/ai/core-contract.md"
+
+          (
+            cd "$canary_dir"
+            sha256sum README.md docs/ai/core-contract.md > "${RUNNER_TEMP}/claude-subscription-canary.sha256"
+            find . -type f -print | LC_ALL=C sort > "${RUNNER_TEMP}/claude-subscription-canary.files"
+          )
+
       - name: Run Claude read-only canary
         id: claude
         uses: anthropics/claude-code-action/base-action@9ca9355b36297178e28d37c799d1c9c8a28e6507
+        env:
+          CLAUDE_WORKING_DIR: ${{ runner.temp }}/claude-subscription-canary
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: false
@@ -96,6 +116,8 @@ jobs:
             --max-turns 4
             --permission-mode dontAsk
             --allowedTools "Read,Glob,Grep"
+            --strict-mcp-config
+            --mcp-config '{"mcpServers":{}}'
             --json-schema '{"type":"object","additionalProperties":false,"required":["status","checked_files","summary"],"properties":{"status":{"type":"string","enum":["READ_ONLY_OK"]},"checked_files":{"type":"array","items":{"type":"string"},"minItems":2},"summary":{"type":"string","maxLength":500}}}'
 
       - name: Validate canary result
@@ -117,7 +139,7 @@ jobs:
             and (.checked_files | index("docs/ai/core-contract.md") != null)
           ' >/dev/null
 
-      - name: Verify workspace stayed read-only
+      - name: Verify canary stayed read-only
         if: always()
         shell: bash
         run: |
@@ -125,9 +147,24 @@ jobs:
 
           git diff --exit-code
 
-          status="$(git status --porcelain --untracked-files=all)"
-          if [ -n "$status" ]; then
-            echo "::error::Claude canary mutated the workspace."
-            printf '%s\n' "$status"
+          repo_status="$(git status --porcelain --untracked-files=all)"
+          if [ -n "$repo_status" ]; then
+            echo "::error::Claude canary mutated the repository workspace."
+            printf '%s\n' "$repo_status"
             exit 1
+          fi
+
+          canary_dir="${RUNNER_TEMP}/claude-subscription-canary"
+          if [ -d "$canary_dir" ]; then
+            (
+              cd "$canary_dir"
+              sha256sum -c "${RUNNER_TEMP}/claude-subscription-canary.sha256"
+              find . -type f -print | LC_ALL=C sort > "${RUNNER_TEMP}/claude-subscription-canary.files.after"
+            )
+
+            if ! cmp -s               "${RUNNER_TEMP}/claude-subscription-canary.files"               "${RUNNER_TEMP}/claude-subscription-canary.files.after"; then
+              echo "::error::Claude canary created or removed files in its isolated working directory."
+              diff -u                 "${RUNNER_TEMP}/claude-subscription-canary.files"                 "${RUNNER_TEMP}/claude-subscription-canary.files.after" || true
+              exit 1
+            fi
           fi
