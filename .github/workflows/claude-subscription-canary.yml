@@ -21,6 +21,8 @@ jobs:
         shell: bash
         env:
           CANARY_REF: ${{ github.ref }}
+          CANARY_ACTOR: ${{ github.actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
           RUNNER_ENVIRONMENT_VALUE: ${{ runner.environment }}
           RUNNER_DEBUG_VALUE: ${{ runner.debug }}
           CLAUDE_CODE_OAUTH_TOKEN_VALUE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -29,6 +31,11 @@ jobs:
 
           if [ "$CANARY_REF" != "refs/heads/main" ]; then
             echo "::error::Stage A canary may run only from refs/heads/main"
+            exit 1
+          fi
+
+          if [ "$CANARY_ACTOR" != "$REPOSITORY_OWNER" ]; then
+            echo "::error::Stage A canary may be dispatched only by the repository owner"
             exit 1
           fi
 
@@ -56,6 +63,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            echo "::error::Checked-out HEAD does not match workflow source SHA"
+            exit 1
+          fi
 
           required_files="
           docs/ai/ai-loop-v2/north-star.md
