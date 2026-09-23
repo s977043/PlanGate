@@ -110,4 +110,12 @@ else
   _t88_fail "TC-08 privacy/history exclusions incomplete"
 fi
 
+if grep -q 'Do not infer that' "$_T88_DOC" &&
+   grep -q 'Human-owned PreCompact wiring' "$_T88_DOC" &&
+   grep -q '#938 remains the owner' "$_T88_DOC"; then
+  _t88_pass "TC-09 staged enforcement and open wait/resume ownership stay explicit"
+else
+  _t88_fail "TC-09 staged/open integration status is overstated or missing"
+fi
+
 pg_extra_contract_finalize
