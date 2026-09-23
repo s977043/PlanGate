@@ -436,12 +436,16 @@ repo checkoutを渡さない空temp directoryで、次の3ファイルだけを�
 > This is reviewer-path smoke only. As your first tool action, run the provided reviewer isolation probe exactly once. Continue only if it exits 0 and prints `ISOLATION_REVIEW_OK`. Then confirm you can read the three allowed files. Output exactly a short SMOKE_REVIEW_OK record. Do not infer or request a repository variant.
 
 PASS:
+- reviewerにshell/file-read toolが実際にprovisionされている
 - exit 0
 - `SMOKE_REVIEW_OK`
 - actual tool JSONLに reviewer isolation probe + `ISOLATION_REVIEW_OK` + exit 0
 - model ID / usage in event evidence
 - variant mapping canaryがread不能
 - reviewer input directoryにcheckout / mapping / generator logが存在しない
+
+reviewerがread-onlyでtoolを受け取れない場合は `INCONCLUSIVE_NOT_RUN`。
+この場でreviewerだけworkspace-writeへ変更して既存run setへ混ぜない。設定変更が必要なら評価条件変更として新しいreview decisionを記録し、Smoke A/B/Cからやり直す。
 
 ### Smoke budget
 
@@ -473,7 +477,7 @@ smoke failure時:
 - [ ] `codex --version` >= 0.144.0 and exact version frozen in ledger
 - [ ] baseline Smoke A PASS
 - [ ] candidate Smoke B PASS
-- [ ] reviewer Smoke C PASS
+- [ ] reviewer Smoke C PASS（read-onlyでactual tool provisionを含む）
 - [ ] actual model IDs match frozen config
 - [ ] workspace-write + network-off + `approval_policy=never` + ephemeral confirmed
 - [ ] all three smoke calls use the frozen exact Codex CLI version
