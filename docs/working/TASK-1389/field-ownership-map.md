@@ -41,7 +41,8 @@ The two context artifacts answer different questions:
 7. authority is a source-role classification, not model confidence.
 8. freshness=current requires auditable source identity.
 9. Full raw source bodies, raw transcripts, hidden CoT, secrets, and command output are not package contents.
-10. context_ref is derived outside the payload. The payload does not contain its own self-hash.
+10. context_ref / snapshot_ref are derived outside the payload. The payload does not contain its own self-hash.
+11. Re-resolving unchanged semantic context must not stale an approved Plan only because timestamps or resolver version changed.
 
 Classification:
 
@@ -71,11 +72,12 @@ Decision: #1389 is upstream provenance, not Context Manifest v2.
 |---|---|---|
 | schema_version | owned | package schema version |
 | context_id | owned | logical lineage identifier; not content hash |
-| context_ref | derived identity | computed outside payload from canonical package bytes; not a payload field |
+| context_ref | derived semantic identity | canonical hash of the **contract projection**; used for Plan stale binding; not a payload field |
+| snapshot_ref | derived byte identity | hash of exact immutable artifact bytes; audit/provenance only; not a payload field |
 | task_id | referenced | existing task identity |
-| supersedes_context_ref | referenced | optional previous immutable package ref |
-| created_at | owned snapshot metadata | snapshot creation time; identity participation is fixed in canonicalization policy |
-| resolver_version | provenance | resolver implementation version, not authority |
+| supersedes_context_ref | referenced | optional previous semantic context ref when semantics change |
+| created_at | owned snapshot metadata | included in snapshot_ref, excluded from context_ref |
+| resolver_version | provenance | included in snapshot_ref, excluded from context_ref unless it changes normalized contract data |
 | intent | owned normalized inputs | source-backed normalized intent, not final PBI/Plan |
 | sources[] | owned provenance | source inventory and evidence identity |
 | constraints[] | owned normalized inputs | source-backed inputs only |
@@ -95,34 +97,41 @@ A source record identifies exactly what was observed and how it may be used.
 | field | class | decision |
 |---|---|---|
 | source_id | owned | unique within package |
-| kind | owned | issue / spec / adr / code / discussion / prior_run |
+| kind | owned | pbi_input / issue / spec / adr / code / discussion / prior_run |
 | ref | owned provenance | stable locator where possible |
 | revision_ref | owned provenance | source-kind-specific revision identity when available |
 | content_digest | owned provenance | digest of observed source content when revision identity is insufficient |
 | observed_at | owned provenance | when source was observed |
 | authority | owned classification | authoritative / supporting / unverified |
-| authority_basis | owned provenance | why this source is allowed to be authoritative; model confidence is insufficient |
+| authority_basis | owned structured provenance | basis kind + optional ref explaining why this source is authoritative; model confidence is insufficient |
 | freshness | owned classification | current / stale / unknown at snapshot time |
 | freshness_basis | owned provenance | revision comparison / explicit user assertion / unavailable, etc. |
 | excerpts / raw_body | forbidden | package stores normalized statements + refs, not copied source bodies |
 | confidence score | forbidden as authority | model confidence is not source authority |
 
-### Minimum source identity rule
+### Source identity and freshness rule
 
-A source classified as freshness=current must have at least one auditable content/revision identity:
+Every source used for normalized facts must have an auditable observed identity when feasible: revision_ref and/or content_digest.
 
-- immutable or versioned revision_ref, or
-- content_digest of the observed source.
+That identity proves **what was observed**; it does **not by itself prove freshness=current**.
 
-A mutable URL alone is insufficient.
+freshness=current additionally requires a freshness_basis showing why the observed identity represented the applicable current source at observed_at, for example:
+
+- resolver compared against source HEAD/latest revision at observation time
+- repository canonical artifact at the bound commit
+- explicit Human assertion where machine verification is unavailable
+
+If currentness cannot be established, freshness=unknown. A mutable URL or content_digest alone is insufficient.
 
 ### Authority rule
 
-authority=authoritative requires a non-empty authority_basis, for example:
+authority=authoritative requires structured authority_basis. Minimum basis kinds:
 
-- explicit user designation
-- repository policy / canonical-doc rule
-- existing PlanGate artifact authority
+- explicit_human_designation
+- repository_canon
+- artifact_contract
+
+The basis may carry a policy/artifact ref. Free-form rationale alone is not sufficient for machine enforcement.
 
 The resolver must not upgrade a source to authoritative because an LLM considers it convincing.
 
@@ -176,36 +185,63 @@ The package does not own conflict resolution.
 | source_pbi_hash | existing artifact schema | do not redefine |
 | plan_hash / artifact_hashes / source_sha | #872 / Plan Package | do not redefine |
 | C-3 / C-3' approval | approval owner | package is evidence/input only |
-| Plan stale due to context change | Plan binding integration | downstream compares exact context_ref; package itself does not approve/invalidate |
+| Plan stale due to context change | Plan binding integration | downstream compares semantic context_ref; snapshot_ref is audit-only |
 
-The Plan binding design should record the exact context_ref used for Plan creation. #1389 defines identity semantics, not Plan approval semantics.
+The Plan binding design should record semantic context_ref used for Plan creation and may also record snapshot_ref for exact audit provenance. #1389 defines identity semantics, not Plan approval semantics.
 
 ## 8. Relationship to #1385 Work Item Graph
 
 #1385 should consume:
 
 - context_id: logical lineage
-- context_ref: exact immutable package bytes
+- context_ref: semantic contract identity
+- snapshot_ref: optional exact artifact audit identity
 - approved plan_hash
 
 #1385 must not recompute package authority/freshness rules or copy source claims.
 
 Migration note: prior #1385 text referring to context_hash should become context_ref once #1389 identity semantics are approved.
 
-## 9. Canonical identity
+## 9. Identity model: semantic binding vs exact snapshot
 
-context_ref is an external/derived identity such as sha256:<digest> over canonical package bytes.
+One ref cannot safely serve both Plan stale detection and exact artifact audit. Timestamps/resolver-version changes would create false stale results if exact bytes were used as the Plan contract identity.
+
+### context_ref — semantic contract identity
+
+Derived outside the payload from a canonical **contract projection** containing semantically material fields such as:
+
+- context_id / task binding
+- normalized intent / constraints / acceptance inputs
+- source observed identities (revision/digest)
+- source authority/freshness classifications
+- assumptions / unknowns / conflicts
+
+Exclude volatile audit metadata such as created_at, observed_at, and resolver_version when those fields do not change semantic context.
+
+### snapshot_ref — exact artifact identity
+
+Hash of exact immutable JSON artifact bytes (or canonical full payload). Used for audit/provenance, not Plan stale comparison.
 
 Requirements:
 
-1. same canonical payload -> same context_ref
-2. any semantically material payload change -> different context_ref
-3. payload does not contain context_ref
-4. canonicalization is deterministic and documented
-5. presentation-only generated Markdown is not part of identity
-6. set-like structures must use deterministic ordering or canonicalization
+1. same semantic contract projection -> same context_ref
+2. semantically material change -> different context_ref
+3. timestamp-only/resolver-version-only change -> context_ref unchanged, snapshot_ref may change
+4. same exact artifact -> same snapshot_ref
+5. payload contains neither derived ref
+6. presentation-only Markdown is outside both identities
+7. set-like structures have deterministic ordering/canonicalization
 
-Phase B review must explicitly decide whether created_at / observed_at participate in identity. Default is include because they describe the exact snapshot the Plan saw; deduplication is secondary.
+### Hash implementation
+
+Repository already has c3_contract.canonical_hash() as the shared canonical JSON hash used by multiple ai-loop consumers. Phase B must **not silently introduce a divergent canonical JSON algorithm**.
+
+Before implementation, choose one reviewed path:
+
+- reuse the existing canonical_hash contract where dependency direction is acceptable, or
+- extract/generalize that exact contract to a neutral shared helper with compatibility tests.
+
+Copy-pasting a second subtly different JSON canonicalization is forbidden.
 
 ## 10. #199 compatibility adapter
 
@@ -238,11 +274,11 @@ Do not migrate #199 draft-07 schema to 2020-12 as incidental work.
 4. constraint with zero source refs
 5. acceptance input with zero source refs
 6. assumption represented as authoritative fact
-7. freshness=current with neither revision nor digest
-8. authority=authoritative with no authority basis
+7. freshness=current with no evidence that observed identity was current at observed_at
+8. authority=authoritative with missing/unknown structured authority basis
 9. two authoritative conflicting sources silently collapsed
 10. raw transcript / hidden CoT / secret field present
-11. context_ref/self-hash field inside payload
+11. context_ref/snapshot_ref self-hash field inside payload
 12. source raw body copied into package
 13. package tries to own phase/mode/profile/budget
 14. package tries to own final Plan AC/C-3 decision
@@ -254,7 +290,8 @@ Schema work starts after review confirms:
 - #199 is reused, not replaced
 - source authority and freshness have explicit bases
 - final AC stays downstream
-- context_ref is external/derived and non-recursive
-- package identity canonicalization policy is fixed
+- context_ref and snapshot_ref are external/derived and non-recursive
+- semantic contract projection vs exact snapshot identity is fixed
+- canonical hash implementation reuses or explicitly extracts the existing repository contract; no divergent duplicate
 - #1385 dependency is updated to context_id/context_ref
 - no unresolved ownership conflict exists with #199 / PBI / Plan / #872
