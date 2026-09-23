@@ -210,7 +210,6 @@
     {
       "seq": 12,
       "type": "decision_made",
-      "state": "PR_CONVERGING",
       "revision": 8,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "decision": {
