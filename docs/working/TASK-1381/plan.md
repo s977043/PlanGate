@@ -18,12 +18,25 @@ RunEvidence / Failure instance
 
 ## Preconditions
 
-1. PR #1380 contract が Independent Review を通る
-2. #1380 の最終 head を base にする
-3. Legacy freeze を維持する
-4. Phase 1 schema は `docs/schemas/` に置く
+### Contract-design preconditions
 
-Precondition 1 未充足のまま implementation PR を main に merge しない。
+1. PR #1380 の contract を base にする
+2. Legacy freeze を維持する
+3. Phase 1 shadow schema は `docs/schemas/` に置く
+
+### Runtime implementation hard gates
+
+4. **PR #1380 Independent Review / contract acceptance が完了**
+5. **Delivery first release boundary E2E が成立**
+   - `FAIL -> Diagnose -> Repair -> PASS -> MERGE_READY`
+   - `NO_PROGRESS -> STOP / ESCALATE`
+   - evidence source: #870 DoD / linked CI fixture
+6. **#1329 invalidation preflight を実施**
+   - M-1 / M-2 / M-3 base measurement
+   - semantic invalidation review
+
+**4〜6 のいずれかが未充足なら `scripts/ai-loop-v2/**` を作成しない。**
+Planning / contract drafting は進めてよいが、Evolution runtime implementation は NO-GO。
 
 ## Approach comparison
 
@@ -157,9 +170,25 @@ result: PASS
 
 ## Work breakdown
 
-### Phase B0 — RED contracts
+### Phase B0A — Allowed now: contract readiness
 
-1. schema RED test
+1. Candidate / Experiment schema field mappingを Plan 上で固定
+2. fixture layout / source binding / expected resultsを固定
+3. RED test cases / mutation matrixを固定
+4. #870 Delivery E2E evidence linkを取得
+5. #1329 M-1 / M-2 / M-3 base measurement手順を handoff に用意
+
+### Phase B0B — Runtime gate
+
+次がすべて満たされたら RED 実装へ進む。
+
+- Phase A Independent Review complete
+- Delivery E2E gate complete
+- #1329 invalidation preflight complete
+
+### Phase B1 — RED runtime contracts
+
+1. schema validation RED test
 2. missing manifest -> INCONCLUSIVE
 3. evaluation plan digest mismatch -> INCONCLUSIVE
 4. allowed_paths overflow -> fail-closed
@@ -168,7 +197,7 @@ result: PASS
 7. known-bad baseline miss / candidate stop
 8. negative control pass
 
-### Phase B1 — GREEN minimal evaluator
+### Phase B2 — GREEN minimal evaluator
 
 `ratchet.py` に純関数のみ実装。
 
@@ -195,7 +224,7 @@ CLI は Phase B では必須にしない。test / fixture で決定論 API を�
 
 `compute_fixture_tree_delta()` は sealed fixture tree を読み、relative path + content digest の差分を Evaluation Harness 側で生成する。Candidate JSON 内の changed paths は入力にしない。Production の source-commit diff calculator は Non-goal。
 
-### Phase B2 — integration
+### Phase B3 — integration
 
 TA-NN で:
 - 2 schema parse
@@ -205,7 +234,7 @@ TA-NN で:
 
 Legacy schema / `scripts/ai-loop/**` 無変更は CI test に base branch 依存を持ち込まず、PR diff review / handoff evidence で確認する。
 
-### Phase B3 — review
+### Phase B4 — review
 
 - I0 self-review
 - I1+ independent review
@@ -241,6 +270,8 @@ sh tests/run-tests.sh
 
 ## Replan triggers
 
+- #870 Delivery E2E が未成立または成立条件が変更
+- #1329 semantic invalidation procedure が変更
 - Phase A Independent Review で contract が変更
 - V2 RunEvidence / HarnessManifest implementation が先に main へ入り compatibility bridge が不要になる
 - `docs/schemas/` placement policy が変更
@@ -249,6 +280,8 @@ sh tests/run-tests.sh
 
 ## Stop conditions
 
+- Delivery E2E の成立前に Evolution runtime 実装が必要になる
+- #1329 invalidation gate を通さず `scripts/ai-loop-v2/**` を追加する必要がある
 - Candidate が自身の evaluator / sealed fixture / threshold を変更しないと PASS できない
 - Harness identity を machine-readable に固定できない
 - Legacy freeze を破らないと実装できない
@@ -271,3 +304,21 @@ Phase B code itselfは shadow / fixture-only、Production behavior 非変更。
 - FailureRecord full schema / V2 RunEvidence schema は本 Task で定義しない。
 - HarnessManifest generator / canonicalization algorithm も本 Task で定義しない。fixture は canon fields の必要 subset を使う。
 - Phase B development fixture を #909 Incident Regression Set へ自動昇格しない。
+
+## Governance / sequencing review
+
+### Delivery-before-Evolution
+
+本 Task の runtime 実装は `phase0-migration.md` §8 の順序制約に従う。
+#870 の Delivery E2E DoD が未チェックの間、本 Plan の verdict は:
+
+```text
+Planning / contract readiness: GO
+Runtime implementation: NO-GO / BLOCKED
+```
+
+### I4 invalidation
+
+最初の `scripts/ai-loop-v2/` commit は M-2 を確実に変化させる。
+したがって runtime implementation PR は #1329 の **I1 exception invalidation candidate** として扱う。
+この Task 自身が canon 7 を編集して例外継続を宣言してはならない。
