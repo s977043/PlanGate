@@ -95,10 +95,12 @@ def _required_unavailable(verifications, required_verifiers):
     by_id = {}
     for value in verifications:
         by_id[value.get("verifier_id")] = value
-    return any(
-        by_id.get(verifier_id, {}).get("status") in {"unavailable", "inconclusive"}
-        for verifier_id in required_verifiers
-    )
+    blocked = []
+    for verifier_id in required_verifiers:
+        value = by_id.get(verifier_id)
+        if value is not None and value.get("status") in {"unavailable", "inconclusive"}:
+            blocked.append(value)
+    return blocked
 
 
 def decide(
@@ -115,14 +117,15 @@ def decide(
 ):
     if not isinstance(loop_contract, dict) or not isinstance(run_state, dict):
         raise DecisionError("contract/state")
-    if _required_unavailable(
+    unavailable = _required_unavailable(
         verifications, list(loop_contract.get("required_verifiers") or [])
-    ):
+    )
+    if unavailable:
         return {
             "action": "stop",
             "outcome": "BLOCKED",
             "stop_reasons": ["VERIFIER_UNAVAILABLE"],
-            "inputs": [],
+            "inputs": [value["id"] for value in unavailable],
         }
 
     if progress is not None and progress.get("no_progress") is True:
