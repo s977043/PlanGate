@@ -3,11 +3,35 @@
   "kind": "ai_loop_v2_delivery_e2e_trace",
   "scenario": "repair-convergence",
   "authoritative": false,
+  "loop_contract": {
+    "contract_id": "loop-contract:delivery-e2e-spec",
+    "acceptance_refs": [
+      "ac:delivery-first-boundary"
+    ],
+    "allowed_scope": [
+      "fixture://delivery/**"
+    ],
+    "required_verifiers": [
+      "specification.plan",
+      "deterministic.tests"
+    ],
+    "budget": {
+      "max_repair_rounds": 2,
+      "max_no_progress_iterations": 1
+    },
+    "task_profile": "delivery-e2e-fixture"
+  },
+  "run_binding": {
+    "plan_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "source_sha": "3333333333333333333333333333333333333333",
+    "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
   "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "expected_projection": {
     "outcome": "MERGE_READY",
     "stop_reasons": [],
     "verification_result_refs": [
+      "pv1",
       "v1",
       "v2",
       "v3"
@@ -20,26 +44,59 @@
   "events": [
     {
       "seq": 1,
-      "type": "run_started",
-      "state": "EXECUTING",
+      "type": "plan_contract_bound",
+      "state": "PLAN_VERIFYING",
       "revision": 0,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-      "artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      "plan_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "source_sha": "3333333333333333333333333333333333333333"
     },
     {
       "seq": 2,
+      "type": "verification_recorded",
+      "state": "PLAN_VERIFYING",
+      "revision": 0,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "verification": {
+        "id": "pv1",
+        "verifier_id": "specification.plan",
+        "kind": "specification",
+        "status": "pass",
+        "bound_artifact_ref": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "evidence_refs": [
+          "plan:verification-1"
+        ]
+      }
+    },
+    {
+      "seq": 3,
+      "type": "decision_made",
+      "state": "EXECUTING",
+      "revision": 1,
+      "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "decision": {
+        "action": "continue",
+        "inputs": [
+          "pv1"
+        ],
+        "outcome": null,
+        "stop_reasons": []
+      }
+    },
+    {
+      "seq": 4,
       "type": "worker_completed",
       "state": "VERIFYING",
-      "revision": 1,
+      "revision": 2,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "evidence_ref": "worker:attempt-1"
     },
     {
-      "seq": 3,
+      "seq": 5,
       "type": "verification_recorded",
       "state": "VERIFYING",
-      "revision": 1,
+      "revision": 2,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "verification": {
         "id": "v1",
@@ -53,10 +110,10 @@
       }
     },
     {
-      "seq": 4,
+      "seq": 6,
       "type": "verification_recorded",
       "state": "VERIFYING",
-      "revision": 1,
+      "revision": 2,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "verification": {
         "id": "v2",
@@ -70,10 +127,10 @@
       }
     },
     {
-      "seq": 5,
+      "seq": 7,
       "type": "failure_recorded",
       "state": "DIAGNOSING",
-      "revision": 2,
+      "revision": 3,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "failure": {
         "id": "f1",
@@ -88,10 +145,10 @@
       }
     },
     {
-      "seq": 6,
+      "seq": 8,
       "type": "decision_made",
       "state": "REPAIRING",
-      "revision": 3,
+      "revision": 4,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "decision": {
         "action": "repair",
@@ -105,10 +162,10 @@
       }
     },
     {
-      "seq": 7,
+      "seq": 9,
       "type": "artifact_changed",
       "state": "REPAIRING",
-      "revision": 4,
+      "revision": 5,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "before_artifact_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "after_artifact_ref": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -116,10 +173,10 @@
       "evidence_ref": "artifact:delta-1"
     },
     {
-      "seq": 8,
+      "seq": 10,
       "type": "verification_recorded",
       "state": "VERIFYING",
-      "revision": 5,
+      "revision": 6,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "verification": {
         "id": "v3",
@@ -133,10 +190,10 @@
       }
     },
     {
-      "seq": 9,
+      "seq": 11,
       "type": "pr_convergence_recorded",
       "state": "PR_CONVERGING",
-      "revision": 6,
+      "revision": 7,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "convergence": {
         "ci": "pass",
@@ -150,10 +207,10 @@
       ]
     },
     {
-      "seq": 10,
+      "seq": 12,
       "type": "decision_made",
       "state": "PR_CONVERGING",
-      "revision": 7,
+      "revision": 8,
       "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "decision": {
         "action": "stop",
