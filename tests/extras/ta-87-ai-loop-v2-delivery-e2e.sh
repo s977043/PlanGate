@@ -535,7 +535,12 @@ m["events"].append({
 })
 expect_reject("event after terminal outcome", m, validate_no_progress)
 
-print("  [PASS] 17 mutation classes killed")
+# Mutation 18: Repair is explicitly outside the approved scope.
+m = copy.deepcopy(repair)
+m["events"][8]["scope_ok"] = False
+expect_reject("repair outside approved scope", m, validate_repair)
+
+print("  [PASS] 18 mutation classes killed")
 PY
 ); then
   _T87_RC=0
