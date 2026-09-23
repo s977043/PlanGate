@@ -39,14 +39,7 @@ def partial_stream():
     return [
         ev(
             "plan_contract_bound",
-            {
-                "contract_ref": "loop-contract:test",
-                "acceptance_refs": ["ac:delivery"],
-                "allowed_scope": ["src/**"],
-                "required_verifiers": ["deterministic.tests"],
-                "budget": {"max_repair_rounds": 2},
-                "task_profile": "test",
-            },
+            {"contract_ref": "loop-contract:test"},
             1,
         )
     ]
