@@ -48,6 +48,7 @@ fi
 if _T87_OUT=$(python3 - "$_T87_REPAIR" "$_T87_NOPROGRESS" <<'PY'
 import copy
 import json
+import re
 import sys
 
 repair_path, no_progress_path = sys.argv[1:3]
@@ -65,6 +66,8 @@ ALLOWED_STOP_REASONS = {
 }
 ALLOWED_ACTIONS = {"continue", "repair", "replan", "stop"}
 ALLOWED_VERIFICATION = {"pass", "fail", "unavailable", "inconclusive"}
+SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+COMMIT_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 class SpecError(Exception):
@@ -128,10 +131,10 @@ def validate_contract(trace):
     req(isinstance(binding, dict), "run binding")
     req(binding.get("harness_manifest_ref") == trace.get("harness_manifest_ref"),
         "run binding harness")
-    req(isinstance(binding.get("plan_hash"), str) and binding["plan_hash"].startswith("sha256:"),
-        "plan hash")
+    req(isinstance(binding.get("plan_hash"), str)
+        and SHA256_RE.fullmatch(binding["plan_hash"]) is not None, "plan hash")
     source = binding.get("source_sha")
-    req(isinstance(source, str) and len(source) in range(7, 41), "source sha")
+    req(isinstance(source, str) and COMMIT_RE.fullmatch(source) is not None, "source sha")
 
 
 def validate_common(trace):
@@ -141,7 +144,7 @@ def validate_common(trace):
     validate_contract(trace)
 
     harness = trace.get("harness_manifest_ref")
-    req(isinstance(harness, str) and harness.startswith("sha256:"), "harness ref")
+    req(isinstance(harness, str) and SHA256_RE.fullmatch(harness) is not None, "harness ref")
     events = trace.get("events")
     req(isinstance(events, list) and events, "events")
 
@@ -182,6 +185,38 @@ def validate_common(trace):
             if outcome == "MERGE_READY":
                 req(reasons == [], "MERGE_READY must not carry failure stop reason")
 
+    # Decision inputs must resolve to evidence that already exists in the trace.
+    # This prevents a missing FailureRecord / VerificationResult from being hidden
+    # behind a syntactically plausible decision record.
+    ref_seq = {}
+
+    def register_ref(ref, seq, label):
+        req(isinstance(ref, str) and ref, f"empty reference: {label}")
+        req(ref not in ref_seq, f"duplicate reference: {ref}")
+        ref_seq[ref] = seq
+
+    for event in events:
+        seq = event["seq"]
+        if event.get("id") is not None:
+            register_ref(event["id"], seq, "event.id")
+        if event.get("evidence_ref") is not None:
+            register_ref(event["evidence_ref"], seq, "event.evidence_ref")
+        for ref in event.get("evidence_refs", []):
+            register_ref(ref, seq, "event.evidence_refs")
+        if event["type"] == "verification_recorded":
+            register_ref(event["verification"]["id"], seq, "verification.id")
+        elif event["type"] == "failure_recorded":
+            register_ref(event["failure"]["id"], seq, "failure.id")
+
+    for event in events:
+        if event["type"] != "decision_made":
+            continue
+        inputs = event["decision"].get("inputs")
+        req(isinstance(inputs, list) and inputs, "decision inputs")
+        for ref in inputs:
+            req(ref in ref_seq, f"decision input missing: {ref}")
+            req(ref_seq[ref] < event["seq"], f"decision input is not prior evidence: {ref}")
+
     expected = trace.get("expected_projection")
     p1 = project(trace)
     p2 = project(trace)
@@ -207,9 +242,11 @@ def validate_initial_plan_gate(trace):
     req(plan_verify["verification"]["bound_artifact_ref"] == binding["plan_hash"],
         "Plan Verification bound to wrong plan")
 
+    plan_verification_id = plan_verify["verification"]["id"]
     plan_decision = next((
         e for e in events
-        if e["type"] == "decision_made" and "pv1" in e["decision"].get("inputs", [])
+        if e["type"] == "decision_made"
+        and plan_verification_id in e["decision"].get("inputs", [])
     ), None)
     req(plan_decision is not None, "Plan Gate decision missing")
     req(plan_decision["decision"]["action"] == "continue", "Plan Gate must continue")
@@ -326,11 +363,16 @@ validate_no_progress(no_progress)
 print("  [PASS] no-progress-stop executable trace")
 
 # Mutation 1: Initial Plan Verification is skipped.
+# Keep projection/reference checks internally consistent so the dedicated
+# Initial Plan Verification invariant must reject it.
 m = copy.deepcopy(repair)
 m["events"] = [e for e in m["events"] if not (
     e["type"] == "verification_recorded"
     and e["verification"].get("verifier_id") == "specification.plan"
 )]
+m["expected_projection"]["verification_result_refs"].remove("pv1")
+plan_decision = next(e for e in m["events"] if e["type"] == "decision_made")
+plan_decision["decision"]["inputs"] = ["plan:contract-bound"]
 expect_reject("Initial Plan Verification skipped", m, validate_repair)
 
 # Mutation 2: Worker self-report becomes terminal success.
@@ -384,7 +426,15 @@ m["events"][7]["after_artifact_ref"] = "sha256:" + "b" * 64
 m["events"][10]["progress"]["artifact_changed"] = True
 expect_reject("meaningful artifact delta mislabeled no-progress", m, validate_no_progress)
 
-print("  [PASS] 10 mutation classes killed")
+# Mutation 11: FailureRecord is removed but the Decision still references it.
+m = copy.deepcopy(repair)
+m["events"] = [e for e in m["events"] if not (
+    e["type"] == "failure_recorded" and e["failure"].get("id") == "f1"
+)]
+m["expected_projection"]["failure_record_refs"] = []
+expect_reject("missing FailureRecord reference", m, validate_repair)
+
+print("  [PASS] 11 mutation classes killed")
 PY
 ); then
   _T87_RC=0
