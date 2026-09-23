@@ -30,7 +30,7 @@
 - [x] TA executable invariant checks
 - [x] 11 mutation classes
 - [x] set -e safe failure capture
-- [ ] full tests
+- [ ] full tests (rerun after ta-26 TC-13/TC-33 convention fix)
 - [ ] confirm M-2 remains baseline
 
 ## Stage 3 — Production runtime preflight
@@ -71,3 +71,12 @@
 - full V2 metrics schema
 - auto merge
 - new taxonomy
+
+
+## CI integration repair
+
+- [x] first full Test failure attributed
+- [x] TA-87 task-specific tests confirmed green in failed run
+- [x] ta-26 TC-13/TC-33 root cause identified
+- [x] explicit 7-env standalone unset added
+- [ ] rerun Test green
