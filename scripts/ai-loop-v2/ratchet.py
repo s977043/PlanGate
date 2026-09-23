@@ -212,6 +212,22 @@ def simulate_completion(manifest, fixture):
     }
 
 
+def measure_recurrence(observations, classifier_digest):
+    eligible = [
+        item for item in observations
+        if item.get("classifier_digest") == classifier_digest
+    ]
+    matching = [item for item in eligible if item.get("matched") is True]
+    return {
+        "pattern_classifier_digest": classifier_digest,
+        "eligible_run_count": len(eligible),
+        "matching_failure_run_count": len(matching),
+        "same_pattern_recurrence_rate": (
+            len(matching) / len(eligible) if eligible else None
+        ),
+    }
+
+
 def _finish(
     bundle,
     sealed_plan,
@@ -226,8 +242,18 @@ def _finish(
 ):
     baseline = bundle.get("baseline_manifest")
     candidate_manifest = bundle.get("candidate_manifest")
+    candidate = bundle.get("candidate", {})
+    classifier_digest = (
+        candidate.get("source", {})
+        .get("pattern_snapshot", {})
+        .get("classifier_digest")
+    )
+    recurrence = measure_recurrence(
+        bundle.get("recurrence_observations", []), classifier_digest
+    ) if classifier_digest else None
     experiment = {
-        "candidate_id": bundle.get("candidate", {}).get("candidate_id"),
+        "candidate_id": candidate.get("candidate_id"),
+        "candidate_ref": canonical_digest(candidate) if candidate else None,
         "evaluation_plan_digest": canonical_digest(sealed_plan),
         "baseline_manifest_ref": manifest_ref(baseline) if baseline else None,
         "candidate_manifest_ref": (
@@ -237,6 +263,9 @@ def _finish(
         "observed_changed_paths": changed_paths or [],
         "prevention_evidence": paired or {},
         "activation": activation or {},
+        "metrics": {
+            "recurrence_observation": recurrence,
+        },
         "result": result_value,
         "reason_codes": list(reason_codes),
     }
@@ -247,6 +276,11 @@ def _finish(
         "experiment_result": experiment,
         "promotion_decision": {
             "candidate_id": experiment["candidate_id"],
+            "candidate_ref": experiment["candidate_ref"],
+            "candidate_manifest_ref": experiment["candidate_manifest_ref"],
+            "source_failure_instance_refs": (
+                candidate.get("source", {}).get("failure_instance_refs", [])
+            ),
             "experiment_result_ref": experiment_ref,
             "decision": result_value,
             "reason_codes": list(reason_codes),
