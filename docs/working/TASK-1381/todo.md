@@ -8,8 +8,9 @@
 - [x] existing RunEvidence adaptersを棚卸し
 - [ ] PR #1380 Independent Review complete
 - [ ] PR #1380 contract accepted
-- [ ] #870 Delivery E2E: FAIL -> Diagnose -> Repair -> PASS -> MERGE_READY evidence
-- [ ] #870 Delivery E2E: NO_PROGRESS -> STOP / ESCALATE evidence
+- [ ] #1383 Delivery E2E: FAIL -> Diagnose -> Repair -> PASS -> MERGE_READY evidence
+- [ ] #1383 Delivery E2E: NO_PROGRESS -> STOP / ESCALATE evidence
+- [ ] #1383 gate result returned to #1381
 - [ ] #1329 M-1 / M-2 / M-3 base measurement
 - [ ] #1329 semantic invalidation review preflight
 - [ ] Runtime implementation gate = all above PASS
