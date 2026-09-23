@@ -8,6 +8,8 @@
 | EV-02 | accepted stream contains duplicate event_ref / same content | invalid stream; idempotent retry must have been absorbed by #1392 before append |
 | EV-03 | duplicate event_ref / different content | invalid / reject tamper |
 | EV-04 | event_seq decreases | reject |
+| EV-04a | event_seq jumps from N to N+2 | invalid gap |
+| EV-04b | first accepted event_seq is not 1 | invalid |
 | EV-05 | event_seq duplicate for different event | invalid |
 | EV-05a | producer draft tries to supply authoritative event_seq/event_ref | reject draft |
 | EV-05b | #1392 assigns next event_seq then #1391 finalizes | accepted |
@@ -23,7 +25,8 @@
 | ID | Condition | Expected |
 |---|---|---|
 | RF-01 | decision input refers to earlier evidence | accept |
-| RF-02 | future ref | reject |
+| RF-02 | future ref in candidate append | reject before commit |
+| RF-02a | #1392 attempts commit without validate_append | boundary/static failure |
 | RF-03 | missing ref | reject |
 | RF-04 | same ref registered twice by different artifacts | reject |
 
