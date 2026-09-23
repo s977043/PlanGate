@@ -105,6 +105,7 @@ def decide(
     failures,
     current_artifact_ref,
     progress=None,
+    progress_ref=None,
     pr_convergence=None,
     changed_paths=None,
 ):
@@ -121,7 +122,21 @@ def decide(
         }
 
     if progress is not None and progress.get("no_progress") is True:
-        inputs = [failures[-1]["id"]] if failures else []
+        inputs = []
+        current_det = next(
+            (
+                value for value in reversed(verifications)
+                if value.get("kind") == "deterministic"
+                and value.get("bound_artifact_ref") == current_artifact_ref
+            ),
+            None,
+        )
+        if current_det is not None:
+            inputs.append(current_det["id"])
+        if failures:
+            inputs.append(failures[-1]["id"])
+        if progress_ref:
+            inputs.append(progress_ref)
         return {
             "action": "stop",
             "outcome": "HUMAN_ESCALATED",
