@@ -202,9 +202,21 @@ VERIFYING      -> DIAGNOSING | PR_CONVERGING
 DIAGNOSING     -> REPAIRING | REPLANNING
 REPAIRING      -> VERIFYING
 REPLANNING     -> PLAN_VERIFYING
-PR_CONVERGING  -> REPAIRING | WAITING_HUMAN | WAITING_EXTERNAL
+PR_CONVERGING  -> REPAIRING
 ```
 
 A terminal Decision does not transition to a terminal state.
 
-Transitions from WAITING_HUMAN / WAITING_EXTERNAL require a pending-action resume contract and are outside the first owner-backed #1383 path. They are rejected until that resume contract is implemented rather than guessed.
+WAITING_HUMAN / WAITING_EXTERNAL remain canonical Lifecycle State values, but this first slice does not create or resume them because the pending-action contract is not implemented. Transition requests to/from WAITING_* are rejected rather than guessed.
+
+
+## pending_action scope
+
+The RunState field exists in canon, but the first owner-backed Delivery paths do not need Human/External waiting.
+
+For this slice:
+- persisted `pending_action` must be null
+- non-null pending_action is rejected as unsupported
+- WAITING_* transitions are unsupported
+
+A later dedicated waiting/resume slice must define pending_action shape and transition evidence before enabling these states.
