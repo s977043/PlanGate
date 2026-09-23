@@ -1,6 +1,6 @@
 # TASK-1359 INDEX
 
-> 最終更新: 2026-09-23 08:24
+> 最終更新: 2026-09-23 12:45
 > Issue: #1359
 > Draft PR: #1360
 > Mode: critical
@@ -12,20 +12,24 @@
 
 ## 現在のフェーズ
 
-**BLOCKED**
+- **Planning package: MERGE_READY**
+- **Execution: BLOCKED**
 
 - internal Plan review: complete
-- #1358 merge/rebase + TC-12: PASS
-- external blocker: **#1337 paired evaluation result not fixed**
+- PR #1360 CI/Test/CodeQL/Issue Link: PASS
+- PR #1360 diff: `docs/working/TASK-1359/**` only
+- planning baseline merge does not modify frozen #1337 baseline/candidate SHAs
+- execution blocker: **#1337 paired evaluation result not fixed**
 - Human C-3 / production implementation: blocked until T-00
 
 ## 次のアクション
 
-1. #1337 3-call smoke（Codex CLI >=0.144.0 / exact version freeze）→ 48 generations → blind scoringを完了し、pair-level result / downstream decisionを固定
-2. T-00で結果を読み、TASK-1359 replan要否を判定
-3. 必要ならC-1/C-2 refresh
-4. Human C-3
-5. APPROVEDならT-03以降
+1. Human C-4: planning-only PR #1360 をmergeしてplanning baselineをmainへ確定
+2. #1337 3-call smoke（Codex CLI >=0.144.0 / exact version freeze）→ 48 generations → blind scoringを完了し、pair-level result / downstream decisionを固定
+3. T-00で結果を読み、TASK-1359 replan要否を判定
+4. 必要ならC-1/C-2 refresh
+5. Human C-3
+6. APPROVEDなら実装用branch/PRでT-03以降
 
 ## ファイルマップ
 
