@@ -313,6 +313,34 @@ def validate_semantics(payload: dict[str, Any]) -> list[str]:
     return errors
 
 
+
+def authoritative_conflicts(payload: dict[str, Any]) -> list[str]:
+    """Return conflict IDs backed by at least two authoritative sources.
+
+    Conflict resolution is intentionally not attempted here. This helper only
+    exposes the deterministic safety condition consumed by the C-3' builder:
+    unresolved authoritative conflicts cannot be AUTO_APPROVED.
+    """
+    authority = {
+        src["source_id"]: src.get("authority")
+        for src in payload.get("sources", [])
+        if isinstance(src, dict) and isinstance(src.get("source_id"), str)
+    }
+    result: list[str] = []
+    for conflict in payload.get("conflicts", []):
+        if not isinstance(conflict, dict):
+            continue
+        authoritative_ids = {
+            sid
+            for sid in conflict.get("source_ids", [])
+            if authority.get(sid) == "authoritative"
+        }
+        if len(authoritative_ids) >= 2:
+            result.append(str(conflict.get("conflict_id", "<unknown>")))
+    return sorted(result)
+
+
+
 def validate_schema(payload: dict[str, Any]) -> list[str]:
     try:
         from jsonschema import Draft202012Validator, FormatChecker
