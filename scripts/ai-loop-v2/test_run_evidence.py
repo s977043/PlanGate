@@ -148,11 +148,21 @@ class RunEvidenceProjectionTests(unittest.TestCase):
 
     def test_missing_decision_reference_projects_invalid(self):
         s = terminal_stream()
-        s[-1]["payload"]["input_refs"] = ["v1", "missing"]
-        # recompute is intentionally not possible from producer mutation; first
-        # failure may be event-ref tamper or missing ref, both are invalid.
+        s[-1] = ev(
+            "decision_made",
+            {
+                "decision_ref": "d1",
+                "action": "stop",
+                "input_refs": ["v1", "missing"],
+                "outcome": "MERGE_READY",
+                "stop_reasons": [],
+                "policy_verdicts": ["ALLOW"],
+            },
+            4,
+        )
         out = project_run_evidence(s, H)
         self.assertEqual(out["evidence_status"], "invalid")
+        self.assertIn("decision input", out["errors"][0])
 
     def test_evidence_refs_are_deduplicated_preserving_order(self):
         s = terminal_stream()
