@@ -159,3 +159,24 @@ Mitigation:
   -> T-03..T-16 exec / verify
   -> Human C-4
 ```
+
+
+## Finding 12 — Latest-main governance additions
+
+**Severity before mitigation: Minor**
+
+Fresh main added:
+- ADR-006 Plan Deliberation Protocol
+- Human Attention Metrics cross-layer contract
+
+Potential overlap:
+- TASK-1359's review/re-check flow could accidentally absorb C-2 disagreement clarification.
+- "keep low-risk Plans compact" could be misread as Human Attention optimization.
+
+Mitigation:
+- Plan Deliberation is explicitly owned by ADR-006 and remains outside TASK-1359.
+- Human Attention/visibility measurement is explicitly owned by #1343/#1349/#1347 evaluation work.
+- TASK-1359 keeps only functional planning continuity semantics; it does not optimize attention or create a new deliberation layer.
+- Future ADR-006 Phase 4+ changes become a replan trigger if they alter the C-2→C-3 handoff assumed here.
+
+**Resolved in plan: yes**
