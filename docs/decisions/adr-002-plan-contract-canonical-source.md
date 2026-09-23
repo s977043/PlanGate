@@ -53,7 +53,7 @@ The execution reference is `docs/working/TASK-XXXX/execution/plan-contract.json`
 3. Physical execution reference: `docs/working/TASK-XXXX/execution/plan-contract.json`.
 4. Schema enforcement: `schemas/plan-contract.schema.json` plus mandatory `schema_mapping.py` registration.
 5. Actor boundary: future ActorSession values remain non-verified opaque identifiers until #980.
-6. Legacy approval: usable only when C-3 is `APPROVED` and `plan_hash` matches current `plan.md`.
+6. Legacy approval: usable only when C-3 is `APPROVED` and `plan_hash` matches current `plan.md`. **Legacy binding caveat:** legacy C-3 approves `plan.md` via `plan_hash`; it does not retroactively approve the six-file `plan_package_hash`. In a legacy sidecar, `plan_package_hash` is an execution-time integrity snapshot used to detect later drift, not evidence that the legacy approval covered all six artifacts.
 7. Presence/integrity: all six Plan Package artifacts must be present and non-empty.
 8. No action-policy duplication: `NO MERGE BY AI` remains enforced by existing implementation/policy, not copied into sidecar.
 9. Evidence binding: existing C-1/C-2/c3-prime verification remains owned by #872 and is reused.
