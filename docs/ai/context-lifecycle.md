@@ -126,7 +126,11 @@ Lifecycle depends on that canonical Plan; it does not create `canonical-plan.md`
 
 ### PreCompact memory guard (#742)
 
-Checks whether task memory/current state is fresh enough before compact. It is a safety net.
+The guard specification, staging script, apply script, and tests exist. **Do not infer that
+the Human-owned PreCompact wiring is active from this document.** Its enforcement status
+depends on the target environment's settings / Human-applied wiring.
+
+When the guard is actually wired, it is a safety net for stale task memory before compact.
 This policy defines what to do with a valid checkpoint afterward: resume from canonical
 artifacts rather than replaying conversation history.
 
@@ -139,6 +143,12 @@ Context Lifecycle defines **when to start a fresh working set**, not a replaceme
 
 Owns crash-consistent runtime execution state. Working-context files remain the human/agent
 operational view. This policy does not add another state machine.
+
+### External wait / usage interruption (#938)
+
+This policy defines the **checkpoint boundary** for an intentional interruption. It does not
+claim that workflow-conductor wait/resume integration is complete. #938 remains the owner of
+that operational automation/guidance until its own acceptance criteria are satisfied.
 
 ### River Review
 
