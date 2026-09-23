@@ -3,7 +3,7 @@
 > Parent: #1376
 > Stacked on: PR #1380 Phase A contract
 > Goal: verification-skipped Ratchet vertical slice を E2E で実証する
-> Status: planning only. Production behavior unchanged.
+> **Status: READY PLAN / IMPLEMENTATION BLOCKED** — planning / contract refinement only. Production behavior unchanged. Runtime implementation is blocked by the Delivery E2E sequencing gate and Phase A independent review.
 
 ## Current repository facts
 
@@ -18,10 +18,19 @@
 
 ## Decision
 
-### D1. Phase B は stacked implementation
+### D1. Phase B は stacked plan。runtime implementation は gate 待ち
 
-#1380 の contract acceptance 後に implementation を開始する。
-planning artifact は先行してよいが、V2 runtime/code は Independent Review 前に merge しない。
+planning artifact / contract refinement は先行してよいが、runtime implementation の開始条件を次に固定する。
+
+1. PR #1380 の Independent Review / contract acceptance
+2. `phase0-migration.md` §8 / #870 の **Delivery first release boundary E2E** が成立
+   - `FAIL -> Diagnose -> Repair -> PASS -> MERGE_READY`
+   - `NO_PROGRESS -> STOP / ESCALATE`
+3. #1329 の implementation PR checklist に従い、M-1 / M-2 / M-3 と semantic invalidation gate を実施
+
+上記が満たされるまで `scripts/ai-loop-v2/**` を作成しない。
+
+理由: V2 canon は **Evolution 実装を Delivery E2E 成立後に開始する**と明記している。
 
 ### D2. V2 runtime namespace
 
@@ -148,3 +157,19 @@ Phase B の `project_promotion_decision()` は、`HarnessExperimentResult.result
 
 `tests/fixtures/ai-loop-v2/ratchet/verification-skipped/` は Phase B の development fixture。
 #909 Incident Regression Set への正式昇格は、#909 の独立レビュー / Human-owned 変更規律を別途通す。
+
+### D9. I1 exception invalidation gate
+
+`scripts/ai-loop-v2/` の出現は `phase0-migration.md` §7 の **M-2** を baseline から動かす。
+さらに Ratchet evaluator は Candidate / Experiment / Promotion evaluation を機械的に判定するため、#1329 の semantic invalidation rule 上も **I1 exception invalidation candidate** である。
+
+runtime implementation PR では必ず:
+
+1. base SHA で M-1 / M-2 / M-3 を再測定
+2. head SHA で再測定
+3. reviewer が「V2 canon を機械強制する execution surface か」を yes/no 判定
+4. 判定不能は yes
+5. yes の場合、同じ implementation PR で canon 7 の I1 例外継続を自己宣言しない
+6. runtime evidence 成立後は #1329 の別 canon review path へ引き渡す
+
+を実施する。
