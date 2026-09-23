@@ -80,6 +80,17 @@ Rules:
 - MERGE_READY => stop_reasons=[]
 - HUMAN_ESCALATED/BLOCKED => >=1 Stop Reason
 
+## State-aware decision
+
+The engine consumes a RunState **snapshot value** (not storage) through at least `lifecycle_state`.
+
+First-slice state rules:
+- `PLAN_VERIFYING`: specification PASS may return continue; missing/invalid plan verification cannot advance.
+- `VERIFYING|DIAGNOSING|REPAIRING`: implementation verification/failure/progress rules apply.
+- `PR_CONVERGING`: MERGE_READY is only considered here.
+- WAITING states do not autonomously produce success.
+- unknown/terminal vocabulary is rejected.
+
 ## Decision order
 
 Fail-closed priority:
@@ -92,8 +103,8 @@ Fail-closed priority:
    - `repairability=repairable` -> repair
    - `repairability=replan_required` -> replan
 4. required deterministic/specification verifier unavailable or inconclusive -> stop / HUMAN_ESCALATED / VERIFIER_UNAVAILABLE
-5. fresh deterministic PASS on current artifact + PR convergence PASS -> MERGE_READY
-6. valid pass without convergence -> continue
+5. only in `PR_CONVERGING`: fresh deterministic PASS on current artifact + PR convergence PASS -> MERGE_READY
+6. in non-terminal active states: valid fresh pass without convergence -> continue
 
 An independent-model PASS never removes a deterministic FAIL from step 3.
 
@@ -125,6 +136,7 @@ make_failure_record(...)
 assess_progress(...)
 decide(
   *,
+  lifecycle_state,
   current_artifact_ref,
   verification_results,
   failure_records,
