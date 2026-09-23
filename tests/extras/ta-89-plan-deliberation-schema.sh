@@ -37,19 +37,19 @@ fi
 printf '\n=== TA-89: Plan Deliberation schema contract (#1353) ===\n'
 
 if [ "$_pg_extra_mode" = harness ]; then
-  _T87_ROOT="$(CDPATH= cd -- "${FIXTURES_DIR:?}/../.." && pwd)"
+  _T89_ROOT="$(CDPATH= cd -- "${FIXTURES_DIR:?}/../.." && pwd)"
 else
-  _T87_ROOT="${_pg_extra_dir%/tests/extras}"
+  _T89_ROOT="${_pg_extra_dir%/tests/extras}"
 fi
-PLANGATE_BIN="$_T87_ROOT/bin/plangate"
-_T87_GEN="$_T87_ROOT/scripts/generate-plan-deliberation-schema.py"
-_T87_APPLY="$_T87_ROOT/scripts/apply-task-1353-plan-deliberation-schema.sh"
-_T87_CASES="$_T87_ROOT/tests/fixtures/plan-deliberation/cases.json"
-_T87_TARGET="$_T87_ROOT/schemas/plan-deliberation.schema.json"
-_T87_TMP="$(mktemp)"
-register_cleanup "$_T87_TMP"
+PLANGATE_BIN="$_T89_ROOT/bin/plangate"
+_T89_GEN="$_T89_ROOT/scripts/generate-plan-deliberation-schema.py"
+_T89_APPLY="$_T89_ROOT/scripts/apply-task-1353-plan-deliberation-schema.sh"
+_T89_CASES="$_T89_ROOT/tests/fixtures/plan-deliberation/cases.json"
+_T89_TARGET="$_T89_ROOT/schemas/plan-deliberation.schema.json"
+_T89_TMP="$(mktemp)"
+register_cleanup "$_T89_TMP"
 
-if [ -f "$_T87_GEN" ] && python3 "$_T87_GEN" >"$_T87_TMP"; then
+if [ -f "$_T89_GEN" ] && python3 "$_T89_GEN" >"$_T89_TMP"; then
   printf '[PASS] generator emits schema JSON\n'
   pass=$((pass + 1))
 else
@@ -57,7 +57,7 @@ else
   fail=$((fail + 1))
 fi
 
-if python3 -m json.tool "$_T87_TMP" >/dev/null 2>&1; then
+if python3 -m json.tool "$_T89_TMP" >/dev/null 2>&1; then
   printf '[PASS] generated schema is valid JSON\n'
   pass=$((pass + 1))
 else
@@ -66,7 +66,7 @@ else
 fi
 
 if python3 -c 'import jsonschema' >/dev/null 2>&1; then
-  if python3 - "$_T87_TMP" "$_T87_CASES" <<'PY'
+  if python3 - "$_T89_TMP" "$_T89_CASES" <<'PY'
 import copy
 import json
 import pathlib
@@ -142,20 +142,20 @@ else
   printf '[SKIP] TA-89 semantic fixtures — jsonschema package not installed (CI will install it)\n'
 fi
 
-if [ -f "$_T87_TARGET" ]; then
-  _T87_BEFORE="present:$(cksum <"$_T87_TARGET")"
+if [ -f "$_T89_TARGET" ]; then
+  _T89_BEFORE="present:$(cksum <"$_T89_TARGET")"
 else
-  _T87_BEFORE="absent"
+  _T89_BEFORE="absent"
 fi
 
-if [ -f "$_T87_APPLY" ] &&
-   sh "$_T87_APPLY" --dry-run >/dev/null 2>&1; then
-  if [ -f "$_T87_TARGET" ]; then
-    _T87_AFTER="present:$(cksum <"$_T87_TARGET")"
+if [ -f "$_T89_APPLY" ] &&
+   sh "$_T89_APPLY" --dry-run >/dev/null 2>&1; then
+  if [ -f "$_T89_TARGET" ]; then
+    _T89_AFTER="present:$(cksum <"$_T89_TARGET")"
   else
-    _T87_AFTER="absent"
+    _T89_AFTER="absent"
   fi
-  if [ "$_T87_BEFORE" = "$_T87_AFTER" ]; then
+  if [ "$_T89_BEFORE" = "$_T89_AFTER" ]; then
     printf '[PASS] Human apply script dry-run succeeds and changes no target bytes\n'
     pass=$((pass + 1))
   else
@@ -167,7 +167,7 @@ else
   fail=$((fail + 1))
 fi
 
-if sh "$_T87_APPLY" >/dev/null 2>&1; then
+if sh "$_T89_APPLY" >/dev/null 2>&1; then
   printf '[FAIL] Human apply script accepted missing explicit confirmation\n'
   fail=$((fail + 1))
 else
@@ -175,8 +175,8 @@ else
   pass=$((pass + 1))
 fi
 
-if [ -f "$_T87_TARGET" ]; then
-  if cmp -s "$_T87_TARGET" "$_T87_TMP"; then
+if [ -f "$_T89_TARGET" ]; then
+  if cmp -s "$_T89_TARGET" "$_T89_TMP"; then
     printf '[PASS] Human-applied schema byte-matches deterministic generator\n'
     pass=$((pass + 1))
   else
