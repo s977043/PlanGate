@@ -69,9 +69,21 @@ TA-87 は fixture を読み、canon invariant を検証する。
 
 This is **non-authoritative executable specification**. Production dispatcher / store / evaluator is not implemented.
 
-### Stage 3 — Owner-backed runtime integration (later)
+### Stage 3 — Owner-backed runtime integration
 
-Owner minimum subset + #1329 preflight 後にのみ Production V2 runtime を設計する。
+Contract Gate A is ready. Production implementation is split by owner:
+
+```text
+#1391 Event / Projection
+ -> #1392 State / CAS
+ -> #1393 Verify / Failure / Decision
+ -> #1395 Integration
+```
+
+#1329 preflight baseline is measured on main `b2234bd1097f7b741d372e3353d1877932401731`: M-1/M-2/M-3 all remain at baseline.
+The current tests-only PR does not establish runtime invalidation, but each runtime slice above is a semantic invalidation candidate.
+
+Runtime code is therefore implemented in owner issues first and integrated only in #1395.
 
 Runtime code should reuse the same Stage 2 fixtures as acceptance tests.
 
@@ -152,12 +164,14 @@ Kill mutants:
 
 ## Production runtime implementation preconditions
 
-1. Stage 2 executable specification green
-2. Gate A complete
-3. #1329 M-1/M-2/M-3 base measurement
-4. semantic invalidation review
-5. implementation branch based on latest main
-6. no conflicting owner contract change in flight
+1. Stage 2 executable specification green — satisfied on PR #1387
+2. Gate A contract semantics complete — satisfied
+3. #1329 M-1/M-2/M-3 base measurement — satisfied on `b2234bd1...`
+4. semantic invalidation classification — runtime slices = YES candidate
+5. review level — I3 minimum; I4 on protected Evaluation Harness / Human-owned boundary
+6. each implementation branch is based on latest main at its start
+7. #1391 -> #1392 -> #1393 become consumable before #1395 integration
+8. no conflicting owner contract change in flight
 
 ## Replan triggers
 
