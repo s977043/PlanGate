@@ -52,3 +52,29 @@
 | TC-31 | semantic enforcement added | #1329 invalidation candidate |
 | TC-32 | implementation PR edits canon 7 to keep I1 exception | invalid |
 | TC-33 | Legacy scripts/ai-loop changed for new V2 feature | invalid absent Human freeze exception |
+
+
+## Executable specification additions from review
+
+| ID | Condition | Expected |
+|---|---|---|
+| TC-34 | Initial Plan Verification missing | reject before Execute |
+| TC-35 | Plan Verification not bound to current plan_hash | reject |
+| TC-36 | Plan Gate outcome set before Execute | reject |
+| TC-37 | final deterministic verification = inconclusive | cannot reach MERGE_READY |
+| TC-38 | fixture marks itself authoritative | reject |
+| TC-39 | LoopContract contains runtime state/outcome | reject responsibility mixing |
+| TC-40 | harness_manifest_ref changes in one event | reject |
+| TC-41 | merge_executed event appears | reject |
+
+TA-87 currently kills 10 mutation classes:
+1. Initial Plan Verification skipped
+2. Worker self-report completion
+3. model PASS overriding deterministic FAIL
+4. inconclusive treated as PASS
+5. stale verification reuse
+6. active-run Harness drift
+7. auto merge side effect
+8. retry-count-only NO_PROGRESS
+9. NO_PROGRESS used as Lifecycle State
+10. meaningful artifact delta mislabeled NO_PROGRESS
