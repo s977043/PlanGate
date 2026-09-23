@@ -36,6 +36,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import plan_hash_util  # noqa: E402
+import intent_context_contract  # noqa: E402
 
 import sys as _phsys; from pathlib import Path as _phP; _phsys.path.insert(0, str(_phP(__file__).resolve().parent))
 from _paths import REPO_ROOT as REPO, WORKING_DIR as WORKING  # noqa: E402
@@ -125,6 +126,48 @@ def _contract(task_id: str) -> tuple[list, dict]:
                    "note": note or ("plan_hash consistent" if plan_hash_match else "no c3/plan to verify")}
 
 
+
+def _intent_context(task_id: str) -> dict | None:
+    """Return an additive Intent Context reference, or None when not opted in.
+
+    The full package remains owned by #1389. This adapter never copies source
+    claims into Context Manifest. A present-but-invalid package is visible as
+    status=invalid and must not expose semantic/exact refs.
+    """
+    path = WORKING / task_id / "intent-context.json"
+    if not path.is_file():
+        return None
+
+    rel = str(path.relative_to(REPO))
+    try:
+        raw = path.read_bytes()
+        payload = json.loads(raw)
+    except (OSError, json.JSONDecodeError):
+        return {"path": rel, "status": "invalid"}
+
+    try:
+        errors = intent_context_contract.validate_package(payload)
+    except RuntimeError:
+        # Validation dependency unavailable is not permission to use the
+        # package. Keep the adapter fail-closed.
+        return {"path": rel, "status": "invalid"}
+
+    if payload.get("task_id") != task_id:
+        errors = list(errors) + [
+            f"task_id mismatch: package={payload.get('task_id')!r} requested={task_id!r}"
+        ]
+    if errors:
+        return {"path": rel, "status": "invalid"}
+
+    return {
+        "path": rel,
+        "status": "present",
+        "context_id": payload["context_id"],
+        "context_ref": intent_context_contract.compute_context_ref(payload),
+        "snapshot_ref": intent_context_contract.compute_snapshot_ref(raw),
+    }
+
+
 def build(task_id: str, phase: str, mode: str, profile: str | None) -> dict:
     pol, dmax = _BUDGET.get(mode, ("standard", 10))
     ppol = _profile_policy(profile)
@@ -132,6 +175,7 @@ def build(task_id: str, phase: str, mode: str, profile: str | None) -> dict:
         pol = _POLICY_ORDER[min(_POLICY_ORDER.index(pol),
                                 _POLICY_ORDER.index(ppol))]
     contract, guard = _contract(task_id)
+    intent_context = _intent_context(task_id)
     dyn = [{"kind": k, "source": s, "when": w} for k, s, w in _DYNAMIC][:dmax]
     return {
         "task_id": task_id,
@@ -140,6 +184,7 @@ def build(task_id: str, phase: str, mode: str, profile: str | None) -> dict:
         "mode": mode,
         **({"profile": profile} if profile else {}),
         "contract_context": contract,
+        **({"intent_context": intent_context} if intent_context is not None else {}),
         "dynamic_context": dyn,
         "budget": {"max_context_policy": pol, "dynamic_max_items": dmax},
         "stale_guard": guard,
@@ -162,6 +207,19 @@ def render_md(m: dict) -> str:
     for c in m["contract_context"]:
         flag = " ⚠️invalidated" if c.get("invalidated") else ""
         lines.append(f"- `{c['kind']}` {c['path']} — **{c['status']}**{flag}")
+    if "intent_context" in m:
+        ic = m["intent_context"]
+        lines += [
+            "",
+            "## Intent context（#1389参照・内容は複製しない）",
+            "",
+            f"- {ic['path']} — **{ic['status']}**",
+        ]
+        if ic["status"] == "present":
+            lines.append(
+                f"  - context_id={ic['context_id']} context_ref={ic['context_ref']} "
+                f"snapshot_ref={ic['snapshot_ref']}"
+            )
     lines += ["", "## Dynamic context（記述子・budget 内）", ""]
     for dctx in m["dynamic_context"]:
         lines.append(f"- `{dctx['kind']}` ({dctx['when']}): {dctx['source']}")
@@ -212,12 +270,17 @@ def main() -> int:
         (d / "context-manifest.json").write_text(js + "\n")
         (d / "context-manifest.md").write_text(md + "\n")
         print(f"Written: docs/working/{a.task_id}/context-manifest.{{md,json}}")
-    # stale（EH-3 矛盾防止）: invalidated 契約があれば exit 1（advisory 警告）
+    # stale（EH-3 矛盾防止）/ invalid Intent Context は fail-open にしない。
+    invalid = False
     if any(c.get("invalidated") for c in m["contract_context"]):
         print("WARNING: contract context invalidated (stale plan_hash)",
               file=sys.stderr)
-        return 1
-    return 0
+        invalid = True
+    if m.get("intent_context", {}).get("status") == "invalid":
+        print("WARNING: intent context invalid — reference not usable",
+              file=sys.stderr)
+        invalid = True
+    return 1 if invalid else 0
 
 
 if __name__ == "__main__":
