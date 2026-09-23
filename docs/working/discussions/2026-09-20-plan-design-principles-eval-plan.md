@@ -215,7 +215,8 @@ rubricの固定規則に従い、各caseを以下へ分類する。
 - [x] input/output token budget固定
 - [x] timeout固定
 - [x] tool/network policy固定
-- [x] isolated generator workspaceの手段確認
+- [x] isolation specification / independent-checkout strategy凍結
+- [ ] runtime isolation evidence（independent checkout + model-free sandbox + actual tool controls）
 - [x] raw output保存先確認
 - [x] independent reviewer確認
 - [x] skill/reference hash取得方法確認
@@ -251,7 +252,7 @@ rubricの固定規則に従い、各caseを以下へ分類する。
   - input <= 64,000
   - output <= 8,000
 - reviewer input: materialized PBI + anonymous generated artifact bundle + final response + frozen rubricのみ
-- reviewerはrepo checkout / variant name / generator event logを読まない
+- reviewer visibility contract: repo checkout / variant name / generator event logを **MUST NOT read**。runtime実証はSmoke Cで行う
 - adjudicator: Human。critical regression / Other change / reviewer判定不能のみ
 
 同じmodel familyを使う点は限界として記録する。generator/reviewerはモデルID・context・可視情報を分離するが、
@@ -293,7 +294,9 @@ Start gateの設計はfreeze済みだが、実走開始直前に以下を実測�
 - ChatGPT/API authが有効
 - `gpt-5.6-sol` / `gpt-5.6-terra` がmodel catalogに存在
 - `timeout` または `gtimeout` が存在
-- exact 3-call smoke（baseline/candidate generator + blind reviewer）がExecution PacketどおりPASS
+- independent checkout isolationがExecution Packet §8.2どおりPASS
+- model-free `codex sandbox` positive/negative controlsがPASS
+- exact 3-call smoke（baseline/candidate generator + blind reviewer）のactual tool-boundary controlsがPASS
 - smoke / generation / scoringで `approval_policy="never"` とsandbox/network policyが同一に解決される
 - event JSONLでmodel / usage / tool activityを記録可能
 
@@ -304,13 +307,16 @@ Start gateの設計はfreeze済みだが、実走開始直前に以下を実測�
 
 ## 9. 実行順
 
-1. 本PRでprotocol/input/rubric/ledgerをレビューして凍結
-2. 実行環境とbudgetを確定
-3. 48 generation
-4. blind scoring
-5. pair-level comparison
-6. #1337へ結果とraw evidenceを記録
-7. Improvement / Regression / No difference / Inconclusive に応じて次施策決定
+1. protocol/input/rubric/ledger/隔離仕様をレビューして凍結
+2. runtime preflightでexact Codex CLI version・auth・model availabilityを確認
+3. independent single-SHA checkout isolationを実測
+4. model-free `codex sandbox` controlsを実測
+5. Smoke A/B/C actual tool-boundary controlsを含む3-call smokeを完了
+6. 48 generation
+7. blind scoring
+8. pair-level comparison
+9. #1337へ結果とraw evidenceを記録
+10. Improvement / Regression / No difference / Inconclusive に応じて次施策決定
 
 評価途中で#1335 candidate SHAを変えない。
 
@@ -328,11 +334,12 @@ Start gateの設計はfreeze済みだが、実走開始直前に以下を実測�
 - 実行順とstop条件
 
 #1337をcloseするには、原則として:
-1. 48 generationのraw evidence
-2. blind scoring
-3. pair-level judgment
-4. missing/contaminated runの明示
-5. 次施策の決定
+1. runtime/isolation preflight + 3-call smoke evidence
+2. 48 generationのraw evidence
+3. blind scoring
+4. pair-level judgment
+5. missing/contaminated runの明示
+6. 次施策の決定
 が必要。
 
 実行環境が恒常的に確保できない場合は、AC自体をHuman判断で再スコープし、未実行のままcloseしない。
@@ -362,8 +369,9 @@ Start gateの設計はfreeze済みだが、実走開始直前に以下を実測�
   - → sourceはoperator-only、generatorはmaterialized 1ケースだけへ統一
 
 現時点のblocking finding:
-- protocol / execution config文書化については **なし**
-- 48runについては **operator machineのCodex CLI/auth/runtime smoke未実測のため未開始**
+- protocol / execution / isolation **specification** 文書化については **なし**
+- runtime isolation Majorは **OPEN**（independent checkout / sandbox controls / actual tool controls未実測）
+- 48runについては **operator machineのCodex CLI/auth/runtime+isolation preflight/smoke未実測のため未開始**
 - upstream dogfoodでは `.agents/skills/ai-dev-plan/references/` が存在しない点をMajorとして検出し、
   同一SHAの `plugin/plangate/skills/ai-dev-plan/` bundleを実行面として固定して解消
 
