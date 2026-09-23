@@ -41,10 +41,11 @@ Required:
 - fingerprint
 - evidence_refs
 - cause_hypothesis
-- repairability
-- result
+- repairability = `repairable | replan_required`
+- result = `open | repeated | resolved`
 
 Observation and cause hypothesis remain separate.
+Unknown repairability/result values are rejected; free-form strings are not decision inputs.
 
 ### ProgressAssessment
 
@@ -83,11 +84,13 @@ Rules:
 
 Fail-closed priority:
 
-1. policy denied / blocking policy -> stop according to existing Policy Verdict mapping (first slice only if provided by caller)
+1. policy input:
+   - empty or `ALLOW` only => continue normal decision evaluation
+   - any other verdict => fail closed as unsupported first-slice policy input; never MERGE_READY
 2. no-progress assessment -> stop / HUMAN_ESCALATED / NO_PROGRESS
 3. deterministic VerificationResult FAIL:
-   - repairable FailureRecord -> repair
-   - otherwise -> replan
+   - `repairability=repairable` -> repair
+   - `repairability=replan_required` -> replan
 4. required deterministic/specification verifier unavailable or inconclusive -> stop / HUMAN_ESCALATED / VERIFIER_UNAVAILABLE
 5. fresh deterministic PASS on current artifact + PR convergence PASS -> MERGE_READY
 6. valid pass without convergence -> continue
@@ -155,3 +158,14 @@ The final function creates a #1391 EventDraft but does not persist it.
 - no #1392 storage imports
 - no merge API
 - no GitHub API
+
+
+## Policy scope
+
+First slice deliberately does not invent the full Policy Verdict -> Outcome mapping.
+
+Accepted automatic policy input:
+- no verdict
+- `ALLOW`
+
+Any `DENIED`, `HUMAN_REQUIRED`, or unknown verdict returns a fail-closed DecisionInputError / unsupported-policy result and cannot reach success. A later owner slice may add the canonical mapping once Policy semantics are frozen.
