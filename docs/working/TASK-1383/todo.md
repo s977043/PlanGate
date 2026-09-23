@@ -28,7 +28,7 @@
 - [x] no-progress-stop fixture
 - [x] Initial Plan Verification / Plan Gate trace
 - [x] TA executable invariant checks
-- [x] 13 mutation classes
+- [x] 17 mutation classes
 - [x] set -e safe failure capture
 - [x] adversarial review: blocker delta / provenance binding / terminality / convergence-input gaps fixed
 - [x] Production scope validation must be evaluator-owned; fixture `scope_ok` is non-authoritative
@@ -90,3 +90,12 @@
 - [x] terminal Outcome / Lifecycle State co-presence removed from fixtures
 - [x] HUMAN_ESCALATED/BLOCKED Stop Reason requirement made executable
 - [x] hardcoded plan-verifier ID removed from repair decision filtering
+
+
+## Non-vacuity review
+
+- [x] model-PASS override mutation no longer fails first on taxonomy-axis violation
+- [x] convergence-input binding has dedicated mutant
+- [x] progress fingerprint provenance has dedicated mutant
+- [x] introduced-blocker delta has dedicated mutant
+- [x] post-terminal continuation has dedicated mutant
