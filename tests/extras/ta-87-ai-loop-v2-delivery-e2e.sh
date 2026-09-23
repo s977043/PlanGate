@@ -166,10 +166,19 @@ def validate_common(trace):
 
     for event in events:
         req(event.get("harness_manifest_ref") == harness, "harness drift")
-        state = event.get("state")
-        req(state in ALLOWED_STATES, f"invalid lifecycle state: {state!r}")
         req(event.get("type") not in {"merge_executed", "auto_merge", "production_promotion"},
             "fixture must not perform merge/promotion")
+
+        is_terminal_decision = (
+            event.get("type") == "decision_made"
+            and event.get("decision", {}).get("outcome") is not None
+        )
+        if is_terminal_decision:
+            req("state" not in event,
+                "terminal outcome event must not also carry Lifecycle State")
+        else:
+            state = event.get("state")
+            req(state in ALLOWED_STATES, f"invalid lifecycle state: {state!r}")
 
         if event["type"] == "verification_recorded":
             verification = event.get("verification", {})
@@ -193,6 +202,8 @@ def validate_common(trace):
             req(all(r in ALLOWED_STOP_REASONS for r in reasons), "stop reason")
             if outcome == "MERGE_READY":
                 req(reasons == [], "MERGE_READY must not carry failure stop reason")
+            elif outcome in {"HUMAN_ESCALATED", "BLOCKED"}:
+                req(len(reasons) >= 1, "non-success Terminal Outcome requires Stop Reason")
 
     # Decision inputs must resolve to evidence that already exists in the trace.
     # This prevents a missing FailureRecord / VerificationResult from being hidden
@@ -285,9 +296,15 @@ def validate_repair(trace):
             and e["verification"]["status"] == "pass" for e in verifications),
         "independent PASS fixture required to prove no override")
 
+    plan_verification_id = next(
+        e["verification"]["id"] for e in events
+        if e["type"] == "verification_recorded"
+        and e["verification"].get("verifier_id") == "specification.plan"
+    )
     decisions = [
         e for e in events
-        if e["type"] == "decision_made" and "pv1" not in e["decision"].get("inputs", [])
+        if e["type"] == "decision_made"
+        and plan_verification_id not in e["decision"].get("inputs", [])
     ]
     req(decisions[0]["decision"]["action"] == "repair",
         "deterministic FAIL must lead to repair despite model PASS")
@@ -424,18 +441,23 @@ m = copy.deepcopy(no_progress)
 m["events"][10]["progress"] = {"retry_count": 2, "no_progress": True}
 expect_reject("retry-count-only no progress", m, validate_no_progress)
 
-# Mutation 9: NO_PROGRESS is incorrectly stored as a Lifecycle State.
+# Mutation 9: Terminal Outcome event also carries a Lifecycle State.
 m = copy.deepcopy(no_progress)
-m["events"][11]["state"] = "NO_PROGRESS"
+m["events"][11]["state"] = "WAITING_HUMAN"
+expect_reject("terminal outcome mixed with lifecycle state", m, validate_no_progress)
+
+# Mutation 10: NO_PROGRESS is incorrectly stored as a Lifecycle State.
+m = copy.deepcopy(no_progress)
+m["events"][10]["state"] = "NO_PROGRESS"
 expect_reject("NO_PROGRESS used as lifecycle state", m, validate_no_progress)
 
-# Mutation 10: Meaningful artifact delta is incorrectly called no progress.
+# Mutation 11: Meaningful artifact delta is incorrectly called no progress.
 m = copy.deepcopy(no_progress)
 m["events"][7]["after_artifact_ref"] = "sha256:" + "b" * 64
 m["events"][10]["progress"]["artifact_changed"] = True
 expect_reject("meaningful artifact delta mislabeled no-progress", m, validate_no_progress)
 
-# Mutation 11: FailureRecord is removed but the Decision still references it.
+# Mutation 12: FailureRecord is removed but the Decision still references it.
 m = copy.deepcopy(repair)
 m["events"] = [e for e in m["events"] if not (
     e["type"] == "failure_recorded" and e["failure"].get("id") == "f1"
@@ -443,7 +465,13 @@ m["events"] = [e for e in m["events"] if not (
 m["expected_projection"]["failure_record_refs"] = []
 expect_reject("missing FailureRecord reference", m, validate_repair)
 
-print("  [PASS] 11 mutation classes killed")
+# Mutation 13: HUMAN_ESCALATED without a Stop Reason.
+m = copy.deepcopy(no_progress)
+m["events"][11]["decision"]["stop_reasons"] = []
+m["expected_projection"]["stop_reasons"] = []
+expect_reject("human escalation without stop reason", m, validate_no_progress)
+
+print("  [PASS] 13 mutation classes killed")
 PY
 ); then
   _T87_RC=0
