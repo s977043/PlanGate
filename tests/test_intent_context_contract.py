@@ -195,7 +195,7 @@ class IntentContextContractTests(unittest.TestCase):
 
     def test_22_absolute_freshness_basis_ref_rejected(self):
         bad = copy.deepcopy(self.base)
-        bad["sources"][0]["freshness_basis"]["ref"] = "C:\\secret\\state.json"
+        bad["sources"][0]["freshness_basis"]["ref"] = r"C:\secret\state.json"
         self.assertTrue(any("absolute local path" in x for x in self.errors(bad)))
 
     def test_23_non_ascii_canonical_hash_golden_vector(self):
