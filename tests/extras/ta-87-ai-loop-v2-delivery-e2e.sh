@@ -24,6 +24,15 @@ fi
 . "$_pg_extra_helper"
 pg_extra_contract_init ta-87-ai-loop-v2-delivery-e2e standalone-capable
 
+# README convention 8 / ta-26 TC-33:
+# standalone-capable extras must neutralize the runner's guarded env set
+# in the file itself (do not rely only on the shared helper).
+if pg_extra_contract_is_standalone; then
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
+    PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
+    PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+fi
+
 if [ "$_pg_extra_mode" = harness ]; then
   _T87_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
 else
