@@ -135,7 +135,6 @@ jobs:
           settings: |
             {
               "permissions": {
-                "blockReadsOutsideWorkingDirectories": true,
                 "deny": [
                   "Bash",
                   "Edit",
