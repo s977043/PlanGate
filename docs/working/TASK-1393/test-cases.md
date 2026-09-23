@@ -23,6 +23,8 @@
 | DC-15 | different fingerprint | not NO_PROGRESS |
 | DC-16 | NO_PROGRESS decision | stop + HUMAN_ESCALATED + reason |
 | DC-17 | MERGE_READY | no Stop Reason |
+| DC-17a | outcome=HUMAN_REJECTED | reject; it is not an Outcome |
+| DC-17b | HUMAN_ESCALATED + Stop Reason HUMAN_REJECTED | valid taxonomy |
 | DC-18 | decision EventDraft | #1391 accepts |
 | DC-19 | Worker done input | API has no such authority input |
 | DC-20 | fixture outcome/no_progress input | constructors reject/absent |
