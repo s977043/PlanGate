@@ -161,22 +161,18 @@ class RatchetVerticalSliceTests(unittest.TestCase):
             result["experiment_result"]["reason_codes"],
         )
 
-    def test_protected_evaluation_surface_change_fails_closed(self):
+    def test_declared_protected_scope_fails_before_paired_eval(self):
         value = copy.deepcopy(self.base)
         value["candidate"]["target"]["allowed_paths"].append(
             "tests/fixtures/ai-loop-v2/ratchet/**"
         )
-        component = value["candidate_manifest"]["components"][-1]
-        component["paths"] = [
-            "tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json"
-        ]
-        value["candidate_manifest_ref"] = manifest_ref(
-            value["candidate_manifest"]
-        )
         result = self.evaluate(value)
         self.assertEqual(result["experiment_result"]["result"], "FAIL")
+        self.assertEqual(
+            result["experiment_result"]["policy_verdict"], "HUMAN_REQUIRED"
+        )
         self.assertIn(
-            "PROTECTED_AUTHORITY_CHANGED",
+            "DECLARED_SCOPE_INTERSECTS_PROTECTED_AUTHORITY",
             result["experiment_result"]["reason_codes"],
         )
 
