@@ -6,6 +6,8 @@
 | TC-02 | AC-1 | same fingerprint, different event_ref | distinct failure instances |
 | TC-03 | AC-2 | source bundle -> candidate | source refs preserved |
 | TC-04 | AC-3 | pattern snapshot | classifier_digest + source_set_digest required |
+| TC-04b | AC-1/3 | Candidate tampers source_set_digest | evaluator recomputes from stable failure refs; mismatch -> INCONCLUSIVE / fail-closed |
+| TC-04c | AC-1 | failure_record_ref / run_evidence_ref does not match canonical fixture payload digest | source binding rejected |
 | TC-05 | AC-3 | same pattern_id, different classifier_digest | not treated as identical evidence snapshot |
 | TC-06 | AC-4 | baseline/candidate manifest refs present | paired identity accepted |
 | TC-07 | AC-4/9 | baseline manifest missing | INCONCLUSIVE |
@@ -19,7 +21,8 @@
 | TC-14 | AC-9 | prevention evidence PASS | machine-readable PASS |
 | TC-15 | AC-9 | evidence unavailable | INCONCLUSIVE |
 | TC-16 | AC-10 | candidate changes sealed fixture | fail-closed |
-| TC-17 | AC-10 | evaluation plan digest mismatch | INCONCLUSIVE |
+| TC-17 | AC-10 | Candidate evaluation_plan_digest differs from evaluator-owned sealed evaluation-plan.json digest | INCONCLUSIVE |
+| TC-17b | AC-10 | Candidate supplies self-consistent plan/threshold differing from sealed evaluation plan | ignored / rejected; Candidate cannot choose judge |
 | TC-18 | AC-10 | activation=fired, required=influenced_decision | INCONCLUSIVE |
 | TC-19 | AC-11 | ExperimentResult -> projection | candidate/result/evidence refs preserved |
 | TC-20 | AC-12 | PASS result | no merge/promotion side effect |
@@ -42,6 +45,9 @@
 5. baseline/candidate manifest missing を PASS 扱い
 6. `pattern_id` だけで snapshot 同一判定
 7. candidate declaration を actual delta として採用
+8. Candidate の evaluation_plan_digest を evaluator-owned plan から再計算せず採用
+9. source_set_digest を failure_instance_refs から再計算せず採用
+10. failure_record_ref / run_evidence_ref を source payload から再計算せず採用
 
 ## Fixture design
 
@@ -58,6 +64,8 @@
 
 - PromotionDecision projection は #811 authoritative schema として保存しない。
 - development fixture が PlanGateBench / Incident Regression Set の正本一覧を自動変更しない。
+- `evaluation-plan.json` は evaluator-owned / sealed。Candidate payload から plan / threshold を上書きできない。
+- fixture source payload refs と source_set_digest は evaluator が deterministic に再計算する。
 - TA 番号は実装直前に next-free を再確認し、番号そのものを contract にしない。
 
 ## Governance / sequencing cases
