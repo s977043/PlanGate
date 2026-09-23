@@ -67,7 +67,7 @@
 | TC-40 | harness_manifest_ref changes in one event | reject |
 | TC-41 | merge_executed event appears | reject |
 
-TA-87 currently kills 17 mutation classes:
+TA-87 currently kills 18 mutation classes:
 1. Initial Plan Verification skipped
 2. Worker self-report completion
 3. model PASS overriding deterministic FAIL
