@@ -25,6 +25,7 @@ from decision_core import (  # noqa: E402
     DecisionError,
     assess_progress,
     changed_paths_within_scope,
+    decide,
 )
 from delivery_runtime import run_spec_fixture  # noqa: E402
 from run_evidence import project_run_evidence  # noqa: E402
@@ -225,6 +226,35 @@ class DecisionTests(unittest.TestCase):
                 ["fixture://delivery/**"],
             )
         )
+
+
+    def test_unavailable_verifier_is_decision_provenance(self):
+        result = decide(
+            loop_contract={"required_verifiers": ["deterministic.tests", "completion.evidence"]},
+            run_state={"state": "VERIFYING"},
+            verifications=[
+                {
+                    "id": "v-pass",
+                    "verifier_id": "deterministic.tests",
+                    "kind": "deterministic",
+                    "status": "pass",
+                    "bound_artifact_ref": A,
+                    "evidence_refs": ["test:pass"],
+                },
+                {
+                    "id": "v-missing",
+                    "verifier_id": "completion.evidence",
+                    "kind": "deterministic",
+                    "status": "unavailable",
+                    "bound_artifact_ref": A,
+                    "evidence_refs": ["verification:missing"],
+                },
+            ],
+            failures=[],
+            current_artifact_ref=A,
+        )
+        self.assertEqual(result["outcome"], "BLOCKED")
+        self.assertEqual(result["inputs"], ["v-missing"])
 
 
 class OwnerBackedE2ETests(unittest.TestCase):
