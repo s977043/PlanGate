@@ -269,6 +269,48 @@ def derive_loopspec(task_dir, task_id, maker, checker):
     }
 
 
+
+def _check_auto_approval_intent_context(task_dir, task_id):
+    """Return errors that forbid AUTO_APPROVED when Intent Context is unsafe.
+
+    Intent Context is optional for backward compatibility. When present, it
+    must validate and belong to the same task. Unresolved conflicts backed by
+    two or more authoritative sources require Human escalation rather than
+    silent model resolution.
+    """
+    task_dir = pathlib.Path(task_dir)
+    path = task_dir / "intent-context.json"
+    if not path.is_file():
+        return []
+
+    scripts_dir = pathlib.Path(__file__).resolve().parent.parent
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    import intent_context_contract  # noqa: E402
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return [f"intent-context: strict JSON parse failed: {exc}"]
+
+    validation_errors = intent_context_contract.validate_package(payload)
+    if validation_errors:
+        return ["intent-context: invalid: " + validation_errors[0]]
+    if payload.get("task_id") != task_id:
+        return [
+            f"intent-context: task_id mismatch ({payload.get('task_id')!r} != {task_id!r})"
+        ]
+
+    conflicts = intent_context_contract.authoritative_conflicts(payload)
+    if conflicts:
+        return [
+            "intent-context: unresolved authoritative conflict blocks AUTO_APPROVED: "
+            + ", ".join(conflicts)
+        ]
+    return []
+
+
+
 def build_c3_prime(task_dir, task_id, source_sha, target_sha, verdicts,
                    reviewer_evidence, decision, policy_ref, issued_at, issued_by):
     """契約 §2/§3: c3-prime record を組み立てる（TC-08a）。
@@ -306,6 +348,8 @@ def build_c3_prime(task_dir, task_id, source_sha, target_sha, verdicts,
         errors.append(
             "decision=AUTO_APPROVED だが reviewer verdict に approve 以外を含む"
             "（decision↔verdicts 不整合 / F-3）")
+    if decision == "AUTO_APPROVED":
+        errors += _check_auto_approval_intent_context(task_dir, task_id)
     if errors:
         raise PlanPackageError(errors)
 
