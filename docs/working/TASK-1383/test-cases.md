@@ -87,3 +87,32 @@ TA-87 currently kills 11 mutation classes:
 - future references are rejected
 - duplicate reference IDs are rejected
 - removing a FailureRecord while leaving its decision reference must fail even if the expected projection is also edited
+
+
+## CI integration finding — extras convention
+
+Initial full Test run failed even though TA-87 itself was green.
+
+Observed:
+- TA-87: both traces PASS
+- TA-87: 11 mutation classes killed
+- repository result: 1275 passed / 2 failed
+- failures were ta-26 TC-13 / TC-33
+
+Root cause:
+- new standalone-capable TA-87 did not contain the repository-required explicit unset of the runner's guarded 7 env vars
+- the shared `_extra-contract.sh` also unsets them at runtime, but ta-26 TC-33 intentionally requires each extras file to carry the explicit local defense
+- ta-26 recursive standalone TC-13 consequently also failed
+
+Fix:
+```sh
+if pg_extra_contract_is_standalone; then
+  unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
+    PLANGATE_BYPASS_HOOK PLANGATE_HOOK_STRICT PG_HARNESS_SOURCED \
+    PLANGATE_ALLOW_MASS_DELETE 2>/dev/null || true
+fi
+```
+
+Review lesson:
+- a new `tests/extras/ta-*.sh` must satisfy both its task-specific assertions and the repository-wide extras meta-contract
+- "TA itself green" is not sufficient evidence; full `tests/run-tests.sh` is mandatory
