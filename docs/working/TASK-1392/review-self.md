@@ -49,6 +49,14 @@ Resolution: first slice explicitly allowlists only Delivery graph edges needed b
 
 Resolved by keeping WAITING_* canonical values recognizable but unsupported for transition in the first slice. pending_action must remain null until a later waiting/resume contract is defined.
 
+### R-8 — conflict evidence cannot violate terminality
+
+A stale writer arriving after terminal Outcome cannot append STATE_CONFLICT after the terminal event. It receives terminal/stale error with zero mutation.
+
+### R-9 — state_transitioned revision binding
+
+Events before the transition describe the pre-transition state revision; the final state_transitioned event carries the new revision. This removes ambiguity for projection/recovery.
+
 ## Verdict
 
 PASS for plan. Runtime remains gated by #1391 consumability and #1329 implementation preflight.
