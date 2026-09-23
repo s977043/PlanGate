@@ -145,6 +145,7 @@ V2 RunEventの最終field名はowner側で確定する。本計画では必要se
 Schema work開始条件:
 
 - #1379がHuman-approved/merged、または同等の承認済みboundaryがある
+- #911 Phase 1 Intent Context Package の `context_id/context_hash` semantics がfreezeされる、または明示的なcompatibility adapterが承認される
 - immutable declaration vs event stream境界が維持されている
 - #1025 / #894 / #874 / #908とのowned conflictが0
 - edges[]がdependency topologyの唯一のauthority
