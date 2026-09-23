@@ -180,3 +180,28 @@ Kill mutants:
 - #1329 explicitly separates inactive fixture/evidence-only changes from execution-surface invalidation
 - creates reusable acceptance evidence for the later V2 runtime
 - keeps owner implementation responsibilities with #1025/#894/#874
+
+## Gate interpretation — executable spec is necessary but not sufficient
+
+TA-87 が green でも、それ単独では #870 の「Delivery E2E が成立」を完了扱いしない。
+
+TA-87 が証明するもの:
+- current canon / owner assumptions が1本の trace として矛盾なく表現できる
+- negative/mutation cases に対して契約が fail-closed になる
+- later runtime が満たすべき acceptance fixture が存在する
+
+TA-87 が証明しないもの:
+- #1025 RunState implementation が実際に transition/CAS する
+- #894 Decision Engine implementation が実際に判断する
+- #874 V2 projection implementation が実際に再生成する
+- real Worker / PR collector が event を生成する
+
+Therefore:
+
+```text
+TA-87 green
+  -> Executable Contract READY
+  != Delivery Runtime E2E DONE
+```
+
+#1383 close / #1381 unblock には、後続の owner-backed adapter/runtime が **同じ fixture を通した evidence** か、Human が明示的に「spec-level fixture を #870 DoD の成立と認める」判断のどちらかが必要。
