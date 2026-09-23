@@ -60,6 +60,7 @@
 - [ ] exact reviewed_at_sha
 - [ ] CI / Test / CodeQL green
 - [ ] evidence to #870
+- [ ] owner-backed implementation runs the same fixture OR Human explicitly accepts spec-level fulfillment
 - [ ] gate-release result to #1381
 
 ## Explicitly not in #1383
