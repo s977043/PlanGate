@@ -6,7 +6,8 @@
 | ST-02 | valid transition expected revision N | revision=N+1 |
 | ST-03 | two writers expected N | exactly one transition succeeds |
 | ST-04 | stale writer | RevisionConflict + state revision unchanged |
-| ST-05 | conflict event | generation +1, conflict evidence appended |
+| ST-05 | non-terminal conflict event | generation +1, conflict evidence appended |
+| ST-05a | stale writer after terminal Outcome | reject with no new event/generation |
 | ST-06 | harness ref drift request | reject |
 | ST-07 | plan/source drift | reject |
 | ST-08 | state=BLOCKED | reject |
@@ -24,7 +25,7 @@
 | ST-20 | stale temp file | deterministic cleanup/ignore under lock |
 | ST-21 | retry same expected revision after committed transition | conflict, no duplicate transition |
 | ST-22 | multiple non-state events one transaction | contiguous event_seq; revision unchanged |
-| ST-23 | non-terminal transition + other events | state_transitioned is transaction-final event |
+| ST-23 | non-terminal transition + other events | state_transitioned is transaction-final event and carries new revision |
 | ST-23a | terminal decision + state transition request | reject before commit |
 | ST-23b | terminal decision only | commit without RunState revision increment |
 | ST-24 | terminal stream then append | reject through #1391 |
