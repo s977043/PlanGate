@@ -71,7 +71,7 @@ No retry-count shortcut.
 - decision_ref
 - action: continue | repair | replan | stop
 - input_refs
-- outcome: null | MERGE_READY | HUMAN_ESCALATED | HUMAN_REJECTED | BLOCKED
+- outcome: null | MERGE_READY | HUMAN_ESCALATED | BLOCKED
 - stop_reasons
 - policy_verdicts
 
@@ -181,3 +181,18 @@ Accepted automatic policy input:
 - `ALLOW`
 
 Any `DENIED`, `HUMAN_REQUIRED`, or unknown verdict returns a fail-closed DecisionInputError / unsupported-policy result and cannot reach success. A later owner slice may add the canonical mapping once Policy semantics are frozen.
+
+
+## Taxonomy correction
+
+`HUMAN_REJECTED` is a **Stop Reason**, not a Terminal Outcome.
+
+A Human rejection is represented as:
+
+```text
+action = stop
+outcome = HUMAN_ESCALATED
+stop_reasons = [HUMAN_REJECTED]
+```
+
+The Decision core must reject `outcome=HUMAN_REJECTED`.
