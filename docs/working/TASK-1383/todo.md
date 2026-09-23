@@ -18,8 +18,8 @@
 - [x] comment required subset on #894
 - [x] comment required subset on #874
 - [x] comment RunEvidence metric non-blocking boundary on #1285
-- [ ] reconcile owner feedback
-- [ ] Gate A = READY
+- [x] reconcile owner contracts against canon; no field-ownership conflict found
+- [x] Gate A = CONTRACT READY (runtime surfaces still pending)
 
 ## Stage 2 — Executable specification
 
@@ -37,17 +37,21 @@
 
 ## Stage 3 — Production runtime preflight
 
-- [ ] record latest main SHA
-- [ ] M-1 base measurement
-- [ ] M-2 base measurement
-- [ ] M-3 base measurement
-- [ ] semantic invalidation review
-- [ ] implementation review level fixed
+- [x] record latest main SHA = `b2234bd1097f7b741d372e3353d1877932401731`
+- [x] M-1 base measurement = baseline
+- [x] M-2 base measurement = baseline
+- [x] M-3 base measurement = baseline 4 Legacy files
+- [x] semantic invalidation review: #1387 tests-only = no; #1391/#1392/#1393/#1395 runtime = YES candidate
+- [x] implementation review level fixed: I3 minimum; I4 if protected Evaluation Harness / Human-owned boundary touched
 - [ ] next-free TA number resolved if integration shell test is needed
 
 ## Stage 4 — Production RED / GREEN
 
-- [ ] create V2 delivery integration harness only after Gate A
+- [ ] #1391 RunEvent spine / RunEvidence projection
+- [ ] #1392 RunState CAS / crash recovery
+- [ ] #1393 Verification / Failure / Decision core
+- [ ] #1395 owner-backed Delivery integration
+- [ ] create V2 delivery integration harness only after owner surfaces are consumable
 - [ ] Path A RED
 - [ ] Path B RED
 - [ ] mutation tests RED
