@@ -77,16 +77,19 @@ Under exclusive lock:
 5. bind current run/manifest/plan/source context
 6. #1391 finalize each draft
 7. #1391 validate_append against growing in-memory stream
-8. if state transition requested:
+8. inspect finalized drafts for Terminal Outcome:
+   - if any draft contains terminal `decision_made.outcome != null`, `transition` must be absent
+   - terminal decision must be the final event of the transaction
+9. if non-terminal state transition requested:
    - validate from_state/current revision
    - increment revision exactly +1
    - append `state_transitioned` as final event of transaction
-9. build generation+1 snapshot
-10. write temp in same directory
-11. flush + fsync temp
-12. `os.replace(temp, target)`
-13. fsync parent directory
-14. return committed snapshot
+10. build generation+1 snapshot
+11. write temp in same directory
+12. flush + fsync temp
+13. `os.replace(temp, target)`
+14. fsync parent directory
+15. return committed snapshot
 
 No successful response before step 13.
 
@@ -173,3 +176,14 @@ No CLI in this slice.
 - symlink/path traversal
 - no merge/promotion symbols
 - #1391 contract reuse; no event logic copy
+
+
+## Terminal transaction rule
+
+Terminal Outcome belongs to the event/evidence axis, not RunState.
+
+A transaction that commits terminal `decision_made`:
+- does not increment RunState revision solely to represent terminality
+- does not append a `state_transitioned` event after it
+- leaves the last non-terminal Lifecycle State as historical state, while terminal Outcome is derived from event stream/RunEvidence
+- is final for the Run; later `commit` calls are rejected by #1391 terminality validation
