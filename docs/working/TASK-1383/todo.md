@@ -28,11 +28,11 @@
 - [x] no-progress-stop fixture
 - [x] Initial Plan Verification / Plan Gate trace
 - [x] TA executable invariant checks
-- [x] 17 mutation classes
+- [x] 18 mutation classes
 - [x] set -e safe failure capture
 - [x] adversarial review: blocker delta / provenance binding / terminality / convergence-input gaps fixed
 - [x] Production scope validation must be evaluator-owned; fixture `scope_ok` is non-authoritative
-- [ ] full tests (rerun after ta-26 TC-13/TC-33 convention fix)
+- [x] full tests green on PR #1387 head `caf61900f8e132fb16ef03b794a2274402986621`
 - [x] confirm M-2 remains baseline (current diff has no `scripts/ai-loop-v2/**` / `bin/ai-loop-v2/**`)
 
 ## Stage 3 — Production runtime preflight
@@ -82,7 +82,7 @@
 - [x] TA-87 task-specific tests confirmed green in failed run
 - [x] ta-26 TC-13/TC-33 root cause identified
 - [x] explicit 7-env standalone unset added
-- [ ] rerun Test green
+- [x] rerun Test green
 
 
 ## Taxonomy review repair
