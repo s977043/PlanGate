@@ -95,6 +95,22 @@ Resolution:
 - next seq must be exactly previous + 1
 - gap/duplicate/out-of-order all fail closed
 
+### R-8 — event hash-chain is not added in #1391
+
+Severity: info / deliberate.
+
+Contiguous sequence + canonical event_ref detect accidental gaps/reordering and inconsistent refs, but do not claim protection from an actor that can rewrite the entire repository history.
+
+The durable trust anchor belongs to #1392 transaction storage:
+- stream count
+- tail/ref
+- digest / transaction binding
+- recovery manifest
+
+Adding a second `prev_event_ref` chain in #1391 would duplicate persistence integrity responsibility without creating an external trust anchor.
+
+Replan if I1 shows #1392 manifest binding is insufficient for the required threat model.
+
 ## Remaining findings
 
 ### R-1 — Storage location intentionally unresolved
