@@ -39,6 +39,12 @@ Resolution:
 - terminal decision does not increment RunState revision just to encode completion
 - no later Run event is allowed
 
+### R-6 — state enum alone must not imply all-to-all transitions
+
+The canon lists Lifecycle State values but does not authorize arbitrary edges.
+
+Resolution: first slice explicitly allowlists only Delivery graph edges needed by #1383 and adjacent PR convergence. WAITING_* resume is deferred until pending-action resume contract exists.
+
 ## Verdict
 
 PASS for plan. Runtime remains gated by #1391 consumability and #1329 implementation preflight.
