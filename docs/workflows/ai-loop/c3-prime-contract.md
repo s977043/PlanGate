@@ -185,7 +185,7 @@ Plan Contract は本契約の Plan Package / approval identity を再定義し�
 
 ### 9-1. Intent Context binding
 
-#1389 Intent Context Package を使う Plan は、承認前の `plan.md` に次を各1行だけ持つ。
+Issue #1389 Intent Context Package を使う Plan は、承認前の `plan.md` に次を各1行だけ持つ。
 
 ```text
 Intent-Context-ID: CTX-...
