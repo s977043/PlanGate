@@ -159,6 +159,29 @@
     "activation": "influenced_decision",
     "changed_paths": [
       "harness/verifiers/completion-evidence.json"
-    ]
-  }
+    ],
+    "recurrence": {
+      "pattern_classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "eligible_run_count": 2,
+      "matching_failure_run_count": 0,
+      "same_pattern_recurrence_rate": 0
+    }
+  },
+  "recurrence_observations": [
+    {
+      "run_id": "run:post:1",
+      "classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "matched": false
+    },
+    {
+      "run_id": "run:post:2",
+      "classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "matched": false
+    },
+    {
+      "run_id": "run:other-pattern",
+      "classifier_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "matched": true
+    }
+  ]
 }
