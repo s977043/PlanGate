@@ -45,6 +45,10 @@ The canon lists Lifecycle State values but does not authorize arbitrary edges.
 
 Resolution: first slice explicitly allowlists only Delivery graph edges needed by #1383 and adjacent PR convergence. WAITING_* resume is deferred until pending-action resume contract exists.
 
+### R-7 — WAITING_* without pending_action contract would be fake durability
+
+Resolved by keeping WAITING_* canonical values recognizable but unsupported for transition in the first slice. pending_action must remain null until a later waiting/resume contract is defined.
+
 ## Verdict
 
 PASS for plan. Runtime remains gated by #1391 consumability and #1329 implementation preflight.
