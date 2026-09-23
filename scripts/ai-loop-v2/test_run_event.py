@@ -186,6 +186,23 @@ class StreamValidationTests(unittest.TestCase):
         with self.assertRaises(StreamContractError):
             validate_stream(s + [e2, dup])
 
+    def test_intra_event_reference_collision_rejected(self):
+        s = base_stream()
+        e2 = event(
+            "verification_recorded",
+            {
+                "verification_ref": "v1",
+                "verifier_id": "deterministic.tests",
+                "kind": "deterministic",
+                "status": "fail",
+                "bound_artifact_ref": "sha256:" + "a" * 64,
+            },
+            2,
+            evidence_refs=["v1"],
+        )
+        with self.assertRaises(StreamContractError):
+            validate_stream(s + [e2])
+
     def test_decision_requires_prior_refs(self):
         s = base_stream()
         d2 = event(
