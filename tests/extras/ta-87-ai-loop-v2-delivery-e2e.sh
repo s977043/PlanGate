@@ -43,7 +43,9 @@ if [ ! -r "$_T87_REPAIR" ] || [ ! -r "$_T87_NOPROGRESS" ]; then
   return 0
 fi
 
-_T87_OUT=$(python3 - "$_T87_REPAIR" "$_T87_NOPROGRESS" <<'PY'
+# tests/run-tests.sh is set -e. Use an if-condition so an intentional validator
+# failure is captured as a test failure instead of aborting the entire harness.
+if _T87_OUT=$(python3 - "$_T87_REPAIR" "$_T87_NOPROGRESS" <<'PY'
 import copy
 import json
 import sys
@@ -103,19 +105,51 @@ def project(trace):
     }
 
 
+def validate_contract(trace):
+    contract = trace.get("loop_contract")
+    req(isinstance(contract, dict), "LoopContract")
+    req(bool(contract.get("contract_id")), "contract_id")
+    req(isinstance(contract.get("acceptance_refs"), list) and contract["acceptance_refs"],
+        "acceptance refs")
+    req(isinstance(contract.get("allowed_scope"), list) and contract["allowed_scope"],
+        "allowed scope")
+    required = set(contract.get("required_verifiers") or [])
+    req("specification.plan" in required, "plan verifier required")
+    req("deterministic.tests" in required, "deterministic verifier required")
+    budget = contract.get("budget") or {}
+    req(type(budget.get("max_repair_rounds")) is int and budget["max_repair_rounds"] > 0,
+        "repair budget")
+    req(type(budget.get("max_no_progress_iterations")) is int
+        and budget["max_no_progress_iterations"] > 0, "no-progress budget")
+    for forbidden in ("state", "outcome", "stop_reason", "stop_reasons", "verification_result"):
+        req(forbidden not in contract, f"LoopContract owns runtime result: {forbidden}")
+
+    binding = trace.get("run_binding")
+    req(isinstance(binding, dict), "run binding")
+    req(binding.get("harness_manifest_ref") == trace.get("harness_manifest_ref"),
+        "run binding harness")
+    req(isinstance(binding.get("plan_hash"), str) and binding["plan_hash"].startswith("sha256:"),
+        "plan hash")
+    source = binding.get("source_sha")
+    req(isinstance(source, str) and len(source) in range(7, 41), "source sha")
+
+
 def validate_common(trace):
     req(trace.get("schema_version") == "spec-1", "schema_version")
     req(trace.get("kind") == "ai_loop_v2_delivery_e2e_trace", "kind")
     req(trace.get("authoritative") is False, "fixture must be non-authoritative")
+    validate_contract(trace)
+
     harness = trace.get("harness_manifest_ref")
     req(isinstance(harness, str) and harness.startswith("sha256:"), "harness ref")
     events = trace.get("events")
     req(isinstance(events, list) and events, "events")
 
     seqs = [e.get("seq") for e in events]
+    req(all(type(s) is int for s in seqs), "event seq type")
     req(seqs == sorted(seqs) and len(seqs) == len(set(seqs)), "event seq")
     revisions = [e.get("revision") for e in events]
-    req(all(isinstance(r, int) and not isinstance(r, bool) for r in revisions), "revision type")
+    req(all(type(r) is int for r in revisions), "revision type")
     req(revisions == sorted(revisions), "revision monotonic")
 
     for event in events:
@@ -128,8 +162,9 @@ def validate_common(trace):
         if event["type"] == "verification_recorded":
             verification = event.get("verification", {})
             req(verification.get("status") in ALLOWED_VERIFICATION, "verification status")
-            req(verification.get("kind") in {"deterministic", "specification", "independent_model", "policy"},
-                "verification kind")
+            req(verification.get("kind") in {
+                "deterministic", "specification", "independent_model", "policy"
+            }, "verification kind")
             req(isinstance(verification.get("bound_artifact_ref"), str), "bound artifact ref")
         elif event["type"] == "failure_recorded":
             failure = event.get("failure", {})
@@ -154,8 +189,41 @@ def validate_common(trace):
     req(p1 == expected, f"projection mismatch: {p1!r} != {expected!r}")
 
 
+def validate_initial_plan_gate(trace):
+    events = trace["events"]
+    bound = next((e for e in events if e["type"] == "plan_contract_bound"), None)
+    req(bound is not None, "Plan contract binding missing")
+    binding = trace["run_binding"]
+    req(bound.get("plan_hash") == binding["plan_hash"], "plan hash binding")
+    req(bound.get("source_sha") == binding["source_sha"], "source sha binding")
+
+    plan_verify = next((
+        e for e in events
+        if e["type"] == "verification_recorded"
+        and e["verification"].get("verifier_id") == "specification.plan"
+    ), None)
+    req(plan_verify is not None, "Initial Plan Verification missing")
+    req(plan_verify["verification"]["status"] == "pass", "Plan Verification must pass")
+    req(plan_verify["verification"]["bound_artifact_ref"] == binding["plan_hash"],
+        "Plan Verification bound to wrong plan")
+
+    plan_decision = next((
+        e for e in events
+        if e["type"] == "decision_made" and "pv1" in e["decision"].get("inputs", [])
+    ), None)
+    req(plan_decision is not None, "Plan Gate decision missing")
+    req(plan_decision["decision"]["action"] == "continue", "Plan Gate must continue")
+    req(plan_decision["decision"].get("outcome") is None, "Plan Gate cannot terminate success")
+
+    worker = next((e for e in events if e["type"] == "worker_completed"), None)
+    req(worker is not None, "Worker event missing")
+    req(plan_verify["seq"] < plan_decision["seq"] < worker["seq"],
+        "Execute started before Initial Plan Verification / Plan Gate")
+
+
 def validate_repair(trace):
     validate_common(trace)
+    validate_initial_plan_gate(trace)
     req(trace.get("scenario") == "repair-convergence", "repair scenario")
     events = trace["events"]
 
@@ -171,7 +239,10 @@ def validate_repair(trace):
             and e["verification"]["status"] == "pass" for e in verifications),
         "independent PASS fixture required to prove no override")
 
-    decisions = [e for e in events if e["type"] == "decision_made"]
+    decisions = [
+        e for e in events
+        if e["type"] == "decision_made" and "pv1" not in e["decision"].get("inputs", [])
+    ]
     req(decisions[0]["decision"]["action"] == "repair",
         "deterministic FAIL must lead to repair despite model PASS")
     req(decisions[0]["decision"].get("outcome") is None,
@@ -202,6 +273,7 @@ def validate_repair(trace):
 
 def validate_no_progress(trace):
     validate_common(trace)
+    validate_initial_plan_gate(trace)
     req(trace.get("scenario") == "no-progress-stop", "no-progress scenario")
     events = trace["events"]
 
@@ -223,10 +295,14 @@ def validate_no_progress(trace):
     req(progress["artifact_changed"] is False, "artifact delta required")
     req(progress["evidence_delta"] == [], "evidence delta required")
     req(progress["resolved_blockers"] == [], "blocker delta required")
-    req(repair["before_artifact_ref"] == repair["after_artifact_ref"], "repair must show no artifact delta")
+    req(repair["before_artifact_ref"] == repair["after_artifact_ref"],
+        "repair must show no artifact delta")
     req(progress["no_progress"] is True, "no_progress conclusion")
 
-    final = [e for e in events if e["type"] == "decision_made"][-1]["decision"]
+    final = [
+        e for e in events
+        if e["type"] == "decision_made" and e["decision"].get("outcome") is not None
+    ][-1]["decision"]
     req(final["action"] == "stop", "no-progress must stop")
     req(final["stop_reasons"] == ["NO_PROGRESS"], "NO_PROGRESS is Stop Reason")
     req(final["outcome"] in {"HUMAN_ESCALATED", "BLOCKED"}, "existing terminal outcome")
@@ -249,56 +325,72 @@ print("  [PASS] repair-convergence executable trace")
 validate_no_progress(no_progress)
 print("  [PASS] no-progress-stop executable trace")
 
-# Mutation 1: Worker self-report becomes terminal success.
+# Mutation 1: Initial Plan Verification is skipped.
 m = copy.deepcopy(repair)
-m["events"][1]["decision"] = {"action": "stop", "outcome": "MERGE_READY", "stop_reasons": []}
+m["events"] = [e for e in m["events"] if not (
+    e["type"] == "verification_recorded"
+    and e["verification"].get("verifier_id") == "specification.plan"
+)]
+expect_reject("Initial Plan Verification skipped", m, validate_repair)
+
+# Mutation 2: Worker self-report becomes terminal success.
+m = copy.deepcopy(repair)
+m["events"][3]["decision"] = {"action": "stop", "outcome": "MERGE_READY", "stop_reasons": []}
 expect_reject("worker self-report completion", m, validate_repair)
 
-# Mutation 2: Independent model PASS overrides deterministic FAIL.
+# Mutation 3: Independent model PASS overrides deterministic FAIL.
 m = copy.deepcopy(repair)
-m["events"][5]["decision"] = {
+m["events"][7]["decision"] = {
     "action": "stop", "inputs": ["v1", "v2"], "outcome": "MERGE_READY", "stop_reasons": []
 }
 expect_reject("model PASS overrides deterministic FAIL", m, validate_repair)
 
-# Mutation 3: Fresh PASS is actually bound to stale artifact.
+# Mutation 4: Fresh verification is inconclusive but treated as enough.
 m = copy.deepcopy(repair)
-m["events"][7]["verification"]["bound_artifact_ref"] = m["events"][6]["before_artifact_ref"]
+m["events"][9]["verification"]["status"] = "inconclusive"
+expect_reject("inconclusive treated as PASS", m, validate_repair)
+
+# Mutation 5: Fresh PASS is actually bound to stale artifact.
+m = copy.deepcopy(repair)
+m["events"][9]["verification"]["bound_artifact_ref"] = m["events"][8]["before_artifact_ref"]
 expect_reject("stale verification reused after repair", m, validate_repair)
 
-# Mutation 4: Harness identity changes during the run.
+# Mutation 6: Harness identity changes during the run.
 m = copy.deepcopy(repair)
-m["events"][4]["harness_manifest_ref"] = "sha256:" + "9" * 64
+m["events"][6]["harness_manifest_ref"] = "sha256:" + "9" * 64
 expect_reject("active-run harness drift", m, validate_repair)
 
-# Mutation 5: Test fixture tries to encode an auto merge side effect.
+# Mutation 7: Test fixture tries to encode an auto merge side effect.
 m = copy.deepcopy(repair)
 m["events"].append({
-    "seq": 11, "type": "merge_executed", "state": "PR_CONVERGING",
-    "revision": 8, "harness_manifest_ref": m["harness_manifest_ref"],
+    "seq": 13, "type": "merge_executed", "state": "PR_CONVERGING",
+    "revision": 9, "harness_manifest_ref": m["harness_manifest_ref"],
 })
 expect_reject("auto merge side effect", m, validate_repair)
 
-# Mutation 6: NO_PROGRESS is derived from retry count only.
+# Mutation 8: NO_PROGRESS is derived from retry count only.
 m = copy.deepcopy(no_progress)
-m["events"][7]["progress"] = {"retry_count": 2, "no_progress": True}
+m["events"][10]["progress"] = {"retry_count": 2, "no_progress": True}
 expect_reject("retry-count-only no progress", m, validate_no_progress)
 
-# Mutation 7: NO_PROGRESS is incorrectly stored as a Lifecycle State.
+# Mutation 9: NO_PROGRESS is incorrectly stored as a Lifecycle State.
 m = copy.deepcopy(no_progress)
-m["events"][8]["state"] = "NO_PROGRESS"
+m["events"][11]["state"] = "NO_PROGRESS"
 expect_reject("NO_PROGRESS used as lifecycle state", m, validate_no_progress)
 
-# Mutation 8: Meaningful artifact delta is incorrectly called no progress.
+# Mutation 10: Meaningful artifact delta is incorrectly called no progress.
 m = copy.deepcopy(no_progress)
-m["events"][4]["after_artifact_ref"] = "sha256:" + "b" * 64
-m["events"][7]["progress"]["artifact_changed"] = True
+m["events"][7]["after_artifact_ref"] = "sha256:" + "b" * 64
+m["events"][10]["progress"]["artifact_changed"] = True
 expect_reject("meaningful artifact delta mislabeled no-progress", m, validate_no_progress)
 
-print("  [PASS] 8 mutation classes killed")
+print("  [PASS] 10 mutation classes killed")
 PY
-)
-_T87_RC=$?
+); then
+  _T87_RC=0
+else
+  _T87_RC=$?
+fi
 
 printf '%s\n' "$_T87_OUT"
 if [ "$_T87_RC" -eq 0 ]; then
