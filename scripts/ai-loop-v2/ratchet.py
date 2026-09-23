@@ -127,6 +127,28 @@ def _paths_intersect(paths, protected):
     )
 
 
+def _scope_patterns_intersect(declared, protected):
+    def prefix(pattern):
+        indexes = [
+            index for token in ("*", "?", "[")
+            if (index := pattern.find(token)) >= 0
+        ]
+        return pattern[:min(indexes)] if indexes else pattern
+
+    for left in declared:
+        for right in protected:
+            if fnmatch.fnmatch(left, right) or fnmatch.fnmatch(right, left):
+                return True
+            left_prefix = prefix(left)
+            right_prefix = prefix(right)
+            if (
+                left_prefix.startswith(right_prefix)
+                or right_prefix.startswith(left_prefix)
+            ):
+                return True
+    return False
+
+
 def _completion_component(manifest):
     for component in manifest.get("components", []):
         if component.get("component_id") == "verifier:completion-evidence":
@@ -401,6 +423,17 @@ def evaluate_verification_skipped(bundle, sealed_plan):
         )
 
     allowed_paths = candidate.get("target", {}).get("allowed_paths") or []
+    protected_paths = sealed_plan.get("protected_paths") or []
+    if _scope_patterns_intersect(allowed_paths, protected_paths):
+        return _finish(
+            bundle,
+            sealed_plan,
+            "FAIL",
+            ["DECLARED_SCOPE_INTERSECTS_PROTECTED_AUTHORITY"],
+            policy_verdict="HUMAN_REQUIRED",
+            deltas=deltas,
+            changed_paths=changed_paths,
+        )
     if not _paths_within(changed_paths, allowed_paths):
         return _finish(
             bundle,
@@ -412,9 +445,7 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             changed_paths=changed_paths,
         )
 
-    if _paths_intersect(
-        changed_paths, sealed_plan.get("protected_paths") or []
-    ):
+    if _paths_intersect(changed_paths, protected_paths):
         return _finish(
             bundle,
             sealed_plan,
