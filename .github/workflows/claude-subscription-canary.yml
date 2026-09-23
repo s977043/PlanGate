@@ -1,0 +1,111 @@
+name: Claude Subscription Read-Only Canary
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-subscription-read-only-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: Read-only OAuth subscription canary
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ANTHROPIC_API_KEY: ""
+
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Validate subscription-only preconditions
+        shell: bash
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+            echo "::error::CLAUDE_CODE_OAUTH_TOKEN is not configured."
+            exit 1
+          fi
+
+          if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "::error::ANTHROPIC_API_KEY must be empty for the subscription-only canary."
+            exit 1
+          fi
+
+          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            echo "::error::Workspace must be clean before the canary."
+            git status --short
+            exit 1
+          fi
+
+      - name: Run Claude read-only canary
+        id: claude
+        uses: anthropics/claude-code-action/base-action@9ca9355b36297178e28d37c799d1c9c8a28e6507
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: false
+          settings: |
+            {
+              "permissions": {
+                "allow": ["Read", "Glob", "Grep"],
+                "deny": ["Bash", "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch"]
+              }
+            }
+          prompt: |
+            This is a read-only subscription canary.
+
+            Read only these repository files:
+            - README.md
+            - docs/ai/core-contract.md
+
+            Do not modify files, run shell commands, access the network, or use MCP tools.
+            Return the structured result required by the JSON schema.
+          claude_args: >-
+            --max-turns 4
+            --allowedTools "Read,Glob,Grep"
+            --json-schema '{"type":"object","additionalProperties":false,"required":["status","checked_files","summary"],"properties":{"status":{"type":"string","enum":["READ_ONLY_OK"]},"checked_files":{"type":"array","items":{"type":"string"},"minItems":2},"summary":{"type":"string","maxLength":500}}}'
+
+      - name: Validate canary result
+        shell: bash
+        env:
+          CLAUDE_CONCLUSION: ${{ steps.claude.outputs.conclusion }}
+          CLAUDE_STRUCTURED_OUTPUT: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          set -euo pipefail
+
+          if [ "$CLAUDE_CONCLUSION" != "success" ]; then
+            echo "::error::Claude base-action conclusion was not success."
+            exit 1
+          fi
+
+          printf '%s' "$CLAUDE_STRUCTURED_OUTPUT" | jq -e '
+            .status == "READ_ONLY_OK"
+            and (.checked_files | index("README.md") != null)
+            and (.checked_files | index("docs/ai/core-contract.md") != null)
+          ' >/dev/null
+
+      - name: Verify workspace stayed read-only
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git diff --exit-code
+
+          status="$(git status --porcelain --untracked-files=all)"
+          if [ -n "$status" ]; then
+            echo "::error::Claude canary mutated the workspace."
+            printf '%s\n' "$status"
+            exit 1
+          fi
