@@ -19,6 +19,18 @@ ALLOWED_STATES = {
     "REPAIRING", "REPLANNING", "PR_CONVERGING", "WAITING_HUMAN",
     "WAITING_EXTERNAL",
 }
+ALLOWED_TRANSITIONS = {
+    "PLANNING": {"PLAN_VERIFYING"},
+    "PLAN_VERIFYING": {"PLAN_VERIFYING", "EXECUTING", "WAITING_HUMAN"},
+    "EXECUTING": {"VERIFYING", "WAITING_HUMAN", "WAITING_EXTERNAL"},
+    "VERIFYING": {"VERIFYING", "DIAGNOSING", "PR_CONVERGING", "WAITING_EXTERNAL"},
+    "DIAGNOSING": {"DIAGNOSING", "REPAIRING", "REPLANNING", "WAITING_HUMAN"},
+    "REPAIRING": {"REPAIRING", "VERIFYING", "WAITING_EXTERNAL"},
+    "REPLANNING": {"PLAN_VERIFYING", "WAITING_HUMAN"},
+    "PR_CONVERGING": {"PR_CONVERGING", "DIAGNOSING", "WAITING_EXTERNAL"},
+    "WAITING_HUMAN": {"PLAN_VERIFYING", "EXECUTING", "DIAGNOSING", "REPAIRING", "PR_CONVERGING"},
+    "WAITING_EXTERNAL": {"EXECUTING", "VERIFYING", "REPAIRING", "PR_CONVERGING"},
+}
 
 
 class StateConflict(RuntimeError):
@@ -105,10 +117,14 @@ class DurableRunStore:
                     raise StateStoreError("event_ref conflict")
                 return False
         validate_append(events, event)
-        with open(self.events_path, "a", encoding="utf-8") as fh:
-            fh.write(_canonical_text(event))
+        next_events = [*events, event]
+        tmp = self.events_path.with_name(self.events_path.name + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            for value in next_events:
+                fh.write(_canonical_text(value))
             fh.flush()
             os.fsync(fh.fileno())
+        os.replace(tmp, self.events_path)
         _fsync_dir(self.root)
         return True
 
@@ -158,8 +174,32 @@ class DurableRunStore:
                 self._apply_tx(json.loads(self.tx_path.read_text(encoding="utf-8")))
             old_state = self.read_state()
             if old_state["revision"] != expected_revision:
+                events = self.read_events()
+                seq = len(events) + 1
+                conflict_draft = {
+                    "schema_version": "1",
+                    "event_type": "state_conflict_recorded",
+                    "payload": {
+                        "expected_revision": expected_revision,
+                        "actual_revision": old_state["revision"],
+                        "evidence_ref": f"state-conflict:{old_state['revision']}:{seq}",
+                    },
+                }
+                conflict_context = {
+                    "run_id": old_state["run_id"],
+                    "revision": old_state["revision"],
+                    "harness_manifest_ref": old_state["harness_manifest_ref"],
+                    "plan_hash": old_state["plan_hash"],
+                    "source_sha": old_state["source_sha"],
+                }
+                conflict_event = finalize_event(conflict_draft, conflict_context, seq)
+                self._append_event_idempotent(conflict_event)
                 raise StateConflict(
                     f"expected {expected_revision}, actual {old_state['revision']}"
+                )
+            if new_state_name not in ALLOWED_TRANSITIONS.get(old_state["state"], set()):
+                raise StateStoreError(
+                    f"invalid transition: {old_state['state']} -> {new_state_name}"
                 )
             events = self.read_events()
             event_seq = len(events) + 1
