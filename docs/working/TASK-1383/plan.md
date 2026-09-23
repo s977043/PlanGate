@@ -87,7 +87,14 @@ The current tests-only PR does not establish runtime invalidation, but each runt
 
 Runtime code is therefore implemented in owner issues first and integrated only in #1395.
 
-Runtime code should reuse the same Stage 2 fixtures as acceptance tests.
+Runtime code should reuse the same Stage 2 fixtures as acceptance tests, but **must not replay fixture-owned decisions as runtime input**.
+
+#1395 integration treats the Stage 2 trace as two logical parts:
+
+- stimulus: plan / worker / artifact / verifier / PR-convergence observations
+- oracle: expected Decision / State / Outcome / Stop Reason / projection
+
+`decision_made`, terminal outcome, `progress.no_progress`, and fixture `scope_ok` are oracle values only. Owner-backed runtime must derive them.
 
 Production integration では `scope_ok` を Worker / fixture の自己申告から受け取って authority にしない。
 actual changed paths / artifact delta を owner-backed collector から取得し、LoopContract `allowed_scope` と機械比較して導出する。
