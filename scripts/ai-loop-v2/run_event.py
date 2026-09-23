@@ -290,6 +290,10 @@ def validate_stream(events: list[dict]) -> list[dict]:
             raise EventContractError("duplicate event_ref")
         if terminal_seen:
             raise EventContractError("event after terminal")
+        if event["event_type"] == "failure_recorded":
+            for ref in event["payload"]["failure"]["evidence_refs"]:
+                if ref not in refs:
+                    raise EventContractError(f"failure evidence missing/future: {ref}")
         if event["event_type"] == "decision_made":
             for ref in event["payload"]["decision"]["inputs"]:
                 if ref not in refs:
