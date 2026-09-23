@@ -85,6 +85,7 @@ TA-87 currently kills 18 mutation classes:
 15. progress fingerprints are self-consistent but detached from actual FailureRecords
 16. introduced blocker exists but the run still claims NO_PROGRESS
 17. an event occurs after terminal outcome
+18. repair is explicitly outside the approved scope
 
 
 ## Evidence reference integrity
