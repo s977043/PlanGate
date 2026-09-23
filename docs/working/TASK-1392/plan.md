@@ -84,6 +84,7 @@ Under exclusive lock:
    - validate from_state/current revision
    - increment revision exactly +1
    - append `state_transitioned` as final event of transaction
+   - event-level `revision` is the **new revision**; earlier events in the same transaction retain the pre-transition revision
 10. build generation+1 snapshot
 11. write temp in same directory
 12. flush + fsync temp
@@ -91,13 +92,14 @@ Under exclusive lock:
 14. fsync parent directory
 15. return committed snapshot
 
-No successful response before step 13.
+No successful response before step 15 (parent-directory fsync complete).
 
 ## Revision conflict
 
 If expected_revision mismatches:
 - do not apply requested drafts/state transition
-- append a `state_conflict` evidence event in a separate atomic snapshot commit using actual current revision and next event_seq
+- if the Run is still non-terminal, append a `state_conflict` evidence event in a separate atomic snapshot commit using actual current revision and next event_seq
+- if the Run is already terminal, do not append after terminality; return terminal/stale error without mutating the snapshot
 - raise/return RevisionConflict containing conflict event_ref
 - state revision remains unchanged
 - conflict recording itself increments generation only
