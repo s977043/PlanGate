@@ -14,10 +14,10 @@
 
 ## Stage 1 — Owner subset confirmation
 
-- [ ] comment required subset on #1025
-- [ ] comment required subset on #894
-- [ ] comment required subset on #874
-- [ ] comment RunEvidence metric non-blocking boundary on #1285
+- [x] comment required subset on #1025
+- [x] comment required subset on #894
+- [x] comment required subset on #874
+- [x] comment RunEvidence metric non-blocking boundary on #1285
 - [ ] reconcile owner feedback
 - [ ] Gate A = READY
 
@@ -31,6 +31,7 @@
 - [x] 13 mutation classes
 - [x] set -e safe failure capture
 - [x] adversarial review: blocker delta / provenance binding / terminality / convergence-input gaps fixed
+- [x] Production scope validation must be evaluator-owned; fixture `scope_ok` is non-authoritative
 - [ ] full tests (rerun after ta-26 TC-13/TC-33 convention fix)
 - [ ] confirm M-2 remains baseline
 
@@ -50,6 +51,7 @@
 - [ ] Path A RED
 - [ ] Path B RED
 - [ ] mutation tests RED
+- [ ] evaluator-owned actual changed paths vs allowed_scope RED
 - [ ] minimal GREEN adapters
 - [ ] deterministic serialization/evidence
 - [ ] no Legacy runtime authority
