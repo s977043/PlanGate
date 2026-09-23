@@ -60,6 +60,7 @@ TA-87 は fixture を読み、canon invariant を検証する。
 - deterministic FAIL remains blocking
 - repair requires fresh re-verification
 - stale VerificationResult cannot be reused after artifact change
+- Stage 2 fixture の `scope_ok` は宣言値として false case を検査するだけで、Production authority にしない
 - MERGE_READY requires PR convergence evidence
 - NO_PROGRESS is Stop Reason, not State
 - no-progress uses failure/artifact/evidence delta
@@ -73,6 +74,10 @@ This is **non-authoritative executable specification**. Production dispatcher / 
 Owner minimum subset + #1329 preflight 後にのみ Production V2 runtime を設計する。
 
 Runtime code should reuse the same Stage 2 fixtures as acceptance tests.
+
+Production integration では `scope_ok` を Worker / fixture の自己申告から受け取って authority にしない。
+actual changed paths / artifact delta を owner-backed collector から取得し、LoopContract `allowed_scope` と機械比較して導出する。
+Stage 2 の `scope_ok` は、この後続 invariant を表現する non-authoritative placeholder に限定する。
 
 ### Stage 4 — E2E evidence
 
