@@ -3,8 +3,8 @@
 > Issue: #1337
 > Branch: `docs/1337-eval-execution-freeze`
 > Review scope: execution configuration / isolation / variant identity / reproducibility
-> Result: **PASS WITH RUNTIME PRECONDITION**
-> Critical: 0 / Major: 0 unresolved / Medium: 0 unresolved / Accepted limitation: 1
+> Result: **SPEC PASS / RUNTIME MAJOR OPEN**
+> Critical: 0 / Major: 1 runtime-only unresolved / Medium: 0 unresolved / Accepted limitation: 1
 
 ## 1. Measurement validity
 
@@ -58,7 +58,7 @@ Review note:
 
 ## 4. Contamination / isolation
 
-**PASS after Major fix; runtime smoke pending**
+**SPEC PASS / RUNTIME MAJOR OPEN**
 
 Generator sees:
 - one selected frozen PBI
@@ -73,10 +73,13 @@ Generator does not see:
 - reviewer outputs
 - variant peer output
 
-Worktree:
-- detached per generation
+Generator checkout:
+- linked worktree is forbidden
+- independent single-SHA checkout per generation
+- peer/current-main Git object reachability must fail
+- no source remote / alternates / promisor retrieval path
 - no thread resume
-- output root outside generator worktree
+- output root outside model-visible checkout
 - network disabled
 - workspace-write sandbox so normal ai-dev-plan artifact creation remains possible
 - common prompt limits writes to `docs/working/TASK-EVAL-PDPXX/`
@@ -87,8 +90,18 @@ Major finding resolved:
 - that would prevent ai-dev-plan from creating its normal `plan.md / todo.md / test-cases.md` outputs and would change the behavior under evaluation.
 - fixed to workspace-write + explicit network-off + task-directory write boundary + pre/post manifest evidence.
 
+New runtime Major:
+- separate directory / linked worktree does not prove read isolation;
+- linked worktree shares Git objects and can expose peer/current-main history;
+- independent checkout + canary negative controls are now required;
+- model-free `codex sandbox` controls alone are insufficient;
+- Major closes only after Smoke A/B/C actual model-issued tool controls prove the same boundary.
+
 Remaining runtime proof:
-- operator smoke must confirm local CLI flags, network-off behavior, file generation and event logging.
+- independent checkout isolation;
+- model-free sandbox positive/negative controls;
+- actual Smoke tool-boundary controls;
+- local CLI flags, network-off behavior, file generation and event logging.
 
 ## 5. Reviewer independence
 
@@ -192,7 +205,9 @@ Do not consume P01 or any production pair for smoke testing.
 
 ## 9. Final verdict
 
-**Execution protocol: PASS**
+**Execution specification: PASS**
+
+**Runtime isolation Major: OPEN / NOT RUN**
 
 **Actual effectiveness evaluation: NOT RUN**
 
