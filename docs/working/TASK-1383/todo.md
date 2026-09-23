@@ -33,7 +33,7 @@
 - [x] adversarial review: blocker delta / provenance binding / terminality / convergence-input gaps fixed
 - [x] Production scope validation must be evaluator-owned; fixture `scope_ok` is non-authoritative
 - [ ] full tests (rerun after ta-26 TC-13/TC-33 convention fix)
-- [ ] confirm M-2 remains baseline
+- [x] confirm M-2 remains baseline (current diff has no `scripts/ai-loop-v2/**` / `bin/ai-loop-v2/**`)
 
 ## Stage 3 — Production runtime preflight
 
