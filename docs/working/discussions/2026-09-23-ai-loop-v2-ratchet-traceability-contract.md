@@ -67,7 +67,8 @@ pattern_ref:
 
 原則:
 
-- `failure_instance_ref` は観測事実への immutable reference。
+- `failure_instance_ref` は観測事実への immutable reference。instance key は少なくとも `run_id + event_ref` に束縛し、cause hypothesis の改訂で同一 failure instance が別物にならないようにする。
+- `failure_record_ref` はその時点の immutable FailureRecord payload への content-addressed ref とし、instance key と分離する。
 - `pattern_ref` は Retrospective が導出する classification。
 - `fingerprint` は dedup / similarity の補助。主キーではない。
 - pattern classifier を更新しても過去の Failure instance provenance は変えない。
@@ -93,6 +94,30 @@ authoritative metric は例えば:
 - `rollback_rate`
 
 とし、`prevented_recurrence_count` のような反事実値を正本にしない。
+
+### D-4. Pattern は独立 SSoT にしない
+
+新しい Pattern artifact を暗黙に作らない。
+Pattern は Candidate 作成時点の **classification snapshot** として保持し、分類方法と source set を digest で固定する。
+
+```yaml
+pattern_snapshot:
+  pattern_id: pattern:verification-skipped
+  pattern_version: 1
+  classifier_digest: sha256:...
+  source_set_digest: sha256:...
+  fingerprint: sha256:...
+  occurrence_count: 3
+  scope: project
+```
+
+原則:
+
+- `pattern_id` は人間可読な semantic label。単独では identity にしない。
+- `classifier_digest` は分類規則 / classifier version を固定する。
+- `source_set_digest` は Candidate 作成時に cluster へ含めた immutable Failure instance refs の集合を固定する。
+- 同じ `pattern_id` でも classifier / source set が異なる snapshot を同一 evidence として比較しない。
+- 複数 Candidate で Pattern 専用 SSoT を共有する必要が実証されるまでは、新 artifact を追加しない。
 
 ## 3. Artifact ownership and additive fields
 
@@ -148,9 +173,11 @@ candidate:
     failure_instance_refs:
       - run_id: ...
         failure_record_ref: sha256:...
-    pattern:
+    pattern_snapshot:
       pattern_id: pattern:...
       pattern_version: 1
+      classifier_digest: sha256:...
+      source_set_digest: sha256:...
       fingerprint: sha256:...
       occurrence_count: 3
       scope: project
@@ -229,7 +256,14 @@ experiment_result:
     prevention_fixture_pass_rate: ...
     false_positive_rate: ...
     false_negative_rate: ...
-    same_pattern_recurrence_rate: ...
+    rollback_rate: ...
+    recurrence_observation:
+      pattern_classifier_digest: sha256:...
+      window_start: ...
+      window_end: ...
+      eligible_run_count: ...
+      matching_failure_run_count: ...
+      same_pattern_recurrence_rate: ...
 
   result: PASS | FAIL | INCONCLUSIVE
 ```
@@ -319,6 +353,8 @@ actual delta ⊆ allowed_paths
 
 severity / reproducibility / generalizability / blast radius / false-positive risk / maintenance cost を合わせて評価する。
 
+`same_pattern_recurrence_rate` を比較する場合は、少なくとも classifier digest / observation window / eligible run denominator を一緒に記録する。これらが異なる値を同一系列として比較しない。
+
 ### R6. Create Last
 
 同型失敗への対応で新 Skill / Agent / Hook / Flow を増やす前に、
@@ -359,6 +395,8 @@ evidence_refs:
 ```yaml
 pattern_id: pattern:verification-skipped
 pattern_version: 1
+classifier_digest: sha256:CLASSIFIER-V1
+source_set_digest: sha256:SOURCE-SET
 occurrence_count: 3
 scope: project
 ```
@@ -411,7 +449,7 @@ negative control:
 | 新 artifact が必要か | **No**。既存 artifact refs で表現する |
 | failure fingerprint を identity にするか | **No** |
 | immutable source identity | FailureRecord / RunEvent refs |
-| pattern identity | versioned `pattern_id + pattern_version` |
+| pattern identity | Candidate-local snapshot: `pattern_id + pattern_version + classifier_digest + source_set_digest` |
 | Harness delta の正本 | Evaluation Harness が観測する baseline/candidate Manifest + actual diff |
 | regression evidence | #909 Regression Set |
 | promotion owner | #811 / Promotion surface + Human final decision |
@@ -437,7 +475,7 @@ Phase B 実装前に以下を子タスク化する。
    - #811 が ExperimentResult / prevention evidence refs を consume
 6. **Metrics**
    - prevention fixture pass rate
-   - same-pattern recurrence rate
+   - same-pattern recurrence rate（classifier digest / observation window / denominator とセット）
    - false positive / negative
    - rollback
 
@@ -449,6 +487,7 @@ Phase B では最初から general-purpose learning engine を作らない。
 - [x] North Star の新原則を不要に増やしていない
 - [x] 新 top-level artifact を追加していない
 - [x] Failure observation と Pattern classification を分離した
+- [x] Pattern を独立 SSoT にせず classifier/source-set digest 付き snapshot とした
 - [x] fingerprint を primary identity にしていない
 - [x] Candidate 宣言値と actual diff を分離した
 - [x] Candidate が評価系を変更できない
