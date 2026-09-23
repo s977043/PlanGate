@@ -18,6 +18,8 @@ This file is intentionally present because the Plan Package requires the review 
 8. Does any proposed file or rule prematurely change canon / Human-owned authority?
 9. Are mutation tests capable of killing the intended invariant rather than failing for unrelated reasons?
 10. Is the parse-failure / invalid / partial / ready four-way result boundary coherent with canon?
+11. Must #1392 validate `current_stream + candidate` before durable commit, or is a different boundary safer?
+12. Is contiguous event_seq sufficient for the first slice, or is a hash-chain/previous-event binding required now?
 
 ## Expected output
 
