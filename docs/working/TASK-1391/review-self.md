@@ -38,6 +38,40 @@ PASS for plan-only.
 
 No runtime/schema/canon files are changed. Production implementation remains subject to #1329 and must not self-preserve the I1 exception.
 
+## Review round 2 findings — resolved
+
+### R-3 — event_seq / event_ref authority was ambiguous
+
+Severity: major.
+
+Initial plan let the producer present a RunEvent candidate already containing authoritative sequence/ref while #1392 owned durable concurrency. Two concurrent producers could therefore pre-choose conflicting sequence identity.
+
+Resolution:
+- producer emits EventDraft without authoritative seq/ref
+- #1392 assigns event_seq and binding under its lock
+- #1391 finalizes canonical accepted event and computes event_ref
+
+### R-4 — duplicate retry vs duplicate accepted event was mixed
+
+Severity: major.
+
+Initial EV-02 allowed vague "duplicate handling" inside the accepted stream.
+
+Resolution:
+- accepted stream must contain unique event_ref
+- exact transaction retry is absorbed by #1392 before append
+- duplicate already present in stream is invalid
+
+### R-5 — reject vs evidence_status=invalid was ambiguous
+
+Severity: major.
+
+Resolution:
+- structurally unusable input: reject, no fabricated RunEvidence
+- readable but contract-invalid stream: RunEvidence invalid
+- valid unfinished: partial
+- valid terminal: ready
+
 ## Remaining findings
 
 ### R-1 — Storage location intentionally unresolved
