@@ -16,6 +16,7 @@
 6. replanは既存Graphを更新せず、新しいGraph artifactを作る。
 7. GraphはHuman-owned authority / policy / Verifier / Gate / acceptance threshold / active Harness identityを変更しない。
 8. WorkItemGraphはapproved scopeを狭められるが、広げられない。
+9. bounded dynamic instantiationは、approved templateのspecializeまたは既存work itemのpartitionに限定する。新しいAC・権限・scopeを発明しない。
 
 分類:
 - owned: 本artifactがsemantic authorityを持つ
@@ -28,16 +29,17 @@
 | field | class | decision |
 |---|---|---|
 | schema_version | owned | artifact version only |
-| graph_id | owned | logical identity |
-| graph_ref | owned | immutable/content-addressed identity。CAS revisionではない |
+| graph_id | owned | logical lineage identity。superseding artifact間で継承可能 |
+| graph_ref | derived/reference identity | artifact payloadの外で算出・付与するimmutable ref。self-hash fieldとしてpayloadに埋め込まない |
 | supersedes_graph_ref | referenced | replan時のみ前Graphを参照 |
 | context_id / context_hash | referenced | #911 Context Packageへbinding |
 | plan_hash | referenced | approved Planへbinding |
 | topology_mode | owned | static / adaptive / bounded_dynamic |
-| work_items[] | owned | immutable declaration/template |
+| work_items[] | owned | immutable concrete declarations |
+| work_item_templates[] | owned | bounded dynamic用のpre-approved template。AC/scope/capabilityの上限を宣言 |
 | edges[] | owned | canonical dependency representation |
 | joins[] | owned | join declarationのみ。現在の満足状態は持たない |
-| bounded_dynamic_policy | owned | allowlisted kinds / max instances / max parallelism |
+| bounded_dynamic_policy | owned | allowlisted template IDs / permitted specialization fields / max instances / max parallelism |
 | budget_ref | referenced | LoopContract/budget owner |
 | tool_policy_ref / policy_ref | referenced | Harness/policy owner |
 | harness_manifest_ref | referenced | provenance/binding only |
@@ -61,13 +63,13 @@
 
 | field | class | decision |
 |---|---|---|
-| id / kind / title | owned | graph-local declaration |
+| id / kind / title | owned | graph-local declaration。dynamic instanceはapproved template/parentから継承 |
 | inputs[] | referenced | source/context/artifact refs |
 | expected_outputs[] | owned | decomposition contract |
-| acceptance_criteria_refs[] | referenced | approved Plan / LoopContract。新規AC本文を後付けしない |
+| acceptance_criteria_refs[] | referenced | approved Plan / LoopContract。dynamic instanceも既存refのsubset/partitionのみ。新規AC本文を後付けしない |
 | risk_class | derived/reference | authoritative riskを下げられない |
 | execution_profile | derived | policy + HO + riskから導出。less restrictive禁止 |
-| allowed_paths[] | owned narrowing constraint | Plan scopeのsubset/equivalentのみ |
+| allowed_paths[] | owned narrowing constraint | Plan scopeかつtemplate/parent scopeのsubset/equivalentのみ |
 | required_capabilities[] | owned | vendor-neutral capability requirements |
 | provider/model preference | forbidden as authority | #868 routing owner |
 | depends_on[] | derived | edges[]から算出 |
@@ -96,7 +98,8 @@ Assignmentはimmutable。rebindは新Assignment + eventで表す。
 
 | field | class | decision |
 |---|---|---|
-| assignment_id / assignment_ref | owned | immutable identity |
+| assignment_id | owned | immutable logical identity |
+| assignment_ref | derived/reference identity | payload外で算出・付与するimmutable ref。self-hash fieldにしない |
 | supersedes_assignment_ref | referenced | rebind時 |
 | graph_ref / work_item_id | referenced | WorkItemGraphへbinding |
 | requested_capabilities[] | referenced/derived | Work item requirement |
@@ -114,7 +117,7 @@ Assignmentはimmutable。rebindは新Assignment + eventで表す。
 
 V2 RunEventの最終field名はowner側で確定する。本計画では必要semanticだけ固定する。
 
-- work item instantiated: graph_ref / template-kind / instance ID / trigger evidence
+- work item instantiated: graph_ref / approved template ID or parent work item / instance ID / inherited AC refs / narrowed scope / trigger evidence
 - route selected: graph_ref / from / to / evidence-policy-human-external ref
 - join satisfied: graph_ref / join ID / member evidence refs
 - assignment bound/rebound: assignment ref / prior assignment ref
@@ -133,7 +136,9 @@ V2 RunEventの最終field名はowner側で確定する。本計画では必要se
 7. replanによる既存graph_ref in-place更新を拒否
 8. runtime instance/routeにevent evidenceが無い場合はreconstruct不可として扱う
 9. human_onlyをAI assignmentへbindしない
-10. bounded dynamicにはallowlist + parallel/budget refsを必須にする
+10. bounded dynamicにはapproved template allowlist + specialization field allowlist + parallel/budget refsを必須にする
+11. dynamic instanceが新しいACを追加、またはtemplate/parent scopeを拡大したら拒否
+12. content-addressed `graph_ref` / `assignment_ref` をartifact payload自身のself-hash fieldとして要求しない
 
 ## 8. Phase B handoff
 
@@ -145,3 +150,5 @@ Schema work開始条件:
 - edges[]がdependency topologyの唯一のauthority
 - Assignmentからmutable status/timestampsが除外済み
 - runtime event semanticが合意済み（最終field名はowner側）
+- dynamic instantiationがapproved template/parentのspecializationに限定され、新規AC・scope拡大を禁止している
+- immutable artifact refの算出方式がpayload self-referenceを作らない
