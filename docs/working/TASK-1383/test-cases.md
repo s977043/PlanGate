@@ -67,7 +67,7 @@
 | TC-40 | harness_manifest_ref changes in one event | reject |
 | TC-41 | merge_executed event appears | reject |
 
-TA-87 currently kills 13 mutation classes:
+TA-87 currently kills 17 mutation classes:
 1. Initial Plan Verification skipped
 2. Worker self-report completion
 3. model PASS overriding deterministic FAIL
@@ -81,6 +81,10 @@ TA-87 currently kills 13 mutation classes:
 11. meaningful artifact delta mislabeled NO_PROGRESS
 12. Decision references a removed FailureRecord
 13. HUMAN_ESCALATED without Stop Reason
+14. MERGE_READY omits PR convergence evidence
+15. progress fingerprints are self-consistent but detached from actual FailureRecords
+16. introduced blocker exists but the run still claims NO_PROGRESS
+17. an event occurs after terminal outcome
 
 
 ## Evidence reference integrity
@@ -136,3 +140,23 @@ Additional executable rules:
 - Stop Reason values can never be used as Lifecycle State values
 
 This keeps the fixture from implying that a terminal Run is still in `WAITING_HUMAN` or another non-terminal state.
+
+
+## Non-vacuous mutation review
+
+Mutation 3 was corrected so it tests the intended invariant directly.
+
+Old mutation:
+- converted repair decision into terminal MERGE_READY
+- could be killed earlier by terminal Outcome / Lifecycle State mixing
+
+New mutation:
+- keeps the decision non-terminal
+- changes `repair` to `continue` based on `v1 FAIL + v2 model PASS`
+- therefore only the deterministic-FAIL blocking / repair rule should reject it
+
+Additional dedicated mutations cover:
+- PR convergence evidence consumption
+- actual FailureRecord fingerprint provenance
+- introduced-blocker delta
+- terminality (no events after Outcome)
