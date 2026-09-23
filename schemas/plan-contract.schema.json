@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/s977043/plangate/schemas/plan-contract.schema.json",
+  "title": "Plan Contract Execution Reference v1",
+  "description": "Execution-side reference to an approved Plan Package. Canonical Plan semantics remain owned by c3-prime-contract.md / #981.",
+  "type": "object",
+  "required": ["schema_version", "task_id", "plan_ref", "approval_ref"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "task_id": { "type": "string", "pattern": "^TASK-[0-9]{4}$" },
+    "plan_ref": {
+      "type": "object",
+      "required": ["path", "plan_hash", "plan_package_hash"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "pattern": "^docs/working/TASK-[0-9]{4}/plan\\.md$" },
+        "plan_hash": { "$ref": "#/$defs/sha256" },
+        "plan_package_hash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "approval_ref": {
+      "type": "object",
+      "required": ["path", "approval_kind", "decision", "approval_digest"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "pattern": "^docs/working/TASK-[0-9]{4}/approvals/c3\\.json$" },
+        "approval_kind": { "type": "string", "enum": ["legacy", "c3-prime"] },
+        "decision": { "type": "string", "enum": ["APPROVED", "AUTO_APPROVED"] },
+        "approval_digest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "context_binding": {
+      "type": "object",
+      "required": ["path", "context_id", "context_ref", "snapshot_ref"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "pattern": "^docs/working/TASK-[0-9]{4}/intent-context\\.json$" },
+        "context_id": { "type": "string", "pattern": "^CTX-[0-9A-Za-z._-]+$" },
+        "context_ref": { "$ref": "#/$defs/sha256" },
+        "snapshot_ref": {
+          "allOf": [{ "$ref": "#/$defs/sha256" }],
+          "description": "Audit-only exact snapshot identity. Preflight does not stale a Plan solely because this value changed while context_ref is unchanged."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}
