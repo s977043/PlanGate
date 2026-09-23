@@ -345,6 +345,8 @@ jobs:
 
       - name: Record non-secret canary metadata
         shell: bash
+        env:
+          RUNNER_ENVIRONMENT_VALUE: ${{ runner.environment }}
         run: |
           {
             echo "### Claude subscription Stage A canary"
@@ -353,7 +355,7 @@ jobs:
             echo "- action_sha: \`9ca9355b36297178e28d37c799d1c9c8a28e6507\`"
             echo "- claude_code_version: \`${CLAUDE_CODE_VERSION}\`"
             echo "- auth_class: \`oauth_subscription\`"
-            echo "- runner_environment: \`${RUNNER_ENVIRONMENT}\`"
+            echo "- runner_environment: \`${RUNNER_ENVIRONMENT_VALUE}\`"
             echo "- max_turns: \`3\`"
             echo "- timeout_minutes: \`10\`"
             echo "- raw_execution_log_uploaded: \`false\`"
