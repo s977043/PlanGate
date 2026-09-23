@@ -44,6 +44,10 @@ Unknown values reject.
 
 Resolved by not inventing it. First slice only accepts empty/ALLOW for automatic decision. Other policy values fail closed and cannot reach success.
 
+### R-8 — Decision without RunState position was context-blind
+
+Resolved by adding `lifecycle_state` as a pure snapshot input. MERGE_READY is considered only in PR_CONVERGING; Initial Plan Verification advance only in PLAN_VERIFYING.
+
 ## Verdict
 
 PASS for plan. Production code gated by event contract and #1329 preflight.
