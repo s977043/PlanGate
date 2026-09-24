@@ -11,11 +11,11 @@
 - [ ] T-00: #1337 paired evaluation result固定を確認する
   - Owner: agent
   - depends_on: #1337 result fixed
-  - progress: PR #1364 execution freeze + PR #1366 runtime hardening merged; protocol/config/input/smoke/CLI-version contract fixed
-  - files: 読取: #1337 / PR #1364 / PR #1366 / smoke evidence / 48-run raw evidence / blind scoring / final pair-level decision
-  - completion: #1337の3-call smoke・48 generations・blind scoringが完了し、最終pair-level判定とdownstream decisionを確認してTASK-1359 replan要否をdecision-logへ記録する
+  - progress: PR #1364 / #1366 / #1371 merged; execution protocol/config/input/smoke/CLI-version/isolation specification fixed。PR #1360 planning baselineもmerged
+  - files: 読取: #1337 / runtime handoff / filled run ledger / isolation+smoke evidence / 48-run raw evidence / blind scoring / final pair-level result / downstream decision
+  - completion: #1337のruntime Major close可否・3-call smoke・generation/scoring completeness・pair-level判定・contamination/missing-data状態・downstream decisionを確認し、#1359を進める/再計画する/BLOCKED維持の判断をdecision-logへ記録する
   - rollback: 不要
-  - 🚩 チェックポイント: regression / no-effect / guidance変更があればT-03以降を開始せずreplan
+  - 🚩 チェックポイント: INCONCLUSIVE / unresolved Runtime Major / regression / no-effect / guidance変更 / downstream decision未固定ならT-03以降を開始しない
 
 ### 1. 準備
 
