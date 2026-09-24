@@ -4,169 +4,145 @@
 
 **モード**: critical
 
-> workflow planning surfacesに触れるためcritical。production executionは#1337/#1359のhard dependency解消まで開始しない。
+> #1416はworkflow planning surfacesを変更するためcritical。
+> 本ファイルは現在 **planning-baseline phase**。production taskは推測で置かず、upstream unblock後のT-13で concrete Plan v2 / todo v2へ置き換える。
 
-## 🤖 Agent タスク
+## A. Planning baseline / PR #1417
 
-### 1. 準備
-
-- [ ] T-00: #1337 / #1359 / #894 / #1383 のfresh stateとmain差分を再確認する
+- [x] **T-01**: #1416 PBIをAI Execution Readiness projectionとして整理する
   - Owner: agent
   - depends_on: なし
-  - files: 読取: GitHub Issues #1337, #1359, #894, #1383 / current main
-  - rollback: 不要（読取のみ）
-  - 🚩 チェックポイント: #1337 pair-level result未固定、または#1359 Human C-3未完了ならproduction exec停止
+  - files: docs/working/TASK-1416/pbi-input.md, plan.md
+  - completion: six dimensionsが既存正本からのprojectionとして定義され、new gate/state subsystemを作らない
+  - rollback: commit revert
+  - 🚩 チェックポイント: Recovery / Escalationを新しいretry-policy正本にしない
 
-- [ ] T-01: #1359 merge後のPlan / Skill / C-1 surfaceをinventoryし、#1416差分だけを抽出する
-  - Owner: agent
-  - depends_on: T-00
-  - files: 読取: `docs/working/templates/plan.md`, `.agents/skills/ai-dev-plan/SKILL.md`, `docs/working/templates/review-self.md`, related mirrors
-  - rollback: 不要（読取のみ）
-  - 🚩 チェックポイント: duplicate responsibilityが見つかったらPlanをre-plan
-
-- [ ] T-02: ai-loop handoffのcanonical ownerと#894/#1383 runtime boundaryをinventoryする
-  - Owner: agent
-  - depends_on: T-00
-  - files: 読取: ai-loop V2 docs / #894 / #1383
-  - rollback: 不要（読取のみ）
-  - 🚩 チェックポイント: HO pathまたはruntime policy変更が必要なら停止
-
-### 2. 実装
-
-- [ ] T-03: AI Execution Readinessの6 dimensionsをcanonical planning guidanceへ差分統合する
+- [x] **T-02**: readiness state semanticsを一意化する
   - Owner: agent
   - depends_on: T-01
-  - files: `docs/ai/plan-design-principles.md`（T-00で最終確認）
+  - files: docs/working/TASK-1416/pbi-input.md, plan.md, test-cases.md
+  - completion: ready / needs_clarification / blocked の条件が定義され、fixed fixtureが単一期待値を持つ
   - rollback: commit revert
-  - 🚩 チェックポイント: #1359と重複するAssumptions/Unknownsを再定義しない
+  - 🚩 チェックポイント: blocked or needs_clarification のような二値期待を残さない
 
-- [ ] T-04: dependency readinessを declared / available / verified としてplanning guidanceへ追加する
+- [x] **T-03**: Pre-C3 Replan GateとC-3物理依存を設計する
   - Owner: agent
-  - depends_on: T-03
-  - files: `.agents/skills/ai-dev-plan/SKILL.md`（T-00で最終確認）
+  - depends_on: T-01
+  - files: docs/working/TASK-1416/plan.md, todo.md
+  - completion: production taskはPlan v2生成後のみ定義され、Human C-3 APPROVEDへtransitively依存する契約になっている
   - rollback: commit revert
-  - 🚩 チェックポイント: fixed Human questionnaire化しない
+  - 🚩 チェックポイント: narrative stop wordingだけでC-3を表現しない
 
-- [ ] T-05: DetectabilityをREADY条件へ接続する
+- [x] **T-04**: Working Context / review artifact不足を補完する
   - Owner: agent
-  - depends_on: T-04
-  - files: `.agents/skills/ai-dev-plan/SKILL.md`, `docs/working/templates/plan.md`
+  - depends_on: T-01,T-02,T-03
+  - files: docs/working/TASK-1416/INDEX.md, current-state.md, status.md, decision-log.jsonl, review-self.md, review-external.md
+  - completion: L0/current-stateでBLOCKEDが見え、review artifactsがschema-valid、C-2 unavailable状態が独立性を偽装せず記録される
   - rollback: commit revert
-  - 🚩 チェックポイント: verificationの存在ではなくfailure detection可能性を扱う
+  - 🚩 チェックポイント: same-maker multi-perspective reviewをindependent C-2として扱わない
 
-- [ ] T-06: Recovery / Escalation handoffをruntime owner参照として追加する
+- [ ] **T-05**: corrected planning baselineをfresh検証する
   - Owner: agent
-  - depends_on: T-02,T-05
-  - files: `docs/working/templates/plan.md`, confirmed handoff canonical doc
-  - rollback: commit revert
-  - 🚩 チェックポイント: #894/#1383のretry/convergence semanticsをコピーしない
-
-- [ ] T-07: C-1/C-2へ最小統合する
-  - Owner: agent
-  - depends_on: T-05,T-06
-  - files: `docs/working/templates/review-self.md`, relevant review guidance
-  - rollback: commit revert
-  - 🚩 チェックポイント: new C-1 check IDを追加しないことを優先
-
-- [ ] T-08: canonical変更をdistribution mirrorsへ同期する
-  - Owner: agent
-  - depends_on: T-03,T-04,T-05,T-06,T-07
-  - files: plugin/Codex mirrors confirmed by current sync tooling
-  - rollback: commit revert
-  - 🚩 チェックポイント: 手編集でdriftを作らず既存sync routeを使う
-
-### 3. Fixture / 検証
-
-- [ ] T-09: simple-ready fixtureを追加する
-  - Owner: agent
-  - depends_on: T-08
-  - files: fixture path determined by current eval/test convention
-  - rollback: commit revert
-  - 🚩 チェックポイント: empty/N/A ceremonyが増えていない
-
-- [ ] T-10: dependency-blocked fixtureを追加する
-  - Owner: agent
-  - depends_on: T-08
-  - files: fixture path determined by current eval/test convention
-  - rollback: commit revert
-  - 🚩 チェックポイント: declaredだけではREADYにならない
-
-- [ ] T-11: detection-missing fixtureを追加する
-  - Owner: agent
-  - depends_on: T-08
-  - files: fixture path determined by current eval/test convention
-  - rollback: commit revert
-  - 🚩 チェックポイント: high-impact failure + detectorなし = READY不可
-
-- [ ] T-12: recovery-required fixtureを追加する
-  - Owner: agent
-  - depends_on: T-08
-  - files: fixture path determined by current eval/test convention
-  - rollback: commit revert
-  - 🚩 チェックポイント: retry/re-plan/stop/escalation boundary不足を検出
-
-- [ ] T-13: C-1 count / mirror sync / stale reference / fixture期待値を検証する
-  - Owner: agent
-  - depends_on: T-09,T-10,T-11,T-12
-  - files: 読取: modified canonical/mirror/fixture files
+  - depends_on: T-01,T-02,T-03,T-04
+  - files: 読取: docs/working/TASK-1416/**, PR #1417
+  - completion: branch behind main=0、production planning surface diff=0、frontmatter schema整合、PR checks statusを記録
   - rollback: 不要（検証のみ）
-  - 🚩 チェックポイント: driftまたはnew check ID発生時は修正して再検証
+  - 🚩 チェックポイント: green CIをsemantic correctnessの代替にしない
 
-- [ ] T-14: full repository CI/test対象を実行する
+## B. Upstream unblock後の Pre-C3 Replan Gate
+
+- [ ] **T-10**: #1337 / #1359 / #894 / #1383 のfresh stateとcurrent mainを再確認する
+  - Owner: agent
+  - depends_on: H-00
+  - files: 読取: GitHub Issues #1337, #1359, #894, #1383 / current main
+  - completion: EB-01 / EB-02の状態とevidenceが記録され、未解消ならBLOCKED維持
+  - rollback: 不要（読取のみ）
+  - 🚩 チェックポイント: #1337 result未固定または#1359 production integration未完了ならT-11以降を開始しない
+
+- [ ] **T-11**: #1359後のproduction planning surfaceをinventoryし#1416 deltaを抽出する
+  - Owner: agent
+  - depends_on: T-10
+  - files: 読取: docs/ai/plan-design-principles.md, .agents/skills/ai-dev-plan/SKILL.md, docs/working/templates/plan.md, docs/working/templates/review-self.md, distribution mirrors
+  - completion: owner matrix更新、duplicate proposed change=0、#1416 production deltaが具体ファイル単位で確定
+  - rollback: 不要（読取のみ）
+  - 🚩 チェックポイント: #1359と責務競合する変更は削除またはre-plan
+
+- [ ] **T-12**: ai-loop handoff canonical ownerをinventoryする
+  - Owner: agent
+  - depends_on: T-10
+  - files: 読取: #894, #1383, repository searchで確定したai-loop V2 canonical docs
+  - completion: handoff ownerが具体的pathで確定し、runtime policy ownerとの境界が記録される
+  - rollback: 不要（読取のみ）
+  - 🚩 チェックポイント: HO path / runtime policy変更が必要ならStop Condition
+
+- [ ] **T-13**: Plan v2 / todo v2 / test-cases v2をconcrete execution packageへ再生成する
+  - Owner: agent
+  - depends_on: T-11,T-12
+  - files: docs/working/TASK-1416/plan.md, todo.md, test-cases.md, decision-log.jsonl
+  - completion:
+    - production filesが具体パスで固定
+    - verification commands / exact expected resultsが固定
+    - production tasksが2-5分/reviewable unit
+    - production tasksがHuman H-01へtransitively依存
+    - production C-4 task H-02をtodo v2へ追加
+    - exec placeholder 0
+  - rollback: planning artifact commitをrevert
+  - 🚩 チェックポイント: determined by / confirmed later / relevant file 等を残さない
+
+- [ ] **T-14**: Plan v2にcanonical 25-item C-1を実行する
   - Owner: agent
   - depends_on: T-13
-  - files: 読取: repository test/config
-  - rollback: 不要（検証のみ）
-  - 🚩 チェックポイント: baseline外failureは原因分類してre-plan
+  - files: docs/working/TASK-1416/review-self.md
+  - completion: 25 checks全件結果あり、schema-valid、FAIL=0、C1-TODO-09/C1-TODO-11がH-01依存を検証
+  - rollback: review artifact更新をrevert
+  - 🚩 チェックポイント: custom narrative reviewでC-1を代替しない
 
-### 4. 完了
-
-- [ ] T-15: 実装後のAssumption / Unknown / Dependency readinessを再確認する
+- [ ] **T-15**: Plan v2にindependent C-2を実行する
   - Owner: agent
-  - depends_on: T-14
-  - files: `docs/working/TASK-1416/plan.md`, evidence
-  - rollback: 不要（記録のみ）
-  - 🚩 チェックポイント: 新Blocking UnknownがあればPR readinessをblockedへ戻す
-
-- [ ] T-16: status/current-state/INDEXとIssue #1416を更新する
-  - Owner: agent
-  - depends_on: T-15
-  - files: `docs/working/TASK-1416/status.md`, `current-state.md`, `INDEX.md`, GitHub Issue #1416
-  - rollback: 不要（記録のみ）
-  - 🚩 チェックポイント: completion claimはevidenceと一致させる
+  - depends_on: T-13
+  - files: docs/working/TASK-1416/review-external.md
+  - completion: independent reviewer実行済み、latest Plan v2対象、unresolved critical/major=0
+  - rollback: review artifact更新をrevert
+  - 🚩 チェックポイント: unavailableの場合はWARN記録してH-01へ進まない
 
 ## 👤 Human タスク
 
-- [ ] H-01: #1337 / #1359 upstream gateの完了を確認し、TASK-1416 production execのC-3を判断する
+- [ ] **H-00**: planning baseline PR #1417 C-4レビュー
   - Owner: human
-  - depends_on: T-00
-  - files: `docs/working/TASK-1416/approvals/c3.json`
+  - depends_on: T-05
+  - files: GitHub PR #1417
+  - completion: planning baselineのみをAPPROVE / REQUEST CHANGES / REJECT。APPROVEしてもproduction execは許可しない
   - rollback: 不要（判断のみ）
-  - 🚩 チェックポイント: APPROVEDまでT-03以降を開始しない
+  - 🚩 チェックポイント: merge = planning baselineの確定でありC-3ではない
 
-- [ ] H-02: PR C-4レビュー
+- [ ] **H-01**: production Plan v2 C-3
   - Owner: human
-  - depends_on: T-16
-  - files: GitHub PR
+  - depends_on: T-14,T-15
+  - files: docs/working/TASK-1416/approvals/c3.json
+  - completion: latest Plan v2 hashに対して APPROVE / CONDITIONAL / REJECT を記録。APPROVEDのみproduction exec可
   - rollback: 不要（判断のみ）
-  - 🚩 チェックポイント: mergeはHuman-owned
+  - 🚩 チェックポイント: T-13で生成したtodo v2のproduction tasksはH-01 APPROVEDへ依存する
 
 ## ⚠️ 依存関係
 
-```text
-#1337 pair-level result
-        ↓
-#1359 T-00 + Human C-3 + production integration
-        ↓
-TASK-1416 T-00/T-01/T-02
-        ↓
-Human H-01
-        ↓
-T-03..T-08 implementation
-        ↓
-T-09..T-14 fixtures/verification
-        ↓
-T-15/T-16 evidence + handoff
-        ↓
-Human H-02
-```
+### Planning baseline
+
+T-01 -> T-02
+T-01 -> T-03
+T-01,T-02,T-03 -> T-04 -> T-05 -> H-00 planning C-4
+
+### Production transition
+
+H-00 planning baseline merge
+  -> #1337 pair-level result fixed
+  -> #1359 production integration complete
+  -> T-10 fresh dependency check
+  -> T-11 production surface inventory
+  -> T-12 handoff inventory
+  -> T-13 regenerate Plan/todo/tests v2
+  -> T-14 canonical C-1 + T-15 independent C-2
+  -> H-01 Human C-3
+  -> concrete production tasks in todo v2
+  -> H-02 production C-4
+
+> **Iron Law**: current planning baseline contains no executable production task. Production tasks must be created by T-13 with concrete paths/commands and must depend on H-01 APPROVED before execution.
