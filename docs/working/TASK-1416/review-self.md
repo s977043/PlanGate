@@ -3,196 +3,230 @@ task_id: TASK-1416
 artifact_type: review-self
 schema_version: 1
 status: draft
-verdict: PASS_WITH_EXTERNAL_BLOCKER
+verdict: WARN
 created_by: orchestrator
 ---
 
 # TASK-1416 セルフレビュー結果（C-1）
 
-> Review scope: planning package only
-> Base: `main@d6a2216fddf39e0f1e64bb52e7b82cbf7b9f0b36`
-> Branch: `docs/1416-ai-execution-readiness-plan`
+> レビュー日: 2026-09-24
+> 対象: planning baseline PR #1417
+> 判定: **WARN** — PASS=22 / WARN=1 / FAIL=0 / N/A=2
 > Production execution readiness: **BLOCKED**
-> Planning PR readiness: **PASS**
+> Current planning baseline contains no executable production task.
 
-## Diff Integrity
+## C-1 チェック項目数
 
-- branch behind main: 0
-- changed paths before this review artifact: 4
-- changed production planning surfaces: 0
-- changed files are confined to `docs/working/TASK-1416/**`
-- #1337 frozen candidate is not modified
-- #1359 production surface is not modified
+Current canonical template: **25 checks**.
+This review follows `docs/working/templates/review-self.md` rather than a custom reduced checklist.
 
-**Result: PASS**
+## Plan
 
-## Plan Review
+### C1-PLAN-01: 受入基準網羅性
+- **result**: PASS
+- **category**: plan
+- **finding**: AC-01〜14 are mapped to TC-01〜12. AC-14 explicitly covers the Pre-C3 Replan Gate and physical C-3 dependency.
+- **evidence_ref**: test-cases.md Traceability
+- **impacted_files**: []
 
-### Goal / Why
+### C1-PLAN-02: Unknowns処理
+- **result**: PASS
+- **category**: plan
+- **finding**: Known Facts / Assumptions / Known Unknowns / external blockers are separated. EB-01/#1337 and EB-02/#1359 correctly prevent production ready.
+- **evidence_ref**: plan.md Evidence / Current State
+- **impacted_files**: []
 
-**PASS**
+### C1-PLAN-03: スコープ制御
+- **result**: PASS
+- **category**: plan
+- **finding**: New Readiness subsystem, runtime retry engine, schema/validator-first, HO edits, and pre-#1359 production changes are out of scope. Production tasks are intentionally absent until Plan v2.
+- **evidence_ref**: plan.md Scope
+- **impacted_files**: []
 
-The plan defines a concrete outcome: distinguish plans safe enough for autonomous execution from plans that still require dependency resolution, evidence, or Human judgment.
+### C1-PLAN-04: テスト戦略
+- **result**: PASS
+- **category**: plan
+- **finding**: Test cases define exact readiness oracles for ready / needs_clarification / blocked, plus governance and dependency-graph invariants.
+- **evidence_ref**: test-cases.md
+- **impacted_files**: []
 
-It explicitly does not optimize for maximum autonomy and does not remove Human C-3/C-4.
+### C1-PLAN-05: Work Breakdown Output
+- **result**: PASS
+- **category**: plan
+- **finding**: Current baseline work is limited to planning / inventory / replan / review tasks. Speculative production tasks were removed. Plan v2 generation is split into file-map, todo-graph, and test-oracle tasks.
+- **evidence_ref**: plan.md Current Planning Work Breakdown; todo.md
+- **impacted_files**: []
 
-### Assumptions
+### C1-PLAN-06: 依存関係
+- **result**: PASS
+- **category**: plan
+- **finding**: Initial narrative-only C-3 dependency was removed. Current baseline has no production exec task. Future todo v2 must make every production task transitively depend on H-01; H-01 depends on T-16 C-1 and T-17 C-2.
+- **evidence_ref**: todo.md dependency graph
+- **impacted_files**: []
 
-**PASS**
+### C1-PLAN-07: 動作検証自動化
+- **result**: WARN
+- **category**: plan
+- **finding**: Planning-baseline diff/schema/CI checks are available, but production verification commands cannot be honestly frozen until #1337/#1359 unblock and T-13〜T-15 finalize concrete paths and commands.
+- **evidence_ref**: plan.md Verification Plan
+- **impacted_files**: []
+- **suggested_action**: T-15でconcrete commands / exact expected valuesを固定し、T-16で再レビューする
+- **owner**: agent
+- **resolved**: false
 
-Verified and unverified assumptions are separated. The plan does not claim #1359's future final shape is already known.
+### C1-PLAN-08-AEE: Stop Condition
+- **result**: PASS
+- **category**: plan
+- **finding**: #1337/#1359 blockers, missing Plan v2, missing C-1/C-2, HO/runtime ownership conflict all stop production execution.
+- **evidence_ref**: plan.md Stop Condition
+- **impacted_files**: []
 
-### Dependencies
+### C1-PLAN-09-AEE: Replan Triggers
+- **result**: PASS
+- **category**: plan
+- **finding**: #1337 result changes, #1359 overlap, handoff-owner mismatch, schema/check-ID need, HO path need, and T-10〜T-12 evidence changes all trigger replan.
+- **evidence_ref**: plan.md Replan Triggers
+- **impacted_files**: []
 
-**PASS**
+## Plan品質追加
 
-The plan dogfoods the proposed distinction:
+### C1-SUP-PLAN-01: No Placeholders Rule
+- **result**: PASS
+- **category**: plan
+- **finding**: Unresolved production paths are not disguised as executable placeholders; production work is explicitly deferred to Plan v2 generation before C-3.
+- **evidence_ref**: plan.md Pre-C3 Replan Gate
+- **impacted_files**: []
 
-```text
-declared != available != verified
-```
+### C1-SUP-PLAN-02: Task Sizing Rules
+- **result**: PASS
+- **category**: plan
+- **finding**: Coarse Plan-v2 regeneration was split into T-13 file/owner map, T-14 todo graph, T-15 test oracle, T-16 C-1, T-17 C-2. Current tasks have one reviewable responsibility.
+- **evidence_ref**: todo.md
+- **impacted_files**: []
 
-#1337 and #1359 are represented as declared but currently unavailable/unverified production prerequisites, so production readiness cannot incorrectly become READY.
+## ToDo
 
-### Unknowns / Surprises
+### C1-TODO-08: タスク粒度
+- **result**: PASS
+- **category**: todo
+- **finding**: Planning/refinement/review responsibilities are split; no current production implementation task is bundled into the baseline.
+- **evidence_ref**: todo.md
+- **impacted_files**: []
 
-**PASS**
+### C1-TODO-09: depends_on設定
+- **result**: PASS
+- **category**: todo
+- **finding**: H-01 depends on T-16/T-17. Future production tasks must be generated by T-14 with transitive H-01 dependency. Current baseline contains none.
+- **evidence_ref**: todo.md Human tasks / dependency graph
+- **impacted_files**: []
 
-Material uncertainty is listed:
-- #1337 evaluation outcome;
-- #1359 final merged surface;
-- final ai-loop handoff ownership;
-- validator necessity after dogfood.
+### C1-TODO-10: チェックポイント設定
+- **result**: PASS
+- **category**: todo
+- **finding**: Each task states a checkpoint for overlap, C-3 boundary, exact verdicts, review independence, or placeholder prevention.
+- **evidence_ref**: todo.md
+- **impacted_files**: []
 
-No attempt is made to eliminate all Unknowns.
+### C1-TODO-11: Iron Law遵守
+- **result**: PASS
+- **category**: todo
+- **finding**: Current planning baseline has no executable production task; future production task graph must depend on H-01 APPROVED.
+- **evidence_ref**: todo.md Iron Law
+- **impacted_files**: []
 
-### Detectability
+### C1-TODO-12: 完了条件
+- **result**: PASS
+- **category**: todo
+- **finding**: Every current Agent/Human task has an explicit completion field.
+- **evidence_ref**: todo.md
+- **impacted_files**: []
 
-**PASS**
+### C1-TODO-RB: rollback
+- **result**: PASS
+- **category**: todo
+- **finding**: Read-only tasks declare rollback unnecessary; planning artifact mutations declare commit revert. No production mutation exists yet.
+- **evidence_ref**: todo.md
+- **impacted_files**: []
 
-The plan contains four fixed scenarios:
-- simple-ready
-- dependency-blocked
-- detection-missing
-- recovery-required
+## TestCases
 
-It also includes checks for mirror drift, C-1 ID growth, and repository regression.
+### C1-TEST-13: 受入基準→テストケース網羅性
+- **result**: PASS
+- **category**: test
+- **finding**: AC-01〜14 all have explicit TC mapping.
+- **evidence_ref**: test-cases.md Traceability
+- **impacted_files**: []
 
-### Recovery / Escalation
+### C1-TEST-14: テストケースの具体性
+- **result**: PASS
+- **category**: test
+- **finding**: Each readiness fixture now has one exact expected state. Convention Evidence identifies expected-value sources. TC-12 defines the C-3 graph invariant.
+- **evidence_ref**: test-cases.md Convention Evidence / Readiness Oracle
+- **impacted_files**: []
 
-**PASS**
+### C1-TEST-15: エッジケースの考慮
+- **result**: PASS
+- **category**: test
+- **finding**: Stale/environment-mismatched dependency evidence, non-covering verifier, infinite retry, readiness downgrade, #1359 overlap, and Human-only clarification are included.
+- **evidence_ref**: test-cases.md Edge Cases
+- **impacted_files**: []
 
-Retry, re-plan, stop, and Human escalation conditions are explicit. Runtime retry/convergence behavior is not duplicated; #894/#1383 remain canonical.
+## B-1 / B-2
 
-## Existing Responsibility Alignment
+### C1-B1B2-16: B-1確認質問
+- **result**: PASS
+- **category**: plan
+- **finding**: Repository-resolvable ownership/dependency questions are assigned to T-10〜T-12 before Human C-3. Human input is reserved for C-3 and actual product/risk decisions.
+- **evidence_ref**: plan.md Pre-C3 Replan Gate
+- **impacted_files**: []
 
-### #810 / #1359
+### C1-B1B2-17: B-2アプローチ比較
+- **result**: PASS
+- **category**: plan
+- **finding**: Projection over existing sources vs new subsystem vs validator-first are compared; minimum additive projection is selected.
+- **evidence_ref**: plan.md Approach Comparison
+- **impacted_files**: []
 
-**PASS**
+## Security / Scope / UI
 
-The task reuses existing Assumptions / Unknowns / Blocking Unknown semantics and plans to add only missing execution-readiness dimensions.
+### C1-SEC-01: 秘密情報 非接触
+- **result**: N/A
+- **category**: plan
+- **finding**: Current planning-only PR touches docs/working/TASK-1416 only and does not handle secrets/auth material.
+- **evidence_ref**: PR #1417 diff
+- **impacted_files**: []
 
-### #894 / #1383
+### C1-SCOPE-DISC-01: 発見事項の予防的分離
+- **result**: PASS
+- **category**: plan
+- **finding**: Schema/validator expansion, HO path changes, runtime-policy changes, and duplicate #1359 responsibilities are stop/replan or separate-decision concerns.
+- **evidence_ref**: plan.md Scope / Stop / Replan
+- **impacted_files**: []
 
-**PASS**
+### C1-UI-01: UI デザインシステム準拠
+- **result**: N/A
+- **category**: plan
+- **finding**: non-UI task.
+- **evidence_ref**: —
+- **impacted_files**: []
 
-Runtime control remains outside #1416. The plan carries references/hints only.
+## Diff / Governance sanity
 
-### #1337
-
-**PASS**
-
-Current upstream result is treated as `INCONCLUSIVE_NOT_RUN`. The plan does not claim Plan Design Principles effectiveness and does not mutate frozen evaluation inputs/candidate.
-
-## Scope / Over-engineering Review
-
-**PASS**
-
-Rejected/deferred:
-- separate Readiness Gate subsystem
-- validator-first implementation
-- new runtime state machine
-- new Unknown registry
-- new Trust Ledger fields
-- mandatory six-section output for simple tasks
-
-The selected approach is additive and conditional.
-
-## Test Case Review
-
-### Traceability
-
-**PASS**
-
-AC-01..13 are mapped to TC-01..11.
-
-### Positive / Negative Controls
-
-**PASS**
-
-- positive: simple-ready
-- negative: dependency-blocked
-- negative: detection-missing
-- negative/clarification: recovery-required
-- compatibility: blocking unknown
-- governance: Human boundary + upstream ordering
-
-### Important invariants
-
-**PASS**
-
-```text
-declared dependency
-  != available dependency
-  != verified dependency
-```
-
-```text
-implementation complete
-  != behavior verified
-  != failure detectable
-```
-
-## Findings
-
-### Critical
-
-0
-
-### Major
-
-0
-
-### Minor
-
-1
-
-**M-01 — Production implementation is intentionally absent from this PR**
-
-Reason:
-- #1337 pair-level effectiveness result is not fixed.
-- #1359 production implementation is explicitly BLOCKED until #1337 result + T-00 downstream review + Human C-3.
-- #1416 targets overlapping Plan/Skill/review surfaces.
-
-Disposition:
-- accepted for this planning-baseline PR;
-- do not represent this PR as implementing the production feature;
-- after upstream unblock, run TASK-1416 T-00 and open a separate production implementation PR.
+- current branch is intended to change only docs/working/TASK-1416/**;
+- #1337 frozen candidate is not modified;
+- #1359 production surfaces are not modified;
+- review-self frontmatter now uses schema-valid WARN;
+- same-maker multi-perspective review is not counted as independent C-2.
 
 ## Verdict
 
-### Planning package
+**WARN — FAIL 0**
 
-**PASS**
+Planning baseline may proceed to fresh validation and Human H-00 C-4.
+Production execution remains **BLOCKED** until:
 
-The package is internally coherent, testable, and respects current repository governance.
-
-### Production execution
-
-**BLOCKED**
-
-Hard blockers:
-- EB-01: #1337 pair-level evaluation result not fixed.
-- EB-02: #1359 downstream impact review + Human C-3 not complete.
-
-This is the intended behavior of AI Execution Readiness itself: a well-designed plan can be planning-ready while still being execution-blocked by unavailable dependencies.
+1. #1337 / #1359 unblock;
+2. T-10〜T-15 Plan v2 package finalization;
+3. T-16 canonical C-1 with FAIL=0;
+4. T-17 independent C-2 with unresolved critical/major=0;
+5. Human H-01 C-3 APPROVED.
