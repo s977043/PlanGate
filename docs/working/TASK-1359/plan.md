@@ -19,7 +19,7 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 - Related issues: #1359 / #933 / #810 / #867
 - Related architecture: #1335 / PR #1336
 - Dependency: PR #1358 merged; TASK-1359 rebased and compatibility evidence recorded.
-- **Hard dependency**: #1337 paired evaluation result must be fixed before Human C-3 / production implementation. PR #1364 froze the execution protocol and PR #1366 hardened/merged the Codex runtime contract; remaining steps are operator smoke (including exact CLI version freeze) → 48 generations → blind scoring → pair-level decision. This preserves the frozen evaluation candidate and avoids contaminating #1337.
+- **Hard dependency**: #1337 paired evaluation result must be fixed before Human C-3 / production implementation. PR #1364 froze the execution protocol, PR #1366 hardened the Codex runtime contract, and PR #1371 merged the isolation specification baseline. Remaining work is actual runtime preflight/isolation evidence → Smoke A/B/C → 48 generations → blind scoring → pair-level result + explicit downstream decision. Runtime handoff: `docs/working/discussions/2026-09-25-plan-design-principles-eval-runtime-handoff.md`.
 - #1347 owns Human Decision Surface / Plan compression experiments after #1337; TASK-1359 must not absorb that scope.
 - ADR-006 owns selective Plan Deliberation between C-2 and Human C-3; TASK-1359 must not create a competing debate/judge layer.
 - Human Attention Metrics (#1343/#1349) owns attention/visibility measurement semantics; TASK-1359 must not optimize Plan length/attention as a success target.
@@ -111,8 +111,8 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 - **EB-01: #1337 paired evaluation result not fixed**
   - blocking: yes for Human C-3 and exec
-  - reason: #1337 explicitly orders #933/#810/#867 implementation after paired evaluation and freezes the candidate SHA. PR #1364/#1366 resolved protocol/runtime-design uncertainty but did not produce effectiveness evidence.
-  - unblock condition: #1337 records a fixed pair-level evaluation result / next-action decision that allows downstream implementation.
+  - reason: #1337 explicitly orders #933/#810/#867 implementation after paired evaluation and freezes the candidate SHA. PR #1364/#1366/#1371 resolved protocol/runtime/isolation-spec uncertainty but did not produce effectiveness evidence.
+  - unblock condition: #1337 records runtime isolation/smoke evidence, fixed pair-level result, contamination/missing-data state, and an explicit downstream decision that allows TASK-1359 to proceed.
 
 ### Human Decisions Required
 
@@ -122,15 +122,15 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 ### Readiness
 
-- **Planning artifact readiness: ready**（planning-only PR #1360 として Human C-4 レビューへ渡せる状態。ai-loop V2 の `MERGE_READY` とは別概念なので、その語は使わない）
+- **Planning artifact readiness: merged**（planning-only PR #1360でmainに確定済み）
 - **Execution readiness: blocked**（EB-01）
 
 Reason:
 - internal Blocking Unknowns = 0;
-- #1358/#1364/#1366 compatibility is resolved;
-- PR #1360 is planning-only and all required checks are green;
-- merging planning artifacts does not mutate frozen #1337 historical baseline/candidate SHAs;
-- external blocker EB-01 still prevents Human C-3 / production implementation.
+- #1358/#1364/#1366/#1371 planning/runtime-spec dependencies are resolved;
+- PR #1360 planning baseline is merged;
+- planning artifacts on current main do not mutate frozen #1337 historical baseline/candidate SHAs;
+- actual #1337 runtime effectiveness evidence remains absent, so EB-01 still prevents Human C-3 / production implementation.
 
 ## Mode判定
 
@@ -264,14 +264,14 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 **Purpose**: prevent TASK-1359 from contaminating the frozen Plan Design Principles evaluation.
 
 **Steps**:
-- [x] Confirm PR #1364 and PR #1366 merged; execution protocol/runtime budget/smoke/CLI-version contract are frozen.
-- [ ] Wait for #1337 three-call operator smoke, 48 generations, blind scoring, and pair-level result.
-- [ ] Read the final #1337 decision and determine whether TASK-1359 Plan requires replan.
+- [x] Confirm PR #1364, PR #1366 and PR #1371 merged; execution protocol/runtime budget/smoke/CLI-version/isolation-spec contracts are frozen.
+- [ ] Wait for #1337 runtime preflight + three-call operator smoke + 48 generations + blind scoring + pair-level result + downstream decision.
+- [ ] Read the #1337 runtime handoff and final downstream decision; determine whether TASK-1359 Plan requires replan.
 - [ ] Reconfirm #1347 still owns Human Decision Surface / compression concerns.
 
 **Completion Criteria**:
 - EB-01 resolved.
-- #1364/#1366 execution-freeze/runtime-hardening merges and #1337 final result/downstream decision are referenced in decision-log.
+- #1364/#1366/#1371 execution/runtime/isolation-spec merges and #1337 final result/downstream decision are referenced in decision-log.
 - No TASK-1359 production change occurred before resolution.
 
 **Rollback**:
@@ -287,10 +287,10 @@ Adopt **A**. Add the minimum conditional representation to existing Plan generat
 - Read: `.agents/skills/review-gate/SKILL.md`
 
 **Steps**:
-- [ ] #1358 merge後にrebaseする
-- [ ] `diff-audit` = generic pre-PR self-inspection を再確認
-- [ ] `review-gate` = independent implementation-completion review を再確認
-- [ ] #960 HO境界を再確認
+- [x] #1358 merge後にrebaseする
+- [x] `diff-audit` = generic pre-PR self-inspection を再確認
+- [x] `review-gate` = independent implementation-completion review を再確認
+- [x] #960 HO境界を再確認
 
 **Completion Criteria**:
 - RU-03（#1358 dependency）解消
@@ -604,9 +604,9 @@ Stop for human decision if:
 
 Two merge/approval boundaries are intentionally separated:
 
-1. **Planning baseline PR #1360**
+1. **Planning baseline PR #1360 — MERGED**
    - planning artifacts only;
-   - may reach Human C-4 / merge before #1337 completes;
+   - Human C-4 / merge completed before #1337 runtime evaluation;
    - merge does **not** constitute C-3 approval or implementation authorization.
 2. **Future implementation PR**
    - #1337 result fixed is prerequisite to Human C-3;
