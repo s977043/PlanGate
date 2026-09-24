@@ -11,6 +11,7 @@ exit 2
 from __future__ import annotations
 
 import fnmatch
+import posixpath
 
 
 class DecisionError(ValueError):
@@ -54,17 +55,38 @@ def assess_progress(
     }
 
 
+def _canonical_path(path):
+    """Return ``path`` if it is canonical; raise otherwise.
+
+    ``fnmatch`` lets ``*`` cross ``/``, so a path such as
+    ``fixture://delivery/../../bin/plangate`` would match
+    ``fixture://delivery/**``. Only canonical, relative paths are accepted:
+    no empty string, no leading ``/``, and no ``.`` / ``..`` / empty segment.
+    """
+    if not isinstance(path, str) or not path:
+        raise DecisionError("changed_paths: empty path")
+    scheme, sep, rest = path.partition("://")
+    if not sep:
+        scheme, rest = "", path
+    if scheme and ("/" in scheme or not scheme.replace("-", "").isalnum()):
+        raise DecisionError("changed_paths: invalid scheme: " + path)
+    if not rest or rest.startswith("/"):
+        raise DecisionError("changed_paths: absolute or empty path: " + path)
+    if posixpath.normpath(rest) != rest or ".." in rest.split("/"):
+        raise DecisionError("changed_paths: non-canonical path: " + path)
+    return path
+
+
 def changed_paths_within_scope(changed_paths, allowed_scope):
-    if (
-        not isinstance(changed_paths, list)
-        or not all(isinstance(path, str) and path for path in changed_paths)
-    ):
+    if not isinstance(changed_paths, list) or not changed_paths:
+        # An empty or unobserved change set is not evidence of being in scope.
         raise DecisionError("changed_paths")
+    paths = [_canonical_path(path) for path in changed_paths]
     if not isinstance(allowed_scope, list) or not allowed_scope:
         raise DecisionError("allowed_scope")
     return all(
         any(fnmatch.fnmatch(path, pattern) for pattern in allowed_scope)
-        for path in changed_paths
+        for path in paths
     )
 
 
@@ -79,10 +101,12 @@ def _fresh_deterministic_pass(verifications, artifact_ref):
 
 
 def _blocking_deterministic_fail(verifications, artifact_ref):
+    # The latest FAIL bound to the current artifact is the one the latest
+    # FailureRecord refers to (repeated failures on one artifact).
     return next(
         (
             value
-            for value in verifications
+            for value in reversed(verifications)
             if value.get("kind") == "deterministic"
             and value.get("bound_artifact_ref") == artifact_ref
             and value.get("status") == "fail"
@@ -104,6 +128,30 @@ def _required_verifier_state(verifications, required_verifiers):
         elif value.get("status") in {"unavailable", "inconclusive"}:
             blocked.append(value)
     return blocked, missing
+
+
+def _required_verifiers_fresh_pass(
+    verifications, required_verifiers, artifact_ref, plan_hash
+):
+    """Every required verifier's latest result must be a PASS bound to the
+    current artifact (or, for the specification verifier, to the plan)."""
+    for verifier_id in required_verifiers:
+        latest = next(
+            (
+                value for value in reversed(verifications)
+                if value.get("verifier_id") == verifier_id
+            ),
+            None,
+        )
+        if latest is None or latest.get("status") != "pass":
+            return False
+        bound = latest.get("bound_artifact_ref")
+        if latest.get("kind") == "specification":
+            if plan_hash is None or bound != plan_hash:
+                return False
+        elif artifact_ref is None or bound != artifact_ref:
+            return False
+    return True
 
 
 def decide(
@@ -186,10 +234,22 @@ def decide(
             refs = pr_convergence.get("evidence_refs") or []
             if not refs:
                 raise DecisionError("convergence evidence")
-            if changed_paths is not None and not changed_paths_within_scope(
+            if not changed_paths_within_scope(
                 changed_paths, loop_contract.get("allowed_scope") or []
             ):
                 raise DecisionError("changed paths outside allowed scope")
+            if not _required_verifiers_fresh_pass(
+                verifications,
+                list(loop_contract.get("required_verifiers") or []),
+                current_artifact_ref,
+                run_state.get("plan_hash"),
+            ):
+                return {
+                    "action": "continue",
+                    "outcome": None,
+                    "stop_reasons": [],
+                    "inputs": [],
+                }
             return {
                 "action": "stop",
                 "outcome": "MERGE_READY",

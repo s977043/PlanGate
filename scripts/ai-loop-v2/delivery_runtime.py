@@ -87,10 +87,16 @@ def run_spec_fixture(trace, root):
     contract = copy.deepcopy(trace["loop_contract"])
     verifications = []
     failures = []
+    # current_artifact may only be moved by worker_completed /
+    # artifact_changed / repair_attempted. A verification never rebinds it.
     current_artifact = None
-    changed_paths = []
+    # Union of observed changed paths. None means "not observed yet"; the
+    # decision core fails closed on an unobserved or empty change set.
+    changed_paths = None
     repair_observation = None
     plan_verified = False
+    progress_count = 0
+    terminal = False
 
     # Stage-2 decision/progress records are oracle values only. They are not
     # supplied to the owner-backed runtime.
@@ -99,7 +105,24 @@ def run_spec_fixture(trace, root):
         if event["type"] not in {"decision_made", "progress_assessed"}
     ]
 
+    def _observe_paths(paths):
+        nonlocal changed_paths
+        merged = list(changed_paths or [])
+        for path in paths:
+            if path not in merged:
+                merged.append(path)
+        changed_paths = merged
+
+    def _record_decision(state_name, decision):
+        nonlocal terminal
+        _append(store, state_name, "decision_made", {"decision": decision})
+        if decision.get("outcome") is not None:
+            terminal = True
+
     for spec in stimuli:
+        if terminal:
+            # A terminal outcome ends the run; later stimuli are not processed.
+            break
         event_type = spec["type"]
         payload = _spec_payload(spec)
 
@@ -109,6 +132,16 @@ def run_spec_fixture(trace, root):
 
         if event_type == "verification_recorded":
             verification = payload["verification"]
+            if (
+                verification["verifier_id"] != "specification.plan"
+                and verification["bound_artifact_ref"] != current_artifact
+            ):
+                # Stale / detached verification: it is not bound to the
+                # artifact the Worker actually produced.
+                raise ValueError(
+                    "verification not bound to current artifact: "
+                    + verification["id"]
+                )
             state_name = (
                 "PLAN_VERIFYING"
                 if verification["verifier_id"] == "specification.plan"
@@ -136,8 +169,6 @@ def run_spec_fixture(trace, root):
                         }
                     },
                 )
-            elif verification["kind"] == "deterministic":
-                current_artifact = verification["bound_artifact_ref"]
             continue
 
         if not plan_verified:
@@ -150,9 +181,9 @@ def run_spec_fixture(trace, root):
         elif event_type == "failure_recorded":
             failures.append(payload["failure"])
             _append(store, "DIAGNOSING", event_type, payload)
-            if trace["scenario"] == "no-progress-stop" and len(failures) >= 2:
-                if repair_observation is None:
-                    raise ValueError("missing repair observation")
+            if len(failures) >= 2 and repair_observation is not None:
+                progress_count += 1
+                progress_ref = "p%d" % progress_count
                 progress = assess_progress(
                     previous_failure=failures[-2],
                     current_failure=failures[-1],
@@ -162,11 +193,13 @@ def run_spec_fixture(trace, root):
                     resolved_blockers=repair_observation["resolved_blockers"],
                     introduced_blockers=repair_observation["introduced_blockers"],
                 )
+                # The observation is consumed: a later failure needs a new one.
+                repair_observation = None
                 _append(
                     store,
                     "DIAGNOSING",
                     "progress_assessed",
-                    {"progress": progress, "id": "p1"},
+                    {"progress": progress, "id": progress_ref},
                 )
                 decision = decide(
                     loop_contract=contract,
@@ -175,10 +208,11 @@ def run_spec_fixture(trace, root):
                     failures=failures,
                     current_artifact_ref=current_artifact,
                     progress=progress,
-                    progress_ref="p1",
+                    progress_ref=progress_ref,
                 )
-                _append(
-                    store, "DIAGNOSING", "decision_made", {"decision": decision}
+                _record_decision(
+                    "DIAGNOSING" if decision["outcome"] else "REPAIRING",
+                    decision,
                 )
             else:
                 decision = decide(
@@ -188,17 +222,16 @@ def run_spec_fixture(trace, root):
                     failures=failures,
                     current_artifact_ref=current_artifact,
                 )
-                _append(
-                    store, "REPAIRING", "decision_made", {"decision": decision}
-                )
+                _record_decision("REPAIRING", decision)
 
         elif event_type == "artifact_changed":
-            changed_paths = list(payload["changed_paths"])
+            _observe_paths(payload["changed_paths"])
             current_artifact = payload["after_artifact_ref"]
             _append(store, "REPAIRING", event_type, payload)
 
         elif event_type == "repair_attempted":
             repair_observation = payload
+            _observe_paths(payload["changed_paths"])
             current_artifact = payload["after_artifact_ref"]
             _append(store, "REPAIRING", event_type, payload)
 
@@ -213,9 +246,7 @@ def run_spec_fixture(trace, root):
                 pr_convergence=payload,
                 changed_paths=changed_paths,
             )
-            _append(
-                store, "PR_CONVERGING", "decision_made", {"decision": decision}
-            )
+            _record_decision("PR_CONVERGING", decision)
 
         else:
             raise ValueError(event_type)
