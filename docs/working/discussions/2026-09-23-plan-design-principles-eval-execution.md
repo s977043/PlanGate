@@ -31,24 +31,49 @@ reviewer:
 
 PR #1336の効果はSkill本文だけでなくplan/test template変更を含むため、評価対象はPlan-generation harness差分である。
 
-## 3. Isolated worktree
+## 3. Isolated independent checkout
 
-各generationは新規detached worktreeを作る。
+各generationは **linked worktreeではなく、選択variant SHAだけを持つ独立checkout** を使う。
+model-visible checkoutからsource repo / peer variant / current mainのGit objectsへ到達できてはならない。
+
+operator materializationの例:
 
 ```sh
-git worktree add --detach "$WT" "$VARIANT_SHA"
+mkdir -p "$WT"
+git -C "$WT" init
+git -C "$WT" fetch --depth=1 "$SOURCE_URL" "$VARIANT_SHA"
+git -C "$WT" checkout --detach FETCH_HEAD
+
+# materialization後、model-visible execution前にsource取得経路・fetch metadataを除去
+git -C "$WT" remote remove origin 2>/dev/null || true
+git -C "$WT" config --unset-all remote.origin.url 2>/dev/null || true
+rm -f "$WT/.git/FETCH_HEAD"
 ```
 
-run前に `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md` でblobを確認し、選択ケースの凍結済みPBIだけをbyte-for-byte copyする:
+上記は例であり、採用方式は§8.2のnegative controlsを満たす必要がある。
+特に次を必須とする。
+
+- selected SHAだけが取得可能
+- peer SHA / current main SHAの `git cat-file -e` は失敗
+- shared `git-common-dir` なし
+- source/peerを指す alternates なし
+- partial-clone/promisor なし
+- source remoteなし
+- `FETCH_HEAD` 等にsource URL/pathを残さない
+- model-visible runtimeからsource repo path / socket / mountへ到達不能
+
+run前に `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md` でblobを確認し、
+選択ケースの凍結済みPBIだけをbyte-for-byte copyする:
 
 ```text
 $WT/docs/working/TASK-EVAL-PDPXX/pbi-input.md
 ```
 
-へコピーする。source文書からrun時に再生成しない。
+source文書からrun時に再生成しない。
 
 禁止:
-- current mainのeval plan/rubricをworktreeへコピー
+- linked worktreeをgenerator checkoutに使う
+- current mainのeval plan/rubricをcheckoutへコピー
 - 他7ケースをコピー
 - 過去run outputをコピー
 - workspace間でCodex threadをresume
@@ -196,7 +221,7 @@ $TMPDIR/plangate-pdp-eval-v1/
 - pair judgment
 をrepoへ取り込む。
 
-run中のoutput rootをgenerator worktreeから読める場所へ置かない。
+run中のoutput rootをgeneratorの独立checkout / model-visible environmentから読める場所へ置かない。
 
 ## 8.1 Runtime compatibility freeze
 
@@ -224,13 +249,144 @@ Runtime config contract:
 
 Documentation support is not activation proof. Smoke must still verify the local installation.
 
+## 8.2 読み取り隔離のpreflight（smoke前）
+
+別worktree / 別temp directoryへの配置だけを読み取り拒否の証拠にしない。
+linked worktreeは共有Git object databaseへ到達できるため、**generatorのmodel-visible checkoutには使用しない**。
+rubricや他run outputを兄弟directoryへ置くだけ、source repoをread-only mountするだけ、promptで「読むな」と指示するだけも隔離証拠にはしない。
+
+本preflightは **A: model-free sandbox control** と **B: actual tool-boundary control** の二段で扱う。
+Aの文書/command確認だけではMajor findingをcloseしない。BをSmoke A/B/Cのactual tool eventで実証して初めてclose候補とする。
+
+### 8.2.1 Model-visible filesystemの構成
+
+Generator A/Bには、variantごとに**共有Git object databaseを持たない独立checkout**を用意する。
+
+推奨順:
+
+1. **物理隔離**: container / VM / namespace等で、選択variant checkoutと選択PBIだけをmount/copyし、rubric・他case・他run output・source repo・current mainをmountしない。
+2. **明示的read-deny**: exact Codex CLIで有効なpermission profile / filesystem policyを使い、禁止rootをread-denyする。canaryで実測できた場合だけ採用する。
+
+linked worktree単体は不可。
+
+独立checkoutは shallow clone等で作成し、少なくとも次を実測する。
+
+- selected variant SHA: `git cat-file -e <selected_sha>^{commit}` = success
+- peer variant SHA: `git cat-file -e <peer_sha>^{commit}` = fail
+- current main SHA: `git cat-file -e <current_main_sha>^{commit}` = fail
+- `git rev-parse --git-common-dir` がsource repo / peer checkoutの共有Git directoryを指さない
+- `.git/objects/info/alternates` が存在しない、またはsource/peer object DBを指さない
+- partial-clone/promisor設定を使わない（`extensions.partialClone` / `remote.*.promisor` が無い）
+- operator materialization完了後はmodel-visible checkoutから `origin` 等のsource remoteを削除する
+- source repoへのfile path / socket / mountがmodel-visible environmentから到達不能
+
+baseline/candidateでcheckout構成手順を同一にする。
+`git cat-file` のnegative controlはnetwork/file remoteへlazy fetchできない状態で実行する。
+
+### 8.2.2 許可/禁止データ
+
+| 実行主体 | 許可する評価データ | 到達させない評価データ |
+| --- | --- | --- |
+| Generator A/B | 当該variant独立checkout・bundled references・選択したfrozen PBI | rubric、他ケース、他run output、current main、peer variant、source repo/shared Git objects |
+| Reviewer C | §7の匿名artifact bundle・PBI・rubric（smoke時は§9のreviewer smoke input） | generator checkout、variant mapping、generator logs、他の採点結果 |
+
+CLI実行に必要なruntime/authは別途許可する。認証情報をcanaryとして使わず、内容をread/display/copyしない。
+CLIのモデル接続経路と、model-issued tool subprocessのnetwork-off条件を区別する。
+
+### 8.2.3 Canary controls
+
+operator専用host領域にrun固有の**無害なcanary**を作り、実データをprobeに使わない。
+
+最低限:
+
+- allowed canary: selected PBI/checkout側
+- denied rubric canary
+- denied peer-variant canary
+- denied other-run canary
+- denied source/shared-Git canary
+
+operatorは各canaryについて host側の存在・SHA256・absolute pathを記録する。
+「存在しないpathをreadして失敗」はnegative controlとして無効。
+
+### 8.2.4 A — model-free Codex sandbox control
+
+exact frozen Codex CLIで `codex sandbox --help` を保存し、このCLIが提供するCodex sandbox commandを使ってprobeする。
+現行CLI実装には `codex sandbox` があり、permission profileまたは `--sandbox-state-json` を用いたsandbox command実行面を持つ。
+
+ただし、**preflightとgenerator/reviewerのeffective policyが同一であることを証明できる場合だけ** equivalence evidenceとして使う。
+
+許可read:
+- allowed canaryをreadできる
+
+禁止read:
+- denied rubric / peer / other-run / source-Git canaryをreadできない
+
+記録:
+- `codex --version`
+- `codex sandbox --help`
+- OS / sandbox backend
+- permission/sandbox stateの識別情報または構成hash
+- probe command
+- exit code
+- stdout/stderr
+- expected / actual
+
+`codex sandbox` commandの存在だけ、またはbuilt-in `:workspace` が動くことだけではPASSにしない。
+実際のeval境界より広いprofileでprobeした結果もPASSにしない。
+
+### 8.2.5 B — Smoke内actual tool-boundary control
+
+AだけではMajor findingをcloseしない。
+Smoke A/B/Cで**実際のmodel-issued tool boundary**からcanary probeを実行し、JSONL/tool eventで証明する。
+
+Smoke A/B:
+- operatorが `docs/working/TASK-EVAL-SMOKE/isolation-probe.sh` を配置する
+- scriptはallowed canary read成功 + 全denied canary read失敗を検証し、成功時のみ `ISOLATION_TOOL_OK`
+- smoke promptは最初のtool actionとしてこのscriptを1回実行するよう要求する
+- JSONLに実tool call・exit codeを残す
+- runtime/sandbox identityはeventに出る場合はその値を保存し、出ない場合はoperator manifestのexact CLI version / config hash / isolation hashとactual control結果を対にする
+- modelの「読めなかった」という自己申告だけでは不可
+
+Smoke C:
+- reviewer temp environmentにもreviewer用canary probeを置く
+- anonymous allowed inputsはread成功
+- generator checkout / variant mappingを代表するdenied canaryはread失敗
+- JSONL/tool eventでactual boundaryを記録する
+
+AとBのruntime identity / policy hash / CLI versionが一致しない場合はFAILではなく **NOT_RUN / reconfigure** とし、評価runへ進まない。
+
+### 8.2.6 判定・引き継ぎ
+
+記録:
+
+- `checkout_isolation`: PASS / FAIL / NOT_RUN
+- `sandbox_preflight`: PASS / FAIL / NOT_RUN
+- `actual_tool_boundary`: PASS / FAIL / NOT_RUN
+- `runtime_identity`: OS・exact CLI版・sandbox backend・隔離方式/版・構成hash
+- `positive_controls`: 許可read成功証拠
+- `negative_controls`: 禁止経路別read拒否証拠
+- `tool_boundary_equivalence`: model-free probeとactual toolの条件一致証拠
+- `evidence_location`: operator専用証跡保存先
+
+PASS条件:
+
+1. independent checkoutでpeer/current-main Git objectsへ到達せず、remote / alternates / promisor経由の再取得経路も無い
+2. model-free positive/negative controlsが期待どおり
+3. Smoke actual tool positive/negative controlsが期待どおり
+4. preflightとSmokeでruntime identity / policyが一致
+5. canary / probe logがP01..P24の入力へ混入しない
+
+1つでも欠ければ `INCONCLUSIVE_NOT_RUN` のまま48生成を開始しない。
+canaryへ到達した場合はisolation FAILとして停止するが、実データ流出が起きたとは断定しない。
+本節の文書レビューやPR mergeだけではMajor findingをcloseしない。
+
 ## 9. Operator smoke gate
 
 SmokeはP01〜P24を一切消費しない。**3 callsだけ**実施する。
 
 ### Smoke A/B — baseline / candidate generator surface
 
-各variantのdetached worktreeに、評価8ケースとは無関係な一時入力だけを作る。
+各variantの独立checkoutに、評価8ケースとは無関係な一時入力だけを作る。
 
 ```text
 docs/working/TASK-EVAL-SMOKE/pbi-input.md
@@ -278,7 +434,7 @@ Codex CLI execution-path smoke only.
 
 共通smoke prompt:
 
-> This is execution-path smoke, not an evaluation case. Read `plugin/plangate/skills/ai-dev-plan/SKILL.md` and at least two bundled references relative to that Skill. Create only `docs/working/TASK-EVAL-SMOKE/smoke-output.md`. In that file list the Skill path and reference paths actually read, then write `SMOKE_OK`. Do not inspect evaluation rubric or PDP-01..08 inputs. Do not implement product code.
+> This is execution-path smoke, not an evaluation case. As your first tool action, run `sh docs/working/TASK-EVAL-SMOKE/isolation-probe.sh` exactly once. Continue only if it exits 0 and prints `ISOLATION_TOOL_OK`. Then read `plugin/plangate/skills/ai-dev-plan/SKILL.md` and at least two bundled references relative to that Skill. Create only `docs/working/TASK-EVAL-SMOKE/smoke-output.md`. In that file list the Skill path and reference paths actually read, then write `SMOKE_OK`. Do not inspect evaluation rubric or PDP-01..08 inputs. Do not implement product code.
 
 baselineとcandidateに1callずつ、generatorと同じmodel/flagsで実行する。
 
@@ -287,6 +443,7 @@ PASS:
 - final response captured
 - JSONL captured
 - `smoke-output.md` exists and contains `SMOKE_OK`
+- actual tool JSONLに `isolation-probe.sh` 実行 + `ISOLATION_TOOL_OK` + exit 0
 - plugin Skill + >=2 referencesのread evidence
 - task directory外write = 0
 - network usage = 0
@@ -301,13 +458,19 @@ repo checkoutを渡さない空temp directoryで、次の3ファイルだけを�
 
 `gpt-5.6-terra` / high / read-only / no-networkで:
 
-> This is reviewer-path smoke only. Confirm you can read the three provided files. Output exactly a short SMOKE_REVIEW_OK record. Do not infer or request a repository variant.
+> This is reviewer-path smoke only. As your first tool action, run the provided reviewer isolation probe exactly once. Continue only if it exits 0 and prints `ISOLATION_REVIEW_OK`. Then confirm you can read the three allowed files. Output exactly a short SMOKE_REVIEW_OK record. Do not infer or request a repository variant.
 
 PASS:
+- reviewerにshell/file-read toolが実際にprovisionされている
 - exit 0
 - `SMOKE_REVIEW_OK`
+- actual tool JSONLに reviewer isolation probe + `ISOLATION_REVIEW_OK` + exit 0
 - model ID / usage in event evidence
-- repo / variant identity unavailable
+- variant mapping canaryがread不能
+- reviewer input directoryにcheckout / mapping / generator logが存在しない
+
+reviewerがread-onlyでtoolを受け取れない場合は `INCONCLUSIVE_NOT_RUN`。
+この場でreviewerだけworkspace-writeへ変更して既存run setへ混ぜない。設定変更が必要なら評価条件変更として新しいreview decisionを記録し、Smoke A/B/Cからやり直す。
 
 ### Smoke budget
 
@@ -331,10 +494,15 @@ smoke failure時:
 
 ### Checklist
 
+- [ ] §8.2 independent checkout PASS（peer/current-main Git objects不可視）
+- [ ] §8.2 model-free `codex sandbox` control PASS
+- [ ] Smoke A/B/C actual tool-boundary control PASS
+- [ ] preflight / Smoke runtime identity・policy一致
+
 - [ ] `codex --version` >= 0.144.0 and exact version frozen in ledger
 - [ ] baseline Smoke A PASS
 - [ ] candidate Smoke B PASS
-- [ ] reviewer Smoke C PASS
+- [ ] reviewer Smoke C PASS（read-onlyでactual tool provisionを含む）
 - [ ] actual model IDs match frozen config
 - [ ] workspace-write + network-off + `approval_policy=never` + ephemeral confirmed
 - [ ] all three smoke calls use the frozen exact Codex CLI version
