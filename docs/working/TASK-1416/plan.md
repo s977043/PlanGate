@@ -57,7 +57,7 @@ Execution Readinessは新しい6個の正本ではなく、**既存Plan情報か
 ## Global Constraints
 
 - #1337 paired evaluation結果固定までは production execution を開始しない。
-- #1359 T-10 downstream impact reviewとHuman C-3 / production integrationを先に完了する。
+- #1359 T-00 downstream impact reviewとHuman C-3 / production integrationを先に完了する。
 - #1359の実装後、同じ概念を重複実装せず差分だけを追加する。
 - runtime recovery semanticsは #894 / #1383 を正本とする。
 - new C-1 check IDは、既存checkへ統合不能な根拠がない限り作らない。
@@ -100,7 +100,7 @@ Execution Readinessは新しい6個の正本ではなく、**既存Plan情報か
 - Internal planning blocker: なし。
 - External production blockers:
   - EB-01: #1337 pair-level evaluation result未固定。
-  - EB-02: #1359 T-10 downstream impact review + Human C-3 / production integration未完了。
+  - EB-02: #1359 T-00 downstream impact review + Human C-3 / production integration未完了。
 
 ## AI Execution Readiness as Projection
 
@@ -167,7 +167,7 @@ Human回答だけでは解消できず、外部前提または安全/証拠能�
 | Dependency | Declared | Available | Verified | Evidence / Impact |
 |---|---:|---:|---:|---|
 | #1337 pair-level decision | yes | no | no | issue state; production blocker |
-| #1359 T-10 + Human C-3 + production integration | yes | no | no | issue state; overlapping-surface blocker |
+| #1359 T-00 + Human C-3 + production integration | yes | no | no | issue state; overlapping-surface blocker |
 | #894/#1383 runtime semantics | yes | yes | yes at issue-contract level | reuse only |
 | current templates/skills | yes | yes | yes for planning inventory | planning work possible |
 
@@ -243,14 +243,11 @@ Upstream unblock後に、現在のplanning baselineをそのままHuman C-3へ�
   -> T-10 fresh dependency check
   -> T-11 current production-surface inventory
   -> T-12 ai-loop handoff owner inventory
-  -> T-03 regenerate/finalize Plan v2 + todo v2 + test-cases v2
-       - concrete files
-       - concrete commands
-       - exact expected values/verdicts
-       - production task dependency graph
-       - every production task depends transitively on Human C-3
-  -> T-04 canonical 25-item C-1
-  -> T-05 independent C-2
+  -> T-13 finalize Plan v2 file / owner map
+  -> T-14 finalize todo v2 concrete task graph
+  -> T-15 finalize test-cases v2 commands / exact expected values
+  -> T-16 canonical 25-item C-1
+  -> T-17 independent C-2
   -> Human H-01 C-3
   -> only then production execution
 ```
@@ -317,66 +314,103 @@ Current planning baseline intentionally does **not** contain speculative product
 
 **Rollback**: 不要（read-only）
 
-### T-03: Regenerate production Plan v2
+### T-13: Finalize Plan v2 file / owner map
 
-**Purpose**: T-10〜T-12のfresh evidenceでcritical-mode executable planへ更新する。
+**Purpose**: T-10〜T-12のfresh evidenceでproduction file mapとresponsibility boundaryを固定する。
 
 **Files**:
 - Modify: `docs/working/TASK-1416/plan.md`
-- Modify: `docs/working/TASK-1416/todo.md`
-- Modify: `docs/working/TASK-1416/test-cases.md`
 - Append: `docs/working/TASK-1416/decision-log.jsonl`
 
 **Steps**:
-- [ ] production filesを具体パスで固定。
-- [ ] fixture pathsを具体パスで固定。
-- [ ] verification commands / exact expected resultsを固定。
-- [ ] production taskを2-5分/reviewable unitへ分割。
-- [ ] Human C-3をproduction taskのhard dependencyとしてgraphへ記録。
-- [ ] AC→TC traceを更新。
+- [ ] production filesを具体パスで固定する。
+- [ ] canonical owner / interface boundaryを具体化する。
+- [ ] #1359とのduplicate responsibilityを0にする。
 
 **Completion Criteria**:
-- [ ] `TBD/TODO/決定後/determined by/confirmed later` 相当のexec placeholderが0。
-- [ ] production tasksにconcrete Files / Steps / Completion / Rollbackがある。
-- [ ] production tasksはH-01へtransitively依存する。
+- [ ] production files / canonical owners / interfacesが具体パスで固定されている。
+- [ ] duplicate ownership = 0。
+- [ ] exec placeholder = 0。
 
 **Rollback**: planning artifact commitをrevert。
 
-### T-04: Canonical C-1
+### T-14: Finalize todo v2 concrete graph
 
-**Purpose**: Plan v2を正規25項目で検査する。
+**Purpose**: production workを2-5分/reviewable unitへ分割し、C-3を物理dependencyにする。
+
+**Files**:
+- Modify: `docs/working/TASK-1416/todo.md`
+
+**Steps**:
+- [ ] production tasksをconcrete file単位へ分割する。
+- [ ] completion / rollback / verification boundaryを各taskへ付ける。
+- [ ] every production taskをH-01へtransitively依存させる。
+- [ ] H-02 production C-4を追加する。
+
+**Completion Criteria**:
+- [ ] concrete files / completion / rollback付きproduction tasks。
+- [ ] every production task depends transitively on H-01。
+- [ ] H-02 production C-4 defined。
+
+**Rollback**: planning artifact commitをrevert。
+
+### T-15: Finalize test-cases v2
+
+**Purpose**: concrete commands / exact expected values / traceを固定する。
+
+**Files**:
+- Modify: `docs/working/TASK-1416/test-cases.md`
+
+**Steps**:
+- [ ] AC→TC traceを更新する。
+- [ ] fixture expected verdictを一意にする。
+- [ ] verification commandsを具体化する。
+- [ ] expected-value sourceを記録する。
+
+**Completion Criteria**:
+- [ ] AC trace complete。
+- [ ] fixture verdict exact。
+- [ ] verification commands concrete。
+- [ ] expected-value sources recorded。
+
+**Rollback**: planning artifact commitをrevert。
+
+### T-16: Canonical C-1
+
+**Purpose**: Plan v2 / todo v2 / test-cases v2を正規25項目で検査する。
 
 **Files**:
 - Modify: `docs/working/TASK-1416/review-self.md`
 
 **Steps**:
-- [ ] current `docs/working/templates/review-self.md` の全checkを実行。
+- [ ] current `docs/working/templates/review-self.md` の全25 checkを実行する。
 - [ ] FAILを0にする。
-- [ ] WARNは根拠・owner・扱いを明示。
+- [ ] C1-TODO-09 / C1-TODO-11でH-01 dependencyを確認する。
 
 **Completion Criteria**:
 - [ ] schema-valid frontmatter。
 - [ ] 25 checks全件が結果を持つ。
-- [ ] C1-TODO-09 / C1-TODO-11がproduction graphを検査済み。
+- [ ] FAIL=0。
 
 **Rollback**: review artifact更新をrevert。
 
-### T-05: Independent C-2
+### T-17: Independent C-2
 
-**Purpose**: makerと独立したreview laneでPlan v2をレビューする。
+**Purpose**: makerと独立したreview laneでlatest Plan v2 packageをレビューする。
 
 **Files**:
 - Modify: `docs/working/TASK-1416/review-external.md`
 
 **Steps**:
-- [ ] independent reviewerを実行。
-- [ ] unavailableなら理由 / residual riskを正直に記録し、Human C-3へ進まない。
-- [ ] major以上をPlanへ反映し、必要ならC-1を再実行。
+- [ ] independent reviewerを実行する。
+- [ ] latest Plan v2 / todo v2 / test-cases v2を対象にする。
+- [ ] unavailableならWARNを記録してH-01へ進まない。
+- [ ] unresolved critical / majorを0にする。
 
 **Completion Criteria**:
-- [ ] C-2がexecuted。
-- [ ] unresolved major/critical = 0。
-- [ ] latest Plan v2 hash/内容に対するreviewである。
+- [ ] independent reviewer executed。
+- [ ] latest Plan v2 package reviewed。
+- [ ] unresolved critical/major = 0。
 
 **Rollback**: review artifact更新をrevert。
 
@@ -411,7 +445,7 @@ Current planning baseline intentionally does **not** contain speculative product
 ## Stop Condition
 
 - #1337 pair-level result未固定。
-- #1359 T-10 + Human C-3 / production integration未完了。
+- #1359 T-00 + Human C-3 / production integration未完了。
 - Plan v2 / todo v2 / test-cases v2が未確定。
 - T-16 canonical C-1が未完了またはFAILあり。
 - T-17 independent C-2が未実施、またはunresolved major/criticalあり。
