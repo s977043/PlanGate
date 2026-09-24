@@ -1,27 +1,27 @@
-# #1337 Runtime Execution → #1359 T-00 Handoff
+# #1337 Runtime Result → #1359 T-00 Handoff
 
 > Date: 2026-09-25
-> Scope: operator handoff only
-> This document does **not** change PDP-EVAL-v1 protocol, frozen inputs, rubric, model configuration, budget, isolation requirements, or baseline/candidate SHAs.
+> Scope: result handoff only
+> This document does **not** define or change PDP-EVAL-v1 execution protocol.
 
 ## Purpose
 
-#1337 の仕様準備は完了している。残作業は認証済み Codex CLI runtime での実測だけである。
+#1337 のruntime評価結果を、#1359 T-00が安全に消費できる形へ固定する。
 
-この文書は、既存の正本を変更せずに次の2点を明確にする。
+この文書は **実行手順の正本ではない**。
+command / model / budget / sandbox / isolation / smoke / retry条件を再定義しない。
 
-1. operator がどの順序で既存 procedure を実行するか
-2. 実行結果を #1359 T-00 が何を根拠に受け取るか
+## Canonical execution sources
 
-## Canonical sources
-
-以下が実行条件の正本。本handoffより優先する。
+実行時は以下だけを正本として使う。
 
 1. `2026-09-20-plan-design-principles-eval-plan.md`
 2. `2026-09-20-plan-design-principles-eval-ledger.md`
 3. `2026-09-23-plan-design-principles-eval-execution.md`
 4. `2026-09-23-plan-design-principles-eval-execution-review.md`
 5. Issue #1337
+
+本handoffと上記が矛盾した場合、**上記正本を優先し、このhandoffを修正する**。
 
 Frozen variants:
 
@@ -36,78 +36,29 @@ Frozen variants:
 - PR #1360: merged — TASK-1359 planning baseline is in main
 - #1337 effectiveness result: `INCONCLUSIVE_NOT_RUN`
 - #1359 production execution: `BLOCKED`
-- Runtime Major 1: open until actual isolation evidence is collected
+- Runtime Major 1: open until canonical execution sourcesが要求するactual runtime evidenceを満たす
 
-## Operator environment start gate
+## Operator entrypoint
 
-Operator machineで最初に実測する。
+このhandoffからcommandをコピーして実行しない。
 
-```sh
-codex --version
-command -v timeout || command -v gtimeout
-```
+Operatorは次を行う。
 
-Required:
+1. Eval PlanのStart Gateを確認
+2. Execution Packet §8.2のruntime isolation preflightを実行
+3. Execution Packet §9のSmoke A/B/Cを実行
+4. Start Gateを満たした場合だけ、Eval Planの48 generation → blind scoringへ進む
+5. Ledgerへ実測値を記録
+6. pair-level resultとdownstream decisionを#1337へ固定
+7. 本handoffのresult contractを満たして#1359 T-00へ渡す
 
-- Codex CLI >= 0.144.0
-- exact CLI version frozen for smoke, all 48 generations, and all blind scoring
-- valid Codex authentication
-- `gpt-5.6-sol` usable for generator
-- `gpt-5.6-terra` usable for blind reviewer
-- no-network / sandbox / approval policy resolved exactly as the execution packet requires
+未実行・欠測・contaminated evidenceをPASSへ変換しない。
 
-このどれかが欠けた場合:
+## Runtime result contract
 
-- 48 generationを開始しない
-- resultは `INCONCLUSIVE_NOT_RUN`
-- missing prerequisiteを記録する
-- 条件を緩めて同じrun setへ混ぜない
+#1359へ渡す結果は、少なくとも以下をhash/参照付きで持つ。
 
-## Execution order
-
-正本のcommand・policy・canary定義をそのまま使い、次の順序を変えない。
-
-```text
-runtime preflight
-  -> freeze exact Codex CLI version
-  -> independent single-SHA checkout isolation
-  -> model-free codex sandbox controls
-  -> Smoke A: baseline generator actual tool-boundary
-  -> Smoke B: candidate generator actual tool-boundary
-  -> Smoke C: blind reviewer actual tool-boundary
-  -> confirm preflight/smoke runtime identity + policy match
-  -> close Runtime Major 1 only if all controls PASS
-  -> 48 generations
-  -> 48 blind scoring calls
-  -> pair-level judgment
-  -> explicit #1337 downstream decision
-  -> #1359 T-00
-```
-
-### Fail-closed rules
-
-- isolation control missing/failing -> no 48-run
-- smoke A/B/C incomplete -> no 48-run
-- CLI version changes mid-set -> stop; new run set required
-- input/hash mismatch -> affected pair is inconclusive
-- rubric visible to generator -> contaminated; do not score as valid evidence
-- reviewer cannot receive required read-only tool boundary -> `INCONCLUSIVE_NOT_RUN`
-- budget ceiling reached -> `INCONCLUSIVE_BUDGET`; do not silently increase budget
-
-## Runtime evidence bundle
-
-Run中のraw evidenceは既存contractどおり評価checkout外へ保存する。
-
-```text
-$TMPDIR/plangate-pdp-eval-v1/
-  runs/<pair>/<variant>/
-  review/<pair>/
-  manifests/
-```
-
-Repositoryへ結果を返す際は、少なくとも以下をhash付きで参照可能にする。
-
-### Runtime identity
+### 1. Runtime identity
 
 - run_set_id
 - exact Codex CLI version
@@ -118,29 +69,30 @@ Repositoryへ結果を返す際は、少なくとも以下をhash付きで参照
 - reviewer model / effort
 - started_at / completed_at
 
-### Isolation / smoke
+### 2. Isolation / smoke
 
 - independent checkout isolation verdict
-- model-free sandbox positive controls
-- model-free sandbox negative controls
+- model-free sandbox control verdict + evidence refs
 - Smoke A verdict + event/log refs
 - Smoke B verdict + event/log refs
 - Smoke C verdict + event/log refs
-- preflight/smoke policy identity match
+- preflight/smoke runtime identity + policy match
 - Runtime Major 1 close/not-close decision
 
-### Generation / scoring completeness
+### 3. Generation / scoring completeness
 
-- valid generation count / expected 48
-- valid blind scoring count / expected 48
+- valid generation count / expected count
+- valid blind scoring count / expected count
 - missing / contaminated / retried pair IDs
 - token budget actuals / ceiling status
 - raw artifact manifest/hash
 - anonymous review manifest/hash
 
-### Pair-level result
+Expected counts are defined by the canonical Eval Plan / Ledger, not by this handoff.
 
-8 caseについてtrial evidenceを集約し、既存rubricの分類を使用する。
+### 4. Pair-level result
+
+Existing rubric classification only:
 
 - Improvement signal
 - Regression
@@ -148,22 +100,20 @@ Repositoryへ結果を返す際は、少なくとも以下をhash付きで参照
 - INCONCLUSIVE
 - Other change — needs adjudication
 
-未実行・欠測をPASSや0へ変換しない。
+各case/trialのevidence refsを保持する。
 
-## Required downstream decision
+### 5. Downstream decision
 
-#1337のpair-level集計だけでは #1359 を自動unblockしない。
+Pair-level classificationだけでは#1359を自動unblockしない。
 
-#1337には最終的に、Humanが確認できる形で **downstream decision** を記録する。
-
-最低限:
+#1337には、Humanが確認できる形で次を明示する。
 
 - #1335 / Plan Design Principlesについて何を維持・修正・再評価するか
-- #1359がT-00へ進んでよいか、引き続きBLOCKEDか
-- replanが必要な場合、その理由と影響する原則/assumption
+- #1359をT-00へ進めてよいか、BLOCKEDを維持するか
+- replanが必要なら、影響するprinciple / assumption / scope
 - #1347 second-candidate experimentへの影響
 
-`INCONCLUSIVE_NOT_RUN` / unresolved Runtime Major /重大な未判定が残る場合、#1359はBLOCKEDを維持する。
+Runtime Major未解消、実行未完了、重大なmissing/contamination、downstream decision未固定なら、#1359はBLOCKEDを維持する。
 
 ## #1359 T-00 consumption contract
 
@@ -183,9 +133,20 @@ T-00の結果:
 - upstream resultがPlan前提を維持しdownstream implementationを許可 -> C-1/C-2 freshnessを確認してHuman C-3へ
 - upstream resultがinconclusive / blocked -> TASK-1359もBLOCKED維持
 
-## Current session observation
+## Responsibility boundary
 
-2026-09-25 06:29 JST 時点、このChatGPT実行環境では `codex` executableは検出されなかった。
-これは**ユーザーのローカル環境についての判定ではない**。
+このhandoffが所有する:
+- #1337 resultから#1359 T-00へ渡す**必要情報の形**
 
-したがってこのセッションではprotocol/handoff/repository準備まで行い、#1337のruntime effectiveness evidenceを偽装しない。
+このhandoffが所有しない:
+- Codex CLI command
+- model / effort
+- token budget
+- sandbox/network policy
+- canary design
+- smoke procedure
+- retry policy
+- pair-level scoring rule
+- Human C-3
+
+それらはcanonical execution sources / existing PlanGate gatesを正本とする。
