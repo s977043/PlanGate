@@ -41,11 +41,11 @@
   - rollback: commit revert
   - 🚩 チェックポイント: same-maker multi-perspective reviewをindependent C-2として扱わない
 
-- [ ] **T-05**: corrected planning baselineをfresh検証する
+- [x] **T-05**: corrected planning baselineをfresh検証する
   - Owner: agent
   - depends_on: T-01,T-02,T-03,T-04
   - files: 読取: docs/working/TASK-1416/**, PR #1417
-  - completion: branch behind main=0、production planning surface diff=0、frontmatter schema整合、PR checks statusを記録
+  - completion: branch behind main=0、production planning surface diff=0、frontmatter schema整合、CI/Test/CodeQL/Issue Linkが全てSUCCESS
   - rollback: 不要（検証のみ）
   - 🚩 チェックポイント: green CIをsemantic correctnessの代替にしない
 
