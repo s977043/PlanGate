@@ -75,31 +75,41 @@
   - rollback: 不要（読取のみ）
   - 🚩 チェックポイント: HO path / runtime policy変更が必要ならStop Condition
 
-- [ ] **T-13**: Plan v2 / todo v2 / test-cases v2をconcrete execution packageへ再生成する
+- [ ] **T-13**: Plan v2のproduction file map / responsibility mapを確定する
   - Owner: agent
   - depends_on: T-11,T-12
-  - files: docs/working/TASK-1416/plan.md, todo.md, test-cases.md, decision-log.jsonl
-  - completion:
-    - production filesが具体パスで固定
-    - verification commands / exact expected resultsが固定
-    - production tasksが2-5分/reviewable unit
-    - production tasksがHuman H-01へtransitively依存
-    - production C-4 task H-02をtodo v2へ追加
-    - exec placeholder 0
+  - files: docs/working/TASK-1416/plan.md, decision-log.jsonl
+  - completion: production files / canonical owner / interface boundaryが具体パスで固定され、duplicate owner=0
   - rollback: planning artifact commitをrevert
   - 🚩 チェックポイント: determined by / confirmed later / relevant file 等を残さない
 
-- [ ] **T-14**: Plan v2にcanonical 25-item C-1を実行する
+- [ ] **T-14**: todo v2をconcrete production task graphへ更新する
   - Owner: agent
   - depends_on: T-13
+  - files: docs/working/TASK-1416/todo.md
+  - completion: production tasksが2-5分/reviewable unit、concrete files/rollback付き、全production taskがHuman H-01へtransitively依存、H-02 production C-4あり
+  - rollback: planning artifact commitをrevert
+  - 🚩 チェックポイント: narrative-only C-3 boundaryを許可しない
+
+- [ ] **T-15**: test-cases v2へ具体command / exact expected value / traceを固定する
+  - Owner: agent
+  - depends_on: T-13
+  - files: docs/working/TASK-1416/test-cases.md
+  - completion: AC trace完全、fixture exact verdict、verification commands具体化、expected-value source記録
+  - rollback: planning artifact commitをrevert
+  - 🚩 チェックポイント:複数期待値・実行不能command・根拠なしexpected valueを残さない
+
+- [ ] **T-16**: Plan v2にcanonical 25-item C-1を実行する
+  - Owner: agent
+  - depends_on: T-14,T-15
   - files: docs/working/TASK-1416/review-self.md
   - completion: 25 checks全件結果あり、schema-valid、FAIL=0、C1-TODO-09/C1-TODO-11がH-01依存を検証
   - rollback: review artifact更新をrevert
   - 🚩 チェックポイント: custom narrative reviewでC-1を代替しない
 
-- [ ] **T-15**: Plan v2にindependent C-2を実行する
+- [ ] **T-17**: Plan v2にindependent C-2を実行する
   - Owner: agent
-  - depends_on: T-13
+  - depends_on: T-14,T-15
   - files: docs/working/TASK-1416/review-external.md
   - completion: independent reviewer実行済み、latest Plan v2対象、unresolved critical/major=0
   - rollback: review artifact更新をrevert
@@ -117,7 +127,7 @@
 
 - [ ] **H-01**: production Plan v2 C-3
   - Owner: human
-  - depends_on: T-14,T-15
+  - depends_on: T-16,T-17
   - files: docs/working/TASK-1416/approvals/c3.json
   - completion: latest Plan v2 hashに対して APPROVE / CONDITIONAL / REJECT を記録。APPROVEDのみproduction exec可
   - rollback: 不要（判断のみ）
@@ -139,8 +149,9 @@ H-00 planning baseline merge
   -> T-10 fresh dependency check
   -> T-11 production surface inventory
   -> T-12 handoff inventory
-  -> T-13 regenerate Plan/todo/tests v2
-  -> T-14 canonical C-1 + T-15 independent C-2
+  -> T-13 Plan v2 file/owner map
+  -> T-14 todo v2 graph + T-15 test-cases v2
+  -> T-16 canonical C-1 + T-17 independent C-2
   -> H-01 Human C-3
   -> concrete production tasks in todo v2
   -> H-02 production C-4
