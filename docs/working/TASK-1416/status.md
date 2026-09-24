@@ -3,7 +3,7 @@
 > 最終更新: 2026-09-25 06:12
 > 現在フェーズ: BLOCKED
 > モード: critical
-> 発行時点 SHA (issued_at_commit): PR #1417 corrected planning baseline
+> 発行時点 SHA (issued_at_commit): `d3877ed2ca35fb2a52e49b3d86dda5e8d693b24f`
 
 ## フェーズ履歴
 
