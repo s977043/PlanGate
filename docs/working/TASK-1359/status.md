@@ -1,8 +1,8 @@
 # TASK-1359 作業ステータス
 
-> 最終更新: 2026-09-23 12:45
-> Planning package: MERGE_READY
-> Execution: BLOCKED
+> 最終更新: 2026-09-24 09:43
+> 現在フェーズ: BLOCKED（C-3 の前段。blocker = EB-01 #1337）
+> 補足: planning-only PR #1360 は独立レビュー major 4 件の是正中（PR の状態であってフェーズ語ではない）
 > モード: critical
 > 発行時点 SHA (issued_at_commit): `36461db287fa2c5462bcca7648cfadb01248fa48`
 
@@ -18,7 +18,8 @@
 | 2026-09-23 02:38 | BLOCKED | latest-main dependency reviewで #1337 result fixed がhard dependencyと判明。C-3前にT-00必須 |
 | 2026-09-23 06:39 | BLOCKED | PR #1364 merged。#1337 execution protocol/config/smoke contract freeze完了。TASK-1359 branchをlatest mainへ同期し、production diff 0を再確認 |
 | 2026-09-23 08:24 | BLOCKED | PR #1366 merged。Codex CLI >=0.144.0 / exact-version freeze / approval_policy=neverをruntime contractへ追加。latest main同期後TC-13 PASS |
-| 2026-09-23 12:45 | PLANNING MERGE_READY / EXEC BLOCKED | #1360 all-green。planning-only mergeとproduction C-3/execを分離。frozen #1337 SHAを変更しないためplanning baselineは先行merge可能 |
+| 2026-09-23 12:45 | BLOCKED | #1360 all-green。planning-only mergeとproduction C-3/execを分離。frozen #1337 SHAを変更しないためplanning baselineは先行merge可能（当初この行のフェーズ欄に値域外の `PLANNING MERGE_READY / EXEC BLOCKED` を記載していたため、2026-09-24 に値域の語へ是正） |
+| 2026-09-24 09:43 | BLOCKED | PR #1360 独立レビュー（head `30f26142`）の major 4 件 / minor を pbi-input・test-cases・todo へ反映（AC-15/16・TC-14/15・T-17 追加）。plan.md は EH-3（PLANGATE_HOOK_TASK 未設定）で編集不可のため未反映。反映内容は `evidence/c1-review/2026-09-24-plan-md-pending-patch.diff`（コピーへの実適用で提案版と一致を確認済み）。`PLANGATE_HOOK_TASK=TASK-1359` を設定したセッションで適用するまで、plan.md と pbi-input / test-cases / todo は件数・ID が一致しない |
 
 ## 全体構成（PR 一覧）
 
@@ -27,7 +28,7 @@
 | #1358 | `feat/960-minimum-sufficient-test-set` | MERGED |
 | #1364 | `docs/1337-eval-execution-freeze` | MERGED / execution freeze |
 | #1366 | `docs/1337-eval-runtime-hardening` | MERGED / runtime hardening |
-| #1360 | `feat/1359-plan-knowledge-continuity` | planning-only / all-green / Human C-4 MERGE_READY |
+| #1360 | `feat/1359-plan-knowledge-continuity` | planning-only / 独立レビュー major 4 件の是正中 → 是正後に Human C-4 |
 
 ## 残タスク
 
@@ -40,7 +41,7 @@
 - [ ] Human C-4: #1360 planning baseline merge
 - [ ] T-00 #1337 paired evaluation result fixed確認 / downstream impact判定
 - [ ] H-01 Human C-3
-- [ ] T-03〜T-16 implementation / verification
+- [ ] T-03〜T-17 implementation / verification
 - [ ] H-02 Human C-4
 
 ## 計画からの変更点

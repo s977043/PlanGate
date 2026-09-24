@@ -111,7 +111,7 @@
   - Owner: agent
   - depends_on: T-05, T-08, T-09, T-10
   - files: plugin/Codex mirrors
-  - completion: canonicalとplugin/Codex派生のsync driftが0
+  - completion: canonicalとplugin/Codex派生のsync driftが0。`plugin/` に差分が出た事実をT-16でhandoffへ記録する（version bumpは本TASKで行わない。plan Global Constraints参照）
   - rollback: sync commitをrevert
   - 🚩 チェックポイント: 手編集でしか揃わない派生があれば停止
 
@@ -119,23 +119,31 @@
   - Owner: agent
   - depends_on: T-05, T-08
   - files: `examples/eval-fixtures/**`
-  - completion: simple/prior-artifact fixtureが正負の期待挙動を固定している
+  - completion: simple/prior-artifact fixtureが正負の期待挙動を固定している。simple fixtureの期待出力は Knowledge Delta / `Prior Artifact Impact` / Facts・Unknowns・Readiness 系sectionを出さない（空sectionも `N/A` もなし。TC-06）
   - rollback: T-12 commitをrevert
   - 🚩 チェックポイント: simple caseで儀式的sectionが増えないこと
 
-- [ ] T-13: blocking-unknown / knowledge-delta fixtureを追加する
+- [ ] T-13: blocking-unknown / knowledge-delta / structural-debt fixtureを追加する
   - Owner: agent
   - depends_on: T-05, T-08, T-10
   - files: `examples/eval-fixtures/**`
-  - completion: blocking-unknown/knowledge-delta fixtureがstop/structural orderingを固定している
+  - completion: blocking-unknown/knowledge-delta fixtureがstop/structural orderingを固定し、structural-debt fixture（#867 Case 3）がDeferred structural work / 別Issue候補の出力と現taskでの非実施を固定している（TC-15）
   - rollback: T-13 commitをrevert
-  - 🚩 チェックポイント: blocked caseをready扱いしない
+  - 🚩 チェックポイント: blocked caseをready扱いしない / Case 3の構造変更を現taskのWork Breakdownへ入れない
+
+- [ ] T-17: TC-09 / TC-14用のpre-PR diff fixtureを追加する
+  - Owner: agent
+  - depends_on: T-10
+  - files: `examples/eval-fixtures/**`
+  - completion: `diff-audit` に渡すpre-PR diff fixtureが2種ある。(a) Plan時Assumptionの解消 + 新規non-blocking Unknown → 残存リスクとして記録して進行（TC-09）、(b) 新規Blocking Unknown → PR作成を止める（TC-14）
+  - rollback: T-17 commitをrevert
+  - 🚩 チェックポイント: 2種のfixtureで止める / 進めるの結論が分かれること
 
 ### 6. 検証
 
 - [ ] T-14: C-1 count / #1358 compatibility / stale refs / sync driftを検証する
   - Owner: agent
-  - depends_on: T-09, T-11, T-12, T-13
+  - depends_on: T-09, T-11, T-12, T-13, T-17
   - files: 読取: repository
   - completion: C-1 count不変、C1-TEST-14が#1358 merge後baselineから不変、stale ref 0、sync dry-run no changes
   - rollback: 不要
@@ -188,4 +196,6 @@
 | T-09 | T-05, T-08 | Agent | planning guidance確定後にreviewへ反映 |
 | T-10 | T-02, T-08 | Agent | diff-audit境界再確認後 |
 | T-11 | T-05, T-08, T-09, T-10 | Agent | canonical完成後だけsync |
+| T-17 | T-10 | Agent | diff-audit再検査の規範確定後にpre-PR diff fixtureを作る |
+| T-14 | T-09, T-11, T-12, T-13, T-17 | Agent | 全fixture完成後に検証 |
 | H-02 | T-16 | Agent → Human | review完了後 |

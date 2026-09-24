@@ -1,6 +1,6 @@
 # TASK-1359 INDEX
 
-> 最終更新: 2026-09-23 12:45
+> 最終更新: 2026-09-24 09:43
 > Issue: #1359
 > Draft PR: #1360
 > Mode: critical
@@ -12,8 +12,8 @@
 
 ## 現在のフェーズ
 
-- **Planning package: MERGE_READY**
-- **Execution: BLOCKED**
+- **現在フェーズ: `BLOCKED`**（C-3 の前段。blocker = EB-01 #1337 paired evaluation result not fixed）
+- 補足（フェーズ語ではなく PR の状態）: planning-only PR #1360 は独立レビュー（head `30f26142`）の major 4 件を是正中。是正後に Human C-4 レビューへ渡す。ai-loop V2 の `MERGE_READY` はここでは使わない
 
 - internal Plan review: complete
 - PR #1360 CI/Test/CodeQL/Issue Link: PASS
@@ -37,8 +37,8 @@
 |---|---|
 | `pbi-input.md` | 統合要件・AC・dependency ownership |
 | `plan.md` | critical Plan / source hierarchy / external blocker |
-| `todo.md` | T-00〜T-16 + H-01/H-02 |
-| `test-cases.md` | TC-01〜TC-13 |
+| `todo.md` | T-00〜T-17 + H-01/H-02 |
+| `test-cases.md` | TC-01〜TC-15（AC-01〜AC-16） |
 | `review-self.md` | fresh C-1 |
 | `review-external.md` | fresh multi-perspective review |
 | `decision-log.jsonl` | append-only decisions |
@@ -46,6 +46,7 @@
 | `evidence/c1-review/2026-09-23-evaluation-integrity.md` | #1337 candidate isolation / TC-13 initial |
 | `evidence/c1-review/2026-09-23-post-1364-evaluation-integrity.md` | #1364 merge後のlatest-main isolation / TC-13 refresh |
 | `evidence/c1-review/2026-09-23-post-1366-evaluation-integrity.md` | #1366 runtime hardening merge後のlatest-main isolation / TC-13 refresh |
+| `evidence/c1-review/2026-09-24-plan-md-pending-patch.diff` | 独立レビュー major 1〜4 / minor の plan.md 側是正（EH-3 により未適用。適用待ち） |
 | `status.md` | phase history |
 | `current-state.md` | resumable snapshot |
 

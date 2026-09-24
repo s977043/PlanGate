@@ -67,6 +67,8 @@ Prior Artifacts / Repository Evidence
   - prior-artifact reuse
   - blocking unknown
   - knowledge-delta/refactor
+  - structural-debt deferral (#867 Case 3; AC-16)
+  - pre-PR diff for `diff-audit` re-check (stop / proceed-with-residual-risk; AC-09 / AC-15)
 
 ### Out of scope
 
@@ -98,6 +100,41 @@ Prior Artifacts / Repository Evidence
 - AC-12: Trust Ledger schema is not expanded without measured evidence that current records are insufficient.
 - AC-13: Canonical docs/templates/skills and distributed mirrors remain aligned.
 - AC-14: At least four fixed fixtures demonstrate simple/prior-artifact/blocked-unknown/knowledge-delta behavior.
+- AC-15: Pre-PR review distinguishes the two outcomes: a remaining or newly discovered Blocking Unknown **stops** PR creation, while a non-blocking Unknown may **proceed** only when it is recorded as residual risk with its assumption, evidence and verification method (#810 AC 「PR作成を止める条件と、残存リスクを記録して進められる条件が区別される」).
+- AC-16: When the structural response required by a Knowledge Delta does not fit the current task (large structural debt, #867 Case 3), the Plan records it as Deferred structural work / a separate Issue or Epic candidate with scope, risk and missing tests, and does not execute it inside the current task.
+
+## Upstream Issue AC Disposition
+
+TASK-1359 integrates #867 and #810; every upstream AC is either handled here, delegated to an existing owner, or explicitly out of scope.
+
+### #867 Knowledge Delta
+
+| #867 AC | Disposition | Where |
+|---|---|---|
+| 現行 Plan・レビュー・ゲート構造との重複を調査した | 本 TASK で扱う（計画段階で実施済み） | Evidence E-04〜E-06 / plan `Prior Artifact Impact` / `docs/working/TASK-0867/pbi-input.md` |
+| Knowledge Delta の記録条件と省略条件 | 本 TASK で扱う | AC-06 / TC-06, TC-07 |
+| 振る舞い変更と構造変更を分離するタスク分割ルール | 本 TASK で扱う | AC-07 / TC-07, TC-08 |
+| Characterization Test / Preparatory Refactoring の利用条件 | 本 TASK で扱う | AC-08 / TC-08 |
+| 投機的抽象化と不要な変更範囲を検出するレビュー項目 | 他 issue へ委譲（新規実装しない） | #794 / `.agents/skills/review-gate`（CLOSED・既存）。Out of scope「Reimplementing #794」 |
+| 構造変更前後の振る舞い維持を確認するゲート（外部 API・永続化・CLI の互換性） | 既存機構へ委譲（新規ゲートは追加しない）。本 TASK は Plan からの参照だけを扱う | 既存 `docs/working/templates/evidence-tdd-ledger.json` の `refactor_verify` と review-gate / River Review の diff レビュー。Plan 側は Safety Net → … → Verification の順序で Verification step が既存 `refactor_verify` 証跡を参照することだけを TC-08 で確認する |
+| Trust Ledger への記録方法が既存スキーマと整合 | 本 TASK で扱う（新フィールドを追加しない形で） | AC-12 / TC-10。Knowledge Delta の変更理由・検証結果は既存 `decision-log.jsonl` / handoff（妥協点・V2 候補）/ `refactor_verify` へ記録する。TASK-0867 が計画していた Trust Ledger 4 系列の対応表は本 TASK では作らず、既存記録で不足が実測された時点で別 issue とする |
+| 単純機能変更・既存コード変更・大規模負債の 3 ケースの fixture | 本 TASK で扱う | Case 1 = simple fixture（TC-06）/ Case 2 = knowledge-delta fixture（TC-07, TC-08）/ Case 3 = structural-debt fixture（AC-16 / TC-15） |
+| 「コード美化ではなく知識差分の同期」の説明 | 本 TASK で扱う | plan Task 6（todo T-07）。TC-07 の検証時に正本の説明文を確認する |
+| 既存フローを不必要に重くしない適用・スキップ条件 | 本 TASK で扱う | AC-06 / AC-10 / TC-06 |
+
+### #810 Unknown Discovery
+
+| #810 AC | Disposition | Where |
+|---|---|---|
+| Known Facts / Assumptions / Unknowns の区別 | 本 TASK で扱う | AC-03 / TC-03 |
+| コードベースから解決可能な質問を人間へ聞く前に調査 | 本 TASK で扱う | AC-04 / TC-04 |
+| Blocking Unknown が残る場合 readiness が `ready` にならない | 本 TASK で扱う | AC-05 / TC-05 |
+| Plan Review で未検証の仮定と残存 Unknown を確認 | 本 TASK で扱う | C-1 landing `C1-PLAN-02`（plan `C-1 Landing Map`）/ AC-11 |
+| PR 作成前セルフレビューで Plan 時点の Assumption / Unknown を再検査 | 本 TASK で扱う | AC-09 / TC-09 |
+| PR 作成を止める条件と、残存リスクを記録して進められる条件の区別 | 本 TASK で扱う | AC-15 / TC-09（進める側）, TC-14（止める側） |
+| 通常の低リスク変更で出力と質問が過剰に増えない | 本 TASK で扱う | AC-10 / TC-06 |
+| 既存のブレインストーミング / Plan Review / C-1 との責務重複の整理 | 本 TASK で扱う | plan `Source-of-Truth Hierarchy` / `C-1 Landing Map` / AC-11 |
+| ドキュメントまたは実例で Unknown-aware な Plan 作成とセルフレビューを確認 | 本 TASK で扱う | AC-14 / fixtures（TC-05, TC-09, TC-14） |
 
 ## Evidence
 
@@ -142,7 +179,7 @@ Prior Artifacts / Repository Evidence
 
 Reason:
 - workflow definition change is explicitly a critical example in `.claude/rules/mode-classification.md`.
-- AC count = 14 -> quantitative critical threshold (11+).
+- AC count = 16 -> quantitative critical threshold (11+).
 - touches multiple planning/review/distribution layers.
 
 **Dependency**:

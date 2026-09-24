@@ -1,12 +1,12 @@
 # TASK-1359 Current State
 
-> 更新: 2026-09-23 12:45
+> 更新: 2026-09-24 09:43
 > snapshot_base: main `d185a741fe1d06f08b95d1090978f224096b0bba` / PR #1364 + #1366 merged
 
 ## フェーズ
 
-- Planning package: **MERGE_READY**
-- Execution: **BLOCKED**
+- 現在フェーズ: **BLOCKED**（C-3 の前段。blocker = EB-01 #1337）
+- 補足: planning-only PR #1360 は独立レビュー major 4 件の是正中（PR の状態であってフェーズ語ではない）
 
 ## 進捗: T-01/T-02完了、Plan/C-1/C-2 refresh完了、planning PR all-green、T-00待ち
 

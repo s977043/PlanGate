@@ -1,0 +1,199 @@
+--- a/docs/working/TASK-1359/plan.md
++++ b/docs/working/TASK-1359/plan.md
+@@ -60,6 +60,7 @@
+ - Low-risk tasks must not be forced to emit empty Knowledge Delta / Unknown sections.
+ - Any new persistent field must have measured current-model insufficiency.
+ - Existing plugin/Codex sync routes are reused; generated/mirrored content is not hand-invented independently.
++- Plugin version bump (#1257): Task 10 produces a `plugin/` diff, so the next release's version bump gate (`scripts/release-prep.sh --check`) will report NOT READY until the version is bumped. The bump itself belongs to the release work (semver is a Human decision); the TASK-1359 implementation PR does not edit plugin version fields, and its handoff records "plugin diff present — bump required at next release".
+ 
+ ## Prior Artifact Impact
+ 
+@@ -84,6 +85,7 @@
+ - ai-loop's `execution-runbook.md` composes `diff-audit` into a stronger ai-loop-only pre-PR flow; it is not the generic source of truth.
+ - Workflow definition changes are classified as critical.
+ - Current C-1 count is 25 and must not be expanded by this task.
++- HO path `.claude/commands/ai-dev-workflow.md` also carries a Plan skeleton (`## Questions / Unknowns`) and C-1 wording (「Unknowns処理」「B-1確認質問」). Anchor by content, not line number: `git show origin/main:.claude/commands/ai-dev-workflow.md | grep -nE 'Questions / Unknowns|Unknowns処理|B-1確認質問'` (3 hits on origin/main at 2026-09-24).
+ 
+ ### Assumptions
+ 
+@@ -120,8 +122,8 @@
+ 
+ ### Readiness
+ 
+-- **Planning artifact readiness: MERGE_READY**
+-- **Execution readiness: BLOCKED**
++- **Planning artifact readiness: ready**（planning-only PR #1360 として Human C-4 レビューへ渡せる状態。ai-loop V2 の `MERGE_READY` とは別概念なので、その語は使わない）
++- **Execution readiness: blocked**（EB-01）
+ 
+ Reason:
+ - internal Blocking Unknowns = 0;
+@@ -130,6 +132,18 @@
+ - merging planning artifacts does not mutate frozen #1337 historical baseline/candidate SHAs;
+ - external blocker EB-01 still prevents Human C-3 / production implementation.
+ 
++## Mode判定
++
++**モード**: critical
++
++**判定根拠**（`.claude/rules/mode-classification.md` の定量・定性基準。件数は grep 実測）:
++
++- 変更ファイル数: exec で 5 canonical files（`docs/working/templates/plan.md` / `docs/ai-driven-development.md` / `.agents/skills/ai-dev-plan/SKILL.md` / `docs/working/templates/review-self.md` / `.agents/skills/diff-audit/SKILL.md`）+ fixtures + plugin/Codex mirrors → 6 以上 → high-risk 以上
++- 受入基準数: 16（`grep -cE '^- AC-[0-9]+:' pbi-input.md`）→ critical（11+）
++- タスク数: 20（todo の T-00〜T-17 = 18 + H-01/H-02 = 2）→ high-risk（11-20）
++- 変更種別: workflow definition change → critical
++- **最終判定**: critical（定量・定性の最大値）
++
+ ## Source-of-Truth Hierarchy
+ 
+ TASK-1359 は正本を増やさず、既存の責務階層へ配置する。
+@@ -137,6 +151,7 @@
+ | Layer | Source | TASK-1359での扱い |
+ |---|---|---|
+ | Core artifact / state / gate contract | `.claude/rules/working-context.md` | **HO・変更しない**。3ファイル同時生成、C-1/C-2/C-3、artifact lifecycleの基礎契約を維持 |
++| `/ai-dev-workflow plan` command path（Plan雛形 `## Questions / Unknowns` と C-1 文言「Unknowns処理」「B-1確認質問」を内包） | `.claude/commands/ai-dev-workflow.md` | **HO・変更しない**。本TASKで更新する雛形・C-1との食い違いは #960（または Human が適用する別 patch）で扱う。Known Limitation KL-01 参照 |
+ | B-1 → B-2 → B-3 workflow definition | `docs/ai-driven-development.md` → bundled `references/ai-driven-development.md` | conditional Prior Artifact / Unknown / Knowledge Delta planning flowを追加 |
+ | Executable planning guidance | `.agents/skills/ai-dev-plan/SKILL.md` | repository-first discovery、readiness、safe structural-response orderingを実行規範化 |
+ | Plan artifact shape | `docs/working/templates/plan.md` | materialな判断だけをconditional sectionとして表現 |
+@@ -147,6 +162,13 @@
+ | Human-facing attention measurement | `docs/working/discussions/2026-09-23-human-attention-metrics.md` | #1359の成功条件にしない。#1347/eval側へ委譲 |
+ 
+ > `working-context.md` の必須artifact基礎契約は変えない。TASK-1359の新規情報は **conditional guidance / conditional artifact representation** として導入し、全task必須の新contractへ昇格しない。
++
++### Known Limitations
++
++- **KL-01: `/ai-dev-workflow plan` 経路の雛形と C-1 文言は exec 後も旧いまま残る**
++  - `.claude/commands/ai-dev-workflow.md` は HO 対象で、AI は編集しない。TASK-1359 が `docs/working/templates/plan.md` / `review-self.md` / `ai-dev-plan` を更新しても、このコマンド定義に埋め込まれた雛形（`## Questions / Unknowns`）と C-1 文言（「Unknowns処理」「B-1確認質問」）は更新されない。
++  - 結果として #960 と同型の食い違い（コマンド経路と template / skill 経路で Plan 雛形・C-1 の記述が異なる）が exec 後に残る。
++  - 扱い: 本 TASK では是正しない。#960（または Human が適用する別 HO patch）へ委譲し、exec 完了時の handoff 既知課題に記録する。HO 側の変更が本 TASK の AC 充足に必要と判明した場合は Stop Condition「HO path change is required」で停止する。
+ 
+ ## C-1 Landing Map
+ 
+@@ -184,7 +206,7 @@
+ 
+ | 案 | Evidence | Complexity Cost | New Abstractions | Current-Need Trace | Verification | Trade-offs | 判定 |
+ |---|---|---|---|---|---|---|---|
+-| A: Existing Plan/Skill extension | #1335 and current template already contain adjacent concepts | Low-Medium | none | AC-01..14 | 4 fixtures + sync/CI | Smallest change; relies on guidance discipline | **Adopt** |
++| A: Existing Plan/Skill extension | #1335 and current template already contain adjacent concepts | Low-Medium | none | AC-01..16 | 4 core fixtures + structural-debt + pre-PR diff fixtures + sync/CI | Smallest change; relies on guidance discipline | **Adopt** |
+ | B: New Unknown/Knowledge Gate subsystem | #810 originally considered a shared component | High | new gate/state/schema | weak; no measured need | would require new runtime tests | Strong enforcement but duplicates current flow and increases ceremony | Reject |
+ | C: Validator-first | #933 proposed validate gate | Medium-High | deterministic validation rules | only some ACs machine-checkable | validator fixtures | Can catch missing fields but risks making artifact shape the source of truth | Defer |
+ 
+@@ -194,7 +216,7 @@
+ 
+ #### Why this is the minimum sufficient design
+ 
+-- Required AC / constraints: AC-01..14, critical mode, no HO changes, no new C-1 IDs.
++- Required AC / constraints: AC-01..16, critical mode, no HO changes, no new C-1 IDs.
+ - New abstractions / interfaces / dependencies: none in Phase 1.
+ - Why each is needed now: no new abstraction is needed.
+ - Simpler alternative considered: document-only guidance without template changes; rejected because #933 is specifically a retrieval-to-artifact continuity failure.
+@@ -203,8 +225,9 @@
+   - Blocking Unknown prevents ready;
+   - Knowledge Delta appears only when triggered;
+   - refactor ordering is explicit when triggered;
+-  - pre-PR re-check reports new/resolved Unknowns.
+-- Verification strategy: four fixed fixtures + canonical/mirror sync + CI.
++  - pre-PR re-check reports new/resolved Unknowns, stops on a new Blocking Unknown, and lets a non-blocking Unknown proceed only as recorded residual risk;
++  - large structural debt is deferred to a separate Issue/Epic candidate instead of being executed.
++- Verification strategy: four core fixtures (simple / prior-artifact / blocking-unknown / knowledge-delta) + structural-debt fixture + pre-PR diff fixtures + canonical/mirror sync + CI.
+ - Conditional guidance fired: Compatibility/Failure only in fixtures where relevant; Knowledge Delta is itself conditional.
+ - Deferred extensions: validator/schema/new gate.
+ 
+@@ -217,7 +240,7 @@
+   - fixed fixtures show required/omitted sections as expected;
+   - sync checks green;
+   - no C-1 count change.
+-- Test trace: `test-cases.md` TC-01..TC-13.
++- Test trace: `test-cases.md` TC-01..TC-15.
+ 
+ ## Files / Interfaces
+ 
+@@ -229,7 +252,8 @@
+ | `docs/working/templates/review-self.md` | modify | strengthen C1-B1B2-16 / C1-PLAN-02 / C1-PLAN-03 / C1-PLAN-06 only | C-1 count unchanged; C1-TEST-14 untouched |
+ | `.agents/skills/diff-audit/SKILL.md` | modify | pre-PR re-check of Unknown/Assumption/Knowledge Delta | canonical generic pre-PR self-review |
+ | `examples/eval-fixtures/*` or equivalent | create | four fixed scenarios | no fake completion artifacts |
+-| plugin/Codex mirrors | sync | distribution | generated through existing route |
++| plugin/Codex mirrors | sync | distribution | generated through existing route; version bump is release work (Global Constraints) |
++| `.claude/commands/ai-dev-workflow.md` | **not modified** | holds its own Plan skeleton / C-1 wording | HO; drift left to #960 or a Human-applied patch (KL-01) |
+ 
+ ## Work Breakdown
+ 
+@@ -269,7 +293,7 @@
+ - [ ] #960 HO境界を再確認
+ 
+ **Completion Criteria**:
+-- BU-01解消
++- RU-03（#1358 dependency）解消
+ - shared file conflict 0、またはPlanをreplan済み
+ 
+ **Rollback**:
+@@ -348,6 +372,7 @@
+ **Completion Criteria**:
+ - TC-06ではsection省略
+ - TC-07/08では必要情報が出る
++- TC-15ではDeferred structural workが出て、現taskのWork Breakdownに構造変更が入らない
+ 
+ **Rollback**:
+ - Task 5 commitをrevert
+@@ -421,12 +446,13 @@
+ **Steps**:
+ - [ ] Plan-time Assumptionの解消/残存を確認
+ - [ ] newly discovered Unknownを確認
+-- [ ] Blocking Unknownが残ればPR readyにしない
++- [ ] Blocking Unknownが残る、または新たに見つかればPR作成を止める（stop）
++- [ ] non-blocking Unknownは仮定・根拠・検証方法を残存リスクとして記録した場合のみ進める（proceed）。stopとproceedの条件を区別して書く
+ - [ ] Knowledge Delta / scope expansionをPlanとdiffで照合
+ - [ ] review-gateの独立review責務は取り込まない
+ 
+ **Completion Criteria**:
+-- TC-09を満たす
++- TC-09（proceed側）とTC-14（stop側）を満たす
+ - diff-audit / review-gate責務分界を維持
+ 
+ **Rollback**:
+@@ -443,6 +469,7 @@
+ - [ ] existing sync routeを実行
+ - [ ] canonical/mirror blob差分を確認
+ - [ ] 手編集でしか揃わない場合は停止
++- [ ] `plugin/` 差分の有無を記録する（version bumpはしない。Global Constraints参照）
+ 
+ **Completion Criteria**:
+ - sync drift 0
+@@ -463,10 +490,13 @@
+ - [ ] prior-artifact case
+ - [ ] blocking-unknown case
+ - [ ] knowledge-delta/refactor case
++- [ ] structural-debt case（#867 Case 3。todo T-13）
++- [ ] pre-PR diff fixture 2種（non-blocking→proceed / Blocking→stop。todo T-17）
+ - [ ] positive/negative controlsを明示
+ 
+ **Completion Criteria**:
+-- TC-01..10の意味論を4fixtureでカバー
++- TC-01..10の意味論を4 core fixture + pre-PR diff fixtureでカバー
++- TC-14 / TC-15をpre-PR diff fixture / structural-debt fixtureでカバー
+ - TC-12で#1358 dependency compatibilityを独立検証
+ - redundant test fixtureを増やさない
+ 
+@@ -523,7 +553,7 @@
+ ### Success Criteria
+ 
+ - #1337 evaluation order preserved; no candidate contamination.
+-- AC-01..14 mapped to TC-01..TC-11.
++- AC-01..16 mapped to TC-01..TC-11, TC-14 and TC-15 (see `test-cases.md` mapping table).
+ - Dependency contract `COMP-1358-01` mapped to TC-12.
+ - Evaluation-integrity contract `COMP-1337-01` mapped to TC-13.
+ - Completion boundary: non-HO planning/review integration + fixtures; any HO patch is separate.
+@@ -557,7 +587,7 @@
+ - post-#1358 baselineから `ai-dev-plan` / C-1 ownership が変化し、Minimum Sufficient Test SetとTASK-1359 guidanceが責務混在する。
+ - `diff-audit` cannot express the re-check without a new artifact or responsibility conflict.
+ - existing decision/evidence records cannot represent Knowledge Delta in fixture 4.
+-- a required change enters an HO path.
++- a required change enters an HO path — including `.claude/commands/ai-dev-workflow.md`, if closing KL-01 turns out to be necessary for any AC rather than a follow-up for #960.
+ - C-1 count would need to change、または #1358 所有の `C1-TEST-14` をTASK-1359側で変更する必要が生じる。
+ - deterministic enforcement is shown necessary by a failing fixture.
+ 
+@@ -583,4 +613,4 @@
+    - critical-mode C-3 is mandatory before implementation;
+    - implementation merge remains a later Human C-4.
+ 
+-Planning baseline merge must not be interpreted as approval to execute T-03..T-16.
++Planning baseline merge must not be interpreted as approval to execute T-03..T-17.

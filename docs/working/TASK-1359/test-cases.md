@@ -18,6 +18,8 @@
 | AC-12 no speculative Trust Ledger schema | TC-10 |
 | AC-13 canonical / mirror alignment | TC-11 |
 | AC-14 four fixed fixtures | TC-06, TC-01/TC-02, TC-05, TC-07 |
+| AC-15 pre-PR stop vs residual-risk proceed | TC-09, TC-14 |
+| AC-16 structural debt deferred (#867 Case 3) | TC-15 |
 
 ## Verification Trace
 
@@ -32,6 +34,8 @@
 | AC | AC-10/11/12 minimality/no new C-1/schema | #1335/#960 | TC-10 |
 | AC | AC-13 canonical/mirror alignment | #1359 | TC-11 |
 | AC | AC-14 four fixed fixtures | #1359 | TC-06, TC-01/TC-02, TC-05, TC-07 |
+| AC | AC-15 pre-PR stop vs residual-risk proceed | #810 AC「PR作成を止める条件と、残存リスクを記録して進められる条件が区別される」 | TC-09, TC-14 |
+| AC | AC-16 structural debt deferred | #867 Case 3 / #867 AC「3 ケースの fixture」 | TC-15 |
 | Contract | COMP-1358-01: #1358 Minimum Sufficient Test Set ownership is preserved | PR #1358 | TC-12 |
 | Contract | COMP-1337-01: frozen evaluation candidate is not contaminated before #1337 result fixed | #1337 / #1347 | TC-13 |
 
@@ -76,32 +80,41 @@
 
 ### TC-06: Simple change skips Knowledge Delta ceremony
 
-- Input: one-file behavior-preserving wording/config style change with no knowledge/structure change.
-- Expected: no empty Knowledge Delta section; Plan remains compact.
+- Input: one-file behavior-preserving wording/config style change with no knowledge/structure change, no material prior artifact, and no open Unknown.
+- Expected:
+  - no empty Knowledge Delta section;
+  - no `Prior Artifact Impact` section (no material prior artifact exists, so the section is omitted entirely);
+  - no empty Facts / Assumptions / Unknowns / Blocking Unknowns / Human Decisions / Readiness sections and no ritual `N/A` / `なし` placeholders for them;
+  - Plan remains compact.
 - Expected source: AC-06/10.
 - Type: manual semantic fixture review / negative control.
-- Verification method: confirm no empty/ritual Knowledge Delta section is emitted.
+- Verification method: inspect the simple fixture's expected Plan output and confirm none of the three section groups above appears empty or as a ritual placeholder.
 
 ### TC-07: Knowledge Delta fires for changed domain understanding
 
 - Input: newly confirmed rule invalidates an existing responsibility/name boundary.
-- Expected: Newly learned / Existing representation / Delta / Structural response are recorded.
+- Expected:
+  - the four required Knowledge Delta fields — Newly learned / Existing representation / Delta / Required structural response — are recorded;
+  - the fifth field, Deferred structural work, appears only when scope-external structural work exists (that case is TC-15); it is not emitted as an empty placeholder here.
 - Expected source: #867 / AC-06/07.
-- Verification method: confirm all five Knowledge Delta fields are materially populated and structural response is tied to current evidence.
+- Verification method: confirm the four required fields are materially populated, the structural response is tied to current evidence, and the canonical guidance describes Knowledge Delta as knowledge-difference synchronization rather than code beautification (#867 AC).
 
 ### TC-08: Structural change starts from a safe baseline
 
 - Input: refactor required but behavior safety is not established.
 - Expected: Characterization/Safety Net precedes Preparatory Refactoring; no structural work from RED baseline.
 - Expected source: #867 / AC-08.
-- Verification method: confirm Work Breakdown orders safety baseline before structural change and does not require RED during refactor.
+- Verification method: confirm Work Breakdown orders safety baseline before structural change and does not require RED during refactor, and that its Verification step points at the existing `refactor_verify` evidence (`docs/working/templates/evidence-tdd-ledger.json`) for external API / persistence / CLI compatibility instead of defining a new gate.
 
 ### TC-09: Pre-PR re-check identifies changed unknown state
 
-- Input: Plan assumption was resolved during implementation and a new unknown was discovered.
-- Expected: pre-PR review records resolved assumption + new unknown + scope impact.
-- Expected source: AC-09.
-- Verification method: run/inspect `diff-audit` against the fixture diff and confirm assumption state + newly discovered Unknown are reported.
+- Input: pre-PR diff fixture (todo T-17) where a Plan assumption was resolved during implementation and a new **non-blocking** unknown was discovered.
+- Expected:
+  - pre-PR review records resolved assumption + new unknown + scope impact;
+  - the non-blocking unknown is recorded as residual risk with assumption / evidence / verification method, and PR creation may proceed (proceed side of AC-15).
+- Expected source: AC-09 / AC-15.
+- Type: manual semantic fixture review / positive control for AC-15.
+- Verification method: run/inspect `diff-audit` against the fixture diff and confirm assumption state + newly discovered Unknown + residual-risk record are reported and PR readiness is not stopped.
 
 ### TC-10: No speculative governance expansion
 
@@ -120,7 +133,7 @@
   - canonical skill and distribution mirrors aligned;
   - C-1 heading count unchanged from baseline;
   - repository sync/check CI succeeds.
-- Expected source: AC-13/14.
+- Expected source: AC-13 (fixture coverage for AC-14 is verified by TC-01/TC-02/TC-05/TC-06/TC-07, not by TC-11).
 - Verification commands:
   - `grep -c '^### C1-' docs/working/templates/review-self.md`
   - `python3 scripts/check-stale-skill-refs.py`
@@ -157,12 +170,35 @@
   - assert every changed path starts with `docs/working/TASK-1359/`;
   - if any production surface appears before T-00 completes, FAIL and stop.
 
+### TC-14: Pre-PR new Blocking Unknown stops PR creation
+
+- Input: pre-PR diff fixture (todo T-17) where implementation discovered a new **blocking** unknown (high-impact requirement question with human owner) that the Plan did not have.
+- Expected:
+  - `diff-audit` reports the new Blocking Unknown;
+  - PR readiness is stopped (PR is not created / not marked ready);
+  - the unknown is not downgraded to residual risk to let the PR proceed.
+- Expected source: AC-15 / #810 AC.
+- Type: manual semantic fixture review / negative control for AC-15 (pairs with TC-09 as the proceed side).
+- Verification method: run/inspect `diff-audit` against the fixture diff and confirm the Blocking Unknown is reported and the PR-readiness outcome is stop.
+
+### TC-15: Large structural debt is deferred, not executed
+
+- Input: structural-debt fixture (#867 Case 3) where a Knowledge Delta implies a structural change larger than the current task (wide scope, high risk, missing tests).
+- Expected:
+  - Knowledge Delta records `Deferred structural work` with scope, risk and missing tests;
+  - the work is emitted as a separate Issue / Epic candidate (handoff V2 候補 / 別 Issue);
+  - the current Work Breakdown does not include the deferred structural change.
+- Expected source: AC-16 / #867 Case 3.
+- Type: manual semantic fixture review / negative control.
+- Verification method: inspect the structural-debt fixture's expected Plan output; confirm Deferred structural work is populated and no Work Breakdown task performs it.
+
 ## Edge Cases
 
 - Prior artifact exists but is stale: record provenance/freshness; do not treat as current fact without validation.
 - Multiple artifacts conflict: classify as Unknown/Blocking Unknown instead of choosing silently.
 - Knowledge Delta is identified but structural response is outside current scope: record Deferred structural work / new Issue candidate.
-- Pre-PR re-check finds a new Blocking Unknown: PR readiness must stop.
+- Pre-PR re-check finds a new Blocking Unknown: PR readiness must stop (TC-14).
+- Pre-PR re-check finds a new non-blocking Unknown: record it as residual risk and proceed (TC-09).
 
 ## Minimum Sufficient Test Set
 
@@ -170,4 +206,6 @@ The suite intentionally keeps one positive and one negative control for prior-ar
 one negative control for conditional Knowledge Delta, and distinct safety cases for readiness/refactor/pre-PR.
 TC-12 is retained because it proves a distinct compatibility contract with the immediate dependency #1358.
 TC-13 is retained because it proves evaluation-integrity isolation from the frozen #1337 experiment.
+TC-14 is retained because it is the stop side of AC-15; TC-09 alone only proves the proceed side.
+TC-15 is retained because deferring out-of-scope structural debt (#867 Case 3) is a distinct boundary from TC-07/TC-08, where the structural response is performed inside the task.
 Do not add cases that prove the same Trace and failure mode without a distinct boundary or risk.
