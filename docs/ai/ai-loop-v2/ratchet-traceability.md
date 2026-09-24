@@ -106,6 +106,14 @@ A mismatch is fail-closed.
 
 If actual changed paths intersect protected Evaluation Harness / sealed fixture paths, ordinary paired evaluation cannot promote the Candidate.
 
+How actual changed paths are derived:
+
+- For every changed component, the paths of **both** the baseline and the candidate side are counted. Moving a protected component under `allowed_paths` is still seen on its baseline path.
+- Every counted path must be canonical, using the same rule as the Decision Engine (`decision_core._canonical_path`): no empty string, no leading `/`, no `.` / `..` / empty segment. `fnmatch`'s `*` crosses `/`, so `harness/verifiers/../../x` would otherwise match `harness/verifiers/*`. A non-canonical path is `FAIL` (`NON_CANONICAL_CHANGED_PATH`).
+- A changed component without a non-empty `paths` list is `INCONCLUSIVE` (`COMPONENT_PATHS_MISSING`): an empty path set would make the subset check vacuous.
+- A manifest whose components lack a `component_id` or repeat one is `INCONCLUSIVE` (`MANIFEST_COMPONENT_IDENTITY`): a duplicate could shadow a changed component.
+- Protected authority is checked on the actual delta before the `allowed_paths` subset check, so a change on a protected surface is reported as `PROTECTED_AUTHORITY_CHANGED` even when it is also outside `allowed_paths`.
+
 ## Verification-skipped paired evaluation
 
 Known-bad:
@@ -167,6 +175,16 @@ INCONCLUSIVE
 ```
 
 `INCONCLUSIVE` never promotes.
+
+"Identity/provenance cannot be verified" includes at least:
+
+- no source failure instance (`SOURCE_INSTANCE_BINDING`)
+- a repeated failure-instance tuple (`SOURCE_INSTANCE_BINDING`)
+- a source `run_id` that differs from its RunEvidence `run_id` (`SOURCE_FAILURE_BINDING`)
+- a pattern snapshot missing `pattern_id` / `pattern_version` / `classifier_digest` / `source_set_digest` (`PATTERN_SNAPSHOT_INCOMPLETE`)
+- a sealed plan that does not pin the digests of both the known-bad and the negative-control fixture (`EVALUATION_PLAN_INCOMPLETE`)
+
+The simulated delivery artifact's change set is part of each sealed fixture (`changed_paths`), so it is covered by the fixture digest.
 
 ## Promotion handoff and reverse provenance
 

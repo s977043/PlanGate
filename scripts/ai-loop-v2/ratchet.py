@@ -14,7 +14,7 @@ import fnmatch
 import hashlib
 import json
 
-from decision_core import DecisionError, decide
+from decision_core import DecisionError, _canonical_path, decide
 
 ACTIVATION = {
     "installed": 1,
@@ -32,6 +32,22 @@ FORBIDDEN_KEYS = {
 
 class RatchetError(ValueError):
     pass
+
+
+class _ManifestIndeterminate(RatchetError):
+    """The actual delta cannot be derived; ``str(exc)`` is the reason code."""
+
+
+class _NonCanonicalPath(RatchetError):
+    """A changed path is not canonical, so scope cannot be proven."""
+
+
+PATTERN_REQUIRED_FIELDS = (
+    "pattern_id",
+    "pattern_version",
+    "classifier_digest",
+    "source_set_digest",
+)
 
 
 def canonical_digest(value):
@@ -68,6 +84,10 @@ def build_failure_instance(source):
     required = {"run_id", "event_ref", "failure_record", "run_evidence"}
     if not isinstance(source, dict) or not required.issubset(source):
         raise RatchetError("source failure bundle")
+    if not isinstance(source["run_evidence"], dict):
+        raise RatchetError("RunEvidence")
+    if not source["run_id"] or source["run_evidence"].get("run_id") != source["run_id"]:
+        raise RatchetError("source run_id does not match RunEvidence run_id")
     failure_ref = canonical_digest(source["failure_record"])
     run_evidence_ref = canonical_digest(source["run_evidence"])
     if failure_ref not in source["run_evidence"].get("failure_record_refs", []):
@@ -93,11 +113,44 @@ def compute_source_set_digest(refs):
     return canonical_digest(stable)
 
 
+def _index_components(manifest):
+    components = manifest.get("components")
+    if not isinstance(components, list):
+        raise _ManifestIndeterminate("MANIFEST_COMPONENT_IDENTITY")
+    index = {}
+    for item in components:
+        component_id = item.get("component_id") if isinstance(item, dict) else None
+        # A dict keyed by component_id keeps only the last entry, so a
+        # duplicate could shadow a changed component.
+        if not isinstance(component_id, str) or not component_id or component_id in index:
+            raise _ManifestIndeterminate("MANIFEST_COMPONENT_IDENTITY")
+        index[component_id] = item
+    return index
+
+
+def _component_paths(component):
+    paths = component.get("paths")
+    # A changed component without paths would make the scope check vacuous
+    # (``all([])`` is True), so it is not evidence of staying in scope.
+    if not isinstance(paths, list) or not paths:
+        raise _ManifestIndeterminate("COMPONENT_PATHS_MISSING")
+    return paths
+
+
 def observed_component_delta(baseline, candidate):
-    before = {item["component_id"]: item for item in baseline.get("components", [])}
-    after = {item["component_id"]: item for item in candidate.get("components", [])}
+    """Derive the actual harness delta from the two manifests.
+
+    For every changed component the paths of BOTH sides are counted, so a
+    protected component relocated under ``allowed_paths`` is still seen on
+    its baseline path. Every counted path must be canonical
+    (``decision_core._canonical_path``): ``fnmatch``'s ``*`` crosses ``/``,
+    so ``harness/verifiers/../../x`` would otherwise match
+    ``harness/verifiers/*`` while resolving elsewhere.
+    """
+    before = _index_components(baseline)
+    after = _index_components(candidate)
     deltas = []
-    changed_paths = []
+    changed_paths = set()
     for component_id in sorted(set(before) | set(after)):
         left = before.get(component_id)
         right = after.get(component_id)
@@ -108,9 +161,15 @@ def observed_component_delta(baseline, candidate):
             "before_content_sha": left.get("content_sha") if left else None,
             "after_content_sha": right.get("content_sha") if right else None,
         })
-        source = right or left
-        changed_paths.extend(source.get("paths", []))
-    return deltas, sorted(set(changed_paths))
+        for side in (left, right):
+            if side is None:
+                continue
+            for path in _component_paths(side):
+                try:
+                    changed_paths.add(_canonical_path(path))
+                except DecisionError as exc:
+                    raise _NonCanonicalPath(str(exc)) from exc
+    return deltas, sorted(changed_paths)
 
 
 def _paths_within(paths, allowed):
@@ -213,7 +272,10 @@ def simulate_completion(manifest, fixture):
             failures=[],
             current_artifact_ref=artifact_ref,
             pr_convergence=convergence,
-            changed_paths=[],
+            # The simulated delivery artifact's change set comes from the
+            # sealed fixture (digest-bound). The Decision Engine rejects an
+            # empty or non-canonical change set, which surfaces as ERROR.
+            changed_paths=list(fixture.get("changed_paths") or []),
         )
     except DecisionError as exc:
         return {
@@ -327,10 +389,28 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             ["EVALUATION_PLAN_DIGEST_MISMATCH"],
         )
 
+    # The paired fixtures are only trustworthy if the sealed plan pins both
+    # of their digests; otherwise the digest loop below would never see them.
+    fixture_digests = sealed_plan.get("fixture_digests") or {}
+    known_id = sealed_plan.get("known_bad_fixture_id")
+    negative_id = sealed_plan.get("negative_control_fixture_id")
+    if (
+        not known_id
+        or not negative_id
+        or known_id not in fixture_digests
+        or negative_id not in fixture_digests
+        or sealed_plan.get("required_activation", "influenced_decision")
+        not in ACTIVATION
+    ):
+        return _finish(
+            bundle,
+            sealed_plan,
+            "INCONCLUSIVE",
+            ["EVALUATION_PLAN_INCOMPLETE"],
+        )
+
     fixtures = bundle.get("fixtures") or {}
-    for fixture_id, expected_digest in (
-        sealed_plan.get("fixture_digests") or {}
-    ).items():
+    for fixture_id, expected_digest in fixture_digests.items():
         fixture = fixtures.get(fixture_id)
         if fixture is None or canonical_digest(fixture) != expected_digest:
             return _finish(
@@ -381,6 +461,25 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             ["SOURCE_FAILURE_BINDING"],
         )
 
+    instance_tuples = [
+        (
+            ref["run_id"],
+            ref["event_ref"],
+            ref["failure_record_ref"],
+            ref["run_evidence_ref"],
+        )
+        for ref in actual_instances
+    ]
+    # A Candidate without a source failure has no provenance, and a repeated
+    # failure instance would be counted twice as independent evidence.
+    if not actual_instances or len(set(instance_tuples)) != len(instance_tuples):
+        return _finish(
+            bundle,
+            sealed_plan,
+            "INCONCLUSIVE",
+            ["SOURCE_INSTANCE_BINDING"],
+        )
+
     source = candidate.get("source", {})
     if source.get("failure_instance_refs") != actual_instances:
         return _finish(
@@ -399,6 +498,13 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             ["RUN_EVIDENCE_BINDING"],
         )
     pattern = source.get("pattern_snapshot") or {}
+    if any(pattern.get(field) in (None, "") for field in PATTERN_REQUIRED_FIELDS):
+        return _finish(
+            bundle,
+            sealed_plan,
+            "INCONCLUSIVE",
+            ["PATTERN_SNAPSHOT_INCOMPLETE"],
+        )
     if pattern.get("source_set_digest") != compute_source_set_digest(
         actual_instances
     ):
@@ -409,9 +515,20 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             ["SOURCE_SET_DIGEST"],
         )
 
-    deltas, changed_paths = observed_component_delta(
-        baseline, candidate_manifest
-    )
+    try:
+        deltas, changed_paths = observed_component_delta(
+            baseline, candidate_manifest
+        )
+    except _NonCanonicalPath:
+        return _finish(
+            bundle,
+            sealed_plan,
+            "FAIL",
+            ["NON_CANONICAL_CHANGED_PATH"],
+            policy_verdict="HUMAN_REQUIRED",
+        )
+    except _ManifestIndeterminate as exc:
+        return _finish(bundle, sealed_plan, "INCONCLUSIVE", [str(exc)])
     if not deltas:
         return _finish(
             bundle,
@@ -434,6 +551,21 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             deltas=deltas,
             changed_paths=changed_paths,
         )
+    # Protected authority is checked on the actual delta before the
+    # allowed-paths subset check: a changed path on a protected surface is
+    # reported as such even when it is also outside allowed_paths (e.g. a
+    # protected component relocated under allowed_paths is seen on its
+    # baseline path).
+    if _paths_intersect(changed_paths, protected_paths):
+        return _finish(
+            bundle,
+            sealed_plan,
+            "FAIL",
+            ["PROTECTED_AUTHORITY_CHANGED"],
+            policy_verdict="HUMAN_REQUIRED",
+            deltas=deltas,
+            changed_paths=changed_paths,
+        )
     if not _paths_within(changed_paths, allowed_paths):
         return _finish(
             bundle,
@@ -445,19 +577,6 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             changed_paths=changed_paths,
         )
 
-    if _paths_intersect(changed_paths, protected_paths):
-        return _finish(
-            bundle,
-            sealed_plan,
-            "FAIL",
-            ["PROTECTED_AUTHORITY_CHANGED"],
-            policy_verdict="HUMAN_REQUIRED",
-            deltas=deltas,
-            changed_paths=changed_paths,
-        )
-
-    known_id = sealed_plan["known_bad_fixture_id"]
-    negative_id = sealed_plan["negative_control_fixture_id"]
     paired = {
         "known_bad": {
             "baseline": simulate_completion(

@@ -7,8 +7,8 @@
     "known_bad_fixture_id": "incident-verification-skipped-v1",
     "negative_control_fixture_id": "negative-valid-verification-v1",
     "fixture_digests": {
-      "incident-verification-skipped-v1": "sha256:f396604b761ae0c8b003dc509c403a91f29e3a7ef12c278329a12544af8fd103",
-      "negative-valid-verification-v1": "sha256:6706f9ac4f8aea2958d40ba92b869494a4dd0ed7280b16e26c891a1142946713"
+      "incident-verification-skipped-v1": "sha256:1e2c75b0d172bede88136d8028beebf251774e19c97656c6e0d71b4f69cea570",
+      "negative-valid-verification-v1": "sha256:14aae27cc2cc9f73f819a271e8a106ef402ea8e04b02bb9cb397a0c500a08a2b"
     },
     "required_activation": "influenced_decision",
     "protected_paths": [
@@ -64,7 +64,7 @@
       "expected_effect": "completion without verification evidence is blocked"
     },
     "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
-    "evaluation_plan_digest": "sha256:a8d01346a5c9ae12f37f23051d57b564ee78e2faab6826bef5a441eab55d177b"
+    "evaluation_plan_digest": "sha256:182877c7ba4ee5485d0024ccfac2cafae96c40740b4825a0a3b85624298c8539"
   },
   "sources": [
     {
@@ -144,12 +144,18 @@
     "incident-verification-skipped-v1": {
       "fixture_id": "incident-verification-skipped-v1",
       "artifact_ref": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-      "verification_present": false
+      "verification_present": false,
+      "changed_paths": [
+        "harness/verifiers/delivery-artifact.json"
+      ]
     },
     "negative-valid-verification-v1": {
       "fixture_id": "negative-valid-verification-v1",
       "artifact_ref": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-      "verification_present": true
+      "verification_present": true,
+      "changed_paths": [
+        "harness/verifiers/delivery-artifact.json"
+      ]
     }
   },
   "expected": {
