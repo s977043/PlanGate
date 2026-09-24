@@ -14,6 +14,8 @@ created_by: orchestrator
 
 AIへPlanを引き渡す前に、目的・前提・依存・不確実性・検出可能性・回復境界が十分かを **AI Execution Readiness** として判断できるようにし、Plan作成・レビュー・ai-loop handoffへ既存責務を壊さず統合する。
 
+Execution Readinessは新しい6個の正本ではなく、**既存Plan情報から導出するprojection** とする。
+
 ## Context
 
 - 関連Issue: #1416
@@ -25,20 +27,22 @@ AIへPlanを引き渡す前に、目的・前提・依存・不確実性・検�
   - #1337 effectiveness result = `INCONCLUSIVE_NOT_RUN`
   - #1359 production implementation = `BLOCKED`
   - #1359と同じ production planning surfaces を先行変更しない
+- Current PR #1417 is therefore a **planning-baseline PR only**.
 
 ## Scope
 
 ### In Scope
 
-- AI Execution Readinessの6 dimensionsをcanonicalに定義する。
+- AI Execution Readinessの6 dimensionsのresponsibility mapを定義する。
 - #810/#1359のUnknown/Assumptionを入力として再利用する。
 - dependencyを declared / available / verified に分離する。
 - detectabilityをREADY条件へ含める。
-- recovery / escalationをPlan-level handoff contractとして定義し、runtime policyは#894/#1383へ委譲する。
+- recovery / escalationを既存のReplan Triggers / Stop Condition / Human Approval / runtime owner参照からprojectionする。
+- readiness stateを `ready / needs_clarification / blocked` の一意ルールで判定する。
 - simple taskではmaterial-only projectionとし儀式化を避ける。
 - C-1/C-2は既存check/rubricへの最小統合を優先する。
 - Plan → ai-loop handoffで必要情報が失われないようにする。
-- 4 fixtureで主要readiness状態を固定する。
+- fixed fixturesでreadiness判定を検証する。
 
 ### Out of Scope
 
@@ -48,16 +52,19 @@ AIへPlanを引き渡す前に、目的・前提・依存・不確実性・検�
 - #1337 frozen candidateの変更。
 - #1359より先に同じproduction surfaceを変更すること。
 - HO pathをHuman承認なしで変更すること。
+- production file pathをupstream unblock前に推測で固定すること。
 
 ## Global Constraints
 
 - #1337 paired evaluation結果固定までは production execution を開始しない。
-- #1359 T-00 downstream impact reviewとHuman C-3を先に完了する。
+- #1359 T-00 downstream impact reviewとHuman C-3 / production integrationを先に完了する。
 - #1359の実装後、同じ概念を重複実装せず差分だけを追加する。
 - runtime recovery semanticsは #894 / #1383 を正本とする。
 - new C-1 check IDは、既存checkへ統合不能な根拠がない限り作らない。
 - simple / low-risk taskに6項目の空sectionを強制しない。
 - canonical / distributed mirrorのdriftを残さない。
+- critical modeでは、具体的Files / commands / expected resultsを確定した **Plan v2** とC-1/C-2が揃うまでHuman C-3へ進まない。
+- production taskはHuman C-3 APPROVEDへ `depends_on` を物理的に接続する。
 
 ## Evidence / Current State
 
@@ -68,12 +75,15 @@ AIへPlanを引き渡す前に、目的・前提・依存・不確実性・検�
 - #1359 production implementationは#1337 pair-level result固定までBLOCKED。
 - #1337 current effectiveness resultは `INCONCLUSIVE_NOT_RUN`。
 - #894 / #1383はruntime retry / stop / convergenceの責務を持つ。
-- 現行Plan templateにはQuestions / Unknowns、Verification Plan、Replan Triggers、Stop Conditionが既にある。
+- 現行Plan templateにはGoal、Questions / Unknowns、Verification Plan、Replan Triggers、Stop Condition、Human Approval Boundaryが既にある。
+- `review-self.schema.json` のverdict enumは `PASS / WARN / FAIL`。
+- Current C-1 templateは25項目。
+- Current Working Contextはplan生成時の `INDEX.md`、B+の `current-state.md` / `decision-log.jsonl`、phase/blocker trackingの `status.md` を定義している。
 
 ### Assumptions
 
 - AI Execution Readinessは独立artifactではなく、既存Plan evidenceのprojectionとして実装できる。
-- #1359実装後のPlan shapeに追加する差分は主に Dependencies / Detectability / Recovery-Handoff になる。
+- #1359実装後の差分は主に Dependencies / Detectability / projection semantics / runtime handoffになる。
 - C-1既存項目へ統合可能で、新規check IDは不要。
 - runtime handoffは新しいpolicy engineなしで既存契約へ参照を渡せる。
 
@@ -83,15 +93,60 @@ AIへPlanを引き渡す前に、目的・前提・依存・不確実性・検�
 - #1359 merge後の最終artifact shape。
 - ai-loop handoff側で必要な最小参照形式。
 - dogfood後にdeterministic validationが必要になるか。
+- unblock後の具体的 production paths / fixture paths / verification commands。
 
 ### Blocking Unknowns
 
-- Internal design blocker: なし。
-- External execution blocker:
+- Internal planning blocker: なし。
+- External production blockers:
   - EB-01: #1337 pair-level evaluation result未固定。
-  - EB-02: #1359 T-00 downstream impact review + Human C-3未完了。
+  - EB-02: #1359 T-00 downstream impact review + Human C-3 / production integration未完了。
 
-## AI Execution Readiness — TASK-1416 Dogfood
+## AI Execution Readiness as Projection
+
+### Responsibility map
+
+| Dimension | Canonical source | #1416 responsibility |
+|---|---|---|
+| Why / Outcome | Plan Goal / PBI Why / AC | outcomeがwork breakdownと接続しているかをprojection |
+| Assumptions | #810 / #1359 Facts / Assumptions | verified / unverifiedをreadinessへ反映 |
+| Dependencies | Plan prerequisites / repository evidence | declared / available / verifiedを区別 |
+| Unknowns / Surprises | #810 / #1359 Unknowns / Blocking Unknowns | blocking/non-blockingをreadinessへ反映 |
+| Detectability | Verification Plan / tests / verifier refs | material failureを検出可能か判定 |
+| Recovery / Escalation | Replan Triggers / Stop Condition / Human Approval + #894/#1383 refs | retry policyを複製せず、実行停止・再計画・Human escalation可能性を判定 |
+
+### State semantics
+
+#### ready
+
+次をすべて満たす:
+- outcomeが明確;
+- materialなunverified assumptionが安全に扱われる;
+- required dependencyがavailableかつ必要な範囲でverified;
+- Blocking Unknown = 0;
+- material failureがcredibly detectable;
+- task riskに見合うre-plan / stop / escalation boundaryがある。
+
+#### needs_clarification
+
+Humanの仕様・優先度・risk tolerance判断が不足しており、その回答で実行条件を解消できる状態。
+
+例:
+- 仕様A/Bのどちらを採るかHuman決定が必要;
+- compatibility優先かmigration優先かHuman判断が必要。
+
+#### blocked
+
+Human回答だけでは解消できず、外部前提または安全/証拠能力が利用不能な状態。
+
+例:
+- required dependency unavailable;
+- required environment / permission / upstream PR unavailable;
+- material failure detectorが存在しない;
+- required evidenceを取得不能;
+- high-impact changeで必要なstop/recovery boundaryを確立不能。
+
+## TASK-1416 Dogfood
 
 ### 1. Why / Outcome
 
@@ -109,12 +164,12 @@ AIへPlanを引き渡す前に、目的・前提・依存・不確実性・検�
 
 ### 3. Dependencies
 
-| Dependency | Declared | Available | Verified | Impact |
+| Dependency | Declared | Available | Verified | Evidence / Impact |
 |---|---:|---:|---:|---|
-| #1337 pair-level decision | yes | no | no | production exec blocker |
-| #1359 T-00 + Human C-3 | yes | no | no | overlapping surface blocker |
+| #1337 pair-level decision | yes | no | no | issue state; production blocker |
+| #1359 T-00 + Human C-3 + production integration | yes | no | no | issue state; overlapping-surface blocker |
 | #894/#1383 runtime semantics | yes | yes | yes at issue-contract level | reuse only |
-| current templates/skills | yes | yes | yes | planning inventory possible |
+| current templates/skills | yes | yes | yes for planning inventory | planning work possible |
 
 ### 4. Unknowns / Surprises
 
@@ -126,158 +181,222 @@ AIへPlanを引き渡す前に、目的・前提・依存・不確実性・検�
 
 Production implementation後に最低限以下で検出する。
 
-- simple fixture: ceremonial section増加なし。
-- dependency-blocked fixture: unavailable required dependencyでREADYにならない。
-- detection-missing fixture: high-impact failureにdetectorがない場合READYにならない。
-- recovery-required fixture: stop/escalation boundary不足でREADYにならない。
+- simple-ready fixture: `ready` / ceremonial section増加なし。
+- dependency-blocked fixture: `blocked`。
+- detection-missing fixture: `blocked`。
+- human-clarification fixture: `needs_clarification`。
+- recovery-required fixture: `blocked`。
 - mirror sync / stale reference checks。
 - C-1 check count不変。
 - existing test suite / CI。
 
 ### 6. Recovery / Escalation
 
-- Retry: docs/fixtureレベルのdeterministic failureのみ修正して再検証。
+TASK-1416自身では既存sectionsをsourceにする。
+
 - Re-plan:
   - #1337結果が現Plan assumptionsを崩した場合。
   - #1359実装が想定surfaceを吸収した場合。
-  - handoff contractが別のcanonical ownerを持つと判明した場合。
+  - handoff contract ownerが想定と異なる場合。
 - Stop:
   - HO path変更が必要。
   - schema / validator / runtime state追加が必要。
   - new C-1 IDなしでは安全に表現できない。
   - #1359と責務競合する。
 - Human escalation:
-  - Human C-3。
+  - Plan v2へのHuman C-3。
   - HO patch。
   - schema/validator expansion。
   - scope変更。
+- Runtime retry / convergence behavior:
+  - #894 / #1383へ委譲し、本Planには複製しない。
 
 ### Readiness
 
 - **Planning artifact readiness: ready**
 - **Production execution readiness: blocked**
-- Rationale: 設計自体にBlocking Unknownはないが、EB-01 / EB-02がhard dependency。
+- Rationale: EB-01 / EB-02によりrequired dependenciesがunavailable。
 
 ## Approach Comparison
 
-| 案 | Complexity | 重複リスク | 検証 | 判定 |
-|---|---|---|---|---|
-| A. #1359後に既存Plan/Skill/Reviewへ差分統合 | 低〜中 | 低 | fixtures + existing checks | **採用** |
-| B. #1416独立のReadiness Gate/subsystemを作る | 高 | 高 | 新runtime/schemaが必要 | 不採用 |
-| C. validator-firstで強制する | 中〜高 | 中 | deterministic | defer |
+| 案 | Evidence | Complexity Cost | New Abstractions | Verification | 判定 |
+|---|---|---|---|---|---|
+| A. #1359後に既存Plan情報からreadinessをprojection | current Plan already owns adjacent fields | low-medium | none | fixed fixtures + existing checks | **採用** |
+| B. #1416独立のReadiness Gate/subsystem | no measured need | high | new gate/state | new runtime/schema needed | 不採用 |
+| C. validator-first | only some semantics are deterministic | medium-high | validator rules | deterministic but premature | defer |
 
 ### Recommended Approach
 
-**A**。#1359がEvidence / Assumptions / Unknowns / Readinessの基礎を提供した後、#1416は不足する **Dependencies / Detectability / Recovery-Handoff** を中心に差分統合する。
+**A**。#1359がEvidence / Assumptions / Unknowns / Readinessの基礎を提供した後、#1416は不足する Dependencies / Detectability / projection semantics / runtime handoffを差分統合する。
 
-これにより、同じPlan template / ai-dev-plan / C-1 surfaceを二重に変更するリスクを避ける。
+Execution Readiness自体は、既存のGoal / Assumptions / Unknowns / Verification / Replan / Stop / Human Approvalを読み、最終判定だけをprojectionする。
 
-## Candidate Canonical Responsibility
+## Pre-C3 Replan Gate
 
-| Concern | Canonical owner |
-|---|---|
-| Why / Outcome | Plan intent / Goal |
-| Assumptions | #810 / #1359 |
-| Unknowns / Blocking Unknowns | #810 / #1359 |
-| Dependency readiness | #1416 Plan guidance |
-| Detectability | Plan Verification / verifier references |
-| Retry / convergence / NO_PROGRESS | #894 / #1383 runtime |
-| Recovery / escalation hints | #1416 Plan → runtime handoff |
-| Human approval | existing C-3 / C-4 |
+Upstream unblock後に、現在のplanning baselineをそのままHuman C-3へ渡してはいけない。
 
-## Expected Production Files after Unblock
+必須順序:
 
-> 実際の変更対象はT-00でfresh inventoryして確定する。
+```text
+#1337 result fixed
+  -> #1359 production integration complete
+  -> T-00 fresh dependency check
+  -> T-01 current production-surface inventory
+  -> T-02 ai-loop handoff owner inventory
+  -> T-03 regenerate/finalize Plan v2 + todo v2 + test-cases v2
+       - concrete files
+       - concrete commands
+       - exact expected values/verdicts
+       - production task dependency graph
+       - every production task depends transitively on Human C-3
+  -> T-04 canonical 25-item C-1
+  -> T-05 independent C-2
+  -> Human H-01 C-3
+  -> only then production execution
+```
 
-- `docs/ai/plan-design-principles.md`
-- `.agents/skills/ai-dev-plan/SKILL.md`
-- `docs/working/templates/plan.md`
-- `docs/working/templates/review-self.md`
-- relevant fixture/evaluation files
-- relevant plugin/Codex mirrors
-- ai-loop handoff canonical doc **only if** T-00 confirms ownership and no HO boundary
+Current planning baseline intentionally does **not** contain speculative production implementation tasks.
 
-## Work Breakdown
+## Current Planning Work Breakdown
 
-### Task 0: Downstream impact re-check
+### T-00: Fresh upstream readiness check
 
-**Purpose**: #1337 / #1359完了後のmainで責務・surfaceを再確認する。
+**Purpose**: upstream dependenciesが解消したかを確認する。
+
+**Files**:
+- Read: GitHub Issues #1337, #1359, #894, #1383
+- Read: current main
 
 **Steps**:
-- [ ] #1337 final resultを読む。
-- [ ] #1359 merged diffを読む。
-- [ ] #894/#1383 current contractを読む。
-- [ ] overlap matrixを更新する。
-- [ ] production execution readinessを再判定する。
+- [ ] #1337 pair-level resultを確認。
+- [ ] #1359 production integration / downstream decisionを確認。
+- [ ] 未解消なら `BLOCKED` を維持し、production planningを進めない。
 
 **Completion Criteria**:
-- [ ] EB-01 / EB-02が解消、またはPlanをre-plan済み。
+- [ ] EB-01 / EB-02の状態とevidenceが記録される。
 
-### Task 1: Canonical guidance
+**Rollback**: 不要（read-only）
 
-**Purpose**: 6 dimensionsを重複なしでPlan design guidanceへ統合する。
+### T-01: Fresh production-surface inventory
 
-**Completion Criteria**:
-- [ ] responsibility boundaryが明示される。
-- [ ] declared / available / verified dependencyを区別する。
-- [ ] detectability / recovery handoffがREADY条件に入る。
-- [ ] material-only ruleを維持する。
+**Purpose**: #1359後のmainで#1416の差分だけを確定する。
 
-### Task 2: Planning Skill / template projection
+**Files**:
+- Read: `docs/ai/plan-design-principles.md`
+- Read: `.agents/skills/ai-dev-plan/SKILL.md`
+- Read: `docs/working/templates/plan.md`
+- Read: `docs/working/templates/review-self.md`
+- Read: relevant distribution mirrors
 
-**Purpose**: ai-dev-planがrepository-firstにreadinessを評価し、materialな結果だけartifactへ投影する。
-
-**Completion Criteria**:
-- [ ] fixed six-question Human questionnaireになっていない。
-- [ ] simple taskは不要sectionを出さない。
-- [ ] blocked条件が明確。
-
-### Task 3: Review integration
-
-**Purpose**: 既存C-1/C-2へ最小統合する。
+**Steps**:
+- [ ] #1359による新規/変更責務をinventory。
+- [ ] six dimensionsのowner matrixを更新。
+- [ ] duplicateになるproposed changeを削除。
 
 **Completion Criteria**:
-- [ ] new check IDなしを優先。
-- [ ] #1359 review responsibilityと重複しない。
-- [ ] Human approval boundary不変。
+- [ ] #1416 deltaが明示される。
+- [ ] speculative duplicate changeが0。
 
-### Task 4: Handoff integration
+**Rollback**: 不要（read-only）
 
-**Purpose**: expected outcome / verifier refs / known blockers / stop-escalation hintsをruntimeへ失わず渡す。
+### T-02: Fresh ai-loop handoff inventory
 
-**Completion Criteria**:
-- [ ] runtime policyをPlan側へコピーしない。
-- [ ] #894/#1383を参照する。
-- [ ] handoff ownerが明確。
+**Purpose**: runtime handoffのcanonical ownerを確定する。
 
-### Task 5: Fixed fixtures + validation
+**Files**:
+- Read: #894 / #1383
+- Read: current ai-loop V2 canonical docs resolved by repository search
 
-**Purpose**: readinessのpositive/negative behaviorを固定する。
-
-**Fixtures**:
-1. simple-ready
-2. dependency-blocked
-3. detection-missing
-4. recovery-required
+**Steps**:
+- [ ] expected outcome / verifier refs / blocker / escalation hintの既存格納先を確認。
+- [ ] runtime policy ownerを確認。
+- [ ] HO pathが必要ならStop Conditionで停止。
 
 **Completion Criteria**:
-- [ ] 4 fixtures期待判定一致。
-- [ ] existing test suite / sync checks PASS。
-- [ ] C-1 count driftなし。
+- [ ] handoff ownerが具体的file/pathレベルで確定する。
+
+**Rollback**: 不要（read-only）
+
+### T-03: Regenerate production Plan v2
+
+**Purpose**: T-00〜T-02のfresh evidenceでcritical-mode executable planへ更新する。
+
+**Files**:
+- Modify: `docs/working/TASK-1416/plan.md`
+- Modify: `docs/working/TASK-1416/todo.md`
+- Modify: `docs/working/TASK-1416/test-cases.md`
+- Append: `docs/working/TASK-1416/decision-log.jsonl`
+
+**Steps**:
+- [ ] production filesを具体パスで固定。
+- [ ] fixture pathsを具体パスで固定。
+- [ ] verification commands / exact expected resultsを固定。
+- [ ] production taskを2-5分/reviewable unitへ分割。
+- [ ] Human C-3をproduction taskのhard dependencyとしてgraphへ記録。
+- [ ] AC→TC traceを更新。
+
+**Completion Criteria**:
+- [ ] `TBD/TODO/決定後/determined by/confirmed later` 相当のexec placeholderが0。
+- [ ] production tasksにconcrete Files / Steps / Completion / Rollbackがある。
+- [ ] production tasksはH-01へtransitively依存する。
+
+**Rollback**: planning artifact commitをrevert。
+
+### T-04: Canonical C-1
+
+**Purpose**: Plan v2を正規25項目で検査する。
+
+**Files**:
+- Modify: `docs/working/TASK-1416/review-self.md`
+
+**Steps**:
+- [ ] current `docs/working/templates/review-self.md` の全checkを実行。
+- [ ] FAILを0にする。
+- [ ] WARNは根拠・owner・扱いを明示。
+
+**Completion Criteria**:
+- [ ] schema-valid frontmatter。
+- [ ] 25 checks全件が結果を持つ。
+- [ ] C1-TODO-09 / C1-TODO-11がproduction graphを検査済み。
+
+**Rollback**: review artifact更新をrevert。
+
+### T-05: Independent C-2
+
+**Purpose**: makerと独立したreview laneでPlan v2をレビューする。
+
+**Files**:
+- Modify: `docs/working/TASK-1416/review-external.md`
+
+**Steps**:
+- [ ] independent reviewerを実行。
+- [ ] unavailableなら理由 / residual riskを正直に記録し、Human C-3へ進まない。
+- [ ] major以上をPlanへ反映し、必要ならC-1を再実行。
+
+**Completion Criteria**:
+- [ ] C-2がexecuted。
+- [ ] unresolved major/critical = 0。
+- [ ] latest Plan v2 hash/内容に対するreviewである。
+
+**Rollback**: review artifact更新をrevert。
 
 ## Verification Plan
 
-| 種別 | 確認方法 | 期待結果 |
-|---|---|---|
-| Responsibility | owner matrix review | duplicate ownerなし |
-| Simple | simple-ready fixture | ready / ceremony増加なし |
-| Dependency | dependency-blocked fixture | blocked |
-| Detectability | detection-missing fixture | blocked |
-| Recovery | recovery-required fixture | blocked or needs_clarification per explicit rule |
-| Review | C-1/C-2 mapping check | unnecessary new rubricなし |
-| Runtime boundary | #894/#1383 trace | runtime semantics copiedなし |
-| Distribution | sync/stale scan | canonical/mirror driftなし |
-| Regression | repo CI/tests | PASS |
+| 種別 | 確認方法 | 期待結果 | Timing |
+|---|---|---|---|
+| Current baseline scope | PR diff | `docs/working/TASK-1416/**` only | now |
+| Review schema | `schemas/review-self.schema.json`とのfrontmatter整合 | PASS/WARN/FAIL enum only | now + v2 |
+| C-3 graph | todo `depends_on` review | production task -> H-01 dependency | Plan v2 |
+| Simple fixture | fixed scenario | `ready` | Plan v2 |
+| Dependency fixture | fixed scenario | `blocked` | Plan v2 |
+| Detectability fixture | fixed scenario | `blocked` | Plan v2 |
+| Human clarification fixture | fixed scenario | `needs_clarification` | Plan v2 |
+| Recovery fixture | fixed scenario | `blocked` | Plan v2 |
+| C-1 | canonical 25 checks | FAIL=0 | Plan v2 |
+| C-2 | independent review | unresolved major/critical=0 | Plan v2 |
+| Runtime boundary | #894/#1383 trace | retry/convergence duplicated=0 | Plan v2 |
+| Distribution | sync/stale scan | canonical/mirror drift=0 | production |
+| Regression | repo CI/tests | PASS | production |
 
 ## Replan Triggers
 
@@ -287,29 +406,35 @@ Production implementation後に最低限以下で検出する。
 - new schema / validator / C-1 ID becomes necessary.
 - simple fixture cannot stay minimal without weakening safety.
 - required HO path change is discovered.
+- T-00〜T-02でproduction paths / responsibilitiesが本Planのassumptionsと異なる。
 
 ## Stop Condition
 
 - #1337 pair-level result未固定。
-- #1359 T-00 + Human C-3未完了。
-- overlapping production changes would bypass #1359 ordering.
-- HO path / irreversible workflow contract change is required without Human approval.
-- runtime semantics would be duplicated from #894/#1383.
+- #1359 T-00 + Human C-3 / production integration未完了。
+- Plan v2が未生成。
+- canonical C-1が未完了またはFAILあり。
+- independent C-2が未実施、またはunresolved major/criticalあり。
+- overlapping production changes would bypass #1359 ordering。
+- HO path / irreversible workflow contract change is required without Human approval。
+- runtime semantics would be duplicated from #894/#1383。
 
 ## Human Approval Boundary
 
-- Production exec開始: Human C-3
+- Production exec開始: **Plan v2 + canonical C-1 + independent C-2後のHuman C-3 APPROVED**
 - HO patch: Human-owned
 - schema / validator expansion: separate Human decision
 - merge: Human C-4
 
-## C-1 Self Review Checklist
+## Current C-1 Preparation Checklist
 
-- [x] Goal / outcomeとwork breakdownが接続している
+- [x] Goal / outcomeとplanning work breakdownが接続している
 - [x] Assumptions / dependencies / unknownsを分離した
 - [x] required dependency availabilityを実測状態で区別した
-- [x] failure detectabilityをfixtureへ接続した
+- [x] readiness state semanticsを一意化した
+- [x] Execution Readinessを既存正本からのprojectionとして定義した
+- [x] failure detectabilityをfixed fixtureへ接続した
 - [x] recovery / escalationをruntime ownerと分離した
-- [x] Replan / Stop conditionを明示した
+- [x] Pre-C3 Replan Gateを明示した
 - [x] #1337 / #1359 blockerを無視していない
 - [x] simple task ceremonyをnon-goal化した
