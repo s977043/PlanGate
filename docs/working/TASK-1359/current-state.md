@@ -23,7 +23,6 @@
 - PR #1371 isolation specification baseline merged
 - #1337 runtime handoff contractを追加
 - #1337 resultをT-00が受け取る必須evidence/downstream decisionを明文化
-- 現ChatGPT runtimeでは `codex` executableなしを実測（user local環境の判定ではない）
 
 ## 現在のタスク
 
