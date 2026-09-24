@@ -122,7 +122,8 @@ Integrate Prior Artifact Discovery, Unknown Discovery and Knowledge Delta into o
 
 ### Readiness
 
-- **Planning artifact readiness: merged**（planning-only PR #1360でmainに確定済み）
+- **Planning artifact readiness: ready**
+- **Planning baseline lifecycle: merged**（planning-only PR #1360でmainに確定済み）
 - **Execution readiness: blocked**（EB-01）
 
 Reason:
