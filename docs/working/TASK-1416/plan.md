@@ -57,7 +57,7 @@ Execution Readinessは新しい6個の正本ではなく、**既存Plan情報か
 ## Global Constraints
 
 - #1337 paired evaluation結果固定までは production execution を開始しない。
-- #1359 T-00 downstream impact reviewとHuman C-3 / production integrationを先に完了する。
+- #1359 T-10 downstream impact reviewとHuman C-3 / production integrationを先に完了する。
 - #1359の実装後、同じ概念を重複実装せず差分だけを追加する。
 - runtime recovery semanticsは #894 / #1383 を正本とする。
 - new C-1 check IDは、既存checkへ統合不能な根拠がない限り作らない。
@@ -100,7 +100,7 @@ Execution Readinessは新しい6個の正本ではなく、**既存Plan情報か
 - Internal planning blocker: なし。
 - External production blockers:
   - EB-01: #1337 pair-level evaluation result未固定。
-  - EB-02: #1359 T-00 downstream impact review + Human C-3 / production integration未完了。
+  - EB-02: #1359 T-10 downstream impact review + Human C-3 / production integration未完了。
 
 ## AI Execution Readiness as Projection
 
@@ -167,7 +167,7 @@ Human回答だけでは解消できず、外部前提または安全/証拠能�
 | Dependency | Declared | Available | Verified | Evidence / Impact |
 |---|---:|---:|---:|---|
 | #1337 pair-level decision | yes | no | no | issue state; production blocker |
-| #1359 T-00 + Human C-3 + production integration | yes | no | no | issue state; overlapping-surface blocker |
+| #1359 T-10 + Human C-3 + production integration | yes | no | no | issue state; overlapping-surface blocker |
 | #894/#1383 runtime semantics | yes | yes | yes at issue-contract level | reuse only |
 | current templates/skills | yes | yes | yes for planning inventory | planning work possible |
 
@@ -240,9 +240,9 @@ Upstream unblock後に、現在のplanning baselineをそのままHuman C-3へ�
 ```text
 #1337 result fixed
   -> #1359 production integration complete
-  -> T-00 fresh dependency check
-  -> T-01 current production-surface inventory
-  -> T-02 ai-loop handoff owner inventory
+  -> T-10 fresh dependency check
+  -> T-11 current production-surface inventory
+  -> T-12 ai-loop handoff owner inventory
   -> T-03 regenerate/finalize Plan v2 + todo v2 + test-cases v2
        - concrete files
        - concrete commands
@@ -259,7 +259,7 @@ Current planning baseline intentionally does **not** contain speculative product
 
 ## Current Planning Work Breakdown
 
-### T-00: Fresh upstream readiness check
+### T-10: Fresh upstream readiness check
 
 **Purpose**: upstream dependenciesが解消したかを確認する。
 
@@ -277,7 +277,7 @@ Current planning baseline intentionally does **not** contain speculative product
 
 **Rollback**: 不要（read-only）
 
-### T-01: Fresh production-surface inventory
+### T-11: Fresh production-surface inventory
 
 **Purpose**: #1359後のmainで#1416の差分だけを確定する。
 
@@ -299,7 +299,7 @@ Current planning baseline intentionally does **not** contain speculative product
 
 **Rollback**: 不要（read-only）
 
-### T-02: Fresh ai-loop handoff inventory
+### T-12: Fresh ai-loop handoff inventory
 
 **Purpose**: runtime handoffのcanonical ownerを確定する。
 
@@ -319,7 +319,7 @@ Current planning baseline intentionally does **not** contain speculative product
 
 ### T-03: Regenerate production Plan v2
 
-**Purpose**: T-00〜T-02のfresh evidenceでcritical-mode executable planへ更新する。
+**Purpose**: T-10〜T-12のfresh evidenceでcritical-mode executable planへ更新する。
 
 **Files**:
 - Modify: `docs/working/TASK-1416/plan.md`
@@ -406,15 +406,15 @@ Current planning baseline intentionally does **not** contain speculative product
 - new schema / validator / C-1 ID becomes necessary.
 - simple fixture cannot stay minimal without weakening safety.
 - required HO path change is discovered.
-- T-00〜T-02でproduction paths / responsibilitiesが本Planのassumptionsと異なる。
+- T-10〜T-12でproduction paths / responsibilitiesが本Planのassumptionsと異なる。
 
 ## Stop Condition
 
 - #1337 pair-level result未固定。
-- #1359 T-00 + Human C-3 / production integration未完了。
-- Plan v2が未生成。
-- canonical C-1が未完了またはFAILあり。
-- independent C-2が未実施、またはunresolved major/criticalあり。
+- #1359 T-10 + Human C-3 / production integration未完了。
+- Plan v2 / todo v2 / test-cases v2が未確定。
+- T-16 canonical C-1が未完了またはFAILあり。
+- T-17 independent C-2が未実施、またはunresolved major/criticalあり。
 - overlapping production changes would bypass #1359 ordering。
 - HO path / irreversible workflow contract change is required without Human approval。
 - runtime semantics would be duplicated from #894/#1383。
