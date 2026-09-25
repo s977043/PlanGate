@@ -9,15 +9,15 @@
 - [x] define crash matrix
 - [x] reflect PR independent review R-001〜R-004 (idempotency ledger / state fold on load / conflict bound / L0 files)
 - [ ] I0 plan review
-- [ ] fallback/external review record (C-2 round 1)
-- [ ] C-2 round 2 and later: **at least 2 rounds, continue until no new failure class appears** (review-principles §7-quater). Next round = design review comparing the ledger + fold + replay model with alternatives (e.g. event stream as the only truth / state not persisted), not a wording check
+- [x] fallback/external review record (C-2 round 1: R-017〜R-028)
+- [x] C-2 round 2 (R-029〜R-036; not converged)
+- [ ] C-2 round 3 and later: continue until no new failure class appears (review-principles §7-quater). Focus: whether the R2 fixes (narrowed idempotency, Replan re-binding, conflict consistency) are effective and create no new hole
 - [x] reflect Codex consultation: durability definition / size bound / CAS scope / initial state
 - [ ] Human C-3 (incl. [P1] no-WAL single snapshot / [P2] trusted runtime_root)
 
 ## Preflight
-- [x] Human decisions R-017 (model B) / R-023 (#1402 run_state excluded) — 2026-09-25
-- [ ] #1391 merged/consumable — **consumable means**: `validate_append` / `finalize_event` exist on main (0 today), `finalize_event` adds only a closed set of binding keys (needed to recover drafts for the derived idempotency index), and #1391 either defines `state_transitioned` / `state_conflict*` event types (#1402's draft has `state_conflict_recorded` and no `state_transitioned`) or exposes an extension point for #1392-owned types; and the `decision_made` payload keys and size bound are frozen
-- [ ] decide the relation to #1402 `scripts/ai-loop-v2/run_state.py` (a different model already implementing #1392): replace / exclude (Human, C-3)
+- [x] Human decisions R-017 (model B) / R-023 (#1402 run_state excluded) / R-029 (conflicts outside idempotency) / R-034 (Replan re-binding) — 2026-09-25
+- [ ] #1391 merged/consumable — **consumable means**: `validate_append` / `finalize_event` exist on main (0 today), `strip(finalize_event(d)) == d` (finalize adds only a closed set of binding keys and does not canonicalize draft content; ST-42), `plan_contract_bound` is accepted as a re-binding event in `REPLANNING`, and #1391 either defines `state_transitioned` / `state_conflict*` event types (#1402's draft has `state_conflict_recorded` and no `state_transitioned`) or exposes an extension point for #1392-owned types; and the `decision_made` payload keys and size bound are frozen
 - [ ] exact base SHA
 - [ ] #1329 M-1/M-2/M-3 before/after scope
 - [ ] semantic invalidation YES
@@ -30,7 +30,7 @@
 - [ ] create_run
 - [ ] commit
 - [ ] transaction envelope + derived idempotency index / exact retry replay (model B)
-- [ ] state fold check on strict load
+- [ ] state fold check on strict load (incl. Replan re-binding, conflict consistency)
 - [ ] conflict evidence
 - [ ] conflict evidence bound
 - [ ] atomic replace/fsync (platform flush table, fail closed)

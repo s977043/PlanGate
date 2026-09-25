@@ -104,7 +104,9 @@ read RunState (revision = N)
 | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
 | concurrent resume: 2 writer が同じ revision N を読み、両方が CAS | ちょうど 1 つが成功し revision N+1、もう 1 つは `STATE_CONFLICT` |
 | stale writer: revision N−1 を持つ writer が CAS                  | `STATE_CONFLICT`。state は変わらない                             |
-| CAS 成功後に同じ writer が同じ revision で再 CAS                 | `STATE_CONFLICT`（冪等ではなく明示失敗）                         |
+| CAS 成功後に同じ writer が同じ revision で、新しい transaction 識別子により再 CAS | `STATE_CONFLICT`（冪等ではなく明示失敗）                         |
+| CAS 成功後に、確定済みの要求と同一の要求（同じ transaction 識別子・同じ内容）を再送 | 確定済みの結果を返す（応答の再送。新しい event を追加しない）    |
+| `STATE_CONFLICT` になった要求を同じ transaction 識別子で再送      | その時点の revision で判定し直し、`STATE_CONFLICT`。conflict の記録は増やさない |
 | crash between decide and CAS                                     | 次の reader は revision N のまま。pending_action は増殖しない    |
 
 ## 5. Legacy との関係

@@ -90,3 +90,34 @@ Per-transaction and per-revision caps bound growth. A future `expected_revision`
 ### Verdict
 
 PASS with WARN (open decisions above). The adversarial round did not converge (new classes R-006〜R-009), so C-2 must run at least 2 rounds before C-3.
+
+## C-1 re-run after model B and C-2 R2 (2026-09-25)
+
+Supersedes R-10 / R-11 above where they mention a stored ledger or stored state: under model B nothing derived is stored.
+
+### R-13 — one truth
+
+Stored: RunEvents in #1392 envelopes (`transaction_id`, `kind`, `expected_revision`, `transition`, with per-kind null rules). Everything else — RunState, generation, per-transaction results, replay index — is derived by the fold on each load. Every stored field that could duplicate a derived value is either null by rule or cross-checked on load (R-030).
+
+### R-14 — idempotency is narrow on purpose
+
+Replay only for committed create / commit, with a digest computed solely from recomputable data (R-035). Conflicts are outside idempotency (R-029): a conflicted id is answered live. Tampering by a writer who can recompute `snapshot_ref` is outside the guarantee (R-031).
+
+### R-15 — Replan changes bindings only at one defined point
+
+One re-binding `plan_contract_bound` per `REPLANNING` visit; `harness_manifest_ref` never changes (R-034).
+
+### Checklist
+
+| item | result |
+|---|---|
+| pbi-input scope (incl. idempotent retry, with the R-017 revision note) | PASS |
+| canon consistency (§4 principle text and fixture rows agree) | PASS |
+| TASK-1391 contract (exact retry → no second event; state/conflict payloads owned by #1392) | PASS |
+| every new rule has a TC (ST-21d〜e2, 28c〜k, 30a〜d, 41〜43a) | PASS |
+| dependencies surfaced as Preflight (strip/finalize round trip, re-binding event, decision payload keys and size, event type names) | PASS |
+| open decisions | WARN — [P1] no-WAL single snapshot / [P2] trusted runtime_root / provisional `MAX_*` values (Human C-3) |
+
+### Verdict
+
+PASS with WARN. C-2 has not converged (R2 found new classes); C-3 waits for a round without new classes.

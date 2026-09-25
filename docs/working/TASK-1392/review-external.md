@@ -151,3 +151,35 @@ Status updates (append-only):
 | R-023 | reflected | (model B commit) | |
 
 C-2 round 2 reviews the model-B plan (§7-quater: is the fix effective / did it create new holes / did fail-closed break the normal path), including the new dependency that #1391 `finalize_event` adds only a closed set of binding keys.
+
+## C-2 round 2 (2026-09-25 / reviewed head `47b7927f`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent (diff `2f64beb0..47b7927f`, model-A remnant grep, TC ↔ rule mapping). Key claims re-checked against files (canon fixture row still distinguished no transaction id; create digest included the unstored `initial_state`; `transition` check was one-directional).
+
+Verdict: **fix needed; not converged** — new classes R-032 / R-033 / R-034 / R-035 and the conflict-digest response variance (R-029). The idempotency layer has produced a new class every round (R-001 → R-006〜R-009 → R-020 → R-029 / R-035), so the Human was asked to narrow it.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-029 | design | major | conflict digest cannot be re-derived, so the same request can get a different answer after tampering | new | **Human decision: conflicts are outside idempotency.** Replay only for committed create / commit; a conflicted id gets a live RevisionConflict, no digest kept |
+| R-030 | both | major | conflict envelope vs payload not cross-checked; `transition` checked one way only; create / conflict `expected_revision` undefined | R-017 fix incomplete | reflected: numbers only in the payload, envelope fields null per kind, `transition` iff trailing `state_transitioned`, conflict consistency on load; ST-28j / 28k |
+| R-031 | adversarial | major | renaming an events-only envelope's `transaction_id` (snapshot_ref recomputed) lets the original request append again; "cannot append twice" claim was wrong | R-020 fix incomplete | reflected: claim withdrawn; Trust limit stated (unkeyed hash, hostile writer out of scope); ST-28i narrowed to corruption |
+| R-032 | design | major | conflict evidence consumes the terminal reserve | new | reflected: conflicts recorded only outside the reserve, else `suppressed`; ST-30d |
+| R-033 | adversarial | minor | states that accept `stop` undefined; a Run at the reserve in EXECUTING cannot terminate | new | reflected: guarantee scoped to Decision states; #1395 budget must stop earlier; residual in handoff; ST-30a pinned to VERIFYING |
+| R-034 | adversarial | major | `plan_hash` cannot change but `REPLANNING -> PLAN_VERIFYING` is allowed, so a new Plan is rejected | new | **Human decision: allow one re-binding `plan_contract_bound` while REPLANNING**; ST-43 / 43a; #1391 dependency |
+| R-035 | adversarial | major | digest input set ≠ recomputable set (`initial_state` unstored, trailing `state_transitioned` not excluded, #1391 canonicalization may change drafts) → legitimate retries get `TransactionIdReuse` | new | reflected: digest over recomputable data only, no `initial_state` input, trailing transition excluded, drafts with binding keys rejected, Preflight `strip(finalize(d)) == d`; ST-21e / 21e2 / 42 |
+| R-036 | adversarial | major/minor | canon fixture row contradicts the revised §4; ST-41 recursive check would reject valid conflicts; model-A remnants in INDEX / current-state / review-self / todo | R-019 fix incomplete / cleanup | reflected: canon fixture rows split (new id → STATE_CONFLICT / same request → replay / conflicted id → live conflict); ST-41 top-level only; remnants cleaned |
+
+Info (not reflected): `resumed_from_run_id?` in pbi-input has no deriving event under B (to be defined by the waiting/resume or Replan-as-new-Run slice). Cost: B recomputes digests on load; compute lazily for the looked-up id only (performance fixture decides).
+
+Round note (§7-quater): not converged. R3 should check that the narrowed idempotency and the re-binding rule are effective and create no new hole; if R3 again finds a new class in the idempotency layer, the next step is to drop idempotency from the first slice (the third option offered to the Human).
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-029 | reflected | (C-2 R2 commit) | Human decision |
+| R-030 | reflected | (C-2 R2 commit) | |
+| R-031 | reflected | (C-2 R2 commit) | residual, documented |
+| R-032 | reflected | (C-2 R2 commit) | |
+| R-033 | reflected | (C-2 R2 commit) | residual for #1395 |
+| R-034 | reflected | (C-2 R2 commit) | Human decision; #1391 dependency |
+| R-035 | reflected | (C-2 R2 commit) | #1391 dependency |
+| R-036 | reflected | (C-2 R2 commit) | |
