@@ -136,6 +136,25 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 
 補足（残存脅威として明記を推奨）: tree 同一性でも 1 バイトの意味のない変更で tree は変わるため、sticky FAIL が保証するのは「同じ内容の再実行では緑にならない」ことだけで、変更後の flaky PASS を抑えるのは budget だけ。`+1` 規則を満たすには #1395 が入力の event を Decision より前の transaction で commit しておく必要がある。
 
+### 敵対レビュー Rev2-R5（2026-09-25 / Revision 2.1 = `4154a459` / 独立エージェント）
+
+前提: Human 決定（2026-09-25）で #1393 の保証範囲を「Decision = f(DecisionInput) と、DecisionInput だけで検査できる規則」に絞り、stream 束縛は #1422（B-1〜B-7）へ切り出した。R-042 / R-044 / R-045 を純関数の規則で是正し、R-043 → #1422 B-7、R-046 → #1422 B-3 へ移管した上での 1 ラウンド。
+
+判定（レビュアー）: 要是正（収束、是正漏れのみ）。新しい回避クラスは 0 件。ただし R-047 は R-042 の是正で生まれた MERGE_READY 経路で、R-037 と同型と判定したのはレビュアーの判断（「契約の区切りで解除される」を独立クラスと見れば未収束）。**収束の裁定は Human に返す。**
+
+閉鎖確認: R-042 部分的（区切り前の PASS は revert 後も bound にならない＝DV-21 / DP-14。残りは R-047 / R-050 / R-054）/ R-044 閉じた（evidence_delta は verdict の対から導出。PR-10 が「最新の結果」変異を殺す）/ R-045 閉じた（budget に failure_recorded 件数）。
+
+| ID | severity | 指摘 | クラス | 状態 |
+|---|---|---|---|---|
+| R-047 | major | bound の契約区切りが FAIL にも掛かるため、tree T の D FAIL(40) → replan_required → 再束縛(50) → tree は T のまま → flaky PASS(60) で continue → MERGE_READY。DV-22 がこれを正しい期待値として固定。replan は Diagnoser（モデル）が起こせる | 既出 R-037 と同型（内容が変わらずに sticky FAIL が解除）。R-042 の是正から発生 | open（是正案: 区切りを非対称に。PASS / unavailable は区切りで失効、同じ tree・同じ (verifier_id, kind) の FAIL は区切りをまたいで sticky。DV-22 を repair に） |
+| R-048 | major | `policy_verdicts` と `pr_convergence` が受理済み event に束縛されていない。DENIED を渡し忘れると MERGE_READY。seq を持たないので +1 規則も監査も掛からない | 既出 R-033 / R-039 / R-024 の是正漏れ | open（是正案: event から構築し event_ref / observed_seq を I-9 の対象に。Run 中の DENIED は必ず含める。#1422 に B-8） |
+| R-049 | major | #1422 B-1〜B-7 に割り当ての無い stream 不変条件が残る: 結果集合と FR 集合の完全性、FIRST_ITERATION の真偽、previous_* の真偽、監査（所有者 follow-up）。リリース条件に監査が無い | 既出 R-034 の是正漏れ（切り出しで再露出） | open（是正案: `(contract_bound_seq, input_last_event_seq]` 区間の verification_recorded 集合 == payload の ref 集合を load 時に照合。#1422 に B-8 以降、または監査をリリース条件へ） |
+| R-050 | minor | I-10 が contract_bound_seq = 0（区切り無し）を受理し、R-042 の規則を丸ごと無効にできる | 既出 R-007 | open（是正案: `>= 1`、Notation の既定値を 1） |
+| R-051 | minor | seq 空間の一意性を検査していない（結果の observed_seq == contract_bound_seq を DV-23 / AV-01 が正常入力扱い、FR と結果の seq 重複も通る） | 既出 R-035 | open（是正案: 結果・FR・contract_bound_seq の seq を一括で一意に。DV-23 / AV-01 は DecisionInputError、inclusive 変異は 49 / 51 の対で殺す） |
+| R-052 | minor | previous_* の基準点が 1 つに決まらない（previous_verdicts は DIAGNOSING または PR_CONVERGING、IT-05 は DIAGNOSING のみ、previous_records / previous_artifact_ref は未定義）。previous_verdicts の値域も未検査 | 既出 R-026 / R-044 | open（是正案: `previous_decision_ref` 1 つから全 previous_* を取る。値域検査。IT-05 に PR_CONVERGING） |
+| R-053 | minor | DV-21 / DV-22 / DP-14 に input_last_event_seq の指定が無く、期待値が一意に決まらない | 既出 R-013 | open（是正案: 例 70 を明示） |
+| R-054 | minor | #1422 B-2 本文に IT-10 の照合（payload の contract_bound_seq == 直前の最新 plan_contract_bound の seq）が無い。B-7 は「その FAIL より後の failure_recorded を全部渡す」契約にすれば純関数で閉じられる | 既出 R-043 / R-034（境界の揺れ） | open（是正案: B-2 に IT-10 を追記。B-7 の純関数化を検討） |
+
 ## 監査表（追記専用）
 
 | R-ID | status | reflected_in(commit) | notes |
@@ -167,3 +186,9 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-037〜R-041 | open | — | Rev2-R3 節。上限ラウンド到達で Human 判断待ち |
 | R-037〜R-041 | reflected（Human 承認の追加ラウンドで是正） | `38bdc57d` | R-037 / R-038 / R-040 は Rev2-R4 で閉鎖確認。R-039 は R-043、R-041 は R-044 が残る |
 | R-042〜R-046 | open | — | Rev2-R4 節。追加ラウンドも未収束で Human 判断待ち |
+| R-042 | reflected（Revision 2.1、部分的） | `4154a459` | Rev2-R5: R-047 / R-050 / R-054 が残る |
+| R-043 | moved（#1422 B-7） | `4154a459` | Human 決定: stream 側の不変条件。R-054 で純関数化の余地を指摘 |
+| R-044 | reflected（Revision 2.1） | `4154a459` | Rev2-R5 で閉鎖確認 |
+| R-045 | reflected（Revision 2.1） | `4154a459` | Rev2-R5 で閉鎖確認 |
+| R-046 | moved（#1422 B-3） | `4154a459` | |
+| R-047〜R-054 | open | — | Rev2-R5 節。収束の裁定（R-047 のクラス判定）を Human 判断待ち |
