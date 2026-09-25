@@ -365,10 +365,26 @@ def invalid_envelope(
     )
 
 
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    obj: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in obj:
+            raise NormalizeError(f"duplicate JSON key: {key}")
+        obj[key] = value
+    return obj
+
+
+def _reject_non_finite(token: str) -> Any:
+    raise NormalizeError(f"non-finite JSON number: {token}")
+
+
 def _read_json(path: str) -> Any:
-    if path == "-":
-        return json.load(sys.stdin)
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    text = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
+    return json.loads(
+        text,
+        object_pairs_hook=_reject_duplicate_keys,
+        parse_constant=_reject_non_finite,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -387,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
             provider=args.provider,
             lane=args.lane,
         )
-    except (OSError, json.JSONDecodeError, NormalizeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, NormalizeError) as exc:
         try:
             envelope = invalid_envelope(
                 provider=args.provider,
