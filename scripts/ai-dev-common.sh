@@ -17,7 +17,38 @@ ai_dev_usage() {
   command_name=$1
   printf 'Usage:\n'
   printf '  ./scripts/ai-dev-workflow TASK-XXXX %s\n' "$command_name"
-  printf '  ./scripts/ai-dev-workflow TASK-XXXX %s --dry-run\n' "$command_name"
+  printf '  ./scripts/ai-dev-workflow TASK-XXXX %s [--profile=PROFILE] [--dry-run]\n' "$command_name"
+}
+
+ai_dev_set_model_profile() {
+  profile_key=$1
+  mode=${2:-}
+  model_id=$(python3 "$ai_dev_script_dir/_resolve_model_id.py" "$profile_key" "$ai_dev_repo_root/docs/ai/model-profiles.yaml" "$mode") || return 1
+  validation_bias=$(python3 "$ai_dev_script_dir/_resolve_validation_bias.py" "$profile_key" "$ai_dev_repo_root/docs/ai/model-profiles.yaml") || return 1
+
+  AI_DEV_MODEL_PROFILE=$profile_key
+  AI_DEV_CODEX_MODEL=$model_id
+  export PLANGATE_MODEL_PROFILE=$profile_key
+  export PLANGATE_VALIDATION_BIAS=$validation_bias
+}
+
+ai_dev_print_model_selection() {
+  if [ -n "${AI_DEV_CODEX_MODEL:-}" ]; then
+    printf 'Codex model: %s (profile: %s)\n' "$AI_DEV_CODEX_MODEL" "$AI_DEV_MODEL_PROFILE"
+  fi
+}
+
+ai_dev_codex_exec() {
+  sandbox_mode=$1
+  shift
+
+  if [ -n "${AI_DEV_CODEX_MODEL:-}" ]; then
+    printf '[ai-dev] Codex model: %s (profile: %s)\n' "$AI_DEV_CODEX_MODEL" "$AI_DEV_MODEL_PROFILE" >&2
+    "$ai_dev_script_dir/codex-local.sh" exec --model "$AI_DEV_CODEX_MODEL" --full-auto --sandbox "$sandbox_mode" "$@"
+    return
+  fi
+
+  "$ai_dev_script_dir/codex-local.sh" exec --full-auto --sandbox "$sandbox_mode" "$@"
 }
 
 ai_dev_validate_task_id() {
@@ -47,6 +78,9 @@ ai_dev_parse_task_args() {
 
   AI_DEV_TASK=""
   AI_DEV_DRY_RUN=0
+  AI_DEV_MODEL_PROFILE=""
+  AI_DEV_CODEX_MODEL=""
+  AI_DEV_MODE=""
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -54,6 +88,20 @@ ai_dev_parse_task_args() {
         ;;
       --dry-run)
         AI_DEV_DRY_RUN=1
+        ;;
+      --profile=*)
+        if [ -n "$AI_DEV_MODEL_PROFILE" ]; then
+          echo "Only one model profile can be specified." >&2
+          return 1
+        fi
+        AI_DEV_MODEL_PROFILE=${1#--profile=}
+        ;;
+      --mode=*)
+        if [ -n "$AI_DEV_MODE" ]; then
+          echo "Only one mode can be specified." >&2
+          return 1
+        fi
+        AI_DEV_MODE=${1#--mode=}
         ;;
       *)
         if [ -n "$AI_DEV_TASK" ]; then
@@ -72,6 +120,9 @@ ai_dev_parse_task_args() {
   fi
 
   ai_dev_validate_task_id "$AI_DEV_TASK"
+  if [ -n "$AI_DEV_MODEL_PROFILE" ]; then
+    ai_dev_set_model_profile "$AI_DEV_MODEL_PROFILE" "$AI_DEV_MODE" || return 1
+  fi
   AI_DEV_WORK_DIR=$ai_dev_repo_root/docs/working/$AI_DEV_TASK
 }
 
