@@ -1,6 +1,6 @@
 # TASK-1392 INDEX
 
-> 最終更新: 2026-09-25 15:45
+> 最終更新: 2026-09-25 16:10
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
 > plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
 > （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
@@ -20,6 +20,8 @@ C-2
 > Codex への相談（2026-09-25）を受けて、durability の定義・容量の上限・CAS 保証の範囲・初期状態の扱いを plan に追記済み。
 > #1407（#1393）からの依頼 R-014〜R-016（Decision からの遷移導出 / `decided_in_state` 照合 / `input_last_event_seq + 1`）を反映済み。
 > `decision_made` の payload キーは #1391 の凍結待ち（RED fixture の前提）。
+> **C-2 R1 実施済み・未収束**（R-017〜R-028）。設計レーンは 2 モデル（gpt-5.6-sol / gpt-6-sol）とも「モデル B（event + envelope のみ保存）へ変更」を推奨し、canon §4 と pbi-input の改訂を要する。
+> コードベースレーンは #1402 の `run_state.py` が別モデルで本 slice を実装済みであることを検出。**R-017（A→B）と R-023（#1402 との関係）が Human 判断待ちで、C-2 R2 はその後**。
 
 ## 次のアクション
 

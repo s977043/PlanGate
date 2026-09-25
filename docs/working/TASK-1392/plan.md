@@ -92,6 +92,8 @@ The lookup runs before the revision check because an exact retry after a success
 
 A `transaction_id` is consumed by the commit or by the recorded conflict it produced. A caller that wants to retry with a new `expected_revision` uses a new `transaction_id`. A request answered with `suppressed` (Conflict evidence bound) or `InvalidExpectedRevision` is not recorded and so does not consume its `transaction_id`; it cannot later commit unchanged, because its `expected_revision` is already behind (suppressed) or can never be current (see below).
 
+Relation to canon §4 (`artifact-responsibilities.md`: "mismatch -> STATE_CONFLICT"): replay is **re-delivery of the response of a request that already committed**, identified only by the same `transaction_id` and the same `request_digest`. It is not a CAS retry. Any other request carrying a stale `expected_revision` — including an identical payload under a new `transaction_id` — is a CAS mismatch and gets `STATE_CONFLICT` as canon §4 requires. API docs and tests (ST-21 vs ST-21a) keep the two apart.
+
 ### create_run
 
 Under exclusive lock:
@@ -134,7 +136,7 @@ Under exclusive lock:
    - append `state_transitioned` as final event of transaction
    - event-level `revision` is the **new revision**; earlier events in the same transaction retain the pre-transition revision
 10. build generation+1 snapshot with ledger entry `kind=commit` covering the transaction's event_seq range
-11. write temp in same directory
+11. write temp in same directory, at the fixed name `<safe-run-id>.json.tmp` (no random names; any other sibling in `runtime_root` is rejected, so ST-20 cleanup is deterministic)
 12. flush + fsync temp
 13. `os.replace(temp, target)`
 14. fsync parent directory
@@ -201,7 +203,7 @@ Every commit rewrites the whole snapshot, so write volume and latency grow with 
 
 - `MAX_EVENTS_PER_RUN` (provisional 2048) and `MAX_SNAPSHOT_BYTES` (provisional 8 MiB)
 - a commit whose resulting snapshot would exceed either bound is rejected with `SnapshotCapacityExceeded` **before the temp file is written**, with zero mutation
-- **terminal reserve**: non-terminal commits are rejected once the snapshot is within `TERMINAL_RESERVE` (provisional 16 events / 64 KiB) of either bound, so a terminal `decision_made` can always still be committed and a full Run is never left without a terminal outcome
+- **terminal reserve**: non-terminal commits are rejected once the snapshot is within `TERMINAL_RESERVE` of either bound. A fixed reserve alone does not prove that a terminal Decision fits, so the reserve is **derived, not guessed**: `TERMINAL_RESERVE >= 1 event and >= MAX_DECISION_EVENT_BYTES + ledger entry size`, where `MAX_DECISION_EVENT_BYTES` is the maximum canonical encoded size of a `decision_made` event. [Dependency] #1391 / #1393 must bound the `decision_made` payload (e.g. the number of `event_ref` it lists) so that the maximum exists; until then the reserve is provisional and the guarantee "a full Run can always commit its terminal outcome" is **not claimed**. A terminal Decision larger than the reserve is rejected by #1391 payload validation, not by the capacity check (ST-30c)
 - temp space: the store needs free space for one extra snapshot; ENOSPC during temp write is a pre-replace failure (old snapshot stays authoritative)
 - performance fixture: commit latency at the bound on the CI runner; the threshold is fixed with the fixture (provisional p95 ≤ 200 ms). Missing the threshold is a **Replan trigger** (compaction or WAL slice), not a reason to relax the bound
 
@@ -226,8 +228,9 @@ Payload ownership: TASK-1391 plan lists "state/conflict evidence consumed from #
 ## Locking
 
 POSIX first slice:
-- per-run lock file
+- per-run lock file, opened no-follow from a `runtime_root` dirfd
 - `fcntl.flock(LOCK_EX)`
+- after acquiring the lock, re-open the lock path from the same dirfd and compare `(st_dev, st_ino)` with the locked fd; on mismatch release and fail closed (`runtime_path_changed`), as TASK-1025 plan did. Without this, a lock file replaced between open and flock lets two writers hold locks on different inodes and both pass CAS (ST-39)
 - lock held across load -> validate -> build -> replace -> dir fsync
 - lock file is not Run truth
 
@@ -253,6 +256,12 @@ commit(
 `CommitResult = {snapshot, replayed: bool, transaction}` where `transaction` is the request's own ledger entry (`generation`, `first_event_seq`, `last_event_seq`, `result_revision`). `replayed=true` means the request had already committed and nothing was written; `snapshot` is then the current one and may be ahead of the transaction, so callers read their own outcome and event refs from `transaction`, not from `snapshot.state`.
 
 No CLI in this slice.
+
+## Implementation placement and static coverage
+
+- TA numbers: use **ta-94 or later** (main has ta-88; open PRs and the sweep plan hold ta-88〜93). Re-check `tests/extras/` on main and open PRs just before exec
+- the module location must be one that the static checks actually scan: `scripts/ai-loop-v2/` is outside ta-70 `_T70_DIRS` and `check_exec_boundary.py` today, so ST-25 / ST-26 would pass vacuously there. Before exec, either extend those checks to the chosen directory or place the module where they already apply (with the TC-E9 plugin allowlist / sync declaration that `scripts/ai-loop/` requires). Extending the checks may touch HO paths (`scripts/hooks/*.sh`, `.github/workflows/*`); if so that part is Human-applied
+- a positive control is required for ST-25 / ST-26: inject a forbidden symbol and confirm the check fails
 
 ## Tests
 

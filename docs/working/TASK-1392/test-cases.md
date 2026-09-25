@@ -59,6 +59,9 @@
 | ST-30b | ENOSPC during temp write | old snapshot authoritative, stale temp handled as ST-20 |
 | ST-31 | flush primitive unavailable (macOS `F_FULLFSYNC` fails / unsupported platform) | fail closed (`runtime_unwritable`), no fallback to plain `fsync`, old snapshot intact |
 | ST-32 | commit latency at the size bound on the CI runner | within the threshold fixed by the fixture; a miss is a Replan trigger |
+| ST-30c | terminal `decision_made` larger than `MAX_DECISION_EVENT_BYTES` | rejected by #1391 payload validation (not by the capacity check) |
+| ST-39 | lock file replaced between open and flock | `runtime_path_changed`, fail closed, no commit |
+| ST-40 | unexpected sibling (e.g. random-named temp) in `runtime_root` | reject under lock |
 | ST-33 | `decision_made.decided_in_state` differs from snapshot `lifecycle_state` (terminal and non-terminal) | reject, zero mutation (#1393 IT-01 / IT-02) |
 | ST-34 | `decision_made` assigned `event_seq != input_last_event_seq + 1` by another writer's event | reject, zero mutation (#1393 IT-04) |
 | ST-34a | `[verification_recorded FAIL, decision_made]` in one transaction | reject, zero mutation (#1393 IT-07 / IT-08) |

@@ -93,3 +93,43 @@ Open dependency: #1391 must freeze the `decision_made` payload keys (`decided_in
 | R-014 | reflected | (this PR, #1407-requests commit) | |
 | R-015 | reflected | (this PR, #1407-requests commit) | |
 | R-016 | reflected | (this PR, #1407-requests commit) | |
+
+## C-2 round 1 (2026-09-25 / reviewed head `2f64beb0`)
+
+Two lanes per `review-principles.md` §7-bis. Design lane run twice: Codex `gpt-5.6-sol` and Codex `gpt-6-sol` (model confirmed from the Codex rollout log, not from the report). Codebase lane: independent Claude agent. Key codebase claims were re-checked against files (main has 0 `validate_append`; #1402 `run_event.py` has `state_conflict_recorded` and no `state_transitioned`; #1402 `run_state.py` is multi-file + journal with plain `os.fsync` and WAITING_* / self edges).
+
+Verdict: **fix needed; not converged** (new classes R-018 / R-020 / R-022).
+
+| ID | lane | severity | finding | disposition |
+|---|---|---|---|---|
+| R-017 | design (both models) | major | Model A stores derived state and ledger aggregates and re-derives them on every load; R-002 → R-005 was the same class. Both models recommend model B (store only events + #1392 transaction envelope, derive state / index) with the same single-file atomic replace. B conflicts with canon §4 (CAS writes `new_state`) and pbi-input (single snapshot incl. RunState), so **B requires a canon revision** | **Human decision (C-3)** — not changed by the plan author |
+| R-018 | design (both models) | major | A fixed `TERMINAL_RESERVE` does not prove a terminal Decision fits | reflected: reserve derived from `MAX_DECISION_EVENT_BYTES`; guarantee not claimed until #1391/#1393 bound the payload; ST-30c |
+| R-019 | design (gpt-6-sol) | major | Boundary between replay and canon §4 "mismatch -> STATE_CONFLICT" undefined | reflected: replay = re-delivery for the same transaction_id + digest only; everything else stale is STATE_CONFLICT |
+| R-020 | design (gpt-5.6-sol) | major | `request_digest` is not re-derivable from stored data, so a consistent-looking ledger replacement is undetectable | open: disappears under model B (envelope stores the request identity with its events); under A needs the canonical request stored with the entry. Depends on R-017 |
+| R-021 | design (gpt-5.6-sol) | major | Owner boundary of a B-style transaction envelope vs #1391 RunEvent is undefined | open: depends on R-017 |
+| R-022 | codebase | major | #1391 implementation exists only in PR #1402; its closed `EVENT_PAYLOAD_KEYS` has no `state_transitioned` (name there: `state_conflict_recorded`) | reflected: "consumable" preflight now requires the #1391 API on main and either the state event types or an extension point |
+| R-023 | codebase | major | #1402 `run_state.py` already implements #1392 with a different model (multi-file + journal, plain fsync, WAITING_* / self edges) | **Human decision (C-3)**: replace or exclude #1402's run_state |
+| R-024 | codebase | major | No re-open + dev/ino check after flock (TASK-1025 had `runtime_path_changed`) | reflected: Locking; ST-39 |
+| R-025 | codebase | major | #1393 requests not in plan at `2f64beb0` | already reflected in `77d7802d` (R-014〜R-016) |
+| R-026 | codebase | minor | TA number collisions (main ta-88; open PRs ta-88〜91; sweep reserves 92〜93) | reflected: ta-94 or later |
+| R-027 | codebase | minor | `scripts/ai-loop-v2/` is outside ta-70 / exec-boundary scans, so ST-25/26 would pass vacuously | reflected: Implementation placement and static coverage (positive control required) |
+| R-028 | codebase | minor | temp file naming undefined | reflected: fixed `<run-id>.json.tmp`, other siblings rejected; ST-40 |
+
+Info (not reflected): TA-87 fixture on main models state per event with a REPAIRING self edge and +1 revision on terminal decision — hand over to #1395. `F_FULLFSYNC` succeeded on this machine (APFS) for file and directory.
+
+Round note (§7-quater): the design lane in two independent models reached the same verdict (move to B), and the codebase lane found a competing implementation of this slice. The next round should not start until the Human decides R-017 / R-023, because both change what is being reviewed.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-017 | human-decision | — | canon §4 / pbi-input revision if B |
+| R-018 | reflected | (C-2 R1 commit) | |
+| R-019 | reflected | (C-2 R1 commit) | |
+| R-020 | open | — | depends on R-017 |
+| R-021 | open | — | depends on R-017 |
+| R-022 | reflected | (C-2 R1 commit) | |
+| R-023 | human-decision | — | |
+| R-024 | reflected | (C-2 R1 commit) | |
+| R-025 | reflected | `77d7802d` | |
+| R-026 | reflected | (C-2 R1 commit) | |
+| R-027 | reflected | (C-2 R1 commit) | |
+| R-028 | reflected | (C-2 R1 commit) | |
