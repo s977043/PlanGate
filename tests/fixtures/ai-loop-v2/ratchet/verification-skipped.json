@@ -1,0 +1,194 @@
+{
+  "schema_version": "1",
+  "kind": "ratchet_verification_skipped_vertical_slice",
+  "sealed_evaluation_plan": {
+    "plan_id": "evaluation:verification-skipped:v1",
+    "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
+    "known_bad_fixture_id": "incident-verification-skipped-v1",
+    "negative_control_fixture_id": "negative-valid-verification-v1",
+    "fixture_digests": {
+      "incident-verification-skipped-v1": "sha256:1e2c75b0d172bede88136d8028beebf251774e19c97656c6e0d71b4f69cea570",
+      "negative-valid-verification-v1": "sha256:14aae27cc2cc9f73f819a271e8a106ef402ea8e04b02bb9cb397a0c500a08a2b"
+    },
+    "required_activation": "influenced_decision",
+    "protected_paths": [
+      "scripts/ai-loop-v2/decision_core.py",
+      "scripts/ai-loop-v2/ratchet.py",
+      "scripts/ai-loop-v2/test_ratchet.py",
+      "tests/fixtures/ai-loop-v2/ratchet/**",
+      "tests/extras/ta-92-ai-loop-v2-ratchet.sh"
+    ],
+    "critical_regression_conditions": [
+      "known_bad_not_stopped",
+      "negative_control_blocked"
+    ]
+  },
+  "candidate": {
+    "candidate_id": "candidate:verification-skipped:v1",
+    "hypothesis": "requiring completion verification evidence will stop verification-skipped completion",
+    "source": {
+      "run_evidence_refs": [
+        "sha256:6851f598a8e176e1be1285029a243592b78ae4cc13ce4a40ffd2493e6544fb68"
+      ],
+      "failure_instance_refs": [
+        {
+          "run_id": "run:verification-skipped:source-1",
+          "event_ref": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "failure_record_ref": "sha256:98f79f2951db220899cd1f11621825881000725dcab8c1c7f01bc4932da6cf7c",
+          "run_evidence_ref": "sha256:6851f598a8e176e1be1285029a243592b78ae4cc13ce4a40ffd2493e6544fb68"
+        }
+      ],
+      "pattern_snapshot": {
+        "pattern_id": "pattern:verification-skipped",
+        "pattern_version": 1,
+        "classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "source_set_digest": "sha256:bff15ed7e1e2416509a5676b4c9696a188f9e0273257fb2fbf9cf9c9d1836a4b",
+        "fingerprint": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "occurrence_count": 1,
+        "scope": "project"
+      }
+    },
+    "target": {
+      "operation": "UPDATE",
+      "component_refs": [
+        "verifier:completion-evidence"
+      ],
+      "allowed_paths": [
+        "harness/verifiers/**"
+      ]
+    },
+    "expected_prevention": {
+      "mode": "stop",
+      "pattern_refs": [
+        "pattern:verification-skipped"
+      ],
+      "expected_effect": "completion without verification evidence is blocked"
+    },
+    "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
+    "evaluation_plan_digest": "sha256:b777f925ee88d7a15af0bd419a6bca3580e59629ef3899fd6cb1825ef00c2756"
+  },
+  "sources": [
+    {
+      "run_id": "run:verification-skipped:source-1",
+      "event_ref": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "failure_record": {
+        "id": "failure:verification-skipped:1",
+        "observation": "completion attempted without required verification evidence",
+        "fingerprint": "verification-required-but-missing",
+        "evidence_refs": [
+          "verification:missing",
+          "completion:attempted"
+        ],
+        "cause_hypothesis": "completion gate did not require verification evidence",
+        "repairability": "repairable",
+        "result": "observed"
+      },
+      "run_evidence": {
+        "run_id": "run:verification-skipped:source-1",
+        "harness_manifest_ref": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "outcome": "HUMAN_ESCALATED",
+        "stop_reasons": [
+          "VERIFIER_UNAVAILABLE"
+        ],
+        "verification_result_refs": [
+          "verification:missing"
+        ],
+        "failure_record_refs": [
+          "sha256:98f79f2951db220899cd1f11621825881000725dcab8c1c7f01bc4932da6cf7c"
+        ],
+        "evidence_refs": [
+          "completion:attempted",
+          "verification:missing"
+        ],
+        "evidence_status": "ready"
+      }
+    }
+  ],
+  "baseline_manifest": {
+    "source_commit": "1111111111111111111111111111111111111111",
+    "components": [
+      {
+        "component_id": "verifier:deterministic-tests",
+        "content_sha": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "paths": [
+          "harness/verifiers/deterministic-tests.json"
+        ],
+        "enabled": true
+      }
+    ]
+  },
+  "candidate_manifest": {
+    "source_commit": "2222222222222222222222222222222222222222",
+    "components": [
+      {
+        "component_id": "verifier:deterministic-tests",
+        "content_sha": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "paths": [
+          "harness/verifiers/deterministic-tests.json"
+        ],
+        "enabled": true
+      },
+      {
+        "component_id": "verifier:completion-evidence",
+        "content_sha": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "paths": [
+          "harness/verifiers/completion-evidence.json"
+        ],
+        "enabled": true,
+        "enforce_missing": true,
+        "block_when_present": false
+      }
+    ]
+  },
+  "candidate_manifest_ref": "sha256:268abc9a13a187be2d2e8e34cb0a3bac1744da83edbffe66323c1d5d5d18a17d",
+  "fixtures": {
+    "incident-verification-skipped-v1": {
+      "fixture_id": "incident-verification-skipped-v1",
+      "artifact_ref": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "verification_present": false,
+      "changed_paths": [
+        "harness/verifiers/delivery-artifact.json"
+      ]
+    },
+    "negative-valid-verification-v1": {
+      "fixture_id": "negative-valid-verification-v1",
+      "artifact_ref": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "verification_present": true,
+      "changed_paths": [
+        "harness/verifiers/delivery-artifact.json"
+      ]
+    }
+  },
+  "expected": {
+    "experiment_result": "PASS",
+    "promotion_decision": "PASS",
+    "production_promotion_executed": false,
+    "activation": "influenced_decision",
+    "changed_paths": [
+      "harness/verifiers/completion-evidence.json"
+    ],
+    "recurrence": {
+      "pattern_classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "eligible_run_count": 2,
+      "matching_failure_run_count": 0,
+      "same_pattern_recurrence_rate": 0
+    }
+  },
+  "recurrence_observations": [
+    {
+      "run_id": "run:post:1",
+      "classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "matched": false
+    },
+    {
+      "run_id": "run:post:2",
+      "classifier_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "matched": false
+    },
+    {
+      "run_id": "run:other-pattern",
+      "classifier_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "matched": true
+    }
+  ]
+}
