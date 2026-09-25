@@ -104,6 +104,10 @@ def _load_intent_context(task_dir: pathlib.Path) -> tuple[dict[str, Any] | None,
         payload = json.loads(raw)
     except (OSError, ValueError) as exc:
         return None, None, [f"intent-context strict JSON parse failed: {exc}"]
+    if not isinstance(payload, dict):
+        return None, None, [
+            f"intent-context must be a JSON object, got {type(payload).__name__}"
+        ]
     errors = intent_context_contract.validate_package(payload)
     if payload.get("task_id") != task_dir.name:
         errors = list(errors) + [

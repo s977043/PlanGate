@@ -139,6 +139,14 @@ class PlanContractContextBindingTests(unittest.TestCase):
         with self.assertRaises(plan_contract.PlanContractError):
             plan_contract.build_record(self.task_dir)
 
+    def test_06b_non_object_context_fails_closed(self):
+        for raw in (b"[]", b'"CTX-1"', b"1", b"null"):
+            with self.subTest(raw=raw):
+                (self.task_dir / "intent-context.json").write_bytes(raw)
+                with self.assertRaises(plan_contract.PlanContractError) as cm:
+                    plan_contract.build_record(self.task_dir)
+                self.assertIn("must be a JSON object", str(cm.exception))
+
     def test_07_plan_marker_is_required_and_approval_bound(self):
         (self.task_dir / "plan.md").write_text(
             "# Plan\n\n## Goal\nNo context marker.\n", encoding="utf-8"
