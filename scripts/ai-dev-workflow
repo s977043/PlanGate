@@ -7,13 +7,13 @@ set -eu
 ai_dev_workflow_usage() {
   printf '%s\n' \
     'Usage:' \
-    '  ./scripts/ai-dev-workflow TASK-XXXX brainstorm [--dry-run]' \
-    '  ./scripts/ai-dev-workflow TASK-XXXX plan [--dry-run]' \
-    '  ./scripts/ai-dev-workflow TASK-XXXX gate [--dry-run]' \
-    '  ./scripts/ai-dev-workflow TASK-XXXX prepare-cloud [--dry-run]' \
-    '  ./scripts/ai-dev-workflow TASK-XXXX exec [--dry-run]' \
-    '  ./scripts/ai-dev-workflow TASK-XXXX status [--dry-run]' \
-    '  ./scripts/ai-dev-workflow TASK-XXXX sync-cloud [--dry-run]' \
+    '  ./scripts/ai-dev-workflow TASK-XXXX brainstorm [--profile=PROFILE] [--mode=MODE] [--dry-run]' \
+    '  ./scripts/ai-dev-workflow TASK-XXXX plan [--profile=PROFILE] [--mode=MODE] [--dry-run]' \
+    '  ./scripts/ai-dev-workflow TASK-XXXX gate [--profile=PROFILE] [--mode=MODE] [--dry-run]' \
+    '  ./scripts/ai-dev-workflow TASK-XXXX prepare-cloud [--profile=PROFILE] [--mode=MODE] [--dry-run]' \
+    '  ./scripts/ai-dev-workflow TASK-XXXX exec [--profile=PROFILE] [--mode=MODE] [--dry-run]' \
+    '  ./scripts/ai-dev-workflow TASK-XXXX status [--profile=PROFILE] [--mode=MODE] [--dry-run]' \
+    '  ./scripts/ai-dev-workflow TASK-XXXX sync-cloud [--profile=PROFILE] [--mode=MODE] [--dry-run]' \
     '' \
     'Notes:' \
     '  - Claude Code parity: brainstorm / plan / exec / status' \
@@ -47,10 +47,27 @@ subcommand=$1
 shift
 
 AI_DEV_DRY_RUN=0
+AI_DEV_MODEL_PROFILE=""
+AI_DEV_CODEX_MODEL=""
+AI_DEV_MODE=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run)
       AI_DEV_DRY_RUN=1
+      ;;
+    --profile=*)
+      if [ -n "$AI_DEV_MODEL_PROFILE" ]; then
+        echo "Only one model profile can be specified." >&2
+        exit 1
+      fi
+      AI_DEV_MODEL_PROFILE=${arg#--profile=}
+      ;;
+    --mode=*)
+      if [ -n "$AI_DEV_MODE" ]; then
+        echo "Only one mode can be specified." >&2
+        exit 1
+      fi
+      AI_DEV_MODE=${arg#--mode=}
       ;;
     --help|-h)
       ai_dev_workflow_usage
@@ -63,6 +80,10 @@ for arg in "$@"; do
   esac
 done
 
+if [ -n "$AI_DEV_MODEL_PROFILE" ]; then
+  ai_dev_set_model_profile "$AI_DEV_MODEL_PROFILE" "$AI_DEV_MODE" || exit 1
+fi
+
 status_file=$(ai_dev_status_file)
 todo_file=$AI_DEV_WORK_DIR/todo.md
 plan_file=$AI_DEV_WORK_DIR/plan.md
@@ -73,7 +94,7 @@ ai_dev_launch_codex_exec() {
   prompt=$1
   sandbox_mode=$2
 
-  printf '%s\n' "$prompt" | "$ai_dev_script_dir/codex-local.sh" exec --full-auto --sandbox "$sandbox_mode" -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" -
+  printf '%s\n' "$prompt" | ai_dev_codex_exec "$sandbox_mode" -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" -
 }
 
 ai_dev_prompt_brainstorm() {
@@ -220,12 +241,17 @@ case "$subcommand" in
     if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
       echo "Would start interactive Codex brainstorm for: $AI_DEV_TASK"
       echo "Would create/update: $AI_DEV_WORK_DIR/pbi-input.md and $status_file"
+      ai_dev_print_model_selection
       exit 0
     fi
     ai_dev_ensure_work_dir
     if [ ! -f "$status_file" ]; then
       ai_dev_create_status_stub
       echo "Created status stub: $status_file"
+    fi
+    if [ -n "$AI_DEV_CODEX_MODEL" ]; then
+      printf '[ai-dev] Codex model: %s (profile: %s)\n' "$AI_DEV_CODEX_MODEL" "$AI_DEV_MODEL_PROFILE" >&2
+      exec "$ai_dev_script_dir/codex-local.sh" --model "$AI_DEV_CODEX_MODEL" -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" "$(ai_dev_prompt_brainstorm)"
     fi
     exec "$ai_dev_script_dir/codex-local.sh" -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" "$(ai_dev_prompt_brainstorm)"
     ;;
@@ -235,12 +261,13 @@ case "$subcommand" in
   gate)
     if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
       echo "Would run plan-review-gate for: $AI_DEV_TASK"
+      ai_dev_print_model_selection
       exit 0
     fi
     ai_dev_require_file "$status_file" "status file"
     gate_output=$(mktemp)
     trap 'rm -f "$gate_output"' EXIT INT TERM HUP
-    printf '%s\n' "$(ai_dev_prompt_gate)" | "$ai_dev_script_dir/codex-local.sh" exec --full-auto --sandbox read-only -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" --output-last-message "$gate_output" - >/dev/null
+    printf '%s\n' "$(ai_dev_prompt_gate)" | ai_dev_codex_exec read-only -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" --output-last-message "$gate_output" - >/dev/null
     cat "$gate_output"
     if grep -Eq '^PLAN_GATE: PASS$' "$gate_output"; then
       exit 0
@@ -254,6 +281,7 @@ case "$subcommand" in
     if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
       echo "Would run workflow_conductor exec for: $AI_DEV_TASK"
       echo "Would use packet: $packet_file"
+      ai_dev_print_model_selection
       exit 0
     fi
     ai_dev_require_file "$status_file" "status file"
