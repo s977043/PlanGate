@@ -1,6 +1,8 @@
 # EXECUTION PLAN — TASK-1393 / #1393
 
 > Revision 2 (2026-09-25). Rebuilt after adversarial review R3 did not converge. Human design decisions: validate a per-state DecisionInput in one place; accept only `VERIFYING` / `DIAGNOSING` / `PR_CONVERGING`; the Decision carries no `next_state` (#1392 derives the transition); `HUMAN_REQUIRED` is deferred to the waiting/resume slice; the iteration budget is a #1395 requirement. See `decision-log.jsonl` and `review-external.md`.
+>
+> Revision 2.1 (2026-09-25). Human decision after Rev2-R4: #1393 guarantees only that the Decision follows from the DecisionInput and that every rule checkable on the DecisionInput alone holds. Whether the DecisionInput faithfully reflects the stream (artifact identity, contract boundary, event order, FailureRecord selection) is the Decision Input Binding contract owned by #1422. R-042 / R-044 / R-045 are fixed here as pure rules; R-043 / R-046 move to #1422 (B-7 / B-3).
 
 ## Architecture
 
@@ -54,20 +56,27 @@ Unknown repairability/result values are rejected; free-form strings are not deci
 
 ### ProgressAssessment
 
-`assess_progress(*, previous_records, current_records, previous_artifact_ref, current_artifact_ref, evidence_delta, resolved_blockers, introduced_blockers)` returns an immutable value carrying:
+`assess_progress(*, previous_records, current_records, previous_artifact_ref, current_artifact_ref, previous_verdicts, current_verdicts, resolved_blockers, introduced_blockers)` returns an immutable value carrying:
 
 - `current_artifact_ref`
 - `current_failure_refs` (the set of `failure_ref` in `current_records`)
+- `current_verdicts`
 - `no_progress`
 
-`artifact_changed` is derived (`previous_artifact_ref != current_artifact_ref`), not supplied. `previous_records` and `current_records` must both be non-empty; otherwise `assess_progress` raises (a first diagnosis uses `FIRST_ITERATION`).
+`previous_verdicts` / `current_verdicts` map each required verifier to its artifact verdict (`pass | fail | unavailable`, as returned by `artifact_verdicts`, see DecisionInput). `previous_verdicts` is the `artifact_verdicts` recorded in the payload of the previous `decision_made` in `DIAGNOSING` or `PR_CONVERGING` of the same Run (the base point); `current_verdicts` must equal the verdicts of the DecisionInput it is passed to (P-3).
+
+`artifact_changed` and `evidence_delta` are derived, not supplied:
+- `artifact_changed = previous_artifact_ref != current_artifact_ref`
+- `evidence_delta` = the required verifiers whose verdict differs between `previous_verdicts` and `current_verdicts` (a verifier present in only one map counts as differing)
+
+`previous_records` and `current_records` must both be non-empty, and `previous_verdicts` / `current_verdicts` must both be non-empty; otherwise `assess_progress` raises (a first diagnosis uses `FIRST_ITERATION`).
 
 `no_progress=true` only when all hold:
 - the set of normalized fingerprints in `previous_records` equals the set in `current_records` (both non-empty)
-- `previous_artifact_ref == current_artifact_ref`
+- `artifact_changed` is false
 - `evidence_delta`, `resolved_blockers`, `introduced_blockers` are all empty
 
-`evidence_delta` contains only observations that change some required verifier's artifact verdict or add a new failure fingerprint. A result on the same artifact that leaves every verdict unchanged (for example a PASS after a sticky FAIL, or a repeated unavailable) is not evidence delta, so it cannot turn a no-progress loop into an unbounded repair loop.
+Because the verdict is sticky, a result on the same artifact that leaves every verdict unchanged (a PASS after a FAIL, a repeated unavailable) produces no evidence delta, so it cannot turn a no-progress loop into an unbounded repair loop. A new failure fingerprint is already covered by the fingerprint-set comparison. `resolved_blockers` / `introduced_blockers` remain caller observations (#1395).
 
 No retry-count shortcut.
 
@@ -108,10 +117,12 @@ The Decision does not name a target state. #1392 derives the transition from `(s
 
 ## DecisionInput
 
-`make_decision_input(*, lifecycle_state, current_artifact_ref, input_last_event_seq, loop_contract_ref, required_verifiers, verification_results, failure_records=(), progress=None, pr_convergence=None, policy_verdicts=())` validates everything below and raises `DecisionInputError` on the first violation. It returns an immutable `DecisionInput`.
+`make_decision_input(*, lifecycle_state, current_artifact_ref, input_last_event_seq, loop_contract_ref, contract_bound_seq, required_verifiers, verification_results, failure_records=(), progress=None, pr_convergence=None, policy_verdicts=())` validates everything below and raises `DecisionInputError` on the first violation. It returns an immutable `DecisionInput`.
+
+`contract_bound_seq` is the `event_seq` of the `plan_contract_bound` event that bound `loop_contract_ref` to the Run (the latest one, so after a Replan it is the re-binding). Its truth is #1422 B-2 / B-6; #1393 only applies it.
 
 Definitions:
-- A result is **bound** when `bound_artifact_ref == current_artifact_ref`. Unbound (stale) results decide nothing.
+- A result is **bound** when `bound_artifact_ref == current_artifact_ref` **and** `observed_seq > contract_bound_seq`. Unbound (stale) results decide nothing. The second condition is the contract boundary: after a Replan, a result recorded under the previous contract never counts again, even when a revert brings the tree back to the artifact it was recorded on (R-042).
 - The **artifact verdict** of a required verifier is computed from **all** its bound results, independent of their order:
   - any bound result is `fail` -> `fail` (a FAIL on an artifact stays a FAIL until the artifact changes; a later PASS on the same artifact does not erase it, so "re-run until green" is not a path to success)
   - otherwise any bound result is `pass` -> `pass`
@@ -130,8 +141,9 @@ Common rules (all states):
 | I-5 | `observed_seq` and `verification_ref` are each unique across all results (the latest FAIL is then unique) |
 | I-8 | `loop_contract_ref` is non-empty (the LoopContract that `required_verifiers` was resolved from; see Trust boundary) |
 | I-6 | every policy verdict is `AUTO_APPROVED`, `HUMAN_REQUIRED`, or `DENIED` (taxonomy §5; `ALLOW` and unknown values are rejected) |
-| I-7 | every FailureRecord's `verification_ref` points to the latest FAIL of a required FAIL verifier (no orphan FR, and no FR for a stale, older, or non-required FAIL), and at most one FR per such result |
+| I-7 | every FailureRecord's `verification_ref` points to the latest FAIL of a required FAIL verifier (no orphan FR, and no FR for a stale, older, or non-required FAIL), at most one FR per such result, and the FR's `observed_seq` is greater than that FAIL's `observed_seq` (a diagnosis is recorded after the failure it diagnoses). Which `failure_recorded` event the caller must pick when the stream has several for one FAIL is #1422 B-7 |
 | I-9 | `input_last_event_seq` is at least the highest `observed_seq` of the results **and** the FailureRecords, and every `event_ref` is unique (see Trust boundary) |
+| I-10 | `contract_bound_seq` is a non-negative integer less than `input_last_event_seq`. Results with `observed_seq <= contract_bound_seq` are accepted but are not bound |
 
 Per-state rules:
 
@@ -141,7 +153,9 @@ Per-state rules:
 | `DIAGNOSING` | at least one required FAIL exists, and every required FAIL has exactly one FR | `FIRST_ITERATION` or a ProgressAssessment | must be `None` |
 | `PR_CONVERGING` | if a required FAIL exists, every required FAIL has exactly one FR; otherwise empty | if a required FAIL exists: `FIRST_ITERATION` or a ProgressAssessment; otherwise `None` | required |
 
-When progress is a ProgressAssessment, its `current_artifact_ref` must equal the input's, and its `current_failure_refs` must equal the set of `failure_ref` in `failure_records` (P-1). A stale assessment cannot be reused.
+When progress is a ProgressAssessment, its `current_artifact_ref` must equal the input's, and its `current_failure_refs` must equal the set of `failure_ref` in `failure_records` (P-1). Its `current_verdicts` must equal `artifact_verdicts(...)` computed from this input (P-3). A stale assessment cannot be reused.
+
+`artifact_verdicts(*, required_verifiers, verification_results, current_artifact_ref, contract_bound_seq)` is the pure function behind the verdict definition above. `make_decision_input` and `decide` use it; #1395 calls it to obtain `current_verdicts` before `assess_progress`, and the verdicts are recorded in the `decision_made` payload so the next iteration can use them as `previous_verdicts`.
 
 `pr_convergence` is a pure observed value: `observed_artifact_ref`, ci, required_reviews, blocking_threads=0, conflict=false, scope. #1393 validates it but does not query GitHub or derive changed paths. P-2: `observed_artifact_ref` must equal `current_artifact_ref`; convergence observed on another head (an older push, or a push by someone else) is rejected.
 
@@ -187,7 +201,7 @@ After repair changes artifact A -> B, only results bound to B count:
 
 ## Trust boundary
 
-`decide()` is pure: it cannot read the RunState, the LoopContract, or the event stream. It guarantees only that the Decision follows from the DecisionInput.
+`decide()` is pure: it cannot read the RunState, the LoopContract, or the event stream. #1393 guarantees only two things: the Decision follows from the DecisionInput, and every rule checkable on the DecisionInput alone (I-1〜I-10, P-1〜P-3, the state table) holds. Whether the DecisionInput faithfully reflects the stream is the **Decision Input Binding** contract of #1422 (B-1〜B-7); #1393 defines no stream invariant of its own.
 
 **Threat model.** The DecisionInput is built by #1395, which is deterministic orchestration code reading the #1391 stream. It is not a Worker. The threats this slice defends against are (1) Worker / fixture self-report entering the decision, and (2) the stream changing between building the input and committing the Decision. A defect in #1395 itself is caught only by audit (below), not prevented.
 
@@ -197,17 +211,17 @@ Consequence: an empty commit, an amend with the same content, or a rebase that y
 
 | Value | Threat | Owner | Control |
 |---|---|---|---|
-| `lifecycle_state` | decide as another state and skip its rules | #1392 at commit | reject when `decided_in_state != snapshot lifecycle_state` (#1406 request) |
-| stream between build and commit | a FAIL recorded after the input was built (a `verification_recorded` event does not change the revision, so the revision CAS does not cover it), including a FAIL placed **earlier in the same transaction** as the `decision_made` | #1392 at commit and on load | a `decision_made` must be assigned `event_seq == input_last_event_seq + 1`: no event of any kind, from another writer or from the same transaction, may sit between the input and the Decision. Checked when the seq is assigned and re-checked on every load (#1406 requests; this replaces a separate `expected_last_event_seq` argument, so the CAS value and the payload value cannot diverge) |
-| `failure_records` (set and content, including `repairability`) | a Diagnoser result that was not recorded, or a repairability flipped from `replan_required` to `repairable` | #1395 | build every FR from an accepted `failure_recorded` event (`event_ref`, `observed_seq`); the payload records each FR's `event_ref` and `repairability` for audit |
-| `verification_results` (set and content) | a Worker-reported result, or an omitted FAIL | #1395 | build every result from an accepted `verification_recorded` event (`event_ref`, `observed_seq` from the event); pass **all** bound results up to `input_last_event_seq`. The payload records every `event_ref` for audit |
-| `required_verifiers` / `loop_contract_ref` | drop a failing required verifier | **unowned in the first slice** | no event binds a LoopContract revision to a Run. [Dependency / release condition] #1391 `plan_contract_bound` (and its re-binding after Replan) must carry `loop_contract_ref` and the required set, so the set is read from the stream instead of supplied |
-| `FIRST_ITERATION`, `previous_records`, `previous_artifact_ref`, deltas | fake a first iteration or progress | #1395 | derive them from the stream; the payload records progress kind and fingerprint sets for audit |
+| `lifecycle_state` | decide as another state and skip its rules | #1422 B-4 (#1392 at commit) | reject when `decided_in_state != snapshot lifecycle_state` |
+| stream between build and commit | a FAIL recorded after the input was built (a `verification_recorded` event does not change the revision, so the revision CAS does not cover it), including a FAIL placed **earlier in the same transaction** as the `decision_made` | #1422 B-3 (#1392 at commit and load, #1391 stream validation for audit) | `decision_made.event_seq == input_last_event_seq + 1`, at most one `decision_made` per transaction |
+| `failure_records` (set and content, including `repairability`) | a Diagnoser result that was not recorded, a repairability flipped from `replan_required` to `repairable`, or a choice among several `failure_recorded` events for one FAIL | #1395 builds; #1422 B-7 fixes the selection | build every FR from an accepted `failure_recorded` event (`event_ref`, `observed_seq`); I-7 bounds its order; the payload records each FR's `event_ref`, `observed_seq` and `repairability` for audit |
+| `verification_results` (set and content) | a Worker-reported result, or an omitted FAIL | #1395 | build every result from an accepted `verification_recorded` event (`event_ref`, `observed_seq` from the event); pass **all** results with `observed_seq > contract_bound_seq` up to `input_last_event_seq`. The payload records every `event_ref` for audit |
+| `required_verifiers` / `loop_contract_ref` / `contract_bound_seq` | drop a failing required verifier, or move the contract boundary to revive or hide results | #1422 B-2 / B-6 (#1391 `plan_contract_bound`) | the set, the ref and the boundary are read from the latest `plan_contract_bound`. [Release condition] |
+| `FIRST_ITERATION`, `previous_records`, `previous_artifact_ref`, `previous_verdicts`, blocker sets | fake a first iteration or progress | #1395 | derive them from the stream (`previous_verdicts` from the previous `decision_made` payload); the payload records progress kind, fingerprint sets and verdicts for audit |
 | `pr_convergence` | convergence of another head | #1393 (P-2) and #1395 | `observed_artifact_ref == current_artifact_ref`; #1395 observes it from GitHub for that head |
 
 Audit (post hoc, not a gate in the first slice): recompute each `decision_made` from the stream prefix up to its `input_last_event_seq` and compare. Owner: follow-up (#1395 or a RunEvidence verifier).
 
-The first release is not complete until the #1392 checks, the #1391 LoopContract binding and the #1395 budget are in place.
+The first release is not complete until #1422 (B-1〜B-7) and the #1395 budget are in place.
 
 ## Known limitations of the first slice
 
@@ -217,9 +231,11 @@ The first release is not complete until the #1392 checks, the #1391 LoopContract
 | `HUMAN_REQUIRED` -> `WAITING_HUMAN` | `DecisionInputError` (step 5) | #1392 waiting/resume slice |
 | `PR_CONVERGING` + `replan_required` | `DecisionInputError` (step 2) | #1392 allowlist (no edge yet) |
 | `BUDGET_EXHAUSTED` / `REPEATED_FAILURE` / `OSCILLATION` | not produced by `decide()` | later #1393 slice; budget enforced by #1395 (below) |
-| `evidence_delta` / blocker sets are caller observations | trusted as observed values | #1395 derives them from RunEvents |
-| `required_verifiers` is not bound to the Run by any event | unowned until #1391 binds `loop_contract_ref` (release condition) | #1391 |
+| blocker sets and `previous_verdicts` are caller observations | trusted as observed values; `evidence_delta` itself is derived | #1395 derives them from RunEvents |
+| `required_verifiers` / `contract_bound_seq` are not yet bound to the Run by any event | release condition | #1422 B-2 / B-6 |
 | a flaky verifier blocks an artifact until it changes (sticky FAIL) | intended fail-closed behavior | — |
+| sticky FAIL only guarantees that re-running on the **same content** never turns green. Any content change (even one meaningless byte) is a new artifact, so a flaky PASS after it is accepted | residual threat; bounded only by the #1395 budget | #1395 |
+| within one contract, reverting to an earlier tree reuses the results recorded on that tree under the same contract | intended: same content under the same contract gives the same deterministic result, and a FAIL recorded there stays sticky | — |
 
 ### Budget required from #1395 (release condition)
 
@@ -229,14 +245,16 @@ The first release is not complete until the #1392 checks, the #1391 LoopContract
 2. `PR_CONVERGING` continue with no transition while convergence keeps failing (for example conflict stays true)
 3. `PLAN_VERIFYING` <-> `REPLANNING` (outside `decide()` in this slice)
 4. repeated `DecisionInputError` retries
+5. re-diagnosis after a later FAIL moves the latest FAIL (I-7): it records a `failure_recorded` event but produces no Decision, so decision counts do not see it
 
-Required limits: total iterations, consecutive decisions in the same state, replan count. Exceeding one stops the Run as HUMAN_ESCALATED / [BUDGET_EXHAUSTED] recorded by #1395.
+Required limits: total iterations, consecutive decisions in the same state, replan count, and `failure_recorded` events per Run (for 5). Exceeding one stops the Run as HUMAN_ESCALATED / [BUDGET_EXHAUSTED] recorded by #1395.
 
 ## APIs
 
 ```python
 make_verification_result(...)
 make_failure_record(...)
+artifact_verdicts(...)
 assess_progress(...)
 FIRST_ITERATION
 make_decision_input(...)
@@ -244,7 +262,7 @@ decide(decision_input)
 decision_to_event_draft(decision)
 ```
 
-`decision_to_event_draft` creates a #1391 EventDraft with `decided_in_state`, `action`, `outcome`, `stop_reasons`, `policy_verdicts`, `input_last_event_seq`, `loop_contract_ref`, `required_verifiers`, the `event_ref` of every bound result used, the `event_ref` and `repairability` of every FailureRecord, `pr_convergence.observed_artifact_ref` (PR_CONVERGING), the progress kind (`first_iteration` / `assessed`) with the previous and current fingerprint sets, and `input_refs` (everything the Trust boundary checks need). It does not persist it. [Dependency] #1391 has not frozen the `decision_made` payload keys yet; these keys are agreed with #1391 before exec.
+`decision_to_event_draft` creates a #1391 EventDraft with `decided_in_state`, `action`, `outcome`, `stop_reasons`, `policy_verdicts`, `input_last_event_seq`, `loop_contract_ref`, `contract_bound_seq`, `required_verifiers`, `artifact_verdicts`, the `event_ref` of every bound result used, the `event_ref`, `observed_seq` and `repairability` of every FailureRecord, `pr_convergence.observed_artifact_ref` (PR_CONVERGING), the progress kind (`first_iteration` / `assessed`) with the previous and current fingerprint sets, and `input_refs` (everything the Trust boundary checks need). It does not persist it. [Dependency] #1391 has not frozen the `decision_made` payload keys yet; these keys are agreed with #1391 before exec.
 
 ## Static boundaries
 
