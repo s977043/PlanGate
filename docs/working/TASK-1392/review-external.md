@@ -183,3 +183,35 @@ Round note (§7-quater): not converged. R3 should check that the narrowed idempo
 | R-034 | reflected | (C-2 R2 commit) | Human decision; #1391 dependency |
 | R-035 | reflected | (C-2 R2 commit) | #1391 dependency |
 | R-036 | reflected | (C-2 R2 commit) | |
+
+## C-2 round 3 (2026-09-25 / reviewed head `2d2cdc78`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent (R2 fixes traced with concrete input sequences, TC ↔ rule mapping). Key claims re-checked against files (create_run had no 2c; TASK-1391 plan checks binding continuity and invalidates on binding mismatch; canon :94 vs :109; stale ST-28b / 28h references).
+
+Verdict: **fix needed; not converged.** New classes in the idempotency layer again (R-037 / R-038), in re-binding (R-043) and in draft injection (R-039). Per the R2 round note the Human was offered "drop idempotency from the first slice"; the Human chose to **keep it and close by specification**, and to **ask #1391 for re-binding support**.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-037 | both | major | "different body under a conflicted id → `TransactionIdReuse`" needs a digest that R-029 removed | new (from the R-029 fix) | reflected: a conflicted id always gets the live conflict, body not examined; ST-21d2 |
+| R-038 | adversarial | major | create path lacked the binding-key rejection and the location of binding keys / depth of strip was undefined → false replay for a different `plan_hash` | new (R-035 fix incomplete on create) | reflected: create step 0, binding keys top level only, strip top level only; ST-21f2 |
+| R-039 | adversarial | major | caller drafts of #1392-owned types accepted; load's iff check looked only at the last event | new | reflected: commit step 2d; `state_transitioned` only as the last event of a commit envelope; ST-44 / 44a |
+| R-040 | design | minor | commit step 5 bound one context for the whole transaction, so events after a re-binding would carry the old binding | R-034 fix incomplete | reflected: per-event binding from the fold |
+| R-041 | adversarial | major | "terminal Decision only in Decision states" was not one of the checks | R-033 fix incomplete | reflected: Decision-bound check 6; ST-45 |
+| R-042 | adversarial | minor | a stale `state_conflict` between input and Decision rejects the legitimate Decision | new (residual) | reflected as residual (intended strictness, bounded by the per-revision cap); ST-46 |
+| R-043 | adversarial | major | re-binding conflicts with #1391 binding continuity and "binding mismatch -> invalid"; #1391 has no Lifecycle State | new | **Human decision: ask #1391** to treat re-binding as a segment boundary; #1392 checks the state condition; Preflight stops exec until then; ST-43b |
+| R-044 | adversarial | major | canon principle "CAS failure is recorded" vs four non-recording paths | R-036 fix incomplete | reflected: canon principle lists the four exceptions |
+| R-045 | adversarial | minor | stale references to removed ST-28b / 28h | cleanup | reflected in plan (review-self's older section is superseded by the later C-1 section) |
+
+Round note (§7-quater): the idempotency layer produced a new class in every round (R1 → R3). The Human kept it; the next round must say explicitly whether that layer produced a new class again.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-037 | reflected | (C-2 R3 commit) | |
+| R-038 | reflected | (C-2 R3 commit) | |
+| R-039 | reflected | (C-2 R3 commit) | |
+| R-040 | reflected | (C-2 R3 commit) | |
+| R-041 | reflected | (C-2 R3 commit) | |
+| R-042 | reflected | (C-2 R3 commit) | residual |
+| R-043 | reflected | (C-2 R3 commit) | Human decision; request to #1391 |
+| R-044 | reflected | (C-2 R3 commit) | canon |
+| R-045 | reflected | (C-2 R3 commit) | |

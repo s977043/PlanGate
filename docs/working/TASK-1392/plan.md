@@ -93,7 +93,7 @@ Under the lock, **before** the expected_revision check:
 |---|---|
 | `transaction_id` in the replay index, same `request_digest` | **exact retry**: return the current snapshot with `replayed=true` and the derived result of that envelope. No new event, no new envelope, no state change |
 | `transaction_id` in the replay index, different `request_digest` | reject `TransactionIdReuse`. Zero mutation |
-| `transaction_id` in the conflicted set | **no replay** (conflicts are outside idempotency, R-029). Evaluate the request normally: its `expected_revision` was stale when the conflict was recorded and revisions only increase, so it is stale again — return a live RevisionConflict (current `actual_revision`, the recorded conflict's `event_ref`) with zero mutation. A request with a different body under a conflicted `transaction_id` is rejected `TransactionIdReuse` without comparing digests |
+| `transaction_id` in the conflicted set | **no replay** (conflicts are outside idempotency, R-029). Evaluate the request normally: its `expected_revision` was stale when the conflict was recorded and revisions only increase, so it is stale again — return a live RevisionConflict (current `actual_revision`, the recorded conflict's `event_ref`) with zero mutation. **The body is not examined**: no digest is kept for conflicts, so same and different bodies are indistinguishable and both get the live conflict (R-037). A conflicted `transaction_id` can never commit |
 | absent | proceed normally |
 
 The lookup runs before the revision check because an exact retry after a successful commit necessarily carries a stale `expected_revision`. This is the layer that TASK-1391 plan delegates to #1392 ("exact retry ... does **not** append a second event").
@@ -108,6 +108,7 @@ Relation to canon §4 (`artifact-responsibilities.md`: "mismatch -> STATE_CONFLI
 
 Under exclusive lock:
 
+0. reject a `plan_event_draft` that contains a #1391 binding key or an envelope key at its top level (same rule as commit step 2c; R-038)
 1. if a snapshot exists: apply the Transaction identity lookup (exact create retry after a crash-after-replace returns `replayed=true`); otherwise reject
 2. the Run starts at revision 0 in `PLAN_VERIFYING` (first-slice create rule; the transition allowlist has no edge out of `PLANNING`, so a Run created in `PLANNING` could never progress). This is a fold constant, not a stored value
 3. allocate event_seq=1
@@ -131,10 +132,11 @@ Under exclusive lock:
 2. validate snapshot_ref + #1391 accepted stream
 2a. Transaction identity lookup (may return replay / live RevisionConflict for a conflicted id / TransactionIdReuse here)
 2c. reject any draft that contains a #1391 binding key or an envelope key at its top level
+2d. reject any caller draft of a #1392-owned type (`state_transitioned`, `state_conflict`); only #1392 creates them (R-039)
 2b. reject an empty request (no event drafts and no transition) with zero mutation; every envelope holds at least one event
 3. require expected_revision == derived current revision
 4. allocate exact next event_seq values
-5. bind current run/manifest/plan/source context
+5. bind each event to the context the fold holds **at that event's position**: a re-binding `plan_contract_bound` carries the new binding itself, and every later event in the transaction (including a trailing `state_transitioned`) carries the new binding (R-040)
 6. #1391 finalize each draft
 7. #1391 validate_append against growing in-memory stream
 8. inspect finalized drafts for Terminal Outcome:
@@ -229,7 +231,7 @@ Every commit rewrites the whole snapshot, so write volume and latency grow with 
 - snapshot_ref mismatch reject
 - file `run_id` / event run binding mismatch reject
 - event stream (concatenation of envelopes' `events`) invalid by #1391 `validate_stream` => snapshot invalid
-- **envelope structure**: at least one envelope; the first is `kind=create` holding exactly the `plan_contract_bound` event; every envelope holds at least one event; `transaction_id` values are unique; a `conflict` envelope holds exactly one `state_conflict` event and nothing else, and a `state_conflict` appears only in a `conflict` envelope; per-kind null rules for `expected_revision` / `transition` (Snapshot table); **`transition` is non-null if and only if** the envelope's last event is a `state_transitioned`, and then they match (R-030)
+- **envelope structure**: at least one envelope; the first is `kind=create` holding exactly the `plan_contract_bound` event; every envelope holds at least one event; `transaction_id` values are unique; a `conflict` envelope holds exactly one `state_conflict` event and nothing else, and a `state_conflict` appears only in a `conflict` envelope; per-kind null rules for `expected_revision` / `transition` (Snapshot table); **`transition` is non-null if and only if** the envelope's last event is a `state_transitioned`, and then they match (R-030); a `state_transitioned` appears **only** as the last event of a `commit` envelope and at most once per envelope (R-039)
 - **conflict consistency** (R-030): `state_conflict.payload.transaction_id == envelope.transaction_id`, `actual_revision == folded revision`, `expected_revision < actual_revision`
 - **fold** (the only source of RunState): start from the create rule (`PLAN_VERIFYING`, revision 0, bindings from `plan_contract_bound`); every non-transition event and `state_conflict` must carry `revision == running`; `state_transitioned` must carry `running+1`, have `from_state == running state`, and be an edge of the First-slice transition allowlist (re-checked on every load, not only at commit time); bound context changes only as allowed by Replan re-binding (below), otherwise it must not change; each `commit` envelope's `expected_revision` equals the running revision at its start
 - **Decision-bound re-check**: every `decision_made` in the stored stream passes the Decision-bound checks against the folded state at its position (`decided_in_state`, `event_seq == input_last_event_seq + 1`, derived transition and the bare-edge rule), so a stream that was valid only because a check was skipped at commit time is rejected on load
@@ -352,8 +354,11 @@ Mechanical edges (no `decision_made`, unchanged): `PLAN_VERIFYING -> EXECUTING |
 3. **derived transition**: a transaction with a non-terminal `decision_made` requests a `transition` other than the table's result for `(decided_in_state, action)`, including a transition where the table says "no transition", or the table says "reject"
 4. **bare decision-bound edge**: a `transition` on a Decision-bound edge without a `decision_made` in the same transaction
 5. **one Decision per transaction**: more than one `decision_made` in a transaction
+6. **Decision states** (R-041): any `decision_made` (terminal or not) whose `decided_in_state` is not `VERIFYING` / `DIAGNOSING` / `PR_CONVERGING` (#1393 I-1). With check 1 this also rejects a Decision while the Run is in `EXECUTING`, `REPAIRING`, `REPLANNING` or `PLAN_VERIFYING`
 
-All five are re-checked on load (Strict loading). Exact retry of a Decision transaction is still answered by the Transaction identity lookup before these checks.
+All six are re-checked on load (Strict loading).
+
+Residual (R-042): a stale writer's `state_conflict` recorded between building a Decision input and committing the Decision breaks check 2, so the legitimate Decision is rejected and #1395 must rebuild the input. This is the intended strictness of input freshness (no event of any kind in between); it is bounded by `MAX_CONFLICTS_PER_REVISION` and stated in the handoff. Exact retry of a Decision transaction is still answered by the Transaction identity lookup before these checks.
 
 [Dependency] The `decision_made` payload keys are frozen by #1391 (TASK-1391 has not frozen them yet; #1393 lists them in its `decision_to_event_draft`). #1392's RED fixtures use those keys only after that agreement.
 
@@ -362,14 +367,15 @@ All five are re-checked on load (Strict loading). Exact retry of a Decision tran
 Human decision R-034 (2026-09-25). The first slice allows `REPLANNING -> PLAN_VERIFYING`, and a Replan produces a new Plan (canon: LoopContract gets a new revision on Replan), so the binding must be able to change there — otherwise the new Plan is rejected by the bound-context check.
 
 - while the folded state is `REPLANNING`, a transaction may contain **one** re-binding `plan_contract_bound` event. It sets new `plan_hash` / `source_sha` (and the LoopContract reference that #1393 expects from #1391) for every later event; `harness_manifest_ref` cannot change (a different Harness is a new Run)
-- the re-binding event carries the current revision like any non-transition event; the transaction may end with `REPLANNING -> PLAN_VERIFYING`
+- the re-binding event carries the current revision like any non-transition event and the **new** binding; every later event carries the new binding (commit step 5); the transaction may end with `REPLANNING -> PLAN_VERIFYING`
+- binding keys live only at the RunEvent top level (never inside a payload), and draft recovery strips top-level keys only, so a create or re-binding with a different `plan_hash` always yields a different recomputed digest (R-038)
 - outside `REPLANNING`, a `plan_contract_bound` event after the first is rejected; a second re-binding in the same `REPLANNING` visit is rejected
 - the fold switches the bindings at that event, and strict load re-checks all of the above
-- [Dependency] #1391 must allow `plan_contract_bound` as a re-binding event (not only as the first event). #1393's plan already assumes "#1391 `plan_contract_bound` (and its re-binding after Replan)"
+- [Dependency, Human decision R-043] #1391 checks binding continuity in `validate_append` and turns a binding mismatch into `evidence_status=invalid` in its projection (TASK-1391 plan: binding continuity / "binding mismatch -> invalid"). Without a change there, **every Replanned Run's RunEvidence would be invalid**. #1391 is asked to treat a re-binding `plan_contract_bound` as a binding segment boundary in both `validate_append` and the projection. #1391 has no Lifecycle State, so the state condition ("only while `REPLANNING`", once per visit) is checked by #1392 alone. Until #1391 supports this, Preflight stops exec (todo). #1393's plan already assumes "#1391 `plan_contract_bound` (and its re-binding after Replan)"
 
 ### Initial state and PLANNING
 
-`create_run` takes no initial-state input and always starts at `PLAN_VERIFYING` (a fold constant): its first event is `plan_contract_bound`, so a Plan already exists (taxonomy: PLANNING = Plan being written, PLAN_VERIFYING = initial Plan under verification). `PLANNING` stays a canonical Lifecycle State value and is **not** removed from canon. A later slice that owns durable planning (planning-time events, incomplete Plan, binding updates) adds `PLANNING -> PLAN_VERIFYING` and a create path starting at `PLANNING`; until then such a request is rejected (ST-28b). Residual limit: a Run cannot be resumed from the middle of Plan writing.
+`create_run` takes no initial-state input and always starts at `PLAN_VERIFYING` (a fold constant): its first event is `plan_contract_bound`, so a Plan already exists (taxonomy: PLANNING = Plan being written, PLAN_VERIFYING = initial Plan under verification). `PLANNING` stays a canonical Lifecycle State value and is **not** removed from canon. A later slice that owns durable planning (planning-time events, incomplete Plan, binding updates) adds `PLANNING -> PLAN_VERIFYING` and a create path starting at `PLANNING`; until then there is no way to request it (the API has no initial-state input). Residual limit: a Run cannot be resumed from the middle of Plan writing.
 
 
 ## pending_action scope

@@ -121,3 +121,19 @@ One re-binding `plan_contract_bound` per `REPLANNING` visit; `harness_manifest_r
 ### Verdict
 
 PASS with WARN. C-2 has not converged (R2 found new classes); C-3 waits for a round without new classes.
+
+## C-1 re-run after C-2 R3 (2026-09-25)
+
+| item | result |
+|---|---|
+| create and commit share the draft rules (binding keys, envelope keys, #1392-owned types) | PASS (R-038 / R-039) |
+| every stored `state_transitioned` position is constrained on load | PASS (R-039) |
+| conflicted id behaviour needs no stored digest | PASS (R-037) |
+| per-event binding across a re-binding | PASS (R-040) |
+| Decision states enforced as a check | PASS (R-041) |
+| canon principle and fixture rows agree (incl. non-recording paths) | PASS (R-044) |
+| TC references exist (no removed IDs referenced in plan) | PASS (R-045) |
+| external dependencies surfaced in Preflight (#1391 re-binding segment, strip round trip, top-level binding keys, decision payload keys and size, event type names) | PASS |
+| open decisions | WARN — [P1] / [P2] / provisional `MAX_*` (Human C-3) |
+
+Verdict: PASS with WARN. C-2 still not converged.

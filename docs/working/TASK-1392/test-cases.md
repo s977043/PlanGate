@@ -28,7 +28,8 @@
 | ST-21b | exact retry of a committed transaction **without** transition (events only) | `replayed=true`, no second event |
 | ST-21c | same transaction_id, different request | `TransactionIdReuse`, zero mutation |
 | ST-21d | resend of a request that produced a conflict (same transaction_id, same body) | live RevisionConflict (current `actual_revision`, recorded conflict `event_ref`), no second `state_conflict`, no replay (R-029) |
-| ST-21d2 | different body under a conflicted transaction_id | `TransactionIdReuse`, zero mutation |
+| ST-21d2 | different body under a conflicted transaction_id (including one with a now-current `expected_revision`) | live RevisionConflict, zero mutation; never commits (R-037) |
+| ST-21f2 | `create_run` retried under the same transaction_id with a different `plan_hash` | never `replayed=true` (digest differs) → `TransactionIdReuse`; a `plan_event_draft` containing a binding key is rejected (R-038) |
 | ST-21e | exact create_run retry after crash-after-replace | `replayed=true`, no second snapshot write (digest recomputed from the stored create envelope; there is no `initial_state` input) |
 | ST-21e2 | exact retry of a commit with `transition` | `replayed=true` (the trailing `state_transitioned` is excluded from draft recovery) |
 | ST-21f | exact retry of the terminal-decision transaction after terminality | `replayed=true` (lookup precedes terminal rejection) |
@@ -59,6 +60,11 @@
 | ST-42 | `strip(finalize_event(d)) != d` for some valid draft (e.g. #1391 canonicalizes content) | #1391 not consumable (Preflight); a draft containing a binding key is rejected at commit |
 | ST-43 | Replan re-binding: one `plan_contract_bound` in `REPLANNING` then `REPLANNING -> PLAN_VERIFYING` | commit; later events carry the new `plan_hash` / `source_sha`; load accepts |
 | ST-43a | re-binding outside `REPLANNING` / a second re-binding in the same visit / `harness_manifest_ref` change | reject (commit and load) |
+| ST-43b | one transaction `[plan_contract_bound(new), other event]` + `REPLANNING -> PLAN_VERIFYING` | re-binding event and every later event (incl. the trailing `state_transitioned`) carry the new binding; #1391 `validate_append` and projection accept it (dependency R-043) |
+| ST-44 | caller draft of type `state_transitioned` or `state_conflict` | reject, zero mutation (R-039) |
+| ST-44a | stored stream with a `state_transitioned` that is not the last event of its envelope, or two in one envelope | strict load reject (R-039) |
+| ST-45 | terminal or non-terminal `decision_made` with `decided_in_state` = EXECUTING / REPAIRING / REPLANNING / PLAN_VERIFYING | reject (commit and load) (R-041) |
+| ST-46 | stale writer's `state_conflict` recorded between building a Decision input and committing it | Decision rejected by input freshness; rebuilt input commits (R-042 residual) |
 | ST-28f | non-transition or `state_conflict` event carries a revision other than the folded one (snapshot_ref recomputed) | strict load reject |
 | ST-28g | stored `state_transitioned` edge outside the first-slice allowlist, e.g. EXECUTING -> REPAIRING with consistent from_state/+1 | strict load reject |
 | ST-28h | (removed with model B: `result_revision` is derived, not stored) | — |

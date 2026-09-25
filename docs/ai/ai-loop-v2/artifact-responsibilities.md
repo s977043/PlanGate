@@ -91,7 +91,7 @@ read RunState (revision = N)
 原則:
 
 - **revision は単調増加**。後退・同値上書きは拒否（#1025 AC-6 と一貫）。
-- CAS の失敗は Stop Reason `STATE_CONFLICT` として記録し、RunEvent に残す。
+- CAS の失敗は Stop Reason `STATE_CONFLICT` として記録し、RunEvent に残す。ただし、記録そのものが Run を壊しうる場合は記録せずに `STATE_CONFLICT` を返すだけにしてよい。該当するのは、記録の上限に達したとき、終端の予約枠に入っているとき、終端後、同じ transaction 識別子で既に記録済みのとき、の 4 つ（実装側の plan に列挙する。#1392 / TASK-1392 plan）。
 - 複数プロセスからの CAS は **ファイルロック等の inter-process 排他 + atomic rename** で実装する（#1025 C-2 finding 1「multi-process CAS には inter-process lock が要る」を AC に昇格）。
 - **RunState は論理的な artifact であり、物理的に別ファイルとして保存することを要しない**。上の `compare-and-swap(..., new_state, ...)` は論理操作で、inter-process lock の下で `new_state` を表す遷移 event（`revision = N + 1`）を event stream に追記し、atomic に置き換えることで実現してよい。その場合 RunState は load のたびに event stream から導出し、保存した派生値を正本にしない（#1392 / TASK-1392 plan、2026-09-25 Human 決定）。
 - **応答の再送は CAS の再試行ではない**。既に確定した要求と同一の要求（同じ transaction 識別子と同じ内容）に確定済みの結果を返すのは idempotency であり、`revision` が古いそれ以外の要求は `STATE_CONFLICT` とする。
