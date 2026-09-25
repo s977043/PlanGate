@@ -17,7 +17,7 @@ ai_dev_usage() {
   command_name=$1
   printf 'Usage:\n'
   printf '  ./scripts/ai-dev-workflow TASK-XXXX %s\n' "$command_name"
-  printf '  ./scripts/ai-dev-workflow TASK-XXXX %s [--profile=PROFILE] [--dry-run]\n' "$command_name"
+  printf '  ./scripts/ai-dev-workflow TASK-XXXX %s [--profile=PROFILE] [--mode=MODE] [--dry-run]\n' "$command_name"
 }
 
 ai_dev_set_model_profile() {

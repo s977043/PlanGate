@@ -60,11 +60,20 @@ else
 fi
 
 if python3 "$_T88_RESOLVER" gpt_6_luna "$_T88_PROFILES" >/dev/null 2>&1 \
-  || python3 "$_T88_RESOLVER" gpt_6_luna "$_T88_PROFILES" critical >/dev/null 2>&1; then
-  printf '  [FAIL] Luna requires a permitted mode\n' >&2
+  || python3 "$_T88_RESOLVER" gpt_6_luna "$_T88_PROFILES" critical >/dev/null 2>&1 \
+  || python3 "$_T88_RESOLVER" gpt_6_luna "$_T88_PROFILES" not-a-mode >/dev/null 2>&1; then
+  printf '  [FAIL] Luna requires a known permitted mode\n' >&2
   fail=$((fail + 1))
 else
-  printf '  [PASS] Luna rejects missing and critical modes\n'
+  printf '  [PASS] Luna rejects missing, critical, and unknown modes\n'
+  pass=$((pass + 1))
+fi
+
+if python3 "$_T88_RESOLVER" gpt_6_sol "$_T88_PROFILES" not-a-mode >/dev/null 2>&1; then
+  printf '  [FAIL] all profiles reject unknown modes\n' >&2
+  fail=$((fail + 1))
+else
+  printf '  [PASS] all profiles reject unknown modes\n'
   pass=$((pass + 1))
 fi
 
