@@ -59,6 +59,17 @@
 | ST-30b | ENOSPC during temp write | old snapshot authoritative, stale temp handled as ST-20 |
 | ST-31 | flush primitive unavailable (macOS `F_FULLFSYNC` fails / unsupported platform) | fail closed (`runtime_unwritable`), no fallback to plain `fsync`, old snapshot intact |
 | ST-32 | commit latency at the size bound on the CI runner | within the threshold fixed by the fixture; a miss is a Replan trigger |
+| ST-33 | `decision_made.decided_in_state` differs from snapshot `lifecycle_state` (terminal and non-terminal) | reject, zero mutation (#1393 IT-01 / IT-02) |
+| ST-34 | `decision_made` assigned `event_seq != input_last_event_seq + 1` by another writer's event | reject, zero mutation (#1393 IT-04) |
+| ST-34a | `[verification_recorded FAIL, decision_made]` in one transaction | reject, zero mutation (#1393 IT-07 / IT-08) |
+| ST-35 | VERIFYING + continue with `transition` to DIAGNOSING | reject |
+| ST-35a | PR_CONVERGING + continue with any `transition` | reject |
+| ST-35b | VERIFYING + replan / DIAGNOSING + continue | reject |
+| ST-35c | each table cell with the matching `transition` | commit |
+| ST-36 | `transition` VERIFYING -> PR_CONVERGING without `decision_made` in the transaction | reject |
+| ST-36a | mechanical edge (e.g. EXECUTING -> VERIFYING) without `decision_made` | commit |
+| ST-37 | two `decision_made` in one transaction | reject |
+| ST-38 | stored stream violating any of ST-33〜37 (snapshot_ref recomputed) | strict load reject |
 | ST-29 | full repository test | PASS |
 
 ## Fault matrix invariant

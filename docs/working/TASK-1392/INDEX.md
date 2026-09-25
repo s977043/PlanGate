@@ -1,6 +1,6 @@
 # TASK-1392 INDEX
 
-> 最終更新: 2026-09-25 11:20
+> 最終更新: 2026-09-25 15:45
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
 > plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
 > （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
@@ -18,6 +18,8 @@ C-2
 > C-1 は反映後に再実行済みで、判定は **PASS with WARN**（未決事項あり。`review-self.md`）。**C-2 は未実施**。永続化と crash 整合を扱うので high-risk 相当とし、
 > `review-principles.md` §7-quater に従って **C-2 は最低 2 ラウンド、新しい失敗クラスが出なくなるまで**続ける（回数を固定しない）。
 > Codex への相談（2026-09-25）を受けて、durability の定義・容量の上限・CAS 保証の範囲・初期状態の扱いを plan に追記済み。
+> #1407（#1393）からの依頼 R-014〜R-016（Decision からの遷移導出 / `decided_in_state` 照合 / `input_last_event_seq + 1`）を反映済み。
+> `decision_made` の payload キーは #1391 の凍結待ち（RED fixture の前提）。
 
 ## 次のアクション
 

@@ -127,6 +127,7 @@ Under exclusive lock:
 8. inspect finalized drafts for Terminal Outcome:
    - if any draft contains terminal `decision_made.outcome != null`, `transition` must be absent
    - terminal decision must be the final event of the transaction
+8a. apply the Decision-bound checks (see Decision-bound transitions): `decided_in_state`, `input_last_event_seq`, and the transition derived from `(lifecycle_state, action)`
 9. if non-terminal state transition requested:
    - validate from_state/current revision
    - increment revision exactly +1
@@ -218,6 +219,7 @@ Every commit rewrites the whole snapshot, so write volume and latency grow with 
 - **ledger mismatch reject**: `generation == len(transactions)`; ledger `generation` values are 1..N in order; `transaction_id` values are unique; event_seq ranges are contiguous, non-overlapping and cover the whole stream; each `conflict` entry covers exactly one `state_conflict` event; the first entry is `kind=create`
 - **per-event revision check** (same fold, every event, not only transitions): a non-transition event and `state_conflict` must carry `revision == running`; `state_transitioned` must carry `running+1` **and** its `from_state -> to_state` must be an edge of the First-slice transition allowlist (a stored stream is re-checked against the allowlist on every load, not only at commit time)
 - **ledger result check**: each ledger entry's `result_revision` equals the folded revision after its last event; a `conflict` entry covers exactly one `state_conflict` event and nothing else
+- **Decision-bound re-check**: every `decision_made` in the stored stream passes the Decision-bound checks against the folded state at its position (`decided_in_state`, `event_seq == input_last_event_seq + 1`, derived transition and the bare-edge rule), so a stream that was valid only because a check was skipped at commit time is rejected on load
 
 Payload ownership: TASK-1391 plan lists "state/conflict evidence consumed from #1392", so the `state_transitioned` / `state_conflict` payloads (`from_state`, `to_state`, `revision`, expected/actual revision) are **owned by #1392** and frozen by #1392's RED fixtures. #1391 validates them as stream members (binding, sequence, terminality); #1392 does not re-own any other event type (ST-25 static boundary still applies). The TASK-1391 RunEvidence projection does not carry Lifecycle State, so this state fold is #1392's.
 
@@ -303,6 +305,32 @@ PR_CONVERGING  -> REPAIRING
 A terminal Decision does not transition to a terminal state.
 
 WAITING_HUMAN / WAITING_EXTERNAL remain canonical Lifecycle State values, but this first slice does not create or resume them because the pending-action contract is not implemented. Transition requests to/from WAITING_* are rejected rather than guessed.
+
+### Decision-bound transitions
+
+Requested by #1393 (PR #1407 comments, 2026-09-25; adversarial reviews R3 / Rev2-R1〜R3). The allowlist alone accepts any listed edge, so a Decision of `DIAGNOSING` could be followed by a commit of `VERIFYING -> PR_CONVERGING`. By Human decision #1393 does not carry `next_state`; **#1392 derives the transition from `(lifecycle_state, action)` and checks it.** #1392 reads four `decision_made` payload keys — `decided_in_state`, `action`, `outcome`, `input_last_event_seq` — and contains no Decision logic.
+
+Decision-bound edges (action values per `artifact-responsibilities.md`: continue / repair / replan / stop; `stop` is terminal and follows the Terminal transaction rule):
+
+| from_state | continue | repair | replan |
+|---|---|---|---|
+| VERIFYING | PR_CONVERGING | DIAGNOSING | — (reject) |
+| DIAGNOSING | — (reject) | REPAIRING | REPLANNING |
+| PR_CONVERGING | no transition | REPAIRING | — (reject) |
+
+Mechanical edges (no `decision_made`, unchanged): `PLAN_VERIFYING -> EXECUTING | REPLANNING`, `EXECUTING -> VERIFYING`, `REPAIRING -> VERIFYING`, `REPLANNING -> PLAN_VERIFYING`. First-slice Decisions are not accepted in `PLAN_VERIFYING` (#1393 I-1).
+
+`commit()` rejects with zero mutation when:
+
+1. **state binding**: any `decision_made` (terminal or not) has `decided_in_state` different from the folded `lifecycle_state` at its position. `decide()` is pure and cannot read RunState, so `decided_in_state` is the caller's claim; without this check a Run in `DIAGNOSING` could be decided as `VERIFYING` and skip DIAGNOSING's FailureRecord / replan / NO_PROGRESS rules
+2. **input freshness**: a `decision_made` is assigned `event_seq != payload.input_last_event_seq + 1`. No event of any kind — from another writer or earlier in the same transaction — may sit between the input and the Decision. `verification_recorded` does not change the revision, so the revision CAS alone cannot catch a FAIL recorded after the input was built. Consequence: a `decision_made` is the first event of its transaction, followed only by its `state_transitioned` if any
+3. **derived transition**: a transaction with a non-terminal `decision_made` requests a `transition` other than the table's result for `(decided_in_state, action)`, including a transition where the table says "no transition", or the table says "reject"
+4. **bare decision-bound edge**: a `transition` on a Decision-bound edge without a `decision_made` in the same transaction
+5. **one Decision per transaction**: more than one `decision_made` in a transaction
+
+All five are re-checked on load (Strict loading). Exact retry of a Decision transaction is still answered by the Transaction identity lookup before these checks.
+
+[Dependency] The `decision_made` payload keys are frozen by #1391 (TASK-1391 has not frozen them yet; #1393 lists them in its `decision_to_event_draft`). #1392's RED fixtures use those keys only after that agreement.
 
 ### Initial state and PLANNING
 

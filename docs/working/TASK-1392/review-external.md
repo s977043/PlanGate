@@ -75,3 +75,21 @@ Read-only consultation (Codex), not a C-2 round. Human selected all four to refl
 | R-011 | reflected | (this PR, follow-up commit) | |
 | R-012 | reflected | (this PR, follow-up commit) | |
 | R-013 | reflected | (this PR, follow-up commit) | |
+
+## Requests from #1393 (PR #1407 comments, 2026-09-25)
+
+Cross-PR requests from #1407's adversarial reviews (R3 / Rev2-R1〜R3). Not a C-2 round.
+
+| ID | request | disposition |
+|---|---|---|
+| R-014 | derive the transition from `(lifecycle_state, action)`; reject a mismatching `transition` and a bare Decision-bound edge; re-check on load | reflected: Decision-bound transitions (checks 3〜5); ST-35〜38 |
+| R-015 | reject when `decided_in_state` differs from snapshot `lifecycle_state` | reflected: check 1; ST-33 |
+| R-016 | `decision_made` must be assigned `event_seq == input_last_event_seq + 1` (replaces the withdrawn `expected_last_event_seq` argument); re-check on load | reflected: check 2; ST-34 / 34a |
+
+Open dependency: #1391 must freeze the `decision_made` payload keys (`decided_in_state`, `action`, `outcome`, `input_last_event_seq`) before RED fixtures.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-014 | reflected | (this PR, #1407-requests commit) | |
+| R-015 | reflected | (this PR, #1407-requests commit) | |
+| R-016 | reflected | (this PR, #1407-requests commit) | |
