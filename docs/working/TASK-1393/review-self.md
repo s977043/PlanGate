@@ -103,3 +103,14 @@ Human 裁定（2026-09-25）: Rev2-R5 の R-047 を R-037 と同型とみなし�
 | Mode | high-risk | C-2 は §7-quater により 2 ラウンド以上、C-3 は Human 同期 |
 
 判定: **PASS（Unknowns WARN）**。次は C-2 R1（外部レビュー、設計妥当性レーン + コードベース整合レーン）→ C-2 R2 → Human の C-3。
+
+### 追記（2026-09-25 20:xx / 簡易 C-1 — C-2 R1 の確定反映（Revision 2.3）後）
+
+| 観点 | 判定 | 根拠 |
+|---|---|---|
+| 反映の網羅 | PASS | R-056〜R-069 のうち open の 2 件（R-055 / R-058）を除く 13 件が、plan / test-cases / todo のどこに入ったか監査表で追跡できる |
+| 受入基準網羅 | PASS | Required 5 件の対応は Revision 2.2 から不変（DP-03 は値つきに具体化） |
+| 整合 | PASS | I-1〜I-11 の参照範囲、#1406 の照合 SHA（`d01fcbeb`）、#1422 の B 表（B-12 は提案と明記）を更新 |
+| Unknowns | WARN | R-055（DENIED + FAIL）/ R-058（#1402 decision_core）が Human 判断待ち。PF-1〜PF-6 は exec 前の前提条件 |
+
+判定: **PASS（Unknowns WARN）**。C-2 R2 は R-055 / R-058 の裁定を反映してから実施する（R2 の焦点は R1 の是正が効いているか）。

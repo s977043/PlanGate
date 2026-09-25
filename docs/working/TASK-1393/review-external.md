@@ -1,6 +1,6 @@
 # EXTERNAL / FALLBACK REVIEW — TASK-1393 PLAN
 
-Status: C-2 R1 未実施（下記 R-001〜R-006 は PR #1407 の独立レビュー（2026-09-24）と、その是正時の正本照合で出た指摘。C-2 の 2 ラウンドは別途必要）
+Status: C-2 R1 実施済み（2026-09-25 / Revision 2.2 = `bf562301`。下記「C-2 R1」節）。C-2 R2 は未実施。以下、旧記載: C-2 R1 未実施（下記 R-001〜R-006 は PR #1407 の独立レビュー（2026-09-24）と、その是正時の正本照合で出た指摘。C-2 の 2 ラウンドは別途必要）
 
 Questions:
 1. Is decision priority fail-closed and non-ambiguous?
@@ -155,6 +155,34 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-053 | minor | DV-21 / DV-22 / DP-14 に input_last_event_seq の指定が無く、期待値が一意に決まらない | 既出 R-013 | open（是正案: 例 70 を明示） |
 | R-054 | minor | #1422 B-2 本文に IT-10 の照合（payload の contract_bound_seq == 直前の最新 plan_contract_bound の seq）が無い。B-7 は「その FAIL より後の failure_recorded を全部渡す」契約にすれば純関数で閉じられる | 既出 R-043 / R-034（境界の揺れ） | open（是正案: B-2 に IT-10 を追記。B-7 の純関数化を検討） |
 
+### C-2 R1（2026-09-25 / Revision 2.2 = `bf562301`）
+
+2 レーン（review-principles §7-bis）。
+- 設計妥当性レーン: Codex CLI 0.157.0 `codex exec -s read-only`。実行モデルは rollout ログで `gpt-6-luna` と確認済み。判定は **FAIL**（major 2 / minor 1）
+- コードベース整合レーン: 独立エージェント（Claude）。照合先は PR #1402 head `583608b0`（#1391〜#1395 の実装を持つ唯一の PR）と PR #1406 head `d01fcbeb`。判定は **WARN**（major 5 / minor 5 / info 2）
+
+オーガナイザーが一次ソースで照合した点: taxonomy §3 / §5 の文言（R-055）、#1402 の `Closes #1393` と `decision_core.py` の存在（R-058）、`run_event.py` の failure キー集合に `verification_ref` が無いこと（R-059）、convergence の required キー 5 つ（R-060）、`SHA256_RE`（R-061）、#1406 の head が `d01fcbeb` であること（R-063）。
+
+| ID | レーン | severity | 指摘 | 是正 / 状態 |
+|---|---|---|---|---|
+| R-055 | 設計 L-A1 | major | D FAIL + DENIED が repair（DV-13 / DD-08）になり、taxonomy §3 で「終了」とされる Run を修理し続ける。修理しても MERGE_READY には届かず、最後は BLOCKED になる | **open（Human 判断）**: 現行の規則は R-001 / R-006 の Human 裁定（正本準拠。Verdict は Verifier の後に評価）に基づく。推奨案は「DENIED なら必ず stop / BLOCKED / [POLICY_DENIED]。FAIL は evidence として残す」。「上書きできない」は FAIL を成功扱いにしない意味で、停止とは矛盾しない |
+| R-056 | 設計 L-A2 | major | `pr_convergence` の ci / required_reviews / scope の型と合格基準が無く、scope の照合主体も書かれていない | reflected: 型と合格値を定義し、scope は #1395 の決定的 observer が LoopContract の許可範囲と照合した結果（pass / fail）とした。DP-03 を値つきに |
+| R-057 | 設計 L-A3 | minor | todo の敵対レビュー項目が未完了のままで、監査表と食い違う | reflected |
+| R-058 | 整合 L-B1 | major | PR #1402 が `Closes #1393` を掲げ、別設計の `decide()` を持つ（後の結果が勝つ / sticky 無し / VERIFIER_UNAVAILABLE は BLOCKED / scope を decide 自身が判定） | **open（Human 判断）**: #1402 の decision_core を置き換えるか・破棄するか、#1402 の `Closes #1393` を外すか。plan には module path と Dependency 行を追加（置き換える前提、Human の確定待ち） |
+| R-059 | 整合 L-B2 | major | #1391（#1402 実装）の `failure_recorded.failure` に `verification_ref` が無く、I-7 を event から組み立てられない | reflected（Dependency）: #1422 B-12 候補「failure_recorded が verification_ref を運ぶ」。#1422 への追記は Human 承認待ち |
+| R-060 | 整合 L-B3 | major | convergence のキー集合に head / artifact が無く、P-2 を event から満たせない | reflected（Dependency）: #1422 B-8 に `observed_artifact_ref` の追加を含める（追記は Human 承認待ち） |
+| R-061 | 整合 L-B4 | major | #1391 の artifact ref 形式 `sha256:<64hex>` で git tree hash を表せない | reflected: 表記を `sha256:` + SHA-256(`git-tree:` + tree object id) と定義。所有は B-1 |
+| R-062 | 整合 L-B5 | major | `decision_made` payload のサイズに上限が無い（#1392 の terminal reserve が上限を前提にしている）。#1391 の `decision` オブジェクトのキー構造との対応も未定 | reflected: `MAX_INPUT_REFS` を超える入力は `DecisionInputError`（値は #1392 と合意、Dependency）。キーの対応は exec 前の Preflight |
+| R-063 | 整合 L-B6 | minor | #1406 の照合 SHA が古い（`2f64beb0` → `d01fcbeb`。表の内容は一致） | reflected |
+| R-064 | 整合 L-B7 | minor | 「contract が verification より前に束縛される」を保証するのは #1391 ではなく #1392 の create envelope | reflected |
+| R-065 | 整合 L-B8 | minor | #1391 の validate_stream が再束縛を binding drift として拒否する | reflected（Dependency）: B-2 の前提に追加 |
+| R-066 | 整合 L-B9 | minor | #1391 の `progress_assessed` / `repair_attempted` に呼び出し側が与える no_progress / evidence_delta があり、真実の源が 2 つになる | reflected: DecisionInput には使わないと明記し、DC-11 を追加 |
+| R-067 | 整合 L-B10 | minor | 値オブジェクトと「公開 constructor なし」の実現方法が未指定 | reflected: frozen dataclass + tuple / frozenset、module 内部の sentinel token。例外は `DecisionInputError(ValueError)` |
+| R-068 | 整合 L-B11 | info | VERIFIER_UNAVAILABLE を HUMAN_ESCALATED にした理由の記録が無い（taxonomy の許容例は BLOCKED） | reflected: decision-log に記録 |
+| R-069 | 整合 L-B12 | info | 「B-8〜B-11 は提案中」が古い（#1422 の本文に反映済み） | reflected |
+
+追加すべき AC 候補（整合レーンから設計妥当性レーンへ返されたもの）: exec 前の Preflight（#1391 の語彙 4 点 = R-059 / R-060 / R-061 / R-062）/ payload のサイズ上限 / DC-09 の静的境界に positive control（`scripts/ai-loop-v2/` が ta-70 と `check_exec_boundary.py` の対象外。対象に加える変更が HO パスに当たる場合は Human が適用）/ #1402 との関係（R-058）/ event の `id` と plan の `verification_ref` / `failure_ref` の対応表。→ plan の「Preflight before exec」節に取り込んだ。
+
 ## 監査表（追記専用）
 
 | R-ID | status | reflected_in(commit) | notes |
@@ -193,3 +221,7 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-046 | moved（#1422 B-3） | `4154a459` | |
 | R-047〜R-054 | open | — | Rev2-R5 節。収束の裁定（R-047 のクラス判定）を Human 判断待ち |
 | R-047〜R-054 | reflected（Revision 2.2） | `3a33b429` | Human 裁定（2026-09-25）: Rev2-R5 は R-047 を R-037 同型とみなし収束扱い。B-8〜B-11 は #1422 への追加提案（未反映） |
+| R-055 | open | — | C-2 R1。Human 判断（DENIED + FAIL の扱い。R-001 / R-006 裁定の再判断） |
+| R-056〜R-057 | reflected（Revision 2.3） | 次の commit | C-2 R1 |
+| R-058 | open（plan に PF-1 を追加） | 次の commit | Human 判断（#1402 の decision_core との関係） |
+| R-059〜R-069 | reflected（Revision 2.3） | 次の commit | R-059 / R-060 / R-065 は #1422 側の追記（B-12・B-8・B-2）が Human 承認待ち |

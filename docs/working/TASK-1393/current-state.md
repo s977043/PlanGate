@@ -1,12 +1,14 @@
 # TASK-1393 Current State
 
-> 更新: 2026-09-25 17:30
+> 更新: 2026-09-25 20:40
 
 ## フェーズ: C-2
-## 進捗: plan Revision 2.2（R-047〜R-054 是正）/ C-1 PASS（Unknowns WARN）/ C-2 R1 未実施 / C-3 未着手
+## 進捗: plan Revision 2.3 / C-2 R1 完了（R-055〜R-069。13 件反映、2 件 Human 判断待ち）/ 簡易 C-1 PASS / C-2 R2 未実施
 
 ## 直近の完了タスク
 
+- C-2 R1（設計妥当性 = Codex gpt-6-luna FAIL / コードベース整合 = Claude WARN）を R-055〜R-069 として記録し、Revision 2.3 で 13 件を反映。簡易 C-1 PASS（2026-09-25 20:xx）
+- #1422 本文に B-2 書き直し・B-7 置き換え・B-8〜B-11 を追加、担当案をコメント（Human 承認）
 - Human 裁定（Rev2-R5 は収束扱い）に沿って R-047〜R-054 を是正（Revision 2.2）、C-1 再実行 PASS（2026-09-25 17:xx）
 - Revision 2.1: 保証範囲を DecisionInput に絞り、stream 束縛を #1422 へ切り出し（Human 決定）。contract_bound_seq / artifact_verdicts / P-3 / I-7 の順序 / I-10 / budget 5 を追加（2026-09-25 16:1x）
 - 敵対レビュー Rev2-R5: 新クラス 0 件（レビュアー判定）、R-047〜R-054 open（2026-09-25 16:4x）
@@ -18,15 +20,17 @@
 
 ## 現在のタスク
 
-- C-2 R1 の準備
+- なし（Human 判断待ち）
 
 ## ブロッカー
 
-- なし（#1422 B-8〜B-11 の追加は Human 承認待ちだが C-2 は進められる）
+- blocker: R-055（DENIED + FAIL の扱い）と R-058（#1402 の decision_core との関係）
+- owner: human
+- unblock_condition: Human が 2 件を裁定する（PR #1407 是正報告 6）
 
 ## 次のアクション
 
-- C-2 R1（外部レビュー: 設計妥当性レーン + コードベース整合レーン）→ C-2 R2 → Human の C-3
+- 裁定の反映 → C-2 R2（R1 の是正が効いているか）→ Human の C-3
 
 ## 計画からの乖離
 

@@ -4,6 +4,8 @@
 >
 > Revision 2.1 (2026-09-25), matching plan Revision 2.1: contract boundary (`contract_bound_seq`), derived `evidence_delta` (`artifact_verdicts`), FR order (I-7). Stream-side cases moved to #1422 are listed under Integration cases.
 >
+> Revision 2.3 (2026-09-25), matching plan Revision 2.3: convergence field domains (R-056), `MAX_INPUT_REFS` (R-062), progress events not read (R-066).
+>
 > Revision 2.2 (2026-09-25), matching plan Revision 2.2: asymmetric contract boundary (R-047), event-bound policy / convergence (R-048), effective FR (R-054), `previous_decision` base point (R-052), seq uniqueness and `contract_bound_seq >= 1` (R-050 / R-051), explicit `input_last_event_seq` (R-053).
 
 Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "fresh" = bound to `current_artifact_ref` with `observed_seq > contract_bound_seq` (a single bound result unless a history with seq is given), "stale" = bound to the previous artifact. `contract_bound_seq = 1`, every other seq > 1, and `input_last_event_seq` = the highest seq in the case unless stated. The verdict of a verifier uses all its bound results (plan "artifact verdict": any FAIL -> fail, else any PASS -> pass, else unavailable). Expected values are exact: `action (-> derived transition)`, `stop / outcome / [stop_reasons]`, or `DecisionInputError` (raised by `make_decision_input` unless marked "decide"). Policy = none unless stated.
@@ -39,6 +41,7 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DI-41 | PR_CONVERGING, contract_bound_seq = 50, pr_convergence observed_seq = 45 on the current artifact, input_last_event_seq = 70 | `DecisionInputError` (P-2) |
 | DI-42 | a policy verdict whose observed_seq > input_last_event_seq | `DecisionInputError` (I-9) |
 | DI-36 | DIAGNOSING, ProgressAssessment whose current_verdicts = {D: pass} while the input gives D verdict fail | `DecisionInputError` (P-3) |
+| DI-43 | results + FailureRecords + policy verdicts = `MAX_INPUT_REFS` + 1 | `DecisionInputError` (I-11); exactly `MAX_INPUT_REFS` is accepted |
 | DI-12 | policy verdict `ALLOW` / unknown | `DecisionInputError` |
 | DI-13 | DIAGNOSING, FR whose verification_ref points to a stale D FAIL (plus a fresh D FAIL with its own FR) | `DecisionInputError` |
 | DI-14 | DIAGNOSING, FR pointing to a non-required verifier's FAIL | `DecisionInputError` |
@@ -110,7 +113,8 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 |---|---|---|
 | DP-01 | fresh D PASS | stop / MERGE_READY / [] |
 | DP-02 | fresh D PASS, conflict=true | continue (no transition) |
-| DP-03 | fresh D PASS, one of ci / required_reviews / blocking_threads / scope fails (4 cases) | continue (no transition) |
+| DP-03 | fresh D PASS, exactly one field not passing: ci = `fail`, ci = `pending`, required_reviews = `unsatisfied`, blocking_threads = 1, scope = `fail` (5 cases) | continue (no transition) |
+| DP-16 | pr_convergence with ci = `green` / required_reviews = 2 / blocking_threads = -1 / scope = `ok` (4 cases) | `DecisionInputError` |
 | DP-04 | D has only a stale PASS | stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE] |
 | DP-05 | fresh D inconclusive | stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE] |
 | DP-06 | required = {D, E}, fresh D PASS, E only stale FAIL | stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE] |
@@ -161,6 +165,8 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DC-08 | `decide` called with anything other than a DecisionInput | `TypeError` |
 | DC-09 | no os / subprocess / network / time / fs / #1392 storage / merge / GitHub imports | static PASS |
 | DC-10 | full repository suite | PASS |
+| DC-11 | a `progress_assessed` event with `no_progress=true` and a `repair_attempted` event with empty `evidence_delta` exist in the stream; the DecisionInput is built with `assess_progress` giving `no_progress=false` | decision follows `assess_progress` (no API reads the event values) |
+| DC-12 | DC-09 positive control: plant a forbidden import (e.g. `subprocess`) in a copy of the module | the static boundary check fails |
 
 ## Mutation targets
 
