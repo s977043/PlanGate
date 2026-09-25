@@ -468,6 +468,37 @@ class RatchetVerticalSliceTests(unittest.TestCase):
                     result, "INCONCLUSIVE", "EVALUATION_PLAN_INCOMPLETE"
                 )
 
+    def test_missing_or_empty_protected_paths_is_inconclusive(self):
+        for case in ("missing", "empty"):
+            with self.subTest(case=case):
+                value = copy.deepcopy(self.base)
+                plan = value["sealed_evaluation_plan"]
+                if case == "missing":
+                    del plan["protected_paths"]
+                else:
+                    plan["protected_paths"] = []
+                value["candidate"]["target"]["allowed_paths"] = ["**"]
+                value["candidate"]["evaluation_plan_digest"] = (
+                    canonical_digest(plan)
+                )
+                result = self.evaluate_bound(value)
+                self.assertResult(
+                    result, "INCONCLUSIVE", "EVALUATION_PLAN_INCOMPLETE"
+                )
+
+    def test_negative_control_failing_on_baseline_is_inconclusive(self):
+        value = copy.deepcopy(self.base)
+        plan = value["sealed_evaluation_plan"]
+        negative_id = plan["negative_control_fixture_id"]
+        control = value["fixtures"][negative_id]
+        control["changed_paths"] = ["outside/allowed-scope.json"]
+        plan["fixture_digests"][negative_id] = canonical_digest(control)
+        value["candidate"]["evaluation_plan_digest"] = canonical_digest(plan)
+        result = self.evaluate_bound(value)
+        self.assertResult(
+            result, "INCONCLUSIVE", "NEGATIVE_CONTROL_BASELINE_INVALID"
+        )
+
     def test_private_transcript_is_rejected(self):
         value = copy.deepcopy(self.base)
         value["candidate"]["raw_transcript"] = "must not persist"

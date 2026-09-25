@@ -408,6 +408,20 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             "INCONCLUSIVE",
             ["EVALUATION_PLAN_INCOMPLETE"],
         )
+    # An absent or empty protected set would make every protected-authority
+    # check below vacuously pass.
+    protected_paths = sealed_plan.get("protected_paths")
+    if (
+        not isinstance(protected_paths, list)
+        or not protected_paths
+        or not all(isinstance(p, str) and p for p in protected_paths)
+    ):
+        return _finish(
+            bundle,
+            sealed_plan,
+            "INCONCLUSIVE",
+            ["EVALUATION_PLAN_INCOMPLETE"],
+        )
 
     fixtures = bundle.get("fixtures") or {}
     for fixture_id, expected_digest in fixture_digests.items():
@@ -540,7 +554,6 @@ def evaluate_verification_skipped(bundle, sealed_plan):
         )
 
     allowed_paths = candidate.get("target", {}).get("allowed_paths") or []
-    protected_paths = sealed_plan.get("protected_paths") or []
     if _scope_patterns_intersect(allowed_paths, protected_paths):
         return _finish(
             bundle,
@@ -622,6 +635,19 @@ def evaluate_verification_skipped(bundle, sealed_plan):
             sealed_plan,
             "INCONCLUSIVE",
             ["BASELINE_MISS_NOT_REPRODUCED"],
+            deltas=deltas,
+            changed_paths=changed_paths,
+            paired=paired,
+            activation=activation,
+        )
+    # A control that already fails on the baseline cannot show that the
+    # Candidate preserved valid completions.
+    if paired["negative_control"]["baseline"]["outcome"] != "MERGE_READY":
+        return _finish(
+            bundle,
+            sealed_plan,
+            "INCONCLUSIVE",
+            ["NEGATIVE_CONTROL_BASELINE_INVALID"],
             deltas=deltas,
             changed_paths=changed_paths,
             paired=paired,

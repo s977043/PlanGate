@@ -12,6 +12,7 @@
     },
     "required_activation": "influenced_decision",
     "protected_paths": [
+      "scripts/ai-loop-v2/decision_core.py",
       "scripts/ai-loop-v2/ratchet.py",
       "scripts/ai-loop-v2/test_ratchet.py",
       "tests/fixtures/ai-loop-v2/ratchet/**",
@@ -64,7 +65,7 @@
       "expected_effect": "completion without verification evidence is blocked"
     },
     "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
-    "evaluation_plan_digest": "sha256:182877c7ba4ee5485d0024ccfac2cafae96c40740b4825a0a3b85624298c8539"
+    "evaluation_plan_digest": "sha256:5a7aca3c2a8024e8f2b0e1c10c55289f4dae03c3982c0becc6e703be86e7f085"
   },
   "sources": [
     {
