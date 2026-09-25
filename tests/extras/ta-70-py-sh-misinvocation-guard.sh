@@ -3,11 +3,12 @@
 # Sourced by tests/run-tests.sh — uses $pass / $fail counters
 # Python スクリプトの「誤インタプリタ起動」副作用ガード回帰テスト（#1169）。
 #
-# 走査対象は 3 群:
+# 走査対象は 4 群:
 #   1. scripts/*.py            （#1175 で是正した射程）
 #   2. scripts/ai-loop/*.py    （残射程。sh 誤起動で gh pr merge /
 #      gh pr review --approve / gh pr close へ実際に到達する経路を含む）
-#   3. plugin/plangate/skills/ai-loop-cycle/scripts/*.py（配布ミラー）
+#   3. scripts/ai-loop-v2/*.py   （V2 runtime namespace）
+#   4. plugin/plangate/skills/ai-loop-cycle/scripts/*.py（配布ミラー）
 #
 # 背景: sh scripts/check-skill-frontmatter.py を実行すると、sh は module
 # docstring を二重引用符文字列として読むため docstring 内のバッククォートが
@@ -16,7 +17,7 @@
 # 34 ファイルが書き換わった（v8.21.0 リリース準備レビュー中の実害）。
 # shebang と実行権限は既に付いていたため、それだけでは塞がらない。
 #
-#   TC-01: 走査対象 3 群の全 .py の guard が **正典テンプレートとバイト列で一致**
+#   TC-01: 走査対象 4 群の全 .py の guard が **正典テンプレートとバイト列で一致**
 #          する（#1178 AC-1/AC-a、#1250 R5 で判定モデルを作り直し）
 #          — 先頭行（shebang があれば `#!/usr/bin/env python3` 厳密一致）、
 #          ガード開始行 `""":"`、閉じ行 `":"""` を厳密照合したうえで、
@@ -50,7 +51,7 @@
 #          効かないため本体側で持つ）
 #
 # 残存脅威モデル（#1250 F3 / C-1 / R3 / R5 で限定・打ち切り宣言。完全性は主張しない）:
-#   - 守るもの: 走査対象 3 群の .py について、**先頭行からガード閉じ行までの
+#   - 守るもの: 走査対象 4 群の .py について、**先頭行からガード閉じ行までの
 #     バイト列が正典テンプレートと完全に一致すること**。この領域のバイト列が
 #     決まれば `sh` / `bash` がそこで実行する内容も決まる。正典そのものが
 #     `sh` 起動で rc=2 / guard 固有の診断 / sentinel 未発火であることは
@@ -62,7 +63,7 @@
 #     （rc=0 = 受理）。この文言は撤回済みで、R5 は allowlist 判定そのものを
 #     やめて一致判定に置き換えた。**今後もこの節に、実測を伴わない
 #     「塞いだ」「fail-closed」を書かないこと**
-#   - 守らないもの: (a) 走査対象 3 群の **外** にある .py。
+#   - 守らないもの: (a) 走査対象 4 群の **外** にある .py。
 #     (b) `sh` 以外の誤起動経路（`source` / `.` によるカレントシェルでの読み込み等）。
 #     (c) **ガード閉じ行より後ろ**の内容（Python 本体側）。ここは TC-03 の
 #     compile 可否しか見ていない。
@@ -174,7 +175,7 @@ _t70_run_sh() {
 # drift 源が 4 箇所になる）。件数は運用で増減するため絶対件数を契約値にしない。
 # 代わりに「各群が 1 件以上に展開されたこと」を機械検出し、glob が丸ごと空振り
 # した状態で緑になるのを防ぐ。
-_T70_DIRS='scripts scripts/ai-loop plugin/plangate/skills/ai-loop-cycle/scripts'
+_T70_DIRS='scripts scripts/ai-loop scripts/ai-loop-v2 plugin/plangate/skills/ai-loop-cycle/scripts'
 _T70_LIST="$_T70_TMP/scan-list.txt"
 : >"$_T70_LIST"
 _t70_emptydir=''
@@ -342,7 +343,7 @@ _t70_struct_ok() {
   python3 "$_T70_GUARD_LINT" "$1" "$_T70_CANON" >/dev/null 2>&1
 }
 
-# === TC-01 走査対象 3 群の全 .py の guard が正典テンプレートとバイト列一致する ===
+# === TC-01 走査対象 4 群の全 .py の guard が正典テンプレートとバイト列一致する ===
 _t70_missing=''
 while IFS= read -r _t70_f; do
   [ -n "$_t70_f" ] || continue

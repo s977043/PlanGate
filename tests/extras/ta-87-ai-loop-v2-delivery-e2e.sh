@@ -56,6 +56,7 @@ fi
 # failure is captured as a test failure instead of aborting the entire harness.
 if _T87_OUT=$(python3 - "$_T87_REPAIR" "$_T87_NOPROGRESS" <<'PY'
 import copy
+import fnmatch
 import json
 import re
 import sys
@@ -323,7 +324,11 @@ def validate_repair(trace):
 
     change = next(e for e in events if e["type"] == "artifact_changed")
     req(change["before_artifact_ref"] != change["after_artifact_ref"], "repair artifact delta")
-    req(change.get("scope_ok") is True, "repair scope")
+    changed_paths = change.get("changed_paths")
+    allowed_scope = trace["loop_contract"]["allowed_scope"]
+    req(isinstance(changed_paths, list) and changed_paths, "repair changed paths")
+    req(all(any(fnmatch.fnmatch(path, pattern) for pattern in allowed_scope)
+            for path in changed_paths), "repair scope")
 
     final_det = deterministic[-1]["verification"]
     req(final_det["status"] == "pass", "fresh deterministic PASS")
@@ -537,7 +542,7 @@ expect_reject("event after terminal outcome", m, validate_no_progress)
 
 # Mutation 18: Repair is explicitly outside the approved scope.
 m = copy.deepcopy(repair)
-m["events"][8]["scope_ok"] = False
+m["events"][8]["changed_paths"] = ["outside://forbidden.py"]
 expect_reject("repair outside approved scope", m, validate_repair)
 
 print("  [PASS] 18 mutation classes killed")
