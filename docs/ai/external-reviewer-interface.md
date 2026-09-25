@@ -1,12 +1,12 @@
 # 外部レビューア標準インターフェース（正本）
 
-> PlanGate の C-2 / V-3 外部レビューア接続の **正本**。river-reviewer を
+> PlanGate の C-2 / V-3 外部レビューア接続の **正本**。River Review（現行 repository: `s977043/river-review`）を
 > 第一の参照実装とし、任意の外部レビューアを同一 IF で接続できる。
 > 関連: [#227](https://github.com/s977043/plangate/issues/227) / TASK-0089 /
 > [`.claude/rules/review-principles.md`](../../.claude/rules/review-principles.md) §7-bis /
 > [`schemas/plangate-reviewers.schema.json`](../../schemas/plangate-reviewers.schema.json) /
 > [`schemas/review-external.schema.json`](../../schemas/review-external.schema.json) /
-> river-reviewer 側: [s977043/river-reviewer#802](https://github.com/s977043/river-reviewer/issues/802)
+> River Review 側: `s977043/river-review`（旧 `s977043/river-reviewer` から移動）
 
 ## 1. 目的
 
@@ -49,30 +49,66 @@ reviewers:
 - `reviewers.c2` / `reviewers.v3`: フェーズ別レビューア。片方のみでも可。
 - `provider`: レビューア識別子（例 `river-reviewer` / `gemini` / `codex`）。
 - `command`: 実行コマンド。**JSON を stdout に出力**すること（後述 §3）。
-- `output_mapping`: レビューア出力 → PlanGate フィールドの対応（§3）。
-  **必須**（`severity` / `evidence` / `location` を含む。省略不可 —
-  変換に必要なため schema で必須化）。
+- `output_mapping`: **legacy compatibility field**。schema v1/v2 では必須のまま維持するが、
+  現行 `bin/plangate review` はこの値を実行・評価していない。過去の本ドキュメントは
+  「変換に使用する」と記載していたが実装と不一致だった（#1394）。任意式の evaluator は
+  追加せず、structured consumer は `scripts/reviewer_normalize.py` の named adapter を使う。
+  `output_mapping` の削除は将来 major release の migration 対象とする。
 
 ## 3. 出力フォーマット変換
 
-外部レビューアは Finding 配列を JSON で出力する。PlanGate は
-`output_mapping` に従い [`review-external.schema.json`](../../schemas/review-external.schema.json)
-準拠の `review-external.md`（+ 任意 `review-result.json`）へ変換する。
+### 3.0 現行 runtime と structured normalization の境界
 
-### 3.1 river-reviewer Finding → PlanGate
+現行 `bin/plangate review` / `_review_parallel()` は reviewer stdout を取得し、
+provider / lane の表示情報を付けて `review-external.md` へ書く。**legacy
+`output_mapping` は runtime では評価しない**。この事実を「変換済み」と扱ってはならない。
 
-river-reviewer の Finding は `Finding:Evidence:Impact:Fix:Severity:Confidence`
-構造。対応:
+provider 固有 JSON を機械利用する場合は、#1394 で追加した
+`scripts/reviewer_normalize.py` を単一の normalization boundary とする。
 
-| river-reviewer | PlanGate review-external | 備考 |
-|----------------|--------------------------|------|
-| `finding` | 指摘タイトル | 1 行要約 |
-| `evidence` | 根拠（差分引用） | §6 具体性要件を満たす |
-| `impact` | 影響（故障確率の説明） | §5 故障確率判断 |
-| `fix` | 改善案 | §5 改善案提示 |
-| `severity` | severity | §3.2 で 1:1 |
-| `confidence` | （補助情報） | 低 confidence は info 降格可 |
-| `file` + `line` | location | `file:line` 形式 |
+```text
+provider stdout
+   ↓
+named adapter
+   ↓
+normalized reviewer envelope
+```
+
+named adapter は構文・既知フィールドを決定論的に変換するだけで、semantic similarity、
+approval 判定、finding からの stance 推測を行わない。
+
+first-class な `bin/plangate review` 配線と Deliberation position sidecar 生成は #1354 で
+Human-owned HO 変更として接続する。#1394 単独では legacy Markdown 出力挙動を変更しない。
+
+### 3.1 River Review JSON → normalized reviewer envelope
+
+旧 repository 名 `s977043/river-reviewer` は現行
+`s977043/river-review` へ移動している。現行の
+`schemas/output.schema.json` はトップレベル `issues[]` + `summary` を持つ。
+
+`river-review-v1` adapter の主要変換:
+
+| River Review | normalized field | 備考 |
+| --- | --- | --- |
+| `issues[].id` | `source_finding_ref` | run 内 finding ID をそのまま保持 |
+| `issues[].severity` | `severity` | 既存 PlanGate 4 段階へ正規化 |
+| `issues[].title` | `claim` | タイトルを短い claim として保持 |
+| `issues[].message` | `rationale_summary` | 本文を rationale summary として保持 |
+| `criterionRefs[]` / `artifactRefs[]` | `evidence_refs[]` | explicit ref のみ |
+| `file` + optional `line` | `evidence_refs[]` | location ref として保持 |
+
+River Review の `issues[]` は finding であって Deliberation position ではない。
+そのため初期 adapter は必ず:
+
+```text
+position_capability = unavailable
+positions = []
+```
+
+とする。`decision` / `gate` / finding 有無 / severity から
+`support|oppose|conditional` を推測しない。zero findings も support を意味しない。
+
+explicit position を提供する producer は `plangate-normalized-v1` contract を使う。
 
 ### 3.2 Severity マッピング
 
