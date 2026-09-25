@@ -4,9 +4,14 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
+import uuid
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "scripts" / "context-engine.py"
@@ -125,6 +130,60 @@ class ContextEngineIntentContextTests(unittest.TestCase):
         self.write_package(self.base)
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
         Draft7Validator(schema).validate(self.build())
+
+    def test_09_validator_unavailable_is_fail_closed(self):
+        self.write_package(self.base)
+        with mock.patch.object(
+            engine.intent_context_contract,
+            "validate_package",
+            side_effect=RuntimeError("jsonschema unavailable"),
+        ):
+            ref = self.build()["intent_context"]
+        self.assertEqual({"path", "status"}, set(ref))
+        self.assertEqual("invalid", ref["status"])
+
+    def test_10_non_object_json_is_invalid(self):
+        for raw in (b"[]", b'"CTX-1"', b"1", b"null"):
+            with self.subTest(raw=raw):
+                (self.task_dir / "intent-context.json").write_bytes(raw)
+                ref = self.build()["intent_context"]
+                self.assertEqual({"path", "status"}, set(ref))
+                self.assertEqual("invalid", ref["status"])
+
+
+class ContextEngineIntentContextCliTests(unittest.TestCase):
+    """The CLI runs with the real docs/working, so use a throwaway task dir."""
+
+    def setUp(self) -> None:
+        self.task_id = f"TASK-T1399{uuid.uuid4().hex[:12]}"
+        self.task_dir = ROOT / "docs" / "working" / self.task_id
+        self.task_dir.mkdir()
+        self.addCleanup(shutil.rmtree, self.task_dir, True)
+        self.base = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        self.base["task_id"] = self.task_id
+
+    def run_cli(self, payload: dict) -> subprocess.CompletedProcess:
+        (self.task_dir / "intent-context.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.run(
+            [sys.executable, str(MODULE_PATH), self.task_id,
+             "--phase", "execute", "--no-write"],
+            capture_output=True, text=True, timeout=60,
+        )
+
+    def test_11_cli_exits_0_for_valid_package(self):
+        proc = self.run_cli(self.base)
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        self.assertIn('"status": "present"', proc.stdout)
+
+    def test_12_cli_exits_1_for_invalid_package(self):
+        bad = copy.deepcopy(self.base)
+        bad["constraints"][0]["source_ids"] = ["SRC-NOPE"]
+        proc = self.run_cli(bad)
+        self.assertEqual(1, proc.returncode, proc.stderr)
+        self.assertIn("intent context invalid", proc.stderr)
 
 
 if __name__ == "__main__":

@@ -144,6 +144,8 @@ def _intent_context(task_id: str) -> dict | None:
         payload = json.loads(raw)
     except (OSError, json.JSONDecodeError):
         return {"path": rel, "status": "invalid"}
+    if not isinstance(payload, dict):
+        return {"path": rel, "status": "invalid"}
 
     try:
         errors = intent_context_contract.validate_package(payload)
