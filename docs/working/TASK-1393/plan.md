@@ -265,7 +265,7 @@ The first release is not complete until #1422 (B-1〜B-11, including the audit) 
 | `HUMAN_REQUIRED` -> `WAITING_HUMAN` | `DecisionInputError` (step 5) | #1392 waiting/resume slice |
 | `PR_CONVERGING` + `replan_required` | `DecisionInputError` (step 2) | #1392 allowlist (no edge yet) |
 | `BUDGET_EXHAUSTED` / `REPEATED_FAILURE` / `OSCILLATION` | not produced by `decide()` | later #1393 slice; budget enforced by #1395 (below) |
-| blocker sets and `previous_verdicts` are caller observations | trusted as observed values; `evidence_delta` itself is derived | #1395 derives them from RunEvents |
+| blocker sets are caller observations | trusted as observed values; `evidence_delta` is derived and `previous_verdicts` comes from the base-point payload (#1422 B-10) | #1395 derives blocker sets from RunEvents |
 | `required_verifiers` / `contract_bound_seq` are not yet bound to the Run by any event | release condition | #1422 B-2 / B-6 |
 | no policy event exists in the #1391 first-slice vocabulary | the first slice passes no policy verdicts until B-8 adds one | #1422 B-8 / #1391 |
 | a Replan with an unchanged tree keeps its FAILs (R-047) | intended fail-closed: the Run must change content (repair) or stop | — |

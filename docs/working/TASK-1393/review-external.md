@@ -192,3 +192,4 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-045 | reflected（Revision 2.1） | `4154a459` | Rev2-R5 で閉鎖確認 |
 | R-046 | moved（#1422 B-3） | `4154a459` | |
 | R-047〜R-054 | open | — | Rev2-R5 節。収束の裁定（R-047 のクラス判定）を Human 判断待ち |
+| R-047〜R-054 | reflected（Revision 2.2） | `3a33b429` | Human 裁定（2026-09-25）: Rev2-R5 は R-047 を R-037 同型とみなし収束扱い。B-8〜B-11 は #1422 への追加提案（未反映） |

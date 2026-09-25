@@ -88,3 +88,18 @@ R-7 の「empty/ALLOW のみ受理・他は fail closed」は、R-001（出力�
 判定: **FAIL（未収束・上限ラウンド到達）**。Human の判断（打ち切り / 追加ラウンド）待ち。
 
 追記（Rev2-R4 後）: Human 承認の追加 1 ラウンドで R-037〜R-041 を局所是正し、R-037 / R-038 / R-040 の閉鎖を確認。新クラス 1 件（R-042）ほか R-043〜R-046 が open。判定は **FAIL（未収束）** のまま。Rev2 の新クラス数は R1〜R4 で 1 / 3 / 1 / 1 件で、どれも「前ラウンドの是正が同一性・束縛の境界を動かしたこと」から生じている。
+
+### 追記（2026-09-25 17:xx / Revision 2.2 = Rev2-R5 の R-047〜R-054 是正後）
+
+Human 裁定（2026-09-25）: Rev2-R5 の R-047 を R-037 と同型とみなし、Rev2-R5 を**収束（是正漏れのみ）**と扱う。R-047〜R-054 を是正して C-2 へ進む。
+
+| 観点 | 判定 | 根拠 |
+|---|---|---|
+| 受入基準網羅 | PASS | pbi-input Required 5 件: repair = DD-01 / DD-16、model PASS = DV-03 / DP-09、NO_PROGRESS = DD-04 / DD-10 / DD-13、MERGE_READY = DP-01、unavailable / inconclusive = DV-04 / DV-05 / DP-05。Deferred 1 件は Human 承認済み |
+| 是正の反映（R-047〜R-054） | PASS | R-047 = 非対称な区切り（DV-22 / DP-15 / AV-03）、R-048 = PolicyVerdict / pr_convergence の event 構築（DI-40〜42）、R-049 = B-1〜B-11 表とリリース条件、R-050 / R-051 = I-10 `>= 1` と I-5 一括一意（DI-34 / 38 / 39）、R-052 = previous_decision（PR-09 / 12 / 14 / 15）、R-053 = input_last_event_seq 明示、R-054 = 有効 FR（DD-14 / DD-15）と B-2 の照合 |
+| 整合（plan ↔ test-cases） | PASS | 旧表現（exactly one FR / previous_records / 入力としての evidence_delta / B-1〜B-7 のみ）の残存を grep で確認し 0 件。テスト ID の重複 0 件 |
+| スコープ | PASS | #1393 は純関数のまま。stream 側の不変条件は B-1〜B-11 として #1422 に列挙 |
+| Unknowns | WARN | B-8〜B-11 は #1422 への追加提案で未反映（Human 承認待ち）/ #1391 の第一スライス語彙に policy event が無い / #1406 への依頼（B-3〜B-5）が未反映 / `decision_made` payload キーの #1391 との合意 |
+| Mode | high-risk | C-2 は §7-quater により 2 ラウンド以上、C-3 は Human 同期 |
+
+判定: **PASS（Unknowns WARN）**。次は C-2 R1（外部レビュー、設計妥当性レーン + コードベース整合レーン）→ C-2 R2 → Human の C-3。

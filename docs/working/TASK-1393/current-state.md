@@ -1,12 +1,13 @@
 # TASK-1393 Current State
 
-> 更新: 2026-09-25 16:50
+> 更新: 2026-09-25 17:30
 
-## フェーズ: BLOCKED
-## 進捗: plan Revision 2.1（`4154a459`）/ R-042・R-044・R-045 是正、R-043・R-046 は #1422 へ移管 / Rev2-R5 で R-047〜R-054 open / C-2・C-3 未着手
+## フェーズ: C-2
+## 進捗: plan Revision 2.2（R-047〜R-054 是正）/ C-1 PASS（Unknowns WARN）/ C-2 R1 未実施 / C-3 未着手
 
 ## 直近の完了タスク
 
+- Human 裁定（Rev2-R5 は収束扱い）に沿って R-047〜R-054 を是正（Revision 2.2）、C-1 再実行 PASS（2026-09-25 17:xx）
 - Revision 2.1: 保証範囲を DecisionInput に絞り、stream 束縛を #1422 へ切り出し（Human 決定）。contract_bound_seq / artifact_verdicts / P-3 / I-7 の順序 / I-10 / budget 5 を追加（2026-09-25 16:1x）
 - 敵対レビュー Rev2-R5: 新クラス 0 件（レビュアー判定）、R-047〜R-054 open（2026-09-25 16:4x）
 
@@ -17,17 +18,15 @@
 
 ## 現在のタスク
 
-- なし（Human 判断待ち）
+- C-2 R1 の準備
 
 ## ブロッカー
 
-- blocker: 収束の裁定待ち（R-047 は R-042 の是正で生まれた MERGE_READY 経路。R-037 と同型というレビュアー判定を採るかどうか）
-- owner: human
-- unblock_condition: Human が裁定する（PR #1407 是正報告 4）
+- なし（#1422 B-8〜B-11 の追加は Human 承認待ちだが C-2 は進められる）
 
 ## 次のアクション
 
-- Human 判断に従う
+- C-2 R1（外部レビュー: 設計妥当性レーン + コードベース整合レーン）→ C-2 R2 → Human の C-3
 
 ## 計画からの乖離
 
