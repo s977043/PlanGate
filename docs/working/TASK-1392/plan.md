@@ -6,8 +6,10 @@
 Plan: GO
 Production implementation: after #1391 consumable
 Persistence model: single atomic snapshot, model B (Human decision R-017, 2026-09-25):
-  stores accepted RunEvents grouped in #1392 transaction envelopes;
-  RunState, generation and the idempotency index are derived on load, never stored
+  stores accepted RunEvents grouped in #1392 transaction envelopes (kind only);
+  RunState, generation and per-transaction results are derived on load, never stored
+Idempotency: not in the first slice (Human decision R-046, 2026-09-25)
+CAS token: expected_revision + expected_position (Human decision R-049), both derived
 ```
 
 ## Storage layout
@@ -23,11 +25,11 @@ Trusted caller supplies a runtime root. #1392 first slice does not discover repo
 Run ID grammar:
 `RUN-[A-Z0-9][A-Z0-9_-]{0,63}`
 
-No caller-supplied filename.
+The caller supplies `run_id` (validated against the grammar); there is no caller-supplied filename.
 
 ### CAS guarantee scope
 
-The lock domain is the `runtime_root` the caller passes. **CAS, idempotency and the conflict bound hold only among callers that pass the same `runtime_root`.** Two callers that pass different roots for the same `run_id` get independent locks and snapshots, and both commits can succeed (split-brain); this slice neither detects nor prevents that.
+The lock domain is the `runtime_root` the caller passes. **CAS and the conflict bound hold only among callers that pass the same `runtime_root`.** Two callers that pass different roots for the same `run_id` get independent locks and snapshots, and both commits can succeed (split-brain); this slice neither detects nor prevents that.
 
 Consequences:
 - API docs and the handoff state this limit; no document may describe this slice alone as "durable CAS for a Run" without the qualifier
@@ -37,14 +39,11 @@ Consequences:
 
 ```json
 {
-  "schema_version": "2",
+  "schema_version": "3",
   "run_id": "RUN-...",
   "transactions": [
     {
-      "transaction_id": "TXN-...",
       "kind": "create | commit | conflict",
-      "expected_revision": 0,
-      "transition": null,
       "events": [ { "...": "accepted #1391 RunEvent, unchanged" } ]
     }
   ],
@@ -54,14 +53,14 @@ Consequences:
 
 `snapshot_ref` = canonical hash of the file excluding `snapshot_ref`.
 
-**Only two kinds of data are stored** (model B, R-017):
+**Only two kinds of data are stored** (model B, R-017; envelope reduced by R-046):
 
 | stored | owner | meaning |
 |---|---|---|
 | RunEvents inside `events` | #1391 (type, payload validation, `event_ref`); `state_transitioned` / `state_conflict` payloads #1392 | the append-only event stream (canon §3). The stream is the concatenation of all envelopes' `events` in order |
-| transaction envelope fields (`transaction_id`, `kind`, `expected_revision`, `transition`) | **#1392** (persistence metadata) | which events were committed together, and the request fields that are not recoverable from the events. Per kind: `create` — `expected_revision` and `transition` are null; `commit` — `expected_revision` is the revision the request was checked against and `transition` is the requested transition or null; `conflict` — both null (the conflict's numbers live only in the `state_conflict` payload, so there is no second copy) |
+| envelope `kind` | **#1392** (persistence metadata) | which events were committed together, and whether they are a create, a commit or conflict evidence |
 
-The envelope never adds top-level keys to a RunEvent, and a RunEvent never carries envelope keys at its top level (R-021 ownership boundary; ST-41 checks top-level keys only — a `state_conflict` payload legitimately contains `transaction_id`).
+The envelope never adds top-level keys to a RunEvent, and a RunEvent never carries envelope keys at its top level (R-021 ownership boundary; ST-41 checks top-level keys only).
 
 **Derived on every load, never stored** (so there is no second truth to drift, removing the class behind R-002 / R-005 / R-020):
 
@@ -69,50 +68,42 @@ The envelope never adds top-level keys to a RunEvent, and a RunEvent never carri
 |---|---|
 | RunState (`lifecycle_state`, `revision`, bindings, `pending_action=null`, `policy_verdict=null`) | fold over the stream (see Strict loading) |
 | `generation` | number of envelopes |
-| per-transaction result (`first_event_seq`, `last_event_seq`, `result_revision`) | from the envelope's events and the fold |
-| replay index `transaction_id -> request_digest` | only `create` / `commit` envelopes. The digest is recomputed from stored data only: the envelope (`kind`, `run_id`, `expected_revision`, `transition`) plus the event drafts recovered from the envelope's events — excluding the #1392-generated trailing `state_transitioned` — by removing the #1391 binding keys (`run_id`, `event_seq`, `revision`, `harness_manifest_ref`, `plan_hash`, `source_sha`, `event_ref`) |
-| conflicted `transaction_id` set | the `transaction_id` of each `conflict` envelope. No digest is kept for conflicts (Human decision R-029: conflicts are outside replay) |
-
-[Dependency] draft recovery requires `strip(finalize_event(d)) == d` for every valid draft `d`, i.e. #1391 `finalize_event` adds **only** the binding keys above and does not canonicalize the draft's own content. This is a #1391 consumability condition (todo Preflight; ST-42). A draft that already contains a binding key is rejected at commit, so the round trip cannot be ambiguous.
+| `position` (CAS token, R-049) | number of `create` / `commit` envelopes; `conflict` envelopes are **not** counted |
+| per-transaction result (`first_event_seq`, `last_event_seq`, the revision it was checked against, `result_revision`, its transition) | from the envelope's events and the fold |
 
 Canon: RunState remains the canonical mutable, revision-CAS artifact of `artifact-responsibilities.md`; model B changes only its physical representation (CAS is realised by appending a `state_transitioned` event under the lock and replacing the file atomically). The canon §4 wording is revised in the same PR.
 
 ## Commit protocol
 
-### Transaction identity
+### Binding supply (R-047)
 
-Every mutating call carries a caller-supplied `transaction_id`:
-`TXN-[A-Z0-9][A-Z0-9_-]{0,63}`
+Binding values reach #1392 only through API arguments, never inside a draft:
+- `create_run(..., run_id, binding, plan_event_draft)` — `binding = {harness_manifest_ref, plan_hash, source_sha}` plus the LoopContract reference once #1391 defines it
+- `commit(..., rebinding=None)` — the new binding for a Replan re-binding (see Replan re-binding)
 
-`request_digest` = canonical hash of exactly the data the replay index can recompute:
-`kind`, `run_id`, `expected_revision`, `transition`, `event_drafts` (for create_run: `kind=create`, `run_id`, `plan_event_draft`; there is no `initial_state` input — the initial state is a fold constant).
+#1392 passes the binding in force at each event's position to #1391 `finalize_event(draft, bound_context, event_seq)` (TASK-1391 plan T6). Binding keys live only at the RunEvent top level (never inside a payload). A draft that contains a #1391 binding key or an envelope key at its top level is rejected, so there is exactly one channel.
 
-Under the lock, **before** the expected_revision check:
+### Retry after a lost response (no idempotency in the first slice)
 
-| lookup | result |
-|---|---|
-| `transaction_id` in the replay index, same `request_digest` | **exact retry**: return the current snapshot with `replayed=true` and the derived result of that envelope. No new event, no new envelope, no state change |
-| `transaction_id` in the replay index, different `request_digest` | reject `TransactionIdReuse`. Zero mutation |
-| `transaction_id` in the conflicted set | **no replay** (conflicts are outside idempotency, R-029). Evaluate the request normally: its `expected_revision` was stale when the conflict was recorded and revisions only increase, so it is stale again — return a live RevisionConflict (current `actual_revision`, the recorded conflict's `event_ref`) with zero mutation. **The body is not examined**: no digest is kept for conflicts, so same and different bodies are indistinguishable and both get the live conflict (R-037). A conflicted `transaction_id` can never commit |
-| absent | proceed normally |
+Human decision R-046 (2026-09-25): the idempotency layer (`transaction_id`, replay, request digest) produced a new failure class in every C-2 round (R1〜R4) and is removed from the first slice.
 
-The lookup runs before the revision check because an exact retry after a successful commit necessarily carries a stale `expected_revision`. This is the layer that TASK-1391 plan delegates to #1392 ("exact retry ... does **not** append a second event").
+The revision changes only on a state transition, so a revision-only CAS would let an **events-only** commit be resent and applied twice (the original R-001). Human decision R-049: every commit also carries `expected_position`, and `position` (the number of `create` / `commit` envelopes) grows by exactly one with every successful commit, transition or not.
 
-A `transaction_id` is consumed by the commit or by the recorded conflict it produced. A caller that wants to retry with a new `expected_revision` uses a new `transaction_id`. A request answered with `suppressed` (Conflict evidence bound) or `InvalidExpectedRevision` is not recorded and so does not consume its `transaction_id`; it cannot later commit unchanged, because its `expected_revision` is already behind (suppressed) or can never be current (see below).
-
-Trust limit (R-031): `snapshot_ref` is an unkeyed hash. It detects accidental corruption, not tampering by an actor who can write `runtime_root` and recompute it — e.g. renaming an events-only envelope's `transaction_id` and then resending the original request appends its drafts again. This is the same limit as pbi-input "Trust limit"; ST-28i covers corruption, not a hostile writer.
-
-Relation to canon §4 (`artifact-responsibilities.md`: "mismatch -> STATE_CONFLICT"): replay is **re-delivery of the response of a request that already committed**, identified only by the same `transaction_id` and the same `request_digest`. It is not a CAS retry. Any other request carrying a stale `expected_revision` — including an identical payload under a new `transaction_id` — is a CAS mismatch and gets `STATE_CONFLICT` as canon §4 requires. API docs and tests (ST-21 vs ST-21a) keep the two apart.
+- a resent request is evaluated like any other: if it already committed, its `expected_position` is now stale, so it gets `STATE_CONFLICT` (canon §4) and **its drafts are not appended a second time**, with or without a transition. This keeps TASK-1391 plan's requirement that an exact retry does not append a second event; the mechanism is the CAS, not a replay index
+- `conflict` envelopes do not count toward `position`, so a stale writer's conflict evidence does not make a concurrent legitimate writer stale
+- a caller that lost a response calls `load_run` and decides from the stream whether its transaction landed (#1395's responsibility; the first-slice caller is a single deterministic orchestrator)
+- a resent `create_run` for an existing Run gets `RunAlreadyExists` with zero mutation; the caller loads and compares
+- [Dependency] TASK-1391 plan:81 says "exact retry is handled at #1392 transaction/idempotency layer". It needs the wording "#1392's CAS on revision and position rejects it" (requested on #1391). A dedicated idempotency slice may add replay later
 
 ### create_run
 
 Under exclusive lock:
 
-0. reject a `plan_event_draft` that contains a #1391 binding key or an envelope key at its top level (same rule as commit step 2c; R-038)
-1. if a snapshot exists: apply the Transaction identity lookup (exact create retry after a crash-after-replace returns `replayed=true`); otherwise reject
+0. validate `run_id` grammar and `binding`; reject a `plan_event_draft` that contains a #1391 binding key or an envelope key at its top level, or is not a `plan_contract_bound` draft
+1. if a snapshot exists: reject `RunAlreadyExists` with zero mutation
 2. the Run starts at revision 0 in `PLAN_VERIFYING` (first-slice create rule; the transition allowlist has no edge out of `PLANNING`, so a Run created in `PLANNING` could never progress). This is a fold constant, not a stored value
 3. allocate event_seq=1
-4. #1391 validates/finalizes plan_contract_bound event
+4. #1391 validates/finalizes the plan_contract_bound draft with `binding`
 5. #1391 validate_append([], event)
 6. build the file with one envelope `kind=create`
 7. atomic_replace(snapshot)
@@ -121,28 +112,28 @@ Under exclusive lock:
 
 Input:
 - run_id
-- transaction_id
 - expected_revision
+- expected_position
 - EventDrafts
 - optional state transition request
+- optional rebinding (Replan only)
 
 Under exclusive lock:
 
 1. strict load current snapshot
 2. validate snapshot_ref + #1391 accepted stream
-2a. Transaction identity lookup (may return replay / live RevisionConflict for a conflicted id / TransactionIdReuse here)
-2c. reject any draft that contains a #1391 binding key or an envelope key at its top level
-2d. reject any caller draft of a #1392-owned type (`state_transitioned`, `state_conflict`); only #1392 creates them (R-039)
-2b. reject an empty request (no event drafts and no transition) with zero mutation; every envelope holds at least one event
-3. require expected_revision == derived current revision
+2a. reject an empty request (no event drafts and no transition) with zero mutation; every envelope holds at least one event
+2b. reject any draft that contains a #1391 binding key or an envelope key at its top level
+2c. reject any caller draft of a #1392-owned type (`state_transitioned`, `state_conflict`); only #1392 creates them (R-039)
+3. compare `expected_revision` / `expected_position` with the derived current values (see Revision conflict); proceed only if both are equal
 4. allocate exact next event_seq values
-5. bind each event to the context the fold holds **at that event's position**: a re-binding `plan_contract_bound` carries the new binding itself, and every later event in the transaction (including a trailing `state_transitioned`) carries the new binding (R-040)
+5. bind each event to the context the fold holds **at that event's position**: with `rebinding`, the re-binding `plan_contract_bound` and every later event in the transaction (including a trailing `state_transitioned`) carry the new binding (R-040)
 6. #1391 finalize each draft
 7. #1391 validate_append against growing in-memory stream
 8. inspect finalized drafts for Terminal Outcome:
    - if any draft contains terminal `decision_made.outcome != null`, `transition` must be absent
    - terminal decision must be the final event of the transaction
-8a. apply the Decision-bound checks (see Decision-bound transitions): `decided_in_state`, `input_last_event_seq`, and the transition derived from `(lifecycle_state, action)`
+8a. apply the Decision-bound checks (see Decision-bound transitions)
 9. if non-terminal state transition requested:
    - validate from_state/current revision
    - increment revision exactly +1
@@ -159,15 +150,16 @@ No successful response before step 15 (parent-directory fsync complete).
 
 ## Revision conflict
 
-If `expected_revision > current revision`: reject `InvalidExpectedRevision` with zero mutation and no conflict event. A revision ahead of the store cannot come from a correct caller; recording it as a conflict would let the same request commit once the store catches up.
+The CAS token is the pair (`expected_revision`, `expected_position`). Because `position` only grows and every revision change happens in a counted envelope, a request is either current (both equal), stale (at least one lower), or ahead (at least one higher).
 
-If `expected_revision < current revision`:
+If the request is **ahead**: reject `InvalidExpectedRevision` with zero mutation and no conflict event. An ahead token cannot come from a correct caller. If the store later reaches that token, the same request is an ordinary CAS and can commit; the error only says "not now" (R-048).
+
+If the request is **stale**:
 - do not apply requested drafts/state transition
-- if the Run is still non-terminal, append a `state_conflict` evidence event in a separate atomic snapshot commit using actual current revision and next event_seq
+- if the Run is still non-terminal and the Conflict evidence bound allows it, append a `state_conflict` evidence event in a separate atomic snapshot commit using actual current revision and next event_seq, in one envelope `kind=conflict` holding exactly that event; its payload (#1392-owned) carries `expected_revision`, `actual_revision`, `expected_position`, `actual_position`
 - if the Run is already terminal, do not append after terminality; return terminal/stale error without mutating the snapshot
-- raise/return RevisionConflict containing conflict event_ref
+- raise/return RevisionConflict (`STATE_CONFLICT`) containing the conflict `event_ref`, or `conflict_evidence="suppressed"` when not recorded
 - state revision remains unchanged
-- conflict recording adds one envelope `kind=conflict` (`expected_revision` and `transition` null) for the failed request's `transaction_id`, holding exactly the `state_conflict` event; its payload (#1392-owned) carries `transaction_id`, `expected_revision`, `actual_revision` and no digest. Strict load checks `payload.transaction_id == envelope.transaction_id`, `actual_revision == folded revision`, `expected_revision < actual_revision` (R-030)
 
 This preserves conflict evidence without pretending the failed mutation committed.
 
@@ -175,10 +167,10 @@ This preserves conflict evidence without pretending the failed mutation committe
 
 Unbounded conflict recording would let a looping stale writer grow the event stream and snapshot without limit.
 
-- **per transaction**: at most one `state_conflict` per `transaction_id` (resending a conflicted request gets a live RevisionConflict with no new event; see Transaction identity)
 - **terminal reserve** (R-032): a conflict is recorded only if the resulting file stays outside `TERMINAL_RESERVE`; otherwise the answer is `suppressed` with zero mutation. Conflict evidence can never consume the space kept for the terminal Decision
 - **per revision**: at most `MAX_CONFLICTS_PER_REVISION` `state_conflict` events while the state stays at one revision. Beyond the cap, return RevisionConflict with `conflict_evidence="suppressed"` and zero mutation. The cap being reached is itself visible from the recorded conflicts at that revision
 - the constant's value is fixed by the RED fixture (provisional: 8); it is a first-slice limit, not a canon value
+- without transaction identities, a resent stale request is recorded again (up to the per-revision cap)
 
 ## Crash semantics
 
@@ -196,6 +188,7 @@ Expected:
 - after replace: new snapshot authoritative
 - recovery never composes fields from old/new
 - successful API response only after directory fsync
+- a crash after replace but before the response is observed by the caller as a lost response (see Retry after a lost response)
 
 No separate WAL is required because the whole Run (events and envelopes) is one replace unit.
 
@@ -231,12 +224,14 @@ Every commit rewrites the whole snapshot, so write volume and latency grow with 
 - snapshot_ref mismatch reject
 - file `run_id` / event run binding mismatch reject
 - event stream (concatenation of envelopes' `events`) invalid by #1391 `validate_stream` => snapshot invalid
-- **envelope structure**: at least one envelope; the first is `kind=create` holding exactly the `plan_contract_bound` event; every envelope holds at least one event; `transaction_id` values are unique; a `conflict` envelope holds exactly one `state_conflict` event and nothing else, and a `state_conflict` appears only in a `conflict` envelope; per-kind null rules for `expected_revision` / `transition` (Snapshot table); **`transition` is non-null if and only if** the envelope's last event is a `state_transitioned`, and then they match (R-030); a `state_transitioned` appears **only** as the last event of a `commit` envelope and at most once per envelope (R-039)
-- **conflict consistency** (R-030): `state_conflict.payload.transaction_id == envelope.transaction_id`, `actual_revision == folded revision`, `expected_revision < actual_revision`
-- **fold** (the only source of RunState): start from the create rule (`PLAN_VERIFYING`, revision 0, bindings from `plan_contract_bound`); every non-transition event and `state_conflict` must carry `revision == running`; `state_transitioned` must carry `running+1`, have `from_state == running state`, and be an edge of the First-slice transition allowlist (re-checked on every load, not only at commit time); bound context changes only as allowed by Replan re-binding (below), otherwise it must not change; each `commit` envelope's `expected_revision` equals the running revision at its start
-- **Decision-bound re-check**: every `decision_made` in the stored stream passes the Decision-bound checks against the folded state at its position (`decided_in_state`, `event_seq == input_last_event_seq + 1`, derived transition and the bare-edge rule), so a stream that was valid only because a check was skipped at commit time is rejected on load
+- **envelope structure**: at least one envelope; the first is `kind=create` holding exactly the `plan_contract_bound` event; every envelope holds at least one event; a `conflict` envelope holds exactly one `state_conflict` event and nothing else, and a `state_conflict` appears only in a `conflict` envelope; a `state_transitioned` appears **only** as the last event of a `commit` envelope and at most once per envelope (R-039)
+- **conflict consistency** (R-030 / R-049): `actual_revision == folded revision`, `actual_position == folded position`, the recorded token is stale (`expected_revision <= actual_revision` and `expected_position <= actual_position`, at least one strictly lower)
+- **fold** (the only source of RunState): start from the create rule (`PLAN_VERIFYING`, revision 0, bindings from the first `plan_contract_bound`); every non-transition event and `state_conflict` must carry `revision == running`; `state_transitioned` must carry `running+1`, have `from_state == running state`, and be an edge of the First-slice transition allowlist (re-checked on every load, not only at commit time); bound context changes only as allowed by Replan re-binding (below), otherwise it must not change
+- **Decision-bound re-check**: every `decision_made` in the stored stream passes the Decision-bound checks against the folded state at its position, so a stream that was valid only because a check was skipped at commit time is rejected on load
 
-Payload ownership: TASK-1391 plan lists "state/conflict evidence consumed from #1392", so the `state_transitioned` / `state_conflict` payloads (`from_state`, `to_state`, `revision`; `transaction_id`, expected/actual revision) are **owned by #1392**. The event type names are frozen together with #1391 (#1402's draft uses `state_conflict_recorded` and has no `state_transitioned`; R-022) and frozen by #1392's RED fixtures. #1391 validates them as stream members (binding, sequence, terminality); #1392 does not re-own any other event type (ST-25 static boundary still applies). The TASK-1391 RunEvidence projection does not carry Lifecycle State, so this state fold is #1392's.
+Payload ownership: TASK-1391 plan lists "state/conflict evidence consumed from #1392", so the `state_transitioned` / `state_conflict` payloads (`from_state`, `to_state`, `revision`; expected/actual revision) are **owned by #1392**. The event type names are frozen together with #1391 (#1402's draft uses `state_conflict_recorded` and has no `state_transitioned`; R-022) and frozen by #1392's RED fixtures. #1391 validates them as stream members (binding, sequence, terminality); #1392 does not re-own any other event type (ST-25 static boundary still applies). The TASK-1391 RunEvidence projection does not carry Lifecycle State, so this state fold is #1392's.
+
+Trust limit (R-031): `snapshot_ref` is an unkeyed hash. It detects accidental corruption, not tampering by an actor who can write `runtime_root` and recompute it. This is the same limit as pbi-input "Trust limit".
 
 ## Locking
 
@@ -254,19 +249,20 @@ If runtime platform lacks required locking/fsync semantics, fail closed rather t
 Proposed:
 
 ```python
-create_run(runtime_root, transaction_id, plan_event_draft) -> CommitResult
+create_run(runtime_root, run_id, binding, plan_event_draft) -> CommitResult
 load_run(runtime_root, run_id) -> Snapshot
 commit(
     runtime_root,
     run_id,
-    transaction_id,
     expected_revision,
+    expected_position,
     event_drafts,
     transition=None,
+    rebinding=None,
 ) -> CommitResult
 ```
 
-`Snapshot` is the loaded view: the derived RunState, the event stream and the derived per-transaction results. `CommitResult = {snapshot, replayed: bool, transaction}` where `transaction` is the derived result of the request's own envelope (`generation`, `first_event_seq`, `last_event_seq`, `result_revision`). `replayed=true` means the request had already committed and nothing was written; `snapshot` is then the current one and may be ahead of the transaction, so callers read their own outcome and event refs from `transaction`, not from `snapshot.state`.
+`Snapshot` is the loaded view: the derived RunState, the event stream and the derived per-transaction results. `Snapshot` exposes the derived `revision` and `position` that the caller passes back as its CAS token. `CommitResult = {snapshot, transaction}` where `transaction` is the derived result of the envelope this call wrote (`generation`, `first_event_seq`, `last_event_seq`, `result_revision`).
 
 No CLI in this slice.
 
@@ -280,18 +276,14 @@ No CLI in this slice.
 ## Tests
 
 - CAS concurrent two writers
-- stale expected revision
-- conflict event recorded without state revision change
-- exact retry (with and without transition) returns replay, no second event
-- transaction_id reuse with a different request rejected
-- conflict evidence bound (per transaction / per revision)
-- no stored RunState / generation / ledger aggregate (a stored `state` key is an unknown key)
-- digest round trip: `strip(finalize(d)) == d`; drafts with binding keys rejected
-- conflicted transaction_id: live conflict, no replay, no second event
+- stale token; resent request after a lost response (events-only and with transition) gets STATE_CONFLICT and appends no drafts
+- conflict event recorded without state revision change; conflict evidence bound (per revision / terminal reserve)
+- binding supplied only by arguments; drafts with binding or envelope keys rejected (create and commit)
+- no stored RunState / generation / aggregates (a stored `state` key is an unknown key)
 - Replan re-binding
-- envelope tamper (structure, metadata vs recomputed digest)
-- envelope keys never appear inside RunEvents and vice versa
-- harness/plan/source drift forbidden
+- envelope structure / tamper
+- envelope keys never appear at RunEvent top level and vice versa
+- harness/plan/source drift forbidden outside re-binding
 - state enum forbidden values
 - crash matrix old-or-new
 - temp residue recovery
@@ -358,7 +350,7 @@ Mechanical edges (no `decision_made`, unchanged): `PLAN_VERIFYING -> EXECUTING |
 
 All six are re-checked on load (Strict loading).
 
-Residual (R-042): a stale writer's `state_conflict` recorded between building a Decision input and committing the Decision breaks check 2, so the legitimate Decision is rejected and #1395 must rebuild the input. This is the intended strictness of input freshness (no event of any kind in between); it is bounded by `MAX_CONFLICTS_PER_REVISION` and stated in the handoff. Exact retry of a Decision transaction is still answered by the Transaction identity lookup before these checks.
+Residual (R-042): a stale writer's `state_conflict` recorded between building a Decision input and committing the Decision breaks check 2, so the legitimate Decision is rejected and #1395 must rebuild the input. This is the intended strictness of input freshness (no event of any kind in between); it is bounded by `MAX_CONFLICTS_PER_REVISION` and stated in the handoff.
 
 [Dependency] The `decision_made` payload keys are frozen by #1391 (TASK-1391 has not frozen them yet; #1393 lists them in its `decision_to_event_draft`). #1392's RED fixtures use those keys only after that agreement.
 
@@ -366,9 +358,9 @@ Residual (R-042): a stale writer's `state_conflict` recorded between building a 
 
 Human decision R-034 (2026-09-25). The first slice allows `REPLANNING -> PLAN_VERIFYING`, and a Replan produces a new Plan (canon: LoopContract gets a new revision on Replan), so the binding must be able to change there — otherwise the new Plan is rejected by the bound-context check.
 
-- while the folded state is `REPLANNING`, a transaction may contain **one** re-binding `plan_contract_bound` event. It sets new `plan_hash` / `source_sha` (and the LoopContract reference that #1393 expects from #1391) for every later event; `harness_manifest_ref` cannot change (a different Harness is a new Run)
-- the re-binding event carries the current revision like any non-transition event and the **new** binding; every later event carries the new binding (commit step 5); the transaction may end with `REPLANNING -> PLAN_VERIFYING`
-- binding keys live only at the RunEvent top level (never inside a payload), and draft recovery strips top-level keys only, so a create or re-binding with a different `plan_hash` always yields a different recomputed digest (R-038)
+- `commit(..., rebinding=B)` is accepted only while the folded state is `REPLANNING`, only once per `REPLANNING` visit, and only when `event_drafts[0]` is a `plan_contract_bound` draft; `rebinding` is non-null **if and only if** such a draft is present
+- `B` sets new `plan_hash` / `source_sha` (and the LoopContract reference that #1393 expects from #1391); `harness_manifest_ref` cannot change (a different Harness is a new Run)
+- the re-binding event carries the current revision like any non-transition event and the new binding; every later event carries the new binding (commit step 5); the transaction may end with `REPLANNING -> PLAN_VERIFYING`
 - outside `REPLANNING`, a `plan_contract_bound` event after the first is rejected; a second re-binding in the same `REPLANNING` visit is rejected
 - the fold switches the bindings at that event, and strict load re-checks all of the above
 - [Dependency, Human decision R-043] #1391 checks binding continuity in `validate_append` and turns a binding mismatch into `evidence_status=invalid` in its projection (TASK-1391 plan: binding continuity / "binding mismatch -> invalid"). Without a change there, **every Replanned Run's RunEvidence would be invalid**. #1391 is asked to treat a re-binding `plan_contract_bound` as a binding segment boundary in both `validate_append` and the projection. #1391 has no Lifecycle State, so the state condition ("only while `REPLANNING`", once per visit) is checked by #1392 alone. Until #1391 supports this, Preflight stops exec (todo). #1393's plan already assumes "#1391 `plan_contract_bound` (and its re-binding after Replan)"

@@ -19,14 +19,17 @@ V2 first slice では 1 Run の accepted event stream を **1つの atomic snaps
 
 > 改訂（2026-09-25 / Human 決定 R-017）: 当初は RunState と generation も同じファイルに保存していた。
 > C-2 R1 で、保存した派生値と event の照合漏れが同じ型の穴を繰り返し生むと指摘され（R-002 / R-005 / R-017）、
-> **RunState・generation・冪等性索引は保存せず、load のたびに event から導出する**（モデル B）に変更した。
+> **RunState・generation は保存せず、load のたびに event から導出する**（モデル B）に変更した。
 
 ```text
 run snapshot
   = accepted RunEvents, grouped in #1392 transaction envelopes
   + snapshot_ref
-RunState / generation / idempotency index = derived on load
+RunState / generation / position = derived on load
 ```
+
+> 改訂（2026-09-25 / Human 決定 R-046・R-049）: 冪等性（transaction_id と replay）は first slice から外した。
+> 確定済みの要求の再送は、revision と stream の位置の CAS で `STATE_CONFLICT` にし、同じ event を 2 回確定させない。
 
 これにより、
 
@@ -45,7 +48,7 @@ RunState / generation / idempotency index = derived on load
 - #1391 finalize/validate_append invocation
 - temp write + fsync + os.replace + directory fsync
 - crash recovery from old/new complete snapshot
-- idempotent transaction retry
+- no duplicate commit on retry (by the CAS on revision and position; replay-style idempotency is deferred, R-046)
 
 #1392 does not own:
 - event vocabulary / event ref semantics (#1391)

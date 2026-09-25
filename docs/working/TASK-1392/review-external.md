@@ -215,3 +215,33 @@ Round note (§7-quater): the idempotency layer produced a new class in every rou
 | R-043 | reflected | (C-2 R3 commit) | Human decision; request to #1391 |
 | R-044 | reflected | (C-2 R3 commit) | canon |
 | R-045 | reflected | (C-2 R3 commit) | |
+
+## C-2 round 4 (2026-09-25 / reviewed head `bea4a94c`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. Key claims re-checked against files (`create_run` had no `run_id` / binding arguments; TASK-1391 EventDraft carries no binding and `finalize_event` takes `bound_context`; plan:101 claimed an ahead request could never commit).
+
+Verdict: **fix needed; not converged.** Both lanes: **new class in the idempotency layer = Yes** — the fourth round in a row. Per the R3 round note the Human was offered "drop idempotency from the first slice" again and chose it.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-046 | both | major | idempotency layer: conflicted id used by `create_run` has no defined answer (design); binding values are neither inputs nor in the digest, so a create with only `plan_hash` changed gets `replayed=true` (adversarial) | new (4th round) | **Human decision: remove idempotency from the first slice** (`transaction_id`, replay, digest, conflicted set, and the related ST-21a〜m / 21d2 / 21e2 / 21f2 / 42 withdrawn) |
+| R-047 | adversarial | critical | no channel to supply `run_id` and binding values: the API had no arguments and R-038 closed the draft channel; Replan (R-034 / R-040) could never succeed | new (from the R-038 fix) | reflected: `create_run(run_id, binding, ...)`, `commit(..., rebinding=...)`; drafts never carry binding keys; ST-21n〜p / 43 |
+| R-048 | adversarial | major | "an `InvalidExpectedRevision` request can never commit later" was false | R-006 wording | reflected: an ahead request is an ordinary CAS once the store catches up; ST-21i |
+| R-049 | organizer (found while applying R-046) | critical | without idempotency, a revision-only CAS lets an **events-only** commit be resent and applied twice (the original R-001), because the revision changes only on transitions | new (from the R-046 decision) | **Human decision: CAS on revision + `position`** (number of create / commit envelopes; conflicts not counted); ST-21b / 21q / 21r; canon §4 principle and fixture rows |
+| R-050 | adversarial | major | ST-07 / ST-28d had no re-binding exception and contradicted ST-43 | R-034 fix incomplete | reflected |
+| R-051 | adversarial | major | canon's non-recording exceptions missed one path | R-044 fix incomplete | reflected: canon lists 3 exceptions after idempotency removal (cap / reserve / after terminal); `InvalidExpectedRevision` is not a CAS failure |
+| R-052 | adversarial | minor | create path lacked TCs for envelope-key rejection and #1392-owned types | TC gap | reflected: ST-21n / ST-44 cover create |
+| R-053 | design | minor | create with a conflicted id | obsolete | withdrawn with R-046 |
+
+Round note (§7-quater): the layer that produced a new class in every round is gone. R5 must check that removing it did not reopen R-001-type duplicates (R-049) or create new ones, and that the binding arguments are consistent with #1391.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-046 | reflected | (C-2 R4 commit) | Human decision |
+| R-047 | reflected | (C-2 R4 commit) | |
+| R-048 | reflected | (C-2 R4 commit) | |
+| R-049 | reflected | (C-2 R4 commit) | Human decision |
+| R-050 | reflected | (C-2 R4 commit) | |
+| R-051 | reflected | (C-2 R4 commit) | canon |
+| R-052 | reflected | (C-2 R4 commit) | |
+| R-053 | withdrawn | — | obsolete after R-046 |
