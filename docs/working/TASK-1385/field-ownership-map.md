@@ -145,7 +145,7 @@ V2 RunEventの最終field名はowner側で確定する。本計画では必要se
 Schema work開始条件:
 
 - #1379がHuman-approved/merged、または同等の承認済みboundaryがある
-- #1389 Intent Context Package の `context_id/context_ref` semantics（optional `snapshot_ref`）がfreezeされる、または明示的なcompatibility adapterが承認される
+- #1389 Intent Context Package の `context_id/context_ref` semantics（optional `snapshot_ref`）がfreezeされる、または明示的なcompatibility adapterが承認される — **充足済み**（根拠: #1390 / `89d98167` が #1389 Phase A「freeze `context_id/context_ref` semantics」として identity を確定し、#1396 / `35e9a55d` が `schemas/intent-context-package.schema.json` と `scripts/intent_context_contract.py` の `compute_context_ref` / `compute_snapshot_ref` として main に実装した）。#1389 が open なのは Phase E integration（#199 adapter / Plan binding / #1385 downstream）が残るためで、本条件の未充足を意味しない
 - immutable declaration vs event stream境界が維持されている
 - #1025 / #894 / #874 / #908とのowned conflictが0
 - edges[]がdependency topologyの唯一のauthority
