@@ -82,10 +82,14 @@ binding・evidence・Human-owned authority はそのまま維持する。
 
 以下は checkpoint 後に fresh context へ切り替える:
 
-- **必須**: worker / agent / model / runtime の変更、独立 reviewer の開始、worker 間 handoff、
+- **必須（standard 以上）**: worker / agent / model / runtime の変更、独立 reviewer の開始、worker 間 handoff、
   外部待ち・使用量上限による意図的中断
 - **推奨**: compaction / context pressure が近い、phase 遷移で必要 working set が変わる、
   repair/review loop で superseded な議論が蓄積した
+
+ultra-light / light では上記の「必須」も任意とする。`docs/ai/context-lifecycle.md` §8
+（simple tasks do not gain mandatory ceremony）を満たすため、既存の working-context
+ファイル以上の checkpoint を簡易タスクへ課さない。
 
 provider 非依存の token 閾値は推測で作らない。usage が信頼できる形で取得できる場合のみ
 補助情報として使う。
