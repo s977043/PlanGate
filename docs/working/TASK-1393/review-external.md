@@ -222,6 +222,6 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-047〜R-054 | open | — | Rev2-R5 節。収束の裁定（R-047 のクラス判定）を Human 判断待ち |
 | R-047〜R-054 | reflected（Revision 2.2） | `3a33b429` | Human 裁定（2026-09-25）: Rev2-R5 は R-047 を R-037 同型とみなし収束扱い。B-8〜B-11 は #1422 への追加提案（未反映） |
 | R-055 | open | — | C-2 R1。Human 判断（DENIED + FAIL の扱い。R-001 / R-006 裁定の再判断） |
-| R-056〜R-057 | reflected（Revision 2.3） | 次の commit | C-2 R1 |
-| R-058 | open（plan に PF-1 を追加） | 次の commit | Human 判断（#1402 の decision_core との関係） |
-| R-059〜R-069 | reflected（Revision 2.3） | 次の commit | R-059 / R-060 / R-065 は #1422 側の追記（B-12・B-8・B-2）が Human 承認待ち |
+| R-056〜R-057 | reflected（Revision 2.3） | `b33f6879` | C-2 R1 |
+| R-058 | open（plan に PF-1 を追加） | `b33f6879` | Human 判断（#1402 の decision_core との関係） |
+| R-059〜R-069 | reflected（Revision 2.3） | `b33f6879` | R-059 / R-060 / R-065 は #1422 側の追記（B-12・B-8・B-2）が Human 承認待ち |
