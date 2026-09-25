@@ -53,6 +53,7 @@ FILENAME_TO_SCHEMA: dict[str, str] = {
     "eval-comparison.json": "eval-comparison.schema.json",
     "context-manifest.json": "context-manifest.schema.json",
     "intent-context.json": "intent-context-package.schema.json",
+    "plan-contract.json": "plan-contract.schema.json",
     "keep-rate-result.json": "keep-rate-result.schema.json",
 }
 

@@ -27,6 +27,7 @@ if python3 -c 'import jsonschema' >/dev/null 2>&1; then
   _t05_intent_fixture="$_t05_root/tests/fixtures/intent-context/valid/intent-context.json"
   _t05_intent_invalid="$_t05_root/tests/fixtures/intent-context/invalid/intent-context.json"
   _t05_intent_invalid_format="$_t05_root/tests/fixtures/intent-context/invalid-format/intent-context.json"
+  _t05_plan_contract_fixture="$_t05_root/tests/fixtures/plan-contract/valid/plan-contract.json"
 
   if sh "$PLANGATE_BIN" validate-schemas "$_t05_intent_fixture" >/dev/null 2>&1; then
     printf '[PASS] Intent Context Package fixture passes schema mapping/validation\n'
@@ -57,6 +58,22 @@ if python3 -c 'import jsonschema' >/dev/null 2>&1; then
     pass=$((pass + 1))
   else
     printf '[FAIL] Intent Context Package contract scenarios failed\n'
+    fail=$((fail + 1))
+  fi
+
+  if sh "$PLANGATE_BIN" validate-schemas "$_t05_plan_contract_fixture" >/dev/null 2>&1; then
+    printf '[PASS] Plan Contract fixture passes schema mapping/validation\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] Plan Contract fixture — expected schema PASS\n'
+    fail=$((fail + 1))
+  fi
+
+  if python3 "$_t05_root/tests/test_plan_contract_context_binding.py" >/dev/null 2>&1; then
+    printf '[PASS] Plan Contract Context binding scenarios pass\n'
+    pass=$((pass + 1))
+  else
+    printf '[FAIL] Plan Contract Context binding scenarios failed\n'
     fail=$((fail + 1))
   fi
 

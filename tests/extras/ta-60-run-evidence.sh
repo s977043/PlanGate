@@ -164,7 +164,7 @@ _t60_rc=0
 import pathlib, re, sys
 text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 loop = re.search(r'for _f in ("\$AI_LOOP_SCRIPTS_DIR/.*?); do', text, re.S).group(1)
-listed = sorted(re.findall(r"AI_LOOP_SCRIPTS_DIR/([A-Za-z0-9_]+\.py)", loop))
+listed = sorted(re.findall(r"(?:AI_LOOP_SCRIPTS_DIR|REPO_ROOT/scripts)/([A-Za-z0-9_]+\.py)", loop))
 case = re.search(r"^\s+(arbiter\.py\|.*?)\) : ;;", text, re.M).group(1)
 assert listed == sorted(case.split("|")), (
     f"sync drift: loop-only={sorted(set(listed) - set(case.split('|')))} "

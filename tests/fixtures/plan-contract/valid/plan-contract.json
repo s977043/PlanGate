@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "task_id": "TASK-1403",
+  "plan_ref": {
+    "path": "docs/working/TASK-1403/plan.md",
+    "plan_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "plan_package_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "approval_ref": {
+    "path": "docs/working/TASK-1403/approvals/c3.json",
+    "approval_kind": "legacy",
+    "decision": "APPROVED",
+    "approval_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "context_binding": {
+    "path": "docs/working/TASK-1403/intent-context.json",
+    "context_id": "CTX-TASK-1403",
+    "context_ref": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "snapshot_ref": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  }
+}
