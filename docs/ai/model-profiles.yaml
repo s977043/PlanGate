@@ -18,6 +18,128 @@ defaults:
 
 models:
 
+  # GPT-6 候補。model_id を持つ profile だけが ai-dev workflow から選択できる。
+  # default への昇格は docs/ai/eval-plan.md の評価証拠を要する。
+  gpt_6_sol:
+    model_id: gpt-6-sol
+    family: gpt-6-sol
+    role: default_reasoning
+    reasoning_effort_by_mode:
+      ultra_light: low
+      light: low
+      standard: medium
+      high_risk: high
+      critical: xhigh
+    allowed_efforts: [low, medium, high, xhigh]
+    verbosity_by_phase:
+      classify: low
+      plan: medium
+      execute: low
+      review: medium
+      handoff: medium
+    max_context_policy: standard
+    tool_policy: allowed_tools_by_phase
+    validation_bias: normal
+    adapter: outcome_first
+    edit_interface_preference:
+      primary: patch
+      fallback: string_replace
+    retry_strategy:
+      on_edit_failure: reread_then_retry_small_diff
+      on_test_failure: inspect_error_then_fix
+      max_retries: 2
+      backoff: linear
+    context_acquisition:
+      strategy: dynamic_first
+      initial_context_budget: standard
+    provider_capabilities:
+      supports_patch: true
+      supports_string_replace: true
+      supports_parallel_subagents: false
+    telemetry_tags:
+      provider: openai
+      generation: gpt-6-sol
+
+  gpt_6_astra:
+    model_id: gpt-6-astra
+    family: gpt-6-astra
+    role: advanced_reasoning
+    reasoning_effort_by_mode:
+      ultra_light: low
+      light: medium
+      standard: high
+      high_risk: high
+      critical: xhigh
+    allowed_efforts: [low, medium, high, xhigh]
+    verbosity_by_phase:
+      classify: low
+      plan: medium
+      execute: low
+      review: high
+      handoff: medium
+    max_context_policy: expanded
+    tool_policy: expanded
+    validation_bias: strict
+    adapter: outcome_first_strict
+    edit_interface_preference:
+      primary: patch
+      fallback: string_replace
+    retry_strategy:
+      on_edit_failure: reread_then_retry_small_diff
+      on_test_failure: inspect_error_then_fix
+      max_retries: 3
+      backoff: exponential
+    context_acquisition:
+      strategy: dynamic_first
+      initial_context_budget: expanded
+    provider_capabilities:
+      supports_patch: true
+      supports_string_replace: true
+      supports_parallel_subagents: false
+    telemetry_tags:
+      provider: openai
+      generation: gpt-6-astra
+
+  gpt_6_luna:
+    model_id: gpt-6-luna
+    family: gpt-6-luna
+    role: fast_lightweight
+    reasoning_effort_by_mode:
+      ultra_light: low
+      light: low
+      standard: low
+      high_risk: medium
+      critical: low  # disallowed_modes で実効的に禁止
+    verbosity_by_phase:
+      classify: low
+      plan: low
+      execute: low
+      review: low
+      handoff: low
+    max_context_policy: compact
+    tool_policy: narrow
+    validation_bias: lenient
+    adapter: explicit_short
+    disallowed_modes: [critical]
+    edit_interface_preference:
+      primary: string_replace
+      fallback: patch
+    retry_strategy:
+      on_edit_failure: retry_same
+      on_test_failure: inspect_error_then_fix
+      max_retries: 1
+      backoff: none
+    context_acquisition:
+      strategy: eager
+      initial_context_budget: compact
+    provider_capabilities:
+      supports_patch: true
+      supports_string_replace: true
+      supports_parallel_subagents: false
+    telemetry_tags:
+      provider: openai
+      generation: gpt-6-luna
+
   # 標準実行モデル。バランス型。
   gpt-5_5:
     family: gpt-5
