@@ -259,7 +259,7 @@ Raw conversation transcript, hidden CoT, credentials, and unbounded session memo
 - `scripts/ai-loop-v2/ratchet.py`
 - `scripts/ai-loop-v2/test_ratchet.py`
 - `tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json`
-- `tests/extras/ta-89-ai-loop-v2-ratchet.sh`
+- `tests/extras/ta-92-ai-loop-v2-ratchet.sh`
 
 The vertical slice verifies:
 

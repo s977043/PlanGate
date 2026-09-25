@@ -1,6 +1,6 @@
 #!/bin/sh
 # PG_EXTRA_CAPABILITY: standalone-capable
-# TA-89 — ai-loop V2 verification-skipped Ratchet vertical slice (#1381).
+# TA-92 — ai-loop V2 verification-skipped Ratchet vertical slice (#1381).
 
 if [ "${PG_HARNESS_SOURCED:-0}" = "1" ] && [ -n "${FIXTURES_DIR:-}" ] && [ -n "${EXTRAS_DIR:-}" ]; then
   _pg_extra_mode=harness
@@ -21,7 +21,7 @@ if [ ! -r "$_pg_extra_helper" ]; then
 fi
 
 . "$_pg_extra_helper"
-pg_extra_contract_init ta-89-ai-loop-v2-ratchet standalone-capable
+pg_extra_contract_init ta-92-ai-loop-v2-ratchet standalone-capable
 
 if pg_extra_contract_is_standalone; then
   unset PLANGATE_SKIP_REASON PLANGATE_HOOK_TASK PLANGATE_HOOK_FILE \
@@ -35,7 +35,7 @@ else
   _T89_ROOT="${_pg_extra_dir%/tests/extras}"
 fi
 
-printf 'TA-89: ai-loop V2 Ratchet verification-skipped vertical slice\n'
+printf 'TA-92: ai-loop V2 Ratchet verification-skipped vertical slice\n'
 
 if _T89_OUT=$(python3 "$_T89_ROOT/scripts/ai-loop-v2/test_ratchet.py" 2>&1); then
   printf '%s\n' "$_T89_OUT"

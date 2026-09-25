@@ -16,7 +16,7 @@
       "scripts/ai-loop-v2/ratchet.py",
       "scripts/ai-loop-v2/test_ratchet.py",
       "tests/fixtures/ai-loop-v2/ratchet/**",
-      "tests/extras/ta-89-ai-loop-v2-ratchet.sh"
+      "tests/extras/ta-92-ai-loop-v2-ratchet.sh"
     ],
     "critical_regression_conditions": [
       "known_bad_not_stopped",
@@ -65,7 +65,7 @@
       "expected_effect": "completion without verification evidence is blocked"
     },
     "baseline_manifest_ref": "sha256:77364e04fd614edb481bffd4755e0c999add5a8ba46658ed81ffdbf00b8fd3f6",
-    "evaluation_plan_digest": "sha256:5a7aca3c2a8024e8f2b0e1c10c55289f4dae03c3982c0becc6e703be86e7f085"
+    "evaluation_plan_digest": "sha256:b777f925ee88d7a15af0bd419a6bca3580e59629ef3899fd6cb1825ef00c2756"
   },
   "sources": [
     {
