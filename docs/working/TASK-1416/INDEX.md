@@ -35,7 +35,6 @@ AI Execution Readinessを、Why / Assumptions / Dependencies / Unknowns / Detect
 ## Fresh validation
 
 - branch behind main: 0
-- mergeable: true
 - changed paths: docs/working/TASK-1416/** only
 - production planning surface diff: 0
 - review-self / review-external frontmatter: schema-valid
