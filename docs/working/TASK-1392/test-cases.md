@@ -54,6 +54,11 @@
 | ST-28f | non-transition or `state_conflict` event carries a revision other than the folded one (snapshot_ref recomputed) | strict load reject |
 | ST-28g | stored `state_transitioned` edge outside the first-slice allowlist, e.g. EXECUTING -> REPAIRING with consistent from_state/+1 | strict load reject |
 | ST-28h | ledger `result_revision` differs from the fold | strict load reject |
+| ST-30 | commit whose result would exceed `MAX_EVENTS_PER_RUN` or `MAX_SNAPSHOT_BYTES` | `SnapshotCapacityExceeded` before temp write, zero mutation |
+| ST-30a | snapshot within `TERMINAL_RESERVE` of a bound | non-terminal commit rejected; terminal `decision_made` still commits |
+| ST-30b | ENOSPC during temp write | old snapshot authoritative, stale temp handled as ST-20 |
+| ST-31 | flush primitive unavailable (macOS `F_FULLFSYNC` fails / unsupported platform) | fail closed (`runtime_unwritable`), no fallback to plain `fsync`, old snapshot intact |
+| ST-32 | commit latency at the size bound on the CI runner | within the threshold fixed by the fixture; a miss is a Replan trigger |
 | ST-29 | full repository test | PASS |
 
 ## Fault matrix invariant

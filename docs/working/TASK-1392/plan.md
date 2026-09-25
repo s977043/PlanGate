@@ -23,6 +23,14 @@ Run ID grammar:
 
 No caller-supplied filename.
 
+### CAS guarantee scope
+
+The lock domain is the `runtime_root` the caller passes. **CAS, idempotency and the conflict bound hold only among callers that pass the same `runtime_root`.** Two callers that pass different roots for the same `run_id` get independent locks and snapshots, and both commits can succeed (split-brain); this slice neither detects nor prevents that.
+
+Consequences:
+- API docs and the handoff state this limit; no document may describe this slice alone as "durable CAS for a Run" without the qualifier
+- **before the first production adapter** (the first caller outside tests) consumes this API, a follow-up must add a Git common-dir resolver (as TASK-1025 plan did) and a test that the primary checkout and a linked worktree resolve to the same lock domain. That follow-up is a precondition of the adapter, not of this slice
+
 ## Snapshot
 
 ```json
@@ -174,6 +182,28 @@ Expected:
 
 No separate WAL is required because state+events are one replace unit.
 
+## Durability definition
+
+"fsync" in the commit protocol means the platform's strongest available flush, per platform:
+
+| platform | file flush | directory flush | if unavailable |
+|---|---|---|---|
+| Linux | `os.fsync(fd)` | `os.fsync(dirfd)` | fail closed (`runtime_unwritable`) before replace |
+| macOS | `fcntl(fd, F_FULLFSYNC)` | `fcntl(dirfd, F_FULLFSYNC)` | fail closed; plain `fsync` is **not** accepted as a fallback |
+| other | unsupported | unsupported | fail closed at `create_run` |
+
+What a successful response guarantees: the new snapshot survives process crash and OS crash. Power loss is covered only to the extent the storage device honours the flush above; this slice does not claim more. Fault injection (Crash semantics) covers the process-crash points; OS / power-loss behaviour is out of test scope and stated as a residual risk in the handoff.
+
+## Size and cost bound
+
+Every commit rewrites the whole snapshot, so write volume and latency grow with the Run's history. First-slice bounds (values provisional, fixed by RED / performance fixtures):
+
+- `MAX_EVENTS_PER_RUN` (provisional 2048) and `MAX_SNAPSHOT_BYTES` (provisional 8 MiB)
+- a commit whose resulting snapshot would exceed either bound is rejected with `SnapshotCapacityExceeded` **before the temp file is written**, with zero mutation
+- **terminal reserve**: non-terminal commits are rejected once the snapshot is within `TERMINAL_RESERVE` (provisional 16 events / 64 KiB) of either bound, so a terminal `decision_made` can always still be committed and a full Run is never left without a terminal outcome
+- temp space: the store needs free space for one extra snapshot; ENOSPC during temp write is a pre-replace failure (old snapshot stays authoritative)
+- performance fixture: commit latency at the bound on the CI runner; the threshold is fixed with the fixture (provisional p95 ≤ 200 ms). Missing the threshold is a **Replan trigger** (compaction or WAL slice), not a reason to relax the bound
+
 ## Strict loading
 
 - UTF-8
@@ -186,7 +216,6 @@ No separate WAL is required because state+events are one replace unit.
 - event stream invalid => snapshot invalid
 - **state projection mismatch reject**: recompute `lifecycle_state` / `revision` by folding the #1391-validated stream from the create rule (`PLAN_VERIFYING`, revision 0) through each `state_transitioned` event (`from_state` must equal the running state, `revision` must be running+1); recompute `harness_manifest_ref` / `plan_hash` / `source_sha` from the bound context of the events. The stored `state` must equal the recomputed one. `pending_action` / `policy_verdict` must be null in this slice
 - **ledger mismatch reject**: `generation == len(transactions)`; ledger `generation` values are 1..N in order; `transaction_id` values are unique; event_seq ranges are contiguous, non-overlapping and cover the whole stream; each `conflict` entry covers exactly one `state_conflict` event; the first entry is `kind=create`
-
 - **per-event revision check** (same fold, every event, not only transitions): a non-transition event and `state_conflict` must carry `revision == running`; `state_transitioned` must carry `running+1` **and** its `from_state -> to_state` must be an edge of the First-slice transition allowlist (a stored stream is re-checked against the allowlist on every load, not only at commit time)
 - **ledger result check**: each ledger entry's `result_revision` equals the folded revision after its last event; a `conflict` entry covers exactly one `state_conflict` event and nothing else
 
@@ -274,6 +303,10 @@ PR_CONVERGING  -> REPAIRING
 A terminal Decision does not transition to a terminal state.
 
 WAITING_HUMAN / WAITING_EXTERNAL remain canonical Lifecycle State values, but this first slice does not create or resume them because the pending-action contract is not implemented. Transition requests to/from WAITING_* are rejected rather than guessed.
+
+### Initial state and PLANNING
+
+`create_run` always starts at `PLAN_VERIFYING`: its first event is `plan_contract_bound`, so a Plan already exists (taxonomy: PLANNING = Plan being written, PLAN_VERIFYING = initial Plan under verification). `PLANNING` stays a canonical Lifecycle State value and is **not** removed from canon. A later slice that owns durable planning (planning-time events, incomplete Plan, binding updates) adds `PLANNING -> PLAN_VERIFYING` and a create path starting at `PLANNING`; until then such a request is rejected (ST-28b). Residual limit: a Run cannot be resumed from the middle of Plan writing.
 
 
 ## pending_action scope

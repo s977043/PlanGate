@@ -10,7 +10,8 @@
 - [x] reflect PR independent review R-001〜R-004 (idempotency ledger / state fold on load / conflict bound / L0 files)
 - [ ] I0 plan review
 - [ ] fallback/external review record (C-2 round 1)
-- [ ] C-2 round 2 (high-risk equivalent: persistence + crash consistency)
+- [ ] C-2 round 2 and later: **at least 2 rounds, continue until no new failure class appears** (review-principles §7-quater). Next round = design review comparing the ledger + fold + replay model with alternatives (e.g. event stream as the only truth / state not persisted), not a wording check
+- [x] reflect Codex consultation: durability definition / size bound / CAS scope / initial state
 - [ ] Human C-3 (incl. [P1] no-WAL single snapshot / [P2] trusted runtime_root)
 
 ## Preflight
@@ -30,7 +31,8 @@
 - [ ] state fold check on strict load
 - [ ] conflict evidence
 - [ ] conflict evidence bound
-- [ ] atomic replace/fsync
+- [ ] atomic replace/fsync (platform flush table, fail closed)
+- [ ] size bound / terminal reserve / performance fixture
 - [ ] fault injection
 - [ ] concurrency test
 - [ ] TA integration

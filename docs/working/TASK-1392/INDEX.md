@@ -1,6 +1,6 @@
 # TASK-1392 INDEX
 
-> 最終更新: 2026-09-25 10:30
+> 最終更新: 2026-09-25 11:20
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
 > plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
 > （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
@@ -16,12 +16,14 @@ C-2
 > PR #1406 の独立レビュー（2026-09-24）の major 2 / minor 2（R-001〜R-004）と、その是正への敵対レビューの
 > major 1 / minor 4（R-005〜R-009）を反映済み。敵対レビューは**未収束**（是正が新しいクラスを生んだ）。
 > C-1 は反映後に再実行済みで、判定は **PASS with WARN**（未決事項あり。`review-self.md`）。**C-2 は未実施**。永続化と crash 整合を扱うので high-risk 相当とし、
-> `review-principles.md` §7-quater に従って **C-2 を 2 ラウンド以上**行う。
+> `review-principles.md` §7-quater に従って **C-2 は最低 2 ラウンド、新しい失敗クラスが出なくなるまで**続ける（回数を固定しない）。
+> Codex への相談（2026-09-25）を受けて、durability の定義・容量の上限・CAS 保証の範囲・初期状態の扱いを plan に追記済み。
 
 ## 次のアクション
 
-1. C-2 ラウンド 1 / 2（`review-external.md` の Review questions 1〜8 と R-001〜R-004 の是正を疑う）
-2. Human C-3（[P1] WAL なしの単一 snapshot 方式の採否 / [P2] `runtime_root` を trusted 前提にしてよいか を含む）
+1. C-2 ラウンド 1: 文言確認でなく、ledger + fold + replay の設計モデルを代替モデル（event 列だけを真実とし state を保存しない 等）と比べる設計レビュー
+2. C-2 ラウンド 2 以降: 新クラスが出なくなるまで
+3. Human C-3（[P1] WAL なしの単一 snapshot 方式と容量上限・durability 定義の採否 / [P2] CAS 保証を同一 `runtime_root` 内に限る扱い / 暫定値 `MAX_*` の確定方法 を含む）
 3. exec は #1391 が consumable になり、#1329 preflight を通ってから
 
 ## ファイルマップ（読み込み優先度）

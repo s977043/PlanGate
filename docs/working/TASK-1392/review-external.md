@@ -57,3 +57,21 @@ Round note (§7-quater): R-005 is the same class as R-002 (fix incomplete); R-00
 | R-007 | reflected | (this PR, sweep commit) | |
 | R-008 | reflected | (this PR, sweep commit) | |
 | R-009 | reflected | (this PR, sweep commit) | |
+
+## Codex consultation on C-3 decision items (2026-09-25)
+
+Read-only consultation (Codex), not a C-2 round. Human selected all four to reflect.
+
+| ID | item | Codex recommendation | disposition |
+|---|---|---|---|
+| R-010 | [P1] no-WAL single snapshot | adopt conditionally: add size bound, performance threshold, per-OS durability definition | reflected: Durability definition / Size and cost bound; ST-30〜32 |
+| R-011 | [P2] trusted `runtime_root` | allow inside the primitive, but state CAS holds only within one root; common-dir resolver + linked-worktree test before the first production adapter | reflected: CAS guarantee scope |
+| R-012 | initial state | keep `PLAN_VERIFYING`; keep `PLANNING` in canon, add its edge in a later planning slice | reflected: Initial state and PLANNING |
+| R-013 | C-2 rounds | 2 fixed rounds are not enough; at least 2, until no new class; next round compares the model with alternatives | reflected: INDEX / todo |
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-010 | reflected | (this PR, follow-up commit) | bound values provisional |
+| R-011 | reflected | (this PR, follow-up commit) | |
+| R-012 | reflected | (this PR, follow-up commit) | |
+| R-013 | reflected | (this PR, follow-up commit) | |
