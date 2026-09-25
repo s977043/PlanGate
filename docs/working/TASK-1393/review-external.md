@@ -73,17 +73,18 @@ R3 の設計提案（未採否）: state 別の DecisionInput 契約（必須入
 
 | R-ID | status | reflected_in(commit) | notes |
 |---|---|---|---|
-| R-001 | reflected | （push 後に記入） | [P1 / Human] HUMAN_REQUIRED → WAITING_HUMAN の遷移と記録は後続スライス |
-| R-002 | reflected | （push 後に記入） | |
-| R-003 | reflected | （push 後に記入） | |
-| R-004 | reflected | （push 後に記入） | |
-| R-005 | reflected | （push 後に記入） | |
-| R-006 | reflected | （push 後に記入） | |
-| R-007 | reflected | （push 後に記入） | |
-| R-008 | reflected | （push 後に記入） | allowlist は #1406 `c48843ab` 準拠。#1392 の変更に追従が要る |
-| R-009 | reflected | （push 後に記入） | |
-| R-010 | reflected | （push 後に記入） | |
-| R-011 | reflected | （push 後に記入） | |
-| R-012 | reflected | （push 後に記入） | |
-| R-013 | reflected | （push 後に記入） | |
-| R-014 | reflected（範囲外を宣言） | （push 後に記入） | [P1 / Human] |
+| R-001 | reflected | `6991816a` | [P1 / Human] HUMAN_REQUIRED → WAITING_HUMAN の遷移と記録は後続スライス |
+| R-002 | reflected | `6991816a` | |
+| R-003 | reflected | `6991816a` | |
+| R-004 | reflected | `6991816a` | |
+| R-005 | reflected | `6991816a` | |
+| R-006 | reflected | `6991816a` | |
+| R-007 | reflected | `6991816a` | |
+| R-008 | reflected | `6991816a` | allowlist は #1406 `c48843ab` 準拠。#1392 の変更に追従が要る |
+| R-009 | reflected | `6991816a` | |
+| R-010 | reflected | `6991816a` | |
+| R-011 | reflected | `6991816a` | |
+| R-012 | reflected | `6991816a` | |
+| R-013 | reflected | `6991816a` | |
+| R-014 | reflected（範囲外を宣言） | `6991816a` | [P1 / Human] |
+| R-015〜R-021 | open | — | 設計判断待ち（R3 節） |
