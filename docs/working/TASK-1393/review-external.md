@@ -165,5 +165,5 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-022〜R-029 | reflected | `492b85f7` | Rev2-R1 節。R-022 の方式（verifier ごとの最新）は R-030 / R-031 で置き換え |
 | R-030〜R-036 | reflected | `492b85f7` | Rev2-R2 節。R-032 は #1406 への依頼、R-034 は #1391 への Dependency |
 | R-037〜R-041 | open | — | Rev2-R3 節。上限ラウンド到達で Human 判断待ち |
-| R-037〜R-041 | reflected（Human 承認の追加ラウンドで是正） | （push 後に記入） | R-037 / R-038 / R-040 は Rev2-R4 で閉鎖確認。R-039 は R-043、R-041 は R-044 が残る |
+| R-037〜R-041 | reflected（Human 承認の追加ラウンドで是正） | `38bdc57d` | R-037 / R-038 / R-040 は Rev2-R4 で閉鎖確認。R-039 は R-043、R-041 は R-044 が残る |
 | R-042〜R-046 | open | — | Rev2-R4 節。追加ラウンドも未収束で Human 判断待ち |
