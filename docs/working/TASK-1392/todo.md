@@ -15,7 +15,8 @@
 - [ ] Human C-3 (incl. [P1] no-WAL single snapshot / [P2] trusted runtime_root)
 
 ## Preflight
-- [ ] #1391 merged/consumable — **consumable means**: `validate_append` / `finalize_event` exist on main (0 today), and #1391 either defines `state_transitioned` / `state_conflict*` event types (#1402's draft has `state_conflict_recorded` and no `state_transitioned`) or exposes an extension point for #1392-owned types; and the `decision_made` payload keys and size bound are frozen
+- [x] Human decisions R-017 (model B) / R-023 (#1402 run_state excluded) — 2026-09-25
+- [ ] #1391 merged/consumable — **consumable means**: `validate_append` / `finalize_event` exist on main (0 today), `finalize_event` adds only a closed set of binding keys (needed to recover drafts for the derived idempotency index), and #1391 either defines `state_transitioned` / `state_conflict*` event types (#1402's draft has `state_conflict_recorded` and no `state_transitioned`) or exposes an extension point for #1392-owned types; and the `decision_made` payload keys and size bound are frozen
 - [ ] decide the relation to #1402 `scripts/ai-loop-v2/run_state.py` (a different model already implementing #1392): replace / exclude (Human, C-3)
 - [ ] exact base SHA
 - [ ] #1329 M-1/M-2/M-3 before/after scope
@@ -28,7 +29,7 @@
 - [ ] flock
 - [ ] create_run
 - [ ] commit
-- [ ] idempotency ledger / exact retry replay
+- [ ] transaction envelope + derived idempotency index / exact retry replay (model B)
 - [ ] state fold check on strict load
 - [ ] conflict evidence
 - [ ] conflict evidence bound

@@ -5,7 +5,9 @@
 ```text
 Plan: GO
 Production implementation: after #1391 consumable
-Persistence model: single atomic snapshot
+Persistence model: single atomic snapshot, model B (Human decision R-017, 2026-09-25):
+  stores accepted RunEvents grouped in #1392 transaction envelopes;
+  RunState, generation and the idempotency index are derived on load, never stored
 ```
 
 ## Storage layout
@@ -35,39 +37,44 @@ Consequences:
 
 ```json
 {
-  "schema_version": "1",
-  "generation": 3,
-  "state": {
-    "run_id": "RUN-...",
-    "lifecycle_state": "VERIFYING",
-    "revision": 2,
-    "pending_action": null,
-    "policy_verdict": null,
-    "harness_manifest_ref": "sha256:...",
-    "plan_hash": "sha256:...",
-    "source_sha": "..."
-  },
-  "events": [],
+  "schema_version": "2",
+  "run_id": "RUN-...",
   "transactions": [
     {
       "transaction_id": "TXN-...",
-      "request_digest": "sha256:...",
       "kind": "create | commit | conflict",
-      "generation": 1,
-      "first_event_seq": 1,
-      "last_event_seq": 1,
-      "result_revision": 0
+      "expected_revision": 0,
+      "transition": null,
+      "events": [ { "...": "accepted #1391 RunEvent, unchanged" } ]
     }
   ],
   "snapshot_ref": "sha256:..."
 }
 ```
 
-`snapshot_ref` = canonical hash of snapshot excluding snapshot_ref.
+`snapshot_ref` = canonical hash of the file excluding `snapshot_ref`.
 
-`transactions` is the idempotency ledger. It is committed in the same atomic replace as `state` and `events`, so it cannot half-commit against them. It does not add fields to RunEvents (event vocabulary stays with #1391).
+**Only two kinds of data are stored** (model B, R-017):
 
-`state` is a **derived cache**, not an independent truth: strict load recomputes it from the accepted event stream and rejects any mismatch (see Strict loading).
+| stored | owner | meaning |
+|---|---|---|
+| RunEvents inside `events` | #1391 (type, payload validation, `event_ref`); `state_transitioned` / `state_conflict` payloads #1392 | the append-only event stream (canon §3). The stream is the concatenation of all envelopes' `events` in order |
+| transaction envelope fields (`transaction_id`, `kind`, `expected_revision`, `transition`) | **#1392** (persistence metadata) | which events were committed together, and the request fields that are not recoverable from the events |
+
+The envelope never adds keys to a RunEvent, and a RunEvent never carries envelope keys (R-021 ownership boundary; ST-41).
+
+**Derived on every load, never stored** (so there is no second truth to drift, removing the class behind R-002 / R-005 / R-020):
+
+| derived value | derivation |
+|---|---|
+| RunState (`lifecycle_state`, `revision`, bindings, `pending_action=null`, `policy_verdict=null`) | fold over the stream (see Strict loading) |
+| `generation` | number of envelopes |
+| per-transaction result (`first_event_seq`, `last_event_seq`, `result_revision`) | from the envelope's events and the fold |
+| idempotency index `transaction_id -> request_digest` | `commit` / `create`: digest recomputed from the envelope (`kind`, `run_id`, `expected_revision`, `transition`) plus the event drafts recovered from its events by removing the #1391 binding keys (`run_id`, `event_seq`, `revision`, `harness_manifest_ref`, `plan_hash`, `source_sha`, `event_ref`). `conflict`: the failed request was never applied, so its digest is carried in the #1392-owned `state_conflict` payload |
+
+[Dependency] draft recovery requires #1391 `finalize_event` to add **only** the binding keys above (a closed set) to a draft. This is a #1391 consumability condition (todo Preflight).
+
+Canon: RunState remains the canonical mutable, revision-CAS artifact of `artifact-responsibilities.md`; model B changes only its physical representation (CAS is realised by appending a `state_transitioned` event under the lock and replacing the file atomically). The canon §4 wording is revised in the same PR.
 
 ## Commit protocol
 
@@ -79,14 +86,16 @@ Every mutating call carries a caller-supplied `transaction_id`:
 `request_digest` = canonical hash of the full request
 (`kind`, `run_id`, `expected_revision`, `event_drafts`, `transition`; for create_run: `initial_state`, `plan_event_draft`).
 
-Under the lock, **before** the expected_revision check:
+Under the lock, **before** the expected_revision check, look the `transaction_id` up in the derived idempotency index:
 
-| ledger lookup | result |
+| index lookup | result |
 |---|---|
 | `transaction_id` absent | proceed normally |
-| present, same `request_digest`, kind `create` / `commit` | **exact retry**: return the current snapshot with `replayed=true` and the ledger entry's `generation`. No new event, no generation increment, no state change |
+| present, same `request_digest`, kind `create` / `commit` | **exact retry**: return the current snapshot with `replayed=true` and the derived result of that envelope. No new event, no new envelope, no state change |
 | present, same `request_digest`, kind `conflict` | return the same RevisionConflict (same conflict `event_ref`). No new event |
 | present, different `request_digest` | reject `TransactionIdReuse`. Zero mutation |
+
+Because the index of `create` / `commit` envelopes is recomputed from their stored events, replacing an envelope's metadata with another consistent-looking value either changes the recomputed digest (the retry then gets `TransactionIdReuse`, zero mutation) or breaks `snapshot_ref`; it cannot make a retry append its events a second time (R-020).
 
 The lookup runs before the revision check because an exact retry after a successful commit necessarily carries a stale `expected_revision`. This is the layer that TASK-1391 plan delegates to #1392 ("exact retry ... does **not** append a second event").
 
@@ -98,12 +107,12 @@ Relation to canon §4 (`artifact-responsibilities.md`: "mismatch -> STATE_CONFLI
 
 Under exclusive lock:
 
-1. if a snapshot exists: apply the Transaction identity lookup against its ledger (exact create retry after a crash-after-replace returns `replayed=true`); otherwise reject
-2. construct revision=0 RunState; first-slice initial `lifecycle_state` is `PLAN_VERIFYING` (the transition allowlist has no edge out of `PLANNING`, so a Run created in `PLANNING` could never progress)
+1. if a snapshot exists: apply the Transaction identity lookup (exact create retry after a crash-after-replace returns `replayed=true`); otherwise reject
+2. the Run starts at revision 0 in `PLAN_VERIFYING` (first-slice create rule; the transition allowlist has no edge out of `PLANNING`, so a Run created in `PLANNING` could never progress). This is a fold constant, not a stored value
 3. allocate event_seq=1
 4. #1391 validates/finalizes plan_contract_bound event
 5. #1391 validate_append([], event)
-6. build generation=1 snapshot with ledger entry `kind=create`
+6. build the file with one envelope `kind=create`
 7. atomic_replace(snapshot)
 
 ### commit_events
@@ -120,8 +129,8 @@ Under exclusive lock:
 1. strict load current snapshot
 2. validate snapshot_ref + #1391 accepted stream
 2a. Transaction identity lookup (may return replay / same conflict / TransactionIdReuse here)
-2b. reject an empty request (no event drafts and no transition) with zero mutation; every ledger entry covers at least one event
-3. require expected_revision == current state revision
+2b. reject an empty request (no event drafts and no transition) with zero mutation; every envelope holds at least one event
+3. require expected_revision == derived current revision
 4. allocate exact next event_seq values
 5. bind current run/manifest/plan/source context
 6. #1391 finalize each draft
@@ -135,7 +144,7 @@ Under exclusive lock:
    - increment revision exactly +1
    - append `state_transitioned` as final event of transaction
    - event-level `revision` is the **new revision**; earlier events in the same transaction retain the pre-transition revision
-10. build generation+1 snapshot with ledger entry `kind=commit` covering the transaction's event_seq range
+10. build the new file = old envelopes + one envelope `kind=commit` holding this transaction's events
 11. write temp in same directory, at the fixed name `<safe-run-id>.json.tmp` (no random names; any other sibling in `runtime_root` is rejected, so ST-20 cleanup is deterministic)
 12. flush + fsync temp
 13. `os.replace(temp, target)`
@@ -154,7 +163,7 @@ If `expected_revision < current revision`:
 - if the Run is already terminal, do not append after terminality; return terminal/stale error without mutating the snapshot
 - raise/return RevisionConflict containing conflict event_ref
 - state revision remains unchanged
-- conflict recording itself increments generation only, with ledger entry `kind=conflict` for the failed request's `transaction_id`
+- conflict recording adds one envelope `kind=conflict` for the failed request's `transaction_id`, holding exactly the `state_conflict` event; its payload (#1392-owned) carries `transaction_id`, `request_digest`, `expected_revision`, `actual_revision`. That digest is not re-derivable (the request was never applied); tampering with it can only switch a retry between "same conflict" and `TransactionIdReuse`, both zero mutation
 
 This preserves conflict evidence without pretending the failed mutation committed.
 
@@ -183,7 +192,7 @@ Expected:
 - recovery never composes fields from old/new
 - successful API response only after directory fsync
 
-No separate WAL is required because state+events are one replace unit.
+No separate WAL is required because the whole Run (events and envelopes) is one replace unit.
 
 ## Durability definition
 
@@ -203,7 +212,7 @@ Every commit rewrites the whole snapshot, so write volume and latency grow with 
 
 - `MAX_EVENTS_PER_RUN` (provisional 2048) and `MAX_SNAPSHOT_BYTES` (provisional 8 MiB)
 - a commit whose resulting snapshot would exceed either bound is rejected with `SnapshotCapacityExceeded` **before the temp file is written**, with zero mutation
-- **terminal reserve**: non-terminal commits are rejected once the snapshot is within `TERMINAL_RESERVE` of either bound. A fixed reserve alone does not prove that a terminal Decision fits, so the reserve is **derived, not guessed**: `TERMINAL_RESERVE >= 1 event and >= MAX_DECISION_EVENT_BYTES + ledger entry size`, where `MAX_DECISION_EVENT_BYTES` is the maximum canonical encoded size of a `decision_made` event. [Dependency] #1391 / #1393 must bound the `decision_made` payload (e.g. the number of `event_ref` it lists) so that the maximum exists; until then the reserve is provisional and the guarantee "a full Run can always commit its terminal outcome" is **not claimed**. A terminal Decision larger than the reserve is rejected by #1391 payload validation, not by the capacity check (ST-30c)
+- **terminal reserve**: non-terminal commits are rejected once the snapshot is within `TERMINAL_RESERVE` of either bound. A fixed reserve alone does not prove that a terminal Decision fits, so the reserve is **derived, not guessed**: `TERMINAL_RESERVE >= 1 event and >= MAX_DECISION_EVENT_BYTES + envelope overhead`, where `MAX_DECISION_EVENT_BYTES` is the maximum canonical encoded size of a `decision_made` event. [Dependency] #1391 / #1393 must bound the `decision_made` payload (e.g. the number of `event_ref` it lists) so that the maximum exists; until then the reserve is provisional and the guarantee "a full Run can always commit its terminal outcome" is **not claimed**. A terminal Decision larger than the reserve is rejected by #1391 payload validation, not by the capacity check (ST-30c)
 - temp space: the store needs free space for one extra snapshot; ENOSPC during temp write is a pre-replace failure (old snapshot stays authoritative)
 - performance fixture: commit latency at the bound on the CI runner; the threshold is fixed with the fixture (provisional p95 ≤ 200 ms). Missing the threshold is a **Replan trigger** (compaction or WAL slice), not a reason to relax the bound
 
@@ -215,15 +224,13 @@ Every commit rewrites the whole snapshot, so write volume and latency grow with 
 - unknown keys reject
 - symlink target/lock reject where platform supports no-follow checks
 - snapshot_ref mismatch reject
-- state/event run binding mismatch reject
-- event stream invalid => snapshot invalid
-- **state projection mismatch reject**: recompute `lifecycle_state` / `revision` by folding the #1391-validated stream from the create rule (`PLAN_VERIFYING`, revision 0) through each `state_transitioned` event (`from_state` must equal the running state, `revision` must be running+1); recompute `harness_manifest_ref` / `plan_hash` / `source_sha` from the bound context of the events. The stored `state` must equal the recomputed one. `pending_action` / `policy_verdict` must be null in this slice
-- **ledger mismatch reject**: `generation == len(transactions)`; ledger `generation` values are 1..N in order; `transaction_id` values are unique; event_seq ranges are contiguous, non-overlapping and cover the whole stream; each `conflict` entry covers exactly one `state_conflict` event; the first entry is `kind=create`
-- **per-event revision check** (same fold, every event, not only transitions): a non-transition event and `state_conflict` must carry `revision == running`; `state_transitioned` must carry `running+1` **and** its `from_state -> to_state` must be an edge of the First-slice transition allowlist (a stored stream is re-checked against the allowlist on every load, not only at commit time)
-- **ledger result check**: each ledger entry's `result_revision` equals the folded revision after its last event; a `conflict` entry covers exactly one `state_conflict` event and nothing else
+- file `run_id` / event run binding mismatch reject
+- event stream (concatenation of envelopes' `events`) invalid by #1391 `validate_stream` => snapshot invalid
+- **envelope structure**: at least one envelope; the first is `kind=create` holding exactly the `plan_contract_bound` event; every envelope holds at least one event; `transaction_id` values are unique; a `conflict` envelope holds exactly one `state_conflict` event and nothing else, and a `state_conflict` appears only in a `conflict` envelope; `transition` is null unless the envelope's last event is the matching `state_transitioned`
+- **fold** (the only source of RunState): start from the create rule (`PLAN_VERIFYING`, revision 0, bindings from `plan_contract_bound`); every non-transition event and `state_conflict` must carry `revision == running`; `state_transitioned` must carry `running+1`, have `from_state == running state`, and be an edge of the First-slice transition allowlist (re-checked on every load, not only at commit time); bound context (`harness_manifest_ref` / `plan_hash` / `source_sha`) must not change; each `commit` envelope's `expected_revision` equals the running revision at its start
 - **Decision-bound re-check**: every `decision_made` in the stored stream passes the Decision-bound checks against the folded state at its position (`decided_in_state`, `event_seq == input_last_event_seq + 1`, derived transition and the bare-edge rule), so a stream that was valid only because a check was skipped at commit time is rejected on load
 
-Payload ownership: TASK-1391 plan lists "state/conflict evidence consumed from #1392", so the `state_transitioned` / `state_conflict` payloads (`from_state`, `to_state`, `revision`, expected/actual revision) are **owned by #1392** and frozen by #1392's RED fixtures. #1391 validates them as stream members (binding, sequence, terminality); #1392 does not re-own any other event type (ST-25 static boundary still applies). The TASK-1391 RunEvidence projection does not carry Lifecycle State, so this state fold is #1392's.
+Payload ownership: TASK-1391 plan lists "state/conflict evidence consumed from #1392", so the `state_transitioned` / `state_conflict` payloads (`from_state`, `to_state`, `revision`; `transaction_id`, `request_digest`, expected/actual revision) are **owned by #1392**. The event type names are frozen together with #1391 (#1402's draft uses `state_conflict_recorded` and has no `state_transitioned`; R-022) and frozen by #1392's RED fixtures. #1391 validates them as stream members (binding, sequence, terminality); #1392 does not re-own any other event type (ST-25 static boundary still applies). The TASK-1391 RunEvidence projection does not carry Lifecycle State, so this state fold is #1392's.
 
 ## Locking
 
@@ -253,13 +260,14 @@ commit(
 ) -> CommitResult
 ```
 
-`CommitResult = {snapshot, replayed: bool, transaction}` where `transaction` is the request's own ledger entry (`generation`, `first_event_seq`, `last_event_seq`, `result_revision`). `replayed=true` means the request had already committed and nothing was written; `snapshot` is then the current one and may be ahead of the transaction, so callers read their own outcome and event refs from `transaction`, not from `snapshot.state`.
+`Snapshot` is the loaded view: the derived RunState, the event stream and the derived per-transaction results. `CommitResult = {snapshot, replayed: bool, transaction}` where `transaction` is the derived result of the request's own envelope (`generation`, `first_event_seq`, `last_event_seq`, `result_revision`). `replayed=true` means the request had already committed and nothing was written; `snapshot` is then the current one and may be ahead of the transaction, so callers read their own outcome and event refs from `transaction`, not from `snapshot.state`.
 
 No CLI in this slice.
 
 ## Implementation placement and static coverage
 
 - TA numbers: use **ta-94 or later** (main has ta-88; open PRs and the sweep plan hold ta-88〜93). Re-check `tests/extras/` on main and open PRs just before exec
+- relation to PR #1402 (Human decision R-023, 2026-09-25): #1402's `scripts/ai-loop-v2/run_state.py` (multi-file + journal) is **excluded from #1402**; this plan is the owner of RunState persistence and #1402's delivery code consumes the #1392 API instead
 - the module location must be one that the static checks actually scan: `scripts/ai-loop-v2/` is outside ta-70 `_T70_DIRS` and `check_exec_boundary.py` today, so ST-25 / ST-26 would pass vacuously there. Before exec, either extend those checks to the chosen directory or place the module where they already apply (with the TC-E9 plugin allowlist / sync declaration that `scripts/ai-loop/` requires). Extending the checks may touch HO paths (`scripts/hooks/*.sh`, `.github/workflows/*`); if so that part is Human-applied
 - a positive control is required for ST-25 / ST-26: inject a forbidden symbol and confirm the check fails
 
@@ -271,8 +279,9 @@ No CLI in this slice.
 - exact retry (with and without transition) returns replay, no second event
 - transaction_id reuse with a different request rejected
 - conflict evidence bound (per transaction / per revision)
-- stored state vs event-stream projection mismatch
-- idempotency ledger tamper
+- no stored RunState / generation / ledger aggregate (a stored `state` key is an unknown key)
+- envelope tamper (structure, metadata vs recomputed digest)
+- envelope keys never appear inside RunEvents and vice versa
 - harness/plan/source drift forbidden
 - state enum forbidden values
 - crash matrix old-or-new

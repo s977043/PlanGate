@@ -133,3 +133,21 @@ Round note (§7-quater): the design lane in two independent models reached the s
 | R-026 | reflected | (C-2 R1 commit) | |
 | R-027 | reflected | (C-2 R1 commit) | |
 | R-028 | reflected | (C-2 R1 commit) | |
+
+## Human decisions on C-2 R1 (2026-09-25)
+
+| ID | decision | reflected |
+|---|---|---|
+| R-017 | **model B** | plan: Snapshot / Transaction identity / create_run / commit / Revision conflict / Strict loading / Integration API / Tests; test-cases ST-28c〜e, 28h, 28i, 41; pbi-input Key design decision (revision note); canon `artifact-responsibilities.md` §4 (RunState is logical; CAS may be realised by an appended transition event; replay is not a CAS retry) |
+| R-023 | **exclude `run_state.py` from #1402**; #1406 is the owner of RunState persistence and #1402 consumes the #1392 API | plan: Implementation placement; request posted to PR #1402 |
+
+Status updates (append-only):
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-017 | reflected | (model B commit) | canon §4 revised in this PR |
+| R-020 | reflected | (model B commit) | digest of commit/create envelopes recomputed from stored events; conflict digest carried in the #1392-owned payload (tampering changes only the zero-mutation answer); ST-28i |
+| R-021 | reflected | (model B commit) | envelope = #1392 metadata, RunEvent = #1391 type, no key crosses; ST-41 |
+| R-023 | reflected | (model B commit) | |
+
+C-2 round 2 reviews the model-B plan (§7-quater: is the fix effective / did it create new holes / did fail-closed break the normal path), including the new dependency that #1391 `finalize_event` adds only a closed set of binding keys.

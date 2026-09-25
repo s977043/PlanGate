@@ -36,7 +36,7 @@
 | ST-21j | two concurrent exact-retry-shaped requests with one new transaction_id | exactly one commit, the other `replayed=true` |
 | ST-21k | create_run on existing Run with a new transaction_id / same transaction_id different request | reject / `TransactionIdReuse` |
 | ST-21l | empty commit (no drafts, no transition) | reject, zero mutation |
-| ST-21m | replay result | returns the transaction's own ledger entry (event_seq range, result_revision), not only the current snapshot |
+| ST-21m | replay result | returns the derived result of the transaction's own envelope (event_seq range, result_revision), not only the current snapshot |
 | ST-22 | multiple non-state events one transaction | contiguous event_seq; revision unchanged |
 | ST-23 | non-terminal transition + other events | state_transitioned is transaction-final event and carries new revision |
 | ST-23a | terminal decision + state transition request | reject before commit |
@@ -48,12 +48,13 @@
 | ST-28 | transition to/from WAITING_* without resume contract | reject in first slice |
 | ST-28a | non-null pending_action | reject as unsupported first-slice input |
 | ST-28b | first-slice create_run with `lifecycle_state != PLAN_VERIFYING` | reject |
-| ST-28c | stored `state.lifecycle_state` / `revision` differs from the `state_transitioned` fold (snapshot_ref recomputed) | strict load reject |
-| ST-28d | stored `harness_manifest_ref` / `plan_hash` / `source_sha` differs from the events' bound context (snapshot_ref recomputed) | strict load reject |
-| ST-28e | ledger tamper: duplicate transaction_id / gap or overlap in event_seq ranges / `generation != len(transactions)` / first entry not `create` / `conflict` entry covering a non-`state_conflict` event | strict load reject |
+| ST-28c | file contains a stored `state` / `generation` / ledger-aggregate key (model B stores none; snapshot_ref recomputed) | strict load reject (unknown key) |
+| ST-28d | bound context (`harness_manifest_ref` / `plan_hash` / `source_sha`) changes within the stream (snapshot_ref recomputed) | strict load reject |
+| ST-28e | envelope tamper: duplicate transaction_id / empty envelope / first envelope not `create` with `plan_contract_bound` / `conflict` envelope holding anything but one `state_conflict` / `state_conflict` outside a `conflict` envelope / `expected_revision` not equal to the folded revision at the envelope start | strict load reject |
+| ST-28i | envelope metadata of a `commit` envelope replaced with consistent-looking values, then exact retry of the original request | never a second append: `TransactionIdReuse` or load reject, zero mutation (R-020) |
 | ST-28f | non-transition or `state_conflict` event carries a revision other than the folded one (snapshot_ref recomputed) | strict load reject |
 | ST-28g | stored `state_transitioned` edge outside the first-slice allowlist, e.g. EXECUTING -> REPAIRING with consistent from_state/+1 | strict load reject |
-| ST-28h | ledger `result_revision` differs from the fold | strict load reject |
+| ST-28h | (removed with model B: `result_revision` is derived, not stored) | — |
 | ST-30 | commit whose result would exceed `MAX_EVENTS_PER_RUN` or `MAX_SNAPSHOT_BYTES` | `SnapshotCapacityExceeded` before temp write, zero mutation |
 | ST-30a | snapshot within `TERMINAL_RESERVE` of a bound | non-terminal commit rejected; terminal `decision_made` still commits |
 | ST-30b | ENOSPC during temp write | old snapshot authoritative, stale temp handled as ST-20 |
@@ -62,7 +63,8 @@
 | ST-30c | terminal `decision_made` larger than `MAX_DECISION_EVENT_BYTES` | rejected by #1391 payload validation (not by the capacity check) |
 | ST-39 | lock file replaced between open and flock | `runtime_path_changed`, fail closed, no commit |
 | ST-40 | unexpected sibling (e.g. random-named temp) in `runtime_root` | reject under lock |
-| ST-33 | `decision_made.decided_in_state` differs from snapshot `lifecycle_state` (terminal and non-terminal) | reject, zero mutation (#1393 IT-01 / IT-02) |
+| ST-41 | envelope key inside a RunEvent, or a RunEvent key in the envelope | reject (commit and load) |
+| ST-33 | `decision_made.decided_in_state` differs from the folded `lifecycle_state` (terminal and non-terminal) | reject, zero mutation (#1393 IT-01 / IT-02) |
 | ST-34 | `decision_made` assigned `event_seq != input_last_event_seq + 1` by another writer's event | reject, zero mutation (#1393 IT-04) |
 | ST-34a | `[verification_recorded FAIL, decision_made]` in one transaction | reject, zero mutation (#1393 IT-07 / IT-08) |
 | ST-35 | VERIFYING + continue with `transition` to DIAGNOSING | reject |

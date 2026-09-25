@@ -93,6 +93,8 @@ read RunState (revision = N)
 - **revision は単調増加**。後退・同値上書きは拒否（#1025 AC-6 と一貫）。
 - CAS の失敗は Stop Reason `STATE_CONFLICT` として記録し、RunEvent に残す。
 - 複数プロセスからの CAS は **ファイルロック等の inter-process 排他 + atomic rename** で実装する（#1025 C-2 finding 1「multi-process CAS には inter-process lock が要る」を AC に昇格）。
+- **RunState は論理的な artifact であり、物理的に別ファイルとして保存することを要しない**。上の `compare-and-swap(..., new_state, ...)` は論理操作で、inter-process lock の下で `new_state` を表す遷移 event（`revision = N + 1`）を event stream に追記し、atomic に置き換えることで実現してよい。その場合 RunState は load のたびに event stream から導出し、保存した派生値を正本にしない（#1392 / TASK-1392 plan、2026-09-25 Human 決定）。
+- **応答の再送は CAS の再試行ではない**。既に確定した要求と同一の要求（同じ transaction 識別子と同じ内容）に確定済みの結果を返すのは idempotency であり、`revision` が古いそれ以外の要求は `STATE_CONFLICT` とする。
 - **intent → external action → receipt の idempotency は維持**。CAS は RunState の遷移を守り、intent / receipt は外部副作用の重複を守る。両者は別の契約。
 - Human-owned approval artifact の発行経路は変えない。
 
