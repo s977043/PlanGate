@@ -23,6 +23,7 @@ self-asserted identity in provider output.
 
 import argparse
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -378,12 +379,20 @@ def _reject_non_finite(token: str) -> Any:
     raise NormalizeError(f"non-finite JSON number: {token}")
 
 
+def _parse_finite_float(token: str) -> float:
+    value = float(token)
+    if not math.isfinite(value):
+        raise NormalizeError(f"non-finite JSON number: {token}")
+    return value
+
+
 def _read_json(path: str) -> Any:
     text = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
     return json.loads(
         text,
         object_pairs_hook=_reject_duplicate_keys,
         parse_constant=_reject_non_finite,
+        parse_float=_parse_finite_float,
     )
 
 

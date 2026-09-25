@@ -270,6 +270,21 @@ json.dump(src, open(sys.argv[2], "w", encoding="utf-8"))
 PY
 _t91_expect_invalid "TC-08 non-finite JSON number" "$_t91_nan"
 
+# TC-08b/c: overflowing literals are valid JSON syntax but float() turns them
+# into ±inf, which parse_constant never sees.
+for _t91_ovf in 1e400 -1e400; do
+  _t91_ovf_file=$(mktemp)
+  register_cleanup "$_t91_ovf_file" 2>/dev/null || true
+  "$_T91_PY" - "$_T91_FIX/river-valid.json" "$_t91_ovf_file" "$_t91_ovf" <<'PY'
+import json,sys
+src=json.load(open(sys.argv[1], encoding="utf-8"))
+src["issues"][0]["confidence"]="__T91_OVF__"
+text=json.dumps(src).replace('"__T91_OVF__"', sys.argv[3])
+open(sys.argv[2], "w", encoding="utf-8").write(text)
+PY
+  _t91_expect_invalid "TC-08 overflowing JSON number ($_t91_ovf)" "$_t91_ovf_file"
+done
+
 # TC-09: invalid UTF-8 bytes.
 _t91_utf=$(mktemp)
 register_cleanup "$_t91_utf" 2>/dev/null || true
