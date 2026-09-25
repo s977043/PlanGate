@@ -140,13 +140,13 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-013 | reflected | `6991816a` | |
 | R-014 | reflected（範囲外を宣言） | `6991816a` | [P1 / Human] |
 | R-015〜R-021 | open | — | 設計判断待ち（R3 節） |
-| R-015 | reflected（Revision 2） | （push 後に記入） | I-3 で kind を限定。中身の照合は R-025 |
-| R-016 | reflected（Revision 2） | （push 後に記入） | next_state を廃止し #1392 が導出（#1406 へ依頼）。decided_in_state 照合は R-023 |
-| R-017 | reflected（Revision 2） | （push 後に記入） | FIRST_ITERATION / P-1。初回判定の真偽は R-026 |
-| R-018 | reflected（Revision 2） | （push 後に記入） | step 4 DENIED → step 5 HUMAN_REQUIRED |
-| R-019 | reflected（Revision 2） | （push 後に記入） | DIAGNOSING は required FAIL 必須（state 別表）。DI-18 |
-| R-020 | reflected（Revision 2） | （push 後に記入） | I-7 |
-| R-021 | reflected（範囲外を宣言） | （push 後に記入） | #1395 の budget 4 経路をリリース条件に |
-| R-022〜R-029 | reflected | （push 後に記入） | Rev2-R1 節。R-022 の方式（verifier ごとの最新）は R-030 / R-031 で置き換え |
-| R-030〜R-036 | reflected | （push 後に記入） | Rev2-R2 節。R-032 は #1406 への依頼、R-034 は #1391 への Dependency |
+| R-015 | reflected（Revision 2） | `492b85f7` | I-3 で kind を限定。中身の照合は R-025 |
+| R-016 | reflected（Revision 2） | `492b85f7` | next_state を廃止し #1392 が導出（#1406 へ依頼）。decided_in_state 照合は R-023 |
+| R-017 | reflected（Revision 2） | `492b85f7` | FIRST_ITERATION / P-1。初回判定の真偽は R-026 |
+| R-018 | reflected（Revision 2） | `492b85f7` | step 4 DENIED → step 5 HUMAN_REQUIRED |
+| R-019 | reflected（Revision 2） | `492b85f7` | DIAGNOSING は required FAIL 必須（state 別表）。DI-18 |
+| R-020 | reflected（Revision 2） | `492b85f7` | I-7 |
+| R-021 | reflected（範囲外を宣言） | `492b85f7` | #1395 の budget 4 経路をリリース条件に |
+| R-022〜R-029 | reflected | `492b85f7` | Rev2-R1 節。R-022 の方式（verifier ごとの最新）は R-030 / R-031 で置き換え |
+| R-030〜R-036 | reflected | `492b85f7` | Rev2-R2 節。R-032 は #1406 への依頼、R-034 は #1391 への Dependency |
 | R-037〜R-041 | open | — | Rev2-R3 節。上限ラウンド到達で Human 判断待ち |
