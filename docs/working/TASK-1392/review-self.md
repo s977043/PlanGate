@@ -60,3 +60,33 @@ Events before the transition describe the pre-transition state revision; the fin
 ## Verdict
 
 PASS for plan. Runtime remains gated by #1391 consumability and #1329 implementation preflight.
+
+## C-1 re-run after review reflection (2026-09-25)
+
+Scope: plan / test-cases after reflecting R-001〜R-009 (`review-external.md`).
+
+### R-10 — idempotency must precede the revision check, and must not become a bypass
+
+An exact retry after success always carries a stale `expected_revision`, so the ledger lookup comes first. It is not a bypass because the digest includes `expected_revision` and `transition`, and a hit performs zero mutation.
+
+### R-11 — the stored state must be a checked cache, not a second truth
+
+Strict load folds every event (per-event revision, allowlist edges, bound context) and the ledger `result_revision`. A snapshot whose `snapshot_ref` was recomputed after tampering with any of these is rejected (ST-28c〜h).
+
+### R-12 — conflict evidence must be bounded without letting a refused request commit later
+
+Per-transaction and per-revision caps bound growth. A future `expected_revision` is refused outright, so unrecorded (suppressed / invalid) requests can never become current and commit later.
+
+### Checklist
+
+| item | result |
+|---|---|
+| pbi-input scope covered (incl. "idempotent transaction retry") | PASS |
+| TASK-1391 contract (exact retry → no second event; state/conflict evidence owned by #1392) | PASS |
+| every new rule has a TC | PASS (ST-21a〜m, ST-28b〜h) |
+| scope creep (no CLI, no event vocabulary beyond state/conflict evidence) | PASS |
+| open decisions surfaced | WARN — [P1] no-WAL single snapshot / [P2] trusted runtime_root / `MAX_CONFLICTS_PER_REVISION` value are Human / RED-fixture decisions |
+
+### Verdict
+
+PASS with WARN (open decisions above). The adversarial round did not converge (new classes R-006〜R-009), so C-2 must run at least 2 rounds before C-3.

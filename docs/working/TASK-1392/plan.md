@@ -40,30 +40,67 @@ No caller-supplied filename.
     "source_sha": "..."
   },
   "events": [],
+  "transactions": [
+    {
+      "transaction_id": "TXN-...",
+      "request_digest": "sha256:...",
+      "kind": "create | commit | conflict",
+      "generation": 1,
+      "first_event_seq": 1,
+      "last_event_seq": 1,
+      "result_revision": 0
+    }
+  ],
   "snapshot_ref": "sha256:..."
 }
 ```
 
 `snapshot_ref` = canonical hash of snapshot excluding snapshot_ref.
 
+`transactions` is the idempotency ledger. It is committed in the same atomic replace as `state` and `events`, so it cannot half-commit against them. It does not add fields to RunEvents (event vocabulary stays with #1391).
+
+`state` is a **derived cache**, not an independent truth: strict load recomputes it from the accepted event stream and rejects any mismatch (see Strict loading).
+
 ## Commit protocol
+
+### Transaction identity
+
+Every mutating call carries a caller-supplied `transaction_id`:
+`TXN-[A-Z0-9][A-Z0-9_-]{0,63}`
+
+`request_digest` = canonical hash of the full request
+(`kind`, `run_id`, `expected_revision`, `event_drafts`, `transition`; for create_run: `initial_state`, `plan_event_draft`).
+
+Under the lock, **before** the expected_revision check:
+
+| ledger lookup | result |
+|---|---|
+| `transaction_id` absent | proceed normally |
+| present, same `request_digest`, kind `create` / `commit` | **exact retry**: return the current snapshot with `replayed=true` and the ledger entry's `generation`. No new event, no generation increment, no state change |
+| present, same `request_digest`, kind `conflict` | return the same RevisionConflict (same conflict `event_ref`). No new event |
+| present, different `request_digest` | reject `TransactionIdReuse`. Zero mutation |
+
+The lookup runs before the revision check because an exact retry after a successful commit necessarily carries a stale `expected_revision`. This is the layer that TASK-1391 plan delegates to #1392 ("exact retry ... does **not** append a second event").
+
+A `transaction_id` is consumed by the commit or by the recorded conflict it produced. A caller that wants to retry with a new `expected_revision` uses a new `transaction_id`. A request answered with `suppressed` (Conflict evidence bound) or `InvalidExpectedRevision` is not recorded and so does not consume its `transaction_id`; it cannot later commit unchanged, because its `expected_revision` is already behind (suppressed) or can never be current (see below).
 
 ### create_run
 
 Under exclusive lock:
 
-1. require no existing snapshot
-2. construct revision=0 RunState
+1. if a snapshot exists: apply the Transaction identity lookup against its ledger (exact create retry after a crash-after-replace returns `replayed=true`); otherwise reject
+2. construct revision=0 RunState; first-slice initial `lifecycle_state` is `PLAN_VERIFYING` (the transition allowlist has no edge out of `PLANNING`, so a Run created in `PLANNING` could never progress)
 3. allocate event_seq=1
 4. #1391 validates/finalizes plan_contract_bound event
 5. #1391 validate_append([], event)
-6. build generation=1 snapshot
+6. build generation=1 snapshot with ledger entry `kind=create`
 7. atomic_replace(snapshot)
 
 ### commit_events
 
 Input:
 - run_id
+- transaction_id
 - expected_revision
 - EventDrafts
 - optional state transition request
@@ -72,6 +109,8 @@ Under exclusive lock:
 
 1. strict load current snapshot
 2. validate snapshot_ref + #1391 accepted stream
+2a. Transaction identity lookup (may return replay / same conflict / TransactionIdReuse here)
+2b. reject an empty request (no event drafts and no transition) with zero mutation; every ledger entry covers at least one event
 3. require expected_revision == current state revision
 4. allocate exact next event_seq values
 5. bind current run/manifest/plan/source context
@@ -85,7 +124,7 @@ Under exclusive lock:
    - increment revision exactly +1
    - append `state_transitioned` as final event of transaction
    - event-level `revision` is the **new revision**; earlier events in the same transaction retain the pre-transition revision
-10. build generation+1 snapshot
+10. build generation+1 snapshot with ledger entry `kind=commit` covering the transaction's event_seq range
 11. write temp in same directory
 12. flush + fsync temp
 13. `os.replace(temp, target)`
@@ -96,15 +135,25 @@ No successful response before step 15 (parent-directory fsync complete).
 
 ## Revision conflict
 
-If expected_revision mismatches:
+If `expected_revision > current revision`: reject `InvalidExpectedRevision` with zero mutation and no conflict event. A revision ahead of the store cannot come from a correct caller; recording it as a conflict would let the same request commit once the store catches up.
+
+If `expected_revision < current revision`:
 - do not apply requested drafts/state transition
 - if the Run is still non-terminal, append a `state_conflict` evidence event in a separate atomic snapshot commit using actual current revision and next event_seq
 - if the Run is already terminal, do not append after terminality; return terminal/stale error without mutating the snapshot
 - raise/return RevisionConflict containing conflict event_ref
 - state revision remains unchanged
-- conflict recording itself increments generation only
+- conflict recording itself increments generation only, with ledger entry `kind=conflict` for the failed request's `transaction_id`
 
 This preserves conflict evidence without pretending the failed mutation committed.
+
+### Conflict evidence bound
+
+Unbounded conflict recording would let a looping stale writer grow the event stream and snapshot without limit.
+
+- **per transaction**: at most one `state_conflict` per `transaction_id` (a retry of the same failed request returns the recorded conflict; see Transaction identity)
+- **per revision**: at most `MAX_CONFLICTS_PER_REVISION` `state_conflict` events while the state stays at one revision. Beyond the cap, return RevisionConflict with `conflict_evidence="suppressed"` and zero mutation. The cap being reached is itself visible from the recorded conflicts at that revision
+- the constant's value is fixed by the RED fixture (provisional: 8); it is a first-slice limit, not a canon value
 
 ## Crash semantics
 
@@ -135,6 +184,13 @@ No separate WAL is required because state+events are one replace unit.
 - snapshot_ref mismatch reject
 - state/event run binding mismatch reject
 - event stream invalid => snapshot invalid
+- **state projection mismatch reject**: recompute `lifecycle_state` / `revision` by folding the #1391-validated stream from the create rule (`PLAN_VERIFYING`, revision 0) through each `state_transitioned` event (`from_state` must equal the running state, `revision` must be running+1); recompute `harness_manifest_ref` / `plan_hash` / `source_sha` from the bound context of the events. The stored `state` must equal the recomputed one. `pending_action` / `policy_verdict` must be null in this slice
+- **ledger mismatch reject**: `generation == len(transactions)`; ledger `generation` values are 1..N in order; `transaction_id` values are unique; event_seq ranges are contiguous, non-overlapping and cover the whole stream; each `conflict` entry covers exactly one `state_conflict` event; the first entry is `kind=create`
+
+- **per-event revision check** (same fold, every event, not only transitions): a non-transition event and `state_conflict` must carry `revision == running`; `state_transitioned` must carry `running+1` **and** its `from_state -> to_state` must be an edge of the First-slice transition allowlist (a stored stream is re-checked against the allowlist on every load, not only at commit time)
+- **ledger result check**: each ledger entry's `result_revision` equals the folded revision after its last event; a `conflict` entry covers exactly one `state_conflict` event and nothing else
+
+Payload ownership: TASK-1391 plan lists "state/conflict evidence consumed from #1392", so the `state_transitioned` / `state_conflict` payloads (`from_state`, `to_state`, `revision`, expected/actual revision) are **owned by #1392** and frozen by #1392's RED fixtures. #1391 validates them as stream members (binding, sequence, terminality); #1392 does not re-own any other event type (ST-25 static boundary still applies). The TASK-1391 RunEvidence projection does not carry Lifecycle State, so this state fold is #1392's.
 
 ## Locking
 
@@ -151,16 +207,19 @@ If runtime platform lacks required locking/fsync semantics, fail closed rather t
 Proposed:
 
 ```python
-create_run(runtime_root, initial_state, plan_event_draft) -> Snapshot
+create_run(runtime_root, transaction_id, initial_state, plan_event_draft) -> CommitResult
 load_run(runtime_root, run_id) -> Snapshot
 commit(
     runtime_root,
     run_id,
+    transaction_id,
     expected_revision,
     event_drafts,
     transition=None,
-) -> Snapshot
+) -> CommitResult
 ```
+
+`CommitResult = {snapshot, replayed: bool, transaction}` where `transaction` is the request's own ledger entry (`generation`, `first_event_seq`, `last_event_seq`, `result_revision`). `replayed=true` means the request had already committed and nothing was written; `snapshot` is then the current one and may be ahead of the transaction, so callers read their own outcome and event refs from `transaction`, not from `snapshot.state`.
 
 No CLI in this slice.
 
@@ -169,6 +228,11 @@ No CLI in this slice.
 - CAS concurrent two writers
 - stale expected revision
 - conflict event recorded without state revision change
+- exact retry (with and without transition) returns replay, no second event
+- transaction_id reuse with a different request rejected
+- conflict evidence bound (per transaction / per revision)
+- stored state vs event-stream projection mismatch
+- idempotency ledger tamper
 - harness/plan/source drift forbidden
 - state enum forbidden values
 - crash matrix old-or-new
