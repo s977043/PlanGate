@@ -7,8 +7,13 @@
 - [x] fail-closed decision order
 - [x] freshness rule
 - [x] PR convergence observation boundary
+- [x] policy verdict handling aligned with taxonomy §5 (R-001 / R-005 / R-006)
+- [x] freshness on FAIL side (R-002) / FailureRecord `verification_ref` (R-003)
+- [x] C-1 re-run after R-001〜R-006
 - [ ] I0 plan review
-- [ ] fallback/external review
+- [ ] C-2 R1 (external) — high-risk: §7-quater requires ≥2 rounds
+- [ ] C-2 R2 (focus: whether R1 fixes actually hold)
+- [ ] C-3 (Human, synchronous)
 
 ## Preflight
 - [ ] #1391 event contract consumable
