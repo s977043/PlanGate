@@ -1,31 +1,32 @@
 # TASK-1393 Current State
 
-> 更新: 2026-09-25 11:40
+> 更新: 2026-09-25 13:30
 
 ## フェーズ: BLOCKED
-## 進捗: plan 是正 R-001〜R-014 反映済み / R-015〜R-021 open / C-2・C-3 未着手
+## 進捗: plan Revision 2（Human 設計判断を反映）/ R-022〜R-036 反映済み / R-037〜R-041 open / C-2・C-3 未着手
 
 ## 直近の完了タスク
 
-- PR #1407 の独立レビュー指摘 R-001〜R-004 と正本照合の R-005 / R-006 を反映（2026-09-25 10:50）
-- 敵対レビュー R2 の R-007〜R-014 を反映（2026-09-25 11:15）
-- 敵対レビュー R3 で R-015〜R-021（新クラス 2 件）を記録（2026-09-25 11:40、未是正）
+- Human 設計判断 4 件と受理 state C'（3 state）を反映し plan / test-cases を作り直した（Revision 2、2026-09-25 12:xx）
+- pbi-input の受入基準 1 件（PLAN_VERIFYING）を Deferred へ（Human 承認済み）
+- 敵対レビュー Rev2-R1 / R2 を反映（R-022〜R-036）。freshness を artifact 単位の verdict（sticky FAIL）に作り直し、Trust boundary 節と脅威モデルを追加
+- #1406 に依頼 3 件（遷移導出 / decided_in_state 照合 / event_seq の CAS）
 
 ## 現在のタスク
 
-- なし（Human の設計判断待ち）
+- なし（Human 判断待ち）
 
 ## ブロッカー
 
-- blocker: 設計未収束。毎ラウンド新クラスが出ており、§7-quater により継ぎ当ての是正を止めた
+- blocker: Rev2-R3 で新クラス 1 件（R-037: artifact 同一性が SHA のため空 commit で sticky FAIL と NO_PROGRESS が解除される）ほか open 4 件。上限 3 ラウンドに到達
 - owner: human
-- unblock_condition: review-external「R3 の設計提案」（state 別 DecisionInput 契約の一括検査 / Decision と遷移の突き合わせの所有者）を Human が判断する
+- unblock_condition: 「打ち切り（残存脅威として明記）」か「R-037〜R-041 の局所是正 + Rev2-R4」かを Human が判断する
 
 ## 次のアクション
 
-- 設計判断 → plan 再構成 → C-1 再実行 → C-2 R1 / R2 → Human の C-3
+- Human 判断に従う。追加ラウンドなら: artifact 同一性を tree hash に / #1391 stream 検証に decision_made 直前 seq 規則 / FR の event 束縛 / R-040・R-041 の定義
 
 ## 計画からの乖離
 
-- Policy 判定を先頭から Verifier の後へ移し、`ALLOW` を `AUTO_APPROVED` に改めた（Human 裁定 2026-09-25「正本準拠」）
-- Decision に `next_state`、`decide()` に `required_verifiers` を追加し、受理する state を 4 つに限定した（decision-log R-007 / R-008）
+- Revision 2 で Decision から next_state を外し、受理 state を 3 つに限定（Human 判断 2026-09-25）
+- freshness を「verifier ごとの最新」から「artifact 単位の verdict」に変更（decision-log / review-external R-030〜R-032）

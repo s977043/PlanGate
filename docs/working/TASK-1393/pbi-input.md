@@ -31,12 +31,14 @@ Does not own:
 ## First-slice decisions
 
 Required:
-- Initial Plan Verification PASS -> continue
 - deterministic implementation Verify FAIL + repairable FailureRecord -> repair
 - deterministic FAIL cannot be overridden by model PASS
 - same failure + no artifact/evidence/blocker progress -> stop + HUMAN_ESCALATED + NO_PROGRESS
 - fresh deterministic PASS + PR convergence PASS -> stop + MERGE_READY
 - unavailable/inconclusive cannot yield MERGE_READY
+
+Deferred to a later #1393 slice (Human decision 2026-09-25, first slice accepts only VERIFYING / DIAGNOSING / PR_CONVERGING):
+- Initial Plan Verification PASS -> continue (PLAN_VERIFYING decisions)
 
 ## Input authority
 

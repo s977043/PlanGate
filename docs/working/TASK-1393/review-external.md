@@ -68,6 +68,58 @@ R3 の設計提案（未採否）: state 別の DecisionInput 契約（必須入
 | state と遷移の対応が無い | VERIFYING の FAIL を例外にし、DIAGNOSING への遷移が記録されない | R2 | R-008（state 表と next_state） | R1 は Decision を state から独立した値として見ていた |
 | 呼び出し側が渡す契約値を無検証で信頼する | required={model だけ} で MERGE_READY | R3 | 未是正（R-015） | R2 の是正で新たに入った入力 |
 | Decision と実際の遷移の結びつきが無い | Decision は DIAGNOSING、commit は PR_CONVERGING | R3 | 未是正（R-016） | R2 の是正で新たに入ったフィールド |
+| 解除条件の同一性が内容でなく名前 | 空 commit で artifact が「変わり」sticky FAIL と NO_PROGRESS が解除 | Rev2-R3 | 未是正（R-037） | R-036 で初めて SHA と定義され、sticky 化で解除条件が突破口になった |
+| state の前提が state 内の後続観測で失効する | DIAGNOSING 入り後の CI 再実行 PASS で前提の FAIL が消え、DI-18 で張り付く | Rev2-R2 | R-030（artifact 単位の sticky FAIL） | R-022 の是正で同じ artifact 上の上書きが初めて生まれた |
+| 後勝ちで FAIL を消す | flaky な verifier の FAIL→PASS で MERGE_READY | Rev2-R2 | R-031（同上） | R-022 以前は FAIL が常に勝っていた |
+| revision の CAS が遷移を伴わない event を覆わない | 入力構築後の FAIL 記録が commit を止めない | Rev2-R2 | R-032（input_last_event_seq の CAS を #1392 に依頼） | 最新判定が無いうちは後続 event が判定を覆す構図が表に出なかった |
+| fresh に時間順が無い | repair で artifact が変わらず同じ artifact に FAIL が 2 件 → I-5 で例外（NO_PROGRESS に届かない）。または呼び出し側が古い PASS だけ渡して MERGE_READY | Rev2-R1 | R-022（observed_seq と verifier ごとの最新） | R1〜R3 は「artifact が変わった後」だけを想定していた。同じ artifact の再検証は Rev2 の I-5 で初めて規則の対象になった |
+
+### Revision 2 と敵対レビュー Rev2-R1（2026-09-25）
+
+Human 設計判断（PR コメント 2026-09-25）に沿って plan / test-cases を作り直した（Revision 2）。R-015〜R-021 は設計変更で扱った（下の監査表）。その Revision 2 に対する独立エージェントの敵対レビュー:
+
+判定: 要是正（未収束）。3 state × 入力の総当たりで結果は一意、step 8 は到達不能、遷移表は #1392 allowlist（`2f64beb0`）と一致。新クラス 1 件（R-022）、既出クラスの是正漏れ 4 件。
+
+| ID | severity | 指摘 | クラス | 是正 |
+|---|---|---|---|---|
+| R-022 | major | fresh を artifact の一致だけで決めており時間順が無い。同じ artifact の再検証（repair で artifact が変わらない、CI 再実行）で I-5 が発火するか、呼び出し側が古い PASS を選べる | 新 | VerificationResult に `observed_seq`（#1391 の event 連番）。fresh =「束縛済みかつ verifier ごとの最新」。I-5 は同じ seq の重複のみ拒否。DV-16 / DV-17 / DD-10 / DP-13 / DI-28 |
+| R-023 | major | `decided_in_state` と snapshot の state の照合が #1406 への依頼に無い。lifecycle_state を偽ると FR 必須・NO_PROGRESS を迂回できる | 既出（Decision と遷移の結びつき）の是正漏れ | #1406 に追加依頼（issuecomment-5826447020）。plan「Transition ownership」「Trust boundary」、IT-01 |
+| R-024 | major | pr_convergence が current artifact に束縛されていない | 既出（R-002）の是正漏れ | `observed_artifact_ref` を必須にし P-2 で一致を検査。DI-27 |
+| R-025 | major | required_verifiers の中身が LoopContract と照合されない | 既出（R-015）の是正漏れ | `loop_contract_ref` を必須（I-8）にして payload に記録。照合は #1395 / #1391（Trust boundary、IT-03） |
+| R-026 | major | FIRST_ITERATION の真偽を誰も検査しない。ProgressAssessment を直接作れるかが未定義。payload に progress が残らない | 既出（R-017）の是正漏れ | ProgressAssessment は assess_progress からのみ。payload に progress 種別と fingerprint 集合。初回判定は #1395 / #1391（IT-05） |
+| R-027 | minor | DI-09 の期待値が I-4 と食い違う | 既出（R-013） | I-4 を required_verifiers と results を合わせた検査に拡張 |
+| R-028 | minor | VERIFYING の repair を repair round として数えると水増しになる | 新（軽微） | plan に語義を明記。repair round は DIAGNOSING / PR_CONVERGING の repair のみ |
+| R-029 | info | PLAN_VERIFYING 後続化で Initial Plan Verification を判定する主体が第一リリースに無い | 既出（R-021） | Known limitations に残存リスクとして明記 |
+
+共通の構造: R-023 / R-025 / R-026 と R-015 は「純関数の #1393 には検証できない、呼び出し側申告値の真偽」。個別の検査を #1393 に足すのではなく、plan に「Trust boundary」節を設け、値ごとに検証主体（#1392 / #1395 / #1391）と検査を割り当て、payload に記録して検査可能にした。これらの検査の実装は第一リリースの完了条件。
+
+### 敵対レビュー Rev2-R2（2026-09-25）
+
+判定: 要是正（未収束）。R-023 / R-024 / R-027 / R-028 / R-029 は閉じた。R-022 の是正（observed_seq と「verifier ごとの最新」）から新クラス 3 件。#1391 の `event_seq` は plan に存在（1 から +1、#1392 がロック内で採番、revision とは独立）。
+
+| ID | severity | 指摘 | クラス | 是正 |
+|---|---|---|---|---|
+| R-030 | major | 最新だけが有効なため、DIAGNOSING に入った後の CI 再実行（PASS / unavailable）で前提の FAIL が消え、DI-18 で毎回例外 → DIAGNOSING に張り付く | 新「state の前提が state 内の後続観測で失効する」。前ラウンドは artifact だけで freshness が決まり、同じ artifact 上の上書きが無かった | 最新ではなく artifact 単位の verdict（FAIL は artifact が変わるまで固定）。DD-11 / DD-12 |
+| R-031 | major | 後勝ちで FAIL が消え、flaky な verifier の「緑になるまで再実行」が MERGE_READY への正規経路になる | 新「後勝ちで FAIL を消す」。R-022 以前は FAIL が常に勝っていた | 同上（FAIL は sticky）。DV-17 の期待値を repair に変更 |
+| R-032 | major | `verification_recorded` は revision を変えないため、入力構築後に記録された FAIL を revision の CAS が覆わない（TOCTOU） | 新「revision の CAS が遷移を伴わない event を覆わない」。最新判定が無いうちは後続 event が判定を覆す構図が無かった | `input_last_event_seq` を入力と payload に。#1392 に「stream 末尾の event_seq が超えていれば reject」を依頼。IT-04 |
+| R-033 | major | payload が結果の中身を束縛していない。VerificationResult と event の対応が未定義 | 既出（契約値を無検証で信頼） | VerificationResult は受理済み `verification_recorded` event からのみ構築（`event_ref` / `observed_seq`）。payload に全 bound 結果の `event_ref` |
+| R-034 | major | LoopContract を Run に束縛する event が無く、required_verifiers の照合元が存在しない | 既出（R-015 / R-025） | 「第一スライスでは未所有」と明記し、#1391 `plan_contract_bound` への束縛を Dependency / リリース条件に |
+| R-035 | minor | verification_ref の一意性が無い | 既出（I-7） | I-5 に追加。DI-29 |
+| R-036 | minor | artifact_ref と head SHA の名前空間が未定義 | 既出（R-024） | 第一スライスでは artifact ref = 候補の head commit SHA と定義 |
+
+Trust boundary の脅威モデルも明記した: DecisionInput を組み立てる #1395 は Worker ではなく stream を読む決定的コードであり、防ぐ対象は Worker / fixture の自己申告と、構築から commit までの stream の変化。#1395 自体の欠陥は監査（stream から Decision を再計算して比較）で検出する。
+
+### 敵対レビュー Rev2-R3（2026-09-25 / 上限ラウンド）
+
+判定: 要是正（未収束）。R-030 / R-031 / R-033〜R-036 は閉じた（artifact 単位の verdict で順序非依存・結果一意、step 8 到達不能）。freshness モデル自体は安定し、新クラスは「解除条件と束縛の境界」に出た。**上限 3 ラウンドに達したため是正を止め、Human 判断へ返す**（以下は open）。
+
+| ID | severity | 指摘 | クラス | 状態 |
+|---|---|---|---|---|
+| R-037 | major | artifact の同一性が commit SHA なので、空 commit / amend / rebase で「artifact が変わった」ことになり、sticky FAIL と NO_PROGRESS が同時に解除される → flaky な D の再実行で MERGE_READY | 新「解除条件の同一性が内容でなく名前」。R-036 で初めて SHA と定義され、sticky 化で解除条件が突破口として意味を持った | open（是正案: 同一性を tree hash に。SHA は head_sha として別に持つ） |
+| R-038 | major | CAS の `expected_last_event_seq` と payload の `input_last_event_seq` の結びつきが無い。同じ transaction 内で decision_made より前に置いた FAIL は CAS も監査もすり抜ける | 既出（R-032 / R-016）の是正漏れ | open（是正案: #1391 の stream 検証に「decision_made の直前の event_seq == input_last_event_seq」。#1392 は decision_made を含む transaction で expected を必須化し payload と一致を要求） |
+| R-039 | major | FailureRecord に event 束縛が無く、Trust boundary 表にも行が無い。repairability の取り違えを監査で検出できない | 既出（R-033）の是正漏れ（FR 側） | open（是正案: FR は受理済み `failure_recorded` event からのみ構築し、payload に event_ref と repairability） |
+| R-040 | minor | 後続の FAIL で「latest FAIL」が動き、既存 FR が I-7 違反になる。「後続観測は前提を失効させない」は言い過ぎ | 既出（R-030） | open（是正案: 再診断を要すると明記し主体を #1395 に。または FR を入り口の FAIL に固定） |
+| R-041 | minor | verdict を変えない同じ artifact 上の結果が evidence_delta に入るか未定義。入れば無限 repair、入れなければ NO_PROGRESS | 新（軽微）。sticky 導入で verdict と progress が同じ観測を別解釈 | open（是正案: evidence_delta から除外と定義） |
 
 ## 監査表（追記専用）
 
@@ -88,3 +140,13 @@ R3 の設計提案（未採否）: state 別の DecisionInput 契約（必須入
 | R-013 | reflected | `6991816a` | |
 | R-014 | reflected（範囲外を宣言） | `6991816a` | [P1 / Human] |
 | R-015〜R-021 | open | — | 設計判断待ち（R3 節） |
+| R-015 | reflected（Revision 2） | （push 後に記入） | I-3 で kind を限定。中身の照合は R-025 |
+| R-016 | reflected（Revision 2） | （push 後に記入） | next_state を廃止し #1392 が導出（#1406 へ依頼）。decided_in_state 照合は R-023 |
+| R-017 | reflected（Revision 2） | （push 後に記入） | FIRST_ITERATION / P-1。初回判定の真偽は R-026 |
+| R-018 | reflected（Revision 2） | （push 後に記入） | step 4 DENIED → step 5 HUMAN_REQUIRED |
+| R-019 | reflected（Revision 2） | （push 後に記入） | DIAGNOSING は required FAIL 必須（state 別表）。DI-18 |
+| R-020 | reflected（Revision 2） | （push 後に記入） | I-7 |
+| R-021 | reflected（範囲外を宣言） | （push 後に記入） | #1395 の budget 4 経路をリリース条件に |
+| R-022〜R-029 | reflected | （push 後に記入） | Rev2-R1 節。R-022 の方式（verifier ごとの最新）は R-030 / R-031 で置き換え |
+| R-030〜R-036 | reflected | （push 後に記入） | Rev2-R2 節。R-032 は #1406 への依頼、R-034 は #1391 への Dependency |
+| R-037〜R-041 | open | — | Rev2-R3 節。上限ラウンド到達で Human 判断待ち |

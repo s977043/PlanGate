@@ -75,3 +75,14 @@ R-7 の「empty/ALLOW のみ受理・他は fail closed」は、R-001（出力�
 
 - 判定: **FAIL（設計未収束）**。R3 で新クラスが出続けており、step 0 が state 別の必須入力を強制していない（R-015 / R-017）、Decision と実際の遷移の対応を検査する主体が無い（R-016）。
 - 次: Human の設計判断（review-external「R3 の設計提案」）→ plan の再構成 → C-1 再実行 → C-2 R1 からやり直す。
+
+### 追記（2026-09-25 13:xx / Revision 2 と敵対レビュー Rev2-R1〜R3 の後）
+
+| 観点 | 判定 | 根拠 |
+|---|---|---|
+| Human 設計判断の反映 | PASS | DecisionInput 一括検査（I-1〜I-9 / P-1 / P-2 / state 別表）、受理 state 3 つ、next_state 廃止と #1392 導出（#1406 へ依頼 3 件）、HUMAN_REQUIRED 後続、budget を #1395 のリリース条件に |
+| 受入基準網羅 | PASS | pbi-input Required 5 件（Human 承認済みの後続化 1 件を除く）はすべて DV / DD / DP に対応 |
+| 判定の一意性 | PASS | Rev2-R3 で 3 state × 履歴つき入力の総当たり一意、step 8 到達不能を確認 |
+| 収束（§7-quater） | **FAIL** | Rev2-R1 / R2 / R3 で新クラスが 1 / 3 / 1。freshness モデルは Rev2-R3 で安定したが、解除条件（artifact 同一性）と束縛（CAS と payload、FR の event 束縛）に R-037〜R-041 が open |
+
+判定: **FAIL（未収束・上限ラウンド到達）**。Human の判断（打ち切り / 追加ラウンド）待ち。

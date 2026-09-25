@@ -1,19 +1,21 @@
 # EXECUTION PLAN — TASK-1393 / #1393
 
+> Revision 2 (2026-09-25). Rebuilt after adversarial review R3 did not converge. Human design decisions: validate a per-state DecisionInput in one place; accept only `VERIFYING` / `DIAGNOSING` / `PR_CONVERGING`; the Decision carries no `next_state` (#1392 derives the transition); `HUMAN_REQUIRED` is deferred to the waiting/resume slice; the iteration budget is a #1395 requirement. See `decision-log.jsonl` and `review-external.md`.
+
 ## Architecture
 
 ```text
 observed verifier facts
- -> VerificationResult
- -> FailureRecord normalization input
- -> progress assessment
- -> decide(...)
+ -> VerificationResult / FailureRecord            (validated values)
+ -> assess_progress(...)                          (derived value)
+ -> make_decision_input(...)                      (all input rules, one place)
+ -> decide(decision_input)                        (pure, no validation left)
  -> Decision value
  -> #1391 decision_made EventDraft
- -> #1392 durable commit
+ -> #1392 durable commit (derives and checks the transition from the Decision)
 ```
 
-No I/O in #1393.
+No I/O in #1393. `decide()` accepts only a `DecisionInput`; it has no other parameters, so no input can bypass validation.
 
 ## Data types
 
@@ -25,19 +27,20 @@ Required:
 - kind: deterministic | specification | independent_model | policy
 - status: pass | fail | unavailable | inconclusive
 - bound_artifact_ref
+- event_ref and observed_seq: the #1391 canonical hash and `event_seq` of the accepted `verification_recorded` event this result was built from. A VerificationResult is built only from an accepted event (its `event_seq` is assigned by #1392 under the lock), never from a Worker report
 - evidence_refs
 
 Optional:
 - source_sha
 - head_sha
 
-Immutable value after construction.
+Immutable value after construction. A verifier is identified by the pair `(verifier_id, kind)` everywhere in this plan.
 
 ### FailureRecord
 
 Required:
 - failure_ref
-- verification_ref (the deterministic FAIL this record normalizes; used to detect a FAIL without a FailureRecord)
+- verification_ref (the deterministic FAIL this record normalizes)
 - observation
 - fingerprint
 - evidence_refs
@@ -50,129 +53,178 @@ Unknown repairability/result values are rejected; free-form strings are not deci
 
 ### ProgressAssessment
 
-Derived by pure function from:
-- previous FailureRecord
-- current FailureRecord
-- artifact_changed
-- evidence_delta
-- resolved_blockers
-- introduced_blockers
+`assess_progress(*, previous_records, current_records, previous_artifact_ref, current_artifact_ref, evidence_delta, resolved_blockers, introduced_blockers)` returns an immutable value carrying:
 
-`no_progress=true` only when:
-- normalized fingerprint unchanged
-- artifact_changed=false
-- evidence_delta empty
-- resolved_blockers empty
-- introduced_blockers empty
+- `current_artifact_ref`
+- `current_failure_refs` (the set of `failure_ref` in `current_records`)
+- `no_progress`
+
+`artifact_changed` is derived (`previous_artifact_ref != current_artifact_ref`), not supplied. `previous_records` and `current_records` must both be non-empty; otherwise `assess_progress` raises (a first diagnosis uses `FIRST_ITERATION`).
+
+`no_progress=true` only when all hold:
+- the set of normalized fingerprints in `previous_records` equals the set in `current_records` (both non-empty)
+- `previous_artifact_ref == current_artifact_ref`
+- `evidence_delta`, `resolved_blockers`, `introduced_blockers` are all empty
 
 No retry-count shortcut.
+
+The first diagnosis of a Run has no previous records. The caller passes the explicit value `FIRST_ITERATION` instead of a ProgressAssessment. "Absent" and "first iteration" are different values, so omitting progress is never read as "progress was made".
 
 ### Decision
 
 - decision_ref
-- action: continue | repair | replan | stop
-- next_state: the #1392 Lifecycle State the caller transitions to; `null` when action=stop or when the Run stays in the current state
-- input_refs
+- decided_in_state: the `lifecycle_state` of the DecisionInput
+- action: continue | repair | replan | stop (canon: `artifact-responsibilities.md`)
 - outcome: null | MERGE_READY | HUMAN_ESCALATED | BLOCKED
 - stop_reasons
 - policy_verdicts
+- loop_contract_ref and required_verifiers (copied from the DecisionInput)
+- input_refs
 
-Rules:
-- outcome != null => action=stop and next_state=null
-- action != stop => outcome=null
+Constructor rules (a violating Decision cannot be constructed):
+- outcome != null <=> action=stop
 - MERGE_READY => stop_reasons=[]
-- HUMAN_ESCALATED/BLOCKED => >=1 Stop Reason
-- a non-null next_state must be an edge of the #1392 first-slice transition allowlist from `lifecycle_state` (checked against #1406 head `c48843ab`; if #1392 changes the allowlist, this table follows it)
+- HUMAN_ESCALATED / BLOCKED => >=1 Stop Reason
+- outcome=HUMAN_REJECTED is rejected (it is a Stop Reason, not an Outcome)
+- `(decided_in_state, action)` for a non-stop action must be a cell of the Transition table below
 
-## State-aware decision
+## Transition ownership
 
-The engine consumes a RunState **snapshot value** (not storage) through `lifecycle_state`. `decide()` accepts only the states in the table below. Every other state raises `DecisionInputError` at step 0:
+The Decision does not name a target state. #1392 derives the transition from `(snapshot lifecycle_state, action)` and rejects a transaction whose `decision_made` disagrees with the requested transition (request posted on PR #1406, 2026-09-25). For #1393 this means:
 
-- `PLANNING` / `EXECUTING` / `REPAIRING` / `REPLANNING`: their exit is a mechanical transition owned by #1392 / #1395, not a decision
-- `WAITING_HUMAN` / `WAITING_EXTERNAL`: #1392 does not create or resume them in the first slice; deciding in them would let the AI leave a Human wait on its own
-- an Outcome name (`MERGE_READY` / `HUMAN_ESCALATED` / `BLOCKED`) or any other value passed as a state
+| decided_in_state | continue | repair | replan |
+|---|---|---|---|
+| `VERIFYING` | -> `PR_CONVERGING` | -> `DIAGNOSING` | not produced |
+| `DIAGNOSING` | not produced | -> `REPAIRING` | -> `REPLANNING` |
+| `PR_CONVERGING` | no transition | -> `REPAIRING` | not produced |
 
-| lifecycle_state | Required inputs | Possible Decisions (action / next_state or outcome) |
-|---|---|---|
-| `PLAN_VERIFYING` | specification results for the plan artifact | continue / `EXECUTING`; replan / `REPLANNING` (fresh specification FAIL); stop (steps 1, 3, 4) |
-| `VERIFYING` | deterministic results; FailureRecord **not** required (DIAGNOSING has not run yet) | continue / `DIAGNOSING` (any fresh deterministic FAIL); continue / `PR_CONVERGING` (every required verifier has a fresh PASS); stop (steps 1, 3, 4) |
-| `DIAGNOSING` | a FailureRecord for every fresh deterministic FAIL | repair / `REPAIRING`; replan / `REPLANNING`; stop (steps 1, 3, 4) |
-| `PR_CONVERGING` | deterministic results, `pr_convergence`, and a FailureRecord for every fresh deterministic FAIL | repair / `REPAIRING`; continue / null (fresh PASS, convergence not yet all pass); stop / MERGE_READY (step 5); stop (steps 1, 3, 4) |
+- Every cell is an edge of the #1392 first-slice allowlist (checked against #1406 head `2f64beb0`).
+- #1392 must reject a `decision_made` whose `decided_in_state` differs from the snapshot `lifecycle_state` at commit (otherwise a caller could decide as VERIFYING while the Run is in DIAGNOSING and skip the FailureRecord / NO_PROGRESS rules). Added to the #1406 request.
+- `repair` from `VERIFYING` means "enter the repair path via DIAGNOSING"; it is not a repair round. Repair-round counts (#1395 budget, RunEvidence) count only `repair` decided in `DIAGNOSING` / `PR_CONVERGING`.
+- Until #1392 adopts the derivation, #1395 must not request a transition that differs from this table. [Dependency] If #1392 changes its allowlist or does not adopt the derivation, this section is revisited before exec.
 
-`PR_CONVERGING` + `replan_required` FAIL has no edge in the #1392 allowlist, so it raises `DecisionInputError` (unsupported in the first slice) rather than fabricating a transition.
+## DecisionInput
+
+`make_decision_input(*, lifecycle_state, current_artifact_ref, input_last_event_seq, loop_contract_ref, required_verifiers, verification_results, failure_records=(), progress=None, pr_convergence=None, policy_verdicts=())` validates everything below and raises `DecisionInputError` on the first violation. It returns an immutable `DecisionInput`.
+
+Definitions:
+- A result is **bound** when `bound_artifact_ref == current_artifact_ref`. Unbound (stale) results decide nothing.
+- The **artifact verdict** of a required verifier is computed from **all** its bound results, independent of their order:
+  - any bound result is `fail` -> `fail` (a FAIL on an artifact stays a FAIL until the artifact changes; a later PASS on the same artifact does not erase it, so "re-run until green" is not a path to success)
+  - otherwise any bound result is `pass` -> `pass`
+  - otherwise (only `unavailable` / `inconclusive`, or no bound result) -> `unavailable`
+- A **required FAIL** is a required verifier whose artifact verdict is `fail`. Its FailureRecord attaches to its bound FAIL result with the highest `observed_seq` (the **latest FAIL**).
+- Because the verdict does not depend on order, an observation recorded later inside a state cannot invalidate that state's precondition (a DIAGNOSING entered on a FAIL still has that FAIL).
+
+Common rules (all states):
+
+| # | Rule |
+|---|---|
+| I-1 | `lifecycle_state` is `VERIFYING`, `DIAGNOSING`, or `PR_CONVERGING`. Everything else is rejected: `PLAN_VERIFYING` (deferred to a later slice), `PLANNING` / `EXECUTING` / `REPAIRING` / `REPLANNING` (mechanical exits owned by #1392 / #1395), `WAITING_*` (not supported by #1392 in the first slice), Outcome names and unknown values |
+| I-2 | `current_artifact_ref` is non-empty |
+| I-3 | `required_verifiers` is a non-empty set of `(verifier_id, kind)` pairs, every `kind` is `deterministic`, and no `verifier_id` appears twice. In the first slice only deterministic verifiers can be required; specification / independent_model / policy results are recorded in `input_refs` but decide nothing |
+| I-4 | a `verifier_id` has one kind across `required_verifiers` and `verification_results` together (a result `(D, independent_model)` when `(D, deterministic)` is required is rejected) |
+| I-5 | `observed_seq` and `verification_ref` are each unique across all results (the latest FAIL is then unique) |
+| I-8 | `loop_contract_ref` is non-empty (the LoopContract that `required_verifiers` was resolved from; see Trust boundary) |
+| I-6 | every policy verdict is `AUTO_APPROVED`, `HUMAN_REQUIRED`, or `DENIED` (taxonomy §5; `ALLOW` and unknown values are rejected) |
+| I-7 | every FailureRecord's `verification_ref` points to the latest FAIL of a required FAIL verifier (no orphan FR, and no FR for a stale, older, or non-required FAIL), and at most one FR per such result |
+| I-9 | `input_last_event_seq` is at least the highest `observed_seq` of the results (see Trust boundary) |
+
+Per-state rules:
+
+| State | FailureRecords | progress | pr_convergence |
+|---|---|---|---|
+| `VERIFYING` | must be empty (DIAGNOSING has not run) | must be `None` | must be `None` |
+| `DIAGNOSING` | at least one required FAIL exists, and every required FAIL has exactly one FR | `FIRST_ITERATION` or a ProgressAssessment | must be `None` |
+| `PR_CONVERGING` | if a required FAIL exists, every required FAIL has exactly one FR; otherwise empty | if a required FAIL exists: `FIRST_ITERATION` or a ProgressAssessment; otherwise `None` | required |
+
+When progress is a ProgressAssessment, its `current_artifact_ref` must equal the input's, and its `current_failure_refs` must equal the set of `failure_ref` in `failure_records` (P-1). A stale assessment cannot be reused.
+
+`pr_convergence` is a pure observed value: `observed_artifact_ref`, ci, required_reviews, blocking_threads=0, conflict=false, scope. #1393 validates it but does not query GitHub or derive changed paths. P-2: `observed_artifact_ref` must equal `current_artifact_ref`; convergence observed on another head (an older push, or a push by someone else) is rejected.
+
+`ProgressAssessment` can be obtained only from `assess_progress` (no public constructor), so its `no_progress` is always derived.
 
 ## Decision order
 
-Fail-closed priority. Each step returns the first match; later steps are not evaluated. If no step matches, the result is stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE] (step 7). There is no path that reaches MERGE_READY or continue by default.
+`decide(decision_input)` evaluates in order and returns the first match. It never raises for a validated input except at step 5 and at the `PR_CONVERGING` + `replan_required` limitation.
 
-0. input contract validation -> raise `DecisionInputError` (no Decision value):
-   - `lifecycle_state` not in the State-aware decision table
-   - `required_verifiers` empty
-   - a policy verdict outside the taxonomy §5 vocabulary (including `ALLOW`)
-   - in `DIAGNOSING` / `PR_CONVERGING`: a fresh deterministic FAIL whose `verification_ref` has no FailureRecord
-   - the same `verifier_id` has both a fresh PASS and a fresh FAIL (contradictory observation)
-1. no-progress assessment -> stop / HUMAN_ESCALATED / [NO_PROGRESS]
-2. fresh deterministic FAIL (one or more), by state:
-   - `VERIFYING` -> continue / `DIAGNOSING`
-   - `DIAGNOSING` / `PR_CONVERGING`: if **any** FailureRecord is `replan_required` -> replan (from `PR_CONVERGING`: `DecisionInputError`, see above); otherwise all are `repairable` -> repair
-   - `PLAN_VERIFYING` (fresh specification FAIL) -> replan / `REPLANNING`
-3. any `required_verifiers` entry without a result bound to `current_artifact_ref`, or whose fresh result is unavailable/inconclusive -> stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE]
-3a. policy verdict `HUMAN_REQUIRED` -> raise `DecisionInputError` (first slice cannot enter `WAITING_HUMAN`; see Policy scope)
-4. policy verdict `DENIED` -> stop / BLOCKED / [POLICY_DENIED]
-5. only in `PR_CONVERGING`: every required verifier has a fresh PASS + PR convergence PASS -> stop / MERGE_READY
-6. every required verifier has a fresh PASS, no convergence yet:
-   - `PLAN_VERIFYING` -> continue / `EXECUTING`
-   - `VERIFYING` -> continue / `PR_CONVERGING`
-   - `PR_CONVERGING` -> continue / null
-7. otherwise -> stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE]
+1. progress is a ProgressAssessment with `no_progress=true` -> stop / HUMAN_ESCALATED / [NO_PROGRESS]
+2. at least one required FAIL:
+   - `VERIFYING` -> repair (-> DIAGNOSING)
+   - `DIAGNOSING` -> replan if **any** FR is `replan_required`, otherwise repair
+   - `PR_CONVERGING` -> repair if every FR is `repairable`; if any is `replan_required`, raise `DecisionInputError` (the allowlist has no `PR_CONVERGING -> REPLANNING` edge; see Known limitations)
+3. any required verifier has artifact verdict `unavailable` -> stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE]
+4. a `DENIED` verdict -> stop / BLOCKED / [POLICY_DENIED]
+5. a `HUMAN_REQUIRED` verdict -> raise `DecisionInputError` (the first slice cannot enter `WAITING_HUMAN`)
+6. `PR_CONVERGING`, every required verifier has artifact verdict `pass`, and every pr_convergence field passes -> stop / MERGE_READY
+7. every required verifier has artifact verdict `pass`:
+   - `VERIFYING` -> continue (-> PR_CONVERGING)
+   - `PR_CONVERGING` -> continue (no transition; convergence not yet complete)
+8. otherwise -> stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE]. The DecisionInput rules make this unreachable (DIAGNOSING always hits step 2; in the other states, after steps 2-3 every required verifier has verdict `pass`); it exists so that no path ends in continue or MERGE_READY by default
 
-An independent-model PASS never removes a deterministic FAIL from step 2.
+**Stop paths with DENIED.** If step 1 or 3 stops and a `DENIED` verdict is present, the Decision is stop / BLOCKED with stop_reasons = [the triggering reason, POLICY_DENIED]. A Run that Policy denied restarts only as a new Run (taxonomy §3).
 
-Policy is evaluated after Verifier evidence (steps 1-3), as `taxonomy.md` §5 requires: a Verdict cannot override a deterministic FAIL, so `DENIED` or `HUMAN_REQUIRED` + fresh deterministic FAIL yields the step 2 result, and `HUMAN_REQUIRED` + no-progress yields HUMAN_ESCALATED / [NO_PROGRESS] (the §6 allowed example). `DENIED` can never reach step 5.
+**Verifier before Verdict.** Policy is evaluated after steps 1-3 (taxonomy §5). A verdict never overrides a required FAIL: `DENIED` or `HUMAN_REQUIRED` + a required FAIL gives the step 2 result. `DENIED` is checked before `HUMAN_REQUIRED`, so a denied Run is always recorded as BLOCKED. `HUMAN_REQUIRED` + no-progress gives HUMAN_ESCALATED / [NO_PROGRESS] (taxonomy §6 allowed example).
 
-**DENIED on another stop path.** When step 1 or step 3 stops the Run and a `DENIED` verdict is also present, the Decision is stop / BLOCKED with stop_reasons = [the triggering reason, POLICY_DENIED]. A Run that Policy denied must not be resumable as a HUMAN_ESCALATED Run; per taxonomy §3 it restarts only as a new Run.
+An independent-model PASS never removes a deterministic FAIL: non-required results decide nothing.
 
-### Input contract violations vs runtime outcomes
+### Errors vs outcomes
 
-- A runtime outcome (step 1-7) is a legitimate state of the Run and is returned as a Decision so that #1392 records `decision_made`.
-- An input contract violation (step 0 and step 3a, and `PR_CONVERGING` + `replan_required`) means the caller passed an input the first slice does not support or skipped a precondition (DIAGNOSING did not produce a FailureRecord). It raises `DecisionInputError`; it is not a Run state, and no Decision is fabricated for it.
-- A fresh FAIL in `VERIFYING` without a FailureRecord is **not** a violation: it is the normal path to `DIAGNOSING`.
-- #1395 integration must treat `DecisionInputError` as fail-closed (no transition to success). Recording it as evidence is the caller's responsibility and out of scope for #1393.
-
-## Required verifiers
-
-`required_verifiers` is a caller-supplied observed value: the set of `(verifier_id, kind)` pairs the LoopContract requires for the current `lifecycle_state`. #1393 does not derive it. It must be non-empty (step 0).
-
-Only results from required verifiers decide steps 2, 3, 5 and 6. A result from a verifier that is not required (for example an independent-model review) is recorded in `input_refs` but can neither satisfy nor fail a required verifier.
+- A Decision (steps 1-4, 6-8) is a state of the Run and is committed as `decision_made`.
+- `DecisionInputError` means the caller passed an input the first slice does not support, or skipped a precondition. No Decision is fabricated. #1395 must treat it as fail-closed (no transition, no success) and own recording it as evidence.
 
 ## Freshness
 
-Caller supplies `current_artifact_ref`.
-Every VerificationResult that the decision uses, PASS **and** FAIL, must bind exactly to `current_artifact_ref`. A result bound to any other artifact is stale and ignored.
+On the same artifact, a FAIL is sticky: PASS -> FAIL and FAIL -> PASS both give verdict `fail`. A flaky verifier therefore cannot turn an artifact green by re-running; the artifact has to change (repair). An `unavailable` / `inconclusive` result does not erase a PASS or a FAIL.
 
-After repair changes artifact A -> B:
-- PASS bound to A is stale: it cannot support MERGE_READY or continue
-- FAIL bound to A is stale: it cannot trigger repair/replan again
-- only results bound to B are used; a required verifier whose only result is bound to A has no fresh result, so step 3 applies (VERIFIER_UNAVAILABLE), never a stale-based repair or success. This holds even when another required verifier has a fresh PASS on B
+After repair changes artifact A -> B, only results bound to B count:
+- a PASS bound to A cannot support continue or MERGE_READY
+- a FAIL bound to A cannot trigger repair / replan, and an FR for it is rejected (I-7)
+- a required verifier whose only result is bound to A has verdict `unavailable` -> step 3, even when another required verifier has verdict `pass` on B
 
-## Out of scope: budget and repetition
+## Trust boundary
 
-`NO_PROGRESS` requires `artifact_changed=false`, and every repair changes the artifact, so NO_PROGRESS alone does not bound a repair loop whose fingerprint keeps changing. `BUDGET_EXHAUSTED` / `REPEATED_FAILURE` / `OSCILLATION` (taxonomy §4, detected by the Decision Engine) are not in the first slice.
+`decide()` is pure: it cannot read the RunState, the LoopContract, or the event stream. It guarantees only that the Decision follows from the DecisionInput.
 
-- Owner: a later Decision Engine slice; until then #1395 must enforce an iteration budget outside `decide()`
-- Residual risk accepted by this slice: without #1395's budget, a Run with a persistent `DENIED` and a changing FAIL repairs without bound and never reaches BLOCKED
-- [P1 / Human] whether the first release may ship without the budget Stop Reasons in `decide()`
+**Threat model.** The DecisionInput is built by #1395, which is deterministic orchestration code reading the #1391 stream. It is not a Worker. The threats this slice defends against are (1) Worker / fixture self-report entering the decision, and (2) the stream changing between building the input and committing the Decision. A defect in #1395 itself is caught only by audit (below), not prevented.
 
-## PR convergence input
+In the first slice an artifact ref is the candidate's head commit SHA, so `bound_artifact_ref`, `current_artifact_ref` and `pr_convergence.observed_artifact_ref` share one namespace.
 
-Pure observed value:
-- ci pass
-- required_reviews pass
-- blocking_threads=0
-- conflict=false
-- scope=pass
+| Value | Threat | Owner | Control |
+|---|---|---|---|
+| `lifecycle_state` | decide as another state and skip its rules | #1392 at commit | reject when `decided_in_state != snapshot lifecycle_state` (#1406 request) |
+| stream between build and commit | a FAIL recorded after the input was built (a `verification_recorded` event does not change the revision, so the revision CAS does not cover it) | #1392 at commit | reject when the stream's last `event_seq` > `input_last_event_seq` (#1406 request) |
+| `verification_results` (set and content) | a Worker-reported result, or an omitted FAIL | #1395 | build every result from an accepted `verification_recorded` event (`event_ref`, `observed_seq` from the event); pass **all** bound results up to `input_last_event_seq`. The payload records every `event_ref` for audit |
+| `required_verifiers` / `loop_contract_ref` | drop a failing required verifier | **unowned in the first slice** | no event binds a LoopContract revision to a Run. [Dependency / release condition] #1391 `plan_contract_bound` (and its re-binding after Replan) must carry `loop_contract_ref` and the required set, so the set is read from the stream instead of supplied |
+| `FIRST_ITERATION`, `previous_records`, `previous_artifact_ref`, deltas | fake a first iteration or progress | #1395 | derive them from the stream; the payload records progress kind and fingerprint sets for audit |
+| `pr_convergence` | convergence of another head | #1393 (P-2) and #1395 | `observed_artifact_ref == current_artifact_ref`; #1395 observes it from GitHub for that head |
 
-#1393 validates/consumes it but does not query GitHub or derive changed paths.
+Audit (post hoc, not a gate in the first slice): recompute each `decision_made` from the stream prefix up to its `input_last_event_seq` and compare. Owner: follow-up (#1395 or a RunEvidence verifier).
+
+The first release is not complete until the #1392 checks, the #1391 LoopContract binding and the #1395 budget are in place.
+
+## Known limitations of the first slice
+
+| Limitation | Handling | Owner |
+|---|---|---|
+| `PLAN_VERIFYING` decisions (Initial Plan Verification PASS -> continue) | not accepted (I-1). Residual risk: in the first release no component decides Initial Plan Verification; `PLAN_VERIFYING -> EXECUTING` is a mechanical #1395 transition without `decision_made` | later #1393 slice (pbi-input updated) |
+| `HUMAN_REQUIRED` -> `WAITING_HUMAN` | `DecisionInputError` (step 5) | #1392 waiting/resume slice |
+| `PR_CONVERGING` + `replan_required` | `DecisionInputError` (step 2) | #1392 allowlist (no edge yet) |
+| `BUDGET_EXHAUSTED` / `REPEATED_FAILURE` / `OSCILLATION` | not produced by `decide()` | later #1393 slice; budget enforced by #1395 (below) |
+| `evidence_delta` / blocker sets are caller observations | trusted as observed values | #1395 derives them from RunEvents |
+| `required_verifiers` is not bound to the Run by any event | unowned until #1391 binds `loop_contract_ref` (release condition) | #1391 |
+| a flaky verifier blocks an artifact until it changes (sticky FAIL) | intended fail-closed behavior | — |
+
+### Budget required from #1395 (release condition)
+
+`NO_PROGRESS` alone does not bound these loops, so the first release requires #1395 to enforce limits outside `decide()`:
+
+1. repair loop whose fingerprint keeps changing (every repair changes the artifact) — including while `DENIED` or `HUMAN_REQUIRED` is present
+2. `PR_CONVERGING` continue with no transition while convergence keeps failing (for example conflict stays true)
+3. `PLAN_VERIFYING` <-> `REPLANNING` (outside `decide()` in this slice)
+4. repeated `DecisionInputError` retries
+
+Required limits: total iterations, consecutive decisions in the same state, replan count. Exceeding one stops the Run as HUMAN_ESCALATED / [BUDGET_EXHAUSTED] recorded by #1395.
 
 ## APIs
 
@@ -180,45 +232,13 @@ Pure observed value:
 make_verification_result(...)
 make_failure_record(...)
 assess_progress(...)
-decide(
-  *,
-  lifecycle_state,
-  current_artifact_ref,
-  required_verifiers,
-  verification_results,
-  failure_records,
-  progress=None,
-  pr_convergence=None,
-  policy_verdicts=(),
-)
+FIRST_ITERATION
+make_decision_input(...)
+decide(decision_input)
 decision_to_event_draft(decision)
 ```
 
-The final function creates a #1391 EventDraft but does not persist it.
-
-## RED cases
-
-- model PASS + deterministic FAIL
-- inconclusive/unavailable -> no success
-- stale PASS
-- same failure + no deltas -> NO_PROGRESS
-- changed artifact -> not NO_PROGRESS
-- evidence delta -> not NO_PROGRESS
-- introduced blocker -> not NO_PROGRESS
-- missing FailureRecord for deterministic FAIL in DIAGNOSING / PR_CONVERGING -> `DecisionInputError`, no Decision; in VERIFYING -> continue / DIAGNOSING
-- required verifier X fresh PASS + required verifier Y only a stale FAIL, in PR_CONVERGING with convergence pass -> VERIFIER_UNAVAILABLE, never MERGE_READY
-- mixed repairability -> replan
-- WAITING_* / EXECUTING / REPAIRING state -> `DecisionInputError`
-- DENIED + no-progress -> BLOCKED / [NO_PROGRESS, POLICY_DENIED]
-- HUMAN_REQUIRED + fresh deterministic FAIL -> step 2 result, not an error
-- stale FAIL (bound to previous artifact) -> no repair/replan; no fresh result -> VERIFIER_UNAVAILABLE
-- policy `DENIED` -> stop / BLOCKED / [POLICY_DENIED]
-- policy `DENIED` + fresh deterministic FAIL -> repair/replan (Verdict after Verifier)
-- policy `HUMAN_REQUIRED` (no earlier stop) / unknown / `ALLOW` -> `DecisionInputError`
-- MERGE_READY without convergence
-- convergence PASS but no fresh deterministic PASS
-- Worker self-report field cannot enter API
-- pre-authored outcome/no_progress cannot enter observation constructors
+`decision_to_event_draft` creates a #1391 EventDraft with `decided_in_state`, `action`, `outcome`, `stop_reasons`, `policy_verdicts`, `input_last_event_seq`, `loop_contract_ref`, `required_verifiers`, the `event_ref` of every bound result used, `pr_convergence.observed_artifact_ref` (PR_CONVERGING), the progress kind (`first_iteration` / `assessed`) with the previous and current fingerprint sets, and `input_refs` (everything the Trust boundary checks need). It does not persist it. [Dependency] #1391 has not frozen the `decision_made` payload keys yet; these keys are agreed with #1391 before exec.
 
 ## Static boundaries
 
@@ -227,39 +247,10 @@ The final function creates a #1391 EventDraft but does not persist it.
 - no merge API
 - no GitHub API
 
+## Taxonomy notes
 
-## Policy scope
-
-Vocabulary follows `docs/ai/ai-loop-v2/taxonomy.md` §5 (`AUTO_APPROVED` / `HUMAN_REQUIRED` / `DENIED`). There is no `ALLOW` verdict.
-
-| Input | First-slice handling | Canon basis |
-|---|---|---|
-| no verdict | normal evaluation | MERGE_READY does not require `AUTO_APPROVED` (§6) |
-| `AUTO_APPROVED` | normal evaluation | §5 |
-| `DENIED` | step 4: stop / BLOCKED / [POLICY_DENIED]; on a step 1 / 3 stop, outcome becomes BLOCKED and POLICY_DENIED is added | §5 `DENIED` -> `POLICY_DENIED`; §3 BLOCKED = the Run ends on a boundary; §4 allows several Reasons |
-| `HUMAN_REQUIRED` | step 3a (after Verifier evidence): `DecisionInputError` (out of first-slice scope). Steps 1-3 still decide first | §5 maps it to State `WAITING_HUMAN`, which is a wait, not a terminal Outcome, and evaluates Verdicts after Verifier evidence. Decision actions have no wait action and #1392 does not support WAITING_* yet, so the first slice does not fabricate a terminal Outcome for it |
-| unknown value | step 0: `DecisionInputError` | not in the §5 vocabulary |
-
-Out of scope, owned elsewhere:
-- the transition to `WAITING_HUMAN` on `HUMAN_REQUIRED` (RunState owner, #1392 / #1395)
-- how #1395 records a `DecisionInputError` as evidence
-
-[P1 / Human] How `HUMAN_REQUIRED` reaches `WAITING_HUMAN` with a recorded event (a later owner slice decides whether the Decision core gains a wait action or the Policy Gate transitions the RunState directly).
-
-
-## Taxonomy correction
-
-`HUMAN_REJECTED` is a **Stop Reason**, not a Terminal Outcome.
-
-A Human rejection is represented as:
-
-```text
-action = stop
-outcome = HUMAN_ESCALATED
-stop_reasons = [HUMAN_REJECTED]
-```
-
-The Decision core must reject `outcome=HUMAN_REJECTED`.
+- `HUMAN_REJECTED` is a Stop Reason, not a Terminal Outcome (action=stop, outcome=HUMAN_ESCALATED, stop_reasons=[HUMAN_REJECTED]).
+- Policy vocabulary is taxonomy §5 only; there is no `ALLOW`.
 
 ## Mode判定
 
@@ -267,7 +258,7 @@ The Decision core must reject `outcome=HUMAN_REJECTED`.
 
 **判定根拠**:
 - 変更ファイル数: 実装は新規 module + tests で 3-5 見込み → standard
-- 受入基準数: 6（pbi-input First-slice decisions）→ high-risk
+- 受入基準数: 5（pbi-input First-slice decisions。PLAN_VERIFYING の 1 件は後続へ）→ standard
 - 変更種別: MERGE_READY / HUMAN_ESCALATED を決める判定核（承認境界に隣接。success を出す唯一の経路）→ high-risk
 - リスク: 誤判定が Delivery の終端を誤らせる（fail-open で MERGE_READY）→ 高
-- **最終判定**: high-risk（`review-principles.md` §7-quater: 承認境界に触れるため C-2 は 2 ラウンド以上。`lite_eligible=false`・C-3 は Human 同期）
+- **最終判定**: high-risk（`review-principles.md` §7-quater: C-2 は 2 ラウンド以上。`lite_eligible=false`・C-3 は Human 同期）
