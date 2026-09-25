@@ -68,6 +68,7 @@ R3 の設計提案（未採否）: state 別の DecisionInput 契約（必須入
 | state と遷移の対応が無い | VERIFYING の FAIL を例外にし、DIAGNOSING への遷移が記録されない | R2 | R-008（state 表と next_state） | R1 は Decision を state から独立した値として見ていた |
 | 呼び出し側が渡す契約値を無検証で信頼する | required={model だけ} で MERGE_READY | R3 | 未是正（R-015） | R2 の是正で新たに入った入力 |
 | Decision と実際の遷移の結びつきが無い | Decision は DIAGNOSING、commit は PR_CONVERGING | R3 | 未是正（R-016） | R2 の是正で新たに入ったフィールド |
+| 内容による同一性が過去の区切りの観測を復活させる | Replan 前の D PASS が revert で同じ tree に戻り bound → 未実行のまま MERGE_READY | Rev2-R4 | 未是正（R-042） | SHA 同一性では revert も新 SHA で、同じ artifact に戻れなかった。R-037 の tree 化で初めて成立 |
 | 解除条件の同一性が内容でなく名前 | 空 commit で artifact が「変わり」sticky FAIL と NO_PROGRESS が解除 | Rev2-R3 | 未是正（R-037） | R-036 で初めて SHA と定義され、sticky 化で解除条件が突破口になった |
 | state の前提が state 内の後続観測で失効する | DIAGNOSING 入り後の CI 再実行 PASS で前提の FAIL が消え、DI-18 で張り付く | Rev2-R2 | R-030（artifact 単位の sticky FAIL） | R-022 の是正で同じ artifact 上の上書きが初めて生まれた |
 | 後勝ちで FAIL を消す | flaky な verifier の FAIL→PASS で MERGE_READY | Rev2-R2 | R-031（同上） | R-022 以前は FAIL が常に勝っていた |
@@ -121,6 +122,20 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-040 | minor | 後続の FAIL で「latest FAIL」が動き、既存 FR が I-7 違反になる。「後続観測は前提を失効させない」は言い過ぎ | 既出（R-030） | open（是正案: 再診断を要すると明記し主体を #1395 に。または FR を入り口の FAIL に固定） |
 | R-041 | minor | verdict を変えない同じ artifact 上の結果が evidence_delta に入るか未定義。入れば無限 repair、入れなければ NO_PROGRESS | 新（軽微）。sticky 導入で verdict と progress が同じ観測を別解釈 | open（是正案: evidence_delta から除外と定義） |
 
+### 敵対レビュー Rev2-R4（2026-09-25 / Human 承認の追加 1 ラウンド）
+
+判定: 要是正（未収束）。R-037 / R-038 / R-040 は閉じた（`+1` 規則は #1392 の手順 8 / 9 と合わせ、終端 `[decision_made]` と遷移 `[decision_made(n+1), state_transitioned(n+2)]` の 2 形で成立し正常系を壊さない。ただし #1392 head `2f64beb0` には依頼 4 件とも未反映）。R-039 は部分的、R-041 は定義上閉じた。新クラス 1 件。**追加ラウンドも収束しなかったため是正を止め、Human 判断へ返す**（以下は open）。
+
+| ID | severity | 指摘 | クラス | 状態 |
+|---|---|---|---|---|
+| R-042 | major | 同一性を tree だけにしたため、revert で tree が戻ると、前の iteration や Replan 前の契約で記録した結果が再び bound になる。v2 で一度も実行していない D の旧 PASS で MERGE_READY | 新「内容による同一性が過去の区切りの観測を復活させる」。SHA のときは revert も新 SHA で、同じ artifact に戻ることが構造上なかった | open（是正案: bound に「observed_seq > 最新の plan_contract_bound の seq」を追加、または結果に loop_contract_ref を持たせる） |
+| R-043 | major | 同じ FAIL に複数の failure_recorded があると #1395 が選べる。repairability の反転を監査で検出できない | 既出（R-022 / R-039）の是正漏れ | open（是正案: verification_ref ごとに FR 1 件を #1391 validate_append で強制、または最大 seq の FR を規則に） |
+| R-044 | minor | evidence_delta の定義は結果集合から機械的に決まるのに入力値のまま。PR-10 は変異を殺せない（素通り） | 既出（R-026） | open（是正案: 純関数 `derive_evidence_delta` を #1393 に置き基準時点を定義） |
+| R-045 | minor | 再診断は decision を生まないため、budget の単位（decision 回数）では数えられない | 今回の是正で発生（軽微） | open（是正案: budget に「failure_recorded 件数」を追加） |
+| R-046 | minor | `+1` の load 時検査を #1392 だけに依頼しており、#1391 の stream 検証（監査経路）では掛からない。1 transaction に decision_made 2 件でも `+1` を満たせる | 既出（R-016 / R-038） | open（是正案: 規則を #1391 validate_append / validate_stream の所有に。「1 transaction に decision_made は 1 件」を依頼に追加） |
+
+補足（残存脅威として明記を推奨）: tree 同一性でも 1 バイトの意味のない変更で tree は変わるため、sticky FAIL が保証するのは「同じ内容の再実行では緑にならない」ことだけで、変更後の flaky PASS を抑えるのは budget だけ。`+1` 規則を満たすには #1395 が入力の event を Decision より前の transaction で commit しておく必要がある。
+
 ## 監査表（追記専用）
 
 | R-ID | status | reflected_in(commit) | notes |
@@ -150,3 +165,5 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-022〜R-029 | reflected | `492b85f7` | Rev2-R1 節。R-022 の方式（verifier ごとの最新）は R-030 / R-031 で置き換え |
 | R-030〜R-036 | reflected | `492b85f7` | Rev2-R2 節。R-032 は #1406 への依頼、R-034 は #1391 への Dependency |
 | R-037〜R-041 | open | — | Rev2-R3 節。上限ラウンド到達で Human 判断待ち |
+| R-037〜R-041 | reflected（Human 承認の追加ラウンドで是正） | （push 後に記入） | R-037 / R-038 / R-040 は Rev2-R4 で閉鎖確認。R-039 は R-043、R-041 は R-044 が残る |
+| R-042〜R-046 | open | — | Rev2-R4 節。追加ラウンドも未収束で Human 判断待ち |

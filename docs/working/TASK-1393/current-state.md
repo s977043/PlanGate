@@ -1,9 +1,9 @@
 # TASK-1393 Current State
 
-> 更新: 2026-09-25 13:30
+> 更新: 2026-09-25 14:30
 
 ## フェーズ: BLOCKED
-## 進捗: plan Revision 2（Human 設計判断を反映）/ R-022〜R-036 反映済み / R-037〜R-041 open / C-2・C-3 未着手
+## 進捗: plan Revision 2 / R-022〜R-041 反映済み / R-042〜R-046 open（Rev2-R4 = Human 承認の追加ラウンドも未収束）/ C-2・C-3 未着手
 
 ## 直近の完了タスク
 
@@ -18,13 +18,13 @@
 
 ## ブロッカー
 
-- blocker: Rev2-R3 で新クラス 1 件（R-037: artifact 同一性が SHA のため空 commit で sticky FAIL と NO_PROGRESS が解除される）ほか open 4 件。上限 3 ラウンドに到達
+- blocker: Rev2-R4（追加ラウンド）でも新クラス 1 件（R-042: tree 同一性で revert すると Replan 前の結果が復活する）ほか open 4 件
 - owner: human
-- unblock_condition: 「打ち切り（残存脅威として明記）」か「R-037〜R-041 の局所是正 + Rev2-R4」かを Human が判断する
+- unblock_condition: Human が次の進め方を判断する（PR #1407 是正報告 3 の選択肢）
 
 ## 次のアクション
 
-- Human 判断に従う。追加ラウンドなら: artifact 同一性を tree hash に / #1391 stream 検証に decision_made 直前 seq 規則 / FR の event 束縛 / R-040・R-041 の定義
+- Human 判断に従う
 
 ## 計画からの乖離
 

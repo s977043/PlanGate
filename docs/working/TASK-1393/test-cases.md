@@ -23,6 +23,8 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DI-28 | DIAGNOSING, FR pointing to an older D FAIL (seq 10) on the same artifact while the latest D FAIL is seq 20 | `DecisionInputError` |
 | DI-29 | two results share a verification_ref | `DecisionInputError` |
 | DI-30 | input_last_event_seq lower than the highest observed_seq of the results | `DecisionInputError` |
+| DI-31 | input_last_event_seq lower than the observed_seq of a FailureRecord | `DecisionInputError` |
+| DI-32 | DIAGNOSING entered on D FAIL (seq 10, FR on seq 10); a CI re-run records D FAIL (seq 30); input still carries the FR on seq 10 | `DecisionInputError` (re-diagnosis required; #1395 records a new FR for seq 30) |
 | DI-12 | policy verdict `ALLOW` / unknown | `DecisionInputError` |
 | DI-13 | DIAGNOSING, FR whose verification_ref points to a stale D FAIL (plus a fresh D FAIL with its own FR) | `DecisionInputError` |
 | DI-14 | DIAGNOSING, FR pointing to a non-required verifier's FAIL | `DecisionInputError` |
@@ -61,6 +63,7 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DV-16 | D on the current artifact: FAIL (seq 10) then FAIL (seq 20), i.e. the repair did not change the artifact | repair (-> DIAGNOSING); no error |
 | DV-17 | D on the current artifact: FAIL (seq 10) then PASS (seq 20) (flaky re-run) | repair (-> DIAGNOSING); FAIL is sticky |
 | DV-18 | D on the current artifact: PASS (seq 10) then unavailable (seq 20) | continue (-> PR_CONVERGING) |
+| DV-20 | D FAIL bound to tree T (commit c1); an empty commit c2 has the same tree T; current_artifact_ref = T; D PASS recorded on T via c2 | repair (-> DIAGNOSING); the empty commit does not release the sticky FAIL |
 | DV-19 | D on the current artifact: unavailable (seq 10) then inconclusive (seq 20) | stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE] |
 
 ## DD — DIAGNOSING (progress = FIRST_ITERATION unless stated)
@@ -78,6 +81,7 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DD-09 | ProgressAssessment no_progress=false | repair (-> REPAIRING) |
 | DD-11 | entered on D FAIL (seq 10, FR on seq 10); a CI re-run on the same artifact records D PASS (seq 30) | repair (-> REPAIRING); no `DecisionInputError` |
 | DD-12 | entered on D FAIL (seq 10, FR on seq 10); then D unavailable (seq 30) | repair (-> REPAIRING) |
+| DD-13 | as DD-10 but the "repair" was an empty commit (commit SHA changed, tree unchanged): `assess_progress(previous_artifact_ref=T, current_artifact_ref=T)` | stop / HUMAN_ESCALATED / [NO_PROGRESS] |
 | DD-10 | history on artifact A: D FAIL (seq 10, FR f1) -> repair left A unchanged -> D FAIL (seq 20, FR f2, same fingerprint); inputs = both results, FR f2, `assess_progress(previous=[f1], current=[f2], previous_artifact_ref=A, current_artifact_ref=A)` | stop / HUMAN_ESCALATED / [NO_PROGRESS] |
 
 ## DP — PR_CONVERGING (convergence = all pass unless stated)
@@ -111,6 +115,7 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | PR-07 | previous {f1, f2}, current {f1} | false |
 | PR-08 | previous {f1, f2}, current {f2, f1} | true |
 | PR-09 | previous records empty | `assess_progress` raises (use FIRST_ITERATION) |
+| PR-10 | same fingerprint, same artifact; the only new observation is a PASS on the same artifact after a sticky FAIL (verdict unchanged), so it is not put in evidence_delta | true |
 
 ## DC — Decision / EventDraft / boundaries
 
@@ -150,7 +155,10 @@ Each mutant must be killed by at least one case above.
 - WAITING_* accepted (DI-03)
 - verdict taken from the latest result instead of "any FAIL" (DV-17, DD-11, DP-13)
 - unavailable erases a PASS or a FAIL (DV-18, DD-12)
-- FR attached to an older FAIL accepted (DI-28)
+- FR attached to an older FAIL accepted (DI-28, DI-32)
+- artifact identity by commit SHA instead of tree hash (DV-20, DD-13)
+- same-artifact verdict-neutral result counted as evidence delta (PR-10)
+- FailureRecord seq not bounded by input_last_event_seq (DI-31)
 - pr_convergence head not checked (DI-27)
 
 ## Integration cases (owned outside #1393, listed so the Trust boundary is testable)
@@ -160,6 +168,9 @@ Each mutant must be killed by at least one case above.
 | IT-01 | #1392 | commit `decision_made` with decided_in_state=VERIFYING while the snapshot is DIAGNOSING | reject, zero mutation |
 | IT-02 | #1392 | non-terminal `decision_made` (VERIFYING, repair) with transition VERIFYING -> PR_CONVERGING | reject |
 | IT-03 | #1391 (dependency, unowned today) | recorded required_verifiers differ from the set bound by `plan_contract_bound` | reject |
-| IT-04 | #1392 | commit a `decision_made` whose input_last_event_seq is lower than the stream's last event_seq (a FAIL was recorded after the input was built) | reject, zero mutation |
+| IT-04 | #1392 | commit a `decision_made` whose input_last_event_seq + 1 is not its assigned event_seq because another writer recorded a FAIL after the input was built | reject, zero mutation |
+| IT-07 | #1392 | one transaction = [verification_recorded FAIL, decision_made(MERGE_READY, input_last_event_seq = seq before that FAIL)] | reject, zero mutation (the FAIL sits between input and Decision) |
+| IT-08 | #1392 load | a stored stream with a decision_made whose event_seq != input_last_event_seq + 1 | load rejects the stream |
+| IT-09 | #1395 | FR built from Diagnoser output without an accepted failure_recorded event | not possible: FR constructor requires event_ref / observed_seq of an accepted event |
 | IT-06 | audit | recompute a committed Decision from the stream prefix up to its input_last_event_seq | equal to the recorded Decision |
 | IT-05 | #1395 / #1391 | FIRST_ITERATION after an earlier DIAGNOSING decision with a FAIL in the same Run | reject |

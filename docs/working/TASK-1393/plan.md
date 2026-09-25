@@ -47,6 +47,7 @@ Required:
 - cause_hypothesis
 - repairability = `repairable | replan_required`
 - result = `open | repeated | resolved`
+- event_ref and observed_seq: the #1391 canonical hash and `event_seq` of the accepted `failure_recorded` event this record was built from. Like a VerificationResult, a FailureRecord is built only from an accepted event, never from Diagnoser output that has not been recorded
 
 Observation and cause hypothesis remain separate.
 Unknown repairability/result values are rejected; free-form strings are not decision inputs.
@@ -65,6 +66,8 @@ Unknown repairability/result values are rejected; free-form strings are not deci
 - the set of normalized fingerprints in `previous_records` equals the set in `current_records` (both non-empty)
 - `previous_artifact_ref == current_artifact_ref`
 - `evidence_delta`, `resolved_blockers`, `introduced_blockers` are all empty
+
+`evidence_delta` contains only observations that change some required verifier's artifact verdict or add a new failure fingerprint. A result on the same artifact that leaves every verdict unchanged (for example a PASS after a sticky FAIL, or a repeated unavailable) is not evidence delta, so it cannot turn a no-progress loop into an unbounded repair loop.
 
 No retry-count shortcut.
 
@@ -114,7 +117,7 @@ Definitions:
   - otherwise any bound result is `pass` -> `pass`
   - otherwise (only `unavailable` / `inconclusive`, or no bound result) -> `unavailable`
 - A **required FAIL** is a required verifier whose artifact verdict is `fail`. Its FailureRecord attaches to its bound FAIL result with the highest `observed_seq` (the **latest FAIL**).
-- Because the verdict does not depend on order, an observation recorded later inside a state cannot invalidate that state's precondition (a DIAGNOSING entered on a FAIL still has that FAIL).
+- Because the verdict does not depend on order, a later PASS / unavailable inside a state cannot invalidate that state's precondition (a DIAGNOSING entered on a FAIL still has that FAIL). A later **FAIL** moves the latest FAIL, so the existing FR no longer satisfies I-7: the FAIL must be diagnosed again. #1395 owns this: it re-runs diagnosis for the new latest FAIL (a new `failure_recorded` event) before building the next DecisionInput. Re-diagnosis loops count toward the #1395 budget.
 
 Common rules (all states):
 
@@ -128,7 +131,7 @@ Common rules (all states):
 | I-8 | `loop_contract_ref` is non-empty (the LoopContract that `required_verifiers` was resolved from; see Trust boundary) |
 | I-6 | every policy verdict is `AUTO_APPROVED`, `HUMAN_REQUIRED`, or `DENIED` (taxonomy §5; `ALLOW` and unknown values are rejected) |
 | I-7 | every FailureRecord's `verification_ref` points to the latest FAIL of a required FAIL verifier (no orphan FR, and no FR for a stale, older, or non-required FAIL), and at most one FR per such result |
-| I-9 | `input_last_event_seq` is at least the highest `observed_seq` of the results (see Trust boundary) |
+| I-9 | `input_last_event_seq` is at least the highest `observed_seq` of the results **and** the FailureRecords, and every `event_ref` is unique (see Trust boundary) |
 
 Per-state rules:
 
@@ -188,12 +191,15 @@ After repair changes artifact A -> B, only results bound to B count:
 
 **Threat model.** The DecisionInput is built by #1395, which is deterministic orchestration code reading the #1391 stream. It is not a Worker. The threats this slice defends against are (1) Worker / fixture self-report entering the decision, and (2) the stream changing between building the input and committing the Decision. A defect in #1395 itself is caught only by audit (below), not prevented.
 
-In the first slice an artifact ref is the candidate's head commit SHA, so `bound_artifact_ref`, `current_artifact_ref` and `pr_convergence.observed_artifact_ref` share one namespace.
+**Artifact identity.** In the first slice an artifact ref is the git **tree hash** of the candidate (its content), not the commit SHA. `bound_artifact_ref`, `current_artifact_ref`, `previous_artifact_ref` and `pr_convergence.observed_artifact_ref` all use it. The commit SHA is kept separately as `head_sha`. #1395 resolves the tree hash from the commit (`<sha>^{tree}`); GitHub reports a head SHA, which #1395 resolves the same way before building `pr_convergence`.
+
+Consequence: an empty commit, an amend with the same content, or a rebase that yields the same tree is the **same artifact**. It neither releases a sticky FAIL nor counts as `artifact_changed` for NO_PROGRESS. A rebase onto a moved base changes the tree and legitimately requires re-verification (bounded by the #1395 budget).
 
 | Value | Threat | Owner | Control |
 |---|---|---|---|
 | `lifecycle_state` | decide as another state and skip its rules | #1392 at commit | reject when `decided_in_state != snapshot lifecycle_state` (#1406 request) |
-| stream between build and commit | a FAIL recorded after the input was built (a `verification_recorded` event does not change the revision, so the revision CAS does not cover it) | #1392 at commit | reject when the stream's last `event_seq` > `input_last_event_seq` (#1406 request) |
+| stream between build and commit | a FAIL recorded after the input was built (a `verification_recorded` event does not change the revision, so the revision CAS does not cover it), including a FAIL placed **earlier in the same transaction** as the `decision_made` | #1392 at commit and on load | a `decision_made` must be assigned `event_seq == input_last_event_seq + 1`: no event of any kind, from another writer or from the same transaction, may sit between the input and the Decision. Checked when the seq is assigned and re-checked on every load (#1406 requests; this replaces a separate `expected_last_event_seq` argument, so the CAS value and the payload value cannot diverge) |
+| `failure_records` (set and content, including `repairability`) | a Diagnoser result that was not recorded, or a repairability flipped from `replan_required` to `repairable` | #1395 | build every FR from an accepted `failure_recorded` event (`event_ref`, `observed_seq`); the payload records each FR's `event_ref` and `repairability` for audit |
 | `verification_results` (set and content) | a Worker-reported result, or an omitted FAIL | #1395 | build every result from an accepted `verification_recorded` event (`event_ref`, `observed_seq` from the event); pass **all** bound results up to `input_last_event_seq`. The payload records every `event_ref` for audit |
 | `required_verifiers` / `loop_contract_ref` | drop a failing required verifier | **unowned in the first slice** | no event binds a LoopContract revision to a Run. [Dependency / release condition] #1391 `plan_contract_bound` (and its re-binding after Replan) must carry `loop_contract_ref` and the required set, so the set is read from the stream instead of supplied |
 | `FIRST_ITERATION`, `previous_records`, `previous_artifact_ref`, deltas | fake a first iteration or progress | #1395 | derive them from the stream; the payload records progress kind and fingerprint sets for audit |
@@ -238,7 +244,7 @@ decide(decision_input)
 decision_to_event_draft(decision)
 ```
 
-`decision_to_event_draft` creates a #1391 EventDraft with `decided_in_state`, `action`, `outcome`, `stop_reasons`, `policy_verdicts`, `input_last_event_seq`, `loop_contract_ref`, `required_verifiers`, the `event_ref` of every bound result used, `pr_convergence.observed_artifact_ref` (PR_CONVERGING), the progress kind (`first_iteration` / `assessed`) with the previous and current fingerprint sets, and `input_refs` (everything the Trust boundary checks need). It does not persist it. [Dependency] #1391 has not frozen the `decision_made` payload keys yet; these keys are agreed with #1391 before exec.
+`decision_to_event_draft` creates a #1391 EventDraft with `decided_in_state`, `action`, `outcome`, `stop_reasons`, `policy_verdicts`, `input_last_event_seq`, `loop_contract_ref`, `required_verifiers`, the `event_ref` of every bound result used, the `event_ref` and `repairability` of every FailureRecord, `pr_convergence.observed_artifact_ref` (PR_CONVERGING), the progress kind (`first_iteration` / `assessed`) with the previous and current fingerprint sets, and `input_refs` (everything the Trust boundary checks need). It does not persist it. [Dependency] #1391 has not frozen the `decision_made` payload keys yet; these keys are agreed with #1391 before exec.
 
 ## Static boundaries
 
