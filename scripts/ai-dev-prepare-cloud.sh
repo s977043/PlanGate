@@ -49,6 +49,7 @@ if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
     "$status_file" \
     "$review_self_file" \
     "$review_external_file"
+  ai_dev_print_model_selection
   if [ -n "$missing_items" ]; then
     printf 'Preconditions not yet satisfied:%b\n' "$missing_items"
   else

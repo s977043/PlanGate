@@ -21,14 +21,43 @@
 - **Artifact schema**（plan / handoff / status / approvals 等）
 - **AI 運用 4 原則**（[`project-rules.md`](./project-rules.md) F セクション）
 
-## 3. プロファイル一覧（4 件）
+## 3. プロファイル一覧（7 件）
 
-| プロファイル | family | role | adapter |
-|------------|--------|------|---------|
+| プロファイル | family | role | adapter | Codex model ID |
+|------------|--------|------|---------|----------------|
+| `gpt_6_sol` | gpt-6-sol | default_reasoning | outcome_first | `gpt-6-sol` |
+| `gpt_6_astra` | gpt-6-astra | advanced_reasoning | outcome_first_strict | `gpt-6-astra` |
+| `gpt_6_luna` | gpt-6-luna | fast_lightweight | explicit_short | `gpt-6-luna` |
 | `gpt-5_5` | gpt-5 | default_reasoning | outcome_first |
 | `gpt-5_5_pro` | gpt-5-pro | advanced_reasoning | outcome_first_strict |
 | `gpt-5_mini` | gpt-5-mini | fast_lightweight | explicit_short |
 | `legacy_or_unknown` | legacy | unknown | legacy_or_unknown |
+
+`model_id` は Codex CLI の `--model` に渡す公開 ID。既存 profile は後方互換のため
+この値を持たず、launcher からは選択できない。**GPT-6 の 3 profile は評価候補であり、
+既定モデルではない**。
+
+### GPT-6 の候補ルーティング
+
+| profile | 用途 | 制約 |
+|---------|------|------|
+| `gpt_6_sol` | 通常の実装・計画・レビュー | 既定への昇格には評価証拠が必要 |
+| `gpt_6_astra` | critical / 深いレビュー | strict profile でも C-3/C-4 等の Gate は変更しない |
+| `gpt_6_luna` | 定型・軽量作業 | `--mode` が必須。`critical` は起動前に拒否 |
+
+利用時は profile 名ではなく、解決済みの model ID が実際に Codex へ渡る。
+`ai-dev-workflow` は `plan` / `gate` / `exec` / `sync-cloud` の非対話実行で
+`codex exec --model <model_id>` を、`brainstorm` で `codex --model <model_id>` を呼ぶ。
+標準出力・標準エラーには profile と model ID を併記するため、実行ログで対応を検証できる。
+起動した Codex プロセスには `PLANGATE_MODEL_PROFILE` と、その profile から解決した
+`PLANGATE_VALIDATION_BIAS` を継承する。これにより `gpt_6_astra` の strict 検証は
+`bin/plangate verify` / `handoff --verify` にも反映される。
+
+```sh
+./scripts/ai-dev-workflow TASK-1234 plan --profile=gpt_6_sol
+./scripts/ai-dev-workflow TASK-1234 gate --profile=gpt_6_astra
+./scripts/ai-dev-workflow TASK-1234 exec --profile=gpt_6_luna --mode=light
+```
 
 ## 4. reasoning_effort × mode × profile マトリクス
 
@@ -167,7 +196,7 @@ minor・additive）として行い、free-form 化はしない。
 ## 10. プロファイル拡張・追加方針
 
 - 新規モデルのプロファイル追加は **別 PBI** で実施
-- 本 PBI では **4 プロファイルに限定**
+- GPT-6 profile は候補として追加済みで、既定への昇格はしない
 - 既存プロファイルの値変更は eval (PBI-116-05) の結果に基づく
 
 ## 関連
