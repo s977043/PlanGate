@@ -245,3 +245,29 @@ Round note (§7-quater): the layer that produced a new class in every round is g
 | R-051 | reflected | (C-2 R4 commit) | canon |
 | R-052 | reflected | (C-2 R4 commit) | |
 | R-053 | withdrawn | — | obsolete after R-046 |
+
+## C-2 round 5 (2026-09-25〜28 / reviewed head `d01fcbeb`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent (duplicate-commit input sequences, remnant grep, TC ↔ rule mapping). Both lanes: the same-token resend path no longer duplicates (non-transition / transition / terminal / re-binding / create / concurrent conflict / crash after replace / OS crash between replace and dir fsync).
+
+Verdict: **fix needed; not converged** — new classes R-054 / R-055 / R-056 / R-057, **all closed by specification** (no design change).
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-054 | adversarial | major | a caller that lost a response and resends with a re-read token can apply the same content twice; with several writers it cannot tell whether its commit landed | new (exposed by R-046) | **Human decision: single-writer premise** for recovery; landed check `position == expected_position + 1` with a `commit` envelope; written into plan / canon §4 / #1395 handoff; ST-21s |
+| R-055 | adversarial | minor | stale / ahead not a partition for a 2-component token; (R+1, P−1) recorded as a conflict makes the Run unloadable | new (from R-049) | reflected: classify ahead first; ST-21h |
+| R-056 | adversarial | minor | conflict cap counted per revision stops recording during long non-transition runs | new (from R-049) | reflected: cap per position; ST-21g / 21g2 |
+| R-057 | design | major | reserve judged before appending; a commit can straddle into the reserve | new | reflected: judged after appending for commits and conflicts; ST-30e |
+| R-058 | both | major / minor | review-self / current-state / INDEX still described idempotency; taxonomy STATE_CONFLICT said "revision CAS" only | remnant | reflected: C-1 re-run supersedes R-10 / R-13 / R-14; current-state / INDEX updated; taxonomy revised |
+| R-059 | adversarial | minor | `bound_context` contents unspecified; no TC for payload binding vs argument; ST-28a / 06 / 07 had no executable input; ST-01〜03 used a revision-only token | TC / wording | reflected: `bound_context` defined; ST-21t; ST-06 / 07 / 28a reworked; ST-01〜03 use the 2-component token |
+
+Round note (§7-quater): the idempotency layer is gone; R5's new classes come from the 2-component token and the lost-response path and were closable by specification. R6 checks whether the specification closes them and creates no new class.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-054 | reflected | (C-2 R5 commit) | Human decision |
+| R-055 | reflected | (C-2 R5 commit) | |
+| R-056 | reflected | (C-2 R5 commit) | |
+| R-057 | reflected | (C-2 R5 commit) | |
+| R-058 | reflected | (C-2 R5 commit) | canon taxonomy |
+| R-059 | reflected | (C-2 R5 commit) | |

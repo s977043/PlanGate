@@ -81,7 +81,7 @@ Binding values reach #1392 only through API arguments, never inside a draft:
 - `create_run(..., run_id, binding, plan_event_draft)` — `binding = {harness_manifest_ref, plan_hash, source_sha}` plus the LoopContract reference once #1391 defines it
 - `commit(..., rebinding=None)` — the new binding for a Replan re-binding (see Replan re-binding)
 
-#1392 passes the binding in force at each event's position to #1391 `finalize_event(draft, bound_context, event_seq)` (TASK-1391 plan T6). Binding keys live only at the RunEvent top level (never inside a payload). A draft that contains a #1391 binding key or an envelope key at its top level is rejected, so there is exactly one channel.
+#1392 passes the binding in force at each event's position to #1391 `finalize_event(draft, bound_context, event_seq)` (TASK-1391 plan T6). `bound_context` = `run_id`, the event's `revision`, and the binding values (`harness_manifest_ref`, `plan_hash`, `source_sha`); `event_seq` is passed separately (TASK-1391 plan: #1392 binds run_id / event_seq / revision / manifest / plan / source). The binding values inside the `plan_contract_bound` payload, if #1391 defines any, must equal the `binding` / `rebinding` argument (ST-21t). Binding keys live only at the RunEvent top level (never inside a payload). A draft that contains a #1391 binding key or an envelope key at its top level is rejected, so there is exactly one channel.
 
 ### Retry after a lost response (no idempotency in the first slice)
 
@@ -91,7 +91,8 @@ The revision changes only on a state transition, so a revision-only CAS would le
 
 - a resent request is evaluated like any other: if it already committed, its `expected_position` is now stale, so it gets `STATE_CONFLICT` (canon §4) and **its drafts are not appended a second time**, with or without a transition. This keeps TASK-1391 plan's requirement that an exact retry does not append a second event; the mechanism is the CAS, not a replay index
 - `conflict` envelopes do not count toward `position`, so a stale writer's conflict evidence does not make a concurrent legitimate writer stale
-- a caller that lost a response calls `load_run` and decides from the stream whether its transaction landed (#1395's responsibility; the first-slice caller is a single deterministic orchestrator)
+- **single writer** (Human decision R-054): recovery from a lost response is guaranteed only when one writer commits to a Run (the first-slice caller, #1395's deterministic orchestrator). The rule, applied **before** taking a new token: `load_run`; if `position == expected_position + 1` and the envelope at that position is a `commit`, the lost request landed — do not resend; otherwise it did not land and the caller may rebuild and resend. With several writers this check cannot tell whose commit is at that position (a caller-supplied marker would be a design change, deferred with idempotency). This premise is written into the #1395 handoff and canon §4 (ST-21s)
+- resending with a **re-read** token without this check can apply the same content twice (e.g. two `failure_recorded` events); this is outside the first-slice guarantee
 - a resent `create_run` for an existing Run gets `RunAlreadyExists` with zero mutation; the caller loads and compares
 - [Dependency] TASK-1391 plan:81 says "exact retry is handled at #1392 transaction/idempotency layer". It needs the wording "#1392's CAS on revision and position rejects it" (requested on #1391). A dedicated idempotency slice may add replay later
 
@@ -150,7 +151,7 @@ No successful response before step 15 (parent-directory fsync complete).
 
 ## Revision conflict
 
-The CAS token is the pair (`expected_revision`, `expected_position`). Because `position` only grows and every revision change happens in a counted envelope, a request is either current (both equal), stale (at least one lower), or ahead (at least one higher).
+The CAS token is the pair (`expected_revision`, `expected_position`). Because `position` only grows and every revision change happens in a counted envelope, a request is classified **in this order** (R-055): **ahead** if either component is higher than current (even if the other is lower, e.g. (R+1, P−1)); otherwise **current** if both are equal; otherwise **stale**. Checking ahead first keeps a recorded conflict always stale, so strict load's conflict check can never reject a Run because of it.
 
 If the request is **ahead**: reject `InvalidExpectedRevision` with zero mutation and no conflict event. An ahead token cannot come from a correct caller. If the store later reaches that token, the same request is an ordinary CAS and can commit; the error only says "not now" (R-048).
 
@@ -167,8 +168,8 @@ This preserves conflict evidence without pretending the failed mutation committe
 
 Unbounded conflict recording would let a looping stale writer grow the event stream and snapshot without limit.
 
-- **terminal reserve** (R-032): a conflict is recorded only if the resulting file stays outside `TERMINAL_RESERVE`; otherwise the answer is `suppressed` with zero mutation. Conflict evidence can never consume the space kept for the terminal Decision
-- **per revision**: at most `MAX_CONFLICTS_PER_REVISION` `state_conflict` events while the state stays at one revision. Beyond the cap, return RevisionConflict with `conflict_evidence="suppressed"` and zero mutation. The cap being reached is itself visible from the recorded conflicts at that revision
+- **terminal reserve** (R-032): a conflict is recorded only if the file **after appending it** stays outside `TERMINAL_RESERVE`; otherwise the answer is `suppressed` with zero mutation. Conflict evidence can never consume the space kept for the terminal Decision
+- **per position** (R-056): at most `MAX_CONFLICTS_PER_POSITION` `state_conflict` events while `position` stays the same. Beyond the cap, return RevisionConflict with `conflict_evidence="suppressed"` and zero mutation. The cap being reached is itself visible from the recorded conflicts at that position. Counting per position (not per revision) keeps recording evidence across a long run of non-transition commits (e.g. repeated `continue` in `PR_CONVERGING`); overall growth stays bounded by `MAX_EVENTS_PER_RUN`
 - the constant's value is fixed by the RED fixture (provisional: 8); it is a first-slice limit, not a canon value
 - without transaction identities, a resent stale request is recorded again (up to the per-revision cap)
 
@@ -210,7 +211,7 @@ Every commit rewrites the whole snapshot, so write volume and latency grow with 
 
 - `MAX_EVENTS_PER_RUN` (provisional 2048) and `MAX_SNAPSHOT_BYTES` (provisional 8 MiB)
 - a commit whose resulting snapshot would exceed either bound is rejected with `SnapshotCapacityExceeded` **before the temp file is written**, with zero mutation
-- **terminal reserve**: non-terminal commits are rejected once the snapshot is within `TERMINAL_RESERVE` of either bound. A fixed reserve alone does not prove that a terminal Decision fits, so the reserve is **derived, not guessed**: `TERMINAL_RESERVE >= 1 event and >= MAX_DECISION_EVENT_BYTES + envelope overhead`, where `MAX_DECISION_EVENT_BYTES` is the maximum canonical encoded size of a `decision_made` event. [Dependency] #1391 / #1393 must bound the `decision_made` payload (e.g. the number of `event_ref` it lists) so that the maximum exists; until then the reserve is provisional and the guarantee "a full Run can always commit its terminal outcome" is **not claimed**. A terminal Decision larger than the reserve is rejected by #1391 payload validation, not by the capacity check (ST-30c). Scope of the guarantee (R-033): a terminal `decision_made` is accepted only in the Decision states (`VERIFYING` / `DIAGNOSING` / `PR_CONVERGING`, #1393 I-1). A Run that reaches the reserve in another state (e.g. `EXECUTING`) cannot make the mechanical transition that would lead to a Decision state, so it cannot terminate through a Decision; #1395's budget must stop such a Run before the bound, and this residual is stated in the handoff
+- **terminal reserve**: a non-terminal commit is accepted only if the file **after appending it** stays outside `TERMINAL_RESERVE` of both bounds (event count and canonical bytes), so no commit can straddle into the reserve (R-057; ST-30e). A fixed reserve alone does not prove that a terminal Decision fits, so the reserve is **derived, not guessed**: `TERMINAL_RESERVE >= 1 event and >= MAX_DECISION_EVENT_BYTES + envelope overhead`, where `MAX_DECISION_EVENT_BYTES` is the maximum canonical encoded size of a `decision_made` event. [Dependency] #1391 / #1393 must bound the `decision_made` payload (e.g. the number of `event_ref` it lists) so that the maximum exists; until then the reserve is provisional and the guarantee "a full Run can always commit its terminal outcome" is **not claimed**. A terminal Decision larger than the reserve is rejected by #1391 payload validation, not by the capacity check (ST-30c). Scope of the guarantee (R-033): a terminal `decision_made` is accepted only in the Decision states (`VERIFYING` / `DIAGNOSING` / `PR_CONVERGING`, #1393 I-1). A Run that reaches the reserve in another state (e.g. `EXECUTING`) cannot make the mechanical transition that would lead to a Decision state, so it cannot terminate through a Decision; #1395's budget must stop such a Run before the bound, and this residual is stated in the handoff
 - temp space: the store needs free space for one extra snapshot; ENOSPC during temp write is a pre-replace failure (old snapshot stays authoritative)
 - performance fixture: commit latency at the bound on the CI runner; the threshold is fixed with the fixture (provisional p95 ≤ 200 ms). Missing the threshold is a **Replan trigger** (compaction or WAL slice), not a reason to relax the bound
 
@@ -350,7 +351,7 @@ Mechanical edges (no `decision_made`, unchanged): `PLAN_VERIFYING -> EXECUTING |
 
 All six are re-checked on load (Strict loading).
 
-Residual (R-042): a stale writer's `state_conflict` recorded between building a Decision input and committing the Decision breaks check 2, so the legitimate Decision is rejected and #1395 must rebuild the input. This is the intended strictness of input freshness (no event of any kind in between); it is bounded by `MAX_CONFLICTS_PER_REVISION` and stated in the handoff.
+Residual (R-042): a stale writer's `state_conflict` recorded between building a Decision input and committing the Decision breaks check 2, so the legitimate Decision is rejected and #1395 must rebuild the input. This is the intended strictness of input freshness (no event of any kind in between); it is bounded by `MAX_CONFLICTS_PER_POSITION` and stated in the handoff.
 
 [Dependency] The `decision_made` payload keys are frozen by #1391 (TASK-1391 has not frozen them yet; #1393 lists them in its `decision_to_event_draft`). #1392's RED fixtures use those keys only after that agreement.
 

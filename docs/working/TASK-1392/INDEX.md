@@ -1,6 +1,6 @@
 # TASK-1392 INDEX
 
-> 最終更新: 2026-09-25 19:00
+> 最終更新: 2026-09-28
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
 > plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
 > （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
@@ -18,12 +18,13 @@ C-2
 > - **C-2 R2**（R-029〜R-036）: **要是正・未収束**（新しいクラス 4 件）→ **Human 決定: R-029 = conflict を冪等の対象外 / R-034 = REPLANNING 中の再束縛を許可**。反映済み
 > - **C-2 R3**（R-037〜R-045）: **要是正・未収束**（冪等性の層でまた新しいクラス）→ **Human 決定: 冪等性は残して記述で閉じる / 再束縛は #1391 に対応を依頼（R-043、それまで Preflight で exec 停止）**。反映済み
 > - **C-2 R4**（R-046〜R-053）: **要是正・未収束**（冪等性の層で 4 ラウンド連続の新クラス、binding を渡す手段が無い critical）→ **Human 決定: 冪等性を first slice から外す（R-046）/ CAS は revision + position（R-049。冪等性を外すと遷移なし commit の再送が二重確定するため）**。binding は API 引数で渡す（R-047）。反映済み
-> - C-1 はモデル B への書き直し後に再実行済みで、判定は **PASS with WARN**（`review-self.md`）
+> - **C-2 R5**（R-054〜R-059）: **要是正・未収束**（新クラス 4 件、すべて記述で閉じる。同じ token での二重確定は全経路で起きないことを確認）→ **Human 決定: 応答を失ったときの回復は単一 writer を前提（R-054）**。反映済み
+> - C-1 は R4 / R5 の反映後に再実行済みで、判定は **PASS with WARN**（`review-self.md`）
 > - C-2 は §7-quater に従い、新しい失敗クラスが出なくなるまで続ける（回数は固定しない）
 
 ## 次のアクション
 
-1. C-2 R5: 冪等性の撤去が二重確定（R-001 型）を再発させていないか、position CAS と binding 引数が #1391 と整合するかを疑う
+1. C-2 R6: R5 の是正（単一 writer の回復規則・ahead 優先の分類・position 単位の上限・追加後の予約枠判定）を疑う
 2. Human C-3（[P1] WAL なしの単一 snapshot と容量上限・durability 定義 / [P2] CAS 保証を同一 `runtime_root` 内に限る扱い / 暫定値 `MAX_*` の確定方法）
 3. exec は #1391 が consumable になり（todo Preflight の条件）、#1329 preflight を通ってから
 
@@ -34,9 +35,9 @@ C-2
 | pbi-input.md | plan, review | 要件・責務境界（R-017 の改訂注記あり） |
 | plan.md | exec, review | 実行計画（未承認） |
 | todo.md | exec | タスク一覧・進捗（Preflight に #1391 consumable の条件） |
-| test-cases.md | exec, review | テストケース定義（ST-01〜ST-43a） |
-| review-self.md | C-3, review | C-1 結果 |
-| review-external.md | C-3, review | R-001〜R-036 と Human 決定（追記専用） |
+| test-cases.md | exec, review | テストケース定義（ST-01〜ST-46。取り下げた ST は冒頭の注記を参照） |
+| review-self.md | C-3, review | C-1 結果（最新の節が有効） |
+| review-external.md | C-3, review | R-001〜R-059 と Human 決定（追記専用） |
 | current-state.md | status, 復旧 | 現在状態スナップショット |
 | decision-log.jsonl | 監査, 振返り | 判断履歴（append-only） |
 

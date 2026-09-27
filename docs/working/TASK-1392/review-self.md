@@ -137,3 +137,29 @@ PASS with WARN. C-2 has not converged (R2 found new classes); C-3 waits for a ro
 | open decisions | WARN — [P1] / [P2] / provisional `MAX_*` (Human C-3) |
 
 Verdict: PASS with WARN. C-2 still not converged.
+
+## C-1 re-run after C-2 R4 / R5 (2026-09-28)
+
+**Supersedes** R-10, R-13 and R-14 above and the idempotency rows of the earlier checklists: since R-046 there is no `transaction_id`, replay, digest or conflicted set, and the envelope stores only `kind`.
+
+### R-16 — no duplicate commit without idempotency
+
+The CAS token is (`revision`, `position`); every successful commit advances `position`, so a resend with the same token is stale whether or not it transitions (R-049). Classification checks ahead first (R-055). Recovery from a lost response with a re-read token is guaranteed only for a single writer, using the `position == expected + 1` rule (R-054).
+
+### R-17 — binding has one channel
+
+`run_id` and binding values come only from API arguments and reach #1391 as `bound_context`; drafts never carry them (R-047).
+
+### Checklist
+
+| item | result |
+|---|---|
+| no stored value duplicates a derived one (envelope = `kind` + events) | PASS |
+| every retry path has a defined outcome (same token → STATE_CONFLICT; re-read token → single-writer rule; ahead → InvalidExpectedRevision) | PASS (ST-21, 21b, 21h, 21s) |
+| reserve judged after appending, for commits and conflicts | PASS (R-057, ST-30e) |
+| conflict cap counted per position | PASS (R-056, ST-21g / 21g2) |
+| canon §4 / taxonomy consistent with the plan (position, single writer, non-recording paths) | PASS |
+| TCs have an executable input (ST-06 / 07 / 28a reworked) | PASS |
+| open decisions | WARN — [P1] / [P2] / provisional `MAX_*` (Human C-3) |
+
+Verdict: PASS with WARN. C-2 R5 found new classes (all closed by specification); C-3 waits for a round without new classes.

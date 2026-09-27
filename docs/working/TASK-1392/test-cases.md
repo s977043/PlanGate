@@ -4,14 +4,14 @@
 
 | ID | Condition | Expected |
 |---|---|---|
-| ST-01 | create_run | revision=0, generation=1, event_seq=1 |
-| ST-02 | valid transition expected revision N | revision=N+1 |
-| ST-03 | two writers expected N | exactly one transition succeeds |
+| ST-01 | create_run | revision=0, position=1, generation=1, event_seq=1 |
+| ST-02 | valid transition with token (N, P) | revision=N+1, position=P+1 |
+| ST-03 | two writers with the same token (N, P) | exactly one commit succeeds |
 | ST-04 | stale writer | RevisionConflict + state revision unchanged |
 | ST-05 | non-terminal conflict event | generation +1, conflict evidence appended |
 | ST-05a | stale writer after terminal Outcome | reject with no new event/generation |
-| ST-06 | harness ref drift request | reject |
-| ST-07 | plan/source drift outside a Replan re-binding | reject (a re-binding per ST-43 is the only allowed change) |
+| ST-06 | `rebinding` that changes `harness_manifest_ref` | reject (commit and load) |
+| ST-07 | `rebinding` outside `REPLANNING` (the only request path that could change `plan_hash` / `source_sha`) | reject; see ST-43a for the full set |
 | ST-08 | transition target / stored `to_state` = BLOCKED | reject (commit and load) |
 | ST-09 | transition target / stored `to_state` = NO_PROGRESS | reject (commit and load) |
 | ST-10 | transition target / stored `to_state` = MERGE_READY | reject (commit and load) |
@@ -30,8 +30,11 @@
 | ST-21q | a stale writer's conflict is recorded while a legitimate writer holds the current token | the legitimate commit still succeeds (`conflict` envelopes do not advance `position`) |
 | ST-21r | token with a current revision but a stale position, or the reverse | `STATE_CONFLICT` (stale) |
 | ST-21e | `create_run` resent after crash-after-replace | `RunAlreadyExists`, zero mutation; `load_run` shows the created Run (R-046) |
-| ST-21g | conflicts at one revision exceed `MAX_CONFLICTS_PER_REVISION` | RevisionConflict `conflict_evidence="suppressed"`, zero mutation |
-| ST-21h | `expected_revision` or `expected_position` greater than current | `InvalidExpectedRevision`, zero mutation, no conflict event |
+| ST-21g | conflicts at one position exceed `MAX_CONFLICTS_PER_POSITION` | RevisionConflict `conflict_evidence="suppressed"`, zero mutation |
+| ST-21g2 | a long run of non-transition commits at one revision, with conflicts between them | conflicts are recorded again after each new position (cap counted per position, R-056) |
+| ST-21h | `expected_revision` or `expected_position` greater than current, including mixed tokens such as (R+1, P−1) | `InvalidExpectedRevision`, zero mutation, no conflict event; the Run still loads (R-055) |
+| ST-21s | single-writer recovery: commit lands, response lost; `load_run` shows `position == expected_position + 1` with a `commit` envelope there | caller treats it as landed and does not resend (R-054) |
+| ST-21t | `plan_contract_bound` payload binding values differ from the `binding` / `rebinding` argument | reject (R-047) |
 | ST-21i | the same ahead request after the store reaches that revision | ordinary CAS: commits (R-048) |
 | ST-21l | empty commit (no drafts, no transition) | reject, zero mutation |
 | ST-21n | `create_run` / `commit` with a draft containing a binding key or an envelope key at top level | reject, zero mutation (R-047) |
@@ -46,7 +49,7 @@
 | ST-26 | merge/promotion primitive | static boundary FAIL |
 | ST-27 | unsupported state edge, e.g. EXECUTING -> REPAIRING | reject |
 | ST-28 | transition to/from WAITING_* without resume contract | reject in first slice |
-| ST-28a | non-null pending_action | reject as unsupported first-slice input |
+| ST-28a | stored file whose fold would yield a non-null `pending_action` (not representable in model B; merged into ST-28c: any key that could carry it is an unknown key) | — |
 | ST-28c | file contains a stored `state` / `generation` / aggregate key or an envelope key other than `kind` / `events` (snapshot_ref recomputed) | strict load reject (unknown key) |
 | ST-28d | bound context changes within the stream other than at a valid re-binding (snapshot_ref recomputed) | strict load reject |
 | ST-28e | envelope tamper: empty envelope / first envelope not `create` with `plan_contract_bound` / `conflict` envelope holding anything but one `state_conflict` / `state_conflict` outside a `conflict` envelope | strict load reject |
@@ -58,6 +61,7 @@
 | ST-30a | snapshot within `TERMINAL_RESERVE` of a bound, Run in `VERIFYING` | non-terminal commit rejected; terminal `decision_made` still commits |
 | ST-30b | ENOSPC during temp write | old snapshot authoritative, stale temp handled as ST-20 |
 | ST-30c | terminal `decision_made` larger than `MAX_DECISION_EVENT_BYTES` | rejected by #1391 payload validation (not by the capacity check) |
+| ST-30e | file just outside the reserve; a small non-terminal commit would end inside it, then a maximum-size terminal Decision | the non-terminal commit is rejected (judged after appending); the terminal Decision commits (R-057) |
 | ST-30d | stale conflicts arriving near the bound | conflict recorded only outside the reserve, otherwise `suppressed`; the terminal Decision still commits afterwards (R-032) |
 | ST-31 | flush primitive unavailable (macOS `F_FULLFSYNC` fails / unsupported platform) | fail closed (`runtime_unwritable`), no fallback to plain `fsync`, old snapshot intact |
 | ST-32 | commit latency at the size bound on the CI runner | within the threshold fixed by the fixture; a miss is a Replan trigger |
