@@ -295,3 +295,29 @@ Round note (§7-quater): the idempotency layer (R1〜R4) and the landed-check ru
 | R-062 | reflected | (C-2 R6 commit) | |
 | R-063 | reflected | (C-2 R6 commit) | |
 | R-064 | reflected | (C-2 R6 commit) | |
+
+## C-2 round 7 (2026-09-28 / reviewed head `f1104ee8`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. Both lanes: the two remaining guarantees (same token never applies twice; reads return only durable snapshots) held on every input sequence tried (lost response landed / not landed, interleaved commit or conflict, late landing of a discarded request, lost Decision response, caller crash).
+
+Verdict: **fix needed; not converged** — new classes, all in the #1395 recovery contract wording and non-functional limits, **all closed by specification** (no design decision required).
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-065 | both | major | "re-derive after an error" applied to every error loops forever on deterministic rejections (e.g. `SnapshotCapacityExceeded` at the bound in EXECUTING) | new | reflected: outcomes split into re-derive (lost response, own crash, STATE_CONFLICT, RunAlreadyExists, RuntimeBusy; bounded by `MAX_REDERIVE_PER_POSITION`) and stop (validation, capacity, InvalidExpectedRevision, runtime / durability errors); canon §4 |
+| R-066 | design | major | before the first create there is no stream to re-derive from; `load_run` on an absent Run was undefined | new | reflected: `RunNotFound` → derive `create_run`; ST-01a |
+| R-067 | adversarial | minor | result of a directory-flush failure after replace was undefined; ST-31 expected "old snapshot intact" for it; a later flush success can be false on Linux | new | reflected: flush-failure-by-step table, `DurabilityUnknown` in the stop class, residual stated; ST-31 / 31a |
+| R-068 | both | minor | Durable read serialises readers, lock wait unbounded, no load latency fixture, read-only root behaviour undefined | new (non-functional side of R-061) | reflected: `LOCK_WAIT_TIMEOUT` / `RuntimeBusy`, load latency in the performance fixture, writable root required; ST-32a / 47 / 47a |
+| R-069 | adversarial | minor | "can never commit again" lacked "with the same token" (test-cases invariant, pbi-input) | R-060 wording | reflected |
+| R-070 | adversarial | minor / info | TC gaps (run_id vs file name, lock symlink, UTF-8 / schema_version, initial `PLAN_VERIFYING`); ST-46 asserted #1395 behaviour; external side effects not in the stream can repeat on re-derivation | TC gap / residual | reflected: ST-01 / 14a / 16a / 17a; ST-46 limited to #1392; side-effect residual in the handoff contract |
+
+Round note (§7-quater): the core guarantees were not broken in R7; the new classes are in the boundary contract with #1395 and in non-functional limits. R8 checks whether the specification closes them without a new class.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-065 | reflected | (C-2 R7 commit) | canon |
+| R-066 | reflected | (C-2 R7 commit) | |
+| R-067 | reflected | (C-2 R7 commit) | residual |
+| R-068 | reflected | (C-2 R7 commit) | |
+| R-069 | reflected | (C-2 R7 commit) | |
+| R-070 | reflected | (C-2 R7 commit) | residual |

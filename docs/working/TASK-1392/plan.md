@@ -93,6 +93,16 @@ The revision changes only on a state transition, so a revision-only CAS would le
 - `conflict` envelopes do not count toward `position`, so a stale writer's conflict evidence does not make a concurrent legitimate writer stale
 - **#1392's guarantee ends at the same token**: a resend with the same token never applies twice. #1392 has **no** rule for deciding whether a lost request landed (Human decision R-060, replacing R-054: the landed-check rule produced three new failure classes in C-2 R6 — several in-flight requests from one writer, the index across conflict envelopes, and caller crash)
 - **recovery belongs to #1395** (handoff contract): after a lost response, an error, or its own crash, the caller **discards** the in-flight request, calls `load_run`, and **derives the next action deterministically from the loaded stream**. If the lost request landed, its events are in the stream and the derivation does not produce it again; if it did not land, the derivation produces it again with a fresh token. Resending the old drafts with a re-read token without re-deriving is outside the contract (it can apply the same content twice)
+- **which outcomes are re-derived and which stop** (R-065; re-deriving a deterministic request after a deterministic rejection would loop forever):
+
+  | outcome | #1395 action |
+  |---|---|
+  | no response (lost), own crash, `STATE_CONFLICT` (recorded or `suppressed`), `RunAlreadyExists`, `RuntimeBusy` (lock wait timeout) | discard, `load_run`, re-derive. At most `MAX_REDERIVE_PER_POSITION` (provisional 3) re-derivations while `position` does not advance; beyond that, stop |
+  | `RunNotFound` from `load_run` | no Run exists yet: derive `create_run` (R-066) |
+  | validation rejections (drafts, allowlist, Decision-bound checks, bindings), `SnapshotCapacityExceeded`, `InvalidExpectedRevision`, `runtime_unwritable`, `runtime_path_changed`, `DurabilityUnknown` | **stop** the Run through #1395's stop path with the error as evidence; do not re-derive (the same stream would produce the same request) |
+
+  If stopping itself needs a commit that the store cannot accept (e.g. at the capacity bound outside a Decision state, R-033), the Run is left for Human handling; this residual is in the handoff
+- external side effects that are not recorded in the stream (e.g. starting a worker before any event says so) can be repeated by re-derivation; #1395 must record intent before acting or treat such effects as idempotent (residual, handoff)
 - a resent `create_run` for an existing Run gets `RunAlreadyExists` with zero mutation; the caller loads and compares
 - [Dependency] TASK-1391 plan:81 says "exact retry is handled at #1392 transaction/idempotency layer". It needs the wording "#1392's CAS on revision and position rejects it" (requested on #1391). A dedicated idempotency slice may add replay later
 
@@ -193,7 +203,7 @@ Expected:
 
 ### Durable read (R-061)
 
-`load_run` takes the run lock, fsyncs the parent directory (with the platform flush of Durability definition), and only then reads and returns the snapshot. A snapshot that was replaced but whose directory entry was not yet flushed (writer crashed between steps 13 and 14) is therefore made durable before anyone can act on it; if the flush fails, `load_run` fails closed. Without this, a caller could read the new snapshot, perform an external side effect, and then lose that snapshot to an OS crash (ST-19a).
+`load_run` takes the run lock, fsyncs the parent directory (with the platform flush of Durability definition), and only then reads and returns the snapshot. If no snapshot exists it returns `RunNotFound` (R-066). The lock wait is bounded by `LOCK_WAIT_TIMEOUT` (provisional, fixed by fixture); on timeout it returns `RuntimeBusy` without reading. `load_run` creates the lock file if missing, so `runtime_root` must be writable even for reads; a read-only root fails closed (`runtime_unwritable`) (R-068). A snapshot that was replaced but whose directory entry was not yet flushed (writer crashed between steps 13 and 14) is therefore made durable before anyone can act on it; if the flush fails, `load_run` fails closed. Without this, a caller could read the new snapshot, perform an external side effect, and then lose that snapshot to an OS crash (ST-19a).
 
 No separate WAL is required because the whole Run (events and envelopes) is one replace unit.
 
@@ -207,6 +217,13 @@ No separate WAL is required because the whole Run (events and envelopes) is one 
 | macOS | `fcntl(fd, F_FULLFSYNC)` | `fcntl(dirfd, F_FULLFSYNC)` | fail closed; plain `fsync` is **not** accepted as a fallback |
 | other | unsupported | unsupported | fail closed at `create_run` |
 
+Flush failure by step (R-067):
+
+| failing step | state on disk | result |
+|---|---|---|
+| temp file flush (step 12), before replace | old snapshot authoritative | `runtime_unwritable`; zero mutation |
+| directory flush (step 14), after replace | the new snapshot is visible but its durability is unknown | `DurabilityUnknown`; #1395 stops the Run (not re-derived). A later successful flush is **not** proof of durability: on Linux a writeback error is reported once, so a later `fsync` on a new descriptor can succeed although data was lost. The residual is stated in the handoff |
+
 What a successful response guarantees: the new snapshot survives process crash and OS crash. Power loss is covered only to the extent the storage device honours the flush above; this slice does not claim more. Fault injection (Crash semantics) covers the process-crash points; OS / power-loss behaviour is out of test scope and stated as a residual risk in the handoff.
 
 ## Size and cost bound
@@ -218,6 +235,7 @@ Every commit rewrites the whole snapshot, so write volume and latency grow with 
 - **terminal reserve**: a non-terminal commit is accepted only if the file **after appending it** stays outside `TERMINAL_RESERVE` of both bounds (event count and canonical bytes), so no commit can straddle into the reserve (R-057; ST-30e). A fixed reserve alone does not prove that a terminal Decision fits, so the reserve is **derived, not guessed**: `TERMINAL_RESERVE >= 1 event and >= MAX_DECISION_EVENT_BYTES + envelope overhead`, where `MAX_DECISION_EVENT_BYTES` is the maximum canonical encoded size of a `decision_made` event. [Dependency] #1391 / #1393 must bound the `decision_made` payload (e.g. the number of `event_ref` it lists) so that the maximum exists; until then the reserve is provisional and the guarantee "a full Run can always commit its terminal outcome" is **not claimed**. A terminal Decision larger than the reserve is rejected by #1391 payload validation, not by the capacity check (ST-30c). Scope of the guarantee (R-033): a terminal `decision_made` is accepted only in the Decision states (`VERIFYING` / `DIAGNOSING` / `PR_CONVERGING`, #1393 I-1). A Run that reaches the reserve in another state (e.g. `EXECUTING`) cannot make the mechanical transition that would lead to a Decision state, so it cannot terminate through a Decision; #1395's budget must stop such a Run before the bound, and this residual is stated in the handoff
 - temp space: the store needs free space for one extra snapshot; ENOSPC during temp write is a pre-replace failure (old snapshot stays authoritative)
 - performance fixture: commit latency at the bound on the CI runner; the threshold is fixed with the fixture (provisional p95 ≤ 200 ms). Missing the threshold is a **Replan trigger** (compaction or WAL slice), not a reason to relax the bound
+- the same fixture measures `load_run` at the bound, alone and with concurrent readers (every read takes the exclusive lock and a directory flush, so reads are serialised; R-068); a miss is also a Replan trigger (e.g. a shared read lock or skipping the flush when the directory is already known durable)
 
 ## Strict loading
 
@@ -246,6 +264,7 @@ POSIX first slice:
 - after acquiring the lock, re-open the lock path from the same dirfd and compare `(st_dev, st_ino)` with the locked fd; on mismatch release and fail closed (`runtime_path_changed`), as TASK-1025 plan did. Without this, a lock file replaced between open and flock lets two writers hold locks on different inodes and both pass CAS (ST-39)
 - lock held across load -> validate -> build -> replace -> dir fsync
 - `load_run` also takes the lock and fsyncs the parent directory before reading (Durable read)
+- every lock acquisition (`create_run`, `commit`, `load_run`) waits at most `LOCK_WAIT_TIMEOUT` and otherwise returns `RuntimeBusy` with zero mutation (R-068)
 - lock file is not Run truth
 
 If runtime platform lacks required locking/fsync semantics, fail closed rather than silently weakening.

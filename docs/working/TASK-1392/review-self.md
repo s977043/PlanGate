@@ -178,3 +178,17 @@ Supersedes the R-16 sentence about the single-writer landed check (R-054 was rep
 | open decisions | WARN — [P1] / [P2] / provisional `MAX_*` (Human C-3) |
 
 Verdict: PASS with WARN. C-2 R6 found new classes; C-3 waits for a round without new classes.
+
+## C-1 re-run after C-2 R7 (2026-09-28)
+
+| item | result |
+|---|---|
+| every outcome #1392 can return is mapped to re-derive or stop in the #1395 contract | PASS (R-065 / R-066 / R-067) |
+| re-derivation is bounded | PASS (`MAX_REDERIVE_PER_POSITION`) |
+| flush failure defined per step | PASS (R-067) |
+| lock waits bounded; read path requirements stated | PASS (R-068) |
+| guarantees worded as "same token" everywhere | PASS (R-069) |
+| strict-load rules each have a TC | PASS (R-070) |
+| open decisions | WARN — [P1] / [P2] / provisional `MAX_*`, `LOCK_WAIT_TIMEOUT`, `MAX_REDERIVE_PER_POSITION` (Human C-3) |
+
+Verdict: PASS with WARN.

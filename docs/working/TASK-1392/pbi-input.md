@@ -48,7 +48,7 @@ RunState / generation / position = derived on load
 - #1391 finalize/validate_append invocation
 - temp write + fsync + os.replace + directory fsync
 - crash recovery from old/new complete snapshot
-- no duplicate commit on retry (by the CAS on revision and position; replay-style idempotency is deferred, R-046)
+- no duplicate commit on a retry with the same token (by the CAS on revision and position; replay-style idempotency is deferred, R-046; recovery after a lost response is #1395's re-derivation, R-060)
 
 #1392 does not own:
 - event vocabulary / event ref semantics (#1391)

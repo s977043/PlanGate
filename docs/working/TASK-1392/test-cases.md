@@ -4,7 +4,8 @@
 
 | ID | Condition | Expected |
 |---|---|---|
-| ST-01 | create_run | revision=0, position=1, generation=1, event_seq=1 |
+| ST-01 | create_run | `lifecycle_state=PLAN_VERIFYING`, revision=0, position=1, generation=1, event_seq=1 |
+| ST-01a | `load_run` before any Run exists | `RunNotFound` (R-066) |
 | ST-02 | valid transition with token (N, P) | revision=N+1, position=P+1 |
 | ST-03 | two writers with the same token (N, P) | exactly one commit succeeds |
 | ST-04 | stale writer | RevisionConflict + state revision unchanged |
@@ -19,9 +20,12 @@
 | ST-12 | snapshot_ref tamper | reject |
 | ST-13 | event tamper | reject |
 | ST-14 | duplicate JSON key | reject |
+| ST-14a | invalid UTF-8 / unknown `schema_version` | reject |
 | ST-15 | NaN/Infinity | reject |
 | ST-16 | path traversal run id | reject |
+| ST-16a | file `run_id` differs from the file name / events' `run_id` | strict load reject |
 | ST-17 | snapshot symlink | reject |
+| ST-17a | lock file is a symlink | reject (no-follow open) |
 | ST-18 | crash before replace | old snapshot only |
 | ST-19 | crash after replace before API return | new snapshot recoverable |
 | ST-19a | writer crashes after replace, before the directory fsync; then `load_run` | `load_run` fsyncs the directory under the lock before returning; if the flush fails it fails closed and returns nothing (R-061) |
@@ -65,8 +69,12 @@
 | ST-30c | terminal `decision_made` larger than `MAX_DECISION_EVENT_BYTES` | rejected by #1391 payload validation (not by the capacity check) |
 | ST-30e | file just outside the reserve; a small non-terminal commit would end inside it, then a maximum-size terminal Decision | the non-terminal commit is rejected (judged after appending); the terminal Decision commits (R-057) |
 | ST-30d | stale conflicts arriving near the bound | conflict recorded only outside the reserve, otherwise `suppressed`; the terminal Decision still commits afterwards (R-032) |
-| ST-31 | flush primitive unavailable (macOS `F_FULLFSYNC` fails / unsupported platform) | fail closed (`runtime_unwritable`), no fallback to plain `fsync`, old snapshot intact |
+| ST-31 | temp-file flush fails or the primitive is unavailable (macOS `F_FULLFSYNC` / unsupported platform) before replace | fail closed (`runtime_unwritable`), no fallback to plain `fsync`, old snapshot intact |
+| ST-31a | directory flush fails after replace (step 14) | `DurabilityUnknown`; the result is in the stop class, not re-derived (R-067) |
 | ST-32 | commit latency at the size bound on the CI runner | within the threshold fixed by the fixture; a miss is a Replan trigger |
+| ST-32a | `load_run` latency at the size bound, alone and with concurrent readers | within the fixture threshold; a miss is a Replan trigger (R-068) |
+| ST-47 | lock held longer than `LOCK_WAIT_TIMEOUT` | `load_run` / `commit` return `RuntimeBusy` without reading or writing (R-068) |
+| ST-47a | read-only `runtime_root` | `load_run` fails closed (`runtime_unwritable`) |
 | ST-33 | `decision_made.decided_in_state` differs from the folded `lifecycle_state` (terminal and non-terminal) | reject, zero mutation (#1393 IT-01 / IT-02) |
 | ST-34 | `decision_made` assigned `event_seq != input_last_event_seq + 1` by another writer's event | reject, zero mutation (#1393 IT-04) |
 | ST-34a | `[verification_recorded FAIL, decision_made]` in one transaction | reject, zero mutation (#1393 IT-07 / IT-08) |
@@ -87,7 +95,7 @@
 | ST-44 | caller draft of type `state_transitioned` or `state_conflict` (create and commit) | reject, zero mutation (R-039) |
 | ST-44a | stored stream with a `state_transitioned` that is not the last event of its envelope, or two in one envelope | strict load reject (R-039) |
 | ST-45 | terminal or non-terminal `decision_made` with `decided_in_state` = EXECUTING / REPAIRING / REPLANNING / PLAN_VERIFYING | reject (commit and load) (R-041) |
-| ST-46 | stale writer's `state_conflict` recorded between building a Decision input and committing it | Decision rejected by input freshness; rebuilt input commits (R-042 residual) |
+| ST-46 | stale writer's `state_conflict` recorded between building a Decision input and committing it | Decision rejected by input freshness with zero mutation (R-042 residual; rebuilding the input is #1395's) |
 | ST-29 | full repository test | PASS |
 
 ## Fault matrix invariant
@@ -100,7 +108,7 @@ Never a mixed snapshot.
 
 ## No-duplicate invariant
 
-A request that already committed can never commit again: every successful commit advances `position`, so resending it carries a stale `expected_position` and is rejected by the CAS, with or without a transition.
+A request that already committed can never commit again **with the same token**: every successful commit advances `position`, so resending it carries a stale `expected_position` and is rejected by the CAS, with or without a transition. Resending with a re-read token is outside #1392's guarantee (#1395 re-derives instead, R-060).
 
 ## Concurrency invariant
 
