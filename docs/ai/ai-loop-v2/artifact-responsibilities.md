@@ -97,7 +97,7 @@ read RunState (revision = N)
 - **CAS の比較値は `revision` だけに限らない**。状態遷移を伴わない記録（遷移しない event の追加）でも比較値が進むよう、stream の位置を併せて比較してよい。こうすると、確定済みの要求を同じ比較値のまま再送しても比較値が古くなるので、`STATE_CONFLICT` になり、同じ event が 2 回確定しない（#1392 / TASK-1392 plan、2026-09-25 Human 決定）。
 - **応答を失ったときの回復は、RunState store ではなく呼び出し側（orchestrator）の責務**。store が保証するのは「同じ比較値での再送は二重確定しない」ことまで。呼び出し側は、応答を失ったとき・自分が crash したとき・`STATE_CONFLICT` のとき・Run が既にあったときに、送信中の要求を捨てて Run を読み直し、読み直した stream から次の action を決定的に導き直す（回数に上限を置く）。確定済みの要求は stream に現れているので、再び作られない。一時的な lock 待ちは同じ呼び出しを上限付きで再試行する。検証による拒否・容量超過・耐久性の不明など、それ以外の結果では導き直さず、Run を止める（同じ stream からは同じ要求が作られ、同じ拒否を繰り返すため）（#1392 / TASK-1392 plan、2026-09-28 Human 決定）。
 - **止めた Run は、再起動をまたいで止まったままにする**。停止・耐久性の不明・一度あった Run の消失は、store が Run ごとの halt marker として永続化し、marker がある間は読み書きを拒否する。marker を外すのは Human だけ（同上）。
-- **Run を読むときは、halt marker が無い限り、耐久性が確定した状態だけを返す**。書き込みの途中で crash した場合も、lock を取ってディレクトリを flush してから読む。ディレクトリの flush が一度失敗した Run は、後で flush が成功しても耐久性の証明にならないため、halt marker で止める。置き換えの前には意図の marker を先に永続化し、置き換えと flush の途中で crash した Run も、次の操作で止める（同上）。
+- **Run を読むときは、halt marker が無い限り、耐久性が確定した状態だけを返す**。置き換えの前には意図の marker を先に永続化し、置き換えの後の flush が成功したら消す。置き換えと flush の途中で crash した Run は、次の操作で意図の marker が見つかるので止める。ディレクトリの flush が一度失敗した Run も、後で flush が成功しても耐久性の証明にならないため、halt marker で止める（同上）。
 - **intent → external action → receipt の idempotency は維持**。CAS は RunState の遷移を守り、intent / receipt は外部副作用の重複を守る。両者は別の契約。
 - Human-owned approval artifact の発行経路は変えない。
 

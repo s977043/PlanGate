@@ -375,3 +375,29 @@ Residual threat model (adversarial lane, updated for R-077): protected — same-
 | R-081 | reflected | (C-2 R9 commit) | handoff |
 | R-082 | reflected | (C-2 R9 commit) | handoff |
 | R-083 | reflected | (C-2 R9 commit) | info |
+
+## C-2 round 10 (2026-09-28 / reviewed head `ca9f1c65`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. **Split verdict**: design lane "one new class, closed by specification"; adversarial lane "converged, no new class; five fix leaks, closed by specification". **Both lanes: no design change needed.** The adversarial lane attacked every pending-marker stage (tmp write, pending replace, pending flush, snapshot replace, step 14, pending removal, removal flush, OS crash in each) and found no path that breaks guarantee 1 or 2.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-084 | adversarial | major | the unhalt procedure did not remove a leftover new-ref pending marker, so a correctly unhalted Run halted again; `halt_run` resolving a pending marker could return `RunHalted`, outside its outcome set | R-077 / R-081 / R-080 fix incomplete | reflected: procedure removes `.pending` / `.pending.tmp`; `halt_run` never resolves pending; ST-48i / 48j / 48k |
+| R-085 | design | major | results of a failed directory flush after pending removal, and while resolving an old-ref pending, were undefined | new (stages added by R-077), closed by specification | reflected: removal-flush failure still returns success (commit durable; a reappearing pending halts conservatively); resolve-flush failure → `RuntimeUnwritable`, do not proceed; ST-18b / 19e |
+| R-086 | adversarial | minor | pending was specified only for commit / create, not for conflict recording | R-077 scope | reflected: every replace path; ST-18d |
+| R-087 | adversarial | minor | a leftover `.pending.tmp` alone was undefined (treating it as halt would contradict ST-18) | R-078 type | reflected: pre-replace residue, removed under the lock; ST-18 |
+| R-088 | adversarial | minor | fault-injection labels and the fault-matrix invariant predated pending (no halt outcome); ST-21e contradicted ST-19b | stale TCs | reflected: labels per pending stage; invariant allows `RunHalted`; ST-21e split |
+| R-089 | organizer (from the adversarial lane's info) | — | with pending on every replace path, `load_run`'s own directory flush became redundant, and its transient failure halted a healthy Run | simplification | **organizer decision (reversible)**: `load_run` no longer flushes; the pending marker carries the guarantee; ST-19a updated; canon wording updated |
+
+Residual threat model (adversarial lane): protected — same-token double commit within one root; success only after flush; every crash between a replace and its durable flush halts via the pending marker; stop / unknown durability / missing Run persist once the marker is durable. Not protected — split-brain across roots; marker deletion or snapshot tampering by anyone who can write the root; devices ignoring flush or power loss beyond what flush guarantees; failure to persist the pending marker itself (then nothing was replaced); durability after a Human removes markers without the procedure; #1395 counters reset by crashes; external side effects not recorded in the stream. Guarantors — #1392 (CAS, flush, two markers), #1395 (re-derivation, limits, run_id records, intent / receipt), Human (unhalt), C-4 review.
+
+Round note (§7-quater): the class found in this round (R-085) is a result-definition gap at a stage R-077 added, closed by specification; the adversarial lane found no new class. R11 checks whether this round's specification introduces anything new.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-084 | reflected | (C-2 R10 commit) | handoff |
+| R-085 | reflected | (C-2 R10 commit) | |
+| R-086 | reflected | (C-2 R10 commit) | |
+| R-087 | reflected | (C-2 R10 commit) | |
+| R-088 | reflected | (C-2 R10 commit) | |
+| R-089 | reflected | (C-2 R10 commit) | organizer decision; canon |

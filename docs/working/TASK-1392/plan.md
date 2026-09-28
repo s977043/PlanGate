@@ -31,25 +31,32 @@ States that must survive a restart but cannot always be written to the stream �
 - `<safe-run-id>.halt` = canonical JSON `{schema_version, run_id, reason, evidence}` with `reason` ∈ `CALLER_STOP` / `DURABILITY_UNKNOWN` / `RUN_MISSING`. It is written under the run lock via `<safe-run-id>.halt.tmp`, file flush, replace and directory flush; if a marker already exists the first one is kept
 - **presence** is decided by `lstat` on the entry name, never by opening or parsing it: if **any** entry named `<safe-run-id>.halt` or `<safe-run-id>.halt.tmp` exists — a regular file, a symlink (even dangling), or corrupt content — the Run is halted. The content is parsed only to report the reason; an unparseable marker is reported as reason `UNREADABLE` (R-078)
 - every operation (`create_run`, `commit`, `load_run`, `halt_run`) checks for the marker **after** acquiring the run lock and before touching the snapshot; while it exists, `create_run`, `commit` and `load_run` return **`RunHalted`** and neither read nor write the snapshot (R-079)
-- #1392 writes the marker itself with `DURABILITY_UNKNOWN` whenever a directory flush fails after a replace or during `load_run` (the flush error may have been consumed, so a later success is not proof), and via the Pending marker after a crash (below); if writing the marker also fails, it still returns the error, and the pending marker (if any) keeps the Run halted on the next call
+- #1392 writes the marker itself with `DURABILITY_UNKNOWN` whenever the directory flush after a replace fails (the flush error may have been consumed, so a later success is not proof), and via the Pending marker after a crash (below); if writing the marker also fails, it still returns the error, and the pending marker (if any) keeps the Run halted on the next call
 - `halt_run(runtime_root, run_id, reason, evidence)` lets #1395 persist a stop; it works even when no snapshot exists (so a missing Run cannot be silently recreated). Its outcomes: success (marker durable or already present), `RuntimeBusy`, `RuntimeUnwritable`, `RuntimePathChanged`, `ValidationRejected` (unknown reason) (R-080)
-- **Human unhalt procedure** (Human-owned, outside the API; R-081): `CALLER_STOP` — confirm the cause is resolved, then remove the marker. `RUN_MISSING` — restore the snapshot from a known copy or abandon the `run_id`; never remove the marker to let #1395 recreate it. `DURABILITY_UNKNOWN` / `UNREADABLE` — verify the snapshot against an independent record (or accept the older state by restoring it), make the directory durable with a fresh flush, then remove the marker. Removing the marker is itself followed by a directory flush. This procedure is part of the #1395 / operator handoff
+- **Human unhalt procedure** (Human-owned, outside the API; R-081): `CALLER_STOP` — confirm the cause is resolved, then remove the marker. `RUN_MISSING` — restore the snapshot from a known copy or abandon the `run_id`; never remove the marker to let #1395 recreate it. `DURABILITY_UNKNOWN` / `UNREADABLE` — verify the snapshot against an independent record (or accept the older state by restoring it), make the directory durable with a fresh flush, then remove the marker **and any `.pending` / `.pending.tmp`** (otherwise the next call resolves the leftover pending and halts again, R-084). Removing the marker is itself followed by a directory flush. This procedure is part of the #1395 / operator handoff
 - the marker is not Run truth: it never changes the stream, RunState or RunEvidence
 
 ### Pending marker (Human decision R-077)
 
 The window between a failed (or not yet attempted) directory flush after replace and a durable halt marker is closed by writing the intent **before** the replace:
 
-1. under the run lock, write `<safe-run-id>.pending` = `{run_id, old_snapshot_ref, new_snapshot_ref}` via temp, file flush, replace, **directory flush** (if this fails: `RuntimeUnwritable`, zero mutation, nothing replaced)
-2. replace the snapshot (commit step 13 / create step 7)
-3. directory flush (step 14). **Success**: remove `.pending`, then directory flush again (if this last flush fails, the pending marker may reappear after a crash and is handled by the rule below)
+Applies to **every path that replaces the snapshot**: `create_run`, `commit`, and conflict-evidence recording (R-086).
+
+1. under the run lock, write `<safe-run-id>.pending` = `{run_id, old_snapshot_ref, new_snapshot_ref}` via `.pending.tmp`, file flush, replace, **directory flush** (if any of this fails: `RuntimeUnwritable`, zero mutation, nothing replaced)
+2. replace the snapshot (commit step 13 / create step 7 / conflict recording)
+3. directory flush (step 14). **Success**: the new snapshot is durable. Remove `.pending`, then flush the directory again. If this last flush fails, the call **still returns success** (the commit is durable); a crash before that removal becomes durable makes the pending marker reappear and the next call halts conservatively (ST-19c) (R-085)
 4. **Failure**: write the halt marker (`DURABILITY_UNKNOWN`), then return `DurabilityUnknown`
 
-Every operation, after taking the lock and checking the halt marker, checks for `.pending` (by `lstat`, as for the halt marker):
-- the current snapshot's `snapshot_ref` equals `old_snapshot_ref` (or there is no snapshot and `old_snapshot_ref` is null): the replace never happened — remove `.pending`, flush the directory, proceed
-- otherwise (it equals `new_snapshot_ref`, or anything else, or `.pending` is unreadable): the replace happened but its durability is unknown — write the halt marker (`DURABILITY_UNKNOWN`) and return `RunHalted`
+Every operation except `halt_run`, after taking the lock and checking the halt marker, resolves a pending marker (presence by `lstat`, as for the halt marker):
+- only `.pending.tmp` exists: residue from a crash before step 1 finished; nothing was replaced — remove it, flush the directory, proceed (R-087)
+- the current snapshot's `snapshot_ref` equals `old_snapshot_ref` (or there is no snapshot and `old_snapshot_ref` is null): the replace never happened — remove `.pending`, flush the directory, proceed. If that flush fails, return `RuntimeUnwritable` and **do not proceed** (the next call resolves again) (R-085)
+- otherwise (it equals `new_snapshot_ref`, or anything else, or `.pending` is unreadable): the replace happened but its durability is unknown — write the halt marker (`DURABILITY_UNKNOWN`), leave `.pending` in place for the Human, and return `RunHalted`
 
-Consequence: a writer crash between replace and a successful step 14 always halts the Run for a Human, even when the data was in fact durable. This is deliberate (a later successful flush cannot prove durability). Cost: one extra file flush and two extra directory flushes per commit; measured by the performance fixture (ST-32).
+`halt_run` does **not** resolve a pending marker: it always writes its own marker (or keeps an existing one) and returns success, so a stop is never blocked by a leftover pending (R-084).
+
+Because every replace is preceded by a durable pending marker, a writer crash after the replace is always detected; `load_run` therefore no longer flushes the directory itself (Durable read).
+
+Consequence: a writer crash between replace and a successful step 14 always halts the Run for a Human, even when the data was in fact durable. This is deliberate (a later successful flush cannot prove durability). Cost: one extra file flush and two extra directory flushes per commit (5 flushes instead of 2); measured by the performance fixture (ST-32). If the threshold is missed, candidates for the Replan are group commit or a WAL slice.
 
 Run ID grammar:
 `RUN-[A-Z0-9][A-Z0-9_-]{0,63}`
@@ -222,15 +229,16 @@ Unbounded conflict recording would let a looping stale writer grow the event str
 
 Fault injection labels:
 
-- after temp open
-- after temp write
-- after temp fsync
-- before replace
-- after replace
-- after directory fsync
+- after snapshot temp open / write / fsync
+- after `.pending.tmp` write, after pending replace, after pending directory flush (R-088)
+- before snapshot replace
+- after snapshot replace
+- after step 14 directory fsync
+- after pending removal, before and after its directory flush
+- the same points for `create_run` and conflict recording
 
-Expected:
-- before replace: old snapshot remains authoritative; stale temp ignored/cleaned under lock; a leftover pending marker matches the old ref and is removed
+Expected — every crash point yields exactly one of: the complete old snapshot, the complete new snapshot, or `RunHalted` (`DURABILITY_UNKNOWN`) for the Human (R-088):
+- before replace: old snapshot remains authoritative; stale temp ignored/cleaned under lock; a leftover `.pending.tmp` or a pending marker matching the old ref is removed
 - after replace, before a successful step 14: the pending marker does not match the old ref, so the next operation writes the halt marker and returns `RunHalted` (Human-owned recovery, R-077)
 - after a successful step 14: new snapshot authoritative
 - recovery never composes fields from old/new
@@ -239,7 +247,7 @@ Expected:
 
 ### Durable read (R-061)
 
-`load_run` takes the run lock, returns `RunHalted` if a halt marker exists, resolves a pending marker (Pending marker), fsyncs the parent directory (with the platform flush of Durability definition), and only then reads and returns the snapshot. The guarantee is "**durable unless a halt marker says otherwise**": after a `DurabilityUnknown`, the marker stops every later read, because a later successful flush is not proof (R-075). If no snapshot exists it returns `RunNotFound` (R-066). The lock wait is bounded by `LOCK_WAIT_TIMEOUT` (provisional, fixed by fixture); on timeout it returns `RuntimeBusy` without reading. `load_run` creates the lock file if missing, so `runtime_root` must be writable even for reads; a read-only root fails closed (`runtime_unwritable`) (R-068). A snapshot that was replaced but whose directory entry was not yet flushed (writer crashed between steps 13 and 14) is therefore made durable before anyone can act on it; if the flush fails, `load_run` fails closed. Without this, a caller could read the new snapshot, perform an external side effect, and then lose that snapshot to an OS crash (ST-19a).
+`load_run` takes the run lock, returns `RunHalted` if a halt marker exists, resolves a pending marker (Pending marker), and only then reads and returns the snapshot. The guarantee is "**durable unless a halt marker says otherwise**": every replace is preceded by a durable pending marker and followed either by a successful directory flush (then the pending is removed) or by a halt marker; a writer crash in between leaves the pending marker, which the resolution turns into `RunHalted`. So `load_run` itself does not flush the directory (R-089: that flush became redundant with R-077, and its transient failure would have halted a healthy Run). If no snapshot exists it returns `RunNotFound` (R-066). The lock wait is bounded by `LOCK_WAIT_TIMEOUT` (provisional, fixed by fixture); on timeout it returns `RuntimeBusy` without reading. `load_run` creates the lock file if missing and may remove a resolved pending marker, so `runtime_root` must be writable even for reads; a read-only root fails closed (`runtime_unwritable`) (R-068). A snapshot that was replaced but whose directory entry was not yet flushed (writer crashed between steps 13 and 14) is therefore never returned: the leftover pending marker halts the Run (ST-19a / 19b).
 
 No separate WAL is required because the whole Run (events and envelopes) is one replace unit.
 
@@ -260,8 +268,9 @@ Flush failure by step (R-067):
 | temp file flush (step 12), before replace | old snapshot authoritative | `runtime_unwritable`; zero mutation |
 | directory flush (step 14), after replace | the new snapshot is visible but its durability is unknown | #1392 writes the halt marker (`DURABILITY_UNKNOWN`) and returns `DurabilityUnknown`. A later successful flush is **not** proof of durability (on Linux a writeback error is reported once, so a later `fsync` on a new descriptor can succeed although data was lost), so every later call gets `RunHalted` until a Human inspects the Run |
 | `create_run` directory flush, after replace | same as above | same as above |
-| `load_run` directory flush | unchanged on disk, but a pending write by a crashed writer may be undurable and the flush error may now be consumed | #1392 writes the halt marker (`DURABILITY_UNKNOWN`) and returns `RuntimeUnwritable`; nothing is returned, and every later call gets `RunHalted` (R-077) |
 | pending-marker write (before replace) | old snapshot authoritative | `RuntimeUnwritable`; zero mutation |
+| pending removal directory flush, after a successful step 14 | new snapshot durable; the removal may not be | success is returned; if a crash undoes the removal, the next call halts conservatively (R-085) |
+| directory flush while resolving a pending marker that matches the old ref | old snapshot authoritative | `RuntimeUnwritable`; the call does not proceed; the next call resolves again (R-085) |
 
 What a successful response guarantees: the new snapshot survives process crash and OS crash. Power loss is covered only to the extent the storage device honours the flush above; this slice does not claim more. Fault injection (Crash semantics) covers the process-crash points; OS / power-loss behaviour is out of test scope and stated as a residual risk in the handoff.
 
@@ -274,7 +283,7 @@ Every commit rewrites the whole snapshot, so write volume and latency grow with 
 - **terminal reserve**: a non-terminal commit is accepted only if the file **after appending it** stays outside `TERMINAL_RESERVE` of both bounds (event count and canonical bytes), so no commit can straddle into the reserve (R-057; ST-30e). A fixed reserve alone does not prove that a terminal Decision fits, so the reserve is **derived, not guessed**: `TERMINAL_RESERVE >= 1 event and >= MAX_DECISION_EVENT_BYTES + envelope overhead`, where `MAX_DECISION_EVENT_BYTES` is the maximum canonical encoded size of a `decision_made` event. [Dependency] #1391 / #1393 must bound the `decision_made` payload (e.g. the number of `event_ref` it lists) so that the maximum exists; until then the reserve is provisional and the guarantee "a full Run can always commit its terminal outcome" is **not claimed**. A terminal Decision larger than the reserve is rejected by #1391 payload validation, not by the capacity check (ST-30c). Scope of the guarantee (R-033): a terminal `decision_made` is accepted only in the Decision states (`VERIFYING` / `DIAGNOSING` / `PR_CONVERGING`, #1393 I-1). A Run that reaches the reserve in another state (e.g. `EXECUTING`) cannot make the mechanical transition that would lead to a Decision state, so it cannot terminate through a Decision; #1395's budget must stop such a Run before the bound, and this residual is stated in the handoff
 - temp space: the store needs free space for one extra snapshot; ENOSPC during temp write is a pre-replace failure (old snapshot stays authoritative)
 - performance fixture: commit latency at the bound on the CI runner; the threshold is fixed with the fixture (provisional p95 ≤ 200 ms). Missing the threshold is a **Replan trigger** (compaction or WAL slice), not a reason to relax the bound
-- the same fixture measures `load_run` at the bound, alone and with concurrent readers (every read takes the exclusive lock and a directory flush, so reads are serialised; R-068); a miss is also a Replan trigger (e.g. a shared read lock or skipping the flush when the directory is already known durable)
+- the same fixture measures `load_run` at the bound, alone and with concurrent readers (every read takes the exclusive lock, so reads are serialised; R-068); a miss is also a Replan trigger (e.g. a shared read lock or skipping the flush when the directory is already known durable)
 
 ## Strict loading
 
@@ -302,7 +311,7 @@ POSIX first slice:
 - `fcntl.flock(LOCK_EX)`
 - after acquiring the lock, re-open the lock path from the same dirfd and compare `(st_dev, st_ino)` with the locked fd; on mismatch release and fail closed (`runtime_path_changed`), as TASK-1025 plan did. Without this, a lock file replaced between open and flock lets two writers hold locks on different inodes and both pass CAS (ST-39)
 - lock held across load -> validate -> build -> replace -> dir fsync
-- `load_run` also takes the lock and fsyncs the parent directory before reading (Durable read)
+- `load_run` also takes the lock (it may resolve a pending marker; Durable read)
 - every lock acquisition (`create_run`, `commit`, `load_run`, `halt_run`) re-checks the lock inode as above and waits at most `LOCK_WAIT_TIMEOUT` and otherwise returns `RuntimeBusy` with zero mutation (R-068)
 - lock file is not Run truth
 

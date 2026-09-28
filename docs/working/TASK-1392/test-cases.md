@@ -26,18 +26,23 @@
 | ST-16a | file `run_id` differs from the file name / events' `run_id` | strict load reject |
 | ST-17 | snapshot symlink | reject |
 | ST-17a | lock file is a symlink | reject (no-follow open) |
-| ST-18 | crash before replace (with and without a pending marker written) | old snapshot only; a pending marker matching the old ref is removed on the next call |
+| ST-18 | crash before replace (after `.pending.tmp` only / after the pending replace / after its directory flush) | old snapshot only; the leftover `.pending.tmp` or pending marker matching the old ref is removed on the next call, no halt (R-087) |
+| ST-18a | pending marker write or its directory flush fails | `RuntimeUnwritable`, zero mutation, nothing replaced |
+| ST-18b | resolving a pending marker that matches the old ref, and the directory flush after its removal fails | `RuntimeUnwritable`, the call does not proceed; the next call resolves again (R-085) |
+| ST-18c | `create_run` crash with `old_snapshot_ref = null`: before the replace / after the replace | no snapshot → pending removed, create may proceed / snapshot present → `RunHalted` |
+| ST-18d | conflict recording crashes after its replace, before step 14 | next call returns `RunHalted` (pending applies to conflict recording, R-086) |
 | ST-19 | crash after a successful step 14 and pending removal, before API return | new snapshot authoritative; no halt |
 | ST-19b | crash after replace, before step 14 succeeds (pending marker present with the new ref) | next operation writes `DURABILITY_UNKNOWN` and returns `RunHalted` (R-077) |
 | ST-19c | step 14 succeeds, crash before the pending marker is removed | next operation halts (conservative; documented) |
 | ST-19d | pending marker unreadable / symlink | halted (R-077 / R-078) |
-| ST-19a | writer crashes after replace, before the directory fsync; then `load_run` | `load_run` resolves the pending marker (halts, ST-19b); for a crash before the pending marker existed, it fsyncs the directory under the lock before returning; if that flush fails it writes `DURABILITY_UNKNOWN`, returns `RuntimeUnwritable`, and later calls get `RunHalted` (R-061 / R-077) |
+| ST-19a | writer crashes after replace, before the directory fsync; then `load_run` | `load_run` never returns that snapshot: the pending marker halts the Run (as ST-19b); `load_run` does not flush the directory itself (R-089) |
+| ST-19e | step 14 succeeds, the directory flush after removing the pending marker fails | the commit returns success; if a crash then undoes the removal, the next call halts (R-085) |
 | ST-20 | stale temp file | deterministic cleanup/ignore under lock |
 | ST-21 | a committed request with a transition resent after its response was lost (same body, same token) | `STATE_CONFLICT`; its drafts are not appended a second time; conflict evidence recorded within the bound (R-046) |
 | ST-21b | a committed **events-only** request resent (revision unchanged, `expected_revision` still equal) | `STATE_CONFLICT` because `expected_position` is stale; no second copy of its events (R-049; the original R-001) |
 | ST-21q | a stale writer's conflict is recorded while a legitimate writer holds the current token | the legitimate commit still succeeds (`conflict` envelopes do not advance `position`) |
 | ST-21r | token with a current revision but a stale position, or the reverse | `STATE_CONFLICT` (stale) |
-| ST-21e | `create_run` resent after crash-after-replace | `RunAlreadyExists`, zero mutation; `load_run` shows the created Run (R-046) |
+| ST-21e | `create_run` resent after its response was lost: (a) crash after step 14 and pending removal / (b) crash between replace and step 14 | (a) `RunAlreadyExists`, zero mutation; `load_run` shows the created Run / (b) `RunHalted` via the pending marker (R-046 / R-077) |
 | ST-21g | conflicts at one position exceed `MAX_CONFLICTS_PER_POSITION` | RevisionConflict `conflict_evidence="suppressed"`, zero mutation |
 | ST-21g2 | a long run of non-transition commits at one revision, with conflicts between them | conflicts are recorded again after each new position (cap counted per position, R-056) |
 | ST-21h | `expected_revision` or `expected_position` greater than current, including mixed tokens such as (R+1, P−1) | `InvalidExpectedRevision`, zero mutation, no conflict event; the Run still loads (R-055) |
@@ -87,6 +92,9 @@
 | ST-48f | `halt_run` acquires the lock between another caller's lock wait and its commit | the commit sees the marker after taking the lock and returns `RunHalted`; no commit lands after a halt (R-079) |
 | ST-48g | `halt_run` with an unknown reason / on a read-only root / with a replaced lock inode | `ValidationRejected` / `RuntimeUnwritable` / `RuntimePathChanged` (R-080) |
 | ST-48h | a Human removes the marker after following the unhalt procedure | the next call proceeds; removal is followed by a directory flush (R-081; operator procedure, checked by the handoff review, not by #1392 code) |
+| ST-48i | halt marker and a new-ref pending marker both present; the Human removes only the halt marker | the next call resolves the pending marker and halts again; removing both per the procedure lets the Run proceed (R-084) |
+| ST-48j | `halt_run` while a pending marker is present | `halt_run` does not resolve the pending marker, writes (or keeps) the halt marker and returns success (R-084) |
+| ST-48k | halt marker and pending marker both present, any other call | `RunHalted` from the halt marker; the pending marker is not touched (halt is checked first) |
 | ST-49a (#1395 handoff) | `RunNotFound` for a run_id that #1395 has received a successful `create_run` or `load_run` for | `halt_run(RUN_MISSING)`, never `create_run` (R-082; checked in #1395's tests) |
 | ST-49 | every #1392 outcome, including an unexpected exception | maps to exactly one row of the #1395 table (re-derive / retry same call / create / stop); the table has a default stop row (R-072) |
 | ST-33 | `decision_made.decided_in_state` differs from the folded `lifecycle_state` (terminal and non-terminal) | reject, zero mutation (#1393 IT-01 / IT-02) |
@@ -114,11 +122,12 @@
 
 ## Fault matrix invariant
 
-For every injected crash point, recovery must produce exactly one of:
+For every injected crash point (including the pending-marker stages and the conflict-recording path), recovery must produce exactly one of:
 - complete old snapshot
 - complete new snapshot
+- `RunHalted` with `DURABILITY_UNKNOWN` (the Human decides; never a silently returned snapshot of unknown durability)
 
-Never a mixed snapshot.
+Never a mixed snapshot (R-088).
 
 ## No-duplicate invariant
 

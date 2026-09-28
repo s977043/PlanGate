@@ -219,3 +219,16 @@ Verdict: PASS with WARN.
 | open decisions | WARN — [P1] / [P2] / provisional constants; cost of the extra flushes per commit (performance fixture) (Human C-3) |
 
 Verdict: PASS with WARN.
+
+## C-1 re-run after C-2 R10 (2026-09-28)
+
+| item | result |
+|---|---|
+| every replace path writes the pending marker first (create, commit, conflict) | PASS (R-086) |
+| every flush failure has a defined result, including pending removal and pending resolution | PASS (R-085) |
+| unhalt procedure clears both markers; `halt_run` never blocked by pending | PASS (R-084) |
+| fault matrix and TCs cover the pending stages and allow the halt outcome | PASS (R-087 / R-088) |
+| no redundant durability mechanism left (`load_run` flush removed) | PASS (R-089) |
+| open decisions | WARN — [P1] / [P2] / provisional constants / flush cost (Human C-3) |
+
+Verdict: PASS with WARN.
