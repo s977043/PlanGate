@@ -163,3 +163,18 @@ The CAS token is (`revision`, `position`); every successful commit advances `pos
 | open decisions | WARN — [P1] / [P2] / provisional `MAX_*` (Human C-3) |
 
 Verdict: PASS with WARN. C-2 R5 found new classes (all closed by specification); C-3 waits for a round without new classes.
+
+## C-1 re-run after C-2 R6 (2026-09-28)
+
+Supersedes the R-16 sentence about the single-writer landed check (R-054 was replaced by R-060).
+
+| item | result |
+|---|---|
+| #1392's retry guarantee is stated only as "same token never applies twice"; no landed-check rule remains in plan / TCs | PASS (R-060; ST-21s withdrawn) |
+| recovery contract for #1395 written (discard, `load_run`, derive from the stream) in plan, todo and canon §4 | PASS |
+| `load_run` returns only durable snapshots | PASS (R-061, ST-19a) |
+| no remnant "per revision" cap wording | PASS (R-062) |
+| sibling rejection scoped to this Run | PASS (R-063) |
+| open decisions | WARN — [P1] / [P2] / provisional `MAX_*` (Human C-3) |
+
+Verdict: PASS with WARN. C-2 R6 found new classes; C-3 waits for a round without new classes.

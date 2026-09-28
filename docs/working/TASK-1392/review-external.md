@@ -271,3 +271,27 @@ Round note (§7-quater): the idempotency layer is gone; R5's new classes come fr
 | R-057 | reflected | (C-2 R5 commit) | |
 | R-058 | reflected | (C-2 R5 commit) | canon taxonomy |
 | R-059 | reflected | (C-2 R5 commit) | |
+
+## C-2 round 6 (2026-09-28 / reviewed head `df4abb13`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. Both lanes confirmed R-055 / R-056 / R-057 effective on concrete input sequences.
+
+Verdict: **fix needed; not converged.** The R-054 landed-check rule (added in R5) produced three new classes at once; the Human was asked whether to keep narrowing it or move recovery out of #1392.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-060 | both | major | the landed check misidentifies the request: one writer can have several in-flight requests; "the envelope at that position" is ambiguous across conflict envelopes (re-send after a conflict leads to a double commit); `kind` / position are not in the public API; a caller crash loses `expected_position` | new ×3 (from R-054) | **Human decision: drop the landed-check rule.** #1392 guarantees only "same token never applies twice"; recovery is a #1395 contract — discard the in-flight request, `load_run`, derive the next action from the stream. ST-21s withdrawn; canon §4 revised |
+| R-061 | adversarial | major | `load_run` could return a replaced but not yet directory-flushed snapshot; a caller could act on it and lose it to an OS crash; this also broke "an ahead token cannot come from a correct caller" | new | reflected: Durable read (lock + directory flush before returning, fail closed); ST-19a |
+| R-062 | both | minor | remnant "per-revision cap" wording | R-056 fix incomplete | reflected |
+| R-063 | adversarial | minor | "any other sibling" could reject other Runs' files in the same `runtime_root` | new | reflected: limited to this Run's `<safe-run-id>.` prefix; ST-40 |
+| R-064 | adversarial | minor | ST-21i used a revision-only token; no TC for "terminal decision is the last event" | TC gap | reflected: ST-21i; ST-23c |
+
+Round note (§7-quater): the idempotency layer (R1〜R4) and the landed-check rule (R5〜R6) each produced new classes every round; both are now out of #1392. R7 checks that the remaining guarantee (same-token CAS, durable read) holds and that the #1395 contract is stated precisely enough to hand over.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-060 | reflected | (C-2 R6 commit) | Human decision; #1395 handoff |
+| R-061 | reflected | (C-2 R6 commit) | canon |
+| R-062 | reflected | (C-2 R6 commit) | |
+| R-063 | reflected | (C-2 R6 commit) | |
+| R-064 | reflected | (C-2 R6 commit) | |

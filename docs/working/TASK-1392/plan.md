@@ -91,8 +91,8 @@ The revision changes only on a state transition, so a revision-only CAS would le
 
 - a resent request is evaluated like any other: if it already committed, its `expected_position` is now stale, so it gets `STATE_CONFLICT` (canon §4) and **its drafts are not appended a second time**, with or without a transition. This keeps TASK-1391 plan's requirement that an exact retry does not append a second event; the mechanism is the CAS, not a replay index
 - `conflict` envelopes do not count toward `position`, so a stale writer's conflict evidence does not make a concurrent legitimate writer stale
-- **single writer** (Human decision R-054): recovery from a lost response is guaranteed only when one writer commits to a Run (the first-slice caller, #1395's deterministic orchestrator). The rule, applied **before** taking a new token: `load_run`; if `position == expected_position + 1` and the envelope at that position is a `commit`, the lost request landed — do not resend; otherwise it did not land and the caller may rebuild and resend. With several writers this check cannot tell whose commit is at that position (a caller-supplied marker would be a design change, deferred with idempotency). This premise is written into the #1395 handoff and canon §4 (ST-21s)
-- resending with a **re-read** token without this check can apply the same content twice (e.g. two `failure_recorded` events); this is outside the first-slice guarantee
+- **#1392's guarantee ends at the same token**: a resend with the same token never applies twice. #1392 has **no** rule for deciding whether a lost request landed (Human decision R-060, replacing R-054: the landed-check rule produced three new failure classes in C-2 R6 — several in-flight requests from one writer, the index across conflict envelopes, and caller crash)
+- **recovery belongs to #1395** (handoff contract): after a lost response, an error, or its own crash, the caller **discards** the in-flight request, calls `load_run`, and **derives the next action deterministically from the loaded stream**. If the lost request landed, its events are in the stream and the derivation does not produce it again; if it did not land, the derivation produces it again with a fresh token. Resending the old drafts with a re-read token without re-deriving is outside the contract (it can apply the same content twice)
 - a resent `create_run` for an existing Run gets `RunAlreadyExists` with zero mutation; the caller loads and compares
 - [Dependency] TASK-1391 plan:81 says "exact retry is handled at #1392 transaction/idempotency layer". It needs the wording "#1392's CAS on revision and position rejects it" (requested on #1391). A dedicated idempotency slice may add replay later
 
@@ -141,7 +141,7 @@ Under exclusive lock:
    - append `state_transitioned` as final event of transaction
    - event-level `revision` is the **new revision**; earlier events in the same transaction retain the pre-transition revision
 10. build the new file = old envelopes + one envelope `kind=commit` holding this transaction's events
-11. write temp in same directory, at the fixed name `<safe-run-id>.json.tmp` (no random names; any other sibling in `runtime_root` is rejected, so ST-20 cleanup is deterministic)
+11. write temp in same directory, at the fixed name `<safe-run-id>.json.tmp` (no random names; any other file whose name starts with `<safe-run-id>.` besides `.lock`, `.json` and `.json.tmp` is rejected, so ST-20 cleanup is deterministic; other Runs' files in the same `runtime_root` are not affected)
 12. flush + fsync temp
 13. `os.replace(temp, target)`
 14. fsync parent directory
@@ -153,7 +153,7 @@ No successful response before step 15 (parent-directory fsync complete).
 
 The CAS token is the pair (`expected_revision`, `expected_position`). Because `position` only grows and every revision change happens in a counted envelope, a request is classified **in this order** (R-055): **ahead** if either component is higher than current (even if the other is lower, e.g. (R+1, P−1)); otherwise **current** if both are equal; otherwise **stale**. Checking ahead first keeps a recorded conflict always stale, so strict load's conflict check can never reject a Run because of it.
 
-If the request is **ahead**: reject `InvalidExpectedRevision` with zero mutation and no conflict event. An ahead token cannot come from a correct caller. If the store later reaches that token, the same request is an ordinary CAS and can commit; the error only says "not now" (R-048).
+If the request is **ahead**: reject `InvalidExpectedRevision` with zero mutation and no conflict event. An ahead token cannot come from a correct caller, because `load_run` returns only durable snapshots (see Durable read); without that rule, a token read before a dir fsync could be lost by an OS crash and become ahead. If the store later reaches that token, the same request is an ordinary CAS and can commit; the error only says "not now" (R-048).
 
 If the request is **stale**:
 - do not apply requested drafts/state transition
@@ -171,7 +171,7 @@ Unbounded conflict recording would let a looping stale writer grow the event str
 - **terminal reserve** (R-032): a conflict is recorded only if the file **after appending it** stays outside `TERMINAL_RESERVE`; otherwise the answer is `suppressed` with zero mutation. Conflict evidence can never consume the space kept for the terminal Decision
 - **per position** (R-056): at most `MAX_CONFLICTS_PER_POSITION` `state_conflict` events while `position` stays the same. Beyond the cap, return RevisionConflict with `conflict_evidence="suppressed"` and zero mutation. The cap being reached is itself visible from the recorded conflicts at that position. Counting per position (not per revision) keeps recording evidence across a long run of non-transition commits (e.g. repeated `continue` in `PR_CONVERGING`); overall growth stays bounded by `MAX_EVENTS_PER_RUN`
 - the constant's value is fixed by the RED fixture (provisional: 8); it is a first-slice limit, not a canon value
-- without transaction identities, a resent stale request is recorded again (up to the per-revision cap)
+- without transaction identities, a resent stale request is recorded again (up to the per-position cap)
 
 ## Crash semantics
 
@@ -190,6 +190,10 @@ Expected:
 - recovery never composes fields from old/new
 - successful API response only after directory fsync
 - a crash after replace but before the response is observed by the caller as a lost response (see Retry after a lost response)
+
+### Durable read (R-061)
+
+`load_run` takes the run lock, fsyncs the parent directory (with the platform flush of Durability definition), and only then reads and returns the snapshot. A snapshot that was replaced but whose directory entry was not yet flushed (writer crashed between steps 13 and 14) is therefore made durable before anyone can act on it; if the flush fails, `load_run` fails closed. Without this, a caller could read the new snapshot, perform an external side effect, and then lose that snapshot to an OS crash (ST-19a).
 
 No separate WAL is required because the whole Run (events and envelopes) is one replace unit.
 
@@ -241,6 +245,7 @@ POSIX first slice:
 - `fcntl.flock(LOCK_EX)`
 - after acquiring the lock, re-open the lock path from the same dirfd and compare `(st_dev, st_ino)` with the locked fd; on mismatch release and fail closed (`runtime_path_changed`), as TASK-1025 plan did. Without this, a lock file replaced between open and flock lets two writers hold locks on different inodes and both pass CAS (ST-39)
 - lock held across load -> validate -> build -> replace -> dir fsync
+- `load_run` also takes the lock and fsyncs the parent directory before reading (Durable read)
 - lock file is not Run truth
 
 If runtime platform lacks required locking/fsync semantics, fail closed rather than silently weakening.
@@ -278,7 +283,7 @@ No CLI in this slice.
 
 - CAS concurrent two writers
 - stale token; resent request after a lost response (events-only and with transition) gets STATE_CONFLICT and appends no drafts
-- conflict event recorded without state revision change; conflict evidence bound (per revision / terminal reserve)
+- conflict event recorded without state revision change; conflict evidence bound (per position / terminal reserve)
 - binding supplied only by arguments; drafts with binding or envelope keys rejected (create and commit)
 - no stored RunState / generation / aggregates (a stored `state` key is an unknown key)
 - Replan re-binding

@@ -24,6 +24,7 @@
 | ST-17 | snapshot symlink | reject |
 | ST-18 | crash before replace | old snapshot only |
 | ST-19 | crash after replace before API return | new snapshot recoverable |
+| ST-19a | writer crashes after replace, before the directory fsync; then `load_run` | `load_run` fsyncs the directory under the lock before returning; if the flush fails it fails closed and returns nothing (R-061) |
 | ST-20 | stale temp file | deterministic cleanup/ignore under lock |
 | ST-21 | a committed request with a transition resent after its response was lost (same body, same token) | `STATE_CONFLICT`; its drafts are not appended a second time; conflict evidence recorded within the bound (R-046) |
 | ST-21b | a committed **events-only** request resent (revision unchanged, `expected_revision` still equal) | `STATE_CONFLICT` because `expected_position` is stale; no second copy of its events (R-049; the original R-001) |
@@ -33,9 +34,9 @@
 | ST-21g | conflicts at one position exceed `MAX_CONFLICTS_PER_POSITION` | RevisionConflict `conflict_evidence="suppressed"`, zero mutation |
 | ST-21g2 | a long run of non-transition commits at one revision, with conflicts between them | conflicts are recorded again after each new position (cap counted per position, R-056) |
 | ST-21h | `expected_revision` or `expected_position` greater than current, including mixed tokens such as (R+1, P−1) | `InvalidExpectedRevision`, zero mutation, no conflict event; the Run still loads (R-055) |
-| ST-21s | single-writer recovery: commit lands, response lost; `load_run` shows `position == expected_position + 1` with a `commit` envelope there | caller treats it as landed and does not resend (R-054) |
+| ST-21s | (withdrawn with R-060: #1392 has no landed-check rule; recovery is #1395's re-derivation from the stream) | — |
 | ST-21t | `plan_contract_bound` payload binding values differ from the `binding` / `rebinding` argument | reject (R-047) |
-| ST-21i | the same ahead request after the store reaches that revision | ordinary CAS: commits (R-048) |
+| ST-21i | the same ahead request after the store reaches that token (revision and position) | ordinary CAS: commits (R-048) |
 | ST-21l | empty commit (no drafts, no transition) | reject, zero mutation |
 | ST-21n | `create_run` / `commit` with a draft containing a binding key or an envelope key at top level | reject, zero mutation (R-047) |
 | ST-21o | `create_run` with an invalid `run_id` or a `plan_event_draft` that is not `plan_contract_bound` | reject |
@@ -43,13 +44,14 @@
 | ST-22 | multiple non-state events one transaction | contiguous event_seq; revision unchanged |
 | ST-23 | non-terminal transition + other events | state_transitioned is transaction-final event and carries new revision |
 | ST-23a | terminal decision + state transition request | reject before commit |
+| ST-23c | terminal `decision_made` followed by another draft in the same transaction | reject before commit (terminal decision must be the final event) |
 | ST-23b | terminal decision only | commit without RunState revision increment |
 | ST-24 | terminal stream then append | reject through #1391 |
 | ST-25 | direct event writer duplicated in #1392 | static boundary FAIL |
 | ST-26 | merge/promotion primitive | static boundary FAIL |
 | ST-27 | unsupported state edge, e.g. EXECUTING -> REPAIRING | reject |
 | ST-28 | transition to/from WAITING_* without resume contract | reject in first slice |
-| ST-28a | stored file whose fold would yield a non-null `pending_action` (not representable in model B; merged into ST-28c: any key that could carry it is an unknown key) | — |
+| ST-28a | (merged into ST-28c: a non-null `pending_action` is not representable in model B; any key that could carry it is an unknown key) | — |
 | ST-28c | file contains a stored `state` / `generation` / aggregate key or an envelope key other than `kind` / `events` (snapshot_ref recomputed) | strict load reject (unknown key) |
 | ST-28d | bound context changes within the stream other than at a valid re-binding (snapshot_ref recomputed) | strict load reject |
 | ST-28e | envelope tamper: empty envelope / first envelope not `create` with `plan_contract_bound` / `conflict` envelope holding anything but one `state_conflict` / `state_conflict` outside a `conflict` envelope | strict load reject |
@@ -77,7 +79,7 @@
 | ST-37 | two `decision_made` in one transaction | reject |
 | ST-38 | stored stream violating any of ST-33〜37 / 45 (snapshot_ref recomputed) | strict load reject |
 | ST-39 | lock file replaced between open and flock | `runtime_path_changed`, fail closed, no commit |
-| ST-40 | unexpected sibling (e.g. random-named temp) in `runtime_root` | reject under lock |
+| ST-40 | unexpected file with this Run's `<safe-run-id>.` prefix (e.g. a random-named temp) | reject under lock; another Run's files in the same `runtime_root` do not affect this Run |
 | ST-41 | envelope key at a RunEvent's top level, or a RunEvent top-level key in the envelope | reject (commit and load) |
 | ST-43 | `commit(rebinding=B)` in `REPLANNING` with `event_drafts[0]` = `plan_contract_bound`, then `REPLANNING -> PLAN_VERIFYING` | commit; later events carry the new `plan_hash` / `source_sha`; load accepts |
 | ST-43a | re-binding outside `REPLANNING` / a second re-binding in the same visit / `harness_manifest_ref` change / `rebinding` without a leading `plan_contract_bound` draft or the reverse | reject (commit and load) |

@@ -14,8 +14,9 @@
 - [x] C-2 round 3 (R-037〜R-045; not converged; Human: keep idempotency and close by spec / ask #1391 for re-binding)
 - [x] C-2 round 4 (R-046〜R-053; not converged; Human: remove idempotency from the first slice, CAS on revision + position, binding via API arguments)
 - [x] C-2 round 5 (R-054〜R-059; not converged, all closed by specification; Human: single-writer premise for lost-response recovery)
-- [ ] C-2 round 6 and later: continue until no new failure class appears (review-principles §7-quater)
-- [ ] #1395 handoff: single-writer premise and the landed check (`position == expected_position + 1` with a `commit` envelope) (R-054)
+- [x] C-2 round 6 (R-060〜R-064; not converged; Human: drop the landed-check rule, recovery moves to #1395 re-derivation)
+- [ ] C-2 round 7 and later: continue until no new failure class appears (review-principles §7-quater)
+- [ ] #1395 handoff: after a lost response / error / own crash, discard the in-flight request, `load_run`, derive the next action deterministically from the stream; never resend old drafts with a re-read token (R-060)
 - [x] reflect Codex consultation: durability definition / size bound / CAS scope / initial state
 - [ ] Human C-3 (incl. [P1] no-WAL single snapshot / [P2] trusted runtime_root)
 
