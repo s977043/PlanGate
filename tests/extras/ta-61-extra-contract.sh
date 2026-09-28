@@ -897,10 +897,11 @@ if [ "$_T61_NO_RECURSE" = "1" ] || [ "${PG_T61_SKIP_SUITE:-0}" = "1" ]; then
   :
 elif pg_extra_contract_is_standalone; then
   _T61_LAST=$(cd "$_T61_DIR" && ls $_T61_GLOB | tail -1)
-  _T61_LAST_NN=$(printf '%s\n' "$_T61_LAST" | sed -nE 's/^ta-0*([0-9]+).*/\1/p')
   _t61_rc=0
   _t61_out=$(PG_T61_NO_RECURSE=1 sh "$_T61_RUNNER" </dev/null 2>&1) || _t61_rc=$?
-  if [ "$_t61_rc" = "0" ] && printf '%s\n' "$_t61_out" | grep -Eq 'Results: [0-9]+ passed, 0 failed' && printf '%s\n' "$_t61_out" | grep -q "=== TA-$_T61_LAST_NN"; then
+  # 到達判定は runner が全 extras に出す完了マーカーで行う。各ファイルが自前で
+  # 出す "=== TA-NN" 見出しは規約ではなく、ta-86 以降は出さない（#1423）。
+  if [ "$_t61_rc" = "0" ] && printf '%s\n' "$_t61_out" | grep -Eq 'Results: [0-9]+ passed, 0 failed' && printf '%s\n' "$_t61_out" | grep -Fq "[extras] <<< $_T61_LAST done in"; then
     t61_pass "TC-14: harness regression — suite rc=0, 0 failed, runtime-resolved last file ($_T61_LAST) reached"
   else
     t61_fail "TC-14: harness regression failed (rc=$_t61_rc, last=$_T61_LAST)"
