@@ -21,6 +21,7 @@ Trusted caller supplies a runtime root. #1392 first slice does not discover repo
   <safe-run-id>.lock
   <safe-run-id>.json
   <safe-run-id>.halt     (only when the Run is halted; see Halt marker)
+  <safe-run-id>.pending  (only while a replace is in flight; see Pending marker)
 ```
 
 ### Halt marker (Human decision R-071)
@@ -28,10 +29,27 @@ Trusted caller supplies a runtime root. #1392 first slice does not discover repo
 States that must survive a restart but cannot always be written to the stream — "this Run was stopped", "durability of the last commit is unknown", "this Run existed and is now missing" — are kept in a per-Run **halt marker**, not in the caller's memory.
 
 - `<safe-run-id>.halt` = canonical JSON `{schema_version, run_id, reason, evidence}` with `reason` ∈ `CALLER_STOP` / `DURABILITY_UNKNOWN` / `RUN_MISSING`. It is written under the run lock via `<safe-run-id>.halt.tmp`, file flush, replace and directory flush; if a marker already exists the first one is kept
-- while a marker exists, `create_run`, `commit` and `load_run` return **`RunHalted`** (with the marker's reason) and neither read nor write the snapshot. Only a Human removes the marker (outside the API; Human-owned operation)
-- #1392 writes the marker itself when step 14 fails (`DURABILITY_UNKNOWN`), before returning `DurabilityUnknown`; if writing the marker also fails, it still returns `DurabilityUnknown` (residual, handoff)
-- `halt_run(runtime_root, run_id, reason, evidence)` lets #1395 persist a stop; it works even when no snapshot exists (so a missing Run cannot be silently recreated)
+- **presence** is decided by `lstat` on the entry name, never by opening or parsing it: if **any** entry named `<safe-run-id>.halt` or `<safe-run-id>.halt.tmp` exists — a regular file, a symlink (even dangling), or corrupt content — the Run is halted. The content is parsed only to report the reason; an unparseable marker is reported as reason `UNREADABLE` (R-078)
+- every operation (`create_run`, `commit`, `load_run`, `halt_run`) checks for the marker **after** acquiring the run lock and before touching the snapshot; while it exists, `create_run`, `commit` and `load_run` return **`RunHalted`** and neither read nor write the snapshot (R-079)
+- #1392 writes the marker itself with `DURABILITY_UNKNOWN` whenever a directory flush fails after a replace or during `load_run` (the flush error may have been consumed, so a later success is not proof), and via the Pending marker after a crash (below); if writing the marker also fails, it still returns the error, and the pending marker (if any) keeps the Run halted on the next call
+- `halt_run(runtime_root, run_id, reason, evidence)` lets #1395 persist a stop; it works even when no snapshot exists (so a missing Run cannot be silently recreated). Its outcomes: success (marker durable or already present), `RuntimeBusy`, `RuntimeUnwritable`, `RuntimePathChanged`, `ValidationRejected` (unknown reason) (R-080)
+- **Human unhalt procedure** (Human-owned, outside the API; R-081): `CALLER_STOP` — confirm the cause is resolved, then remove the marker. `RUN_MISSING` — restore the snapshot from a known copy or abandon the `run_id`; never remove the marker to let #1395 recreate it. `DURABILITY_UNKNOWN` / `UNREADABLE` — verify the snapshot against an independent record (or accept the older state by restoring it), make the directory durable with a fresh flush, then remove the marker. Removing the marker is itself followed by a directory flush. This procedure is part of the #1395 / operator handoff
 - the marker is not Run truth: it never changes the stream, RunState or RunEvidence
+
+### Pending marker (Human decision R-077)
+
+The window between a failed (or not yet attempted) directory flush after replace and a durable halt marker is closed by writing the intent **before** the replace:
+
+1. under the run lock, write `<safe-run-id>.pending` = `{run_id, old_snapshot_ref, new_snapshot_ref}` via temp, file flush, replace, **directory flush** (if this fails: `RuntimeUnwritable`, zero mutation, nothing replaced)
+2. replace the snapshot (commit step 13 / create step 7)
+3. directory flush (step 14). **Success**: remove `.pending`, then directory flush again (if this last flush fails, the pending marker may reappear after a crash and is handled by the rule below)
+4. **Failure**: write the halt marker (`DURABILITY_UNKNOWN`), then return `DurabilityUnknown`
+
+Every operation, after taking the lock and checking the halt marker, checks for `.pending` (by `lstat`, as for the halt marker):
+- the current snapshot's `snapshot_ref` equals `old_snapshot_ref` (or there is no snapshot and `old_snapshot_ref` is null): the replace never happened — remove `.pending`, flush the directory, proceed
+- otherwise (it equals `new_snapshot_ref`, or anything else, or `.pending` is unreadable): the replace happened but its durability is unknown — write the halt marker (`DURABILITY_UNKNOWN`) and return `RunHalted`
+
+Consequence: a writer crash between replace and a successful step 14 always halts the Run for a Human, even when the data was in fact durable. This is deliberate (a later successful flush cannot prove durability). Cost: one extra file flush and two extra directory flushes per commit; measured by the performance fixture (ST-32).
 
 Run ID grammar:
 `RUN-[A-Z0-9][A-Z0-9_-]{0,63}`
@@ -110,9 +128,12 @@ The revision changes only on a state transition, so a revision-only CAS would le
   |---|---|
   | no response (lost), own crash, `StateConflict` (recorded or `suppressed`), `RunAlreadyExists` | discard, `load_run`, re-derive. At most `MAX_REDERIVE_PER_POSITION` (provisional 3) re-derivations while `position` does not advance; beyond that, `halt_run(CALLER_STOP)` |
   | `RuntimeBusy` (lock wait timeout) | wait and retry the **same call**; at most `MAX_BUSY_RETRIES` (provisional, fixture) consecutive attempts, counted per call whether or not a position has been read; beyond that, `halt_run(CALLER_STOP)` (R-074) |
-  | `RunNotFound` from `load_run` | derive `create_run` **only for a `run_id` #1395 has just issued and never loaded**; for any `run_id` it has seen before (a deleted snapshot or a wrong `runtime_root`), `halt_run(RUN_MISSING)` (R-073). #1395 records issued run_ids in its own task context |
+  | `RunNotFound` from `load_run` | derive `create_run` **only for a `run_id` for which #1395 has never received a successful `create_run` or `load_run`**; otherwise (a deleted snapshot or a wrong `runtime_root`), `halt_run(RUN_MISSING)` (R-073 / R-082). #1395 records issued and observed run_ids durably in its own task context **before** calling `create_run` |
+  | `RunNotFound` from `commit` | stop class (the Run disappeared under an active writer): `halt_run(RUN_MISSING)` (R-082) |
   | `RunHalted` | stop; do nothing until a Human removes the marker |
   | `ValidationRejected` (drafts, allowlist, Decision-bound checks, bindings), `SnapshotCapacityExceeded`, `InvalidExpectedRevision`, `RunTerminal` (commit after terminality), `SnapshotInvalid` (strict load), `RuntimeUnwritable` (incl. ENOSPC and a failed flush in `load_run` / `create_run`), `RuntimePathChanged`, `DurabilityUnknown`, **any other outcome** | **stop**: `halt_run(CALLER_STOP)` with the error as evidence (for `DurabilityUnknown` #1392 has already written the marker); do not re-derive |
+
+  **Stopping is complete only when `halt_run` succeeds** (R-080). `halt_run` returning `RuntimeBusy` is retried without an upper bound (the lock holder is bounded by `LOCK_WAIT_TIMEOUT` on every other call, so the lock is eventually released); `halt_run` returning `RuntimeUnwritable` / `RuntimePathChanged` / anything else leaves the stop unpersisted — #1395 must not resume that Run automatically and raises it to a Human (residual, handoff). #1395 never re-enters the stop row for a failed `halt_run` (no recursion).
 
   Because the stop is persisted by the halt marker, a #1395 restart sees `RunHalted` and cannot resume a stopped Run, even outside a Decision state (R-033 residual closed). The re-derivation counters live in #1395's memory; a crash resets them, so repeated crashes are bounded only by #1395's own restart policy (residual, handoff)
 - external side effects that are not recorded in the stream (e.g. starting a worker before any event says so) can be repeated by re-derivation; #1395 must record intent before acting or treat such effects as idempotent (residual, handoff)
@@ -130,7 +151,7 @@ Under exclusive lock:
 4. #1391 validates/finalizes the plan_contract_bound draft with `binding`
 5. #1391 validate_append([], event)
 6. build the file with one envelope `kind=create`
-7. atomic_replace(snapshot)
+7. write the pending marker (old ref null), then atomic_replace(snapshot) with the same flush and directory-flush steps as commit 11〜14, and the same Pending marker rules
 
 ### commit_events
 
@@ -164,10 +185,11 @@ Under exclusive lock:
    - append `state_transitioned` as final event of transaction
    - event-level `revision` is the **new revision**; earlier events in the same transaction retain the pre-transition revision
 10. build the new file = old envelopes + one envelope `kind=commit` holding this transaction's events
-11. write temp in same directory, at the fixed name `<safe-run-id>.json.tmp` (no random names; any other file whose name starts with `<safe-run-id>.` besides `.lock`, `.json`, `.json.tmp`, `.halt` and `.halt.tmp` is rejected, so ST-20 cleanup is deterministic; other Runs' files in the same `runtime_root` are not affected)
+11. write temp in same directory, at the fixed name `<safe-run-id>.json.tmp` (no random names; any other file whose name starts with `<safe-run-id>.` besides `.lock`, `.json`, `.json.tmp`, `.halt`, `.halt.tmp`, `.pending` and `.pending.tmp` is rejected, so ST-20 cleanup is deterministic; other Runs' files in the same `runtime_root` are not affected. `halt_run` is exempt from this rejection, so a stop can always be written)
 12. flush + fsync temp
+12a. write the pending marker (Pending marker step 1)
 13. `os.replace(temp, target)`
-14. fsync parent directory
+14. fsync parent directory; on success remove the pending marker and flush the directory again; on failure write the halt marker and return `DurabilityUnknown`
 15. return committed snapshot
 
 No successful response before step 15 (parent-directory fsync complete).
@@ -208,15 +230,16 @@ Fault injection labels:
 - after directory fsync
 
 Expected:
-- before replace: old snapshot remains authoritative; stale temp ignored/cleaned under lock
-- after replace: new snapshot authoritative
+- before replace: old snapshot remains authoritative; stale temp ignored/cleaned under lock; a leftover pending marker matches the old ref and is removed
+- after replace, before a successful step 14: the pending marker does not match the old ref, so the next operation writes the halt marker and returns `RunHalted` (Human-owned recovery, R-077)
+- after a successful step 14: new snapshot authoritative
 - recovery never composes fields from old/new
 - successful API response only after directory fsync
-- a crash after replace but before the response is observed by the caller as a lost response (see Retry after a lost response)
+- a crash after a successful step 14 but before the response is observed by the caller as a lost response (see Retry after a lost response); a crash between replace and a successful step 14 halts the Run (above)
 
 ### Durable read (R-061)
 
-`load_run` takes the run lock, returns `RunHalted` if a halt marker exists, fsyncs the parent directory (with the platform flush of Durability definition), and only then reads and returns the snapshot. The guarantee is "**durable unless a halt marker says otherwise**": after a `DurabilityUnknown`, the marker stops every later read, because a later successful flush is not proof (R-075). If no snapshot exists it returns `RunNotFound` (R-066). The lock wait is bounded by `LOCK_WAIT_TIMEOUT` (provisional, fixed by fixture); on timeout it returns `RuntimeBusy` without reading. `load_run` creates the lock file if missing, so `runtime_root` must be writable even for reads; a read-only root fails closed (`runtime_unwritable`) (R-068). A snapshot that was replaced but whose directory entry was not yet flushed (writer crashed between steps 13 and 14) is therefore made durable before anyone can act on it; if the flush fails, `load_run` fails closed. Without this, a caller could read the new snapshot, perform an external side effect, and then lose that snapshot to an OS crash (ST-19a).
+`load_run` takes the run lock, returns `RunHalted` if a halt marker exists, resolves a pending marker (Pending marker), fsyncs the parent directory (with the platform flush of Durability definition), and only then reads and returns the snapshot. The guarantee is "**durable unless a halt marker says otherwise**": after a `DurabilityUnknown`, the marker stops every later read, because a later successful flush is not proof (R-075). If no snapshot exists it returns `RunNotFound` (R-066). The lock wait is bounded by `LOCK_WAIT_TIMEOUT` (provisional, fixed by fixture); on timeout it returns `RuntimeBusy` without reading. `load_run` creates the lock file if missing, so `runtime_root` must be writable even for reads; a read-only root fails closed (`runtime_unwritable`) (R-068). A snapshot that was replaced but whose directory entry was not yet flushed (writer crashed between steps 13 and 14) is therefore made durable before anyone can act on it; if the flush fails, `load_run` fails closed. Without this, a caller could read the new snapshot, perform an external side effect, and then lose that snapshot to an OS crash (ST-19a).
 
 No separate WAL is required because the whole Run (events and envelopes) is one replace unit.
 
@@ -237,7 +260,8 @@ Flush failure by step (R-067):
 | temp file flush (step 12), before replace | old snapshot authoritative | `runtime_unwritable`; zero mutation |
 | directory flush (step 14), after replace | the new snapshot is visible but its durability is unknown | #1392 writes the halt marker (`DURABILITY_UNKNOWN`) and returns `DurabilityUnknown`. A later successful flush is **not** proof of durability (on Linux a writeback error is reported once, so a later `fsync` on a new descriptor can succeed although data was lost), so every later call gets `RunHalted` until a Human inspects the Run |
 | `create_run` directory flush, after replace | same as above | same as above |
-| `load_run` directory flush | unchanged | `RuntimeUnwritable`; nothing is returned |
+| `load_run` directory flush | unchanged on disk, but a pending write by a crashed writer may be undurable and the flush error may now be consumed | #1392 writes the halt marker (`DURABILITY_UNKNOWN`) and returns `RuntimeUnwritable`; nothing is returned, and every later call gets `RunHalted` (R-077) |
+| pending-marker write (before replace) | old snapshot authoritative | `RuntimeUnwritable`; zero mutation |
 
 What a successful response guarantees: the new snapshot survives process crash and OS crash. Power loss is covered only to the extent the storage device honours the flush above; this slice does not claim more. Fault injection (Crash semantics) covers the process-crash points; OS / power-loss behaviour is out of test scope and stated as a residual risk in the handoff.
 
@@ -279,7 +303,7 @@ POSIX first slice:
 - after acquiring the lock, re-open the lock path from the same dirfd and compare `(st_dev, st_ino)` with the locked fd; on mismatch release and fail closed (`runtime_path_changed`), as TASK-1025 plan did. Without this, a lock file replaced between open and flock lets two writers hold locks on different inodes and both pass CAS (ST-39)
 - lock held across load -> validate -> build -> replace -> dir fsync
 - `load_run` also takes the lock and fsyncs the parent directory before reading (Durable read)
-- every lock acquisition (`create_run`, `commit`, `load_run`) waits at most `LOCK_WAIT_TIMEOUT` and otherwise returns `RuntimeBusy` with zero mutation (R-068)
+- every lock acquisition (`create_run`, `commit`, `load_run`, `halt_run`) re-checks the lock inode as above and waits at most `LOCK_WAIT_TIMEOUT` and otherwise returns `RuntimeBusy` with zero mutation (R-068)
 - lock file is not Run truth
 
 If runtime platform lacks required locking/fsync semantics, fail closed rather than silently weakening.
@@ -305,7 +329,7 @@ commit(
 
 `Snapshot` is the loaded view: the derived RunState, the event stream and the derived per-transaction results. `Snapshot` exposes the derived `revision` and `position` that the caller passes back as its CAS token. `CommitResult = {snapshot, transaction}` where `transaction` is the derived result of the envelope this call wrote (`generation`, `first_event_seq`, `last_event_seq`, `result_revision`).
 
-Outcomes (closed set, R-072; the snake_case codes used elsewhere in this plan are the same outcomes): success, `RunNotFound`, `RunAlreadyExists`, `RunHalted`, `RunTerminal`, `StateConflict` (`STATE_CONFLICT`, with `conflict_evidence` recorded or `suppressed`), `InvalidExpectedRevision`, `SnapshotCapacityExceeded`, `ValidationRejected`, `SnapshotInvalid`, `RuntimeBusy`, `RuntimeUnwritable` (`runtime_unwritable`, incl. ENOSPC), `RuntimePathChanged` (`runtime_path_changed`), `DurabilityUnknown`. Every outcome is mapped in the #1395 table above; an unexpected exception is treated as the stop class.
+Outcomes (closed set, R-072; the snake_case codes used elsewhere in this plan are the same outcomes): success, `RunNotFound`, `RunAlreadyExists`, `RunHalted`, `RunTerminal`, `StateConflict` (`STATE_CONFLICT`, with `conflict_evidence` recorded or `suppressed`), `InvalidExpectedRevision`, `SnapshotCapacityExceeded`, `ValidationRejected`, `SnapshotInvalid`, `RuntimeBusy`, `RuntimeUnwritable` (`runtime_unwritable`, incl. ENOSPC), `RuntimePathChanged` (`runtime_path_changed`), `DurabilityUnknown`. Every outcome is mapped in the #1395 table above; an unexpected exception is treated as the stop class. `halt_run`'s own outcomes are listed in Halt marker and handled by the stop-completion rule (R-080).
 
 No CLI in this slice.
 

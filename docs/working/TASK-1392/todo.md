@@ -17,8 +17,9 @@
 - [x] C-2 round 6 (R-060〜R-064; not converged; Human: drop the landed-check rule, recovery moves to #1395 re-derivation)
 - [x] C-2 round 7 (R-065〜R-070; not converged, all closed by specification)
 - [x] C-2 round 8 (R-071〜R-076; split verdict, not converged; Human: halt marker in #1392)
-- [ ] C-2 round 9 and later: continue until no new failure class appears (review-principles §7-quater)
-- [ ] #1395 handoff: after a lost response / own crash / `STATE_CONFLICT` / `RuntimeBusy`, discard the in-flight request, `load_run`, derive the next action deterministically from the stream (bounded by `MAX_REDERIVE_PER_POSITION`); `RunNotFound` → derive `create_run`; deterministic failures (validation, capacity, `InvalidExpectedRevision`, runtime / durability errors) stop the Run; never resend old drafts with a re-read token; record intent before external side effects (R-060 / R-065 / R-066 / R-067)
+- [x] C-2 round 9 (R-077〜R-083; split verdict; Human: pending marker before replace)
+- [ ] C-2 round 10 and later: continue until no new failure class appears (review-principles §7-quater)
+- [ ] #1395 handoff (source of truth = the outcome table in plan "Retry after a lost response"): lost response / own crash / `StateConflict` / `RunAlreadyExists` → discard, `load_run`, re-derive from the stream (≤ `MAX_REDERIVE_PER_POSITION`); `RuntimeBusy` → retry the same call (≤ `MAX_BUSY_RETRIES`); `RunNotFound` from `load_run` → `create_run` only for a run_id never successfully created or loaded, else `halt_run(RUN_MISSING)`; `RunNotFound` from `commit` → `halt_run(RUN_MISSING)`; `RunHalted` → stop; everything else → `halt_run(CALLER_STOP)`; stopping completes only when `halt_run` succeeds (busy retried; other failures → Human, never auto-resume); record issued / observed run_ids and intents durably; never resend old drafts with a re-read token; Human unhalt procedure per reason (R-060 / R-065〜R-067 / R-072〜R-074 / R-080〜R-082)
 - [x] reflect Codex consultation: durability definition / size bound / CAS scope / initial state
 - [ ] Human C-3 (incl. [P1] no-WAL single snapshot / [P2] trusted runtime_root)
 
@@ -43,7 +44,8 @@
 - [ ] conflict evidence bound
 - [ ] atomic replace/fsync (platform flush table, fail closed)
 - [ ] size bound / terminal reserve / performance fixture
-- [ ] halt marker (`halt_run`, `RunHalted`, `DURABILITY_UNKNOWN` written on step-14 failure)
+- [ ] halt marker (`halt_run`, `RunHalted`, `lstat` presence, check after lock, `DURABILITY_UNKNOWN` on flush failure)
+- [ ] pending marker (write before replace, resolve on every operation)
 - [ ] fault injection
 - [ ] concurrency test
 - [ ] TA integration

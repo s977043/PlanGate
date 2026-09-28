@@ -26,9 +26,12 @@
 | ST-16a | file `run_id` differs from the file name / events' `run_id` | strict load reject |
 | ST-17 | snapshot symlink | reject |
 | ST-17a | lock file is a symlink | reject (no-follow open) |
-| ST-18 | crash before replace | old snapshot only |
-| ST-19 | crash after replace before API return | new snapshot recoverable |
-| ST-19a | writer crashes after replace, before the directory fsync; then `load_run` | `load_run` fsyncs the directory under the lock before returning; if the flush fails it returns `RuntimeUnwritable` and nothing else (R-061) |
+| ST-18 | crash before replace (with and without a pending marker written) | old snapshot only; a pending marker matching the old ref is removed on the next call |
+| ST-19 | crash after a successful step 14 and pending removal, before API return | new snapshot authoritative; no halt |
+| ST-19b | crash after replace, before step 14 succeeds (pending marker present with the new ref) | next operation writes `DURABILITY_UNKNOWN` and returns `RunHalted` (R-077) |
+| ST-19c | step 14 succeeds, crash before the pending marker is removed | next operation halts (conservative; documented) |
+| ST-19d | pending marker unreadable / symlink | halted (R-077 / R-078) |
+| ST-19a | writer crashes after replace, before the directory fsync; then `load_run` | `load_run` resolves the pending marker (halts, ST-19b); for a crash before the pending marker existed, it fsyncs the directory under the lock before returning; if that flush fails it writes `DURABILITY_UNKNOWN`, returns `RuntimeUnwritable`, and later calls get `RunHalted` (R-061 / R-077) |
 | ST-20 | stale temp file | deterministic cleanup/ignore under lock |
 | ST-21 | a committed request with a transition resent after its response was lost (same body, same token) | `STATE_CONFLICT`; its drafts are not appended a second time; conflict evidence recorded within the bound (R-046) |
 | ST-21b | a committed **events-only** request resent (revision unchanged, `expected_revision` still equal) | `STATE_CONFLICT` because `expected_position` is stale; no second copy of its events (R-049; the original R-001) |
@@ -78,8 +81,13 @@
 | ST-48 | halt marker present | `create_run` / `commit` / `load_run` return `RunHalted` with its reason; the snapshot is neither read nor written (R-071) |
 | ST-48a | directory flush fails after replace (commit or create) | the `DURABILITY_UNKNOWN` marker is written before `DurabilityUnknown` is returned; a later `load_run` whose flush succeeds still returns `RunHalted` (R-075) |
 | ST-48b | `halt_run(RUN_MISSING)` for a `run_id` with no snapshot, then `create_run` | `RunHalted`; the Run cannot be silently recreated (R-073) |
-| ST-48c | writing the halt marker itself fails | `DurabilityUnknown` / `RuntimeUnwritable` is still returned (residual stated) |
-| ST-48d | `halt_run` when a marker already exists | the first marker is kept |
+| ST-48c | writing the halt marker itself fails after a step-14 failure | `DurabilityUnknown` is still returned; the pending marker keeps the Run halted on the next call (ST-19b) |
+| ST-48d | `halt_run` when a marker already exists, and two concurrent `halt_run` calls | the first marker is kept; both calls succeed |
+| ST-48e | halt marker is corrupt / a dangling symlink / only `.halt.tmp` exists | `RunHalted` (reason `UNREADABLE` when unparseable); presence decided by `lstat` (R-078) |
+| ST-48f | `halt_run` acquires the lock between another caller's lock wait and its commit | the commit sees the marker after taking the lock and returns `RunHalted`; no commit lands after a halt (R-079) |
+| ST-48g | `halt_run` with an unknown reason / on a read-only root / with a replaced lock inode | `ValidationRejected` / `RuntimeUnwritable` / `RuntimePathChanged` (R-080) |
+| ST-48h | a Human removes the marker after following the unhalt procedure | the next call proceeds; removal is followed by a directory flush (R-081; operator procedure, checked by the handoff review, not by #1392 code) |
+| ST-49a (#1395 handoff) | `RunNotFound` for a run_id that #1395 has received a successful `create_run` or `load_run` for | `halt_run(RUN_MISSING)`, never `create_run` (R-082; checked in #1395's tests) |
 | ST-49 | every #1392 outcome, including an unexpected exception | maps to exactly one row of the #1395 table (re-derive / retry same call / create / stop); the table has a default stop row (R-072) |
 | ST-33 | `decision_made.decided_in_state` differs from the folded `lifecycle_state` (terminal and non-terminal) | reject, zero mutation (#1393 IT-01 / IT-02) |
 | ST-34 | `decision_made` assigned `event_seq != input_last_event_seq + 1` by another writer's event | reject, zero mutation (#1393 IT-04) |
@@ -93,7 +101,7 @@
 | ST-37 | two `decision_made` in one transaction | reject |
 | ST-38 | stored stream violating any of ST-33〜37 / 45 (snapshot_ref recomputed) | strict load reject |
 | ST-39 | lock file replaced between open and flock | `runtime_path_changed`, fail closed, no commit |
-| ST-40 | unexpected file with this Run's `<safe-run-id>.` prefix other than `.lock` / `.json` / `.json.tmp` / `.halt` / `.halt.tmp` (e.g. a random-named temp) | reject under lock; another Run's files in the same `runtime_root` do not affect this Run |
+| ST-40 | unexpected file with this Run's `<safe-run-id>.` prefix other than `.lock` / `.json` / `.json.tmp` / `.halt` / `.halt.tmp` / `.pending` / `.pending.tmp` (e.g. a random-named temp); `halt_run` still succeeds in that state | reject under lock; another Run's files in the same `runtime_root` do not affect this Run |
 | ST-41 | envelope key at a RunEvent's top level, or a RunEvent top-level key in the envelope | reject (commit and load) |
 | ST-43 | `commit(rebinding=B)` in `REPLANNING` with `event_drafts[0]` = `plan_contract_bound`, then `REPLANNING -> PLAN_VERIFYING` | commit; later events carry the new `plan_hash` / `source_sha`; load accepts |
 | ST-43a | re-binding outside `REPLANNING` / a second re-binding in the same visit / `harness_manifest_ref` change / `rebinding` without a leading `plan_contract_bound` draft or the reverse | reject (commit and load) |

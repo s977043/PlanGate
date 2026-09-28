@@ -347,3 +347,31 @@ Residual threat model proposed by the design lane (recorded for C-3): protected 
 | R-074 | reflected | (C-2 R8 commit) | |
 | R-075 | reflected | (C-2 R8 commit) | canon |
 | R-076 | reflected | (C-2 R8 commit) | canon |
+
+## C-2 round 9 (2026-09-28 / reviewed head `e4aaeb91`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. **Split verdict**: design lane "new class, design change needed"; adversarial lane "converged, no new class" but raised the same crash window as a major needing either a residual or a design change. Guarantee 1 (same token) held in both lanes.
+
+Verdict: **fix needed; not converged.** The crash window between a step-14 failure and a durable halt marker breaks guarantee 2 after a restart (both lanes). The Human chose a design change.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-077 | both | critical / major | a crash between the replace / failed step 14 and a durable halt marker leaves no marker; after restart a later flush succeeds and an undurable snapshot is returned. Same for a failed `load_run` flush not writing a marker | new (two persistent artifacts, ordering) | **Human decision: pending marker written and flushed before the replace**, resolved on every operation (old ref → remove; otherwise halt with `DURABILITY_UNKNOWN`); `load_run` flush failure also writes the halt marker; ST-19b〜d, ST-48c |
+| R-078 | both | major / minor | marker presence undefined for corrupt content, symlinks, leftover `.halt.tmp` | new (marker input surface) | reflected: presence by `lstat` on the entry names; unparseable → reason `UNREADABLE`; ST-48e |
+| R-079 | adversarial | minor | marker checked after the lock only for `load_run`; a `halt_run` could slip in before a commit | new | reflected: every operation checks after taking the lock; ST-48f |
+| R-080 | both | major / minor | `halt_run` outcomes not in the closed set; a busy `halt_run` left the stop unpersisted; recursion through the stop row; sibling rejection could block `halt_run`; `halt_run` missing from Locking | new | reflected: `halt_run` outcomes listed; stopping completes only on success; busy retried; other failures → Human, no auto-resume; exempt from sibling rejection; lock inode check; ST-48d / 48g |
+| R-081 | both | major | no defined Human procedure for removing a marker; removing `DURABILITY_UNKNOWN` by deletion alone re-trusts an unproven snapshot | new | reflected: unhalt procedure per reason in plan and handoff; ST-48h |
+| R-082 | adversarial | major / minor | "never loaded" was not enough (a create success followed by a crash and a wrong root recreates the Run); `RunNotFound` from `commit` fell only into the default row; todo's #1395 handoff lagged behind R-073 / R-074 | R-073 fix incomplete / wording | reflected: "never successfully created or loaded"; explicit `commit` row; handoff line rewritten to point at the plan table; ST-49a |
+| R-083 | adversarial | info | an internal call to the public `halt_run` from inside a locked commit would wait on its own lock | info | reflected implicitly: #1392 writes the marker internally under the held lock (Halt marker bullet) |
+
+Residual threat model (adversarial lane, updated for R-077): protected — same-token double commit within one root; success only after flush; stop / unknown durability / missing Run persist once the marker or pending marker is durable. Not protected — split-brain across roots; tampering or marker deletion by anyone who can write the root; devices ignoring flush; a failure to persist the pending marker itself (then nothing was replaced); durability after a Human removes a marker without following the procedure. Guarantors — #1392 (CAS, flush, markers), #1395 (re-derivation, limits, run_id records, intent / receipt), Human (unhalt), C-4 review.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-077 | reflected | (C-2 R9 commit) | Human decision; canon |
+| R-078 | reflected | (C-2 R9 commit) | |
+| R-079 | reflected | (C-2 R9 commit) | |
+| R-080 | reflected | (C-2 R9 commit) | handoff |
+| R-081 | reflected | (C-2 R9 commit) | handoff |
+| R-082 | reflected | (C-2 R9 commit) | handoff |
+| R-083 | reflected | (C-2 R9 commit) | info |

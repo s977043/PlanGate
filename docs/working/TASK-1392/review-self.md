@@ -205,3 +205,17 @@ Verdict: PASS with WARN.
 | open decisions | WARN — [P1] / [P2] / provisional constants (`MAX_*`, `LOCK_WAIT_TIMEOUT`, `MAX_REDERIVE_PER_POSITION`, `MAX_BUSY_RETRIES`) (Human C-3) |
 
 Verdict: PASS with WARN.
+
+## C-1 re-run after C-2 R9 (2026-09-28)
+
+| item | result |
+|---|---|
+| no crash point between replace and a durable halt decision (pending marker written before replace, resolved on every operation) | PASS (R-077, ST-19b〜d) |
+| marker presence independent of content / type | PASS (R-078) |
+| marker checked after the lock by every operation | PASS (R-079) |
+| `halt_run` outcomes closed; stop completion defined; no recursion | PASS (R-080) |
+| Human unhalt procedure per reason | PASS (R-081) |
+| #1395 handoff line matches the plan table | PASS (R-082) |
+| open decisions | WARN — [P1] / [P2] / provisional constants; cost of the extra flushes per commit (performance fixture) (Human C-3) |
+
+Verdict: PASS with WARN.
