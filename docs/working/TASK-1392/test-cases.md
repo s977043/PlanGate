@@ -10,7 +10,7 @@
 | ST-03 | two writers with the same token (N, P) | exactly one commit succeeds |
 | ST-04 | stale writer | RevisionConflict + state revision unchanged |
 | ST-05 | non-terminal conflict event | generation +1, conflict evidence appended |
-| ST-05a | stale writer after terminal Outcome | reject with no new event/generation |
+| ST-05a | stale writer after terminal Outcome | `RunTerminal`, no new event/generation |
 | ST-06 | `rebinding` that changes `harness_manifest_ref` | reject (commit and load) |
 | ST-07 | `rebinding` outside `REPLANNING` (the only request path that could change `plan_hash` / `source_sha`) | reject; see ST-43a for the full set |
 | ST-08 | transition target / stored `to_state` = BLOCKED | reject (commit and load) |
@@ -28,7 +28,7 @@
 | ST-17a | lock file is a symlink | reject (no-follow open) |
 | ST-18 | crash before replace | old snapshot only |
 | ST-19 | crash after replace before API return | new snapshot recoverable |
-| ST-19a | writer crashes after replace, before the directory fsync; then `load_run` | `load_run` fsyncs the directory under the lock before returning; if the flush fails it fails closed and returns nothing (R-061) |
+| ST-19a | writer crashes after replace, before the directory fsync; then `load_run` | `load_run` fsyncs the directory under the lock before returning; if the flush fails it returns `RuntimeUnwritable` and nothing else (R-061) |
 | ST-20 | stale temp file | deterministic cleanup/ignore under lock |
 | ST-21 | a committed request with a transition resent after its response was lost (same body, same token) | `STATE_CONFLICT`; its drafts are not appended a second time; conflict evidence recorded within the bound (R-046) |
 | ST-21b | a committed **events-only** request resent (revision unchanged, `expected_revision` still equal) | `STATE_CONFLICT` because `expected_position` is stale; no second copy of its events (R-049; the original R-001) |
@@ -58,14 +58,14 @@
 | ST-28a | (merged into ST-28c: a non-null `pending_action` is not representable in model B; any key that could carry it is an unknown key) | — |
 | ST-28c | file contains a stored `state` / `generation` / aggregate key or an envelope key other than `kind` / `events` (snapshot_ref recomputed) | strict load reject (unknown key) |
 | ST-28d | bound context changes within the stream other than at a valid re-binding (snapshot_ref recomputed) | strict load reject |
-| ST-28e | envelope tamper: empty envelope / first envelope not `create` with `plan_contract_bound` / `conflict` envelope holding anything but one `state_conflict` / `state_conflict` outside a `conflict` envelope | strict load reject |
+| ST-28e | envelope tamper: unknown `kind` value / empty envelope / first envelope not `create` with `plan_contract_bound` / `conflict` envelope holding anything but one `state_conflict` / `state_conflict` outside a `conflict` envelope | strict load reject |
 | ST-28f | non-transition or `state_conflict` event carries a revision other than the folded one (snapshot_ref recomputed) | strict load reject |
 | ST-28g | stored `state_transitioned` edge outside the first-slice allowlist, e.g. EXECUTING -> REPAIRING with consistent from_state/+1 | strict load reject |
 | ST-28i | accidental corruption (snapshot_ref not recomputed) | load reject. A hostile writer who recomputes `snapshot_ref` is out of scope (Trust limit, R-031) |
 | ST-28k | `state_conflict` with `actual_revision` / `actual_position` ≠ fold, or a recorded token that is not stale | strict load reject (R-030 / R-049) |
 | ST-30 | commit whose result would exceed `MAX_EVENTS_PER_RUN` or `MAX_SNAPSHOT_BYTES` | `SnapshotCapacityExceeded` before temp write, zero mutation |
 | ST-30a | snapshot within `TERMINAL_RESERVE` of a bound, Run in `VERIFYING` | non-terminal commit rejected; terminal `decision_made` still commits |
-| ST-30b | ENOSPC during temp write | old snapshot authoritative, stale temp handled as ST-20 |
+| ST-30b | ENOSPC during temp write | `RuntimeUnwritable`; old snapshot authoritative, stale temp handled as ST-20 |
 | ST-30c | terminal `decision_made` larger than `MAX_DECISION_EVENT_BYTES` | rejected by #1391 payload validation (not by the capacity check) |
 | ST-30e | file just outside the reserve; a small non-terminal commit would end inside it, then a maximum-size terminal Decision | the non-terminal commit is rejected (judged after appending); the terminal Decision commits (R-057) |
 | ST-30d | stale conflicts arriving near the bound | conflict recorded only outside the reserve, otherwise `suppressed`; the terminal Decision still commits afterwards (R-032) |
@@ -73,8 +73,14 @@
 | ST-31a | directory flush fails after replace (step 14) | `DurabilityUnknown`; the result is in the stop class, not re-derived (R-067) |
 | ST-32 | commit latency at the size bound on the CI runner | within the threshold fixed by the fixture; a miss is a Replan trigger |
 | ST-32a | `load_run` latency at the size bound, alone and with concurrent readers | within the fixture threshold; a miss is a Replan trigger (R-068) |
-| ST-47 | lock held longer than `LOCK_WAIT_TIMEOUT` | `load_run` / `commit` return `RuntimeBusy` without reading or writing (R-068) |
-| ST-47a | read-only `runtime_root` | `load_run` fails closed (`runtime_unwritable`) |
+| ST-47 | lock held longer than `LOCK_WAIT_TIMEOUT` | `create_run` / `commit` / `load_run` / `halt_run` return `RuntimeBusy` without reading or writing the snapshot (only the lock file may have been created) (R-068) |
+| ST-47a | read-only `runtime_root` | `load_run` fails closed (`RuntimeUnwritable`) |
+| ST-48 | halt marker present | `create_run` / `commit` / `load_run` return `RunHalted` with its reason; the snapshot is neither read nor written (R-071) |
+| ST-48a | directory flush fails after replace (commit or create) | the `DURABILITY_UNKNOWN` marker is written before `DurabilityUnknown` is returned; a later `load_run` whose flush succeeds still returns `RunHalted` (R-075) |
+| ST-48b | `halt_run(RUN_MISSING)` for a `run_id` with no snapshot, then `create_run` | `RunHalted`; the Run cannot be silently recreated (R-073) |
+| ST-48c | writing the halt marker itself fails | `DurabilityUnknown` / `RuntimeUnwritable` is still returned (residual stated) |
+| ST-48d | `halt_run` when a marker already exists | the first marker is kept |
+| ST-49 | every #1392 outcome, including an unexpected exception | maps to exactly one row of the #1395 table (re-derive / retry same call / create / stop); the table has a default stop row (R-072) |
 | ST-33 | `decision_made.decided_in_state` differs from the folded `lifecycle_state` (terminal and non-terminal) | reject, zero mutation (#1393 IT-01 / IT-02) |
 | ST-34 | `decision_made` assigned `event_seq != input_last_event_seq + 1` by another writer's event | reject, zero mutation (#1393 IT-04) |
 | ST-34a | `[verification_recorded FAIL, decision_made]` in one transaction | reject, zero mutation (#1393 IT-07 / IT-08) |
@@ -87,7 +93,7 @@
 | ST-37 | two `decision_made` in one transaction | reject |
 | ST-38 | stored stream violating any of ST-33〜37 / 45 (snapshot_ref recomputed) | strict load reject |
 | ST-39 | lock file replaced between open and flock | `runtime_path_changed`, fail closed, no commit |
-| ST-40 | unexpected file with this Run's `<safe-run-id>.` prefix (e.g. a random-named temp) | reject under lock; another Run's files in the same `runtime_root` do not affect this Run |
+| ST-40 | unexpected file with this Run's `<safe-run-id>.` prefix other than `.lock` / `.json` / `.json.tmp` / `.halt` / `.halt.tmp` (e.g. a random-named temp) | reject under lock; another Run's files in the same `runtime_root` do not affect this Run |
 | ST-41 | envelope key at a RunEvent's top level, or a RunEvent top-level key in the envelope | reject (commit and load) |
 | ST-43 | `commit(rebinding=B)` in `REPLANNING` with `event_drafts[0]` = `plan_contract_bound`, then `REPLANNING -> PLAN_VERIFYING` | commit; later events carry the new `plan_hash` / `source_sha`; load accepts |
 | ST-43a | re-binding outside `REPLANNING` / a second re-binding in the same visit / `harness_manifest_ref` change / `rebinding` without a leading `plan_contract_bound` draft or the reverse | reject (commit and load) |

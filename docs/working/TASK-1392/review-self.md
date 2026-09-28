@@ -192,3 +192,16 @@ Verdict: PASS with WARN. C-2 R6 found new classes; C-3 waits for a round without
 | open decisions | WARN — [P1] / [P2] / provisional `MAX_*`, `LOCK_WAIT_TIMEOUT`, `MAX_REDERIVE_PER_POSITION` (Human C-3) |
 
 Verdict: PASS with WARN.
+
+## C-1 re-run after C-2 R8 (2026-09-28)
+
+| item | result |
+|---|---|
+| closed outcome set; every outcome (incl. unexpected exceptions) mapped once in the #1395 table | PASS (R-072, ST-49) |
+| stop / unknown durability / missing Run persist across restarts | PASS (halt marker R-071, ST-48〜48d) |
+| create is derived only for a freshly issued run_id | PASS (R-073) |
+| read guarantee worded with its exception | PASS (R-075) |
+| canon §4 paragraph consistent with the plan | PASS (R-076) |
+| open decisions | WARN — [P1] / [P2] / provisional constants (`MAX_*`, `LOCK_WAIT_TIMEOUT`, `MAX_REDERIVE_PER_POSITION`, `MAX_BUSY_RETRIES`) (Human C-3) |
+
+Verdict: PASS with WARN.

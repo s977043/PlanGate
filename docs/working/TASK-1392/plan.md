@@ -20,7 +20,18 @@ Trusted caller supplies a runtime root. #1392 first slice does not discover repo
 <runtime-root>/
   <safe-run-id>.lock
   <safe-run-id>.json
+  <safe-run-id>.halt     (only when the Run is halted; see Halt marker)
 ```
+
+### Halt marker (Human decision R-071)
+
+States that must survive a restart but cannot always be written to the stream — "this Run was stopped", "durability of the last commit is unknown", "this Run existed and is now missing" — are kept in a per-Run **halt marker**, not in the caller's memory.
+
+- `<safe-run-id>.halt` = canonical JSON `{schema_version, run_id, reason, evidence}` with `reason` ∈ `CALLER_STOP` / `DURABILITY_UNKNOWN` / `RUN_MISSING`. It is written under the run lock via `<safe-run-id>.halt.tmp`, file flush, replace and directory flush; if a marker already exists the first one is kept
+- while a marker exists, `create_run`, `commit` and `load_run` return **`RunHalted`** (with the marker's reason) and neither read nor write the snapshot. Only a Human removes the marker (outside the API; Human-owned operation)
+- #1392 writes the marker itself when step 14 fails (`DURABILITY_UNKNOWN`), before returning `DurabilityUnknown`; if writing the marker also fails, it still returns `DurabilityUnknown` (residual, handoff)
+- `halt_run(runtime_root, run_id, reason, evidence)` lets #1395 persist a stop; it works even when no snapshot exists (so a missing Run cannot be silently recreated)
+- the marker is not Run truth: it never changes the stream, RunState or RunEvidence
 
 Run ID grammar:
 `RUN-[A-Z0-9][A-Z0-9_-]{0,63}`
@@ -93,17 +104,19 @@ The revision changes only on a state transition, so a revision-only CAS would le
 - `conflict` envelopes do not count toward `position`, so a stale writer's conflict evidence does not make a concurrent legitimate writer stale
 - **#1392's guarantee ends at the same token**: a resend with the same token never applies twice. #1392 has **no** rule for deciding whether a lost request landed (Human decision R-060, replacing R-054: the landed-check rule produced three new failure classes in C-2 R6 — several in-flight requests from one writer, the index across conflict envelopes, and caller crash)
 - **recovery belongs to #1395** (handoff contract): after a lost response, an error, or its own crash, the caller **discards** the in-flight request, calls `load_run`, and **derives the next action deterministically from the loaded stream**. If the lost request landed, its events are in the stream and the derivation does not produce it again; if it did not land, the derivation produces it again with a fresh token. Resending the old drafts with a re-read token without re-deriving is outside the contract (it can apply the same content twice)
-- **which outcomes are re-derived and which stop** (R-065; re-deriving a deterministic request after a deterministic rejection would loop forever):
+- **which outcomes are re-derived and which stop** (R-065 / R-072; re-deriving a deterministic request after a deterministic rejection would loop forever). #1392 returns exactly these outcomes; anything else (an unexpected exception) falls into the last row:
 
   | outcome | #1395 action |
   |---|---|
-  | no response (lost), own crash, `STATE_CONFLICT` (recorded or `suppressed`), `RunAlreadyExists`, `RuntimeBusy` (lock wait timeout) | discard, `load_run`, re-derive. At most `MAX_REDERIVE_PER_POSITION` (provisional 3) re-derivations while `position` does not advance; beyond that, stop |
-  | `RunNotFound` from `load_run` | no Run exists yet: derive `create_run` (R-066) |
-  | validation rejections (drafts, allowlist, Decision-bound checks, bindings), `SnapshotCapacityExceeded`, `InvalidExpectedRevision`, `runtime_unwritable`, `runtime_path_changed`, `DurabilityUnknown` | **stop** the Run through #1395's stop path with the error as evidence; do not re-derive (the same stream would produce the same request) |
+  | no response (lost), own crash, `StateConflict` (recorded or `suppressed`), `RunAlreadyExists` | discard, `load_run`, re-derive. At most `MAX_REDERIVE_PER_POSITION` (provisional 3) re-derivations while `position` does not advance; beyond that, `halt_run(CALLER_STOP)` |
+  | `RuntimeBusy` (lock wait timeout) | wait and retry the **same call**; at most `MAX_BUSY_RETRIES` (provisional, fixture) consecutive attempts, counted per call whether or not a position has been read; beyond that, `halt_run(CALLER_STOP)` (R-074) |
+  | `RunNotFound` from `load_run` | derive `create_run` **only for a `run_id` #1395 has just issued and never loaded**; for any `run_id` it has seen before (a deleted snapshot or a wrong `runtime_root`), `halt_run(RUN_MISSING)` (R-073). #1395 records issued run_ids in its own task context |
+  | `RunHalted` | stop; do nothing until a Human removes the marker |
+  | `ValidationRejected` (drafts, allowlist, Decision-bound checks, bindings), `SnapshotCapacityExceeded`, `InvalidExpectedRevision`, `RunTerminal` (commit after terminality), `SnapshotInvalid` (strict load), `RuntimeUnwritable` (incl. ENOSPC and a failed flush in `load_run` / `create_run`), `RuntimePathChanged`, `DurabilityUnknown`, **any other outcome** | **stop**: `halt_run(CALLER_STOP)` with the error as evidence (for `DurabilityUnknown` #1392 has already written the marker); do not re-derive |
 
-  If stopping itself needs a commit that the store cannot accept (e.g. at the capacity bound outside a Decision state, R-033), the Run is left for Human handling; this residual is in the handoff
+  Because the stop is persisted by the halt marker, a #1395 restart sees `RunHalted` and cannot resume a stopped Run, even outside a Decision state (R-033 residual closed). The re-derivation counters live in #1395's memory; a crash resets them, so repeated crashes are bounded only by #1395's own restart policy (residual, handoff)
 - external side effects that are not recorded in the stream (e.g. starting a worker before any event says so) can be repeated by re-derivation; #1395 must record intent before acting or treat such effects as idempotent (residual, handoff)
-- a resent `create_run` for an existing Run gets `RunAlreadyExists` with zero mutation; the caller loads and compares
+- a resent `create_run` for an existing Run gets `RunAlreadyExists` with zero mutation; the caller loads and re-derives from the stream (if the existing Run's `plan_contract_bound` binding differs from what the caller intended, that is a deterministic mismatch: stop)
 - [Dependency] TASK-1391 plan:81 says "exact retry is handled at #1392 transaction/idempotency layer". It needs the wording "#1392's CAS on revision and position rejects it" (requested on #1391). A dedicated idempotency slice may add replay later
 
 ### create_run
@@ -151,7 +164,7 @@ Under exclusive lock:
    - append `state_transitioned` as final event of transaction
    - event-level `revision` is the **new revision**; earlier events in the same transaction retain the pre-transition revision
 10. build the new file = old envelopes + one envelope `kind=commit` holding this transaction's events
-11. write temp in same directory, at the fixed name `<safe-run-id>.json.tmp` (no random names; any other file whose name starts with `<safe-run-id>.` besides `.lock`, `.json` and `.json.tmp` is rejected, so ST-20 cleanup is deterministic; other Runs' files in the same `runtime_root` are not affected)
+11. write temp in same directory, at the fixed name `<safe-run-id>.json.tmp` (no random names; any other file whose name starts with `<safe-run-id>.` besides `.lock`, `.json`, `.json.tmp`, `.halt` and `.halt.tmp` is rejected, so ST-20 cleanup is deterministic; other Runs' files in the same `runtime_root` are not affected)
 12. flush + fsync temp
 13. `os.replace(temp, target)`
 14. fsync parent directory
@@ -168,7 +181,7 @@ If the request is **ahead**: reject `InvalidExpectedRevision` with zero mutation
 If the request is **stale**:
 - do not apply requested drafts/state transition
 - if the Run is still non-terminal and the Conflict evidence bound allows it, append a `state_conflict` evidence event in a separate atomic snapshot commit using actual current revision and next event_seq, in one envelope `kind=conflict` holding exactly that event; its payload (#1392-owned) carries `expected_revision`, `actual_revision`, `expected_position`, `actual_position`
-- if the Run is already terminal, do not append after terminality; return terminal/stale error without mutating the snapshot
+- if the Run is already terminal, do not append after terminality; return `RunTerminal` without mutating the snapshot
 - raise/return RevisionConflict (`STATE_CONFLICT`) containing the conflict `event_ref`, or `conflict_evidence="suppressed"` when not recorded
 - state revision remains unchanged
 
@@ -203,7 +216,7 @@ Expected:
 
 ### Durable read (R-061)
 
-`load_run` takes the run lock, fsyncs the parent directory (with the platform flush of Durability definition), and only then reads and returns the snapshot. If no snapshot exists it returns `RunNotFound` (R-066). The lock wait is bounded by `LOCK_WAIT_TIMEOUT` (provisional, fixed by fixture); on timeout it returns `RuntimeBusy` without reading. `load_run` creates the lock file if missing, so `runtime_root` must be writable even for reads; a read-only root fails closed (`runtime_unwritable`) (R-068). A snapshot that was replaced but whose directory entry was not yet flushed (writer crashed between steps 13 and 14) is therefore made durable before anyone can act on it; if the flush fails, `load_run` fails closed. Without this, a caller could read the new snapshot, perform an external side effect, and then lose that snapshot to an OS crash (ST-19a).
+`load_run` takes the run lock, returns `RunHalted` if a halt marker exists, fsyncs the parent directory (with the platform flush of Durability definition), and only then reads and returns the snapshot. The guarantee is "**durable unless a halt marker says otherwise**": after a `DurabilityUnknown`, the marker stops every later read, because a later successful flush is not proof (R-075). If no snapshot exists it returns `RunNotFound` (R-066). The lock wait is bounded by `LOCK_WAIT_TIMEOUT` (provisional, fixed by fixture); on timeout it returns `RuntimeBusy` without reading. `load_run` creates the lock file if missing, so `runtime_root` must be writable even for reads; a read-only root fails closed (`runtime_unwritable`) (R-068). A snapshot that was replaced but whose directory entry was not yet flushed (writer crashed between steps 13 and 14) is therefore made durable before anyone can act on it; if the flush fails, `load_run` fails closed. Without this, a caller could read the new snapshot, perform an external side effect, and then lose that snapshot to an OS crash (ST-19a).
 
 No separate WAL is required because the whole Run (events and envelopes) is one replace unit.
 
@@ -222,7 +235,9 @@ Flush failure by step (R-067):
 | failing step | state on disk | result |
 |---|---|---|
 | temp file flush (step 12), before replace | old snapshot authoritative | `runtime_unwritable`; zero mutation |
-| directory flush (step 14), after replace | the new snapshot is visible but its durability is unknown | `DurabilityUnknown`; #1395 stops the Run (not re-derived). A later successful flush is **not** proof of durability: on Linux a writeback error is reported once, so a later `fsync` on a new descriptor can succeed although data was lost. The residual is stated in the handoff |
+| directory flush (step 14), after replace | the new snapshot is visible but its durability is unknown | #1392 writes the halt marker (`DURABILITY_UNKNOWN`) and returns `DurabilityUnknown`. A later successful flush is **not** proof of durability (on Linux a writeback error is reported once, so a later `fsync` on a new descriptor can succeed although data was lost), so every later call gets `RunHalted` until a Human inspects the Run |
+| `create_run` directory flush, after replace | same as above | same as above |
+| `load_run` directory flush | unchanged | `RuntimeUnwritable`; nothing is returned |
 
 What a successful response guarantees: the new snapshot survives process crash and OS crash. Power loss is covered only to the extent the storage device honours the flush above; this slice does not claim more. Fault injection (Crash semantics) covers the process-crash points; OS / power-loss behaviour is out of test scope and stated as a residual risk in the handoff.
 
@@ -276,6 +291,7 @@ Proposed:
 ```python
 create_run(runtime_root, run_id, binding, plan_event_draft) -> CommitResult
 load_run(runtime_root, run_id) -> Snapshot
+halt_run(runtime_root, run_id, reason, evidence) -> None
 commit(
     runtime_root,
     run_id,
@@ -288,6 +304,8 @@ commit(
 ```
 
 `Snapshot` is the loaded view: the derived RunState, the event stream and the derived per-transaction results. `Snapshot` exposes the derived `revision` and `position` that the caller passes back as its CAS token. `CommitResult = {snapshot, transaction}` where `transaction` is the derived result of the envelope this call wrote (`generation`, `first_event_seq`, `last_event_seq`, `result_revision`).
+
+Outcomes (closed set, R-072; the snake_case codes used elsewhere in this plan are the same outcomes): success, `RunNotFound`, `RunAlreadyExists`, `RunHalted`, `RunTerminal`, `StateConflict` (`STATE_CONFLICT`, with `conflict_evidence` recorded or `suppressed`), `InvalidExpectedRevision`, `SnapshotCapacityExceeded`, `ValidationRejected`, `SnapshotInvalid`, `RuntimeBusy`, `RuntimeUnwritable` (`runtime_unwritable`, incl. ENOSPC), `RuntimePathChanged` (`runtime_path_changed`), `DurabilityUnknown`. Every outcome is mapped in the #1395 table above; an unexpected exception is treated as the stop class.
 
 No CLI in this slice.
 

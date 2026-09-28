@@ -321,3 +321,29 @@ Round note (§7-quater): the core guarantees were not broken in R7; the new clas
 | R-068 | reflected | (C-2 R7 commit) | |
 | R-069 | reflected | (C-2 R7 commit) | |
 | R-070 | reflected | (C-2 R7 commit) | residual |
+
+## C-2 round 8 (2026-09-28 / reviewed head `6bbdfeea`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. **Split verdict**: design lane "converged, no new class"; adversarial lane "one new class". The organizer checked the adversarial claim against the file: plan.md:101 derived `create_run` on every `RunNotFound`, so the class is real (created by the R-066 fix). Both lanes: the two core guarantees still held.
+
+Verdict: **fix needed; not converged.** Three findings share one cause — "stopped", "durability unknown" and "this Run existed" could not survive a restart. The Human decided where to keep them.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-071 | organizer (common cause) | — | stop / unknown-durability / observed-Run states had no durable home | — | **Human decision: #1392 halt marker** `<run-id>.halt` (lock, flush, replace; `RunHalted` for every call until a Human removes it; `halt_run` API) |
+| R-072 | adversarial | major | #1392 outcomes not all classified (strict-load reject, load flush failure, ENOSPC, terminal stale, unexpected exception, create flush failure); no default row | R-065 fix incomplete | reflected: closed outcome set with names; default stop row; ST-49 |
+| R-073 | adversarial | major | `RunNotFound` always derived `create_run`, so a deleted snapshot or a wrong root restarts the Run from scratch | new (from R-066) | reflected: create only for a run_id #1395 just issued and never loaded; otherwise `halt_run(RUN_MISSING)`; ST-48b |
+| R-074 | both | minor | `RuntimeBusy` counted with the per-position re-derive limit, which cannot count before a position is read | R-065 / R-068 fix incomplete | reflected: retry the same call, `MAX_BUSY_RETRIES` per call, then halt |
+| R-075 | both | major | after `DurabilityUnknown`, a later `load_run` whose flush succeeds returned the snapshot although a later success is not proof | R-067 fix incomplete | reflected: #1392 writes the `DURABILITY_UNKNOWN` marker before returning; guarantee reworded "durable unless a halt marker says otherwise"; ST-48a |
+| R-076 | adversarial | minor | canon §4 recovery paragraph contradicted itself and differed from the plan's list; stopped state not persisted outside Decision states; TC gaps (unknown `kind`, create `RuntimeBusy`, error names in ST-19a / 30b / 40) | R-060 wording / R-033 | reflected: canon paragraph rewritten, halt principle added; TCs updated |
+
+Residual threat model proposed by the design lane (recorded for C-3): protected — double commit with the same token within one `runtime_root` (#1392 lock + revision/position CAS), flush before a success response (#1392); not protected — split-brain across roots, a writer who can replace the snapshot, devices that ignore flush; recovery and external side effects — #1395 re-derivation and intent / receipt contract.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-071 | reflected | (C-2 R8 commit) | Human decision |
+| R-072 | reflected | (C-2 R8 commit) | |
+| R-073 | reflected | (C-2 R8 commit) | #1395 handoff |
+| R-074 | reflected | (C-2 R8 commit) | |
+| R-075 | reflected | (C-2 R8 commit) | canon |
+| R-076 | reflected | (C-2 R8 commit) | canon |

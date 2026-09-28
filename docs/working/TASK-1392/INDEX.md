@@ -21,12 +21,13 @@ C-2
 > - **C-2 R5**（R-054〜R-059）: **要是正・未収束**（新クラス 4 件、すべて記述で閉じる。同じ token での二重確定は全経路で起きないことを確認）→ **Human 決定: 応答を失ったときの回復は単一 writer を前提（R-054）**。反映済み
 > - **C-2 R6**（R-060〜R-064）: **要是正・未収束**（R5 の回復規則から新クラス 3 件、load の耐久性）→ **Human 決定: 回復規則を捨て、#1395 が stream から次の action を導き直す（R-060）**。`load_run` は lock + dir fsync の後に返す（R-061）。反映済み
 > - **C-2 R7**（R-065〜R-070）: **要是正・未収束**（新クラスはすべて #1395 の回復契約の記述と非機能面。記述で閉じた。残る 2 つの保証は全入力列で破れず）。反映済み
+> - **C-2 R8**（R-071〜R-076）: **要是正・未収束**（判定分裂: 設計レーン=収束 / 敵対レーン=新クラス 1。実ファイルで新クラスを確認）→ **Human 決定: #1392 に halt marker を追加（R-071）**。結果の閉じた一覧と既定の停止行も追加。反映済み
 > - C-1 は R4 / R5 の反映後に再実行済みで、判定は **PASS with WARN**（`review-self.md`）
 > - C-2 は §7-quater に従い、新しい失敗クラスが出なくなるまで続ける（回数は固定しない）
 
 ## 次のアクション
 
-1. C-2 R8: R7 の是正（エラーの分類・RunNotFound・flush 失敗・lock の待ち上限）を疑う
+1. C-2 R9: R8 の是正（halt marker・結果の閉じた一覧・create を導く条件）を疑う
 2. Human C-3（[P1] WAL なしの単一 snapshot と容量上限・durability 定義 / [P2] CAS 保証を同一 `runtime_root` 内に限る扱い / 暫定値 `MAX_*` の確定方法）
 3. exec は #1391 が consumable になり（todo Preflight の条件）、#1329 preflight を通ってから
 
@@ -39,7 +40,7 @@ C-2
 | todo.md | exec | タスク一覧・進捗（Preflight に #1391 consumable の条件） |
 | test-cases.md | exec, review | テストケース定義（ST-01〜ST-46。取り下げた ST は冒頭の注記を参照） |
 | review-self.md | C-3, review | C-1 結果（最新の節が有効） |
-| review-external.md | C-3, review | R-001〜R-070 と Human 決定（追記専用） |
+| review-external.md | C-3, review | R-001〜R-076 と Human 決定（追記専用） |
 | current-state.md | status, 復旧 | 現在状態スナップショット |
 | decision-log.jsonl | 監査, 振返り | 判断履歴（append-only） |
 
