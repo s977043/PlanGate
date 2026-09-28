@@ -255,5 +255,5 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-059〜R-069 | reflected（Revision 2.3） | `b33f6879` | R-059 / R-060 / R-065 は #1422 側の追記（B-12・B-8・B-2）が Human 承認待ち |
 | R-055 | reflected（Revision 2.4、Human 決定 2026-09-28） | `343245c4` | DENIED は required FAIL があっても stop / BLOCKED |
 | R-058 | reflected（Human 決定 2026-09-28） | `343245c4` | #1402 本文 Closes → Refs（issuecomment-5862093188）。#1422 に B-12 追加・B-8 / B-2 拡張 |
-| R-070, R-072〜R-080 | reflected（Revision 2.5） | 次の commit | C-2 R2。#1422 B-1 表記 / B-13 の追記は Human 承認待ち |
+| R-070, R-072〜R-080 | reflected（Revision 2.5） | `3fd00ebf` | C-2 R2。#1422 B-1 表記 / B-13 の追記は Human 承認待ち |
 | R-071 | open | — | Human y/n（pbi-input Required 3 の文言） |
