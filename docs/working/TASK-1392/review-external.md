@@ -425,3 +425,36 @@ Residual threat model (design lane): protected — same-token double commit with
 | R-092 | reflected | (C-2 R11 commit) | handoff |
 | R-093 | reflected | (C-2 R11 commit) | handoff |
 | R-094 | reflected | (C-2 R11 commit) | |
+
+## C-2 round 12 (2026-09-28 / reviewed head `ed6da155`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. **Both lanes: converged, no new failure class.** Remaining findings were fix leaks of known classes (ST-39 type at the root level, R-085 type, R-090 wording), closed by specification.
+
+Process note: the design lane reported that it once searched a Codex memory registry outside the working directory, against the read-only instruction; it states that the result was not used for the review. No files, git or GitHub were written.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-095 | adversarial | major | the per-call directory descriptor was not the one used for the lock and for snapshot access, and path-based `os.replace` could follow a replaced root; moving and copying `runtime_root` during a call let two writers commit with the same token and a success be flushed on the wrong inode | ST-39 type (root level) | reflected: one descriptor opened at call start, every access relative to it; after the lock, `lstat(root)` vs `fstat(dirfd)` → `RuntimePathChanged`; later replacement = operator error (residual); ST-39a |
+| R-096 | adversarial | minor | "Linux ≥ 4.13 only" conflicted with "fail closed if required semantics are missing"; canon's read guarantee lacked the qualifier | R-090 wording | reflected: per-descriptor reporting is not a required semantic; other platforms supported with a stated residual; canon qualified; availability note (one I/O error can halt all active Runs) |
+| R-097 | adversarial | minor | flush failure after removing a lone `.pending.tmp` undefined | R-085 type | reflected: `RuntimeUnwritable`, do not proceed; ST-18g |
+| R-098 | adversarial | minor | ST-50 relied on kernel fault injection outside the test scope and covered only commit | TC | reflected: ST-50 is a structural spy test over all paths; kernel injection moved to optional ST-50a |
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-095 | reflected | (C-2 R12 commit) | handoff |
+| R-096 | reflected | (C-2 R12 commit) | canon |
+| R-097 | reflected | (C-2 R12 commit) | |
+| R-098 | reflected | (C-2 R12 commit) | |
+
+## C-2 convergence (2026-09-28)
+
+C-2 converged at round 12 by the §7-quater criterion: in R12 neither lane found a new failure class. Twelve rounds, two lanes each (design: Codex `gpt-5.6-sol` in R1, `gpt-6-sol` from R1 onward; adversarial / codebase: independent Claude agents), findings R-017〜R-098. Completeness is **not** claimed; this review is one layer of defence.
+
+The layers that produced new classes round after round were removed or replaced rather than patched further, by Human decision: stored derived state (→ model B, R-017), idempotency (→ removed, CAS on revision + position, R-046 / R-049), the landed-check rule (→ #1395 re-derivation, R-060). Stop / unknown-durability states were given a durable home (halt marker R-071, pending marker R-077).
+
+Residual threat model (for C-3):
+
+- **Protected** (guarantor #1392): no double commit with the same CAS token within one `runtime_root` inode; a success response only after the snapshot and its directory entry are flushed; a snapshot whose durability is unknown is never returned without halting; stop / unknown durability / missing Run persist across restarts once the marker is durable
+- **Not protected**: split-brain across different roots; moving or replacing the root during a call (checked once after the lock); anyone who can write the root deleting markers or tampering with snapshots (`snapshot_ref` is unkeyed); devices that ignore flush, and power loss beyond what flush guarantees; cross-Run consumption of a directory flush error on platforms without per-descriptor error reporting (macOS, Linux < 4.13); external side effects not recorded in the stream; loss of a stop if `halt_run` fails and #1395 restarts; #1395 counters reset by crashes
+- **Availability costs accepted**: a writer crash between the pending write and a successful step 14 always halts the Run for a Human; one I/O error on the shared directory can halt every concurrently active Run; 5 flushes per commit (performance fixture decides)
+- **Other guarantors**: #1395 (re-derivation from the stream, retry limits, durable run_id and intent records, persisting stops via `halt_run`); Human (root operation, unhalt procedure, restore); #1391 (event validation, binding segments, payload bounds — Preflight); C-4 review; implementation-time fault injection (not yet run — this is a plan-level review)

@@ -11,7 +11,9 @@ V2 RunState の revision CAS と accepted RunEvent の durable commit を、1 �
 
 ## 現在のフェーズ
 
-C-2
+C-3 待ち
+
+> **C-2 は R12 で収束（両レーンとも新しい失敗クラスなし、2026-09-28）。** 残存脅威モデルは `review-external.md` の「C-2 convergence」節。以下は経緯。
 
 > - PR 独立レビュー（R-001〜R-004）とその敵対レビュー（R-005〜R-009）、Codex 相談（R-010〜R-013）、#1407 からの依頼（R-014〜R-016）を反映済み
 > - **C-2 R1**（R-017〜R-028）: 設計レーン 2 モデルとも B を推奨 → **Human 決定: R-017 = モデル B / R-023 = #1402 から run_state を外す**。canon §4 と pbi-input を改訂済み
@@ -25,14 +27,17 @@ C-2
 > - **C-2 R9**（R-077〜R-083）: **要是正・未収束**（判定分裂: 設計レーン=新クラス / 敵対レーン=収束。両レーン共通で step 14 失敗〜marker 永続化の crash の窓）→ **Human 決定: replace 前に pending marker を書く（R-077）**。marker の判定・lock 後検査・halt_run の結果・Human の解除手順も追加。反映済み
 > - **C-2 R10**（R-084〜R-089）: **要是正**（判定分裂: 設計レーン=新クラス 1（記述で閉じる）/ 敵対レーン=収束。両レーンとも設計変更不要。pending の全段階でコア保証は破れず）。記述で閉じ、`load_run` の flush を削除（オーガナイザー判断、R-089）。反映済み
 > - **C-2 R11**（R-090〜R-094）: **要是正**（判定分裂: 設計レーン=収束 / 敵対レーン=新クラス 1（Run 間で共有するディレクトリの flush エラー消費）。両レーンとも設計変更不要）→ **Human 決定: 1 回の呼び出しの dir flush は事前に開いた 1 つの dirfd で行う（R-090）**。反映済み
-> - C-1 は R4 / R5 の反映後に再実行済みで、判定は **PASS with WARN**（`review-self.md`）
-> - C-2 は §7-quater に従い、新しい失敗クラスが出なくなるまで続ける（回数は固定しない）
+> - **C-2 R12**（R-095〜R-098）: **収束**（両レーンとも新しいクラスなし）。是正漏れ（root の差し替え検出・dirfd への束縛・対象 OS の位置づけ・tmp 残骸の flush 失敗）を記述で閉じた
+> - C-1 は R12 の反映後に再実行済みで、判定は **PASS with WARN**（WARN は C-3 の判断事項。`review-self.md`）
 
 ## 次のアクション
 
-1. C-2 R12: R11 の是正（1 つの dirfd・halt 書き込み失敗時の結果・halt_run の busy 上限・復元時の file flush）を疑う
-2. Human C-3（[P1] WAL なしの単一 snapshot と容量上限・durability 定義 / [P2] CAS 保証を同一 `runtime_root` 内に限る扱い / 暫定値 `MAX_*` の確定方法）
-3. exec は #1391 が consumable になり（todo Preflight の条件）、#1329 preflight を通ってから
+1. **Human C-3**。判断事項:
+   - [P1] WAL なしの単一 snapshot（モデル B）と、容量上限・durability の定義・flush 回数（commit あたり 5 回）
+   - [P2] CAS の保証を同じ `runtime_root` の中に限る扱い
+   - 暫定値（`MAX_EVENTS_PER_RUN` / `MAX_SNAPSHOT_BYTES` / `TERMINAL_RESERVE` / `MAX_CONFLICTS_PER_POSITION` / `LOCK_WAIT_TIMEOUT` / `MAX_REDERIVE_PER_POSITION` / `MAX_BUSY_RETRIES` / `MAX_HALT_BUSY_RETRIES`）を fixture で確定する進め方
+   - 残存脅威モデルの受け入れ（とくに Linux 4.13 未満・macOS での Run 間の flush エラー消費）
+2. C-3 承認後も、exec は #1391 が consumable になり（todo Preflight の条件）、#1329 preflight を通ってから
 
 ## ファイルマップ（読み込み優先度）
 
@@ -43,7 +48,7 @@ C-2
 | todo.md | exec | タスク一覧・進捗（Preflight に #1391 consumable の条件） |
 | test-cases.md | exec, review | テストケース定義（ST-01〜ST-46。取り下げた ST は冒頭の注記を参照） |
 | review-self.md | C-3, review | C-1 結果（最新の節が有効） |
-| review-external.md | C-3, review | R-001〜R-094 と Human 決定（追記専用） |
+| review-external.md | C-3, review | R-001〜R-098、Human 決定、残存脅威モデル（追記専用） |
 | current-state.md | status, 復旧 | 現在状態スナップショット |
 | decision-log.jsonl | 監査, 振返り | 判断履歴（append-only） |
 

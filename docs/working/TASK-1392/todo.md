@@ -20,10 +20,11 @@
 - [x] C-2 round 9 (R-077〜R-083; split verdict; Human: pending marker before replace)
 - [x] C-2 round 10 (R-084〜R-089; split verdict, no design change; closed by specification)
 - [x] C-2 round 11 (R-090〜R-094; split verdict; Human: one directory descriptor per call)
-- [ ] C-2 round 12 and later: continue until no new failure class appears (review-principles §7-quater)
+- [x] C-2 round 12 (R-095〜R-098): **converged** — no new failure class in either lane; residual threat model recorded
+- [ ] #1395 handoff also: root must not be moved or replaced while Runs are active (R-095); one I/O error on the shared directory can halt all concurrently active Runs (R-096)
 - [ ] #1395 handoff (source of truth = the outcome table in plan "Retry after a lost response"): lost response / own crash / `StateConflict` / `RunAlreadyExists` → discard, `load_run`, re-derive from the stream (≤ `MAX_REDERIVE_PER_POSITION`); `RuntimeBusy` → retry the same call (≤ `MAX_BUSY_RETRIES`); `RunNotFound` from `load_run` → `create_run` only for a run_id never successfully created or loaded, else `halt_run(RUN_MISSING)`; `RunNotFound` from `commit` → `halt_run(RUN_MISSING)`; `RunHalted` → stop; everything else → `halt_run(CALLER_STOP)`; stopping completes only when `halt_run` succeeds (busy retried; other failures → Human, never auto-resume); record issued / observed run_ids and intents durably; never resend old drafts with a re-read token; Human unhalt procedure per reason (incl. pending-only and file flush of restored snapshots); `halt_run` busy bounded by `MAX_HALT_BUSY_RETRIES`, then Human; do not interrupt a commit with #1395's own timeouts or signals (a kill between the pending write and step 14 always halts the Run) (R-060 / R-065〜R-067 / R-072〜R-074 / R-080〜R-082 / R-091〜R-094)
 - [x] reflect Codex consultation: durability definition / size bound / CAS scope / initial state
-- [ ] Human C-3 (incl. [P1] no-WAL single snapshot / [P2] trusted runtime_root)
+- [ ] Human C-3 (incl. [P1] no-WAL single snapshot, bounds, durability definition, 5 flushes per commit / [P2] CAS scope limited to one `runtime_root` / provisional constants to be fixed by fixtures / acceptance of the residual threat model)
 
 ## Preflight
 - [x] Human decisions R-017 (model B) / R-023 (#1402 run_state excluded) / R-029 (conflicts outside idempotency) / R-034 (Replan re-binding) / R-043 (ask #1391 for re-binding) / R-046 (no idempotency in the first slice) / R-049 (CAS on revision + position) — 2026-09-25

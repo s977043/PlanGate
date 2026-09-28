@@ -2,36 +2,32 @@
 
 > 更新: 2026-09-28
 
-## フェーズ: C-2
-## 進捗: plan はモデル B・冪等性なし・CAS = revision + position / C-2 R1〜R5 実施済み（未収束）/ C-1 再実行済み / C-3 未到達
+## フェーズ: C-3 待ち
+## 進捗: C-2 は R12 で収束（両レーンとも新しい失敗クラスなし）/ C-1 再実行済み（PASS with WARN）/ C-3 未実施
 
 ## 直近の完了タスク
 
-- C-2 R11 の指摘 R-090〜R-094 と Human 決定（1 回の呼び出しの dir flush は 1 つの dirfd で）を反映（2026-09-28）
-- C-2 R10 の指摘 R-084〜R-089 を反映（記述で閉じた。load_run の flush を削除）（2026-09-28）
-- C-2 R9 の指摘 R-077〜R-083 と Human 決定（replace 前に pending marker を書く）を反映（2026-09-28）
-- C-2 R8 の指摘 R-071〜R-076 と Human 決定（#1392 に halt marker を追加）を反映（2026-09-28）
-- C-2 R7 の指摘 R-065〜R-070（#1395 の回復契約のエラー分類・RunNotFound・flush 失敗・lock の待ち上限）を反映（2026-09-28）
-- C-2 R6 の指摘 R-060〜R-064 と Human 決定（回復規則を捨て #1395 が stream から導き直す / load は耐久性確定後に返す）を反映（2026-09-28）
-- C-2 R5 の指摘 R-054〜R-059 を反映（2026-09-28。R-054 の回復規則は R-060 で撤回）
-- C-2 R4: 冪等性を first slice から外し、CAS を revision + position に（2026-09-25）
+- C-2 R12: 両レーン収束。是正漏れ R-095〜R-098 を記述で閉じ、残存脅威モデルを記録（2026-09-28）
+- C-2 R1〜R11（R-017〜R-094）と Human 決定の反映（2026-09-25〜28。経緯は INDEX と review-external）
 
 ## 現在のタスク
 
-- なし（C-2 R12 待ち）
+- なし（Human C-3 待ち）
 
 ## ブロッカー
 
-- exec は #1391 consumable（todo Preflight の条件。再束縛の区切り・bound_context・plan:81 の文言など）と #1329 preflight 待ち
+- C-3（Human）
+- exec は #1391 consumable（todo Preflight の条件: API、binding キーの位置、再束縛の区切り、decision_made の payload、plan:81 の文言など）と #1329 preflight 待ち
 
 ## 次のアクション
 
-- C-2 R12 → 新クラスが出なくなったら Human C-3
+- Human C-3（判断事項は INDEX の「次のアクション」）
 
-## 計画からの乖離
+## 計画からの乖離（C-2 の Human 決定による設計変更）
 
-- 永続化モデルを A から B（envelope `kind` + events のみ保存）へ変更（R-017）
-- 冪等性（transaction_id / replay）を first slice から外し、再送の二重確定は revision + position の CAS で防ぐ（R-046 / R-049）
-- 応答を失ったときの回復は #1392 の規則ではなく、#1395 が stream から次の action を導き直す契約にする（R-060。R-054 を置き換え）
-- `load_run` は lock を取り、halt / pending を確認してから返す（R-061。自身の dir flush は R-089 で削除）
-- 1 回の呼び出しの dir flush は、最初の変更の前に開いた 1 つの dirfd で行う（R-090）
+- 永続化モデルを A から B（envelope `kind` + events のみ保存、ほかは導出）へ変更（R-017）
+- 冪等性（transaction_id / replay）を first slice から外し、CAS を revision + position に（R-046 / R-049）
+- 応答を失ったときの回復は #1395 が stream から導き直す契約（R-060）
+- halt marker と pending marker で停止・耐久性不明・Run の消失を永続化（R-071 / R-077）
+- 1 回の呼び出しは 1 つの dirfd に束ね、root の同一性を lock 後に照合（R-090 / R-095）
+- `load_run` 自身の dir flush は削除（R-089）

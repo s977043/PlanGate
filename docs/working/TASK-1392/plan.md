@@ -48,7 +48,7 @@ Applies to **every path that replaces the snapshot**: `create_run`, `commit`, an
 4. **Failure**: write the halt marker (`DURABILITY_UNKNOWN`), then return `DurabilityUnknown`
 
 Every operation except `halt_run`, after taking the lock and checking the halt marker, resolves a pending marker (presence by `lstat`, as for the halt marker):
-- only `.pending.tmp` exists: residue from a crash before step 1 finished; nothing was replaced — remove it, flush the directory, proceed (R-087)
+- only `.pending.tmp` exists: residue from a crash before step 1 finished; nothing was replaced — remove it, flush the directory, proceed (R-087). If that flush fails, return `RuntimeUnwritable` and do not proceed (R-097)
 - the current snapshot's `snapshot_ref` equals `old_snapshot_ref` (or there is no snapshot and `old_snapshot_ref` is null): the replace never happened — remove `.pending`, flush the directory, proceed. If that flush fails, return `RuntimeUnwritable` and **do not proceed** (the next call resolves again) (R-085)
 - otherwise (it equals `new_snapshot_ref`, or anything else, or `.pending` is unreadable): the replace happened but its durability is unknown — write the halt marker (`DURABILITY_UNKNOWN`), leave `.pending` in place for the Human, and return `RunHalted`. If writing the halt marker fails, still return `RunHalted` (reason `DURABILITY_UNKNOWN`, from the pending marker): the leftover pending marker halts every later call in the same way (R-091)
 
@@ -272,7 +272,11 @@ Flush failure by step (R-067):
 | pending removal directory flush, after a successful step 14 | new snapshot durable; the removal may not be | success is returned; if a crash undoes the removal, the next call halts conservatively (R-085) |
 | directory flush while resolving a pending marker that matches the old ref | old snapshot authoritative | `RuntimeUnwritable`; the call does not proceed; the next call resolves again (R-085) |
 
-**One directory descriptor per call** (Human decision R-090): all Runs share the `runtime_root` directory inode while locks are per Run, so a directory-flush error could be reported to another Run's concurrent flush and then not to this Run (a writeback error is reported once per descriptor state; a descriptor opened later may see success). Every #1392 call therefore opens **one** directory descriptor for `runtime_root` **before its first mutation** (before writing the pending marker or any temp file) and uses that same descriptor for every directory flush in the call. On Linux ≥ 4.13 an error is reported to every descriptor that was open when it occurred, so this Run's step 14 observes it even if another Run consumed it first. On platforms without that per-descriptor guarantee the cross-Run window remains a residual risk (stated in the handoff; ST-50).
+**One directory descriptor per call** (Human decision R-090): all Runs share the `runtime_root` directory inode while locks are per Run, so a directory-flush error could be reported to another Run's concurrent flush and then not to this Run (a writeback error is reported once per descriptor state; a descriptor opened later may see success). Every #1392 call therefore opens **one** directory descriptor for `runtime_root` at the **start of the call** (before taking the lock and before any mutation) and uses that same descriptor for everything in the call: opening the lock file, every open / read / write / replace / unlink relative to it (`dir_fd=` / `*at` calls; no path-based access), and every directory flush. On Linux ≥ 4.13 an error is reported to every descriptor that was open when it occurred, so this Run's step 14 observes it even if another Run consumed it first.
+
+**Root identity** (R-095): after taking the lock, #1392 compares `lstat(runtime_root)` with `fstat(dirfd)` (`st_dev`, `st_ino`); if they differ (the root was moved or replaced), release and return `RuntimePathChanged` with zero mutation. Because every later operation goes through the same descriptor, a replacement of the root after this check cannot split two writers across two inodes within the call; such a replacement is an operator error outside the guarantee (residual, handoff; ST-39).
+
+**Platform scope** (R-096): the per-descriptor error reporting above is **not** one of the "required semantics" that make #1392 fail closed at `create_run` (Durability definition): macOS and Linux < 4.13 are supported, and on them the cross-Run error-consumption window is a stated residual risk. A shared directory error is observed by every Run whose descriptor was open, so one I/O error can halt all concurrently active Runs (fail closed; availability residual, handoff).
 
 What a successful response guarantees: the new snapshot survives process crash and OS crash. Power loss is covered only to the extent the storage device honours the flush above; this slice does not claim more. Fault injection (Crash semantics) covers the process-crash points; OS / power-loss behaviour is out of test scope and stated as a residual risk in the handoff.
 
@@ -317,7 +321,7 @@ POSIX first slice:
 - every lock acquisition (`create_run`, `commit`, `load_run`, `halt_run`) re-checks the lock inode as above and waits at most `LOCK_WAIT_TIMEOUT` and otherwise returns `RuntimeBusy` with zero mutation (R-068)
 - lock file is not Run truth
 
-If runtime platform lacks required locking/fsync semantics, fail closed rather than silently weakening.
+If runtime platform lacks required locking/fsync semantics (`flock`, the flush primitives of Durability definition, `*at` calls with `dir_fd`), fail closed rather than silently weakening. Per-descriptor error reporting is not in this list (Platform scope, R-096).
 
 ## Integration API
 

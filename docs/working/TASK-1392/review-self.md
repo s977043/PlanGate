@@ -245,3 +245,16 @@ Verdict: PASS with WARN.
 | open decisions | WARN — [P1] / [P2] / provisional constants / flush cost (Human C-3) |
 
 Verdict: PASS with WARN.
+
+## C-1 final re-run after C-2 convergence (2026-09-28)
+
+| item | result |
+|---|---|
+| every access in a call bound to one directory descriptor; root identity checked after the lock | PASS (R-095, ST-39a / ST-50) |
+| platform scope stated consistently (plan, canon) | PASS (R-096) |
+| every flush failure has a defined result | PASS (R-097) |
+| TCs within the declared test scope | PASS (R-098) |
+| C-2 converged with a recorded residual threat model | PASS (review-external "C-2 convergence") |
+| open decisions | WARN — for Human C-3: [P1] model B / bounds / durability / flush cost; [P2] CAS scope per root; provisional constants; acceptance of the residual threat model |
+
+Verdict: **PASS with WARN** — ready for Human C-3.
