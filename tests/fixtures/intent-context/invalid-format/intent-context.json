@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "context_id": "CTX-TASK-1389-BAD-DATE",
+  "task_id": "TASK-1389",
+  "created_at": "not-a-date-time",
+  "resolver_version": "intent-context/1.0.0",
+  "intent": {
+    "summary": {
+      "statement_id": "INT-001",
+      "text": "format-check integration fixture",
+      "source_ids": ["SRC-001"]
+    },
+    "desired_outcomes": [],
+    "non_goals": []
+  },
+  "sources": [
+    {
+      "source_id": "SRC-001",
+      "kind": "pbi_input",
+      "ref": "docs/working/TASK-1389/pbi-input.md",
+      "revision_ref": "git:0123456789abcdef0123456789abcdef01234567",
+      "content_digest": null,
+      "authority": "authoritative",
+      "authority_basis": {
+        "kind": "artifact_contract",
+        "ref": "schemas/pbi-input.schema.json"
+      },
+      "freshness": "current",
+      "freshness_basis": {
+        "kind": "bound_revision",
+        "ref": "git:0123456789abcdef0123456789abcdef01234567"
+      },
+      "observed_at": "2026-09-23T10:39:00Z"
+    }
+  ],
+  "constraints": [],
+  "acceptance_inputs": [],
+  "assumptions": [],
+  "unknowns": [],
+  "conflicts": []
+}

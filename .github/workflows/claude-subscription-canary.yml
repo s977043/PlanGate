@@ -1,0 +1,377 @@
+name: Claude Subscription Read-Only Canary
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-subscription-read-only-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: Read-only OAuth subscription canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Enforce canary execution boundary
+        shell: bash
+        env:
+          CANARY_REF: ${{ github.ref }}
+          CANARY_ACTOR: ${{ github.actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          RUNNER_ENVIRONMENT_VALUE: ${{ runner.environment }}
+          RUNNER_DEBUG_VALUE: ${{ runner.debug }}
+          CLAUDE_CODE_OAUTH_TOKEN_VALUE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ "$CANARY_REF" != "refs/heads/main" ]; then
+            echo "::error::This canary may only run from refs/heads/main."
+            exit 1
+          fi
+
+          if [ "$CANARY_ACTOR" != "$REPOSITORY_OWNER" ]; then
+            echo "::error::This canary may only be dispatched by the repository owner."
+            exit 1
+          fi
+
+          if [ "$RUNNER_ENVIRONMENT_VALUE" != "github-hosted" ]; then
+            echo "::error::This canary requires a GitHub-hosted runner."
+            exit 1
+          fi
+
+          if [ "${RUNNER_DEBUG_VALUE:-}" = "1" ]; then
+            echo "::error::Debug logging is forbidden because Claude full output may be exposed."
+            exit 1
+          fi
+
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN_VALUE:-}" ]; then
+            echo "::error::CLAUDE_CODE_OAUTH_TOKEN is not configured."
+            exit 1
+          fi
+
+      - name: Checkout trusted source SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate source and workspace preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            echo "::error::Checked-out HEAD does not match workflow source SHA."
+            exit 1
+          fi
+
+          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            echo "::error::Workspace must be clean before the canary."
+            git status --short
+            exit 1
+          fi
+
+          for path in README.md docs/ai/core-contract.md; do
+            if [ ! -f "$path" ]; then
+              echo "::error::Required canary input is missing: $path"
+              exit 1
+            fi
+          done
+
+      - name: Prepare isolated Claude working directory
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          canary_dir="$RUNNER_TEMP/claude-subscription-canary"
+          rm -rf "$canary_dir"
+          mkdir -p "$canary_dir/docs/ai"
+
+          cp README.md "$canary_dir/README.md"
+          cp docs/ai/core-contract.md "$canary_dir/docs/ai/core-contract.md"
+
+          (
+            cd "$canary_dir"
+            sha256sum README.md docs/ai/core-contract.md > "$RUNNER_TEMP/claude-subscription-canary.sha256"
+            find . -type f -printf '%P\n' | LC_ALL=C sort > "$RUNNER_TEMP/claude-subscription-canary.files"
+          )
+
+      - name: Prepare isolated Claude home
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          claude_home="$RUNNER_TEMP/claude-home"
+          rm -rf "$claude_home"
+          mkdir -p "$claude_home"
+
+      - name: Run Claude read-only canary
+        id: claude
+        uses: anthropics/claude-code-action/base-action@9ca9355b36297178e28d37c799d1c9c8a28e6507
+        env:
+          HOME: ${{ runner.temp }}/claude-home
+          CLAUDE_WORKING_DIR: ${{ runner.temp }}/claude-subscription-canary
+          CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1"
+          CLAUDE_CODE_SKIP_PROMPT_HISTORY: "1"
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+          DISABLE_TELEMETRY: "1"
+          DISABLE_UPDATES: "1"
+          ANTHROPIC_BASE_URL: ""
+          ANTHROPIC_CUSTOM_HEADERS: ""
+          AWS_REGION: ""
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
+          AWS_BEARER_TOKEN_BEDROCK: ""
+          ANTHROPIC_BEDROCK_BASE_URL: ""
+          ANTHROPIC_VERTEX_PROJECT_ID: ""
+          CLOUD_ML_REGION: ""
+          GOOGLE_APPLICATION_CREDENTIALS: ""
+          ANTHROPIC_VERTEX_BASE_URL: ""
+          ANTHROPIC_FOUNDRY_RESOURCE: ""
+          ANTHROPIC_FOUNDRY_BASE_URL: ""
+          ANTHROPIC_MODEL: ""
+          ANTHROPIC_DEFAULT_SONNET_MODEL: ""
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: ""
+          ANTHROPIC_DEFAULT_OPUS_MODEL: ""
+          OTEL_METRICS_EXPORTER: ""
+          OTEL_LOGS_EXPORTER: ""
+          OTEL_EXPORTER_OTLP_PROTOCOL: ""
+          OTEL_EXPORTER_OTLP_ENDPOINT: ""
+          OTEL_EXPORTER_OTLP_HEADERS: ""
+          OTEL_RESOURCE_ATTRIBUTES: ""
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: "false"
+          prompt: |
+            This is a read-only subscription canary.
+
+            Read only these trusted files:
+            - README.md
+            - docs/ai/core-contract.md
+
+            Verify that both files are readable.
+            Do not modify files.
+            Do not execute shell commands.
+            Do not use network tools or access external content.
+            Do not use MCP tools.
+            Do not reproduce file contents verbatim.
+            Return only the structured result required by the JSON schema.
+          claude_args: >-
+            --restricted
+            --tools "Read"
+            --allowedTools "Read(README.md),Read(docs/ai/core-contract.md)"
+            --strict-mcp-config
+            --mcp-config '{"mcpServers":{}}'
+            --disallowedTools "mcp__*"
+            --permission-mode dontAsk
+            --permission-prompts none
+            --no-session-persistence
+            --disable-slash-commands
+            --max-turns 4
+            --json-schema '{"type":"object","additionalProperties":false,"required":["status","checked_files","summary"],"properties":{"status":{"type":"string","enum":["READ_ONLY_OK"]},"checked_files":{"type":"array","minItems":2,"maxItems":2,"uniqueItems":true,"items":{"type":"string","enum":["README.md","docs/ai/core-contract.md"]}},"summary":{"type":"string","maxLength":500}}}'
+
+      - name: Remove raw Claude execution log
+        if: always()
+        shell: bash
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          set -euo pipefail
+
+          candidate="${EXECUTION_FILE:-}"
+          if [ -z "$candidate" ]; then
+            candidate="$RUNNER_TEMP/claude-execution-output.json"
+          fi
+
+          case "$candidate" in
+            "$RUNNER_TEMP"/*)
+              ;;
+            *)
+              echo "::error::Refusing to remove execution log outside RUNNER_TEMP."
+              exit 1
+              ;;
+          esac
+
+          if [ -f "$candidate" ]; then
+            rm -f -- "$candidate"
+          fi
+
+          if [ -e "$candidate" ]; then
+            echo "::error::Raw Claude execution log still exists after cleanup."
+            exit 1
+          fi
+
+      - name: Verify pinned Claude Code version
+        shell: bash
+        env:
+          HOME: ${{ runner.temp }}/claude-home
+          DISABLE_UPDATES: "1"
+        run: |
+          set -euo pipefail
+
+          version="$(claude --version)"
+          case "$version" in
+            2.1.280*)
+              ;;
+            *)
+              echo "::error::Unexpected Claude Code version: $version"
+              exit 1
+              ;;
+          esac
+
+          printf 'CLAUDE_CODE_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+
+      - name: Validate sanitized structured output
+        shell: bash
+        env:
+          CLAUDE_CONCLUSION: ${{ steps.claude.outputs.conclusion }}
+          CLAUDE_STRUCTURED_OUTPUT: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          set -euo pipefail
+
+          if [ "$CLAUDE_CONCLUSION" != "success" ]; then
+            echo "::error::Claude base-action conclusion was not success."
+            exit 1
+          fi
+
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+
+          raw = os.environ.get("CLAUDE_STRUCTURED_OUTPUT", "")
+          if not raw:
+              print("::error::Missing structured output")
+              sys.exit(1)
+
+          if len(raw.encode("utf-8")) > 8192:
+              print("::error::Structured output exceeds 8 KiB")
+              sys.exit(1)
+
+          try:
+              data = json.loads(raw)
+          except json.JSONDecodeError:
+              print("::error::Structured output is not valid JSON")
+              sys.exit(1)
+
+          expected_files = {"README.md", "docs/ai/core-contract.md"}
+
+          if data.get("status") != "READ_ONLY_OK":
+              print("::error::Canary structured status is not READ_ONLY_OK")
+              sys.exit(1)
+
+          checked_files = data.get("checked_files")
+          if not isinstance(checked_files, list) or set(checked_files) != expected_files:
+              print("::error::Canary checked_files does not match the required set")
+              sys.exit(1)
+
+          digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+          github_env = os.environ.get("GITHUB_ENV")
+          if not github_env:
+              print("::error::GITHUB_ENV is unavailable")
+              sys.exit(1)
+
+          with open(github_env, "a", encoding="utf-8") as env_file:
+              env_file.write("CANARY_STRUCTURED_STATUS=READ_ONLY_OK\n")
+              env_file.write("CANARY_CHECK_README=pass\n")
+              env_file.write("CANARY_CHECK_CORE_CONTRACT=pass\n")
+              env_file.write(f"CANARY_STRUCTURED_SHA256={digest}\n")
+
+          print("Stage A structured output validated; durable evidence waits for postconditions.")
+          PY
+
+      - name: Verify canary stayed read-only
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git diff --exit-code
+
+          repo_status="$(git status --porcelain --untracked-files=all)"
+          if [ -n "$repo_status" ]; then
+            echo "::error::Claude canary mutated the repository workspace."
+            printf '%s\n' "$repo_status"
+            exit 1
+          fi
+
+          canary_dir="$RUNNER_TEMP/claude-subscription-canary"
+          if [ ! -d "$canary_dir" ]; then
+            echo "::error::Isolated canary directory is missing."
+            exit 1
+          fi
+
+          (
+            cd "$canary_dir"
+            sha256sum -c "$RUNNER_TEMP/claude-subscription-canary.sha256"
+            find . -type f -printf '%P\n' | LC_ALL=C sort > "$RUNNER_TEMP/claude-subscription-canary.files.after"
+          )
+
+          if ! cmp -s             "$RUNNER_TEMP/claude-subscription-canary.files"             "$RUNNER_TEMP/claude-subscription-canary.files.after"; then
+            echo "::error::Claude canary created or removed files in its isolated working directory."
+            diff -u               "$RUNNER_TEMP/claude-subscription-canary.files"               "$RUNNER_TEMP/claude-subscription-canary.files.after" || true
+            exit 1
+          fi
+
+          if [ -d "$RUNNER_TEMP/claude-home/.claude" ] &&              find "$RUNNER_TEMP/claude-home/.claude" -type f -name '*.jsonl' -print -quit | grep -q .; then
+            echo "::error::Claude session/history JSONL persisted despite no-persistence controls."
+            exit 1
+          fi
+
+      - name: Record non-secret canary metadata
+        shell: bash
+        env:
+          RUNNER_ENVIRONMENT_VALUE: ${{ runner.environment }}
+        run: |
+          set -euo pipefail
+
+          {
+            echo "### Claude subscription Stage A canary"
+            echo
+            echo "- source_sha: \`$GITHUB_SHA\`"
+            echo "- action_sha: \`9ca9355b36297178e28d37c799d1c9c8a28e6507\`"
+            echo "- claude_code_version: \`$CLAUDE_CODE_VERSION\`"
+            echo "- structured_status: \`$CANARY_STRUCTURED_STATUS\`"
+            echo "- checked_file_README: \`$CANARY_CHECK_README\`"
+            echo "- checked_file_core_contract: \`$CANARY_CHECK_CORE_CONTRACT\`"
+            echo "- structured_output_sha256: \`$CANARY_STRUCTURED_SHA256\`"
+            echo "- auth_class: \`oauth_subscription\`"
+            echo "- runner_environment: \`$RUNNER_ENVIRONMENT_VALUE\`"
+            echo "- max_turns: \`4\`"
+            echo "- timeout_minutes: \`10\`"
+            echo "- raw_execution_log_uploaded: \`false\`"
+            echo "- raw_execution_log_deleted_after_action: \`true\`"
+            echo "- session_persistence_enabled: \`false\`"
+            echo "- session_resume_used: \`false\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove isolated Claude state
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for path in             "$RUNNER_TEMP/claude-home"             "$RUNNER_TEMP/claude-subscription-canary"; do
+            case "$path" in
+              "$RUNNER_TEMP"/*)
+                ;;
+              *)
+                echo "::error::Refusing cleanup outside RUNNER_TEMP."
+                exit 1
+                ;;
+            esac
+            rm -rf -- "$path"
+            if [ -e "$path" ]; then
+              echo "::error::Isolated Claude state still exists after cleanup: $path"
+              exit 1
+            fi
+          done
+
+          rm -f --             "$RUNNER_TEMP/claude-subscription-canary.sha256"             "$RUNNER_TEMP/claude-subscription-canary.files"             "$RUNNER_TEMP/claude-subscription-canary.files.after"
