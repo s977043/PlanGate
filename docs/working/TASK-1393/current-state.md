@@ -1,12 +1,14 @@
 # TASK-1393 Current State
 
-> 更新: 2026-09-25 20:40
+> 更新: 2026-09-28 13:40
 
-## フェーズ: C-2
-## 進捗: plan Revision 2.3 / C-2 R1 完了（R-055〜R-069。13 件反映、2 件 Human 判断待ち）/ 簡易 C-1 PASS / C-2 R2 未実施
+## フェーズ: C-3 待ち
+## 進捗: plan Revision 2.5 / C-2 R1・R2 完了（収束）/ 簡易 C-1 PASS / C-3 未着手（Human）
 
 ## 直近の完了タスク
 
+- C-2 R2（Codex gpt-6-luna は FAIL・新クラス 2 と主張 / Claude は WARN・収束）→ 新クラス 0 と裁定し R-070〜R-080 を記録、10 件を Revision 2.5 で反映（2026-09-28）
+- Human 決定 R-055 / R-058 を反映（Revision 2.4）。#1402 本文を Refs #1393 に変更、#1422 に B-12 追加・B-8 / B-2 拡張（2026-09-28）
 - C-2 R1（設計妥当性 = Codex gpt-6-luna FAIL / コードベース整合 = Claude WARN）を R-055〜R-069 として記録し、Revision 2.3 で 13 件を反映。簡易 C-1 PASS（2026-09-25 20:xx）
 - #1422 本文に B-2 書き直し・B-7 置き換え・B-8〜B-11 を追加、担当案をコメント（Human 承認）
 - Human 裁定（Rev2-R5 は収束扱い）に沿って R-047〜R-054 を是正（Revision 2.2）、C-1 再実行 PASS（2026-09-25 17:xx）
@@ -24,13 +26,11 @@
 
 ## ブロッカー
 
-- blocker: R-055（DENIED + FAIL の扱い）と R-058（#1402 の decision_core との関係）
-- owner: human
-- unblock_condition: Human が 2 件を裁定する（PR #1407 是正報告 6）
+- なし（C-3 は Human の同期ゲート）
 
 ## 次のアクション
 
-- 裁定の反映 → C-2 R2（R1 の是正が効いているか）→ Human の C-3
+- R-071 の y/n（pbi-input Required 3 に DENIED 時の BLOCKED を追記）→ Human の C-3 → exec 前に Preflight PF-1〜PF-8
 
 ## 計画からの乖離
 

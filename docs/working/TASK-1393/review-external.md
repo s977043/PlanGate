@@ -1,6 +1,6 @@
 # EXTERNAL / FALLBACK REVIEW — TASK-1393 PLAN
 
-Status: C-2 R1 実施済み（2026-09-25 / Revision 2.2 = `bf562301`。下記「C-2 R1」節）。C-2 R2 は未実施。以下、旧記載: C-2 R1 未実施（下記 R-001〜R-006 は PR #1407 の独立レビュー（2026-09-24）と、その是正時の正本照合で出た指摘。C-2 の 2 ラウンドは別途必要）
+Status: C-2 R2 実施済み（2026-09-28。下記「C-2 R2」節、収束）。C-2 R1 実施済み（2026-09-25 / Revision 2.2 = `bf562301`。下記「C-2 R1」節）。C-2 R2 は未実施。以下、旧記載: C-2 R1 未実施（下記 R-001〜R-006 は PR #1407 の独立レビュー（2026-09-24）と、その是正時の正本照合で出た指摘。C-2 の 2 ラウンドは別途必要）
 
 Questions:
 1. Is decision priority fail-closed and non-ambiguous?
@@ -183,6 +183,34 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 
 追加すべき AC 候補（整合レーンから設計妥当性レーンへ返されたもの）: exec 前の Preflight（#1391 の語彙 4 点 = R-059 / R-060 / R-061 / R-062）/ payload のサイズ上限 / DC-09 の静的境界に positive control（`scripts/ai-loop-v2/` が ta-70 と `check_exec_boundary.py` の対象外。対象に加える変更が HO パスに当たる場合は Human が適用）/ #1402 との関係（R-058）/ event の `id` と plan の `verification_ref` / `failure_ref` の対応表。→ plan の「Preflight before exec」節に取り込んだ。
 
+### C-2 R2（2026-09-28 / Revision 2.4 = `b61c6801`）
+
+焦点: R1 の是正が効いているか、R-055 の判定順変更で生まれた穴（§7-quater）。
+- 設計妥当性レーン: Codex CLI 0.157.0。実行モデルは rollout ログで `gpt-6-luna` と確認。判定 **FAIL / 未収束（新クラス 2 と主張）**
+- コードベース整合レーン: 独立エージェント（Claude）。照合先は #1402 `583608b0` と #1406 `e4aaeb91`。判定 **WARN / 収束（新クラス 0）**
+
+**収束の裁定（オーガナイザー）: 新クラス 0 件、収束。** 設計妥当性レーンが「新」とした 2 件は既出のクラスに当たる。
+- L-A1（複合停止で VERIFIER_UNAVAILABLE が落ちる）は R-012（複合停止で POLICY_DENIED が落ちる）と同型
+- L-A2（pbi-input Required 3 と DD-05 の食い違い）: DD-05 は R-055 より前（`bc589c98`）から BLOCKED を期待しており、R-055 で新たに生じたものではない
+
+この分類はオーガナイザーの判断で、Human が覆せる。
+
+オーガナイザーが一次ソースで照合した点: #1402 `decision_core.py` 227-231 行の `"required_reviews": "pass"`（R-074）/ #1406 の最新 head の plan に `MAX_DECISION_EVENT_BYTES` があること（R-072）/ DD-05 の期待値が `bc589c98` 時点で BLOCKED（R-071）。#1406 の head は本記録の時点で `5b918dcf` まで進んでいる（遷移表は `e4aaeb91` で照合済み）。
+
+| ID | レーン | severity | 指摘 | クラス | 是正 / 状態 |
+|---|---|---|---|---|---|
+| R-070 | 設計 L-A1 | major | NO_PROGRESS + unavailable + DENIED の同時成立で VERIFIER_UNAVAILABLE が落ちる | R-012 の是正漏れ | reflected: stop reason の合成規則（固定順 NO_PROGRESS → VERIFIER_UNAVAILABLE → POLICY_DENIED、POLICY_DENIED があれば BLOCKED）。DD-17 / DD-18 |
+| R-071 | 設計 L-A2 | major | pbi-input Required 3 が DENIED 時の BLOCKED を例外として書いていない | 既存の AC 文言の不足 | **open（Human y/n）**: pbi-input の変更は受入基準の変更にあたる |
+| R-072 | 設計 L-A3 / 整合 L-C1 | major | 上限が件数だけで、#1392 が前提にするバイト数の上限（`MAX_DECISION_EVENT_BYTES`）を出せない。上限が budget より小さいと、正当な Run が停止を記録できない | R-062 の是正漏れ | reflected: I-11 に required 件数・文字列長・正規化後バイト数を追加し、自由文は payload に入れない。PF-5 に `MAX_INPUT_REFS` ≥ budget 由来の最大件数。DI-44 / DI-45 / DC-13 |
+| R-073 | 設計 L-A4 | minor | blocking_threads / conflict の型境界（Python の bool は int） | R-056 の是正漏れ | reflected: bool を除く整数・厳密な boolean。DP-16 を 9 ケースに |
+| R-074 | 整合 L-C2 | major | `required_reviews` の値域 `satisfied \| unsatisfied` が #1402 の `"pass"` と食い違い、#1402 の event では MERGE_READY に届かない | R-059〜R-061 と同型（語彙の不一致） | reflected: #1402 の語彙（`pass \| fail`）に統一。値域の所有は B-8、#1391 の値検査は PF-7。DP-19 |
+| R-075 | 整合 L-C3 | minor | #1422 B-1 に表記が無い / `digest()` だと引用符ごとハッシュされる / `head_sha` を verification に入れられない | R-061 の是正漏れ | reflected: 生の UTF-8 バイトの SHA-256 と明記、commit SHA のフィールドを削除。#1422 B-1 への表記の追記は Human 承認待ち |
+| R-076 | 整合 L-C4 | minor | ta-70 は import 境界の検査ではなく、`check_exec_boundary.py` も time / fs / os / storage を見ない | R-058 AC 候補の是正漏れ | reflected: モジュール専用の import allowlist テストと、禁止カテゴリごとの positive control（DC-12 を 7 ケースに）。PF-6 |
+| R-077 | 整合 L-C5 | minor | blocker 集合の出所が `repair_attempted` / `progress_assessed`（呼び出し側の値）しか無い | R-066 の是正漏れ | reflected: 決定的 observer の event からのみ（#1422 B-13 提案）。それまでは空集合（fail-closed）。DC-11 を拡張 |
+| R-078 | 整合 L-C6 | minor | 照合 SHA と状態の記述が古い | R-063 / R-069 の是正漏れ | reflected（`e4aaeb91`） |
+| R-079 | 整合 L-C7 | minor | #1402 の呼び出し側（`delivery_runtime.py` / `test_delivery_v2.py` / ta-87・ta-93 fixture）の移行が書かれていない | R-058 の是正漏れ | reflected: PF-1 に移行対象と `DecisionError` → `DecisionInputError` |
+| R-080 | 整合 L-C8 | info | `plan_contract_bound` が loop_contract_ref / required 集合を運べない（exec の順序） | R-065 の周辺 | reflected: PF-8 |
+
 ## 監査表（追記専用）
 
 | R-ID | status | reflected_in(commit) | notes |
@@ -227,3 +255,5 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-059〜R-069 | reflected（Revision 2.3） | `b33f6879` | R-059 / R-060 / R-065 は #1422 側の追記（B-12・B-8・B-2）が Human 承認待ち |
 | R-055 | reflected（Revision 2.4、Human 決定 2026-09-28） | `343245c4` | DENIED は required FAIL があっても stop / BLOCKED |
 | R-058 | reflected（Human 決定 2026-09-28） | `343245c4` | #1402 本文 Closes → Refs（issuecomment-5862093188）。#1422 に B-12 追加・B-8 / B-2 拡張 |
+| R-070, R-072〜R-080 | reflected（Revision 2.5） | 次の commit | C-2 R2。#1422 B-1 表記 / B-13 の追記は Human 承認待ち |
+| R-071 | open | — | Human y/n（pbi-input Required 3 の文言） |

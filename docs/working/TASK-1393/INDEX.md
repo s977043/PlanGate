@@ -1,6 +1,6 @@
 # TASK-1393 INDEX
 
-> 最終更新: 2026-09-25 20:40
+> 最終更新: 2026-09-28 13:40
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
 > plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
 > （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
@@ -11,16 +11,16 @@ V2 の immutable VerificationResult / FailureRecord と、観測済みの事実�
 
 ## 現在のフェーズ
 
-C-2
+C-3 待ち
 
-> Revision 2.3（C-2 R1 の R-055〜R-069 を反映、簡易 C-1 PASS）。R-055（DENIED + FAIL）と R-058（#1402 の decision_core との関係）は Human 判断待ち。C-2 R2 は未実施。
-> Mode = high-risk。C-2 は外部レビューとしては未実施（敵対レビューは独立エージェント）。
+> Revision 2.5。C-2 は R1 / R2 の 2 ラウンドで収束（R2 は新クラス 0）。簡易 C-1 PASS（受入基準の文言 1 件 WARN: R-071、Human y/n）。C-3 承認記録は未発行。
+> Mode = high-risk。C-3 は Human 同期。
 
 ## 次のアクション
 
-Human 判断（R-055 / R-058）→ 反映 → C-2 R2 → Human の C-3（同期）。`approvals/c3.json` は未発行。
+R-071（pbi-input Required 3 の文言）の y/n → Human の C-3（同期）。exec 前に Preflight PF-1〜PF-8。
 
-依存（リリース条件）: #1392 に依頼済み（(state, action) からの遷移導出 / decided_in_state 照合 / `decision_made.event_seq == input_last_event_seq + 1`、PR #1406 コメント。CAS 依頼は +1 規則に差し替え済み）。stream 束縛は #1422（B-1〜B-7 は issue 記載、B-8〜B-11 は追加提案で未反映。担当割り当ては Human）。#1395 の budget。
+依存（リリース条件）: #1392 は (state, action) からの遷移導出と `decision_made` の 4 キー読み取りを採用済み（#1406 `e4aaeb91`）。stream 束縛は #1422（B-1〜B-12 は issue 記載、B-1 の表記と B-13 は追加提案。担当割り当ては Human）。#1395 の budget。
 
 ## ファイルマップ（読み込み優先度）
 

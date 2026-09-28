@@ -125,3 +125,14 @@ Human 裁定（2026-09-25）: Rev2-R5 の R-047 を R-037 と同型とみなし�
 | Unknowns | WARN | PF-2〜PF-6（#1391 語彙・payload 構造・静的境界）は exec 前の前提。#1422 の担当は未確定 |
 
 判定: **PASS（Unknowns WARN）**。次は C-2 R2。
+
+### 追記（2026-09-28 / 簡易 C-1 — C-2 R2 の確定反映（Revision 2.5）後）
+
+| 観点 | 判定 | 根拠 |
+|---|---|---|
+| 反映の網羅 | PASS | R-070〜R-080 のうち R-071（Human y/n）以外の 10 件を監査表で追跡できる |
+| 整合 | PASS | 旧語彙（satisfied / unsatisfied / head_sha / source_sha / ta-70 を境界検査とする記述）と B-1〜B-11 の旧範囲の残存を grep で確認し 0 件。テスト ID の重複 0 件 |
+| 受入基準網羅 | WARN | Required 3 の文言が DENIED 時の BLOCKED を書いていない（R-071、Human y/n） |
+| 収束（§7-quater） | PASS | C-2 は 2 ラウンド実施。R2 は新クラス 0（R-070 は R-012、R-071 は既存の AC 文言） |
+
+判定: **PASS（受入基準の文言 1 件 WARN）**。C-2 は収束。次は Human の C-3（同期）。

@@ -4,6 +4,8 @@
 >
 > Revision 2.1 (2026-09-25), matching plan Revision 2.1: contract boundary (`contract_bound_seq`), derived `evidence_delta` (`artifact_verdicts`), FR order (I-7). Stream-side cases moved to #1422 are listed under Integration cases.
 >
+> Revision 2.5 (2026-09-28), matching plan Revision 2.5: stop-reason composition (R-070), byte bound (R-072), convergence vocabulary and strict types (R-073 / R-074), per-category positive controls (R-076), blocker sources (R-077).
+>
 > Revision 2.4 (2026-09-28), matching plan Revision 2.4: `DENIED` always stops as BLOCKED, also with a required FAIL (R-055; DV-13 / DD-08 changed, DP-17 added).
 >
 > Revision 2.3 (2026-09-25), matching plan Revision 2.3: convergence field domains (R-056), `MAX_INPUT_REFS` (R-062), progress events not read (R-066).
@@ -44,6 +46,8 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DI-42 | a policy verdict whose observed_seq > input_last_event_seq | `DecisionInputError` (I-9) |
 | DI-36 | DIAGNOSING, ProgressAssessment whose current_verdicts = {D: pass} while the input gives D verdict fail | `DecisionInputError` (P-3) |
 | DI-43 | results + FailureRecords + policy verdicts = `MAX_INPUT_REFS` + 1 | `DecisionInputError` (I-11); exactly `MAX_INPUT_REFS` is accepted |
+| DI-44 | `required_verifiers` = `MAX_REQUIRED_VERIFIERS` + 1 / a verifier_id or fingerprint of `MAX_REF_CHARS` + 1 characters | `DecisionInputError` (I-11) |
+| DI-45 | counts within limits but the input-derived payload part + `DECISION_FIXED_OVERHEAD` = `MAX_DECISION_EVENT_BYTES` + 1 byte | `DecisionInputError` (I-11); exactly the maximum is accepted |
 | DI-12 | policy verdict `ALLOW` / unknown | `DecisionInputError` |
 | DI-13 | DIAGNOSING, FR whose verification_ref points to a stale D FAIL (plus a fresh D FAIL with its own FR) | `DecisionInputError` |
 | DI-14 | DIAGNOSING, FR pointing to a non-required verifier's FAIL | `DecisionInputError` |
@@ -97,6 +101,8 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DD-03 | required = {D, E}, fresh D FAIL repairable + fresh E FAIL replan_required | replan (-> REPLANNING) |
 | DD-04 | fresh D FAIL + repairable FR, ProgressAssessment no_progress=true | stop / HUMAN_ESCALATED / [NO_PROGRESS] |
 | DD-05 | as DD-04 + policy DENIED | stop / BLOCKED / [NO_PROGRESS, POLICY_DENIED] |
+| DD-17 | required = {D, E}; D FAIL + repairable FR, E unavailable; ProgressAssessment no_progress=true; policy DENIED | stop / BLOCKED / [NO_PROGRESS, VERIFIER_UNAVAILABLE, POLICY_DENIED] |
+| DD-18 | as DD-17 without DENIED | stop / HUMAN_ESCALATED / [NO_PROGRESS, VERIFIER_UNAVAILABLE] |
 | DD-06 | as DD-04 + policy HUMAN_REQUIRED | stop / HUMAN_ESCALATED / [NO_PROGRESS] |
 | DD-07 | fresh D FAIL + repairable FR + policy HUMAN_REQUIRED | repair (-> REPAIRING) |
 | DD-08 | fresh D FAIL + repairable FR + policy DENIED | stop / BLOCKED / [POLICY_DENIED] (R-055) |
@@ -115,8 +121,9 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 |---|---|---|
 | DP-01 | fresh D PASS | stop / MERGE_READY / [] |
 | DP-02 | fresh D PASS, conflict=true | continue (no transition) |
-| DP-03 | fresh D PASS, exactly one field not passing: ci = `fail`, ci = `pending`, required_reviews = `unsatisfied`, blocking_threads = 1, scope = `fail` (5 cases) | continue (no transition) |
-| DP-16 | pr_convergence with ci = `green` / required_reviews = 2 / blocking_threads = -1 / scope = `ok` (4 cases) | `DecisionInputError` |
+| DP-03 | fresh D PASS, exactly one field not passing: ci = `fail`, ci = `pending`, required_reviews = `fail`, blocking_threads = 1, conflict = `true`, scope = `fail` (6 cases) | continue (no transition) |
+| DP-16 | pr_convergence with ci = `green` / required_reviews = `satisfied` / required_reviews = 2 / blocking_threads = -1 / blocking_threads = `false` / blocking_threads = 1.0 / conflict = 0 / conflict = `"false"` / scope = `ok` (9 cases) | `DecisionInputError` |
+| DP-19 | pr_convergence in the #1402 vocabulary: ci = required_reviews = scope = `"pass"`, blocking_threads = 0, conflict = false; fresh D PASS | stop / MERGE_READY / [] |
 | DP-04 | D has only a stale PASS | stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE] |
 | DP-05 | fresh D inconclusive | stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE] |
 | DP-06 | required = {D, E}, fresh D PASS, E only stale FAIL | stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE] |
@@ -169,8 +176,9 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DC-08 | `decide` called with anything other than a DecisionInput | `TypeError` |
 | DC-09 | no os / subprocess / network / time / fs / #1392 storage / merge / GitHub imports | static PASS |
 | DC-10 | full repository suite | PASS |
-| DC-11 | a `progress_assessed` event with `no_progress=true` and a `repair_attempted` event with empty `evidence_delta` exist in the stream; the DecisionInput is built with `assess_progress` giving `no_progress=false` | decision follows `assess_progress` (no API reads the event values) |
-| DC-12 | DC-09 positive control: plant a forbidden import (e.g. `subprocess`) in a copy of the module | the static boundary check fails |
+| DC-11 | a `progress_assessed` event with `no_progress=true` and a `repair_attempted` event with empty `evidence_delta` and a non-empty `resolved_blockers` exist in the stream; the DecisionInput is built with `assess_progress` giving `no_progress=false` | decision follows `assess_progress` (no API reads the event values) |
+| DC-12 | DC-09 positive controls: plant one forbidden import per category in a copy of the module — `subprocess`, `socket`, `time`, `pathlib` / `open`, `os`, the #1392 storage module, a GitHub / merge client (7 cases) | the module import allowlist test fails for each |
+| DC-13 | for inputs at every I-11 bound, `decision_to_event_draft(decide(input))` | canonical encoded size `<= MAX_DECISION_EVENT_BYTES` |
 
 ## Mutation targets
 
@@ -185,7 +193,9 @@ Each mutant must be killed by at least one case above.
 - required FAIL evaluated before DENIED, i.e. a denied Run is repaired (DV-13, DD-08, DP-17)
 - DENIED evaluated before NO_PROGRESS, dropping NO_PROGRESS (DD-05)
 - HUMAN_REQUIRED evaluated before DENIED (DV-12, DP-11)
-- POLICY_DENIED dropped on a step 1 stop, or VERIFIER_UNAVAILABLE dropped on a step 2 stop (DD-05, DV-14, DP-18)
+- a stop reason dropped or reordered in a combined stop (DD-05, DD-17, DD-18, DV-14, DP-18)
+- byte bound not enforced or counted per record only (DI-45, DC-13)
+- `blocking_threads = false` / `conflict = 0` accepted through Python's bool-is-int (DP-16)
 - repair chosen when any FR is replan_required (DD-03)
 - FR required in VERIFYING (DV-02) / not required in DIAGNOSING (DI-19)
 - progress omission accepted (DI-20, DI-24)

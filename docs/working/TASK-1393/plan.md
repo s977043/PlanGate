@@ -9,6 +9,8 @@
 > Revision 2.3 (2026-09-25). C-2 R1 (R-055〜R-069): convergence field types (R-056), exec preflight against the #1391 vocabulary as implemented in PR #1402 (R-058〜R-062), payload size bound (R-062), value-object mechanism (R-067). R-055 (DENIED + FAIL) and R-058 (relation to the #1402 `decision_core`) are open for Human decision.
 >
 > Revision 2.4 (2026-09-28). Human decisions on the C-2 R1 open items: R-055 — a `DENIED` verdict always stops the Run as BLOCKED, also when a required FAIL exists (the FAIL stays in the evidence); R-058 — #1393 is rebuilt from this plan and replaces the `decision_core` of PR #1402, which now refers to #1393 instead of closing it (PF-1 done).
+>
+> Revision 2.5 (2026-09-28). C-2 R2 (R-070〜R-080), all fix-omissions of R1 classes: stop-reason composition (R-070), byte bound of `decision_made` (R-072), convergence vocabulary unified with #1402 (R-074), artifact-ref encoding and `head_sha` (R-075), module import allowlist (R-076), blocker sets (R-077), migration targets in PF-1 (R-079). R-071 (pbi-input Required 3 wording) needs a Human y/n.
 
 ## Architecture
 
@@ -38,9 +40,7 @@ Required:
 - event_ref and observed_seq: the #1391 canonical hash and `event_seq` of the accepted `verification_recorded` event this result was built from. A VerificationResult is built only from an accepted event (its `event_seq` is assigned by #1392 under the lock), never from a Worker report
 - evidence_refs
 
-Optional:
-- source_sha
-- head_sha
+No commit SHA field: the #1391 `verification` payload has a fixed key set, and the artifact identity is the tree (R-075).
 
 Immutable value after construction. A verifier is identified by the pair `(verifier_id, kind)` everywhere in this plan.
 
@@ -95,7 +95,7 @@ Unknown repairability/result values are rejected; free-form strings are not deci
 - `artifact_changed` is false
 - `evidence_delta`, `resolved_blockers`, `introduced_blockers` are all empty
 
-Because the verdict is sticky, a result on the same artifact that leaves every verdict unchanged (a PASS after a FAIL, a repeated unavailable) produces no evidence delta, so it cannot turn a no-progress loop into an unbounded repair loop. A new failure fingerprint is already covered by the fingerprint-set comparison. `resolved_blockers` / `introduced_blockers` remain caller observations (#1395).
+Because the verdict is sticky, a result on the same artifact that leaves every verdict unchanged (a PASS after a FAIL, a repeated unavailable) produces no evidence delta, so it cannot turn a no-progress loop into an unbounded repair loop. A new failure fingerprint is already covered by the fingerprint-set comparison. `resolved_blockers` / `introduced_blockers` come only from a deterministic observer event (#1422 B-13, proposed). Values carried by the #1391 `repair_attempted` / `progress_assessed` events are never used (R-077); until B-13 exists #1395 passes empty sets, which can only make NO_PROGRESS fire earlier (fail-closed).
 
 No retry-count shortcut.
 
@@ -129,10 +129,10 @@ The Decision does not name a target state. #1392 derives the transition from `(s
 | `DIAGNOSING` | not produced | -> `REPAIRING` | -> `REPLANNING` |
 | `PR_CONVERGING` | no transition | -> `REPAIRING` | not produced |
 
-- Every cell is an edge of the #1392 first-slice allowlist (checked against #1406 head `d01fcbeb`).
+- Every cell is an edge of the #1392 first-slice allowlist (checked against #1406 head `e4aaeb91`, 2026-09-28; the table and allowlist did not change between `d01fcbeb` and `e4aaeb91`).
 - #1392 must reject a `decision_made` whose `decided_in_state` differs from the snapshot `lifecycle_state` at commit (otherwise a caller could decide as VERIFYING while the Run is in DIAGNOSING and skip the FailureRecord / NO_PROGRESS rules). Added to the #1406 request.
 - `repair` from `VERIFYING` means "enter the repair path via DIAGNOSING"; it is not a repair round. Repair-round counts (#1395 budget, RunEvidence) count only `repair` decided in `DIAGNOSING` / `PR_CONVERGING`.
-- Until #1392 adopts the derivation, #1395 must not request a transition that differs from this table. [Dependency] If #1392 changes its allowlist or does not adopt the derivation, this section is revisited before exec.
+- #1392 derives the transition from `(state, action)` and reads `decided_in_state` / `action` / `outcome` / `input_last_event_seq` from `decision_made` (#1406 `e4aaeb91`). [Dependency] If #1392 changes its allowlist, this section is revisited before exec.
 
 ## DecisionInput
 
@@ -167,7 +167,7 @@ Common rules (all states):
 | I-7 | every FailureRecord's `verification_ref` points to the latest FAIL of a required FAIL verifier (no orphan FR, and no FR for a stale, older, or non-required FAIL); its `observed_seq` is greater than that FAIL's `observed_seq` and than `contract_bound_seq` (a diagnosis is recorded after the failure, under the current contract). Several FRs for one FAIL are accepted; the effective FR is the one with the highest `observed_seq` |
 | I-9 | `input_last_event_seq` is at least every `observed_seq` in the input (results, FailureRecords, policy verdicts, `pr_convergence`), and every `event_ref` is unique (see Trust boundary) |
 | I-10 | `contract_bound_seq` is an integer `>= 1` (#1391 assigns `event_seq` from 1 and the #1392 create envelope binds the contract before any verification, so 0 would mean "no boundary") and less than `input_last_event_seq`. Results with `observed_seq < contract_bound_seq` are accepted; only their FAILs can be bound |
-| I-11 | the number of results + FailureRecords + policy verdicts is at most `MAX_INPUT_REFS` (value agreed with #1392; R-062) |
+| I-11 | size bounds (R-062 / R-072): results + FailureRecords + policy verdicts `<= MAX_INPUT_REFS`; `required_verifiers` `<= MAX_REQUIRED_VERIFIERS`; every identifier, fingerprint and ref string `<= MAX_REF_CHARS`; and the canonical encoded size of the input-derived part of the `decision_made` payload plus `DECISION_FIXED_OVERHEAD` (the largest action / outcome / stop_reasons part) `<= MAX_DECISION_EVENT_BYTES`. Free-text fields (`observation`, `cause_hypothesis`) are not copied into the payload; only refs are |
 
 Per-state rules:
 
@@ -186,12 +186,12 @@ When progress is a ProgressAssessment, its `current_artifact_ref` must equal the
 | Field | Domain | Passes when |
 |---|---|---|
 | `ci` | `pass \| fail \| pending` | `pass` (all required checks of the head succeeded) |
-| `required_reviews` | `satisfied \| unsatisfied` | `satisfied` (the branch protection's required review count is met) |
-| `blocking_threads` | integer `>= 0` | `0` |
-| `conflict` | boolean | `false` |
+| `required_reviews` | `pass \| fail` | `pass` (the branch protection's required review count is met) |
+| `blocking_threads` | integer `>= 0`, not a boolean | `0` |
+| `conflict` | strictly boolean (`true` / `false`, not 0 / 1) | `false` |
 | `scope` | `pass \| fail` | `pass` |
 
-A value outside its domain is `DecisionInputError`. `scope` is the verdict of the #1395 deterministic observer that compares the head's changed paths with the LoopContract's allowed paths; #1393 does not compute changed paths and never trusts a Worker's `scope_ok`. #1393 validates `pr_convergence` but does not query GitHub. P-2: `observed_artifact_ref` must equal `current_artifact_ref` and `observed_seq > contract_bound_seq`; convergence observed on another head (an older push, or a push by someone else) or under the previous contract is rejected. That it is the latest `pr_convergence_recorded` for that head is #1422 B-8.
+A value outside its domain is `DecisionInputError`. The vocabulary is the one already used by PR #1402 (`ci` / `required_reviews` / `scope` pass with `"pass"`, R-074); its owner is #1391 (#1422 B-8), which today checks only the key set (PF-7). `scope` is the verdict of the #1395 deterministic observer that compares the head's changed paths with the LoopContract's allowed paths; #1393 does not compute changed paths and never trusts a Worker's `scope_ok`. #1393 validates `pr_convergence` but does not query GitHub. P-2: `observed_artifact_ref` must equal `current_artifact_ref` and `observed_seq > contract_bound_seq`; convergence observed on another head (an older push, or a push by someone else) or under the previous contract is rejected. That it is the latest `pr_convergence_recorded` for that head is #1422 B-8.
 
 `ProgressAssessment` can be obtained only from `assess_progress` (no public constructor), so its `no_progress` is always derived.
 
@@ -199,7 +199,7 @@ A value outside its domain is `DecisionInputError`. `scope` is the verdict of th
 
 `decide(decision_input)` evaluates in order and returns the first match. It never raises for a validated input except at step 5 and at the `PR_CONVERGING` + `replan_required` limitation of step 3.
 
-1. progress is a ProgressAssessment with `no_progress=true` -> stop / HUMAN_ESCALATED / [NO_PROGRESS]
+1. progress is a ProgressAssessment with `no_progress=true` -> stop / HUMAN_ESCALATED (BLOCKED if a `DENIED` verdict is present) with the composed stop reasons
 2. a `DENIED` verdict -> stop / BLOCKED / [POLICY_DENIED], preceded by VERIFIER_UNAVAILABLE when any required verifier has artifact verdict `unavailable` (R-055)
 3. at least one required FAIL:
    - `VERIFYING` -> repair (-> DIAGNOSING)
@@ -213,7 +213,9 @@ A value outside its domain is `DecisionInputError`. `scope` is the verdict of th
    - `PR_CONVERGING` -> continue (no transition; convergence not yet complete)
 8. otherwise -> stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE]. The DecisionInput rules make this unreachable (DIAGNOSING always hits step 1, 2 or 3; in the other states, after steps 3-4 every required verifier has verdict `pass`); it exists so that no path ends in continue or MERGE_READY by default
 
-**Stop paths with DENIED.** A `DENIED` verdict always ends the Run as BLOCKED (taxonomy §3: a denied Run restarts only as a new Run). If step 1 stops, stop_reasons = [NO_PROGRESS, POLICY_DENIED]; otherwise step 2 applies. A Run is never repaired or replanned while a `DENIED` verdict is present: repairing cannot reach MERGE_READY and would only spend budget.
+**Stop-reason composition (R-070).** Whenever step 1, 2 or 4 stops, stop_reasons contains every applicable reason, in this fixed order: `NO_PROGRESS` (progress is an assessment with `no_progress=true`), `VERIFIER_UNAVAILABLE` (any required verifier has verdict `unavailable`), `POLICY_DENIED` (a `DENIED` verdict). The outcome is BLOCKED if `POLICY_DENIED` is among them, otherwise HUMAN_ESCALATED. Step 8 uses the same rule.
+
+**Stop paths with DENIED.** A `DENIED` verdict always ends the Run as BLOCKED (taxonomy §3: a denied Run restarts only as a new Run). A Run is never repaired or replanned while a `DENIED` verdict is present: repairing cannot reach MERGE_READY and would only spend budget.
 
 **Verifier before Verdict.** The verifier evidence (artifact verdicts, FailureRecords, progress) is fully computed and validated before any verdict is looked at, and it is recorded in the payload in every case (taxonomy §5). A verdict never turns a FAIL or an unavailable verifier into success: `DENIED` can only stop (step 2), and `HUMAN_REQUIRED` + a required FAIL gives the step 3 result. "Cannot override a deterministic FAIL" (§5) means the FAIL is never treated as passing; stopping a denied Run does not contradict it (R-055, Human decision 2026-09-28). `DENIED` is checked before `HUMAN_REQUIRED`, so a denied Run is always recorded as BLOCKED. `HUMAN_REQUIRED` + no-progress gives HUMAN_ESCALATED / [NO_PROGRESS] (taxonomy §6 allowed example).
 
@@ -237,11 +239,11 @@ After repair changes artifact A -> B, only results bound to B count:
 
 ## Trust boundary
 
-`decide()` is pure: it cannot read the RunState, the LoopContract, or the event stream. #1393 guarantees only two things: the Decision follows from the DecisionInput, and every rule checkable on the DecisionInput alone (I-1〜I-11, P-1〜P-3, the state table) holds. Whether the DecisionInput reflects the stream is covered only as far as the #1422 items listed below (B-1〜B-11); #1393 defines no stream invariant of its own, and a stream property not in that list is not guaranteed by anyone in the first release.
+`decide()` is pure: it cannot read the RunState, the LoopContract, or the event stream. #1393 guarantees only two things: the Decision follows from the DecisionInput, and every rule checkable on the DecisionInput alone (I-1〜I-11, P-1〜P-3, the state table) holds. Whether the DecisionInput reflects the stream is covered only as far as the #1422 items listed below (B-1〜B-13); #1393 defines no stream invariant of its own, and a stream property not in that list is not guaranteed by anyone in the first release.
 
 **Threat model.** The DecisionInput is built by #1395, which is deterministic orchestration code reading the #1391 stream. It is not a Worker. The threats this slice defends against are (1) Worker / fixture self-report entering the decision, and (2) the stream changing between building the input and committing the Decision. A defect in #1395 itself is caught only by audit (below), not prevented.
 
-**Artifact identity.** In the first slice an artifact ref is the git **tree hash** of the candidate (its content), not the commit SHA. `bound_artifact_ref`, `current_artifact_ref`, `previous_artifact_ref` and `pr_convergence.observed_artifact_ref` all use it. The commit SHA is kept separately as `head_sha`. #1395 resolves the tree hash from the commit (`<sha>^{tree}`); GitHub reports a head SHA, which #1395 resolves the same way before building `pr_convergence`.
+**Artifact identity.** In the first slice an artifact ref is the git **tree hash** of the candidate (its content), not the commit SHA. `bound_artifact_ref`, `current_artifact_ref`, `previous_artifact_ref` and `pr_convergence.observed_artifact_ref` all use it. The commit SHA is not part of any #1393 value. #1395 resolves the tree hash from a commit (`<sha>^{tree}`); GitHub reports a head SHA, which #1395 resolves the same way before building `pr_convergence`.
 
 Consequence: an empty commit, an amend with the same content, or a rebase that yields the same tree is the **same artifact**. It neither releases a sticky FAIL nor counts as `artifact_changed` for NO_PROGRESS. A rebase onto a moved base changes the tree and legitimately requires re-verification (bounded by the #1395 budget).
 
@@ -258,11 +260,11 @@ Consequence: an empty commit, an amend with the same content, or a rebase that y
 
 Audit (#1422 B-11, release condition): recompute each `decision_made` from the stream prefix up to its `input_last_event_seq` and compare.
 
-#1422 items this plan relies on (B-1〜B-11 are in the issue body as of 2026-09-25; B-12 is proposed from C-2 R1):
+#1422 items this plan relies on (B-1〜B-12 are in the issue body as of 2026-09-28; B-13 and the B-1 encoding are proposed from C-2 R2):
 
 | # | Invariant |
 |---|---|
-| B-1 | artifact identity = tree hash, encoded in the #1391 `sha256:<64 hex>` form as `sha256:` + SHA-256 of the string `git-tree:<tree object id>` (R-061) |
+| B-1 | artifact identity = tree hash, encoded in the #1391 `sha256:<64 hex>` form as `sha256:` + lowercase hex SHA-256 of the raw UTF-8 bytes of `git-tree:<tree object id>` (not the JSON-canonical `digest()`, which would hash the quotes too; R-061 / R-075) |
 | B-2 | `contract_bound_seq` in the payload equals the `event_seq` of the latest `plan_contract_bound` before the `decision_made` (IT-10); #1391 accepts a re-binding after Replan as a boundary instead of rejecting it as binding drift (R-065) |
 | B-3 | `decision_made.event_seq == input_last_event_seq + 1`; one `decision_made` per transaction |
 | B-4 | `decided_in_state` equals the snapshot `lifecycle_state` |
@@ -273,9 +275,10 @@ Audit (#1422 B-11, release condition): recompute each `decision_made` from the s
 | B-9 | completeness: the result `event_ref` set in the payload equals the stream's `verification_recorded` on the current artifact up to `input_last_event_seq`; likewise every `failure_recorded` for each latest FAIL |
 | B-10 | `previous_decision` is the latest base-point `decision_made`; `FIRST_ITERATION` only when none exists |
 | B-11 | audit recompute (IT-06) |
-| B-12 | `failure_recorded` carries the `verification_ref` of the FAIL it diagnoses (R-059) — proposed, not yet in the issue |
+| B-12 | `failure_recorded` carries the `verification_ref` of the FAIL it diagnoses (R-059) |
+| B-13 | blocker sets come from a deterministic observer event, not from `repair_attempted` / `progress_assessed` (R-077) — proposed |
 
-The first release is not complete until #1422 (B-1〜B-11, including the audit) and the #1395 budget are in place.
+The first release is not complete until #1422 (B-1〜B-13, including the audit) and the #1395 budget are in place.
 
 ## Known limitations of the first slice
 
@@ -285,7 +288,7 @@ The first release is not complete until #1422 (B-1〜B-11, including the audit) 
 | `HUMAN_REQUIRED` -> `WAITING_HUMAN` | `DecisionInputError` (step 5) | #1392 waiting/resume slice |
 | `PR_CONVERGING` + `replan_required` | `DecisionInputError` (step 3; with `DENIED` it is BLOCKED at step 2) | #1392 allowlist (no edge yet) |
 | `BUDGET_EXHAUSTED` / `REPEATED_FAILURE` / `OSCILLATION` | not produced by `decide()` | later #1393 slice; budget enforced by #1395 (below) |
-| blocker sets are caller observations | trusted as observed values; `evidence_delta` is derived and `previous_verdicts` comes from the base-point payload (#1422 B-10) | #1395 derives blocker sets from RunEvents |
+| blocker sets have no deterministic source yet | #1395 passes empty sets until #1422 B-13; `evidence_delta` is derived and `previous_verdicts` comes from the base-point payload (#1422 B-10) | #1422 B-13 |
 | `required_verifiers` / `contract_bound_seq` are not yet bound to the Run by any event | release condition | #1422 B-2 / B-6 |
 | no policy event exists in the #1391 first-slice vocabulary | the first slice passes no policy verdicts until B-8 adds one | #1422 B-8 / #1391 |
 | a Replan with an unchanged tree keeps its FAILs (R-047) | intended fail-closed: the Run must change content (repair) or stop | — |
@@ -322,7 +325,7 @@ decision_to_event_draft(decision)
 
 `decision_to_event_draft` creates a #1391 EventDraft with `decided_in_state`, `action`, `outcome`, `stop_reasons`, `policy_verdicts`, `input_last_event_seq`, `loop_contract_ref`, `contract_bound_seq`, `required_verifiers`, `artifact_verdicts`, the `event_ref` of every bound result used, the `event_ref`, `observed_seq` and `repairability` of every FailureRecord and the effective one per FAIL, the `event_ref` of every policy verdict, the `event_ref` and `observed_artifact_ref` of `pr_convergence` (PR_CONVERGING), `current_artifact_ref`, the current fingerprint set (the next base point), the progress kind (`first_iteration` / `assessed`) with `previous_decision_ref`, and `input_refs` (everything the Trust boundary checks need). It does not persist it. [Dependency] The #1391 implementation in PR #1402 fixes the `decision` object to the keys `{action, inputs, outcome, stop_reasons}` and checks that every ref in `inputs` exists earlier in the stream. Where each key above goes (for example the refs into `inputs`, the rest into an agreed extension) is agreed with #1391 before exec (Preflight).
 
-**Payload size (R-062).** #1392 reserves room for a terminal `decision_made`, so the payload must be bounded. `make_decision_input` rejects an input whose results + FailureRecords + policy verdicts exceed `MAX_INPUT_REFS` (I-11). The value is agreed with #1392 before exec.
+**Payload size (R-062 / R-072).** #1392 derives its terminal reserve from `MAX_DECISION_EVENT_BYTES`, the maximum canonical encoded size of a `decision_made` event (#1406 `e4aaeb91`). I-11 enforces that maximum at input construction, so every `Decision` built from a valid input has a payload within it (DC-13). The limits are agreed with #1392 before exec, and `MAX_INPUT_REFS` must be at least the largest count a Run can reach within the #1395 budget; otherwise a legitimate Run would get `DecisionInputError` before its budget stops it, and could not even record a stop.
 
 ## Static boundaries
 
@@ -332,18 +335,20 @@ decision_to_event_draft(decision)
 - no GitHub API
 - values from the #1391 `progress_assessed` / `repair_attempted` events (caller-given `no_progress`, `evidence_delta`) are never read into a DecisionInput; progress comes only from `assess_progress` (R-066, DC-11)
 
-The module's directory must be covered by the static boundary check (ta-70 `_T70_DIRS` / `check_exec_boundary.py`). `scripts/ai-loop-v2/` is covered by neither today, so DC-09 is judged only after a positive control shows the check fails on a planted forbidden import. If extending the check touches a Hardening Override path, a Human applies it.
+The existing checks do not enforce these boundaries: ta-70 guards against running `.sh` files with the wrong shell, and `check_exec_boundary.py` forbids only process-execution and network modules (not `time`, file-system access, `os` itself or #1392 storage). The module therefore gets its own import allowlist test (DC-09), with a planted positive control for **each** forbidden category (DC-12). If wiring that test touches a Hardening Override path, a Human applies it (R-076).
 
-## Preflight before exec (C-2 R1)
+## Preflight before exec (C-2 R1 / R2)
 
 | # | Condition | Source |
 |---|---|---|
-| PF-1 | ~~The relation to the `decision_core` in PR #1402 is decided~~ Done 2026-09-28: #1393 is rebuilt from this plan and replaces the #1402 `decision_core`; #1402 body changed `Closes #1393` to `Refs #1393`. Remaining at exec: the module path agreed with #1402's rework | R-058 (Human) |
+| PF-1 | ~~The relation to the `decision_core` in PR #1402 is decided~~ Done 2026-09-28: #1393 is rebuilt from this plan and replaces the #1402 `decision_core`; #1402 body changed `Closes #1393` to `Refs #1393`. Remaining at exec: the module path agreed with #1402's rework, and the migration of its callers — `scripts/ai-loop-v2/delivery_runtime.py`, `tests/.../test_delivery_v2.py`, and the ta-87 / ta-93 fixtures — whose `decide` / `assess_progress` signatures differ; `DecisionError` is replaced by `DecisionInputError(ValueError)` (R-079) | R-058 (Human) |
 | PF-2 | #1391 `failure_recorded` carries `verification_ref` (#1422 B-12) | R-059 |
 | PF-3 | #1391 `pr_convergence_recorded` carries `observed_artifact_ref` (#1422 B-8) | R-060 |
 | PF-4 | the artifact ref encoding of #1422 B-1 is adopted by #1391 / #1395 | R-061 |
-| PF-5 | the `decision_made` key mapping and `MAX_INPUT_REFS` are agreed with #1391 / #1392 | R-062 |
-| PF-6 | the static boundary check covers the module's directory, with a positive control | R-058 AC candidate |
+| PF-5 | the `decision_made` key mapping and the I-11 limits (`MAX_INPUT_REFS` >= the budget-derived maximum, `MAX_DECISION_EVENT_BYTES`) are agreed with #1391 / #1392 | R-062 / R-072 |
+| PF-6 | the module import allowlist test exists with a positive control per forbidden category | R-076 |
+| PF-7 | #1391 validates the value domains of `pr_convergence_recorded` (today only the key set), in the vocabulary of plan "pr_convergence" | R-074 |
+| PF-8 | #1391 `plan_contract_bound` carries `loop_contract_ref` and the required set (#1422 B-6); until then RED fixtures fix the expected shape | R-080 |
 
 ## Taxonomy notes
 
