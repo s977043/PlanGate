@@ -7,6 +7,7 @@
 
 ## 直近の完了タスク
 
+- C-2 R11 の指摘 R-090〜R-094 と Human 決定（1 回の呼び出しの dir flush は 1 つの dirfd で）を反映（2026-09-28）
 - C-2 R10 の指摘 R-084〜R-089 を反映（記述で閉じた。load_run の flush を削除）（2026-09-28）
 - C-2 R9 の指摘 R-077〜R-083 と Human 決定（replace 前に pending marker を書く）を反映（2026-09-28）
 - C-2 R8 の指摘 R-071〜R-076 と Human 決定（#1392 に halt marker を追加）を反映（2026-09-28）
@@ -17,7 +18,7 @@
 
 ## 現在のタスク
 
-- なし（C-2 R11 待ち）
+- なし（C-2 R12 待ち）
 
 ## ブロッカー
 
@@ -25,11 +26,12 @@
 
 ## 次のアクション
 
-- C-2 R11 → 新クラスが出なくなったら Human C-3
+- C-2 R12 → 新クラスが出なくなったら Human C-3
 
 ## 計画からの乖離
 
 - 永続化モデルを A から B（envelope `kind` + events のみ保存）へ変更（R-017）
 - 冪等性（transaction_id / replay）を first slice から外し、再送の二重確定は revision + position の CAS で防ぐ（R-046 / R-049）
 - 応答を失ったときの回復は #1392 の規則ではなく、#1395 が stream から次の action を導き直す契約にする（R-060。R-054 を置き換え）
-- `load_run` は lock を取り dir fsync の後に返す（R-061）
+- `load_run` は lock を取り、halt / pending を確認してから返す（R-061。自身の dir flush は R-089 で削除）
+- 1 回の呼び出しの dir flush は、最初の変更の前に開いた 1 つの dirfd で行う（R-090）

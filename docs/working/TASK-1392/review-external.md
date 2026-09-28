@@ -401,3 +401,27 @@ Round note (§7-quater): the class found in this round (R-085) is a result-defin
 | R-087 | reflected | (C-2 R10 commit) | |
 | R-088 | reflected | (C-2 R10 commit) | |
 | R-089 | reflected | (C-2 R10 commit) | organizer decision; canon |
+
+## C-2 round 11 (2026-09-28 / reviewed head `5b918dcf`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. **Split verdict**: design lane "converged, no new class"; adversarial lane "one new class, closed by specification". Both: no design change needed; R-084〜R-089 effective within a Run; R-089 (no `load_run` flush) breaks no guarantee within a Run.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-090 | adversarial | major | all Runs share the `runtime_root` directory inode while locks are per Run; another Run's directory flush can consume this Run's writeback error, so this Run's step 14 (on a freshly opened descriptor) can succeed and an answered commit can silently roll back after an OS crash | new (durability signal crossing the lock boundary) | **Human decision: one directory descriptor per call**, opened before the first mutation and used for every directory flush in the call (Linux ≥ 4.13 reports to every descriptor open at error time); other platforms: residual; ST-50 |
+| R-091 | adversarial | minor | result undefined when writing the halt marker fails while resolving a new-ref pending marker; no unhalt path for "pending without halt" | R-085 type | reflected: return `RunHalted` from the pending marker; unhalt procedure covers pending-only; ST-18e |
+| R-092 | adversarial | minor | "`LOCK_WAIT_TIMEOUT` bounds the lock holder" was wrong (it bounds waiters); a hung holder made `halt_run` retry forever | R-080 / R-074 wording | reflected: `MAX_HALT_BUSY_RETRIES`, then Human; ST-48l |
+| R-093 | adversarial | minor | Human restore was a replace path without a file flush | R-081 incomplete | reflected: restored files are file-flushed before the directory flush |
+| R-094 | both | minor | remnants of the removed `load_run` flush (outcome table, ST-48a, current-state, performance note); ST-39 only for commit | R-089 wording | reflected |
+
+Info (handoff): a kill of the writer between the pending write and step 14 always halts the Run, so #1395 must not interrupt commits with its own timeouts or signals.
+
+Residual threat model (design lane): protected — same-token double commit within one root; durability of snapshots after a success response; no undurable snapshot returned without halting. Not protected — split-brain across roots; marker removal or tampering by anyone who can write the root; devices ignoring flush; external effects not in the stream; cross-Run flush-error consumption on platforms without per-descriptor error reporting (R-090). Guarantors — #1392 (lock, CAS, flush, markers), #1395 (re-derivation and limits), Human (unhalt after verification).
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-090 | reflected | (C-2 R11 commit) | Human decision; residual on other platforms |
+| R-091 | reflected | (C-2 R11 commit) | |
+| R-092 | reflected | (C-2 R11 commit) | handoff |
+| R-093 | reflected | (C-2 R11 commit) | handoff |
+| R-094 | reflected | (C-2 R11 commit) | |

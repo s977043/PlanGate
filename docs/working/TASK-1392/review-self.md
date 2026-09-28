@@ -232,3 +232,16 @@ Verdict: PASS with WARN.
 | open decisions | WARN — [P1] / [P2] / provisional constants / flush cost (Human C-3) |
 
 Verdict: PASS with WARN.
+
+## C-1 re-run after C-2 R11 (2026-09-28)
+
+| item | result |
+|---|---|
+| directory flushes in a call use one descriptor opened before the first mutation | PASS (R-090, ST-50; residual on platforms without per-descriptor error reporting) |
+| every halt-marker write failure has a defined result | PASS (R-091) |
+| every busy loop is bounded | PASS (R-092) |
+| every replace path, including Human restore, flushes file and directory | PASS (R-093) |
+| no remnant of the removed `load_run` flush | PASS (R-094) |
+| open decisions | WARN — [P1] / [P2] / provisional constants / flush cost (Human C-3) |
+
+Verdict: PASS with WARN.
