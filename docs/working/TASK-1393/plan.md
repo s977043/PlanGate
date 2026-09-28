@@ -7,6 +7,8 @@
 > Revision 2.2 (2026-09-25). Human ruling after Rev2-R5: R-047 is treated as the same class as R-037, so the round is converged with fix-omissions only; R-047〜R-054 are fixed here. A FAIL stays sticky across the contract boundary (R-047); policy verdicts and PR convergence are built from accepted events (R-048); the FailureRecord selection is a pure rule (R-054); every stream invariant this plan relies on is listed as a #1422 item (R-049).
 >
 > Revision 2.3 (2026-09-25). C-2 R1 (R-055〜R-069): convergence field types (R-056), exec preflight against the #1391 vocabulary as implemented in PR #1402 (R-058〜R-062), payload size bound (R-062), value-object mechanism (R-067). R-055 (DENIED + FAIL) and R-058 (relation to the #1402 `decision_core`) are open for Human decision.
+>
+> Revision 2.4 (2026-09-28). Human decisions on the C-2 R1 open items: R-055 — a `DENIED` verdict always stops the Run as BLOCKED, also when a required FAIL exists (the FAIL stays in the evidence); R-058 — #1393 is rebuilt from this plan and replaces the `decision_core` of PR #1402, which now refers to #1393 instead of closing it (PF-1 done).
 
 ## Architecture
 
@@ -195,25 +197,25 @@ A value outside its domain is `DecisionInputError`. `scope` is the verdict of th
 
 ## Decision order
 
-`decide(decision_input)` evaluates in order and returns the first match. It never raises for a validated input except at step 5 and at the `PR_CONVERGING` + `replan_required` limitation.
+`decide(decision_input)` evaluates in order and returns the first match. It never raises for a validated input except at step 5 and at the `PR_CONVERGING` + `replan_required` limitation of step 3.
 
 1. progress is a ProgressAssessment with `no_progress=true` -> stop / HUMAN_ESCALATED / [NO_PROGRESS]
-2. at least one required FAIL:
+2. a `DENIED` verdict -> stop / BLOCKED / [POLICY_DENIED], preceded by VERIFIER_UNAVAILABLE when any required verifier has artifact verdict `unavailable` (R-055)
+3. at least one required FAIL:
    - `VERIFYING` -> repair (-> DIAGNOSING)
    - `DIAGNOSING` -> replan if **any** effective FR is `replan_required`, otherwise repair
    - `PR_CONVERGING` -> repair if every effective FR is `repairable`; if any is `replan_required`, raise `DecisionInputError` (the allowlist has no `PR_CONVERGING -> REPLANNING` edge; see Known limitations)
-3. any required verifier has artifact verdict `unavailable` -> stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE]
-4. a `DENIED` verdict -> stop / BLOCKED / [POLICY_DENIED]
+4. any required verifier has artifact verdict `unavailable` -> stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE]
 5. a `HUMAN_REQUIRED` verdict -> raise `DecisionInputError` (the first slice cannot enter `WAITING_HUMAN`)
 6. `PR_CONVERGING`, every required verifier has artifact verdict `pass`, and every pr_convergence field passes -> stop / MERGE_READY
 7. every required verifier has artifact verdict `pass`:
    - `VERIFYING` -> continue (-> PR_CONVERGING)
    - `PR_CONVERGING` -> continue (no transition; convergence not yet complete)
-8. otherwise -> stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE]. The DecisionInput rules make this unreachable (DIAGNOSING always hits step 2; in the other states, after steps 2-3 every required verifier has verdict `pass`); it exists so that no path ends in continue or MERGE_READY by default
+8. otherwise -> stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE]. The DecisionInput rules make this unreachable (DIAGNOSING always hits step 1, 2 or 3; in the other states, after steps 3-4 every required verifier has verdict `pass`); it exists so that no path ends in continue or MERGE_READY by default
 
-**Stop paths with DENIED.** If step 1 or 3 stops and a `DENIED` verdict is present, the Decision is stop / BLOCKED with stop_reasons = [the triggering reason, POLICY_DENIED]. A Run that Policy denied restarts only as a new Run (taxonomy §3).
+**Stop paths with DENIED.** A `DENIED` verdict always ends the Run as BLOCKED (taxonomy §3: a denied Run restarts only as a new Run). If step 1 stops, stop_reasons = [NO_PROGRESS, POLICY_DENIED]; otherwise step 2 applies. A Run is never repaired or replanned while a `DENIED` verdict is present: repairing cannot reach MERGE_READY and would only spend budget.
 
-**Verifier before Verdict.** Policy is evaluated after steps 1-3 (taxonomy §5). A verdict never overrides a required FAIL: `DENIED` or `HUMAN_REQUIRED` + a required FAIL gives the step 2 result. `DENIED` is checked before `HUMAN_REQUIRED`, so a denied Run is always recorded as BLOCKED. `HUMAN_REQUIRED` + no-progress gives HUMAN_ESCALATED / [NO_PROGRESS] (taxonomy §6 allowed example).
+**Verifier before Verdict.** The verifier evidence (artifact verdicts, FailureRecords, progress) is fully computed and validated before any verdict is looked at, and it is recorded in the payload in every case (taxonomy §5). A verdict never turns a FAIL or an unavailable verifier into success: `DENIED` can only stop (step 2), and `HUMAN_REQUIRED` + a required FAIL gives the step 3 result. "Cannot override a deterministic FAIL" (§5) means the FAIL is never treated as passing; stopping a denied Run does not contradict it (R-055, Human decision 2026-09-28). `DENIED` is checked before `HUMAN_REQUIRED`, so a denied Run is always recorded as BLOCKED. `HUMAN_REQUIRED` + no-progress gives HUMAN_ESCALATED / [NO_PROGRESS] (taxonomy §6 allowed example).
 
 An independent-model PASS never removes a deterministic FAIL: non-required results decide nothing.
 
@@ -231,7 +233,7 @@ A Replan does not change the artifact, so a FAIL on it survives the new contract
 After repair changes artifact A -> B, only results bound to B count:
 - a PASS bound to A cannot support continue or MERGE_READY
 - a FAIL bound to A cannot trigger repair / replan, and an FR for it is rejected (I-7)
-- a required verifier whose only result is bound to A has verdict `unavailable` -> step 3, even when another required verifier has verdict `pass` on B
+- a required verifier whose only result is bound to A has verdict `unavailable` -> step 4, even when another required verifier has verdict `pass` on B
 
 ## Trust boundary
 
@@ -281,7 +283,7 @@ The first release is not complete until #1422 (B-1〜B-11, including the audit) 
 |---|---|---|
 | `PLAN_VERIFYING` decisions (Initial Plan Verification PASS -> continue) | not accepted (I-1). Residual risk: in the first release no component decides Initial Plan Verification; `PLAN_VERIFYING -> EXECUTING` is a mechanical #1395 transition without `decision_made` | later #1393 slice (pbi-input updated) |
 | `HUMAN_REQUIRED` -> `WAITING_HUMAN` | `DecisionInputError` (step 5) | #1392 waiting/resume slice |
-| `PR_CONVERGING` + `replan_required` | `DecisionInputError` (step 2) | #1392 allowlist (no edge yet) |
+| `PR_CONVERGING` + `replan_required` | `DecisionInputError` (step 3; with `DENIED` it is BLOCKED at step 2) | #1392 allowlist (no edge yet) |
 | `BUDGET_EXHAUSTED` / `REPEATED_FAILURE` / `OSCILLATION` | not produced by `decide()` | later #1393 slice; budget enforced by #1395 (below) |
 | blocker sets are caller observations | trusted as observed values; `evidence_delta` is derived and `previous_verdicts` comes from the base-point payload (#1422 B-10) | #1395 derives blocker sets from RunEvents |
 | `required_verifiers` / `contract_bound_seq` are not yet bound to the Run by any event | release condition | #1422 B-2 / B-6 |
@@ -295,7 +297,7 @@ The first release is not complete until #1422 (B-1〜B-11, including the audit) 
 
 `NO_PROGRESS` alone does not bound these loops, so the first release requires #1395 to enforce limits outside `decide()`:
 
-1. repair loop whose fingerprint keeps changing (every repair changes the artifact) — including while `DENIED` or `HUMAN_REQUIRED` is present
+1. repair loop whose fingerprint keeps changing (every repair changes the artifact) — including while `HUMAN_REQUIRED` is present (`DENIED` stops at step 2)
 2. `PR_CONVERGING` continue with no transition while convergence keeps failing (for example conflict stays true)
 3. `PLAN_VERIFYING` <-> `REPLANNING` (outside `decide()` in this slice)
 4. repeated `DecisionInputError` retries
@@ -336,7 +338,7 @@ The module's directory must be covered by the static boundary check (ta-70 `_T70
 
 | # | Condition | Source |
 |---|---|---|
-| PF-1 | The relation to the `decision_core` in PR #1402 (which declares `Closes #1393` with a different design) is decided: replace, drop, or keep API-compatible; and #1402 no longer closes #1393 unless it implements this plan | R-058 (Human) |
+| PF-1 | ~~The relation to the `decision_core` in PR #1402 is decided~~ Done 2026-09-28: #1393 is rebuilt from this plan and replaces the #1402 `decision_core`; #1402 body changed `Closes #1393` to `Refs #1393`. Remaining at exec: the module path agreed with #1402's rework | R-058 (Human) |
 | PF-2 | #1391 `failure_recorded` carries `verification_ref` (#1422 B-12) | R-059 |
 | PF-3 | #1391 `pr_convergence_recorded` carries `observed_artifact_ref` (#1422 B-8) | R-060 |
 | PF-4 | the artifact ref encoding of #1422 B-1 is adopted by #1391 / #1395 | R-061 |

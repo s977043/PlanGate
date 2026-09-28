@@ -225,3 +225,5 @@ Trust boundary の脅威モデルも明記した: DecisionInput を組み立て�
 | R-056〜R-057 | reflected（Revision 2.3） | `b33f6879` | C-2 R1 |
 | R-058 | open（plan に PF-1 を追加） | `b33f6879` | Human 判断（#1402 の decision_core との関係） |
 | R-059〜R-069 | reflected（Revision 2.3） | `b33f6879` | R-059 / R-060 / R-065 は #1422 側の追記（B-12・B-8・B-2）が Human 承認待ち |
+| R-055 | reflected（Revision 2.4、Human 決定 2026-09-28） | 次の commit | DENIED は required FAIL があっても stop / BLOCKED |
+| R-058 | reflected（Human 決定 2026-09-28） | 次の commit | #1402 本文 Closes → Refs（issuecomment-5862093188）。#1422 に B-12 追加・B-8 / B-2 拡張 |

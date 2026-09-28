@@ -114,3 +114,14 @@ Human 裁定（2026-09-25）: Rev2-R5 の R-047 を R-037 と同型とみなし�
 | Unknowns | WARN | R-055（DENIED + FAIL）/ R-058（#1402 decision_core）が Human 判断待ち。PF-1〜PF-6 は exec 前の前提条件 |
 
 判定: **PASS（Unknowns WARN）**。C-2 R2 は R-055 / R-058 の裁定を反映してから実施する（R2 の焦点は R1 の是正が効いているか）。
+
+### 追記（2026-09-28 / 簡易 C-1 — Human 決定 R-055 / R-058 の反映（Revision 2.4）後）
+
+| 観点 | 判定 | 根拠 |
+|---|---|---|
+| R-055 の反映 | PASS | 判定順を NO_PROGRESS → DENIED → required FAIL → unavailable → HUMAN_REQUIRED に。DV-13 / DD-08 の期待値を BLOCKED に、DP-17 / DP-18 を追加。旧 step 番号の参照 4 か所を更新（grep で残存 0） |
+| R-058 の反映 | PASS | PR #1402 本文を `Refs #1393` に変更し、closing 参照から #1393 が外れたことを API で確認。PF-1 を完了扱いに |
+| 受入基準網羅 | PASS | Required 5 件の対応は不変 |
+| Unknowns | WARN | PF-2〜PF-6（#1391 語彙・payload 構造・静的境界）は exec 前の前提。#1422 の担当は未確定 |
+
+判定: **PASS（Unknowns WARN）**。次は C-2 R2。

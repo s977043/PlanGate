@@ -4,6 +4,8 @@
 >
 > Revision 2.1 (2026-09-25), matching plan Revision 2.1: contract boundary (`contract_bound_seq`), derived `evidence_delta` (`artifact_verdicts`), FR order (I-7). Stream-side cases moved to #1422 are listed under Integration cases.
 >
+> Revision 2.4 (2026-09-28), matching plan Revision 2.4: `DENIED` always stops as BLOCKED, also with a required FAIL (R-055; DV-13 / DD-08 changed, DP-17 added).
+>
 > Revision 2.3 (2026-09-25), matching plan Revision 2.3: convergence field domains (R-056), `MAX_INPUT_REFS` (R-062), progress events not read (R-066).
 >
 > Revision 2.2 (2026-09-25), matching plan Revision 2.2: asymmetric contract boundary (R-047), event-bound policy / convergence (R-048), effective FR (R-054), `previous_decision` base point (R-052), seq uniqueness and `contract_bound_seq >= 1` (R-050 / R-051), explicit `input_last_event_seq` (R-053).
@@ -74,7 +76,7 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DV-10 | fresh D PASS + policy DENIED | stop / BLOCKED / [POLICY_DENIED] |
 | DV-11 | fresh D PASS + policy HUMAN_REQUIRED | decide raises `DecisionInputError` |
 | DV-12 | fresh D PASS + policy {HUMAN_REQUIRED, DENIED} | stop / BLOCKED / [POLICY_DENIED] |
-| DV-13 | fresh D FAIL + policy DENIED | repair (-> DIAGNOSING) |
+| DV-13 | fresh D FAIL + policy DENIED | stop / BLOCKED / [POLICY_DENIED] (R-055; D verdict `fail` stays in the payload) |
 | DV-14 | fresh D unavailable + policy DENIED | stop / BLOCKED / [VERIFIER_UNAVAILABLE, POLICY_DENIED] |
 | DV-15 | fresh D PASS + policy AUTO_APPROVED | continue (-> PR_CONVERGING) |
 | DV-16 | D on the current artifact: FAIL (seq 10) then FAIL (seq 20), i.e. the repair did not change the artifact | repair (-> DIAGNOSING); no error |
@@ -97,7 +99,7 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DD-05 | as DD-04 + policy DENIED | stop / BLOCKED / [NO_PROGRESS, POLICY_DENIED] |
 | DD-06 | as DD-04 + policy HUMAN_REQUIRED | stop / HUMAN_ESCALATED / [NO_PROGRESS] |
 | DD-07 | fresh D FAIL + repairable FR + policy HUMAN_REQUIRED | repair (-> REPAIRING) |
-| DD-08 | fresh D FAIL + repairable FR + policy DENIED | repair (-> REPAIRING) |
+| DD-08 | fresh D FAIL + repairable FR + policy DENIED | stop / BLOCKED / [POLICY_DENIED] (R-055) |
 | DD-09 | ProgressAssessment no_progress=false | repair (-> REPAIRING) |
 | DD-11 | entered on D FAIL (seq 10, FR on seq 10); a CI re-run on the same artifact records D PASS (seq 30) | repair (-> REPAIRING); no `DecisionInputError` |
 | DD-12 | entered on D FAIL (seq 10, FR on seq 10); then D unavailable (seq 30) | repair (-> REPAIRING) |
@@ -120,6 +122,8 @@ Notation: `required = {D}` means `required_verifiers = {(D, deterministic)}`. "f
 | DP-06 | required = {D, E}, fresh D PASS, E only stale FAIL | stop / HUMAN_ESCALATED / [VERIFIER_UNAVAILABLE] |
 | DP-07 | fresh D FAIL + repairable FR + FIRST_ITERATION | repair (-> REPAIRING) |
 | DP-08 | fresh D FAIL + replan_required FR + FIRST_ITERATION | decide raises `DecisionInputError` |
+| DP-17 | as DP-08 + policy DENIED | stop / BLOCKED / [POLICY_DENIED] (step 2 comes before the step 3 limitation) |
+| DP-18 | required = {D, E}, fresh D FAIL + repairable FR + FIRST_ITERATION, E unavailable, policy DENIED | stop / BLOCKED / [VERIFIER_UNAVAILABLE, POLICY_DENIED] |
 | DP-09 | fresh D PASS + fresh model FAIL (non-required) | stop / MERGE_READY / [] |
 | DP-10 | fresh D PASS + policy DENIED | stop / BLOCKED / [POLICY_DENIED] |
 | DP-11 | fresh D PASS + policy {HUMAN_REQUIRED, DENIED} | stop / BLOCKED / [POLICY_DENIED] |
@@ -177,10 +181,11 @@ Each mutant must be killed by at least one case above.
 - freshness ignored on the PASS side (DV-06, DP-04) / on the FAIL side (DV-07, DI-13)
 - freshness judged per result instead of per required verifier (DV-08, DP-06)
 - required_verifiers accepts a non-deterministic kind (DI-07, DI-08)
-- default fall-through returns continue or MERGE_READY (DV-08 with step 3 removed)
-- DENIED evaluated before the required FAIL (DV-13, DD-08)
+- default fall-through returns continue or MERGE_READY (DV-08 with step 4 removed)
+- required FAIL evaluated before DENIED, i.e. a denied Run is repaired (DV-13, DD-08, DP-17)
+- DENIED evaluated before NO_PROGRESS, dropping NO_PROGRESS (DD-05)
 - HUMAN_REQUIRED evaluated before DENIED (DV-12, DP-11)
-- POLICY_DENIED dropped on a step 1 / 3 stop (DD-05, DV-14)
+- POLICY_DENIED dropped on a step 1 stop, or VERIFIER_UNAVAILABLE dropped on a step 2 stop (DD-05, DV-14, DP-18)
 - repair chosen when any FR is replan_required (DD-03)
 - FR required in VERIFYING (DV-02) / not required in DIAGNOSING (DI-19)
 - progress omission accepted (DI-20, DI-24)
