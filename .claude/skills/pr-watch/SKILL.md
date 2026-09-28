@@ -112,6 +112,10 @@ done
 4. `git push --force-with-lease` で push する
 5. push 直後の `mergeable` は再計算中で stale な場合がある。**数十秒後に
    再確認**する（`gh pr view <PR番号> --json mergeable`）
+6. **衝突中の PR は CI が 1 件も走っていないことがある**（base と merge できないと
+   workflow が起動しない）。解消前に「CI green」と判定していても、それは
+   **CI 未実行**である。push 後の `gh pr checks` の結果が出るまで品質判定を保留し、
+   0 件を green と読まない
 
 ## 4. gh mutation の前置（アカウントドリフト対策）
 
@@ -138,6 +142,21 @@ gh auth switch --user <expected-user> \
 - DoD: CI 全 job green **かつ** レビュー指摘ゼロ、または全件対応完了
   （採用/理由付き不採用の記録あり）。以降は C-4（人間の merge 承認、
   Human-owned 固定）待ちに遷移する
+- **テスト ID の横断重複**: 連番 ID のテスト（`tests/extras/ta-NN-*.sh` 等）を追加・
+  改番する PR は、merge-ready 判定の前に open PR 全体で同じ番号が別ファイルに
+  使われていないかを確認する。ファイル名が違えば git の衝突にならず、CI でも
+  検出されない
+
+  ```bash
+  gh pr list --state open --json number,files --jq '
+    [.[] | .number as $n | .files[].path
+     | select(test("^tests/extras/ta-[0-9]+-"))
+     | {id: (capture("ta-(?<i>[0-9]+)-").i), pr: $n, path: .}]
+    | group_by(.id) | map(select((map(.path) | unique | length) > 1))
+    | .[] | "ta-\(.[0].id): " + (map("#\(.pr) \(.path)") | join(", "))'
+  ```
+
+  出力が空なら重複なし。同じファイルを複数 PR が編集しているだけの場合は出ない
 
 ## 関連ドキュメント
 
