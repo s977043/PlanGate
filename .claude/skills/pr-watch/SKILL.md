@@ -165,20 +165,30 @@ gh auth switch --user <expected-user> \
   使い、open の #1402 の ta-88 と衝突した）
 
   ```bash
-  git fetch -q origin main
-  main_ids=$(git ls-tree --name-only origin/main tests/extras/ \
-    | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p' | sort -u)
-  gh pr list --state open --limit 200 --json number,files --jq '
-    .[] | .number as $n | .files[].path
-    | select(test("^tests/extras/ta-[0-9]+-")) | "\($n) \(.)"' |
-  while read -r n p; do
-    git cat-file -e "origin/main:$p" 2>/dev/null && continue
-    id=$(printf '%s\n' "$p" | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p')
-    printf '%s\n' "$main_ids" | grep -qx "$id" && echo "$id: #$n $p (main uses the same id)"
-  done
+  if git fetch -q origin main \
+    && main_ids=$(git ls-tree --name-only origin/main tests/extras/ \
+         | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p' | sort -u) \
+    && [ -n "$main_ids" ] \
+    && prs=$(gh pr list --state open --limit 200 --json number,files --jq '
+         .[] | .number as $n | .files[].path
+         | select(test("^tests/extras/ta-[0-9]+-")) | "\($n) \(.)"'); then
+    printf '%s\n' "$prs" | while read -r n p; do
+      [ -n "$p" ] || continue
+      git cat-file -e "origin/main:$p" 2>/dev/null && continue
+      id=$(printf '%s\n' "$p" | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p')
+      if printf '%s\n' "$main_ids" | grep -qx "$id"; then
+        echo "$id: #$n $p (main uses the same id)"
+      fi
+    done
+  else
+    echo "ABORT: origin/main or the open PR list is unavailable; empty output does not mean no collision" >&2
+    false
+  fi
   ```
 
-  出力が空なら衝突なし。main にある同名ファイルを編集しているだけの PR は出ない
+  出力が空（ABORT なし）なら衝突なし。main にある同名ファイルを編集しているだけの
+  PR は出ない。PR が main のファイルを同じ番号のまま rename した場合は、衝突として
+  出る（誤検知。gh の `files` は変更後のパスしか返さない）
 
 ## 関連ドキュメント
 
