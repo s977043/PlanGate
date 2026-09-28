@@ -64,9 +64,17 @@
             "gpt-5",
             "gpt-5-pro",
             "gpt-5-mini",
+            "gpt-6-sol",
+            "gpt-6-astra",
+            "gpt-6-luna",
             "legacy"
           ],
           "description": "モデルファミリー識別子"
+        },
+        "model_id": {
+          "type": "string",
+          "pattern": "^gpt-[A-Za-z0-9._-]+$",
+          "description": "Codex CLI に渡す公開モデル ID。指定された profile を実行モデルへ結び付けるための任意フィールド。未指定の既存 profile は launcher から選択できない。"
         },
         "role": {
           "type": "string",
@@ -327,6 +335,9 @@
                 "gpt-5.5",
                 "gpt-5.5-pro",
                 "gpt-5-mini",
+                "gpt-6-sol",
+                "gpt-6-astra",
+                "gpt-6-luna",
                 "legacy",
                 "unknown"
               ],

@@ -112,6 +112,10 @@ done
 4. `git push --force-with-lease` で push する
 5. push 直後の `mergeable` は再計算中で stale な場合がある。**数十秒後に
    再確認**する（`gh pr view <PR番号> --json mergeable`）
+6. **衝突中の PR は CI が 1 件も走っていないことがある**（base と merge できないと
+   workflow が起動しない）。解消前に「CI green」と判定していても、それは
+   **CI 未実行**である。push 後の `gh pr checks` の結果が出るまで品質判定を保留し、
+   0 件を green と読まない
 
 ## 4. gh mutation の前置（アカウントドリフト対策）
 
@@ -138,6 +142,53 @@ gh auth switch --user <expected-user> \
 - DoD: CI 全 job green **かつ** レビュー指摘ゼロ、または全件対応完了
   （採用/理由付き不採用の記録あり）。以降は C-4（人間の merge 承認、
   Human-owned 固定）待ちに遷移する
+- **テスト ID の横断重複**: 連番 ID のテスト（`tests/extras/ta-NN-*.sh` 等）を追加・
+  改番する PR は、merge-ready 判定の前に、open PR 全体と main の両方で同じ番号が
+  別ファイルに使われていないかを確認する。ファイル名が違えば git の衝突にならず、
+  CI でも検出されない
+
+  open PR 同士:
+
+  ```bash
+  gh pr list --state open --limit 200 --json number,files --jq '
+    [.[] | .number as $n | .files[].path
+     | select(test("^tests/extras/ta-[0-9]+-"))
+     | {id: (capture("ta-(?<i>[0-9]+)-").i), pr: $n, path: .}]
+    | group_by(.id) | map(select((map(.path) | unique | length) > 1))
+    | .[] | "ta-\(.[0].id): " + (map("#\(.pr) \(.path)") | join(", "))'
+  ```
+
+  出力が空なら重複なし。同じファイルを複数 PR が編集しているだけの場合は出ない
+
+  open PR と main: 上のコマンドは open PR 同士しか比べないので、先にマージされた
+  PR が同じ番号を取った場合を検出できない（2026-09-25 に #1419 が main で ta-88 を
+  使い、open の #1402 の ta-88 と衝突した）
+
+  ```bash
+  if git fetch -q origin main \
+    && main_ids=$(git ls-tree --name-only origin/main tests/extras/ \
+         | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p' | sort -u) \
+    && [ -n "$main_ids" ] \
+    && prs=$(gh pr list --state open --limit 200 --json number,files --jq '
+         .[] | .number as $n | .files[].path
+         | select(test("^tests/extras/ta-[0-9]+-")) | "\($n) \(.)"'); then
+    printf '%s\n' "$prs" | while read -r n p; do
+      [ -n "$p" ] || continue
+      git cat-file -e "origin/main:$p" 2>/dev/null && continue
+      id=$(printf '%s\n' "$p" | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p')
+      if printf '%s\n' "$main_ids" | grep -qx "$id"; then
+        echo "$id: #$n $p (main uses the same id)"
+      fi
+    done
+  else
+    echo "ABORT: origin/main or the open PR list is unavailable; empty output does not mean no collision" >&2
+    false
+  fi
+  ```
+
+  出力が空（ABORT なし）なら衝突なし。main にある同名ファイルを編集しているだけの
+  PR は出ない。PR が main のファイルを同じ番号のまま rename した場合は、衝突として
+  出る（誤検知。gh の `files` は変更後のパスしか返さない）
 
 ## 関連ドキュメント
 
