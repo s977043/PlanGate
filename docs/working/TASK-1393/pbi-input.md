@@ -33,7 +33,7 @@ Does not own:
 Required:
 - deterministic implementation Verify FAIL + repairable FailureRecord -> repair
 - deterministic FAIL cannot be overridden by model PASS
-- same failure + no artifact/evidence/blocker progress -> stop + HUMAN_ESCALATED + NO_PROGRESS
+- same failure + no artifact/evidence/blocker progress -> stop + HUMAN_ESCALATED + NO_PROGRESS (BLOCKED + [NO_PROGRESS, POLICY_DENIED] when a DENIED verdict is present; Human decision 2026-09-28, R-071)
 - fresh deterministic PASS + PR convergence PASS -> stop + MERGE_READY
 - unavailable/inconclusive cannot yield MERGE_READY
 

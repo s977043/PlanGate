@@ -13,12 +13,12 @@ V2 の immutable VerificationResult / FailureRecord と、観測済みの事実�
 
 C-3 待ち
 
-> Revision 2.5。C-2 は R1 / R2 の 2 ラウンドで収束（R2 は新クラス 0）。簡易 C-1 PASS（受入基準の文言 1 件 WARN: R-071、Human y/n）。C-3 承認記録は未発行。
+> Revision 2.5。C-2 は R1 / R2 の 2 ラウンドで収束（R2 は新クラス 0）。簡易 C-1 PASS（R-071 は Human y で反映済み）。C-3 承認記録は未発行。
 > Mode = high-risk。C-3 は Human 同期。
 
 ## 次のアクション
 
-R-071（pbi-input Required 3 の文言）の y/n → Human の C-3（同期）。exec 前に Preflight PF-1〜PF-8。
+Human の C-3（同期）。exec 前に Preflight PF-1〜PF-8。
 
 依存（リリース条件）: #1392 は (state, action) からの遷移導出と `decision_made` の 4 キー読み取りを採用済み（#1406 `e4aaeb91`）。stream 束縛は #1422（B-1〜B-12 は issue 記載、B-1 の表記と B-13 は追加提案。担当割り当ては Human）。#1395 の budget。
 

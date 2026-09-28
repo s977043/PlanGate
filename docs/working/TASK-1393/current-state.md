@@ -7,6 +7,7 @@
 
 ## 直近の完了タスク
 
+- Human y: R-071（pbi-input Required 3 に DENIED 時の BLOCKED を追記）/ #1422 に B-1 表記と B-13 を追加（2026-09-28）
 - C-2 R2（Codex gpt-6-luna は FAIL・新クラス 2 と主張 / Claude は WARN・収束）→ 新クラス 0 と裁定し R-070〜R-080 を記録、10 件を Revision 2.5 で反映（2026-09-28）
 - Human 決定 R-055 / R-058 を反映（Revision 2.4）。#1402 本文を Refs #1393 に変更、#1422 に B-12 追加・B-8 / B-2 拡張（2026-09-28）
 - C-2 R1（設計妥当性 = Codex gpt-6-luna FAIL / コードベース整合 = Claude WARN）を R-055〜R-069 として記録し、Revision 2.3 で 13 件を反映。簡易 C-1 PASS（2026-09-25 20:xx）
@@ -30,7 +31,7 @@
 
 ## 次のアクション
 
-- R-071 の y/n（pbi-input Required 3 に DENIED 時の BLOCKED を追記）→ Human の C-3 → exec 前に Preflight PF-1〜PF-8
+- Human の C-3 → exec 前に Preflight PF-1〜PF-8
 
 ## 計画からの乖離
 

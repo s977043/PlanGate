@@ -95,7 +95,7 @@ Unknown repairability/result values are rejected; free-form strings are not deci
 - `artifact_changed` is false
 - `evidence_delta`, `resolved_blockers`, `introduced_blockers` are all empty
 
-Because the verdict is sticky, a result on the same artifact that leaves every verdict unchanged (a PASS after a FAIL, a repeated unavailable) produces no evidence delta, so it cannot turn a no-progress loop into an unbounded repair loop. A new failure fingerprint is already covered by the fingerprint-set comparison. `resolved_blockers` / `introduced_blockers` come only from a deterministic observer event (#1422 B-13, proposed). Values carried by the #1391 `repair_attempted` / `progress_assessed` events are never used (R-077); until B-13 exists #1395 passes empty sets, which can only make NO_PROGRESS fire earlier (fail-closed).
+Because the verdict is sticky, a result on the same artifact that leaves every verdict unchanged (a PASS after a FAIL, a repeated unavailable) produces no evidence delta, so it cannot turn a no-progress loop into an unbounded repair loop. A new failure fingerprint is already covered by the fingerprint-set comparison. `resolved_blockers` / `introduced_blockers` come only from a deterministic observer event (#1422 B-13). Values carried by the #1391 `repair_attempted` / `progress_assessed` events are never used (R-077); until B-13 exists #1395 passes empty sets, which can only make NO_PROGRESS fire earlier (fail-closed).
 
 No retry-count shortcut.
 
@@ -260,7 +260,7 @@ Consequence: an empty commit, an amend with the same content, or a rebase that y
 
 Audit (#1422 B-11, release condition): recompute each `decision_made` from the stream prefix up to its `input_last_event_seq` and compare.
 
-#1422 items this plan relies on (B-1〜B-12 are in the issue body as of 2026-09-28; B-13 and the B-1 encoding are proposed from C-2 R2):
+#1422 items this plan relies on (B-1〜B-13, including the B-1 encoding, are in the issue body as of 2026-09-28):
 
 | # | Invariant |
 |---|---|
@@ -276,7 +276,7 @@ Audit (#1422 B-11, release condition): recompute each `decision_made` from the s
 | B-10 | `previous_decision` is the latest base-point `decision_made`; `FIRST_ITERATION` only when none exists |
 | B-11 | audit recompute (IT-06) |
 | B-12 | `failure_recorded` carries the `verification_ref` of the FAIL it diagnoses (R-059) |
-| B-13 | blocker sets come from a deterministic observer event, not from `repair_attempted` / `progress_assessed` (R-077) — proposed |
+| B-13 | blocker sets come from a deterministic observer event, not from `repair_attempted` / `progress_assessed` (R-077) |
 
 The first release is not complete until #1422 (B-1〜B-13, including the audit) and the #1395 budget are in place.
 
