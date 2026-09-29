@@ -80,7 +80,7 @@ V2 では次の 4 軸を**別フィールド**で持つ。
 | `POLICY_DENIED`        | Policy Verdict が `DENIED`                                            | Policy Gate                   |
 | `VERIFIER_UNAVAILABLE` | 必須 Verifier が実行不能・判定不能（fail-open しない）                | Verifier pipeline             |
 | `REQUIREMENT_CONFLICT` | 受入基準同士、または Plan と受入基準が矛盾                            | Plan Verification / Diagnoser |
-| `STATE_CONFLICT`       | RunState の revision CAS 失敗（並行 resume 等）                       | RunState store                |
+| `STATE_CONFLICT`       | RunState の CAS 失敗（revision または stream の位置が古い。並行 resume 等） | RunState store                |
 | `HUMAN_REJECTED` | Policy Verdict `HUMAN_REQUIRED` の後、Human が継続を否認した | Human（`WAITING_HUMAN` からの復帰時） |
 
 原則:

@@ -1,0 +1,460 @@
+# EXTERNAL / FALLBACK REVIEW — TASK-1392 PLAN
+
+Status: PENDING
+
+Review questions:
+1. Is one-file atomic snapshot a valid simpler equivalent to WAL for first slice?
+2. Does storing full event history in each snapshot create unacceptable growth or copy cost for the first release?
+3. Is conflict evidence generation safe without modifying RunState revision?
+4. Is generation/event_seq/revision separation coherent?
+5. Are crash points sufficient around fsync/replace?
+6. Does #1392 accidentally re-own event semantics?
+7. Is trusted runtime_root acceptable for first slice or must repo/common-dir discovery be included now?
+8. Does snapshot_ref create false tamper guarantees without external anchor?
+
+## PR independent review (2026-09-24 / head `d369d069`)
+
+Source: PR #1406 comment「独立レビュー（2026-09-24）」. This is a pre-C-2 review, so it does not count as a C-2 round. C-2 (2 rounds, high-risk equivalent) is still PENDING.
+
+| ID | severity | finding | disposition |
+|---|---|---|---|
+| R-001 | major | No idempotency key or duplicate detection, although pbi-input includes "idempotent transaction retry" and TASK-1391 plan delegates exact retry to #1392. A draft resent without a transition would commit twice | reflected: `transaction_id` + `request_digest` ledger; exact retry returns the current snapshot with `replayed=true`; ST-21a〜21f |
+| R-002 | major | Stored `state` and the `state_transitioned` event stream are two truths that strict load does not cross-check | reflected: `state` is a derived cache; strict load folds the stream and rejects a mismatch; ST-28c / 28d |
+| R-003 | minor | `state_conflict` is appended on every CAS mismatch with no bound | reflected: one per transaction_id; `MAX_CONFLICTS_PER_REVISION` with `suppressed`; ST-21d / 21g |
+| R-004 | minor | INDEX.md / current-state.md / decision-log.jsonl missing | reflected: generated |
+
+Open for Human (not resolved by the plan author): [P1] single-snapshot without WAL; [P2] trusted `runtime_root`.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-001 | reflected | (this PR, sweep commit) | |
+| R-002 | reflected | (this PR, sweep commit) | |
+| R-003 | reflected | (this PR, sweep commit) | cap value provisional, fixed by RED fixture |
+| R-004 | reflected | (this PR, sweep commit) | |
+
+## Adversarial review of the R-001〜R-004 fix (2026-09-25)
+
+Independent read-only reviewer, focus per `review-principles.md` §7-quater (fix not effective / new hole from the fix / fail-closed breaking normal path). Still pre-C-2.
+
+Verdict: fix needed (major 1 / minor 4). Confirmed as effective: digest covers `expected_revision` + `transition`, so the pre-revision lookup lets no stale or post-terminal writer through; `generation == len(transactions)` is consistent with crash / conflict / replay; `PLAN_VERIFYING` start matches taxonomy.
+
+| ID | severity | finding | class | disposition |
+|---|---|---|---|---|
+| R-005 | major | Fold checked only `state_transitioned`; per-event `revision` of other events, ledger `result_revision`, and allowlist conformance of stored edges were unchecked (second truth remained) | R-002 not fully fixed | reflected: fold checks every event's revision, re-checks allowlist edges on load, ledger `result_revision`; ST-28f/g/h |
+| R-006 | minor | Suppressed request is unrecorded, and a future `expected_revision` was treated as a normal conflict, so the same request could later commit | new (from R-003 fix) | reflected: `expected_revision > current` → `InvalidExpectedRevision`, zero mutation; ST-21h/i |
+| R-007 | minor | Plan said `state_transitioned` fields are #1391-defined, but TASK-1391 plan says state/conflict evidence is consumed from #1392; no payload owner on main | new (ownership inversion) | reflected: payloads owned and frozen by #1392 RED fixtures |
+| R-008 | minor | Empty commit (no drafts, no transition) would write a ledger entry with no event range and break strict load | new | reflected: rejected with zero mutation; ST-21l |
+| R-009 | minor | Replay returned only the current snapshot, not the transaction's own outcome / event range | new (API gap) | reflected: `CommitResult.transaction`; ST-21m |
+
+Missing TCs also added: concurrent exact retry (ST-21j), create_run retry variants (ST-21k), ledger first-entry / conflict-coverage tamper (ST-28e).
+
+Round note (§7-quater): R-005 is the same class as R-002 (fix incomplete); R-006〜R-009 are new classes created by or exposed through the fix. **Not converged** — C-2 rounds must re-check the idempotency / fold design, not only its wording.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-005 | reflected | (this PR, sweep commit) | |
+| R-006 | reflected | (this PR, sweep commit) | |
+| R-007 | reflected | (this PR, sweep commit) | |
+| R-008 | reflected | (this PR, sweep commit) | |
+| R-009 | reflected | (this PR, sweep commit) | |
+
+## Codex consultation on C-3 decision items (2026-09-25)
+
+Read-only consultation (Codex), not a C-2 round. Human selected all four to reflect.
+
+| ID | item | Codex recommendation | disposition |
+|---|---|---|---|
+| R-010 | [P1] no-WAL single snapshot | adopt conditionally: add size bound, performance threshold, per-OS durability definition | reflected: Durability definition / Size and cost bound; ST-30〜32 |
+| R-011 | [P2] trusted `runtime_root` | allow inside the primitive, but state CAS holds only within one root; common-dir resolver + linked-worktree test before the first production adapter | reflected: CAS guarantee scope |
+| R-012 | initial state | keep `PLAN_VERIFYING`; keep `PLANNING` in canon, add its edge in a later planning slice | reflected: Initial state and PLANNING |
+| R-013 | C-2 rounds | 2 fixed rounds are not enough; at least 2, until no new class; next round compares the model with alternatives | reflected: INDEX / todo |
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-010 | reflected | (this PR, follow-up commit) | bound values provisional |
+| R-011 | reflected | (this PR, follow-up commit) | |
+| R-012 | reflected | (this PR, follow-up commit) | |
+| R-013 | reflected | (this PR, follow-up commit) | |
+
+## Requests from #1393 (PR #1407 comments, 2026-09-25)
+
+Cross-PR requests from #1407's adversarial reviews (R3 / Rev2-R1〜R3). Not a C-2 round.
+
+| ID | request | disposition |
+|---|---|---|
+| R-014 | derive the transition from `(lifecycle_state, action)`; reject a mismatching `transition` and a bare Decision-bound edge; re-check on load | reflected: Decision-bound transitions (checks 3〜5); ST-35〜38 |
+| R-015 | reject when `decided_in_state` differs from snapshot `lifecycle_state` | reflected: check 1; ST-33 |
+| R-016 | `decision_made` must be assigned `event_seq == input_last_event_seq + 1` (replaces the withdrawn `expected_last_event_seq` argument); re-check on load | reflected: check 2; ST-34 / 34a |
+
+Open dependency: #1391 must freeze the `decision_made` payload keys (`decided_in_state`, `action`, `outcome`, `input_last_event_seq`) before RED fixtures.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-014 | reflected | (this PR, #1407-requests commit) | |
+| R-015 | reflected | (this PR, #1407-requests commit) | |
+| R-016 | reflected | (this PR, #1407-requests commit) | |
+
+## C-2 round 1 (2026-09-25 / reviewed head `2f64beb0`)
+
+Two lanes per `review-principles.md` §7-bis. Design lane run twice: Codex `gpt-5.6-sol` and Codex `gpt-6-sol` (model confirmed from the Codex rollout log, not from the report). Codebase lane: independent Claude agent. Key codebase claims were re-checked against files (main has 0 `validate_append`; #1402 `run_event.py` has `state_conflict_recorded` and no `state_transitioned`; #1402 `run_state.py` is multi-file + journal with plain `os.fsync` and WAITING_* / self edges).
+
+Verdict: **fix needed; not converged** (new classes R-018 / R-020 / R-022).
+
+| ID | lane | severity | finding | disposition |
+|---|---|---|---|---|
+| R-017 | design (both models) | major | Model A stores derived state and ledger aggregates and re-derives them on every load; R-002 → R-005 was the same class. Both models recommend model B (store only events + #1392 transaction envelope, derive state / index) with the same single-file atomic replace. B conflicts with canon §4 (CAS writes `new_state`) and pbi-input (single snapshot incl. RunState), so **B requires a canon revision** | **Human decision (C-3)** — not changed by the plan author |
+| R-018 | design (both models) | major | A fixed `TERMINAL_RESERVE` does not prove a terminal Decision fits | reflected: reserve derived from `MAX_DECISION_EVENT_BYTES`; guarantee not claimed until #1391/#1393 bound the payload; ST-30c |
+| R-019 | design (gpt-6-sol) | major | Boundary between replay and canon §4 "mismatch -> STATE_CONFLICT" undefined | reflected: replay = re-delivery for the same transaction_id + digest only; everything else stale is STATE_CONFLICT |
+| R-020 | design (gpt-5.6-sol) | major | `request_digest` is not re-derivable from stored data, so a consistent-looking ledger replacement is undetectable | open: disappears under model B (envelope stores the request identity with its events); under A needs the canonical request stored with the entry. Depends on R-017 |
+| R-021 | design (gpt-5.6-sol) | major | Owner boundary of a B-style transaction envelope vs #1391 RunEvent is undefined | open: depends on R-017 |
+| R-022 | codebase | major | #1391 implementation exists only in PR #1402; its closed `EVENT_PAYLOAD_KEYS` has no `state_transitioned` (name there: `state_conflict_recorded`) | reflected: "consumable" preflight now requires the #1391 API on main and either the state event types or an extension point |
+| R-023 | codebase | major | #1402 `run_state.py` already implements #1392 with a different model (multi-file + journal, plain fsync, WAITING_* / self edges) | **Human decision (C-3)**: replace or exclude #1402's run_state |
+| R-024 | codebase | major | No re-open + dev/ino check after flock (TASK-1025 had `runtime_path_changed`) | reflected: Locking; ST-39 |
+| R-025 | codebase | major | #1393 requests not in plan at `2f64beb0` | already reflected in `77d7802d` (R-014〜R-016) |
+| R-026 | codebase | minor | TA number collisions (main ta-88; open PRs ta-88〜91; sweep reserves 92〜93) | reflected: ta-94 or later |
+| R-027 | codebase | minor | `scripts/ai-loop-v2/` is outside ta-70 / exec-boundary scans, so ST-25/26 would pass vacuously | reflected: Implementation placement and static coverage (positive control required) |
+| R-028 | codebase | minor | temp file naming undefined | reflected: fixed `<run-id>.json.tmp`, other siblings rejected; ST-40 |
+
+Info (not reflected): TA-87 fixture on main models state per event with a REPAIRING self edge and +1 revision on terminal decision — hand over to #1395. `F_FULLFSYNC` succeeded on this machine (APFS) for file and directory.
+
+Round note (§7-quater): the design lane in two independent models reached the same verdict (move to B), and the codebase lane found a competing implementation of this slice. The next round should not start until the Human decides R-017 / R-023, because both change what is being reviewed.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-017 | human-decision | — | canon §4 / pbi-input revision if B |
+| R-018 | reflected | (C-2 R1 commit) | |
+| R-019 | reflected | (C-2 R1 commit) | |
+| R-020 | open | — | depends on R-017 |
+| R-021 | open | — | depends on R-017 |
+| R-022 | reflected | (C-2 R1 commit) | |
+| R-023 | human-decision | — | |
+| R-024 | reflected | (C-2 R1 commit) | |
+| R-025 | reflected | `77d7802d` | |
+| R-026 | reflected | (C-2 R1 commit) | |
+| R-027 | reflected | (C-2 R1 commit) | |
+| R-028 | reflected | (C-2 R1 commit) | |
+
+## Human decisions on C-2 R1 (2026-09-25)
+
+| ID | decision | reflected |
+|---|---|---|
+| R-017 | **model B** | plan: Snapshot / Transaction identity / create_run / commit / Revision conflict / Strict loading / Integration API / Tests; test-cases ST-28c〜e, 28h, 28i, 41; pbi-input Key design decision (revision note); canon `artifact-responsibilities.md` §4 (RunState is logical; CAS may be realised by an appended transition event; replay is not a CAS retry) |
+| R-023 | **exclude `run_state.py` from #1402**; #1406 is the owner of RunState persistence and #1402 consumes the #1392 API | plan: Implementation placement; request posted to PR #1402 |
+
+Status updates (append-only):
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-017 | reflected | (model B commit) | canon §4 revised in this PR |
+| R-020 | reflected | (model B commit) | digest of commit/create envelopes recomputed from stored events; conflict digest carried in the #1392-owned payload (tampering changes only the zero-mutation answer); ST-28i |
+| R-021 | reflected | (model B commit) | envelope = #1392 metadata, RunEvent = #1391 type, no key crosses; ST-41 |
+| R-023 | reflected | (model B commit) | |
+
+C-2 round 2 reviews the model-B plan (§7-quater: is the fix effective / did it create new holes / did fail-closed break the normal path), including the new dependency that #1391 `finalize_event` adds only a closed set of binding keys.
+
+## C-2 round 2 (2026-09-25 / reviewed head `47b7927f`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent (diff `2f64beb0..47b7927f`, model-A remnant grep, TC ↔ rule mapping). Key claims re-checked against files (canon fixture row still distinguished no transaction id; create digest included the unstored `initial_state`; `transition` check was one-directional).
+
+Verdict: **fix needed; not converged** — new classes R-032 / R-033 / R-034 / R-035 and the conflict-digest response variance (R-029). The idempotency layer has produced a new class every round (R-001 → R-006〜R-009 → R-020 → R-029 / R-035), so the Human was asked to narrow it.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-029 | design | major | conflict digest cannot be re-derived, so the same request can get a different answer after tampering | new | **Human decision: conflicts are outside idempotency.** Replay only for committed create / commit; a conflicted id gets a live RevisionConflict, no digest kept |
+| R-030 | both | major | conflict envelope vs payload not cross-checked; `transition` checked one way only; create / conflict `expected_revision` undefined | R-017 fix incomplete | reflected: numbers only in the payload, envelope fields null per kind, `transition` iff trailing `state_transitioned`, conflict consistency on load; ST-28j / 28k |
+| R-031 | adversarial | major | renaming an events-only envelope's `transaction_id` (snapshot_ref recomputed) lets the original request append again; "cannot append twice" claim was wrong | R-020 fix incomplete | reflected: claim withdrawn; Trust limit stated (unkeyed hash, hostile writer out of scope); ST-28i narrowed to corruption |
+| R-032 | design | major | conflict evidence consumes the terminal reserve | new | reflected: conflicts recorded only outside the reserve, else `suppressed`; ST-30d |
+| R-033 | adversarial | minor | states that accept `stop` undefined; a Run at the reserve in EXECUTING cannot terminate | new | reflected: guarantee scoped to Decision states; #1395 budget must stop earlier; residual in handoff; ST-30a pinned to VERIFYING |
+| R-034 | adversarial | major | `plan_hash` cannot change but `REPLANNING -> PLAN_VERIFYING` is allowed, so a new Plan is rejected | new | **Human decision: allow one re-binding `plan_contract_bound` while REPLANNING**; ST-43 / 43a; #1391 dependency |
+| R-035 | adversarial | major | digest input set ≠ recomputable set (`initial_state` unstored, trailing `state_transitioned` not excluded, #1391 canonicalization may change drafts) → legitimate retries get `TransactionIdReuse` | new | reflected: digest over recomputable data only, no `initial_state` input, trailing transition excluded, drafts with binding keys rejected, Preflight `strip(finalize(d)) == d`; ST-21e / 21e2 / 42 |
+| R-036 | adversarial | major/minor | canon fixture row contradicts the revised §4; ST-41 recursive check would reject valid conflicts; model-A remnants in INDEX / current-state / review-self / todo | R-019 fix incomplete / cleanup | reflected: canon fixture rows split (new id → STATE_CONFLICT / same request → replay / conflicted id → live conflict); ST-41 top-level only; remnants cleaned |
+
+Info (not reflected): `resumed_from_run_id?` in pbi-input has no deriving event under B (to be defined by the waiting/resume or Replan-as-new-Run slice). Cost: B recomputes digests on load; compute lazily for the looked-up id only (performance fixture decides).
+
+Round note (§7-quater): not converged. R3 should check that the narrowed idempotency and the re-binding rule are effective and create no new hole; if R3 again finds a new class in the idempotency layer, the next step is to drop idempotency from the first slice (the third option offered to the Human).
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-029 | reflected | (C-2 R2 commit) | Human decision |
+| R-030 | reflected | (C-2 R2 commit) | |
+| R-031 | reflected | (C-2 R2 commit) | residual, documented |
+| R-032 | reflected | (C-2 R2 commit) | |
+| R-033 | reflected | (C-2 R2 commit) | residual for #1395 |
+| R-034 | reflected | (C-2 R2 commit) | Human decision; #1391 dependency |
+| R-035 | reflected | (C-2 R2 commit) | #1391 dependency |
+| R-036 | reflected | (C-2 R2 commit) | |
+
+## C-2 round 3 (2026-09-25 / reviewed head `2d2cdc78`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent (R2 fixes traced with concrete input sequences, TC ↔ rule mapping). Key claims re-checked against files (create_run had no 2c; TASK-1391 plan checks binding continuity and invalidates on binding mismatch; canon :94 vs :109; stale ST-28b / 28h references).
+
+Verdict: **fix needed; not converged.** New classes in the idempotency layer again (R-037 / R-038), in re-binding (R-043) and in draft injection (R-039). Per the R2 round note the Human was offered "drop idempotency from the first slice"; the Human chose to **keep it and close by specification**, and to **ask #1391 for re-binding support**.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-037 | both | major | "different body under a conflicted id → `TransactionIdReuse`" needs a digest that R-029 removed | new (from the R-029 fix) | reflected: a conflicted id always gets the live conflict, body not examined; ST-21d2 |
+| R-038 | adversarial | major | create path lacked the binding-key rejection and the location of binding keys / depth of strip was undefined → false replay for a different `plan_hash` | new (R-035 fix incomplete on create) | reflected: create step 0, binding keys top level only, strip top level only; ST-21f2 |
+| R-039 | adversarial | major | caller drafts of #1392-owned types accepted; load's iff check looked only at the last event | new | reflected: commit step 2d; `state_transitioned` only as the last event of a commit envelope; ST-44 / 44a |
+| R-040 | design | minor | commit step 5 bound one context for the whole transaction, so events after a re-binding would carry the old binding | R-034 fix incomplete | reflected: per-event binding from the fold |
+| R-041 | adversarial | major | "terminal Decision only in Decision states" was not one of the checks | R-033 fix incomplete | reflected: Decision-bound check 6; ST-45 |
+| R-042 | adversarial | minor | a stale `state_conflict` between input and Decision rejects the legitimate Decision | new (residual) | reflected as residual (intended strictness, bounded by the per-revision cap); ST-46 |
+| R-043 | adversarial | major | re-binding conflicts with #1391 binding continuity and "binding mismatch -> invalid"; #1391 has no Lifecycle State | new | **Human decision: ask #1391** to treat re-binding as a segment boundary; #1392 checks the state condition; Preflight stops exec until then; ST-43b |
+| R-044 | adversarial | major | canon principle "CAS failure is recorded" vs four non-recording paths | R-036 fix incomplete | reflected: canon principle lists the four exceptions |
+| R-045 | adversarial | minor | stale references to removed ST-28b / 28h | cleanup | reflected in plan (review-self's older section is superseded by the later C-1 section) |
+
+Round note (§7-quater): the idempotency layer produced a new class in every round (R1 → R3). The Human kept it; the next round must say explicitly whether that layer produced a new class again.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-037 | reflected | (C-2 R3 commit) | |
+| R-038 | reflected | (C-2 R3 commit) | |
+| R-039 | reflected | (C-2 R3 commit) | |
+| R-040 | reflected | (C-2 R3 commit) | |
+| R-041 | reflected | (C-2 R3 commit) | |
+| R-042 | reflected | (C-2 R3 commit) | residual |
+| R-043 | reflected | (C-2 R3 commit) | Human decision; request to #1391 |
+| R-044 | reflected | (C-2 R3 commit) | canon |
+| R-045 | reflected | (C-2 R3 commit) | |
+
+## C-2 round 4 (2026-09-25 / reviewed head `bea4a94c`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. Key claims re-checked against files (`create_run` had no `run_id` / binding arguments; TASK-1391 EventDraft carries no binding and `finalize_event` takes `bound_context`; plan:101 claimed an ahead request could never commit).
+
+Verdict: **fix needed; not converged.** Both lanes: **new class in the idempotency layer = Yes** — the fourth round in a row. Per the R3 round note the Human was offered "drop idempotency from the first slice" again and chose it.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-046 | both | major | idempotency layer: conflicted id used by `create_run` has no defined answer (design); binding values are neither inputs nor in the digest, so a create with only `plan_hash` changed gets `replayed=true` (adversarial) | new (4th round) | **Human decision: remove idempotency from the first slice** (`transaction_id`, replay, digest, conflicted set, and the related ST-21a〜m / 21d2 / 21e2 / 21f2 / 42 withdrawn) |
+| R-047 | adversarial | critical | no channel to supply `run_id` and binding values: the API had no arguments and R-038 closed the draft channel; Replan (R-034 / R-040) could never succeed | new (from the R-038 fix) | reflected: `create_run(run_id, binding, ...)`, `commit(..., rebinding=...)`; drafts never carry binding keys; ST-21n〜p / 43 |
+| R-048 | adversarial | major | "an `InvalidExpectedRevision` request can never commit later" was false | R-006 wording | reflected: an ahead request is an ordinary CAS once the store catches up; ST-21i |
+| R-049 | organizer (found while applying R-046) | critical | without idempotency, a revision-only CAS lets an **events-only** commit be resent and applied twice (the original R-001), because the revision changes only on transitions | new (from the R-046 decision) | **Human decision: CAS on revision + `position`** (number of create / commit envelopes; conflicts not counted); ST-21b / 21q / 21r; canon §4 principle and fixture rows |
+| R-050 | adversarial | major | ST-07 / ST-28d had no re-binding exception and contradicted ST-43 | R-034 fix incomplete | reflected |
+| R-051 | adversarial | major | canon's non-recording exceptions missed one path | R-044 fix incomplete | reflected: canon lists 3 exceptions after idempotency removal (cap / reserve / after terminal); `InvalidExpectedRevision` is not a CAS failure |
+| R-052 | adversarial | minor | create path lacked TCs for envelope-key rejection and #1392-owned types | TC gap | reflected: ST-21n / ST-44 cover create |
+| R-053 | design | minor | create with a conflicted id | obsolete | withdrawn with R-046 |
+
+Round note (§7-quater): the layer that produced a new class in every round is gone. R5 must check that removing it did not reopen R-001-type duplicates (R-049) or create new ones, and that the binding arguments are consistent with #1391.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-046 | reflected | (C-2 R4 commit) | Human decision |
+| R-047 | reflected | (C-2 R4 commit) | |
+| R-048 | reflected | (C-2 R4 commit) | |
+| R-049 | reflected | (C-2 R4 commit) | Human decision |
+| R-050 | reflected | (C-2 R4 commit) | |
+| R-051 | reflected | (C-2 R4 commit) | canon |
+| R-052 | reflected | (C-2 R4 commit) | |
+| R-053 | withdrawn | — | obsolete after R-046 |
+
+## C-2 round 5 (2026-09-25〜28 / reviewed head `d01fcbeb`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent (duplicate-commit input sequences, remnant grep, TC ↔ rule mapping). Both lanes: the same-token resend path no longer duplicates (non-transition / transition / terminal / re-binding / create / concurrent conflict / crash after replace / OS crash between replace and dir fsync).
+
+Verdict: **fix needed; not converged** — new classes R-054 / R-055 / R-056 / R-057, **all closed by specification** (no design change).
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-054 | adversarial | major | a caller that lost a response and resends with a re-read token can apply the same content twice; with several writers it cannot tell whether its commit landed | new (exposed by R-046) | **Human decision: single-writer premise** for recovery; landed check `position == expected_position + 1` with a `commit` envelope; written into plan / canon §4 / #1395 handoff; ST-21s |
+| R-055 | adversarial | minor | stale / ahead not a partition for a 2-component token; (R+1, P−1) recorded as a conflict makes the Run unloadable | new (from R-049) | reflected: classify ahead first; ST-21h |
+| R-056 | adversarial | minor | conflict cap counted per revision stops recording during long non-transition runs | new (from R-049) | reflected: cap per position; ST-21g / 21g2 |
+| R-057 | design | major | reserve judged before appending; a commit can straddle into the reserve | new | reflected: judged after appending for commits and conflicts; ST-30e |
+| R-058 | both | major / minor | review-self / current-state / INDEX still described idempotency; taxonomy STATE_CONFLICT said "revision CAS" only | remnant | reflected: C-1 re-run supersedes R-10 / R-13 / R-14; current-state / INDEX updated; taxonomy revised |
+| R-059 | adversarial | minor | `bound_context` contents unspecified; no TC for payload binding vs argument; ST-28a / 06 / 07 had no executable input; ST-01〜03 used a revision-only token | TC / wording | reflected: `bound_context` defined; ST-21t; ST-06 / 07 / 28a reworked; ST-01〜03 use the 2-component token |
+
+Round note (§7-quater): the idempotency layer is gone; R5's new classes come from the 2-component token and the lost-response path and were closable by specification. R6 checks whether the specification closes them and creates no new class.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-054 | reflected | (C-2 R5 commit) | Human decision |
+| R-055 | reflected | (C-2 R5 commit) | |
+| R-056 | reflected | (C-2 R5 commit) | |
+| R-057 | reflected | (C-2 R5 commit) | |
+| R-058 | reflected | (C-2 R5 commit) | canon taxonomy |
+| R-059 | reflected | (C-2 R5 commit) | |
+
+## C-2 round 6 (2026-09-28 / reviewed head `df4abb13`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. Both lanes confirmed R-055 / R-056 / R-057 effective on concrete input sequences.
+
+Verdict: **fix needed; not converged.** The R-054 landed-check rule (added in R5) produced three new classes at once; the Human was asked whether to keep narrowing it or move recovery out of #1392.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-060 | both | major | the landed check misidentifies the request: one writer can have several in-flight requests; "the envelope at that position" is ambiguous across conflict envelopes (re-send after a conflict leads to a double commit); `kind` / position are not in the public API; a caller crash loses `expected_position` | new ×3 (from R-054) | **Human decision: drop the landed-check rule.** #1392 guarantees only "same token never applies twice"; recovery is a #1395 contract — discard the in-flight request, `load_run`, derive the next action from the stream. ST-21s withdrawn; canon §4 revised |
+| R-061 | adversarial | major | `load_run` could return a replaced but not yet directory-flushed snapshot; a caller could act on it and lose it to an OS crash; this also broke "an ahead token cannot come from a correct caller" | new | reflected: Durable read (lock + directory flush before returning, fail closed); ST-19a |
+| R-062 | both | minor | remnant "per-revision cap" wording | R-056 fix incomplete | reflected |
+| R-063 | adversarial | minor | "any other sibling" could reject other Runs' files in the same `runtime_root` | new | reflected: limited to this Run's `<safe-run-id>.` prefix; ST-40 |
+| R-064 | adversarial | minor | ST-21i used a revision-only token; no TC for "terminal decision is the last event" | TC gap | reflected: ST-21i; ST-23c |
+
+Round note (§7-quater): the idempotency layer (R1〜R4) and the landed-check rule (R5〜R6) each produced new classes every round; both are now out of #1392. R7 checks that the remaining guarantee (same-token CAS, durable read) holds and that the #1395 contract is stated precisely enough to hand over.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-060 | reflected | (C-2 R6 commit) | Human decision; #1395 handoff |
+| R-061 | reflected | (C-2 R6 commit) | canon |
+| R-062 | reflected | (C-2 R6 commit) | |
+| R-063 | reflected | (C-2 R6 commit) | |
+| R-064 | reflected | (C-2 R6 commit) | |
+
+## C-2 round 7 (2026-09-28 / reviewed head `f1104ee8`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. Both lanes: the two remaining guarantees (same token never applies twice; reads return only durable snapshots) held on every input sequence tried (lost response landed / not landed, interleaved commit or conflict, late landing of a discarded request, lost Decision response, caller crash).
+
+Verdict: **fix needed; not converged** — new classes, all in the #1395 recovery contract wording and non-functional limits, **all closed by specification** (no design decision required).
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-065 | both | major | "re-derive after an error" applied to every error loops forever on deterministic rejections (e.g. `SnapshotCapacityExceeded` at the bound in EXECUTING) | new | reflected: outcomes split into re-derive (lost response, own crash, STATE_CONFLICT, RunAlreadyExists, RuntimeBusy; bounded by `MAX_REDERIVE_PER_POSITION`) and stop (validation, capacity, InvalidExpectedRevision, runtime / durability errors); canon §4 |
+| R-066 | design | major | before the first create there is no stream to re-derive from; `load_run` on an absent Run was undefined | new | reflected: `RunNotFound` → derive `create_run`; ST-01a |
+| R-067 | adversarial | minor | result of a directory-flush failure after replace was undefined; ST-31 expected "old snapshot intact" for it; a later flush success can be false on Linux | new | reflected: flush-failure-by-step table, `DurabilityUnknown` in the stop class, residual stated; ST-31 / 31a |
+| R-068 | both | minor | Durable read serialises readers, lock wait unbounded, no load latency fixture, read-only root behaviour undefined | new (non-functional side of R-061) | reflected: `LOCK_WAIT_TIMEOUT` / `RuntimeBusy`, load latency in the performance fixture, writable root required; ST-32a / 47 / 47a |
+| R-069 | adversarial | minor | "can never commit again" lacked "with the same token" (test-cases invariant, pbi-input) | R-060 wording | reflected |
+| R-070 | adversarial | minor / info | TC gaps (run_id vs file name, lock symlink, UTF-8 / schema_version, initial `PLAN_VERIFYING`); ST-46 asserted #1395 behaviour; external side effects not in the stream can repeat on re-derivation | TC gap / residual | reflected: ST-01 / 14a / 16a / 17a; ST-46 limited to #1392; side-effect residual in the handoff contract |
+
+Round note (§7-quater): the core guarantees were not broken in R7; the new classes are in the boundary contract with #1395 and in non-functional limits. R8 checks whether the specification closes them without a new class.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-065 | reflected | (C-2 R7 commit) | canon |
+| R-066 | reflected | (C-2 R7 commit) | |
+| R-067 | reflected | (C-2 R7 commit) | residual |
+| R-068 | reflected | (C-2 R7 commit) | |
+| R-069 | reflected | (C-2 R7 commit) | |
+| R-070 | reflected | (C-2 R7 commit) | residual |
+
+## C-2 round 8 (2026-09-28 / reviewed head `6bbdfeea`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. **Split verdict**: design lane "converged, no new class"; adversarial lane "one new class". The organizer checked the adversarial claim against the file: plan.md:101 derived `create_run` on every `RunNotFound`, so the class is real (created by the R-066 fix). Both lanes: the two core guarantees still held.
+
+Verdict: **fix needed; not converged.** Three findings share one cause — "stopped", "durability unknown" and "this Run existed" could not survive a restart. The Human decided where to keep them.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-071 | organizer (common cause) | — | stop / unknown-durability / observed-Run states had no durable home | — | **Human decision: #1392 halt marker** `<run-id>.halt` (lock, flush, replace; `RunHalted` for every call until a Human removes it; `halt_run` API) |
+| R-072 | adversarial | major | #1392 outcomes not all classified (strict-load reject, load flush failure, ENOSPC, terminal stale, unexpected exception, create flush failure); no default row | R-065 fix incomplete | reflected: closed outcome set with names; default stop row; ST-49 |
+| R-073 | adversarial | major | `RunNotFound` always derived `create_run`, so a deleted snapshot or a wrong root restarts the Run from scratch | new (from R-066) | reflected: create only for a run_id #1395 just issued and never loaded; otherwise `halt_run(RUN_MISSING)`; ST-48b |
+| R-074 | both | minor | `RuntimeBusy` counted with the per-position re-derive limit, which cannot count before a position is read | R-065 / R-068 fix incomplete | reflected: retry the same call, `MAX_BUSY_RETRIES` per call, then halt |
+| R-075 | both | major | after `DurabilityUnknown`, a later `load_run` whose flush succeeds returned the snapshot although a later success is not proof | R-067 fix incomplete | reflected: #1392 writes the `DURABILITY_UNKNOWN` marker before returning; guarantee reworded "durable unless a halt marker says otherwise"; ST-48a |
+| R-076 | adversarial | minor | canon §4 recovery paragraph contradicted itself and differed from the plan's list; stopped state not persisted outside Decision states; TC gaps (unknown `kind`, create `RuntimeBusy`, error names in ST-19a / 30b / 40) | R-060 wording / R-033 | reflected: canon paragraph rewritten, halt principle added; TCs updated |
+
+Residual threat model proposed by the design lane (recorded for C-3): protected — double commit with the same token within one `runtime_root` (#1392 lock + revision/position CAS), flush before a success response (#1392); not protected — split-brain across roots, a writer who can replace the snapshot, devices that ignore flush; recovery and external side effects — #1395 re-derivation and intent / receipt contract.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-071 | reflected | (C-2 R8 commit) | Human decision |
+| R-072 | reflected | (C-2 R8 commit) | |
+| R-073 | reflected | (C-2 R8 commit) | #1395 handoff |
+| R-074 | reflected | (C-2 R8 commit) | |
+| R-075 | reflected | (C-2 R8 commit) | canon |
+| R-076 | reflected | (C-2 R8 commit) | canon |
+
+## C-2 round 9 (2026-09-28 / reviewed head `e4aaeb91`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. **Split verdict**: design lane "new class, design change needed"; adversarial lane "converged, no new class" but raised the same crash window as a major needing either a residual or a design change. Guarantee 1 (same token) held in both lanes.
+
+Verdict: **fix needed; not converged.** The crash window between a step-14 failure and a durable halt marker breaks guarantee 2 after a restart (both lanes). The Human chose a design change.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-077 | both | critical / major | a crash between the replace / failed step 14 and a durable halt marker leaves no marker; after restart a later flush succeeds and an undurable snapshot is returned. Same for a failed `load_run` flush not writing a marker | new (two persistent artifacts, ordering) | **Human decision: pending marker written and flushed before the replace**, resolved on every operation (old ref → remove; otherwise halt with `DURABILITY_UNKNOWN`); `load_run` flush failure also writes the halt marker; ST-19b〜d, ST-48c |
+| R-078 | both | major / minor | marker presence undefined for corrupt content, symlinks, leftover `.halt.tmp` | new (marker input surface) | reflected: presence by `lstat` on the entry names; unparseable → reason `UNREADABLE`; ST-48e |
+| R-079 | adversarial | minor | marker checked after the lock only for `load_run`; a `halt_run` could slip in before a commit | new | reflected: every operation checks after taking the lock; ST-48f |
+| R-080 | both | major / minor | `halt_run` outcomes not in the closed set; a busy `halt_run` left the stop unpersisted; recursion through the stop row; sibling rejection could block `halt_run`; `halt_run` missing from Locking | new | reflected: `halt_run` outcomes listed; stopping completes only on success; busy retried; other failures → Human, no auto-resume; exempt from sibling rejection; lock inode check; ST-48d / 48g |
+| R-081 | both | major | no defined Human procedure for removing a marker; removing `DURABILITY_UNKNOWN` by deletion alone re-trusts an unproven snapshot | new | reflected: unhalt procedure per reason in plan and handoff; ST-48h |
+| R-082 | adversarial | major / minor | "never loaded" was not enough (a create success followed by a crash and a wrong root recreates the Run); `RunNotFound` from `commit` fell only into the default row; todo's #1395 handoff lagged behind R-073 / R-074 | R-073 fix incomplete / wording | reflected: "never successfully created or loaded"; explicit `commit` row; handoff line rewritten to point at the plan table; ST-49a |
+| R-083 | adversarial | info | an internal call to the public `halt_run` from inside a locked commit would wait on its own lock | info | reflected implicitly: #1392 writes the marker internally under the held lock (Halt marker bullet) |
+
+Residual threat model (adversarial lane, updated for R-077): protected — same-token double commit within one root; success only after flush; stop / unknown durability / missing Run persist once the marker or pending marker is durable. Not protected — split-brain across roots; tampering or marker deletion by anyone who can write the root; devices ignoring flush; a failure to persist the pending marker itself (then nothing was replaced); durability after a Human removes a marker without following the procedure. Guarantors — #1392 (CAS, flush, markers), #1395 (re-derivation, limits, run_id records, intent / receipt), Human (unhalt), C-4 review.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-077 | reflected | (C-2 R9 commit) | Human decision; canon |
+| R-078 | reflected | (C-2 R9 commit) | |
+| R-079 | reflected | (C-2 R9 commit) | |
+| R-080 | reflected | (C-2 R9 commit) | handoff |
+| R-081 | reflected | (C-2 R9 commit) | handoff |
+| R-082 | reflected | (C-2 R9 commit) | handoff |
+| R-083 | reflected | (C-2 R9 commit) | info |
+
+## C-2 round 10 (2026-09-28 / reviewed head `ca9f1c65`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. **Split verdict**: design lane "one new class, closed by specification"; adversarial lane "converged, no new class; five fix leaks, closed by specification". **Both lanes: no design change needed.** The adversarial lane attacked every pending-marker stage (tmp write, pending replace, pending flush, snapshot replace, step 14, pending removal, removal flush, OS crash in each) and found no path that breaks guarantee 1 or 2.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-084 | adversarial | major | the unhalt procedure did not remove a leftover new-ref pending marker, so a correctly unhalted Run halted again; `halt_run` resolving a pending marker could return `RunHalted`, outside its outcome set | R-077 / R-081 / R-080 fix incomplete | reflected: procedure removes `.pending` / `.pending.tmp`; `halt_run` never resolves pending; ST-48i / 48j / 48k |
+| R-085 | design | major | results of a failed directory flush after pending removal, and while resolving an old-ref pending, were undefined | new (stages added by R-077), closed by specification | reflected: removal-flush failure still returns success (commit durable; a reappearing pending halts conservatively); resolve-flush failure → `RuntimeUnwritable`, do not proceed; ST-18b / 19e |
+| R-086 | adversarial | minor | pending was specified only for commit / create, not for conflict recording | R-077 scope | reflected: every replace path; ST-18d |
+| R-087 | adversarial | minor | a leftover `.pending.tmp` alone was undefined (treating it as halt would contradict ST-18) | R-078 type | reflected: pre-replace residue, removed under the lock; ST-18 |
+| R-088 | adversarial | minor | fault-injection labels and the fault-matrix invariant predated pending (no halt outcome); ST-21e contradicted ST-19b | stale TCs | reflected: labels per pending stage; invariant allows `RunHalted`; ST-21e split |
+| R-089 | organizer (from the adversarial lane's info) | — | with pending on every replace path, `load_run`'s own directory flush became redundant, and its transient failure halted a healthy Run | simplification | **organizer decision (reversible)**: `load_run` no longer flushes; the pending marker carries the guarantee; ST-19a updated; canon wording updated |
+
+Residual threat model (adversarial lane): protected — same-token double commit within one root; success only after flush; every crash between a replace and its durable flush halts via the pending marker; stop / unknown durability / missing Run persist once the marker is durable. Not protected — split-brain across roots; marker deletion or snapshot tampering by anyone who can write the root; devices ignoring flush or power loss beyond what flush guarantees; failure to persist the pending marker itself (then nothing was replaced); durability after a Human removes markers without the procedure; #1395 counters reset by crashes; external side effects not recorded in the stream. Guarantors — #1392 (CAS, flush, two markers), #1395 (re-derivation, limits, run_id records, intent / receipt), Human (unhalt), C-4 review.
+
+Round note (§7-quater): the class found in this round (R-085) is a result-definition gap at a stage R-077 added, closed by specification; the adversarial lane found no new class. R11 checks whether this round's specification introduces anything new.
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-084 | reflected | (C-2 R10 commit) | handoff |
+| R-085 | reflected | (C-2 R10 commit) | |
+| R-086 | reflected | (C-2 R10 commit) | |
+| R-087 | reflected | (C-2 R10 commit) | |
+| R-088 | reflected | (C-2 R10 commit) | |
+| R-089 | reflected | (C-2 R10 commit) | organizer decision; canon |
+
+## C-2 round 11 (2026-09-28 / reviewed head `5b918dcf`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. **Split verdict**: design lane "converged, no new class"; adversarial lane "one new class, closed by specification". Both: no design change needed; R-084〜R-089 effective within a Run; R-089 (no `load_run` flush) breaks no guarantee within a Run.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-090 | adversarial | major | all Runs share the `runtime_root` directory inode while locks are per Run; another Run's directory flush can consume this Run's writeback error, so this Run's step 14 (on a freshly opened descriptor) can succeed and an answered commit can silently roll back after an OS crash | new (durability signal crossing the lock boundary) | **Human decision: one directory descriptor per call**, opened before the first mutation and used for every directory flush in the call (Linux ≥ 4.13 reports to every descriptor open at error time); other platforms: residual; ST-50 |
+| R-091 | adversarial | minor | result undefined when writing the halt marker fails while resolving a new-ref pending marker; no unhalt path for "pending without halt" | R-085 type | reflected: return `RunHalted` from the pending marker; unhalt procedure covers pending-only; ST-18e |
+| R-092 | adversarial | minor | "`LOCK_WAIT_TIMEOUT` bounds the lock holder" was wrong (it bounds waiters); a hung holder made `halt_run` retry forever | R-080 / R-074 wording | reflected: `MAX_HALT_BUSY_RETRIES`, then Human; ST-48l |
+| R-093 | adversarial | minor | Human restore was a replace path without a file flush | R-081 incomplete | reflected: restored files are file-flushed before the directory flush |
+| R-094 | both | minor | remnants of the removed `load_run` flush (outcome table, ST-48a, current-state, performance note); ST-39 only for commit | R-089 wording | reflected |
+
+Info (handoff): a kill of the writer between the pending write and step 14 always halts the Run, so #1395 must not interrupt commits with its own timeouts or signals.
+
+Residual threat model (design lane): protected — same-token double commit within one root; durability of snapshots after a success response; no undurable snapshot returned without halting. Not protected — split-brain across roots; marker removal or tampering by anyone who can write the root; devices ignoring flush; external effects not in the stream; cross-Run flush-error consumption on platforms without per-descriptor error reporting (R-090). Guarantors — #1392 (lock, CAS, flush, markers), #1395 (re-derivation and limits), Human (unhalt after verification).
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-090 | reflected | (C-2 R11 commit) | Human decision; residual on other platforms |
+| R-091 | reflected | (C-2 R11 commit) | |
+| R-092 | reflected | (C-2 R11 commit) | handoff |
+| R-093 | reflected | (C-2 R11 commit) | handoff |
+| R-094 | reflected | (C-2 R11 commit) | |
+
+## C-2 round 12 (2026-09-28 / reviewed head `ed6da155`)
+
+Lanes: design — Codex `gpt-6-sol` (model confirmed from the rollout log); adversarial — independent Claude agent. **Both lanes: converged, no new failure class.** Remaining findings were fix leaks of known classes (ST-39 type at the root level, R-085 type, R-090 wording), closed by specification.
+
+Process note: the design lane reported that it once searched a Codex memory registry outside the working directory, against the read-only instruction; it states that the result was not used for the review. No files, git or GitHub were written.
+
+| ID | lane | severity | finding | class | disposition |
+|---|---|---|---|---|---|
+| R-095 | adversarial | major | the per-call directory descriptor was not the one used for the lock and for snapshot access, and path-based `os.replace` could follow a replaced root; moving and copying `runtime_root` during a call let two writers commit with the same token and a success be flushed on the wrong inode | ST-39 type (root level) | reflected: one descriptor opened at call start, every access relative to it; after the lock, `lstat(root)` vs `fstat(dirfd)` → `RuntimePathChanged`; later replacement = operator error (residual); ST-39a |
+| R-096 | adversarial | minor | "Linux ≥ 4.13 only" conflicted with "fail closed if required semantics are missing"; canon's read guarantee lacked the qualifier | R-090 wording | reflected: per-descriptor reporting is not a required semantic; other platforms supported with a stated residual; canon qualified; availability note (one I/O error can halt all active Runs) |
+| R-097 | adversarial | minor | flush failure after removing a lone `.pending.tmp` undefined | R-085 type | reflected: `RuntimeUnwritable`, do not proceed; ST-18g |
+| R-098 | adversarial | minor | ST-50 relied on kernel fault injection outside the test scope and covered only commit | TC | reflected: ST-50 is a structural spy test over all paths; kernel injection moved to optional ST-50a |
+
+| ID | status | reflected_in | notes |
+|---|---|---|---|
+| R-095 | reflected | (C-2 R12 commit) | handoff |
+| R-096 | reflected | (C-2 R12 commit) | canon |
+| R-097 | reflected | (C-2 R12 commit) | |
+| R-098 | reflected | (C-2 R12 commit) | |
+
+## C-2 convergence (2026-09-28)
+
+C-2 converged at round 12 by the §7-quater criterion: in R12 neither lane found a new failure class. Twelve rounds, two lanes each (design: Codex `gpt-5.6-sol` in R1, `gpt-6-sol` from R1 onward; adversarial / codebase: independent Claude agents), findings R-017〜R-098. Completeness is **not** claimed; this review is one layer of defence.
+
+The layers that produced new classes round after round were removed or replaced rather than patched further, by Human decision: stored derived state (→ model B, R-017), idempotency (→ removed, CAS on revision + position, R-046 / R-049), the landed-check rule (→ #1395 re-derivation, R-060). Stop / unknown-durability states were given a durable home (halt marker R-071, pending marker R-077).
+
+Residual threat model (for C-3):
+
+- **Protected** (guarantor #1392): no double commit with the same CAS token within one `runtime_root` inode; a success response only after the snapshot and its directory entry are flushed; a snapshot whose durability is unknown is never returned without halting; stop / unknown durability / missing Run persist across restarts once the marker is durable
+- **Not protected**: split-brain across different roots; moving or replacing the root during a call (checked once after the lock); anyone who can write the root deleting markers or tampering with snapshots (`snapshot_ref` is unkeyed); devices that ignore flush, and power loss beyond what flush guarantees; cross-Run consumption of a directory flush error on platforms without per-descriptor error reporting (macOS, Linux < 4.13); external side effects not recorded in the stream; loss of a stop if `halt_run` fails and #1395 restarts; #1395 counters reset by crashes
+- **Availability costs accepted**: a writer crash between the pending write and a successful step 14 always halts the Run for a Human; one I/O error on the shared directory can halt every concurrently active Run; 5 flushes per commit (performance fixture decides)
+- **Other guarantors**: #1395 (re-derivation from the stream, retry limits, durable run_id and intent records, persisting stops via `halt_run`); Human (root operation, unhalt procedure, restore); #1391 (event validation, binding segments, payload bounds — Preflight); C-4 review; implementation-time fault injection (not yet run — this is a plan-level review)

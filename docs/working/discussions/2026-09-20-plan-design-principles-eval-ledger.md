@@ -107,6 +107,14 @@ field-by-field semantic equality: **8/8 PASS**。
 | timeout_seconds | 600 |
 | tool_policy | Codex workspace-write; writes limited by instruction/evidence to TASK-EVAL plan artifacts; no MCP/network/implementation |
 | network | off |
+| isolation_spec | `2026-09-23-plan-design-principles-eval-execution.md §8.2` |
+| checkout_isolation_policy | independent single-SHA checkout; linked worktree forbidden; no remote/alternates/promisor |
+| checkout_isolation | TBD_AT_PREFLIGHT |
+| sandbox_preflight | TBD_AT_PREFLIGHT |
+| actual_tool_boundary | TBD_AT_SMOKE |
+| runtime_identity | TBD_AT_PREFLIGHT |
+| isolation_policy_hash | TBD_AT_PREFLIGHT |
+| isolation_evidence_location | TBD_AT_PREFLIGHT |
 | input_ref | `docs/working/eval-inputs/PDP-EVAL-v1/manifest.md` + selected frozen PBI |
 | input_source_hash | git blob `1a6176ff18c19f7cf1141c38aab9a23e1968ce0b` |
 | materialized_pbi_hash | TBD |
@@ -184,9 +192,49 @@ field-by-field semantic equality: **8/8 PASS**。
 - started/completed timestamp
 - actual raw output path/hash
 - actual activation evidence / contamination / missing-data
+- runtime isolation identity / policy hash
+- checkout isolation / model-free sandbox / actual tool-boundary results
+- positive / negative control evidence refs
 - blind scoring evidence / rationale
 
 model / effort / timeout / approval policy / tool policy / per-run ceiling / pilot-wide ceiling / reviewer identity / frozen input・rubric・variant manifest は上のsectionsで確定済み。Codex CLIは最低版を固定し、exact versionだけsmokeでruntime確定する。
+
+## Isolation preflight / smoke record
+
+48 generation開始前に1 recordを作成し、全runから参照する。
+境界変更・CLI version変更・sandbox policy変更があれば既存recordを上書きせず、新recordを作成してSmoke A/B/Cから再実行する。
+
+| Field | Value |
+| --- | --- |
+| record_id | TBD |
+| codex_cli_version | TBD |
+| os | TBD |
+| sandbox_backend | TBD |
+| checkout_materialization_method | TBD |
+| checkout_isolation | PASS/FAIL/NOT_RUN |
+| selected_sha_visible | PASS/FAIL |
+| peer_sha_hidden | PASS/FAIL |
+| current_main_sha_hidden | PASS/FAIL |
+| git_common_dir_isolated | PASS/FAIL |
+| source_remote_absent | PASS/FAIL |
+| alternates_absent | PASS/FAIL |
+| promisor_absent | PASS/FAIL |
+| source_path_unreachable | PASS/FAIL |
+| sandbox_preflight | PASS/FAIL/NOT_RUN |
+| model_free_positive_controls_ref | TBD |
+| model_free_negative_controls_ref | TBD |
+| smoke_a_actual_tool_boundary | PASS/FAIL/NOT_RUN |
+| smoke_b_actual_tool_boundary | PASS/FAIL/NOT_RUN |
+| smoke_c_actual_tool_boundary | PASS/FAIL/NOT_RUN |
+| reviewer_tool_provisioned | true/false/TBD |
+| tool_boundary_equivalence | PASS/FAIL/NOT_RUN |
+| runtime_identity_hash | TBD |
+| isolation_policy_hash | TBD |
+| evidence_location | TBD |
+| verdict | PASS/FAIL/INCONCLUSIVE_NOT_RUN |
+
+**PASS** 以外ではP01を開始しない。
+文書レビュー・CI・PR mergeだけでこのrecordをPASSにしない。
 
 ## Per-run record
 
@@ -209,6 +257,14 @@ model / effort / timeout / approval policy / tool policy / per-run ceiling / pil
 | model_id | TBD |
 | effort | TBD |
 | tool_policy | TBD |
+| isolation_policy_hash | TBD |
+| isolation_evidence_ref | TBD |
+| checkout_isolation | PASS/FAIL/NOT_RUN |
+| sandbox_preflight | PASS/FAIL/NOT_RUN |
+| actual_tool_boundary | PASS/FAIL/NOT_RUN |
+| tool_boundary_equivalence | PASS/FAIL/NOT_RUN |
+| positive_controls_ref | TBD |
+| negative_controls_ref | TBD |
 | budget | TBD |
 | started_at | TBD |
 | completed_at | TBD |
