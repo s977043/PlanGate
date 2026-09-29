@@ -168,3 +168,13 @@
   - 事実: `PLANGATE_SKIP_REASON=... PLANGATE_HOOK_TASK=TASK-XXXX git apply <patch>` の形で既存の plan.md（非 HO）を書き換えたが、`docs/working/_audit/skip-decision-log.jsonl` のその時刻の前後に記録は 0 件だった（同じ走査で、同日のワーカーの `EH-3_DOC_LIGHT_SKIP` は 2 件見つかった）。hook はハーネスが起動時に受け取った環境で動くので、インラインの指定は届かない。`dispatch-template.md` の EH-3 行が 2026-09-05 に実測済みの内容と同じ
   - 再利用条件: EH-3 に拒否された書き込みを通したいときは、Claude Code を**起動時に** `PLANGATE_SKIP_REASON` / `PLANGATE_HOOK_TASK` を付けて起動し直し、Edit / Write で書く。「インライン付与 + Human の承認」は正規経路ではなく、監査の上では素の Bash 書き込みと区別がつかない。PR やドキュメントに「skip-log に記録が残る」と書く前に、実際にその記録があるかを確認する
   - 根拠: 2026-09-24、#1360 の plan.md の適用。PR コメントに「記録が残る」と誤って書き、編集して訂正した。古い memory（インライン付与を正規経路としていた）に従い、リポジトリの正本（dispatch-template）を読んでいなかった
+
+- [2026-09-25] 複数 PR の是正は、起動 env でセッションを分ける
+  - 事実: `PLANGATE_HOOK_TASK` を付けると EH-3 はその TASK の plan_hash 照合経路に入り、付けないと `*/plan.md` への Edit / Write は exit 2 で block される（`check-plan-hash.sh` の no-task 分岐「Set PLANGATE_HOOK_TASK=TASK-XXXX to allow plan.md edits」）。env は起動時に固定されるので 1 セッション 1 TASK になる
+  - 再利用条件: 複数 PR にまたがる是正は `PLANGATE_SKIP_REASON` だけで起動する。既存の plan.md を編集するなら、TASK ごとに `PLANGATE_HOOK_TASK` を付けた別セッションにする。起動方法を案内する前に no-task 分岐を読む
+  - 根拠: 2026-09-25 の open PR 一括是正。`SKIP_REASON` と `HOOK_TASK` を付けた 1 本の起動を案内し、実行前の計画レビューで plan.md 編集が block されると指摘されて訂正した
+
+- [2026-09-25] CI が一度も走っていない PR は merge-ready と扱わない
+  - 事実: #1405 は main との衝突で CI が起動しておらず、rebase 後に PR 起因の FAIL が 5 件出た（同じテストは main と他 PR では pass）
+  - 再利用条件: `gh pr checks` が 0 件なら判定を「CI 未実行」として保留する。衝突を解消したら、CI の結果を見てから品質を判定する
+  - 根拠: 2026-09-25 の #1405 の rebase --onto
