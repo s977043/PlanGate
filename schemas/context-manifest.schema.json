@@ -28,6 +28,32 @@
         }
       }
     },
+    "intent_context": {
+      "description": "Optional validated reference to #1389 Intent Context Package. Package contents are not copied.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["path", "status", "context_id", "context_ref", "snapshot_ref"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "status": { "type": "string", "const": "present" },
+            "context_id": { "type": "string", "pattern": "^CTX-[0-9A-Za-z._-]+$" },
+            "context_ref": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "snapshot_ref": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["path", "status"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "status": { "type": "string", "const": "invalid" }
+          }
+        }
+      ]
+    },
     "dynamic_context": {
       "type": "array",
       "description": "動的取得（記述子のみ。実取得は呼び出し側・budget 内）",
