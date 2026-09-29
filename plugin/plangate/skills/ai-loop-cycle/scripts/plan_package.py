@@ -269,6 +269,10 @@ def derive_loopspec(task_dir, task_id, maker, checker):
     }
 
 
+# Any line that starts like an Intent Context marker counts as a declaration,
+# including lines plan_contract's strict grammar rejects (fail-closed superset).
+_PLAN_CONTEXT_MARKER_PREFIX_RE = re.compile(r"^Intent-Context-(?:ID|Ref):", re.MULTILINE)
+
 
 def _check_auto_approval_intent_context(task_dir, task_id):
     """Return errors that forbid AUTO_APPROVED when Intent Context is unsafe.
@@ -281,6 +285,16 @@ def _check_auto_approval_intent_context(task_dir, task_id):
     task_dir = pathlib.Path(task_dir)
     path = task_dir / "intent-context.json"
     if not path.is_file():
+        # A plan that declares Intent Context must not be auto-approved while
+        # the context is absent: restoring the file after the build would
+        # bind a context this gate never inspected (#1405 review, A/E).
+        plan = task_dir / "plan.md"
+        plan_text = plan.read_text(encoding="utf-8", errors="replace") if plan.is_file() else ""
+        if _PLAN_CONTEXT_MARKER_PREFIX_RE.search(plan_text):
+            return [
+                "intent-context: plan.md declares an Intent Context marker but "
+                "intent-context.json is absent; AUTO_APPROVED is blocked"
+            ]
         return []
 
     here = pathlib.Path(__file__).resolve().parent

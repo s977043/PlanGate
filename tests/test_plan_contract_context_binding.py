@@ -7,6 +7,7 @@ import json
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -268,6 +269,91 @@ class PlanContractContextBindingTests(unittest.TestCase):
             "arbiter-test",
         )
         self.assertEqual("HUMAN_ESCALATED", record["decision"])
+
+    def _build_auto_approved(self):
+        return plan_package.build_c3_prime(
+            self.task_dir,
+            "TASK-1403",
+            "a" * 40,
+            "a" * 40,
+            {"model_a": "approve", "model_b": "approve"},
+            {"model_a": "review-a.md", "model_b": "review-b.md"},
+            "AUTO_APPROVED",
+            "policy/ref",
+            "2026-09-24T00:00:00Z",
+            "arbiter-test",
+        )
+
+    def _prepare_conflict_plan(self):
+        payload = self._authoritative_conflict_payload()
+        raw = self._write_intent(payload)
+        ref = self._semantic_ref(payload)
+        (self.task_dir / "plan.md").write_text(
+            "# Plan\n\n"
+            "Intent-Context-ID: CTX-TASK-1403\n"
+            f"Intent-Context-Ref: {ref}\n\n"
+            "## Goal\nShip safely.\n",
+            encoding="utf-8",
+        )
+        self._prepare_c3_prime_evidence()
+        return raw
+
+    def _write_c3_prime(self, record):
+        (self.task_dir / "approvals" / "c3.json").write_text(
+            plan_package.serialize_c3_prime(record), encoding="utf-8"
+        )
+
+    def test_13b_marker_without_context_blocks_auto_approval(self):
+        # #1405 review hypothesis E
+        self._prepare_conflict_plan()
+        (self.task_dir / "intent-context.json").unlink()
+        with self.assertRaises(plan_package.PlanPackageError) as ctx:
+            self._build_auto_approved()
+        self.assertIn("declares an Intent Context marker", str(ctx.exception))
+
+    def test_13c_context_removed_during_build_blocks_auto_approval(self):
+        # #1405 review hypothesis A, build side: the conflict context removed
+        # only for the build is still caught before a record exists.
+        self._prepare_conflict_plan()
+        (self.task_dir / "intent-context.json").unlink()
+        with self.assertRaises(plan_package.PlanPackageError):
+            self._build_auto_approved()
+        self.assertNotIn(
+            "c3-prime",
+            (self.task_dir / "approvals" / "c3.json").read_text(encoding="utf-8"),
+        )
+
+    def test_13d_consume_rejects_auto_approved_conflict_context(self):
+        # #1405 review hypothesis A, consume side: an AUTO_APPROVED record that
+        # skipped the build-time gate must not bind a conflicting context.
+        raw = self._prepare_conflict_plan()
+        (self.task_dir / "intent-context.json").unlink()
+        with unittest.mock.patch.object(
+            plan_package, "_check_auto_approval_intent_context", return_value=[]
+        ):
+            record = self._build_auto_approved()
+        self._write_c3_prime(record)
+        (self.task_dir / "intent-context.json").write_bytes(raw)
+
+        with self.assertRaises(plan_contract.PlanContractError) as ctx:
+            plan_contract.build_record(self.task_dir)
+        self.assertIn("authoritative conflict", str(ctx.exception))
+
+        with unittest.mock.patch.object(
+            plan_contract, "_auto_approval_conflict_errors", return_value=[]
+        ):
+            sidecar = plan_contract.build_record(self.task_dir)
+        errors = plan_contract.validate_record(self.task_dir, sidecar)
+        self.assertTrue(any("authoritative conflict" in e for e in errors), errors)
+
+    def test_13e_human_approved_conflict_context_still_binds(self):
+        # Human escalation path: a legacy Human APPROVED c3 may bind the context.
+        self._prepare_conflict_plan()
+        self._write_legacy_approval()
+        record = plan_contract.build_record(self.task_dir)
+        self.assertEqual("APPROVED", record["approval_ref"]["decision"])
+        self.assertIn("context_binding", record)
+        self.assertEqual([], plan_contract.validate_record(self.task_dir, record))
 
     def test_14_authoritative_conflict_helper_is_deterministic(self):
         payload = self._authoritative_conflict_payload()

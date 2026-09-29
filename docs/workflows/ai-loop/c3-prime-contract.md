@@ -203,6 +203,11 @@ semantic Context bindingを間接ではなく明示内容として束縛する�
 - Intent Context不在の既存Planはbinding省略を許容し、後方互換を維持する。
 - validated Contextに複数authoritative source由来の未解決 conflict がある場合、
   `AUTO_APPROVED` record生成はfail-closed。`HUMAN_ESCALATED` / `BLOCKED` を使う。
+- `plan.md` が `Intent-Context-` で始まる行を持つのに `intent-context.json` が無い場合も、
+  `AUTO_APPROVED` record生成はfail-closed（build時だけContextを外す迂回を塞ぐ / #1405）。
+- sidecarのbuild/validateは、approvalの decision が `AUTO_APPROVED` でbindingがある場合に
+  bound Contextのauthoritative conflictを再検査し、あればfail-closed。Humanの
+  legacy `APPROVED` はconflictを含むContextもbindできる。
 
 受理/生成の機械実装は `scripts/ai-loop/plan_contract.py`、shapeは
 `schemas/plan-contract.schema.json`。ActorSession真正性は#980の責務であり、

@@ -158,6 +158,24 @@ def _approval_snapshot(task_dir: pathlib.Path) -> tuple[dict[str, str] | None, l
     }, []
 
 
+def _auto_approval_conflict_errors(approval: dict[str, str], payload: dict[str, Any]) -> list[str]:
+    """Re-check the bound context at consume time (#1405 review, A).
+
+    The build-time gate in plan_package only sees the context present when the
+    c3-prime record is built. A Human APPROVED (legacy) approval may bind a
+    conflicting context; an AUTO_APPROVED one may not.
+    """
+    if approval.get("decision") != "AUTO_APPROVED":
+        return []
+    conflicts = intent_context_contract.authoritative_conflicts(payload)
+    if not conflicts:
+        return []
+    return [
+        "bound Intent Context has unresolved authoritative conflict; "
+        "AUTO_APPROVED cannot bind it: " + ", ".join(conflicts)
+    ]
+
+
 def build_record(task_dir: pathlib.Path) -> dict[str, Any]:
     task_dir = pathlib.Path(task_dir)
     task_id = task_dir.name
@@ -195,6 +213,7 @@ def build_record(task_dir: pathlib.Path) -> dict[str, Any]:
                 "context_ref": expected["context_ref"],
                 "snapshot_ref": intent_context_contract.compute_snapshot_ref(raw),
             }
+            errors += _auto_approval_conflict_errors(approval, payload)
 
     if errors:
         raise PlanContractError(errors)
