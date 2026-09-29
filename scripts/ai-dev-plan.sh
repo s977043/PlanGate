@@ -16,6 +16,7 @@ fi
 ai_dev_parse_task_args "$@"
 status_file=$(ai_dev_status_file)
 if [ "$AI_DEV_DRY_RUN" -eq 1 ]; then
+  ai_dev_print_model_selection
   if [ ! -d "$AI_DEV_WORK_DIR" ]; then
     echo "Would create work dir: $AI_DEV_WORK_DIR"
   fi
@@ -201,4 +202,4 @@ EOF
 )
 fi
 
-printf '%s\n' "$prompt" | "$ai_dev_script_dir/codex-local.sh" exec --full-auto --sandbox workspace-write -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" -
+printf '%s\n' "$prompt" | ai_dev_codex_exec workspace-write -C "$AI_DEV_WORK_DIR" --add-dir "$ai_dev_repo_root/.codex" -
