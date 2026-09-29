@@ -157,7 +157,8 @@
       "evidence_delta": [],
       "resolved_blockers": [],
       "introduced_blockers": [],
-      "evidence_ref": "repair:attempt-2"
+      "evidence_ref": "repair:attempt-2",
+      "changed_paths": []
     },
     {
       "seq": 9,
