@@ -192,7 +192,7 @@ gh auth switch --user <expected-user> \
   ```bash
   if git fetch -q origin main \
     && main_ids=$(git ls-tree --name-only origin/main tests/extras/ \
-         | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p' | sort -u) \
+         | sed -nE 's#^tests/extras/ta-([0-9]+)-.*#\1#p' | awk '{ print $1 + 0 }' | sort -un) \
     && [ -n "$main_ids" ] \
     && prs=$(gh pr list --state open --limit 1000 --json number,files --jq '
          .[] | .number as $n | (.files // [])[].path
@@ -200,9 +200,9 @@ gh auth switch --user <expected-user> \
     printf '%s\n' "$prs" | while read -r n p; do
       [ -n "$p" ] || continue
       git cat-file -e "origin/main:$p" 2>/dev/null && continue
-      id=$(printf '%s\n' "$p" | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p')
+      id=$(printf '%s\n' "$p" | sed -nE 's#^tests/extras/ta-([0-9]+)-.*#\1#p' | awk '{ print $1 + 0 }')
       if printf '%s\n' "$main_ids" | grep -qx "$id"; then
-        echo "$id: #$n $p (main uses the same id)"
+        echo "ta-$id: #$n $p (main uses the same id)"
       fi
     done
   else
@@ -221,20 +221,20 @@ gh auth switch --user <expected-user> \
   PR の merge 後にも実行する
 
   ```bash
-  known_dup_ids="14"   # 2026-05 から 2 本ある既知の重複だけ。新しい番号を足さない
+  # 既知の重複は 2026-05 からある ta-14 の 2 本だけ。3 本目が入ったら出す。新しい番号を足さない
   if git fetch -q origin main \
     && ls=$(git ls-tree --name-only origin/main tests/extras/) && [ -n "$ls" ]; then
     printf '%s\n' "$ls" | sed -nE 's#^tests/extras/ta-([0-9]+)-.*#\1#p' \
-      | awk '{ print $1 + 0 }' | sort -n | uniq -d | grep -vxF "$known_dup_ids" \
-      | sed 's/^/duplicate on main: ta-/'
-    true
+      | awk '{ print $1 + 0 }' | sort -n | uniq -c \
+      | awk '$1 > 1 && !($2 == 14 && $1 == 2) { print "duplicate on main: ta-" $2 " (" $1 " files)" }'
   else
     echo "ABORT: origin/main is unavailable" >&2; false
   fi
   ```
 
-  出力が空（ABORT なし）なら、既知の ta-14 を除いて main の中に重複なし。CI では
-  `tests/extras/ta-61-extra-contract.sh` の TC-20 が同じ検査（番号の重複）を行う
+  出力が空（ABORT なし）なら、既知の ta-14 の 2 本を除いて main の中に重複なし。
+  CI の `tests/extras/ta-61-extra-contract.sh` TC-20 は 2026-09-29 時点でファイル名の
+  一意性しか見ておらず、番号の重複は検出しない（未是正）。CI に任せず、このコマンドを実行する
 
 ## 関連ドキュメント
 
