@@ -1,0 +1,47 @@
+{
+  "issues": [
+    {
+      "id": "RR-101",
+      "ruleId": "plan-scope",
+      "title": "Missing rollback path",
+      "message": "The plan changes persistent state without an explicit rollback step.",
+      "severity": "major",
+      "phase": "upstream",
+      "file": "docs/working/TASK-9999/plan.md",
+      "line": 42,
+      "evidence": [
+        "Step 4 mutates persistent state."
+      ],
+      "criterionRefs": [
+        "AC-3"
+      ],
+      "artifactRefs": [
+        "plan.md#step-4"
+      ],
+      "reviewer": "plan-quality"
+    },
+    {
+      "id": "RR-102",
+      "ruleId": "doc-note",
+      "title": "Minor wording",
+      "message": "Clarify the non-goal wording.",
+      "severity": "minor",
+      "phase": "upstream",
+      "file": "docs/working/TASK-9999/plan.md"
+    }
+  ],
+  "summary": {
+    "issueCountBySeverity": {
+      "info": 0,
+      "minor": 1,
+      "major": 1,
+      "critical": 0
+    },
+    "issueCountByPhase": {
+      "upstream": 2,
+      "midstream": 0,
+      "downstream": 0
+    }
+  },
+  "decision": "human-review-recommended"
+}

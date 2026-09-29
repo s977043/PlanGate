@@ -1,0 +1,31 @@
+{
+  "position_capability": "explicit",
+  "findings": [
+    {
+      "source_finding_ref": "PG-201",
+      "severity": "critical",
+      "claim": "Explicit risk finding",
+      "rationale_summary": "The producer supplied this finding explicitly.",
+      "evidence_refs": [
+        "AC-7"
+      ]
+    }
+  ],
+  "positions": [
+    {
+      "position_id": "p1",
+      "source_finding_ref": "PG-201",
+      "stance": "oppose",
+      "severity": "critical",
+      "claim": "Do not proceed under the current assumption.",
+      "rationale_summary": "The explicit assumption conflicts with AC-7.",
+      "evidence_refs": [
+        "AC-7"
+      ],
+      "assumptions": [
+        "The current plan assumes the operation is reversible."
+      ]
+    }
+  ],
+  "limitations": []
+}

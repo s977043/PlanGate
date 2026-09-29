@@ -5,6 +5,11 @@
 # 有効化するには本ファイルを .plangate-reviewers.yaml にコピーする。
 # 未配置なら従来どおり PLANGATE_EXTERNAL_REVIEWER（既定 codex）で動作する。
 #
+# NOTE (#1394): output_mapping は v1/v2 schema 後方互換のため必須だが、
+# 現行 bin/plangate review は評価しない legacy compatibility field。
+# structured consumer は scripts/reviewer_normalize.py の named adapter を使う。
+# 任意の mapping expression を shell/Python eval する設計にはしない。
+#
 # ── v1.0 シングル構成例 ─────────────────────────────────────────────────────
 # version: "1.0"
 # reviewers:

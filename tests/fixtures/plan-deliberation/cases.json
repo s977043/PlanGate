@@ -1,0 +1,537 @@
+{
+  "base": {
+    "schema_version": 1,
+    "artifact_type": "plan-deliberation",
+    "stability": "experimental",
+    "task_id": "TASK-1353",
+    "plan_ref": {
+      "plan_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_sha": "abcdef1"
+    },
+    "source_reviews": [
+      {
+        "review_ref": "docs/working/TASK-1353/review-external.md#design",
+        "reviewer_id": "design-lane",
+        "lane": "design_validity",
+        "execution_status": "executed"
+      },
+      {
+        "review_ref": "docs/working/TASK-1353/review-external.md#codebase",
+        "reviewer_id": "codebase-lane",
+        "lane": "codebase_consistency",
+        "execution_status": "executed"
+      }
+    ],
+    "execution": {
+      "status": "completed",
+      "limitations": []
+    },
+    "trigger": {
+      "reason_codes": [
+        "reviewer_conflict"
+      ]
+    },
+    "participants": [
+      {
+        "participant_id": "p1",
+        "reviewer_id": "design-lane",
+        "lane": "design_validity"
+      },
+      {
+        "participant_id": "p2",
+        "reviewer_id": "codebase-lane",
+        "lane": "codebase_consistency"
+      }
+    ],
+    "positions": {
+      "initial": [
+        {
+          "position_id": "i1",
+          "participant_ref": "p1",
+          "source_finding_ref": "R-001",
+          "stance": "support",
+          "claim": "The plan covers the required compatibility boundary.",
+          "rationale_summary": "The acceptance criteria explicitly preserve the existing contract.",
+          "evidence_refs": [
+            "plan.md#compatibility"
+          ],
+          "assumptions": []
+        },
+        {
+          "position_id": "i2",
+          "participant_ref": "p2",
+          "source_finding_ref": "R-002",
+          "stance": "oppose",
+          "claim": "The plan misses one repository compatibility constraint.",
+          "rationale_summary": "An existing consumer relies on a path not listed by the plan.",
+          "evidence_refs": [
+            "existing-consumer-ref"
+          ],
+          "assumptions": [
+            "The existing consumer remains supported."
+          ]
+        }
+      ],
+      "challenges": [
+        {
+          "challenge_id": "c1",
+          "from_position_ref": "i2",
+          "target_position_ref": "i1",
+          "statement": "Account for the existing consumer before claiming compatibility coverage.",
+          "evidence_refs": [
+            "existing-consumer-ref"
+          ]
+        }
+      ],
+      "final": [
+        {
+          "position_id": "f1",
+          "participant_ref": "p1",
+          "source_finding_ref": "R-001",
+          "stance": "support",
+          "claim": "The plan covers the required compatibility boundary after checking the cited consumer.",
+          "rationale_summary": "The cited consumer is already covered by the stated acceptance criteria.",
+          "evidence_refs": [
+            "plan.md#compatibility",
+            "existing-consumer-ref"
+          ],
+          "assumptions": [],
+          "changed": false,
+          "change_reason": "unchanged"
+        },
+        {
+          "position_id": "f2",
+          "participant_ref": "p2",
+          "source_finding_ref": "R-002",
+          "stance": "support",
+          "claim": "The compatibility concern is resolved by the cited acceptance criterion.",
+          "rationale_summary": "The stronger evidence shows the consumer is in scope.",
+          "evidence_refs": [
+            "plan.md#compatibility"
+          ],
+          "assumptions": [],
+          "changed": true,
+          "change_reason": "stronger_evidence"
+        }
+      ]
+    },
+    "outcome": {
+      "status": "converged",
+      "agreements": [
+        "The existing consumer remains supported."
+      ],
+      "unresolved": [],
+      "evidence_needed": [],
+      "replan_trigger_proposals": [],
+      "human_decisions": [],
+      "requires_c2_rereview": false,
+      "rereview_reasons": []
+    },
+    "problem_frames": [
+      {
+        "participant_ref": "p1",
+        "objective": "Preserve the approved plan contract while clarifying disagreement.",
+        "constraints": [
+          "Do not create a new approval authority."
+        ],
+        "non_goals": [
+          "Do not replace canonical C-2 findings."
+        ],
+        "assumptions": [
+          "The cited C-2 review snapshot is current."
+        ],
+        "unknowns": []
+      },
+      {
+        "participant_ref": "p2",
+        "objective": "Check the plan against existing repository compatibility constraints.",
+        "constraints": [
+          "Keep Human C-3 ownership on the standard path."
+        ],
+        "non_goals": [
+          "Do not modify ai-loop C-3' behavior."
+        ],
+        "assumptions": [
+          "The existing consumer remains supported."
+        ],
+        "unknowns": [
+          "Whether an undocumented compatibility edge exists."
+        ]
+      }
+    ]
+  },
+  "valid_cases": [
+    {
+      "name": "converged",
+      "ops": []
+    },
+    {
+      "name": "split-with-unresolved",
+      "ops": [
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "split"
+        },
+        {
+          "op": "set",
+          "path": "outcome.unresolved",
+          "value": [
+            "Whether the compatibility exception should be accepted."
+          ]
+        },
+        {
+          "op": "set",
+          "path": "outcome.human_decisions",
+          "value": [
+            "Accept or reject the compatibility exception."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "partial-split",
+      "ops": [
+        {
+          "op": "set",
+          "path": "source_reviews.1.execution_status",
+          "value": "unavailable"
+        },
+        {
+          "op": "set",
+          "path": "execution.status",
+          "value": "partial"
+        },
+        {
+          "op": "set",
+          "path": "execution.limitations",
+          "value": [
+            "Codebase lane completed; security specialist unavailable."
+          ]
+        },
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "split"
+        },
+        {
+          "op": "set",
+          "path": "outcome.unresolved",
+          "value": [
+            "Security impact remains unresolved."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "unavailable-insufficient-evidence",
+      "ops": [
+        {
+          "op": "set",
+          "path": "execution.status",
+          "value": "unavailable"
+        },
+        {
+          "op": "set",
+          "path": "execution.limitations",
+          "value": [
+            "Deliberation provider unavailable."
+          ]
+        },
+        {
+          "op": "set",
+          "path": "participants",
+          "value": []
+        },
+        {
+          "op": "set",
+          "path": "positions.initial",
+          "value": []
+        },
+        {
+          "op": "set",
+          "path": "positions.challenges",
+          "value": []
+        },
+        {
+          "op": "set",
+          "path": "positions.final",
+          "value": []
+        },
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "insufficient_evidence"
+        },
+        {
+          "op": "set",
+          "path": "outcome.evidence_needed",
+          "value": [
+            "A completed deliberation run."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "major-singleton-minority-preserved",
+      "ops": [
+        {
+          "op": "set",
+          "path": "trigger.reason_codes",
+          "value": [
+            "major_singleton"
+          ]
+        },
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "split"
+        },
+        {
+          "op": "set",
+          "path": "outcome.unresolved",
+          "value": [
+            "A material singleton finding remains unresolved."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "requires-c2-rereview",
+      "ops": [
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "split"
+        },
+        {
+          "op": "set",
+          "path": "outcome.unresolved",
+          "value": [
+            "A new material concern appeared during challenge."
+          ]
+        },
+        {
+          "op": "set",
+          "path": "outcome.requires_c2_rereview",
+          "value": true
+        },
+        {
+          "op": "set",
+          "path": "outcome.rereview_reasons",
+          "value": [
+            "New material concern must return to canonical C-2 review."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "position-without-canonical-finding",
+      "ops": [
+        {
+          "op": "delete",
+          "path": "positions.initial.0.source_finding_ref"
+        },
+        {
+          "op": "delete",
+          "path": "positions.final.0.source_finding_ref"
+        }
+      ]
+    }
+  ],
+  "invalid_cases": [
+    {
+      "name": "partial-cannot-converge",
+      "ops": [
+        {
+          "op": "set",
+          "path": "execution.status",
+          "value": "partial"
+        }
+      ]
+    },
+    {
+      "name": "unavailable-cannot-split",
+      "ops": [
+        {
+          "op": "set",
+          "path": "execution.status",
+          "value": "unavailable"
+        },
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "split"
+        },
+        {
+          "op": "set",
+          "path": "outcome.unresolved",
+          "value": [
+            "This must still be invalid because unavailable maps to insufficient evidence."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "approval-vocabulary",
+      "ops": [
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "APPROVED"
+        }
+      ]
+    },
+    {
+      "name": "auto-approved-vocabulary",
+      "ops": [
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "AUTO_APPROVED"
+        }
+      ]
+    },
+    {
+      "name": "blocked-vocabulary",
+      "ops": [
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "name": "raw-chain-of-thought-field",
+      "ops": [
+        {
+          "op": "set",
+          "path": "positions.initial.0.chain_of_thought",
+          "value": "private reasoning must never be part of this contract"
+        }
+      ]
+    },
+    {
+      "name": "invalid-plan-hash",
+      "ops": [
+        {
+          "op": "set",
+          "path": "plan_ref.plan_hash",
+          "value": "abc123"
+        }
+      ]
+    },
+    {
+      "name": "unknown-trigger",
+      "ops": [
+        {
+          "op": "set",
+          "path": "trigger.reason_codes",
+          "value": [
+            "majority_vote"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "split-requires-unresolved",
+      "ops": [
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "split"
+        }
+      ]
+    },
+    {
+      "name": "unchanged-must-use-unchanged-reason",
+      "ops": [
+        {
+          "op": "set",
+          "path": "positions.final.0.change_reason",
+          "value": "stronger_evidence"
+        }
+      ]
+    },
+    {
+      "name": "changed-cannot-use-unchanged-reason",
+      "ops": [
+        {
+          "op": "set",
+          "path": "positions.final.1.change_reason",
+          "value": "unchanged"
+        }
+      ]
+    },
+    {
+      "name": "gate-decision-field-forbidden",
+      "ops": [
+        {
+          "op": "set",
+          "path": "gate_decision",
+          "value": "APPROVE"
+        }
+      ]
+    },
+    {
+      "name": "rereview-requires-reason",
+      "ops": [
+        {
+          "op": "set",
+          "path": "outcome.status",
+          "value": "split"
+        },
+        {
+          "op": "set",
+          "path": "outcome.unresolved",
+          "value": [
+            "A new material concern requires canonical C-2 review."
+          ]
+        },
+        {
+          "op": "set",
+          "path": "outcome.requires_c2_rereview",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "rereview-cannot-converge",
+      "ops": [
+        {
+          "op": "set",
+          "path": "outcome.requires_c2_rereview",
+          "value": true
+        },
+        {
+          "op": "set",
+          "path": "outcome.rereview_reasons",
+          "value": [
+            "A new material concern requires canonical C-2 review."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "unavailable-source-cannot-complete",
+      "ops": [
+        {
+          "op": "set",
+          "path": "source_reviews.1.execution_status",
+          "value": "unavailable"
+        }
+      ]
+    },
+    {
+      "name": "completed-requires-problem-frame",
+      "ops": [
+        {
+          "op": "set",
+          "path": "problem_frames",
+          "value": []
+        }
+      ]
+    }
+  ]
+}
