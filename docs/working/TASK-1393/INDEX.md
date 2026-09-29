@@ -1,6 +1,6 @@
 # TASK-1393 INDEX
 
-> 最終更新: 2026-09-29（PR #1407 は 2026-09-28 22:39Z に main へ merge。C-3 承認記録は未発行のまま）
+> 最終更新: 2026-09-29（PR #1407 は 2026-09-28 22:39Z に main へ merge。C-3 は Human が 22:45:37Z に APPROVED を発行）
 > 更新契約: `.claude/rules/working-context.md`「INDEX.md（L0 索引）の鮮度契約」に従い、
 > plan 完了時に生成し、**以降はフェーズ遷移のたびに更新する**
 > （C-3 承認 / plan 確定反映・再編集 / exec 完了 / V-1 判定確定 / WF-05 発行 / BLOCKED 化・解除）。
@@ -11,16 +11,19 @@ V2 の immutable VerificationResult / FailureRecord と、観測済みの事実�
 
 ## 現在のフェーズ
 
-C-3 待ち
+BLOCKED
 
-> Revision 2.5。C-2 は R1 / R2 の 2 ラウンドで収束（R2 は新クラス 0）。簡易 C-1 PASS（R-071 は Human y で反映済み）。C-3 承認記録は未発行。
-> Mode = high-risk。C-3 は Human 同期。
+> Revision 2.5。C-2 は R1 / R2 の 2 ラウンドで収束（R2 は新クラス 0）。簡易 C-1 PASS（R-071 は Human y で反映済み）。
+> **C-3 Gate: APPROVED**（Human 発行の `approvals/c3.json`、`approved_at` 2026-09-28T22:45:37Z、`plan_hash` は main の plan.md の sha256 `799c8526…` と一致。承認トークンは Human が発行したもので、repo には commit されていない）。Mode = high-risk。
+> **BLOCKED**（2026-09-29、範囲レビュー）:
+>
+> - blocker: plan が義務を負わせている #1391 / #1392 / #1395 が、PR #1402 の merge（`Closes`）で 2026-09-29 00:01Z に CLOSED（COMPLETED）になった。#1392 の plan（#1406 のモデル B）は未実装のまま。#1409 の `ratchet.py` が #1402 の `decision_core` の非公開 API（`DecisionError` / `_canonical_path`）に依存しているが、PF-1 の移行対象に入っていない
+> - owner: Human（issue を reopen するか、新しい issue に振り分けるか。PF-1 の範囲を広げる場合は plan の再承認が要るか）
+> - unblock_condition: plan の Dependency が「#1402 で実装済み（file:行）」と「未実装 → open な issue」に振り分けられ、ratchet の扱いが決まること
 
 ## 次のアクション
 
-Human の C-3（同期）。exec 前に Preflight PF-1〜PF-8。
-
-> 2026-09-29 追記（範囲レビュー）: plan が義務を負わせている #1391 / #1392 / #1395 は、PR #1402 の merge（`Closes`）で 2026-09-29 00:01Z に CLOSED（COMPLETED）になった。#1392 の plan（#1406 のモデル B）は未実装のまま。plan の Dependency を「#1402 で実装済み（file:行）」と「未実装 → 新しい issue」に振り分け直すまで、C-3 の前提が崩れている（Human 判断）。plan.md 本文の Rev 2.5 の文言更新は `PLANGATE_HOOK_TASK=TASK-1393` のセッションで行う。
+上の BLOCKED の解除（Human 判断）→ exec 前に Preflight PF-1〜PF-8。plan.md 本文の Rev 2.5 の文言は承認済み（plan_hash）なので直さない。逸脱は exec 時に status.md / decision-log に記録する。
 
 依存（リリース条件）: #1392 は (state, action) からの遷移導出と `decision_made` の 4 キー読み取りを採用済み（#1406 `e4aaeb91`）。stream 束縛は #1422（B-1〜B-12 は issue 記載、B-1 の表記と B-13 は追加提案。担当割り当ては Human）。#1395 の budget。
 

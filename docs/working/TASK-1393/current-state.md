@@ -1,11 +1,13 @@
 # TASK-1393 Current State
 
-> 更新: 2026-09-28 13:40
+> 更新: 2026-09-29
 
-## フェーズ: C-3 待ち
-## 進捗: plan Revision 2.5 / C-2 R1・R2 完了（収束）/ 簡易 C-1 PASS / C-3 未着手（Human）
+## フェーズ: BLOCKED
+## 進捗: plan Revision 2.5 / C-2 R1・R2 完了（収束）/ 簡易 C-1 PASS / **C-3 APPROVED**（Human、2026-09-28T22:45:37Z）/ PR #1407 merged（22:39Z）
 
 ## 直近の完了タスク
+
+- 範囲レビュー（2026-09-29）で、依存 issue #1391 / #1392 / #1395 が #1402 の merge で CLOSED になったこと、#1409 の ratchet が decision_core の非公開 API に依存していることを確認 → BLOCKED（詳細は INDEX）
 
 - Human y: R-071（pbi-input Required 3 に DENIED 時の BLOCKED を追記）/ #1422 に B-1 表記と B-13 を追加（2026-09-28）
 - C-2 R2（Codex gpt-6-luna は FAIL・新クラス 2 と主張 / Claude は WARN・収束）→ 新クラス 0 と裁定し R-070〜R-080 を記録、10 件を Revision 2.5 で反映（2026-09-28）
@@ -27,11 +29,13 @@
 
 ## ブロッカー
 
-- なし（C-3 は Human の同期ゲート）
+- blocker: 依存 issue #1391 / #1392 / #1395 が CLOSED（#1402 の `Closes`）。#1392 のモデル B は未実装。ratchet.py の decision_core 依存が PF-1 の範囲外
+- owner: Human
+- unblock_condition: Dependency の振り分け（実装済み / open な issue）と ratchet の扱いの決定
 
 ## 次のアクション
 
-- Human の C-3 → exec 前に Preflight PF-1〜PF-8
+- BLOCKED の解除（Human）→ exec 前に Preflight PF-1〜PF-8
 
 ## 計画からの乖離
 
