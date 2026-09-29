@@ -147,10 +147,25 @@ gh auth switch --user <expected-user> \
   別ファイルに使われていないかを確認する。ファイル名が違えば git の衝突にならず、
   CI でも検出されない
 
+  取得の打ち切り確認（先に実行する）: `gh pr list` は `--limit` 件で、各 PR の
+  `files` は 100 件で黙って打ち切られる。打ち切られると、下のコマンドは重複を
+  見落としたまま空を返す
+
+  ```bash
+  gh pr list --state open --limit 1000 --json number,files --jq '
+    if length >= 1000 then "ABORT: open PR list may be truncated at 1000"
+    else .[] | select((.files | length) >= 100)
+      | "ABORT: #\(.number) lists 100 files (may be truncated); check it with gh pr diff \(.number) --name-only"
+    end'
+  ```
+
+  何か出力されたら、下の open PR に関する結果は「重複なし」の根拠にならない
+  （出た PR は `gh pr diff <n> --name-only` で個別に照合する）
+
   open PR 同士:
 
   ```bash
-  gh pr list --state open --limit 200 --json number,files --jq '
+  gh pr list --state open --limit 1000 --json number,files --jq '
     [.[] | .number as $n | .files[].path
      | select(test("^tests/extras/ta-[0-9]+-"))
      | {id: (capture("ta-(?<i>[0-9]+)-").i), pr: $n, path: .}]
@@ -169,7 +184,7 @@ gh auth switch --user <expected-user> \
     && main_ids=$(git ls-tree --name-only origin/main tests/extras/ \
          | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p' | sort -u) \
     && [ -n "$main_ids" ] \
-    && prs=$(gh pr list --state open --limit 200 --json number,files --jq '
+    && prs=$(gh pr list --state open --limit 1000 --json number,files --jq '
          .[] | .number as $n | .files[].path
          | select(test("^tests/extras/ta-[0-9]+-")) | "\($n) \(.)"'); then
     printf '%s\n' "$prs" | while read -r n p; do
@@ -189,6 +204,19 @@ gh auth switch --user <expected-user> \
   出力が空（ABORT なし）なら衝突なし。main にある同名ファイルを編集しているだけの
   PR は出ない。PR が main のファイルを同じ番号のまま rename した場合は、衝突として
   出る（誤検知。gh の `files` は変更後のパスしか返さない）
+
+  main の中: 上の 2 つは「PR が持ち込む番号」しか見ないので、merge 後に main の中で
+  同じ番号が 2 本になった場合は出ない（2026-09-29 に #1409 が改番前の
+  `ta-88-ai-loop-v2-owner-backed-delivery.sh` を main に戻し、ta-88 が 2 本になった）。
+  PR の merge 後にも実行する
+
+  ```bash
+  git fetch -q origin main && git ls-tree --name-only origin/main tests/extras/ \
+    | sed -nE 's#^tests/extras/ta-([0-9]+)-.*#\1#p' | sort | uniq -d \
+    | sed 's/^/duplicate on main: ta-/'
+  ```
+
+  出力が空なら main の中に重複なし（既知: ta-14 は 2026-05 から 2 本ある）
 
 ## 関連ドキュメント
 
