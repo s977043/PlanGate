@@ -35,7 +35,7 @@ Loop と Graph は直交し、必要に応じて合成する。
 
 V2 の既存責務へ当てはめると次のようになる。
 
-**本表が責務と owner の唯一の対応表である**（§7 で再掲しない）。
+**本表が責務と owner の唯一の対応表である**（§8 で再掲しない）。
 
 | Concern | 責務 | Owner / 正本 |
 |---|---|---|
@@ -43,7 +43,8 @@ V2 の既存責務へ当てはめると次のようになる。
 | 複数 Run から Harness N+1 Candidate を作り評価（Harness Evolution） | Loop | Evolution Loop / #869 |
 | stop / progress / retry strategy | Loop | #894 / [`north-star.md`](./north-star.md) §8 |
 | durable state / Human interrupt / wait-resume / recovery | Graph + Harness | #1025 |
-| Work Item Graph / intent-to-execution structure（branch / join） | Graph | #911 |
+| Work Item Graph / Assignment の宣言（decomposition / dependency / join policy / bounded dynamic policy。immutable） | Graph | #911 / #1385 |
+| runtime graph の事実（instantiation / route / join）と、その projection としての effective runtime graph | Graph + Harness evidence | #874（V2 event stream） |
 | node 遷移の妥当性評価（Trajectory evaluation） | Graph + Evaluation | #908 |
 | RunEvidence / failure evidence | Harness evidence | #874 / [`artifact-responsibilities.md`](./artifact-responsibilities.md) |
 | Harness identity / activation | Harness | [`harness-manifest.md`](./harness-manifest.md) |
@@ -84,7 +85,119 @@ Harness は Graph state の意味そのものではなく、state を安全に�
 
 Active Run 中の Harness identity は [`harness-manifest.md`](./harness-manifest.md) に従い固定する。
 
-## 4. Minimum topology principle
+## 4. Static Workflow / Runtime Graph distinction
+
+固定された workflow と runtime graph を区別する。分岐が存在するだけでは runtime graph ではない。
+
+### Static Workflow（default）
+
+実行前に graph shape と transition rule が確定しており、runtime は定義済み条件を評価して経路を実行する。
+
+```text
+Request -> Plan -> Build -> Verify -> PR
+                    └-> Repair -> Verify
+```
+
+単純・反復可能・安全境界が明確な処理では、Static Workflow を優先する。
+
+### Adaptive Routing
+
+node catalog と安全境界は事前定義し、**次にどの既知 node へ遷移するか**を runtime の Evidence / State / Policy に基づいて選択する。Static Workflow と異なり、transition target を個別の固定条件へ完全には焼き込まない。
+
+```text
+Known nodes / allowed edges
+        +
+RunState / Evidence / Policy
+        ↓
+Routing Decision
+        ↓
+selected next node
+```
+
+### Bounded Dynamic Graph
+
+parallel worker 数、context subset、approved template の specialization など、**実行前に完全列挙しにくい coordination topology**を runtime で構成する。ただし自由生成にはしない。
+
+runtime が決めてよい対象:
+
+- approved template（WorkItemGraph の `work_item_templates[]`）からの work item instance の specialization。specialization してよい field は allowlist に限り、**新しい AC を追加しない・template / parent の scope を拡大しない**
+- bounded な worker 数と assignment
+- context subset
+- allowed edge 内の branch / join
+- Loop の convergence decision に従う repair / replan / recovery への route（repair / replan の要否そのものは判定しない）
+
+runtime が変更してはいけない対象:
+
+- Human-owned authority
+- protected policy / permission boundary
+- Evaluation Trust Boundary
+- Verifier / Gate の authority
+- acceptance threshold
+- active Run の Harness identity
+- protected surface の定義
+- active な WorkItemGraph / Assignment artifact（in-place で編集しない）
+
+> **Dynamic topology does not mean dynamic authority.**
+
+WorkItemGraph / Assignment は immutable な宣言である。runtime の instantiation / route / join は V2 event stream（RunEvent）の事実として記録し、effective runtime graph はその projection として導出する。**WorkItemGraph とは別に、2 つ目の可変なグラフ状態ストアを作らない。** replan は active graph を書き換えず、新しい immutable WorkItemGraph を作り `supersedes_graph_ref` で前の graph を指す（supersession）。owner は §2 の表を参照する。
+
+### Runtime Graph Decision Record（informative shape）
+
+runtime graph の構成・遷移判断は、少なくとも次の情報へ束縛できる必要がある。**これは新しい schema / SSoT ではない。** 宣言（WorkItemGraph / Assignment）と runtime の事実（event stream）と projection の owner は §2 の表を参照する。下記は event stream に記録される判断の意味を説明する informative shape であり、persisted な field 名は owner 側が確定する。
+
+```yaml
+graph_decision:
+  run_id: ""
+  graph_ref: ""              # 判断が従う immutable WorkItemGraph
+  supersedes_graph_ref: ""   # replan で新しい graph を作った場合のみ
+  observed_state_ref: ""
+  evidence_refs: []
+  convergence_decision_ref: ""
+  policy_ref: ""
+  template_refs: []          # approved work_item_templates[] のみ
+  allowed_edges_ref: ""
+  decision:
+    action: route | spawn | join | wait | resume | recover
+    route_kind: normal | repair | replan | recovery
+    target_nodes: []
+  context_refs: []
+  budget_ref: ""
+  reason_code: ""
+```
+
+`action` に終了（terminate）を置かない。Terminal Outcome / Stop Reason の決定は Decision Engine の責務である（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）。Graph は `convergence_decision_ref` が指す決定に従って terminal へ route するだけで、その場合も `action: route` として記録する。
+
+原則:
+
+1. Graph decision は current RunState / Evidence / Contract / Policy と、必要に応じて #894 が所有する convergence decision から導出する。Graph 自身が repair / replan の要否を再判定しない。
+2. 新しい node type / authority / permission を実行中に創設しない。
+3. worker 数・parallelism・token / time / cost は事前定義 budget を超えない。
+4. join condition は worker の自己申告ではなく Evidence で判定する。
+5. context subset を変更した場合は provenance を残す。
+6. graph_ref / supersession / routing decision / reason / Evidence を event stream から復元可能にする。
+7. `unknown` / conflict / missing evidence を都合よく route せず fail-closed または Human escalation とする。
+8. deterministic rule で十分な routing を LLM 判断へ昇格させない。
+9. active Run 中の self-modifying graph は禁止する。active な WorkItemGraph は in-place で編集せず、replan は新しい immutable WorkItemGraph と supersession で表す。Graph 改善は Evolution Loop で Candidate 化し、次の Harness version へ反映する。
+
+### Selection rule
+
+```text
+Can a linear/static workflow express the task safely?
+  yes -> Static Workflow
+  no
+   ↓
+Is the node catalog fixed and only routing varies?
+  yes -> Adaptive Routing
+  no
+   ↓
+Does runtime need to instantiate bounded topology?
+  yes -> Bounded Dynamic Graph
+  no / unbounded -> do not execute; replan or escalate
+```
+
+この区別は Work Item Graph / Assignment の宣言と接続する。Graph runtime の generic engine を先に作らず、durable state・convergence / stop・trajectory evaluation・event stream は §2 の既存 owner を再利用する。
+
+## 5. Minimum topology principle
 
 **まず最小の制御構造を選ぶ。** AI を使うこと自体は Graph 導入理由にならない。
 
@@ -109,7 +222,7 @@ Active Run 中の Harness identity は [`harness-manifest.md`](./harness-manifes
 
 > **Do not graph what a single Loop can express clearly. Do not hide real coordination complexity inside one opaque Loop.**
 
-## 5. Graph safety invariants
+## 6. Graph safety invariants
 
 Graph を使う場合も、V2 の既存 invariant を弱めない。
 
@@ -123,7 +236,7 @@ Graph を使う場合も、V2 の既存 invariant を弱めない。
 
 > **Candidate cannot modify the authority that judges the candidate.**
 
-## 6. Diagnosis heuristic
+## 7. Diagnosis heuristic
 
 失敗を Model に帰属する前に、周辺システムを確認する。
 
@@ -133,7 +246,7 @@ Harness -> Loop -> Graph -> Model -> External
 
 これは診断順序の heuristic であり、新しい persisted failure taxonomy ではない。FailureRecord / RunEvidence の schema は companion canon と #874 を正とする。
 
-## 7. Precedence
+## 8. Precedence
 
 Issue #923 は Harness / Loop / Graph の横断整理を提案したが、実装責務が既存 Issue に存在するため **SUPERSEDED** で close 済みである。本書は #923 を reopen せず、概念の解釈だけを残す。
 
@@ -145,7 +258,7 @@ owner と正本の対応は **§2 の表が唯一**である。ここで再掲�
 2. canon（`north-star.md` と companion canon）が本書と食い違ったら **canon を正とし、本書を直す**
 3. 本書は 1 / 2 のいずれも定めていない範囲の**解釈**だけを持つ
 
-## 8. Non-goals
+## 9. Non-goals
 
 - LangGraph 等の特定 Graph framework を導入すること
 - concrete requirement より先に generic Graph runtime を作ること
@@ -155,7 +268,7 @@ owner と正本の対応は **§2 の表が唯一**である。ここで再掲�
 - Graph routing を Verifier / Gate の代替にすること
 - Human-owned authority を縮小すること
 
-## 9. Working rule
+## 10. Working rule
 
 設計責務に迷ったときは、次の 3 問で判断する。
 
