@@ -185,7 +185,7 @@
   - 根拠: 2026-09-25 の #1409 改番（PR #1409。squash 前の commit `4e92472f` は main から辿れない）
 
 - [2026-09-29] 下の PR が rename・改番したら、上に積んだ PR は base を取り込んでからマージする
-  - 事実: #1409 は #1402 の改番前の head の上に積まれていた。#1402 は `ta-88` → `ta-93` に改番してからマージされ、そのあと #1409 がマージされた。すると #1409 の squash（`ee153323`）が旧 `tests/extras/ta-88-ai-loop-v2-owner-backed-delivery.sh` を main に追加し直した。結果として、同じテストが 2 本になり、main の `ta-88-gpt6-model-routing.sh` とも番号が衝突した（#1427 で是正）。CI は通った（`ta-61` の TC-20 は basename の一意性しか見ない）
+  - 事実: #1409 は #1402 の改番前の head の上に積まれていた。#1402 は `ta-88` → `ta-93` に改番してからマージされ、そのあと #1409 がマージされた。すると #1409 の squash（`ee153323`）が旧 `tests/extras/ta-88-ai-loop-v2-owner-backed-delivery.sh` を main に追加し直した。結果として、同じテストが 2 本になり、main の `ta-88-gpt6-model-routing.sh` とも番号が衝突した（2026-09-29 時点で #1427 が是正中）。CI は通った（`ta-61` の TC-20 は basename の一意性しか見ない）
   - 再利用条件: base 側の PR でファイルを rename・削除したら、上に積まれた PR をマージする前に、最新の base へ rebase か merge をする。そのうえで `gh pr view <上の PR> --json files` に旧パスが出ないことを確認する。マージ後の範囲レビューでは、各 PR の最終 head と main の同名ファイルを照合する
   - 根拠: 2026-09-29 の範囲レビュー（`4012b37c..4995ad62`）
 
