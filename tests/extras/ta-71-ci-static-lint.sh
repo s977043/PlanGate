@@ -727,6 +727,7 @@ docs/schemas|input
 docs/workflows/ai-loop|input
 scripts/_ai_loop_link_rewrite.py|input
 scripts/ai-loop|input
+scripts/intent_context_contract.py|input
 plugin/plangate|output'
 
 _T71_SPEC_DUMP="$(mktemp)"

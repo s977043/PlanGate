@@ -5,7 +5,7 @@
 **モード**: critical
 
 > #1416はworkflow planning surfacesを変更するためcritical。
-> 本ファイルは現在 **planning-baseline phase**。production taskは推測で置かず、upstream unblock後のT-13で concrete Plan v2 / todo v2へ置き換える。
+> 本ファイルは現在 **planning-baseline phase**。production taskは推測で置かず、upstream unblock後のT-13（Plan v2）とT-14（todo v2）で concrete Plan v2 / todo v2へ置き換える。
 
 ## A. Planning baseline / PR #1417
 
@@ -131,7 +131,7 @@
   - files: docs/working/TASK-1416/approvals/c3.json
   - completion: latest Plan v2 hashに対して APPROVE / CONDITIONAL / REJECT を記録。APPROVEDのみproduction exec可
   - rollback: 不要（判断のみ）
-  - 🚩 チェックポイント: T-13で生成したtodo v2のproduction tasksはH-01 APPROVEDへ依存する
+  - 🚩 チェックポイント: T-14で生成したtodo v2のproduction tasksはH-01 APPROVEDへ依存する
 
 ## ⚠️ 依存関係
 
@@ -156,4 +156,4 @@ H-00 planning baseline merge
   -> concrete production tasks in todo v2
   -> H-02 production C-4
 
-> **Iron Law**: current planning baseline contains no executable production task. Production tasks must be created by T-13 with concrete paths/commands and must depend on H-01 APPROVED before execution.
+> **Iron Law**: current planning baseline contains no executable production task. Production tasks must be created by T-14 with concrete paths/commands and must depend on H-01 APPROVED before execution.
