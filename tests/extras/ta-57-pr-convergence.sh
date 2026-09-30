@@ -687,8 +687,13 @@ PYEOF
   # は plugin 配布物に含まれないため、導入先で走らせても enforcement 側が常に 0 件に
   # なり、値の意味が上流と一致しない（.claude/rules/working-context.md「本ルールの
   # CLI 依存」と同じ理由）。上流 clone 上でのみ成立する producer として扱う。
+  # plan_contract.py も **意図的に非配布**（#1403）。`REPO = HERE.parent.parent` 配下に
+  # 無いパスを `_rel()` が fail-closed で拒否するため、bundled 配置（REPO が
+  # plugin の skills/ になる）では導入先の docs/working/TASK-* を常に拒否する。
+  # shape の正本 schemas/plan-contract.schema.json も配布物に含まれない。
   _T57_NONDIST_DECL='corpus_hash.py reason: enforcement scope（scripts/hooks/** 等）が plugin 配布物に含まれず導入先で値が一致しないため上流専用 (#1299)
-test_corpus_hash.py reason: corpus_hash.py が上流専用のため同伴して非配布 (#1299)'
+test_corpus_hash.py reason: corpus_hash.py が上流専用のため同伴して非配布 (#1299)
+plan_contract.py reason: REPO 相対パス解決が上流レイアウト前提で bundled 配置では導入先の TASK dir を常に拒否するため上流専用 (#1403)'
 
   _t57_audit="$_t57_tmp/allowlist_audit.py"
   cat > "$_t57_audit" <<'PY_T57_AUDIT'

@@ -13,6 +13,12 @@ V2 RunState の revision CAS と accepted RunEvent の durable commit を、1 �
 
 C-3 待ち
 
+> **2026-09-29 追記（範囲レビュー）: main の事実との食い違い（Human 判断待ち）**
+> - PR #1406（この plan）は 2026-09-29 00:04:39Z に main へ merge された。C-3 の承認記録（`approvals/c3.json`）は無い
+> - issue #1392 は、その 3 分前（00:01:19Z）に PR #1402 の merge（本文の `Closes #1392`）で CLOSED（COMPLETED）になった。この plan（モデル B）は未実装
+> - R-023（`run_state.py` を #1402 から外す）に反して、#1402 の複数ファイル方式の `scripts/ai-loop-v2/run_state.py` が main に入り、`delivery_runtime.py:17` が import している
+> - 決めること: #1392 を reopen するか新しい issue にするか / #1402 の run_state を暫定実装として残すか、モデル B への移行順 / この plan の C-3 をどう扱うか
+
 > **C-2 は R12 で収束（両レーンとも新しい失敗クラスなし、2026-09-28）。** 残存脅威モデルは `review-external.md` の「C-2 convergence」節。以下は経緯。
 
 > - PR 独立レビュー（R-001〜R-004）とその敵対レビュー（R-005〜R-009）、Codex 相談（R-010〜R-013）、#1407 からの依頼（R-014〜R-016）を反映済み

@@ -41,8 +41,8 @@ V2 の既存責務へ当てはめると次のようになる。
 |---|---|---|
 | 1 Task を Evidence で `MERGE_READY` へ収束 | Loop | Delivery Loop / [`north-star.md`](./north-star.md) |
 | 複数 Run から Harness N+1 Candidate を作り評価（Harness Evolution） | Loop | Evolution Loop / #869 |
-| stop / progress / retry strategy | Loop | #894 / [`north-star.md`](./north-star.md) §8 |
-| durable state / Human interrupt / wait-resume / recovery | Graph + Harness | #1025 |
+| stop / progress / retry strategy | Loop | #894 / [`north-star.md`](./north-star.md) §8（Decision core は子の #1393） |
+| durable state / Human interrupt / wait-resume / recovery | Graph + Harness | #1025（RunState CAS は子の #1392） |
 | Work Item Graph / Assignment の宣言（decomposition / dependency / join policy / bounded dynamic policy。immutable） | Graph | #911 / #1385 |
 | runtime graph の事実（instantiation / route / join）と、その projection としての effective runtime graph | Graph + Harness evidence | #874（V2 event stream） |
 | node 遷移の妥当性評価（Trajectory evaluation） | Graph + Evaluation | #908 |
@@ -165,7 +165,7 @@ graph_decision:
   reason_code: ""
 ```
 
-`action` に終了（terminate）を置かない。Terminal Outcome / Stop Reason の決定は Decision Engine の責務である（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）。Graph は `convergence_decision_ref` が指す決定に従って terminal へ route するだけで、その場合も `action: route` として記録する。
+`action` に終了（terminate）を置かない。Terminal Outcome / Stop Reason の決定は Decision Engine の責務である（[`artifact-responsibilities.md`](./artifact-responsibilities.md)）。Graph は `convergence_decision_ref` が指す決定に従って terminal へ route するだけで、その場合も `action: route` として記録する。ここでの convergence は Loop の収束判断（#894）を指し、RunState の `PR_CONVERGING` や `pr_convergence`（PR の収束観測）とは別の概念である。
 
 原則:
 

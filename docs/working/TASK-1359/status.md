@@ -19,8 +19,8 @@
 | 2026-09-23 08:24 | BLOCKED | PR #1366 merged。Codex CLI >=0.144.0 / exact-version freeze / approval_policy=never runtime contract追加 |
 | 2026-09-23 12:45 | BLOCKED | #1360 all-green。planning baseline merge readinessとproduction execution readinessを分離 |
 | 2026-09-24 09:43 | BLOCKED | 独立レビューのmajor 4件/minorを是正中。当時plan.mdへの一部反映がEH-3で保留 |
-| 2026-09-24 12:28 | BLOCKED | PR #1360最終headでplan.md是正を含むplanning baselineをMERGED。上記「未反映」は解消 |
 | 2026-09-24 12:15 | BLOCKED | PR #1371 isolation specification baseline MERGED。仕様PASSだがRuntime Major 1はactual evidence取得までOPEN |
+| 2026-09-24 12:28 | BLOCKED | PR #1360最終headでplan.md是正を含むplanning baselineをMERGED。上記「未反映」は解消 |
 | 2026-09-25 06:29 | BLOCKED | #1337 runtime result→#1359 T-00 handoffを明文化。execution protocolは再定義せず、result contractのみ追加 |
 
 ## 全体構成（PR 一覧）

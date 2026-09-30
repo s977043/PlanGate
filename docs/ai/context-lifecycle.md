@@ -51,7 +51,10 @@ referenced from PlanGate evidence, but raw review conversation is not a checkpoi
 
 ## 3. Fresh-context triggers
 
-### MUST checkpoint and restart from canonical state
+### MUST checkpoint and restart from canonical state (standard mode and above)
+
+For `ultra-light` / `light` tasks these triggers are optional (see §8: simple tasks do not
+gain mandatory ceremony). The same rule is stated in the `working-context` skill.
 
 1. worker / agent / model / runtime changes;
 2. an independent reviewer starts;
