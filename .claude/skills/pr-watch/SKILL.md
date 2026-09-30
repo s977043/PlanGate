@@ -221,20 +221,27 @@ gh auth switch --user <expected-user> \
   PR の merge 後にも実行する
 
   ```bash
-  # 既知の重複は 2026-05 からある ta-14 の 2 本だけ。3 本目が入ったら出す。新しい番号を足さない
+  # 既知の重複は 2026-05 からある ta-14 の 2 本だけで、ファイル名で固定する。
+  # 3 本目が入った場合も、片方が別の ta-14 に入れ替わった場合も出す。除外を足さない
   if git fetch -q origin main \
     && ls=$(git ls-tree --name-only origin/main tests/extras/) && [ -n "$ls" ]; then
-    printf '%s\n' "$ls" | sed -nE 's#^tests/extras/ta-([0-9]+)-.*#\1#p' \
-      | awk '{ print $1 + 0 }' | sort -n | uniq -c \
-      | awk '$1 > 1 && !($2 == 14 && $1 == 2) { print "duplicate on main: ta-" $2 " (" $1 " files)" }'
+    printf '%s\n' "$ls" | sed -nE 's#^tests/extras/(ta-0*([0-9]+)[^0-9].*\.sh)$#\2 \1#p' \
+      | sort -k1,1n -k2 | awk '
+        { n[$1]++; names[$1] = names[$1] " " $2 }
+        END {
+          for (k in n) if (n[k] > 1 && names[k] != " ta-14-codex-guarded.sh ta-14-skip-acknowledge.sh")
+            print "duplicate on main: ta-" k " (" n[k] " files:" names[k] ")"
+        }'
   else
     echo "ABORT: origin/main is unavailable" >&2; false
   fi
   ```
 
   出力が空（ABORT なし）なら、既知の ta-14 の 2 本を除いて main の中に重複なし。
-  CI の `tests/extras/ta-61-extra-contract.sh` TC-20 は 2026-09-29 時点でファイル名の
-  一意性しか見ておらず、番号の重複は検出しない（未是正）。CI に任せず、このコマンドを実行する
+  CI の `tests/extras/ta-61-extra-contract.sh` TC-20 も同じ規則で番号の重複を検査する
+  （陽性コントロール付き）。ただし PR の CI はその時点の base との merge しか見ないので、
+  CI が緑の PR 同士を続けて merge すると main で重複しうる。merge 後の main に対しても
+  このコマンドを実行する
 
 ## 関連ドキュメント
 

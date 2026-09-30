@@ -241,12 +241,27 @@ fi
 # TC-25 assert 3 (loop execution count) is asserted after the per-file loops below.
 
 # ---------------------------------------------------------------------------
-# TC-20: basename test-id uniqueness over ALL discovered files (allowlist-exempt)
-_t61_dups=$(printf '%s\n' "$_T61_DISCOVERED" | sed 's/\.sh$//' | sort | uniq -d)
-if [ -z "$_t61_dups" ]; then
-  t61_pass "TC-20: every discovered ta-*.sh has a unique basename test-id"
+# TC-20: test-id NUMBER uniqueness over ALL discovered files (allowlist-exempt).
+# Basenames are unique by construction on a filesystem, so the number is what
+# must be unique: ta-7-* and ta-07-* collide. The only tolerated duplicate is
+# the known ta-14 pair, pinned by file name: any other member (added or
+# swapped in) is reported.
+_t61_num_dups() {
+  sed -nE 's/^(ta-0*([0-9]+)[^0-9].*)$/\2 \1/p' | sort -k1,1n -k2 | awk '
+    { n[$1]++; names[$1] = names[$1] " " $2 }
+    END {
+      for (k in n) if (n[k] > 1 && names[k] != " ta-14-codex-guarded.sh ta-14-skip-acknowledge.sh") print k
+    }' | sort -n | tr '\n' ' ' | sed 's/ $//'
+}
+_t61_probe=$(printf '%s\n' ta-3a-p.sh ta-3-q.sh ta-7-a.sh ta-07-b.sh ta-14-codex-guarded.sh ta-14-new.sh ta-1-x.sh | _t61_num_dups)
+_t61_neg=$(printf '%s\n' ta-14-skip-acknowledge.sh ta-14-codex-guarded.sh ta-1-x.sh ta-10-y.sh | _t61_num_dups)
+_t61_dups=$(printf '%s\n' "$_T61_DISCOVERED" | _t61_num_dups)
+if [ "$_t61_probe" != "3 7 14" ] || [ -n "$_t61_neg" ]; then
+  t61_fail "TC-20: duplicate detector self-check failed (probe='$_t61_probe' want '3 7 14'; negative='$_t61_neg' want '')"
+elif [ -z "$_t61_dups" ]; then
+  t61_pass "TC-20: every discovered ta-*.sh has a unique test-id number (known ta-14 pair exempt)"
 else
-  t61_fail "TC-20: duplicate basename test-id(s) in $_T61_DIR: $_t61_dups"
+  t61_fail "TC-20: duplicate test-id number(s) in $_T61_DIR: $_t61_dups"
 fi
 
 # ---------------------------------------------------------------------------
