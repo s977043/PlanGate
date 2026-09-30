@@ -759,7 +759,9 @@ class C3PrimeContractDocTests(unittest.TestCase):
                       "plan_package_hash"):
             self.assertIn(f"`{field}`", section, f"§7 の #874 節に {field} が無い")
 
-    def test_tc39_only_section_7_changed(self):
+    def test_tc39_existing_sections_unchanged(self):
+        # 新しい節の追加は許す。origin/main にある節の削除と、既存の節の改変
+        # （§7 は既存本文の後ろへの追記のみ許す）を検出する。
         # git show は読み取り専用 git サブコマンド allowlist に含まれる
         # （check_exec_boundary.py 不変条件 3）。
         cp = subprocess.run(["git", "show", f"origin/main:{self.DOC}"],
@@ -768,14 +770,19 @@ class C3PrimeContractDocTests(unittest.TestCase):
             self.skipTest(f"origin/main を解決できない: {cp.stderr.strip()}")
         old = self._sections(cp.stdout)
         new = self._sections((REPO / self.DOC).read_text(encoding="utf-8"))
-        self.assertEqual(set(old), set(new), "節の追加・削除が発生している")
+        self.assertEqual(sorted(set(old) - set(new)), [],
+                         "origin/main にある節が削除されている")
+        # 節末の空行は次の見出しとの区切りであり、後ろに節を足すと増えるため比較から外す。
+        old = {k: v.rstrip("\n") for k, v in old.items()}
+        new = {k: v.rstrip("\n") for k, v in new.items()}
         target = "7. #873（delivery.py）への引き渡し"
         for key in sorted(old):
             if key == target:
                 continue
             self.assertEqual(old[key], new[key],
-                             f"§7 以外の節が変更されている: {key}")
-        self.assertTrue(new[target].startswith(old[target]),
+                             f"§7 以外の既存の節が変更されている: {key}")
+        self.assertTrue(new[target] == old[target]
+                        or new[target].startswith(old[target] + "\n"),
                         "§7 が additive でない（既存行が改変されている）")
 
 
