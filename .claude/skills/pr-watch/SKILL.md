@@ -147,18 +147,43 @@ gh auth switch --user <expected-user> \
   別ファイルに使われていないかを確認する。ファイル名が違えば git の衝突にならず、
   CI でも検出されない
 
+  下のコマンドはどれも、**ABORT が出ず、終了コードが 0 で、出力が空**のときだけ
+  「重複なし」と読む。取得に失敗したときの空出力を「重複なし」と取り違えないため、
+  取得失敗は必ず ABORT と非 0 で終わる
+
+  取得の打ち切り確認（先に実行する）: `gh pr list` は `--limit` 件で、各 PR の
+  `files` は 100 件で黙って打ち切られる。打ち切られると、下のコマンドは重複を
+  見落としたまま空を返す
+
+  ```bash
+  if out=$(gh pr list --state open --limit 1000 --json number,files,changedFiles --jq '
+      if length >= 1000 then "ABORT: open PR list may be truncated at 1000"
+      else .[] | select(.changedFiles > ((.files // []) | length))
+        | "ABORT: #\(.number) lists \((.files // []) | length) of \(.changedFiles) files; check it with gh pr diff \(.number) --name-only"
+      end'); then
+    [ -z "$out" ] || { printf '%s\n' "$out"; false; }
+  else
+    echo "ABORT: the open PR list is unavailable" >&2; false
+  fi
+  ```
+
+  ABORT が出たら、下の open PR に関する結果は「重複なし」の根拠にならない
+  （出た PR は `gh pr diff <n> --name-only` で個別に照合する）
+
   open PR 同士:
 
   ```bash
-  gh pr list --state open --limit 200 --json number,files --jq '
-    [.[] | .number as $n | .files[].path
+  gh pr list --state open --limit 1000 --json number,files --jq '
+    [.[] | .number as $n | (.files // [])[].path
      | select(test("^tests/extras/ta-[0-9]+-"))
-     | {id: (capture("ta-(?<i>[0-9]+)-").i), pr: $n, path: .}]
+     | {id: (capture("ta-(?<i>[0-9]+)-").i | tonumber), pr: $n, path: .}]
     | group_by(.id) | map(select((map(.path) | unique | length) > 1))
-    | .[] | "ta-\(.[0].id): " + (map("#\(.pr) \(.path)") | join(", "))'
+    | .[] | "ta-\(.[0].id): " + (map("#\(.pr) \(.path)") | join(", "))' \
+    || { echo "ABORT: the open PR list is unavailable" >&2; false; }
   ```
 
-  出力が空なら重複なし。同じファイルを複数 PR が編集しているだけの場合は出ない
+  出力が空（ABORT なし）なら重複なし。同じファイルを複数 PR が編集しているだけの
+  場合は出ない。番号は数値として比べる（ta-7 と ta-07 は同じ番号）
 
   open PR と main: 上のコマンドは open PR 同士しか比べないので、先にマージされた
   PR が同じ番号を取った場合を検出できない（2026-09-25 に #1419 が main で ta-88 を
@@ -167,17 +192,17 @@ gh auth switch --user <expected-user> \
   ```bash
   if git fetch -q origin main \
     && main_ids=$(git ls-tree --name-only origin/main tests/extras/ \
-         | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p' | sort -u) \
+         | sed -nE 's#^tests/extras/ta-([0-9]+)-.*#\1#p' | awk '{ print $1 + 0 }' | sort -un) \
     && [ -n "$main_ids" ] \
-    && prs=$(gh pr list --state open --limit 200 --json number,files --jq '
-         .[] | .number as $n | .files[].path
+    && prs=$(gh pr list --state open --limit 1000 --json number,files --jq '
+         .[] | .number as $n | (.files // [])[].path
          | select(test("^tests/extras/ta-[0-9]+-")) | "\($n) \(.)"'); then
     printf '%s\n' "$prs" | while read -r n p; do
       [ -n "$p" ] || continue
       git cat-file -e "origin/main:$p" 2>/dev/null && continue
-      id=$(printf '%s\n' "$p" | sed -nE 's#^tests/extras/(ta-[0-9]+)-.*#\1#p')
+      id=$(printf '%s\n' "$p" | sed -nE 's#^tests/extras/ta-([0-9]+)-.*#\1#p' | awk '{ print $1 + 0 }')
       if printf '%s\n' "$main_ids" | grep -qx "$id"; then
-        echo "$id: #$n $p (main uses the same id)"
+        echo "ta-$id: #$n $p (main uses the same id)"
       fi
     done
   else
@@ -189,6 +214,27 @@ gh auth switch --user <expected-user> \
   出力が空（ABORT なし）なら衝突なし。main にある同名ファイルを編集しているだけの
   PR は出ない。PR が main のファイルを同じ番号のまま rename した場合は、衝突として
   出る（誤検知。gh の `files` は変更後のパスしか返さない）
+
+  main の中: 上の 2 つは「PR が持ち込む番号」しか見ないので、merge 後に main の中で
+  同じ番号が 2 本になった場合は出ない（2026-09-29 に #1409 が改番前の
+  `ta-88-ai-loop-v2-owner-backed-delivery.sh` を main に戻し、ta-88 が 2 本になった）。
+  PR の merge 後にも実行する
+
+  ```bash
+  # 既知の重複は 2026-05 からある ta-14 の 2 本だけ。3 本目が入ったら出す。新しい番号を足さない
+  if git fetch -q origin main \
+    && ls=$(git ls-tree --name-only origin/main tests/extras/) && [ -n "$ls" ]; then
+    printf '%s\n' "$ls" | sed -nE 's#^tests/extras/ta-([0-9]+)-.*#\1#p' \
+      | awk '{ print $1 + 0 }' | sort -n | uniq -c \
+      | awk '$1 > 1 && !($2 == 14 && $1 == 2) { print "duplicate on main: ta-" $2 " (" $1 " files)" }'
+  else
+    echo "ABORT: origin/main is unavailable" >&2; false
+  fi
+  ```
+
+  出力が空（ABORT なし）なら、既知の ta-14 の 2 本を除いて main の中に重複なし。
+  CI の `tests/extras/ta-61-extra-contract.sh` TC-20 は 2026-09-29 時点でファイル名の
+  一意性しか見ておらず、番号の重複は検出しない（未是正）。CI に任せず、このコマンドを実行する
 
 ## 関連ドキュメント
 
