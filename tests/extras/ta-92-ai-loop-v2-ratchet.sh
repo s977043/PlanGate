@@ -30,21 +30,21 @@ if pg_extra_contract_is_standalone; then
 fi
 
 if [ "$_pg_extra_mode" = harness ]; then
-  _T89_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
+  _T92_ROOT="$(CDPATH= cd -- "$FIXTURES_DIR/../.." && pwd)"
 else
-  _T89_ROOT="${_pg_extra_dir%/tests/extras}"
+  _T92_ROOT="${_pg_extra_dir%/tests/extras}"
 fi
 
 printf 'TA-92: ai-loop V2 Ratchet verification-skipped vertical slice\n'
 
-if _T89_OUT=$(python3 "$_T89_ROOT/scripts/ai-loop-v2/test_ratchet.py" 2>&1); then
-  printf '%s\n' "$_T89_OUT"
+if _T92_OUT=$(python3 "$_T92_ROOT/scripts/ai-loop-v2/test_ratchet.py" 2>&1); then
+  printf '%s\n' "$_T92_OUT"
   printf '  [PASS] provenance / trust-boundary / paired-eval / promotion tests\n'
   pass=$((pass + 1))
 else
-  _T89_RC=$?
-  printf '%s\n' "$_T89_OUT" >&2
-  printf '  [FAIL] Ratchet tests failed (rc=%s)\n' "$_T89_RC" >&2
+  _T92_RC=$?
+  printf '%s\n' "$_T92_OUT" >&2
+  printf '  [FAIL] Ratchet tests failed (rc=%s)\n' "$_T92_RC" >&2
   fail=$((fail + 1))
 fi
 
