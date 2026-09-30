@@ -225,7 +225,7 @@ gh auth switch --user <expected-user> \
   # 3 本目が入った場合も、片方が別の ta-14 に入れ替わった場合も出す。除外を足さない
   if git fetch -q origin main \
     && ls=$(git ls-tree --name-only origin/main tests/extras/) && [ -n "$ls" ]; then
-    printf '%s\n' "$ls" | sed -nE 's#^tests/extras/(ta-0*([0-9]+)-.*)$#\2 \1#p' \
+    printf '%s\n' "$ls" | sed -nE 's#^tests/extras/(ta-0*([0-9]+)[^0-9].*\.sh)$#\2 \1#p' \
       | sort -k1,1n -k2 | awk '
         { n[$1]++; names[$1] = names[$1] " " $2 }
         END {
