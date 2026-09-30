@@ -6,6 +6,106 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
+## v8.23.0 - TBD
+
+feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime と Ratchet を最初の縦切りとして実装する
+
+v8.22.0 タグ以降に main へ蓄積した **31 コミット**（実測: `git rev-list --count v8.22.0..781d0bde`）を反映する。
+主題は **Context の受け渡しを「会話の持ち越し」から「正本 artifact の参照」へ移すこと**と、
+**ai-loop V2 の runtime を最初に動かすこと**。
+
+- 配布物（`plugin/`）の変更は **9 ファイル・追加 961 行・削除 4 行**
+  （実測: `git diff --shortstat v8.22.0..781d0bde -- plugin/`）。内訳は SKILL.md 2 本
+  （`context-packager` / `working-context`。+56/-0）と、#1405 による `ai-loop-cycle` / `ai-dev-exec` /
+  `ai-dev-verify` の scripts・references・schema 7 ファイル（+905/-4）
+- **`bin/plangate` は変更ゼロ**（実測: `git diff --numstat v8.22.0..781d0bde -- bin/plangate` が 0 行）
+- `schemas/` は**追加のみ**（削除行 0）: `context-manifest.schema.json` に任意フィールド `intent_context`、
+  **新規** `intent-context-package.schema.json`、`model-profile.schema.json` に任意フィールド `model_id` と
+  enum 値 `gpt-6-*`、**新規** `plan-contract.schema.json`
+  （実測: `git diff --numstat v8.22.0..781d0bde -- schemas/` → 26/0・328/0・11/0・54/0。
+  `--name-status` は M・A・M・A）
+- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..781d0bde` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+
+（数値はいずれも **基点 `781d0bde` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
+**PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
+
+### ⚠️ 更新前に必ずお読みください
+
+> **対象: `plangate` プラグインを導入している利用者**（1.）と、**ai-loop（`ai-loop-cycle` skill）を
+> 使っている利用者**（2.）。いずれも既存の hook・CLI・schema の必須項目は変えていません。
+
+#### 1. `working-context` skill に「checkpoint してから fresh context で再開する」規則が加わります（#1411）
+
+worker / agent / model / runtime を切り替えるとき、独立レビューを始めるとき、worker 間で引き継ぐとき、
+外部待ちや使用量上限で意図的に中断するときは、**会話履歴を持ち越さず**、正本の state
+（`plan.md` / `decision-log.jsonl` / `INDEX.md` / `current-state.md` / evidence）を checkpoint してから
+新しい context で再開します。**standard 以上では必須、ultra-light / light では任意**です。
+あわせて `context-packager` skill は、raw な会話・hidden chain-of-thought・raw tool stream を
+package に入れないことを明記しました。
+
+承認ゲート（C-3 / C-4）・plan binding・Human-owned の権限は変わりません。
+
+#### 2. ai-loop の C-3' AUTO_APPROVED が、正本どうしの矛盾を残したままでは出なくなります（#1405 / `e808c413`）
+
+`plan.md` に `Intent-Context-ID` / `Intent-Context-Ref` を持たせ、既存の `plan_hash` で意味上の Context を
+C-3 / C-3' より前に束縛します。**authoritative な情報源が 2 つ以上で矛盾したまま解消されていない場合、
+C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱の
+`plugin/plangate/skills/ai-loop-cycle/` の scripts / references / schemas と、`ai-dev-exec` / `ai-dev-verify` の
+`references/c3-prime-contract.md` も変わります。
+
+### Context（Intent Context / Dynamic Context Engine / Context Lifecycle）
+
+- **Intent Context Package v1 の契約を実装**（#1396。ownership は #1390 で確定）。
+  新規 schema `intent-context-package.schema.json` と `scripts/intent_context_contract.py`
+- **Dynamic Context Engine から Intent Context を参照**（#1404）。`context-manifest.schema.json` に
+  任意フィールド `intent_context` を追加（package の中身は複製せず、参照と digest だけを持つ）
+- **Context Lifecycle の fresh-context 方針**（#1411）。正本 `docs/ai/context-lifecycle.md`。
+  配布物を含む（上記 ⚠️ 1.）
+- **Plan Contract と Intent Context の意味上の束縛**（#1405 / `e808c413`）。ADR-002（Plan Contract の正本境界）・
+  新規 schema `plan-contract.schema.json`・`scripts/ai-loop/plan_contract.py`（上記 ⚠️ 2.）
+
+### ai-loop V2
+
+- **Delivery の E2E 実行可能仕様**（#1383 / `ta-87`）と、**owner-backed Delivery runtime**（#1402 / `ta-93`）
+- **verification-skipped Ratchet の縦切り**（#1409 / `ta-92`）
+- **Runtime Graph の境界と選択規則**を canon に明記（#1379）
+- plan の確定（exec 前）: RunEvent / RunEvidence（#1391）・RunState CAS / atomic snapshot（#1392 / PR #1406）・
+  Verification / Failure / Decision core（#1393 / PR #1407）・Work Item Graph の field ownership（#1385 / PR #1386）・
+  AI Execution Readiness（#1416 / PR #1417）
+
+### レビューとモデル
+
+- **外部レビュー結果の正規化境界**を決定論的に実装（#1413 / `ta-91`）。`scripts/reviewer_normalize.py`
+- **GPT-6 のモデルプロファイルを実行経路へ接続**（`e5587226`）。`scripts/ai-dev-workflow` に
+  opt-in の `--profile=` / `--mode=` を追加（**指定しなければ従来どおり**）
+- **Plan Deliberation schema の契約を用意**（#1412 / `ta-89`）。schema 本体は HO パスのため
+  `scripts/apply-task-1353-plan-deliberation-schema.sh` を Human が適用する（本リリースの時点では未適用）
+
+### 承認境界の運用（文面）
+
+- **AI 運用 4 原則を平易な「何を・なぜ」の文面へ**（#1414）。正本 `docs/ai/project-rules.md` を更新。
+  **承認が必要な範囲は変えていない**。`CLAUDE.md` の `<law>` は HO のため
+  `scripts/apply-claude-md-law-tone.sh` を Human が適用する（本リリースの時点では未適用）
+- EH-3 の環境変数は**起動時に設定する**と明記（#1415）。HO 適用スクリプトは委託先で `--dry-run` /
+  `--verify` までとする制約を追記（#1420）
+
+### CI・評価
+
+- **Claude subscription の read-only canary** を追加し（#1375）、restricted mode・隔離 state・
+  fail-closed の証跡で強化（#1400）
+- `#1337` の読み取り隔離 preflight を具体化（#1371）し、TASK-1359 への runtime handoff を用意（#1418）。
+  TASK-1359 の計画を確定（#1360）
+- `chore(deps)`: `codeql-action` 4.38.1 → 4.38.2（#1425。SHA ピンは維持）
+
+### テストと検査
+
+- `ta-61` TC-14 の到達判定を runner の完了マーカーで行う（#1424。standalone 実行で必ず FAIL していた）
+- `pr-watch` skill に CI 未実行と**テスト ID の横断重複**の検知を追加（#1421）し、main との照合を加えた（#1426）
+- **`ta-88` の二重化を解消**（#1427 / `4eb6e320`。#1409 が改番前のファイルを main に戻していた）と、
+  `pr-watch` の重複検出が黙って打ち切られる問題の是正（#1427）
+- 改番の digest 波及・stack PR の旧ファイル復活・レビュー委託の stall 対策を
+  `AGENT_LEARNINGS.md` に追記（#1428 / `781d0bde`）
+
 ## v8.22.0 - 2026-09-23
 
 fix: 承認境界のガードを「文字列で近似する」実装から「トークン列で判定する」実装へ作り直し、EH-3 の worktree 素通りと EH-12 の誤検知を実測で塞ぐ
