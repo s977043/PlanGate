@@ -10,27 +10,29 @@ PlanGate の主要リリース履歴。
 
 feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime と Ratchet を最初の縦切りとして実装する
 
-v8.22.0 タグ以降に main へ蓄積した **28 コミット**（実測: `git rev-list --count v8.22.0..4995ad62`）と、
-収録予定の未マージ PR 3 本（#1427 / #1428 / #1405。各項目に **【予定】** を付けた）を反映する。
+v8.22.0 タグ以降に main へ蓄積した **31 コミット**（実測: `git rev-list --count v8.22.0..781d0bde`）を反映する。
 主題は **Context の受け渡しを「会話の持ち越し」から「正本 artifact の参照」へ移すこと**と、
 **ai-loop V2 の runtime を最初に動かすこと**。
 
-- 配布物（`plugin/`）の変更は **SKILL.md 2 本**（`context-packager` / `working-context`。追加 56 行・削除 0 行）
-  （実測: `git diff --numstat v8.22.0..4995ad62 -- plugin/`）
-- **`bin/plangate` は変更ゼロ**（実測: `git diff --numstat v8.22.0..4995ad62 -- bin/plangate` が 0 行）
+- 配布物（`plugin/`）の変更は **9 ファイル・追加 961 行・削除 4 行**
+  （実測: `git diff --shortstat v8.22.0..781d0bde -- plugin/`）。内訳は SKILL.md 2 本
+  （`context-packager` / `working-context`。+56/-0）と、#1405 による `ai-loop-cycle` / `ai-dev-exec` /
+  `ai-dev-verify` の scripts・references・schema 7 ファイル（+905/-4）
+- **`bin/plangate` は変更ゼロ**（実測: `git diff --numstat v8.22.0..781d0bde -- bin/plangate` が 0 行）
 - `schemas/` は**追加のみ**（削除行 0）: `context-manifest.schema.json` に任意フィールド `intent_context`、
   **新規** `intent-context-package.schema.json`、`model-profile.schema.json` に任意フィールド `model_id` と
-  enum 値 `gpt-6-*`（実測: `git diff --numstat v8.22.0..4995ad62 -- schemas/` → 26/0・328/0・11/0）
-- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..4995ad62` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+  enum 値 `gpt-6-*`、**新規** `plan-contract.schema.json`
+  （実測: `git diff --numstat v8.22.0..781d0bde -- schemas/` → 26/0・328/0・11/0・54/0。
+  `--name-status` は M・A・M・A）
+- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..781d0bde` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
 
-（数値はいずれも **基点 `4995ad62` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない。
-**#1405 は `plugin/` と `schemas/` に触るため、merge 後に上の数値は変わる** → 仕上げ時に再測定する）
+（数値はいずれも **基点 `781d0bde` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
 **PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
 
 ### ⚠️ 更新前に必ずお読みください
 
 > **対象: `plangate` プラグインを導入している利用者**（1.）と、**ai-loop（`ai-loop-cycle` skill）を
-> 使っている利用者**（2.【予定】）。いずれも既存の hook・CLI・schema の必須項目は変えていません。
+> 使っている利用者**（2.）。いずれも既存の hook・CLI・schema の必須項目は変えていません。
 
 #### 1. `working-context` skill に「checkpoint してから fresh context で再開する」規則が加わります（#1411）
 
@@ -43,12 +45,13 @@ package に入れないことを明記しました。
 
 承認ゲート（C-3 / C-4）・plan binding・Human-owned の権限は変わりません。
 
-#### 2. 【予定】ai-loop の C-3' AUTO_APPROVED が、正本どうしの矛盾を残したままでは出なくなります（#1405）
+#### 2. ai-loop の C-3' AUTO_APPROVED が、正本どうしの矛盾を残したままでは出なくなります（#1405 / `e808c413`）
 
 `plan.md` に `Intent-Context-ID` / `Intent-Context-Ref` を持たせ、既存の `plan_hash` で意味上の Context を
 C-3 / C-3' より前に束縛します。**authoritative な情報源が 2 つ以上で矛盾したまま解消されていない場合、
 C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱の
-`plugin/plangate/skills/ai-loop-cycle/` の scripts / references も変わります。
+`plugin/plangate/skills/ai-loop-cycle/` の scripts / references / schemas と、`ai-dev-exec` / `ai-dev-verify` の
+`references/c3-prime-contract.md` も変わります。
 
 ### Context（Intent Context / Dynamic Context Engine / Context Lifecycle）
 
@@ -58,7 +61,7 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
   任意フィールド `intent_context` を追加（package の中身は複製せず、参照と digest だけを持つ）
 - **Context Lifecycle の fresh-context 方針**（#1411）。正本 `docs/ai/context-lifecycle.md`。
   配布物を含む（上記 ⚠️ 1.）
-- 【予定】**Plan Contract と Intent Context の意味上の束縛**（#1405）。ADR-002（Plan Contract の正本境界）・
+- **Plan Contract と Intent Context の意味上の束縛**（#1405 / `e808c413`）。ADR-002（Plan Contract の正本境界）・
   新規 schema `plan-contract.schema.json`・`scripts/ai-loop/plan_contract.py`（上記 ⚠️ 2.）
 
 ### ai-loop V2
@@ -98,10 +101,10 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
 
 - `ta-61` TC-14 の到達判定を runner の完了マーカーで行う（#1424。standalone 実行で必ず FAIL していた）
 - `pr-watch` skill に CI 未実行と**テスト ID の横断重複**の検知を追加（#1421）し、main との照合を加えた（#1426）
-- 【予定】**`ta-88` の二重化を解消**（#1427。#1409 が改番前のファイルを main に戻していた）と、
+- **`ta-88` の二重化を解消**（#1427 / `4eb6e320`。#1409 が改番前のファイルを main に戻していた）と、
   `pr-watch` の重複検出が黙って打ち切られる問題の是正（#1427）
-- 【予定】改番の digest 波及・stack PR の旧ファイル復活・レビュー委託の stall 対策を
-  `AGENT_LEARNINGS.md` に追記（#1428）
+- 改番の digest 波及・stack PR の旧ファイル復活・レビュー委託の stall 対策を
+  `AGENT_LEARNINGS.md` に追記（#1428 / `781d0bde`）
 
 ## v8.22.0 - 2026-09-23
 
