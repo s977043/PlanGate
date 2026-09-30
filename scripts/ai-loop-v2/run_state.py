@@ -8,6 +8,10 @@ echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
 echo "       Use: python3 $0 [args...]" >&2
 exit 2
 ":"""
+# 暫定実装（#1402 由来・fixture 専用）。R-023 により RunState の永続化は #1392 が持つ。
+# #1392（model B）への移行後に本ファイルと専用テストを削除する（Human 決定 2:
+# #1392 issuecomment-5892259334）。それまで import は delivery_runtime.py と
+# test_delivery_v2.py の 2 か所に限る（tests/extras/ta-93 が検査する）。
 from __future__ import annotations
 
 import copy

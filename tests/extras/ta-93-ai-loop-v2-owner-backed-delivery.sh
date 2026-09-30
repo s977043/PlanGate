@@ -48,4 +48,39 @@ else
   fail=$((fail + 1))
 fi
 
+# run_state.py is provisional (R-023 / Human decision 2 on #1392): until the
+# migration to #1392 it may be imported only by these two files. Only tracked
+# *.py files are scanned (git grep).
+_T93_IMPORT_ERE='^[[:space:]]*(from|import)[[:space:]]+([^#]*[^A-Za-z0-9_#])?run_state([^A-Za-z0-9_]|$)|(import_module|__import__)\([[:space:]]*["'"'"']([A-Za-z0-9_.]*\.)?run_state["'"'"']'
+_T93_WANT='scripts/ai-loop-v2/delivery_runtime.py
+scripts/ai-loop-v2/test_delivery_v2.py'
+_t93_importers() {
+  git -C "$1" grep -lE "$_T93_IMPORT_ERE" -- '*.py' | sort
+}
+_T93_PROBE=$(mktemp -d)
+mkdir -p "$_T93_PROBE/a" && git -C "$_T93_PROBE" init -q
+printf 'from run_state import DurableRunStore\n' > "$_T93_PROBE/a/w.py"
+printf 'import os, run_state\n' > "$_T93_PROBE/a/x.py"
+printf 'm = importlib.import_module("run_state")\n' > "$_T93_PROBE/a/y.py"
+printf 'run_state = {}\nfrom run_state_extra import z\nimport os  # run_state\n' > "$_T93_PROBE/a/z.py"
+git -C "$_T93_PROBE" add -A
+_T93_PROBE_GOT=$(_t93_importers "$_T93_PROBE")
+rm -rf "$_T93_PROBE"
+_T93_GOT=$(_t93_importers "$_T93_ROOT")
+if [ "$_T93_PROBE_GOT" != "a/w.py
+a/x.py
+a/y.py" ]; then
+  printf '  [FAIL] run_state import detector self-check failed: %s\n' "$_T93_PROBE_GOT" >&2
+  fail=$((fail + 1))
+elif ! git -C "$_T93_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  printf '  [FAIL] run_state import check needs a git checkout: %s\n' "$_T93_ROOT" >&2
+  fail=$((fail + 1))
+elif [ "$_T93_GOT" = "$_T93_WANT" ]; then
+  printf '  [PASS] run_state.py is imported only by delivery_runtime.py and test_delivery_v2.py\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] run_state.py importers differ from the pinned two files:\n%s\n' "$_T93_GOT" >&2
+  fail=$((fail + 1))
+fi
+
 pg_extra_contract_finalize
