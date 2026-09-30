@@ -178,3 +178,18 @@
   - 事実: #1405 は main との衝突で CI が起動しておらず、rebase 後に PR 起因の FAIL が 5 件出た（同じテストは main と他 PR では pass）
   - 再利用条件: `gh pr checks` が 0 件なら判定を「CI 未実行」として保留する。衝突を解消したら、CI の結果を見てから品質を判定する
   - 根拠: 2026-09-25 の #1405 の rebase --onto
+
+- [2026-09-25] テストの改番・rename は、パスを含む digest に波及する
+  - 事実: #1409 の `ta-89` → `ta-92` の改番では、fixture `tests/fixtures/ai-loop-v2/ratchet/verification-skipped.json` の `sealed_evaluation_plan.protected_paths` がテストのパスを含んでいた。そのため `evaluation_plan_digest` がずれて、`test_ratchet.py` が 19 件 FAIL した（`EVALUATION_PLAN_DIGEST_MISMATCH`）。旧パスの `git grep` の残存は 0 件でも、digest は変わる。また PR 本文の「TA-89」は `git grep` の対象外で、直し漏れた
+  - 再利用条件: 改番や rename の前に、旧パスを `git grep` で全数洗い出し、digest・hash を持つファイルを特定する。digest は対象モジュール自身の関数（例: `ratchet.canonical_digest`）で計算し直す。そのとき、改番前の head で同じ計算をして旧値と一致することを確かめてから差し替える。最後に `gh pr view <n> --json body` で PR 本文の旧 ID も直す
+  - 根拠: 2026-09-25 の #1409 改番（PR #1409。squash 前の commit `4e92472f` は main から辿れない。`feat/1381-ratchet-vertical-slice` に残存）
+
+- [2026-09-29] 下の PR が rename・改番したら、上に積んだ PR は base を取り込んでからマージする
+  - 事実: #1409 は #1402 の改番前の head の上に積まれていた。#1402 は `ta-88` → `ta-93` に改番してからマージされ、そのあと #1409 がマージされた。すると #1409 の squash（`ee153323`）が旧 `tests/extras/ta-88-ai-loop-v2-owner-backed-delivery.sh` を main に追加し直した。結果として、同じテストが 2 本になり、main の `ta-88-gpt6-model-routing.sh` とも番号が衝突した（是正は #1427）。CI は通った（`ta-61` の TC-20 は `.sh` を除いたファイル名全体の重複（`uniq -d`）だけを見ていて、`ta-NN` 番号の衝突は検出しない）
+  - 再利用条件: base 側の PR でファイルを rename・削除したら、上に積まれた PR をマージする前に、最新の base へ rebase か merge をする。そのうえで `gh pr view <上の PR> --json files` に旧パスが出ないことを確認する。マージ後の範囲レビューでは、各 PR の最終 head と main の同名ファイルを照合する
+  - 根拠: 2026-09-29 の範囲レビュー（`4012b37c..4995ad62`）
+
+- [2026-09-29] 読み取り専用のレビュー委託にも、stall 対策を最初から書く
+  - 事実: 範囲レビューのサブエージェント 2 本が、600 秒無進捗で stall した。作り直さずに、同じエージェントへの追加指示（例: SendMessage）で「確認済みの事実を棚卸しして、未確認の観点だけ再開する。1 回のツール呼び出しで大きな出力を出さない」と送った。その後、2 本とも完走した（追加指示が完走の原因かどうかは確かめていない）
+  - 再利用条件: 読み取りレビューを委託するときは、次の 3 点を最初の委託プロンプトに書く。1 回のツール呼び出しで大きな出力を出さない（`grep -n` / `sed -n` / `head` で絞る）。`tests/run-tests.sh` 全体や `sleep` を含む長時間コマンドは実行しない。長い調査は小分けにする。stall したら破棄せず、同じエージェントへの追加指示で再開させる。追加指示の書き方は [`dispatch-template.md` §4-D](docs/ai/subagent-delegation/dispatch-template.md)（同一サブエージェントへの追指示）に従う
+  - 根拠: 2026-09-29 の範囲レビュー R1（レーン A / B）
