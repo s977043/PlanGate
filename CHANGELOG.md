@@ -6,7 +6,7 @@ PlanGate の主要リリース履歴。
 
 ## Unreleased
 
-## v8.23.0 - TBD
+## v8.23.0 - 2026-10-01
 
 feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime と Ratchet を最初の縦切りとして実装する
 
