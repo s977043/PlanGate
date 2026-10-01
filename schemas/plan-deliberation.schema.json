@@ -1,0 +1,737 @@
+{
+  "$defs": {
+    "challenge": {
+      "additionalProperties": false,
+      "properties": {
+        "challenge_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "from_position_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "statement": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "target_position_ref": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "challenge_id",
+        "from_position_ref",
+        "target_position_ref",
+        "statement",
+        "evidence_refs"
+      ],
+      "type": "object"
+    },
+    "finalPosition": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "change_reason": {
+                "enum": [
+                  "factual_error",
+                  "stronger_evidence",
+                  "wrong_assumption",
+                  "missing_constraint"
+                ]
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "changed": {
+                "const": false
+              }
+            },
+            "required": [
+              "changed"
+            ]
+          },
+          "then": {
+            "properties": {
+              "change_reason": {
+                "const": "unchanged"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "change_reason": {
+          "enum": [
+            "factual_error",
+            "stronger_evidence",
+            "wrong_assumption",
+            "missing_constraint",
+            "unchanged"
+          ],
+          "type": "string"
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "claim": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "participant_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "position_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "rationale_summary": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_finding_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "stance": {
+          "enum": [
+            "support",
+            "oppose",
+            "conditional",
+            "unknown"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "position_id",
+        "participant_ref",
+        "stance",
+        "claim",
+        "rationale_summary",
+        "evidence_refs",
+        "assumptions",
+        "changed",
+        "change_reason"
+      ],
+      "type": "object"
+    },
+    "position": {
+      "additionalProperties": false,
+      "properties": {
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "claim": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "participant_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "position_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "rationale_summary": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_finding_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "stance": {
+          "enum": [
+            "support",
+            "oppose",
+            "conditional",
+            "unknown"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "position_id",
+        "participant_ref",
+        "stance",
+        "claim",
+        "rationale_summary",
+        "evidence_refs",
+        "assumptions"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/s977043/plangate/schemas/plan-deliberation.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_reviews": {
+            "contains": {
+              "properties": {
+                "execution_status": {
+                  "const": "unavailable"
+                }
+              },
+              "required": [
+                "execution_status"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "source_reviews"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "partial",
+                  "unavailable",
+                  "not_run"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "execution"
+        ]
+      },
+      "then": {
+        "properties": {
+          "participants": {
+            "minItems": 1
+          },
+          "positions": {
+            "properties": {
+              "final": {
+                "minItems": 1
+              },
+              "initial": {
+                "minItems": 1
+              }
+            }
+          },
+          "problem_frames": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "status": {
+                "const": "partial"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "execution"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "split",
+                  "insufficient_evidence"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "unavailable",
+                  "not_run"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "execution"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "insufficient_evidence"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "status": {
+                "const": "split"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "unresolved": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "else": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "rereview_reasons": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "requires_c2_rereview": {
+                "const": true
+              }
+            },
+            "required": [
+              "requires_c2_rereview"
+            ]
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "outcome": {
+            "properties": {
+              "rereview_reasons": {
+                "minItems": 1
+              },
+              "status": {
+                "enum": [
+                  "split",
+                  "insufficient_evidence"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "description": "Experimental Plan Deliberation feature artifact. The schema file itself follows the repository Stable JSON Schema compatibility policy. Deliberation clarifies disagreement; it is not an approval or gate decision.",
+  "properties": {
+    "artifact_type": {
+      "const": "plan-deliberation",
+      "type": "string"
+    },
+    "execution": {
+      "additionalProperties": false,
+      "properties": {
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "partial",
+            "unavailable",
+            "not_run"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "limitations"
+      ],
+      "type": "object"
+    },
+    "outcome": {
+      "additionalProperties": false,
+      "properties": {
+        "agreements": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "evidence_needed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "human_decisions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "replan_trigger_proposals": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "requires_c2_rereview": {
+          "type": "boolean"
+        },
+        "rereview_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "converged",
+            "split",
+            "insufficient_evidence"
+          ],
+          "type": "string"
+        },
+        "unresolved": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "agreements",
+        "unresolved",
+        "evidence_needed",
+        "replan_trigger_proposals",
+        "human_decisions",
+        "requires_c2_rereview",
+        "rereview_reasons"
+      ],
+      "type": "object"
+    },
+    "participants": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "lane": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "participant_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reviewer_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "participant_id",
+          "reviewer_id",
+          "lane"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "plan_ref": {
+      "additionalProperties": false,
+      "properties": {
+        "plan_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "plan_package_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "source_sha": {
+          "pattern": "^[0-9a-f]{7,40}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plan_hash",
+        "source_sha"
+      ],
+      "type": "object"
+    },
+    "positions": {
+      "additionalProperties": false,
+      "properties": {
+        "challenges": {
+          "items": {
+            "$ref": "#/$defs/challenge"
+          },
+          "type": "array"
+        },
+        "final": {
+          "items": {
+            "$ref": "#/$defs/finalPosition"
+          },
+          "type": "array"
+        },
+        "initial": {
+          "items": {
+            "$ref": "#/$defs/position"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "initial",
+        "challenges",
+        "final"
+      ],
+      "type": "object"
+    },
+    "problem_frames": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "constraints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "non_goals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "objective": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "participant_ref": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "participant_ref",
+          "objective",
+          "constraints",
+          "non_goals",
+          "assumptions",
+          "unknowns"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "type": "integer"
+    },
+    "source_reviews": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "execution_status": {
+            "enum": [
+              "executed",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "lane": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "review_ref": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reviewer_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_ref",
+          "reviewer_id",
+          "lane",
+          "execution_status"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "stability": {
+      "enum": [
+        "experimental"
+      ],
+      "type": "string"
+    },
+    "task_id": {
+      "pattern": "^TASK-[0-9]{4}$",
+      "type": "string"
+    },
+    "trigger": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "type": "string"
+        },
+        "reason_codes": {
+          "items": {
+            "enum": [
+              "reviewer_conflict",
+              "evidence_conflict",
+              "assumption_conflict",
+              "approach_conflict",
+              "major_singleton",
+              "human_decision_required"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "reason_codes"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "stability",
+    "task_id",
+    "plan_ref",
+    "source_reviews",
+    "execution",
+    "trigger",
+    "participants",
+    "problem_frames",
+    "positions",
+    "outcome"
+  ],
+  "title": "PlanGate Plan Deliberation Artifact v1",
+  "type": "object"
+}
