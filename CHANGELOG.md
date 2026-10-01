@@ -10,23 +10,25 @@ PlanGate の主要リリース履歴。
 
 feat: Intent Context Package v1 と Context Lifecycle を導入し、ai-loop V2 の Delivery runtime と Ratchet を最初の縦切りとして実装する
 
-v8.22.0 タグ以降に main へ蓄積した **31 コミット**（実測: `git rev-list --count v8.22.0..781d0bde`）を反映する。
+v8.22.0 タグ以降に main へ蓄積した **33 コミット**を反映する（実測: `git rev-list --count v8.22.0..db91ed16` は 34。
+このうち 1 件は本リリースの準備 commit #1432 / `5ce69a9a` で、収録内容としては数えない）。
 主題は **Context の受け渡しを「会話の持ち越し」から「正本 artifact の参照」へ移すこと**と、
 **ai-loop V2 の runtime を最初に動かすこと**。
 
-- 配布物（`plugin/`）の変更は **9 ファイル・追加 961 行・削除 4 行**
-  （実測: `git diff --shortstat v8.22.0..781d0bde -- plugin/`）。内訳は SKILL.md 2 本
-  （`context-packager` / `working-context`。+56/-0）と、#1405 による `ai-loop-cycle` / `ai-dev-exec` /
-  `ai-dev-verify` の scripts・references・schema 7 ファイル（+905/-4）
-- **`bin/plangate` は変更ゼロ**（実測: `git diff --numstat v8.22.0..781d0bde -- bin/plangate` が 0 行）
+- 配布物（`plugin/`）の変更は **12 ファイル・追加 964 行・削除 7 行**
+  （実測: `git diff --shortstat v8.22.0..db91ed16 -- plugin/`）。内訳は SKILL.md 2 本
+  （`context-packager` / `working-context`。+56/-0）、#1405 による `ai-loop-cycle` / `ai-dev-exec` /
+  `ai-dev-verify` の scripts・references・schema 7 ファイル（+905/-4）、#1432 の version bump 3 ファイル
+  （`plugin.json` 2 本と `README.md`）
+- **`bin/plangate` は変更ゼロ**（実測: `git diff --numstat v8.22.0..db91ed16 -- bin/plangate` が 0 行）
 - `schemas/` は**追加のみ**（削除行 0）: `context-manifest.schema.json` に任意フィールド `intent_context`、
   **新規** `intent-context-package.schema.json`、`model-profile.schema.json` に任意フィールド `model_id` と
-  enum 値 `gpt-6-*`、**新規** `plan-contract.schema.json`
-  （実測: `git diff --numstat v8.22.0..781d0bde -- schemas/` → 26/0・328/0・11/0・54/0。
-  `--name-status` は M・A・M・A）
-- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..781d0bde` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
+  enum 値 `gpt-6-*`、**新規** `plan-contract.schema.json`、**新規** `plan-deliberation.schema.json`（#1412 / PR #1433）
+  （実測: `git diff --numstat v8.22.0..db91ed16 -- schemas/` → 26/0・328/0・11/0・54/0・737/0。
+  `--name-status` は M・A・M・A・A）
+- 破壊的変更を宣言した commit は **0 件**（実測: `v8.22.0..db91ed16` の件名 `type!:` と本文 `BREAKING CHANGE` の検索）
 
-（数値はいずれも **基点 `781d0bde` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
+（数値はいずれも **基点 `db91ed16` 時点の測定値**であり、tag 時点の総数を約束する契約値ではない）
 **PlanGate 本番フロー WF-00〜07 は不変・NO MERGE BY AI／C-4・merge は Human-owned 固定**。
 
 ### ⚠️ 更新前に必ずお読みください
@@ -79,13 +81,13 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
 - **GPT-6 のモデルプロファイルを実行経路へ接続**（`e5587226`）。`scripts/ai-dev-workflow` に
   opt-in の `--profile=` / `--mode=` を追加（**指定しなければ従来どおり**）
 - **Plan Deliberation schema の契約を用意**（#1412 / `ta-89`）。schema 本体は HO パスのため
-  `scripts/apply-task-1353-plan-deliberation-schema.sh` を Human が適用する（本リリースの時点では未適用）
+  `scripts/apply-task-1353-plan-deliberation-schema.sh` で Human が tag の前に適用した（PR #1433 / `db91ed16`）
 
 ### 承認境界の運用（文面）
 
 - **AI 運用 4 原則を平易な「何を・なぜ」の文面へ**（#1414）。正本 `docs/ai/project-rules.md` を更新。
   **承認が必要な範囲は変えていない**。`CLAUDE.md` の `<law>` は HO のため
-  `scripts/apply-claude-md-law-tone.sh` を Human が適用する（本リリースの時点では未適用）
+  `scripts/apply-claude-md-law-tone.sh` で Human が tag の前に適用した（PR #1433 / `db91ed16`）
 - EH-3 の環境変数は**起動時に設定する**と明記（#1415）。HO 適用スクリプトは委託先で `--dry-run` /
   `--verify` までとする制約を追記（#1420）
 
@@ -96,6 +98,8 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
 - `#1337` の読み取り隔離 preflight を具体化（#1371）し、TASK-1359 への runtime handoff を用意（#1418）。
   TASK-1359 の計画を確定（#1360）
 - `chore(deps)`: `codeql-action` 4.38.1 → 4.38.2（#1425。SHA ピンは維持）
+- `sync-plugin-plangate` workflow の `paths:` に `scripts/intent_context_contract.py` を追加（#1405 の HO patch を
+  PR #1433 で Human が適用。main の `Test` で FAIL していた `ta-71` TC-20 / TC-22・`ta-61` TC-12 の原因）
 
 ### テストと検査
 
@@ -105,6 +109,12 @@ C-3' は AUTO_APPROVED を出さずに fail-closed で止まります**。同梱
   `pr-watch` の重複検出が黙って打ち切られる問題の是正（#1427）
 - 改番の digest 波及・stack PR の旧ファイル復活・レビュー委託の stall 対策を
   `AGENT_LEARNINGS.md` に追記（#1428 / `781d0bde`）
+- **`ta-61` TC-20 を番号の重複検査に変更**（#1431 / `8d1bf694`）。従来はファイル名の一意性しか見ておらず、
+  原理的に FAIL しなかった（`ta-88` の二重化が CI を通った原因）。ta-7 と ta-07 を同じ番号として扱い、
+  既知の ta-14 の 2 本はファイル名で固定して除外する。`pr-watch` skill の main 重複コマンドも同じ規則にそろえた
+- **`scripts/ai-loop-v2/run_state.py` の import 元を固定**（#1431）。冒頭に暫定（#1402 由来・fixture 専用・
+  #1392 への移行後に削除）と明記し、`ta-93` に import 元が `delivery_runtime.py` と `test_delivery_v2.py` の
+  2 ファイルだけであることの検査を追加した。`ta-92` に残っていた改番前の変数名も直した
 
 ## v8.22.0 - 2026-09-23
 
