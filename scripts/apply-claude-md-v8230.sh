@@ -25,7 +25,7 @@
 set -eu
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 F="${PLANGATE_APPLY_FILE:-$ROOT/CLAUDE.md}"
-RELEASE_DATE="TBD"
+RELEASE_DATE="2026-10-01"
 [ $# -eq 1 ] || { echo "usage: $0 --dry-run|--apply|--verify" >&2; exit 1; }
 case "$1" in --dry-run|--apply|--verify) ;; *) echo "usage: $0 --dry-run|--apply|--verify" >&2; exit 1 ;; esac
 MODE="$1"
