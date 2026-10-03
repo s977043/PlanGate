@@ -25,7 +25,7 @@
 | --- | --- | --- | --- |
 | REQ-001 | {何を解くための要求か} | {ref / provenance} | AC-01 |
 
-> この表には Human が採用した Requirement だけを置く。candidate / unresolved は下の Unknowns に残し、Plan 側で補完・創作しない。
+> この表には policy 上 accepted と扱える Requirement だけを置く。candidate / unresolved は下の Unknowns に残し、Plan 側で補完・創作しない。
 
 ## What（Scope）
 
