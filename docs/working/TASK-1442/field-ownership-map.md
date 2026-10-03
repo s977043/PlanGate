@@ -35,6 +35,7 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | RunEvidence / FailureRecord | referenced evidence | V2 event projection / failure contract | source ref と claim class を保持。唯一のPBI authorityにはしない |
 | decision-log | referenced decision | existing task decision log | `source_kind=decision_log` + 実在 `decision-log.jsonl#<decision_id>` を explicit_decision の basis ref に利用。自由記述 ref のみでは authority を成立させない |
 | hidden CoT / raw transcript / session log | forbidden | — | 入力/出力の保存を拒否 |
+| Shadow evaluation report | derived evidence | materializer evaluator | train/test metricsを生成するが write / promotion authority を持たない |
 | GitHub Issue close/merge | forbidden action | GitHub / Human policy | materializerは実行しない |
 | Production Harness promotion | forbidden action | Human-owned boundary | materializerは実行しない |
 
@@ -81,3 +82,24 @@ Initial implementation is **shadow/read-only**.
 - `update_existing` は semantic patch proposal。既存PBI本文を読まずに全文置換してはならない
 - local files / Issue / RunState / HarnessManifest は変更しない
 - automatic write はfixtureとshadow結果を確認した後の別slice
+
+
+## Shadow evaluation boundary
+
+Shadow rollout の比較は case 単位だけでなく、複数 case を `train / test` に分けて集計できる。
+
+- exact-match rate
+- decision accuracy
+- readiness accuracy
+- materialization error count
+
+ただし、**test というラベルだけでは hidden holdout を保証しない**。改善を行う Agent から test case / oracle を隔離できているかは呼び出し側の責務であり、この materializer は secrecy を主張しない。
+
+評価レポートは常に:
+
+```text
+write_allowed = false
+automatic_promotion = false
+```
+
+を返す。train/test が 100% でも automatic write / promotion を有効化しない。
