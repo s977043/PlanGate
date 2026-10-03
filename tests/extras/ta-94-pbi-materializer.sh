@@ -291,7 +291,8 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"decision_coverage_complete": false' "$_t94_admission_out" \
   && grep -q '"write_review_eligible": false' "$_t94_admission_out" \
   && grep -q '"write_allowed": false' "$_t94_admission_out" \
-  && grep -q '"close_allowed": false' "$_t94_admission_out"; then
+  && grep -q '"close_allowed": false' "$_t94_admission_out" \
+  && grep -q '"suppression_allowed": false' "$_t94_admission_out"; then
   printf '  [PASS] admission replay: historical materialize/no_action evaluated with no close/write authority\n'
   pass=$((pass + 1))
 else
