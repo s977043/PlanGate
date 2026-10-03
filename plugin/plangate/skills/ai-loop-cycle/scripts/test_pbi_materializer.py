@@ -376,6 +376,62 @@ class RenderingIntegrityTests(unittest.TestCase):
         self.assertIn("CLM-001", result["pbi_markdown"])
 
 
+class ShadowComparisonTests(unittest.TestCase):
+    def test_matching_reviewed_expectation_produces_match_evidence(self):
+        result = pm.materialize(_payload(), [])
+        expected = {
+            "oracle_ref": "docs/working/TASK-1442/review-shadow.md",
+            "decision": "create_new",
+            "matched_ref": None,
+            "readiness_status": "ready",
+            "readiness_route": "future_run",
+        }
+        comparison = pm.compare_shadow(result, expected)
+        self.assertEqual(comparison["status"], "match")
+        self.assertEqual(comparison["mismatches"], [])
+        self.assertTrue(all(comparison["checks"].values()))
+
+    def test_shadow_mismatch_lists_only_disagreeing_fields(self):
+        result = pm.materialize(_payload(), [])
+        expected = {
+            "oracle_ref": "docs/working/TASK-1442/review-shadow.md",
+            "decision": "link_only",
+            "matched_ref": "docs/working/TASK-1400/pbi-input.md",
+            "readiness_status": "ready",
+            "readiness_route": "future_run",
+        }
+        comparison = pm.compare_shadow(result, expected)
+        self.assertEqual(comparison["status"], "mismatch")
+        self.assertEqual(
+            comparison["mismatches"],
+            ["decision", "matched_ref"],
+        )
+        self.assertNotIn("write", comparison)
+        self.assertNotIn("promote", comparison)
+
+    def test_invalid_or_private_oracle_is_rejected(self):
+        result = pm.materialize(_payload(), [])
+        for expected in (
+            {
+                "oracle_ref": "docs/working/TASK-1442/review-shadow.md",
+                "decision": "merge_both",
+                "matched_ref": None,
+                "readiness_status": "ready",
+                "readiness_route": "future_run",
+            },
+            {
+                "oracle_ref": "https://github.com/example/private-review",
+                "decision": "create_new",
+                "matched_ref": None,
+                "readiness_status": "ready",
+                "readiness_route": "future_run",
+            },
+        ):
+            with self.subTest(expected=expected):
+                with self.assertRaises(pm.MaterializationError):
+                    pm.compare_shadow(result, expected)
+
+
 class DeterminismAndSearchTests(unittest.TestCase):
     def test_same_input_is_byte_stable(self):
         a = pm.materialize(_payload(), [])
