@@ -333,6 +333,73 @@ mutation_kind
 `create_new` では deterministic target identity を使い、
 retry による PBI 二重作成を防ぐ。
 
+## 7.1 Durable write-attempt receipt
+
+idempotency identity は process memory だけに保持してはならない。
+
+将来 write adapter を実装する場合、各 mutation attempt は task-scoped Evidence として
+append-only receipt を残す。
+
+推奨 namespace:
+
+```text
+docs/working/TASK-XXXX/evidence/pbi-write-attempts/<attempt-id>/
+```
+
+これは registry / lifecycle state / activation authority ではない。
+attempt の再開・reconciliation に必要な Evidence だけを保持する。
+
+最低限:
+
+```text
+attempt_identity
+target_ref
+mutation_kind
+evaluated_target_hash
+proposal_hash
+policy_version
+policy_sha256
+activation_decision_ref
+adapter_version
+provider_request_identity?
+result_class
+reconciliation_required
+post_write_verifier_ref?
+```
+
+`result_class`:
+
+```text
+confirmed_success
+confirmed_not_applied
+unknown
+```
+
+receipt write semantics:
+
+```text
+same attempt_identity + identical immutable bindings
+  -> append reconciliation observation / idempotent reuse
+
+same attempt_identity + different target/policy/proposal binding
+  -> fail closed
+
+unknown
+  -> automatic retry forbidden
+  -> reconciliation receipt required
+```
+
+receipt 自体は:
+- rollout stage を変更しない
+- quality acceptance を決めない
+- PBI semantic authority を持たない
+- Issue close / merge authority を持たない
+- unknown を success/failureへ推測変換しない
+
+provider-native idempotency key / request id が利用可能なら receipt に束縛する。
+post-write verification が成立した場合も Writer 自身の申告だけで
+`confirmed_success` を確定せず、独立 verifier ref を関連付ける。
+
 ## 8. Freshness / TOCTOU
 
 shadow evaluation が過去に green だったことだけでは write しない。
