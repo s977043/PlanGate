@@ -479,17 +479,61 @@ This RFC does not propose:
 
 ### Phase B — one adapter PoC
 
-Use exactly one external source and one repository:
+Use exactly one external source and one repository. The adapter is intentionally thin:
 
 ```text
-External issue
-  -> normalized runtime evidence
-  -> bounded work request
-  -> existing PlanGate / ai-loop path
-  -> PR
+provider event
+  -> authenticate / replay check
+  -> normalize
+  -> redact / secret scan
+  -> fingerprint / deduplicate
+  -> correlate repository / deployment
+  -> read-only investigation
+  -> bounded pbi-input candidate
+  -> existing PlanGate planning / approval path
+  -> Delivery Run
+  -> PR / MERGE_READY
 ```
 
 The PoC should stop at PR / `MERGE_READY`; it must not auto-deploy.
+
+#### Adapter responsibility boundary
+
+The adapter may:
+
+- authenticate and normalize provider events;
+- maintain intake-local dedup / recurrence state;
+- produce immutable external evidence refs;
+- perform read-only correlation / investigation through approved tools;
+- generate a **candidate** input for `pbi-input.md`;
+- request creation of downstream work through a separate idempotent action.
+
+The adapter must not:
+
+- write production code;
+- create or approve PlanGate approval records;
+- choose or widen `allowed_paths`;
+- mutate V2 RunState directly;
+- write RunEvidence directly;
+- merge, deploy, or publish;
+- create unbounded GitHub Issues directly from event volume.
+
+#### GitHub Issue creation is a downstream side effect
+
+For the first PoC, **automatic GitHub Issue creation is out of the hot path**. The adapter should first prove that it can generate a valid bounded `pbi-input` candidate and preserve provider-event traceability.
+
+If automatic Issue creation is added later, treat it as an external side effect with the existing V2 idempotency pattern:
+
+```text
+intake decision
+  -> intent
+  -> GitHub create issue
+  -> receipt
+```
+
+The idempotency key should bind at least the intake identity + target repository + action kind. Lost responses must be reconciled before retrying so that one runtime incident does not create duplicate Issues. Issue content must still satisfy repository Issue Governance (Why / What / Acceptance Criteria / Non-goals when a roadmap/PBI Issue is created).
+
+This separation keeps "detect an incident" from becoming "perform an external mutation" by implication.
 
 #### PoC acceptance criteria
 
@@ -558,7 +602,7 @@ These criteria evaluate the intake mechanism. They do not prove that every runti
 
 1. **Proposed answer**: Runtime Evidence should default to a typed external Evidence reference owned by existing V2 artifacts / events, not a new mutable artifact. A new artifact requires separate justification.
 2. **Proposed answer**: deduplication and recurrence state belong to the provider / intake adapter or an intake registry outside Delivery Run state; V2 receives immutable intake decisions / evidence refs.
-3. Is a runtime trigger allowed to create a GitHub Issue automatically, or only an internal work request?
+3. **Proposed answer**: the first PoC creates only a bounded `pbi-input` candidate / internal work request. Automatic GitHub Issue creation is a later downstream side effect and must use intent → action → receipt idempotency plus Issue Governance.
 4. What minimum evidence is required before an agent may start repository investigation?
 5. Which fields must be redacted or converted to opaque references?
 6. How should a runtime-originated task bind to deployment / commit identity when the running version is not traceable?
