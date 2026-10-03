@@ -243,5 +243,28 @@ else
   fail=$((fail + 1))
 fi
 
+
+# 7. Repository-grounded historical replay must stay separate from synthetic/live evidence.
+_t94_history="$_T94_ROOT/tests/fixtures/ai-loop/pbi-materializer/historical-replay.json"
+_t94_history_out="$_t94_tmp/history-out.json"
+_t94_rc=0
+"$_T94_PY" "$_T94_AI_LOOP/pbi_materializer.py" \
+  --eval-batch "$_t94_history" --authority-root "$_T94_ROOT" --format json \
+  >"$_t94_history_out" 2>"$_t94_tmp/history.err" || _t94_rc=$?
+if [ "$_t94_rc" -eq 0 ] \
+  && grep -q '"historical_replay_cases": 2' "$_t94_history_out" \
+  && grep -q '"synthetic_fixture_cases": 0' "$_t94_history_out" \
+  && grep -q '"live_shadow_cases": 0' "$_t94_history_out" \
+  && grep -q '"evidence_class": "historical_replay"' "$_t94_history_out" \
+  && grep -q '"exact_match_rate": 1.0' "$_t94_history_out" \
+  && grep -q '"write_allowed": false' "$_t94_history_out"; then
+  printf '  [PASS] historical replay: 2 repository-grounded cases evaluated separately from synthetic/live evidence\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] historical replay: repository-grounded corpus failed (rc=%s)\n' "$_t94_rc" >&2
+  sed 's/^/    /' "$_t94_tmp/history.err" >&2
+  fail=$((fail + 1))
+fi
+
 rm -rf "$_t94_tmp"
 pg_extra_contract_finalize
