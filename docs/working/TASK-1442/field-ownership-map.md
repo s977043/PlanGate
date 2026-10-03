@@ -687,11 +687,11 @@ materialization observation gap は reviewed expected admission `materialize` �
 
 ```text
 collector_path_available = collector / prerequisite 上その観測経路を処理できる
-real_runtime_observation_available = false
+real_runtime_observation_available = null
 real_runtime_observation_available_verified = false
 ```
 
-後者は collector 自身では証明しない。
+後者は collector 自身では証明しない。`null` は「未確認」であり、「確認済みで利用不可」を意味しない。
 
 ただしこれはquotaやcase generation instructionではない:
 
