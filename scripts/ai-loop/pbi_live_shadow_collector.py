@@ -1124,8 +1124,17 @@ def inventory_live_materialization_cases(
         if isinstance(case, dict)
         and isinstance(case.get("actual_decision"), str)
     })
+    reviewed_expected_decisions = sorted({
+        case.get("expected_decision")
+        for case in evaluated_cases
+        if isinstance(case, dict)
+        and isinstance(case.get("expected_decision"), str)
+    })
     missing_decisions = sorted(
         pm.VALID_DECISIONS - set(observed_decisions)
+    )
+    missing_reviewed_decisions = sorted(
+        pm.VALID_DECISIONS - set(reviewed_expected_decisions)
     )
     collection_gaps: list[str] = []
     if invalid:
@@ -1159,6 +1168,16 @@ def inventory_live_materialization_cases(
             "materialization_decision_coverage_complete": (
                 not missing_decisions
             ),
+            "reviewed_expected_materialization_decisions": (
+                reviewed_expected_decisions
+            ),
+            "missing_reviewed_materialization_decisions": (
+                missing_reviewed_decisions
+            ),
+            "reviewed_materialization_case_coverage_complete": (
+                not missing_reviewed_decisions
+            ),
+            "actual_coverage_is_ground_truth_coverage": False,
             "representative_coverage_claim_allowed": False,
         },
         "collection_gaps": collection_gaps,
@@ -1328,6 +1347,11 @@ def inventory_live_shadow_cases(
         for case in evaluated_cases
         if isinstance(case, dict) and isinstance(case.get("actual"), str)
     })
+    reviewed_expected_decisions = sorted({
+        case.get("expected")
+        for case in evaluated_cases
+        if isinstance(case, dict) and isinstance(case.get("expected"), str)
+    })
     observed_source_kinds = sorted({
         case.get("signal", {}).get("source_kind")
         for case in valid_cases
@@ -1336,6 +1360,9 @@ def inventory_live_shadow_cases(
     })
     missing_admission_decisions = sorted(
         pm.VALID_ADMISSION_DECISIONS - set(observed_decisions)
+    )
+    missing_reviewed_admission_decisions = sorted(
+        pm.VALID_ADMISSION_DECISIONS - set(reviewed_expected_decisions)
     )
     collection_gaps: list[str] = []
     if invalid:
@@ -1369,6 +1396,16 @@ def inventory_live_shadow_cases(
             "admission_decision_coverage_complete": (
                 not missing_admission_decisions
             ),
+            "reviewed_expected_admission_decisions": (
+                reviewed_expected_decisions
+            ),
+            "missing_reviewed_admission_decisions": (
+                missing_reviewed_admission_decisions
+            ),
+            "reviewed_admission_case_coverage_complete": (
+                not missing_reviewed_admission_decisions
+            ),
+            "actual_coverage_is_ground_truth_coverage": False,
             "observed_source_kinds": observed_source_kinds,
             "source_kind_coverage_requirement_defined": False,
             "representative_coverage_claim_allowed": False,
@@ -1414,12 +1451,12 @@ def plan_live_shadow_collection(
 
     admission_missing = list(
         admission.get("coverage", {}).get(
-            "missing_admission_decisions", []
+            "missing_reviewed_admission_decisions", []
         )
     )
     materialization_missing = list(
         materialization.get("coverage", {}).get(
-            "missing_materialization_decisions", []
+            "missing_reviewed_materialization_decisions", []
         )
     )
 
@@ -1471,7 +1508,7 @@ def plan_live_shadow_collection(
     admission_materialize_observed = (
         "materialize"
         in admission.get("coverage", {}).get(
-            "observed_admission_decisions", []
+            "reviewed_expected_admission_decisions", []
         )
     )
     for decision in ("create_new", "update_existing", "link_only"):
@@ -1513,10 +1550,13 @@ def plan_live_shadow_collection(
                     "tracked_live_case_total"
                 ],
                 "invalid_case_total": admission["invalid_case_total"],
-                "observed_decisions": admission["coverage"][
+                "observed_actual_decisions": admission["coverage"][
                     "observed_admission_decisions"
                 ],
-                "missing_decisions": admission_missing,
+                "reviewed_expected_decisions": admission["coverage"][
+                    "reviewed_expected_admission_decisions"
+                ],
+                "missing_reviewed_decisions": admission_missing,
                 "observed_source_kinds": admission["coverage"][
                     "observed_source_kinds"
                 ],
@@ -1526,10 +1566,13 @@ def plan_live_shadow_collection(
                     "tracked_live_case_total"
                 ],
                 "invalid_case_total": materialization["invalid_case_total"],
-                "observed_decisions": materialization["coverage"][
+                "observed_actual_decisions": materialization["coverage"][
                     "observed_materialization_decisions"
                 ],
-                "missing_decisions": materialization_missing,
+                "reviewed_expected_decisions": materialization["coverage"][
+                    "reviewed_expected_materialization_decisions"
+                ],
+                "missing_reviewed_decisions": materialization_missing,
             },
         },
         "collection_targets": targets,
@@ -1545,6 +1588,8 @@ def plan_live_shadow_collection(
             "coverage_complete_implies_representative": False,
             "collection_target_is_quota": False,
             "collection_target_is_case_generation_instruction": False,
+            "collection_coverage_basis": "reviewed_expected_decisions",
+            "maker_actual_counts_as_ground_truth_coverage": False,
             "runtime_execution_verified": False,
             "quality_thresholds_applied": False,
             "quality_acceptance_decided": False,
