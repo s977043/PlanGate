@@ -168,7 +168,26 @@ else
   fail=$((fail + 1))
 fi
 
-# 5. Raw JSONL inside the repository must fail closed.
+# 5. Hook candidate and raw JSONL inputs must stay outside the repository.
+cp "$_t101_hook" "$_t101_repo/hook-candidate.json"
+_t101_rc=0
+"$_T101_PY" "$_T101_AI_LOOP/runtime_evidence_codex_jsonl_correlation_candidate.py" \
+  --repo-root "$_t101_repo" \
+  --hook-candidate "$_t101_repo/hook-candidate.json" \
+  --codex-jsonl "$_t101_jsonl" \
+  --request-hash "$_t101_req" \
+  --config-sha "$_t101_cfg" \
+  --provider cloudflare \
+  >"$_t101_tmp/hook-inside.out" 2>"$_t101_tmp/hook-inside.err" || _t101_rc=$?
+if [ "$_t101_rc" -eq 2 ] && grep -q 'outside repository' "$_t101_tmp/hook-inside.err"; then
+  printf '  [PASS] storage: hook candidate input is forbidden inside repository\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] storage: repo-local hook candidate was not rejected (rc=%s)\n' "$_t101_rc" >&2
+  fail=$((fail + 1))
+fi
+
+# 6. Raw JSONL inside the repository must fail closed.
 cp "$_t101_jsonl" "$_t101_repo/codex.jsonl"
 _t101_rc=0
 "$_T101_PY" "$_T101_AI_LOOP/runtime_evidence_codex_jsonl_correlation_candidate.py" \
@@ -187,7 +206,7 @@ else
   fail=$((fail + 1))
 fi
 
-# 6. No authority-bearing command surface.
+# 7. No authority-bearing command surface.
 if ! grep -Eq 'add_parser\("(dispatch|attest|approve|merge|deploy)"\)' \
   "$_T101_AI_LOOP/runtime_evidence_codex_jsonl_correlation_candidate.py"; then
   printf '  [PASS] CLI boundary: correlation candidate exposes no authority command\n'
