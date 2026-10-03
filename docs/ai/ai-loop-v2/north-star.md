@@ -104,7 +104,14 @@ Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requi
 
 AI が feedback / Evidence から PBI を materialize する場合は **Reuse / Update Before Create** を適用する。新規 PBI を作る前に、既存の open Issue / PBI を source refs と Goal / Problem / AC の意味で照合し、`update_existing / link_only / create_new` のいずれかを選ぶ。類似しているという LLM 判断だけで別 PBI を自動 close / merge しない。既存 PBI が Plan / approval と binding 済みで Goal / Requirement / AC の semantic change が必要なら、重複解消として silent update せず §9 の Replan / policy boundary に従う。
 
-AI-generated PBI の **作成時点と適用時点を分離する**。Active Run 中に feedback から PBI を作成してよいが、その PBI は既定では future Run 向けの `follow_up` であり、current LoopContract / Plan / Harness identity を変更しない。current Run に意味変更を適用する場合だけ `replan_current` として §9 の Replan -> Plan Verification -> Plan Gate を通す。Harness / Skill / Agent / Flow / Verifier / Routing / Eval を変更対象とする PBI は `harness_candidate` として North Star §13–§15 / #869 の HarnessImprovementCandidate を upstream authority とし、PBI が Candidate contract / evaluation plan / independent evaluation を置き換えない。
+AI-generated PBI の **作成時点と適用時点を分離する**。Active Run 中に feedback から PBI を作成してよいが、PBI は **application timing** と **target layer** を別軸で扱う。
+
+- application timing: `follow_up | replan_current`
+- target layer: `delivery | harness`
+
+`follow_up` は future Run 向けであり current LoopContract / Plan / Harness identity を変更しない。`replan_current` は current delivery の Goal / Requirement / AC を変更する場合にだけ使い、§9 の Replan -> Plan Verification -> Plan Gate を通す。
+
+`target layer = harness` は North Star §10 のため **常に `follow_up`** とし、Active Run の Harness identity を変更する `replan_current` は許可しない。Harness / Skill / Agent / Flow / Verifier / Routing / Eval を変更する PBI は、draft 自体は feedback から先に作成してよいが、Plan / implementation へ進む前に North Star §13–§15 / #869 の HarnessImprovementCandidate ref を持つ。PBI は Candidate contract / evaluation plan / independent evaluation を置き換えない。
 
 > **Do not optimize a solution before validating the problem enough for the risk at hand.**
 
