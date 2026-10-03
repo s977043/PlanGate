@@ -26,7 +26,7 @@ PlanGateの全体像・設計思想については [`docs/plangate.md`](../plang
 
 ```text
 Ready
-  → A: PBI INPUT PACKAGE 作成 👤
+  → A: PBI INPUT PACKAGE 作成 🤖/👤
   → B: Plan + ToDo + TestCases 生成 🤖（/ai-dev-workflow TASK-XXXX plan）
   → C-1: セルフレビュー 🤖
   → C-2: 外部AIレビュー 🤖
@@ -60,7 +60,7 @@ docs/working/
 │   ├── review-external.md       # 外部AIレビュー結果
 │   └── status.md                # 作業ステータス
 └── TASK-{ticket-number}/        # 実際の作業ディレクトリ
-    ├── pbi-input.md             # A: PBI INPUT PACKAGE（人間が作成）
+    ├── pbi-input.md             # A: PBI INPUT PACKAGE（AI / 人間が作成可能）
     ├── plan.md                  # B: EXECUTION PLAN（AI生成）
     ├── todo.md                  # B: EXECUTION TODO（AI生成）
     ├── test-cases.md            # B: テストケース定義（AI生成）
