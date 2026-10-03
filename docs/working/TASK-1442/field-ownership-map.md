@@ -55,7 +55,7 @@ Requirement acceptance は author の自己申告では成立しない。
 - `acceptance_basis=evidence`: basis ref が material claim の source/origin に存在し、inferred-only ではない。
 - `acceptance_basis=explicit_decision`: basis ref が `source_kind=decision_log` provenance に存在し、repository-visible な `decision-log.jsonl` が実在し、fragment の `decision_id` が **ちょうど 1 件**存在する。
 - `acceptance_basis=policy_rule`: basis ref が `source_kind=policy` provenance に存在し、repository-visible な Markdown policy source と **実在する rule fragment** が確認できる。
-- authority ref は repository-relative のみ。absolute path / `..` traversal / root 解決不能 / source 不在は fail-closed。
+- authority ref は repository-relative のみ。absolute path / `..` traversal / root 解決不能 / source 不在は fail-closed。`--authority-root` を明示した場合はその root だけを信頼し、cwd/source tree へ fallback しない。
 - source-kind と ref を payload 内で同時に捏造しても authority は成立しない。
 
 これにより AI-generated PBI は作成可能だが、Requirement の accepted status を架空の authority で自己付与できない。
