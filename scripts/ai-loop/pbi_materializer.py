@@ -2013,6 +2013,232 @@ def evaluate_admission_batch(
     return report
 
 
+def _validate_write_review_assessment_input(
+    assessment: Any,
+    authority_root=None,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(assessment, dict):
+        return ["write_review_assessment: object required"]
+
+    materialization_report = assessment.get("materialization_report")
+    admission_report = assessment.get("admission_report")
+    context = assessment.get("context")
+
+    if not isinstance(materialization_report, dict):
+        errors.append("write_review_assessment.materialization_report: object required")
+    elif materialization_report.get("mode") != "shadow_evaluation":
+        errors.append(
+            "write_review_assessment.materialization_report.mode: shadow_evaluation required"
+        )
+
+    if not isinstance(admission_report, dict):
+        errors.append("write_review_assessment.admission_report: object required")
+    elif admission_report.get("mode") != "admission_evaluation":
+        errors.append(
+            "write_review_assessment.admission_report.mode: admission_evaluation required"
+        )
+
+    for label, report in (
+        ("materialization_report", materialization_report),
+        ("admission_report", admission_report),
+    ):
+        if not isinstance(report, dict):
+            continue
+        for field in ("write_allowed", "automatic_promotion"):
+            if report.get(field) is not False:
+                errors.append(
+                    f"write_review_assessment.{label}.{field}: false required"
+                )
+        if label == "admission_report":
+            for field in ("close_allowed", "suppression_allowed"):
+                if report.get(field) is not False:
+                    errors.append(
+                        f"write_review_assessment.{label}.{field}: false required"
+                    )
+
+    if not isinstance(context, dict):
+        errors.append("write_review_assessment.context: object required")
+        context = {}
+
+    for field in (
+        "design_dependency_finalized",
+        "latest_full_test_green",
+        "generalization_claim_requested",
+    ):
+        if not isinstance(context.get(field), bool):
+            errors.append(
+                f"write_review_assessment.context.{field}: boolean required"
+            )
+
+    review_ref = context.get("independent_oracle_review_ref")
+    if review_ref is not None:
+        ref_errors = _validate_repo_relative_ref_syntax(
+            review_ref,
+            "write_review_assessment.context.independent_oracle_review_ref",
+        )
+        errors.extend(ref_errors)
+        if not ref_errors:
+            _path, _fragment, resolve_errors = _resolve_repo_authority_ref(
+                review_ref,
+                authority_root,
+            )
+            errors.extend(
+                "write_review_assessment.context.independent_oracle_review_ref: "
+                + error
+                for error in resolve_errors
+            )
+
+    holdout_ref = context.get("isolated_holdout_review_ref")
+    if holdout_ref is not None:
+        ref_errors = _validate_repo_relative_ref_syntax(
+            holdout_ref,
+            "write_review_assessment.context.isolated_holdout_review_ref",
+        )
+        errors.extend(ref_errors)
+        if not ref_errors:
+            _path, _fragment, resolve_errors = _resolve_repo_authority_ref(
+                holdout_ref,
+                authority_root,
+            )
+            errors.extend(
+                "write_review_assessment.context.isolated_holdout_review_ref: "
+                + error
+                for error in resolve_errors
+            )
+
+    errors.extend(_privacy_errors({"write_review_assessment": assessment}))
+    return errors
+
+
+def _report_error_count(report: dict[str, Any]) -> int:
+    metrics = report.get("metrics")
+    if not isinstance(metrics, dict):
+        return -1
+    overall = metrics.get("overall")
+    if not isinstance(overall, dict):
+        return -1
+    errors = overall.get("errors")
+    return errors if isinstance(errors, int) and errors >= 0 else -1
+
+
+def assess_write_review_readiness(
+    assessment: dict[str, Any],
+    authority_root=None,
+) -> dict[str, Any]:
+    """Aggregate shadow evidence for Human review without granting write authority."""
+    errors = _validate_write_review_assessment_input(
+        assessment,
+        authority_root=authority_root,
+    )
+    if errors:
+        raise MaterializationError(errors)
+
+    materialization_report = assessment["materialization_report"]
+    admission_report = assessment["admission_report"]
+    context = assessment["context"]
+
+    blockers: list[str] = []
+
+    if not context["design_dependency_finalized"]:
+        blockers.append("design_dependency_not_finalized")
+    if not context["latest_full_test_green"]:
+        blockers.append("latest_full_test_not_green")
+
+    materialization_rollout = materialization_report.get("rollout_evidence", {})
+    admission_rollout = admission_report.get("rollout_evidence", {})
+    materialization_live = materialization_rollout.get("live_shadow_cases", 0)
+    admission_live = admission_rollout.get("live_shadow_cases", 0)
+
+    if not isinstance(materialization_live, int) or materialization_live <= 0:
+        blockers.append("materialization_live_shadow_not_observed")
+    if not isinstance(admission_live, int) or admission_live <= 0:
+        blockers.append("admission_live_shadow_not_observed")
+
+    observed_materialization = materialization_rollout.get("observed_decisions", [])
+    if not isinstance(observed_materialization, list):
+        observed_materialization = []
+    missing_materialization = sorted(
+        VALID_DECISIONS - {x for x in observed_materialization if isinstance(x, str)}
+    )
+    if missing_materialization:
+        blockers.append("materialization_decision_coverage_incomplete")
+
+    admission_coverage = admission_report.get("coverage", {})
+    admission_complete = (
+        isinstance(admission_coverage, dict)
+        and admission_coverage.get("decision_coverage_complete") is True
+    )
+    if not admission_complete:
+        blockers.append("admission_decision_coverage_incomplete")
+
+    materialization_errors = _report_error_count(materialization_report)
+    admission_errors = _report_error_count(admission_report)
+    if materialization_errors != 0:
+        blockers.append("materialization_evaluator_errors_present")
+    if admission_errors != 0:
+        blockers.append("admission_evaluator_errors_present")
+
+    independent_review_ref = context.get("independent_oracle_review_ref")
+    if not isinstance(independent_review_ref, str) or not independent_review_ref.strip():
+        blockers.append("independent_oracle_review_missing")
+
+    if context["generalization_claim_requested"]:
+        holdout_ref = context.get("isolated_holdout_review_ref")
+        if not isinstance(holdout_ref, str) or not holdout_ref.strip():
+            blockers.append("isolated_holdout_review_missing")
+
+    result = {
+        "mode": "write_review_assessment",
+        "write_review_ready": not blockers,
+        "write_allowed": False,
+        "close_allowed": False,
+        "suppression_allowed": False,
+        "automatic_promotion": False,
+        "authority": {
+            "review_only": True,
+            "caller_asserted_dependency_status": True,
+            "caller_asserted_test_status": True,
+            "independent_review_authorship_verified": False,
+            "merge_authority": False,
+        },
+        "evidence_summary": {
+            "materialization_live_shadow_cases": (
+                materialization_live if isinstance(materialization_live, int) else 0
+            ),
+            "admission_live_shadow_cases": (
+                admission_live if isinstance(admission_live, int) else 0
+            ),
+            "observed_materialization_decisions": sorted(
+                x for x in observed_materialization if isinstance(x, str)
+            ),
+            "missing_materialization_decisions": missing_materialization,
+            "observed_admission_decisions": sorted(
+                x
+                for x in admission_coverage.get("observed_admission_decisions", [])
+                if isinstance(x, str)
+            ) if isinstance(admission_coverage, dict) else [],
+            "materialization_evaluator_errors": materialization_errors,
+            "admission_evaluator_errors": admission_errors,
+            "generalization_claim_requested": context[
+                "generalization_claim_requested"
+            ],
+        },
+        "review_refs": {
+            "independent_oracle_review_ref": independent_review_ref,
+            "isolated_holdout_review_ref": context.get(
+                "isolated_holdout_review_ref"
+            ),
+        },
+        "blockers": blockers,
+    }
+
+    privacy = _privacy_errors({"write_review_assessment": result})
+    if privacy:
+        raise MaterializationError(privacy)
+    return result
+
+
 def materialize(
     payload: dict[str, Any],
     existing_work: list[dict[str, Any]],
@@ -2073,6 +2299,10 @@ def main(argv=None) -> int:
         "--capture-signal",
         help="normalized admission signal JSON; emit passive capture artifact to stdout only",
     )
+    parser.add_argument(
+        "--assess-write-review",
+        help="aggregate admission/materialization evidence for Human write-review readiness only",
+    )
     parser.add_argument("--capture-task-id")
     parser.add_argument("--capture-run-id")
     parser.add_argument("--captured-at")
@@ -2103,16 +2333,44 @@ def main(argv=None) -> int:
                 args.eval_batch,
                 args.eval_admission_batch,
                 args.capture_signal,
+                args.assess_write_review,
             )
         )
         if selected_modes != 1:
             raise MaterializationError([
-                "exactly one of --input / --eval-batch / --eval-admission-batch / --capture-signal is required"
+                "exactly one of --input / --eval-batch / --eval-admission-batch / --capture-signal / --assess-write-review is required"
             ])
 
         authority_root = pathlib.Path(args.authority_root) if args.authority_root else None
 
-        if args.capture_signal:
+        if args.assess_write_review:
+            if args.format != "json":
+                raise MaterializationError([
+                    "--assess-write-review requires --format json"
+                ])
+            if (
+                args.existing
+                or args.expected
+                or args.working_root
+                or args.capture_task_id
+                or args.capture_run_id
+                or args.captured_at
+                or args.runtime_head_sha
+                or args.capture_ref
+            ):
+                raise MaterializationError([
+                    "--assess-write-review cannot be combined with materialization/capture args"
+                ])
+            assessment = _load_json(
+                pathlib.Path(args.assess_write_review),
+                dict,
+                "--assess-write-review",
+            )
+            result = assess_write_review_readiness(
+                assessment,
+                authority_root=authority_root,
+            )
+        elif args.capture_signal:
             if args.format != "json":
                 raise MaterializationError(["--capture-signal requires --format json"])
             if args.existing or args.expected or args.working_root:
