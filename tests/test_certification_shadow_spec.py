@@ -8,6 +8,7 @@ and verifies only Certification's projection boundary.
 """
 from __future__ import annotations
 
+import ast
 import copy
 import inspect
 import unittest
@@ -124,7 +125,7 @@ class CertificationShadowSpecTests(unittest.TestCase):
         return compose_certification(
             target_ref="sha256:" + "a" * 64,
             loop_contract_ref="loop-contract:1",
-            required_verifiers=required or (self.D,),
+            required_verifiers=required if required is not None else (self.D,),
             owner_artifact_verdicts=owner,
             supporting_verification_refs=refs,
             supplemental_evidence_refs=supplemental,
@@ -147,6 +148,10 @@ class CertificationShadowSpecTests(unittest.TestCase):
         self.assertEqual(
             projection["supplemental_evidence_refs"], ["model-review-pass"]
         )
+
+    def test_empty_required_set_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self._compose({}, required=())
 
     def test_missing_or_extra_owner_verdict_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -210,6 +215,36 @@ class CertificationShadowSpecTests(unittest.TestCase):
         self.assertNotIn("verification_results", parameters)
         self.assertNotIn("contract_bound_seq", parameters)
         self.assertNotIn("run_state", parameters)
+
+    def test_projection_boundary_has_no_decision_or_io_dependency(self):
+        module = inspect.getmodule(compose_certification)
+        tree = ast.parse(inspect.getsource(module))
+
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.split(".")[0])
+
+        self.assertTrue(
+            imported.issubset({"__future__", "ast", "copy", "inspect", "unittest"})
+        )
+        self.assertNotIn("decision_core", imported)
+
+        compose_node = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "compose_certification"
+        )
+        forbidden_calls = {"open", "exec", "eval", "__import__", "input"}
+        called_names = {
+            node.func.id
+            for node in ast.walk(compose_node)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        self.assertTrue(called_names.isdisjoint(forbidden_calls))
 
     def test_projection_does_not_mutate_inputs_or_decision_output(self):
         owner = {self.D: "pass"}
