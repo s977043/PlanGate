@@ -838,7 +838,7 @@ src = pathlib.Path(sys.argv[1])
 dst = pathlib.Path(sys.argv[2])
 capture_ref = sys.argv[3]
 record = json.loads(src.read_text(encoding="utf-8"))
-record["run_id"] = "run-02"
+record["run_id"] = "run-01"
 record["evidence_refs"] = list(dict.fromkeys(
     record["evidence_refs"]
     + ["TASK-9999/delivery/record.jsonl", capture_ref]
@@ -1029,6 +1029,7 @@ src = pathlib.Path(sys.argv[1])
 dst = pathlib.Path(sys.argv[2])
 capture_ref = sys.argv[3]
 record = json.loads(src.read_text(encoding="utf-8"))
+record["run_id"] = "run-02"
 record["evidence_refs"] = list(dict.fromkeys(
     record["evidence_refs"]
     + ["TASK-9999/delivery/record.jsonl", capture_ref]
