@@ -785,6 +785,25 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
         self.assertTrue(
             report["evaluation_contract"]["runtime_head_to_run_evidence_binding_enforced"]
         )
+        self.assertTrue(
+            report["evaluation_contract"]["live_capture_requires_concrete_final_head_sha"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["unavailable_final_head_live_capture_supported"]
+        )
+        self.assertTrue(
+            report["evaluation_contract"]["upstream_source_repository_visibility_enforced"]
+        )
+        self.assertTrue(
+            report["evaluation_contract"]["source_capture_run_evidence_separation_enforced"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["upstream_source_preexistence_verified"]
+        )
+        self.assertEqual(
+            report["evaluation_contract"]["upstream_source_preexistence_owner"],
+            "caller_or_capture_pipeline",
+        )
         self.assertFalse(
             report["evaluation_contract"]["run_evidence_task_binding_reverified"]
         )
@@ -1045,6 +1064,25 @@ class AdmissionBatchEvaluationTests(unittest.TestCase):
         self.assertTrue(
             report["evaluation_contract"]["runtime_head_to_run_evidence_binding_enforced"]
         )
+        self.assertTrue(
+            report["evaluation_contract"]["live_capture_requires_concrete_final_head_sha"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["unavailable_final_head_live_capture_supported"]
+        )
+        self.assertTrue(
+            report["evaluation_contract"]["upstream_source_repository_visibility_enforced"]
+        )
+        self.assertTrue(
+            report["evaluation_contract"]["source_capture_run_evidence_separation_enforced"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["upstream_source_preexistence_verified"]
+        )
+        self.assertEqual(
+            report["evaluation_contract"]["upstream_source_preexistence_owner"],
+            "caller_or_capture_pipeline",
+        )
         self.assertFalse(
             report["evaluation_contract"]["run_evidence_task_binding_reverified"]
         )
@@ -1075,9 +1113,17 @@ class LiveShadowRunEvidenceBindingTests(unittest.TestCase):
         )
         ev = json.loads(fixture.read_text(encoding="utf-8"))
 
+        source_ref = "TASK-9999/delivery/record.jsonl"
+        source_path = root / source_ref
+        source_path.parent.mkdir(parents=True, exist_ok=True)
+        source_path.write_text(
+            "{\"kind\":\"state\",\"state\":\"MERGE_READY\"}\n",
+            encoding="utf-8",
+        )
+
         signal = {
             "signal_id": "SIG-LIVE-001",
-            "source_ref": "TASK-9999/delivery/record.jsonl",
+            "source_ref": source_ref,
             "source_kind": "existing_behavior",
             "claim_class": "observed",
             "statement": "Live delivery signal captured before RunEvidence finalization.",
@@ -1123,6 +1169,47 @@ class LiveShadowRunEvidenceBindingTests(unittest.TestCase):
                 case, "case", refs, authority_root=root
             )
             self.assertEqual(errors, [])
+
+    def test_upstream_source_must_exist_in_repository(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            case, refs, capture, _ev, capture_ref, _ev_ref = self._setup_bound_case(root)
+            source_ref = capture["signal"]["source_ref"]
+            (root / source_ref).unlink()
+            errors = pm._validate_live_shadow_capture(
+                case, "case", refs, authority_root=root
+            )
+            self.assertTrue(
+                any(
+                    "repository source does not exist" in e
+                    and "signal.source_ref" in e
+                    for e in errors
+                )
+            )
+
+    def test_upstream_source_cannot_be_run_evidence_artifact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            case, refs, capture, ev, capture_ref, ev_ref = self._setup_bound_case(root)
+            capture["signal"]["source_ref"] = ev_ref
+            capture["signal_hash"] = pm._canonical_json_hash(capture["signal"])
+            (root / capture_ref).write_text(
+                json.dumps(capture, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            ev["evidence_refs"] = list(dict.fromkeys(list(ev["evidence_refs"]) + [ev_ref]))
+            (root / ev_ref).write_text(
+                json.dumps(ev, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            refs = list(dict.fromkeys(refs + [ev_ref]))
+            errors = pm._validate_live_shadow_capture(
+                case, "case", refs, authority_root=root
+            )
+            self.assertTrue(
+                any("must be distinct from RunEvidence artifact" in e for e in errors)
+            )
+
 
     def test_run_evidence_must_include_capture_ref(self):
         with tempfile.TemporaryDirectory() as tmp:
