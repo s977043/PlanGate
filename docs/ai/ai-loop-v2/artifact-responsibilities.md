@@ -232,6 +232,20 @@ AI-generated PBI は create-first にしない。新規作成前に既存の ope
 
 既存 PBI が Plan Package / approval と binding 済みの場合、Goal / Requirement / AC の semantic change は `update_existing` の名目で上書きしない。North Star §9 の Replan / Plan Verification / policy boundary を通す。
 
+#### Generated PBI application path
+
+PBI の authoring と current Run / Harness への適用 authority を分離する。
+
+| application path | 意味 | current Run への影響 |
+| --- | --- | --- |
+| `follow_up` | feedback / Evidence から次の仕事を作る | なし。future Run で扱う |
+| `replan_current` | current Task の Goal / Requirement / AC の変更が必要 | Replan + Plan Verification + Plan Gate を必須とする |
+| `harness_candidate` | Harness / Skill / Agent / Flow / Verifier / Routing / Eval の改善 | HarnessImprovementCandidate ref を upstream authority とし、#869 / North Star §13–§15 の evaluation / promotion contract に従う |
+
+source Run から生成した PBI は source run / failure / evidence refs を保持する。PBI を作成した事実そのものを current Run の成功 Evidence にしない。
+
+Harness-targeting PBI は work packaging / execution planning の artifact であり、HarnessImprovementCandidate の `1 Candidate = 1 Hypothesis`、固定 evaluation plan、paired baseline、independent evaluator、Promotion boundary を代替しない。
+
 Traceability は意味の複製ではなく ref の接続で作る。最小経路は `Goal / Problem -> Requirement -> AC -> Plan decision / Task -> Test / Verifier Evidence` とし、既存の Current-Need Trace / AC mapping / Verification Trace / `acceptance_criteria_refs` を再利用する。Goal / Problem / Requirement の説明本文を `plan.md` / `todo.md` / WorkItemGraph にコピーせず、owner artifact を参照する。
 
 **LoopContract 側は導出規則の追加のみ**とする（§2 のとおり LoopContract は Plan Package から導出される）。
