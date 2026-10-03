@@ -38,6 +38,7 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | hidden CoT / raw transcript / session log | forbidden | — | 入力/出力の保存を拒否 |
 | Shadow evaluation report | derived evidence | materializer evaluator | train/test + evidence-class metricsを生成するが write / promotion authority を持たない |
 | write-review assessment | derived review-readiness projection | materializer assessor | admission/materialization evidenceを集約し Human review 候補かを示す。write/close/suppression/merge authorityは持たない |
+| rollout quality metrics | derived evaluation evidence | evaluator cases[] | live_shadow のみから duplicate FP/FN・decision/readiness mismatch・reject distribution を導出。quality acceptance authorityは持たない |
 | evaluator report refs | referenced evaluation artifacts | caller / repository evidence store | stored JSON と embedded report の canonical hash 一致を要求。authorship は保証しない |
 | evidence class | derived evaluation metadata | evaluation caller | synthetic_fixture / historical_replay / live_shadow。synthetic を rollout evidence と数えない |
 | historical/live evidence refs | referenced evidence | tracked repository artifact / live run evidence | repository-visible ref の実在を検証。historical harness signal は #874/#869 へ委譲 |
@@ -330,3 +331,72 @@ unavailable_final_head_live_capture_supported = false
 ```
 
 `final_head_sha="unavailable"` の run では live capture を生成せず、`source_sha` / `target_sha` 等を代用して契約を満たしたことにしない。BLOCKED-without-head を扱うには別の binding design が必要であり、本 slice では扱わない。
+
+
+## Rollout quality boundary
+
+Rollout 品質は `cases[]` から決定論的に再計算する。summary の手入力値を正として扱わない。
+
+### Duplicate detection
+
+```text
+expected=create_new
+actual=update_existing|link_only
+  => duplicate_false_positive
+
+expected=update_existing|link_only
+actual=create_new
+  => duplicate_false_negative
+```
+
+`update_existing <-> link_only` は duplicate FP/FN ではなく通常の decision mismatch として扱う。
+
+### Scope
+
+```text
+scope = live_shadow_only
+synthetic_fixture -> rollout quality claim から除外
+historical_replay -> rollout quality claim から除外
+```
+
+0 件の分母は `0.0` ではなく `null` とし、未観測を「0%」へ偽装しない。
+
+materialization error / admission error は rate 計算から静かに除外せず:
+
+```text
+unevaluable_error_cases > 0
+quality_review_complete = false
+```
+
+として明示する。
+
+### Rejection distribution
+
+全 reject:
+
+```text
+rejection_error_occurrences_by_category
+```
+
+provenance に限定した subset:
+
+```text
+provenance_rejection_error_occurrences
+  = circular_or_derived
+  + acceptance_basis
+  + claim_class
+  + source_reference
+```
+
+privacy / live-binding / unknown validation failure を provenance と誤ラベルしない。
+
+### Review readiness != quality acceptance
+
+```text
+quality_thresholds_applied = false
+quality_acceptance_decided = false
+quality_acceptance_owner = human_or_rollout_policy
+```
+
+`write_review_ready=true` は「Human review に必要な Evidence が揃った」という意味に限定し、FP/FN や mismatch の許容可否を自動判定しない。  
+実 live-shadow data が存在しない間、#1442 の false-positive / false-negative / mismatch review AC は未完了のまま維持する。
