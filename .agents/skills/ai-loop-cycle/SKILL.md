@@ -702,6 +702,71 @@ quality_acceptance_decided = false
 したがって observation gap を埋めるために synthetic case を作成したり、
 historical case を live へ昇格したりしてはならない。
 
+### 6.6 Completion status（read-only）
+
+実装を増やす前に、残課題がどの種類かを分類する。
+
+```sh
+python3 "<skill_dir>/scripts/pbi_live_shadow_collector.py" \
+  --repo-root "<repo-root>" completion-status \
+  --context "<completion-context.json>"
+```
+
+context は GitHub / Human 側で確認した事実を明示的に渡す:
+
+```json
+{
+  "latest_full_test_green": true,
+  "design_dependency_finalized": false,
+  "generalization_claim_required": false,
+  "representative_live_evidence_review_ref": null,
+  "quality_review_ref": null,
+  "isolated_generalization_review_ref": null
+}
+```
+
+collector はこれらの外部状態を自己検証しないため:
+
+```text
+assertions_independently_verified = false
+latest_full_test_status_verified_by_collector = false
+design_dependency_status_verified_by_collector = false
+```
+
+を維持する。
+
+review ref が指定された場合は repository-visible regular file の実在と byte SHA-256 まで束縛するが、
+内容妥当性 / reviewer identity / independence は証明しない。
+
+```text
+semantic_content_verified = false
+reviewer_identity_verified = false
+independence_verified = false
+```
+
+`next_action` は残課題の分類だけを行う:
+
+```text
+fix_repository_or_evidence_integrity
+finalize_design_dependency
+collect_opportunistic_real_live_evidence
+perform_human_evidence_and_quality_review
+human_rollout_decision
+```
+
+重要:
+
+```text
+rollout_completion_machine_decidable = false
+rollout_complete = false
+automatic_write_activation_allowed = false
+machine_completion_decision_allowed = false
+machine_write_activation_allowed = false
+```
+
+したがって completion-status は **停止条件 / 次行動の整理** 用であり、
+rollout完了・quality acceptance・write activationを自動承認しない。
+
 ## 禁止事項
 
 - lite 宣言の虚偽（判定不能を `true` 側に倒す）
