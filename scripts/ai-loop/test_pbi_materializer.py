@@ -1239,8 +1239,12 @@ class LiveRolloutQualityTests(unittest.TestCase):
             }
         ])
         self.assertEqual(
-            quality["provenance_rejection_error_occurrences"]["other"],
+            quality["rejection_error_occurrences_by_category"]["other"],
             1,
+        )
+        self.assertNotIn(
+            "other",
+            quality["provenance_rejection_error_occurrences"],
         )
         self.assertFalse(quality["quality_review_complete"])
 
