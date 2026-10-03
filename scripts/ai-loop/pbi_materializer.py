@@ -241,6 +241,45 @@ def _resolve_repo_authority_ref(
     return resolved, fragment if sep else "", errors
 
 
+def _markdown_heading_slugs(text: str) -> set[str]:
+    """Return a conservative GitHub-style heading slug set for policy refs."""
+    slugs: set[str] = set()
+    counts: dict[str, int] = {}
+    for line in text.splitlines():
+        match = re.match(r"^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$", line)
+        if not match:
+            continue
+        heading = unicodedata.normalize("NFKC", match.group(1)).strip().lower()
+        chars = []
+        for ch in heading:
+            if ch.isspace():
+                chars.append("-")
+            elif ch.isalnum() or ch in "-_":
+                chars.append(ch)
+        base = re.sub(r"-+", "-", "".join(chars)).strip("-")
+        if not base:
+            continue
+        count = counts.get(base, 0)
+        counts[base] = count + 1
+        slugs.add(base if count == 0 else f"{base}-{count}")
+    return slugs
+
+
+def _markdown_fragment_exists(path: pathlib.Path, fragment: str) -> bool:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    if fragment in _markdown_heading_slugs(text):
+        return True
+    escaped = re.escape(fragment)
+    return bool(re.search(
+        rf'<a\s+[^>]*id=["\']{escaped}["\'][^>]*>',
+        text,
+        flags=re.IGNORECASE,
+    ))
+
+
 def _verify_acceptance_authority_ref(
     source_ref: str, source_kind: str, authority_root=None
 ) -> list[str]:
@@ -277,11 +316,17 @@ def _verify_acceptance_authority_ref(
                 f"authority_ref: decision_id {fragment!r} must exist exactly once in {path.name}; found {matches}"
             ]
     elif source_kind == "policy":
-        # Require a precise rule-level ref without introducing a new Markdown parser.
-        # File existence + non-empty fragment is the Phase 1 authority boundary.
         if not fragment:
             return [
                 f"authority_ref: policy requires a rule fragment: {source_ref!r}"
+            ]
+        if path.suffix.lower() != ".md":
+            return [
+                f"authority_ref: Phase 1 policy authority must be a Markdown source: {source_ref!r}"
+            ]
+        if not _markdown_fragment_exists(path, fragment):
+            return [
+                f"authority_ref: policy rule fragment {fragment!r} does not exist in {path.name}"
             ]
     else:
         return [f"authority_ref: unsupported acceptance authority kind: {source_kind!r}"]
