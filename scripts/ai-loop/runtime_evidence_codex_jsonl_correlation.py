@@ -363,8 +363,12 @@ def correlate_candidate(
         "exec_jsonl_sha256": exec_jsonl_sha256,
         "trace_content_binding_verified": True,
         "exec_jsonl_structure_verified": True,
-        "parent_thread_correlation_verified": True,
-        "thread_id_correlation_verified": True,
+        "identifier_value_match_verified": True,
+        "hook_session_id_equals_exec_thread_id": True,
+        "session_thread_semantic_binding_verified": False,
+        "parent_thread_correlation_candidate": True,
+        "parent_thread_correlation_verified": False,
+        "thread_id_correlation_verified": False,
         "single_turn_envelope_verified": True,
         "explicit_forbidden_item_type_absence_verified": True,
         "documented_item_schema_coverage_complete": (
@@ -382,7 +386,7 @@ def correlate_candidate(
         "subagent_identity_correlation_verified": False,
         "same_subagent_execution_correlated": False,
         "hook_execution_root_attested": False,
-        "codex_jsonl_thread_correlation_verified": True,
+        "codex_jsonl_thread_correlation_verified": False,
         "codex_jsonl_runtime_correlation_verified": False,
         "hard_read_only_enforced": False,
         "runtime_probe_attestation_verified": False,
@@ -390,12 +394,12 @@ def correlate_candidate(
         "dispatch_ready": False,
         "dispatch_allowed": False,
         "verification_limit": (
-            "hook session_id and exec thread_id match the same parent thread "
-            "candidate and one successful turn envelope is observed, but the "
-            "current stable CLI JSONL contract does not expose a documented "
-            "subagent identity/turn binding sufficient to prove the same "
-            "Explorer execution; undocumented item types are schema drift, and "
-            "command/MCP read-only semantics plus repository postconditions "
+            "hook session_id and exec thread_id have equal identifier values, "
+            "but the current public contract reviewed here does not independently "
+            "guarantee that those differently named fields are the same semantic "
+            "thread identity. A successful turn envelope is observed, while "
+            "subagent identity/turn binding, command/MCP read-only semantics, "
+            "repository postconditions, and undocumented item schema coverage "
             "remain unverified"
         ),
         "event_summary": {
