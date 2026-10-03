@@ -59,6 +59,14 @@ class LiveShadowCollectorTests(unittest.TestCase):
             "docs/working/TASK-9999/evidence/pbi-live-shadow/"
             "run-01/run-evidence.json"
         )
+        self.oracle_ref = (
+            "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            "run-01/oracle.json"
+        )
+        self.case_artifact_ref = (
+            "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            "run-01/admission-case.json"
+        )
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -95,7 +103,46 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         return record
 
-    def test_capture_is_create_only_and_authority_limited(self):
+    def _collect_packet(self):
+        self._collect_capture()
+        self._write_bound_run_evidence()
+        return collector.collect_review_packet(
+            repo_root=self.root,
+            capture_ref=self.capture_ref,
+            run_evidence_ref=self.run_evidence_ref,
+            packet_ref=self.packet_ref,
+        )
+
+    def _write_oracle(self, *, expected="no_action", overrides=None):
+        packet = json.loads(
+            (self.root / self.packet_ref).read_text(encoding="utf-8")
+        )
+        oracle = {
+            "schema_version": 1,
+            "domain": "plangate.pbi-live-shadow-admission-oracle/v1",
+            "case_ref": "LIVE-ADMISSION-001",
+            "packet_ref": self.packet_ref,
+            "packet_hash": collector.pm._canonical_json_hash(packet),
+            "reviewed_source_ref": self.source_ref,
+            "reviewed_source_sha256": collector._file_sha256(
+                self.root / self.source_ref
+            ),
+            "expected_admission_decision": expected,
+            "independent_review_asserted": True,
+            "maker_actual_not_consulted_asserted": True,
+        }
+        if overrides:
+            oracle.update(overrides)
+        target = self.root / self.oracle_ref
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps(oracle, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+        return oracle
+
+    def test_capture_is_create_or_reuse_identical_and_authority_limited(self):
         result = self._collect_capture()
         target = self.root / self.capture_ref
         self.assertTrue(target.is_file())
@@ -107,12 +154,14 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertFalse(stored["authority"]["oracle_attached"])
         self.assertTrue(result["authority"]["evidence_create_allowed"])
         self.assertFalse(result["authority"]["overwrite_allowed"])
+        self.assertTrue(result["authority"]["idempotent_reuse_allowed"])
         self.assertFalse(result["authority"]["pbi_write_allowed"])
         self.assertFalse(result["authority"]["issue_write_allowed"])
+        self.assertFalse(result["artifact_reused"])
 
         before = target.read_bytes()
-        with self.assertRaises(collector.CollectorError):
-            self._collect_capture()
+        retry = self._collect_capture()
+        self.assertTrue(retry["artifact_reused"])
         self.assertEqual(target.read_bytes(), before)
 
     def test_capture_output_must_stay_in_task_live_shadow_namespace(self):
@@ -147,6 +196,23 @@ class LiveShadowCollectorTests(unittest.TestCase):
             self._collect_capture()
         self.assertIn("symlink", str(ctx.exception))
 
+    def test_existing_leaf_symlink_is_never_followed_or_replaced(self):
+        target = self.root / self.capture_ref
+        target.parent.mkdir(parents=True, exist_ok=True)
+        outside = self.root / "outside.json"
+        outside.write_text('{"sentinel":true}\n', encoding="utf-8")
+        target.symlink_to(outside)
+
+        with self.assertRaises(collector.CollectorError) as ctx:
+            self._collect_capture()
+
+        self.assertIn("safe regular file", str(ctx.exception))
+        self.assertTrue(target.is_symlink())
+        self.assertEqual(
+            outside.read_text(encoding="utf-8"),
+            '{"sentinel":true}\n',
+        )
+
     def test_review_packet_revalidates_binding_and_attaches_no_oracle(self):
         self._collect_capture()
         self._write_bound_run_evidence()
@@ -160,15 +226,30 @@ class LiveShadowCollectorTests(unittest.TestCase):
         packet = json.loads(target.read_text(encoding="utf-8"))
 
         self.assertEqual(packet["mode"], "pbi_live_shadow_review_packet")
-        self.assertEqual(packet["actual"]["admission_decision"], "no_action")
+        self.assertEqual(
+            packet["domain"],
+            "plangate.pbi-live-shadow-review-packet/v1",
+        )
+        self.assertNotIn("actual", packet)
         self.assertTrue(packet["review_contract"]["independent_review_required"])
+        self.assertTrue(packet["review_contract"]["review_from_upstream_source"])
+        self.assertFalse(packet["review_contract"]["actual_decision_disclosed"])
+        self.assertFalse(
+            packet["review_contract"]["normalized_disposition_disclosed"]
+        )
         self.assertFalse(packet["review_contract"]["oracle_attached"])
         self.assertFalse(packet["review_contract"]["expected_decision_attached"])
+        self.assertTrue(packet["hashes"]["source_sha256"].startswith("sha256:"))
         self.assertFalse(packet["review_contract"]["quality_acceptance_decided"])
+        self.assertTrue(packet["review_contract"]["packet_blind_to_actual"])
+        self.assertFalse(
+            packet["review_contract"]["capture_signal_blinding_enforced"]
+        )
         self.assertFalse(packet["authority"]["pbi_write_allowed"])
         self.assertFalse(packet["authority"]["issue_write_allowed"])
         self.assertFalse(packet["authority"]["merge_allowed"])
-        self.assertEqual(result["actual_admission_decision"], "no_action")
+        self.assertNotIn("actual_admission_decision", result)
+        self.assertFalse(result["actual_decision_disclosed"])
         self.assertTrue(result["review_required"])
 
     def test_review_packet_rejects_unbound_capture(self):
@@ -183,24 +264,141 @@ class LiveShadowCollectorTests(unittest.TestCase):
             )
         self.assertIn("capture_ref", str(ctx.exception))
 
-    def test_review_packet_is_create_only(self):
+    def test_review_packet_reuses_identical_artifact(self):
         self._collect_capture()
         self._write_bound_run_evidence()
-        collector.collect_review_packet(
+        first = collector.collect_review_packet(
             repo_root=self.root,
             capture_ref=self.capture_ref,
             run_evidence_ref=self.run_evidence_ref,
             packet_ref=self.packet_ref,
         )
+        self.assertFalse(first["artifact_reused"])
         before = (self.root / self.packet_ref).read_bytes()
-        with self.assertRaises(collector.CollectorError):
-            collector.collect_review_packet(
-                repo_root=self.root,
-                capture_ref=self.capture_ref,
-                run_evidence_ref=self.run_evidence_ref,
-                packet_ref=self.packet_ref,
-            )
+        retry = collector.collect_review_packet(
+            repo_root=self.root,
+            capture_ref=self.capture_ref,
+            run_evidence_ref=self.run_evidence_ref,
+            packet_ref=self.packet_ref,
+        )
+        self.assertTrue(retry["artifact_reused"])
         self.assertEqual((self.root / self.packet_ref).read_bytes(), before)
+
+    def test_existing_different_capture_content_fails_closed(self):
+        self._collect_capture()
+        target = self.root / self.capture_ref
+        value = json.loads(target.read_text(encoding="utf-8"))
+        value["run_id"] = "run-tampered"
+        target.write_text(
+            json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(collector.CollectorError) as ctx:
+            self._collect_capture()
+        self.assertIn("different content", str(ctx.exception))
+
+
+    def test_reviewed_oracle_assembles_evaluator_compatible_case(self):
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+
+        result = collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+        self.assertFalse(result["artifact_reused"])
+        self.assertFalse(
+            result["review_assertions"]["oracle_authorship_verified"]
+        )
+        self.assertFalse(result["authority"]["pbi_write_allowed"])
+        self.assertFalse(result["authority"]["quality_acceptance_decided"])
+
+        case = json.loads(
+            (self.root / self.case_artifact_ref).read_text(encoding="utf-8")
+        )
+        self.assertEqual(case["evidence_class"], "live_shadow")
+        self.assertEqual(
+            case["expected"]["admission_decision"],
+            "no_action",
+        )
+        self.assertEqual(case["expected"]["oracle_ref"], self.oracle_ref)
+        self.assertIn(self.packet_ref, case["evidence_refs"])
+        self.assertNotIn(self.oracle_ref, case["evidence_refs"])
+        self.assertEqual(
+            case["expected"]["oracle_ref"],
+            self.oracle_ref,
+        )
+
+        report = collector.pm.evaluate_admission_batch(
+            [case],
+            authority_root=self.root,
+        )
+        self.assertEqual(report["cases"][0]["status"], "match")
+        self.assertEqual(report["rollout_quality"]["live_case_total"], 1)
+
+    def test_reviewed_case_reuses_identical_artifact(self):
+        self._collect_packet()
+        self._write_oracle()
+        first = collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+        retry = collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+        self.assertFalse(first["artifact_reused"])
+        self.assertTrue(retry["artifact_reused"])
+
+    def test_oracle_packet_hash_mismatch_fails_closed(self):
+        self._collect_packet()
+        self._write_oracle(
+            overrides={"packet_hash": "sha256:" + "0" * 64}
+        )
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_admission_case(
+                repo_root=self.root,
+                packet_ref=self.packet_ref,
+                oracle_ref=self.oracle_ref,
+                case_artifact_ref=self.case_artifact_ref,
+            )
+        self.assertIn("packet hash mismatch", str(ctx.exception))
+
+    def test_oracle_cannot_store_maker_actual(self):
+        self._collect_packet()
+        self._write_oracle(
+            overrides={"actual_admission_decision": "no_action"}
+        )
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_admission_case(
+                repo_root=self.root,
+                packet_ref=self.packet_ref,
+                oracle_ref=self.oracle_ref,
+                case_artifact_ref=self.case_artifact_ref,
+            )
+        self.assertIn("maker actual must not be stored", str(ctx.exception))
+
+    def test_source_change_after_blind_packet_invalidates_oracle_binding(self):
+        self._collect_packet()
+        self._write_oracle()
+        (self.root / self.source_ref).write_text(
+            '{"kind":"state","state":"CHANGED"}\n',
+            encoding="utf-8",
+        )
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_admission_case(
+                repo_root=self.root,
+                packet_ref=self.packet_ref,
+                oracle_ref=self.oracle_ref,
+                case_artifact_ref=self.case_artifact_ref,
+            )
+        self.assertIn("current source hash mismatch", str(ctx.exception))
 
 
 if __name__ == "__main__":
