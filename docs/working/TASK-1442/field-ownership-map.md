@@ -498,3 +498,60 @@ synthetic collector E2E != real live observation
 ```
 
 #1442 の live-shadow / FP-FN / mismatch rollout AC は実 run 由来 artifact が収集されるまで open のまま維持する。
+
+
+## Live-shadow inventory boundary
+
+inventory は repository の現在状態から毎回再計算する read-only projection であり、
+永続 registry / lifecycle state / Gate を追加しない。
+
+探索対象:
+
+```text
+docs/working/TASK-*/evidence/pbi-live-shadow/**/admission-case.json
+```
+
+各 candidate について:
+
+- regular file であること
+- artifact path から owner TASK を導出
+- case artifact / capture / RunEvidence / oracle が同じ TASK live-shadow namespace に属すること
+- existing admission evaluator contract で live binding / oracle / privacy を再検証
+- duplicate logical `case_ref` は参加artifactを全件 invalid
+- invalid artifact は黙って捨てず `invalid_case_artifacts[]` へ保持
+- historical corpusをliveへ昇格しない
+- synthetic fixtureをtracked live countへ混ぜない
+
+inventory が報告する:
+
+```text
+tracked_live_case_total
+evaluated_case_total
+invalid_case_total
+observed_admission_decisions
+observed_source_kinds
+rollout_quality
+```
+
+0件は0件のまま扱う。未観測を success rate 0% や rollout 完了へ変換しない。
+
+### Verification boundary
+
+```text
+repository_chain_revalidated = true
+task_namespace_binding_enforced = true
+duplicate_logical_case_ids_rejected = true
+
+runtime_execution_verified = false
+source_preexistence_verified = false
+reviewer_identity_verified = false
+representative_coverage_claim_allowed = false
+quality_acceptance_decided = false
+```
+
+したがって `tracked_live_case_total > 0` は repository-tracked chain の存在だけを意味し、
+「実 runtime でその瞬間にcaptureされた」「代表性がある」「品質合格」「write解放可能」を意味しない。
+
+TA-94 の synthetic collector chain を inventory すると tracked case は1件見えるが、
+`runtime_execution_verified=false` を同時に要求する。
+これは executable-path 検証であり、#1442 の real live-shadow rollout AC の達成には数えない。
