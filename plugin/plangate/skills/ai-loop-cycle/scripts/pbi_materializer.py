@@ -507,9 +507,10 @@ def scan_working_pbis(
         if not source_refs and not (goal_value and problem_value):
             continue
         approvals = path.parent / "approvals" / "c3.json"
+        rel = path.relative_to(root).as_posix()
         out.append(
             {
-                "ref": str(path.as_posix()),
+                "ref": f"docs/working/{rel}",
                 "source_refs": source_refs,
                 "goal": goal_value,
                 "problem": problem_value,
