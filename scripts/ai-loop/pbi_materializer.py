@@ -428,6 +428,7 @@ def admit_signal(signal: dict[str, Any]) -> dict[str, Any]:
         "proposal_only": True,
         "write_allowed": False,
         "close_allowed": False,
+        "suppression_allowed": False,
         "next": {
             "materialize": "pbi_materializer",
             "no_action": "record_evaluation_only",
@@ -1651,6 +1652,7 @@ def evaluate_admission_batch(
         "mode": "admission_evaluation",
         "write_allowed": False,
         "close_allowed": False,
+        "suppression_allowed": False,
         "automatic_promotion": False,
         "evaluation_contract": {
             "scope": "pbi_admission",
