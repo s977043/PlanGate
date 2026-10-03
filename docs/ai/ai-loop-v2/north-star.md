@@ -102,7 +102,24 @@ AI-generated PBI は claim provenance を失ってはならない。少なくと
 
 Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requirement -> Acceptance Criteria -> Plan decision -> Work Item / Task (when applicable) -> Verification / Evidence の Traceability Chain を既存 ID / ref で構成する。新しい Lifecycle State / Gate / top-level artifact / mutable graph store をこのためだけに追加しない。
 
-AI が feedback / Evidence から PBI を materialize する場合は **Reuse / Update Before Create** を適用する。新規 PBI を作る前に、既存の open Issue / PBI を source refs と Goal / Problem / AC の意味で照合し、`update_existing / link_only / create_new` のいずれかを選ぶ。類似しているという LLM 判断だけで別 PBI を自動 close / merge しない。既存 PBI が Plan / approval と binding 済みで Goal / Requirement / AC の semantic change が必要なら、重複解消として silent update せず §9 の Replan / policy boundary に従う。
+AI が feedback / Evidence から PBI を materialize する場合、**PBI Admission と PBI Materialization を分離する**。
+
+```text
+signal
+  -> Admission: materialize | no_action | discover_more
+  -> materialize の場合のみ
+     Materialization: update_existing | link_only | create_new
+```
+
+Admission は「この signal を PBI work として扱うか」の判断であり、Materialization は「PBI work として扱うと決めた signal を既存 work へどう接続するか」の判断である。両者を 1 enum / 1 authority に混ぜない。
+
+- `materialize`: PBI work として materialization に進む
+- `no_action`: 現時点で新しい PBI work を materialize しないという **proposal**。source Issue / PBI の close / resolve / suppress authority を持たない
+- `discover_more`: Evidence / semantic certainty が不足しているため Bounded Discovery に戻す。Human review 固定を意味せず、既存 policy に従って追加 Evidence / question / verification を行う
+
+reported / inferred / ambiguous な signal を、根拠なく `no_action` に落として false negative を隠さない。Harness-target signal の Admission は Delivery 側に第 2 の Evolution trigger を作らず、既存 #874 / #869 の Candidate / Evolution boundary に委譲する。
+
+Admission を通過した PBI work には **Reuse / Update Before Create** を適用する。新規 PBI を作る前に、既存の open Issue / PBI を source refs と Goal / Problem / AC の意味で照合し、`update_existing / link_only / create_new` のいずれかを選ぶ。類似しているという LLM 判断だけで別 PBI を自動 close / merge しない。既存 PBI が Plan / approval と binding 済みで Goal / Requirement / AC の semantic change が必要なら、重複解消として silent update せず §9 の Replan / policy boundary に従う。
 
 AI-generated PBI の **作成時点と適用時点を分離する**。Active Run 中に feedback から PBI を作成してよいが、PBI は **application timing** と **target layer** を別軸で扱う。
 
