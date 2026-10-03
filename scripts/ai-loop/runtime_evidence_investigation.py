@@ -391,6 +391,7 @@ def build_r1_investigation_request(
             "hard_read_only_enforced": runtime_guard[
                 "hard_read_only_enforced"
             ],
+            "sandbox_eligible": False,
             "runtime_role_registered": False,
             "provider_connector_registered": False,
             "admission_binding_verified": False,
