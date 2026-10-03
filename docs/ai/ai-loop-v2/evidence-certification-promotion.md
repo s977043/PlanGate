@@ -101,11 +101,11 @@ A Builder / change author may report target characteristics, but MUST NOT be the
 
 Where the required-evidence set is derived dynamically, its derivation rule / policy identity must be traceable. Missing or unverifiable policy input is not permission to use a weaker set.
 
-## 4. Binding and invalidation
+## 4. Evidence eligibility, binding, and invalidation
 
-Evidence is valid only for the target it actually proves.
+Evidence existence alone is insufficient. Evidence is eligible for a certification projection only when the existing system can justify that it applies to the exact claim and target being evaluated.
 
-At minimum, the projection must preserve existing binding where available:
+The projection must preserve existing binding where available:
 
 - Plan / Contract identity;
 - source SHA / final head SHA;
@@ -117,6 +117,21 @@ At minimum, the projection must preserve existing binding where available:
 
 A Certification View MUST NOT combine evidence from different revisions merely because the test names or task IDs look similar.
 
+### 4.1 Evidence eligibility dimensions
+
+Without defining a new persisted status vocabulary, certification composition must check the applicable existing guarantees for:
+
+1. **Applicability** — the evidence proves the required claim, not merely an adjacent claim.
+2. **Identity binding** — the evidence is bound to the relevant Plan / source / head / artifact / Harness identity.
+3. **Provenance and integrity** — the evidence source is known and any required hash / attestation / trusted execution property is satisfied.
+4. **Freshness** — no bound input changed in a way that invalidates applicability.
+5. **Independence** — when policy or the Evaluation Trust Boundary requires independent evidence, the supplied review meets that requirement.
+6. **Availability / completeness** — required evidence was actually produced; missing or unavailable verification is not PASS.
+
+These are composition checks over existing contracts. They do not create a new authoritative `evidence_trust` object by themselves.
+
+### 4.2 Stale evidence
+
 The view becomes stale when a bound input changes. Reuse requires re-verification or an existing verifier-specific rule that proves the previous evidence still applies.
 
 ```text
@@ -125,6 +140,23 @@ changed bound input
   -> verify applicability / re-run as required
   -> build a new projection
 ```
+
+A timestamp alone does not make evidence current. Freshness is relative to the identity / target that the evidence claims to verify.
+
+### 4.3 Decision-to-use binding
+
+Certification is vulnerable to a time-of-check / time-of-use gap if the target changes after evidence is composed but before the existing promotion / merge decision is used.
+
+Therefore the consuming Policy / Decision path must re-check the relevant target identity at the point where its decision is acted upon.
+
+At minimum:
+
+```text
+certified head / plan / policy identity
+  == identity consumed by the decision/action
+```
+
+A certification projection for head A MUST NOT authorize an action on head B. The view itself does not implement the action; it exposes the binding that the existing decision/action boundary must verify.
 
 ## 5. Risk-based Promotion Policy
 
@@ -205,9 +237,11 @@ Delivery certification MUST NOT be reused as proof that a Harness Candidate is s
 
 ## 7. River Review boundary
 
-River Review can provide independent review / verification evidence.
+River Review can provide independent review / verification evidence **only to the degree that its output is bound and trusted under the consuming policy**.
 
-It does not own:
+A PR comment, report URL, or `PASS` string alone is not sufficient independent evidence. The consumer must be able to establish the required target binding (for example the reviewed head / artifact identity) and the independence level required for that decision.
+
+River Review does not own:
 
 - PlanGate Policy Verdict;
 - Delivery terminal state;
@@ -217,8 +251,8 @@ It does not own:
 
 ```text
 River Review
-  -> finding / verification evidence
-  -> PlanGate consumes evidence
+  -> bound finding / verification evidence
+  -> PlanGate checks applicability / provenance / required independence
   -> PlanGate policy / decision boundary decides
 ```
 
@@ -260,7 +294,7 @@ Adoption should progress through bounded stages.
    - use the projection to select stronger verifier / independent review / Human attention;
    - no C-4 or merge authority change.
 4. **Bounded automation**
-   - widen only after false-negative / false-positive and stale-binding behavior are measured;
+   - widen only after false-negative / false-positive, stale-binding, and wrong-target behavior are measured;
    - protected authority remains Human-owned.
 
 Scale is evidence-driven, not based on the number of successful demos.
@@ -271,11 +305,15 @@ Before any runtime implementation, verify at least these negative cases:
 
 - evidence from the wrong head SHA cannot satisfy a requirement;
 - stale evidence after a bound Plan / target change cannot satisfy a requirement;
+- evidence with unknown/untrusted provenance cannot silently become eligible;
 - Builder self-report alone cannot satisfy a requirement;
 - missing / unavailable verifier output cannot become PASS;
+- same-model / same-context review cannot satisfy a higher independence requirement merely because it is labeled "independent";
 - Builder-supplied risk cannot choose a less restrictive path by itself;
 - risk classification cannot disable protected verification;
 - required verifier-set / policy identity cannot be silently narrowed;
+- a post-certification head change invalidates decision use until rebound / re-verified;
+- River Review output without target binding cannot directly satisfy an independent-review requirement;
 - River Review output cannot directly mint promotion authority;
 - Delivery evidence cannot directly promote a Harness Candidate;
 - Certification projection cannot mutate its authoritative inputs.
@@ -287,6 +325,7 @@ Before any runtime implementation, verify at least these negative cases:
 - a new Policy Verdict;
 - a second PromotionDecision;
 - a new canonical risk taxonomy;
+- a parallel evidence-trust schema invented only for Certification View;
 - automatic C-4 / merge;
 - automatic Production Harness promotion;
 - replacing River Review, Verifier, Decision Engine, or Policy;
