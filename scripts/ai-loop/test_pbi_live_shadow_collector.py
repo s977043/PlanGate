@@ -15,6 +15,7 @@ import json
 import pathlib
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = pathlib.Path(__file__).resolve().parent
 import sys
@@ -1240,6 +1241,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
             3,
         )
         self.assertFalse(plan["collection_execution_blocked"])
+        self.assertEqual(plan["collection_execution_status"], "available")
         self.assertEqual(
             plan["completion_blockers"],
             plan["blockers"],
@@ -1250,6 +1252,62 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         self.assertFalse(boundary["quality_acceptance_decided"])
         self.assertFalse(plan["authority"]["write_allowed"])
+
+    def test_collection_plan_no_gaps_is_not_blocked(self):
+        admission = {
+            "tracked_live_case_total": 3,
+            "invalid_case_total": 0,
+            "has_tracked_live_evidence": True,
+            "coverage": {
+                "missing_reviewed_admission_decisions": [],
+                "reviewed_expected_admission_decisions": [
+                    "discover_more",
+                    "materialize",
+                    "no_action",
+                ],
+                "observed_admission_decisions": [
+                    "discover_more",
+                    "materialize",
+                    "no_action",
+                ],
+                "observed_source_kinds": ["existing_behavior"],
+            },
+        }
+        materialization = {
+            "tracked_live_case_total": 3,
+            "invalid_case_total": 0,
+            "has_tracked_live_evidence": True,
+            "coverage": {
+                "missing_reviewed_materialization_decisions": [],
+                "reviewed_expected_materialization_decisions": [
+                    "create_new",
+                    "link_only",
+                    "update_existing",
+                ],
+                "observed_materialization_decisions": [
+                    "create_new",
+                    "link_only",
+                    "update_existing",
+                ],
+            },
+        }
+        with mock.patch.object(
+            collector,
+            "inventory_live_shadow_cases",
+            return_value=admission,
+        ), mock.patch.object(
+            collector,
+            "inventory_live_materialization_cases",
+            return_value=materialization,
+        ):
+            plan = collector.plan_live_shadow_collection(repo_root=self.root)
+
+        self.assertEqual(plan["observation_gaps"], [])
+        self.assertEqual(plan["observation_gap_count"], 0)
+        self.assertEqual(plan["collector_path_available_gap_count"], 0)
+        self.assertEqual(plan["collection_execution_status"], "not_needed")
+        self.assertFalse(plan["collection_execution_blocked"])
+        self.assertEqual(plan["completion_blockers"], [])
 
     def test_collection_plan_removes_only_observed_admission_gap(self):
         self._collect_packet()
