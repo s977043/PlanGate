@@ -1259,6 +1259,153 @@ class LiveShadowRunEvidenceBindingTests(unittest.TestCase):
         self.assertTrue(any("#874/#869" in e for e in ctx.exception.errors))
 
 
+class WriteReviewAssessmentTests(unittest.TestCase):
+    def _materialization_report(self, **overrides):
+        report = {
+            "mode": "shadow_evaluation",
+            "write_allowed": False,
+            "automatic_promotion": False,
+            "metrics": {"overall": {"errors": 0}},
+            "rollout_evidence": {
+                "live_shadow_cases": 1,
+                "observed_decisions": [
+                    "create_new",
+                    "update_existing",
+                    "link_only",
+                ],
+            },
+        }
+        report.update(overrides)
+        return report
+
+    def _admission_report(self, **overrides):
+        report = {
+            "mode": "admission_evaluation",
+            "write_allowed": False,
+            "close_allowed": False,
+            "suppression_allowed": False,
+            "automatic_promotion": False,
+            "metrics": {"overall": {"errors": 0}},
+            "rollout_evidence": {"live_shadow_cases": 1},
+            "coverage": {
+                "decision_coverage_complete": True,
+                "observed_admission_decisions": [
+                    "materialize",
+                    "no_action",
+                    "discover_more",
+                ],
+            },
+        }
+        report.update(overrides)
+        return report
+
+    def _assessment(self, **context_overrides):
+        context = {
+            "design_dependency_finalized": True,
+            "latest_full_test_green": True,
+            "generalization_claim_requested": False,
+            "independent_oracle_review_ref": (
+                "docs/working/TASK-1442/evidence/pbi-materializer-shadow/"
+                "historical-admission-oracle.md"
+            ),
+            "isolated_holdout_review_ref": None,
+        }
+        context.update(context_overrides)
+        return {
+            "materialization_report": self._materialization_report(),
+            "admission_report": self._admission_report(),
+            "context": context,
+        }
+
+    def test_review_ready_never_grants_write_authority(self):
+        result = pm.assess_write_review_readiness(self._assessment())
+        self.assertTrue(result["write_review_ready"])
+        self.assertEqual(result["blockers"], [])
+        self.assertFalse(result["write_allowed"])
+        self.assertFalse(result["close_allowed"])
+        self.assertFalse(result["suppression_allowed"])
+        self.assertFalse(result["automatic_promotion"])
+        self.assertTrue(result["authority"]["review_only"])
+        self.assertFalse(result["authority"]["merge_authority"])
+
+    def test_current_missing_live_evidence_and_dependencies_block_review(self):
+        assessment = self._assessment(
+            design_dependency_finalized=False,
+            latest_full_test_green=False,
+            independent_oracle_review_ref=None,
+        )
+        assessment["materialization_report"]["rollout_evidence"][
+            "live_shadow_cases"
+        ] = 0
+        assessment["admission_report"]["rollout_evidence"][
+            "live_shadow_cases"
+        ] = 0
+        assessment["admission_report"]["coverage"][
+            "decision_coverage_complete"
+        ] = False
+        result = pm.assess_write_review_readiness(assessment)
+        self.assertFalse(result["write_review_ready"])
+        for blocker in (
+            "design_dependency_not_finalized",
+            "latest_full_test_not_green",
+            "materialization_live_shadow_not_observed",
+            "admission_live_shadow_not_observed",
+            "admission_decision_coverage_incomplete",
+            "independent_oracle_review_missing",
+        ):
+            self.assertIn(blocker, result["blockers"])
+
+    def test_materialization_decision_coverage_is_required(self):
+        assessment = self._assessment()
+        assessment["materialization_report"]["rollout_evidence"][
+            "observed_decisions"
+        ] = ["create_new"]
+        result = pm.assess_write_review_readiness(assessment)
+        self.assertFalse(result["write_review_ready"])
+        self.assertEqual(
+            result["evidence_summary"]["missing_materialization_decisions"],
+            ["link_only", "update_existing"],
+        )
+        self.assertIn(
+            "materialization_decision_coverage_incomplete",
+            result["blockers"],
+        )
+
+    def test_evaluator_errors_block_review(self):
+        assessment = self._assessment()
+        assessment["admission_report"]["metrics"]["overall"]["errors"] = 1
+        result = pm.assess_write_review_readiness(assessment)
+        self.assertFalse(result["write_review_ready"])
+        self.assertIn("admission_evaluator_errors_present", result["blockers"])
+
+    def test_generalization_claim_requires_holdout_review_ref(self):
+        result = pm.assess_write_review_readiness(
+            self._assessment(generalization_claim_requested=True)
+        )
+        self.assertFalse(result["write_review_ready"])
+        self.assertIn("isolated_holdout_review_missing", result["blockers"])
+
+    def test_generalization_claim_can_be_review_ready_with_existing_holdout_ref(self):
+        result = pm.assess_write_review_readiness(
+            self._assessment(
+                generalization_claim_requested=True,
+                isolated_holdout_review_ref=(
+                    "docs/working/TASK-1442/evidence/pbi-materializer-shadow/"
+                    "historical-replay-oracle.md"
+                ),
+            )
+        )
+        self.assertTrue(result["write_review_ready"])
+        self.assertFalse(result["write_allowed"])
+
+    def test_report_with_write_authority_is_rejected(self):
+        assessment = self._assessment()
+        assessment["materialization_report"]["write_allowed"] = True
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.assess_write_review_readiness(assessment)
+        self.assertTrue(any("write_allowed: false required" in e for e in ctx.exception.errors))
+
+
 class DeterminismAndSearchTests(unittest.TestCase):
     def test_same_input_is_byte_stable(self):
         a = pm.materialize(_payload(), [])
