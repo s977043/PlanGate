@@ -1268,7 +1268,14 @@ for plan in (no_action, materialize):
     assert boundary["coverage_gap_basis"] == "reviewed_expected_decisions"
     assert boundary["maker_actual_counts_as_ground_truth_coverage"] is False
     assert boundary["runtime_execution_verified"] is False
+    assert boundary["real_runtime_observation_available_verified"] is False
     assert boundary["quality_acceptance_decided"] is False
+    assert plan["blocker_semantics"] == "rollout_completion_not_collection_execution"
+    assert plan["collection_execution_status"] in {"available", "blocked_by_prerequisites", "not_needed"}
+    assert all(
+        item["real_runtime_observation_available"] is None
+        for item in plan["observation_gaps"]
+    )
     assert plan["authority"]["read_only"] is True
     assert plan["authority"]["write_allowed"] is False
 
@@ -1281,7 +1288,7 @@ assert (
     == ["no_action"]
 )
 assert all(
-    not item["currently_collectable"]
+    not item["collector_path_available"]
     for item in no_action["observation_gaps"]
     if item["stage"] == "materialization"
 )
@@ -1295,7 +1302,7 @@ assert (
     == ["create_new"]
 )
 assert all(
-    item["currently_collectable"]
+    item["collector_path_available"]
     for item in materialize["observation_gaps"]
     if item["stage"] == "materialization"
 )
