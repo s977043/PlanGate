@@ -95,7 +95,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         return record
 
-    def test_capture_is_create_only_and_authority_limited(self):
+    def test_capture_is_create_or_reuse_identical_and_authority_limited(self):
         result = self._collect_capture()
         target = self.root / self.capture_ref
         self.assertTrue(target.is_file())
@@ -107,12 +107,14 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertFalse(stored["authority"]["oracle_attached"])
         self.assertTrue(result["authority"]["evidence_create_allowed"])
         self.assertFalse(result["authority"]["overwrite_allowed"])
+        self.assertTrue(result["authority"]["idempotent_reuse_allowed"])
         self.assertFalse(result["authority"]["pbi_write_allowed"])
         self.assertFalse(result["authority"]["issue_write_allowed"])
+        self.assertFalse(result["artifact_reused"])
 
         before = target.read_bytes()
-        with self.assertRaises(collector.CollectorError):
-            self._collect_capture()
+        retry = self._collect_capture()
+        self.assertTrue(retry["artifact_reused"])
         self.assertEqual(target.read_bytes(), before)
 
     def test_capture_output_must_stay_in_task_live_shadow_namespace(self):
@@ -157,7 +159,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         with self.assertRaises(collector.CollectorError) as ctx:
             self._collect_capture()
 
-        self.assertIn("already exists", str(ctx.exception))
+        self.assertIn("safe regular file", str(ctx.exception))
         self.assertTrue(target.is_symlink())
         self.assertEqual(
             outside.read_text(encoding="utf-8"),
@@ -200,24 +202,38 @@ class LiveShadowCollectorTests(unittest.TestCase):
             )
         self.assertIn("capture_ref", str(ctx.exception))
 
-    def test_review_packet_is_create_only(self):
+    def test_review_packet_reuses_identical_artifact(self):
         self._collect_capture()
         self._write_bound_run_evidence()
-        collector.collect_review_packet(
+        first = collector.collect_review_packet(
             repo_root=self.root,
             capture_ref=self.capture_ref,
             run_evidence_ref=self.run_evidence_ref,
             packet_ref=self.packet_ref,
         )
+        self.assertFalse(first["artifact_reused"])
         before = (self.root / self.packet_ref).read_bytes()
-        with self.assertRaises(collector.CollectorError):
-            collector.collect_review_packet(
-                repo_root=self.root,
-                capture_ref=self.capture_ref,
-                run_evidence_ref=self.run_evidence_ref,
-                packet_ref=self.packet_ref,
-            )
+        retry = collector.collect_review_packet(
+            repo_root=self.root,
+            capture_ref=self.capture_ref,
+            run_evidence_ref=self.run_evidence_ref,
+            packet_ref=self.packet_ref,
+        )
+        self.assertTrue(retry["artifact_reused"])
         self.assertEqual((self.root / self.packet_ref).read_bytes(), before)
+
+    def test_existing_different_capture_content_fails_closed(self):
+        self._collect_capture()
+        target = self.root / self.capture_ref
+        value = json.loads(target.read_text(encoding="utf-8"))
+        value["run_id"] = "run-tampered"
+        target.write_text(
+            json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(collector.CollectorError) as ctx:
+            self._collect_capture()
+        self.assertIn("different content", str(ctx.exception))
 
 
 if __name__ == "__main__":
