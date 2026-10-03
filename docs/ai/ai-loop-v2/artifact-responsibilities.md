@@ -218,6 +218,20 @@ source kind は少なくとも `human_feedback / issue / run_evidence / failure_
 
 accepted Requirement は `acceptance basis` を持ち、少なくとも `evidence / explicit_decision / policy_rule` のどれで採用されたかを辿れるようにする。inferred-only の claim を observed fact として扱うことは禁止するが、低リスク領域で policy が許す Requirement decision まで Human 固定にはしない。
 
+#### Feedback-to-PBI materialization
+
+AI-generated PBI は create-first にしない。新規作成前に既存の open Issue / PBI を検索し、source refs と Goal / Problem / Requirement / AC の重なりを確認する。
+
+| decision | 条件 | 動作 |
+| --- | --- | --- |
+| `update_existing` | 同じ Problem / intended outcome で、既存 authority / binding を壊さず追記できる | existing PBI に provenance / Evidence / Unknowns を追記 |
+| `link_only` | 新しい Evidence はあるが Scope / Requirement / AC を変えない | related ref を追加し、新しい PBI は作らない |
+| `create_new` | Goal / Problem / Requirement / AC が material に異なる | 新規 PBI を作り、related / predecessor ref を残す |
+
+この判定は dedicated registry / Knowledge Graph を要求しない。Phase 0 は repository / Issue search と既存 refs でよい。LLM 類似判定だけで既存 PBI / Issue を auto-close / auto-merge しない。
+
+既存 PBI が Plan Package / approval と binding 済みの場合、Goal / Requirement / AC の semantic change は `update_existing` の名目で上書きしない。North Star §9 の Replan / Plan Verification / policy boundary を通す。
+
 Traceability は意味の複製ではなく ref の接続で作る。最小経路は `Goal / Problem -> Requirement -> AC -> Plan decision / Task -> Test / Verifier Evidence` とし、既存の Current-Need Trace / AC mapping / Verification Trace / `acceptance_criteria_refs` を再利用する。Goal / Problem / Requirement の説明本文を `plan.md` / `todo.md` / WorkItemGraph にコピーせず、owner artifact を参照する。
 
 **LoopContract 側は導出規則の追加のみ**とする（§2 のとおり LoopContract は Plan Package から導出される）。
