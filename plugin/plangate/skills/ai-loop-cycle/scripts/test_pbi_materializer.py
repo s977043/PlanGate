@@ -1118,6 +1118,206 @@ class LiveShadowCaptureContractTests(unittest.TestCase):
         self.assertTrue(any("only valid when evidence_class=live_shadow" in e for e in errors))
 
 
+class LiveShadowRunEvidenceBindingTests(unittest.TestCase):
+    def _setup_bound_case(self, root, **capture_overrides):
+        (root / "docs").mkdir(parents=True, exist_ok=True)
+        (root / "scripts").mkdir(parents=True, exist_ok=True)
+        evidence_dir = root / "docs/working/TASK-9999/evidence"
+        evidence_dir.mkdir(parents=True, exist_ok=True)
+
+        capture_ref = "docs/working/TASK-9999/evidence/live-capture.json"
+        ev_ref = "docs/working/TASK-9999/evidence/run-evidence.json"
+
+        fixture = (
+            HERE.parent.parent
+            / "tests/fixtures/run-evidence/fx-01-first-pass.json"
+        )
+        ev = json.loads(fixture.read_text(encoding="utf-8"))
+
+        signal = {
+            "signal_id": "SIG-LIVE-001",
+            "source_ref": "TASK-9999/delivery/record.jsonl",
+            "source_kind": "existing_behavior",
+            "claim_class": "observed",
+            "statement": "Live delivery signal captured before RunEvidence finalization.",
+            "disposition": "actionable",
+            "target_layer": "delivery",
+            "candidate_problem": "Preserve the live signal as follow-up work.",
+        }
+        capture_args = {
+            "task_id": ev["task_id"],
+            "run_id": ev["run_id"],
+            "captured_at": "2099-12-31T12:00:00Z",
+            "runtime_head_sha": ev["final_head_sha"],
+            "capture_ref": capture_ref,
+            "signal": signal,
+        }
+        capture_args.update(capture_overrides)
+        capture = pm.build_passive_shadow_capture(**capture_args)
+
+        ev["evidence_refs"] = list(ev["evidence_refs"]) + [capture_ref]
+        (root / capture_ref).write_text(
+            json.dumps(capture, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        (root / ev_ref).write_text(
+            json.dumps(ev, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        case = {
+            "evidence_class": "live_shadow",
+            "live_capture": {
+                "capture_ref": capture_ref,
+                "run_evidence_ref": ev_ref,
+            },
+        }
+        return case, [capture_ref, ev_ref], capture, ev, capture_ref, ev_ref
+
+    def test_bound_live_capture_is_accepted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            case, refs, _capture, _ev, _cap_ref, _ev_ref = self._setup_bound_case(root)
+            errors = pm._validate_live_shadow_capture(
+                case, "case", refs, authority_root=root
+            )
+            self.assertEqual(errors, [])
+
+    def test_run_evidence_must_include_capture_ref(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            case, refs, _capture, ev, capture_ref, ev_ref = self._setup_bound_case(root)
+            ev["evidence_refs"] = [
+                ref for ref in ev["evidence_refs"] if ref != capture_ref
+            ]
+            (root / ev_ref).write_text(
+                json.dumps(ev, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            errors = pm._validate_live_shadow_capture(
+                case, "case", refs, authority_root=root
+            )
+            self.assertTrue(any("must include capture_ref" in e for e in errors))
+
+    def test_runtime_head_must_match_run_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            case, refs, capture, _ev, capture_ref, _ev_ref = self._setup_bound_case(root)
+            capture["runtime_head_sha"] = "0" * 40
+            (root / capture_ref).write_text(
+                json.dumps(capture, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            errors = pm._validate_live_shadow_capture(
+                case, "case", refs, authority_root=root
+            )
+            self.assertTrue(any("final_head_sha" in e for e in errors))
+
+    def test_capture_time_must_be_inside_run_window(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            case, refs, _capture, _ev, _cap_ref, _ev_ref = self._setup_bound_case(
+                root,
+                captured_at="2100-01-02T00:00:00Z",
+            )
+            errors = pm._validate_live_shadow_capture(
+                case, "case", refs, authority_root=root
+            )
+            self.assertTrue(any("inside RunEvidence" in e for e in errors))
+
+    def test_run_evidence_schema_is_revalidated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            case, refs, _capture, ev, _cap_ref, ev_ref = self._setup_bound_case(root)
+            del ev["terminal_state"]
+            (root / ev_ref).write_text(
+                json.dumps(ev, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            errors = pm._validate_live_shadow_capture(
+                case, "case", refs, authority_root=root
+            )
+            self.assertTrue(any("schema" in e and "terminal_state" in e for e in errors))
+
+    def test_passive_capture_has_no_write_close_suppression_or_oracle_authority(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _case, _refs, capture, _ev, _cap_ref, _ev_ref = self._setup_bound_case(root)
+            self.assertEqual(capture["mode"], "passive_shadow_capture")
+            self.assertFalse(capture["authority"]["write_allowed"])
+            self.assertFalse(capture["authority"]["close_allowed"])
+            self.assertFalse(capture["authority"]["suppression_allowed"])
+            self.assertFalse(capture["authority"]["oracle_attached"])
+            self.assertTrue(capture["signal_hash"].startswith("sha256:"))
+
+    def test_passive_capture_rejects_invalid_upstream_source_ref(self):
+        signal = {
+            "signal_id": "SIG-BAD-REF",
+            "source_ref": "../outside.json",
+            "source_kind": "existing_behavior",
+            "claim_class": "observed",
+            "statement": "Invalid upstream ref",
+            "disposition": "actionable",
+            "target_layer": "delivery",
+            "candidate_problem": "Should be rejected",
+        }
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.build_passive_shadow_capture(
+                task_id="TASK-9999",
+                run_id="run-live",
+                captured_at="2026-10-03T04:00:00Z",
+                runtime_head_sha="a" * 40,
+                capture_ref="docs/working/TASK-9999/evidence/capture.json",
+                signal=signal,
+            )
+        self.assertTrue(any("absolute/traversal ref rejected" in e for e in ctx.exception.errors))
+
+    def test_passive_capture_rejects_self_sourced_signal(self):
+        capture_ref = "docs/working/TASK-9999/evidence/capture.json"
+        signal = {
+            "signal_id": "SIG-SELF",
+            "source_ref": capture_ref,
+            "source_kind": "existing_behavior",
+            "claim_class": "observed",
+            "statement": "Self sourced",
+            "disposition": "actionable",
+            "target_layer": "delivery",
+            "candidate_problem": "Should be rejected",
+        }
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.build_passive_shadow_capture(
+                task_id="TASK-9999",
+                run_id="run-live",
+                captured_at="2026-10-03T04:00:00Z",
+                runtime_head_sha="a" * 40,
+                capture_ref=capture_ref,
+                signal=signal,
+            )
+        self.assertTrue(any("cannot cite its own capture_ref" in e for e in ctx.exception.errors))
+
+    def test_passive_capture_rejects_harness_signal(self):
+        signal = {
+            "signal_id": "SIG-H",
+            "source_ref": "docs/working/TASK-9999/evidence/capture.json",
+            "source_kind": "run_evidence",
+            "claim_class": "observed",
+            "statement": "Harness signal",
+            "disposition": "actionable",
+            "target_layer": "harness",
+            "candidate_problem": "Harness problem",
+        }
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.build_passive_shadow_capture(
+                task_id="TASK-9999",
+                run_id="run-live",
+                captured_at="2026-10-03T04:00:00Z",
+                runtime_head_sha="a" * 40,
+                capture_ref="docs/working/TASK-9999/evidence/capture.json",
+                signal=signal,
+            )
+        self.assertTrue(any("#874/#869" in e for e in ctx.exception.errors))
+
+
 class DeterminismAndSearchTests(unittest.TestCase):
     def test_same_input_is_byte_stable(self):
         a = pm.materialize(_payload(), [])
