@@ -48,7 +48,7 @@
 | --- | --- | --- | --- | --- |
 | REQ-001 | {何を解くための要求か} | {ref / provenance} | evidence / explicit_decision / policy_rule | AC-01 |
 
-> この表には policy 上 accepted と扱える Requirement だけを置く。candidate / unresolved は下の Unknowns に残し、Plan 側で補完・創作しない。`inferred` claim だけを根拠に事実認定したように書かない。`explicit_decision` は `decision_log` source、`policy_rule` は `policy` source の ref を Acceptance Basis の根拠として必ず辿れるようにする。
+> この表には policy 上 accepted と扱える Requirement だけを置く。candidate / unresolved は下の Unknowns に残し、Plan 側で補完・創作しない。`inferred` claim だけを根拠に事実認定したように書かない。`explicit_decision` は `decision_log` source、`policy_rule` は `policy` source の実在ファイル + rule fragment を Acceptance Basis の根拠として必ず辿れるようにする。
 
 ## What（Scope）
 
