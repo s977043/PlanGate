@@ -1276,18 +1276,17 @@ def inventory_live_shadow_cases(
             continue
 
         try:
-            mode = path.lstat().st_mode
-        except OSError as exc:
-            invalid.append({"ref": rel, "errors": [f"lstat failed: {exc}"]})
-            continue
-        if not stat.S_ISREG(mode):
-            invalid.append(
-                {"ref": rel, "errors": ["case artifact must be a regular file"]}
+            safe_path = _require_safe_repo_file(
+                root,
+                rel,
+                "case_artifact_ref",
             )
+        except CollectorError as exc:
+            invalid.append({"ref": rel, "errors": [str(exc)]})
             continue
 
         try:
-            case = _load_json_object(path, rel)
+            case = _load_json_object(safe_path, rel)
         except CollectorError as exc:
             invalid.append({"ref": rel, "errors": [str(exc)]})
             continue
