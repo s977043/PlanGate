@@ -171,7 +171,104 @@ def _claim_origin_ref(claim: dict[str, Any]) -> str:
     ).strip()
 
 
-def validate_payload(payload: Any) -> list[str]:
+def _detect_authority_root(authority_root=None) -> pathlib.Path | None:
+    """Resolve the repository root used only for acceptance-authority verification."""
+    candidates = []
+    if authority_root is not None:
+        candidates.append(pathlib.Path(authority_root))
+    candidates.append(pathlib.Path.cwd())
+    candidates.extend(HERE.parents)
+    seen = set()
+    for candidate in candidates:
+        try:
+            root = candidate.resolve()
+        except OSError:
+            continue
+        if root in seen:
+            continue
+        seen.add(root)
+        if not root.is_dir():
+            continue
+        if (root / "docs").is_dir() and (
+            (root / "scripts").is_dir() or (root / ".git").exists()
+        ):
+            return root
+    return None
+
+
+def _resolve_repo_authority_ref(
+    source_ref: str, authority_root=None
+) -> tuple[pathlib.Path | None, str, list[str]]:
+    """Resolve a repository-relative ref without permitting traversal or absolute paths."""
+    errors = []
+    root = _detect_authority_root(authority_root)
+    if root is None:
+        return None, "", [
+            "authority_ref: repository root could not be resolved; pass --authority-root"
+        ]
+
+    path_text, sep, fragment = source_ref.partition("#")
+    if not path_text or "\\" in path_text:
+        return None, fragment, [f"authority_ref: invalid repository path: {source_ref!r}"]
+    pure = pathlib.PurePosixPath(path_text)
+    if pure.is_absolute() or ".." in pure.parts:
+        return None, fragment, [f"authority_ref: absolute/traversal ref rejected: {source_ref!r}"]
+
+    resolved = (root / pathlib.Path(*pure.parts)).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError:
+        return None, fragment, [f"authority_ref: ref escapes repository root: {source_ref!r}"]
+    if not resolved.is_file():
+        return None, fragment, [f"authority_ref: repository source does not exist: {source_ref!r}"]
+    return resolved, fragment if sep else "", errors
+
+
+def _verify_acceptance_authority_ref(
+    source_ref: str, source_kind: str, authority_root=None
+) -> list[str]:
+    path, fragment, errors = _resolve_repo_authority_ref(source_ref, authority_root)
+    if errors or path is None:
+        return errors
+
+    if source_kind == "decision_log":
+        if path.name != "decision-log.jsonl":
+            return [
+                f"authority_ref: decision_log must reference decision-log.jsonl: {source_ref!r}"
+            ]
+        if not fragment:
+            return [
+                f"authority_ref: decision_log requires a decision_id fragment: {source_ref!r}"
+            ]
+        matches = 0
+        try:
+            for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if not line.strip():
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    return [
+                        f"authority_ref: malformed decision-log JSONL at {path.name}:{lineno}: {exc}"
+                    ]
+                if isinstance(record, dict) and record.get("decision_id") == fragment:
+                    matches += 1
+        except OSError as exc:
+            return [f"authority_ref: cannot read {source_ref!r}: {exc}"]
+        if matches != 1:
+            return [
+                f"authority_ref: decision_id {fragment!r} must exist exactly once in {path.name}; found {matches}"
+            ]
+    elif source_kind == "policy":
+        # File existence is the authority boundary in this slice. Fragment-level Markdown
+        # anchor validation is intentionally not a new parser/authority.
+        pass
+    else:
+        return [f"authority_ref: unsupported acceptance authority kind: {source_kind!r}"]
+    return []
+
+
+def validate_payload(payload: Any, authority_root=None) -> list[str]:
     errors: list[str] = []
     if not isinstance(payload, dict):
         return ["payload: object required"]
@@ -334,11 +431,25 @@ def validate_payload(payload: Any) -> list[str]:
                 errors.append(
                     f"requirements[{i}].basis_ref: explicit_decision must reference decision_log provenance"
                 )
+            else:
+                errors.extend(
+                    f"requirements[{i}].basis_ref: {error}"
+                    for error in _verify_acceptance_authority_ref(
+                        basis_ref, "decision_log", authority_root
+                    )
+                )
         elif req.get("acceptance_basis") == "policy_rule":
             kinds = source_kinds_by_ref.get(basis_ref, set())
             if "policy" not in kinds:
                 errors.append(
                     f"requirements[{i}].basis_ref: policy_rule must reference policy provenance"
+                )
+            else:
+                errors.extend(
+                    f"requirements[{i}].basis_ref: {error}"
+                    for error in _verify_acceptance_authority_ref(
+                        basis_ref, "policy", authority_root
+                    )
                 )
         related_ac = req.get("related_ac")
         if not isinstance(related_ac, str) or not related_ac.strip():
@@ -417,13 +528,15 @@ def _validate_existing_work(existing_work: Any) -> list[str]:
 
 
 def decide_materialization(
-    payload: dict[str, Any], existing_work: list[dict[str, Any]]
+    payload: dict[str, Any],
+    existing_work: list[dict[str, Any]],
+    authority_root=None,
 ) -> dict[str, Any]:
     """Deterministically choose update_existing/link_only/create_new.
 
     Matching is exact/canonical only. No fuzzy/LLM similarity is used.
     """
-    errors = validate_payload(payload)
+    errors = validate_payload(payload, authority_root=authority_root)
     if errors:
         raise MaterializationError(errors)
     existing_errors = _validate_existing_work(existing_work)
@@ -874,9 +987,13 @@ def compare_shadow(
 
 
 def materialize(
-    payload: dict[str, Any], existing_work: list[dict[str, Any]]
+    payload: dict[str, Any],
+    existing_work: list[dict[str, Any]],
+    authority_root=None,
 ) -> dict[str, Any]:
-    decision = decide_materialization(payload, existing_work)
+    decision = decide_materialization(
+        payload, existing_work, authority_root=authority_root
+    )
     readiness = plan_readiness(payload, decision)
     markdown = render_pbi_markdown(payload, decision, readiness)
     proposal_kind = {
@@ -919,6 +1036,10 @@ def main(argv=None) -> int:
     parser.add_argument("--input", required=True, help="normalized PBI payload JSON")
     parser.add_argument("--existing", help="normalized existing-work JSON array")
     parser.add_argument(
+        "--authority-root",
+        help="repository root for read-only decision_log/policy authority verification",
+    )
+    parser.add_argument(
         "--expected",
         help="optional reviewed shadow expectation JSON; comparison only, never enables writes",
     )
@@ -932,7 +1053,8 @@ def main(argv=None) -> int:
 
     try:
         payload = _load_json(pathlib.Path(args.input), dict, "--input")
-        errors = validate_payload(payload)
+        authority_root = pathlib.Path(args.authority_root) if args.authority_root else None
+        errors = validate_payload(payload, authority_root=authority_root)
         if errors:
             raise MaterializationError(errors)
         existing: list[dict[str, Any]] = []
@@ -940,7 +1062,7 @@ def main(argv=None) -> int:
             existing.extend(_load_json(pathlib.Path(args.existing), list, "--existing"))
         if args.working_root:
             existing.extend(scan_working_pbis(pathlib.Path(args.working_root), payload))
-        result = materialize(payload, existing)
+        result = materialize(payload, existing, authority_root=authority_root)
         if args.expected:
             if args.format != "json":
                 raise MaterializationError([
