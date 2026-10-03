@@ -45,6 +45,7 @@ import run_evidence  # noqa: E402
 TASK_ID_RE = re.compile(r"^TASK-[0-9]{4}$")
 
 VALID_AUTHORS = {"human", "ai", "mixed"}
+VALID_DISCOVERY_DEPTHS = {"minimal", "expanded"}
 VALID_TIMINGS = {"follow_up", "replan_current"}
 VALID_TARGETS = {"delivery", "harness"}
 VALID_CLAIM_CLASSES = {"observed", "reported", "inferred"}
@@ -186,6 +187,17 @@ def validate_payload(payload: Any) -> list[str]:
     author = payload.get("author")
     if author not in VALID_AUTHORS:
         errors.append(f"author: one of {sorted(VALID_AUTHORS)} required")
+
+    discovery_depth = payload.get("discovery_depth", "minimal")
+    if discovery_depth not in VALID_DISCOVERY_DEPTHS:
+        errors.append(
+            f"discovery_depth: one of {sorted(VALID_DISCOVERY_DEPTHS)} required"
+        )
+    actor_job = payload.get("actor_job")
+    if actor_job is not None and (
+        not isinstance(actor_job, str) or not actor_job.strip()
+    ):
+        errors.append("actor_job: omitted or non-empty string required")
 
     timing = payload.get("application_timing")
     target = payload.get("target_layer")
@@ -405,6 +417,11 @@ def decide_materialization(
 
     p_sources = _payload_source_refs(payload)
     p_reqs, p_acs = _semantic_sets(payload)
+    checked_refs = sorted(
+        item["ref"]
+        for item in existing_work
+        if isinstance(item, dict) and isinstance(item.get("ref"), str)
+    )
     p_goal = _norm(payload["goal"])
     p_problem = _norm(payload["problem"])
 
@@ -437,6 +454,7 @@ def decide_materialization(
             "decision": "create_new",
             "matched_ref": None,
             "related_refs": [],
+            "checked_refs": checked_refs,
             "requires_replan": False,
             "reason": "no deterministic existing-work match",
         }
@@ -470,6 +488,7 @@ def decide_materialization(
             "decision": "link_only",
             "matched_ref": best["ref"],
             "related_refs": related_refs,
+            "checked_refs": checked_refs,
             "requires_replan": False,
             "reason": "same goal/problem/requirements/AC; link evidence only",
         }
@@ -480,6 +499,7 @@ def decide_materialization(
             "decision": "update_existing",
             "matched_ref": best["ref"],
             "related_refs": related_refs,
+            "checked_refs": checked_refs,
             "requires_replan": bound,
             "reason": (
                 "same goal/problem with semantic delta; bound PBI requires replan"
@@ -492,6 +512,7 @@ def decide_materialization(
         "decision": "create_new",
         "matched_ref": None,
         "related_refs": related_refs,
+        "checked_refs": checked_refs,
         "requires_replan": False,
         "reason": "source overlap exists but goal/problem materially differs",
     }
@@ -561,6 +582,7 @@ def _validate_materialization_decision(decision: Any) -> list[str]:
         errors.append("decision.matched_ref: null or non-empty string required")
 
     _as_string_list(decision.get("related_refs"), "decision.related_refs", errors)
+    _as_string_list(decision.get("checked_refs"), "decision.checked_refs", errors)
 
     if not isinstance(decision.get("requires_replan"), bool):
         errors.append("decision.requires_replan: boolean required")
@@ -678,25 +700,46 @@ def render_pbi_markdown(
     source_runs = _as_string_list(payload.get("source_run_refs"), "source_run_refs", [])
     candidate_ref = payload.get("harness_candidate_ref") or "N/A"
     related = ", ".join(decision.get("related_refs") or []) or "（なし）"
+    checked = ", ".join(decision.get("checked_refs") or []) or "（候補refなし）"
+    problem_refs = sorted({
+        _claim_origin_ref(claim)
+        for claim in claims
+        if isinstance(claim, dict)
+        and _norm(claim.get("supports")) == "problem"
+        and _claim_origin_ref(claim)
+    })
+    update_warning = (
+        "> update_existing is a semantic patch proposal. Do not replace the bound PBI "
+        "body without the existing Replan / policy path.\n\n"
+        if decision["decision"] == "update_existing"
+        else ""
+    )
 
     return (
         f"# PBI INPUT PACKAGE: {payload['title']}\n\n"
         f"> Materializer mode: shadow / read-only. This output does not authorize execution.\n\n"
-        f"## Context / Why\n\n{payload['problem']}\n\n"
+        + update_warning
+        + f"## Context / Why\n\n{payload['problem']}\n\n"
         f"### Bounded Discovery\n\n"
+        f"- Discovery depth: {payload.get('discovery_depth', 'minimal')}\n"
+        f"- Actor / Job: {payload.get('actor_job') or '（minimal: not supplied）'}\n"
         f"- PBI author: {payload['author']}\n"
         f"- Application timing: {payload['application_timing']}\n"
         f"- Target layer: {payload['target_layer']}\n"
         f"- Source run / failure refs: {', '.join(source_runs) or '（なし）'}\n"
         f"- HarnessImprovementCandidate ref: {candidate_ref}\n"
-        f"- Materialization decision: {decision['decision']}\n"
-        f"- Matched existing ref: {decision.get('matched_ref') or '（なし）'}\n"
-        f"- Related refs: {related}\n"
-        f"- Requires replan: {str(bool(decision.get('requires_replan'))).lower()}\n"
+        f"- Problem evidence refs: {', '.join(problem_refs) or '（なし）'}\n"
         f"- Plan readiness: {readiness['status']} ({readiness['route']})\n\n"
         f"#### Source / Feedback Provenance\n\n"
         + "\n".join(prov_rows)
-        + "\n\n#### Requirement Discovery Trace\n\n"
+        + "\n\n#### Existing Work Check\n\n"
+        + f"- Checked candidate refs: {checked}\n"
+        + f"- Materialization decision: {decision['decision']}\n"
+        + f"- Matched existing ref: {decision.get('matched_ref') or '（なし）'}\n"
+        + f"- Related PBI / Issue refs: {related}\n"
+        + f"- Requires replan: {str(bool(decision.get('requires_replan'))).lower()}\n"
+        + f"- Decision reason: {decision['reason']}\n"
+        + "\n#### Requirement Discovery Trace\n\n"
         + "\n".join(req_rows)
         + "\n\n## What（Scope）\n\n### In scope\n\n"
         + _bullets(payload.get("in_scope", []))
@@ -821,9 +864,19 @@ def materialize(
     decision = decide_materialization(payload, existing_work)
     readiness = plan_readiness(payload, decision)
     markdown = render_pbi_markdown(payload, decision, readiness)
+    proposal_kind = {
+        "create_new": "full_draft",
+        "update_existing": "semantic_patch_proposal",
+        "link_only": "link_evidence_only",
+    }[decision["decision"]]
     result = {
         "mode": "shadow",
         "task_id": payload["task_id"],
+        "proposal_kind": proposal_kind,
+        "apply_contract": {
+            "write_allowed": False,
+            "replacement_allowed": False,
+        },
         "decision": decision,
         "readiness": readiness,
         "pbi_markdown": markdown,
