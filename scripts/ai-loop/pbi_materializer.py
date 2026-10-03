@@ -1669,6 +1669,8 @@ def evaluate_shadow_batch(
                     "evidence_refs": list(case.get("evidence_refs", [])),
                     "status": comparison["status"],
                     "mismatches": comparison["mismatches"],
+                    "actual_decision": result["decision"]["decision"],
+                    "actual_readiness_route": result["readiness"]["route"],
                 }
             )
         except MaterializationError as exc:
@@ -2013,6 +2015,94 @@ def evaluate_admission_batch(
     return report
 
 
+def _validate_evaluation_report_consistency(
+    report: Any,
+    kind: str,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(report, dict):
+        return [f"{kind}_report: object required"]
+
+    cases = report.get("cases")
+    if not isinstance(cases, list):
+        return [f"{kind}_report.cases: array required"]
+
+    live_count = sum(
+        1
+        for case in cases
+        if isinstance(case, dict)
+        and case.get("evidence_class") == "live_shadow"
+    )
+    error_count = sum(
+        1
+        for case in cases
+        if isinstance(case, dict)
+        and case.get("status") == "error"
+    )
+
+    metrics = report.get("metrics")
+    overall = metrics.get("overall") if isinstance(metrics, dict) else None
+    reported_errors = overall.get("errors") if isinstance(overall, dict) else None
+    if reported_errors != error_count:
+        errors.append(
+            f"{kind}_report.metrics.overall.errors: summary/cases mismatch "
+            f"({reported_errors!r} != {error_count})"
+        )
+
+    rollout = report.get("rollout_evidence")
+    if not isinstance(rollout, dict):
+        errors.append(f"{kind}_report.rollout_evidence: object required")
+        rollout = {}
+
+    if rollout.get("live_shadow_cases") != live_count:
+        errors.append(
+            f"{kind}_report.rollout_evidence.live_shadow_cases: summary/cases mismatch "
+            f"({rollout.get('live_shadow_cases')!r} != {live_count})"
+        )
+
+    if kind == "materialization":
+        observed = sorted({
+            case.get("actual_decision")
+            for case in cases
+            if isinstance(case, dict)
+            and isinstance(case.get("actual_decision"), str)
+        })
+        reported = rollout.get("observed_decisions")
+        if reported != observed:
+            errors.append(
+                "materialization_report.rollout_evidence.observed_decisions: "
+                f"summary/cases mismatch ({reported!r} != {observed!r})"
+            )
+    elif kind == "admission":
+        observed = sorted({
+            case.get("actual")
+            for case in cases
+            if isinstance(case, dict)
+            and isinstance(case.get("actual"), str)
+        })
+        coverage = report.get("coverage")
+        if not isinstance(coverage, dict):
+            errors.append("admission_report.coverage: object required")
+            coverage = {}
+        reported_observed = coverage.get("observed_admission_decisions")
+        if reported_observed != observed:
+            errors.append(
+                "admission_report.coverage.observed_admission_decisions: "
+                f"summary/cases mismatch ({reported_observed!r} != {observed!r})"
+            )
+        expected_complete = set(observed) == VALID_ADMISSION_DECISIONS
+        if coverage.get("decision_coverage_complete") is not expected_complete:
+            errors.append(
+                "admission_report.coverage.decision_coverage_complete: "
+                f"summary/cases mismatch ({coverage.get('decision_coverage_complete')!r} "
+                f"!= {expected_complete!r})"
+            )
+    else:
+        errors.append(f"evaluation_report.kind: unsupported {kind!r}")
+
+    return errors
+
+
 def _validate_write_review_assessment_input(
     assessment: Any,
     authority_root=None,
@@ -2039,6 +2129,23 @@ def _validate_write_review_assessment_input(
     elif admission_report.get("mode") != "admission_evaluation":
         errors.append(
             "write_review_assessment.admission_report.mode: admission_evaluation required"
+        )
+
+    if isinstance(materialization_report, dict):
+        errors.extend(
+            "write_review_assessment." + error
+            for error in _validate_evaluation_report_consistency(
+                materialization_report,
+                "materialization",
+            )
+        )
+    if isinstance(admission_report, dict):
+        errors.extend(
+            "write_review_assessment." + error
+            for error in _validate_evaluation_report_consistency(
+                admission_report,
+                "admission",
+            )
         )
 
     for label, report in (
