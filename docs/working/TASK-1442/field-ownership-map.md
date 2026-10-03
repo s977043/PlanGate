@@ -35,7 +35,10 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | RunEvidence / FailureRecord | referenced evidence | V2 event projection / failure contract | source ref と claim class を保持。唯一のPBI authorityにはしない |
 | decision-log | referenced decision | existing task decision log | `source_kind=decision_log` + 実在 `decision-log.jsonl#<decision_id>` を explicit_decision の basis ref に利用。自由記述 ref のみでは authority を成立させない |
 | hidden CoT / raw transcript / session log | forbidden | — | 入力/出力の保存を拒否 |
-| Shadow evaluation report | derived evidence | materializer evaluator | train/test metricsを生成するが write / promotion authority を持たない |
+| Shadow evaluation report | derived evidence | materializer evaluator | train/test + evidence-class metricsを生成するが write / promotion authority を持たない |
+| evidence class | derived evaluation metadata | evaluation caller | synthetic_fixture / historical_replay / live_shadow。synthetic を rollout evidence と数えない |
+| historical/live evidence refs | referenced evidence | tracked repository artifact / live run evidence | repository-visible ref の実在を検証。historical harness signal は #874/#869 へ委譲 |
+| shadow oracle ref | referenced evaluation evidence | reviewed oracle artifact | historical/live では repo 内実在 + source evidence と別 artifact を要求。author independence は別途必要 |
 | GitHub Issue close/merge | forbidden action | GitHub / Human policy | materializerは実行しない |
 | Production Harness promotion | forbidden action | Human-owned boundary | materializerは実行しない |
 
@@ -103,3 +106,24 @@ automatic_promotion = false
 ```
 
 を返す。train/test が 100% でも automatic write / promotion を有効化しない。
+
+
+## Historical replay boundary
+
+Repository-grounded replay は `synthetic_fixture` と分離して `historical_replay` として記録する。
+
+- historical/live case は `evidence_refs[]` が必須で、repository root 内に実在することを検証する。
+- Harness target の historical replay は materializer で trigger 判断を再実装せず、#874 `to_shadow_candidate_input()` → #869 HarnessImprovementCandidate / Evolution に委譲する。
+- historical/live case の `oracle_ref` は repository-visible な実在 artifact を要求し、source evidence 自身を oracle として再利用しない。
+- ただし **oracle artifact が別ファイルであることは reviewer independence を意味しない**。独立 reviewer / evaluator による隔離は caller 側の責務。
+
+現時点の historical corpus は delivery target の positive materialization 2 件のみであり、次を保証しない:
+
+```text
+materialization_admission_evaluated = false
+no_action_coverage = false
+oracle_independence_enforced = false
+write_review_eligible = false
+```
+
+したがって historical replay の 100% match は automatic write 解放条件にならない。
