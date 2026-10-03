@@ -235,7 +235,9 @@ _t97_rc=0
   --observations "$_t97_obs" \
   >"$_t97_tmp/fake-human.out" 2>"$_t97_tmp/fake-human.err" || _t97_rc=$?
 
-if [ "$_t97_rc" -eq 2 ] && grep -q 'rollout_decision_recorded' "$_t97_tmp/fake-human.err"; then
+if [ "$_t97_rc" -eq 2 ] \
+  && grep -q 'observations\[4\]\.kind: one of' "$_t97_tmp/fake-human.err" \
+  && grep -q "unsupported keys: \['decision'\]" "$_t97_tmp/fake-human.err"; then
   printf '  [PASS] human boundary: self-declared rollout decision rejected\n'
   pass=$((pass + 1))
 else
