@@ -32,7 +32,7 @@ Production
   -> Evolve (only when a cross-run pattern justifies it)
 ```
 
-Production signal の到着は **実装権限・承認・merge 権限を与えない**。既存の Contract / Policy / Human-owned boundary を通る。
+Production signal の到着は **実装権限・承認・merge 権限を与えない**。既存の Contract / Policy / Human-owned boundary を通る。外部 event を active Run の Contract や Harness identity へ後付け注入せず、必要なら新しい bounded work / Run の入力として取り込む。
 
 ## 2. Responsibility boundary
 
@@ -40,7 +40,7 @@ Production signal の到着は **実装権限・承認・merge 権限を与え�
 |---|---|---|
 | Production signal の収集・grouping | External observability / provider adapter | 外部 system + adapter |
 | signal を V2 が読める Evidence へ正規化 | Harness intake | Phase 1 RunEvent / Evidence owner |
-| どの event を work 候補へするか | Trigger Policy | protected policy。Human-owned 変更境界を維持 |
+| どの event を work 候補へするか | Trigger Policy | Phase 1 で owner を確定。approval / permission / security policy に触れる変更は既存の Human-owned 境界を維持 |
 | issue 調査・修正を `MERGE_READY` へ収束 | Delivery Loop | [`north-star.md`](./north-star.md) |
 | failure / recovery の記録 | RunEvent / FailureRecord / RunEvidence | [`artifact-responsibilities.md`](./artifact-responsibilities.md) |
 | 複数 Run から改善候補を作る | Evolution Loop | [`north-star.md`](./north-star.md) |
@@ -81,7 +81,7 @@ Raw telemetry
 - occurrence / trend: 発生数・増減。provider が供給する場合のみ
 - deployed_artifact_ref: version / commit / deployment identifier
 - diagnostic_refs: logs / traces / stack trace / request evidence
-- application_context_refs: user / account / session 等のうち、安全に参照可能なもの
+- application_context_refs: 調査に必要な場合のみ、user / account / session 等を直接値ではなく opaque ref 等で安全に参照するための情報
 - missing_evidence: 欠けている情報
 - uncertainty: grouping / cause 推定の不確実性
 - sanitization: redaction / omission の実施情報
@@ -116,7 +116,7 @@ Trigger は少なくとも次の入力を扱えること。
 Runtime Evidence Package
   -> deterministic filters
   -> dedupe / cooldown
-  -> protected Trigger Policy
+  -> Trigger Policy
   -> enqueue bounded work OR notify / escalate / ignore-with-record
 ```
 
@@ -127,7 +127,7 @@ Runtime Evidence Package
 3. independent classification when deterministic rule aloneでは足りない
 4. Human escalation
 
-LLM の判断だけで permission / approval boundary を変更しない。
+LLM の判断だけで permission / approval boundary を変更しない。Trigger Policy 自体の変更も、既存の policy governance と North Star §3 / §15 の authority 境界に従う。
 
 ### Trigger outcome
 
@@ -221,7 +221,7 @@ Production telemetry は開発時 Evidence より機微情報を含みやすい�
 
 - token / credential / cookie / authorization header を Agent context へ渡さない
 - request / response body は既定で raw 転送しない
-- user / account / session identifier は用途・保持期間・アクセス権を明示し、可能なら opaque ref / hashed identifier を使う
+- user / account / session の直接識別子を既定で Agent context に入れない。必要な場合も用途・保持期間・アクセス権を明示し、opaque ref 等で最小化する
 - raw telemetry は必要最小限を参照し、Human-facing artifact へ複製しない
 - provider webhook は署名検証・replay 対策・idempotency を持つ
 - external tool query は least privilege / read-only を既定とする
