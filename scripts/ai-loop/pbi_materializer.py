@@ -62,6 +62,7 @@ VALID_SOURCE_KINDS = {
 VALID_ACCEPTANCE_BASES = {"evidence", "explicit_decision", "policy_rule"}
 VALID_DECISIONS = {"update_existing", "link_only", "create_new"}
 VALID_READINESS_STATUSES = {"ready", "blocked"}
+VALID_EVAL_SPLITS = {"train", "test"}
 VALID_READINESS_ROUTES = {
     "future_run",
     "replan_current",
@@ -986,6 +987,154 @@ def compare_shadow(
     return comparison
 
 
+def _validate_shadow_batch(cases: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(cases, list) or not cases:
+        return ["shadow_batch: non-empty array required"]
+
+    seen_refs: set[str] = set()
+    has_test = False
+    for i, case in enumerate(cases):
+        if not isinstance(case, dict):
+            errors.append(f"shadow_batch[{i}]: object required")
+            continue
+
+        case_ref = case.get("case_ref")
+        if not isinstance(case_ref, str) or not case_ref.strip():
+            errors.append(f"shadow_batch[{i}].case_ref: non-empty string required")
+        elif case_ref in seen_refs:
+            errors.append(f"shadow_batch[{i}].case_ref: duplicate {case_ref}")
+        else:
+            seen_refs.add(case_ref)
+
+        split = case.get("split")
+        if split not in VALID_EVAL_SPLITS:
+            errors.append(
+                f"shadow_batch[{i}].split: one of {sorted(VALID_EVAL_SPLITS)} required"
+            )
+        elif split == "test":
+            has_test = True
+
+        if not isinstance(case.get("payload"), dict):
+            errors.append(f"shadow_batch[{i}].payload: object required")
+        if not isinstance(case.get("existing_work"), list):
+            errors.append(f"shadow_batch[{i}].existing_work: array required")
+        errors.extend(
+            f"shadow_batch[{i}].{error}"
+            for error in _validate_shadow_expected(case.get("expected"))
+        )
+
+    if not has_test:
+        errors.append(
+            "shadow_batch: at least one test split case is required; train-only evidence cannot support rollout evaluation"
+        )
+
+    errors.extend(_privacy_errors({"shadow_batch": cases}))
+    return errors
+
+
+def _metric_bucket() -> dict[str, int]:
+    return {
+        "total": 0,
+        "exact_matches": 0,
+        "decision_matches": 0,
+        "readiness_matches": 0,
+        "errors": 0,
+    }
+
+
+def _finalize_metrics(bucket: dict[str, int]) -> dict[str, Any]:
+    total = bucket["total"]
+
+    def _rate(value: int) -> float:
+        return 0.0 if total == 0 else round(value / total, 6)
+
+    return {
+        **bucket,
+        "exact_match_rate": _rate(bucket["exact_matches"]),
+        "decision_accuracy": _rate(bucket["decision_matches"]),
+        "readiness_accuracy": _rate(bucket["readiness_matches"]),
+    }
+
+
+def evaluate_shadow_batch(
+    cases: list[dict[str, Any]], authority_root=None
+) -> dict[str, Any]:
+    """Evaluate reviewed train/test cases without granting write authority."""
+    errors = _validate_shadow_batch(cases)
+    if errors:
+        raise MaterializationError(errors)
+
+    metrics = {
+        "overall": _metric_bucket(),
+        "train": _metric_bucket(),
+        "test": _metric_bucket(),
+    }
+    case_results: list[dict[str, Any]] = []
+
+    for case in cases:
+        split = case["split"]
+        for key in ("overall", split):
+            metrics[key]["total"] += 1
+
+        try:
+            result = materialize(
+                case["payload"],
+                case["existing_work"],
+                authority_root=authority_root,
+            )
+            comparison = compare_shadow(result, case["expected"])
+            exact = comparison["status"] == "match"
+            decision_ok = (
+                comparison["checks"]["decision"]
+                and comparison["checks"]["matched_ref"]
+            )
+            readiness_ok = (
+                comparison["checks"]["readiness_status"]
+                and comparison["checks"]["readiness_route"]
+            )
+
+            for key in ("overall", split):
+                metrics[key]["exact_matches"] += int(exact)
+                metrics[key]["decision_matches"] += int(decision_ok)
+                metrics[key]["readiness_matches"] += int(readiness_ok)
+
+            case_results.append(
+                {
+                    "case_ref": case["case_ref"],
+                    "split": split,
+                    "status": comparison["status"],
+                    "mismatches": comparison["mismatches"],
+                }
+            )
+        except MaterializationError as exc:
+            for key in ("overall", split):
+                metrics[key]["errors"] += 1
+            case_results.append(
+                {
+                    "case_ref": case["case_ref"],
+                    "split": split,
+                    "status": "error",
+                    "mismatches": ["materialization_error"],
+                    "errors": list(exc.errors),
+                }
+            )
+
+    report = {
+        "mode": "shadow_evaluation",
+        "write_allowed": False,
+        "automatic_promotion": False,
+        "metrics": {
+            key: _finalize_metrics(value) for key, value in metrics.items()
+        },
+        "cases": case_results,
+    }
+    privacy = _privacy_errors({"shadow_evaluation": report})
+    if privacy:
+        raise MaterializationError(privacy)
+    return report
+
+
 def materialize(
     payload: dict[str, Any],
     existing_work: list[dict[str, Any]],
@@ -1033,7 +1182,11 @@ def _load_json(path: pathlib.Path, expected: type, label: str):
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", required=True, help="normalized PBI payload JSON")
+    parser.add_argument("--input", help="normalized PBI payload JSON")
+    parser.add_argument(
+        "--eval-batch",
+        help="reviewed train/test shadow cases JSON array; evaluation-only and never enables writes",
+    )
     parser.add_argument("--existing", help="normalized existing-work JSON array")
     parser.add_argument(
         "--authority-root",
@@ -1052,24 +1205,40 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        payload = _load_json(pathlib.Path(args.input), dict, "--input")
+        if bool(args.input) == bool(args.eval_batch):
+            raise MaterializationError([
+                "exactly one of --input or --eval-batch is required"
+            ])
+
         authority_root = pathlib.Path(args.authority_root) if args.authority_root else None
-        errors = validate_payload(payload, authority_root=authority_root)
-        if errors:
-            raise MaterializationError(errors)
-        existing: list[dict[str, Any]] = []
-        if args.existing:
-            existing.extend(_load_json(pathlib.Path(args.existing), list, "--existing"))
-        if args.working_root:
-            existing.extend(scan_working_pbis(pathlib.Path(args.working_root), payload))
-        result = materialize(payload, existing, authority_root=authority_root)
-        if args.expected:
+
+        if args.eval_batch:
             if args.format != "json":
+                raise MaterializationError(["--eval-batch requires --format json"])
+            if args.existing or args.expected or args.working_root:
                 raise MaterializationError([
-                    "--expected requires --format json so comparison evidence is not hidden"
+                    "--eval-batch cannot be combined with --existing/--expected/--working-root"
                 ])
-            expected = _load_json(pathlib.Path(args.expected), dict, "--expected")
-            result["shadow_comparison"] = compare_shadow(result, expected)
+            cases = _load_json(pathlib.Path(args.eval_batch), list, "--eval-batch")
+            result = evaluate_shadow_batch(cases, authority_root=authority_root)
+        else:
+            payload = _load_json(pathlib.Path(args.input), dict, "--input")
+            errors = validate_payload(payload, authority_root=authority_root)
+            if errors:
+                raise MaterializationError(errors)
+            existing: list[dict[str, Any]] = []
+            if args.existing:
+                existing.extend(_load_json(pathlib.Path(args.existing), list, "--existing"))
+            if args.working_root:
+                existing.extend(scan_working_pbis(pathlib.Path(args.working_root), payload))
+            result = materialize(payload, existing, authority_root=authority_root)
+            if args.expected:
+                if args.format != "json":
+                    raise MaterializationError([
+                        "--expected requires --format json so comparison evidence is not hidden"
+                    ])
+                expected = _load_json(pathlib.Path(args.expected), dict, "--expected")
+                result["shadow_comparison"] = compare_shadow(result, expected)
     except MaterializationError as exc:
         for error in exc.errors:
             print(f"[pbi-materializer] FAIL: {error}", file=sys.stderr)
