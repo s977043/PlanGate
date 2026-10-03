@@ -513,7 +513,46 @@ Before any runtime implementation, verify at least these negative cases:
 - replacing River Review, Verifier, Decision Engine, or Policy;
 - storing hidden CoT / raw unbounded transcripts.
 
-## 12. Implementation seam
+## 12. Projection semantics
+
+Certification View should not invent a parallel status taxonomy such as `trusted / untrusted / satisfied / unresolved` for required verifier outcomes.
+
+For required Delivery verifiers, reuse the Decision Engine's existing derived `artifact_verdicts` semantics:
+
+```text
+pass
+fail
+unavailable
+```
+
+where the derivation already accounts for current artifact binding and contract-boundary behavior.
+
+The view may preserve the underlying raw VerificationResult statuses (`pass | fail | unavailable | inconclusive`) through refs or detail, but the required-verifier summary used for Delivery consistency should match the existing `artifact_verdicts(...)` result for the same inputs.
+
+An illustrative non-authoritative projection is:
+
+```text
+target_ref
+loop_contract_ref
+required_verifiers:
+  - verifier_id
+    kind
+    artifact_verdict: pass | fail | unavailable
+    supporting_verification_refs[]
+supplemental_evidence_refs[]
+```
+
+This is a semantic example, not a new schema.
+
+Important constraints:
+
+- `inconclusive` is not silently converted to PASS; under the existing artifact-verdict derivation it contributes to `unavailable` when no bound PASS/FAIL decides the verifier;
+- ignored / stale / non-required results may remain reachable for audit, but do not change the required-verifier summary;
+- the view must not create another confidence score;
+- the view must not copy free-form evidence bodies when refs are sufficient;
+- machine and Human presentations must be projections of the same derived verifier state, not separate judgment implementations.
+
+## 13. Implementation seam
 
 A future runtime slice should reuse the contracts already being defined for Delivery V2 rather than invent a Certification schema first.
 
@@ -556,7 +595,7 @@ The exact function / field names are illustrative and non-normative. The impleme
 
 This gives a small first vertical slice that can be shadow-evaluated before any routing behavior changes.
 
-## 13. Relationship to existing V2 docs
+## 14. Relationship to existing V2 docs
 
 This guide is subordinate to:
 
