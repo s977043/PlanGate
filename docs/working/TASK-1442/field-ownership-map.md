@@ -318,3 +318,15 @@ upstream_source_preexistence_owner = caller_or_capture_pipeline
 したがって external feedback / Issue / chat 由来の signal は、raw URL や一時本文を直接 live evidence とせず、まず repository-visible な evidence artifact / snapshot として materialize してから `source_ref` へ束縛する。
 
 materializer は source artifact の **存在と分離** を検証するが、「capture より前から存在した」という時間的真正性までは保証しない。
+
+
+## Concrete final-head boundary
+
+passive live-shadow capture は terminal label ではなく、後続 RunEvidence が concrete 40-hex `final_head_sha` を持てるかで適用可否を決める。
+
+```text
+live_capture_requires_concrete_final_head_sha = true
+unavailable_final_head_live_capture_supported = false
+```
+
+`final_head_sha="unavailable"` の run では live capture を生成せず、`source_sha` / `target_sha` 等を代用して契約を満たしたことにしない。BLOCKED-without-head を扱うには別の binding design が必要であり、本 slice では扱わない。
