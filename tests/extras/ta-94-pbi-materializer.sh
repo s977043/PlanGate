@@ -470,5 +470,148 @@ else
   fail=$((fail + 1))
 fi
 
+# 11. Cross-module live-shadow E2E: capture -> RunEvidence binding -> admission evaluation.
+_t94_live_root="$_t94_tmp/live-root"
+mkdir -p \
+  "$_t94_live_root/docs/live" \
+  "$_t94_live_root/docs/reviews" \
+  "$_t94_live_root/scripts" \
+  "$_t94_live_root/TASK-9999/delivery"
+printf '{"kind":"state","state":"MERGE_READY"}\n' \
+  >"$_t94_live_root/TASK-9999/delivery/record.jsonl"
+printf '# Independent live admission oracle\n' \
+  >"$_t94_live_root/docs/reviews/live-admission.md"
+
+_t94_live_signal="$_t94_tmp/e2e-live-signal.json"
+cat >"$_t94_live_signal" <<'JSON'
+{
+  "signal_id": "SIG-TA94-E2E",
+  "source_ref": "TASK-9999/delivery/record.jsonl",
+  "source_kind": "existing_behavior",
+  "claim_class": "observed",
+  "statement": "Completed run has no new PBI-worthy finding.",
+  "disposition": "informational",
+  "target_layer": "delivery",
+  "candidate_problem": null
+}
+JSON
+
+_t94_live_capture_ref="docs/live/capture.json"
+_t94_live_ev_ref="docs/live/run-evidence.json"
+_t94_rc=0
+"$_T94_PY" "$_T94_AI_LOOP/pbi_materializer.py" \
+  --capture-signal "$_t94_live_signal" \
+  --capture-task-id TASK-9999 \
+  --capture-run-id run-01 \
+  --captured-at 2099-12-31T12:00:00Z \
+  --runtime-head-sha abcdef1234567890abcdef1234567890abcdef12 \
+  --capture-ref "$_t94_live_capture_ref" \
+  --format json \
+  >"$_t94_live_root/$_t94_live_capture_ref" \
+  2>"$_t94_tmp/e2e-capture.err" || _t94_rc=$?
+
+if [ "$_t94_rc" -eq 0 ]; then
+  "$_T94_PY" - \
+    "$_T94_ROOT/tests/fixtures/run-evidence/fx-01-first-pass.json" \
+    "$_t94_live_root/$_t94_live_ev_ref" \
+    "$_t94_live_capture_ref" <<'PY'
+import json
+import pathlib
+import sys
+
+src = pathlib.Path(sys.argv[1])
+dst = pathlib.Path(sys.argv[2])
+capture_ref = sys.argv[3]
+record = json.loads(src.read_text(encoding="utf-8"))
+record["evidence_refs"] = list(dict.fromkeys(record["evidence_refs"] + [capture_ref]))
+dst.write_text(
+    json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+  _t94_rc=$?
+fi
+
+_t94_live_batch="$_t94_tmp/e2e-live-admission.json"
+cat >"$_t94_live_batch" <<JSON
+[
+  {
+    "case_ref": "LIVE-TA94-E2E",
+    "split": "test",
+    "evidence_class": "live_shadow",
+    "evidence_refs": [
+      "TASK-9999/delivery/record.jsonl",
+      "$_t94_live_capture_ref",
+      "$_t94_live_ev_ref"
+    ],
+    "live_capture": {
+      "capture_ref": "$_t94_live_capture_ref",
+      "run_evidence_ref": "$_t94_live_ev_ref"
+    },
+    "signal": {
+      "signal_id": "SIG-TA94-E2E",
+      "source_ref": "TASK-9999/delivery/record.jsonl",
+      "source_kind": "existing_behavior",
+      "claim_class": "observed",
+      "statement": "Completed run has no new PBI-worthy finding.",
+      "disposition": "informational",
+      "target_layer": "delivery",
+      "candidate_problem": null
+    },
+    "expected": {
+      "oracle_ref": "docs/reviews/live-admission.md",
+      "admission_decision": "no_action"
+    }
+  }
+]
+JSON
+
+_t94_live_out="$_t94_tmp/e2e-live-out.json"
+if [ "$_t94_rc" -eq 0 ]; then
+  "$_T94_PY" "$_T94_AI_LOOP/pbi_materializer.py" \
+    --eval-admission-batch "$_t94_live_batch" \
+    --authority-root "$_t94_live_root" --format json \
+    >"$_t94_live_out" 2>"$_t94_tmp/e2e-live.err" || _t94_rc=$?
+fi
+
+if [ "$_t94_rc" -eq 0 ] \
+  && grep -q '"mode": "admission_evaluation"' "$_t94_live_out" \
+  && grep -q '"live_shadow_cases": 1' "$_t94_live_out" \
+  && grep -q '"no_action_coverage": true' "$_t94_live_out" \
+  && grep -q '"upstream_source_repository_visibility_enforced": true' "$_t94_live_out" \
+  && grep -q '"source_capture_run_evidence_separation_enforced": true' "$_t94_live_out" \
+  && grep -q '"upstream_source_preexistence_verified": false' "$_t94_live_out" \
+  && grep -q '"write_allowed": false' "$_t94_live_out" \
+  && grep -q '"close_allowed": false' "$_t94_live_out" \
+  && grep -q '"suppression_allowed": false' "$_t94_live_out"; then
+  printf '  [PASS] live-shadow E2E: capture -> RunEvidence binding -> admission evaluation\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] live-shadow E2E: cross-module chain failed (rc=%s)\n' "$_t94_rc" >&2
+  sed 's/^/    /' "$_t94_tmp/e2e-capture.err" >&2
+  sed 's/^/    /' "$_t94_tmp/e2e-live.err" >&2
+  fail=$((fail + 1))
+fi
+
+# 12. Operational skill wiring must be present on every shipped execution surface.
+_t94_agents_skill="$_T94_ROOT/.agents/skills/ai-loop-cycle/SKILL.md"
+_t94_codex_skill="$_T94_ROOT/.codex/skills/ai-loop-cycle/SKILL.md"
+_t94_plugin_skill="$_T94_ROOT/plugin/plangate/skills/ai-loop-cycle/SKILL.md"
+_t94_claude_skill="$_T94_ROOT/.claude/skills/ai-loop-cycle/SKILL.md"
+if cmp -s "$_t94_agents_skill" "$_t94_codex_skill" \
+  && cmp -s "$_t94_agents_skill" "$_t94_plugin_skill" \
+  && grep -q '## Step 6: RunEvidence + passive PBI live-shadow capture' "$_t94_agents_skill" \
+  && grep -q -- '--capture-signal' "$_t94_agents_skill" \
+  && grep -q -- '--evidence-ref' "$_t94_agents_skill" \
+  && grep -q 'signal が無い run にダミー signal / capture を作ってはならない' "$_t94_agents_skill" \
+  && grep -q '## Step 6: RunEvidence + passive PBI live-shadow capture' "$_t94_claude_skill" \
+  && grep -q 'scripts/ai-loop/pbi_materializer.py' "$_t94_claude_skill"; then
+  printf '  [PASS] skill wiring: agents/codex/plugin aligned; Claude local flow wired\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] skill wiring: live-shadow operational instructions drifted\n' >&2
+  fail=$((fail + 1))
+fi
+
 rm -rf "$_t94_tmp"
 pg_extra_contract_finalize
