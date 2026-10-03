@@ -220,6 +220,29 @@ class CertificationShadowSpecTests(unittest.TestCase):
         self.assertNotIn("contract_bound_seq", parameters)
         self.assertNotIn("run_state", parameters)
 
+    def test_projection_cannot_be_self_promoted_by_caller(self):
+        parameters = set(inspect.signature(compose_certification).parameters)
+        forbidden_controls = {
+            "authoritative",
+            "mode",
+            "owner_api_connected",
+            "verdict_source",
+            "decision",
+            "policy_verdict",
+            "outcome",
+            "state",
+        }
+        self.assertTrue(parameters.isdisjoint(forbidden_controls))
+
+        projection = self._compose({self.D: "pass"})
+        self.assertTrue(
+            {"decision", "policy_verdict", "outcome", "state", "action"}.isdisjoint(
+                projection
+            )
+        )
+        self.assertFalse(projection["authoritative"])
+        self.assertFalse(projection["owner_api_connected"])
+
     def test_projection_boundary_has_no_decision_or_io_dependency(self):
         module = inspect.getmodule(compose_certification)
         tree = ast.parse(inspect.getsource(module))
