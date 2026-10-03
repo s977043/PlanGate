@@ -197,6 +197,34 @@ class CorrelationInputStorageTests(unittest.TestCase):
         )
 
 
+    def test_hook_candidate_via_repo_symlink_parent_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            external = root / "external"
+            external.mkdir()
+            target = external / "hook-candidate.json"
+            target.write_text(
+                json.dumps(_hook_candidate()) + "\n",
+                encoding="utf-8",
+            )
+            link = repo / "linked"
+            try:
+                link.symlink_to(external, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation unavailable")
+            with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+                corr._load_json_object(
+                    link / "hook-candidate.json",
+                    label="hook_candidate",
+                    repo_root=repo,
+                )
+        self.assertTrue(
+            any("lexical path" in e for e in ctx.exception.errors)
+        )
+
+
 class JsonlSummaryTests(unittest.TestCase):
     def test_runtime_content_is_not_copied(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -236,6 +264,28 @@ class JsonlSummaryTests(unittest.TestCase):
                 corr.summarize_codex_jsonl(path, repo_root=repo)
         self.assertTrue(
             any("outside repository" in e for e in ctx.exception.errors)
+        )
+
+    def test_jsonl_via_repo_symlink_parent_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            external = root / "external"
+            external.mkdir()
+            target = _write_jsonl(external)
+            link = repo / "linked"
+            try:
+                link.symlink_to(external, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation unavailable")
+            with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+                corr.summarize_codex_jsonl(
+                    link / target.name,
+                    repo_root=repo,
+                )
+        self.assertTrue(
+            any("lexical path" in e for e in ctx.exception.errors)
         )
 
     def test_duplicate_item_id_is_rejected(self):
