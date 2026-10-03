@@ -1329,6 +1329,14 @@ if [ -f "$_t94_write_policy" ] \
   && grep -q 'one mutation attempt = one semantic target' "$_t94_write_policy" \
   && grep -q 'multi-target transaction = unsupported' "$_t94_write_policy" \
   && grep -q 'automatic_retry_allowed = false' "$_t94_write_policy" \
+  && grep -q 'Policy version: `pbi-write-rollout/v1`' "$_t94_write_policy" \
+  && grep -q 'policy_sha256 = sha256:<exact content bytes>' "$_t94_write_policy" \
+  && grep -q 'current_policy_sha256 != activated_policy_sha256' "$_t94_write_policy" \
+  && grep -q 'rollback_plan_exists != rollback_execution_authorized' "$_t94_write_policy" \
+  && grep -q 'full target backup を既定にしない' "$_t94_write_policy" \
+  && grep -q 'docs/working/TASK-XXXX/evidence/pbi-write-attempts/<attempt-id>/' "$_t94_write_policy" \
+  && grep -q 'unknown' "$_t94_write_policy" \
+  && grep -q 'automatic retry forbidden' "$_t94_write_policy" \
   && grep -q 'Writer != Post-write Verifier' "$_t94_write_policy" \
   && grep -q '少なくとも初回 activation は Human-owned とする' "$_t94_write_policy" \
   && grep -q 'policy definition' "$_t94_write_policy" \
