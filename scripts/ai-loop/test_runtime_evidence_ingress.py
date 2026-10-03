@@ -300,6 +300,24 @@ class RuntimeIngressPersistenceTests(unittest.TestCase):
                 any("must remain under" in error for error in ctx.exception.errors)
             )
 
+    def test_output_ref_outside_runtime_ingress_namespace_reports_both_boundaries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._repo(root)
+            mapped = ri.map_cloudflare_issue(_cloudflare(), _envelope())
+            mapped["source_ref"] = "docs/working/TASK-1448/source.json"
+            with self.assertRaises(ri.RuntimeIngressError) as ctx:
+                ri.persist_source_snapshot(root, mapped)
+            self.assertTrue(
+                any("must remain under" in error for error in ctx.exception.errors)
+            )
+            self.assertTrue(
+                any(
+                    "content-addressed snapshot hash" in error
+                    for error in ctx.exception.errors
+                )
+            )
+
     def test_symlinked_output_parent_is_rejected(self):
         if not hasattr(pathlib.Path, "symlink_to"):
             self.skipTest("symlink unsupported")
