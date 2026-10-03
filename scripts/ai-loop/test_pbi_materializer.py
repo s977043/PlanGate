@@ -826,6 +826,15 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
         self.assertEqual(report["metrics"]["train"]["exact_match_rate"], 1.0)
         self.assertEqual(report["metrics"]["test"]["exact_match_rate"], 1.0)
         self.assertEqual(report["metrics"]["overall"]["total"], 2)
+        self.assertEqual(report["rollout_quality"]["live_case_total"], 0)
+        self.assertIsNone(
+            report["rollout_quality"]["duplicate_false_positive_rate"]
+        )
+        self.assertIsNone(
+            report["rollout_quality"]["duplicate_false_negative_rate"]
+        )
+        self.assertFalse(report["rollout_quality"]["quality_review_complete"])
+        self.assertFalse(report["rollout_quality"]["thresholds_applied"])
 
     def test_train_mismatch_does_not_hide_test_result(self):
         train = self._case(
@@ -1028,6 +1037,14 @@ class AdmissionBatchEvaluationTests(unittest.TestCase):
         self.assertFalse(report["write_allowed"])
         self.assertFalse(report["close_allowed"])
         self.assertFalse(report["suppression_allowed"])
+        self.assertEqual(report["rollout_quality"]["live_case_total"], 0)
+        self.assertIsNone(
+            report["rollout_quality"]["materialize_false_positive_rate"]
+        )
+        self.assertIsNone(
+            report["rollout_quality"]["materialize_false_negative_rate"]
+        )
+        self.assertFalse(report["rollout_quality"]["quality_review_complete"])
         self.assertFalse(report["rollout_evidence"]["write_review_eligible"])
         self.assertIn(
             "admission_decision_coverage_incomplete",
@@ -1095,6 +1112,137 @@ class AdmissionBatchEvaluationTests(unittest.TestCase):
         self.assertFalse(
             report["evaluation_contract"]["generalization_claim_allowed"]
         )
+
+
+class LiveRolloutQualityTests(unittest.TestCase):
+    def test_duplicate_false_positive_and_false_negative_are_distinct(self):
+        cases = [
+            {
+                "case_ref": "FP",
+                "evidence_class": "live_shadow",
+                "status": "mismatch",
+                "mismatches": ["decision", "matched_ref"],
+                "actual_decision": "link_only",
+                "expected_decision": "create_new",
+            },
+            {
+                "case_ref": "FN",
+                "evidence_class": "live_shadow",
+                "status": "mismatch",
+                "mismatches": ["decision", "matched_ref"],
+                "actual_decision": "create_new",
+                "expected_decision": "update_existing",
+            },
+            {
+                "case_ref": "ROUTE",
+                "evidence_class": "live_shadow",
+                "status": "mismatch",
+                "mismatches": ["readiness_route"],
+                "actual_decision": "create_new",
+                "expected_decision": "create_new",
+            },
+            {
+                "case_ref": "HISTORICAL-IGNORED",
+                "evidence_class": "historical_replay",
+                "status": "mismatch",
+                "mismatches": ["decision"],
+                "actual_decision": "link_only",
+                "expected_decision": "create_new",
+            },
+        ]
+        quality = pm._materialization_live_quality(cases)
+        self.assertEqual(quality["live_case_total"], 3)
+        self.assertEqual(quality["duplicate_false_positive_count"], 1)
+        self.assertEqual(quality["duplicate_false_positive_denominator"], 2)
+        self.assertEqual(quality["duplicate_false_positive_rate"], 0.5)
+        self.assertEqual(quality["duplicate_false_negative_count"], 1)
+        self.assertEqual(quality["duplicate_false_negative_denominator"], 1)
+        self.assertEqual(quality["duplicate_false_negative_rate"], 1.0)
+        self.assertEqual(quality["decision_mismatch_count"], 2)
+        self.assertEqual(quality["matched_ref_mismatch_count"], 2)
+        self.assertEqual(quality["readiness_mismatch_count"], 1)
+        self.assertEqual(quality["exact_mismatch_count"], 3)
+        self.assertTrue(quality["quality_review_complete"])
+        self.assertFalse(quality["thresholds_applied"])
+        self.assertEqual(quality["acceptance_decision"], "not_evaluated")
+
+    def test_materialization_errors_are_unevaluable_not_fake_good_rates(self):
+        cases = [
+            {
+                "case_ref": "ERR",
+                "evidence_class": "live_shadow",
+                "status": "error",
+                "errors": [
+                    "claims[0].claim_class: inferred evidence cannot be accepted",
+                    "claims[0].source_ref: repository source does not exist",
+                ],
+                "expected_decision": "update_existing",
+            }
+        ]
+        quality = pm._materialization_live_quality(cases)
+        self.assertEqual(quality["live_case_total"], 1)
+        self.assertEqual(quality["evaluable_case_total"], 0)
+        self.assertEqual(quality["unevaluable_error_cases"], 1)
+        self.assertFalse(quality["quality_review_complete"])
+        self.assertIsNone(quality["duplicate_false_negative_rate"])
+        self.assertEqual(
+            quality["provenance_rejection_error_occurrences"]["claim_class"],
+            1,
+        )
+        self.assertEqual(
+            quality["provenance_rejection_error_occurrences"]["source_reference"],
+            1,
+        )
+
+    def test_admission_materialize_false_positive_and_negative(self):
+        cases = [
+            {
+                "case_ref": "A-FP",
+                "evidence_class": "live_shadow",
+                "status": "mismatch",
+                "actual": "materialize",
+                "expected": "no_action",
+            },
+            {
+                "case_ref": "A-FN",
+                "evidence_class": "live_shadow",
+                "status": "mismatch",
+                "actual": "discover_more",
+                "expected": "materialize",
+            },
+            {
+                "case_ref": "A-OK",
+                "evidence_class": "live_shadow",
+                "status": "match",
+                "actual": "no_action",
+                "expected": "no_action",
+            },
+        ]
+        quality = pm._admission_live_quality(cases)
+        self.assertEqual(quality["live_case_total"], 3)
+        self.assertEqual(quality["materialize_false_positive_count"], 1)
+        self.assertEqual(quality["materialize_false_positive_denominator"], 2)
+        self.assertEqual(quality["materialize_false_positive_rate"], 0.5)
+        self.assertEqual(quality["materialize_false_negative_count"], 1)
+        self.assertEqual(quality["materialize_false_negative_denominator"], 1)
+        self.assertEqual(quality["materialize_false_negative_rate"], 1.0)
+        self.assertEqual(quality["decision_mismatch_count"], 2)
+        self.assertTrue(quality["quality_review_complete"])
+
+    def test_rejection_category_falls_back_to_other(self):
+        quality = pm._admission_live_quality([
+            {
+                "case_ref": "A-ERR",
+                "evidence_class": "live_shadow",
+                "status": "error",
+                "errors": ["unexpected validation failure"],
+            }
+        ])
+        self.assertEqual(
+            quality["provenance_rejection_error_occurrences"]["other"],
+            1,
+        )
+        self.assertFalse(quality["quality_review_complete"])
 
 
 class LiveShadowRunEvidenceBindingTests(unittest.TestCase):
