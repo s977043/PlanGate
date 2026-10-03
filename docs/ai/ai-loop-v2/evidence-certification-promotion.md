@@ -2,7 +2,7 @@
 
 > **Status**: Design guide for issue #1458. Non-canon; existing ai-loop V2 canon takes precedence.
 > **Source**: Anthropic, "How to prepare for AI-driven code modernization projects".
-> **Scope**: Reuse existing ai-loop V2 artifacts and authority. Do not introduce a new authoritative Certificate artifact, lifecycle state, or promotion authority.
+> **Scope**: Reuse existing ai-loop V2 artifacts and authority. Do not introduce a new authoritative Certificate artifact, lifecycle state, verdict, or promotion authority.
 
 ## 1. Why this exists
 
@@ -31,7 +31,7 @@ Target / Contract
   + policy-required evidence
       |
       v
-Certification View
+Certification View (projection only)
       |
       v
 existing Policy / Decision boundary
@@ -39,11 +39,24 @@ existing Policy / Decision boundary
 
 The Certification View answers:
 
-> For this exact target and exact revision, which required claims have trustworthy evidence, which do not, and which remain unresolved?
+> For this exact target and exact revision, which policy-required claims are backed by applicable evidence, which are not, and which remain unresolved?
 
-It does not mint authority and does not replace any underlying artifact.
+It does **not** answer "may this change merge?" by itself.
 
-### 2.1 No new SSoT
+### 2.1 Projection-only rule
+
+The Certification View MUST NOT emit or own:
+
+- Policy Verdict;
+- Lifecycle State;
+- Terminal Outcome;
+- Stop Reason;
+- `PromotionDecision`;
+- C-4 / Merge / Production Harness authority.
+
+It may expose the inputs needed by the existing Policy / Decision boundary, but the projection itself never mints authority.
+
+### 2.2 No new SSoT
 
 The view MUST be reproducible from existing authoritative inputs.
 
@@ -74,7 +87,19 @@ A Certification View should project at least the following concerns when they ar
 | Harness identity | `harness_manifest_ref` |
 | Evolution evaluation | `HarnessExperimentResult` + `PromotionDecision` |
 
-The required set is selected by existing policy and task/target characteristics. The change author or Builder MUST NOT be the sole authority that weakens the required set.
+### 3.1 Required-evidence ownership
+
+The **required evidence set is a policy input**, not Builder output.
+
+A Builder / change author may report target characteristics, but MUST NOT be the sole authority that:
+
+- lowers required verifier coverage;
+- removes independent review;
+- marks a protected surface as low risk;
+- narrows a verifier set;
+- changes the Evaluation Trust Boundary.
+
+Where the required-evidence set is derived dynamically, its derivation rule / policy identity must be traceable. Missing or unverifiable policy input is not permission to use a weaker set.
 
 ## 4. Binding and invalidation
 
@@ -87,16 +112,17 @@ At minimum, the projection must preserve existing binding where available:
 - artifact or target hash;
 - HarnessManifest identity;
 - verifier identity and kind;
-- evaluation-plan / fixture binding for Evolution.
+- evaluation-plan / fixture binding for Evolution;
+- policy / verifier-set identity when it controls required evidence.
 
 A Certification View MUST NOT combine evidence from different revisions merely because the test names or task IDs look similar.
 
 The view becomes stale when a bound input changes. Reuse requires re-verification or an existing verifier-specific rule that proves the previous evidence still applies.
 
 ```text
-changed target
+changed bound input
   -> previous certification projection invalid
-  -> verify again
+  -> verify applicability / re-run as required
   -> build a new projection
 ```
 
@@ -118,15 +144,21 @@ An illustrative policy shape is:
 
 | Risk shape | Evidence / review posture |
 |---|---|
-| bounded + reversible + deterministic evidence strong | existing automated path may continue when current policy allows it |
+| bounded + reversible + deterministic evidence strong | existing automated path may continue **only when existing policy already permits it** |
 | moderate impact or material uncertainty | require stronger independent evidence and targeted Human attention |
-| high blast radius / irreversible / security-sensitive | `HUMAN_REQUIRED` |
+| high blast radius / irreversible / security-sensitive | existing policy should resolve to Human-required handling |
 | protected authority / Gate / Verifier weakening | existing Human-owned rules apply; risk classification cannot relax them |
 | evidence unavailable / unbound / stale | fail closed; do not treat absence as PASS |
 
-These rows are guidance, not a new persisted risk taxonomy.
+These rows are guidance, not a new persisted risk taxonomy and not a new verdict table.
 
-### 5.1 Monotonic safety rule
+### 5.1 Risk input is not self-authorizing
+
+A risk label produced by the same Agent that authored the change is a **claim**, not trusted authority.
+
+The policy owner must decide how risk inputs are established, for example through deterministic path/rule classification, protected metadata, or sufficiently independent review. If trustworthy classification is unavailable, the system must not choose a less restrictive path on that basis.
+
+### 5.2 Monotonic safety rule
 
 A lower risk classification MUST NOT remove an invariant already required by canon or protected authority.
 
@@ -208,6 +240,12 @@ repeated / material failure
 
 This is the existing Evolution Loop. No live self-modification is introduced.
 
+A current-Run repair may still be necessary to complete Delivery. The principle is additive:
+
+- repair the current output when the Delivery contract permits it;
+- when the failure reveals a repeated/systemic Harness weakness, create a separate Evolution Candidate;
+- do not mutate the active Harness to fix the current Run.
+
 ## 9. Pilot before scale
 
 Adoption should progress through bounded stages.
@@ -232,10 +270,12 @@ Scale is evidence-driven, not based on the number of successful demos.
 Before any runtime implementation, verify at least these negative cases:
 
 - evidence from the wrong head SHA cannot satisfy a requirement;
-- stale evidence after Plan / target change cannot satisfy a requirement;
+- stale evidence after a bound Plan / target change cannot satisfy a requirement;
 - Builder self-report alone cannot satisfy a requirement;
 - missing / unavailable verifier output cannot become PASS;
+- Builder-supplied risk cannot choose a less restrictive path by itself;
 - risk classification cannot disable protected verification;
+- required verifier-set / policy identity cannot be silently narrowed;
 - River Review output cannot directly mint promotion authority;
 - Delivery evidence cannot directly promote a Harness Candidate;
 - Certification projection cannot mutate its authoritative inputs.
@@ -246,6 +286,7 @@ Before any runtime implementation, verify at least these negative cases:
 - a new lifecycle state or terminal outcome;
 - a new Policy Verdict;
 - a second PromotionDecision;
+- a new canonical risk taxonomy;
 - automatic C-4 / merge;
 - automatic Production Harness promotion;
 - replacing River Review, Verifier, Decision Engine, or Policy;
