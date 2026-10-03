@@ -173,7 +173,7 @@ runtime_evidence:
 
 The package is a transport / intake artifact, not a judgment artifact.
 
-### 4.0 Ownership: do not create a second V2 source of truth
+### 4.1 Ownership: do not create a second V2 source of truth
 
 `Runtime Evidence Package` is a conceptual transport envelope in this RFC. It is **not a proposal for a new canonical mutable V2 artifact or a second Run state machine**.
 
@@ -204,7 +204,7 @@ Rules:
 
 This follows the existing V2 artifact budget and the principle that external Product/runtime evidence is received by the Harness rather than becoming a parallel Harness authority.
 
-### 4.1 Intake identity and deduplication
+### 4.2 Intake identity and deduplication
 
 A runtime signal can repeat thousands of times. The integration must distinguish **new evidence** from **new work**.
 
@@ -228,7 +228,7 @@ The exact hash format is adapter-owned, but the semantics are fixed:
 
 This avoids turning event frequency into unbounded agent concurrency or making past RunEvidence bytes depend on later runtime events.
 
-### 4.2 Evidence trust level
+### 4.3 Evidence trust level
 
 External evidence should carry an explicit trust assessment. This is not a quality score for the application; it indicates how safely the evidence may be used as an input.
 
@@ -308,15 +308,22 @@ A runtime-originated task has the same Delivery gates as any other task.
 
 ### Learn
 
-The runtime observation becomes part of RunEvidence and Retrospective inputs:
+For a Delivery Run, existing V2 owners should retain only the runtime evidence needed to explain that Run. RunEvidence may project immutable external evidence refs and per-Run observations from the RunEvent stream, for example:
 
-- failure fingerprint
-- environmental evidence
-- detection latency
-- investigation latency
-- false-positive / duplicate rate
-- evidence gaps
-- repair outcome
+- failure fingerprint used by the Run;
+- environmental evidence refs;
+- evidence gaps discovered during investigation;
+- verified cause / repair outcome;
+- per-Run timing that can be derived from the Run's own events.
+
+Cross-Run intake metrics remain outside per-Run RunEvidence and belong to the intake / analytics layer, for example:
+
+- duplicate suppression rate;
+- recurrence frequency;
+- false-positive trigger rate;
+- provider-level detection latency distributions.
+
+Retrospective / Evolution may consume those aggregate results as external Evidence, but adding a later incident must not change previously projected RunEvidence.
 
 ### Evolve
 
