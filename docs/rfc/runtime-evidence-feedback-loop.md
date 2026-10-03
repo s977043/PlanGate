@@ -692,6 +692,33 @@ This distinction is required because repository/project hook execution is a runt
 
 Codex also supports administrator-managed hooks as a separate policy layer. A future production-grade attestation design may use a managed-hook execution root (or an equivalent independently administered external verifier) so the Evidence producer is outside the repository-controlled project hook boundary. Merely moving the current proposal into project `hooks.json` does not satisfy this requirement. A future promotion requires correlation with runtime-generated Codex JSONL plus an external/trusted execution-root proof before `runtime_probe_attestation_verified` may change.
 
+
+### 7.5 Codex JSONL pairing candidate
+
+#1457 adds a second Codex observation source using bounded `codex exec --json` output.
+
+Repository evidence from TASK-1078 confirms `item.completed` events such as `command_execution` and `agent_message`. That JSONL does **not** currently provide the R1 `request_hash`, Explorer `config_sha`, provider identity, or a direct Explorer `agent_id` join key.
+
+Therefore #1457 deliberately models:
+
+```text
+lifecycle hook candidate
+        +
+Codex JSONL structural summary
+        ↓
+cross_source_pairing_candidate = true
+
+same_run_copresence_verified = false
+same_run_identity_verified = false
+codex_jsonl_runtime_correlation_verified = false
+runtime_probe_attestation_verified = false
+dispatch_allowed = false
+```
+
+Both raw inputs stay outside the repository. The sanitized result retains only bounded counts, hashes, recognized item categories, and non-promotion flags; raw command text, prompts, agent messages, reasoning, transcripts, and runtime log bodies are not copied.
+
+Promotion requires a trusted join key or independently administered capture manifest that proves both observation streams belong to the same concrete runtime execution.
+
 ## 8. Relationship to existing V2 boundaries
 
 This proposal must not change the following existing contracts:
