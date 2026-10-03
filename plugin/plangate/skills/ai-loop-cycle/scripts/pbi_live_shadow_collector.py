@@ -1251,6 +1251,8 @@ def inventory_live_materialization_cases(
             "merge_allowed": False,
             "quality_thresholds_applied": False,
             "quality_acceptance_decided": False,
+            "plan_reuse_without_reinventory_allowed": False,
+            "inventory_hashes_are_commit_identity": False,
         },
     }
 
@@ -1496,6 +1498,14 @@ def plan_live_shadow_collection(
     materialization = inventory_live_materialization_cases(
         repo_root=repo_root
     )
+    admission_inventory_hash = pm._canonical_json_hash(admission)
+    materialization_inventory_hash = pm._canonical_json_hash(materialization)
+    combined_inventory_hash = pm._canonical_json_hash(
+        {
+            "admission": admission,
+            "materialization": materialization,
+        }
+    )
 
     admission_missing = list(
         admission.get("coverage", {}).get(
@@ -1594,6 +1604,14 @@ def plan_live_shadow_collection(
     return {
         "mode": "pbi_live_shadow_collection_plan",
         "scope": "repository_tracked_live_shadow_gaps",
+        "inventory_binding": {
+            "admission_inventory_hash": admission_inventory_hash,
+            "materialization_inventory_hash": materialization_inventory_hash,
+            "combined_inventory_hash": combined_inventory_hash,
+            "plan_reuse_without_reinventory_allowed": False,
+            "runtime_head_bound": False,
+            "repository_commit_verified": False,
+        },
         "inventory_snapshot": {
             "admission": {
                 "tracked_live_case_total": admission[
@@ -1858,6 +1876,9 @@ def assess_live_shadow_completion(
             ],
             "observation_gap_count": collection_plan[
                 "observation_gap_count"
+            ],
+            "collection_plan_inventory_binding": collection_plan[
+                "inventory_binding"
             ],
         },
         "blockers": {
