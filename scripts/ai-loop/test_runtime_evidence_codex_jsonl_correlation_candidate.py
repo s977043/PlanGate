@@ -344,7 +344,8 @@ class JsonlSummaryTests(unittest.TestCase):
                             "type": "future_private_type",
                             "payload": "DO NOT COPY",
                         },
-                    }
+                    },
+                    {"type": "turn.completed"},
                 ],
             )
             result = corr.summarize_codex_jsonl(
