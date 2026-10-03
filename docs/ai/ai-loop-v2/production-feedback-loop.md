@@ -109,7 +109,8 @@ Trigger は少なくとも次の入力を扱えること。
 - duplicate / already-open work
 - stable intake identity（provider retry / webhook redelivery を同一 work へ収束させるための識別）
 - cooldown / debounce
-- budget
+- budget / concurrency / burst limit
+- circuit-break / backpressure condition
 - policy boundary
 - required evidence availability
 
@@ -129,6 +130,8 @@ Runtime Evidence Package
 4. Human escalation
 
 LLM の判断だけで permission / approval boundary を変更しない。Trigger Policy 自体の変更も、既存の policy governance と North Star §3 / §15 の authority 境界に従う。
+
+大量発生時も「signal 数 = Agent 数」にしない。budget / concurrency / burst limit を超えた場合は、新しい work の生成を抑止・集約し、必要なら Human / incident path へ escalate する。provider outage や instrumentation bug による storm を Agent swarm へ変換しない。
 
 ### Trigger outcome
 
@@ -262,7 +265,8 @@ Production feedback をいきなり Production auto-remediation として接続�
 ### Slice A — Evidence intake only
 
 - provider payload fixture を作る
-- redaction / validation / dedupe を検証する
+- redaction / validation / dedupe / retry idempotency を検証する
+- burst / malformed / unsigned payload の negative control を持つ
 - Agent は起動しない
 
 ### Slice B — Investigation only
@@ -283,7 +287,28 @@ Production feedback をいきなり Production auto-remediation として接続�
 - recurrence / recovery / Time to Learning を Run 横断で評価する
 - Harness 改善は Evolution Candidate として別 loop で扱う
 
-## 11. Required review questions
+## 11. Minimum verification matrix
+
+Provider adapter / Trigger Policy を実装するときは、少なくとも次を fixture / test で検証する。これは schema の正本ではなく、将来実装の受入観点である。
+
+| Case | Expected |
+|---|---|
+| 同じ provider delivery を複数回受信 | 同じ intake identity に収束し、新規 work を重複生成しない |
+| 同じ fingerprint だが deployment / evidence が異なる | root cause 同一と断定せず、既存 work への関連付け可否を policy で判定する |
+| webhook signature 不正 / replay 不正 | reject。Agent を起動しない |
+| payload に token / cookie / authorization header | redaction / rejection が成立し、Agent context / Human-facing artifact に残らない |
+| required evidence が unavailable | 成功扱いにせず、追加観測・notify・escalate のいずれかへ fail-closed |
+| threshold 未満 | Delivery work を作らない |
+| threshold 境界を超える | policy が許す bounded work だけを作る |
+| burst / storm が budget を超える | concurrency を増やし続けず、集約・抑止・escalate |
+| Agent が root cause を断定するが Evidence 不十分 | hypothesis として保持し、verified fact に昇格しない |
+| fix PR が作成された | Production recovery を宣言しない |
+| terminal Delivery Run 後に recovery signal 到着 | terminal Run へ append せず、external observation / follow-up として扱う |
+| same input fixture を再実行 | normalization / redaction / trigger 判定が決定論的に再現する |
+
+North Star §21 の negative control / regression / deterministic verifier の要求を、この境界でも維持する。
+
+## 12. Required review questions
 
 Production feedback を扱う Plan / PR は、North Star §21 に加えて次を確認する。
 
@@ -291,7 +316,7 @@ Production feedback を扱う Plan / PR は、North Star §21 に加えて次を
 - grouping と root cause を混同していないか
 - raw telemetry を必要以上に Agent context へ入れていないか
 - trigger が approval / permission grant に化けていないか
-- duplicate / recurrence / cooldown を扱えるか
+- duplicate / recurrence / cooldown / burst / backpressure を扱えるか
 - provider outage / webhook retry / replay で work が重複しないか。stable intake identity で既存 work へ収束できるか
 - Evidence 不足時に fail-open していないか
 - PR 作成を Production recovery と誤認していないか
@@ -299,7 +324,7 @@ Production feedback を扱う Plan / PR は、North Star §21 に加えて次を
 - post-fix observation の返却先があるか
 - 単一 incident から Harness を live self-modify していないか
 
-## 12. Non-goals
+## 13. Non-goals
 
 - vendor-specific incident management platform の再実装
 - raw telemetry lake の構築
