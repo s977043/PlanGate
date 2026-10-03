@@ -302,3 +302,19 @@ independent_review_authorship_verified = false
 ```
 
 したがって `write_review_ready=true` は「Human が write-capable slice をレビューする材料が揃った」という projection に限定し、production mutation authorization として利用してはならない。
+
+
+## Live upstream source boundary
+
+live-shadow の `signal.source_ref` は trusted repository root 配下の実在 artifact を要求する。
+
+```text
+upstream_source_repository_visibility_enforced = true
+source_capture_run_evidence_separation_enforced = true
+upstream_source_preexistence_verified = false
+upstream_source_preexistence_owner = caller_or_capture_pipeline
+```
+
+したがって external feedback / Issue / chat 由来の signal は、raw URL や一時本文を直接 live evidence とせず、まず repository-visible な evidence artifact / snapshot として materialize してから `source_ref` へ束縛する。
+
+materializer は source artifact の **存在と分離** を検証するが、「capture より前から存在した」という時間的真正性までは保証しない。
