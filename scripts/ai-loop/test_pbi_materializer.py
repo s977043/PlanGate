@@ -792,6 +792,13 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
             report["evaluation_contract"]["source_capture_run_evidence_separation_enforced"]
         )
         self.assertFalse(
+            report["evaluation_contract"]["upstream_source_preexistence_verified"]
+        )
+        self.assertEqual(
+            report["evaluation_contract"]["upstream_source_preexistence_owner"],
+            "caller_or_capture_pipeline",
+        )
+        self.assertFalse(
             report["evaluation_contract"]["run_evidence_task_binding_reverified"]
         )
         self.assertEqual(
@@ -1050,6 +1057,19 @@ class AdmissionBatchEvaluationTests(unittest.TestCase):
         )
         self.assertTrue(
             report["evaluation_contract"]["runtime_head_to_run_evidence_binding_enforced"]
+        )
+        self.assertTrue(
+            report["evaluation_contract"]["upstream_source_repository_visibility_enforced"]
+        )
+        self.assertTrue(
+            report["evaluation_contract"]["source_capture_run_evidence_separation_enforced"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["upstream_source_preexistence_verified"]
+        )
+        self.assertEqual(
+            report["evaluation_contract"]["upstream_source_preexistence_owner"],
+            "caller_or_capture_pipeline",
         )
         self.assertFalse(
             report["evaluation_contract"]["run_evidence_task_binding_reverified"]
