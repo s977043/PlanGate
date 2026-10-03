@@ -16,16 +16,24 @@
 - Discovery depth: minimal / expanded
 - Actor / Job（material な場合）: {誰の、どの状況・仕事か}
 - PBI author: human / ai / mixed
-- Source / feedback refs: {user feedback / Issue / RunEvidence / FailureRecord / measurement / existing behavior など。raw transcript は貼らない}
 - Problem evidence refs（material な場合）: {問題設定を支持する evidence ref}
+
+#### Source / Feedback Provenance（material な場合）
+
+| Source Ref | Source Kind | Claim Class | Supports |
+| --- | --- | --- | --- |
+| {ref} | human_feedback / issue / run_evidence / failure_record / measurement / existing_behavior / external_source / policy | observed / reported / inferred | Goal / Problem / REQ-001 / AC-01 |
+
+> `observed` = artifact / measurement / verifier で直接確認、`reported` = Human / external source の報告、`inferred` = source から導出した仮説・解釈。
+> 要約・再生成・別 Agent の同意は source independence を増やさない。PBI 自身や downstream の Plan / Review を、この PBI の upstream Goal / Problem の独立 Evidence に循環利用しない。
 
 #### Requirement Discovery Trace（material な場合）
 
-| Requirement ID | Goal / Problem | Evidence / Source | Related AC |
-| --- | --- | --- | --- |
-| REQ-001 | {何を解くための要求か} | {ref / provenance} | AC-01 |
+| Requirement ID | Goal / Problem | Evidence / Source | Acceptance Basis | Related AC |
+| --- | --- | --- | --- | --- |
+| REQ-001 | {何を解くための要求か} | {ref / provenance} | evidence / explicit_decision / policy_rule | AC-01 |
 
-> この表には policy 上 accepted と扱える Requirement だけを置く。candidate / unresolved は下の Unknowns に残し、Plan 側で補完・創作しない。
+> この表には policy 上 accepted と扱える Requirement だけを置く。candidate / unresolved は下の Unknowns に残し、Plan 側で補完・創作しない。`inferred` claim だけを根拠に事実認定したように書かない。
 
 ## What（Scope）
 
