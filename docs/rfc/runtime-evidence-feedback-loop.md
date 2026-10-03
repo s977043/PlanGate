@@ -566,6 +566,65 @@ Provider adapters should make the following independently checkable where suppor
 
 A source being authenticated does not prove that every field is correct. Authentication establishes provenance; verification establishes claim quality.
 
+
+### 7.3 External trust roots for R1 dispatch
+
+Pre-PBI R1 dispatch needs two authority classes that repository-authored files cannot self-prove:
+
+1. **runtime attestation** — the runtime actually registered the intended role/connector and enforced the read-only boundary for the exact R1 request;
+2. **Human rollout authority** — a Human explicitly approved R1 dispatch through a trust root that automation cannot impersonate merely by writing repository files.
+
+#### GitHub owner comments are candidate Evidence, not Human authority
+
+A live GitHub issue comment can prove useful facts:
+
+- exact repository / issue / comment binding;
+- repository-owner account;
+- `author_association=OWNER`;
+- not authored via a GitHub App;
+- exact R1 `request_hash` binding;
+- whether the comment was edited.
+
+However, GitHub issue-comment metadata cannot distinguish a Human using the Web UI from automation using the owner's user credential/PAT. Therefore:
+
+```text
+owner_account_decision_candidate = true
+live_github_metadata_verified = true
+
+human_presence_verified = false
+human_identity_verified = false
+human_rollout_decision_verified = false
+```
+
+#1454 implements this boundary. The owner-account comment is useful out-of-band candidate Evidence, but it does not authorize dispatch.
+
+A stronger Human trust root is still required, for example:
+
+- protected-environment approval; or
+- human-held signing-key attestation.
+
+TTY + nonce may remain a best-effort Human-presence pattern, consistent with the existing C-3 approval design, but must not be represented as a strong identity/security boundary.
+
+#### Existing Claude read-only canary is a reusable pattern, not request-bound attestation
+
+`.github/workflows/claude-subscription-canary.yml` provides a strong read-only canary pattern:
+
+- main-only;
+- repository-owner workflow dispatch;
+- GitHub-hosted runner;
+- read-only tool surface;
+- post-run mutation checks.
+
+But it is not currently bound to the specific R1:
+
+- `request_hash`;
+- Explorer `config_sha`;
+- runtime role registration;
+- provider connector registration;
+- hard read-only enforcement for that request.
+
+Therefore it cannot set `runtime_probe_attestation_verified=true` for R1. A future request-bound canary/verifier must bind those values through an independently verifiable runtime result before dispatch readiness may advance.
+
 ## 8. Relationship to existing V2 boundaries
 
 This proposal must not change the following existing contracts:
