@@ -179,15 +179,29 @@ class LiveShadowCollectorTests(unittest.TestCase):
         packet = json.loads(target.read_text(encoding="utf-8"))
 
         self.assertEqual(packet["mode"], "pbi_live_shadow_review_packet")
-        self.assertEqual(packet["actual"]["admission_decision"], "no_action")
+        self.assertEqual(
+            packet["domain"],
+            "plangate.pbi-live-shadow-review-packet/v1",
+        )
+        self.assertNotIn("actual", packet)
         self.assertTrue(packet["review_contract"]["independent_review_required"])
+        self.assertTrue(packet["review_contract"]["review_from_upstream_source"])
+        self.assertFalse(packet["review_contract"]["actual_decision_disclosed"])
+        self.assertFalse(
+            packet["review_contract"]["normalized_disposition_disclosed"]
+        )
         self.assertFalse(packet["review_contract"]["oracle_attached"])
         self.assertFalse(packet["review_contract"]["expected_decision_attached"])
         self.assertFalse(packet["review_contract"]["quality_acceptance_decided"])
+        self.assertTrue(packet["review_contract"]["packet_blind_to_actual"])
+        self.assertFalse(
+            packet["review_contract"]["capture_signal_blinding_enforced"]
+        )
         self.assertFalse(packet["authority"]["pbi_write_allowed"])
         self.assertFalse(packet["authority"]["issue_write_allowed"])
         self.assertFalse(packet["authority"]["merge_allowed"])
-        self.assertEqual(result["actual_admission_decision"], "no_action")
+        self.assertNotIn("actual_admission_decision", result)
+        self.assertFalse(result["actual_decision_disclosed"])
         self.assertTrue(result["review_required"])
 
     def test_review_packet_rejects_unbound_capture(self):
