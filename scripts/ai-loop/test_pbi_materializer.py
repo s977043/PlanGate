@@ -679,6 +679,19 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
             report["evaluation_contract"]["holdout_isolation_owner"],
             "caller_or_independent_evaluator",
         )
+        self.assertEqual(
+            report["evaluation_contract"]["scope"],
+            "post_admission_materialization",
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["materialization_admission_evaluated"]
+        )
+        self.assertFalse(report["evaluation_contract"]["no_action_coverage"])
+        self.assertFalse(report["rollout_evidence"]["write_review_eligible"])
+        self.assertIn(
+            "admission_no_action_not_evaluated",
+            report["rollout_evidence"]["write_review_blockers"],
+        )
         self.assertEqual(report["metrics"]["train"]["exact_match_rate"], 1.0)
         self.assertEqual(report["metrics"]["test"]["exact_match_rate"], 1.0)
         self.assertEqual(report["metrics"]["overall"]["total"], 2)
@@ -760,6 +773,15 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
         self.assertTrue(
             report["rollout_evidence"]["synthetic_excluded_from_rollout_claim"]
         )
+        self.assertEqual(
+            report["rollout_evidence"]["observed_decisions"],
+            ["create_new"],
+        )
+        self.assertEqual(
+            report["rollout_evidence"]["observed_readiness_routes"],
+            ["future_run"],
+        )
+        self.assertFalse(report["rollout_evidence"]["write_review_eligible"])
 
     def test_harness_historical_replay_uses_candidate_evolution_path(self):
         historical_ref = "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json"
