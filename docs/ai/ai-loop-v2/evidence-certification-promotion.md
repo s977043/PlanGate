@@ -591,6 +591,31 @@ Important constraints:
 
 A future runtime slice should reuse the contracts already being defined for Delivery V2 rather than invent a Certification schema first.
 
+### 13.1 Dependency maturity / preflight
+
+The current `main` contains a provisional `scripts/ai-loop-v2/decision_core.py`. The #1393 owner plan explicitly intends to rebuild/replace that provisional core and defines a richer `DecisionInput` / `artifact_verdicts(...)` contract.
+
+Therefore the first Certification implementation MUST NOT freeze a dependency on provisional private helpers or copy their current logic as a second implementation.
+
+Preflight before a production-path implementation:
+
+- identify the owner-backed #1393 Decision contract actually present on the implementation base;
+- confirm there is a stable public way to derive the required-verifier artifact verdicts, or add that API through the Decision owner rather than duplicating it in Certification;
+- re-check caller / fixture migration state around `delivery_runtime.py` and `test_delivery_v2.py`;
+- re-check static execution-boundary coverage for the chosen module path;
+- if the owner contract is not yet consumable, keep Certification as a **non-authoritative executable specification / shadow parity test**, not a runtime dependency.
+
+```text
+provisional Decision implementation
+  != stable Certification dependency
+
+owner-backed Decision contract
+  -> stable verdict derivation seam
+  -> Certification runtime projection
+```
+
+Certification must not become the reason an obsolete provisional Decision API survives.
+
 Existing `VerificationResult` work already defines the minimum machine-facing shape as:
 
 ```text
@@ -633,6 +658,9 @@ This gives a small first vertical slice that can be shadow-evaluated before any 
 Recommended first implementation order:
 
 ```text
+0. dependency preflight: owner-backed Decision verdict API consumable?
+   NO  -> executable-spec / parity fixtures only
+   YES -> continue
 1. pure composeCertification projection
 2. unit fixtures reusing Decision Engine artifact-verdict cases
 3. shadow parity check: certification map == artifact_verdicts
