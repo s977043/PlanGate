@@ -5,7 +5,8 @@
     "This records lifecycle observations only; it does not establish strong runtime attestation.",
     "The output file must be outside the repository, typically under RUNNER_TEMP.",
     "request_hash/config_sha/provider environment values are bindings, not secrets.",
-    "A future trusted execution root plus Codex JSONL correlation is required before runtime_probe_attestation_verified may become true."
+    "A future trusted execution root plus Codex JSONL correlation is required before runtime_probe_attestation_verified may become true.",
+    "This is a project hook, not a managed hook. Strong attestation may require an independently administered managed-hook root or equivalent external execution root."
   ],
   "hooks": {
     "SubagentStart": [
