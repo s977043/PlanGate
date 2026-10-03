@@ -113,44 +113,56 @@ def _atomic_create_json(
         json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     ).encode("utf-8")
     digest = pm._canonical_json_hash(value).split(":", 1)[1][:12]
-    tmp = target.parent / f".{target.name}.{os.getpid()}.{digest}.tmp"
+    temp_name = f".{target.name}.{os.getpid()}.{digest}.tmp"
+    final_name = target.name
 
-    fd = None
-    linked = False
+    dir_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    dir_flags |= getattr(os, "O_NOFOLLOW", 0)
     try:
-        fd = os.open(
-            tmp,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-            0o600,
-        )
-        with os.fdopen(fd, "wb", closefd=True) as handle:
-            fd = None
+        dir_fd = os.open(target.parent, dir_flags)
+    except OSError as exc:
+        raise CollectorError(f"output parent cannot be opened safely: {exc}") from exc
+
+    file_fd = None
+    try:
+        try:
+            file_fd = os.open(
+                temp_name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o600,
+                dir_fd=dir_fd,
+            )
+        except FileExistsError as exc:
+            raise CollectorError(
+                f"stale temp artifact exists for {ref}; manual review required"
+            ) from exc
+
+        with os.fdopen(file_fd, "wb", closefd=True) as handle:
+            file_fd = None
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
 
         try:
-            os.link(tmp, target)
-            linked = True
+            os.link(
+                temp_name,
+                final_name,
+                src_dir_fd=dir_fd,
+                dst_dir_fd=dir_fd,
+                follow_symlinks=False,
+            )
         except FileExistsError as exc:
             raise CollectorError(f"artifact already exists: {ref}") from exc
 
-        dir_fd = os.open(target.parent, os.O_RDONLY)
-        try:
-            os.fsync(dir_fd)
-        finally:
-            os.close(dir_fd)
+        os.fsync(dir_fd)
     finally:
-        if fd is not None:
-            os.close(fd)
+        if file_fd is not None:
+            os.close(file_fd)
         try:
-            tmp.unlink()
+            os.unlink(temp_name, dir_fd=dir_fd)
         except FileNotFoundError:
             pass
-        if not linked and target.exists():
-            # link() is the only operation allowed to create target. If it failed
-            # for a reason other than preexistence, never remove an existing file.
-            pass
+        os.close(dir_fd)
 
     return pm._canonical_json_hash(value)
 
