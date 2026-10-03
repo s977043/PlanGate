@@ -257,6 +257,12 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"live_shadow_cases": 0' "$_t94_history_out" \
   && grep -q '"evidence_class": "historical_replay"' "$_t94_history_out" \
   && grep -q '"exact_match_rate": 1.0' "$_t94_history_out" \
+  && grep -q '"scope": "post_admission_materialization"' "$_t94_history_out" \
+  && grep -q '"materialization_admission_evaluated": false' "$_t94_history_out" \
+  && grep -q '"no_action_coverage": false' "$_t94_history_out" \
+  && grep -q '"write_review_eligible": false' "$_t94_history_out" \
+  && grep -q '"observed_decisions": \[' "$_t94_history_out" \
+  && grep -q '"create_new"' "$_t94_history_out" \
   && grep -q '"write_allowed": false' "$_t94_history_out"; then
   printf '  [PASS] historical replay: 2 repository-grounded cases evaluated separately from synthetic/live evidence\n'
   pass=$((pass + 1))
