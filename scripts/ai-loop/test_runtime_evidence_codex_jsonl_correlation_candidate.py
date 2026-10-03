@@ -134,6 +134,28 @@ class HookCandidateValidationTests(unittest.TestCase):
             )
 
 
+class CorrelationInputStorageTests(unittest.TestCase):
+    def test_hook_candidate_inside_repo_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            path = repo / "hook-candidate.json"
+            path.write_text(
+                json.dumps(_hook_candidate()) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+                corr._load_json_object(
+                    path,
+                    label="hook_candidate",
+                    repo_root=repo,
+                )
+        self.assertTrue(
+            any("outside repository" in e for e in ctx.exception.errors)
+        )
+
+
 class JsonlSummaryTests(unittest.TestCase):
     def test_runtime_content_is_not_copied(self):
         with tempfile.TemporaryDirectory() as tmp:
