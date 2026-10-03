@@ -121,9 +121,10 @@ class CandidateTraceTests(unittest.TestCase):
         )
         self.assertTrue(result["subagent_start_candidate_verified"])
         self.assertTrue(result["subagent_stop_candidate_verified"])
-        self.assertTrue(result["runtime_role_registered_candidate"])
+        self.assertTrue(result["runtime_role_observed_candidate"])
         self.assertTrue(result["explorer_execution_candidate"])
-        self.assertTrue(result["hook_trace_integrity_verified"])
+        self.assertTrue(result["candidate_trace_structure_verified"])
+        self.assertTrue(result["record_hash_integrity_verified"])
         self.assertFalse(result["hook_execution_root_attested"])
         self.assertFalse(result["codex_jsonl_runtime_correlation_verified"])
         self.assertFalse(result["hard_read_only_enforced"])
@@ -150,6 +151,47 @@ class CandidateTraceTests(unittest.TestCase):
         self.assertTrue(
             any("agent_id must match" in e for e in ctx.exception.errors)
         )
+
+    def test_stop_before_start_is_rejected(self):
+        rows = list(reversed(_normalized()))
+        with self.assertRaises(probe.CodexProbeCandidateError) as ctx:
+            probe.verify_candidate_trace(
+                records=rows,
+                request_hash=REQ,
+                config_sha=CONFIG,
+                provider=PROVIDER,
+            )
+        self.assertTrue(
+            any("must precede" in e for e in ctx.exception.errors)
+        )
+
+    def test_permission_mode_mismatch_is_rejected(self):
+        rows = _normalized()
+        rows[1]["permission_mode"] = "dontAsk"
+        body = copy.deepcopy(rows[1])
+        body.pop("record_hash")
+        rows[1]["record_hash"] = probe.ingress._canonical_hash(body)
+        with self.assertRaises(probe.CodexProbeCandidateError) as ctx:
+            probe.verify_candidate_trace(
+                records=rows,
+                request_hash=REQ,
+                config_sha=CONFIG,
+                provider=PROVIDER,
+            )
+        self.assertTrue(
+            any("permission_mode must match" in e for e in ctx.exception.errors)
+        )
+
+    def test_bypass_permissions_is_rejected(self):
+        event = _start()
+        event["permission_mode"] = "bypassPermissions"
+        with self.assertRaises(probe.CodexProbeCandidateError):
+            probe.normalize_hook_event(
+                event=event,
+                request_hash=REQ,
+                config_sha=CONFIG,
+                provider=PROVIDER,
+            )
 
     def test_duplicate_start_is_rejected(self):
         rows = _normalized()
@@ -196,7 +238,10 @@ class JsonlRecordingTests(unittest.TestCase):
     def test_record_hook_appends_two_records(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = pathlib.Path(tmp) / "hooks.jsonl"
+            repo = pathlib.Path(tmp) / "repo"
+            repo.mkdir()
             probe.record_hook_event(
+                repo_root=repo,
                 output=output,
                 event=_start(),
                 request_hash=REQ,
@@ -204,6 +249,7 @@ class JsonlRecordingTests(unittest.TestCase):
                 provider=PROVIDER,
             )
             probe.record_hook_event(
+                repo_root=pathlib.Path(tmp) / "repo",
                 output=output,
                 event=_stop(),
                 request_hash=REQ,
@@ -215,6 +261,24 @@ class JsonlRecordingTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[0]["hook_event_name"], "SubagentStart")
         self.assertEqual(rows[1]["hook_event_name"], "SubagentStop")
+
+    def test_output_inside_repo_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp) / "repo"
+            repo.mkdir()
+            output = repo / "forged.jsonl"
+            with self.assertRaises(probe.CodexProbeCandidateError) as ctx:
+                probe.record_hook_event(
+                    repo_root=repo,
+                    output=output,
+                    event=_start(),
+                    request_hash=REQ,
+                    config_sha=CONFIG,
+                    provider=PROVIDER,
+                )
+        self.assertTrue(
+            any("outside repository" in e for e in ctx.exception.errors)
+        )
 
     def test_invalid_jsonl_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
