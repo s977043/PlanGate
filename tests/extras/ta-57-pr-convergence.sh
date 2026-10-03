@@ -699,11 +699,13 @@ runtime_evidence_external_trust.py reason: R1 shadow/PoC の上流検証専用�
 runtime_evidence_ingress.py reason: R0/R1 shadow/PoC の上流検証専用で plugin rollout 未承認のため非配布 (#1448)
 runtime_evidence_investigation.py reason: R1 shadow/PoC の上流検証専用で plugin rollout 未承認のため非配布 (#1448)
 runtime_evidence_request_bound_canary.py reason: request-bound R1 canary はHO workflow未適用の上流検証専用で非配布 (#1448)
+runtime_evidence_codex_probe_candidate.py reason: Codex R1 lifecycle probe はcandidate-onlyの上流検証専用で plugin rollout 未承認のため非配布 (#1448)
 test_runtime_evidence_dispatch_readiness.py reason: 非配布 runtime_evidence_dispatch_readiness.py の上流検証用 test のため非配布 (#1448)
 test_runtime_evidence_external_trust.py reason: 非配布 runtime_evidence_external_trust.py の上流検証用 test のため非配布 (#1448)
 test_runtime_evidence_ingress.py reason: 非配布 runtime_evidence_ingress.py の上流検証用 test のため非配布 (#1448)
 test_runtime_evidence_investigation.py reason: 非配布 runtime_evidence_investigation.py の上流検証用 test のため非配布 (#1448)
-test_runtime_evidence_request_bound_canary.py reason: 非配布 runtime_evidence_request_bound_canary.py の上流検証用 test のため非配布 (#1448)'
+test_runtime_evidence_request_bound_canary.py reason: 非配布 runtime_evidence_request_bound_canary.py の上流検証用 test のため非配布 (#1448)
+test_runtime_evidence_codex_probe_candidate.py reason: 非配布 runtime_evidence_codex_probe_candidate.py の上流検証用 test のため非配布 (#1448)'
 
   _t57_audit="$_t57_tmp/allowlist_audit.py"
   cat > "$_t57_audit" <<'PY_T57_AUDIT'
