@@ -16,6 +16,9 @@
 - Discovery depth: minimal / expanded
 - Actor / Job（material な場合）: {誰の、どの状況・仕事か}
 - PBI author: human / ai / mixed
+- Application path: follow_up / replan_current / harness_candidate
+- Source run / failure refs（ある場合）: {run_id / FailureRecord / RunEvidence refs}
+- HarnessImprovementCandidate ref（Application path = harness_candidate の場合）: {candidate ref}
 - Problem evidence refs（material な場合）: {問題設定を支持する evidence ref}
 
 #### Source / Feedback Provenance（material な場合）
@@ -25,6 +28,7 @@
 | {ref} | human_feedback / issue / run_evidence / failure_record / measurement / existing_behavior / external_source / policy | observed / reported / inferred | Goal / Problem / REQ-001 / AC-01 |
 
 > `observed` = artifact / measurement / verifier で直接確認、`reported` = Human / external source の報告、`inferred` = source から導出した仮説・解釈。
+> `follow_up` は current Run を変更しない。`replan_current` は Replan / Plan Verification / Plan Gate を通す。`harness_candidate` は HarnessImprovementCandidate を必須の upstream authority とし、本 PBI で evaluation contract を置き換えない。
 > 要約・再生成・別 Agent の同意は source independence を増やさない。PBI 自身や downstream の Plan / Review を、この PBI の upstream Goal / Problem の独立 Evidence に循環利用しない。
 
 #### Existing Work Check（AI-generated / expanded discovery で material な場合）
