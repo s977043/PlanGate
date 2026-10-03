@@ -13,7 +13,6 @@
       "thread.started",
       "turn.started",
       "item.started",
-      "item.updated",
       "item.completed",
       "turn.completed",
       "turn.failed",
@@ -21,7 +20,11 @@
     ],
     "thread_started_exposes_thread_id": true,
     "turn_started_exposes_turn_id": false,
-    "public_thread_item_exposes_subagent_identity": false
+    "public_thread_item_exposes_subagent_identity": false,
+    "documented_stable_item_type_examples": [
+      "command_execution"
+    ],
+    "undocumented_item_types_are_schema_drift": true
   },
   "candidate_verification": {
     "required": [
@@ -31,7 +34,8 @@
       "turn.completed is final",
       "all item events stay inside the turn boundary",
       "file_change/web_search/error items are absent",
-      "hook/exec traces are absolute, regular, non-symlink files outside the repository"
+      "hook/exec traces are absolute, regular, non-symlink files outside the repository",
+      "hook and exec raw trace SHA-256 are bound into the result"
     ],
     "must_remain_false": [
       "command_execution_read_only_verified",
@@ -44,7 +48,8 @@
       "runtime_probe_attestation_verified",
       "human_rollout_decision_verified",
       "dispatch_ready",
-      "dispatch_allowed"
+      "dispatch_allowed",
+      "same_subagent_execution_correlated"
     ]
   },
   "privacy_notes": [
@@ -57,6 +62,8 @@
     "The public exec JSONL turn.started event currently has no turn id.",
     "The public ThreadItem union currently has no subagent identity item.",
     "A future stronger adapter needs an independently exposed runtime identifier before codex_jsonl_runtime_correlation_verified may become true.",
-    "Absence of file_change does not prove shell/MCP read-only behavior or repository cleanliness; those postconditions stay separately unverified."
+    "Absence of file_change does not prove shell/MCP read-only behavior or repository cleanliness; those postconditions stay separately unverified.",
+    "Matching hook session_id to exec thread_id is a parent-thread correlation candidate, not proof that the same Explorer subagent produced the exec JSONL.",
+    "Unknown item types are recorded as schema drift and keep coverage incomplete; they are not promoted into a stable public contract."
   ]
 }
