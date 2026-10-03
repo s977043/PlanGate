@@ -145,5 +145,103 @@ else
   fail=$((fail + 1))
 fi
 
+# 6. Train/test batch evaluation must execute through the CLI and remain no-write.
+_t94_batch="$_t94_tmp/batch.json"
+_t94_batch_out="$_t94_tmp/batch-out.json"
+cat >"$_t94_batch" <<'JSON'
+[
+  {
+    "case_ref": "train-01",
+    "split": "train",
+    "payload": {
+      "task_id": "TASK-1442",
+      "title": "batch train probe",
+      "author": "ai",
+      "application_timing": "follow_up",
+      "target_layer": "delivery",
+      "goal": "probe goal",
+      "problem": "probe problem",
+      "source_run_refs": [],
+      "claims": [
+        {
+          "id": "CLM-001",
+          "text": "probe observation",
+          "source_ref": "run-evidence:train-01",
+          "source_kind": "run_evidence",
+          "claim_class": "observed",
+          "supports": "Problem"
+        }
+      ],
+      "requirements": [],
+      "acceptance_criteria": [],
+      "in_scope": [],
+      "out_of_scope": [],
+      "risks": [],
+      "unknowns": [],
+      "assumptions": [],
+      "harness_candidate_ref": null
+    },
+    "existing_work": [],
+    "expected": {
+      "oracle_ref": "docs/working/TASK-1442/train-01.md",
+      "decision": "create_new",
+      "matched_ref": null,
+      "readiness_status": "ready",
+      "readiness_route": "future_run"
+    }
+  },
+  {
+    "case_ref": "test-01",
+    "split": "test",
+    "payload": {
+      "task_id": "TASK-1442",
+      "title": "batch test probe",
+      "author": "ai",
+      "application_timing": "follow_up",
+      "target_layer": "delivery",
+      "goal": "probe goal",
+      "problem": "probe problem",
+      "source_run_refs": [],
+      "claims": [
+        {
+          "id": "CLM-001",
+          "text": "probe observation",
+          "source_ref": "run-evidence:test-01",
+          "source_kind": "run_evidence",
+          "claim_class": "observed",
+          "supports": "Problem"
+        }
+      ],
+      "requirements": [],
+      "acceptance_criteria": [],
+      "in_scope": [],
+      "out_of_scope": [],
+      "risks": [],
+      "unknowns": [],
+      "assumptions": [],
+      "harness_candidate_ref": null
+    },
+    "existing_work": [],
+    "expected": {
+      "oracle_ref": "docs/working/TASK-1442/test-01.md",
+      "decision": "create_new",
+      "matched_ref": null,
+      "readiness_status": "ready",
+      "readiness_route": "future_run"
+    }
+  }
+]
+JSON
+_t94_rc=0
+"$_T94_PY" "$_T94_AI_LOOP/pbi_materializer.py"   --eval-batch "$_t94_batch" --format json   >"$_t94_batch_out" 2>"$_t94_tmp/batch.err" || _t94_rc=$?
+if [ "$_t94_rc" -eq 0 ]   && grep -q '"mode": "shadow_evaluation"' "$_t94_batch_out"   && grep -q '"write_allowed": false' "$_t94_batch_out"   && grep -q '"automatic_promotion": false' "$_t94_batch_out"   && grep -q '"exact_match_rate": 1.0' "$_t94_batch_out"   && grep -q '"split": "train"' "$_t94_batch_out"   && grep -q '"split": "test"' "$_t94_batch_out"; then
+  printf '  [PASS] shadow batch: train/test CLI path fired with no write/promotion authority\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] shadow batch: train/test CLI path failed (rc=%s)\n' "$_t94_rc" >&2
+  sed 's/^/    /' "$_t94_tmp/batch.err" >&2
+  fail=$((fail + 1))
+fi
+
 rm -rf "$_t94_tmp"
 pg_extra_contract_finalize
