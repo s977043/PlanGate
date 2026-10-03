@@ -971,5 +971,158 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertIn("maker actual must not be stored", str(ctx.exception))
 
 
+    def test_materialization_inventory_zero_cases_is_not_completion(self):
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["evaluated_case_total"], 0)
+        self.assertFalse(inventory["has_tracked_live_evidence"])
+        self.assertTrue(inventory["inventory_complete"])
+        self.assertFalse(
+            inventory["coverage"]["materialization_decision_coverage_complete"]
+        )
+        self.assertEqual(
+            inventory["coverage"]["missing_materialization_decisions"],
+            ["create_new", "link_only", "update_existing"],
+        )
+        self.assertEqual(
+            inventory["collection_gaps"],
+            [
+                "tracked_materialization_case_missing",
+                "materialization_decision_missing:create_new",
+                "materialization_decision_missing:link_only",
+                "materialization_decision_missing:update_existing",
+            ],
+        )
+        self.assertEqual(
+            inventory["rollout_quality"]["live_case_total"],
+            0,
+        )
+        self.assertFalse(
+            inventory["rollout_quality"]["quality_review_complete"]
+        )
+        self.assertFalse(
+            inventory["verification_boundary"]["runtime_execution_verified"]
+        )
+        self.assertFalse(inventory["authority"]["write_allowed"])
+
+    def test_materialization_inventory_revalidates_tracked_case(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 1)
+        self.assertEqual(inventory["evaluated_case_total"], 1)
+        self.assertEqual(inventory["invalid_case_total"], 0)
+        self.assertEqual(
+            inventory["coverage"]["observed_materialization_decisions"],
+            ["create_new"],
+        )
+        self.assertEqual(
+            inventory["coverage"]["missing_materialization_decisions"],
+            ["link_only", "update_existing"],
+        )
+        self.assertEqual(
+            inventory["collection_gaps"],
+            [
+                "materialization_decision_missing:link_only",
+                "materialization_decision_missing:update_existing",
+            ],
+        )
+        self.assertEqual(
+            inventory["rollout_quality"]["duplicate_false_positive_rate"],
+            0.0,
+        )
+        self.assertIsNone(
+            inventory["rollout_quality"]["duplicate_false_negative_rate"]
+        )
+        self.assertFalse(
+            inventory["coverage"]["representative_coverage_claim_allowed"]
+        )
+
+    def test_materialization_inventory_detects_payload_drift(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+        payload = json.loads(
+            (self.root / self.payload_ref).read_text(encoding="utf-8")
+        )
+        payload["goal"] = "tampered after reviewed case assembly"
+        (self.root / self.payload_ref).write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertIn(
+            "payload_hash",
+            " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
+        )
+        self.assertIn(
+            "invalid_materialization_case_artifacts_present",
+            inventory["collection_gaps"],
+        )
+
+    def test_materialization_inventory_rejects_duplicate_logical_case_ids(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+        original = self.root / self.materialization_case_ref
+        duplicate = (
+            self.root
+            / "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            / "run-02/materialization-case.json"
+        )
+        duplicate.parent.mkdir(parents=True, exist_ok=True)
+        duplicate.write_bytes(original.read_bytes())
+
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 2)
+        for item in inventory["invalid_case_artifacts"]:
+            self.assertIn(
+                "duplicate logical case_ref",
+                " ".join(item["errors"]),
+            )
+        self.assertTrue(
+            inventory["verification_boundary"][
+                "duplicate_logical_case_ids_rejected"
+            ]
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
