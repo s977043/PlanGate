@@ -894,6 +894,299 @@ def collect_reviewed_materialization_case(
     }
 
 
+def _revalidate_materialization_case_chain(
+    *,
+    repo_root: pathlib.Path,
+    task_id: str,
+    case: dict[str, Any],
+) -> None:
+    expected = case.get("expected")
+    if not isinstance(expected, dict):
+        raise CollectorError("materialization case expected: object required")
+    oracle_ref = _validate_output_ref(
+        task_id,
+        expected.get("oracle_ref"),
+        "materialization_case.expected.oracle_ref",
+    )
+
+    _oracle_path, oracle = _load_repo_json_object(
+        repo_root, oracle_ref, "materialization_oracle_ref"
+    )
+    admission_case_ref = _validate_output_ref(
+        task_id,
+        oracle.get("admission_case_ref"),
+        "materialization_oracle.admission_case_ref",
+    )
+    payload_ref = _validate_output_ref(
+        task_id,
+        oracle.get("payload_ref"),
+        "materialization_oracle.payload_ref",
+    )
+    existing_work_ref = _validate_output_ref(
+        task_id,
+        oracle.get("existing_work_ref"),
+        "materialization_oracle.existing_work_ref",
+    )
+
+    evidence_refs = case.get("evidence_refs", [])
+    if not isinstance(evidence_refs, list):
+        raise CollectorError("materialization_case.evidence_refs: array required")
+    for ref in (admission_case_ref, payload_ref, existing_work_ref):
+        if ref not in evidence_refs:
+            raise CollectorError(
+                f"materialization_case.evidence_refs: missing bound ref {ref}"
+            )
+    if oracle_ref in evidence_refs:
+        raise CollectorError(
+            "materialization_case.evidence_refs: oracle must remain separate"
+        )
+
+    _admission_path, admission_case = _load_repo_json_object(
+        repo_root, admission_case_ref, "admission_case_ref"
+    )
+    admission_errors = pm._validate_admission_batch(
+        [admission_case],
+        authority_root=repo_root,
+    )
+    if admission_errors:
+        raise CollectorError(
+            "admission_case invalid: " + "; ".join(admission_errors)
+        )
+    admission_report = pm.evaluate_admission_batch(
+        [admission_case],
+        authority_root=repo_root,
+    )
+    admission_result = admission_report["cases"][0]
+    if (
+        admission_result.get("status") != "match"
+        or admission_result.get("actual") != "materialize"
+        or admission_result.get("expected") != "materialize"
+    ):
+        raise CollectorError(
+            "admission_case: reviewed materialize match required"
+        )
+
+    _payload_path, payload = _load_repo_json_object(
+        repo_root, payload_ref, "payload_ref"
+    )
+    existing_path, _fragment, existing_errors = pm._resolve_repo_authority_ref(
+        existing_work_ref,
+        repo_root,
+    )
+    if existing_errors or existing_path is None:
+        raise CollectorError(
+            "existing_work_ref: "
+            + "; ".join(existing_errors or ["unresolvable"])
+        )
+    existing_work = _load_json_array(existing_path, "existing_work_ref")
+
+    _validate_materialization_oracle(
+        oracle=oracle,
+        oracle_ref=oracle_ref,
+        admission_case=admission_case,
+        admission_case_ref=admission_case_ref,
+        payload=payload,
+        payload_ref=payload_ref,
+        existing_work=existing_work,
+        existing_work_ref=existing_work_ref,
+    )
+
+    if case.get("payload") != payload:
+        raise CollectorError(
+            "materialization_case.payload: stored payload artifact mismatch"
+        )
+    if case.get("existing_work") != existing_work:
+        raise CollectorError(
+            "materialization_case.existing_work: stored snapshot mismatch"
+        )
+    if case.get("live_capture") != admission_case.get("live_capture"):
+        raise CollectorError(
+            "materialization_case.live_capture: admission binding mismatch"
+        )
+
+
+def inventory_live_materialization_cases(
+    *,
+    repo_root: pathlib.Path,
+) -> dict[str, Any]:
+    root = repo_root.resolve()
+    pattern = (
+        "docs/working/TASK-*/evidence/"
+        "pbi-live-shadow/**/materialization-case.json"
+    )
+    discovered = sorted(root.glob(pattern))
+    candidates: list[tuple[str, dict[str, Any]]] = []
+    invalid: list[dict[str, Any]] = []
+
+    for path in discovered:
+        try:
+            rel = path.relative_to(root).as_posix()
+        except ValueError:
+            continue
+
+        try:
+            mode = path.lstat().st_mode
+        except OSError as exc:
+            invalid.append({"ref": rel, "errors": [f"lstat failed: {exc}"]})
+            continue
+        if not stat.S_ISREG(mode):
+            invalid.append(
+                {"ref": rel, "errors": ["case artifact must be a regular file"]}
+            )
+            continue
+
+        try:
+            case = _load_json_object(path, rel)
+        except CollectorError as exc:
+            invalid.append({"ref": rel, "errors": [str(exc)]})
+            continue
+
+        parts = pathlib.PurePosixPath(rel).parts
+        task_id = parts[2] if len(parts) > 2 else ""
+        try:
+            _validate_output_ref(
+                task_id, rel, "materialization_case_artifact_ref"
+            )
+            _revalidate_materialization_case_chain(
+                repo_root=root,
+                task_id=task_id,
+                case=case,
+            )
+        except CollectorError as exc:
+            invalid.append({"ref": rel, "errors": [str(exc)]})
+            continue
+
+        errors = pm._validate_shadow_batch(
+            [case],
+            authority_root=root,
+        )
+        if errors:
+            invalid.append({"ref": rel, "errors": errors})
+            continue
+        candidates.append((rel, case))
+
+    refs_by_case_id: dict[str, list[str]] = {}
+    for rel, case in candidates:
+        logical = case.get("case_ref")
+        if isinstance(logical, str):
+            refs_by_case_id.setdefault(logical, []).append(rel)
+
+    duplicate_refs = {
+        ref
+        for refs in refs_by_case_id.values()
+        if len(refs) > 1
+        for ref in refs
+    }
+
+    valid_cases: list[dict[str, Any]] = []
+    valid_refs: list[str] = []
+    for rel, case in candidates:
+        if rel in duplicate_refs:
+            logical = case.get("case_ref")
+            invalid.append(
+                {
+                    "ref": rel,
+                    "errors": [
+                        f"duplicate logical case_ref {logical!r}: "
+                        + ", ".join(refs_by_case_id.get(logical, []))
+                    ],
+                }
+            )
+            continue
+        valid_cases.append(case)
+        valid_refs.append(rel)
+
+    evaluated_cases: list[dict[str, Any]] = []
+    metrics: dict[str, Any] | None = None
+    rollout_quality = pm._materialization_live_quality([])
+
+    if valid_cases:
+        try:
+            report = pm.evaluate_shadow_batch(
+                valid_cases,
+                authority_root=root,
+            )
+        except pm.MaterializationError as exc:
+            invalid.append(
+                {
+                    "ref": "<aggregate-evaluation>",
+                    "errors": list(exc.errors),
+                }
+            )
+        else:
+            evaluated_cases = report["cases"]
+            metrics = report["metrics"]
+            rollout_quality = report["rollout_quality"]
+
+    observed_decisions = sorted({
+        case.get("actual_decision")
+        for case in evaluated_cases
+        if isinstance(case, dict)
+        and isinstance(case.get("actual_decision"), str)
+    })
+    missing_decisions = sorted(
+        pm.VALID_DECISIONS - set(observed_decisions)
+    )
+    collection_gaps: list[str] = []
+    if invalid:
+        collection_gaps.append("invalid_materialization_case_artifacts_present")
+    if not valid_cases:
+        collection_gaps.append("tracked_materialization_case_missing")
+    collection_gaps.extend(
+        f"materialization_decision_missing:{decision}"
+        for decision in missing_decisions
+    )
+
+    return {
+        "mode": "pbi_live_shadow_materialization_inventory",
+        "scope": "repository_tracked_live_shadow_materialization",
+        "discovered_case_artifacts": [
+            path.relative_to(root).as_posix() for path in discovered
+        ],
+        "valid_case_artifacts": valid_refs,
+        "invalid_case_artifacts": sorted(
+            invalid,
+            key=lambda item: str(item.get("ref", "")),
+        ),
+        "tracked_live_case_total": len(valid_cases),
+        "evaluated_case_total": len(evaluated_cases),
+        "invalid_case_total": len(invalid),
+        "has_tracked_live_evidence": bool(valid_cases),
+        "inventory_complete": not invalid,
+        "coverage": {
+            "observed_materialization_decisions": observed_decisions,
+            "missing_materialization_decisions": missing_decisions,
+            "materialization_decision_coverage_complete": (
+                not missing_decisions
+            ),
+            "representative_coverage_claim_allowed": False,
+        },
+        "collection_gaps": collection_gaps,
+        "metrics": metrics,
+        "rollout_quality": rollout_quality,
+        "verification_boundary": {
+            "repository_chain_revalidated": True,
+            "admission_materialize_match_revalidated": True,
+            "task_namespace_binding_enforced": True,
+            "duplicate_logical_case_ids_rejected": True,
+            "runtime_execution_verified": False,
+            "source_preexistence_verified": False,
+            "reviewer_identity_verified": False,
+            "historical_promoted_to_live": False,
+            "synthetic_fixture_counted": False,
+        },
+        "authority": {
+            "read_only": True,
+            "write_allowed": False,
+            "close_allowed": False,
+            "suppression_allowed": False,
+            "merge_allowed": False,
+            "quality_thresholds_applied": False,
+            "quality_acceptance_decided": False,
+        },
+    }
+
+
 def inventory_live_shadow_cases(
     *,
     repo_root: pathlib.Path,
@@ -1141,6 +1434,7 @@ def main(argv=None) -> int:
     materialization_case.add_argument("--case-artifact-ref", required=True)
 
     sub.add_parser("inventory")
+    sub.add_parser("materialization-inventory")
 
     args = parser.parse_args(argv)
     root = pathlib.Path(args.repo_root).resolve()
@@ -1179,6 +1473,8 @@ def main(argv=None) -> int:
                 oracle_ref=args.oracle_ref,
                 case_artifact_ref=args.case_artifact_ref,
             )
+        elif args.command == "materialization-inventory":
+            result = inventory_live_materialization_cases(repo_root=root)
         else:
             result = inventory_live_shadow_cases(repo_root=root)
     except (CollectorError, pm.MaterializationError) as exc:
