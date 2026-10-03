@@ -300,7 +300,7 @@ What makes execution reliable and safe? -> Harness
 
 ### Harness Health: 5 つを分離して見る
 
-Harness の棚卸しでは、次の 4 つを別の問いとして扱う。存在確認だけで効果を主張しない。
+Harness の棚卸しでは、次の 5 つを別の問いとして扱う。存在確認だけで効果を主張しない。これらを単一の `Harness Health Score` に集約することは既定としない。異なる性質の Evidence と authority を 1 数値へ潰すと、弱い軸を他の高得点で相殺できてしまうためである。
 
 | Dimension | Question | Evidence / authority |
 |---|---|---|
@@ -313,7 +313,7 @@ Harness の棚卸しでは、次の 4 つを別の問いとして扱う。存在
 判定の順序は次を基本とする。
 
     present?
-      no  -> missing / intentionally absent を区別
+      no  -> missing / intentionally absent を区別。missing なら CREATE candidate を検討
       yes -> activated?
                no  -> dead / unreachable / wrong routing の可能性
                yes -> effectiveness evidence sufficient?
@@ -332,6 +332,7 @@ Harness の棚卸しでは、次の 4 つを別の問いとして扱う。存在
 | Disposition | 意味 | 次の扱い |
 |---|---|---|
 | KEEP | 現時点の Evidence では変更理由がない | 現状維持。必要なら継続観測 |
+| CREATE | 既存 component で表せない具体的な責務 gap が Evidence 付きで確認された | Reuse Before Create を再確認してから Candidate 化 |
 | UPDATE | 責務は必要だが内容・trigger・routing 等に改善余地がある | North Star §13 の Candidate 化 |
 | SPLIT | 1 component に複数責務が過密に集中している | Candidate 化して独立評価 |
 | MERGE | 重複 component を統合できる可能性がある | activation / regression を比較して Candidate 化 |
