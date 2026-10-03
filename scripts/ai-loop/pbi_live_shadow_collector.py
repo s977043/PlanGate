@@ -24,6 +24,7 @@ This adapter is intentionally narrower than the PBI materializer:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -52,6 +53,30 @@ def _load_json_object(path: pathlib.Path, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise CollectorError(f"{label}: object required")
     return value
+
+
+def _file_sha256(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
+def _load_repo_json_object(
+    repo_root: pathlib.Path,
+    ref: str,
+    label: str,
+) -> tuple[pathlib.Path, dict[str, Any]]:
+    path, _fragment, errors = pm._resolve_repo_authority_ref(
+        ref,
+        repo_root,
+    )
+    if errors or path is None:
+        raise CollectorError(
+            f"{label}: " + "; ".join(errors or ["unresolvable"])
+        )
+    return path, _load_json_object(path, label)
 
 
 def _namespace_prefix(task_id: str) -> str:
@@ -293,7 +318,7 @@ def collect_review_packet(
     source_ref = signal.get("source_ref")
     if not isinstance(source_ref, str):
         raise CollectorError("capture.signal.source_ref: string required")
-    _require_existing_source(repo_root, source_ref)
+    source_path = _require_existing_source(repo_root, source_ref)
 
     ev_refs = run_evidence.get("evidence_refs", [])
     if (
@@ -324,6 +349,7 @@ def collect_review_packet(
             "run_evidence_ref_for_binding_only": run_evidence_ref,
         },
         "hashes": {
+            "source_sha256": _file_sha256(source_path),
             "signal_hash": capture["signal_hash"],
             "capture_hash": pm._canonical_json_hash(capture),
             "run_evidence_hash": pm._canonical_json_hash(run_evidence),
@@ -367,6 +393,229 @@ def collect_review_packet(
     }
 
 
+def _validate_admission_oracle(
+    *,
+    oracle: dict[str, Any],
+    oracle_ref: str,
+    packet: dict[str, Any],
+    packet_ref: str,
+    source_ref: str,
+    source_sha256: str,
+) -> None:
+    errors: list[str] = []
+
+    if oracle.get("schema_version") != 1:
+        errors.append("oracle.schema_version: 1 required")
+    if oracle.get("domain") != "plangate.pbi-live-shadow-admission-oracle/v1":
+        errors.append(
+            "oracle.domain: plangate.pbi-live-shadow-admission-oracle/v1 required"
+        )
+
+    case_ref = oracle.get("case_ref")
+    if not isinstance(case_ref, str) or not case_ref.strip():
+        errors.append("oracle.case_ref: non-empty string required")
+
+    if oracle.get("packet_ref") != packet_ref:
+        errors.append("oracle.packet_ref: exact review packet ref required")
+    if oracle.get("packet_hash") != pm._canonical_json_hash(packet):
+        errors.append("oracle.packet_hash: review packet hash mismatch")
+    if oracle.get("reviewed_source_ref") != source_ref:
+        errors.append("oracle.reviewed_source_ref: exact upstream source ref required")
+    if oracle.get("reviewed_source_sha256") != source_sha256:
+        errors.append("oracle.reviewed_source_sha256: upstream source hash mismatch")
+
+    expected = oracle.get("expected_admission_decision")
+    if expected not in pm.VALID_ADMISSION_DECISIONS:
+        errors.append(
+            "oracle.expected_admission_decision: one of "
+            f"{sorted(pm.VALID_ADMISSION_DECISIONS)} required"
+        )
+
+    if oracle.get("independent_review_asserted") is not True:
+        errors.append("oracle.independent_review_asserted: true required")
+    if oracle.get("maker_actual_not_consulted_asserted") is not True:
+        errors.append(
+            "oracle.maker_actual_not_consulted_asserted: true required"
+        )
+
+    for forbidden in (
+        "actual",
+        "actual_decision",
+        "actual_admission_decision",
+        "maker_actual",
+    ):
+        if forbidden in oracle:
+            errors.append(f"oracle.{forbidden}: maker actual must not be stored")
+
+    refs = packet.get("refs")
+    if isinstance(refs, dict):
+        bound_refs = {
+            refs.get("blind_review_source_ref"),
+            refs.get("capture_ref_for_binding_only"),
+            refs.get("run_evidence_ref_for_binding_only"),
+            packet_ref,
+        }
+        if oracle_ref in bound_refs:
+            errors.append("oracle_ref: oracle must be a distinct artifact")
+
+    if errors:
+        raise CollectorError("; ".join(errors))
+
+
+def collect_reviewed_admission_case(
+    *,
+    repo_root: pathlib.Path,
+    packet_ref: str,
+    oracle_ref: str,
+    case_ref: str,
+) -> dict[str, Any]:
+    _packet_path, packet = _load_repo_json_object(
+        repo_root, packet_ref, "packet_ref"
+    )
+    if packet.get("domain") != "plangate.pbi-live-shadow-review-packet/v1":
+        raise CollectorError("packet_ref: unsupported review packet domain")
+    if packet.get("mode") != "pbi_live_shadow_review_packet":
+        raise CollectorError("packet_ref: review packet mode required")
+
+    task_id = packet.get("task_id")
+    if not isinstance(task_id, str):
+        raise CollectorError("packet.task_id: string required")
+    _validate_output_ref(task_id, packet_ref, "packet_ref")
+    case_ref = _validate_output_ref(task_id, case_ref, "case_ref")
+
+    refs = packet.get("refs")
+    hashes = packet.get("hashes")
+    review_contract = packet.get("review_contract")
+    if not isinstance(refs, dict):
+        raise CollectorError("packet.refs: object required")
+    if not isinstance(hashes, dict):
+        raise CollectorError("packet.hashes: object required")
+    if not isinstance(review_contract, dict):
+        raise CollectorError("packet.review_contract: object required")
+    if review_contract.get("packet_blind_to_actual") is not True:
+        raise CollectorError("packet.review_contract.packet_blind_to_actual: true required")
+    if review_contract.get("actual_decision_disclosed") is not False:
+        raise CollectorError(
+            "packet.review_contract.actual_decision_disclosed: false required"
+        )
+
+    source_ref = refs.get("blind_review_source_ref")
+    capture_ref = refs.get("capture_ref_for_binding_only")
+    run_evidence_ref = refs.get("run_evidence_ref_for_binding_only")
+    for label, value in (
+        ("source_ref", source_ref),
+        ("capture_ref", capture_ref),
+        ("run_evidence_ref", run_evidence_ref),
+    ):
+        if not isinstance(value, str) or not value.strip():
+            raise CollectorError(f"packet.refs.{label}: non-empty string required")
+
+    assert isinstance(source_ref, str)
+    assert isinstance(capture_ref, str)
+    assert isinstance(run_evidence_ref, str)
+
+    source_path = _require_existing_source(repo_root, source_ref)
+    source_sha256 = _file_sha256(source_path)
+    if hashes.get("source_sha256") != source_sha256:
+        raise CollectorError("packet.hashes.source_sha256: current source hash mismatch")
+
+    capture, run_evidence, binding_errors = pm._validate_live_run_binding(
+        capture_ref=capture_ref,
+        run_evidence_ref=run_evidence_ref,
+        authority_root=repo_root,
+    )
+    if binding_errors or capture is None or run_evidence is None:
+        raise CollectorError(
+            "live binding invalid: "
+            + "; ".join(binding_errors or ["unknown"])
+        )
+
+    if hashes.get("capture_hash") != pm._canonical_json_hash(capture):
+        raise CollectorError("packet.hashes.capture_hash: current capture hash mismatch")
+    if hashes.get("run_evidence_hash") != pm._canonical_json_hash(run_evidence):
+        raise CollectorError(
+            "packet.hashes.run_evidence_hash: current RunEvidence hash mismatch"
+        )
+    if hashes.get("signal_hash") != capture.get("signal_hash"):
+        raise CollectorError("packet.hashes.signal_hash: current signal hash mismatch")
+
+    _oracle_path, oracle = _load_repo_json_object(
+        repo_root, oracle_ref, "oracle_ref"
+    )
+    _validate_admission_oracle(
+        oracle=oracle,
+        oracle_ref=oracle_ref,
+        packet=packet,
+        packet_ref=packet_ref,
+        source_ref=source_ref,
+        source_sha256=source_sha256,
+    )
+
+    signal = capture.get("signal")
+    if not isinstance(signal, dict):
+        raise CollectorError("capture.signal: object required")
+
+    eval_case = {
+        "case_ref": oracle["case_ref"],
+        "split": "test",
+        "evidence_class": "live_shadow",
+        "evidence_refs": [
+            source_ref,
+            capture_ref,
+            run_evidence_ref,
+            packet_ref,
+            oracle_ref,
+        ],
+        "live_capture": {
+            "capture_ref": capture_ref,
+            "run_evidence_ref": run_evidence_ref,
+        },
+        "signal": signal,
+        "expected": {
+            "oracle_ref": oracle_ref,
+            "admission_decision": oracle["expected_admission_decision"],
+        },
+    }
+
+    batch_errors = pm._validate_admission_batch(
+        [eval_case],
+        authority_root=repo_root,
+    )
+    if batch_errors:
+        raise CollectorError(
+            "assembled admission case invalid: " + "; ".join(batch_errors)
+        )
+
+    artifact_hash, artifact_reused = _atomic_create_json(
+        repo_root, case_ref, eval_case
+    )
+    return {
+        "mode": "pbi_live_shadow_collect_reviewed_admission_case",
+        "artifact_ref": case_ref,
+        "artifact_hash": artifact_hash,
+        "artifact_reused": artifact_reused,
+        "packet_ref": packet_ref,
+        "oracle_ref": oracle_ref,
+        "review_assertions": {
+            "independent_review_asserted": True,
+            "maker_actual_not_consulted_asserted": True,
+            "oracle_authorship_verified": False,
+            "reviewer_identity_required": False,
+        },
+        "authority": {
+            "evidence_create_allowed": True,
+            "overwrite_allowed": False,
+            "idempotent_reuse_allowed": True,
+            "pbi_write_allowed": False,
+            "issue_write_allowed": False,
+            "close_allowed": False,
+            "suppression_allowed": False,
+            "merge_allowed": False,
+            "quality_acceptance_decided": False,
+        },
+    }
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", required=True)
@@ -385,6 +634,11 @@ def main(argv=None) -> int:
     packet.add_argument("--run-evidence-ref", required=True)
     packet.add_argument("--packet-ref", required=True)
 
+    reviewed_case = sub.add_parser("case")
+    reviewed_case.add_argument("--packet-ref", required=True)
+    reviewed_case.add_argument("--oracle-ref", required=True)
+    reviewed_case.add_argument("--case-ref", required=True)
+
     args = parser.parse_args(argv)
     root = pathlib.Path(args.repo_root).resolve()
     try:
@@ -399,12 +653,19 @@ def main(argv=None) -> int:
                 runtime_head_sha=args.runtime_head_sha,
                 capture_ref=args.capture_ref,
             )
-        else:
+        elif args.command == "packet":
             result = collect_review_packet(
                 repo_root=root,
                 capture_ref=args.capture_ref,
                 run_evidence_ref=args.run_evidence_ref,
                 packet_ref=args.packet_ref,
+            )
+        else:
+            result = collect_reviewed_admission_case(
+                repo_root=root,
+                packet_ref=args.packet_ref,
+                oracle_ref=args.oracle_ref,
+                case_ref=args.case_ref,
             )
     except (CollectorError, pm.MaterializationError) as exc:
         print(str(exc), file=sys.stderr)
