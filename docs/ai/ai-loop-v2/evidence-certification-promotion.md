@@ -710,6 +710,45 @@ Recommended first implementation order:
 
 Do not implement routing and projection in the same first slice; otherwise a parity defect can immediately alter control flow.
 
+### 13.3 Stop and rollback contract
+
+The first shadow slice should be cheap to remove and should not require state migration.
+
+**Mode A — executable specification**
+
+Rollback is simply reverting/removing the non-authoritative test/spec change. There is no runtime state, authority, or persisted Certification SSoT to migrate.
+
+**Mode B — runtime shadow projection**
+
+The projection remains observational. A mismatch or failure must not fall back to "best effort" and must not alter Decision behavior.
+
+Stop the rollout / revert the shadow integration when any of these occur:
+
+- Certification required-verifier map differs from owner Decision `artifact_verdicts(...)` for identical inputs;
+- enabling shadow changes Decision output, event ordering, state transition, or terminal outcome;
+- target / contract binding cannot be established;
+- static execution-boundary coverage or its positive control fails;
+- owner-backed Decision contract changes and parity has not been re-established;
+- Human-facing compression hides a material blocker, uncertainty, or provenance reference.
+
+Rollback requirements:
+
+- no data migration;
+- no rewrite of RunEvent / RunEvidence history;
+- no downgrade of existing verifier evidence;
+- revert/disable only the shadow projection consumer;
+- existing Decision / State / Event path remains the fallback because it was never replaced.
+
+```text
+shadow failure
+  -> stop observing / revert shadow integration
+  -> existing Decision path unchanged
+```
+
+The first slice should not add a new global feature-flag/configuration system solely for Certification. If a later policy-assisted routing slice needs staged activation, it must define that activation and rollback through the existing policy/autonomy mechanisms or justify a new mechanism separately.
+
+**Policy-assisted routing is a separate change class.** It requires a separate Issue / Plan / review because it can change which verifier/reviewer/Human attention path is selected. Its rollback cannot be inferred from the read-only shadow slice.
+
 ## 14. Relationship to existing V2 docs
 
 This guide is subordinate to:
