@@ -1362,59 +1362,65 @@ def _validate_live_shadow_capture(
 ) -> list[str]:
     errors: list[str] = []
     evidence_class = case.get("evidence_class", "synthetic_fixture")
-    capture = case.get("live_capture")
+    binding = case.get("live_capture")
 
     if evidence_class != "live_shadow":
-        if capture is not None:
+        if binding is not None:
             errors.append(
                 f"{prefix}.live_capture: only valid when evidence_class=live_shadow"
             )
         return errors
 
-    if not isinstance(capture, dict):
+    if not isinstance(binding, dict):
         return [f"{prefix}.live_capture: object required for live_shadow"]
 
-    if capture.get("capture_mode") != "passive_shadow":
-        errors.append(
-            f"{prefix}.live_capture.capture_mode: passive_shadow required"
-        )
-
-    captured_at = capture.get("captured_at")
-    if not isinstance(captured_at, str) or not RFC3339_RE.fullmatch(captured_at):
-        errors.append(
-            f"{prefix}.live_capture.captured_at: timezone-aware RFC3339 required"
-        )
-
-    runtime_head_sha = capture.get("runtime_head_sha")
-    if not isinstance(runtime_head_sha, str) or not COMMIT_SHA_RE.fullmatch(
-        runtime_head_sha
+    capture_ref = binding.get("capture_ref")
+    run_evidence_ref = binding.get("run_evidence_ref")
+    for field, value in (
+        ("capture_ref", capture_ref),
+        ("run_evidence_ref", run_evidence_ref),
     ):
-        errors.append(
-            f"{prefix}.live_capture.runtime_head_sha: 40 lowercase hex required"
-        )
-
-    capture_ref = capture.get("capture_ref")
-    if not isinstance(capture_ref, str) or not capture_ref.strip():
-        errors.append(
-            f"{prefix}.live_capture.capture_ref: non-empty repository ref required"
-        )
-    else:
-        capture_ref = capture_ref.strip()
-        if capture_ref not in refs:
+        if not isinstance(value, str) or not value.strip():
             errors.append(
-                f"{prefix}.live_capture.capture_ref: must also appear in evidence_refs"
+                f"{prefix}.live_capture.{field}: non-empty repository ref required"
             )
-        _path, _fragment, ref_errors = _resolve_repo_authority_ref(
-            capture_ref, authority_root
-        )
-        errors.extend(
-            f"{prefix}.live_capture.capture_ref: {error}"
-            for error in ref_errors
-        )
+        elif value.strip() not in refs:
+            errors.append(
+                f"{prefix}.live_capture.{field}: must also appear in evidence_refs"
+            )
+
+    if errors:
+        return errors
+
+    capture_ref = capture_ref.strip()
+    run_evidence_ref = run_evidence_ref.strip()
+    capture, ev, binding_errors = _validate_live_run_binding(
+        capture_ref=capture_ref,
+        run_evidence_ref=run_evidence_ref,
+        authority_root=authority_root,
+    )
+    errors.extend(f"{prefix}.{error}" for error in binding_errors)
+
+    if isinstance(capture, dict):
+        authority = capture.get("authority")
+        if not isinstance(authority, dict):
+            errors.append(
+                f"{prefix}.live_capture.capture.authority: object required"
+            )
+        else:
+            for field in ("write_allowed", "close_allowed", "suppression_allowed"):
+                if authority.get(field) is not False:
+                    errors.append(
+                        f"{prefix}.live_capture.capture.authority.{field}: false required"
+                    )
+            if authority.get("oracle_attached") is not False:
+                errors.append(
+                    f"{prefix}.live_capture.capture.authority.oracle_attached: false required"
+                )
 
     errors.extend(
         f"{prefix}.live_capture.{error}"
-        for error in _privacy_errors({"live_capture": capture})
+        for error in _privacy_errors({"live_capture": binding})
     )
     return errors
 
@@ -1673,8 +1679,11 @@ def evaluate_shadow_batch(
             "source_oracle_artifact_separation_enforced": True,
             "live_shadow_capture_metadata_enforced": True,
             "live_shadow_label_alone_sufficient": False,
-            "runtime_head_binding_verified": False,
-            "runtime_head_binding_owner": "caller_or_runtime_capture",
+            "live_shadow_run_evidence_binding_enforced": True,
+            "run_evidence_schema_revalidated": True,
+            "runtime_head_to_run_evidence_verified": True,
+            "run_evidence_task_binding_reverified": False,
+            "run_evidence_task_binding_owner": "caller_or_run_evidence_verifier",
             "oracle_independence_enforced": False,
             "oracle_independence_owner": "caller_or_independent_reviewer",
             "holdout_isolation_enforced": False,
@@ -1942,8 +1951,11 @@ def evaluate_admission_batch(
             "source_oracle_artifact_separation_enforced": True,
             "live_shadow_capture_metadata_enforced": True,
             "live_shadow_label_alone_sufficient": False,
-            "runtime_head_binding_verified": False,
-            "runtime_head_binding_owner": "caller_or_runtime_capture",
+            "live_shadow_run_evidence_binding_enforced": True,
+            "run_evidence_schema_revalidated": True,
+            "runtime_head_to_run_evidence_verified": True,
+            "run_evidence_task_binding_reverified": False,
+            "run_evidence_task_binding_owner": "caller_or_run_evidence_verifier",
             "oracle_independence_enforced": False,
             "oracle_independence_owner": "caller_or_independent_reviewer",
             "holdout_isolation_enforced": False,
