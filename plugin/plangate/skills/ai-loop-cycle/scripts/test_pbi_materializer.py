@@ -278,6 +278,25 @@ class MaterializationFixtures(unittest.TestCase):
             pm.materialize(payload, [])
         self.assertTrue(any("must exist exactly once" in e for e in ctx.exception.errors))
 
+    def test_05h_policy_rule_requires_rule_fragment(self):
+        payload = _payload()
+        policy_ref = "docs/ai/core-contract.md"
+        payload["claims"].append(
+            {
+                "id": "CLM-P2",
+                "text": "Broad policy file reference without rule anchor",
+                "source_ref": policy_ref,
+                "source_kind": "policy",
+                "claim_class": "observed",
+                "supports": "REQ-001",
+            }
+        )
+        payload["requirements"][0]["acceptance_basis"] = "policy_rule"
+        payload["requirements"][0]["basis_ref"] = policy_ref
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(payload, [])
+        self.assertTrue(any("policy requires a rule fragment" in e for e in ctx.exception.errors))
+
     def test_05h_fabricated_policy_ref_is_rejected_even_with_matching_kind(self):
         payload = _payload()
         fake_ref = "docs/ai/missing-policy.md#rule"
