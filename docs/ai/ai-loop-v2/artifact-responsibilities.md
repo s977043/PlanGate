@@ -218,9 +218,20 @@ source kind は少なくとも `human_feedback / issue / run_evidence / failure_
 
 accepted Requirement は `acceptance basis` を持ち、少なくとも `evidence / explicit_decision / policy_rule` のどれで採用されたかを辿れるようにする。inferred-only の claim を observed fact として扱うことは禁止するが、低リスク領域で policy が許す Requirement decision まで Human 固定にはしない。
 
-#### Feedback-to-PBI materialization
+#### Feedback-to-PBI admission / materialization
 
-AI-generated PBI は create-first にしない。新規作成前に既存の open Issue / PBI を検索し、source refs と Goal / Problem / Requirement / AC の重なりを確認する。
+Feedback / RunEvidence / Failure / operational observation を、すべて自動で PBI にすることを前提にしない。まず **Admission** を行い、その後に **Materialization** を行う。
+
+| 段階 | decision | 意味 / authority |
+| --- | --- | --- |
+| Admission | `materialize` | PBI work として Materialization へ進む |
+| Admission | `no_action` | PBI work を作らない proposal。source work の close / suppress authority は持たない |
+| Admission | `discover_more` | Bounded Discovery に戻して Evidence / uncertainty を減らす |
+| Materialization | `update_existing` / `link_only` / `create_new` | Admission 済み work を existing PBI / new PBI へ接続する |
+
+Admission decision は新しい Lifecycle State / Gate / authoritative artifact を要求しない。derived evaluation / projection として実装でき、`no_action` を source Issue/PBI の解決権限へ昇格させない。
+
+AI-generated PBI は create-first にしない。Admission が `materialize` の場合だけ、新規作成前に既存の open Issue / PBI を検索し、source refs と Goal / Problem / Requirement / AC の重なりを確認する。
 
 | decision | 条件 | 動作 |
 | --- | --- | --- |
