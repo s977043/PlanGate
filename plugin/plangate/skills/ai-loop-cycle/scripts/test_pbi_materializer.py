@@ -160,8 +160,19 @@ class MaterializationFixtures(unittest.TestCase):
                 }
             ],
         )
+        decision_ref = "docs/working/TASK-1442/decision-log.jsonl#D-1"
+        payload["claims"].append(
+            {
+                "id": "CLM-D1",
+                "text": "Decision D-1 adopts the inferred hypothesis for investigation",
+                "source_ref": decision_ref,
+                "source_kind": "decision_log",
+                "claim_class": "observed",
+                "supports": "REQ-001",
+            }
+        )
         payload["requirements"][0]["acceptance_basis"] = "explicit_decision"
-        payload["requirements"][0]["basis_ref"] = "decision:D-1"
+        payload["requirements"][0]["basis_ref"] = decision_ref
         result = pm.materialize(payload, [])
         self.assertIn("inferred", result["pbi_markdown"])
         self.assertIn("Agent B infers the root cause from Agent A summary", result["pbi_markdown"])
@@ -193,6 +204,40 @@ class MaterializationFixtures(unittest.TestCase):
         with self.assertRaises(pm.MaterializationError) as ctx:
             pm.materialize(payload, [])
         self.assertTrue(any("inferred-only" in e for e in ctx.exception.errors))
+
+    def test_05c_explicit_decision_requires_decision_log_provenance(self):
+        payload = _payload()
+        payload["requirements"][0]["acceptance_basis"] = "explicit_decision"
+        payload["requirements"][0]["basis_ref"] = "decision:D-404"
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(payload, [])
+        self.assertTrue(any("decision_log provenance" in e for e in ctx.exception.errors))
+
+    def test_05d_policy_rule_requires_policy_provenance(self):
+        payload = _payload()
+        payload["requirements"][0]["acceptance_basis"] = "policy_rule"
+        payload["requirements"][0]["basis_ref"] = "policy:missing"
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(payload, [])
+        self.assertTrue(any("policy provenance" in e for e in ctx.exception.errors))
+
+    def test_05e_policy_rule_with_policy_provenance_is_valid(self):
+        payload = _payload()
+        policy_ref = "docs/ai/core-contract.md#requirement-acceptance"
+        payload["claims"].append(
+            {
+                "id": "CLM-P1",
+                "text": "Policy permits this low-risk requirement decision",
+                "source_ref": policy_ref,
+                "source_kind": "policy",
+                "claim_class": "observed",
+                "supports": "REQ-001",
+            }
+        )
+        payload["requirements"][0]["acceptance_basis"] = "policy_rule"
+        payload["requirements"][0]["basis_ref"] = policy_ref
+        result = pm.materialize(payload, [])
+        self.assertEqual(result["readiness"]["status"], "ready")
 
     def test_06_same_task_plan_cannot_be_upstream_evidence(self):
         payload = _payload(
