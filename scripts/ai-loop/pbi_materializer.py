@@ -2062,6 +2062,15 @@ def main(argv=None) -> int:
         "--eval-admission-batch",
         help="reviewed PBI admission cases JSON array; evaluation-only and never closes/writes",
     )
+    parser.add_argument(
+        "--capture-signal",
+        help="normalized admission signal JSON; emit passive capture artifact to stdout only",
+    )
+    parser.add_argument("--capture-task-id")
+    parser.add_argument("--capture-run-id")
+    parser.add_argument("--captured-at")
+    parser.add_argument("--runtime-head-sha")
+    parser.add_argument("--capture-ref")
     parser.add_argument("--existing", help="normalized existing-work JSON array")
     parser.add_argument(
         "--authority-root",
@@ -2082,16 +2091,57 @@ def main(argv=None) -> int:
     try:
         selected_modes = sum(
             bool(value)
-            for value in (args.input, args.eval_batch, args.eval_admission_batch)
+            for value in (
+                args.input,
+                args.eval_batch,
+                args.eval_admission_batch,
+                args.capture_signal,
+            )
         )
         if selected_modes != 1:
             raise MaterializationError([
-                "exactly one of --input / --eval-batch / --eval-admission-batch is required"
+                "exactly one of --input / --eval-batch / --eval-admission-batch / --capture-signal is required"
             ])
 
         authority_root = pathlib.Path(args.authority_root) if args.authority_root else None
 
-        if args.eval_admission_batch:
+        if args.capture_signal:
+            if args.format != "json":
+                raise MaterializationError(["--capture-signal requires --format json"])
+            if args.existing or args.expected or args.working_root:
+                raise MaterializationError([
+                    "--capture-signal cannot be combined with --existing/--expected/--working-root"
+                ])
+            required_capture_args = {
+                "--capture-task-id": args.capture_task_id,
+                "--capture-run-id": args.capture_run_id,
+                "--captured-at": args.captured_at,
+                "--runtime-head-sha": args.runtime_head_sha,
+                "--capture-ref": args.capture_ref,
+            }
+            missing_capture_args = [
+                name for name, value in required_capture_args.items()
+                if not isinstance(value, str) or not value.strip()
+            ]
+            if missing_capture_args:
+                raise MaterializationError([
+                    "capture mode missing required args: "
+                    + ", ".join(sorted(missing_capture_args))
+                ])
+            signal = _load_json(
+                pathlib.Path(args.capture_signal),
+                dict,
+                "--capture-signal",
+            )
+            result = build_passive_shadow_capture(
+                task_id=args.capture_task_id,
+                run_id=args.capture_run_id,
+                captured_at=args.captured_at,
+                runtime_head_sha=args.runtime_head_sha,
+                capture_ref=args.capture_ref,
+                signal=signal,
+            )
+        elif args.eval_admission_batch:
             if args.format != "json":
                 raise MaterializationError([
                     "--eval-admission-batch requires --format json"
@@ -2139,6 +2189,9 @@ def main(argv=None) -> int:
         return 3
 
     if args.format == "md":
+        if "pbi_markdown" not in result:
+            print("[pbi-materializer] FAIL: markdown output is only available for PBI materialization", file=sys.stderr)
+            return 3
         sys.stdout.write(result["pbi_markdown"])
     else:
         sys.stdout.write(
