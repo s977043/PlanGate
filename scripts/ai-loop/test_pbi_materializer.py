@@ -222,7 +222,7 @@ class MaterializationFixtures(unittest.TestCase):
 
     def test_05e_policy_rule_with_policy_provenance_is_valid(self):
         payload = _payload()
-        policy_ref = "docs/ai/core-contract.md#requirement-acceptance"
+        policy_ref = "docs/ai/core-contract.md#5-decision-rules"
         payload["claims"].append(
             {
                 "id": "CLM-P1",
@@ -297,7 +297,7 @@ class MaterializationFixtures(unittest.TestCase):
             pm.materialize(payload, [])
         self.assertTrue(any("policy requires a rule fragment" in e for e in ctx.exception.errors))
 
-    def test_05h_fabricated_policy_ref_is_rejected_even_with_matching_kind(self):
+    def test_05i_fabricated_policy_ref_is_rejected_even_with_matching_kind(self):
         payload = _payload()
         fake_ref = "docs/ai/missing-policy.md#rule"
         payload["claims"].append(
@@ -316,6 +316,28 @@ class MaterializationFixtures(unittest.TestCase):
             pm.materialize(payload, [])
         self.assertTrue(
             any("repository source does not exist" in e for e in ctx.exception.errors)
+        )
+
+    def test_05j_nonexistent_policy_rule_fragment_is_rejected(self):
+        payload = _payload()
+        fake_ref = "docs/ai/core-contract.md#definitely-not-a-real-policy-rule"
+        payload["claims"].append(
+            {
+                "id": "CLM-P405",
+                "text": "Existing policy file but fabricated rule fragment",
+                "source_ref": fake_ref,
+                "source_kind": "policy",
+                "claim_class": "observed",
+                "supports": "REQ-001",
+            }
+        )
+        payload["requirements"][0]["acceptance_basis"] = "policy_rule"
+        payload["requirements"][0]["basis_ref"] = fake_ref
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(payload, [])
+        self.assertTrue(
+            any("policy rule fragment" in e and "does not exist" in e
+                for e in ctx.exception.errors)
         )
 
     def test_06_same_task_plan_cannot_be_upstream_evidence(self):
