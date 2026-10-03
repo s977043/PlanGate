@@ -681,7 +681,17 @@ actual が `materialize` でも reviewer expected が `no_action` なら、
 `materialize` ground-truth case を収集済みとは数えない。
 
 materialization observation gap は reviewed expected admission `materialize` が存在する場合だけ
-`currently_collectable=true` とする。
+`collector_path_available=true` とする。
+
+ただし collector 経路の利用可能性と、現在 real runtime observation が発生していることは分離する。
+
+```text
+collector_path_available = collector / prerequisite 上その観測経路を処理できる
+real_runtime_observation_available = false
+real_runtime_observation_available_verified = false
+```
+
+後者は collector 自身では証明しない。
 
 ただしこれはquotaやcase generation instructionではない:
 
