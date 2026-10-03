@@ -549,7 +549,7 @@ selected / fired / produced_evidence / influenced_decision
   -> V2 RunEvent ownership
 ```
 
-The #1450 shadow implementation therefore keeps `hard_read_only_enforced=false`, `dispatch_ready=false`, `dispatch_allowed=false`, and `agent_invoke_allowed=false`. #1451 adds a pre-run readiness evaluator, but repository-authored candidate Evidence cannot self-attest runtime provenance or Human rollout authority, so `dispatch_ready` remains false until independent verifier/adapter paths exist.
+The #1452 shadow implementation therefore keeps `hard_read_only_enforced=false`, `dispatch_ready=false`, `dispatch_allowed=false`, and `agent_invoke_allowed=false`. #1453 adds a pre-run readiness evaluator, but repository-authored candidate Evidence cannot self-attest runtime provenance or Human rollout authority, so `dispatch_ready` remains false until independent verifier/adapter paths exist.
 
 Write access should begin only through the existing PlanGate planning / approval path. Runtime-triggered investigation must not receive broader permissions merely because the signal came from production.
 
@@ -719,7 +719,7 @@ Do not move directly from "adapter installed" to autonomous downstream action. R
 | Stage | Runtime behavior | Required evidence before promotion |
 | --- | --- | --- |
 | R0 Shadow | receive / authenticate / normalize / dedup only; no agent invocation | event authenticity, replay rejection, dedup correctness, redaction success |
-| R1 Read-only investigation | current #1450/#1451 implementation stops at shadow request + readiness-gap evaluation; no Agent dispatch | pre-run: hard read-only enforcement + runtime role registration + provider connector registration + admission binding + independently verified Human rollout decision. V2 selected/fired evidence applies only after a real Run exists |
+| R1 Read-only investigation | current #1452/#1453 implementation stops at shadow request + readiness-gap evaluation; no Agent dispatch | pre-run: hard read-only enforcement + runtime role registration + provider connector registration + admission binding + independently verified Human rollout decision. V2 selected/fired evidence applies only after a real Run exists |
 | R2 Work proposal | produce bounded `pbi-input` candidate; Human / normal PlanGate path decides whether to proceed | proposal quality, scope discipline, no invented AC, no `allowed_paths` widening, provenance preserved |
 | R3 External side effect | optionally create a governed GitHub Issue using intent → action → receipt | duplicate side-effect prevention, Issue Governance conformance, reconciliation after lost responses |
 
@@ -730,7 +730,7 @@ Pre-PBI R1 dispatch readiness and V2 Runtime Activation are separate layers:
 - static config or `installed` proves only presence/declaration;
 - pre-run `runtime_role_registered` / `provider_connector_registered` require independently authenticated runtime probes, not repository self-declaration;
 - Human rollout authority must come from a Human-owned issuance/verification path; `source_kind=human_decision` in a file is insufficient;
-- #1450 shadow request generation and #1451 readiness evaluation do not count as V2 `selected` / `fired`;
+- #1452 shadow request generation and #1453 readiness evaluation do not count as V2 `selected` / `fired`;
 - only after a real PlanGate Run exists may `selected` / `fired` / `produced_evidence` / `influenced_decision` be recorded as RunEvent-owned activation Evidence;
 - a claim that the adapter improved downstream decisions requires Evidence that its output was actually consumed, not merely generated.
 
@@ -814,18 +814,19 @@ These criteria evaluate the intake mechanism. They do not prove that every runti
 
 - #1448 — External Runtime Evidence Ingress Adapter R0/R1 shadow implementation.
 - #1449 — R0 provider-neutral ingress + Cloudflare reference mapping + content-addressed pre-PBI Evidence + TA-95.
-- #1450 — R1 read-only investigation **shadow request** + pre-run/V2 activation separation + Explorer config content binding + TA-96.
-- #1451 — pre-run dispatch readiness evaluator; machine Evidence remains candidate-only, runtime attestation/Human rollout authority cannot self-declare + TA-97.
+- #1452 — R1 read-only investigation **shadow request** + pre-run/V2 activation separation + Explorer config content binding + TA-96.
+- #1453 — pre-run dispatch readiness evaluator; machine Evidence remains candidate-only, runtime attestation/Human rollout authority cannot self-declare + TA-97.
+- Superseded implementation PRs: #1450 / #1451 (stack restack中のforce-rewriteでGitHubによりclose。replacementは #1452 / #1453)。
 - #1448 depends on #1441 / #1443 finalization before production behavior changes.
 - First reference provider: Cloudflare runtime-issue path; provider-neutral contract remains authoritative.
-- R1 Agent invocation remains disabled; #1450/#1451 do not emit V2 `selected/fired` because no PlanGate Run exists yet.
+- R1 Agent invocation remains disabled; #1452/#1453 do not emit V2 `selected/fired` because no PlanGate Run exists yet.
 
 ## 12. Open questions
 
 1. **Proposed answer**: Runtime Evidence should default to a typed external Evidence reference owned by existing V2 artifacts / events, not a new mutable artifact. A new artifact requires separate justification.
 2. **Proposed answer**: deduplication and recurrence state belong to the provider / intake adapter or an intake registry outside Delivery Run state; V2 receives immutable intake decisions / evidence refs.
 3. **Proposed answer**: the first PoC creates only a bounded `pbi-input` candidate / internal work request. Automatic GitHub Issue creation is a later downstream side effect and must use intent → action → receipt idempotency plus Issue Governance.
-4. **Proposed answer**: building an R1 shadow request requires authenticated/redacted content-addressed source Evidence. Pre-run dispatch additionally requires independently authenticated hard read-only runtime enforcement, runtime role registration, approved provider connector registration, independently bound admission/materialization Evidence, and a Human-owned rollout decision. #1451 intentionally cannot satisfy the last two authority classes by self-declared repository files.
+4. **Proposed answer**: building an R1 shadow request requires authenticated/redacted content-addressed source Evidence. Pre-run dispatch additionally requires independently authenticated hard read-only runtime enforcement, runtime role registration, approved provider connector registration, independently bound admission/materialization Evidence, and a Human-owned rollout decision. #1453 intentionally cannot satisfy the last two authority classes by self-declared repository files.
 5. Which fields must be redacted or converted to opaque references?
 6. How should a runtime-originated task bind to deployment / commit identity when the running version is not traceable?
 7. What metrics are sufficient to decide whether the adapter improves Time to Learning without increasing unsafe automation?
