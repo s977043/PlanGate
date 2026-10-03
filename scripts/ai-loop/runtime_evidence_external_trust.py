@@ -23,13 +23,11 @@ No function in this module dispatches an agent or grants mutation authority.
 
 import argparse
 import datetime as dt
-import json
 import re
 import sys
-import urllib.error
-import urllib.request
 from typing import Any, Callable
-from urllib.parse import quote
+
+import gh_exec
 
 GITHUB_API = "https://api.github.com"
 REQUEST_HASH_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -45,34 +43,12 @@ class ExternalTrustError(ValueError):
         super().__init__("; ".join(self.errors))
 
 
-def _github_json(url: str) -> Any:
-    if not url.startswith(GITHUB_API + "/"):
-        raise ExternalTrustError(["github: only api.github.com is allowed"])
-    req = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "PlanGate-runtime-r1-trust-verifier/1",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-        method="GET",
-    )
+def _github_json(endpoint: str, *, repo_full_name: str) -> Any:
+    """Fetch allowlisted GitHub JSON through the repository's sole exec boundary."""
     try:
-        with urllib.request.urlopen(req, timeout=10) as response:
-            if response.status != 200:
-                raise ExternalTrustError(
-                    [f"github: unexpected HTTP status {response.status}"]
-                )
-            raw = response.read()
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise ExternalTrustError([f"github: request failed: {exc}"]) from exc
-
-    if len(raw) > 2 * 1024 * 1024:
-        raise ExternalTrustError(["github: response exceeds 2 MiB"])
-    try:
-        return json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ExternalTrustError(["github: invalid JSON response"]) from exc
+        return gh_exec.get_api_json(endpoint, repo=repo_full_name)
+    except gh_exec.Denied as exc:
+        raise ExternalTrustError([f"github: {exc}"]) from exc
 
 
 def _parse_github_time(value: Any, field: str, errors: list[str]) -> dt.datetime | None:
@@ -96,7 +72,7 @@ def verify_human_rollout_comment(
     issue_number: int,
     comment_id: int,
     request_hash: str,
-    fetch_json: Callable[[str], Any] = _github_json,
+    fetch_json: Callable[[str], Any] | None = None,
 ) -> dict[str, Any]:
     """Verify an owner-account approval candidate against live GitHub metadata.
 
@@ -117,17 +93,23 @@ def verify_human_rollout_comment(
     if errors:
         raise ExternalTrustError(errors)
 
-    owner, repo = repo_full_name.split("/", 1)
-    owner_q = quote(owner, safe="")
-    repo_q = quote(repo, safe="")
+    owner, _repo = repo_full_name.split("/", 1)
 
-    repo_url = f"{GITHUB_API}/repos/{owner_q}/{repo_q}"
-    issue_url = f"{repo_url}/issues/{issue_number}"
-    comment_url = f"{repo_url}/issues/comments/{comment_id}"
+    repo_endpoint = f"repos/{repo_full_name}"
+    issue_endpoint = f"{repo_endpoint}/issues/{issue_number}"
+    comment_endpoint = f"{repo_endpoint}/issues/comments/{comment_id}"
 
-    repository = fetch_json(repo_url)
-    issue = fetch_json(issue_url)
-    comment = fetch_json(comment_url)
+    repo_url = f"{GITHUB_API}/{repo_endpoint}"
+    issue_url = f"{GITHUB_API}/{issue_endpoint}"
+
+    def get_json(endpoint: str) -> Any:
+        if fetch_json is not None:
+            return fetch_json(endpoint)
+        return _github_json(endpoint, repo_full_name=repo_full_name)
+
+    repository = get_json(repo_endpoint)
+    issue = get_json(issue_endpoint)
+    comment = get_json(comment_endpoint)
 
     if not isinstance(repository, dict):
         errors.append("github repository response: object required")
