@@ -28,6 +28,8 @@ not this primitive.
 """
 
 import argparse
+import datetime as dt
+import hashlib
 import json
 import pathlib
 import re
@@ -40,6 +42,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 import run_evidence  # noqa: E402
+import run_evidence_verify  # noqa: E402
 
 TASK_ID_RE = re.compile(r"^TASK-[0-9]{4}$")
 RFC3339_RE = re.compile(
@@ -178,6 +181,193 @@ def _privacy_errors(payload: dict[str, Any]) -> list[str]:
         for e in run_evidence.check_output_privacy(privacy_projection)
     )
     return errors
+
+
+def _parse_rfc3339(value: str) -> dt.datetime | None:
+    if not isinstance(value, str) or not RFC3339_RE.fullmatch(value):
+        return None
+    try:
+        return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _validate_repo_relative_ref_syntax(ref: Any, field: str) -> list[str]:
+    if not isinstance(ref, str) or not ref.strip():
+        return [f"{field}: non-empty repository-relative ref required"]
+    value = ref.strip()
+    if "\" in value:
+        return [f"{field}: backslash path rejected"]
+    path_text = value.partition("#")[0]
+    pure = pathlib.PurePosixPath(path_text)
+    if not path_text or pure.is_absolute() or ".." in pure.parts:
+        return [f"{field}: absolute/traversal ref rejected: {value!r}"]
+    return []
+
+
+def _canonical_json_hash(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def build_passive_shadow_capture(
+    *,
+    task_id: str,
+    run_id: str,
+    captured_at: str,
+    runtime_head_sha: str,
+    capture_ref: str,
+    signal: dict[str, Any],
+) -> dict[str, Any]:
+    """Build a deterministic capture artifact before RunEvidence finalization.
+
+    The artifact is not live-shadow evidence by itself. It becomes eligible only
+    after a RunEvidence record later includes capture_ref in evidence_refs and the
+    evaluator verifies the run/capture binding.
+    """
+    errors: list[str] = []
+    if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
+        errors.append(f"task_id: TASK-XXXX required, got {task_id!r}")
+    if not isinstance(run_id, str) or not run_id.strip():
+        errors.append("run_id: non-empty string required")
+    if _parse_rfc3339(captured_at) is None:
+        errors.append("captured_at: timezone-aware RFC3339 required")
+    if not isinstance(runtime_head_sha, str) or not COMMIT_SHA_RE.fullmatch(
+        runtime_head_sha
+    ):
+        errors.append("runtime_head_sha: 40 lowercase hex required")
+    errors.extend(_validate_repo_relative_ref_syntax(capture_ref, "capture_ref"))
+    errors.extend(validate_admission_signal(signal))
+    if signal.get("target_layer", "delivery") != "delivery":
+        errors.append(
+            "signal.target_layer: passive PBI shadow capture supports delivery only; harness is #874/#869-owned"
+        )
+    if errors:
+        raise MaterializationError(errors)
+
+    artifact = {
+        "schema_version": "1.0",
+        "mode": "passive_shadow_capture",
+        "task_id": task_id,
+        "run_id": run_id.strip(),
+        "captured_at": captured_at,
+        "runtime_head_sha": runtime_head_sha,
+        "capture_ref": capture_ref.strip(),
+        "signal": signal,
+        "signal_hash": _canonical_json_hash(signal),
+        "authority": {
+            "write_allowed": False,
+            "close_allowed": False,
+            "suppression_allowed": False,
+            "oracle_attached": False,
+        },
+    }
+    privacy = _privacy_errors({"passive_shadow_capture": artifact})
+    if privacy:
+        raise MaterializationError(privacy)
+    return artifact
+
+
+def _load_json_object(path: pathlib.Path, label: str) -> tuple[dict[str, Any] | None, list[str]]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, [f"{label}: unreadable/invalid JSON: {exc}"]
+    if not isinstance(data, dict):
+        return None, [f"{label}: JSON object required"]
+    return data, []
+
+
+def _validate_live_run_binding(
+    *,
+    capture_ref: str,
+    run_evidence_ref: str,
+    authority_root=None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, list[str]]:
+    errors: list[str] = []
+
+    capture_path, _cap_fragment, cap_errors = _resolve_repo_authority_ref(
+        capture_ref, authority_root
+    )
+    errors.extend(f"live_binding.capture_ref: {e}" for e in cap_errors)
+
+    ev_path, _ev_fragment, ev_errors = _resolve_repo_authority_ref(
+        run_evidence_ref, authority_root
+    )
+    errors.extend(f"live_binding.run_evidence_ref: {e}" for e in ev_errors)
+
+    if errors or capture_path is None or ev_path is None:
+        return None, None, errors
+
+    capture, capture_errors = _load_json_object(
+        capture_path, "live_binding.capture"
+    )
+    ev, ev_load_errors = _load_json_object(
+        ev_path, "live_binding.run_evidence"
+    )
+    errors.extend(capture_errors)
+    errors.extend(ev_load_errors)
+    if errors or capture is None or ev is None:
+        return capture, ev, errors
+
+    schema_errors = run_evidence_verify.validate_against_schema(ev)
+    errors.extend(
+        f"live_binding.run_evidence.schema: {e}" for e in schema_errors
+    )
+
+    if capture.get("mode") != "passive_shadow_capture":
+        errors.append(
+            "live_binding.capture.mode: passive_shadow_capture required"
+        )
+    if capture.get("capture_ref") != capture_ref:
+        errors.append(
+            "live_binding.capture.capture_ref: artifact self-ref mismatch"
+        )
+    if capture.get("task_id") != ev.get("task_id"):
+        errors.append(
+            "live_binding.task_id: capture and RunEvidence differ"
+        )
+    if capture.get("run_id") != ev.get("run_id"):
+        errors.append(
+            "live_binding.run_id: capture and RunEvidence differ"
+        )
+    if capture.get("runtime_head_sha") != ev.get("final_head_sha"):
+        errors.append(
+            "live_binding.runtime_head_sha: capture does not match RunEvidence final_head_sha"
+        )
+
+    ev_refs = ev.get("evidence_refs")
+    if not isinstance(ev_refs, list) or capture_ref not in ev_refs:
+        errors.append(
+            "live_binding.evidence_refs: RunEvidence must include capture_ref"
+        )
+
+    capture_time = _parse_rfc3339(str(capture.get("captured_at", "")))
+    started = _parse_rfc3339(str(ev.get("started_at", "")))
+    completed = _parse_rfc3339(str(ev.get("completed_at", "")))
+    if capture_time is None or started is None or completed is None:
+        errors.append(
+            "live_binding.time: capture/RunEvidence timestamps must be timezone-aware RFC3339"
+        )
+    elif not (started <= capture_time <= completed):
+        errors.append(
+            "live_binding.time: capture timestamp must be inside RunEvidence started_at..completed_at"
+        )
+
+    signal = capture.get("signal")
+    signal_hash = capture.get("signal_hash")
+    if not isinstance(signal, dict):
+        errors.append("live_binding.capture.signal: object required")
+    elif signal_hash != _canonical_json_hash(signal):
+        errors.append("live_binding.capture.signal_hash: mismatch")
+
+    return capture, ev, errors
+
 
 
 def _is_circular_source(task_id: str, source_ref: str) -> bool:
