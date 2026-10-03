@@ -790,6 +790,18 @@ def inventory_live_shadow_cases(
         if isinstance(case.get("signal"), dict)
         and isinstance(case["signal"].get("source_kind"), str)
     })
+    missing_admission_decisions = sorted(
+        pm.VALID_ADMISSION_DECISIONS - set(observed_decisions)
+    )
+    collection_gaps: list[str] = []
+    if invalid:
+        collection_gaps.append("invalid_case_artifacts_present")
+    if not valid_cases:
+        collection_gaps.append("tracked_live_case_missing")
+    collection_gaps.extend(
+        f"admission_decision_missing:{decision}"
+        for decision in missing_admission_decisions
+    )
 
     return {
         "mode": "pbi_live_shadow_inventory",
@@ -809,8 +821,19 @@ def inventory_live_shadow_cases(
         "inventory_complete": not invalid,
         "coverage": {
             "observed_admission_decisions": observed_decisions,
+            "missing_admission_decisions": missing_admission_decisions,
+            "admission_decision_coverage_complete": (
+                not missing_admission_decisions
+            ),
             "observed_source_kinds": observed_source_kinds,
+            "source_kind_coverage_requirement_defined": False,
             "representative_coverage_claim_allowed": False,
+        },
+        "collection_gaps": collection_gaps,
+        "materialization_rollout_boundary": {
+            "covered_by_this_inventory": False,
+            "duplicate_fp_fn_review_satisfied": False,
+            "materialization_case_inventory_required": True,
         },
         "metrics": metrics,
         "rollout_quality": rollout_quality,
