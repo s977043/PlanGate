@@ -1,0 +1,128 @@
+# PROPOSAL ONLY — Human-owned application required.
+# Do not move/copy this file into .github/workflows automatically.
+#
+# Contract stage: r1-request-bound-v1-unavailable
+# The runtime probe deliberately fails closed until a platform-specific
+# Explorer registration/execution adapter is implemented and reviewed.
+
+name: R1 Request-Bound Read-Only Attestation
+
+run-name: >-
+  R1 attestation request=${{ inputs.request_hash }} config=${{ inputs.config_sha }} platform=${{ inputs.platform }} provider=${{ inputs.provider }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_hash:
+        description: "Exact R1 request hash (sha256:<64hex>)"
+        required: true
+        type: string
+      config_sha:
+        description: "Exact Explorer config content hash (sha256:<64hex>)"
+        required: true
+        type: string
+      platform:
+        description: "R1 runtime platform"
+        required: true
+        type: choice
+        options:
+          - codex
+          - claude-code
+      provider:
+        description: "Runtime evidence provider identifier"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-r1-attestation-${{ inputs.request_hash }}
+  cancel-in-progress: false
+
+jobs:
+  attest:
+    name: R1 request-bound read-only attestation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Declaration only. This repository file cannot prove that this environment
+    # has required reviewers configured. Human authority remains unverified
+    # until environment protection is independently verified.
+    environment: runtime-r1-rollout
+
+    steps:
+      - name: Enforce request-bound execution boundary
+        shell: bash
+        env:
+          CANARY_REF: ${{ github.ref }}
+          CANARY_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          RUNNER_ENVIRONMENT_VALUE: ${{ runner.environment }}
+          RUNNER_DEBUG_VALUE: ${{ runner.debug }}
+        run: |
+          set -euo pipefail
+          [ "$CANARY_REF" = "refs/heads/main" ] || {
+            echo "::error::R1 attestation may only run from main."
+            exit 1
+          }
+          [ "$CANARY_ACTOR" = "$REPOSITORY_OWNER" ] || {
+            echo "::error::R1 attestation requires repository-owner dispatch."
+            exit 1
+          }
+          [ "$TRIGGERING_ACTOR" = "$REPOSITORY_OWNER" ] || {
+            echo "::error::R1 attestation triggering actor must be repository owner."
+            exit 1
+          }
+          [ "$RUNNER_ENVIRONMENT_VALUE" = "github-hosted" ] || {
+            echo "::error::R1 attestation requires a GitHub-hosted runner."
+            exit 1
+          }
+          [ "${RUNNER_DEBUG_VALUE:-}" != "1" ] || {
+            echo "::error::Debug logging is forbidden for R1 attestation."
+            exit 1
+          }
+
+      - name: Checkout trusted source SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify request and Explorer config binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/ai-loop/runtime_evidence_request_bound_canary.py preflight \
+            --repo-root . \
+            --request-hash '${{ inputs.request_hash }}' \
+            --config-sha '${{ inputs.config_sha }}' \
+            --platform '${{ inputs.platform }}' \
+            --provider '${{ inputs.provider }}'
+
+      - name: Run R1 read-only runtime probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Fail closed by design in v1-unavailable.
+          # A future reviewed adapter must prove actual Explorer registration,
+          # execution and hard read-only enforcement for this exact request.
+          python3 scripts/ai-loop/runtime_evidence_request_bound_canary.py probe-unavailable \
+            --request-hash '${{ inputs.request_hash }}' \
+            --config-sha '${{ inputs.config_sha }}' \
+            --platform '${{ inputs.platform }}' \
+            --provider '${{ inputs.provider }}'
+
+      - name: Verify canary stayed read-only
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          status="$(git status --porcelain --untracked-files=all)"
+          if [ -n "$status" ]; then
+            echo "::error::R1 attestation canary mutated the repository."
+            printf '%s\n' "$status"
+            exit 1
+          fi
