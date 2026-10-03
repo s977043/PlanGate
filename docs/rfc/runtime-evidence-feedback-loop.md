@@ -655,6 +655,41 @@ dispatch_allowed = false
 
 All GitHub reads used by the implementation must flow through the existing `scripts/ai-loop/gh_exec.py` allowlisted GET boundary; direct `urllib` / arbitrary network access in `scripts/ai-loop/` is forbidden by the repository execution-boundary checker.
 
+
+### 7.4 Codex Explorer lifecycle probe candidate
+
+#1456 adds a Codex-specific **candidate observation layer** without promoting runtime attestation.
+
+Codex provides structured multi-agent/runtime observation surfaces including lifecycle hooks such as `SubagentStart` and `SubagentStop`. For the R1 Explorer candidate, the proposed hook wiring observes only `agent_type=explorer_agent`.
+
+The candidate verifier requires:
+
+- exact `request_hash`, Explorer `config_sha`, and provider binding;
+- exactly one Explorer `SubagentStart` and one `SubagentStop`;
+- matching session / turn / agent / role / permission mode;
+- start-before-stop ordering;
+- bounded record count / JSONL size;
+- canonical record hashes;
+- hook Evidence stored outside the repository;
+- neutral hook stdout so observation data cannot become model context.
+
+The result intentionally remains:
+
+```text
+runtime_role_observed_candidate = true
+explorer_execution_candidate = true
+candidate_trace_structure_verified = true
+
+hook_execution_root_attested = false
+codex_jsonl_runtime_correlation_verified = false
+hard_read_only_enforced = false
+runtime_probe_attestation_verified = false
+dispatch_ready = false
+dispatch_allowed = false
+```
+
+This distinction is required because repository/project hook execution is a runtime observation source, not an independently trusted attestation root. A future promotion requires correlation with runtime-generated Codex JSONL plus an external/trusted execution-root proof before `runtime_probe_attestation_verified` may change.
+
 ## 8. Relationship to existing V2 boundaries
 
 This proposal must not change the following existing contracts:
