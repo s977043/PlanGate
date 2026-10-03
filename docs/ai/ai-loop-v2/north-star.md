@@ -102,7 +102,24 @@ AI-generated PBI は claim provenance を失ってはならない。少なくと
 
 Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requirement -> Acceptance Criteria -> Plan decision -> Work Item / Task (when applicable) -> Verification / Evidence の Traceability Chain を既存 ID / ref で構成する。新しい Lifecycle State / Gate / top-level artifact / mutable graph store をこのためだけに追加しない。
 
-AI が feedback / Evidence から PBI を materialize する場合は **Reuse / Update Before Create** を適用する。新規 PBI を作る前に、既存の open Issue / PBI を source refs と Goal / Problem / AC の意味で照合し、`update_existing / link_only / create_new` のいずれかを選ぶ。類似しているという LLM 判断だけで別 PBI を自動 close / merge しない。既存 PBI が Plan / approval と binding 済みで Goal / Requirement / AC の semantic change が必要なら、重複解消として silent update せず §9 の Replan / policy boundary に従う。
+AI が feedback / Evidence から PBI を materialize する場合、**PBI Admission と PBI Materialization を分離する**。
+
+```text
+signal
+  -> Admission: materialize | no_action | discover_more
+  -> materialize の場合のみ
+     Materialization: update_existing | link_only | create_new
+```
+
+Admission は「この signal を PBI work として扱うか」の判断であり、Materialization は「PBI work として扱うと決めた signal を既存 work へどう接続するか」の判断である。両者を 1 enum / 1 authority に混ぜない。
+
+- `materialize`: PBI work として materialization に進む
+- `no_action`: 現時点で新しい PBI work を materialize しないという **proposal**。source Issue / PBI の close / resolve / suppress authority を持たない
+- `discover_more`: Evidence / semantic certainty が不足しているため Bounded Discovery に戻す。Human review 固定を意味せず、既存 policy に従って追加 Evidence / question / verification を行う
+
+reported / inferred / ambiguous な signal を、根拠なく `no_action` に落として false negative を隠さない。Harness-target signal の Admission は Delivery 側に第 2 の Evolution trigger を作らず、既存 #874 / #869 の Candidate / Evolution boundary に委譲する。
+
+Admission を通過した PBI work には **Reuse / Update Before Create** を適用する。新規 PBI を作る前に、既存の open Issue / PBI を source refs と Goal / Problem / AC の意味で照合し、`update_existing / link_only / create_new` のいずれかを選ぶ。類似しているという LLM 判断だけで別 PBI を自動 close / merge しない。既存 PBI が Plan / approval と binding 済みで Goal / Requirement / AC の semantic change が必要なら、重複解消として silent update せず §9 の Replan / policy boundary に従う。
 
 AI-generated PBI の **作成時点と適用時点を分離する**。Active Run 中に feedback から PBI を作成してよいが、PBI は **application timing** と **target layer** を別軸で扱う。
 
@@ -162,6 +179,24 @@ V2 は ai-dev command を内側から直接チェーンすることを前提と�
 
 AI は proposal / patch / evidence / experiment / promotion-ready PR までは作れる。不可逆な Production 適用の最終権限は Human が持つ。
 
+### Review readiness / Quality acceptance / Mutation authority are separate
+
+PBI materialization の自律度を上げる場合でも、次の 3 つを同じ boolean / Gate にまとめない。
+
+```text
+Evidence readiness
+  != Quality acceptance
+  != Mutation authorization
+```
+
+- **Evidence / review readiness**: Admission / Materialization の評価に必要な Evidence・review・provenance が揃い、Human / policy が次の判断をできる状態
+- **Quality acceptance**: false-positive / false-negative / decision mismatch / readiness mismatch 等を、明示した policy / threshold / Human judgment に照らして許容できると判断した状態
+- **Mutation authorization**: 実際に PBI / Issue 等の外部状態を書き換えてよい authority。policy version / activation decision / target precondition / rollback・reconciliation 契約を別途必要とする
+
+`review_ready=true` 相当の projection があっても、write / close / suppress / merge authority を暗黙に付与しない。評価器は quality metric を示してよいが、threshold が定義されていなければ PASS/FAIL を創作しない。
+
+write-capable behavior を導入する場合、**policy definition / quality acceptance / rollout activation / mutation execution** を分離する。policy 文書が存在するだけで activation 済みと扱わず、byte / version drift 後に以前の activation を暗黙継承しない。
+
 ## 4. Delivery Loop and Evolution Loop are separate
 
 Delivery と Evolution は同じ state / gate / success condition で表現しない。
@@ -208,6 +243,39 @@ Verifier は安価で決定論的なものを優先する。
 5. loop decision
 
 決定論的 FAIL を LLM の PASS で上書きしない。
+
+### Evidence class / live-shadow trust boundary
+
+PBI Admission / Materialization の評価では、Evidence の出所を少なくとも次の class で分離し、名前だけを書き換えて trust を昇格させない。
+
+```text
+synthetic_fixture
+  != historical_replay
+  != live_shadow
+```
+
+- **synthetic_fixture**: contract / regression / executable-path の検証用。実運用で観測した分布の根拠にはしない
+- **historical_replay**: 過去に保存済みの run / artifact を現在の evaluator で再生した Evidence。現在の live capture 契約を後付けして `live_shadow` に昇格しない
+- **live_shadow**: 実行中の対象 run で、upstream source / capture identity / RunEvidence binding を保持し、後段の reviewed expectation と分離できる Evidence
+
+live-shadow の trust は「artifact が repository に存在する」だけでは成立しない。少なくとも、capture が対象 RunEvidence の finalize より前の実行文脈に属し、source / capture / RunEvidence の対応を辿れ、reviewed oracle が maker actual と別 authority で与えられる構造を持つ。
+
+```text
+maker actual
+  != reviewer expected
+```
+
+独立 review を主張する場合、reviewer に maker actual を先に開示して expected を決めさせない。blind review packet / separate context / separate reviewer 等の実装手段は選べるが、**repository 上で別ファイルにしただけで reviewer independence を証明したことにはしない**。
+
+同様に、tracked live-shadow chain が repository に存在しても、それだけで以下を証明しない。
+
+- runtime execution が本当にその経路で起きたこと
+- upstream source が capture より前から存在したこと
+- reviewer identity / authorship independence
+- representative coverage
+- quality acceptance
+
+これらを必要とする claim は、それぞれ別の Evidence / policy / Human judgment を要求する。検証不能を PASS 側へ倒さない。
 
 ## 7. Failure is an artifact
 
