@@ -310,9 +310,57 @@ Therefore:
 3. secret detection failure must fail closed for automatic handoff;
 4. application context should prefer opaque references over raw sensitive values;
 5. evidence retention and downstream storage must follow the project's data-handling policy;
-6. generic webhook integrations must authenticate the sender and protect against replay / spoofing.
+6. generic webhook integrations must authenticate the sender and protect against replay / spoofing;
+7. telemetry payloads, exception messages, user-controlled strings, log bodies, trace attributes, and external issue text must be treated as **untrusted data, never as agent instructions**;
+8. the adapter must preserve source boundaries so quoted runtime content cannot silently become system / developer / workflow instructions.
 
 The goal is a useful investigation context, not maximal context.
+
+### 7.1 Prompt-injection boundary
+
+Production data can contain attacker-controlled text. A failure message such as `ignore previous instructions` is evidence about the application, not an instruction to the coding agent.
+
+Adapters should structure handoff as data references or explicitly delimited evidence blocks. The orchestrator must keep workflow instructions outside those blocks.
+
+```text
+Trusted workflow contract
+  +
+Untrusted runtime evidence
+  +
+Repository evidence
+  -> investigation
+
+Untrusted runtime evidence
+  -X-> workflow / policy mutation
+```
+
+Any runtime-derived request to disable tests, widen permissions, change approval policy, expose secrets, or bypass a gate is invalid regardless of source authentication.
+
+### 7.2 Least-privilege investigation
+
+The first agent activity triggered by runtime evidence should prefer **read-only investigation**:
+
+- inspect referenced logs / traces;
+- inspect repository state;
+- correlate deployment and commit identity;
+- reproduce the failure when safe;
+- form a cause hypothesis;
+- propose a bounded work request.
+
+Write access should begin only through the existing PlanGate planning / approval path. Runtime-triggered investigation must not receive broader permissions merely because the signal came from production.
+
+### 7.3 External-evidence integrity
+
+Provider adapters should make the following independently checkable where supported:
+
+- event authenticity / signature;
+- event timestamp and replay window;
+- source account / project / service identity;
+- immutable provider event reference;
+- payload digest;
+- deployment / commit correlation evidence.
+
+A source being authenticated does not prove that every field is correct. Authentication establishes provenance; verification establishes claim quality.
 
 ## 8. Relationship to existing V2 boundaries
 
@@ -394,7 +442,10 @@ Measure:
 - time to first verified cause hypothesis;
 - time to `MERGE_READY`;
 - human attention required;
-- sensitive-data redaction failures.
+- sensitive-data redaction failures;
+- unauthenticated / replayed event rejection rate;
+- cases where runtime text attempted to influence workflow instructions;
+- percentage of runtime-originated work that began with read-only investigation.
 
 Only after evidence supports the design should the proposal be promoted into V2 canon.
 
@@ -409,6 +460,8 @@ Only after evidence supports the design should the proposal be promoted into V2 
 7. What metrics are sufficient to decide whether the adapter improves Time to Learning without increasing unsafe automation?
 8. Which existing V2 owner should persist intake identity / recurrence lineage so that a second mutable state machine is not introduced?
 9. What trust level is required before repository investigation can begin for each adapter class?
+10. Which investigation actions must remain read-only before a normal PlanGate work request exists?
+11. How should adapters prove that untrusted telemetry was kept out of the trusted instruction channel?
 
 ## 13. Decision requested
 
