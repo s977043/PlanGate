@@ -236,15 +236,20 @@ AI-generated PBI は create-first にしない。新規作成前に既存の ope
 
 PBI の authoring と current Run / Harness への適用 authority を分離する。
 
-| application path | 意味 | current Run への影響 |
+2 軸を混ぜない。
+
+| axis | value | 意味 |
 | --- | --- | --- |
-| `follow_up` | feedback / Evidence から次の仕事を作る | なし。future Run で扱う |
-| `replan_current` | current Task の Goal / Requirement / AC の変更が必要 | Replan + Plan Verification + Plan Gate を必須とする |
-| `harness_candidate` | Harness / Skill / Agent / Flow / Verifier / Routing / Eval の改善 | HarnessImprovementCandidate ref を upstream authority とし、#869 / North Star §13–§15 の evaluation / promotion contract に従う |
+| application timing | `follow_up` | future Run で扱う。current Run への影響なし |
+| application timing | `replan_current` | current delivery の Goal / Requirement / AC を変更。Replan + Plan Verification + Plan Gate |
+| target layer | `delivery` | product / delivery task の変更 |
+| target layer | `harness` | Harness / Skill / Agent / Flow / Verifier / Routing / Eval の改善 |
+
+`target layer = harness` は Active Run の Harness identity を変更できないため、application timing は `follow_up` 固定。`replan_current + harness` は invalid combination とする。
 
 source Run から生成した PBI は source run / failure / evidence refs を保持する。PBI を作成した事実そのものを current Run の成功 Evidence にしない。
 
-Harness-targeting PBI は work packaging / execution planning の artifact であり、HarnessImprovementCandidate の `1 Candidate = 1 Hypothesis`、固定 evaluation plan、paired baseline、independent evaluator、Promotion boundary を代替しない。
+Harness-targeting PBI は draft 生成までは HarnessImprovementCandidate ref が無くてもよいが、**Plan / implementation readiness の前に** Candidate ref を必須とする。PBI は work packaging / execution planning の artifact であり、HarnessImprovementCandidate の `1 Candidate = 1 Hypothesis`、固定 evaluation plan、paired baseline、independent evaluator、Promotion boundary を代替しない。
 
 Traceability は意味の複製ではなく ref の接続で作る。最小経路は `Goal / Problem -> Requirement -> AC -> Plan decision / Task -> Test / Verifier Evidence` とし、既存の Current-Need Trace / AC mapping / Verification Trace / `acceptance_criteria_refs` を再利用する。Goal / Problem / Requirement の説明本文を `plan.md` / `todo.md` / WorkItemGraph にコピーせず、owner artifact を参照する。
 
