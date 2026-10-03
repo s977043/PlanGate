@@ -1313,5 +1313,28 @@ else
   fail=$((fail + 1))
 fi
 
+# 16. Write-capable rollout policy must remain explicitly non-active.
+_t94_write_policy="$_T94_ROOT/docs/working/TASK-1442/write-capable-rollout-policy.md"
+if [ -f "$_t94_write_policy" ] \
+  && grep -q 'Status: \*\*DRAFT / NON-ACTIVE\*\*' "$_t94_write_policy" \
+  && grep -q 'rollout_mode = shadow_only' "$_t94_write_policy" \
+  && grep -q 'effective_stage = R0 Shadow' "$_t94_write_policy" \
+  && grep -q 'R1_enabled = false' "$_t94_write_policy" \
+  && grep -q 'R2_enabled = false' "$_t94_write_policy" \
+  && grep -q 'automatic_mutation_allowed = false' "$_t94_write_policy" \
+  && grep -q 'one mutation attempt = one semantic target' "$_t94_write_policy" \
+  && grep -q 'multi-target transaction = unsupported' "$_t94_write_policy" \
+  && grep -q 'automatic_retry_allowed = false' "$_t94_write_policy" \
+  && grep -q 'Writer != Post-write Verifier' "$_t94_write_policy" \
+  && grep -q '少なくとも初回 activation は Human-owned とする' "$_t94_write_policy" \
+  && grep -q 'policy definition' "$_t94_write_policy" \
+  && grep -q '!= rollout activation' "$_t94_write_policy"; then
+  printf '  [PASS] write rollout policy: draft remains R0/non-active and fail-closed\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] write rollout policy: non-activation contract drifted\n' >&2
+  fail=$((fail + 1))
+fi
+
 rm -rf "$_t94_tmp"
 pg_extra_contract_finalize
