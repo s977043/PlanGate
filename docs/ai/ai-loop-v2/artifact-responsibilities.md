@@ -290,6 +290,23 @@ write-capable behavior を設計する場合も以下を分離する。
 
 write path は source Evidence / oracle / approval / policy 自身を同じ attempt で自己変更しない。unknown provider result を success とみなしたり blind retry したりせず、reconciliation / escalation boundary を持つ。
 
+#### Live-shadow Evidence ownership
+
+live-shadow の実装で artifact を追加する場合も、意味上の owner を分離する。
+
+| evidence / projection | owner / boundary |
+| --- | --- |
+| upstream source | feedback / Issue / RunEvidence / Failure 等の元 Evidence。capture 自身を source にしない |
+| passive capture | 対象 run / source / head / time relation を後段で検証できる binding Evidence。PBI authority は持たない |
+| RunEvidence binding | source + capture が対象 run に属することを接続する既存 run Evidence |
+| blind review handoff | reviewer へ渡す projection。maker actual / expected decision を authority として持たせない |
+| reviewed oracle | reviewer / independent evaluator が与える expected。source evidence と混ぜず、maker actual を保存しない |
+| evaluation case / inventory | 上記 ref を束縛して再計算する derived Evidence。registry / lifecycle state / quality approval ではない |
+
+`synthetic_fixture / historical_replay / live_shadow` は Evidence class として混同しない。historical artifact を現在の live capture contract に後付け適合させても live observation にはしない。
+
+repository inventory は current artifact を再検証する read-only projection に留め、artifact の存在から runtime execution / source preexistence / reviewer identity / representative coverage を推測で昇格させない。
+
 **LoopContract 側は導出規則の追加のみ**とする（§2 のとおり LoopContract は Plan Package から導出される）。
 
 ### 7-2. Plan Verification が「学習条件の変更」を機械判定するための最小構造
