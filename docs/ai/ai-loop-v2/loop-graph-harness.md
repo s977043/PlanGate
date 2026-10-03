@@ -280,6 +280,38 @@ What makes execution reliable and safe? -> Harness
 
 そのうえで、要件を満たせる**最小の既存 owner**へ実装責務を置く。
 
+## 11. Harness composition lens
+
+外部の Harness 設計で見かける「N 層」は、PlanGate では **固定 taxonomy や成熟度モデルとして採用しない**。層数や名称を正本にすると、既存の Loop / Graph / Harness owner と二重管理になり、モデルや runtime の進化に追随しにくくなるためである。
+
+代わりに、Harness を設計・棚卸しするときは「その部品が何の責務を担うか」という lens で見る。複数の責務を同じファイルや runtime component が担っていてもよいが、責務と authority は分離して説明できなければならない。
+
+| Responsibility lens | PlanGate で該当する主な primitive / surface | 見ること |
+|---|---|---|
+| Governing instructions | Prompt / policy / repository instructions | 何を必須・禁止・推奨としているか。Human-owned authority を変更していないか |
+| Context & steering | context selection / retrieval / compression / handoff | 必要な情報だけを適切な鮮度・provenance で渡しているか |
+| Capabilities | Skill / Agent / tool | どの能力を再利用可能な単位として提供しているか |
+| Coordination | Flow / Routing / Graph | 誰が次に動くか、branch / join / wait / resume をどう表現するか |
+| Enforcement | Verifier / Gate / Hook / permission | 自己申告ではなく、どの条件を機械的・独立に確認するか |
+| State & memory | RunState / event stream / evidence / retained learning | 中断・再開・振り返りに必要な事実を conversation 外へ残せているか |
+| Evaluation & observability | RunEvidence / eval / metrics / activation evidence | 実際に発火し、Evidence を生み、判断へ影響し、改善効果を比較できるか |
+
+この表は owner の新設ではない。正本と owner は §2、および companion canon を参照する。例えば Verifier / Gate の identity と activation は harness-manifest.md、改善候補と評価・簡素化は north-star.md §11〜15 が正である。
+
+### Composition rule
+
+Harness の設計判断では、部品数や layer 数を増やすことを進化とみなさない。
+
+    Observed need
+      -> responsibility is already covered?
+           YES -> reuse / adjust / simplify
+           NO  -> add the smallest missing capability
+      -> verify activation
+      -> verify effectiveness
+      -> promote only within existing authority boundary
+
+したがって、外部事例から新しい「層」を取り込む場合も、まず既存 primitive へ写像し、**既存責務で表せない具体的な gap がある場合だけ**新しい component / artifact / owner を検討する。これは North Star §11 の Reuse Before Create と §12 の simplification を、Harness 全体の構成判断へ適用するための解釈である。
+
 ## References
 
 Informative only. Repository canon takes precedence.
