@@ -514,6 +514,35 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertFalse(
             inventory["coverage"]["representative_coverage_claim_allowed"]
         )
+        self.assertFalse(
+            inventory["coverage"]["admission_decision_coverage_complete"]
+        )
+        self.assertEqual(
+            inventory["coverage"]["missing_admission_decisions"],
+            ["discover_more", "materialize", "no_action"],
+        )
+        self.assertEqual(
+            inventory["collection_gaps"],
+            [
+                "tracked_live_case_missing",
+                "admission_decision_missing:discover_more",
+                "admission_decision_missing:materialize",
+                "admission_decision_missing:no_action",
+            ],
+        )
+        self.assertFalse(
+            inventory["coverage"]["source_kind_coverage_requirement_defined"]
+        )
+        self.assertFalse(
+            inventory["materialization_rollout_boundary"][
+                "covered_by_this_inventory"
+            ]
+        )
+        self.assertTrue(
+            inventory["materialization_rollout_boundary"][
+                "materialization_case_inventory_required"
+            ]
+        )
         self.assertFalse(inventory["authority"]["write_allowed"])
         self.assertFalse(
             inventory["authority"]["quality_acceptance_decided"]
@@ -546,6 +575,20 @@ class LiveShadowCollectorTests(unittest.TestCase):
             ["existing_behavior"],
         )
         self.assertEqual(
+            inventory["coverage"]["missing_admission_decisions"],
+            ["discover_more", "materialize"],
+        )
+        self.assertEqual(
+            inventory["collection_gaps"],
+            [
+                "admission_decision_missing:discover_more",
+                "admission_decision_missing:materialize",
+            ],
+        )
+        self.assertFalse(
+            inventory["coverage"]["admission_decision_coverage_complete"]
+        )
+        self.assertEqual(
             inventory["rollout_quality"]["live_case_total"],
             1,
         )
@@ -572,6 +615,14 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertEqual(inventory["tracked_live_case_total"], 0)
         self.assertEqual(inventory["invalid_case_total"], 1)
         self.assertFalse(inventory["inventory_complete"])
+        self.assertIn(
+            "invalid_case_artifacts_present",
+            inventory["collection_gaps"],
+        )
+        self.assertIn(
+            "tracked_live_case_missing",
+            inventory["collection_gaps"],
+        )
         self.assertIn(
             "invalid JSON",
             inventory["invalid_case_artifacts"][0]["errors"][0],
