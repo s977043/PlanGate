@@ -10,8 +10,9 @@ from __future__ import annotations
 
 __doc__ = """runtime_evidence_external_trust.py — out-of-band trust verification (#1448).
 
-This module verifies Human rollout intent against live GitHub issue-comment metadata.
-Repository-authored files cannot self-create Human rollout authority.
+This module verifies owner-account rollout intent against live GitHub issue-comment metadata.
+Repository-authored files cannot self-create rollout authority, but GitHub comment metadata
+also cannot prove that a human used the Web UI rather than a user credential/API client.
 
 It deliberately does NOT verify runtime attestation yet. The existing Claude
 subscription canary is a reusable read-only pattern, but it is not bound to the
@@ -97,15 +98,12 @@ def verify_human_rollout_comment(
     request_hash: str,
     fetch_json: Callable[[str], Any] = _github_json,
 ) -> dict[str, Any]:
-    """Verify an out-of-band Human approval comment against live GitHub metadata.
+    """Verify an owner-account approval candidate against live GitHub metadata.
 
-    Security properties:
-    - exact repository owner must author the comment;
-    - GitHub App-authored comments are rejected;
-    - edited comments are rejected;
-    - exact issue binding is required;
-    - exact request_hash binding is required;
-    - no repository-local file can substitute for the live API check.
+    This proves the live GitHub account/issue/request binding and excludes GitHub App
+    comments, but it does NOT prove human presence. A PAT/API client acting as the owner
+    can produce the same comment metadata. Therefore the result is only a candidate
+    input for a stronger Human-owned verifier.
     """
     errors: list[str] = []
     if not REPO_RE.fullmatch(repo_full_name):
@@ -189,18 +187,30 @@ def verify_human_rollout_comment(
 
     return {
         "schema_version": "1",
-        "domain": "plangate.runtime-human-rollout-verification/v1",
+        "domain": "plangate.runtime-owner-rollout-candidate/v1",
         "repo_full_name": repo_full_name,
         "issue_number": issue_number,
         "comment_id": comment_id,
         "request_hash": request_hash,
         "decision": "enable_r1_read_only_dispatch",
-        "human_rollout_decision_verified": True,
+        "owner_account_decision_candidate": True,
+        "live_github_metadata_verified": True,
+        "human_presence_verified": False,
+        "human_identity_verified": False,
+        "human_rollout_decision_verified": False,
+        "verification_limit": (
+            "GitHub issue-comment metadata cannot distinguish Web UI human action "
+            "from owner user-credential/API automation"
+        ),
         "verified_by": "live_github_issue_comment_metadata",
         "owner_login": canonical_owner,
         "comment_created_at": comment["created_at"],
         "comment_unedited": True,
         "performed_via_github_app": False,
+        "next_required": (
+            "Human-owned out-of-band verification such as a protected environment "
+            "approval or human-held signing-key attestation"
+        ),
         "authority": {
             "agent_invoke_allowed": False,
             "dispatch_allowed": False,
