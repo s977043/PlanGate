@@ -626,6 +626,129 @@ def collect_reviewed_admission_case(
     }
 
 
+def inventory_live_shadow_cases(
+    *,
+    repo_root: pathlib.Path,
+) -> dict[str, Any]:
+    root = repo_root.resolve()
+    pattern = (
+        "docs/working/TASK-*/evidence/"
+        "pbi-live-shadow/**/admission-case.json"
+    )
+    discovered = sorted(root.glob(pattern))
+
+    valid_cases: list[dict[str, Any]] = []
+    valid_refs: list[str] = []
+    invalid: list[dict[str, Any]] = []
+
+    for path in discovered:
+        try:
+            rel = path.relative_to(root).as_posix()
+        except ValueError:
+            continue
+
+        try:
+            mode = path.lstat().st_mode
+        except OSError as exc:
+            invalid.append({"ref": rel, "errors": [f"lstat failed: {exc}"]})
+            continue
+        if not stat.S_ISREG(mode):
+            invalid.append(
+                {"ref": rel, "errors": ["case artifact must be a regular file"]}
+            )
+            continue
+
+        try:
+            case = _load_json_object(path, rel)
+        except CollectorError as exc:
+            invalid.append({"ref": rel, "errors": [str(exc)]})
+            continue
+
+        errors = pm._validate_admission_batch(
+            [case],
+            authority_root=root,
+        )
+        if errors:
+            invalid.append({"ref": rel, "errors": errors})
+            continue
+
+        valid_cases.append(case)
+        valid_refs.append(rel)
+
+    evaluated_cases: list[dict[str, Any]] = []
+    metrics: dict[str, Any] | None = None
+    rollout_quality = pm._admission_live_quality([])
+
+    if valid_cases:
+        try:
+            report = pm.evaluate_admission_batch(
+                valid_cases,
+                authority_root=root,
+            )
+        except pm.MaterializationError as exc:
+            invalid.append(
+                {
+                    "ref": "<aggregate-evaluation>",
+                    "errors": list(exc.errors),
+                }
+            )
+        else:
+            evaluated_cases = report["cases"]
+            metrics = report["metrics"]
+            rollout_quality = report["rollout_quality"]
+
+    observed_decisions = sorted({
+        case.get("actual")
+        for case in evaluated_cases
+        if isinstance(case, dict) and isinstance(case.get("actual"), str)
+    })
+    observed_source_kinds = sorted({
+        case.get("signal", {}).get("source_kind")
+        for case in valid_cases
+        if isinstance(case.get("signal"), dict)
+        and isinstance(case["signal"].get("source_kind"), str)
+    })
+
+    return {
+        "mode": "pbi_live_shadow_inventory",
+        "scope": "repository_tracked_live_shadow",
+        "discovered_case_artifacts": [
+            path.relative_to(root).as_posix() for path in discovered
+        ],
+        "valid_case_artifacts": valid_refs,
+        "invalid_case_artifacts": invalid,
+        "tracked_live_case_total": len(valid_cases),
+        "evaluated_case_total": len(evaluated_cases),
+        "invalid_case_total": len(invalid),
+        "has_tracked_live_evidence": bool(valid_cases),
+        "inventory_complete": not invalid,
+        "coverage": {
+            "observed_admission_decisions": observed_decisions,
+            "observed_source_kinds": observed_source_kinds,
+            "representative_coverage_claim_allowed": False,
+        },
+        "metrics": metrics,
+        "rollout_quality": rollout_quality,
+        "verification_boundary": {
+            "repository_chain_revalidated": True,
+            "runtime_execution_verified": False,
+            "source_preexistence_verified": False,
+            "reviewer_identity_verified": False,
+            "historical_promoted_to_live": False,
+            "synthetic_fixture_counted": False,
+        },
+        "authority": {
+            "read_only": True,
+            "write_allowed": False,
+            "close_allowed": False,
+            "suppression_allowed": False,
+            "merge_allowed": False,
+            "quality_thresholds_applied": False,
+            "quality_acceptance_decided": False,
+        },
+    }
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", required=True)
@@ -649,6 +772,8 @@ def main(argv=None) -> int:
     reviewed_case.add_argument("--oracle-ref", required=True)
     reviewed_case.add_argument("--case-artifact-ref", required=True)
 
+    sub.add_parser("inventory")
+
     args = parser.parse_args(argv)
     root = pathlib.Path(args.repo_root).resolve()
     try:
@@ -670,13 +795,15 @@ def main(argv=None) -> int:
                 run_evidence_ref=args.run_evidence_ref,
                 packet_ref=args.packet_ref,
             )
-        else:
+        elif args.command == "case":
             result = collect_reviewed_admission_case(
                 repo_root=root,
                 packet_ref=args.packet_ref,
                 oracle_ref=args.oracle_ref,
                 case_artifact_ref=args.case_artifact_ref,
             )
+        else:
+            result = inventory_live_shadow_cases(repo_root=root)
     except (CollectorError, pm.MaterializationError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
