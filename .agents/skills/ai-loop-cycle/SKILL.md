@@ -690,15 +690,15 @@ decision_coverage_quota_defined = false
 source_kind_coverage_requirement_defined = false
 representative_coverage_claim_allowed = false
 coverage_complete_implies_representative = false
-collection_target_is_quota = false
-collection_target_is_case_generation_instruction = false
+observation_gap_is_quota = false
+observation_gap_is_case_generation_instruction = false
 collection_coverage_basis = reviewed_expected_decisions
 maker_actual_counts_as_ground_truth_coverage = false
 runtime_execution_verified = false
 quality_acceptance_decided = false
 ```
 
-したがって collection target を埋めるために synthetic case を作成したり、
+したがって observation gap を埋めるために synthetic case を作成したり、
 historical case を live へ昇格したりしてはならない。
 
 ## 禁止事項
