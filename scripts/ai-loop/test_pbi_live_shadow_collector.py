@@ -335,6 +335,22 @@ class LiveShadowCollectorTests(unittest.TestCase):
             self._collect_capture()
         self.assertIn("repository source does not exist", str(ctx.exception))
 
+    def test_capture_rejects_symlinked_upstream_parent(self):
+        source = self.root / self.source_ref
+        original = self.root / "real-delivery"
+        original.mkdir()
+        (original / "record.jsonl").write_text(
+            '{"kind":"state","state":"MERGE_READY"}\n',
+            encoding="utf-8",
+        )
+        source.unlink()
+        source.parent.rmdir()
+        source.parent.symlink_to(original, target_is_directory=True)
+
+        with self.assertRaises(collector.CollectorError) as ctx:
+            self._collect_capture()
+        self.assertIn("symlink path component rejected", str(ctx.exception))
+
     def test_capture_rejects_symlinked_output_parent(self):
         base = (
             self.root
@@ -784,7 +800,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertEqual(inventory["tracked_live_case_total"], 0)
         self.assertEqual(inventory["invalid_case_total"], 1)
         self.assertIn(
-            "regular file",
+            "symlink path component rejected",
             inventory["invalid_case_artifacts"][0]["errors"][0],
         )
 
