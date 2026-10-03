@@ -617,6 +617,28 @@ Measure:
 - duplicate external side effects prevented by idempotency;
 - rollout stage and activation evidence (`selected` / `fired` / `produced_evidence` / consumed downstream).
 
+#### Measurement storage / privacy boundary
+
+Runtime PoC metrics inherit the repository's existing Metrics Privacy policy. Evaluation must not create a second telemetry dump inside PlanGate.
+
+Persist only aggregate / sanitized measurements needed for comparison, such as:
+
+- counts / rates / latency;
+- fixed enums (provider class, rollout stage, result);
+- opaque hashes where stable correlation is necessary;
+- TASK / Run identifiers that do not contain runtime payload content.
+
+Do not persist in PlanGate metrics:
+
+- raw provider request / response bodies;
+- full stack traces or command output;
+- application payloads / customer data / session values;
+- Issue / PR body text copied from runtime evidence;
+- raw external URLs / account identifiers;
+- user-controlled log text or prompt-like content.
+
+Raw evidence remains at the provider or approved evidence store and is referenced through opaque / sanitized refs. Missing data remains missing / unavailable; it must not be replaced with zero or synthetic success.
+
 Only after evidence supports the design should the proposal be promoted into V2 canon.
 
 ### Phase C exit criteria
