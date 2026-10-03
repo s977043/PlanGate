@@ -298,7 +298,7 @@ What makes execution reliable and safe? -> Harness
 
 この表は owner の新設でも、surface と責務の 1:1 対応表でもない。1 component が複数責務を担う場合も、1 責務が複数 component に分散する場合もある。**owner の対応は §2 の表だけを正とする。** Verifier / Gate の identity と activation は [`harness-manifest.md`](./harness-manifest.md)、改善候補・評価・簡素化・Promotion authority は [`north-star.md`](./north-star.md) §11〜15 が正である。
 
-### Harness Health: 4 つを分離して見る
+### Harness Health: 5 つを分離して見る
 
 Harness の棚卸しでは、次の 4 つを別の問いとして扱う。存在確認だけで効果を主張しない。
 
@@ -307,7 +307,8 @@ Harness の棚卸しでは、次の 4 つを別の問いとして扱う。存在
 | Identity / Presence | 何が、どの内容で存在しているか | HarnessManifest の content identity / `installed` / `registered` |
 | Runtime Activation | その Run で本当に選択・実行されたか | `selected` / `fired` / `produced_evidence` / `influenced_decision`。定義は [`harness-manifest.md`](./harness-manifest.md) §4 |
 | Effectiveness | 発火した結果、期待した品質・安全性・効率を改善したか | baseline vs candidate、critical regression、false positive / false negative、time / token / cost 等。正本は [`north-star.md`](./north-star.md) §14 / §18 |
-| Governance / Maintenance | その能力を維持する価値があり、authority debt / instruction debt を増やしていないか | Human-owned boundary、maintenance cost、重複・競合・legacy workaround。Instruction Debt は `instruction-debt-audit` を利用 |
+| Governance | その component が authority / approval / permission / protected boundary を正しく維持しているか | Human-owned boundary、policy / permission、Evaluation Trust Boundary。維持コストを理由に弱体化しない |
+| Maintainability | 重複・競合・旧 workaround・context burden を増やさず維持できるか | maintenance cost、duplication / conflict / legacy debt。Instruction Debt は `instruction-debt-audit` を利用 |
 
 判定の順序は次を基本とする。
 
@@ -315,12 +316,30 @@ Harness の棚卸しでは、次の 4 つを別の問いとして扱う。存在
       no  -> missing / intentionally absent を区別
       yes -> activated?
                no  -> dead / unreachable / wrong routing の可能性
-               yes -> effective?
-                        no  -> adapt / merge / deprecate candidate
-                        yes -> keep candidate
-    then check governance / maintenance cost before promotion
+               yes -> effectiveness evidence sufficient?
+                        no  -> INCONCLUSIVE / gather evidence
+                        yes -> effective?
+                                 no  -> UPDATE / MERGE / DEPRECATE / REMOVE_FROM_FLOW / SIMPLIFY candidate
+                                 yes -> KEEP candidate
+    then check Governance and Maintainability independently before promotion
 
-特に `installed` / `registered` は **availability evidence** であって **effectiveness evidence** ではない。`fired` も「動いた」証拠であり、「良くした」証拠ではない。Effectiveness は同一条件の比較や regression evidence で別途評価する。
+特に `installed` / `registered` は **availability evidence** であって **effectiveness evidence** ではない。`fired` も「動いた」証拠であり、「良くした」証拠ではない。Effectiveness は同一条件の比較や regression evidence で別途評価する。測定不能・サンプル不足・activation 不成立は `INCONCLUSIVE` とし、効果なしと扱わない。
+
+### Audit disposition は候補であり、権限ではない
+
+棚卸し結果は、実装を直接変更する命令ではなく Evolution Candidate の入力として扱う。
+
+| Disposition | 意味 | 次の扱い |
+|---|---|---|
+| KEEP | 現時点の Evidence では変更理由がない | 現状維持。必要なら継続観測 |
+| UPDATE | 責務は必要だが内容・trigger・routing 等に改善余地がある | North Star §13 の Candidate 化 |
+| SPLIT | 1 component に複数責務が過密に集中している | Candidate 化して独立評価 |
+| MERGE | 重複 component を統合できる可能性がある | activation / regression を比較して Candidate 化 |
+| DEPRECATE | 利用停止候補。即削除ではない | replacement / migration / rollback を含めて Candidate 化 |
+| REMOVE_FROM_FLOW / SIMPLIFY | component 自体を消さず経路や複雑性を減らす候補 | baseline 比較後に Candidate 化 |
+| INCONCLUSIVE | 判断に必要な Evidence が不足 | 変更せず、観測・fixture・activation evidence を補う |
+
+これらは audit disposition であり、Production Harness を直接変更する authority を持たない。とくに Gate / Verifier の削除・緩和・適用範囲縮小、Hook / Permission / Approval boundary 等は [`north-star.md`](./north-star.md) §15 の Human Gate を維持する。
 
 ### Composition rule
 
