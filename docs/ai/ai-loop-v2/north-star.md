@@ -179,6 +179,24 @@ V2 は ai-dev command を内側から直接チェーンすることを前提と�
 
 AI は proposal / patch / evidence / experiment / promotion-ready PR までは作れる。不可逆な Production 適用の最終権限は Human が持つ。
 
+### Review readiness / Quality acceptance / Mutation authority are separate
+
+PBI materialization の自律度を上げる場合でも、次の 3 つを同じ boolean / Gate にまとめない。
+
+```text
+Evidence readiness
+  != Quality acceptance
+  != Mutation authorization
+```
+
+- **Evidence / review readiness**: Admission / Materialization の評価に必要な Evidence・review・provenance が揃い、Human / policy が次の判断をできる状態
+- **Quality acceptance**: false-positive / false-negative / decision mismatch / readiness mismatch 等を、明示した policy / threshold / Human judgment に照らして許容できると判断した状態
+- **Mutation authorization**: 実際に PBI / Issue 等の外部状態を書き換えてよい authority。policy version / activation decision / target precondition / rollback・reconciliation 契約を別途必要とする
+
+`review_ready=true` 相当の projection があっても、write / close / suppress / merge authority を暗黙に付与しない。評価器は quality metric を示してよいが、threshold が定義されていなければ PASS/FAIL を創作しない。
+
+write-capable behavior を導入する場合、**policy definition / quality acceptance / rollout activation / mutation execution** を分離する。policy 文書が存在するだけで activation 済みと扱わず、byte / version drift 後に以前の activation を暗黙継承しない。
+
 ## 4. Delivery Loop and Evolution Loop are separate
 
 Delivery と Evolution は同じ state / gate / success condition で表現しない。
