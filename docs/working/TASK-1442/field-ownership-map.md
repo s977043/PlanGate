@@ -39,7 +39,8 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | Shadow evaluation report | derived evidence | materializer evaluator | train/test + evidence-class metricsを生成するが write / promotion authority を持たない |
 | evidence class | derived evaluation metadata | evaluation caller | synthetic_fixture / historical_replay / live_shadow。synthetic を rollout evidence と数えない |
 | historical/live evidence refs | referenced evidence | tracked repository artifact / live run evidence | repository-visible ref の実在を検証。historical harness signal は #874/#869 へ委譲 |
-| live shadow capture identity | referenced capture metadata | caller/runtime capture mechanism | passive_shadow / captured_at / runtime_head_sha / capture_ref を要求。runtime head の実行時同一性は materializer 自身では保証しない |
+| live shadow capture identity | referenced capture metadata | passive capture producer + RunEvidence | capture artifact は task_id / run_id / captured_at / runtime_head_sha / capture_ref / signal を保持。単体では live evidence に数えない |
+| live shadow RunEvidence binding | referenced verification relation | RunEvidence + evaluator | RunEvidence.evidence_refs が capture_ref と upstream signal.source_ref を含み、task/run/head/time を照合した場合のみ live_shadow case として受理 |
 | shadow oracle ref | referenced evaluation evidence | reviewed oracle artifact | historical/live では repo 内実在 + source evidence と別 artifact を要求。author independence は別途必要 |
 | GitHub Issue close/merge | forbidden action | GitHub / Human policy | materializerは実行しない |
 | Production Harness promotion | forbidden action | Human-owned boundary | materializerは実行しない |
@@ -151,35 +152,102 @@ signal
 
 ## Live shadow capture boundary
 
-`evidence_class=live_shadow` はラベルだけでは成立しない。
+`evidence_class=live_shadow` はラベルや自己申告 metadata だけでは成立しない。
 
-必須 metadata:
+### 1. Passive capture
+
+`--capture-signal` は stdout に **passive capture artifact** を生成するだけで、PBI / Issue / RunState を変更しない。
+
+```text
+upstream evidence
+  ↓
+--capture-signal
+  ↓
+passive_shadow_capture artifact
+```
+
+capture artifact は最低限:
+
+```text
+task_id
+run_id
+captured_at
+runtime_head_sha
+capture_ref
+signal
+signal_hash
+authority.write_allowed      = false
+authority.close_allowed      = false
+authority.suppression_allowed = false
+authority.oracle_attached    = false
+```
+
+を持つ。
+
+- `signal.source_ref` は repository-relative syntax を必須とする。
+- `signal.source_ref == capture_ref` は circular provenance として reject。
+- Harness signal は #874/#869 Candidate/Evolution へ委譲する。
+- capture producer 自身はファイルを書かない。artifact persistence は caller の明示操作。
+
+### 2. RunEvidence binding
+
+capture artifact 単体は `live_shadow` evidence ではない。後続 RunEvidence が同じ run の証跡として束縛して初めて評価対象にできる。
+
+live evaluation case の `live_capture` は:
 
 ```json
 {
-  "live_capture": {
-    "capture_mode": "passive_shadow",
-    "captured_at": "<timezone-aware RFC3339>",
-    "runtime_head_sha": "<40 lowercase hex>",
-    "capture_ref": "<repository-visible ref included in evidence_refs>"
-  }
+  "capture_ref": "<repo-relative capture artifact>",
+  "run_evidence_ref": "<repo-relative RunEvidence artifact>"
 }
 ```
 
-機械検証するもの:
+を持つ。
 
-- `capture_mode=passive_shadow`
-- timezone-aware `captured_at`
-- commit SHA 形式の `runtime_head_sha`
-- `capture_ref` が `evidence_refs[]` に含まれ、trusted repository root 内に実在すること
-- historical/synthetic case に `live_capture` を付けて live 件数へ偽装しないこと
+evaluator は:
 
-機械保証しないもの:
+- capture / RunEvidence の両 artifact が trusted repository root 内に実在
+- RunEvidence schema を再検証
+- capture `task_id == RunEvidence.task_id`
+- capture `run_id == RunEvidence.run_id`
+- capture `runtime_head_sha == RunEvidence.final_head_sha`
+- RunEvidence `evidence_refs[]` に `capture_ref` が存在
+- RunEvidence `evidence_refs[]` に capture 内 `signal.source_ref` が存在
+- capture `captured_at` が RunEvidence `started_at..completed_at` 内
+- `signal_hash` が capture 内 signal と一致
+
+を fail-closed で確認する。
+
+これにより:
 
 ```text
-runtime_head_binding_verified = false
-live_shadow_label_alone_sufficient = false
+upstream run evidence/ref
+  -> passive capture
+  -> RunEvidence.evidence_refs binds source + capture
+  -> shadow evaluator
+  -> eligible as live_shadow
 ```
 
-`runtime_head_sha` が実際に capture 時に実行されていたコードと一致することは caller/runtime capture mechanism の責務。  
-この契約を追加しても、実 live observation が 0 件の間は #1442 の live-shadow AC を完了扱いにしない。
+となる。
+
+### 3. Verification limits
+
+機械保証する契約 capability:
+
+```text
+live_shadow_label_alone_sufficient = false
+live_shadow_run_evidence_binding_enforced = true
+run_evidence_schema_revalidated = true
+runtime_head_to_run_evidence_binding_enforced = true
+```
+
+一方、materializer は task_dir を再読込する RunEvidence verifier の完全検証までは実行しない。
+
+```text
+run_evidence_task_binding_reverified = false
+run_evidence_task_binding_owner = caller_or_run_evidence_verifier
+```
+
+したがって上記は **binding rule が実装されている**ことを意味し、実 live observation が存在することを意味しない。  
+`live_shadow_cases=0` の間は #1442 の live-shadow rollout AC を完了扱いにしない。
+
