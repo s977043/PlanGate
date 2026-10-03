@@ -94,7 +94,9 @@ Initial Plan も Plan Verification を通る。Replan 時だけ Plan Review す�
 
 Bounded Discovery は全 Task に同じ ceremony を要求しない。depth はコード変更量ではなく、少なくとも **uncertainty / impact / irreversibility / evidence quality** を材料に調整する。単純で十分に既知な変更は Goal / Constraints / Acceptance Criteria の確認で足りる一方、曖昧・高影響・不可逆な変更では As-Is / stakeholder evidence / alternatives / requirement mapping まで広げてよい。RDRA は利用可能な手段の 1 つであり、必須フレームワークにはしない。
 
-AI は Discovery で正解の Requirement を創作する主体ではない。AI は hypothesis generation / question generation / evidence-gap detection / structuring を担う。Human は stakeholder input や意味・優先順位・trade-off の判断が必要な箇所の authority を保持する。Phase A の Human-created `pbi-input.md` を Goal / Problem / Requirement semantics の authority とし、AI の candidate は明示的に採用されるまで authoritative Requirement ではない。低リスクで既知の変更に一律の手動 interview / reality check を要求しない。Evidence が不足する場合は Unknown として残し、もっともらしい Requirement で埋めない。
+AI は Discovery で正解の Requirement を創作する主体ではないが、**PBI / Requirement candidate の作成者にはなれる**。AI は user feedback / Issue / RunEvidence / FailureRecord / operational observation / stakeholder input などから hypothesis generation / question generation / evidence-gap detection / structuring を行い、`pbi-input.md` を新規作成・更新してよい。PBI の信頼性は author identity ではなく、provenance / Evidence / uncertainty / policy によって判断する。
+
+`pbi-input.md` を Goal / Problem / Requirement semantics の authority とするが、これは **Human-authored を意味しない**。Author / Evidence / Authority / Approval を分離する。AI-generated PBI でも、根拠が追跡可能で必要な policy / review を満たせば authoritative input になりうる。Human は stakeholder input、意味・優先順位・trade-off、high-impact / irreversible / conflicting requirements など **policy が Human decision を要求する箇所**の authority を保持する。低リスクで既知の変更に一律の Human authoring / interview / review を要求しない。Evidence が不足する場合は Unknown として残し、もっともらしい Requirement で埋めない。
 
 Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requirement -> Acceptance Criteria -> Plan decision -> Work Item / Task (when applicable) -> Verification / Evidence の Traceability Chain を既存 ID / ref で構成する。新しい Lifecycle State / Gate / top-level artifact / mutable graph store をこのためだけに追加しない。
 
@@ -131,7 +133,7 @@ Pattern -> Hypothesis -> Skill / Agent / Flow / Verifier Candidate
 Request -> Plan -> C-1 -> C-2 -> Human C-3 -> Execute -> Verify -> PR_CREATED
 ```
 
-V2 は ai-dev command を内側から直接チェーンすることを前提とせず、必要な既存能力を共通 primitive / adapter として利用する。Bounded Discovery は V2 内部の準備責務として扱い、この stable public contract に新しい必須 phase を追加しない。
+V2 は ai-dev command を内側から直接チェーンすることを前提とせず、必要な既存能力を共通 primitive / adapter として利用する。Bounded Discovery は V2 内部の準備責務として扱い、この stable public contract に新しい必須 phase を追加しない。V2 は feedback / evidence から `pbi-input.md` を生成して既存 plan contract へ渡してよく、PBI authoring を Human-only boundary にしない。
 
 ### Human-owned authority remains human-owned
 
