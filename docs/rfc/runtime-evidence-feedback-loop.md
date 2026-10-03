@@ -29,6 +29,42 @@ The reusable idea is not Cloudflare-specific automation. It is the boundary:
 
 This RFC proposes a provider-neutral Runtime Evidence Feedback Loop for ai-loop V2.
 
+### 1.1 Existing implementation baseline — do not duplicate the PBI materializer
+
+This RFC is **not** the owner of feedback / Evidence -> PBI materialization.
+
+Existing work already owns that responsibility:
+
+- #1440 / PR #1441 — bounded Requirement Discovery and `pbi-input.md` semantic authority;
+- #1442 / PR #1443 — deterministic shadow/read-only PBI materializer and live-shadow evidence collector;
+- `scripts/ai-loop/pbi_materializer.py` — intentionally network-free primitive; GitHub / network access belongs to an adapter;
+- `scripts/ai-loop/pbi_live_shadow_collector.py` — persists repository-visible live-shadow evidence under the task evidence namespace.
+
+Therefore the remaining responsibility of this RFC is narrower:
+
+> **External Runtime Ingress Adapter = external provider telemetry -> authenticated, sanitized, repository-visible source evidence -> existing #1442/#1443 materializer / collector path.**
+
+```text
+External Runtime Provider
+        |
+        v
+Runtime Ingress Adapter            <- this RFC / follow-up implementation
+        |
+        v
+repository-visible source evidence
+        |
+        v
+#1442 / PR #1443 materializer + collector
+        |
+        v
+bounded pbi-input proposal
+        |
+        v
+existing PlanGate path
+```
+
+The adapter must reuse the existing materializer decisions (`materialize | no_action | discover_more` and `update_existing | link_only | create_new`) rather than invent parallel admission or PBI-decision semantics.
+
 ## 2. Design principles
 
 ### 2.1 Runtime is an evidence source, not an approval authority
@@ -258,7 +294,7 @@ Rationale:
 - RunEvidence is a deterministic projection and therefore must not be written directly by the intake adapter;
 - cross-Run recurrence remains intake / analytics state and is never backfilled into historical RunEvidence.
 
-For the PoC, do **not** invent a new RunEvent type. The PoC may bind immutable runtime evidence refs in `pbi-input.md` and demonstrate traceability to the provider event. Phase 1 canon should later define the exact RunEvent semantic that records observation intake.
+For the PoC, do **not** invent a new RunEvent type. The external adapter should first materialize a sanitized repository-visible source artifact and feed that source ref into the existing #1442/#1443 shadow path. The resulting PBI proposal may bind the immutable runtime evidence ref in `pbi-input.md`. Phase 1 canon should later define the exact RunEvent semantic that records observation intake.
 
 A future schema field such as `external_evidence_refs` is therefore expected to be **additive to an existing owner**, not the root of a new state machine.
 
@@ -503,13 +539,16 @@ The adapter may:
 
 - authenticate and normalize provider events;
 - maintain intake-local dedup / recurrence state;
-- produce immutable external evidence refs;
+- produce a sanitized **repository-visible source artifact** plus immutable external/provider reference metadata;
 - perform read-only correlation / investigation through approved tools;
-- generate a **candidate** input for `pbi-input.md`;
+- translate the normalized observation into the existing #1442 admission/materialization input contract;
+- invoke the existing shadow/read-only materializer / collector path;
 - request creation of downstream work through a separate idempotent action.
 
 The adapter must not:
 
+- implement a second PBI materializer or second admission decision engine;
+- bypass `materialize | no_action | discover_more` or `update_existing | link_only | create_new` semantics owned by #1442/#1443;
 - write production code;
 - create or approve PlanGate approval records;
 - choose or widen `allowed_paths`;
@@ -671,7 +710,7 @@ These criteria evaluate the intake mechanism. They do not prove that every runti
 9. What trust level is required before repository investigation can begin for each adapter class?
 10. Which investigation actions must remain read-only before a normal PlanGate work request exists?
 11. How should adapters prove that untrusted telemetry was kept out of the trusted instruction channel?
-12. Which provider should be the first R0/R1 PoC adapter, based on available telemetry, authentication, and redaction capabilities?
+12. **Proposed answer**: use the Cloudflare runtime-issue path as the first R0/R1 reference adapter because it is the motivating case for this RFC. Keep the core provider-neutral and treat Cloudflare-specific fields as adapter mapping only.
 
 ## 13. Decision requested
 
