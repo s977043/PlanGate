@@ -273,7 +273,7 @@ Docs / config / generated artifact
 - 想定外の変更対象ファイルが必要になった
 - 既存テストがbaselineで失敗している
 - 受入基準と実装方針に矛盾が見つかった
-- `pbi-input.md` の Goal / Problem / Requirement semantics / AC を変更しないと実装できないことが判明した（Plan 内で書き換えず、Phase A / Human judgment へ戻す）
+- `pbi-input.md` の Goal / Problem / Requirement semantics / AC を変更しないと実装できないことが判明した（Plan 内で黙って書き換えず、PBI 更新 + 必要な policy / Human decision へ戻す）
 - Task間のインターフェースが成立しない
 - セキュリティ・データ損失・後方互換性リスクが見つかった
 - hidden dependency が見つかり、Work Breakdown または Files / Interfaces が変わる
