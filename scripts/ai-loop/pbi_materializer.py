@@ -277,9 +277,12 @@ def _verify_acceptance_authority_ref(
                 f"authority_ref: decision_id {fragment!r} must exist exactly once in {path.name}; found {matches}"
             ]
     elif source_kind == "policy":
-        # File existence is the authority boundary in this slice. Fragment-level Markdown
-        # anchor validation is intentionally not a new parser/authority.
-        pass
+        # Require a precise rule-level ref without introducing a new Markdown parser.
+        # File existence + non-empty fragment is the Phase 1 authority boundary.
+        if not fragment:
+            return [
+                f"authority_ref: policy requires a rule fragment: {source_ref!r}"
+            ]
     else:
         return [f"authority_ref: unsupported acceptance authority kind: {source_kind!r}"]
     return []
