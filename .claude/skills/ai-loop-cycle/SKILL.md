@@ -572,10 +572,11 @@ materialization target は reviewed admission `materialize` が観測済みの�
 
 ```text
 prerequisites_satisfied = true
-currently_collectable = true
+collector_path_available = true
+real_runtime_observation_available = null
 ```
 
-となる。これは「そのcaseを作れ」という指示ではなく、自然に実runで遭遇した場合に収集経路が成立していることだけを示す。
+となる。これは「そのcaseを作れ」という指示ではなく、自然に実runで遭遇した場合に **collector経路が成立している** ことだけを示す。現在real runtime observationが存在するかは未検証であり、`null` のまま扱う。
 
 必ず次の境界を維持する:
 
