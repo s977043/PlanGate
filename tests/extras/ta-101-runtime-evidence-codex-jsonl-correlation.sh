@@ -119,8 +119,13 @@ _t101_rc=0
   >"$_t101_result" 2>"$_t101_tmp/result.err" || _t101_rc=$?
 
 if [ "$_t101_rc" -eq 0 ] \
-  && grep -q '"parent_thread_correlation_verified": true' "$_t101_result" \
-  && grep -q '"thread_id_correlation_verified": true' "$_t101_result" \
+  && grep -q '"identifier_value_match_verified": true' "$_t101_result" \
+  && grep -q '"hook_session_id_equals_exec_thread_id": true' "$_t101_result" \
+  && grep -q '"session_thread_semantic_binding_verified": false' "$_t101_result" \
+  && grep -q '"parent_thread_correlation_candidate": true' "$_t101_result" \
+  && grep -q '"parent_thread_correlation_verified": false' "$_t101_result" \
+  && grep -q '"thread_id_correlation_verified": false' "$_t101_result" \
+  && grep -q '"codex_jsonl_thread_correlation_verified": false' "$_t101_result" \
   && grep -q '"trace_content_binding_verified": true' "$_t101_result" \
   && grep -q '"single_turn_envelope_verified": true' "$_t101_result" \
   && grep -q '"command_execution_read_only_verified": false' "$_t101_result" \
