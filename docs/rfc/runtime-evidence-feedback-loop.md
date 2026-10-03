@@ -719,6 +719,37 @@ Both raw inputs stay outside the repository. The sanitized result retains only b
 
 Promotion requires a trusted join key or independently administered capture manifest that proves both observation streams belong to the same concrete runtime execution.
 
+
+### 7.5 Codex JSONL pairing candidate hardening
+
+#1457 pairs the #1456 Explorer lifecycle candidate with a bounded `codex exec --json` trace, but deliberately does not claim same-run correlation because current JSONL evidence does not carry the R1 `request_hash`, Explorer `config_sha`, provider identity, or the hook candidate's `agent_id`.
+
+The correlator therefore validates both sides independently:
+
+- hook candidate must still assert `runtime_role_observed_candidate=true` and `explorer_execution_candidate=true`;
+- all hook-side authority-bearing fields remain false;
+- Codex JSONL must contain at least one `item.completed`;
+- the trace must contain a later `turn.completed`, proving only that the captured turn reached a completion boundary;
+- raw command/message/reasoning bodies are not copied into the artifact;
+- raw hook/JSONL inputs must remain outside the repository both lexically and after path resolution, preventing repository symlink indirection.
+
+Even after these checks:
+
+```text
+cross_source_pairing_candidate = true
+trace_completion_candidate_verified = true
+
+same_run_copresence_verified = false
+same_run_identity_verified = false
+direct_agent_id_correlation_available = false
+trusted_jsonl_capture_root_attested = false
+codex_jsonl_runtime_correlation_verified = false
+runtime_probe_attestation_verified = false
+dispatch_allowed = false
+```
+
+A future promotion requires an independently trustworthy shared join key or capture root; structural completion alone is not same-run proof.
+
 ## 8. Relationship to existing V2 boundaries
 
 This proposal must not change the following existing contracts:
