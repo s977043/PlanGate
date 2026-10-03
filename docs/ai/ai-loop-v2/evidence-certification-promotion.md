@@ -1,4 +1,4 @@
-# Evidence Certification View and Risk-Based Promotion Policy
+# Evidence Certification View and Risk-Based Evidence / Review Routing
 
 > **Status**: Design guide for issue #1458. Non-canon; existing ai-loop V2 canon takes precedence.
 > **Source**: Anthropic, "How to prepare for AI-driven code modernization projects".
@@ -18,6 +18,23 @@ ai-loop V2 already has the core primitives needed for this:
 - River Review as an external source of independent review / verification evidence.
 
 The design goal is therefore not to copy Anthropic's vocabulary as another SSoT. It is to add a **composition rule** for existing evidence and policy.
+
+### Terminology mapping
+
+Anthropic uses **Promotion Policy** broadly for deciding how a change advances. In ai-loop V2, `PromotionDecision` is already an Evolution-specific term. To avoid semantic collision, this guide uses:
+
+- **Certification View** for the source concept `Certificate`;
+- **risk-based evidence / review routing** for the Delivery-side part of Anthropic's `Promotion Policy`;
+- existing **Policy Verdict / Decision Engine** for Delivery decisions;
+- existing **PromotionDecision** only for Harness Evolution.
+
+```text
+Anthropic "Promotion Policy"
+  -> Delivery: existing Policy / Decision + evidence/review routing
+  -> Evolution: existing PromotionDecision + Human-owned Production promotion
+```
+
+No shared new "promotion" abstraction is introduced across Delivery and Evolution.
 
 ## 2. Core model
 
@@ -176,9 +193,11 @@ certified head / plan / policy identity
 
 A certification projection for head A MUST NOT authorize an action on head B. The view itself does not implement the action; it exposes the binding that the existing decision/action boundary must verify.
 
-## 5. Risk-based Promotion Policy
+## 5. Risk-based evidence / review routing
 
-The purpose of risk is to select **required evidence and Human attention**, not to create authority.
+This section maps the Delivery-side intent of Anthropic's Promotion Policy onto existing ai-loop V2 policy.
+
+The purpose of risk is to select **required evidence and Human attention**, not to create authority or a new Delivery promotion state.
 
 Relevant policy inputs include:
 
@@ -422,7 +441,48 @@ Before any runtime implementation, verify at least these negative cases:
 - replacing River Review, Verifier, Decision Engine, or Policy;
 - storing hidden CoT / raw unbounded transcripts.
 
-## 12. Relationship to existing V2 docs
+## 12. Implementation seam
+
+A future runtime slice should reuse the contracts already being defined for Delivery V2 rather than invent a Certification schema first.
+
+Existing `VerificationResult` work already defines the minimum machine-facing shape as:
+
+```text
+verification_ref
+verifier_id
+kind: deterministic | specification | independent_model | policy
+status: pass | fail | unavailable | inconclusive
+bound_artifact_ref
+```
+
+and existing canon binds VerificationResult to artifact / source / head identity.
+
+The first executable Certification slice should therefore be a **pure projection function** over existing inputs, for example:
+
+```text
+composeCertification(
+  loopContract,
+  runBinding,
+  verificationResults,
+  runEvidence,
+  policyRequirements,
+  externalEvidenceRefs
+) -> human/machine-readable projection
+```
+
+The exact function / field names are illustrative and non-normative. The implementation constraints are normative:
+
+- no write path;
+- deterministic for identical authoritative inputs;
+- no network fetch inside the pure projection step;
+- unknown / missing required input stays unresolved rather than defaulting to PASS;
+- no Policy Verdict / Terminal Outcome generation;
+- no merge / approval / PromotionDecision side effect;
+- output carries refs back to the authoritative source records rather than copying unbounded evidence bodies.
+
+This gives a small first vertical slice that can be shadow-evaluated before any routing behavior changes.
+
+## 13. Relationship to existing V2 docs
 
 This guide is subordinate to:
 
