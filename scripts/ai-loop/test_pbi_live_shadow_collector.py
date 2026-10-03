@@ -147,6 +147,23 @@ class LiveShadowCollectorTests(unittest.TestCase):
             self._collect_capture()
         self.assertIn("symlink", str(ctx.exception))
 
+    def test_existing_leaf_symlink_is_never_followed_or_replaced(self):
+        target = self.root / self.capture_ref
+        target.parent.mkdir(parents=True, exist_ok=True)
+        outside = self.root / "outside.json"
+        outside.write_text('{"sentinel":true}\n', encoding="utf-8")
+        target.symlink_to(outside)
+
+        with self.assertRaises(collector.CollectorError) as ctx:
+            self._collect_capture()
+
+        self.assertIn("already exists", str(ctx.exception))
+        self.assertTrue(target.is_symlink())
+        self.assertEqual(
+            outside.read_text(encoding="utf-8"),
+            '{"sentinel":true}\n',
+        )
+
     def test_review_packet_revalidates_binding_and_attaches_no_oracle(self):
         self._collect_capture()
         self._write_bound_run_evidence()
