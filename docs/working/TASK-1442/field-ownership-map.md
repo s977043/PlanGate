@@ -39,6 +39,7 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | Shadow evaluation report | derived evidence | materializer evaluator | train/test + evidence-class metricsを生成するが write / promotion authority を持たない |
 | evidence class | derived evaluation metadata | evaluation caller | synthetic_fixture / historical_replay / live_shadow。synthetic を rollout evidence と数えない |
 | historical/live evidence refs | referenced evidence | tracked repository artifact / live run evidence | repository-visible ref の実在を検証。historical harness signal は #874/#869 へ委譲 |
+| live shadow capture identity | referenced capture metadata | caller/runtime capture mechanism | passive_shadow / captured_at / runtime_head_sha / capture_ref を要求。runtime head の実行時同一性は materializer 自身では保証しない |
 | shadow oracle ref | referenced evaluation evidence | reviewed oracle artifact | historical/live では repo 内実在 + source evidence と別 artifact を要求。author independence は別途必要 |
 | GitHub Issue close/merge | forbidden action | GitHub / Human policy | materializerは実行しない |
 | Production Harness promotion | forbidden action | Human-owned boundary | materializerは実行しない |
@@ -146,3 +147,39 @@ signal
 - `reported` / `inferred` の解消・informational signal は自動 `no_action` にせず `discover_more` へ戻す。
 - `observed + resolved/informational` のみ shadow 上で `no_action` proposal を生成できる。
 - Harness admission は本 materializer で再実装せず、#874/#869 Candidate/Evolution に委譲する。
+
+
+## Live shadow capture boundary
+
+`evidence_class=live_shadow` はラベルだけでは成立しない。
+
+必須 metadata:
+
+```json
+{
+  "live_capture": {
+    "capture_mode": "passive_shadow",
+    "captured_at": "<timezone-aware RFC3339>",
+    "runtime_head_sha": "<40 lowercase hex>",
+    "capture_ref": "<repository-visible ref included in evidence_refs>"
+  }
+}
+```
+
+機械検証するもの:
+
+- `capture_mode=passive_shadow`
+- timezone-aware `captured_at`
+- commit SHA 形式の `runtime_head_sha`
+- `capture_ref` が `evidence_refs[]` に含まれ、trusted repository root 内に実在すること
+- historical/synthetic case に `live_capture` を付けて live 件数へ偽装しないこと
+
+機械保証しないもの:
+
+```text
+runtime_head_binding_verified = false
+live_shadow_label_alone_sufficient = false
+```
+
+`runtime_head_sha` が実際に capture 時に実行されていたコードと一致することは caller/runtime capture mechanism の責務。  
+この契約を追加しても、実 live observation が 0 件の間は #1442 の live-shadow AC を完了扱いにしない。
