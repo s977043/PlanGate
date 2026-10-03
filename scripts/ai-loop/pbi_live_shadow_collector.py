@@ -1630,7 +1630,19 @@ def plan_live_shadow_collection(
         "collector_path_available_gap_count": sum(
             1 for item in gaps if item.get("collector_path_available") is True
         ),
-        "collection_execution_blocked": not any(
+        "collection_execution_status": (
+            "not_needed"
+            if not gaps
+            else (
+                "available"
+                if any(
+                    item.get("collector_path_available") is True
+                    for item in gaps
+                )
+                else "blocked_by_prerequisites"
+            )
+        ),
+        "collection_execution_blocked": bool(gaps) and not any(
             item.get("collector_path_available") is True for item in gaps
         ),
         "blockers": blockers,
