@@ -173,6 +173,37 @@ runtime_evidence:
 
 The package is a transport / intake artifact, not a judgment artifact.
 
+### 4.0 Ownership: do not create a second V2 source of truth
+
+`Runtime Evidence Package` is a conceptual transport envelope in this RFC. It is **not a proposal for a new canonical mutable V2 artifact or a second Run state machine**.
+
+The default ownership model is:
+
+```text
+Provider / adapter
+  owns raw event + intake/dedup state
+        |
+        v
+immutable external evidence reference
+        |
+        v
+existing work request / Plan Package / RunEvent
+        |
+        v
+existing V2 RunState / RunEvidence projection
+```
+
+Rules:
+
+- raw provider payload and dedup / recurrence counters remain provider- or adapter-owned;
+- V2 receives immutable evidence references and normalized observations needed for the bounded work request;
+- once a Delivery Run starts, lifecycle progress remains owned by the existing V2 RunState / RunEvent model;
+- RunEvidence remains the deterministic projection of that Run's event stream and must not become a store for cross-Run recurrence counters;
+- cross-Run recurrence and incident aggregation belong to the intake / analytics layer, not per-Run RunEvidence;
+- if Phase 1 needs a persisted field such as `runtime_evidence_ref`, it should be an additive reference on an existing owner, not a new mutable workflow state artifact unless a separate RFC proves that necessity.
+
+This follows the existing V2 artifact budget and the principle that external Product/runtime evidence is received by the Harness rather than becoming a parallel Harness authority.
+
 ### 4.1 Intake identity and deduplication
 
 A runtime signal can repeat thousands of times. The integration must distinguish **new evidence** from **new work**.
@@ -192,9 +223,10 @@ The exact hash format is adapter-owned, but the semantics are fixed:
 - the same active failure should attach evidence to existing work instead of opening parallel Delivery Runs;
 - a recurrence after a defined quiet period may start a new recurrence epoch;
 - a deployment identity change may create a new evidence generation while preserving lineage to the prior issue;
-- deduplication state is intake state, not Delivery Run state.
+- deduplication state is intake state, not Delivery Run state;
+- recurrence lineage is cross-Run information and therefore must not be embedded as mutable aggregate data inside RunEvidence.
 
-This avoids turning event frequency into unbounded agent concurrency.
+This avoids turning event frequency into unbounded agent concurrency or making past RunEvidence bytes depend on later runtime events.
 
 ### 4.2 Evidence trust level
 
@@ -431,6 +463,36 @@ External issue
 
 The PoC should stop at PR / `MERGE_READY`; it must not auto-deploy.
 
+#### PoC acceptance criteria
+
+The PoC is acceptable only if all of the following are demonstrated with reproducible evidence:
+
+1. repeated copies of the same active failure create **one** bounded work item and attach new evidence instead of creating parallel Delivery Runs;
+2. authenticated + redacted + correlated evidence can start a **read-only** repository investigation;
+3. the investigation produces a bounded work request without inventing acceptance criteria or widening `allowed_paths`;
+4. the resulting task enters the normal PlanGate planning / approval path and cannot skip existing gates;
+5. the Delivery Run stops at `MERGE_READY`; merge / deploy are not performed by the runtime adapter;
+6. no new mutable Run state store is introduced beside existing V2 owners;
+7. cross-Run recurrence aggregation stays outside per-Run RunEvidence;
+8. evidence provenance remains traceable from work request to provider event reference.
+
+#### Required negative fixtures
+
+| Fixture | Expected result |
+| --- | --- |
+| unauthenticated event | quarantine / reject; no agent start |
+| valid signature but replayed event | reject or deduplicate; no second work item |
+| secret scan / redaction failure | no agent handoff |
+| log body contains prompt-injection text | treated only as data; no instruction effect |
+| event requests test disable / permission widening / gate bypass | ignored as untrusted data; no policy change |
+| runtime event suggests files outside approved scope | suggestion may be recorded, but `allowed_paths` is not expanded automatically |
+| burst of N equivalent events | bounded aggregation; not N Delivery Runs |
+| deployment / commit identity missing | record uncertainty; do not fabricate source binding |
+| provider evidence unavailable during follow-up | wait / escalate according to minimum evidence policy; do not mark verified |
+| adapter attempts merge / deploy | denied by responsibility boundary |
+
+All negative fixtures must pass before the adapter is considered eligible for broader rollout.
+
 ### Phase C — evaluation
 
 Measure:
@@ -449,16 +511,31 @@ Measure:
 
 Only after evidence supports the design should the proposal be promoted into V2 canon.
 
+### Phase C exit criteria
+
+Promotion from RFC / PoC toward V2 canon requires, at minimum:
+
+- **0 approval-boundary bypasses** in the fixture suite;
+- **0 sensitive-data handoff failures** in the fixture suite;
+- **100% pass** for the required negative fixtures;
+- duplicate event bursts demonstrably converge to bounded work creation;
+- runtime-originated investigations demonstrably start with least-privilege permissions;
+- no second mutable V2 workflow state / authority is introduced;
+- metrics distinguish missing evidence from success rather than filling unknown values with zero;
+- Human review confirms that provider-specific behavior has not leaked into the provider-neutral core.
+
+These criteria evaluate the intake mechanism. They do not prove that every runtime-generated diagnosis is correct. Diagnosis quality remains subject to normal Plan / Verification / Evidence rules.
+
 ## 12. Open questions
 
-1. Should Runtime Evidence be its own artifact type, or a typed external Evidence reference owned by an existing V2 artifact?
-2. Which component owns deduplication and recurrence state?
+1. **Proposed answer**: Runtime Evidence should default to a typed external Evidence reference owned by existing V2 artifacts / events, not a new mutable artifact. A new artifact requires separate justification.
+2. **Proposed answer**: deduplication and recurrence state belong to the provider / intake adapter or an intake registry outside Delivery Run state; V2 receives immutable intake decisions / evidence refs.
 3. Is a runtime trigger allowed to create a GitHub Issue automatically, or only an internal work request?
 4. What minimum evidence is required before an agent may start repository investigation?
 5. Which fields must be redacted or converted to opaque references?
 6. How should a runtime-originated task bind to deployment / commit identity when the running version is not traceable?
 7. What metrics are sufficient to decide whether the adapter improves Time to Learning without increasing unsafe automation?
-8. Which existing V2 owner should persist intake identity / recurrence lineage so that a second mutable state machine is not introduced?
+8. Which existing V2 owner should persist the immutable intake reference in Phase 1 (work request / Plan Package / RunEvent) without introducing a second mutable state machine?
 9. What trust level is required before repository investigation can begin for each adapter class?
 10. Which investigation actions must remain read-only before a normal PlanGate work request exists?
 11. How should adapters prove that untrusted telemetry was kept out of the trusted instruction channel?
