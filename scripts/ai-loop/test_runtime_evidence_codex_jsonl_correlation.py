@@ -56,13 +56,17 @@ def _hook_records():
             request_hash=REQ,
             config_sha=CONFIG,
             provider=PROVIDER,
-        ),
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
+            ),
         probe.normalize_hook_event(
             event=stop,
             request_hash=REQ,
             config_sha=CONFIG,
             provider=PROVIDER,
-        ),
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
+            ),
     ]
 
 
@@ -107,10 +111,13 @@ class CorrelationTests(unittest.TestCase):
             request_hash=REQ,
             config_sha=CONFIG,
             provider=PROVIDER,
+            hook_jsonl_sha256="sha256:" + "d" * 64,
             exec_jsonl_sha256="sha256:" + "c" * 64,
         )
         self.assertTrue(result["exec_jsonl_structure_verified"])
+        self.assertTrue(result["parent_thread_correlation_verified"])
         self.assertTrue(result["thread_id_correlation_verified"])
+        self.assertTrue(result["trace_content_binding_verified"])
         self.assertTrue(result["single_turn_envelope_verified"])
         self.assertTrue(result["codex_jsonl_thread_correlation_verified"])
         self.assertTrue(
@@ -122,6 +129,7 @@ class CorrelationTests(unittest.TestCase):
         self.assertFalse(result["turn_id_exposed_in_exec_jsonl"])
         self.assertFalse(result["turn_id_correlation_verified"])
         self.assertFalse(result["subagent_identity_correlation_verified"])
+        self.assertFalse(result["same_subagent_execution_correlated"])
         self.assertFalse(result["codex_jsonl_runtime_correlation_verified"])
         self.assertFalse(result["runtime_probe_attestation_verified"])
         self.assertFalse(result["dispatch_allowed"])
@@ -136,6 +144,8 @@ class CorrelationTests(unittest.TestCase):
                 request_hash=REQ,
                 config_sha=CONFIG,
                 provider=PROVIDER,
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
             )
         self.assertTrue(any("session_id" in e for e in ctx.exception.errors))
 
@@ -149,6 +159,8 @@ class CorrelationTests(unittest.TestCase):
                 request_hash=REQ,
                 config_sha=CONFIG,
                 provider=PROVIDER,
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
             )
         self.assertTrue(
             any("must follow turn.started" in e for e in ctx.exception.errors)
@@ -165,6 +177,8 @@ class CorrelationTests(unittest.TestCase):
                 request_hash=REQ,
                 config_sha=CONFIG,
                 provider=PROVIDER,
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
             )
         self.assertTrue(
             any("inside turn boundary" in e for e in ctx.exception.errors)
@@ -189,6 +203,8 @@ class CorrelationTests(unittest.TestCase):
                 request_hash=REQ,
                 config_sha=CONFIG,
                 provider=PROVIDER,
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
             )
         self.assertTrue(
             any("final event" in e for e in ctx.exception.errors)
@@ -204,6 +220,8 @@ class CorrelationTests(unittest.TestCase):
                 request_hash=REQ,
                 config_sha=CONFIG,
                 provider=PROVIDER,
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
             )
         self.assertTrue(any("exactly one turn.started" in e for e in ctx.exception.errors))
 
@@ -217,6 +235,8 @@ class CorrelationTests(unittest.TestCase):
                 request_hash=REQ,
                 config_sha=CONFIG,
                 provider=PROVIDER,
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
             )
 
     def test_file_change_is_rejected(self):
@@ -240,6 +260,8 @@ class CorrelationTests(unittest.TestCase):
                 request_hash=REQ,
                 config_sha=CONFIG,
                 provider=PROVIDER,
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
             )
         self.assertTrue(any("file_change forbidden" in e for e in ctx.exception.errors))
 
@@ -263,7 +285,35 @@ class CorrelationTests(unittest.TestCase):
                 request_hash=REQ,
                 config_sha=CONFIG,
                 provider=PROVIDER,
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
             )
+
+    def test_undocumented_item_type_is_schema_drift_not_attestation(self):
+        events = _exec_events()
+        events.insert(
+            -1,
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "item-future",
+                    "type": "future_item",
+                    "opaque": "do not copy",
+                },
+            },
+        )
+        result = corr.correlate_candidate(
+            hook_records=_hook_records(),
+            exec_events=events,
+            request_hash=REQ,
+            config_sha=CONFIG,
+            provider=PROVIDER,
+            hook_jsonl_sha256="sha256:" + "d" * 64,
+            exec_jsonl_sha256="sha256:" + "c" * 64,
+        )
+        self.assertFalse(result["documented_item_schema_coverage_complete"])
+        self.assertEqual(result["undocumented_item_type_count"], 3)
+        self.assertFalse(result["codex_jsonl_runtime_correlation_verified"])
 
     def test_unknown_top_level_event_is_rejected(self):
         events = _exec_events()
@@ -275,6 +325,8 @@ class CorrelationTests(unittest.TestCase):
                 request_hash=REQ,
                 config_sha=CONFIG,
                 provider=PROVIDER,
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
             )
 
     def test_raw_text_is_not_copied_to_result(self):
@@ -286,7 +338,9 @@ class CorrelationTests(unittest.TestCase):
             request_hash=REQ,
             config_sha=CONFIG,
             provider=PROVIDER,
-        )
+                hook_jsonl_sha256="sha256:" + "d" * 64,
+                exec_jsonl_sha256="sha256:" + "c" * 64,
+            )
         serialized = json.dumps(result, ensure_ascii=False)
         self.assertNotIn("TOP-SECRET-REASONING", serialized)
         self.assertNotIn("omitted by correlator", serialized)
