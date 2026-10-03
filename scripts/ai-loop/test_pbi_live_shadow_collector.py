@@ -306,7 +306,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
             repo_root=self.root,
             packet_ref=self.packet_ref,
             oracle_ref=self.oracle_ref,
-            case_ref=self.case_artifact_ref,
+            case_artifact_ref=self.case_artifact_ref,
         )
         self.assertFalse(result["artifact_reused"])
         self.assertFalse(
@@ -325,7 +325,11 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         self.assertEqual(case["expected"]["oracle_ref"], self.oracle_ref)
         self.assertIn(self.packet_ref, case["evidence_refs"])
-        self.assertIn(self.oracle_ref, case["evidence_refs"])
+        self.assertNotIn(self.oracle_ref, case["evidence_refs"])
+        self.assertEqual(
+            case["expected"]["oracle_ref"],
+            self.oracle_ref,
+        )
 
         report = collector.pm.evaluate_admission_batch(
             [case],
@@ -341,13 +345,13 @@ class LiveShadowCollectorTests(unittest.TestCase):
             repo_root=self.root,
             packet_ref=self.packet_ref,
             oracle_ref=self.oracle_ref,
-            case_ref=self.case_artifact_ref,
+            case_artifact_ref=self.case_artifact_ref,
         )
         retry = collector.collect_reviewed_admission_case(
             repo_root=self.root,
             packet_ref=self.packet_ref,
             oracle_ref=self.oracle_ref,
-            case_ref=self.case_artifact_ref,
+            case_artifact_ref=self.case_artifact_ref,
         )
         self.assertFalse(first["artifact_reused"])
         self.assertTrue(retry["artifact_reused"])
@@ -362,7 +366,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
                 repo_root=self.root,
                 packet_ref=self.packet_ref,
                 oracle_ref=self.oracle_ref,
-                case_ref=self.case_artifact_ref,
+                case_artifact_ref=self.case_artifact_ref,
             )
         self.assertIn("packet hash mismatch", str(ctx.exception))
 
@@ -376,7 +380,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
                 repo_root=self.root,
                 packet_ref=self.packet_ref,
                 oracle_ref=self.oracle_ref,
-                case_ref=self.case_artifact_ref,
+                case_artifact_ref=self.case_artifact_ref,
             )
         self.assertIn("maker actual must not be stored", str(ctx.exception))
 
@@ -392,7 +396,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
                 repo_root=self.root,
                 packet_ref=self.packet_ref,
                 oracle_ref=self.oracle_ref,
-                case_ref=self.case_artifact_ref,
+                case_artifact_ref=self.case_artifact_ref,
             )
         self.assertIn("current source hash mismatch", str(ctx.exception))
 
