@@ -384,6 +384,60 @@ class LiveShadowCollectorTests(unittest.TestCase):
             )
         self.assertIn("maker actual must not be stored", str(ctx.exception))
 
+    def test_oracle_must_stay_in_task_live_shadow_namespace(self):
+        self._collect_packet()
+        outside_ref = "docs/reviews/oracle.json"
+        packet = json.loads(
+            (self.root / self.packet_ref).read_text(encoding="utf-8")
+        )
+        outside = self.root / outside_ref
+        outside.parent.mkdir(parents=True, exist_ok=True)
+        outside.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "domain": "plangate.pbi-live-shadow-admission-oracle/v1",
+                    "case_ref": "LIVE-OUTSIDE",
+                    "packet_ref": self.packet_ref,
+                    "packet_hash": collector.pm._canonical_json_hash(packet),
+                    "reviewed_source_ref": self.source_ref,
+                    "reviewed_source_sha256": collector._file_sha256(
+                        self.root / self.source_ref
+                    ),
+                    "expected_admission_decision": "no_action",
+                    "independent_review_asserted": True,
+                    "maker_actual_not_consulted_asserted": True,
+                },
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_admission_case(
+                repo_root=self.root,
+                packet_ref=self.packet_ref,
+                oracle_ref=outside_ref,
+                case_artifact_ref=self.case_artifact_ref,
+            )
+        self.assertIn("pbi-live-shadow", str(ctx.exception))
+
+    def test_oracle_privacy_violation_is_rejected(self):
+        self._collect_packet()
+        self._write_oracle(
+            overrides={"raw_transcript": "private session text"}
+        )
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_admission_case(
+                repo_root=self.root,
+                packet_ref=self.packet_ref,
+                oracle_ref=self.oracle_ref,
+                case_artifact_ref=self.case_artifact_ref,
+            )
+        self.assertIn("oracle privacy", str(ctx.exception))
+
     def test_source_change_after_blind_packet_invalidates_oracle_binding(self):
         self._collect_packet()
         self._write_oracle()
