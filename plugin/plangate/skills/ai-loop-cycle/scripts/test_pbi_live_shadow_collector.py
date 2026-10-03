@@ -1251,7 +1251,62 @@ class LiveShadowCollectorTests(unittest.TestCase):
             "rollout_completion_not_collection_execution",
         )
         self.assertFalse(boundary["quality_acceptance_decided"])
+        binding = plan["inventory_binding"]
+        self.assertTrue(
+            binding["admission_inventory_hash"].startswith("sha256:")
+        )
+        self.assertTrue(
+            binding["materialization_inventory_hash"].startswith("sha256:")
+        )
+        self.assertTrue(
+            binding["combined_inventory_hash"].startswith("sha256:")
+        )
+        self.assertFalse(
+            binding["plan_reuse_without_reinventory_allowed"]
+        )
+        self.assertFalse(binding["runtime_head_bound"])
+        self.assertFalse(binding["repository_commit_verified"])
+        self.assertFalse(
+            boundary["plan_reuse_without_reinventory_allowed"]
+        )
+        self.assertFalse(boundary["inventory_hashes_are_commit_identity"])
         self.assertFalse(plan["authority"]["write_allowed"])
+
+    def test_collection_plan_inventory_hash_changes_with_repository_evidence(self):
+        before = collector.plan_live_shadow_collection(
+            repo_root=self.root
+        )
+        before_binding = before["inventory_binding"]
+
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+
+        after = collector.plan_live_shadow_collection(
+            repo_root=self.root
+        )
+        after_binding = after["inventory_binding"]
+
+        self.assertNotEqual(
+            before_binding["admission_inventory_hash"],
+            after_binding["admission_inventory_hash"],
+        )
+        self.assertNotEqual(
+            before_binding["combined_inventory_hash"],
+            after_binding["combined_inventory_hash"],
+        )
+        self.assertEqual(
+            before_binding["materialization_inventory_hash"],
+            after_binding["materialization_inventory_hash"],
+        )
+        self.assertFalse(
+            after_binding["plan_reuse_without_reinventory_allowed"]
+        )
 
     def test_collection_plan_no_gaps_is_not_blocked(self):
         admission = {
