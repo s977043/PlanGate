@@ -176,9 +176,9 @@ read RunState (revision = N)
 **未定を「測れる」と書かない。** 上表の「未定」は #1285 の Acceptance Criteria が要求する記載であり、
 埋まっていないこと自体が Phase 1 への引き継ぎ事項である。
 
-## 7. 学習条件と Delivery Contract の接続
+## 7. Bounded Discovery / 学習条件と Delivery Contract の接続
 
-> North Star §1 が定義する **価値仮説 / 学習条件 / 観測条件 / Evidence の返却先** の**保持先**を定める。
+> North Star §1 / §2 が定義する **Goal / Problem / Requirement / Unknowns / Discovery Evidence / 価値仮説 / 学習条件 / 観測条件 / Evidence の返却先** の**保持先**を定める。
 > **新 artifact を増やさない**（North Star §19 Non-goals「Component を増やすこと自体」/ §12「Harness の進化を Component 数の増加と定義しない」/ [`phase0-migration.md`](./phase0-migration.md) §6 artifact budget）。
 
 ### 7-1. 保持先
@@ -189,10 +189,20 @@ read RunState (revision = N)
 
 | 概念                  | 保持先                                                                    | 根拠                                                                                                                                                                          |
 | --------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Goal / Actor / Problem / Job** | `pbi-input.md`（Context / Why） | Request の意味と問題設定を Plan 前に保持する。Actor / Job が無関係な technical maintenance では空欄を強制しない |
+| **Assumptions / Constraints / Unknowns** | `pbi-input.md` | Unknown を Requirement と混同せず、未確認のまま追跡可能にする |
+| **Discovery Evidence refs** | `pbi-input.md`（ref / provenance のみ） | raw transcript を保存せず、「なぜこの問題・要求を置いたか」を辿れる最小 provenance を保持する |
+| **Requirement mapping** | `plan.md` の **Requirement Mapping subsection** | stable ID（例: `REQ-NNN`）で Goal / Problem / Evidence ref と Acceptance Criteria / decision を接続する。Requirement candidate と approved Requirement を区別する |
+| **Task / Work Item trace** | `todo.md` / WorkItemGraph（使用時） | Task / Work Item は Requirement / AC ref を参照し、Requirement の意味を複製しない |
+| **Verification trace** | `test-cases.md` | test / verifier が Requirement / AC のどれを検証するかを ref で示す |
 | **価値仮説**          | `pbi-input.md`（Context / Why・Assumptions）                              | 既存節に自然に収まる。複数仮説を分離参照するなら**仮説 ID の採番**が要る（運用規約）                                                                                          |
 | **学習条件**          | `plan.md` の**新 subsection**（既存の Success Criteria とは**別に**置く） | North Star §1 は学習条件を受入基準と**別物**と定義している。既存 Success Criteria は「AC ↔ test case ID」の写像のみで、「何を・どの母集団で・どの水準で観測するか」を持てない |
 | **観測条件**          | `plan.md` の同 subsection                                                 | 既存 Verification Plan は **Harness 側 verifier の観測条件**であり、Product 側の母集団・観測期間・水準を書く場所が無い                                                        |
 | **Evidence の返却先** | `plan.md` の同 subsection（**識別子のみ**）                               | 詳細は 7-3                                                                                                                                                                    |
+
+Requirement candidate は Discovery 中の仮説であり、そのまま approved Requirement ではない。Plan / Plan Verification が採用した Requirement だけを stable ID で参照し、Evidence 不足や競合が残る候補は Unknown / unresolved として保持する。
+
+Traceability は意味の複製ではなく ref の接続で作る。Goal / Problem / Requirement の説明本文を `todo.md` や WorkItemGraph にコピーせず、owner artifact を参照する。これにより Requirement semantics の変更を 1 箇所で検出できる。
 
 **LoopContract 側は導出規則の追加のみ**とする（§2 のとおり LoopContract は Plan Package から導出される）。
 
