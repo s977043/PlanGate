@@ -234,15 +234,43 @@ def _require_existing_source(
     repo_root: pathlib.Path,
     source_ref: str,
 ) -> pathlib.Path:
-    path, _fragment, errors = pm._resolve_repo_authority_ref(
-        source_ref,
-        repo_root,
-    )
-    if errors or path is None:
+    errors = pm._validate_repo_relative_ref_syntax(source_ref, "source_ref")
+    if errors:
+        raise CollectorError("source_ref: " + "; ".join(errors))
+
+    root = repo_root.resolve()
+    pure = pathlib.PurePosixPath(source_ref.partition("#")[0])
+    candidate = root / pathlib.Path(*pure.parts)
+
+    try:
+        mode = candidate.lstat().st_mode
+    except FileNotFoundError as exc:
         raise CollectorError(
-            "source_ref: " + "; ".join(errors or ["unresolvable"])
+            f"source_ref: repository source does not exist: {source_ref!r}"
+        ) from exc
+    except OSError as exc:
+        raise CollectorError(
+            f"source_ref: repository source cannot be inspected: {source_ref!r}: {exc}"
+        ) from exc
+
+    if stat.S_ISLNK(mode):
+        raise CollectorError(
+            f"source_ref: symlink source rejected: {source_ref!r}"
         )
-    return path
+    if not stat.S_ISREG(mode):
+        raise CollectorError(
+            f"source_ref: repository source must be a regular file: {source_ref!r}"
+        )
+
+    try:
+        resolved = candidate.resolve(strict=True)
+        resolved.relative_to(root)
+    except (OSError, ValueError) as exc:
+        raise CollectorError(
+            f"source_ref: source escapes repository root: {source_ref!r}"
+        ) from exc
+
+    return resolved
 
 
 def collect_capture(
