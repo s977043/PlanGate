@@ -115,7 +115,7 @@ R1/R2 を有効化するには、少なくとも以下が必要。
 ### 5.1 Dependency / repository health
 
 - design dependency #1441 が merged または明示的に finalized
--対象 head の full repository Test が green
+- 対象 head の full repository Test が green
 - plugin distribution / privacy / Issue-link checks が green
 - write adapter 自身が repository test で fired される
 - source/plugin distribution drift がない
@@ -195,6 +195,85 @@ current_target_hash == evaluated_target_hash
 GitHub 等の remote adapter を使う場合は、可能なら expected SHA / version / ETag 等の
 provider-native optimistic concurrency を併用する。
 
+### 6.1 Mutation surface
+
+初期 write-capable slice は:
+
+```text
+one mutation attempt = one semantic target
+multi-target transaction = unsupported
+```
+
+とする。
+
+mutation plan は最低限:
+
+```text
+target_ref
+mutation_kind
+allowed_mutation_paths
+forbidden_paths
+evaluated_target_hash
+proposal_hash
+```
+
+を持つ。
+
+adapter は `allowed_mutation_paths` 外を書き換えてはならない。
+
+特に同一 mutation attempt から以下を変更することを禁止する。
+
+- rollout policy
+- oracle / reviewed expectation
+- source evidence
+- RunEvidence
+- capture / review packet
+- evaluator report
+- approval / decision authority
+- RunState / LoopContract / HarnessManifest
+
+writer が自身の Evidence / policy / approval を同時に書き換えられる構造を作らない。
+
+### 6.2 Partial / unknown result
+
+provider API / filesystem operation の結果は:
+
+```text
+confirmed_success
+confirmed_not_applied
+unknown
+```
+
+として扱う。
+
+`unknown` は成功/失敗へ推測で寄せない。
+
+例:
+
+- request timeout
+- connection drop after send
+- provider response parse failure
+- post-write read-back unavailable
+
+`unknown` の場合:
+
+```text
+automatic_retry_allowed = false
+reconciliation_required = true
+human_escalation_required = true
+```
+
+とする。
+
+再試行前に provider-native identity / target ref で対象を再読込し:
+
+1. intended mutation が既に存在 -> idempotent success / no-op として再評価
+2. mutation が存在せず precondition も同一 -> retry-safe 候補
+3. target version/hash が変化 -> conflict / fail closed
+4. 状態を判定不能 -> Human escalation 継続
+
+とする。
+
 ## 7. Idempotency
 
 retry は duplicate mutation を作ってはならない。
@@ -211,8 +290,8 @@ mutation_kind
 
 同じ identity の retry:
 
--同一結果なら reuse / no-op
--異なる結果なら fail closed
+- 同一結果なら reuse / no-op
+- 異なる結果なら fail closed
 
 `create_new` では deterministic target identity を使い、
 retry による PBI 二重作成を防ぐ。
@@ -306,6 +385,9 @@ adapter / materializer / evaluator は自身の評価結果を根拠に
 - bound semantic update なのに Replan 未成立
 - rollback plan 不明
 - adapter/version mismatch
+- multi-target mutation attempt
+- mutation surface / allowed path violation
+- provider result が unknown のまま自動 retry
 - write decision が shadow evaluation と不一致
 - decision class が未activation
 - policy interpretation が曖昧
