@@ -465,6 +465,8 @@ python3 "<skill_dir>/scripts/pbi_live_shadow_collector.py" \
 review packet は maker の actual decision を含まない。Reviewer は `blind_review_source_ref`
 の upstream source から expected admission decision を決め、oracle を **別artifact** として作る。
 collector は reviewer identity / independence を自己証明しない。
+oracle artifact は同じ `TASK-XXXX/evidence/pbi-live-shadow/<run-id>/` 配下へ保存し、
+raw transcript / hidden CoT / session log 等の privacy-forbidden field を含めない。
 
 oracle の最小 contract:
 
