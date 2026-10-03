@@ -1,0 +1,46 @@
+[
+  {
+    "case_ref": "AD-006",
+    "split": "train",
+    "evidence_class": "historical_replay",
+    "evidence_refs": [
+      "docs/working/ai-loop-runs/20260707T055726Z-7703b50-run006-final.json"
+    ],
+    "signal": {
+      "signal_id": "SIG-AD-006",
+      "source_ref": "docs/working/ai-loop-runs/20260707T055726Z-7703b50-run006-final.json",
+      "source_kind": "existing_behavior",
+      "claim_class": "observed",
+      "statement": "Run 006 ended AUTO_APPROVED with boundary clean and both reviewers approving; no reject category is present.",
+      "disposition": "informational",
+      "target_layer": "delivery",
+      "candidate_problem": null
+    },
+    "expected": {
+      "oracle_ref": "docs/working/TASK-1442/evidence/pbi-materializer-shadow/historical-admission-oracle.md#AD-006",
+      "admission_decision": "no_action"
+    }
+  },
+  {
+    "case_ref": "AD-010",
+    "split": "test",
+    "evidence_class": "historical_replay",
+    "evidence_refs": [
+      "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json"
+    ],
+    "signal": {
+      "signal_id": "SIG-AD-010",
+      "source_ref": "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json",
+      "source_kind": "existing_behavior",
+      "claim_class": "observed",
+      "statement": "Run 010 contains model_b=reject with reject_category=test_shortage and severity=minor while decision=AUTO_APPROVED.",
+      "disposition": "actionable",
+      "target_layer": "delivery",
+      "candidate_problem": "A reviewer test-shortage signal should be preserved as follow-up delivery work."
+    },
+    "expected": {
+      "oracle_ref": "docs/working/TASK-1442/evidence/pbi-materializer-shadow/historical-admission-oracle.md#AD-010",
+      "admission_decision": "materialize"
+    }
+  }
+]
