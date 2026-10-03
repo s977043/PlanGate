@@ -279,12 +279,48 @@ class MaterializationFixtures(unittest.TestCase):
         result = pm.materialize(_payload(), [existing])
         self.assertEqual(result["decision"]["decision"], "update_existing")
         self.assertTrue(result["decision"]["requires_replan"])
+        self.assertEqual(result["readiness"]["status"], "blocked")
+        self.assertEqual(
+            result["readiness"]["route"],
+            "bound_pbi_requires_replan",
+        )
+
+    def test_13b_bound_update_with_explicit_replan_current_uses_existing_replan(self):
+        existing = _existing(
+            acceptance_criteria=["AC-OLD"],
+            bound=True,
+        )
+        result = pm.materialize(
+            _payload(application_timing="replan_current"),
+            [existing],
+        )
+        self.assertTrue(result["decision"]["requires_replan"])
+        self.assertEqual(result["readiness"]["status"], "ready")
+        self.assertEqual(result["readiness"]["route"], "replan_current")
+        self.assertEqual(
+            result["readiness"]["current_run_effect"],
+            "replan_required",
+        )
 
     def test_14_raw_transcript_key_is_rejected(self):
         payload = _payload(raw_transcript="secret conversation")
         with self.assertRaises(pm.MaterializationError) as ctx:
             pm.materialize(payload, [])
         self.assertTrue(any("privacy" in e for e in ctx.exception.errors))
+
+
+class DecisionEnvelopeTests(unittest.TestCase):
+    def test_invalid_materialization_decision_is_rejected(self):
+        decision = {
+            "decision": "merge_both",
+            "matched_ref": None,
+            "related_refs": [],
+            "requires_replan": False,
+            "reason": "invalid synthetic fixture",
+        }
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.plan_readiness(_payload(), decision)
+        self.assertTrue(any("decision.decision" in e for e in ctx.exception.errors))
 
 
 class ProvenanceBoundaryTests(unittest.TestCase):
