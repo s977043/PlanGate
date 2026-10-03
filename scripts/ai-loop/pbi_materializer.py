@@ -63,6 +63,7 @@ VALID_ACCEPTANCE_BASES = {"evidence", "explicit_decision", "policy_rule"}
 VALID_DECISIONS = {"update_existing", "link_only", "create_new"}
 VALID_READINESS_STATUSES = {"ready", "blocked"}
 VALID_EVAL_SPLITS = {"train", "test"}
+VALID_EVIDENCE_CLASSES = {"synthetic_fixture", "historical_replay", "live_shadow"}
 VALID_READINESS_ROUTES = {
     "future_run",
     "replan_current",
@@ -1053,7 +1054,7 @@ def compare_shadow(
     return comparison
 
 
-def _validate_shadow_batch(cases: Any) -> list[str]:
+def _validate_shadow_batch(cases: Any, authority_root=None) -> list[str]:
     errors: list[str] = []
     if not isinstance(cases, list) or not cases:
         return ["shadow_batch: non-empty array required"]
@@ -1081,6 +1082,32 @@ def _validate_shadow_batch(cases: Any) -> list[str]:
         elif split == "test":
             has_test = True
 
+        evidence_class = case.get("evidence_class", "synthetic_fixture")
+        if evidence_class not in VALID_EVIDENCE_CLASSES:
+            errors.append(
+                f"shadow_batch[{i}].evidence_class: one of {sorted(VALID_EVIDENCE_CLASSES)} required"
+            )
+
+        evidence_refs = case.get("evidence_refs", [])
+        refs = _as_string_list(
+            evidence_refs,
+            f"shadow_batch[{i}].evidence_refs",
+            errors,
+        )
+        if evidence_class in {"historical_replay", "live_shadow"}:
+            if not refs:
+                errors.append(
+                    f"shadow_batch[{i}].evidence_refs: {evidence_class} requires repository-visible evidence refs"
+                )
+            for ref in refs:
+                _path, _fragment, ref_errors = _resolve_repo_authority_ref(
+                    ref, authority_root
+                )
+                errors.extend(
+                    f"shadow_batch[{i}].evidence_refs: {error}"
+                    for error in ref_errors
+                )
+
         payload = case.get("payload")
         if not isinstance(payload, dict):
             errors.append(f"shadow_batch[{i}].payload: object required")
@@ -1089,6 +1116,13 @@ def _validate_shadow_batch(cases: Any) -> list[str]:
                 f"shadow_batch[{i}].payload.{error}"
                 for error in _privacy_errors(payload)
             )
+            if (
+                evidence_class == "historical_replay"
+                and payload.get("target_layer") == "harness"
+            ):
+                errors.append(
+                    f"shadow_batch[{i}]: harness historical replay must use #874/#869 Candidate/Evolution path"
+                )
 
         existing_work = case.get("existing_work")
         if not isinstance(existing_work, list):
@@ -1108,6 +1142,8 @@ def _validate_shadow_batch(cases: Any) -> list[str]:
                 {
                     "case_ref": case_ref,
                     "split": split,
+                    "evidence_class": evidence_class,
+                    "evidence_refs": refs,
                     "existing_work": existing_work,
                 }
             )
@@ -1149,7 +1185,7 @@ def evaluate_shadow_batch(
     cases: list[dict[str, Any]], authority_root=None
 ) -> dict[str, Any]:
     """Evaluate reviewed train/test cases without granting write authority."""
-    errors = _validate_shadow_batch(cases)
+    errors = _validate_shadow_batch(cases, authority_root=authority_root)
     if errors:
         raise MaterializationError(errors)
 
@@ -1158,12 +1194,18 @@ def evaluate_shadow_batch(
         "train": _metric_bucket(),
         "test": _metric_bucket(),
     }
+    evidence_metrics = {
+        evidence_class: _metric_bucket()
+        for evidence_class in sorted(VALID_EVIDENCE_CLASSES)
+    }
     case_results: list[dict[str, Any]] = []
 
     for case in cases:
         split = case["split"]
+        evidence_class = case.get("evidence_class", "synthetic_fixture")
         for key in ("overall", split):
             metrics[key]["total"] += 1
+        evidence_metrics[evidence_class]["total"] += 1
 
         try:
             result = materialize(
@@ -1186,11 +1228,16 @@ def evaluate_shadow_batch(
                 metrics[key]["exact_matches"] += int(exact)
                 metrics[key]["decision_matches"] += int(decision_ok)
                 metrics[key]["readiness_matches"] += int(readiness_ok)
+            evidence_metrics[evidence_class]["exact_matches"] += int(exact)
+            evidence_metrics[evidence_class]["decision_matches"] += int(decision_ok)
+            evidence_metrics[evidence_class]["readiness_matches"] += int(readiness_ok)
 
             case_results.append(
                 {
                     "case_ref": case["case_ref"],
                     "split": split,
+                    "evidence_class": evidence_class,
+                    "evidence_refs": list(case.get("evidence_refs", [])),
                     "status": comparison["status"],
                     "mismatches": comparison["mismatches"],
                 }
@@ -1198,10 +1245,13 @@ def evaluate_shadow_batch(
         except MaterializationError as exc:
             for key in ("overall", split):
                 metrics[key]["errors"] += 1
+            evidence_metrics[evidence_class]["errors"] += 1
             case_results.append(
                 {
                     "case_ref": case["case_ref"],
                     "split": split,
+                    "evidence_class": evidence_class,
+                    "evidence_refs": list(case.get("evidence_refs", [])),
                     "status": "error",
                     "mismatches": ["materialization_error"],
                     "errors": list(exc.errors),
@@ -1220,6 +1270,16 @@ def evaluate_shadow_batch(
         },
         "metrics": {
             key: _finalize_metrics(value) for key, value in metrics.items()
+        },
+        "evidence_metrics": {
+            key: _finalize_metrics(value)
+            for key, value in evidence_metrics.items()
+        },
+        "rollout_evidence": {
+            "synthetic_fixture_cases": evidence_metrics["synthetic_fixture"]["total"],
+            "historical_replay_cases": evidence_metrics["historical_replay"]["total"],
+            "live_shadow_cases": evidence_metrics["live_shadow"]["total"],
+            "synthetic_excluded_from_rollout_claim": True,
         },
         "cases": case_results,
     }
