@@ -104,6 +104,8 @@ Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requi
 
 AI が feedback / Evidence から PBI を materialize する場合は **Reuse / Update Before Create** を適用する。新規 PBI を作る前に、既存の open Issue / PBI を source refs と Goal / Problem / AC の意味で照合し、`update_existing / link_only / create_new` のいずれかを選ぶ。類似しているという LLM 判断だけで別 PBI を自動 close / merge しない。既存 PBI が Plan / approval と binding 済みで Goal / Requirement / AC の semantic change が必要なら、重複解消として silent update せず §9 の Replan / policy boundary に従う。
 
+AI-generated PBI の **作成時点と適用時点を分離する**。Active Run 中に feedback から PBI を作成してよいが、その PBI は既定では future Run 向けの `follow_up` であり、current LoopContract / Plan / Harness identity を変更しない。current Run に意味変更を適用する場合だけ `replan_current` として §9 の Replan -> Plan Verification -> Plan Gate を通す。Harness / Skill / Agent / Flow / Verifier / Routing / Eval を変更対象とする PBI は `harness_candidate` として North Star §13–§15 / #869 の HarnessImprovementCandidate を upstream authority とし、PBI が Candidate contract / evaluation plan / independent evaluation を置き換えない。
+
 > **Do not optimize a solution before validating the problem enough for the risk at hand.**
 
 Delivery は合意した Contract のもとで実行する。探索を支える実装では、実装の受入基準と価値仮説の学習条件を区別し、必要な観測条件と Evidence の返却先を明確にする。`MERGE_READY` は必須の検証・PR 収束を含む Delivery 契約全体を満たし、C-4 / merge（Human-owned）待ちで停止した終端である（[`taxonomy.md`](./taxonomy.md) §3）。これは価値仮説の検証完了を意味しない（本 North Star が置く区別であり、taxonomy 側の規定ではない）。Product Discovery 全体やリリース後の観測・意思決定を V2 に内包せず、それらへ Evidence を接続する。
