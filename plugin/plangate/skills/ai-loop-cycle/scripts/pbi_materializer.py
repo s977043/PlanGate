@@ -175,6 +175,7 @@ def validate_payload(payload: Any) -> list[str]:
     _as_string_list(payload.get("source_run_refs"), "source_run_refs", errors)
     _as_string_list(payload.get("unknowns"), "unknowns", errors)
     _as_string_list(payload.get("assumptions"), "assumptions", errors)
+    _as_string_list(payload.get("risks"), "risks", errors)
     _as_string_list(payload.get("acceptance_criteria"), "acceptance_criteria", errors)
     _as_string_list(payload.get("in_scope"), "in_scope", errors)
     _as_string_list(payload.get("out_of_scope"), "out_of_scope", errors)
@@ -191,6 +192,7 @@ def validate_payload(payload: Any) -> list[str]:
 
     seen_claim_ids: set[str] = set()
     source_refs: set[str] = set()
+    claim_classes_by_ref: dict[str, set[str]] = {}
     for i, claim in enumerate(claims):
         if not isinstance(claim, dict):
             errors.append(f"claims[{i}]: object required")
@@ -220,6 +222,7 @@ def validate_payload(payload: Any) -> list[str]:
         if isinstance(source_ref, str) and source_ref.strip():
             source_ref = source_ref.strip()
             source_refs.add(source_ref)
+            claim_classes_by_ref.setdefault(source_ref, set()).add(str(claim.get("claim_class")))
             if isinstance(task_id, str) and _is_circular_source(task_id, source_ref):
                 errors.append(
                     f"claims[{i}].source_ref: circular provenance from same-task downstream artifact"
@@ -227,6 +230,7 @@ def validate_payload(payload: Any) -> list[str]:
         origin_ref = _claim_origin_ref(claim)
         if origin_ref:
             source_refs.add(origin_ref)
+            claim_classes_by_ref.setdefault(origin_ref, set()).add(str(claim.get("claim_class")))
             if isinstance(task_id, str) and _is_circular_source(task_id, origin_ref):
                 errors.append(
                     f"claims[{i}].origin_ref: circular provenance from same-task downstream artifact"
@@ -263,10 +267,17 @@ def validate_payload(payload: Any) -> list[str]:
         basis_ref = req.get("basis_ref")
         if not isinstance(basis_ref, str) or not basis_ref.strip():
             errors.append(f"requirements[{i}].basis_ref: non-empty string required")
-        elif req.get("acceptance_basis") == "evidence" and basis_ref not in source_refs:
-            errors.append(
-                f"requirements[{i}].basis_ref: evidence basis must reference claim source/origin"
-            )
+        elif req.get("acceptance_basis") == "evidence":
+            if basis_ref not in source_refs:
+                errors.append(
+                    f"requirements[{i}].basis_ref: evidence basis must reference claim source/origin"
+                )
+            else:
+                classes = claim_classes_by_ref.get(basis_ref, set())
+                if classes and classes <= {"inferred"}:
+                    errors.append(
+                        f"requirements[{i}].basis_ref: inferred-only source cannot be the evidence acceptance basis"
+                    )
         related_ac = req.get("related_ac")
         if not isinstance(related_ac, str) or not related_ac.strip():
             errors.append(f"requirements[{i}].related_ac: non-empty string required")
@@ -316,6 +327,33 @@ def _candidate_facts(candidate: dict[str, Any]) -> tuple[set[str], set[str], set
     return source_refs, reqs, acs
 
 
+def _validate_existing_work(existing_work: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(existing_work, list):
+        return ["existing_work: array required"]
+    for i, item in enumerate(existing_work):
+        if not isinstance(item, dict):
+            errors.append(f"existing_work[{i}]: object required")
+            continue
+        if not isinstance(item.get("ref"), str) or not item.get("ref", "").strip():
+            errors.append(f"existing_work[{i}].ref: non-empty string required")
+        for field in ("goal", "problem"):
+            if not isinstance(item.get(field), str):
+                errors.append(f"existing_work[{i}].{field}: string required")
+        _as_string_list(item.get("source_refs"), f"existing_work[{i}].source_refs", errors)
+        _as_string_list(item.get("requirements"), f"existing_work[{i}].requirements", errors)
+        _as_string_list(
+            item.get("acceptance_criteria"),
+            f"existing_work[{i}].acceptance_criteria",
+            errors,
+        )
+        if not isinstance(item.get("bound_to_approved_plan"), bool):
+            errors.append(
+                f"existing_work[{i}].bound_to_approved_plan: boolean required"
+            )
+    return errors
+
+
 def decide_materialization(
     payload: dict[str, Any], existing_work: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -326,8 +364,9 @@ def decide_materialization(
     errors = validate_payload(payload)
     if errors:
         raise MaterializationError(errors)
-    if not isinstance(existing_work, list):
-        raise MaterializationError(["existing_work: array required"])
+    existing_errors = _validate_existing_work(existing_work)
+    if existing_errors:
+        raise MaterializationError(existing_errors)
 
     p_sources = _payload_source_refs(payload)
     p_reqs, p_acs = _semantic_sets(payload)
@@ -505,13 +544,13 @@ def render_pbi_markdown(
     requirements = payload.get("requirements", [])
 
     prov_rows = [
-        "| Source Ref | Source Kind | Claim Class | Supports |",
-        "| --- | --- | --- | --- |",
+        "| Source Ref | Origin Ref | Source Kind | Claim Class | Supports |",
+        "| --- | --- | --- | --- | --- |",
     ]
     for claim in claims:
         prov_rows.append(
-            f"| {claim['source_ref']} | {claim['source_kind']} | "
-            f"{claim['claim_class']} | {claim['supports']} |"
+            f"| {claim['source_ref']} | {_claim_origin_ref(claim)} | "
+            f"{claim['source_kind']} | {claim['claim_class']} | {claim['supports']} |"
         )
 
     req_rows = [
