@@ -196,7 +196,7 @@ def _validate_repo_relative_ref_syntax(ref: Any, field: str) -> list[str]:
     if not isinstance(ref, str) or not ref.strip():
         return [f"{field}: non-empty repository-relative ref required"]
     value = ref.strip()
-    if "\" in value:
+    if "\\" in value:
         return [f"{field}: backslash path rejected"]
     path_text = value.partition("#")[0]
     pure = pathlib.PurePosixPath(path_text)
