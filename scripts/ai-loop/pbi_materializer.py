@@ -1600,6 +1600,187 @@ def _validate_shadow_batch(cases: Any, authority_root=None) -> list[str]:
     return errors
 
 
+def _nullable_rate(numerator: int, denominator: int) -> float | None:
+    if denominator == 0:
+        return None
+    return round(numerator / denominator, 6)
+
+
+def _rejection_category(error: Any) -> str:
+    text = str(error).lower()
+    if "privacy" in text or "raw_transcript" in text or "chain_of_thought" in text:
+        return "privacy"
+    if (
+        "circular" in text
+        or "same-task downstream" in text
+        or "self-source" in text
+        or "derived artifact" in text
+    ):
+        return "circular_or_derived"
+    if "acceptance_basis" in text or "basis_ref" in text:
+        return "acceptance_basis"
+    if "claim_class" in text or "inferred" in text:
+        return "claim_class"
+    if (
+        "source_ref" in text
+        or "origin_ref" in text
+        or "evidence_ref" in text
+        or "repository source" in text
+    ):
+        return "source_reference"
+    if (
+        "live_binding" in text
+        or "run_evidence" in text
+        or "live_capture" in text
+        or "runtime_head" in text
+    ):
+        return "live_binding"
+    return "other"
+
+
+def _rejection_distribution(cases: list[dict[str, Any]]) -> dict[str, int]:
+    counts = {
+        "privacy": 0,
+        "circular_or_derived": 0,
+        "acceptance_basis": 0,
+        "claim_class": 0,
+        "source_reference": 0,
+        "live_binding": 0,
+        "other": 0,
+    }
+    for case in cases:
+        if case.get("status") != "error":
+            continue
+        errors = case.get("errors", [])
+        if not isinstance(errors, list):
+            counts["other"] += 1
+            continue
+        for error in errors:
+            counts[_rejection_category(error)] += 1
+    return counts
+
+
+def _materialization_live_quality(
+    cases: list[dict[str, Any]],
+) -> dict[str, Any]:
+    live = [
+        case
+        for case in cases
+        if isinstance(case, dict) and case.get("evidence_class") == "live_shadow"
+    ]
+    evaluable = [case for case in live if case.get("status") != "error"]
+    errors = [case for case in live if case.get("status") == "error"]
+
+    duplicate_fp = 0
+    duplicate_fn = 0
+    fp_denom = 0
+    fn_denom = 0
+    decision_mismatch = 0
+    matched_ref_mismatch = 0
+    readiness_mismatch = 0
+    exact_mismatch = 0
+
+    existing_decisions = {"update_existing", "link_only"}
+
+    for case in evaluable:
+        expected = case.get("expected_decision")
+        actual = case.get("actual_decision")
+        mismatches = case.get("mismatches", [])
+        if not isinstance(mismatches, list):
+            mismatches = []
+
+        if expected == "create_new":
+            fp_denom += 1
+            if actual in existing_decisions:
+                duplicate_fp += 1
+        elif expected in existing_decisions:
+            fn_denom += 1
+            if actual == "create_new":
+                duplicate_fn += 1
+
+        if "decision" in mismatches or "matched_ref" in mismatches:
+            decision_mismatch += 1
+        if "matched_ref" in mismatches:
+            matched_ref_mismatch += 1
+        if "readiness_status" in mismatches or "readiness_route" in mismatches:
+            readiness_mismatch += 1
+        if case.get("status") == "mismatch":
+            exact_mismatch += 1
+
+    return {
+        "scope": "live_shadow_only",
+        "live_case_total": len(live),
+        "evaluable_case_total": len(evaluable),
+        "unevaluable_error_cases": len(errors),
+        "quality_review_complete": bool(live) and not errors,
+        "duplicate_false_positive_count": duplicate_fp,
+        "duplicate_false_positive_denominator": fp_denom,
+        "duplicate_false_positive_rate": _nullable_rate(duplicate_fp, fp_denom),
+        "duplicate_false_negative_count": duplicate_fn,
+        "duplicate_false_negative_denominator": fn_denom,
+        "duplicate_false_negative_rate": _nullable_rate(duplicate_fn, fn_denom),
+        "decision_mismatch_count": decision_mismatch,
+        "matched_ref_mismatch_count": matched_ref_mismatch,
+        "readiness_mismatch_count": readiness_mismatch,
+        "exact_mismatch_count": exact_mismatch,
+        "provenance_rejection_error_occurrences": _rejection_distribution(live),
+        "thresholds_applied": False,
+        "acceptance_decision": "not_evaluated",
+        "acceptance_owner": "human_or_rollout_policy",
+    }
+
+
+def _admission_live_quality(
+    cases: list[dict[str, Any]],
+) -> dict[str, Any]:
+    live = [
+        case
+        for case in cases
+        if isinstance(case, dict) and case.get("evidence_class") == "live_shadow"
+    ]
+    evaluable = [case for case in live if case.get("status") != "error"]
+    errors = [case for case in live if case.get("status") == "error"]
+
+    false_positive = 0
+    false_negative = 0
+    fp_denom = 0
+    fn_denom = 0
+    mismatch = 0
+
+    for case in evaluable:
+        expected = case.get("expected")
+        actual = case.get("actual")
+        if expected == "materialize":
+            fn_denom += 1
+            if actual != "materialize":
+                false_negative += 1
+        else:
+            fp_denom += 1
+            if actual == "materialize":
+                false_positive += 1
+        if case.get("status") == "mismatch":
+            mismatch += 1
+
+    return {
+        "scope": "live_shadow_only",
+        "live_case_total": len(live),
+        "evaluable_case_total": len(evaluable),
+        "unevaluable_error_cases": len(errors),
+        "quality_review_complete": bool(live) and not errors,
+        "materialize_false_positive_count": false_positive,
+        "materialize_false_positive_denominator": fp_denom,
+        "materialize_false_positive_rate": _nullable_rate(false_positive, fp_denom),
+        "materialize_false_negative_count": false_negative,
+        "materialize_false_negative_denominator": fn_denom,
+        "materialize_false_negative_rate": _nullable_rate(false_negative, fn_denom),
+        "decision_mismatch_count": mismatch,
+        "provenance_rejection_error_occurrences": _rejection_distribution(live),
+        "thresholds_applied": False,
+        "acceptance_decision": "not_evaluated",
+        "acceptance_owner": "human_or_rollout_policy",
+    }
+
+
 def _metric_bucket() -> dict[str, int]:
     return {
         "total": 0,
@@ -1688,7 +1869,13 @@ def evaluate_shadow_batch(
                     "status": comparison["status"],
                     "mismatches": comparison["mismatches"],
                     "actual_decision": result["decision"]["decision"],
+                    "actual_matched_ref": result["decision"]["matched_ref"],
+                    "actual_readiness_status": result["readiness"]["status"],
                     "actual_readiness_route": result["readiness"]["route"],
+                    "expected_decision": comparison["expected"]["decision"],
+                    "expected_matched_ref": comparison["expected"]["matched_ref"],
+                    "expected_readiness_status": comparison["expected"]["readiness_status"],
+                    "expected_readiness_route": comparison["expected"]["readiness_route"],
                 }
             )
         except MaterializationError as exc:
@@ -1704,6 +1891,10 @@ def evaluate_shadow_batch(
                     "status": "error",
                     "mismatches": ["materialization_error"],
                     "errors": list(exc.errors),
+                    "expected_decision": case.get("expected", {}).get("decision"),
+                    "expected_matched_ref": case.get("expected", {}).get("matched_ref"),
+                    "expected_readiness_status": case.get("expected", {}).get("readiness_status"),
+                    "expected_readiness_route": case.get("expected", {}).get("readiness_route"),
                 }
             )
 
@@ -1744,6 +1935,7 @@ def evaluate_shadow_batch(
             key: _finalize_metrics(value)
             for key, value in evidence_metrics.items()
         },
+        "rollout_quality": _materialization_live_quality(case_results),
         "rollout_evidence": {
             "synthetic_fixture_cases": evidence_metrics["synthetic_fixture"]["total"],
             "historical_replay_cases": evidence_metrics["historical_replay"]["total"],
@@ -2022,6 +2214,7 @@ def evaluate_admission_batch(
             key: _finalize_admission_metrics(value)
             for key, value in evidence_metrics.items()
         },
+        "rollout_quality": _admission_live_quality(case_results),
         "coverage": {
             "observed_admission_decisions": sorted(observed_decisions),
             "materialize_coverage": "materialize" in observed_decisions,
