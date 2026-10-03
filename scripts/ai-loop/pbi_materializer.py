@@ -407,9 +407,12 @@ def admit_signal(signal: dict[str, Any]) -> dict[str, Any]:
     if claim_class == "inferred" or disposition == "ambiguous":
         decision = "discover_more"
         reason = "inferred_or_ambiguous_signal_requires_bounded_discovery"
-    elif disposition in {"resolved", "informational"}:
+    elif disposition in {"resolved", "informational"} and claim_class == "observed":
         decision = "no_action"
-        reason = f"{disposition}_signal_has_no_new_pbi_work"
+        reason = f"observed_{disposition}_signal_has_no_new_pbi_work"
+    elif disposition in {"resolved", "informational"}:
+        decision = "discover_more"
+        reason = f"{claim_class}_{disposition}_signal_requires_confirmation"
     elif disposition == "actionable" and isinstance(candidate_problem, str) and candidate_problem.strip():
         decision = "materialize"
         reason = "actionable_signal_has_candidate_problem"
