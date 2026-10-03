@@ -499,6 +499,55 @@ collector の保存は同一内容の retry のみ再利用可能。既存artifa
 oracle は `expected.oracle_ref` で束縛し、source `evidence_refs[]` へ混ぜない。
 collector は PBI / Issue / RunState / Harness / merge を変更しない。
 
+### 6.5 Live-shadow inventory（read-only）
+
+tracked live-shadow case が増えたら、repository全体を read-only で再走査する:
+
+```sh
+python3 "<skill_dir>/scripts/pbi_live_shadow_collector.py" \
+  --repo-root "<repo-root>" inventory
+```
+
+inventory は次だけを探索する:
+
+```text
+docs/working/TASK-*/evidence/pbi-live-shadow/**/admission-case.json
+```
+
+各caseについて:
+- case artifact / capture / RunEvidence / oracle が同じ TASK live-shadow namespace に属するか再確認する
+- existing admission evaluator contractで再検証する
+- duplicate logical `case_ref` は全件invalidにする
+- invalid caseを集計から黙って除外せず `invalid_case_artifacts[]` に残す
+- historical corpusをliveへ昇格しない
+- synthetic fixtureをtracked live countに含めない
+
+主要出力:
+
+```text
+tracked_live_case_total
+evaluated_case_total
+invalid_case_total
+observed_admission_decisions
+observed_source_kinds
+rollout_quality
+```
+
+0件は0件のまま扱う。未観測を成功率0%やrollout完了へ変換しない。
+
+またinventoryはrepository chainの再検証であり、次は証明しない:
+
+```text
+runtime_execution_verified = false
+source_preexistence_verified = false
+reviewer_identity_verified = false
+representative_coverage_claim_allowed = false
+quality_acceptance_decided = false
+```
+
+したがって `tracked_live_case_total > 0` は「tracked chainが存在する」ことだけを意味し、
+real runtime execution / representative coverage / write-capable rollout の承認には使わない。
+
 ## 禁止事項
 
 - lite 宣言の虚偽（判定不能を `true` 側に倒す）
