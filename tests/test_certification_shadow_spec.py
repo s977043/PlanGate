@@ -9,10 +9,12 @@ and verifies only Certification's projection boundary.
 from __future__ import annotations
 
 import copy
+import inspect
 import unittest
 
 AUTHORITATIVE = False
 IMPLEMENTATION_MODE = "executable_spec"
+OWNER_API_CONNECTED = False
 _ALLOWED_VERDICTS = frozenset({"pass", "fail", "unavailable"})
 
 
@@ -133,7 +135,7 @@ class CertificationShadowSpecTests(unittest.TestCase):
         self.assertFalse(projection["authoritative"])
         self.assertEqual(projection["mode"], "executable_spec")
 
-    def test_required_verdict_map_is_exact_owner_projection(self):
+    def test_projection_preserves_injected_owner_verdict_map_exactly(self):
         owner = {self.D: "fail", self.C: "pass"}
         projection = self._compose(
             owner,
@@ -176,7 +178,19 @@ class CertificationShadowSpecTests(unittest.TestCase):
             supplemental=["model-pass", "security-note"],
         )
         self.assertEqual(list(verdict_map(projection)), [self.D])
-        self.assertNotIn("artifact_verdict", projection["supplemental_evidence_refs"])
+        self.assertEqual(
+            projection["supplemental_evidence_refs"],
+            ["model-pass", "security-note"],
+        )
+        self.assertEqual(len(projection["required_verifiers"]), 1)
+
+    def test_mode_a_has_no_owner_api_or_raw_verification_input(self):
+        self.assertFalse(OWNER_API_CONNECTED)
+        parameters = set(inspect.signature(compose_certification).parameters)
+        self.assertIn("owner_artifact_verdicts", parameters)
+        self.assertNotIn("verification_results", parameters)
+        self.assertNotIn("contract_bound_seq", parameters)
+        self.assertNotIn("run_state", parameters)
 
     def test_projection_does_not_mutate_inputs_or_decision_output(self):
         owner = {self.D: "pass"}
@@ -191,10 +205,10 @@ class CertificationShadowSpecTests(unittest.TestCase):
         self._compose(owner, refs=refs)
         self.assertEqual((owner, refs, decision), before)
 
-    def test_owner_oracle_scenarios_are_preserved_without_rederivation(self):
-        # These values represent the expected output of the future owner-backed
-        # #1393 artifact_verdicts(...) API. Certification does not recompute the
-        # contract-boundary/freshness rules itself.
+    def test_injected_oracle_scenarios_are_preserved_without_rederivation(self):
+        # These are injected fixture-oracle values, NOT a live parity check.
+        # They represent expected future #1393 artifact_verdicts(...) outputs.
+        # Certification intentionally does not recompute the owner semantics.
         cases = {
             "pass_before_contract_boundary": "unavailable",
             "current_bound_pass": "pass",
