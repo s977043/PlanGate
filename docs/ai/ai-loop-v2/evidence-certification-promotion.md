@@ -149,7 +149,23 @@ If an implementation exposes a partial/current RunEvidence projection, it remain
 
 ### 3.2 Required-evidence ownership
 
-The **required evidence set is a policy input**, not Builder output.
+The **required evidence set is a LoopContract / existing policy input**, not Builder output and not Certification View output.
+
+Certification MUST NOT widen the active Decision Engine's required-verifier semantics on its own.
+
+For the current Delivery first slice, the Decision Engine plan requires only deterministic verifiers in `required_verifiers`. Results of kind `specification | independent_model | policy` may exist as recorded evidence, but they do not become required decision inputs merely because Certification can display them.
+
+```text
+LoopContract / DecisionInput required_verifiers
+  -> authoritative required set for active Delivery
+
+Certification View
+  -> project that set
+  -> may show additional eligible evidence as supplemental
+  -> MUST NOT promote supplemental evidence into a new required gate
+```
+
+When a future policy/contract revision legitimately adds another required verifier kind, Certification follows that authoritative contract change rather than anticipating it.
 
 A Builder / change author may report target characteristics, but MUST NOT be the sole authority that:
 
@@ -159,7 +175,9 @@ A Builder / change author may report target characteristics, but MUST NOT be the
 - narrows a verifier set;
 - changes the Evaluation Trust Boundary.
 
-Where the required-evidence set is derived dynamically, its derivation rule / policy identity must be traceable. Missing or unverifiable policy input is not permission to use a weaker set.
+Where the required-evidence set is derived dynamically, its derivation rule / LoopContract / policy identity must be traceable. Missing or unverifiable policy input is not permission to use a weaker set.
+
+Conversely, Certification must not invent a stricter required set outside the existing contract. A stricter requirement belongs in the policy / LoopContract change path, with its existing review and authority boundaries.
 
 ## 4. Evidence eligibility, binding, and invalidation
 
@@ -529,6 +547,7 @@ The exact function / field names are illustrative and non-normative. The impleme
 - deterministic for identical authoritative inputs;
 - no network fetch inside the pure projection step;
 - no majority-vote / confidence-averaging decision logic;
+- no widening or narrowing of `required_verifiers`;
 - unknown / missing required input stays unresolved rather than defaulting to PASS;
 - no Policy Verdict / Terminal Outcome generation;
 - no merge / approval / PromotionDecision side effect;
