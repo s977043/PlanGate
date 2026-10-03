@@ -28,20 +28,17 @@ def _key(verifier):
     return verifier
 
 
-def _dedupe_refs(refs):
+def _canonical_refs(refs):
     if refs is None:
         return ()
-    if not isinstance(refs, (list, tuple)):
-        raise ValueError("evidence refs must be a list/tuple")
-    seen = set()
-    ordered = []
+    if not isinstance(refs, (list, tuple, set, frozenset)):
+        raise ValueError("evidence refs must be a collection")
+    unique = set()
     for ref in refs:
         if not isinstance(ref, str) or not ref:
             raise ValueError("evidence ref must be a non-empty string")
-        if ref not in seen:
-            seen.add(ref)
-            ordered.append(ref)
-    return tuple(ordered)
+        unique.add(ref)
+    return tuple(sorted(unique))
 
 
 def compose_certification(
@@ -64,9 +61,12 @@ def compose_certification(
     if not isinstance(loop_contract_ref, str) or not loop_contract_ref:
         raise ValueError("loop_contract_ref")
 
-    required = tuple(_key(item) for item in required_verifiers)
-    if not required or len(set(required)) != len(required):
+    required_input = tuple(_key(item) for item in required_verifiers)
+    if not required_input or len(set(required_input)) != len(required_input):
         raise ValueError("required_verifiers")
+    # #1393 models required_verifiers as a set. Canonicalize the projection so
+    # equivalent owner inputs do not produce order-dependent report bytes.
+    required = tuple(sorted(required_input))
 
     if not isinstance(owner_artifact_verdicts, dict):
         raise ValueError("owner_artifact_verdicts")
@@ -91,7 +91,7 @@ def compose_certification(
                 "kind": kind,
                 "artifact_verdict": verdict,
                 "supporting_verification_refs": list(
-                    _dedupe_refs(refs_by_verifier.get(key, ()))
+                    _canonical_refs(refs_by_verifier.get(key, ()))
                 ),
             }
         )
@@ -103,7 +103,7 @@ def compose_certification(
         "loop_contract_ref": loop_contract_ref,
         "required_verifiers": projected,
         "supplemental_evidence_refs": list(
-            _dedupe_refs(supplemental_evidence_refs or ())
+            _canonical_refs(supplemental_evidence_refs or ())
         ),
     }
 
@@ -164,13 +164,32 @@ class CertificationShadowSpecTests(unittest.TestCase):
     def test_duplicate_refs_do_not_increase_evidence_count(self):
         projection = self._compose(
             {self.D: "fail"},
-            refs={self.D: ["v1", "v1", "v2", "v2"]},
-            supplemental=["review:1", "review:1"],
+            refs={self.D: ["v2", "v1", "v2", "v1"]},
+            supplemental=["review:2", "review:1", "review:1"],
         )
         item = projection["required_verifiers"][0]
         self.assertEqual(item["artifact_verdict"], "fail")
         self.assertEqual(item["supporting_verification_refs"], ["v1", "v2"])
-        self.assertEqual(projection["supplemental_evidence_refs"], ["review:1"])
+        self.assertEqual(
+            projection["supplemental_evidence_refs"],
+            ["review:1", "review:2"],
+        )
+
+    def test_equivalent_set_inputs_have_canonical_projection_order(self):
+        owner = {self.D: "pass", self.C: "unavailable"}
+        first = self._compose(
+            owner,
+            required=(self.D, self.C),
+            refs={self.D: ["v2", "v1"], self.C: ["v3"]},
+            supplemental=["z", "a"],
+        )
+        second = self._compose(
+            owner,
+            required=(self.C, self.D),
+            refs={self.D: ["v1", "v2"], self.C: ["v3"]},
+            supplemental=["a", "z"],
+        )
+        self.assertEqual(first, second)
 
     def test_non_required_evidence_never_becomes_required(self):
         projection = self._compose(
