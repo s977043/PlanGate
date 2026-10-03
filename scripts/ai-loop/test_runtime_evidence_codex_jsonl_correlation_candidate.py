@@ -95,6 +95,13 @@ def _write_jsonl(root: pathlib.Path, rows=None):
                     "text": "PRIVATE MESSAGE MUST NOT LEAK",
                 },
             },
+            {
+                "type": "turn.completed",
+                "usage": {
+                    "input_tokens": 100,
+                    "output_tokens": 20
+                },
+            },
         ]
     path = root / "codex.jsonl"
     path.write_text(
@@ -205,6 +212,8 @@ class JsonlSummaryTests(unittest.TestCase):
         self.assertNotIn("PRIVATE MESSAGE", encoded)
         self.assertFalse(result["raw_payload_copied"])
         self.assertEqual(result["item_completed_count"], 2)
+        self.assertEqual(result["turn_completed_count"], 1)
+        self.assertTrue(result["trace_completion_candidate_verified"])
         self.assertEqual(
             result["recognized_item_type_counts"]["command_execution"],
             1,
@@ -245,6 +254,51 @@ class JsonlSummaryTests(unittest.TestCase):
                 )
         self.assertTrue(
             any("duplicate item.id" in e for e in ctx.exception.errors)
+        )
+
+    def test_missing_turn_completed_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "repo").mkdir()
+            path = _write_jsonl(
+                root,
+                [
+                    {
+                        "type": "item.completed",
+                        "item": {"id": "item_1", "type": "agent_message"},
+                    }
+                ],
+            )
+            with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+                corr.summarize_codex_jsonl(
+                    path,
+                    repo_root=pathlib.Path(tmp) / "repo",
+                )
+        self.assertTrue(
+            any("turn.completed" in e for e in ctx.exception.errors)
+        )
+
+    def test_turn_completed_before_final_item_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "repo").mkdir()
+            path = _write_jsonl(
+                root,
+                [
+                    {"type": "turn.completed"},
+                    {
+                        "type": "item.completed",
+                        "item": {"id": "item_1", "type": "agent_message"},
+                    },
+                ],
+            )
+            with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+                corr.summarize_codex_jsonl(
+                    path,
+                    repo_root=pathlib.Path(tmp) / "repo",
+                )
+        self.assertTrue(
+            any("final turn.completed" in e for e in ctx.exception.errors)
         )
 
     def test_no_completed_item_is_rejected(self):
