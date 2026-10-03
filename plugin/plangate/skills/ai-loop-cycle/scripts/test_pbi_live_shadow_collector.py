@@ -1617,5 +1617,108 @@ class LiveShadowCollectorTests(unittest.TestCase):
 
 
 
+    def test_completion_review_refs_bind_repository_artifacts(self):
+        review_dir = (
+            self.root
+            / "docs/working/TASK-1442/evidence/pbi-live-shadow"
+        )
+        review_dir.mkdir(parents=True, exist_ok=True)
+        representative = review_dir / "representative-review.md"
+        quality = review_dir / "quality-review.md"
+        representative.write_text(
+            "# Representative live evidence review\n",
+            encoding="utf-8",
+        )
+        quality.write_text(
+            "# Live quality review\n",
+            encoding="utf-8",
+        )
+
+        status = collector.assess_live_shadow_completion(
+            repo_root=self.root,
+            context=self._completion_context(
+                representative_live_evidence_review_ref=(
+                    "docs/working/TASK-1442/evidence/pbi-live-shadow/"
+                    "representative-review.md"
+                ),
+                quality_review_ref=(
+                    "docs/working/TASK-1442/evidence/pbi-live-shadow/"
+                    "quality-review.md"
+                ),
+            ),
+        )
+        self.assertIn(
+            "representative_live_evidence_review_ref",
+            status["review_artifacts"],
+        )
+        self.assertTrue(
+            status["review_artifacts"][
+                "representative_live_evidence_review_ref"
+            ]["sha256"].startswith("sha256:")
+        )
+        self.assertFalse(
+            status["review_artifacts"][
+                "representative_live_evidence_review_ref"
+            ]["semantic_content_verified"]
+        )
+        self.assertFalse(
+            status["review_artifacts"][
+                "quality_review_ref"
+            ]["reviewer_identity_verified"]
+        )
+        self.assertTrue(
+            status["verification_boundary"][
+                "review_artifact_repository_binding_enforced"
+            ]
+        )
+
+    def test_completion_missing_review_ref_is_not_accepted(self):
+        status = collector.assess_live_shadow_completion(
+            repo_root=self.root,
+            context=self._completion_context(
+                representative_live_evidence_review_ref=(
+                    "docs/working/TASK-1442/evidence/pbi-live-shadow/"
+                    "missing-review.md"
+                ),
+                quality_review_ref=(
+                    "docs/working/TASK-1442/evidence/pbi-live-shadow/"
+                    "missing-quality.md"
+                ),
+            ),
+        )
+        joined = " ".join(status["blockers"]["review"])
+        self.assertIn("repository source does not exist", joined)
+        self.assertFalse(status["status"]["review_refs_present"])
+
+    def test_completion_review_ref_symlink_is_rejected(self):
+        review_dir = (
+            self.root
+            / "docs/working/TASK-1442/evidence/pbi-live-shadow"
+        )
+        review_dir.mkdir(parents=True, exist_ok=True)
+        outside = self.root / "outside-review.md"
+        outside.write_text("# outside\n", encoding="utf-8")
+        symlink = review_dir / "representative-review.md"
+        symlink.symlink_to(outside)
+
+        status = collector.assess_live_shadow_completion(
+            repo_root=self.root,
+            context=self._completion_context(
+                representative_live_evidence_review_ref=(
+                    "docs/working/TASK-1442/evidence/pbi-live-shadow/"
+                    "representative-review.md"
+                ),
+            ),
+        )
+        self.assertFalse(status["status"]["review_refs_present"])
+        self.assertTrue(
+            any(
+                "symlink" in blocker
+                for blocker in status["blockers"]["review"]
+            )
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
