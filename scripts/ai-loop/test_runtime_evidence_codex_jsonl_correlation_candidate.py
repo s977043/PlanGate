@@ -176,6 +176,7 @@ class JsonlSummaryTests(unittest.TestCase):
     def test_duplicate_item_id_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
+            (root / "repo").mkdir()
             rows = [
                 {"type": "item.completed", "item": {"id": "item_1", "type": "error"}},
                 {"type": "item.completed", "item": {"id": "item_1", "type": "agent_message"}},
@@ -251,9 +252,11 @@ class JsonlSummaryTests(unittest.TestCase):
 class CorrelationCandidateTests(unittest.TestCase):
     def test_complete_inputs_remain_copresence_candidate_only(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = _write_jsonl(pathlib.Path(tmp))
+            root = pathlib.Path(tmp)
+            (root / "repo").mkdir()
+            path = _write_jsonl(root)
             result = corr.correlate_candidate(
-                repo_root=pathlib.Path(tmp) / "repo",
+                repo_root=root / "repo",
                 hook_candidate=_hook_candidate(),
                 codex_jsonl_path=path,
                 request_hash=REQ,
