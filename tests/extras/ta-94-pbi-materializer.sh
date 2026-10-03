@@ -1270,6 +1270,15 @@ for plan in (no_action, materialize):
     assert boundary["runtime_execution_verified"] is False
     assert boundary["real_runtime_observation_available_verified"] is False
     assert boundary["quality_acceptance_decided"] is False
+    assert boundary["plan_reuse_without_reinventory_allowed"] is False
+    assert boundary["inventory_hashes_are_commit_identity"] is False
+    binding = plan["inventory_binding"]
+    assert binding["admission_inventory_hash"].startswith("sha256:")
+    assert binding["materialization_inventory_hash"].startswith("sha256:")
+    assert binding["combined_inventory_hash"].startswith("sha256:")
+    assert binding["plan_reuse_without_reinventory_allowed"] is False
+    assert binding["runtime_head_bound"] is False
+    assert binding["repository_commit_verified"] is False
     assert plan["blocker_semantics"] == "rollout_completion_not_collection_execution"
     assert plan["collection_execution_status"] in {"available", "blocked_by_prerequisites", "not_needed"}
     assert all(
@@ -1305,6 +1314,10 @@ assert all(
     item["collector_path_available"]
     for item in materialize["observation_gaps"]
     if item["stage"] == "materialization"
+)
+assert (
+    no_action["inventory_binding"]["combined_inventory_hash"]
+    != materialize["inventory_binding"]["combined_inventory_hash"]
 )
 PY
   _t94_plan_rc=$?
