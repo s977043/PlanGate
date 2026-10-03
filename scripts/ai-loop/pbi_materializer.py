@@ -60,6 +60,14 @@ VALID_SOURCE_KINDS = {
 }
 VALID_ACCEPTANCE_BASES = {"evidence", "explicit_decision", "policy_rule"}
 VALID_DECISIONS = {"update_existing", "link_only", "create_new"}
+VALID_READINESS_STATUSES = {"ready", "blocked"}
+VALID_READINESS_ROUTES = {
+    "future_run",
+    "replan_current",
+    "harness_candidate_required",
+    "harness_follow_up",
+    "bound_pbi_requires_replan",
+}
 
 FORBIDDEN_LOCAL_KEYS = {
     "raw_transcript",
@@ -709,6 +717,104 @@ def render_pbi_markdown(
     )
 
 
+def _validate_shadow_expected(expected: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(expected, dict):
+        return ["shadow_expected: object required"]
+
+    oracle_ref = expected.get("oracle_ref")
+    if not isinstance(oracle_ref, str) or not oracle_ref.strip():
+        errors.append("shadow_expected.oracle_ref: non-empty string required")
+
+    if expected.get("decision") not in VALID_DECISIONS:
+        errors.append(
+            f"shadow_expected.decision: one of {sorted(VALID_DECISIONS)} required"
+        )
+
+    matched_ref = expected.get("matched_ref")
+    if matched_ref is not None and (
+        not isinstance(matched_ref, str) or not matched_ref.strip()
+    ):
+        errors.append(
+            "shadow_expected.matched_ref: null or non-empty string required"
+        )
+
+    if expected.get("readiness_status") not in VALID_READINESS_STATUSES:
+        errors.append(
+            "shadow_expected.readiness_status: "
+            f"one of {sorted(VALID_READINESS_STATUSES)} required"
+        )
+
+    if expected.get("readiness_route") not in VALID_READINESS_ROUTES:
+        errors.append(
+            "shadow_expected.readiness_route: "
+            f"one of {sorted(VALID_READINESS_ROUTES)} required"
+        )
+
+    errors.extend(_privacy_errors({"shadow_expected": expected}))
+    return errors
+
+
+def compare_shadow(
+    result: dict[str, Any], expected: dict[str, Any]
+) -> dict[str, Any]:
+    """Compare a shadow result with a reviewed expectation.
+
+    This function is evaluation-only. A match never grants write/merge/promotion
+    authority and does not mutate the PBI, Issue, RunState, or Harness.
+    """
+    errors = _validate_shadow_expected(expected)
+    if errors:
+        raise MaterializationError(errors)
+
+    decision_errors = _validate_materialization_decision(result.get("decision"))
+    if decision_errors:
+        raise MaterializationError(
+            [f"shadow_result.{e}" for e in decision_errors]
+        )
+
+    readiness = result.get("readiness")
+    if not isinstance(readiness, dict):
+        raise MaterializationError(["shadow_result.readiness: object required"])
+
+    actual = {
+        "decision": result["decision"]["decision"],
+        "matched_ref": result["decision"]["matched_ref"],
+        "readiness_status": readiness.get("status"),
+        "readiness_route": readiness.get("route"),
+    }
+    expected_fields = {
+        "decision": expected["decision"],
+        "matched_ref": expected.get("matched_ref"),
+        "readiness_status": expected["readiness_status"],
+        "readiness_route": expected["readiness_route"],
+    }
+
+    checks = {
+        field: actual[field] == expected_fields[field]
+        for field in (
+            "decision",
+            "matched_ref",
+            "readiness_status",
+            "readiness_route",
+        )
+    }
+    mismatches = [field for field, ok in checks.items() if not ok]
+    comparison = {
+        "status": "match" if not mismatches else "mismatch",
+        "oracle_ref": expected["oracle_ref"],
+        "checks": checks,
+        "mismatches": mismatches,
+        "actual": actual,
+        "expected": expected_fields,
+    }
+
+    privacy = _privacy_errors({"shadow_comparison": comparison})
+    if privacy:
+        raise MaterializationError(privacy)
+    return comparison
+
+
 def materialize(
     payload: dict[str, Any], existing_work: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -745,6 +851,10 @@ def main(argv=None) -> int:
     parser.add_argument("--input", required=True, help="normalized PBI payload JSON")
     parser.add_argument("--existing", help="normalized existing-work JSON array")
     parser.add_argument(
+        "--expected",
+        help="optional reviewed shadow expectation JSON; comparison only, never enables writes",
+    )
+    parser.add_argument(
         "--working-root",
         help="optional local docs/working root for deterministic PBI scan",
     )
@@ -763,6 +873,13 @@ def main(argv=None) -> int:
         if args.working_root:
             existing.extend(scan_working_pbis(pathlib.Path(args.working_root), payload))
         result = materialize(payload, existing)
+        if args.expected:
+            if args.format != "json":
+                raise MaterializationError([
+                    "--expected requires --format json so comparison evidence is not hidden"
+                ])
+            expected = _load_json(pathlib.Path(args.expected), dict, "--expected")
+            result["shadow_comparison"] = compare_shadow(result, expected)
     except MaterializationError as exc:
         for error in exc.errors:
             print(f"[pbi-materializer] FAIL: {error}", file=sys.stderr)
