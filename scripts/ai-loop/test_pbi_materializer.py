@@ -1692,11 +1692,57 @@ class WriteReviewAssessmentTests(unittest.TestCase):
         self.assertFalse(
             result["authority"]["report_artifact_authorship_verified"]
         )
+        self.assertFalse(result["authority"]["quality_thresholds_applied"])
+        self.assertFalse(result["authority"]["quality_acceptance_decided"])
+        self.assertEqual(
+            result["authority"]["quality_acceptance_owner"],
+            "human_or_rollout_policy",
+        )
+        self.assertEqual(
+            result["quality_summary"]["acceptance_decision"],
+            "not_evaluated",
+        )
+        self.assertFalse(result["quality_summary"]["thresholds_applied"])
+        self.assertEqual(
+            result["quality_summary"]["materialization"][
+                "duplicate_false_positive_rate"
+            ],
+            0.0,
+        )
+        self.assertEqual(
+            result["quality_summary"]["materialization"][
+                "duplicate_false_negative_rate"
+            ],
+            0.0,
+        )
         self.assertTrue(
             result["report_refs"]["materialization_report_hash"].startswith(
                 "sha256:"
             )
         )
+
+    def test_quality_mismatch_does_not_implicitly_fail_or_pass_acceptance(self):
+        assessment = self._assessment()
+        case = assessment["materialization_report"]["cases"][0]
+        case["status"] = "mismatch"
+        case["mismatches"] = ["decision", "matched_ref"]
+        case["actual_decision"] = "link_only"
+        case["actual_matched_ref"] = "docs/working/TASK-9999/pbi-input.md"
+        result = self._assess(assessment)
+        self.assertTrue(result["write_review_ready"])
+        self.assertEqual(
+            result["quality_summary"]["materialization"][
+                "duplicate_false_positive_count"
+            ],
+            1,
+        )
+        self.assertFalse(result["authority"]["quality_thresholds_applied"])
+        self.assertFalse(result["authority"]["quality_acceptance_decided"])
+        self.assertEqual(
+            result["quality_summary"]["acceptance_decision"],
+            "not_evaluated",
+        )
+        self.assertFalse(result["write_allowed"])
 
     def test_current_missing_live_evidence_and_dependencies_block_review(self):
         assessment = self._assessment(
