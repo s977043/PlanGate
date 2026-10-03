@@ -282,12 +282,48 @@ class MaterializationFixtures(unittest.TestCase):
         self.assertTrue(any("privacy" in e for e in ctx.exception.errors))
 
 
+class ProvenanceBoundaryTests(unittest.TestCase):
+    def test_cross_task_derived_artifact_requires_origin_ref(self):
+        payload = _payload(
+            claims=[
+                {
+                    "id": "CLM-001",
+                    "text": "Another task plan restates a failure",
+                    "source_ref": "docs/working/TASK-1400/plan.md",
+                    "source_kind": "existing_behavior",
+                    "claim_class": "reported",
+                    "supports": "Problem",
+                }
+            ],
+            requirements=[
+                {
+                    "id": "REQ-001",
+                    "goal_problem": "Investigate repeated failure",
+                    "acceptance_basis": "explicit_decision",
+                    "basis_ref": "decision:D-1",
+                    "related_ac": "AC-01",
+                }
+            ],
+        )
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(payload, [])
+        self.assertTrue(any("derived artifact source requires" in e for e in ctx.exception.errors))
+
+
 class ExistingWorkValidationTests(unittest.TestCase):
     def test_malformed_existing_work_fails_closed_instead_of_creating_duplicate(self):
         malformed = [{"ref": "", "source_refs": "not-an-array"}]
         with self.assertRaises(pm.MaterializationError) as ctx:
             pm.materialize(_payload(), malformed)
         self.assertTrue(any("existing_work[0]" in e for e in ctx.exception.errors))
+
+
+    def test_equal_top_matches_fail_closed_instead_of_arbitrary_update(self):
+        a = _existing(ref="docs/working/TASK-1400/pbi-input.md")
+        b = _existing(ref="docs/working/TASK-1401/pbi-input.md")
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(_payload(), [a, b])
+        self.assertTrue(any("ambiguous top match" in e for e in ctx.exception.errors))
 
 
 class DeterminismAndSearchTests(unittest.TestCase):
