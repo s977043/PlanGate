@@ -23,6 +23,7 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | source/origin refs | referenced | source artifact / external source | PBIにrefのみ保持。raw transcriptは保存しない |
 | Requirement acceptance basis | owned metadata | `pbi-input.md` | evidence / explicit_decision / policy_rule。explicit_decision は decision_log provenance、policy_rule は policy provenance の実 ref を必須とする |
 | Issue/PBI similarity | derived | materializer | exact/canonical factsのみ。LLM fuzzy similarityはauthorityにしない |
+| admission decision | derived evaluation proposal | materializer | materialize / no_action / discover_more。close/write/suppression authorityを持たない |
 | materialization decision | derived | materializer | update_existing / link_only / create_new |
 | shadow expectation | referenced evaluation evidence | reviewed external expectation | decision/readiness comparison only。PBI/Run/Harness authorityを持たない |
 | shadow comparison | derived | materializer | match / mismatch と差分 field を返すだけ。write/promotionを許可しない |
@@ -127,3 +128,21 @@ write_review_eligible = false
 ```
 
 したがって historical replay の 100% match は automatic write 解放条件にならない。
+
+
+## Admission boundary
+
+PBI admission と PBI materialization は別軸にする。
+
+```text
+signal
+  -> materialize | no_action | discover_more
+  -> materialize の場合のみ
+     update_existing | link_only | create_new
+```
+
+- `no_action` は評価上の proposal であり、source Issue/PBI を close / resolve / suppress する権限を持たない。
+- `suppression_allowed=false` / `close_allowed=false` / `write_allowed=false` を runtime 出力で固定する。
+- `reported` / `inferred` の解消・informational signal は自動 `no_action` にせず `discover_more` へ戻す。
+- `observed + resolved/informational` のみ shadow 上で `no_action` proposal を生成できる。
+- Harness admission は本 materializer で再実装せず、#874/#869 Candidate/Evolution に委譲する。
