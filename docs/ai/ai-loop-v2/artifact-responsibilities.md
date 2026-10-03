@@ -202,7 +202,21 @@ read RunState (revision = N)
 
 Requirement candidate は Discovery 中の仮説であり、そのまま accepted Requirement ではない。AI は candidate / question / evidence gap の提案だけでなく、feedback / Evidence から `pbi-input.md` 自体を作成・更新してよい。ただし author identity を authority の根拠にしない。accepted Requirement は provenance / Evidence / uncertainty と適用 policy によって成立し、Human decision が必要な risk / conflict / semantic trade-off ではその判断を経る。Evidence 不足や競合が残る候補は Unknown / unresolved として保持する。Plan / Plan Verification は `pbi-input.md` の Requirement / AC と実行方針の整合を検証するのであって、Requirement semantics を推測で上書きしない。
 
-PBI provenance は少なくとも source kind / source ref または evidence ref / observed-vs-inferred の区別 / unresolved unknowns を辿れるようにする。raw transcript や hidden CoT の保存は要求しない。
+PBI provenance は少なくとも source kind / source ref または evidence ref / claim class / unresolved unknowns を辿れるようにする。raw transcript や hidden CoT の保存は要求しない。
+
+Material claim の最小語彙:
+
+| claim class | 意味 | 例 |
+| --- | --- | --- |
+| `observed` | artifact / measurement / verifier で直接確認した事実 | failing test、metric、existing behavior の実測 |
+| `reported` | Human / external source が述べた内容。独立検証済みとは限らない | user feedback、stakeholder statement、issue report |
+| `inferred` | source から AI / Human が導出した仮説・解釈 | cause hypothesis、problem hypothesis、requirement candidate の理由 |
+
+source kind は少なくとも `human_feedback / issue / run_evidence / failure_record / measurement / existing_behavior / external_source / policy` を区別できる記述にする。これは schema enum の新設要求ではなく、Phase 0 の文書契約である。
+
+**Circular provenance を禁止する。** `pbi-input.md` 自身、またはその PBI から downstream に生成した `plan.md` / review / summary を、同じ PBI の upstream Goal / Problem を独立に裏付ける Evidence として数えない。別 Agent が同じ source を要約しても Evidence independence は増えない。派生 artifact は original source ref を保持する。
+
+accepted Requirement は `acceptance basis` を持ち、少なくとも `evidence / explicit_decision / policy_rule` のどれで採用されたかを辿れるようにする。inferred-only の claim を observed fact として扱うことは禁止するが、低リスク領域で policy が許す Requirement decision まで Human 固定にはしない。
 
 Traceability は意味の複製ではなく ref の接続で作る。最小経路は `Goal / Problem -> Requirement -> AC -> Plan decision / Task -> Test / Verifier Evidence` とし、既存の Current-Need Trace / AC mapping / Verification Trace / `acceptance_criteria_refs` を再利用する。Goal / Problem / Requirement の説明本文を `plan.md` / `todo.md` / WorkItemGraph にコピーせず、owner artifact を参照する。
 
