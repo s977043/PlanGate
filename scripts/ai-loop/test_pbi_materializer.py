@@ -554,6 +554,71 @@ class ProvenanceBoundaryTests(unittest.TestCase):
         self.assertTrue(any("derived artifact source requires" in e for e in ctx.exception.errors))
 
 
+class AdmissionTests(unittest.TestCase):
+    def _signal(self, **overrides):
+        signal = {
+            "signal_id": "SIG-001",
+            "source_ref": "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json",
+            "source_kind": "existing_behavior",
+            "claim_class": "observed",
+            "statement": "Reviewer reported a test shortage.",
+            "disposition": "actionable",
+            "target_layer": "delivery",
+            "candidate_problem": "A reviewer test-shortage signal needs follow-up delivery work.",
+        }
+        signal.update(overrides)
+        return signal
+
+    def test_actionable_observed_signal_materializes(self):
+        result = pm.admit_signal(self._signal())
+        self.assertEqual(result["decision"], "materialize")
+        self.assertEqual(result["next"], "pbi_materializer")
+        self.assertTrue(result["proposal_only"])
+        self.assertFalse(result["write_allowed"])
+        self.assertFalse(result["close_allowed"])
+
+    def test_reported_informational_signal_is_no_action_proposal(self):
+        result = pm.admit_signal(
+            self._signal(
+                claim_class="reported",
+                disposition="informational",
+                candidate_problem=None,
+            )
+        )
+        self.assertEqual(result["decision"], "no_action")
+        self.assertEqual(result["next"], "record_evaluation_only")
+        self.assertFalse(result["close_allowed"])
+
+    def test_inferred_actionable_signal_routes_to_discovery(self):
+        result = pm.admit_signal(
+            self._signal(claim_class="inferred")
+        )
+        self.assertEqual(result["decision"], "discover_more")
+        self.assertEqual(result["next"], "bounded_discovery")
+
+    def test_ambiguous_signal_routes_to_discovery(self):
+        result = pm.admit_signal(
+            self._signal(disposition="ambiguous", candidate_problem=None)
+        )
+        self.assertEqual(result["decision"], "discover_more")
+
+    def test_actionable_without_candidate_problem_routes_to_discovery(self):
+        result = pm.admit_signal(
+            self._signal(candidate_problem=None)
+        )
+        self.assertEqual(result["decision"], "discover_more")
+
+    def test_harness_signal_delegates_to_candidate_evolution(self):
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.admit_signal(self._signal(target_layer="harness"))
+        self.assertTrue(any("#874/#869" in e for e in ctx.exception.errors))
+
+    def test_private_admission_signal_is_rejected(self):
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.admit_signal(self._signal(raw_transcript="secret"))
+        self.assertTrue(any("privacy" in e for e in ctx.exception.errors))
+
+
 class ExistingWorkValidationTests(unittest.TestCase):
     def test_malformed_existing_work_fails_closed_instead_of_creating_duplicate(self):
         malformed = [{"ref": "", "source_refs": "not-an-array"}]
