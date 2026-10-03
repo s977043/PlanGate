@@ -616,6 +616,45 @@ owner-backed Decision contract
 
 Certification must not become the reason an obsolete provisional Decision API survives.
 
+### 13.2 Placement and execution-boundary coverage
+
+A read-only projection can still become unsafe if it is placed in a runtime directory that existing static checks do not actually scan.
+
+Existing V2 planning has already identified a relevant hazard: `scripts/ai-loop-v2/` has not always been covered by the same execution-boundary checks as the older `scripts/ai-loop/` surface. A green check that never scanned the new module is a false green.
+
+Therefore the first implementation must choose one of two explicit modes.
+
+**Mode A — executable specification / shadow fixture**
+
+Use when the owner-backed Decision API or execution-boundary coverage is not ready.
+
+- no production runtime import;
+- no Decision / State / Event write path;
+- test / fixture only;
+- parity against the owner Decision semantics;
+- clearly marked non-authoritative.
+
+**Mode B — runtime shadow projection**
+
+Allowed only when all of the following are demonstrated:
+
+- chosen module path is covered by the relevant static execution-boundary checks;
+- a planted positive control proves the boundary check actually fails on a forbidden operation;
+- the module import surface is allowlisted narrowly;
+- production callers consume projection output for observation only;
+- Decision behavior is byte/semantic equivalent with the shadow projection disabled.
+
+If extending boundary checks touches Human-owned / Hardening Override paths, that extension follows the existing Human-owned process rather than being bypassed to land Certification.
+
+```text
+runtime location
+  + scanner includes location
+  + positive control fails as expected
+  = meaningful boundary evidence
+```
+
+"CI is green" without the path-coverage positive control is not sufficient evidence for Mode B.
+
 Existing `VerificationResult` work already defines the minimum machine-facing shape as:
 
 ```text
