@@ -730,6 +730,33 @@ coverage_gap_basis = reviewed_expected_decisions
 この語彙は、coverage不足を理由に synthetic case を生成したり、実runを恣意的に選別する誘因を避けるためのもの。gap は「次に自然発生した実runで観測できれば収集する候補」であり、ノルマではない。
 
 
+
+## Collection-plan freshness boundary
+
+`collection-plan` は admission / materialization inventory の current projection から毎回再計算する。
+保存された plan の再利用を freshness 証明として扱わない。
+
+```text
+inventory_binding.admission_inventory_hash
+inventory_binding.materialization_inventory_hash
+inventory_binding.combined_inventory_hash
+
+plan_reuse_without_reinventory_allowed = false
+runtime_head_bound = false
+repository_commit_verified = false
+inventory_hashes_are_commit_identity = false
+```
+
+hash は inventory JSON 内容の canonical identity であり、Git commit / runtime head /
+source preexistence / reviewer identity の証明ではない。
+
+したがって Human / 上位workflow が collection-plan を判断材料に使う直前に再実行し、
+repository evidence が変化した場合は新しい snapshot を正とする。
+
+completion-status は collection-plan の `inventory_binding` を
+`repository_evidence.collection_plan_inventory_binding` として投影するが、
+それ自体で rollout completion / quality acceptance / write activation を決めない。
+
 ## Write-capable rollout policy boundary
 
 正本 draft:
