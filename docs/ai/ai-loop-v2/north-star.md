@@ -94,7 +94,7 @@ Initial Plan も Plan Verification を通る。Replan 時だけ Plan Review す�
 
 Bounded Discovery は全 Task に同じ ceremony を要求しない。depth はコード変更量ではなく、少なくとも **uncertainty / impact / irreversibility / evidence quality** を材料に調整する。単純で十分に既知な変更は Goal / Constraints / Acceptance Criteria の確認で足りる一方、曖昧・高影響・不可逆な変更では As-Is / stakeholder evidence / alternatives / requirement mapping まで広げてよい。RDRA は利用可能な手段の 1 つであり、必須フレームワークにはしない。
 
-AI は Discovery で正解の Requirement を創作する主体ではない。AI は hypothesis generation / question generation / evidence-gap detection / structuring を担う。Human は stakeholder input や意味・優先順位・trade-off の判断が必要な箇所の authority を保持する。低リスクで既知の変更に一律の手動 interview / reality check を要求しない。Evidence が不足する場合は Unknown として残し、もっともらしい Requirement で埋めない。
+AI は Discovery で正解の Requirement を創作する主体ではない。AI は hypothesis generation / question generation / evidence-gap detection / structuring を担う。Human は stakeholder input や意味・優先順位・trade-off の判断が必要な箇所の authority を保持する。Phase A の Human-created `pbi-input.md` を Goal / Problem / Requirement semantics の authority とし、AI の candidate は明示的に採用されるまで authoritative Requirement ではない。低リスクで既知の変更に一律の手動 interview / reality check を要求しない。Evidence が不足する場合は Unknown として残し、もっともらしい Requirement で埋めない。
 
 Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requirement -> Plan decision / Acceptance Criteria -> Work Item / Task (when applicable) -> Verification / Evidence の Traceability Chain を既存 ID / ref で構成する。新しい Lifecycle State / Gate / top-level artifact / mutable graph store をこのためだけに追加しない。
 
