@@ -720,7 +720,7 @@ Both raw inputs stay outside the repository. The sanitized result retains only b
 Promotion requires a trusted join key or independently administered capture manifest that proves both observation streams belong to the same concrete runtime execution.
 
 
-### 7.5 Codex JSONL pairing candidate hardening
+### 7.6 Codex JSONL pairing candidate hardening
 
 #1457 pairs the #1456 Explorer lifecycle candidate with a bounded `codex exec --json` trace, but deliberately does not claim same-run correlation because current JSONL evidence does not carry the R1 `request_hash`, Explorer `config_sha`, provider identity, or the hook candidate's `agent_id`.
 
@@ -751,32 +751,38 @@ dispatch_allowed = false
 A future promotion requires an independently trustworthy shared join key or capture root; structural completion alone is not same-run proof.
 
 
-### 7.5 Codex exec JSONL thread correlation candidate
+### 7.7 Codex exec JSONL identifier-correlation candidate
 
-#1461 correlates the #1456 Explorer lifecycle-hook candidate with the public `codex exec --json` thread/turn envelope.
+#1461 correlates the #1456 Explorer lifecycle-hook candidate with a bounded `codex exec --json` thread/turn envelope.
 
-The public exec JSONL currently provides a stable `thread.started.thread_id`, but `turn.started` has no turn identifier and the public ThreadItem union has no subagent identity item. Therefore the strongest current deterministic correlation is:
+The stable public guidance confirms JSONL structured events such as `item.started`, `item.completed`, and `turn.completed`. The current CLI envelope also exposes `thread.started.thread_id`, while the hook stream exposes `session_id`.
+
+The implementation can verify **identifier-value equality**:
 
 ```text
-hook.session_id == exec.thread.started.thread_id
+hook.session_id value == exec.thread.started.thread_id value
 ```
 
-together with a single successful turn envelope.
+but it deliberately does **not** claim that the differently named fields are a semantically guaranteed identity mapping.
 
-The resulting trust state is intentionally split:
+The resulting trust state is:
 
 ```text
 exec_jsonl_structure_verified = true
-thread_id_correlation_verified = true
+identifier_value_match_verified = true
+hook_session_id_equals_exec_thread_id = true
+parent_thread_correlation_candidate = true
 single_turn_envelope_verified = true
+trace_content_binding_verified = true
 
+session_thread_semantic_binding_verified = false
+parent_thread_correlation_verified = false
+thread_id_correlation_verified = false
 turn_id_correlation_verified = false
 subagent_identity_correlation_verified = false
+same_subagent_execution_correlated = false
 
-command_execution_read_only_verified = false
-mcp_tool_read_only_verified = false
-repository_postcondition_verified = false
-
+codex_jsonl_thread_correlation_verified = false
 codex_jsonl_runtime_correlation_verified = false
 hard_read_only_enforced = false
 runtime_probe_attestation_verified = false
@@ -784,11 +790,13 @@ dispatch_ready = false
 dispatch_allowed = false
 ```
 
-The correlation layer also rejects explicit `file_change`, `web_search`, and `error` items, but their absence is not proof that shell commands or MCP calls were read-only. Repository postconditions require a separate verifier.
+The correlator binds both raw hook and exec traces by SHA-256, but persists no raw reasoning, agent-message, command, argument, or output bodies.
 
-Raw exec JSONL may include reasoning summaries, agent messages, commands, arguments, and outputs. The correlation result therefore persists only opaque identifiers, counts, booleans, and the content hash; raw traces remain outside the repository.
+Only item types explicitly documented by the reviewed public contract are treated as documented coverage. Other bounded item-type identifiers are recorded as **schema drift**; their presence keeps documented schema coverage incomplete but does not silently become a stable contract.
 
-A future promotion requires a runtime surface that independently exposes the exact turn/subagent identity (or an equivalent signed execution relation), plus independently verified read-only enforcement and repository postconditions.
+Explicit `file_change`, `web_search`, and `error` item identifiers remain fail-closed policy signals when observed. Their absence is still not proof that shell commands or MCP calls were read-only, nor that the repository stayed clean.
+
+A future promotion requires a runtime surface that independently exposes an exact turn/subagent identity (or equivalent signed execution relation), plus independently verified read-only enforcement and repository postconditions.
 
 ## 8. Relationship to existing V2 boundaries
 
