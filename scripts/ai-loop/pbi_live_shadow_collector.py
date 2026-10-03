@@ -1551,7 +1551,7 @@ def plan_live_shadow_collection(
                     "prerequisites": [],
                     "prerequisites_satisfied": True,
                     "collector_path_available": True,
-                    "real_runtime_observation_available": False,
+                    "real_runtime_observation_available": None,
                 }
             )
     admission_materialize_observed = (
@@ -1577,7 +1577,7 @@ def plan_live_shadow_collection(
                     "collector_path_available": (
                         admission_materialize_observed
                     ),
-                    "real_runtime_observation_available": False,
+                    "real_runtime_observation_available": None,
                 }
             )
 
@@ -1627,7 +1627,15 @@ def plan_live_shadow_collection(
         },
         "observation_gaps": gaps,
         "observation_gap_count": len(gaps),
+        "collector_path_available_gap_count": sum(
+            1 for item in gaps if item.get("collector_path_available") is True
+        ),
+        "collection_execution_blocked": not any(
+            item.get("collector_path_available") is True for item in gaps
+        ),
         "blockers": blockers,
+        "completion_blockers": blockers,
+        "blocker_semantics": "rollout_completion_not_collection_execution",
         "policy_boundary": {
             "opportunistic_observation_only": True,
             "synthetic_case_generation_for_coverage_allowed": False,
