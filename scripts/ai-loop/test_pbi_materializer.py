@@ -120,6 +120,26 @@ class TestDefinitionIntegrityTests(unittest.TestCase):
         )
 
 
+class RepositoryRefSyntaxTests(unittest.TestCase):
+    def test_backslash_repository_ref_is_rejected(self):
+        errors = pm._validate_repo_relative_ref_syntax(
+            r"docs\\working\\TASK-1442\\evidence.json",
+            "source_ref",
+        )
+        self.assertTrue(
+            any("backslash path rejected" in error for error in errors)
+        )
+
+    def test_posix_repository_ref_is_accepted(self):
+        self.assertEqual(
+            pm._validate_repo_relative_ref_syntax(
+                "docs/working/TASK-1442/evidence.json",
+                "source_ref",
+            ),
+            [],
+        )
+
+
 class MaterializationFixtures(unittest.TestCase):
     def test_01_run_evidence_failure_creates_delivery_follow_up(self):
         result = pm.materialize(_payload(), [])
