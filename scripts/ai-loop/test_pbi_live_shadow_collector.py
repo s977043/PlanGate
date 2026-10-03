@@ -1171,7 +1171,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
             if item["stage"] == "materialization"
         ]
         self.assertTrue(
-            all(item["currently_collectable"] for item in admission_items)
+            all(item["collector_path_available"] for item in admission_items)
         )
         self.assertTrue(
             all(
@@ -1182,7 +1182,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         self.assertTrue(
             all(
-                not item["currently_collectable"]
+                not item["collector_path_available"]
                 and item["prerequisites"] == [
                     "reviewed_admission_materialize_case"
                 ]
@@ -1226,6 +1226,15 @@ class LiveShadowCollectorTests(unittest.TestCase):
             boundary["maker_actual_counts_as_ground_truth_coverage"]
         )
         self.assertFalse(boundary["runtime_execution_verified"])
+        self.assertFalse(
+            boundary["real_runtime_observation_available_verified"]
+        )
+        self.assertTrue(
+            all(
+                not item["real_runtime_observation_available"]
+                for item in plan["observation_gaps"]
+            )
+        )
         self.assertFalse(boundary["quality_acceptance_decided"])
         self.assertFalse(plan["authority"]["write_allowed"])
 
@@ -1277,7 +1286,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         ]
         self.assertTrue(
             all(
-                not item["currently_collectable"]
+                not item["collector_path_available"]
                 and not item["prerequisites_satisfied"]
                 for item in materialization_targets
             )
@@ -1300,7 +1309,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertEqual(len(materialization_targets), 3)
         self.assertTrue(
             all(
-                item["currently_collectable"]
+                item["collector_path_available"]
                 and item["prerequisites_satisfied"]
                 for item in materialization_targets
             )
@@ -1359,7 +1368,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         ]
         self.assertTrue(
             all(
-                not item["currently_collectable"]
+                not item["collector_path_available"]
                 and not item["prerequisites_satisfied"]
                 for item in materialization_targets
             )
