@@ -1403,6 +1403,142 @@ def inventory_live_shadow_cases(
     }
 
 
+def plan_live_shadow_collection(
+    *,
+    repo_root: pathlib.Path,
+) -> dict[str, Any]:
+    admission = inventory_live_shadow_cases(repo_root=repo_root)
+    materialization = inventory_live_materialization_cases(
+        repo_root=repo_root
+    )
+
+    admission_missing = list(
+        admission.get("coverage", {}).get(
+            "missing_admission_decisions", []
+        )
+    )
+    materialization_missing = list(
+        materialization.get("coverage", {}).get(
+            "missing_materialization_decisions", []
+        )
+    )
+
+    admission_targets = {
+        "materialize": (
+            "when naturally observed: an observed actionable delivery signal "
+            "with a concrete candidate_problem"
+        ),
+        "no_action": (
+            "when naturally observed: an observed informational/resolved "
+            "signal with no new PBI work"
+        ),
+        "discover_more": (
+            "when naturally observed: an inferred/reported/ambiguous signal "
+            "that must return to bounded discovery"
+        ),
+    }
+    materialization_targets = {
+        "create_new": (
+            "when naturally observed after reviewed materialize admission: "
+            "no equivalent open work matches the intended outcome"
+        ),
+        "update_existing": (
+            "when naturally observed after reviewed materialize admission: "
+            "same goal/problem exists but a semantic requirement/AC delta "
+            "needs an update"
+        ),
+        "link_only": (
+            "when naturally observed after reviewed materialize admission: "
+            "existing work has the same semantics and only new evidence "
+            "needs linking"
+        ),
+    }
+
+    targets: list[dict[str, Any]] = []
+    for decision in ("materialize", "no_action", "discover_more"):
+        if decision in admission_missing:
+            targets.append(
+                {
+                    "stage": "admission",
+                    "decision": decision,
+                    "observation_target": admission_targets[decision],
+                    "collection_mode": "opportunistic_real_run_only",
+                }
+            )
+    for decision in ("create_new", "update_existing", "link_only"):
+        if decision in materialization_missing:
+            targets.append(
+                {
+                    "stage": "materialization",
+                    "decision": decision,
+                    "observation_target": materialization_targets[decision],
+                    "collection_mode": "opportunistic_real_run_only",
+                }
+            )
+
+    blockers: list[str] = []
+    if admission.get("invalid_case_total", 0):
+        blockers.append("invalid_admission_case_artifacts_present")
+    if materialization.get("invalid_case_total", 0):
+        blockers.append("invalid_materialization_case_artifacts_present")
+    if not admission.get("has_tracked_live_evidence", False):
+        blockers.append("tracked_admission_live_case_missing")
+    if not materialization.get("has_tracked_live_evidence", False):
+        blockers.append("tracked_materialization_live_case_missing")
+
+    return {
+        "mode": "pbi_live_shadow_collection_plan",
+        "scope": "repository_tracked_live_shadow_gaps",
+        "inventory_snapshot": {
+            "admission": {
+                "tracked_live_case_total": admission[
+                    "tracked_live_case_total"
+                ],
+                "invalid_case_total": admission["invalid_case_total"],
+                "observed_decisions": admission["coverage"][
+                    "observed_admission_decisions"
+                ],
+                "missing_decisions": admission_missing,
+                "observed_source_kinds": admission["coverage"][
+                    "observed_source_kinds"
+                ],
+            },
+            "materialization": {
+                "tracked_live_case_total": materialization[
+                    "tracked_live_case_total"
+                ],
+                "invalid_case_total": materialization["invalid_case_total"],
+                "observed_decisions": materialization["coverage"][
+                    "observed_materialization_decisions"
+                ],
+                "missing_decisions": materialization_missing,
+            },
+        },
+        "collection_targets": targets,
+        "collection_target_count": len(targets),
+        "blockers": blockers,
+        "policy_boundary": {
+            "opportunistic_observation_only": True,
+            "synthetic_case_generation_for_coverage_allowed": False,
+            "historical_relabeling_allowed": False,
+            "decision_coverage_quota_defined": False,
+            "source_kind_coverage_requirement_defined": False,
+            "representative_coverage_claim_allowed": False,
+            "coverage_complete_implies_representative": False,
+            "runtime_execution_verified": False,
+            "quality_thresholds_applied": False,
+            "quality_acceptance_decided": False,
+        },
+        "authority": {
+            "read_only": True,
+            "write_allowed": False,
+            "close_allowed": False,
+            "suppression_allowed": False,
+            "merge_allowed": False,
+        },
+    }
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", required=True)
@@ -1435,6 +1571,7 @@ def main(argv=None) -> int:
 
     sub.add_parser("inventory")
     sub.add_parser("materialization-inventory")
+    sub.add_parser("collection-plan")
 
     args = parser.parse_args(argv)
     root = pathlib.Path(args.repo_root).resolve()
@@ -1475,6 +1612,8 @@ def main(argv=None) -> int:
             )
         elif args.command == "materialization-inventory":
             result = inventory_live_materialization_cases(repo_root=root)
+        elif args.command == "collection-plan":
+            result = plan_live_shadow_collection(repo_root=root)
         else:
             result = inventory_live_shadow_cases(repo_root=root)
     except (CollectorError, pm.MaterializationError) as exc:
