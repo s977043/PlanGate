@@ -945,5 +945,30 @@ else
   fail=$((fail + 1))
 fi
 
+_t94_inventory_out="$_t94_tmp/collector-inventory.out"
+_t94_inventory_rc=0
+"$_T94_PY" "$_t94_collector" --repo-root "$_t94_collect_root" inventory \
+  >"$_t94_inventory_out" 2>"$_t94_tmp/collector-inventory.err" || _t94_inventory_rc=$?
+if [ "$_t94_inventory_rc" -eq 0 ] \
+  && grep -q '"mode": "pbi_live_shadow_inventory"' "$_t94_inventory_out" \
+  && grep -q '"tracked_live_case_total": 1' "$_t94_inventory_out" \
+  && grep -q '"evaluated_case_total": 1' "$_t94_inventory_out" \
+  && grep -q '"invalid_case_total": 0' "$_t94_inventory_out" \
+  && grep -q '"task_namespace_binding_enforced": true' "$_t94_inventory_out" \
+  && grep -q '"duplicate_logical_case_ids_rejected": true' "$_t94_inventory_out" \
+  && grep -q '"runtime_execution_verified": false' "$_t94_inventory_out" \
+  && grep -q '"source_preexistence_verified": false' "$_t94_inventory_out" \
+  && grep -q '"reviewer_identity_verified": false' "$_t94_inventory_out" \
+  && grep -q '"representative_coverage_claim_allowed": false' "$_t94_inventory_out" \
+  && grep -q '"quality_acceptance_decided": false' "$_t94_inventory_out" \
+  && grep -q '"write_allowed": false' "$_t94_inventory_out"; then
+  printf '  [PASS] live inventory: tracked chain revalidated without runtime/quality overclaim\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] live inventory: CLI wiring or trust-boundary invariant failed (rc=%s)\n' "$_t94_inventory_rc" >&2
+  sed 's/^/    /' "$_t94_tmp/collector-inventory.err" >&2
+  fail=$((fail + 1))
+fi
+
 rm -rf "$_t94_tmp"
 pg_extra_contract_finalize
