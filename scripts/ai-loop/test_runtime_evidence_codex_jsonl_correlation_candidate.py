@@ -122,6 +122,40 @@ class HookCandidateValidationTests(unittest.TestCase):
             any("non-promotion" in e for e in ctx.exception.errors)
         )
 
+    def test_missing_execution_candidate_is_rejected(self):
+        candidate = _hook_candidate()
+        candidate["explorer_execution_candidate"] = False
+        body = dict(candidate)
+        body.pop("result_hash")
+        candidate["result_hash"] = corr.ingress._canonical_hash(body)
+        with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+            corr.validate_hook_candidate(
+                candidate,
+                request_hash=REQ,
+                config_sha=CONFIG,
+                provider=PROVIDER,
+            )
+        self.assertTrue(
+            any("explorer_execution_candidate" in e for e in ctx.exception.errors)
+        )
+
+    def test_hook_authority_promotion_is_rejected(self):
+        candidate = _hook_candidate()
+        candidate["authority"]["agent_invoke_allowed"] = True
+        body = dict(candidate)
+        body.pop("result_hash")
+        candidate["result_hash"] = corr.ingress._canonical_hash(body)
+        with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+            corr.validate_hook_candidate(
+                candidate,
+                request_hash=REQ,
+                config_sha=CONFIG,
+                provider=PROVIDER,
+            )
+        self.assertTrue(
+            any("agent_invoke_allowed" in e for e in ctx.exception.errors)
+        )
+
     def test_candidate_hash_tamper_is_rejected(self):
         candidate = _hook_candidate()
         candidate["result_hash"] = "sha256:" + "f" * 64
