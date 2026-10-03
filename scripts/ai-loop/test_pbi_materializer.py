@@ -786,6 +786,12 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
             report["evaluation_contract"]["runtime_head_to_run_evidence_binding_enforced"]
         )
         self.assertTrue(
+            report["evaluation_contract"]["live_capture_requires_concrete_final_head_sha"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["unavailable_final_head_live_capture_supported"]
+        )
+        self.assertTrue(
             report["evaluation_contract"]["upstream_source_repository_visibility_enforced"]
         )
         self.assertTrue(
@@ -1057,6 +1063,12 @@ class AdmissionBatchEvaluationTests(unittest.TestCase):
         )
         self.assertTrue(
             report["evaluation_contract"]["runtime_head_to_run_evidence_binding_enforced"]
+        )
+        self.assertTrue(
+            report["evaluation_contract"]["live_capture_requires_concrete_final_head_sha"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["unavailable_final_head_live_capture_supported"]
         )
         self.assertTrue(
             report["evaluation_contract"]["upstream_source_repository_visibility_enforced"]
