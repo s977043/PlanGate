@@ -42,6 +42,11 @@ if str(HERE) not in sys.path:
 import run_evidence  # noqa: E402
 
 TASK_ID_RE = re.compile(r"^TASK-[0-9]{4}$")
+RFC3339_RE = re.compile(
+    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+)
+COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 VALID_AUTHORS = {"human", "ai", "mixed"}
 VALID_DISCOVERY_DEPTHS = {"minimal", "expanded"}
@@ -428,6 +433,7 @@ def admit_signal(signal: dict[str, Any]) -> dict[str, Any]:
         "proposal_only": True,
         "write_allowed": False,
         "close_allowed": False,
+        "suppression_allowed": False,
         "next": {
             "materialize": "pbi_materializer",
             "no_action": "record_evaluation_only",
@@ -1158,6 +1164,71 @@ def compare_shadow(
     return comparison
 
 
+def _validate_live_shadow_capture(
+    case: dict[str, Any],
+    prefix: str,
+    refs: list[str],
+    authority_root=None,
+) -> list[str]:
+    errors: list[str] = []
+    evidence_class = case.get("evidence_class", "synthetic_fixture")
+    capture = case.get("live_capture")
+
+    if evidence_class != "live_shadow":
+        if capture is not None:
+            errors.append(
+                f"{prefix}.live_capture: only valid when evidence_class=live_shadow"
+            )
+        return errors
+
+    if not isinstance(capture, dict):
+        return [f"{prefix}.live_capture: object required for live_shadow"]
+
+    if capture.get("capture_mode") != "passive_shadow":
+        errors.append(
+            f"{prefix}.live_capture.capture_mode: passive_shadow required"
+        )
+
+    captured_at = capture.get("captured_at")
+    if not isinstance(captured_at, str) or not RFC3339_RE.fullmatch(captured_at):
+        errors.append(
+            f"{prefix}.live_capture.captured_at: timezone-aware RFC3339 required"
+        )
+
+    runtime_head_sha = capture.get("runtime_head_sha")
+    if not isinstance(runtime_head_sha, str) or not COMMIT_SHA_RE.fullmatch(
+        runtime_head_sha
+    ):
+        errors.append(
+            f"{prefix}.live_capture.runtime_head_sha: 40 lowercase hex required"
+        )
+
+    capture_ref = capture.get("capture_ref")
+    if not isinstance(capture_ref, str) or not capture_ref.strip():
+        errors.append(
+            f"{prefix}.live_capture.capture_ref: non-empty repository ref required"
+        )
+    else:
+        capture_ref = capture_ref.strip()
+        if capture_ref not in refs:
+            errors.append(
+                f"{prefix}.live_capture.capture_ref: must also appear in evidence_refs"
+            )
+        _path, _fragment, ref_errors = _resolve_repo_authority_ref(
+            capture_ref, authority_root
+        )
+        errors.extend(
+            f"{prefix}.live_capture.capture_ref: {error}"
+            for error in ref_errors
+        )
+
+    errors.extend(
+        f"{prefix}.live_capture.{error}"
+        for error in _privacy_errors({"live_capture": capture})
+    )
+    return errors
+
+
 def _validate_shadow_batch(cases: Any, authority_root=None) -> list[str]:
     errors: list[str] = []
     if not isinstance(cases, list) or not cases:
@@ -1211,6 +1282,15 @@ def _validate_shadow_batch(cases: Any, authority_root=None) -> list[str]:
                     f"shadow_batch[{i}].evidence_refs: {error}"
                     for error in ref_errors
                 )
+
+        errors.extend(
+            _validate_live_shadow_capture(
+                case,
+                f"shadow_batch[{i}]",
+                refs,
+                authority_root=authority_root,
+            )
+        )
 
         payload = case.get("payload")
         if not isinstance(payload, dict):
@@ -1401,6 +1481,10 @@ def evaluate_shadow_batch(
             "no_action_coverage": False,
             "historical_live_oracle_repository_visibility_enforced": True,
             "source_oracle_artifact_separation_enforced": True,
+            "live_shadow_capture_metadata_enforced": True,
+            "live_shadow_label_alone_sufficient": False,
+            "runtime_head_binding_verified": False,
+            "runtime_head_binding_owner": "caller_or_runtime_capture",
             "oracle_independence_enforced": False,
             "oracle_independence_owner": "caller_or_independent_reviewer",
             "holdout_isolation_enforced": False,
@@ -1507,6 +1591,15 @@ def _validate_admission_batch(cases: Any, authority_root=None) -> list[str]:
                     f"admission_batch[{i}].evidence_refs: {error}"
                     for error in ref_errors
                 )
+
+        errors.extend(
+            _validate_live_shadow_capture(
+                case,
+                f"admission_batch[{i}]",
+                refs,
+                authority_root=authority_root,
+            )
+        )
 
         signal = case.get("signal")
         errors.extend(
@@ -1651,11 +1744,16 @@ def evaluate_admission_batch(
         "mode": "admission_evaluation",
         "write_allowed": False,
         "close_allowed": False,
+        "suppression_allowed": False,
         "automatic_promotion": False,
         "evaluation_contract": {
             "scope": "pbi_admission",
             "historical_live_oracle_repository_visibility_enforced": True,
             "source_oracle_artifact_separation_enforced": True,
+            "live_shadow_capture_metadata_enforced": True,
+            "live_shadow_label_alone_sufficient": False,
+            "runtime_head_binding_verified": False,
+            "runtime_head_binding_owner": "caller_or_runtime_capture",
             "oracle_independence_enforced": False,
             "oracle_independence_owner": "caller_or_independent_reviewer",
             "holdout_isolation_enforced": False,
