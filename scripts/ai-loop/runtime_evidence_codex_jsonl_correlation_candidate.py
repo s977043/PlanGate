@@ -16,9 +16,10 @@ __doc__ = """runtime_evidence_codex_jsonl_correlation_candidate.py.
 Correlates a reviewed Codex Explorer lifecycle candidate with a bounded
 `codex exec --json` JSONL file.
 
-This is intentionally a *co-presence candidate*, not strong runtime
-correlation. Current Codex JSONL evidence observed in this repository does not
-carry the Explorer hook's agent_id, so unrelated runs could otherwise be paired.
+This is intentionally a *pairing candidate*, not proof of co-presence or strong
+runtime correlation. Current Codex JSONL evidence observed in this repository
+does not carry request_hash/config_sha/provider or the Explorer hook's agent_id,
+so unrelated runs could otherwise be paired.
 
 No raw prompt, command text, reasoning, agent message, transcript path, or
 runtime log body is copied into the resulting artifact.
@@ -177,11 +178,29 @@ def validate_hook_candidate(
 
 def summarize_codex_jsonl(
     path: str | pathlib.Path,
+    *,
+    repo_root: str | pathlib.Path,
 ) -> dict[str, Any]:
     source = pathlib.Path(path)
+    root = pathlib.Path(repo_root).resolve()
+    if not root.is_dir():
+        raise CodexJsonlCorrelationError(
+            ["repo_root: existing directory required"]
+        )
     if not source.is_file() or source.is_symlink():
         raise CodexJsonlCorrelationError(
             ["codex_jsonl: regular non-symlink file required"]
+        )
+
+    resolved = source.resolve()
+    try:
+        resolved.relative_to(root)
+        inside_repo = True
+    except ValueError:
+        inside_repo = False
+    if inside_repo:
+        raise CodexJsonlCorrelationError(
+            ["codex_jsonl: raw runtime trace must stay outside repository"]
         )
 
     try:
@@ -298,6 +317,7 @@ def summarize_codex_jsonl(
 
 def correlate_candidate(
     *,
+    repo_root: str | pathlib.Path,
     hook_candidate: Any,
     codex_jsonl_path: str | pathlib.Path,
     request_hash: str,
@@ -310,7 +330,10 @@ def correlate_candidate(
         config_sha=config_sha,
         provider=provider,
     )
-    jsonl = summarize_codex_jsonl(codex_jsonl_path)
+    jsonl = summarize_codex_jsonl(
+        codex_jsonl_path,
+        repo_root=repo_root,
+    )
 
     result = {
         "schema_version": "1",
@@ -335,7 +358,8 @@ def correlate_candidate(
             "item_id_set_hash": jsonl["item_id_set_hash"],
             "raw_payload_copied": False,
         },
-        "cross_source_copresence_candidate": True,
+        "cross_source_pairing_candidate": True,
+        "same_run_copresence_verified": False,
         "hook_candidate_binding_verified": True,
         "codex_jsonl_structural_candidate_verified": True,
         "direct_agent_id_correlation_available": False,
@@ -349,11 +373,11 @@ def correlate_candidate(
         "dispatch_ready": False,
         "dispatch_allowed": False,
         "verification_limit": (
-            "the lifecycle candidate and Codex JSONL are both structurally "
-            "verified and bound to the same request/config/provider inputs, "
-            "but current Codex JSONL evidence has no direct Explorer agent_id "
-            "join key; same-run identity and independent capture roots are "
-            "not verified"
+            "the lifecycle candidate is request/config/provider-bound and "
+            "the Codex JSONL is structurally summarized, but current JSONL "
+            "evidence carries none of those bindings and no direct Explorer "
+            "agent_id join key; co-presence, same-run identity, and independent "
+            "capture roots are not verified"
         ),
         "authority": {
             "agent_invoke_allowed": False,
@@ -369,6 +393,7 @@ def correlate_candidate(
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo-root", required=True)
     parser.add_argument("--hook-candidate", required=True)
     parser.add_argument("--codex-jsonl", required=True)
     parser.add_argument("--request-hash", required=True)
@@ -382,6 +407,7 @@ def main(argv=None) -> int:
             label="hook_candidate",
         )
         result = correlate_candidate(
+            repo_root=args.repo_root,
             hook_candidate=candidate,
             codex_jsonl_path=args.codex_jsonl,
             request_hash=args.request_hash,
