@@ -1747,16 +1747,15 @@ class WriteReviewAssessmentTests(unittest.TestCase):
 
     def test_quality_mismatch_does_not_implicitly_fail_or_pass_acceptance(self):
         assessment = self._assessment()
-        case = assessment["materialization_report"]["cases"][0]
+        case = assessment["materialization_report"]["cases"][1]
         case["status"] = "mismatch"
-        case["mismatches"] = ["decision", "matched_ref"]
-        case["actual_decision"] = "link_only"
+        case["mismatches"] = ["matched_ref"]
         case["actual_matched_ref"] = "docs/working/TASK-9999/pbi-input.md"
         result = self._assess(assessment)
         self.assertTrue(result["write_review_ready"])
         self.assertEqual(
             result["quality_summary"]["materialization"][
-                "duplicate_false_positive_count"
+                "matched_ref_mismatch_count"
             ],
             1,
         )
