@@ -547,6 +547,69 @@ class ShadowComparisonTests(unittest.TestCase):
                     pm.compare_shadow(result, expected)
 
 
+class ShadowBatchEvaluationTests(unittest.TestCase):
+    def _case(self, case_ref, split, *, decision="create_new", matched_ref=None):
+        return {
+            "case_ref": case_ref,
+            "split": split,
+            "payload": _payload(),
+            "existing_work": [],
+            "expected": {
+                "oracle_ref": f"docs/working/TASK-1442/{case_ref}.md",
+                "decision": decision,
+                "matched_ref": matched_ref,
+                "readiness_status": "ready",
+                "readiness_route": "future_run",
+            },
+        }
+
+    def test_train_and_test_metrics_are_reported_separately(self):
+        report = pm.evaluate_shadow_batch([
+            self._case("train-01", "train"),
+            self._case("test-01", "test"),
+        ])
+        self.assertFalse(report["write_allowed"])
+        self.assertFalse(report["automatic_promotion"])
+        self.assertEqual(report["metrics"]["train"]["exact_match_rate"], 1.0)
+        self.assertEqual(report["metrics"]["test"]["exact_match_rate"], 1.0)
+        self.assertEqual(report["metrics"]["overall"]["total"], 2)
+
+    def test_train_mismatch_does_not_hide_test_result(self):
+        train = self._case(
+            "train-mismatch",
+            "train",
+            decision="link_only",
+            matched_ref="docs/working/TASK-1400/pbi-input.md",
+        )
+        test = self._case("test-match", "test")
+        report = pm.evaluate_shadow_batch([train, test])
+        self.assertEqual(report["metrics"]["train"]["exact_match_rate"], 0.0)
+        self.assertEqual(report["metrics"]["test"]["exact_match_rate"], 1.0)
+        self.assertEqual(report["cases"][0]["status"], "mismatch")
+        self.assertEqual(report["cases"][1]["status"], "match")
+
+    def test_train_only_batch_is_rejected(self):
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.evaluate_shadow_batch([self._case("train-only", "train")])
+        self.assertTrue(any("test split" in e for e in ctx.exception.errors))
+
+    def test_duplicate_case_ref_is_rejected(self):
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.evaluate_shadow_batch([
+                self._case("duplicate", "train"),
+                self._case("duplicate", "test"),
+            ])
+        self.assertTrue(any("duplicate" in e for e in ctx.exception.errors))
+
+    def test_materialization_error_counts_as_error_without_write_authority(self):
+        bad = self._case("test-error", "test")
+        bad["payload"]["raw_transcript"] = "forbidden"
+        report = pm.evaluate_shadow_batch([bad])
+        self.assertEqual(report["metrics"]["test"]["errors"], 1)
+        self.assertEqual(report["metrics"]["test"]["exact_match_rate"], 0.0)
+        self.assertFalse(report["write_allowed"])
+
+
 class DeterminismAndSearchTests(unittest.TestCase):
     def test_same_input_is_byte_stable(self):
         a = pm.materialize(_payload(), [])
