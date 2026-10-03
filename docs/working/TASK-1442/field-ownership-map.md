@@ -40,6 +40,10 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | write-review assessment | derived review-readiness projection | materializer assessor | admission/materialization evidenceを集約し Human review 候補かを示す。write/close/suppression/merge authorityは持たない |
 | rollout quality metrics | derived evaluation evidence | evaluator cases[] | live_shadow のみから duplicate FP/FN・decision/readiness mismatch・reject distribution を導出。quality acceptance authorityは持たない |
 | live-shadow evidence collector | evidence writer / adapter | `pbi_live_shadow_collector.py` | `docs/working/TASK-XXXX/evidence/pbi-live-shadow/**` に capture / blind packet / reviewed case を create-or-reuse-identical で保存。PBI/Issue/RunState/Harness/merge authority は持たない |
+| RunEvidence handoff | derived advisory metadata | collector capture result | source_ref + capture_ref の exact `--evidence-ref` args と source/capture hash を返す。authority ではなく、RunEvidence保存後のbinding再検証が必須 |
+| materialization oracle | independent reviewed expectation | caller / independent reviewer | Admission materialize match 後の payload / existing-work snapshot / expected decision-readiness を hash で束縛。collector は生成しない |
+| reviewed materialization case | derived evaluation input | collector assembler | Admission materialize matchを再検証し、payload/existing-work/oracleを既存 shadow batch contractへ束縛。PBI write authorityなし |
+| materialization live inventory | derived read-only projection | collector inventory | tracked `materialization-case.json` を再検証・再評価し duplicate FP/FN / mismatch を再計算。quality acceptance / write Gate ではない |
 | blind review packet | derived evidence | collector | maker actual / expected decision を含めず、source/capture/RunEvidence hash だけを束縛。reviewer independence は自己証明しない |
 | admission oracle | independent reviewed expectation | caller / independent reviewer | collector は作成しない。同一 TASK live-shadow evidence namespace に置き、packet/source hash と expected admission decision を束縛 |
 | reviewed admission case | derived evaluation input | collector assembler | source/capture/RunEvidence/packet と oracle を再検証して evaluator 互換 case を生成。oracle は `expected.oracle_ref` のみで参照し、`evidence_refs[]` に混ぜない |
@@ -555,3 +559,99 @@ quality_acceptance_decided = false
 TA-94 の synthetic collector chain を inventory すると tracked case は1件見えるが、
 `runtime_execution_verified=false` を同時に要求する。
 これは executable-path 検証であり、#1442 の real live-shadow rollout AC の達成には数えない。
+
+
+## RunEvidence handoff boundary
+
+capture 成功後、collector は caller 向けに exact RunEvidence injection を返す。
+
+```text
+run_evidence_handoff.evidence_refs =
+  [source_ref, capture_ref]
+
+run_evidence_handoff.cli_args =
+  --evidence-ref <source_ref>
+  --evidence-ref <capture_ref>
+```
+
+さらに:
+
+```text
+source_sha256
+capture_hash
+task_id
+run_id
+runtime_head_sha
+captured_at
+advisory_only = true
+must_revalidate_after_run_evidence = true
+```
+
+を返す。
+
+handoff は command construction の取り違え防止用であり、RunEvidence authority ではない。  
+後段の `packet` / live binding が capture / RunEvidence / source を再検証する。
+
+## Live Materialization review boundary
+
+Admission live review の actual/expected がともに `materialize` で一致した場合だけ、
+Materialization shadow evaluationへ進める。
+
+必要な repository-visible artifacts:
+
+```text
+admission-case.json
+materialization-payload.json
+existing-work.json
+materialization-oracle.json
+materialization-case.json
+```
+
+すべて同一 `TASK-XXXX/evidence/pbi-live-shadow/**` namespace に束縛する。
+
+materialization oracle は:
+
+- admission case ref + canonical hash
+- payload ref + canonical hash
+- existing-work ref + canonical hash
+- expected `decision / matched_ref / readiness_status / readiness_route`
+- independent review assertions
+
+を持つ。
+
+collector は oracle を生成せず、maker actual をoracleへ保存させない。
+
+reviewed materialization case は既存 `_validate_shadow_batch()` を通し、
+oracleは `expected.oracle_ref` にのみ置く。source `evidence_refs[]` へ混ぜない。
+
+Materialization inventory は:
+
+```text
+docs/working/TASK-*/evidence/pbi-live-shadow/**/materialization-case.json
+```
+
+のみを探索し、current repository artifactsから毎回再計算する。
+
+```text
+observed_materialization_decisions
+missing_materialization_decisions
+duplicate_false_positive_rate
+duplicate_false_negative_rate
+decision_mismatch_count
+readiness_mismatch_count
+```
+
+を出すが、以下は維持する:
+
+```text
+runtime_execution_verified = false
+source_preexistence_verified = false
+reviewer_identity_verified = false
+representative_coverage_claim_allowed = false
+quality_thresholds_applied = false
+quality_acceptance_decided = false
+write_allowed = false
+```
+
+したがって tracked materialization case が存在しても、representative coverage / quality acceptance /
+automatic PBI write の根拠にはならない。
