@@ -79,6 +79,7 @@ DOWNSTREAM_FILENAMES = {
     "status.md",
     "INDEX.md",
 }
+DERIVED_FILENAMES = DOWNSTREAM_FILENAMES - {"pbi-input.md"}
 
 
 class MaterializationError(ValueError):
@@ -228,6 +229,17 @@ def validate_payload(payload: Any) -> list[str]:
                     f"claims[{i}].source_ref: circular provenance from same-task downstream artifact"
                 )
         origin_ref = _claim_origin_ref(claim)
+        if isinstance(source_ref, str) and source_ref.strip():
+            source_name = source_ref.replace("\\", "/").rsplit("/", 1)[-1]
+            explicit_origin = claim.get("origin_ref")
+            if source_name in DERIVED_FILENAMES and (
+                not isinstance(explicit_origin, str)
+                or not explicit_origin.strip()
+                or explicit_origin.strip() == source_ref.strip()
+            ):
+                errors.append(
+                    f"claims[{i}].origin_ref: derived artifact source requires a distinct original source ref"
+                )
         if origin_ref:
             source_refs.add(origin_ref)
             claim_classes_by_ref.setdefault(origin_ref, set()).add(str(claim.get("claim_class")))
@@ -373,7 +385,7 @@ def decide_materialization(
     p_goal = _norm(payload["goal"])
     p_problem = _norm(payload["problem"])
 
-    ranked: list[tuple[tuple[int, int, int, int, int, str], dict[str, Any]]] = []
+    ranked: list[tuple[tuple[int, int, int, int, int], str, dict[str, Any]]] = []
     for item in existing_work:
         if not isinstance(item, dict):
             continue
@@ -394,9 +406,8 @@ def decide_materialization(
             problem_same,
             req_overlap,
             ac_overlap,
-            ref,
         )
-        ranked.append((score, item))
+        ranked.append((score, ref, item))
 
     if not ranked:
         return {
@@ -407,8 +418,15 @@ def decide_materialization(
             "reason": "no deterministic existing-work match",
         }
 
-    ranked.sort(key=lambda x: x[0], reverse=True)
-    best = ranked[0][1]
+    ranked.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    best_score = ranked[0][0]
+    tied = sorted(ref for score, ref, _item in ranked if score == best_score)
+    if len(tied) > 1:
+        raise MaterializationError([
+            "existing_work: ambiguous top match; normalize/resolve before materialization: "
+            + ", ".join(tied)
+        ])
+    best = ranked[0][2]
     c_sources, c_reqs, c_acs = _candidate_facts(best)
     same_goal_problem = (
         p_goal == _norm(best.get("goal"))
@@ -419,7 +437,7 @@ def decide_materialization(
     related_refs = sorted(
         {
             item.get("ref")
-            for _score, item in ranked
+            for _score, _ref, item in ranked
             if isinstance(item.get("ref"), str)
         }
     )
