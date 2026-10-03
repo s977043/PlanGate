@@ -1,6 +1,6 @@
 # PBI INPUT PACKAGE: {タイトル}
 
-> フェーズ A（PBI INPUT）で**人間が作成**する。正本: [`.claude/rules/working-context.md`](../../../.claude/rules/working-context.md) の「pbi-input.md」節。
+> フェーズ A（PBI INPUT）で作成する。**Human / AI のどちらが作成してもよい**。AI は user feedback / Issue / RunEvidence / FailureRecord / operational observation 等から生成・更新できる。正本: [`.claude/rules/working-context.md`](../../../.claude/rules/working-context.md) の「pbi-input.md」節。
 
 ## Context / Why
 
@@ -11,11 +11,13 @@
 > Discovery depth は変更量ではなく uncertainty / impact / irreversibility / evidence quality で調整する。
 > **minimal** では既存の Context / Why・Scope・AC・Unknowns だけでよく、下表を無理に埋めない。
 > **expanded discovery で Requirement の出所が material な場合**だけ Trace を使う。
-> AI は candidate / question / evidence gap を提案できるが、本 artifact は Phase A の Human-created authority であり、未確認事項を黙って Requirement に昇格させない。
+> AI は candidate / question / evidence gap の提案だけでなく本 artifact を作成・更新してよい。author identity を authority の根拠にせず、Evidence / provenance / uncertainty / policy で判断する。未確認事項を黙って Requirement に昇格させない。
 
 - Discovery depth: minimal / expanded
 - Actor / Job（material な場合）: {誰の、どの状況・仕事か}
-- Problem evidence refs（material な場合）: {Issue / user input / measurement / existing behavior など。raw transcript は貼らない}
+- PBI author: human / ai / mixed
+- Source / feedback refs: {user feedback / Issue / RunEvidence / FailureRecord / measurement / existing behavior など。raw transcript は貼らない}
+- Problem evidence refs（material な場合）: {問題設定を支持する evidence ref}
 
 #### Requirement Discovery Trace（material な場合）
 
