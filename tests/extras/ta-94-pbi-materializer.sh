@@ -753,6 +753,8 @@ if cmp -s "$_t94_agents_skill" "$_t94_codex_skill" \
   && grep -q '### 6.4 Evidence collector（実runでの推奨経路）' "$_t94_agents_skill" \
   && grep -q 'pbi_live_shadow_collector.py' "$_t94_agents_skill" \
   && grep -q -- '--case-artifact-ref' "$_t94_agents_skill" \
+  && grep -q '### 6.6 Live Materialization review（post-admission）' "$_t94_agents_skill" \
+  && grep -q 'materialization-inventory' "$_t94_agents_skill" \
   && grep -q 'signal が無い run にダミー signal / capture を作ってはならない' "$_t94_agents_skill" \
   && grep -q '## Step 6: RunEvidence + passive PBI live-shadow capture' "$_t94_claude_skill" \
   && grep -q 'scripts/ai-loop/pbi_materializer.py' "$_t94_claude_skill" \
@@ -967,6 +969,254 @@ if [ "$_t94_inventory_rc" -eq 0 ] \
 else
   printf '  [FAIL] live inventory: CLI wiring or trust-boundary invariant failed (rc=%s)\n' "$_t94_inventory_rc" >&2
   sed 's/^/    /' "$_t94_tmp/collector-inventory.err" >&2
+  fail=$((fail + 1))
+fi
+
+# 14. Post-admission live Materialization must fire end to end without write authority.
+_t94_mat_root="$_t94_tmp/materialization-root"
+mkdir -p "$_t94_mat_root/scripts" "$_t94_mat_root/docs" "$_t94_mat_root/TASK-9999/delivery"
+printf '{"kind":"state","state":"MERGE_READY"}\n' >"$_t94_mat_root/TASK-9999/delivery/record.jsonl"
+
+_t94_mat_signal="$_t94_tmp/materialization-signal.json"
+cat >"$_t94_mat_signal" <<'JSON'
+{
+  "signal_id": "SIG-TA94-MATERIALIZE",
+  "source_ref": "TASK-9999/delivery/record.jsonl",
+  "source_kind": "existing_behavior",
+  "claim_class": "observed",
+  "statement": "Observed delivery evidence requires follow-up work.",
+  "disposition": "actionable",
+  "target_layer": "delivery",
+  "candidate_problem": "Observed delivery evidence should become a follow-up PBI."
+}
+JSON
+
+_t94_mbase="docs/working/TASK-9999/evidence/pbi-live-shadow/run-02"
+_t94_mcap="$_t94_mbase/capture.json"
+_t94_mev="$_t94_mbase/run-evidence.json"
+_t94_mpacket="$_t94_mbase/review-packet.json"
+_t94_maoracle="$_t94_mbase/admission-oracle.json"
+_t94_macase="$_t94_mbase/admission-case.json"
+_t94_mpayload="$_t94_mbase/materialization-payload.json"
+_t94_mexisting="$_t94_mbase/existing-work.json"
+_t94_moracle="$_t94_mbase/materialization-oracle.json"
+_t94_mcase="$_t94_mbase/materialization-case.json"
+_t94_mat_rc=0
+
+"$_T94_PY" "$_t94_collector" --repo-root "$_t94_mat_root" capture \
+  --signal "$_t94_mat_signal" \
+  --task-id TASK-9999 --run-id run-02 \
+  --captured-at 2099-12-31T12:00:00Z \
+  --runtime-head-sha abcdef1234567890abcdef1234567890abcdef12 \
+  --capture-ref "$_t94_mcap" \
+  >"$_t94_tmp/mat-capture.out" 2>"$_t94_tmp/mat-capture.err" || _t94_mat_rc=$?
+
+if [ "$_t94_mat_rc" -eq 0 ]; then
+  "$_T94_PY" - \
+    "$_T94_ROOT/tests/fixtures/run-evidence/fx-01-first-pass.json" \
+    "$_t94_mat_root/$_t94_mev" \
+    "$_t94_mcap" <<'PY'
+import json
+import pathlib
+import sys
+
+src = pathlib.Path(sys.argv[1])
+dst = pathlib.Path(sys.argv[2])
+capture_ref = sys.argv[3]
+record = json.loads(src.read_text(encoding="utf-8"))
+record["evidence_refs"] = list(dict.fromkeys(
+    record["evidence_refs"]
+    + ["TASK-9999/delivery/record.jsonl", capture_ref]
+))
+dst.parent.mkdir(parents=True, exist_ok=True)
+dst.write_text(
+    json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+  _t94_mat_rc=$?
+fi
+
+if [ "$_t94_mat_rc" -eq 0 ]; then
+  "$_T94_PY" "$_t94_collector" --repo-root "$_t94_mat_root" packet \
+    --capture-ref "$_t94_mcap" \
+    --run-evidence-ref "$_t94_mev" \
+    --packet-ref "$_t94_mpacket" \
+    >"$_t94_tmp/mat-packet.out" 2>"$_t94_tmp/mat-packet.err" || _t94_mat_rc=$?
+fi
+
+if [ "$_t94_mat_rc" -eq 0 ]; then
+  "$_T94_PY" - \
+    "$_T94_ROOT/scripts/ai-loop" \
+    "$_t94_mat_root/$_t94_mpacket" \
+    "$_t94_mat_root/TASK-9999/delivery/record.jsonl" \
+    "$_t94_mat_root/$_t94_maoracle" \
+    "$_t94_mpacket" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import pbi_materializer as pm
+
+packet_path = pathlib.Path(sys.argv[2])
+source_path = pathlib.Path(sys.argv[3])
+oracle_path = pathlib.Path(sys.argv[4])
+packet_ref = sys.argv[5]
+packet = json.loads(packet_path.read_text(encoding="utf-8"))
+oracle = {
+    "schema_version": 1,
+    "domain": "plangate.pbi-live-shadow-admission-oracle/v1",
+    "case_ref": "LIVE-TA94-ADMISSION-MATERIALIZE",
+    "packet_ref": packet_ref,
+    "packet_hash": pm._canonical_json_hash(packet),
+    "reviewed_source_ref": "TASK-9999/delivery/record.jsonl",
+    "reviewed_source_sha256": "sha256:" + hashlib.sha256(source_path.read_bytes()).hexdigest(),
+    "expected_admission_decision": "materialize",
+    "independent_review_asserted": True,
+    "maker_actual_not_consulted_asserted": True,
+}
+oracle_path.parent.mkdir(parents=True, exist_ok=True)
+oracle_path.write_text(
+    json.dumps(oracle, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+  _t94_mat_rc=$?
+fi
+
+if [ "$_t94_mat_rc" -eq 0 ]; then
+  "$_T94_PY" "$_t94_collector" --repo-root "$_t94_mat_root" case \
+    --packet-ref "$_t94_mpacket" \
+    --oracle-ref "$_t94_maoracle" \
+    --case-artifact-ref "$_t94_macase" \
+    >"$_t94_tmp/mat-admission-case.out" 2>"$_t94_tmp/mat-admission-case.err" || _t94_mat_rc=$?
+fi
+
+if [ "$_t94_mat_rc" -eq 0 ]; then
+  "$_T94_PY" - \
+    "$_T94_ROOT/scripts/ai-loop" \
+    "$_t94_mat_root/$_t94_macase" \
+    "$_t94_mat_root/$_t94_mpayload" \
+    "$_t94_mat_root/$_t94_mexisting" \
+    "$_t94_mat_root/$_t94_moracle" \
+    "$_t94_macase" "$_t94_mpayload" "$_t94_mexisting" <<'PY'
+import json
+import pathlib
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import pbi_materializer as pm
+
+admission_path = pathlib.Path(sys.argv[2])
+payload_path = pathlib.Path(sys.argv[3])
+existing_path = pathlib.Path(sys.argv[4])
+oracle_path = pathlib.Path(sys.argv[5])
+admission_ref, payload_ref, existing_ref = sys.argv[6:9]
+
+admission_case = json.loads(admission_path.read_text(encoding="utf-8"))
+payload = {
+    "task_id": "TASK-9999",
+    "title": "TA-94 live materialization follow-up",
+    "author": "ai",
+    "application_timing": "follow_up",
+    "target_layer": "delivery",
+    "goal": "Preserve observed delivery evidence as follow-up work",
+    "problem": "Observed delivery evidence should become a follow-up PBI.",
+    "source_run_refs": ["docs/working/TASK-9999/evidence/pbi-live-shadow/run-02/run-evidence.json"],
+    "claims": [
+        {
+            "id": "CLM-TA94-MAT-001",
+            "text": "Observed delivery evidence requires follow-up work.",
+            "source_ref": "TASK-9999/delivery/record.jsonl",
+            "source_kind": "existing_behavior",
+            "claim_class": "observed",
+            "supports": "Problem"
+        }
+    ],
+    "requirements": [],
+    "acceptance_criteria": [],
+    "in_scope": ["Create a future delivery follow-up proposal"],
+    "out_of_scope": ["Mutate the current run"],
+    "risks": ["Synthetic TA-94 case is not rollout evidence"],
+    "unknowns": [],
+    "assumptions": [],
+    "harness_candidate_ref": None
+}
+existing_work = []
+payload_path.write_text(
+    json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+existing_path.write_text(
+    json.dumps(existing_work, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+oracle = {
+    "schema_version": 1,
+    "domain": "plangate.pbi-live-shadow-materialization-oracle/v1",
+    "case_ref": "LIVE-TA94-MATERIALIZATION",
+    "admission_case_ref": admission_ref,
+    "admission_case_hash": pm._canonical_json_hash(admission_case),
+    "payload_ref": payload_ref,
+    "payload_hash": pm._canonical_json_hash(payload),
+    "existing_work_ref": existing_ref,
+    "existing_work_hash": pm._canonical_json_hash(existing_work),
+    "expected": {
+        "decision": "create_new",
+        "matched_ref": None,
+        "readiness_status": "ready",
+        "readiness_route": "future_run"
+    },
+    "independent_review_asserted": True,
+    "maker_actual_not_consulted_asserted": True
+}
+oracle_path.write_text(
+    json.dumps(oracle, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+  _t94_mat_rc=$?
+fi
+
+if [ "$_t94_mat_rc" -eq 0 ]; then
+  "$_T94_PY" "$_t94_collector" --repo-root "$_t94_mat_root" materialization-case \
+    --admission-case-ref "$_t94_macase" \
+    --payload-ref "$_t94_mpayload" \
+    --existing-work-ref "$_t94_mexisting" \
+    --oracle-ref "$_t94_moracle" \
+    --case-artifact-ref "$_t94_mcase" \
+    >"$_t94_tmp/mat-case.out" 2>"$_t94_tmp/mat-case.err" || _t94_mat_rc=$?
+fi
+
+_t94_mat_inventory="$_t94_tmp/mat-inventory.out"
+if [ "$_t94_mat_rc" -eq 0 ]; then
+  "$_T94_PY" "$_t94_collector" --repo-root "$_t94_mat_root" materialization-inventory \
+    >"$_t94_mat_inventory" 2>"$_t94_tmp/mat-inventory.err" || _t94_mat_rc=$?
+fi
+
+if [ "$_t94_mat_rc" -eq 0 ] \
+  && grep -q '"mode": "pbi_live_shadow_collect_reviewed_materialization_case"' "$_t94_tmp/mat-case.out" \
+  && grep -q '"admission_materialize_match_revalidated": true' "$_t94_tmp/mat-case.out" \
+  && grep -q '"mode": "pbi_live_shadow_materialization_inventory"' "$_t94_mat_inventory" \
+  && grep -q '"tracked_live_case_total": 1' "$_t94_mat_inventory" \
+  && grep -q '"evaluated_case_total": 1' "$_t94_mat_inventory" \
+  && grep -q '"observed_materialization_decisions"' "$_t94_mat_inventory" \
+  && grep -q '"create_new"' "$_t94_mat_inventory" \
+  && grep -q '"duplicate_false_positive_rate": 0.0' "$_t94_mat_inventory" \
+  && grep -q '"duplicate_false_negative_rate": null' "$_t94_mat_inventory" \
+  && grep -q '"materialization_decision_coverage_complete": false' "$_t94_mat_inventory" \
+  && grep -q '"runtime_execution_verified": false' "$_t94_mat_inventory" \
+  && grep -q '"quality_acceptance_decided": false' "$_t94_mat_inventory" \
+  && grep -q '"write_allowed": false' "$_t94_mat_inventory"; then
+  printf '  [PASS] live Materialization E2E: admitted case -> reviewed materialization -> inventory\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] live Materialization E2E failed (rc=%s)\n' "$_t94_mat_rc" >&2
+  for _t94_err in mat-capture.err mat-packet.err mat-admission-case.err mat-case.err mat-inventory.err; do
+    [ -f "$_t94_tmp/$_t94_err" ] && sed 's/^/    /' "$_t94_tmp/$_t94_err" >&2
+  done
   fail=$((fail + 1))
 fi
 
