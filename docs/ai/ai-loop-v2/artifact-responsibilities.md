@@ -176,9 +176,9 @@ read RunState (revision = N)
 **未定を「測れる」と書かない。** 上表の「未定」は #1285 の Acceptance Criteria が要求する記載であり、
 埋まっていないこと自体が Phase 1 への引き継ぎ事項である。
 
-## 7. 学習条件と Delivery Contract の接続
+## 7. Bounded Discovery / 学習条件と Delivery Contract の接続
 
-> North Star §1 が定義する **価値仮説 / 学習条件 / 観測条件 / Evidence の返却先** の**保持先**を定める。
+> North Star §1 / §2 が定義する **Goal / Problem / Requirement / Unknowns / Discovery Evidence / 価値仮説 / 学習条件 / 観測条件 / Evidence の返却先** の**保持先**を定める。
 > **新 artifact を増やさない**（North Star §19 Non-goals「Component を増やすこと自体」/ §12「Harness の進化を Component 数の増加と定義しない」/ [`phase0-migration.md`](./phase0-migration.md) §6 artifact budget）。
 
 ### 7-1. 保持先
@@ -189,10 +189,123 @@ read RunState (revision = N)
 
 | 概念                  | 保持先                                                                    | 根拠                                                                                                                                                                          |
 | --------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Goal / Actor / Problem / Job** | `pbi-input.md`（Context / Why） | Request の意味と問題設定を Plan 前に保持する。Actor / Job が無関係な technical maintenance では空欄を強制しない |
+| **Assumptions / Constraints / Unknowns** | `pbi-input.md` | Unknown を Requirement と混同せず、未確認のまま追跡可能にする |
+| **Discovery Evidence refs** | `pbi-input.md`（ref / provenance のみ） | raw transcript を保存せず、「なぜこの問題・要求を置いたか」を辿れる最小 provenance を保持する |
+| **Requirement mapping** | `pbi-input.md` の adaptive **Requirement Discovery Trace** | `pbi-input.md` を Requirement semantics の authority とするが、author は Human / AI のどちらでもよい。expanded discovery で material な場合に stable ID（例: `REQ-NNN`）で Goal / Problem / Evidence ref と AC を接続する。minimal depth では既存 Context / Why + Scope + AC + Unknowns で足りる |
+| **Plan decision / Task trace** | `plan.md` / `todo.md` / WorkItemGraph（使用時） | Plan / Task / Work Item は authoritative Requirement を再定義せず、既存 AC / Requirement ref を consume する。WorkItemGraph は既存 `acceptance_criteria_refs` を優先する |
+| **Verification trace** | `test-cases.md` | 既存 AC mapping / Verification Trace を正とし、必要な場合だけ Requirement ref を補助的に示す。新しい parallel trace system を作らない |
 | **価値仮説**          | `pbi-input.md`（Context / Why・Assumptions）                              | 既存節に自然に収まる。複数仮説を分離参照するなら**仮説 ID の採番**が要る（運用規約）                                                                                          |
 | **学習条件**          | `plan.md` の**新 subsection**（既存の Success Criteria とは**別に**置く） | North Star §1 は学習条件を受入基準と**別物**と定義している。既存 Success Criteria は「AC ↔ test case ID」の写像のみで、「何を・どの母集団で・どの水準で観測するか」を持てない |
 | **観測条件**          | `plan.md` の同 subsection                                                 | 既存 Verification Plan は **Harness 側 verifier の観測条件**であり、Product 側の母集団・観測期間・水準を書く場所が無い                                                        |
 | **Evidence の返却先** | `plan.md` の同 subsection（**識別子のみ**）                               | 詳細は 7-3                                                                                                                                                                    |
+
+Requirement candidate は Discovery 中の仮説であり、そのまま accepted Requirement ではない。AI は candidate / question / evidence gap の提案だけでなく、feedback / Evidence から `pbi-input.md` 自体を作成・更新してよい。ただし author identity を authority の根拠にしない。accepted Requirement は provenance / Evidence / uncertainty と適用 policy によって成立し、Human decision が必要な risk / conflict / semantic trade-off ではその判断を経る。Evidence 不足や競合が残る候補は Unknown / unresolved として保持する。Plan / Plan Verification は `pbi-input.md` の Requirement / AC と実行方針の整合を検証するのであって、Requirement semantics を推測で上書きしない。
+
+PBI provenance は少なくとも source kind / source ref または evidence ref / claim class / unresolved unknowns を辿れるようにする。raw transcript や hidden CoT の保存は要求しない。
+
+Material claim の最小語彙:
+
+| claim class | 意味 | 例 |
+| --- | --- | --- |
+| `observed` | artifact / measurement / verifier で直接確認した事実 | failing test、metric、existing behavior の実測 |
+| `reported` | Human / external source が述べた内容。独立検証済みとは限らない | user feedback、stakeholder statement、issue report |
+| `inferred` | source から AI / Human が導出した仮説・解釈 | cause hypothesis、problem hypothesis、requirement candidate の理由 |
+
+source kind は少なくとも `human_feedback / issue / run_evidence / failure_record / measurement / existing_behavior / external_source / policy` を区別できる記述にする。これは schema enum の新設要求ではなく、Phase 0 の文書契約である。
+
+**Circular provenance を禁止する。** `pbi-input.md` 自身、またはその PBI から downstream に生成した `plan.md` / review / summary を、同じ PBI の upstream Goal / Problem を独立に裏付ける Evidence として数えない。別 Agent が同じ source を要約しても Evidence independence は増えない。派生 artifact は original source ref を保持する。
+
+accepted Requirement は `acceptance basis` を持ち、少なくとも `evidence / explicit_decision / policy_rule` のどれで採用されたかを辿れるようにする。inferred-only の claim を observed fact として扱うことは禁止するが、低リスク領域で policy が許す Requirement decision まで Human 固定にはしない。
+
+#### Feedback-to-PBI admission / materialization
+
+Feedback / RunEvidence / Failure / operational observation を、すべて自動で PBI にすることを前提にしない。まず **Admission** を行い、その後に **Materialization** を行う。
+
+| 段階 | decision | 意味 / authority |
+| --- | --- | --- |
+| Admission | `materialize` | PBI work として Materialization へ進む |
+| Admission | `no_action` | PBI work を作らない proposal。source work の close / suppress authority は持たない |
+| Admission | `discover_more` | Bounded Discovery に戻して Evidence / uncertainty を減らす |
+| Materialization | `update_existing` / `link_only` / `create_new` | Admission 済み work を existing PBI / new PBI へ接続する |
+
+Admission decision は新しい Lifecycle State / Gate / authoritative artifact を要求しない。derived evaluation / projection として実装でき、`no_action` を source Issue/PBI の解決権限へ昇格させない。
+
+AI-generated PBI は create-first にしない。Admission が `materialize` の場合だけ、新規作成前に既存の open Issue / PBI を検索し、source refs と Goal / Problem / Requirement / AC の重なりを確認する。
+
+| decision | 条件 | 動作 |
+| --- | --- | --- |
+| `update_existing` | 同じ Problem / intended outcome で、既存 authority / binding を壊さず追記できる | existing PBI に provenance / Evidence / Unknowns を追記 |
+| `link_only` | 新しい Evidence はあるが Scope / Requirement / AC を変えない | related ref を追加し、新しい PBI は作らない |
+| `create_new` | Goal / Problem / Requirement / AC が material に異なる | 新規 PBI を作り、related / predecessor ref を残す |
+
+この判定は dedicated registry / Knowledge Graph を要求しない。Phase 0 は repository / Issue search と既存 refs でよい。LLM 類似判定だけで既存 PBI / Issue を auto-close / auto-merge しない。
+
+既存 PBI が Plan Package / approval と binding 済みの場合、Goal / Requirement / AC の semantic change は `update_existing` の名目で上書きしない。North Star §9 の Replan / Plan Verification / policy boundary を通す。
+
+#### Generated PBI application path
+
+PBI の authoring と current Run / Harness への適用 authority を分離する。
+
+2 軸を混ぜない。
+
+| axis | value | 意味 |
+| --- | --- | --- |
+| application timing | `follow_up` | future Run で扱う。current Run への影響なし |
+| application timing | `replan_current` | current delivery の Goal / Requirement / AC を変更。Replan + Plan Verification + Plan Gate |
+| target layer | `delivery` | product / delivery task の変更 |
+| target layer | `harness` | Harness / Skill / Agent / Flow / Verifier / Routing / Eval の改善 |
+
+`target layer = harness` は Active Run の Harness identity を変更できないため、application timing は `follow_up` 固定。`replan_current + harness` は invalid combination とする。
+
+source Run から生成した PBI は source run / failure / evidence refs を保持する。PBI を作成した事実そのものを current Run の成功 Evidence にしない。
+
+Harness-targeting PBI は draft 生成までは HarnessImprovementCandidate ref が無くてもよいが、**Plan / implementation readiness の前に** Candidate ref を必須とする。PBI は work packaging / execution planning の artifact であり、HarnessImprovementCandidate の `1 Candidate = 1 Hypothesis`、固定 evaluation plan、paired baseline、independent evaluator、Promotion boundary を代替しない。
+
+Traceability は意味の複製ではなく ref の接続で作る。最小経路は `Goal / Problem -> Requirement -> AC -> Plan decision / Task -> Test / Verifier Evidence` とし、既存の Current-Need Trace / AC mapping / Verification Trace / `acceptance_criteria_refs` を再利用する。Goal / Problem / Requirement の説明本文を `plan.md` / `todo.md` / WorkItemGraph にコピーせず、owner artifact を参照する。
+
+#### Shadow evaluation / write authority boundary
+
+PBI Admission / Materialization の shadow evaluation は **derived Evidence** であり、Requirement authority / approval authority / mutation authority ではない。
+
+```text
+review readiness
+  -> Human / policy review candidate
+
+review readiness
+  != quality acceptance
+  != write authorization
+```
+
+評価 report / inventory / quality summary は、case / Evidence から再導出できる projection とする。summary だけを新しい SSoT にしない。false-positive / false-negative / mismatch の分母が 0 の場合は「0%」と解釈せず、未観測を明示する。
+
+write-capable behavior を設計する場合も以下を分離する。
+
+| concern | owner / meaning |
+| --- | --- |
+| policy definition | 何を許容するかの規則。存在だけでは active ではない |
+| quality acceptance | live Evidence / review に基づく許容判断 |
+| rollout activation | policy version / content / decision を特定した activation |
+| mutation execution | exact target / proposal / concurrency / rollback-reconciliation 契約を持つ 1 mutation attempt |
+
+write path は source Evidence / oracle / approval / policy 自身を同じ attempt で自己変更しない。unknown provider result を success とみなしたり blind retry したりせず、reconciliation / escalation boundary を持つ。
+
+#### Live-shadow Evidence ownership
+
+live-shadow の実装で artifact を追加する場合も、意味上の owner を分離する。
+
+| evidence / projection | owner / boundary |
+| --- | --- |
+| upstream source | feedback / Issue / RunEvidence / Failure 等の元 Evidence。capture 自身を source にしない |
+| passive capture | 対象 run / source / head / time relation を後段で検証できる binding Evidence。PBI authority は持たない |
+| RunEvidence binding | source + capture が対象 run に属することを接続する既存 run Evidence |
+| blind review handoff | reviewer へ渡す projection。maker actual / expected decision を authority として持たせない |
+| reviewed oracle | reviewer / independent evaluator が与える expected。source evidence と混ぜず、maker actual を保存しない |
+| evaluation case / inventory | 上記 ref を束縛して再計算する derived Evidence。registry / lifecycle state / quality approval ではない |
+
+`synthetic_fixture / historical_replay / live_shadow` は Evidence class として混同しない。historical artifact を現在の live capture contract に後付け適合させても live observation にはしない。
+
+repository inventory は current artifact を再検証する read-only projection に留め、artifact の存在から runtime execution / source preexistence / reviewer identity / representative coverage を推測で昇格させない。
 
 **LoopContract 側は導出規則の追加のみ**とする（§2 のとおり LoopContract は Plan Package から導出される）。
 

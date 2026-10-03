@@ -63,7 +63,7 @@ PlanGate の価値は「AI を自由に走らせること」ではなく、**走
 ```
 Ready → In Progress
   → 0: Brainstorming 🤖👤（対話的な要件整理・設計書生成、任意）
-  → A: PBI INPUT PACKAGE作成 👤
+  → A: PBI INPUT PACKAGE作成 🤖/👤
   → B: Plan + ToDo + Test Cases同時生成 🤖
   → C-1: セルフレビュー 🤖（全25項目チェック）
   → C-2: 外部AIレビュー 🤖（専門エージェント経由）
@@ -86,7 +86,7 @@ Ready → In Progress
 | フェーズ | 成果物 | 作成者 |
 | --- | --- | --- |
 | 0: Brainstorming（任意） | pbi-input.md（対話で生成） | AI + 人間 |
-| A: PBI INPUT PACKAGE作成 | pbi-input.md | 人間 |
+| A: PBI INPUT PACKAGE作成 | pbi-input.md | AI / 人間（Evidence・provenance付き） |
 | B: Plan + ToDo + Test Cases生成 | plan.md + todo.md + test-cases.md | AI（Prompt 1） |
 | C-1: セルフレビュー | review-self.md（全25項目PASS/WARN/FAIL） | AI（Prompt 2） |
 | C-2: 外部AIレビュー | review-external.md（PASS/WARN/FAIL） | AI（専門エージェント経由） |
@@ -188,7 +188,7 @@ obra/superpowersから取り込んだ最上位ルール。違反したら即停�
 ```
 docs/working/
 └── TASK-{ticket-number}/
-    ├── pbi-input.md         # A: PBI INPUT PACKAGE（人間が作成）
+    ├── pbi-input.md         # A: PBI INPUT PACKAGE（AI / 人間が作成可能）
     ├── plan.md              # B: EXECUTION PLAN（Prompt 1で生成）
     ├── todo.md              # B: EXECUTION TODO（Prompt 1で生成）
     ├── test-cases.md        # B: テストケース定義（Prompt 1で生成）
@@ -289,7 +289,7 @@ exec完了時にconductorが自動収集し、status.mdに追記する。
 
 ```
 Prompt 1  Plan + ToDo + Test Cases生成
-  人間がPBI INPUT PACKAGEを渡す → Plan + ToDo + Test Casesを同時出力
+  PBI INPUT PACKAGE（AI / 人間が作成可能）を入力 → Plan + ToDo + Test Casesを同時出力
        ↓
 Prompt 2  Plan + ToDo + Test Casesレビュー（セルフレビュー）
   自動レビュー → PASS/WARN/FAIL判定（全25項目）
