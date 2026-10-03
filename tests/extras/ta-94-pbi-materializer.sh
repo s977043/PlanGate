@@ -757,7 +757,7 @@ if cmp -s "$_t94_agents_skill" "$_t94_codex_skill" \
   && grep -q 'materialization-inventory' "$_t94_agents_skill" \
   && grep -q '### 6.7 Live collection plan（read-only / non-quota）' "$_t94_agents_skill" \
   && grep -q 'collection-plan' "$_t94_agents_skill" \
-  && grep -q 'collection_coverage_basis = reviewed_expected_decisions' "$_t94_agents_skill" \
+  && grep -q 'coverage_gap_basis = reviewed_expected_decisions' "$_t94_agents_skill" \
   && grep -q 'maker_actual_counts_as_ground_truth_coverage = false' "$_t94_agents_skill" \
   && grep -q 'signal が無い run にダミー signal / capture を作ってはならない' "$_t94_agents_skill" \
   && grep -q '## Step 6: RunEvidence + passive PBI live-shadow capture' "$_t94_claude_skill" \
@@ -1250,8 +1250,8 @@ materialize = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"))
 assert no_action["mode"] == "pbi_live_shadow_collection_plan"
 assert materialize["mode"] == "pbi_live_shadow_collection_plan"
 
-assert no_action["collection_target_count"] == 5
-assert materialize["collection_target_count"] == 4
+assert no_action["observation_gap_count"] == 5
+assert materialize["observation_gap_count"] == 4
 
 for plan in (no_action, materialize):
     boundary = plan["policy_boundary"]
@@ -1262,9 +1262,9 @@ for plan in (no_action, materialize):
     assert boundary["source_kind_coverage_requirement_defined"] is False
     assert boundary["representative_coverage_claim_allowed"] is False
     assert boundary["coverage_complete_implies_representative"] is False
-    assert boundary["collection_target_is_quota"] is False
-    assert boundary["collection_target_is_case_generation_instruction"] is False
-    assert boundary["collection_coverage_basis"] == "reviewed_expected_decisions"
+    assert boundary["observation_gap_is_quota"] is False
+    assert boundary["observation_gap_is_case_generation_instruction"] is False
+    assert boundary["coverage_gap_basis"] == "reviewed_expected_decisions"
     assert boundary["maker_actual_counts_as_ground_truth_coverage"] is False
     assert boundary["runtime_execution_verified"] is False
     assert boundary["quality_acceptance_decided"] is False
@@ -1281,7 +1281,7 @@ assert (
 )
 assert all(
     not item["currently_collectable"]
-    for item in no_action["collection_targets"]
+    for item in no_action["observation_gaps"]
     if item["stage"] == "materialization"
 )
 
@@ -1295,7 +1295,7 @@ assert (
 )
 assert all(
     item["currently_collectable"]
-    for item in materialize["collection_targets"]
+    for item in materialize["observation_gaps"]
     if item["stage"] == "materialization"
 )
 PY
