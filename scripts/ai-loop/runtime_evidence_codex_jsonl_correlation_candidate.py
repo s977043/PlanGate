@@ -84,11 +84,32 @@ def _validate_binding(
     return errors
 
 
-def _load_json_object(path: pathlib.Path, *, label: str) -> dict[str, Any]:
+def _load_json_object(
+    path: pathlib.Path,
+    *,
+    label: str,
+    repo_root: pathlib.Path,
+) -> dict[str, Any]:
+    root = repo_root.resolve()
+    if not root.is_dir():
+        raise CodexJsonlCorrelationError(
+            ["repo_root: existing directory required"]
+        )
     if not path.is_file() or path.is_symlink():
         raise CodexJsonlCorrelationError(
             [f"{label}: regular non-symlink file required"]
         )
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(root)
+        inside_repo = True
+    except ValueError:
+        inside_repo = False
+    if inside_repo:
+        raise CodexJsonlCorrelationError(
+            [f"{label}: runtime correlation input must stay outside repository"]
+        )
+
     try:
         raw = path.read_bytes()
     except OSError as exc:
@@ -397,6 +418,7 @@ def main(argv=None) -> int:
         candidate = _load_json_object(
             pathlib.Path(args.hook_candidate),
             label="hook_candidate",
+            repo_root=pathlib.Path(args.repo_root),
         )
         result = correlate_candidate(
             repo_root=args.repo_root,
