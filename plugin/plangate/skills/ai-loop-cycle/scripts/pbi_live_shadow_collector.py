@@ -1751,15 +1751,51 @@ def assess_live_shadow_completion(
     quality_ref = context.get("quality_review_ref")
     isolated_ref = context.get("isolated_generalization_review_ref")
 
-    if not isinstance(representative_ref, str) or not representative_ref.strip():
+    review_artifacts: dict[str, Any] = {}
+
+    def bind_review_ref(field: str, ref: Any) -> bool:
+        if not isinstance(ref, str) or not ref.strip():
+            return False
+        try:
+            path = _require_safe_repo_file(
+                repo_root.resolve(),
+                ref.strip(),
+                f"completion_context.{field}",
+            )
+        except CollectorError as exc:
+            review_blockers.append(
+                f"{field}_invalid:{exc}"
+            )
+            return False
+        review_artifacts[field] = {
+            "ref": ref.strip(),
+            "sha256": _file_sha256(path),
+            "semantic_content_verified": False,
+            "reviewer_identity_verified": False,
+            "independence_verified": False,
+        }
+        return True
+
+    representative_bound = bind_review_ref(
+        "representative_live_evidence_review_ref",
+        representative_ref,
+    )
+    quality_bound = bind_review_ref(
+        "quality_review_ref",
+        quality_ref,
+    )
+    isolated_bound = bind_review_ref(
+        "isolated_generalization_review_ref",
+        isolated_ref,
+    ) if context["generalization_claim_required"] else False
+
+    if not representative_bound:
         review_blockers.append(
             "representative_live_evidence_review_not_provided"
         )
-    if not isinstance(quality_ref, str) or not quality_ref.strip():
+    if not quality_bound:
         review_blockers.append("live_quality_review_not_provided")
-    if context["generalization_claim_required"] and (
-        not isinstance(isolated_ref, str) or not isolated_ref.strip()
-    ):
+    if context["generalization_claim_required"] and not isolated_bound:
         review_blockers.append("isolated_generalization_review_not_provided")
 
     blockers = (
@@ -1792,6 +1828,7 @@ def assess_live_shadow_completion(
             "rollout_complete": False,
             "automatic_write_activation_allowed": False,
         },
+        "review_artifacts": review_artifacts,
         "caller_assertions": {
             "latest_full_test_green": context["latest_full_test_green"],
             "design_dependency_finalized": context[
@@ -1839,6 +1876,8 @@ def assess_live_shadow_completion(
             "representative_coverage_verified": False,
             "quality_acceptance_verified": False,
             "reviewer_identity_verified": False,
+            "review_artifact_content_semantically_verified": False,
+            "review_artifact_repository_binding_enforced": True,
             "generalization_isolation_verified": False,
         },
         "policy_boundary": {
