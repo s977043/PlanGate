@@ -750,6 +750,46 @@ dispatch_allowed = false
 
 A future promotion requires an independently trustworthy shared join key or capture root; structural completion alone is not same-run proof.
 
+
+### 7.5 Codex exec JSONL thread correlation candidate
+
+#1461 correlates the #1456 Explorer lifecycle-hook candidate with the public `codex exec --json` thread/turn envelope.
+
+The public exec JSONL currently provides a stable `thread.started.thread_id`, but `turn.started` has no turn identifier and the public ThreadItem union has no subagent identity item. Therefore the strongest current deterministic correlation is:
+
+```text
+hook.session_id == exec.thread.started.thread_id
+```
+
+together with a single successful turn envelope.
+
+The resulting trust state is intentionally split:
+
+```text
+exec_jsonl_structure_verified = true
+thread_id_correlation_verified = true
+single_turn_envelope_verified = true
+
+turn_id_correlation_verified = false
+subagent_identity_correlation_verified = false
+
+command_execution_read_only_verified = false
+mcp_tool_read_only_verified = false
+repository_postcondition_verified = false
+
+codex_jsonl_runtime_correlation_verified = false
+hard_read_only_enforced = false
+runtime_probe_attestation_verified = false
+dispatch_ready = false
+dispatch_allowed = false
+```
+
+The correlation layer also rejects explicit `file_change`, `web_search`, and `error` items, but their absence is not proof that shell commands or MCP calls were read-only. Repository postconditions require a separate verifier.
+
+Raw exec JSONL may include reasoning summaries, agent messages, commands, arguments, and outputs. The correlation result therefore persists only opaque identifiers, counts, booleans, and the content hash; raw traces remain outside the repository.
+
+A future promotion requires a runtime surface that independently exposes the exact turn/subagent identity (or an equivalent signed execution relation), plus independently verified read-only enforcement and repository postconditions.
+
 ## 8. Relationship to existing V2 boundaries
 
 This proposal must not change the following existing contracts:
