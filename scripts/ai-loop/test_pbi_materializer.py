@@ -770,6 +770,19 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
         self.assertTrue(
             report["evaluation_contract"]["source_oracle_artifact_separation_enforced"]
         )
+        self.assertTrue(
+            report["evaluation_contract"]["live_shadow_capture_metadata_enforced"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["live_shadow_label_alone_sufficient"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["runtime_head_binding_verified"]
+        )
+        self.assertEqual(
+            report["evaluation_contract"]["runtime_head_binding_owner"],
+            "caller_or_runtime_capture",
+        )
         self.assertFalse(
             report["evaluation_contract"]["oracle_independence_enforced"]
         )
@@ -1011,6 +1024,15 @@ class AdmissionBatchEvaluationTests(unittest.TestCase):
     def test_admission_batch_keeps_oracle_independence_unproven(self):
         case = self._case("test-oracle", "test", "no_action")
         report = pm.evaluate_admission_batch([case])
+        self.assertTrue(
+            report["evaluation_contract"]["live_shadow_capture_metadata_enforced"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["live_shadow_label_alone_sufficient"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["runtime_head_binding_verified"]
+        )
         self.assertFalse(
             report["evaluation_contract"]["oracle_independence_enforced"]
         )
@@ -1020,6 +1042,80 @@ class AdmissionBatchEvaluationTests(unittest.TestCase):
         self.assertFalse(
             report["evaluation_contract"]["generalization_claim_allowed"]
         )
+
+
+class LiveShadowCaptureContractTests(unittest.TestCase):
+    def setUp(self):
+        self.ref = (
+            "docs/working/ai-loop-runs/"
+            "20260707T055726Z-7703b50-run006-final.json"
+        )
+
+    def _capture(self, **overrides):
+        capture = {
+            "capture_mode": "passive_shadow",
+            "captured_at": "2026-10-03T12:45:00+09:00",
+            "runtime_head_sha": "a" * 40,
+            "capture_ref": self.ref,
+        }
+        capture.update(overrides)
+        return capture
+
+    def test_live_shadow_requires_capture_metadata(self):
+        errors = pm._validate_live_shadow_capture(
+            {"evidence_class": "live_shadow"},
+            "case",
+            [self.ref],
+        )
+        self.assertTrue(any("object required" in e for e in errors))
+
+    def test_live_shadow_capture_contract_shape_is_valid(self):
+        errors = pm._validate_live_shadow_capture(
+            {
+                "evidence_class": "live_shadow",
+                "live_capture": self._capture(),
+            },
+            "case",
+            [self.ref],
+        )
+        self.assertEqual(errors, [])
+
+    def test_live_shadow_capture_ref_must_be_in_evidence_refs(self):
+        errors = pm._validate_live_shadow_capture(
+            {
+                "evidence_class": "live_shadow",
+                "live_capture": self._capture(),
+            },
+            "case",
+            [],
+        )
+        self.assertTrue(any("must also appear in evidence_refs" in e for e in errors))
+
+    def test_live_shadow_requires_timezone_aware_timestamp_and_sha(self):
+        errors = pm._validate_live_shadow_capture(
+            {
+                "evidence_class": "live_shadow",
+                "live_capture": self._capture(
+                    captured_at="2026-10-03T12:45:00",
+                    runtime_head_sha="ABC",
+                ),
+            },
+            "case",
+            [self.ref],
+        )
+        self.assertTrue(any("RFC3339" in e for e in errors))
+        self.assertTrue(any("40 lowercase hex" in e for e in errors))
+
+    def test_live_capture_metadata_is_rejected_for_historical_replay(self):
+        errors = pm._validate_live_shadow_capture(
+            {
+                "evidence_class": "historical_replay",
+                "live_capture": self._capture(),
+            },
+            "case",
+            [self.ref],
+        )
+        self.assertTrue(any("only valid when evidence_class=live_shadow" in e for e in errors))
 
 
 class DeterminismAndSearchTests(unittest.TestCase):
