@@ -252,6 +252,74 @@ feedback: <1〜3文>
   （false-fail 連鎖を人間が判断可能にする）
 - grader 出力は decision record と同様、run 記録へ全文貼付する（監査可能性）
 
+## Step 6: RunEvidence + passive PBI live-shadow capture（shadow-only）
+
+terminal run（`MERGE_READY | HUMAN_ESCALATED | BLOCKED`）の Evidence 発行時に、
+**repository-visible な observed signal が実際に存在する場合だけ** passive capture を追加してよい。
+signal が無い run にダミー signal / capture を作ってはならない。
+
+```text
+observed repository source
+        ↓
+normalized admission signal
+        ↓
+scripts/ai-loop/pbi_materializer.py --capture-signal
+        ↓
+passive capture artifact
+        ↓
+scripts/ai-loop/run_evidence.py --evidence-ref <source_ref> --evidence-ref <capture_ref>
+        ↓
+RunEvidence
+        ↓
+independent review / live-shadow evaluation
+```
+
+### 6.1 capture（RunEvidence finalize 前）
+
+`pbi_materializer.py --capture-signal` は stdout-only。保存先は呼び出し側が repo 相対 path として決める。
+`captured_at` は run の `started_at..completed_at` 内、`runtime_head_sha` は後続 RunEvidence の
+`final_head_sha` と一致させる。
+
+```sh
+python3 scripts/ai-loop/pbi_materializer.py \
+  --capture-signal "<normalized-signal.json>" \
+  --capture-task-id "TASK-XXXX" \
+  --capture-run-id "<run-id>" \
+  --captured-at "<timezone-aware RFC3339>" \
+  --runtime-head-sha "<40-hex HEAD>" \
+  --capture-ref "<repo-relative capture artifact ref>" \
+  --format json \
+  > "<capture artifact path>"
+```
+
+normalized signal の `source_ref` は capture artifact 自身ではなく、実在する upstream source
+（feedback / Issue / delivery record / failure evidence 等）を指すこと。raw transcript /
+hidden CoT を signal に入れない。
+
+### 6.2 RunEvidence へ束縛
+
+通常の `scripts/ai-loop/run_evidence.py` 呼び出しに、upstream source と capture artifact の 2 ref を
+`--evidence-ref` で追加する。
+
+```text
+--evidence-ref <signal.source_ref>
+--evidence-ref <capture_ref>
+```
+
+既存 RunEvidence producer / verifier の terminal-state・schema・privacy 契約は変更しない。
+capture のために terminal decision / final_head_sha / completed_at を書き換えてはならない。
+
+### 6.3 capture 後の扱い
+
+- capture 成功だけでは `live_shadow` 評価成立ではない。RunEvidence 保存後に
+  `capture_ref + run_evidence_ref` binding 検証が必要。
+- oracle / expected decision は capture agent が自動付与せず、独立 reviewer / evaluator の
+  review artifact を後段で接続する。
+- capture 失敗は既存 terminal decision を変更しないが、**live-shadow evidence として数えない**。
+- historical/synthetic case を live と再ラベルしない。
+- `no_action` は source Issue/PBI を close / suppress する authority を持たない。
+- 本 Step は shadow Evidence 収集のみで、PBI write / close / merge / Harness live mutation を行わない。
+
 ## 禁止事項
 
 - lite 宣言の虚偽（判定不能を `true` 側に倒す）
