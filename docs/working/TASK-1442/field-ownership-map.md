@@ -21,7 +21,7 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | PBI author | owned metadata | `pbi-input.md` | human / ai / mixed。trust scoreには使わない |
 | claim class | owned metadata | `pbi-input.md` | observed / reported / inferred を保持し、昇格させない |
 | source/origin refs | referenced | source artifact / external source | PBIにrefのみ保持。raw transcriptは保存しない |
-| Requirement acceptance basis | owned metadata | `pbi-input.md` | evidence / explicit_decision / policy_rule |
+| Requirement acceptance basis | owned metadata | `pbi-input.md` | evidence / explicit_decision / policy_rule。explicit_decision は decision_log provenance、policy_rule は policy provenance の実 ref を必須とする |
 | Issue/PBI similarity | derived | materializer | exact/canonical factsのみ。LLM fuzzy similarityはauthorityにしない |
 | materialization decision | derived | materializer | update_existing / link_only / create_new |
 | shadow expectation | referenced evaluation evidence | reviewed external expectation | decision/readiness comparison only。PBI/Run/Harness authorityを持たない |
@@ -33,7 +33,7 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | HarnessManifest identity | referenced / forbidden-to-mutate | ai-loop V2 runtime | active Run中は変更しない |
 | HarnessImprovementCandidate | referenced | #869 / Evolution contract | harness draft時pending可、Plan/readiness前にref必須 |
 | RunEvidence / FailureRecord | referenced evidence | V2 event projection / failure contract | source ref と claim class を保持。唯一のPBI authorityにはしない |
-| decision-log | referenced decision | existing task decision log | explicit_decision の basis ref に利用可 |
+| decision-log | referenced decision | existing task decision log | `source_kind=decision_log` として explicit_decision の basis ref に利用。自由記述 ref のみでは authority を成立させない |
 | hidden CoT / raw transcript / session log | forbidden | — | 入力/出力の保存を拒否 |
 | GitHub Issue close/merge | forbidden action | GitHub / Human policy | materializerは実行しない |
 | Production Harness promotion | forbidden action | Human-owned boundary | materializerは実行しない |
@@ -46,6 +46,17 @@ Phase 1 first slice は2入力を許す。
 2. **local working-tree scan** — `docs/working/TASK-*/pbi-input.md` をread-onlyでexact/canonical matchする。
 
 Malformed adapter input は fail-closed。検索結果を黙って捨てて `create_new` に倒さない。
+
+## Acceptance authority boundary
+
+Requirement acceptance は author の自己申告では成立しない。
+
+- `acceptance_basis=evidence`: basis ref が material claim の source/origin に存在し、inferred-only ではない。
+- `acceptance_basis=explicit_decision`: basis ref が `source_kind=decision_log` provenance に存在する。
+- `acceptance_basis=policy_rule`: basis ref が `source_kind=policy` provenance に存在する。
+- 存在しない decision / policy ref を自由記述で置くだけの入力は fail-closed。
+
+これにより AI-generated PBI は作成可能だが、Requirement の accepted status を架空の authority で自己付与できない。
 
 ## Application axes
 
