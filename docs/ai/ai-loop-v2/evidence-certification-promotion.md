@@ -11,7 +11,7 @@ AI can produce code changes faster than a Human can review every diff in depth. 
 ai-loop V2 already has the core primitives needed for this:
 
 - `VerificationResult`: immutable verifier output bound to the verified target;
-- `RunEvidence`: deterministic per-Run projection;
+- `RunEvidence`: deterministic per-Run projection used for audit / learning / later evidence composition;
 - Policy Verdict: `AUTO_APPROVED | HUMAN_REQUIRED | DENIED`;
 - `PromotionDecision` for Harness Evolution;
 - Human-owned C-4 / Merge / Production Harness promotion;
@@ -42,10 +42,10 @@ Anthropic's `Certificate` maps to a non-authoritative **Certification View**.
 
 ```text
 Target / Contract
+  + RunState / run binding
   + VerificationResult[]
-  + RunEvidence
-  + identity bindings
   + policy-required evidence
+  + eligible external evidence refs
       |
       v
 Certification View (projection only)
@@ -95,7 +95,7 @@ A future implementation should remain mechanically simple:
 ```text
 1. resolve exact target identity
 2. resolve existing policy identity + required evidence set
-3. collect referenced VerificationResult / RunEvidence / external evidence
+3. collect referenced VerificationResult / current run binding / eligible external evidence
 4. discard or mark gaps for evidence that is not eligible for this target
 5. project satisfied claims + unresolved / missing claims + provenance refs
 6. existing Policy / Decision boundary consumes the projection as input
@@ -117,12 +117,37 @@ A Certification View should project at least the following concerns when they ar
 | security / policy | security verifier / policy evidence |
 | E2E / runtime behavior | bound verifier evidence / external observation |
 | independent review | independent reviewer or River Review evidence |
-| Run-level provenance | `RunEvidence` / RunEvent projection |
+| current Run identity / state binding | `RunState` + existing run binding |
+| completed / historical Run provenance | `RunEvidence` / RunEvent projection |
 | Plan / source identity | existing plan hash / source SHA / final head SHA |
 | Harness identity | `harness_manifest_ref` |
 | Evolution evaluation | `HarnessExperimentResult` + `PromotionDecision` |
 
-### 3.1 Required-evidence ownership
+### 3.1 Active decision vs audit projection
+
+Certification used **during an active Delivery decision** must not require terminal `RunEvidence` as an input to the same decision.
+
+```text
+active decision:
+LoopContract + RunState/binding + VerificationResult[] + policy requirements
+  -> Certification View
+  -> existing Decision Engine / Policy
+  -> RunEvent
+  -> RunEvidence projection
+```
+
+Using a RunEvidence projection that already contains the decision being made as an upstream authority would create circular justification.
+
+`RunEvidence` is still useful for:
+
+- Human-facing post-run audit;
+- Evolution input;
+- later cross-run analysis;
+- reconstructing which evidence and decisions occurred.
+
+If an implementation exposes a partial/current RunEvidence projection, it remains a derived convenience view. The current decision must still be justified by the underlying binding / VerificationResult / policy inputs, not by the projection's own summary.
+
+### 3.2 Required-evidence ownership
 
 The **required evidence set is a policy input**, not Builder output.
 
@@ -462,9 +487,8 @@ The first executable Certification slice should therefore be a **pure projection
 ```text
 composeCertification(
   loopContract,
-  runBinding,
+  runStateOrBinding,
   verificationResults,
-  runEvidence,
   policyRequirements,
   externalEvidenceRefs
 ) -> human/machine-readable projection
@@ -478,7 +502,8 @@ The exact function / field names are illustrative and non-normative. The impleme
 - unknown / missing required input stays unresolved rather than defaulting to PASS;
 - no Policy Verdict / Terminal Outcome generation;
 - no merge / approval / PromotionDecision side effect;
-- output carries refs back to the authoritative source records rather than copying unbounded evidence bodies.
+- output carries refs back to the authoritative source records rather than copying unbounded evidence bodies;
+- active Delivery composition does not use its own downstream RunEvidence / decision summary as authority.
 
 This gives a small first vertical slice that can be shadow-evaluated before any routing behavior changes.
 
