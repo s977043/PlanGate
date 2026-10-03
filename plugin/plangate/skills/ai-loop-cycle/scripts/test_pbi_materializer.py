@@ -150,6 +150,7 @@ class MaterializationFixtures(unittest.TestCase):
         payload["requirements"][0]["basis_ref"] = "decision:D-1"
         result = pm.materialize(payload, [])
         self.assertIn("inferred", result["pbi_markdown"])
+        self.assertIn("Agent B infers the root cause from Agent A summary", result["pbi_markdown"])
         self.assertIn("| agent-summary:B | run-evidence:001 |", result["pbi_markdown"])
 
     def test_05b_inferred_only_source_cannot_be_evidence_acceptance_basis(self):
@@ -324,6 +325,15 @@ class ExistingWorkValidationTests(unittest.TestCase):
         with self.assertRaises(pm.MaterializationError) as ctx:
             pm.materialize(_payload(), [a, b])
         self.assertTrue(any("ambiguous top match" in e for e in ctx.exception.errors))
+
+
+class RenderingIntegrityTests(unittest.TestCase):
+    def test_provenance_table_escapes_pipe_and_newline_without_losing_claim(self):
+        payload = _payload()
+        payload["claims"][0]["text"] = "failure | repeated\nsecond line"
+        result = pm.materialize(payload, [])
+        self.assertIn("failure \\| repeated<br>second line", result["pbi_markdown"])
+        self.assertIn("CLM-001", result["pbi_markdown"])
 
 
 class DeterminismAndSearchTests(unittest.TestCase):
