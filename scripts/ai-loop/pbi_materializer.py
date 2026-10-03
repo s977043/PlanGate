@@ -384,6 +384,24 @@ def _validate_live_run_binding(
             errors.append(
                 "live_binding.capture.signal.source_ref: upstream source must be included in RunEvidence evidence_refs"
             )
+        if isinstance(source_ref, str):
+            source_path, _source_fragment, source_errors = _resolve_repo_authority_ref(
+                source_ref,
+                authority_root,
+            )
+            errors.extend(
+                f"live_binding.capture.signal.source_ref: {error}"
+                for error in source_errors
+            )
+            if source_path is not None:
+                if capture_path is not None and source_path == capture_path:
+                    errors.append(
+                        "live_binding.capture.signal.source_ref: upstream source must be distinct from capture artifact"
+                    )
+                if ev_path is not None and source_path == ev_path:
+                    errors.append(
+                        "live_binding.capture.signal.source_ref: upstream source must be distinct from RunEvidence artifact"
+                    )
         if signal_hash != _canonical_json_hash(signal):
             errors.append("live_binding.capture.signal_hash: mismatch")
 
@@ -1705,6 +1723,8 @@ def evaluate_shadow_batch(
             "live_shadow_run_evidence_binding_enforced": True,
             "run_evidence_schema_revalidated": True,
             "runtime_head_to_run_evidence_binding_enforced": True,
+            "upstream_source_repository_visibility_enforced": True,
+            "source_capture_run_evidence_separation_enforced": True,
             "run_evidence_task_binding_reverified": False,
             "run_evidence_task_binding_owner": "caller_or_run_evidence_verifier",
             "oracle_independence_enforced": False,
@@ -1977,6 +1997,8 @@ def evaluate_admission_batch(
             "live_shadow_run_evidence_binding_enforced": True,
             "run_evidence_schema_revalidated": True,
             "runtime_head_to_run_evidence_binding_enforced": True,
+            "upstream_source_repository_visibility_enforced": True,
+            "source_capture_run_evidence_separation_enforced": True,
             "run_evidence_task_binding_reverified": False,
             "run_evidence_task_binding_owner": "caller_or_run_evidence_verifier",
             "oracle_independence_enforced": False,
