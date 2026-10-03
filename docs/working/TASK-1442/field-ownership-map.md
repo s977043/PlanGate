@@ -400,3 +400,97 @@ quality_acceptance_owner = human_or_rollout_policy
 
 `write_review_ready=true` は「Human review に必要な Evidence が揃った」という意味に限定し、FP/FN や mismatch の許容可否を自動判定しない。  
 実 live-shadow data が存在しない間、#1442 の false-positive / false-negative / mismatch review AC は未完了のまま維持する。
+
+
+## Live-shadow collector boundary
+
+実 run の Evidence 保存は `pbi_materializer.py` ではなく、
+`pbi_live_shadow_collector.py` が担当する。
+
+保存可能 namespace:
+
+```text
+docs/working/TASK-XXXX/evidence/pbi-live-shadow/**
+```
+
+### Write semantics
+
+```text
+missing artifact
+  -> atomic create
+
+existing + byte-identical canonical JSON
+  -> idempotent reuse
+
+existing + different content
+  -> fail closed
+
+existing symlink / non-regular file
+  -> fail closed
+```
+
+```text
+overwrite_allowed = false
+idempotent_reuse_allowed = true
+```
+
+親 directory fd を開いた後は temp create / hard-link / fsync を同じ dir-fd に束縛し、
+事前 symlink 検査だけに依存しない。
+
+### Blind review packet
+
+collector の packet は maker の actual admission decision を保存しない。
+
+```text
+packet_blind_to_actual = true
+actual_decision_disclosed = false
+normalized_disposition_disclosed = false
+oracle_attached = false
+expected_decision_attached = false
+```
+
+ただし capture artifact 自体へのアクセス隔離までは collector が保証しない:
+
+```text
+capture_signal_blinding_enforced = false
+oracle_independence_owner = caller_or_independent_reviewer
+```
+
+### Oracle attachment
+
+oracle は collector が生成しない。別 reviewer / caller が repository-visible artifact として作り、
+次を束縛する:
+
+- exact blind packet ref + canonical hash
+- exact upstream source ref + byte SHA-256
+- expected admission decision
+- `independent_review_asserted=true`
+- `maker_actual_not_consulted_asserted=true`
+
+collector は assertion の存在を検証するが reviewer identity / authorship independence を証明しない。
+
+reviewed case では:
+
+```text
+evidence_refs[] =
+  source_ref
+  capture_ref
+  run_evidence_ref
+  packet_ref
+
+expected.oracle_ref =
+  oracle_ref
+```
+
+とし、oracle を source evidence に混ぜない。
+
+### Rollout accounting
+
+TA-94 の collector E2E は wiring / executable-path Evidence であり、
+**real live-shadow rollout case として数えない**。
+
+```text
+synthetic collector E2E != real live observation
+```
+
+#1442 の live-shadow / FP-FN / mismatch rollout AC は実 run 由来 artifact が収集されるまで open のまま維持する。
