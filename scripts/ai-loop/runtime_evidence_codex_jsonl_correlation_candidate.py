@@ -204,12 +204,12 @@ def summarize_codex_jsonl(
         )
 
     try:
-        size = source.stat().st_size
+        raw = source.read_bytes()
     except OSError as exc:
         raise CodexJsonlCorrelationError(
-            [f"codex_jsonl: cannot stat: {exc}"]
+            [f"codex_jsonl: cannot read: {exc}"]
         ) from exc
-    if size > MAX_JSONL_BYTES:
+    if len(raw) > MAX_JSONL_BYTES:
         raise CodexJsonlCorrelationError(
             ["codex_jsonl: exceeds 2 MiB limit"]
         )
@@ -221,75 +221,68 @@ def summarize_codex_jsonl(
     item_ids: list[str] = []
     errors: list[str] = []
 
-    try:
-        with source.open("rb") as handle:
-            for line_number, raw_line in enumerate(handle, start=1):
-                if not raw_line.strip():
-                    continue
-                if records >= MAX_JSONL_RECORDS:
-                    errors.append("codex_jsonl: record count exceeds limit")
-                    break
-                if len(raw_line) > MAX_LINE_BYTES:
-                    errors.append(
-                        f"codex_jsonl line {line_number}: exceeds 256 KiB limit"
-                    )
-                    break
+    for line_number, raw_line in enumerate(raw.splitlines(keepends=True), start=1):
+        if not raw_line.strip():
+            continue
+        if records >= MAX_JSONL_RECORDS:
+            errors.append("codex_jsonl: record count exceeds limit")
+            break
+        if len(raw_line) > MAX_LINE_BYTES:
+            errors.append(
+                f"codex_jsonl line {line_number}: exceeds 256 KiB limit"
+            )
+            break
 
-                records += 1
-                try:
-                    value = json.loads(raw_line.decode("utf-8"))
-                except (UnicodeDecodeError, json.JSONDecodeError):
-                    errors.append(
-                        f"codex_jsonl line {line_number}: invalid JSON"
-                    )
-                    continue
-                if not isinstance(value, dict):
-                    errors.append(
-                        f"codex_jsonl line {line_number}: object required"
-                    )
-                    continue
+        records += 1
+        try:
+            value = json.loads(raw_line.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            errors.append(
+                f"codex_jsonl line {line_number}: invalid JSON"
+            )
+            continue
+        if not isinstance(value, dict):
+            errors.append(
+                f"codex_jsonl line {line_number}: object required"
+            )
+            continue
 
-                event_type = value.get("type")
-                if not isinstance(event_type, str) or len(event_type) > 128:
-                    errors.append(
-                        f"codex_jsonl line {line_number}: bounded type required"
-                    )
-                    continue
+        event_type = value.get("type")
+        if not isinstance(event_type, str) or len(event_type) > 128:
+            errors.append(
+                f"codex_jsonl line {line_number}: bounded type required"
+            )
+            continue
 
-                if event_type != "item.completed":
-                    continue
+        if event_type != "item.completed":
+            continue
 
-                item = value.get("item")
-                if not isinstance(item, dict):
-                    errors.append(
-                        f"codex_jsonl line {line_number}: item object required"
-                    )
-                    continue
+        item = value.get("item")
+        if not isinstance(item, dict):
+            errors.append(
+                f"codex_jsonl line {line_number}: item object required"
+            )
+            continue
 
-                item_id = item.get("id")
-                item_type = item.get("type")
-                if not isinstance(item_id, str) or not ID_RE.fullmatch(item_id):
-                    errors.append(
-                        f"codex_jsonl line {line_number}: bounded item.id required"
-                    )
-                    continue
-                if not isinstance(item_type, str) or len(item_type) > 128:
-                    errors.append(
-                        f"codex_jsonl line {line_number}: bounded item.type required"
-                    )
-                    continue
+        item_id = item.get("id")
+        item_type = item.get("type")
+        if not isinstance(item_id, str) or not ID_RE.fullmatch(item_id):
+            errors.append(
+                f"codex_jsonl line {line_number}: bounded item.id required"
+            )
+            continue
+        if not isinstance(item_type, str) or len(item_type) > 128:
+            errors.append(
+                f"codex_jsonl line {line_number}: bounded item.type required"
+            )
+            continue
 
-                completed_items += 1
-                item_ids.append(item_id)
-                if item_type in recognized_counts:
-                    recognized_counts[item_type] += 1
-                else:
-                    unrecognized_item_type_count += 1
-    except OSError as exc:
-        raise CodexJsonlCorrelationError(
-            [f"codex_jsonl: cannot read: {exc}"]
-        ) from exc
-
+        completed_items += 1
+        item_ids.append(item_id)
+        if item_type in recognized_counts:
+            recognized_counts[item_type] += 1
+        else:
+            unrecognized_item_type_count += 1
     if records == 0:
         errors.append("codex_jsonl: at least one record required")
     if completed_items == 0:
@@ -302,7 +295,6 @@ def summarize_codex_jsonl(
     if errors:
         raise CodexJsonlCorrelationError(errors)
 
-    raw = source.read_bytes()
     return {
         "jsonl_sha256": _sha256_bytes(raw),
         "jsonl_bytes": len(raw),
