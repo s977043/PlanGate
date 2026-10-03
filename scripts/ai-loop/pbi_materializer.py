@@ -64,6 +64,8 @@ VALID_DECISIONS = {"update_existing", "link_only", "create_new"}
 VALID_READINESS_STATUSES = {"ready", "blocked"}
 VALID_EVAL_SPLITS = {"train", "test"}
 VALID_EVIDENCE_CLASSES = {"synthetic_fixture", "historical_replay", "live_shadow"}
+VALID_ADMISSION_DECISIONS = {"materialize", "no_action", "discover_more"}
+VALID_SIGNAL_DISPOSITIONS = {"actionable", "resolved", "informational", "ambiguous"}
 VALID_READINESS_ROUTES = {
     "future_run",
     "replan_current",
@@ -334,6 +336,105 @@ def _verify_acceptance_authority_ref(
     else:
         return [f"authority_ref: unsupported acceptance authority kind: {source_kind!r}"]
     return []
+
+
+def validate_admission_signal(signal: Any) -> list[str]:
+    """Validate a normalized delivery signal before PBI materialization."""
+    errors: list[str] = []
+    if not isinstance(signal, dict):
+        return ["admission_signal: object required"]
+
+    for field in ("signal_id", "source_ref", "statement"):
+        if not isinstance(signal.get(field), str) or not signal.get(field, "").strip():
+            errors.append(f"admission_signal.{field}: non-empty string required")
+
+    source_kind = signal.get("source_kind")
+    if source_kind not in VALID_SOURCE_KINDS:
+        errors.append(
+            f"admission_signal.source_kind: one of {sorted(VALID_SOURCE_KINDS)} required"
+        )
+
+    claim_class = signal.get("claim_class")
+    if claim_class not in VALID_CLAIM_CLASSES:
+        errors.append(
+            f"admission_signal.claim_class: one of {sorted(VALID_CLAIM_CLASSES)} required"
+        )
+
+    disposition = signal.get("disposition")
+    if disposition not in VALID_SIGNAL_DISPOSITIONS:
+        errors.append(
+            "admission_signal.disposition: "
+            f"one of {sorted(VALID_SIGNAL_DISPOSITIONS)} required"
+        )
+
+    target = signal.get("target_layer", "delivery")
+    if target not in VALID_TARGETS:
+        errors.append(
+            f"admission_signal.target_layer: one of {sorted(VALID_TARGETS)} required"
+        )
+
+    candidate_problem = signal.get("candidate_problem")
+    if candidate_problem is not None and (
+        not isinstance(candidate_problem, str) or not candidate_problem.strip()
+    ):
+        errors.append(
+            "admission_signal.candidate_problem: null or non-empty string required"
+        )
+
+    errors.extend(_privacy_errors({"admission_signal": signal}))
+    return errors
+
+
+def admit_signal(signal: dict[str, Any]) -> dict[str, Any]:
+    """Return a non-authoritative admission proposal for a normalized signal.
+
+    Admission is intentionally separate from update_existing/link_only/create_new.
+    It never mutates an Issue/PBI and never closes or resolves source work.
+    """
+    errors = validate_admission_signal(signal)
+    if errors:
+        raise MaterializationError(errors)
+
+    if signal.get("target_layer", "delivery") == "harness":
+        raise MaterializationError([
+            "admission_signal.target_layer: harness admission is owned by #874/#869 Candidate/Evolution"
+        ])
+
+    claim_class = signal["claim_class"]
+    disposition = signal["disposition"]
+    candidate_problem = signal.get("candidate_problem")
+
+    if claim_class == "inferred" or disposition == "ambiguous":
+        decision = "discover_more"
+        reason = "inferred_or_ambiguous_signal_requires_bounded_discovery"
+    elif disposition in {"resolved", "informational"}:
+        decision = "no_action"
+        reason = f"{disposition}_signal_has_no_new_pbi_work"
+    elif disposition == "actionable" and isinstance(candidate_problem, str) and candidate_problem.strip():
+        decision = "materialize"
+        reason = "actionable_signal_has_candidate_problem"
+    else:
+        decision = "discover_more"
+        reason = "actionable_signal_missing_candidate_problem"
+
+    result = {
+        "decision": decision,
+        "reason": reason,
+        "signal_id": signal["signal_id"],
+        "source_ref": signal["source_ref"],
+        "proposal_only": True,
+        "write_allowed": False,
+        "close_allowed": False,
+        "next": {
+            "materialize": "pbi_materializer",
+            "no_action": "record_evaluation_only",
+            "discover_more": "bounded_discovery",
+        }[decision],
+    }
+    privacy = _privacy_errors({"admission_result": result})
+    if privacy:
+        raise MaterializationError(privacy)
+    return result
 
 
 def validate_payload(payload: Any, authority_root=None) -> list[str]:
