@@ -1199,6 +1199,8 @@ def evaluate_shadow_batch(
         for evidence_class in sorted(VALID_EVIDENCE_CLASSES)
     }
     case_results: list[dict[str, Any]] = []
+    observed_decisions: set[str] = set()
+    observed_readiness_routes: set[str] = set()
 
     for case in cases:
         split = case["split"]
@@ -1223,6 +1225,8 @@ def evaluate_shadow_batch(
                 comparison["checks"]["readiness_status"]
                 and comparison["checks"]["readiness_route"]
             )
+            observed_decisions.add(result["decision"]["decision"])
+            observed_readiness_routes.add(result["readiness"]["route"])
 
             for key in ("overall", split):
                 metrics[key]["exact_matches"] += int(exact)
@@ -1264,6 +1268,9 @@ def evaluate_shadow_batch(
         "automatic_promotion": False,
         "evaluation_contract": {
             "split_required": True,
+            "scope": "post_admission_materialization",
+            "materialization_admission_evaluated": False,
+            "no_action_coverage": False,
             "holdout_isolation_enforced": False,
             "generalization_claim_allowed": False,
             "holdout_isolation_owner": "caller_or_independent_evaluator",
@@ -1280,6 +1287,14 @@ def evaluate_shadow_batch(
             "historical_replay_cases": evidence_metrics["historical_replay"]["total"],
             "live_shadow_cases": evidence_metrics["live_shadow"]["total"],
             "synthetic_excluded_from_rollout_claim": True,
+            "observed_decisions": sorted(observed_decisions),
+            "observed_readiness_routes": sorted(observed_readiness_routes),
+            "write_review_eligible": False,
+            "write_review_blockers": [
+                "admission_no_action_not_evaluated",
+                "live_shadow_not_yet_required_or_observed",
+                "independent_oracle_isolation_not_enforced",
+            ],
         },
         "cases": case_results,
     }
