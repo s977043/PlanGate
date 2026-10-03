@@ -27,20 +27,22 @@ CONFIG = "sha256:" + "b" * 64
 
 
 def _fixture(*, body=None):
-    repo_url = "https://api.github.com/repos/s977043/PlanGate"
-    issue_url = repo_url + "/issues/1448"
-    comment_url = repo_url + "/issues/comments/12345"
+    repo_endpoint = "repos/s977043/PlanGate"
+    issue_endpoint = repo_endpoint + "/issues/1448"
+    comment_endpoint = repo_endpoint + "/issues/comments/12345"
+    repo_url = "https://api.github.com/" + repo_endpoint
+    issue_url = "https://api.github.com/" + issue_endpoint
     values = {
-        repo_url: {
+        repo_endpoint: {
             "full_name": REPO,
             "owner": {"login": "s977043", "type": "User"},
         },
-        issue_url: {
+        issue_endpoint: {
             "number": ISSUE,
             "repository_url": repo_url,
             "state": "open",
         },
-        comment_url: {
+        comment_endpoint: {
             "id": COMMENT,
             "issue_url": issue_url,
             "user": {"login": "s977043", "type": "User"},
@@ -92,7 +94,7 @@ class HumanRolloutVerificationTests(unittest.TestCase):
 
     def test_github_app_comment_is_rejected(self):
         values = _fixture()
-        url = "https://api.github.com/repos/s977043/PlanGate/issues/comments/12345"
+        url = "repos/s977043/PlanGate/issues/comments/12345"
         values[url]["performed_via_github_app"] = {
             "id": 1,
             "slug": "chatgpt-codex-connector",
@@ -109,7 +111,7 @@ class HumanRolloutVerificationTests(unittest.TestCase):
 
     def test_non_owner_comment_is_rejected(self):
         values = _fixture()
-        url = "https://api.github.com/repos/s977043/PlanGate/issues/comments/12345"
+        url = "repos/s977043/PlanGate/issues/comments/12345"
         values[url]["user"] = {"login": "someone-else", "type": "User"}
         values[url]["author_association"] = "CONTRIBUTOR"
         with self.assertRaises(trust.ExternalTrustError):
@@ -123,7 +125,7 @@ class HumanRolloutVerificationTests(unittest.TestCase):
 
     def test_edited_comment_is_rejected(self):
         values = _fixture()
-        url = "https://api.github.com/repos/s977043/PlanGate/issues/comments/12345"
+        url = "repos/s977043/PlanGate/issues/comments/12345"
         values[url]["updated_at"] = "2026-10-03T09:01:00Z"
         with self.assertRaises(trust.ExternalTrustError) as ctx:
             trust.verify_human_rollout_comment(
@@ -164,7 +166,7 @@ class HumanRolloutVerificationTests(unittest.TestCase):
 
     def test_closed_issue_is_rejected(self):
         values = _fixture()
-        url = "https://api.github.com/repos/s977043/PlanGate/issues/1448"
+        url = "repos/s977043/PlanGate/issues/1448"
         values[url]["state"] = "closed"
         with self.assertRaises(trust.ExternalTrustError):
             trust.verify_human_rollout_comment(
@@ -177,7 +179,7 @@ class HumanRolloutVerificationTests(unittest.TestCase):
 
     def test_comment_bound_to_other_issue_is_rejected(self):
         values = _fixture()
-        url = "https://api.github.com/repos/s977043/PlanGate/issues/comments/12345"
+        url = "repos/s977043/PlanGate/issues/comments/12345"
         values[url]["issue_url"] = (
             "https://api.github.com/repos/s977043/PlanGate/issues/999"
         )
