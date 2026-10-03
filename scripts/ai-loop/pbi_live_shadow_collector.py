@@ -19,7 +19,8 @@ This adapter is intentionally narrower than the PBI materializer:
 - artifacts are create-only; existing files are never replaced
 - capture uses pbi_materializer.build_passive_shadow_capture()
 - review-packet creation revalidates capture <-> RunEvidence binding
-- no oracle / expected decision is attached by the collector
+- blind review packets contain no maker actual / expected decision
+- reviewed-case assembly accepts a separately authored oracle but does not create it
 - no PBI / Issue / RunState / Harness mutation is allowed
 """
 
@@ -458,6 +459,11 @@ def _validate_admission_oracle(
         if oracle_ref in bound_refs:
             errors.append("oracle_ref: oracle must be a distinct artifact")
 
+    privacy_errors = pm._privacy_errors({"oracle": oracle})
+    errors.extend(
+        "oracle privacy: " + error for error in privacy_errors
+    )
+
     if errors:
         raise CollectorError("; ".join(errors))
 
@@ -541,6 +547,9 @@ def collect_reviewed_admission_case(
     if hashes.get("signal_hash") != capture.get("signal_hash"):
         raise CollectorError("packet.hashes.signal_hash: current signal hash mismatch")
 
+    oracle_ref = _validate_output_ref(
+        task_id, oracle_ref, "oracle_ref"
+    )
     _oracle_path, oracle = _load_repo_json_object(
         repo_root, oracle_ref, "oracle_ref"
     )
