@@ -625,6 +625,36 @@ But it is not currently bound to the specific R1:
 
 Therefore it cannot set `runtime_probe_attestation_verified=true` for R1. A future request-bound canary/verifier must bind those values through an independently verifiable runtime result before dispatch readiness may advance.
 
+
+#### Request-bound canary proposal remains fail-closed
+
+#1455 adds a reviewed proposal outside the active `.github/workflows` surface plus a live GitHub Actions verifier.
+
+The proposal binds:
+
+- exact R1 `request_hash`;
+- Explorer `config_sha`;
+- platform;
+- provider;
+- trusted `main` source;
+- exact active workflow bytes.
+
+The current contract stage is `r1-request-bound-v1-unavailable`. The runtime-probe step deliberately exits non-zero with `UNAVAILABLE` because no platform-specific Explorer registration/invocation adapter has been reviewed yet. For this stage, an unexpected successful canary run is invalid.
+
+The proposal may declare `environment: runtime-r1-rollout`, but repository YAML does not prove the GitHub Environment's required-reviewer configuration. Likewise the verifier process cannot attest its own trusted execution provenance. Therefore:
+
+```text
+protected_environment_declared = true
+protected_environment_configuration_verified = false
+verifier_execution_attested = false
+runtime_probe_attestation_verified = false
+human_rollout_decision_verified = false
+dispatch_ready = false
+dispatch_allowed = false
+```
+
+All GitHub reads used by the implementation must flow through the existing `scripts/ai-loop/gh_exec.py` allowlisted GET boundary; direct `urllib` / arbitrary network access in `scripts/ai-loop/` is forbidden by the repository execution-boundary checker.
+
 ## 8. Relationship to existing V2 boundaries
 
 This proposal must not change the following existing contracts:
@@ -875,7 +905,7 @@ These criteria evaluate the intake mechanism. They do not prove that every runti
 - #1449 — R0 provider-neutral ingress + Cloudflare reference mapping + content-addressed pre-PBI Evidence + TA-95.
 - #1452 — R1 read-only investigation **shadow request** + pre-run/V2 activation separation + Explorer config content binding + TA-96.
 - #1453 — pre-run dispatch readiness evaluator; machine Evidence remains candidate-only, runtime attestation/Human rollout authority cannot self-declare + TA-97.
-- Superseded implementation PRs: #1450 / #1451 (stack restack中のforce-rewriteでGitHubによりclose。replacementは #1452 / #1453)。
+- Superseded implementation PRs: #1452 (superseded/closed; branch contract preserved) / #1453 (superseded/closed; branch contract preserved) (stack restack中のforce-rewriteでGitHubによりclose。replacementは #1452 / #1453)。
 - #1448 depends on #1441 / #1443 finalization before production behavior changes.
 - First reference provider: Cloudflare runtime-issue path; provider-neutral contract remains authoritative.
 - R1 Agent invocation remains disabled; #1452/#1453 do not emit V2 `selected/fired` because no PlanGate Run exists yet.
