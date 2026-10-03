@@ -555,6 +555,11 @@ def _bullets(values: list[str]) -> str:
     return "\n".join(f"- {v}" for v in values) if values else "- （なし）"
 
 
+def _md_cell(value: Any) -> str:
+    """Keep provenance tables parseable without changing semantic content."""
+    return str(value).replace("\\", "\\\\").replace("|", "\\|").replace("\r\n", "<br>").replace("\n", "<br>").replace("\r", "<br>")
+
+
 def render_pbi_markdown(
     payload: dict[str, Any], decision: dict[str, Any], readiness: dict[str, Any]
 ) -> str:
@@ -563,13 +568,25 @@ def render_pbi_markdown(
     requirements = payload.get("requirements", [])
 
     prov_rows = [
-        "| Source Ref | Origin Ref | Source Kind | Claim Class | Supports |",
-        "| --- | --- | --- | --- | --- |",
+        "| Claim ID | Claim | Source Ref | Origin Ref | Source Kind | Claim Class | Supports |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for claim in claims:
         prov_rows.append(
-            f"| {claim['source_ref']} | {_claim_origin_ref(claim)} | "
-            f"{claim['source_kind']} | {claim['claim_class']} | {claim['supports']} |"
+            "| "
+            + " | ".join(
+                _md_cell(value)
+                for value in (
+                    claim["id"],
+                    claim["text"],
+                    claim["source_ref"],
+                    _claim_origin_ref(claim),
+                    claim["source_kind"],
+                    claim["claim_class"],
+                    claim["supports"],
+                )
+            )
+            + " |"
         )
 
     req_rows = [
@@ -578,8 +595,18 @@ def render_pbi_markdown(
     ]
     for req in requirements:
         req_rows.append(
-            f"| {req['id']} | {req['goal_problem']} | {req['basis_ref']} | "
-            f"{req['acceptance_basis']} | {req['related_ac']} |"
+            "| "
+            + " | ".join(
+                _md_cell(value)
+                for value in (
+                    req["id"],
+                    req["goal_problem"],
+                    req["basis_ref"],
+                    req["acceptance_basis"],
+                    req["related_ac"],
+                )
+            )
+            + " |"
         )
 
     source_runs = _as_string_list(payload.get("source_run_refs"), "source_run_refs", [])
