@@ -159,6 +159,31 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertFalse(result["authority"]["pbi_write_allowed"])
         self.assertFalse(result["authority"]["issue_write_allowed"])
         self.assertFalse(result["artifact_reused"])
+        self.assertEqual(
+            result["run_evidence_handoff"]["evidence_refs"],
+            [self.source_ref, self.capture_ref],
+        )
+        self.assertEqual(
+            result["run_evidence_handoff"]["cli_args"],
+            [
+                "--evidence-ref",
+                self.source_ref,
+                "--evidence-ref",
+                self.capture_ref,
+            ],
+        )
+        self.assertEqual(
+            result["run_evidence_handoff"]["runtime_head_sha"],
+            "abcdef1234567890abcdef1234567890abcdef12",
+        )
+        self.assertTrue(
+            result["run_evidence_handoff"]["advisory_only"]
+        )
+        self.assertTrue(
+            result["run_evidence_handoff"][
+                "must_revalidate_after_run_evidence"
+            ]
+        )
 
         before = target.read_bytes()
         retry = self._collect_capture()
