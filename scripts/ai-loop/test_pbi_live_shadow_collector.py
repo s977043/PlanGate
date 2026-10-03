@@ -1146,6 +1146,34 @@ class LiveShadowCollectorTests(unittest.TestCase):
                 for item in plan["collection_targets"]
             )
         )
+        admission_items = [
+            item for item in plan["collection_targets"]
+            if item["stage"] == "admission"
+        ]
+        materialization_items = [
+            item for item in plan["collection_targets"]
+            if item["stage"] == "materialization"
+        ]
+        self.assertTrue(
+            all(item["currently_collectable"] for item in admission_items)
+        )
+        self.assertTrue(
+            all(
+                item["prerequisites"] == []
+                and item["prerequisites_satisfied"]
+                for item in admission_items
+            )
+        )
+        self.assertTrue(
+            all(
+                not item["currently_collectable"]
+                and item["prerequisites"] == [
+                    "reviewed_admission_materialize_case"
+                ]
+                and not item["prerequisites_satisfied"]
+                for item in materialization_items
+            )
+        )
         self.assertIn(
             "tracked_admission_live_case_missing",
             plan["blockers"],
@@ -1169,6 +1197,10 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         self.assertFalse(
             boundary["coverage_complete_implies_representative"]
+        )
+        self.assertFalse(boundary["collection_target_is_quota"])
+        self.assertFalse(
+            boundary["collection_target_is_case_generation_instruction"]
         )
         self.assertFalse(boundary["runtime_execution_verified"])
         self.assertFalse(boundary["quality_acceptance_decided"])
@@ -1211,6 +1243,48 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertIn(
             "tracked_materialization_live_case_missing",
             plan["blockers"],
+        )
+        materialization_targets = [
+            item for item in plan["collection_targets"]
+            if item["stage"] == "materialization"
+        ]
+        self.assertTrue(
+            all(
+                not item["currently_collectable"]
+                and not item["prerequisites_satisfied"]
+                for item in materialization_targets
+            )
+        )
+
+    def test_collection_plan_unlocks_materialization_targets_after_reviewed_materialize(self):
+        self._prepare_materialize_admission_case()
+
+        plan = collector.plan_live_shadow_collection(
+            repo_root=self.root
+        )
+        self.assertIn(
+            "materialize",
+            plan["inventory_snapshot"]["admission"]["observed_decisions"],
+        )
+        materialization_targets = [
+            item for item in plan["collection_targets"]
+            if item["stage"] == "materialization"
+        ]
+        self.assertEqual(len(materialization_targets), 3)
+        self.assertTrue(
+            all(
+                item["currently_collectable"]
+                and item["prerequisites_satisfied"]
+                for item in materialization_targets
+            )
+        )
+        self.assertFalse(
+            plan["policy_boundary"]["collection_target_is_quota"]
+        )
+        self.assertFalse(
+            plan["policy_boundary"][
+                "collection_target_is_case_generation_instruction"
+            ]
         )
 
     def test_collection_plan_surfaces_invalid_artifact_blocker(self):
