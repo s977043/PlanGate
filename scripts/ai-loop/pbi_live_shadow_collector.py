@@ -637,8 +637,7 @@ def inventory_live_shadow_cases(
     )
     discovered = sorted(root.glob(pattern))
 
-    valid_cases: list[dict[str, Any]] = []
-    valid_refs: list[str] = []
+    candidates: list[tuple[str, dict[str, Any]]] = []
     invalid: list[dict[str, Any]] = []
 
     for path in discovered:
@@ -664,6 +663,42 @@ def inventory_live_shadow_cases(
             invalid.append({"ref": rel, "errors": [str(exc)]})
             continue
 
+        parts = pathlib.PurePosixPath(rel).parts
+        task_id = parts[2] if len(parts) > 2 else ""
+        ownership_errors: list[str] = []
+        try:
+            _validate_output_ref(task_id, rel, "case_artifact_ref")
+        except CollectorError as exc:
+            ownership_errors.append(str(exc))
+
+        live_capture = case.get("live_capture")
+        expected = case.get("expected")
+        if not isinstance(live_capture, dict):
+            ownership_errors.append("case.live_capture: object required")
+        else:
+            for label in ("capture_ref", "run_evidence_ref"):
+                value = live_capture.get(label)
+                try:
+                    _validate_output_ref(task_id, value, f"case.live_capture.{label}")
+                except CollectorError as exc:
+                    ownership_errors.append(str(exc))
+
+        if not isinstance(expected, dict):
+            ownership_errors.append("case.expected: object required")
+        else:
+            try:
+                _validate_output_ref(
+                    task_id,
+                    expected.get("oracle_ref"),
+                    "case.expected.oracle_ref",
+                )
+            except CollectorError as exc:
+                ownership_errors.append(str(exc))
+
+        if ownership_errors:
+            invalid.append({"ref": rel, "errors": ownership_errors})
+            continue
+
         errors = pm._validate_admission_batch(
             [case],
             authority_root=root,
@@ -672,6 +707,36 @@ def inventory_live_shadow_cases(
             invalid.append({"ref": rel, "errors": errors})
             continue
 
+        candidates.append((rel, case))
+
+    refs_by_case_id: dict[str, list[str]] = {}
+    for rel, case in candidates:
+        logical = case.get("case_ref")
+        if isinstance(logical, str):
+            refs_by_case_id.setdefault(logical, []).append(rel)
+
+    duplicate_refs = {
+        ref
+        for refs in refs_by_case_id.values()
+        if len(refs) > 1
+        for ref in refs
+    }
+
+    valid_cases: list[dict[str, Any]] = []
+    valid_refs: list[str] = []
+    for rel, case in candidates:
+        if rel in duplicate_refs:
+            logical = case.get("case_ref")
+            invalid.append(
+                {
+                    "ref": rel,
+                    "errors": [
+                        f"duplicate logical case_ref {logical!r}: "
+                        + ", ".join(refs_by_case_id.get(logical, []))
+                    ],
+                }
+            )
+            continue
         valid_cases.append(case)
         valid_refs.append(rel)
 
@@ -716,7 +781,10 @@ def inventory_live_shadow_cases(
             path.relative_to(root).as_posix() for path in discovered
         ],
         "valid_case_artifacts": valid_refs,
-        "invalid_case_artifacts": invalid,
+        "invalid_case_artifacts": sorted(
+            invalid,
+            key=lambda item: str(item.get("ref", "")),
+        ),
         "tracked_live_case_total": len(valid_cases),
         "evaluated_case_total": len(evaluated_cases),
         "invalid_case_total": len(invalid),
@@ -731,6 +799,8 @@ def inventory_live_shadow_cases(
         "rollout_quality": rollout_quality,
         "verification_boundary": {
             "repository_chain_revalidated": True,
+            "task_namespace_binding_enforced": True,
+            "duplicate_logical_case_ids_rejected": True,
             "runtime_execution_verified": False,
             "source_preexistence_verified": False,
             "reviewer_identity_verified": False,
