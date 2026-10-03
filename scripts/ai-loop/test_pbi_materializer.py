@@ -576,6 +576,7 @@ class AdmissionTests(unittest.TestCase):
         self.assertTrue(result["proposal_only"])
         self.assertFalse(result["write_allowed"])
         self.assertFalse(result["close_allowed"])
+        self.assertFalse(result["suppression_allowed"])
 
     def test_observed_informational_signal_is_no_action_proposal(self):
         result = pm.admit_signal(
@@ -985,6 +986,7 @@ class AdmissionBatchEvaluationTests(unittest.TestCase):
         self.assertFalse(report["coverage"]["decision_coverage_complete"])
         self.assertFalse(report["write_allowed"])
         self.assertFalse(report["close_allowed"])
+        self.assertFalse(report["suppression_allowed"])
         self.assertFalse(report["rollout_evidence"]["write_review_eligible"])
         self.assertIn(
             "admission_decision_coverage_incomplete",
