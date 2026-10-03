@@ -15,6 +15,8 @@ ai-loop V2 は、検証可能な開発成果と、次の判断に使える Evide
 - **価値仮説**: 変更がユーザー・事業にもたらす効果についての、まだ検証されていない想定。Product 側の語。
 - **学習条件**: 価値仮説を検証したと言えるために必要な観測条件（何を・どの母集団で・どの水準で観測するか）。Product 側の語であり、Harness 改善の評価成立条件（§14 の evaluation plan）とは別物として扱う。
 - **妥当な Evidence**: 出所と取得条件が辿れ、主張の範囲を超えて一般化していない Evidence。自己申告のみに依拠しない（§6）。
+- **Bounded Discovery**: Request から Plan に入る前に、必要な範囲だけ Goal / Actor / Problem / Assumptions / Constraints / Unknowns / Requirement candidate と根拠を明らかにする活動。Product Discovery 全体を V2 に内包する意味ではなく、新しい Lifecycle State / Gate / authoritative artifact でもない。
+- **Traceability Chain**: Goal / Problem から Requirement、Plan decision / Acceptance Criteria、Work Item / Task、Verification / Evidence までを既存 artifact の ID / ref で相互に辿れる関係。新しい Knowledge Graph / DB を意味しない。
 - **基礎的な安全境界**: 事故の観測を待たずに設置する最低限の防護。Human-owned 境界の保護、不可逆操作の停止、承認境界の保護を指す。
 
 > **AI が開発を実行し、その結果を検証し、失敗と成功を振り返り、自らの Skill / Agent / Flow / Verifier を改善し、その改善が本当に有効かを独立検証したうえで、次の Harness version を作れる開発システムを構築する。**
@@ -72,6 +74,11 @@ Harness N
 
 ```text
 Request
+  -> Bounded Discovery (when uncertainty / impact requires)
+       - Goal / Actor / Problem / Job
+       - Assumptions / Constraints / Unknowns
+       - Evidence / Questions
+       - Requirement candidates
   -> Plan
   -> Plan Verification
        - Requirements Review
@@ -84,6 +91,14 @@ Request
 ```
 
 Initial Plan も Plan Verification を通る。Replan 時だけ Plan Review する構造にしない（§9）。
+
+Bounded Discovery は全 Task に同じ ceremony を要求しない。depth はコード変更量ではなく、少なくとも **uncertainty / impact / irreversibility / evidence quality** を材料に調整する。単純で十分に既知な変更は Goal / Constraints / Acceptance Criteria の確認で足りる一方、曖昧・高影響・不可逆な変更では As-Is / stakeholder evidence / alternatives / requirement mapping まで広げてよい。RDRA は利用可能な手段の 1 つであり、必須フレームワークにはしない。
+
+AI は Discovery で正解の Requirement を創作する主体ではない。AI は hypothesis generation / question generation / evidence-gap detection / structuring を担い、Human は reality check / stakeholder input / trade-off / semantic judgment を担う。Evidence が不足する場合は Unknown として残し、もっともらしい Requirement で埋めない。
+
+Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requirement -> Plan decision / Acceptance Criteria -> Work Item / Task -> Verification / Evidence の Traceability Chain を既存 ID / ref で構成する。新しい Lifecycle State / Gate / top-level artifact / mutable graph store をこのためだけに追加しない。
+
+> **Do not optimize a solution before validating the problem enough for the risk at hand.**
 
 Delivery は合意した Contract のもとで実行する。探索を支える実装では、実装の受入基準と価値仮説の学習条件を区別し、必要な観測条件と Evidence の返却先を明確にする。`MERGE_READY` は必須の検証・PR 収束を含む Delivery 契約全体を満たし、C-4 / merge（Human-owned）待ちで停止した終端である（[`taxonomy.md`](./taxonomy.md) §3）。これは価値仮説の検証完了を意味しない（本 North Star が置く区別であり、taxonomy 側の規定ではない）。Product Discovery 全体やリリース後の観測・意思決定を V2 に内包せず、それらへ Evidence を接続する。
 
@@ -116,7 +131,7 @@ Pattern -> Hypothesis -> Skill / Agent / Flow / Verifier Candidate
 Request -> Plan -> C-1 -> C-2 -> Human C-3 -> Execute -> Verify -> PR_CREATED
 ```
 
-V2 は ai-dev command を内側から直接チェーンすることを前提とせず、必要な既存能力を共通 primitive / adapter として利用する。
+V2 は ai-dev command を内側から直接チェーンすることを前提とせず、必要な既存能力を共通 primitive / adapter として利用する。Bounded Discovery は V2 内部の準備責務として扱い、この stable public contract に新しい必須 phase を追加しない。
 
 ### Human-owned authority remains human-owned
 
