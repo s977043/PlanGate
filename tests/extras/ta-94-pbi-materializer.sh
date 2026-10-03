@@ -95,5 +95,55 @@ else
   fail=$((fail + 1))
 fi
 
+# 5. Shadow comparison must execute through the CLI and remain evaluation-only.
+_t94_input="$_t94_tmp/input.json"
+_t94_expected="$_t94_tmp/expected.json"
+_t94_compare="$_t94_tmp/compare.json"
+cat >"$_t94_input" <<'JSON'
+{
+  "task_id": "TASK-1442",
+  "title": "shadow probe",
+  "author": "human",
+  "application_timing": "follow_up",
+  "target_layer": "delivery",
+  "goal": "probe goal",
+  "problem": "probe problem",
+  "source_run_refs": [],
+  "claims": [],
+  "requirements": [],
+  "acceptance_criteria": [],
+  "in_scope": [],
+  "out_of_scope": [],
+  "risks": [],
+  "unknowns": [],
+  "assumptions": [],
+  "harness_candidate_ref": null
+}
+JSON
+cat >"$_t94_expected" <<'JSON'
+{
+  "oracle_ref": "docs/working/TASK-1442/review-shadow.md",
+  "decision": "create_new",
+  "matched_ref": null,
+  "readiness_status": "ready",
+  "readiness_route": "future_run"
+}
+JSON
+_t94_rc=0
+"$_T94_PY" "$_T94_AI_LOOP/pbi_materializer.py" \
+  --input "$_t94_input" --expected "$_t94_expected" --format json \
+  >"$_t94_compare" 2>"$_t94_tmp/compare.err" || _t94_rc=$?
+if [ "$_t94_rc" -eq 0 ] \
+  && grep -q '"shadow_comparison"' "$_t94_compare" \
+  && grep -q '"status": "match"' "$_t94_compare" \
+  && ! grep -Eq '"write"|"promote"|"apply"' "$_t94_compare"; then
+  printf '  [PASS] shadow comparison: CLI emits match evidence without write/promotion authority\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] shadow comparison: CLI wiring/evaluation-only invariant failed (rc=%s)\n' "$_t94_rc" >&2
+  sed 's/^/    /' "$_t94_tmp/compare.err" >&2
+  fail=$((fail + 1))
+fi
+
 rm -rf "$_t94_tmp"
 pg_extra_contract_finalize
