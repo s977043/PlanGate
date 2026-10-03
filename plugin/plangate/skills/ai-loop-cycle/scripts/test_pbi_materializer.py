@@ -9,7 +9,6 @@ echo "       Use: python3 $0 [args...]" >&2
 exit 2
 ":"""
 
-
 from __future__ import annotations
 
 __doc__ = """test_pbi_materializer.py — #1442 feedback/Evidence -> PBI materializer tests.
