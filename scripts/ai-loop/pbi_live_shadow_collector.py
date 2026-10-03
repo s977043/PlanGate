@@ -1675,6 +1675,189 @@ def plan_live_shadow_collection(
     }
 
 
+def _validate_completion_context(context: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(context, dict):
+        return ["completion_context: object required"]
+
+    for field in (
+        "latest_full_test_green",
+        "design_dependency_finalized",
+        "generalization_claim_required",
+    ):
+        if not isinstance(context.get(field), bool):
+            errors.append(f"completion_context.{field}: boolean required")
+
+    for field in (
+        "representative_live_evidence_review_ref",
+        "quality_review_ref",
+        "isolated_generalization_review_ref",
+    ):
+        value = context.get(field)
+        if value is not None and (
+            not isinstance(value, str) or not value.strip()
+        ):
+            errors.append(
+                f"completion_context.{field}: null or non-empty string required"
+            )
+
+    errors.extend(pm._privacy_errors({"completion_context": context}))
+    return errors
+
+
+def assess_live_shadow_completion(
+    *,
+    repo_root: pathlib.Path,
+    context: dict[str, Any],
+) -> dict[str, Any]:
+    errors = _validate_completion_context(context)
+    if errors:
+        raise CollectorError("; ".join(errors))
+
+    admission = inventory_live_shadow_cases(repo_root=repo_root)
+    materialization = inventory_live_materialization_cases(
+        repo_root=repo_root
+    )
+    collection_plan = plan_live_shadow_collection(repo_root=repo_root)
+
+    implementation_blockers: list[str] = []
+    dependency_blockers: list[str] = []
+    evidence_blockers: list[str] = []
+    review_blockers: list[str] = []
+
+    if not context["latest_full_test_green"]:
+        implementation_blockers.append("latest_full_repository_test_not_green")
+
+    if admission.get("invalid_case_total", 0):
+        implementation_blockers.append("invalid_admission_case_artifacts_present")
+    if materialization.get("invalid_case_total", 0):
+        implementation_blockers.append(
+            "invalid_materialization_case_artifacts_present"
+        )
+
+    if not context["design_dependency_finalized"]:
+        dependency_blockers.append("design_dependency_not_finalized")
+
+    if not admission.get("has_tracked_live_evidence", False):
+        evidence_blockers.append("real_live_admission_evidence_not_tracked")
+    if not materialization.get("has_tracked_live_evidence", False):
+        evidence_blockers.append(
+            "real_live_materialization_evidence_not_tracked"
+        )
+
+    representative_ref = context.get(
+        "representative_live_evidence_review_ref"
+    )
+    quality_ref = context.get("quality_review_ref")
+    isolated_ref = context.get("isolated_generalization_review_ref")
+
+    if not isinstance(representative_ref, str) or not representative_ref.strip():
+        review_blockers.append(
+            "representative_live_evidence_review_not_provided"
+        )
+    if not isinstance(quality_ref, str) or not quality_ref.strip():
+        review_blockers.append("live_quality_review_not_provided")
+    if context["generalization_claim_required"] and (
+        not isinstance(isolated_ref, str) or not isolated_ref.strip()
+    ):
+        review_blockers.append("isolated_generalization_review_not_provided")
+
+    blockers = (
+        implementation_blockers
+        + dependency_blockers
+        + evidence_blockers
+        + review_blockers
+    )
+
+    if implementation_blockers:
+        next_action = "fix_repository_or_evidence_integrity"
+    elif dependency_blockers:
+        next_action = "finalize_design_dependency"
+    elif evidence_blockers:
+        next_action = "collect_opportunistic_real_live_evidence"
+    elif review_blockers:
+        next_action = "perform_human_evidence_and_quality_review"
+    else:
+        next_action = "human_rollout_decision"
+
+    return {
+        "mode": "pbi_live_shadow_completion_status",
+        "scope": "shadow_first_slice_completion_readiness",
+        "status": {
+            "implementation_checks_clear": not implementation_blockers,
+            "dependency_checks_clear": not dependency_blockers,
+            "repository_live_evidence_present": not evidence_blockers,
+            "review_refs_present": not review_blockers,
+            "rollout_completion_machine_decidable": False,
+            "rollout_complete": False,
+            "automatic_write_activation_allowed": False,
+        },
+        "caller_assertions": {
+            "latest_full_test_green": context["latest_full_test_green"],
+            "design_dependency_finalized": context[
+                "design_dependency_finalized"
+            ],
+            "generalization_claim_required": context[
+                "generalization_claim_required"
+            ],
+            "representative_live_evidence_review_ref": representative_ref,
+            "quality_review_ref": quality_ref,
+            "isolated_generalization_review_ref": isolated_ref,
+            "assertions_independently_verified": False,
+        },
+        "repository_evidence": {
+            "admission_tracked_live_case_total": admission[
+                "tracked_live_case_total"
+            ],
+            "admission_invalid_case_total": admission["invalid_case_total"],
+            "materialization_tracked_live_case_total": materialization[
+                "tracked_live_case_total"
+            ],
+            "materialization_invalid_case_total": materialization[
+                "invalid_case_total"
+            ],
+            "collection_execution_status": collection_plan[
+                "collection_execution_status"
+            ],
+            "observation_gap_count": collection_plan[
+                "observation_gap_count"
+            ],
+        },
+        "blockers": {
+            "implementation": implementation_blockers,
+            "dependency": dependency_blockers,
+            "evidence": evidence_blockers,
+            "review": review_blockers,
+            "all": blockers,
+        },
+        "next_action": next_action,
+        "verification_boundary": {
+            "repository_chain_revalidated": True,
+            "latest_full_test_status_verified_by_collector": False,
+            "design_dependency_status_verified_by_collector": False,
+            "runtime_execution_verified": False,
+            "representative_coverage_verified": False,
+            "quality_acceptance_verified": False,
+            "reviewer_identity_verified": False,
+            "generalization_isolation_verified": False,
+        },
+        "policy_boundary": {
+            "new_feature_work_implied_by_evidence_gap": False,
+            "synthetic_case_generation_for_completion_allowed": False,
+            "historical_relabeling_for_completion_allowed": False,
+            "machine_completion_decision_allowed": False,
+            "machine_write_activation_allowed": False,
+        },
+        "authority": {
+            "read_only": True,
+            "write_allowed": False,
+            "close_allowed": False,
+            "suppression_allowed": False,
+            "merge_allowed": False,
+        },
+    }
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", required=True)
@@ -1708,6 +1891,9 @@ def main(argv=None) -> int:
     sub.add_parser("inventory")
     sub.add_parser("materialization-inventory")
     sub.add_parser("collection-plan")
+
+    completion = sub.add_parser("completion-status")
+    completion.add_argument("--context", required=True)
 
     args = parser.parse_args(argv)
     root = pathlib.Path(args.repo_root).resolve()
@@ -1750,6 +1936,15 @@ def main(argv=None) -> int:
             result = inventory_live_materialization_cases(repo_root=root)
         elif args.command == "collection-plan":
             result = plan_live_shadow_collection(repo_root=root)
+        elif args.command == "completion-status":
+            context = _load_json_object(
+                pathlib.Path(args.context),
+                "--context",
+            )
+            result = assess_live_shadow_completion(
+                repo_root=root,
+                context=context,
+            )
         else:
             result = inventory_live_shadow_cases(repo_root=root)
     except (CollectorError, pm.MaterializationError) as exc:
