@@ -28,6 +28,8 @@ not this primitive.
 """
 
 import argparse
+import datetime as dt
+import hashlib
 import json
 import pathlib
 import re
@@ -40,6 +42,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 import run_evidence  # noqa: E402
+import run_evidence_verify  # noqa: E402
 
 TASK_ID_RE = re.compile(r"^TASK-[0-9]{4}$")
 RFC3339_RE = re.compile(
@@ -178,6 +181,214 @@ def _privacy_errors(payload: dict[str, Any]) -> list[str]:
         for e in run_evidence.check_output_privacy(privacy_projection)
     )
     return errors
+
+
+def _parse_rfc3339(value: str) -> dt.datetime | None:
+    if not isinstance(value, str) or not RFC3339_RE.fullmatch(value):
+        return None
+    try:
+        return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _validate_repo_relative_ref_syntax(ref: Any, field: str) -> list[str]:
+    if not isinstance(ref, str) or not ref.strip():
+        return [f"{field}: non-empty repository-relative ref required"]
+    value = ref.strip()
+    if "\" in value:
+        return [f"{field}: backslash path rejected"]
+    path_text = value.partition("#")[0]
+    pure = pathlib.PurePosixPath(path_text)
+    if not path_text or pure.is_absolute() or ".." in pure.parts:
+        return [f"{field}: absolute/traversal ref rejected: {value!r}"]
+    return []
+
+
+def _canonical_json_hash(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def build_passive_shadow_capture(
+    *,
+    task_id: str,
+    run_id: str,
+    captured_at: str,
+    runtime_head_sha: str,
+    capture_ref: str,
+    signal: dict[str, Any],
+) -> dict[str, Any]:
+    """Build a deterministic capture artifact before RunEvidence finalization.
+
+    The artifact is not live-shadow evidence by itself. It becomes eligible only
+    after a RunEvidence record later includes capture_ref in evidence_refs and the
+    evaluator verifies the run/capture binding.
+    """
+    errors: list[str] = []
+    if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
+        errors.append(f"task_id: TASK-XXXX required, got {task_id!r}")
+    if not isinstance(run_id, str) or not run_id.strip():
+        errors.append("run_id: non-empty string required")
+    if _parse_rfc3339(captured_at) is None:
+        errors.append("captured_at: timezone-aware RFC3339 required")
+    if not isinstance(runtime_head_sha, str) or not COMMIT_SHA_RE.fullmatch(
+        runtime_head_sha
+    ):
+        errors.append("runtime_head_sha: 40 lowercase hex required")
+    errors.extend(_validate_repo_relative_ref_syntax(capture_ref, "capture_ref"))
+    errors.extend(validate_admission_signal(signal))
+    if isinstance(signal, dict):
+        errors.extend(
+            _validate_repo_relative_ref_syntax(
+                signal.get("source_ref"),
+                "signal.source_ref",
+            )
+        )
+    if isinstance(signal, dict) and signal.get("source_ref") == capture_ref:
+        errors.append(
+            "signal.source_ref: passive capture cannot cite its own capture_ref as upstream evidence"
+        )
+    if signal.get("target_layer", "delivery") != "delivery":
+        errors.append(
+            "signal.target_layer: passive PBI shadow capture supports delivery only; harness is #874/#869-owned"
+        )
+    if errors:
+        raise MaterializationError(errors)
+
+    artifact = {
+        "schema_version": "1.0",
+        "mode": "passive_shadow_capture",
+        "task_id": task_id,
+        "run_id": run_id.strip(),
+        "captured_at": captured_at,
+        "runtime_head_sha": runtime_head_sha,
+        "capture_ref": capture_ref.strip(),
+        "signal": signal,
+        "signal_hash": _canonical_json_hash(signal),
+        "authority": {
+            "write_allowed": False,
+            "close_allowed": False,
+            "suppression_allowed": False,
+            "oracle_attached": False,
+        },
+    }
+    privacy = _privacy_errors({"passive_shadow_capture": artifact})
+    if privacy:
+        raise MaterializationError(privacy)
+    return artifact
+
+
+def _load_json_object(path: pathlib.Path, label: str) -> tuple[dict[str, Any] | None, list[str]]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, [f"{label}: unreadable/invalid JSON: {exc}"]
+    if not isinstance(data, dict):
+        return None, [f"{label}: JSON object required"]
+    return data, []
+
+
+def _validate_live_run_binding(
+    *,
+    capture_ref: str,
+    run_evidence_ref: str,
+    authority_root=None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, list[str]]:
+    errors: list[str] = []
+
+    capture_path, _cap_fragment, cap_errors = _resolve_repo_authority_ref(
+        capture_ref, authority_root
+    )
+    errors.extend(f"live_binding.capture_ref: {e}" for e in cap_errors)
+
+    ev_path, _ev_fragment, ev_errors = _resolve_repo_authority_ref(
+        run_evidence_ref, authority_root
+    )
+    errors.extend(f"live_binding.run_evidence_ref: {e}" for e in ev_errors)
+
+    if errors or capture_path is None or ev_path is None:
+        return None, None, errors
+
+    capture, capture_errors = _load_json_object(
+        capture_path, "live_binding.capture"
+    )
+    ev, ev_load_errors = _load_json_object(
+        ev_path, "live_binding.run_evidence"
+    )
+    errors.extend(capture_errors)
+    errors.extend(ev_load_errors)
+    if errors or capture is None or ev is None:
+        return capture, ev, errors
+
+    schema_errors = run_evidence_verify.validate_against_schema(ev)
+    errors.extend(
+        f"live_binding.run_evidence.schema: {e}" for e in schema_errors
+    )
+
+    if capture.get("mode") != "passive_shadow_capture":
+        errors.append(
+            "live_binding.capture.mode: passive_shadow_capture required"
+        )
+    if capture.get("capture_ref") != capture_ref:
+        errors.append(
+            "live_binding.capture.capture_ref: artifact self-ref mismatch"
+        )
+    if capture.get("task_id") != ev.get("task_id"):
+        errors.append(
+            "live_binding.task_id: capture and RunEvidence differ"
+        )
+    if capture.get("run_id") != ev.get("run_id"):
+        errors.append(
+            "live_binding.run_id: capture and RunEvidence differ"
+        )
+    if capture.get("runtime_head_sha") != ev.get("final_head_sha"):
+        errors.append(
+            "live_binding.runtime_head_sha: capture does not match RunEvidence final_head_sha"
+        )
+
+    ev_refs = ev.get("evidence_refs")
+    if not isinstance(ev_refs, list) or capture_ref not in ev_refs:
+        errors.append(
+            "live_binding.evidence_refs: RunEvidence must include capture_ref"
+        )
+
+    capture_time = _parse_rfc3339(str(capture.get("captured_at", "")))
+    started = _parse_rfc3339(str(ev.get("started_at", "")))
+    completed = _parse_rfc3339(str(ev.get("completed_at", "")))
+    if capture_time is None or started is None or completed is None:
+        errors.append(
+            "live_binding.time: capture/RunEvidence timestamps must be timezone-aware RFC3339"
+        )
+    elif not (started <= capture_time <= completed):
+        errors.append(
+            "live_binding.time: capture timestamp must be inside RunEvidence started_at..completed_at"
+        )
+
+    signal = capture.get("signal")
+    signal_hash = capture.get("signal_hash")
+    if not isinstance(signal, dict):
+        errors.append("live_binding.capture.signal: object required")
+    else:
+        source_ref = signal.get("source_ref")
+        if source_ref == capture_ref:
+            errors.append(
+                "live_binding.capture.signal.source_ref: capture cannot self-source"
+            )
+        if not isinstance(source_ref, str) or source_ref not in ev_refs:
+            errors.append(
+                "live_binding.capture.signal.source_ref: upstream source must be included in RunEvidence evidence_refs"
+            )
+        if signal_hash != _canonical_json_hash(signal):
+            errors.append("live_binding.capture.signal_hash: mismatch")
+
+    return capture, ev, errors
+
 
 
 def _is_circular_source(task_id: str, source_ref: str) -> bool:
@@ -1172,59 +1383,65 @@ def _validate_live_shadow_capture(
 ) -> list[str]:
     errors: list[str] = []
     evidence_class = case.get("evidence_class", "synthetic_fixture")
-    capture = case.get("live_capture")
+    binding = case.get("live_capture")
 
     if evidence_class != "live_shadow":
-        if capture is not None:
+        if binding is not None:
             errors.append(
                 f"{prefix}.live_capture: only valid when evidence_class=live_shadow"
             )
         return errors
 
-    if not isinstance(capture, dict):
+    if not isinstance(binding, dict):
         return [f"{prefix}.live_capture: object required for live_shadow"]
 
-    if capture.get("capture_mode") != "passive_shadow":
-        errors.append(
-            f"{prefix}.live_capture.capture_mode: passive_shadow required"
-        )
-
-    captured_at = capture.get("captured_at")
-    if not isinstance(captured_at, str) or not RFC3339_RE.fullmatch(captured_at):
-        errors.append(
-            f"{prefix}.live_capture.captured_at: timezone-aware RFC3339 required"
-        )
-
-    runtime_head_sha = capture.get("runtime_head_sha")
-    if not isinstance(runtime_head_sha, str) or not COMMIT_SHA_RE.fullmatch(
-        runtime_head_sha
+    capture_ref = binding.get("capture_ref")
+    run_evidence_ref = binding.get("run_evidence_ref")
+    for field, value in (
+        ("capture_ref", capture_ref),
+        ("run_evidence_ref", run_evidence_ref),
     ):
-        errors.append(
-            f"{prefix}.live_capture.runtime_head_sha: 40 lowercase hex required"
-        )
-
-    capture_ref = capture.get("capture_ref")
-    if not isinstance(capture_ref, str) or not capture_ref.strip():
-        errors.append(
-            f"{prefix}.live_capture.capture_ref: non-empty repository ref required"
-        )
-    else:
-        capture_ref = capture_ref.strip()
-        if capture_ref not in refs:
+        if not isinstance(value, str) or not value.strip():
             errors.append(
-                f"{prefix}.live_capture.capture_ref: must also appear in evidence_refs"
+                f"{prefix}.live_capture.{field}: non-empty repository ref required"
             )
-        _path, _fragment, ref_errors = _resolve_repo_authority_ref(
-            capture_ref, authority_root
-        )
-        errors.extend(
-            f"{prefix}.live_capture.capture_ref: {error}"
-            for error in ref_errors
-        )
+        elif value.strip() not in refs:
+            errors.append(
+                f"{prefix}.live_capture.{field}: must also appear in evidence_refs"
+            )
+
+    if errors:
+        return errors
+
+    capture_ref = capture_ref.strip()
+    run_evidence_ref = run_evidence_ref.strip()
+    capture, ev, binding_errors = _validate_live_run_binding(
+        capture_ref=capture_ref,
+        run_evidence_ref=run_evidence_ref,
+        authority_root=authority_root,
+    )
+    errors.extend(f"{prefix}.{error}" for error in binding_errors)
+
+    if isinstance(capture, dict):
+        authority = capture.get("authority")
+        if not isinstance(authority, dict):
+            errors.append(
+                f"{prefix}.live_capture.capture.authority: object required"
+            )
+        else:
+            for field in ("write_allowed", "close_allowed", "suppression_allowed"):
+                if authority.get(field) is not False:
+                    errors.append(
+                        f"{prefix}.live_capture.capture.authority.{field}: false required"
+                    )
+            if authority.get("oracle_attached") is not False:
+                errors.append(
+                    f"{prefix}.live_capture.capture.authority.oracle_attached: false required"
+                )
 
     errors.extend(
         f"{prefix}.live_capture.{error}"
-        for error in _privacy_errors({"live_capture": capture})
+        for error in _privacy_errors({"live_capture": binding})
     )
     return errors
 
@@ -1483,8 +1700,11 @@ def evaluate_shadow_batch(
             "source_oracle_artifact_separation_enforced": True,
             "live_shadow_capture_metadata_enforced": True,
             "live_shadow_label_alone_sufficient": False,
-            "runtime_head_binding_verified": False,
-            "runtime_head_binding_owner": "caller_or_runtime_capture",
+            "live_shadow_run_evidence_binding_enforced": True,
+            "run_evidence_schema_revalidated": True,
+            "runtime_head_to_run_evidence_binding_enforced": True,
+            "run_evidence_task_binding_reverified": False,
+            "run_evidence_task_binding_owner": "caller_or_run_evidence_verifier",
             "oracle_independence_enforced": False,
             "oracle_independence_owner": "caller_or_independent_reviewer",
             "holdout_isolation_enforced": False,
@@ -1752,8 +1972,11 @@ def evaluate_admission_batch(
             "source_oracle_artifact_separation_enforced": True,
             "live_shadow_capture_metadata_enforced": True,
             "live_shadow_label_alone_sufficient": False,
-            "runtime_head_binding_verified": False,
-            "runtime_head_binding_owner": "caller_or_runtime_capture",
+            "live_shadow_run_evidence_binding_enforced": True,
+            "run_evidence_schema_revalidated": True,
+            "runtime_head_to_run_evidence_binding_enforced": True,
+            "run_evidence_task_binding_reverified": False,
+            "run_evidence_task_binding_owner": "caller_or_run_evidence_verifier",
             "oracle_independence_enforced": False,
             "oracle_independence_owner": "caller_or_independent_reviewer",
             "holdout_isolation_enforced": False,
@@ -1846,6 +2069,15 @@ def main(argv=None) -> int:
         "--eval-admission-batch",
         help="reviewed PBI admission cases JSON array; evaluation-only and never closes/writes",
     )
+    parser.add_argument(
+        "--capture-signal",
+        help="normalized admission signal JSON; emit passive capture artifact to stdout only",
+    )
+    parser.add_argument("--capture-task-id")
+    parser.add_argument("--capture-run-id")
+    parser.add_argument("--captured-at")
+    parser.add_argument("--runtime-head-sha")
+    parser.add_argument("--capture-ref")
     parser.add_argument("--existing", help="normalized existing-work JSON array")
     parser.add_argument(
         "--authority-root",
@@ -1866,16 +2098,57 @@ def main(argv=None) -> int:
     try:
         selected_modes = sum(
             bool(value)
-            for value in (args.input, args.eval_batch, args.eval_admission_batch)
+            for value in (
+                args.input,
+                args.eval_batch,
+                args.eval_admission_batch,
+                args.capture_signal,
+            )
         )
         if selected_modes != 1:
             raise MaterializationError([
-                "exactly one of --input / --eval-batch / --eval-admission-batch is required"
+                "exactly one of --input / --eval-batch / --eval-admission-batch / --capture-signal is required"
             ])
 
         authority_root = pathlib.Path(args.authority_root) if args.authority_root else None
 
-        if args.eval_admission_batch:
+        if args.capture_signal:
+            if args.format != "json":
+                raise MaterializationError(["--capture-signal requires --format json"])
+            if args.existing or args.expected or args.working_root:
+                raise MaterializationError([
+                    "--capture-signal cannot be combined with --existing/--expected/--working-root"
+                ])
+            required_capture_args = {
+                "--capture-task-id": args.capture_task_id,
+                "--capture-run-id": args.capture_run_id,
+                "--captured-at": args.captured_at,
+                "--runtime-head-sha": args.runtime_head_sha,
+                "--capture-ref": args.capture_ref,
+            }
+            missing_capture_args = [
+                name for name, value in required_capture_args.items()
+                if not isinstance(value, str) or not value.strip()
+            ]
+            if missing_capture_args:
+                raise MaterializationError([
+                    "capture mode missing required args: "
+                    + ", ".join(sorted(missing_capture_args))
+                ])
+            signal = _load_json(
+                pathlib.Path(args.capture_signal),
+                dict,
+                "--capture-signal",
+            )
+            result = build_passive_shadow_capture(
+                task_id=args.capture_task_id,
+                run_id=args.capture_run_id,
+                captured_at=args.captured_at,
+                runtime_head_sha=args.runtime_head_sha,
+                capture_ref=args.capture_ref,
+                signal=signal,
+            )
+        elif args.eval_admission_batch:
             if args.format != "json":
                 raise MaterializationError([
                     "--eval-admission-batch requires --format json"
@@ -1923,6 +2196,9 @@ def main(argv=None) -> int:
         return 3
 
     if args.format == "md":
+        if "pbi_markdown" not in result:
+            print("[pbi-materializer] FAIL: markdown output is only available for PBI materialization", file=sys.stderr)
+            return 3
         sys.stdout.write(result["pbi_markdown"])
     else:
         sys.stdout.write(
