@@ -24,6 +24,9 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | Requirement acceptance basis | owned metadata | `pbi-input.md` | evidence / explicit_decision / policy_rule |
 | Issue/PBI similarity | derived | materializer | exact/canonical factsのみ。LLM fuzzy similarityはauthorityにしない |
 | materialization decision | derived | materializer | update_existing / link_only / create_new |
+| shadow expectation | referenced evaluation evidence | reviewed external expectation | decision/readiness comparison only。PBI/Run/Harness authorityを持たない |
+| shadow comparison | derived | materializer | match / mismatch と差分 field を返すだけ。write/promotionを許可しない |
+| proposal kind / apply contract | derived safety metadata | materializer | full_draft / semantic_patch_proposal / link_evidence_only。Phase 1 は write_allowed=false / replacement_allowed=false |
 | existing PBI binding | referenced | existing Plan Package / approval | c3.json存在等を入力として読む。materializerはbindingを発行しない |
 | Plan Package hash / approval | referenced | existing PlanGate contract | materializerは生成・承認しない |
 | current RunState / LoopContract | referenced / forbidden-to-mutate | ai-loop V2 runtime | follow_up では不変。replan_current は既存Replanへroute |
@@ -61,5 +64,8 @@ target layer       = delivery | harness
 Initial implementation is **shadow/read-only**.
 
 - stdoutへ deterministic JSON / Markdown proposal を出力可能
+- reviewed expectation を `--expected` で与えた場合、decision / matched_ref / readiness の一致・不一致を machine-readable に比較する
+- comparison が `match` でも write / merge / promotion authority は発生しない
+- `update_existing` は semantic patch proposal。既存PBI本文を読まずに全文置換してはならない
 - local files / Issue / RunState / HarnessManifest は変更しない
 - automatic write はfixtureとshadow結果を確認した後の別slice
