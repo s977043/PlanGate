@@ -265,7 +265,10 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"oracle_independence_enforced": false' "$_t94_history_out" \
   && grep -q '"live_shadow_capture_metadata_enforced": true' "$_t94_history_out" \
   && grep -q '"live_shadow_label_alone_sufficient": false' "$_t94_history_out" \
-  && grep -q '"runtime_head_binding_verified": false' "$_t94_history_out" \
+  && grep -q '"live_shadow_run_evidence_binding_enforced": true' \
+  && grep -q '"run_evidence_schema_revalidated": true' \
+  && grep -q '"runtime_head_to_run_evidence_verified": true' \
+  && grep -q '"run_evidence_task_binding_reverified": false' "$_t94_history_out" \
   && grep -q '"write_review_eligible": false' "$_t94_history_out" \
   && grep -q '"observed_decisions": \[' "$_t94_history_out" \
   && grep -q '"create_new"' "$_t94_history_out" \
@@ -294,7 +297,10 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"decision_coverage_complete": false' "$_t94_admission_out" \
   && grep -q '"live_shadow_capture_metadata_enforced": true' "$_t94_admission_out" \
   && grep -q '"live_shadow_label_alone_sufficient": false' "$_t94_admission_out" \
-  && grep -q '"runtime_head_binding_verified": false' "$_t94_admission_out" \
+  && grep -q '"live_shadow_run_evidence_binding_enforced": true' \
+  && grep -q '"run_evidence_schema_revalidated": true' \
+  && grep -q '"runtime_head_to_run_evidence_verified": true' \
+  && grep -q '"run_evidence_task_binding_reverified": false' "$_t94_admission_out" \
   && grep -q '"write_review_eligible": false' "$_t94_admission_out" \
   && grep -q '"write_allowed": false' "$_t94_admission_out" \
   && grep -q '"close_allowed": false' "$_t94_admission_out" \
@@ -304,6 +310,48 @@ if [ "$_t94_rc" -eq 0 ] \
 else
   printf '  [FAIL] admission replay: historical admission corpus failed (rc=%s)\n' "$_t94_rc" >&2
   sed 's/^/    /' "$_t94_tmp/admission.err" >&2
+  fail=$((fail + 1))
+fi
+
+# 9. Passive capture CLI must fire and remain stdout-only/non-authoritative.
+_t94_signal="$_t94_tmp/live-signal.json"
+_t94_capture_out="$_t94_tmp/live-capture.json"
+_t94_forbidden_ref="docs/working/TASK-1442/evidence/pbi-materializer-shadow/__ta94_should_not_be_written.json"
+cat >"$_t94_signal" <<'JSON'
+{
+  "signal_id": "SIG-TA94-LIVE",
+  "source_ref": "TASK-1442/delivery/record.jsonl",
+  "source_kind": "existing_behavior",
+  "claim_class": "observed",
+  "statement": "TA-94 passive capture probe.",
+  "disposition": "actionable",
+  "target_layer": "delivery",
+  "candidate_problem": "Probe the passive live-shadow capture path."
+}
+JSON
+_t94_rc=0
+"$_T94_PY" "$_T94_AI_LOOP/pbi_materializer.py" \
+  --capture-signal "$_t94_signal" \
+  --capture-task-id TASK-1442 \
+  --capture-run-id ta94-live-run \
+  --captured-at 2026-10-03T04:00:00Z \
+  --runtime-head-sha aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+  --capture-ref "$_t94_forbidden_ref" \
+  --format json \
+  >"$_t94_capture_out" 2>"$_t94_tmp/capture.err" || _t94_rc=$?
+if [ "$_t94_rc" -eq 0 ] \
+  && grep -q '"mode": "passive_shadow_capture"' "$_t94_capture_out" \
+  && grep -q '"write_allowed": false' "$_t94_capture_out" \
+  && grep -q '"close_allowed": false' "$_t94_capture_out" \
+  && grep -q '"suppression_allowed": false' "$_t94_capture_out" \
+  && grep -q '"oracle_attached": false' "$_t94_capture_out" \
+  && grep -q '"signal_hash": "sha256:' "$_t94_capture_out" \
+  && [ ! -e "$_T94_ROOT/$_t94_forbidden_ref" ]; then
+  printf '  [PASS] passive capture: CLI fires via stdout only with no write/close/suppression/oracle authority\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] passive capture: CLI path or no-write invariant failed (rc=%s)\n' "$_t94_rc" >&2
+  sed 's/^/    /' "$_t94_tmp/capture.err" >&2
   fail=$((fail + 1))
 fi
 
