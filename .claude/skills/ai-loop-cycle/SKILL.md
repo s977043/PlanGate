@@ -321,6 +321,79 @@ capture のために terminal decision / final_head_sha / completed_at を書き
 - `no_action` は source Issue/PBI を close / suppress する authority を持たない。
 - 本 Step は shadow Evidence 収集のみで、PBI write / close / merge / Harness live mutation を行わない。
 
+### 6.4 Evidence collector（実runでの推奨経路）
+
+実runでは primitive の stdout を手作業で配置せず、同梱 collector を使って
+`capture -> blind review packet -> reviewed admission case` を create-or-reuse-identical で保存する。
+
+```text
+source artifact
+  -> collector capture
+  -> RunEvidence finalize（source_ref + capture_ref を evidence_refs へ）
+  -> collector packet
+  -> independent reviewer が oracle artifact を別途作成
+  -> collector case
+  -> pbi_materializer --eval-admission-batch
+```
+
+capture:
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" capture \
+  --signal "<normalized-signal.json>" \
+  --task-id "TASK-XXXX" \
+  --run-id "<run-id>" \
+  --captured-at "<timezone-aware RFC3339>" \
+  --runtime-head-sha "<40-hex final HEAD>" \
+  --capture-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/capture.json"
+```
+
+RunEvidence 保存後:
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" packet \
+  --capture-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/capture.json" \
+  --run-evidence-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/run-evidence.json" \
+  --packet-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/review-packet.json"
+```
+
+review packet は maker の actual decision を含まない。Reviewer は `blind_review_source_ref`
+の upstream source から expected admission decision を決め、oracle を **別artifact** として作る。
+collector は reviewer identity / independence を自己証明しない。
+
+oracle の最小 contract:
+
+```json
+{
+  "schema_version": 1,
+  "domain": "plangate.pbi-live-shadow-admission-oracle/v1",
+  "case_ref": "LIVE-ADMISSION-...",
+  "packet_ref": "<review-packet-ref>",
+  "packet_hash": "sha256:...",
+  "reviewed_source_ref": "<upstream-source-ref>",
+  "reviewed_source_sha256": "sha256:...",
+  "expected_admission_decision": "materialize | no_action | discover_more",
+  "independent_review_asserted": true,
+  "maker_actual_not_consulted_asserted": true
+}
+```
+
+oracle 作成後:
+
+```sh
+python3 scripts/ai-loop/pbi_live_shadow_collector.py \
+  --repo-root "<repo-root>" case \
+  --packet-ref "<review-packet-ref>" \
+  --oracle-ref "<oracle-ref>" \
+  --case-artifact-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/admission-case.json"
+```
+
+collector の保存は同一内容の retry のみ再利用可能。既存artifactの内容が異なる場合は fail closed。
+oracle は `expected.oracle_ref` で束縛し、source `evidence_refs[]` へ混ぜない。
+collector は PBI / Issue / RunState / Harness / merge を変更しない。
+
 ## 禁止事項
 
 - lite 宣言の虚偽（判定不能を `true` 側に倒す）
