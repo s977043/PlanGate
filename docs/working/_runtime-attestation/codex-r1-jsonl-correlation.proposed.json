@@ -1,0 +1,62 @@
+{
+  "description": "PROPOSAL ONLY — correlate Codex Explorer lifecycle candidate hooks with codex exec --json thread/turn envelope. Do not activate automatically.",
+  "contract_stage": "r1-codex-jsonl-correlation-candidate-v1",
+  "capture": {
+    "hooks_jsonl": "$RUNNER_TEMP/r1-codex-hooks.jsonl",
+    "exec_jsonl": "$RUNNER_TEMP/r1-codex-exec.jsonl",
+    "exec_mode": "codex exec --json",
+    "ephemeral_recommended": true,
+    "repository_output_forbidden": true
+  },
+  "public_exec_jsonl_contract": {
+    "accepted_top_level_events": [
+      "thread.started",
+      "turn.started",
+      "item.started",
+      "item.updated",
+      "item.completed",
+      "turn.completed",
+      "turn.failed",
+      "error"
+    ],
+    "thread_started_exposes_thread_id": true,
+    "turn_started_exposes_turn_id": false,
+    "public_thread_item_exposes_subagent_identity": false
+  },
+  "candidate_verification": {
+    "required": [
+      "hook session_id equals exec thread.started.thread_id",
+      "exactly one successful turn envelope",
+      "thread.started is first",
+      "turn.completed is final",
+      "all item events stay inside the turn boundary",
+      "file_change/web_search/error items are absent",
+      "hook/exec traces are absolute, regular, non-symlink files outside the repository"
+    ],
+    "must_remain_false": [
+      "command_execution_read_only_verified",
+      "mcp_tool_read_only_verified",
+      "repository_postcondition_verified",
+      "turn_id_correlation_verified",
+      "subagent_identity_correlation_verified",
+      "codex_jsonl_runtime_correlation_verified",
+      "hard_read_only_enforced",
+      "runtime_probe_attestation_verified",
+      "human_rollout_decision_verified",
+      "dispatch_ready",
+      "dispatch_allowed"
+    ]
+  },
+  "privacy_notes": [
+    "Raw JSONL may contain agent messages, reasoning summaries, commands, tool arguments, and outputs; do not persist those fields into correlation results.",
+    "Persist only opaque ids, counts, booleans, and the raw trace content hash.",
+    "The raw traces stay in runner-temporary or another approved evidence store outside the repository."
+  ],
+  "trust_notes": [
+    "A same-thread match is stronger than hook-only observation, but it is not exact turn or subagent identity correlation.",
+    "The public exec JSONL turn.started event currently has no turn id.",
+    "The public ThreadItem union currently has no subagent identity item.",
+    "A future stronger adapter needs an independently exposed runtime identifier before codex_jsonl_runtime_correlation_verified may become true.",
+    "Absence of file_change does not prove shell/MCP read-only behavior or repository cleanliness; those postconditions stay separately unverified."
+  ]
+}
