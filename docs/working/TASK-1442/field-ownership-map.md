@@ -44,6 +44,7 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | materialization oracle | independent reviewed expectation | caller / independent reviewer | Admission materialize match 後の payload / existing-work snapshot / expected decision-readiness を hash で束縛。collector は生成しない |
 | reviewed materialization case | derived evaluation input | collector assembler | Admission materialize matchを再検証し、payload/existing-work/oracleを既存 shadow batch contractへ束縛。PBI write authorityなし |
 | materialization live inventory | derived read-only projection | collector inventory | tracked `materialization-case.json` を再検証・再評価し duplicate FP/FN / mismatch を再計算。quality acceptance / write Gate ではない |
+| live collection plan | derived read-only gap projection | admission/materialization inventories | reviewed expected decision の未観測classを opportunistic observation target として表示。quota / case generator / representative coverage claimではない |
 | blind review packet | derived evidence | collector | maker actual / expected decision を含めず、source/capture/RunEvidence hash だけを束縛。reviewer independence は自己証明しない |
 | admission oracle | independent reviewed expectation | caller / independent reviewer | collector は作成しない。同一 TASK live-shadow evidence namespace に置き、packet/source hash と expected admission decision を束縛 |
 | reviewed admission case | derived evaluation input | collector assembler | source/capture/RunEvidence/packet と oracle を再検証して evaluator 互換 case を生成。oracle は `expected.oracle_ref` のみで参照し、`evidence_refs[]` に混ぜない |
@@ -655,3 +656,45 @@ write_allowed = false
 
 したがって tracked materialization case が存在しても、representative coverage / quality acceptance /
 automatic PBI write の根拠にはならない。
+
+
+## Live collection plan boundary
+
+collection plan は admission / materialization inventory から毎回再計算する read-only projection。
+
+coverage basis は **reviewed expected decision** とする。
+
+```text
+maker actual decision
+  = model behavior observation
+
+reviewed expected decision
+  = collection coverage basis
+```
+
+actual が `materialize` でも reviewer expected が `no_action` なら、
+`materialize` ground-truth case を収集済みとは数えない。
+
+materialization collection target は reviewed expected admission `materialize` が存在する場合だけ
+`currently_collectable=true` とする。
+
+ただしこれはquotaやcase generation instructionではない:
+
+```text
+opportunistic_observation_only = true
+synthetic_case_generation_for_coverage_allowed = false
+historical_relabeling_allowed = false
+decision_coverage_quota_defined = false
+source_kind_coverage_requirement_defined = false
+representative_coverage_claim_allowed = false
+coverage_complete_implies_representative = false
+collection_target_is_quota = false
+collection_target_is_case_generation_instruction = false
+collection_coverage_basis = reviewed_expected_decisions
+maker_actual_counts_as_ground_truth_coverage = false
+runtime_execution_verified = false
+quality_acceptance_decided = false
+```
+
+したがって missing target を埋める目的で synthetic fixture を作ったり、
+historical replay を live evidence に昇格したりしない。
