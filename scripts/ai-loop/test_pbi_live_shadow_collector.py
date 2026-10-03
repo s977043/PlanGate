@@ -176,6 +176,15 @@ class LiveShadowCollectorTests(unittest.TestCase):
             result["run_evidence_handoff"]["runtime_head_sha"],
             "abcdef1234567890abcdef1234567890abcdef12",
         )
+        self.assertEqual(
+            result["run_evidence_handoff"]["capture_hash"],
+            result["artifact_hash"],
+        )
+        self.assertTrue(
+            result["run_evidence_handoff"]["source_sha256"].startswith(
+                "sha256:"
+            )
+        )
         self.assertTrue(
             result["run_evidence_handoff"]["advisory_only"]
         )
