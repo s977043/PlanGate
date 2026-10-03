@@ -146,9 +146,38 @@ class MaterializationFixtures(unittest.TestCase):
                 }
             ],
         )
+        payload["requirements"][0]["acceptance_basis"] = "explicit_decision"
+        payload["requirements"][0]["basis_ref"] = "decision:D-1"
         result = pm.materialize(payload, [])
         self.assertIn("inferred", result["pbi_markdown"])
-        self.assertIn("run-evidence:001", result["pbi_markdown"])
+        self.assertIn("| agent-summary:B | run-evidence:001 |", result["pbi_markdown"])
+
+    def test_05b_inferred_only_source_cannot_be_evidence_acceptance_basis(self):
+        payload = _payload(
+            claims=[
+                {
+                    "id": "CLM-001",
+                    "text": "Agent inference only",
+                    "source_ref": "agent-summary:B",
+                    "origin_ref": "run-evidence:001",
+                    "source_kind": "run_evidence",
+                    "claim_class": "inferred",
+                    "supports": "Problem",
+                }
+            ],
+            requirements=[
+                {
+                    "id": "REQ-001",
+                    "goal_problem": "Act on inference",
+                    "acceptance_basis": "evidence",
+                    "basis_ref": "run-evidence:001",
+                    "related_ac": "AC-01",
+                }
+            ],
+        )
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(payload, [])
+        self.assertTrue(any("inferred-only" in e for e in ctx.exception.errors))
 
     def test_06_same_task_plan_cannot_be_upstream_evidence(self):
         payload = _payload(
@@ -251,6 +280,14 @@ class MaterializationFixtures(unittest.TestCase):
         with self.assertRaises(pm.MaterializationError) as ctx:
             pm.materialize(payload, [])
         self.assertTrue(any("privacy" in e for e in ctx.exception.errors))
+
+
+class ExistingWorkValidationTests(unittest.TestCase):
+    def test_malformed_existing_work_fails_closed_instead_of_creating_duplicate(self):
+        malformed = [{"ref": "", "source_refs": "not-an-array"}]
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(_payload(), malformed)
+        self.assertTrue(any("existing_work[0]" in e for e in ctx.exception.errors))
 
 
 class DeterminismAndSearchTests(unittest.TestCase):
