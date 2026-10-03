@@ -262,6 +262,8 @@ Reference:
 
 Production feedback をいきなり Production auto-remediation として接続しない。
 
+**North Star §17 の release boundary を優先する。** Delivery V2 が要求する E2E（Verify FAIL -> Diagnose -> Repair -> Verify PASS -> PR convergence -> `MERGE_READY`、および `NO_PROGRESS` の safe stop / escalation）が安定する前に、Production signal を Agent の実行 trigger として接続しない。先行してよいのは fixture / offline replay / redaction / normalization / dedupe 等の Evidence intake 検証までとする。
+
 ### Slice A — Evidence intake only
 
 - provider payload fixture を作る
@@ -271,6 +273,7 @@ Production feedback をいきなり Production auto-remediation として接続�
 
 ### Slice B — Investigation only
 
+- **Delivery V2 の release boundary 通過後**に Production trigger を有効化する
 - trigger で read-only investigation を開始する
 - code change は提案まで
 - false-positive / duplicate / missing-evidence を測る
