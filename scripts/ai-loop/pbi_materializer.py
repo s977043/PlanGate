@@ -243,6 +243,13 @@ def build_passive_shadow_capture(
         errors.append("runtime_head_sha: 40 lowercase hex required")
     errors.extend(_validate_repo_relative_ref_syntax(capture_ref, "capture_ref"))
     errors.extend(validate_admission_signal(signal))
+    if isinstance(signal, dict):
+        errors.extend(
+            _validate_repo_relative_ref_syntax(
+                signal.get("source_ref"),
+                "signal.source_ref",
+            )
+        )
     if isinstance(signal, dict) and signal.get("source_ref") == capture_ref:
         errors.append(
             "signal.source_ref: passive capture cannot cite its own capture_ref as upstream evidence"
