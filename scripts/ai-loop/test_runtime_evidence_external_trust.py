@@ -61,7 +61,7 @@ def _fetch(values):
 
 
 class HumanRolloutVerificationTests(unittest.TestCase):
-    def test_exact_owner_comment_is_verified_but_grants_no_dispatch(self):
+    def test_exact_owner_comment_is_candidate_but_not_human_authority(self):
         result = trust.verify_human_rollout_comment(
             repo_full_name=REPO,
             issue_number=ISSUE,
@@ -69,11 +69,26 @@ class HumanRolloutVerificationTests(unittest.TestCase):
             request_hash=REQ,
             fetch_json=_fetch(_fixture()),
         )
-        self.assertTrue(result["human_rollout_decision_verified"])
+        self.assertTrue(result["owner_account_decision_candidate"])
+        self.assertTrue(result["live_github_metadata_verified"])
+        self.assertFalse(result["human_presence_verified"])
+        self.assertFalse(result["human_identity_verified"])
+        self.assertFalse(result["human_rollout_decision_verified"])
         self.assertFalse(result["authority"]["agent_invoke_allowed"])
         self.assertFalse(result["authority"]["dispatch_allowed"])
         self.assertFalse(result["authority"]["merge_allowed"])
         self.assertFalse(result["authority"]["deploy_allowed"])
+
+    def test_owner_api_credential_limitation_is_explicit(self):
+        result = trust.verify_human_rollout_comment(
+            repo_full_name=REPO,
+            issue_number=ISSUE,
+            comment_id=COMMENT,
+            request_hash=REQ,
+            fetch_json=_fetch(_fixture()),
+        )
+        self.assertIn("API automation", result["verification_limit"])
+        self.assertFalse(result["human_rollout_decision_verified"])
 
     def test_github_app_comment_is_rejected(self):
         values = _fixture()
