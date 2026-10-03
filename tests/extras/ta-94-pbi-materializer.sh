@@ -774,7 +774,180 @@ _t94_rc=0
 "$_T94_PY" "$_t94_collector_test" >"$_t94_collector_log" 2>&1 || _t94_rc=$?
 if [ "$_t94_rc" -eq 0 ] \
   && grep -Eq 'Ran [1-9][0-9]* tests?' "$_t94_collector_log" \
-  && grep -q '^OK "$_t94_collector_log" \
+  && grep -q '^OK
+  && cmp -s "$_t94_collector" "$_t94_plugin_collector" \
+  && cmp -s "$_t94_collector_test" "$_t94_plugin_collector_test"; then
+  printf '  [PASS] live collector: unit suite fired and plugin mirrors are byte-identical\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] live collector: unit suite/distribution check failed (rc=%s)\n' "$_t94_rc" >&2
+  sed 's/^/    /' "$_t94_collector_log" >&2
+  fail=$((fail + 1))
+fi
+
+_t94_collect_root="$_t94_tmp/collector-root"
+mkdir -p "$_t94_collect_root/scripts" "$_t94_collect_root/TASK-9999/delivery"
+printf '{"kind":"state","state":"MERGE_READY"}\n' >"$_t94_collect_root/TASK-9999/delivery/record.jsonl"
+
+_t94_collect_signal="$_t94_tmp/collector-signal.json"
+cat >"$_t94_collect_signal" <<'JSON'
+{
+  "signal_id": "SIG-TA94-COLLECTOR",
+  "source_ref": "TASK-9999/delivery/record.jsonl",
+  "source_kind": "existing_behavior",
+  "claim_class": "observed",
+  "statement": "Completed run has no new PBI-worthy finding.",
+  "disposition": "informational",
+  "target_layer": "delivery",
+  "candidate_problem": null
+}
+JSON
+
+_t94_cbase="docs/working/TASK-9999/evidence/pbi-live-shadow/run-01"
+_t94_ccap="$_t94_cbase/capture.json"
+_t94_cev="$_t94_cbase/run-evidence.json"
+_t94_cpacket="$_t94_cbase/review-packet.json"
+_t94_coracle="$_t94_cbase/oracle.json"
+_t94_ccase="$_t94_cbase/admission-case.json"
+_t94_rc=0
+
+"$_T94_PY" "$_t94_collector" --repo-root "$_t94_collect_root" capture \
+  --signal "$_t94_collect_signal" \
+  --task-id TASK-9999 --run-id run-01 \
+  --captured-at 2099-12-31T12:00:00Z \
+  --runtime-head-sha abcdef1234567890abcdef1234567890abcdef12 \
+  --capture-ref "$_t94_ccap" \
+  >"$_t94_tmp/collector-capture.out" 2>"$_t94_tmp/collector-capture.err" || _t94_rc=$?
+
+if [ "$_t94_rc" -eq 0 ]; then
+  "$_T94_PY" - \
+    "$_T94_ROOT/tests/fixtures/run-evidence/fx-01-first-pass.json" \
+    "$_t94_collect_root/$_t94_cev" \
+    "$_t94_ccap" <<'PY'
+import json
+import pathlib
+import sys
+
+src = pathlib.Path(sys.argv[1])
+dst = pathlib.Path(sys.argv[2])
+capture_ref = sys.argv[3]
+record = json.loads(src.read_text(encoding="utf-8"))
+record["evidence_refs"] = list(dict.fromkeys(
+    record["evidence_refs"]
+    + ["TASK-9999/delivery/record.jsonl", capture_ref]
+))
+dst.parent.mkdir(parents=True, exist_ok=True)
+dst.write_text(
+    json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+  _t94_rc=$?
+fi
+
+if [ "$_t94_rc" -eq 0 ]; then
+  "$_T94_PY" "$_t94_collector" --repo-root "$_t94_collect_root" packet \
+    --capture-ref "$_t94_ccap" \
+    --run-evidence-ref "$_t94_cev" \
+    --packet-ref "$_t94_cpacket" \
+    >"$_t94_tmp/collector-packet.out" 2>"$_t94_tmp/collector-packet.err" || _t94_rc=$?
+fi
+
+if [ "$_t94_rc" -eq 0 ]; then
+  "$_T94_PY" - \
+    "$_T94_ROOT/scripts/ai-loop" \
+    "$_t94_collect_root/$_t94_cpacket" \
+    "$_t94_collect_root/TASK-9999/delivery/record.jsonl" \
+    "$_t94_collect_root/$_t94_coracle" \
+    "$_t94_cpacket" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import pbi_materializer as pm
+
+packet_path = pathlib.Path(sys.argv[2])
+source_path = pathlib.Path(sys.argv[3])
+oracle_path = pathlib.Path(sys.argv[4])
+packet_ref = sys.argv[5]
+packet = json.loads(packet_path.read_text(encoding="utf-8"))
+oracle = {
+    "schema_version": 1,
+    "domain": "plangate.pbi-live-shadow-admission-oracle/v1",
+    "case_ref": "LIVE-TA94-COLLECTOR",
+    "packet_ref": packet_ref,
+    "packet_hash": pm._canonical_json_hash(packet),
+    "reviewed_source_ref": "TASK-9999/delivery/record.jsonl",
+    "reviewed_source_sha256": "sha256:" + hashlib.sha256(source_path.read_bytes()).hexdigest(),
+    "expected_admission_decision": "no_action",
+    "independent_review_asserted": True,
+    "maker_actual_not_consulted_asserted": True,
+}
+oracle_path.parent.mkdir(parents=True, exist_ok=True)
+oracle_path.write_text(
+    json.dumps(oracle, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+  _t94_rc=$?
+fi
+
+if [ "$_t94_rc" -eq 0 ]; then
+  "$_T94_PY" "$_t94_collector" --repo-root "$_t94_collect_root" case \
+    --packet-ref "$_t94_cpacket" \
+    --oracle-ref "$_t94_coracle" \
+    --case-artifact-ref "$_t94_ccase" \
+    >"$_t94_tmp/collector-case.out" 2>"$_t94_tmp/collector-case.err" || _t94_rc=$?
+fi
+
+_t94_collector_batch="$_t94_tmp/collector-batch.json"
+if [ "$_t94_rc" -eq 0 ]; then
+  "$_T94_PY" - "$_t94_collect_root/$_t94_ccase" "$_t94_collector_batch" <<'PY'
+import json
+import pathlib
+import sys
+
+case = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+pathlib.Path(sys.argv[2]).write_text(
+    json.dumps([case], ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    encoding="utf-8",
+)
+PY
+  _t94_rc=$?
+fi
+
+if [ "$_t94_rc" -eq 0 ]; then
+  "$_T94_PY" "$_T94_AI_LOOP/pbi_materializer.py" \
+    --eval-admission-batch "$_t94_collector_batch" \
+    --authority-root "$_t94_collect_root" --format json \
+    >"$_t94_tmp/collector-eval.out" 2>"$_t94_tmp/collector-eval.err" || _t94_rc=$?
+fi
+
+if [ "$_t94_rc" -eq 0 ] \
+  && grep -q '"artifact_reused": false' "$_t94_tmp/collector-capture.out" \
+  && grep -q '"actual_decision_disclosed": false' "$_t94_tmp/collector-packet.out" \
+  && ! grep -q '"actual_admission_decision"' "$_t94_tmp/collector-packet.out" \
+  && grep -q '"oracle_authorship_verified": false' "$_t94_tmp/collector-case.out" \
+  && grep -q '"mode": "admission_evaluation"' "$_t94_tmp/collector-eval.out" \
+  && grep -q '"status": "match"' "$_t94_tmp/collector-eval.out" \
+  && grep -q '"live_shadow_cases": 1' "$_t94_tmp/collector-eval.out" \
+  && grep -q '"write_allowed": false' "$_t94_tmp/collector-eval.out" \
+  && grep -q '"suppression_allowed": false' "$_t94_tmp/collector-eval.out"; then
+  printf '  [PASS] live collector E2E: capture -> blind packet -> oracle -> case -> evaluator\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] live collector E2E failed (rc=%s)\n' "$_t94_rc" >&2
+  for _t94_err in collector-capture.err collector-packet.err collector-case.err collector-eval.err; do
+    [ -f "$_t94_tmp/$_t94_err" ] && sed 's/^/    /' "$_t94_tmp/$_t94_err" >&2
+  done
+  fail=$((fail + 1))
+fi
+
+rm -rf "$_t94_tmp"
+pg_extra_contract_finalize
+ "$_t94_collector_log" \
   && cmp -s "$_t94_collector" "$_t94_plugin_collector" \
   && cmp -s "$_t94_collector_test" "$_t94_plugin_collector_test"; then
   printf '  [PASS] live collector: unit suite fired and plugin mirrors are byte-identical\n'
