@@ -1519,22 +1519,43 @@ class WriteReviewAssessmentTests(unittest.TestCase):
                 "case_ref": "M-CREATE",
                 "evidence_class": "live_shadow",
                 "status": "match",
+                "mismatches": [],
                 "actual_decision": "create_new",
+                "actual_matched_ref": None,
+                "actual_readiness_status": "ready",
                 "actual_readiness_route": "future_run",
+                "expected_decision": "create_new",
+                "expected_matched_ref": None,
+                "expected_readiness_status": "ready",
+                "expected_readiness_route": "future_run",
             },
             {
                 "case_ref": "M-UPDATE",
                 "evidence_class": "live_shadow",
                 "status": "match",
+                "mismatches": [],
                 "actual_decision": "update_existing",
+                "actual_matched_ref": "docs/working/TASK-1001/pbi-input.md",
+                "actual_readiness_status": "ready",
                 "actual_readiness_route": "future_run",
+                "expected_decision": "update_existing",
+                "expected_matched_ref": "docs/working/TASK-1001/pbi-input.md",
+                "expected_readiness_status": "ready",
+                "expected_readiness_route": "future_run",
             },
             {
                 "case_ref": "M-LINK",
                 "evidence_class": "live_shadow",
                 "status": "match",
+                "mismatches": [],
                 "actual_decision": "link_only",
+                "actual_matched_ref": "docs/working/TASK-1002/pbi-input.md",
+                "actual_readiness_status": "ready",
                 "actual_readiness_route": "future_run",
+                "expected_decision": "link_only",
+                "expected_matched_ref": "docs/working/TASK-1002/pbi-input.md",
+                "expected_readiness_status": "ready",
+                "expected_readiness_route": "future_run",
             },
         ]
         report = {
@@ -1552,6 +1573,7 @@ class WriteReviewAssessmentTests(unittest.TestCase):
             },
             "cases": cases,
         }
+        report["rollout_quality"] = pm._materialization_live_quality(cases)
         report.update(overrides)
         return report
 
@@ -1562,18 +1584,21 @@ class WriteReviewAssessmentTests(unittest.TestCase):
                 "evidence_class": "live_shadow",
                 "status": "match",
                 "actual": "materialize",
+                "expected": "materialize",
             },
             {
                 "case_ref": "A-NO-ACTION",
                 "evidence_class": "live_shadow",
                 "status": "match",
                 "actual": "no_action",
+                "expected": "no_action",
             },
             {
                 "case_ref": "A-DISCOVER",
                 "evidence_class": "live_shadow",
                 "status": "match",
                 "actual": "discover_more",
+                "expected": "discover_more",
             },
         ]
         report = {
@@ -1594,6 +1619,7 @@ class WriteReviewAssessmentTests(unittest.TestCase):
             },
             "cases": cases,
         }
+        report["rollout_quality"] = pm._admission_live_quality(cases)
         report.update(overrides)
         return report
 
@@ -1637,6 +1663,16 @@ class WriteReviewAssessmentTests(unittest.TestCase):
         return assessment
 
     def _assess(self, assessment):
+        assessment["materialization_report"]["rollout_quality"] = (
+            pm._materialization_live_quality(
+                assessment["materialization_report"]["cases"]
+            )
+        )
+        assessment["admission_report"]["rollout_quality"] = (
+            pm._admission_live_quality(
+                assessment["admission_report"]["cases"]
+            )
+        )
         self._persist_reports(assessment)
         return pm.assess_write_review_readiness(
             assessment,
@@ -1784,6 +1820,24 @@ class WriteReviewAssessmentTests(unittest.TestCase):
             )
         self.assertTrue(
             any("summary/cases mismatch" in e for e in ctx.exception.errors)
+        )
+
+    def test_rollout_quality_must_match_cases(self):
+        assessment = self._assessment()
+        assessment["materialization_report"]["rollout_quality"][
+            "duplicate_false_negative_count"
+        ] = 99
+        self._persist_reports(assessment)
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.assess_write_review_readiness(
+                assessment,
+                authority_root=self.root,
+            )
+        self.assertTrue(
+            any(
+                "rollout_quality: summary/cases mismatch" in e
+                for e in ctx.exception.errors
+            )
         )
 
 
