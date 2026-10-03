@@ -173,6 +173,42 @@ runtime_evidence:
 
 The package is a transport / intake artifact, not a judgment artifact.
 
+### 4.1 Intake identity and deduplication
+
+A runtime signal can repeat thousands of times. The integration must distinguish **new evidence** from **new work**.
+
+Use a deterministic intake identity derived from stable fields such as:
+
+```text
+provider
++ environment
++ normalized failure fingerprint
++ deployment identity (when known)
++ bounded time bucket / recurrence epoch
+```
+
+The exact hash format is adapter-owned, but the semantics are fixed:
+
+- the same active failure should attach evidence to existing work instead of opening parallel Delivery Runs;
+- a recurrence after a defined quiet period may start a new recurrence epoch;
+- a deployment identity change may create a new evidence generation while preserving lineage to the prior issue;
+- deduplication state is intake state, not Delivery Run state.
+
+This avoids turning event frequency into unbounded agent concurrency.
+
+### 4.2 Evidence trust level
+
+External evidence should carry an explicit trust assessment. This is not a quality score for the application; it indicates how safely the evidence may be used as an input.
+
+| Level | Meaning | Allowed use |
+| --- | --- | --- |
+| `untrusted` | unauthenticated / unverifiable source | quarantine; no automatic agent start |
+| `authenticated` | sender identity verified, payload provenance known | intake / triage |
+| `correlated` | deployment / trace / repository identity can be cross-checked | repository investigation |
+| `verified` | key claims reproduced or supported by independent evidence | may support Plan / verification decisions |
+
+A higher level must be earned by additional evidence. Provider reputation alone does not promote an event to `verified`.
+
 ## 5. Intake policy
 
 The intake layer should decide only what happens next, not whether the eventual code change is valid.
@@ -190,6 +226,36 @@ Suggested actions:
 | provider unavailable for deeper evidence | continue only if minimum evidence contract is met; otherwise wait / escalate |
 
 The exact threshold policy should remain project-owned and should not be hard-coded into ai-loop V2 core.
+
+### 5.1 Agent-start preconditions
+
+A trigger may create an intake item immediately, but repository investigation should start only when all mandatory preconditions hold:
+
+1. sender / source provenance is known;
+2. payload passes structural validation;
+3. redaction / secret scanning completes successfully;
+4. deterministic intake identity has been computed;
+5. duplicate / active-work lookup has completed;
+6. a bounded repository / service target is known, or the item is routed to human triage;
+7. minimum evidence refs required by the project are present;
+8. agent permissions remain those of the existing PlanGate execution profile.
+
+If any mandatory precondition is unknown, the default is **wait / quarantine / human triage**, not best-effort autonomous execution.
+
+### 5.2 Work creation contract
+
+Creating work and starting a Delivery Run are separate actions.
+
+```text
+runtime event
+  -> intake item
+  -> dedup / aggregate
+  -> bounded work request
+  -> existing planning / approval path
+  -> Delivery Run
+```
+
+The runtime adapter may propose title, description, evidence refs, affected service, and suspected files. It must not fabricate acceptance criteria, expand `allowed_paths`, or mark a Plan approved.
 
 ## 6. Connection to Delivery / Learn / Evolve
 
@@ -341,6 +407,8 @@ Only after evidence supports the design should the proposal be promoted into V2 
 5. Which fields must be redacted or converted to opaque references?
 6. How should a runtime-originated task bind to deployment / commit identity when the running version is not traceable?
 7. What metrics are sufficient to decide whether the adapter improves Time to Learning without increasing unsafe automation?
+8. Which existing V2 owner should persist intake identity / recurrence lineage so that a second mutable state machine is not introduced?
+9. What trust level is required before repository investigation can begin for each adapter class?
 
 ## 13. Decision requested
 
