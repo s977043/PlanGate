@@ -37,6 +37,8 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | decision-log | referenced decision | existing task decision log | `source_kind=decision_log` + 実在 `decision-log.jsonl#<decision_id>` を explicit_decision の basis ref に利用。自由記述 ref のみでは authority を成立させない |
 | hidden CoT / raw transcript / session log | forbidden | — | 入力/出力の保存を拒否 |
 | Shadow evaluation report | derived evidence | materializer evaluator | train/test + evidence-class metricsを生成するが write / promotion authority を持たない |
+| write-review assessment | derived review-readiness projection | materializer assessor | admission/materialization evidenceを集約し Human review 候補かを示す。write/close/suppression/merge authorityは持たない |
+| evaluator report refs | referenced evaluation artifacts | caller / repository evidence store | stored JSON と embedded report の canonical hash 一致を要求。authorship は保証しない |
 | evidence class | derived evaluation metadata | evaluation caller | synthetic_fixture / historical_replay / live_shadow。synthetic を rollout evidence と数えない |
 | historical/live evidence refs | referenced evidence | tracked repository artifact / live run evidence | repository-visible ref の実在を検証。historical harness signal は #874/#869 へ委譲 |
 | live shadow capture identity | referenced capture metadata | passive capture producer + RunEvidence | capture artifact は task_id / run_id / captured_at / runtime_head_sha / capture_ref / signal を保持。単体では live evidence に数えない |
@@ -251,3 +253,52 @@ run_evidence_task_binding_owner = caller_or_run_evidence_verifier
 したがって上記は **binding rule が実装されている**ことを意味し、実 live observation が存在することを意味しない。  
 `live_shadow_cases=0` の間は #1442 の live-shadow rollout AC を完了扱いにしない。
 
+
+
+## Write-review readiness boundary
+
+`write_review_ready=true` は **automatic write を許可する状態ではない**。
+
+```text
+Admission evaluation
+Materialization evaluation
+Dependency / Test assertions
+        ↓
+write-review assessment
+        ↓
+Human review candidate
+```
+
+runtime 出力は常に:
+
+```text
+write_allowed = false
+close_allowed = false
+suppression_allowed = false
+automatic_promotion = false
+merge_authority = false
+```
+
+を維持する。
+
+assessment は次を fail-closed に確認する:
+
+- materialization/admission report が repository-visible JSON artifact に束縛されている
+- embedded report と stored report の canonical hash が一致する
+- summary の live-shadow 件数 / observed decisions / error 件数が `cases[]` と一致する
+- admission 3 decision と materialization 3 decision の coverage
+- live-shadow evidence が admission / materialization 双方に存在する
+- design dependency finalized / latest full Test green の caller assertion
+- independent oracle review ref の存在
+- generalization claim を要求する場合は isolated holdout review ref の存在
+
+ただし以下は **未保証**:
+
+```text
+caller_asserted_dependency_status = true
+caller_asserted_test_status = true
+report_artifact_authorship_verified = false
+independent_review_authorship_verified = false
+```
+
+したがって `write_review_ready=true` は「Human が write-capable slice をレビューする材料が揃った」という projection に限定し、production mutation authorization として利用してはならない。
