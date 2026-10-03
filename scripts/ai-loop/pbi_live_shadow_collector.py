@@ -274,6 +274,21 @@ def collect_capture(
         "artifact_reused": artifact_reused,
         "source_ref": source_ref.strip(),
         "run_evidence_ref": None,
+        "run_evidence_handoff": {
+            "evidence_refs": [source_ref.strip(), capture_ref],
+            "cli_args": [
+                "--evidence-ref",
+                source_ref.strip(),
+                "--evidence-ref",
+                capture_ref,
+            ],
+            "task_id": task_id,
+            "run_id": run_id,
+            "runtime_head_sha": runtime_head_sha,
+            "captured_at": captured_at,
+            "advisory_only": True,
+            "must_revalidate_after_run_evidence": True,
+        },
         "next": "finalize_run_evidence_with_source_and_capture_refs",
         "authority": {
             "evidence_create_allowed": True,
