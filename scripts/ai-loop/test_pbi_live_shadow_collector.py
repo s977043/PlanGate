@@ -30,6 +30,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self.tmp.name)
         (self.root / "scripts").mkdir()
+        (self.root / "docs").mkdir()
         self.source_ref = "TASK-9999/delivery/record.jsonl"
         source = self.root / self.source_ref
         source.parent.mkdir(parents=True)
