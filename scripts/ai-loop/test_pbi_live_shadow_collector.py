@@ -1124,5 +1124,120 @@ class LiveShadowCollectorTests(unittest.TestCase):
 
 
 
+    def test_collection_plan_zero_cases_exposes_real_run_targets(self):
+        plan = collector.plan_live_shadow_collection(
+            repo_root=self.root
+        )
+        self.assertEqual(plan["collection_target_count"], 6)
+        self.assertEqual(
+            [(item["stage"], item["decision"]) for item in plan["collection_targets"]],
+            [
+                ("admission", "materialize"),
+                ("admission", "no_action"),
+                ("admission", "discover_more"),
+                ("materialization", "create_new"),
+                ("materialization", "update_existing"),
+                ("materialization", "link_only"),
+            ],
+        )
+        self.assertTrue(
+            all(
+                item["collection_mode"] == "opportunistic_real_run_only"
+                for item in plan["collection_targets"]
+            )
+        )
+        self.assertIn(
+            "tracked_admission_live_case_missing",
+            plan["blockers"],
+        )
+        self.assertIn(
+            "tracked_materialization_live_case_missing",
+            plan["blockers"],
+        )
+        boundary = plan["policy_boundary"]
+        self.assertTrue(boundary["opportunistic_observation_only"])
+        self.assertFalse(
+            boundary["synthetic_case_generation_for_coverage_allowed"]
+        )
+        self.assertFalse(boundary["historical_relabeling_allowed"])
+        self.assertFalse(boundary["decision_coverage_quota_defined"])
+        self.assertFalse(
+            boundary["source_kind_coverage_requirement_defined"]
+        )
+        self.assertFalse(
+            boundary["representative_coverage_claim_allowed"]
+        )
+        self.assertFalse(
+            boundary["coverage_complete_implies_representative"]
+        )
+        self.assertFalse(boundary["runtime_execution_verified"])
+        self.assertFalse(boundary["quality_acceptance_decided"])
+        self.assertFalse(plan["authority"]["write_allowed"])
+
+    def test_collection_plan_removes_only_observed_admission_gap(self):
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+
+        plan = collector.plan_live_shadow_collection(
+            repo_root=self.root
+        )
+        admission_targets = [
+            item["decision"]
+            for item in plan["collection_targets"]
+            if item["stage"] == "admission"
+        ]
+        self.assertEqual(
+            admission_targets,
+            ["materialize", "discover_more"],
+        )
+        self.assertEqual(
+            plan["inventory_snapshot"]["admission"]["observed_decisions"],
+            ["no_action"],
+        )
+        self.assertEqual(
+            plan["inventory_snapshot"]["admission"]["missing_decisions"],
+            ["discover_more", "materialize"],
+        )
+        self.assertNotIn(
+            "tracked_admission_live_case_missing",
+            plan["blockers"],
+        )
+        self.assertIn(
+            "tracked_materialization_live_case_missing",
+            plan["blockers"],
+        )
+
+    def test_collection_plan_surfaces_invalid_artifact_blocker(self):
+        path = (
+            self.root
+            / "docs/working/TASK-9998/evidence/pbi-live-shadow/"
+            / "run-01/admission-case.json"
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{not-json}\n", encoding="utf-8")
+
+        plan = collector.plan_live_shadow_collection(
+            repo_root=self.root
+        )
+        self.assertIn(
+            "invalid_admission_case_artifacts_present",
+            plan["blockers"],
+        )
+        self.assertEqual(
+            plan["inventory_snapshot"]["admission"]["invalid_case_total"],
+            1,
+        )
+        self.assertFalse(
+            plan["policy_boundary"]["representative_coverage_claim_allowed"]
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
