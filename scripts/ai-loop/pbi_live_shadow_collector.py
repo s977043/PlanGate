@@ -305,45 +305,45 @@ def collect_review_packet(
             "RunEvidence must bind both source_ref and capture_ref"
         )
 
-    admission = pm.admit_signal(signal)
+    signal_errors = pm.validate_admission_signal(signal)
+    if signal_errors:
+        raise CollectorError(
+            "capture.signal invalid: " + "; ".join(signal_errors)
+        )
+
     packet = {
         "schema_version": 1,
+        "domain": "plangate.pbi-live-shadow-review-packet/v1",
         "mode": "pbi_live_shadow_review_packet",
         "evidence_class": "live_shadow",
         "task_id": task_id,
         "run_id": capture["run_id"],
         "refs": {
-            "source_ref": source_ref,
-            "capture_ref": capture_ref,
-            "run_evidence_ref": run_evidence_ref,
+            "blind_review_source_ref": source_ref,
+            "capture_ref_for_binding_only": capture_ref,
+            "run_evidence_ref_for_binding_only": run_evidence_ref,
         },
         "hashes": {
             "signal_hash": capture["signal_hash"],
             "capture_hash": pm._canonical_json_hash(capture),
             "run_evidence_hash": pm._canonical_json_hash(run_evidence),
         },
-        "actual": {
-            "admission_decision": admission["decision"],
-            "admission_reason": admission["reason"],
-            "next": admission["next"],
-        },
         "review_contract": {
             "independent_review_required": True,
+            "review_from_upstream_source": True,
+            "actual_decision_disclosed": False,
+            "normalized_disposition_disclosed": False,
             "oracle_attached": False,
             "expected_decision_attached": False,
             "quality_acceptance_decided": False,
-        },
-        "materialization_followup": {
-            "required": admission["decision"] == "materialize",
-            "status": (
-                "needs_normalized_pbi_payload"
-                if admission["decision"] == "materialize"
-                else "not_applicable"
-            ),
+            "packet_blind_to_actual": True,
+            "capture_signal_blinding_enforced": False,
+            "oracle_independence_owner": "caller_or_independent_reviewer",
         },
         "authority": {
             "evidence_create_allowed": True,
             "overwrite_allowed": False,
+            "idempotent_reuse_allowed": True,
             "pbi_write_allowed": False,
             "issue_write_allowed": False,
             "close_allowed": False,
@@ -360,11 +360,9 @@ def collect_review_packet(
         "artifact_ref": packet_ref,
         "artifact_hash": artifact_hash,
         "artifact_reused": artifact_reused,
-        "source_ref": source_ref,
-        "capture_ref": capture_ref,
-        "run_evidence_ref": run_evidence_ref,
-        "actual_admission_decision": admission["decision"],
+        "blind_review_source_ref": source_ref,
         "review_required": True,
+        "actual_decision_disclosed": False,
         "authority": packet["authority"],
     }
 
