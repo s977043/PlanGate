@@ -68,6 +68,22 @@ class LiveShadowCollectorTests(unittest.TestCase):
             "docs/working/TASK-9999/evidence/pbi-live-shadow/"
             "run-01/admission-case.json"
         )
+        self.payload_ref = (
+            "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            "run-01/materialization-payload.json"
+        )
+        self.existing_work_ref = (
+            "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            "run-01/existing-work.json"
+        )
+        self.materialization_oracle_ref = (
+            "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            "run-01/materialization-oracle.json"
+        )
+        self.materialization_case_ref = (
+            "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            "run-01/materialization-case.json"
+        )
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -142,6 +158,107 @@ class LiveShadowCollectorTests(unittest.TestCase):
             encoding="utf-8",
         )
         return oracle
+
+    def _prepare_materialize_admission_case(self):
+        self.signal["statement"] = (
+            "Observed delivery evidence requires follow-up work."
+        )
+        self.signal["disposition"] = "actionable"
+        self.signal["candidate_problem"] = (
+            "Observed delivery evidence should become a follow-up PBI."
+        )
+        self._collect_packet()
+        self._write_oracle(expected="materialize")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+
+    def _write_materialization_inputs(self, *, oracle_overrides=None):
+        payload = {
+            "task_id": "TASK-9999",
+            "title": "Live shadow follow-up",
+            "author": "ai",
+            "application_timing": "follow_up",
+            "target_layer": "delivery",
+            "goal": "Preserve observed delivery evidence as follow-up work",
+            "problem": (
+                "Observed delivery evidence should become a follow-up PBI."
+            ),
+            "source_run_refs": [self.run_evidence_ref],
+            "claims": [
+                {
+                    "id": "CLM-LIVE-001",
+                    "text": (
+                        "Observed delivery evidence requires follow-up work."
+                    ),
+                    "source_ref": self.source_ref,
+                    "source_kind": "existing_behavior",
+                    "claim_class": "observed",
+                    "supports": "Problem",
+                }
+            ],
+            "requirements": [],
+            "acceptance_criteria": [],
+            "in_scope": ["Create a future delivery follow-up proposal"],
+            "out_of_scope": ["Mutate the current run"],
+            "risks": ["Live shadow remains non-authoritative"],
+            "unknowns": [],
+            "assumptions": [],
+            "harness_candidate_ref": None,
+        }
+        existing_work = []
+        payload_path = self.root / self.payload_ref
+        payload_path.parent.mkdir(parents=True, exist_ok=True)
+        payload_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+        existing_path = self.root / self.existing_work_ref
+        existing_path.write_text(
+            json.dumps(existing_work, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        admission_case = json.loads(
+            (self.root / self.case_artifact_ref).read_text(encoding="utf-8")
+        )
+        oracle = {
+            "schema_version": 1,
+            "domain": "plangate.pbi-live-shadow-materialization-oracle/v1",
+            "case_ref": "LIVE-MATERIALIZATION-001",
+            "admission_case_ref": self.case_artifact_ref,
+            "admission_case_hash": collector.pm._canonical_json_hash(
+                admission_case
+            ),
+            "payload_ref": self.payload_ref,
+            "payload_hash": collector.pm._canonical_json_hash(payload),
+            "existing_work_ref": self.existing_work_ref,
+            "existing_work_hash": collector.pm._canonical_json_hash(
+                existing_work
+            ),
+            "expected": {
+                "decision": "create_new",
+                "matched_ref": None,
+                "readiness_status": "ready",
+                "readiness_route": "future_run",
+            },
+            "independent_review_asserted": True,
+            "maker_actual_not_consulted_asserted": True,
+        }
+        if oracle_overrides:
+            oracle.update(oracle_overrides)
+        oracle_path = self.root / self.materialization_oracle_ref
+        oracle_path.write_text(
+            json.dumps(oracle, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+        return payload, existing_work, oracle
 
     def test_capture_is_create_or_reuse_identical_and_authority_limited(self):
         result = self._collect_capture()
@@ -737,6 +854,121 @@ class LiveShadowCollectorTests(unittest.TestCase):
             ]
         )
 
+
+
+    def test_reviewed_materialization_case_is_evaluator_compatible(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+
+        result = collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+        self.assertFalse(result["artifact_reused"])
+        self.assertTrue(
+            result["review_assertions"][
+                "admission_materialize_match_revalidated"
+            ]
+        )
+        self.assertFalse(
+            result["review_assertions"]["oracle_authorship_verified"]
+        )
+        self.assertFalse(result["authority"]["pbi_write_allowed"])
+        self.assertFalse(result["authority"]["quality_acceptance_decided"])
+
+        case = json.loads(
+            (self.root / self.materialization_case_ref).read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(case["evidence_class"], "live_shadow")
+        self.assertIn(self.case_artifact_ref, case["evidence_refs"])
+        self.assertIn(self.payload_ref, case["evidence_refs"])
+        self.assertIn(self.existing_work_ref, case["evidence_refs"])
+        self.assertNotIn(
+            self.materialization_oracle_ref,
+            case["evidence_refs"],
+        )
+        self.assertEqual(
+            case["expected"]["oracle_ref"],
+            self.materialization_oracle_ref,
+        )
+
+        report = collector.pm.evaluate_shadow_batch(
+            [case],
+            authority_root=self.root,
+        )
+        self.assertEqual(report["cases"][0]["status"], "match")
+        self.assertEqual(
+            report["cases"][0]["actual_decision"],
+            "create_new",
+        )
+        self.assertEqual(report["rollout_quality"]["live_case_total"], 1)
+        self.assertEqual(
+            report["rollout_quality"]["duplicate_false_positive_rate"],
+            0.0,
+        )
+        self.assertIsNone(
+            report["rollout_quality"]["duplicate_false_negative_rate"]
+        )
+
+    def test_materialization_case_requires_reviewed_materialize_admission(self):
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+        self._write_materialization_inputs()
+
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_materialization_case(
+                repo_root=self.root,
+                admission_case_ref=self.case_artifact_ref,
+                payload_ref=self.payload_ref,
+                existing_work_ref=self.existing_work_ref,
+                oracle_ref=self.materialization_oracle_ref,
+                case_artifact_ref=self.materialization_case_ref,
+            )
+        self.assertIn("reviewed materialize match required", str(ctx.exception))
+
+    def test_materialization_oracle_payload_hash_mismatch_fails_closed(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs(
+            oracle_overrides={"payload_hash": "sha256:" + "0" * 64}
+        )
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_materialization_case(
+                repo_root=self.root,
+                admission_case_ref=self.case_artifact_ref,
+                payload_ref=self.payload_ref,
+                existing_work_ref=self.existing_work_ref,
+                oracle_ref=self.materialization_oracle_ref,
+                case_artifact_ref=self.materialization_case_ref,
+            )
+        self.assertIn("payload_hash", str(ctx.exception))
+
+    def test_materialization_oracle_cannot_store_maker_actual(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs(
+            oracle_overrides={"actual_materialization_decision": "create_new"}
+        )
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.collect_reviewed_materialization_case(
+                repo_root=self.root,
+                admission_case_ref=self.case_artifact_ref,
+                payload_ref=self.payload_ref,
+                existing_work_ref=self.existing_work_ref,
+                oracle_ref=self.materialization_oracle_ref,
+                case_artifact_ref=self.materialization_case_ref,
+            )
+        self.assertIn("maker actual must not be stored", str(ctx.exception))
 
 
 if __name__ == "__main__":
