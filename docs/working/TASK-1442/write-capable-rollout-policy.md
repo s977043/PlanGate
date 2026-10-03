@@ -358,11 +358,52 @@ write-capable adapter は実行前に rollback 方法を示す。
 最低限:
 
 - create_new: 作成 artifact を特定可能。ただし自動 delete/close は別 authority
-- link_only: append 前状態を復元可能な patch / inverse を保持
-- update_existing: exact pre-write content/hash と inverse patch を保持
+- link_only: append 前状態を復元可能な mutation-scoped inverse を保持
+- update_existing: exact pre-write target hash/version と allowed path に限定した inverse patch を保持
+
+rollback evidence は **full target backup を既定にしない**。
+
+最低限の contract:
+
+```text
+target_ref
+pre_write_target_hash
+pre_write_target_version? 
+mutation_kind
+allowed_mutation_paths
+inverse_operations
+expected_post_write_hash?
+write_attempt_identity
+```
+
+禁止:
+
+- provider raw response / raw object の無条件保存
+- allowed mutation path 外の field snapshot
+- source Evidence / oracle / approval authority の複製
+- secret / token / hidden reasoning / raw transcript の保存
+- rollback artifact を write success の証拠として循環利用
+
+rollback artifact を永続化する場合は既存 privacy contract を通し、
+必要最小限の inverse data だけを保存する。
 
 rollback artifact は mutation success の証拠とは別に保存し、
 「rollback可能」という申告だけで reversible とみなさない。
+
+さらに:
+
+```text
+rollback_plan_exists != rollback_execution_authorized
+```
+
+rollback 実行は別 mutation attempt として扱い、実行時点の:
+- authority
+- target hash/version
+- policy identity
+- adapter version
+- provider result reconciliation
+
+を再確認する。unknown result を rollback で推測上書きしてはならない。
 
 ## 10. Post-write verification
 
