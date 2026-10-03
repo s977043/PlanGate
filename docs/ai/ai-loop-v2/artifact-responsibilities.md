@@ -192,17 +192,17 @@ read RunState (revision = N)
 | **Goal / Actor / Problem / Job** | `pbi-input.md`（Context / Why） | Request の意味と問題設定を Plan 前に保持する。Actor / Job が無関係な technical maintenance では空欄を強制しない |
 | **Assumptions / Constraints / Unknowns** | `pbi-input.md` | Unknown を Requirement と混同せず、未確認のまま追跡可能にする |
 | **Discovery Evidence refs** | `pbi-input.md`（ref / provenance のみ） | raw transcript を保存せず、「なぜこの問題・要求を置いたか」を辿れる最小 provenance を保持する |
-| **Requirement mapping** | `plan.md` の **Requirement Mapping subsection** | stable ID（例: `REQ-NNN`）で Goal / Problem / Evidence ref と Acceptance Criteria / decision を接続する。Requirement candidate と approved Requirement を区別する |
-| **Task / Work Item trace** | `todo.md` / WorkItemGraph（使用時） | Task / Work Item は Requirement / AC ref を参照し、Requirement の意味を複製しない |
-| **Verification trace** | `test-cases.md` | test / verifier が Requirement / AC のどれを検証するかを ref で示す |
+| **Requirement mapping** | `pbi-input.md` の adaptive **Requirement Discovery Trace** | Phase A の Human-created artifact を Requirement semantics の authority とする。standard 以上など material な場合に stable ID（例: `REQ-NNN`）で Goal / Problem / Evidence ref と AC を接続する。minimal depth では既存 Context / Why + Scope + AC + Unknowns で足りる |
+| **Plan decision / Task trace** | `plan.md` / `todo.md` / WorkItemGraph（使用時） | Plan / Task / Work Item は authoritative Requirement を再定義せず、既存 AC / Requirement ref を consume する。WorkItemGraph は既存 `acceptance_criteria_refs` を優先する |
+| **Verification trace** | `test-cases.md` | 既存 AC mapping / Verification Trace を正とし、必要な場合だけ Requirement ref を補助的に示す。新しい parallel trace system を作らない |
 | **価値仮説**          | `pbi-input.md`（Context / Why・Assumptions）                              | 既存節に自然に収まる。複数仮説を分離参照するなら**仮説 ID の採番**が要る（運用規約）                                                                                          |
 | **学習条件**          | `plan.md` の**新 subsection**（既存の Success Criteria とは**別に**置く） | North Star §1 は学習条件を受入基準と**別物**と定義している。既存 Success Criteria は「AC ↔ test case ID」の写像のみで、「何を・どの母集団で・どの水準で観測するか」を持てない |
 | **観測条件**          | `plan.md` の同 subsection                                                 | 既存 Verification Plan は **Harness 側 verifier の観測条件**であり、Product 側の母集団・観測期間・水準を書く場所が無い                                                        |
 | **Evidence の返却先** | `plan.md` の同 subsection（**識別子のみ**）                               | 詳細は 7-3                                                                                                                                                                    |
 
-Requirement candidate は Discovery 中の仮説であり、そのまま approved Requirement ではない。Plan / Plan Verification が採用した Requirement だけを stable ID で参照し、Evidence 不足や競合が残る候補は Unknown / unresolved として保持する。
+Requirement candidate は Discovery 中の仮説であり、そのまま approved Requirement ではない。AI は candidate / question / evidence gap を提案できるが、Phase A の Human-created `pbi-input.md` を silent rewrite して candidate を authoritative Requirement に昇格させてはならない。Evidence 不足や競合が残る候補は Unknown / unresolved として保持する。Plan / Plan Verification は `pbi-input.md` の Requirement / AC と実行方針の整合を検証するのであって、Requirement semantics の authority を引き取らない。
 
-Traceability は意味の複製ではなく ref の接続で作る。Goal / Problem / Requirement の説明本文を `todo.md` や WorkItemGraph にコピーせず、owner artifact を参照する。これにより Requirement semantics の変更を 1 箇所で検出できる。
+Traceability は意味の複製ではなく ref の接続で作る。最小経路は `Goal / Problem -> Requirement -> AC -> Plan decision / Task -> Test / Verifier Evidence` とし、既存の Current-Need Trace / AC mapping / Verification Trace / `acceptance_criteria_refs` を再利用する。Goal / Problem / Requirement の説明本文を `plan.md` / `todo.md` / WorkItemGraph にコピーせず、owner artifact を参照する。
 
 **LoopContract 側は導出規則の追加のみ**とする（§2 のとおり LoopContract は Plan Package から導出される）。
 
