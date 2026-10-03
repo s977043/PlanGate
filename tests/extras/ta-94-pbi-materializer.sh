@@ -1356,5 +1356,93 @@ else
   fail=$((fail + 1))
 fi
 
+# 17. Completion status must classify blockers without self-authorizing rollout.
+_t94_completion_context_missing="$_t94_tmp/completion-missing.json"
+cat >"$_t94_completion_context_missing" <<'JSON'
+{
+  "latest_full_test_green": true,
+  "design_dependency_finalized": true,
+  "generalization_claim_required": false,
+  "representative_live_evidence_review_ref": null,
+  "quality_review_ref": null,
+  "isolated_generalization_review_ref": null
+}
+JSON
+
+_t94_completion_missing_out="$_t94_tmp/completion-missing.out"
+_t94_completion_rc=0
+"$_T94_PY" "$_t94_collector" --repo-root "$_t94_collect_root" completion-status \
+  --context "$_t94_completion_context_missing" \
+  >"$_t94_completion_missing_out" 2>"$_t94_tmp/completion-missing.err" || _t94_completion_rc=$?
+
+_t94_review_dir="$_t94_mat_root/docs/working/TASK-1442/evidence/pbi-live-shadow"
+mkdir -p "$_t94_review_dir"
+printf '# Representative live evidence review\n' >"$_t94_review_dir/representative-review.md"
+printf '# Live quality review\n' >"$_t94_review_dir/quality-review.md"
+
+_t94_completion_context_reviewed="$_t94_tmp/completion-reviewed.json"
+cat >"$_t94_completion_context_reviewed" <<'JSON'
+{
+  "latest_full_test_green": true,
+  "design_dependency_finalized": true,
+  "generalization_claim_required": false,
+  "representative_live_evidence_review_ref": "docs/working/TASK-1442/evidence/pbi-live-shadow/representative-review.md",
+  "quality_review_ref": "docs/working/TASK-1442/evidence/pbi-live-shadow/quality-review.md",
+  "isolated_generalization_review_ref": null
+}
+JSON
+
+_t94_completion_reviewed_out="$_t94_tmp/completion-reviewed.out"
+if [ "$_t94_completion_rc" -eq 0 ]; then
+  "$_T94_PY" "$_t94_collector" --repo-root "$_t94_mat_root" completion-status \
+    --context "$_t94_completion_context_reviewed" \
+    >"$_t94_completion_reviewed_out" 2>"$_t94_tmp/completion-reviewed.err" || _t94_completion_rc=$?
+fi
+
+if [ "$_t94_completion_rc" -eq 0 ]; then
+  "$_T94_PY" - "$_t94_completion_missing_out" "$_t94_completion_reviewed_out" <<'PY'
+import json
+import pathlib
+import sys
+
+missing = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+reviewed = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"))
+
+assert missing["mode"] == "pbi_live_shadow_completion_status"
+assert missing["next_action"] == "collect_opportunistic_real_live_evidence"
+assert missing["status"]["rollout_complete"] is False
+assert missing["status"]["automatic_write_activation_allowed"] is False
+assert missing["policy_boundary"]["machine_completion_decision_allowed"] is False
+assert missing["policy_boundary"]["machine_write_activation_allowed"] is False
+assert missing["caller_assertions"]["assertions_independently_verified"] is False
+
+assert reviewed["mode"] == "pbi_live_shadow_completion_status"
+assert reviewed["next_action"] == "human_rollout_decision"
+assert reviewed["status"]["rollout_complete"] is False
+assert reviewed["status"]["rollout_completion_machine_decidable"] is False
+assert reviewed["status"]["automatic_write_activation_allowed"] is False
+assert reviewed["verification_boundary"]["review_artifact_repository_binding_enforced"] is True
+assert reviewed["verification_boundary"]["review_artifact_content_semantically_verified"] is False
+assert reviewed["verification_boundary"]["reviewer_identity_verified"] is False
+assert reviewed["review_artifacts"]["representative_live_evidence_review_ref"]["sha256"].startswith("sha256:")
+assert reviewed["review_artifacts"]["quality_review_ref"]["sha256"].startswith("sha256:")
+assert reviewed["review_artifacts"]["quality_review_ref"]["semantic_content_verified"] is False
+assert reviewed["authority"]["read_only"] is True
+assert reviewed["authority"]["write_allowed"] is False
+PY
+  _t94_completion_rc=$?
+fi
+
+if [ "$_t94_completion_rc" -eq 0 ]; then
+  printf '  [PASS] completion status: blocker classification is read-only and non-authoritative\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] completion status: classification/authority boundary failed (rc=%s)\n' "$_t94_completion_rc" >&2
+  for _t94_err in completion-missing.err completion-reviewed.err; do
+    [ -f "$_t94_tmp/$_t94_err" ] && sed 's/^/    /' "$_t94_tmp/$_t94_err" >&2
+  done
+  fail=$((fail + 1))
+fi
+
 rm -rf "$_t94_tmp"
 pg_extra_contract_finalize
