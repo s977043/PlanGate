@@ -265,9 +265,9 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"oracle_independence_enforced": false' "$_t94_history_out" \
   && grep -q '"live_shadow_capture_metadata_enforced": true' "$_t94_history_out" \
   && grep -q '"live_shadow_label_alone_sufficient": false' "$_t94_history_out" \
-  && grep -q '"live_shadow_run_evidence_binding_enforced": true' \
-  && grep -q '"run_evidence_schema_revalidated": true' \
-  && grep -q '"runtime_head_to_run_evidence_binding_enforced": true' \
+  && grep -q '"live_shadow_run_evidence_binding_enforced": true' "$_t94_history_out" \
+  && grep -q '"run_evidence_schema_revalidated": true' "$_t94_history_out" \
+  && grep -q '"runtime_head_to_run_evidence_binding_enforced": true' "$_t94_history_out" \
   && grep -q '"run_evidence_task_binding_reverified": false' "$_t94_history_out" \
   && grep -q '"write_review_eligible": false' "$_t94_history_out" \
   && grep -q '"observed_decisions": \[' "$_t94_history_out" \
@@ -297,9 +297,9 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"decision_coverage_complete": false' "$_t94_admission_out" \
   && grep -q '"live_shadow_capture_metadata_enforced": true' "$_t94_admission_out" \
   && grep -q '"live_shadow_label_alone_sufficient": false' "$_t94_admission_out" \
-  && grep -q '"live_shadow_run_evidence_binding_enforced": true' \
-  && grep -q '"run_evidence_schema_revalidated": true' \
-  && grep -q '"runtime_head_to_run_evidence_binding_enforced": true' \
+  && grep -q '"live_shadow_run_evidence_binding_enforced": true' "$_t94_admission_out" \
+  && grep -q '"run_evidence_schema_revalidated": true' "$_t94_admission_out" \
+  && grep -q '"runtime_head_to_run_evidence_binding_enforced": true' "$_t94_admission_out" \
   && grep -q '"run_evidence_task_binding_reverified": false' "$_t94_admission_out" \
   && grep -q '"write_review_eligible": false' "$_t94_admission_out" \
   && grep -q '"write_allowed": false' "$_t94_admission_out" \
@@ -352,6 +352,121 @@ if [ "$_t94_rc" -eq 0 ] \
 else
   printf '  [FAIL] passive capture: CLI path or no-write invariant failed (rc=%s)\n' "$_t94_rc" >&2
   sed 's/^/    /' "$_t94_tmp/capture.err" >&2
+  fail=$((fail + 1))
+fi
+
+# 10. Aggregate write-review assessment must fire without granting write authority.
+_t94_review_root="$_t94_tmp/review-root"
+mkdir -p "$_t94_review_root/docs/reports" "$_t94_review_root/docs/reviews" "$_t94_review_root/scripts"
+printf '# Independent oracle review\n' >"$_t94_review_root/docs/reviews/oracle.md"
+
+cat >"$_t94_review_root/docs/reports/materialization.json" <<'JSON'
+{
+  "mode": "shadow_evaluation",
+  "write_allowed": false,
+  "automatic_promotion": false,
+  "metrics": {"overall": {"errors": 0}},
+  "rollout_evidence": {
+    "live_shadow_cases": 3,
+    "observed_decisions": ["create_new", "link_only", "update_existing"]
+  },
+  "cases": [
+    {"case_ref": "M-CREATE", "evidence_class": "live_shadow", "status": "match", "actual_decision": "create_new", "actual_readiness_route": "future_run"},
+    {"case_ref": "M-LINK", "evidence_class": "live_shadow", "status": "match", "actual_decision": "link_only", "actual_readiness_route": "future_run"},
+    {"case_ref": "M-UPDATE", "evidence_class": "live_shadow", "status": "match", "actual_decision": "update_existing", "actual_readiness_route": "future_run"}
+  ]
+}
+JSON
+
+cat >"$_t94_review_root/docs/reports/admission.json" <<'JSON'
+{
+  "mode": "admission_evaluation",
+  "write_allowed": false,
+  "close_allowed": false,
+  "suppression_allowed": false,
+  "automatic_promotion": false,
+  "metrics": {"overall": {"errors": 0}},
+  "rollout_evidence": {"live_shadow_cases": 3},
+  "coverage": {
+    "decision_coverage_complete": true,
+    "observed_admission_decisions": ["discover_more", "materialize", "no_action"]
+  },
+  "cases": [
+    {"case_ref": "A-DISCOVER", "evidence_class": "live_shadow", "status": "match", "actual": "discover_more"},
+    {"case_ref": "A-MATERIALIZE", "evidence_class": "live_shadow", "status": "match", "actual": "materialize"},
+    {"case_ref": "A-NO-ACTION", "evidence_class": "live_shadow", "status": "match", "actual": "no_action"}
+  ]
+}
+JSON
+
+cat >"$_t94_tmp/write-review-assessment.json" <<'JSON'
+{
+  "materialization_report": {
+    "mode": "shadow_evaluation",
+    "write_allowed": false,
+    "automatic_promotion": false,
+    "metrics": {"overall": {"errors": 0}},
+    "rollout_evidence": {
+      "live_shadow_cases": 3,
+      "observed_decisions": ["create_new", "link_only", "update_existing"]
+    },
+    "cases": [
+      {"case_ref": "M-CREATE", "evidence_class": "live_shadow", "status": "match", "actual_decision": "create_new", "actual_readiness_route": "future_run"},
+      {"case_ref": "M-LINK", "evidence_class": "live_shadow", "status": "match", "actual_decision": "link_only", "actual_readiness_route": "future_run"},
+      {"case_ref": "M-UPDATE", "evidence_class": "live_shadow", "status": "match", "actual_decision": "update_existing", "actual_readiness_route": "future_run"}
+    ]
+  },
+  "materialization_report_ref": "docs/reports/materialization.json",
+  "admission_report": {
+    "mode": "admission_evaluation",
+    "write_allowed": false,
+    "close_allowed": false,
+    "suppression_allowed": false,
+    "automatic_promotion": false,
+    "metrics": {"overall": {"errors": 0}},
+    "rollout_evidence": {"live_shadow_cases": 3},
+    "coverage": {
+      "decision_coverage_complete": true,
+      "observed_admission_decisions": ["discover_more", "materialize", "no_action"]
+    },
+    "cases": [
+      {"case_ref": "A-DISCOVER", "evidence_class": "live_shadow", "status": "match", "actual": "discover_more"},
+      {"case_ref": "A-MATERIALIZE", "evidence_class": "live_shadow", "status": "match", "actual": "materialize"},
+      {"case_ref": "A-NO-ACTION", "evidence_class": "live_shadow", "status": "match", "actual": "no_action"}
+    ]
+  },
+  "admission_report_ref": "docs/reports/admission.json",
+  "context": {
+    "design_dependency_finalized": true,
+    "latest_full_test_green": true,
+    "generalization_claim_requested": false,
+    "independent_oracle_review_ref": "docs/reviews/oracle.md",
+    "isolated_holdout_review_ref": null
+  }
+}
+JSON
+
+_t94_review_out="$_t94_tmp/write-review-out.json"
+_t94_rc=0
+"$_T94_PY" "$_T94_AI_LOOP/pbi_materializer.py" \
+  --assess-write-review "$_t94_tmp/write-review-assessment.json" \
+  --authority-root "$_t94_review_root" --format json \
+  >"$_t94_review_out" 2>"$_t94_tmp/write-review.err" || _t94_rc=$?
+if [ "$_t94_rc" -eq 0 ] \
+  && grep -q '"mode": "write_review_assessment"' "$_t94_review_out" \
+  && grep -q '"write_review_ready": true' "$_t94_review_out" \
+  && grep -q '"write_allowed": false' "$_t94_review_out" \
+  && grep -q '"close_allowed": false' "$_t94_review_out" \
+  && grep -q '"suppression_allowed": false' "$_t94_review_out" \
+  && grep -q '"automatic_promotion": false' "$_t94_review_out" \
+  && grep -q '"report_artifact_authorship_verified": false' "$_t94_review_out" \
+  && grep -q '"materialization_report_hash": "sha256:' "$_t94_review_out" \
+  && grep -q '"admission_report_hash": "sha256:' "$_t94_review_out"; then
+  printf '  [PASS] write-review assessment: CLI fires with traceable reports and no mutation authority\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] write-review assessment: CLI wiring or authority invariant failed (rc=%s)\n' "$_t94_rc" >&2
+  sed 's/^/    /' "$_t94_tmp/write-review.err" >&2
   fail=$((fail + 1))
 fi
 
