@@ -137,8 +137,13 @@ class HookCandidateValidationTests(unittest.TestCase):
 class JsonlSummaryTests(unittest.TestCase):
     def test_runtime_content_is_not_copied(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = _write_jsonl(pathlib.Path(tmp))
-            result = corr.summarize_codex_jsonl(path)
+            root = pathlib.Path(tmp)
+            (root / "repo").mkdir()
+            path = _write_jsonl(root)
+            result = corr.summarize_codex_jsonl(
+                path,
+                repo_root=pathlib.Path(tmp) / "repo",
+            )
         encoded = json.dumps(result, sort_keys=True)
         self.assertNotIn("SECRET COMMAND", encoded)
         self.assertNotIn("PRIVATE MESSAGE", encoded)
@@ -147,6 +152,25 @@ class JsonlSummaryTests(unittest.TestCase):
         self.assertEqual(
             result["recognized_item_type_counts"]["command_execution"],
             1,
+        )
+
+    def test_raw_jsonl_inside_repo_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            path = repo / "codex.jsonl"
+            path.write_text(
+                json.dumps({
+                    "type": "item.completed",
+                    "item": {"id": "item_1", "type": "agent_message"},
+                }) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
+                corr.summarize_codex_jsonl(path, repo_root=repo)
+        self.assertTrue(
+            any("outside repository" in e for e in ctx.exception.errors)
         )
 
     def test_duplicate_item_id_is_rejected(self):
@@ -158,34 +182,49 @@ class JsonlSummaryTests(unittest.TestCase):
             ]
             path = _write_jsonl(root, rows)
             with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
-                corr.summarize_codex_jsonl(path)
+                corr.summarize_codex_jsonl(
+                    path,
+                    repo_root=pathlib.Path(tmp) / "repo",
+                )
         self.assertTrue(
             any("duplicate item.id" in e for e in ctx.exception.errors)
         )
 
     def test_no_completed_item_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "repo").mkdir()
             path = _write_jsonl(
-                pathlib.Path(tmp),
+                root,
                 [{"type": "turn.started"}],
             )
             with self.assertRaises(corr.CodexJsonlCorrelationError) as ctx:
-                corr.summarize_codex_jsonl(path)
+                corr.summarize_codex_jsonl(
+                    path,
+                    repo_root=pathlib.Path(tmp) / "repo",
+                )
         self.assertTrue(
             any("item.completed" in e for e in ctx.exception.errors)
         )
 
     def test_file_size_limit_is_fail_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = pathlib.Path(tmp) / "large.jsonl"
+            root = pathlib.Path(tmp)
+            (root / "repo").mkdir()
+            path = root / "large.jsonl"
             path.write_bytes(b"x" * (corr.MAX_JSONL_BYTES + 1))
             with self.assertRaises(corr.CodexJsonlCorrelationError):
-                corr.summarize_codex_jsonl(path)
+                corr.summarize_codex_jsonl(
+                    path,
+                    repo_root=pathlib.Path(tmp) / "repo",
+                )
 
     def test_unknown_item_type_is_counted_not_copied(self):
         with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "repo").mkdir()
             path = _write_jsonl(
-                pathlib.Path(tmp),
+                root,
                 [
                     {
                         "type": "item.completed",
@@ -197,7 +236,10 @@ class JsonlSummaryTests(unittest.TestCase):
                     }
                 ],
             )
-            result = corr.summarize_codex_jsonl(path)
+            result = corr.summarize_codex_jsonl(
+                path,
+                repo_root=pathlib.Path(tmp) / "repo",
+            )
         self.assertEqual(result["unrecognized_item_type_count"], 1)
         self.assertNotIn(
             "future_private_type",
@@ -211,13 +253,15 @@ class CorrelationCandidateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = _write_jsonl(pathlib.Path(tmp))
             result = corr.correlate_candidate(
+                repo_root=pathlib.Path(tmp) / "repo",
                 hook_candidate=_hook_candidate(),
                 codex_jsonl_path=path,
                 request_hash=REQ,
                 config_sha=CONFIG,
                 provider=PROVIDER,
             )
-        self.assertTrue(result["cross_source_copresence_candidate"])
+        self.assertTrue(result["cross_source_pairing_candidate"])
+        self.assertFalse(result["same_run_copresence_verified"])
         self.assertTrue(result["hook_candidate_binding_verified"])
         self.assertTrue(result["codex_jsonl_structural_candidate_verified"])
         self.assertFalse(result["direct_agent_id_correlation_available"])
@@ -230,9 +274,12 @@ class CorrelationCandidateTests(unittest.TestCase):
 
     def test_request_binding_mismatch_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = _write_jsonl(pathlib.Path(tmp))
+            root = pathlib.Path(tmp)
+            (root / "repo").mkdir()
+            path = _write_jsonl(root)
             with self.assertRaises(corr.CodexJsonlCorrelationError):
                 corr.correlate_candidate(
+                    repo_root=pathlib.Path(tmp) / "repo",
                     hook_candidate=_hook_candidate(),
                     codex_jsonl_path=path,
                     request_hash="sha256:" + "c" * 64,
