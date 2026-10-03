@@ -16,17 +16,14 @@ __doc__ = """runtime_evidence_codex_jsonl_correlation.py — Codex JSONL correla
 Correlates a reviewed Explorer lifecycle-hook candidate with the public
 `codex exec --json` event envelope.
 
-Public exec JSONL currently exposes:
-- thread.started(thread_id)
-- turn.started (no turn id)
-- item.started / item.updated / item.completed
-- turn.completed / turn.failed
-- error
+The public Codex eval guidance documents JSONL structured events such as
+item.started / item.completed and turn.completed. This module also accepts the
+observed thread/turn envelope used by the current Codex CLI, but does not treat
+undocumented item types as a stable public schema contract.
 
-Therefore this module can independently bind the hook candidate to the same
-Codex thread and a single successful turn envelope, but it cannot independently
-match hook turn_id or agent_id to an exec JSONL field. It deliberately leaves
-strong runtime attestation false.
+The strongest result in this slice is a same-parent-thread candidate plus one
+successful turn envelope. It cannot independently match hook turn_id or agent_id
+to an exec JSONL field, so strong runtime attestation remains false.
 """
 
 import argparse
@@ -59,21 +56,11 @@ TOP_LEVEL_EVENTS = {
     "turn.completed",
     "turn.failed",
     "item.started",
-    "item.updated",
     "item.completed",
     "error",
 }
-ITEM_EVENTS = {"item.started", "item.updated", "item.completed"}
-ITEM_TYPES = {
-    "agent_message",
-    "reasoning",
-    "command_execution",
-    "file_change",
-    "mcp_tool_call",
-    "web_search",
-    "todo_list",
-    "error",
-}
+ITEM_EVENTS = {"item.started", "item.completed"}
+DOCUMENTED_ITEM_TYPES = {"command_execution"}
 FORBIDDEN_R1_ITEM_TYPES = {"file_change", "web_search", "error"}
 
 
@@ -204,6 +191,7 @@ def _validate_exec_events(events: Any) -> tuple[list[str], dict[str, Any]]:
     turn_failed = 0
     top_errors = 0
     forbidden_items: list[str] = []
+    undocumented_item_types: list[str] = []
 
     for index, event in enumerate(events):
         prefix = f"exec_events[{index}]"
@@ -252,10 +240,12 @@ def _validate_exec_events(events: Any) -> tuple[list[str], dict[str, Any]]:
             else:
                 item_type = item.get("type")
                 item_id = item.get("id")
-                if item_type not in ITEM_TYPES:
+                if not isinstance(item_type, str) or not ID_RE.fullmatch(item_type):
                     errors.append(
-                        f"{prefix}.item.type: unsupported item type {item_type!r}"
+                        f"{prefix}.item.type: bounded identifier required"
                     )
+                elif item_type not in DOCUMENTED_ITEM_TYPES:
+                    undocumented_item_types.append(item_type)
                 if not isinstance(item_id, str) or not ID_RE.fullmatch(item_id):
                     errors.append(f"{prefix}.item.id: bounded identifier required")
                 summary["item_type"] = item_type
@@ -319,6 +309,7 @@ def _validate_exec_events(events: Any) -> tuple[list[str], dict[str, Any]]:
         "turn_completed_count": turn_completed,
         "event_count": len(events),
         "forbidden_item_types": sorted(set(forbidden_items)),
+        "undocumented_item_types": sorted(set(undocumented_item_types)),
         "event_summaries": summaries,
     }
 
@@ -330,7 +321,8 @@ def correlate_candidate(
     request_hash: str,
     config_sha: str,
     provider: str,
-    exec_jsonl_sha256: str | None = None,
+    hook_jsonl_sha256: str,
+    exec_jsonl_sha256: str,
 ) -> dict[str, Any]:
     hook_result = probe.verify_candidate_trace(
         records=hook_records,
@@ -346,9 +338,10 @@ def correlate_candidate(
             "correlation: hook session_id must match exec thread.started.thread_id"
         )
 
-    if exec_jsonl_sha256 is not None:
-        if not probe.HASH_RE.fullmatch(exec_jsonl_sha256):
-            errors.append("exec_jsonl_sha256: sha256:<64 lowercase hex> required")
+    if not probe.HASH_RE.fullmatch(hook_jsonl_sha256):
+        errors.append("hook_jsonl_sha256: sha256:<64 lowercase hex> required")
+    if not probe.HASH_RE.fullmatch(exec_jsonl_sha256):
+        errors.append("exec_jsonl_sha256: sha256:<64 lowercase hex> required")
 
     if errors:
         raise CodexJsonlCorrelationError(errors)
@@ -366,11 +359,20 @@ def correlate_candidate(
         "hook_turn_id": hook_result["turn_id"],
         "hook_agent_id": hook_result["agent_id"],
         "exec_thread_id": thread_id,
+        "hook_jsonl_sha256": hook_jsonl_sha256,
         "exec_jsonl_sha256": exec_jsonl_sha256,
+        "trace_content_binding_verified": True,
         "exec_jsonl_structure_verified": True,
+        "parent_thread_correlation_verified": True,
         "thread_id_correlation_verified": True,
         "single_turn_envelope_verified": True,
         "explicit_forbidden_item_type_absence_verified": True,
+        "documented_item_schema_coverage_complete": (
+            len(exec_summary["undocumented_item_types"]) == 0
+        ),
+        "undocumented_item_type_count": len(
+            exec_summary["undocumented_item_types"]
+        ),
         "command_execution_read_only_verified": False,
         "mcp_tool_read_only_verified": False,
         "repository_postcondition_verified": False,
@@ -378,6 +380,7 @@ def correlate_candidate(
         "turn_id_correlation_verified": False,
         "subagent_identity_exposed_in_exec_jsonl": False,
         "subagent_identity_correlation_verified": False,
+        "same_subagent_execution_correlated": False,
         "hook_execution_root_attested": False,
         "codex_jsonl_thread_correlation_verified": True,
         "codex_jsonl_runtime_correlation_verified": False,
@@ -387,11 +390,13 @@ def correlate_candidate(
         "dispatch_ready": False,
         "dispatch_allowed": False,
         "verification_limit": (
-            "exec JSONL proves the same thread and a single successful turn "
-            "envelope, but its public turn.started event exposes no turn id and "
-            "the public ThreadItem union exposes no subagent identity item; "
-            "command/MCP read-only semantics and repository postconditions are "
-            "also not established by this correlation layer"
+            "hook session_id and exec thread_id match the same parent thread "
+            "candidate and one successful turn envelope is observed, but the "
+            "current stable CLI JSONL contract does not expose a documented "
+            "subagent identity/turn binding sufficient to prove the same "
+            "Explorer execution; undocumented item types are schema drift, and "
+            "command/MCP read-only semantics plus repository postconditions "
+            "remain unverified"
         ),
         "event_summary": {
             "event_count": exec_summary["event_count"],
@@ -431,6 +436,8 @@ def main(argv=None) -> int:
             args.repo_root,
             "exec_jsonl",
         )
+        hook_raw = hook_path.read_bytes()
+        hook_sha = _sha256_bytes(hook_raw)
         hook_records = probe.load_jsonl(hook_path)
         exec_events, exec_sha = load_exec_jsonl(
             exec_path,
@@ -442,6 +449,7 @@ def main(argv=None) -> int:
             request_hash=args.request_hash,
             config_sha=args.config_sha,
             provider=args.provider,
+            hook_jsonl_sha256=hook_sha,
             exec_jsonl_sha256=exec_sha,
         )
     except (probe.CodexProbeCandidateError, CodexJsonlCorrelationError) as exc:
