@@ -264,6 +264,32 @@ Harness-targeting PBI は draft 生成までは HarnessImprovementCandidate ref 
 
 Traceability は意味の複製ではなく ref の接続で作る。最小経路は `Goal / Problem -> Requirement -> AC -> Plan decision / Task -> Test / Verifier Evidence` とし、既存の Current-Need Trace / AC mapping / Verification Trace / `acceptance_criteria_refs` を再利用する。Goal / Problem / Requirement の説明本文を `plan.md` / `todo.md` / WorkItemGraph にコピーせず、owner artifact を参照する。
 
+#### Shadow evaluation / write authority boundary
+
+PBI Admission / Materialization の shadow evaluation は **derived Evidence** であり、Requirement authority / approval authority / mutation authority ではない。
+
+```text
+review readiness
+  -> Human / policy review candidate
+
+review readiness
+  != quality acceptance
+  != write authorization
+```
+
+評価 report / inventory / quality summary は、case / Evidence から再導出できる projection とする。summary だけを新しい SSoT にしない。false-positive / false-negative / mismatch の分母が 0 の場合は「0%」と解釈せず、未観測を明示する。
+
+write-capable behavior を設計する場合も以下を分離する。
+
+| concern | owner / meaning |
+| --- | --- |
+| policy definition | 何を許容するかの規則。存在だけでは active ではない |
+| quality acceptance | live Evidence / review に基づく許容判断 |
+| rollout activation | policy version / content / decision を特定した activation |
+| mutation execution | exact target / proposal / concurrency / rollback-reconciliation 契約を持つ 1 mutation attempt |
+
+write path は source Evidence / oracle / approval / policy 自身を同じ attempt で自己変更しない。unknown provider result を success とみなしたり blind retry したりせず、reconciliation / escalation boundary を持つ。
+
 **LoopContract 側は導出規則の追加のみ**とする（§2 のとおり LoopContract は Plan Package から導出される）。
 
 ### 7-2. Plan Verification が「学習条件の変更」を機械判定するための最小構造
