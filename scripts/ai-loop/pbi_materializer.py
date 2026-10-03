@@ -57,6 +57,7 @@ VALID_SOURCE_KINDS = {
     "measurement",
     "existing_behavior",
     "external_source",
+    "decision_log",
     "policy",
 }
 VALID_ACCEPTANCE_BASES = {"evidence", "explicit_decision", "policy_rule"}
@@ -229,6 +230,7 @@ def validate_payload(payload: Any) -> list[str]:
     seen_claim_ids: set[str] = set()
     source_refs: set[str] = set()
     claim_classes_by_ref: dict[str, set[str]] = {}
+    source_kinds_by_ref: dict[str, set[str]] = {}
     for i, claim in enumerate(claims):
         if not isinstance(claim, dict):
             errors.append(f"claims[{i}]: object required")
@@ -259,6 +261,7 @@ def validate_payload(payload: Any) -> list[str]:
             source_ref = source_ref.strip()
             source_refs.add(source_ref)
             claim_classes_by_ref.setdefault(source_ref, set()).add(str(claim.get("claim_class")))
+            source_kinds_by_ref.setdefault(source_ref, set()).add(str(claim.get("source_kind")))
             if isinstance(task_id, str) and _is_circular_source(task_id, source_ref):
                 errors.append(
                     f"claims[{i}].source_ref: circular provenance from same-task downstream artifact"
@@ -278,6 +281,7 @@ def validate_payload(payload: Any) -> list[str]:
         if origin_ref:
             source_refs.add(origin_ref)
             claim_classes_by_ref.setdefault(origin_ref, set()).add(str(claim.get("claim_class")))
+            source_kinds_by_ref.setdefault(origin_ref, set()).add(str(claim.get("source_kind")))
             if isinstance(task_id, str) and _is_circular_source(task_id, origin_ref):
                 errors.append(
                     f"claims[{i}].origin_ref: circular provenance from same-task downstream artifact"
@@ -325,6 +329,18 @@ def validate_payload(payload: Any) -> list[str]:
                     errors.append(
                         f"requirements[{i}].basis_ref: inferred-only source cannot be the evidence acceptance basis"
                     )
+        elif req.get("acceptance_basis") == "explicit_decision":
+            kinds = source_kinds_by_ref.get(basis_ref, set())
+            if "decision_log" not in kinds:
+                errors.append(
+                    f"requirements[{i}].basis_ref: explicit_decision must reference decision_log provenance"
+                )
+        elif req.get("acceptance_basis") == "policy_rule":
+            kinds = source_kinds_by_ref.get(basis_ref, set())
+            if "policy" not in kinds:
+                errors.append(
+                    f"requirements[{i}].basis_ref: policy_rule must reference policy provenance"
+                )
         related_ac = req.get("related_ac")
         if not isinstance(related_ac, str) or not related_ac.strip():
             errors.append(f"requirements[{i}].related_ac: non-empty string required")
