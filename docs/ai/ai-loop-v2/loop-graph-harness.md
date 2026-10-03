@@ -325,6 +325,30 @@ Harness の棚卸しでは、次の 5 つを別の問いとして扱う。存在
 
 特に `installed` / `registered` は **availability evidence** であって **effectiveness evidence** ではない。`fired` も「動いた」証拠であり、「良くした」証拠ではない。Effectiveness は同一条件の比較や regression evidence で別途評価する。測定不能・サンプル不足・activation 不成立は `INCONCLUSIVE` とし、効果なしと扱わない。
 
+### Lightweight operational audit
+
+Harness Health を実務で使うときも、repository 全体を無条件に棚卸ししない。まず監査対象と期待責務を絞る。
+
+1. **Scope**: 対象 component / surface / workflow を限定する。
+2. **Expected responsibility**: その対象が担うべき責務と、担わなくてよい責務を明示する。
+3. **Evidence window**: どの Run / fixture / period / model profile を根拠にするかを固定する。
+4. **Identity / Presence**: 実体・content identity・registration を確認する。
+5. **Runtime Activation**: 選択・発火・Evidence 生成・判断影響を、必要な activation level まで確認する。
+6. **Effectiveness**: baseline / candidate または同等条件の比較で、期待効果と regression を確認する。
+7. **Governance**: protected authority / permission / approval / trust boundary を弱めていないか確認する。
+8. **Maintainability**: 重複・競合・旧 workaround・context burden・maintenance cost を確認する。
+9. **Disposition**: Evidence が十分なものだけを KEEP / CREATE / UPDATE / SPLIT / MERGE / DEPRECATE / REMOVE_FROM_FLOW / SIMPLIFY の Candidate 入力にする。不足は `INCONCLUSIVE` のまま残す。
+
+監査結果は新しい SSoT や persisted schema を要求しない。既存の issue / review / retrospective / Evolution Candidate へ必要な Evidence refs と rationale を渡せればよい。
+
+`instruction-debt-audit` は Instruction / Skill / Agent / Hook / Permission 等の **instruction surface の Maintainability 監査**に再利用できるが、Harness 全体の Runtime Activation / Effectiveness / Governance 判定を代替しない。
+
+#### Redundancy safety check
+
+重複して見える component を MERGE / DEPRECATE / REMOVE_FROM_FLOW 候補にする前に、その重複が **defense-in-depth / independent failure mode / platform fallback / compatibility boundary** として意図的に存在していないか確認する。
+
+同じ目的を持つ 2 つの guard があっても、片方が runtime enforcement、もう片方が CI regression detection を担うなら単純な duplicate ではない。削減候補は、片方を外しても required detection / authority / fallback が維持される Evidence がある場合に限る。
+
 ### Audit disposition は候補であり、権限ではない
 
 棚卸し結果は、実装を直接変更する命令ではなく Evolution Candidate の入力として扱う。
