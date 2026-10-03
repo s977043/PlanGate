@@ -699,13 +699,21 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
             ])
         self.assertTrue(any("duplicate" in e for e in ctx.exception.errors))
 
+    def test_privacy_violation_rejects_batch_before_evaluation(self):
+        bad = self._case("test-private", "test")
+        bad["payload"]["raw_transcript"] = "forbidden"
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.evaluate_shadow_batch([bad])
+        self.assertTrue(any("privacy" in e for e in ctx.exception.errors))
+
     def test_materialization_error_counts_as_error_without_write_authority(self):
         bad = self._case("test-error", "test")
-        bad["payload"]["raw_transcript"] = "forbidden"
+        bad["payload"]["claims"][0]["claim_class"] = "invented"
         report = pm.evaluate_shadow_batch([bad])
         self.assertEqual(report["metrics"]["test"]["errors"], 1)
         self.assertEqual(report["metrics"]["test"]["exact_match_rate"], 0.0)
         self.assertFalse(report["write_allowed"])
+        self.assertFalse(report["automatic_promotion"])
 
 
 class DeterminismAndSearchTests(unittest.TestCase):
