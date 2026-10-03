@@ -1322,6 +1322,10 @@ if [ -f "$_t94_write_policy" ] \
   && grep -q 'R1_enabled = false' "$_t94_write_policy" \
   && grep -q 'R2_enabled = false' "$_t94_write_policy" \
   && grep -q 'automatic_mutation_allowed = false' "$_t94_write_policy" \
+  && ! grep -q 'R1_enabled = true' "$_t94_write_policy" \
+  && ! grep -q 'R2_enabled = true' "$_t94_write_policy" \
+  && ! grep -q 'automatic_mutation_allowed = true' "$_t94_write_policy" \
+  && ! grep -Eq 'effective_stage = R[123]' "$_t94_write_policy" \
   && grep -q 'one mutation attempt = one semantic target' "$_t94_write_policy" \
   && grep -q 'multi-target transaction = unsupported' "$_t94_write_policy" \
   && grep -q 'automatic_retry_allowed = false' "$_t94_write_policy" \
