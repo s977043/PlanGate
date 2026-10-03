@@ -554,6 +554,82 @@ class ProvenanceBoundaryTests(unittest.TestCase):
         self.assertTrue(any("derived artifact source requires" in e for e in ctx.exception.errors))
 
 
+class AdmissionTests(unittest.TestCase):
+    def _signal(self, **overrides):
+        signal = {
+            "signal_id": "SIG-001",
+            "source_ref": "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json",
+            "source_kind": "existing_behavior",
+            "claim_class": "observed",
+            "statement": "Reviewer reported a test shortage.",
+            "disposition": "actionable",
+            "target_layer": "delivery",
+            "candidate_problem": "A reviewer test-shortage signal needs follow-up delivery work.",
+        }
+        signal.update(overrides)
+        return signal
+
+    def test_actionable_observed_signal_materializes(self):
+        result = pm.admit_signal(self._signal())
+        self.assertEqual(result["decision"], "materialize")
+        self.assertEqual(result["next"], "pbi_materializer")
+        self.assertTrue(result["proposal_only"])
+        self.assertFalse(result["write_allowed"])
+        self.assertFalse(result["close_allowed"])
+
+    def test_observed_informational_signal_is_no_action_proposal(self):
+        result = pm.admit_signal(
+            self._signal(
+                claim_class="observed",
+                disposition="informational",
+                candidate_problem=None,
+            )
+        )
+        self.assertEqual(result["decision"], "no_action")
+        self.assertEqual(result["next"], "record_evaluation_only")
+        self.assertFalse(result["close_allowed"])
+
+    def test_reported_informational_signal_requires_discovery(self):
+        result = pm.admit_signal(
+            self._signal(
+                claim_class="reported",
+                disposition="informational",
+                candidate_problem=None,
+            )
+        )
+        self.assertEqual(result["decision"], "discover_more")
+        self.assertEqual(result["next"], "bounded_discovery")
+
+    def test_inferred_actionable_signal_routes_to_discovery(self):
+        result = pm.admit_signal(
+            self._signal(claim_class="inferred")
+        )
+        self.assertEqual(result["decision"], "discover_more")
+        self.assertEqual(result["next"], "bounded_discovery")
+
+    def test_ambiguous_signal_routes_to_discovery(self):
+        result = pm.admit_signal(
+            self._signal(disposition="ambiguous", candidate_problem=None)
+        )
+        self.assertEqual(result["decision"], "discover_more")
+
+    def test_actionable_without_candidate_problem_routes_to_discovery(self):
+        result = pm.admit_signal(
+            self._signal(candidate_problem=None)
+        )
+        self.assertEqual(result["decision"], "discover_more")
+
+    def test_harness_signal_delegates_to_candidate_evolution(self):
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.admit_signal(self._signal(target_layer="harness"))
+        self.assertTrue(any("#874/#869" in e for e in ctx.exception.errors))
+
+    def test_private_admission_signal_is_rejected(self):
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.admit_signal(self._signal(raw_transcript="secret"))
+        self.assertTrue(any("privacy" in e for e in ctx.exception.errors))
+
+
 class ExistingWorkValidationTests(unittest.TestCase):
     def test_malformed_existing_work_fails_closed_instead_of_creating_duplicate(self):
         malformed = [{"ref": "", "source_refs": "not-an-array"}]
@@ -852,6 +928,96 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
             pm.evaluate_shadow_batch([case])
         self.assertTrue(any("oracle artifact must be distinct" in e for e in ctx.exception.errors))
 
+
+
+class AdmissionBatchEvaluationTests(unittest.TestCase):
+    def _case(
+        self,
+        case_ref,
+        split,
+        decision,
+        *,
+        evidence_class="synthetic_fixture",
+        evidence_refs=None,
+        signal_overrides=None,
+    ):
+        signal = {
+            "signal_id": f"SIG-{case_ref}",
+            "source_ref": "docs/working/ai-loop-runs/20260707T055726Z-7703b50-run006-final.json",
+            "source_kind": "existing_behavior",
+            "claim_class": "observed",
+            "statement": "Clean run with no follow-up signal.",
+            "disposition": "informational",
+            "target_layer": "delivery",
+            "candidate_problem": None,
+        }
+        if signal_overrides:
+            signal.update(signal_overrides)
+        return {
+            "case_ref": case_ref,
+            "split": split,
+            "evidence_class": evidence_class,
+            "evidence_refs": [] if evidence_refs is None else list(evidence_refs),
+            "signal": signal,
+            "expected": {
+                "oracle_ref": f"docs/working/TASK-1442/{case_ref}.md",
+                "admission_decision": decision,
+            },
+        }
+
+    def test_admission_batch_reports_no_action_and_materialize_coverage(self):
+        no_action = self._case("train-no-action", "train", "no_action")
+        materialize = self._case(
+            "test-materialize",
+            "test",
+            "materialize",
+            signal_overrides={
+                "statement": "Reviewer found a test shortage.",
+                "disposition": "actionable",
+                "candidate_problem": "Reviewer test-shortage signal needs follow-up work.",
+            },
+        )
+        report = pm.evaluate_admission_batch([no_action, materialize])
+        self.assertEqual(report["metrics"]["overall"]["accuracy"], 1.0)
+        self.assertTrue(report["coverage"]["no_action_coverage"])
+        self.assertTrue(report["coverage"]["materialize_coverage"])
+        self.assertFalse(report["coverage"]["discover_more_coverage"])
+        self.assertFalse(report["coverage"]["decision_coverage_complete"])
+        self.assertFalse(report["write_allowed"])
+        self.assertFalse(report["close_allowed"])
+        self.assertFalse(report["rollout_evidence"]["write_review_eligible"])
+        self.assertIn(
+            "admission_decision_coverage_incomplete",
+            report["rollout_evidence"]["write_review_blockers"],
+        )
+
+    def test_admission_batch_requires_test_split(self):
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.evaluate_admission_batch([
+                self._case("train-only", "train", "no_action")
+            ])
+        self.assertTrue(any("test split" in e for e in ctx.exception.errors))
+
+    def test_admission_batch_mismatch_is_visible(self):
+        case = self._case("test-mismatch", "test", "materialize")
+        report = pm.evaluate_admission_batch([case])
+        self.assertEqual(report["metrics"]["test"]["accuracy"], 0.0)
+        self.assertEqual(report["cases"][0]["status"], "mismatch")
+        self.assertEqual(report["cases"][0]["actual"], "no_action")
+        self.assertEqual(report["cases"][0]["expected"], "materialize")
+
+    def test_admission_batch_keeps_oracle_independence_unproven(self):
+        case = self._case("test-oracle", "test", "no_action")
+        report = pm.evaluate_admission_batch([case])
+        self.assertFalse(
+            report["evaluation_contract"]["oracle_independence_enforced"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["holdout_isolation_enforced"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["generalization_claim_allowed"]
+        )
 
 
 class DeterminismAndSearchTests(unittest.TestCase):
