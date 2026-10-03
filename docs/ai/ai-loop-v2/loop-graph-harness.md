@@ -286,7 +286,7 @@ What makes execution reliable and safe? -> Harness
 
 代わりに、Harness を設計・棚卸しするときは「その部品が何の責務を担うか」という lens で見る。複数の責務を同じファイルや runtime component が担っていてもよいが、責務と authority は分離して説明できなければならない。
 
-| Responsibility lens | PlanGate で該当する主な primitive / surface | 見ること |
+| Responsibility lens | 例示 surface（owner の定義ではない） | 見ること |
 |---|---|---|
 | Governing instructions | Prompt / policy / repository instructions | 何を必須・禁止・推奨としているか。Human-owned authority を変更していないか |
 | Context & steering | context selection / retrieval / compression / handoff | 必要な情報だけを適切な鮮度・provenance で渡しているか |
@@ -296,7 +296,31 @@ What makes execution reliable and safe? -> Harness
 | State & memory | RunState / event stream / evidence / retained learning | 中断・再開・振り返りに必要な事実を conversation 外へ残せているか |
 | Evaluation & observability | RunEvidence / eval / metrics / activation evidence | 実際に発火し、Evidence を生み、判断へ影響し、改善効果を比較できるか |
 
-この表は owner の新設ではない。正本と owner は §2、および companion canon を参照する。例えば Verifier / Gate の identity と activation は harness-manifest.md、改善候補と評価・簡素化は north-star.md §11〜15 が正である。
+この表は owner の新設でも、surface と責務の 1:1 対応表でもない。1 component が複数責務を担う場合も、1 責務が複数 component に分散する場合もある。**owner の対応は §2 の表だけを正とする。** Verifier / Gate の identity と activation は [`harness-manifest.md`](./harness-manifest.md)、改善候補・評価・簡素化・Promotion authority は [`north-star.md`](./north-star.md) §11〜15 が正である。
+
+### Harness Health: 4 つを分離して見る
+
+Harness の棚卸しでは、次の 4 つを別の問いとして扱う。存在確認だけで効果を主張しない。
+
+| Dimension | Question | Evidence / authority |
+|---|---|---|
+| Identity / Presence | 何が、どの内容で存在しているか | HarnessManifest の content identity / `installed` / `registered` |
+| Runtime Activation | その Run で本当に選択・実行されたか | `selected` / `fired` / `produced_evidence` / `influenced_decision`。定義は [`harness-manifest.md`](./harness-manifest.md) §4 |
+| Effectiveness | 発火した結果、期待した品質・安全性・効率を改善したか | baseline vs candidate、critical regression、false positive / false negative、time / token / cost 等。正本は [`north-star.md`](./north-star.md) §14 / §18 |
+| Governance / Maintenance | その能力を維持する価値があり、authority debt / instruction debt を増やしていないか | Human-owned boundary、maintenance cost、重複・競合・legacy workaround。Instruction Debt は `instruction-debt-audit` を利用 |
+
+判定の順序は次を基本とする。
+
+    present?
+      no  -> missing / intentionally absent を区別
+      yes -> activated?
+               no  -> dead / unreachable / wrong routing の可能性
+               yes -> effective?
+                        no  -> adapt / merge / deprecate candidate
+                        yes -> keep candidate
+    then check governance / maintenance cost before promotion
+
+特に `installed` / `registered` は **availability evidence** であって **effectiveness evidence** ではない。`fired` も「動いた」証拠であり、「良くした」証拠ではない。Effectiveness は同一条件の比較や regression evidence で別途評価する。
 
 ### Composition rule
 
