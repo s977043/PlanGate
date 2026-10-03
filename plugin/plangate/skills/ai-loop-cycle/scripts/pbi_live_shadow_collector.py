@@ -138,6 +138,60 @@ def _ensure_safe_parent(root: pathlib.Path, target: pathlib.Path) -> None:
             cursor.mkdir(mode=0o755)
 
 
+def _require_safe_repo_file(
+    repo_root: pathlib.Path,
+    ref: str,
+    label: str,
+) -> pathlib.Path:
+    errors = pm._validate_repo_relative_ref_syntax(ref, label)
+    if errors:
+        raise CollectorError(f"{label}: " + "; ".join(errors))
+
+    root = repo_root.resolve()
+    path_text = ref.partition("#")[0]
+    pure = pathlib.PurePosixPath(path_text)
+    cursor = root
+
+    for index, part in enumerate(pure.parts):
+        cursor = cursor / part
+        try:
+            mode = cursor.lstat().st_mode
+        except FileNotFoundError as exc:
+            raise CollectorError(
+                f"{label}: repository source does not exist: {ref!r}"
+            ) from exc
+        except OSError as exc:
+            raise CollectorError(
+                f"{label}: repository source cannot be inspected: {ref!r}: {exc}"
+            ) from exc
+
+        if stat.S_ISLNK(mode):
+            raise CollectorError(
+                f"{label}: symlink path component rejected: "
+                f"{cursor.relative_to(root).as_posix()}"
+            )
+        is_last = index == len(pure.parts) - 1
+        if is_last:
+            if not stat.S_ISREG(mode):
+                raise CollectorError(
+                    f"{label}: repository source must be a regular file: {ref!r}"
+                )
+        elif not stat.S_ISDIR(mode):
+            raise CollectorError(
+                f"{label}: parent path component is not a directory: "
+                f"{cursor.relative_to(root).as_posix()}"
+            )
+
+    try:
+        resolved = cursor.resolve(strict=True)
+        resolved.relative_to(root)
+    except (OSError, ValueError) as exc:
+        raise CollectorError(
+            f"{label}: source escapes repository root: {ref!r}"
+        ) from exc
+    return resolved
+
+
 def _atomic_create_json(
     repo_root: pathlib.Path,
     ref: str,
@@ -234,43 +288,11 @@ def _require_existing_source(
     repo_root: pathlib.Path,
     source_ref: str,
 ) -> pathlib.Path:
-    errors = pm._validate_repo_relative_ref_syntax(source_ref, "source_ref")
-    if errors:
-        raise CollectorError("source_ref: " + "; ".join(errors))
-
-    root = repo_root.resolve()
-    pure = pathlib.PurePosixPath(source_ref.partition("#")[0])
-    candidate = root / pathlib.Path(*pure.parts)
-
-    try:
-        mode = candidate.lstat().st_mode
-    except FileNotFoundError as exc:
-        raise CollectorError(
-            f"source_ref: repository source does not exist: {source_ref!r}"
-        ) from exc
-    except OSError as exc:
-        raise CollectorError(
-            f"source_ref: repository source cannot be inspected: {source_ref!r}: {exc}"
-        ) from exc
-
-    if stat.S_ISLNK(mode):
-        raise CollectorError(
-            f"source_ref: symlink source rejected: {source_ref!r}"
-        )
-    if not stat.S_ISREG(mode):
-        raise CollectorError(
-            f"source_ref: repository source must be a regular file: {source_ref!r}"
-        )
-
-    try:
-        resolved = candidate.resolve(strict=True)
-        resolved.relative_to(root)
-    except (OSError, ValueError) as exc:
-        raise CollectorError(
-            f"source_ref: source escapes repository root: {source_ref!r}"
-        ) from exc
-
-    return resolved
+    return _require_safe_repo_file(
+        repo_root,
+        source_ref,
+        "source_ref",
+    )
 
 
 def collect_capture(
@@ -1053,18 +1075,17 @@ def inventory_live_materialization_cases(
             continue
 
         try:
-            mode = path.lstat().st_mode
-        except OSError as exc:
-            invalid.append({"ref": rel, "errors": [f"lstat failed: {exc}"]})
-            continue
-        if not stat.S_ISREG(mode):
-            invalid.append(
-                {"ref": rel, "errors": ["case artifact must be a regular file"]}
+            safe_path = _require_safe_repo_file(
+                root,
+                rel,
+                "case_artifact_ref",
             )
+        except CollectorError as exc:
+            invalid.append({"ref": rel, "errors": [str(exc)]})
             continue
 
         try:
-            case = _load_json_object(path, rel)
+            case = _load_json_object(safe_path, rel)
         except CollectorError as exc:
             invalid.append({"ref": rel, "errors": [str(exc)]})
             continue
