@@ -455,5 +455,137 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertIn("current source hash mismatch", str(ctx.exception))
 
 
+    def test_inventory_zero_cases_is_not_completion(self):
+        inventory = collector.inventory_live_shadow_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["evaluated_case_total"], 0)
+        self.assertFalse(inventory["has_tracked_live_evidence"])
+        self.assertTrue(inventory["inventory_complete"])
+        self.assertEqual(
+            inventory["rollout_quality"]["live_case_total"],
+            0,
+        )
+        self.assertFalse(
+            inventory["rollout_quality"]["quality_review_complete"]
+        )
+        self.assertFalse(
+            inventory["verification_boundary"]["runtime_execution_verified"]
+        )
+        self.assertFalse(
+            inventory["verification_boundary"]["source_preexistence_verified"]
+        )
+        self.assertFalse(
+            inventory["coverage"]["representative_coverage_claim_allowed"]
+        )
+        self.assertFalse(inventory["authority"]["write_allowed"])
+        self.assertFalse(
+            inventory["authority"]["quality_acceptance_decided"]
+        )
+
+    def test_inventory_revalidates_tracked_live_case(self):
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+
+        inventory = collector.inventory_live_shadow_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 1)
+        self.assertEqual(inventory["evaluated_case_total"], 1)
+        self.assertEqual(inventory["invalid_case_total"], 0)
+        self.assertTrue(inventory["has_tracked_live_evidence"])
+        self.assertTrue(inventory["inventory_complete"])
+        self.assertEqual(
+            inventory["coverage"]["observed_admission_decisions"],
+            ["no_action"],
+        )
+        self.assertEqual(
+            inventory["coverage"]["observed_source_kinds"],
+            ["existing_behavior"],
+        )
+        self.assertEqual(
+            inventory["rollout_quality"]["live_case_total"],
+            1,
+        )
+        self.assertEqual(
+            inventory["rollout_quality"]["materialize_false_positive_rate"],
+            0.0,
+        )
+        self.assertIsNone(
+            inventory["rollout_quality"]["materialize_false_negative_rate"]
+        )
+
+    def test_inventory_keeps_invalid_case_visible(self):
+        path = (
+            self.root
+            / "docs/working/TASK-9998/evidence/pbi-live-shadow/"
+            / "run-01/admission-case.json"
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{not-json}\n", encoding="utf-8")
+
+        inventory = collector.inventory_live_shadow_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertFalse(inventory["inventory_complete"])
+        self.assertIn(
+            "invalid JSON",
+            inventory["invalid_case_artifacts"][0]["errors"][0],
+        )
+
+    def test_inventory_ignores_historical_case_outside_live_namespace(self):
+        path = self.root / "docs/working/ai-loop-runs/admission-case.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "evidence_class": "live_shadow",
+                    "case_ref": "FAKE-HISTORICAL",
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        inventory = collector.inventory_live_shadow_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["discovered_case_artifacts"], [])
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertFalse(
+            inventory["verification_boundary"]["historical_promoted_to_live"]
+        )
+
+    def test_inventory_rejects_symlink_case_artifact(self):
+        target = self.root / "outside-case.json"
+        target.write_text("{}\n", encoding="utf-8")
+        link = (
+            self.root
+            / "docs/working/TASK-9998/evidence/pbi-live-shadow/"
+            / "run-01/admission-case.json"
+        )
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(target)
+
+        inventory = collector.inventory_live_shadow_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertIn(
+            "regular file",
+            inventory["invalid_case_artifacts"][0]["errors"][0],
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
