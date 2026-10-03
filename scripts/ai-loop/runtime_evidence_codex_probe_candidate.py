@@ -51,10 +51,7 @@ ID_RE = re.compile(r"^[A-Za-z0-9_.:/-]{1,256}$")
 VALID_EVENTS = {"SubagentStart", "SubagentStop"}
 VALID_PERMISSION_MODES = {
     "default",
-    "acceptEdits",
-    "plan",
     "dontAsk",
-    "bypassPermissions",
 }
 EXPECTED_AGENT_TYPE = "explorer_agent"
 
@@ -178,13 +175,31 @@ def normalize_hook_event(
     return normalized
 
 
-def _safe_append_jsonl(path: pathlib.Path, record: dict[str, Any]) -> None:
-    parent = path.parent
-    parent.mkdir(parents=True, exist_ok=True)
-    if parent.is_symlink():
+def _safe_append_jsonl(
+    path: pathlib.Path,
+    record: dict[str, Any],
+    *,
+    repo_root: pathlib.Path,
+) -> None:
+    root = repo_root.resolve()
+    parent = path.parent.resolve()
+    target = path.resolve(strict=False)
+
+    if not root.is_dir():
         raise CodexProbeCandidateError(
-            ["output parent symlink is not allowed"]
+            ["repo_root: existing directory required"]
         )
+    if not parent.is_dir() or parent.is_symlink():
+        raise CodexProbeCandidateError(
+            ["output parent must be an existing non-symlink directory"]
+        )
+    try:
+        target.relative_to(root)
+        raise CodexProbeCandidateError(
+            ["output: probe log must stay outside repository"]
+        )
+    except ValueError:
+        pass
 
     flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
     flags |= getattr(os, "O_NOFOLLOW", 0)
@@ -218,6 +233,7 @@ def _safe_append_jsonl(path: pathlib.Path, record: dict[str, Any]) -> None:
 
 def record_hook_event(
     *,
+    repo_root: str | pathlib.Path,
     output: str | pathlib.Path,
     event: Any,
     request_hash: str,
@@ -230,7 +246,11 @@ def record_hook_event(
         config_sha=config_sha,
         provider=provider,
     )
-    _safe_append_jsonl(pathlib.Path(output), record)
+    _safe_append_jsonl(
+        pathlib.Path(output),
+        record,
+        repo_root=pathlib.Path(repo_root),
+    )
     return record
 
 
@@ -322,11 +342,21 @@ def verify_candidate_trace(
     if len(starts) == 1 and len(stops) == 1:
         start = starts[0]
         stop = stops[0]
-        for field in ("session_id", "turn_id", "agent_id", "agent_type"):
+        for field in (
+            "session_id",
+            "turn_id",
+            "agent_id",
+            "agent_type",
+            "permission_mode",
+        ):
             if start.get(field) != stop.get(field):
                 errors.append(
                     f"trace: start/stop {field} must match exactly"
                 )
+        if records.index(start) >= records.index(stop):
+            errors.append(
+                "trace: SubagentStart must precede SubagentStop"
+            )
 
     if errors:
         raise CodexProbeCandidateError(errors)
@@ -348,9 +378,10 @@ def verify_candidate_trace(
         "permission_mode": start["permission_mode"],
         "subagent_start_candidate_verified": True,
         "subagent_stop_candidate_verified": True,
-        "runtime_role_registered_candidate": True,
+        "runtime_role_observed_candidate": True,
         "explorer_execution_candidate": True,
-        "hook_trace_integrity_verified": True,
+        "candidate_trace_structure_verified": True,
+        "record_hash_integrity_verified": True,
         "hook_execution_root_attested": False,
         "codex_jsonl_runtime_correlation_verified": False,
         "hard_read_only_enforced": False,
@@ -402,6 +433,7 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     record = sub.add_parser("record-hook")
+    record.add_argument("--repo-root", required=True)
     record.add_argument("--output", required=True)
     record.add_argument("--request-hash", required=True)
     record.add_argument("--config-sha", required=True)
@@ -419,6 +451,7 @@ def main(argv=None) -> int:
         if args.command == "record-hook":
             event = json.load(sys.stdin)
             result = record_hook_event(
+                repo_root=args.repo_root,
                 output=args.output,
                 event=event,
                 request_hash=args.request_hash,
