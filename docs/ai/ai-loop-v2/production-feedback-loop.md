@@ -107,6 +107,7 @@ Trigger は少なくとも次の入力を扱えること。
 - severity / affected surface
 - deployment correlation
 - duplicate / already-open work
+- stable intake identity（provider retry / webhook redelivery を同一 work へ収束させるための識別）
 - cooldown / debounce
 - budget
 - policy boundary
@@ -162,6 +163,7 @@ Adapter の責務:
 - provider payload の検証
 - provenance の保持
 - stable fingerprint / provider issue ID の保持
+- provider retry / webhook redelivery を新規 work の重複作成へ変換しない intake idempotency
 - secret / PII / high-cardinality payload の redaction
 - size / context budget 制御
 - replay 可能な fixture 化
@@ -211,7 +213,9 @@ Production Recovery Observed
 Recurrence Prevented
 ```
 
-Post-fix observation は external evidence として Learn へ返す。再発は Run 横断なので、[`artifact-responsibilities.md`](./artifact-responsibilities.md) §6 のとおり個別 RunEvidence の mutable 集計値にはしない。
+Post-fix observation は external evidence として Learn へ返す。**terminal になった Delivery Run の event stream へ後付け append しない**。現行 V2 は terminal transaction を Run の final とし、後続 commit を拒否するため、deploy / recovery / recurrence は Run 外の external observation または後続 work / Run として関連付ける。永続化の最終 owner / schema は Phase 1 で確定し、この文書では第2の mutable SSoT を作らない。
+
+再発は Run 横断なので、[`artifact-responsibilities.md`](./artifact-responsibilities.md) §6 のとおり個別 RunEvidence の mutable 集計値にはしない。
 
 ## 8. Security / privacy boundary
 
@@ -223,7 +227,7 @@ Production telemetry は開発時 Evidence より機微情報を含みやすい�
 - request / response body は既定で raw 転送しない
 - user / account / session の直接識別子を既定で Agent context に入れない。必要な場合も用途・保持期間・アクセス権を明示し、opaque ref 等で最小化する
 - raw telemetry は必要最小限を参照し、Human-facing artifact へ複製しない
-- provider webhook は署名検証・replay 対策・idempotency を持つ
+- provider webhook は署名検証・replay 対策・idempotency を持つ。再送は同じ bounded work へ収束させ、同一 signal から複数 Run を無条件に生成しない
 - external tool query は least privilege / read-only を既定とする
 - context reduction で Evidence provenance を失わない
 
@@ -288,9 +292,10 @@ Production feedback を扱う Plan / PR は、North Star §21 に加えて次を
 - raw telemetry を必要以上に Agent context へ入れていないか
 - trigger が approval / permission grant に化けていないか
 - duplicate / recurrence / cooldown を扱えるか
-- provider outage / webhook retry / replay で work が重複しないか
+- provider outage / webhook retry / replay で work が重複しないか。stable intake identity で既存 work へ収束できるか
 - Evidence 不足時に fail-open していないか
 - PR 作成を Production recovery と誤認していないか
+- post-fix observation を terminal Run へ後付けせず、Run 外の Evidence / 後続 work として扱っているか
 - post-fix observation の返却先があるか
 - 単一 incident から Harness を live self-modify していないか
 
