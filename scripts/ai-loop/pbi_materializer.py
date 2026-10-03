@@ -1707,6 +1707,16 @@ def _materialization_live_quality(
         if case.get("status") == "mismatch":
             exact_mismatch += 1
 
+    rejection_distribution = _rejection_distribution(live)
+    provenance_distribution = {
+        key: rejection_distribution[key]
+        for key in (
+            "circular_or_derived",
+            "acceptance_basis",
+            "claim_class",
+            "source_reference",
+        )
+    }
     return {
         "scope": "live_shadow_only",
         "live_case_total": len(live),
@@ -1723,7 +1733,8 @@ def _materialization_live_quality(
         "matched_ref_mismatch_count": matched_ref_mismatch,
         "readiness_mismatch_count": readiness_mismatch,
         "exact_mismatch_count": exact_mismatch,
-        "provenance_rejection_error_occurrences": _rejection_distribution(live),
+        "rejection_error_occurrences_by_category": rejection_distribution,
+        "provenance_rejection_error_occurrences": provenance_distribution,
         "thresholds_applied": False,
         "acceptance_decision": "not_evaluated",
         "acceptance_owner": "human_or_rollout_policy",
@@ -1761,6 +1772,16 @@ def _admission_live_quality(
         if case.get("status") == "mismatch":
             mismatch += 1
 
+    rejection_distribution = _rejection_distribution(live)
+    provenance_distribution = {
+        key: rejection_distribution[key]
+        for key in (
+            "circular_or_derived",
+            "acceptance_basis",
+            "claim_class",
+            "source_reference",
+        )
+    }
     return {
         "scope": "live_shadow_only",
         "live_case_total": len(live),
@@ -1774,7 +1795,8 @@ def _admission_live_quality(
         "materialize_false_negative_denominator": fn_denom,
         "materialize_false_negative_rate": _nullable_rate(false_negative, fn_denom),
         "decision_mismatch_count": mismatch,
-        "provenance_rejection_error_occurrences": _rejection_distribution(live),
+        "rejection_error_occurrences_by_category": rejection_distribution,
+        "provenance_rejection_error_occurrences": provenance_distribution,
         "thresholds_applied": False,
         "acceptance_decision": "not_evaluated",
         "acceptance_owner": "human_or_rollout_policy",
