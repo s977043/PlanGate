@@ -537,9 +537,52 @@ def scan_working_pbis(
     return out
 
 
+def _validate_materialization_decision(decision: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(decision, dict):
+        return ["decision: object required"]
+
+    kind = decision.get("decision")
+    if kind not in VALID_DECISIONS:
+        errors.append(f"decision.decision: one of {sorted(VALID_DECISIONS)} required")
+
+    matched_ref = decision.get("matched_ref")
+    if matched_ref is not None and (
+        not isinstance(matched_ref, str) or not matched_ref.strip()
+    ):
+        errors.append("decision.matched_ref: null or non-empty string required")
+
+    _as_string_list(decision.get("related_refs"), "decision.related_refs", errors)
+
+    if not isinstance(decision.get("requires_replan"), bool):
+        errors.append("decision.requires_replan: boolean required")
+
+    if not isinstance(decision.get("reason"), str) or not decision.get("reason", "").strip():
+        errors.append("decision.reason: non-empty string required")
+
+    return errors
+
+
 def plan_readiness(payload: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
+    decision_errors = _validate_materialization_decision(decision)
+    if decision_errors:
+        raise MaterializationError(decision_errors)
+
     timing = payload["application_timing"]
     target = payload["target_layer"]
+
+    if decision["requires_replan"]:
+        if timing == "replan_current" and target == "delivery":
+            return {
+                "status": "ready",
+                "route": "replan_current",
+                "current_run_effect": "replan_required",
+            }
+        return {
+            "status": "blocked",
+            "route": "bound_pbi_requires_replan",
+            "current_run_effect": "none",
+        }
     if target == "harness":
         ref = payload.get("harness_candidate_ref")
         if not isinstance(ref, str) or not ref.strip() or ref == "pending":
