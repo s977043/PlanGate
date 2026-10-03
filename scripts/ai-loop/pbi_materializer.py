@@ -2023,6 +2023,8 @@ def _validate_write_review_assessment_input(
 
     materialization_report = assessment.get("materialization_report")
     admission_report = assessment.get("admission_report")
+    materialization_report_ref = assessment.get("materialization_report_ref")
+    admission_report_ref = assessment.get("admission_report_ref")
     context = assessment.get("context")
 
     if not isinstance(materialization_report, dict):
@@ -2056,6 +2058,45 @@ def _validate_write_review_assessment_input(
                     errors.append(
                         f"write_review_assessment.{label}.{field}: false required"
                     )
+
+    for label, report, report_ref in (
+        (
+            "materialization_report",
+            materialization_report,
+            materialization_report_ref,
+        ),
+        (
+            "admission_report",
+            admission_report,
+            admission_report_ref,
+        ),
+    ):
+        ref_label = f"write_review_assessment.{label}_ref"
+        ref_errors = _validate_repo_relative_ref_syntax(report_ref, ref_label)
+        errors.extend(ref_errors)
+        if ref_errors or not isinstance(report, dict):
+            continue
+
+        report_path, _fragment, resolve_errors = _resolve_repo_authority_ref(
+            report_ref,
+            authority_root,
+        )
+        errors.extend(f"{ref_label}: {error}" for error in resolve_errors)
+        if resolve_errors or report_path is None:
+            continue
+
+        stored_report, load_errors = _load_json_object(
+            report_path,
+            ref_label,
+        )
+        errors.extend(load_errors)
+        if stored_report is None:
+            continue
+
+        if _canonical_json_hash(stored_report) != _canonical_json_hash(report):
+            errors.append(
+                f"{ref_label}: stored report does not match embedded report"
+            )
 
     if not isinstance(context, dict):
         errors.append("write_review_assessment.context: object required")
@@ -2199,6 +2240,7 @@ def assess_write_review_readiness(
             "review_only": True,
             "caller_asserted_dependency_status": True,
             "caller_asserted_test_status": True,
+            "report_artifact_authorship_verified": False,
             "independent_review_authorship_verified": False,
             "merge_authority": False,
         },
@@ -2223,6 +2265,16 @@ def assess_write_review_readiness(
             "generalization_claim_requested": context[
                 "generalization_claim_requested"
             ],
+        },
+        "report_refs": {
+            "materialization_report_ref": assessment[
+                "materialization_report_ref"
+            ],
+            "materialization_report_hash": _canonical_json_hash(
+                materialization_report
+            ),
+            "admission_report_ref": assessment["admission_report_ref"],
+            "admission_report_hash": _canonical_json_hash(admission_report),
         },
         "review_refs": {
             "independent_oracle_review_ref": independent_review_ref,
