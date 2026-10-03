@@ -28,7 +28,7 @@
   },
   "candidate_verification": {
     "required": [
-      "hook session_id equals exec thread.started.thread_id",
+      "hook session_id and exec thread.started.thread_id have equal identifier values",
       "exactly one successful turn envelope",
       "thread.started is first",
       "turn.completed is final",
@@ -49,7 +49,11 @@
       "human_rollout_decision_verified",
       "dispatch_ready",
       "dispatch_allowed",
-      "same_subagent_execution_correlated"
+      "same_subagent_execution_correlated",
+      "session_thread_semantic_binding_verified",
+      "parent_thread_correlation_verified",
+      "thread_id_correlation_verified",
+      "codex_jsonl_thread_correlation_verified"
     ]
   },
   "privacy_notes": [
@@ -63,7 +67,7 @@
     "The public ThreadItem union currently has no subagent identity item.",
     "A future stronger adapter needs an independently exposed runtime identifier before codex_jsonl_runtime_correlation_verified may become true.",
     "Absence of file_change does not prove shell/MCP read-only behavior or repository cleanliness; those postconditions stay separately unverified.",
-    "Matching hook session_id to exec thread_id is a parent-thread correlation candidate, not proof that the same Explorer subagent produced the exec JSONL.",
-    "Unknown item types are recorded as schema drift and keep coverage incomplete; they are not promoted into a stable public contract."
+    "Unknown item types are recorded as schema drift and keep coverage incomplete; they are not promoted into a stable public contract.",
+    "Matching hook session_id to exec thread_id proves identifier equality only; this proposal does not claim an independently documented semantic identity mapping between those differently named fields."
   ]
 }
