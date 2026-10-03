@@ -424,7 +424,42 @@ Adoption should progress through bounded stages.
 
 Scale is evidence-driven, not based on the number of successful demos.
 
-### 9.1 Stage exit conditions
+### 9.1 Shadow consistency oracle
+
+The first shadow implementation needs an oracle that does not depend on subjective Human agreement.
+
+For the same `required_verifiers / verification_results / current_artifact_ref / contract_bound_seq`, the Certification View's required-verifier summary must exactly match the existing Decision Engine `artifact_verdicts(...)` output.
+
+```text
+Decision Engine artifact_verdicts(inputs)
+  ==
+Certification required-verifier projection(inputs)
+```
+
+This is a **consistency oracle**, not a new correctness oracle. The Decision Engine remains authoritative for decision semantics.
+
+The initial fixture set should reuse existing Decision Engine cases where possible, including:
+
+- PASS before `contract_bound_seq` -> unavailable;
+- PASS after the boundary -> pass;
+- deterministic FAIL + later/model PASS -> fail remains blocking;
+- unavailable / inconclusive only -> unavailable;
+- stale / wrong-artifact result -> does not satisfy the current verifier;
+- non-required verifier result -> does not alter the required-verifier map.
+
+Also verify a control invariant:
+
+```text
+Decision output with shadow Certification disabled
+  ==
+Decision output with shadow Certification enabled
+```
+
+for the same authoritative inputs.
+
+A shadow mismatch is a Certification implementation defect or an explicit signal that the upstream Decision contract changed. It must not be "fixed" by silently changing the shadow projection's semantics.
+
+### 9.2 Stage exit conditions
 
 Each stage needs pre-registered exit conditions rather than an informal "looks good" judgment.
 
@@ -459,7 +494,7 @@ Require at least:
 
 These conditions are evaluation guidance. They do not create a new PromotionDecision or authority level.
 
-### 9.2 Human Attention principle
+### 9.3 Human Attention principle
 
 The purpose of Certification View is to compress evidence for judgment, not hide complexity.
 
@@ -594,6 +629,19 @@ The exact function / field names are illustrative and non-normative. The impleme
 - active Delivery composition does not use its own downstream RunEvidence / decision summary as authority.
 
 This gives a small first vertical slice that can be shadow-evaluated before any routing behavior changes.
+
+Recommended first implementation order:
+
+```text
+1. pure composeCertification projection
+2. unit fixtures reusing Decision Engine artifact-verdict cases
+3. shadow parity check: certification map == artifact_verdicts
+4. no-behavior-change E2E control
+5. Human-facing projection evaluation
+6. only then consider policy-assisted routing
+```
+
+Do not implement routing and projection in the same first slice; otherwise a parity defect can immediately alter control flow.
 
 ## 14. Relationship to existing V2 docs
 
