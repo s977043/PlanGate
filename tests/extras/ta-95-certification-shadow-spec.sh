@@ -37,14 +37,18 @@ fi
 
 printf 'TA-95: Certification View executable specification\n'
 
-if _T95_OUT=$(python3 "$_T95_ROOT/tests/test_certification_shadow_spec.py" 2>&1); then
-  printf '%s\n' "$_T95_OUT"
-  printf '  [PASS] certification shadow executable spec\n'
+_T95_RC=0
+_T95_OUT=$(python3 "$_T95_ROOT/tests/test_certification_shadow_spec.py" 2>&1) || _T95_RC=$?
+printf '%s\n' "$_T95_OUT"
+
+if [ "$_T95_RC" -ne 0 ]; then
+  printf '  [FAIL] certification shadow spec failed (rc=%s)\n' "$_T95_RC" >&2
+  fail=$((fail + 1))
+elif printf '%s\n' "$_T95_OUT" | grep -Eq '^Ran [1-9][0-9]* tests? in '; then
+  printf '  [PASS] certification shadow executable spec ran non-zero tests\n'
   pass=$((pass + 1))
 else
-  _T95_RC=$?
-  printf '%s\n' "$_T95_OUT" >&2
-  printf '  [FAIL] certification shadow spec failed (rc=%s)\n' "$_T95_RC" >&2
+  printf '  [FAIL] certification shadow spec reported no non-zero test count\n' >&2
   fail=$((fail + 1))
 fi
 
