@@ -159,7 +159,7 @@ class MaterializationFixtures(unittest.TestCase):
                 }
             ],
         )
-        decision_ref = "docs/working/TASK-1442/decision-log.jsonl#D-1"
+        decision_ref = "docs/working/TASK-1442/decision-log.jsonl#D-001"
         payload["claims"].append(
             {
                 "id": "CLM-D1",
@@ -237,6 +237,67 @@ class MaterializationFixtures(unittest.TestCase):
         payload["requirements"][0]["basis_ref"] = policy_ref
         result = pm.materialize(payload, [])
         self.assertEqual(result["readiness"]["status"], "ready")
+
+    def test_05f_fabricated_decision_log_ref_is_rejected_even_with_matching_kind(self):
+        payload = _payload()
+        fake_ref = "docs/working/TASK-1442/missing-decision-log.jsonl#D-404"
+        payload["claims"].append(
+            {
+                "id": "CLM-D404",
+                "text": "Fabricated decision claim",
+                "source_ref": fake_ref,
+                "source_kind": "decision_log",
+                "claim_class": "observed",
+                "supports": "REQ-001",
+            }
+        )
+        payload["requirements"][0]["acceptance_basis"] = "explicit_decision"
+        payload["requirements"][0]["basis_ref"] = fake_ref
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(payload, [])
+        self.assertTrue(
+            any("repository source does not exist" in e for e in ctx.exception.errors)
+        )
+
+    def test_05g_unknown_decision_id_is_rejected(self):
+        payload = _payload()
+        ref = "docs/working/TASK-1442/decision-log.jsonl#D-404"
+        payload["claims"].append(
+            {
+                "id": "CLM-D404",
+                "text": "Unknown decision ID",
+                "source_ref": ref,
+                "source_kind": "decision_log",
+                "claim_class": "observed",
+                "supports": "REQ-001",
+            }
+        )
+        payload["requirements"][0]["acceptance_basis"] = "explicit_decision"
+        payload["requirements"][0]["basis_ref"] = ref
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(payload, [])
+        self.assertTrue(any("must exist exactly once" in e for e in ctx.exception.errors))
+
+    def test_05h_fabricated_policy_ref_is_rejected_even_with_matching_kind(self):
+        payload = _payload()
+        fake_ref = "docs/ai/missing-policy.md#rule"
+        payload["claims"].append(
+            {
+                "id": "CLM-P404",
+                "text": "Fabricated policy claim",
+                "source_ref": fake_ref,
+                "source_kind": "policy",
+                "claim_class": "observed",
+                "supports": "REQ-001",
+            }
+        )
+        payload["requirements"][0]["acceptance_basis"] = "policy_rule"
+        payload["requirements"][0]["basis_ref"] = fake_ref
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.materialize(payload, [])
+        self.assertTrue(
+            any("repository source does not exist" in e for e in ctx.exception.errors)
+        )
 
     def test_06_same_task_plan_cannot_be_upstream_evidence(self):
         payload = _payload(
