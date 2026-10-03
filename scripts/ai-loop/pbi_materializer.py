@@ -243,6 +243,10 @@ def build_passive_shadow_capture(
         errors.append("runtime_head_sha: 40 lowercase hex required")
     errors.extend(_validate_repo_relative_ref_syntax(capture_ref, "capture_ref"))
     errors.extend(validate_admission_signal(signal))
+    if isinstance(signal, dict) and signal.get("source_ref") == capture_ref:
+        errors.append(
+            "signal.source_ref: passive capture cannot cite its own capture_ref as upstream evidence"
+        )
     if signal.get("target_layer", "delivery") != "delivery":
         errors.append(
             "signal.target_layer: passive PBI shadow capture supports delivery only; harness is #874/#869-owned"
@@ -363,8 +367,18 @@ def _validate_live_run_binding(
     signal_hash = capture.get("signal_hash")
     if not isinstance(signal, dict):
         errors.append("live_binding.capture.signal: object required")
-    elif signal_hash != _canonical_json_hash(signal):
-        errors.append("live_binding.capture.signal_hash: mismatch")
+    else:
+        source_ref = signal.get("source_ref")
+        if source_ref == capture_ref:
+            errors.append(
+                "live_binding.capture.signal.source_ref: capture cannot self-source"
+            )
+        if not isinstance(source_ref, str) or source_ref not in ev_refs:
+            errors.append(
+                "live_binding.capture.signal.source_ref: upstream source must be included in RunEvidence evidence_refs"
+            )
+        if signal_hash != _canonical_json_hash(signal):
+            errors.append("live_binding.capture.signal_hash: mismatch")
 
     return capture, ev, errors
 
