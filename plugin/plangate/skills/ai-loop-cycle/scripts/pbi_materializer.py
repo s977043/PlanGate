@@ -1162,6 +1162,12 @@ def evaluate_shadow_batch(
         "mode": "shadow_evaluation",
         "write_allowed": False,
         "automatic_promotion": False,
+        "evaluation_contract": {
+            "split_required": True,
+            "holdout_isolation_enforced": False,
+            "generalization_claim_allowed": False,
+            "holdout_isolation_owner": "caller_or_independent_evaluator",
+        },
         "metrics": {
             key: _finalize_metrics(value) for key, value in metrics.items()
         },
