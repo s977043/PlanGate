@@ -56,6 +56,18 @@ def _load_json_object(path: pathlib.Path, label: str) -> dict[str, Any]:
     return value
 
 
+def _load_json_array(path: pathlib.Path, label: str) -> list[Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise CollectorError(f"{label}: unreadable: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise CollectorError(f"{label}: invalid JSON: {exc}") from exc
+    if not isinstance(value, list):
+        raise CollectorError(f"{label}: array required")
+    return value
+
+
 def _file_sha256(path: pathlib.Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -274,6 +286,23 @@ def collect_capture(
         "artifact_reused": artifact_reused,
         "source_ref": source_ref.strip(),
         "run_evidence_ref": None,
+        "run_evidence_handoff": {
+            "evidence_refs": [source_ref.strip(), capture_ref],
+            "source_sha256": _file_sha256(source_path),
+            "capture_hash": artifact_hash,
+            "cli_args": [
+                "--evidence-ref",
+                source_ref.strip(),
+                "--evidence-ref",
+                capture_ref,
+            ],
+            "task_id": task_id,
+            "run_id": run_id,
+            "runtime_head_sha": runtime_head_sha,
+            "captured_at": captured_at,
+            "advisory_only": True,
+            "must_revalidate_after_run_evidence": True,
+        },
         "next": "finalize_run_evidence_with_source_and_capture_refs",
         "authority": {
             "evidence_create_allowed": True,
@@ -626,6 +655,538 @@ def collect_reviewed_admission_case(
     }
 
 
+def _validate_materialization_oracle(
+    *,
+    oracle: dict[str, Any],
+    oracle_ref: str,
+    admission_case: dict[str, Any],
+    admission_case_ref: str,
+    payload: dict[str, Any],
+    payload_ref: str,
+    existing_work: list[Any],
+    existing_work_ref: str,
+) -> None:
+    errors: list[str] = []
+
+    if oracle.get("schema_version") != 1:
+        errors.append("materialization_oracle.schema_version: 1 required")
+    if oracle.get("domain") != "plangate.pbi-live-shadow-materialization-oracle/v1":
+        errors.append(
+            "materialization_oracle.domain: "
+            "plangate.pbi-live-shadow-materialization-oracle/v1 required"
+        )
+
+    case_ref = oracle.get("case_ref")
+    if not isinstance(case_ref, str) or not case_ref.strip():
+        errors.append("materialization_oracle.case_ref: non-empty string required")
+
+    bindings = (
+        ("admission_case_ref", admission_case_ref),
+        ("payload_ref", payload_ref),
+        ("existing_work_ref", existing_work_ref),
+    )
+    for field, expected_ref in bindings:
+        if oracle.get(field) != expected_ref:
+            errors.append(
+                f"materialization_oracle.{field}: exact bound ref required"
+            )
+
+    hash_bindings = (
+        ("admission_case_hash", pm._canonical_json_hash(admission_case)),
+        ("payload_hash", pm._canonical_json_hash(payload)),
+        ("existing_work_hash", pm._canonical_json_hash(existing_work)),
+    )
+    for field, expected_hash in hash_bindings:
+        if oracle.get(field) != expected_hash:
+            errors.append(
+                f"materialization_oracle.{field}: bound artifact hash mismatch"
+            )
+
+    expected = oracle.get("expected")
+    expected_for_validation: dict[str, Any] = {"oracle_ref": oracle_ref}
+    if isinstance(expected, dict):
+        expected_for_validation.update(expected)
+    else:
+        errors.append("materialization_oracle.expected: object required")
+    errors.extend(
+        "materialization_oracle.expected." + error
+        for error in pm._validate_shadow_expected(expected_for_validation)
+    )
+
+    if oracle.get("independent_review_asserted") is not True:
+        errors.append(
+            "materialization_oracle.independent_review_asserted: true required"
+        )
+    if oracle.get("maker_actual_not_consulted_asserted") is not True:
+        errors.append(
+            "materialization_oracle.maker_actual_not_consulted_asserted: true required"
+        )
+
+    for forbidden in (
+        "actual",
+        "actual_decision",
+        "actual_materialization_decision",
+        "maker_actual",
+    ):
+        if forbidden in oracle:
+            errors.append(
+                f"materialization_oracle.{forbidden}: maker actual must not be stored"
+            )
+
+    privacy_errors = pm._privacy_errors({"materialization_oracle": oracle})
+    errors.extend(
+        "materialization_oracle privacy: " + error
+        for error in privacy_errors
+    )
+
+    if errors:
+        raise CollectorError("; ".join(errors))
+
+
+def collect_reviewed_materialization_case(
+    *,
+    repo_root: pathlib.Path,
+    admission_case_ref: str,
+    payload_ref: str,
+    existing_work_ref: str,
+    oracle_ref: str,
+    case_artifact_ref: str,
+) -> dict[str, Any]:
+    admission_path, admission_case = _load_repo_json_object(
+        repo_root, admission_case_ref, "admission_case_ref"
+    )
+    parts = pathlib.PurePosixPath(
+        admission_path.relative_to(repo_root.resolve()).as_posix()
+    ).parts
+    task_id = parts[2] if len(parts) > 2 else ""
+    _validate_output_ref(task_id, admission_case_ref, "admission_case_ref")
+
+    admission_errors = pm._validate_admission_batch(
+        [admission_case],
+        authority_root=repo_root,
+    )
+    if admission_errors:
+        raise CollectorError(
+            "admission_case invalid: " + "; ".join(admission_errors)
+        )
+    admission_report = pm.evaluate_admission_batch(
+        [admission_case],
+        authority_root=repo_root,
+    )
+    admission_result = admission_report["cases"][0]
+    if (
+        admission_result.get("status") != "match"
+        or admission_result.get("actual") != "materialize"
+        or admission_result.get("expected") != "materialize"
+    ):
+        raise CollectorError(
+            "admission_case: reviewed materialize match required before "
+            "materialization evaluation"
+        )
+
+    payload_ref = _validate_output_ref(task_id, payload_ref, "payload_ref")
+    existing_work_ref = _validate_output_ref(
+        task_id, existing_work_ref, "existing_work_ref"
+    )
+    oracle_ref = _validate_output_ref(task_id, oracle_ref, "oracle_ref")
+    case_artifact_ref = _validate_output_ref(
+        task_id, case_artifact_ref, "materialization_case_artifact_ref"
+    )
+
+    payload_path, payload = _load_repo_json_object(
+        repo_root, payload_ref, "payload_ref"
+    )
+    existing_path, _fragment, existing_errors = pm._resolve_repo_authority_ref(
+        existing_work_ref,
+        repo_root,
+    )
+    if existing_errors or existing_path is None:
+        raise CollectorError(
+            "existing_work_ref: "
+            + "; ".join(existing_errors or ["unresolvable"])
+        )
+    existing_work = _load_json_array(
+        existing_path,
+        "existing_work_ref",
+    )
+    _oracle_path, oracle = _load_repo_json_object(
+        repo_root, oracle_ref, "oracle_ref"
+    )
+
+    _validate_materialization_oracle(
+        oracle=oracle,
+        oracle_ref=oracle_ref,
+        admission_case=admission_case,
+        admission_case_ref=admission_case_ref,
+        payload=payload,
+        payload_ref=payload_ref,
+        existing_work=existing_work,
+        existing_work_ref=existing_work_ref,
+    )
+
+    live_capture = admission_case.get("live_capture")
+    evidence_refs = list(admission_case.get("evidence_refs", []))
+    for ref in (
+        admission_case_ref,
+        payload_ref,
+        existing_work_ref,
+    ):
+        if ref not in evidence_refs:
+            evidence_refs.append(ref)
+
+    expected = oracle["expected"]
+    eval_case = {
+        "case_ref": oracle["case_ref"],
+        "split": "test",
+        "evidence_class": "live_shadow",
+        "evidence_refs": evidence_refs,
+        "live_capture": live_capture,
+        "payload": payload,
+        "existing_work": existing_work,
+        "expected": {
+            "oracle_ref": oracle_ref,
+            "decision": expected["decision"],
+            "matched_ref": expected.get("matched_ref"),
+            "readiness_status": expected["readiness_status"],
+            "readiness_route": expected["readiness_route"],
+        },
+    }
+
+    batch_errors = pm._validate_shadow_batch(
+        [eval_case],
+        authority_root=repo_root,
+    )
+    if batch_errors:
+        raise CollectorError(
+            "assembled materialization case invalid: "
+            + "; ".join(batch_errors)
+        )
+
+    artifact_hash, artifact_reused = _atomic_create_json(
+        repo_root, case_artifact_ref, eval_case
+    )
+    return {
+        "mode": "pbi_live_shadow_collect_reviewed_materialization_case",
+        "artifact_ref": case_artifact_ref,
+        "artifact_hash": artifact_hash,
+        "artifact_reused": artifact_reused,
+        "admission_case_ref": admission_case_ref,
+        "payload_ref": payload_ref,
+        "existing_work_ref": existing_work_ref,
+        "oracle_ref": oracle_ref,
+        "review_assertions": {
+            "admission_materialize_match_revalidated": True,
+            "independent_review_asserted": True,
+            "maker_actual_not_consulted_asserted": True,
+            "oracle_authorship_verified": False,
+        },
+        "authority": {
+            "evidence_create_allowed": True,
+            "overwrite_allowed": False,
+            "idempotent_reuse_allowed": True,
+            "pbi_write_allowed": False,
+            "issue_write_allowed": False,
+            "close_allowed": False,
+            "suppression_allowed": False,
+            "merge_allowed": False,
+            "quality_acceptance_decided": False,
+        },
+    }
+
+
+def _revalidate_materialization_case_chain(
+    *,
+    repo_root: pathlib.Path,
+    task_id: str,
+    case: dict[str, Any],
+) -> None:
+    expected = case.get("expected")
+    if not isinstance(expected, dict):
+        raise CollectorError("materialization case expected: object required")
+    oracle_ref = _validate_output_ref(
+        task_id,
+        expected.get("oracle_ref"),
+        "materialization_case.expected.oracle_ref",
+    )
+
+    _oracle_path, oracle = _load_repo_json_object(
+        repo_root, oracle_ref, "materialization_oracle_ref"
+    )
+    admission_case_ref = _validate_output_ref(
+        task_id,
+        oracle.get("admission_case_ref"),
+        "materialization_oracle.admission_case_ref",
+    )
+    payload_ref = _validate_output_ref(
+        task_id,
+        oracle.get("payload_ref"),
+        "materialization_oracle.payload_ref",
+    )
+    existing_work_ref = _validate_output_ref(
+        task_id,
+        oracle.get("existing_work_ref"),
+        "materialization_oracle.existing_work_ref",
+    )
+
+    evidence_refs = case.get("evidence_refs", [])
+    if not isinstance(evidence_refs, list):
+        raise CollectorError("materialization_case.evidence_refs: array required")
+    for ref in (admission_case_ref, payload_ref, existing_work_ref):
+        if ref not in evidence_refs:
+            raise CollectorError(
+                f"materialization_case.evidence_refs: missing bound ref {ref}"
+            )
+    if oracle_ref in evidence_refs:
+        raise CollectorError(
+            "materialization_case.evidence_refs: oracle must remain separate"
+        )
+
+    _admission_path, admission_case = _load_repo_json_object(
+        repo_root, admission_case_ref, "admission_case_ref"
+    )
+    admission_errors = pm._validate_admission_batch(
+        [admission_case],
+        authority_root=repo_root,
+    )
+    if admission_errors:
+        raise CollectorError(
+            "admission_case invalid: " + "; ".join(admission_errors)
+        )
+    admission_report = pm.evaluate_admission_batch(
+        [admission_case],
+        authority_root=repo_root,
+    )
+    admission_result = admission_report["cases"][0]
+    if (
+        admission_result.get("status") != "match"
+        or admission_result.get("actual") != "materialize"
+        or admission_result.get("expected") != "materialize"
+    ):
+        raise CollectorError(
+            "admission_case: reviewed materialize match required"
+        )
+
+    _payload_path, payload = _load_repo_json_object(
+        repo_root, payload_ref, "payload_ref"
+    )
+    existing_path, _fragment, existing_errors = pm._resolve_repo_authority_ref(
+        existing_work_ref,
+        repo_root,
+    )
+    if existing_errors or existing_path is None:
+        raise CollectorError(
+            "existing_work_ref: "
+            + "; ".join(existing_errors or ["unresolvable"])
+        )
+    existing_work = _load_json_array(existing_path, "existing_work_ref")
+
+    _validate_materialization_oracle(
+        oracle=oracle,
+        oracle_ref=oracle_ref,
+        admission_case=admission_case,
+        admission_case_ref=admission_case_ref,
+        payload=payload,
+        payload_ref=payload_ref,
+        existing_work=existing_work,
+        existing_work_ref=existing_work_ref,
+    )
+
+    if case.get("payload") != payload:
+        raise CollectorError(
+            "materialization_case.payload: stored payload artifact mismatch"
+        )
+    if case.get("existing_work") != existing_work:
+        raise CollectorError(
+            "materialization_case.existing_work: stored snapshot mismatch"
+        )
+    if case.get("live_capture") != admission_case.get("live_capture"):
+        raise CollectorError(
+            "materialization_case.live_capture: admission binding mismatch"
+        )
+
+
+def inventory_live_materialization_cases(
+    *,
+    repo_root: pathlib.Path,
+) -> dict[str, Any]:
+    root = repo_root.resolve()
+    pattern = (
+        "docs/working/TASK-*/evidence/"
+        "pbi-live-shadow/**/materialization-case.json"
+    )
+    discovered = sorted(root.glob(pattern))
+    candidates: list[tuple[str, dict[str, Any]]] = []
+    invalid: list[dict[str, Any]] = []
+
+    for path in discovered:
+        try:
+            rel = path.relative_to(root).as_posix()
+        except ValueError:
+            continue
+
+        try:
+            mode = path.lstat().st_mode
+        except OSError as exc:
+            invalid.append({"ref": rel, "errors": [f"lstat failed: {exc}"]})
+            continue
+        if not stat.S_ISREG(mode):
+            invalid.append(
+                {"ref": rel, "errors": ["case artifact must be a regular file"]}
+            )
+            continue
+
+        try:
+            case = _load_json_object(path, rel)
+        except CollectorError as exc:
+            invalid.append({"ref": rel, "errors": [str(exc)]})
+            continue
+
+        parts = pathlib.PurePosixPath(rel).parts
+        task_id = parts[2] if len(parts) > 2 else ""
+        try:
+            _validate_output_ref(
+                task_id, rel, "materialization_case_artifact_ref"
+            )
+            _revalidate_materialization_case_chain(
+                repo_root=root,
+                task_id=task_id,
+                case=case,
+            )
+        except CollectorError as exc:
+            invalid.append({"ref": rel, "errors": [str(exc)]})
+            continue
+
+        errors = pm._validate_shadow_batch(
+            [case],
+            authority_root=root,
+        )
+        if errors:
+            invalid.append({"ref": rel, "errors": errors})
+            continue
+        candidates.append((rel, case))
+
+    refs_by_case_id: dict[str, list[str]] = {}
+    for rel, case in candidates:
+        logical = case.get("case_ref")
+        if isinstance(logical, str):
+            refs_by_case_id.setdefault(logical, []).append(rel)
+
+    duplicate_refs = {
+        ref
+        for refs in refs_by_case_id.values()
+        if len(refs) > 1
+        for ref in refs
+    }
+
+    valid_cases: list[dict[str, Any]] = []
+    valid_refs: list[str] = []
+    for rel, case in candidates:
+        if rel in duplicate_refs:
+            logical = case.get("case_ref")
+            invalid.append(
+                {
+                    "ref": rel,
+                    "errors": [
+                        f"duplicate logical case_ref {logical!r}: "
+                        + ", ".join(refs_by_case_id.get(logical, []))
+                    ],
+                }
+            )
+            continue
+        valid_cases.append(case)
+        valid_refs.append(rel)
+
+    evaluated_cases: list[dict[str, Any]] = []
+    metrics: dict[str, Any] | None = None
+    rollout_quality = pm._materialization_live_quality([])
+
+    if valid_cases:
+        try:
+            report = pm.evaluate_shadow_batch(
+                valid_cases,
+                authority_root=root,
+            )
+        except pm.MaterializationError as exc:
+            invalid.append(
+                {
+                    "ref": "<aggregate-evaluation>",
+                    "errors": list(exc.errors),
+                }
+            )
+        else:
+            evaluated_cases = report["cases"]
+            metrics = report["metrics"]
+            rollout_quality = report["rollout_quality"]
+
+    observed_decisions = sorted({
+        case.get("actual_decision")
+        for case in evaluated_cases
+        if isinstance(case, dict)
+        and isinstance(case.get("actual_decision"), str)
+    })
+    missing_decisions = sorted(
+        pm.VALID_DECISIONS - set(observed_decisions)
+    )
+    collection_gaps: list[str] = []
+    if invalid:
+        collection_gaps.append("invalid_materialization_case_artifacts_present")
+    if not valid_cases:
+        collection_gaps.append("tracked_materialization_case_missing")
+    collection_gaps.extend(
+        f"materialization_decision_missing:{decision}"
+        for decision in missing_decisions
+    )
+
+    return {
+        "mode": "pbi_live_shadow_materialization_inventory",
+        "scope": "repository_tracked_live_shadow_materialization",
+        "discovered_case_artifacts": [
+            path.relative_to(root).as_posix() for path in discovered
+        ],
+        "valid_case_artifacts": valid_refs,
+        "invalid_case_artifacts": sorted(
+            invalid,
+            key=lambda item: str(item.get("ref", "")),
+        ),
+        "tracked_live_case_total": len(valid_cases),
+        "evaluated_case_total": len(evaluated_cases),
+        "invalid_case_total": len(invalid),
+        "has_tracked_live_evidence": bool(valid_cases),
+        "inventory_complete": not invalid,
+        "coverage": {
+            "observed_materialization_decisions": observed_decisions,
+            "missing_materialization_decisions": missing_decisions,
+            "materialization_decision_coverage_complete": (
+                not missing_decisions
+            ),
+            "representative_coverage_claim_allowed": False,
+        },
+        "collection_gaps": collection_gaps,
+        "metrics": metrics,
+        "rollout_quality": rollout_quality,
+        "verification_boundary": {
+            "repository_chain_revalidated": True,
+            "admission_materialize_match_revalidated": True,
+            "task_namespace_binding_enforced": True,
+            "duplicate_logical_case_ids_rejected": True,
+            "runtime_execution_verified": False,
+            "source_preexistence_verified": False,
+            "reviewer_identity_verified": False,
+            "historical_promoted_to_live": False,
+            "synthetic_fixture_counted": False,
+        },
+        "authority": {
+            "read_only": True,
+            "write_allowed": False,
+            "close_allowed": False,
+            "suppression_allowed": False,
+            "merge_allowed": False,
+            "quality_thresholds_applied": False,
+            "quality_acceptance_decided": False,
+        },
+    }
+
+
 def inventory_live_shadow_cases(
     *,
     repo_root: pathlib.Path,
@@ -773,6 +1334,18 @@ def inventory_live_shadow_cases(
         if isinstance(case.get("signal"), dict)
         and isinstance(case["signal"].get("source_kind"), str)
     })
+    missing_admission_decisions = sorted(
+        pm.VALID_ADMISSION_DECISIONS - set(observed_decisions)
+    )
+    collection_gaps: list[str] = []
+    if invalid:
+        collection_gaps.append("invalid_case_artifacts_present")
+    if not valid_cases:
+        collection_gaps.append("tracked_live_case_missing")
+    collection_gaps.extend(
+        f"admission_decision_missing:{decision}"
+        for decision in missing_admission_decisions
+    )
 
     return {
         "mode": "pbi_live_shadow_inventory",
@@ -792,8 +1365,19 @@ def inventory_live_shadow_cases(
         "inventory_complete": not invalid,
         "coverage": {
             "observed_admission_decisions": observed_decisions,
+            "missing_admission_decisions": missing_admission_decisions,
+            "admission_decision_coverage_complete": (
+                not missing_admission_decisions
+            ),
             "observed_source_kinds": observed_source_kinds,
+            "source_kind_coverage_requirement_defined": False,
             "representative_coverage_claim_allowed": False,
+        },
+        "collection_gaps": collection_gaps,
+        "materialization_rollout_boundary": {
+            "covered_by_this_inventory": False,
+            "duplicate_fp_fn_review_satisfied": False,
+            "materialization_case_inventory_required": True,
         },
         "metrics": metrics,
         "rollout_quality": rollout_quality,
@@ -842,7 +1426,15 @@ def main(argv=None) -> int:
     reviewed_case.add_argument("--oracle-ref", required=True)
     reviewed_case.add_argument("--case-artifact-ref", required=True)
 
+    materialization_case = sub.add_parser("materialization-case")
+    materialization_case.add_argument("--admission-case-ref", required=True)
+    materialization_case.add_argument("--payload-ref", required=True)
+    materialization_case.add_argument("--existing-work-ref", required=True)
+    materialization_case.add_argument("--oracle-ref", required=True)
+    materialization_case.add_argument("--case-artifact-ref", required=True)
+
     sub.add_parser("inventory")
+    sub.add_parser("materialization-inventory")
 
     args = parser.parse_args(argv)
     root = pathlib.Path(args.repo_root).resolve()
@@ -872,6 +1464,17 @@ def main(argv=None) -> int:
                 oracle_ref=args.oracle_ref,
                 case_artifact_ref=args.case_artifact_ref,
             )
+        elif args.command == "materialization-case":
+            result = collect_reviewed_materialization_case(
+                repo_root=root,
+                admission_case_ref=args.admission_case_ref,
+                payload_ref=args.payload_ref,
+                existing_work_ref=args.existing_work_ref,
+                oracle_ref=args.oracle_ref,
+                case_artifact_ref=args.case_artifact_ref,
+            )
+        elif args.command == "materialization-inventory":
+            result = inventory_live_materialization_cases(repo_root=root)
         else:
             result = inventory_live_shadow_cases(repo_root=root)
     except (CollectorError, pm.MaterializationError) as exc:
