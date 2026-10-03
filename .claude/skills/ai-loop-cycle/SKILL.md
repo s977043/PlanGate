@@ -292,9 +292,9 @@ python3 scripts/ai-loop/pbi_materializer.py \
   > "<capture artifact path>"
 ```
 
-normalized signal の `source_ref` は capture artifact 自身ではなく、実在する upstream source
-（feedback / Issue / delivery record / failure evidence 等）を指すこと。raw transcript /
-hidden CoT を signal に入れない。
+normalized signal の `source_ref` は capture artifact 自身ではなく、実在する **repository-visible upstream artifact**
+（feedback snapshot / Issue snapshot / delivery record / failure evidence 等）を指すこと。外部URLや一時的なchat本文だけを
+live evidenceとして扱わず、まずrepo-visible evidenceへmaterializeしてから参照する。raw transcript / hidden CoT を signal に入れない。
 
 ### 6.2 RunEvidence へ束縛
 
