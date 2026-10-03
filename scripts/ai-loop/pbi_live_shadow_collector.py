@@ -1491,15 +1491,15 @@ def plan_live_shadow_collection(
         ),
     }
 
-    targets: list[dict[str, Any]] = []
+    gaps: list[dict[str, Any]] = []
     for decision in ("materialize", "no_action", "discover_more"):
         if decision in admission_missing:
-            targets.append(
+            gaps.append(
                 {
                     "stage": "admission",
                     "decision": decision,
-                    "observation_target": admission_targets[decision],
-                    "collection_mode": "opportunistic_real_run_only",
+                    "observation_condition": admission_targets[decision],
+                    "observation_mode": "opportunistic_real_run_only",
                     "prerequisites": [],
                     "prerequisites_satisfied": True,
                     "currently_collectable": True,
@@ -1513,12 +1513,12 @@ def plan_live_shadow_collection(
     )
     for decision in ("create_new", "update_existing", "link_only"):
         if decision in materialization_missing:
-            targets.append(
+            gaps.append(
                 {
                     "stage": "materialization",
                     "decision": decision,
-                    "observation_target": materialization_targets[decision],
-                    "collection_mode": "opportunistic_real_run_only",
+                    "observation_condition": materialization_targets[decision],
+                    "observation_mode": "opportunistic_real_run_only",
                     "prerequisites": [
                         "reviewed_admission_materialize_case"
                     ],
@@ -1575,8 +1575,8 @@ def plan_live_shadow_collection(
                 "missing_reviewed_decisions": materialization_missing,
             },
         },
-        "collection_targets": targets,
-        "collection_target_count": len(targets),
+        "observation_gaps": gaps,
+        "observation_gap_count": len(gaps),
         "blockers": blockers,
         "policy_boundary": {
             "opportunistic_observation_only": True,
@@ -1586,9 +1586,9 @@ def plan_live_shadow_collection(
             "source_kind_coverage_requirement_defined": False,
             "representative_coverage_claim_allowed": False,
             "coverage_complete_implies_representative": False,
-            "collection_target_is_quota": False,
-            "collection_target_is_case_generation_instruction": False,
-            "collection_coverage_basis": "reviewed_expected_decisions",
+            "observation_gap_is_quota": False,
+            "observation_gap_is_case_generation_instruction": False,
+            "coverage_gap_basis": "reviewed_expected_decisions",
             "maker_actual_counts_as_ground_truth_coverage": False,
             "runtime_execution_verified": False,
             "quality_thresholds_applied": False,
