@@ -275,5 +275,30 @@ else
   fail=$((fail + 1))
 fi
 
+# 8. Repository-grounded PBI admission replay must cover materialize + no_action.
+_t94_admission="$_T94_ROOT/tests/fixtures/ai-loop/pbi-materializer/historical-admission.json"
+_t94_admission_out="$_t94_tmp/admission-out.json"
+_t94_rc=0
+"$_T94_PY" "$_T94_AI_LOOP/pbi_materializer.py" \
+  --eval-admission-batch "$_t94_admission" --authority-root "$_T94_ROOT" --format json \
+  >"$_t94_admission_out" 2>"$_t94_tmp/admission.err" || _t94_rc=$?
+if [ "$_t94_rc" -eq 0 ] \
+  && grep -q '"mode": "admission_evaluation"' "$_t94_admission_out" \
+  && grep -q '"historical_replay_cases": 2' "$_t94_admission_out" \
+  && grep -q '"no_action_coverage": true' "$_t94_admission_out" \
+  && grep -q '"materialize_coverage": true' "$_t94_admission_out" \
+  && grep -q '"discover_more_coverage": false' "$_t94_admission_out" \
+  && grep -q '"decision_coverage_complete": false' "$_t94_admission_out" \
+  && grep -q '"write_review_eligible": false' "$_t94_admission_out" \
+  && grep -q '"write_allowed": false' "$_t94_admission_out" \
+  && grep -q '"close_allowed": false' "$_t94_admission_out"; then
+  printf '  [PASS] admission replay: historical materialize/no_action evaluated with no close/write authority\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] admission replay: historical admission corpus failed (rc=%s)\n' "$_t94_rc" >&2
+  sed 's/^/    /' "$_t94_tmp/admission.err" >&2
+  fail=$((fail + 1))
+fi
+
 rm -rf "$_t94_tmp"
 pg_extra_contract_finalize
