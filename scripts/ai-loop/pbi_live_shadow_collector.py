@@ -1550,7 +1550,8 @@ def plan_live_shadow_collection(
                     "observation_mode": "opportunistic_real_run_only",
                     "prerequisites": [],
                     "prerequisites_satisfied": True,
-                    "currently_collectable": True,
+                    "collector_path_available": True,
+                    "real_runtime_observation_available": False,
                 }
             )
     admission_materialize_observed = (
@@ -1573,9 +1574,10 @@ def plan_live_shadow_collection(
                     "prerequisites_satisfied": (
                         admission_materialize_observed
                     ),
-                    "currently_collectable": (
+                    "collector_path_available": (
                         admission_materialize_observed
                     ),
+                    "real_runtime_observation_available": False,
                 }
             )
 
@@ -1639,6 +1641,7 @@ def plan_live_shadow_collection(
             "coverage_gap_basis": "reviewed_expected_decisions",
             "maker_actual_counts_as_ground_truth_coverage": False,
             "runtime_execution_verified": False,
+            "real_runtime_observation_available_verified": False,
             "quality_thresholds_applied": False,
             "quality_acceptance_decided": False,
         },
