@@ -38,6 +38,7 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | hidden CoT / raw transcript / session log | forbidden | — | 入力/出力の保存を拒否 |
 | Shadow evaluation report | derived evidence | materializer evaluator | train/test + evidence-class metricsを生成するが write / promotion authority を持たない |
 | write-review assessment | derived review-readiness projection | materializer assessor | admission/materialization evidenceを集約し Human review 候補かを示す。write/close/suppression/merge authorityは持たない |
+| write-capable rollout policy | policy / activation boundary | Human / rollout policy authority | write adapter の eligibility と mutation boundary を定義。materializer / collector / evaluator は self-activate できない。現在は R0 Shadow / DRAFT / NON-ACTIVE |
 | rollout quality metrics | derived evaluation evidence | evaluator cases[] | live_shadow のみから duplicate FP/FN・decision/readiness mismatch・reject distribution を導出。quality acceptance authorityは持たない |
 | live-shadow evidence collector | evidence writer / adapter | `pbi_live_shadow_collector.py` | `docs/working/TASK-XXXX/evidence/pbi-live-shadow/**` に capture / blind packet / reviewed case を create-or-reuse-identical で保存。PBI/Issue/RunState/Harness/merge authority は持たない |
 | RunEvidence handoff | derived advisory metadata | collector capture result | source_ref + capture_ref の exact `--evidence-ref` args と source/capture hash を返す。authority ではなく、RunEvidence保存後のbinding再検証が必須 |
@@ -713,3 +714,48 @@ coverage_gap_basis = reviewed_expected_decisions
 ```
 
 この語彙は、coverage不足を理由に synthetic case を生成したり、実runを恣意的に選別する誘因を避けるためのもの。gap は「次に自然発生した実runで観測できれば収集する候補」であり、ノルマではない。
+
+
+## Write-capable rollout policy boundary
+
+正本 draft:
+
+```text
+docs/working/TASK-1442/write-capable-rollout-policy.md
+```
+
+現在値:
+
+```text
+effective_stage = R0 Shadow
+R1_enabled = false
+R2_enabled = false
+automatic_mutation_allowed = false
+```
+
+policy definition と rollout activation は分離する。
+
+```text
+policy definition
+!= write adapter implementation
+!= rollout activation
+!= quality acceptance
+```
+
+初期 write-capable slice は single-target に限定し、provider result が `unknown` の場合は
+blind retry を禁止する。
+
+```text
+one mutation attempt = one semantic target
+multi-target transaction = unsupported
+unknown -> reconciliation + Human escalation
+```
+
+writer は同じ mutation attempt で policy / source evidence / oracle / RunEvidence /
+approval authority / evaluator report を変更できない。
+
+activation は別の repository-visible decision とし、少なくとも初回は Human-owned。
+materializer / collector / evaluator の自己評価だけで rollout stage を昇格させてはならない。
+
+TA-94 はこの **non-activation contract** を検証するが、write-capable adapter の存在や
+production mutation capability は検証しない。
