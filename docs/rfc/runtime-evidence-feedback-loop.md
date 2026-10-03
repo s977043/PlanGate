@@ -565,7 +565,40 @@ The PoC is acceptable only if all of the following are demonstrated with reprodu
 
 All negative fixtures must pass before the adapter is considered eligible for broader rollout.
 
-### Phase C — evaluation
+### Phase C — staged rollout and evaluation
+
+Do not move directly from "adapter installed" to autonomous downstream action. Roll out in four stages.
+
+| Stage | Runtime behavior | Required evidence before promotion |
+| --- | --- | --- |
+| R0 Shadow | receive / authenticate / normalize / dedup only; no agent invocation | event authenticity, replay rejection, dedup correctness, redaction success |
+| R1 Read-only investigation | approved agent may inspect evidence + repository without writes | adapter is actually selected/fired, investigation produces traceable evidence, no instruction-channel contamination |
+| R2 Work proposal | produce bounded `pbi-input` candidate; Human / normal PlanGate path decides whether to proceed | proposal quality, scope discipline, no invented AC, no `allowed_paths` widening, provenance preserved |
+| R3 External side effect | optionally create a governed GitHub Issue using intent → action → receipt | duplicate side-effect prevention, Issue Governance conformance, reconciliation after lost responses |
+
+R3 still does **not** grant the runtime adapter authority to edit code, approve a Plan, merge, or deploy. Code changes occur only after the normal PlanGate Delivery path has begun.
+
+This staged rollout complements V2 Runtime Activation:
+
+- `installed` / `registered` prove only presence;
+- R1 must show at least `fired` / `produced_evidence`-equivalent evidence for the adapter path;
+- a claim that the adapter improved downstream decisions requires evidence that its output was actually consumed, not merely generated.
+
+#### Rollback / kill conditions
+
+Any of the following blocks promotion and rolls the adapter back to the prior safe stage (or disables it entirely):
+
+- approval / permission / gate bypass;
+- sensitive data handed to an agent or persisted outside policy;
+- prompt-injection text changes trusted workflow behavior;
+- duplicate GitHub Issues or other duplicate external side effects from one intake identity;
+- unauthenticated / replayed events accepted as actionable;
+- runtime adapter writes code or mutates RunState / RunEvidence directly;
+- cross-Run aggregate state leaks into per-Run RunEvidence;
+- missing evidence is recorded as success / zero;
+- provider-specific behavior changes the provider-neutral core contract.
+
+The kill path must be simpler than the activation path: disabling the provider adapter must stop new runtime-originated work without changing existing PlanGate / ai-loop behavior.
 
 Measure:
 
@@ -579,7 +612,10 @@ Measure:
 - sensitive-data redaction failures;
 - unauthenticated / replayed event rejection rate;
 - cases where runtime text attempted to influence workflow instructions;
-- percentage of runtime-originated work that began with read-only investigation.
+- percentage of runtime-originated work that began with read-only investigation;
+- Human acceptance / rejection rate of generated `pbi-input` candidates;
+- duplicate external side effects prevented by idempotency;
+- rollout stage and activation evidence (`selected` / `fired` / `produced_evidence` / consumed downstream).
 
 Only after evidence supports the design should the proposal be promoted into V2 canon.
 
@@ -594,7 +630,9 @@ Promotion from RFC / PoC toward V2 canon requires, at minimum:
 - runtime-originated investigations demonstrably start with least-privilege permissions;
 - no second mutable V2 workflow state / authority is introduced;
 - metrics distinguish missing evidence from success rather than filling unknown values with zero;
-- Human review confirms that provider-specific behavior has not leaked into the provider-neutral core.
+- Human review confirms that provider-specific behavior has not leaked into the provider-neutral core;
+- R0 → R1 → R2 promotion evidence is available; R3 is optional and requires separate side-effect evidence;
+- a tested kill path disables new runtime-originated work without altering normal PlanGate execution.
 
 These criteria evaluate the intake mechanism. They do not prove that every runtime-generated diagnosis is correct. Diagnosis quality remains subject to normal Plan / Verification / Evidence rules.
 
@@ -611,6 +649,7 @@ These criteria evaluate the intake mechanism. They do not prove that every runti
 9. What trust level is required before repository investigation can begin for each adapter class?
 10. Which investigation actions must remain read-only before a normal PlanGate work request exists?
 11. How should adapters prove that untrusted telemetry was kept out of the trusted instruction channel?
+12. Which provider should be the first R0/R1 PoC adapter, based on available telemetry, authentication, and redaction capabilities?
 
 ## 13. Decision requested
 
