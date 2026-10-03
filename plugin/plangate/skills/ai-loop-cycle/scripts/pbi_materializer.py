@@ -9,7 +9,6 @@ echo "       Use: python3 $0 [args...]" >&2
 exit 2
 ":"""
 
-
 from __future__ import annotations
 
 __doc__ = """pbi_materializer.py — ai-loop V2 feedback/Evidence -> PBI shadow materializer (#1442).
