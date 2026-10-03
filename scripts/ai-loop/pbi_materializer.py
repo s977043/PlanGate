@@ -2296,6 +2296,11 @@ def _validate_evaluation_report_consistency(
                 "materialization_report.rollout_evidence.observed_decisions: "
                 f"summary/cases mismatch ({reported!r} != {observed!r})"
             )
+        expected_quality = _materialization_live_quality(cases)
+        if report.get("rollout_quality") != expected_quality:
+            errors.append(
+                "materialization_report.rollout_quality: summary/cases mismatch"
+            )
     elif kind == "admission":
         observed = sorted({
             case.get("actual")
@@ -2319,6 +2324,11 @@ def _validate_evaluation_report_consistency(
                 "admission_report.coverage.decision_coverage_complete: "
                 f"summary/cases mismatch ({coverage.get('decision_coverage_complete')!r} "
                 f"!= {expected_complete!r})"
+            )
+        expected_quality = _admission_live_quality(cases)
+        if report.get("rollout_quality") != expected_quality:
+            errors.append(
+                "admission_report.rollout_quality: summary/cases mismatch"
             )
     else:
         errors.append(f"evaluation_report.kind: unsupported {kind!r}")
