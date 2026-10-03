@@ -1476,5 +1476,146 @@ class LiveShadowCollectorTests(unittest.TestCase):
 
 
 
+    def _completion_context(self, **overrides):
+        context = {
+            "latest_full_test_green": True,
+            "design_dependency_finalized": True,
+            "generalization_claim_required": False,
+            "representative_live_evidence_review_ref": None,
+            "quality_review_ref": None,
+            "isolated_generalization_review_ref": None,
+        }
+        context.update(overrides)
+        return context
+
+    def test_completion_status_prioritizes_repository_failure(self):
+        status = collector.assess_live_shadow_completion(
+            repo_root=self.root,
+            context=self._completion_context(
+                latest_full_test_green=False,
+                design_dependency_finalized=False,
+            ),
+        )
+        self.assertEqual(
+            status["next_action"],
+            "fix_repository_or_evidence_integrity",
+        )
+        self.assertIn(
+            "latest_full_repository_test_not_green",
+            status["blockers"]["implementation"],
+        )
+        self.assertFalse(status["status"]["rollout_complete"])
+        self.assertFalse(
+            status["status"]["automatic_write_activation_allowed"]
+        )
+
+    def test_completion_status_distinguishes_dependency_from_evidence(self):
+        status = collector.assess_live_shadow_completion(
+            repo_root=self.root,
+            context=self._completion_context(
+                design_dependency_finalized=False,
+            ),
+        )
+        self.assertEqual(
+            status["next_action"],
+            "finalize_design_dependency",
+        )
+        self.assertIn(
+            "design_dependency_not_finalized",
+            status["blockers"]["dependency"],
+        )
+        self.assertIn(
+            "real_live_admission_evidence_not_tracked",
+            status["blockers"]["evidence"],
+        )
+
+    def test_completion_status_routes_to_real_live_collection(self):
+        status = collector.assess_live_shadow_completion(
+            repo_root=self.root,
+            context=self._completion_context(),
+        )
+        self.assertEqual(
+            status["next_action"],
+            "collect_opportunistic_real_live_evidence",
+        )
+        self.assertEqual(
+            status["repository_evidence"][
+                "admission_tracked_live_case_total"
+            ],
+            0,
+        )
+        self.assertEqual(
+            status["repository_evidence"][
+                "materialization_tracked_live_case_total"
+            ],
+            0,
+        )
+        self.assertFalse(
+            status["policy_boundary"][
+                "synthetic_case_generation_for_completion_allowed"
+            ]
+        )
+        self.assertFalse(
+            status["policy_boundary"][
+                "historical_relabeling_for_completion_allowed"
+            ]
+        )
+
+    def test_completion_status_never_self_certifies_rollout_complete(self):
+        self._collect_packet()
+        self._write_oracle(expected="materialize")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+
+        # A tracked admission case alone is still insufficient, and even a
+        # future fully populated repository cannot self-authorize rollout.
+        status = collector.assess_live_shadow_completion(
+            repo_root=self.root,
+            context=self._completion_context(
+                representative_live_evidence_review_ref=(
+                    "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+                    "representative-review.md"
+                ),
+                quality_review_ref=(
+                    "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+                    "quality-review.md"
+                ),
+            ),
+        )
+        self.assertFalse(status["status"]["rollout_complete"])
+        self.assertFalse(
+            status["status"]["rollout_completion_machine_decidable"]
+        )
+        self.assertFalse(
+            status["policy_boundary"]["machine_completion_decision_allowed"]
+        )
+        self.assertFalse(
+            status["policy_boundary"]["machine_write_activation_allowed"]
+        )
+        self.assertFalse(
+            status["caller_assertions"]["assertions_independently_verified"]
+        )
+
+    def test_completion_context_requires_boolean_contract(self):
+        with self.assertRaises(collector.CollectorError) as ctx:
+            collector.assess_live_shadow_completion(
+                repo_root=self.root,
+                context={
+                    "latest_full_test_green": "yes",
+                    "design_dependency_finalized": True,
+                    "generalization_claim_required": False,
+                },
+            )
+        self.assertIn(
+            "latest_full_test_green: boolean required",
+            str(ctx.exception),
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
