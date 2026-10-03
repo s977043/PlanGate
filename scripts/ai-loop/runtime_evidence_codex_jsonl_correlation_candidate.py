@@ -155,6 +155,8 @@ def validate_hook_candidate(
         "config_sha": config_sha,
         "provider": provider,
         "platform": "codex",
+        "runtime_role_observed_candidate": True,
+        "explorer_execution_candidate": True,
         "candidate_trace_structure_verified": True,
         "record_hash_integrity_verified": True,
         "hook_execution_root_attested": False,
@@ -164,6 +166,21 @@ def validate_hook_candidate(
         "dispatch_ready": False,
         "dispatch_allowed": False,
     }
+    authority = candidate.get("authority")
+    if not isinstance(authority, dict):
+        errors.append("hook_candidate.authority: object required")
+    else:
+        for key in (
+            "agent_invoke_allowed",
+            "code_write_allowed",
+            "approval_write_allowed",
+            "merge_allowed",
+            "deploy_allowed",
+        ):
+            if authority.get(key) is not False:
+                errors.append(
+                    f"hook_candidate.authority.{key}: false required"
+                )
     for key, value in expected.items():
         if candidate.get(key) != value:
             errors.append(
