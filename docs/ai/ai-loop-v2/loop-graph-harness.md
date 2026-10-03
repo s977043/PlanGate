@@ -343,6 +343,21 @@ Harness Health を実務で使うときも、repository 全体を無条件に棚
 
 `instruction-debt-audit` は Instruction / Skill / Agent / Hook / Permission 等の **instruction surface の Maintainability 監査**に再利用できるが、Harness 全体の Runtime Activation / Effectiveness / Governance 判定を代替しない。
 
+#### Comparability rule
+
+Effectiveness は「変更前後で数字が違った」だけで判定しない。North Star §14 の Same Fixture 原則に従い、Harness 変更以外の主要条件を揃えるか、Candidate scope に含めて明示する。
+
+最低限、比較時に次を確認する。
+
+- baseline / candidate の `harness_manifest_ref` が取得でき、差分対象を説明できる
+- fixture / task profile / acceptance contract が同等である
+- model / reasoning effort / routing / verifier set / policy profile の差が Candidate scope 外なら固定されている
+- trial count / critical regression condition / threshold が Candidate 実装前に固定されている
+
+Candidate scope 外の主要条件が同時に変わり、影響を分離できない場合は `INCONCLUSIVE` とする。
+
+複数 component を意図的に 1 Candidate としてまとめること自体は禁止しない。ただしその場合に主張できるのは **bundle 全体の効果**までであり、追加の比較 Evidence なしに個別 component の寄与へ因果帰属しない。
+
 #### Redundancy safety check
 
 重複して見える component を MERGE / DEPRECATE / REMOVE_FROM_FLOW 候補にする前に、その重複が **defense-in-depth / independent failure mode / platform fallback / compatibility boundary** として意図的に存在していないか確認する。
