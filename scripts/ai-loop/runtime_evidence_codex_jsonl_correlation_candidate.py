@@ -254,6 +254,9 @@ def summarize_codex_jsonl(
 
     records = 0
     completed_items = 0
+    turn_completed_count = 0
+    last_item_completed_record = -1
+    last_turn_completed_record = -1
     recognized_counts = {key: 0 for key in sorted(RECOGNIZED_ITEM_TYPES)}
     unrecognized_item_type_count = 0
     item_ids: list[str] = []
@@ -292,9 +295,15 @@ def summarize_codex_jsonl(
             )
             continue
 
+        if event_type == "turn.completed":
+            turn_completed_count += 1
+            last_turn_completed_record = records
+            continue
+
         if event_type != "item.completed":
             continue
 
+        last_item_completed_record = records
         item = value.get("item")
         if not isinstance(item, dict):
             errors.append(
@@ -327,6 +336,18 @@ def summarize_codex_jsonl(
         errors.append(
             "codex_jsonl: at least one item.completed record required"
         )
+    if turn_completed_count == 0:
+        errors.append(
+            "codex_jsonl: at least one turn.completed record required"
+        )
+    if (
+        completed_items > 0
+        and turn_completed_count > 0
+        and last_turn_completed_record <= last_item_completed_record
+    ):
+        errors.append(
+            "codex_jsonl: final turn.completed must follow final item.completed"
+        )
     if len(set(item_ids)) != len(item_ids):
         errors.append("codex_jsonl: duplicate item.id is not allowed")
 
@@ -338,6 +359,11 @@ def summarize_codex_jsonl(
         "jsonl_bytes": len(raw),
         "record_count": records,
         "item_completed_count": completed_items,
+        "turn_completed_count": turn_completed_count,
+        "trace_completion_candidate_verified": (
+            turn_completed_count > 0
+            and last_turn_completed_record > last_item_completed_record
+        ),
         "recognized_item_type_counts": recognized_counts,
         "unrecognized_item_type_count": unrecognized_item_type_count,
         "item_id_set_hash": ingress._canonical_hash(sorted(item_ids)),
@@ -379,6 +405,10 @@ def correlate_candidate(
             "jsonl_bytes": jsonl["jsonl_bytes"],
             "record_count": jsonl["record_count"],
             "item_completed_count": jsonl["item_completed_count"],
+            "turn_completed_count": jsonl["turn_completed_count"],
+            "trace_completion_candidate_verified": jsonl[
+                "trace_completion_candidate_verified"
+            ],
             "recognized_item_type_counts": jsonl[
                 "recognized_item_type_counts"
             ],
