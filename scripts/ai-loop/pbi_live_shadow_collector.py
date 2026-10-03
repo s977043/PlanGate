@@ -467,7 +467,7 @@ def collect_reviewed_admission_case(
     repo_root: pathlib.Path,
     packet_ref: str,
     oracle_ref: str,
-    case_ref: str,
+    case_artifact_ref: str,
 ) -> dict[str, Any]:
     _packet_path, packet = _load_repo_json_object(
         repo_root, packet_ref, "packet_ref"
@@ -481,7 +481,9 @@ def collect_reviewed_admission_case(
     if not isinstance(task_id, str):
         raise CollectorError("packet.task_id: string required")
     _validate_output_ref(task_id, packet_ref, "packet_ref")
-    case_ref = _validate_output_ref(task_id, case_ref, "case_ref")
+    case_artifact_ref = _validate_output_ref(
+        task_id, case_artifact_ref, "case_artifact_ref"
+    )
 
     refs = packet.get("refs")
     hashes = packet.get("hashes")
@@ -564,7 +566,6 @@ def collect_reviewed_admission_case(
             capture_ref,
             run_evidence_ref,
             packet_ref,
-            oracle_ref,
         ],
         "live_capture": {
             "capture_ref": capture_ref,
@@ -587,11 +588,11 @@ def collect_reviewed_admission_case(
         )
 
     artifact_hash, artifact_reused = _atomic_create_json(
-        repo_root, case_ref, eval_case
+        repo_root, case_artifact_ref, eval_case
     )
     return {
         "mode": "pbi_live_shadow_collect_reviewed_admission_case",
-        "artifact_ref": case_ref,
+        "artifact_ref": case_artifact_ref,
         "artifact_hash": artifact_hash,
         "artifact_reused": artifact_reused,
         "packet_ref": packet_ref,
@@ -637,7 +638,7 @@ def main(argv=None) -> int:
     reviewed_case = sub.add_parser("case")
     reviewed_case.add_argument("--packet-ref", required=True)
     reviewed_case.add_argument("--oracle-ref", required=True)
-    reviewed_case.add_argument("--case-ref", required=True)
+    reviewed_case.add_argument("--case-artifact-ref", required=True)
 
     args = parser.parse_args(argv)
     root = pathlib.Path(args.repo_root).resolve()
@@ -665,7 +666,7 @@ def main(argv=None) -> int:
                 repo_root=root,
                 packet_ref=args.packet_ref,
                 oracle_ref=args.oracle_ref,
-                case_ref=args.case_ref,
+                case_artifact_ref=args.case_artifact_ref,
             )
     except (CollectorError, pm.MaterializationError) as exc:
         print(str(exc), file=sys.stderr)
