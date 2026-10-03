@@ -357,7 +357,7 @@ feedback: <1〜3文>
 
 ## Step 6: RunEvidence + passive PBI live-shadow capture（shadow-only）
 
-terminal run（`MERGE_READY | HUMAN_ESCALATED | BLOCKED`）の Evidence 発行時に、
+terminal RunEvidence が **concrete 40-hex `final_head_sha`** を持つ Evidence 発行時に、
 **repository-visible な observed signal が実際に存在する場合だけ** PBI materializer の
 passive capture を追加してよい。signal が無い run にダミー signal / capture を作ってはならない。
 
@@ -418,6 +418,7 @@ capture のために terminal decision / final_head_sha / completed_at を書き
   `capture_ref + run_evidence_ref` の binding 検証が必要。
 - oracle / expected decision を capture agent 自身が自動付与しない。独立 reviewer / evaluator の
   review artifact を後段で接続する。
+- `final_head_sha="unavailable"` の run（典型例: delivery record を持たない一部の `BLOCKED`）では passive live capture を作らず、live-shadow evidence として数えない。`source_sha` / `target_sha` を代用しない。
 - capture 失敗は既存 terminal decision を変更しないが、**live-shadow evidence として数えない**。
   失敗を隠して historical/synthetic case を live と再ラベルしてはならない。
 - `no_action` も source Issue/PBI を close / suppress する authority を持たない。
