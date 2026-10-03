@@ -244,6 +244,39 @@ Verifier は安価で決定論的なものを優先する。
 
 決定論的 FAIL を LLM の PASS で上書きしない。
 
+### Evidence class / live-shadow trust boundary
+
+PBI Admission / Materialization の評価では、Evidence の出所を少なくとも次の class で分離し、名前だけを書き換えて trust を昇格させない。
+
+```text
+synthetic_fixture
+  != historical_replay
+  != live_shadow
+```
+
+- **synthetic_fixture**: contract / regression / executable-path の検証用。実運用で観測した分布の根拠にはしない
+- **historical_replay**: 過去に保存済みの run / artifact を現在の evaluator で再生した Evidence。現在の live capture 契約を後付けして `live_shadow` に昇格しない
+- **live_shadow**: 実行中の対象 run で、upstream source / capture identity / RunEvidence binding を保持し、後段の reviewed expectation と分離できる Evidence
+
+live-shadow の trust は「artifact が repository に存在する」だけでは成立しない。少なくとも、capture が対象 RunEvidence の finalize より前の実行文脈に属し、source / capture / RunEvidence の対応を辿れ、reviewed oracle が maker actual と別 authority で与えられる構造を持つ。
+
+```text
+maker actual
+  != reviewer expected
+```
+
+独立 review を主張する場合、reviewer に maker actual を先に開示して expected を決めさせない。blind review packet / separate context / separate reviewer 等の実装手段は選べるが、**repository 上で別ファイルにしただけで reviewer independence を証明したことにはしない**。
+
+同様に、tracked live-shadow chain が repository に存在しても、それだけで以下を証明しない。
+
+- runtime execution が本当にその経路で起きたこと
+- upstream source が capture より前から存在したこと
+- reviewer identity / authorship independence
+- representative coverage
+- quality acceptance
+
+これらを必要とする claim は、それぞれ別の Evidence / policy / Human judgment を要求する。検証不能を PASS 側へ倒さない。
+
 ## 7. Failure is an artifact
 
 Failure を会話だけに残さない。最低限、以下を正規化する。
