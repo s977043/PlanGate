@@ -346,6 +346,88 @@ runtime event
 
 The runtime adapter may propose title, description, evidence refs, affected service, and suspected files. It must not fabricate acceptance criteria, expand `allowed_paths`, or mark a Plan approved.
 
+### 5.3 Adapter -> existing admission contract
+
+The ingress adapter must translate provider-specific payloads into the existing #1442/#1443 admission signal contract instead of defining a parallel schema.
+
+Current required semantic fields are:
+
+| Field | Runtime adapter rule |
+| --- | --- |
+| `signal_id` | deterministic ID derived from provider event / intake identity; retries preserve the same logical ID |
+| `source_ref` | repository-visible sanitized source artifact; never a raw external URL as the only evidence |
+| `statement` | concise sanitized statement of what the provider reported; no executable instructions |
+| `source_kind` | normally `external_source` for provider-originated runtime evidence |
+| `claim_class` | default `reported`; promote to `observed` only when the claim is independently correlated with evidence owned by the receiving system |
+| `disposition` | `actionable | resolved | informational | ambiguous`; unknown mapping must become `ambiguous`, not guessed |
+| `target_layer` | `delivery` for the first PoC; Harness routing remains #874/#869-owned |
+| `candidate_problem` | optional bounded problem statement; absent when evidence does not justify one |
+
+Example normalized signal:
+
+```json
+{
+  "signal_id": "runtime:<stable-intake-id>",
+  "source_ref": "docs/working/TASK-XXXX/evidence/runtime-ingress/<event-id>/source.json",
+  "statement": "External runtime provider reported repeated failures for the deployed service.",
+  "source_kind": "external_source",
+  "claim_class": "reported",
+  "disposition": "actionable",
+  "target_layer": "delivery",
+  "candidate_problem": "A production failure is recurring and requires bounded investigation."
+}
+```
+
+#### Claim-class rule
+
+Authentication proves **where the event came from**, not that all provider fields are independently true.
+
+```text
+authenticated provider event
+  -> reported
+
+reported
+  + independent repository/runtime correlation
+  -> observed (only for the correlated claim)
+
+model inference / guessed root cause
+  -> inferred
+```
+
+The adapter must not label a root-cause hypothesis `observed` merely because the source event is authenticated.
+
+#### Repository-visible source snapshot
+
+Before the existing collector/materializer consumes an external signal, the adapter creates a sanitized source snapshot in an approved task evidence namespace. The snapshot should contain only data required to establish provenance and support investigation, for example:
+
+```yaml
+runtime_source:
+  schema_version: "1"
+  provider: "<provider enum>"
+  provider_event_id_hash: "sha256:..."
+  intake_identity: "sha256:..."
+  captured_at: "<RFC3339>"
+  environment: "<sanitized enum>"
+  issue_fingerprint: "sha256:..."
+  deployment_ref: "<sanitized/opaque ref or unavailable>"
+  occurrence:
+    count: 0
+    recurrence: false
+  summary:
+    error_type: "<sanitized type>"
+    statement: "<bounded sanitized text>"
+  evidence:
+    trace_refs: []
+    log_refs: []
+  redaction:
+    applied: true
+    secret_scan: "pass"
+```
+
+This is a sanitized provenance snapshot, not a raw telemetry archive. Full logs / traces stay at the provider or approved evidence store.
+
+The source snapshot must be create-only or idempotently reusable for the same canonical content. A retry that produces different content for the same immutable source ref fails closed rather than overwriting prior evidence.
+
 ## 6. Connection to Delivery / Learn / Evolve
 
 ### Delivery
