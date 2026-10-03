@@ -587,5 +587,71 @@ class LiveShadowCollectorTests(unittest.TestCase):
 
 
 
+    def test_inventory_rejects_cross_task_case_copy(self):
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+        original = self.root / self.case_artifact_ref
+        copied = (
+            self.root
+            / "docs/working/TASK-9998/evidence/pbi-live-shadow/"
+            / "run-01/admission-case.json"
+        )
+        copied.parent.mkdir(parents=True, exist_ok=True)
+        copied.write_bytes(original.read_bytes())
+        original.unlink()
+
+        inventory = collector.inventory_live_shadow_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        errors = " ".join(inventory["invalid_case_artifacts"][0]["errors"])
+        self.assertIn("TASK-9998", errors)
+        self.assertIn("pbi-live-shadow", errors)
+
+    def test_inventory_rejects_all_duplicate_logical_case_ids(self):
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+
+        original = self.root / self.case_artifact_ref
+        duplicate = (
+            self.root
+            / "docs/working/TASK-9999/evidence/pbi-live-shadow/"
+            / "run-02/admission-case.json"
+        )
+        duplicate.parent.mkdir(parents=True, exist_ok=True)
+        duplicate.write_bytes(original.read_bytes())
+
+        inventory = collector.inventory_live_shadow_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 2)
+        self.assertFalse(inventory["inventory_complete"])
+        for item in inventory["invalid_case_artifacts"]:
+            self.assertIn(
+                "duplicate logical case_ref",
+                " ".join(item["errors"]),
+            )
+        self.assertTrue(
+            inventory["verification_boundary"][
+                "duplicate_logical_case_ids_rejected"
+            ]
+        )
+
+
+
 if __name__ == "__main__":
     unittest.main()
