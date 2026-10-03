@@ -280,6 +280,30 @@ class JsonlRecordingTests(unittest.TestCase):
             any("outside repository" in e for e in ctx.exception.errors)
         )
 
+    def test_jsonl_size_limit_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = pathlib.Path(tmp) / "large.jsonl"
+            source.write_bytes(b"x" * (probe.MAX_JSONL_BYTES + 1))
+            with self.assertRaises(probe.CodexProbeCandidateError) as ctx:
+                probe.load_jsonl(source)
+        self.assertTrue(
+            any("1 MiB" in e for e in ctx.exception.errors)
+        )
+
+    def test_record_count_limit_is_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = pathlib.Path(tmp) / "many.jsonl"
+            row = json.dumps(_normalized()[0], sort_keys=True)
+            source.write_text(
+                "\n".join([row] * (probe.MAX_JSONL_RECORDS + 1)) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(probe.CodexProbeCandidateError) as ctx:
+                probe.load_jsonl(source)
+        self.assertTrue(
+            any("record count" in e for e in ctx.exception.errors)
+        )
+
     def test_invalid_jsonl_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = pathlib.Path(tmp) / "bad.jsonl"
