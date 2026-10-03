@@ -71,6 +71,24 @@ It MUST NOT become:
 
 If persisted for debugging or Human-facing projection, it is cache/report material only and is invalid when its bound inputs change.
 
+### 2.3 Composition procedure
+
+A future implementation should remain mechanically simple:
+
+```text
+1. resolve exact target identity
+2. resolve existing policy identity + required evidence set
+3. collect referenced VerificationResult / RunEvidence / external evidence
+4. discard or mark gaps for evidence that is not eligible for this target
+5. project satisfied claims + unresolved / missing claims + provenance refs
+6. existing Policy / Decision boundary consumes the projection as input
+7. re-check target identity before the resulting action is used
+```
+
+Steps 1-5 are certification composition. Step 6 remains Policy / Decision responsibility. Step 7 remains the consuming action boundary's responsibility.
+
+The Certification View must not implement its own merge, approval, terminal-state, or PromotionDecision logic.
+
 ## 3. Certification inputs
 
 A Certification View should project at least the following concerns when they are applicable to the target.
@@ -201,6 +219,24 @@ risk classification
   -> MUST NOT weaken protected requirements
 ```
 
+### 5.3 Ceremony budget
+
+Certification is **policy-shaped**, not a fixed universal checklist.
+
+A small, bounded change should not be forced to produce security, performance, E2E, independent-review, and runtime evidence when existing policy does not require those claims.
+
+```text
+all possible evidence
+  != required evidence for every change
+
+required evidence
+  = existing policy requirements for this exact target
+```
+
+An inapplicable concern is not a missing verifier result. Conversely, a policy-required verifier that is unavailable must not be relabeled "not applicable" to make the view green.
+
+This prevents Certification View from becoming another heavyweight planning artifact.
+
 ## 6. Delivery and Evolution stay separate
 
 ### Delivery
@@ -291,13 +327,65 @@ Adoption should progress through bounded stages.
    - show required claims, evidence refs, unresolved gaps, and risk drivers;
    - keep full provenance reachable.
 3. **Policy-assisted routing**
-   - use the projection to select stronger verifier / independent review / Human attention;
+   - the **existing Policy layer**, not Certification View itself, consumes eligible evidence / risk inputs to select stronger verifier, independent review, or Human attention;
    - no C-4 or merge authority change.
 4. **Bounded automation**
-   - widen only after false-negative / false-positive, stale-binding, and wrong-target behavior are measured;
+   - widen only where existing policy already permits automation and only after paired evaluation;
    - protected authority remains Human-owned.
 
 Scale is evidence-driven, not based on the number of successful demos.
+
+### 9.1 Stage exit conditions
+
+Each stage needs pre-registered exit conditions rather than an informal "looks good" judgment.
+
+**Shadow -> Human-facing compression**
+
+Require at least:
+
+- wrong-head / stale / untrusted / unavailable negative fixtures fail closed;
+- current Gate / verdict behavior is unchanged by shadow execution;
+- projection can always link material claims back to source evidence or explicitly show the gap.
+
+**Human-facing compression -> Policy-assisted routing**
+
+Use the existing Human Attention measurement contract rather than inventing new metrics:
+
+- Decision Extraction Success does not regress;
+- material Visibility Regression = 0;
+- Correctness / Safety are at least baseline;
+- evidence provenance remains reachable;
+- `unavailable` is not converted to zero / PASS.
+
+**Policy-assisted routing -> Bounded automation**
+
+Require at least:
+
+- paired baseline/candidate evaluation under a pre-frozen plan;
+- no critical regression;
+- false-negative / false-positive behavior measured for the target profile;
+- wrong-target / stale-binding negative controls remain fail-closed;
+- Human intervention / attention may improve, but never by weakening correctness, safety, visibility, or protected authority;
+- automation is limited to a surface where existing policy already allows it.
+
+These conditions are evaluation guidance. They do not create a new PromotionDecision or authority level.
+
+### 9.2 Human Attention principle
+
+The purpose of Certification View is to compress evidence for judgment, not hide complexity.
+
+Reuse the existing cross-layer rule:
+
+```text
+Human Attention decreases
+AND
+Correctness / Safety >= baseline
+Critical visibility >= baseline
+No material provenance regression
+No material coverage / verification regression
+```
+
+A shorter review surface is a regression if blockers, uncertainty, incomplete verification, or provenance become harder to discover.
 
 ## 10. Minimum verification for this design
 
@@ -316,7 +404,10 @@ Before any runtime implementation, verify at least these negative cases:
 - River Review output without target binding cannot directly satisfy an independent-review requirement;
 - River Review output cannot directly mint promotion authority;
 - Delivery evidence cannot directly promote a Harness Candidate;
-- Certification projection cannot mutate its authoritative inputs.
+- Certification projection cannot mutate its authoritative inputs;
+- an inapplicable concern is not forced into a required verifier;
+- a required-but-unavailable verifier cannot be relabeled not-applicable;
+- a shorter Human-facing projection cannot hide blocker / uncertainty / provenance materiality.
 
 ## 11. Non-goals
 
