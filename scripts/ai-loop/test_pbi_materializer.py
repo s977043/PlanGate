@@ -687,6 +687,19 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
             report["evaluation_contract"]["materialization_admission_evaluated"]
         )
         self.assertFalse(report["evaluation_contract"]["no_action_coverage"])
+        self.assertTrue(
+            report["evaluation_contract"]["historical_live_oracle_repository_visibility_enforced"]
+        )
+        self.assertTrue(
+            report["evaluation_contract"]["source_oracle_artifact_separation_enforced"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["oracle_independence_enforced"]
+        )
+        self.assertEqual(
+            report["evaluation_contract"]["oracle_independence_owner"],
+            "caller_or_independent_reviewer",
+        )
         self.assertFalse(report["rollout_evidence"]["write_review_eligible"])
         self.assertIn(
             "admission_no_action_not_evaluated",
@@ -765,6 +778,10 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
         historical["payload"]["claims"][0]["source_ref"] = historical_ref
         historical["payload"]["claims"][0]["source_kind"] = "existing_behavior"
         historical["payload"]["requirements"] = []
+        historical["expected"]["oracle_ref"] = (
+            "docs/working/TASK-1442/evidence/pbi-materializer-shadow/"
+            "historical-replay-oracle.md#HR-010"
+        )
         report = pm.evaluate_shadow_batch([train, historical])
         self.assertEqual(report["evidence_metrics"]["synthetic_fixture"]["total"], 1)
         self.assertEqual(report["evidence_metrics"]["historical_replay"]["total"], 1)
@@ -793,9 +810,48 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
         )
         case["payload"]["target_layer"] = "harness"
         case["payload"]["harness_candidate_ref"] = "HC-TEST"
+        case["expected"]["oracle_ref"] = (
+            "docs/working/TASK-1442/evidence/pbi-materializer-shadow/"
+            "historical-replay-oracle.md#HR-010"
+        )
         with self.assertRaises(pm.MaterializationError) as ctx:
             pm.evaluate_shadow_batch([case])
         self.assertTrue(any("#874/#869" in e for e in ctx.exception.errors))
+
+    def test_historical_replay_requires_existing_oracle_artifact(self):
+        historical_ref = "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json"
+        case = self._case(
+            "historical-oracle-missing",
+            "test",
+            evidence_class="historical_replay",
+            evidence_refs=[historical_ref],
+        )
+        case["payload"]["claims"][0]["source_ref"] = historical_ref
+        case["payload"]["claims"][0]["source_kind"] = "existing_behavior"
+        case["payload"]["requirements"] = []
+        case["expected"]["oracle_ref"] = (
+            "docs/working/TASK-1442/evidence/pbi-materializer-shadow/missing-oracle.md"
+        )
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.evaluate_shadow_batch([case])
+        self.assertTrue(any("repository source does not exist" in e for e in ctx.exception.errors))
+
+    def test_historical_replay_oracle_cannot_be_source_evidence_itself(self):
+        historical_ref = "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json"
+        case = self._case(
+            "historical-self-oracle",
+            "test",
+            evidence_class="historical_replay",
+            evidence_refs=[historical_ref],
+        )
+        case["payload"]["claims"][0]["source_ref"] = historical_ref
+        case["payload"]["claims"][0]["source_kind"] = "existing_behavior"
+        case["payload"]["requirements"] = []
+        case["expected"]["oracle_ref"] = historical_ref
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.evaluate_shadow_batch([case])
+        self.assertTrue(any("oracle artifact must be distinct" in e for e in ctx.exception.errors))
+
 
 
 class DeterminismAndSearchTests(unittest.TestCase):
