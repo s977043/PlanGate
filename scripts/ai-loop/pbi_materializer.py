@@ -135,20 +135,36 @@ def _walk_keys(value: Any, path: str = "$"):
             yield from _walk_keys(child, f"{path}[{i}]")
 
 
+def _privacy_projection(value: Any) -> Any:
+    """Rename only non-identifying categorical PBI author values for EH-8 reuse.
+
+    Any other author value stays under the original key and remains subject to the
+    RunEvidence account-identifier privacy policy.
+    """
+    if isinstance(value, dict):
+        out = {}
+        for key, child in value.items():
+            projected_key = (
+                "pbi_author_kind"
+                if key == "author" and child in VALID_AUTHORS
+                else key
+            )
+            out[projected_key] = _privacy_projection(child)
+        return out
+    if isinstance(value, list):
+        return [_privacy_projection(item) for item in value]
+    return value
+
+
 def _privacy_errors(payload: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     for path, key, _value in _walk_keys(payload):
         if _norm(key).replace("-", "_") in FORBIDDEN_LOCAL_KEYS:
             errors.append(f"privacy: forbidden key {path}.{key}")
 
-    # PBI root author is a categorical role (human|ai|mixed), not an account identity.
-    # Preserve the existing RunEvidence privacy policy by adapting only that root key;
-    # nested "author" fields remain untouched and are still rejected by the backstop.
-    privacy_projection = dict(payload)
-    if privacy_projection.get("author") in VALID_AUTHORS:
-        privacy_projection["pbi_author_kind"] = privacy_projection.pop("author")
-
     # Reuse the RunEvidence privacy backstop instead of forking its key/value rules.
+    # PBI author categories (human|ai|mixed) are roles, not account identifiers.
+    privacy_projection = _privacy_projection(payload)
     errors.extend(
         f"privacy: {e}"
         for e in run_evidence.check_output_privacy(privacy_projection)
