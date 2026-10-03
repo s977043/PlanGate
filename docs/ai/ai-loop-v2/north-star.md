@@ -16,7 +16,7 @@ ai-loop V2 は、検証可能な開発成果と、次の判断に使える Evide
 - **学習条件**: 価値仮説を検証したと言えるために必要な観測条件（何を・どの母集団で・どの水準で観測するか）。Product 側の語であり、Harness 改善の評価成立条件（§14 の evaluation plan）とは別物として扱う。
 - **妥当な Evidence**: 出所と取得条件が辿れ、主張の範囲を超えて一般化していない Evidence。自己申告のみに依拠しない（§6）。
 - **Bounded Discovery**: Request から Plan に入る前に、必要な範囲だけ Goal / Actor / Problem / Assumptions / Constraints / Unknowns / Requirement candidate と根拠を明らかにする活動。Product Discovery 全体を V2 に内包する意味ではなく、新しい Lifecycle State / Gate / authoritative artifact でもない。
-- **Traceability Chain**: Goal / Problem から Requirement、Plan decision / Acceptance Criteria、Work Item / Task、Verification / Evidence までを既存 artifact の ID / ref で相互に辿れる関係。新しい Knowledge Graph / DB を意味しない。
+- **Traceability Chain**: Goal / Problem から Requirement、Acceptance Criteria、Plan decision、Work Item / Task、Verification / Evidence までを既存 artifact の ID / ref で相互に辿れる関係。新しい Knowledge Graph / DB を意味しない。
 - **基礎的な安全境界**: 事故の観測を待たずに設置する最低限の防護。Human-owned 境界の保護、不可逆操作の停止、承認境界の保護を指す。
 
 > **AI が開発を実行し、その結果を検証し、失敗と成功を振り返り、自らの Skill / Agent / Flow / Verifier を改善し、その改善が本当に有効かを独立検証したうえで、次の Harness version を作れる開発システムを構築する。**
@@ -96,7 +96,7 @@ Bounded Discovery は全 Task に同じ ceremony を要求しない。depth は�
 
 AI は Discovery で正解の Requirement を創作する主体ではない。AI は hypothesis generation / question generation / evidence-gap detection / structuring を担う。Human は stakeholder input や意味・優先順位・trade-off の判断が必要な箇所の authority を保持する。Phase A の Human-created `pbi-input.md` を Goal / Problem / Requirement semantics の authority とし、AI の candidate は明示的に採用されるまで authoritative Requirement ではない。低リスクで既知の変更に一律の手動 interview / reality check を要求しない。Evidence が不足する場合は Unknown として残し、もっともらしい Requirement で埋めない。
 
-Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requirement -> Plan decision / Acceptance Criteria -> Work Item / Task (when applicable) -> Verification / Evidence の Traceability Chain を既存 ID / ref で構成する。新しい Lifecycle State / Gate / top-level artifact / mutable graph store をこのためだけに追加しない。
+Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requirement -> Acceptance Criteria -> Plan decision -> Work Item / Task (when applicable) -> Verification / Evidence の Traceability Chain を既存 ID / ref で構成する。新しい Lifecycle State / Gate / top-level artifact / mutable graph store をこのためだけに追加しない。
 
 > **Do not optimize a solution before validating the problem enough for the risk at hand.**
 
@@ -505,7 +505,7 @@ Product 側と Harness 側の学習を混同せず、V2 が直接観測できる
 - compression / handoff によって blocker・不確実性・Evidence provenance・Human-owned decision requirement が見えなくなっていないか
 - 解くべき Goal / Problem は、この変更の risk に対して十分な Evidence で確かめられているか
 - Unknown を Requirement として創作していないか。追加 Evidence / Human judgment が必要な箇所は明示されているか
-- Goal / Problem -> Requirement -> Plan decision / Acceptance Criteria -> Task / Verification の trace が既存 ID / ref で辿れるか
+- Goal / Problem -> Requirement -> Acceptance Criteria -> Plan decision -> Task / Verification の trace が既存 ID / ref で辿れるか
 
 ### Verification
 
