@@ -651,6 +651,56 @@ quality_acceptance_decided = false
 を維持する。Materialization inventory はduplicate FP/FNを**測るためのread-only projection**であり、
 write-capable rolloutのGateではない。
 
+### 6.7 Live collection plan（read-only / non-quota）
+
+admission / materialization inventory の current gap をまとめて確認する:
+
+```sh
+python3 "<skill_dir>/scripts/pbi_live_shadow_collector.py" \
+  --repo-root "<repo-root>" collection-plan
+```
+
+collection plan が使う coverage basis は **reviewed expected decision**。
+maker の actual decision は model behavior の観測であり、ground-truth coverage として数えない。
+
+```text
+admission:
+  reviewed expected = materialize | no_action | discover_more
+
+materialization:
+  reviewed expected = create_new | update_existing | link_only
+```
+
+materialization target は reviewed admission `materialize` が観測済みの場合だけ:
+
+```text
+prerequisites_satisfied = true
+currently_collectable = true
+```
+
+となる。これは「そのcaseを作れ」という指示ではなく、自然に実runで遭遇した場合に収集経路が成立していることだけを示す。
+
+必ず次の境界を維持する:
+
+```text
+opportunistic_observation_only = true
+synthetic_case_generation_for_coverage_allowed = false
+historical_relabeling_allowed = false
+decision_coverage_quota_defined = false
+source_kind_coverage_requirement_defined = false
+representative_coverage_claim_allowed = false
+coverage_complete_implies_representative = false
+collection_target_is_quota = false
+collection_target_is_case_generation_instruction = false
+collection_coverage_basis = reviewed_expected_decisions
+maker_actual_counts_as_ground_truth_coverage = false
+runtime_execution_verified = false
+quality_acceptance_decided = false
+```
+
+したがって collection target を埋めるために synthetic case を作成したり、
+historical case を live へ昇格したりしてはならない。
+
 ## 禁止事項
 
 - lite 宣言の虚偽（判定不能を `true` 側に倒す）
