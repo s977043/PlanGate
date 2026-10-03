@@ -1,0 +1,112 @@
+[
+  {
+    "case_ref": "HR-010",
+    "split": "train",
+    "evidence_class": "historical_replay",
+    "evidence_refs": [
+      "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json"
+    ],
+    "payload": {
+      "task_id": "TASK-1442",
+      "title": "Historical replay: run010 test shortage follow-up",
+      "author": "ai",
+      "application_timing": "follow_up",
+      "target_layer": "delivery",
+      "goal": "Preserve reviewer test-shortage signals as follow-up delivery work",
+      "problem": "Legacy ai-loop run 010 recorded model_b=reject with reject_category=test_shortage while the run ended AUTO_APPROVED.",
+      "source_run_refs": [
+        "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json"
+      ],
+      "claims": [
+        {
+          "id": "CLM-HR010-01",
+          "text": "Run 010 contains model_b=reject, reject_category=test_shortage, severity=minor, while decision=AUTO_APPROVED.",
+          "source_ref": "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json",
+          "source_kind": "existing_behavior",
+          "claim_class": "observed",
+          "supports": "Problem"
+        }
+      ],
+      "requirements": [],
+      "acceptance_criteria": [],
+      "in_scope": [
+        "Generate a future delivery follow-up PBI proposal from the observed reviewer signal"
+      ],
+      "out_of_scope": [
+        "Reopen or mutate the historical run",
+        "Infer a Harness change"
+      ],
+      "risks": [
+        "Legacy arbiter record is historical evidence, not V2 RunEvidence"
+      ],
+      "unknowns": [
+        "Whether this signal was addressed by later work outside the record"
+      ],
+      "assumptions": [],
+      "harness_candidate_ref": null
+    },
+    "existing_work": [],
+    "expected": {
+      "oracle_ref": "docs/working/TASK-1442/evidence/pbi-materializer-shadow/historical-replay-oracle.md#HR-010",
+      "decision": "create_new",
+      "matched_ref": null,
+      "readiness_status": "ready",
+      "readiness_route": "future_run"
+    }
+  },
+  {
+    "case_ref": "HR-012",
+    "split": "test",
+    "evidence_class": "historical_replay",
+    "evidence_refs": [
+      "docs/working/ai-loop-runs/20260707T092419Z-9d7af43-run012-r3.json"
+    ],
+    "payload": {
+      "task_id": "TASK-1442",
+      "title": "Historical replay: run012 logic escalation follow-up",
+      "author": "ai",
+      "application_timing": "follow_up",
+      "target_layer": "delivery",
+      "goal": "Preserve escalated logic-quality signals as follow-up delivery work",
+      "problem": "Legacy ai-loop run 012 ended HUMAN_ESCALATED with model_b and model_c rejecting under reject_category=logic.",
+      "source_run_refs": [
+        "docs/working/ai-loop-runs/20260707T092419Z-9d7af43-run012-r3.json"
+      ],
+      "claims": [
+        {
+          "id": "CLM-HR012-01",
+          "text": "Run 012 has decision=HUMAN_ESCALATED, model_b=reject, model_c=reject, reject_category=logic, severity=minor.",
+          "source_ref": "docs/working/ai-loop-runs/20260707T092419Z-9d7af43-run012-r3.json",
+          "source_kind": "existing_behavior",
+          "claim_class": "observed",
+          "supports": "Problem"
+        }
+      ],
+      "requirements": [],
+      "acceptance_criteria": [],
+      "in_scope": [
+        "Generate a future delivery follow-up PBI proposal from the observed escalation signal"
+      ],
+      "out_of_scope": [
+        "Override the historical Human escalation",
+        "Infer a Harness change"
+      ],
+      "risks": [
+        "Legacy arbiter record is historical evidence, not V2 RunEvidence"
+      ],
+      "unknowns": [
+        "Whether later work resolved the logic concern"
+      ],
+      "assumptions": [],
+      "harness_candidate_ref": null
+    },
+    "existing_work": [],
+    "expected": {
+      "oracle_ref": "docs/working/TASK-1442/evidence/pbi-materializer-shadow/historical-replay-oracle.md#HR-012",
+      "decision": "create_new",
+      "matched_ref": null,
+      "readiness_status": "ready",
+      "readiness_route": "future_run"
+    }
+  }
+]
