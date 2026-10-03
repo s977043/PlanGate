@@ -100,6 +100,8 @@ def compose_certification(
     return {
         "authoritative": AUTHORITATIVE,
         "mode": IMPLEMENTATION_MODE,
+        "owner_api_connected": OWNER_API_CONNECTED,
+        "verdict_source": "injected_owner_oracle",
         "target_ref": target_ref,
         "loop_contract_ref": loop_contract_ref,
         "required_verifiers": projected,
@@ -135,6 +137,8 @@ class CertificationShadowSpecTests(unittest.TestCase):
         projection = self._compose({self.D: "pass"})
         self.assertFalse(projection["authoritative"])
         self.assertEqual(projection["mode"], "executable_spec")
+        self.assertFalse(projection["owner_api_connected"])
+        self.assertEqual(projection["verdict_source"], "injected_owner_oracle")
 
     def test_projection_preserves_injected_owner_verdict_map_exactly(self):
         owner = {self.D: "fail", self.C: "pass"}
