@@ -190,11 +190,13 @@ def _claim_origin_ref(claim: dict[str, Any]) -> str:
 
 def _detect_authority_root(authority_root=None) -> pathlib.Path | None:
     """Resolve the repository root used only for acceptance-authority verification."""
-    candidates = []
     if authority_root is not None:
-        candidates.append(pathlib.Path(authority_root))
-    candidates.append(pathlib.Path.cwd())
-    candidates.extend(HERE.parents)
+        # An explicit trust root is authoritative. Never silently fall back to cwd/source
+        # roots when it is invalid, otherwise a caller can believe it verified repo A
+        # while the materializer actually verified repo B.
+        candidates = [pathlib.Path(authority_root)]
+    else:
+        candidates = [pathlib.Path.cwd(), *HERE.parents]
     seen = set()
     for candidate in candidates:
         try:
