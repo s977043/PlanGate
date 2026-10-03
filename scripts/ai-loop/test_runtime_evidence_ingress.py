@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """:"
 # --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
 echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
 echo "       Use: python3 $0 [args...]" >&2
 exit 2
@@ -298,6 +301,24 @@ class RuntimeIngressPersistenceTests(unittest.TestCase):
                 ri.persist_source_snapshot(root, mapped)
             self.assertTrue(
                 any("must remain under" in error for error in ctx.exception.errors)
+            )
+
+    def test_output_ref_outside_runtime_ingress_namespace_reports_both_boundaries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self._repo(root)
+            mapped = ri.map_cloudflare_issue(_cloudflare(), _envelope())
+            mapped["source_ref"] = "docs/working/TASK-1448/source.json"
+            with self.assertRaises(ri.RuntimeIngressError) as ctx:
+                ri.persist_source_snapshot(root, mapped)
+            self.assertTrue(
+                any("must remain under" in error for error in ctx.exception.errors)
+            )
+            self.assertTrue(
+                any(
+                    "content-addressed snapshot hash" in error
+                    for error in ctx.exception.errors
+                )
             )
 
     def test_symlinked_output_parent_is_rejected(self):

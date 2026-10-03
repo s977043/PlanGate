@@ -693,7 +693,15 @@ PYEOF
   # shape の正本 schemas/plan-contract.schema.json も配布物に含まれない。
   _T57_NONDIST_DECL='corpus_hash.py reason: enforcement scope（scripts/hooks/** 等）が plugin 配布物に含まれず導入先で値が一致しないため上流専用 (#1299)
 test_corpus_hash.py reason: corpus_hash.py が上流専用のため同伴して非配布 (#1299)
-plan_contract.py reason: REPO 相対パス解決が上流レイアウト前提で bundled 配置では導入先の TASK dir を常に拒否するため上流専用 (#1403)'
+plan_contract.py reason: REPO 相対パス解決が上流レイアウト前提で bundled 配置では導入先の TASK dir を常に拒否するため上流専用 (#1403)
+runtime_evidence_dispatch_readiness.py reason: R1 shadow/PoC の上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+runtime_evidence_external_trust.py reason: R1 shadow/PoC の上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+runtime_evidence_ingress.py reason: R0/R1 shadow/PoC の上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+runtime_evidence_investigation.py reason: R1 shadow/PoC の上流検証専用で plugin rollout 未承認のため非配布 (#1448)
+test_runtime_evidence_dispatch_readiness.py reason: 非配布 runtime_evidence_dispatch_readiness.py の上流検証用 test のため非配布 (#1448)
+test_runtime_evidence_external_trust.py reason: 非配布 runtime_evidence_external_trust.py の上流検証用 test のため非配布 (#1448)
+test_runtime_evidence_ingress.py reason: 非配布 runtime_evidence_ingress.py の上流検証用 test のため非配布 (#1448)
+test_runtime_evidence_investigation.py reason: 非配布 runtime_evidence_investigation.py の上流検証用 test のため非配布 (#1448)'
 
   _t57_audit="$_t57_tmp/allowlist_audit.py"
   cat > "$_t57_audit" <<'PY_T57_AUDIT'

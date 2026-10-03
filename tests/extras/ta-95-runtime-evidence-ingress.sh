@@ -154,4 +154,4 @@ else
   fail=$((fail + 1))
 fi
 
-pg_extra_contract_finish
+pg_extra_contract_finalize
