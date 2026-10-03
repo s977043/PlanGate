@@ -548,6 +548,109 @@ quality_acceptance_decided = false
 したがって `tracked_live_case_total > 0` は「tracked chainが存在する」ことだけを意味し、
 real runtime execution / representative coverage / write-capable rollout の承認には使わない。
 
+### 6.6 Live Materialization review（post-admission）
+
+Admission live case が reviewer expectation と実評価の両方で `materialize` に一致した場合だけ、
+post-admission Materialization shadow へ進む。
+
+collector は payload / existing-work snapshot / oracle を**生成しない**。別工程で repository-visible artifact
+として用意されたものを hash で束縛し、既存 `evaluate_shadow_batch()` 互換caseへ組み立てる。
+
+必要artifact:
+
+```text
+admission-case.json
+materialization-payload.json
+existing-work.json
+materialization-oracle.json
+```
+
+すべて同じ:
+
+```text
+docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/
+```
+
+配下へ置く。
+
+materialization oracle の最小contract:
+
+```json
+{
+  "schema_version": 1,
+  "domain": "plangate.pbi-live-shadow-materialization-oracle/v1",
+  "case_ref": "LIVE-MATERIALIZATION-...",
+  "admission_case_ref": "<admission-case-ref>",
+  "admission_case_hash": "sha256:...",
+  "payload_ref": "<payload-ref>",
+  "payload_hash": "sha256:...",
+  "existing_work_ref": "<existing-work-ref>",
+  "existing_work_hash": "sha256:...",
+  "expected": {
+    "decision": "create_new | update_existing | link_only",
+    "matched_ref": null,
+    "readiness_status": "ready | blocked",
+    "readiness_route": "<existing readiness route>"
+  },
+  "independent_review_asserted": true,
+  "maker_actual_not_consulted_asserted": true
+}
+```
+
+case assembly:
+
+```sh
+python3 "<skill_dir>/scripts/pbi_live_shadow_collector.py" \
+  --repo-root "<repo-root>" materialization-case \
+  --admission-case-ref "<admission-case-ref>" \
+  --payload-ref "<materialization-payload-ref>" \
+  --existing-work-ref "<existing-work-ref>" \
+  --oracle-ref "<materialization-oracle-ref>" \
+  --case-artifact-ref "docs/working/TASK-XXXX/evidence/pbi-live-shadow/<run-id>/materialization-case.json"
+```
+
+collector は以下を再検証する:
+
+- Admission case が reviewer expectation / actual ともに `materialize` で一致
+- admission case / payload / existing-work / oracle の同一TASK namespace
+- oracle が admission case / payload / existing-work の exact hash を束縛
+- oracle が maker actual を保存していない
+- assembled case が既存 `_validate_shadow_batch()` を通る
+- oracle は `expected.oracle_ref` にのみ置き、source `evidence_refs[]` へ混ぜない
+
+tracked Materialization case の再集計:
+
+```sh
+python3 "<skill_dir>/scripts/pbi_live_shadow_collector.py" \
+  --repo-root "<repo-root>" materialization-inventory
+```
+
+主要出力:
+
+```text
+observed_materialization_decisions
+missing_materialization_decisions
+duplicate_false_positive_rate
+duplicate_false_negative_rate
+decision_mismatch_count
+readiness_mismatch_count
+```
+
+0分母は `null` のまま扱う。1件の `create_new` だけで duplicate FN が 0% とは判断しない。
+
+また:
+
+```text
+runtime_execution_verified = false
+source_preexistence_verified = false
+reviewer_identity_verified = false
+representative_coverage_claim_allowed = false
+quality_acceptance_decided = false
+```
+
+を維持する。Materialization inventory はduplicate FP/FNを**測るためのread-only projection**であり、
+write-capable rolloutのGateではない。
+
 ## 禁止事項
 
 - lite 宣言の虚偽（判定不能を `true` 側に倒す）
