@@ -1231,9 +1231,22 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         self.assertTrue(
             all(
-                not item["real_runtime_observation_available"]
+                item["real_runtime_observation_available"] is None
                 for item in plan["observation_gaps"]
             )
+        )
+        self.assertEqual(
+            plan["collector_path_available_gap_count"],
+            3,
+        )
+        self.assertFalse(plan["collection_execution_blocked"])
+        self.assertEqual(
+            plan["completion_blockers"],
+            plan["blockers"],
+        )
+        self.assertEqual(
+            plan["blocker_semantics"],
+            "rollout_completion_not_collection_execution",
         )
         self.assertFalse(boundary["quality_acceptance_decided"])
         self.assertFalse(plan["authority"]["write_allowed"])
