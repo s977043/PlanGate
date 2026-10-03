@@ -1128,9 +1128,9 @@ class LiveShadowCollectorTests(unittest.TestCase):
         plan = collector.plan_live_shadow_collection(
             repo_root=self.root
         )
-        self.assertEqual(plan["collection_target_count"], 6)
+        self.assertEqual(plan["observation_gap_count"], 6)
         self.assertEqual(
-            [(item["stage"], item["decision"]) for item in plan["collection_targets"]],
+            [(item["stage"], item["decision"]) for item in plan["observation_gaps"]],
             [
                 ("admission", "materialize"),
                 ("admission", "no_action"),
@@ -1142,16 +1142,16 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         self.assertTrue(
             all(
-                item["collection_mode"] == "opportunistic_real_run_only"
-                for item in plan["collection_targets"]
+                item["observation_mode"] == "opportunistic_real_run_only"
+                for item in plan["observation_gaps"]
             )
         )
         admission_items = [
-            item for item in plan["collection_targets"]
+            item for item in plan["observation_gaps"]
             if item["stage"] == "admission"
         ]
         materialization_items = [
-            item for item in plan["collection_targets"]
+            item for item in plan["observation_gaps"]
             if item["stage"] == "materialization"
         ]
         self.assertTrue(
@@ -1198,12 +1198,12 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertFalse(
             boundary["coverage_complete_implies_representative"]
         )
-        self.assertFalse(boundary["collection_target_is_quota"])
+        self.assertFalse(boundary["observation_gap_is_quota"])
         self.assertFalse(
-            boundary["collection_target_is_case_generation_instruction"]
+            boundary["observation_gap_is_case_generation_instruction"]
         )
         self.assertEqual(
-            boundary["collection_coverage_basis"],
+            boundary["coverage_gap_basis"],
             "reviewed_expected_decisions",
         )
         self.assertFalse(
@@ -1228,7 +1228,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         admission_targets = [
             item["decision"]
-            for item in plan["collection_targets"]
+            for item in plan["observation_gaps"]
             if item["stage"] == "admission"
         ]
         self.assertEqual(
@@ -1256,7 +1256,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
             plan["blockers"],
         )
         materialization_targets = [
-            item for item in plan["collection_targets"]
+            item for item in plan["observation_gaps"]
             if item["stage"] == "materialization"
         ]
         self.assertTrue(
@@ -1278,7 +1278,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
             plan["inventory_snapshot"]["admission"]["reviewed_expected_decisions"],
         )
         materialization_targets = [
-            item for item in plan["collection_targets"]
+            item for item in plan["observation_gaps"]
             if item["stage"] == "materialization"
         ]
         self.assertEqual(len(materialization_targets), 3)
@@ -1290,11 +1290,11 @@ class LiveShadowCollectorTests(unittest.TestCase):
             )
         )
         self.assertFalse(
-            plan["policy_boundary"]["collection_target_is_quota"]
+            plan["policy_boundary"]["observation_gap_is_quota"]
         )
         self.assertFalse(
             plan["policy_boundary"][
-                "collection_target_is_case_generation_instruction"
+                "observation_gap_is_case_generation_instruction"
             ]
         )
 
@@ -1333,12 +1333,12 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         admission_targets = [
             item["decision"]
-            for item in plan["collection_targets"]
+            for item in plan["observation_gaps"]
             if item["stage"] == "admission"
         ]
         self.assertIn("materialize", admission_targets)
         materialization_targets = [
-            item for item in plan["collection_targets"]
+            item for item in plan["observation_gaps"]
             if item["stage"] == "materialization"
         ]
         self.assertTrue(
