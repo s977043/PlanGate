@@ -24,9 +24,9 @@
 
 #### Source / Feedback Provenance（material な場合）
 
-| Source Ref | Source Kind | Claim Class | Supports |
-| --- | --- | --- | --- |
-| {ref} | human_feedback / issue / run_evidence / failure_record / measurement / existing_behavior / external_source / policy | observed / reported / inferred | Goal / Problem / REQ-001 / AC-01 |
+| Claim ID | Claim | Source Ref | Origin Ref | Source Kind | Claim Class | Supports |
+| --- | --- | --- | --- | --- | --- | --- |
+| CLM-001 | {material claim} | {immediate ref} | {original upstream ref} | human_feedback / issue / run_evidence / failure_record / measurement / existing_behavior / external_source / policy | observed / reported / inferred | Goal / Problem / REQ-001 / AC-01 |
 
 > `observed` = artifact / measurement / verifier で直接確認、`reported` = Human / external source の報告、`inferred` = source から導出した仮説・解釈。
 > `follow_up` は current Run を変更しない。`replan_current` は delivery の Replan / Plan Verification / Plan Gate を通す。`Target layer = harness` は必ず `follow_up` とし、`replan_current + harness` は禁止。Harness PBI は draft 時点では Candidate ref が pending でもよいが、Plan / implementation readiness 前に HarnessImprovementCandidate を upstream authority として確定し、本 PBI で evaluation contract を置き換えない。
@@ -40,6 +40,7 @@
 - Decision reason: {同じ Problem / outcome か、Scope / Requirement / AC が material に違うか}
 
 > 類似判定だけで既存 Issue / PBI を自動 close / merge しない。既存 PBI が Plan / approval と binding 済みで semantic change が必要な場合は、重複解消として書き換えず Replan / policy boundary に戻す。
+> Shadow rollout の `update_existing` 出力は **semantic patch proposal** であり、既存 PBI 本文を読まずに全文置換してよいことを意味しない。automatic write が別途承認されるまでは proposal のみとする。
 
 #### Requirement Discovery Trace（material な場合）
 
