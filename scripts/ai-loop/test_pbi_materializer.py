@@ -364,6 +364,29 @@ class MaterializationFixtures(unittest.TestCase):
                 for e in ctx.exception.errors)
         )
 
+    def test_05k_invalid_explicit_authority_root_does_not_fallback(self):
+        payload = _payload()
+        policy_ref = "docs/ai/core-contract.md#5-decision-rules"
+        payload["claims"].append(
+            {
+                "id": "CLM-P406",
+                "text": "Valid policy rule under the real repository",
+                "source_ref": policy_ref,
+                "source_kind": "policy",
+                "claim_class": "observed",
+                "supports": "REQ-001",
+            }
+        )
+        payload["requirements"][0]["acceptance_basis"] = "policy_rule"
+        payload["requirements"][0]["basis_ref"] = policy_ref
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(pm.MaterializationError) as ctx:
+                pm.materialize(payload, [], authority_root=tmp)
+        self.assertTrue(
+            any("repository root could not be resolved" in e
+                for e in ctx.exception.errors)
+        )
+
     def test_06_same_task_plan_cannot_be_upstream_evidence(self):
         payload = _payload(
             claims=[
