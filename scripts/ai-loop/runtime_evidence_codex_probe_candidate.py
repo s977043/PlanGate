@@ -184,16 +184,21 @@ def _safe_append_jsonl(
     repo_root: pathlib.Path,
 ) -> None:
     root = repo_root.resolve()
-    parent = path.parent.resolve()
+    raw_parent = path.parent.absolute()
+    parent = raw_parent.resolve()
     target = path.resolve(strict=False)
 
     if not root.is_dir():
         raise CodexProbeCandidateError(
             ["repo_root: existing directory required"]
         )
-    if not parent.is_dir() or parent.is_symlink():
+    if not raw_parent.is_dir():
         raise CodexProbeCandidateError(
-            ["output parent must be an existing non-symlink directory"]
+            ["output parent must be an existing directory"]
+        )
+    if parent != raw_parent:
+        raise CodexProbeCandidateError(
+            ["output parent path must not traverse symlinks"]
         )
     try:
         target.relative_to(root)
