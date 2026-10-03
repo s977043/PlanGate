@@ -374,10 +374,45 @@ cat >"$_t94_review_root/docs/reports/materialization.json" <<'JSON'
     "live_shadow_cases": 3,
     "observed_decisions": ["create_new", "link_only", "update_existing"]
   },
+  "rollout_quality": {
+      "scope": "live_shadow_only",
+      "live_case_total": 3,
+      "evaluable_case_total": 3,
+      "unevaluable_error_cases": 0,
+      "quality_review_complete": true,
+      "duplicate_false_positive_count": 0,
+      "duplicate_false_positive_denominator": 1,
+      "duplicate_false_positive_rate": 0.0,
+      "duplicate_false_negative_count": 0,
+      "duplicate_false_negative_denominator": 2,
+      "duplicate_false_negative_rate": 0.0,
+      "decision_mismatch_count": 0,
+      "matched_ref_mismatch_count": 0,
+      "readiness_mismatch_count": 0,
+      "exact_mismatch_count": 0,
+      "rejection_error_occurrences_by_category": {
+        "privacy": 0,
+        "circular_or_derived": 0,
+        "acceptance_basis": 0,
+        "claim_class": 0,
+        "source_reference": 0,
+        "live_binding": 0,
+        "other": 0
+      },
+      "provenance_rejection_error_occurrences": {
+        "circular_or_derived": 0,
+        "acceptance_basis": 0,
+        "claim_class": 0,
+        "source_reference": 0
+      },
+      "thresholds_applied": false,
+      "acceptance_decision": "not_evaluated",
+      "acceptance_owner": "human_or_rollout_policy"
+    },
   "cases": [
-    {"case_ref": "M-CREATE", "evidence_class": "live_shadow", "status": "match", "actual_decision": "create_new", "actual_readiness_route": "future_run"},
-    {"case_ref": "M-LINK", "evidence_class": "live_shadow", "status": "match", "actual_decision": "link_only", "actual_readiness_route": "future_run"},
-    {"case_ref": "M-UPDATE", "evidence_class": "live_shadow", "status": "match", "actual_decision": "update_existing", "actual_readiness_route": "future_run"}
+    {"case_ref": "M-CREATE", "evidence_class": "live_shadow", "status": "match", "mismatches": [], "actual_decision": "create_new", "actual_readiness_route": "future_run", "expected_decision": "create_new"},
+    {"case_ref": "M-LINK", "evidence_class": "live_shadow", "status": "match", "mismatches": [], "actual_decision": "link_only", "actual_readiness_route": "future_run", "expected_decision": "link_only"},
+    {"case_ref": "M-UPDATE", "evidence_class": "live_shadow", "status": "match", "mismatches": [], "actual_decision": "update_existing", "actual_readiness_route": "future_run", "expected_decision": "update_existing"}
   ]
 }
 JSON
@@ -391,14 +426,46 @@ cat >"$_t94_review_root/docs/reports/admission.json" <<'JSON'
   "automatic_promotion": false,
   "metrics": {"overall": {"errors": 0}},
   "rollout_evidence": {"live_shadow_cases": 3},
+  "rollout_quality": {
+      "scope": "live_shadow_only",
+      "live_case_total": 3,
+      "evaluable_case_total": 3,
+      "unevaluable_error_cases": 0,
+      "quality_review_complete": true,
+      "materialize_false_positive_count": 0,
+      "materialize_false_positive_denominator": 2,
+      "materialize_false_positive_rate": 0.0,
+      "materialize_false_negative_count": 0,
+      "materialize_false_negative_denominator": 1,
+      "materialize_false_negative_rate": 0.0,
+      "decision_mismatch_count": 0,
+      "rejection_error_occurrences_by_category": {
+        "privacy": 0,
+        "circular_or_derived": 0,
+        "acceptance_basis": 0,
+        "claim_class": 0,
+        "source_reference": 0,
+        "live_binding": 0,
+        "other": 0
+      },
+      "provenance_rejection_error_occurrences": {
+        "circular_or_derived": 0,
+        "acceptance_basis": 0,
+        "claim_class": 0,
+        "source_reference": 0
+      },
+      "thresholds_applied": false,
+      "acceptance_decision": "not_evaluated",
+      "acceptance_owner": "human_or_rollout_policy"
+    },
   "coverage": {
     "decision_coverage_complete": true,
     "observed_admission_decisions": ["discover_more", "materialize", "no_action"]
   },
   "cases": [
-    {"case_ref": "A-DISCOVER", "evidence_class": "live_shadow", "status": "match", "actual": "discover_more"},
-    {"case_ref": "A-MATERIALIZE", "evidence_class": "live_shadow", "status": "match", "actual": "materialize"},
-    {"case_ref": "A-NO-ACTION", "evidence_class": "live_shadow", "status": "match", "actual": "no_action"}
+    {"case_ref": "A-DISCOVER", "evidence_class": "live_shadow", "status": "match", "actual": "discover_more", "expected": "discover_more"},
+    {"case_ref": "A-MATERIALIZE", "evidence_class": "live_shadow", "status": "match", "actual": "materialize", "expected": "materialize"},
+    {"case_ref": "A-NO-ACTION", "evidence_class": "live_shadow", "status": "match", "actual": "no_action", "expected": "no_action"}
   ]
 }
 JSON
@@ -414,10 +481,45 @@ cat >"$_t94_tmp/write-review-assessment.json" <<'JSON'
       "live_shadow_cases": 3,
       "observed_decisions": ["create_new", "link_only", "update_existing"]
     },
+    "rollout_quality": {
+        "scope": "live_shadow_only",
+        "live_case_total": 3,
+        "evaluable_case_total": 3,
+        "unevaluable_error_cases": 0,
+        "quality_review_complete": true,
+        "duplicate_false_positive_count": 0,
+        "duplicate_false_positive_denominator": 1,
+        "duplicate_false_positive_rate": 0.0,
+        "duplicate_false_negative_count": 0,
+        "duplicate_false_negative_denominator": 2,
+        "duplicate_false_negative_rate": 0.0,
+        "decision_mismatch_count": 0,
+        "matched_ref_mismatch_count": 0,
+        "readiness_mismatch_count": 0,
+        "exact_mismatch_count": 0,
+        "rejection_error_occurrences_by_category": {
+          "privacy": 0,
+          "circular_or_derived": 0,
+          "acceptance_basis": 0,
+          "claim_class": 0,
+          "source_reference": 0,
+          "live_binding": 0,
+          "other": 0
+        },
+        "provenance_rejection_error_occurrences": {
+          "circular_or_derived": 0,
+          "acceptance_basis": 0,
+          "claim_class": 0,
+          "source_reference": 0
+        },
+        "thresholds_applied": false,
+        "acceptance_decision": "not_evaluated",
+        "acceptance_owner": "human_or_rollout_policy"
+      },
     "cases": [
-      {"case_ref": "M-CREATE", "evidence_class": "live_shadow", "status": "match", "actual_decision": "create_new", "actual_readiness_route": "future_run"},
-      {"case_ref": "M-LINK", "evidence_class": "live_shadow", "status": "match", "actual_decision": "link_only", "actual_readiness_route": "future_run"},
-      {"case_ref": "M-UPDATE", "evidence_class": "live_shadow", "status": "match", "actual_decision": "update_existing", "actual_readiness_route": "future_run"}
+      {"case_ref": "M-CREATE", "evidence_class": "live_shadow", "status": "match", "mismatches": [], "actual_decision": "create_new", "actual_readiness_route": "future_run", "expected_decision": "create_new"},
+      {"case_ref": "M-LINK", "evidence_class": "live_shadow", "status": "match", "mismatches": [], "actual_decision": "link_only", "actual_readiness_route": "future_run", "expected_decision": "link_only"},
+      {"case_ref": "M-UPDATE", "evidence_class": "live_shadow", "status": "match", "mismatches": [], "actual_decision": "update_existing", "actual_readiness_route": "future_run", "expected_decision": "update_existing"}
     ]
   },
   "materialization_report_ref": "docs/reports/materialization.json",
@@ -429,14 +531,46 @@ cat >"$_t94_tmp/write-review-assessment.json" <<'JSON'
     "automatic_promotion": false,
     "metrics": {"overall": {"errors": 0}},
     "rollout_evidence": {"live_shadow_cases": 3},
+    "rollout_quality": {
+        "scope": "live_shadow_only",
+        "live_case_total": 3,
+        "evaluable_case_total": 3,
+        "unevaluable_error_cases": 0,
+        "quality_review_complete": true,
+        "materialize_false_positive_count": 0,
+        "materialize_false_positive_denominator": 2,
+        "materialize_false_positive_rate": 0.0,
+        "materialize_false_negative_count": 0,
+        "materialize_false_negative_denominator": 1,
+        "materialize_false_negative_rate": 0.0,
+        "decision_mismatch_count": 0,
+        "rejection_error_occurrences_by_category": {
+          "privacy": 0,
+          "circular_or_derived": 0,
+          "acceptance_basis": 0,
+          "claim_class": 0,
+          "source_reference": 0,
+          "live_binding": 0,
+          "other": 0
+        },
+        "provenance_rejection_error_occurrences": {
+          "circular_or_derived": 0,
+          "acceptance_basis": 0,
+          "claim_class": 0,
+          "source_reference": 0
+        },
+        "thresholds_applied": false,
+        "acceptance_decision": "not_evaluated",
+        "acceptance_owner": "human_or_rollout_policy"
+      },
     "coverage": {
       "decision_coverage_complete": true,
       "observed_admission_decisions": ["discover_more", "materialize", "no_action"]
     },
     "cases": [
-      {"case_ref": "A-DISCOVER", "evidence_class": "live_shadow", "status": "match", "actual": "discover_more"},
-      {"case_ref": "A-MATERIALIZE", "evidence_class": "live_shadow", "status": "match", "actual": "materialize"},
-      {"case_ref": "A-NO-ACTION", "evidence_class": "live_shadow", "status": "match", "actual": "no_action"}
+      {"case_ref": "A-DISCOVER", "evidence_class": "live_shadow", "status": "match", "actual": "discover_more", "expected": "discover_more"},
+      {"case_ref": "A-MATERIALIZE", "evidence_class": "live_shadow", "status": "match", "actual": "materialize", "expected": "materialize"},
+      {"case_ref": "A-NO-ACTION", "evidence_class": "live_shadow", "status": "match", "actual": "no_action", "expected": "no_action"}
     ]
   },
   "admission_report_ref": "docs/reports/admission.json",
@@ -464,6 +598,11 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"suppression_allowed": false' "$_t94_review_out" \
   && grep -q '"automatic_promotion": false' "$_t94_review_out" \
   && grep -q '"report_artifact_authorship_verified": false' "$_t94_review_out" \
+  && grep -q '"quality_thresholds_applied": false' "$_t94_review_out" \
+  && grep -q '"quality_acceptance_decided": false' "$_t94_review_out" \
+  && grep -q '"duplicate_false_positive_rate": 0.0' "$_t94_review_out" \
+  && grep -q '"duplicate_false_negative_rate": 0.0' "$_t94_review_out" \
+  && grep -q '"acceptance_decision": "not_evaluated"' "$_t94_review_out" \
   && grep -q '"materialization_report_hash": "sha256:' "$_t94_review_out" \
   && grep -q '"admission_report_hash": "sha256:' "$_t94_review_out"; then
   printf '  [PASS] write-review assessment: CLI fires with traceable reports and no mutation authority\n'
@@ -582,6 +721,10 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"mode": "admission_evaluation"' "$_t94_live_out" \
   && grep -q '"live_shadow_cases": 1' "$_t94_live_out" \
   && grep -q '"no_action_coverage": true' "$_t94_live_out" \
+  && grep -q '"live_case_total": 1' "$_t94_live_out" \
+  && grep -q '"materialize_false_positive_rate": 0.0' "$_t94_live_out" \
+  && grep -q '"materialize_false_negative_rate": null' "$_t94_live_out" \
+  && grep -q '"thresholds_applied": false' "$_t94_live_out" \
   && grep -q '"upstream_source_repository_visibility_enforced": true' "$_t94_live_out" \
   && grep -q '"source_capture_run_evidence_separation_enforced": true' "$_t94_live_out" \
   && grep -q '"upstream_source_preexistence_verified": false' "$_t94_live_out" \
