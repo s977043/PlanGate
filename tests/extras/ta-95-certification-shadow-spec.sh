@@ -49,8 +49,31 @@ else
 fi
 
 # Mode A must remain tests-only. Production paths must not import the test spec.
-if git -C "$_T95_ROOT" grep -lF 'test_certification_shadow_spec' -- 'scripts' 'bin' >/dev/null 2>&1; then
-  printf '  [FAIL] production path imports/references certification test spec\n' >&2
+_t95_prod_refs() {
+  git -C "$1" grep -lF 'test_certification_shadow_spec' -- 'scripts' 'bin' 2>/dev/null || true
+}
+
+_T95_PROBE=$(mktemp -d)
+mkdir -p "$_T95_PROBE/scripts" "$_T95_PROBE/bin"
+git -C "$_T95_PROBE" init -q
+printf 'import test_certification_shadow_spec\n' >"$_T95_PROBE/scripts/leak.py"
+printf 'print("ok")\n' >"$_T95_PROBE/scripts/ok.py"
+printf '#!/bin/sh\nexit 0\n' >"$_T95_PROBE/bin/ok"
+git -C "$_T95_PROBE" add scripts bin
+_T95_PROBE_GOT=$(_t95_prod_refs "$_T95_PROBE")
+rm -rf "$_T95_PROBE"
+
+if [ "$_T95_PROBE_GOT" = "scripts/leak.py" ]; then
+  printf '  [PASS] production-reference detector positive control\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] production-reference detector missed planted leak: %s\n' "$_T95_PROBE_GOT" >&2
+  fail=$((fail + 1))
+fi
+
+_T95_GOT=$(_t95_prod_refs "$_T95_ROOT")
+if [ -n "$_T95_GOT" ]; then
+  printf '  [FAIL] production path imports/references certification test spec:\n%s\n' "$_T95_GOT" >&2
   fail=$((fail + 1))
 else
   printf '  [PASS] certification spec is not imported by production paths\n'
