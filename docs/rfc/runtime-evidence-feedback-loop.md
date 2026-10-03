@@ -688,7 +688,9 @@ dispatch_ready = false
 dispatch_allowed = false
 ```
 
-This distinction is required because repository/project hook execution is a runtime observation source, not an independently trusted attestation root. A future promotion requires correlation with runtime-generated Codex JSONL plus an external/trusted execution-root proof before `runtime_probe_attestation_verified` may change.
+This distinction is required because repository/project hook execution is a runtime observation source, not an independently trusted attestation root.
+
+Codex also supports administrator-managed hooks as a separate policy layer. A future production-grade attestation design may use a managed-hook execution root (or an equivalent independently administered external verifier) so the Evidence producer is outside the repository-controlled project hook boundary. Merely moving the current proposal into project `hooks.json` does not satisfy this requirement. A future promotion requires correlation with runtime-generated Codex JSONL plus an external/trusted execution-root proof before `runtime_probe_attestation_verified` may change.
 
 ## 8. Relationship to existing V2 boundaries
 
