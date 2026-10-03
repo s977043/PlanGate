@@ -702,6 +702,26 @@ quality_acceptance_decided = false
 したがって observation gap を埋めるために synthetic case を作成したり、
 historical case を live へ昇格したりしてはならない。
 
+collection-plan の出力を保存して後から再利用する場合は、必ず判断直前に再実行する。
+plan は元になった inventory projection の canonical SHA-256 を持つ。
+
+```text
+inventory_binding.admission_inventory_hash
+inventory_binding.materialization_inventory_hash
+inventory_binding.combined_inventory_hash
+
+plan_reuse_without_reinventory_allowed = false
+runtime_head_bound = false
+repository_commit_verified = false
+inventory_hashes_are_commit_identity = false
+```
+
+hash は「このplanがどのinventory内容から導出されたか」を識別するためのもので、
+Git commit / runtime execution / Evidence時系列真正性の証明ではない。
+保存済みplanのgapをそのまま実行判断に使わず、repository evidenceが変わっていないか
+`collection-plan` を再実行して確認する。
+
+
 ### 6.6 Completion status（read-only）
 
 実装を増やす前に、残課題がどの種類かを分類する。
