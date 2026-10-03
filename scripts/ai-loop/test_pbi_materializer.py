@@ -101,6 +101,10 @@ class MaterializationFixtures(unittest.TestCase):
     def test_01_run_evidence_failure_creates_delivery_follow_up(self):
         result = pm.materialize(_payload(), [])
         self.assertEqual(result["decision"]["decision"], "create_new")
+        self.assertEqual(result["proposal_kind"], "full_draft")
+        self.assertFalse(result["apply_contract"]["write_allowed"])
+        self.assertFalse(result["apply_contract"]["replacement_allowed"])
+        self.assertIn("#### Existing Work Check", result["pbi_markdown"])
         self.assertEqual(result["readiness"]["route"], "future_run")
         self.assertEqual(result["readiness"]["current_run_effect"], "none")
 
@@ -108,11 +112,17 @@ class MaterializationFixtures(unittest.TestCase):
         existing = _existing(acceptance_criteria=["AC-OLD"])
         result = pm.materialize(_payload(), [existing])
         self.assertEqual(result["decision"]["decision"], "update_existing")
+        self.assertEqual(result["proposal_kind"], "semantic_patch_proposal")
         self.assertFalse(result["decision"]["requires_replan"])
+        self.assertIn(
+            "update_existing is a semantic patch proposal",
+            result["pbi_markdown"],
+        )
 
     def test_03_same_semantics_links_only(self):
         result = pm.materialize(_payload(), [_existing()])
         self.assertEqual(result["decision"]["decision"], "link_only")
+        self.assertEqual(result["proposal_kind"], "link_evidence_only")
         self.assertEqual(
             result["decision"]["matched_ref"],
             "docs/working/TASK-1400/pbi-input.md",
