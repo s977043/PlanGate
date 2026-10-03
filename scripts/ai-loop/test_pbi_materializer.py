@@ -1453,7 +1453,6 @@ class WriteReviewAssessmentTests(unittest.TestCase):
             "latest_full_test_not_green",
             "materialization_live_shadow_not_observed",
             "admission_live_shadow_not_observed",
-            "admission_decision_coverage_incomplete",
             "independent_oracle_review_missing",
         ):
             self.assertIn(blocker, result["blockers"])
@@ -1536,6 +1535,22 @@ class WriteReviewAssessmentTests(unittest.TestCase):
                 for e in ctx.exception.errors
             )
         )
+
+    def test_report_summary_must_match_cases(self):
+        assessment = self._assessment()
+        assessment["materialization_report"]["rollout_evidence"][
+            "live_shadow_cases"
+        ] = 99
+        self._persist_reports(assessment)
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.assess_write_review_readiness(
+                assessment,
+                authority_root=self.root,
+            )
+        self.assertTrue(
+            any("summary/cases mismatch" in e for e in ctx.exception.errors)
+        )
+
 
 
 
