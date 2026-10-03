@@ -1128,10 +1128,34 @@ def _validate_shadow_batch(cases: Any, authority_root=None) -> list[str]:
         if not isinstance(existing_work, list):
             errors.append(f"shadow_batch[{i}].existing_work: array required")
 
+        expected = case.get("expected")
         errors.extend(
             f"shadow_batch[{i}].{error}"
-            for error in _validate_shadow_expected(case.get("expected"))
+            for error in _validate_shadow_expected(expected)
         )
+
+        if (
+            evidence_class in {"historical_replay", "live_shadow"}
+            and isinstance(expected, dict)
+            and isinstance(expected.get("oracle_ref"), str)
+            and expected.get("oracle_ref", "").strip()
+        ):
+            oracle_ref = expected["oracle_ref"].strip()
+            _oracle_path, _oracle_fragment, oracle_errors = _resolve_repo_authority_ref(
+                oracle_ref, authority_root
+            )
+            errors.extend(
+                f"shadow_batch[{i}].oracle_ref: {error}"
+                for error in oracle_errors
+            )
+            oracle_path_text = oracle_ref.partition("#")[0]
+            evidence_path_texts = {
+                ref.partition("#")[0] for ref in refs
+            }
+            if oracle_path_text in evidence_path_texts:
+                errors.append(
+                    f"shadow_batch[{i}].oracle_ref: oracle artifact must be distinct from source evidence"
+                )
 
         # Do not privacy-scan the whole nested payload again: root PBI author is
         # categorical (human|ai|mixed) and is adapted only by _privacy_errors(payload).
@@ -1271,6 +1295,10 @@ def evaluate_shadow_batch(
             "scope": "post_admission_materialization",
             "materialization_admission_evaluated": False,
             "no_action_coverage": False,
+            "historical_live_oracle_repository_visibility_enforced": True,
+            "source_oracle_artifact_separation_enforced": True,
+            "oracle_independence_enforced": False,
+            "oracle_independence_owner": "caller_or_independent_reviewer",
             "holdout_isolation_enforced": False,
             "generalization_claim_allowed": False,
             "holdout_isolation_owner": "caller_or_independent_evaluator",
