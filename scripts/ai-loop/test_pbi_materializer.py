@@ -577,10 +577,10 @@ class AdmissionTests(unittest.TestCase):
         self.assertFalse(result["write_allowed"])
         self.assertFalse(result["close_allowed"])
 
-    def test_reported_informational_signal_is_no_action_proposal(self):
+    def test_observed_informational_signal_is_no_action_proposal(self):
         result = pm.admit_signal(
             self._signal(
-                claim_class="reported",
+                claim_class="observed",
                 disposition="informational",
                 candidate_problem=None,
             )
@@ -588,6 +588,17 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(result["decision"], "no_action")
         self.assertEqual(result["next"], "record_evaluation_only")
         self.assertFalse(result["close_allowed"])
+
+    def test_reported_informational_signal_requires_discovery(self):
+        result = pm.admit_signal(
+            self._signal(
+                claim_class="reported",
+                disposition="informational",
+                candidate_problem=None,
+            )
+        )
+        self.assertEqual(result["decision"], "discover_more")
+        self.assertEqual(result["next"], "bounded_discovery")
 
     def test_inferred_actionable_signal_routes_to_discovery(self):
         result = pm.admit_signal(
