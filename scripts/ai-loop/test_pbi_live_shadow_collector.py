@@ -1202,6 +1202,13 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertFalse(
             boundary["collection_target_is_case_generation_instruction"]
         )
+        self.assertEqual(
+            boundary["collection_coverage_basis"],
+            "reviewed_expected_decisions",
+        )
+        self.assertFalse(
+            boundary["maker_actual_counts_as_ground_truth_coverage"]
+        )
         self.assertFalse(boundary["runtime_execution_verified"])
         self.assertFalse(boundary["quality_acceptance_decided"])
         self.assertFalse(plan["authority"]["write_allowed"])
@@ -1229,11 +1236,15 @@ class LiveShadowCollectorTests(unittest.TestCase):
             ["materialize", "discover_more"],
         )
         self.assertEqual(
-            plan["inventory_snapshot"]["admission"]["observed_decisions"],
+            plan["inventory_snapshot"]["admission"]["observed_actual_decisions"],
             ["no_action"],
         )
         self.assertEqual(
-            plan["inventory_snapshot"]["admission"]["missing_decisions"],
+            plan["inventory_snapshot"]["admission"]["reviewed_expected_decisions"],
+            ["no_action"],
+        )
+        self.assertEqual(
+            plan["inventory_snapshot"]["admission"]["missing_reviewed_decisions"],
             ["discover_more", "materialize"],
         )
         self.assertNotIn(
@@ -1264,7 +1275,7 @@ class LiveShadowCollectorTests(unittest.TestCase):
         )
         self.assertIn(
             "materialize",
-            plan["inventory_snapshot"]["admission"]["observed_decisions"],
+            plan["inventory_snapshot"]["admission"]["reviewed_expected_decisions"],
         )
         materialization_targets = [
             item for item in plan["collection_targets"]
@@ -1284,6 +1295,62 @@ class LiveShadowCollectorTests(unittest.TestCase):
         self.assertFalse(
             plan["policy_boundary"][
                 "collection_target_is_case_generation_instruction"
+            ]
+        )
+
+    def test_collection_plan_does_not_count_maker_actual_as_ground_truth(self):
+        self.signal.update(
+            {
+                "statement": "Observed signal looks actionable to the maker.",
+                "disposition": "actionable",
+                "candidate_problem": "Maker would materialize this signal.",
+            }
+        )
+        self._collect_packet()
+        self._write_oracle(expected="no_action")
+        collector.collect_reviewed_admission_case(
+            repo_root=self.root,
+            packet_ref=self.packet_ref,
+            oracle_ref=self.oracle_ref,
+            case_artifact_ref=self.case_artifact_ref,
+        )
+
+        plan = collector.plan_live_shadow_collection(
+            repo_root=self.root
+        )
+        snapshot = plan["inventory_snapshot"]["admission"]
+        self.assertEqual(
+            snapshot["observed_actual_decisions"],
+            ["materialize"],
+        )
+        self.assertEqual(
+            snapshot["reviewed_expected_decisions"],
+            ["no_action"],
+        )
+        self.assertIn(
+            "materialize",
+            snapshot["missing_reviewed_decisions"],
+        )
+        admission_targets = [
+            item["decision"]
+            for item in plan["collection_targets"]
+            if item["stage"] == "admission"
+        ]
+        self.assertIn("materialize", admission_targets)
+        materialization_targets = [
+            item for item in plan["collection_targets"]
+            if item["stage"] == "materialization"
+        ]
+        self.assertTrue(
+            all(
+                not item["currently_collectable"]
+                and not item["prerequisites_satisfied"]
+                for item in materialization_targets
+            )
+        )
+        self.assertFalse(
+            plan["policy_boundary"][
+                "maker_actual_counts_as_ground_truth_coverage"
             ]
         )
 
