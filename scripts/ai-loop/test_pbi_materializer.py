@@ -1279,24 +1279,68 @@ class WriteReviewAssessmentTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def _materialization_report(self, **overrides):
+        cases = [
+            {
+                "case_ref": "M-CREATE",
+                "evidence_class": "live_shadow",
+                "status": "match",
+                "actual_decision": "create_new",
+                "actual_readiness_route": "future_run",
+            },
+            {
+                "case_ref": "M-UPDATE",
+                "evidence_class": "live_shadow",
+                "status": "match",
+                "actual_decision": "update_existing",
+                "actual_readiness_route": "future_run",
+            },
+            {
+                "case_ref": "M-LINK",
+                "evidence_class": "live_shadow",
+                "status": "match",
+                "actual_decision": "link_only",
+                "actual_readiness_route": "future_run",
+            },
+        ]
         report = {
             "mode": "shadow_evaluation",
             "write_allowed": False,
             "automatic_promotion": False,
             "metrics": {"overall": {"errors": 0}},
             "rollout_evidence": {
-                "live_shadow_cases": 1,
+                "live_shadow_cases": 3,
                 "observed_decisions": [
                     "create_new",
-                    "update_existing",
                     "link_only",
+                    "update_existing",
                 ],
             },
+            "cases": cases,
         }
         report.update(overrides)
         return report
 
     def _admission_report(self, **overrides):
+        cases = [
+            {
+                "case_ref": "A-MATERIALIZE",
+                "evidence_class": "live_shadow",
+                "status": "match",
+                "actual": "materialize",
+            },
+            {
+                "case_ref": "A-NO-ACTION",
+                "evidence_class": "live_shadow",
+                "status": "match",
+                "actual": "no_action",
+            },
+            {
+                "case_ref": "A-DISCOVER",
+                "evidence_class": "live_shadow",
+                "status": "match",
+                "actual": "discover_more",
+            },
+        ]
         report = {
             "mode": "admission_evaluation",
             "write_allowed": False,
@@ -1304,15 +1348,16 @@ class WriteReviewAssessmentTests(unittest.TestCase):
             "suppression_allowed": False,
             "automatic_promotion": False,
             "metrics": {"overall": {"errors": 0}},
-            "rollout_evidence": {"live_shadow_cases": 1},
+            "rollout_evidence": {"live_shadow_cases": 3},
             "coverage": {
                 "decision_coverage_complete": True,
                 "observed_admission_decisions": [
+                    "discover_more",
                     "materialize",
                     "no_action",
-                    "discover_more",
                 ],
             },
+            "cases": cases,
         }
         report.update(overrides)
         return report
@@ -1388,15 +1433,19 @@ class WriteReviewAssessmentTests(unittest.TestCase):
             latest_full_test_green=False,
             independent_oracle_review_ref=None,
         )
+        for case in assessment["materialization_report"]["cases"]:
+            case["evidence_class"] = "historical_replay"
         assessment["materialization_report"]["rollout_evidence"][
             "live_shadow_cases"
         ] = 0
+        for case in assessment["admission_report"]["cases"]:
+            case["evidence_class"] = "historical_replay"
         assessment["admission_report"]["rollout_evidence"][
             "live_shadow_cases"
         ] = 0
         assessment["admission_report"]["coverage"][
             "decision_coverage_complete"
-        ] = False
+        ] = True
         result = self._assess(assessment)
         self.assertFalse(result["write_review_ready"])
         for blocker in (
@@ -1411,6 +1460,12 @@ class WriteReviewAssessmentTests(unittest.TestCase):
 
     def test_materialization_decision_coverage_is_required(self):
         assessment = self._assessment()
+        assessment["materialization_report"]["cases"] = [
+            assessment["materialization_report"]["cases"][0]
+        ]
+        assessment["materialization_report"]["rollout_evidence"][
+            "live_shadow_cases"
+        ] = 1
         assessment["materialization_report"]["rollout_evidence"][
             "observed_decisions"
         ] = ["create_new"]
@@ -1427,6 +1482,13 @@ class WriteReviewAssessmentTests(unittest.TestCase):
 
     def test_evaluator_errors_block_review(self):
         assessment = self._assessment()
+        assessment["admission_report"]["cases"].append(
+            {
+                "case_ref": "A-ERROR",
+                "evidence_class": "historical_replay",
+                "status": "error",
+            }
+        )
         assessment["admission_report"]["metrics"]["overall"]["errors"] = 1
         result = self._assess(assessment)
         self.assertFalse(result["write_review_ready"])
