@@ -17,6 +17,7 @@ Run:
     python3 scripts/ai-loop/test_pbi_materializer.py
 """
 
+import ast
 import copy
 import json
 import pathlib
@@ -94,6 +95,29 @@ def _existing(
         else ["AC-01: repeated verifier failure is detected"],
         "bound_to_approved_plan": bound,
     }
+
+
+class TestDefinitionIntegrityTests(unittest.TestCase):
+    def test_no_duplicate_test_method_names_within_a_class(self):
+        tree = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
+        duplicates = []
+        for node in tree.body:
+            if not isinstance(node, ast.ClassDef):
+                continue
+            seen = set()
+            for child in node.body:
+                if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if not child.name.startswith("test_"):
+                    continue
+                if child.name in seen:
+                    duplicates.append(f"{node.name}.{child.name}")
+                seen.add(child.name)
+        self.assertEqual(
+            duplicates,
+            [],
+            f"duplicate unittest method names silently override earlier tests: {duplicates}",
+        )
 
 
 class MaterializationFixtures(unittest.TestCase):
