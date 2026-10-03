@@ -1486,6 +1486,8 @@ def inventory_live_shadow_cases(
             "merge_allowed": False,
             "quality_thresholds_applied": False,
             "quality_acceptance_decided": False,
+            "plan_reuse_without_reinventory_allowed": False,
+            "inventory_hashes_are_commit_identity": False,
         },
     }
 
