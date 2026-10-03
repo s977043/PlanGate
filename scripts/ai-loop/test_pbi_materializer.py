@@ -636,10 +636,21 @@ class ShadowComparisonTests(unittest.TestCase):
 
 
 class ShadowBatchEvaluationTests(unittest.TestCase):
-    def _case(self, case_ref, split, *, decision="create_new", matched_ref=None):
+    def _case(
+        self,
+        case_ref,
+        split,
+        *,
+        decision="create_new",
+        matched_ref=None,
+        evidence_class="synthetic_fixture",
+        evidence_refs=None,
+    ):
         return {
             "case_ref": case_ref,
             "split": split,
+            "evidence_class": evidence_class,
+            "evidence_refs": [] if evidence_refs is None else list(evidence_refs),
             "payload": _payload(),
             "existing_work": [],
             "expected": {
@@ -714,6 +725,55 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
         self.assertEqual(report["metrics"]["test"]["exact_match_rate"], 0.0)
         self.assertFalse(report["write_allowed"])
         self.assertFalse(report["automatic_promotion"])
+
+
+    def test_historical_replay_requires_repository_visible_evidence(self):
+        case = self._case(
+            "historical-missing",
+            "test",
+            evidence_class="historical_replay",
+            evidence_refs=[],
+        )
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.evaluate_shadow_batch([case])
+        self.assertTrue(
+            any("requires repository-visible evidence refs" in e for e in ctx.exception.errors)
+        )
+
+    def test_historical_replay_counts_separately_from_synthetic(self):
+        historical_ref = "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json"
+        train = self._case("synthetic-train", "train")
+        historical = self._case(
+            "historical-test",
+            "test",
+            evidence_class="historical_replay",
+            evidence_refs=[historical_ref],
+        )
+        historical["payload"]["claims"][0]["source_ref"] = historical_ref
+        historical["payload"]["claims"][0]["source_kind"] = "existing_behavior"
+        historical["payload"]["requirements"] = []
+        report = pm.evaluate_shadow_batch([train, historical])
+        self.assertEqual(report["evidence_metrics"]["synthetic_fixture"]["total"], 1)
+        self.assertEqual(report["evidence_metrics"]["historical_replay"]["total"], 1)
+        self.assertEqual(report["evidence_metrics"]["live_shadow"]["total"], 0)
+        self.assertEqual(report["rollout_evidence"]["historical_replay_cases"], 1)
+        self.assertTrue(
+            report["rollout_evidence"]["synthetic_excluded_from_rollout_claim"]
+        )
+
+    def test_harness_historical_replay_uses_candidate_evolution_path(self):
+        historical_ref = "docs/working/ai-loop-runs/20260707T073726Z-e752626-run010-final.json"
+        case = self._case(
+            "historical-harness",
+            "test",
+            evidence_class="historical_replay",
+            evidence_refs=[historical_ref],
+        )
+        case["payload"]["target_layer"] = "harness"
+        case["payload"]["harness_candidate_ref"] = "HC-TEST"
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.evaluate_shadow_batch([case])
+        self.assertTrue(any("#874/#869" in e for e in ctx.exception.errors))
 
 
 class DeterminismAndSearchTests(unittest.TestCase):
