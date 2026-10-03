@@ -202,11 +202,13 @@ def _safe_append_jsonl(
         )
     try:
         target.relative_to(root)
+        inside_repo = True
+    except ValueError:
+        inside_repo = False
+    if inside_repo:
         raise CodexProbeCandidateError(
             ["output: probe log must stay outside repository"]
         )
-    except ValueError:
-        pass
 
     flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
     flags |= getattr(os, "O_NOFOLLOW", 0)
