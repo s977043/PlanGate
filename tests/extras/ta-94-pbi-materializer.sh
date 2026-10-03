@@ -755,6 +755,10 @@ if cmp -s "$_t94_agents_skill" "$_t94_codex_skill" \
   && grep -q -- '--case-artifact-ref' "$_t94_agents_skill" \
   && grep -q '### 6.6 Live Materialization review（post-admission）' "$_t94_agents_skill" \
   && grep -q 'materialization-inventory' "$_t94_agents_skill" \
+  && grep -q '### 6.7 Live collection plan（read-only / non-quota）' "$_t94_agents_skill" \
+  && grep -q 'collection-plan' "$_t94_agents_skill" \
+  && grep -q 'collection_coverage_basis = reviewed_expected_decisions' "$_t94_agents_skill" \
+  && grep -q 'maker_actual_counts_as_ground_truth_coverage = false' "$_t94_agents_skill" \
   && grep -q 'signal が無い run にダミー signal / capture を作ってはならない' "$_t94_agents_skill" \
   && grep -q '## Step 6: RunEvidence + passive PBI live-shadow capture' "$_t94_claude_skill" \
   && grep -q 'scripts/ai-loop/pbi_materializer.py' "$_t94_claude_skill" \
@@ -1215,6 +1219,94 @@ if [ "$_t94_mat_rc" -eq 0 ] \
 else
   printf '  [FAIL] live Materialization E2E failed (rc=%s)\n' "$_t94_mat_rc" >&2
   for _t94_err in mat-capture.err mat-packet.err mat-admission-case.err mat-case.err mat-inventory.err; do
+    [ -f "$_t94_tmp/$_t94_err" ] && sed 's/^/    /' "$_t94_tmp/$_t94_err" >&2
+  done
+  fail=$((fail + 1))
+fi
+
+# 15. Collection plan must use reviewed expectations and remain non-quota/read-only.
+_t94_collect_plan="$_t94_tmp/collection-plan-no-action.out"
+_t94_mat_plan="$_t94_tmp/collection-plan-materialize.out"
+_t94_plan_rc=0
+
+"$_T94_PY" "$_t94_collector" --repo-root "$_t94_collect_root" collection-plan \
+  >"$_t94_collect_plan" 2>"$_t94_tmp/collection-plan-no-action.err" || _t94_plan_rc=$?
+
+if [ "$_t94_plan_rc" -eq 0 ]; then
+  "$_T94_PY" "$_t94_collector" --repo-root "$_t94_mat_root" collection-plan \
+    >"$_t94_mat_plan" 2>"$_t94_tmp/collection-plan-materialize.err" || _t94_plan_rc=$?
+fi
+
+if [ "$_t94_plan_rc" -eq 0 ]; then
+  "$_T94_PY" - "$_t94_collect_plan" "$_t94_mat_plan" <<'PY'
+import json
+import pathlib
+import sys
+
+no_action = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+materialize = json.loads(pathlib.Path(sys.argv[2]).read_text(encoding="utf-8"))
+
+assert no_action["mode"] == "pbi_live_shadow_collection_plan"
+assert materialize["mode"] == "pbi_live_shadow_collection_plan"
+
+assert no_action["collection_target_count"] == 5
+assert materialize["collection_target_count"] == 4
+
+for plan in (no_action, materialize):
+    boundary = plan["policy_boundary"]
+    assert boundary["opportunistic_observation_only"] is True
+    assert boundary["synthetic_case_generation_for_coverage_allowed"] is False
+    assert boundary["historical_relabeling_allowed"] is False
+    assert boundary["decision_coverage_quota_defined"] is False
+    assert boundary["source_kind_coverage_requirement_defined"] is False
+    assert boundary["representative_coverage_claim_allowed"] is False
+    assert boundary["coverage_complete_implies_representative"] is False
+    assert boundary["collection_target_is_quota"] is False
+    assert boundary["collection_target_is_case_generation_instruction"] is False
+    assert boundary["collection_coverage_basis"] == "reviewed_expected_decisions"
+    assert boundary["maker_actual_counts_as_ground_truth_coverage"] is False
+    assert boundary["runtime_execution_verified"] is False
+    assert boundary["quality_acceptance_decided"] is False
+    assert plan["authority"]["read_only"] is True
+    assert plan["authority"]["write_allowed"] is False
+
+assert (
+    no_action["inventory_snapshot"]["admission"]["reviewed_expected_decisions"]
+    == ["no_action"]
+)
+assert (
+    no_action["inventory_snapshot"]["admission"]["observed_actual_decisions"]
+    == ["no_action"]
+)
+assert all(
+    not item["currently_collectable"]
+    for item in no_action["collection_targets"]
+    if item["stage"] == "materialization"
+)
+
+assert (
+    materialize["inventory_snapshot"]["admission"]["reviewed_expected_decisions"]
+    == ["materialize"]
+)
+assert (
+    materialize["inventory_snapshot"]["materialization"]["reviewed_expected_decisions"]
+    == ["create_new"]
+)
+assert all(
+    item["currently_collectable"]
+    for item in materialize["collection_targets"]
+    if item["stage"] == "materialization"
+)
+PY
+  _t94_plan_rc=$?
+fi
+
+if [ "$_t94_plan_rc" -eq 0 ]; then
+  printf '  [PASS] live collection plan: reviewed coverage drives non-quota targets\n'
+  pass=$((pass + 1))
+else
+  printf '  [FAIL] live collection plan: coverage/prerequisite boundary failed (rc=%s)\n' "$_t94_plan_rc" >&2
+  for _t94_err in collection-plan-no-action.err collection-plan-materialize.err; do
     [ -f "$_t94_tmp/$_t94_err" ] && sed 's/^/    /' "$_t94_tmp/$_t94_err" >&2
   done
   fail=$((fail + 1))
