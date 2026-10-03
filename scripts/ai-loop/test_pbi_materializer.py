@@ -1250,6 +1250,28 @@ class LiveShadowRunEvidenceBindingTests(unittest.TestCase):
             self.assertFalse(capture["authority"]["oracle_attached"])
             self.assertTrue(capture["signal_hash"].startswith("sha256:"))
 
+    def test_passive_capture_rejects_invalid_upstream_source_ref(self):
+        signal = {
+            "signal_id": "SIG-BAD-REF",
+            "source_ref": "../outside.json",
+            "source_kind": "existing_behavior",
+            "claim_class": "observed",
+            "statement": "Invalid upstream ref",
+            "disposition": "actionable",
+            "target_layer": "delivery",
+            "candidate_problem": "Should be rejected",
+        }
+        with self.assertRaises(pm.MaterializationError) as ctx:
+            pm.build_passive_shadow_capture(
+                task_id="TASK-9999",
+                run_id="run-live",
+                captured_at="2026-10-03T04:00:00Z",
+                runtime_head_sha="a" * 40,
+                capture_ref="docs/working/TASK-9999/evidence/capture.json",
+                signal=signal,
+            )
+        self.assertTrue(any("absolute/traversal ref rejected" in e for e in ctx.exception.errors))
+
     def test_passive_capture_rejects_self_sourced_signal(self):
         capture_ref = "docs/working/TASK-9999/evidence/capture.json"
         signal = {
