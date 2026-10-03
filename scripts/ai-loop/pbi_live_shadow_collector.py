@@ -276,6 +276,8 @@ def collect_capture(
         "run_evidence_ref": None,
         "run_evidence_handoff": {
             "evidence_refs": [source_ref.strip(), capture_ref],
+            "source_sha256": _file_sha256(source_path),
+            "capture_hash": artifact_hash,
             "cli_args": [
                 "--evidence-ref",
                 source_ref.strip(),
