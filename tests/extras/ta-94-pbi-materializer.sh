@@ -268,6 +268,8 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"live_shadow_run_evidence_binding_enforced": true' "$_t94_history_out" \
   && grep -q '"run_evidence_schema_revalidated": true' "$_t94_history_out" \
   && grep -q '"runtime_head_to_run_evidence_binding_enforced": true' "$_t94_history_out" \
+  && grep -q '"live_capture_requires_concrete_final_head_sha": true' "$_t94_history_out" \
+  && grep -q '"unavailable_final_head_live_capture_supported": false' "$_t94_history_out" \
   && grep -q '"run_evidence_task_binding_reverified": false' "$_t94_history_out" \
   && grep -q '"write_review_eligible": false' "$_t94_history_out" \
   && grep -q '"observed_decisions": \[' "$_t94_history_out" \
@@ -300,6 +302,8 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"live_shadow_run_evidence_binding_enforced": true' "$_t94_admission_out" \
   && grep -q '"run_evidence_schema_revalidated": true' "$_t94_admission_out" \
   && grep -q '"runtime_head_to_run_evidence_binding_enforced": true' "$_t94_admission_out" \
+  && grep -q '"live_capture_requires_concrete_final_head_sha": true' "$_t94_admission_out" \
+  && grep -q '"unavailable_final_head_live_capture_supported": false' "$_t94_admission_out" \
   && grep -q '"run_evidence_task_binding_reverified": false' "$_t94_admission_out" \
   && grep -q '"write_review_eligible": false' "$_t94_admission_out" \
   && grep -q '"write_allowed": false' "$_t94_admission_out" \
