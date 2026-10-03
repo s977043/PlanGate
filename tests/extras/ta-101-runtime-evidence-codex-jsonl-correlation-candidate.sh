@@ -128,6 +128,7 @@ PY
 cat >"$_t101_jsonl" <<'JSON'
 {"type":"item.completed","item":{"id":"item_3","type":"command_execution","command":"PRIVATE COMMAND MUST NOT LEAK","exit_code":0,"status":"completed"}}
 {"type":"item.completed","item":{"id":"item_5","type":"agent_message","text":"PRIVATE MESSAGE MUST NOT LEAK"}}
+{"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":20}}
 JSON
 
 _t101_rc=0
@@ -145,6 +146,7 @@ if [ "$_t101_rc" -eq 0 ] \
   && grep -q '"same_run_copresence_verified": false' "$_t101_result" \
   && grep -q '"same_run_identity_verified": false' "$_t101_result" \
   && grep -q '"direct_agent_id_correlation_available": false' "$_t101_result" \
+  && grep -q '"trace_completion_candidate_verified": true' "$_t101_result" \
   && grep -q '"codex_jsonl_runtime_correlation_verified": false' "$_t101_result" \
   && grep -q '"runtime_probe_attestation_verified": false' "$_t101_result" \
   && grep -q '"dispatch_ready": false' "$_t101_result" \
