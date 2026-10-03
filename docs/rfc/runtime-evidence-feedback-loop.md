@@ -368,7 +368,7 @@ Example normalized signal:
 ```json
 {
   "signal_id": "runtime:<stable-intake-id>",
-  "source_ref": "docs/working/TASK-XXXX/evidence/runtime-ingress/<event-id>/source.json",
+  "source_ref": "docs/working/_runtime-ingress/<provider>/<intake-sha256>/<snapshot-sha256>.json",
   "statement": "External runtime provider reported repeated failures for the deployed service.",
   "source_kind": "external_source",
   "claim_class": "reported",
@@ -403,10 +403,10 @@ Before the existing materializer consumes an external signal, the adapter create
 Recommended pre-PBI shape:
 
 ```text
-docs/working/_runtime-ingress/<provider>/<intake-id>/source.json
+docs/working/_runtime-ingress/<provider>/<intake-sha256>/<snapshot-sha256>.json
 ```
 
-This namespace stores immutable sanitized evidence only; mutable dedup / recurrence state remains provider- or adapter-owned. After a PBI/TASK is created, `pbi-input.md` references this source artifact.
+This namespace stores immutable sanitized evidence only; mutable dedup / recurrence state remains provider- or adapter-owned. The logical intake digest is stable across equivalent occurrences, while the filename is the **full SHA-256 of the canonical sanitized snapshot**. Therefore the repository path itself binds the Evidence content. After a PBI/TASK is created, `pbi-input.md` references this source artifact.
 
 When the observation is already bound to an existing ai-loop Run and the TASK/run/final-head/time contract is available, the existing #1443 `pbi_live_shadow_collector.py` may additionally bind the signal into task-scoped live-shadow evidence. The collector is **not** a prerequisite for standalone external incident admission. The snapshot should contain only data required to establish provenance and support investigation, for example:
 
@@ -436,7 +436,7 @@ runtime_source:
 
 This is a sanitized provenance snapshot, not a raw telemetry archive. Full logs / traces stay at the provider or approved evidence store.
 
-The source snapshot must be create-only or idempotently reusable for the same canonical content. A retry that produces different content for the same immutable source ref fails closed rather than overwriting prior evidence.
+The source snapshot must be create-only or idempotently reusable for the same canonical content. A retry that produces different content for the same immutable source ref fails closed rather than overwriting prior evidence. Consumers must recompute the canonical snapshot hash and confirm it matches the full digest encoded in `source_ref` before trusting the snapshot.
 
 ## 6. Connection to Delivery / Learn / Evolve
 
@@ -526,14 +526,28 @@ Any runtime-derived request to disable tests, widen permissions, change approval
 
 ### 7.2 Least-privilege investigation
 
-The first agent activity triggered by runtime evidence should prefer **read-only investigation**:
+The first activity triggered by runtime evidence should prefer **read-only investigation**. The R1 first slice reuses the existing Explorer role rather than creating a runtime-only Agent:
 
-- inspect referenced logs / traces;
+- inspect repository-visible Evidence refs;
 - inspect repository state;
 - correlate deployment and commit identity;
-- reproduce the failure when safe;
 - form a cause hypothesis;
-- propose a bounded work request.
+- propose a bounded candidate problem.
+
+The initial R1 shadow contract does **not** permit web search, network shell, credential reads, test/build execution, or write-capable shell. Provider evidence may be read only through an approved read-only connector. Runtime-derived text must not define repository paths, commands, tool policy, or trusted instructions.
+
+Static role/config declarations are not runtime enforcement evidence:
+
+```text
+read_only_declared
+  != hard_read_only_enforced
+  != registered
+  != selected
+  != fired
+  != produced_evidence
+```
+
+The #1450 shadow implementation therefore keeps `hard_read_only_enforced=false`, `activation_eligible=false`, `execution_allowed=false`, and `agent_invoke_allowed=false` until runtime registration/enforcement, provider connector registration, admission binding, and an explicit R1 rollout decision are independently evidenced.
 
 Write access should begin only through the existing PlanGate planning / approval path. Runtime-triggered investigation must not receive broader permissions merely because the signal came from production.
 
@@ -703,7 +717,7 @@ Do not move directly from "adapter installed" to autonomous downstream action. R
 | Stage | Runtime behavior | Required evidence before promotion |
 | --- | --- | --- |
 | R0 Shadow | receive / authenticate / normalize / dedup only; no agent invocation | event authenticity, replay rejection, dedup correctness, redaction success |
-| R1 Read-only investigation | approved agent may inspect evidence + repository without writes | adapter is actually selected/fired, investigation produces traceable evidence, no instruction-channel contamination |
+| R1 Read-only investigation | approved agent may inspect evidence + repository without writes; current #1450 implementation is shadow request construction only | hard read-only enforcement + role/connector registration + explicit rollout decision, then selected/fired evidence; investigation produces traceable evidence with no instruction-channel contamination |
 | R2 Work proposal | produce bounded `pbi-input` candidate; Human / normal PlanGate path decides whether to proceed | proposal quality, scope discipline, no invented AC, no `allowed_paths` widening, provenance preserved |
 | R3 External side effect | optionally create a governed GitHub Issue using intent → action → receipt | duplicate side-effect prevention, Issue Governance conformance, reconciliation after lost responses |
 
@@ -711,8 +725,10 @@ R3 still does **not** grant the runtime adapter authority to edit code, approve 
 
 This staged rollout complements V2 Runtime Activation:
 
-- `installed` / `registered` prove only presence;
-- R1 must show at least `fired` / `produced_evidence`-equivalent evidence for the adapter path;
+- static config or `installed` proves only presence/declaration;
+- `registered` must come from runtime registration evidence, not repository files;
+- #1450 R1 shadow request generation does not count as R1 Agent activation;
+- active R1 must show at least `fired` / `produced_evidence`-equivalent evidence for the investigation path;
 - a claim that the adapter improved downstream decisions requires evidence that its output was actually consumed, not merely generated.
 
 #### Rollback / kill conditions
@@ -794,22 +810,25 @@ These criteria evaluate the intake mechanism. They do not prove that every runti
 ### 11.1 Implementation tracking
 
 - #1448 — External Runtime Evidence Ingress Adapter R0/R1 shadow implementation.
+- #1449 — R0 provider-neutral ingress + Cloudflare reference mapping + content-addressed pre-PBI Evidence + TA-95.
+- #1450 — R1 read-only investigation **shadow request** + static/runtime activation separation + TA-96.
 - #1448 depends on #1441 / #1443 finalization before production behavior changes.
 - First reference provider: Cloudflare runtime-issue path; provider-neutral contract remains authoritative.
+- R1 Agent invocation remains disabled; #1450 is not evidence that the component is registered/fired.
 
 ## 12. Open questions
 
 1. **Proposed answer**: Runtime Evidence should default to a typed external Evidence reference owned by existing V2 artifacts / events, not a new mutable artifact. A new artifact requires separate justification.
 2. **Proposed answer**: deduplication and recurrence state belong to the provider / intake adapter or an intake registry outside Delivery Run state; V2 receives immutable intake decisions / evidence refs.
 3. **Proposed answer**: the first PoC creates only a bounded `pbi-input` candidate / internal work request. Automatic GitHub Issue creation is a later downstream side effect and must use intent → action → receipt idempotency plus Issue Governance.
-4. What minimum evidence is required before an agent may start repository investigation?
+4. **Proposed answer**: building an R1 shadow request requires authenticated/redacted content-addressed source Evidence; actual Agent start additionally requires proven hard read-only runtime enforcement, runtime role registration, approved provider connector registration, independently bound admission/materialization Evidence, and an explicit R1 rollout decision.
 5. Which fields must be redacted or converted to opaque references?
 6. How should a runtime-originated task bind to deployment / commit identity when the running version is not traceable?
 7. What metrics are sufficient to decide whether the adapter improves Time to Learning without increasing unsafe automation?
 8. **Proposed answer**: before a PBI/TASK exists, persist sanitized immutable source evidence in a non-task intake namespace (recommended `docs/working/_runtime-ingress/.../`). Once a PBI exists, bind that external evidence ref in `pbi-input.md`; during a Run, Phase 1 should define a RunEvent semantic that records consumption/correlation of the same refs. RunEvidence only projects those Run-local facts.
-9. What trust level is required before repository investigation can begin for each adapter class?
-10. Which investigation actions must remain read-only before a normal PlanGate work request exists?
-11. How should adapters prove that untrusted telemetry was kept out of the trusted instruction channel?
+9. **Proposed answer**: provider authentication alone remains `reported`; `observed` requires independent repository-visible correlation Evidence. This trust level does not by itself grant Agent execution authority.
+10. **Proposed answer**: before a normal PlanGate work request exists, allow repository read/search, read-only repository shell, and approved read-only provider access only. Forbid edit/write/test/build/web-search/network-shell/credential access and all downstream mutation.
+11. **Proposed answer**: pass only Evidence refs across the trusted request boundary; do not inline runtime text into trusted instructions. Fixtures must prove prompt-like telemetry cannot alter scope, commands, tool policy, or activation state.
 12. **Proposed answer**: use the Cloudflare runtime-issue path as the first R0/R1 reference adapter because it is the motivating case for this RFC. Keep the core provider-neutral and treat Cloudflare-specific fields as adapter mapping only.
 
 ## 13. Decision requested
