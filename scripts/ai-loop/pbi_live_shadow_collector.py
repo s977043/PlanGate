@@ -104,7 +104,7 @@ def _atomic_create_json(
     repo_root: pathlib.Path,
     ref: str,
     value: dict[str, Any],
-) -> str:
+) -> tuple[str, bool]:
     root = repo_root.resolve()
     target = root / ref
     _ensure_safe_parent(root, target)
@@ -143,6 +143,7 @@ def _atomic_create_json(
             handle.flush()
             os.fsync(handle.fileno())
 
+        reused = False
         try:
             os.link(
                 temp_name,
@@ -151,8 +152,32 @@ def _atomic_create_json(
                 dst_dir_fd=dir_fd,
                 follow_symlinks=False,
             )
-        except FileExistsError as exc:
-            raise CollectorError(f"artifact already exists: {ref}") from exc
+        except FileExistsError:
+            read_flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            try:
+                existing_fd = os.open(final_name, read_flags, dir_fd=dir_fd)
+            except OSError as exc:
+                raise CollectorError(
+                    f"existing artifact is not a safe regular file: {ref}"
+                ) from exc
+            try:
+                mode = os.fstat(existing_fd).st_mode
+                if not stat.S_ISREG(mode):
+                    raise CollectorError(
+                        f"existing artifact is not a regular file: {ref}"
+                    )
+                with os.fdopen(existing_fd, "rb", closefd=True) as handle:
+                    existing_fd = -1
+                    existing = handle.read()
+            finally:
+                if existing_fd >= 0:
+                    os.close(existing_fd)
+
+            if existing != payload:
+                raise CollectorError(
+                    f"artifact already exists with different content: {ref}"
+                )
+            reused = True
 
         os.fsync(dir_fd)
     finally:
@@ -164,7 +189,7 @@ def _atomic_create_json(
             pass
         os.close(dir_fd)
 
-    return pm._canonical_json_hash(value)
+    return pm._canonical_json_hash(value), reused
 
 
 def _require_existing_source(
@@ -213,17 +238,21 @@ def collect_capture(
     if source_path.resolve() == capture_target:
         raise CollectorError("source_ref must be distinct from capture artifact")
 
-    artifact_hash = _atomic_create_json(repo_root, capture_ref, capture)
+    artifact_hash, artifact_reused = _atomic_create_json(
+        repo_root, capture_ref, capture
+    )
     return {
         "mode": "pbi_live_shadow_collect_capture",
         "artifact_ref": capture_ref,
         "artifact_hash": artifact_hash,
+        "artifact_reused": artifact_reused,
         "source_ref": source_ref.strip(),
         "run_evidence_ref": None,
         "next": "finalize_run_evidence_with_source_and_capture_refs",
         "authority": {
             "evidence_create_allowed": True,
             "overwrite_allowed": False,
+            "idempotent_reuse_allowed": True,
             "pbi_write_allowed": False,
             "issue_write_allowed": False,
             "close_allowed": False,
@@ -323,11 +352,14 @@ def collect_review_packet(
         },
     }
 
-    artifact_hash = _atomic_create_json(repo_root, packet_ref, packet)
+    artifact_hash, artifact_reused = _atomic_create_json(
+        repo_root, packet_ref, packet
+    )
     return {
         "mode": "pbi_live_shadow_collect_review_packet",
         "artifact_ref": packet_ref,
         "artifact_hash": artifact_hash,
+        "artifact_reused": artifact_reused,
         "source_ref": source_ref,
         "capture_ref": capture_ref,
         "run_evidence_ref": run_evidence_ref,
