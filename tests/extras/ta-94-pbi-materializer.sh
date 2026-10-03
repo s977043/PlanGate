@@ -774,7 +774,8 @@ _t94_rc=0
 "$_T94_PY" "$_t94_collector_test" >"$_t94_collector_log" 2>&1 || _t94_rc=$?
 if [ "$_t94_rc" -eq 0 ] \
   && grep -Eq 'Ran [1-9][0-9]* tests?' "$_t94_collector_log" \
-  && grep -q '^OK
+  && grep -q '^OK$' "$_t94_collector_log" \
+  && cmp -s "$_t94_collector" "$_t94_plugin_collector" \
   && cmp -s "$_t94_collector_test" "$_t94_plugin_collector_test"; then
   printf '  [PASS] live collector: unit suite fired and plugin mirrors are byte-identical\n'
   pass=$((pass + 1))
