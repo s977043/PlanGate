@@ -1,5 +1,7 @@
 # TASK-1442 — PBI write-capable rollout policy
 
+> Policy version: `pbi-write-rollout/v1`
+>
 > Status: **DRAFT / NON-ACTIVE**
 >
 > この文書は、将来の PBI write-capable adapter をレビュー可能にするための
@@ -55,6 +57,37 @@ Explicit activation
 - live observation が不足した状態での数値閾値の決定
 - fuzzy similarity による target 自動選択
 - bound / approved PBI の silent semantic rewrite
+
+## 2.1 Policy identity
+
+将来の activation は「最新 policy」や file path だけを参照してはならない。
+
+activation decision は最低限:
+
+```text
+policy_version = pbi-write-rollout/v1
+policy_ref = docs/working/TASK-1442/write-capable-rollout-policy.md
+policy_sha256 = sha256:<exact content bytes>
+activation_decision_ref = <repository-visible decision ref>
+enabled_mutation_kinds = [...]
+```
+
+を固定する。
+
+`policy_sha256` は activation decision を書く直前の policy bytes から計算し、
+writer は write attempt ごとに現在の policy bytes を再計算して一致を確認する。
+
+```text
+current_policy_sha256 != activated_policy_sha256
+  -> write forbidden
+  -> new review / activation decision required
+```
+
+policy file の編集は既存 activation authority を暗黙継承しない。
+version文字列が同じでも byte hash が変われば再activationを要求する。
+
+mutation attempt の idempotency identity には
+`policy_version` だけでなく activated `policy_sha256` も含める。
 
 ## 3. Rollout stages
 
@@ -179,6 +212,8 @@ evaluated_target_ref
 evaluated_target_hash
 proposal_hash
 write_policy_version
+write_policy_sha256
+activation_decision_ref
 adapter_version
 ```
 
@@ -285,6 +320,8 @@ target_ref
 evaluated_target_hash
 proposal_hash
 write_policy_version
+write_policy_sha256
+activation_decision_ref
 mutation_kind
 ```
 
@@ -356,7 +393,10 @@ activation は別の repository-visible decision により:
 from_stage
 to_stage
 enabled_mutation_kinds
-policy_version/hash
+policy_version
+policy_sha256
+policy_ref
+activation_decision_ref
 evidence_refs
 known_limits
 rollback_owner
