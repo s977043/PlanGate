@@ -241,6 +241,27 @@ External evidence should carry an explicit trust assessment. This is not a quali
 
 A higher level must be earned by additional evidence. Provider reputation alone does not promote an event to `verified`.
 
+### 4.4 Recommended V2 owner mapping
+
+The default Phase 1 direction is to bind runtime-originated work to **existing owners in two stages**, rather than create a new V2 artifact.
+
+| Stage | Existing owner | What is stored |
+| --- | --- | --- |
+| before Delivery Run | Plan Package `pbi-input.md` | immutable external evidence refs, source/provider identity, observation summary, known uncertainty |
+| during Delivery Run | RunEvent stream (Phase 1 event semantics) | the fact that the Run consumed / correlated a specific external evidence ref |
+| derived view | RunEvidence projection | only per-Run evidence refs and observations derivable from that Run's event stream |
+
+Rationale:
+
+- `pbi-input.md` already owns request context / Why / assumptions and is included in the Plan Package binding;
+- V2 canon already states that a "problem observation" RunEvent is still a Phase 1 design item;
+- RunEvidence is a deterministic projection and therefore must not be written directly by the intake adapter;
+- cross-Run recurrence remains intake / analytics state and is never backfilled into historical RunEvidence.
+
+For the PoC, do **not** invent a new RunEvent type. The PoC may bind immutable runtime evidence refs in `pbi-input.md` and demonstrate traceability to the provider event. Phase 1 canon should later define the exact RunEvent semantic that records observation intake.
+
+A future schema field such as `external_evidence_refs` is therefore expected to be **additive to an existing owner**, not the root of a new state machine.
+
 ## 5. Intake policy
 
 The intake layer should decide only what happens next, not whether the eventual code change is valid.
@@ -542,7 +563,7 @@ These criteria evaluate the intake mechanism. They do not prove that every runti
 5. Which fields must be redacted or converted to opaque references?
 6. How should a runtime-originated task bind to deployment / commit identity when the running version is not traceable?
 7. What metrics are sufficient to decide whether the adapter improves Time to Learning without increasing unsafe automation?
-8. Which existing V2 owner should persist the immutable intake reference in Phase 1 (work request / Plan Package / RunEvent) without introducing a second mutable state machine?
+8. **Proposed answer**: before a Run, bind immutable external evidence refs in the Plan Package (`pbi-input.md`); during a Run, Phase 1 should define a RunEvent semantic that records consumption/correlation of the same refs. RunEvidence only projects those Run-local facts.
 9. What trust level is required before repository investigation can begin for each adapter class?
 10. Which investigation actions must remain read-only before a normal PlanGate work request exists?
 11. How should adapters prove that untrusted telemetry was kept out of the trusted instruction channel?
