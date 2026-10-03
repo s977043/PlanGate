@@ -1031,13 +1031,36 @@ def _validate_shadow_batch(cases: Any) -> list[str]:
         elif split == "test":
             has_test = True
 
-        if not isinstance(case.get("payload"), dict):
+        payload = case.get("payload")
+        if not isinstance(payload, dict):
             errors.append(f"shadow_batch[{i}].payload: object required")
-        if not isinstance(case.get("existing_work"), list):
+        else:
+            errors.extend(
+                f"shadow_batch[{i}].payload.{error}"
+                for error in _privacy_errors(payload)
+            )
+
+        existing_work = case.get("existing_work")
+        if not isinstance(existing_work, list):
             errors.append(f"shadow_batch[{i}].existing_work: array required")
+
         errors.extend(
             f"shadow_batch[{i}].{error}"
             for error in _validate_shadow_expected(case.get("expected"))
+        )
+
+        # Do not privacy-scan the whole nested payload again: root PBI author is
+        # categorical (human|ai|mixed) and is adapted only by _privacy_errors(payload).
+        # All non-payload batch metadata remains covered here.
+        errors.extend(
+            f"shadow_batch[{i}].{error}"
+            for error in _privacy_errors(
+                {
+                    "case_ref": case_ref,
+                    "split": split,
+                    "existing_work": existing_work,
+                }
+            )
         )
 
     if not has_test:
@@ -1045,7 +1068,6 @@ def _validate_shadow_batch(cases: Any) -> list[str]:
             "shadow_batch: at least one test split case is required; train-only evidence cannot support rollout evaluation"
         )
 
-    errors.extend(_privacy_errors({"shadow_batch": cases}))
     return errors
 
 
