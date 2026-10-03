@@ -1427,6 +1427,9 @@ assert missing["status"]["rollout_complete"] is False
 assert missing["status"]["automatic_write_activation_allowed"] is False
 assert missing["policy_boundary"]["machine_completion_decision_allowed"] is False
 assert missing["policy_boundary"]["machine_write_activation_allowed"] is False
+assert missing["policy_boundary"]["new_feature_work_implied_by_evidence_gap"] is False
+assert missing["policy_boundary"]["synthetic_case_generation_for_completion_allowed"] is False
+assert missing["policy_boundary"]["historical_relabeling_for_completion_allowed"] is False
 assert missing["caller_assertions"]["assertions_independently_verified"] is False
 
 assert reviewed["mode"] == "pbi_live_shadow_completion_status"
@@ -1434,6 +1437,7 @@ assert reviewed["next_action"] == "human_rollout_decision"
 assert reviewed["status"]["rollout_complete"] is False
 assert reviewed["status"]["rollout_completion_machine_decidable"] is False
 assert reviewed["status"]["automatic_write_activation_allowed"] is False
+assert reviewed["policy_boundary"]["new_feature_work_implied_by_evidence_gap"] is False
 assert reviewed["verification_boundary"]["review_artifact_repository_binding_enforced"] is True
 assert reviewed["verification_boundary"]["review_artifact_content_semantically_verified"] is False
 assert reviewed["verification_boundary"]["reviewer_identity_verified"] is False
