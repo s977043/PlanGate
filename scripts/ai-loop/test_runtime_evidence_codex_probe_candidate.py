@@ -262,6 +262,31 @@ class JsonlRecordingTests(unittest.TestCase):
         self.assertEqual(rows[0]["hook_event_name"], "SubagentStart")
         self.assertEqual(rows[1]["hook_event_name"], "SubagentStop")
 
+    def test_symlink_parent_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo = root / "repo"
+            repo.mkdir()
+            real = root / "real"
+            real.mkdir()
+            link = root / "link"
+            try:
+                link.symlink_to(real, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation unavailable")
+            with self.assertRaises(probe.CodexProbeCandidateError) as ctx:
+                probe.record_hook_event(
+                    repo_root=repo,
+                    output=link / "hooks.jsonl",
+                    event=_start(),
+                    request_hash=REQ,
+                    config_sha=CONFIG,
+                    provider=PROVIDER,
+                )
+        self.assertTrue(
+            any("must not traverse symlinks" in e for e in ctx.exception.errors)
+        )
+
     def test_output_inside_repo_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = pathlib.Path(tmp) / "repo"
