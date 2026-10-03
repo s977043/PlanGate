@@ -1463,8 +1463,17 @@ def plan_live_shadow_collection(
                     "decision": decision,
                     "observation_target": admission_targets[decision],
                     "collection_mode": "opportunistic_real_run_only",
+                    "prerequisites": [],
+                    "prerequisites_satisfied": True,
+                    "currently_collectable": True,
                 }
             )
+    admission_materialize_observed = (
+        "materialize"
+        in admission.get("coverage", {}).get(
+            "observed_admission_decisions", []
+        )
+    )
     for decision in ("create_new", "update_existing", "link_only"):
         if decision in materialization_missing:
             targets.append(
@@ -1473,6 +1482,15 @@ def plan_live_shadow_collection(
                     "decision": decision,
                     "observation_target": materialization_targets[decision],
                     "collection_mode": "opportunistic_real_run_only",
+                    "prerequisites": [
+                        "reviewed_admission_materialize_case"
+                    ],
+                    "prerequisites_satisfied": (
+                        admission_materialize_observed
+                    ),
+                    "currently_collectable": (
+                        admission_materialize_observed
+                    ),
                 }
             )
 
@@ -1525,6 +1543,8 @@ def plan_live_shadow_collection(
             "source_kind_coverage_requirement_defined": False,
             "representative_coverage_claim_allowed": False,
             "coverage_complete_implies_representative": False,
+            "collection_target_is_quota": False,
+            "collection_target_is_case_generation_instruction": False,
             "runtime_execution_verified": False,
             "quality_thresholds_applied": False,
             "quality_acceptance_decided": False,
