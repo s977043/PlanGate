@@ -358,6 +358,23 @@ Candidate scope 外の主要条件が同時に変わり、影響を分離でき�
 
 複数 component を意図的に 1 Candidate としてまとめること自体は禁止しない。ただしその場合に主張できるのは **bundle 全体の効果**までであり、追加の比較 Evidence なしに個別 component の寄与へ因果帰属しない。
 
+#### Expected activation and negative evidence
+
+`fired` が観測されなかったことだけで、component を dead / ineffective と判定しない。rare-path safety guard、failure-only verifier、rollback / recovery path は、通常 Run で発火しないこと自体が正常な場合がある。
+
+Activation を評価する前に、その component の **expected activation condition** を明示する。
+
+| Observation | Interpretation | Next action |
+|---|---|---|
+| expected trigger が観測されていない + non-fired | no observation。dead の証拠ではない | 必要なら targeted fixture / replay で確認 |
+| expected trigger が観測された + non-fired | routing / registration / trigger defect の強い finding | activation path を診断 |
+| fired したが evidence / decision に接続されない | activation は成立、integration / effectiveness が未成立 | produced_evidence / influenced_decision を追跡 |
+| activation 自体を観測できない | `INCONCLUSIVE` | observability gap を先に補う |
+
+rare-path component の確認では、production で危険条件を意図的に発生させることを既定としない。isolated test / sealed fixture / historical replay / safe fault injection など、authority と安全境界を維持できる検証手段を優先する。
+
+とくに Verifier / Gate の変更は [`harness-manifest.md`](./harness-manifest.md) §4 と [`north-star.md`](./north-star.md) §14 に従い、単なる発火ではなく必要な activation level（原則 `influenced_decision`）まで確認する。
+
 #### Redundancy safety check
 
 重複して見える component を MERGE / DEPRECATE / REMOVE_FROM_FLOW 候補にする前に、その重複が **defense-in-depth / independent failure mode / platform fallback / compatibility boundary** として意図的に存在していないか確認する。
