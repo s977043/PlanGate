@@ -54,6 +54,8 @@ VALID_PERMISSION_MODES = {
     "dontAsk",
 }
 EXPECTED_AGENT_TYPE = "explorer_agent"
+MAX_JSONL_BYTES = 1024 * 1024
+MAX_JSONL_RECORDS = 16
 
 
 class CodexProbeCandidateError(ValueError):
@@ -410,8 +412,16 @@ def load_jsonl(path: str | pathlib.Path) -> list[Any]:
     values: list[Any] = []
     source = pathlib.Path(path)
     try:
+        if source.stat().st_size > MAX_JSONL_BYTES:
+            raise CodexProbeCandidateError(
+                ["jsonl: file exceeds 1 MiB limit"]
+            )
         with source.open("r", encoding="utf-8") as handle:
             for line_number, line in enumerate(handle, start=1):
+                if len(values) >= MAX_JSONL_RECORDS:
+                    raise CodexProbeCandidateError(
+                        ["jsonl: record count exceeds limit"]
+                    )
                 stripped = line.strip()
                 if not stripped:
                     continue
@@ -476,7 +486,12 @@ def main(argv=None) -> int:
             print(f"ERROR: invalid hook JSON: {exc}", file=sys.stderr)
         return 2
 
-    print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+    if args.command == "record-hook":
+        # Hook stdout is part of the Codex lifecycle protocol. Emit only a
+        # neutral JSON object so observation data never becomes model context.
+        print("{}")
+    else:
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 
