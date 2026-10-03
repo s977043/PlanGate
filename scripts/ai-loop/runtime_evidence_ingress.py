@@ -326,6 +326,14 @@ def _validate_mapped_snapshot_for_persist(mapped: dict[str, Any]) -> list[str]:
     if source.get("provider") != provider:
         errors.append("mapped.source_snapshot.runtime_source.provider: mismatch")
 
+    # Validate the repository namespace independently from content-address
+    # identity so callers receive both safety boundaries rather than only the
+    # later hash-binding mismatch.
+    try:
+        _validate_source_output_ref(mapped.get("source_ref"), provider)
+    except RuntimeIngressError as exc:
+        errors.extend(exc.errors)
+
     redaction = source.get("redaction")
     if not isinstance(redaction, dict):
         errors.append("mapped.source_snapshot.runtime_source.redaction: object required")
