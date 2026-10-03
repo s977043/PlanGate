@@ -21,7 +21,8 @@ V2 の Issue / Plan / PR は次の順に参照する。
    - [`evaluation-trust-boundary.md`](./evaluation-trust-boundary.md) — Candidate 不可侵 authority / Independence Level / `INCONCLUSIVE`
    - [`artifact-responsibilities.md`](./artifact-responsibilities.md) — artifact 責務分離 / event projection / revision CAS
 4. [`loop-graph-harness.md`](./loop-graph-harness.md) — Loop / Graph / Harness の責務解釈。**North Star と companion canon に従属し、新しい正本・Graph runtime を作らない**
-5. Phase 1 以降で作る Architecture / Contract / State / Verification 文書
+5. [`production-feedback-loop.md`](./production-feedback-loop.md) — Production signal / Runtime Evidence / event-triggered Agent Work の接続ガイド。**non-canon かつ provider-neutral**
+6. Phase 1 以降で作る Architecture / Contract / State / Verification 文書
 
 ## Phase 0 / 0.1 rule
 
