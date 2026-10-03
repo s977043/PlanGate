@@ -74,7 +74,7 @@ Harness N
 
 ```text
 Request
-  -> Bounded Discovery (when uncertainty / impact requires)
+  -> Bounded Discovery (adaptive depth; may be minimal)
        - Goal / Actor / Problem / Job
        - Assumptions / Constraints / Unknowns
        - Evidence / Questions
@@ -94,9 +94,9 @@ Initial Plan も Plan Verification を通る。Replan 時だけ Plan Review す�
 
 Bounded Discovery は全 Task に同じ ceremony を要求しない。depth はコード変更量ではなく、少なくとも **uncertainty / impact / irreversibility / evidence quality** を材料に調整する。単純で十分に既知な変更は Goal / Constraints / Acceptance Criteria の確認で足りる一方、曖昧・高影響・不可逆な変更では As-Is / stakeholder evidence / alternatives / requirement mapping まで広げてよい。RDRA は利用可能な手段の 1 つであり、必須フレームワークにはしない。
 
-AI は Discovery で正解の Requirement を創作する主体ではない。AI は hypothesis generation / question generation / evidence-gap detection / structuring を担い、Human は reality check / stakeholder input / trade-off / semantic judgment を担う。Evidence が不足する場合は Unknown として残し、もっともらしい Requirement で埋めない。
+AI は Discovery で正解の Requirement を創作する主体ではない。AI は hypothesis generation / question generation / evidence-gap detection / structuring を担う。Human は stakeholder input や意味・優先順位・trade-off の判断が必要な箇所の authority を保持する。低リスクで既知の変更に一律の手動 interview / reality check を要求しない。Evidence が不足する場合は Unknown として残し、もっともらしい Requirement で埋めない。
 
-Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requirement -> Plan decision / Acceptance Criteria -> Work Item / Task -> Verification / Evidence の Traceability Chain を既存 ID / ref で構成する。新しい Lifecycle State / Gate / top-level artifact / mutable graph store をこのためだけに追加しない。
+Discovery の結果は既存 Plan Package に保持し、Goal / Problem -> Requirement -> Plan decision / Acceptance Criteria -> Work Item / Task (when applicable) -> Verification / Evidence の Traceability Chain を既存 ID / ref で構成する。新しい Lifecycle State / Gate / top-level artifact / mutable graph store をこのためだけに追加しない。
 
 > **Do not optimize a solution before validating the problem enough for the risk at hand.**
 
@@ -242,7 +242,7 @@ Verify FAIL
        NO  -> Replan -> Plan Verification -> Plan Gate
 ```
 
-Delivery の Plan / Contract に含まれる目的・受入基準・学習条件の変更が必要な場合は、暗黙に書き換えず、変更提案を明示して Replan / Plan Verification / Plan Gate を通す。判断主体と承認権限は既存の境界に従い、合格させるために条件を緩めない。
+Delivery の Plan / Contract に含まれる **Goal / Problem / Requirement semantics / 目的 / 受入基準 / 学習条件** の変更が必要な場合は、通常の repair で暗黙に書き換えず、変更提案を明示して Replan / Plan Verification / Plan Gate を通す。判断主体と承認権限は既存の境界に従い、合格させるために条件を緩めない。
 
 この Replan は、Evolution Candidate の実装前に固定した評価計画・採用閾値を同じ Candidate の評価中に変更する権限を与えない。評価条件そのものの変更は別 Candidate・別評価として扱い、§14 と Evaluation Trust Boundary の保護・Human-owned 規則に従う。
 
@@ -475,6 +475,7 @@ Product 側と Harness 側の学習を混同せず、V2 が直接観測できる
 - Human authority の撤廃
 - PlanGate 全体を巨大な AI OS / control plane にすること
 - Product Discovery 全体やリリース後の価値検証の orchestration
+- RDRA / Event Storming など特定の要求分析フレームワークを全 Task に必須化すること
 
 ## 20. Decision priority
 
@@ -502,6 +503,9 @@ Product 側と Harness 側の学習を混同せず、V2 が直接観測できる
 - 新 Component を増やす必要が本当にあるか
 - Human が実際に判断すべき情報は何か。process log / raw output を判断面へ転嫁していないか
 - compression / handoff によって blocker・不確実性・Evidence provenance・Human-owned decision requirement が見えなくなっていないか
+- 解くべき Goal / Problem は、この変更の risk に対して十分な Evidence で確かめられているか
+- Unknown を Requirement として創作していないか。追加 Evidence / Human judgment が必要な箇所は明示されているか
+- Goal / Problem -> Requirement -> Plan decision / Acceptance Criteria -> Task / Verification の trace が既存 ID / ref で辿れるか
 
 ### Verification
 
