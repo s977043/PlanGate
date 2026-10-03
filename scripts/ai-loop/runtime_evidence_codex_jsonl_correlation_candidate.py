@@ -84,6 +84,34 @@ def _validate_binding(
     return errors
 
 
+def _reject_repository_path_indirection(
+    path: pathlib.Path,
+    *,
+    repo_root: pathlib.Path,
+    label: str,
+) -> None:
+    root_lexical = repo_root.absolute()
+    root_resolved = repo_root.resolve()
+    path_lexical = path.absolute()
+    path_resolved = path.resolve()
+
+    def _is_under(candidate: pathlib.Path, root: pathlib.Path) -> bool:
+        try:
+            candidate.relative_to(root)
+            return True
+        except ValueError:
+            return False
+
+    if _is_under(path_lexical, root_lexical):
+        raise CodexJsonlCorrelationError(
+            [f"{label}: lexical path must stay outside repository"]
+        )
+    if _is_under(path_resolved, root_resolved):
+        raise CodexJsonlCorrelationError(
+            [f"{label}: resolved path must stay outside repository"]
+        )
+
+
 def _load_json_object(
     path: pathlib.Path,
     *,
@@ -99,16 +127,11 @@ def _load_json_object(
         raise CodexJsonlCorrelationError(
             [f"{label}: regular non-symlink file required"]
         )
-    resolved = path.resolve()
-    try:
-        resolved.relative_to(root)
-        inside_repo = True
-    except ValueError:
-        inside_repo = False
-    if inside_repo:
-        raise CodexJsonlCorrelationError(
-            [f"{label}: runtime correlation input must stay outside repository"]
-        )
+    _reject_repository_path_indirection(
+        path,
+        repo_root=repo_root,
+        label=label,
+    )
 
     try:
         raw = path.read_bytes()
@@ -230,16 +253,11 @@ def summarize_codex_jsonl(
             ["codex_jsonl: regular non-symlink file required"]
         )
 
-    resolved = source.resolve()
-    try:
-        resolved.relative_to(root)
-        inside_repo = True
-    except ValueError:
-        inside_repo = False
-    if inside_repo:
-        raise CodexJsonlCorrelationError(
-            ["codex_jsonl: raw runtime trace must stay outside repository"]
-        )
+    _reject_repository_path_indirection(
+        source,
+        repo_root=pathlib.Path(repo_root),
+        label="codex_jsonl",
+    )
 
     try:
         raw = source.read_bytes()
