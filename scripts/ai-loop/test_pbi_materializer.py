@@ -570,6 +570,16 @@ class ShadowBatchEvaluationTests(unittest.TestCase):
         ])
         self.assertFalse(report["write_allowed"])
         self.assertFalse(report["automatic_promotion"])
+        self.assertFalse(
+            report["evaluation_contract"]["holdout_isolation_enforced"]
+        )
+        self.assertFalse(
+            report["evaluation_contract"]["generalization_claim_allowed"]
+        )
+        self.assertEqual(
+            report["evaluation_contract"]["holdout_isolation_owner"],
+            "caller_or_independent_evaluator",
+        )
         self.assertEqual(report["metrics"]["train"]["exact_match_rate"], 1.0)
         self.assertEqual(report["metrics"]["test"]["exact_match_rate"], 1.0)
         self.assertEqual(report["metrics"]["overall"]["total"], 2)
