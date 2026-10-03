@@ -64,6 +64,8 @@ VALID_DECISIONS = {"update_existing", "link_only", "create_new"}
 VALID_READINESS_STATUSES = {"ready", "blocked"}
 VALID_EVAL_SPLITS = {"train", "test"}
 VALID_EVIDENCE_CLASSES = {"synthetic_fixture", "historical_replay", "live_shadow"}
+VALID_ADMISSION_DECISIONS = {"materialize", "no_action", "discover_more"}
+VALID_SIGNAL_DISPOSITIONS = {"actionable", "resolved", "informational", "ambiguous"}
 VALID_READINESS_ROUTES = {
     "future_run",
     "replan_current",
@@ -334,6 +336,108 @@ def _verify_acceptance_authority_ref(
     else:
         return [f"authority_ref: unsupported acceptance authority kind: {source_kind!r}"]
     return []
+
+
+def validate_admission_signal(signal: Any) -> list[str]:
+    """Validate a normalized delivery signal before PBI materialization."""
+    errors: list[str] = []
+    if not isinstance(signal, dict):
+        return ["admission_signal: object required"]
+
+    for field in ("signal_id", "source_ref", "statement"):
+        if not isinstance(signal.get(field), str) or not signal.get(field, "").strip():
+            errors.append(f"admission_signal.{field}: non-empty string required")
+
+    source_kind = signal.get("source_kind")
+    if source_kind not in VALID_SOURCE_KINDS:
+        errors.append(
+            f"admission_signal.source_kind: one of {sorted(VALID_SOURCE_KINDS)} required"
+        )
+
+    claim_class = signal.get("claim_class")
+    if claim_class not in VALID_CLAIM_CLASSES:
+        errors.append(
+            f"admission_signal.claim_class: one of {sorted(VALID_CLAIM_CLASSES)} required"
+        )
+
+    disposition = signal.get("disposition")
+    if disposition not in VALID_SIGNAL_DISPOSITIONS:
+        errors.append(
+            "admission_signal.disposition: "
+            f"one of {sorted(VALID_SIGNAL_DISPOSITIONS)} required"
+        )
+
+    target = signal.get("target_layer", "delivery")
+    if target not in VALID_TARGETS:
+        errors.append(
+            f"admission_signal.target_layer: one of {sorted(VALID_TARGETS)} required"
+        )
+
+    candidate_problem = signal.get("candidate_problem")
+    if candidate_problem is not None and (
+        not isinstance(candidate_problem, str) or not candidate_problem.strip()
+    ):
+        errors.append(
+            "admission_signal.candidate_problem: null or non-empty string required"
+        )
+
+    errors.extend(_privacy_errors({"admission_signal": signal}))
+    return errors
+
+
+def admit_signal(signal: dict[str, Any]) -> dict[str, Any]:
+    """Return a non-authoritative admission proposal for a normalized signal.
+
+    Admission is intentionally separate from update_existing/link_only/create_new.
+    It never mutates an Issue/PBI and never closes or resolves source work.
+    """
+    errors = validate_admission_signal(signal)
+    if errors:
+        raise MaterializationError(errors)
+
+    if signal.get("target_layer", "delivery") == "harness":
+        raise MaterializationError([
+            "admission_signal.target_layer: harness admission is owned by #874/#869 Candidate/Evolution"
+        ])
+
+    claim_class = signal["claim_class"]
+    disposition = signal["disposition"]
+    candidate_problem = signal.get("candidate_problem")
+
+    if claim_class == "inferred" or disposition == "ambiguous":
+        decision = "discover_more"
+        reason = "inferred_or_ambiguous_signal_requires_bounded_discovery"
+    elif disposition in {"resolved", "informational"} and claim_class == "observed":
+        decision = "no_action"
+        reason = f"observed_{disposition}_signal_has_no_new_pbi_work"
+    elif disposition in {"resolved", "informational"}:
+        decision = "discover_more"
+        reason = f"{claim_class}_{disposition}_signal_requires_confirmation"
+    elif disposition == "actionable" and isinstance(candidate_problem, str) and candidate_problem.strip():
+        decision = "materialize"
+        reason = "actionable_signal_has_candidate_problem"
+    else:
+        decision = "discover_more"
+        reason = "actionable_signal_missing_candidate_problem"
+
+    result = {
+        "decision": decision,
+        "reason": reason,
+        "signal_id": signal["signal_id"],
+        "source_ref": signal["source_ref"],
+        "proposal_only": True,
+        "write_allowed": False,
+        "close_allowed": False,
+        "next": {
+            "materialize": "pbi_materializer",
+            "no_action": "record_evaluation_only",
+            "discover_more": "bounded_discovery",
+        }[decision],
+    }
+    privacy = _privacy_errors({"admission_result": result})
+    if privacy:
+        raise MaterializationError(privacy)
+    return result
 
 
 def validate_payload(payload: Any, authority_root=None) -> list[str]:
@@ -1332,6 +1436,262 @@ def evaluate_shadow_batch(
     return report
 
 
+def _validate_admission_expected(expected: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(expected, dict):
+        return ["admission_expected: object required"]
+
+    oracle_ref = expected.get("oracle_ref")
+    if not isinstance(oracle_ref, str) or not oracle_ref.strip():
+        errors.append("admission_expected.oracle_ref: non-empty string required")
+
+    if expected.get("admission_decision") not in VALID_ADMISSION_DECISIONS:
+        errors.append(
+            "admission_expected.admission_decision: "
+            f"one of {sorted(VALID_ADMISSION_DECISIONS)} required"
+        )
+
+    errors.extend(_privacy_errors({"admission_expected": expected}))
+    return errors
+
+
+def _validate_admission_batch(cases: Any, authority_root=None) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(cases, list) or not cases:
+        return ["admission_batch: non-empty array required"]
+
+    seen_refs: set[str] = set()
+    has_test = False
+    for i, case in enumerate(cases):
+        if not isinstance(case, dict):
+            errors.append(f"admission_batch[{i}]: object required")
+            continue
+
+        case_ref = case.get("case_ref")
+        if not isinstance(case_ref, str) or not case_ref.strip():
+            errors.append(f"admission_batch[{i}].case_ref: non-empty string required")
+        elif case_ref in seen_refs:
+            errors.append(f"admission_batch[{i}].case_ref: duplicate {case_ref}")
+        else:
+            seen_refs.add(case_ref)
+
+        split = case.get("split")
+        if split not in VALID_EVAL_SPLITS:
+            errors.append(
+                f"admission_batch[{i}].split: one of {sorted(VALID_EVAL_SPLITS)} required"
+            )
+        elif split == "test":
+            has_test = True
+
+        evidence_class = case.get("evidence_class", "synthetic_fixture")
+        if evidence_class not in VALID_EVIDENCE_CLASSES:
+            errors.append(
+                f"admission_batch[{i}].evidence_class: one of {sorted(VALID_EVIDENCE_CLASSES)} required"
+            )
+
+        refs = _as_string_list(
+            case.get("evidence_refs", []),
+            f"admission_batch[{i}].evidence_refs",
+            errors,
+        )
+        if evidence_class in {"historical_replay", "live_shadow"}:
+            if not refs:
+                errors.append(
+                    f"admission_batch[{i}].evidence_refs: {evidence_class} requires repository-visible evidence refs"
+                )
+            for ref in refs:
+                _path, _fragment, ref_errors = _resolve_repo_authority_ref(
+                    ref, authority_root
+                )
+                errors.extend(
+                    f"admission_batch[{i}].evidence_refs: {error}"
+                    for error in ref_errors
+                )
+
+        signal = case.get("signal")
+        errors.extend(
+            f"admission_batch[{i}].{error}"
+            for error in validate_admission_signal(signal)
+        )
+
+        expected = case.get("expected")
+        errors.extend(
+            f"admission_batch[{i}].{error}"
+            for error in _validate_admission_expected(expected)
+        )
+
+        if (
+            evidence_class in {"historical_replay", "live_shadow"}
+            and isinstance(expected, dict)
+            and isinstance(expected.get("oracle_ref"), str)
+            and expected.get("oracle_ref", "").strip()
+        ):
+            oracle_ref = expected["oracle_ref"].strip()
+            _oracle_path, _oracle_fragment, oracle_errors = _resolve_repo_authority_ref(
+                oracle_ref, authority_root
+            )
+            errors.extend(
+                f"admission_batch[{i}].oracle_ref: {error}"
+                for error in oracle_errors
+            )
+            oracle_path_text = oracle_ref.partition("#")[0]
+            evidence_path_texts = {
+                ref.partition("#")[0] for ref in refs
+            }
+            if oracle_path_text in evidence_path_texts:
+                errors.append(
+                    f"admission_batch[{i}].oracle_ref: oracle artifact must be distinct from source evidence"
+                )
+
+        errors.extend(
+            f"admission_batch[{i}].{error}"
+            for error in _privacy_errors(
+                {
+                    "case_ref": case_ref,
+                    "split": split,
+                    "evidence_class": evidence_class,
+                    "evidence_refs": refs,
+                }
+            )
+        )
+
+    if not has_test:
+        errors.append(
+            "admission_batch: at least one test split case is required"
+        )
+    return errors
+
+
+def _admission_metric_bucket() -> dict[str, int]:
+    return {"total": 0, "matches": 0, "errors": 0}
+
+
+def _finalize_admission_metrics(bucket: dict[str, int]) -> dict[str, Any]:
+    total = bucket["total"]
+    return {
+        **bucket,
+        "accuracy": 0.0 if total == 0 else round(bucket["matches"] / total, 6),
+    }
+
+
+def evaluate_admission_batch(
+    cases: list[dict[str, Any]], authority_root=None
+) -> dict[str, Any]:
+    """Evaluate PBI admission without granting close/write authority."""
+    errors = _validate_admission_batch(cases, authority_root=authority_root)
+    if errors:
+        raise MaterializationError(errors)
+
+    metrics = {
+        "overall": _admission_metric_bucket(),
+        "train": _admission_metric_bucket(),
+        "test": _admission_metric_bucket(),
+    }
+    evidence_metrics = {
+        evidence_class: _admission_metric_bucket()
+        for evidence_class in sorted(VALID_EVIDENCE_CLASSES)
+    }
+    case_results: list[dict[str, Any]] = []
+    observed_decisions: set[str] = set()
+
+    for case in cases:
+        split = case["split"]
+        evidence_class = case.get("evidence_class", "synthetic_fixture")
+        for key in ("overall", split):
+            metrics[key]["total"] += 1
+        evidence_metrics[evidence_class]["total"] += 1
+
+        try:
+            result = admit_signal(case["signal"])
+            expected_decision = case["expected"]["admission_decision"]
+            matched = result["decision"] == expected_decision
+            observed_decisions.add(result["decision"])
+
+            for key in ("overall", split):
+                metrics[key]["matches"] += int(matched)
+            evidence_metrics[evidence_class]["matches"] += int(matched)
+
+            case_results.append(
+                {
+                    "case_ref": case["case_ref"],
+                    "split": split,
+                    "evidence_class": evidence_class,
+                    "evidence_refs": list(case.get("evidence_refs", [])),
+                    "status": "match" if matched else "mismatch",
+                    "actual": result["decision"],
+                    "expected": expected_decision,
+                    "oracle_ref": case["expected"]["oracle_ref"],
+                }
+            )
+        except MaterializationError as exc:
+            for key in ("overall", split):
+                metrics[key]["errors"] += 1
+            evidence_metrics[evidence_class]["errors"] += 1
+            case_results.append(
+                {
+                    "case_ref": case["case_ref"],
+                    "split": split,
+                    "evidence_class": evidence_class,
+                    "evidence_refs": list(case.get("evidence_refs", [])),
+                    "status": "error",
+                    "errors": list(exc.errors),
+                }
+            )
+
+    live_count = evidence_metrics["live_shadow"]["total"]
+    decision_coverage_complete = observed_decisions == VALID_ADMISSION_DECISIONS
+    blockers = []
+    if live_count == 0:
+        blockers.append("live_shadow_not_yet_observed")
+    if not decision_coverage_complete:
+        blockers.append("admission_decision_coverage_incomplete")
+    blockers.append("independent_oracle_isolation_not_enforced")
+
+    report = {
+        "mode": "admission_evaluation",
+        "write_allowed": False,
+        "close_allowed": False,
+        "automatic_promotion": False,
+        "evaluation_contract": {
+            "scope": "pbi_admission",
+            "historical_live_oracle_repository_visibility_enforced": True,
+            "source_oracle_artifact_separation_enforced": True,
+            "oracle_independence_enforced": False,
+            "oracle_independence_owner": "caller_or_independent_reviewer",
+            "holdout_isolation_enforced": False,
+            "generalization_claim_allowed": False,
+        },
+        "metrics": {
+            key: _finalize_admission_metrics(value)
+            for key, value in metrics.items()
+        },
+        "evidence_metrics": {
+            key: _finalize_admission_metrics(value)
+            for key, value in evidence_metrics.items()
+        },
+        "coverage": {
+            "observed_admission_decisions": sorted(observed_decisions),
+            "materialize_coverage": "materialize" in observed_decisions,
+            "no_action_coverage": "no_action" in observed_decisions,
+            "discover_more_coverage": "discover_more" in observed_decisions,
+            "decision_coverage_complete": decision_coverage_complete,
+        },
+        "rollout_evidence": {
+            "synthetic_fixture_cases": evidence_metrics["synthetic_fixture"]["total"],
+            "historical_replay_cases": evidence_metrics["historical_replay"]["total"],
+            "live_shadow_cases": live_count,
+            "synthetic_excluded_from_rollout_claim": True,
+            "write_review_eligible": False,
+            "write_review_blockers": blockers,
+        },
+        "cases": case_results,
+    }
+    privacy = _privacy_errors({"admission_evaluation": report})
+    if privacy:
+        raise MaterializationError(privacy)
+    return report
+
+
 def materialize(
     payload: dict[str, Any],
     existing_work: list[dict[str, Any]],
@@ -1382,7 +1742,11 @@ def main(argv=None) -> int:
     parser.add_argument("--input", help="normalized PBI payload JSON")
     parser.add_argument(
         "--eval-batch",
-        help="reviewed train/test shadow cases JSON array; evaluation-only and never enables writes",
+        help="reviewed train/test materialization shadow cases JSON array; evaluation-only",
+    )
+    parser.add_argument(
+        "--eval-admission-batch",
+        help="reviewed PBI admission cases JSON array; evaluation-only and never closes/writes",
     )
     parser.add_argument("--existing", help="normalized existing-work JSON array")
     parser.add_argument(
@@ -1402,14 +1766,33 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        if bool(args.input) == bool(args.eval_batch):
+        selected_modes = sum(
+            bool(value)
+            for value in (args.input, args.eval_batch, args.eval_admission_batch)
+        )
+        if selected_modes != 1:
             raise MaterializationError([
-                "exactly one of --input or --eval-batch is required"
+                "exactly one of --input / --eval-batch / --eval-admission-batch is required"
             ])
 
         authority_root = pathlib.Path(args.authority_root) if args.authority_root else None
 
-        if args.eval_batch:
+        if args.eval_admission_batch:
+            if args.format != "json":
+                raise MaterializationError([
+                    "--eval-admission-batch requires --format json"
+                ])
+            if args.existing or args.expected or args.working_root:
+                raise MaterializationError([
+                    "--eval-admission-batch cannot be combined with --existing/--expected/--working-root"
+                ])
+            cases = _load_json(
+                pathlib.Path(args.eval_admission_batch),
+                list,
+                "--eval-admission-batch",
+            )
+            result = evaluate_admission_batch(cases, authority_root=authority_root)
+        elif args.eval_batch:
             if args.format != "json":
                 raise MaterializationError(["--eval-batch requires --format json"])
             if args.existing or args.expected or args.working_root:
