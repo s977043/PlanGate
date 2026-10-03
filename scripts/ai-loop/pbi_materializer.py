@@ -2582,6 +2582,9 @@ def assess_write_review_readiness(
             "caller_asserted_test_status": True,
             "report_artifact_authorship_verified": False,
             "independent_review_authorship_verified": False,
+            "quality_thresholds_applied": False,
+            "quality_acceptance_decided": False,
+            "quality_acceptance_owner": "human_or_rollout_policy",
             "merge_authority": False,
         },
         "evidence_summary": {
@@ -2605,6 +2608,13 @@ def assess_write_review_readiness(
             "generalization_claim_requested": context[
                 "generalization_claim_requested"
             ],
+        },
+        "quality_summary": {
+            "materialization": materialization_report["rollout_quality"],
+            "admission": admission_report["rollout_quality"],
+            "thresholds_applied": False,
+            "acceptance_decision": "not_evaluated",
+            "acceptance_owner": "human_or_rollout_policy",
         },
         "report_refs": {
             "materialization_report_ref": assessment[
