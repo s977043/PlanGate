@@ -234,7 +234,7 @@ cat >"$_t94_batch" <<'JSON'
 JSON
 _t94_rc=0
 "$_T94_PY" "$_T94_AI_LOOP/pbi_materializer.py"   --eval-batch "$_t94_batch" --format json   >"$_t94_batch_out" 2>"$_t94_tmp/batch.err" || _t94_rc=$?
-if [ "$_t94_rc" -eq 0 ]   && grep -q '"mode": "shadow_evaluation"' "$_t94_batch_out"   && grep -q '"write_allowed": false' "$_t94_batch_out"   && grep -q '"automatic_promotion": false' "$_t94_batch_out"   && grep -q '"exact_match_rate": 1.0' "$_t94_batch_out"   && grep -q '"split": "train"' "$_t94_batch_out"   && grep -q '"split": "test"' "$_t94_batch_out"; then
+if [ "$_t94_rc" -eq 0 ]   && grep -q '"mode": "shadow_evaluation"' "$_t94_batch_out"   && grep -q '"write_allowed": false' "$_t94_batch_out"   && grep -q '"automatic_promotion": false' "$_t94_batch_out"   && grep -q '"holdout_isolation_enforced": false' "$_t94_batch_out"   && grep -q '"generalization_claim_allowed": false' "$_t94_batch_out"   && grep -q '"exact_match_rate": 1.0' "$_t94_batch_out"   && grep -q '"split": "train"' "$_t94_batch_out"   && grep -q '"split": "test"' "$_t94_batch_out"; then
   printf '  [PASS] shadow batch: train/test CLI path fired with no write/promotion authority\n'
   pass=$((pass + 1))
 else
