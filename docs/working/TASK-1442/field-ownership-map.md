@@ -773,3 +773,69 @@ materializer / collector / evaluator の自己評価だけで rollout stage を�
 
 TA-94 はこの **non-activation contract** を検証するが、write-capable adapter の存在や
 production mutation capability は検証しない。
+
+
+## Completion status boundary
+
+実装を増やす前に、残課題を次の4群へ分類する。
+
+```text
+implementation
+dependency
+evidence
+review
+```
+
+`completion-status` は repository inventory と caller assertion を組み合わせるが、
+GitHub の Test 結果や PR 状態を collector 自身で検証しない。
+
+```text
+latest_full_test_status_verified_by_collector = false
+design_dependency_status_verified_by_collector = false
+assertions_independently_verified = false
+```
+
+review ref が指定された場合は repository-visible regular file の実在と byte SHA-256 を束縛する。
+
+ただし:
+
+```text
+semantic_content_verified = false
+reviewer_identity_verified = false
+independence_verified = false
+```
+
+を維持する。
+
+`next_action` は残課題分類だけを行う。
+
+```text
+fix_repository_or_evidence_integrity
+finalize_design_dependency
+collect_opportunistic_real_live_evidence
+perform_human_evidence_and_quality_review
+human_rollout_decision
+```
+
+重要な不変条件:
+
+```text
+rollout_completion_machine_decidable = false
+rollout_complete = false
+automatic_write_activation_allowed = false
+machine_completion_decision_allowed = false
+machine_write_activation_allowed = false
+```
+
+したがって `human_rollout_decision` は「Human が判断できる材料へ進む」ことを示すだけで、
+自動完了・quality acceptance・write activation を意味しない。
+
+また Evidence gap は新機能実装を自動的に要求しない。
+
+```text
+new_feature_work_implied_by_evidence_gap = false
+synthetic_case_generation_for_completion_allowed = false
+historical_relabeling_for_completion_allowed = false
+```
+
+実 run Evidence 待ちしか残っていない場合、追加featureを作るのではなく opportunistic observation を待つ。
