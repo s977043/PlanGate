@@ -355,7 +355,15 @@ class DeterminismAndSearchTests(unittest.TestCase):
             after = pbi.read_bytes()
             self.assertEqual(before, after)
             self.assertEqual(len(found), 1)
-            self.assertEqual(found[0]["ref"], str(pbi.as_posix()))
+            self.assertEqual(
+                found[0]["ref"],
+                "docs/working/TASK-1400/pbi-input.md",
+            )
+            result = pm.materialize(_payload(), found)
+            self.assertEqual(
+                result["decision"]["matched_ref"],
+                "docs/working/TASK-1400/pbi-input.md",
+            )
 
 
 if __name__ == "__main__":
