@@ -27,6 +27,15 @@
 > `observed` = artifact / measurement / verifier で直接確認、`reported` = Human / external source の報告、`inferred` = source から導出した仮説・解釈。
 > 要約・再生成・別 Agent の同意は source independence を増やさない。PBI 自身や downstream の Plan / Review を、この PBI の upstream Goal / Problem の独立 Evidence に循環利用しない。
 
+#### Existing Work Check（AI-generated / expanded discovery で material な場合）
+
+- Checked refs / queries: {既存 Issue / PBI の検索条件・確認した refs}
+- Materialization decision: update_existing / link_only / create_new
+- Related PBI / Issue refs: {refs}
+- Decision reason: {同じ Problem / outcome か、Scope / Requirement / AC が material に違うか}
+
+> 類似判定だけで既存 Issue / PBI を自動 close / merge しない。既存 PBI が Plan / approval と binding 済みで semantic change が必要な場合は、重複解消として書き換えず Replan / policy boundary に戻す。
+
 #### Requirement Discovery Trace（material な場合）
 
 | Requirement ID | Goal / Problem | Evidence / Source | Acceptance Basis | Related AC |
