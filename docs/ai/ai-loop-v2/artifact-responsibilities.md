@@ -218,9 +218,20 @@ source kind は少なくとも `human_feedback / issue / run_evidence / failure_
 
 accepted Requirement は `acceptance basis` を持ち、少なくとも `evidence / explicit_decision / policy_rule` のどれで採用されたかを辿れるようにする。`explicit_decision` は `decision_log` provenance、`policy_rule` は `policy` provenance の実在ファイル + rule fragment へ接続し、自由記述の basis ref だけで authority を成立させない。inferred-only の claim を observed fact として扱うことは禁止するが、低リスク領域で policy が許す Requirement decision まで Human 固定にはしない。
 
-#### Feedback-to-PBI materialization
+#### Feedback-to-PBI admission / materialization
 
-AI-generated PBI は create-first にしない。新規作成前に既存の open Issue / PBI を検索し、source refs と Goal / Problem / Requirement / AC の重なりを確認する。
+Feedback / RunEvidence / Failure / operational observation を、すべて自動で PBI にすることを前提にしない。まず **Admission** を行い、その後に **Materialization** を行う。
+
+| 段階 | decision | 意味 / authority |
+| --- | --- | --- |
+| Admission | `materialize` | PBI work として Materialization へ進む |
+| Admission | `no_action` | PBI work を作らない proposal。source work の close / suppress authority は持たない |
+| Admission | `discover_more` | Bounded Discovery に戻して Evidence / uncertainty を減らす |
+| Materialization | `update_existing` / `link_only` / `create_new` | Admission 済み work を existing PBI / new PBI へ接続する |
+
+Admission decision は新しい Lifecycle State / Gate / authoritative artifact を要求しない。derived evaluation / projection として実装でき、`no_action` を source Issue/PBI の解決権限へ昇格させない。
+
+AI-generated PBI は create-first にしない。Admission が `materialize` の場合だけ、新規作成前に既存の open Issue / PBI を検索し、source refs と Goal / Problem / Requirement / AC の重なりを確認する。
 
 | decision | 条件 | 動作 |
 | --- | --- | --- |
@@ -252,6 +263,49 @@ source Run から生成した PBI は source run / failure / evidence refs を�
 Harness-targeting PBI は draft 生成までは HarnessImprovementCandidate ref が無くてもよいが、**Plan / implementation readiness の前に** Candidate ref を必須とする。PBI は work packaging / execution planning の artifact であり、HarnessImprovementCandidate の `1 Candidate = 1 Hypothesis`、固定 evaluation plan、paired baseline、independent evaluator、Promotion boundary を代替しない。
 
 Traceability は意味の複製ではなく ref の接続で作る。最小経路は `Goal / Problem -> Requirement -> AC -> Plan decision / Task -> Test / Verifier Evidence` とし、既存の Current-Need Trace / AC mapping / Verification Trace / `acceptance_criteria_refs` を再利用する。Goal / Problem / Requirement の説明本文を `plan.md` / `todo.md` / WorkItemGraph にコピーせず、owner artifact を参照する。
+
+#### Shadow evaluation / write authority boundary
+
+PBI Admission / Materialization の shadow evaluation は **derived Evidence** であり、Requirement authority / approval authority / mutation authority ではない。
+
+```text
+review readiness
+  -> Human / policy review candidate
+
+review readiness
+  != quality acceptance
+  != write authorization
+```
+
+評価 report / inventory / quality summary は、case / Evidence から再導出できる projection とする。summary だけを新しい SSoT にしない。false-positive / false-negative / mismatch の分母が 0 の場合は「0%」と解釈せず、未観測を明示する。
+
+write-capable behavior を設計する場合も以下を分離する。
+
+| concern | owner / meaning |
+| --- | --- |
+| policy definition | 何を許容するかの規則。存在だけでは active ではない |
+| quality acceptance | live Evidence / review に基づく許容判断 |
+| rollout activation | policy version / content / decision を特定した activation |
+| mutation execution | exact target / proposal / concurrency / rollback-reconciliation 契約を持つ 1 mutation attempt |
+
+write path は source Evidence / oracle / approval / policy 自身を同じ attempt で自己変更しない。unknown provider result を success とみなしたり blind retry したりせず、reconciliation / escalation boundary を持つ。
+
+#### Live-shadow Evidence ownership
+
+live-shadow の実装で artifact を追加する場合も、意味上の owner を分離する。
+
+| evidence / projection | owner / boundary |
+| --- | --- |
+| upstream source | feedback / Issue / RunEvidence / Failure 等の元 Evidence。capture 自身を source にしない |
+| passive capture | 対象 run / source / head / time relation を後段で検証できる binding Evidence。PBI authority は持たない |
+| RunEvidence binding | source + capture が対象 run に属することを接続する既存 run Evidence |
+| blind review handoff | reviewer へ渡す projection。maker actual / expected decision を authority として持たせない |
+| reviewed oracle | reviewer / independent evaluator が与える expected。source evidence と混ぜず、maker actual を保存しない |
+| evaluation case / inventory | 上記 ref を束縛して再計算する derived Evidence。registry / lifecycle state / quality approval ではない |
+
+`synthetic_fixture / historical_replay / live_shadow` は Evidence class として混同しない。historical artifact を現在の live capture contract に後付け適合させても live observation にはしない。
+
+repository inventory は current artifact を再検証する read-only projection に留め、artifact の存在から runtime execution / source preexistence / reviewer identity / representative coverage を推測で昇格させない。
 
 **LoopContract 側は導出規則の追加のみ**とする（§2 のとおり LoopContract は Plan Package から導出される）。
 
