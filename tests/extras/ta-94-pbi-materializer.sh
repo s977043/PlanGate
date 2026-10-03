@@ -786,7 +786,7 @@ else
 fi
 
 _t94_collect_root="$_t94_tmp/collector-root"
-mkdir -p "$_t94_collect_root/scripts" "$_t94_collect_root/TASK-9999/delivery"
+mkdir -p "$_t94_collect_root/scripts" "$_t94_collect_root/docs" "$_t94_collect_root/TASK-9999/delivery"
 printf '{"kind":"state","state":"MERGE_READY"}\n' >"$_t94_collect_root/TASK-9999/delivery/record.jsonl"
 
 _t94_collect_signal="$_t94_tmp/collector-signal.json"
