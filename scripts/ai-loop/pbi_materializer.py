@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """:"
 # --- PG-SH-GUARD (#1169): sh / bash 誤起動ガード ---
+# sh はこのファイルの module docstring を二重引用符文字列として読むため、
+# docstring 内のバッククォートがコマンド置換として評価され、repo を書き換える
+# 副作用が起きる。python3 以外のインタプリタでは何も評価する前にここで止める。
 echo "ERROR: $0 is a Python script; do not run it with sh/bash." >&2
 echo "       Use: python3 $0 [args...]" >&2
 exit 2
 ":"""
+
 
 from __future__ import annotations
 
@@ -126,8 +130,19 @@ def _privacy_errors(payload: dict[str, Any]) -> list[str]:
     for path, key, _value in _walk_keys(payload):
         if _norm(key).replace("-", "_") in FORBIDDEN_LOCAL_KEYS:
             errors.append(f"privacy: forbidden key {path}.{key}")
-    # Reuse the RunEvidence privacy backstop instead of forking its policy.
-    errors.extend(f"privacy: {e}" for e in run_evidence.check_output_privacy(payload))
+
+    # PBI root author is a categorical role (human|ai|mixed), not an account identity.
+    # Preserve the existing RunEvidence privacy policy by adapting only that root key;
+    # nested "author" fields remain untouched and are still rejected by the backstop.
+    privacy_projection = dict(payload)
+    if privacy_projection.get("author") in VALID_AUTHORS:
+        privacy_projection["pbi_author_kind"] = privacy_projection.pop("author")
+
+    # Reuse the RunEvidence privacy backstop instead of forking its key/value rules.
+    errors.extend(
+        f"privacy: {e}"
+        for e in run_evidence.check_output_privacy(privacy_projection)
+    )
     return errors
 
 
