@@ -39,6 +39,10 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | Shadow evaluation report | derived evidence | materializer evaluator | train/test + evidence-class metricsを生成するが write / promotion authority を持たない |
 | write-review assessment | derived review-readiness projection | materializer assessor | admission/materialization evidenceを集約し Human review 候補かを示す。write/close/suppression/merge authorityは持たない |
 | rollout quality metrics | derived evaluation evidence | evaluator cases[] | live_shadow のみから duplicate FP/FN・decision/readiness mismatch・reject distribution を導出。quality acceptance authorityは持たない |
+| live-shadow evidence collector | evidence writer / adapter | `pbi_live_shadow_collector.py` | `docs/working/TASK-XXXX/evidence/pbi-live-shadow/**` に capture / blind packet / reviewed case を create-or-reuse-identical で保存。PBI/Issue/RunState/Harness/merge authority は持たない |
+| blind review packet | derived evidence | collector | maker actual / expected decision を含めず、source/capture/RunEvidence hash だけを束縛。reviewer independence は自己証明しない |
+| admission oracle | independent reviewed expectation | caller / independent reviewer | collector は作成しない。同一 TASK live-shadow evidence namespace に置き、packet/source hash と expected admission decision を束縛 |
+| reviewed admission case | derived evaluation input | collector assembler | source/capture/RunEvidence/packet と oracle を再検証して evaluator 互換 case を生成。oracle は `expected.oracle_ref` のみで参照し、`evidence_refs[]` に混ぜない |
 | evaluator report refs | referenced evaluation artifacts | caller / repository evidence store | stored JSON と embedded report の canonical hash 一致を要求。authorship は保証しない |
 | evidence class | derived evaluation metadata | evaluation caller | synthetic_fixture / historical_replay / live_shadow。synthetic を rollout evidence と数えない |
 | historical/live evidence refs | referenced evidence | tracked repository artifact / live run evidence | repository-visible ref の実在を検証。historical harness signal は #874/#869 へ委譲 |
