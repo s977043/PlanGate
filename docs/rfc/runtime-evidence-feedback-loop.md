@@ -398,7 +398,17 @@ The adapter must not label a root-cause hypothesis `observed` merely because the
 
 #### Repository-visible source snapshot
 
-Before the existing collector/materializer consumes an external signal, the adapter creates a sanitized source snapshot in an approved task evidence namespace. The snapshot should contain only data required to establish provenance and support investigation, for example:
+Before the existing materializer consumes an external signal, the adapter creates a sanitized repository-visible source snapshot. A standalone production incident arrives **before** a PBI/TASK exists, so the first snapshot must not require a `TASK-XXXX` namespace.
+
+Recommended pre-PBI shape:
+
+```text
+docs/working/_runtime-ingress/<provider>/<intake-id>/source.json
+```
+
+This namespace stores immutable sanitized evidence only; mutable dedup / recurrence state remains provider- or adapter-owned. After a PBI/TASK is created, `pbi-input.md` references this source artifact.
+
+When the observation is already bound to an existing ai-loop Run and the TASK/run/final-head/time contract is available, the existing #1443 `pbi_live_shadow_collector.py` may additionally bind the signal into task-scoped live-shadow evidence. The collector is **not** a prerequisite for standalone external incident admission. The snapshot should contain only data required to establish provenance and support investigation, for example:
 
 ```yaml
 runtime_source:
@@ -760,6 +770,8 @@ Do not persist in PlanGate metrics:
 
 Raw evidence remains at the provider or approved evidence store and is referenced through opaque / sanitized refs. Missing data remains missing / unavailable; it must not be replaced with zero or synthetic success.
 
+The pre-PBI source snapshot is immutable point-in-time evidence. Later duplicate occurrences update only intake/provider-owned aggregation or create new immutable evidence deltas; they do not rewrite historical source snapshots or historical RunEvidence.
+
 Only after evidence supports the design should the proposal be promoted into V2 canon.
 
 ### Phase C exit criteria
@@ -779,6 +791,12 @@ Promotion from RFC / PoC toward V2 canon requires, at minimum:
 
 These criteria evaluate the intake mechanism. They do not prove that every runtime-generated diagnosis is correct. Diagnosis quality remains subject to normal Plan / Verification / Evidence rules.
 
+### 11.1 Implementation tracking
+
+- #1448 — External Runtime Evidence Ingress Adapter R0/R1 shadow implementation.
+- #1448 depends on #1441 / #1443 finalization before production behavior changes.
+- First reference provider: Cloudflare runtime-issue path; provider-neutral contract remains authoritative.
+
 ## 12. Open questions
 
 1. **Proposed answer**: Runtime Evidence should default to a typed external Evidence reference owned by existing V2 artifacts / events, not a new mutable artifact. A new artifact requires separate justification.
@@ -788,7 +806,7 @@ These criteria evaluate the intake mechanism. They do not prove that every runti
 5. Which fields must be redacted or converted to opaque references?
 6. How should a runtime-originated task bind to deployment / commit identity when the running version is not traceable?
 7. What metrics are sufficient to decide whether the adapter improves Time to Learning without increasing unsafe automation?
-8. **Proposed answer**: before a Run, bind immutable external evidence refs in the Plan Package (`pbi-input.md`); during a Run, Phase 1 should define a RunEvent semantic that records consumption/correlation of the same refs. RunEvidence only projects those Run-local facts.
+8. **Proposed answer**: before a PBI/TASK exists, persist sanitized immutable source evidence in a non-task intake namespace (recommended `docs/working/_runtime-ingress/.../`). Once a PBI exists, bind that external evidence ref in `pbi-input.md`; during a Run, Phase 1 should define a RunEvent semantic that records consumption/correlation of the same refs. RunEvidence only projects those Run-local facts.
 9. What trust level is required before repository investigation can begin for each adapter class?
 10. Which investigation actions must remain read-only before a normal PlanGate work request exists?
 11. How should adapters prove that untrusted telemetry was kept out of the trusted instruction channel?
