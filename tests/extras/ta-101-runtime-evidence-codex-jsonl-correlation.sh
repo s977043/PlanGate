@@ -119,13 +119,16 @@ _t101_rc=0
   >"$_t101_result" 2>"$_t101_tmp/result.err" || _t101_rc=$?
 
 if [ "$_t101_rc" -eq 0 ] \
+  && grep -q '"parent_thread_correlation_verified": true' "$_t101_result" \
   && grep -q '"thread_id_correlation_verified": true' "$_t101_result" \
+  && grep -q '"trace_content_binding_verified": true' "$_t101_result" \
   && grep -q '"single_turn_envelope_verified": true' "$_t101_result" \
   && grep -q '"command_execution_read_only_verified": false' "$_t101_result" \
   && grep -q '"mcp_tool_read_only_verified": false' "$_t101_result" \
   && grep -q '"repository_postcondition_verified": false' "$_t101_result" \
   && grep -q '"turn_id_correlation_verified": false' "$_t101_result" \
   && grep -q '"subagent_identity_correlation_verified": false' "$_t101_result" \
+  && grep -q '"same_subagent_execution_correlated": false' "$_t101_result" \
   && grep -q '"codex_jsonl_runtime_correlation_verified": false' "$_t101_result" \
   && grep -q '"runtime_probe_attestation_verified": false' "$_t101_result" \
   && grep -q '"dispatch_ready": false' "$_t101_result" \
