@@ -190,7 +190,34 @@ Without defining a new persisted status vocabulary, certification composition mu
 
 These are composition checks over existing contracts. They do not create a new authoritative `evidence_trust` object by themselves.
 
-### 4.2 Stale evidence
+### 4.2 Aggregation is not voting
+
+Certification composition must not turn multiple verifier outputs into a majority vote or averaged confidence score.
+
+The existing Delivery direction already establishes that a deterministic verifier FAIL remains blocking even when a model-based verifier says PASS. Certification preserves that asymmetry.
+
+```text
+required verifier A: deterministic FAIL
+required verifier B: independent_model PASS
+
+!= "1-1 tie"
+!= averaged PASS
+=> A remains unsatisfied / blocking under existing Decision rules
+```
+
+Rules:
+
+- evaluate each **policy-required verifier / claim** independently;
+- do not let extra optional PASS results cancel a required FAIL;
+- `unavailable` / `inconclusive` on a required item remains unresolved under existing policy;
+- duplicate refs or repeated summaries do not increase source independence;
+- multiple reports derived from the same underlying evidence do not become multiple independent confirmations;
+- a higher-independence requirement cannot be satisfied by relabeling same-context / same-source outputs;
+- Certification View reports the evidence structure; the existing Decision Engine / Policy owns the final continuation behavior.
+
+This keeps certification from becoming a new scoring system.
+
+### 4.3 Stale evidence
 
 The view becomes stale when a bound input changes. Reuse requires re-verification or an existing verifier-specific rule that proves the previous evidence still applies.
 
@@ -203,7 +230,7 @@ changed bound input
 
 A timestamp alone does not make evidence current. Freshness is relative to the identity / target that the evidence claims to verify.
 
-### 4.3 Decision-to-use binding
+### 4.4 Decision-to-use binding
 
 Certification is vulnerable to a time-of-check / time-of-use gap if the target changes after evidence is composed but before the existing promotion / merge decision is used.
 
@@ -441,6 +468,8 @@ Before any runtime implementation, verify at least these negative cases:
 - Builder self-report alone cannot satisfy a requirement;
 - missing / unavailable verifier output cannot become PASS;
 - same-model / same-context review cannot satisfy a higher independence requirement merely because it is labeled "independent";
+- deterministic required FAIL cannot be neutralized by additional model PASS results;
+- duplicate / derived evidence cannot increase independence by count;
 - Builder-supplied risk cannot choose a less restrictive path by itself;
 - risk classification cannot disable protected verification;
 - required verifier-set / policy identity cannot be silently narrowed;
@@ -499,6 +528,7 @@ The exact function / field names are illustrative and non-normative. The impleme
 - no write path;
 - deterministic for identical authoritative inputs;
 - no network fetch inside the pure projection step;
+- no majority-vote / confidence-averaging decision logic;
 - unknown / missing required input stays unresolved rather than defaulting to PASS;
 - no Policy Verdict / Terminal Outcome generation;
 - no merge / approval / PromotionDecision side effect;
