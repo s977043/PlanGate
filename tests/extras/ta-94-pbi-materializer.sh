@@ -263,6 +263,9 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"historical_live_oracle_repository_visibility_enforced": true' "$_t94_history_out" \
   && grep -q '"source_oracle_artifact_separation_enforced": true' "$_t94_history_out" \
   && grep -q '"oracle_independence_enforced": false' "$_t94_history_out" \
+  && grep -q '"live_shadow_capture_metadata_enforced": true' "$_t94_history_out" \
+  && grep -q '"live_shadow_label_alone_sufficient": false' "$_t94_history_out" \
+  && grep -q '"runtime_head_binding_verified": false' "$_t94_history_out" \
   && grep -q '"write_review_eligible": false' "$_t94_history_out" \
   && grep -q '"observed_decisions": \[' "$_t94_history_out" \
   && grep -q '"create_new"' "$_t94_history_out" \
@@ -289,6 +292,9 @@ if [ "$_t94_rc" -eq 0 ] \
   && grep -q '"materialize_coverage": true' "$_t94_admission_out" \
   && grep -q '"discover_more_coverage": false' "$_t94_admission_out" \
   && grep -q '"decision_coverage_complete": false' "$_t94_admission_out" \
+  && grep -q '"live_shadow_capture_metadata_enforced": true' "$_t94_admission_out" \
+  && grep -q '"live_shadow_label_alone_sufficient": false' "$_t94_admission_out" \
+  && grep -q '"runtime_head_binding_verified": false' "$_t94_admission_out" \
   && grep -q '"write_review_eligible": false' "$_t94_admission_out" \
   && grep -q '"write_allowed": false' "$_t94_admission_out" \
   && grep -q '"close_allowed": false' "$_t94_admission_out" \
