@@ -33,7 +33,7 @@ Author != Evidence Source != Semantic Authority != Approval Authority
 | HarnessManifest identity | referenced / forbidden-to-mutate | ai-loop V2 runtime | active Run中は変更しない |
 | HarnessImprovementCandidate | referenced | #869 / Evolution contract | harness draft時pending可、Plan/readiness前にref必須 |
 | RunEvidence / FailureRecord | referenced evidence | V2 event projection / failure contract | source ref と claim class を保持。唯一のPBI authorityにはしない |
-| decision-log | referenced decision | existing task decision log | `source_kind=decision_log` として explicit_decision の basis ref に利用。自由記述 ref のみでは authority を成立させない |
+| decision-log | referenced decision | existing task decision log | `source_kind=decision_log` + 実在 `decision-log.jsonl#<decision_id>` を explicit_decision の basis ref に利用。自由記述 ref のみでは authority を成立させない |
 | hidden CoT / raw transcript / session log | forbidden | — | 入力/出力の保存を拒否 |
 | GitHub Issue close/merge | forbidden action | GitHub / Human policy | materializerは実行しない |
 | Production Harness promotion | forbidden action | Human-owned boundary | materializerは実行しない |
@@ -52,9 +52,10 @@ Malformed adapter input は fail-closed。検索結果を黙って捨てて `cre
 Requirement acceptance は author の自己申告では成立しない。
 
 - `acceptance_basis=evidence`: basis ref が material claim の source/origin に存在し、inferred-only ではない。
-- `acceptance_basis=explicit_decision`: basis ref が `source_kind=decision_log` provenance に存在する。
-- `acceptance_basis=policy_rule`: basis ref が `source_kind=policy` provenance に存在する。
-- 存在しない decision / policy ref を自由記述で置くだけの入力は fail-closed。
+- `acceptance_basis=explicit_decision`: basis ref が `source_kind=decision_log` provenance に存在し、repository-visible な `decision-log.jsonl` が実在し、fragment の `decision_id` が **ちょうど 1 件**存在する。
+- `acceptance_basis=policy_rule`: basis ref が `source_kind=policy` provenance に存在し、repository-visible な policy source file が実在する。
+- authority ref は repository-relative のみ。absolute path / `..` traversal / root 解決不能 / source 不在は fail-closed。
+- source-kind と ref を payload 内で同時に捏造しても authority は成立しない。
 
 これにより AI-generated PBI は作成可能だが、Requirement の accepted status を架空の authority で自己付与できない。
 
