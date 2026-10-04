@@ -132,7 +132,6 @@ def build_verify_args(
         "--cert-oidc-issuer", OIDC_ISSUER,
         "--predicate-type", candidate_receipt.EXPECTED_PREDICATE_TYPE,
         "--deny-self-hosted-runners",
-        "--no-public-good",
         "--format", "json",
     ]
 
