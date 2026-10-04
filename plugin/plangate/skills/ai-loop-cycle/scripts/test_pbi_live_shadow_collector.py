@@ -1242,6 +1242,74 @@ class LiveShadowCollectorTests(unittest.TestCase):
             )
         self.assertIn("symlink path component rejected", str(ctx.exception))
 
+    def test_materialization_inventory_rejects_extra_oracle_field(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+
+        oracle = json.loads(
+            (self.root / self.materialization_oracle_ref).read_text(
+                encoding="utf-8"
+            )
+        )
+        oracle["review_note"] = "unreviewed materialization oracle metadata"
+        (self.root / self.materialization_oracle_ref).write_text(
+            json.dumps(oracle, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertIn(
+            "materialization_oracle: exact reviewed fields required",
+            " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
+        )
+
+    def test_materialization_inventory_rejects_extra_oracle_expected_field(self):
+        self._prepare_materialize_admission_case()
+        self._write_materialization_inputs()
+        collector.collect_reviewed_materialization_case(
+            repo_root=self.root,
+            admission_case_ref=self.case_artifact_ref,
+            payload_ref=self.payload_ref,
+            existing_work_ref=self.existing_work_ref,
+            oracle_ref=self.materialization_oracle_ref,
+            case_artifact_ref=self.materialization_case_ref,
+        )
+
+        oracle = json.loads(
+            (self.root / self.materialization_oracle_ref).read_text(
+                encoding="utf-8"
+            )
+        )
+        oracle["expected"]["review_note"] = "unreviewed"
+        (self.root / self.materialization_oracle_ref).write_text(
+            json.dumps(oracle, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        inventory = collector.inventory_live_materialization_cases(
+            repo_root=self.root
+        )
+        self.assertEqual(inventory["tracked_live_case_total"], 0)
+        self.assertEqual(inventory["invalid_case_total"], 1)
+        self.assertIn(
+            "materialization_oracle.expected: exact reviewed fields required",
+            " ".join(inventory["invalid_case_artifacts"][0]["errors"]),
+        )
+
     def test_materialization_oracle_payload_hash_mismatch_fails_closed(self):
         self._prepare_materialize_admission_case()
         self._write_materialization_inputs(
