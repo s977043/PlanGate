@@ -864,7 +864,7 @@ cmd_status() {
     next="/ai-dev-workflow $task_id plan"
   elif [ ! -f "$work_dir/approvals/c3.json" ]; then
     phase="C-3 — human review pending"
-    next="Review plan.md → create approvals/c3.json"
+    next="Human approver: review plan.md → plangate approve $task_id"
   elif [ ! -f "$work_dir/handoff.md" ]; then
     phase="D / V — exec or verification"
     next="/ai-dev-workflow $task_id exec"
