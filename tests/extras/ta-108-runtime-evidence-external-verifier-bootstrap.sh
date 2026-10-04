@@ -50,6 +50,10 @@ fi
 if grep -q 'self_hosted_runner_denied: true' "$_T108_WORKFLOW" \
   && grep -q '"atomic_consume_required": true' "$_T108_NONCE" \
   && grep -q '"durable_consumption_record_required": true' "$_T108_NONCE" \
+  && grep -q '"request_hash_binding_required": true' "$_T108_NONCE" \
+  && grep -q '"max_validity_seconds": 900' "$_T108_NONCE" \
+  && grep -q '"consumption_receipt_content_addressed": true' "$_T108_NONCE" \
+  && grep -q '"consumption_receipt_external_storage_required": true' "$_T108_NONCE" \
   && grep -q '"reuse_rejected": true' "$_T108_NONCE"; then
   printf '  [PASS] safety: runner and nonce ledger requirements are explicit\n'; pass=$((pass + 1))
 else
