@@ -70,6 +70,7 @@ fi
 
 if grep -q '"signer_repo_structurally_separate_candidate": True' "$_T107_IMPL" \
   && grep -q '"admin_evidence_refs_content_addressed_candidate": True' "$_T107_IMPL" \
+  && grep -q '"admin_evidence_set_content_hash_candidate": True' "$_T107_IMPL" \
   && grep -q '"admin_evidence_independently_verified": False' "$_T107_IMPL" \
   && grep -q '"independent_admin_boundary_verified": False' "$_T107_IMPL" \
   && grep -q '"runtime_probe_attestation_verified": False' "$_T107_IMPL" \
