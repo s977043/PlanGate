@@ -1,0 +1,49 @@
+{
+  "description": "Phase B2 candidate for #1468: bind the merged #1471 external-verifier result to an immutable verifier workflow identity, binary digest, execution id, per-run challenge, and short freshness window without claiming independent administration.",
+  "contract_stage": "r1-external-verifier-provenance-candidate-v1",
+  "inputs": {
+    "external_verifier_result": "absolute external file containing the #1471 result",
+    "provenance_receipt": "absolute external file outside the repository",
+    "expected_verifier_issuer": "caller policy input",
+    "expected_verifier_workflow_ref": "owner/repo/.github/workflows/file.yml@<40-sha>",
+    "expected_verifier_binary_sha256": "sha256:<64-hex>",
+    "expected_challenge_id": "sha256:<64-hex>"
+  },
+  "verified_locally": [
+    "external_verifier_result_binding_verified",
+    "provenance_receipt_structure_verified",
+    "provenance_receipt_content_addressed",
+    "immutable_verifier_identity_binding_candidate",
+    "run_challenge_binding_candidate",
+    "freshness_window_candidate"
+  ],
+  "negative_controls": [
+    "wrong request/config/provider/platform/capture binding",
+    "wrong exact #1471 result hash or file digest",
+    "wrong verifier issuer",
+    "wrong immutable verifier workflow ref",
+    "wrong verifier binary digest",
+    "wrong run challenge",
+    "expired or overlong provenance receipt",
+    "upstream self-promotion",
+    "raw runtime payload keys",
+    "repository-local provenance receipt"
+  ],
+  "explicit_non_claims": {
+    "same_challenge_replay_prevented": false,
+    "provenance_receipt_signature_verified": false,
+    "crypto_verifier_binary_verified": false,
+    "receipt_claims_authenticated": false,
+    "gh_attestation_cli_execution_verified": false,
+    "artifact_digest_cryptographically_verified": false,
+    "attestation_signature_cryptographically_verified": false,
+    "independent_admin_boundary_verified": false,
+    "independent_verifier_execution_attested": false,
+    "runtime_probe_attestation_verified": false,
+    "human_rollout_decision_verified": false,
+    "dispatch_ready": false,
+    "dispatch_allowed": false
+  },
+  "reason": "Matching a caller-supplied expected issuer/workflow/binary/challenge proves bounded identity agreement only. It does not prove independent administration, verifier binary provenance, receipt signature authenticity, or one-time challenge consumption.",
+  "next_gate": "independently authenticated provenance receipt plus administrator-controlled issuer/trust-root evidence and a reviewed one-time challenge consumption mechanism"
+}
