@@ -313,6 +313,79 @@ class ReceiptTests(unittest.TestCase):
                 gh_attestation_output_sha256="sha256:" + "2" * 64,
             )
 
+    def test_missing_upstream_authority_key_is_rejected(self):
+        manifest = _manifest()
+        managed_result = _managed_result(manifest)
+        managed_result["authority"] = copy.deepcopy(managed_result["authority"])
+        managed_result["authority"].pop("deploy_allowed")
+        body = dict(managed_result)
+        body.pop("result_hash")
+        managed_result["result_hash"] = ingress._canonical_hash(body)
+        file_sha = _file_sha(_manifest_bytes(manifest))
+        with self.assertRaises(receipt.GitHubAttestationReceiptError):
+            _verify(
+                managed_capture_result=managed_result,
+                capture_manifest=manifest,
+                capture_manifest_file_sha256=file_sha,
+                gh_attestation_output=_gh_output(file_sha),
+                gh_attestation_output_sha256="sha256:" + "2" * 64,
+            )
+
+    def test_nonzero_upstream_authority_is_rejected(self):
+        manifest = _manifest()
+        managed_result = _managed_result(manifest)
+        managed_result["authority"] = copy.deepcopy(managed_result["authority"])
+        managed_result["authority"]["agent_invoke_allowed"] = True
+        body = dict(managed_result)
+        body.pop("result_hash")
+        managed_result["result_hash"] = ingress._canonical_hash(body)
+        file_sha = _file_sha(_manifest_bytes(manifest))
+        with self.assertRaises(receipt.GitHubAttestationReceiptError):
+            _verify(
+                managed_capture_result=managed_result,
+                capture_manifest=manifest,
+                capture_manifest_file_sha256=file_sha,
+                gh_attestation_output=_gh_output(file_sha),
+                gh_attestation_output_sha256="sha256:" + "2" * 64,
+            )
+
+    def test_manifest_schema_drift_is_rejected_even_when_rehashed(self):
+        manifest = _manifest()
+        managed_result = _managed_result(manifest)
+        manifest["future_claim"] = "unexpected"
+        body = dict(manifest)
+        body.pop("manifest_hash")
+        manifest["manifest_hash"] = ingress._canonical_hash(body)
+        managed_result["capture_manifest_hash"] = manifest["manifest_hash"]
+        managed_body = dict(managed_result)
+        managed_body.pop("result_hash")
+        managed_result["result_hash"] = ingress._canonical_hash(managed_body)
+        file_sha = _file_sha(_manifest_bytes(manifest))
+        with self.assertRaises(receipt.GitHubAttestationReceiptError):
+            _verify(
+                managed_capture_result=managed_result,
+                capture_manifest=manifest,
+                capture_manifest_file_sha256=file_sha,
+                gh_attestation_output=_gh_output(file_sha),
+                gh_attestation_output_sha256="sha256:" + "2" * 64,
+            )
+
+    def test_multiple_statement_subjects_are_rejected(self):
+        manifest = _manifest()
+        file_sha = _file_sha(_manifest_bytes(manifest))
+        output = _gh_output(file_sha)
+        output[0]["verificationResult"]["statement"]["subject"].append(
+            copy.deepcopy(output[0]["verificationResult"]["statement"]["subject"][0])
+        )
+        with self.assertRaises(receipt.GitHubAttestationReceiptError):
+            _verify(
+                managed_capture_result=_managed_result(manifest),
+                capture_manifest=manifest,
+                capture_manifest_file_sha256=file_sha,
+                gh_attestation_output=output,
+                gh_attestation_output_sha256="sha256:" + "2" * 64,
+            )
+
     def test_manifest_hash_mismatch_is_rejected(self):
         manifest = _manifest()
         managed_result = _managed_result(manifest)
