@@ -318,9 +318,11 @@ class VerifierTests(unittest.TestCase):
                         repo_root=repo_root,
                         managed_capture_result_raw=_json_bytes(_managed_result(manifest)),
                         capture_manifest_path=manifest_path,
-                        verifier_repo=VERIFIER_REPO,
+                        attestation_repo=ATTESTATION_REPO,
+                        signer_repo=SIGNER_REPO,
                         signer_workflow=WORKFLOW,
                         source_digest=SOURCE,
+                        signer_digest=SIGNER,
                         source_ref="refs/heads/main",
                     )
             finally:
