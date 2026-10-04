@@ -189,7 +189,7 @@ class VerifierTests(unittest.TestCase):
                 verifier.gh_exec.run_gh = original_runner
             return result, calls
 
-    def test_crypto_verification_promotes_crypto_only(self):
+    def test_repository_local_verification_stays_candidate_only(self):
         result, calls = self._run()
         self.assertEqual(len(calls), 1)
         args, repo, _cwd = calls[0]
@@ -201,7 +201,16 @@ class VerifierTests(unittest.TestCase):
         self.assertEqual(args[args.index("--signer-digest") + 1], SOURCE)
 
         for field in (
-            "exact_verifier_policy_bound",
+            "exact_verifier_policy_bound_candidate",
+            "gh_attestation_verify_exit_success_candidate",
+            "capture_manifest_artifact_binding_candidate",
+            "signer_workflow_policy_requested_candidate",
+            "source_digest_policy_requested_candidate",
+            "self_hosted_runner_denial_requested_candidate",
+        ):
+            self.assertTrue(result[field])
+
+        for field in (
             "gh_attestation_cli_execution_verified",
             "artifact_digest_cryptographically_verified",
             "attestation_signature_cryptographically_verified",
@@ -211,10 +220,6 @@ class VerifierTests(unittest.TestCase):
             "source_digest_policy_verified",
             "self_hosted_runner_denial_verified",
             "capture_manifest_artifact_attestation_verified",
-        ):
-            self.assertTrue(result[field])
-
-        for field in (
             "independent_admin_boundary_verified",
             "independent_verifier_execution_attested",
             "managed_hook_root_attested",
